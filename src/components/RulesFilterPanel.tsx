@@ -41,6 +41,7 @@ type RulesFilterPanelProps = {
   testerConfigFilterMode?: TesterConfigFilterMode
   onTesterConfigFilterModeChange?: (mode: TesterConfigFilterMode) => void
   selectedConfigCount?: number
+  configCount?: number
 }
 
 // UI-only component that lets users filter the preview table. View-only; export ignores filters.
@@ -59,6 +60,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
     testerConfigFilterMode = 'off',
     onTesterConfigFilterModeChange,
     selectedConfigCount = 0,
+    configCount = 0,
   },
   ref,
 ) {
@@ -71,6 +73,8 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
   const [setsSearch, setSetsSearch] = React.useState('')
   const configNameQuery = state.configName?.query ?? ''
   const showConfigNameField = hasNamedConfigs || configNameQuery.length > 0
+  const headerActionJustify = showConfigNameField ? 'flex-start' : 'flex-end'
+  const hasConfigs = configCount > 0
   const configNameInputRef = React.useRef<HTMLInputElement | null>(null)
   const configNameRegexError = React.useMemo(() => {
     if (!configNameQuery) return false
@@ -323,7 +327,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
   // Group toggles handled inline in onChange for Rank/Rarity condensed controls
 
   const toggleLabelSx = [ELLIPSIS_TEXT_SX, { width: '100%', textAlign: 'center', fontSize: 'inherit' as const }]
-  const testerConfigFilterEnabled = selectedConfigCount > 0
+  const testerConfigFilterEnabled = hasConfigs && selectedConfigCount > 0
   const testerConfigFilterLabel = testerConfigFilterMode === 'first'
     ? t('testerFilterConfigsFirst')
     : testerConfigFilterMode === 'any'
@@ -405,8 +409,21 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
             sx={{ flex: 1 }}
           />
         </Box>
-        <Box sx={{ gridColumn: showConfigNameField ? '2' : '1', display: 'flex', justifyContent: 'flex-start', alignItems: 'center' }}>
-          <Stack direction="row" spacing={1} alignItems="center" sx={{ flexWrap: 'wrap', justifyContent: 'flex-start' }}>
+        <Box
+          sx={{
+            gridColumn: showConfigNameField ? '2' : '1',
+            display: 'flex',
+            justifyContent: headerActionJustify,
+            alignItems: 'center',
+            width: '100%',
+          }}
+        >
+          <Stack
+            direction="row"
+            spacing={1}
+            alignItems="center"
+            sx={{ flexWrap: 'wrap', justifyContent: headerActionJustify }}
+          >
           {isTesterMode ? (
             <Tooltip title={testerConfigFilterTooltip}>
               <span>
@@ -447,8 +464,9 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                   size="small"
                   variant="outlined"
                   aria-label={t('filterLimitConfigs')}
-                  aria-pressed={configChipFilterActive}
+                  aria-pressed={hasConfigs ? configChipFilterActive : undefined}
                   onClick={() => onConfigChipFilterChange(!configChipFilterActive)}
+                  disabled={!hasConfigs}
                   startIcon={configChipFilterActive ? <VisibilityOffIcon fontSize="small" /> : <VisibilityIcon fontSize="small" />}
                   sx={{
                     borderColor: configChipFilterActive ? 'success.main' : 'success.dark',

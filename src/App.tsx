@@ -1083,6 +1083,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const [rulesFilter, setRulesFilter] = useRulesFilterStatePreference()
   const [limitConfigsToFiltered, setLimitConfigsToFiltered] = useState<boolean>(true)
   const [testerConfigFilterMode, setTesterConfigFilterMode] = useState<TesterConfigFilterMode>('off')
+  useEffect(() => {
+    if (customCfgs.length === 0 && !limitConfigsToFiltered) {
+      setLimitConfigsToFiltered(true)
+    }
+  }, [customCfgs.length, limitConfigsToFiltered])
   const rulesFilterPanelRef = useRef<RulesFilterPanelHandle | null>(null)
   const filterShortcutPendingFocusRef = useRef(false)
 
@@ -1973,10 +1978,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     scrollSelectedConfigIntoView()
   }, [scrollSelectedConfigIntoView, customCfgs.length, filterActive, limitConfigsToFiltered])
   useEffect(() => {
-    if (selectedCfgIndices.length === 0 && testerConfigFilterMode !== 'off') {
+    if ((customCfgs.length === 0 || selectedCfgIndices.length === 0) && testerConfigFilterMode !== 'off') {
       setTesterConfigFilterMode('off')
     }
-  }, [selectedCfgIndices.length, testerConfigFilterMode])
+  }, [customCfgs.length, selectedCfgIndices.length, testerConfigFilterMode])
   const prevHoveredChipRef = React.useRef<number | null>(null)
   const hoverCountRef = React.useRef(customCfgs.length)
   hoverCountRef.current = customCfgs.length
@@ -3079,6 +3084,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             testerConfigFilterMode={testerConfigFilterMode}
             onTesterConfigFilterModeChange={setTesterConfigFilterMode}
             selectedConfigCount={selectedCfgIndices.length}
+            configCount={customCfgs.length}
           />
           )}
           <Box sx={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
