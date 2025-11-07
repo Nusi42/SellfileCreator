@@ -57,6 +57,7 @@ import { computeMergedRules, buildRulesForConfig, buildFinalSellRules, RULE_SOUR
 import { updateConfigRulesCache, fingerprintConfigForRules, fingerprintSubstatTargets, mergeArtifactSets } from './lib/ruleCache'
 import { hasConfigMeaningfulDifferences } from './lib/configDiff'
 import { buildRuleTesterAutosavePayload, createRuleTesterMath, fingerprintRuleTesterItem, loadRuleTesterItemsFromAutosave, type RuleTesterItem } from './lib/ruleTesterSession'
+import { sortTesterRows } from './lib/testerSort'
 import FileDragOverlay from './components/FileDragOverlay'
 import { BuilderColumn } from './components/AppLayout/BuilderColumn'
 import { useFileDragDrop } from './hooks/useFileDragDrop'
@@ -1908,22 +1909,27 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const testerRowsAfterRulesFilter = testerFilterResult.items
   const testerConfigFilterActive = testerConfigFilterMode !== 'off' && selectedCfgIndices.length > 0
   const testerRowsForTable = useMemo(() => {
-    if (!testerConfigFilterActive) return testerRowsAfterRulesFilter
-    const selectedSet = new Set(selectedCfgIndices)
-    if (selectedSet.size === 0) return testerRowsAfterRulesFilter
-    if (testerConfigFilterMode === 'first') {
-      return testerRowsAfterRulesFilter.filter((row) => {
-        const cfgIdx = row.match?.cfgIdx
-        return cfgIdx != null && selectedSet.has(cfgIdx)
-      })
-    }
-    return testerRowsAfterRulesFilter.filter((row) => {
-      const matches = row.matchingCfgIndices ?? []
-      for (const cfgIdx of matches) {
-        if (selectedSet.has(cfgIdx)) return true
+    let rows: TesterPreviewRow[] = testerRowsAfterRulesFilter
+    if (testerConfigFilterActive) {
+      const selectedSet = new Set(selectedCfgIndices)
+      if (selectedSet.size > 0) {
+        if (testerConfigFilterMode === 'first') {
+          rows = testerRowsAfterRulesFilter.filter((row) => {
+            const cfgIdx = row.match?.cfgIdx
+            return cfgIdx != null && selectedSet.has(cfgIdx)
+          })
+        } else {
+          rows = testerRowsAfterRulesFilter.filter((row) => {
+            const matches = row.matchingCfgIndices ?? []
+            for (const cfgIdx of matches) {
+              if (selectedSet.has(cfgIdx)) return true
+            }
+            return false
+          })
+        }
       }
-      return false
-    })
+    }
+    return sortTesterRows(rows)
   }, [testerConfigFilterActive, testerConfigFilterMode, testerRowsAfterRulesFilter, selectedCfgIndices])
   const testerBuilding = testerRowsBuilding
   const matchingConfigIndices = filterResult.matchingConfigIndices
