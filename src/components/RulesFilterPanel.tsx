@@ -13,7 +13,16 @@ import { LIST_SUBHEADER_SX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, MENU_MAX_HEIG
 import { metasetGlyph, orderMetasetIds, type Metaset } from '../lib/metasets'
 import React from 'react'
 import { alpha, useTheme } from '@mui/material/styles'
-import { DEFAULT_RULES_FILTER_STATE, isRulesFilterActive, type AnyMode, type RulesFilterState, type Bool3 } from '../lib/rulesFilter'
+import {
+  DEFAULT_RULES_FILTER_STATE,
+  isRulesFilterActive,
+  type AnyMode,
+  type RulesFilterState,
+  type Bool3,
+  type TesterSourceFilter,
+  type TesterChaosFilterMode,
+  type TesterGlyphFilterMode,
+} from '../lib/rulesFilter'
 import { FactionOptionLabel } from './FactionIcon'
 import InlineSelectClearButton from './InlineSelectClearButton'
 import SelectDropdownActivator from './SelectDropdownActivator'
@@ -321,8 +330,10 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
   // Main/Substats — multi-selects using StatVariant labels
   const selectableStats = [
     StatVariant.SPD, StatVariant.CR, StatVariant.CDMG, StatVariant.ACC, StatVariant.RES,
-    StatVariant.HP, StatVariant.HP_FLAT, StatVariant.ATK, StatVariant.ATK_FLAT, StatVariant.DEF, StatVariant.DEF_FLAT,
-  ]
+  StatVariant.HP, StatVariant.HP_FLAT, StatVariant.ATK, StatVariant.ATK_FLAT, StatVariant.DEF, StatVariant.DEF_FLAT,
+]
+
+const ASCENSION_STAR_VALUES: readonly number[] = [0, 1, 2, 3, 4, 5, 6]
 
   // Helpers for condensed Rank/Rarity selections
   const rankSelected = new Set((state.rank.selected ?? []).map(Number))
@@ -353,6 +364,19 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
   const testerConfigFilterTooltip = testerConfigFilterEnabled
     ? t('testerFilterConfigsTooltip')
     : t('testerFilterConfigsTooltipDisabled')
+
+  const testerSourceOptions = React.useMemo(() => ([
+    { value: 'inventory', label: t('testerSourceInventory') },
+    { value: 'collection', label: t('testerSourceEquippedCollection') },
+    { value: 'vault', label: t('testerSourceEquippedVault') },
+    { value: 'inbox', label: t('testerSourceInbox') },
+    { value: 'manual', label: t('testerSourceManual') },
+  ]), [t])
+  const testerSourceSelection = state.testerSources?.selected ?? []
+  const testerChaosMode: TesterChaosFilterMode = state.testerChaos?.mode ?? 'any'
+  const testerGlyphMode: TesterGlyphFilterMode = state.testerGlyphs?.mode ?? 'any'
+  const testerAscStars = state.testerAscension?.stars ?? []
+  const testerAscStats = state.testerAscension?.stats ?? []
   const handleTesterConfigFilterClick = () => {
     if (!testerConfigFilterEnabled) return
     if (!onTesterConfigFilterModeChange) return
@@ -1044,6 +1068,47 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
             </Collapse>
           </FormControl>
           </Box>
+          {isTesterMode && (
+            <FormControl fullWidth sx={{ mb: 0.75 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
+                <SectionToggle id="sources" />
+                <FormLabel sx={{ m: 0 }}>{t('filterSource')}</FormLabel>
+              </Box>
+              <Collapse in={!collapsed.sources} timeout="auto" unmountOnExit>
+                <ToggleButtonGroup
+                  size="small"
+                  value={testerSourceSelection}
+                  onChange={(_, vals: string[]) => {
+                    const parsed = vals.map((v) => v as TesterSourceFilter)
+                    onChange({ ...state, testerSources: { selected: parsed } })
+                  }}
+                  sx={{
+                    flexWrap: 'wrap',
+                    '& .MuiToggleButton-root': {
+                      p: 0.5,
+                      minWidth: 90,
+                      height: 28,
+                      flex: '1 1 90px',
+                    },
+                    '& .MuiToggleButtonGroup-grouped:not(:first-of-type)': {
+                      marginLeft: '0 !important',
+                      borderLeft: '1px solid transparent',
+                    },
+                    '& .MuiToggleButtonGroup-grouped.Mui-selected + .MuiToggleButtonGroup-grouped.Mui-selected': {
+                      marginLeft: '0 !important',
+                      borderLeft: '1px solid transparent',
+                    },
+                  }}
+                >
+                  {testerSourceOptions.map((option) => (
+                    <ToggleButton key={option.value} value={option.value}>
+                      {option.label}
+                    </ToggleButton>
+                  ))}
+                </ToggleButtonGroup>
+              </Collapse>
+            </FormControl>
+          )}
           {/* Mainstat (below Sets) */}
           <FormControl fullWidth sx={{ mb: 0.75 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
@@ -1075,7 +1140,30 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                 <ToggleButton key={v} value={String(v)} aria-label={labelOfVariant(v)}>{t(statVariantI18nKey(v))}</ToggleButton>
               ))}
             </ToggleButtonGroup>
-            {!isTesterMode && (
+            {isTesterMode ? (
+              <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: FILTER_CHIP_TOP_MARGIN, flexWrap: 'wrap' }}>
+                <Chip
+                  size="small"
+                  label={`${t('filterChaosOre')}: ${
+                    testerChaosMode === 'notRerolled'
+                      ? t('filterChaosOreNotRerolled')
+                      : testerChaosMode === 'rerolled'
+                        ? t('filterChaosOreRerolled')
+                        : t('filterChaosOreAny')
+                  }`}
+                  onClick={() => {
+                    const next: TesterChaosFilterMode =
+                      testerChaosMode === 'any'
+                        ? 'notRerolled'
+                        : testerChaosMode === 'notRerolled'
+                          ? 'rerolled'
+                          : 'any'
+                    onChange({ ...state, testerChaos: { mode: next } })
+                  }}
+                  sx={tintedChipSx(testerChaosMode === 'any' ? theme.palette.success : testerChaosMode === 'notRerolled' ? theme.palette.info : theme.palette.warning)}
+                />
+              </Stack>
+            ) : (
               <Box sx={{ mt: FILTER_CHIP_TOP_MARGIN }}>
                 {anyChip(
                   t('filterMainstat'),
@@ -1133,6 +1221,28 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                   sx={tintedChipSx(state.sub.mode === 'any' ? theme.palette.success : theme.palette.info)}
                 />
               </Tooltip>
+              {isTesterMode && (
+                <Chip
+                  size="small"
+                  label={`${t('filterGlyphs')}: ${
+                    testerGlyphMode === 'on'
+                      ? t('filterGlyphsOn')
+                      : testerGlyphMode === 'off'
+                        ? t('filterGlyphsOff')
+                        : t('filterGlyphsAny')
+                  }`}
+                  onClick={() => {
+                    const next: TesterGlyphFilterMode =
+                      testerGlyphMode === 'any'
+                        ? 'on'
+                        : testerGlyphMode === 'on'
+                          ? 'off'
+                          : 'any'
+                    onChange({ ...state, testerGlyphs: { mode: next } })
+                  }}
+                  sx={tintedChipSx(testerGlyphMode === 'any' ? theme.palette.success : testerGlyphMode === 'on' ? theme.palette.info : theme.palette.warning)}
+                />
+              )}
               {/* Wildcard filter chip removed per UX simplification: wildcard rows are treated like normal rows in the preview filters. */}
             </Stack>
             </Collapse>
@@ -1478,20 +1588,88 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                   <ToggleButton value={'5'}>{t('rarityLegendary')}</ToggleButton>
                   <ToggleButton value={'6'}>{t('rarityMythical')}</ToggleButton>
                 </ToggleButtonGroup>
-                {!isTesterMode && (
-                  <Box sx={{ mt: FILTER_CHIP_TOP_MARGIN }}>
-                    {anyChip(t('filterRarity'), state.rarity.anyMode, (v) => onChange({ ...state, rarity: { ...state.rarity, anyMode: v } }), t('filterAnyTooltip', { field: t('filterRarity') }))}
-                  </Box>
-                )}
-              </Collapse>
-            </FormControl>
-          </Box>
-          {/* Faction moved to left column */}
+            {!isTesterMode && (
+              <Box sx={{ mt: FILTER_CHIP_TOP_MARGIN }}>
+                {anyChip(t('filterRarity'), state.rarity.anyMode, (v) => onChange({ ...state, rarity: { ...state.rarity, anyMode: v } }), t('filterAnyTooltip', { field: t('filterRarity') }))}
+              </Box>
+            )}
+          </Collapse>
+          </FormControl>
         </Box>
+        {isTesterMode && (
+          <FormControl fullWidth sx={{ mb: 0.75 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
+              <SectionToggle id="ascension" />
+              <FormLabel sx={{ m: 0 }}>{t('filterAscension')}</FormLabel>
+            </Box>
+            <Collapse in={!collapsed.ascension} timeout="auto" unmountOnExit>
+              <Stack spacing={1}>
+                <ToggleButtonGroup
+                  size="small"
+                  value={testerAscStars.map(String)}
+                  onChange={(_, vals: string[]) => {
+                    const parsed = vals
+                      .map((v) => Number(v))
+                      .filter((n) => Number.isFinite(n)) as number[]
+                    const prev = state.testerAscension ?? DEFAULT_RULES_FILTER_STATE.testerAscension!
+                    onChange({ ...state, testerAscension: { ...prev, stars: parsed } })
+                  }}
+                  sx={{
+                    flexWrap: 'wrap',
+                    '& .MuiToggleButton-root': { p: 0.5, minWidth: 44, height: 28 },
+                    '& .MuiToggleButtonGroup-grouped:not(:first-of-type)': {
+                      marginLeft: '0 !important',
+                      borderLeft: '1px solid transparent',
+                    },
+                    '& .MuiToggleButtonGroup-grouped.Mui-selected + .MuiToggleButtonGroup-grouped.Mui-selected': {
+                      marginLeft: '0 !important',
+                      borderLeft: '1px solid transparent',
+                    },
+                  }}
+                >
+                  {ASCENSION_STAR_VALUES.map((star) => (
+                    <ToggleButton key={star} value={String(star)}>
+                      {`${star}★`}
+                    </ToggleButton>
+                  ))}
+                </ToggleButtonGroup>
+                <ToggleButtonGroup
+                  size="small"
+                  value={testerAscStats.map(String)}
+                  onChange={(_, vals: string[]) => {
+                    const parsed = vals.map((v) => Number(v) as StatVariant)
+                    const prev = state.testerAscension ?? DEFAULT_RULES_FILTER_STATE.testerAscension!
+                    onChange({ ...state, testerAscension: { ...prev, stats: parsed } })
+                  }}
+                  sx={{
+                    flexWrap: 'wrap',
+                    '& .MuiToggleButton-root': { p: 0.5, minWidth: 36, height: 28 },
+                    '& .MuiToggleButtonGroup-grouped:not(:first-of-type)': {
+                      marginLeft: '0 !important',
+                      borderLeft: '1px solid transparent',
+                    },
+                    '& .MuiToggleButtonGroup-grouped.Mui-selected + .MuiToggleButtonGroup-grouped.Mui-selected': {
+                      marginLeft: '0 !important',
+                      borderLeft: '1px solid transparent',
+                    },
+                  }}
+                >
+                  {selectableStats.map((variant) => (
+                    <ToggleButton key={variant} value={String(variant)} aria-label={labelOfVariant(variant)}>
+                      {t(statVariantI18nKey(variant))}
+                    </ToggleButton>
+                  ))}
+                </ToggleButtonGroup>
+              </Stack>
+            </Collapse>
+          </FormControl>
+        )}
+      </Box>
+      {/* Faction moved to left column */}
+    </Box>
 
         {/* Full-width rows */}
         {/* No full-width Main/Sub section: they live under Sets in the left column */}
-      </Box>
     </Box>
   )
 })
