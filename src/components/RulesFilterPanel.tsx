@@ -124,14 +124,18 @@ const buildToggleGridSx = (
   _columns: number,
   options?: { minWidth?: number; height?: number },
 ) => {
-  const minWidth = options?.minWidth ?? 36
+  const minWidth = options?.minWidth
   const height = options?.height ?? 28
   return {
     display: 'inline-flex',
     flexWrap: 'wrap',
     columnGap: 0.5,
     rowGap: 0.5,
-    '& .MuiToggleButton-root': { p: 0.5, minWidth, height },
+    '& .MuiToggleButton-root': {
+      p: 0.5,
+      ...(minWidth != null ? { minWidth } : {}),
+      height,
+    },
     ...TOGGLE_BUTTON_GROUP_SHARED_SX,
   }
 }
@@ -426,7 +430,6 @@ const ASCENSION_STAR_VALUES: readonly number[] = [0, 1, 2, 3, 4, 5, 6]
   // Helpers for condensed Rank/Rarity selections
   const rankSelected = new Set((state.rank.selected ?? []).map(Number))
   const raritySelected = new Set((state.rarity.selected ?? []).map(Number))
-  const groupRarityCUOn = raritySelected.has(1) && raritySelected.has(2)
   // Group toggles handled inline in onChange for Rank/Rarity condensed controls
 
   const toggleLabelSx = [ELLIPSIS_TEXT_SX, { width: '100%', textAlign: 'center', fontSize: 'inherit' as const }]
@@ -1621,7 +1624,14 @@ const ASCENSION_STAR_VALUES: readonly number[] = [0, 1, 2, 3, 4, 5, 6]
                       .sort((a, b) => a - b)
                     onChange({ ...state, rank: { ...state.rank, selected: parsed } })
                   }}
-                  sx={buildToggleGridSx(3, { minWidth: 32 })}
+                  sx={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(3, auto)',
+                    columnGap: 0.5,
+                    rowGap: 0.5,
+                    '& .MuiToggleButton-root': { p: 0.5, minWidth: 44, height: 28 },
+                    ...TOGGLE_BUTTON_GROUP_SHARED_SX,
+                  }}
                 >
                   {[1, 2, 3, 4, 5, 6].map((rank) => (
                     <ToggleButton key={rank} value={String(rank)}>
@@ -1646,38 +1656,25 @@ const ASCENSION_STAR_VALUES: readonly number[] = [0, 1, 2, 3, 4, 5, 6]
               <Collapse in={!collapsed.rarity} timeout="auto" unmountOnExit>
                 <ToggleButtonGroup
                   size="small"
-                  value={[groupRarityCUOn ? 'cu' : null, raritySelected.has(3) ? '3' : null, raritySelected.has(4) ? '4' : null, raritySelected.has(5) ? '5' : null, raritySelected.has(6) ? '6' : null].filter(Boolean)}
+                  value={Array.from(raritySelected).filter((n) => n >= 1 && n <= 6).map(String)}
                   onChange={(_, vals: string[]) => {
-                    const wantCU = vals.includes('cu')
-                    const singles = new Set(vals.filter(v => v !== 'cu').map(v => Number(v) as RankValue))
-                    const next = new Set<RankValue>(state.rarity.selected ?? [])
-                    // Apply singles (Rare..Mythical = 3..6)
-                    ;([3,4,5,6] as RankValue[]).forEach(k => { if (singles.has(k)) next.add(k); else next.delete(k) })
-                    // Apply group (Common/Uncommon = 1,2)
-                    if (wantCU) { next.add(1 as RankValue); next.add(2 as RankValue) } else { next.delete(1 as RankValue); next.delete(2 as RankValue) }
-                    onChange({ ...state, rarity: { ...state.rarity, selected: Array.from(next).sort((a,b)=>a-b) } })
+                    const parsed = vals
+                      .map((v) => Number(v))
+                      .filter((n): n is RankValue => Number.isFinite(n) && n >= 1 && n <= 6)
+                      .sort((a, b) => a - b)
+                    onChange({ ...state, rarity: { ...state.rarity, selected: parsed } })
                   }}
                   sx={{
-                    flexWrap: 'wrap',
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(3, auto)',
+                    columnGap: 0.5,
+                    rowGap: 0.5,
                     '& .MuiToggleButton-root': { p: 0.5, minWidth: 36, height: 28 },
                     ...TOGGLE_BUTTON_GROUP_SHARED_SX,
                   }}
                 >
-                  <Tooltip title={t('filterSelectRarityCU')}>
-                    <ToggleButton
-                      value={'cu'}
-                      aria-label={t('ariaCommonOrUncommon')}
-                      onClick={(e) => {
-                        e.preventDefault(); e.stopPropagation()
-                        const next = new Set<RankValue>(state.rarity.selected ?? [])
-                        const want = !groupRarityCUOn
-                        if (want) { next.add(1 as RankValue); next.add(2 as RankValue) } else { next.delete(1 as RankValue); next.delete(2 as RankValue) }
-                        onChange({ ...state, rarity: { ...state.rarity, selected: Array.from(next).sort((a,b)=>a-b) } })
-                      }}
-                    >
-                      {t('rarityCUShort')}
-                    </ToggleButton>
-                  </Tooltip>
+                  <ToggleButton value={'1'}>{t('rarityCommon')}</ToggleButton>
+                  <ToggleButton value={'2'}>{t('rarityUncommon')}</ToggleButton>
                   <ToggleButton value={'3'}>{t('rarityRare')}</ToggleButton>
                   <ToggleButton value={'4'}>{t('rarityEpic')}</ToggleButton>
                   <ToggleButton value={'5'}>{t('rarityLegendary')}</ToggleButton>
