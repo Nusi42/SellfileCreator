@@ -892,6 +892,7 @@ const overrides: Catalog = {
   toastSellfileExportFailed: 'Esportazione del Sellfile non riuscita. Vedi la console per i dettagli.',
   toastGearDbImported: 'Importati {count} pezzi di equipaggiamento dal database.',
   toastGearDbImportedWithInbox: 'Importati {count} pezzi di equipaggiamento dal database (inclusi {inboxCount} dalla posta).',
+  toastGearDbDiffSummary: 'Elementi del tester aggiornati: +{added} / -{removed}.',
   toastGearDbImportFailed: 'Impossibile leggere il file di database.',
   toastGearDbImportEmpty: 'Il database non contiene pezzi di equipaggiamento.',
   toastL10nLoaded: 'Localizzazione caricata: {lang}',

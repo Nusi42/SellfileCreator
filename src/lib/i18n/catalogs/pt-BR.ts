@@ -892,6 +892,7 @@ const catalog: Catalog = {
   toastSellfileExportFailed: 'Falha ao exportar o Sellfile. Veja o console.',
   toastGearDbImported: 'Foram importadas {count} peças de gear do banco de dados.',
   toastGearDbImportedWithInbox: 'Foram importadas {count} peças de gear do banco de dados (incluindo {inboxCount} da caixa de entrada).',
+  toastGearDbDiffSummary: 'Itens do Testador atualizados: +{added} / -{removed}.',
   toastGearDbImportFailed: 'Não foi possível ler o arquivo de banco de dados.',
   toastGearDbImportEmpty: 'O banco de dados não contém peças de gear.',
   toastL10nLoaded: 'Localização carregada: {lang}',

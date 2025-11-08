@@ -57,7 +57,7 @@ import { useSubstatTargetsDialog } from './hooks/useSubstatTargetsDialog'
 import { computeMergedRules, buildRulesForConfig, buildFinalSellRules, RULE_SOURCE_FINAL_SELL, RULE_SOURCE_HSF, type HsfRuleWithCfg } from './lib/merge'
 import { updateConfigRulesCache, fingerprintConfigForRules, fingerprintSubstatTargets, mergeArtifactSets } from './lib/ruleCache'
 import { hasConfigMeaningfulDifferences } from './lib/configDiff'
-import { buildRuleTesterAutosavePayload, createRuleTesterMath, fingerprintRuleTesterItem, loadRuleTesterAutosaveDraft, type RuleTesterItem } from './lib/ruleTesterSession'
+import { buildRuleTesterAutosavePayload, createRuleTesterMath, diffRuleTesterItems, fingerprintRuleTesterItem, loadRuleTesterAutosaveDraft, type RuleTesterItem } from './lib/ruleTesterSession'
 import { sortTesterRows } from './lib/testerSort'
 import FileDragOverlay from './components/FileDragOverlay'
 import { BuilderColumn } from './components/AppLayout/BuilderColumn'
@@ -272,6 +272,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     testerRowIdRef.current = Math.max(testerRowIdRef.current, (maxRowId || 0) + 1)
     return items
   })
+  const testerItemsRef = useRef(testerItems)
+  useEffect(() => { testerItemsRef.current = testerItems }, [testerItems])
   const [testerRestoreDraft, setTesterRestoreDraft] = useState<{
     items: RuleTesterItem[]
     savedAt: string | null
@@ -283,6 +285,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     return { items: draft.items, savedAt: draft.savedAt, count: draft.itemCount }
   })
   const [pendingTesterItems, setPendingTesterItems] = useState<TestItem[]>([])
+  const pendingTesterItemsRef = useRef(pendingTesterItems)
+  useEffect(() => { pendingTesterItemsRef.current = pendingTesterItems }, [pendingTesterItems])
   type TesterArtifactCacheEntry = { fingerprint: string; artifact: NormalizedGearArtifact }
   const testerArtifactCacheRef = useRef<Map<number, TesterArtifactCacheEntry>>(new Map())
   const testerAutosaveBaselineRef = useRef<string | null>(null)
@@ -1610,6 +1614,41 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   }, [restoreDialogPending])
   // Show the autosave restore prompt only after the README dialog is dismissed.
   const restoreDlgOpen = !tutorial.helpOpen && (restoreDialogPending || Boolean(testerRestoreDraft))
+  const appendTesterRuleItems = useCallback((items: TestItem[]) => {
+    if (!items || items.length === 0) return
+    setTesterItems((prev) => {
+      if (items.length === 0) return prev
+      const next = prev.slice()
+      for (const addition of items) {
+        next.push({ ...(addition as RuleTesterItem), rowId: allocTesterRowId() })
+      }
+      return next
+    })
+  }, [allocTesterRowId, setTesterItems])
+
+  const applyGearDbDiff = useCallback((desiredTesterItems: TestItem[], mode: 'manual' | 'command') => {
+    const pendingQueueInput = (mode === 'manual') ? [] : pendingTesterItemsRef.current
+    const { removalRowIds, nextPendingQueue, additions } = diffRuleTesterItems(
+      testerItemsRef.current,
+      desiredTesterItems,
+      pendingQueueInput,
+    )
+    const removedCount = removalRowIds.length
+    if (removalRowIds.length > 0) {
+      const removalSet = new Set(removalRowIds)
+      setTesterItems((prev) => prev.filter((item) => !removalSet.has(item.rowId)))
+    }
+    if (mode === 'manual') {
+      setPendingTesterItems([])
+      appendTesterRuleItems(additions)
+      return { removedCount, addedCount: additions.length }
+    }
+    if (nextPendingQueue !== pendingTesterItemsRef.current) {
+      setPendingTesterItems(nextPendingQueue)
+    }
+    return { removedCount, addedCount: additions.length }
+  }, [appendTesterRuleItems, setPendingTesterItems])
+
   const handleGearDbImport = useCallback(async (file: File, options?: { source?: 'manual' | 'command' }) => {
     const source = options?.source ?? 'manual'
     if (gearImportBusy) return
@@ -1638,13 +1677,14 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         return
       }
       setPreviewMode('tester')
-      setTesterItems([])
-      setPendingTesterItems(combined.map((artifact) => artifact.testerItem))
+      const desiredTesterItems = combined.map((artifact) => artifact.testerItem)
+      const { removedCount, addedCount } = applyGearDbDiff(desiredTesterItems, source)
       const inboxCount = inboxArtifacts.length
       const totalCount = combined.length
+      const diffSummary = t('toastGearDbDiffSummary', { added: addedCount, removed: removedCount })
       const message = inboxCount > 0
-        ? t('toastGearDbImportedWithInbox', { count: totalCount, inboxCount })
-        : t('toastGearDbImported', { count: totalCount })
+        ? `${t('toastGearDbImportedWithInbox', { count: totalCount, inboxCount })} ${diffSummary}`
+        : `${t('toastGearDbImported', { count: totalCount })} ${diffSummary}`
       if (source === 'command') {
         setGearDbCommandError(null)
         setGearDbCommandSuccess(message)
@@ -1673,14 +1713,13 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     confirmDeleteIdx,
     confirmDeleteTargets,
     flushTransientUi,
-    setPendingTesterItems,
-    setTesterItems,
     showToast,
     showFileFormatError,
     t,
     formatFileFormatErrorMessage,
     setGearDbCommandError,
     setGearDbCommandSuccess,
+    applyGearDbDiff,
   ])
 
   // Global file-drag overlay and file routing handled by hook
@@ -1948,8 +1987,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const filteredRules = filterResult.rules
   useEffect(() => {
     const artifacts = testerPreviewArtifacts
-    const previousArtifacts = testerArtifactsRef.current
-    const artifactsChanged = previousArtifacts !== artifacts
     testerArtifactsRef.current = artifacts
     const buildId = testerRowsBuildIdRef.current + 1
     testerRowsBuildIdRef.current = buildId
@@ -1959,9 +1996,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       return
     }
     setTesterRowsBuilding(true)
-    if (artifactsChanged) {
-      setTesterPreviewRows([])
-    }
     let cancelled = false
     let timeoutId: ReturnType<typeof setTimeout> | null = null
     const names = customCfgs.map(cfg => (cfg?.name && cfg.name.length > 0) ? cfg.name : null)
@@ -2018,11 +2052,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       }
       builtUntil = end
       index = end
+      commitRows()
       if (index < total) {
         timeoutId = setTimeout(processChunk, 0)
         return
       }
-      commitRows()
       if (testerRowsBuildIdRef.current === buildId) {
         setTesterRowsBuilding(false)
       }
@@ -3275,7 +3309,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         onOpenRuleTester={() => setTesterOpen(true)}
         previewMode={previewMode}
         onChangePreviewMode={setPreviewMode}
-        testerCount={testerPreviewRows.length}
+        testerCount={testerItems.length}
         testerFilteredCount={testerRowsForTable.length}
         gearDbCommandError={gearDbCommandError}
         onClearGearDbCommandError={clearGearDbCommandError}

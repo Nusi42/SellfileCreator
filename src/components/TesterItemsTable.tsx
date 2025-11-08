@@ -491,7 +491,17 @@ type TesterItemRowProps = {
   onJumpToRule?: (ruleIndex: number, cfgIdx: number | null) => void
 }
 
-function TesterItemRow({ row, t, dividerColor, substatColors, useStatButtonColors, gridTemplateColumns, gridMinWidthPx, gridGap, onJumpToRule }: TesterItemRowProps) {
+const TesterItemRow = React.memo(function TesterItemRow({
+  row,
+  t,
+  dividerColor,
+  substatColors,
+  useStatButtonColors,
+  gridTemplateColumns,
+  gridMinWidthPx,
+  gridGap,
+  onJumpToRule,
+}: TesterItemRowProps) {
   const artifact = row.artifact
   const match = row.match
   const SlotIcon = artifactTypeIconFor(artifact.slot as ArtifactTypeId)
@@ -685,4 +695,14 @@ function TesterItemRow({ row, t, dividerColor, substatColors, useStatButtonColor
       </Box>
     </Box>
   )
-}
+}, (prev, next) => (
+  prev.row === next.row
+  && prev.t === next.t
+  && prev.dividerColor === next.dividerColor
+  && prev.substatColors === next.substatColors
+  && prev.useStatButtonColors === next.useStatButtonColors
+  && prev.gridTemplateColumns === next.gridTemplateColumns
+  && prev.gridMinWidthPx === next.gridMinWidthPx
+  && prev.gridGap === next.gridGap
+  && prev.onJumpToRule === next.onJumpToRule
+))
