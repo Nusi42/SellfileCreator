@@ -24,7 +24,7 @@ This note tracks the reverse-engineering work required to ingest RSL Helper’s 
    - Up to `--sample` rows per table for quick per-column reconnaissance
 3. **Review the output** – annotate column purposes, flag unknown enums, and capture value ranges. Store the findings alongside this doc so future runs can diff for schema changes.
 
-## Schema Snapshot (um109288203_RSLHelper.db)
+## Schema Snapshot (tests/sample.db)
 
 | Table | Rows | Notes |
 | ----- | ---- | ----- |
@@ -35,7 +35,7 @@ This note tracks the reverse-engineering work required to ingest RSL Helper’s 
 | `CBLoot` | 146 | Clan Boss chest history. |
 | `ArtifactsBackup`, `LockedArtifacts`, `accessories`, `artifact_ids`, `accessory_ids`, `presets` | 0 | Present but empty in this dump. |
 
-The inspection output is stored at `tmp/gear-db-inspection/um109288203_RSLHelper.schema.json`.
+The inspection output is stored at `tmp/gear-db-inspection/um109288203_RSLHelper.schema.json`. The raw fixture we ship for tests lives at `tests/sample.db` (renamed from `examples/um109288203_RSLHelper.1.db` so it sits beside the importer specs), and a deliberately corrupted copy sits at `tests/broken.db` for negative test coverage.
 
 ## Key Findings
 
@@ -114,7 +114,7 @@ No entries used the canonical `4` (Barbarians) code; importer logic should remap
   - Ascension bonuses captured separately (`source = 'ascension'`) so the UI can display them, while rule comparisons ignore them (tester `subValues` only aggregate substats/glyphs).
   - Level metadata: `level` keeps the nearest milestone (0/4/8/12/16) used during rule matching, and `exactLevel` stores the clamped raw upgrade level from the database (0–16). When `exactLevel` is present the UI displays that precise value; manual tester rows omit this field and fall back to the milestone label.
   - Accessory faction remapping via the table above, with non-accessory slots forced to `0`.
-- Guardrails live in `tests/gearDbNormalizer.test.ts`, using real rows from `examples/um109288203_RSLHelper.db` to assert slot, set, faction, and stat decoding (including ascension glyphs).
+- Guardrails live in `tests/gearDbNormalizer.test.ts`, using real rows from `tests/sample.db` to assert slot, set, faction, and stat decoding (including ascension glyphs).
   - Drag-and-drop integration (and the Sellfile Preview “Load RSL Helper Sellfile” button): both accept `.db` files. `src/lib/importers/gearDbImporter.ts` streams the file via `sql.js`, normalizes every row, and queues the resulting tester items without forcing the Rule Tester dialog open. When a new DB import yields at least one valid artifact/inbox row the existing tester queue is cleared before the new items are enqueued, so loading another backup replaces the previous gear list instead of appending to it. Empty imports leave the current queue untouched and surface `toastGearDbImportEmpty`. Invalid databases fall back to the shared “file format” error dialog so users know we could not detect a supported payload.
 
 ### Table Relationships
