@@ -338,7 +338,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     return map
   }, [testerPreviewRows])
   const testerRowsBuildIdRef = useRef(0)
-  const testerArtifactsRef = useRef<NormalizedGearArtifact[] | null>(null)
+  const testerPreviewRowMapRef = useRef<Map<number, TesterPreviewRow>>(new Map())
   const [testerRowsBuilding, setTesterRowsBuilding] = useState(false)
   const exportBaselineResetRef = useRef(false)
   const { forceSideBySide: forceSideBySideLayout } = useAutoSideBySideZoom()
@@ -1620,7 +1620,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       if (items.length === 0) return prev
       const next = prev.slice()
       for (const addition of items) {
-        next.push({ ...(addition as RuleTesterItem), rowId: allocTesterRowId() })
+        const assignedRowId = allocTesterRowId()
+        next.push({ ...(addition as RuleTesterItem), rowId: assignedRowId })
       }
       return next
     })
@@ -1987,31 +1988,47 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const filteredRules = filterResult.rules
   useEffect(() => {
     const artifacts = testerPreviewArtifacts
-    testerArtifactsRef.current = artifacts
-    const buildId = testerRowsBuildIdRef.current + 1
-    testerRowsBuildIdRef.current = buildId
-    if (artifacts.length === 0) {
-      setTesterPreviewRows([])
+    const prevRowMap = testerPreviewRowMapRef.current
+    const nextRowMap = new Map(prevRowMap)
+    const seenRowIds = new Set<number>()
+    const dirtyEntries: Array<{ artifact: NormalizedGearArtifact; rowId: number }> = []
+
+    artifacts.forEach((artifact) => {
+      const rowId = Number((artifact.testerItem as RuleTesterItem | undefined)?.rowId ?? NaN)
+      if (!Number.isFinite(rowId)) return
+      seenRowIds.add(rowId)
+      const prevRow = prevRowMap.get(rowId)
+      if (!prevRow || prevRow.artifact !== artifact) {
+        dirtyEntries.push({ artifact, rowId })
+      }
+    })
+
+    for (const [rowId] of prevRowMap) {
+      if (!seenRowIds.has(rowId)) {
+        nextRowMap.delete(rowId)
+      }
+    }
+
+    if (dirtyEntries.length === 0 && nextRowMap.size === prevRowMap.size) {
       setTesterRowsBuilding(false)
       return
     }
+
+    const buildId = testerRowsBuildIdRef.current + 1
+    testerRowsBuildIdRef.current = buildId
+    if (dirtyEntries.length === 0) {
+      testerPreviewRowMapRef.current = nextRowMap
+      setTesterPreviewRows(sortTesterRows(Array.from(nextRowMap.values())))
+      setTesterRowsBuilding(false)
+      return
+    }
+
     setTesterRowsBuilding(true)
     let cancelled = false
     let timeoutId: ReturnType<typeof setTimeout> | null = null
     const names = customCfgs.map(cfg => (cfg?.name && cfg.name.length > 0) ? cfg.name : null)
-    const total = artifacts.length
-    const rowsBuffer = new Array<TesterPreviewRow>(total)
-    let builtUntil = 0
-    let lastCommittedSize = 0
-    let index = 0
     const hasRules = mergedRules.length > 0
-
-    const commitRows = () => {
-      if (cancelled || testerRowsBuildIdRef.current !== buildId) return
-      if (builtUntil === lastCommittedSize) return
-      setTesterPreviewRows(rowsBuffer.slice(0, builtUntil))
-      lastCommittedSize = builtUntil
-    }
+    let index = 0
 
     const buildRow = hasRules
       ? (artifact: NormalizedGearArtifact): TesterPreviewRow => {
@@ -2044,19 +2061,19 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     const processChunk = () => {
       if (cancelled || testerRowsBuildIdRef.current !== buildId) return
       const start = index
-      const end = Math.min(start + TESTER_PREVIEW_CHUNK_SIZE, total)
+      const end = Math.min(start + TESTER_PREVIEW_CHUNK_SIZE, dirtyEntries.length)
       for (let cursor = start; cursor < end; cursor += 1) {
-        const artifact = artifacts[cursor]
-        if (!artifact) continue
-        rowsBuffer[cursor] = buildRow(artifact)
+        const entry = dirtyEntries[cursor]
+        if (!entry) continue
+        nextRowMap.set(entry.rowId, buildRow(entry.artifact))
       }
-      builtUntil = end
       index = end
-      commitRows()
-      if (index < total) {
+      if (index < dirtyEntries.length) {
         timeoutId = setTimeout(processChunk, 0)
         return
       }
+      testerPreviewRowMapRef.current = nextRowMap
+      setTesterPreviewRows(sortTesterRows(Array.from(nextRowMap.values())))
       if (testerRowsBuildIdRef.current === buildId) {
         setTesterRowsBuilding(false)
       }
