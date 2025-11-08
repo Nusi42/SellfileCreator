@@ -1614,32 +1614,40 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   }, [restoreDialogPending])
   // Show the autosave restore prompt only after the README dialog is dismissed.
   const restoreDlgOpen = !tutorial.helpOpen && (restoreDialogPending || Boolean(testerRestoreDraft))
-  const applyGearDbDiff = useCallback((desiredTesterItems: TestItem[]) => {
-    const { removalRowIds, nextPendingQueue, addedCount } = diffRuleTesterItems(
+  const appendTesterRuleItems = useCallback((items: TestItem[]) => {
+    if (!items || items.length === 0) return
+    setTesterItems((prev) => {
+      if (items.length === 0) return prev
+      const next = prev.slice()
+      for (const addition of items) {
+        next.push({ ...(addition as RuleTesterItem), rowId: allocTesterRowId() })
+      }
+      return next
+    })
+  }, [allocTesterRowId, setTesterItems])
+
+  const applyGearDbDiff = useCallback((desiredTesterItems: TestItem[], mode: 'manual' | 'command') => {
+    const pendingQueueInput = (mode === 'manual') ? [] : pendingTesterItemsRef.current
+    const { removalRowIds, nextPendingQueue, additions } = diffRuleTesterItems(
       testerItemsRef.current,
       desiredTesterItems,
-      pendingTesterItemsRef.current,
+      pendingQueueInput,
     )
     const removedCount = removalRowIds.length
     if (removalRowIds.length > 0) {
       const removalSet = new Set(removalRowIds)
       setTesterItems((prev) => prev.filter((item) => !removalSet.has(item.rowId)))
     }
-    setPendingTesterItems((prev) => {
-      if (prev.length === nextPendingQueue.length) {
-        let identical = true
-        for (let i = 0; i < prev.length; i += 1) {
-          if (prev[i] !== nextPendingQueue[i]) {
-            identical = false
-            break
-          }
-        }
-        if (identical) return prev
-      }
-      return nextPendingQueue
-    })
-    return { removedCount, addedCount }
-  }, [])
+    if (mode === 'manual') {
+      setPendingTesterItems([])
+      appendTesterRuleItems(additions)
+      return { removedCount, addedCount: additions.length }
+    }
+    if (nextPendingQueue !== pendingTesterItemsRef.current) {
+      setPendingTesterItems(nextPendingQueue)
+    }
+    return { removedCount, addedCount: additions.length }
+  }, [appendTesterRuleItems, setPendingTesterItems])
 
   const handleGearDbImport = useCallback(async (file: File, options?: { source?: 'manual' | 'command' }) => {
     const source = options?.source ?? 'manual'
@@ -1670,7 +1678,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       }
       setPreviewMode('tester')
       const desiredTesterItems = combined.map((artifact) => artifact.testerItem)
-      const { removedCount, addedCount } = applyGearDbDiff(desiredTesterItems)
+      const { removedCount, addedCount } = applyGearDbDiff(desiredTesterItems, source)
       const inboxCount = inboxArtifacts.length
       const totalCount = combined.length
       const diffSummary = t('toastGearDbDiffSummary', { added: addedCount, removed: removedCount })
@@ -1979,8 +1987,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const filteredRules = filterResult.rules
   useEffect(() => {
     const artifacts = testerPreviewArtifacts
-    const previousArtifacts = testerArtifactsRef.current
-    const artifactsChanged = previousArtifacts !== artifacts
     testerArtifactsRef.current = artifacts
     const buildId = testerRowsBuildIdRef.current + 1
     testerRowsBuildIdRef.current = buildId
@@ -1990,9 +1996,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       return
     }
     setTesterRowsBuilding(true)
-    if (artifactsChanged) {
-      setTesterPreviewRows([])
-    }
     let cancelled = false
     let timeoutId: ReturnType<typeof setTimeout> | null = null
     const names = customCfgs.map(cfg => (cfg?.name && cfg.name.length > 0) ? cfg.name : null)
@@ -2049,11 +2052,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       }
       builtUntil = end
       index = end
+      commitRows()
       if (index < total) {
         timeoutId = setTimeout(processChunk, 0)
         return
       }
-      commitRows()
       if (testerRowsBuildIdRef.current === buildId) {
         setTesterRowsBuilding(false)
       }
@@ -3306,7 +3309,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         onOpenRuleTester={() => setTesterOpen(true)}
         previewMode={previewMode}
         onChangePreviewMode={setPreviewMode}
-        testerCount={testerPreviewRows.length}
+        testerCount={testerItems.length}
         testerFilteredCount={testerRowsForTable.length}
         gearDbCommandError={gearDbCommandError}
         onClearGearDbCommandError={clearGearDbCommandError}

@@ -56,9 +56,9 @@ test('gear DB diff reuses entries across example backups', async (t) => {
   }))
   const desiredItems = second.map((artifact) => artifact.testerItem)
 
-  const { removalRowIds, nextPendingQueue, addedCount } = diffRuleTesterItems(currentItems, desiredItems)
+  const { removalRowIds, nextPendingQueue, additions } = diffRuleTesterItems(currentItems, desiredItems)
   assert(removalRowIds.length < currentItems.length, 'diff should keep some existing rows')
-  assert(addedCount >= 0, 'added count should be non-negative')
+  assert(additions.length >= 0, 'added count should be non-negative')
 
   const survivors = stripRowId(currentItems, new Set(removalRowIds))
   const finalSnapshot = fingerprintSnapshot([...survivors, ...nextPendingQueue])

@@ -486,7 +486,7 @@ export function diffRuleTesterItems(
   currentItems: RuleTesterItem[],
   desiredItems: TestItem[],
   pendingQueue: TestItem[] = [],
-): { removalRowIds: number[]; nextPendingQueue: TestItem[]; addedCount: number } {
+): { removalRowIds: number[]; nextPendingQueue: TestItem[]; additions: TestItem[] } {
   const desiredCounts = new Map<string, number>()
   for (const desired of desiredItems) {
     const key = fingerprintRuleTesterItem(desired)
@@ -563,7 +563,7 @@ export function diffRuleTesterItems(
   }
 
   const nextPendingQueue = retainedPending.concat(additions)
-  return { removalRowIds, nextPendingQueue, addedCount: additions.length }
+  return { removalRowIds, nextPendingQueue, additions }
 }
 
 const deserializeTesterItems = (
