@@ -477,6 +477,8 @@ const ASCENSION_STAR_VALUES: readonly number[] = [0, 1, 2, 3, 4, 5, 6]
   const testerAscStats = state.testerAscension?.stats ?? []
   const championSelection = state.testerChampions?.selected ?? []
   const extraChampionCount = Math.max(0, championSelection.length - 1)
+  const factionSelection = state.faction.selected ?? []
+  const extraFactionCount = Math.max(0, factionSelection.length - 1)
   const showChampionFilter = isTesterMode && (testerChampionOptions?.length ?? 0) > 0
   const [championSearch, setChampionSearch] = React.useState('')
   const championOptions = React.useMemo(() => testerChampionOptions ?? [], [testerChampionOptions])
@@ -1283,6 +1285,7 @@ const ASCENSION_STAR_VALUES: readonly number[] = [0, 1, 2, 3, 4, 5, 6]
                               alignItems: 'center',
                               gap: 0.5,
                               width: '100%',
+                              pr: `${SETS_SELECT_INLINE_GUTTER_PX}px`,
                             }}
                           >
                             <Typography variant="body2" sx={[ELLIPSIS_TEXT_SX, { flex: '1 1 auto' }]}>
@@ -1364,21 +1367,27 @@ const ASCENSION_STAR_VALUES: readonly number[] = [0, 1, 2, 3, 4, 5, 6]
                       )}
                       </Select>
                       {extraChampionCount > 0 && (
-                        <Typography
-                          variant="body2"
-                          noWrap
+                        <Box
+                          component="span"
                           sx={{
                             position: 'absolute',
                             top: '50%',
                             right: `${SETS_SELECT_CLEAR_BUTTON_RIGHT_PX + CLEAR_ICON_BUTTON_SIZE_PX + 4}px`,
                             transform: 'translateY(-50%)',
+                            width: CLEAR_ICON_BUTTON_SIZE_PX,
+                            height: CLEAR_ICON_BUTTON_SIZE_PX,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
                             color: 'text.secondary',
-                            fontSize: FONT_SIZE_BASE_PX,
                             pointerEvents: 'none',
+                            zIndex: 1,
                           }}
                         >
-                          {`+${extraChampionCount}`}
-                        </Typography>
+                          <Typography component="span" variant="body2" sx={{ fontSize: FONT_SIZE_BASE_PX, lineHeight: 1 }}>
+                            {`+${extraChampionCount}`}
+                          </Typography>
+                        </Box>
                       )}
                       <InlineSelectClearButton
                         disabled={championSelection.length === 0}
@@ -1620,113 +1629,110 @@ const ASCENSION_STAR_VALUES: readonly number[] = [0, 1, 2, 3, 4, 5, 6]
                   <FormLabel sx={{ m: 0 }}>{t('filterFaction')}</FormLabel>
                 </Box>
                 <Collapse in={!collapsed.faction} timeout="auto" unmountOnExit>
-                  <Select
-                    multiple
-                    size="small"
-                    value={state.faction.selected.map(n => String(n))}
-                    onChange={(e) => {
-                      const vals = (e.target.value as string[]).map(n => Number(n))
-                      onChange({ ...state, faction: { ...state.faction, selected: vals } })
+                  <Box
+                    sx={{
+                      position: 'relative',
+                      width: { xs: '100%', sm: FILTER_FACTION_SELECT_WIDTH_PX },
+                      maxWidth: FILTER_FACTION_SELECT_WIDTH_PX,
                     }}
-                    displayEmpty
-                    renderValue={(vals) => {
-                      const list = (vals as string[]).map(v => Number(v)).filter(n => Number.isFinite(n) && n > 0)
-                      if (!list.length) {
+                  >
+                    <Select
+                      multiple
+                      size="small"
+                      value={factionSelection.map((n) => String(n))}
+                      onChange={(e) => {
+                        const vals = (e.target.value as string[]).map(n => Number(n))
+                        onChange({ ...state, faction: { ...state.faction, selected: vals } })
+                      }}
+                      displayEmpty
+                      renderValue={(vals) => {
+                        const list = (vals as string[]).map(v => Number(v)).filter(n => Number.isFinite(n) && n > 0)
+                        if (!list.length) {
+                          return (
+                            <Typography
+                              variant="body2"
+                              data-ellipsis-target
+                              title={t('any')}
+                              sx={[ELLIPSIS_TEXT_SX, { display: 'block', width: '100%', fontSize: FONT_SIZE_BASE_PX }]}
+                            >
+                              {t('any')}
+                            </Typography>
+                          )
+                        }
+                        const labels = list.map(code => t(factionI18nKey(code as FactionId)))
+                        const summaryTitle = labels.join(', ')
+                        const [firstCode] = list
+                        if (typeof firstCode !== 'number') {
+                          return (
+                            <Typography
+                              variant="body2"
+                              data-ellipsis-target
+                              title={summaryTitle}
+                              sx={[ELLIPSIS_TEXT_SX, { display: 'block', width: '100%', fontSize: FONT_SIZE_BASE_PX }]}
+                            >
+                              {summaryTitle}
+                            </Typography>
+                          )
+                        }
+                        const firstLabel = t(factionI18nKey(firstCode as FactionId))
                         return (
-                          <Typography
-                            variant="body2"
-                            data-ellipsis-target
-                            title={t('any')}
-                            sx={[ELLIPSIS_TEXT_SX, { display: 'block', width: '100%', fontSize: FONT_SIZE_BASE_PX }]}
-                          >
-                            {t('any')}
-                          </Typography>
-                        )
-                      }
-                      const labels = list.map(code => t(factionI18nKey(code as FactionId)))
-                      const summaryTitle = labels.join(', ')
-                      const [firstCode] = list
-                      if (typeof firstCode !== 'number') {
-                        return (
-                          <Typography
-                            variant="body2"
-                            data-ellipsis-target
-                            title={summaryTitle}
-                            sx={[ELLIPSIS_TEXT_SX, { display: 'block', width: '100%', fontSize: FONT_SIZE_BASE_PX }]}
-                          >
-                            {summaryTitle}
-                          </Typography>
-                        )
-                      }
-                      const firstLabel = t(factionI18nKey(firstCode as FactionId))
-                      const extraCount = Math.max(0, list.length - 1)
-                      return (
-                        <Box
-                          component="span"
-                          data-ellipsis-target
-                          title={summaryTitle}
-                          sx={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 0.5,
-                            minWidth: 0,
-                            width: '100%',
-                          }}
-                        >
                           <Box
                             component="span"
+                            data-ellipsis-target
+                            title={summaryTitle}
                             sx={{
-                              minWidth: 0,
-                              flex: '1 1 auto',
                               display: 'flex',
                               alignItems: 'center',
                               gap: 0.5,
+                              minWidth: 0,
+                              width: '100%',
+                              pr: `${SETS_SELECT_INLINE_GUTTER_PX}px`,
                             }}
                           >
-                            <FactionOptionLabel
-                              faction={firstCode as FactionId}
-                              label={firstLabel}
-                              size={21}
-                              truncate
-                              sx={{ minWidth: 0, flexShrink: 1 }}
-                              textSx={{ fontSize: FONT_SIZE_BASE_PX, minWidth: 0 }}
-                            />
-                          </Box>
-                          {extraCount > 0 && (
-                            <Typography
+                            <Box
                               component="span"
-                              variant="body2"
-                              noWrap
-                              sx={{ color: 'text.secondary', fontSize: FONT_SIZE_BASE_PX, flexShrink: 0 }}
+                              sx={{
+                                minWidth: 0,
+                                flex: '1 1 auto',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 0.5,
+                              }}
                             >
-                              {`+${extraCount}`}
-                            </Typography>
-                          )}
-                        </Box>
-                      )
-                    }}
-                    MenuProps={{ PaperProps: { sx: { maxHeight: 360 } } }}
-                    sx={{
-                      width: { xs: '100%', sm: FILTER_FACTION_SELECT_WIDTH_PX },
-                      maxWidth: FILTER_FACTION_SELECT_WIDTH_PX,
-                      cursor: 'pointer',
-                      '& .MuiSelect-select': {
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 0.5,
-                        flexWrap: 'nowrap',
-                        paddingTop: 0,
-                        paddingBottom: 0,
-                        maxWidth: '100%',
+                              <FactionOptionLabel
+                                faction={firstCode as FactionId}
+                                label={firstLabel}
+                                size={21}
+                                truncate
+                                sx={{ minWidth: 0, flexShrink: 1 }}
+                                textSx={{ fontSize: FONT_SIZE_BASE_PX, minWidth: 0 }}
+                              />
+                            </Box>
+                          </Box>
+                        )
+                      }}
+                      MenuProps={{ PaperProps: { sx: { maxHeight: 360 } } }}
+                      sx={{
+                        width: '100%',
                         cursor: 'pointer',
-                      },
-                      '& .MuiSelect-select > *': {
-                        minWidth: 0,
-                      },
-                      minHeight: SMALL_BUTTON_HEIGHT_PX + 8,
-                      height: SMALL_BUTTON_HEIGHT_PX + 8,
-                    }}
-                  >
+                        '& .MuiSelect-select': {
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 0.5,
+                          flexWrap: 'nowrap',
+                          paddingTop: 0,
+                          paddingBottom: 0,
+                          paddingRight: `${SETS_SELECT_INLINE_GUTTER_PX}px`,
+                          maxWidth: '100%',
+                          cursor: 'pointer',
+                        },
+                        '& .MuiSelect-select > *': {
+                          minWidth: 0,
+                        },
+                        minHeight: SMALL_BUTTON_HEIGHT_PX + 8,
+                        height: SMALL_BUTTON_HEIGHT_PX + 8,
+                      }}
+                    >
                     <ListSubheader sx={LIST_SUBHEADER_SX}>{t('factionGroupTelerianLeague')}</ListSubheader>
                     {[Faction.BannerLords, Faction.HighElves, Faction.SacredOrder, Faction.Barbarians].map((code) => (
                       <MenuItem key={code} value={String(code)}>
@@ -1751,7 +1757,36 @@ const ASCENSION_STAR_VALUES: readonly number[] = [0, 1, 2, 3, 4, 5, 6]
                         <FactionOptionLabel faction={code} label={t(factionI18nKey(code))} />
                       </MenuItem>
                     ))}
-                  </Select>
+                    </Select>
+                    {extraFactionCount > 0 && (
+                      <Box
+                        component="span"
+                        sx={{
+                          position: 'absolute',
+                          top: '50%',
+                          right: `${SETS_SELECT_CLEAR_BUTTON_RIGHT_PX + CLEAR_ICON_BUTTON_SIZE_PX + 4}px`,
+                          transform: 'translateY(-50%)',
+                          width: CLEAR_ICON_BUTTON_SIZE_PX,
+                          height: CLEAR_ICON_BUTTON_SIZE_PX,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          color: 'text.secondary',
+                          pointerEvents: 'none',
+                          zIndex: 1,
+                        }}
+                      >
+                        <Typography component="span" variant="body2" sx={{ fontSize: FONT_SIZE_BASE_PX, lineHeight: 1 }}>
+                          {`+${extraFactionCount}`}
+                        </Typography>
+                      </Box>
+                    )}
+                    <InlineSelectClearButton
+                      disabled={factionSelection.length === 0}
+                      label={t('clear')}
+                      onClear={() => onChange({ ...state, faction: { ...state.faction, selected: [] } })}
+                    />
+                  </Box>
                   <Box sx={{ mt: FILTER_CHIP_TOP_MARGIN }}>{anyChip(t('filterFaction'), state.faction.anyMode, (v) => onChange({ ...state, faction: { ...state.faction, anyMode: v } }), t('filterAnyTooltip', { field: t('filterFaction') }))}</Box>
                 </Collapse>
               </FormControl>
