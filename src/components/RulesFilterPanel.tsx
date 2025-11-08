@@ -422,9 +422,6 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
   // Level buttons
   const levelValues: readonly LevelMilestone[] = LEVEL_MILESTONES
 
-  // Main/Substats — multi-selects using StatVariant labels
-  const selectableStats = STAT_VARIANTS_PRIORITY
-
 const ASCENSION_STAR_VALUES: readonly number[] = [0, 1, 2, 3, 4, 5, 6]
 
   // Helpers for condensed Rank/Rarity selections
@@ -1695,64 +1692,77 @@ const ASCENSION_STAR_VALUES: readonly number[] = [0, 1, 2, 3, 4, 5, 6]
               <FormLabel sx={{ m: 0 }}>{t('filterAscension')}</FormLabel>
             </Box>
             <Collapse in={!collapsed.ascension} timeout="auto" unmountOnExit>
-              <Stack spacing={1}>
-                <ToggleButtonGroup
-                  size="small"
-                  value={testerAscStars.map(String)}
-                  onChange={(_, vals: string[]) => {
-                    const parsed = vals
-                      .map((v) => Number(v))
-                      .filter((n) => Number.isFinite(n)) as number[]
-                    const prev = state.testerAscension ?? DEFAULT_RULES_FILTER_STATE.testerAscension!
-                    onChange({ ...state, testerAscension: { ...prev, stars: parsed } })
-                  }}
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                <Box sx={{ flex: { xs: '1 1 100%', md: '0 0 auto' }, minWidth: 0 }}>
+                  <ToggleButtonGroup
+                    size="small"
+                    value={testerAscStars.map(String)}
+                    onChange={(_, vals: string[]) => {
+                      const parsed = vals
+                        .map((v) => Number(v))
+                        .filter((n) => Number.isFinite(n)) as number[]
+                      const prev = state.testerAscension ?? DEFAULT_RULES_FILTER_STATE.testerAscension!
+                      onChange({ ...state, testerAscension: { ...prev, stars: parsed } })
+                    }}
+                    sx={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(4, auto)',
+                      columnGap: 0.5,
+                      rowGap: 0.5,
+                      '& .MuiToggleButton-root': { p: 0.5, minWidth: 44, height: 28 },
+                      ...TOGGLE_BUTTON_GROUP_SHARED_SX,
+                    }}
+                  >
+                    {ASCENSION_STAR_VALUES.map((star) => (
+                      <ToggleButton key={star} value={String(star)}>
+                        {`${star}★`}
+                      </ToggleButton>
+                    ))}
+                  </ToggleButtonGroup>
+                </Box>
+                <Box
                   sx={{
-                    flexWrap: 'wrap',
-                    '& .MuiToggleButton-root': { p: 0.5, minWidth: 44, height: 28 },
-                    '& .MuiToggleButtonGroup-grouped:not(:first-of-type)': {
-                      marginLeft: '0 !important',
-                      borderLeft: '1px solid transparent',
-                    },
-                    '& .MuiToggleButtonGroup-grouped.Mui-selected + .MuiToggleButtonGroup-grouped.Mui-selected': {
-                      marginLeft: '0 !important',
-                      borderLeft: '1px solid transparent',
-                    },
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 0.5,
+                    flex: { xs: '1 1 100%', md: '0 0 auto' },
+                    minWidth: 0,
                   }}
                 >
-                  {ASCENSION_STAR_VALUES.map((star) => (
-                    <ToggleButton key={star} value={String(star)}>
-                      {`${star}★`}
-                    </ToggleButton>
-                  ))}
-                </ToggleButtonGroup>
-                <ToggleButtonGroup
-                  size="small"
-                  value={testerAscStats.map(String)}
-                  onChange={(_, vals: string[]) => {
-                    const parsed = vals.map((v) => Number(v) as StatVariant)
-                    const prev = state.testerAscension ?? DEFAULT_RULES_FILTER_STATE.testerAscension!
-                    onChange({ ...state, testerAscension: { ...prev, stats: parsed } })
-                  }}
-                  sx={{
-                    flexWrap: 'wrap',
-                    '& .MuiToggleButton-root': { p: 0.5, minWidth: 36, height: 28 },
-                    '& .MuiToggleButtonGroup-grouped:not(:first-of-type)': {
-                      marginLeft: '0 !important',
-                      borderLeft: '1px solid transparent',
-                    },
-                    '& .MuiToggleButtonGroup-grouped.Mui-selected + .MuiToggleButtonGroup-grouped.Mui-selected': {
-                      marginLeft: '0 !important',
-                      borderLeft: '1px solid transparent',
-                    },
-                  }}
-                >
-                  {selectableStats.map((variant) => (
-                    <ToggleButton key={variant} value={String(variant)} aria-label={labelOfVariant(variant)}>
-                      {t(statVariantI18nKey(variant))}
-                    </ToggleButton>
-                  ))}
-                </ToggleButtonGroup>
-              </Stack>
+                  <ToggleButtonGroup
+                    size="small"
+                    value={filterRowSelection(testerAscStats, STAT_VARIANTS_PRIORITY_ROW1)}
+                    onChange={(_, vals: string[]) => {
+                      const prev = state.testerAscension ?? DEFAULT_RULES_FILTER_STATE.testerAscension!
+                      const nextStats = mergeRowSelection(prev.stats ?? [], STAT_VARIANTS_PRIORITY_ROW1, vals)
+                      onChange({ ...state, testerAscension: { ...prev, stats: nextStats } })
+                    }}
+                    sx={buildToggleGridSx(STAT_VARIANTS_PRIORITY_ROW1.length)}
+                  >
+                    {STAT_VARIANTS_PRIORITY_ROW1.map((variant) => (
+                      <ToggleButton key={variant} value={String(variant)} aria-label={labelOfVariant(variant)}>
+                        {t(statVariantI18nKey(variant))}
+                      </ToggleButton>
+                    ))}
+                  </ToggleButtonGroup>
+                  <ToggleButtonGroup
+                    size="small"
+                    value={filterRowSelection(testerAscStats, STAT_VARIANTS_PRIORITY_ROW2)}
+                    onChange={(_, vals: string[]) => {
+                      const prev = state.testerAscension ?? DEFAULT_RULES_FILTER_STATE.testerAscension!
+                      const nextStats = mergeRowSelection(prev.stats ?? [], STAT_VARIANTS_PRIORITY_ROW2, vals)
+                      onChange({ ...state, testerAscension: { ...prev, stats: nextStats } })
+                    }}
+                    sx={buildToggleGridSx(STAT_VARIANTS_PRIORITY_ROW2.length)}
+                  >
+                    {STAT_VARIANTS_PRIORITY_ROW2.map((variant) => (
+                      <ToggleButton key={variant} value={String(variant)} aria-label={labelOfVariant(variant)}>
+                        {t(statVariantI18nKey(variant))}
+                      </ToggleButton>
+                    ))}
+                  </ToggleButtonGroup>
+                </Box>
+              </Box>
             </Collapse>
           </FormControl>
         )}
