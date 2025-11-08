@@ -502,6 +502,7 @@ const TesterItemRow = React.memo(function TesterItemRow({
   gridGap,
   onJumpToRule,
 }: TesterItemRowProps) {
+  const theme = useTheme()
   const artifact = row.artifact
   const match = row.match
   const SlotIcon = artifactTypeIconFor(artifact.slot as ArtifactTypeId)
@@ -547,7 +548,8 @@ const TesterItemRow = React.memo(function TesterItemRow({
   const ascSummaryColor = useStatButtonColors && typeof ascVariant === 'number'
     ? (substatColors[ascVariant]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[ascVariant])
     : undefined
-  const rerollLabel = artifact.rerollCount > 0 ? t('testerRerollLabel', { count: artifact.rerollCount }) : ''
+  const rerollLabel = artifact.rerollCount > 0 ? t('filterChaosOreRerolled') : ''
+  const rerollLabelColor = theme.palette.text.secondary
   const sourceDescriptor = getItemSourceDescriptor(artifact, t)
   const sourceLabelNode = sourceDescriptor ? (
     <Typography variant="caption" color="text.secondary" noWrap sx={{ fontWeight: 600 }}>
@@ -578,7 +580,6 @@ const TesterItemRow = React.memo(function TesterItemRow({
     outcomeLabel = match.keep ? t('testerMatchKeep') : t('testerMatchSell')
   }
 
-  const extras = rerollLabel ? [rerollLabel] : []
   const mainSummaryContent = (
     <>
       <Box component="span" sx={{ color: mainSummaryColor ?? 'inherit' }}>
@@ -648,6 +649,7 @@ const TesterItemRow = React.memo(function TesterItemRow({
           <TesterSummaryLabel label={levelChipLabel} />
           <TesterSummaryLabel label={rankLabel} />
           <TesterSummaryLabel label={rarityLabel} />
+          {rerollLabel ? <TesterSummaryLabel label={rerollLabel} color={rerollLabelColor} /> : null}
         </Box>
         <TesterSummaryLabel label={mainSummaryContent} />
         <Tooltip title={subTooltip}>
@@ -685,13 +687,6 @@ const TesterItemRow = React.memo(function TesterItemRow({
             />
           ) : null}
         </Box>
-        {extras.length > 0 ? (
-          <Tooltip title={extras.join(' • ')}>
-            <Typography variant="caption" color="text.secondary" noWrap>
-              {extras.join(' • ')}
-            </Typography>
-          </Tooltip>
-        ) : null}
       </Box>
     </Box>
   )
