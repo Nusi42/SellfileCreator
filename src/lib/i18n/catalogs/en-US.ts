@@ -892,6 +892,7 @@ const enUS: Catalog = {
   toastSellfileExportFailed: 'Sellfile export failed. See console for details.',
   toastGearDbImported: 'Imported {count} gear items from database.',
   toastGearDbImportedWithInbox: 'Imported {count} gear items from database (including {inboxCount} from inbox).',
+  toastGearDbDiffSummary: 'Tester items updated: +{added} / -{removed}.',
   toastGearDbImportFailed: 'Unable to read database file.',
   toastGearDbImportEmpty: 'Database did not contain any gear items.',
   toastL10nLoaded: 'Loaded localization: {lang}',

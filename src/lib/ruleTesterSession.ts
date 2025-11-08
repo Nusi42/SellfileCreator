@@ -21,7 +21,8 @@ import {
   artifactTypeNames,
 } from './types'
 import { variantToSub, variantToMain } from './hsfTypes'
-import type { TestItem } from './ruleEval'
+import type { NormalizedStat } from './importers/gearDbNormalizer'
+import type { TestItem, TesterItemPreviewExtras } from './ruleEval'
 
 export type RuleTesterItem = Omit<TestItem, 'subRolls'> & { rowId: number; subValues?: Record<number, number>; subOrder?: number[]; compact?: boolean }
 
@@ -362,22 +363,207 @@ export function createRuleTesterMath(substatTargets: SubstatTargetTable) {
   return { adjustSubValuesFor, applyRandomRollsForLevel, makeDefaultItem, makeDefaultItems }
 }
 
-export function fingerprintRuleTesterItem(item: RuleTesterItem | TestItem): string {
-  const slot = Number(item.slot ?? 0)
-  const setId = Number(item.set ?? 0)
-  const rank = Number(item.rank ?? 0)
-  const rarity = Number(item.rarity ?? 0)
-  const level = Number(item.level ?? 0)
-  const faction = Number((item as { faction?: number }).faction ?? 0)
-  const main = Number(item.main ?? -1)
-  const sub = item.subValues ?? {}
-  const entries = Object.keys(sub).map((key) => {
-    const variant = Number(key)
-    const value = Number((sub as Record<number, number>)[variant] ?? 0)
-    return `${variant}=${value}`
+type CanonicalNormalizedStat = {
+  source: NormalizedStat['source'] | null
+  statId: number | null
+  isFlat: boolean
+  variant: number | null
+  baseValue: number
+  glyphValue: number
+  totalValue: number
+  rolls: number | null
+  position: number | null
+}
+
+type CanonicalPreviewExtras = {
+  source: TesterItemPreviewExtras['source'] | null
+  rerollCount: number | null
+  equippedToChampionId: number | null
+  equippedChampionName: string | null
+  equippedChampionLocation: TesterItemPreviewExtras['equippedChampionLocation'] | null
+  mainStat: CanonicalNormalizedStat | null
+  substats: CanonicalNormalizedStat[] | null
+  ascension: CanonicalNormalizedStat | null
+  exactLevel: number | null
+}
+
+const coerceFiniteNumber = (value: unknown, fallback: number): number => {
+  const num = Number(value)
+  return Number.isFinite(num) ? num : fallback
+}
+
+const normalizeFiniteNumber = (value: unknown): number | null => {
+  if (value === null || value === undefined) return null
+  const num = Number(value)
+  return Number.isFinite(num) ? num : null
+}
+
+const canonicalizeSubValues = (subValues?: Record<number, number>): Array<[number, number]> => {
+  if (!subValues) return []
+  const entries = Object.entries(subValues).map(([variantKey, value]) => {
+    const variant = Number(variantKey)
+    const safeVariant = Number.isFinite(variant) ? variant : 0
+    const numericValue = Number(value)
+    const safeValue = Number.isFinite(numericValue) ? numericValue : 0
+    return [safeVariant, safeValue] as [number, number]
   })
-  entries.sort()
-  return `${slot}|${setId}|${rank}|${rarity}|${level}|${faction}|${main}|${entries.join(',')}`
+  entries.sort((a, b) => a[0] - b[0])
+  return entries
+}
+
+const canonicalizeNormalizedStat = (stat?: NormalizedStat | null): CanonicalNormalizedStat | null => {
+  if (!stat) return null
+  return {
+    source: stat.source ?? null,
+    statId: normalizeFiniteNumber(stat.statId),
+    isFlat: Boolean(stat.isFlat),
+    variant: normalizeFiniteNumber(stat.variant),
+    baseValue: coerceFiniteNumber(stat.baseValue, 0),
+    glyphValue: coerceFiniteNumber(stat.glyphValue, 0),
+    totalValue: coerceFiniteNumber(stat.totalValue, 0),
+    rolls: normalizeFiniteNumber(stat.rolls),
+    position: normalizeFiniteNumber(stat.position),
+  }
+}
+
+const canonicalizeStatArray = (stats?: NormalizedStat[] | null): CanonicalNormalizedStat[] | null => {
+  if (!stats || stats.length === 0) return null
+  const canonical = stats
+    .map((stat) => canonicalizeNormalizedStat(stat))
+    .filter((entry): entry is CanonicalNormalizedStat => Boolean(entry))
+  if (canonical.length === 0) return null
+  canonical.sort((a, b) => {
+    const posA = a.position ?? 0
+    const posB = b.position ?? 0
+    if (posA !== posB) return posA - posB
+    const variantA = a.variant ?? 0
+    const variantB = b.variant ?? 0
+    if (variantA !== variantB) return variantA - variantB
+    const statA = a.statId ?? 0
+    const statB = b.statId ?? 0
+    return statA - statB
+  })
+  return canonical
+}
+
+const canonicalizePreviewExtras = (extras?: TesterItemPreviewExtras): CanonicalPreviewExtras | null => {
+  if (!extras) return null
+  return {
+    source: extras.source ?? null,
+    rerollCount: normalizeFiniteNumber(extras.rerollCount),
+    equippedToChampionId: normalizeFiniteNumber(extras.equippedToChampionId),
+    equippedChampionName: typeof extras.equippedChampionName === 'string' ? extras.equippedChampionName : null,
+    equippedChampionLocation: extras.equippedChampionLocation ?? null,
+    mainStat: canonicalizeNormalizedStat(extras.mainStat),
+    substats: canonicalizeStatArray(extras.substats),
+    ascension: canonicalizeNormalizedStat(extras.ascension),
+    exactLevel: normalizeFiniteNumber(extras.exactLevel),
+  }
+}
+
+const normalizeTesterName = (value: unknown): string | null => {
+  if (typeof value === 'string') return value
+  return null
+}
+
+export function fingerprintRuleTesterItem(item: RuleTesterItem | TestItem): string {
+  const canonical = {
+    name: normalizeTesterName((item as { name?: unknown }).name),
+    slot: coerceFiniteNumber(item.slot, 0),
+    set: coerceFiniteNumber(item.set, 0),
+    rank: coerceFiniteNumber(item.rank, 0),
+    rarity: coerceFiniteNumber(item.rarity, 0),
+    level: coerceFiniteNumber(item.level, 0),
+    faction: coerceFiniteNumber((item as { faction?: unknown }).faction, 0),
+    main: coerceFiniteNumber(item.main, -1),
+    subValues: canonicalizeSubValues(item.subValues),
+    previewExtras: canonicalizePreviewExtras(item.previewExtras),
+  }
+  return JSON.stringify(canonical)
+}
+
+export function diffRuleTesterItems(
+  currentItems: RuleTesterItem[],
+  desiredItems: TestItem[],
+  pendingQueue: TestItem[] = [],
+): { removalRowIds: number[]; nextPendingQueue: TestItem[]; addedCount: number } {
+  const desiredCounts = new Map<string, number>()
+  for (const desired of desiredItems) {
+    const key = fingerprintRuleTesterItem(desired)
+    desiredCounts.set(key, (desiredCounts.get(key) ?? 0) + 1)
+  }
+
+  const currentCounts = new Map<string, number>()
+  for (const item of currentItems) {
+    const key = fingerprintRuleTesterItem(item)
+    currentCounts.set(key, (currentCounts.get(key) ?? 0) + 1)
+  }
+
+  const currentKeepLimits = new Map<string, number>()
+  for (const [key, desiredCount] of desiredCounts.entries()) {
+    if (desiredCount <= 0) continue
+    const currentCount = currentCounts.get(key) ?? 0
+    const keep = Math.min(currentCount, desiredCount)
+    if (keep > 0) {
+      currentKeepLimits.set(key, keep)
+    }
+  }
+
+  const removalRowIds: number[] = []
+  const currentKeptCounts = new Map<string, number>()
+  for (const item of currentItems) {
+    const key = fingerprintRuleTesterItem(item)
+    const keepLimit = currentKeepLimits.get(key) ?? 0
+    const kept = currentKeptCounts.get(key) ?? 0
+    if (kept < keepLimit) {
+      currentKeptCounts.set(key, kept + 1)
+      continue
+    }
+    removalRowIds.push(item.rowId)
+  }
+
+  const pendingKeepLimits = new Map<string, number>()
+  for (const [key, desiredCount] of desiredCounts.entries()) {
+    const keptCurrent = currentKeepLimits.get(key) ?? 0
+    const needFromPending = desiredCount - keptCurrent
+    if (needFromPending > 0) {
+      pendingKeepLimits.set(key, needFromPending)
+    }
+  }
+
+  const pendingRetainedCounts = new Map<string, number>()
+  const retainedPending: TestItem[] = []
+  for (const pending of pendingQueue) {
+    const key = fingerprintRuleTesterItem(pending)
+    const limit = pendingKeepLimits.get(key)
+    if (!limit || limit <= 0) continue
+    const kept = pendingRetainedCounts.get(key) ?? 0
+    if (kept >= limit) continue
+    pendingRetainedCounts.set(key, kept + 1)
+    retainedPending.push(pending)
+  }
+
+  const additions: TestItem[] = []
+  const satisfiedCounts = new Map<string, number>()
+  for (const desired of desiredItems) {
+    const key = fingerprintRuleTesterItem(desired)
+    const satisfied = satisfiedCounts.get(key) ?? 0
+    const currentKeep = currentKeepLimits.get(key) ?? 0
+    const pendingKeep = pendingRetainedCounts.get(key) ?? 0
+    const satisfiedLimit = currentKeep + pendingKeep
+    if (satisfied < satisfiedLimit) {
+      satisfiedCounts.set(key, satisfied + 1)
+      continue
+    }
+    const desiredCount = desiredCounts.get(key) ?? 0
+    if (satisfied < desiredCount) {
+      additions.push(desired)
+      satisfiedCounts.set(key, satisfied + 1)
+    }
+  }
+
+  const nextPendingQueue = retainedPending.concat(additions)
+  return { removalRowIds, nextPendingQueue, addedCount: additions.length }
 }
 
 const deserializeTesterItems = (
