@@ -16,7 +16,7 @@ import CloseFullscreenIcon from '@mui/icons-material/CloseFullscreen'
 // Delete icon no longer used since substats count is fixed
 import type { BuilderConfig } from '../../lib/hsfBuilder'
 import type { ArtifactSetId, ArtifactTypeId, FactionId, LevelMilestone } from '../../lib/types'
-import { ArtifactType, /* rarityCodeToName, */ formatLevel, StatVariant, slotSupportsSub, slotSupportsMain, ALLOWED_MAIN_BY_SLOT, Faction, factionI18nKey, filterAndSortSetEntries, artifactTypeI18nKey, artifactSetName, artifactSetI18nKey, DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT, statVariantI18nKey, StatId, LEVEL_MILESTONES } from '../../lib/types'
+import { ArtifactType, /* rarityCodeToName, */ formatLevel, slotSupportsSub, slotSupportsMain, ALLOWED_MAIN_BY_SLOT, Faction, factionI18nKey, filterAndSortSetEntries, artifactTypeI18nKey, artifactSetName, artifactSetI18nKey, DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT, statVariantI18nKey, StatId, LEVEL_MILESTONES, STAT_VARIANTS_PRIORITY } from '../../lib/types'
 import { allowedTesterSetIds, isAccessorySlot, normalizeTesterSetForSlot } from '../../lib/testerDomain'
 import { formatTesterSetLabel } from '../../lib/testerFormatters'
 import { variantToSub, variantToMain } from '../../lib/hsfTypes'
@@ -1112,7 +1112,7 @@ export default function RuleTesterDialog({
               const parsedValue = Number(value)
               const numericValue = Number.isFinite(parsedValue) ? parsedValue : 0
               const usedOthers = new Set<number>(subEntries.filter(([kk]) => Number(kk) !== v).map(([kk]) => Number(kk)))
-              const candidates = [StatVariant.HP, StatVariant.HP_FLAT, StatVariant.ATK, StatVariant.ATK_FLAT, StatVariant.DEF, StatVariant.DEF_FLAT, StatVariant.SPD, StatVariant.RES, StatVariant.ACC, StatVariant.CR, StatVariant.CDMG]
+              const candidates = STAT_VARIANTS_PRIORITY
                 .filter(x => (Number(it.slot) === TESTER_ANY_SLOT_ID || slotSupportsSub(it.slot, x)) && !usedOthers.has(Number(x)) && !subEqualsMainVariant(x, mainValue))
               const clampTesterValue = (raw: number): number => {
                 if (!Number.isFinite(raw)) return 1

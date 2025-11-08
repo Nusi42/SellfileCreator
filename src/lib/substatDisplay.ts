@@ -5,6 +5,7 @@ import {
   statIsAny,
   StatId,
   StatVariant,
+  STAT_VARIANTS_PRIORITY,
   statVariantI18nKey,
   subToVariant,
 } from './types'
@@ -76,17 +77,7 @@ const MAX_DIGITS_BY_VARIANT: Record<number, number> = (() => {
     substatTargets.six,
   ]
   const variants = [
-    StatVariant.HP_FLAT,
-    StatVariant.HP,
-    StatVariant.ATK_FLAT,
-    StatVariant.ATK,
-    StatVariant.DEF_FLAT,
-    StatVariant.DEF,
-    StatVariant.SPD,
-    StatVariant.RES,
-    StatVariant.ACC,
-    StatVariant.CR,
-    StatVariant.CDMG,
+    ...STAT_VARIANTS_PRIORITY,
     StatVariant.RollCount,
   ]
   const result: Record<number, number> = {}

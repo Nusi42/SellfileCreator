@@ -2,7 +2,7 @@ import React from 'react'
 import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Slider, Stack, Typography } from '@mui/material'
 import { alpha } from '@mui/material/styles'
 import { useI18n } from '../../lib/i18n'
-import { StatVariant, labelOfVariant, DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT, DEFAULT_SUBSTAT_COLORS_BG_BY_VARIANT } from '../../lib/types'
+import { labelOfVariant, DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT, DEFAULT_SUBSTAT_COLORS_BG_BY_VARIANT, STAT_VARIANTS_PRIORITY } from '../../lib/types'
 import ColorField from '../ColorField'
 
 const HEX_ALPHA_PATTERN = /^#([0-9a-fA-F]{6})([0-9a-fA-F]{2})?$/
@@ -55,19 +55,7 @@ export default function ManageColorsDialog(props: {
       <DialogContent dividers>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>{t('msgChooseColors')}</Typography>
         <Stack spacing={1.25}>
-          {[ 
-            StatVariant.HP_FLAT,
-            StatVariant.HP,
-            StatVariant.ATK_FLAT,
-            StatVariant.ATK,
-            StatVariant.DEF_FLAT,
-            StatVariant.DEF,
-            StatVariant.SPD,
-            StatVariant.RES,
-            StatVariant.ACC,
-            StatVariant.CR,
-            StatVariant.CDMG,
-          ].map((vk) => {
+          {STAT_VARIANTS_PRIORITY.map((vk) => {
             const defaultFg = (DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[vk] ?? '#90CAF9') as string
             const defaultBg = (DEFAULT_SUBSTAT_COLORS_BG_BY_VARIANT[vk] ?? '#E3F2FD') as string
             const fg = (substatColors[vk]?.fg ?? defaultFg) as string

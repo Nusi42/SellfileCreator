@@ -1,23 +1,11 @@
 import React from 'react'
 import Box from '@mui/material/Box'
 import type { SxProps } from '@mui/material/styles'
-import { DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT, StatVariant, statVariantI18nKey } from './types'
+import { DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT, StatVariant, statVariantI18nKey, STAT_VARIANTS_PRIORITY } from './types'
 
 export type HighlightSpec = { token: string; sx?: SxProps }
 
-const COLORIZED_VARIANTS: readonly StatVariant[] = [
-  StatVariant.HP,
-  StatVariant.HP_FLAT,
-  StatVariant.ATK,
-  StatVariant.ATK_FLAT,
-  StatVariant.DEF,
-  StatVariant.DEF_FLAT,
-  StatVariant.SPD,
-  StatVariant.RES,
-  StatVariant.ACC,
-  StatVariant.CR,
-  StatVariant.CDMG,
-] as const
+const COLORIZED_VARIANTS: readonly StatVariant[] = STAT_VARIANTS_PRIORITY
 
 export type SubstatColorMap = Record<number, { fg: string; bg: string }>
 

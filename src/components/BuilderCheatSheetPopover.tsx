@@ -2,7 +2,7 @@ import React from 'react'
 import { Popover, Box, Typography, Divider, Chip, Stack, ToggleButtonGroup, ToggleButton, useTheme, Button } from '@mui/material'
 import type { PopoverProps } from '@mui/material/Popover'
 import { useI18n } from '../lib/i18n'
-import { RarityCode, StatVariant, statVariantI18nKey, formatLevel, rarityCodeToName } from '../lib/types'
+import { RarityCode, StatVariant, statVariantI18nKey, formatLevel, rarityCodeToName, STAT_VARIANTS_PRIORITY_ROW1 } from '../lib/types'
 import { variantToSub } from '../lib/hsfTypes'
 import { SubstatToggleDisplay, substatToggleGroupSx } from './SubstatToggleDisplay'
 import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh'
@@ -46,13 +46,7 @@ const CARD_SX = {
   gap: 1,
 } as const
 
-const BUILDER_ROW_PRIORITY: readonly StatVariant[] = [
-  StatVariant.SPD,
-  StatVariant.RES,
-  StatVariant.ACC,
-  StatVariant.CR,
-  StatVariant.CDMG,
-] as const
+const BUILDER_ROW_PRIORITY: readonly StatVariant[] = STAT_VARIANTS_PRIORITY_ROW1
 
 const BUILDER_ROW_PRIORITY_MAP = new Map<StatVariant, number>(
   BUILDER_ROW_PRIORITY.map((variant, index) => [variant, index]),

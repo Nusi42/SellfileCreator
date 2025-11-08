@@ -400,6 +400,29 @@ export const StatVariant = {
 export type StatVariant = number
 export type StatVariantLike = StatVariant | number
 
+// Canonical builder/substat stat ordering: SPD-focused row first, then flat/percent HP/ATK/DEF.
+export const STAT_VARIANTS_PRIORITY_ROW1 = [
+  StatVariant.SPD,
+  StatVariant.CR,
+  StatVariant.CDMG,
+  StatVariant.ACC,
+  StatVariant.RES,
+] as const
+
+export const STAT_VARIANTS_PRIORITY_ROW2 = [
+  StatVariant.HP_FLAT,
+  StatVariant.HP,
+  StatVariant.ATK_FLAT,
+  StatVariant.ATK,
+  StatVariant.DEF_FLAT,
+  StatVariant.DEF,
+] as const
+
+export const STAT_VARIANTS_PRIORITY = [
+  ...STAT_VARIANTS_PRIORITY_ROW1,
+  ...STAT_VARIANTS_PRIORITY_ROW2,
+] as const
+
 /** UI label string for a StatVariant (or numeric-encoded variant). */
 export function labelOfVariant(v: StatVariantLike): string {
   const n = Number(v)

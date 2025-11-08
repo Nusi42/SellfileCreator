@@ -13,7 +13,7 @@ import type { SystemStyleObject } from '@mui/system'
 import { useI18n } from '../lib/i18n'
 import type { SubstatTargetTable, Star } from '../lib/hsfBuilder'
 import { defaultSubstatTargets } from '../lib/hsfBuilder'
-import { StatVariant, DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT, statVariantI18nKey } from '../lib/types'
+import { StatVariant, DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT, statVariantI18nKey, STAT_VARIANTS_PRIORITY } from '../lib/types'
 import { createBuilderStatusChipSx } from './builderStatusChipStyles'
 import { useDisplayPreferences } from '../state/preferencesState'
 import { NumberSpinnerAdornment } from './NumberSpinnerAdornment'
@@ -197,22 +197,11 @@ export default function SubstatTargetsDialog({ open, onClose, substatTargets, on
                 {starHeaderCell({ label, star })}
               </React.Fragment>
             ))}
-            {[
-              { label: 'HP', v: StatVariant.HP_FLAT },
-              { label: 'HP%', v: StatVariant.HP },
-              { label: 'ATK', v: StatVariant.ATK_FLAT },
-              { label: 'ATK%', v: StatVariant.ATK },
-              { label: 'DEF', v: StatVariant.DEF_FLAT },
-              { label: 'DEF%', v: StatVariant.DEF },
-              { label: 'SPD', v: StatVariant.SPD },
-              { label: 'RES', v: StatVariant.RES },
-              { label: 'ACC', v: StatVariant.ACC },
-              { label: 'CR%', v: StatVariant.CR },
-              { label: 'CDMG%', v: StatVariant.CDMG },
-            ].map(({ label, v }) => {
-              const vKey = Number(v)
+            {STAT_VARIANTS_PRIORITY.map((variant) => {
+              const label = t(statVariantI18nKey(variant))
+              const vKey = Number(variant)
               return (
-                <React.Fragment key={`row-${v}`}>
+                <React.Fragment key={`row-${variant}`}>
                   <Typography sx={{ pr: 1 }}>{label}</Typography>
                   {substatTargetsStarColumns.map(({ key, label: starLabel }) => (
                     renderSubstatTargetInput(key, vKey, label, starLabel)

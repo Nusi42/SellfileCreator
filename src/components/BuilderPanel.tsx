@@ -6,7 +6,7 @@
  * local UI state; all persisted state lives in App.
  */
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { rarityCodeToName, StatVariant, RankCode, RarityCode, Faction, type FactionId, filterAndSortSetEntries, statVariantI18nKey, artifactSetI18nKey, LEVEL_MILESTONES, type LevelMilestone } from '../lib/types'
+import { rarityCodeToName, StatVariant, RankCode, RarityCode, Faction, type FactionId, filterAndSortSetEntries, statVariantI18nKey, artifactSetI18nKey, LEVEL_MILESTONES, type LevelMilestone, STAT_VARIANTS_PRIORITY_ROW1, STAT_VARIANTS_PRIORITY_ROW2 } from '../lib/types'
 import { variantToSub } from '../lib/hsfTypes'
 import { NBSP } from '../lib/constants'
 import SetMenuSection from './SetMenuSection'
@@ -99,8 +99,6 @@ import { useAutoApplySelectedConfigPreference, useAutoResetAfterInsertPreference
 import { HistoryContextMenu } from './HistoryContextMenu'
 import { NumberSpinnerAdornment } from './NumberSpinnerAdornment'
 
-const MAIN_STAT_VARIANTS_ROW1 = [StatVariant.HP_FLAT, StatVariant.HP, StatVariant.ATK_FLAT, StatVariant.ATK, StatVariant.DEF_FLAT, StatVariant.DEF] as const
-const MAIN_STAT_VARIANTS_ROW2 = [StatVariant.SPD, StatVariant.RES, StatVariant.ACC, StatVariant.CR, StatVariant.CDMG] as const
 // Factory builder defaults used for resets and stored overrides.
 const MULTI_VALUE_SENTINEL = '__multi__mixed__'
 const MIN_REQUIRED_ROLL_OPTIONS = [0, 1, 2, 3, 4, 5] as const
@@ -3971,7 +3969,7 @@ const maxLevelValue = multiEditActive
             {(() => {
               const baseMainSelected = (((cfg as (BuilderConfig & { mainStatsV?: number[] })).mainStatsV ?? []).length > 0)
               const hasMainSelection = multiEditActive && multiSummary
-                ? [...MAIN_STAT_VARIANTS_ROW1, ...MAIN_STAT_VARIANTS_ROW2].some((variant) => resolveMainStatTriState(variant) !== 'none')
+                ? [...STAT_VARIANTS_PRIORITY_ROW1, ...STAT_VARIANTS_PRIORITY_ROW2].some((variant) => resolveMainStatTriState(variant) !== 'none')
                 : baseMainSelected
               return hasMainSelection
                 ? (
@@ -3999,7 +3997,7 @@ const maxLevelValue = multiEditActive
               }
               return (
                 <>
-                  {/* Row 1: HP, HP%, ATK, ATK%, DEF, DEF% */}
+                  {/* Row 1: SPD, CR%, CDMG%, ACC, RES */}
                   <ToggleButtonGroup
                     size="small"
                     value={value}
@@ -4028,7 +4026,7 @@ const maxLevelValue = multiEditActive
                       },
                     }}
                   >
-                    {MAIN_STAT_VARIANTS_ROW1.map((variant) => {
+                    {STAT_VARIANTS_PRIORITY_ROW1.map((variant) => {
                       const state = resolveMainStatTriState(variant)
                       return (
                         <ToggleButton
@@ -4056,7 +4054,7 @@ const maxLevelValue = multiEditActive
                       )
                     })}
                   </ToggleButtonGroup>
-                  {/* Row 2: SPD, RES, ACC, CR%, CDMG% */}
+                  {/* Row 2: HP, HP%, ATK, ATK%, DEF, DEF% */}
                   <ToggleButtonGroup
                     size="small"
                     value={value}
@@ -4085,7 +4083,7 @@ const maxLevelValue = multiEditActive
                       },
                     }}
                   >
-                    {MAIN_STAT_VARIANTS_ROW2.map((variant) => {
+                    {STAT_VARIANTS_PRIORITY_ROW2.map((variant) => {
                       const state = resolveMainStatTriState(variant)
                       return (
                         <ToggleButton
@@ -5280,32 +5278,32 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
               }
               const toggleGroupContent = (
                 <>
-                  {/* Row 1: HP, HP%, ATK, ATK%, DEF, DEF% */}
+                  {/* Row 1: SPD, CR%, CDMG%, ACC, RES */}
                   <ToggleButtonGroup
                     size="small"
                     value={value}
                     onChange={() => {}}
                     sx={substatToggleGroupSx}
                   >
-                    {renderSubstatToggle(StatVariant.HP_FLAT)}
-                    {renderSubstatToggle(StatVariant.HP)}
-                    {renderSubstatToggle(StatVariant.ATK_FLAT)}
-                    {renderSubstatToggle(StatVariant.ATK)}
-                    {renderSubstatToggle(StatVariant.DEF_FLAT)}
-                    {renderSubstatToggle(StatVariant.DEF)}
+                    {STAT_VARIANTS_PRIORITY_ROW1.map((variant) => {
+                      const dataTourId = variant === StatVariant.SPD
+                        ? 'builder.substat.spd'
+                        : variant === StatVariant.CR
+                          ? 'builder.substat.cr'
+                          : variant === StatVariant.CDMG
+                            ? 'builder.substat.cdmg'
+                            : undefined
+                      return renderSubstatToggle(variant, dataTourId ? { dataTourId } : undefined)
+                    })}
                   </ToggleButtonGroup>
-                  {/* Row 2: SPD, RES, ACC, CR%, CDMG% */}
+                  {/* Row 2: HP, HP%, ATK, ATK%, DEF, DEF% */}
                   <ToggleButtonGroup
                     size="small"
                     value={value}
                     onChange={() => {}}
                     sx={substatToggleGroupSx}
                   >
-                    {renderSubstatToggle(StatVariant.SPD, { dataTourId: 'builder.substat.spd' })}
-                    {renderSubstatToggle(StatVariant.RES)}
-                    {renderSubstatToggle(StatVariant.ACC)}
-                    {renderSubstatToggle(StatVariant.CR, { dataTourId: 'builder.substat.cr' })}
-                    {renderSubstatToggle(StatVariant.CDMG, { dataTourId: 'builder.substat.cdmg' })}
+                    {STAT_VARIANTS_PRIORITY_ROW2.map((variant) => renderSubstatToggle(variant))}
                   </ToggleButtonGroup>
                 </>
               )

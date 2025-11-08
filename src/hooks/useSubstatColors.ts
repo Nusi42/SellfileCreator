@@ -6,7 +6,7 @@
  */
 import { useCallback, useState } from 'react'
 import { COLORS_STORAGE_KEY_V6 } from '../lib/constants'
-import { StatVariant, DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT, DEFAULT_SUBSTAT_COLORS_BG_BY_VARIANT } from '../lib/types'
+import { DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT, DEFAULT_SUBSTAT_COLORS_BG_BY_VARIANT, STAT_VARIANTS_PRIORITY } from '../lib/types'
 
 type ColorMap = Record<number, { fg: string; bg: string }>
 
@@ -14,12 +14,7 @@ const DEFAULT_ALPHA_HEX = Math.round(0.25 * 255).toString(16).padStart(2, '0').t
 
 export function defaultSubstatColorMapV6(): ColorMap {
   const base: ColorMap = {}
-  for (const vk of [
-    StatVariant.HP, StatVariant.HP_FLAT,
-    StatVariant.ATK, StatVariant.ATK_FLAT,
-    StatVariant.DEF, StatVariant.DEF_FLAT,
-    StatVariant.SPD, StatVariant.RES, StatVariant.ACC, StatVariant.CR, StatVariant.CDMG,
-  ]) {
+  for (const vk of STAT_VARIANTS_PRIORITY) {
     base[vk] = {
       fg: DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[vk] ?? '#90CAF9',
       bg: (() => {

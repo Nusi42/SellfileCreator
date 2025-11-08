@@ -1,7 +1,7 @@
 import type { HistoryEntryDescriptor } from '../hooks/useHsfcHistory'
 import type { SubstatTargetTable, Star } from '../lib/hsfBuilder'
 import { defaultSubstatTargets } from '../lib/hsfBuilder'
-import { StatVariant, statVariantI18nKey } from '../lib/types'
+import { statVariantI18nKey, STAT_VARIANTS_PRIORITY } from '../lib/types'
 import type { TranslateFn } from './builderUpdateDescriptor'
 
 type SubstatTargetsDescriptorMode = 'edit' | 'reset' | 'import'
@@ -16,19 +16,7 @@ type DescribeSubstatTargetsChangeParams = {
 
 const DEFAULT_SUBSTAT_TARGETS = defaultSubstatTargets()
 
-const SUBSTAT_TARGET_VARIANTS: readonly StatVariant[] = [
-  StatVariant.HP_FLAT,
-  StatVariant.HP,
-  StatVariant.ATK_FLAT,
-  StatVariant.ATK,
-  StatVariant.DEF_FLAT,
-  StatVariant.DEF,
-  StatVariant.SPD,
-  StatVariant.RES,
-  StatVariant.ACC,
-  StatVariant.CR,
-  StatVariant.CDMG,
-]
+const SUBSTAT_TARGET_VARIANTS = STAT_VARIANTS_PRIORITY
 
 const VARIANT_LABEL_KEYS: Record<number, ReturnType<typeof statVariantI18nKey>> = SUBSTAT_TARGET_VARIANTS
   .reduce<Record<number, ReturnType<typeof statVariantI18nKey>>>((acc, variant) => {
