@@ -37,6 +37,7 @@ import { createRuleTesterMath, entriesInOrder, fingerprintRuleTesterItem, mainOp
 import type { TesterPreviewMatch } from '../../types/testerPreview'
 import { TesterSummaryLabel } from '../TesterSummaryLabel'
 import { TesterRuleReferenceChip } from '../TesterRuleReferenceChip'
+import EllipsisTooltip from '../EllipsisTooltip'
 
 type TesterSourceCategory = 'manual' | 'inventory' | 'collection' | 'vault' | 'inbox'
 type TesterSourceCountMap = Record<TesterSourceCategory, number>
@@ -1501,24 +1502,73 @@ export default function RuleTesterDialog({
         >
           {deletableSources.map((section) => {
             const count = sourceCounts[section.key]
-            return (
+            const buttonLabel = `${section.label}: ${count}`
+            if (import.meta.env.DEV) {
+              console.log(
+                `[tester-delete-button] key=${section.key} count=${count} labelLength=${buttonLabel.length} label="${buttonLabel}"`
+              )
+            }
+            const disabled = count === 0
+            const buttonNode = (
               <Button
-                key={section.key}
                 size="small"
                 variant="outlined"
                 color="error"
                 endIcon={<DeleteIcon fontSize="small" />}
                 onClick={() => {
-                  if (count === 0) return
+                  if (disabled) return
                   setPendingDeleteSource(section.key)
                 }}
-                disabled={count === 0}
+                disabled={disabled}
                 sx={{
                   minWidth: 160,
+                  flex: '0 1 160px',
+                  maxWidth: '100%',
+                  justifyContent: 'flex-start',
+                  gap: 0.75,
+                  overflow: 'hidden',
                 }}
               >
-                {`${section.label}: ${count}`}
+                <Box
+                  sx={{
+                    display: 'flex',
+                    flexGrow: 1,
+                    minWidth: 0,
+                    maxWidth: '100%',
+                    overflow: 'hidden',
+                  }}
+                >
+                  <EllipsisTooltip title={buttonLabel} wrap="block">
+                    <Typography
+                      component="span"
+                      variant="button"
+                      data-ellipsis-target
+                      noWrap
+                      sx={{
+                        display: 'block',
+                        flexGrow: 1,
+                        minWidth: 0,
+                        maxWidth: '100%',
+                        width: '100%',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        textAlign: 'left',
+                        whiteSpace: 'nowrap',
+                        textTransform: 'none',
+                      }}
+                    >
+                      {buttonLabel}
+                    </Typography>
+                  </EllipsisTooltip>
+                </Box>
               </Button>
+            )
+            return (
+              <Tooltip key={section.key} title={buttonLabel}>
+                <Box component="span" sx={{ display: 'inline-flex' }}>
+                  {buttonNode}
+                </Box>
+              </Tooltip>
             )
           })}
         </Box>
