@@ -22,6 +22,7 @@ const DEFAULT_COLLAPSED_SECTIONS: CollapsedSections = Object.freeze({
   rank: false,
   rarity: false,
   faction: false,
+  champions: false,
 }) as CollapsedSections
 
 export const cloneDefaultRulesFilterCollapsed = (): CollapsedSections => ({ ...DEFAULT_COLLAPSED_SECTIONS })

@@ -11,8 +11,9 @@ The additions below follow that exact structure so nothing shifts into a third c
    - `Result` — Keep/Sell + Matched toggles remain in the left cell. Explicit `Any` buttons go away; leaving a toggle off now means “Any”.
    - `Sets` — existing selector remains in the right cell.
 
-2. **Row 2 (full-width, new):**
-   - **Source** — single FormControl spanning the entire left column, hosting a 5×1 toggle button group (`Inventory`, `Collection`, `Vault`, `Inbox`, `Manual`). Multi-select; no selection = Any.
+2. **Row 2 (two cells, tester-only):**
+   - `Source` — compact FormControl with a 2-row, 3-column toggle button grid (`Inventory`, `Collection`, `Vault`, `Inbox`, `Manual`). Multi-select; no selection = Any.
+   - `Champions` — searchable multi-select listing every equipped champion detected in the tester rows (inventory/manual-only items are ignored). Hidden automatically when no champion IDs exist. Clearing the search or deselecting all chips returns to “Any champion”.
 
 3. **Row 3 (Mainstat section):**
    - Stat toggle grid unchanged.
@@ -50,17 +51,17 @@ The additions below follow that exact structure so nothing shifts into a third c
 │ │ [Keep][Sell]  │                          │ │ │ in tester)    │ select           │ │
 │ │ [Matched][No] │                          │ │ └───────────────┴───────────────────┘ │
 │ └───────────────┴──────────────────────────┘ │ ┌───────────────────────────────────┐ │
-│ ┌──────────────────────────────────────────┐ │ │ Slots (icons)                    │ │
-│ │ Source buttons: [Inv][Col][Va][Inbox][Manual] │ └───────────────────────────────────┘ │
-│ └──────────────────────────────────────────┘ │ ┌───────────────┬───────────────────┐ │
-│                                              │ │ Rank          │ Rarity           │ │
+│ ┌───────────────┬──────────────────────────┐ │ ┌───────────────────────────────────┐ │
+│ │ Source buttons│ Champions (search + multi) │ │ Slots (icons)                    │ │
+│ │ [Inv][Col][Va]│                            │ └───────────────────────────────────┘ │
+│ │ [Inbox][Manual]                           │ │ ┌───────────────┬───────────────────┐ │
+│ └───────────────┴──────────────────────────┘ │ │ Rank          │ Rarity           │ │
 │                                              │ │ [1-3][4][5][6] │ [CU][3][4][5][6] │ │
 │ ┌──────────────────────────────────────────┐ │ └───────────────┴───────────────────┘ │
 │ │ Mainstat                                 │ │ ┌───────────────────────────────────┐ │
 │ │ helper chips: [Chaos Any/No/Rerolled]     │ │ │ Ascension Filter                 │ │
 │ └──────────────────────────────────────────┘ │ │ [0★][1★][2★][3★][4★][5★][6★]    │ │
-│ ┌──────────────────────────────────────────┐ │ │ Stats multi-select dropdown      │ │
-│ │ Substats (grid + drawer)                 │ │ └───────────────────────────────────┘ │
+│ │ Substats (grid + drawer)                 │ │ │ Stats multi-select dropdown      │ │
 │ │ helper chips: [Match Any/All][Glyph Any/On/Selected/Off]                          │
 │ └──────────────────────────────────────────┘ │                                       │
 │ ┌──────────────────────────────────────────┐ │                                       │
@@ -71,7 +72,8 @@ The additions below follow that exact structure so nothing shifts into a third c
 
 ## Additional Behavior Notes
 - All new blocks use the same `FormControl` + `FormLabel` + `Collapse` skeleton so padding and responsiveness match the existing layout.
-- “No selection = Any” applies uniformly to Keep/Sell, Matched, Source chips, roll-count chips, and the condensed Rank/Rarity buttons.
+- “No selection = Any” applies uniformly to Keep/Sell, Matched, Source chips, roll-count chips, condensed Rank/Rarity buttons, and the Champions picker.
+- The Champions selector hides entirely when no tester rows carry an equipped champion ID, keeping the Source row compact for manual-only sessions.
 - The Glyphs helper now cycles through `Any → On → Selected → Off`; `Selected` demands that every chosen substat is present and glyphed before a tester row is shown.
 - The Source/Reroll row reuses the same internal 2-column grid as the current `Result/Sets` row, so column gutters and breakpoints stay identical.
 - Exact-level slider only renders while `mode === 'tester'`; when switching back to the rules table the component reinstates the ToggleButtonGroup without altering layout height.

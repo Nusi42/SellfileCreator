@@ -294,3 +294,19 @@ test('filterTesterItems filters by ascension stars and stats', () => {
   assert.equal(result.items.length, 1)
   assert.equal(result.items[0]?.artifact.ascension?.variant, StatVariant.SPD)
 })
+
+test('filterTesterItems filters by champion selection', () => {
+  const championArtifact = makeArtifact({ equippedToChampionId: 321 })
+  const inventoryArtifact = makeArtifact({ equippedToChampionId: null })
+  const rows: TesterFilterRow[] = [
+    { artifact: championArtifact, match: null },
+    { artifact: inventoryArtifact, match: null },
+  ]
+  const state: RulesFilterState = {
+    ...DEFAULT_RULES_FILTER_STATE,
+    testerChampions: { selected: [321] },
+  }
+  const result = filterTesterItems(rows, state)
+  assert.equal(result.items.length, 1)
+  assert.equal(result.items[0]?.artifact.equippedToChampionId, 321)
+})

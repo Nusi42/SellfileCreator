@@ -58,6 +58,7 @@ export interface RulesFilterState {
   testerChaos?: { mode: TesterChaosFilterMode }
   testerGlyphs?: { mode: TesterGlyphFilterMode }
   testerAscension?: { stars: number[]; stats: StatVariant[] }
+  testerChampions?: { selected: number[] }
 }
 
 export const DEFAULT_RULES_FILTER_STATE: RulesFilterState = {
@@ -76,6 +77,7 @@ export const DEFAULT_RULES_FILTER_STATE: RulesFilterState = {
   testerChaos: { mode: 'any' },
   testerGlyphs: { mode: 'any' },
   testerAscension: { stars: [], stats: [] },
+  testerChampions: { selected: [] },
 }
 
 // Back-compat helpers: accept legacy range shapes (min/max) if present
@@ -95,7 +97,8 @@ export function isRulesFilterActive(f: RulesFilterState): boolean {
   const l = (f.testerChaos?.mode ?? 'any') !== 'any'
   const m = (f.testerGlyphs?.mode ?? 'any') !== 'any'
   const n = ((f.testerAscension?.stars?.length ?? 0) > 0) || ((f.testerAscension?.stats?.length ?? 0) > 0)
-  return ra || tr || a || b || c || d || e || g || h || i || j || k || l || m || n
+  const o = (f.testerChampions?.selected?.length ?? 0) > 0
+  return ra || tr || a || b || c || d || e || g || h || i || j || k || l || m || n || o
 }
 
 // Coverage helpers for Rank and Rarity codes (map rule code -> set of underlying values 1..6).
@@ -388,6 +391,7 @@ export function filterTesterItems<T extends TesterFilterRow>(
   const selectedMainVariants = new Set((f.main?.selected ?? []).map(Number))
   const selectedSubVariants = new Set((f.sub?.selected ?? []).map(Number))
   const selectedFactions = new Set((f.faction?.selected ?? []).map(Number))
+  const selectedChampionIds = new Set((f.testerChampions?.selected ?? []).map(Number))
 
   const subMode = f.sub?.mode ?? 'all'
   const subWildcardMode = f.sub?.wildcardMode ?? 'include'
@@ -546,6 +550,11 @@ export function filterTesterItems<T extends TesterFilterRow>(
     if (selectedSources.size > 0) {
       const category = determineTesterSourceCategory(artifact)
       if (!selectedSources.has(category)) continue
+    }
+
+    if (selectedChampionIds.size > 0) {
+      const championId = artifact.equippedToChampionId
+      if (championId == null || !selectedChampionIds.has(Number(championId))) continue
     }
 
     if (chaosMode === 'notRerolled') {
