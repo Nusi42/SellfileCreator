@@ -1,6 +1,6 @@
 import React from 'react'
 import { Box, Button, Chip, Stack, Tooltip, ToggleButton, ToggleButtonGroup, Typography, Menu, MenuItem } from '@mui/material'
-import { alpha } from '@mui/material/styles'
+import { alpha, type Theme } from '@mui/material/styles'
 import TuneIcon from '@mui/icons-material/Tune'
 import {
   ELLIPSIS_TEXT_SX,
@@ -67,6 +67,10 @@ export default function PreviewHeaderActions(props: {
   onChangePreviewMode: (mode: 'rules' | 'tester') => void
   testerCount?: number
   testerFilteredCount?: number
+  gearDbCommandError?: string | null
+  onClearGearDbCommandError?: () => void
+  gearDbCommandSuccess?: string | null
+  onClearGearDbCommandSuccess?: () => void
 }) {
   const {
     mergedCount,
@@ -97,6 +101,10 @@ export default function PreviewHeaderActions(props: {
     testerCount,
     testerFilteredCount,
     testerBuilding = false,
+    gearDbCommandError,
+    onClearGearDbCommandError,
+    gearDbCommandSuccess,
+    onClearGearDbCommandSuccess,
   } = props
   const handleSelectBaseFile = React.useCallback(async (file: File) => {
     if (onSelectGearDb && isGearDbFilename(file.name)) {
@@ -233,6 +241,28 @@ export default function PreviewHeaderActions(props: {
     previousHighlightRef.current = null
     setFinalSellHighlightIdx(null)
   }, [clearHighlightClearTimeout, clearHighlightLoopTimeout])
+
+  const statusBadgeSx = React.useCallback((paletteKey: 'warning' | 'success') => (theme: Theme) => ({
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    minWidth: 18,
+    height: 18,
+    borderRadius: '50%',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    boxShadow: theme.shadows[2],
+    backgroundColor: theme.palette[paletteKey].main,
+    color: theme.palette.getContrastText(theme.palette[paletteKey].main),
+    border: `2px solid ${theme.palette.background.paper}`,
+    fontWeight: theme.typography.fontWeightBold ?? 600,
+    fontSize: theme.typography.pxToRem ? theme.typography.pxToRem(12) : '0.75rem',
+    lineHeight: 1,
+    cursor: 'help',
+    zIndex: 1,
+    padding: 0,
+  }), [])
 
   const playHighlightOnce = React.useCallback(() => {
     if (fsEnabled || !hoverActiveRef.current) return
@@ -505,37 +535,57 @@ export default function PreviewHeaderActions(props: {
               sx={{ width: CLEAR_ICON_BUTTON_SIZE_PX, height: CLEAR_ICON_BUTTON_SIZE_PX, flexShrink: 0 }}
             />
           ) : null}
-          <Tooltip
-            title={(
-              <Box component="span">
-                {t('loadSellfile')}
-                <br />
-                {t('optionalLoadSellfile')}
-              </Box>
-            )}
-          >
-            <FilePickerButton
-              label={t('loadSellfile')}
-              accept={ACCEPT_HSF}
-              onSelect={handleSelectBaseFile}
-              buttonProps={{
-                sx: {
-                  minWidth: SELLFILE_BUTTON_HEIGHT_PX,
-                  width: SELLFILE_BUTTON_HEIGHT_PX,
-                  height: SELLFILE_BUTTON_HEIGHT_PX,
-                  minHeight: SELLFILE_BUTTON_HEIGHT_PX,
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  p: 0,
-                  flexShrink: 0,
-                },
-                'aria-label': t('loadSellfile'),
-              }}
+          <Box sx={{ position: 'relative', display: 'inline-flex', flexShrink: 0 }}>
+            <Tooltip
+              title={(
+                <Box component="span">
+                  {t('loadSellfile')}
+                  <br />
+                  {t('optionalLoadSellfile')}
+                </Box>
+              )}
             >
-              <UploadFileIcon fontSize="small" />
-            </FilePickerButton>
-          </Tooltip>
+              <FilePickerButton
+                label={t('loadSellfile')}
+                accept={ACCEPT_HSF}
+                onSelect={handleSelectBaseFile}
+                buttonProps={{
+                  sx: {
+                    minWidth: SELLFILE_BUTTON_HEIGHT_PX,
+                    width: SELLFILE_BUTTON_HEIGHT_PX,
+                    height: SELLFILE_BUTTON_HEIGHT_PX,
+                    minHeight: SELLFILE_BUTTON_HEIGHT_PX,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    p: 0,
+                    flexShrink: 0,
+                  },
+                  'aria-label': t('loadSellfile'),
+                }}
+              >
+                <UploadFileIcon fontSize="small" />
+              </FilePickerButton>
+            </Tooltip>
+            {gearDbCommandError ? (
+              <Tooltip
+                title={gearDbCommandError}
+                placement="left"
+                onClose={() => { onClearGearDbCommandError?.() }}
+              >
+                <Box component="span" sx={statusBadgeSx('warning')}>!</Box>
+              </Tooltip>
+            ) : null}
+            {!gearDbCommandError && gearDbCommandSuccess ? (
+              <Tooltip
+                title={gearDbCommandSuccess}
+                placement="left"
+                onClose={() => { onClearGearDbCommandSuccess?.() }}
+              >
+                <Box component="span" sx={statusBadgeSx('success')}>{'✓'}</Box>
+              </Tooltip>
+            ) : null}
+          </Box>
           <Tooltip title={exportTooltip || undefined}>
             <DirtyBadge
               active={hsfDirty}

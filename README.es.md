@@ -200,6 +200,7 @@ Ejemplo: Suma de tiradas con comodines (2 substats)
 - Editar y probar: Abre la app y arrastra tu `*.l10n.json` editado para aplicarlo de inmediato en la sesión actual (no se necesita ni se puede instalar nada).
 - Enviar correcciones: Envía el JSON actualizado por mensaje de Discord. Mantén las claves sin cambios; las claves que falten volverán al inglés.
 - Idiomas integrados: Todos los idiomas incluidos se compilan en el único HTML, por lo que la app funciona completamente sin conexión. Tus correcciones se integrarán en la siguiente versión.
+- Vigila la base de datos de RSL Helper: ejecuta `scripts/run-sample-server.ps1 -WatchGearDb` (o pasa `-GearDbPath <archivo>`) para observar `%APPDATA%\\RslHelper\\Config`. Cada vez que la `.db` cambie, el servidor de ejemplo la envía al Rule Tester que abrió y, si hay varias bases, te preguntará cuál seguir.
 
 ## Agradecimientos
 

@@ -178,6 +178,37 @@ function analyzeConfigKeys(previous: readonly string[], next: readonly string[])
   return { mapping, removed, identical, reorderOnly }
 }
 
+const DEFAULT_GEAR_DB_FILENAME = 'RslHelper.db'
+
+const createGearDbFileFromBase64 = (name: string, base64?: string | null): File | null => {
+  const atobFn = typeof globalThis !== 'undefined' && typeof globalThis.atob === 'function'
+    ? globalThis.atob.bind(globalThis)
+    : null
+  if (!atobFn || typeof File !== 'function') {
+    return null
+  }
+  const sanitized = (base64 ?? '').replace(/[\r\n\s]+/g, '')
+  if (!sanitized) {
+    return null
+  }
+  let binary: string
+  try {
+    binary = atobFn(sanitized)
+  } catch {
+    return null
+  }
+  const bytes = new Uint8Array(binary.length)
+  for (let i = 0; i < binary.length; i += 1) {
+    bytes[i] = binary.charCodeAt(i)
+  }
+  const fileName = name && name.trim().length > 0 ? name : DEFAULT_GEAR_DB_FILENAME
+  try {
+    return new File([bytes], fileName, { type: 'application/octet-stream' })
+  } catch {
+    return null
+  }
+}
+
 function remapRulesForIndex(rules: readonly HsfRuleWithCfg[], cfgIdx: number): HsfRuleWithCfg[] {
   for (const rule of rules) {
     if (rule.__cfgIdx !== cfgIdx) {
@@ -1059,6 +1090,18 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const handleFileFormatErrorClose = useCallback(() => {
     setFileFormatError(null)
   }, [])
+  const [gearDbCommandError, setGearDbCommandError] = useState<string | null>(null)
+  const clearGearDbCommandError = useCallback(() => { setGearDbCommandError(null) }, [])
+  const [gearDbCommandSuccess, setGearDbCommandSuccess] = useState<string | null>(null)
+  const clearGearDbCommandSuccess = useCallback(() => { setGearDbCommandSuccess(null) }, [])
+  const formatFileFormatErrorMessage = useCallback((fileName?: string | null) => {
+    const trimmed = (fileName ?? '').trim()
+    if (!trimmed) {
+      return t('fileFormatErrorMessage', { fileName: t('fileFormatErrorUnknownName') })
+    }
+    const truncated = trimmed.length > 160 ? `${trimmed.slice(0, 157)}…` : trimmed
+    return t('fileFormatErrorMessage', { fileName: `“${truncated}”` })
+  }, [t])
   const [previewMode, setPreviewMode] = useState<'rules' | 'tester'>(() => {
     if (typeof window === 'undefined') return 'rules'
     try {
@@ -1567,7 +1610,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   }, [restoreDialogPending])
   // Show the autosave restore prompt only after the README dialog is dismissed.
   const restoreDlgOpen = !tutorial.helpOpen && (restoreDialogPending || Boolean(testerRestoreDraft))
-  const handleGearDbImport = useCallback(async (file: File) => {
+  const handleGearDbImport = useCallback(async (file: File, options?: { source?: 'manual' | 'command' }) => {
+    const source = options?.source ?? 'manual'
     if (gearImportBusy) return
     if (tutorial.helpOpen) {
       tutorial.setHelpOpen(false)
@@ -1577,12 +1621,20 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     if (restoreDialogPending) dismissRestore()
     if (confirmClearOpen || confirmDeleteIdx !== null || confirmDeleteTargets !== null) return
     flushTransientUi()
+    if (source === 'command') {
+      setGearDbCommandError(null)
+      setGearDbCommandSuccess(null)
+    }
     setGearImportBusy(true)
     try {
       const { artifacts, inboxArtifacts } = await importGearDatabaseFromFile(file)
       const combined = [...artifacts, ...inboxArtifacts]
       if (combined.length === 0) {
-        showToast(t('toastGearDbImportEmpty'), { severity: 'error', icon: <ErrorOutlineIcon fontSize="inherit" /> })
+        if (source === 'command') {
+          setGearDbCommandError(t('toastGearDbImportEmpty'))
+        } else {
+          showToast(t('toastGearDbImportEmpty'), { severity: 'error', icon: <ErrorOutlineIcon fontSize="inherit" /> })
+        }
         return
       }
       setPreviewMode('tester')
@@ -1593,12 +1645,22 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       const message = inboxCount > 0
         ? t('toastGearDbImportedWithInbox', { count: totalCount, inboxCount })
         : t('toastGearDbImported', { count: totalCount })
-      showToast(message, { icon: <StorageIcon fontSize="inherit" /> })
+      if (source === 'command') {
+        setGearDbCommandError(null)
+        setGearDbCommandSuccess(message)
+      } else {
+        showToast(message, { icon: <StorageIcon fontSize="inherit" /> })
+      }
     } catch (err) {
       if (import.meta.env.DEV) {
         console.error('Failed to import gear database', err)
       }
-      showFileFormatError(file.name)
+      if (source === 'command') {
+        setGearDbCommandError(formatFileFormatErrorMessage(file.name))
+        setGearDbCommandSuccess(null)
+      } else {
+        showFileFormatError(file.name)
+      }
     } finally {
       setGearImportBusy(false)
     }
@@ -1616,6 +1678,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     showToast,
     showFileFormatError,
     t,
+    formatFileFormatErrorMessage,
+    setGearDbCommandError,
+    setGearDbCommandSuccess,
   ])
 
   // Global file-drag overlay and file routing handled by hook
@@ -2229,7 +2294,59 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         setPendingTesterItems((prev) => [...prev, ...converted])
       }
     }
-  }, [focusRuleByIndex, setTesterOpen])
+    if (cmd.kind === 'gearDbFile') {
+      const queueImport = (file: File | null) => {
+        if (!file) {
+          if (import.meta.env.DEV) {
+            console.error('Failed to decode gear DB payload from external command.')
+          }
+          return
+        }
+        void handleGearDbImport(file, { source: 'command' })
+      }
+
+      const downloadPath = cmd.downloadPath?.trim()
+      if (downloadPath) {
+        const resolveDownloadUrl = (): string | null => {
+          try {
+            if (/^https?:\/\//i.test(downloadPath)) {
+              return downloadPath
+            }
+            const base = pushEndpoint ?? ''
+            if (!base) return null
+            const baseUrl = base.endsWith('/') ? base : `${base}/`
+            const relative = downloadPath.startsWith('/') ? downloadPath.slice(1) : downloadPath
+            return new URL(relative, baseUrl).toString()
+          } catch {
+            return null
+          }
+        }
+        const url = resolveDownloadUrl()
+        if (url) {
+          void (async () => {
+            try {
+              const response = await fetch(url, { cache: 'no-store' })
+              if (!response.ok) throw new Error(`HTTP ${response.status}`)
+              const blob = await response.blob()
+              const fileName = cmd.name && cmd.name.trim().length > 0 ? cmd.name : DEFAULT_GEAR_DB_FILENAME
+              const file = new File([blob], fileName, { type: blob.type || 'application/octet-stream' })
+              await handleGearDbImport(file, { source: 'command' })
+            } catch (err) {
+              if (import.meta.env.DEV) {
+                console.error('Failed to download gear DB payload', err)
+              }
+              const fallbackFile = createGearDbFileFromBase64(cmd.name, cmd.base64)
+              queueImport(fallbackFile)
+            }
+          })()
+          return
+        }
+      }
+
+      const file = createGearDbFileFromBase64(cmd.name, cmd.base64)
+      queueImport(file)
+    }
+  }, [focusRuleByIndex, setTesterOpen, handleGearDbImport, pushEndpoint])
 
   useExternalCommands({
     pushEndpoint,
@@ -3160,6 +3277,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         onChangePreviewMode={setPreviewMode}
         testerCount={testerPreviewRows.length}
         testerFilteredCount={testerRowsForTable.length}
+        gearDbCommandError={gearDbCommandError}
+        onClearGearDbCommandError={clearGearDbCommandError}
+        gearDbCommandSuccess={gearDbCommandSuccess}
+        onClearGearDbCommandSuccess={clearGearDbCommandSuccess}
       />
           {filterOpen && (
           <RulesFilterPanel

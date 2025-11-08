@@ -199,6 +199,7 @@ Exemple : Somme des jets avec jokers (2 sous-stats)
 - Modifier & tester : Ouvrez l’app et déposez votre `*.l10n.json` modifié pour l’appliquer immédiatement à la session en cours (aucune installation nécessaire ni possible).
 - Envoyer des corrections : Transmettez le JSON mis à jour par message Discord. Ne changez pas les clés ; les clés manquantes repassent en anglais.
 - Langues intégrées : Toutes les langues livrées sont compilées dans l’unique fichier HTML, l’app fonctionne donc entièrement hors ligne. Vos corrections seront intégrées à la prochaine version.
+- Surveiller la base RSL Helper : lancez `scripts/run-sample-server.ps1 -WatchGearDb` (ou `-GearDbPath <fichier>`) pour observer `%APPDATA%\\RslHelper\\Config`. Chaque mise à jour de la `.db` est injectée dans le Rule Tester lancé par le script, et s’il existe plusieurs bases, l’outil vous demande laquelle suivre.
 
 ## Remerciements
 

@@ -199,6 +199,7 @@ Erken vs Geç
 - Düzenle ve test et: Uygulamayı açıp düzenlediğin `*.l10n.json` dosyasını üzerine sürükleyerek anlık oturumda hemen uygula (herhangi bir kurulum gerekmez veya yapılamaz).
 - Düzeltme gönder: Güncellenmiş JSON’u Discord mesajı olarak gönder. Anahtarları değiştirme; eksik anahtarlar İngilizceye geri döner.
 - Yerleşik diller: Gönderilen tüm diller tek HTML dosyasına derlenir, bu yüzden uygulama tamamen çevrimdışı çalışır. Düzeltmelerin bir sonraki sürüme eklenir.
+- RSL Helper veritabanını izle: `%APPDATA%\\RslHelper\\Config` yolunu takip etmek için `scripts/run-sample-server.ps1 -WatchGearDb` (veya `-GearDbPath <dosya>`) kullan. `.db` her güncellendiğinde örnek sunucu onu doğrudan başlattığı Rule Tester’a gönderir ve birden fazla dosya varsa hangisinin izleneceğini sorar.
 
 ## Teşekkürler
 

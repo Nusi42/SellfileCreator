@@ -25,6 +25,8 @@ $defaultParameters = [ordered]@{
     Port                = 4242
     AppRoot             = (Split-Path -Parent $PSScriptRoot)
     OutputPath          = (Join-Path $PSScriptRoot 'mock-export.hsf')
+    WatchGearDb         = $false
+    GearDbPath          = $null
     LaunchOnly          = $false
     OpenOnSave          = $false
     PauseBeforeUiReset  = $false
@@ -35,13 +37,15 @@ $canonicalNames = @{
     'port'               = 'Port'
     'approot'            = 'AppRoot'
     'outputpath'         = 'OutputPath'
+    'watchgeardb'        = 'WatchGearDb'
+    'geardbpath'         = 'GearDbPath'
     'launchonly'         = 'LaunchOnly'
     'openonsave'         = 'OpenOnSave'
     'pausebeforeuireset' = 'PauseBeforeUiReset'
     'skiprelaunch'       = 'SkipRelaunch'
 }
 
-$booleanParameters = @('LaunchOnly', 'OpenOnSave', 'PauseBeforeUiReset', 'SkipRelaunch')
+$booleanParameters = @('LaunchOnly', 'OpenOnSave', 'PauseBeforeUiReset', 'SkipRelaunch', 'WatchGearDb')
 
 $resolvedParameters = [ordered]@{}
 foreach ($entry in $defaultParameters.GetEnumerator()) {
@@ -206,6 +210,14 @@ if (-not $runningOnPwsh7) {
             'LaunchOnly'   { if ($entry.Value) { $null = $argumentList.Add('-LaunchOnly') } continue }
             'OpenOnSave'   { if ($entry.Value) { $null = $argumentList.Add('-OpenOnSave') } continue }
             'PauseBeforeUiReset' { if ($entry.Value) { $null = $argumentList.Add('-PauseBeforeUiReset') } continue }
+            'WatchGearDb' { if ($entry.Value) { $null = $argumentList.Add('-WatchGearDb') } continue }
+            'GearDbPath' {
+                if ($entry.Value) {
+                    $null = $argumentList.Add('-GearDbPath')
+                    $null = $argumentList.Add([string]$entry.Value)
+                }
+                continue
+            }
             default        { $null = $argumentList.Add('-' + $entry.Key); $null = $argumentList.Add([string]$entry.Value) }
         }
     }
@@ -223,6 +235,16 @@ try {
 #endregion
 
 Add-Type -AssemblyName System.Net.HttpListener -ErrorAction SilentlyContinue | Out-Null
+
+$script:GearDbDownloadStore = [ordered]@{
+    Lock       = New-Object object
+    Payloads   = New-Object 'System.Collections.Generic.Dictionary[string,byte[]]' ([System.StringComparer]::OrdinalIgnoreCase)
+    Queue      = New-Object 'System.Collections.Generic.Queue[string]'
+    NextId     = 1
+    MaxPayloads = 3
+}
+
+Set-Variable -Name 'GearDbDownloadPathRoot' -Option Constant -Value '/gear-db'
 
 #region === Protocol state (copy-worthy) ===
 # Everything in this region demonstrates the state the server keeps while
@@ -964,6 +986,41 @@ function Send-JsonResponse {
     Write-HttpLog -Direction Outbound -Message ("{0} application/json {1}" -f $StatusCode, $preview)
 }
 
+function Send-GearDbDownloadResponse {
+    param(
+        [System.Net.HttpListenerContext]$Context,
+        [string]$NormalizedPath
+    )
+
+    $response = $Context.Response
+    $segments = $NormalizedPath.Trim('/').Split('/', [System.StringSplitOptions]::RemoveEmptyEntries)
+    if ($segments.Length -lt 2) {
+        Send-TextResponse -Response $response -StatusCode 404 -Message 'Gear DB payload not found.'
+        return (New-HandleResult -Handled $true)
+    }
+
+    $identifier = $segments[1]
+    $bytes = Get-GearDbDownloadBytes -Identifier $identifier
+    if (-not $bytes) {
+        Send-TextResponse -Response $response -StatusCode 404 -Message 'Gear DB payload expired.'
+        return (New-HandleResult -Handled $true)
+    }
+
+    try {
+        $response.StatusCode = 200
+        $response.ContentType = 'application/octet-stream'
+        $response.ContentLength64 = $bytes.Length
+        Write-CorsHeaders -Response $response
+        $response.AddHeader('Cache-Control', 'no-store')
+        $response.OutputStream.Write($bytes, 0, $bytes.Length)
+    }
+    catch {
+        Write-ConsoleLog -Message ("Failed to send gear DB payload: {0}" -f $_) -Color DarkYellow
+    }
+
+    return (New-HandleResult -Handled $true)
+}
+
 function Read-JsonBody {
     # Parses the raw body exactly once. Caller decides which fields are relevant.
     param([System.Net.HttpListenerRequest]$Request)
@@ -1159,6 +1216,74 @@ function Add-ProtocolCommandEvent {
     Complete-PendingCommandPollsIfAny
 
     return $event
+}
+
+function Remove-ProtocolCommandEventsByType {
+    param([Parameter(Mandatory = $true)][string]$Type)
+
+    if ([string]::IsNullOrWhiteSpace($Type)) { return }
+    $protocol = $script:SellfileCreatorProtocolState
+    [System.Threading.Monitor]::Enter($protocol.QueueLock)
+    try {
+        for ($idx = $protocol.CommandQueue.Count - 1; $idx -ge 0; $idx--) {
+            $event = $protocol.CommandQueue[$idx]
+            if (-not $event) { continue }
+            $eventType = $event['type']
+            if (-not $eventType) { continue }
+            if ([string]::Equals([string]$eventType, $Type, [System.StringComparison]::OrdinalIgnoreCase)) {
+                $protocol.CommandQueue.RemoveAt($idx)
+            }
+        }
+    }
+    finally {
+        [System.Threading.Monitor]::Exit($protocol.QueueLock)
+    }
+}
+
+function Register-GearDbDownload {
+    param([byte[]]$Bytes)
+
+    if (-not $Bytes) { return $null }
+    $store = $script:GearDbDownloadStore
+    $downloadPath = $null
+
+    [System.Threading.Monitor]::Enter($store.Lock)
+    try {
+        $id = [string]$store.NextId
+        $store.NextId = $store.NextId + 1
+        $store.Payloads[$id] = $Bytes
+        $store.Queue.Enqueue($id)
+        while ($store.Queue.Count -gt $store.MaxPayloads) {
+            $expired = $store.Queue.Dequeue()
+            if ($expired) {
+                $store.Payloads.Remove($expired) | Out-Null
+            }
+        }
+        $downloadPath = "{0}/{1}" -f $GearDbDownloadPathRoot, $id
+    }
+    finally {
+        [System.Threading.Monitor]::Exit($store.Lock)
+    }
+
+    return $downloadPath
+}
+
+function Get-GearDbDownloadBytes {
+    param([string]$Identifier)
+
+    if ([string]::IsNullOrWhiteSpace($Identifier)) { return $null }
+    $store = $script:GearDbDownloadStore
+    $bytes = $null
+    [System.Threading.Monitor]::Enter($store.Lock)
+    try {
+        if ($store.Payloads.ContainsKey($Identifier)) {
+            $bytes = $store.Payloads[$Identifier]
+        }
+    }
+    finally {
+        [System.Threading.Monitor]::Exit($store.Lock)
+    }
+    return $bytes
 }
 #endregion
 
@@ -1416,6 +1541,9 @@ function Handle-ProtocolRequest {
         'GET' {
             if ($pathLower -eq $SellfileCreatorWebProtocolCommandsPath) {
                 return (Invoke-GetCommands -Context $Context)
+            }
+            if ($pathLower.StartsWith($GearDbDownloadPathRoot, [System.StringComparison]::Ordinal)) {
+                return (Send-GearDbDownloadResponse -Context $Context -NormalizedPath $pathLower)
             }
         }
         'PUT' {
@@ -1886,6 +2014,279 @@ function Handle-IncomingRequest {
 }
 #endregion
 
+#region === Gear DB watcher (optional) ===
+function Get-DefaultGearDbDirectory {
+    $appData = $env:APPDATA
+    if ([string]::IsNullOrWhiteSpace($appData)) {
+        try { $appData = [Environment]::GetFolderPath('ApplicationData') } catch { $appData = $null }
+    }
+    if ([string]::IsNullOrWhiteSpace($appData)) { return $null }
+    return (Join-Path $appData 'RslHelper\Config')
+}
+
+function Select-GearDbFileFromDirectory {
+    param([string]$Directory)
+
+    if (-not (Test-Path -LiteralPath $Directory)) {
+        Write-ConsoleLog -Message "Gear DB directory '$Directory' was not found." -Color DarkYellow
+        return $null
+    }
+
+    try {
+        $files = Get-ChildItem -LiteralPath $Directory -Filter '*.db' -File | Sort-Object LastWriteTime -Descending
+    }
+    catch {
+        Write-ConsoleLog -Message ("Failed to enumerate DB files under '{0}': {1}" -f $Directory, $_) -Color DarkYellow
+        return $null
+    }
+
+    if (-not $files -or $files.Count -eq 0) {
+        Write-ConsoleLog -Message ("No .db files were found under '{0}'." -f $Directory) -Color DarkYellow
+        return $null
+    }
+
+    if ($files.Count -eq 1) {
+        return $files[0].FullName
+    }
+
+    Write-ConsoleHeader -Message ("Multiple RSL Helper DB files found in {0}" -f $Directory) -Color Yellow
+    for ($idx = 0; $idx -lt $files.Count; $idx++) {
+        $file = $files[$idx]
+        $displayIndex = $idx + 1
+        $modified = $file.LastWriteTime.ToString('yyyy-MM-dd HH:mm:ss')
+        $sizeDisplay = '{0:N0} bytes' -f [long]$file.Length
+        Write-Host ("[{0}] {1} — {2}, modified {3}" -f $displayIndex, $file.Name, $sizeDisplay, $modified)
+    }
+
+    while ($true) {
+        $selection = Read-Host 'Select a DB file by number (Enter to cancel)'
+        if ([string]::IsNullOrWhiteSpace($selection)) {
+            Write-ConsoleLog -Message 'Gear DB watcher setup cancelled.' -Color DarkYellow
+            return $null
+        }
+
+        $parsed = 0
+        if ([int]::TryParse($selection, [ref]$parsed)) {
+            if ($parsed -ge 1 -and $parsed -le $files.Count) {
+                return $files[$parsed - 1].FullName
+            }
+        }
+
+        Write-ConsoleLog -Message 'Invalid selection. Please enter one of the listed numbers.' -Color DarkYellow
+    }
+}
+
+function Resolve-GearDbWatchPath {
+    param([string]$RequestedPath)
+
+    $candidate = $RequestedPath
+    if ([string]::IsNullOrWhiteSpace($candidate)) {
+        $candidate = Get-DefaultGearDbDirectory
+        if ([string]::IsNullOrWhiteSpace($candidate)) {
+            Write-ConsoleLog -Message 'Unable to determine %APPDATA% for the default RSL Helper path.' -Color DarkYellow
+            return $null
+        }
+        return Select-GearDbFileFromDirectory -Directory $candidate
+    }
+
+    $expanded = [Environment]::ExpandEnvironmentVariables($candidate)
+    if (Test-Path -LiteralPath $expanded) {
+        try { $item = Get-Item -LiteralPath $expanded -ErrorAction Stop } catch { $item = $null }
+        if ($item -and $item.PSIsContainer) {
+            return Select-GearDbFileFromDirectory -Directory $item.FullName
+        }
+        if ($item) {
+            return $item.FullName
+        }
+    }
+
+    if ($expanded.EndsWith('.db', [System.StringComparison]::OrdinalIgnoreCase)) {
+        $directory = Split-Path -Parent $expanded
+        if (-not (Test-Path -LiteralPath $directory)) {
+            Write-ConsoleLog -Message ("Directory '{0}' does not exist for gear DB path '{1}'." -f $directory, $expanded) -Color DarkYellow
+            return $null
+        }
+        return [System.IO.Path]::GetFullPath($expanded)
+    }
+
+    if (Test-Path -LiteralPath $expanded) {
+        try { return (Resolve-Path -LiteralPath $expanded).Path } catch { return $null }
+    }
+
+    Write-ConsoleLog -Message ("Gear DB path '{0}' was not found." -f $expanded) -Color DarkYellow
+    return $null
+}
+
+function New-GearDbWatchState {
+    param([string]$FullPath)
+
+    if ([string]::IsNullOrWhiteSpace($FullPath)) { return $null }
+    $directory = Split-Path -Parent $FullPath
+    if (-not $directory) {
+        Write-ConsoleLog -Message ("Unable to determine directory for gear DB path '{0}'." -f $FullPath) -Color DarkYellow
+        return $null
+    }
+    if (-not (Test-Path -LiteralPath $directory)) {
+        Write-ConsoleLog -Message ("Gear DB directory '{0}' does not exist." -f $directory) -Color DarkYellow
+        return $null
+    }
+
+    return [ordered]@{
+        FullPath            = [System.IO.Path]::GetFullPath($FullPath)
+        Directory           = $directory
+        FileName            = Split-Path -Leaf $FullPath
+        PollIntervalMs      = 2000
+        NextPollUtc         = [DateTime]::UtcNow.AddMilliseconds(-250)
+        LastSignature       = $null
+        MissingLogged       = $false
+        LastReadErrorLogged = $false
+        InvalidHeaderLogged = $false
+        WriteInProgressLogged = $false
+    }
+}
+
+function Read-FileBytesWithRetry {
+    param(
+        [Parameter(Mandatory = $true)][string]$Path,
+        [int]$Attempts = 8,
+        [int]$DelayMilliseconds = 250
+    )
+
+    $lastError = $null
+    for ($attempt = 0; $attempt -lt [Math]::Max(1, $Attempts); $attempt++) {
+        try {
+            $fileStream = [System.IO.File]::Open($Path, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, [System.IO.FileShare]::ReadWrite)
+            try {
+                $memory = New-Object System.IO.MemoryStream
+                try {
+                    $fileStream.CopyTo($memory)
+                    return $memory.ToArray()
+                }
+                finally {
+                    $memory.Dispose()
+                }
+            }
+            finally {
+                $fileStream.Dispose()
+            }
+        }
+        catch {
+            $lastError = $_
+            if ($DelayMilliseconds -gt 0) {
+                Start-Sleep -Milliseconds $DelayMilliseconds
+            }
+        }
+    }
+
+    if ($lastError) { throw $lastError }
+    throw "Failed to read file '$Path'."
+}
+
+function Test-IsSqliteDatabaseBytes {
+    param([byte[]]$Bytes)
+
+    if (-not $Bytes) { return $false }
+    if ($Bytes.Length -lt 16) { return $false }
+    try {
+        $header = [System.Text.Encoding]::ASCII.GetString($Bytes, 0, 15)
+    }
+    catch {
+        return $false
+    }
+    if ($header -ne 'SQLite format 3') { return $false }
+    return ($Bytes[15] -eq 0)
+}
+
+function Invoke-GearDbWatchTick {
+    param(
+        [System.Collections.IDictionary]$State
+    )
+
+    if (-not $State) { return }
+
+    $now = [DateTime]::UtcNow
+    if ($now -lt $State.NextPollUtc) { return }
+    $State.NextPollUtc = $now.AddMilliseconds($State.PollIntervalMs)
+
+    $fullPath = $State.FullPath
+    if (-not (Test-Path -LiteralPath $fullPath)) {
+        if (-not $State.MissingLogged) {
+            Write-ConsoleLog -Message ("Gear DB file '{0}' not found yet; waiting for it to be created." -f $State.FileName) -Color DarkYellow
+            $State.MissingLogged = $true
+        }
+        return
+    }
+
+    if ($State.MissingLogged) {
+        Write-ConsoleLog -Message ("Detected gear DB file '{0}'. Watching for changes." -f $State.FileName) -Color DarkGray
+        $State.MissingLogged = $false
+    }
+
+    $fileInfo = $null
+    try {
+        $fileInfo = Get-Item -LiteralPath $fullPath -ErrorAction Stop
+    }
+    catch {
+        if (-not $State.LastReadErrorLogged) {
+            Write-ConsoleLog -Message ("Unable to inspect gear DB '{0}': {1}" -f $State.FileName, $_) -Color DarkYellow
+            $State.LastReadErrorLogged = $true
+        }
+        return
+    }
+
+    $signature = '{0}:{1}' -f ([long]$fileInfo.Length), $fileInfo.LastWriteTimeUtc.Ticks
+    if ($State.LastSignature -eq $signature) { return }
+
+    $age = $now - $fileInfo.LastWriteTimeUtc
+    if ($age.TotalMilliseconds -lt 500) {
+        if (-not $State.WriteInProgressLogged) {
+            Write-ConsoleLog -Message ("Gear DB file '{0}' is still being written; waiting before reading." -f $State.FileName) -Color DarkGray
+            $State.WriteInProgressLogged = $true
+        }
+        return
+    }
+    $State.WriteInProgressLogged = $false
+
+    $bytes = $null
+    try {
+        $bytes = Read-FileBytesWithRetry -Path $fullPath
+    }
+    catch {
+        if (-not $State.LastReadErrorLogged) {
+            Write-ConsoleLog -Message ("Gear DB watcher could not read '{0}': {1}" -f $State.FileName, $_) -Color DarkYellow
+            $State.LastReadErrorLogged = $true
+        }
+        return
+    }
+
+    $State.LastReadErrorLogged = $false
+
+    if (-not (Test-IsSqliteDatabaseBytes -Bytes $bytes)) {
+        if (-not $State.InvalidHeaderLogged) {
+            Write-ConsoleLog -Message ("Gear DB watcher read an incomplete file for '{0}'; waiting for the write to finish." -f $State.FileName) -Color DarkYellow
+            $State.InvalidHeaderLogged = $true
+        }
+        return
+    }
+    $State.InvalidHeaderLogged = $false
+    Remove-ProtocolCommandEventsByType -Type 'gearDbFile'
+
+    $downloadPath = Register-GearDbDownload -Bytes $bytes
+    if (-not $downloadPath) { return }
+
+    $payload = [ordered]@{
+        fileName     = $State.FileName
+        size         = [long]$bytes.Length
+        updated      = $fileInfo.LastWriteTimeUtc.ToString('o')
+        downloadPath = $downloadPath
+    }
+
+    Add-ProtocolCommandEvent -Type 'gearDbFile' -Data $payload | Out-Null
+    $State.LastSignature = $signature
+    Write-ConsoleLog -Message ("Queued gear DB update from {0} ({1:N0} bytes)" -f $State.FileName, [long]$bytes.Length) -Color Cyan
+}
+#endregion
+
 #region === Runtime setup & listener loop ===
 $indexPathResolved = Resolve-AppEntryPath -Root $AppRoot
 $endpoint = "http://localhost:$Port/"
@@ -1901,6 +2302,21 @@ Reset-ConsoleUi
 Write-ConsoleHeader -Message "Launching Sellfile Creator with endpoint $endpoint" -Color Cyan
 Write-ConsoleHeader -Message "Launch URL: $launchUrl" -Color DarkGray
 Write-ProtocolQuickReference
+
+$gearDbWatchState = $null
+$resolvedGearDbPath = $null
+if ($WatchGearDb -or -not [string]::IsNullOrWhiteSpace($GearDbPath)) {
+    $resolvedGearDbPath = Resolve-GearDbWatchPath -RequestedPath $GearDbPath
+    if ($resolvedGearDbPath) {
+        $gearDbWatchState = New-GearDbWatchState -FullPath $resolvedGearDbPath
+        if ($gearDbWatchState) {
+            $dbDisplay = Get-RelativePathDisplay -Path $gearDbWatchState.FullPath
+            Write-ConsoleHeader -Message ("Watching RSL Helper DB: {0}" -f $dbDisplay) -Color Cyan
+        }
+    } else {
+        Write-ConsoleLog -Message 'Gear DB watcher disabled (no valid path).' -Color DarkYellow
+    }
+}
 
 if (-not (Open-LaunchUrl -Url $launchUrl)) {
     Write-Error "Failed to launch $launchUrl"
@@ -1958,6 +2374,10 @@ try {
     while (-not $stopSource.IsCancellationRequested) {
         Poll-ShortcutInput -TokenSource $stopSource | Out-Null
         if ($stopSource.IsCancellationRequested) { break }
+
+        if ($gearDbWatchState) {
+            Invoke-GearDbWatchTick -State $gearDbWatchState
+        }
 
         # Periodic housekeeping: expire long-poll requests so the UI reconnects.
         $expiredPolls = @()

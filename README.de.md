@@ -199,6 +199,7 @@ Beispiel: Rollen-Summe mit Wildcards (2 Substats)
 - Bearbeiten & Testen: Öffne die App und ziehe deine bearbeitete `*.l10n.json` darauf, um sie sofort für die aktuelle Sitzung zu verwenden (keine Installation nötig oder möglich).
 - Fixes einreichen: Sende die aktualisierte JSON per Discord-Nachricht. Lass die Keys unverändert; fehlende Keys fallen auf Englisch zurück.
 - Eingebaute Sprachen: Alle ausgelieferten Sprachen sind in die einzelne HTML-Datei eingebettet, damit die App offline funktioniert. Deine Anpassungen werden im nächsten Release übernommen.
+- RSL-Helper-DB überwachen: Starte `scripts/run-sample-server.ps1 -WatchGearDb` (oder `-GearDbPath <Datei>`), um `%APPDATA%\\RslHelper\\Config` zu beobachten. Jede Aktualisierung der `.db` schiebt der Sample-Server direkt in den vom Skript gestarteten Rule Tester und fragt nach, falls mehrere Datenbanken vorhanden sind.
 
 ## Danksagungen
 

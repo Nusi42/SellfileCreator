@@ -38,6 +38,7 @@ const createCaseInsensitiveLookup = (record: UnknownRecord): CaseInsensitiveLook
 export type ExternalCommand =
   | { kind: 'selectRule'; rowNumber: number | null }
   | { kind: 'testerItems'; items: ExternalTesterArtifact[]; openTester: boolean }
+  | { kind: 'gearDbFile'; name: string; base64?: string; downloadPath?: string }
 
 export type ExternalTesterArtifact = {
   Slot?: unknown
@@ -191,6 +192,20 @@ export function normalizeExternalCommand(raw: unknown): ExternalCommand | null {
       kind: 'testerItems',
       items,
       openTester,
+    }
+    return command
+  }
+
+  if (type === 'geardbfile' || type === 'geardbupdate' || type === 'geardbpayload') {
+    const base64Value = extractString(lookup.get('base64', 'data', 'content', 'payload'))
+    const downloadPath = extractString(lookup.get('downloadpath', 'path', 'url', 'href'))
+    if (!base64Value && !downloadPath) return null
+    const nameValue = extractString(lookup.get('filename', 'name')) ?? 'RslHelper.db'
+    const command: { kind: 'gearDbFile'; name: string; base64?: string; downloadPath?: string } = {
+      kind: 'gearDbFile',
+      name: nameValue,
+      ...(base64Value ? { base64: base64Value } : {}),
+      ...(downloadPath ? { downloadPath } : {}),
     }
     return command
   }
