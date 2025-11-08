@@ -339,6 +339,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   }, [testerPreviewRows])
   const testerRowsBuildIdRef = useRef(0)
   const testerPreviewRowMapRef = useRef<Map<number, TesterPreviewRow>>(new Map())
+  const testerPreviewMatchDepsRef = useRef<{ rules: readonly HsfRuleWithCfg[] | null; namesSignature: string | null }>({
+    rules: null,
+    namesSignature: null,
+  })
   const [testerRowsBuilding, setTesterRowsBuilding] = useState(false)
   const exportBaselineResetRef = useRef(false)
   const { forceSideBySide: forceSideBySideLayout } = useAutoSideBySideZoom()
@@ -1988,10 +1992,15 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const filteredRules = filterResult.rules
   useEffect(() => {
     const artifacts = testerPreviewArtifacts
+    const names = customCfgs.map(cfg => (cfg?.name && cfg.name.length > 0) ? cfg.name : null)
+    const namesSignature = names.map((name) => name ?? '').join('\u0001')
+    const prevMatchDeps = testerPreviewMatchDepsRef.current
+    const forceRebuildAllRows = prevMatchDeps.rules !== mergedRules
+      || prevMatchDeps.namesSignature !== namesSignature
     const prevRowMap = testerPreviewRowMapRef.current
     const nextRowMap = new Map(prevRowMap)
     const seenRowIds = new Set<number>()
-    const dirtyEntries: Array<{ artifact: NormalizedGearArtifact; rowId: number }> = []
+    let dirtyEntries: Array<{ artifact: NormalizedGearArtifact; rowId: number }> = []
 
     artifacts.forEach((artifact) => {
       const rowId = Number((artifact.testerItem as RuleTesterItem | undefined)?.rowId ?? NaN)
@@ -2009,7 +2018,17 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       }
     }
 
+    if (forceRebuildAllRows) {
+      dirtyEntries = []
+      artifacts.forEach((artifact) => {
+        const rowId = Number((artifact.testerItem as RuleTesterItem | undefined)?.rowId ?? NaN)
+        if (!Number.isFinite(rowId)) return
+        dirtyEntries.push({ artifact, rowId })
+      })
+    }
+
     if (dirtyEntries.length === 0 && nextRowMap.size === prevRowMap.size) {
+      testerPreviewMatchDepsRef.current = { rules: mergedRules, namesSignature }
       setTesterRowsBuilding(false)
       return
     }
@@ -2017,16 +2036,17 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     const buildId = testerRowsBuildIdRef.current + 1
     testerRowsBuildIdRef.current = buildId
     if (dirtyEntries.length === 0) {
+      testerPreviewMatchDepsRef.current = { rules: mergedRules, namesSignature }
       testerPreviewRowMapRef.current = nextRowMap
       setTesterPreviewRows(sortTesterRows(Array.from(nextRowMap.values())))
       setTesterRowsBuilding(false)
       return
     }
 
+    testerPreviewMatchDepsRef.current = { rules: mergedRules, namesSignature }
     setTesterRowsBuilding(true)
     let cancelled = false
     let timeoutId: ReturnType<typeof setTimeout> | null = null
-    const names = customCfgs.map(cfg => (cfg?.name && cfg.name.length > 0) ? cfg.name : null)
     const hasRules = mergedRules.length > 0
     let index = 0
 
