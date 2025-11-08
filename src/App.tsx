@@ -1639,6 +1639,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       testerItemsRef.current,
       desiredTesterItems,
       pendingQueueInput,
+      { retainManualItems: true },
     )
     const removedCount = removalRowIds.length
     if (removalRowIds.length > 0) {

@@ -28,6 +28,22 @@ export type RuleTesterItem = Omit<TestItem, 'subRolls'> & { rowId: number; subVa
 
 type StoredTesterItem = RuleTesterItem
 
+export type TesterSourceCategory = 'manual' | 'inventory' | 'collection' | 'vault' | 'inbox'
+
+export const testerSourceCategoryForItem = (item: RuleTesterItem): TesterSourceCategory => {
+  const extras = item.previewExtras
+  const baseSource = extras?.source
+  if (!baseSource || baseSource === 'tester') return 'manual'
+  if (baseSource === 'inbox') return 'inbox'
+  if (extras?.equippedToChampionId != null) {
+    const loc = extras.equippedChampionLocation
+    return loc === 'vault' || loc === 'reserveVault' ? 'vault' : 'collection'
+  }
+  return 'inventory'
+}
+
+export const isManualTesterItem = (item: RuleTesterItem): boolean => testerSourceCategoryForItem(item) === 'manual'
+
 export type RuleTesterAutosavePayload = {
   Version?: string | number
   ItemsCompressed: string
@@ -482,11 +498,17 @@ export function fingerprintRuleTesterItem(item: RuleTesterItem | TestItem): stri
   return JSON.stringify(canonical)
 }
 
+export type DiffRuleTesterItemsOptions = {
+  retainManualItems?: boolean
+}
+
 export function diffRuleTesterItems(
   currentItems: RuleTesterItem[],
   desiredItems: TestItem[],
   pendingQueue: TestItem[] = [],
+  options?: DiffRuleTesterItemsOptions,
 ): { removalRowIds: number[]; nextPendingQueue: TestItem[]; additions: TestItem[] } {
+  const retainManualItems = Boolean(options?.retainManualItems)
   const desiredCounts = new Map<string, number>()
   for (const desired of desiredItems) {
     const key = fingerprintRuleTesterItem(desired)
@@ -495,6 +517,7 @@ export function diffRuleTesterItems(
 
   const currentCounts = new Map<string, number>()
   for (const item of currentItems) {
+    if (retainManualItems && isManualTesterItem(item)) continue
     const key = fingerprintRuleTesterItem(item)
     currentCounts.set(key, (currentCounts.get(key) ?? 0) + 1)
   }
@@ -512,6 +535,7 @@ export function diffRuleTesterItems(
   const removalRowIds: number[] = []
   const currentKeptCounts = new Map<string, number>()
   for (const item of currentItems) {
+    if (retainManualItems && isManualTesterItem(item)) continue
     const key = fingerprintRuleTesterItem(item)
     const keepLimit = currentKeepLimits.get(key) ?? 0
     const kept = currentKeptCounts.get(key) ?? 0

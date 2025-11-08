@@ -134,7 +134,7 @@ This document captures runtime behavior, builder interactions, and user-facing w
 - Load semantics:
   - `.hsfc`: Load/drag replaces the entire state (metasets, substatTargets, configs, final-sell, selection, note). No conflict merging on file load.
   - `.hsf`: Only the optional base Sellfile is replaced; builder configs remain untouched so merges stay deterministic.
-  - `.db`: Gear rows are queued into the Rule Tester queue (and the preview auto-switches to the tester table) without forcing the modal Rule Tester dialog open or mutating builder/export state. Invalid DBs surface the same file-format dialog mentioned above.
+  - `.db`: Gear rows are queued into the Rule Tester queue (and the preview auto-switches to the tester table) without forcing the modal Rule Tester dialog open or mutating builder/export state. Manual/custom tester entries are left untouched so ad-hoc examples survive repeated imports regardless of whether the DB came from drag & drop, the picker, or the CLI command. Invalid DBs surface the same file-format dialog mentioned above.
 
 ## HSFC Global Note
 

@@ -67,4 +67,37 @@ test('gear DB diff reuses entries across example backups', async (t) => {
   assert.deepEqual(finalSnapshot, desiredSnapshot, 'diff result should match desired tester payload')
 })
 
+test('gear DB diff retains manual tester items when requested', () => {
+  const makePreviewExtras = (source: 'tester' | 'artifacts') => ({ source })
+  const manual: RuleTesterItem = {
+    rowId: 1,
+    slot: 1,
+    set: 0,
+    rank: 6,
+    rarity: 6,
+    level: 0,
+    faction: 0,
+    previewExtras: makePreviewExtras('tester'),
+  }
+  const imported: RuleTesterItem = {
+    rowId: 2,
+    slot: 1,
+    set: 0,
+    rank: 6,
+    rarity: 6,
+    level: 0,
+    faction: 0,
+    previewExtras: makePreviewExtras('artifacts'),
+  }
+  {
+    const { removalRowIds } = diffRuleTesterItems([manual, imported], [])
+    assert(removalRowIds.includes(manual.rowId), 'manual gear should be removed without retention flag')
+  }
+  {
+    const { removalRowIds } = diffRuleTesterItems([manual, imported], [], [], { retainManualItems: true })
+    assert(!removalRowIds.includes(manual.rowId), 'manual gear should persist when retention flag is on')
+    assert(removalRowIds.includes(imported.rowId), 'non-manual gear should still be removed when desired list is empty')
+  }
+})
+
 export {}

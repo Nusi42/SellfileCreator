@@ -33,26 +33,21 @@ import { SETS_MENU_WIDTH_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_MAX_HEIGHT_EXTRA
 import { useDisplayPreferences } from '../../state/preferencesState'
 import type { Theme } from '@mui/material/styles'
 import type { SystemStyleObject } from '@mui/system'
-import { createRuleTesterMath, entriesInOrder, fingerprintRuleTesterItem, mainOptionsForSlot, type RuleTesterItem } from '../../lib/ruleTesterSession'
+import {
+  createRuleTesterMath,
+  entriesInOrder,
+  fingerprintRuleTesterItem,
+  mainOptionsForSlot,
+  testerSourceCategoryForItem,
+  type RuleTesterItem,
+  type TesterSourceCategory,
+} from '../../lib/ruleTesterSession'
 import type { TesterPreviewMatch } from '../../types/testerPreview'
 import { TesterSummaryLabel } from '../TesterSummaryLabel'
 import { TesterRuleReferenceChip } from '../TesterRuleReferenceChip'
 import EllipsisTooltip from '../EllipsisTooltip'
 
-type TesterSourceCategory = 'manual' | 'inventory' | 'collection' | 'vault' | 'inbox'
 type TesterSourceCountMap = Record<TesterSourceCategory, number>
-
-const testerSourceCategoryForItem = (item: RuleTesterItem): TesterSourceCategory => {
-  const extras = item.previewExtras
-  const baseSource = extras?.source
-  if (!baseSource || baseSource === 'tester') return 'manual'
-  if (baseSource === 'inbox') return 'inbox'
-  if (extras?.equippedToChampionId != null) {
-    const loc = extras.equippedChampionLocation
-    return loc === 'vault' || loc === 'reserveVault' ? 'vault' : 'collection'
-  }
-  return 'inventory'
-}
 
 // Single grid template keeps the first two rows of controls perfectly aligned.
 const TESTER_CONTROL_GRID_TEMPLATE = `${TESTER_SLOT_SELECT_WIDTH_PX}px ${TESTER_RANK_SELECT_WIDTH_PX}px ${TESTER_RARITY_SELECT_WIDTH_PX}px ${TESTER_MAINSTAT_SELECT_MIN_WIDTH_PX}px`
