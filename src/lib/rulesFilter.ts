@@ -37,7 +37,7 @@ export type Bool3 = 'any' | 'yes' | 'no'
 
 export type TesterSourceFilter = 'inventory' | 'collection' | 'vault' | 'inbox' | 'manual'
 export type TesterChaosFilterMode = 'any' | 'notRerolled' | 'rerolled'
-export type TesterGlyphFilterMode = 'any' | 'on' | 'off'
+export type TesterGlyphFilterMode = 'any' | 'on' | 'off' | 'selected'
 
 export interface RulesFilterState {
   // Rule-level filters
@@ -499,9 +499,17 @@ export function filterTesterItems<T extends TesterFilterRow>(
     }
 
     const subVariants = new Set<number>()
+    const glyphedVariants = new Set<number>()
+    let hasGlyph = false
     for (const stat of artifact.substats) {
       if (stat.variant !== StatVariant.Any) {
-        subVariants.add(Number(stat.variant))
+        const variantNumber = Number(stat.variant)
+        subVariants.add(variantNumber)
+        const glyphValue = Math.abs(stat.glyphValue ?? 0)
+        if (glyphValue > 0) {
+          hasGlyph = true
+          glyphedVariants.add(variantNumber)
+        }
       }
     }
     const hasSubstats = subVariants.size > 0
@@ -547,9 +555,18 @@ export function filterTesterItems<T extends TesterFilterRow>(
     }
 
     if (glyphMode !== 'any') {
-      const hasGlyph = artifact.substats.some((stat) => Math.abs(stat.glyphValue ?? 0) > 0)
       if (glyphMode === 'on' && !hasGlyph) continue
       if (glyphMode === 'off' && hasGlyph) continue
+      if (glyphMode === 'selected') {
+        let ok = true
+        for (const variant of selectedSubVariants) {
+          if (!glyphedVariants.has(variant)) {
+            ok = false
+            break
+          }
+        }
+        if (!ok) continue
+      }
     }
 
     if (ascensionStars.size > 0 || ascensionStats.size > 0) {

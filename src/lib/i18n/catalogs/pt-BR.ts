@@ -751,6 +751,7 @@ const catalog: Catalog = {
   filterGlyphsAny: 'Any',
   filterGlyphsOn: 'On',
   filterGlyphsOff: 'Off',
+  filterGlyphsSelected: 'Selected',
   filterAscension: 'Ascension',
   filterConfigName: 'Nome da config',
   filterConfigNameInvalid: 'Expressão regular inválida',

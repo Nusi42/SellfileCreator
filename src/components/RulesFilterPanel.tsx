@@ -1320,20 +1320,32 @@ const ASCENSION_STAR_VALUES: readonly number[] = [0, 1, 2, 3, 4, 5, 6]
                     label={`${t('filterGlyphs')}: ${
                       testerGlyphMode === 'on'
                         ? t('filterGlyphsOn')
-                        : testerGlyphMode === 'off'
-                          ? t('filterGlyphsOff')
-                          : t('filterGlyphsAny')
+                        : testerGlyphMode === 'selected'
+                          ? t('filterGlyphsSelected')
+                          : testerGlyphMode === 'off'
+                            ? t('filterGlyphsOff')
+                            : t('filterGlyphsAny')
                     }`}
                     onClick={() => {
                       const next: TesterGlyphFilterMode =
                         testerGlyphMode === 'any'
                           ? 'on'
                           : testerGlyphMode === 'on'
-                            ? 'off'
-                            : 'any'
+                            ? 'selected'
+                            : testerGlyphMode === 'selected'
+                              ? 'off'
+                              : 'any'
                       onChange({ ...state, testerGlyphs: { mode: next } })
                     }}
-                    sx={tintedChipSx(testerGlyphMode === 'any' ? theme.palette.success : testerGlyphMode === 'on' ? theme.palette.info : theme.palette.warning)}
+                    sx={tintedChipSx(
+                      testerGlyphMode === 'any'
+                        ? theme.palette.success
+                        : testerGlyphMode === 'on'
+                          ? theme.palette.info
+                          : testerGlyphMode === 'selected'
+                            ? theme.palette.secondary
+                            : theme.palette.warning,
+                    )}
                   />
                 )}
                 {/* Wildcard filter chip removed per UX simplification: wildcard rows are treated like normal rows in the preview filters. */}

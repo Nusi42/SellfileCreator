@@ -241,6 +241,33 @@ test('filterTesterItems filters by glyph presence', () => {
   assert.equal(result.items[0]?.artifact.substats[0]?.glyphValue, 1)
 })
 
+test('filterTesterItems enforces glyphs on all selected substats when mode is selected', () => {
+  const fullyGlyphed = makeArtifact({
+    substats: [
+      makeStat(StatVariant.CR, 12, { statId: StatId.CR, glyphValue: 1, totalValue: 13 }),
+      makeStat(StatVariant.CDMG, 20, { statId: StatId.CDMG, glyphValue: 2, totalValue: 22 }),
+    ],
+  })
+  const missingGlyph = makeArtifact({
+    substats: [
+      makeStat(StatVariant.CR, 12, { statId: StatId.CR, glyphValue: 0, totalValue: 12 }),
+      makeStat(StatVariant.CDMG, 20, { statId: StatId.CDMG, glyphValue: 2, totalValue: 22 }),
+    ],
+  })
+  const rows: TesterFilterRow[] = [
+    { artifact: fullyGlyphed, match: null },
+    { artifact: missingGlyph, match: null },
+  ]
+  const state: RulesFilterState = {
+    ...DEFAULT_RULES_FILTER_STATE,
+    sub: { selected: [StatVariant.CR, StatVariant.CDMG], mode: 'all', wildcardMode: 'include' },
+    testerGlyphs: { mode: 'selected' },
+  }
+  const result = filterTesterItems(rows, state)
+  assert.equal(result.items.length, 1)
+  assert.equal(result.items[0]?.artifact, fullyGlyphed)
+})
+
 test('filterTesterItems filters by ascension stars and stats', () => {
   const ascArtifact = makeArtifact({
     ascension: {

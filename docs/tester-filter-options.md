@@ -116,4 +116,4 @@ We can do both of these changes for the filter panel in the sellfile preview as 
 - Converting the Keep/Sell and Matched/No Match controls to multi-select chips (unchecked = Any) would alter the existing HSF filters. Do you want that global change, or should tester mode adopt the implicit-any behavior while the rules panel keeps its current explicit `Any` buttons?
 
 **Answer**: 
-Very good. We can add this as a chip similar to how we added "Match: Any/All of" for the substats drawer. In fact it makes sense to add this to the substats drawer right of "Match:". Make it `Glyphs: Any / On / Off`.
+Very good. We can add this as a chip similar to how we added "Match: Any/All of" for the substats drawer. In fact it makes sense to add this to the substats drawer right of "Match:". Make it `Glyphs: Any / On / Selected / Off`, where `Selected` means every substat toggled in the drawer must appear and be glyphed.

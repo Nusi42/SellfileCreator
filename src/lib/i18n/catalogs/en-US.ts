@@ -751,6 +751,7 @@ const enUS: Catalog = {
   filterGlyphsAny: 'Any',
   filterGlyphsOn: 'On',
   filterGlyphsOff: 'Off',
+  filterGlyphsSelected: 'Selected',
   filterAscension: 'Ascension',
   filterConfigName: 'Config name',
   filterConfigNameInvalid: 'Invalid regular expression',

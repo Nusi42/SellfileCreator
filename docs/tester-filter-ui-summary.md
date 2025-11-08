@@ -20,7 +20,7 @@ The additions below follow that exact structure so nothing shifts into a third c
 
 4. **Row 4 (Substats section):**
    - Toggle grid + drawer remain.
-   - Helper chips immediately below the grid read `Match: Any | All` and `Glyphs: Any | On | Off` (Glyphs chip sits to the right of Match). The drawer mirrors the same controls for advanced tweaks.
+  - Helper chips immediately below the grid read `Match: Any | All` and `Glyphs: Any | On | Selected | Off` (Glyphs chip sits to the right of Match). The drawer mirrors the same controls for advanced tweaks.
 
 5. **Row 5 (new, spans full column width):**
    - **Substat Roll Count**. Chips labeled `1 roll`, `2 rolls`, `3 rolls`, `4 rolls`, plus a `Mode: Any | All` chip. Manual tester entries count as 0 rolls, so they only appear when no chips are selected.
@@ -61,7 +61,7 @@ The additions below follow that exact structure so nothing shifts into a third c
 │ └──────────────────────────────────────────┘ │ │ [0★][1★][2★][3★][4★][5★][6★]    │ │
 │ ┌──────────────────────────────────────────┐ │ │ Stats multi-select dropdown      │ │
 │ │ Substats (grid + drawer)                 │ │ └───────────────────────────────────┘ │
-│ │ helper chips: [Match Any/All][Glyph Any/On/Off]                                   │
+│ │ helper chips: [Match Any/All][Glyph Any/On/Selected/Off]                          │
 │ └──────────────────────────────────────────┘ │                                       │
 │ ┌──────────────────────────────────────────┐ │                                       │
 │ │ Substat Roll Count [1][2][3][4] Mode[⋯]  │ │                                       │
@@ -72,5 +72,6 @@ The additions below follow that exact structure so nothing shifts into a third c
 ## Additional Behavior Notes
 - All new blocks use the same `FormControl` + `FormLabel` + `Collapse` skeleton so padding and responsiveness match the existing layout.
 - “No selection = Any” applies uniformly to Keep/Sell, Matched, Source chips, roll-count chips, and the condensed Rank/Rarity buttons.
+- The Glyphs helper now cycles through `Any → On → Selected → Off`; `Selected` demands that every chosen substat is present and glyphed before a tester row is shown.
 - The Source/Reroll row reuses the same internal 2-column grid as the current `Result/Sets` row, so column gutters and breakpoints stay identical.
 - Exact-level slider only renders while `mode === 'tester'`; when switching back to the rules table the component reinstates the ToggleButtonGroup without altering layout height.

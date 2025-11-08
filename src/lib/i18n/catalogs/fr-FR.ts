@@ -751,6 +751,7 @@ const overrides: Catalog = {
   filterGlyphsAny: 'Any',
   filterGlyphsOn: 'On',
   filterGlyphsOff: 'Off',
+  filterGlyphsSelected: 'Selected',
   filterAscension: 'Ascension',
   filterConfigName: 'Nom de la config',
   filterConfigNameInvalid: 'Expression régulière invalide',
