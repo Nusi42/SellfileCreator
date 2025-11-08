@@ -1917,19 +1917,38 @@ const ASCENSION_STAR_VALUES: readonly number[] = [0, 1, 2, 3, 4, 5, 6]
                   }}
                   sx={{
                     display: 'grid',
-                    gridTemplateColumns: 'repeat(3, auto)',
+                    gridTemplateColumns: `repeat(3, minmax(0, ${FILTER_TOGGLE_BUTTON_WIDTH_PX}px))`,
                     columnGap: 0.5,
                     rowGap: 0.5,
-                    '& .MuiToggleButton-root': { p: 0.5, minWidth: 36, height: 28 },
+                    '& .MuiToggleButton-root': {
+                      p: 0.5,
+                      width: FILTER_TOGGLE_BUTTON_WIDTH_PX,
+                      minWidth: FILTER_TOGGLE_BUTTON_WIDTH_PX,
+                      maxWidth: FILTER_TOGGLE_BUTTON_WIDTH_PX,
+                      height: 28,
+                      overflow: 'hidden',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      lineHeight: 1.2,
+                    },
                     ...TOGGLE_BUTTON_GROUP_SHARED_SX,
                   }}
                 >
-                  <ToggleButton value={'1'}>{t('rarityCommon')}</ToggleButton>
-                  <ToggleButton value={'2'}>{t('rarityUncommon')}</ToggleButton>
-                  <ToggleButton value={'3'}>{t('rarityRare')}</ToggleButton>
-                  <ToggleButton value={'4'}>{t('rarityEpic')}</ToggleButton>
-                  <ToggleButton value={'5'}>{t('rarityLegendary')}</ToggleButton>
-                  <ToggleButton value={'6'}>{t('rarityMythical')}</ToggleButton>
+                  {[
+                    { value: '1', labelKey: 'rarityCommon' },
+                    { value: '2', labelKey: 'rarityUncommon' },
+                    { value: '3', labelKey: 'rarityRare' },
+                    { value: '4', labelKey: 'rarityEpic' },
+                    { value: '5', labelKey: 'rarityLegendary' },
+                    { value: '6', labelKey: 'rarityMythical' },
+                  ].map((option) => (
+                    <ToggleButton key={option.value} value={option.value} title={t(option.labelKey)}>
+                      <Typography component="span" noWrap sx={toggleLabelSx}>
+                        {t(option.labelKey)}
+                      </Typography>
+                    </ToggleButton>
+                  ))}
                 </ToggleButtonGroup>
                 {!isTesterMode && (
                   <Box sx={{ mt: FILTER_CHIP_TOP_MARGIN }}>
