@@ -62,6 +62,8 @@ const overrides: Catalog = {
   testerFinalSell: 'Finaler Verkauf',
   testerResetConfirmTitle: 'Regel-Tester zurücksetzen?',
   testerResetConfirmBody: 'Dadurch werden alle Test-Gegenstände entfernt und die Standardbeispiele wiederhergestellt.',
+  testerDeleteSourceConfirmTitle: 'Ausrüstung aus „{source}“ löschen?',
+  testerDeleteSourceConfirmBody: 'Dadurch wird alle Ausrüstung aus „{source}“ aus der Rule-Tester-Vorschau entfernt.',
   noSetAccessories: 'Keine – nur Schmuckstücke',
   testerTableEmpty: 'Importiere Ausrüstung oder füge Tester-Gegenstände hinzu, um hier Treffer zu sehen.',
   testerTableEmptyFilter: 'Keine Tester-Gegenstände passen zu den aktuellen Filtern.',

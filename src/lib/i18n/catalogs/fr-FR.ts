@@ -62,6 +62,8 @@ const overrides: Catalog = {
   testerFinalSell: 'Vente finale',
   testerResetConfirmTitle: 'Réinitialiser le Testeur de règles ?',
   testerResetConfirmBody: 'Cela efface tous les objets de test et rétablit les exemples par défaut.',
+  testerDeleteSourceConfirmTitle: 'Supprimer l’équipement « {source} » ?',
+  testerDeleteSourceConfirmBody: 'Cela retire tout l’équipement « {source} » de l’aperçu du Testeur de règles.',
   noSetAccessories: 'Aucun – accessoires uniquement',
   testerTableEmpty: 'Importez de l’équipement ou ajoutez des objets de test pour voir les correspondances ici.',
   testerTableEmptyFilter: 'Aucun objet de test ne correspond aux filtres actuels.',

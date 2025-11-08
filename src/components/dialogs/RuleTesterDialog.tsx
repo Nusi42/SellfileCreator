@@ -13,7 +13,7 @@ import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline'
 import RemoveCircleOutlineIcon from '@mui/icons-material/RemoveCircleOutline'
 import OpenInFullIcon from '@mui/icons-material/OpenInFull'
 import CloseFullscreenIcon from '@mui/icons-material/CloseFullscreen'
-// Delete icon no longer used since substats count is fixed
+import DeleteIcon from '@mui/icons-material/Delete'
 import type { BuilderConfig } from '../../lib/hsfBuilder'
 import type { ArtifactSetId, ArtifactTypeId, FactionId, LevelMilestone } from '../../lib/types'
 import { ArtifactType, /* rarityCodeToName, */ formatLevel, slotSupportsSub, slotSupportsMain, ALLOWED_MAIN_BY_SLOT, Faction, factionI18nKey, filterAndSortSetEntries, artifactTypeI18nKey, artifactSetName, artifactSetI18nKey, DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT, statVariantI18nKey, StatId, LEVEL_MILESTONES, STAT_VARIANTS_PRIORITY } from '../../lib/types'
@@ -199,6 +199,7 @@ export default function RuleTesterDialog({
   const setsMenuPaperRef = useRef<HTMLDivElement | null>(null)
   const setsMenuListRefs = useRef<Record<number, HTMLUListElement | null>>({})
   const [confirmResetOpen, setConfirmResetOpen] = useState(false)
+  const [pendingDeleteSource, setPendingDeleteSource] = useState<TesterSourceCategory | null>(null)
   // Faction options are grouped like Builder/Filters; precomputed flat list no longer used here.
   // Keeping the grouped structure inline for clarity in the Rule Tester.
 
@@ -466,6 +467,17 @@ export default function RuleTesterDialog({
     { key: 'vault' as const, label: t('testerSourceEquippedVault') },
     { key: 'inbox' as const, label: t('testerSourceInbox') },
   ]), [t])
+
+  const pendingDeleteMeta = useMemo(() => {
+    if (!pendingDeleteSource) return null
+    const section = deletableSources.find((entry) => entry.key === pendingDeleteSource)
+    if (!section) return null
+    return {
+      key: pendingDeleteSource,
+      label: section.label,
+      count: sourceCounts[pendingDeleteSource] ?? 0,
+    }
+  }, [pendingDeleteSource, deletableSources, sourceCounts])
 
   const handleDeleteBySource = useCallback((category: TesterSourceCategory) => {
     setItems((prev) => {
@@ -1442,25 +1454,6 @@ export default function RuleTesterDialog({
         <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
           {t('testerManualOnlyNotice')}
         </Typography>
-        <Stack direction={{ xs: 'column', md: 'row' }} spacing={1} sx={{ mb: 1 }}>
-          {deletableSources.map((section) => {
-            const count = sourceCounts[section.key]
-            return (
-              <Box key={section.key} sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
-                <Chip size="small" variant="outlined" label={`${section.label} (${count})`} />
-                <Button
-                  size="small"
-                  variant="outlined"
-                  color="error"
-                  onClick={() => handleDeleteBySource(section.key)}
-                  disabled={count === 0}
-                >
-                  {t('delete')}
-                </Button>
-              </Box>
-            )
-          })}
-        </Stack>
         <Box
           ref={scrollContainerRef}
           onScroll={onScroll}
@@ -1489,8 +1482,45 @@ export default function RuleTesterDialog({
           )}
         </Box>
       </DialogContent>
-      <DialogActions>
+      <DialogActions
+        sx={{
+          flexWrap: 'wrap',
+          gap: 1,
+          alignItems: 'center',
+        }}
+      >
         <Button onClick={handleAddManualGear}>{t('testerAddManualGear')}</Button>
+        <Box
+          sx={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: 1,
+            alignItems: 'center',
+          }}
+        >
+          {deletableSources.map((section) => {
+            const count = sourceCounts[section.key]
+            return (
+              <Button
+                key={section.key}
+                size="small"
+                variant="outlined"
+                color="error"
+                endIcon={<DeleteIcon fontSize="small" />}
+                onClick={() => {
+                  if (count === 0) return
+                  setPendingDeleteSource(section.key)
+                }}
+                disabled={count === 0}
+                sx={{
+                  minWidth: 160,
+                }}
+              >
+                {`${section.label}: ${count}`}
+              </Button>
+            )
+          })}
+        </Box>
         <Button
           size="small"
           variant="outlined"
@@ -1502,6 +1532,34 @@ export default function RuleTesterDialog({
         <Box sx={{ flex: 1 }} />
         <Button onClick={onClose}>{t('close')}</Button>
       </DialogActions>
+      <Dialog
+        open={pendingDeleteSource != null}
+        onClose={() => setPendingDeleteSource(null)}
+      >
+        <DialogTitle>{t('testerDeleteSourceConfirmTitle', { source: pendingDeleteMeta?.label ?? '' })}</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2">
+            {t('testerDeleteSourceConfirmBody', { source: pendingDeleteMeta?.label ?? '' })}
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setPendingDeleteSource(null)}>{t('cancel')}</Button>
+          <Button
+            color="error"
+            disabled={(pendingDeleteMeta?.count ?? 0) === 0}
+            onClick={() => {
+              if (!pendingDeleteMeta) {
+                setPendingDeleteSource(null)
+                return
+              }
+              handleDeleteBySource(pendingDeleteMeta.key)
+              setPendingDeleteSource(null)
+            }}
+          >
+            {t('delete')}
+          </Button>
+        </DialogActions>
+      </Dialog>
       <Dialog
         open={confirmResetOpen}
         onClose={() => setConfirmResetOpen(false)}
