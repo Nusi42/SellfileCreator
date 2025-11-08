@@ -24,8 +24,9 @@ test('gear DB importer normalizes artifacts and inbox items', async (t) => {
   const arrayBuffer = bufferToArrayBuffer(readFileSync(dbPath))
   const { artifacts, inboxArtifacts } = await importGearDatabaseFromArrayBuffer(arrayBuffer)
 
-  assert.equal(artifacts.length, 6900)
-  assert.equal(inboxArtifacts.length, 358)
+  // Snapshot taken from examples/um109288203_RSLHelper.db (sqlite counts).
+  assert.equal(artifacts.length, 6882)
+  assert.equal(inboxArtifacts.length, 356)
 
   const weapon = artifacts.find((item) => item.slot === 5)
   assert(weapon, 'expected weapon artifact in dataset')

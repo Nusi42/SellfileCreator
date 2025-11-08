@@ -178,6 +178,37 @@ function analyzeConfigKeys(previous: readonly string[], next: readonly string[])
   return { mapping, removed, identical, reorderOnly }
 }
 
+const DEFAULT_GEAR_DB_FILENAME = 'RslHelper.db'
+
+const createGearDbFileFromBase64 = (name: string, base64?: string | null): File | null => {
+  const atobFn = typeof globalThis !== 'undefined' && typeof globalThis.atob === 'function'
+    ? globalThis.atob.bind(globalThis)
+    : null
+  if (!atobFn || typeof File !== 'function') {
+    return null
+  }
+  const sanitized = (base64 ?? '').replace(/[\r\n\s]+/g, '')
+  if (!sanitized) {
+    return null
+  }
+  let binary: string
+  try {
+    binary = atobFn(sanitized)
+  } catch {
+    return null
+  }
+  const bytes = new Uint8Array(binary.length)
+  for (let i = 0; i < binary.length; i += 1) {
+    bytes[i] = binary.charCodeAt(i)
+  }
+  const fileName = name && name.trim().length > 0 ? name : DEFAULT_GEAR_DB_FILENAME
+  try {
+    return new File([bytes], fileName, { type: 'application/octet-stream' })
+  } catch {
+    return null
+  }
+}
+
 function remapRulesForIndex(rules: readonly HsfRuleWithCfg[], cfgIdx: number): HsfRuleWithCfg[] {
   for (const rule of rules) {
     if (rule.__cfgIdx !== cfgIdx) {
@@ -2229,7 +2260,59 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         setPendingTesterItems((prev) => [...prev, ...converted])
       }
     }
-  }, [focusRuleByIndex, setTesterOpen])
+    if (cmd.kind === 'gearDbFile') {
+      const queueImport = (file: File | null) => {
+        if (!file) {
+          if (import.meta.env.DEV) {
+            console.error('Failed to decode gear DB payload from external command.')
+          }
+          return
+        }
+        void handleGearDbImport(file)
+      }
+
+      const downloadPath = cmd.downloadPath?.trim()
+      if (downloadPath) {
+        const resolveDownloadUrl = (): string | null => {
+          try {
+            if (/^https?:\/\//i.test(downloadPath)) {
+              return downloadPath
+            }
+            const base = pushEndpoint ?? ''
+            if (!base) return null
+            const baseUrl = base.endsWith('/') ? base : `${base}/`
+            const relative = downloadPath.startsWith('/') ? downloadPath.slice(1) : downloadPath
+            return new URL(relative, baseUrl).toString()
+          } catch {
+            return null
+          }
+        }
+        const url = resolveDownloadUrl()
+        if (url) {
+          void (async () => {
+            try {
+              const response = await fetch(url, { cache: 'no-store' })
+              if (!response.ok) throw new Error(`HTTP ${response.status}`)
+              const blob = await response.blob()
+              const fileName = cmd.name && cmd.name.trim().length > 0 ? cmd.name : DEFAULT_GEAR_DB_FILENAME
+              const file = new File([blob], fileName, { type: blob.type || 'application/octet-stream' })
+              await handleGearDbImport(file)
+            } catch (err) {
+              if (import.meta.env.DEV) {
+                console.error('Failed to download gear DB payload', err)
+              }
+              const fallbackFile = createGearDbFileFromBase64(cmd.name, cmd.base64)
+              queueImport(fallbackFile)
+            }
+          })()
+          return
+        }
+      }
+
+      const file = createGearDbFileFromBase64(cmd.name, cmd.base64)
+      queueImport(file)
+    }
+  }, [focusRuleByIndex, setTesterOpen, handleGearDbImport, pushEndpoint])
 
   useExternalCommands({
     pushEndpoint,

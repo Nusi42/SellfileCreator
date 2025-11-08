@@ -199,6 +199,7 @@ Exemplo: Soma de rolagens com curingas (2 substats)
 - Editar e testar: Abre a app e arrasta o teu `*.l10n.json` editado para o aplicar de imediato à sessão atual (não é necessária nem possível qualquer instalação).
 - Enviar correções: Envia o JSON atualizado por mensagem no Discord. Mantém as chaves inalteradas; as chaves em falta voltam ao inglês.
 - Idiomas integrados: Todos os idiomas incluídos são compilados no único HTML, por isso a app funciona totalmente offline. As tuas correções entram na próxima versão.
+- Vigiar a base de dados do RSL Helper: executa `scripts/run-sample-server.ps1 -WatchGearDb` (ou passa `-GearDbPath <ficheiro>`) para observar `%APPDATA%\\RslHelper\\Config`. Cada atualização da `.db` é enviada diretamente para o Rule Tester iniciado pelo script e, se existirem vários ficheiros, o utilitário pergunta qual acompanhar.
 
 ## Agradecimentos
 

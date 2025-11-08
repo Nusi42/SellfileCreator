@@ -205,6 +205,7 @@ Example: Sum‑of‑rolls with wildcards (2 substats)
 - Edit & test: Open the app and drag your edited `*.l10n.json` onto it to apply immediately for the current session (no install needed or possible).
 - Submit fixes: Send the updated JSON via Discord message. Keep keys unchanged; missing keys fall back to English.
 - Built-in languages: All shipped languages are compiled into the single HTML so the app works fully offline. Your fixes will be integrated into the next release.
+- Watch the RSL Helper DB: run `scripts/run-sample-server.ps1 -WatchGearDb` (or pass `-GearDbPath <file>`) to monitor `%APPDATA%\RslHelper\Config`. Each `.db` update is pushed straight into the Rule Tester instance launched by the script, and it will prompt you when multiple databases exist.
 
 ## Acknowledgements
 

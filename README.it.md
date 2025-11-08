@@ -187,6 +187,7 @@ Esempio: somma dei roll con jolly (2 sotto-stat)
 - Modifica e test: apri l’app e trascina il tuo `*.l10n.json` modificato per applicarlo subito alla sessione corrente (nessuna installazione necessaria o possibile).
 - Invio correzioni: invia il JSON aggiornato tramite messaggio su Discord. Mantieni le chiavi invariate; quelle mancanti tornano all’inglese.
 - Lingue integrate: tutte le lingue distribuite sono compilate nell’unico HTML, quindi l’app funziona completamente offline. Le tue correzioni saranno incluse nel prossimo rilascio.
+- Monitora il DB di RSL Helper: esegui `scripts/run-sample-server.ps1 -WatchGearDb` (o specifica `-GearDbPath <file>`) per osservare `%APPDATA%\\RslHelper\\Config`. Ogni modifica della `.db` viene inviata al Rule Tester avviato dallo script e, se sono presenti più database, il tool ti chiede quale seguire.
 
 ## Ringraziamenti
 
