@@ -769,7 +769,6 @@ const overrides: Catalog = {
   testerFilterConfigsTooltipDisabled: 'Щоб увімкнути цей фільтр, виберіть щонайменше один конфіг-чип.',
   testerChampionFilterLabel: 'Champions',
   testerChampionSearchPlaceholder: 'Search champions',
-  testerChampionFilterNoResults: 'No champions match the search.',
   testerChampionUnknownName: 'Unknown champion #{id}',
   filterReset: 'Скинути фільтри',
   filterMatch: 'Збіг',

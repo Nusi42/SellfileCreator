@@ -769,7 +769,6 @@ const overrides: Catalog = {
   testerFilterConfigsTooltipDisabled: 'Seleziona almeno un chip di config per attivare questo filtro.',
   testerChampionFilterLabel: 'Champions',
   testerChampionSearchPlaceholder: 'Search champions',
-  testerChampionFilterNoResults: 'No champions match the search.',
   testerChampionUnknownName: 'Unknown champion #{id}',
   filterReset: 'Reimposta filtri',
   filterMatch: 'Abbina',

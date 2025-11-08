@@ -769,7 +769,6 @@ const overrides: Catalog = {
   testerFilterConfigsTooltipDisabled: 'Sélectionnez au moins une puce de config pour activer ce filtre.',
   testerChampionFilterLabel: 'Champions',
   testerChampionSearchPlaceholder: 'Search champions',
-  testerChampionFilterNoResults: 'No champions match the search.',
   testerChampionUnknownName: 'Unknown champion #{id}',
   filterReset: 'Réinitialiser les filtres',
   filterMatch: 'Accord',

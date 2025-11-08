@@ -769,7 +769,6 @@ const catalog: Catalog = {
   testerFilterConfigsTooltipDisabled: 'Selecione pelo menos um chip de config para ativar este filtro.',
   testerChampionFilterLabel: 'Champions',
   testerChampionSearchPlaceholder: 'Search champions',
-  testerChampionFilterNoResults: 'No champions match the search.',
   testerChampionUnknownName: 'Unknown champion #{id}',
   filterReset: 'Redefinir filtros',
   filterMatch: 'Acerto',

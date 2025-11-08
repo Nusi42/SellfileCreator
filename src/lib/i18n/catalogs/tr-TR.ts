@@ -769,7 +769,6 @@ const overrides: Catalog = {
   testerFilterConfigsTooltipDisabled: 'Bu filtreyi açmak için en az bir konfig çipini seçin.',
   testerChampionFilterLabel: 'Champions',
   testerChampionSearchPlaceholder: 'Search champions',
-  testerChampionFilterNoResults: 'No champions match the search.',
   testerChampionUnknownName: 'Unknown champion #{id}',
   filterReset: 'Filtreleri sıfırla',
   filterMatch: 'Eşleşme',
