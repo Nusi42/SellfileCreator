@@ -70,14 +70,14 @@ Deutsch:
 ## v0.9.2 — 2025-09-08
 English:
 - Final Sell now writes Sell rules that list every known set and offers clearer gear/level toggles, so new RSL sets never slip through.
-- Builder adds a `Min required rolls` aggregate control and deterministic Mythical handling, keeping Potential rows and roll math consistent no matter the click order.
+- Builder adds a `Min Required Rolls` aggregate control and deterministic Mythical handling, keeping Potential rows and roll math consistent no matter the click order.
 - Set pickers gain search plus icon, Game, or A–Z views that persist across the builder and metaset dialog, helping you find sets faster.
 - Metaset management supports replace-on-delete and reset flows, auto-names new groups, and keeps builder/config references in sync to avoid orphaned metasets.
 - Config saves (`.hsfr`) can now include a Markdown Note that reloads automatically; drag & drop works anywhere with a global overlay and copy/paste preserves the note.
 
 Deutsch:
 - Final Sell schreibt jetzt Sell-Regeln mit allen bekannten Sets und bietet klarere Gear-/Level-Optionen, damit neue Raid-Sets nicht versehentlich durchrutschen.
-- Der Builder hat den Schalter `Min required rolls` (Auto/1–5) und behandelt Mythical deterministisch, sodass Potential-Zeilen und Roll-Mathematik unabhängig von der Klick-Reihenfolge stimmen.
+- Der Builder hat den Schalter `Min Required Rolls` (Auto/1–5) und behandelt Mythical deterministisch, sodass Potential-Zeilen und Roll-Mathematik unabhängig von der Klick-Reihenfolge stimmen.
 - Die Set-Auswahl bietet Suche sowie Icon-, Game- und A–Z-Ansichten, merkt sich deine Wahl und der Metaset-Dialog nutzt denselben Blick, damit du Sets schneller findest.
 - Metaset-Verwaltung erlaubt Löschen mit Ersetzen-Optionen oder Reset auf Default, vergibt neue Namen automatisch und aktualisiert Builder/Configs sauber.
 - HSFR-Saves können jetzt eine Markdown-Notiz enthalten, die beim Laden sofort erscheint; Drag & Drop funktioniert überall mit Overlay und Copy/Paste übernimmt die Notiz.

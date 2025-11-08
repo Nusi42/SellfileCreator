@@ -882,7 +882,7 @@ function summaryParts(
     addText(`${label}:${NBSP}${cfg.minCount}`)
   }
 
-  // Min required rolls (aggregate across selected; show only when > 0)
+  // Min Required Rolls (aggregate across selected; show only when > 0)
   if ((cfg.minRequiredRolls ?? 0) > 0) {
     // Compact math-like notation to indicate total roll requirement.
     // Show a lock when the aggregate target applies only to locked substats.

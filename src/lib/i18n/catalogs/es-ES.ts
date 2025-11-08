@@ -1013,7 +1013,7 @@ const overrides: Catalog = {
   tutAutoLateSubstatsTitle: 'Elige el substat clave',
   tutAutoLateSubstatsBody: 'Selecciona `SPD` en `Substats`. Buscamos estandartes SPD con triple tirada, así que este stat es el único que importa en este ejemplo.',
   tutAutoLateRollsTitle: 'Haz que el builder vigile todas las mejoras',
-  tutAutoLateRollsBody: 'Haz clic en `3` en `Min required rolls`.',
+  tutAutoLateRollsBody: 'Haz clic en `3` en `Tiradas mínimas requeridas`.',
   tutAutoLateModeTitle: 'Mantén activados los hitos de Tardío',
   tutAutoLateModeBody: 'Asegúrate de que `Tardío` esté seleccionado en `Milestone thresholds`. `Tardío` le da a Auto margen para esperar tiradas que falten ahora y aun así exige las tres tiradas de SPD antes de +16.',
   tutAutoLateChipTitle: 'Auto elige la rareza adecuada',

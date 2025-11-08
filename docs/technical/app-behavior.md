@@ -64,7 +64,7 @@ This document captures runtime behavior, builder interactions, and user-facing w
 
 - Builder cheat sheet: The help icon in `BuilderPanel` opens `BuilderCheatSheetPopover`, a scrollable overlay of curated examples for rarity ranges, substat locking/flex, roll targets, and milestone math. The popover reuses the Builder root via `ResizeObserver` so its max height tracks the panel height (capped to 60% of the viewport) and keeps scroll momentum predictable.
 - Shared substat toggles: `SubstatToggleDisplay` renders the lock badge, wildcard/min/max indicator, and alignment grid for both the live builder toggles and the cheat sheet snapshots. `substatToggleGroupSx` centralizes the spacing/hover behavior so static rows stay visually identical while interaction hooks remain active only inside the builder.
-- Min required rolls target: The label for "Min required rolls" is a small toggle. It switches the aggregate min target between Selected and Locked. The control disables switching to Locked when there are no locked substats.
+- Min Required Rolls target: The label for "Min Required Rolls" is a small toggle. It switches the aggregate min target between Selected and Locked. The control disables switching to Locked when there are no locked substats.
 - `Reset Config` button:
   - Left-click: shows a localized confirmation dialog (`builderResetConfirmTitle`) and, when confirmed, resets to user defaults when present; otherwise resets to factory defaults. Buttons reuse shared `cancel`/`reset` catalog entries.
 - Right-click (also available on `Insert as config` and `Apply as config`): opens a shared menu with Save local settings as user defaults, Reset to factory defaults, and toggle checkboxes.
