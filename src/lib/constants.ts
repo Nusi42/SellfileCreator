@@ -356,7 +356,7 @@ export const FILTER_SETS_SELECT_WIDTH_PX = 320
 
 // Fixed width for compact toggle buttons in the Rules filter (Keep/Sell, Enabled/Disabled).
 // Why: Match the English layout footprint while allowing longer translations to ellipsize.
-export const FILTER_TOGGLE_BUTTON_WIDTH_PX = 72
+export const FILTER_TOGGLE_BUTTON_WIDTH_PX = 86
 
 // Top margin above filter chips to provide clear separation from controls above.
 // Expressed in theme spacing units to integrate with MUI spacing scale.

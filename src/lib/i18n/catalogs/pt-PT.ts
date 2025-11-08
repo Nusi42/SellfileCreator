@@ -79,7 +79,7 @@ const overrides: Catalog = {
   testerRerollLabel: 'Re-rolls ×{count}',
   testerEquippedLabel: 'Equipado #{id}',
   testerSourceInventory: 'Inventário',
-  testerSourceInbox: 'Caixa de entrada',
+  testerSourceInbox: 'Entrada',
   testerSourceManual: 'Manual',
   testerSourceEquippedCollection: 'Coleção',
   testerSourceEquippedVault: 'Cofre',
