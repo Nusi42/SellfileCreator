@@ -35,6 +35,10 @@ export type SubstatMatchMode = 'all' | 'any'
 // 'any' leaves the field unfiltered; 'yes' matches true/enabled; 'no' matches false/disabled.
 export type Bool3 = 'any' | 'yes' | 'no'
 
+export type TesterSourceFilter = 'inventory' | 'collection' | 'vault' | 'inbox' | 'manual'
+export type TesterChaosFilterMode = 'any' | 'notRerolled' | 'rerolled'
+export type TesterGlyphFilterMode = 'any' | 'on' | 'off'
+
 export interface RulesFilterState {
   // Rule-level filters
   rule?: { keep: Bool3; use: Bool3 }
@@ -50,6 +54,10 @@ export interface RulesFilterState {
   sub: { selected: StatVariant[]; mode: SubstatMatchMode; wildcardMode: AnyMode }
   faction: { selected: FactionId[]; anyMode: AnyMode }
   configName?: { query: string }
+  testerSources?: { selected: TesterSourceFilter[] }
+  testerChaos?: { mode: TesterChaosFilterMode }
+  testerGlyphs?: { mode: TesterGlyphFilterMode }
+  testerAscension?: { stars: number[]; stats: StatVariant[] }
 }
 
 export const DEFAULT_RULES_FILTER_STATE: RulesFilterState = {
@@ -64,6 +72,10 @@ export const DEFAULT_RULES_FILTER_STATE: RulesFilterState = {
   sub: { selected: [], mode: 'all', wildcardMode: 'include' },
   faction: { selected: [], anyMode: 'include' },
   configName: { query: '' },
+  testerSources: { selected: [] },
+  testerChaos: { mode: 'any' },
+  testerGlyphs: { mode: 'any' },
+  testerAscension: { stars: [], stats: [] },
 }
 
 // Back-compat helpers: accept legacy range shapes (min/max) if present
@@ -79,7 +91,11 @@ export function isRulesFilterActive(f: RulesFilterState): boolean {
   const h = (f.sub?.selected?.length ?? 0) > 0 || (f.sub?.wildcardMode ?? 'include') !== 'include' || (f.sub?.mode ?? 'all') !== 'all'
   const i = (f.faction?.selected?.length ?? 0) > 0 || (f.faction?.anyMode ?? 'include') !== 'include'
   const j = Boolean(f.configName && typeof f.configName.query === 'string' && f.configName.query.length > 0)
-  return ra || tr || a || b || c || d || e || g || h || i || j
+  const k = (f.testerSources?.selected?.length ?? 0) > 0
+  const l = (f.testerChaos?.mode ?? 'any') !== 'any'
+  const m = (f.testerGlyphs?.mode ?? 'any') !== 'any'
+  const n = ((f.testerAscension?.stars?.length ?? 0) > 0) || ((f.testerAscension?.stats?.length ?? 0) > 0)
+  return ra || tr || a || b || c || d || e || g || h || i || j || k || l || m || n
 }
 
 // Coverage helpers for Rank and Rarity codes (map rule code -> set of underlying values 1..6).
@@ -390,6 +406,11 @@ export function filterTesterItems<T extends TesterFilterRow>(
   }
 
   const matchingConfigIndices = new Set<number>()
+  const selectedSources = new Set<TesterSourceFilter>(f.testerSources?.selected ?? [])
+  const chaosMode = f.testerChaos?.mode ?? 'any'
+  const glyphMode = f.testerGlyphs?.mode ?? 'any'
+  const ascensionStars = new Set<number>(f.testerAscension?.stars ?? [])
+  const ascensionStats = new Set((f.testerAscension?.stats ?? []).map(Number))
   const filtered: T[] = []
 
   for (const row of rows) {
@@ -514,6 +535,33 @@ export function filterTesterItems<T extends TesterFilterRow>(
     }
     if (selectedFactions.size > 0 && !selectedFactions.has(faction)) continue
 
+    if (selectedSources.size > 0) {
+      const category = determineTesterSourceCategory(artifact)
+      if (!selectedSources.has(category)) continue
+    }
+
+    if (chaosMode === 'notRerolled') {
+      if (artifact.rerollCount > 0) continue
+    } else if (chaosMode === 'rerolled') {
+      if (artifact.rerollCount === 0) continue
+    }
+
+    if (glyphMode !== 'any') {
+      const hasGlyph = artifact.substats.some((stat) => Math.abs(stat.glyphValue ?? 0) > 0)
+      if (glyphMode === 'on' && !hasGlyph) continue
+      if (glyphMode === 'off' && hasGlyph) continue
+    }
+
+    if (ascensionStars.size > 0 || ascensionStats.size > 0) {
+      const asc = artifact.ascension
+      const starLevel = Math.max(0, Math.min(6, Math.round(asc?.rolls ?? 0)))
+      if (ascensionStars.size > 0 && !ascensionStars.has(starLevel)) continue
+      if (ascensionStats.size > 0) {
+        const variant = asc?.variant
+        if (!variant || variant === StatVariant.Any || !ascensionStats.has(Number(variant))) continue
+      }
+    }
+
     if (match?.cfgIdx != null && match.cfgIdx >= 0) {
       matchingConfigIndices.add(match.cfgIdx)
     }
@@ -522,6 +570,16 @@ export function filterTesterItems<T extends TesterFilterRow>(
   }
 
   return { items: filtered, matchingConfigIndices }
+}
+
+const determineTesterSourceCategory = (artifact: NormalizedGearArtifact): TesterSourceFilter => {
+  if (artifact.source === 'tester') return 'manual'
+  if (artifact.source === 'inbox') return 'inbox'
+  if (artifact.equippedToChampionId != null) {
+    const loc = artifact.equippedChampionLocation
+    return loc === 'vault' || loc === 'reserveVault' ? 'vault' : 'collection'
+  }
+  return 'inventory'
 }
 
 const TESTER_DISABLED_ANY_FIELDS = ['main', 'level', 'slots', 'rank', 'rarity'] as const

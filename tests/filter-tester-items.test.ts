@@ -182,3 +182,88 @@ test('filterTesterItems filters by matched vs unmatched tester rows', () => {
   assert.equal(unmatched.items.length, 1)
   assert.equal(unmatched.items[0]?.match, null)
 })
+
+test('filterTesterItems filters by tester sources', () => {
+  const manual = makeArtifact({ source: 'tester' })
+  const inventory = makeArtifact()
+  const collection = makeArtifact({ equippedToChampionId: 101, equippedChampionLocation: 'collection' })
+  const rows: TesterFilterRow[] = [
+    { artifact: manual, match: null },
+    { artifact: inventory, match: null },
+    { artifact: collection, match: null },
+  ]
+  const state: RulesFilterState = {
+    ...DEFAULT_RULES_FILTER_STATE,
+    testerSources: { selected: ['manual'] },
+  }
+  const result = filterTesterItems(rows, state)
+  assert.equal(result.items.length, 1)
+  assert.equal(result.items[0]?.artifact.source, 'tester')
+})
+
+test('filterTesterItems filters by chaos ore reroll state', () => {
+  const clean = makeArtifact({ rerollCount: 0 })
+  const rerolled = makeArtifact({ rerollCount: 2 })
+  const rows: TesterFilterRow[] = [
+    { artifact: clean, match: null },
+    { artifact: rerolled, match: null },
+  ]
+  const state: RulesFilterState = {
+    ...DEFAULT_RULES_FILTER_STATE,
+    testerChaos: { mode: 'rerolled' },
+  }
+  const result = filterTesterItems(rows, state)
+  assert.equal(result.items.length, 1)
+  assert.equal(result.items[0]?.artifact.rerollCount, 2)
+})
+
+test('filterTesterItems filters by glyph presence', () => {
+  const glyphed = makeArtifact({
+    substats: [
+      makeStat(StatVariant.CR, 12, { statId: StatId.CR, glyphValue: 1, totalValue: 13 }),
+    ],
+  })
+  const plain = makeArtifact({
+    substats: [
+      makeStat(StatVariant.CR, 12, { statId: StatId.CR, glyphValue: 0, totalValue: 12 }),
+    ],
+  })
+  const rows: TesterFilterRow[] = [
+    { artifact: glyphed, match: null },
+    { artifact: plain, match: null },
+  ]
+  const state: RulesFilterState = {
+    ...DEFAULT_RULES_FILTER_STATE,
+    testerGlyphs: { mode: 'on' },
+  }
+  const result = filterTesterItems(rows, state)
+  assert.equal(result.items.length, 1)
+  assert.equal(result.items[0]?.artifact.substats[0]?.glyphValue, 1)
+})
+
+test('filterTesterItems filters by ascension stars and stats', () => {
+  const ascArtifact = makeArtifact({
+    ascension: {
+      source: 'ascension',
+      statId: StatId.SPD,
+      isFlat: false,
+      variant: StatVariant.SPD,
+      baseValue: 5,
+      glyphValue: 0,
+      totalValue: 5,
+      rolls: 3,
+    },
+  })
+  const baseArtifact = makeArtifact({ ascension: null })
+  const rows: TesterFilterRow[] = [
+    { artifact: ascArtifact, match: null },
+    { artifact: baseArtifact, match: null },
+  ]
+  const state: RulesFilterState = {
+    ...DEFAULT_RULES_FILTER_STATE,
+    testerAscension: { stars: [3], stats: [StatVariant.SPD] },
+  }
+  const result = filterTesterItems(rows, state)
+  assert.equal(result.items.length, 1)
+  assert.equal(result.items[0]?.artifact.ascension?.variant, StatVariant.SPD)
+})
