@@ -26,7 +26,7 @@ import {
   STAT_VARIANTS_PRIORITY_ROW1,
   STAT_VARIANTS_PRIORITY_ROW2,
 } from '../lib/types'
-import { LIST_SUBHEADER_SX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, SETS_MENU_WIDTH_PX, FILTER_FACTION_SELECT_WIDTH_PX, FILTER_SETS_SELECT_WIDTH_PX, FILTER_CHIP_TOP_MARGIN, ELLIPSIS_TEXT_SX, FILTER_TOGGLE_BUTTON_WIDTH_PX, SMALL_BUTTON_HEIGHT_PX, BUILDER_STATUS_CHIP_HEIGHT_PX, UI_BG_HOVER_DANGER_TRANSITION, DANGER_TINT_BG, SETS_SELECT_INLINE_GUTTER_PX, STATUS_CHIP_BORDER_RADIUS_PX, FONT_SIZE_BASE_PX, RULES_FILTER_COLLAPSE_SESSION_KEY } from '../lib/constants'
+import { LIST_SUBHEADER_SX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, SETS_MENU_WIDTH_PX, FILTER_FACTION_SELECT_WIDTH_PX, FILTER_SETS_SELECT_WIDTH_PX, FILTER_CHIP_TOP_MARGIN, ELLIPSIS_TEXT_SX, FILTER_TOGGLE_BUTTON_WIDTH_PX, SMALL_BUTTON_HEIGHT_PX, BUILDER_STATUS_CHIP_HEIGHT_PX, UI_BG_HOVER_DANGER_TRANSITION, DANGER_TINT_BG, SETS_SELECT_INLINE_GUTTER_PX, STATUS_CHIP_BORDER_RADIUS_PX, FONT_SIZE_BASE_PX, RULES_FILTER_COLLAPSE_SESSION_KEY, SETS_SELECT_CLEAR_BUTTON_RIGHT_PX, CLEAR_ICON_BUTTON_SIZE_PX } from '../lib/constants'
 import { metasetGlyph, orderMetasetIds, type Metaset } from '../lib/metasets'
 import React from 'react'
 import { alpha, useTheme } from '@mui/material/styles'
@@ -476,6 +476,7 @@ const ASCENSION_STAR_VALUES: readonly number[] = [0, 1, 2, 3, 4, 5, 6]
   const testerAscStars = state.testerAscension?.stars ?? []
   const testerAscStats = state.testerAscension?.stats ?? []
   const championSelection = state.testerChampions?.selected ?? []
+  const extraChampionCount = Math.max(0, championSelection.length - 1)
   const showChampionFilter = isTesterMode && (testerChampionOptions?.length ?? 0) > 0
   const [championSearch, setChampionSearch] = React.useState('')
   const championOptions = React.useMemo(() => testerChampionOptions ?? [], [testerChampionOptions])
@@ -1234,38 +1235,44 @@ const ASCENSION_STAR_VALUES: readonly number[] = [0, 1, 2, 3, 4, 5, 6]
                     <FormLabel sx={{ m: 0 }}>{t('testerChampionFilterLabel')}</FormLabel>
                   </Box>
                   <Collapse in={!collapsed.champions} timeout="auto" unmountOnExit>
-                    <Select
-                      multiple
-                      size="small"
-                      value={championSelection.map((id) => String(id))}
-                      onChange={(event) => {
-                        const vals = event.target.value as string[]
-                        const parsed = vals
-                          .map((v) => Number(v))
-                          .filter((id) => Number.isFinite(id) && id > 0)
-                        onChange({ ...state, testerChampions: { selected: parsed } })
+                    <Box
+                      sx={{
+                        position: 'relative',
+                        width: { xs: '100%', sm: FILTER_FACTION_SELECT_WIDTH_PX },
+                        maxWidth: FILTER_FACTION_SELECT_WIDTH_PX,
                       }}
-                      displayEmpty
-                      renderValue={(vals) => {
-                        const list = (vals as string[]).map((v) => Number(v)).filter((n) => Number.isFinite(n) && n > 0)
-                        if (!list.length) {
-                          return (
-                            <Typography
-                              variant="body2"
-                              data-ellipsis-target
-                              title={t('any')}
-                              sx={[ELLIPSIS_TEXT_SX, { display: 'block', width: '100%', fontSize: FONT_SIZE_BASE_PX }]}
-                            >
-                              {t('any')}
-                            </Typography>
-                          )
-                        }
-                        const firstId = list[0]!
-                        const firstOption = championOptionMap.get(firstId)
-                        const firstName = formatChampionName(firstOption)
-                        const locationLabel = formatChampionLocation(firstOption)
-                        const summaryTitle = locationLabel ? `${firstName} · ${locationLabel}` : firstName
-                        const extraCount = Math.max(0, list.length - 1)
+                    >
+                      <Select
+                        multiple
+                        size="small"
+                        value={championSelection.map((id) => String(id))}
+                        onChange={(event) => {
+                          const vals = event.target.value as string[]
+                          const parsed = vals
+                            .map((v) => Number(v))
+                            .filter((id) => Number.isFinite(id) && id > 0)
+                          onChange({ ...state, testerChampions: { selected: parsed } })
+                        }}
+                        displayEmpty
+                        renderValue={(vals) => {
+                          const list = (vals as string[]).map((v) => Number(v)).filter((n) => Number.isFinite(n) && n > 0)
+                          if (!list.length) {
+                            return (
+                              <Typography
+                                variant="body2"
+                                data-ellipsis-target
+                                title={t('any')}
+                                sx={[ELLIPSIS_TEXT_SX, { display: 'block', width: '100%', fontSize: FONT_SIZE_BASE_PX }]}
+                              >
+                                {t('any')}
+                              </Typography>
+                            )
+                          }
+                          const firstId = list[0]!
+                          const firstOption = championOptionMap.get(firstId)
+                          const firstName = formatChampionName(firstOption)
+                          const locationLabel = formatChampionLocation(firstOption)
+                          const summaryTitle = locationLabel ? `${firstName} · ${locationLabel}` : firstName
                         return (
                           <Box
                             component="span"
@@ -1281,50 +1288,47 @@ const ASCENSION_STAR_VALUES: readonly number[] = [0, 1, 2, 3, 4, 5, 6]
                             <Typography variant="body2" sx={[ELLIPSIS_TEXT_SX, { flex: '1 1 auto' }]}>
                               {summaryTitle}
                             </Typography>
-                            {extraCount > 0 && (
-                              <Typography
-                                component="span"
-                                variant="body2"
-                                noWrap
-                                sx={{ color: 'text.secondary', fontSize: FONT_SIZE_BASE_PX, flexShrink: 0 }}
-                              >
-                                {`+${extraCount}`}
-                              </Typography>
-                            )}
                           </Box>
                         )
                       }}
-                      MenuProps={{
-                        PaperProps: {
-                          sx: {
-                            maxHeight: 360,
-                            '& .MuiList-root': {
-                              py: 0,
+                        MenuProps={{
+                          autoFocus: false,
+                          disableAutoFocusItem: true,
+                          variant: 'menu',
+                          MenuListProps: {
+                            autoFocus: false,
+                            autoFocusItem: false,
+                          },
+                          PaperProps: {
+                            sx: {
+                              maxHeight: 360,
+                              '& .MuiList-root': {
+                                py: 0,
+                              },
                             },
                           },
-                        },
-                      }}
-                      sx={{
-                        width: { xs: '100%', sm: FILTER_FACTION_SELECT_WIDTH_PX },
-                        maxWidth: FILTER_FACTION_SELECT_WIDTH_PX,
-                        cursor: 'pointer',
-                        '& .MuiSelect-select': {
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: 0.5,
-                          flexWrap: 'nowrap',
-                          paddingTop: 0,
-                          paddingBottom: 0,
-                          maxWidth: '100%',
+                        }}
+                        sx={{
+                          width: '100%',
                           cursor: 'pointer',
-                        },
-                        '& .MuiSelect-select > *': {
-                          minWidth: 0,
-                        },
-                        minHeight: SMALL_BUTTON_HEIGHT_PX + 8,
-                        height: SMALL_BUTTON_HEIGHT_PX + 8,
-                      }}
-                    >
+                          '& .MuiSelect-select': {
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 0.5,
+                            flexWrap: 'nowrap',
+                            paddingTop: 0,
+                            paddingBottom: 0,
+                            paddingRight: `${SETS_SELECT_INLINE_GUTTER_PX}px`,
+                            maxWidth: '100%',
+                            cursor: 'pointer',
+                          },
+                          '& .MuiSelect-select > *': {
+                            minWidth: 0,
+                          },
+                          minHeight: SMALL_BUTTON_HEIGHT_PX + 8,
+                          height: SMALL_BUTTON_HEIGHT_PX + 8,
+                        }}
+                      >
                       <ListSubheader sx={{ ...LIST_SUBHEADER_SX, py: 1.25 }}>
                         <TextField
                           value={championSearch}
@@ -1358,12 +1362,30 @@ const ASCENSION_STAR_VALUES: readonly number[] = [0, 1, 2, 3, 4, 5, 6]
                           )
                         })
                       )}
-                    </Select>
-                    <InlineSelectClearButton
-                      disabled={championSelection.length === 0}
-                      label={t('clear')}
-                      onClear={() => onChange({ ...state, testerChampions: { selected: [] } })}
-                    />
+                      </Select>
+                      {extraChampionCount > 0 && (
+                        <Typography
+                          variant="body2"
+                          noWrap
+                          sx={{
+                            position: 'absolute',
+                            top: '50%',
+                            right: `${SETS_SELECT_CLEAR_BUTTON_RIGHT_PX + CLEAR_ICON_BUTTON_SIZE_PX + 4}px`,
+                            transform: 'translateY(-50%)',
+                            color: 'text.secondary',
+                            fontSize: FONT_SIZE_BASE_PX,
+                            pointerEvents: 'none',
+                          }}
+                        >
+                          {`+${extraChampionCount}`}
+                        </Typography>
+                      )}
+                      <InlineSelectClearButton
+                        disabled={championSelection.length === 0}
+                        label={t('clear')}
+                        onClear={() => onChange({ ...state, testerChampions: { selected: [] } })}
+                      />
+                    </Box>
                   </Collapse>
                 </FormControl>
               )}
