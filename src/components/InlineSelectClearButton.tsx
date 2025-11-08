@@ -29,6 +29,7 @@ export default function InlineSelectClearButton({
         alignItems: 'center',
         justifyContent: 'center',
         pointerEvents: 'none',
+        zIndex: 1,
       }}
     >
       <ClearIconButton
