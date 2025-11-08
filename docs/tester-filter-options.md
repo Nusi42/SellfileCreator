@@ -6,14 +6,14 @@ Mark `[x]` to approve an option. Add comments beneath any section to capture req
 
 ## Option A — Source & Equipped Chips
 - Placement: new chip row directly under the existing tester filter chips in the preview toolbar (visible only when the preview toggle is on `Rule Tester`).
-- Controls: toggle chips for `Inventory`, `Equipped (Collection)`, `Equipped (Vault)`, `Inbox`, `Manual Tester`.
+- Controls: toggle chips for `Inventory`, `Equipped (Collection)`, `Equipped (Vault)`, `Inbox`, `Custom Tester`.
 - Notes: filtering and badges both derive from the same selection so scan + filter stay in sync.
 
 - [x] Approve
 
 **Comments**
 I presume u mean below the grid for Result / Sets.
-Make it `Inventory`, `Collection`, `Vault`, `Inbox`, `Manual`.
+Make it `Inventory`, `Collection`, `Vault`, `Inbox`, `Custom`.
 Allow multi selection.
 Having none selected shall mean `Any`.
 
@@ -50,15 +50,15 @@ We can add a chip with which we can toggle whether that selection means "Match: 
 
 **Open questions:**
 - Should the chaos-ore reroll toggle and the substat roll-count chips sit together to the right of the tester config control, or do you prefer splitting them (e.g., reroll toggle in the toolbar, roll-count chips in the detail drawer)?
-- For roll-count filtering, do manual tester rows need UI to capture their per-substat roll counts so the filters can match them, or is this limited to imported gear that already tracks rolls?
+- For roll-count filtering, do custom tester rows need UI to capture their per-substat roll counts so the filters can match them, or is this limited to imported gear that already tracks rolls?
 
 **Answer**: 
 Make it a chip row under the Mainstat toggles (same block as the Match helper).
 
-**Still open:** do manual tester rows need new inputs to record each substat’s roll count so the `1/2/3/4 rolls` filter has data to match, or should that filter only apply to imported gear (which already tracks roll counts)? Please clarify so we know whether the Rule Tester dialog needs extra controls.
+**Still open:** do custom tester rows need new inputs to record each substat’s roll count so the `1/2/3/4 rolls` filter has data to match, or should that filter only apply to imported gear (which already tracks roll counts)? Please clarify so we know whether the Rule Tester dialog needs extra controls.
 
 **Answer**: 
-The filter shall only apply to imported gear. Manual items shall be treated like 0 rolls. The chip row stays under Mainstat.
+The filter shall only apply to imported gear. Custom items shall be treated like 0 rolls. The chip row stays under Mainstat.
 
 ---
 
@@ -73,10 +73,10 @@ The filter shall only apply to imported gear. Manual items shall be treated like
 If we know the ascension level (which I presume should be anywhere beteen 0 and 6 - akin to rank), we should show "not ascended", "1*", ..."6*" as toggle buttons.
 Having none selected should be like `any`.
 
-**Open question:** manual tester entries currently only know whether an ascension stat exists, not the star count. Should we expand the dialog so users can set a 0–6 ascension level per row, or is the star-based filter meant solely for imported gear where that data already exists?
+**Open question:** custom tester entries currently only know whether an ascension stat exists, not the star count. Should we expand the dialog so users can set a 0–6 ascension level per row, or is the star-based filter meant solely for imported gear where that data already exists?
 
 **Answer**: 
-The star filter is for imported gear only. Manual entries should simply be treated as unascended. Use `0★`, `1★`, … `6★` labels (real star symbol). The ascension stat dropdown must be multi-select, no search, no summary chips; mirror the Faction dropdown layout (list with checkmarks), optionally tint rows using stat colors.
+The star filter is for imported gear only. Custom entries should simply be treated as unascended. Use `0★`, `1★`, … `6★` labels (real star symbol). The ascension stat dropdown must be multi-select, no search, no summary chips; mirror the Faction dropdown layout (list with checkmarks), optionally tint rows using stat colors.
 
 ---
 
