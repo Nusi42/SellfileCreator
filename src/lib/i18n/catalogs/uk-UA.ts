@@ -53,6 +53,7 @@ const overrides: Catalog = {
   testerOpenLabel: 'Спорядження...',
   testerTitle: 'Спорядження',
   testerIntro: 'Створюйте прикладне спорядження, щоб побачити, яке правило спрацює першим і чи буде предмет збережено або продано. Перетягніть сюди базу даних RSL Helper (зазвичай у %APPDATA%\\RslHelper\\Config), щоб імпортувати реальне спорядження.',
+  testerManualOnlyNotice: 'Only manually added gear appears here. Imported inventory, equipped, and inbox pieces stay visible in the Rule Tester preview; use the buttons below to delete those sources.',
   testerEmptyHint: 'Додайте предмети, щоб перевірити, яке правило спрацює першим.',
   testerRule: 'Правило',
   testerConfig: 'Конфіг',
@@ -88,6 +89,7 @@ const overrides: Catalog = {
   testerRuleChip: 'Правило #{index}',
   testerFinalSellChip: 'Фінальний продаж',
   testerValueUnknown: '—',
+  testerAddManualGear: 'Add manual gear',
   // Common UI bits used in Rule Tester
   add: 'Додати',
   compact: 'Компактний',

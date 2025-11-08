@@ -38,6 +38,21 @@ import type { TesterPreviewMatch } from '../../types/testerPreview'
 import { TesterSummaryLabel } from '../TesterSummaryLabel'
 import { TesterRuleReferenceChip } from '../TesterRuleReferenceChip'
 
+type TesterSourceCategory = 'manual' | 'inventory' | 'collection' | 'vault' | 'inbox'
+type TesterSourceCountMap = Record<TesterSourceCategory, number>
+
+const testerSourceCategoryForItem = (item: RuleTesterItem): TesterSourceCategory => {
+  const extras = item.previewExtras
+  const baseSource = extras?.source
+  if (!baseSource || baseSource === 'tester') return 'manual'
+  if (baseSource === 'inbox') return 'inbox'
+  if (extras?.equippedToChampionId != null) {
+    const loc = extras.equippedChampionLocation
+    return loc === 'vault' || loc === 'reserveVault' ? 'vault' : 'collection'
+  }
+  return 'inventory'
+}
+
 // Single grid template keeps the first two rows of controls perfectly aligned.
 const TESTER_CONTROL_GRID_TEMPLATE = `${TESTER_SLOT_SELECT_WIDTH_PX}px ${TESTER_RANK_SELECT_WIDTH_PX}px ${TESTER_RARITY_SELECT_WIDTH_PX}px ${TESTER_MAINSTAT_SELECT_MIN_WIDTH_PX}px`
 const TESTER_SELECT_GAP_DEFAULT_PX = 8
@@ -133,8 +148,27 @@ export default function RuleTesterDialog({
   }, [])
 
   type TesterItem = RuleTesterItem
-  const items = testerItems
   const setItems = setTesterItems
+  const sourceCounts = useMemo<TesterSourceCountMap>(() => {
+    const counts: TesterSourceCountMap = {
+      manual: 0,
+      inventory: 0,
+      collection: 0,
+      vault: 0,
+      inbox: 0,
+    }
+    testerItems.forEach((item) => {
+      const category = testerSourceCategoryForItem(item)
+      counts[category] += 1
+    })
+    return counts
+  }, [testerItems])
+  const manualEntries = useMemo(() => (
+    testerItems
+      .filter((item) => testerSourceCategoryForItem(item) === 'manual')
+      .map((item) => ({ item }))
+  ), [testerItems])
+  const items = useMemo(() => manualEntries.map((entry) => entry.item), [manualEntries])
   const itemsRef = useRef(items)
   useEffect(() => { itemsRef.current = items }, [items])
   const toggleHistoryRef = useRef<Map<number, number[]>>(new Map())
@@ -374,8 +408,69 @@ export default function RuleTesterDialog({
   }, [setCompactByRowId])
 
   const updateItemAt = useCallback((index: number, updater: (item: TesterItem) => TesterItem) => {
+    const target = manualEntries[index]
+    if (!target) return
+    const rowId = target.item.rowId
     setItems((prev) => {
-      const next = prev.map((item, i) => (i === index ? updater(item) : item))
+      const targetIdx = prev.findIndex((entry) => entry.rowId === rowId)
+      if (targetIdx === -1) return prev
+      const next = prev.slice()
+      next[targetIdx] = updater(next[targetIdx]!)
+      pruneEasterEggStateForItems(next)
+      return next
+    })
+  }, [manualEntries, pruneEasterEggStateForItems, setItems])
+
+  const insertItemAfter = useCallback((index: number) => {
+    const anchor = manualEntries[index]
+    const anchorRowId = anchor?.item.rowId ?? null
+    setItems((prev) => {
+      const anchorIdx = anchorRowId == null ? -1 : prev.findIndex((entry) => entry.rowId === anchorRowId)
+      const insertIdx = anchorIdx === -1 ? prev.length : anchorIdx + 1
+      const next = prev.slice()
+      next.splice(insertIdx, 0, makeDefaultItem(allocTesterRowId))
+      pruneEasterEggStateForItems(next)
+      return next
+    })
+  }, [allocTesterRowId, manualEntries, makeDefaultItem, pruneEasterEggStateForItems, setItems])
+
+  const deleteItemAt = useCallback((index: number) => {
+    const target = manualEntries[index]
+    if (!target) return
+    const rowId = target.item.rowId
+    setItems((prev) => {
+      const next = prev.filter((entry) => entry.rowId !== rowId)
+      if (next.length === prev.length) return prev
+      pruneEasterEggStateForItems(next)
+      return next
+    })
+  }, [manualEntries, pruneEasterEggStateForItems, setItems])
+
+  const handleAddManualGear = useCallback(() => {
+    setItems((prev) => {
+      const next = prev.concat(makeDefaultItem(allocTesterRowId))
+      pruneEasterEggStateForItems(next)
+      return next
+    })
+    requestAnimationFrame(() => {
+      const node = scrollContainerRef.current
+      if (node) {
+        node.scrollTo({ top: node.scrollHeight, behavior: 'smooth' })
+      }
+    })
+  }, [allocTesterRowId, makeDefaultItem, pruneEasterEggStateForItems, setItems])
+
+  const deletableSources = useMemo(() => ([
+    { key: 'inventory' as const, label: t('testerSourceInventory') },
+    { key: 'collection' as const, label: t('testerSourceEquippedCollection') },
+    { key: 'vault' as const, label: t('testerSourceEquippedVault') },
+    { key: 'inbox' as const, label: t('testerSourceInbox') },
+  ]), [t])
+
+  const handleDeleteBySource = useCallback((category: TesterSourceCategory) => {
+    setItems((prev) => {
+      const next = prev.filter((entry) => testerSourceCategoryForItem(entry) !== category)
+      if (next.length === prev.length) return prev
       pruneEasterEggStateForItems(next)
       return next
     })
@@ -557,12 +652,7 @@ export default function RuleTesterDialog({
         >
           <Stack direction="row" spacing={0.25} alignItems="center" sx={{ width: '100%', justifyContent: 'center' }}>
             <Tooltip title={t('add')}>
-              <IconButton size="small" onClick={() => setItems(prev => {
-                const next = prev.slice()
-                next.splice(idx + 1, 0, makeDefaultItem(allocTesterRowId))
-                pruneEasterEggStateForItems(next)
-                return next
-              })} aria-label="add-row" sx={{
+              <IconButton size="small" onClick={() => insertItemAfter(idx)} aria-label="add-row" sx={{
                 p: 0.25,
                 ...(cookieMonsterActive ? {
                   '& svg': {
@@ -579,12 +669,7 @@ export default function RuleTesterDialog({
                 <IconButton
                   size="small"
                   color="warning"
-                  disabled={items.length <= 1}
-                  onClick={() => setItems(prev => {
-                    const next = prev.filter((_, i) => i !== idx)
-                    pruneEasterEggStateForItems(next)
-                    return next
-                  })}
+                  onClick={() => deleteItemAt(idx)}
                   aria-label="remove-row"
                   sx={{
                     p: 0.25,
@@ -1354,6 +1439,28 @@ export default function RuleTesterDialog({
         <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
           {t('testerIntro')}
         </Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+          {t('testerManualOnlyNotice')}
+        </Typography>
+        <Stack direction={{ xs: 'column', md: 'row' }} spacing={1} sx={{ mb: 1 }}>
+          {deletableSources.map((section) => {
+            const count = sourceCounts[section.key]
+            return (
+              <Box key={section.key} sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
+                <Chip size="small" variant="outlined" label={`${section.label} (${count})`} />
+                <Button
+                  size="small"
+                  variant="outlined"
+                  color="error"
+                  onClick={() => handleDeleteBySource(section.key)}
+                  disabled={count === 0}
+                >
+                  {t('delete')}
+                </Button>
+              </Box>
+            )
+          })}
+        </Stack>
         <Box
           ref={scrollContainerRef}
           onScroll={onScroll}
@@ -1383,6 +1490,7 @@ export default function RuleTesterDialog({
         </Box>
       </DialogContent>
       <DialogActions>
+        <Button onClick={handleAddManualGear}>{t('testerAddManualGear')}</Button>
         <Button
           size="small"
           variant="outlined"

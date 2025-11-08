@@ -53,6 +53,7 @@ const enUS: Catalog = {
   testerOpenLabel: 'Gear...',
   testerTitle: 'Gear',
   testerIntro: 'Create example gear to see which rule matches first and whether it would keep or sell them. Drag and drop your RSL Helper DB (usually under %APPDATA%\\RslHelper\\Config) into this dialog to import real gear.',
+  testerManualOnlyNotice: 'Only manually added gear appears here. Imported inventory, equipped, and inbox pieces stay visible in the Rule Tester preview; use the buttons below to delete those sources.',
   testerEmptyHint: 'Add items to test which rule matches first.',
   testerRule: 'Rule',
   testerConfig: 'Config',
@@ -88,6 +89,7 @@ const enUS: Catalog = {
   testerRuleChip: 'Rule #{index}',
   testerFinalSellChip: 'Final Sell',
   testerValueUnknown: '—',
+  testerAddManualGear: 'Add manual gear',
   // Common UI bits used in Rule Tester
   add: 'Add',
   compact: 'Compact',

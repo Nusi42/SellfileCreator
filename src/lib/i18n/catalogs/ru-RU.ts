@@ -53,6 +53,7 @@ const overrides: Catalog = {
   testerOpenLabel: 'Снаряжение...',
   testerTitle: 'Снаряжение',
   testerIntro: 'Создайте примерное снаряжение, чтобы увидеть, какое правило сработает первым и будет ли предмет сохранён или продан. Перетащите сюда базу данных RSL Helper (обычно в %APPDATA%\\RslHelper\\Config), чтобы импортировать реальное снаряжение.',
+  testerManualOnlyNotice: 'Only manually added gear appears here. Imported inventory, equipped, and inbox pieces stay visible in the Rule Tester preview; use the buttons below to delete those sources.',
   testerEmptyHint: 'Добавьте предметы, чтобы проверить, какое правило сработает первым.',
   testerRule: 'Правило',
   testerConfig: 'Конфиг',
@@ -88,6 +89,7 @@ const overrides: Catalog = {
   testerRuleChip: 'Правило #{index}',
   testerFinalSellChip: 'Финальная продажа',
   testerValueUnknown: '—',
+  testerAddManualGear: 'Add manual gear',
   // Common UI bits used in Rule Tester
   add: 'Добавить',
   compact: 'Компактный',
