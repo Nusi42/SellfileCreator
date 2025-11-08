@@ -1,6 +1,6 @@
 import React from 'react'
-import { Box, Button, Chip, Stack, Tooltip, ToggleButton, ToggleButtonGroup, Typography, Menu, MenuItem } from '@mui/material'
-import { alpha } from '@mui/material/styles'
+import { Box, Button, Chip, Stack, Tooltip, ToggleButton, ToggleButtonGroup, Typography, Menu, MenuItem, Badge } from '@mui/material'
+import { alpha, type Theme } from '@mui/material/styles'
 import TuneIcon from '@mui/icons-material/Tune'
 import {
   ELLIPSIS_TEXT_SX,
@@ -67,6 +67,8 @@ export default function PreviewHeaderActions(props: {
   onChangePreviewMode: (mode: 'rules' | 'tester') => void
   testerCount?: number
   testerFilteredCount?: number
+  gearDbCommandError?: string | null
+  onClearGearDbCommandError?: () => void
 }) {
   const {
     mergedCount,
@@ -97,6 +99,8 @@ export default function PreviewHeaderActions(props: {
     testerCount,
     testerFilteredCount,
     testerBuilding = false,
+    gearDbCommandError,
+    onClearGearDbCommandError,
   } = props
   const handleSelectBaseFile = React.useCallback(async (file: File) => {
     if (onSelectGearDb && isGearDbFilename(file.name)) {
@@ -505,37 +509,53 @@ export default function PreviewHeaderActions(props: {
               sx={{ width: CLEAR_ICON_BUTTON_SIZE_PX, height: CLEAR_ICON_BUTTON_SIZE_PX, flexShrink: 0 }}
             />
           ) : null}
-          <Tooltip
-            title={(
-              <Box component="span">
-                {t('loadSellfile')}
-                <br />
-                {t('optionalLoadSellfile')}
-              </Box>
-            )}
-          >
-            <FilePickerButton
-              label={t('loadSellfile')}
-              accept={ACCEPT_HSF}
-              onSelect={handleSelectBaseFile}
-              buttonProps={{
-                sx: {
-                  minWidth: SELLFILE_BUTTON_HEIGHT_PX,
-                  width: SELLFILE_BUTTON_HEIGHT_PX,
-                  height: SELLFILE_BUTTON_HEIGHT_PX,
-                  minHeight: SELLFILE_BUTTON_HEIGHT_PX,
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  p: 0,
-                  flexShrink: 0,
-                },
-                'aria-label': t('loadSellfile'),
-              }}
+          <Box sx={{ position: 'relative', display: 'inline-flex', flexShrink: 0 }}>
+            <Tooltip
+              title={(
+                <Box component="span">
+                  {t('loadSellfile')}
+                  <br />
+                  {t('optionalLoadSellfile')}
+                </Box>
+              )}
             >
-              <UploadFileIcon fontSize="small" />
-            </FilePickerButton>
-          </Tooltip>
+              <FilePickerButton
+                label={t('loadSellfile')}
+                accept={ACCEPT_HSF}
+                onSelect={handleSelectBaseFile}
+                buttonProps={{
+                  sx: {
+                    minWidth: SELLFILE_BUTTON_HEIGHT_PX,
+                    width: SELLFILE_BUTTON_HEIGHT_PX,
+                    height: SELLFILE_BUTTON_HEIGHT_PX,
+                    minHeight: SELLFILE_BUTTON_HEIGHT_PX,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    p: 0,
+                    flexShrink: 0,
+                  },
+                  'aria-label': t('loadSellfile'),
+                }}
+              >
+                <UploadFileIcon fontSize="small" />
+              </FilePickerButton>
+            </Tooltip>
+            {gearDbCommandError ? (
+              <Tooltip
+                title={gearDbCommandError}
+                placement="left"
+                onClose={() => { onClearGearDbCommandError?.() }}
+              >
+                <Badge
+                  overlap="rectangular"
+                  anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+                  sx={warningBadgeSx}
+                  badgeContent="!"
+                />
+              </Tooltip>
+            ) : null}
+          </Box>
           <Tooltip title={exportTooltip || undefined}>
             <DirtyBadge
               active={hsfDirty}
@@ -627,3 +647,22 @@ export default function PreviewHeaderActions(props: {
     </>
   )
 }
+  const warningBadgeSx = {
+    '& .MuiBadge-badge': {
+      minWidth: 18,
+      height: 18,
+      borderRadius: '50%',
+      top: 0,
+      right: 0,
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      boxShadow: (theme: Theme) => theme.shadows[2],
+      backgroundColor: (theme: Theme) => theme.palette.warning.main,
+      color: (theme: Theme) => theme.palette.getContrastText(theme.palette.warning.main),
+      border: (theme: Theme) => `2px solid ${theme.palette.background.paper}`,
+      fontWeight: (theme: Theme) => theme.typography.fontWeightBold ?? 600,
+      fontSize: (theme: Theme) => (theme.typography.pxToRem ? theme.typography.pxToRem(12) : '0.75rem'),
+      lineHeight: 1,
+    },
+  } satisfies SxProps<Theme>

@@ -1090,6 +1090,16 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const handleFileFormatErrorClose = useCallback(() => {
     setFileFormatError(null)
   }, [])
+  const [gearDbCommandError, setGearDbCommandError] = useState<string | null>(null)
+  const clearGearDbCommandError = useCallback(() => { setGearDbCommandError(null) }, [])
+  const formatFileFormatErrorMessage = useCallback((fileName?: string | null) => {
+    const trimmed = (fileName ?? '').trim()
+    if (!trimmed) {
+      return t('fileFormatErrorMessage', { fileName: t('fileFormatErrorUnknownName') })
+    }
+    const truncated = trimmed.length > 160 ? `${trimmed.slice(0, 157)}…` : trimmed
+    return t('fileFormatErrorMessage', { fileName: `“${truncated}”` })
+  }, [t])
   const [previewMode, setPreviewMode] = useState<'rules' | 'tester'>(() => {
     if (typeof window === 'undefined') return 'rules'
     try {
@@ -1598,7 +1608,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   }, [restoreDialogPending])
   // Show the autosave restore prompt only after the README dialog is dismissed.
   const restoreDlgOpen = !tutorial.helpOpen && (restoreDialogPending || Boolean(testerRestoreDraft))
-  const handleGearDbImport = useCallback(async (file: File) => {
+  const handleGearDbImport = useCallback(async (file: File, options?: { source?: 'manual' | 'command' }) => {
+    const source = options?.source ?? 'manual'
     if (gearImportBusy) return
     if (tutorial.helpOpen) {
       tutorial.setHelpOpen(false)
@@ -1608,12 +1619,19 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     if (restoreDialogPending) dismissRestore()
     if (confirmClearOpen || confirmDeleteIdx !== null || confirmDeleteTargets !== null) return
     flushTransientUi()
+    if (source === 'command') {
+      setGearDbCommandError(null)
+    }
     setGearImportBusy(true)
     try {
       const { artifacts, inboxArtifacts } = await importGearDatabaseFromFile(file)
       const combined = [...artifacts, ...inboxArtifacts]
       if (combined.length === 0) {
-        showToast(t('toastGearDbImportEmpty'), { severity: 'error', icon: <ErrorOutlineIcon fontSize="inherit" /> })
+        if (source === 'command') {
+          setGearDbCommandError(t('toastGearDbImportEmpty'))
+        } else {
+          showToast(t('toastGearDbImportEmpty'), { severity: 'error', icon: <ErrorOutlineIcon fontSize="inherit" /> })
+        }
         return
       }
       setPreviewMode('tester')
@@ -1624,12 +1642,19 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       const message = inboxCount > 0
         ? t('toastGearDbImportedWithInbox', { count: totalCount, inboxCount })
         : t('toastGearDbImported', { count: totalCount })
+      if (source === 'command') {
+        setGearDbCommandError(null)
+      }
       showToast(message, { icon: <StorageIcon fontSize="inherit" /> })
     } catch (err) {
       if (import.meta.env.DEV) {
         console.error('Failed to import gear database', err)
       }
-      showFileFormatError(file.name)
+      if (source === 'command') {
+        setGearDbCommandError(formatFileFormatErrorMessage(file.name))
+      } else {
+        showFileFormatError(file.name)
+      }
     } finally {
       setGearImportBusy(false)
     }
@@ -1647,6 +1672,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     showToast,
     showFileFormatError,
     t,
+    formatFileFormatErrorMessage,
+    setGearDbCommandError,
   ])
 
   // Global file-drag overlay and file routing handled by hook
@@ -2268,7 +2295,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           }
           return
         }
-        void handleGearDbImport(file)
+        void handleGearDbImport(file, { source: 'command' })
       }
 
       const downloadPath = cmd.downloadPath?.trim()
@@ -2296,7 +2323,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
               const blob = await response.blob()
               const fileName = cmd.name && cmd.name.trim().length > 0 ? cmd.name : DEFAULT_GEAR_DB_FILENAME
               const file = new File([blob], fileName, { type: blob.type || 'application/octet-stream' })
-              await handleGearDbImport(file)
+              await handleGearDbImport(file, { source: 'command' })
             } catch (err) {
               if (import.meta.env.DEV) {
                 console.error('Failed to download gear DB payload', err)
@@ -3243,6 +3270,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         onChangePreviewMode={setPreviewMode}
         testerCount={testerPreviewRows.length}
         testerFilteredCount={testerRowsForTable.length}
+        gearDbCommandError={gearDbCommandError}
+        onClearGearDbCommandError={clearGearDbCommandError}
       />
           {filterOpen && (
           <RulesFilterPanel
