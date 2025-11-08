@@ -76,7 +76,6 @@ const enUS: Catalog = {
   testerSubstatsNone: 'No substats',
   testerRollsLabel: 'rolls ×{rolls}',
   testerAscensionInline: 'Asc {stat} {value}',
-  testerRerollLabel: 'Rerolls ×{count}',
   testerEquippedLabel: 'Equipped #{id}',
   testerSourceInventory: 'Inventory',
   testerSourceInbox: 'Inbox',

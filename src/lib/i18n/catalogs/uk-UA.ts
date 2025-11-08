@@ -76,7 +76,6 @@ const overrides: Catalog = {
   testerSubstatsNone: 'Без субстатів',
   testerRollsLabel: 'Покращення ×{rolls}',
   testerAscensionInline: 'Підсилення {stat} {value}',
-  testerRerollLabel: 'Рероли ×{count}',
   testerEquippedLabel: 'Екіпіровано #{id}',
   testerSourceInventory: 'Інвентар',
   testerSourceInbox: 'Вхідні',

@@ -76,7 +76,6 @@ const overrides: Catalog = {
   testerSubstatsNone: 'Alt özellik yok',
   testerRollsLabel: 'Roll ×{rolls}',
   testerAscensionInline: 'Asc {stat} {value}',
-  testerRerollLabel: 'Re-roll ×{count}',
   testerEquippedLabel: 'Takılı #{id}',
   testerSourceInventory: 'Envanter',
   testerSourceInbox: 'Gelen',

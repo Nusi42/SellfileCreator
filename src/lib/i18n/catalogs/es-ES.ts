@@ -76,7 +76,6 @@ const overrides: Catalog = {
   testerSubstatsNone: 'Sin subestadísticas',
   testerRollsLabel: 'Mejoras ×{rolls}',
   testerAscensionInline: 'Asc {stat} {value}',
-  testerRerollLabel: 'Re-rolls ×{count}',
   testerEquippedLabel: 'Equipado #{id}',
   testerSourceInventory: 'Inventario',
   testerSourceInbox: 'Buzón',
