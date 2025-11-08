@@ -133,7 +133,6 @@ export default function RuleTesterDialog({
   const {
     adjustSubValuesFor,
     makeDefaultItem,
-    makeDefaultItems,
   } = testerMath
   const subEqualsMainVariant = useCallback((subV: number, mainV?: number): boolean => {
     if (mainV == null || Number(mainV) === StatId.Any) return false
@@ -198,7 +197,6 @@ export default function RuleTesterDialog({
   const [setsMenuOpenIdx, setSetsMenuOpenIdx] = useState<number | null>(null)
   const setsMenuPaperRef = useRef<HTMLDivElement | null>(null)
   const setsMenuListRefs = useRef<Record<number, HTMLUListElement | null>>({})
-  const [confirmResetOpen, setConfirmResetOpen] = useState(false)
   const [pendingDeleteSource, setPendingDeleteSource] = useState<TesterSourceCategory | null>(null)
   // Faction options are grouped like Builder/Filters; precomputed flat list no longer used here.
   // Keeping the grouped structure inline for clarity in the Rule Tester.
@@ -462,6 +460,7 @@ export default function RuleTesterDialog({
   }, [allocTesterRowId, makeDefaultItem, pruneEasterEggStateForItems, setItems])
 
   const deletableSources = useMemo(() => ([
+    { key: 'manual' as const, label: t('testerSourceManual') },
     { key: 'inventory' as const, label: t('testerSourceInventory') },
     { key: 'collection' as const, label: t('testerSourceEquippedCollection') },
     { key: 'vault' as const, label: t('testerSourceEquippedVault') },
@@ -1484,12 +1483,11 @@ export default function RuleTesterDialog({
       </DialogContent>
       <DialogActions
         sx={{
-          flexWrap: 'wrap',
+          flexDirection: 'column',
+          alignItems: 'stretch',
           gap: 1,
-          alignItems: 'center',
         }}
       >
-        <Button onClick={handleAddManualGear}>{t('testerAddManualGear')}</Button>
         <Box
           sx={{
             display: 'flex',
@@ -1521,16 +1519,17 @@ export default function RuleTesterDialog({
             )
           })}
         </Box>
-        <Button
-          size="small"
-          variant="outlined"
-          color="error"
-          onClick={() => setConfirmResetOpen(true)}
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1,
+          }}
         >
-          {t('resetToDefaults')}
-        </Button>
-        <Box sx={{ flex: 1 }} />
-        <Button onClick={onClose}>{t('close')}</Button>
+          <Button onClick={handleAddManualGear}>{t('testerAddManualGear')}</Button>
+          <Box sx={{ flex: 1 }} />
+          <Button onClick={onClose}>{t('close')}</Button>
+        </Box>
       </DialogActions>
       <Dialog
         open={pendingDeleteSource != null}
@@ -1557,33 +1556,6 @@ export default function RuleTesterDialog({
             }}
           >
             {t('delete')}
-          </Button>
-        </DialogActions>
-      </Dialog>
-      <Dialog
-        open={confirmResetOpen}
-        onClose={() => setConfirmResetOpen(false)}
-      >
-        <DialogTitle>{t('testerResetConfirmTitle')}</DialogTitle>
-        <DialogContent>
-          <Typography variant="body2">{t('testerResetConfirmBody')}</Typography>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setConfirmResetOpen(false)}>{t('cancel')}</Button>
-          <Button
-            color="error"
-            onClick={() => {
-              setConfirmResetOpen(false)
-              const nextItems = makeDefaultItems(allocTesterRowId)
-              setItems(nextItems)
-              pruneEasterEggStateForItems(nextItems)
-              setSetsOrder('icons')
-              setSetsSearch('')
-              setSetsMenuOpenIdx(null)
-              requestAnimationFrame(() => setSetsMenuAnchorPos(null))
-            }}
-          >
-            {t('reset')}
           </Button>
         </DialogActions>
       </Dialog>

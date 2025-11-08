@@ -52,8 +52,8 @@ const overrides: Catalog = {
   // Rule Tester
   testerOpenLabel: 'Équipement...',
   testerTitle: 'Équipement',
-  testerIntro: 'Créez un équipement d’exemple pour voir quelle règle correspond en premier et s’il serait conservé ou vendu. Faites glisser votre base de données RSL Helper (généralement sous %APPDATA%\\RslHelper\\Config) dans cette boîte de dialogue pour importer un équipement réel.',
-  testerManualOnlyNotice: 'Seuls les équipements personnalisés apparaissent ici. Les pièces importées depuis l’inventaire, les champions équipés et la boîte aux lettres restent visibles dans l’aperçu du Testeur de règles ; utilisez les boutons ci-dessous pour supprimer ces sources.',
+  testerIntro: 'Créez un équipement d’exemple pour voir quelle règle correspond en premier et si elle conserve ou vend l’objet. Chargez ou faites glisser une base de données RSL Helper (généralement sous %APPDATA%\\RslHelper\\Config) dans l’application afin d’apercevoir de l’équipement réel dans la vue du Testeur de règles.',
+  testerManualOnlyNotice: 'Ce panneau affiche uniquement les entrées personnalisées. Les pièces importées depuis l’inventaire, la collection, le coffre et la boîte de réception restent visibles dans la vue du Testeur de règles ; utilisez les boutons ci-dessous pour supprimer ces sources si nécessaire.',
   testerEmptyHint: 'Ajoutez des objets pour tester quelle règle correspond en premier.',
   testerRule: 'Règle',
   testerConfig: 'Config',

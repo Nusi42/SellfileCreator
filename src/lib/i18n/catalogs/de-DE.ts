@@ -52,8 +52,8 @@ const overrides: Catalog = {
   // Rule Tester
   testerOpenLabel: 'Ausrüstung...',
   testerTitle: 'Ausrüstung',
-  testerIntro: 'Erstelle Beispielausrüstung, um zu sehen, welche Regel zuerst greift und ob sie behalten oder verkauft würde. Ziehe deine RSL-Helper-Datenbank (meist unter %APPDATA%\\RslHelper\\Config) in dieses Dialogfenster, um echte Ausrüstung zu importieren.',
-  testerManualOnlyNotice: 'Hier werden nur benutzerdefinierte Ausrüstungsteile angezeigt. Importierte Inventar-, ausgerüstete und Posteingangs-Gegenstände bleiben in der Rule-Tester-Vorschau sichtbar; nutze die Schaltflächen unten, um diese Quellen zu entfernen.',
+  testerIntro: 'Erstelle Beispielgear, um zu sehen, welche Regel zuerst greift und ob sie den Gegenstand behält oder verkauft. Lade eine RSL-Helper-DB (normalerweise unter %APPDATA%\\RslHelper\\Config) oder ziehe sie in die App, um echtes Gear in der Rule-Tester-Ansicht zu prüfen.',
+  testerManualOnlyNotice: 'Dieses Panel zeigt nur die benutzerdefinierten Einträge. Importierte Gegenstände aus Inventar, Sammlung, Tresor und Posteingang bleiben in der Rule-Tester-Ansicht sichtbar; lösche diese Quellen bei Bedarf über die Buttons unten.',
   testerEmptyHint: 'Füge Gegenstände hinzu, um zu testen, welche Regel zuerst passt.',
   testerRule: 'Regel',
   testerConfig: 'Konfig',

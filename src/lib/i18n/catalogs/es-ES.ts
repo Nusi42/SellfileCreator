@@ -52,8 +52,8 @@ const overrides: Catalog = {
   // Rule Tester
   testerOpenLabel: 'Equipo...',
   testerTitle: 'Equipo',
-  testerIntro: 'Crea equipo de ejemplo para ver qué regla coincide primero y si se conservaría o vendería. Arrastra y suelta tu base de datos de RSL Helper (normalmente en %APPDATA%\\RslHelper\\Config) en este diálogo para importar equipo real.',
-  testerManualOnlyNotice: 'Aquí solo aparece equipo personalizado. El inventario importado, el equipado y el del buzón siguen visibles en la vista previa del Probador de reglas; usa los botones de abajo para eliminar esas fuentes.',
+  testerIntro: 'Crea equipo de muestra para ver qué regla coincide primero y si mantiene o vende la pieza. Carga o arrastra una base de datos de RSL Helper (normalmente en %APPDATA%\\RslHelper\\Config) a la aplicación para previsualizar equipo real en la vista del Probador de reglas.',
+  testerManualOnlyNotice: 'Este panel solo muestra las entradas personalizadas. El equipo importado del inventario, la colección, la bóveda y la bandeja de entrada permanece visible en la vista del Probador de reglas; usa los botones de abajo para borrar esas fuentes si lo necesitas.',
   testerEmptyHint: 'Añade elementos para probar qué regla coincide primero.',
   testerRule: 'Regla',
   testerConfig: 'Config',

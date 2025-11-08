@@ -52,8 +52,8 @@ const overrides: Catalog = {
   // Rule Tester
   testerOpenLabel: 'Equipamento...',
   testerTitle: 'Equipamento',
-  testerIntro: 'Crie equipamento de exemplo para ver qual regra corresponde primeiro e se seria mantido ou vendido. Arraste e largue a sua base de dados do RSL Helper (normalmente em %APPDATA%\\RslHelper\\Config) nesta caixa de diálogo para importar equipamento real.',
-  testerManualOnlyNotice: 'Aqui só aparecem equipamentos personalizados. Os itens importados do inventário, equipados e da caixa de entrada continuam visíveis na pré-visualização do Testador de Regras; utiliza os botões abaixo para eliminar essas fontes.',
+  testerIntro: 'Crie equipamento de amostra para ver qual regra corresponde primeiro e se mantém ou vende o item. Carregue ou arraste uma BD do RSL Helper (normalmente em %APPDATA%\\RslHelper\\Config) para a aplicação para pré-visualizar equipamento real na vista do Testador de Regras.',
+  testerManualOnlyNotice: 'Este painel mostra apenas as entradas personalizadas. Os itens importados do inventário, coleção, cofre e caixa de entrada permanecem visíveis na vista do Testador de Regras; utilize os botões abaixo para limpar essas origens, se necessário.',
   testerEmptyHint: 'Adicione itens para testar qual regra corresponde primeiro.',
   testerRule: 'Regra',
   testerConfig: 'Config',

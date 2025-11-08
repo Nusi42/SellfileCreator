@@ -52,8 +52,8 @@ const overrides: Catalog = {
   // Rule Tester
   testerOpenLabel: 'Equipaggiamento...',
   testerTitle: 'Equipaggiamento',
-  testerIntro: 'Crea equipaggiamento di esempio per vedere quale regola lo intercetta per prima e se verrebbe mantenuto o venduto. Trascina qui il tuo database di RSL Helper (di solito in %APPDATA%\\RslHelper\\Config) per importare equipaggiamento reale.',
-  testerManualOnlyNotice: 'Qui vengono mostrati solo gli equipaggiamenti personalizzati. Gli oggetti importati dall’inventario, equipaggiati e dalla posta restano visibili nell’anteprima del Rule Tester; usa i pulsanti qui sotto per rimuovere tali fonti.',
+  testerIntro: 'Crea equipaggiamento di esempio per vedere quale regola lo intercetta per prima e se lo conserva o lo vende. Carica o trascina nell’app un database di RSL Helper (di solito in %APPDATA%\\RslHelper\\Config) per visualizzare equipaggiamento reale nella vista del Tester regole.',
+  testerManualOnlyNotice: 'Questo riquadro mostra solo le voci personalizzate. Gli oggetti importati da inventario, collezione, deposito e posta rimangono visibili nella vista del Tester regole; usa i pulsanti qui sotto per rimuovere tali sorgenti se necessario.',
   testerEmptyHint: 'Aggiungi oggetti per verificare quale regola corrisponde per prima.',
   testerRule: 'Regola',
   testerConfig: 'Configurazione',

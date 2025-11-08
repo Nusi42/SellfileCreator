@@ -52,8 +52,8 @@ const catalog: Catalog = {
   // Rule Tester
   testerOpenLabel: 'Equipamentos...',
   testerTitle: 'Equipamentos',
-  testerIntro: 'Crie equipamentos de exemplo para ver qual regra corresponde primeiro e se seriam mantidos ou vendidos. Arraste e solte seu banco de dados do RSL Helper (geralmente em %APPDATA%\\RslHelper\\Config) nesta caixa de diálogo para importar equipamentos reais.',
-  testerManualOnlyNotice: 'Aqui aparecem apenas equipamentos personalizados. Os itens importados do inventário, equipados e da caixa de entrada continuam visíveis na visualização do Testador de Regras; use os botões abaixo para excluir essas fontes.',
+  testerIntro: 'Crie equipamentos de exemplo para ver qual regra corresponde primeiro e se ela mantém ou vende o item. Carregue ou arraste um banco de dados do RSL Helper (geralmente em %APPDATA%\\RslHelper\\Config) para o app para pré-visualizar equipamentos reais na visualização do Testador de Regras.',
+  testerManualOnlyNotice: 'Este painel mostra apenas as entradas personalizadas. Os itens importados do inventário, coleção, cofre e caixa de entrada continuam visíveis na visualização do Testador de Regras; use os botões abaixo para remover essas origens, se necessário.',
   testerEmptyHint: 'Adicione itens para testar qual regra corresponde primeiro.',
   testerRule: 'Regra',
   testerConfig: 'Config',

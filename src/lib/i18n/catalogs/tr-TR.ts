@@ -52,8 +52,8 @@ const overrides: Catalog = {
   // Rule Tester
   testerOpenLabel: 'Ekipman...',
   testerTitle: 'Ekipman',
-  testerIntro: 'Örnek ekipman oluşturarak hangi kuralın önce eşleştiğini ve tutulup tutulmayacağını görün. Gerçek ekipmanı içe aktarmak için RSL Helper veritabanınızı (genellikle %APPDATA%\\RslHelper\\Config içinde) bu iletişim kutusuna sürükleyip bırakın.',
-  testerManualOnlyNotice: 'Burada yalnızca özel ekipman görünür. Envanterden, donatılmış kahramanlardan ve gelen kutusundan içe aktarılan parçalar Kural Testi önizlemesinde görünmeye devam eder; bu kaynakları silmek için aşağıdaki düğmeleri kullan.',
+  testerIntro: 'Örnek ekipman oluşturun ve hangi kuralın önce eşleştiğini, öğeyi tutup tutmadığını görün. RSL Helper veritabanını (genellikle %APPDATA%\\RslHelper\\Config altında) uygulamaya yükleyin veya sürükleyip bırakın; böylece Kural Testi görünümünde gerçek ekipmanı inceleyebilirsiniz.',
+  testerManualOnlyNotice: 'Bu panel sadece özel girişleri listeler. İçeri aktarılan envanter, koleksiyon, kasa ve gelen kutusu parçaları Kural Testi görünümünde kalır; gerekirse bu kaynakları aşağıdaki düğmelerle temizleyin.',
   testerEmptyHint: 'Hangi kuralın önce eşleştiğini test etmek için öğe ekleyin.',
   testerRule: 'Kural',
   testerConfig: 'Konfig',
