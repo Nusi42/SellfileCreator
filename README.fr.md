@@ -42,7 +42,7 @@ Construisez, prévisualisez et exportez des règles de vente pour RSL Helper via
     - Exemple : Bannière SPD/ATQ% avec 2 jets sur ATQ%. Rareté = Auto, Seuils = Tard, Auto ≥ Épique. Résultat : lignes Épiques à chaque palier et ≥ Légendaire à +8/+12 pour garder les pièces rares admissibles.
   - Avant +16, le builder s’aligne sur le nombre de sous-stats réellement possible pour la rareté. À +16, votre objectif complet s’applique.
 - Faction : Restreignez les règles d’accessoires à une faction donnée pour viser une équipe précise. Anneaux, Amulettes et Bannières respectent ce filtre ; l’armure l’ignore, donc `Tous` reste le choix sûr.
-- Emplacements : Ciblez certaines pièces (Arme, Bottes, etc.) afin que les objets hors slot ne correspondent pas. Laissez vide pour couvrir tous les emplacements.
+- Slots : Ciblez certaines pièces (Arme, Bottes, etc.) afin que les objets hors slot ne correspondent pas. Laissez vide pour couvrir tous les slots.
 - Sets & Méta-sets : Filtrez sur des sets explicites ou des méta-sets nommés quand seules certaines combinaisons sont autorisées. Vide = tous les sets.
 - Stat principale : Définissez les stats principales acceptées.
   - Sélection multiple autorisée ; aucune sélection = tout est valide.
@@ -100,7 +100,7 @@ Construisez, prévisualisez et exportez des règles de vente pour RSL Helper via
 
 ### Aperçu du Sellfile (Règles & Rule Tester)
 - L’en-tête de l’aperçu regroupe l’interrupteur `Règles`/`Rule Tester`, le bouton « Équipement... » et « Charger Sellfile RSL Helper » pour que vous sachiez toujours où changer de table ou ouvrir le dialogue du Rule Tester.
-- Vue `Règles` (par défaut) : affiche toutes les règles qui seront exportées, y compris les lignes provenant d’un éventuel `.hsf` de base. Les compteurs restent sur Conserver vs Vendre, la rangée de filtres conserve les puces Any/Only (Tout/Seulement) pour Emplacement/Rang/Rareté/Niveau et le bouton `Configs` contrôle l’affichage des puces de config.
+- Vue `Règles` (par défaut) : affiche toutes les règles qui seront exportées, y compris les lignes provenant d’un éventuel `.hsf` de base. Les compteurs restent sur Conserver vs Vendre, la rangée de filtres conserve les puces Any/Only (Tout/Seulement) pour Slots/Rang/Rareté/Niveau et le bouton `Configs` contrôle l’affichage des puces de config.
 - Vue `Rule Tester` : bascule la table sur la liste d’équipement du tester afin d’examiner les objets importés ou créés sans rouvrir le dialogue. Les compteurs passent en Correspondance vs Aucune correspondance (ainsi que Conserver/Vendre) selon le premier match, et la rangée de filtres devient un filtre de résultat spécifique au tester plus un bouton Config tri-état (`Off` → `First` → `Any`) pour isoler les objets dont la première config correspond à votre sélection. L’import d’un `.db` passe automatiquement dans cette vue, mais vous pouvez revenir aux règles quand vous le souhaitez.
 - Le bouton « Charger Sellfile RSL Helper » se comporte exactement comme le glisser-déposer : `.hsfc` remplace l’état du builder, `.hsf` ajoute un fichier de base optionnel et `.db` injecte des objets directement dans l’aperçu du Rule Tester (sans toucher aux configs). Le bouton « Vider » déconnecte l’éventuel `.hsf` de base.
 - L’icône palette ouvre la gestion des couleurs pour ajuster texte et fond des étiquettes de sous-stats.
@@ -108,7 +108,7 @@ Construisez, prévisualisez et exportez des règles de vente pour RSL Helper via
 
 ### Contrôles de l’aperçu
 - Gérer les couleurs : cliquez sur l’icône palette au-dessus de la table pour personnaliser les couleurs, puis utilisez « Restaurer par défaut » pour revenir aux recommandations.
-- Filtres : en vue `Règles`, vous disposez des puces Any/Only pour Emplacement/Rang/Rareté/Niveau ainsi que du bouton `Configs` pour afficher/masquer les puces de config. Passer en `Rule Tester` remplace ces puces par un filtre Conserver/Vendre vs Correspondance/Aucune correspondance et par le bouton tri-état (`Off` → `First` → `Any`) afin d’isoler les configs sélectionnées. « Réinitialiser les filtres » remet le bouton sur `Off`.
+- Filtres : en vue `Règles`, vous disposez des puces Any/Only pour Slots/Rang/Rareté/Niveau ainsi que du bouton `Configs` pour afficher/masquer les puces de config. Passer en `Rule Tester` remplace ces puces par un filtre Conserver/Vendre vs Correspondance/Aucune correspondance et par le bouton tri-état (`Off` → `First` → `Any`) afin d’isoler les configs sélectionnées. « Réinitialiser les filtres » remet le bouton sur `Off`.
 - Menu des colonnes (clic droit sur l’en-tête) :
   - Réinitialiser les colonnes : restaure colonnes et largeurs par défaut.
   - Ajuster la largeur : adapte les colonnes à la fenêtre.

@@ -29,6 +29,8 @@ Instructions:
 - [x] filterMainstat — „Mainstat“ bleibt Communityterm.
 - [x] filterSets — „Sets“ bleibt offizieller Begriff.
 - [x] filterSubstats — „Substats“ bleibt Communityterm.
+- [x] builderSlots — Lehnwort „Slots“ hält Label, README und Tutorials konsistent und verhindert abgeschnittene Texte.
+- [x] filterSlots — Die Chips verwenden ebenfalls „Slots“, damit alle Sprachen dieselbe kompakte Breite teilen.
 - [x] headerMenuAuto — Label muss „Auto“ bleiben (UI-Referenz).
 - [x] historyAutosaveVersionLine — „Version“ stimmt in de/en überein.
 - [x] historyDiffLine — Format bestätigt; Pfeil bereits lokalisiert.
@@ -81,6 +83,8 @@ Instructions:
 - [x] filterFaction — «Faction» identique fr/en.
 - [x] filterLimitConfigs — Abréviation «Configs» adoptée côté UI.
 - [x] filterSets — «Sets» terme officiel Raid ; README synchronisée.
+- [x] builderSlots — Le prêt «Slots» garantit un libellé court et reflète les tutoriels/README.
+- [x] filterSlots — Les puces reprennent «Slots» pour préserver la largeur du groupe de boutons.
 - [x] headerMenuAuto — «Auto» requis pour alignement des menus.
 - [x] historyMetasetSetsLabel — «Sets» terme officiel ; historique cohérent.
 - [x] historyMetasetVisibilityVisible — «Visible» identique fr/en.
@@ -217,6 +221,7 @@ Instructions:
 - [x] builderRank — «Rank» segue o termo oficial no jogo e na documentação pt-PT.
 - [x] builderSubstatMenuRollTargetsBase — «Base» coincide com a aba do menu e mantém a tradução anterior.
 - [x] builderSubstats — «Substats» continua o empréstimo adotado na comunidade pt-PT.
+- [x] builderSlots — «Slots» mantém o rótulo curto e acompanha README/tutorial.
 - [x] chipSubs — Abreviação «Subs» garante o chip curto e alinha com o texto do README.
 - [x] colSlot — «Slot» mantém o cabeçalho compacto usado no README e noutras línguas.
 - [x] colSub — «Sub» reaproveita a abreviação da tabela para consistência.
