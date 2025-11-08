@@ -1227,26 +1227,28 @@ const ASCENSION_STAR_VALUES: readonly number[] = [0, 1, 2, 3, 4, 5, 6]
               </Box>
               {isTesterMode ? (
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', mt: FILTER_CHIP_TOP_MARGIN }}>
-                  <Chip
-                    size="small"
-                    label={`${t('filterChaosOre')}: ${
-                      testerChaosMode === 'notRerolled'
-                        ? t('filterChaosOreNotRerolled')
-                        : testerChaosMode === 'rerolled'
-                          ? t('filterChaosOreRerolled')
-                          : t('filterChaosOreAny')
-                    }`}
-                    onClick={() => {
-                      const next: TesterChaosFilterMode =
-                        testerChaosMode === 'any'
-                          ? 'notRerolled'
-                          : testerChaosMode === 'notRerolled'
-                            ? 'rerolled'
-                            : 'any'
-                      onChange({ ...state, testerChaos: { mode: next } })
-                    }}
-                    sx={tintedChipSx(testerChaosMode === 'any' ? theme.palette.success : testerChaosMode === 'notRerolled' ? theme.palette.info : theme.palette.warning)}
-                  />
+                  <Tooltip title={t('filterChaosOreTooltip')}>
+                    <Chip
+                      size="small"
+                      label={`${t('filterChaosOre')}: ${
+                        testerChaosMode === 'notRerolled'
+                          ? t('filterChaosOreNotRerolled')
+                          : testerChaosMode === 'rerolled'
+                            ? t('filterChaosOreRerolled')
+                            : t('filterChaosOreAny')
+                      }`}
+                      onClick={() => {
+                        const next: TesterChaosFilterMode =
+                          testerChaosMode === 'any'
+                            ? 'notRerolled'
+                            : testerChaosMode === 'notRerolled'
+                              ? 'rerolled'
+                              : 'any'
+                        onChange({ ...state, testerChaos: { mode: next } })
+                      }}
+                      sx={tintedChipSx(testerChaosMode === 'any' ? theme.palette.success : testerChaosMode === 'notRerolled' ? theme.palette.info : theme.palette.warning)}
+                    />
+                  </Tooltip>
                 </Box>
               ) : (
                 <Box sx={{ mt: FILTER_CHIP_TOP_MARGIN }}>
@@ -1315,38 +1317,40 @@ const ASCENSION_STAR_VALUES: readonly number[] = [0, 1, 2, 3, 4, 5, 6]
                   />
                 </Tooltip>
                 {isTesterMode && (
-                  <Chip
-                    size="small"
-                    label={`${t('filterGlyphs')}: ${
-                      testerGlyphMode === 'on'
-                        ? t('filterGlyphsOn')
-                        : testerGlyphMode === 'selected'
-                          ? t('filterGlyphsSelected')
-                          : testerGlyphMode === 'off'
-                            ? t('filterGlyphsOff')
-                            : t('filterGlyphsAny')
-                    }`}
-                    onClick={() => {
-                      const next: TesterGlyphFilterMode =
-                        testerGlyphMode === 'any'
-                          ? 'on'
-                          : testerGlyphMode === 'on'
-                            ? 'selected'
-                            : testerGlyphMode === 'selected'
-                              ? 'off'
-                              : 'any'
-                      onChange({ ...state, testerGlyphs: { mode: next } })
-                    }}
-                    sx={tintedChipSx(
-                      testerGlyphMode === 'any'
-                        ? theme.palette.success
-                        : testerGlyphMode === 'on'
-                          ? theme.palette.info
+                  <Tooltip title={t('filterGlyphsTooltip')}>
+                    <Chip
+                      size="small"
+                      label={`${t('filterGlyphs')}: ${
+                        testerGlyphMode === 'on'
+                          ? t('filterGlyphsOn')
                           : testerGlyphMode === 'selected'
-                            ? theme.palette.secondary
-                            : theme.palette.warning,
-                    )}
-                  />
+                            ? t('filterGlyphsSelected')
+                            : testerGlyphMode === 'off'
+                              ? t('filterGlyphsOff')
+                              : t('filterGlyphsAny')
+                      }`}
+                      onClick={() => {
+                        const next: TesterGlyphFilterMode =
+                          testerGlyphMode === 'any'
+                            ? 'on'
+                            : testerGlyphMode === 'on'
+                              ? 'selected'
+                              : testerGlyphMode === 'selected'
+                                ? 'off'
+                                : 'any'
+                        onChange({ ...state, testerGlyphs: { mode: next } })
+                      }}
+                      sx={tintedChipSx(
+                        testerGlyphMode === 'any'
+                          ? theme.palette.success
+                          : testerGlyphMode === 'on'
+                            ? theme.palette.info
+                            : testerGlyphMode === 'selected'
+                              ? theme.palette.secondary
+                              : theme.palette.warning,
+                      )}
+                    />
+                  </Tooltip>
                 )}
                 {/* Wildcard filter chip removed per UX simplification: wildcard rows are treated like normal rows in the preview filters. */}
               </Box>
