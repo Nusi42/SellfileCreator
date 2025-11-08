@@ -1486,6 +1486,9 @@ export default function RuleTesterDialog({
           flexDirection: 'column',
           alignItems: 'stretch',
           gap: 1,
+          '& > :not(:first-of-type)': {
+            marginLeft: 0,
+          },
         }}
       >
         <Box
