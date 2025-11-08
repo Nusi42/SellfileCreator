@@ -828,8 +828,6 @@ const catalog: Catalog = {
   restoreAutosaveFiltersHelper: 'Restaura estado aberto, chips e seções recolhidas.',
   restoreAutosaveTesterLabel: 'Equipamento do Rule Tester ({count})',
   restoreAutosaveTesterHelper: 'Carrega o equipamento auto-salvo.',
-  restoreAutosaveSelectAll: 'Selecionar tudo',
-  restoreAutosaveSelectNone: 'Limpar seleção',
   restoreAutosaveRestoreSelected: 'Restaurar seleção',
   restoreAutosaveNothingToRestore: 'O auto-salvamento não contém dados para restaurar.',
   yes: 'Sim',

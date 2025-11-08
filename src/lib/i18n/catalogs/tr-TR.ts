@@ -828,8 +828,6 @@ const overrides: Catalog = {
   restoreAutosaveFiltersHelper: 'Açık durumu, çipleri ve daraltılmış bölümleri geri yükler.',
   restoreAutosaveTesterLabel: 'Rule Tester ekipmanı ({count})',
   restoreAutosaveTesterHelper: 'Otomatik kaydedilen ekipmanı yükle.',
-  restoreAutosaveSelectAll: 'Tümünü seç',
-  restoreAutosaveSelectNone: 'Seçimi temizle',
   restoreAutosaveRestoreSelected: 'Seçilenleri geri yükle',
   restoreAutosaveNothingToRestore: 'Otomatik kayıtta geri yüklenecek veri yok.',
   yes: 'Evet',

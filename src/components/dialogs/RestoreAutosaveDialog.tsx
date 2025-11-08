@@ -137,17 +137,7 @@ export default function RestoreAutosaveDialog({
   }
 
   const selectableOptions = options
-  const allSelected = selectableOptions.length > 0 && selectableOptions.every(opt => selection[opt.key])
   const hasAtLeastOne = selectableOptions.some(opt => selection[opt.key])
-
-  const handleSelectAll = () => {
-    const nextValue = !allSelected
-    setSelection(prev => {
-      const next = { ...prev }
-      selectableOptions.forEach(opt => { next[opt.key] = nextValue })
-      return next
-    })
-  }
 
   return (
     <Dialog open={open} onClose={onDismiss} maxWidth="sm" fullWidth>
@@ -202,11 +192,6 @@ export default function RestoreAutosaveDialog({
             )}
           </Stack>
           </FormGroup>
-          {options.length > 1 && (
-            <Button variant="text" size="small" onClick={handleSelectAll}>
-              {allSelected ? t('restoreAutosaveSelectNone') : t('restoreAutosaveSelectAll')}
-            </Button>
-          )}
         </Stack>
       </DialogContent>
       <DialogActions>

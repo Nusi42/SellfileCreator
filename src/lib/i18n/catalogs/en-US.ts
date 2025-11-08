@@ -828,8 +828,6 @@ const enUS: Catalog = {
   restoreAutosaveFiltersHelper: 'Restores panel open state, chips, and collapsed sections.',
   restoreAutosaveTesterLabel: 'Rule Tester gear ({count})',
   restoreAutosaveTesterHelper: 'Load autosaved gear.',
-  restoreAutosaveSelectAll: 'Select all',
-  restoreAutosaveSelectNone: 'Select none',
   restoreAutosaveRestoreSelected: 'Restore selected',
   restoreAutosaveNothingToRestore: 'Autosave did not include restorable data.',
   yes: 'Yes',

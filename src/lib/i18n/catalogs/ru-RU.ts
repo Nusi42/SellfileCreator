@@ -828,8 +828,6 @@ const overrides: Catalog = {
   restoreAutosaveFiltersHelper: 'Восстанавливает состояние открытия, чипы и свёрнутые секции.',
   restoreAutosaveTesterLabel: 'Снаряжение Rule Tester ({count})',
   restoreAutosaveTesterHelper: 'Загрузить автосохранённое снаряжение.',
-  restoreAutosaveSelectAll: 'Выбрать всё',
-  restoreAutosaveSelectNone: 'Снять выбор',
   restoreAutosaveRestoreSelected: 'Восстановить выбранное',
   restoreAutosaveNothingToRestore: 'Автосохранение не содержит данных для восстановления.',
   yes: 'Да',

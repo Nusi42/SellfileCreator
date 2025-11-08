@@ -828,8 +828,6 @@ const overrides: Catalog = {
   restoreAutosaveFiltersHelper: 'Restaure l’état ouvert, les puces et les sections réduites.',
   restoreAutosaveTesterLabel: 'Équipement du Rule Tester ({count})',
   restoreAutosaveTesterHelper: 'Charger l’équipement auto‑sauvegardé.',
-  restoreAutosaveSelectAll: 'Tout sélectionner',
-  restoreAutosaveSelectNone: 'Tout désélectionner',
   restoreAutosaveRestoreSelected: 'Restaurer la sélection',
   restoreAutosaveNothingToRestore: 'L’auto‑sauvegarde ne contient aucun élément à restaurer.',
   yes: 'Oui',
