@@ -78,6 +78,7 @@ import type { TesterConfigFilterMode } from './types/testerConfigFilterMode'
 import { filterHsfRules, filterTesterItems, isRulesFilterActive, normalizeRulesFilterForTester, type FilterHsfRulesResult, type RulesFilterState } from './lib/rulesFilter'
 import { useAutosaveRestore, metasetsSignature, substatTargetsSignature } from './hooks/useAutosaveRestore'
 import { makeManageColorsIcon } from './lib/icons'
+import type { ChampionLocation } from './lib/importers/gearDbNormalizer'
 import { sellfileFilename, hsfcFilename, buildTimestamp } from './lib/filenames'
 import { README_SEEN_VERSION_KEY, RULE_COUNT_LIMIT } from './lib/constants'
 import { DEFAULT_METASET_ICON_ID } from './lib/metasetIcons'
@@ -288,6 +289,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const pendingTesterItemsRef = useRef(pendingTesterItems)
   useEffect(() => { pendingTesterItemsRef.current = pendingTesterItems }, [pendingTesterItems])
   type TesterArtifactCacheEntry = { fingerprint: string; artifact: NormalizedGearArtifact }
+  type TesterChampionOption = { id: number; name: string | null; location: ChampionLocation | null; count: number }
   const testerArtifactCacheRef = useRef<Map<number, TesterArtifactCacheEntry>>(new Map())
   const testerAutosaveBaselineRef = useRef<string | null>(null)
   const testerPreviewArtifacts = useMemo<NormalizedGearArtifact[]>(() => {
@@ -2112,6 +2114,38 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     filterTesterItems(testerPreviewRows, testerRulesFilter, metasets, { configNames })
   ), [testerPreviewRows, testerRulesFilter, metasets, configNames])
   const testerRowsAfterRulesFilter = testerFilterResult.items
+  const testerChampionOptions = useMemo<TesterChampionOption[]>(() => {
+    const map = new Map<number, TesterChampionOption>()
+    for (const row of testerPreviewRows) {
+      const championId = Number(row.artifact.equippedToChampionId ?? NaN)
+      if (!Number.isFinite(championId) || championId <= 0) continue
+      const trimmedName = row.artifact.equippedChampionName?.trim() || null
+      const location = row.artifact.equippedChampionLocation ?? null
+      const entry = map.get(championId)
+      if (entry) {
+        entry.count += 1
+        if (!entry.name && trimmedName) entry.name = trimmedName
+        if (!entry.location && location) entry.location = location
+      } else {
+        map.set(championId, {
+          id: championId,
+          name: trimmedName,
+          location,
+          count: 1,
+        })
+      }
+    }
+    const sorted = Array.from(map.values())
+    sorted.sort((a, b) => {
+      const nameA = a.name?.toLocaleLowerCase() ?? ''
+      const nameB = b.name?.toLocaleLowerCase() ?? ''
+      if (nameA && nameB) return nameA.localeCompare(nameB)
+      if (nameA) return -1
+      if (nameB) return 1
+      return a.id - b.id
+    })
+    return sorted
+  }, [testerPreviewRows])
   const testerConfigFilterActive = testerConfigFilterMode !== 'off' && selectedCfgIndices.length > 0
   const testerRowsForTable = useMemo(() => {
     let rows: TesterPreviewRow[] = testerRowsAfterRulesFilter
@@ -3372,6 +3406,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             configCount={customCfgs.length}
             collapsed={filterCollapsed}
             onCollapsedChange={setFilterCollapsed}
+            testerChampionOptions={testerChampionOptions}
           />
           )}
           <Box sx={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>

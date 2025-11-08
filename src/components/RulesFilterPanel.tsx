@@ -46,6 +46,14 @@ import SelectDropdownActivator from './SelectDropdownActivator'
 import ClearIconButton from './ClearIconButton'
 import { useSetsOrderPreference } from '../state/setsOrderPreference'
 import type { TesterConfigFilterMode } from '../types/testerConfigFilterMode'
+import type { ChampionLocation } from '../lib/importers/gearDbNormalizer'
+
+type TesterChampionOption = {
+  id: number
+  name: string | null
+  location: ChampionLocation | null
+  count: number
+}
 
 export type RulesFilterPanelHandle = {
   focusConfigNameInput: (options?: { selectText?: boolean }) => boolean
@@ -68,6 +76,7 @@ type RulesFilterPanelProps = {
   configCount?: number
   collapsed: Record<string, boolean>
   onCollapsedChange: (next: Record<string, boolean>) => void
+  testerChampionOptions?: TesterChampionOption[]
 }
 
 const STAT_VARIANT_ORDER_LOOKUP = new Map<number, number>(
@@ -167,6 +176,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
     configCount = 0,
     collapsed,
     onCollapsedChange,
+    testerChampionOptions = [],
   },
   ref,
 ) {
@@ -258,6 +268,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
       next.rank = !(vis.get('RankLabel') ?? true)
       next.rarity = !(vis.get('RarityNames') ?? true)
       next.faction = !(vis.get('Faction') ?? false)
+      next.champions = false
       onCollapsedChange(next)
     } catch {}
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -464,6 +475,34 @@ const ASCENSION_STAR_VALUES: readonly number[] = [0, 1, 2, 3, 4, 5, 6]
   const testerGlyphMode: TesterGlyphFilterMode = state.testerGlyphs?.mode ?? 'any'
   const testerAscStars = state.testerAscension?.stars ?? []
   const testerAscStats = state.testerAscension?.stats ?? []
+  const championSelection = state.testerChampions?.selected ?? []
+  const showChampionFilter = isTesterMode && (testerChampionOptions?.length ?? 0) > 0
+  const [championSearch, setChampionSearch] = React.useState('')
+  const championOptions = React.useMemo(() => testerChampionOptions ?? [], [testerChampionOptions])
+  const championOptionMap = React.useMemo(() => {
+    const map = new Map<number, TesterChampionOption>()
+    championOptions.forEach((option) => { map.set(option.id, option) })
+    return map
+  }, [championOptions])
+  const filteredChampionOptions = React.useMemo(() => {
+    const query = championSearch.trim().toLowerCase()
+    if (!query) return championOptions
+    return championOptions.filter((option) => {
+      const name = option.name?.toLowerCase() ?? ''
+      return name.includes(query) || String(option.id).includes(query)
+    })
+  }, [championOptions, championSearch])
+  const formatChampionName = React.useCallback((option?: TesterChampionOption | null): string => {
+    if (!option) return ''
+    if (option.name && option.name.trim().length > 0) return option.name.trim()
+    return t('testerChampionUnknownName', { id: option.id })
+  }, [t])
+  const formatChampionLocation = React.useCallback((option?: TesterChampionOption | null): string | null => {
+    if (!option?.location) return null
+    if (option.location === 'vault' || option.location === 'reserveVault') return t('testerSourceEquippedVault')
+    if (option.location === 'collection') return t('testerSourceEquippedCollection')
+    return null
+  }, [t])
   const handleTesterConfigFilterClick = () => {
     if (!testerConfigFilterEnabled) return
     if (!onTesterConfigFilterModeChange) return
@@ -1136,45 +1175,199 @@ const ASCENSION_STAR_VALUES: readonly number[] = [0, 1, 2, 3, 4, 5, 6]
           </FormControl>
           </Box>
           {isTesterMode && (
-            <FormControl sx={{ ...collapsibleSectionSx, mb: 0.75 }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
-                <SectionToggle id="sources" />
-                <FormLabel sx={{ m: 0 }}>{t('filterSource')}</FormLabel>
-              </Box>
-              <Collapse in={!collapsed.sources} timeout="auto" unmountOnExit>
-                <ToggleButtonGroup
-                  size="small"
-                  value={testerSourceSelection}
-                  onChange={(_, vals: string[]) => {
-                    const parsed = vals.map((v) => v as TesterSourceFilter)
-                    onChange({ ...state, testerSources: { selected: parsed } })
-                  }}
-                  sx={{
-                    flexWrap: 'wrap',
-                    '& .MuiToggleButton-root': {
-                      p: 0.5,
-                      minWidth: 90,
-                      height: 28,
-                      flex: '1 1 90px',
-                    },
-                    '& .MuiToggleButtonGroup-grouped:not(:first-of-type)': {
-                      marginLeft: '0 !important',
-                      borderLeft: '1px solid transparent',
-                    },
-                    '& .MuiToggleButtonGroup-grouped.Mui-selected + .MuiToggleButtonGroup-grouped.Mui-selected': {
-                      marginLeft: '0 !important',
-                      borderLeft: '1px solid transparent',
-                    },
-                  }}
-                >
-                  {testerSourceOptions.map((option) => (
-                    <ToggleButton key={option.value} value={option.value}>
-                      {option.label}
-                    </ToggleButton>
-                  ))}
-                </ToggleButtonGroup>
-              </Collapse>
-            </FormControl>
+            <Box
+              sx={{
+                display: 'flex',
+                flexWrap: 'wrap',
+                columnGap: 1,
+                rowGap: 0.75,
+                mb: 0.75,
+                alignItems: 'flex-start',
+              }}
+            >
+              <FormControl sx={{ ...collapsibleSectionSx }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
+                  <SectionToggle id="sources" />
+                  <FormLabel sx={{ m: 0 }}>{t('filterSource')}</FormLabel>
+                </Box>
+                <Collapse in={!collapsed.sources} timeout="auto" unmountOnExit>
+                  <ToggleButtonGroup
+                    size="small"
+                    value={testerSourceSelection}
+                    onChange={(_, vals: string[]) => {
+                      const parsed = vals.map((v) => v as TesterSourceFilter)
+                      onChange({ ...state, testerSources: { selected: parsed } })
+                    }}
+                    sx={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(3, minmax(80px, 1fr))',
+                      columnGap: 0.5,
+                      rowGap: 0.5,
+                      '& .MuiToggleButton-root': {
+                        p: 0.5,
+                        minWidth: 0,
+                        height: 28,
+                        width: '100%',
+                      },
+                      '& .MuiToggleButtonGroup-grouped:not(:first-of-type)': {
+                        marginLeft: '0 !important',
+                        borderLeft: '1px solid transparent',
+                      },
+                      '& .MuiToggleButtonGroup-grouped.Mui-selected + .MuiToggleButtonGroup-grouped.Mui-selected': {
+                        marginLeft: '0 !important',
+                        borderLeft: '1px solid transparent',
+                      },
+                    }}
+                  >
+                    {testerSourceOptions.map((option) => (
+                      <ToggleButton key={option.value} value={option.value}>
+                        {option.label}
+                      </ToggleButton>
+                    ))}
+                  </ToggleButtonGroup>
+                </Collapse>
+              </FormControl>
+              {showChampionFilter && (
+                <FormControl sx={{ ...collapsibleSectionSx }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
+                    <SectionToggle id="champions" />
+                    <FormLabel sx={{ m: 0 }}>{t('testerChampionFilterLabel')}</FormLabel>
+                  </Box>
+                  <Collapse in={!collapsed.champions} timeout="auto" unmountOnExit>
+                    <Select
+                      multiple
+                      size="small"
+                      value={championSelection.map((id) => String(id))}
+                      onChange={(event) => {
+                        const vals = event.target.value as string[]
+                        const parsed = vals
+                          .map((v) => Number(v))
+                          .filter((id) => Number.isFinite(id) && id > 0)
+                        onChange({ ...state, testerChampions: { selected: parsed } })
+                      }}
+                      displayEmpty
+                      renderValue={(vals) => {
+                        const list = (vals as string[]).map((v) => Number(v)).filter((n) => Number.isFinite(n) && n > 0)
+                        if (!list.length) {
+                          return (
+                            <Typography
+                              variant="body2"
+                              data-ellipsis-target
+                              title={t('any')}
+                              sx={[ELLIPSIS_TEXT_SX, { display: 'block', width: '100%', fontSize: FONT_SIZE_BASE_PX }]}
+                            >
+                              {t('any')}
+                            </Typography>
+                          )
+                        }
+                        const firstId = list[0]!
+                        const firstOption = championOptionMap.get(firstId)
+                        const firstName = formatChampionName(firstOption)
+                        const locationLabel = formatChampionLocation(firstOption)
+                        const summaryTitle = locationLabel ? `${firstName} · ${locationLabel}` : firstName
+                        const extraCount = Math.max(0, list.length - 1)
+                        return (
+                          <Box
+                            component="span"
+                            data-ellipsis-target
+                            title={summaryTitle}
+                            sx={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 0.5,
+                              width: '100%',
+                            }}
+                          >
+                            <Typography variant="body2" sx={[ELLIPSIS_TEXT_SX, { flex: '1 1 auto' }]}>
+                              {summaryTitle}
+                            </Typography>
+                            {extraCount > 0 && (
+                              <Typography
+                                component="span"
+                                variant="body2"
+                                noWrap
+                                sx={{ color: 'text.secondary', fontSize: FONT_SIZE_BASE_PX, flexShrink: 0 }}
+                              >
+                                {`+${extraCount}`}
+                              </Typography>
+                            )}
+                          </Box>
+                        )
+                      }}
+                      MenuProps={{
+                        PaperProps: {
+                          sx: {
+                            maxHeight: 360,
+                            '& .MuiList-root': {
+                              py: 0,
+                            },
+                          },
+                        },
+                      }}
+                      sx={{
+                        width: { xs: '100%', sm: FILTER_FACTION_SELECT_WIDTH_PX },
+                        maxWidth: FILTER_FACTION_SELECT_WIDTH_PX,
+                        cursor: 'pointer',
+                        '& .MuiSelect-select': {
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 0.5,
+                          flexWrap: 'nowrap',
+                          paddingTop: 0,
+                          paddingBottom: 0,
+                          maxWidth: '100%',
+                          cursor: 'pointer',
+                        },
+                        '& .MuiSelect-select > *': {
+                          minWidth: 0,
+                        },
+                        minHeight: SMALL_BUTTON_HEIGHT_PX + 8,
+                        height: SMALL_BUTTON_HEIGHT_PX + 8,
+                      }}
+                    >
+                      <ListSubheader sx={{ ...LIST_SUBHEADER_SX, py: 1.25 }}>
+                        <TextField
+                          value={championSearch}
+                          onChange={(e) => setChampionSearch(e.target.value)}
+                          size="small"
+                          placeholder={t('testerChampionSearchPlaceholder')}
+                          fullWidth
+                          onClick={(e) => e.stopPropagation()}
+                          onKeyDown={(e) => e.stopPropagation()}
+                        />
+                      </ListSubheader>
+                      {filteredChampionOptions.length === 0 ? (
+                        <MenuItem disabled>
+                          <Typography variant="body2">{t('testerChampionFilterNoResults')}</Typography>
+                        </MenuItem>
+                      ) : (
+                        filteredChampionOptions.map((option) => {
+                          const locationLabel = formatChampionLocation(option)
+                          return (
+                            <MenuItem key={option.id} value={String(option.id)}>
+                              <Stack spacing={0.25}>
+                                <Typography variant="body2" sx={{ minWidth: 0 }}>
+                                  {formatChampionName(option)}
+                                </Typography>
+                                <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                                  {locationLabel ? `${locationLabel} · ` : ''}
+                                  ×{option.count}
+                                </Typography>
+                              </Stack>
+                            </MenuItem>
+                          )
+                        })
+                      )}
+                    </Select>
+                    <InlineSelectClearButton
+                      disabled={championSelection.length === 0}
+                      label={t('clear')}
+                      onClear={() => onChange({ ...state, testerChampions: { selected: [] } })}
+                    />
+                  </Collapse>
+                </FormControl>
+              )}
+            </Box>
           )}
           <Box
             sx={{
