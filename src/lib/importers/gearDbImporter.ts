@@ -1,4 +1,5 @@
 import initSqlJs, { type SqlJsStatic, type Database } from 'sql.js'
+import sqlWasmUrl from 'sql.js/dist/sql-wasm.wasm?url'
 import {
   normalizeGearDbArtifact,
   type GearDbArtifactRow,
@@ -81,7 +82,7 @@ let wasmLocationPromise: Promise<string> | null = null
 async function resolveSqlWasmLocation(): Promise<string> {
   if (!wasmLocationPromise) {
     if (typeof window !== 'undefined' && typeof document !== 'undefined') {
-      wasmLocationPromise = import('sql.js/dist/sql-wasm.wasm?url').then((mod) => mod.default as string)
+      wasmLocationPromise = Promise.resolve(sqlWasmUrl)
     } else {
       const url = new URL(
         /* @vite-ignore */ '../../../../../node_modules/sql.js/dist/sql-wasm.wasm',
