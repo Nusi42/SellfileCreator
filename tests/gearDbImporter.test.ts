@@ -9,7 +9,9 @@ import { importGearDatabaseFromArrayBuffer } from '../src/lib/importers/gearDbIm
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
-const dbPath = join(__dirname, '..', '..', '..', 'examples', 'um109288203_RSLHelper.db')
+const repoRoot = join(__dirname, '..', '..', '..')
+const sampleDbPath = join(repoRoot, 'tests', 'sample.db')
+const brokenDbPath = join(repoRoot, 'tests', 'broken.db')
 
 function bufferToArrayBuffer(buffer: Buffer): ArrayBuffer {
   const copy = Uint8Array.from(buffer)
@@ -17,16 +19,16 @@ function bufferToArrayBuffer(buffer: Buffer): ArrayBuffer {
 }
 
 test('gear DB importer normalizes artifacts and inbox items', async (t) => {
-  if (!existsSync(dbPath)) {
+  if (!existsSync(sampleDbPath)) {
     t.skip('sample database not available')
     return
   }
-  const arrayBuffer = bufferToArrayBuffer(readFileSync(dbPath))
+  const arrayBuffer = bufferToArrayBuffer(readFileSync(sampleDbPath))
   const { artifacts, inboxArtifacts } = await importGearDatabaseFromArrayBuffer(arrayBuffer)
 
-  // Snapshot taken from examples/um109288203_RSLHelper.db (sqlite counts).
-  assert.equal(artifacts.length, 6882)
-  assert.equal(inboxArtifacts.length, 356)
+  // Snapshot taken from tests/sample.db (sqlite counts).
+  assert.equal(artifacts.length, 6900)
+  assert.equal(inboxArtifacts.length, 358)
 
   const weapon = artifacts.find((item) => item.slot === 5)
   assert(weapon, 'expected weapon artifact in dataset')
@@ -42,6 +44,17 @@ test('gear DB importer normalizes artifacts and inbox items', async (t) => {
   assert.equal(inboxRing?.testerItem.faction, inboxRing?.faction)
   assert.equal(inboxRing?.equippedChampionName, null)
   assert.equal(inboxRing?.equippedChampionLocation, null)
+})
+
+test('gear DB importer reports zero gear for broken databases', async (t) => {
+  if (!existsSync(brokenDbPath)) {
+    t.skip('broken database not available')
+    return
+  }
+  const arrayBuffer = bufferToArrayBuffer(readFileSync(brokenDbPath))
+  const { artifacts, inboxArtifacts } = await importGearDatabaseFromArrayBuffer(arrayBuffer)
+  assert.equal(artifacts.length, 0, 'expected broken DB to yield zero artifacts')
+  assert.equal(inboxArtifacts.length, 0, 'expected broken DB to yield zero inbox artifacts')
 })
 
 export {}

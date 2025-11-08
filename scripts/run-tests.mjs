@@ -72,7 +72,8 @@ try {
 
   const compiledTests = collectCompiledTests()
   if (compiledTests.length > 0) {
-    run(process.execPath, ['--test', ...compiledTests])
+    const nodeArgs = ['--experimental-wasm-modules', '--test', ...compiledTests]
+    run(process.execPath, nodeArgs)
   } else if (process.env.CI) {
     console.warn('Warning: no node:test specs found under tests/')
   }
