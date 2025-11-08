@@ -80,7 +80,7 @@ const catalog: Catalog = {
   testerEquippedLabel: 'Equipado #{id}',
   testerSourceInventory: 'Inventário',
   testerSourceInbox: 'Caixa de entrada',
-  testerSourceManual: 'Personalizado',
+  testerSourceManual: 'Manual',
   testerSourceEquippedCollection: 'Coleção',
   testerSourceEquippedVault: 'Cofre',
   testerMatchKeep: 'Manter',
@@ -91,7 +91,7 @@ const catalog: Catalog = {
   testerRuleChip: 'Regra #{index}',
   testerFinalSellChip: 'Venda final',
   testerValueUnknown: '—',
-  testerAddManualGear: 'Adicionar equipamento personalizado',
+  testerAddManualGear: 'Adicionar equipamento manual',
   // Common UI bits used in Rule Tester
   add: 'Adicionar',
   compact: 'Compacto',

@@ -80,7 +80,7 @@ const overrides: Catalog = {
   testerEquippedLabel: 'Équipé #{id}',
   testerSourceInventory: 'Inventaire',
   testerSourceInbox: 'Boîte aux lettres',
-  testerSourceManual: 'Personnalisé',
+  testerSourceManual: 'Manuel',
   testerSourceEquippedCollection: 'Collection',
   testerSourceEquippedVault: 'Coffre',
   testerMatchKeep: 'Garder',
@@ -91,7 +91,7 @@ const overrides: Catalog = {
   testerRuleChip: 'Règle #{index}',
   testerFinalSellChip: 'Vente finale',
   testerValueUnknown: '—',
-  testerAddManualGear: 'Ajouter un équipement personnalisé',
+  testerAddManualGear: 'Ajouter un équipement manuel',
   // Common UI bits used in Rule Tester
   add: 'Ajouter',
   compact: 'Compact',
