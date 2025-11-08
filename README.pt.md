@@ -42,7 +42,7 @@ Crie, reveja e exporte regras de venda para o RSL Helper com uma interface simpl
     - Exemplo: estandarte com SPD e ATK%, onde ATK% precisa de 2 rolagens. Raridade = Auto, Limiar = Tarde, Auto ≥ Épico. Resultado: linhas Épicas em todos os marcos e ≥ Lendária em +8/+12 para manter peças raras elegíveis.
   - Antes de +16 o builder usa o número de substats que a raridade suporta nesse momento. Em +16 aplica o objetivo completo.
 - Fação: Restrinja regras de acessórios a uma fação específica quando está a montar uma equipa. Anéis, Amuletos e Estandartes respeitam o filtro; a armadura ignora a fação, pelo que `Todos` é a opção segura.
-- Ranhuras: Foque a regra em peças específicas (Arma, Botas, etc.) para impedir que itens fora da ranhura coincidam. Vazio = todas as ranhuras.
+- Slots: Foque a regra em slots específicos (Arma, Botas, etc.) para impedir que itens fora do slot coincidam. Vazio = todos os slots.
 - Sets e Meta-sets: Filtre para conjuntos específicos ou meta-sets nomeados quando só pretende essas combinações. Vazio = todos os sets.
 - Mainstats: Defina quais os mainstats aceites.
   - Pode selecionar vários; sem seleção = qualquer mainstat.
@@ -100,7 +100,7 @@ Crie, reveja e exporte regras de venda para o RSL Helper com uma interface simpl
 
 ### Pré-visualização do Sellfile (Regras e Rule Tester)
 - O cabeçalho da pré-visualização mantém o interruptor «Rules»/«Rule Tester», o botão «Gear...» e o botão “Load RSL Helper Sellfile” juntos para saber sempre onde alternar de tabela ou abrir o diálogo do tester.
-- Vista «Rules» (padrão): mostra todas as linhas que serão exportadas, incluindo quaisquer `.hsf` base opcionais. Os contadores mantêm o resumo Manter vs Vender, a linha de filtros conserva os chips Todos/Só (Any/Only) para Ranhuras/Rank/Raridade/Nível e o botão «Configs» controla a visibilidade das etiquetas.
+- Vista «Rules» (padrão): mostra todas as linhas que serão exportadas, incluindo quaisquer `.hsf` base opcionais. Os contadores mantêm o resumo Manter vs Vender, a linha de filtros conserva os chips Todos/Só (Any/Only) para Slots/Rank/Raridade/Nível e o botão «Configs» controla a visibilidade das etiquetas.
 - Vista «Rule Tester»: muda a tabela para a lista de equipamento importado ou criado sem precisares de reabrir o diálogo. Os contadores passam a `Matched` vs `No Match` (mais Manter/Vender) e a linha de filtros troca para o filtro de resultados do tester e para o botão triestado de configs (`Off` → `First` → `Any`) para isolar peças cujo primeiro match pertence à seleção. Importar um `.db` alterna automaticamente para esta vista, mas podes voltar a «Rules» a qualquer momento.
 - O botão “Load RSL Helper Sellfile” comporta-se da mesma forma que o arrastar-e-largar: `.hsfc` substitui o estado do builder, `.hsf` adiciona o Sellfile base opcional e `.db` envia itens para a pré-visualização do tester sem tocar em configs ou export. «Limpar» remove o `.hsf` base quando existir.
 - O ícone da paleta abre a gestão de cores para personalizar texto e fundo dos substats.
@@ -108,7 +108,7 @@ Crie, reveja e exporte regras de venda para o RSL Helper com uma interface simpl
 
 ### Controlos da pré-visualização
 - Gerir cores: através do ícone da paleta; «Repor predefinições» restaura as recomendações.
-- Filtros: na vista «Rules» tens os chips Todos/Ocultar/Só para Ranhuras/Rank/Raridade/Nível e o botão «Configs» para mostrar/ocultar etiquetas. Em «Rule Tester» a linha troca para os filtros Manter/Vender + `Matched`/`No Match` e para o botão triestado (`Off` → `First` → `Any`). «Repor filtros» volta a definir o botão para `Off`.
+- Filtros: na vista «Rules» tens os chips Todos/Ocultar/Só para Slots/Rank/Raridade/Nível e o botão «Configs» para mostrar/ocultar etiquetas. Em «Rule Tester» a linha troca para os filtros Manter/Vender + `Matched`/`No Match` e para o botão triestado (`Off` → `First` → `Any`). «Repor filtros» volta a definir o botão para `Off`.
 - Menu de colunas (clique direito na cabeça da tabela):
   - Repor colunas: restaura colunas e larguras padrão.
   - Ajustar largura: adapta as colunas à janela.
@@ -121,7 +121,7 @@ Crie, reveja e exporte regras de venda para o RSL Helper com uma interface simpl
 ### Pré-visualização do Rule Tester
 - Clique em «Gear...» no cabeçalho da Pré-visualização do Sellfile para abrir o diálogo do Rule Tester. Crie equipamento de exemplo ou cole linhas (JSON/texto). Os itens sincronizam imediatamente com a pré-visualização, por isso fechar o diálogo não limpa a grelha do tester.
 - Importe a base de dados do RSL Helper arrastando `.db` para a aplicação ou usando o botão “Load RSL Helper Sellfile” (mesmo comportamento). Estes imports enfileiram milhares de artefactos (incluindo itens da caixa de entrada), mudam a pré-visualização para a tabela do tester e deixam o estado do builder/export inalterado.
-- Cada linha do tester mostra ranhura, set, nível, mainstat, substats (com glifos e rolagens), a origem (inventário vs inbox) e os chips Keep/Sell + a primeira config/regra correspondente. Regras desativadas nunca fazem match, portanto `No Match` identifica peças que o Sellfile deixaria passar.
+- Cada linha do tester mostra slot, set, nível, mainstat, substats (com glifos e rolagens), a origem (inventário vs inbox) e os chips Keep/Sell + a primeira config/regra correspondente. Regras desativadas nunca fazem match, portanto `No Match` identifica peças que o Sellfile deixaria passar.
 - Os contadores no cabeçalho passam a `Matched` vs `No Match` juntamente com o resumo Manter/Vender. Combina-os com os filtros do tester (resultado + botão `Off`/`First`/`Any`) para focar casos-limite antes de exportar.
 - Usa o interruptor da pré-visualização para alternar entre as tabelas de Regras e do Rule Tester sem reabrir o diálogo — ideal para comparar as linhas geradas com o equipamento que as ativou.
 
