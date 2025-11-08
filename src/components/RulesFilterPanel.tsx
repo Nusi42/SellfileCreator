@@ -29,7 +29,8 @@ import {
 import { LIST_SUBHEADER_SX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, SETS_MENU_WIDTH_PX, FILTER_FACTION_SELECT_WIDTH_PX, FILTER_SETS_SELECT_WIDTH_PX, FILTER_CHIP_TOP_MARGIN, ELLIPSIS_TEXT_SX, FILTER_TOGGLE_BUTTON_WIDTH_PX, SMALL_BUTTON_HEIGHT_PX, BUILDER_STATUS_CHIP_HEIGHT_PX, UI_BG_HOVER_DANGER_TRANSITION, DANGER_TINT_BG, SETS_SELECT_INLINE_GUTTER_PX, STATUS_CHIP_BORDER_RADIUS_PX, FONT_SIZE_BASE_PX, RULES_FILTER_COLLAPSE_SESSION_KEY, SETS_SELECT_CLEAR_BUTTON_RIGHT_PX, CLEAR_ICON_BUTTON_SIZE_PX } from '../lib/constants'
 import { metasetGlyph, orderMetasetIds, type Metaset } from '../lib/metasets'
 import React from 'react'
-import { alpha, useTheme } from '@mui/material/styles'
+import { alpha, useTheme, type Theme } from '@mui/material/styles'
+import { keyframes } from '@emotion/react'
 import {
   DEFAULT_RULES_FILTER_STATE,
   isRulesFilterActive,
@@ -44,6 +45,7 @@ import { FactionOptionLabel } from './FactionIcon'
 import InlineSelectClearButton from './InlineSelectClearButton'
 import SelectDropdownActivator from './SelectDropdownActivator'
 import ClearIconButton from './ClearIconButton'
+import ClearIcon from '@mui/icons-material/Clear'
 import { useSetsOrderPreference } from '../state/setsOrderPreference'
 import type { TesterConfigFilterMode } from '../types/testerConfigFilterMode'
 import type { ChampionLocation } from '../lib/importers/gearDbNormalizer'
@@ -156,6 +158,11 @@ const collapsibleSectionSx = {
   minWidth: 0,
   alignSelf: 'flex-start',
 } as const
+
+const ZERO_RESULTS_PULSE = keyframes`
+  0%, 100% { background-color: rgba(0,0,0,0); }
+  60% { background-color: rgba(244, 67, 54, 0.28); }
+`
 
 // UI-only component that lets users filter the preview table. View-only; export ignores filters.
 const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPanelProps>(function RulesFilterPanel(
@@ -481,6 +488,7 @@ const ASCENSION_STAR_VALUES: readonly number[] = [0, 1, 2, 3, 4, 5, 6]
   const extraFactionCount = Math.max(0, factionSelection.length - 1)
   const showChampionFilter = isTesterMode && (testerChampionOptions?.length ?? 0) > 0
   const [championSearch, setChampionSearch] = React.useState('')
+  const normalizedChampionSearch = championSearch.trim()
   const championOptions = React.useMemo(() => testerChampionOptions ?? [], [testerChampionOptions])
   const championOptionMap = React.useMemo(() => {
     const map = new Map<number, TesterChampionOption>()
@@ -488,13 +496,41 @@ const ASCENSION_STAR_VALUES: readonly number[] = [0, 1, 2, 3, 4, 5, 6]
     return map
   }, [championOptions])
   const filteredChampionOptions = React.useMemo(() => {
-    const query = championSearch.trim().toLowerCase()
-    if (!query) return championOptions
+    if (!normalizedChampionSearch) return championOptions
+    const query = normalizedChampionSearch.toLowerCase()
     return championOptions.filter((option) => {
       const name = option.name?.toLowerCase() ?? ''
       return name.includes(query) || String(option.id).includes(query)
     })
-  }, [championOptions, championSearch])
+  }, [championOptions, normalizedChampionSearch])
+  const championZeroResults = normalizedChampionSearch.length > 0 && filteredChampionOptions.length === 0
+  const championClearAdornmentSx = React.useCallback((theme: Theme) => ({
+    minWidth: CLEAR_ICON_BUTTON_SIZE_PX + 4,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    visibility: championSearch ? 'visible' : 'hidden',
+    transition: 'visibility 120ms ease',
+    ...(championZeroResults
+      ? {
+        '& .MuiIconButton-root': {
+          backgroundColor: alpha(theme.palette.error.main, 0.18),
+          animation: `${ZERO_RESULTS_PULSE} 2000ms ease-in-out infinite`,
+        },
+      }
+      : {}),
+  }), [championSearch, championZeroResults])
+  const championClearButtonSx = React.useCallback((theme: Theme) => ({
+    opacity: championSearch ? 1 : 0,
+    pointerEvents: championSearch ? 'auto' : 'none',
+    transition: 'opacity 120ms ease',
+    ...(championZeroResults
+      ? {
+        backgroundColor: alpha(theme.palette.error.main, 0.18),
+        animation: `${ZERO_RESULTS_PULSE} 2000ms ease-in-out infinite`,
+      }
+      : {}),
+  }), [championSearch, championZeroResults])
   const formatChampionName = React.useCallback((option?: TesterChampionOption | null): string => {
     if (!option) return ''
     if (option.name && option.name.trim().length > 0) return option.name.trim()
@@ -1312,6 +1348,8 @@ const ASCENSION_STAR_VALUES: readonly number[] = [0, 1, 2, 3, 4, 5, 6]
                           },
                           PaperProps: {
                             sx: {
+                              width: { xs: 'calc(100vw - 32px)', sm: FILTER_FACTION_SELECT_WIDTH_PX },
+                              maxWidth: FILTER_FACTION_SELECT_WIDTH_PX,
                               maxHeight: 360,
                               '& .MuiList-root': {
                                 py: 0,
@@ -1349,30 +1387,48 @@ const ASCENSION_STAR_VALUES: readonly number[] = [0, 1, 2, 3, 4, 5, 6]
                           fullWidth
                           onClick={(e) => e.stopPropagation()}
                           onKeyDown={(e) => e.stopPropagation()}
+                          InputProps={{
+                            sx: {
+                              height: 32,
+                              display: 'flex',
+                              alignItems: 'center',
+                              '& .MuiOutlinedInput-input': { py: 0, px: 1, fontSize: FONT_SIZE_BASE_PX, lineHeight: '32px' },
+                            },
+                            endAdornment: (
+                              <InputAdornment
+                                position="end"
+                                sx={championClearAdornmentSx}
+                              >
+                                <IconButton
+                                  size="small"
+                                  aria-label={t('clear')}
+                                  onClick={() => setChampionSearch('')}
+                                  edge="end"
+                                  sx={championClearButtonSx}
+                                >
+                                  <ClearIcon fontSize="small" />
+                                </IconButton>
+                              </InputAdornment>
+                            ),
+                          }}
                         />
                       </ListSubheader>
-                      {filteredChampionOptions.length === 0 ? (
-                        <MenuItem disabled>
-                          <Typography variant="body2">{t('testerChampionFilterNoResults')}</Typography>
-                        </MenuItem>
-                      ) : (
-                        filteredChampionOptions.map((option) => {
-                          const locationLabel = formatChampionLocation(option)
-                          return (
-                            <MenuItem key={option.id} value={String(option.id)}>
-                              <Stack spacing={0.25}>
-                                <Typography variant="body2" sx={{ minWidth: 0 }}>
-                                  {formatChampionName(option)}
-                                </Typography>
-                                <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                                  {locationLabel ? `${locationLabel} · ` : ''}
-                                  ×{option.count}
-                                </Typography>
-                              </Stack>
-                            </MenuItem>
-                          )
-                        })
-                      )}
+                      {filteredChampionOptions.map((option) => {
+                        const locationLabel = formatChampionLocation(option)
+                        return (
+                          <MenuItem key={option.id} value={String(option.id)}>
+                            <Stack spacing={0.25}>
+                              <Typography variant="body2" sx={{ minWidth: 0 }}>
+                                {formatChampionName(option)}
+                              </Typography>
+                              <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                                {locationLabel ? `${locationLabel} · ` : ''}
+                                ×{option.count}
+                              </Typography>
+                            </Stack>
+                          </MenuItem>
+                        )
+                      })}
                       </Select>
                       {extraChampionCount > 0 && (
                         <Box

@@ -770,7 +770,6 @@ const overrides: Catalog = {
   testerFilterConfigsTooltipDisabled: 'Выберите хотя бы один конфиг‑чип, чтобы включить этот фильтр.',
   testerChampionFilterLabel: 'Champions',
   testerChampionSearchPlaceholder: 'Search champions',
-  testerChampionFilterNoResults: 'No champions match the search.',
   testerChampionUnknownName: 'Unknown champion #{id}',
   filterReset: 'Сбросить фильтры',
   filterMatch: 'Совпад.',
