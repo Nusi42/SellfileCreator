@@ -8,7 +8,24 @@ import ExpandLessIcon from '@mui/icons-material/ExpandLess'
 import VisibilityIcon from '@mui/icons-material/Visibility'
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff'
 import EllipsisTooltip from './EllipsisTooltip'
-import { artifactSetName, PREFERRED_ARTIFACT_TYPE_ORDER, StatVariant, labelOfVariant, Faction, type FactionId, filterAndSortSetEntries, statVariantI18nKey, artifactSetI18nKey, factionI18nKey, LEVEL_MILESTONES, type LevelMilestone, type RankValue, STAT_VARIANTS_PRIORITY } from '../lib/types'
+import {
+  artifactSetName,
+  PREFERRED_ARTIFACT_TYPE_ORDER,
+  StatVariant,
+  labelOfVariant,
+  Faction,
+  type FactionId,
+  filterAndSortSetEntries,
+  statVariantI18nKey,
+  artifactSetI18nKey,
+  factionI18nKey,
+  LEVEL_MILESTONES,
+  type LevelMilestone,
+  type RankValue,
+  STAT_VARIANTS_PRIORITY,
+  STAT_VARIANTS_PRIORITY_ROW1,
+  STAT_VARIANTS_PRIORITY_ROW2,
+} from '../lib/types'
 import { LIST_SUBHEADER_SX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, SETS_MENU_WIDTH_PX, FILTER_FACTION_SELECT_WIDTH_PX, FILTER_SETS_SELECT_WIDTH_PX, FILTER_CHIP_TOP_MARGIN, ELLIPSIS_TEXT_SX, FILTER_TOGGLE_BUTTON_WIDTH_PX, SMALL_BUTTON_HEIGHT_PX, BUILDER_STATUS_CHIP_HEIGHT_PX, UI_BG_HOVER_DANGER_TRANSITION, DANGER_TINT_BG, SETS_SELECT_INLINE_GUTTER_PX, STATUS_CHIP_BORDER_RADIUS_PX, FONT_SIZE_BASE_PX, RULES_FILTER_COLLAPSE_SESSION_KEY } from '../lib/constants'
 import { metasetGlyph, orderMetasetIds, type Metaset } from '../lib/metasets'
 import React from 'react'
@@ -52,6 +69,64 @@ type RulesFilterPanelProps = {
   collapsed: Record<string, boolean>
   onCollapsedChange: (next: Record<string, boolean>) => void
 }
+
+const STAT_VARIANT_ORDER_LOOKUP = new Map<number, number>(
+  STAT_VARIANTS_PRIORITY.map((variant, index) => [Number(variant), index]),
+)
+
+const STAT_ROW_SET_CACHE = new WeakMap<readonly StatVariant[], Set<number>>()
+
+function getStatRowSet(row: readonly StatVariant[]): Set<number> {
+  const cached = STAT_ROW_SET_CACHE.get(row)
+  if (cached) return cached
+  const next = new Set(row.map((variant) => Number(variant)))
+  STAT_ROW_SET_CACHE.set(row, next)
+  return next
+}
+
+function filterRowSelection(
+  selected: readonly StatVariant[],
+  row: readonly StatVariant[],
+): string[] {
+  const rowSet = getStatRowSet(row)
+  return selected.filter((variant) => rowSet.has(Number(variant))).map((variant) => String(variant))
+}
+
+function mergeRowSelection(
+  current: readonly StatVariant[],
+  row: readonly StatVariant[],
+  nextValues: readonly string[],
+): StatVariant[] {
+  const rowSet = getStatRowSet(row)
+  const filtered = current.filter((variant) => !rowSet.has(Number(variant)))
+  const merged = nextValues
+    .map((value) => Number(value) as StatVariant)
+    .filter((variant) => rowSet.has(Number(variant)))
+  return [...filtered, ...merged].sort((a, b) => {
+    const left = STAT_VARIANT_ORDER_LOOKUP.get(Number(a)) ?? 0
+    const right = STAT_VARIANT_ORDER_LOOKUP.get(Number(b)) ?? 0
+    return left - right
+  })
+}
+
+const STAT_TOGGLE_GROUP_BASE_SX = {
+  '& .MuiToggleButton-root': { p: 0.5, minWidth: 36, height: 28 },
+  '& .MuiToggleButtonGroup-grouped:not(:first-of-type)': {
+    marginLeft: '0 !important',
+    borderLeft: '1px solid transparent',
+  },
+  '& .MuiToggleButtonGroup-grouped.Mui-selected + .MuiToggleButtonGroup-grouped.Mui-selected': {
+    marginLeft: '0 !important',
+    borderLeft: '1px solid transparent',
+  },
+} as const
+
+const statToggleRowSx = (columns: number) => ({
+  display: 'grid',
+  gridTemplateColumns: `repeat(${columns}, minmax(36px, 1fr))`,
+  columnGap: 0.5,
+  ...STAT_TOGGLE_GROUP_BASE_SX,
+})
 
 // UI-only component that lets users filter the preview table. View-only; export ignores filters.
 const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPanelProps>(function RulesFilterPanel(
@@ -1106,144 +1181,170 @@ const ASCENSION_STAR_VALUES: readonly number[] = [0, 1, 2, 3, 4, 5, 6]
               </Collapse>
             </FormControl>
           )}
-          {/* Mainstat (below Sets) */}
-          <FormControl fullWidth sx={{ mb: 0.75 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
-              <SectionToggle id="main" />
-              <FormLabel sx={{ m: 0 }}>{t('filterMainstat')}</FormLabel>
-            </Box>
-            <Collapse in={!collapsed.main} timeout="auto" unmountOnExit>
-            <ToggleButtonGroup
-              size="small"
-              value={state.main.selected.map(String)}
-              onChange={(_, vals: string[]) => {
-                const nums = vals.map(v => Number(v) as StatVariant)
-                onChange({ ...state, main: { ...state.main, selected: nums } })
-              }}
-              sx={{
-                flexWrap: 'wrap',
-                '& .MuiToggleButton-root': { p: 0.5, minWidth: 36, height: 28 },
-                '& .MuiToggleButtonGroup-grouped:not(:first-of-type)': {
-                  marginLeft: '0 !important',
-                  borderLeft: '1px solid transparent',
-                },
-                '& .MuiToggleButtonGroup-grouped.Mui-selected + .MuiToggleButtonGroup-grouped.Mui-selected': {
-                  marginLeft: '0 !important',
-                  borderLeft: '1px solid transparent',
-                },
-              }}
-            >
-              {selectableStats.map(v => (
-                <ToggleButton key={v} value={String(v)} aria-label={labelOfVariant(v)}>{t(statVariantI18nKey(v))}</ToggleButton>
-              ))}
-            </ToggleButtonGroup>
-            {isTesterMode ? (
-              <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: FILTER_CHIP_TOP_MARGIN, flexWrap: 'wrap' }}>
-                <Chip
-                  size="small"
-                  label={`${t('filterChaosOre')}: ${
-                    testerChaosMode === 'notRerolled'
-                      ? t('filterChaosOreNotRerolled')
-                      : testerChaosMode === 'rerolled'
-                        ? t('filterChaosOreRerolled')
-                        : t('filterChaosOreAny')
-                  }`}
-                  onClick={() => {
-                    const next: TesterChaosFilterMode =
-                      testerChaosMode === 'any'
-                        ? 'notRerolled'
-                        : testerChaosMode === 'notRerolled'
-                          ? 'rerolled'
-                          : 'any'
-                    onChange({ ...state, testerChaos: { mode: next } })
-                  }}
-                  sx={tintedChipSx(testerChaosMode === 'any' ? theme.palette.success : testerChaosMode === 'notRerolled' ? theme.palette.info : theme.palette.warning)}
-                />
-              </Stack>
-            ) : (
-              <Box sx={{ mt: FILTER_CHIP_TOP_MARGIN }}>
-                {anyChip(
-                  t('filterMainstat'),
-                  state.main.anyMode,
-                  (v) => onChange({ ...state, main: { ...state.main, anyMode: v } }),
-                  t('filterAnyTooltip', { field: t('filterMainstat') }),
-                )}
+          <Box
+            sx={{
+              display: 'grid',
+              gridTemplateColumns: { xs: '1fr', md: 'repeat(2, minmax(0, 1fr))' },
+              columnGap: 1,
+              rowGap: 0.75,
+              mb: 0.75,
+            }}
+          >
+            {/* Mainstat (below Sets) */}
+            <FormControl fullWidth>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
+                <SectionToggle id="main" />
+                <FormLabel sx={{ m: 0 }}>{t('filterMainstat')}</FormLabel>
               </Box>
-            )}
-            </Collapse>
-          </FormControl>
-
-          {/* Substats (below Sets) */}
-          <FormControl fullWidth sx={{ mb: 0.75 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
-              <SectionToggle id="sub" />
-              <FormLabel sx={{ m: 0 }}>{t('filterSubstats')}</FormLabel>
-            </Box>
-            <Collapse in={!collapsed.sub} timeout="auto" unmountOnExit>
-            <ToggleButtonGroup
-              size="small"
-              value={state.sub.selected.map(String)}
-              onChange={(_, vals: string[]) => {
-                const nums = vals.map(v => Number(v) as StatVariant)
-                onChange({ ...state, sub: { ...state.sub, selected: nums } })
-              }}
-              sx={{
-                flexWrap: 'wrap',
-                '& .MuiToggleButton-root': { p: 0.5, minWidth: 36, height: 28 },
-                '& .MuiToggleButtonGroup-grouped:not(:first-of-type)': {
-                  marginLeft: '0 !important',
-                  borderLeft: '1px solid transparent',
-                },
-                '& .MuiToggleButtonGroup-grouped.Mui-selected + .MuiToggleButtonGroup-grouped.Mui-selected': {
-                  marginLeft: '0 !important',
-                  borderLeft: '1px solid transparent',
-                },
-              }}
-            >
-              {selectableStats.map(v => (
-                <ToggleButton key={v} value={String(v)} aria-label={labelOfVariant(v)}>{t(statVariantI18nKey(v))}</ToggleButton>
-              ))}
-            </ToggleButtonGroup>
-            {/* Chips row below substats */}
-            <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: FILTER_CHIP_TOP_MARGIN, flexWrap: 'wrap' }}>
-              <Tooltip title={t('filterMatchTooltipSubstats')}> 
-                <Chip
+              <Collapse in={!collapsed.main} timeout="auto" unmountOnExit>
+              <Stack spacing={0.5}>
+                <ToggleButtonGroup
                   size="small"
-                  variant={'filled'}
-                  label={`${t('filterMatch')}: ${state.sub.mode === 'any' ? t('filterAnyOf') : t('filterAllOf')}`}
-                  onClick={() => {
-                    const next = state.sub.mode === 'any' ? 'all' : 'any'
-                    onChange({ ...state, sub: { ...state.sub, mode: next } })
+                  value={filterRowSelection(state.main.selected, STAT_VARIANTS_PRIORITY_ROW1)}
+                  onChange={(_, vals: string[]) => {
+                    const next = mergeRowSelection(state.main.selected, STAT_VARIANTS_PRIORITY_ROW1, vals)
+                    onChange({ ...state, main: { ...state.main, selected: next } })
                   }}
-                  sx={tintedChipSx(state.sub.mode === 'any' ? theme.palette.success : theme.palette.info)}
-                />
-              </Tooltip>
-              {isTesterMode && (
-                <Chip
+                  sx={statToggleRowSx(STAT_VARIANTS_PRIORITY_ROW1.length)}
+                >
+                  {STAT_VARIANTS_PRIORITY_ROW1.map((variant) => (
+                    <ToggleButton key={variant} value={String(variant)} aria-label={labelOfVariant(variant)}>
+                      {t(statVariantI18nKey(variant))}
+                    </ToggleButton>
+                  ))}
+                </ToggleButtonGroup>
+                <ToggleButtonGroup
                   size="small"
-                  label={`${t('filterGlyphs')}: ${
-                    testerGlyphMode === 'on'
-                      ? t('filterGlyphsOn')
-                      : testerGlyphMode === 'off'
-                        ? t('filterGlyphsOff')
-                        : t('filterGlyphsAny')
-                  }`}
-                  onClick={() => {
-                    const next: TesterGlyphFilterMode =
-                      testerGlyphMode === 'any'
-                        ? 'on'
-                        : testerGlyphMode === 'on'
-                          ? 'off'
-                          : 'any'
-                    onChange({ ...state, testerGlyphs: { mode: next } })
+                  value={filterRowSelection(state.main.selected, STAT_VARIANTS_PRIORITY_ROW2)}
+                  onChange={(_, vals: string[]) => {
+                    const next = mergeRowSelection(state.main.selected, STAT_VARIANTS_PRIORITY_ROW2, vals)
+                    onChange({ ...state, main: { ...state.main, selected: next } })
                   }}
-                  sx={tintedChipSx(testerGlyphMode === 'any' ? theme.palette.success : testerGlyphMode === 'on' ? theme.palette.info : theme.palette.warning)}
-                />
+                  sx={statToggleRowSx(STAT_VARIANTS_PRIORITY_ROW2.length)}
+                >
+                  {STAT_VARIANTS_PRIORITY_ROW2.map((variant) => (
+                    <ToggleButton key={variant} value={String(variant)} aria-label={labelOfVariant(variant)}>
+                      {t(statVariantI18nKey(variant))}
+                    </ToggleButton>
+                  ))}
+                </ToggleButtonGroup>
+              </Stack>
+              {isTesterMode ? (
+                <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: FILTER_CHIP_TOP_MARGIN, flexWrap: 'wrap' }}>
+                  <Chip
+                    size="small"
+                    label={`${t('filterChaosOre')}: ${
+                      testerChaosMode === 'notRerolled'
+                        ? t('filterChaosOreNotRerolled')
+                        : testerChaosMode === 'rerolled'
+                          ? t('filterChaosOreRerolled')
+                          : t('filterChaosOreAny')
+                    }`}
+                    onClick={() => {
+                      const next: TesterChaosFilterMode =
+                        testerChaosMode === 'any'
+                          ? 'notRerolled'
+                          : testerChaosMode === 'notRerolled'
+                            ? 'rerolled'
+                            : 'any'
+                      onChange({ ...state, testerChaos: { mode: next } })
+                    }}
+                    sx={tintedChipSx(testerChaosMode === 'any' ? theme.palette.success : testerChaosMode === 'notRerolled' ? theme.palette.info : theme.palette.warning)}
+                  />
+                </Stack>
+              ) : (
+                <Box sx={{ mt: FILTER_CHIP_TOP_MARGIN }}>
+                  {anyChip(
+                    t('filterMainstat'),
+                    state.main.anyMode,
+                    (v) => onChange({ ...state, main: { ...state.main, anyMode: v } }),
+                    t('filterAnyTooltip', { field: t('filterMainstat') }),
+                  )}
+                </Box>
               )}
-              {/* Wildcard filter chip removed per UX simplification: wildcard rows are treated like normal rows in the preview filters. */}
-            </Stack>
-            </Collapse>
-          </FormControl>
+              </Collapse>
+            </FormControl>
+
+            {/* Substats (below Sets) */}
+            <FormControl fullWidth>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
+                <SectionToggle id="sub" />
+                <FormLabel sx={{ m: 0 }}>{t('filterSubstats')}</FormLabel>
+              </Box>
+              <Collapse in={!collapsed.sub} timeout="auto" unmountOnExit>
+              <Stack spacing={0.5}>
+                <ToggleButtonGroup
+                  size="small"
+                  value={filterRowSelection(state.sub.selected, STAT_VARIANTS_PRIORITY_ROW1)}
+                  onChange={(_, vals: string[]) => {
+                    const next = mergeRowSelection(state.sub.selected, STAT_VARIANTS_PRIORITY_ROW1, vals)
+                    onChange({ ...state, sub: { ...state.sub, selected: next } })
+                  }}
+                  sx={statToggleRowSx(STAT_VARIANTS_PRIORITY_ROW1.length)}
+                >
+                  {STAT_VARIANTS_PRIORITY_ROW1.map((variant) => (
+                    <ToggleButton key={variant} value={String(variant)} aria-label={labelOfVariant(variant)}>
+                      {t(statVariantI18nKey(variant))}
+                    </ToggleButton>
+                  ))}
+                </ToggleButtonGroup>
+                <ToggleButtonGroup
+                  size="small"
+                  value={filterRowSelection(state.sub.selected, STAT_VARIANTS_PRIORITY_ROW2)}
+                  onChange={(_, vals: string[]) => {
+                    const next = mergeRowSelection(state.sub.selected, STAT_VARIANTS_PRIORITY_ROW2, vals)
+                    onChange({ ...state, sub: { ...state.sub, selected: next } })
+                  }}
+                  sx={statToggleRowSx(STAT_VARIANTS_PRIORITY_ROW2.length)}
+                >
+                  {STAT_VARIANTS_PRIORITY_ROW2.map((variant) => (
+                    <ToggleButton key={variant} value={String(variant)} aria-label={labelOfVariant(variant)}>
+                      {t(statVariantI18nKey(variant))}
+                    </ToggleButton>
+                  ))}
+                </ToggleButtonGroup>
+              </Stack>
+              {/* Chips row below substats */}
+              <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: FILTER_CHIP_TOP_MARGIN, flexWrap: 'wrap' }}>
+                <Tooltip title={t('filterMatchTooltipSubstats')}> 
+                  <Chip
+                    size="small"
+                    variant={'filled'}
+                    label={`${t('filterMatch')}: ${state.sub.mode === 'any' ? t('filterAnyOf') : t('filterAllOf')}`}
+                    onClick={() => {
+                      const next = state.sub.mode === 'any' ? 'all' : 'any'
+                      onChange({ ...state, sub: { ...state.sub, mode: next } })
+                    }}
+                    sx={tintedChipSx(state.sub.mode === 'any' ? theme.palette.success : theme.palette.info)}
+                  />
+                </Tooltip>
+                {isTesterMode && (
+                  <Chip
+                    size="small"
+                    label={`${t('filterGlyphs')}: ${
+                      testerGlyphMode === 'on'
+                        ? t('filterGlyphsOn')
+                        : testerGlyphMode === 'off'
+                          ? t('filterGlyphsOff')
+                          : t('filterGlyphsAny')
+                    }`}
+                    onClick={() => {
+                      const next: TesterGlyphFilterMode =
+                        testerGlyphMode === 'any'
+                          ? 'on'
+                          : testerGlyphMode === 'on'
+                            ? 'off'
+                            : 'any'
+                      onChange({ ...state, testerGlyphs: { mode: next } })
+                    }}
+                    sx={tintedChipSx(testerGlyphMode === 'any' ? theme.palette.success : testerGlyphMode === 'on' ? theme.palette.info : theme.palette.warning)}
+                  />
+                )}
+                {/* Wildcard filter chip removed per UX simplification: wildcard rows are treated like normal rows in the preview filters. */}
+              </Stack>
+              </Collapse>
+            </FormControl>
+          </Box>
 
           {/* Faction moved to right column next to Level */}
         </Box>
