@@ -53,6 +53,7 @@ const overrides: Catalog = {
   testerOpenLabel: 'Equipo...',
   testerTitle: 'Equipo',
   testerIntro: 'Crea equipo de ejemplo para ver qué regla coincide primero y si se conservaría o vendería. Arrastra y suelta tu base de datos de RSL Helper (normalmente en %APPDATA%\\RslHelper\\Config) en este diálogo para importar equipo real.',
+  testerManualOnlyNotice: 'Only manually added gear appears here. Imported inventory, equipped, and inbox pieces stay visible in the Rule Tester preview; use the buttons below to delete those sources.',
   testerEmptyHint: 'Añade elementos para probar qué regla coincide primero.',
   testerRule: 'Regla',
   testerConfig: 'Config',
@@ -88,6 +89,7 @@ const overrides: Catalog = {
   testerRuleChip: 'Regla #{index}',
   testerFinalSellChip: 'Venta final',
   testerValueUnknown: '—',
+  testerAddManualGear: 'Add manual gear',
   // Common UI bits used in Rule Tester
   add: 'Añadir',
   compact: 'Compacto',

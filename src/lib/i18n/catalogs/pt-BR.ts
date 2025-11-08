@@ -53,6 +53,7 @@ const catalog: Catalog = {
   testerOpenLabel: 'Equipamentos...',
   testerTitle: 'Equipamentos',
   testerIntro: 'Crie equipamentos de exemplo para ver qual regra corresponde primeiro e se seriam mantidos ou vendidos. Arraste e solte seu banco de dados do RSL Helper (geralmente em %APPDATA%\\RslHelper\\Config) nesta caixa de diálogo para importar equipamentos reais.',
+  testerManualOnlyNotice: 'Only manually added gear appears here. Imported inventory, equipped, and inbox pieces stay visible in the Rule Tester preview; use the buttons below to delete those sources.',
   testerEmptyHint: 'Adicione itens para testar qual regra corresponde primeiro.',
   testerRule: 'Regra',
   testerConfig: 'Config',
@@ -88,6 +89,7 @@ const catalog: Catalog = {
   testerRuleChip: 'Regra #{index}',
   testerFinalSellChip: 'Venda final',
   testerValueUnknown: '—',
+  testerAddManualGear: 'Add manual gear',
   // Common UI bits used in Rule Tester
   add: 'Adicionar',
   compact: 'Compacto',

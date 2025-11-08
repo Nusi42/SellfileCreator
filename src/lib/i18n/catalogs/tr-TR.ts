@@ -53,6 +53,7 @@ const overrides: Catalog = {
   testerOpenLabel: 'Ekipman...',
   testerTitle: 'Ekipman',
   testerIntro: 'Örnek ekipman oluşturarak hangi kuralın önce eşleştiğini ve tutulup tutulmayacağını görün. Gerçek ekipmanı içe aktarmak için RSL Helper veritabanınızı (genellikle %APPDATA%\\RslHelper\\Config içinde) bu iletişim kutusuna sürükleyip bırakın.',
+  testerManualOnlyNotice: 'Only manually added gear appears here. Imported inventory, equipped, and inbox pieces stay visible in the Rule Tester preview; use the buttons below to delete those sources.',
   testerEmptyHint: 'Hangi kuralın önce eşleştiğini test etmek için öğe ekleyin.',
   testerRule: 'Kural',
   testerConfig: 'Konfig',
@@ -88,6 +89,7 @@ const overrides: Catalog = {
   testerRuleChip: 'Kural #{index}',
   testerFinalSellChip: 'Son Satış',
   testerValueUnknown: '—',
+  testerAddManualGear: 'Add manual gear',
   // Common UI bits used in Rule Tester
   add: 'Ekle',
   compact: 'Kompakt',
