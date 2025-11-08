@@ -1,5 +1,5 @@
 import React from 'react'
-import { Box, Button, Chip, Stack, Tooltip, ToggleButton, ToggleButtonGroup, Typography, Menu, MenuItem, Badge } from '@mui/material'
+import { Box, Button, Chip, Stack, Tooltip, ToggleButton, ToggleButtonGroup, Typography, Menu, MenuItem } from '@mui/material'
 import { alpha, type Theme } from '@mui/material/styles'
 import TuneIcon from '@mui/icons-material/Tune'
 import {
@@ -69,6 +69,8 @@ export default function PreviewHeaderActions(props: {
   testerFilteredCount?: number
   gearDbCommandError?: string | null
   onClearGearDbCommandError?: () => void
+  gearDbCommandSuccess?: string | null
+  onClearGearDbCommandSuccess?: () => void
 }) {
   const {
     mergedCount,
@@ -101,6 +103,8 @@ export default function PreviewHeaderActions(props: {
     testerBuilding = false,
     gearDbCommandError,
     onClearGearDbCommandError,
+    gearDbCommandSuccess,
+    onClearGearDbCommandSuccess,
   } = props
   const handleSelectBaseFile = React.useCallback(async (file: File) => {
     if (onSelectGearDb && isGearDbFilename(file.name)) {
@@ -237,6 +241,28 @@ export default function PreviewHeaderActions(props: {
     previousHighlightRef.current = null
     setFinalSellHighlightIdx(null)
   }, [clearHighlightClearTimeout, clearHighlightLoopTimeout])
+
+  const statusBadgeSx = React.useCallback((paletteKey: 'warning' | 'success') => (theme: Theme) => ({
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    minWidth: 18,
+    height: 18,
+    borderRadius: '50%',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    boxShadow: theme.shadows[2],
+    backgroundColor: theme.palette[paletteKey].main,
+    color: theme.palette.getContrastText(theme.palette[paletteKey].main),
+    border: `2px solid ${theme.palette.background.paper}`,
+    fontWeight: theme.typography.fontWeightBold ?? 600,
+    fontSize: theme.typography.pxToRem ? theme.typography.pxToRem(12) : '0.75rem',
+    lineHeight: 1,
+    cursor: 'help',
+    zIndex: 1,
+    padding: 0,
+  }), [])
 
   const playHighlightOnce = React.useCallback(() => {
     if (fsEnabled || !hoverActiveRef.current) return
@@ -547,12 +573,16 @@ export default function PreviewHeaderActions(props: {
                 placement="left"
                 onClose={() => { onClearGearDbCommandError?.() }}
               >
-                <Badge
-                  overlap="rectangular"
-                  anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
-                  sx={warningBadgeSx}
-                  badgeContent="!"
-                />
+                <Box component="span" sx={statusBadgeSx('warning')}>!</Box>
+              </Tooltip>
+            ) : null}
+            {!gearDbCommandError && gearDbCommandSuccess ? (
+              <Tooltip
+                title={gearDbCommandSuccess}
+                placement="left"
+                onClose={() => { onClearGearDbCommandSuccess?.() }}
+              >
+                <Box component="span" sx={statusBadgeSx('success')}>{'✓'}</Box>
               </Tooltip>
             ) : null}
           </Box>
@@ -647,22 +677,3 @@ export default function PreviewHeaderActions(props: {
     </>
   )
 }
-  const warningBadgeSx = {
-    '& .MuiBadge-badge': {
-      minWidth: 18,
-      height: 18,
-      borderRadius: '50%',
-      top: 0,
-      right: 0,
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      boxShadow: (theme: Theme) => theme.shadows[2],
-      backgroundColor: (theme: Theme) => theme.palette.warning.main,
-      color: (theme: Theme) => theme.palette.getContrastText(theme.palette.warning.main),
-      border: (theme: Theme) => `2px solid ${theme.palette.background.paper}`,
-      fontWeight: (theme: Theme) => theme.typography.fontWeightBold ?? 600,
-      fontSize: (theme: Theme) => (theme.typography.pxToRem ? theme.typography.pxToRem(12) : '0.75rem'),
-      lineHeight: 1,
-    },
-  } satisfies SxProps<Theme>

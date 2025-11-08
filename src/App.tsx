@@ -1092,6 +1092,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   }, [])
   const [gearDbCommandError, setGearDbCommandError] = useState<string | null>(null)
   const clearGearDbCommandError = useCallback(() => { setGearDbCommandError(null) }, [])
+  const [gearDbCommandSuccess, setGearDbCommandSuccess] = useState<string | null>(null)
+  const clearGearDbCommandSuccess = useCallback(() => { setGearDbCommandSuccess(null) }, [])
   const formatFileFormatErrorMessage = useCallback((fileName?: string | null) => {
     const trimmed = (fileName ?? '').trim()
     if (!trimmed) {
@@ -1621,6 +1623,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     flushTransientUi()
     if (source === 'command') {
       setGearDbCommandError(null)
+      setGearDbCommandSuccess(null)
     }
     setGearImportBusy(true)
     try {
@@ -1644,14 +1647,17 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         : t('toastGearDbImported', { count: totalCount })
       if (source === 'command') {
         setGearDbCommandError(null)
+        setGearDbCommandSuccess(message)
+      } else {
+        showToast(message, { icon: <StorageIcon fontSize="inherit" /> })
       }
-      showToast(message, { icon: <StorageIcon fontSize="inherit" /> })
     } catch (err) {
       if (import.meta.env.DEV) {
         console.error('Failed to import gear database', err)
       }
       if (source === 'command') {
         setGearDbCommandError(formatFileFormatErrorMessage(file.name))
+        setGearDbCommandSuccess(null)
       } else {
         showFileFormatError(file.name)
       }
@@ -1674,6 +1680,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     t,
     formatFileFormatErrorMessage,
     setGearDbCommandError,
+    setGearDbCommandSuccess,
   ])
 
   // Global file-drag overlay and file routing handled by hook
@@ -3272,6 +3279,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         testerFilteredCount={testerRowsForTable.length}
         gearDbCommandError={gearDbCommandError}
         onClearGearDbCommandError={clearGearDbCommandError}
+        gearDbCommandSuccess={gearDbCommandSuccess}
+        onClearGearDbCommandSuccess={clearGearDbCommandSuccess}
       />
           {filterOpen && (
           <RulesFilterPanel
