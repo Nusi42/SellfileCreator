@@ -687,10 +687,10 @@ const ASCENSION_STAR_VALUES: readonly number[] = [0, 1, 2, 3, 4, 5, 6]
                     value={state.testerResult?.keep ?? 'any'}
                     exclusive
                     onChange={(_, v: Bool3 | null) => {
-                      if (!v) return
+                      const next = v ?? 'any'
                       onChange({
                         ...state,
-                        testerResult: { keep: v, matched: state.testerResult?.matched ?? DEFAULT_RULES_FILTER_STATE.testerResult!.matched },
+                        testerResult: { keep: next, matched: state.testerResult?.matched ?? DEFAULT_RULES_FILTER_STATE.testerResult!.matched },
                       })
                     }}
                     sx={{
@@ -720,11 +720,6 @@ const ASCENSION_STAR_VALUES: readonly number[] = [0, 1, 2, 3, 4, 5, 6]
                         {t('keepValueSell')}
                       </Typography>
                     </ToggleButton>
-                    <ToggleButton value={'any'} title={t('any')}>
-                      <Typography component="span" noWrap sx={toggleLabelSx}>
-                        {t('any')}
-                      </Typography>
-                    </ToggleButton>
                   </ToggleButtonGroup>
                 </Box>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
@@ -733,10 +728,10 @@ const ASCENSION_STAR_VALUES: readonly number[] = [0, 1, 2, 3, 4, 5, 6]
                     value={state.testerResult?.matched ?? 'any'}
                     exclusive
                     onChange={(_, v: Bool3 | null) => {
-                      if (!v) return
+                      const next = v ?? 'any'
                       onChange({
                         ...state,
-                        testerResult: { keep: state.testerResult?.keep ?? DEFAULT_RULES_FILTER_STATE.testerResult!.keep, matched: v },
+                        testerResult: { keep: state.testerResult?.keep ?? DEFAULT_RULES_FILTER_STATE.testerResult!.keep, matched: next },
                       })
                     }}
                     sx={{
@@ -766,11 +761,6 @@ const ASCENSION_STAR_VALUES: readonly number[] = [0, 1, 2, 3, 4, 5, 6]
                         {t('testerMatchNoRule')}
                       </Typography>
                     </ToggleButton>
-                    <ToggleButton value={'any'} title={t('any')}>
-                      <Typography component="span" noWrap sx={toggleLabelSx}>
-                        {t('any')}
-                      </Typography>
-                    </ToggleButton>
                   </ToggleButtonGroup>
                 </Box>
               </Box>
@@ -782,8 +772,8 @@ const ASCENSION_STAR_VALUES: readonly number[] = [0, 1, 2, 3, 4, 5, 6]
                     value={state.rule?.keep ?? 'any'}
                     exclusive
                     onChange={(_, v: Bool3 | null) => {
-                      if (!v) return
-                      onChange({ ...state, rule: { keep: v, use: state.rule?.use ?? 'any' } })
+                      const next = v ?? 'any'
+                      onChange({ ...state, rule: { keep: next, use: state.rule?.use ?? 'any' } })
                     }}
                     sx={{
                       '& .MuiToggleButton-root': {
@@ -812,11 +802,6 @@ const ASCENSION_STAR_VALUES: readonly number[] = [0, 1, 2, 3, 4, 5, 6]
                         {t('keepValueSell')}
                       </Typography>
                     </ToggleButton>
-                    <ToggleButton value={'any'} title={t('any')}>
-                      <Typography component="span" noWrap sx={toggleLabelSx}>
-                        {t('any')}
-                      </Typography>
-                    </ToggleButton>
                   </ToggleButtonGroup>
                 </Box>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
@@ -825,8 +810,8 @@ const ASCENSION_STAR_VALUES: readonly number[] = [0, 1, 2, 3, 4, 5, 6]
                     value={state.rule?.use ?? 'any'}
                     exclusive
                     onChange={(_, v: Bool3 | null) => {
-                      if (!v) return
-                      onChange({ ...state, rule: { keep: state.rule?.keep ?? 'any', use: v } })
+                      const next = v ?? 'any'
+                      onChange({ ...state, rule: { keep: state.rule?.keep ?? 'any', use: next } })
                     }}
                     sx={{
                       '& .MuiToggleButton-root': {
@@ -853,11 +838,6 @@ const ASCENSION_STAR_VALUES: readonly number[] = [0, 1, 2, 3, 4, 5, 6]
                     <ToggleButton value={'no'} title={t('builderExportModeDisabled')}>
                       <Typography component="span" noWrap sx={toggleLabelSx}>
                         {t('builderExportModeDisabled')}
-                      </Typography>
-                    </ToggleButton>
-                    <ToggleButton value={'any'} title={t('any')}>
-                      <Typography component="span" noWrap sx={toggleLabelSx}>
-                        {t('any')}
                       </Typography>
                     </ToggleButton>
                   </ToggleButtonGroup>
