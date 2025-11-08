@@ -13,9 +13,9 @@
 - Overlay: `src/components/tutorial/TutorialCoach.tsx` renders a lightweight coachmark overlay that highlights elements by `data-tour-id` and shows step text with Back/Next controls. The coach dialog is slightly wider on desktop (`sm: 860px`) to accommodate section breadcrumbs without ellipsis.
 - Gating: The Help dialog auto-opens once per app version (keyed by `README_SEEN_VERSION_KEY`). The walkthrough only starts when the user clicks Start; finishing stores `APP_VERSION` under `TUTORIAL_SEEN_VERSION_KEY = 'sellfileCreator.tutorial.seen.version'` in `src/lib/constants.ts` so completion for that version is recorded.
 - Manual start: `HelpDialog` includes a bottom-left “Start Tutorial” button. The dialog surfaces README content and acts as the entry point.
-- Steps: `src/hooks/useTutorialCoachState.ts` constructs the typed `TutorialStep[]` and wires the scripted examples (basic config followed by an advanced config that covers substats, Min required rolls, and Milestone Thresholds). Each step can register a `before` action to stage builder state before the overlay renders.
+- Steps: `src/hooks/useTutorialCoachState.ts` constructs the typed `TutorialStep[]` and wires the scripted examples (basic config followed by an advanced config that covers substats, Min Required Rolls, and Milestone Thresholds). Each step can register a `before` action to stage builder state before the overlay renders.
 - Targets: A step can highlight a single `targetId` or multiple `targetIds: string[]`. When multiple are given, the overlay hole covers the union of all target rects.
-- Targets: Key controls expose `data-tour-id` attributes: rank/rarity/faction selects, mainstat group, slots (Boots), sets Select, add-config button, HSFC load/save buttons, Min required rolls and Thresholds groups.
+- Targets: Key controls expose `data-tour-id` attributes: rank/rarity/faction selects, mainstat group, slots (Boots), sets Select, add-config button, HSFC load/save buttons, Min Required Rolls and Thresholds groups.
 
 ### Navigation
 

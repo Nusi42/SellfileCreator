@@ -1013,7 +1013,7 @@ const overrides: Catalog = {
   tutAutoLateSubstatsTitle: 'Wichtiges Substat auswählen',
   tutAutoLateSubstatsBody: 'Wähle `SPD` bei `Substats`. Wir jagen SPD-Banner mit drei Rolls, daher zählt in diesem Beispiel nur dieser Stat.',
   tutAutoLateRollsTitle: 'Builder alle Upgrades beobachten lassen',
-  tutAutoLateRollsBody: 'Klicke `3` unter `Min required rolls`.',
+  tutAutoLateRollsBody: 'Klicke `3` unter `Mindest‑Rolls`.',
   tutAutoLateModeTitle: 'Spät-Meilensteine aktiv halten',
   tutAutoLateModeBody: 'Stelle sicher, dass `Spät` unter `Milestone thresholds` ausgewählt ist. `Spät` verschafft Auto genug Luft für fehlende Rolls und verlangt trotzdem alle drei SPD-Rolls bis +16.',
   tutAutoLateChipTitle: 'Auto wählt die passende Seltenheit',

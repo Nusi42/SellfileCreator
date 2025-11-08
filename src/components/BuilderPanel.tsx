@@ -5811,7 +5811,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
         })}>
         <FormControl sx={{ m: 0 }}>
           <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start', flexWrap: 'nowrap' }}>
-            {/* Min required rolls */}
+            {/* Min Required Rolls */}
             <FormControl sx={{ m: 0 }}>
               {(() => {
                 const baseLockedCount = Array.isArray((cfg as unknown as { fixedSubstatsV?: number[] }).fixedSubstatsV)
@@ -6204,7 +6204,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                 )
               })()}
             </FormControl>
-            {/* Milestone Thresholds (right of Min required rolls) */}
+            {/* Milestone Thresholds (right of Min Required Rolls) */}
             {(() => {
               const tierForLabel = (() => {
                 if (multiEditActive) {

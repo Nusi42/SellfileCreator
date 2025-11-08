@@ -64,17 +64,17 @@ Build, preview, and export sell rules for RSL Helper with a simple UI.
 - Required substats: Choose how many of your selected substats must be present on the item for the rule to pass.
   - `Auto` keeps the count in sync with the number you selected (up to four).
   - Locked substats (🔒) always count toward the requirement, and warnings flag impossible combinations (for example, locking more than four stats).
-- Min required rolls (global): Set the total number of rolls your selected or locked substats must share. `0` skips the aggregate check. Auto keeps the total aligned with your required substats when two or more are tracked, and caps it at what the current rarity can roll; single-stat configs stay at zero. Early milestones list any splits that can still hit that target by +16.
+- Min Required Rolls (global): Set the total number of rolls your selected or locked substats must share. `0` skips the aggregate check. Auto keeps the total aligned with your required substats when two or more are tracked, and caps it at what the current rarity can roll; single-stat configs stay at zero. Early milestones list any splits that can still hit that target by +16.
 - Milestone Thresholds: Decide how per-stat minimums behave before +16 once you ask for roll minimums.
   - `Early` tracks the rolls you already have at each milestone.
   - `Late` only demands what must be present now so the +16 goal stays achievable.
   - The toggle matters only when any substat has Min > 0 or the global minimum is above 0.
 
 ### Levels & Rolls: Quick Guide
-- Early thresholds: When you set per‑stat mins or an aggregate Min required rolls, thresholds rise until feasible and then remain fixed; once feasible, rows collapse to your Substat Target Values and stay fixed.
-- Aggregate (Σ rolls): Min required rolls applies to the sum of rolls across your selected substats by the target level.
+- Early thresholds: When you set per‑stat mins or an aggregate Min Required Rolls, thresholds rise until feasible and then remain fixed; once feasible, rows collapse to your Substat Target Values and stay fixed.
+- Aggregate (Σ rolls): Min Required Rolls applies to the sum of rolls across your selected substats by the target level.
 - Wildcards with Min Required (sum‑of‑rolls): With only starred substats (★) and Min Required > 0, Early shows just the minimal splits at each milestone (keeps lists small and stable). Late repeats the same minimal splits at the early milestones and again at +16.
-- Mythical (5 rolls): Mythical can reach 5 rolls in a substat by +16 (vs 4 otherwise). When your Rarity selection includes Mythical, the generator accounts for its pre‑roll. With Rarity = Any, setting Min required rolls to 5 (or per‑stat mins summing to 5) is treated as Mythical‑capable and also accounts for a pre‑roll at +0.
+- Mythical (5 rolls): Mythical can reach 5 rolls in a substat by +16 (vs 4 otherwise). When your Rarity selection includes Mythical, the generator accounts for its pre‑roll. With Rarity = Any, setting Min Required Rolls to 5 (or per‑stat mins summing to 5) is treated as Mythical‑capable and also accounts for a pre‑roll at +0.
 
 ### Substat Target Values
 - Open via the “Substat Targets…” button in the top‑right of the builder — it launches the Substat Target Values dialog.
@@ -193,7 +193,7 @@ Example: Early with a wildcard (selected-only)
 
 Example: Sum‑of‑rolls with wildcards (2 substats)
 - Select Substats: SPD and ACC. Set both to ★ (wildcard).
-- Required substats: 2. Min required rolls: 1.
+- Required substats: 2. Min Required Rolls: 1.
 - Early:
   - +4/+8/+12/+16: two rows — SPD ≥ 10, ACC ≥ 9 and SPD ≥ 5, ACC ≥ 18 (minimal splits; stable across milestones).
 - Late:
