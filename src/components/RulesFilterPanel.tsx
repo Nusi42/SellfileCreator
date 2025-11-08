@@ -137,23 +137,11 @@ const buildToggleGridSx = (
 }
 
 const collapsibleSectionSx = {
-  justifySelf: 'start',
+  flex: { xs: '1 1 100%', sm: '0 0 auto' },
   width: { xs: '100%', sm: 'auto' },
   maxWidth: '100%',
   minWidth: 0,
   alignSelf: 'flex-start',
-  '& .MuiCollapse-root': {
-    width: { xs: '100%', sm: 'fit-content' },
-    maxWidth: '100%',
-  },
-  '& .MuiCollapse-wrapper': {
-    width: { xs: '100%', sm: 'fit-content' },
-    maxWidth: '100%',
-  },
-  '& .MuiCollapse-wrapperInner': {
-    width: { xs: '100%', sm: 'fit-content' },
-    maxWidth: '100%',
-  },
 } as const
 
 // UI-only component that lets users filter the preview table. View-only; export ignores filters.
@@ -1210,8 +1198,8 @@ const ASCENSION_STAR_VALUES: readonly number[] = [0, 1, 2, 3, 4, 5, 6]
           )}
           <Box
             sx={{
-              display: 'grid',
-              gridTemplateColumns: { xs: '1fr', md: 'auto auto' },
+              display: 'flex',
+              flexWrap: 'wrap',
               columnGap: 1,
               rowGap: 0.75,
               mb: 0.75,
@@ -1561,8 +1549,8 @@ const ASCENSION_STAR_VALUES: readonly number[] = [0, 1, 2, 3, 4, 5, 6]
 
         <Box
           sx={{
-            display: 'grid',
-            gridTemplateColumns: { xs: '1fr', md: 'auto auto auto' },
+            display: 'flex',
+            flexWrap: 'wrap',
             columnGap: 1,
             rowGap: 0.75,
             mb: 0.75,
