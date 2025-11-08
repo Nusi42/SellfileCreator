@@ -62,6 +62,8 @@ const overrides: Catalog = {
   testerFinalSell: 'Venta final',
   testerResetConfirmTitle: '¿Restablecer el Probador de Reglas?',
   testerResetConfirmBody: 'Esto borra todos los elementos de prueba y restaura los ejemplos predeterminados.',
+  testerDeleteSourceConfirmTitle: '¿Eliminar el equipo de "{source}"?',
+  testerDeleteSourceConfirmBody: 'Esto quita todo el equipo de "{source}" de la vista previa del Probador de reglas.',
   noSetAccessories: 'Ninguno – solo accesorios',
   testerTableEmpty: 'Importa equipo o añade elementos de prueba para ver coincidencias aquí.',
   testerTableEmptyFilter: 'Ningún elemento de prueba coincide con los filtros actuales.',

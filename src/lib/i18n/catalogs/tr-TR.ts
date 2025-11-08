@@ -62,6 +62,8 @@ const overrides: Catalog = {
   testerFinalSell: 'Son Satış',
   testerResetConfirmTitle: 'Kural Testi sıfırlansın mı?',
   testerResetConfirmBody: 'Bu işlem tüm test öğelerini temizleyip varsayılan örnekleri geri yükler.',
+  testerDeleteSourceConfirmTitle: '"{source}" ekipmanını sil?',
+  testerDeleteSourceConfirmBody: 'Bu işlem Kural Testi önizlemesinden tüm "{source}" ekipmanını kaldırır.',
   noSetAccessories: 'Yok — yalnızca aksesuarlar',
   testerTableEmpty: 'Eşleşmeleri görmek için ekipman içe aktarın veya test öğeleri ekleyin.',
   testerTableEmptyFilter: 'Hiçbir test öğesi geçerli filtrelere uymuyor.',

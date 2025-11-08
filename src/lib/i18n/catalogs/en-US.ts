@@ -62,6 +62,8 @@ const enUS: Catalog = {
   testerFinalSell: 'Final Sell',
   testerResetConfirmTitle: 'Reset Rule Tester?',
   testerResetConfirmBody: 'This clears all tester items and restores the default examples.',
+  testerDeleteSourceConfirmTitle: 'Delete "{source}" gear?',
+  testerDeleteSourceConfirmBody: 'This removes all "{source}" gear from the Rule Tester preview.',
   noSetAccessories: 'None - Only accessories',
   testerTableEmpty: 'Import gear or add tester items to see matches here.',
   testerTableEmptyFilter: 'No tester items match the current filters.',

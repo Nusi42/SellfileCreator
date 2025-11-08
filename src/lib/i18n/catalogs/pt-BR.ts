@@ -62,6 +62,8 @@ const catalog: Catalog = {
   testerFinalSell: 'Venda final',
   testerResetConfirmTitle: 'Redefinir o Testador de Regras?',
   testerResetConfirmBody: 'Isso limpa todos os itens de teste e restaura os exemplos padrão.',
+  testerDeleteSourceConfirmTitle: 'Excluir o equipamento "{source}"?',
+  testerDeleteSourceConfirmBody: 'Isso remove todo o equipamento "{source}" da visualização do Testador de Regras.',
   noSetAccessories: 'Nenhum – apenas acessórios',
   testerTableEmpty: 'Importe equipamentos ou adicione itens de teste para ver correspondências aqui.',
   testerTableEmptyFilter: 'Nenhum item de teste corresponde aos filtros atuais.',

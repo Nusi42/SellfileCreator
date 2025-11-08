@@ -62,6 +62,8 @@ const overrides: Catalog = {
   testerFinalSell: 'Финальная продажа',
   testerResetConfirmTitle: 'Сбросить тестер правил?',
   testerResetConfirmBody: 'Это удалит все тестовые предметы и восстановит примеры по умолчанию.',
+  testerDeleteSourceConfirmTitle: 'Удалить экипировку «{source}»?',
+  testerDeleteSourceConfirmBody: 'Это удалит всю экипировку «{source}» из предварительного просмотра тестера правил.',
   noSetAccessories: 'Нет — только аксессуары',
   testerTableEmpty: 'Импортируйте снаряжение или добавьте тестовые предметы, чтобы увидеть совпадения здесь.',
   testerTableEmptyFilter: 'Нет тестовых предметов, подходящих текущим фильтрам.',
