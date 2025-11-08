@@ -1203,14 +1203,20 @@ const ASCENSION_STAR_VALUES: readonly number[] = [0, 1, 2, 3, 4, 5, 6]
                     }}
                     sx={{
                       display: 'grid',
-                      gridTemplateColumns: 'repeat(3, minmax(80px, 1fr))',
+                      gridTemplateColumns: `repeat(3, minmax(0, ${FILTER_TOGGLE_BUTTON_WIDTH_PX}px))`,
                       columnGap: 0.5,
                       rowGap: 0.5,
                       '& .MuiToggleButton-root': {
                         p: 0.5,
-                        minWidth: 0,
+                        width: FILTER_TOGGLE_BUTTON_WIDTH_PX,
+                        minWidth: FILTER_TOGGLE_BUTTON_WIDTH_PX,
+                        maxWidth: FILTER_TOGGLE_BUTTON_WIDTH_PX,
                         height: 28,
-                        width: '100%',
+                        overflow: 'hidden',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        lineHeight: 1.2,
                       },
                       '& .MuiToggleButtonGroup-grouped:not(:first-of-type)': {
                         marginLeft: '0 !important',
@@ -1223,8 +1229,10 @@ const ASCENSION_STAR_VALUES: readonly number[] = [0, 1, 2, 3, 4, 5, 6]
                     }}
                   >
                     {testerSourceOptions.map((option) => (
-                      <ToggleButton key={option.value} value={option.value}>
-                        {option.label}
+                      <ToggleButton key={option.value} value={option.value} title={option.label}>
+                        <Typography component="span" noWrap sx={toggleLabelSx}>
+                          {option.label}
+                        </Typography>
                       </ToggleButton>
                     ))}
                   </ToggleButtonGroup>
