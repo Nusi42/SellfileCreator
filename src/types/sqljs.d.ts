@@ -2,6 +2,7 @@
 declare module 'sql.js' {
   export interface SqlJsConfig {
     locateFile?: (file: string) => string
+    wasmBinary?: Uint8Array
   }
 
   export interface Statement {
