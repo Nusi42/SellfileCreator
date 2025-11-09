@@ -43,6 +43,7 @@ const OVERSCAN_ROWS = 6
 const MIN_TESTER_COLUMN_WIDTH_PX = 160
 const GRID_GAP_UNITS = 1.5
 const GRID_PADDING_UNITS = 1.25
+const CHAOS_REROLLED_GLYPH = '⟳'
 const pxValue = (value: string): number => Number.parseFloat(value) || 0
 const HEADER_LABEL_SX = {
   fontWeight: 600,
@@ -548,8 +549,9 @@ const TesterItemRow = React.memo(function TesterItemRow({
   const ascSummaryColor = useStatButtonColors && typeof ascVariant === 'number'
     ? (substatColors[ascVariant]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[ascVariant])
     : undefined
-  const rerollLabel = artifact.rerollCount > 0 ? t('filterChaosOreRerolled') : ''
+  const rerollLabel = artifact.rerollCount > 0 ? CHAOS_REROLLED_GLYPH : ''
   const rerollLabelColor = theme.palette.text.secondary
+  const rerollTooltip = artifact.rerollCount > 0 ? `${CHAOS_REROLLED_GLYPH} ${t('testerRerollLabel', { count: artifact.rerollCount })}` : ''
   const sourceDescriptor = getItemSourceDescriptor(artifact, t)
   const sourceLabelNode = sourceDescriptor ? (
     <Typography variant="caption" color="text.secondary" noWrap sx={{ fontWeight: 600 }}>
@@ -649,7 +651,13 @@ const TesterItemRow = React.memo(function TesterItemRow({
           <TesterSummaryLabel label={levelChipLabel} />
           <TesterSummaryLabel label={rankLabel} />
           <TesterSummaryLabel label={rarityLabel} />
-          {rerollLabel ? <TesterSummaryLabel label={rerollLabel} color={rerollLabelColor} /> : null}
+          {rerollLabel ? (
+            <Tooltip title={rerollTooltip}>
+              <Box component="span">
+                <TesterSummaryLabel label={rerollLabel} color={rerollLabelColor} />
+              </Box>
+            </Tooltip>
+          ) : null}
         </Box>
         <TesterSummaryLabel label={mainSummaryContent} />
         <Tooltip title={subTooltip}>
