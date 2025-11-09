@@ -1,0 +1,58 @@
+Roll Filter Popover – ASCII Wireframe
+=====================================
+
+Context: the Rule Tester roll filter trades the ≥ / = / ≤ comparators for a
+compact “pick the roll counts you care about” UI. Each row exposes the six roll
+counts (`Ø`, `1`, `2`, `3`, `4`, `5`) as toggleable badges so users can pick any
+number of discrete values (e.g., {2, 4, 5}). The backend now stores those sets
+directly, so the filter semantics stay in sync with what the UI renders.
+
+Legend
+------
+- `[X]` close button supplied by `ContextMenuPaper`
+- `(•)` filled toggle (selected) / `( )` unselected toggle
+- `○` = unselected roll count, `●` = selected roll count
+- Stat summaries show braces (`SPD {2,4}`) in the footer/aria copy instead of inline chips
+- Wildcard row works the same way but applies to any/selected stats depending on mode
+
+Diagram
+-------
+
++==============================================================================================+
+| [X] Rolls Filter                                                                             |
+|                                                                                              |
+| ┌ Wildcard (select counts directly; mode still controls scope) ---------------------------┐ |
+| | Mode: (•) Off   ( ) Any Stat   ( ) Selected stats                                       | |
+| |                                                                                          | |
+| |   Counts │ ○ Ø  ● 1  ● 2  ● 3  ○ 4  ○ 5   [All] [None]                                  | |
+| |          │ (tap to toggle each count; helper text unchanged)                            | |
+| └------------------------------------------------------------------------------------------┘ |
+|                                                                                              |
+| ┌ Per Stat (every glyphable stat always visible; chip removed for tighter rows) ----------┐ |
+| |                                                                                          | |
+| |   SPD │ ○ Ø  ○ 1  ● 2  ○ 3  ● 4  ○ 5   [All] [None]                                      | |
+| |   ACC │ ○ Ø  ● 1  ○ 2  ○ 3  ○ 4  ○ 5   [All] [None]                                      | |
+| |   RES │ ○ Ø  ○ 1  ○ 2  ○ 3  ○ 4  ○ 5   [All] [None]                                      | |
+| |   …repeat rows for HP, HP%, ATK, ATK%, DEF, DEF% (CR/CDMG omitted – non glyphable).      | |
+| |                                                                                          | |
+| | Interaction notes:                                                                       | |
+| |   - Clicking a badge toggles inclusion of that exact roll count.                         | |
+| |   - [All] selects every badge in that row; [None] clears the row instantly (wildcard     | |
+| |     row included).                                                                       | |
+| |   - Hold modifier (e.g., Shift) to select ranges quickly (auto-fills contiguous badges). | |
+| |   - Rows without any badges selected act as “not filtered for this stat.”                | |
+| └------------------------------------------------------------------------------------------┘ |
+|                                                                                              |
+| Footer ------------------------------------------------------------------------------------   |
+|   [Clear]                                    “Summary: Rolls {2,3} on any + SPD {2,4}, ACC {1}”|
++==============================================================================================+
+
+Key behavioral notes
+--------------------
+1. Expressiveness now mirrors discrete sets; the backend stores the same array so predicates
+   can test membership directly (no comparators to reconstruct).
+2. UI footprint stays tiny—no numeric inputs, min/max rows, or comparator toggles—while the
+   All/None buttons provide quick shortcuts.
+3. Non-glyphable stats still stay hidden; every glyphable stat is visible simultaneously.
+4. Summary copy mirrors the new semantics (`{…}`) so users understand they’re selecting exact
+   counts rather than ranges, and the Rolls chip’s aria-label reuses the same string.
