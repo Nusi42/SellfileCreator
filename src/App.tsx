@@ -2174,7 +2174,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const testerBuilding = testerRowsBuilding
   const matchingConfigIndices = filterResult.matchingConfigIndices
   const filterActive = isRulesFilterActive(rulesFilter)
-  const testerFilterActive = isRulesFilterActive(testerRulesFilter)
+  const testerFilterActive = isRulesFilterActive(testerRulesFilter, { includeTesterRange: true })
   const previewFilterActive = previewMode === 'tester' ? (testerFilterActive || testerConfigFilterActive) : filterActive
   const handleTesterRuleView = useCallback((ruleIndex: number, cfgIdx: number | null) => {
     setTesterOpen(false)

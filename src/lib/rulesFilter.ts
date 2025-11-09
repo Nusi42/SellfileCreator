@@ -39,6 +39,19 @@ export type TesterSourceFilter = 'inventory' | 'collection' | 'vault' | 'inbox' 
 export type TesterChaosFilterMode = 'any' | 'notRerolled' | 'rerolled'
 export type TesterGlyphFilterMode = 'any' | 'on' | 'off' | 'selected'
 
+export type TesterLevelRange = {
+  min: number
+  max: number
+}
+
+export const TESTER_LEVEL_MIN = 0
+export const TESTER_LEVEL_MAX = 16
+
+export const DEFAULT_TESTER_LEVEL_RANGE: TesterLevelRange = Object.freeze({
+  min: TESTER_LEVEL_MIN,
+  max: TESTER_LEVEL_MAX,
+})
+
 export interface RulesFilterState {
   // Rule-level filters
   rule?: { keep: Bool3; use: Bool3 }
@@ -49,7 +62,7 @@ export interface RulesFilterState {
   rank: { selected: RankValue[]; anyMode: AnyMode }
   // Rarity: discrete buttons (Common..Mythical) instead of a contiguous range
   rarity: { selected: RankValue[]; anyMode: AnyMode }
-  level: { selected: LevelMilestone[]; anyMode: AnyMode }
+  level: { selected: LevelMilestone[]; anyMode: AnyMode; testerRange?: TesterLevelRange }
   main: { selected: StatVariant[]; anyMode: AnyMode }
   sub: { selected: StatVariant[]; mode: SubstatMatchMode; wildcardMode: AnyMode }
   faction: { selected: FactionId[]; anyMode: AnyMode }
@@ -61,6 +74,22 @@ export interface RulesFilterState {
   testerChampions?: { selected: number[] }
 }
 
+const clampTesterLevelValue = (value: number | null | undefined): number => {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return TESTER_LEVEL_MIN
+  const rounded = Math.round(value)
+  if (rounded < TESTER_LEVEL_MIN) return TESTER_LEVEL_MIN
+  if (rounded > TESTER_LEVEL_MAX) return TESTER_LEVEL_MAX
+  return rounded
+}
+
+export function resolveTesterLevelRange(levelState?: RulesFilterState['level']): TesterLevelRange {
+  const baseRange = levelState?.testerRange ?? DEFAULT_TESTER_LEVEL_RANGE
+  const min = clampTesterLevelValue(baseRange?.min ?? DEFAULT_TESTER_LEVEL_RANGE.min)
+  const max = clampTesterLevelValue(baseRange?.max ?? DEFAULT_TESTER_LEVEL_RANGE.max)
+  if (min <= max) return { min, max }
+  return { min: max, max: min }
+}
+
 export const DEFAULT_RULES_FILTER_STATE: RulesFilterState = {
   rule: { keep: 'any', use: 'any' },
   testerResult: { keep: 'any', matched: 'any' },
@@ -68,7 +97,7 @@ export const DEFAULT_RULES_FILTER_STATE: RulesFilterState = {
   slots: { selected: [], anyMode: 'include' },
   rank: { selected: [], anyMode: 'include' },
   rarity: { selected: [], anyMode: 'include' },
-  level: { selected: [], anyMode: 'include' },
+  level: { selected: [], anyMode: 'include', testerRange: { ...DEFAULT_TESTER_LEVEL_RANGE } },
   main: { selected: [], anyMode: 'include' },
   sub: { selected: [], mode: 'all', wildcardMode: 'include' },
   faction: { selected: [], anyMode: 'include' },
@@ -81,14 +110,20 @@ export const DEFAULT_RULES_FILTER_STATE: RulesFilterState = {
 }
 
 // Back-compat helpers: accept legacy range shapes (min/max) if present
-export function isRulesFilterActive(f: RulesFilterState): boolean {
+export function isRulesFilterActive(f: RulesFilterState, options?: { includeTesterRange?: boolean }): boolean {
+  const includeTesterRange = options?.includeTesterRange ?? false
+  let testerRangeActive = false
+  if (includeTesterRange) {
+    const { min, max } = resolveTesterLevelRange(f.level)
+    testerRangeActive = min > DEFAULT_TESTER_LEVEL_RANGE.min || max < DEFAULT_TESTER_LEVEL_RANGE.max
+  }
   const ra = (f.rule?.keep ?? 'any') !== 'any' || (f.rule?.use ?? 'any') !== 'any'
   const tr = (f.testerResult?.keep ?? 'any') !== 'any' || (f.testerResult?.matched ?? 'any') !== 'any'
   const a = (f.sets?.selected?.length ?? 0) > 0 || ((f.sets?.metaSelected)?.length ?? 0) > 0 || (f.sets?.anyMode ?? 'include') !== 'include' || f.sets?.match === 'all'
   const b = (f.slots?.selected?.length ?? 0) > 0 || (f.slots?.anyMode ?? 'include') !== 'include'
   const c = ((f.rank?.selected?.length ?? 0) > 0) || ((f.rank?.anyMode) ?? 'include') !== 'include'
   const d = ((f.rarity?.selected?.length ?? 0) > 0) || ((f.rarity?.anyMode) ?? 'include') !== 'include'
-  const e = (f.level?.selected?.length ?? 0) > 0 || (f.level?.anyMode ?? 'include') !== 'include'
+  const e = (f.level?.selected?.length ?? 0) > 0 || (f.level?.anyMode ?? 'include') !== 'include' || testerRangeActive
   const g = (f.main?.selected?.length ?? 0) > 0 || (f.main?.anyMode ?? 'include') !== 'include'
   const h = (f.sub?.selected?.length ?? 0) > 0 || (f.sub?.wildcardMode ?? 'include') !== 'include' || (f.sub?.mode ?? 'all') !== 'all'
   const i = (f.faction?.selected?.length ?? 0) > 0 || (f.faction?.anyMode ?? 'include') !== 'include'
@@ -392,6 +427,9 @@ export function filterTesterItems<T extends TesterFilterRow>(
   const selectedSubVariants = new Set((f.sub?.selected ?? []).map(Number))
   const selectedFactions = new Set((f.faction?.selected ?? []).map(Number))
   const selectedChampionIds = new Set((f.testerChampions?.selected ?? []).map(Number))
+  const testerLevelRange = resolveTesterLevelRange(f.level)
+  const testerExactLevelRangeActive =
+    testerLevelRange.min > DEFAULT_TESTER_LEVEL_RANGE.min || testerLevelRange.max < DEFAULT_TESTER_LEVEL_RANGE.max
 
   const subMode = f.sub?.mode ?? 'all'
   const subWildcardMode = f.sub?.wildcardMode ?? 'include'
@@ -489,6 +527,15 @@ export function filterTesterItems<T extends TesterFilterRow>(
       // Level always specified.
     }
     if (selectedLevels.size > 0 && !selectedLevels.has(level as LevelMilestone)) continue
+    const rawExactLevel = ((): number => {
+      const candidate = artifact.exactLevel
+      if (typeof candidate === 'number' && Number.isFinite(candidate)) return Number(candidate)
+      return level
+    })()
+    const exactLevel = clampTesterLevelValue(rawExactLevel)
+    if (testerExactLevelRangeActive) {
+      if (exactLevel < testerLevelRange.min || exactLevel > testerLevelRange.max) continue
+    }
 
     const mainMode = f.main?.anyMode ?? 'include'
     const mainVariant = artifact.mainStat?.variant ?? StatVariant.Any

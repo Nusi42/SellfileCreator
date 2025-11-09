@@ -25,6 +25,7 @@ const makeArtifact = (overrides: Partial<NormalizedGearArtifact> = {}): Normaliz
   rank: 6,
   rarity: 5,
   level: 16,
+  exactLevel: 16,
   faction: 0,
   mainStat: {
     source: 'main',
@@ -199,6 +200,38 @@ test('filterTesterItems filters by tester sources', () => {
   const result = filterTesterItems(rows, state)
   assert.equal(result.items.length, 1)
   assert.equal(result.items[0]?.artifact.source, 'tester')
+})
+
+test('filterTesterItems filters by tester level slider range using exactLevels', () => {
+  const highLevel = makeArtifact({ exactLevel: 15 })
+  const midLevel = makeArtifact({ exactLevel: 9 })
+  const rows: TesterFilterRow[] = [
+    { artifact: highLevel, match: { keep: true, cfgIdx: 0 } },
+    { artifact: midLevel, match: { keep: false, cfgIdx: 1 } },
+  ]
+  const state: RulesFilterState = {
+    ...DEFAULT_RULES_FILTER_STATE,
+    level: { ...DEFAULT_RULES_FILTER_STATE.level, selected: [], testerRange: { min: 12, max: 16 } },
+  }
+  const result = filterTesterItems(rows, state)
+  assert.equal(result.items.length, 1)
+  assert.equal(result.items[0]?.artifact.id, highLevel.id)
+})
+
+test('filterTesterItems falls back to milestone level when exactLevel is missing', () => {
+  const missingExact = makeArtifact({ level: 12, exactLevel: null })
+  const cappedLevel = makeArtifact({ level: 16, exactLevel: 16 })
+  const rows: TesterFilterRow[] = [
+    { artifact: missingExact, match: { keep: true, cfgIdx: 0 } },
+    { artifact: cappedLevel, match: { keep: true, cfgIdx: 1 } },
+  ]
+  const state: RulesFilterState = {
+    ...DEFAULT_RULES_FILTER_STATE,
+    level: { ...DEFAULT_RULES_FILTER_STATE.level, selected: [], testerRange: { min: 16, max: 16 } },
+  }
+  const result = filterTesterItems(rows, state)
+  assert.equal(result.items.length, 1)
+  assert.equal(result.items[0]?.artifact.id, cappedLevel.id)
 })
 
 test('filterTesterItems filters by chaos ore reroll state', () => {
