@@ -55,7 +55,6 @@ import {
   type TesterRollCountValue,
   type TesterRollFilterRow,
   type TesterRollFilterState,
-  type TesterRollWildcardMode,
   type TesterSourceFilter,
 } from '../lib/rulesFilter'
 import { FactionOptionLabel } from './FactionIcon'
@@ -216,8 +215,6 @@ const ZERO_RESULTS_PULSE = keyframes`
 `
 
 const EMPTY_ROLL_ROWS: readonly TesterRollFilterRow[] = []
-const EMPTY_STAT_VARIANTS: readonly StatVariant[] = []
-
 const ROLL_COUNT_LABELS: Record<TesterRollCountValue, string> = {
   0: GLYPH_NOT_REROLLED,
   1: '1',
@@ -549,19 +546,17 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
     )
   }
   const wildcardState = testerRollsState.wildcard ?? createDefaultTesterRollsState().wildcard
-  const wildcardMode: TesterRollWildcardMode = wildcardState.mode ?? 'off'
   const wildcardCounts: TesterRollCountSet = React.useMemo(
     () => wildcardState.counts ?? [],
     [wildcardState.counts],
   )
+  const wildcardHasSelection = wildcardCounts.length > 0
   const testerRollsPerStat = testerRollsState.perStat ?? EMPTY_ROLL_ROWS
   const activePerStatRows = React.useMemo(
     () => testerRollsPerStat.filter((row) => (row.counts?.length ?? 0) > 0),
     [testerRollsPerStat],
   )
   const testerRollRowCount = activePerStatRows.length
-  const subMatchMode = state.sub?.mode ?? 'all'
-  const selectedSubstats = state.sub?.selected ?? EMPTY_STAT_VARIANTS
   const perStatCounts = React.useMemo(() => {
     const map = new Map<number, TesterRollCountSet>()
     activePerStatRows.forEach((row) => {
@@ -572,23 +567,10 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
 
   const rollSummaryDescription = React.useMemo(() => {
     const parts: string[] = []
-    const wildcardSummary = summarizeRollCounts(wildcardCounts)
-    if (wildcardMode === 'any') {
+    if (wildcardHasSelection) {
+      const wildcardSummary = summarizeRollCounts(wildcardCounts)
       if (wildcardSummary) {
         parts.push(t('filterRollsSummaryAnyStat', { counts: wildcardSummary }))
-      } else {
-        parts.push(t('filterRollsSummaryCountsEmpty'))
-      }
-    } else if (wildcardMode === 'selected') {
-      if ((selectedSubstats?.length ?? 0) === 0) {
-        parts.push(t('filterRollsSummarySelectedEmpty'))
-      } else if (wildcardSummary) {
-        const key = subMatchMode === 'all'
-          ? 'filterRollsSummarySelectedAll'
-          : 'filterRollsSummarySelectedAny'
-        parts.push(t(key, { counts: wildcardSummary }))
-      } else {
-        parts.push(t('filterRollsSummaryCountsEmpty'))
       }
     }
     if (testerRollRowCount > 0) {
@@ -607,15 +589,14 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
     if (parts.length === 0) return t('filterRollsSummaryNone')
     const separator = t('filterRollsChipSeparator')
     return parts.join(separator)
-  }, [activePerStatRows, selectedSubstats, subMatchMode, t, testerRollRowCount, wildcardCounts, wildcardMode])
+  }, [activePerStatRows, t, testerRollRowCount, wildcardCounts, wildcardHasSelection])
 
   const rollChipGlyph = React.useMemo(() => {
     if (!testerRollsActive) return GLYPH_GTE_ZERO
-    if (wildcardMode === 'any') return GLYPH_GTE_ONE
-    if (wildcardMode === 'selected') return GLYPH_TOGGLE_ON
+    if (wildcardHasSelection) return GLYPH_GTE_ONE
     if (testerRollRowCount > 0) return GLYPH_ONLY
     return GLYPH_GTE_ONE
-  }, [testerRollRowCount, testerRollsActive, wildcardMode])
+  }, [testerRollRowCount, testerRollsActive, wildcardHasSelection])
 
   const rollChipLabel = `${t('filterRolls')}: ${rollChipGlyph}`
   const rollChipAria = t('filterRollsChipAria', { summary: rollSummaryDescription })
@@ -646,22 +627,44 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
     onChange(nextState)
   }, [onChange, state])
 
-  const updateWildcardCounts = React.useCallback((updater: (current: TesterRollCountSet) => TesterRollCountSet) => {
+  const applyExclusiveRollsChange = React.useCallback((
+    scope: 'wildcard' | 'perStat',
+    mutator: (current: TesterRollFilterState) => TesterRollFilterState,
+    options?: { ensureVariant?: StatVariant },
+  ) => {
     applyTesterRollsChange((current) => {
+      let next = mutator(current)
+      if (scope === 'wildcard') {
+        if (next.perStat.length > 0) {
+          next = { ...next, perStat: [] }
+        }
+      } else {
+        const wildcard = next.wildcard ?? createDefaultTesterRollsState().wildcard
+        if ((wildcard.counts?.length ?? 0) > 0 || wildcard.mode !== 'off') {
+          next = {
+            ...next,
+            wildcard: { ...wildcard, mode: 'off', counts: [] },
+          }
+        }
+      }
+      return next
+    }, options)
+  }, [applyTesterRollsChange])
+
+  const updateWildcardCounts = React.useCallback((updater: (current: TesterRollCountSet) => TesterRollCountSet) => {
+    applyExclusiveRollsChange('wildcard', (current) => {
       const base = current.wildcard ?? createDefaultTesterRollsState().wildcard
+      const counts = updater(base.counts ?? [])
       return {
         ...current,
         wildcard: {
           ...base,
-          counts: updater(base.counts ?? []),
+          mode: counts.length > 0 ? 'any' : 'off',
+          counts,
         },
       }
     })
-  }, [applyTesterRollsChange])
-
-  const handleWildcardCountsChange = React.useCallback((counts: TesterRollCountSet) => {
-    updateWildcardCounts(() => counts)
-  }, [updateWildcardCounts])
+  }, [applyExclusiveRollsChange])
 
   const handleWildcardToggleValue = React.useCallback((value: TesterRollCountValue) => {
     updateWildcardCounts((current) => {
@@ -673,19 +676,19 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
   }, [updateWildcardCounts])
 
   const handleWildcardSelectAll = React.useCallback(() => {
-    handleWildcardCountsChange(normalizeTesterRollCountSelection(TESTER_ROLL_COUNT_VALUES))
-  }, [handleWildcardCountsChange])
+    updateWildcardCounts(() => normalizeTesterRollCountSelection(TESTER_ROLL_COUNT_VALUES))
+  }, [updateWildcardCounts])
 
   const handleWildcardSelectNone = React.useCallback(() => {
-    handleWildcardCountsChange([])
-  }, [handleWildcardCountsChange])
+    updateWildcardCounts(() => [])
+  }, [updateWildcardCounts])
 
   const getPerStatCounts = React.useCallback((variant: StatVariant): TesterRollCountSet => (
     perStatCounts.get(Number(variant)) ?? []
   ), [perStatCounts])
 
   const handlePerStatCountsChange = React.useCallback((variant: StatVariant, counts: TesterRollCountSet) => {
-    applyTesterRollsChange((current) => {
+    applyExclusiveRollsChange('perStat', (current) => {
       const perStat = current.perStat ?? []
       const filtered = perStat.filter((row) => Number(row.stat) !== Number(variant))
       const nextRows = counts.length > 0
@@ -696,7 +699,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
         perStat: nextRows,
       }
     }, { ensureVariant: variant })
-  }, [applyTesterRollsChange])
+  }, [applyExclusiveRollsChange])
 
   const handlePerStatToggleValue = React.useCallback((variant: StatVariant, value: TesterRollCountValue) => {
     const currentCounts = perStatCounts.get(Number(variant)) ?? []
@@ -713,14 +716,6 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
   const handlePerStatSelectNone = React.useCallback((variant: StatVariant) => {
     handlePerStatCountsChange(variant, [])
   }, [handlePerStatCountsChange])
-
-  const handleWildcardModeToggle = (_event: React.MouseEvent<HTMLElement>, next: TesterRollWildcardMode | null) => {
-    if (!next) return
-    applyTesterRollsChange((current) => ({
-      ...current,
-      wildcard: { ...(current.wildcard ?? createDefaultTesterRollsState().wildcard), mode: next },
-    }))
-  }
 
   // Sets — reuse Builder look/feel: tokens, renderValue, order/search
   // Track menu paper for height measurement and anchor position to avoid
@@ -2618,37 +2613,40 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
               <Typography variant="caption" color="text.secondary">
                 {t('filterRollsWildcardTitle')}
               </Typography>
-              <Stack spacing={1}>
-                <ToggleButtonGroup
-                  exclusive
-                  size="small"
-                  value={wildcardMode}
-                  onChange={handleWildcardModeToggle}
-                  sx={{ flexWrap: 'wrap', '& .MuiToggleButton-root': { minWidth: 0, px: 1, height: 28 } }}
-                >
-                  <ToggleButton value="off">{t('filterRollsModeOff')}</ToggleButton>
-                  <ToggleButton value="any">{t('filterRollsModeAnyStat')}</ToggleButton>
-                  <ToggleButton value="selected">{t('filterRollsModeSelected')}</ToggleButton>
-                </ToggleButtonGroup>
-                <Stack spacing={1}>
-                  <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
-                    <RollCountToggleButtons
-                      counts={wildcardCounts}
-                      ariaLabelPrefix={t('filterRollsValueLabel')}
-                      onToggle={handleWildcardToggleValue}
-                    />
-                    <Stack direction="row" spacing={0.5}>
-                      <Button size="small" onClick={handleWildcardSelectAll}>{t('filterRollsSelectAll')}</Button>
-                      <Button size="small" onClick={handleWildcardSelectNone}>{t('filterRollsSelectNone')}</Button>
-                    </Stack>
-                  </Stack>
-                  {wildcardMode === 'selected' && (
-                    <Typography variant="caption" color="text.secondary">
-                      {t('filterRollsSummaryMatchHelper')}
-                    </Typography>
-                  )}
+              <Box
+                sx={{
+                  display: 'grid',
+                  gridTemplateColumns: { xs: 'minmax(0, 1fr)', sm: 'auto minmax(0, 1fr) auto' },
+                  columnGap: 1,
+                  rowGap: 0.5,
+                  alignItems: 'center',
+                }}
+              >
+                <Stack direction="row" spacing={0.5} alignItems="center" sx={{ minWidth: 0 }}>
+                  <Button size="small" onClick={handleWildcardSelectAll} sx={{ whiteSpace: 'nowrap' }}>
+                    {t('filterRollsSelectAll')}
+                  </Button>
+                  <Typography variant="body2">
+                    {t('filterRollsAnyStatLabel')}
+                  </Typography>
                 </Stack>
-              </Stack>
+                <Box sx={{ minWidth: 0 }}>
+                  <RollCountToggleButtons
+                    counts={wildcardCounts}
+                    ariaLabelPrefix={t('filterRollsValueLabel')}
+                    onToggle={handleWildcardToggleValue}
+                  />
+                </Box>
+                <Box sx={{ justifySelf: { sm: 'flex-end' } }}>
+                  <ClearIconButton
+                    size="small"
+                    aria-label={t('filterRollsSelectNone')}
+                    tooltip={t('filterRollsSelectNone')}
+                    onClick={handleWildcardSelectNone}
+                    disabled={!wildcardHasSelection}
+                  />
+                </Box>
+              </Box>
             </Box>
             <Divider />
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
@@ -2667,33 +2665,47 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                     <Box
                       key={`roll-row-${variant}`}
                       sx={{
-                        display: 'flex',
-                        flexDirection: { xs: 'column', sm: 'row' },
-                        alignItems: { xs: 'flex-start', sm: 'center' },
-                        gap: 1,
+                        display: 'grid',
+                        gridTemplateColumns: { xs: 'minmax(0, 1fr)', sm: 'auto minmax(0, 1fr) auto' },
+                        columnGap: 1,
+                        rowGap: 0.5,
+                        alignItems: 'center',
                       }}
                     >
-                      <Typography
-                        variant="body2"
-                        sx={{
-                          minWidth: 80,
-                          ...(isActive ? { fontWeight: theme.typography.fontWeightMedium ?? 600 } : {}),
-                          ...(displayColor ? { color: displayColor } : {}),
-                        }}
-                      >
-                        {label}
-                      </Typography>
-                      <Box sx={{ flex: 1 }}>
+                      <Stack direction="row" spacing={0.5} alignItems="center" sx={{ minWidth: 0 }}>
+                        <Button
+                          size="small"
+                          onClick={() => handlePerStatSelectAll(variant)}
+                          sx={{ whiteSpace: 'nowrap' }}
+                        >
+                          {t('filterRollsSelectAll')}
+                        </Button>
+                        <Typography
+                          variant="body2"
+                          sx={{
+                            ...(isActive ? { fontWeight: theme.typography.fontWeightMedium ?? 600 } : {}),
+                            ...(displayColor ? { color: displayColor } : {}),
+                          }}
+                        >
+                          {label}
+                        </Typography>
+                      </Stack>
+                      <Box sx={{ minWidth: 0 }}>
                         <RollCountToggleButtons
                           counts={counts}
                           ariaLabelPrefix={`${label} ${t('filterRollsValueLabel')}`}
                           onToggle={(value) => handlePerStatToggleValue(variant, value)}
                         />
                       </Box>
-                      <Stack direction="row" spacing={0.5}>
-                        <Button size="small" onClick={() => handlePerStatSelectAll(variant)}>{t('filterRollsSelectAll')}</Button>
-                        <Button size="small" onClick={() => handlePerStatSelectNone(variant)}>{t('filterRollsSelectNone')}</Button>
-                      </Stack>
+                      <Box sx={{ justifySelf: { sm: 'flex-end' } }}>
+                        <ClearIconButton
+                          size="small"
+                          aria-label={t('filterRollsSelectNone')}
+                          tooltip={t('filterRollsSelectNone')}
+                          onClick={() => handlePerStatSelectNone(variant)}
+                          disabled={counts.length === 0}
+                        />
+                      </Box>
                     </Box>
                   )
                 })}

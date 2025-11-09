@@ -1,7 +1,7 @@
 /* eslint import/no-unused-modules: off */
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { filterTesterItems, DEFAULT_RULES_FILTER_STATE, type TesterFilterRow, type RulesFilterState } from '../src/lib/rulesFilter.js'
+import { filterTesterItems, DEFAULT_RULES_FILTER_STATE, type TesterFilterRow, type RulesFilterState, type TesterRollFilterState } from '../src/lib/rulesFilter.js'
 import { ArtifactSet, ArtifactType, StatId, StatVariant } from '../src/lib/types.js'
 import type { NormalizedGearArtifact, NormalizedStat } from '../src/lib/importers/gearDbNormalizer.js'
 
@@ -373,57 +373,34 @@ test('filterTesterItems filters by wildcard roll counts', () => {
   assert.equal(result.items[0]?.artifact.substats[0]?.rolls, 2)
 })
 
-test('filterTesterItems filters by selected stat roll counts honoring match mode', () => {
-  const spdOnly = makeArtifact({
+test('filterTesterItems treats legacy selected wildcard mode as any stat', () => {
+  const doubleRoll = makeArtifact({
     substats: [
-      makeStat(StatVariant.SPD, 14, { statId: StatId.SPD, rolls: 2 }),
-      makeStat(StatVariant.CR, 7, { statId: StatId.CR, rolls: 0 }),
+      makeStat(StatVariant.SPD, 12, { statId: StatId.SPD, rolls: 2 }),
+      makeStat(StatVariant.CR, 10, { statId: StatId.CR, rolls: 0 }),
     ],
   })
-  const crOnly = makeArtifact({
+  const tripleRoll = makeArtifact({
     substats: [
-      makeStat(StatVariant.SPD, 10, { statId: StatId.SPD, rolls: 0 }),
-      makeStat(StatVariant.CR, 12, { statId: StatId.CR, rolls: 2 }),
-    ],
-  })
-  const both = makeArtifact({
-    substats: [
-      makeStat(StatVariant.SPD, 15, { statId: StatId.SPD, rolls: 2 }),
-      makeStat(StatVariant.CR, 11, { statId: StatId.CR, rolls: 2 }),
-    ],
-  })
-  const low = makeArtifact({
-    substats: [
-      makeStat(StatVariant.SPD, 9, { statId: StatId.SPD, rolls: 1 }),
-      makeStat(StatVariant.CR, 6, { statId: StatId.CR, rolls: 1 }),
+      makeStat(StatVariant.SPD, 15, { statId: StatId.SPD, rolls: 3 }),
+      makeStat(StatVariant.CR, 8, { statId: StatId.CR, rolls: 0 }),
     ],
   })
   const rows: TesterFilterRow[] = [
-    { artifact: spdOnly, match: null },
-    { artifact: crOnly, match: null },
-    { artifact: both, match: null },
-    { artifact: low, match: null },
+    { artifact: doubleRoll, match: null },
+    { artifact: tripleRoll, match: null },
   ]
-  const subBase = DEFAULT_RULES_FILTER_STATE.sub ?? { selected: [], mode: 'all', wildcardMode: 'include' }
-  const stateAny: RulesFilterState = {
+  const legacyTesterRolls = {
+    wildcard: { mode: 'selected', counts: [2] },
+    perStat: [],
+  } as unknown as TesterRollFilterState
+  const state: RulesFilterState = {
     ...DEFAULT_RULES_FILTER_STATE,
-    sub: { ...subBase, selected: [StatVariant.SPD, StatVariant.CR], mode: 'any' },
-    testerRolls: {
-      wildcard: { mode: 'selected', counts: [2, 3, 4, 5] },
-      perStat: [],
-    },
+    testerRolls: legacyTesterRolls,
   }
-  const anyResult = filterTesterItems(rows, stateAny)
-  assert.equal(anyResult.items.length, 3)
-  assert.equal(anyResult.items.every((row) => row.artifact.substats.some((stat) => (stat.rolls ?? 0) >= 2)), true)
-
-  const stateAll: RulesFilterState = {
-    ...stateAny,
-    sub: { ...subBase, selected: [StatVariant.SPD, StatVariant.CR], mode: 'all' },
-  }
-  const allResult = filterTesterItems(rows, stateAll)
-  assert.equal(allResult.items.length, 1)
-  assert.equal(allResult.items[0]?.artifact.id, both.id)
+  const result = filterTesterItems(rows, state)
+  assert.equal(result.items.length, 1)
+  assert.equal(result.items[0]?.artifact.substats[0]?.rolls, 2)
 })
 
 test('filterTesterItems filters by per-stat roll requirements', () => {
