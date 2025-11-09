@@ -548,6 +548,19 @@ export function compareVariants(a: StatVariantLike, b: StatVariantLike): number 
   return an - bn
 }
 
+const NON_GLYPHABLE_VARIANTS = new Set<number>([
+  StatVariant.CR,
+  StatVariant.CDMG,
+])
+
+/** Returns true when a stat can receive glyph upgrades in-game. */
+export function statSupportsGlyphs(variant: StatVariantLike): boolean {
+  const numeric = Number(variant)
+  if (!Number.isFinite(numeric)) return true
+  if (numeric === StatVariant.Any) return true
+  return !NON_GLYPHABLE_VARIANTS.has(numeric)
+}
+
 // --- Slot constraints (domain facts)
 // Why: Keep allowed main/substat constraints centralized so builder and UI
 // agree on feasibility. Mirrors docs/TECHNICAL.md#artifact-rules. Use StatVariant

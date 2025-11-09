@@ -343,3 +343,117 @@ test('filterTesterItems filters by champion selection', () => {
   assert.equal(result.items.length, 1)
   assert.equal(result.items[0]?.artifact.equippedToChampionId, 321)
 })
+
+test('filterTesterItems filters by wildcard roll counts', () => {
+  const doubleRoll = makeArtifact({
+    substats: [
+      makeStat(StatVariant.SPD, 12, { statId: StatId.SPD, rolls: 2 }),
+      makeStat(StatVariant.CR, 10, { statId: StatId.CR, rolls: 0 }),
+    ],
+  })
+  const tripleRoll = makeArtifact({
+    substats: [
+      makeStat(StatVariant.SPD, 15, { statId: StatId.SPD, rolls: 3 }),
+      makeStat(StatVariant.CR, 8, { statId: StatId.CR, rolls: 0 }),
+    ],
+  })
+  const rows: TesterFilterRow[] = [
+    { artifact: doubleRoll, match: null },
+    { artifact: tripleRoll, match: null },
+  ]
+  const state: RulesFilterState = {
+    ...DEFAULT_RULES_FILTER_STATE,
+    testerRolls: {
+      wildcard: { mode: 'any', comparator: 'eq', value: 2 },
+      perStat: [],
+    },
+  }
+  const result = filterTesterItems(rows, state)
+  assert.equal(result.items.length, 1)
+  assert.equal(result.items[0]?.artifact.substats[0]?.rolls, 2)
+})
+
+test('filterTesterItems filters by selected stat roll counts honoring match mode', () => {
+  const spdOnly = makeArtifact({
+    substats: [
+      makeStat(StatVariant.SPD, 14, { statId: StatId.SPD, rolls: 2 }),
+      makeStat(StatVariant.CR, 7, { statId: StatId.CR, rolls: 0 }),
+    ],
+  })
+  const crOnly = makeArtifact({
+    substats: [
+      makeStat(StatVariant.SPD, 10, { statId: StatId.SPD, rolls: 0 }),
+      makeStat(StatVariant.CR, 12, { statId: StatId.CR, rolls: 2 }),
+    ],
+  })
+  const both = makeArtifact({
+    substats: [
+      makeStat(StatVariant.SPD, 15, { statId: StatId.SPD, rolls: 2 }),
+      makeStat(StatVariant.CR, 11, { statId: StatId.CR, rolls: 2 }),
+    ],
+  })
+  const low = makeArtifact({
+    substats: [
+      makeStat(StatVariant.SPD, 9, { statId: StatId.SPD, rolls: 1 }),
+      makeStat(StatVariant.CR, 6, { statId: StatId.CR, rolls: 1 }),
+    ],
+  })
+  const rows: TesterFilterRow[] = [
+    { artifact: spdOnly, match: null },
+    { artifact: crOnly, match: null },
+    { artifact: both, match: null },
+    { artifact: low, match: null },
+  ]
+  const subBase = DEFAULT_RULES_FILTER_STATE.sub ?? { selected: [], mode: 'all', wildcardMode: 'include' }
+  const stateAny: RulesFilterState = {
+    ...DEFAULT_RULES_FILTER_STATE,
+    sub: { ...subBase, selected: [StatVariant.SPD, StatVariant.CR], mode: 'any' },
+    testerRolls: {
+      wildcard: { mode: 'selected', comparator: 'gte', value: 2 },
+      perStat: [],
+    },
+  }
+  const anyResult = filterTesterItems(rows, stateAny)
+  assert.equal(anyResult.items.length, 3)
+  assert.equal(anyResult.items.every((row) => row.artifact.substats.some((stat) => (stat.rolls ?? 0) >= 2)), true)
+
+  const stateAll: RulesFilterState = {
+    ...stateAny,
+    sub: { ...subBase, selected: [StatVariant.SPD, StatVariant.CR], mode: 'all' },
+  }
+  const allResult = filterTesterItems(rows, stateAll)
+  assert.equal(allResult.items.length, 1)
+  assert.equal(allResult.items[0]?.artifact.id, both.id)
+})
+
+test('filterTesterItems filters by per-stat roll requirements', () => {
+  const matching = makeArtifact({
+    substats: [
+      makeStat(StatVariant.SPD, 15, { statId: StatId.SPD, rolls: 2 }),
+      makeStat(StatVariant.CR, 11, { statId: StatId.CR, rolls: 1 }),
+    ],
+  })
+  const failing = makeArtifact({
+    substats: [
+      makeStat(StatVariant.SPD, 14, { statId: StatId.SPD, rolls: 2 }),
+      makeStat(StatVariant.CR, 9, { statId: StatId.CR, rolls: 0 }),
+    ],
+  })
+  const rows: TesterFilterRow[] = [
+    { artifact: matching, match: null },
+    { artifact: failing, match: null },
+  ]
+  const state: RulesFilterState = {
+    ...DEFAULT_RULES_FILTER_STATE,
+    testerRolls: {
+      wildcard: { mode: 'off', comparator: 'eq', value: 0 },
+      perStat: [
+        { stat: StatVariant.SPD, comparator: 'eq', value: 2 },
+        { stat: StatVariant.CR, comparator: 'eq', value: 1 },
+      ],
+    },
+  }
+  const result = filterTesterItems(rows, state)
+  assert.equal(result.items.length, 1)
+  assert.equal(result.items[0]?.artifact.id, matching.id)
+})
