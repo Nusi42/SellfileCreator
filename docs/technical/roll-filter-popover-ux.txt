@@ -14,7 +14,7 @@ Legend
 - Text labels identify the scope (`Any stat`, `SPD`, etc.); no bulk-select shortcuts remain.
 - `[⊗]` = the shared clear icon button (renders to the right of the badge rail)
 - Stat summaries show braces (`SPD {2,4}`) in the footer/aria copy instead of inline chips
-- Wildcard row always applies to “Any stat”; per-stat rows remain glyph-only stats
+- Wildcard row always applies to “Any stat”; per-stat rows list every rollable substat.
 
 Diagram
 -------
@@ -27,11 +27,11 @@ Diagram
 | |          │ (tap badges to toggle exact counts; selecting all values behaves like ≥0)           | |
 | └--------------------------------------------------------------------------------------------------┘ |
 |                                                                                                      |
-| ┌ Per Stat (every glyphable stat always visible; label + badges + clear icon) -------------------┐ |
+| ┌ Per Stat (every rollable stat always visible; label + badges + clear icon) --------------------┐ |
 | | SPD │ ○ Ø  ○ 1  ● 2  ○ 3  ● 4  ○ 5 │ [⊗]                                                        | |
 | | ACC │ ○ Ø  ● 1  ○ 2  ○ 3  ○ 4  ○ 5 │ [⊗]                                                        | |
 | | RES │ ○ Ø  ○ 1  ○ 2  ○ 3  ○ 4  ○ 5 │ [⊗]                                                        | |
-| | …repeat rows for HP, HP%, ATK, ATK%, DEF, DEF% (CR/CDMG omitted – non glyphable).                | |
+| | …repeat rows for HP, HP%, ATK, ATK%, DEF, DEF%, CR%, and CDMG%.                                  | |
 | |                                                                                                  | |
 | | Interaction notes:                                                                               | |
 | |   - Clicking a badge toggles inclusion of that exact roll count.                                 | |
@@ -52,5 +52,5 @@ Key behavioral notes
    whenever it’s inactive so the popover always mirrors the chip state.
 3. The clear icon button lives to the right of the roll badges, keeping “controls → value → clear”
    consistent with other builder surfaces.
-4. Non-glyphable stats stay hidden; every glyphable stat is always visible. Summary copy mirrors
+4. Every rollable stat is always visible so users can target CR%/CDMG% as well. Summary copy mirrors
    the `{…}` notation so users understand they’re selecting exact counts rather than ranges.
