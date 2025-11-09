@@ -38,20 +38,28 @@ export type Bool3 = 'any' | 'yes' | 'no'
 export type TesterSourceFilter = 'inventory' | 'collection' | 'vault' | 'inbox' | 'manual'
 export type TesterChaosFilterMode = 'any' | 'notRerolled' | 'rerolled'
 export type TesterGlyphFilterMode = 'any' | 'on' | 'off' | 'selected'
-export type TesterRollComparator = 'eq' | 'gte' | 'lte'
 export type TesterRollWildcardMode = 'off' | 'any' | 'selected'
+
+export const TESTER_ROLL_COUNT_VALUES = [0, 1, 2, 3, 4, 5] as const
+export type TesterRollCountValue = typeof TESTER_ROLL_COUNT_VALUES[number]
+
+export type TesterRollCountSet = readonly TesterRollCountValue[]
+
+export const normalizeTesterRollCountSelection = (counts: readonly number[]): TesterRollCountSet => (
+  normalizeRollCountSet(counts)
+)
 
 export type TesterRollFilterRow = {
   stat: StatVariant
-  comparator: TesterRollComparator
-  value: number
+  counts: TesterRollCountSet
 }
 
 export type TesterRollWildcardFilter = {
   mode: TesterRollWildcardMode
-  comparator: TesterRollComparator
-  value: number
+  counts: TesterRollCountSet
 }
+
+const DEFAULT_TESTER_ROLL_COUNT_SET: TesterRollCountSet = [2]
 
 export type TesterRollFilterState = {
   wildcard: TesterRollWildcardFilter
@@ -59,7 +67,7 @@ export type TesterRollFilterState = {
 }
 
 export const createDefaultTesterRollsState = (): TesterRollFilterState => ({
-  wildcard: { mode: 'off', comparator: 'eq', value: 2 },
+  wildcard: { mode: 'off', counts: DEFAULT_TESTER_ROLL_COUNT_SET },
   perStat: [],
 })
 
@@ -742,25 +750,23 @@ type RollFilterEvalArgs = {
 
 export function isTesterRollFilterActive(rolls?: TesterRollFilterState): boolean {
   if (!rolls) return false
-  const wildcardMode = rolls.wildcard?.mode ?? 'off'
-  if (wildcardMode !== 'off') return true
-  return (rolls.perStat?.length ?? 0) > 0
+  const wildcard = rolls.wildcard ?? createDefaultTesterRollsState().wildcard
+  const wildcardMode = wildcard.mode ?? 'off'
+  const wildcardActive = wildcardMode !== 'off' && (wildcard.counts?.length ?? 0) > 0
+  if (wildcardActive) return true
+  return Boolean(rolls.perStat?.some((row) => (row?.counts?.length ?? 0) > 0))
 }
 
 const normalizeTesterRollFilterRow = (row: TesterRollFilterRow | null | undefined): TesterRollFilterRow | null => {
   if (!row) return null
   const stat = Number(row.stat)
   if (!Number.isFinite(stat) || stat <= 0) return null
+  const counts = resolveRollCountSet(row)
+  if (counts.length === 0) return null
   return {
     stat: stat as StatVariant,
-    comparator: normalizeRollComparator(row.comparator),
-    value: clampRollTarget(row.value),
+    counts,
   }
-}
-
-const normalizeRollComparator = (comparator?: TesterRollComparator): TesterRollComparator => {
-  if (comparator === 'gte' || comparator === 'lte') return comparator
-  return 'eq'
 }
 
 const normalizeRollMode = (mode?: TesterRollWildcardMode): TesterRollWildcardMode => {
@@ -775,8 +781,7 @@ const normalizeTesterRollsState = (input?: TesterRollFilterState): TesterRollFil
   return {
     wildcard: {
       mode: normalizeRollMode(wildcard.mode),
-      comparator: normalizeRollComparator(wildcard.comparator),
-      value: clampRollTarget(wildcard.value),
+      counts: resolveRollCountSet(wildcard),
     },
     perStat: rows
       .map((row) => normalizeTesterRollFilterRow(row))
@@ -784,29 +789,79 @@ const normalizeTesterRollsState = (input?: TesterRollFilterState): TesterRollFil
   }
 }
 
+type LegacyTesterRollComparator = 'eq' | 'gte' | 'lte'
+
+type RollCountCarrier = {
+  counts?: unknown
+  comparator?: LegacyTesterRollComparator
+  value?: number
+}
+
+function resolveRollCountSet(carrier: RollCountCarrier | null | undefined): TesterRollCountSet {
+  const normalized = normalizeRollCountSet(carrier?.counts)
+  if (normalized.length > 0) return normalized
+  if (carrier && 'value' in (carrier as Record<string, unknown>)) {
+    return deriveLegacyRollCountSet(carrier?.comparator, carrier?.value)
+  }
+  return []
+}
+
+function normalizeRollCountSet(input: unknown): TesterRollCountSet {
+  if (!Array.isArray(input)) return []
+  const seen = new Set<number>()
+  const next: TesterRollCountValue[] = []
+  for (const raw of input) {
+    if (typeof raw !== 'number' && typeof raw !== 'string') continue
+    const numeric = Number(raw)
+    if (!Number.isFinite(numeric)) continue
+    const clamped = clampRollTarget(numeric) as TesterRollCountValue
+    if (seen.has(clamped)) continue
+    seen.add(clamped)
+    next.push(clamped)
+  }
+  next.sort((a, b) => a - b)
+  return next
+}
+
+function deriveLegacyRollCountSet(
+  comparator?: LegacyTesterRollComparator,
+  value?: number | null,
+): TesterRollCountSet {
+  const normalizedComparator: LegacyTesterRollComparator =
+    comparator === 'gte' || comparator === 'lte' ? comparator : 'eq'
+  const clamped = clampRollTarget(value ?? 0) as TesterRollCountValue
+  if (normalizedComparator === 'gte') {
+    return TESTER_ROLL_COUNT_VALUES.filter((candidate) => candidate >= clamped)
+  }
+  if (normalizedComparator === 'lte') {
+    return TESTER_ROLL_COUNT_VALUES.filter((candidate) => candidate <= clamped)
+  }
+  return [clamped]
+}
 const passesTesterRollFilters = ({ filters, rollCounts, selectedVariants, selectedMode }: RollFilterEvalArgs): boolean => {
   const wildcard = filters.wildcard
-  if (wildcard.mode === 'any') {
+  const wildcardCounts = new Set<number>(wildcard.counts ?? [])
+  if (wildcard.mode === 'any' && wildcardCounts.size > 0) {
     let ok = false
     for (const count of rollCounts.values()) {
-      if (compareRollCount(count, wildcard.comparator, wildcard.value)) {
+      if (wildcardCounts.has(count)) {
         ok = true
         break
       }
     }
     if (!ok) return false
-  } else if (wildcard.mode === 'selected') {
+  } else if (wildcard.mode === 'selected' && wildcardCounts.size > 0) {
     if (selectedVariants.size > 0) {
       if (selectedMode === 'all') {
         for (const variant of selectedVariants) {
           const count = rollCounts.get(variant) ?? 0
-          if (!compareRollCount(count, wildcard.comparator, wildcard.value)) return false
+          if (!wildcardCounts.has(count)) return false
         }
       } else {
         let ok = false
         for (const variant of selectedVariants) {
           const count = rollCounts.get(variant) ?? 0
-          if (compareRollCount(count, wildcard.comparator, wildcard.value)) {
+          if (wildcardCounts.has(count)) {
             ok = true
             break
           }
@@ -820,18 +875,14 @@ const passesTesterRollFilters = ({ filters, rollCounts, selectedVariants, select
     for (const row of filters.perStat) {
       const variant = Number(row.stat)
       if (!Number.isFinite(variant) || variant <= 0) continue
+      const counts = new Set<number>(row.counts ?? [])
+      if (counts.size === 0) continue
       const count = rollCounts.get(variant) ?? 0
-      if (!compareRollCount(count, row.comparator, row.value)) return false
+      if (!counts.has(count)) return false
     }
   }
 
   return true
-}
-
-const compareRollCount = (rollCount: number, comparator: TesterRollComparator, target: number): boolean => {
-  if (comparator === 'gte') return rollCount >= target
-  if (comparator === 'lte') return rollCount <= target
-  return rollCount === target
 }
 
 const clampRollTarget = (value: number | null | undefined): number => {

@@ -364,7 +364,7 @@ test('filterTesterItems filters by wildcard roll counts', () => {
   const state: RulesFilterState = {
     ...DEFAULT_RULES_FILTER_STATE,
     testerRolls: {
-      wildcard: { mode: 'any', comparator: 'eq', value: 2 },
+      wildcard: { mode: 'any', counts: [2] },
       perStat: [],
     },
   }
@@ -409,7 +409,7 @@ test('filterTesterItems filters by selected stat roll counts honoring match mode
     ...DEFAULT_RULES_FILTER_STATE,
     sub: { ...subBase, selected: [StatVariant.SPD, StatVariant.CR], mode: 'any' },
     testerRolls: {
-      wildcard: { mode: 'selected', comparator: 'gte', value: 2 },
+      wildcard: { mode: 'selected', counts: [2, 3, 4, 5] },
       perStat: [],
     },
   }
@@ -446,10 +446,10 @@ test('filterTesterItems filters by per-stat roll requirements', () => {
   const state: RulesFilterState = {
     ...DEFAULT_RULES_FILTER_STATE,
     testerRolls: {
-      wildcard: { mode: 'off', comparator: 'eq', value: 0 },
+      wildcard: { mode: 'off', counts: [] },
       perStat: [
-        { stat: StatVariant.SPD, comparator: 'eq', value: 2 },
-        { stat: StatVariant.CR, comparator: 'eq', value: 1 },
+        { stat: StatVariant.SPD, counts: [2] },
+        { stat: StatVariant.CR, counts: [1] },
       ],
     },
   }

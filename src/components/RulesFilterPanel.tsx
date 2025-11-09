@@ -31,33 +31,39 @@ import {
 import { LIST_SUBHEADER_SX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, SETS_MENU_WIDTH_PX, FILTER_FACTION_SELECT_WIDTH_PX, FILTER_SETS_SELECT_WIDTH_PX, FILTER_CHIP_TOP_MARGIN, ELLIPSIS_TEXT_SX, FILTER_TOGGLE_BUTTON_WIDTH_PX, SMALL_BUTTON_HEIGHT_PX, BUILDER_STATUS_CHIP_HEIGHT_PX, UI_BG_HOVER_DANGER_TRANSITION, DANGER_TINT_BG, SETS_SELECT_INLINE_GUTTER_PX, STATUS_CHIP_BORDER_RADIUS_PX, FONT_SIZE_BASE_PX, RULES_FILTER_COLLAPSE_SESSION_KEY, SETS_SELECT_CLEAR_BUTTON_RIGHT_PX, CLEAR_ICON_BUTTON_SIZE_PX, GLYPH_TOGGLE_ON, GLYPH_TOGGLE_OFF, GLYPH_GLYPHS_SELECTED } from '../lib/constants'
 import { metasetGlyph, orderMetasetIds, type Metaset } from '../lib/metasets'
 import React from 'react'
-import { alpha, useTheme, type Theme } from '@mui/material/styles'
+import { alpha, useTheme } from '@mui/material/styles'
+import type { SxProps, Theme } from '@mui/material/styles'
 import { keyframes } from '@emotion/react'
 import {
   DEFAULT_RULES_FILTER_STATE,
   TESTER_LEVEL_MAX,
   TESTER_LEVEL_MIN,
-  isRulesFilterActive,
-  resolveTesterLevelRange,
-  isTesterRollFilterActive,
+  TESTER_ROLL_COUNT_VALUES,
   createDefaultTesterRollsState,
+  isRulesFilterActive,
+  isTesterRollFilterActive,
+  normalizeTesterRollCountSelection,
+  resolveTesterLevelRange,
   type AnyMode,
-  type RulesFilterState,
   type Bool3,
-  type TesterSourceFilter,
+  type RulesFilterState,
   type TesterChaosFilterMode,
   type TesterGlyphFilterMode,
-  type TesterRollFilterState,
+  type TesterRollCountSet,
+  type TesterRollCountValue,
   type TesterRollFilterRow,
-  type TesterRollComparator,
+  type TesterRollFilterState,
   type TesterRollWildcardMode,
+  type TesterSourceFilter,
 } from '../lib/rulesFilter'
 import { FactionOptionLabel } from './FactionIcon'
 import InlineSelectClearButton from './InlineSelectClearButton'
 import SelectDropdownActivator from './SelectDropdownActivator'
 import ClearIconButton from './ClearIconButton'
 import ClearIcon from '@mui/icons-material/Clear'
-import AddIcon from '@mui/icons-material/Add'
+import ContextMenuPaper from './ContextMenuPaper'
+import { useContextMenuCloseOnOutsideRightClick } from '../hooks/useContextMenuCloseOnOutsideRightClick'
+import type { PaperProps as MuiPaperProps } from '@mui/material/Paper'
 import { useSetsOrderPreference } from '../state/setsOrderPreference'
 import type { TesterConfigFilterMode } from '../types/testerConfigFilterMode'
 import type { ChampionLocation } from '../lib/importers/gearDbNormalizer'
@@ -210,16 +216,58 @@ const ZERO_RESULTS_PULSE = keyframes`
 const EMPTY_ROLL_ROWS: readonly TesterRollFilterRow[] = []
 const EMPTY_STAT_VARIANTS: readonly StatVariant[] = []
 
-const ROLL_COMPARATOR_SYMBOL: Record<TesterRollComparator, string> = {
-  eq: '=',
-  gte: `≥${NARROW_NO_BREAK_SPACE}`,
-  lte: `≤${NARROW_NO_BREAK_SPACE}`,
+const ROLL_COUNT_LABELS: Record<TesterRollCountValue, string> = {
+  0: GLYPH_NOT_REROLLED,
+  1: '1',
+  2: '2',
+  3: '3',
+  4: '4',
+  5: '5',
 }
 
-const clampRollInputValue = (value: number | string): number => {
-  const numeric = typeof value === 'number' ? value : Number(value)
-  if (!Number.isFinite(numeric)) return 0
-  return Math.max(0, Math.min(5, Math.round(numeric)))
+const ROLL_COUNT_TOGGLE_SIZE_PX = 32
+
+const rollCountToggleGroupSx: SxProps<Theme> = (theme) => ({
+  display: 'grid',
+  gridTemplateColumns: `repeat(${TESTER_ROLL_COUNT_VALUES.length}, ${ROLL_COUNT_TOGGLE_SIZE_PX}px)`,
+  columnGap: theme.spacing(0.5),
+  rowGap: theme.spacing(0.5),
+  '& .MuiToggleButtonGroup-grouped': {
+    margin: '0 !important',
+    borderRadius: '50% !important',
+    border: `1px solid ${alpha(theme.palette.text.primary, 0.3)}`,
+  },
+  '& .MuiToggleButton-root': {
+    width: ROLL_COUNT_TOGGLE_SIZE_PX,
+    height: ROLL_COUNT_TOGGLE_SIZE_PX,
+    padding: 0,
+    borderRadius: '50%',
+    fontWeight: theme.typography.fontWeightMedium ?? 600,
+    fontSize: theme.typography.pxToRem(13),
+    lineHeight: 1,
+  },
+  '& .MuiToggleButton-root.Mui-selected': {
+    backgroundColor: theme.palette.info.main,
+    borderColor: theme.palette.info.main,
+    color: theme.palette.info.contrastText,
+  },
+  '& .MuiToggleButton-root.Mui-selected:hover': {
+    backgroundColor: theme.palette.info.main,
+    borderColor: theme.palette.info.main,
+  },
+})
+
+const sortTesterRollRows = (rows: readonly TesterRollFilterRow[]): TesterRollFilterRow[] => (
+  [...rows].sort((a, b) => {
+    const left = STAT_VARIANT_ORDER_LOOKUP.get(Number(a.stat)) ?? 0
+    const right = STAT_VARIANT_ORDER_LOOKUP.get(Number(b.stat)) ?? 0
+    return left - right
+  })
+)
+
+const summarizeRollCounts = (counts: TesterRollCountSet): string => {
+  if (!counts || counts.length === 0) return ''
+  return `{${counts.map((value) => ROLL_COUNT_LABELS[value]).join(', ')}}`
 }
 
 const ensureSubstatSelectionForRolls = (baseState: RulesFilterState, variant: StatVariant): RulesFilterState => {
@@ -274,6 +322,16 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
   const testerRollsState: TesterRollFilterState = state.testerRolls ?? DEFAULT_RULES_FILTER_STATE.testerRolls ?? createDefaultTesterRollsState()
   const testerRollsActive = isTesterRollFilterActive(state.testerRolls)
   const [testerRollsAnchorEl, setTesterRollsAnchorEl] = React.useState<HTMLElement | null>(null)
+  const testerRollsPaperRef = React.useRef<HTMLDivElement | null>(null)
+  const testerRollsOpen = Boolean(testerRollsAnchorEl)
+  const handleTesterRollsClose = React.useCallback(() => {
+    setTesterRollsAnchorEl(null)
+  }, [])
+  useContextMenuCloseOnOutsideRightClick({
+    open: testerRollsOpen,
+    onClose: handleTesterRollsClose,
+    menuRef: testerRollsPaperRef,
+  })
   const glyphableStatOptions = React.useMemo(() => STAT_VARIANTS_PRIORITY.filter((variant) => statSupportsGlyphs(variant)), [])
   const [hoverReset, setHoverReset] = React.useState(false)
   // Persisted Sets order + local search to mirror Builder UX
@@ -448,39 +506,64 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
   }
   const wildcardState = testerRollsState.wildcard ?? createDefaultTesterRollsState().wildcard
   const wildcardMode: TesterRollWildcardMode = wildcardState.mode ?? 'off'
-  const wildcardComparator: TesterRollComparator = wildcardState.comparator ?? 'eq'
-  const wildcardValue = wildcardState.value ?? 0
+  const wildcardCounts: TesterRollCountSet = React.useMemo(
+    () => wildcardState.counts ?? [],
+    [wildcardState.counts],
+  )
   const testerRollsPerStat = testerRollsState.perStat ?? EMPTY_ROLL_ROWS
-  const testerRollRowCount = testerRollsPerStat.length
+  const activePerStatRows = React.useMemo(
+    () => testerRollsPerStat.filter((row) => (row.counts?.length ?? 0) > 0),
+    [testerRollsPerStat],
+  )
+  const testerRollRowCount = activePerStatRows.length
   const subMatchMode = state.sub?.mode ?? 'all'
   const selectedSubstats = state.sub?.selected ?? EMPTY_STAT_VARIANTS
+  const perStatCounts = React.useMemo(() => {
+    const map = new Map<number, TesterRollCountSet>()
+    activePerStatRows.forEach((row) => {
+      map.set(Number(row.stat), row.counts ?? [])
+    })
+    return map
+  }, [activePerStatRows])
 
   const rollSummaryDescription = React.useMemo(() => {
     const parts: string[] = []
+    const wildcardSummary = summarizeRollCounts(wildcardCounts)
     if (wildcardMode === 'any') {
-      const symbol = ROLL_COMPARATOR_SYMBOL[wildcardComparator] ?? '='
-      parts.push(t('filterRollsSummaryAnyStat', { symbol, value: wildcardValue }))
-    } else if (wildcardMode === 'selected') {
-      const symbol = ROLL_COMPARATOR_SYMBOL[wildcardComparator] ?? '='
-      if ((selectedSubstats?.length ?? 0) === 0) {
-        parts.push(t('filterRollsSummarySelectedEmpty', { symbol, value: wildcardValue }))
-      } else if (subMatchMode === 'all') {
-        parts.push(t('filterRollsSummarySelectedAll', { symbol, value: wildcardValue }))
+      if (wildcardSummary) {
+        parts.push(t('filterRollsSummaryAnyStat', { counts: wildcardSummary }))
       } else {
-        parts.push(t('filterRollsSummarySelectedAny', { symbol, value: wildcardValue }))
+        parts.push(t('filterRollsSummaryCountsEmpty'))
+      }
+    } else if (wildcardMode === 'selected') {
+      if ((selectedSubstats?.length ?? 0) === 0) {
+        parts.push(t('filterRollsSummarySelectedEmpty'))
+      } else if (wildcardSummary) {
+        const key = subMatchMode === 'all'
+          ? 'filterRollsSummarySelectedAll'
+          : 'filterRollsSummarySelectedAny'
+        parts.push(t(key, { counts: wildcardSummary }))
+      } else {
+        parts.push(t('filterRollsSummaryCountsEmpty'))
       }
     }
     if (testerRollRowCount > 0) {
       const joiner = t('filterRollsChipPerStatJoiner')
-      const entries = testerRollsPerStat
-        .map((row) => `${t(statVariantI18nKey(row.stat))}${ROLL_COMPARATOR_SYMBOL[row.comparator] ?? '='}${row.value}`)
+      const entries = activePerStatRows
+        .map((row) => {
+          const summary = summarizeRollCounts(row.counts ?? [])
+          return summary ? `${t(statVariantI18nKey(row.stat))} ${summary}` : ''
+        })
+        .filter(Boolean)
         .join(joiner)
-      parts.push(t('filterRollsSummaryPerStat', { entries }))
+      if (entries) {
+        parts.push(t('filterRollsSummaryPerStat', { entries }))
+      }
     }
     if (parts.length === 0) return t('filterRollsSummaryNone')
     const separator = t('filterRollsChipSeparator')
     return parts.join(separator)
-  }, [testerRollRowCount, testerRollsPerStat, selectedSubstats, subMatchMode, t, wildcardComparator, wildcardMode, wildcardValue])
+  }, [activePerStatRows, selectedSubstats, subMatchMode, t, testerRollRowCount, wildcardCounts, wildcardMode])
 
   const rollChipGlyph = React.useMemo(() => {
     if (!testerRollsActive) return GLYPH_GTE_ZERO
@@ -493,18 +576,10 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
   const rollChipLabel = `${t('filterRolls')}: ${rollChipGlyph}`
   const rollChipAria = t('filterRollsChipAria', { summary: rollSummaryDescription })
 
-  const pickNextRollRowVariant = React.useCallback((): StatVariant => {
-    const used = new Set<number>(testerRollsPerStat.map((row) => Number(row.stat)))
-    for (const variant of selectedSubstats ?? []) {
-      if (statSupportsGlyphs(variant) && !used.has(Number(variant))) return variant
-    }
-    for (const variant of glyphableStatOptions) {
-      if (!used.has(Number(variant))) return variant
-    }
-    return glyphableStatOptions[0] ?? StatVariant.SPD
-  }, [glyphableStatOptions, selectedSubstats, testerRollsPerStat])
-
-  const applyTesterRollsChange = (mutator: (current: TesterRollFilterState) => TesterRollFilterState, options?: { ensureVariant?: StatVariant }) => {
+  const applyTesterRollsChange = React.useCallback((
+    mutator: (current: TesterRollFilterState) => TesterRollFilterState,
+    options?: { ensureVariant?: StatVariant },
+  ) => {
     const nextRolls = mutator(state.testerRolls ?? createDefaultTesterRollsState())
     let nextState: RulesFilterState = {
       ...state,
@@ -525,7 +600,75 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
       return
     }
     onChange(nextState)
-  }
+  }, [onChange, state])
+
+  const updateWildcardCounts = React.useCallback((updater: (current: TesterRollCountSet) => TesterRollCountSet) => {
+    applyTesterRollsChange((current) => {
+      const base = current.wildcard ?? createDefaultTesterRollsState().wildcard
+      return {
+        ...current,
+        wildcard: {
+          ...base,
+          counts: updater(base.counts ?? []),
+        },
+      }
+    })
+  }, [applyTesterRollsChange])
+
+  const handleWildcardCountsChange = React.useCallback((counts: TesterRollCountSet) => {
+    updateWildcardCounts(() => counts)
+  }, [updateWildcardCounts])
+
+  const handleWildcardToggleValue = React.useCallback((value: TesterRollCountValue) => {
+    updateWildcardCounts((current) => {
+      const next = new Set(current ?? [])
+      if (next.has(value)) next.delete(value)
+      else next.add(value)
+      return normalizeTesterRollCountSelection(Array.from(next))
+    })
+  }, [updateWildcardCounts])
+
+  const handleWildcardSelectAll = React.useCallback(() => {
+    handleWildcardCountsChange(normalizeTesterRollCountSelection(TESTER_ROLL_COUNT_VALUES))
+  }, [handleWildcardCountsChange])
+
+  const handleWildcardSelectNone = React.useCallback(() => {
+    handleWildcardCountsChange([])
+  }, [handleWildcardCountsChange])
+
+  const getPerStatCounts = React.useCallback((variant: StatVariant): TesterRollCountSet => (
+    perStatCounts.get(Number(variant)) ?? []
+  ), [perStatCounts])
+
+  const handlePerStatCountsChange = React.useCallback((variant: StatVariant, counts: TesterRollCountSet) => {
+    applyTesterRollsChange((current) => {
+      const perStat = current.perStat ?? []
+      const filtered = perStat.filter((row) => Number(row.stat) !== Number(variant))
+      const nextRows = counts.length > 0
+        ? sortTesterRollRows([...filtered, { stat: variant, counts }])
+        : filtered
+      return {
+        ...current,
+        perStat: nextRows,
+      }
+    }, { ensureVariant: variant })
+  }, [applyTesterRollsChange])
+
+  const handlePerStatToggleValue = React.useCallback((variant: StatVariant, value: TesterRollCountValue) => {
+    const currentCounts = perStatCounts.get(Number(variant)) ?? []
+    const next = new Set(currentCounts)
+    if (next.has(value)) next.delete(value)
+    else next.add(value)
+    handlePerStatCountsChange(variant, normalizeTesterRollCountSelection(Array.from(next)))
+  }, [handlePerStatCountsChange, perStatCounts])
+
+  const handlePerStatSelectAll = React.useCallback((variant: StatVariant) => {
+    handlePerStatCountsChange(variant, normalizeTesterRollCountSelection(TESTER_ROLL_COUNT_VALUES))
+  }, [handlePerStatCountsChange])
+
+  const handlePerStatSelectNone = React.useCallback((variant: StatVariant) => {
+    handlePerStatCountsChange(variant, [])
+  }, [handlePerStatCountsChange])
 
   const handleWildcardModeToggle = (_event: React.MouseEvent<HTMLElement>, next: TesterRollWildcardMode | null) => {
     if (!next) return
@@ -535,61 +678,8 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
     }))
   }
 
-  const handleWildcardComparatorChange = (_event: React.MouseEvent<HTMLElement>, next: TesterRollComparator | null) => {
-    if (!next) return
-    applyTesterRollsChange((current) => ({
-      ...current,
-      wildcard: { ...(current.wildcard ?? createDefaultTesterRollsState().wildcard), comparator: next },
-    }))
-  }
-
-  const handleWildcardValueChange = (value: number | string) => {
-    const clamped = clampRollInputValue(value)
-    applyTesterRollsChange((current) => ({
-      ...current,
-      wildcard: { ...(current.wildcard ?? createDefaultTesterRollsState().wildcard), value: clamped },
-    }))
-  }
-
-  const handleAddRollRow = () => {
-    const nextVariant = pickNextRollRowVariant()
-    applyTesterRollsChange((current) => ({
-      ...current,
-      perStat: [...(current.perStat ?? []), { stat: nextVariant, comparator: 'eq', value: 2 }],
-    }), { ensureVariant: nextVariant })
-  }
-
-  const handleRollRowStatChange = (index: number, variant: StatVariant) => {
-    applyTesterRollsChange((current) => ({
-      ...current,
-      perStat: current.perStat.map((row, idx) => (idx === index ? { ...row, stat: variant } : row)),
-    }), { ensureVariant: variant })
-  }
-
-  const handleRollRowComparatorChange = (index: number, comparator: TesterRollComparator) => {
-    applyTesterRollsChange((current) => ({
-      ...current,
-      perStat: current.perStat.map((row, idx) => (idx === index ? { ...row, comparator } : row)),
-    }))
-  }
-
-  const handleRollRowValueChange = (index: number, value: number | string) => {
-    const clamped = clampRollInputValue(value)
-    applyTesterRollsChange((current) => ({
-      ...current,
-      perStat: current.perStat.map((row, idx) => (idx === index ? { ...row, value: clamped } : row)),
-    }))
-  }
-
-  const handleRemoveRollRow = (index: number) => {
-    applyTesterRollsChange((current) => ({
-      ...current,
-      perStat: current.perStat.filter((_, idx) => idx !== index),
-    }))
-  }
-
   const handleClearRollFilters = () => {
-    setTesterRollsAnchorEl(null)
+    handleTesterRollsClose()
     const { testerRolls: _ignored, ...rest } = state
     onChange(rest as RulesFilterState)
   }
@@ -2464,12 +2554,20 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
       </Box>
       {isTesterMode && (
         <Popover
-          open={Boolean(testerRollsAnchorEl)}
+          open={testerRollsOpen}
           anchorEl={testerRollsAnchorEl}
-          onClose={() => setTesterRollsAnchorEl(null)}
+          onClose={handleTesterRollsClose}
           anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
           transformOrigin={{ vertical: 'top', horizontal: 'left' }}
-          PaperProps={{ sx: { width: 360, maxWidth: 'calc(100vw - 32px)', p: 2 } }}
+          slotProps={{
+            paper: {
+              component: ContextMenuPaper,
+              onRequestClose: handleTesterRollsClose,
+              closeLabel: t('close'),
+              ref: testerRollsPaperRef,
+              sx: { width: 560, maxWidth: 'calc(100vw - 32px)', p: 2.25 },
+            } as unknown as MuiPaperProps,
+          }}
         >
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
@@ -2494,33 +2592,24 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                   <ToggleButton value="any">{t('filterRollsModeAnyStat')}</ToggleButton>
                   <ToggleButton value="selected">{t('filterRollsModeSelected')}</ToggleButton>
                 </ToggleButtonGroup>
-                <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
-                  <ToggleButtonGroup
-                    exclusive
-                    size="small"
-                    value={wildcardComparator}
-                    onChange={handleWildcardComparatorChange}
-                    sx={{ '& .MuiToggleButton-root': { minWidth: 0, px: 1, height: 28 } }}
-                  >
-                    <ToggleButton value="eq">{ROLL_COMPARATOR_SYMBOL.eq}</ToggleButton>
-                    <ToggleButton value="gte">{ROLL_COMPARATOR_SYMBOL.gte}</ToggleButton>
-                    <ToggleButton value="lte">{ROLL_COMPARATOR_SYMBOL.lte}</ToggleButton>
-                  </ToggleButtonGroup>
-                  <TextField
-                    size="small"
-                    type="number"
-                    label={t('filterRollsValueLabel')}
-                    value={wildcardValue}
-                    inputProps={{ min: 0, max: 5 }}
-                    onChange={(event) => handleWildcardValueChange(event.target.value)}
-                    sx={{ width: 96 }}
-                  />
+                <Stack spacing={1}>
+                  <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
+                    <RollCountToggleButtons
+                      counts={wildcardCounts}
+                      ariaLabelPrefix={t('filterRollsValueLabel')}
+                      onToggle={handleWildcardToggleValue}
+                    />
+                    <Stack direction="row" spacing={0.5}>
+                      <Button size="small" onClick={handleWildcardSelectAll}>{t('filterRollsSelectAll')}</Button>
+                      <Button size="small" onClick={handleWildcardSelectNone}>{t('filterRollsSelectNone')}</Button>
+                    </Stack>
+                  </Stack>
+                  {wildcardMode === 'selected' && (
+                    <Typography variant="caption" color="text.secondary">
+                      {t('filterRollsSummaryMatchHelper')}
+                    </Typography>
+                  )}
                 </Stack>
-                {wildcardMode === 'selected' && (
-                  <Typography variant="caption" color="text.secondary">
-                    {t('filterRollsSummaryMatchHelper')}
-                  </Typography>
-                )}
               </Stack>
             </Box>
             <Divider />
@@ -2529,84 +2618,58 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                 {t('filterRollsPerStatTitle')}
               </Typography>
               <Stack spacing={1}>
-                {testerRollRowCount === 0 ? (
-                  <Typography variant="body2" color="text.secondary">
-                    {t('filterRollsNoPerStat')}
-                  </Typography>
-                ) : testerRollsPerStat.map((row, index) => (
-                  <Stack
-                    key={`roll-row-${row.stat}-${index}`}
-                    direction="row"
-                    spacing={1}
-                    alignItems="center"
-                    flexWrap="wrap"
-                  >
-                    <FormControl size="small" sx={{ minWidth: 140 }}>
-                      <Select
-                        size="small"
-                        value={String(row.stat)}
-                        onChange={(event) => handleRollRowStatChange(index, Number(event.target.value) as StatVariant)}
-                        MenuProps={{ PaperProps: { sx: { maxHeight: 320 } } }}
-                      >
-                        {glyphableStatOptions.map((variant) => {
-                          const displayColor = useStatButtonColors
-                            ? (substatColors?.[variant]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[variant] ?? theme.palette.text.primary)
-                            : undefined
-                          return (
-                            <MenuItem key={variant} value={String(variant)}>
-                              <Typography
-                                component="span"
-                                sx={{
-                                  ...(displayColor ? { color: displayColor } : {}),
-                                  ...(useStatButtonColors ? { fontWeight: 600 } : {}),
-                                }}
-                              >
-                                {t(statVariantI18nKey(variant))}
-                              </Typography>
-                            </MenuItem>
-                          )
-                        })}
-                      </Select>
-                    </FormControl>
-                    <ToggleButtonGroup
-                      exclusive
-                      size="small"
-                      value={row.comparator}
-                      onChange={(_event, next) => next && handleRollRowComparatorChange(index, next)}
-                      sx={{ '& .MuiToggleButton-root': { minWidth: 0, px: 1, height: 28 } }}
+                {glyphableStatOptions.map((variant) => {
+                  const counts = getPerStatCounts(variant)
+                  const label = t(statVariantI18nKey(variant))
+                  const displayColor = useStatButtonColors
+                    ? (substatColors?.[variant]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[variant] ?? theme.palette.text.primary)
+                    : undefined
+                  const isActive = counts.length > 0
+                  return (
+                    <Box
+                      key={`roll-row-${variant}`}
+                      sx={{
+                        display: 'flex',
+                        flexDirection: { xs: 'column', sm: 'row' },
+                        alignItems: { xs: 'flex-start', sm: 'center' },
+                        gap: 1,
+                      }}
                     >
-                      <ToggleButton value="eq">{ROLL_COMPARATOR_SYMBOL.eq}</ToggleButton>
-                      <ToggleButton value="gte">{ROLL_COMPARATOR_SYMBOL.gte}</ToggleButton>
-                      <ToggleButton value="lte">{ROLL_COMPARATOR_SYMBOL.lte}</ToggleButton>
-                    </ToggleButtonGroup>
-                    <TextField
-                      size="small"
-                      type="number"
-                      label={t('filterRollsValueLabel')}
-                      value={row.value}
-                      inputProps={{ min: 0, max: 5 }}
-                      onChange={(event) => handleRollRowValueChange(index, event.target.value)}
-                      sx={{ width: 96 }}
-                    />
-                    <IconButton size="small" aria-label={t('clear')} onClick={() => handleRemoveRollRow(index)}>
-                      <ClearIcon fontSize="small" />
-                    </IconButton>
-                  </Stack>
-                ))}
-              </Stack>
-              <Stack direction="row" justifyContent="space-between" alignItems="center">
-                <Button size="small" startIcon={<AddIcon fontSize="small" />} onClick={handleAddRollRow}>
-                  {t('filterRollsAddRow')}
-                </Button>
-                <Button size="small" disabled={!testerRollsActive} onClick={handleClearRollFilters}>
-                  {t('clear')}
-                </Button>
+                      <Typography
+                        variant="body2"
+                        sx={{
+                          minWidth: 80,
+                          ...(isActive ? { fontWeight: theme.typography.fontWeightMedium ?? 600 } : {}),
+                          ...(displayColor ? { color: displayColor } : {}),
+                        }}
+                      >
+                        {label}
+                      </Typography>
+                      <Box sx={{ flex: 1 }}>
+                        <RollCountToggleButtons
+                          counts={counts}
+                          ariaLabelPrefix={`${label} ${t('filterRollsValueLabel')}`}
+                          onToggle={(value) => handlePerStatToggleValue(variant, value)}
+                        />
+                      </Box>
+                      <Stack direction="row" spacing={0.5}>
+                        <Button size="small" onClick={() => handlePerStatSelectAll(variant)}>{t('filterRollsSelectAll')}</Button>
+                        <Button size="small" onClick={() => handlePerStatSelectNone(variant)}>{t('filterRollsSelectNone')}</Button>
+                      </Stack>
+                    </Box>
+                  )
+                })}
               </Stack>
             </Box>
             <Divider />
-            <Typography variant="body2">
-              {t('filterRollsSummaryPrefix', { summary: rollSummaryDescription })}
-            </Typography>
+            <Stack direction="row" justifyContent="space-between" alignItems="center" flexWrap="wrap" gap={1}>
+              <Typography variant="body2" sx={{ flex: '1 1 auto' }}>
+                {t('filterRollsSummaryPrefix', { summary: rollSummaryDescription })}
+              </Typography>
+              <Button size="small" disabled={!testerRollsActive} onClick={handleClearRollFilters}>
+                {t('clear')}
+              </Button>
+            </Stack>
           </Box>
         </Popover>
       )}
@@ -2615,3 +2678,40 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
 })
 
 export default RulesFilterPanel
+
+type RollCountToggleButtonsProps = {
+  counts: TesterRollCountSet
+  ariaLabelPrefix: string
+  onToggle: (value: TesterRollCountValue) => void
+}
+
+const RollCountToggleButtons = React.memo(function RollCountToggleButtons({
+  counts,
+  ariaLabelPrefix,
+  onToggle,
+}: RollCountToggleButtonsProps) {
+  const selectedValues = React.useMemo(() => counts.map((value) => String(value)), [counts])
+  return (
+    <ToggleButtonGroup
+      size="small"
+      value={selectedValues}
+      onChange={() => {}}
+      sx={rollCountToggleGroupSx}
+    >
+      {TESTER_ROLL_COUNT_VALUES.map((value) => (
+        <ToggleButton
+          key={value}
+          value={String(value)}
+          aria-label={`${ariaLabelPrefix} ${value}`}
+          onClick={(event) => {
+            event.preventDefault()
+            event.stopPropagation()
+            onToggle(value)
+          }}
+        >
+          {ROLL_COUNT_LABELS[value]}
+        </ToggleButton>
+      ))}
+    </ToggleButtonGroup>
+  )
+})
