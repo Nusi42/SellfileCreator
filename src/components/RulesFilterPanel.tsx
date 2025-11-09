@@ -1767,7 +1767,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                     width: levelControlResponsiveWidth,
                     maxWidth: '100%',
                     boxSizing: 'border-box',
-                    px: 0.5,
+                    px: 1.25,
                     pr: showFaction ? 2 : 0,
                   }}>
                     <Slider
