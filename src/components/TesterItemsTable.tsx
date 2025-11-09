@@ -870,20 +870,25 @@ const TesterItemRow = React.memo(function TesterItemRow({
           <Box sx={{ display: 'flex', flexWrap: 'nowrap', gap: 0.75, minWidth: 0, overflow: 'hidden' }}>
             {substatEntries.length > 0 ? (
               substatEntries.map((entry) => (
-                entry.isMythicBonus ? (
-                  <Box
-                    key={`sub-${entry.variant}`}
-                    sx={{
-                      display: 'inline-flex',
-                      borderBottom: (theme) => `2px solid ${theme.palette.error.main}`,
-                      pb: 0.125,
-                    }}
-                  >
-                    <TesterSummaryLabel label={entry.content} />
-                  </Box>
-                ) : (
-                  <TesterSummaryLabel key={`sub-${entry.variant}`} label={entry.content} />
-                )
+                <Box
+                  key={`sub-${entry.variant}`}
+                  sx={{
+                    position: 'relative',
+                    display: 'inline-flex',
+                    '&::after': entry.isMythicBonus ? {
+                      content: '""',
+                      position: 'absolute',
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      height: '2px',
+                      borderRadius: '1px',
+                      backgroundColor: (theme) => theme.palette.error.dark,
+                    } : undefined,
+                  }}
+                >
+                  <TesterSummaryLabel label={entry.content} />
+                </Box>
               ))
             ) : (
               <TesterSummaryLabel label="—" />
