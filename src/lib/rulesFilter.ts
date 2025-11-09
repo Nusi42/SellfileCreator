@@ -38,7 +38,7 @@ export type Bool3 = 'any' | 'yes' | 'no'
 export type TesterSourceFilter = 'inventory' | 'collection' | 'vault' | 'inbox' | 'manual'
 export type TesterChaosFilterMode = 'any' | 'notRerolled' | 'rerolled'
 export type TesterGlyphFilterMode = 'any' | 'on' | 'off' | 'selected'
-export type TesterRollWildcardMode = 'off' | 'any' | 'selected'
+export type TesterRollWildcardMode = 'off' | 'any'
 
 export const TESTER_ROLL_COUNT_VALUES = [0, 1, 2, 3, 4, 5] as const
 export type TesterRollCountValue = typeof TESTER_ROLL_COUNT_VALUES[number]
@@ -682,8 +682,6 @@ export function filterTesterItems<T extends TesterFilterRow>(
       if (!rollCounts || !passesTesterRollFilters({
         filters: testerRolls,
         rollCounts,
-        selectedVariants: selectedSubVariants,
-        selectedMode: subMode,
       })) continue
     }
 
@@ -744,8 +742,6 @@ export function normalizeRulesFilterForTester(filter: RulesFilterState): RulesFi
 type RollFilterEvalArgs = {
   filters: TesterRollFilterState
   rollCounts: Map<number, number>
-  selectedVariants: Set<number>
-  selectedMode: SubstatMatchMode
 }
 
 export function isTesterRollFilterActive(rolls?: TesterRollFilterState): boolean {
@@ -769,8 +765,8 @@ const normalizeTesterRollFilterRow = (row: TesterRollFilterRow | null | undefine
   }
 }
 
-const normalizeRollMode = (mode?: TesterRollWildcardMode): TesterRollWildcardMode => {
-  if (mode === 'any' || mode === 'selected') return mode
+const normalizeRollMode = (mode?: TesterRollWildcardMode | string): TesterRollWildcardMode => {
+  if (mode === 'any' || mode === 'selected') return 'any'
   return 'off'
 }
 
@@ -838,7 +834,7 @@ function deriveLegacyRollCountSet(
   }
   return [clamped]
 }
-const passesTesterRollFilters = ({ filters, rollCounts, selectedVariants, selectedMode }: RollFilterEvalArgs): boolean => {
+const passesTesterRollFilters = ({ filters, rollCounts }: RollFilterEvalArgs): boolean => {
   const wildcard = filters.wildcard
   const wildcardCounts = new Set<number>(wildcard.counts ?? [])
   if (wildcard.mode === 'any' && wildcardCounts.size > 0) {
@@ -850,25 +846,6 @@ const passesTesterRollFilters = ({ filters, rollCounts, selectedVariants, select
       }
     }
     if (!ok) return false
-  } else if (wildcard.mode === 'selected' && wildcardCounts.size > 0) {
-    if (selectedVariants.size > 0) {
-      if (selectedMode === 'all') {
-        for (const variant of selectedVariants) {
-          const count = rollCounts.get(variant) ?? 0
-          if (!wildcardCounts.has(count)) return false
-        }
-      } else {
-        let ok = false
-        for (const variant of selectedVariants) {
-          const count = rollCounts.get(variant) ?? 0
-          if (wildcardCounts.has(count)) {
-            ok = true
-            break
-          }
-        }
-        if (!ok) return false
-      }
-    }
   }
 
   if (filters.perStat.length > 0) {
