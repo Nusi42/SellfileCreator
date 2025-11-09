@@ -1522,9 +1522,7 @@ export default function RuleTesterDialog({
             pr: 1,
           }}
         >
-          {items.length === 0 ? (
-            <Typography variant="body2" color="text.secondary">{t('testerEmptyHint')}</Typography>
-          ) : (
+          {items.length > 0 ? (
             <Box sx={{ position: 'relative' }}>
               {topSpacerHeight > 0 ? <Box sx={{ height: topSpacerHeight }} /> : null}
               {visibleIndices.map((idx) => {
@@ -1537,7 +1535,7 @@ export default function RuleTesterDialog({
               })}
               {bottomSpacerHeight > 0 ? <Box sx={{ height: bottomSpacerHeight }} /> : null}
             </Box>
-          )}
+          ) : null}
         </Box>
       </DialogContent>
       <DialogActions

@@ -54,7 +54,6 @@ const enUS: Catalog = {
   testerTitle: 'Gear',
   testerIntro: 'Build sample gear to see the first matching rule and whether it keeps or sells the item. Load or drag an RSL Helper DB (typically under %APPDATA%\\RslHelper\\Config) into the app to preview real gear in the Rule Tester view.',
   testerManualOnlyNotice: 'This pane lists only the custom entries. Imported inventory, collection, vault, and inbox items remain in the Rule Tester view; clear those sources with the buttons below if needed.',
-  testerEmptyHint: 'Add items to test which rule matches first.',
   testerRule: 'Rule',
   testerConfig: 'Config',
   testerJumpToConfig: 'Jump to Config',

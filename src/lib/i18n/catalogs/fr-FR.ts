@@ -54,7 +54,6 @@ const overrides: Catalog = {
   testerTitle: 'Équipement',
   testerIntro: 'Créez un équipement d’exemple pour voir quelle règle correspond en premier et si elle conserve ou vend l’objet. Chargez ou faites glisser une base de données RSL Helper (généralement sous %APPDATA%\\RslHelper\\Config) dans l’application afin d’apercevoir de l’équipement réel dans la vue du Testeur de règles.',
   testerManualOnlyNotice: 'Ce panneau affiche uniquement les entrées personnalisées. Les pièces importées depuis l’inventaire, la collection, le coffre et la boîte de réception restent visibles dans la vue du Testeur de règles ; utilisez les boutons ci-dessous pour supprimer ces sources si nécessaire.',
-  testerEmptyHint: 'Ajoutez des objets pour tester quelle règle correspond en premier.',
   testerRule: 'Règle',
   testerConfig: 'Config',
   testerJumpToConfig: 'Aller à la config',
@@ -173,7 +172,7 @@ const overrides: Catalog = {
   titleSubstatChipColors: 'Couleurs des puces de sous‑stats',
   msgChooseColors: 'Choisissez des couleurs par sous‑stat.',
   labelText: 'Texte',
-  labelBg: 'Fond',
+  labelBg: 'Bg',
 
   titleManageSubstatTargets: 'Gérer les objectifs de sous-stats',
   msgSubstatTargetsHelp: 'Définissez les objectifs de sous-stats par rang que le générateur suppose lorsqu’il calcule les seuils pour chaque palier de niveau (0/4/8/12/16). Ces objectifs indiquent combien de [ACC], [SPD], etc. une pièce doit afficher à chaque étape de jet pour que la règle s’applique.\n\nChaque ligne correspond à un rang précis (1★, 2★, …, 6★). Saisissez la valeur attendue pour ce rang ; le générateur l’appliquera dès qu’il évaluera un équipement avec le même nombre d’étoiles.\n\nSi une règle ou l’aperçu utilise Rang = « Tous », la colonne mise en évidence devient la valeur de repli afin que ces vérifications disposent toujours d’objectifs définis.',

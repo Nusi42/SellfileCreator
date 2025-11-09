@@ -54,7 +54,6 @@ const overrides: Catalog = {
   testerTitle: 'Equipaggiamento',
   testerIntro: 'Crea equipaggiamento di esempio per vedere quale regola lo intercetta per prima e se lo conserva o lo vende. Carica o trascina nell’app un database di RSL Helper (di solito in %APPDATA%\\RslHelper\\Config) per visualizzare equipaggiamento reale nella vista del Tester regole.',
   testerManualOnlyNotice: 'Questo riquadro mostra solo le voci personalizzate. Gli oggetti importati da inventario, collezione, deposito e posta rimangono visibili nella vista del Tester regole; usa i pulsanti qui sotto per rimuovere tali sorgenti se necessario.',
-  testerEmptyHint: 'Aggiungi oggetti per verificare quale regola corrisponde per prima.',
   testerRule: 'Regola',
   testerConfig: 'Configurazione',
   testerJumpToConfig: 'Vai alla configurazione',
@@ -173,7 +172,7 @@ const overrides: Catalog = {
   titleSubstatChipColors: 'Colori etichette sotto-stat',
   msgChooseColors: 'Scegli colori per ogni sotto-stat.',
   labelText: 'Testo',
-  labelBg: 'Sfondo',
+  labelBg: 'Bg',
 
   titleManageSubstatTargets: 'Gestisci obiettivi di substat',
   msgSubstatTargetsHelp: 'Imposta gli obiettivi di substat che il builder assume mentre calcola le soglie per ogni traguardo di livello (0/4/8/12/16). Questi obiettivi indicano al generatore quanta [ACC], [SPD], ecc. deve mostrare un pezzo a ogni step di roll perché la regola si applichi.\n\nOgni riga rappresenta un rango specifico (1★, 2★, …, 6★). Inserisci il valore che ti aspetti per quel rango e il builder lo userà ogni volta che valuta equipaggiamento con la stessa quantità di stelle.\n\nSe una regola o l’anteprima usa Rango = “Qualsiasi”, la colonna evidenziata funge da fallback così che quei controlli abbiano sempre obiettivi definiti.',

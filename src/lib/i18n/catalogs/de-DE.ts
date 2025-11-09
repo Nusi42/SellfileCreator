@@ -54,7 +54,6 @@ const overrides: Catalog = {
   testerTitle: 'Ausrüstung',
   testerIntro: 'Erstelle Beispielgear, um zu sehen, welche Regel zuerst greift und ob sie den Gegenstand behält oder verkauft. Lade eine RSL-Helper-DB (normalerweise unter %APPDATA%\\RslHelper\\Config) oder ziehe sie in die App, um echtes Gear in der Rule-Tester-Ansicht zu prüfen.',
   testerManualOnlyNotice: 'Dieses Panel zeigt nur die benutzerdefinierten Einträge. Importierte Gegenstände aus Inventar, Sammlung, Tresor und Posteingang bleiben in der Rule-Tester-Ansicht sichtbar; lösche diese Quellen bei Bedarf über die Buttons unten.',
-  testerEmptyHint: 'Füge Gegenstände hinzu, um zu testen, welche Regel zuerst passt.',
   testerRule: 'Regel',
   testerConfig: 'Konfig',
   testerJumpToConfig: 'Zur Konfig springen',
@@ -173,7 +172,7 @@ const overrides: Catalog = {
   titleSubstatChipColors: 'Substat‑Chip‑Farben',
   msgChooseColors: 'Farben pro Substat wählen.',
   labelText: 'Text',
-  labelBg: 'Hintergrund',
+  labelBg: 'Bg',
 
   titleManageSubstatTargets: 'Substat-Richtwerte verwalten',
   msgSubstatTargetsHelp: 'Lege die Substat-Richtwerte pro Sternrang fest, die der Builder bei jeder Level-Schwelle (0/4/8/12/16) nutzt. Diese Richtwerte geben vor, wie viel [ACC], [SPD] usw. ein Teil an jedem Roll-Schritt zeigen soll, damit die Regel erfüllt ist.\n\nJede Zeile steht für einen bestimmten Rang (1★, 2★, …, 6★). Trage die erwarteten Werte ein; der Builder verwendet sie automatisch, sobald Ausrüstung mit derselben Sternstufe bewertet wird.\n\nWenn eine Regel oder Vorschau Rang = „Alle“ verwendet, dient die markierte Spalte als Fallback, damit auch diese Prüfungen definierte Richtwerte besitzen.',
