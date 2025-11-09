@@ -29,7 +29,6 @@ import {
   FONT_SIZE_DISPLAY_REM,
   FONT_SIZE_HEADER_META_PX,
   FONT_SIZE_BASE_PX,
-  RULES_FILTER_COLLAPSE_SESSION_KEY,
 } from './lib/constants'
 import { buildPreviewArtifactFromTesterItem } from './lib/testerPreviewArtifacts'
 
@@ -3567,7 +3566,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             }
             if (selection.filters && restoreFiltersDiffer && draft.Filters) {
               try {
-                try { sessionStorage.setItem(RULES_FILTER_COLLAPSE_SESSION_KEY, 'true') } catch {}
                 setFilterOpen(Boolean(draft.Filters.open))
                 const clonedState = JSON.parse(JSON.stringify(draft.Filters.state)) as RulesFilterState
                 setRulesFilter(clonedState)

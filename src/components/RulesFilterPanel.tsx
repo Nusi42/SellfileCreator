@@ -28,7 +28,7 @@ import {
   statSupportsGlyphs,
   DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT,
 } from '../lib/types'
-import { LIST_SUBHEADER_SX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, SETS_MENU_WIDTH_PX, FILTER_FACTION_SELECT_WIDTH_PX, FILTER_SETS_SELECT_WIDTH_PX, FILTER_CHIP_TOP_MARGIN, ELLIPSIS_TEXT_SX, FILTER_TOGGLE_BUTTON_WIDTH_PX, SMALL_BUTTON_HEIGHT_PX, BUILDER_STATUS_CHIP_HEIGHT_PX, UI_BG_HOVER_DANGER_TRANSITION, DANGER_TINT_BG, SETS_SELECT_INLINE_GUTTER_PX, STATUS_CHIP_BORDER_RADIUS_PX, FONT_SIZE_BASE_PX, RULES_FILTER_COLLAPSE_SESSION_KEY, SETS_SELECT_CLEAR_BUTTON_RIGHT_PX, CLEAR_ICON_BUTTON_SIZE_PX, GLYPH_TOGGLE_ON, GLYPH_TOGGLE_OFF, GLYPH_GLYPHS_SELECTED, ROLL_BADGE_SIZE_PX, ROLL_BADGE_SCALE, ROLL_BADGE_HOVER_GUTTER_PX } from '../lib/constants'
+import { LIST_SUBHEADER_SX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, SETS_MENU_WIDTH_PX, FILTER_FACTION_SELECT_WIDTH_PX, FILTER_SETS_SELECT_WIDTH_PX, FILTER_CHIP_TOP_MARGIN, ELLIPSIS_TEXT_SX, FILTER_TOGGLE_BUTTON_WIDTH_PX, SMALL_BUTTON_HEIGHT_PX, BUILDER_STATUS_CHIP_HEIGHT_PX, UI_BG_HOVER_DANGER_TRANSITION, DANGER_TINT_BG, SETS_SELECT_INLINE_GUTTER_PX, STATUS_CHIP_BORDER_RADIUS_PX, FONT_SIZE_BASE_PX, SETS_SELECT_CLEAR_BUTTON_RIGHT_PX, CLEAR_ICON_BUTTON_SIZE_PX, GLYPH_TOGGLE_ON, GLYPH_TOGGLE_OFF, GLYPH_GLYPHS_SELECTED, ROLL_BADGE_SIZE_PX, ROLL_BADGE_SCALE, ROLL_BADGE_HOVER_GUTTER_PX } from '../lib/constants'
 import { metasetGlyph, orderMetasetIds, type Metaset } from '../lib/metasets'
 import React from 'react'
 import { alpha, useTheme } from '@mui/material/styles'
@@ -422,34 +422,9 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
   const metasetsMenuListRef = React.useRef<HTMLUListElement | null>(null)
   const [setsMenuOpen, setSetsMenuOpen] = React.useState(false)
   const filterActive = isRulesFilterActive(state, { includeTesterRange: isTesterMode })
-  // Collapsible sections: persisted; initialized from rules table column visibility on first open this session
+  // Collapsible sections: persisted per user; default to collapsed to reduce scroll noise.
   // Per-section condensed toggles (persisted)
   // Rank/Rarity are always condensed now (More/Less removed)
-  React.useEffect(() => {
-    try {
-      const inited = sessionStorage.getItem(RULES_FILTER_COLLAPSE_SESSION_KEY)
-      if (inited) return
-      sessionStorage.setItem(RULES_FILTER_COLLAPSE_SESSION_KEY, 'true')
-      // Read table columns from localStorage and map visibility to default expanded/collapsed
-      const rawCols = localStorage.getItem('sellfileCreator.rulesTableCols.v2')
-      const cols = rawCols ? (JSON.parse(rawCols) as Array<{ key: string; visible?: boolean }>) : []
-      const vis = new Map(cols.map(c => [c.key, Boolean(c.visible)]))
-      const next: CollapsedSections = { ...collapsed }
-      // collapsed = !visible (expanded when visible)
-      // Rule: not tied to a table column; keep as-is (defaults to expanded)
-      next.sets = !(vis.get('ArtifactSetNames') ?? true)
-      next.main = !(vis.get('MainStatName') ?? true)
-      next.sub = !(vis.get('SubstatsSummary') ?? true)
-      next.level = !(vis.get('LevelLabel') ?? true)
-      next.slots = !(vis.get('ArtifactTypeNames') ?? true)
-      next.rank = !(vis.get('RankLabel') ?? true)
-      next.rarity = !(vis.get('RarityNames') ?? true)
-      next.faction = !(vis.get('Faction') ?? false)
-      next.champions = false
-      onCollapsedChange(next)
-    } catch {}
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
   const SectionToggle = ({ id }: { id: keyof typeof collapsed }) => {
     const handleClick = (event: React.MouseEvent<HTMLButtonElement>) => {
       const nextValue = !collapsed[id]

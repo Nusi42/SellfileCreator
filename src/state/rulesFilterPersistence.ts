@@ -8,7 +8,7 @@ import { createLocalStorageStateHook, createLocalStorageStore } from './localSto
 
 const FILTER_OPEN_KEY = 'sellfileCreator.rulesFilter.open.v1'
 const FILTER_STATE_KEY = 'sellfileCreator.rulesFilter.state.v1'
-const FILTER_COLLAPSED_KEY = 'sellfileCreator.rulesFilter.collapse.v1'
+const FILTER_COLLAPSED_KEY = 'sellfileCreator.rulesFilter.collapse.v2'
 
 export const RULES_FILTER_COLLAPSIBLE_SECTION_IDS = Object.freeze([
   'rule',
@@ -30,7 +30,7 @@ export type CollapsedSections = Record<CollapsibleSectionId, boolean>
 
 const DEFAULT_COLLAPSED_SECTIONS: CollapsedSections = Object.freeze(
   Object.fromEntries(
-    RULES_FILTER_COLLAPSIBLE_SECTION_IDS.map((key) => [key, false]),
+    RULES_FILTER_COLLAPSIBLE_SECTION_IDS.map((key) => [key, true]),
   ) as CollapsedSections,
 )
 
