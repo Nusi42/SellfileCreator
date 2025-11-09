@@ -55,6 +55,35 @@ type TesterChampionOption = {
   count: number
 }
 
+const NARROW_NO_BREAK_SPACE = '\u202F'
+const GLYPH_GTE_ZERO = `≥${NARROW_NO_BREAK_SPACE}0`
+const GLYPH_GTE_ONE = `≥${NARROW_NO_BREAK_SPACE}1`
+const GLYPH_ALL = '∞'
+const GLYPH_ONLY = '≡'
+const GLYPH_NOT_REROLLED = 'Ø'
+const GLYPH_REROLLED = '⟳'
+const GLYPH_GLYPHS_ON = '✦'
+const GLYPH_GLYPHS_SELECTED = '◎'
+const GLYPH_GLYPHS_OFF = '∅'
+
+type GlyphLegendEntry = {
+  glyph: string
+  label: string
+}
+
+function renderGlyphTooltip(description: string, entries: GlyphLegendEntry[]) {
+  return (
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25 }}>
+      <Typography variant="body2">{description}</Typography>
+      {entries.map(({ glyph, label }) => (
+        <Typography key={`${glyph}-${label}`} variant="caption" component="span">
+          {`${glyph} = ${label}`}
+        </Typography>
+      ))}
+    </Box>
+  )
+}
+
 export type RulesFilterPanelHandle = {
   focusConfigNameInput: (options?: { selectText?: boolean }) => boolean
 }
@@ -319,17 +348,41 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
 // Why: A single helper for the compact filter chips that control how to treat
   // rules with "Any" in a field (or wildcard for substats). Keeps wording
   // consistent across fields and makes the intent explicit to users.
-  const anyChip = (fieldLabel: string, value: AnyMode, setValue: (v: AnyMode) => void, tooltip: string) => (
-    <Tooltip title={tooltip}>
-      <Chip
-        size="small"
-        variant="filled"
-        label={`'${t('any')}' ${fieldLabel}: ${value === 'include' ? t('filterShow') : value === 'off' ? t('filterHide') : t('filterOnly')}`}
-        onClick={() => setValue(value === 'include' ? 'off' : value === 'off' ? 'only' : 'include')}
-        sx={filterChipSx(value)}
-      />
-    </Tooltip>
-  )
+  const anyChip = (fieldLabel: string, value: AnyMode, setValue: (v: AnyMode) => void, tooltip: string) => {
+    const prefixText = `'${t('any')}' ${fieldLabel}:`
+    const stateLabel = value === 'include' ? t('filterShow') : value === 'off' ? t('filterHide') : t('filterOnly')
+    const glyphTooltip = renderGlyphTooltip(tooltip, [{ glyph: GLYPH_ONLY, label: t('filterOnly') }])
+    const chipLabel = (
+      <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
+        <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center' }}>{prefixText}</Box>
+        {value === 'only'
+          ? (
+            <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', fontSize: FONT_SIZE_BASE_PX, lineHeight: 1 }}>
+              {GLYPH_ONLY}
+            </Box>
+          )
+          : (
+            <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', lineHeight: 0 }}>
+              {value === 'include'
+                ? <VisibilityIcon fontSize="small" aria-hidden="true" />
+                : <VisibilityOffIcon fontSize="small" aria-hidden="true" />}
+            </Box>
+          )}
+      </Box>
+    )
+    return (
+      <Tooltip title={glyphTooltip}>
+        <Chip
+          size="small"
+          variant="filled"
+          aria-label={`${prefixText} ${stateLabel}`}
+          label={chipLabel}
+          onClick={() => setValue(value === 'include' ? 'off' : value === 'off' ? 'only' : 'include')}
+          sx={filterChipSx(value)}
+        />
+      </Tooltip>
+    )
+  }
 
   // Sets — reuse Builder look/feel: tokens, renderValue, order/search
   // Track menu paper for height measurement and anchor position to avoid
@@ -1161,11 +1214,17 @@ const ASCENSION_STAR_VALUES: readonly number[] = [0, 1, 2, 3, 4, 5, 6]
           })()}
             <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: FILTER_CHIP_TOP_MARGIN, flexWrap: 'wrap' }}>
               {anyChip(t('filterSets'), state.sets.anyMode, (v) => onChange({ ...state, sets: { ...state.sets, anyMode: v } }), t('filterAnyTooltip', { field: t('filterSets') }))}
-              <Tooltip title={t('filterMatchTooltipSets')}> 
+              <Tooltip
+                title={renderGlyphTooltip(t('filterMatchTooltipSets'), [
+                  { glyph: GLYPH_GTE_ONE, label: t('filterAnyOf') },
+                  { glyph: GLYPH_ALL, label: t('filterAllOf') },
+                ])}
+              > 
                 <Chip
                   size="small"
                   variant={'filled'}
-                  label={`${t('filterMatch')}: ${(state.sets.match ?? 'any') === 'any' ? t('filterAnyOf') : t('filterAllOf')}`}
+                  label={`${t('filterMatch')}: ${(state.sets.match ?? 'any') === 'any' ? GLYPH_GTE_ONE : GLYPH_ALL}`}
+                  aria-label={`${t('filterMatch')}: ${(state.sets.match ?? 'any') === 'any' ? t('filterAnyOf') : t('filterAllOf')}`}
                   onClick={() => {
                     const next = (state.sets.match ?? 'any') === 'any' ? 'all' : 'any'
                     onChange({ ...state, sets: { ...state.sets, match: next } })
@@ -1459,10 +1518,23 @@ const ASCENSION_STAR_VALUES: readonly number[] = [0, 1, 2, 3, 4, 5, 6]
               </Box>
               {isTesterMode ? (
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', mt: FILTER_CHIP_TOP_MARGIN }}>
-                  <Tooltip title={t('filterChaosOreTooltip')}>
+                  <Tooltip
+                    title={renderGlyphTooltip(t('filterChaosOreTooltip'), [
+                      { glyph: GLYPH_GTE_ZERO, label: t('filterChaosOreAny') },
+                      { glyph: GLYPH_NOT_REROLLED, label: t('filterChaosOreNotRerolled') },
+                      { glyph: GLYPH_REROLLED, label: t('filterChaosOreRerolled') },
+                    ])}
+                  >
                     <Chip
                       size="small"
                       label={`${t('filterChaosOre')}: ${
+                        testerChaosMode === 'notRerolled'
+                          ? GLYPH_NOT_REROLLED
+                          : testerChaosMode === 'rerolled'
+                            ? GLYPH_REROLLED
+                            : GLYPH_GTE_ZERO
+                      }`}
+                      aria-label={`${t('filterChaosOre')}: ${
                         testerChaosMode === 'notRerolled'
                           ? t('filterChaosOreNotRerolled')
                           : testerChaosMode === 'rerolled'
@@ -1536,11 +1608,17 @@ const ASCENSION_STAR_VALUES: readonly number[] = [0, 1, 2, 3, 4, 5, 6]
               </Box>
               {/* Chips row below substats */}
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', mt: FILTER_CHIP_TOP_MARGIN }}>
-                <Tooltip title={t('filterMatchTooltipSubstats')}> 
+                <Tooltip
+                  title={renderGlyphTooltip(t('filterMatchTooltipSubstats'), [
+                    { glyph: GLYPH_GTE_ONE, label: t('filterAnyOf') },
+                    { glyph: GLYPH_ALL, label: t('filterAllOf') },
+                  ])}
+                > 
                   <Chip
                     size="small"
                     variant={'filled'}
-                    label={`${t('filterMatch')}: ${state.sub.mode === 'any' ? t('filterAnyOf') : t('filterAllOf')}`}
+                    label={`${t('filterMatch')}: ${state.sub.mode === 'any' ? GLYPH_GTE_ONE : GLYPH_ALL}`}
+                    aria-label={`${t('filterMatch')}: ${state.sub.mode === 'any' ? t('filterAnyOf') : t('filterAllOf')}`}
                     onClick={() => {
                       const next = state.sub.mode === 'any' ? 'all' : 'any'
                       onChange({ ...state, sub: { ...state.sub, mode: next } })
@@ -1549,10 +1627,26 @@ const ASCENSION_STAR_VALUES: readonly number[] = [0, 1, 2, 3, 4, 5, 6]
                   />
                 </Tooltip>
                 {isTesterMode && (
-                  <Tooltip title={t('filterGlyphsTooltip')}>
+                  <Tooltip
+                    title={renderGlyphTooltip(t('filterGlyphsTooltip'), [
+                      { glyph: GLYPH_GTE_ZERO, label: t('filterGlyphsAny') },
+                      { glyph: GLYPH_GLYPHS_ON, label: t('filterGlyphsOn') },
+                      { glyph: GLYPH_GLYPHS_SELECTED, label: t('filterGlyphsSelected') },
+                      { glyph: GLYPH_GLYPHS_OFF, label: t('filterGlyphsOff') },
+                    ])}
+                  >
                     <Chip
                       size="small"
                       label={`${t('filterGlyphs')}: ${
+                        testerGlyphMode === 'on'
+                          ? GLYPH_GLYPHS_ON
+                          : testerGlyphMode === 'selected'
+                            ? GLYPH_GLYPHS_SELECTED
+                            : testerGlyphMode === 'off'
+                              ? GLYPH_GLYPHS_OFF
+                              : GLYPH_GTE_ZERO
+                      }`}
+                      aria-label={`${t('filterGlyphs')}: ${
                         testerGlyphMode === 'on'
                           ? t('filterGlyphsOn')
                           : testerGlyphMode === 'selected'
