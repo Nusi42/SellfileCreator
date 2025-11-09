@@ -386,6 +386,7 @@ type CanonicalNormalizedStat = {
   variant: number | null
   baseValue: number
   glyphValue: number
+  mythValue: number
   totalValue: number
   rolls: number | null
   position: number | null
@@ -436,6 +437,7 @@ const canonicalizeNormalizedStat = (stat?: NormalizedStat | null): CanonicalNorm
     variant: normalizeFiniteNumber(stat.variant),
     baseValue: coerceFiniteNumber(stat.baseValue, 0),
     glyphValue: coerceFiniteNumber(stat.glyphValue, 0),
+    mythValue: coerceFiniteNumber(stat.mythValue, 0),
     totalValue: coerceFiniteNumber(stat.totalValue, 0),
     rolls: normalizeFiniteNumber(stat.rolls),
     position: normalizeFiniteNumber(stat.position),

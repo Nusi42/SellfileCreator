@@ -7,6 +7,7 @@ import {
   ArtifactSet,
   ArtifactType,
   Faction,
+  StatId,
   StatVariant,
 } from '../src/lib/types.js'
 import {
@@ -104,6 +105,49 @@ const ringRow: GearDbArtifactRow = {
   REROLLCOUNT: 0,
 }
 
+const mythGauntletRow: GearDbArtifactRow = {
+  ID: 93847,
+  price: 53550,
+  rank: 6,
+  type: 3,
+  lvl: 16,
+  mid: 1,
+  mfl: 0,
+  mlvlid: 2576980377,
+  mgv: 0,
+  s1id: 7,
+  s1lvl: 1,
+  s1fl: 0,
+  s1lvlid: 472446401,
+  s1gv: 0,
+  s2id: 4,
+  s2lvl: 1,
+  s2fl: 1,
+  s2lvlid: 47244640256,
+  s2gv: 12884901888,
+  s3id: 5,
+  s3lvl: 1,
+  s3fl: 1,
+  s3lvlid: 85899345920,
+  s3gv: 21474836480,
+  s4id: 8,
+  s4lvl: 1,
+  s4fl: 0,
+  s4lvlid: 472446401,
+  s4gv: 0,
+  rarity: 6,
+  aset: 4,
+  accset: 0,
+  cID: 0,
+  s1mlvlid: 300647710,
+  s2mlvlid: 0,
+  s3mlvlid: 0,
+  s4mlvlid: 0,
+  ASCID: 0,
+  ASCLEVEL: 0,
+  REROLLCOUNT: 0,
+}
+
 test('normalizeGearDbArtifact converts weapon row to tester item', () => {
   const normalized = normalizeGearDbArtifact(weaponRow)
   assert.equal(normalized.slot, ArtifactType.Weapon)
@@ -143,6 +187,15 @@ test('normalizeGearDbArtifact keeps armor rows without sets as no-set entries', 
   assert.equal(normalized.slot, ArtifactType.Weapon)
   assert.equal(normalized.set, 0)
   assert.equal(normalized.testerItem.set, 0)
+})
+
+test('normalizeGearDbArtifact carries Mythical pre-roll bonus into totals', () => {
+  const normalized = normalizeGearDbArtifact(mythGauntletRow)
+  const crStat = normalized.substats.find((stat) => stat?.statId === StatId.CR)
+  assert.equal(crStat?.mythValue, 7)
+  assert.equal(crStat?.totalValue, 18)
+  const subValues = normalized.testerItem.subValues ?? {}
+  assert.equal(subValues[StatVariant.CR], 18)
 })
 
 export {}

@@ -9,11 +9,11 @@ type BuildOptions = {
 }
 
 const cloneStat = (stat: NormalizedStat | null | undefined): NormalizedStat | null => (
-  stat ? { ...stat } : null
+  stat ? { ...stat, mythValue: stat.mythValue ?? 0 } : null
 )
 
 const cloneStats = (stats: NormalizedStat[] | undefined): NormalizedStat[] => (
-  (stats ?? []).map(stat => ({ ...stat }))
+  (stats ?? []).map((stat) => ({ ...stat, mythValue: stat.mythValue ?? 0 }))
 )
 
 const buildManualMainStat = (variantValue: number | undefined): NormalizedStat | null => {
@@ -28,6 +28,7 @@ const buildManualMainStat = (variantValue: number | undefined): NormalizedStat |
     variant: variant as StatVariant,
     baseValue: 0,
     glyphValue: 0,
+    mythValue: 0,
     totalValue: Number.NaN,
   }
 }
@@ -50,6 +51,7 @@ const buildManualSubstats = (
         variant: variant as StatVariant,
         baseValue: value,
         glyphValue: 0,
+        mythValue: 0,
         totalValue: value,
       }
       return stat

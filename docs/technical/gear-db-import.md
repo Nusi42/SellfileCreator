@@ -74,6 +74,7 @@ Importer code must translate these values before normalizing Rule Tester entries
 
 - Value columns (`mlvlid`, `s?lvlid`, `sum*`, `ASCLVLID`, etc.) are scaled by `2^32`. Convert via `raw / 4294967296`. For percent stats, multiply the result by 100 to obtain the in-game percentage.
 - Glyph bonuses live in the corresponding `*gv` columns; decode them separately from the base values in `*lvlid`. The importer keeps glyph deltas isolated so the UI and rule logic can decide when (or if) to add them.
+- Mythical pre-roll bonuses live in the `s?mlvlid` columns; decode them just like the base values, add them to the displayed totals, and retain the deltas (`mythValue`) so the UI can flag which substat received the Mythical boost.
 - Roll counts appear in `s?lvl` (recorded as 0–3), while `REROLLCOUNT` tracks forging rerolls (0/1 in this dataset).
 
 ### Ascension Metadata
@@ -111,6 +112,7 @@ No entries used the canonical `4` (Barbarians) code; importer logic should remap
 - `src/lib/importers/gearDbNormalizer.ts` converts raw rows into a `NormalizedGearArtifact` structure plus a ready-to-use `TestItem`. The helper centralises:
   - Slot translation (`Artifacts.type` → `ArtifactType`) and accessory “no set” handling (`aset = 0` → `ACCESSORY_NO_SET_ID`).
   - Fixed-point decoding with `STAT_SCALE = 2^32`, emitting rounded user-facing numbers (integers for flat stats, 2 decimals for percentages).
+  - Mythical pre-roll bonuses from `s?mlvlid` land in `mythValue`; totals shown to users include the pre-roll, and the UI highlights the affected substat so Mythical gear stays legible.
   - Ascension bonuses captured separately (`source = 'ascension'`) so the UI can display them, while rule comparisons ignore them (tester `subValues` aggregate only the pre-glyph substat amounts; glyph deltas ride along in `previewExtras.substats[].glyphValue`).
   - Level metadata: `level` keeps the nearest milestone (0/4/8/12/16) used during rule matching, and `exactLevel` stores the clamped raw upgrade level from the database (0–16). When `exactLevel` is present the UI displays that precise value; custom tester rows omit this field and fall back to the milestone label.
   - Accessory faction remapping via the table above, with non-accessory slots forced to `0`.

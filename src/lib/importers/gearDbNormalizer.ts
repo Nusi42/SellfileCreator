@@ -73,13 +73,14 @@ type SubstatColumn = {
   level: keyof GearDbArtifactRow
   base: keyof GearDbArtifactRow
   glyph: keyof GearDbArtifactRow
+  myth: keyof GearDbArtifactRow
 }
 
 const SUBSTAT_COLUMNS: readonly SubstatColumn[] = [
-  { id: 's1id', flag: 's1fl', level: 's1lvl', base: 's1lvlid', glyph: 's1gv' },
-  { id: 's2id', flag: 's2fl', level: 's2lvl', base: 's2lvlid', glyph: 's2gv' },
-  { id: 's3id', flag: 's3fl', level: 's3lvl', base: 's3lvlid', glyph: 's3gv' },
-  { id: 's4id', flag: 's4fl', level: 's4lvl', base: 's4lvlid', glyph: 's4gv' },
+  { id: 's1id', flag: 's1fl', level: 's1lvl', base: 's1lvlid', glyph: 's1gv', myth: 's1mlvlid' },
+  { id: 's2id', flag: 's2fl', level: 's2lvl', base: 's2lvlid', glyph: 's2gv', myth: 's2mlvlid' },
+  { id: 's3id', flag: 's3fl', level: 's3lvl', base: 's3lvlid', glyph: 's3gv', myth: 's3mlvlid' },
+  { id: 's4id', flag: 's4fl', level: 's4lvl', base: 's4lvlid', glyph: 's4gv', myth: 's4mlvlid' },
 ] as const
 
 export type GearDbArtifactRow = {
@@ -164,6 +165,7 @@ export type NormalizedStat = {
   variant: StatVariant
   baseValue: number
   glyphValue: number
+  mythValue: number
   totalValue: number
   rolls?: number
   position?: number
@@ -238,19 +240,22 @@ const roundStatValue = (statId: number, isFlat: boolean, value: number): number 
   return Math.round(value * 1000) / 1000
 }
 
-const finalizeStat = (statId: number, isFlat: boolean, base: number, glyph: number): {
+const finalizeStat = (statId: number, isFlat: boolean, base: number, glyph: number, myth?: number): {
   baseValue: number
   glyphValue: number
+  mythValue: number
   totalValue: number
 } => {
   const convertedBase = convertStatUnits(statId, isFlat, base)
   const convertedGlyph = convertStatUnits(statId, isFlat, glyph)
-  // `totalValue` reflects the in-game base (pre-glyph) amount so downstream logic
-  // can add glyphs explicitly when needed instead of double-counting.
+  const convertedMyth = convertStatUnits(statId, isFlat, myth ?? 0)
+  // `totalValue` reflects the in-game base (pre-glyph) amount plus any Mythical
+  // pre-roll so downstream logic can add glyphs explicitly without double-counting.
   return {
     baseValue: roundStatValue(statId, isFlat, convertedBase),
     glyphValue: roundStatValue(statId, isFlat, convertedGlyph),
-    totalValue: roundStatValue(statId, isFlat, convertedBase),
+    mythValue: roundStatValue(statId, isFlat, convertedMyth),
+    totalValue: roundStatValue(statId, isFlat, convertedBase + convertedMyth),
   }
 }
 
@@ -260,7 +265,7 @@ const extractMainStat = (row: GearDbArtifactRow): NormalizedStat | null => {
   const flat = isFlatFlag(row.mfl)
   const base = decodeFixedPoint(row.mlvlid)
   const glyph = decodeFixedPoint(row.mgv)
-  const { baseValue, glyphValue, totalValue } = finalizeStat(statId, flat, base, glyph)
+  const { baseValue, glyphValue, mythValue, totalValue } = finalizeStat(statId, flat, base, glyph)
   const variant = mainToVariant(statId, flat ? 1 : 0)
   if (variant === StatVariant.Any) return null
   return {
@@ -270,6 +275,7 @@ const extractMainStat = (row: GearDbArtifactRow): NormalizedStat | null => {
     variant,
     baseValue,
     glyphValue,
+    mythValue,
     totalValue,
   }
 }
@@ -280,7 +286,8 @@ const extractSubstat = (row: GearDbArtifactRow, column: SubstatColumn, index: nu
   const flat = isFlatFlag(row[column.flag])
   const base = decodeFixedPoint(row[column.base])
   const glyph = decodeFixedPoint(row[column.glyph])
-  const { baseValue, glyphValue, totalValue } = finalizeStat(statId, flat, base, glyph)
+  const myth = decodeFixedPoint(row[column.myth])
+  const { baseValue, glyphValue, mythValue, totalValue } = finalizeStat(statId, flat, base, glyph, myth)
   const variant = subToVariant(statId, flat ? 1 : 0)
   if (variant === StatVariant.Any) return null
   const rolls = toNumber(row[column.level]) ?? 0
@@ -291,6 +298,7 @@ const extractSubstat = (row: GearDbArtifactRow, column: SubstatColumn, index: nu
     variant,
     baseValue,
     glyphValue,
+    mythValue,
     totalValue,
     rolls: Math.max(0, rolls),
     position: index,
@@ -313,7 +321,7 @@ const extractAscensionStat = (row: GearDbArtifactRow): NormalizedStat | null => 
   const flat = isFlatFlag(row.ASCFL)
   const base = decodeFixedPoint(row.ASCLVLID)
   const glyph = decodeFixedPoint(row.ASCGV)
-  const { baseValue, glyphValue, totalValue } = finalizeStat(statId, flat, base, glyph)
+  const { baseValue, glyphValue, mythValue, totalValue } = finalizeStat(statId, flat, base, glyph)
   const variant = subToVariant(statId, flat ? 1 : 0)
   if (variant === StatVariant.Any) return null
   return {
@@ -323,6 +331,7 @@ const extractAscensionStat = (row: GearDbArtifactRow): NormalizedStat | null => 
     variant,
     baseValue,
     glyphValue,
+    mythValue,
     totalValue,
     rolls: Math.max(0, level ?? 0),
   }
@@ -356,9 +365,10 @@ const buildSubValueMap = (stats: NormalizedStat[]): Record<number, number> => {
   const map = new Map<number, number>()
   for (const stat of stats) {
     if (stat.variant === StatVariant.Any) continue
-    if (Math.abs(stat.baseValue) <= 0) continue
+    const baseAmount = stat.baseValue + (stat.mythValue ?? 0)
+    if (Math.abs(baseAmount) <= 0) continue
     const existing = map.get(stat.variant) ?? 0
-    const combined = existing + stat.baseValue
+    const combined = existing + baseAmount
     map.set(stat.variant, roundStatValue(stat.statId, stat.isFlat, combined))
   }
   return Object.fromEntries(map.entries())

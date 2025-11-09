@@ -22,6 +22,7 @@ const makeMainStat = (): NormalizedStat => ({
   variant: StatVariant.ATK,
   baseValue: 0,
   glyphValue: 0,
+  mythValue: 0,
   totalValue: 0,
 })
 
@@ -32,6 +33,7 @@ const makeAscensionStat = (tier: number): NormalizedStat => ({
   variant: StatVariant.HP,
   baseValue: tier,
   glyphValue: 0,
+  mythValue: 0,
   totalValue: tier,
   rolls: tier,
 })

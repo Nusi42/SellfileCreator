@@ -5,16 +5,23 @@ import { filterTesterItems, DEFAULT_RULES_FILTER_STATE, type TesterFilterRow, ty
 import { ArtifactSet, ArtifactType, StatId, StatVariant } from '../src/lib/types.js'
 import type { NormalizedGearArtifact, NormalizedStat } from '../src/lib/importers/gearDbNormalizer.js'
 
-const makeStat = (variant: StatVariant, value: number, options?: Partial<NormalizedStat>): NormalizedStat => ({
-  source: 'substat',
-  statId: StatId.SPD,
-  isFlat: false,
-  variant,
-  baseValue: value,
-  glyphValue: 0,
-  totalValue: value,
-  ...options,
-})
+const makeStat = (variant: StatVariant, value: number, options?: Partial<NormalizedStat>): NormalizedStat => {
+  const baseValue = options?.baseValue ?? value
+  const mythValue = options?.mythValue ?? 0
+  const glyphValue = options?.glyphValue ?? 0
+  const totalValue = options?.totalValue ?? (baseValue + mythValue)
+  return {
+    source: 'substat',
+    statId: StatId.SPD,
+    isFlat: false,
+    variant,
+    baseValue,
+    glyphValue,
+    mythValue,
+    totalValue,
+    ...options,
+  }
+}
 
 let artifactIdCounter = 1
 
@@ -34,6 +41,7 @@ const makeArtifact = (overrides: Partial<NormalizedGearArtifact> = {}): Normaliz
     variant: StatVariant.SPD,
     baseValue: 45,
     glyphValue: 0,
+    mythValue: 0,
     totalValue: 45,
   },
   substats: [
@@ -85,6 +93,7 @@ test('filterTesterItems filters by main stat and substats', () => {
       variant: StatVariant.SPD,
       baseValue: 45,
       glyphValue: 0,
+      mythValue: 0,
       totalValue: 45,
     },
     substats: [
@@ -102,6 +111,7 @@ test('filterTesterItems filters by main stat and substats', () => {
       variant: StatVariant.HP,
       baseValue: 50,
       glyphValue: 0,
+      mythValue: 0,
       totalValue: 50,
     },
     substats: [
@@ -310,6 +320,7 @@ test('filterTesterItems filters by ascension stars and stats', () => {
       variant: StatVariant.SPD,
       baseValue: 5,
       glyphValue: 0,
+      mythValue: 0,
       totalValue: 5,
       rolls: 3,
     },

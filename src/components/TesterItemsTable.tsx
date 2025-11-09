@@ -70,10 +70,18 @@ const HEADER_LABEL_SX = {
 const HSCROLL_ON_MARGIN_PX = 8
 const HSCROLL_OFF_MARGIN_PX = 8
 
-function formatStatBase(stat: NormalizedStat | null): string {
-  if (!stat) return ''
-  const value = stat.baseValue
-  if (!Number.isFinite(value)) return ''
+const resolveStatPreGlyphValue = (stat: NormalizedStat | null): number | null => {
+  if (!stat) return null
+  const base = Number(stat.baseValue) || 0
+  const myth = Number(stat.mythValue) || 0
+  const combined = base + myth
+  if (!Number.isFinite(combined)) return null
+  return combined
+}
+
+function formatStatPreGlyph(stat: NormalizedStat | null): string {
+  const value = resolveStatPreGlyphValue(stat)
+  if (value == null) return ''
   if (Math.abs(value % 1) < 0.01) {
     return String(Math.round(value))
   }
@@ -99,12 +107,16 @@ function formatSubstats(
   for (const stat of stats) {
     if (stat.variant === StatVariant.Any) continue
     const label = translate(statVariantI18nKey(stat.variant))
-    const value = formatStatBase(stat)
+    const value = formatStatPreGlyph(stat)
     const compact = value ? `${label} ${value}` : label
     pieces.push(compact)
     const rolls = typeof stat.rolls === 'number' && stat.rolls > 0 ? ` (${translate('testerRollsLabel', { rolls: stat.rolls })})` : ''
+    const mythMagnitude = Math.abs(Number(stat.mythValue) || 0)
+    const mythSuffix = mythMagnitude >= 0.01
+      ? ` (+${translate('rarityMythical')} ${formatStatNumber(mythMagnitude)})`
+      : ''
     const glyph = stat.glyphValue && Math.abs(stat.glyphValue) > 0.001 ? ` (+${formatStatNumber(stat.glyphValue)})` : ''
-    tooltips.push(`${compact}${glyph}${rolls}`)
+    tooltips.push(`${compact}${mythSuffix}${glyph}${rolls}`)
   }
   return {
     summary: pieces.join(', '),
@@ -611,7 +623,7 @@ const TesterItemRow = React.memo(function TesterItemRow({
   const rankLabel = formatRank(artifact.rank as RankValue)
   const rarityLabel = resolveRarityLabel(t, Number(artifact.rarity))
   const mainLabel = artifact.mainStat ? t(statVariantI18nKey(artifact.mainStat.variant)) : t('any')
-  const mainValue = formatStatBase(artifact.mainStat ?? null)
+  const mainValue = formatStatPreGlyph(artifact.mainStat ?? null)
   const levelChipLabel = t('testerLevelLabel', { level: levelLabel })
   const mainInline = mainValue
     ? t('testerMainStatInline', { stat: mainLabel, value: mainValue })
@@ -627,7 +639,7 @@ const TesterItemRow = React.memo(function TesterItemRow({
     .filter((stat) => stat.variant !== StatVariant.Any)
     .map((stat) => {
       const statLabel = t(statVariantI18nKey(stat.variant))
-      const statValue = formatStatBase(stat) || t('testerValueUnknown')
+      const statValue = formatStatPreGlyph(stat) || t('testerValueUnknown')
       const statColor = useStatButtonColors
         ? (substatColors[stat.variant]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[stat.variant])
         : undefined
@@ -635,6 +647,8 @@ const TesterItemRow = React.memo(function TesterItemRow({
       const glyphDelta = glyphMagnitude >= 0.01
         ? `${Number(stat.glyphValue) >= 0 ? '+' : '-'}${formatStatNumber(glyphMagnitude)}`
         : null
+      const mythMagnitude = Math.abs(Number(stat.mythValue) || 0)
+      const hasMythBonus = mythMagnitude >= 0.01
       const rollGlyph = (typeof stat.rolls === 'number' && stat.rolls > 0)
         ? formatCircledDigit(stat.rolls)
         : null
@@ -643,6 +657,7 @@ const TesterItemRow = React.memo(function TesterItemRow({
         : null
       return {
         variant: stat.variant,
+        isMythicBonus: hasMythBonus,
         content: (
           <>
             <Box component="span" sx={{ color: statColor ?? 'inherit' }}>
@@ -855,7 +870,20 @@ const TesterItemRow = React.memo(function TesterItemRow({
           <Box sx={{ display: 'flex', flexWrap: 'nowrap', gap: 0.75, minWidth: 0, overflow: 'hidden' }}>
             {substatEntries.length > 0 ? (
               substatEntries.map((entry) => (
-                <TesterSummaryLabel key={`sub-${entry.variant}`} label={entry.content} />
+                entry.isMythicBonus ? (
+                  <Box
+                    key={`sub-${entry.variant}`}
+                    sx={{
+                      display: 'inline-flex',
+                      borderBottom: (theme) => `2px solid ${theme.palette.error.main}`,
+                      pb: 0.125,
+                    }}
+                  >
+                    <TesterSummaryLabel label={entry.content} />
+                  </Box>
+                ) : (
+                  <TesterSummaryLabel key={`sub-${entry.variant}`} label={entry.content} />
+                )
               ))
             ) : (
               <TesterSummaryLabel label="—" />
