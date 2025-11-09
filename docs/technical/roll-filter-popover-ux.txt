@@ -11,7 +11,7 @@ Legend
 ------
 - `[X]` close button supplied by `ContextMenuPaper`
 - `●` = selected roll count, `○` = unselected
-- `[All]` text button = select all roll counts for that row (shown left of the label)
+- Text labels identify the scope (`Any stat`, `SPD`, etc.); no bulk-select shortcuts remain.
 - `[⊗]` = the shared clear icon button (renders to the right of the badge rail)
 - Stat summaries show braces (`SPD {2,4}`) in the footer/aria copy instead of inline chips
 - Wildcard row always applies to “Any stat”; per-stat rows remain glyph-only stats
@@ -23,19 +23,19 @@ Diagram
 | [X] Rolls Filter                                                                                     |
 |                                                                                                      |
 | ┌ Wildcard (mutually exclusive with per-stat rows; clearing one clears the other) ----------------┐ |
-| | [All] Any stat │ ○ Ø  ● 1  ● 2  ○ 3  ○ 4  ○ 5 │ [⊗]                                            | |
-| |                │ (tap badges to toggle exact counts; All selects Ø–5, clear empties the row)    | |
+| | Any stat │ ○ Ø  ○ 1  ○ 2  ○ 3  ○ 4  ○ 5 │ [⊗]                                                  | |
+| |          │ (tap badges to toggle exact counts; selecting all values behaves like ≥0)           | |
 | └--------------------------------------------------------------------------------------------------┘ |
 |                                                                                                      |
-| ┌ Per Stat (every glyphable stat always visible; select-all on the left, clear icon on the right) ┐ |
-| | [All] SPD │ ○ Ø  ○ 1  ● 2  ○ 3  ● 4  ○ 5 │ [⊗]                                                   | |
-| | [All] ACC │ ○ Ø  ● 1  ○ 2  ○ 3  ○ 4  ○ 5 │ [⊗]                                                   | |
-| | [All] RES │ ○ Ø  ○ 1  ○ 2  ○ 3  ○ 4  ○ 5 │ [⊗]                                                   | |
+| ┌ Per Stat (every glyphable stat always visible; label + badges + clear icon) -------------------┐ |
+| | SPD │ ○ Ø  ○ 1  ● 2  ○ 3  ● 4  ○ 5 │ [⊗]                                                        | |
+| | ACC │ ○ Ø  ● 1  ○ 2  ○ 3  ○ 4  ○ 5 │ [⊗]                                                        | |
+| | RES │ ○ Ø  ○ 1  ○ 2  ○ 3  ○ 4  ○ 5 │ [⊗]                                                        | |
 | | …repeat rows for HP, HP%, ATK, ATK%, DEF, DEF% (CR/CDMG omitted – non glyphable).                | |
 | |                                                                                                  | |
 | | Interaction notes:                                                                               | |
 | |   - Clicking a badge toggles inclusion of that exact roll count.                                 | |
-| |   - [All] selects every badge in that row; the clear icon empties the selection.                 | |
+| |   - The clear icon empties the selection.                                                        | |
 | |   - Interacting with any per-stat row clears the wildcard row, and vice versa.                   | |
 | |   - Rows without selections act as “not filtered for this stat.”                                 | |
 | └--------------------------------------------------------------------------------------------------┘ |
@@ -48,9 +48,9 @@ Key behavioral notes
 --------------------
 1. Expressiveness mirrors discrete sets; predicates test membership directly (no comparators).
 2. Wildcard row always targets “any stat.” Per-stat rows manage stat-specific combos. Users pick
-   one approach at a time; toggling one section clears the other.
-3. Select-all buttons sit to the left of each row label (matching the builder’s substat menu).
-   The clear icon button lives to the right of the roll badges, keeping “controls → value → clear”
+   one approach at a time; toggling one section clears the other. The wildcard row renders blank
+   whenever it’s inactive so the popover always mirrors the chip state.
+3. The clear icon button lives to the right of the roll badges, keeping “controls → value → clear”
    consistent with other builder surfaces.
 4. Non-glyphable stats stay hidden; every glyphable stat is always visible. Summary copy mirrors
    the `{…}` notation so users understand they’re selecting exact counts rather than ranges.
