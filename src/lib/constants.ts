@@ -150,6 +150,8 @@ export const UI_SUBSTAT_WARNING_ROW_HEIGHT_PX = 14
 export const GEAR_DB_FILE_EXTENSIONS = ['.db', '.sqlite', '.sqlite3'] as const
 export const ACCEPT_HSF = ['.hsf', ...GEAR_DB_FILE_EXTENSIONS, 'application/json'].join(',')
 export const ACCEPT_HSFC = '.hsfc,application/json'
+// Default RSL Helper config path on Windows (referenced in UI copy hints and scripts)
+export const RSL_HELPER_CONFIG_PATH = '%APPDATA%\\RslHelper\\Config'
 
 // Persisted UI language (i18n). Supported codes live in src/lib/i18n/types.ts so tooling and UI stay in sync.
 // Dev builds can additionally select the audit language to surface untranslated strings.

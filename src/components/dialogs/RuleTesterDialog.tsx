@@ -9,6 +9,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import type { ReactNode, UIEvent, Dispatch, SetStateAction } from 'react'
 import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, MenuItem, Select, Stack, Tooltip, Typography, Chip, TextField, ListSubheader, keyframes } from '@mui/material'
 import CloseIcon from '@mui/icons-material/Close'
+import ContentCopyIcon from '@mui/icons-material/ContentCopy'
 import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline'
 import RemoveCircleOutlineIcon from '@mui/icons-material/RemoveCircleOutline'
 import OpenInFullIcon from '@mui/icons-material/OpenInFull'
@@ -29,7 +30,7 @@ import { SetIcon } from '../SetIcon'
 import { FactionOptionLabel, FactionIcon } from '../FactionIcon'
 import SetsOrderControls from '../SetsOrderControls'
 import { NumberSpinnerAdornment } from '../NumberSpinnerAdornment'
-import { SETS_MENU_WIDTH_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_MAX_HEIGHT_EXTRA_BUFFER, MENU_SCROLL_GUTTER_PX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, LIST_SUBHEADER_SX, TESTER_SUBSTAT_EDITOR_WIDTH_PX, TESTER_ROW_CONTROLS_WIDTH_PX, ACCESSORY_NO_SET_ID, TESTER_ANY_SLOT_ID, TESTER_MAINSTAT_SELECT_MIN_WIDTH_PX, TESTER_SUBSTAT_SELECT_MIN_WIDTH_PX, TESTER_SLOT_SELECT_WIDTH_PX, TESTER_SET_SELECT_WIDTH_PX, TESTER_FACTION_SELECT_WIDTH_PX, TESTER_RANK_SELECT_WIDTH_PX, TESTER_RARITY_SELECT_WIDTH_PX, TESTER_LEVEL_SELECT_WIDTH_PX, TESTER_SELECT_HEIGHT_PX, TESTER_RESULT_ROW_MIN_HEIGHT_PX, TESTER_CONFIG_CHIP_MAX_WIDTH_PX, TESTER_DIALOG_WIDTH_PX, TESTER_DIALOG_HEIGHT_PX, TESTER_VIRTUAL_OVERSCAN_PX, TESTER_ROW_ESTIMATE_COMPACT_PX, TESTER_ROW_ESTIMATE_EXPANDED_PX, TESTER_COMPACT_ICON_SIZE_PX } from '../../lib/constants'
+import { SETS_MENU_WIDTH_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_MAX_HEIGHT_EXTRA_BUFFER, MENU_SCROLL_GUTTER_PX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, LIST_SUBHEADER_SX, TESTER_SUBSTAT_EDITOR_WIDTH_PX, TESTER_ROW_CONTROLS_WIDTH_PX, ACCESSORY_NO_SET_ID, TESTER_ANY_SLOT_ID, TESTER_MAINSTAT_SELECT_MIN_WIDTH_PX, TESTER_SUBSTAT_SELECT_MIN_WIDTH_PX, TESTER_SLOT_SELECT_WIDTH_PX, TESTER_SET_SELECT_WIDTH_PX, TESTER_FACTION_SELECT_WIDTH_PX, TESTER_RANK_SELECT_WIDTH_PX, TESTER_RARITY_SELECT_WIDTH_PX, TESTER_LEVEL_SELECT_WIDTH_PX, TESTER_SELECT_HEIGHT_PX, TESTER_RESULT_ROW_MIN_HEIGHT_PX, TESTER_CONFIG_CHIP_MAX_WIDTH_PX, TESTER_DIALOG_WIDTH_PX, TESTER_DIALOG_HEIGHT_PX, TESTER_VIRTUAL_OVERSCAN_PX, TESTER_ROW_ESTIMATE_COMPACT_PX, TESTER_ROW_ESTIMATE_EXPANDED_PX, TESTER_COMPACT_ICON_SIZE_PX, RSL_HELPER_CONFIG_PATH } from '../../lib/constants'
 import { useDisplayPreferences } from '../../state/preferencesState'
 import type { Theme } from '@mui/material/styles'
 import type { SystemStyleObject } from '@mui/system'
@@ -46,6 +47,7 @@ import type { TesterPreviewMatch } from '../../types/testerPreview'
 import { TesterSummaryLabel } from '../TesterSummaryLabel'
 import { TesterRuleReferenceChip } from '../TesterRuleReferenceChip'
 import EllipsisTooltip from '../EllipsisTooltip'
+import { triggerCopyDialog, writeTextSafe } from '../../lib/clipboard'
 
 type TesterSourceCountMap = Record<TesterSourceCategory, number>
 
@@ -194,6 +196,16 @@ export default function RuleTesterDialog({
   const setsMenuPaperRef = useRef<HTMLDivElement | null>(null)
   const setsMenuListRefs = useRef<Record<number, HTMLUListElement | null>>({})
   const [pendingDeleteSource, setPendingDeleteSource] = useState<TesterSourceCategory | null>(null)
+  const testerIntroText = t('testerIntro')
+  const testerIntroPathIndex = testerIntroText.indexOf(RSL_HELPER_CONFIG_PATH)
+  const testerIntroHasPath = testerIntroPathIndex >= 0
+  const testerIntroPrefix = testerIntroHasPath ? testerIntroText.slice(0, testerIntroPathIndex) : testerIntroText
+  const testerIntroSuffix = testerIntroHasPath ? testerIntroText.slice(testerIntroPathIndex + RSL_HELPER_CONFIG_PATH.length) : ''
+  const copyGearDbPathLabel = t('rowMenuCopy')
+  const handleCopyGearDbPath = useCallback(async () => {
+    const ok = await writeTextSafe(RSL_HELPER_CONFIG_PATH)
+    if (!ok) triggerCopyDialog(RSL_HELPER_CONFIG_PATH)
+  }, [])
   // Faction options are grouped like Builder/Filters; precomputed flat list no longer used here.
   // Keeping the grouped structure inline for clarity in the Rule Tester.
 
@@ -1444,7 +1456,40 @@ export default function RuleTesterDialog({
         }}
       >
         <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-          {t('testerIntro')}
+          {testerIntroHasPath ? (
+            <>
+              {testerIntroPrefix}
+              <Box
+                component="span"
+                sx={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 0.5,
+                }}
+              >
+                <Box component="span" sx={{ fontFamily: 'monospace', fontWeight: 500 }}>
+                  {RSL_HELPER_CONFIG_PATH}
+                </Box>
+                <Tooltip title={copyGearDbPathLabel}>
+                  <IconButton
+                    size="small"
+                    aria-label={copyGearDbPathLabel}
+                    onClick={handleCopyGearDbPath}
+                    color="inherit"
+                    sx={{
+                      p: 0.25,
+                      height: 24,
+                      width: 24,
+                      fontSize: '0.95rem',
+                    }}
+                  >
+                    <ContentCopyIcon fontSize="inherit" />
+                  </IconButton>
+                </Tooltip>
+              </Box>
+              {testerIntroSuffix}
+            </>
+          ) : testerIntroText}
         </Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
           {t('testerManualOnlyNotice')}
