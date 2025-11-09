@@ -556,7 +556,9 @@ function formatRequiredSubstatsValue(cfg: BuilderConfig, t: TranslateFn): string
   const auto = cfg.autoMinCount === true
   const count = typeof cfg.minCount === 'number' ? cfg.minCount : 0
   const base = auto ? t('headerMenuAuto') : String(count)
-  const flex = cfg.autoSubstatFlex ? t('builderFlexChipOn') : t('builderFlexChipOff')
+  const flex = cfg.autoSubstatFlex
+    ? t('builderFlexChipOn')
+    : t('builderFlexChipOff')
   return `${base} (${flex})`
 }
 

@@ -629,6 +629,7 @@ const overrides: Catalog = {
   builderRequiredSubstatsHelp: 'Defina quantos dos substats selecionados precisam de aparecer para que a regra passe.\n• Substats bloqueados (🔒) contam sempre.\n• “Auto” mantém a contagem alinhada com o que foi selecionado (máximo de quatro).',
   builderFlexChipOn: 'Flex: Ativo',
   builderFlexChipOff: 'Flex: Desligado',
+  builderFlexGlyphChipLabel: 'Flex: {glyph}',
   builderMinRequiredRolls: 'Rolagens mínimas',
   builderMinRequiredRollsTipSummary: 'Define a meta partilhada de rolagens de upgrade para os substats exigidos.',
   builderMinRequiredRollsTip1: 'Auto escolhe uma soma partilhada de rolagens por ti:\n• 1 substat monitorizado → mantém-se em 0 (só presença).\n• 2+ substats obrigatórios → iguala essa contagem (ou os bloqueados ao escolher «Só bloqueados»).\n• Nunca ultrapassa o que a raridade escolhida consegue rolar até +16, por isso os ajustes continuam alcançáveis.',

@@ -629,6 +629,7 @@ const overrides: Catalog = {
   builderRequiredSubstatsHelp: 'Define cuántos de tus substats seleccionados deben aparecer para que la regla pase.\n• Los substats bloqueados (🔒) siempre cuentan.\n• “Auto” mantiene el recuento alineado con lo seleccionado (máximo cuatro).',
   builderFlexChipOn: 'Flex: Activado',
   builderFlexChipOff: 'Flex: Desactivado',
+  builderFlexGlyphChipLabel: 'Flex: {glyph}',
   builderMinRequiredRolls: 'Tiradas mínimas requeridas',
   builderMinRequiredRollsTipSummary: 'Define el objetivo compartido de tiradas de mejora para los substats requeridos.',
   builderMinRequiredRollsTip1: 'Auto te da un objetivo compartido de tiradas:\n• 1 substat con seguimiento → se mantiene en 0 (solo presencia).\n• 2+ substats requeridos → iguala esa cantidad (o los bloqueados al apuntar a «Solo bloqueados»).\n• Nunca supera lo que la rareza elegida puede tirar en +16, así que los ajustes siguen siendo alcanzables.',

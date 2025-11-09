@@ -43,6 +43,9 @@ export type ColorBlindMode = 'normal' | 'okabeIto' | 'tritan'
 
 // Non-breaking space for UI formatting (keeps labels glued to following token)
 export const NBSP = '\u00A0'
+export const GLYPH_TOGGLE_ON = '⦿'
+export const GLYPH_TOGGLE_OFF = '⭘'
+export const GLYPH_GLYPHS_SELECTED = '✓'
 
 // Persisted substat color map (v6 schema with alpha support)
 export const COLORS_STORAGE_KEY_V6 = 'sellfileCreator.substatColors.v6'

@@ -8,7 +8,7 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { rarityCodeToName, StatVariant, RankCode, RarityCode, Faction, type FactionId, filterAndSortSetEntries, statVariantI18nKey, artifactSetI18nKey, LEVEL_MILESTONES, type LevelMilestone, STAT_VARIANTS_PRIORITY_ROW1, STAT_VARIANTS_PRIORITY_ROW2 } from '../lib/types'
 import { variantToSub } from '../lib/hsfTypes'
-import { NBSP } from '../lib/constants'
+import { NBSP, GLYPH_TOGGLE_ON, GLYPH_TOGGLE_OFF } from '../lib/constants'
 import SetMenuSection from './SetMenuSection'
 import MetasetsDialog from './MetasetsDialog'
 import { useMetasetsDialog } from '../hooks/useMetasetsDialog'
@@ -65,8 +65,6 @@ import { SubstatToggleDisplay, substatToggleGroupSx } from './SubstatToggleDispl
 import { resolveSubstatChipPalette, SUBSTAT_CHIP_BORDER_RADIUS_PX } from './RuleSubstatChips'
 import LockIcon from '@mui/icons-material/Lock'
 import LockOpenOutlinedIcon from '@mui/icons-material/LockOpenOutlined'
-import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh'
-import AutoFixHighOutlinedIcon from '@mui/icons-material/AutoFixHighOutlined'
 import PlaylistAddIcon from '@mui/icons-material/PlaylistAdd'
 import PlaylistAddCheckIcon from '@mui/icons-material/PlaylistAddCheck'
 import UndoIcon from '@mui/icons-material/Undo'
@@ -6061,8 +6059,9 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                     }
                   }
                 }
-                const FlexIconComponent = flexState === 'on' ? AutoFixHighIcon : AutoFixHighOutlinedIcon
-                const label = flexState === 'on'
+                const flexGlyph = flexState === 'on' ? GLYPH_TOGGLE_ON : GLYPH_TOGGLE_OFF
+                const label = t('builderFlexGlyphChipLabel', { glyph: flexGlyph })
+                const stateLabel = flexState === 'on'
                   ? t('builderFlexChipOn')
                   : t('builderFlexChipOff')
                 const handleFlexToggle = () => {
@@ -6177,7 +6176,6 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                       <Tooltip title={<BuilderTooltipContent text={t('builderSubstatFlexToggleTooltip')} />}>
                         <Box component="span" sx={{ display: 'inline-flex' }}>
                           <Chip
-                            icon={<FlexIconComponent fontSize="small" />}
                             label={label}
                             size="small"
                             variant="filled"
@@ -6185,6 +6183,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                             onClick={chipEnabled ? handleFlexToggle : undefined}
                             disabled={!chipEnabled}
                             aria-pressed={chipEnabled ? flexState === 'on' : undefined}
+                            aria-label={stateLabel}
                             sx={{
                               ...(builderToggleChipSx(chipEnabled) as SystemStyleObject<Theme>),
                               ...(flexState === 'mixed'
