@@ -1762,7 +1762,14 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
               </Box>
               <Collapse in={!collapsed.level} timeout="auto" unmountOnExit>
                 {isTesterMode ? (
-                  <Box sx={{ mt: 0.25, width: levelControlResponsiveWidth, maxWidth: '100%', boxSizing: 'border-box', px: 0.5 }}>
+                  <Box sx={{
+                    mt: 0.25,
+                    width: levelControlResponsiveWidth,
+                    maxWidth: '100%',
+                    boxSizing: 'border-box',
+                    px: 0.5,
+                    pr: showFaction ? 2 : 0,
+                  }}>
                     <Slider
                       size="small"
                       min={TESTER_LEVEL_MIN}
