@@ -54,7 +54,6 @@ const overrides: Catalog = {
   testerTitle: 'Equipo',
   testerIntro: 'Crea equipo de muestra para ver qué regla coincide primero y si mantiene o vende la pieza. Carga o arrastra una base de datos de RSL Helper (normalmente en %APPDATA%\\RslHelper\\Config) a la aplicación para previsualizar equipo real en la vista del Probador de reglas.',
   testerManualOnlyNotice: 'Este panel solo muestra las entradas personalizadas. El equipo importado del inventario, la colección, la bóveda y la bandeja de entrada permanece visible en la vista del Probador de reglas; usa los botones de abajo para borrar esas fuentes si lo necesitas.',
-  testerEmptyHint: 'Añade elementos para probar qué regla coincide primero.',
   testerRule: 'Regla',
   testerConfig: 'Config',
   testerJumpToConfig: 'Ir a la config',
@@ -173,7 +172,7 @@ const overrides: Catalog = {
   titleSubstatChipColors: 'Colores de las chips de substats',
   msgChooseColors: 'Elige colores por substat.',
   labelText: 'Texto',
-  labelBg: 'Fondo',
+  labelBg: 'Bg',
 
   titleManageSubstatTargets: 'Gestionar objetivos de substats',
   msgSubstatTargetsHelp: 'Define los objetivos de substats por rango que el generador asume mientras calcula los umbrales para cada hito de nivel (0/4/8/12/16). Estos objetivos indican cuánta [ACC], [SPD], etc. debe tener una pieza en cada paso de tirada para que cumpla la regla.\n\nCada fila representa un rango específico (1★, 2★, …, 6★). Introduce el valor que esperas para ese rango y el generador lo aplicará siempre que evalúe equipo con la misma cantidad de estrellas.\n\nSi una regla o la vista previa usan Rango = “Todos”, la columna resaltada actúa como valor de respaldo para que esas comprobaciones sigan teniendo objetivos definidos.',

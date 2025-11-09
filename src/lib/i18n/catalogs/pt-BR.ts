@@ -54,7 +54,6 @@ const catalog: Catalog = {
   testerTitle: 'Equipamentos',
   testerIntro: 'Crie equipamentos de exemplo para ver qual regra corresponde primeiro e se ela mantém ou vende o item. Carregue ou arraste um banco de dados do RSL Helper (geralmente em %APPDATA%\\RslHelper\\Config) para o app para pré-visualizar equipamentos reais na visualização do Testador de Regras.',
   testerManualOnlyNotice: 'Este painel mostra apenas as entradas personalizadas. Os itens importados do inventário, coleção, cofre e caixa de entrada continuam visíveis na visualização do Testador de Regras; use os botões abaixo para remover essas origens, se necessário.',
-  testerEmptyHint: 'Adicione itens para testar qual regra corresponde primeiro.',
   testerRule: 'Regra',
   testerConfig: 'Config',
   testerJumpToConfig: 'Ir para a config',
@@ -173,7 +172,7 @@ const catalog: Catalog = {
   titleSubstatChipColors: 'Cores dos chips de substats',
   msgChooseColors: 'Escolha cores por substat.',
   labelText: 'Texto',
-  labelBg: 'Fundo',
+  labelBg: 'Bg',
 
   titleManageSubstatTargets: 'Gerenciar alvos de substats',
   msgSubstatTargetsHelp: 'Defina os alvos de substats que o gerador assume enquanto calcula os limiares para cada marco de nível (0/4/8/12/16). Esses alvos indicam quanto [ACC], [SPD] etc. uma peça precisa mostrar em cada etapa de rolagem antes que a regra se aplique.\n\nCada linha representa um rank específico (1★, 2★, …, 6★). Informe o valor esperado para aquele rank e o gerador o aplica sempre que avaliar um item com a mesma quantidade de estrelas.\n\nSe uma regra ou a prévia usa Rank = “Todos”, a coluna destacada funciona como fallback para que essas verificações mantenham alvos definidos.',

@@ -54,7 +54,6 @@ const overrides: Catalog = {
   testerTitle: 'Ekipman',
   testerIntro: 'Örnek ekipman oluşturun ve hangi kuralın önce eşleştiğini, öğeyi tutup tutmadığını görün. RSL Helper veritabanını (genellikle %APPDATA%\\RslHelper\\Config altında) uygulamaya yükleyin veya sürükleyip bırakın; böylece Kural Testi görünümünde gerçek ekipmanı inceleyebilirsiniz.',
   testerManualOnlyNotice: 'Bu panel sadece özel girişleri listeler. İçeri aktarılan envanter, koleksiyon, kasa ve gelen kutusu parçaları Kural Testi görünümünde kalır; gerekirse bu kaynakları aşağıdaki düğmelerle temizleyin.',
-  testerEmptyHint: 'Hangi kuralın önce eşleştiğini test etmek için öğe ekleyin.',
   testerRule: 'Kural',
   testerConfig: 'Konfig',
   testerJumpToConfig: 'Konfige git',
@@ -173,7 +172,7 @@ const overrides: Catalog = {
   titleSubstatChipColors: 'Alt stat çip renkleri',
   msgChooseColors: 'Her alt stat için renkleri seçin.',
   labelText: 'Metin',
-  labelBg: 'Arka plan',
+  labelBg: 'Bg',
 
   titleManageSubstatTargets: 'Alt stat hedefleri',
   msgSubstatTargetsHelp: 'Builderın her seviye dönüm noktasında (0/4/8/12/16) kullanacağı alt stat hedeflerini ayarlayın. Bu hedefler, kural devreye girmeden önce parçanın her rulo adımında ne kadar [ACC], [SPD] vb. göstermesi gerektiğini belirtir.\n\nHer satır belirli bir rütbeyi temsil eder (1★, 2★, …, 6★). O rütbe için beklediğiniz değeri girin; builder aynı yıldız sayısına sahip eşyayı değerlendirirken bunu temel alır.\n\nBir kural veya önizleme Rütbe = “Hepsi” ise, vurgulanan sütun yedek hedef olur ve bu kontrollerin tanımlı değerleri kalır.',
