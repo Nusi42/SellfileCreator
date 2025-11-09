@@ -129,6 +129,10 @@ interface ConfigChipProps {
   index: number
   cfg: BuilderConfig
   visualVariant?: 'interactive' | 'static'
+  dragEnabled?: boolean
+  onPointerDown?: (event: React.PointerEvent<HTMLDivElement>) => void
+  hideTooltip?: boolean
+  hiddenWhileDragging?: boolean
   onDelete: () => void
   onDuplicate: () => void
   onMoveUp: () => void
@@ -159,6 +163,10 @@ interface ConfigChipProps {
 function ConfigChip({
   index,
   cfg,
+  dragEnabled = false,
+  onPointerDown,
+  hideTooltip = false,
+  hiddenWhileDragging = false,
   onDelete,
   onDuplicate,
   onMoveUp,
@@ -245,16 +253,19 @@ function ConfigChip({
     }
     return null
   }, [duplicateOfIndex, showDuplicateFrame, t])
-  const showTooltip = Boolean(tooltipTitle)
+  const showTooltip = Boolean(tooltipTitle) && !hideTooltip
 
   const chipNode = (
-      <Box
-        id={`cfg-chip-${index}`}
-        data-tour-id={selected ? 'chip.selected' : undefined}
+    <Box
+      id={`cfg-chip-${index}`}
+      data-tour-id={selected ? 'chip.selected' : undefined}
+      data-config-chip-index={index}
       data-config-chip="true"
       // Builder hover is coordinated outside React; App.tsx toggles this attribute
       // so the chip can reuse the same highlight styles as pointer-driven focus.
       data-linked-hover="false"
+      aria-grabbed={dragEnabled ? (selected ? 'true' : 'false') : undefined}
+      onPointerDown={dragEnabled ? onPointerDown : undefined}
       sx={(theme) => {
         const hoverBg = alpha(theme.palette.primary.main, theme.palette.mode === 'dark' ? HOVER_BG_ALPHA.dark : HOVER_BG_ALPHA.light)
         const selectedHoverBg = alpha(theme.palette.primary.main, theme.palette.mode === 'dark' ? SELECTED_HOVER_BG_ALPHA.dark : SELECTED_HOVER_BG_ALPHA.light)
@@ -275,7 +286,9 @@ function ConfigChip({
           : (isStatic ? '0 1 auto' : '1 1 auto')
         // Interactive chips flex-grow so a single chip spans the row while static embeds keep their natural width.
         const borderRadius = `${CONFIG_CHIP_BORDER_RADIUS_PX}px`
+        const pointerCursor = isStatic ? 'default' : (dragEnabled ? 'grab' : 'pointer')
         return {
+          position: 'relative',
           display: 'inline-flex',
           alignItems: 'center',
           gap: isSeparator ? (separatorDecoration.hasLabel ? 1.5 : 0) : 0.5,
@@ -288,7 +301,8 @@ function ConfigChip({
           pl: isSeparator ? 1.1 : 1,
           pr: isSeparator ? 1.1 : 0.4,
           py: `${CONFIG_CHIP_VERTICAL_PADDING_PX}px`,
-          cursor: isStatic ? 'default' : 'pointer',
+          cursor: pointerCursor,
+          visibility: hiddenWhileDragging ? 'hidden' : 'visible',
           flex: flexSizing,
           flexWrap: isStatic ? 'wrap' : 'nowrap',
           ...(isSeparator ? { justifyContent: 'center' } : {}),
@@ -425,7 +439,7 @@ function ConfigChip({
       {!isSeparator ? (
         <>
           <Tooltip title={t('chipBtnMoveUp')} slotProps={{ popper: { disablePortal: true } }}>
-            <span onMouseEnter={() => setOverControls(true)} onMouseLeave={() => setOverControls(false)}>
+            <span data-chip-control="true" onMouseEnter={() => setOverControls(true)} onMouseLeave={() => setOverControls(false)}>
               <IconButton
                 size="small"
                 sx={{
@@ -441,7 +455,7 @@ function ConfigChip({
             </span>
           </Tooltip>
           <Tooltip title={t('chipBtnMoveDown')} slotProps={{ popper: { disablePortal: true } }}>
-            <span onMouseEnter={() => setOverControls(true)} onMouseLeave={() => setOverControls(false)}>
+            <span data-chip-control="true" onMouseEnter={() => setOverControls(true)} onMouseLeave={() => setOverControls(false)}>
               <IconButton
                 size="small"
                 sx={{
@@ -457,7 +471,7 @@ function ConfigChip({
             </span>
           </Tooltip>
           <Tooltip title={t('chipBtnDuplicate')} slotProps={{ popper: { disablePortal: true } }}>
-            <span onMouseEnter={() => setOverControls(true)} onMouseLeave={() => setOverControls(false)}>
+            <span data-chip-control="true" onMouseEnter={() => setOverControls(true)} onMouseLeave={() => setOverControls(false)}>
               <IconButton
                 size="small"
                 sx={{
@@ -472,7 +486,7 @@ function ConfigChip({
             </span>
           </Tooltip>
           <Tooltip title={t('chipBtnDelete')} slotProps={{ popper: { disablePortal: true } }}>
-            <span onMouseEnter={() => setOverControls(true)} onMouseLeave={() => setOverControls(false)}>
+            <span data-chip-control="true" onMouseEnter={() => setOverControls(true)} onMouseLeave={() => setOverControls(false)}>
               <IconButton
                 size="small"
                 sx={{
@@ -545,6 +559,10 @@ function ConfigChip({
 function areConfigChipPropsEqual(prev: Readonly<ConfigChipProps>, next: Readonly<ConfigChipProps>): boolean {
   return prev.cfg === next.cfg
     && prev.index === next.index
+    && prev.dragEnabled === next.dragEnabled
+    && prev.onPointerDown === next.onPointerDown
+    && prev.hideTooltip === next.hideTooltip
+    && prev.hiddenWhileDragging === next.hiddenWhileDragging
     && prev.selected === next.selected
     && prev.isLast === next.isLast
     && prev.visualVariant === next.visualVariant
