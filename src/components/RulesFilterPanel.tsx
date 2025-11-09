@@ -33,6 +33,8 @@ import { metasetGlyph, orderMetasetIds, type Metaset } from '../lib/metasets'
 import React from 'react'
 import { alpha, useTheme, type Theme } from '@mui/material/styles'
 import { keyframes } from '@emotion/react'
+import { RULES_FILTER_COLLAPSIBLE_SECTION_IDS } from '../state/rulesFilterPersistence'
+import type { CollapsedSections } from '../state/rulesFilterPersistence'
 import {
   DEFAULT_RULES_FILTER_STATE,
   TESTER_LEVEL_MAX,
@@ -117,8 +119,8 @@ type RulesFilterPanelProps = {
   onTesterConfigFilterModeChange?: (mode: TesterConfigFilterMode) => void
   selectedConfigCount?: number
   configCount?: number
-  collapsed: Record<string, boolean>
-  onCollapsedChange: (next: Record<string, boolean>) => void
+  collapsed: CollapsedSections
+  onCollapsedChange: (next: CollapsedSections) => void
   testerChampionOptions?: TesterChampionOption[]
   substatColors?: SubstatColorMap
   useStatButtonColors?: boolean
@@ -349,7 +351,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
       const rawCols = localStorage.getItem('sellfileCreator.rulesTableCols.v2')
       const cols = rawCols ? (JSON.parse(rawCols) as Array<{ key: string; visible?: boolean }>) : []
       const vis = new Map(cols.map(c => [c.key, Boolean(c.visible)]))
-      const next: Record<string, boolean> = { ...collapsed }
+      const next: CollapsedSections = { ...collapsed }
       // collapsed = !visible (expanded when visible)
       // Rule: not tied to a table column; keep as-is (defaults to expanded)
       next.sets = !(vis.get('ArtifactSetNames') ?? true)
@@ -365,15 +367,29 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
     } catch {}
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
-  const SectionToggle = ({ id }: { id: keyof typeof collapsed }) => (
-    <IconButton
-      size="small"
-      onClick={() => onCollapsedChange({ ...collapsed, [id]: !collapsed[id] })}
-      aria-label={collapsed[id] ? 'Expand' : 'Collapse'}
-    >
-      {collapsed[id] ? <ExpandMoreIcon fontSize="small" /> : <ExpandLessIcon fontSize="small" />}
-    </IconButton>
-  )
+  const SectionToggle = ({ id }: { id: keyof typeof collapsed }) => {
+    const handleClick = (event: React.MouseEvent<HTMLButtonElement>) => {
+      const nextValue = !collapsed[id]
+      if (event.ctrlKey || event.metaKey) {
+        const nextAll: typeof collapsed = { ...collapsed }
+        for (const key of RULES_FILTER_COLLAPSIBLE_SECTION_IDS) {
+          nextAll[key] = nextValue
+        }
+        onCollapsedChange(nextAll)
+        return
+      }
+      onCollapsedChange({ ...collapsed, [id]: nextValue })
+    }
+    return (
+      <IconButton
+        size="small"
+        onClick={handleClick}
+        aria-label={collapsed[id] ? 'Expand' : 'Collapse'}
+      >
+        {collapsed[id] ? <ExpandMoreIcon fontSize="small" /> : <ExpandLessIcon fontSize="small" />}
+      </IconButton>
+    )
+  }
   const tintedChipSx = React.useCallback((paletteColor: typeof theme.palette.success) => {
     const tone = theme.palette.mode === 'dark' ? paletteColor.light : paletteColor.dark
     const borderRadius = `${STATUS_CHIP_BORDER_RADIUS_PX}px`

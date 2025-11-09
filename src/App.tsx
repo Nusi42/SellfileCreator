@@ -3560,7 +3560,13 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                 setFilterOpen(Boolean(draft.Filters.open))
                 const clonedState = JSON.parse(JSON.stringify(draft.Filters.state)) as RulesFilterState
                 setRulesFilter(clonedState)
-                setFilterCollapsed({ ...draft.Filters.collapsed })
+                const collapsedDraft = (draft.Filters.collapsed && typeof draft.Filters.collapsed === 'object')
+                  ? (draft.Filters.collapsed as Record<string, boolean>)
+                  : {}
+                setFilterCollapsed((prev) => ({
+                  ...prev,
+                  ...collapsedDraft,
+                }))
                 setTesterConfigFilterMode(draft.Filters.testerConfigFilterMode ?? 'off')
               } catch {}
             }

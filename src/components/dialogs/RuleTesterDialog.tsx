@@ -6,7 +6,7 @@
  * tester mirrors the Builder UX while operating on ad-hoc “what if” items.
  */
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import type { ReactNode, UIEvent, Dispatch, SetStateAction } from 'react'
+import type { ReactNode, UIEvent, Dispatch, SetStateAction, MouseEvent } from 'react'
 import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, MenuItem, Select, Stack, Tooltip, Typography, Chip, TextField, ListSubheader, keyframes } from '@mui/material'
 import CloseIcon from '@mui/icons-material/Close'
 import ContentCopyIcon from '@mui/icons-material/ContentCopy'
@@ -526,15 +526,33 @@ export default function RuleTesterDialog({
     }
   }, [])
 
-  const handleToggleCompact = useCallback((rowId: number) => {
+  const applyGlobalCompactState = useCallback((nextState: boolean) => {
+    setCompactByRowId(() => {
+      const next = new Map<number, boolean>()
+      for (const item of itemsRef.current) {
+        const rowId = Number(item.rowId)
+        const baseState = Boolean((item as { compact?: boolean })?.compact)
+        if (baseState !== nextState) {
+          next.set(rowId, nextState)
+        }
+      }
+      return next
+    })
+  }, [setCompactByRowId])
+
+  const handleToggleCompact = useCallback((rowId: number, event?: MouseEvent<HTMLButtonElement>) => {
     const baseState = (() => {
       const item = itemsRef.current.find((entry) => entry.rowId === rowId)
       return Boolean((item as { compact?: boolean })?.compact)
     })()
+    const current = compactByRowId.has(rowId) ? compactByRowId.get(rowId)! : baseState
+    const nextState = !current
+    if (event?.ctrlKey || event?.metaKey) {
+      applyGlobalCompactState(nextState)
+      return
+    }
     setCompactByRowId((prev) => {
       const next = new Map(prev)
-      const current = prev.has(rowId) ? prev.get(rowId)! : baseState
-      const nextState = !current
       if (nextState === baseState) {
         next.delete(rowId)
       } else {
@@ -543,7 +561,7 @@ export default function RuleTesterDialog({
       return next
     })
     registerCompactToggle(rowId)
-  }, [registerCompactToggle])
+  }, [applyGlobalCompactState, compactByRowId, registerCompactToggle])
 
   const renderTesterRow = (it: TesterItem, idx: number): JSX.Element => {
     const rowId = Number(it.rowId)
@@ -727,7 +745,7 @@ export default function RuleTesterDialog({
                   },
                 } : {}),
               }}
-              onClick={() => handleToggleCompact(it.rowId)}
+              onClick={(event) => handleToggleCompact(it.rowId, event)}
             >
               {isCompact ? <OpenInFullIcon fontSize="small" /> : <CloseFullscreenIcon fontSize="small" />}
             </Button>
