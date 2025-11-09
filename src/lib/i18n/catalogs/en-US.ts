@@ -91,6 +91,7 @@ const enUS: Catalog = {
   testerFinalSellChip: 'Final Sell',
   testerValueUnknown: '—',
   testerAddManualGear: 'Add custom gear',
+  testerRerollLabel: 'Rerolled ×{count}',
   // Common UI bits used in Rule Tester
   add: 'Add',
   compact: 'Compact',
