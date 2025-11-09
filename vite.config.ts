@@ -5,6 +5,7 @@ import { dirname, resolve } from 'node:path';
 import react from '@vitejs/plugin-react';
 import { assetsPlugin } from './scripts/vite/assetsPlugin';
 import { singleFilePlugin } from './scripts/vite/singleFilePlugin';
+import { wasmInlinePlugin } from './scripts/vite/wasmInlinePlugin';
 
 const withRootPath = (relativePath: string): string =>
   fileURLToPath(new URL(relativePath, import.meta.url));
@@ -15,6 +16,7 @@ export default defineConfig(async ({ command }): Promise<UserConfig> => ({
   // certain environments when bundling the Vite config for production builds.
   plugins: [
     assetsPlugin(),
+    wasmInlinePlugin(),
     react({
       babel: {
         plugins: ['babel-plugin-react-compiler'],

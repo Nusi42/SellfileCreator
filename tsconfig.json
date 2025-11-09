@@ -23,7 +23,8 @@
     "types": ["vite/client"],
     "paths": {
       "sql.js": ["./src/types/sqljs"],
-      "sql.js/dist/sql-wasm.wasm?url": ["./src/types/sqljs-wasm"]
+      "sql.js/dist/sql-wasm.wasm?url": ["./src/types/sqljs-wasm"],
+      "sql.js/dist/sql-wasm.wasm?inline": ["./src/types/sqljs-wasm"]
     }
   },
   "include": ["src"]

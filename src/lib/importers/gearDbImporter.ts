@@ -78,10 +78,24 @@ type SqlJsInstance = SqlJsStatic
 let sqlJsPromise: Promise<SqlJsInstance> | null = null
 let wasmLocationPromise: Promise<string> | null = null
 let browserWasmUrlPromise: Promise<string> | null = null
+let wasmBinaryPromise: Promise<Uint8Array> | null = null
+
+const INLINE_WASM_DATA_URI: string | undefined = typeof __SQL_JS_WASM_INLINE__ !== 'undefined'
+  ? __SQL_JS_WASM_INLINE__
+  : undefined
 
 async function resolveBrowserWasmUrl(): Promise<string> {
   if (!browserWasmUrlPromise) {
-    browserWasmUrlPromise = import('sql.js/dist/sql-wasm.wasm?url').then((mod) => mod.default)
+    browserWasmUrlPromise = (async () => {
+      if (INLINE_WASM_DATA_URI) return INLINE_WASM_DATA_URI
+      try {
+        const mod = await import('sql.js/dist/sql-wasm.wasm?inline')
+        return mod.default
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err)
+        throw new Error(`Failed to load SQL.js WASM bundle (${message})`)
+      }
+    })()
   }
   return browserWasmUrlPromise
 }
@@ -102,6 +116,27 @@ async function resolveSqlWasmLocation(): Promise<string> {
   return wasmLocationPromise
 }
 
+async function resolveBrowserWasmBinary(): Promise<Uint8Array> {
+  if (!wasmBinaryPromise) {
+    wasmBinaryPromise = (async () => {
+      const wasmUrl = await resolveBrowserWasmUrl()
+      if (isDataUrl(wasmUrl)) {
+        return decodeInlineDataUrl(wasmUrl)
+      }
+      if (typeof fetch !== 'function') {
+        throw new Error('Cannot load SQL.js WASM: fetch is unavailable in this environment.')
+      }
+      const response = await fetch(wasmUrl)
+      if (!response.ok) {
+        throw new Error(`Failed to load SQL.js WASM (${response.status} ${response.statusText})`)
+      }
+      const buffer = await response.arrayBuffer()
+      return new Uint8Array(buffer)
+    })()
+  }
+  return wasmBinaryPromise
+}
+
 function normalizeFileUrlPath(url: URL): string {
   if (url.protocol !== 'file:') return url.toString()
   let pathname = decodeURIComponent(url.pathname)
@@ -116,10 +151,15 @@ function normalizeFileUrlPath(url: URL): string {
 
 async function loadSqlJs(): Promise<SqlJsInstance> {
   if (!sqlJsPromise) {
-    const locate = await resolveSqlWasmLocation()
-    sqlJsPromise = initSqlJs({
-      locateFile: () => locate,
-    })
+    if (typeof window !== 'undefined' && typeof document !== 'undefined') {
+      const wasmBinary = await resolveBrowserWasmBinary()
+      sqlJsPromise = initSqlJs({ wasmBinary })
+    } else {
+      const locate = await resolveSqlWasmLocation()
+      sqlJsPromise = initSqlJs({
+        locateFile: () => locate,
+      })
+    }
   }
   return sqlJsPromise
 }
@@ -195,6 +235,35 @@ function readChampions(db: Database): ChampionLookup {
     stmt.free()
   }
   return map
+}
+
+function isDataUrl(value: string): boolean {
+  return value.startsWith('data:')
+}
+
+function decodeInlineDataUrl(dataUrl: string): Uint8Array {
+  const base64Index = dataUrl.indexOf('base64,')
+  if (base64Index === -1) {
+    throw new Error('Unsupported SQL.js WASM data URL format.')
+  }
+  const base64Content = dataUrl.slice(base64Index + 'base64,'.length)
+  return base64ToBytes(base64Content)
+}
+
+function base64ToBytes(base64: string): Uint8Array {
+  if (typeof atob === 'function') {
+    const binary = atob(base64)
+    const bytes = new Uint8Array(binary.length)
+    for (let i = 0; i < binary.length; i += 1) {
+      bytes[i] = binary.charCodeAt(i)
+    }
+    return bytes
+  }
+  const globalBuffer = (globalThis as { Buffer?: { from(input: string, encoding: string): Uint8Array } }).Buffer
+  if (globalBuffer) {
+    return globalBuffer.from(base64, 'base64')
+  }
+  throw new Error('No base64 decoder is available to load SQL.js WASM.')
 }
 
 async function readTable(
