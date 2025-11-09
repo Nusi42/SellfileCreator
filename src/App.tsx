@@ -84,7 +84,7 @@ import { README_SEEN_VERSION_KEY, RULE_COUNT_LIMIT } from './lib/constants'
 import { DEFAULT_METASET_ICON_ID } from './lib/metasetIcons'
 import { defaultMetasets, type Metaset } from './lib/metasets'
 import { generateMetasetNameWithFlag } from './lib/namegen'
-import { useDisplayPreferences } from './state/preferencesState'
+import { useDisplayPreferences, useDisplayPreferenceActions } from './state/preferencesState'
 import { useAppActions, useAppState } from './state/appState'
 import { useI18n } from './lib/i18n'
 import { computeDuplicateIndices } from './lib/configDuplicates'
@@ -254,6 +254,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const { setCustomCfgs, setSelectedCfgIdx: setSelectedCfgIdxRaw, setMetasets, setSubstatTargets, setFinalSellRemainder, setHsfcNote } = useAppActions()
   const { warmCache, flush: flushRuleCache, countRules } = useRuleCacheWorker()
   const { statButtonBorders } = useDisplayPreferences()
+  const { setStatButtonBorders } = useDisplayPreferenceActions()
   // Use a deferred snapshot so bursty substatTargets updates (e.g., Restore Defaults) coalesce before recomputing merged rules.
   const ruleConfigs = useMemo(() => configsForRuleBuild(customCfgs), [customCfgs])
   const substatTargetsForPreview = useDeferredValue(substatTargets)
@@ -359,7 +360,14 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   useModalCleanup()
 
   // Manage Colors dialog state + persisted substat colors
-  const { open: colorsDlgOpen, openDialog: openColors, closeDialog: closeColors, substatColors, setSubstatColors, resetColors } = useManageColorsDialog()
+  const {
+    open: colorsDlgOpen,
+    openDialog: openColors,
+    closeDialog: closeColors,
+    substatColors,
+    setSubstatColors,
+    resetColors,
+  } = useManageColorsDialog()
   // Usage counts for sets and metasets across current configs
   const setUsageCounts = useMemo(() => {
     const counts: Record<number, number> = {}
@@ -3419,6 +3427,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                 filterActive={testerFilterActive || testerConfigFilterActive}
                 substatColors={substatColors}
                 useStatButtonColors={statButtonBorders}
+                onToggleStatColors={setStatButtonBorders}
+                onOpenManageColors={openColors}
+                colorIconSrc={colorIconSrc}
                 onJumpToRule={handleTesterRuleView}
               />
             ) : (

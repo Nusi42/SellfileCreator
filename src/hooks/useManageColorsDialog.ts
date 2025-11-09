@@ -13,7 +13,9 @@ export function useManageColorsDialog() {
 
   const openDialog = () => setOpen(true)
   const closeDialog = () => setOpen(false)
-  const resetColors = () => setSubstatColors(defaultSubstatColorMapV6())
+  const resetColors = () => {
+    setSubstatColors(defaultSubstatColorMapV6())
+  }
 
   return {
     open,
