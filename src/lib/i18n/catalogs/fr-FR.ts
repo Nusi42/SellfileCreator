@@ -782,7 +782,6 @@ const overrides: Catalog = {
   filterRollsSummaryCountsEmpty: 'Select at least one roll count to apply the requirement.',
   filterRollsSummaryPerStat: 'Per stat: {entries}',
   filterRollsSummaryNone: 'No roll filters active',
-  filterRollsSummaryPrefix: 'Currently requires: {summary}',
   filterAscension: 'Ascension',
   filterConfigName: 'Nom de la config',
   filterConfigNameInvalid: 'Expression régulière invalide',

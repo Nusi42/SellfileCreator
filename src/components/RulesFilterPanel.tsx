@@ -28,7 +28,7 @@ import {
   statSupportsGlyphs,
   DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT,
 } from '../lib/types'
-import { LIST_SUBHEADER_SX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, SETS_MENU_WIDTH_PX, FILTER_FACTION_SELECT_WIDTH_PX, FILTER_SETS_SELECT_WIDTH_PX, FILTER_CHIP_TOP_MARGIN, ELLIPSIS_TEXT_SX, FILTER_TOGGLE_BUTTON_WIDTH_PX, SMALL_BUTTON_HEIGHT_PX, BUILDER_STATUS_CHIP_HEIGHT_PX, UI_BG_HOVER_DANGER_TRANSITION, DANGER_TINT_BG, SETS_SELECT_INLINE_GUTTER_PX, STATUS_CHIP_BORDER_RADIUS_PX, FONT_SIZE_BASE_PX, RULES_FILTER_COLLAPSE_SESSION_KEY, SETS_SELECT_CLEAR_BUTTON_RIGHT_PX, CLEAR_ICON_BUTTON_SIZE_PX, GLYPH_TOGGLE_ON, GLYPH_TOGGLE_OFF, GLYPH_GLYPHS_SELECTED } from '../lib/constants'
+import { LIST_SUBHEADER_SX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, SETS_MENU_WIDTH_PX, FILTER_FACTION_SELECT_WIDTH_PX, FILTER_SETS_SELECT_WIDTH_PX, FILTER_CHIP_TOP_MARGIN, ELLIPSIS_TEXT_SX, FILTER_TOGGLE_BUTTON_WIDTH_PX, SMALL_BUTTON_HEIGHT_PX, BUILDER_STATUS_CHIP_HEIGHT_PX, UI_BG_HOVER_DANGER_TRANSITION, DANGER_TINT_BG, SETS_SELECT_INLINE_GUTTER_PX, STATUS_CHIP_BORDER_RADIUS_PX, FONT_SIZE_BASE_PX, RULES_FILTER_COLLAPSE_SESSION_KEY, SETS_SELECT_CLEAR_BUTTON_RIGHT_PX, CLEAR_ICON_BUTTON_SIZE_PX, GLYPH_TOGGLE_ON, GLYPH_TOGGLE_OFF, GLYPH_GLYPHS_SELECTED, ROLL_BADGE_SIZE_PX, ROLL_BADGE_SCALE, ROLL_BADGE_HOVER_GUTTER_PX } from '../lib/constants'
 import { metasetGlyph, orderMetasetIds, type Metaset } from '../lib/metasets'
 import React from 'react'
 import { alpha, useTheme } from '@mui/material/styles'
@@ -227,37 +227,65 @@ const ROLL_COUNT_LABELS: Record<TesterRollCountValue, string> = {
   5: '5',
 }
 
-const ROLL_COUNT_TOGGLE_SIZE_PX = 32
+const ROLL_COUNT_TOGGLE_SIZE_PX = Math.round(ROLL_BADGE_SIZE_PX * ROLL_BADGE_SCALE)
 
-const rollCountToggleGroupSx: SxProps<Theme> = (theme) => ({
-  display: 'grid',
-  gridTemplateColumns: `repeat(${TESTER_ROLL_COUNT_VALUES.length}, ${ROLL_COUNT_TOGGLE_SIZE_PX}px)`,
-  columnGap: theme.spacing(0.5),
-  rowGap: theme.spacing(0.5),
-  '& .MuiToggleButtonGroup-grouped': {
-    margin: '0 !important',
-    borderRadius: '50% !important',
-    border: `1px solid ${alpha(theme.palette.text.primary, 0.3)}`,
-  },
-  '& .MuiToggleButton-root': {
-    width: ROLL_COUNT_TOGGLE_SIZE_PX,
-    height: ROLL_COUNT_TOGGLE_SIZE_PX,
-    padding: 0,
-    borderRadius: '50%',
-    fontWeight: theme.typography.fontWeightMedium ?? 600,
-    fontSize: theme.typography.pxToRem(13),
-    lineHeight: 1,
-  },
-  '& .MuiToggleButton-root.Mui-selected': {
-    backgroundColor: theme.palette.info.main,
-    borderColor: theme.palette.info.main,
-    color: theme.palette.info.contrastText,
-  },
-  '& .MuiToggleButton-root.Mui-selected:hover': {
-    backgroundColor: theme.palette.info.main,
-    borderColor: theme.palette.info.main,
-  },
-})
+const rollCountToggleGroupSx: SxProps<Theme> = (theme) => {
+  const highlight = theme.palette.success.main
+  const selectedText = theme.palette.common.white
+  const baseBorder = alpha(theme.palette.text.primary, 0.45)
+  const hoverGlow = alpha(
+    theme.palette.text.primary,
+    theme.palette.mode === 'dark' ? 0.22 : 0.14,
+  )
+  return {
+    display: 'grid',
+    gridTemplateColumns: `repeat(${TESTER_ROLL_COUNT_VALUES.length}, ${ROLL_COUNT_TOGGLE_SIZE_PX}px)`,
+    columnGap: `${ROLL_BADGE_HOVER_GUTTER_PX}px`,
+    rowGap: `${ROLL_BADGE_HOVER_GUTTER_PX}px`,
+    '& .MuiToggleButtonGroup-grouped': {
+      margin: '0 !important',
+      borderRadius: '50% !important',
+      borderLeft: '1px solid transparent',
+    },
+    '& .MuiToggleButtonGroup-grouped:not(:first-of-type)': {
+      marginLeft: '0 !important',
+    },
+    '& .MuiToggleButton-root': {
+      minWidth: ROLL_COUNT_TOGGLE_SIZE_PX,
+      width: ROLL_COUNT_TOGGLE_SIZE_PX,
+      height: ROLL_COUNT_TOGGLE_SIZE_PX,
+      px: 0,
+      borderRadius: '50%',
+      border: `1px solid ${baseBorder}`,
+      color: theme.palette.text.secondary,
+      backgroundColor: 'transparent',
+      clipPath: 'circle(50% at 50% 50%)',
+      transition: 'background-color .15s, border-color .15s, color .15s, box-shadow .15s',
+      display: 'inline-flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      fontWeight: theme.typography.fontWeightMedium ?? 600,
+      fontSize: theme.typography.pxToRem(13),
+      lineHeight: 1,
+    },
+    '& .MuiToggleButton-root:hover': {
+      boxShadow: `0 0 0 1px ${hoverGlow}`,
+      backgroundColor: theme.palette.action.hover,
+      borderColor: baseBorder,
+    },
+    '& .MuiToggleButton-root.Mui-selected': {
+      color: selectedText,
+      backgroundColor: highlight,
+      borderColor: highlight,
+      boxShadow: `0 0 0 1px ${highlight}`,
+    },
+    '& .MuiToggleButton-root.Mui-selected:hover': {
+      backgroundColor: highlight,
+      borderColor: highlight,
+      boxShadow: `0 0 0 1px ${highlight}`,
+    },
+  }
+}
 
 const sortTesterRollRows = (rows: readonly TesterRollFilterRow[]): TesterRollFilterRow[] => (
   [...rows].sort((a, b) => {
@@ -692,12 +720,6 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
       ...current,
       wildcard: { ...(current.wildcard ?? createDefaultTesterRollsState().wildcard), mode: next },
     }))
-  }
-
-  const handleClearRollFilters = () => {
-    handleTesterRollsClose()
-    const { testerRolls: _ignored, ...rest } = state
-    onChange(rest as RulesFilterState)
   }
 
   // Sets — reuse Builder look/feel: tokens, renderValue, order/search
@@ -2677,15 +2699,6 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                 })}
               </Stack>
             </Box>
-            <Divider />
-            <Stack direction="row" justifyContent="space-between" alignItems="center" flexWrap="wrap" gap={1}>
-              <Typography variant="body2" sx={{ flex: '1 1 auto' }}>
-                {t('filterRollsSummaryPrefix', { summary: rollSummaryDescription })}
-              </Typography>
-              <Button size="small" disabled={!testerRollsActive} onClick={handleClearRollFilters}>
-                {t('clear')}
-              </Button>
-            </Stack>
           </Box>
         </Popover>
       )}
