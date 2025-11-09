@@ -200,6 +200,7 @@ Erken vs Geç
 - Düzeltme gönder: Güncellenmiş JSON’u Discord mesajı olarak gönder. Anahtarları değiştirme; eksik anahtarlar İngilizceye geri döner.
 - Yerleşik diller: Gönderilen tüm diller tek HTML dosyasına derlenir, bu yüzden uygulama tamamen çevrimdışı çalışır. Düzeltmelerin bir sonraki sürüme eklenir.
 - RSL Helper veritabanını izle: `%APPDATA%\\RslHelper\\Config` yolunu takip etmek için `scripts/run-sample-server.ps1 -WatchGearDb` (veya `-GearDbPath <dosya>`) kullan. `.db` her güncellendiğinde örnek sunucu onu doğrudan başlattığı Rule Tester’a gönderir ve birden fazla dosya varsa hangisinin izleneceğini sorar.
+- Çift tıklama kısayolu: `Stream-Helper-DB-to-Creator.bat`, PowerShell’de `-WatchGearDb "%APPDATA%\\RslHelper\\Config"` parametreleriyle örnek sunucuyu başlatır; böylece varsayılan RSL Helper veritabanını konsola dokunmadan aktarabilir ve `.bat` adından sonra ek bayraklar yazarak davranışı özelleştirebilirsin.
 
 ## Teşekkürler
 
