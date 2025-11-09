@@ -31,6 +31,7 @@ Numbers that drive layout, sizing, timing, etc. must live in a single shared con
 
 - Committed (source) scripts live under `scripts/` and should be checked in:
 - `scripts/vite/assetsPlugin.ts` — injects the favicon data URL into `index.html` from a fixed allowlist ahead of dev/build runs.
+- `scripts/vite/wasmInlinePlugin.ts` — resolves `sql.js/dist/sql-wasm.wasm`, encodes it once as a data URI, and injects a `__SQL_JS_WASM_INLINE__` define so static (`file://`) builds can still load gear DBs without a network fetch.
   - `patch-esm-specifiers.cjs` — patches compiled test artifacts to add `.js` extensions for Node ESM.
 - `run-tests.mjs` — orchestrates the full `npm test` pipeline (cleans `scripts/.tmp`, runs `tsc -p tsconfig.tests.json`, patches ESM specifiers, executes the HSFC end-to-end harness, then runs all node:test specs emitted under `scripts/.tmp/tests/`).
 - `dump-tests-hsfc.mjs` — extracts HSFC‑readable configs from compiled tests (`npm run tests:extract`).
