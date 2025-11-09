@@ -200,6 +200,7 @@ Beispiel: Rollen-Summe mit Wildcards (2 Substats)
 - Fixes einreichen: Sende die aktualisierte JSON per Discord-Nachricht. Lass die Keys unverändert; fehlende Keys fallen auf Englisch zurück.
 - Eingebaute Sprachen: Alle ausgelieferten Sprachen sind in die einzelne HTML-Datei eingebettet, damit die App offline funktioniert. Deine Anpassungen werden im nächsten Release übernommen.
 - RSL-Helper-DB überwachen: Starte `scripts/run-sample-server.ps1 -WatchGearDb` (oder `-GearDbPath <Datei>`), um `%APPDATA%\\RslHelper\\Config` zu beobachten. Jede Aktualisierung der `.db` schiebt der Sample-Server direkt in den vom Skript gestarteten Rule Tester und fragt nach, falls mehrere Datenbanken vorhanden sind.
+- Doppelklick-Helfer: `Stream-Helper-DB-to-Creator.bat` startet den Sample-Server unter PowerShell mit `-WatchGearDb -GearDbPath "%APPDATA%\\RslHelper\\Config"` und streamt so die Standard-RSL-Helper-Datenbank ganz ohne Konsole; zusätzliche Schalter kannst du einfach hinter den `.bat`-Namen setzen.
 
 ## Danksagungen
 
