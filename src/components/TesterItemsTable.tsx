@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { Box, Button, Chip, Menu, Tooltip, Typography } from '@mui/material'
+import { Box, Button, Chip, Divider, Menu, MenuItem, Tooltip, Typography } from '@mui/material'
 import { useTheme } from '@mui/material/styles'
 import type { PaperProps as MuiPaperProps } from '@mui/material/Paper'
 import { useI18n } from '../lib/i18n'
@@ -44,6 +44,19 @@ const MIN_TESTER_COLUMN_WIDTH_PX = 160
 const GRID_GAP_UNITS = 1.5
 const GRID_PADDING_UNITS = 1.25
 const CHAOS_REROLLED_GLYPH = '⟳'
+
+const CIRCLED_ZERO_CODE_POINT = 0x24ea
+const CIRCLED_ONE_CODE_POINT = 0x2460
+const CIRCLED_TWENTY_CODE_POINT = 0x2473
+const formatCircledDigit = (value?: number | null): string | null => {
+  if (value == null) return null
+  const rounded = Math.max(0, Math.floor(value))
+  if (rounded === 0) return String.fromCodePoint(CIRCLED_ZERO_CODE_POINT)
+  if (rounded >= 1 && rounded <= (CIRCLED_TWENTY_CODE_POINT - CIRCLED_ONE_CODE_POINT + 1)) {
+    return String.fromCodePoint(CIRCLED_ONE_CODE_POINT + rounded - 1)
+  }
+  return String(rounded)
+}
 const pxValue = (value: string): number => Number.parseFloat(value) || 0
 const HEADER_LABEL_SX = {
   fontWeight: 600,
@@ -136,10 +149,22 @@ type TesterItemsTableProps = {
   filterActive?: boolean
   substatColors: Record<number, { fg: string; bg: string }>
   useStatButtonColors?: boolean
+  onToggleStatColors: (next: boolean) => void
+  onOpenManageColors: () => void
+  colorIconSrc: string
   onJumpToRule?: (ruleIndex: number, cfgIdx: number | null) => void
 }
 
-export function TesterItemsTable({ rows, filterActive = false, substatColors, useStatButtonColors = false, onJumpToRule }: TesterItemsTableProps) {
+export function TesterItemsTable({
+  rows,
+  filterActive = false,
+  substatColors,
+  useStatButtonColors = false,
+  onToggleStatColors,
+  onOpenManageColors,
+  colorIconSrc,
+  onJumpToRule,
+}: TesterItemsTableProps) {
   const { t } = useI18n()
   const theme = useTheme()
   const gridGapCss = theme.spacing(GRID_GAP_UNITS)
@@ -151,9 +176,9 @@ export function TesterItemsTable({ rows, filterActive = false, substatColors, us
   const [viewportHeight, setViewportHeight] = useState(0)
   const [containerWidth, setContainerWidth] = useState(0)
   const defaultColumns = useMemo<TesterColConfig[]>(() => ([
-    { key: 'item', labelKey: 'testerTableHeaderItem', width: 260 },
-    { key: 'details', labelKey: 'testerTableHeaderDetails', width: 360 },
-    { key: 'result', labelKey: 'testerTableHeaderResult', width: 260 },
+    { key: 'item', labelKey: 'testerTableHeaderItem', width: 234 },
+    { key: 'details', labelKey: 'testerTableHeaderDetails', width: 462 },
+    { key: 'result', labelKey: 'testerTableHeaderResult', width: 312 },
   ]), [])
   const [storedCols, setStoredCols] = useTesterTableColumnsPreference()
 
@@ -461,6 +486,61 @@ export function TesterItemsTable({ rows, filterActive = false, substatColors, us
           } as unknown as MuiPaperProps,
         }}
       >
+        <MenuItem
+          sx={{ gap: 1, alignItems: 'center' }}
+          onClick={(event) => {
+            event.stopPropagation()
+            onToggleStatColors(!useStatButtonColors)
+          }}
+        >
+          <Typography variant="body2" sx={{ fontWeight: 600, flex: 1, minWidth: 0 }}>
+            {t('rulesMenuColorStatTexts')}
+          </Typography>
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'stretch',
+              gap: 0.5,
+              width: 148,
+              minHeight: 28,
+              height: 28,
+            }}
+            onClick={(event) => { event.stopPropagation() }}
+          >
+            <Button
+              size="small"
+              variant={useStatButtonColors ? 'contained' : 'outlined'}
+              color="success"
+              sx={{ flex: '1 1 auto', minWidth: 0, height: '100%', lineHeight: 1, py: 0, px: 1 }}
+              onClick={(event) => {
+                event.stopPropagation()
+                onToggleStatColors(!useStatButtonColors)
+              }}
+            >
+              {useStatButtonColors ? t('commonOn') : t('commonOff')}
+            </Button>
+            <Tooltip title={t('manageColors')}>
+              <span>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  color="info"
+                  disabled={!useStatButtonColors}
+                  sx={{ flex: '0 0 auto', minWidth: 28, width: 28, height: '100%', lineHeight: 1, py: 0, px: 0.25 }}
+                  onClick={(event) => {
+                    event.stopPropagation()
+                    if (!useStatButtonColors) return
+                    onOpenManageColors()
+                  }}
+                  aria-label={t('manageColorsAria')}
+                >
+                  <img src={colorIconSrc} width={16} height={16} alt={t('manageColors')} style={{ display: 'block' }} />
+                </Button>
+              </span>
+            </Tooltip>
+          </Box>
+        </MenuItem>
+        <Divider sx={{ my: 0.5 }} />
         <Box sx={{ px: 1.5, pt: 1, pb: 1, display: 'flex', gap: 1, alignItems: 'center' }}>
           <Button
             size="small"
@@ -531,24 +611,118 @@ const TesterItemRow = React.memo(function TesterItemRow({
     : undefined
   const mainSummaryColor = useStatButtonColors ? rawMainColor : undefined
   const { tooltip: subTooltip } = formatSubstats(artifact.substats, t)
+  const glyphDeltaColor = theme.palette.success.main
   const substatEntries = artifact.substats
     .filter((stat) => stat.variant !== StatVariant.Any)
     .map((stat) => {
-      const label = `${t(statVariantI18nKey(stat.variant))} ${formatStatTotal(stat) || t('testerValueUnknown')}`.trim()
-      const color = useStatButtonColors
+      const statLabel = t(statVariantI18nKey(stat.variant))
+      const statValue = formatStatTotal(stat) || t('testerValueUnknown')
+      const statColor = useStatButtonColors
         ? (substatColors[stat.variant]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[stat.variant])
         : undefined
-      return { variant: stat.variant, label, color }
+      const glyphMagnitude = Math.abs(Number(stat.glyphValue) || 0)
+      const glyphDelta = glyphMagnitude >= 0.01
+        ? `${Number(stat.glyphValue) >= 0 ? '+' : '-'}${formatStatNumber(glyphMagnitude)}`
+        : null
+      const rollGlyph = (typeof stat.rolls === 'number' && stat.rolls > 0)
+        ? formatCircledDigit(stat.rolls)
+        : null
+      const rollAriaLabel = (typeof stat.rolls === 'number' && stat.rolls > 0)
+        ? t('testerRollsLabel', { rolls: stat.rolls })
+        : null
+      return {
+        variant: stat.variant,
+        content: (
+          <>
+            <Box component="span" sx={{ color: statColor ?? 'inherit' }}>
+              {statLabel} {statValue}
+            </Box>
+            {rollGlyph ? (
+              <Box
+                component="span"
+                sx={{ ml: 0.5, fontSize: '1rem', lineHeight: 1 }}
+                aria-label={rollAriaLabel ?? undefined}
+              >
+                {rollGlyph}
+              </Box>
+            ) : null}
+            {glyphDelta ? (
+              <Box
+                component="span"
+                sx={{
+                  color: glyphDeltaColor,
+                  fontWeight: 600,
+                  ml: 0.5,
+                }}
+              >
+                {glyphDelta}
+              </Box>
+            ) : null}
+          </>
+        ),
+      }
     })
   const ascVariant = artifact.ascension?.variant
   const ascValue = artifact.ascension ? formatStatNumber(artifact.ascension.totalValue) : ''
   const ascLabel = artifact.ascension ? t(statVariantI18nKey(artifact.ascension.variant)) : ''
-  const ascInline = artifact.ascension
-    ? (ascValue ? t('testerMainStatInline', { stat: ascLabel, value: ascValue }) : ascLabel)
-    : ''
-  const ascSummaryColor = useStatButtonColors && typeof ascVariant === 'number'
+  const ascStatColor = useStatButtonColors && typeof ascVariant === 'number'
     ? (substatColors[ascVariant]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[ascVariant])
     : undefined
+  const ascLabelNode = ascLabel ? (
+    <Box component="span" sx={{ color: ascStatColor ?? 'inherit' }}>
+      {ascLabel}
+    </Box>
+  ) : null
+  const ascValueNode = ascValue ? (
+    <Box component="span" sx={{ color: theme.palette.secondary.main, fontWeight: 600 }}>
+      {ascValue}
+    </Box>
+  ) : null
+  const ascSummaryNode = (() => {
+    if (!artifact.ascension) return null
+    if (ascValue && ascLabelNode && ascValueNode) {
+      const statToken = '__STAT__'
+      const valueToken = '__VALUE__'
+      const template = t('testerMainStatInline', { stat: statToken, value: valueToken })
+      const replacements = [
+        { token: statToken, node: ascLabelNode },
+        { token: valueToken, node: ascValueNode },
+      ]
+      const parts: React.ReactNode[] = []
+      let remaining = template
+      while (remaining.length > 0) {
+        let matchIdx = -1
+        let match: { token: string; node: React.ReactNode } | null = null
+        for (const rep of replacements) {
+          const idx = remaining.indexOf(rep.token)
+          if (idx === -1) continue
+          if (matchIdx === -1 || idx < matchIdx) {
+            matchIdx = idx
+            match = rep
+          }
+        }
+        if (!match || matchIdx === -1) {
+          if (remaining) parts.push(remaining)
+          break
+        }
+        if (matchIdx > 0) {
+          parts.push(remaining.slice(0, matchIdx))
+        }
+        parts.push(match.node)
+        remaining = remaining.slice(matchIdx + match.token.length)
+      }
+      return (
+        <>
+          {parts.map((part, idx) => (
+            typeof part === 'string'
+              ? <React.Fragment key={`asc-str-${idx}`}>{part}</React.Fragment>
+              : <React.Fragment key={`asc-node-${idx}`}>{part}</React.Fragment>
+          ))}
+        </>
+      )
+    }
+    return ascLabelNode
+  })()
   const rerollLabel = artifact.rerollCount > 0 ? CHAOS_REROLLED_GLYPH : ''
   const rerollLabelColor = theme.palette.text.secondary
   const rerollTooltip = artifact.rerollCount > 0 ? `${CHAOS_REROLLED_GLYPH} ${t('testerRerollLabel')}` : ''
@@ -587,12 +761,10 @@ const TesterItemRow = React.memo(function TesterItemRow({
       <Box component="span" sx={{ color: mainSummaryColor ?? 'inherit' }}>
         {mainInline}
       </Box>
-      {ascInline ? (
+      {ascSummaryNode ? (
         <>
           {' + '}
-          <Box component="span" sx={{ color: ascSummaryColor ?? 'inherit' }}>
-            {ascInline}
-          </Box>
+          {ascSummaryNode}
         </>
       ) : null}
     </>
@@ -661,10 +833,10 @@ const TesterItemRow = React.memo(function TesterItemRow({
         </Box>
         <TesterSummaryLabel label={mainSummaryContent} />
         <Tooltip title={subTooltip}>
-          <Box sx={{ display: 'flex', flexWrap: 'nowrap', gap: 0.5, minWidth: 0, overflow: 'hidden' }}>
+          <Box sx={{ display: 'flex', flexWrap: 'nowrap', gap: 0.75, minWidth: 0, overflow: 'hidden' }}>
             {substatEntries.length > 0 ? (
               substatEntries.map((entry) => (
-                <TesterSummaryLabel key={`sub-${entry.variant}`} label={entry.label} color={entry.color} />
+                <TesterSummaryLabel key={`sub-${entry.variant}`} label={entry.content} />
               ))
             ) : (
               <TesterSummaryLabel label="—" />
