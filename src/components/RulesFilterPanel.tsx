@@ -526,6 +526,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
     [wildcardState.counts],
   )
   const wildcardHasSelection = wildcardCounts.length > 0
+  const wildcardIsActive = (wildcardState.mode ?? 'off') === 'any' && wildcardHasSelection
   const testerRollsPerStat = testerRollsState.perStat ?? EMPTY_ROLL_ROWS
   const activePerStatRows = React.useMemo(
     () => testerRollsPerStat.filter((row) => (row.counts?.length ?? 0) > 0),
@@ -542,7 +543,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
 
   const rollSummaryDescription = React.useMemo(() => {
     const parts: string[] = []
-    if (wildcardHasSelection) {
+    if (wildcardIsActive) {
       const wildcardSummary = summarizeRollCounts(wildcardCounts)
       if (wildcardSummary) {
         parts.push(t('filterRollsSummaryAnyStat', { counts: wildcardSummary }))
@@ -564,14 +565,14 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
     if (parts.length === 0) return t('filterRollsSummaryNone')
     const separator = t('filterRollsChipSeparator')
     return parts.join(separator)
-  }, [activePerStatRows, t, testerRollRowCount, wildcardCounts, wildcardHasSelection])
+  }, [activePerStatRows, t, testerRollRowCount, wildcardCounts, wildcardIsActive])
 
   const rollChipGlyph = React.useMemo(() => {
     if (!testerRollsActive) return GLYPH_GTE_ZERO
-    if (wildcardHasSelection) return GLYPH_GTE_ONE
+    if (wildcardIsActive) return GLYPH_GTE_ONE
     if (testerRollRowCount > 0) return GLYPH_ONLY
     return GLYPH_GTE_ONE
-  }, [testerRollRowCount, testerRollsActive, wildcardHasSelection])
+  }, [testerRollRowCount, testerRollsActive, wildcardIsActive])
 
   const rollChipLabel = `${t('filterRolls')}: ${rollChipGlyph}`
   const rollChipAria = t('filterRollsChipAria', { summary: rollSummaryDescription })
