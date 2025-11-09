@@ -95,11 +95,23 @@ async function resolveSqlWasmLocation(): Promise<string> {
         /* @vite-ignore */ '../../../../../node_modules/sql.js/dist/sql-wasm.wasm',
         import.meta.url,
       )
-      const location = url.protocol === 'file:' ? decodeURIComponent(url.pathname) : url.toString()
+      const location = normalizeFileUrlPath(url)
       wasmLocationPromise = Promise.resolve(location)
     }
   }
   return wasmLocationPromise
+}
+
+function normalizeFileUrlPath(url: URL): string {
+  if (url.protocol !== 'file:') return url.toString()
+  let pathname = decodeURIComponent(url.pathname)
+  if (/^\/[a-zA-Z]:/.test(pathname)) {
+    pathname = pathname.slice(1)
+  }
+  if (/^[a-zA-Z]:\//.test(pathname)) {
+    pathname = pathname.replace(/\//g, '\\')
+  }
+  return pathname
 }
 
 async function loadSqlJs(): Promise<SqlJsInstance> {
