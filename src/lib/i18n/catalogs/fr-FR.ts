@@ -629,6 +629,7 @@ const overrides: Catalog = {
   builderRequiredSubstatsHelp: 'Définissez combien de sous-stats sélectionnées doivent être présentes pour que la règle passe.\n• Les sous-stats verrouillées (🔒) comptent toujours.\n• « Auto » suit le nombre de sous-stats sélectionnées (jusqu’à quatre).',
   builderFlexChipOn: 'Flex : Activé',
   builderFlexChipOff: 'Flex : Désactivé',
+  builderFlexGlyphChipLabel: 'Flex : {glyph}',
   builderMinRequiredRolls: 'Lancers min requis',
   builderMinRequiredRollsTipSummary: 'Définit l’objectif commun de lancers d’amélioration pour les sous-stats requises.',
   builderMinRequiredRollsTip1: 'Auto choisit un total de jets partagé pour vous :\n• 1 sous-stat suivie → reste à 0 (présence seulement).\n• 2+ sous-stats requises → s’aligne sur ce nombre (ou sur les verrouillées quand la cible est « Verrouillés uniquement »).\n• Ne dépasse jamais ce que la rareté choisie peut atteindre à +16, donc vos ajustements restent réalisables.',

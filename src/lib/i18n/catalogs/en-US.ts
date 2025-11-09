@@ -91,7 +91,7 @@ const enUS: Catalog = {
   testerFinalSellChip: 'Final Sell',
   testerValueUnknown: '—',
   testerAddManualGear: 'Add custom gear',
-  testerRerollLabel: 'Rerolled ×{count}',
+  testerRerollLabel: 'Rerolled',
   // Common UI bits used in Rule Tester
   add: 'Add',
   compact: 'Compact',
@@ -630,6 +630,7 @@ const enUS: Catalog = {
   builderRequiredSubstatsHelp: 'Set how many of the selected substats must appear on the item before the rule passes.\n• Locked substats (🔒) always count toward the requirement.\n• “Auto” keeps the count in sync with how many substats you picked (capped at four).',
   builderFlexChipOn: 'Flex: On',
   builderFlexChipOff: 'Flex: Off',
+  builderFlexGlyphChipLabel: 'Flex: {glyph}',
   builderMinRequiredRolls: 'Min Required Rolls',
   builderMinRequiredRollsTipSummary: 'Sets the shared upgrade-roll target for the required substats.',
   builderMinRequiredRollsTip1: 'Auto picks a shared roll total for you:\n• 1 tracked substat → stays at 0 (presence only).\n• 2+ required substats → matches that count (or locked ones when targeting Locked).\n• Never exceeds what the chosen rarity can roll by +16, so tweaks stay achievable.',

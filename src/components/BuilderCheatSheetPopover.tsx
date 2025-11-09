@@ -5,13 +5,13 @@ import { useI18n } from '../lib/i18n'
 import { RarityCode, StatVariant, statVariantI18nKey, formatLevel, rarityCodeToName, STAT_VARIANTS_PRIORITY_ROW1 } from '../lib/types'
 import { variantToSub } from '../lib/hsfTypes'
 import { SubstatToggleDisplay, substatToggleGroupSx } from './SubstatToggleDisplay'
-import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh'
 import { BUILDER_TOGGLE_BUTTON_MIN_WIDTH_PX, NBSP } from '../lib/constants'
 import RuleSubstatChips from './RuleSubstatChips'
 import type { HsfRule } from '../lib/hsfTypes'
 import { createBuilderStatusChipSx } from './builderStatusChipStyles'
 import { useDisplayPreferences } from '../state/preferencesState'
 import { renderColoredStatText, type HighlightSpec, type SubstatColorMap } from '../lib/renderColoredStatText'
+import { GLYPH_TOGGLE_ON } from '../lib/glyphs'
 
 interface BuilderCheatSheetPopoverProps {
   open: boolean
@@ -259,8 +259,7 @@ export default function BuilderCheatSheetPopover({ open, anchorPosition, onClose
   const builderStatusChipSx = React.useMemo(() => createBuilderStatusChipSx(theme), [theme])
   const renderFlexStatusChip = () => (
     <Chip
-      icon={<AutoFixHighIcon fontSize="small" />}
-      label={t('builderFlexChipOn')}
+      label={t('builderFlexGlyphChipLabel', { glyph: GLYPH_TOGGLE_ON })}
       size="small"
       variant="filled"
       sx={builderStatusChipSx(true)}

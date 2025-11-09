@@ -629,6 +629,7 @@ const overrides: Catalog = {
   builderRequiredSubstatsHelp: 'Lege fest, wie viele deiner ausgewählten Substats auf dem Teil vorhanden sein müssen, damit die Regel passt.\n• Gesperrte Substats (🔒) zählen immer mit.\n• „Auto“ hält die Zahl im Einklang mit der Auswahl (maximal vier).',
   builderFlexChipOn: 'Flex: An',
   builderFlexChipOff: 'Flex: Aus',
+  builderFlexGlyphChipLabel: 'Flex: {glyph}',
   builderMinRequiredRolls: 'Mindest‑Rolls',
   builderMinRequiredRollsTipSummary: 'Legt das gemeinsame Aufwertungs‑Rollziel für die benötigten Substats fest.',
   builderMinRequiredRollsTip1: 'Auto bestimmt eine gemeinsame Roll-Summe für dich:\n• 1 verfolgter Substat → bleibt bei 0 (nur Vorhandensein).\n• 2+ erforderliche Substats → übernimmt diese Anzahl (oder die gesperrten, wenn Ziel = „Nur gesperrte“).\n• Überschreitet nie, was die gewählte Seltenheit bis +16 rollen kann – Feinanpassungen bleiben erreichbar.',

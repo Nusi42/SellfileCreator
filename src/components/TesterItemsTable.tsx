@@ -551,7 +551,7 @@ const TesterItemRow = React.memo(function TesterItemRow({
     : undefined
   const rerollLabel = artifact.rerollCount > 0 ? CHAOS_REROLLED_GLYPH : ''
   const rerollLabelColor = theme.palette.text.secondary
-  const rerollTooltip = artifact.rerollCount > 0 ? `${CHAOS_REROLLED_GLYPH} ${t('testerRerollLabel', { count: artifact.rerollCount })}` : ''
+  const rerollTooltip = artifact.rerollCount > 0 ? `${CHAOS_REROLLED_GLYPH} ${t('testerRerollLabel')}` : ''
   const sourceDescriptor = getItemSourceDescriptor(artifact, t)
   const sourceLabelNode = sourceDescriptor ? (
     <Typography variant="caption" color="text.secondary" noWrap sx={{ fontWeight: 600 }}>

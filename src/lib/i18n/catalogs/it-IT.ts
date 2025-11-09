@@ -629,6 +629,7 @@ const overrides: Catalog = {
   builderRequiredSubstatsHelp: 'Imposta quante delle sotto-stat selezionate devono essere presenti sull’oggetto perché la regola passi.\n• Le sotto-stat bloccate (🔒) contano sempre verso il requisito.\n• "Auto" mantiene il conteggio sincronizzato con quante sotto-stat hai scelto (max quattro).',
   builderFlexChipOn: 'Flex: Attivo',
   builderFlexChipOff: 'Flex: Spento',
+  builderFlexGlyphChipLabel: 'Flex: {glyph}',
   builderMinRequiredRolls: 'Roll minimi richiesti',
   builderMinRequiredRollsTipSummary: 'Imposta l’obiettivo condiviso di roll di potenziamento per le sotto-stat richieste.',
   builderMinRequiredRollsTip1: 'Auto sceglie un totale di roll condiviso per te:\n• 1 sotto-stat tracciata → resta a 0 (solo presenza).\n• 2+ sotto-stat richieste → eguaglia quel numero (o quelle bloccate quando punti «Solo bloccate»).\n• Non supera mai i roll che la rarità scelta può ottenere entro +16, così gli aggiustamenti restano raggiungibili.',

@@ -629,6 +629,7 @@ const overrides: Catalog = {
   builderRequiredSubstatsHelp: 'Bir kuralın geçmesi için seçtiğiniz alt statlerden kaçının bulunması gerektiğini ayarlayın.\n• Kilitli alt statlar (🔒) her zaman sayılır.\n• “Oto” sayıyı seçili alt statlerle senkron tutar (en fazla dört).',
   builderFlexChipOn: 'Flex: Açık',
   builderFlexChipOff: 'Flex: Kapalı',
+  builderFlexGlyphChipLabel: 'Flex: {glyph}',
   builderMinRequiredRolls: 'Min gerekli rulolar',
   builderMinRequiredRollsTipSummary: 'Gerekli alt statler için paylaşılan geliştirme rulo hedefini belirler.',
   builderMinRequiredRollsTip1: 'Auto senin için ortak bir rulo toplamı seçer:\n• 1 takip edilen alt stat → 0\'da kalır (yalnızca varlığını doğrular).\n• 2+ zorunlu alt stat → bu sayıyı eşler (hedef «Kilitli» ise kilitli olanları baz alır).\n• Seçilen nadirliğin +16\'da atabileceğinden fazlasını asla istemez; ince ayarlar ulaşılabilir kalır.',
