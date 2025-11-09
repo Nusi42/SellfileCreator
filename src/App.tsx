@@ -3408,6 +3408,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             collapsed={filterCollapsed}
             onCollapsedChange={setFilterCollapsed}
             testerChampionOptions={testerChampionOptions}
+            substatColors={substatColors}
+            useStatButtonColors={statButtonBorders}
           />
           )}
           <Box sx={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>

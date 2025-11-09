@@ -38,6 +38,30 @@ export type Bool3 = 'any' | 'yes' | 'no'
 export type TesterSourceFilter = 'inventory' | 'collection' | 'vault' | 'inbox' | 'manual'
 export type TesterChaosFilterMode = 'any' | 'notRerolled' | 'rerolled'
 export type TesterGlyphFilterMode = 'any' | 'on' | 'off' | 'selected'
+export type TesterRollComparator = 'eq' | 'gte' | 'lte'
+export type TesterRollWildcardMode = 'off' | 'any' | 'selected'
+
+export type TesterRollFilterRow = {
+  stat: StatVariant
+  comparator: TesterRollComparator
+  value: number
+}
+
+export type TesterRollWildcardFilter = {
+  mode: TesterRollWildcardMode
+  comparator: TesterRollComparator
+  value: number
+}
+
+export type TesterRollFilterState = {
+  wildcard: TesterRollWildcardFilter
+  perStat: TesterRollFilterRow[]
+}
+
+export const createDefaultTesterRollsState = (): TesterRollFilterState => ({
+  wildcard: { mode: 'off', comparator: 'eq', value: 2 },
+  perStat: [],
+})
 
 export interface RulesFilterState {
   // Rule-level filters
@@ -59,6 +83,7 @@ export interface RulesFilterState {
   testerGlyphs?: { mode: TesterGlyphFilterMode }
   testerAscension?: { stars: number[]; stats: StatVariant[] }
   testerChampions?: { selected: number[] }
+  testerRolls?: TesterRollFilterState
 }
 
 export const DEFAULT_RULES_FILTER_STATE: RulesFilterState = {
@@ -78,6 +103,7 @@ export const DEFAULT_RULES_FILTER_STATE: RulesFilterState = {
   testerGlyphs: { mode: 'any' },
   testerAscension: { stars: [], stats: [] },
   testerChampions: { selected: [] },
+  testerRolls: createDefaultTesterRollsState(),
 }
 
 // Back-compat helpers: accept legacy range shapes (min/max) if present
@@ -96,9 +122,10 @@ export function isRulesFilterActive(f: RulesFilterState): boolean {
   const k = (f.testerSources?.selected?.length ?? 0) > 0
   const l = (f.testerChaos?.mode ?? 'any') !== 'any'
   const m = (f.testerGlyphs?.mode ?? 'any') !== 'any'
+  const p = isTesterRollFilterActive(f.testerRolls)
   const n = ((f.testerAscension?.stars?.length ?? 0) > 0) || ((f.testerAscension?.stats?.length ?? 0) > 0)
   const o = (f.testerChampions?.selected?.length ?? 0) > 0
-  return ra || tr || a || b || c || d || e || g || h || i || j || k || l || m || n || o
+  return ra || tr || a || b || c || d || e || g || h || i || j || k || l || m || p || n || o
 }
 
 // Coverage helpers for Rank and Rarity codes (map rule code -> set of underlying values 1..6).
@@ -373,6 +400,9 @@ export function filterTesterItems<T extends TesterFilterRow>(
 ): FilterTesterItemsResult<T> {
   if (!rows.length) return { items: [], matchingConfigIndices: new Set() }
 
+  const testerRolls = normalizeTesterRollsState(f.testerRolls)
+  const testerRollsActive = isTesterRollFilterActive(testerRolls)
+
   const testerKeepMode = f.testerResult?.keep ?? 'any'
   const testerMatchedMode = f.testerResult?.matched ?? 'any'
   const selectedSets = new Set((f.sets?.selected ?? []).map(Number))
@@ -505,6 +535,7 @@ export function filterTesterItems<T extends TesterFilterRow>(
     const subVariants = new Set<number>()
     const glyphedVariants = new Set<number>()
     let hasGlyph = false
+    const rollCounts = testerRollsActive ? new Map<number, number>() : null
     for (const stat of artifact.substats) {
       if (stat.variant !== StatVariant.Any) {
         const variantNumber = Number(stat.variant)
@@ -513,6 +544,10 @@ export function filterTesterItems<T extends TesterFilterRow>(
         if (glyphValue > 0) {
           hasGlyph = true
           glyphedVariants.add(variantNumber)
+        }
+        if (rollCounts) {
+          const rollCount = clampRollTarget(stat.rolls ?? 0)
+          rollCounts.set(variantNumber, rollCount)
         }
       }
     }
@@ -588,6 +623,15 @@ export function filterTesterItems<T extends TesterFilterRow>(
       }
     }
 
+    if (testerRollsActive) {
+      if (!rollCounts || !passesTesterRollFilters({
+        filters: testerRolls,
+        rollCounts,
+        selectedVariants: selectedSubVariants,
+        selectedMode: subMode,
+      })) continue
+    }
+
     if (match?.cfgIdx != null && match.cfgIdx >= 0) {
       matchingConfigIndices.add(match.cfgIdx)
     }
@@ -640,4 +684,111 @@ export function normalizeRulesFilterForTester(filter: RulesFilterState): RulesFi
   }
 
   return normalized ?? filter
+}
+
+type RollFilterEvalArgs = {
+  filters: TesterRollFilterState
+  rollCounts: Map<number, number>
+  selectedVariants: Set<number>
+  selectedMode: SubstatMatchMode
+}
+
+export function isTesterRollFilterActive(rolls?: TesterRollFilterState): boolean {
+  if (!rolls) return false
+  const wildcardMode = rolls.wildcard?.mode ?? 'off'
+  if (wildcardMode !== 'off') return true
+  return (rolls.perStat?.length ?? 0) > 0
+}
+
+const normalizeTesterRollFilterRow = (row: TesterRollFilterRow | null | undefined): TesterRollFilterRow | null => {
+  if (!row) return null
+  const stat = Number(row.stat)
+  if (!Number.isFinite(stat) || stat <= 0) return null
+  return {
+    stat: stat as StatVariant,
+    comparator: normalizeRollComparator(row.comparator),
+    value: clampRollTarget(row.value),
+  }
+}
+
+const normalizeRollComparator = (comparator?: TesterRollComparator): TesterRollComparator => {
+  if (comparator === 'gte' || comparator === 'lte') return comparator
+  return 'eq'
+}
+
+const normalizeRollMode = (mode?: TesterRollWildcardMode): TesterRollWildcardMode => {
+  if (mode === 'any' || mode === 'selected') return mode
+  return 'off'
+}
+
+const normalizeTesterRollsState = (input?: TesterRollFilterState): TesterRollFilterState => {
+  const base = input ?? createDefaultTesterRollsState()
+  const wildcard = base.wildcard ?? createDefaultTesterRollsState().wildcard
+  const rows = Array.isArray(base.perStat) ? base.perStat : []
+  return {
+    wildcard: {
+      mode: normalizeRollMode(wildcard.mode),
+      comparator: normalizeRollComparator(wildcard.comparator),
+      value: clampRollTarget(wildcard.value),
+    },
+    perStat: rows
+      .map((row) => normalizeTesterRollFilterRow(row))
+      .filter((row): row is TesterRollFilterRow => Boolean(row)),
+  }
+}
+
+const passesTesterRollFilters = ({ filters, rollCounts, selectedVariants, selectedMode }: RollFilterEvalArgs): boolean => {
+  const wildcard = filters.wildcard
+  if (wildcard.mode === 'any') {
+    let ok = false
+    for (const count of rollCounts.values()) {
+      if (compareRollCount(count, wildcard.comparator, wildcard.value)) {
+        ok = true
+        break
+      }
+    }
+    if (!ok) return false
+  } else if (wildcard.mode === 'selected') {
+    if (selectedVariants.size > 0) {
+      if (selectedMode === 'all') {
+        for (const variant of selectedVariants) {
+          const count = rollCounts.get(variant) ?? 0
+          if (!compareRollCount(count, wildcard.comparator, wildcard.value)) return false
+        }
+      } else {
+        let ok = false
+        for (const variant of selectedVariants) {
+          const count = rollCounts.get(variant) ?? 0
+          if (compareRollCount(count, wildcard.comparator, wildcard.value)) {
+            ok = true
+            break
+          }
+        }
+        if (!ok) return false
+      }
+    }
+  }
+
+  if (filters.perStat.length > 0) {
+    for (const row of filters.perStat) {
+      const variant = Number(row.stat)
+      if (!Number.isFinite(variant) || variant <= 0) continue
+      const count = rollCounts.get(variant) ?? 0
+      if (!compareRollCount(count, row.comparator, row.value)) return false
+    }
+  }
+
+  return true
+}
+
+const compareRollCount = (rollCount: number, comparator: TesterRollComparator, target: number): boolean => {
+  if (comparator === 'gte') return rollCount >= target
+  if (comparator === 'lte') return rollCount <= target
+  return rollCount === target
+}
+
+const clampRollTarget = (value: number | null | undefined): number => {
+  const numeric = Number(value ?? 0)
+  if (!Number.isFinite(numeric)) return 0
+  return Math.max(0, Math.min(5, Math.round(numeric)))
 }

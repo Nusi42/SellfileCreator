@@ -1,4 +1,4 @@
-import { Box, Button, Chip, Collapse, Divider, FormControl, FormLabel, IconButton, InputAdornment, ListSubheader, MenuItem, Select, SelectChangeEvent, Stack, TextField, ToggleButton, ToggleButtonGroup, Tooltip, Typography } from '@mui/material'
+import { Box, Button, Chip, Collapse, Divider, FormControl, FormLabel, IconButton, InputAdornment, ListSubheader, MenuItem, Select, SelectChangeEvent, Stack, TextField, ToggleButton, ToggleButtonGroup, Tooltip, Typography, Popover } from '@mui/material'
 import { useI18n } from '../lib/i18n'
 import SetMenuSection from './SetMenuSection'
 import SetsOrderControls from './SetsOrderControls'
@@ -25,6 +25,8 @@ import {
   STAT_VARIANTS_PRIORITY,
   STAT_VARIANTS_PRIORITY_ROW1,
   STAT_VARIANTS_PRIORITY_ROW2,
+  statSupportsGlyphs,
+  DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT,
 } from '../lib/types'
 import { LIST_SUBHEADER_SX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, SETS_MENU_WIDTH_PX, FILTER_FACTION_SELECT_WIDTH_PX, FILTER_SETS_SELECT_WIDTH_PX, FILTER_CHIP_TOP_MARGIN, ELLIPSIS_TEXT_SX, FILTER_TOGGLE_BUTTON_WIDTH_PX, SMALL_BUTTON_HEIGHT_PX, BUILDER_STATUS_CHIP_HEIGHT_PX, UI_BG_HOVER_DANGER_TRANSITION, DANGER_TINT_BG, SETS_SELECT_INLINE_GUTTER_PX, STATUS_CHIP_BORDER_RADIUS_PX, FONT_SIZE_BASE_PX, RULES_FILTER_COLLAPSE_SESSION_KEY, SETS_SELECT_CLEAR_BUTTON_RIGHT_PX, CLEAR_ICON_BUTTON_SIZE_PX, GLYPH_TOGGLE_ON, GLYPH_TOGGLE_OFF, GLYPH_GLYPHS_SELECTED } from '../lib/constants'
 import { metasetGlyph, orderMetasetIds, type Metaset } from '../lib/metasets'
@@ -34,21 +36,29 @@ import { keyframes } from '@emotion/react'
 import {
   DEFAULT_RULES_FILTER_STATE,
   isRulesFilterActive,
+  isTesterRollFilterActive,
+  createDefaultTesterRollsState,
   type AnyMode,
   type RulesFilterState,
   type Bool3,
   type TesterSourceFilter,
   type TesterChaosFilterMode,
   type TesterGlyphFilterMode,
+  type TesterRollFilterState,
+  type TesterRollFilterRow,
+  type TesterRollComparator,
+  type TesterRollWildcardMode,
 } from '../lib/rulesFilter'
 import { FactionOptionLabel } from './FactionIcon'
 import InlineSelectClearButton from './InlineSelectClearButton'
 import SelectDropdownActivator from './SelectDropdownActivator'
 import ClearIconButton from './ClearIconButton'
 import ClearIcon from '@mui/icons-material/Clear'
+import AddIcon from '@mui/icons-material/Add'
 import { useSetsOrderPreference } from '../state/setsOrderPreference'
 import type { TesterConfigFilterMode } from '../types/testerConfigFilterMode'
 import type { ChampionLocation } from '../lib/importers/gearDbNormalizer'
+import type { SubstatColorMap } from '../lib/renderColoredStatText'
 
 type TesterChampionOption = {
   id: number
@@ -107,6 +117,8 @@ type RulesFilterPanelProps = {
   collapsed: Record<string, boolean>
   onCollapsedChange: (next: Record<string, boolean>) => void
   testerChampionOptions?: TesterChampionOption[]
+  substatColors?: SubstatColorMap
+  useStatButtonColors?: boolean
 }
 
 const STAT_VARIANT_ORDER_LOOKUP = new Map<number, number>(
@@ -192,6 +204,42 @@ const ZERO_RESULTS_PULSE = keyframes`
   60% { background-color: rgba(244, 67, 54, 0.28); }
 `
 
+const EMPTY_ROLL_ROWS: readonly TesterRollFilterRow[] = []
+const EMPTY_STAT_VARIANTS: readonly StatVariant[] = []
+
+const ROLL_COMPARATOR_SYMBOL: Record<TesterRollComparator, string> = {
+  eq: '=',
+  gte: `≥${NARROW_NO_BREAK_SPACE}`,
+  lte: `≤${NARROW_NO_BREAK_SPACE}`,
+}
+
+const clampRollInputValue = (value: number | string): number => {
+  const numeric = typeof value === 'number' ? value : Number(value)
+  if (!Number.isFinite(numeric)) return 0
+  return Math.max(0, Math.min(5, Math.round(numeric)))
+}
+
+const ensureSubstatSelectionForRolls = (baseState: RulesFilterState, variant: StatVariant): RulesFilterState => {
+  if (!variant || Number(variant) <= 0) return baseState
+  const previous = baseState.sub ?? DEFAULT_RULES_FILTER_STATE.sub
+  const selected = previous.selected ?? []
+  if (selected.some((entry) => Number(entry) === Number(variant))) {
+    return baseState
+  }
+  const merged = [...selected, variant].sort((a, b) => {
+    const left = STAT_VARIANT_ORDER_LOOKUP.get(Number(a)) ?? 0
+    const right = STAT_VARIANT_ORDER_LOOKUP.get(Number(b)) ?? 0
+    return left - right
+  })
+  return {
+    ...baseState,
+    sub: {
+      ...previous,
+      selected: merged,
+    },
+  }
+}
+
 // UI-only component that lets users filter the preview table. View-only; export ignores filters.
 const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPanelProps>(function RulesFilterPanel(
   {
@@ -212,12 +260,18 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
     collapsed,
     onCollapsedChange,
     testerChampionOptions = [],
+    substatColors,
+    useStatButtonColors = false,
   },
   ref,
 ) {
   const isTesterMode = mode === 'tester'
   const { t } = useI18n()
   const theme = useTheme()
+  const testerRollsState: TesterRollFilterState = state.testerRolls ?? DEFAULT_RULES_FILTER_STATE.testerRolls ?? createDefaultTesterRollsState()
+  const testerRollsActive = isTesterRollFilterActive(state.testerRolls)
+  const [testerRollsAnchorEl, setTesterRollsAnchorEl] = React.useState<HTMLElement | null>(null)
+  const glyphableStatOptions = React.useMemo(() => STAT_VARIANTS_PRIORITY.filter((variant) => statSupportsGlyphs(variant)), [])
   const [hoverReset, setHoverReset] = React.useState(false)
   // Persisted Sets order + local search to mirror Builder UX
   const [setsOrder, setSetsOrder] = useSetsOrderPreference()
@@ -388,6 +442,153 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
         />
       </Tooltip>
     )
+  }
+  const wildcardState = testerRollsState.wildcard ?? createDefaultTesterRollsState().wildcard
+  const wildcardMode: TesterRollWildcardMode = wildcardState.mode ?? 'off'
+  const wildcardComparator: TesterRollComparator = wildcardState.comparator ?? 'eq'
+  const wildcardValue = wildcardState.value ?? 0
+  const testerRollsPerStat = testerRollsState.perStat ?? EMPTY_ROLL_ROWS
+  const testerRollRowCount = testerRollsPerStat.length
+  const subMatchMode = state.sub?.mode ?? 'all'
+  const selectedSubstats = state.sub?.selected ?? EMPTY_STAT_VARIANTS
+
+  const rollSummaryDescription = React.useMemo(() => {
+    const parts: string[] = []
+    if (wildcardMode === 'any') {
+      const symbol = ROLL_COMPARATOR_SYMBOL[wildcardComparator] ?? '='
+      parts.push(t('filterRollsSummaryAnyStat', { symbol, value: wildcardValue }))
+    } else if (wildcardMode === 'selected') {
+      const symbol = ROLL_COMPARATOR_SYMBOL[wildcardComparator] ?? '='
+      if ((selectedSubstats?.length ?? 0) === 0) {
+        parts.push(t('filterRollsSummarySelectedEmpty', { symbol, value: wildcardValue }))
+      } else if (subMatchMode === 'all') {
+        parts.push(t('filterRollsSummarySelectedAll', { symbol, value: wildcardValue }))
+      } else {
+        parts.push(t('filterRollsSummarySelectedAny', { symbol, value: wildcardValue }))
+      }
+    }
+    if (testerRollRowCount > 0) {
+      const joiner = t('filterRollsChipPerStatJoiner')
+      const entries = testerRollsPerStat
+        .map((row) => `${t(statVariantI18nKey(row.stat))}${ROLL_COMPARATOR_SYMBOL[row.comparator] ?? '='}${row.value}`)
+        .join(joiner)
+      parts.push(t('filterRollsSummaryPerStat', { entries }))
+    }
+    if (parts.length === 0) return t('filterRollsSummaryNone')
+    const separator = t('filterRollsChipSeparator')
+    return parts.join(separator)
+  }, [testerRollRowCount, testerRollsPerStat, selectedSubstats, subMatchMode, t, wildcardComparator, wildcardMode, wildcardValue])
+
+  const rollChipGlyph = React.useMemo(() => {
+    if (!testerRollsActive) return GLYPH_GTE_ZERO
+    if (wildcardMode === 'any') return GLYPH_GTE_ONE
+    if (wildcardMode === 'selected') return GLYPH_TOGGLE_ON
+    if (testerRollRowCount > 0) return GLYPH_ONLY
+    return GLYPH_GTE_ONE
+  }, [testerRollRowCount, testerRollsActive, wildcardMode])
+
+  const rollChipLabel = `${t('filterRolls')}: ${rollChipGlyph}`
+  const rollChipAria = t('filterRollsChipAria', { summary: rollSummaryDescription })
+
+  const pickNextRollRowVariant = React.useCallback((): StatVariant => {
+    const used = new Set<number>(testerRollsPerStat.map((row) => Number(row.stat)))
+    for (const variant of selectedSubstats ?? []) {
+      if (statSupportsGlyphs(variant) && !used.has(Number(variant))) return variant
+    }
+    for (const variant of glyphableStatOptions) {
+      if (!used.has(Number(variant))) return variant
+    }
+    return glyphableStatOptions[0] ?? StatVariant.SPD
+  }, [glyphableStatOptions, selectedSubstats, testerRollsPerStat])
+
+  const applyTesterRollsChange = (mutator: (current: TesterRollFilterState) => TesterRollFilterState, options?: { ensureVariant?: StatVariant }) => {
+    const nextRolls = mutator(state.testerRolls ?? createDefaultTesterRollsState())
+    let nextState: RulesFilterState = {
+      ...state,
+      testerRolls: nextRolls,
+    }
+    if (options?.ensureVariant != null) {
+      nextState = ensureSubstatSelectionForRolls(nextState, options.ensureVariant)
+    }
+    if (nextRolls.perStat.length > 0 && (nextState.sub?.mode ?? 'all') !== 'all') {
+      nextState = {
+        ...nextState,
+        sub: { ...(nextState.sub ?? DEFAULT_RULES_FILTER_STATE.sub), mode: 'all' },
+      }
+    }
+    if (!isTesterRollFilterActive(nextRolls) && nextRolls.wildcard.mode === 'off') {
+      const { testerRolls: _ignored, ...rest } = nextState
+      onChange(rest as RulesFilterState)
+      return
+    }
+    onChange(nextState)
+  }
+
+  const handleWildcardModeToggle = (_event: React.MouseEvent<HTMLElement>, next: TesterRollWildcardMode | null) => {
+    if (!next) return
+    applyTesterRollsChange((current) => ({
+      ...current,
+      wildcard: { ...(current.wildcard ?? createDefaultTesterRollsState().wildcard), mode: next },
+    }))
+  }
+
+  const handleWildcardComparatorChange = (_event: React.MouseEvent<HTMLElement>, next: TesterRollComparator | null) => {
+    if (!next) return
+    applyTesterRollsChange((current) => ({
+      ...current,
+      wildcard: { ...(current.wildcard ?? createDefaultTesterRollsState().wildcard), comparator: next },
+    }))
+  }
+
+  const handleWildcardValueChange = (value: number | string) => {
+    const clamped = clampRollInputValue(value)
+    applyTesterRollsChange((current) => ({
+      ...current,
+      wildcard: { ...(current.wildcard ?? createDefaultTesterRollsState().wildcard), value: clamped },
+    }))
+  }
+
+  const handleAddRollRow = () => {
+    const nextVariant = pickNextRollRowVariant()
+    applyTesterRollsChange((current) => ({
+      ...current,
+      perStat: [...(current.perStat ?? []), { stat: nextVariant, comparator: 'eq', value: 2 }],
+    }), { ensureVariant: nextVariant })
+  }
+
+  const handleRollRowStatChange = (index: number, variant: StatVariant) => {
+    applyTesterRollsChange((current) => ({
+      ...current,
+      perStat: current.perStat.map((row, idx) => (idx === index ? { ...row, stat: variant } : row)),
+    }), { ensureVariant: variant })
+  }
+
+  const handleRollRowComparatorChange = (index: number, comparator: TesterRollComparator) => {
+    applyTesterRollsChange((current) => ({
+      ...current,
+      perStat: current.perStat.map((row, idx) => (idx === index ? { ...row, comparator } : row)),
+    }))
+  }
+
+  const handleRollRowValueChange = (index: number, value: number | string) => {
+    const clamped = clampRollInputValue(value)
+    applyTesterRollsChange((current) => ({
+      ...current,
+      perStat: current.perStat.map((row, idx) => (idx === index ? { ...row, value: clamped } : row)),
+    }))
+  }
+
+  const handleRemoveRollRow = (index: number) => {
+    applyTesterRollsChange((current) => ({
+      ...current,
+      perStat: current.perStat.filter((_, idx) => idx !== index),
+    }))
+  }
+
+  const handleClearRollFilters = () => {
+    setTesterRollsAnchorEl(null)
+    const { testerRolls: _ignored, ...rest } = state
+    onChange(rest as RulesFilterState)
   }
 
   // Sets — reuse Builder look/feel: tokens, renderValue, order/search
@@ -606,18 +807,19 @@ const ASCENSION_STAR_VALUES: readonly number[] = [0, 1, 2, 3, 4, 5, 6]
   }
 
   return (
-    <Box
-      sx={(theme) => ({
-        border: `1px solid ${theme.palette.divider}`,
-        p: 0.75,
-        borderRadius: 1,
-        mb: 1,
-        transition: UI_BG_HOVER_DANGER_TRANSITION,
-        backgroundColor: hoverReset
-          ? (theme.palette.mode === 'dark' ? DANGER_TINT_BG.dark : DANGER_TINT_BG.light)
-          : 'transparent',
-      })}
-    >
+    <>
+      <Box
+        sx={(theme) => ({
+          border: `1px solid ${theme.palette.divider}`,
+          p: 0.75,
+          borderRadius: 1,
+          mb: 1,
+          transition: UI_BG_HOVER_DANGER_TRANSITION,
+          backgroundColor: hoverReset
+            ? (theme.palette.mode === 'dark' ? DANGER_TINT_BG.dark : DANGER_TINT_BG.light)
+            : 'transparent',
+        })}
+      >
       <Box
         ref={topHeaderRef}
         sx={{
@@ -1733,6 +1935,18 @@ const ASCENSION_STAR_VALUES: readonly number[] = [0, 1, 2, 3, 4, 5, 6]
                     />
                   </Tooltip>
                 )}
+                {isTesterMode && (
+                  <Tooltip title={rollSummaryDescription}>
+                    <Chip
+                      size="small"
+                      label={rollChipLabel}
+                      aria-label={rollChipAria}
+                      onClick={(event) => setTesterRollsAnchorEl(event.currentTarget)}
+                      variant="filled"
+                      sx={tintedChipSx(testerRollsActive ? theme.palette.info : theme.palette.success)}
+                    />
+                  </Tooltip>
+                )}
                 {/* Wildcard filter chip removed per UX simplification: wildcard rows are treated like normal rows in the preview filters. */}
               </Box>
               </Collapse>
@@ -2194,7 +2408,156 @@ const ASCENSION_STAR_VALUES: readonly number[] = [0, 1, 2, 3, 4, 5, 6]
 
         {/* Full-width rows */}
         {/* No full-width Main/Sub section: they live under Sets in the left column */}
-    </Box>
+      </Box>
+      {isTesterMode && (
+        <Popover
+          open={Boolean(testerRollsAnchorEl)}
+          anchorEl={testerRollsAnchorEl}
+          onClose={() => setTesterRollsAnchorEl(null)}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+          transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+          PaperProps={{ sx: { width: 360, maxWidth: 'calc(100vw - 32px)', p: 2 } }}
+        >
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+              <Typography variant="subtitle2">{t('filterRolls')}</Typography>
+              <Typography variant="body2" color="text.secondary">
+                {t('filterRollsHelper')}
+              </Typography>
+            </Box>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+              <Typography variant="caption" color="text.secondary">
+                {t('filterRollsWildcardTitle')}
+              </Typography>
+              <Stack spacing={1}>
+                <ToggleButtonGroup
+                  exclusive
+                  size="small"
+                  value={wildcardMode}
+                  onChange={handleWildcardModeToggle}
+                  sx={{ flexWrap: 'wrap', '& .MuiToggleButton-root': { minWidth: 0, px: 1, height: 28 } }}
+                >
+                  <ToggleButton value="off">{t('filterRollsModeOff')}</ToggleButton>
+                  <ToggleButton value="any">{t('filterRollsModeAnyStat')}</ToggleButton>
+                  <ToggleButton value="selected">{t('filterRollsModeSelected')}</ToggleButton>
+                </ToggleButtonGroup>
+                <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
+                  <ToggleButtonGroup
+                    exclusive
+                    size="small"
+                    value={wildcardComparator}
+                    onChange={handleWildcardComparatorChange}
+                    sx={{ '& .MuiToggleButton-root': { minWidth: 0, px: 1, height: 28 } }}
+                  >
+                    <ToggleButton value="eq">{ROLL_COMPARATOR_SYMBOL.eq}</ToggleButton>
+                    <ToggleButton value="gte">{ROLL_COMPARATOR_SYMBOL.gte}</ToggleButton>
+                    <ToggleButton value="lte">{ROLL_COMPARATOR_SYMBOL.lte}</ToggleButton>
+                  </ToggleButtonGroup>
+                  <TextField
+                    size="small"
+                    type="number"
+                    label={t('filterRollsValueLabel')}
+                    value={wildcardValue}
+                    inputProps={{ min: 0, max: 5 }}
+                    onChange={(event) => handleWildcardValueChange(event.target.value)}
+                    sx={{ width: 96 }}
+                  />
+                </Stack>
+                {wildcardMode === 'selected' && (
+                  <Typography variant="caption" color="text.secondary">
+                    {t('filterRollsSummaryMatchHelper')}
+                  </Typography>
+                )}
+              </Stack>
+            </Box>
+            <Divider />
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+              <Typography variant="caption" color="text.secondary">
+                {t('filterRollsPerStatTitle')}
+              </Typography>
+              <Stack spacing={1}>
+                {testerRollRowCount === 0 ? (
+                  <Typography variant="body2" color="text.secondary">
+                    {t('filterRollsNoPerStat')}
+                  </Typography>
+                ) : testerRollsPerStat.map((row, index) => (
+                  <Stack
+                    key={`roll-row-${row.stat}-${index}`}
+                    direction="row"
+                    spacing={1}
+                    alignItems="center"
+                    flexWrap="wrap"
+                  >
+                    <FormControl size="small" sx={{ minWidth: 140 }}>
+                      <Select
+                        size="small"
+                        value={String(row.stat)}
+                        onChange={(event) => handleRollRowStatChange(index, Number(event.target.value) as StatVariant)}
+                        MenuProps={{ PaperProps: { sx: { maxHeight: 320 } } }}
+                      >
+                        {glyphableStatOptions.map((variant) => {
+                          const displayColor = useStatButtonColors
+                            ? (substatColors?.[variant]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[variant] ?? theme.palette.text.primary)
+                            : undefined
+                          return (
+                            <MenuItem key={variant} value={String(variant)}>
+                              <Typography
+                                component="span"
+                                sx={{
+                                  ...(displayColor ? { color: displayColor } : {}),
+                                  ...(useStatButtonColors ? { fontWeight: 600 } : {}),
+                                }}
+                              >
+                                {t(statVariantI18nKey(variant))}
+                              </Typography>
+                            </MenuItem>
+                          )
+                        })}
+                      </Select>
+                    </FormControl>
+                    <ToggleButtonGroup
+                      exclusive
+                      size="small"
+                      value={row.comparator}
+                      onChange={(_event, next) => next && handleRollRowComparatorChange(index, next)}
+                      sx={{ '& .MuiToggleButton-root': { minWidth: 0, px: 1, height: 28 } }}
+                    >
+                      <ToggleButton value="eq">{ROLL_COMPARATOR_SYMBOL.eq}</ToggleButton>
+                      <ToggleButton value="gte">{ROLL_COMPARATOR_SYMBOL.gte}</ToggleButton>
+                      <ToggleButton value="lte">{ROLL_COMPARATOR_SYMBOL.lte}</ToggleButton>
+                    </ToggleButtonGroup>
+                    <TextField
+                      size="small"
+                      type="number"
+                      label={t('filterRollsValueLabel')}
+                      value={row.value}
+                      inputProps={{ min: 0, max: 5 }}
+                      onChange={(event) => handleRollRowValueChange(index, event.target.value)}
+                      sx={{ width: 96 }}
+                    />
+                    <IconButton size="small" aria-label={t('clear')} onClick={() => handleRemoveRollRow(index)}>
+                      <ClearIcon fontSize="small" />
+                    </IconButton>
+                  </Stack>
+                ))}
+              </Stack>
+              <Stack direction="row" justifyContent="space-between" alignItems="center">
+                <Button size="small" startIcon={<AddIcon fontSize="small" />} onClick={handleAddRollRow}>
+                  {t('filterRollsAddRow')}
+                </Button>
+                <Button size="small" disabled={!testerRollsActive} onClick={handleClearRollFilters}>
+                  {t('clear')}
+                </Button>
+              </Stack>
+            </Box>
+            <Divider />
+            <Typography variant="body2">
+              {t('filterRollsSummaryPrefix', { summary: rollSummaryDescription })}
+            </Typography>
+          </Box>
+        </Popover>
+      )}
+    </>
   )
 })
 
