@@ -17,11 +17,11 @@ The additions below follow that exact structure so nothing shifts into a third c
 
 3. **Row 3 (Mainstat section):**
    - Stat toggle grid unchanged.
-   - Helper chip row now contains only `Chaos Ore: Any | Not rerolled | Rerolled` (Match chip removed per latest guidance).
+   - Helper chip row now contains only `Chaos Ore: ≥ 0 | Ø | ⟳` (Match chip removed per latest guidance; ≥ 0 = any history, Ø = never rerolled, ⟳ = rerolled).
 
 4. **Row 4 (Substats section):**
    - Toggle grid + drawer remain.
-  - Helper chips immediately below the grid read `Match: Any | All` and `Glyphs: Any | On | Selected | Off` (Glyphs chip sits to the right of Match). The drawer mirrors the same controls for advanced tweaks.
+  - Helper chips immediately below the grid read `Match: ≥ 1 | ∞` and `Glyphs: ≥ 0 | ✦ | ◎ | ∅` (Glyphs chip sits to the right of Match). The drawer mirrors the same controls for advanced tweaks.
 
 5. **Row 5 (new, spans full column width):**
    - **Substat Roll Count**. Chips labeled `1 roll`, `2 rolls`, `3 rolls`, `4 rolls`, plus a `Mode: Any | All` chip. Manual tester entries count as 0 rolls, so they only appear when no chips are selected.
