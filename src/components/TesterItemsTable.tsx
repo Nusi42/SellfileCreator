@@ -651,7 +651,15 @@ const TesterItemRow = React.memo(function TesterItemRow({
             {rollGlyph ? (
               <Box
                 component="span"
-                sx={{ ml: 0.5, fontSize: '1rem', lineHeight: 1 }}
+                sx={{
+                  ml: 0.5,
+                  fontSize: '1rem',
+                  lineHeight: 1,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  position: 'relative',
+                  top: '0.06em',
+                }}
                 aria-label={rollAriaLabel ?? undefined}
               >
                 {rollGlyph}
