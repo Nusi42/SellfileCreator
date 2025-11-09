@@ -117,9 +117,9 @@ test('normalizeGearDbArtifact converts weapon row to tester item', () => {
   assert.equal(normalized.mainStat?.totalValue, 265)
   assert.equal(normalized.ascension?.totalValue, 408)
   const subValues = normalized.testerItem.subValues ?? {}
-  assert.equal(subValues[StatVariant.HP_FLAT], 811)
+  assert.equal(subValues[StatVariant.HP_FLAT], 536)
   assert.equal(subValues[StatVariant.CDMG], 12)
-  assert.equal(subValues[StatVariant.SPD], 21)
+  assert.equal(subValues[StatVariant.SPD], 18)
   assert.equal(subValues[StatVariant.CR], 6)
 })
 
@@ -132,10 +132,10 @@ test('normalizeGearDbArtifact handles accessory rows and faction mapping', () =>
   assert.equal(normalized.testerItem.previewExtras?.exactLevel, 16)
   assert.equal(normalized.mainStat?.totalValue, 265)
   const subValues = normalized.testerItem.subValues ?? {}
-  assert.equal(subValues[StatVariant.HP], 9)
-  assert.equal(subValues[StatVariant.ATK], 24)
-  assert.equal(subValues[StatVariant.DEF], 14)
-  assert.equal(subValues[StatVariant.DEF_FLAT], 42)
+  assert.equal(subValues[StatVariant.HP], 6)
+  assert.equal(subValues[StatVariant.ATK], 19)
+  assert.equal(subValues[StatVariant.DEF], 13)
+  assert.equal(subValues[StatVariant.DEF_FLAT], 17)
 })
 
 test('normalizeGearDbArtifact keeps armor rows without sets as no-set entries', () => {

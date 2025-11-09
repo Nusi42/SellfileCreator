@@ -73,7 +73,7 @@ Importer code must translate these values before normalizing Rule Tester entries
   | 8 | CDMG% | `*fl = 0` |
 
 - Value columns (`mlvlid`, `s?lvlid`, `sum*`, `ASCLVLID`, etc.) are scaled by `2^32`. Convert via `raw / 4294967296`. For percent stats, multiply the result by 100 to obtain the in-game percentage.
-- Glyph bonuses live in the corresponding `*gv` columns; add them (after scaling) to the base values from `*lvlid` when reconstructing totals.
+- Glyph bonuses live in the corresponding `*gv` columns; decode them separately from the base values in `*lvlid`. The importer keeps glyph deltas isolated so the UI and rule logic can decide when (or if) to add them.
 - Roll counts appear in `s?lvl` (recorded as 0–3), while `REROLLCOUNT` tracks forging rerolls (0/1 in this dataset).
 
 ### Ascension Metadata
@@ -111,7 +111,7 @@ No entries used the canonical `4` (Barbarians) code; importer logic should remap
 - `src/lib/importers/gearDbNormalizer.ts` converts raw rows into a `NormalizedGearArtifact` structure plus a ready-to-use `TestItem`. The helper centralises:
   - Slot translation (`Artifacts.type` → `ArtifactType`) and accessory “no set” handling (`aset = 0` → `ACCESSORY_NO_SET_ID`).
   - Fixed-point decoding with `STAT_SCALE = 2^32`, emitting rounded user-facing numbers (integers for flat stats, 2 decimals for percentages).
-  - Ascension bonuses captured separately (`source = 'ascension'`) so the UI can display them, while rule comparisons ignore them (tester `subValues` only aggregate substats/glyphs).
+  - Ascension bonuses captured separately (`source = 'ascension'`) so the UI can display them, while rule comparisons ignore them (tester `subValues` aggregate only the pre-glyph substat amounts; glyph deltas ride along in `previewExtras.substats[].glyphValue`).
   - Level metadata: `level` keeps the nearest milestone (0/4/8/12/16) used during rule matching, and `exactLevel` stores the clamped raw upgrade level from the database (0–16). When `exactLevel` is present the UI displays that precise value; custom tester rows omit this field and fall back to the milestone label.
   - Accessory faction remapping via the table above, with non-accessory slots forced to `0`.
 - Guardrails live in `tests/gearDbNormalizer.test.ts`, using real rows from `tests/sample.db` to assert slot, set, faction, and stat decoding (including ascension glyphs).

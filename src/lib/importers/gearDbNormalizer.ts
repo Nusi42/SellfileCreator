@@ -245,11 +245,12 @@ const finalizeStat = (statId: number, isFlat: boolean, base: number, glyph: numb
 } => {
   const convertedBase = convertStatUnits(statId, isFlat, base)
   const convertedGlyph = convertStatUnits(statId, isFlat, glyph)
-  const total = convertedBase + convertedGlyph
+  // `totalValue` reflects the in-game base (pre-glyph) amount so downstream logic
+  // can add glyphs explicitly when needed instead of double-counting.
   return {
     baseValue: roundStatValue(statId, isFlat, convertedBase),
     glyphValue: roundStatValue(statId, isFlat, convertedGlyph),
-    totalValue: roundStatValue(statId, isFlat, total),
+    totalValue: roundStatValue(statId, isFlat, convertedBase),
   }
 }
 
@@ -355,9 +356,9 @@ const buildSubValueMap = (stats: NormalizedStat[]): Record<number, number> => {
   const map = new Map<number, number>()
   for (const stat of stats) {
     if (stat.variant === StatVariant.Any) continue
-    if (Math.abs(stat.totalValue) <= 0) continue
+    if (Math.abs(stat.baseValue) <= 0) continue
     const existing = map.get(stat.variant) ?? 0
-    const combined = existing + stat.totalValue
+    const combined = existing + stat.baseValue
     map.set(stat.variant, roundStatValue(stat.statId, stat.isFlat, combined))
   }
   return Object.fromEntries(map.entries())
