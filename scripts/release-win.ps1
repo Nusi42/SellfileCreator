@@ -189,6 +189,11 @@ try {
     Copy-Item -LiteralPath $sampleServerSrc -Destination (Join-Path $devDir 'run-sample-server.ps1') -Force
   }
 
+  $sampleServerBatSrc = Join-Path $RepoRoot 'scripts\Stream-Helper-DB-to-Creator.bat'
+  if (Test-Path $sampleServerBatSrc) {
+    Copy-Item -LiteralPath $sampleServerBatSrc -Destination (Join-Path $devDir 'Stream-Helper-DB-to-Creator.bat') -Force
+  }
+
   $scriptsDir = Join-Path $RepoRoot 'scripts'
   $sampleJsonFiles = @('sample-commands-response.json', 'sample-upload-body.json')
   foreach ($fileName in $sampleJsonFiles) {

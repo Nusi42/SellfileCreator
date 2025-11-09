@@ -2033,7 +2033,7 @@ function Select-GearDbFileFromDirectory {
     }
 
     try {
-        $files = Get-ChildItem -LiteralPath $Directory -Filter '*.db' -File | Sort-Object LastWriteTime -Descending
+        $files = @(Get-ChildItem -LiteralPath $Directory -Filter '*.db' -File | Sort-Object LastWriteTime -Descending)
     }
     catch {
         Write-ConsoleLog -Message ("Failed to enumerate DB files under '{0}': {1}" -f $Directory, $_) -Color DarkYellow
