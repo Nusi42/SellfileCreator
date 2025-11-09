@@ -75,5 +75,6 @@ The additions below follow that exact structure so nothing shifts into a third c
 - “No selection = Any” applies uniformly to Keep/Sell, Matched, Source chips, roll-count chips, condensed Rank/Rarity buttons, and the Champions picker.
 - The Champions selector hides entirely when no tester rows carry an equipped champion ID, keeping the Source row compact for manual-only sessions.
 - The Glyphs helper now cycles through `Any → On → Selected → Off`; `Selected` demands that every chosen substat is present and glyphed before a tester row is shown.
+- The `Selected` state renders as a checkmark glyph (`✓`) to differentiate it from the star-shaped On glyph and the empty-set Off glyph at a glance.
 - The Source/Reroll row reuses the same internal 2-column grid as the current `Result/Sets` row, so column gutters and breakpoints stay identical.
 - Exact-level slider only renders while `mode === 'tester'`; when switching back to the rules table the component reinstates the ToggleButtonGroup without altering layout height.
