@@ -339,6 +339,34 @@ test('filterTesterItems filters by ascension stars and stats', () => {
   assert.equal(result.items[0]?.artifact.ascension?.variant, StatVariant.SPD)
 })
 
+test('filterTesterItems treats Mythical preroll as the fifth roll', () => {
+  const mythArtifact = makeArtifact({
+    rarity: 6,
+    substats: [
+      makeStat(StatVariant.SPD, 20, { statId: StatId.SPD, rolls: 4, mythValue: 5 }),
+    ],
+  })
+  const normalArtifact = makeArtifact({
+    substats: [
+      makeStat(StatVariant.SPD, 20, { statId: StatId.SPD, rolls: 4, mythValue: 0 }),
+    ],
+  })
+  const rows: TesterFilterRow[] = [
+    { artifact: mythArtifact, match: null },
+    { artifact: normalArtifact, match: null },
+  ]
+  const state: RulesFilterState = {
+    ...DEFAULT_RULES_FILTER_STATE,
+    testerRolls: {
+      wildcard: { mode: 'off', counts: [] },
+      perStat: [{ stat: StatVariant.SPD, counts: [5] }],
+    },
+  }
+  const result = filterTesterItems(rows, state)
+  assert.equal(result.items.length, 1)
+  assert.equal(result.items[0]?.artifact, mythArtifact)
+})
+
 test('filterTesterItems filters by champion selection', () => {
   const championArtifact = makeArtifact({ equippedToChampionId: 321 })
   const inventoryArtifact = makeArtifact({ equippedToChampionId: null })

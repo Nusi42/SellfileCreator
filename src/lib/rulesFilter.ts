@@ -601,7 +601,9 @@ export function filterTesterItems<T extends TesterFilterRow>(
           glyphedVariants.add(variantNumber)
         }
         if (rollCounts) {
-          const rollCount = clampRollTarget(stat.rolls ?? 0)
+          const baseRolls = Number(stat.rolls ?? 0)
+          const mythBonus = Math.abs(Number(stat.mythValue ?? 0)) > 0 ? 1 : 0
+          const rollCount = clampRollTarget(baseRolls + mythBonus)
           rollCounts.set(variantNumber, rollCount)
         }
       }

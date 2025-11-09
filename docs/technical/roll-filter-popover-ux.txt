@@ -54,3 +54,5 @@ Key behavioral notes
    consistent with other builder surfaces.
 4. Every rollable stat is always visible so users can target CR%/CDMG% as well. Summary copy mirrors
    the `{…}` notation so users understand they’re selecting exact counts rather than ranges.
+5. A `5`-roll selection also matches Mythical substats whose data only records four rolls plus the
+   Mythical pre-roll bonus; we treat that hidden bonus as the fifth roll when evaluating filters.
