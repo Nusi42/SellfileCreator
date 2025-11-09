@@ -70,9 +70,9 @@ const HEADER_LABEL_SX = {
 const HSCROLL_ON_MARGIN_PX = 8
 const HSCROLL_OFF_MARGIN_PX = 8
 
-function formatStatTotal(stat: NormalizedStat | null): string {
+function formatStatBase(stat: NormalizedStat | null): string {
   if (!stat) return ''
-  const value = stat.totalValue
+  const value = stat.baseValue
   if (!Number.isFinite(value)) return ''
   if (Math.abs(value % 1) < 0.01) {
     return String(Math.round(value))
@@ -99,7 +99,7 @@ function formatSubstats(
   for (const stat of stats) {
     if (stat.variant === StatVariant.Any) continue
     const label = translate(statVariantI18nKey(stat.variant))
-    const value = formatStatTotal(stat)
+    const value = formatStatBase(stat)
     const compact = value ? `${label} ${value}` : label
     pieces.push(compact)
     const rolls = typeof stat.rolls === 'number' && stat.rolls > 0 ? ` (${translate('testerRollsLabel', { rolls: stat.rolls })})` : ''
@@ -611,7 +611,7 @@ const TesterItemRow = React.memo(function TesterItemRow({
   const rankLabel = formatRank(artifact.rank as RankValue)
   const rarityLabel = resolveRarityLabel(t, Number(artifact.rarity))
   const mainLabel = artifact.mainStat ? t(statVariantI18nKey(artifact.mainStat.variant)) : t('any')
-  const mainValue = formatStatTotal(artifact.mainStat ?? null)
+  const mainValue = formatStatBase(artifact.mainStat ?? null)
   const levelChipLabel = t('testerLevelLabel', { level: levelLabel })
   const mainInline = mainValue
     ? t('testerMainStatInline', { stat: mainLabel, value: mainValue })
@@ -627,7 +627,7 @@ const TesterItemRow = React.memo(function TesterItemRow({
     .filter((stat) => stat.variant !== StatVariant.Any)
     .map((stat) => {
       const statLabel = t(statVariantI18nKey(stat.variant))
-      const statValue = formatStatTotal(stat) || t('testerValueUnknown')
+      const statValue = formatStatBase(stat) || t('testerValueUnknown')
       const statColor = useStatButtonColors
         ? (substatColors[stat.variant]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[stat.variant])
         : undefined
@@ -682,7 +682,7 @@ const TesterItemRow = React.memo(function TesterItemRow({
       }
     })
   const ascVariant = artifact.ascension?.variant
-  const ascValue = artifact.ascension ? formatStatNumber(artifact.ascension.totalValue) : ''
+  const ascValue = artifact.ascension ? formatStatNumber(artifact.ascension.baseValue) : ''
   const ascLabel = artifact.ascension ? t(statVariantI18nKey(artifact.ascension.variant)) : ''
   const ascStatColor = useStatButtonColors && typeof ascVariant === 'number'
     ? (substatColors[ascVariant]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[ascVariant])
