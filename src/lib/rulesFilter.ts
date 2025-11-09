@@ -59,7 +59,7 @@ export type TesterRollWildcardFilter = {
   counts: TesterRollCountSet
 }
 
-const DEFAULT_TESTER_ROLL_COUNT_SET: TesterRollCountSet = [2]
+const DEFAULT_TESTER_ROLL_COUNT_SET: TesterRollCountSet = TESTER_ROLL_COUNT_VALUES
 
 export type TesterRollFilterState = {
   wildcard: TesterRollWildcardFilter
