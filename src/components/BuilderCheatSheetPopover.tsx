@@ -468,7 +468,7 @@ export default function BuilderCheatSheetPopover({ open, anchorPosition, onClose
           [
             { variant: StatVariant.SPD, condition: '>=', value: 5 },
             { variant: StatVariant.ACC, condition: '>=', value: 9 },
-            { variant: StatVariant.CDMG, condition: '<=', value: 0 },
+            { variant: StatVariant.CDMG, condition: '<=', value: 5 },
           ],
           [
             { variant: StatVariant.SPD, value: 5 },
@@ -484,7 +484,7 @@ export default function BuilderCheatSheetPopover({ open, anchorPosition, onClose
           [
             { variant: StatVariant.SPD, condition: '>=', value: 10 },
             { variant: StatVariant.ACC, condition: '>=', value: 18 },
-            { variant: StatVariant.CDMG, condition: '<=', value: 0 },
+            { variant: StatVariant.CDMG, condition: '<=', value: 5 },
           ],
           [
             { variant: StatVariant.SPD, value: 10 },
@@ -494,7 +494,7 @@ export default function BuilderCheatSheetPopover({ open, anchorPosition, onClose
           [
             { variant: StatVariant.SPD, condition: '>=', value: 15 },
             { variant: StatVariant.ACC, condition: '>=', value: 9 },
-            { variant: StatVariant.CDMG, condition: '<=', value: 0 },
+            { variant: StatVariant.CDMG, condition: '<=', value: 5 },
           ],
           [
             { variant: StatVariant.SPD, value: 15 },
@@ -504,7 +504,7 @@ export default function BuilderCheatSheetPopover({ open, anchorPosition, onClose
           [
             { variant: StatVariant.SPD, condition: '>=', value: 5 },
             { variant: StatVariant.ACC, condition: '>=', value: 27 },
-            { variant: StatVariant.CDMG, condition: '<=', value: 0 },
+            { variant: StatVariant.CDMG, condition: '<=', value: 5 },
           ],
           [
             { variant: StatVariant.SPD, condition: '>=', value: 5 },
@@ -520,7 +520,7 @@ export default function BuilderCheatSheetPopover({ open, anchorPosition, onClose
           [
             { variant: StatVariant.SPD, condition: '>=', value: 15 },
             { variant: StatVariant.ACC, condition: '>=', value: 18 },
-            { variant: StatVariant.CDMG, condition: '<=', value: 0 },
+            { variant: StatVariant.CDMG, condition: '<=', value: 5 },
           ],
           [
             { variant: StatVariant.SPD, value: 15 },
@@ -536,7 +536,7 @@ export default function BuilderCheatSheetPopover({ open, anchorPosition, onClose
           [
             { variant: StatVariant.SPD, condition: '>=', value: 10 },
             { variant: StatVariant.ACC, condition: '>=', value: 27 },
-            { variant: StatVariant.CDMG, condition: '<=', value: 0 },
+            { variant: StatVariant.CDMG, condition: '<=', value: 5 },
           ],
           [
             { variant: StatVariant.SPD, value: 10 },
@@ -546,7 +546,7 @@ export default function BuilderCheatSheetPopover({ open, anchorPosition, onClose
           [
             { variant: StatVariant.SPD, condition: '>=', value: 20 },
             { variant: StatVariant.ACC, condition: '>=', value: 9 },
-            { variant: StatVariant.CDMG, condition: '<=', value: 0 },
+            { variant: StatVariant.CDMG, condition: '<=', value: 5 },
           ],
           [
             { variant: StatVariant.SPD, value: 20 },
@@ -562,7 +562,7 @@ export default function BuilderCheatSheetPopover({ open, anchorPosition, onClose
           [
             { variant: StatVariant.SPD, condition: '>=', value: 15 },
             { variant: StatVariant.ACC, condition: '>=', value: 18 },
-            { variant: StatVariant.CDMG, condition: '<=', value: 0 },
+            { variant: StatVariant.CDMG, condition: '<=', value: 5 },
           ],
           [
             { variant: StatVariant.SPD, value: 15 },
