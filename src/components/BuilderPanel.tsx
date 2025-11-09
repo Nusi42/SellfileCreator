@@ -4048,6 +4048,7 @@ const maxLevelValue = multiEditActive
                               backgroundImage: `linear-gradient(135deg, ${mixedPatternColor} 50%, transparent 50%)`,
                             } : {}),
                           }}
+                          data-tour-id={variant === StatVariant.SPD ? 'builder.mainstat.spd' : undefined}
                         >
                           {t(statVariantI18nKey(variant))}
                         </ToggleButton>
