@@ -1,4 +1,4 @@
-import { Box, Button, Chip, Collapse, Divider, FormControl, FormLabel, IconButton, InputAdornment, ListSubheader, MenuItem, Select, SelectChangeEvent, Stack, TextField, ToggleButton, ToggleButtonGroup, Tooltip, Typography } from '@mui/material'
+import { Box, Button, Chip, Collapse, Divider, FormControl, FormLabel, IconButton, InputAdornment, ListSubheader, MenuItem, Select, SelectChangeEvent, Slider, Stack, TextField, ToggleButton, ToggleButtonGroup, Tooltip, Typography } from '@mui/material'
 import { useI18n } from '../lib/i18n'
 import SetMenuSection from './SetMenuSection'
 import SetsOrderControls from './SetsOrderControls'
@@ -33,7 +33,10 @@ import { alpha, useTheme, type Theme } from '@mui/material/styles'
 import { keyframes } from '@emotion/react'
 import {
   DEFAULT_RULES_FILTER_STATE,
+  TESTER_LEVEL_MAX,
+  TESTER_LEVEL_MIN,
   isRulesFilterActive,
+  resolveTesterLevelRange,
   type AnyMode,
   type RulesFilterState,
   type Bool3,
@@ -279,7 +282,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
   const setsMenuListRef = React.useRef<HTMLUListElement | null>(null)
   const metasetsMenuListRef = React.useRef<HTMLUListElement | null>(null)
   const [setsMenuOpen, setSetsMenuOpen] = React.useState(false)
-  const filterActive = isRulesFilterActive(state)
+  const filterActive = isRulesFilterActive(state, { includeTesterRange: isTesterMode })
   // Collapsible sections: persisted; initialized from rules table column visibility on first open this session
   // Per-section condensed toggles (persisted)
   // Rank/Rarity are always condensed now (More/Less removed)
@@ -491,8 +494,11 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
 
   // Level buttons
   const levelValues: readonly LevelMilestone[] = LEVEL_MILESTONES
+  const testerLevelRange = resolveTesterLevelRange(state.level)
+  const testerLevelSliderMarks = levelValues.map((value) => ({ value, label: `+${value}` }))
+  const levelControlWidthPx = levelValues.length * 36
 
-const ASCENSION_STAR_VALUES: readonly number[] = [0, 1, 2, 3, 4, 5, 6]
+  const ASCENSION_STAR_VALUES: readonly number[] = [0, 1, 2, 3, 4, 5, 6]
 
   // Helpers for condensed Rank/Rarity selections
   const rankSelected = new Set((state.rank.selected ?? []).map(Number))
@@ -1745,7 +1751,7 @@ const ASCENSION_STAR_VALUES: readonly number[] = [0, 1, 2, 3, 4, 5, 6]
         {/* Right column */}
         <Box>
           {/* Level + Faction row */}
-          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: showFaction ? 'auto 1fr' : '1fr' }, columnGap: 1, rowGap: 1 }}>
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: showFaction ? 'minmax(0, 1fr) minmax(0, 1fr)' : '1fr' }, columnGap: 1, rowGap: 1 }}>
             {/* Level */}
             <FormControl fullWidth sx={{ mb: 0.75 }}>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
@@ -1753,27 +1759,73 @@ const ASCENSION_STAR_VALUES: readonly number[] = [0, 1, 2, 3, 4, 5, 6]
                 <FormLabel sx={{ m: 0 }}>{t('filterLevel')}</FormLabel>
               </Box>
               <Collapse in={!collapsed.level} timeout="auto" unmountOnExit>
-                <ToggleButtonGroup size="small" value={state.level.selected.map(String)} onChange={(_, vals: string[]) => {
-                  const parsed = vals.map(v => Number(v) as LevelMilestone)
-                  onChange({ ...state, level: { ...state.level, selected: parsed } })
-                }} sx={{
-                  flexWrap: 'wrap',
-                  '& .MuiToggleButton-root': { p: 0.5, minWidth: 36, height: 28 },
-                  '& .MuiToggleButtonGroup-grouped:not(:first-of-type)': {
-                    marginLeft: '0 !important',
-                    borderLeft: '1px solid transparent',
-                  },
-                  '& .MuiToggleButtonGroup-grouped.Mui-selected + .MuiToggleButtonGroup-grouped.Mui-selected': {
-                    marginLeft: '0 !important',
-                    borderLeft: '1px solid transparent',
-                  },
-                }}>
-                  {levelValues.map(v => (<ToggleButton key={v} value={String(v)}>+{v}</ToggleButton>))}
-                </ToggleButtonGroup>
-                {!isTesterMode && (
-                  <Box sx={{ mt: FILTER_CHIP_TOP_MARGIN }}>
-                    {anyChip(t('filterLevel'), state.level.anyMode, (v) => onChange({ ...state, level: { ...state.level, anyMode: v } }), t('filterAnyTooltip', { field: t('filterLevel') }))}
+                {isTesterMode ? (
+                  <Box
+                    sx={{
+                      mt: 0.25,
+                      width: '100%',
+                      maxWidth: levelControlWidthPx,
+                      boxSizing: 'border-box',
+                      px: 0.5,
+                    }}
+                  >
+                    <Slider
+                      size="small"
+                      min={TESTER_LEVEL_MIN}
+                      max={TESTER_LEVEL_MAX}
+                      step={1}
+                      disableSwap
+                      value={[testerLevelRange.min, testerLevelRange.max]}
+                      marks={testerLevelSliderMarks}
+                      valueLabelDisplay="auto"
+                      getAriaLabel={() => t('filterLevel')}
+                      getAriaValueText={(value) => `+${value}`}
+                      valueLabelFormat={(value) => `+${value}`}
+                      onChange={(_, value) => {
+                        if (!Array.isArray(value) || value.length !== 2) return
+                        const [rawMin, rawMax] = value as [number, number]
+                        const normalized = resolveTesterLevelRange({
+                          ...state.level,
+                          testerRange: { min: rawMin, max: rawMax },
+                        })
+                        if (normalized.min === testerLevelRange.min && normalized.max === testerLevelRange.max) return
+                        onChange({ ...state, level: { ...state.level, testerRange: normalized } })
+                      }}
+                      sx={{
+                        width: '100%',
+                        '& .MuiSlider-track': { height: 4 },
+                        '& .MuiSlider-rail': { height: 4 },
+                        '& .MuiSlider-thumb': { width: 16, height: 16 },
+                        '& .MuiSlider-mark': { height: 8 },
+                        '& .MuiSlider-markLabel': { fontSize: '0.75rem', mt: 0.5 },
+                      }}
+                    />
                   </Box>
+                ) : (
+                  <>
+                    <ToggleButtonGroup size="small" value={state.level.selected.map(String)} onChange={(_, vals: string[]) => {
+                      const parsed = vals.map(v => Number(v) as LevelMilestone)
+                      onChange({ ...state, level: { ...state.level, selected: parsed } })
+                    }} sx={{
+                      width: '100%',
+                      maxWidth: levelControlWidthPx,
+                      flexWrap: 'wrap',
+                      '& .MuiToggleButton-root': { p: 0.5, minWidth: 36, height: 28 },
+                      '& .MuiToggleButtonGroup-grouped:not(:first-of-type)': {
+                        marginLeft: '0 !important',
+                        borderLeft: '1px solid transparent',
+                      },
+                      '& .MuiToggleButtonGroup-grouped.Mui-selected + .MuiToggleButtonGroup-grouped.Mui-selected': {
+                        marginLeft: '0 !important',
+                        borderLeft: '1px solid transparent',
+                      },
+                    }}>
+                      {levelValues.map(v => (<ToggleButton key={v} value={String(v)}>+{v}</ToggleButton>))}
+                    </ToggleButtonGroup>
+                    <Box sx={{ mt: FILTER_CHIP_TOP_MARGIN }}>
+                      {anyChip(t('filterLevel'), state.level.anyMode, (v) => onChange({ ...state, level: { ...state.level, anyMode: v } }), t('filterAnyTooltip', { field: t('filterLevel') }))}
+                    </Box>
+                  </>
                 )}
               </Collapse>
             </FormControl>
