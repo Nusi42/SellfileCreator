@@ -201,7 +201,7 @@ Ejemplo: Suma de tiradas con comodines (2 substats)
 - Enviar correcciones: Envía el JSON actualizado por mensaje de Discord. Mantén las claves sin cambios; las claves que falten volverán al inglés.
 - Idiomas integrados: Todos los idiomas incluidos se compilan en el único HTML, por lo que la app funciona completamente sin conexión. Tus correcciones se integrarán en la siguiente versión.
 - Vigila la base de datos de RSL Helper: ejecuta `scripts/run-sample-server.ps1 -WatchGearDb` (o pasa `-GearDbPath <archivo>`) para observar `%APPDATA%\\RslHelper\\Config`. Cada vez que la `.db` cambie, el servidor de ejemplo la envía al Rule Tester que abrió y, si hay varias bases, te preguntará cuál seguir.
-- Lanzador rápido: `Stream-Helper-DB-to-Creator.bat` abre el servidor de ejemplo en PowerShell con `-WatchGearDb -GearDbPath "%APPDATA%\\RslHelper\\Config"` para transmitir la base predeterminada de RSL Helper sin tocar la consola; añade banderas extra después del nombre del `.bat` si quieres personalizar la ejecución.
+- Lanzador rápido: `Stream-Helper-DB-to-Creator.bat` abre el servidor de ejemplo en PowerShell con `-WatchGearDb "%APPDATA%\\RslHelper\\Config"` para transmitir la base predeterminada de RSL Helper sin tocar la consola; añade banderas extra después del nombre del `.bat` si quieres personalizar la ejecución.
 
 ## Agradecimientos
 

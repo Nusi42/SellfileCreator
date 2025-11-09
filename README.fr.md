@@ -200,7 +200,7 @@ Exemple : Somme des jets avec jokers (2 sous-stats)
 - Envoyer des corrections : Transmettez le JSON mis à jour par message Discord. Ne changez pas les clés ; les clés manquantes repassent en anglais.
 - Langues intégrées : Toutes les langues livrées sont compilées dans l’unique fichier HTML, l’app fonctionne donc entièrement hors ligne. Vos corrections seront intégrées à la prochaine version.
 - Surveiller la base RSL Helper : lancez `scripts/run-sample-server.ps1 -WatchGearDb` (ou `-GearDbPath <fichier>`) pour observer `%APPDATA%\\RslHelper\\Config`. Chaque mise à jour de la `.db` est injectée dans le Rule Tester lancé par le script, et s’il existe plusieurs bases, l’outil vous demande laquelle suivre.
-- Lanceur en double-clic : `Stream-Helper-DB-to-Creator.bat` démarre le serveur d’exemple dans PowerShell avec `-WatchGearDb -GearDbPath "%APPDATA%\\RslHelper\\Config"` pour diffuser la base RSL Helper par défaut sans passer par la console ; ajoutez d’autres options après le nom du `.bat` pour des réglages avancés.
+- Lanceur en double-clic : `Stream-Helper-DB-to-Creator.bat` démarre le serveur d’exemple dans PowerShell avec `-WatchGearDb "%APPDATA%\\RslHelper\\Config"` pour diffuser la base RSL Helper par défaut sans passer par la console ; ajoutez d’autres options après le nom du `.bat` pour des réglages avancés.
 
 ## Remerciements
 
