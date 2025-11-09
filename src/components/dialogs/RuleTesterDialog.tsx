@@ -1498,11 +1498,6 @@ export default function RuleTesterDialog({
           {deletableSources.map((section) => {
             const count = sourceCounts[section.key]
             const buttonLabel = `${section.label}: ${count}`
-            if (import.meta.env.DEV) {
-              console.log(
-                `[tester-delete-button] key=${section.key} count=${count} labelLength=${buttonLabel.length} label="${buttonLabel}"`
-              )
-            }
             const disabled = count === 0
             const buttonNode = (
               <Button
