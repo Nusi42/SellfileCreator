@@ -497,6 +497,8 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
   const testerLevelRange = resolveTesterLevelRange(state.level)
   const testerLevelSliderMarks = levelValues.map((value) => ({ value, label: `+${value}` }))
   const levelControlWidthPx = levelValues.length * 36
+  const levelControlWidthCss = `${levelControlWidthPx}px`
+  const levelControlResponsiveWidth = { xs: '100%', sm: levelControlWidthCss }
 
   const ASCENSION_STAR_VALUES: readonly number[] = [0, 1, 2, 3, 4, 5, 6]
 
@@ -1751,7 +1753,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
         {/* Right column */}
         <Box>
           {/* Level + Faction row */}
-          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: showFaction ? 'minmax(0, 1fr) minmax(0, 1fr)' : '1fr' }, columnGap: 1, rowGap: 1 }}>
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: showFaction ? 'auto 1fr' : '1fr' }, columnGap: 1, rowGap: 1 }}>
             {/* Level */}
             <FormControl fullWidth sx={{ mb: 0.75 }}>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
@@ -1760,15 +1762,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
               </Box>
               <Collapse in={!collapsed.level} timeout="auto" unmountOnExit>
                 {isTesterMode ? (
-                  <Box
-                    sx={{
-                      mt: 0.25,
-                      width: '100%',
-                      maxWidth: levelControlWidthPx,
-                      boxSizing: 'border-box',
-                      px: 0.5,
-                    }}
-                  >
+                  <Box sx={{ mt: 0.25, width: levelControlResponsiveWidth, maxWidth: '100%', boxSizing: 'border-box', px: 0.5 }}>
                     <Slider
                       size="small"
                       min={TESTER_LEVEL_MIN}
@@ -1807,8 +1801,8 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                       const parsed = vals.map(v => Number(v) as LevelMilestone)
                       onChange({ ...state, level: { ...state.level, selected: parsed } })
                     }} sx={{
-                      width: '100%',
-                      maxWidth: levelControlWidthPx,
+                      width: levelControlResponsiveWidth,
+                      maxWidth: '100%',
                       flexWrap: 'wrap',
                       '& .MuiToggleButton-root': { p: 0.5, minWidth: 36, height: 28 },
                       '& .MuiToggleButtonGroup-grouped:not(:first-of-type)': {
