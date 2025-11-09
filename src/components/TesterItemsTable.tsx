@@ -332,8 +332,19 @@ export function TesterItemsTable({ rows, filterActive = false, substatColors, us
 
   if (rows.length === 0) {
     return (
-      <Box sx={{ p: 2 }}>
-        <Typography variant="body2" color="text.secondary">
+      <Box
+        sx={{
+          flex: '1 1 auto',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          textAlign: 'center',
+          color: 'text.secondary',
+          px: 2,
+          py: 3,
+        }}
+      >
+        <Typography variant="body2" color="inherit">
           {filterActive ? t('testerTableEmptyFilter') : t('testerTableEmpty')}
         </Typography>
       </Box>
