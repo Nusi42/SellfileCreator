@@ -44,6 +44,7 @@ export type UseConfigSelectionResult = {
   setSelectedCfgIndices: (next: number[]) => void
   multiselectActive: boolean
   selectionAnchor: number | null
+  prepareDragSelection: (idx: number) => number[]
   setHoveredCfgIdx: (idx: number | null) => void
   handleConfigHoverIdx: (idx: number | null) => void
   multiSelectedConfigs: BuilderConfig[]
@@ -58,6 +59,7 @@ export type UseConfigSelectionResult = {
   handleConfigMoveDown: (idx: number) => void
   handleConfigMoveTop: (idx: number) => void
   handleConfigMoveBottom: (idx: number) => void
+  handleConfigReorder: (movingIndices: number[], targetIndex: number, options?: { mode?: 'move' | 'copy' }) => void
   handleSelectAllConfigs: () => void
   handleClearSelection: () => void
   setSelectionAnchor: Dispatch<SetStateAction<number | null>>
@@ -365,6 +367,22 @@ export function useConfigSelection({
     setConfigHoverIndex(idx)
   }, [])
 
+  const prepareDragSelection = useCallback((idx: number): number[] => {
+    if (!Number.isInteger(idx) || idx < 0 || idx >= customCfgs.length) return []
+    const alreadySelected = selectedCfgIndices.includes(idx) && selectedCfgIndices.length > 0
+    if (alreadySelected) {
+      return selectedCfgIndices.slice().sort((a, b) => a - b)
+    }
+    const cfg = customCfgs[idx]
+    applySelection([idx])
+    setSelectedCfgIdx(idx)
+    setSelectionAnchor(idx)
+    if (cfg) {
+      setBuilder(cfg)
+    }
+    return [idx]
+  }, [applySelection, customCfgs, selectedCfgIndices, setBuilder, setSelectedCfgIdx, setSelectionAnchor])
+
   const handleConfigSelect = useCallback((event: MouseEvent, idx: number) => {
     const cfg = customCfgs[idx]
     if (!cfg) return
@@ -612,6 +630,113 @@ export function useConfigSelection({
     })
   }, [applySelection, describeNextChange, selectedCfgIndices, setCustomCfgs, setSelectedCfgIdx, setSelectionAnchor, suppressSelectionDraft, t])
 
+  const handleConfigReorder = useCallback((movingIndices: number[], rawTargetIndex: number, options?: { mode?: 'move' | 'copy' }) => {
+    if (!Array.isArray(movingIndices) || movingIndices.length === 0) return
+    suppressSelectionDraft(() => {
+      setCustomCfgs(prev => {
+        const mode = options?.mode === 'copy' ? 'copy' : 'move'
+        if (mode === 'move' && prev.length <= 1) {
+          describeNextChange(null)
+          return prev
+        }
+        const sanitized = Array.from(new Set(
+          movingIndices
+            .map((idx) => (Number.isInteger(idx) ? Number(idx) : -1))
+            .filter((idx) => idx >= 0 && idx < prev.length),
+        )).sort((a, b) => a - b)
+        if (sanitized.length === 0) {
+          describeNextChange(null)
+          return prev
+        }
+        const movingItems = sanitized
+          .map((idx) => prev[idx])
+          .filter((cfg): cfg is BuilderConfig => Boolean(cfg))
+        if (movingItems.length === 0) {
+          describeNextChange(null)
+          return prev
+        }
+        const clampedTarget = Math.max(0, Math.min(prev.length, rawTargetIndex))
+        if (mode === 'copy') {
+          const copies = movingItems.map(cfg => ({ ...cfg }))
+          if (copies.length === 0) {
+            describeNextChange(null)
+            return prev
+          }
+          const next = [
+            ...prev.slice(0, clampedTarget),
+            ...copies,
+            ...prev.slice(clampedTarget),
+          ]
+          const labels: string[] = []
+          for (let i = 0; i < copies.length; i += 1) {
+            const newIdx = clampedTarget + i
+            const cfg = next[newIdx]
+            if (!cfg) continue
+            labels.push(buildConfigLabel(newIdx, cfg, t))
+          }
+          const descriptor = describeConfigsDuplicated({
+            insertIndex: clampedTarget,
+            labels,
+            previous: prev,
+            t,
+          })
+          describeNextChange(descriptor)
+          const newSelection = copies.map((_, offset) => clampedTarget + offset)
+          applySelection(newSelection)
+          const last = newSelection[newSelection.length - 1] ?? null
+          setSelectedCfgIdx(last)
+          setSelectionAnchor(last)
+          return next
+        }
+        const minSel = sanitized[0]!
+        const maxSel = sanitized[sanitized.length - 1]!
+        if (clampedTarget >= minSel && clampedTarget <= maxSel + 1) {
+          describeNextChange(null)
+          return prev
+        }
+        const selectionSet = new Set(sanitized)
+        const remaining = prev.filter((_, idx) => !selectionSet.has(idx))
+        let insertIdx = clampedTarget
+        for (const idx of sanitized) {
+          if (idx < clampedTarget) insertIdx -= 1
+        }
+        insertIdx = Math.max(0, Math.min(remaining.length, insertIdx))
+        const next = [
+          ...remaining.slice(0, insertIdx),
+          ...movingItems,
+          ...remaining.slice(insertIdx),
+        ]
+        const newSelection = movingItems.map((_, offset) => insertIdx + offset)
+        const newMin = newSelection[0] ?? insertIdx
+        const atTop = insertIdx === 0
+        const atBottom = insertIdx === remaining.length
+        let direction: 'up' | 'down' | 'top' | 'bottom' = 'down'
+        if (atTop) {
+          direction = 'top'
+        } else if (atBottom) {
+          direction = 'bottom'
+        } else if (newMin < minSel) {
+          direction = 'up'
+        } else {
+          direction = 'down'
+        }
+        const descriptor = describeConfigsMoved({
+          prev,
+          next,
+          selection: sanitized,
+          direction,
+          t,
+        })
+        describeNextChange(descriptor)
+        applySelection(newSelection)
+        const last = newSelection[newSelection.length - 1] ?? null
+        setSelectedCfgIdx(last)
+        setSelectionAnchor(last)
+        return next
+      })
+    })
+  }, [applySelection, describeNextChange, setCustomCfgs, setSelectedCfgIdx, setSelectionAnchor, suppressSelectionDraft, t])
+
   const handleSelectAllConfigs = useCallback(() => {
     const visibleSet = visibleConfigIndicesRef?.current ?? null
     const all = visibleSet
@@ -642,6 +767,7 @@ export function useConfigSelection({
     setSelectedCfgIndices: applySelection,
     multiselectActive,
     selectionAnchor,
+    prepareDragSelection,
     setHoveredCfgIdx,
     handleConfigHoverIdx,
     multiSelectedConfigs,
@@ -656,6 +782,7 @@ export function useConfigSelection({
     handleConfigMoveDown,
     handleConfigMoveTop,
     handleConfigMoveBottom,
+    handleConfigReorder,
     handleSelectAllConfigs,
     handleClearSelection,
     setSelectionAnchor,

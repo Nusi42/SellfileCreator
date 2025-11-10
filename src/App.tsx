@@ -813,6 +813,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setSelectedCfgIndices,
     multiselectActive,
     selectionAnchor,
+    prepareDragSelection,
     setHoveredCfgIdx,
     handleConfigHoverIdx,
     multiSelectedConfigs,
@@ -827,6 +828,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     handleConfigMoveDown,
     handleConfigMoveTop,
     handleConfigMoveBottom,
+    handleConfigReorder,
     handleSelectAllConfigs,
     handleClearSelection,
     setSelectionAnchor,
@@ -2727,6 +2729,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       onDeleteAll={requestClearAll}
       deleteAllDisabled={deleteAllDisabled}
       onDeleteSelected={handleDeleteSelected}
+      onPrepareDragSelection={prepareDragSelection}
+      onReorderConfigs={handleConfigReorder}
     />
   )
 
@@ -3094,6 +3098,15 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         // Hide MUI tooltips while scrolling to avoid viewport scrollbar flicker
         '.scrolling .MuiTooltip-popper': {
           display: 'none !important',
+        },
+        '.chips-dragging .MuiTooltip-popper': {
+          display: 'none !important',
+        },
+        'body.chips-dragging': {
+          cursor: 'grabbing',
+        },
+        '.chips-dragging [data-config-chip="true"], .chips-dragging [data-config-chip="true"] *': {
+          pointerEvents: 'none !important',
         },
         '::-webkit-scrollbar': {
           width: 10,
