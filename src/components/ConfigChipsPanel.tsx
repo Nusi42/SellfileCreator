@@ -26,6 +26,7 @@ type DragState = {
   indices: number[]
   activeIndex: number
   dropIndex: number | null
+  copyMode: boolean
 }
 
 type ChipLayoutEntry = {
@@ -46,6 +47,7 @@ type PointerDragSession = {
   originY: number
   lastClientX: number
   lastClientY: number
+  copyIntent: boolean
 }
 
 function ConfigChipsPanel(props: {
@@ -79,7 +81,7 @@ function ConfigChipsPanel(props: {
   highlightDelete: boolean
   onHighlightDelete: (active: boolean) => void
   onPrepareDragSelection: (idx: number) => number[]
-  onReorderConfigs: (movingIndices: number[], targetIndex: number) => void
+  onReorderConfigs: (movingIndices: number[], targetIndex: number, options?: { mode?: 'move' | 'copy' }) => void
 }) {
   const { t } = useI18n()
   const {
@@ -345,7 +347,10 @@ function ConfigChipsPanel(props: {
     const selectionMax = (selection[selection.length - 1] ?? -1) + 1
     let nextDrop: number | null = null
     let nextGuide: DropGuide = null
-    if (resolved && (resolved.insertIndex < selectionMin || resolved.insertIndex > selectionMax)) {
+    const withinSelectionRange = resolved
+      ? resolved.insertIndex >= selectionMin && resolved.insertIndex <= selectionMax
+      : false
+    if (resolved && (current.copyMode || !withinSelectionRange)) {
       nextDrop = resolved.insertIndex
       nextGuide = resolved.guide
     }
@@ -418,20 +423,29 @@ function ConfigChipsPanel(props: {
   const applyDrop = React.useCallback(() => {
     const current = dragStateRef.current
     if (!current) return
-    const { indices, dropIndex } = current
+    const { indices, dropIndex, copyMode } = current
     if (dropIndex != null) {
-      const min = indices[0] ?? 0
-      const max = (indices[indices.length - 1] ?? -1) + 1
-      if (dropIndex < min || dropIndex > max) {
-        onReorderConfigs(indices, dropIndex)
+      if (copyMode) {
+        onReorderConfigs(indices, dropIndex, { mode: 'copy' })
+      } else {
+        const min = indices[0] ?? 0
+        const max = (indices[indices.length - 1] ?? -1) + 1
+        if (dropIndex < min || dropIndex > max) {
+          onReorderConfigs(indices, dropIndex)
+        }
       }
     }
     clearDragState()
   }, [clearDragState, onReorderConfigs])
 
-  const beginDragOperation = React.useCallback((idx: number, selection: number[]): boolean => {
+  const beginDragOperation = React.useCallback((idx: number, selection: number[], copyMode: boolean): boolean => {
     if (selection.length === 0) return false
-    const next: DragState = { indices: selection, activeIndex: idx, dropIndex: idx }
+    const next: DragState = {
+      indices: selection,
+      activeIndex: idx,
+      dropIndex: idx,
+      copyMode,
+    }
     dragStateRef.current = next
     setDragState(next)
     setDropGuide(null)
@@ -451,6 +465,7 @@ function ConfigChipsPanel(props: {
       originY: event.clientY,
       lastClientX: event.clientX,
       lastClientY: event.clientY,
+      copyIntent: event.ctrlKey || event.metaKey || false,
     }
   }, [dragAllowed])
 
@@ -460,6 +475,14 @@ function ConfigChipsPanel(props: {
       if (!session || event.pointerId !== session.pointerId) return
       session.lastClientX = event.clientX
       session.lastClientY = event.clientY
+      const copyIntent = Boolean(event.ctrlKey || event.metaKey)
+      if (session.copyIntent !== copyIntent) {
+        session.copyIntent = copyIntent
+        if (dragStateRef.current) {
+          dragStateRef.current = { ...dragStateRef.current, copyMode: copyIntent }
+          setDragState(prev => (prev ? { ...prev, copyMode: copyIntent } : prev))
+        }
+      }
       if (!session.started) {
         const deltaX = event.clientX - session.originX
         const deltaY = event.clientY - session.originY
@@ -473,7 +496,7 @@ function ConfigChipsPanel(props: {
           return
         }
         session.selection = selection
-        session.started = beginDragOperation(session.activeIndex, selection)
+        session.started = beginDragOperation(session.activeIndex, selection, session.copyIntent)
         if (!session.started) {
           pointerSessionRef.current = null
           return
@@ -527,6 +550,20 @@ function ConfigChipsPanel(props: {
   }, [clearDragState])
 
   const hasActiveDrag = Boolean(dragState)
+
+  React.useEffect(() => {
+    if (!hasActiveDrag) return undefined
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return
+      event.preventDefault()
+      pointerSessionRef.current = null
+      clearDragState()
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [clearDragState, hasActiveDrag])
 
   React.useEffect(() => {
     const cls = 'chips-dragging'

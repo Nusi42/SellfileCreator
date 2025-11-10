@@ -59,7 +59,7 @@ export type UseConfigSelectionResult = {
   handleConfigMoveDown: (idx: number) => void
   handleConfigMoveTop: (idx: number) => void
   handleConfigMoveBottom: (idx: number) => void
-  handleConfigReorder: (movingIndices: number[], targetIndex: number) => void
+  handleConfigReorder: (movingIndices: number[], targetIndex: number, options?: { mode?: 'move' | 'copy' }) => void
   handleSelectAllConfigs: () => void
   handleClearSelection: () => void
   setSelectionAnchor: Dispatch<SetStateAction<number | null>>
@@ -630,11 +630,12 @@ export function useConfigSelection({
     })
   }, [applySelection, describeNextChange, selectedCfgIndices, setCustomCfgs, setSelectedCfgIdx, setSelectionAnchor, suppressSelectionDraft, t])
 
-  const handleConfigReorder = useCallback((movingIndices: number[], rawTargetIndex: number) => {
+  const handleConfigReorder = useCallback((movingIndices: number[], rawTargetIndex: number, options?: { mode?: 'move' | 'copy' }) => {
     if (!Array.isArray(movingIndices) || movingIndices.length === 0) return
     suppressSelectionDraft(() => {
       setCustomCfgs(prev => {
-        if (prev.length <= 1) {
+        const mode = options?.mode === 'copy' ? 'copy' : 'move'
+        if (mode === 'move' && prev.length <= 1) {
           describeNextChange(null)
           return prev
         }
@@ -647,17 +648,49 @@ export function useConfigSelection({
           describeNextChange(null)
           return prev
         }
-        const minSel = sanitized[0]!
-        const maxSel = sanitized[sanitized.length - 1]!
-        const clampedTarget = Math.max(0, Math.min(prev.length, rawTargetIndex))
-        if (clampedTarget >= minSel && clampedTarget <= maxSel + 1) {
-          describeNextChange(null)
-          return prev
-        }
         const movingItems = sanitized
           .map((idx) => prev[idx])
           .filter((cfg): cfg is BuilderConfig => Boolean(cfg))
         if (movingItems.length === 0) {
+          describeNextChange(null)
+          return prev
+        }
+        const clampedTarget = Math.max(0, Math.min(prev.length, rawTargetIndex))
+        if (mode === 'copy') {
+          const copies = movingItems.map(cfg => ({ ...cfg }))
+          if (copies.length === 0) {
+            describeNextChange(null)
+            return prev
+          }
+          const next = [
+            ...prev.slice(0, clampedTarget),
+            ...copies,
+            ...prev.slice(clampedTarget),
+          ]
+          const labels: string[] = []
+          for (let i = 0; i < copies.length; i += 1) {
+            const newIdx = clampedTarget + i
+            const cfg = next[newIdx]
+            if (!cfg) continue
+            labels.push(buildConfigLabel(newIdx, cfg, t))
+          }
+          const descriptor = describeConfigsDuplicated({
+            insertIndex: clampedTarget,
+            labels,
+            previous: prev,
+            t,
+          })
+          describeNextChange(descriptor)
+          const newSelection = copies.map((_, offset) => clampedTarget + offset)
+          applySelection(newSelection)
+          const last = newSelection[newSelection.length - 1] ?? null
+          setSelectedCfgIdx(last)
+          setSelectionAnchor(last)
+          return next
+        }
+        const minSel = sanitized[0]!
+        const maxSel = sanitized[sanitized.length - 1]!
+        if (clampedTarget >= minSel && clampedTarget <= maxSel + 1) {
           describeNextChange(null)
           return prev
         }
