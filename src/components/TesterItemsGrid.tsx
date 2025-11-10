@@ -43,6 +43,8 @@ import { TesterSummaryLabel } from './TesterSummaryLabel'
 import { TesterRuleReferenceChip } from './TesterRuleReferenceChip'
 import { WithSetTooltip } from './SetTooltip'
 import ContextMenuPaper from './ContextMenuPaper'
+import { ContextMenuHintOverlay } from './ContextMenuHintOverlay'
+import { useContextMenuHint } from '../hooks/useContextMenuHint'
 
 const GRID_CARD_MIN_WIDTH = 240
 const GRID_CARD_ICON_COLUMN_PX = 88
@@ -138,12 +140,40 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
   const theme = useTheme()
   const groups = useMemo(() => groupRowsBySet(rows, t), [rows, t])
   const numberFormatter = useMemo(() => new Intl.NumberFormat(undefined), [])
+  const {
+    shouldShow: shouldShowGroupContextHint,
+    markSeen: markGroupContextHintSeen,
+  } = useContextMenuHint('testerGroupAccordion')
+  const [groupContextHintPos, setGroupContextHintPos] = useState<{ x: number; y: number } | null>(null)
+  const groupContextHintActive = shouldShowGroupContextHint && groupContextHintPos !== null
+  const handleGroupHintPointerMove = useCallback((event: React.MouseEvent<Element>) => {
+    if (!shouldShowGroupContextHint) return
+    setGroupContextHintPos({ x: event.clientX, y: event.clientY })
+  }, [shouldShowGroupContextHint])
+  const handleGroupHintPointerLeave = useCallback(() => {
+    setGroupContextHintPos(null)
+  }, [])
+  const handleGroupHintSeen = useCallback(() => {
+    markGroupContextHintSeen()
+    setGroupContextHintPos(null)
+  }, [markGroupContextHintSeen])
+  useEffect(() => {
+    if (!shouldShowGroupContextHint) {
+      setGroupContextHintPos(null)
+    }
+  }, [shouldShowGroupContextHint])
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(() => new Set())
-  const handleGroupToggle = useCallback((groupKey: string, shouldExpand: boolean, event: React.SyntheticEvent<Element, Event>) => {
+  const handleGroupToggle = useCallback((
+    groupKey: string,
+    shouldExpand: boolean,
+    event?: React.SyntheticEvent<Element, Event> | null,
+    options?: { applyToAll?: boolean },
+  ) => {
     setCollapsedGroups((prev) => {
       const next = new Set(prev)
-      const isMultiToggle = Boolean((event && 'ctrlKey' in event && (event as React.MouseEvent).ctrlKey)
-        || (event && 'metaKey' in event && (event as React.MouseEvent).metaKey))
+      const isMultiToggle = Boolean(options?.applyToAll)
+        || Boolean((event && 'ctrlKey' in event && (event as React.MouseEvent).ctrlKey)
+          || (event && 'metaKey' in event && (event as React.MouseEvent).metaKey))
       if (isMultiToggle) {
         let changed = false
         groups.forEach(({ key }) => {
@@ -339,6 +369,10 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
                   groupCountLabel={groupCountLabel}
                   chipBgColor={groupCountChipBg}
                   onToggleGroup={handleGroupToggle}
+                  contextHintEnabled={shouldShowGroupContextHint}
+                  onContextMenuHintMove={handleGroupHintPointerMove}
+                  onContextMenuHintLeave={handleGroupHintPointerLeave}
+                  onContextMenuHintSeen={handleGroupHintSeen}
                   substatColors={substatColors}
                   useStatButtonColors={useStatButtonColors}
                   configNames={configNames}
@@ -351,6 +385,7 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
           </Box>
         </Box>
       </Box>
+      <ContextMenuHintOverlay text={t('contextMenuHint')} position={groupContextHintActive ? groupContextHintPos : null} />
     </Box>
   )
 }
@@ -360,7 +395,16 @@ type TesterItemsGridGroupProps = {
   expanded: boolean
   groupCountLabel: string
   chipBgColor: string
-  onToggleGroup: (groupKey: string, shouldExpand: boolean, event: React.SyntheticEvent<Element, Event>) => void
+  onToggleGroup: (
+    groupKey: string,
+    shouldExpand: boolean,
+    event?: React.SyntheticEvent<Element, Event> | null,
+    options?: { applyToAll?: boolean },
+  ) => void
+  contextHintEnabled: boolean
+  onContextMenuHintMove: (event: React.MouseEvent<Element>) => void
+  onContextMenuHintLeave: () => void
+  onContextMenuHintSeen: () => void
   substatColors: Record<number, { fg: string; bg: string }>
   useStatButtonColors: boolean
   configNames: Array<string | null>
@@ -375,6 +419,10 @@ const TesterItemsGridGroup = React.memo(function TesterItemsGridGroup({
   groupCountLabel,
   chipBgColor,
   onToggleGroup,
+  contextHintEnabled,
+  onContextMenuHintMove,
+  onContextMenuHintLeave,
+  onContextMenuHintSeen,
   substatColors,
   useStatButtonColors,
   configNames,
@@ -428,7 +476,18 @@ const TesterItemsGridGroup = React.memo(function TesterItemsGridGroup({
       disableGutters
       elevation={0}
     >
-      <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+      <AccordionSummary
+        expandIcon={<ExpandMoreIcon />}
+        onMouseEnter={contextHintEnabled ? onContextMenuHintMove : undefined}
+        onMouseMove={contextHintEnabled ? onContextMenuHintMove : undefined}
+        onMouseLeave={contextHintEnabled ? onContextMenuHintLeave : undefined}
+        onContextMenu={(event) => {
+          event.preventDefault()
+          event.stopPropagation()
+          onToggleGroup(group.key, !expanded, event, { applyToAll: true })
+          if (contextHintEnabled) onContextMenuHintSeen()
+        }}
+      >
         <Stack direction="row" spacing={1.5} alignItems="center" sx={{ width: '100%' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             {groupSetTooltipName ? (

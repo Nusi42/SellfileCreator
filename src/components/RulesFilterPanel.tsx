@@ -68,6 +68,8 @@ import ClearIconButton from './ClearIconButton'
 import ClearIcon from '@mui/icons-material/Clear'
 import ContextMenuPaper from './ContextMenuPaper'
 import { useContextMenuCloseOnOutsideRightClick } from '../hooks/useContextMenuCloseOnOutsideRightClick'
+import { useContextMenuHint } from '../hooks/useContextMenuHint'
+import { ContextMenuHintOverlay } from './ContextMenuHintOverlay'
 import type { PaperProps as MuiPaperProps } from '@mui/material/Paper'
 import { useSetsOrderPreference } from '../state/setsOrderPreference'
 import type { TesterConfigFilterMode } from '../types/testerConfigFilterMode'
@@ -416,13 +418,35 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
   const metasetsMenuListRef = React.useRef<HTMLUListElement | null>(null)
   const [setsMenuOpen, setSetsMenuOpen] = React.useState(false)
   const filterActive = isRulesFilterActive(state, { includeTesterRange: isTesterMode })
+  const {
+    shouldShow: shouldShowSectionContextHint,
+    markSeen: markSectionContextHintSeen,
+  } = useContextMenuHint('rulesFilterSections')
+  const [sectionHintPos, setSectionHintPos] = React.useState<{ x: number; y: number } | null>(null)
+  const sectionHintActive = shouldShowSectionContextHint && sectionHintPos !== null
+  const handleSectionHintPointerMove = React.useCallback((event: React.MouseEvent<Element>) => {
+    if (!shouldShowSectionContextHint) return
+    setSectionHintPos({ x: event.clientX, y: event.clientY })
+  }, [shouldShowSectionContextHint])
+  const handleSectionHintPointerLeave = React.useCallback(() => {
+    setSectionHintPos(null)
+  }, [])
+  const handleSectionHintSeen = React.useCallback(() => {
+    markSectionContextHintSeen()
+    setSectionHintPos(null)
+  }, [markSectionContextHintSeen])
+  React.useEffect(() => {
+    if (!shouldShowSectionContextHint) {
+      setSectionHintPos(null)
+    }
+  }, [shouldShowSectionContextHint])
   // Collapsible sections: persisted per user; default to collapsed to reduce scroll noise.
   // Per-section condensed toggles (persisted)
   // Rank/Rarity are always condensed now (More/Less removed)
   const SectionToggle = ({ id }: { id: keyof typeof collapsed }) => {
-    const handleClick = (event: React.MouseEvent<HTMLButtonElement>) => {
+    const toggleSections = (applyToAll: boolean) => {
       const nextValue = !collapsed[id]
-      if (event.ctrlKey || event.metaKey) {
+      if (applyToAll) {
         const nextAll: typeof collapsed = { ...collapsed }
         for (const key of RULES_FILTER_COLLAPSIBLE_SECTION_IDS) {
           nextAll[key] = nextValue
@@ -432,10 +456,24 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
       }
       onCollapsedChange({ ...collapsed, [id]: nextValue })
     }
+    const handleClick = (event: React.MouseEvent<HTMLButtonElement>) => {
+      const multiToggle = event.ctrlKey || event.metaKey
+      toggleSections(multiToggle)
+    }
+    const handleContextMenu = (event: React.MouseEvent<HTMLButtonElement>) => {
+      event.preventDefault()
+      event.stopPropagation()
+      toggleSections(true)
+      handleSectionHintSeen()
+    }
     return (
       <IconButton
         size="small"
         onClick={handleClick}
+        onContextMenu={handleContextMenu}
+        onMouseEnter={handleSectionHintPointerMove}
+        onMouseMove={handleSectionHintPointerMove}
+        onMouseLeave={handleSectionHintPointerLeave}
         aria-label={collapsed[id] ? 'Expand' : 'Collapse'}
       >
         {collapsed[id] ? <ExpandMoreIcon fontSize="small" /> : <ExpandLessIcon fontSize="small" />}
@@ -2667,6 +2705,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
           </Box>
         </Popover>
       )}
+      <ContextMenuHintOverlay text={t('contextMenuHint')} position={sectionHintActive ? sectionHintPos : null} />
     </>
   )
 })

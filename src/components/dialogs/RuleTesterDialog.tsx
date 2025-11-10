@@ -48,6 +48,8 @@ import { TesterSummaryLabel } from '../TesterSummaryLabel'
 import { TesterRuleReferenceChip } from '../TesterRuleReferenceChip'
 import EllipsisTooltip from '../EllipsisTooltip'
 import { triggerCopyDialog, writeTextSafe } from '../../lib/clipboard'
+import { useContextMenuHint } from '../../hooks/useContextMenuHint'
+import { ContextMenuHintOverlay } from '../ContextMenuHintOverlay'
 
 type TesterSourceCountMap = Record<TesterSourceCategory, number>
 
@@ -160,6 +162,28 @@ export default function RuleTesterDialog({
     })
     return counts
   }, [testerItems])
+  const {
+    shouldShow: shouldShowCompactHint,
+    markSeen: markCompactHintSeen,
+  } = useContextMenuHint('ruleTesterCompact')
+  const [compactHintPos, setCompactHintPos] = useState<{ x: number; y: number } | null>(null)
+  const compactHintActive = shouldShowCompactHint && compactHintPos !== null
+  const handleCompactHintPointerMove = useCallback((event: MouseEvent<HTMLButtonElement>) => {
+    if (!shouldShowCompactHint) return
+    setCompactHintPos({ x: event.clientX, y: event.clientY })
+  }, [shouldShowCompactHint])
+  const handleCompactHintPointerLeave = useCallback(() => {
+    setCompactHintPos(null)
+  }, [])
+  const handleCompactHintSeen = useCallback(() => {
+    markCompactHintSeen()
+    setCompactHintPos(null)
+  }, [markCompactHintSeen])
+  useEffect(() => {
+    if (!shouldShowCompactHint) {
+      setCompactHintPos(null)
+    }
+  }, [shouldShowCompactHint])
   const manualEntries = useMemo(() => (
     testerItems
       .filter((item) => testerSourceCategoryForItem(item) === 'manual')
@@ -540,14 +564,18 @@ export default function RuleTesterDialog({
     })
   }, [setCompactByRowId])
 
-  const handleToggleCompact = useCallback((rowId: number, event?: MouseEvent<HTMLButtonElement>) => {
+  const handleToggleCompact = useCallback((
+    rowId: number,
+    event?: MouseEvent<HTMLButtonElement>,
+    options?: { applyGlobally?: boolean },
+  ) => {
     const baseState = (() => {
       const item = itemsRef.current.find((entry) => entry.rowId === rowId)
       return Boolean((item as { compact?: boolean })?.compact)
     })()
     const current = compactByRowId.has(rowId) ? compactByRowId.get(rowId)! : baseState
     const nextState = !current
-    if (event?.ctrlKey || event?.metaKey) {
+    if (options?.applyGlobally || event?.ctrlKey || event?.metaKey) {
       applyGlobalCompactState(nextState)
       return
     }
@@ -746,6 +774,15 @@ export default function RuleTesterDialog({
                 } : {}),
               }}
               onClick={(event) => handleToggleCompact(it.rowId, event)}
+              onMouseEnter={handleCompactHintPointerMove}
+              onMouseMove={handleCompactHintPointerMove}
+              onMouseLeave={handleCompactHintPointerLeave}
+              onContextMenu={(event) => {
+                event.preventDefault()
+                event.stopPropagation()
+                handleCompactHintSeen()
+                handleToggleCompact(it.rowId, event, { applyGlobally: true })
+              }}
             >
               {isCompact ? <OpenInFullIcon fontSize="small" /> : <CloseFullscreenIcon fontSize="small" />}
             </Button>
@@ -1444,7 +1481,8 @@ export default function RuleTesterDialog({
   // No Import/Export buttons; autosave restores when dialog opens.
 
   return (
-    <Dialog
+    <>
+      <Dialog
       open={open}
       onClose={onClose}
       maxWidth={false}
@@ -1663,7 +1701,9 @@ export default function RuleTesterDialog({
           </Button>
         </DialogActions>
       </Dialog>
-    </Dialog>
+      </Dialog>
+      <ContextMenuHintOverlay text={t('contextMenuHint')} position={compactHintActive ? compactHintPos : null} />
+    </>
   )
 }
 
