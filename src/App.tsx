@@ -2203,10 +2203,14 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const hsfTableEmptyDueToFilters = (filterActive || testerConfigFilterActive) && mergedRules.length > 0 && hsfRulesForTable.length === 0
   const handleTesterRuleView = useCallback((ruleIndex: number, cfgIdx: number | null) => {
     setTesterOpen(false)
-    if (cfgIdx != null && cfgIdx >= 0 && cfgIdx < customCfgs.length) {
-      syncSelectedCfgIdx(cfgIdx, { forceSync: true })
-      const cfg = customCfgs[cfgIdx]
+    const hasValidConfig = cfgIdx != null && cfgIdx >= 0 && cfgIdx < customCfgs.length
+    if (hasValidConfig) {
+      const targetCfgIdx = Number(cfgIdx)
+      syncSelectedCfgIdx(targetCfgIdx, { forceSync: true })
+      const cfg = customCfgs[targetCfgIdx]
       if (cfg) setBuilder(cfg)
+    } else {
+      setPreviewMode('rules')
     }
     try {
       const targetRule = mergedRules[ruleIndex]
@@ -2222,7 +2226,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     } catch {
       setFocusRuleIndex(null)
     }
-  }, [customCfgs, filterActive, filteredRules, mergedRules, setBuilder, setFocusRuleIndex, setTesterOpen, syncSelectedCfgIdx])
+  }, [customCfgs, filterActive, filteredRules, mergedRules, setBuilder, setFocusRuleIndex, setPreviewMode, setTesterOpen, syncSelectedCfgIdx])
   const visibleConfigIndices = useMemo<Set<number> | null>(() => (
     limitConfigsToFiltered ? chipMatchingConfigIndices : null
   ), [chipMatchingConfigIndices, limitConfigsToFiltered])

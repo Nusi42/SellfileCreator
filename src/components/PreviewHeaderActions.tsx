@@ -120,6 +120,12 @@ export default function PreviewHeaderActions(props: {
   const testerCountValue = Number.isFinite(testerCount) ? Math.max(0, Math.floor(testerCount ?? 0)) : 0
   const testerFilteredValue = Number.isFinite(testerFilteredCount) ? Math.max(0, Math.floor(testerFilteredCount ?? 0)) : testerCountValue
   const numberFormatter = React.useMemo(() => new Intl.NumberFormat(undefined), [])
+  const formattedBaseRuleCount = typeof baseRuleCount === 'number' && baseRuleCount > 0
+    ? numberFormatter.format(baseRuleCount)
+    : null
+  const baseRulesLabel = formattedBaseRuleCount
+    ? (baseRuleCount === 1 ? t('loadedBaseRuleOne') : t('loadedBaseRuleMany', { n: formattedBaseRuleCount }))
+    : null
   const testerTotalLabel = testerCountValue === 1
     ? t('testerItemsCountOne')
     : t('testerItemsCountMany', { n: numberFormatter.format(testerCountValue) })
@@ -337,6 +343,11 @@ export default function PreviewHeaderActions(props: {
         ) : (
           <Chip label={rulesChipLabel} size="small" sx={rulesChipSx} />
         )}
+        {baseRulesLabel ? (
+          <Typography variant="caption" color="text.secondary" sx={{ lineHeight: 1.2 }}>
+            {baseRulesLabel}
+          </Typography>
+        ) : null}
         <Box sx={{ flex: 1 }} />
         {filterActive ? (
           <Typography
@@ -511,21 +522,6 @@ export default function PreviewHeaderActions(props: {
         </Stack>
         <Box sx={{ flex: 1, minWidth: 0 }} />
         <Stack direction="row" spacing={1} alignItems="center" sx={{ flexShrink: 0 }}>
-          {typeof baseRuleCount === 'number' && baseRuleCount > 0 ? (
-            <Typography
-              variant="caption"
-              color="text.secondary"
-              sx={{
-                whiteSpace: 'normal',
-                wordBreak: 'break-word',
-                lineHeight: 1.2,
-                textAlign: 'right',
-                minWidth: 0,
-              }}
-            >
-              {baseRuleCount === 1 ? t('loadedBaseRuleOne') : t('loadedBaseRuleMany', { n: baseRuleCount })}
-            </Typography>
-          ) : null}
           {baseRuleCount ? (
             <ClearIconButton
               size="small"
