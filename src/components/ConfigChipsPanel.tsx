@@ -276,27 +276,38 @@ function ConfigChipsPanel(props: {
     const rowEntries = entries.filter((entry) => clientY >= entry.rect.top && clientY <= entry.rect.bottom)
     if (rowEntries.length > 0) {
       const sorted = [...rowEntries].sort((a, b) => a.rect.left - b.rect.left)
-      for (let idx = 0; idx < sorted.length; idx += 1) {
-        const entry = sorted[idx]!
-        const prev = idx > 0 ? sorted[idx - 1] : null
-        if (clientX <= entry.rect.left) {
-          if (prev) {
-            const prevRight = prev.rect.right
-            if (clientX >= prevRight) {
-              return { insertIndex: entry.index, guide: verticalGapGuideBetween(prev, entry) }
-            }
-          }
-          return { insertIndex: entry.index, guide: verticalGuideForEntry(entry, false) }
-        }
-        if (clientX <= entry.rect.right) {
-          const midpoint = entry.rect.left + (entry.rect.width / 2)
-          const before = clientX < midpoint
-          const insertIndex = before ? entry.index : entry.index + 1
-          return { insertIndex, guide: verticalGuideForEntry(entry, !before) }
+      const dropSlots: Array<{ position: number; insertIndex: number; guide: DropGuide }> = []
+      const firstEntry = sorted[0]!
+      dropSlots.push({
+        position: firstEntry.rect.left,
+        insertIndex: firstEntry.index,
+        guide: verticalGuideForEntry(firstEntry, false),
+      })
+      for (let idx = 0; idx < sorted.length - 1; idx += 1) {
+        const leftEntry = sorted[idx]!
+        const rightEntry = sorted[idx + 1]!
+        dropSlots.push({
+          position: (leftEntry.rect.right + rightEntry.rect.left) / 2,
+          insertIndex: rightEntry.index,
+          guide: verticalGapGuideBetween(leftEntry, rightEntry),
+        })
+      }
+      const lastEntry = sorted[sorted.length - 1]!
+      dropSlots.push({
+        position: lastEntry.rect.right,
+        insertIndex: lastEntry.index + 1,
+        guide: verticalGuideForEntry(lastEntry, true),
+      })
+      for (let idx = 0; idx < dropSlots.length - 1; idx += 1) {
+        const current = dropSlots[idx]!
+        const next = dropSlots[idx + 1]!
+        const boundary = (current.position + next.position) / 2
+        if (clientX < boundary) {
+          return { insertIndex: current.insertIndex, guide: current.guide }
         }
       }
-      const last = sorted[sorted.length - 1]!
-      return { insertIndex: last.index + 1, guide: verticalGuideForEntry(last, true) }
+      const fallback = dropSlots[dropSlots.length - 1]!
+      return { insertIndex: fallback.insertIndex, guide: fallback.guide }
     }
 
     const first = entries[0]!
