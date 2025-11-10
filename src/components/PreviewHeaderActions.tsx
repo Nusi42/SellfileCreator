@@ -27,8 +27,6 @@ import { ContextMenuHintOverlay } from './ContextMenuHintOverlay'
 import { useContextMenuHint } from '../hooks/useContextMenuHint'
 import Checkbox from '@mui/material/Checkbox'
 import { stripAnimatedEllipsisSource, useAnimatedEllipsis } from '../hooks/useAnimatedEllipsis'
-import type { PaperProps as MuiPaperProps } from '@mui/material/Paper'
-import ContextMenuPaper from './ContextMenuPaper'
 
 const EXPORT_HOVER_DELAY_MS = 2000 as const
 const HIGHLIGHT_REPLAY_DELAY_MS = 500 as const
@@ -67,8 +65,6 @@ export default function PreviewHeaderActions(props: {
   onOpenRuleTester?: () => void
   previewMode: 'rules' | 'tester'
   onChangePreviewMode: (mode: 'rules' | 'tester') => void
-  testerPreviewLayout?: 'list' | 'grid'
-  onChangeTesterPreviewLayout?: (layout: 'list' | 'grid') => void
   testerCount?: number
   testerFilteredCount?: number
   gearDbCommandError?: string | null
@@ -102,8 +98,6 @@ export default function PreviewHeaderActions(props: {
     limitHit = false,
     previewMode,
     onChangePreviewMode,
-    testerPreviewLayout = 'list',
-    onChangeTesterPreviewLayout,
     testerCount,
     testerFilteredCount,
     testerBuilding = false,
@@ -178,9 +172,6 @@ export default function PreviewHeaderActions(props: {
   const previewHeading = isRulesMode ? t('sellfilePreview') : t('testerPreviewHeading')
   const rulesModeLabel = t('previewModeRules')
   const testerModeLabel = t('previewModeTester')
-  const testerLayoutListLabel = t('testerLayoutList')
-  const testerLayoutGridLabel = t('testerLayoutGrid')
-  const testerLayoutMenuEnabled = typeof onChangeTesterPreviewLayout === 'function'
   const exportMenuEnabled = React.useMemo(
     () => typeof onExportDeduped === 'function' || typeof onToggleDedupeDefault === 'function' || typeof onToggleOmitDisabled === 'function',
     [onExportDeduped, onToggleDedupeDefault, onToggleOmitDisabled],
@@ -188,7 +179,6 @@ export default function PreviewHeaderActions(props: {
   const [exportMenuAnchor, setExportMenuAnchor] = React.useState<HTMLElement | null>(null)
   const closeExportMenu = React.useCallback(() => { setExportMenuAnchor(null) }, [])
   const exportMenuPaperRef = React.useRef<HTMLDivElement | null>(null)
-  const testerLayoutMenuPaperRef = React.useRef<HTMLDivElement | null>(null)
   useContextMenuCloseOnOutsideRightClick({
     open: Boolean(exportMenuAnchor),
     onClose: closeExportMenu,
@@ -200,14 +190,6 @@ export default function PreviewHeaderActions(props: {
   } = useContextMenuHint('previewExportMenu')
   const [exportHintPos, setExportHintPos] = React.useState<{ x: number; y: number } | null>(null)
   const exportHintActive = showExportHint && exportHintPos !== null && !exportMenuAnchor
-  const [testerLayoutMenuPos, setTesterLayoutMenuPos] = React.useState<{ x: number; y: number } | null>(null)
-  const testerLayoutMenuOpen = testerLayoutMenuEnabled && Boolean(testerLayoutMenuPos)
-  const closeTesterLayoutMenu = React.useCallback(() => { setTesterLayoutMenuPos(null) }, [])
-  useContextMenuCloseOnOutsideRightClick({
-    open: testerLayoutMenuOpen,
-    onClose: closeTesterLayoutMenu,
-    menuRef: testerLayoutMenuPaperRef,
-  })
   const filterLabel = filterActive ? t('filtersOn') : t('filtersOff')
   const ruleTesterLabel = t('testerOpenLabel')
   const filterHeaderLabel = t('filterHeader')
@@ -402,14 +384,6 @@ export default function PreviewHeaderActions(props: {
             value="tester"
             aria-label={testerModeLabel}
             sx={{ px: 1.25, minWidth: 0, height: SMALL_BUTTON_HEIGHT_PX, minHeight: SMALL_BUTTON_HEIGHT_PX, textTransform: 'none' }}
-            onContextMenu={(event) => {
-              if (!testerLayoutMenuEnabled) return
-              try {
-                event.preventDefault()
-                event.stopPropagation()
-              } catch {}
-              setTesterLayoutMenuPos({ x: event.clientX, y: event.clientY })
-            }}
           >
             <Typography component="span" noWrap sx={ELLIPSIS_TEXT_SX}>{testerModeLabel}</Typography>
           </ToggleButton>
@@ -695,45 +669,6 @@ export default function PreviewHeaderActions(props: {
                 }}
               >
                 {t('exportSellfileDeduped')}
-              </MenuItem>
-            </Menu>
-          ) : null}
-          {testerLayoutMenuEnabled ? (
-            <Menu
-              open={testerLayoutMenuOpen}
-              onClose={closeTesterLayoutMenu}
-              anchorReference="anchorPosition"
-              {...(testerLayoutMenuPos
-                ? { anchorPosition: { top: testerLayoutMenuPos.y, left: testerLayoutMenuPos.x } }
-                : {})}
-              slotProps={{
-                paper: {
-                  component: ContextMenuPaper,
-                  onRequestClose: closeTesterLayoutMenu,
-                  closeLabel: t('close'),
-                  ref: testerLayoutMenuPaperRef,
-                } as unknown as MuiPaperProps,
-              }}
-            >
-              <MenuItem
-                selected={testerPreviewLayout === 'list'}
-                onClick={(event) => {
-                  event.stopPropagation()
-                  onChangeTesterPreviewLayout?.('list')
-                  closeTesterLayoutMenu()
-                }}
-              >
-                {testerLayoutListLabel}
-              </MenuItem>
-              <MenuItem
-                selected={testerPreviewLayout === 'grid'}
-                onClick={(event) => {
-                  event.stopPropagation()
-                  onChangeTesterPreviewLayout?.('grid')
-                  closeTesterLayoutMenu()
-                }}
-              >
-                {testerLayoutGridLabel}
               </MenuItem>
             </Menu>
           ) : null}
