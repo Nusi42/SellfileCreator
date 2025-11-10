@@ -156,6 +156,7 @@ This document captures runtime behavior, builder interactions, and user-facing w
 - Surfaces: The Sellfile Preview header exposes two related controls:
 - `Rule Tester` preview toggle — switches the main preview between the default HSF rule rows and the tester gear grid (this toggle is what “Rule Tester mode” refers to).
 - The tester grid groups gear by set (`set • faction` for accessories) inside accordions. Each card dedicates three columns to the schematic preview (slot glyph + set badge + overlays), the main/substat stack, and the matching-config summary (keep/sell glyph, primary rule/config chip, plus additional matching configs capped with a `+N` chip). Virtualization runs at both the group and card level so collapsed groups skip rendering and large inventories stay responsive.
+- Fresh sessions start empty — no sample gear is auto-added. Import RSL Helper DB dumps, paste gear, or add custom items via the dialog to populate the grid.
 - Ctrl/Cmd+clicking any grid accordion header collapses/expands every group at once (mirrors the filter panel behavior); a normal click only toggles the targeted group.
 - `Gear...` button — opens the Rule Tester dialog where gear can be edited, pasted, or imported; edits are reflected immediately in the preview toggle mode.
 - The Gear dialog only renders custom tester gear; imported inventory/equipped/inbox rows stay visible in the preview and can be batch-deleted per-source via the new toolbar buttons. A persistent `Add custom gear` action lives in the dialog footer so users can rebuild lists from an empty state.

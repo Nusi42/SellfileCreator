@@ -271,13 +271,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     testerRowIdRef.current += 1
     return id
   }, [])
-  const [testerItems, setTesterItems] = useState<RuleTesterItem[]>(() => {
-    const math = createRuleTesterMath(substatTargets)
-    const items = math.makeDefaultItems(allocTesterRowId)
-    const maxRowId = items.reduce((max, item) => (Number.isFinite(item.rowId) && item.rowId > max ? item.rowId : max), 0)
-    testerRowIdRef.current = Math.max(testerRowIdRef.current, (maxRowId || 0) + 1)
-    return items
-  })
+  const [testerItems, setTesterItems] = useState<RuleTesterItem[]>([])
   const testerItemsRef = useRef(testerItems)
   useEffect(() => { testerItemsRef.current = testerItems }, [testerItems])
   const [testerRestoreDraft, setTesterRestoreDraft] = useState<{

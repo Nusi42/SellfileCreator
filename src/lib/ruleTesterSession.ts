@@ -333,50 +333,7 @@ export function createRuleTesterMath(substatTargets: SubstatTargetTable) {
     return applyRandomRollsForLevel(adjustSubValuesFor(baseItem))
   }
 
-  const makeDefaultItems = (allocRowId: () => number): RuleTesterItem[] => {
-    const star: 1|2|3|4|5|6 = 6
-    const sharedRank: RuleTesterItem['rank'] = star
-    const sharedRarity: RuleTesterItem['rarity'] = 5
-    const defaultFaction: FactionId = 0 as FactionId
-    type DefaultSeed = {
-      slot: ArtifactTypeId
-      set: ArtifactSetId
-      level: LevelMilestone
-      main: StatVariant
-      subs: StatVariant[]
-      faction?: FactionId
-    }
-    const seeds: DefaultSeed[] = [
-      { slot: ArtifactType.Boots as ArtifactTypeId, set: ArtifactSet.Speed as ArtifactSetId, level: 16, main: StatVariant.SPD, subs: [StatVariant.CR, StatVariant.CDMG, StatVariant.HP, StatVariant.ACC] },
-      { slot: ArtifactType.Gauntlets as ArtifactTypeId, set: ArtifactSet.Savage as ArtifactSetId, level: 12, main: StatVariant.CDMG, subs: [StatVariant.SPD, StatVariant.CR, StatVariant.ATK, StatVariant.ACC] },
-      { slot: ArtifactType.Chestplate as ArtifactTypeId, set: ArtifactSet.Stoneskin as ArtifactSetId, level: 8, main: StatVariant.DEF, subs: [StatVariant.RES, StatVariant.HP, StatVariant.SPD, StatVariant.ACC] },
-      { slot: ArtifactType.Weapon as ArtifactTypeId, set: ArtifactSet.SwiftParry as ArtifactSetId, level: 0, main: StatVariant.ATK_FLAT, subs: [StatVariant.CDMG, StatVariant.CR, StatVariant.SPD, StatVariant.ACC] },
-      { slot: ArtifactType.Helmet as ArtifactTypeId, set: ArtifactSet.Immortal as ArtifactSetId, level: 4 as LevelMilestone, main: StatVariant.HP_FLAT, subs: [StatVariant.HP, StatVariant.DEF, StatVariant.RES, StatVariant.SPD] },
-      { slot: ArtifactType.Banner as ArtifactTypeId, set: ArtifactSet.Reaction as ArtifactSetId, level: 16, main: StatVariant.ACC, subs: [StatVariant.SPD, StatVariant.HP, StatVariant.DEF, StatVariant.ATK], faction: Faction.HighElves as FactionId },
-    ]
-    const items: RuleTesterItem[] = []
-    for (const seed of seeds) {
-      const subValues: Record<number, number> = {}
-      seed.subs.forEach((variant) => {
-        subValues[variant] = substatTargets.six[variant] ?? 0
-      })
-      items.push(adjustSubValuesFor({
-        slot: seed.slot,
-        set: seed.set,
-        rank: sharedRank,
-        rarity: sharedRarity,
-        level: seed.level,
-        faction: seed.faction ?? defaultFaction,
-        main: seed.main,
-        subValues,
-        subOrder: seed.subs.slice(),
-        rowId: allocRowId(),
-      }))
-    }
-    return items
-  }
-
-  return { adjustSubValuesFor, applyRandomRollsForLevel, makeDefaultItem, makeDefaultItems }
+  return { adjustSubValuesFor, applyRandomRollsForLevel, makeDefaultItem }
 }
 
 type CanonicalNormalizedStat = {
@@ -618,26 +575,6 @@ const deserializeTesterItems = (
   return restored.length > 0 ? restored : null
 }
 
-export function loadRuleTesterItemsFromAutosave(opts: { math: RuleTesterMath; allocRowId: () => number }): RuleTesterItem[] {
-  const { math, allocRowId } = opts
-  try {
-    const entry = loadAutosave<RuleTesterAutosavePayload>(AUTOSAVE_TESTER_KEY)
-    const restored = deserializeTesterItems(entry?.payload ?? null, opts)
-    return restored && restored.length > 0 ? restored : math.makeDefaultItems(allocRowId)
-  } catch {
-    return math.makeDefaultItems(allocRowId)
-  }
-}
-
-const signaturesForTesterItems = (items: RuleTesterItem[]): string[] =>
-  items.map((item) => fingerprintRuleTesterItem(item)).sort()
-
-const buildDefaultTesterSignatures = (math: RuleTesterMath): string[] => {
-  let rowId = 1
-  const defaults = math.makeDefaultItems(() => -(rowId += 1))
-  return signaturesForTesterItems(defaults)
-}
-
 export function loadRuleTesterAutosaveDraft(opts: { math: RuleTesterMath; allocRowId: () => number }): {
   items: RuleTesterItem[]
   savedAt: string | null
@@ -647,18 +584,6 @@ export function loadRuleTesterAutosaveDraft(opts: { math: RuleTesterMath; allocR
     const entry = loadAutosave<RuleTesterAutosavePayload>(AUTOSAVE_TESTER_KEY)
     const restored = deserializeTesterItems(entry?.payload ?? null, opts)
     if (!restored || restored.length === 0) return null
-    const defaultSignatures = buildDefaultTesterSignatures(opts.math)
-    if (defaultSignatures.length === restored.length) {
-      const restoredSignatures = signaturesForTesterItems(restored)
-      let matchesDefaults = true
-      for (let i = 0; i < restoredSignatures.length; i += 1) {
-        if (restoredSignatures[i] !== defaultSignatures[i]) {
-          matchesDefaults = false
-          break
-        }
-      }
-      if (matchesDefaults) return null
-    }
     const savedAtRaw = entry?.payload?.SavedAt
     const count = typeof entry?.payload?.ItemCount === 'number' ? Number(entry?.payload?.ItemCount) : restored.length
     return {
