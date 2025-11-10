@@ -46,8 +46,9 @@ const FACTION_ICON_PREVIEW_SCALE = 1.2 as const
 const FACTION_ICON_PREVIEW_OFFSET_PX = 0 as const
 // Single-line spans now stay centered with no vertical nudge; keep the constant for quick tuning across browsers.
 const SINGLE_LINE_PREVIEW_OFFSET_PX = 3 as const
+const FOCUS_SCROLL_MAX_ATTEMPTS = 6 as const
 
-export function HsfRulesTable({ rules, building = false, setHoveredCfgIdx, selectedCfgIdx, multiselectActive, onSelectCfgIdx, onConfigAction, onClearBase, onConfigureFinalSell, onOpenManageColors, colorIconSrc, substatColors, colorBlindMode, onChangeColorBlindMode, emptyDueToFilter = false, limitExceeded = false, focusRuleIndex = null }: {
+export function HsfRulesTable({ rules, building = false, setHoveredCfgIdx, selectedCfgIdx, multiselectActive, onSelectCfgIdx, onConfigAction, onClearBase, onConfigureFinalSell, onOpenManageColors, colorIconSrc, substatColors, colorBlindMode, onChangeColorBlindMode, emptyDueToFilter = false, limitExceeded = false, focusRuleIndex = null, onFocusRuleSettled }: {
   rules: HsfRuleWithCfg[]
   building?: boolean
   setHoveredCfgIdx: (idx: number | null) => void
@@ -66,6 +67,7 @@ export function HsfRulesTable({ rules, building = false, setHoveredCfgIdx, selec
   limitExceeded?: boolean
   // Optional external scroll target: rule index in the current rules array
   focusRuleIndex?: number | null
+  onFocusRuleSettled?: () => void
 }) {
   const { t } = useI18n()
   const buildingLabel = t('rulesBuilding')
@@ -115,6 +117,7 @@ export function HsfRulesTable({ rules, building = false, setHoveredCfgIdx, selec
   const prevRulesMetricsRef = useRef<{ length: number; totalHeight: number } | null>(null)
   // Version to trigger prefix recompute and a stable re-render when row heights change.
   const [heightsVersion, setHeightsVersion] = useState(0)
+  const pendingRuleFocusRef = useRef<{ index: number; attempts: number } | null>(null)
   // No custom scrolling animations: in multi-line we jump; in single-line we use native smooth.
   const WRAP_ROWS_KEY = 'sellfileCreator.rulesTableWrapRows.v1'
   const [wrapRows, setWrapRows] = useState<boolean>(() => {
@@ -508,7 +511,7 @@ export function HsfRulesTable({ rules, building = false, setHoveredCfgIdx, selec
   }
 
   // Smooth scroll a given rule index into view within the table container
-  const scrollRuleIndexIntoView = (ruleIndex: number, behavior: ScrollBehavior = 'smooth') => {
+  const scrollRuleIndexIntoView = useCallback((ruleIndex: number, behavior: ScrollBehavior = 'smooth') => {
     const container = tableContainerRef.current
     if (!container || ruleIndex < 0 || ruleIndex >= rules.length) return
     let targetTop = 0
@@ -523,17 +526,56 @@ export function HsfRulesTable({ rules, building = false, setHoveredCfgIdx, selec
     const headerNudge = Math.max(0, headerHeightRef.current || 0)
     const top = Math.max(0, Math.round(targetTop - headerNudge - HEADER_SCROLL_FUDGE_PX))
     try { container.scrollTo({ top, behavior }) } catch { try { container.scrollTop = top } catch {} }
-  }
+  }, [fixedRowH, rules.length, wrapRows])
+
+  const clampRuleIndex = useCallback((index: number | null | undefined) => {
+    if (typeof index !== 'number' || !Number.isFinite(index) || rules.length === 0) return null
+    return Math.max(0, Math.min(rules.length - 1, Math.floor(index)))
+  }, [rules.length])
 
   // External request to focus a specific rule
   useEffect(() => {
-    if (focusRuleIndex == null) return
-    // Defer one frame to ensure measurements present
+    if (focusRuleIndex == null) {
+      pendingRuleFocusRef.current = null
+      return
+    }
+    const clamped = clampRuleIndex(focusRuleIndex)
+    if (clamped == null) {
+      pendingRuleFocusRef.current = null
+      return
+    }
+    if (!wrapRows) {
+      requestAnimationFrame(() => {
+        scrollRuleIndexIntoView(clamped, 'smooth')
+        onFocusRuleSettled?.()
+      })
+      pendingRuleFocusRef.current = null
+      return
+    }
+    pendingRuleFocusRef.current = { index: clamped, attempts: FOCUS_SCROLL_MAX_ATTEMPTS }
+    requestAnimationFrame(() => scrollRuleIndexIntoView(clamped, 'smooth'))
+  }, [focusRuleIndex, clampRuleIndex, wrapRows, onFocusRuleSettled, rules.length, scrollRuleIndexIntoView])
+
+  useEffect(() => {
+    if (!wrapRows) return
+    const pending = pendingRuleFocusRef.current
+    if (!pending) return
+    if (pending.attempts <= 0) {
+      pendingRuleFocusRef.current = null
+      onFocusRuleSettled?.()
+      return
+    }
+    pending.attempts -= 1
+    const index = pending.index
     requestAnimationFrame(() => {
-      scrollRuleIndexIntoView(Math.max(0, Math.min(rules.length - 1, focusRuleIndex)), wrapRows ? 'auto' : 'smooth')
+      scrollRuleIndexIntoView(index, 'auto')
+      const active = pendingRuleFocusRef.current
+      if (active && active.attempts <= 0) {
+        pendingRuleFocusRef.current = null
+        onFocusRuleSettled?.()
+      }
     })
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [focusRuleIndex, rules, wrapRows])
+  }, [heightsVersion, wrapRows, onFocusRuleSettled, scrollRuleIndexIntoView])
 
   // When selection changes (e.g., user clicked a chip), scroll first matching rule into view
   const suppressNextScrollRef = useRef<boolean>(false)

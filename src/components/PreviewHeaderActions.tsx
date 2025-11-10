@@ -334,7 +334,8 @@ export default function PreviewHeaderActions(props: {
     <>
       <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
         <Typography variant="h6">{previewHeading}</Typography>
-        {limitHit && !building && isRulesMode ? (
+        <Stack direction="row" spacing={1} alignItems="center" sx={{ flexShrink: 0 }}>
+          {limitHit && !building && isRulesMode ? (
           <Tooltip title={limitTooltip}>
             <Box component="span" sx={{ display: 'inline-flex' }}>
               <Chip label={rulesChipLabel} size="small" sx={rulesChipSx} />
@@ -343,11 +344,12 @@ export default function PreviewHeaderActions(props: {
         ) : (
           <Chip label={rulesChipLabel} size="small" sx={rulesChipSx} />
         )}
-        {baseRulesLabel ? (
-          <Typography variant="caption" color="text.secondary" sx={{ lineHeight: 1.2 }}>
-            {baseRulesLabel}
-          </Typography>
-        ) : null}
+          {baseRulesLabel ? (
+            <Typography variant="caption" color="text.secondary" sx={{ lineHeight: 1.2 }}>
+              {baseRulesLabel}
+            </Typography>
+          ) : null}
+        </Stack>
         <Box sx={{ flex: 1 }} />
         {filterActive ? (
           <Typography

@@ -2214,19 +2214,17 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     }
     try {
       const targetRule = mergedRules[ruleIndex]
-      const effectiveRules = filterActive ? filteredRules : mergedRules
+      const effectiveRules = hsfRulesForTable
       const idxInEffective = targetRule ? effectiveRules.indexOf(targetRule) : -1
-      if (idxInEffective >= 0) setFocusRuleIndex(idxInEffective)
-      else setFocusRuleIndex(null)
+      if (idxInEffective >= 0) {
+        setFocusRuleIndex(idxInEffective)
+      } else {
+        setFocusRuleIndex(null)
+      }
     } catch {
       setFocusRuleIndex(null)
     }
-    try {
-      setTimeout(() => setFocusRuleIndex(null), 300)
-    } catch {
-      setFocusRuleIndex(null)
-    }
-  }, [customCfgs, filterActive, filteredRules, mergedRules, setBuilder, setFocusRuleIndex, setPreviewMode, setTesterOpen, syncSelectedCfgIdx])
+  }, [customCfgs, hsfRulesForTable, mergedRules, setBuilder, setFocusRuleIndex, setPreviewMode, setTesterOpen, syncSelectedCfgIdx])
   const visibleConfigIndices = useMemo<Set<number> | null>(() => (
     limitConfigsToFiltered ? chipMatchingConfigIndices : null
   ), [chipMatchingConfigIndices, limitConfigsToFiltered])
@@ -2339,7 +2337,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       const idxInEffective = effective.indexOf(rule)
       if (idxInEffective >= 0) {
         setFocusRuleIndex(idxInEffective)
-        window.setTimeout(() => setFocusRuleIndex(null), 300)
       } else {
         setFocusRuleIndex(null)
       }
@@ -3475,6 +3472,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                 selectedCfgIdx={selectedCfgIdx}
                 multiselectActive={multiselectActive}
                 focusRuleIndex={focusRuleIndex}
+                onFocusRuleSettled={() => setFocusRuleIndex(null)}
                 onSelectCfgIdx={handleRulesTableSelectCfgIdx}
                 emptyDueToFilter={hsfTableEmptyDueToFilters}
                 limitExceeded={limitExceeded}
