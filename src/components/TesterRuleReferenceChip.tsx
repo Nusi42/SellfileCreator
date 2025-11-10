@@ -52,7 +52,7 @@ export function TesterRuleReferenceChip({
   const ruleIndex = typeof match.ruleIndex === 'number' ? match.ruleIndex : null
   const ruleLabel = match.ruleLabel
     ? match.ruleLabel
-    : (ruleIndex != null ? t('testerRuleChip', { index: ruleIndex + 1 }) : '')
+    : (ruleIndex != null ? `#${ruleIndex + 1}` : '')
   const configLabel = match.cfgName
     ? match.cfgName
     : (match.cfgIdx != null ? t('testerConfigChip', { index: match.cfgIdx + 1 }) : '')
