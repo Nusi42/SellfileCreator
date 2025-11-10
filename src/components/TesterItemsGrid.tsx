@@ -600,7 +600,7 @@ const TesterGridCard = React.memo(function TesterGridCard({
   })()
   const sourceDescriptor = getItemSourceDescriptor(artifact, t)
   const rerollLabel = artifact.rerollCount > 0 ? '⟳' : ''
-  const rerollTooltip = artifact.rerollCount > 0 ? `${t('testerRerollLabel')} (${artifact.rerollCount})` : ''
+  const rerollTooltip = artifact.rerollCount > 0 ? t('testerRerollLabel') : ''
   const outcomeLabel = match?.keep === true
     ? t('testerMatchKeep')
     : match?.keep === false
@@ -611,6 +611,16 @@ const TesterGridCard = React.memo(function TesterGridCard({
     : match?.keep === false
       ? 'warning'
       : 'default'
+  const outcomeGlyph = match?.keep === true
+    ? '✓'
+    : match?.keep === false
+      ? '✕'
+      : '—'
+  const outcomeTone = outcomeColor === 'success'
+    ? theme.palette.success.main
+    : outcomeColor === 'warning'
+      ? theme.palette.warning.main
+      : theme.palette.text.secondary
   const matchingIndices = Array.isArray(row.matchingCfgIndices)
     ? Array.from(new Set(row.matchingCfgIndices.filter((idx) => Number.isFinite(idx))))
     : []
@@ -621,8 +631,8 @@ const TesterGridCard = React.memo(function TesterGridCard({
     <Box
       sx={{
         position: 'absolute',
-        left: -6,
-        bottom: -6,
+        left: -10,
+        bottom: -10,
         bgcolor: 'background.paper',
         borderRadius: 1,
         p: 0.25,
@@ -635,7 +645,7 @@ const TesterGridCard = React.memo(function TesterGridCard({
         lineHeight: 0,
       }}
     >
-      <SetIcon setId={setIdNumber as ArtifactSetId} size={20} />
+      <SetIcon setId={setIdNumber as ArtifactSetId} size={20} sx={{ mr: 0, display: 'block' }} />
     </Box>
   )
   const mainSummaryLabel = (
@@ -687,7 +697,21 @@ const TesterGridCard = React.memo(function TesterGridCard({
           }}
         >
           {rankStars > 0 ? (
-            <Box sx={{ display: 'flex', mb: 0.25 }}>
+            <Box
+              sx={{
+                position: 'absolute',
+                top: -10,
+                left: '50%',
+                transform: 'translateX(-50%)',
+                display: 'flex',
+                pointerEvents: 'none',
+                px: 1,
+                py: 0.25,
+                borderRadius: 999,
+                background: 'linear-gradient(180deg, rgba(0,0,0,0.25), rgba(0,0,0,0))',
+                boxShadow: '0 0 8px rgba(0,0,0,0.35)',
+              }}
+            >
               {Array.from({ length: rankStars }).map((_, idx) => (
                 <StarRoundedIcon
                   key={`rank-star-${idx}`}
@@ -702,8 +726,58 @@ const TesterGridCard = React.memo(function TesterGridCard({
           ) : null}
           {SlotIcon ? (
             <Box sx={{ color: 'text.primary', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <SlotIcon fontSize="large" />
+              <Box sx={{ fontSize: '3.25rem', lineHeight: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <SlotIcon fontSize="inherit" />
+              </Box>
             </Box>
+          ) : null}
+          <Tooltip title={outcomeLabel}>
+            <Box
+              sx={{
+                position: 'absolute',
+                left: -10,
+                top: -10,
+                width: 24,
+                height: 24,
+                borderRadius: '50%',
+                bgcolor: 'background.paper',
+                border: '2px solid',
+                borderColor: outcomeTone,
+                color: outcomeTone,
+                boxShadow: 2,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontWeight: 700,
+                fontSize: '0.85rem',
+              }}
+              aria-label={outcomeLabel}
+            >
+              {outcomeGlyph}
+            </Box>
+          </Tooltip>
+          {rerollLabel ? (
+            <Tooltip title={rerollTooltip}>
+              <Box
+                sx={{
+                  position: 'absolute',
+                  right: -10,
+                  top: -10,
+                  bgcolor: 'background.paper',
+                  borderRadius: 1,
+                  px: 0.5,
+                  py: 0.25,
+                  boxShadow: 2,
+                  border: '2px solid',
+                  borderColor: rarityBorder,
+                  fontSize: '0.8rem',
+                  fontWeight: 600,
+                  color: 'text.primary',
+                }}
+              >
+                {rerollLabel}
+              </Box>
+            </Tooltip>
           ) : null}
           {setTooltipName ? (
             <WithSetTooltip name={setTooltipName} displayName={setLabel}>
@@ -715,8 +789,8 @@ const TesterGridCard = React.memo(function TesterGridCard({
           <Box
             sx={{
               position: 'absolute',
-              right: -6,
-              bottom: -6,
+              right: -10,
+              bottom: -10,
               bgcolor: 'background.paper',
               borderRadius: 1,
               px: 0.75,
@@ -742,15 +816,6 @@ const TesterGridCard = React.memo(function TesterGridCard({
         ) : null}
       </Box>
       <Stack spacing={0.75} minWidth={0}>
-        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75 }}>
-          {rerollLabel ? (
-            <Tooltip title={rerollTooltip}>
-              <Box component="span">
-                <TesterSummaryLabel label={rerollLabel} />
-              </Box>
-            </Tooltip>
-          ) : null}
-        </Box>
         <TesterSummaryLabel label={mainSummaryLabel} wrap />
         <Tooltip title={subTooltip}>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
@@ -787,12 +852,6 @@ const TesterGridCard = React.memo(function TesterGridCard({
         </Tooltip>
       </Stack>
       <Stack spacing={1} minWidth={0}>
-        <Chip
-          label={outcomeLabel}
-          size="small"
-          color={outcomeColor}
-          sx={{ alignSelf: 'flex-start', fontWeight: 600 }}
-        />
         {match ? (
           <TesterRuleReferenceChip
             match={match}
