@@ -81,7 +81,8 @@ Instructions:
 - [x] factionShadowkin — Nom de faction officiel (non traduit in-game).
 - [x] filterAnyTooltip — Texte d’info-bulle localisé.
 - [x] filterFaction — «Faction» identique fr/en.
-- [x] filterLimitConfigs — Abréviation «Configs» adoptée côté UI.
+- [x] filterLimitPreviewConfigs — Abréviation «Configs» adoptée côté aperçu.
+- [x] filterLimitTesterConfigs — Variante «Configs testeur» souligne que l’info-bulle couvre désormais le filtre commun aux deux aperçus (Rule Tester + Sellfile).
 - [x] filterSets — «Sets» terme officiel Raid ; README synchronisée.
 - [x] builderSlots — Le prêt «Slots» garantit un libellé court et reflète les tutoriels/README.
 - [x] filterSlots — Les puces reprennent «Slots» pour préserver la largeur du groupe de boutons.
@@ -121,7 +122,8 @@ Instructions:
 - [x] configMany — «configs» se conserva como abreviatura estable en la UI y README.
 - [x] configOne — «config» se conserva como abreviatura estable en la UI y README.
 - [x] factionShadowkin — «Shadowkin» permanece como nombre oficial en el juego.
-- [x] filterLimitConfigs — Chip muestra «Configs», alineado con el resto de la UI.
+- [x] filterLimitPreviewConfigs — Etiqueta abreviada «Configs vista» mantiene el ancho del chip.
+- [x] filterLimitTesterConfigs — Variante «Configs tester» aclara que la info-burbuja describe el filtro compartido entre el Probador y la vista de Sellfile.
 - [x] filterSets — «Sets» permanece como término oficial de Raid.
 - [x] filterSubstats — «Substats» se conserva como préstamo establecido.
 - [x] headerMenuAuto — «Auto» se mantiene para alinear los menús en todos los idiomas.
@@ -191,7 +193,8 @@ Instructions:
 - [x] configMany — Plural «configs» acompanha abreviação usada no app.
 - [x] configOne — Singular «config» idem.
 - [x] factionOrcs — «Orcs» permanece nome oficial da facção.
-- [x] filterLimitConfigs — Botão curto «Configs» combina com chips de filtro.
+- [x] filterLimitPreviewConfigs — Botão curto «Configs prévia» combina com os chips.
+- [x] filterLimitTesterConfigs — Versão «Configs tester» explica que a dica cobre o filtro partilhado entre o Rule Tester e a pré-visualização Sellfile.
 - [x] filterRank — «Rank» (loanword) alinha UI e README.
 - [x] filterSlots — «Slots» (loanword) acompanha builder/filtros.
 - [x] filterSubstats — «Substats» é termo estabelecido na comunidade.
@@ -230,7 +233,8 @@ Instructions:
 - [x] configMany — «configs» permanece a abreviação destacada no README.
 - [x] configOne — «config» acompanha o singular utilizado na documentação.
 - [x] factionOrcs — «Orcs» é o nome oficial da facção em Raid.
-- [x] filterLimitConfigs — «Configs» garante a etiqueta curta do filtro e casa com o README.
+- [x] filterLimitPreviewConfigs — «Configs prévia» mantém o rótulo curto citado no README.
+- [x] filterLimitTesterConfigs — «Configs tester» mantém o rótulo compacto e a dica agora cita o filtro conjunto (tester + Sellfile).
 - [x] filterRank — «Rank» mantém o termo de jogo referenciado na ajuda.
 - [x] filterSlots — «Slots» mantém a largura do botão e coincide com a explicação do README.
 - [x] filterSubstats — «Substats» continua o termo de comunidade adotado no texto de apoio.
