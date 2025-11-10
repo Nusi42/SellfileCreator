@@ -57,7 +57,8 @@ const MAX_MATCHING_CHIPS = 6
 const ESTIMATED_CARD_HEIGHT_PX = 220
 const ESTIMATED_ACCORDION_HEADER_PX = 60
 const ESTIMATED_DETAILS_PADDING_PX = 32
-const ACCORDION_MARGIN_UNITS = 1.5
+const ACCORDION_MARGIN_UNITS = 0.75
+const ACCORDION_BORDER_RADIUS_PX = 8
 const GRID_VIRTUALIZE_GROUP_THRESHOLD = 12
 const GRID_VIRTUALIZE_ROW_THRESHOLD = 150
 const GRID_VIRTUALIZE_OVERSCAN_PX = 640
@@ -470,7 +471,17 @@ const TesterItemsGridGroup = React.memo(function TesterItemsGridGroup({
       ref={accordionRef}
       expanded={expanded}
       onChange={(event, isExpanded) => onToggleGroup(group.key, isExpanded, event)}
-      sx={{ mb: ACCORDION_MARGIN_UNITS }}
+      sx={(theme) => ({
+        mb: ACCORDION_MARGIN_UNITS,
+        borderRadius: `${ACCORDION_BORDER_RADIUS_PX}px`,
+        overflow: 'hidden',
+        border: `1px solid ${theme.palette.divider}`,
+        backgroundColor: theme.palette.background.paper,
+        '&::before': {
+          display: 'none',
+        },
+      })}
+      square={false}
       disableGutters
       elevation={0}
     >
@@ -508,7 +519,7 @@ const TesterItemsGridGroup = React.memo(function TesterItemsGridGroup({
         </Stack>
       </AccordionSummary>
       {expanded ? (
-        <AccordionDetails>
+        <AccordionDetails sx={{ backgroundColor: 'inherit', px: 2, pt: 2 }}>
           <Box
             sx={(theme) => ({
               display: 'grid',
