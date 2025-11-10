@@ -1022,10 +1022,12 @@ const TesterGridCard = React.memo(function TesterGridCard({
                 key={`sub-${entry.variant}`}
                 sx={{
                   position: 'relative',
-                  display: 'flex',
+                  display: 'inline-flex',
                   alignItems: 'center',
-                  width: '100%',
+                  width: 'fit-content',
                   maxWidth: '100%',
+                  alignSelf: 'flex-start',
+                  flexShrink: 1,
                   minWidth: 0,
                   '&::after': entry.isMythicBonus ? {
                     content: '""',
