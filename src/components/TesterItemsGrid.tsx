@@ -5,10 +5,12 @@ import {
   AccordionDetails,
   Box,
   Chip,
+  Popover,
   Stack,
   Tooltip,
   Typography,
 } from '@mui/material'
+import type { PaperProps as MuiPaperProps } from '@mui/material/Paper'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import StarRoundedIcon from '@mui/icons-material/StarRounded'
 import { useTheme } from '@mui/material/styles'
@@ -40,6 +42,7 @@ import { isAccessorySlot } from '../lib/testerDomain'
 import { TesterSummaryLabel } from './TesterSummaryLabel'
 import { TesterRuleReferenceChip } from './TesterRuleReferenceChip'
 import { WithSetTooltip } from './SetTooltip'
+import ContextMenuPaper from './ContextMenuPaper'
 
 const GRID_CARD_MIN_WIDTH = 240
 const GRID_CARD_ICON_COLUMN_PX = 88
@@ -55,11 +58,15 @@ const ACCORDION_MARGIN_UNITS = 1.5
 const GRID_VIRTUALIZE_GROUP_THRESHOLD = 12
 const GRID_VIRTUALIZE_ROW_THRESHOLD = 150
 const GRID_VIRTUALIZE_OVERSCAN_PX = 640
+const MATCHING_POPOVER_MAX_WIDTH_PX = 360
 const MATCHING_CONFIG_CHIP_SX = {
   flexShrink: 1,
   minWidth: 0,
   maxWidth: '100%',
   overflow: 'hidden',
+  borderRadius: '8px',
+  flexBasis: 'auto',
+  flexGrow: 0,
   '& .MuiChip-label': {
     display: 'block',
     maxWidth: '100%',
@@ -67,6 +74,13 @@ const MATCHING_CONFIG_CHIP_SX = {
     textOverflow: 'ellipsis',
     whiteSpace: 'nowrap',
   },
+} as const
+const MATCHING_CHIP_WRAPPER_SX = {
+  display: 'inline-flex',
+  maxWidth: '100%',
+  minWidth: 0,
+  flexBasis: 'auto',
+  flexGrow: 0,
 } as const
 
 const pxValue = (value: string): number => Number.parseFloat(value) || 0
@@ -104,6 +118,11 @@ type TesterGroup = {
   factionId: FactionId | null
   rows: TesterPreviewRow[]
   order: number
+}
+
+type MatchingConfigEntry = {
+  cfgIdx: number
+  label: string
 }
 
 export function TesterItemsGrid(props: TesterItemsGridProps) {
@@ -650,10 +669,79 @@ const TesterGridCard = React.memo(function TesterGridCard({
   const matchingIndices = Array.isArray(row.matchingCfgIndices)
     ? Array.from(new Set(row.matchingCfgIndices.filter((idx) => Number.isFinite(idx))))
     : []
-  const matchingLabels = matchingIndices.map((idx) => formatConfigLabel(idx as number, configNames, t))
-  const otherMatchingLabels = matchingLabels.slice(1)
-  const visibleOtherMatching = otherMatchingLabels.slice(0, MAX_MATCHING_CHIPS)
-  const otherMatchingTotal = otherMatchingLabels.length
+  const matchingEntries: MatchingConfigEntry[] = matchingIndices.map((idx) => ({
+    cfgIdx: idx as number,
+    label: formatConfigLabel(idx as number, configNames, t),
+  }))
+  const otherMatchingEntries = matchingEntries.slice(1)
+  const visibleOtherMatching = otherMatchingEntries.slice(0, MAX_MATCHING_CHIPS)
+  const hiddenOtherMatching = otherMatchingEntries.slice(MAX_MATCHING_CHIPS)
+  const [matchingPopoverAnchor, setMatchingPopoverAnchor] = useState<HTMLElement | null>(null)
+  const matchingPopoverOpen = Boolean(matchingPopoverAnchor) && hiddenOtherMatching.length > 0
+  const handleMatchingPopoverClose = useCallback(() => {
+    setMatchingPopoverAnchor(null)
+  }, [])
+  const handleMatchingMoreClick = (event: React.MouseEvent<HTMLElement>) => {
+    if (hiddenOtherMatching.length === 0) return
+    setMatchingPopoverAnchor(event.currentTarget)
+  }
+  const handleMatchingConfigJump = (cfgIdx: number) => {
+    if (!canJumpToPrimaryMatch || primaryRuleIndex == null) return
+    if (!Number.isFinite(cfgIdx)) return
+    onJumpToRule?.(primaryRuleIndex, cfgIdx)
+  }
+  const renderMatchingChip = (
+    entry: MatchingConfigEntry,
+    options?: { onSelect?: () => void },
+  ): React.ReactNode => {
+    const key = `matching-chip-${entry.cfgIdx}`
+    const clickable = canJumpToPrimaryMatch
+    const sharedChipProps = {
+      label: entry.label,
+      size: 'small' as const,
+      variant: 'outlined' as const,
+      title: entry.label,
+      sx: {
+        ...MATCHING_CONFIG_CHIP_SX,
+        cursor: clickable ? 'pointer' : 'default',
+      },
+    }
+    const chipNode = (
+      <Chip
+        {...sharedChipProps}
+        {...(clickable
+          ? {
+              component: 'button' as const,
+              type: 'button' as const,
+              onClick: () => {
+                options?.onSelect?.()
+                handleMatchingConfigJump(entry.cfgIdx)
+              },
+            }
+          : {})}
+      />
+    )
+
+    const wrappedChip = (
+      <Box component="span" sx={MATCHING_CHIP_WRAPPER_SX}>
+        {chipNode}
+      </Box>
+    )
+
+    if (!clickable) {
+      return (
+        <React.Fragment key={key}>
+          {wrappedChip}
+        </React.Fragment>
+      )
+    }
+
+    return (
+      <Tooltip key={key} title={t('testerJumpToConfig')}>
+        {wrappedChip}
+      </Tooltip>
+    )
+  }
   const hasSetIcon = Number.isFinite(setIdNumber) && setIdNumber > 0
   const setIconOverlay = hasSetIcon ? (
     <Box
@@ -901,25 +989,57 @@ const TesterGridCard = React.memo(function TesterGridCard({
           </Box>
         </Tooltip>
       </Stack>
-      {otherMatchingTotal > 0 ? (
+      {otherMatchingEntries.length > 0 ? (
         <Box sx={{ gridColumn: '1 / span 2', gridRow: '3', width: '100%' }}>
           <Box sx={{ display: 'flex', flexWrap: 'nowrap', gap: 0.5, overflow: 'hidden', alignItems: 'center', minWidth: 0 }}>
-            {visibleOtherMatching.map((label) => (
-              <Chip
-                key={label}
-                label={label}
-                size="small"
-                variant="outlined"
-                title={label}
-                sx={MATCHING_CONFIG_CHIP_SX}
-              />
-            ))}
-            <Chip
-              label={`+${otherMatchingTotal}`}
-              size="small"
-              color="primary"
-              sx={{ flexShrink: 0 }}
-            />
+            {visibleOtherMatching.map((entry) => renderMatchingChip(entry))}
+            {hiddenOtherMatching.length > 0 ? (
+              <>
+                <Tooltip title={`${t('testerConfigMatches')} (+${hiddenOtherMatching.length})`}>
+                  <Chip
+                    label={`+${hiddenOtherMatching.length}`}
+                    size="small"
+                    color="primary"
+                    component="button"
+                    type="button"
+                    onClick={handleMatchingMoreClick}
+                    sx={{ borderRadius: '8px', flexShrink: 0 }}
+                  />
+                </Tooltip>
+                <Popover
+                  open={matchingPopoverOpen}
+                  anchorEl={matchingPopoverAnchor}
+                  onClose={handleMatchingPopoverClose}
+                  anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+                  transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+                  disableRestoreFocus
+                  slotProps={{
+                    paper: {
+                      component: ContextMenuPaper,
+                      onRequestClose: handleMatchingPopoverClose,
+                      closeLabel: t('close'),
+                      sx: {
+                        maxWidth: MATCHING_POPOVER_MAX_WIDTH_PX,
+                        width: `min(80vw, ${MATCHING_POPOVER_MAX_WIDTH_PX}px)`,
+                      },
+                    } as MuiPaperProps,
+                  }}
+                >
+                  <Box
+                    sx={{
+                      p: 1,
+                      display: 'flex',
+                      flexWrap: 'wrap',
+                      gap: 0.5,
+                      maxWidth: MATCHING_POPOVER_MAX_WIDTH_PX,
+                      width: `min(80vw, ${MATCHING_POPOVER_MAX_WIDTH_PX}px)`,
+                    }}
+                  >
+                    {hiddenOtherMatching.map((entry) => renderMatchingChip(entry, { onSelect: handleMatchingPopoverClose }))}
+                  </Box>
+                </Popover>
+              </>
+            ) : null}
           </Box>
         </Box>
       ) : null}
