@@ -7,6 +7,10 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import ExpandLessIcon from '@mui/icons-material/ExpandLess'
 import VisibilityIcon from '@mui/icons-material/Visibility'
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff'
+import FilterAltIcon from '@mui/icons-material/FilterAlt'
+import FilterAltOffIcon from '@mui/icons-material/FilterAltOff'
+import FilterListIcon from '@mui/icons-material/FilterList'
+import FilterListOffIcon from '@mui/icons-material/FilterListOff'
 import EllipsisTooltip from './EllipsisTooltip'
 import {
   artifactSetName,
@@ -801,6 +805,14 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
     )
   ), [testerConfigLabelStrings])
   const testerConfigFilterTooltip = t('filterLimitSelectedConfigsTooltip')
+  const configFilterButtonActive = testerConfigFilterHasSelection && testerConfigFilterMode !== 'off'
+  const configFilterButtonVariant: 'contained' | 'outlined' = configFilterButtonActive ? 'contained' : 'outlined'
+  const configFilterButtonLabel = isTesterMode && testerConfigFilterMode !== 'off'
+    ? (configFilterButtonActive ? testerConfigFilterLabel : t('testerFilterConfigsOff'))
+    : (configFilterButtonActive ? t('configFilterOn') : t('testerFilterConfigsOff'))
+  const previewConfigButtonActive = configChipFilterActive
+  const previewConfigButtonVariant: 'contained' | 'outlined' = previewConfigButtonActive ? 'contained' : 'outlined'
+  const previewConfigButtonLabel = previewConfigButtonActive ? t('configFilterOn') : t('testerFilterConfigsOff')
 
   const testerSourceOptions = React.useMemo(() => ([
     { value: 'inventory', label: t('testerSourceInventory') },
@@ -973,25 +985,19 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
               <span>
                 <Button
                   size="small"
-                  variant="outlined"
+                  variant={configFilterButtonVariant}
                   color="success"
                   aria-label={t('filterLimitSelectedConfigs')}
-                  aria-pressed={testerConfigFilterMode !== 'off' && testerConfigFilterHasSelection}
+                  aria-pressed={configFilterButtonActive || undefined}
                   disabled={!hasConfigs || !onTesterConfigFilterModeChange}
                   onClick={handleTesterConfigFilterClick}
-                  startIcon={testerConfigFilterMode === 'off' ? <VisibilityIcon fontSize="small" /> : <VisibilityOffIcon fontSize="small" />}
+                  startIcon={configFilterButtonActive ? <FilterAltIcon fontSize="small" /> : <FilterAltOffIcon fontSize="small" />}
                   sx={{
-                    borderColor: testerConfigFilterMode === 'off' ? 'success.dark' : 'success.main',
-                    color: testerConfigFilterMode === 'off' ? 'success.contrastText' : 'success.main',
-                    bgcolor: testerConfigFilterMode === 'off' ? 'success.main' : 'transparent',
                     height: SMALL_BUTTON_HEIGHT_PX,
                     minHeight: SMALL_BUTTON_HEIGHT_PX,
                     px: 1.25,
-                    opacity: testerConfigFilterHasSelection || testerConfigFilterMode === 'off' ? 1 : 0.9,
-                    '&:hover': {
-                      bgcolor: testerConfigFilterMode === 'off' ? 'success.main' : 'success.dark',
-                      borderColor: 'success.dark',
-                      color: 'success.contrastText',
+                    '& .MuiTypography-root': {
+                      fontWeight: 600,
                     },
                   }}
                 >
@@ -1000,7 +1006,6 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                     component="span"
                     color="inherit"
                     sx={{
-                      fontWeight: 600,
                       ml: 0.75,
                       display: 'inline-block',
                       minWidth: isTesterMode ? `${testerConfigLabelWidthCh}ch` : undefined,
@@ -1008,9 +1013,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                       whiteSpace: 'nowrap',
                     }}
                   >
-                    {isTesterMode
-                      ? testerConfigFilterLabel
-                      : (testerConfigFilterMode === 'off' ? t('testerFilterConfigsOff') : t('configFilterOn'))}
+                    {configFilterButtonLabel}
                   </Typography>
                 </Button>
               </span>
@@ -1020,27 +1023,30 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
             <span>
               <Button
                 size="small"
-                variant="outlined"
+                variant={previewConfigButtonVariant}
+                color="success"
                 aria-label={t('filterLimitPreviewConfigs')}
-                aria-pressed={hasConfigs ? configChipFilterActive : undefined}
+                aria-pressed={hasConfigs ? previewConfigButtonActive : undefined}
                 onClick={() => onConfigChipFilterChange(!configChipFilterActive)}
                 disabled={!hasConfigs}
-                startIcon={configChipFilterActive ? <VisibilityOffIcon fontSize="small" /> : <VisibilityIcon fontSize="small" />}
+                startIcon={previewConfigButtonActive ? <FilterListIcon fontSize="small" /> : <FilterListOffIcon fontSize="small" />}
                 sx={{
-                  borderColor: configChipFilterActive ? 'success.main' : 'success.dark',
-                  color: configChipFilterActive ? 'success.main' : 'success.contrastText',
-                  bgcolor: configChipFilterActive ? 'transparent' : 'success.main',
                   height: SMALL_BUTTON_HEIGHT_PX,
                   minHeight: SMALL_BUTTON_HEIGHT_PX,
                   px: 1.25,
-                  '&:hover': {
-                    bgcolor: 'success.dark',
-                    borderColor: 'success.dark',
-                    color: 'success.contrastText',
+                  '& .MuiTypography-root': {
+                    fontWeight: 600,
                   },
                 }}
               >
                 {t('filterLimitPreviewConfigs')}
+                <Typography
+                  component="span"
+                  color="inherit"
+                  sx={{ ml: 0.75, display: 'inline-block', whiteSpace: 'nowrap' }}
+                >
+                  {previewConfigButtonLabel}
+                </Typography>
               </Button>
             </span>
           </Tooltip>
