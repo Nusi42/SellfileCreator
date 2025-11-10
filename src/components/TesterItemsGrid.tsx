@@ -41,11 +41,13 @@ import { TesterSummaryLabel } from './TesterSummaryLabel'
 import { TesterRuleReferenceChip } from './TesterRuleReferenceChip'
 import { WithSetTooltip } from './SetTooltip'
 
-const GRID_CARD_TEMPLATE = '96px minmax(180px, 0.5fr) minmax(280px, 1fr)'
-const GRID_GAP = 1.5
+const GRID_CARD_MIN_WIDTH = 240
+const GRID_CARD_ICON_COLUMN_PX = 88
+const GRID_CARD_STATS_MIN_COLUMN_PX = 132
+const GRID_CARD_TEMPLATE = `${GRID_CARD_ICON_COLUMN_PX}px minmax(${GRID_CARD_STATS_MIN_COLUMN_PX}px, 1fr)`
+const GRID_GAP = 1.25
 const CARD_BORDER_RADIUS = 2
 const MAX_MATCHING_CHIPS = 6
-const GRID_CARD_MIN_WIDTH = 520
 const ESTIMATED_CARD_HEIGHT_PX = 220
 const ESTIMATED_ACCORDION_HEADER_PX = 60
 const ESTIMATED_DETAILS_PADDING_PX = 32
@@ -53,6 +55,19 @@ const ACCORDION_MARGIN_UNITS = 1.5
 const GRID_VIRTUALIZE_GROUP_THRESHOLD = 12
 const GRID_VIRTUALIZE_ROW_THRESHOLD = 150
 const GRID_VIRTUALIZE_OVERSCAN_PX = 640
+const MATCHING_CONFIG_CHIP_SX = {
+  flexShrink: 1,
+  minWidth: 0,
+  maxWidth: '100%',
+  overflow: 'hidden',
+  '& .MuiChip-label': {
+    display: 'block',
+    maxWidth: '100%',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+  },
+} as const
 
 const pxValue = (value: string): number => Number.parseFloat(value) || 0
 const RARITY_BORDER_COLORS: Record<number, string> = {
@@ -421,7 +436,7 @@ const TesterItemsGridGroup = React.memo(function TesterItemsGridGroup({
           <Box
             sx={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(520px, 1fr))',
+              gridTemplateColumns: `repeat(auto-fit, minmax(${GRID_CARD_MIN_WIDTH}px, 1fr))`,
               gap: theme.spacing(GRID_GAP),
             }}
           >
@@ -600,7 +615,7 @@ const TesterGridCard = React.memo(function TesterGridCard({
   })()
   const sourceDescriptor = getItemSourceDescriptor(artifact, t)
   const rerollLabel = artifact.rerollCount > 0 ? '⟳' : ''
-  const rerollTooltip = artifact.rerollCount > 0 ? `${t('testerRerollLabel')} (${artifact.rerollCount})` : ''
+  const rerollTooltip = artifact.rerollCount > 0 ? t('testerRerollLabel') : ''
   const outcomeLabel = match?.keep === true
     ? t('testerMatchKeep')
     : match?.keep === false
@@ -611,18 +626,37 @@ const TesterGridCard = React.memo(function TesterGridCard({
     : match?.keep === false
       ? 'warning'
       : 'default'
+  const outcomeGlyph = match?.keep === true
+    ? '✓'
+    : match?.keep === false
+      ? '✕'
+      : '—'
+  const outcomeTone = outcomeColor === 'success'
+    ? theme.palette.success.main
+    : outcomeColor === 'warning'
+      ? theme.palette.warning.main
+      : theme.palette.text.secondary
+  const primaryRuleIndex = typeof match?.ruleIndex === 'number' ? match.ruleIndex : null
+  const primaryCfgIndex = typeof match?.cfgIdx === 'number' ? match.cfgIdx : null
+  const canJumpToPrimaryMatch = typeof onJumpToRule === 'function' && primaryRuleIndex != null
+  const handlePrimaryMatchClick = () => {
+    if (canJumpToPrimaryMatch && primaryRuleIndex != null) {
+      onJumpToRule?.(primaryRuleIndex, primaryCfgIndex ?? null)
+    }
+  }
   const matchingIndices = Array.isArray(row.matchingCfgIndices)
     ? Array.from(new Set(row.matchingCfgIndices.filter((idx) => Number.isFinite(idx))))
     : []
   const matchingLabels = matchingIndices.map((idx) => formatConfigLabel(idx as number, configNames, t))
-  const visibleMatching = matchingLabels.slice(0, MAX_MATCHING_CHIPS)
-  const remainingMatches = matchingLabels.length - visibleMatching.length
+  const otherMatchingLabels = matchingLabels.slice(1)
+  const visibleOtherMatching = otherMatchingLabels.slice(0, MAX_MATCHING_CHIPS)
+  const otherMatchingTotal = otherMatchingLabels.length
   const setIconOverlay = (
     <Box
       sx={{
         position: 'absolute',
-        left: -6,
-        bottom: -6,
+        left: -10,
+        bottom: -10,
         bgcolor: 'background.paper',
         borderRadius: 1,
         p: 0.25,
@@ -635,7 +669,7 @@ const TesterGridCard = React.memo(function TesterGridCard({
         lineHeight: 0,
       }}
     >
-      <SetIcon setId={setIdNumber as ArtifactSetId} size={20} />
+      <SetIcon setId={setIdNumber as ArtifactSetId} size={20} sx={{ mr: 0, display: 'block' }} />
     </Box>
   )
   const mainSummaryLabel = (
@@ -659,7 +693,8 @@ const TesterGridCard = React.memo(function TesterGridCard({
       sx={{
         display: 'grid',
         gridTemplateColumns: GRID_CARD_TEMPLATE,
-        gap: 2,
+        columnGap: 2,
+        rowGap: 1,
         p: 2,
         borderRadius: CARD_BORDER_RADIUS,
         border: '1px solid',
@@ -687,7 +722,21 @@ const TesterGridCard = React.memo(function TesterGridCard({
           }}
         >
           {rankStars > 0 ? (
-            <Box sx={{ display: 'flex', mb: 0.25 }}>
+            <Box
+              sx={{
+                position: 'absolute',
+                top: -10,
+                left: '50%',
+                transform: 'translateX(-50%)',
+                display: 'flex',
+                pointerEvents: 'none',
+                px: 1,
+                py: 0.25,
+                borderRadius: 999,
+                background: 'linear-gradient(180deg, rgba(0,0,0,0.25), rgba(0,0,0,0))',
+                boxShadow: '0 0 8px rgba(0,0,0,0.35)',
+              }}
+            >
               {Array.from({ length: rankStars }).map((_, idx) => (
                 <StarRoundedIcon
                   key={`rank-star-${idx}`}
@@ -702,8 +751,69 @@ const TesterGridCard = React.memo(function TesterGridCard({
           ) : null}
           {SlotIcon ? (
             <Box sx={{ color: 'text.primary', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <SlotIcon fontSize="large" />
+              <Box sx={{ fontSize: '3.25rem', lineHeight: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <SlotIcon fontSize="inherit" />
+              </Box>
             </Box>
+          ) : null}
+          <Tooltip title={outcomeLabel}>
+            <Box
+              component={canJumpToPrimaryMatch ? 'button' : 'div'}
+              type={canJumpToPrimaryMatch ? 'button' : undefined}
+              onClick={canJumpToPrimaryMatch ? handlePrimaryMatchClick : undefined}
+              sx={{
+                position: 'absolute',
+                left: -10,
+                top: -10,
+                width: 24,
+                height: 24,
+                borderRadius: '50%',
+                bgcolor: 'background.paper',
+                border: '2px solid',
+                borderColor: outcomeTone,
+                color: outcomeTone,
+                boxShadow: 2,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontWeight: 700,
+                fontSize: '0.85rem',
+                cursor: canJumpToPrimaryMatch ? 'pointer' : 'default',
+                transition: 'transform 120ms ease',
+                '&:hover': canJumpToPrimaryMatch ? { transform: 'scale(1.05)' } : undefined,
+                '&:focus-visible': canJumpToPrimaryMatch ? {
+                  outline: '2px solid',
+                  outlineColor: theme.palette.primary.main,
+                  outlineOffset: 2,
+                } : undefined,
+              }}
+              aria-label={outcomeLabel}
+            >
+              {outcomeGlyph}
+            </Box>
+          </Tooltip>
+          {rerollLabel ? (
+            <Tooltip title={rerollTooltip}>
+              <Box
+                sx={{
+                  position: 'absolute',
+                  right: -10,
+                  top: -10,
+                  bgcolor: 'background.paper',
+                  borderRadius: 1,
+                  px: 0.5,
+                  py: 0.25,
+                  boxShadow: 2,
+                  border: '2px solid',
+                  borderColor: rarityBorder,
+                  fontSize: '0.8rem',
+                  fontWeight: 600,
+                  color: 'text.primary',
+                }}
+              >
+                {rerollLabel}
+              </Box>
+            </Tooltip>
           ) : null}
           {setTooltipName ? (
             <WithSetTooltip name={setTooltipName} displayName={setLabel}>
@@ -715,8 +825,8 @@ const TesterGridCard = React.memo(function TesterGridCard({
           <Box
             sx={{
               position: 'absolute',
-              right: -6,
-              bottom: -6,
+              right: -10,
+              bottom: -10,
               bgcolor: 'background.paper',
               borderRadius: 1,
               px: 0.75,
@@ -741,16 +851,7 @@ const TesterGridCard = React.memo(function TesterGridCard({
           </Tooltip>
         ) : null}
       </Box>
-      <Stack spacing={0.75} minWidth={0}>
-        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75 }}>
-          {rerollLabel ? (
-            <Tooltip title={rerollTooltip}>
-              <Box component="span">
-                <TesterSummaryLabel label={rerollLabel} />
-              </Box>
-            </Tooltip>
-          ) : null}
-        </Box>
+      <Stack spacing={0.75} minWidth={0} sx={{ gridColumn: '2', gridRow: '1', minWidth: 0 }}>
         <TesterSummaryLabel label={mainSummaryLabel} wrap />
         <Tooltip title={subTooltip}>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
@@ -786,44 +887,37 @@ const TesterGridCard = React.memo(function TesterGridCard({
           </Box>
         </Tooltip>
       </Stack>
-      <Stack spacing={1} minWidth={0}>
-        <Chip
-          label={outcomeLabel}
-          size="small"
-          color={outcomeColor}
-          sx={{ alignSelf: 'flex-start', fontWeight: 600 }}
-        />
-        {match ? (
+      {otherMatchingTotal > 0 ? (
+        <Box sx={{ gridColumn: '1 / span 2', gridRow: '3', width: '100%' }}>
+          <Box sx={{ display: 'flex', flexWrap: 'nowrap', gap: 0.5, overflow: 'hidden', alignItems: 'center', minWidth: 0 }}>
+            {visibleOtherMatching.map((label) => (
+              <Chip
+                key={label}
+                label={label}
+                size="small"
+                variant="outlined"
+                title={label}
+                sx={MATCHING_CONFIG_CHIP_SX}
+              />
+            ))}
+            <Chip
+              label={`+${otherMatchingTotal}`}
+              size="small"
+              color="primary"
+              sx={{ flexShrink: 0 }}
+            />
+          </Box>
+        </Box>
+      ) : null}
+      {match ? (
+        <Box sx={{ gridColumn: '1 / span 2', gridRow: '2', width: '100%', display: 'flex', alignItems: 'center' }}>
           <TesterRuleReferenceChip
             match={match}
             {...(onJumpToRule ? { onJump: onJumpToRule } : {})}
             sx={{ width: '100%' }}
           />
-        ) : (
-          <Typography variant="body2" color="text.secondary">
-            {t('testerRuleNoMatchShort')}
-          </Typography>
-        )}
-        <Box>
-          <Typography variant="caption" sx={{ textTransform: 'uppercase', letterSpacing: 0.4, color: 'text.secondary' }}>
-            {t('testerConfigMatches')}
-          </Typography>
-          {visibleMatching.length > 0 ? (
-            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 0.5 }}>
-              {visibleMatching.map((label) => (
-                <Chip key={label} label={label} size="small" variant="outlined" />
-              ))}
-              {remainingMatches > 0 ? (
-                <Chip label={`+${remainingMatches}`} size="small" variant="outlined" />
-              ) : null}
-            </Box>
-          ) : (
-            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-              {t('testerConfigMatchesNone')}
-            </Typography>
-          )}
         </Box>
-      </Stack>
+      ) : null}
     </Box>
   )
 });
