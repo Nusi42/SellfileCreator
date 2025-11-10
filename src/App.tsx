@@ -3102,6 +3102,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         '.chips-dragging .MuiTooltip-popper': {
           display: 'none !important',
         },
+        'body.chips-dragging': {
+          cursor: 'grabbing',
+        },
+        '.chips-dragging [data-config-chip="true"], .chips-dragging [data-config-chip="true"] *': {
+          pointerEvents: 'none !important',
+        },
         '::-webkit-scrollbar': {
           width: 10,
           height: 10,
