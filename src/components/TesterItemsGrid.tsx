@@ -486,6 +486,18 @@ const TesterItemsGridGroup = React.memo(function TesterItemsGridGroup({
       elevation={0}
     >
       <AccordionSummary
+        sx={(theme) => ({
+          minHeight: theme.spacing(5),
+          '&.Mui-expanded': {
+            minHeight: theme.spacing(5),
+          },
+          '& .MuiAccordionSummary-content': {
+            my: 0,
+          },
+          '& .MuiAccordionSummary-content.Mui-expanded': {
+            my: 0,
+          },
+        })}
         expandIcon={<ExpandMoreIcon />}
         onMouseEnter={contextHintEnabled ? onContextMenuHintMove : undefined}
         onMouseMove={contextHintEnabled ? onContextMenuHintMove : undefined}
@@ -519,7 +531,7 @@ const TesterItemsGridGroup = React.memo(function TesterItemsGridGroup({
         </Stack>
       </AccordionSummary>
       {expanded ? (
-        <AccordionDetails sx={{ backgroundColor: 'inherit', px: 2, pt: 2 }}>
+        <AccordionDetails sx={{ backgroundColor: 'inherit', p: 0 }}>
           <Box
             sx={(theme) => ({
               display: 'grid',
@@ -871,8 +883,6 @@ const TesterGridCard = React.memo(function TesterGridCard({
         rowGap: 1,
         p: 2,
         borderRadius: CARD_BORDER_RADIUS,
-        border: '1px solid',
-        borderColor: 'divider',
         bgcolor: 'background.paper',
         minHeight: 176,
         overflow: 'hidden',
