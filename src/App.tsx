@@ -2163,34 +2163,51 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     return sorted
   }, [testerPreviewRows])
   const testerConfigFilterActive = testerConfigFilterMode !== 'off' && selectedCfgIndices.length > 0
+  const testerConfigFilterSelectedSet = useMemo<Set<number> | null>(() => {
+    if (!testerConfigFilterActive) return null
+    if (!selectedCfgIndices.length) return null
+    return new Set(selectedCfgIndices)
+  }, [testerConfigFilterActive, selectedCfgIndices])
   const testerRowsForTable = useMemo(() => {
     let rows: TesterPreviewRow[] = testerRowsAfterRulesFilter
-    if (testerConfigFilterActive) {
-      const selectedSet = new Set(selectedCfgIndices)
-      if (selectedSet.size > 0) {
-        if (testerConfigFilterMode === 'first') {
-          rows = testerRowsAfterRulesFilter.filter((row) => {
-            const cfgIdx = row.match?.cfgIdx
-            return cfgIdx != null && selectedSet.has(cfgIdx)
-          })
-        } else {
-          rows = testerRowsAfterRulesFilter.filter((row) => {
-            const matches = row.matchingCfgIndices ?? []
-            for (const cfgIdx of matches) {
-              if (selectedSet.has(cfgIdx)) return true
-            }
-            return false
-          })
-        }
+    if (testerConfigFilterSelectedSet && testerConfigFilterSelectedSet.size > 0) {
+      if (testerConfigFilterMode === 'first') {
+        rows = testerRowsAfterRulesFilter.filter((row) => {
+          const cfgIdx = row.match?.cfgIdx
+          return cfgIdx != null && testerConfigFilterSelectedSet.has(cfgIdx)
+        })
+      } else {
+        rows = testerRowsAfterRulesFilter.filter((row) => {
+          const matches = row.matchingCfgIndices ?? []
+          for (const cfgIdx of matches) {
+            if (testerConfigFilterSelectedSet.has(cfgIdx)) return true
+          }
+          return false
+        })
       }
     }
     return sortTesterRows(rows)
-  }, [testerConfigFilterActive, testerConfigFilterMode, testerRowsAfterRulesFilter, selectedCfgIndices])
+  }, [testerConfigFilterMode, testerConfigFilterSelectedSet, testerRowsAfterRulesFilter])
   const testerBuilding = testerRowsBuilding
   const matchingConfigIndices = filterResult.matchingConfigIndices
+  const testerMatchingConfigIndices = testerFilterResult.matchingConfigIndices
+  const chipMatchingConfigIndices = previewMode === 'tester'
+    ? testerMatchingConfigIndices
+    : matchingConfigIndices
   const filterActive = isRulesFilterActive(rulesFilter)
   const testerFilterActive = isRulesFilterActive(testerRulesFilter, { includeTesterRange: true })
-  const previewFilterActive = previewMode === 'tester' ? (testerFilterActive || testerConfigFilterActive) : filterActive
+  const previewFilterActive = previewMode === 'tester'
+    ? (testerFilterActive || testerConfigFilterActive)
+    : (filterActive || testerConfigFilterActive)
+  const hsfRulesForTable = useMemo(() => {
+    const baseRules = filterActive ? filteredRules : mergedRules
+    if (!testerConfigFilterSelectedSet || testerConfigFilterSelectedSet.size === 0) return baseRules
+    return baseRules.filter((rule) => {
+      const cfgIdx = (rule as HsfRuleWithCfg).__cfgIdx
+      return typeof cfgIdx === 'number' && testerConfigFilterSelectedSet.has(cfgIdx)
+    })
+  }, [filterActive, filteredRules, mergedRules, testerConfigFilterSelectedSet])
+  const hsfTableEmptyDueToFilters = (filterActive || testerConfigFilterActive) && mergedRules.length > 0 && hsfRulesForTable.length === 0
   const handleTesterRuleView = useCallback((ruleIndex: number, cfgIdx: number | null) => {
     setTesterOpen(false)
     if (cfgIdx != null && cfgIdx >= 0 && cfgIdx < customCfgs.length) {
@@ -2213,7 +2230,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       setFocusRuleIndex(null)
     }
   }, [customCfgs, filterActive, filteredRules, mergedRules, setBuilder, setFocusRuleIndex, setTesterOpen, syncSelectedCfgIdx])
-  const visibleConfigIndices = useMemo<Set<number> | null>(() => (limitConfigsToFiltered ? matchingConfigIndices : null), [limitConfigsToFiltered, matchingConfigIndices])
+  const visibleConfigIndices = useMemo<Set<number> | null>(() => (
+    limitConfigsToFiltered ? chipMatchingConfigIndices : null
+  ), [chipMatchingConfigIndices, limitConfigsToFiltered])
   visibleConfigIndicesRef.current = visibleConfigIndices
   const selectAllLabelKey = visibleConfigIndices ? 'chipsMenuSelectVisible' : 'chipsMenuSelectAll'
   const scrollSelectedConfigIntoView = useCallback(() => {
@@ -3468,14 +3487,14 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
               )
             ) : (
               <HsfRulesTableMemo
-                rules={filterActive ? filteredRules : mergedRules}
+                rules={hsfRulesForTable}
                 building={rulesBuilding}
                 setHoveredCfgIdx={setHoveredCfgIdx}
                 selectedCfgIdx={selectedCfgIdx}
                 multiselectActive={multiselectActive}
                 focusRuleIndex={focusRuleIndex}
                 onSelectCfgIdx={handleRulesTableSelectCfgIdx}
-                emptyDueToFilter={filterActive && (mergedRules.length > 0) && (filteredRules.length === 0)}
+                emptyDueToFilter={hsfTableEmptyDueToFilters}
                 limitExceeded={limitExceeded}
                 onConfigAction={handleRulesTableConfigAction}
                 onClearBase={handleRulesTableClearBase}

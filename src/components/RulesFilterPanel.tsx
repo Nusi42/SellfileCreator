@@ -782,7 +782,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
   // Group toggles handled inline in onChange for Rank/Rarity condensed controls
 
   const toggleLabelSx = [ELLIPSIS_TEXT_SX, { width: '100%', textAlign: 'center', fontSize: 'inherit' as const }]
-  const testerConfigFilterEnabled = hasConfigs && selectedConfigCount > 0
+  const testerConfigFilterHasSelection = hasConfigs && selectedConfigCount > 0
   const testerConfigLabelStrings = React.useMemo(() => ({
     first: t('testerFilterConfigsFirst'),
     any: t('testerFilterConfigsAny'),
@@ -800,9 +800,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
       testerConfigLabelStrings.off.length,
     )
   ), [testerConfigLabelStrings])
-  const testerConfigFilterTooltip = testerConfigFilterEnabled
-    ? t('testerFilterConfigsTooltip')
-    : t('testerFilterConfigsTooltipDisabled')
+  const testerConfigFilterTooltip = t('filterLimitSelectedConfigsTooltip')
 
   const testerSourceOptions = React.useMemo(() => ([
     { value: 'inventory', label: t('testerSourceInventory') },
@@ -877,13 +875,18 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
     return null
   }, [t])
   const handleTesterConfigFilterClick = () => {
-    if (!testerConfigFilterEnabled) return
+    if (!hasConfigs) return
     if (!onTesterConfigFilterModeChange) return
-    const next: TesterConfigFilterMode = testerConfigFilterMode === 'off'
-      ? 'first'
-      : testerConfigFilterMode === 'first'
-        ? 'any'
-        : 'off'
+    if (isTesterMode) {
+      const next: TesterConfigFilterMode = testerConfigFilterMode === 'off'
+        ? 'first'
+        : testerConfigFilterMode === 'first'
+          ? 'any'
+          : 'off'
+      onTesterConfigFilterModeChange(next)
+      return
+    }
+    const next: TesterConfigFilterMode = testerConfigFilterMode === 'off' ? 'first' : 'off'
     onTesterConfigFilterModeChange(next)
   }
 
@@ -965,25 +968,26 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
             alignItems="center"
             sx={{ flexWrap: 'wrap', justifyContent: headerActionJustify }}
           >
-          {isTesterMode ? (
+          {Boolean(onTesterConfigFilterModeChange) && (
             <Tooltip title={testerConfigFilterTooltip}>
               <span>
                 <Button
                   size="small"
-                  variant={testerConfigFilterMode === 'off' ? 'outlined' : 'contained'}
-                  color={testerConfigFilterMode === 'off' ? 'success' : 'success'}
-                  aria-label={t('filterLimitConfigs')}
-                  aria-pressed={testerConfigFilterMode !== 'off' && testerConfigFilterEnabled}
-                  disabled={!testerConfigFilterEnabled || !onTesterConfigFilterModeChange}
+                  variant="outlined"
+                  color="success"
+                  aria-label={t('filterLimitSelectedConfigs')}
+                  aria-pressed={testerConfigFilterMode !== 'off' && testerConfigFilterHasSelection}
+                  disabled={!hasConfigs || !onTesterConfigFilterModeChange}
                   onClick={handleTesterConfigFilterClick}
                   startIcon={testerConfigFilterMode === 'off' ? <VisibilityIcon fontSize="small" /> : <VisibilityOffIcon fontSize="small" />}
                   sx={{
-                    borderColor: testerConfigFilterMode === 'off' ? 'success.dark' : 'success.dark',
-                    color: testerConfigFilterMode === 'off' ? 'success.dark' : 'success.contrastText',
-                    bgcolor: testerConfigFilterMode === 'off' ? 'transparent' : 'success.main',
+                    borderColor: testerConfigFilterMode === 'off' ? 'success.dark' : 'success.main',
+                    color: testerConfigFilterMode === 'off' ? 'success.contrastText' : 'success.main',
+                    bgcolor: testerConfigFilterMode === 'off' ? 'success.main' : 'transparent',
                     height: SMALL_BUTTON_HEIGHT_PX,
                     minHeight: SMALL_BUTTON_HEIGHT_PX,
                     px: 1.25,
+                    opacity: testerConfigFilterHasSelection || testerConfigFilterMode === 'off' ? 1 : 0.9,
                     '&:hover': {
                       bgcolor: testerConfigFilterMode === 'off' ? 'success.main' : 'success.dark',
                       borderColor: 'success.dark',
@@ -991,7 +995,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                     },
                   }}
                 >
-                  {t('filterLimitConfigs')}
+                  {t('filterLimitSelectedConfigs')}
                   <Typography
                     component="span"
                     color="inherit"
@@ -999,46 +1003,47 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                       fontWeight: 600,
                       ml: 0.75,
                       display: 'inline-block',
-                      minWidth: testerConfigLabelWidthCh ? `${testerConfigLabelWidthCh}ch` : undefined,
+                      minWidth: isTesterMode ? `${testerConfigLabelWidthCh}ch` : undefined,
                       textAlign: 'left',
                       whiteSpace: 'nowrap',
                     }}
                   >
-                    {testerConfigFilterLabel}
+                    {isTesterMode
+                      ? testerConfigFilterLabel
+                      : (testerConfigFilterMode === 'off' ? t('testerFilterConfigsOff') : t('configFilterOn'))}
                   </Typography>
                 </Button>
               </span>
             </Tooltip>
-          ) : (
-            <Tooltip title={t('filterLimitConfigsTooltip')}>
-              <span>
-                <Button
-                  size="small"
-                  variant="outlined"
-                  aria-label={t('filterLimitConfigs')}
-                  aria-pressed={hasConfigs ? configChipFilterActive : undefined}
-                  onClick={() => onConfigChipFilterChange(!configChipFilterActive)}
-                  disabled={!hasConfigs}
-                  startIcon={configChipFilterActive ? <VisibilityOffIcon fontSize="small" /> : <VisibilityIcon fontSize="small" />}
-                  sx={{
-                    borderColor: configChipFilterActive ? 'success.main' : 'success.dark',
-                    color: configChipFilterActive ? 'success.main' : 'success.contrastText',
-                    bgcolor: configChipFilterActive ? 'transparent' : 'success.main',
-                    height: SMALL_BUTTON_HEIGHT_PX,
-                    minHeight: SMALL_BUTTON_HEIGHT_PX,
-                    px: 1.25,
-                    '&:hover': {
-                      bgcolor: 'success.dark',
-                      borderColor: 'success.dark',
-                      color: 'success.contrastText',
-                    },
-                  }}
-                >
-                  {t('filterLimitConfigs')}
-                </Button>
-              </span>
-            </Tooltip>
           )}
+          <Tooltip title={t('filterLimitPreviewConfigsTooltip')}>
+            <span>
+              <Button
+                size="small"
+                variant="outlined"
+                aria-label={t('filterLimitPreviewConfigs')}
+                aria-pressed={hasConfigs ? configChipFilterActive : undefined}
+                onClick={() => onConfigChipFilterChange(!configChipFilterActive)}
+                disabled={!hasConfigs}
+                startIcon={configChipFilterActive ? <VisibilityOffIcon fontSize="small" /> : <VisibilityIcon fontSize="small" />}
+                sx={{
+                  borderColor: configChipFilterActive ? 'success.main' : 'success.dark',
+                  color: configChipFilterActive ? 'success.main' : 'success.contrastText',
+                  bgcolor: configChipFilterActive ? 'transparent' : 'success.main',
+                  height: SMALL_BUTTON_HEIGHT_PX,
+                  minHeight: SMALL_BUTTON_HEIGHT_PX,
+                  px: 1.25,
+                  '&:hover': {
+                    bgcolor: 'success.dark',
+                    borderColor: 'success.dark',
+                    color: 'success.contrastText',
+                  },
+                }}
+              >
+                {t('filterLimitPreviewConfigs')}
+              </Button>
+            </span>
+          </Tooltip>
           <Button
             size="small"
             variant="contained"
@@ -1050,11 +1055,8 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
               setHoverReset(false)
               const next = JSON.parse(JSON.stringify(DEFAULT_RULES_FILTER_STATE)) as RulesFilterState
               onChange(next)
-              if (isTesterMode) {
-                onTesterConfigFilterModeChange?.('off')
-              } else {
-                onConfigChipFilterChange(true)
-              }
+              onConfigChipFilterChange(true)
+              onTesterConfigFilterModeChange?.('off')
               onResetFilters?.()
             }}
             sx={{ whiteSpace: 'nowrap', px: 1.25, height: SMALL_BUTTON_HEIGHT_PX, minHeight: SMALL_BUTTON_HEIGHT_PX }}

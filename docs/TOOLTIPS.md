@@ -148,7 +148,8 @@ target the right implementation.
 - `src/components/RulesFilterPanel.tsx`
   - `anyChip` helper wraps each chip in a Tooltip carrying
     `filterAnyTooltip` explaining how “Any” behaves.
-  - Filter limit toggle shows `filterLimitConfigsTooltip`.
+  - Preview config toggle shows `filterLimitPreviewConfigsTooltip`.
+  - Config filter toggle shows `filterLimitSelectedConfigsTooltip`, noting that the control filters both preview modes (On/Off in Sellfile view and First/Any in Rule Tester).
   - Mode switches for Sets/Substats use `filterMatchTooltipSets` /
     `filterMatchTooltipSubstats`.
   - Slot icon toggle buttons show per-slot names via Tooltips (`placement="bottom"`,
