@@ -478,7 +478,6 @@ const TesterGridCard = React.memo(function TesterGridCard({
   const setIdNumber = Number(artifact.set) || 0
   const setLabel = formatTesterSetLabel({ setId: setIdNumber, slot: artifact.slot as ArtifactTypeId, translate: t })
   const setTooltipName = Number.isFinite(setIdNumber) ? artifactSetNames[setIdNumber] ?? null : null
-  const factionLabel = artifact.faction ? t(factionI18nKey(artifact.faction)) : null
   const levelBucketLabel = formatLevel(artifact.level)
   const hasExactLevel = typeof artifact.exactLevel === 'number' && Number.isFinite(artifact.exactLevel)
   const exactLevelLabel = hasExactLevel ? String(Math.max(0, Math.min(16, Math.round(Number(artifact.exactLevel))))) : null
@@ -558,13 +557,17 @@ const TesterGridCard = React.memo(function TesterGridCard({
   const ascStatColor = useStatButtonColors && typeof ascVariant === 'number'
     ? (substatColors[ascVariant]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[ascVariant])
     : undefined
+  const ascInlineFontSize = 'calc(100% - 1.5px)'
   const ascLabelNode = ascLabel ? (
-    <Box component="span" sx={{ color: ascStatColor ?? 'inherit' }}>
+    <Box component="span" sx={{ color: ascStatColor ?? 'inherit', fontSize: ascInlineFontSize }}>
       {ascLabel}
     </Box>
   ) : null
   const ascValueNode = ascValue ? (
-    <Box component="span" sx={{ color: theme.palette.secondary.main, fontWeight: 600 }}>
+    <Box
+      component="span"
+      sx={{ color: theme.palette.secondary.main, fontWeight: 600, fontSize: ascInlineFontSize }}
+    >
       {ascValue}
     </Box>
   ) : null
@@ -651,7 +654,8 @@ const TesterGridCard = React.memo(function TesterGridCard({
   const otherMatchingLabels = matchingLabels.slice(1)
   const visibleOtherMatching = otherMatchingLabels.slice(0, MAX_MATCHING_CHIPS)
   const otherMatchingTotal = otherMatchingLabels.length
-  const setIconOverlay = (
+  const hasSetIcon = Number.isFinite(setIdNumber) && setIdNumber > 0
+  const setIconOverlay = hasSetIcon ? (
     <Box
       sx={{
         position: 'absolute',
@@ -671,20 +675,31 @@ const TesterGridCard = React.memo(function TesterGridCard({
     >
       <SetIcon setId={setIdNumber as ArtifactSetId} size={20} sx={{ mr: 0, display: 'block' }} />
     </Box>
-  )
+  ) : null
+  const ascSummaryLine = ascSummary ? (
+    <Box
+      component="span"
+      sx={{
+        display: 'block',
+        mt: 0.125,
+        pl: 1,
+        color: theme.palette.text.secondary,
+        fontWeight: 600,
+        fontSize: ascInlineFontSize,
+        lineHeight: 1.1,
+      }}
+    >
+      +
+      {' '}
+      {ascSummary}
+    </Box>
+  ) : null
   const mainSummaryLabel = (
     <>
       <Box component="span" sx={{ color: mainColor ?? 'inherit' }}>
         {mainInline}
       </Box>
-      {ascSummary ? (
-        <>
-          <Box component="span" sx={{ mx: 0.25, color: theme.palette.text.secondary, fontWeight: 600 }}>
-            +
-          </Box>
-          {ascSummary}
-        </>
-      ) : null}
+      {ascSummaryLine}
     </>
   )
 
@@ -815,13 +830,15 @@ const TesterGridCard = React.memo(function TesterGridCard({
               </Box>
             </Tooltip>
           ) : null}
-          {setTooltipName ? (
-            <WithSetTooltip name={setTooltipName} displayName={setLabel}>
-              {setIconOverlay}
-            </WithSetTooltip>
-          ) : (
-            setIconOverlay
-          )}
+          {setIconOverlay ? (
+            setTooltipName ? (
+              <WithSetTooltip name={setTooltipName} displayName={setLabel}>
+                {setIconOverlay}
+              </WithSetTooltip>
+            ) : (
+              setIconOverlay
+            )
+          ) : null}
           <Box
             sx={{
               position: 'absolute',
@@ -842,9 +859,6 @@ const TesterGridCard = React.memo(function TesterGridCard({
             {levelChipLabel}
           </Box>
         </Box>
-        {factionLabel ? (
-          <Typography variant="caption" color="text.secondary">{factionLabel}</Typography>
-        ) : null}
         {sourceDescriptor ? (
           <Tooltip title={sourceDescriptor.tooltip ?? ''}>
             <Chip label={sourceDescriptor.label} size="small" variant="outlined" sx={{ fontSize: '0.75rem' }} />
@@ -854,7 +868,7 @@ const TesterGridCard = React.memo(function TesterGridCard({
       <Stack spacing={0.75} minWidth={0} sx={{ gridColumn: '2', gridRow: '1', minWidth: 0 }}>
         <TesterSummaryLabel label={mainSummaryLabel} wrap />
         <Tooltip title={subTooltip}>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25 }}>
             {substatEntries.length > 0 ? substatEntries.map((entry) => (
               <Box
                 key={`sub-${entry.variant}`}
@@ -877,7 +891,7 @@ const TesterGridCard = React.memo(function TesterGridCard({
                   } : undefined,
                 }}
               >
-                <Typography variant="body2" component="span">
+                <Typography variant="body2" component="span" sx={{ lineHeight: 1.1 }}>
                   {entry.content}
                 </Typography>
               </Box>
