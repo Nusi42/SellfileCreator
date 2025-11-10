@@ -2182,6 +2182,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   }, [testerConfigFilterMode, testerConfigFilterSelectedSet, testerRowsAfterRulesFilter])
   const testerBuilding = testerRowsBuilding
   const matchingConfigIndices = filterResult.matchingConfigIndices
+  const testerMatchingConfigIndices = testerFilterResult.matchingConfigIndices
+  const chipMatchingConfigIndices = previewMode === 'tester'
+    ? testerMatchingConfigIndices
+    : matchingConfigIndices
   const filterActive = isRulesFilterActive(rulesFilter)
   const testerFilterActive = isRulesFilterActive(testerRulesFilter, { includeTesterRange: true })
   const previewFilterActive = previewMode === 'tester'
@@ -2218,7 +2222,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       setFocusRuleIndex(null)
     }
   }, [customCfgs, filterActive, filteredRules, mergedRules, setBuilder, setFocusRuleIndex, setTesterOpen, syncSelectedCfgIdx])
-  const visibleConfigIndices = useMemo<Set<number> | null>(() => (limitConfigsToFiltered ? matchingConfigIndices : null), [limitConfigsToFiltered, matchingConfigIndices])
+  const visibleConfigIndices = useMemo<Set<number> | null>(() => (
+    limitConfigsToFiltered ? chipMatchingConfigIndices : null
+  ), [chipMatchingConfigIndices, limitConfigsToFiltered])
   visibleConfigIndicesRef.current = visibleConfigIndices
   const selectAllLabelKey = visibleConfigIndices ? 'chipsMenuSelectVisible' : 'chipsMenuSelectAll'
   const scrollSelectedConfigIntoView = useCallback(() => {

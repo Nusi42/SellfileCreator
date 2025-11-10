@@ -149,7 +149,7 @@ target the right implementation.
   - `anyChip` helper wraps each chip in a Tooltip carrying
     `filterAnyTooltip` explaining how “Any” behaves.
   - Preview config toggle shows `filterLimitPreviewConfigsTooltip`.
-  - Tester config toggle shows `filterLimitTesterConfigsTooltip`, noting that the control now filters both Rule Tester items and Sellfile Preview rows (depending on which table is visible).
+  - Config filter toggle shows `filterLimitSelectedConfigsTooltip`, noting that the control filters both preview modes (On/Off in Sellfile view and First/Any in Rule Tester).
   - Mode switches for Sets/Substats use `filterMatchTooltipSets` /
     `filterMatchTooltipSubstats`.
   - Slot icon toggle buttons show per-slot names via Tooltips (`placement="bottom"`,
