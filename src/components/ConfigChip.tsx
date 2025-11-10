@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo, useRef, useState } from 'react'
+import { memo, useCallback, useMemo, useRef, useState, useEffect } from 'react'
 import type React from 'react'
 import { Box, IconButton, Tooltip, Typography } from '@mui/material'
 import { alpha, useTheme } from '@mui/material/styles'
@@ -132,7 +132,7 @@ interface ConfigChipProps {
   dragEnabled?: boolean
   onPointerDown?: (event: React.PointerEvent<HTMLDivElement>) => void
   hideTooltip?: boolean
-  hiddenWhileDragging?: boolean
+  ghostedWhileDragging?: boolean
   onDelete: () => void
   onDuplicate: () => void
   onMoveUp: () => void
@@ -166,7 +166,7 @@ function ConfigChip({
   dragEnabled = false,
   onPointerDown,
   hideTooltip = false,
-  hiddenWhileDragging = false,
+  ghostedWhileDragging = false,
   onDelete,
   onDuplicate,
   onMoveUp,
@@ -213,6 +213,15 @@ function ConfigChip({
   )
   // Build compact summary without redundant labels; act is rendered separately
   const actText = cfg.keep ? t('keepValueKeep') : t('keepValueSell')
+  const tooltipSuppressed = hideTooltip
+  const tooltipListenerProps = tooltipSuppressed
+    ? {
+        disableHoverListener: true,
+        disableFocusListener: true,
+        disableTouchListener: true,
+      }
+    : undefined
+  const tooltipForceClosedProps = tooltipSuppressed ? { open: false as const } : undefined
   const restSummary = useMemo(
     () => summaryParts(cfg, metasets, {
       substatColors,
@@ -222,8 +231,9 @@ function ConfigChip({
       showSlotIcons,
       t,
       cfgIndex: index,
+      tooltipsDisabled: tooltipSuppressed,
     }),
-    [cfg, metasets, substatColors, statButtonBorders, showFactionIcons, showSetIcons, showSlotIcons, t, index],
+    [cfg, metasets, substatColors, statButtonBorders, showFactionIcons, showSetIcons, showSlotIcons, t, index, tooltipSuppressed],
   )
   const keepColor = cfg.keep ? 'success.main' : 'error.main'
   const isDisabled = isHidden
@@ -247,6 +257,15 @@ function ConfigChip({
   const deleteAllDisabledFlag = Boolean(deleteAllDisabled)
   const [overControls, setOverControls] = useState(false)
   const [chipHover, setChipHover] = useState(false)
+  /* eslint-disable react-you-might-not-need-an-effect/no-adjust-state-on-prop-change */
+  // Suppress tooltips immediately when dragging begins so they do not reopen after drop.
+  useEffect(() => {
+    if (hideTooltip) {
+      setChipHover(false)
+      setOverControls(false)
+    }
+  }, [hideTooltip])
+  /* eslint-enable react-you-might-not-need-an-effect/no-adjust-state-on-prop-change */
   const tooltipTitle = useMemo(() => {
     if (showDuplicateFrame && typeof duplicateOfIndex === 'number') {
       return t('chipTooltipDuplicateOf', { n: duplicateOfIndex + 1 })
@@ -302,7 +321,6 @@ function ConfigChip({
           pr: isSeparator ? 1.1 : 0.4,
           py: `${CONFIG_CHIP_VERTICAL_PADDING_PX}px`,
           cursor: pointerCursor,
-          visibility: hiddenWhileDragging ? 'hidden' : 'visible',
           flex: flexSizing,
           flexWrap: isStatic ? 'wrap' : 'nowrap',
           ...(isSeparator ? { justifyContent: 'center' } : {}),
@@ -312,6 +330,11 @@ function ConfigChip({
               : (selected ? selectedHoverBg : hoverBg),
             borderColor: theme.palette.primary.main,
           },
+          ...(ghostedWhileDragging ? {
+            opacity: 0.25,
+            transform: 'scale(0.985)',
+            pointerEvents: 'none',
+          } : {}),
         }
       }}
       onClick={(e) => onSelect(e)}
@@ -438,7 +461,12 @@ function ConfigChip({
       )}
       {!isSeparator ? (
         <>
-          <Tooltip title={t('chipBtnMoveUp')} slotProps={{ popper: { disablePortal: true } }}>
+          <Tooltip
+            title={t('chipBtnMoveUp')}
+            slotProps={{ popper: { disablePortal: true } }}
+            {...(tooltipListenerProps ?? {})}
+            {...(tooltipForceClosedProps ?? {})}
+          >
             <span data-chip-control="true" onMouseEnter={() => setOverControls(true)} onMouseLeave={() => setOverControls(false)}>
               <IconButton
                 size="small"
@@ -454,7 +482,12 @@ function ConfigChip({
               ><ArrowUpwardIcon fontSize="inherit" /></IconButton>
             </span>
           </Tooltip>
-          <Tooltip title={t('chipBtnMoveDown')} slotProps={{ popper: { disablePortal: true } }}>
+          <Tooltip
+            title={t('chipBtnMoveDown')}
+            slotProps={{ popper: { disablePortal: true } }}
+            {...(tooltipListenerProps ?? {})}
+            {...(tooltipForceClosedProps ?? {})}
+          >
             <span data-chip-control="true" onMouseEnter={() => setOverControls(true)} onMouseLeave={() => setOverControls(false)}>
               <IconButton
                 size="small"
@@ -470,7 +503,12 @@ function ConfigChip({
               ><ArrowDownwardIcon fontSize="inherit" /></IconButton>
             </span>
           </Tooltip>
-          <Tooltip title={t('chipBtnDuplicate')} slotProps={{ popper: { disablePortal: true } }}>
+          <Tooltip
+            title={t('chipBtnDuplicate')}
+            slotProps={{ popper: { disablePortal: true } }}
+            {...(tooltipListenerProps ?? {})}
+            {...(tooltipForceClosedProps ?? {})}
+          >
             <span data-chip-control="true" onMouseEnter={() => setOverControls(true)} onMouseLeave={() => setOverControls(false)}>
               <IconButton
                 size="small"
@@ -485,7 +523,12 @@ function ConfigChip({
               ><ContentCopyIcon fontSize="inherit" /></IconButton>
             </span>
           </Tooltip>
-          <Tooltip title={t('chipBtnDelete')} slotProps={{ popper: { disablePortal: true } }}>
+          <Tooltip
+            title={t('chipBtnDelete')}
+            slotProps={{ popper: { disablePortal: true } }}
+            {...(tooltipListenerProps ?? {})}
+            {...(tooltipForceClosedProps ?? {})}
+          >
             <span data-chip-control="true" onMouseEnter={() => setOverControls(true)} onMouseLeave={() => setOverControls(false)}>
               <IconButton
                 size="small"
@@ -546,7 +589,8 @@ function ConfigChip({
       <Tooltip
         title={tooltipTitle}
         slotProps={{ popper: { disablePortal: true } }}
-        open={chipHover && !overControls}
+        {...(tooltipListenerProps ?? {})}
+        open={tooltipSuppressed ? false : (chipHover && !overControls)}
       >
         {chipNode}
       </Tooltip>
@@ -562,7 +606,7 @@ function areConfigChipPropsEqual(prev: Readonly<ConfigChipProps>, next: Readonly
     && prev.dragEnabled === next.dragEnabled
     && prev.onPointerDown === next.onPointerDown
     && prev.hideTooltip === next.hideTooltip
-    && prev.hiddenWhileDragging === next.hiddenWhileDragging
+    && prev.ghostedWhileDragging === next.ghostedWhileDragging
     && prev.selected === next.selected
     && prev.isLast === next.isLast
     && prev.visualVariant === next.visualVariant
@@ -594,6 +638,7 @@ function summaryParts(
     showSlotIcons: boolean
     t?: (key: string, params?: Record<string, string | number>) => string
     cfgIndex?: number
+    tooltipsDisabled?: boolean
   }
 ): JSX.Element | null {
   const parts: Array<JSX.Element> = []
@@ -862,7 +907,7 @@ function summaryParts(
           </Box>
         )
 
-          if (tooltipSections.length > 0) {
+          if (tooltipSections.length > 0 && !opts.tooltipsDisabled) {
             return (
               <Tooltip
                 key={`s-${vk}-${i}`}

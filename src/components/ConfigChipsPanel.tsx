@@ -252,6 +252,20 @@ function ConfigChipsPanel(props: {
       return { top, left, width: 4, height }
     }
 
+    const verticalGapGuideBetween = (leftEntry: ChipLayoutEntry, rightEntry: ChipLayoutEntry): DropGuide => {
+      const leftEdge = leftEntry.offsetLeft + leftEntry.width
+      const rightEdge = rightEntry.offsetLeft
+      const midpoint = (leftEdge + rightEdge) / 2
+      const top = Math.min(leftEntry.offsetTop, rightEntry.offsetTop) + 4
+      const height = Math.max(leftEntry.height, rightEntry.height) - 8
+      return {
+        top: Math.max(0, top),
+        left: Math.max(0, midpoint - 2),
+        width: 4,
+        height: Math.max(16, height),
+      }
+    }
+
     const horizontalGuideAt = (top: number): DropGuide => ({
       top: Math.max(0, top),
       left: horizontalInset,
@@ -262,8 +276,16 @@ function ConfigChipsPanel(props: {
     const rowEntries = entries.filter((entry) => clientY >= entry.rect.top && clientY <= entry.rect.bottom)
     if (rowEntries.length > 0) {
       const sorted = [...rowEntries].sort((a, b) => a.rect.left - b.rect.left)
-      for (const entry of sorted) {
-        if (clientX < entry.rect.left) {
+      for (let idx = 0; idx < sorted.length; idx += 1) {
+        const entry = sorted[idx]!
+        const prev = idx > 0 ? sorted[idx - 1] : null
+        if (clientX <= entry.rect.left) {
+          if (prev) {
+            const prevRight = prev.rect.right
+            if (clientX >= prevRight) {
+              return { insertIndex: entry.index, guide: verticalGapGuideBetween(prev, entry) }
+            }
+          }
           return { insertIndex: entry.index, guide: verticalGuideForEntry(entry, false) }
         }
         if (clientX <= entry.rect.right) {
@@ -507,7 +529,7 @@ function ConfigChipsPanel(props: {
     }
   }, [hasActiveDrag])
 
-  const dragHiddenSet = React.useMemo(() => new Set(dragState?.indices ?? []), [dragState])
+  const dragGhostSet = React.useMemo(() => new Set(dragState?.indices ?? []), [dragState])
 
   return (
     <>
@@ -645,7 +667,7 @@ function ConfigChipsPanel(props: {
             const mode = c.exportMode
             const isSeparator = mode === 'separator'
             const duplicateIdx = duplicateOf[idx]
-            const hiddenWhileDragging = hasActiveDrag && dragHiddenSet.has(idx)
+            const ghostedWhileDragging = hasActiveDrag && dragGhostSet.has(idx)
             const dragEnabled = dragAllowed && !isSeparator
             const pointerHandlers: { onPointerDown: (event: React.PointerEvent<HTMLDivElement>) => void } | null = dragEnabled
               ? {
@@ -685,7 +707,7 @@ function ConfigChipsPanel(props: {
                 hideTooltip={hasActiveDrag}
                 dragEnabled={dragEnabled}
                 {...(pointerHandlers ?? {})}
-                hiddenWhileDragging={hiddenWhileDragging}
+                ghostedWhileDragging={ghostedWhileDragging}
               />
             )
           })

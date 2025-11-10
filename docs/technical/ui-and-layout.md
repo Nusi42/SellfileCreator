@@ -94,7 +94,7 @@ This document outlines contributors' responsibilities for UI behavior, layout, a
 - Defaults: `keep=true`, `rankCode=0`, `rarityCode=0`, `mainStatsV=[]`, `minLevel=0`, `maxLevel=16`, `rollMode='auto'`, `minCount=0`, `autoMinCount=true`, `substatsV=[]`, `artifactTypes=[]`, `artifactSets=[]`.
 - Reset defaults restore the above and clear type/set/faction selections.
 - Config chips occupy a scrollable container (≈6 chips). Adding a new config selects it and scrolls it into view without moving the page.
-- Chips support drag-and-drop reordering: the dragged chips stay hidden (layout frozen), a blue guide line shows the drop slot (vertical between chips, horizontal between rows), auto-scroll kicks in near the container edges, and the actual reorder only happens on drop so previews do not churn mid-drag.
+- Chips support drag-and-drop reordering: the dragged chips are dimmed but keep their spot (layout stays frozen), a blue guide line shows the drop slot (vertical between chips, horizontal between rows), auto-scroll kicks in near the container edges, tooltips/context hints are suppressed during the drag, and the actual reorder only happens on drop so previews do not churn mid-drag.
 - Preview auto-scrolls to the first rule row of the selected config. Scrolling stays confined to the table container.
 
 ### Persistence & Autosave
