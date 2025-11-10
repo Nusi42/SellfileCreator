@@ -50,14 +50,20 @@ export function TesterRuleReferenceChip({
     )
   }
   const ruleIndex = typeof match.ruleIndex === 'number' ? match.ruleIndex : null
-  const ruleLabel = match.ruleLabel
+  const formattedRule = match.ruleLabel
     ? match.ruleLabel
     : (ruleIndex != null ? `#${ruleIndex + 1}` : '')
-  const configLabel = match.cfgName
-    ? match.cfgName
-    : (match.cfgIdx != null ? t('testerConfigChip', { index: match.cfgIdx + 1 }) : '')
-  const labelParts = [ruleLabel, configLabel].filter((part) => part && part.length > 0)
-  const label = labelParts.join(' • ')
+  const cfgIdx = typeof match.cfgIdx === 'number' ? match.cfgIdx : null
+  const formattedConfigNumber = cfgIdx != null ? `#${cfgIdx + 1}` : ''
+  const formattedConfigName = match.cfgName && match.cfgName.trim().length > 0
+    ? match.cfgName.trim()
+    : (cfgIdx != null ? t('testerConfigChip', { index: cfgIdx + 1 }) : '')
+  const numberSegment = (() => {
+    if (formattedConfigNumber && formattedRule) return `${formattedConfigNumber} • ${formattedRule}`
+    return formattedConfigNumber || formattedRule
+  })()
+  const labelParts = [numberSegment, formattedConfigName].filter((part) => part && part.length > 0)
+  const label = labelParts.length > 1 ? `${labelParts[0]} | ${labelParts[1]}` : (labelParts[0] ?? '')
   if (!label) return null
   const clickable = typeof onJump === 'function' && ruleIndex != null
   const baseSx: SxProps<Theme> = {
