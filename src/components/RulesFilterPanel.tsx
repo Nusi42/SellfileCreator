@@ -813,6 +813,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
   const previewConfigButtonActive = configChipFilterActive
   const previewConfigButtonVariant: 'contained' | 'outlined' = previewConfigButtonActive ? 'contained' : 'outlined'
   const previewConfigButtonLabel = previewConfigButtonActive ? t('configFilterOn') : t('testerFilterConfigsOff')
+  const filtersDirty = filterActive || configFilterButtonActive || !previewConfigButtonActive
 
   const testerSourceOptions = React.useMemo(() => ([
     { value: 'inventory', label: t('testerSourceInventory') },
@@ -1054,8 +1055,8 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
             size="small"
             variant="contained"
             color="warning"
-            disabled={!filterActive}
-            onMouseEnter={() => { if (filterActive) setHoverReset(true) }}
+            disabled={!filtersDirty}
+            onMouseEnter={() => { if (filtersDirty) setHoverReset(true) }}
             onMouseLeave={() => setHoverReset(false)}
             onClick={() => {
               setHoverReset(false)
