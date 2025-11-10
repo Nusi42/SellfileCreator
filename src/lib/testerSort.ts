@@ -1,6 +1,12 @@
 import { ACCESSORY_NO_SET_ID } from './constants'
 import { isAccessorySlot } from './testerDomain'
-import { compareArtifactSets, compareArtifactTypes, type ArtifactSetId, type ArtifactTypeId } from './types'
+import {
+  compareArtifactSets,
+  compareArtifactTypes,
+  StatVariant,
+  type ArtifactSetId,
+  type ArtifactTypeId,
+} from './types'
 import type { TesterPreviewRow } from '../types/testerPreview'
 
 const generalSlotBucket = (slot: ArtifactTypeId): number => (isAccessorySlot(slot) ? 1 : 0)
@@ -44,6 +50,30 @@ const ascensionLevel = (row: TesterPreviewRow): number => {
   return Number.isFinite(rolls) ? Number(rolls) : 0
 }
 
+const MAINSTAT_PRIORITY: readonly StatVariant[] = [
+  StatVariant.HP,
+  StatVariant.HP_FLAT,
+  StatVariant.ATK,
+  StatVariant.ATK_FLAT,
+  StatVariant.DEF,
+  StatVariant.DEF_FLAT,
+  StatVariant.SPD,
+  StatVariant.RES,
+  StatVariant.ACC,
+  StatVariant.CR,
+  StatVariant.CDMG,
+] as const
+
+const MAINSTAT_PRIORITY_MAP = new Map<StatVariant, number>(
+  MAINSTAT_PRIORITY.map((variant, index) => [variant, index]),
+)
+
+const mainStatPriority = (row: TesterPreviewRow): number => {
+  const variant = row.artifact.mainStat?.variant
+  if (variant === undefined || variant === null) return MAINSTAT_PRIORITY.length
+  return MAINSTAT_PRIORITY_MAP.get(variant as StatVariant) ?? MAINSTAT_PRIORITY.length
+}
+
 /** Comparator for tester preview rows following the default UI priority. */
 export function compareTesterPreviewRows(a: TesterPreviewRow, b: TesterPreviewRow): number {
   return (
@@ -54,6 +84,7 @@ export function compareTesterPreviewRows(a: TesterPreviewRow, b: TesterPreviewRo
     || compareDescendingNumbers(a.artifact.rank, b.artifact.rank)
     || compareDescendingNumbers(a.artifact.rarity, b.artifact.rarity)
     || compareDescendingNumbers(ascensionLevel(a), ascensionLevel(b))
+    || (mainStatPriority(a) - mainStatPriority(b))
   )
 }
 
