@@ -46,7 +46,8 @@ import ContextMenuPaper from './ContextMenuPaper'
 import { ContextMenuHintOverlay } from './ContextMenuHintOverlay'
 import { useContextMenuHint } from '../hooks/useContextMenuHint'
 
-const GRID_CARD_MIN_WIDTH = 240
+const GRID_CARD_SINGLE_COLUMN_TEMPLATE = 'minmax(0, 1fr)'
+const GRID_CARD_QUARTER_TEMPLATE = 'repeat(4, minmax(0, 1fr))'
 const GRID_CARD_ICON_COLUMN_PX = 88
 const GRID_CARD_STATS_MIN_COLUMN_PX = 132
 const GRID_CARD_TEMPLATE = `${GRID_CARD_ICON_COLUMN_PX}px minmax(${GRID_CARD_STATS_MIN_COLUMN_PX}px, 1fr)`
@@ -222,6 +223,7 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     setScrollTop(event.currentTarget.scrollTop)
   }, [])
   const gridGapPx = pxValue(theme.spacing(GRID_GAP))
+  const quarterColumnBreakpointPx = theme.breakpoints.values?.sm ?? 600
   const accordionSpacingPx = pxValue(theme.spacing(ACCORDION_MARGIN_UNITS))
   const groupCountChipBg = theme.palette.mode === 'dark' ? theme.palette.grey[800] : theme.palette.grey[100]
   useEffect(() => {
@@ -261,11 +263,8 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
   }, [])
   const estimatedColumnCount = useMemo(() => {
     if (containerWidth <= 0) return 1
-    const cardSpace = GRID_CARD_MIN_WIDTH + gridGapPx
-    if (cardSpace <= 0) return 1
-    const available = containerWidth + gridGapPx
-    return Math.max(1, Math.floor(available / cardSpace))
-  }, [containerWidth, gridGapPx])
+    return containerWidth >= quarterColumnBreakpointPx ? 4 : 1
+  }, [containerWidth, quarterColumnBreakpointPx])
   const shouldVirtualize = rows.length > GRID_VIRTUALIZE_ROW_THRESHOLD || groups.length > GRID_VIRTUALIZE_GROUP_THRESHOLD
   const virtualization = useMemo<{
     visibleGroups: TesterGroup[]
@@ -430,7 +429,6 @@ const TesterItemsGridGroup = React.memo(function TesterItemsGridGroup({
   onMeasure,
   marginBottomPx,
 }: TesterItemsGridGroupProps) {
-  const theme = useTheme()
   const accordionRef = useRef<HTMLDivElement | null>(null)
   const groupSetTooltipName = artifactSetNames[group.setId] ?? null
   const summarySetIcon = (
@@ -512,11 +510,14 @@ const TesterItemsGridGroup = React.memo(function TesterItemsGridGroup({
       {expanded ? (
         <AccordionDetails>
           <Box
-            sx={{
+            sx={(theme) => ({
               display: 'grid',
-              gridTemplateColumns: `repeat(auto-fit, minmax(${GRID_CARD_MIN_WIDTH}px, 1fr))`,
+              gridTemplateColumns: {
+                xs: GRID_CARD_SINGLE_COLUMN_TEMPLATE,
+                sm: GRID_CARD_QUARTER_TEMPLATE,
+              },
               gap: theme.spacing(GRID_GAP),
-            }}
+            })}
           >
             {group.rows.map((row) => (
               <TesterGridCard
@@ -1015,17 +1016,17 @@ const TesterGridCard = React.memo(function TesterGridCard({
       <Stack spacing={0.75} minWidth={0} sx={{ gridColumn: '2', gridRow: '1', minWidth: 0 }}>
         <TesterSummaryLabel label={mainSummaryLabel} wrap />
         <Tooltip title={subTooltip}>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25 }}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25, width: '100%' }}>
             {substatEntries.length > 0 ? substatEntries.map((entry) => (
               <Box
                 key={`sub-${entry.variant}`}
                 sx={{
                   position: 'relative',
-                  display: 'inline-flex',
+                  display: 'flex',
                   alignItems: 'center',
-                  width: 'fit-content',
+                  width: '100%',
                   maxWidth: '100%',
-                  alignSelf: 'flex-start',
+                  minWidth: 0,
                   '&::after': entry.isMythicBonus ? {
                     content: '""',
                     position: 'absolute',
@@ -1038,7 +1039,22 @@ const TesterGridCard = React.memo(function TesterGridCard({
                   } : undefined,
                 }}
               >
-                <Typography variant="body2" component="span" sx={{ lineHeight: 1.1 }}>
+                <Typography
+                  variant="body2"
+                  component="span"
+                  noWrap
+                  sx={{
+                    lineHeight: 1.1,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    width: '100%',
+                    minWidth: 0,
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                    color: 'inherit',
+                  }}
+                >
                   {entry.content}
                 </Typography>
               </Box>
