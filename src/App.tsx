@@ -92,6 +92,7 @@ import { evaluateMatchesByConfig, type TestItem } from './lib/ruleEval'
 import { importGearDatabaseFromFile } from './lib/importers/gearDbImporter'
 import type { NormalizedGearArtifact } from './lib/importers/gearDbNormalizer'
 import { TesterItemsTable } from './components/TesterItemsTable'
+import { TesterItemsGrid } from './components/TesterItemsGrid'
 import type { TesterPreviewMatch, TesterPreviewRow } from './types/testerPreview'
 import { buildRuleMatchIndexData, primeRuleMatchIndex } from './lib/ruleMatchIndex'
 
@@ -252,10 +253,15 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const { customCfgs, selectedCfgIdx, metasets, substatTargets, finalSellRemainder, hsfcNote } = useAppState()
   const { setCustomCfgs, setSelectedCfgIdx: setSelectedCfgIdxRaw, setMetasets, setSubstatTargets, setFinalSellRemainder, setHsfcNote } = useAppActions()
   const { warmCache, flush: flushRuleCache, countRules } = useRuleCacheWorker()
-  const { statButtonBorders } = useDisplayPreferences()
-  const { setStatButtonBorders } = useDisplayPreferenceActions()
+  const { statButtonBorders, testerPreviewLayout } = useDisplayPreferences()
+  const { setStatButtonBorders, setTesterPreviewLayout } = useDisplayPreferenceActions()
   // Use a deferred snapshot so bursty substatTargets updates (e.g., Restore Defaults) coalesce before recomputing merged rules.
   const ruleConfigs = useMemo(() => configsForRuleBuild(customCfgs), [customCfgs])
+  const testerConfigNames = useMemo(() => customCfgs.map((cfg) => {
+    if (!cfg || typeof cfg.name !== 'string') return null
+    const trimmed = cfg.name.trim()
+    return trimmed.length > 0 ? trimmed : null
+  }), [customCfgs])
   const substatTargetsForPreview = useDeferredValue(substatTargets)
   const metasetsForPreview = useDeferredValue(metasets)
   const ruleConfigsForPreview = useDeferredValue(ruleConfigs)
@@ -3401,6 +3407,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         onOpenRuleTester={() => setTesterOpen(true)}
         previewMode={previewMode}
         onChangePreviewMode={setPreviewMode}
+        testerPreviewLayout={testerPreviewLayout}
+        onChangeTesterPreviewLayout={setTesterPreviewLayout}
         testerCount={testerItems.length}
         testerFilteredCount={testerRowsForTable.length}
         gearDbCommandError={gearDbCommandError}
@@ -3434,16 +3442,30 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           )}
           <Box sx={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
             {previewMode === 'tester' ? (
-              <TesterItemsTable
-                rows={testerRowsForTable}
-                filterActive={testerFilterActive || testerConfigFilterActive}
-                substatColors={substatColors}
-                useStatButtonColors={statButtonBorders}
-                onToggleStatColors={setStatButtonBorders}
-                onOpenManageColors={openColors}
-                colorIconSrc={colorIconSrc}
-                onJumpToRule={handleTesterRuleView}
-              />
+              testerPreviewLayout === 'grid' ? (
+                <TesterItemsGrid
+                  rows={testerRowsForTable}
+                  filterActive={testerFilterActive || testerConfigFilterActive}
+                  substatColors={substatColors}
+                  useStatButtonColors={statButtonBorders}
+                  onToggleStatColors={setStatButtonBorders}
+                  onOpenManageColors={openColors}
+                  colorIconSrc={colorIconSrc}
+                  configNames={testerConfigNames}
+                  onJumpToRule={handleTesterRuleView}
+                />
+              ) : (
+                <TesterItemsTable
+                  rows={testerRowsForTable}
+                  filterActive={testerFilterActive || testerConfigFilterActive}
+                  substatColors={substatColors}
+                  useStatButtonColors={statButtonBorders}
+                  onToggleStatColors={setStatButtonBorders}
+                  onOpenManageColors={openColors}
+                  colorIconSrc={colorIconSrc}
+                  onJumpToRule={handleTesterRuleView}
+                />
+              )
             ) : (
               <HsfRulesTableMemo
                 rules={filterActive ? filteredRules : mergedRules}

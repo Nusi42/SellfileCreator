@@ -41,7 +41,7 @@ import { TesterSummaryLabel } from './TesterSummaryLabel'
 import { TesterRuleReferenceChip } from './TesterRuleReferenceChip'
 import { WithSetTooltip } from './SetTooltip'
 
-const GRID_CARD_TEMPLATE = '96px minmax(220px, 1fr) minmax(240px, 1fr)'
+const GRID_CARD_TEMPLATE = '96px minmax(180px, 0.5fr) minmax(280px, 1fr)'
 const GRID_GAP = 1.5
 const CARD_BORDER_RADIUS = 2
 const MAX_MATCHING_CHIPS = 6
@@ -587,23 +587,16 @@ const TesterGridCard = React.memo(function TesterGridCard({
         remaining = remaining.slice(matchIdx + match.token.length)
       }
       return (
-        <Typography variant="body2" component="span" sx={{ color: ascStatColor ?? 'inherit' }}>
+        <>
           {parts.map((part, idx) => (
             typeof part === 'string'
               ? <React.Fragment key={`asc-str-${idx}`}>{part}</React.Fragment>
               : <React.Fragment key={`asc-node-${idx}`}>{part}</React.Fragment>
           ))}
-        </Typography>
+        </>
       )
     }
-    if (ascLabelNode || ascValue) {
-      return (
-        <Typography variant="body2" component="span" sx={{ color: ascStatColor ?? 'inherit' }}>
-          {ascLabel} {ascValue}
-        </Typography>
-      )
-    }
-    return null
+    return ascLabelNode ?? ascValueNode ?? null
   })()
   const sourceDescriptor = getItemSourceDescriptor(artifact, t)
   const rerollLabel = artifact.rerollCount > 0 ? '⟳' : ''
@@ -624,6 +617,42 @@ const TesterGridCard = React.memo(function TesterGridCard({
   const matchingLabels = matchingIndices.map((idx) => formatConfigLabel(idx as number, configNames, t))
   const visibleMatching = matchingLabels.slice(0, MAX_MATCHING_CHIPS)
   const remainingMatches = matchingLabels.length - visibleMatching.length
+  const setIconOverlay = (
+    <Box
+      sx={{
+        position: 'absolute',
+        left: -6,
+        bottom: -6,
+        bgcolor: 'background.paper',
+        borderRadius: 1,
+        p: 0.25,
+        boxShadow: 2,
+        border: '2px solid',
+        borderColor: rarityBorder,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        lineHeight: 0,
+      }}
+    >
+      <SetIcon setId={setIdNumber as ArtifactSetId} size={20} />
+    </Box>
+  )
+  const mainSummaryLabel = (
+    <>
+      <Box component="span" sx={{ color: mainColor ?? 'inherit' }}>
+        {mainInline}
+      </Box>
+      {ascSummary ? (
+        <>
+          <Box component="span" sx={{ mx: 0.25, color: theme.palette.text.secondary, fontWeight: 600 }}>
+            +
+          </Box>
+          {ascSummary}
+        </>
+      ) : null}
+    </>
+  )
 
   return (
     <Box
@@ -637,6 +666,7 @@ const TesterGridCard = React.memo(function TesterGridCard({
         borderColor: 'divider',
         bgcolor: 'background.paper',
         minHeight: 176,
+        overflow: 'hidden',
       }}
     >
       <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1, textAlign: 'center' }}>
@@ -675,41 +705,13 @@ const TesterGridCard = React.memo(function TesterGridCard({
               <SlotIcon fontSize="large" />
             </Box>
           ) : null}
-          {(setTooltipName ? (
+          {setTooltipName ? (
             <WithSetTooltip name={setTooltipName} displayName={setLabel}>
-              <Box
-                sx={{
-                  position: 'absolute',
-                  left: -6,
-                  bottom: -6,
-                  bgcolor: 'background.paper',
-                  borderRadius: 1,
-                  p: 0.25,
-                  boxShadow: 2,
-                  border: '2px solid',
-                  borderColor: rarityBorder,
-                }}
-              >
-                <SetIcon setId={setIdNumber as ArtifactSetId} size={20} />
-              </Box>
+              {setIconOverlay}
             </WithSetTooltip>
           ) : (
-            <Box
-              sx={{
-                position: 'absolute',
-                left: -6,
-                bottom: -6,
-                bgcolor: 'background.paper',
-                borderRadius: 1,
-                p: 0.25,
-                boxShadow: 2,
-                border: '2px solid',
-                borderColor: rarityBorder,
-              }}
-            >
-              <SetIcon setId={setIdNumber as ArtifactSetId} size={20} />
-            </Box>
-          ))}
+            setIconOverlay
+          )}
           <Box
             sx={{
               position: 'absolute',
@@ -749,7 +751,7 @@ const TesterGridCard = React.memo(function TesterGridCard({
             </Tooltip>
           ) : null}
         </Box>
-        <TesterSummaryLabel label={mainInline} color={mainColor} wrap />
+        <TesterSummaryLabel label={mainSummaryLabel} wrap />
         <Tooltip title={subTooltip}>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
             {substatEntries.length > 0 ? substatEntries.map((entry) => (
@@ -757,6 +759,11 @@ const TesterGridCard = React.memo(function TesterGridCard({
                 key={`sub-${entry.variant}`}
                 sx={{
                   position: 'relative',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  width: 'fit-content',
+                  maxWidth: '100%',
+                  alignSelf: 'flex-start',
                   '&::after': entry.isMythicBonus ? {
                     content: '""',
                     position: 'absolute',
@@ -778,7 +785,6 @@ const TesterGridCard = React.memo(function TesterGridCard({
             )}
           </Box>
         </Tooltip>
-        {ascSummary}
       </Stack>
       <Stack spacing={1} minWidth={0}>
         <Chip
