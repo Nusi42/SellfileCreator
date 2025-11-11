@@ -1261,8 +1261,21 @@ const TesterGridCard = React.memo(function TesterGridCard({
           </Box>
         </Tooltip>
       </Stack>
+      {match ? (
+        <Box sx={{ gridColumn: '1 / -1', width: '100%', display: 'flex', alignItems: 'center' }}>
+          <TesterRuleReferenceChip
+            match={match}
+            {...(onJumpToRule ? { onJump: onJumpToRule } : {})}
+            sx={{ width: '100%' }}
+          />
+        </Box>
+      ) : (
+        <Box sx={{ gridColumn: '1 / -1', width: '100%', display: 'flex', alignItems: 'center' }}>
+          <Chip size="small" color="success" variant="filled" label={t('testerNoMatch')} />
+        </Box>
+      )}
       {otherMatchingEntries.length > 0 ? (
-        <Box sx={{ gridColumn: '1 / span 2', gridRow: '3', width: '100%' }}>
+        <Box sx={{ gridColumn: '1 / -1', width: '100%' }}>
           <Box
             ref={handleOtherMatchesRowRef}
             sx={{
@@ -1344,19 +1357,6 @@ const TesterGridCard = React.memo(function TesterGridCard({
           </Box>
         </Box>
       ) : null}
-      {match ? (
-        <Box sx={{ gridColumn: '1 / span 2', gridRow: '2', width: '100%', display: 'flex', alignItems: 'center' }}>
-          <TesterRuleReferenceChip
-            match={match}
-            {...(onJumpToRule ? { onJump: onJumpToRule } : {})}
-            sx={{ width: '100%' }}
-          />
-        </Box>
-      ) : (
-        <Box sx={{ gridColumn: '1 / span 2', gridRow: '2', width: '100%', display: 'flex', alignItems: 'center' }}>
-          <Chip size="small" color="success" variant="filled" label={t('testerNoMatch')} />
-        </Box>
-      )}
     </Box>
   )
 });
