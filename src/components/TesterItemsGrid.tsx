@@ -20,7 +20,6 @@ import { artifactTypeIconFor } from './artifactTypeIcons'
 import { SetIcon } from './SetIcon'
 import { FactionIcon } from './FactionIcon'
 import {
-  ArtifactSet,
   artifactSetNames,
   factionI18nKey,
   DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT,
@@ -47,7 +46,6 @@ import ContextMenuPaper from './ContextMenuPaper'
 import { ContextMenuHintOverlay } from './ContextMenuHintOverlay'
 import { useContextMenuHint } from '../hooks/useContextMenuHint'
 import { gearSetSlotIconUrl } from '../lib/iconMaps/setSlotIconMap'
-import { ACCESSORY_NO_SET_ID } from '../lib/constants'
 
 const GRID_CARD_SINGLE_COLUMN_TEMPLATE = 'minmax(0, 1fr)'
 const GRID_CARD_QUARTER_TEMPLATE = 'repeat(4, minmax(0, 1fr))'
@@ -92,25 +90,6 @@ const MATCHING_CHIP_WRAPPER_SX = {
   flexGrow: 0,
   flexShrink: 0,
 } as const
-
-const ACCESSORY_BADGE_TILE_PX = 20
-const SLOT_IMAGE_SX = {
-  width: 'calc(100% + 2px)',
-  height: 'calc(100% + 2px)',
-  maxWidth: 'none',
-  maxHeight: 'none',
-  margin: '-1px',
-  objectFit: 'cover',
-  userSelect: 'none',
-  WebkitUserDrag: 'none',
-} as const
-const ACCESSORY_SETS_REQUIRING_FACTION_BADGE = new Set<ArtifactSetId>([
-  ArtifactSet.Refresh,
-  ArtifactSet.Cleansing,
-  ArtifactSet.Bloodshield,
-  ArtifactSet.Reaction,
-  ArtifactSet.Revenge,
-])
 
 const pxValue = (value: string): number => Number.parseFloat(value) || 0
 const measureMatchingRowContentWidth = (node: HTMLElement): number => {
@@ -678,17 +657,6 @@ const TesterGridCard = React.memo(function TesterGridCard({
   const setLabel = formatTesterSetLabel({ setId: setIdNumber, slot: artifact.slot as ArtifactTypeId, translate: t })
   const setTooltipName = Number.isFinite(setIdNumber) ? artifactSetNames[setIdNumber] ?? null : null
   const SlotIcon = artifactTypeIconFor(artifact.slot as ArtifactTypeId)
-  const isAccessoryArtifact = isAccessorySlot(artifact.slot as ArtifactTypeId)
-  const needsFactionBadge = isAccessoryArtifact
-    && ACCESSORY_SETS_REQUIRING_FACTION_BADGE.has(setIdNumber as ArtifactSetId)
-  const hasFactionId = Number.isFinite(Number(artifact.faction)) && Number(artifact.faction) > 0
-  const accessoryFactionBadgeSrc = needsFactionBadge && hasFactionId
-    ? gearSetSlotIconUrl(
-        ACCESSORY_NO_SET_ID as ArtifactSetId,
-        artifact.slot as ArtifactTypeId,
-        { factionId: artifact.faction as FactionId },
-      )
-    : undefined
   const levelBucketLabel = formatLevel(artifact.level)
   const hasExactLevel = typeof artifact.exactLevel === 'number' && Number.isFinite(artifact.exactLevel)
   const exactLevelLabel = hasExactLevel ? String(Math.max(0, Math.min(16, Math.round(Number(artifact.exactLevel))))) : null
@@ -1033,17 +1001,11 @@ const TesterGridCard = React.memo(function TesterGridCard({
     )
   }
   const hasRealSet = Number.isFinite(setIdNumber) && setIdNumber > 0
-  const preventImageDrag = (event: React.DragEvent) => {
-    event.preventDefault()
-    event.stopPropagation()
-  }
-
   const slotArtSrc = gearSetSlotIconUrl(
     setIdNumber as ArtifactSetId,
     artifact.slot as ArtifactTypeId,
     { factionId: artifact.faction as FactionId },
   )
-  const showAccessoryBadge = Boolean(slotArtSrc && accessoryFactionBadgeSrc)
   const slotVisualNode = slotArtSrc
     ? (
       <Box
@@ -1056,7 +1018,6 @@ const TesterGridCard = React.memo(function TesterGridCard({
           overflow: 'hidden',
           width: '100%',
           flex: '1 0 auto',
-          position: 'relative',
         }}
       >
         <Box
@@ -1064,37 +1025,18 @@ const TesterGridCard = React.memo(function TesterGridCard({
           src={slotArtSrc}
           alt={setLabel || setTooltipName || ''}
           draggable={false}
-          onDragStart={preventImageDrag}
-          sx={SLOT_IMAGE_SX}
+          onDragStart={(event: React.DragEvent) => { event.preventDefault(); event.stopPropagation() }}
+          sx={{
+            width: 'calc(100% + 2px)',
+            height: 'calc(100% + 2px)',
+            maxWidth: 'none',
+            maxHeight: 'none',
+            margin: '-1px',
+            objectFit: 'cover',
+            userSelect: 'none',
+            WebkitUserDrag: 'none',
+          }}
         />
-        {showAccessoryBadge ? (
-          <Box
-            sx={{
-              position: 'absolute',
-              left: 0,
-              bottom: 0,
-              width: ACCESSORY_BADGE_TILE_PX,
-              height: ACCESSORY_BADGE_TILE_PX,
-              overflow: 'hidden',
-              pointerEvents: 'none',
-            }}
-          >
-            <Box
-              component="img"
-              src={accessoryFactionBadgeSrc}
-              alt=""
-              aria-hidden="true"
-              draggable={false}
-              onDragStart={preventImageDrag}
-              sx={{
-                ...SLOT_IMAGE_SX,
-                position: 'absolute',
-                left: 0,
-                bottom: 0,
-              }}
-            />
-          </Box>
-        ) : null}
       </Box>
     )
     : (
