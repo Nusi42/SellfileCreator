@@ -45,6 +45,7 @@ import { WithSetTooltip } from './SetTooltip'
 import ContextMenuPaper from './ContextMenuPaper'
 import { ContextMenuHintOverlay } from './ContextMenuHintOverlay'
 import { useContextMenuHint } from '../hooks/useContextMenuHint'
+import { gearSetSlotIconUrl } from '../lib/iconMaps/setSlotIconMap'
 
 const GRID_CARD_SINGLE_COLUMN_TEMPLATE = 'minmax(0, 1fr)'
 const GRID_CARD_QUARTER_TEMPLATE = 'repeat(4, minmax(0, 1fr))'
@@ -576,10 +577,10 @@ const TesterGridCard = React.memo(function TesterGridCard({
   const theme = useTheme()
   const artifact = row.artifact
   const match = row.match
-  const SlotIcon = artifactTypeIconFor(artifact.slot as ArtifactTypeId)
   const setIdNumber = Number(artifact.set) || 0
   const setLabel = formatTesterSetLabel({ setId: setIdNumber, slot: artifact.slot as ArtifactTypeId, translate: t })
   const setTooltipName = Number.isFinite(setIdNumber) ? artifactSetNames[setIdNumber] ?? null : null
+  const SlotIcon = artifactTypeIconFor(artifact.slot as ArtifactTypeId)
   const levelBucketLabel = formatLevel(artifact.level)
   const hasExactLevel = typeof artifact.exactLevel === 'number' && Number.isFinite(artifact.exactLevel)
   const exactLevelLabel = hasExactLevel ? String(Math.max(0, Math.min(16, Math.round(Number(artifact.exactLevel))))) : null
@@ -826,6 +827,39 @@ const TesterGridCard = React.memo(function TesterGridCard({
     )
   }
   const hasSetIcon = Number.isFinite(setIdNumber) && setIdNumber > 0
+  const slotArtSrc = hasSetIcon
+    ? gearSetSlotIconUrl(setIdNumber as ArtifactSetId, artifact.slot as ArtifactTypeId)
+    : undefined
+  const slotVisualNode = slotArtSrc
+    ? (
+      <Box sx={{ color: 'text.primary', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <Box
+          component="img"
+          src={slotArtSrc}
+          alt={setLabel || setTooltipName || ''}
+          draggable={false}
+          onDragStart={(event: React.DragEvent) => { event.preventDefault(); event.stopPropagation() }}
+          sx={{
+            width: '100%',
+            height: '100%',
+            maxWidth: 80,
+            maxHeight: 80,
+            objectFit: 'contain',
+            userSelect: 'none',
+            WebkitUserDrag: 'none',
+          }}
+        />
+      </Box>
+    )
+    : (
+      SlotIcon ? (
+        <Box sx={{ color: 'text.primary', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <Box sx={{ fontSize: '3.25rem', lineHeight: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <SlotIcon fontSize="inherit" />
+          </Box>
+        </Box>
+      ) : null
+    )
   const setIconOverlay = hasSetIcon ? (
     <Box
       sx={{
@@ -933,13 +967,7 @@ const TesterGridCard = React.memo(function TesterGridCard({
               ))}
             </Box>
           ) : null}
-          {SlotIcon ? (
-            <Box sx={{ color: 'text.primary', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Box sx={{ fontSize: '3.25rem', lineHeight: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <SlotIcon fontSize="inherit" />
-              </Box>
-            </Box>
-          ) : null}
+          {slotVisualNode}
           <Tooltip title={outcomeLabel}>
             <Box
               component={canJumpToPrimaryMatch ? 'button' : 'div'}
