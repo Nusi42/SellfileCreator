@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import {
   Accordion,
   AccordionSummary,
@@ -63,9 +63,11 @@ const GRID_VIRTUALIZE_GROUP_THRESHOLD = 12
 const GRID_VIRTUALIZE_ROW_THRESHOLD = 150
 const GRID_VIRTUALIZE_OVERSCAN_PX = 640
 const MATCHING_POPOVER_MAX_WIDTH_PX = 360
+const MATCHING_CHIP_MIN_WIDTH_PX = 50
+const MATCHING_CHIP_GAP_UNITS = 0.5
 const MATCHING_CONFIG_CHIP_SX = {
-  flexShrink: 1,
-  minWidth: 0,
+  flexShrink: 0,
+  minWidth: MATCHING_CHIP_MIN_WIDTH_PX,
   maxWidth: '100%',
   overflow: 'hidden',
   borderRadius: '8px',
@@ -85,6 +87,7 @@ const MATCHING_CHIP_WRAPPER_SX = {
   minWidth: 0,
   flexBasis: 'auto',
   flexGrow: 0,
+  flexShrink: 0,
 } as const
 
 const pxValue = (value: string): number => Number.parseFloat(value) || 0
@@ -821,8 +824,94 @@ const TesterGridCard = React.memo(function TesterGridCard({
     label: formatConfigLabel(idx as number, configNames, t),
   }))
   const otherMatchingEntries = matchingEntries.slice(1)
-  const visibleOtherMatching = otherMatchingEntries.slice(0, MAX_MATCHING_CHIPS)
-  const hiddenOtherMatching = otherMatchingEntries.slice(MAX_MATCHING_CHIPS)
+  const otherMatchingEntriesSignature = useMemo(
+    () => otherMatchingEntries.map((entry) => `${entry.cfgIdx}:${entry.label}`).join('|'),
+    [otherMatchingEntries],
+  )
+  const otherMatchingEntriesRef = useRef(otherMatchingEntries)
+  useEffect(() => {
+    otherMatchingEntriesRef.current = otherMatchingEntries
+  }, [otherMatchingEntries])
+  const [otherMatchesRowEl, setOtherMatchesRowEl] = useState<HTMLDivElement | null>(null)
+  const handleOtherMatchesRowRef = useCallback((node: HTMLDivElement | null) => {
+    setOtherMatchesRowEl(node)
+  }, [])
+  const [otherMatchesRowWidth, setOtherMatchesRowWidth] = useState<number>(0)
+  useEffect(() => {
+    if (!otherMatchesRowEl) return undefined
+    const node = otherMatchesRowEl
+    const updateWidth = () => {
+      setOtherMatchesRowWidth(node.clientWidth)
+    }
+    updateWidth()
+    if (typeof window === 'undefined' || typeof ResizeObserver === 'undefined') {
+      return undefined
+    }
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries[0]
+      if (!entry) return
+      setOtherMatchesRowWidth(entry.contentRect.width)
+    })
+    observer.observe(node)
+    return () => {
+      observer.disconnect()
+    }
+  }, [otherMatchesRowEl])
+  const desiredOtherMatchingCount = Math.min(MAX_MATCHING_CHIPS, otherMatchingEntries.length)
+  const [visibleOtherMatchingLimit, setVisibleOtherMatchingLimit] = useState(desiredOtherMatchingCount)
+  useEffect(() => {
+    setVisibleOtherMatchingLimit(desiredOtherMatchingCount)
+  }, [desiredOtherMatchingCount, otherMatchesRowWidth, otherMatchingEntriesSignature])
+  const visibleOtherMatching = otherMatchingEntries.slice(0, visibleOtherMatchingLimit)
+  const hiddenOtherMatching = otherMatchingEntries.slice(visibleOtherMatchingLimit)
+  const hiddenOtherMatchingCount = Math.max(0, otherMatchingEntries.length - visibleOtherMatchingLimit)
+  const otherMatchesChipRefs = useRef<Map<number, HTMLSpanElement>>(new Map())
+  const handleMatchingChipRef = useCallback((cfgIdx: number, node: HTMLSpanElement | null) => {
+    const map = otherMatchesChipRefs.current
+    if (node) {
+      map.set(cfgIdx, node)
+    } else {
+      map.delete(cfgIdx)
+    }
+  }, [])
+  const moreChipRef = useRef<HTMLSpanElement | null>(null)
+  const handleMoreChipRef = useCallback((node: HTMLSpanElement | null) => {
+    moreChipRef.current = node
+  }, [])
+  useLayoutEffect(() => {
+    if (!otherMatchesRowWidth) return
+    if (visibleOtherMatchingLimit <= 0 && hiddenOtherMatchingCount === 0) return
+    const gapPx = pxValue(theme.spacing(MATCHING_CHIP_GAP_UNITS))
+    const entriesToMeasure = otherMatchingEntriesRef.current.slice(0, visibleOtherMatchingLimit)
+    let totalWidth = 0
+    for (let idx = 0; idx < entriesToMeasure.length; idx += 1) {
+      const entry = entriesToMeasure[idx]
+      if (!entry) return
+      const node = otherMatchesChipRefs.current.get(entry.cfgIdx)
+      if (!node) {
+        return
+      }
+      totalWidth += node.getBoundingClientRect().width
+      if (idx > 0) {
+        totalWidth += gapPx
+      }
+    }
+    const hiddenCount = Math.max(0, otherMatchingEntriesRef.current.length - entriesToMeasure.length)
+    if (hiddenCount > 0) {
+      const moreNode = moreChipRef.current
+      if (!moreNode) return
+      totalWidth += gapPx + moreNode.getBoundingClientRect().width
+    }
+    if (totalWidth > otherMatchesRowWidth + 0.5 && visibleOtherMatchingLimit > 0) {
+      setVisibleOtherMatchingLimit((prev) => Math.max(0, prev - 1))
+    }
+  }, [
+    otherMatchesRowWidth,
+    visibleOtherMatchingLimit,
+    hiddenOtherMatchingCount,
+    otherMatchingEntriesSignature,
+    theme,
+  ])
   const [matchingPopoverAnchor, setMatchingPopoverAnchor] = useState<HTMLElement | null>(null)
   const matchingPopoverOpen = Boolean(matchingPopoverAnchor) && hiddenOtherMatching.length > 0
   const handleMatchingPopoverClose = useCallback(() => {
@@ -839,7 +928,7 @@ const TesterGridCard = React.memo(function TesterGridCard({
   }
   const renderMatchingChip = (
     entry: MatchingConfigEntry,
-    options?: { onSelect?: () => void },
+    options?: { onSelect?: () => void; trackRowChip?: boolean },
   ): React.ReactNode => {
     const key = `matching-chip-${entry.cfgIdx}`
     const clickable = canJumpToPrimaryMatch
@@ -869,8 +958,15 @@ const TesterGridCard = React.memo(function TesterGridCard({
       />
     )
 
+    const wrapperRef = options?.trackRowChip
+      ? ((node: HTMLSpanElement | null) => handleMatchingChipRef(entry.cfgIdx, node))
+      : null
     const wrappedChip = (
-      <Box component="span" sx={MATCHING_CHIP_WRAPPER_SX}>
+      <Box
+        component="span"
+        sx={MATCHING_CHIP_WRAPPER_SX}
+        ref={wrapperRef}
+      >
         {chipNode}
       </Box>
     )
@@ -1153,20 +1249,32 @@ const TesterGridCard = React.memo(function TesterGridCard({
       </Stack>
       {otherMatchingEntries.length > 0 ? (
         <Box sx={{ gridColumn: '1 / span 2', gridRow: '3', width: '100%' }}>
-          <Box sx={{ display: 'flex', flexWrap: 'nowrap', gap: 0.5, overflow: 'hidden', alignItems: 'center', minWidth: 0 }}>
-            {visibleOtherMatching.map((entry) => renderMatchingChip(entry))}
+          <Box
+            ref={handleOtherMatchesRowRef}
+            sx={{ display: 'flex', flexWrap: 'nowrap', gap: MATCHING_CHIP_GAP_UNITS, overflow: 'hidden', alignItems: 'center', minWidth: 0 }}
+          >
+            {visibleOtherMatching.map((entry) => renderMatchingChip(entry, { trackRowChip: true }))}
             {hiddenOtherMatching.length > 0 ? (
               <>
                 <Tooltip title={`${t('testerConfigMatches')} (+${hiddenOtherMatching.length})`}>
-                  <Chip
-                    label={`+${hiddenOtherMatching.length}`}
-                    size="small"
-                    color="primary"
-                    component="button"
-                    type="button"
-                    onClick={handleMatchingMoreClick}
-                    sx={{ borderRadius: '8px', flexShrink: 0 }}
-                  />
+                  <Box
+                    component="span"
+                    ref={handleMoreChipRef}
+                    sx={MATCHING_CHIP_WRAPPER_SX}
+                  >
+                    <Chip
+                      label={`+${hiddenOtherMatching.length}`}
+                      size="small"
+                      variant="outlined"
+                      component="button"
+                      type="button"
+                      onClick={handleMatchingMoreClick}
+                      sx={{
+                        ...MATCHING_CONFIG_CHIP_SX,
+                        cursor: 'pointer',
+                      }}
+                    />
+                  </Box>
                 </Tooltip>
                 <Popover
                   open={matchingPopoverOpen}
