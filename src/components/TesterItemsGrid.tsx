@@ -1149,7 +1149,11 @@ const TesterGridCard = React.memo(function TesterGridCard({
             sx={{ width: '100%' }}
           />
         </Box>
-      ) : null}
+      ) : (
+        <Box sx={{ gridColumn: '1 / span 2', gridRow: '2', width: '100%', display: 'flex', alignItems: 'center' }}>
+          <Chip size="small" color="success" variant="filled" label={t('testerNoMatch')} />
+        </Box>
+      )}
     </Box>
   )
 });
