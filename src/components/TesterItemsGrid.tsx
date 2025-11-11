@@ -602,6 +602,7 @@ const TesterItemsGridGroup = React.memo(function TesterItemsGridGroup({
                   sm: GRID_CARD_QUARTER_TEMPLATE,
                 },
                 gap: theme.spacing(GRID_GAP),
+                bgcolor: 'inherit',
               })}
             >
               {group.rows.map((row) => (
@@ -946,7 +947,7 @@ const TesterGridCard = React.memo(function TesterGridCard({
         rowGap: 1,
         p: 2,
         borderRadius: CARD_BORDER_RADIUS,
-        bgcolor: 'background.paper',
+        bgcolor: 'inherit',
         minHeight: 176,
         overflow: 'hidden',
       }}
