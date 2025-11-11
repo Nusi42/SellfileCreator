@@ -174,7 +174,7 @@ This document outlines contributors' responsibilities for UI behavior, layout, a
 
 - Use `labelOfVariant(variant)` for stat labels.
 - Avoid redundant `variantToSub(...)` followed by `statNameFromId(...)` in UI code; reserve tuple conversions for IO helpers.
-- Slot icons: render via `src/components/artifactTypeIcons.tsx` to keep visuals consistent across surfaces. Set-specific slot art is staged under `ico/sets/slots/` (with raw PNGs in `docs/orig/ico-sets/ico-slots/`) using `<setId>_<Slot>` for numbered artifact sets and `SetName_Slot` for accessories/faction pieces, so future previews can look up the correct art without another translation layer.
+- Slot icons: render via `src/components/artifactTypeIcons.tsx` to keep visuals consistent across surfaces. Base slot glyphs live under `ico/slots/*.svg`, set icons under `ico/sets/*.webp`, and the per-set slot art is staged under `ico/sets/slots/` (with raw PNGs in `docs/orig/ico-sets/ico-slots/`) using `<setId>_<Slot>` for numbered artifact sets and `SetName_Slot` for accessories/faction pieces, so future previews can look up the correct art without another translation layer.
 - Set tooltips: `src/lib/setDescriptions.ts` + `WithSetTooltip`/`getSetTooltipContent` render localized descriptions with color-coded `{buff:}`/`{debuff:}` tags.
   - Variable-sized sets (`byPieces`) render numbered lines `1: …` through `9: …`.
   - Description strings may include explicit `\n` line breaks.
