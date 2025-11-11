@@ -135,8 +135,13 @@ export function matchRule(rule: HsfRule, item: TestItem): boolean {
         const v = Number(subToVariant(s.ID, s.IsFlat))
         present.add(v)
         const need = Number(s.Value || 0)
-        const have = Number(absVals[v] || 0)
-        const cond = String(s.Condition || '>=')
+        const rawValue = absVals[v]
+        const haveNum = Number(rawValue)
+        const hasStatValue = rawValue !== undefined && rawValue !== null && Number.isFinite(haveNum) && haveNum > 0
+        const have = Number.isFinite(haveNum) ? haveNum : 0
+        const cond = String(s.Condition || '>=').trim()
+        const requiresPresenceForUpperBound = cond === '<=' || cond === '<' || cond === '=<' || cond === '≤'
+        if (requiresPresenceForUpperBound && !hasStatValue) return false
         const ok = (
           cond === '>=' ? (have >= need) :
           cond === '<=' ? (have <= need) :
