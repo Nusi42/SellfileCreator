@@ -45,6 +45,7 @@ import { WithSetTooltip } from './SetTooltip'
 import ContextMenuPaper from './ContextMenuPaper'
 import { ContextMenuHintOverlay } from './ContextMenuHintOverlay'
 import { useContextMenuHint } from '../hooks/useContextMenuHint'
+import { gearSetSlotIconUrl } from '../lib/iconMaps/setSlotIconMap'
 
 const GRID_CARD_SINGLE_COLUMN_TEMPLATE = 'minmax(0, 1fr)'
 const GRID_CARD_QUARTER_TEMPLATE = 'repeat(4, minmax(0, 1fr))'
@@ -652,10 +653,10 @@ const TesterGridCard = React.memo(function TesterGridCard({
   const theme = useTheme()
   const artifact = row.artifact
   const match = row.match
-  const SlotIcon = artifactTypeIconFor(artifact.slot as ArtifactTypeId)
   const setIdNumber = Number(artifact.set) || 0
   const setLabel = formatTesterSetLabel({ setId: setIdNumber, slot: artifact.slot as ArtifactTypeId, translate: t })
   const setTooltipName = Number.isFinite(setIdNumber) ? artifactSetNames[setIdNumber] ?? null : null
+  const SlotIcon = artifactTypeIconFor(artifact.slot as ArtifactTypeId)
   const levelBucketLabel = formatLevel(artifact.level)
   const hasExactLevel = typeof artifact.exactLevel === 'number' && Number.isFinite(artifact.exactLevel)
   const exactLevelLabel = hasExactLevel ? String(Math.max(0, Math.min(16, Math.round(Number(artifact.exactLevel))))) : null
@@ -665,7 +666,7 @@ const TesterGridCard = React.memo(function TesterGridCard({
   const ascensionStars = Math.max(0, Math.min(rankStars, Math.round(Number(artifact.ascension?.rolls) || 0)))
   const rarityValue = Number(artifact.rarity)
   const rarityBorder = RARITY_BORDER_COLORS[Number.isFinite(rarityValue) ? rarityValue : 0] ?? theme.palette.divider
-  const levelChipLabel = t('testerLevelLabel', { level: levelLabel })
+  const levelChipLabel = levelLabel || t('any')
   const mainLabel = artifact.mainStat ? t(statVariantI18nKey(artifact.mainStat.variant)) : t('any')
   const mainValue = formatStatPreGlyph(artifact.mainStat ?? null)
   const mainInline = mainValue ? t('testerMainStatInline', { stat: mainLabel, value: mainValue }) : mainLabel
@@ -999,8 +1000,55 @@ const TesterGridCard = React.memo(function TesterGridCard({
       </Tooltip>
     )
   }
-  const hasSetIcon = Number.isFinite(setIdNumber) && setIdNumber > 0
-  const setIconOverlay = hasSetIcon ? (
+  const hasRealSet = Number.isFinite(setIdNumber) && setIdNumber > 0
+  const slotArtSrc = gearSetSlotIconUrl(
+    setIdNumber as ArtifactSetId,
+    artifact.slot as ArtifactTypeId,
+    { factionId: artifact.faction as FactionId },
+  )
+  const slotVisualNode = slotArtSrc
+    ? (
+      <Box
+        sx={{
+          color: 'text.primary',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          borderRadius: 'inherit',
+          overflow: 'hidden',
+          width: '100%',
+          flex: '1 0 auto',
+        }}
+      >
+        <Box
+          component="img"
+          src={slotArtSrc}
+          alt={setLabel || setTooltipName || ''}
+          draggable={false}
+          onDragStart={(event: React.DragEvent) => { event.preventDefault(); event.stopPropagation() }}
+          sx={{
+            width: 'calc(100% + 2px)',
+            height: 'calc(100% + 2px)',
+            maxWidth: 'none',
+            maxHeight: 'none',
+            margin: '-1px',
+            objectFit: 'cover',
+            userSelect: 'none',
+            WebkitUserDrag: 'none',
+          }}
+        />
+      </Box>
+    )
+    : (
+      SlotIcon ? (
+        <Box sx={{ color: 'text.primary', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <Box sx={{ fontSize: '3.25rem', lineHeight: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <SlotIcon fontSize="inherit" />
+          </Box>
+        </Box>
+      ) : null
+    )
+  const setIconOverlay = hasRealSet && !slotArtSrc ? (
     <Box
       sx={{
         position: 'absolute',
@@ -1107,13 +1155,7 @@ const TesterGridCard = React.memo(function TesterGridCard({
               ))}
             </Box>
           ) : null}
-          {SlotIcon ? (
-            <Box sx={{ color: 'text.primary', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Box sx={{ fontSize: '3.25rem', lineHeight: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <SlotIcon fontSize="inherit" />
-              </Box>
-            </Box>
-          ) : null}
+          {slotVisualNode}
           <Tooltip title={outcomeLabel}>
             <Box
               component={canJumpToPrimaryMatch ? 'button' : 'div'}
