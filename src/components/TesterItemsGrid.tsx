@@ -65,7 +65,6 @@ const GRID_VIRTUALIZE_OVERSCAN_PX = 640
 const MATCHING_POPOVER_MAX_WIDTH_PX = 360
 const MATCHING_CHIP_MIN_WIDTH_PX = 50
 const MATCHING_CHIP_GAP_UNITS = 0.5
-const MATCHING_CHIP_ROW_PADDING_UNITS = 0.75
 const MATCHING_CONFIG_CHIP_SX = {
   flexShrink: 0,
   minWidth: MATCHING_CHIP_MIN_WIDTH_PX,
@@ -651,7 +650,6 @@ const TesterGridCard = React.memo(function TesterGridCard({
 }) {
   const { t } = useI18n()
   const theme = useTheme()
-  const matchingChipRowPaddingPx = pxValue(String(theme.spacing(MATCHING_CHIP_ROW_PADDING_UNITS)))
   const artifact = row.artifact
   const match = row.match
   const SlotIcon = artifactTypeIconFor(artifact.slot as ArtifactTypeId)
@@ -878,31 +876,59 @@ const TesterGridCard = React.memo(function TesterGridCard({
     : normalizedVisibleLimit
   const visibleOtherMatching = otherMatchingEntries.slice(0, effectiveVisibleOtherMatchingLimit)
   const hiddenOtherMatching = otherMatchingEntries.slice(effectiveVisibleOtherMatchingLimit)
+  const matchingChipGapPx = pxValue(String(theme.spacing(MATCHING_CHIP_GAP_UNITS)))
+  const visibleChipsContainerRef = useRef<HTMLDivElement | null>(null)
+  const handleVisibleChipsContainerRef = useCallback((node: HTMLDivElement | null) => {
+    visibleChipsContainerRef.current = node
+  }, [])
+  const moreChipRef = useRef<HTMLSpanElement | null>(null)
+  const handleMoreChipRef = useCallback((node: HTMLSpanElement | null) => {
+    moreChipRef.current = node
+  }, [])
+  const [moreChipWidth, setMoreChipWidth] = useState(0)
   useLayoutEffect(() => {
-    if (!otherMatchesRowEl) return
-    if (totalOtherMatches === 0) return
-    const hasHiddenMatches = totalOtherMatches > normalizedVisibleLimit
+    const node = moreChipRef.current
+    if (!node) {
+      setMoreChipWidth(0)
+      return
+    }
+    const measure = () => {
+      setMoreChipWidth(node.getBoundingClientRect().width)
+    }
+    measure()
+    if (typeof ResizeObserver === 'undefined') {
+      return
+    }
+    const observer = new ResizeObserver(measure)
+    observer.observe(node)
+    return () => {
+      observer.disconnect()
+    }
+  }, [hiddenOtherMatching.length])
+  const hasHiddenMatches = hiddenOtherMatching.length > 0
+  const visibleChipsAvailableWidth = hasHiddenMatches
+    ? Math.max(0, otherMatchesRowWidth - (moreChipWidth + matchingChipGapPx))
+    : otherMatchesRowWidth
+  useLayoutEffect(() => {
+    if (!totalOtherMatches) return
     const minVisible = hasHiddenMatches ? 1 : 0
     if (normalizedVisibleLimit < minVisible) {
       setVisibleOtherMatchingLimit(minVisible)
       return
     }
-    const paddingX = matchingChipRowPaddingPx * 2
-    const effectiveScrollWidth = Math.max(0, otherMatchesRowEl.scrollWidth - paddingX)
-    const effectiveClientWidth = Math.max(0, otherMatchesRowEl.clientWidth - paddingX)
-    if (effectiveScrollWidth <= effectiveClientWidth + 0.5) return
-    const nextLimit = Math.max(minVisible, normalizedVisibleLimit - 1)
-    if (nextLimit !== visibleOtherMatchingLimit) {
-      setVisibleOtherMatchingLimit(nextLimit)
+    const node = visibleChipsContainerRef.current
+    if (!node) return
+    const scrollDiff = node.scrollWidth - node.clientWidth
+    if (scrollDiff <= 0.5) return
+    if (normalizedVisibleLimit > minVisible) {
+      setVisibleOtherMatchingLimit(normalizedVisibleLimit - 1)
     }
   }, [
-    otherMatchesRowEl,
-    visibleOtherMatchingLimit,
-    otherMatchingEntriesSignature,
-    otherMatchesRowWidth,
-    totalOtherMatches,
     normalizedVisibleLimit,
-    matchingChipRowPaddingPx,
+    hasHiddenMatches,
+    totalOtherMatches,
+    visibleChipsAvailableWidth,
+    otherMatchingEntriesSignature,
   ])
   const [matchingPopoverAnchor, setMatchingPopoverAnchor] = useState<HTMLElement | null>(null)
   const matchingPopoverOpen = Boolean(matchingPopoverAnchor) && hiddenOtherMatching.length > 0
@@ -1243,17 +1269,29 @@ const TesterGridCard = React.memo(function TesterGridCard({
               display: 'flex',
               flexWrap: 'nowrap',
               gap: MATCHING_CHIP_GAP_UNITS,
-              overflow: 'hidden',
               alignItems: 'center',
               minWidth: 0,
-              px: MATCHING_CHIP_ROW_PADDING_UNITS,
+              width: '100%',
             }}
           >
-            {visibleOtherMatching.map((entry) => renderMatchingChip(entry))}
+            <Box
+              ref={handleVisibleChipsContainerRef}
+              sx={{
+                display: 'flex',
+                flexWrap: 'nowrap',
+                gap: MATCHING_CHIP_GAP_UNITS,
+                minWidth: 0,
+                width: hasHiddenMatches
+                  ? `${visibleChipsAvailableWidth}px`
+                  : '100%',
+              }}
+            >
+              {visibleOtherMatching.map((entry) => renderMatchingChip(entry))}
+            </Box>
             {hiddenOtherMatching.length > 0 ? (
               <>
                 <Tooltip title={`${t('testerConfigMatches')} (+${hiddenOtherMatching.length})`}>
-                  <Box component="span" sx={MATCHING_CHIP_WRAPPER_SX}>
+                  <Box component="span" ref={handleMoreChipRef} sx={MATCHING_CHIP_WRAPPER_SX}>
                     <Chip
                       label={`+${hiddenOtherMatching.length}`}
                       size="small"
