@@ -210,6 +210,15 @@ Localization status
 - `scripts/release-win-dev.ps1`: Thin wrapper that invokes `release-win.ps1 -DevBuild` so both entry points stay in sync.
 - `scripts/vite/assetsPlugin.ts`: Injects the favicon data URL during dev and build based on its explicit include list.
 
+### Icon Assets Catalogs
+
+- Runtime-ready icons live under `ico/`, broken into purpose-specific catalogs so the bundle only touches what each surface needs:
+  - `ico/slots/` — slot glyph SVGs (`Weapon.svg`, `Helm.svg`, `Schild.svg`, etc.) rendered via `artifactTypeIcons.tsx`.
+  - `ico/sets/` — the `.webp` glyphs for every artifact set plus the nested `ico/sets/slots/` directory that holds per-set/per-slot artwork. Artifact pieces follow `<setId>_<Slot>.webp` (slot is `Weapon`, `Helmet`, `Shield`, `Gauntlets`, `Chestplate`, or `Boots`) so numeric IDs stay aligned with the in-game order; accessory/faction pieces retain `SetName_Slot.webp` (spaces become underscores unless the source art shipped with spaces, e.g. `Nyresan Elves_Banner.webp`).
+  - `ico/faction/` — faction crests keyed by their slugified faction names (`banner-lords.webp`, `shadowkin.webp`, etc.).
+- The raw, lossless references sit in `docs/orig/ico-sets/ico-slots/` as `.png` exports following the same per-slot naming conventions. Update the PNG first, review it in-source, and then convert it to `.webp` when copying into `ico/sets/slots/` so the shipped bundle stays lean. (ImageMagick `magick <input.png> -quality 95 <output.webp>` or `cwebp` both keep the alpha channel intact; pick whichever tool you already use.)
+- When Plarium adds a new set, drop the source PNGs into `docs/orig/ico-sets/ico-slots/`, regenerate the corresponding `.webp` files under `ico/sets/slots/`, and wire the IDs through whatever UI consumes them. Keeping the twin directories in sync guarantees that artists and devs share one authoritative catalog.
+
 ## Release Notes Workflow
 
 Release history lives in `docs/HISTORY.txt` (UTF-8 with BOM). The automation scripts delegate the heavy lifting to Codex using the shared prompt in `docs/CREATE-RELEASE-NOTES.md`. Only the history file should change after each run—no plan files, commits, or artefact directories are touched.
