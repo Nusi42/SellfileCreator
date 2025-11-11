@@ -65,6 +65,7 @@ const GRID_VIRTUALIZE_OVERSCAN_PX = 640
 const MATCHING_POPOVER_MAX_WIDTH_PX = 360
 const MATCHING_CHIP_MIN_WIDTH_PX = 50
 const MATCHING_CHIP_GAP_UNITS = 0.5
+const MATCHING_CHIP_ROW_PADDING_UNITS = 0.25
 const MATCHING_CONFIG_CHIP_SX = {
   flexShrink: 0,
   minWidth: MATCHING_CHIP_MIN_WIDTH_PX,
@@ -91,6 +92,15 @@ const MATCHING_CHIP_WRAPPER_SX = {
 } as const
 
 const pxValue = (value: string): number => Number.parseFloat(value) || 0
+const measureMatchingRowContentWidth = (node: HTMLElement): number => {
+  if (typeof window === 'undefined') {
+    return node.clientWidth
+  }
+  const style = window.getComputedStyle(node)
+  const paddingLeft = pxValue(style.paddingLeft)
+  const paddingRight = pxValue(style.paddingRight)
+  return Math.max(0, node.clientWidth - paddingLeft - paddingRight)
+}
 const RARITY_BORDER_COLORS: Record<number, string> = {
   1: '#9ca3af', // Common
   2: '#34d399', // Uncommon
@@ -841,7 +851,7 @@ const TesterGridCard = React.memo(function TesterGridCard({
     if (!otherMatchesRowEl) return undefined
     const node = otherMatchesRowEl
     const updateWidth = () => {
-      setOtherMatchesRowWidth(node.clientWidth)
+      setOtherMatchesRowWidth(measureMatchingRowContentWidth(node))
     }
     updateWidth()
     if (typeof window === 'undefined' || typeof ResizeObserver === 'undefined') {
@@ -850,7 +860,14 @@ const TesterGridCard = React.memo(function TesterGridCard({
     const observer = new ResizeObserver((entries) => {
       const entry = entries[0]
       if (!entry) return
-      setOtherMatchesRowWidth(entry.contentRect.width)
+      if (typeof entry.contentRect?.width === 'number') {
+        setOtherMatchesRowWidth(entry.contentRect.width)
+        return
+      }
+      const target = entry.target as HTMLElement | undefined
+      if (target) {
+        setOtherMatchesRowWidth(measureMatchingRowContentWidth(target))
+      }
     })
     observer.observe(node)
     return () => {
@@ -1251,7 +1268,15 @@ const TesterGridCard = React.memo(function TesterGridCard({
         <Box sx={{ gridColumn: '1 / span 2', gridRow: '3', width: '100%' }}>
           <Box
             ref={handleOtherMatchesRowRef}
-            sx={{ display: 'flex', flexWrap: 'nowrap', gap: MATCHING_CHIP_GAP_UNITS, overflow: 'hidden', alignItems: 'center', minWidth: 0 }}
+            sx={{
+              display: 'flex',
+              flexWrap: 'nowrap',
+              gap: MATCHING_CHIP_GAP_UNITS,
+              overflow: 'hidden',
+              alignItems: 'center',
+              minWidth: 0,
+              pr: MATCHING_CHIP_ROW_PADDING_UNITS,
+            }}
           >
             {visibleOtherMatching.map((entry) => renderMatchingChip(entry, { trackRowChip: true }))}
             {hiddenOtherMatching.length > 0 ? (
