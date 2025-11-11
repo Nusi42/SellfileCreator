@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import {
   Accordion,
   AccordionSummary,
@@ -63,9 +63,11 @@ const GRID_VIRTUALIZE_GROUP_THRESHOLD = 12
 const GRID_VIRTUALIZE_ROW_THRESHOLD = 150
 const GRID_VIRTUALIZE_OVERSCAN_PX = 640
 const MATCHING_POPOVER_MAX_WIDTH_PX = 360
+const MATCHING_CHIP_MIN_WIDTH_PX = 50
+const MATCHING_CHIP_GAP_UNITS = 0.5
 const MATCHING_CONFIG_CHIP_SX = {
-  flexShrink: 1,
-  minWidth: 0,
+  flexShrink: 0,
+  minWidth: MATCHING_CHIP_MIN_WIDTH_PX,
   maxWidth: '100%',
   overflow: 'hidden',
   borderRadius: '8px',
@@ -85,9 +87,19 @@ const MATCHING_CHIP_WRAPPER_SX = {
   minWidth: 0,
   flexBasis: 'auto',
   flexGrow: 0,
+  flexShrink: 0,
 } as const
 
 const pxValue = (value: string): number => Number.parseFloat(value) || 0
+const measureMatchingRowContentWidth = (node: HTMLElement): number => {
+  if (typeof window === 'undefined') {
+    return node.clientWidth
+  }
+  const style = window.getComputedStyle(node)
+  const paddingLeft = pxValue(style.paddingLeft)
+  const paddingRight = pxValue(style.paddingRight)
+  return Math.max(0, node.clientWidth - paddingLeft - paddingRight)
+}
 const RARITY_BORDER_COLORS: Record<number, string> = {
   1: '#9ca3af', // Common
   2: '#34d399', // Uncommon
@@ -114,14 +126,19 @@ type TesterItemsGridProps = {
   onJumpToRule?: ((ruleIndex: number, cfgIdx: number | null) => void) | undefined
 }
 
+type TesterGroupKind = 'artifactSet' | 'accessorySet' | 'accessoryFaction'
+
 type TesterGroup = {
   key: string
   label: string
-  setId: number
-  slot: ArtifactTypeId
+  setId: number | null
+  slot: ArtifactTypeId | null
   factionId: FactionId | null
   rows: TesterPreviewRow[]
   order: number
+  kind: TesterGroupKind
+  children?: TesterGroup[]
+  parentKey?: string | null
 }
 
 type MatchingConfigEntry = {
@@ -165,6 +182,36 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     }
   }, [shouldShowGroupContextHint])
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(() => new Set())
+  const allGroupKeys = useMemo(() => {
+    const keys = new Set<string>()
+    const addKeys = (group: TesterGroup) => {
+      keys.add(group.key)
+      group.children?.forEach(addKeys)
+    }
+    groups.forEach(addKeys)
+    return keys
+  }, [groups])
+  const groupLookup = useMemo(() => {
+    const map = new Map<string, TesterGroup>()
+    const addGroup = (group: TesterGroup) => {
+      map.set(group.key, group)
+      group.children?.forEach(addGroup)
+    }
+    groups.forEach(addGroup)
+    return map
+  }, [groups])
+  const getMultiToggleScope = useCallback((groupKey: string): Iterable<string> => {
+    const group = groupLookup.get(groupKey)
+    if (!group || !group.parentKey) {
+      return allGroupKeys
+    }
+    const parent = groupLookup.get(group.parentKey)
+    if (parent?.children?.length) {
+      return parent.children.map((child) => child.key)
+    }
+    return [groupKey]
+  }, [allGroupKeys, groupLookup])
+
   const handleGroupToggle = useCallback((
     groupKey: string,
     shouldExpand: boolean,
@@ -178,14 +225,14 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
           || (event && 'metaKey' in event && (event as React.MouseEvent).metaKey))
       if (isMultiToggle) {
         let changed = false
-        groups.forEach(({ key }) => {
+        for (const key of getMultiToggleScope(groupKey)) {
           if (shouldExpand) {
             if (next.delete(key)) changed = true
           } else if (!next.has(key)) {
             next.add(key)
             changed = true
           }
-        })
+        }
         return changed ? next : prev
       }
       if (shouldExpand) {
@@ -197,15 +244,14 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
       next.add(groupKey)
       return next
     })
-  }, [groups])
+  }, [getMultiToggleScope])
 
   useEffect(() => {
-    const knownKeys = new Set(groups.map((group) => group.key))
     setCollapsedGroups((prev) => {
       let changed = false
       const next = new Set<string>()
       prev.forEach((key) => {
-        if (knownKeys.has(key)) {
+        if (allGroupKeys.has(key)) {
           next.add(key)
         } else {
           changed = true
@@ -213,7 +259,7 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
       })
       return changed ? next : prev
     })
-  }, [groups])
+  }, [allGroupKeys])
   const containerRef = useRef<HTMLDivElement | null>(null)
   const [scrollTop, setScrollTop] = useState(0)
   const [viewportHeight, setViewportHeight] = useState(0)
@@ -285,9 +331,8 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     for (let idx = 0; idx < groups.length; idx += 1) {
       const group = groups[idx]!
       offsets[idx] = total
-      const collapsed = collapsedGroups.has(group.key)
       const measured = groupHeightsRef.current.get(group.key)
-      const fallback = estimateGroupHeight(group.rows.length, collapsed, estimatedColumnCount, accordionSpacingPx, gridGapPx)
+      const fallback = estimateGroupHeight(group, collapsedGroups, estimatedColumnCount, accordionSpacingPx, gridGapPx)
       const height = typeof measured === 'number' && measured > 0 ? measured : fallback
       heights[idx] = height
       total += height
@@ -346,6 +391,34 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
   const renderedGroups = virtualization.visibleGroups
   const virtualizedHeight = shouldVirtualize ? Math.max(virtualization.totalHeight ?? 0, 0) : undefined
   const virtualizedPadTop = shouldVirtualize ? virtualization.padTop : 0
+  const renderGroup = (group: TesterGroup, depth = 0): React.ReactNode => {
+    const groupCountLabel = group.rows.length === 1
+      ? t('testerItemsCountOne')
+      : t('testerItemsCountMany', { n: numberFormatter.format(group.rows.length) })
+    const expanded = !collapsedGroups.has(group.key)
+    return (
+      <TesterItemsGridGroup
+        key={group.key}
+        group={group}
+        expanded={expanded}
+        groupCountLabel={groupCountLabel}
+        chipBgColor={groupCountChipBg}
+        onToggleGroup={handleGroupToggle}
+        contextHintEnabled={shouldShowGroupContextHint && depth === 0}
+        onContextMenuHintMove={handleGroupHintPointerMove}
+        onContextMenuHintLeave={handleGroupHintPointerLeave}
+        onContextMenuHintSeen={handleGroupHintSeen}
+        substatColors={substatColors}
+        useStatButtonColors={useStatButtonColors}
+        configNames={configNames}
+        onJumpToRule={onJumpToRule}
+        onMeasure={shouldVirtualize && depth === 0 ? handleGroupMeasure : undefined}
+        marginBottomPx={accordionSpacingPx}
+        childContent={group.children?.length ? group.children.map((child) => renderGroup(child, depth + 1)) : undefined}
+        depth={depth}
+      />
+    )
+  }
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
@@ -356,32 +429,7 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
       >
         <Box sx={{ position: 'relative', height: shouldVirtualize ? virtualizedHeight : 'auto', minHeight: shouldVirtualize ? virtualizedHeight : 'auto' }}>
           <Box sx={{ transform: shouldVirtualize ? `translateY(${virtualizedPadTop}px)` : 'none' }}>
-            {renderedGroups.map((group) => {
-              const groupCountLabel = group.rows.length === 1
-                ? t('testerItemsCountOne')
-                : t('testerItemsCountMany', { n: numberFormatter.format(group.rows.length) })
-              const expanded = !collapsedGroups.has(group.key)
-              return (
-                <TesterItemsGridGroup
-                  key={group.key}
-                  group={group}
-                  expanded={expanded}
-                  groupCountLabel={groupCountLabel}
-                  chipBgColor={groupCountChipBg}
-                  onToggleGroup={handleGroupToggle}
-                  contextHintEnabled={shouldShowGroupContextHint}
-                  onContextMenuHintMove={handleGroupHintPointerMove}
-                  onContextMenuHintLeave={handleGroupHintPointerLeave}
-                  onContextMenuHintSeen={handleGroupHintSeen}
-                  substatColors={substatColors}
-                  useStatButtonColors={useStatButtonColors}
-                  configNames={configNames}
-                  onJumpToRule={onJumpToRule}
-                  onMeasure={shouldVirtualize ? handleGroupMeasure : undefined}
-                  marginBottomPx={accordionSpacingPx}
-                />
-              )
-            })}
+            {renderedGroups.map((group) => renderGroup(group, 0))}
           </Box>
         </Box>
       </Box>
@@ -411,6 +459,8 @@ type TesterItemsGridGroupProps = {
   onJumpToRule?: ((ruleIndex: number, cfgIdx: number | null) => void) | undefined
   onMeasure?: ((key: string, height: number) => void) | undefined
   marginBottomPx: number
+  childContent?: React.ReactNode
+  depth?: number
 }
 
 const TesterItemsGridGroup = React.memo(function TesterItemsGridGroup({
@@ -429,14 +479,20 @@ const TesterItemsGridGroup = React.memo(function TesterItemsGridGroup({
   onJumpToRule,
   onMeasure,
   marginBottomPx,
+  childContent,
+  depth = 0,
 }: TesterItemsGridGroupProps) {
   const accordionRef = useRef<HTMLDivElement | null>(null)
-  const groupSetTooltipName = artifactSetNames[group.setId] ?? null
-  const summarySetIcon = (
+  const hasChildren = Boolean(childContent)
+  const nested = depth > 0
+  const numericSetId = typeof group.setId === 'number' && group.setId > 0 ? group.setId : null
+  const groupSetTooltipName = numericSetId != null ? (artifactSetNames[numericSetId] ?? null) : null
+  const summarySetIcon = numericSetId != null ? (
     <Box sx={{ lineHeight: 0, display: 'flex', alignItems: 'center' }}>
-      <SetIcon setId={group.setId as ArtifactSetId} size={24} />
+      <SetIcon setId={numericSetId as ArtifactSetId} size={24} />
     </Box>
-  )
+  ) : null
+
   useEffect(() => {
     if (!onMeasure) return undefined
     const node = accordionRef.current
@@ -472,11 +528,12 @@ const TesterItemsGridGroup = React.memo(function TesterItemsGridGroup({
       expanded={expanded}
       onChange={(event, isExpanded) => onToggleGroup(group.key, isExpanded, event)}
       sx={(theme) => ({
-        mb: ACCORDION_MARGIN_UNITS,
-        borderRadius: `${ACCORDION_BORDER_RADIUS_PX}px`,
+        mb: nested ? 0 : ACCORDION_MARGIN_UNITS,
+        borderRadius: `${Math.max(ACCORDION_BORDER_RADIUS_PX - (nested ? 2 : 0), 2)}px`,
+        ml: nested ? theme.spacing(1.5) : 0,
         overflow: 'hidden',
         border: `1px solid ${theme.palette.divider}`,
-        backgroundColor: theme.palette.background.paper,
+        backgroundColor: nested ? theme.palette.background.default : theme.palette.background.paper,
         '&::before': {
           display: 'none',
         },
@@ -509,18 +566,25 @@ const TesterItemsGridGroup = React.memo(function TesterItemsGridGroup({
           if (contextHintEnabled) onContextMenuHintSeen()
         }}
       >
-        <Stack direction="row" spacing={1.5} alignItems="center" sx={{ width: '100%' }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            {groupSetTooltipName ? (
+        <Stack direction="row" spacing={1.5} alignItems="center" sx={{ width: '100%', flexWrap: 'nowrap' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
+            {groupSetTooltipName && summarySetIcon ? (
               <WithSetTooltip name={groupSetTooltipName} displayName={group.label}>
                 {summarySetIcon}
               </WithSetTooltip>
             ) : summarySetIcon}
             {group.factionId ? (
-              <FactionIcon faction={group.factionId} size={20} />
+              <FactionIcon
+                faction={group.factionId}
+                size={group.kind === 'accessoryFaction' ? 24 : 18}
+              />
             ) : null}
           </Box>
-          <Typography variant="subtitle1" sx={{ flex: 1, minWidth: 0 }} noWrap>
+          <Typography
+            variant={nested ? 'subtitle2' : 'subtitle1'}
+            sx={{ flex: 1, minWidth: 0 }}
+            noWrap
+          >
             {group.label}
           </Typography>
           <Chip
@@ -531,28 +595,40 @@ const TesterItemsGridGroup = React.memo(function TesterItemsGridGroup({
         </Stack>
       </AccordionSummary>
       {expanded ? (
-        <AccordionDetails sx={{ backgroundColor: 'inherit', p: 0 }}>
-          <Box
-            sx={(theme) => ({
-              display: 'grid',
-              gridTemplateColumns: {
-                xs: GRID_CARD_SINGLE_COLUMN_TEMPLATE,
-                sm: GRID_CARD_QUARTER_TEMPLATE,
-              },
-              gap: theme.spacing(GRID_GAP),
-            })}
-          >
-            {group.rows.map((row) => (
-              <TesterGridCard
-                key={row.artifact.id}
-                row={row}
-                substatColors={substatColors}
-                useStatButtonColors={useStatButtonColors}
-                configNames={configNames}
-                onJumpToRule={onJumpToRule}
-              />
-            ))}
-          </Box>
+        <AccordionDetails
+          sx={(theme) => ({
+            backgroundColor: 'inherit',
+            p: hasChildren ? theme.spacing(ACCORDION_MARGIN_UNITS) : 0,
+          })}
+        >
+          {hasChildren ? (
+            <Stack spacing={ACCORDION_MARGIN_UNITS}>
+              {childContent}
+            </Stack>
+          ) : (
+            <Box
+              sx={(theme) => ({
+                display: 'grid',
+                gridTemplateColumns: {
+                  xs: GRID_CARD_SINGLE_COLUMN_TEMPLATE,
+                  sm: GRID_CARD_QUARTER_TEMPLATE,
+                },
+                gap: theme.spacing(GRID_GAP),
+                bgcolor: 'inherit',
+              })}
+            >
+              {group.rows.map((row) => (
+                <TesterGridCard
+                  key={row.artifact.id}
+                  row={row}
+                  substatColors={substatColors}
+                  useStatButtonColors={useStatButtonColors}
+                  configNames={configNames}
+                  onJumpToRule={onJumpToRule}
+                />
+              ))}
+            </Box>
+          )}
         </AccordionDetails>
       ) : null}
     </Accordion>
@@ -757,8 +833,103 @@ const TesterGridCard = React.memo(function TesterGridCard({
     label: formatConfigLabel(idx as number, configNames, t),
   }))
   const otherMatchingEntries = matchingEntries.slice(1)
-  const visibleOtherMatching = otherMatchingEntries.slice(0, MAX_MATCHING_CHIPS)
-  const hiddenOtherMatching = otherMatchingEntries.slice(MAX_MATCHING_CHIPS)
+  const totalOtherMatches = otherMatchingEntries.length
+  const otherMatchingEntriesSignature = useMemo(
+    () => otherMatchingEntries.map((entry) => `${entry.cfgIdx}:${entry.label}`).join('|'),
+    [otherMatchingEntries],
+  )
+  const [otherMatchesRowEl, setOtherMatchesRowEl] = useState<HTMLDivElement | null>(null)
+  const handleOtherMatchesRowRef = useCallback((node: HTMLDivElement | null) => {
+    setOtherMatchesRowEl(node)
+  }, [])
+  const [otherMatchesRowWidth, setOtherMatchesRowWidth] = useState<number>(0)
+  useEffect(() => {
+    if (!otherMatchesRowEl) return undefined
+    const node = otherMatchesRowEl
+    const updateWidth = () => {
+      setOtherMatchesRowWidth(measureMatchingRowContentWidth(node))
+    }
+    updateWidth()
+    if (typeof window === 'undefined' || typeof ResizeObserver === 'undefined') {
+      return undefined
+    }
+    const observer = new ResizeObserver(() => {
+      updateWidth()
+    })
+    observer.observe(node)
+    return () => {
+      observer.disconnect()
+    }
+  }, [otherMatchesRowEl])
+  const desiredOtherMatchingCount = Math.min(MAX_MATCHING_CHIPS, totalOtherMatches)
+  const [visibleOtherMatchingLimit, setVisibleOtherMatchingLimit] = useState(desiredOtherMatchingCount)
+  useEffect(() => {
+    setVisibleOtherMatchingLimit(desiredOtherMatchingCount)
+  }, [desiredOtherMatchingCount, otherMatchesRowWidth, otherMatchingEntriesSignature])
+  const normalizedVisibleLimit = Math.max(
+    0,
+    Math.min(visibleOtherMatchingLimit, totalOtherMatches),
+  )
+  const needsPrefixChip = totalOtherMatches > normalizedVisibleLimit
+  const effectiveVisibleOtherMatchingLimit = needsPrefixChip
+    ? Math.max(1, normalizedVisibleLimit)
+    : normalizedVisibleLimit
+  const visibleOtherMatching = otherMatchingEntries.slice(0, effectiveVisibleOtherMatchingLimit)
+  const hiddenOtherMatching = otherMatchingEntries.slice(effectiveVisibleOtherMatchingLimit)
+  const matchingChipGapPx = pxValue(String(theme.spacing(MATCHING_CHIP_GAP_UNITS)))
+  const visibleChipsContainerRef = useRef<HTMLDivElement | null>(null)
+  const handleVisibleChipsContainerRef = useCallback((node: HTMLDivElement | null) => {
+    visibleChipsContainerRef.current = node
+  }, [])
+  const moreChipRef = useRef<HTMLSpanElement | null>(null)
+  const handleMoreChipRef = useCallback((node: HTMLSpanElement | null) => {
+    moreChipRef.current = node
+  }, [])
+  const [moreChipWidth, setMoreChipWidth] = useState(0)
+  useLayoutEffect(() => {
+    const node = moreChipRef.current
+    if (!node) {
+      setMoreChipWidth(0)
+      return
+    }
+    const measure = () => {
+      setMoreChipWidth(node.getBoundingClientRect().width)
+    }
+    measure()
+    if (typeof ResizeObserver === 'undefined') {
+      return
+    }
+    const observer = new ResizeObserver(measure)
+    observer.observe(node)
+    return () => {
+      observer.disconnect()
+    }
+  }, [hiddenOtherMatching.length])
+  const hasHiddenMatches = hiddenOtherMatching.length > 0
+  const visibleChipsAvailableWidth = hasHiddenMatches
+    ? Math.max(0, otherMatchesRowWidth - (moreChipWidth + matchingChipGapPx))
+    : otherMatchesRowWidth
+  useLayoutEffect(() => {
+    if (!totalOtherMatches) return
+    const minVisible = hasHiddenMatches ? 1 : 0
+    if (normalizedVisibleLimit < minVisible) {
+      setVisibleOtherMatchingLimit(minVisible)
+      return
+    }
+    const node = visibleChipsContainerRef.current
+    if (!node) return
+    const scrollDiff = node.scrollWidth - node.clientWidth
+    if (scrollDiff <= 0.5) return
+    if (normalizedVisibleLimit > minVisible) {
+      setVisibleOtherMatchingLimit(normalizedVisibleLimit - 1)
+    }
+  }, [
+    normalizedVisibleLimit,
+    hasHiddenMatches,
+    totalOtherMatches,
+    visibleChipsAvailableWidth,
+    otherMatchingEntriesSignature,
+  ])
   const [matchingPopoverAnchor, setMatchingPopoverAnchor] = useState<HTMLElement | null>(null)
   const matchingPopoverOpen = Boolean(matchingPopoverAnchor) && hiddenOtherMatching.length > 0
   const handleMatchingPopoverClose = useCallback(() => {
@@ -806,7 +977,10 @@ const TesterGridCard = React.memo(function TesterGridCard({
     )
 
     const wrappedChip = (
-      <Box component="span" sx={MATCHING_CHIP_WRAPPER_SX}>
+      <Box
+        component="span"
+        sx={MATCHING_CHIP_WRAPPER_SX}
+      >
         {chipNode}
       </Box>
     )
@@ -883,7 +1057,7 @@ const TesterGridCard = React.memo(function TesterGridCard({
         rowGap: 1,
         p: 2,
         borderRadius: CARD_BORDER_RADIUS,
-        bgcolor: 'background.paper',
+        bgcolor: 'inherit',
         minHeight: 176,
         overflow: 'hidden',
       }}
@@ -1087,22 +1261,64 @@ const TesterGridCard = React.memo(function TesterGridCard({
           </Box>
         </Tooltip>
       </Stack>
+      {match ? (
+        <Box sx={{ gridColumn: '1 / -1', width: '100%', display: 'flex', alignItems: 'center' }}>
+          <TesterRuleReferenceChip
+            match={match}
+            {...(onJumpToRule ? { onJump: onJumpToRule } : {})}
+            sx={{ width: '100%' }}
+          />
+        </Box>
+      ) : (
+        <Box sx={{ gridColumn: '1 / -1', width: '100%', display: 'flex', alignItems: 'center' }}>
+          <Chip size="small" color="success" variant="filled" label={t('testerNoMatch')} />
+        </Box>
+      )}
       {otherMatchingEntries.length > 0 ? (
-        <Box sx={{ gridColumn: '1 / span 2', gridRow: '3', width: '100%' }}>
-          <Box sx={{ display: 'flex', flexWrap: 'nowrap', gap: 0.5, overflow: 'hidden', alignItems: 'center', minWidth: 0 }}>
-            {visibleOtherMatching.map((entry) => renderMatchingChip(entry))}
+        <Box sx={{ gridColumn: '1 / -1', width: '100%' }}>
+          <Box
+            ref={handleOtherMatchesRowRef}
+            sx={{
+              display: 'flex',
+              flexWrap: 'nowrap',
+              gap: MATCHING_CHIP_GAP_UNITS,
+              alignItems: 'center',
+              minWidth: 0,
+              width: '100%',
+            }}
+          >
+            <Box
+              ref={handleVisibleChipsContainerRef}
+              sx={{
+                display: 'flex',
+                flexWrap: 'nowrap',
+                gap: MATCHING_CHIP_GAP_UNITS,
+                minWidth: 0,
+                width: hasHiddenMatches
+                  ? `${visibleChipsAvailableWidth}px`
+                  : '100%',
+              }}
+            >
+              {visibleOtherMatching.map((entry) => renderMatchingChip(entry))}
+            </Box>
             {hiddenOtherMatching.length > 0 ? (
               <>
                 <Tooltip title={`${t('testerConfigMatches')} (+${hiddenOtherMatching.length})`}>
-                  <Chip
-                    label={`+${hiddenOtherMatching.length}`}
-                    size="small"
-                    color="primary"
-                    component="button"
-                    type="button"
-                    onClick={handleMatchingMoreClick}
-                    sx={{ borderRadius: '8px', flexShrink: 0 }}
-                  />
+                  <Box component="span" ref={handleMoreChipRef} sx={MATCHING_CHIP_WRAPPER_SX}>
+                    <Chip
+                      label={`+${hiddenOtherMatching.length}`}
+                      size="small"
+                      variant="outlined"
+                      component="button"
+                      type="button"
+                      onClick={handleMatchingMoreClick}
+                      sx={{
+                        ...MATCHING_CONFIG_CHIP_SX,
+                        minWidth: 'auto',
+                        cursor: 'pointer',
+                      }}
+                    />
+                  </Box>
                 </Tooltip>
                 <Popover
                   open={matchingPopoverOpen}
@@ -1141,47 +1357,105 @@ const TesterGridCard = React.memo(function TesterGridCard({
           </Box>
         </Box>
       ) : null}
-      {match ? (
-        <Box sx={{ gridColumn: '1 / span 2', gridRow: '2', width: '100%', display: 'flex', alignItems: 'center' }}>
-          <TesterRuleReferenceChip
-            match={match}
-            {...(onJumpToRule ? { onJump: onJumpToRule } : {})}
-            sx={{ width: '100%' }}
-          />
-        </Box>
-      ) : null}
     </Box>
   )
 });
 
+type FactionGroupBuilder = {
+  group: TesterGroup
+  sets: Map<string, TesterGroup>
+}
+
 function groupRowsBySet(rows: readonly TesterPreviewRow[], translate: TranslateFn): TesterGroup[] {
-  const groups = new Map<string, TesterGroup>()
+  const artifactGroups = new Map<string, TesterGroup>()
+  const factionGroups = new Map<string, FactionGroupBuilder>()
+
   rows.forEach((row, index) => {
     const artifact = row.artifact
     const slot = artifact.slot as ArtifactTypeId
     const setId = Number(artifact.set) || 0
-    const accessory = isAccessorySlot(slot)
-    const factionId = accessory ? ((artifact.faction || 0) as FactionId) : null
-    const key = accessory ? `acc:${setId}:${factionId ?? 0}` : `art:${setId}`
-    let group = groups.get(key)
-    if (!group) {
+    if (!isAccessorySlot(slot)) {
+      const key = `art:${setId}`
+      let group = artifactGroups.get(key)
+      if (!group) {
+        const setLabel = formatTesterSetLabel({ setId, slot, translate })
+        group = {
+          key,
+          label: setLabel,
+          setId,
+          slot,
+          factionId: null,
+          rows: [],
+          order: index,
+          kind: 'artifactSet',
+          parentKey: null,
+        }
+        artifactGroups.set(key, group)
+      }
+      group.rows.push(row)
+      return
+    }
+
+    const rawFactionId = Number(artifact.faction) || 0
+    const factionId = (rawFactionId > 0 ? rawFactionId : 0) as FactionId
+    const factionKey = `faction:${factionId}`
+    let factionGroup = factionGroups.get(factionKey)
+    if (!factionGroup) {
+      const factionLabel = factionId > 0 ? translate(factionI18nKey(factionId)) : translate('testerValueUnknown')
+      factionGroup = {
+        group: {
+          key: factionKey,
+          label: factionLabel,
+          setId: null,
+          slot: null,
+          factionId: factionId > 0 ? factionId : null,
+          rows: [],
+          order: index,
+          kind: 'accessoryFaction',
+          children: [],
+          parentKey: null,
+        },
+        sets: new Map(),
+      }
+      factionGroups.set(factionKey, factionGroup)
+    }
+    factionGroup.group.rows.push(row)
+    if (index < factionGroup.group.order) {
+      factionGroup.group.order = index
+    }
+
+    const setKey = `${factionKey}:set:${setId}`
+    let setGroup = factionGroup.sets.get(setKey)
+    if (!setGroup) {
       const setLabel = formatTesterSetLabel({ setId, slot, translate })
-      const factionLabel = accessory && factionId ? translate(factionI18nKey(factionId)) : ''
-      const label = factionLabel ? `${setLabel} • ${factionLabel}` : setLabel
-      group = {
-        key,
-        label,
+      setGroup = {
+        key: setKey,
+        label: setLabel,
         setId,
         slot,
-        factionId: accessory ? factionId : null,
+        factionId: factionId > 0 ? factionId : null,
         rows: [],
         order: index,
+        kind: 'accessorySet',
+        parentKey: factionKey,
       }
-      groups.set(key, group)
+      factionGroup.sets.set(setKey, setGroup)
     }
-    group.rows.push(row)
+    setGroup.rows.push(row)
+    if (index < setGroup.order) {
+      setGroup.order = index
+    }
   })
-  return Array.from(groups.values()).sort((a, b) => a.order - b.order)
+
+  const resolvedFactionGroups: TesterGroup[] = Array.from(factionGroups.values()).map(({ group, sets }) => ({
+    ...group,
+    children: Array.from(sets.values()).sort((a, b) => a.order - b.order),
+  }))
+
+  return [
+    ...artifactGroups.values(),
+    ...resolvedFactionGroups,
+  ].sort((a, b) => a.order - b.order)
 }
 
 function formatConfigLabel(idx: number, configNames: Array<string | null>, translate: TranslateFn): string {
@@ -1193,16 +1467,23 @@ function formatConfigLabel(idx: number, configNames: Array<string | null>, trans
 }
 
 function estimateGroupHeight(
-  rowCount: number,
-  collapsed: boolean,
+  group: TesterGroup,
+  collapsedGroups: Set<string>,
   columnCount: number,
   marginBottomPx: number,
   gridGapPx: number,
 ): number {
   const header = ESTIMATED_ACCORDION_HEADER_PX
+  const collapsed = collapsedGroups.has(group.key)
   if (collapsed) return header + marginBottomPx
+  if (group.children && group.children.length > 0) {
+    const childTotal = group.children.reduce((total, child) => (
+      total + estimateGroupHeight(child, collapsedGroups, columnCount, marginBottomPx, gridGapPx)
+    ), 0)
+    return header + childTotal + marginBottomPx
+  }
   const columns = Math.max(1, columnCount)
-  const rowsNeeded = Math.max(1, Math.ceil(rowCount / columns))
+  const rowsNeeded = Math.max(1, Math.ceil(group.rows.length / columns))
   const gridHeight = (rowsNeeded * ESTIMATED_CARD_HEIGHT_PX)
     + (Math.max(0, rowsNeeded - 1) * gridGapPx)
     + ESTIMATED_DETAILS_PADDING_PX
