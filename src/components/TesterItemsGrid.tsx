@@ -834,6 +834,7 @@ const TesterGridCard = React.memo(function TesterGridCard({
     label: formatConfigLabel(idx as number, configNames, t),
   }))
   const otherMatchingEntries = matchingEntries.slice(1)
+  const totalOtherMatches = otherMatchingEntries.length
   const otherMatchingEntriesSignature = useMemo(
     () => otherMatchingEntries.map((entry) => `${entry.cfgIdx}:${entry.label}`).join('|'),
     [otherMatchingEntries],
@@ -861,25 +862,44 @@ const TesterGridCard = React.memo(function TesterGridCard({
       observer.disconnect()
     }
   }, [otherMatchesRowEl])
-  const desiredOtherMatchingCount = Math.min(MAX_MATCHING_CHIPS, otherMatchingEntries.length)
+  const desiredOtherMatchingCount = Math.min(MAX_MATCHING_CHIPS, totalOtherMatches)
   const [visibleOtherMatchingLimit, setVisibleOtherMatchingLimit] = useState(desiredOtherMatchingCount)
   useEffect(() => {
     setVisibleOtherMatchingLimit(desiredOtherMatchingCount)
   }, [desiredOtherMatchingCount, otherMatchesRowWidth, otherMatchingEntriesSignature])
-  const visibleOtherMatching = otherMatchingEntries.slice(0, visibleOtherMatchingLimit)
-  const hiddenOtherMatching = otherMatchingEntries.slice(visibleOtherMatchingLimit)
+  const normalizedVisibleLimit = Math.max(
+    0,
+    Math.min(visibleOtherMatchingLimit, totalOtherMatches),
+  )
+  const needsPrefixChip = totalOtherMatches > normalizedVisibleLimit
+  const effectiveVisibleOtherMatchingLimit = needsPrefixChip
+    ? Math.max(1, normalizedVisibleLimit)
+    : normalizedVisibleLimit
+  const visibleOtherMatching = otherMatchingEntries.slice(0, effectiveVisibleOtherMatchingLimit)
+  const hiddenOtherMatching = otherMatchingEntries.slice(effectiveVisibleOtherMatchingLimit)
   useLayoutEffect(() => {
     if (!otherMatchesRowEl) return
-    if (visibleOtherMatchingLimit <= 0) return
+    if (totalOtherMatches === 0) return
+    const hasHiddenMatches = totalOtherMatches > normalizedVisibleLimit
+    const minVisible = hasHiddenMatches ? 1 : 0
+    if (normalizedVisibleLimit < minVisible) {
+      setVisibleOtherMatchingLimit(minVisible)
+      return
+    }
     const scrollWidth = otherMatchesRowEl.scrollWidth
     const clientWidth = otherMatchesRowEl.clientWidth
     if (scrollWidth <= clientWidth + 0.5) return
-    setVisibleOtherMatchingLimit((prev) => (prev > 0 ? prev - 1 : 0))
+    const nextLimit = Math.max(minVisible, normalizedVisibleLimit - 1)
+    if (nextLimit !== visibleOtherMatchingLimit) {
+      setVisibleOtherMatchingLimit(nextLimit)
+    }
   }, [
     otherMatchesRowEl,
     visibleOtherMatchingLimit,
     otherMatchingEntriesSignature,
     otherMatchesRowWidth,
+    totalOtherMatches,
+    normalizedVisibleLimit,
   ])
   const [matchingPopoverAnchor, setMatchingPopoverAnchor] = useState<HTMLElement | null>(null)
   const matchingPopoverOpen = Boolean(matchingPopoverAnchor) && hiddenOtherMatching.length > 0
