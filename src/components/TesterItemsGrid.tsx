@@ -126,6 +126,7 @@ type TesterGroup = {
   order: number
   kind: TesterGroupKind
   children?: TesterGroup[]
+  parentKey?: string | null
 }
 
 type MatchingConfigEntry = {
@@ -171,14 +172,34 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(() => new Set())
   const allGroupKeys = useMemo(() => {
     const keys = new Set<string>()
-    groups.forEach((group) => {
+    const addKeys = (group: TesterGroup) => {
       keys.add(group.key)
-      if (group.children) {
-        group.children.forEach((child) => keys.add(child.key))
-      }
-    })
+      group.children?.forEach(addKeys)
+    }
+    groups.forEach(addKeys)
     return keys
   }, [groups])
+  const groupLookup = useMemo(() => {
+    const map = new Map<string, TesterGroup>()
+    const addGroup = (group: TesterGroup) => {
+      map.set(group.key, group)
+      group.children?.forEach(addGroup)
+    }
+    groups.forEach(addGroup)
+    return map
+  }, [groups])
+  const getMultiToggleScope = useCallback((groupKey: string): Iterable<string> => {
+    const group = groupLookup.get(groupKey)
+    if (!group || !group.parentKey) {
+      return allGroupKeys
+    }
+    const parent = groupLookup.get(group.parentKey)
+    if (parent?.children?.length) {
+      return parent.children.map((child) => child.key)
+    }
+    return [groupKey]
+  }, [allGroupKeys, groupLookup])
+
   const handleGroupToggle = useCallback((
     groupKey: string,
     shouldExpand: boolean,
@@ -192,14 +213,14 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
           || (event && 'metaKey' in event && (event as React.MouseEvent).metaKey))
       if (isMultiToggle) {
         let changed = false
-        allGroupKeys.forEach((key) => {
+        for (const key of getMultiToggleScope(groupKey)) {
           if (shouldExpand) {
             if (next.delete(key)) changed = true
           } else if (!next.has(key)) {
             next.add(key)
             changed = true
           }
-        })
+        }
         return changed ? next : prev
       }
       if (shouldExpand) {
@@ -211,15 +232,14 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
       next.add(groupKey)
       return next
     })
-  }, [allGroupKeys])
+  }, [getMultiToggleScope])
 
   useEffect(() => {
-    const knownKeys = new Set(allGroupKeys)
     setCollapsedGroups((prev) => {
       let changed = false
       const next = new Set<string>()
       prev.forEach((key) => {
-        if (knownKeys.has(key)) {
+        if (allGroupKeys.has(key)) {
           next.add(key)
         } else {
           changed = true
@@ -1228,6 +1248,7 @@ function groupRowsBySet(rows: readonly TesterPreviewRow[], translate: TranslateF
           rows: [],
           order: index,
           kind: 'artifactSet',
+          parentKey: null,
         }
         artifactGroups.set(key, group)
       }
@@ -1252,6 +1273,7 @@ function groupRowsBySet(rows: readonly TesterPreviewRow[], translate: TranslateF
           order: index,
           kind: 'accessoryFaction',
           children: [],
+          parentKey: null,
         },
         sets: new Map(),
       }
@@ -1275,6 +1297,7 @@ function groupRowsBySet(rows: readonly TesterPreviewRow[], translate: TranslateF
         rows: [],
         order: index,
         kind: 'accessorySet',
+        parentKey: factionKey,
       }
       factionGroup.sets.set(setKey, setGroup)
     }
