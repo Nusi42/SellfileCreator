@@ -1164,7 +1164,7 @@ const TesterGridCard = React.memo(function TesterGridCard({
           sx={{
             width: 88,
             height: 88,
-            borderRadius: 2,
+            borderRadius: '8px',
             border: '2px solid',
             borderColor: rarityBorder,
             display: 'flex',
