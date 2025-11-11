@@ -226,7 +226,6 @@ import icon44Chest from '../../../ico/sets/slots/44_Chest.webp';
 import icon44Gloves from '../../../ico/sets/slots/44_Gloves.webp';
 import icon44Helmet from '../../../ico/sets/slots/44_Helmet.webp';
 import icon44Shield from '../../../ico/sets/slots/44_Shield.webp';
-import icon44Sword from '../../../ico/sets/slots/44_Sword.webp';
 import icon44Weapon from '../../../ico/sets/slots/44_Weapon.webp';
 import icon45Boots from '../../../ico/sets/slots/45_Boots.webp';
 import icon45Chest from '../../../ico/sets/slots/45_Chest.webp';
@@ -378,73 +377,73 @@ import icon9Gloves from '../../../ico/sets/slots/9_Gloves.webp';
 import icon9Helmet from '../../../ico/sets/slots/9_Helmet.webp';
 import icon9Shield from '../../../ico/sets/slots/9_Shield.webp';
 import icon9Weapon from '../../../ico/sets/slots/9_Weapon.webp';
-import iconBannerLordsAmulett from '../../../ico/sets/slots/Banner_Lords_Amulett.webp';
+import iconBannerLordsAmulet from '../../../ico/sets/slots/Banner_Lords_Amulett.webp';
 import iconBannerLordsBanner from '../../../ico/sets/slots/Banner_Lords_Banner.webp';
 import iconBannerLordsRing from '../../../ico/sets/slots/Banner_Lords_Ring.webp';
-import iconBarbariansAmulett from '../../../ico/sets/slots/Barbarians_Amulett.webp';
+import iconBarbariansAmulet from '../../../ico/sets/slots/Barbarians_Amulett.webp';
 import iconBarbariansBanner from '../../../ico/sets/slots/Barbarians_Banner.webp';
 import iconBarbariansRing from '../../../ico/sets/slots/Barbarians_Ring.webp';
-import iconBloodshieldAmulett from '../../../ico/sets/slots/Bloodshield_Amulett.webp';
+import iconBloodshieldAmulet from '../../../ico/sets/slots/Bloodshield_Amulett.webp';
 import iconBloodshieldBanner from '../../../ico/sets/slots/Bloodshield_Banner.webp';
 import iconBloodshieldRing from '../../../ico/sets/slots/Bloodshield_Ring.webp';
-import iconChronophageAmulett from '../../../ico/sets/slots/Chronophage_Amulett.webp';
+import iconChronophageAmulet from '../../../ico/sets/slots/Chronophage_Amulett.webp';
 import iconChronophageBanner from '../../../ico/sets/slots/Chronophage_Banner.webp';
 import iconChronophageRing from '../../../ico/sets/slots/Chronophage_Ring.webp';
-import iconCleansingAmulett from '../../../ico/sets/slots/Cleansing_Amulett.webp';
+import iconCleansingAmulet from '../../../ico/sets/slots/Cleansing_Amulett.webp';
 import iconCleansingBanner from '../../../ico/sets/slots/Cleansing_Banner.webp';
 import iconCleansingRing from '../../../ico/sets/slots/Cleansing_Ring.webp';
-import iconDarkElvesAmulett from '../../../ico/sets/slots/Dark_Elves_Amulett.webp';
+import iconDarkElvesAmulet from '../../../ico/sets/slots/Dark_Elves_Amulett.webp';
 import iconDarkElvesBanner from '../../../ico/sets/slots/Dark_Elves_Banner.webp';
 import iconDarkElvesRing from '../../../ico/sets/slots/Dark_Elves_Ring.webp';
-import iconDemonspawnAmulett from '../../../ico/sets/slots/Demonspawn_Amulett.webp';
+import iconDemonspawnAmulet from '../../../ico/sets/slots/Demonspawn_Amulett.webp';
 import iconDemonspawnBanner from '../../../ico/sets/slots/Demonspawn_Banner.webp';
 import iconDemonspawnRing from '../../../ico/sets/slots/Demonspawn_Ring.webp';
-import iconDwarfsAmulett from '../../../ico/sets/slots/Dwarfs_Amulett.webp';
+import iconDwarfsAmulet from '../../../ico/sets/slots/Dwarfs_Amulett.webp';
 import iconDwarfsBanner from '../../../ico/sets/slots/Dwarfs_Banner.webp';
 import iconDwarfsRing from '../../../ico/sets/slots/Dwarfs_Ring.webp';
-import iconFeralAmulett from '../../../ico/sets/slots/Feral_Amulett.webp';
+import iconFeralAmulet from '../../../ico/sets/slots/Feral_Amulett.webp';
 import iconFeralBanner from '../../../ico/sets/slots/Feral_Banner.webp';
 import iconFeralRing from '../../../ico/sets/slots/Feral_Ring.webp';
-import iconHighElvesAmulett from '../../../ico/sets/slots/High_Elves_Amulett.webp';
+import iconHighElvesAmulet from '../../../ico/sets/slots/High_Elves_Amulett.webp';
 import iconHighElvesBanner from '../../../ico/sets/slots/High_Elves_Banner.webp';
 import iconHighElvesRing from '../../../ico/sets/slots/High_Elves_Ring.webp';
-import slayerAmulett from '../../../ico/sets/slots/Rathalos_Amulett.webp';
+import slayerAmulet from '../../../ico/sets/slots/Rathalos_Amulett.webp';
 import slayerBanner from '../../../ico/sets/slots/Rathalos_Banner.webp';
 import slayerRing from '../../../ico/sets/slots/Rathalos_Ring.webp';
-import iconKnightRevenantAmulett from '../../../ico/sets/slots/Knight_Revenant_Amulett.webp';
+import iconKnightRevenantAmulet from '../../../ico/sets/slots/Knight_Revenant_Amulett.webp';
 import iconKnightRevenantBanner from '../../../ico/sets/slots/Knight_Revenant_Banner.webp';
 import iconKnightRevenantRing from '../../../ico/sets/slots/Knight_Revenant_Ring.webp';
-import iconLizardmenAmulett from '../../../ico/sets/slots/Lizardmen_Amulett.webp';
+import iconLizardmenAmulet from '../../../ico/sets/slots/Lizardmen_Amulett.webp';
 import iconLizardmenBanner from '../../../ico/sets/slots/Lizardmen_Banner.webp';
 import iconLizardmenRing from '../../../ico/sets/slots/Lizardmen_Ring.webp';
-import iconMercilessAmulett from '../../../ico/sets/slots/Merciless_Amulett.webp';
+import iconMercilessAmulet from '../../../ico/sets/slots/Merciless_Amulett.webp';
 import iconMercilessBanner from '../../../ico/sets/slots/Merciless_Banner.webp';
 import iconMercilessRing from '../../../ico/sets/slots/Merciless_Ring.webp';
 import iconNyresanElvesBanner from '../../../ico/sets/slots/Nyresan Elves_Banner.webp';
 import iconNyresanElvesRing from '../../../ico/sets/slots/Nyresan Elves_Ring.webp';
-import iconNyresanElvesPendant from '../../../ico/sets/slots/Nyresan_Elves_Pendant.webp';
-import iconOgrynTribesAmulett from '../../../ico/sets/slots/Ogryn_Tribes_Amulett.webp';
+import iconNyresanElvesAmulet from '../../../ico/sets/slots/Nyresan_Elves_Pendant.webp';
+import iconOgrynTribesAmulet from '../../../ico/sets/slots/Ogryn_Tribes_Amulett.webp';
 import iconOgrynTribesBanner from '../../../ico/sets/slots/Ogryn_Tribes_Banner.webp';
 import iconOgrynTribesRing from '../../../ico/sets/slots/Ogryn_Tribes_Ring.webp';
-import iconOrcsAmulett from '../../../ico/sets/slots/Orcs_Amulett.webp';
+import iconOrcsAmulet from '../../../ico/sets/slots/Orcs_Amulett.webp';
 import iconOrcsBanner from '../../../ico/sets/slots/Orcs_Banner.webp';
 import iconOrcsRing from '../../../ico/sets/slots/Orcs_Ring.webp';
-import iconPinpointAmulett from '../../../ico/sets/slots/Pinpoint_Amulett.webp';
+import iconPinpointAmulet from '../../../ico/sets/slots/Pinpoint_Amulett.webp';
 import iconPinpointBanner from '../../../ico/sets/slots/Pinpoint_Banner.webp';
 import iconPinpointRing from '../../../ico/sets/slots/Pinpoint_Ring.webp';
-import iconProtectionAmulett from '../../../ico/sets/slots/Protection_Amulett.webp';
+import iconProtectionAmulet from '../../../ico/sets/slots/Protection_Amulett.webp';
 import iconProtectionBanner from '../../../ico/sets/slots/Protection_Banner.webp';
 import iconProtectionRing from '../../../ico/sets/slots/Protection_Ring.webp';
-import iconReactionAmulett from '../../../ico/sets/slots/Reaction_Amulett.webp';
+import iconReactionAmulet from '../../../ico/sets/slots/Reaction_Amulett.webp';
 import iconReactionBanner from '../../../ico/sets/slots/Reaction_Banner.webp';
 import iconReactionRing from '../../../ico/sets/slots/Reaction_Ring.webp';
 import iconRebirthAmulet from '../../../ico/sets/slots/Rebirth_Amulet.webp';
 import iconRebirthBanner from '../../../ico/sets/slots/Rebirth_Banner.webp';
 import iconRebirthRing from '../../../ico/sets/slots/Rebirth_Ring.webp';
-import iconRefreshAmulett from '../../../ico/sets/slots/Refresh_Amulett.webp';
+import iconRefreshAmulet from '../../../ico/sets/slots/Refresh_Amulett.webp';
 import iconRefreshBanner from '../../../ico/sets/slots/Refresh_Banner.webp';
 import iconRefreshRing from '../../../ico/sets/slots/Refresh_Ring.webp';
-import iconRevengeAmulett from '../../../ico/sets/slots/Revenge_Amulett.webp';
+import iconRevengeAmulet from '../../../ico/sets/slots/Revenge_Amulett.webp';
 import iconRevengeBanner from '../../../ico/sets/slots/Revenge_Banner.webp';
 import iconRevengeRing from '../../../ico/sets/slots/Revenge_Ring.webp';
 import iconRighteousBoots from '../../../ico/sets/slots/Righteous_Boots.webp';
@@ -453,29 +452,28 @@ import iconRighteousGloves from '../../../ico/sets/slots/Righteous_Gloves.webp';
 import iconRighteousHelmet from '../../../ico/sets/slots/Righteous_Helmet.webp';
 import iconRighteousShield from '../../../ico/sets/slots/Righteous_Shield.webp';
 import iconRighteousWeapon from '../../../ico/sets/slots/Righteous_Weapon.webp';
-import iconSacredOrderAmulett from '../../../ico/sets/slots/Sacred_Order_Amulett.webp';
+import iconSacredOrderAmulet from '../../../ico/sets/slots/Sacred_Order_Amulett.webp';
 import iconSacredOrderBanner from '../../../ico/sets/slots/Sacred_Order_Banner.webp';
 import iconSacredOrderRing from '../../../ico/sets/slots/Sacred_Order_Ring.webp';
-import iconShadowkinAmulett from '../../../ico/sets/slots/Shadowkin_Amulett.webp';
+import iconShadowkinAmulet from '../../../ico/sets/slots/Shadowkin_Amulett.webp';
 import iconShadowkinBanner from '../../../ico/sets/slots/Shadowkin_Banner.webp';
 import iconShadowkinRing from '../../../ico/sets/slots/Shadowkin_Ring.webp';
-import iconSkinwalkersAmulett from '../../../ico/sets/slots/Skinwalkers_Amulett.webp';
+import iconSkinwalkersAmulet from '../../../ico/sets/slots/Skinwalkers_Amulett.webp';
 import iconSkinwalkersBanner from '../../../ico/sets/slots/Skinwalkers_Banner.webp';
 import iconSkinwalkersRing from '../../../ico/sets/slots/Skinwalkers_Ring.webp';
 import iconStonecleaverAmulet from '../../../ico/sets/slots/Stonecleaver_Amulet.webp';
 import iconStonecleaverBanner from '../../../ico/sets/slots/Stonecleaver_Banner.webp';
 import iconStonecleaverRing from '../../../ico/sets/slots/Stonecleaver_Ring.webp';
 import iconStoneskinAmulet from '../../../ico/sets/slots/Stoneskin_Amulet.webp';
-import iconStoneskinAmulett from '../../../ico/sets/slots/Stoneskin_Amulett.webp';
 import iconStoneskinBanner from '../../../ico/sets/slots/Stoneskin_Banner.webp';
 import iconStoneskinRing from '../../../ico/sets/slots/Stoneskin_Ring.webp';
-import iconSupersonicAmulett from '../../../ico/sets/slots/Supersonic_Amulett.webp';
+import iconSupersonicAmulet from '../../../ico/sets/slots/Supersonic_Amulett.webp';
 import iconSupersonicBanner from '../../../ico/sets/slots/Supersonic_Banner.webp';
 import iconSupersonicRing from '../../../ico/sets/slots/Supersonic_Ring.webp';
-import iconSylvanWatchersAmulett from '../../../ico/sets/slots/Sylvan_Watchers_Amulett.webp';
+import iconSylvanWatchersAmulet from '../../../ico/sets/slots/Sylvan_Watchers_Amulett.webp';
 import iconSylvanWatchersBanner from '../../../ico/sets/slots/Sylvan_Watchers_Banner.webp';
 import iconSylvanWatchersRing from '../../../ico/sets/slots/Sylvan_Watchers_Ring.webp';
-import iconUndeadHordesAmulett from '../../../ico/sets/slots/Undead_Hordes_Amulett.webp';
+import iconUndeadHordesAmulet from '../../../ico/sets/slots/Undead_Hordes_Amulett.webp';
 import iconUndeadHordesBanner from '../../../ico/sets/slots/Undead_Hordes_Banner.webp';
 import iconUndeadHordesRing from '../../../ico/sets/slots/Undead_Hordes_Ring.webp';
 
@@ -707,7 +705,6 @@ export const SET_SLOT_ASSETS = {
   '44_Gloves': icon44Gloves,
   '44_Helmet': icon44Helmet,
   '44_Shield': icon44Shield,
-  '44_Sword': icon44Sword,
   '44_Weapon': icon44Weapon,
   '45_Boots': icon45Boots,
   '45_Chest': icon45Chest,
@@ -859,73 +856,73 @@ export const SET_SLOT_ASSETS = {
   '9_Helmet': icon9Helmet,
   '9_Shield': icon9Shield,
   '9_Weapon': icon9Weapon,
-  'Banner_Lords_Amulett': iconBannerLordsAmulett,
+  'Banner_Lords_Amulet': iconBannerLordsAmulet,
   'Banner_Lords_Banner': iconBannerLordsBanner,
   'Banner_Lords_Ring': iconBannerLordsRing,
-  'Barbarians_Amulett': iconBarbariansAmulett,
+  'Barbarians_Amulet': iconBarbariansAmulet,
   'Barbarians_Banner': iconBarbariansBanner,
   'Barbarians_Ring': iconBarbariansRing,
-  'Bloodshield_Amulett': iconBloodshieldAmulett,
+  'Bloodshield_Amulet': iconBloodshieldAmulet,
   'Bloodshield_Banner': iconBloodshieldBanner,
   'Bloodshield_Ring': iconBloodshieldRing,
-  'Chronophage_Amulett': iconChronophageAmulett,
+  'Chronophage_Amulet': iconChronophageAmulet,
   'Chronophage_Banner': iconChronophageBanner,
   'Chronophage_Ring': iconChronophageRing,
-  'Cleansing_Amulett': iconCleansingAmulett,
+  'Cleansing_Amulet': iconCleansingAmulet,
   'Cleansing_Banner': iconCleansingBanner,
   'Cleansing_Ring': iconCleansingRing,
-  'Dark_Elves_Amulett': iconDarkElvesAmulett,
+  'Dark_Elves_Amulet': iconDarkElvesAmulet,
   'Dark_Elves_Banner': iconDarkElvesBanner,
   'Dark_Elves_Ring': iconDarkElvesRing,
-  'Demonspawn_Amulett': iconDemonspawnAmulett,
+  'Demonspawn_Amulet': iconDemonspawnAmulet,
   'Demonspawn_Banner': iconDemonspawnBanner,
   'Demonspawn_Ring': iconDemonspawnRing,
-  'Dwarfs_Amulett': iconDwarfsAmulett,
+  'Dwarfs_Amulet': iconDwarfsAmulet,
   'Dwarfs_Banner': iconDwarfsBanner,
   'Dwarfs_Ring': iconDwarfsRing,
-  'Feral_Amulett': iconFeralAmulett,
+  'Feral_Amulet': iconFeralAmulet,
   'Feral_Banner': iconFeralBanner,
   'Feral_Ring': iconFeralRing,
-  'High_Elves_Amulett': iconHighElvesAmulett,
+  'High_Elves_Amulet': iconHighElvesAmulet,
   'High_Elves_Banner': iconHighElvesBanner,
   'High_Elves_Ring': iconHighElvesRing,
-  'Knight_Revenant_Amulett': iconKnightRevenantAmulett,
+  'Knight_Revenant_Amulet': iconKnightRevenantAmulet,
   'Knight_Revenant_Banner': iconKnightRevenantBanner,
   'Knight_Revenant_Ring': iconKnightRevenantRing,
-  'Lizardmen_Amulett': iconLizardmenAmulett,
+  'Lizardmen_Amulet': iconLizardmenAmulet,
   'Lizardmen_Banner': iconLizardmenBanner,
   'Lizardmen_Ring': iconLizardmenRing,
-  'Merciless_Amulett': iconMercilessAmulett,
+  'Merciless_Amulet': iconMercilessAmulet,
   'Merciless_Banner': iconMercilessBanner,
   'Merciless_Ring': iconMercilessRing,
   'Nyresan Elves_Banner': iconNyresanElvesBanner,
   'Nyresan Elves_Ring': iconNyresanElvesRing,
-  'Nyresan_Elves_Pendant': iconNyresanElvesPendant,
-  'Ogryn_Tribes_Amulett': iconOgrynTribesAmulett,
+  'Nyresan_Elves_Amulet': iconNyresanElvesAmulet,
+  'Ogryn_Tribes_Amulet': iconOgrynTribesAmulet,
   'Ogryn_Tribes_Banner': iconOgrynTribesBanner,
   'Ogryn_Tribes_Ring': iconOgrynTribesRing,
-  'Orcs_Amulett': iconOrcsAmulett,
+  'Orcs_Amulet': iconOrcsAmulet,
   'Orcs_Banner': iconOrcsBanner,
   'Orcs_Ring': iconOrcsRing,
-  'Pinpoint_Amulett': iconPinpointAmulett,
+  'Pinpoint_Amulet': iconPinpointAmulet,
   'Pinpoint_Banner': iconPinpointBanner,
   'Pinpoint_Ring': iconPinpointRing,
-  'Protection_Amulett': iconProtectionAmulett,
+  'Protection_Amulet': iconProtectionAmulet,
   'Protection_Banner': iconProtectionBanner,
   'Protection_Ring': iconProtectionRing,
-  'Slayer_Amulett': slayerAmulett,
+  'Slayer_Amulet': slayerAmulet,
   'Slayer_Banner': slayerBanner,
   'Slayer_Ring': slayerRing,
-  'Reaction_Amulett': iconReactionAmulett,
+  'Reaction_Amulet': iconReactionAmulet,
   'Reaction_Banner': iconReactionBanner,
   'Reaction_Ring': iconReactionRing,
   'Rebirth_Amulet': iconRebirthAmulet,
   'Rebirth_Banner': iconRebirthBanner,
   'Rebirth_Ring': iconRebirthRing,
-  'Refresh_Amulett': iconRefreshAmulett,
+  'Refresh_Amulet': iconRefreshAmulet,
   'Refresh_Banner': iconRefreshBanner,
   'Refresh_Ring': iconRefreshRing,
-  'Revenge_Amulett': iconRevengeAmulett,
+  'Revenge_Amulet': iconRevengeAmulet,
   'Revenge_Banner': iconRevengeBanner,
   'Revenge_Ring': iconRevengeRing,
   'Righteous_Boots': iconRighteousBoots,
@@ -934,29 +931,28 @@ export const SET_SLOT_ASSETS = {
   'Righteous_Helmet': iconRighteousHelmet,
   'Righteous_Shield': iconRighteousShield,
   'Righteous_Weapon': iconRighteousWeapon,
-  'Sacred_Order_Amulett': iconSacredOrderAmulett,
+  'Sacred_Order_Amulet': iconSacredOrderAmulet,
   'Sacred_Order_Banner': iconSacredOrderBanner,
   'Sacred_Order_Ring': iconSacredOrderRing,
-  'Shadowkin_Amulett': iconShadowkinAmulett,
+  'Shadowkin_Amulet': iconShadowkinAmulet,
   'Shadowkin_Banner': iconShadowkinBanner,
   'Shadowkin_Ring': iconShadowkinRing,
-  'Skinwalkers_Amulett': iconSkinwalkersAmulett,
+  'Skinwalkers_Amulet': iconSkinwalkersAmulet,
   'Skinwalkers_Banner': iconSkinwalkersBanner,
   'Skinwalkers_Ring': iconSkinwalkersRing,
   'Stonecleaver_Amulet': iconStonecleaverAmulet,
   'Stonecleaver_Banner': iconStonecleaverBanner,
   'Stonecleaver_Ring': iconStonecleaverRing,
   'Stoneskin_Amulet': iconStoneskinAmulet,
-  'Stoneskin_Amulett': iconStoneskinAmulett,
   'Stoneskin_Banner': iconStoneskinBanner,
   'Stoneskin_Ring': iconStoneskinRing,
-  'Supersonic_Amulett': iconSupersonicAmulett,
+  'Supersonic_Amulet': iconSupersonicAmulet,
   'Supersonic_Banner': iconSupersonicBanner,
   'Supersonic_Ring': iconSupersonicRing,
-  'Sylvan_Watchers_Amulett': iconSylvanWatchersAmulett,
+  'Sylvan_Watchers_Amulet': iconSylvanWatchersAmulet,
   'Sylvan_Watchers_Banner': iconSylvanWatchersBanner,
   'Sylvan_Watchers_Ring': iconSylvanWatchersRing,
-  'Undead_Hordes_Amulett': iconUndeadHordesAmulett,
+  'Undead_Hordes_Amulet': iconUndeadHordesAmulet,
   'Undead_Hordes_Banner': iconUndeadHordesBanner,
   'Undead_Hordes_Ring': iconUndeadHordesRing,
 } as const satisfies Record<string, string>;

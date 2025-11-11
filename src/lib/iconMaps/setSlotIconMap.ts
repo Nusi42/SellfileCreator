@@ -13,14 +13,14 @@ import { SET_SLOT_ASSETS } from './setSlotIconAssets'
 const ICON_BY_KEY = new Map<string, string>(Object.entries(SET_SLOT_ASSETS))
 
 const SLOT_TOKENS_BY_TYPE: Record<ArtifactType, readonly string[]> = {
-  [ArtifactType.Weapon]: ['Weapon', 'Sword'],
+  [ArtifactType.Weapon]: ['Weapon'],
   [ArtifactType.Helmet]: ['Helmet'],
   [ArtifactType.Shield]: ['Shield'],
-  [ArtifactType.Gauntlets]: ['Gauntlets', 'Gloves'],
-  [ArtifactType.Chestplate]: ['Chestplate', 'Chest'],
+  [ArtifactType.Gauntlets]: ['Gloves'],
+  [ArtifactType.Chestplate]: ['Chest'],
   [ArtifactType.Boots]: ['Boots'],
   [ArtifactType.Ring]: ['Ring'],
-  [ArtifactType.Amulet]: ['Amulet', 'Amulett', 'Pendant'],
+  [ArtifactType.Amulet]: ['Amulet'],
   [ArtifactType.Banner]: ['Banner'],
 }
 
