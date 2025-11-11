@@ -590,7 +590,7 @@ const TesterGridCard = React.memo(function TesterGridCard({
   const ascensionStars = Math.max(0, Math.min(rankStars, Math.round(Number(artifact.ascension?.rolls) || 0)))
   const rarityValue = Number(artifact.rarity)
   const rarityBorder = RARITY_BORDER_COLORS[Number.isFinite(rarityValue) ? rarityValue : 0] ?? theme.palette.divider
-  const levelChipLabel = t('testerLevelLabel', { level: levelLabel })
+  const levelChipLabel = levelLabel || t('any')
   const mainLabel = artifact.mainStat ? t(statVariantI18nKey(artifact.mainStat.variant)) : t('any')
   const mainValue = formatStatPreGlyph(artifact.mainStat ?? null)
   const mainInline = mainValue ? t('testerMainStatInline', { stat: mainLabel, value: mainValue }) : mainLabel
@@ -832,7 +832,18 @@ const TesterGridCard = React.memo(function TesterGridCard({
     : undefined
   const slotVisualNode = slotArtSrc
     ? (
-      <Box sx={{ color: 'text.primary', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <Box
+        sx={{
+          color: 'text.primary',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          borderRadius: 'inherit',
+          overflow: 'hidden',
+          width: '100%',
+          flex: '1 0 auto',
+        }}
+      >
         <Box
           component="img"
           src={slotArtSrc}
@@ -840,11 +851,12 @@ const TesterGridCard = React.memo(function TesterGridCard({
           draggable={false}
           onDragStart={(event: React.DragEvent) => { event.preventDefault(); event.stopPropagation() }}
           sx={{
-            width: '100%',
-            height: '100%',
-            maxWidth: 80,
-            maxHeight: 80,
-            objectFit: 'contain',
+            width: 'calc(100% + 2px)',
+            height: 'calc(100% + 2px)',
+            maxWidth: 'none',
+            maxHeight: 'none',
+            margin: '-1px',
+            objectFit: 'cover',
             userSelect: 'none',
             WebkitUserDrag: 'none',
           }}
@@ -860,7 +872,7 @@ const TesterGridCard = React.memo(function TesterGridCard({
         </Box>
       ) : null
     )
-  const setIconOverlay = hasSetIcon ? (
+  const setIconOverlay = hasSetIcon && !slotArtSrc ? (
     <Box
       sx={{
         position: 'absolute',
