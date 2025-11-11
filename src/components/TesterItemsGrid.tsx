@@ -20,6 +20,7 @@ import { artifactTypeIconFor } from './artifactTypeIcons'
 import { SetIcon } from './SetIcon'
 import { FactionIcon } from './FactionIcon'
 import {
+  ArtifactSet,
   artifactSetNames,
   factionI18nKey,
   DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT,
@@ -39,6 +40,7 @@ import {
   getItemSourceDescriptor,
 } from '../lib/testerPreviewFormatting'
 import { isAccessorySlot } from '../lib/testerDomain'
+import { ACCESSORY_NO_SET_ID } from '../lib/constants'
 import { TesterSummaryLabel } from './TesterSummaryLabel'
 import { TesterRuleReferenceChip } from './TesterRuleReferenceChip'
 import { WithSetTooltip } from './SetTooltip'
@@ -112,6 +114,13 @@ const RARITY_BORDER_COLORS: Record<number, string> = {
 const STAR_MAX_COUNT = 6
 const STAR_BASE_COLOR = '#fcd34d'
 const STAR_ASCENDED_COLOR = '#a855f7'
+const ACCESSORY_BADGED_SET_IDS = new Set<number>([
+  ArtifactSet.Refresh,
+  ArtifactSet.Cleansing,
+  ArtifactSet.Bloodshield,
+  ArtifactSet.Reaction,
+  ArtifactSet.Revenge,
+].map(Number))
 
 type TranslateFn = ReturnType<typeof useI18n>['t']
 
@@ -1006,6 +1015,11 @@ const TesterGridCard = React.memo(function TesterGridCard({
     artifact.slot as ArtifactTypeId,
     { factionId: artifact.faction as FactionId },
   )
+  const noSetBadgeSrc = gearSetSlotIconUrl(
+    ACCESSORY_NO_SET_ID,
+    artifact.slot as ArtifactTypeId,
+    { factionId: artifact.faction as FactionId },
+  )
   const slotVisualNode = slotArtSrc
     ? (
       <Box
@@ -1039,15 +1053,15 @@ const TesterGridCard = React.memo(function TesterGridCard({
         />
       </Box>
     )
-    : (
-      SlotIcon ? (
-        <Box sx={{ color: 'text.primary', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <Box sx={{ fontSize: '3.25rem', lineHeight: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <SlotIcon fontSize="inherit" />
-          </Box>
-        </Box>
-      ) : null
-    )
+        : (
+          SlotIcon ? (
+            <Box sx={{ color: 'text.primary', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Box sx={{ fontSize: '3.25rem', lineHeight: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <SlotIcon fontSize="inherit" />
+              </Box>
+            </Box>
+          ) : null
+        )
   const setIconOverlay = hasRealSet && !slotArtSrc ? (
     <Box
       sx={{
@@ -1067,6 +1081,41 @@ const TesterGridCard = React.memo(function TesterGridCard({
       }}
     >
       <SetIcon setId={setIdNumber as ArtifactSetId} size={20} sx={{ mr: 0, display: 'block' }} />
+      </Box>
+    ) : null
+  const accessoryBadge = slotArtSrc && noSetBadgeSrc && ACCESSORY_BADGED_SET_IDS.has(setIdNumber) ? (
+    <Box
+      sx={{
+        position: 'absolute',
+        left: 0,
+        bottom: 0,
+        width: 24,
+        height: 24,
+        borderRadius: 3,
+        overflow: 'hidden',
+        pointerEvents: 'none',
+      }}
+    >
+      <Box
+        component="img"
+        src={noSetBadgeSrc}
+        alt=""
+        draggable={false}
+        onDragStart={(event: React.DragEvent) => { event.preventDefault(); event.stopPropagation() }}
+        sx={{
+          position: 'absolute',
+          left: 0,
+          bottom: 0,
+          width: 36,
+          height: 36,
+          objectFit: 'none',
+          objectPosition: 'left bottom',
+          transform: 'scale(0.6666667)',
+          transformOrigin: 'left bottom',
+          userSelect: 'none',
+          WebkitUserDrag: 'none',
+        }}
+      />
     </Box>
   ) : null
   const ascSummaryLine = ascSummary ? (
@@ -1156,6 +1205,7 @@ const TesterGridCard = React.memo(function TesterGridCard({
             </Box>
           ) : null}
           {slotVisualNode}
+          {accessoryBadge}
           <Tooltip title={outcomeLabel}>
             <Box
               component={canJumpToPrimaryMatch ? 'button' : 'div'}
