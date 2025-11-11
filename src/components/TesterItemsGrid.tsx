@@ -826,10 +826,12 @@ const TesterGridCard = React.memo(function TesterGridCard({
       </Tooltip>
     )
   }
-  const hasSetIcon = Number.isFinite(setIdNumber) && setIdNumber > 0
-  const slotArtSrc = hasSetIcon
-    ? gearSetSlotIconUrl(setIdNumber as ArtifactSetId, artifact.slot as ArtifactTypeId)
-    : undefined
+  const hasRealSet = Number.isFinite(setIdNumber) && setIdNumber > 0
+  const slotArtSrc = gearSetSlotIconUrl(
+    setIdNumber as ArtifactSetId,
+    artifact.slot as ArtifactTypeId,
+    { factionId: artifact.faction as FactionId },
+  )
   const slotVisualNode = slotArtSrc
     ? (
       <Box
@@ -872,7 +874,7 @@ const TesterGridCard = React.memo(function TesterGridCard({
         </Box>
       ) : null
     )
-  const setIconOverlay = hasSetIcon && !slotArtSrc ? (
+  const setIconOverlay = hasRealSet && !slotArtSrc ? (
     <Box
       sx={{
         position: 'absolute',
