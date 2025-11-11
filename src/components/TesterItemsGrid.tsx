@@ -12,16 +12,14 @@ import {
 } from '@mui/material'
 import type { PaperProps as MuiPaperProps } from '@mui/material/Paper'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
-import StarRoundedIcon from '@mui/icons-material/StarRounded'
 import { useTheme } from '@mui/material/styles'
 import { useI18n } from '../lib/i18n'
 import type { TesterPreviewRow } from '../types/testerPreview'
-import { artifactTypeIconFor } from './artifactTypeIcons'
 import { SetIcon } from './SetIcon'
 import { FactionIcon } from './FactionIcon'
 import {
-  ArtifactSet,
   artifactSetNames,
+  artifactTypeName,
   factionI18nKey,
   DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT,
   formatLevel,
@@ -40,14 +38,13 @@ import {
   getItemSourceDescriptor,
 } from '../lib/testerPreviewFormatting'
 import { isAccessorySlot } from '../lib/testerDomain'
-import { ACCESSORY_NO_SET_ID } from '../lib/constants'
 import { TesterSummaryLabel } from './TesterSummaryLabel'
 import { TesterRuleReferenceChip } from './TesterRuleReferenceChip'
 import { WithSetTooltip } from './SetTooltip'
 import ContextMenuPaper from './ContextMenuPaper'
 import { ContextMenuHintOverlay } from './ContextMenuHintOverlay'
 import { useContextMenuHint } from '../hooks/useContextMenuHint'
-import { gearSetSlotIconUrl } from '../lib/iconMaps/setSlotIconMap'
+import GridIconBox from './GridIconBox'
 
 const GRID_CARD_SINGLE_COLUMN_TEMPLATE = 'minmax(0, 1fr)'
 const GRID_CARD_QUARTER_TEMPLATE = 'repeat(4, minmax(0, 1fr))'
@@ -103,25 +100,6 @@ const measureMatchingRowContentWidth = (node: HTMLElement): number => {
   const paddingRight = pxValue(style.paddingRight)
   return Math.max(0, node.clientWidth - paddingLeft - paddingRight)
 }
-const RARITY_BORDER_COLORS: Record<number, string> = {
-  1: '#9ca3af', // Common
-  2: '#34d399', // Uncommon
-  3: '#60a5fa', // Rare
-  4: '#7c3aed', // Epic
-  5: '#f9a825', // Legendary
-  6: '#8b0000', // Mythical
-}
-const STAR_MAX_COUNT = 6
-const STAR_BASE_COLOR = '#fcd34d'
-const STAR_ASCENDED_COLOR = '#a855f7'
-const ACCESSORY_BADGED_SET_IDS = new Set<number>([
-  ArtifactSet.Refresh,
-  ArtifactSet.Cleansing,
-  ArtifactSet.Bloodshield,
-  ArtifactSet.Reaction,
-  ArtifactSet.Revenge,
-].map(Number))
-
 type TranslateFn = ReturnType<typeof useI18n>['t']
 
 type TesterItemsGridProps = {
@@ -665,16 +643,10 @@ const TesterGridCard = React.memo(function TesterGridCard({
   const setIdNumber = Number(artifact.set) || 0
   const setLabel = formatTesterSetLabel({ setId: setIdNumber, slot: artifact.slot as ArtifactTypeId, translate: t })
   const setTooltipName = Number.isFinite(setIdNumber) ? artifactSetNames[setIdNumber] ?? null : null
-  const SlotIcon = artifactTypeIconFor(artifact.slot as ArtifactTypeId)
   const levelBucketLabel = formatLevel(artifact.level)
   const hasExactLevel = typeof artifact.exactLevel === 'number' && Number.isFinite(artifact.exactLevel)
   const exactLevelLabel = hasExactLevel ? String(Math.max(0, Math.min(16, Math.round(Number(artifact.exactLevel))))) : null
   const levelLabel = exactLevelLabel ?? levelBucketLabel
-  const rankValue = Number(artifact.rank)
-  const rankStars = Number.isFinite(rankValue) ? Math.max(0, Math.min(STAR_MAX_COUNT, Math.round(rankValue))) : 0
-  const ascensionStars = Math.max(0, Math.min(rankStars, Math.round(Number(artifact.ascension?.rolls) || 0)))
-  const rarityValue = Number(artifact.rarity)
-  const rarityBorder = RARITY_BORDER_COLORS[Number.isFinite(rarityValue) ? rarityValue : 0] ?? theme.palette.divider
   const levelChipLabel = levelLabel || t('any')
   const mainLabel = artifact.mainStat ? t(statVariantI18nKey(artifact.mainStat.variant)) : t('any')
   const mainValue = formatStatPreGlyph(artifact.mainStat ?? null)
@@ -1009,115 +981,6 @@ const TesterGridCard = React.memo(function TesterGridCard({
       </Tooltip>
     )
   }
-  const hasRealSet = Number.isFinite(setIdNumber) && setIdNumber > 0
-  const slotArtSrc = gearSetSlotIconUrl(
-    setIdNumber as ArtifactSetId,
-    artifact.slot as ArtifactTypeId,
-    { factionId: artifact.faction as FactionId },
-  )
-  const noSetBadgeSrc = gearSetSlotIconUrl(
-    ACCESSORY_NO_SET_ID,
-    artifact.slot as ArtifactTypeId,
-    { factionId: artifact.faction as FactionId },
-  )
-  const slotVisualNode = slotArtSrc
-    ? (
-      <Box
-        sx={{
-          color: 'text.primary',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          borderRadius: 'inherit',
-          overflow: 'hidden',
-          width: '100%',
-          flex: '1 0 auto',
-        }}
-      >
-        <Box
-          component="img"
-          src={slotArtSrc}
-          alt={setLabel || setTooltipName || ''}
-          draggable={false}
-          onDragStart={(event: React.DragEvent) => { event.preventDefault(); event.stopPropagation() }}
-          sx={{
-            width: 'calc(100% + 2px)',
-            height: 'calc(100% + 2px)',
-            maxWidth: 'none',
-            maxHeight: 'none',
-            margin: '-1px',
-            objectFit: 'cover',
-            userSelect: 'none',
-            WebkitUserDrag: 'none',
-          }}
-        />
-      </Box>
-    )
-        : (
-          SlotIcon ? (
-            <Box sx={{ color: 'text.primary', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Box sx={{ fontSize: '3.25rem', lineHeight: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <SlotIcon fontSize="inherit" />
-              </Box>
-            </Box>
-          ) : null
-        )
-  const setIconOverlay = hasRealSet && !slotArtSrc ? (
-    <Box
-      sx={{
-        position: 'absolute',
-        left: -10,
-        bottom: -10,
-        bgcolor: 'background.paper',
-        borderRadius: 1,
-        p: 0.25,
-        boxShadow: 2,
-        border: '2px solid',
-        borderColor: rarityBorder,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        lineHeight: 0,
-      }}
-    >
-      <SetIcon setId={setIdNumber as ArtifactSetId} size={20} sx={{ mr: 0, display: 'block' }} />
-      </Box>
-    ) : null
-  const accessoryBadge = slotArtSrc && noSetBadgeSrc && ACCESSORY_BADGED_SET_IDS.has(setIdNumber) ? (
-    <Box
-      sx={{
-        position: 'absolute',
-        left: 0,
-        bottom: 0,
-        width: 24,
-        height: 24,
-        borderRadius: 3,
-        overflow: 'hidden',
-        pointerEvents: 'none',
-      }}
-    >
-      <Box
-        component="img"
-        src={noSetBadgeSrc}
-        alt=""
-        draggable={false}
-        onDragStart={(event: React.DragEvent) => { event.preventDefault(); event.stopPropagation() }}
-        sx={{
-          position: 'absolute',
-          left: 0,
-          bottom: 0,
-          width: 36,
-          height: 36,
-          objectFit: 'none',
-          objectPosition: 'left bottom',
-          transform: 'scale(0.6666667)',
-          transformOrigin: 'left bottom',
-          userSelect: 'none',
-          WebkitUserDrag: 'none',
-        }}
-      />
-    </Box>
-  ) : null
   const ascSummaryLine = ascSummary ? (
     <Box
       component="span"
@@ -1160,140 +1023,27 @@ const TesterGridCard = React.memo(function TesterGridCard({
       }}
     >
       <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1, textAlign: 'center' }}>
-        <Box
-          sx={{
-            width: 88,
-            height: 88,
-            borderRadius: '8px',
-            border: '2px solid',
-            borderColor: rarityBorder,
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: 0.5,
-            bgcolor: theme.palette.background.default,
-            position: 'relative',
+        <GridIconBox
+          setId={setIdNumber as ArtifactSetId}
+          slotId={artifact.slot as ArtifactTypeId}
+          factionId={artifact.faction as FactionId}
+          rank={artifact.rank}
+          rarity={artifact.rarity}
+          ascensionRolls={artifact.ascension?.rolls}
+          setLabel={setLabel}
+          setTooltipName={setTooltipName}
+          slotLabel={artifactTypeName(artifact.slot as ArtifactTypeId)}
+          rerollLabel={rerollLabel || undefined}
+          rerollTooltip={rerollTooltip || undefined}
+          levelLabel={levelChipLabel}
+          outcome={{
+            tone: outcomeTone,
+            glyph: outcomeGlyph,
+            label: outcomeLabel,
+            canJump: canJumpToPrimaryMatch,
+            onClick: handlePrimaryMatchClick,
           }}
-        >
-          {rankStars > 0 ? (
-            <Box
-              sx={{
-                position: 'absolute',
-                top: -10,
-                left: '50%',
-                transform: 'translateX(-50%)',
-                display: 'flex',
-                pointerEvents: 'none',
-                px: 1,
-                py: 0.25,
-                borderRadius: 999,
-                background: 'linear-gradient(180deg, rgba(0,0,0,0.25), rgba(0,0,0,0))',
-                boxShadow: '0 0 8px rgba(0,0,0,0.35)',
-              }}
-            >
-              {Array.from({ length: rankStars }).map((_, idx) => (
-                <StarRoundedIcon
-                  key={`rank-star-${idx}`}
-                  sx={{
-                    fontSize: '0.95rem',
-                    color: idx < ascensionStars ? STAR_ASCENDED_COLOR : STAR_BASE_COLOR,
-                    ml: idx === 0 ? 0 : '-6px',
-                  }}
-                />
-              ))}
-            </Box>
-          ) : null}
-          {slotVisualNode}
-          {accessoryBadge}
-          <Tooltip title={outcomeLabel}>
-            <Box
-              component={canJumpToPrimaryMatch ? 'button' : 'div'}
-              type={canJumpToPrimaryMatch ? 'button' : undefined}
-              onClick={canJumpToPrimaryMatch ? handlePrimaryMatchClick : undefined}
-              sx={{
-                position: 'absolute',
-                left: -10,
-                top: -10,
-                width: 24,
-                height: 24,
-                borderRadius: '50%',
-                bgcolor: 'background.paper',
-                border: '2px solid',
-                borderColor: outcomeTone,
-                color: outcomeTone,
-                boxShadow: 2,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontWeight: 700,
-                fontSize: '0.85rem',
-                cursor: canJumpToPrimaryMatch ? 'pointer' : 'default',
-                transition: 'transform 120ms ease',
-                '&:hover': canJumpToPrimaryMatch ? { transform: 'scale(1.05)' } : undefined,
-                '&:focus-visible': canJumpToPrimaryMatch ? {
-                  outline: '2px solid',
-                  outlineColor: theme.palette.primary.main,
-                  outlineOffset: 2,
-                } : undefined,
-              }}
-              aria-label={outcomeLabel}
-            >
-              {outcomeGlyph}
-            </Box>
-          </Tooltip>
-          {rerollLabel ? (
-            <Tooltip title={rerollTooltip}>
-              <Box
-                sx={{
-                  position: 'absolute',
-                  right: -10,
-                  top: -10,
-                  bgcolor: 'background.paper',
-                  borderRadius: 1,
-                  px: 0.5,
-                  py: 0.25,
-                  boxShadow: 2,
-                  border: '2px solid',
-                  borderColor: rarityBorder,
-                  fontSize: '0.8rem',
-                  fontWeight: 600,
-                  color: 'text.primary',
-                }}
-              >
-                {rerollLabel}
-              </Box>
-            </Tooltip>
-          ) : null}
-          {setIconOverlay ? (
-            setTooltipName ? (
-              <WithSetTooltip name={setTooltipName} displayName={setLabel}>
-                {setIconOverlay}
-              </WithSetTooltip>
-            ) : (
-              setIconOverlay
-            )
-          ) : null}
-          <Box
-            sx={{
-              position: 'absolute',
-              right: -10,
-              bottom: -10,
-              bgcolor: 'background.paper',
-              borderRadius: 1,
-              px: 0.75,
-              py: 0.25,
-              boxShadow: 2,
-              border: '2px solid',
-              borderColor: rarityBorder,
-              fontSize: '0.7rem',
-              fontWeight: 600,
-              color: 'text.primary',
-            }}
-          >
-            {levelChipLabel}
-          </Box>
-        </Box>
+        />
         {sourceDescriptor ? (
           <Tooltip title={sourceDescriptor.tooltip ?? ''}>
             <Chip label={sourceDescriptor.label} size="small" variant="outlined" sx={{ fontSize: '0.75rem' }} />

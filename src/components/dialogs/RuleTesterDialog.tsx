@@ -46,6 +46,7 @@ import {
 import type { TesterPreviewMatch } from '../../types/testerPreview'
 import { TesterSummaryLabel } from '../TesterSummaryLabel'
 import { TesterRuleReferenceChip } from '../TesterRuleReferenceChip'
+import GridIconBox from '../GridIconBox'
 import EllipsisTooltip from '../EllipsisTooltip'
 import { triggerCopyDialog, writeTextSafe } from '../../lib/clipboard'
 import { useContextMenuHint } from '../../hooks/useContextMenuHint'
@@ -644,6 +645,19 @@ export default function RuleTesterDialog({
     const factionIconNode = showFactionIcon
       ? <FactionIcon faction={factionValue as FactionId} size={TESTER_COMPACT_ICON_SIZE_PX} sx={{ mr: 0 }} />
       : null
+    const gridIconBoxNode = (
+      <GridIconBox
+        setId={setIdNumber as ArtifactSetId}
+        slotId={it.slot as ArtifactTypeId}
+        factionId={factionValue as FactionId}
+        rank={it.rank}
+        rarity={it.rarity}
+        setLabel={setLabel}
+        setTooltipName={setNameCanonical || undefined}
+        slotLabel={slotLabel}
+        levelLabel={levelChipLabel}
+      />
+    )
     const substatSummaries = subEntries.map(([variant, rawValue]) => {
       const numericValue = Number(rawValue) || 0
       const color = substatColors[variant]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[variant]
@@ -985,21 +999,44 @@ export default function RuleTesterDialog({
           </Box>
         )}
         {isCompact && (
-          <Box sx={{ gridColumn: '2', gridRow: '2', display: 'flex', alignItems: 'center', gap: 0.5, flexWrap: 'wrap', minHeight: TESTER_RESULT_ROW_MIN_HEIGHT_PX }}>
-            {match ? (
-              <>
-                <Chip size="small" color={match.keep ? 'success' : 'error'} label={match.keep ? t('keepValueKeep') : t('keepValueSell')} />
-                {ruleChipNode}
-              </>
-            ) : (
-              // No matching rule means the item is kept; mirror the Keep chip styling.
-              <Chip
-                size="small"
-                color="success"
-                variant="filled"
-                label={t('testerNoMatch')}
-              />
-            )}
+          <Box
+            sx={{
+              gridColumn: '2',
+              gridRow: '2',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 0.5,
+              flexWrap: 'wrap',
+              minHeight: TESTER_RESULT_ROW_MIN_HEIGHT_PX,
+              justifyContent: 'space-between',
+            }}
+          >
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 0.5,
+                flexWrap: 'wrap',
+                flex: '1 1 auto',
+                minWidth: 0,
+              }}
+            >
+              {match ? (
+                <>
+                  <Chip size="small" color={match.keep ? 'success' : 'error'} label={match.keep ? t('keepValueKeep') : t('keepValueSell')} />
+                  {ruleChipNode}
+                </>
+              ) : (
+                // No matching rule means the item is kept; mirror the Keep chip styling.
+                <Chip
+                  size="small"
+                  color="success"
+                  variant="filled"
+                  label={t('testerNoMatch')}
+                />
+              )}
+            </Box>
+            {gridIconBoxNode}
           </Box>
         )}
         {!isCompact && (
@@ -1390,21 +1427,44 @@ export default function RuleTesterDialog({
           </Box>
         )}
         {!isCompact && (
-          <Box sx={{ gridColumn: '2', mt: 0.5, display: 'flex', alignItems: 'center', gap: 0.5, flexWrap: 'wrap', minHeight: TESTER_RESULT_ROW_MIN_HEIGHT_PX }}>
-            {match ? (
-              <>
-                <Chip size="small" color={match.keep ? 'success' : 'error'} label={match.keep ? t('keepValueKeep') : t('keepValueSell')} />
-                {ruleChipNode}
-              </>
-            ) : (
-              // No matching rule means the item is kept; mirror the Keep chip styling.
-              <Chip
-                size="small"
-                color="success"
-                variant="filled"
-                label={t('testerNoMatch')}
-              />
-            )}
+          <Box
+            sx={{
+              gridColumn: '2',
+              mt: 0.5,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 0.5,
+              flexWrap: 'wrap',
+              minHeight: TESTER_RESULT_ROW_MIN_HEIGHT_PX,
+              justifyContent: 'space-between',
+            }}
+          >
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 0.5,
+                flexWrap: 'wrap',
+                flex: '1 1 auto',
+                minWidth: 0,
+              }}
+            >
+              {match ? (
+                <>
+                  <Chip size="small" color={match.keep ? 'success' : 'error'} label={match.keep ? t('keepValueKeep') : t('keepValueSell')} />
+                  {ruleChipNode}
+                </>
+              ) : (
+                // No matching rule means the item is kept; mirror the Keep chip styling.
+                <Chip
+                  size="small"
+                  color="success"
+                  variant="filled"
+                  label={t('testerNoMatch')}
+                />
+              )}
+            </Box>
+            {gridIconBoxNode}
           </Box>
         )}
       </Box>
