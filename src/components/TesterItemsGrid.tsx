@@ -1044,7 +1044,6 @@ const TesterGridCard = React.memo(function TesterGridCard({
     { factionId: artifact.faction as FactionId },
   )
   const showAccessoryBadge = Boolean(slotArtSrc && accessoryFactionBadgeSrc)
-  const accessoryBadgeClipPath = `inset(calc(100% - ${ACCESSORY_BADGE_TILE_PX}px) calc(100% - ${ACCESSORY_BADGE_TILE_PX}px) 0 0)`
   const slotVisualNode = slotArtSrc
     ? (
       <Box
@@ -1072,8 +1071,11 @@ const TesterGridCard = React.memo(function TesterGridCard({
           <Box
             sx={{
               position: 'absolute',
-              inset: 0,
-              clipPath: accessoryBadgeClipPath,
+              left: 0,
+              bottom: 0,
+              width: ACCESSORY_BADGE_TILE_PX,
+              height: ACCESSORY_BADGE_TILE_PX,
+              overflow: 'hidden',
               pointerEvents: 'none',
             }}
           >
@@ -1084,7 +1086,12 @@ const TesterGridCard = React.memo(function TesterGridCard({
               aria-hidden="true"
               draggable={false}
               onDragStart={preventImageDrag}
-              sx={SLOT_IMAGE_SX}
+              sx={{
+                ...SLOT_IMAGE_SX,
+                position: 'absolute',
+                left: 0,
+                bottom: 0,
+              }}
             />
           </Box>
         ) : null}
