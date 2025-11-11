@@ -651,6 +651,7 @@ const TesterGridCard = React.memo(function TesterGridCard({
 }) {
   const { t } = useI18n()
   const theme = useTheme()
+  const matchingChipRowPaddingPx = pxValue(String(theme.spacing(MATCHING_CHIP_ROW_PADDING_UNITS)))
   const artifact = row.artifact
   const match = row.match
   const SlotIcon = artifactTypeIconFor(artifact.slot as ArtifactTypeId)
@@ -886,9 +887,10 @@ const TesterGridCard = React.memo(function TesterGridCard({
       setVisibleOtherMatchingLimit(minVisible)
       return
     }
-    const scrollWidth = otherMatchesRowEl.scrollWidth
-    const clientWidth = otherMatchesRowEl.clientWidth
-    if (scrollWidth <= clientWidth + 0.5) return
+    const paddingX = matchingChipRowPaddingPx * 2
+    const effectiveScrollWidth = Math.max(0, otherMatchesRowEl.scrollWidth - paddingX)
+    const effectiveClientWidth = Math.max(0, otherMatchesRowEl.clientWidth - paddingX)
+    if (effectiveScrollWidth <= effectiveClientWidth + 0.5) return
     const nextLimit = Math.max(minVisible, normalizedVisibleLimit - 1)
     if (nextLimit !== visibleOtherMatchingLimit) {
       setVisibleOtherMatchingLimit(nextLimit)
@@ -900,6 +902,7 @@ const TesterGridCard = React.memo(function TesterGridCard({
     otherMatchesRowWidth,
     totalOtherMatches,
     normalizedVisibleLimit,
+    matchingChipRowPaddingPx,
   ])
   const [matchingPopoverAnchor, setMatchingPopoverAnchor] = useState<HTMLElement | null>(null)
   const matchingPopoverOpen = Boolean(matchingPopoverAnchor) && hiddenOtherMatching.length > 0
