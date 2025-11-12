@@ -1495,7 +1495,7 @@ export function HsfRulesTable({ rules, building = false, setHoveredCfgIdx, selec
                               fontFamily: isSub ? 'inherit' : 'ui-monospace, monospace',
                               fontSize: FONT_SIZE_BASE_PX,
                               width: c.width,
-                              color: isIdx ? (keep ? 'success.main' : 'warning.main') : undefined,
+                              color: isIdx ? (keep ? 'success.main' : 'error.main') : undefined,
                               textDecoration: strike ? 'line-through' : 'none',
                               overflow: wrapRows || factionIconOverflow ? 'visible' : 'hidden',
                               textOverflow: wrapRows || factionIconOverflow ? 'clip' : 'ellipsis',

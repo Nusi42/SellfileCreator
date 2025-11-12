@@ -12,6 +12,7 @@ import {
 } from '@mui/material'
 import type { PaperProps as MuiPaperProps } from '@mui/material/Paper'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
+import SellIcon from '@mui/icons-material/Sell'
 import { useTheme } from '@mui/material/styles'
 import { useI18n } from '../lib/i18n'
 import type { TesterPreviewRow } from '../types/testerPreview'
@@ -784,20 +785,20 @@ const TesterGridCard = React.memo(function TesterGridCard({
     : match?.keep === false
       ? t('testerMatchSell')
       : t('testerMatchNoRule')
-  const outcomeColor: 'success' | 'warning' | 'default' = match?.keep === true
+  const outcomeColor: 'success' | 'error' | 'default' = match?.keep === true
     ? 'success'
     : match?.keep === false
-      ? 'warning'
+      ? 'error'
       : 'default'
   const outcomeGlyph = match?.keep === true
     ? '✓'
     : match?.keep === false
-      ? '✕'
+      ? <SellIcon fontSize="inherit" aria-hidden />
       : '—'
   const outcomeTone = outcomeColor === 'success'
     ? theme.palette.success.main
-    : outcomeColor === 'warning'
-      ? theme.palette.warning.main
+    : outcomeColor === 'error'
+      ? theme.palette.error.main
       : theme.palette.text.secondary
   const primaryRuleIndex = typeof match?.ruleIndex === 'number' ? match.ruleIndex : null
   const primaryCfgIndex = typeof match?.cfgIdx === 'number' ? match.cfgIdx : null

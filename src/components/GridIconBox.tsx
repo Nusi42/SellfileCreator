@@ -1,6 +1,7 @@
 import { Box, Tooltip } from '@mui/material'
 import { useTheme } from '@mui/material/styles'
 import StarRoundedIcon from '@mui/icons-material/StarRounded'
+import type { ReactNode } from 'react'
 import { artifactTypeIconFor } from './artifactTypeIcons'
 import { SetIcon } from './SetIcon'
 import { WithSetTooltip } from './SetTooltip'
@@ -32,7 +33,7 @@ const ACCESSORY_BADGED_SET_IDS = new Set<number>([
 
 type OutcomeIndicatorProps = {
   tone: string
-  glyph: string
+  glyph: ReactNode
   label?: string
   canJump?: boolean
   onClick?: (() => void)
