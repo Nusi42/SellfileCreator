@@ -1038,7 +1038,7 @@ const TesterGridCard = React.memo(function TesterGridCard({
         overflow: 'hidden',
       }}
     >
-      <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1, textAlign: 'center' }}>
+      <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5, textAlign: 'center' }}>
         <GridIconBox
           setId={setIdNumber as ArtifactSetId}
           slotId={artifact.slot as ArtifactTypeId}
