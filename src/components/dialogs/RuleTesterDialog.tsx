@@ -46,7 +46,7 @@ import {
 import type { TesterPreviewMatch } from '../../types/testerPreview'
 import { TesterSummaryLabel } from '../TesterSummaryLabel'
 import { TesterRuleReferenceChip } from '../TesterRuleReferenceChip'
-import GridIconBox from '../GridIconBox'
+import GridIconBox, { GRID_ICON_BOX_SIZE_PX } from '../GridIconBox'
 import EllipsisTooltip from '../EllipsisTooltip'
 import { triggerCopyDialog, writeTextSafe } from '../../lib/clipboard'
 import { useContextMenuHint } from '../../hooks/useContextMenuHint'
@@ -58,6 +58,7 @@ type TesterSourceCountMap = Record<TesterSourceCategory, number>
 const TESTER_CONTROL_GRID_TEMPLATE = `${TESTER_SLOT_SELECT_WIDTH_PX}px ${TESTER_RANK_SELECT_WIDTH_PX}px ${TESTER_RARITY_SELECT_WIDTH_PX}px ${TESTER_MAINSTAT_SELECT_MIN_WIDTH_PX}px`
 const TESTER_SELECT_GAP_DEFAULT_PX = 8
 const TESTER_SELECT_GAP_COMPACT_PX = 6
+const TESTER_ICON_COLUMN_WIDTH_PX = GRID_ICON_BOX_SIZE_PX + 16
 
 const TESTER_SELECT_VALUE_BASE_SX: SystemStyleObject<Theme> = {
   display: 'inline-flex',
@@ -692,7 +693,7 @@ export default function RuleTesterDialog({
       />
     )
     return (
-      <Box sx={{ borderBottom: theme => `1px solid ${theme.palette.divider}`, pb: 1, display: 'grid', gridTemplateColumns: `${TESTER_ROW_CONTROLS_WIDTH_PX}px 1fr`, columnGap: 1 }}>
+      <Box sx={{ borderBottom: theme => `1px solid ${theme.palette.divider}`, pb: 1, display: 'grid', gridTemplateColumns: `${TESTER_ROW_CONTROLS_WIDTH_PX}px minmax(0,1fr) ${TESTER_ICON_COLUMN_WIDTH_PX}px`, columnGap: 1 }}>
         <Stack
           direction="column"
           spacing={0.5}
@@ -1008,7 +1009,6 @@ export default function RuleTesterDialog({
               gap: 0.5,
               flexWrap: 'wrap',
               minHeight: TESTER_RESULT_ROW_MIN_HEIGHT_PX,
-              justifyContent: 'space-between',
             }}
           >
             <Box
@@ -1036,7 +1036,6 @@ export default function RuleTesterDialog({
                 />
               )}
             </Box>
-            {gridIconBoxNode}
           </Box>
         )}
         {!isCompact && (
@@ -1436,7 +1435,6 @@ export default function RuleTesterDialog({
               gap: 0.5,
               flexWrap: 'wrap',
               minHeight: TESTER_RESULT_ROW_MIN_HEIGHT_PX,
-              justifyContent: 'space-between',
             }}
           >
             <Box
@@ -1464,9 +1462,20 @@ export default function RuleTesterDialog({
                 />
               )}
             </Box>
-            {gridIconBoxNode}
           </Box>
         )}
+        <Box
+          sx={{
+            gridColumn: '3',
+            gridRow: '1 / -1',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            p: 0.5,
+          }}
+        >
+          {gridIconBoxNode}
+        </Box>
       </Box>
     )
   }
