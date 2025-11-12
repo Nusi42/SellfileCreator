@@ -2063,7 +2063,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
 
     const buildRow = hasRules
       ? (artifact: NormalizedGearArtifact): TesterPreviewRow => {
-          const { firstMatch, matchingConfigIndices } = evaluateMatchesByConfig(mergedRules, artifact.testerItem)
+          const { firstMatch, matchingConfigIndices } = evaluateMatchesByConfig(
+            mergedRules,
+            artifact.testerItem,
+            { configModes },
+          )
           if (!firstMatch) {
             return { artifact, match: null, matchingCfgIndices: matchingConfigIndices }
           }
@@ -2118,7 +2122,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         setTesterRowsBuilding(false)
       }
     }
-  }, [testerPreviewArtifacts, mergedRules, customCfgs])
+  }, [testerPreviewArtifacts, mergedRules, customCfgs, configModes])
   const testerFilterResult = useMemo(() => (
     filterTesterItems(testerPreviewRows, testerRulesFilter, metasets, { configNames })
   ), [testerPreviewRows, testerRulesFilter, metasets, configNames])

@@ -10,6 +10,7 @@ import { rankMask, rarityMask } from './hsfTypes'
 import type { ArtifactSetId, ArtifactTypeId, FactionId, StatVariantLike } from './types'
 import { LEVEL_ANY_SENTINEL, StatId, StatVariant, mainToVariant, subToVariant, type LevelMilestone, type RankValue } from './types'
 import type { HsfRuleWithCfg } from './merge'
+import type { SellfileExportMode } from './hsfBuilder'
 import { forEachRuleMatchCandidate, getRuleMatchIndex } from './ruleMatchIndex'
 
 // Attach provenance (config index) as done in merge.ts
@@ -178,13 +179,28 @@ export function evaluateFirst(rules: HsfRuleWithCfg[], item: TestItem): EvalResu
   return result
 }
 
+export type EvalMatchesByConfigOptions = {
+  configModes?: SellfileExportMode[]
+}
+
 export type EvalMatchesByConfigResult = {
   firstMatch: EvalResult | null
   matchingConfigIndices: number[]
 }
 
 /** Full scan that returns the first match plus the set of configs that match anywhere in the rules list. */
-export function evaluateMatchesByConfig(rules: HsfRuleWithCfg[], item: TestItem): EvalMatchesByConfigResult {
+export function evaluateMatchesByConfig(
+  rules: HsfRuleWithCfg[],
+  item: TestItem,
+  options?: EvalMatchesByConfigOptions,
+): EvalMatchesByConfigResult {
+  const configModes = options?.configModes
+  const shouldIncludeConfig = (cfgIdx: number | null): boolean => {
+    if (cfgIdx == null || !Array.isArray(configModes)) return true
+    const mode = configModes[cfgIdx]
+    return mode !== 'disabled' && mode !== 'separator'
+  }
+
   let firstMatch: EvalResult | null = null
   const matchingConfigs = new Set<number>()
   const slotIndex = getRuleMatchIndex(rules)
@@ -197,6 +213,7 @@ export function evaluateMatchesByConfig(rules: HsfRuleWithCfg[], item: TestItem)
     if (!matchRule(rule, item)) return true
     const rawCfgIdx = (rule as HsfRuleWithCfg).__cfgIdx
     const cfgIdx = typeof rawCfgIdx === 'number' && Number.isFinite(rawCfgIdx) && rawCfgIdx >= 0 ? rawCfgIdx : null
+    if (!shouldIncludeConfig(cfgIdx)) return true
     if (!firstMatch) {
       const keep = rule.Keep === true
       firstMatch = { ruleIndex, keep, cfgIdx }
