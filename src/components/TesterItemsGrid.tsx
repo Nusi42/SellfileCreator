@@ -14,6 +14,10 @@ import type { PaperProps as MuiPaperProps } from '@mui/material/Paper'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import SellIcon from '@mui/icons-material/Sell'
 import { useTheme } from '@mui/material/styles'
+import BuildOutlinedIcon from '@mui/icons-material/BuildOutlined'
+import Inventory2OutlinedIcon from '@mui/icons-material/Inventory2Outlined'
+import MailOutlineIcon from '@mui/icons-material/MailOutline'
+import PersonOutlineIcon from '@mui/icons-material/PersonOutline'
 import { useI18n } from '../lib/i18n'
 import type { TesterPreviewRow } from '../types/testerPreview'
 import { SetIcon } from './SetIcon'
@@ -39,6 +43,7 @@ import {
   getItemSourceDescriptor,
 } from '../lib/testerPreviewFormatting'
 import { isAccessorySlot } from '../lib/testerDomain'
+import type { TesterSourceFilter } from '../lib/rulesFilter'
 import { TesterSummaryLabel } from './TesterSummaryLabel'
 import { TesterRuleReferenceChip } from './TesterRuleReferenceChip'
 import { WithSetTooltip } from './SetTooltip'
@@ -90,6 +95,14 @@ const MATCHING_CHIP_WRAPPER_SX = {
   flexGrow: 0,
   flexShrink: 0,
 } as const
+
+const SOURCE_ICON_MAP: Record<TesterSourceFilter, React.ElementType | null> = {
+  manual: BuildOutlinedIcon,
+  inventory: null,
+  collection: PersonOutlineIcon,
+  vault: Inventory2OutlinedIcon,
+  inbox: MailOutlineIcon,
+}
 
 const pxValue = (value: string): number => Number.parseFloat(value) || 0
 const measureMatchingRowContentWidth = (node: HTMLElement): number => {
@@ -778,6 +791,8 @@ const TesterGridCard = React.memo(function TesterGridCard({
     return ascLabelNode ?? ascValueNode ?? null
   })()
   const sourceDescriptor = getItemSourceDescriptor(artifact, t)
+  const SourceIcon = sourceDescriptor ? SOURCE_ICON_MAP[sourceDescriptor.category] : null
+  const sourceTooltipTitle = sourceDescriptor ? (sourceDescriptor.tooltip ?? sourceDescriptor.label ?? '') : ''
   const rerollLabel = artifact.rerollCount > 0 ? '⟳' : ''
   const rerollTooltip = artifact.rerollCount > 0 ? t('testerRerollLabel') : ''
   const outcomeLabel = match?.keep === true
@@ -1045,9 +1060,25 @@ const TesterGridCard = React.memo(function TesterGridCard({
             onClick: handlePrimaryMatchClick,
           }}
         />
-        {sourceDescriptor ? (
-          <Tooltip title={sourceDescriptor.tooltip ?? ''}>
-            <Chip label={sourceDescriptor.label} size="small" variant="outlined" sx={{ fontSize: '0.75rem' }} />
+        {(sourceDescriptor && SourceIcon) ? (
+          <Tooltip title={sourceTooltipTitle}>
+            <Box
+              component="span"
+              role="img"
+              aria-label={sourceDescriptor.label}
+                sx={{
+                  width: 24,
+                  height: 24,
+                  borderRadius: 1,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: 'text.secondary',
+                  fontSize: '1rem',
+                }}
+            >
+              <SourceIcon fontSize="inherit" />
+            </Box>
           </Tooltip>
         ) : null}
       </Box>

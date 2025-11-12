@@ -1,6 +1,7 @@
 import { statVariantI18nKey, rarityCodeToName } from './types'
 import type { NormalizedGearArtifact, NormalizedStat } from './importers/gearDbNormalizer'
 import { StatVariant } from './types'
+import { determineTesterSourceCategory, type TesterSourceFilter } from './rulesFilter'
 
 export type TranslateFn = (key: string, params?: Record<string, string | number>) => string
 
@@ -8,7 +9,11 @@ export const CIRCLED_ZERO_CODE_POINT = 0x24ea
 export const CIRCLED_ONE_CODE_POINT = 0x2460
 export const CIRCLED_TWENTY_CODE_POINT = 0x2473
 
-export type ItemSourceDescriptor = { label: string; tooltip?: string } | null
+export type ItemSourceDescriptor = {
+  category: TesterSourceFilter
+  label: string
+  tooltip?: string
+} | null
 
 export const formatCircledDigit = (value?: number | null): string | null => {
   if (value == null) return null
@@ -78,23 +83,26 @@ export function resolveRarityLabel(translate: TranslateFn, rarityCode: number): 
 }
 
 export function getItemSourceDescriptor(artifact: NormalizedGearArtifact, translate: TranslateFn): ItemSourceDescriptor {
-  if (artifact.source === 'tester') {
-    return null
+  const category = determineTesterSourceCategory(artifact)
+  if (category === 'manual') {
+    return { category, label: translate('testerSourceManual') }
   }
-  if (artifact.source === 'inbox') {
-    return { label: translate('testerSourceInbox') }
+  if (category === 'inbox') {
+    return { category, label: translate('testerSourceInbox') }
   }
   if (artifact.equippedToChampionId != null) {
-    const inVault = artifact.equippedChampionLocation === 'vault' || artifact.equippedChampionLocation === 'reserveVault'
     const tooltip = artifact.equippedChampionName && artifact.equippedChampionName.trim().length > 0
       ? artifact.equippedChampionName.trim()
       : translate('testerEquippedLabel', { id: artifact.equippedToChampionId })
     return {
-      label: inVault ? translate('testerSourceEquippedVault') : translate('testerSourceEquippedCollection'),
+      category,
+      label: category === 'vault'
+        ? translate('testerSourceEquippedVault')
+        : translate('testerSourceEquippedCollection'),
       tooltip,
     }
   }
-  return { label: translate('testerSourceInventory') }
+  return { category, label: translate('testerSourceInventory') }
 }
 
 const resolveStatPreGlyphValue = (stat: NormalizedStat | null): number | null => {

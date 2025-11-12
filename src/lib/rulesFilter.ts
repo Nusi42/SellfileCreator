@@ -697,7 +697,7 @@ export function filterTesterItems<T extends TesterFilterRow>(
   return { items: filtered, matchingConfigIndices }
 }
 
-const determineTesterSourceCategory = (artifact: NormalizedGearArtifact): TesterSourceFilter => {
+export const determineTesterSourceCategory = (artifact: NormalizedGearArtifact): TesterSourceFilter => {
   if (artifact.source === 'tester') return 'manual'
   if (artifact.source === 'inbox') return 'inbox'
   if (artifact.equippedToChampionId != null) {
