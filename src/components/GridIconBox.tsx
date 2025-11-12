@@ -295,9 +295,6 @@ export default function GridIconBox({
             pointerEvents: 'none',
             px: 1,
             py: 0.25,
-            borderRadius: 999,
-            background: 'linear-gradient(180deg, rgba(0,0,0,0.25), rgba(0,0,0,0))',
-            boxShadow: '0 0 8px rgba(0,0,0,0.35)',
           }}
         >
           {Array.from({ length: numericRank }).map((_, idx) => (

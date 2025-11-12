@@ -38,6 +38,7 @@ import {
   createRuleTesterMath,
   entriesInOrder,
   fingerprintRuleTesterItem,
+  isManualTesterItem,
   mainOptionsForSlot,
   testerSourceCategoryForItem,
   type RuleTesterItem,
@@ -630,6 +631,7 @@ export default function RuleTesterDialog({
     const levelLabel = hasExactLevel
       ? (exactLevelLabel ?? levelBucketLabel)
       : levelBucketLabel
+    const manualItem = isManualTesterItem(it)
     const factionValue = Number(it.faction ?? 0)
     const showFactionChip = accessorySlot && factionValue !== 0
     const factionLabel = showFactionChip ? t(factionI18nKey(factionValue)) : ''
@@ -640,7 +642,9 @@ export default function RuleTesterDialog({
     const mainOptions = mainOptionsForSlot(it.slot, mainValue)
     const mainLabel = mainValue < 0 ? t('any') : t(statVariantI18nKey(mainValue))
     const mainColor = mainValue >= 0 ? (substatColors[mainValue]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[mainValue]) : undefined
-    const levelChipLabel = levelLabel ? `Lv ${levelLabel}` : t('any')
+    const levelChipLabel = levelLabel
+      ? (manualItem ? levelLabel : t('testerLevelLabel', { level: levelLabel }))
+      : t('any')
     const mainSummaryColor = (statButtonBorders && mainColor) ? mainColor : undefined
     const factionChipLabel = factionLabel
     const factionIconNode = showFactionIcon
