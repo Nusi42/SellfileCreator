@@ -661,6 +661,7 @@ export default function RuleTesterDialog({
         setTooltipName={setNameCanonical || undefined}
         slotLabel={slotLabel}
         levelLabel={levelChipLabel}
+        showRankStarsBackground={false}
       />
     )
     const substatSummaries = subEntries.map(([variant, rawValue]) => {

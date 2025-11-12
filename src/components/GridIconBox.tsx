@@ -54,6 +54,7 @@ type GridIconBoxProps = {
   rerollTooltip?: string | undefined
   levelLabel?: string | undefined
   size?: number
+  showRankStarsBackground?: boolean
 }
 
 export default function GridIconBox({
@@ -71,6 +72,7 @@ export default function GridIconBox({
   rerollTooltip,
   levelLabel,
   size = GRID_ICON_BOX_SIZE_PX,
+  showRankStarsBackground = true,
 }: GridIconBoxProps) {
   const theme = useTheme()
   const slotArtSrc = gearSetSlotIconUrl(
@@ -296,9 +298,7 @@ export default function GridIconBox({
             pointerEvents: 'none',
             px: 1,
             py: 0.25,
-            borderRadius: 999,
-            background: 'linear-gradient(180deg, rgba(0,0,0,0.25), rgba(0,0,0,0))',
-            boxShadow: '0 0 8px rgba(0,0,0,0.35)',
+            background: showRankStarsBackground ? 'linear-gradient(180deg, rgba(0,0,0,0.25), rgba(0,0,0,0))' : undefined,
           }}
         >
           {Array.from({ length: numericRank }).map((_, idx) => (
