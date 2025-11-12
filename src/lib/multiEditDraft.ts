@@ -31,6 +31,7 @@ export const BUILDER_FIELD_KEYS = [
   'autoSubstatFlex',
   'minRequiredRolls',
   'autoMinRequiredRolls',
+  'lockedMinRequiredRolls',
   'substatMinTarget',
   'artifactTypes',
   'artifactSets',

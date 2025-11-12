@@ -416,6 +416,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     autoSubstatFlex: false,
     minRequiredRolls: 0,
     autoMinRequiredRolls: true,
+    lockedMinRequiredRolls: 0,
   })
   const builder = builderState
   // Keep a ref to the latest builder so tutorial helpers and action handlers can snapshot current

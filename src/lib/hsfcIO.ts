@@ -246,6 +246,7 @@ export function normalizeConfig(input: unknown): BuilderConfig {
     autoSubstatFlex: rec['autoSubstatFlex'] === true,
     minRequiredRolls: (() => { const r = rec['minRequiredRolls']; return (typeof r === 'number' && [0,1,2,3,4,5].includes(r)) ? (r as 0|1|2|3|4|5) : 0 })(),
     autoMinRequiredRolls: Boolean((rec['autoMinRequiredRolls'] ?? true) as boolean),
+    lockedMinRequiredRolls: (() => { const r = rec['lockedMinRequiredRolls']; return (typeof r === 'number' && [0,1,2,3,4,5].includes(r)) ? (r as 0|1|2|3|4|5) : 0 })(),
   }
 
   const __srbV = (() => {
@@ -469,6 +470,7 @@ export function buildReadableConfig(cfg: BuilderConfig, metasets: Metaset[]) {
     ...(cfg.autoSubstatFlex && canEnableSubstatFlex(cfg) ? { autoSubstatFlex: true as const } : {}),
     minRequiredRolls: (cfg.minRequiredRolls ?? 0),
     autoMinRequiredRolls: (cfg.autoMinRequiredRolls ?? true),
+    lockedMinRequiredRolls: (cfg.lockedMinRequiredRolls ?? 0),
     ...(cfg.substatMinTarget === 'locked' ? { minRollsTarget: 'Locked' as const } : {}),
     artifactTypeNames: (cfg.artifactTypes ?? []).slice().sort(compareArtifactTypes).map(t => artifactTypeNames[Number(t)]).filter(Boolean),
     artifactSetNames: (cfg.artifactSets ?? []).slice().sort(compareArtifactSets).map(s => artifactSetNames[Number(s)]).filter(Boolean),

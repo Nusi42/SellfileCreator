@@ -104,6 +104,10 @@ export interface BuilderConfig {
   // Auto = no additional aggregate constraint beyond per-substat mins.
   minRequiredRolls?: 0 | 1 | 2 | 3 | 4 | 5
   autoMinRequiredRolls?: boolean
+  // Aggregate minimum for locked substats only (subset of `fixedSubstatsV`).
+  // Applied independently from `minRequiredRolls` so locked stats can hit their
+  // own floor before optional ones contribute additional rolls.
+  lockedMinRequiredRolls?: 0 | 1 | 2 | 3 | 4 | 5
   // Aggregate minimum rolls target scope: by default, the global MinRequiredRolls
   // applies across all selected substats in a rule. When set to 'locked', the
   // aggregate minimum applies only to locked substats (fixedSubstatsV). This

@@ -60,15 +60,16 @@ export function createHistoryBuilderBaseline(overrides: Partial<BuilderConfig> =
     maxLevel: 16,
     rollBaseline: 'afterStart',
     earlyKeepMode: 'early',
-    substatsV: [],
-    fixedSubstatsV: [],
-    minCount: 0,
-    autoMinCount: true,
-    autoSubstatFlex: false,
-    minRequiredRolls: 0,
-    autoMinRequiredRolls: true,
-    substatRollBoundsV: {},
-    substatRollTargetsV: {},
+  substatsV: [],
+  fixedSubstatsV: [],
+  minCount: 0,
+  autoMinCount: true,
+  autoSubstatFlex: false,
+  minRequiredRolls: 0,
+  autoMinRequiredRolls: true,
+  lockedMinRequiredRolls: 0,
+  substatRollBoundsV: {},
+  substatRollTargetsV: {},
     artifactTypes: [],
     artifactSets: [],
     artifactMetaSets: [],
@@ -147,7 +148,7 @@ export function summarizeBuilderConfigDiff(params: SummarizeBuilderConfigDiffPar
   if (hasAny(changed, ['minCount', 'autoMinCount', 'autoSubstatFlex'])) {
     pushInlineDiff(detailLines, t, t('builderRequiredSubstats'), formatRequiredSubstatsValue(previous, t), formatRequiredSubstatsValue(next, t))
   }
-  if (hasAny(changed, ['minRequiredRolls', 'autoMinRequiredRolls', 'substatMinTarget'])) {
+  if (hasAny(changed, ['minRequiredRolls', 'lockedMinRequiredRolls', 'autoMinRequiredRolls', 'substatMinTarget'])) {
     pushInlineDiff(detailLines, t, t('builderMinRequiredRolls'), formatMinRequiredRollsValue(previous, t), formatMinRequiredRollsValue(next, t))
   }
   if (changed.has('earlyKeepMode')) {
@@ -569,7 +570,11 @@ function formatMinRequiredRollsValue(cfg: BuilderConfig, t: TranslateFn): string
   const scope = (cfg.substatMinTarget ?? 'selected') === 'locked'
     ? t('builderMinRequiredRollsChipLocked')
     : t('builderMinRequiredRollsChipSelected')
-  return `${base} (${scope})`
+  const lockedCount = typeof cfg.lockedMinRequiredRolls === 'number' ? cfg.lockedMinRequiredRolls : 0
+  const lockedSuffix = lockedCount > 0
+    ? ` • ${t('builderLockedMinRequiredRollsLabel', { count: lockedCount })}`
+    : ''
+  return `${base} (${scope}${lockedSuffix})`
 }
 
 function formatMilestoneModeValue(cfg: BuilderConfig, t: TranslateFn): string {
