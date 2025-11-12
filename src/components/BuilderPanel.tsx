@@ -70,7 +70,7 @@ import PlaylistAddCheckIcon from '@mui/icons-material/PlaylistAddCheck'
 import UndoIcon from '@mui/icons-material/Undo'
 import RedoIcon from '@mui/icons-material/Redo'
 import ClearIconButton from './ClearIconButton'
-import { UI_BG_HOVER_DANGER_TRANSITION, DANGER_TINT_BG, LIST_SUBHEADER_SX, MENU_SELECTED_BG_ALPHA, MENU_SELECTED_BG_HOVER_ALPHA, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, MENU_MAX_HEIGHT_EXTRA_BUFFER, SETS_MENU_WIDTH_PX, UI_SUBSTAT_WARNING_ROW_HEIGHT_PX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, BUILDER_USER_DEFAULTS_KEY, BUILDER_DEFAULT_SAVE_TARGET, BUILDER_DIRTY_NUDGE_IDLE_MS, BUILDER_DIRTY_ATTENTION_INTERVAL_MS, FONT_SIZE_BASE_PX, ELLIPSIS_TEXT_SX, BUILDER_SLOT_LABEL_WIDTH_BUFFER_PX, BUILDER_TOGGLE_BUTTON_HEIGHT_PX, BUILDER_TOGGLE_BUTTON_MIN_WIDTH_PX, SMALL_BUTTON_HEIGHT_PX, SETS_SELECT_INLINE_GUTTER_PX, CLEAR_ICON_BUTTON_SIZE_PX, SETS_TOOLTIP_MAX_WIDTH_PX, MULTI_EDIT_MIXED_BG_ALPHA, MULTI_EDIT_MIXED_BORDER_ALPHA, MULTI_EDIT_MIXED_TEXT_ALPHA, MENU_LABEL_WIDTH_PX, MENU_CONTROL_HEIGHT_PX, ROLL_BADGE_SIZE_PX, ROLL_BADGE_SCALE, FONT_SIZE_SECONDARY_PX, SUBSTAT_TARGET_MAX_ROLLS, RULE_COUNT_LIMIT, TOTAL_RULE_COUNT_LIMIT, HISTORY_TOOLTIP_MAX_WIDTH_PX, BUILDER_AUTO_APPLY_DEBOUNCE_MS } from '../lib/constants'
+import { UI_BG_HOVER_DANGER_TRANSITION, DANGER_TINT_BG, LIST_SUBHEADER_SX, MENU_SELECTED_BG_ALPHA, MENU_SELECTED_BG_HOVER_ALPHA, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, MENU_MAX_HEIGHT_EXTRA_BUFFER, SETS_MENU_WIDTH_PX, UI_SUBSTAT_WARNING_ROW_HEIGHT_PX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, BUILDER_USER_DEFAULTS_KEY, BUILDER_DEFAULT_SAVE_TARGET, BUILDER_DIRTY_NUDGE_IDLE_MS, BUILDER_DIRTY_ATTENTION_INTERVAL_MS, FONT_SIZE_BASE_PX, ELLIPSIS_TEXT_SX, BUILDER_SLOT_LABEL_WIDTH_BUFFER_PX, BUILDER_TOGGLE_BUTTON_HEIGHT_PX, BUILDER_TOGGLE_BUTTON_MIN_WIDTH_PX, SMALL_BUTTON_HEIGHT_PX, SETS_SELECT_INLINE_GUTTER_PX, CLEAR_ICON_BUTTON_SIZE_PX, SETS_TOOLTIP_MAX_WIDTH_PX, MULTI_EDIT_MIXED_BG_ALPHA, MULTI_EDIT_MIXED_BORDER_ALPHA, MULTI_EDIT_MIXED_TEXT_ALPHA, MENU_LABEL_WIDTH_PX, MENU_CONTROL_HEIGHT_PX, ROLL_BADGE_HOVER_GUTTER_PX, ROLL_BADGE_SIZE_PX, ROLL_BADGE_SCALE, FONT_SIZE_SECONDARY_PX, SUBSTAT_TARGET_MAX_ROLLS, RULE_COUNT_LIMIT, TOTAL_RULE_COUNT_LIMIT, HISTORY_TOOLTIP_MAX_WIDTH_PX, BUILDER_AUTO_APPLY_DEBOUNCE_MS } from '../lib/constants'
 import Checkbox from '@mui/material/Checkbox'
 import { useAttentionEffectStyles, useFortyTwoLegendaryOverlay } from '../lib/attentionEffects'
 import { alpha, useTheme } from '@mui/material/styles'
@@ -78,6 +78,8 @@ import type { SxProps, Theme } from '@mui/material/styles'
 import type { SystemStyleObject } from '@mui/system'
 import { useI18n, formatRulesCount } from '../lib/i18n'
 import { substatSupportsColor } from '../lib/substatDisplay'
+
+const LOCK_TOGGLE_HIT_SIZE_PX = ROLL_BADGE_SIZE_PX + (ROLL_BADGE_HOVER_GUTTER_PX * 2)
 import { createBuilderStatusChipSx } from './builderStatusChipStyles'
 import { FactionOptionLabel } from './FactionIcon'
 import { ContextMenuHintOverlay } from './ContextMenuHintOverlay'
@@ -670,6 +672,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
   const multiMetasetsField = multiFields?.artifactMetaSets ?? null
   const multiAutoMinRequiredRollsField = multiFields?.autoMinRequiredRolls ?? null
   const multiMinRequiredRollsField = multiFields?.minRequiredRolls ?? null
+  const multiLockedMinRequiredRollsField = multiFields?.lockedMinRequiredRolls ?? null
   const multiAutoMinCountField = multiFields?.autoMinCount ?? null
   const multiMinCountField = multiFields?.minCount ?? null
   const multiEarlyKeepModeField = multiFields?.earlyKeepMode ?? null
@@ -679,6 +682,11 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
   const multiSourceConfigs = multiEditActive && multiSelectedConfigs && multiSelectedConfigs.length >= 2
     ? multiSelectedConfigs
     : null
+  const singleLockedCount = Array.isArray(cfg.fixedSubstatsV) ? cfg.fixedSubstatsV.length : 0
+  const multiLockedPresence = multiSourceConfigs
+    ? multiSourceConfigs.some((config) => Array.isArray(config.fixedSubstatsV) && config.fixedSubstatsV.length > 0)
+    : false
+  const lockedSubstatsExist = multiEditActive ? multiLockedPresence : singleLockedCount > 0
   const multiDirtyKeys = React.useMemo(() => (
     multiEditActive && multiFields ? getDirtyBuilderFieldKeys(multiFields) : []
   ), [multiEditActive, multiFields])
@@ -710,6 +718,49 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
     )
     return normalizeAutoSubstatFlex(withAuto)
   }, [pickAutoRarityFallback])
+  const clampMinRollValue = (value: number): 0 | 1 | 2 | 3 | 4 | 5 => {
+    const rounded = Math.round(value)
+    const clamped = Math.max(0, Math.min(5, rounded))
+    return clamped as 0 | 1 | 2 | 3 | 4 | 5
+  }
+  const handleAutoMinRequiredRolls = React.useCallback(() => {
+    if (multiEditActive && multiEdit) {
+      multiEdit.updateField('autoMinRequiredRolls', { value: true, status: 'common' })
+      multiEdit.updateField('minRequiredRolls', { value: 0 as BuilderConfig['minRequiredRolls'], status: 'common' })
+      return
+    }
+    onChange(normalizeKeepWithAuto({
+      ...cfg,
+      autoMinRequiredRolls: true,
+      minRequiredRolls: 0,
+    }))
+  }, [cfg, multiEdit, multiEditActive, normalizeKeepWithAuto, onChange])
+  const handleManualMinRequiredRolls = React.useCallback((value: number) => {
+    const next = clampMinRollValue(value)
+    if (multiEditActive && multiEdit) {
+      multiEdit.updateField('autoMinRequiredRolls', { value: false, status: 'common' })
+      multiEdit.updateField('minRequiredRolls', { value: next, status: 'common' })
+      return
+    }
+    onChange(normalizeKeepWithAuto({
+      ...cfg,
+      autoMinRequiredRolls: false,
+      minRequiredRolls: next,
+    }))
+  }, [cfg, multiEdit, multiEditActive, normalizeKeepWithAuto, onChange])
+  const handleLockedMinRequiredRolls = React.useCallback((value: number) => {
+    const next = clampMinRollValue(value)
+    const current = clampMinRollValue(Number(cfg.lockedMinRequiredRolls ?? 0))
+    const adjusted = current === next ? 0 : next
+    if (multiEditActive && multiEdit) {
+      multiEdit.updateField('lockedMinRequiredRolls', { value: adjusted, status: 'common' })
+      return
+    }
+    onChange(normalizeKeepWithAuto({
+      ...cfg,
+      lockedMinRequiredRolls: adjusted,
+    }))
+  }, [cfg, multiEdit, multiEditActive, normalizeKeepWithAuto, onChange])
 const applySingleSubstatBounds = React.useCallback((variant: number, builder: (current: SubstatRollBoundsEntry | undefined) => SubstatRollBoundsEntry | null) => {
   const prevMap = (cfg.substatRollBoundsV ?? {}) as Record<number, SubstatRollBoundsEntry>
   const prevRaw = prevMap[variant]
@@ -1682,6 +1733,32 @@ const maxLevelValue = multiEditActive
     }
     return computeTriState(matches, total)
   }, [cfg, computeTriState, multiAutoMinRequiredRollsField, multiEditActive, multiMinRequiredRollsField, multiSourceConfigs])
+  const getLockedMinRequiredRollsTriState = React.useCallback((target: 0 | 1 | 2 | 3 | 4 | 5): 'on' | 'mixed' | 'off' => {
+    if (!lockedSubstatsExist) return 'off'
+    if (!multiEditActive || !multiSourceConfigs) {
+      const value = Number(cfg.lockedMinRequiredRolls ?? 0)
+      return value === target ? 'on' : 'off'
+    }
+    const lockedField = multiLockedMinRequiredRollsField
+    if (lockedField) {
+      if (lockedField.status === 'common') {
+        const fieldValue = Number(lockedField.value ?? 0)
+        return fieldValue === target ? 'on' : 'off'
+      }
+      if (lockedField.status === 'mixed') {
+        const values = lockedField.mixedValues ?? []
+        return values.some((entry) => Number(entry) === target) ? 'mixed' : 'off'
+      }
+    }
+    const total = multiSourceConfigs.length
+    let matches = 0
+    for (const config of multiSourceConfigs) {
+      if (Number(config.lockedMinRequiredRolls ?? 0) === target) {
+        matches += 1
+      }
+    }
+    return computeTriState(matches, total)
+  }, [cfg, computeTriState, multiEditActive, multiLockedMinRequiredRollsField, multiSourceConfigs, lockedSubstatsExist])
   const getRequiredCountTriState = React.useCallback((target: 'auto' | 1 | 2 | 3 | 4): 'on' | 'mixed' | 'off' => {
     if (!multiEditActive || !multiSourceConfigs) {
       const auto = cfg.autoMinCount === true
@@ -1897,14 +1974,6 @@ const maxLevelValue = multiEditActive
   // Shared styling for the builder’s status chips (Flex, Only locked, Auto ≥ …). The helper keeps
   // BuilderPanel and the cheat sheet visuals in sync.
   const builderToggleChipSx = useMemo(() => createBuilderStatusChipSx(theme), [theme])
-  const singleMinRequiredValue = cfg.autoMinRequiredRolls !== false ? 'auto' : String(Number(cfg.minRequiredRolls ?? 0))
-  const minRequiredValue = multiEditActive
-    ? (() => {
-        if (getMinRequiredRollsTriState('auto') === 'on') return 'auto'
-        const manualMatch = MIN_REQUIRED_ROLL_OPTIONS.find((option) => getMinRequiredRollsTriState(option) === 'on')
-        return manualMatch != null ? String(manualMatch) : MULTI_VALUE_SENTINEL
-      })()
-    : singleMinRequiredValue
   const singleRequiredCountValue = cfg.autoMinCount ? 'auto' : ((cfg.minCount ?? 0) > 0 ? String(cfg.minCount) : 'auto')
   const requiredCountValue = multiEditActive
     ? (() => {
@@ -5813,9 +5882,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
             {/* Min Required Rolls */}
             <FormControl sx={{ m: 0 }}>
               {(() => {
-                const baseLockedCount = Array.isArray((cfg as unknown as { fixedSubstatsV?: number[] }).fixedSubstatsV)
-                  ? ((cfg as unknown as { fixedSubstatsV?: number[] }).fixedSubstatsV as number[]).length
-                  : 0
+                const baseLockedCount = singleLockedCount
                 const baseTarget = ((cfg as unknown as { substatMinTarget?: 'locked' | 'selected' }).substatMinTarget === 'locked') ? 'locked' : 'selected'
                 type LockChipState = 'locked' | 'available' | 'disabled' | 'mixed'
                 let chipState: LockChipState
@@ -5880,6 +5947,24 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                       ]
                   }
                 })()
+                const resolvedLockedMin = (() => {
+                  const source = multiEditActive && multiLockedMinRequiredRollsField
+                    ? multiLockedMinRequiredRollsField
+                    : null
+                  if (source) {
+                    if (source.status === 'common') {
+                      const value = Number(source.value ?? 0)
+                      if (Number.isFinite(value) && value > 0) return Math.max(0, Math.min(5, value))
+                    }
+                    return null
+                  }
+                  const value = Number(cfg.lockedMinRequiredRolls ?? 0)
+                  if (Number.isFinite(value) && value > 0) return Math.max(0, Math.min(5, value))
+                  return null
+                })()
+                if (resolvedLockedMin) {
+                  tooltipLines.push(t('builderLockedMinRequiredRollsLabel', { count: resolvedLockedMin }))
+                }
                 const tooltipContent = (<BuilderTooltipContent text={tooltipLines.join('\n')} />)
                 const nextLockIcon = chipState === 'locked' ? <LockIcon fontSize="small" /> : <LockOpenOutlinedIcon fontSize="small" />
                 const handleToggleTarget = () => {
@@ -5913,40 +5998,12 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                         <span>{t('builderMinRequiredRolls')}</span>
                       </Tooltip>
                     </FormLabel>
-                    <ToggleButtonGroup
-                      exclusive
-                      size="small"
-                      value={minRequiredValue}
-                      onChange={(_, v) => {
-                        if (!v) return
-                        if (multiEditActive && multiEdit) {
-                          if (v === 'auto') {
-                            multiEdit.updateField('autoMinRequiredRolls', { value: true, status: 'common' })
-                            multiEdit.updateField('minRequiredRolls', { value: 0 as BuilderConfig['minRequiredRolls'], status: 'common' })
-                          } else {
-                            const next = Math.max(0, Math.min(5, Number(v))) as 0 | 1 | 2 | 3 | 4 | 5
-                            multiEdit.updateField('autoMinRequiredRolls', { value: false, status: 'common' })
-                            multiEdit.updateField('minRequiredRolls', { value: next, status: 'common' })
-                          }
-                          return
-                        }
-                        if (v === 'auto') {
-                          onChange(normalizeKeepWithAuto({
-                            ...cfg,
-                            autoMinRequiredRolls: true,
-                            minRequiredRolls: 0,
-                          }))
-                          return
-                        }
-                        const next = Math.max(0, Math.min(5, Number(v))) as 0 | 1 | 2 | 3 | 4 | 5
-                        onChange(normalizeKeepWithAuto({
-                          ...cfg,
-                          autoMinRequiredRolls: false,
-                          minRequiredRolls: next,
-                        }))
-                      }}
+                    <Box
                       data-tour-id="builder.min-rolls"
                       sx={{
+                        display: 'flex',
+                        gap: 0.5,
+                        flexWrap: 'wrap',
                         '& .MuiToggleButton-root': {
                           height: TOGGLE_BUTTON_HEIGHT_PX,
                           minHeight: TOGGLE_BUTTON_HEIGHT_PX,
@@ -5956,6 +6013,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                       <ToggleButton
                         value="auto"
                         selected={autoState === 'on'}
+                        onClick={handleAutoMinRequiredRolls}
                         sx={(theme) => ({
                           ...(autoState === 'on' ? { fontWeight: theme.typography.fontWeightMedium ?? 500 } : {}),
                           ...(autoState === 'mixed' ? {
@@ -5969,27 +6027,102 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                         {t('headerMenuAuto')}
                       </ToggleButton>
                       {MIN_REQUIRED_ROLL_OPTIONS.map((n) => {
-                        const state = getMinRequiredRollsTriState(n)
+                        const manualState = getMinRequiredRollsTriState(n)
+                        const lockedState = getLockedMinRequiredRollsTriState(n)
+                        const manualActive = manualState === 'on'
+                        const lockedActive = lockedState === 'on'
+                        const isSelected = manualActive || lockedActive
+                        const isMixed = manualState === 'mixed' || lockedState === 'mixed'
+                        const lockTooltip = lockedActive
+                          ? t('builderMinRequiredRollsLockIconClear')
+                          : chipEnabled
+                            ? t('builderMinRequiredRollsLockIconSet', { count: n })
+                            : t('builderMinRequiredRollsLockIconDisabled')
                         return (
-                          <ToggleButton
-                            key={n}
-                            value={String(n)}
-                            selected={state === 'on'}
-                            sx={(theme) => ({
-                              ...(state === 'on' ? { fontWeight: theme.typography.fontWeightMedium ?? 500 } : {}),
-                              ...(state === 'mixed' ? {
+                      <ToggleButton
+                        key={n}
+                        value={String(n)}
+                        selected={isSelected}
+                        onClick={() => handleManualMinRequiredRolls(n)}
+                        sx={(theme) => ({
+                          position: 'relative',
+                          minWidth: 24,
+                          padding: 0,
+                          overflow: 'visible',
+                          ...(manualActive || lockedActive
+                            ? { fontWeight: theme.typography.fontWeightMedium ?? 500 }
+                            : {}),
+                              ...(isMixed ? {
                                 borderStyle: 'dashed',
                                 borderColor: mixedBorderColor,
                                 color: mixedTextColor,
-                                backgroundImage: `linear-gradient(135deg, ${mixedPatternColor} 50%, transparent 50%)`,
                               } : {}),
                             })}
                           >
-                            {n}
+                            <Box component="span" sx={{ fontSize: FONT_SIZE_BASE_PX }}>
+                              {n}
+                            </Box>
+                            <Tooltip
+                              title={lockTooltip}
+                              disableHoverListener={!chipEnabled}
+                              arrow
+                            >
+                              <IconButton
+                                className="builder-min-roll-lock-icon"
+                                size="small"
+                                aria-label={lockTooltip}
+                                onClick={(event) => {
+                                  event.preventDefault()
+                                  event.stopPropagation()
+                                  if (!chipEnabled) return
+                                  handleLockedMinRequiredRolls(n)
+                                }}
+                                disabled={!chipEnabled}
+                                data-tour-id={`builder.min-rolls.lock-icon.${n}`}
+                                sx={(theme) => {
+                                  const glow = alpha(theme.palette.text.primary, theme.palette.mode === 'dark' ? 0.22 : 0.14)
+                                  return {
+                                    position: 'absolute',
+                                    top: -13,
+                                    left: -10,
+                                    width: LOCK_TOGGLE_HIT_SIZE_PX,
+                                    height: LOCK_TOGGLE_HIT_SIZE_PX,
+                                    p: 0,
+                                    pointerEvents: chipEnabled ? 'auto' : 'none',
+                                    borderRadius: LOCK_TOGGLE_HIT_SIZE_PX / 2,
+                                    opacity: lockedActive ? 1 : 0,
+                                    visibility: chipEnabled ? 'visible' : 'hidden',
+                                    transition: 'background-color .15s, box-shadow .15s, opacity .15s, visibility .15s',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    backgroundColor: 'transparent',
+                                    color: '#fff',
+                                    cursor: chipEnabled ? 'pointer' : 'default',
+                                    '--sub-lock-hover-opacity': lockedActive ? 1 : 0,
+                                    boxShadow: `0px 2px 1px -1px rgba(0,0,0,0.2),0px 1px 1px 0px rgba(0,0,0,0.14),0px 1px 3px 0px rgba(0,0,0,0.12)`,
+                                    '& svg': {
+                                      fontSize: 14,
+                                    },
+                                    '&:hover, &:focus-visible': {
+                                      opacity: chipEnabled ? 1 : 0,
+                                      visibility: chipEnabled ? 'visible' : 'hidden',
+                                      backgroundColor: glow,
+                                      boxShadow: `0 0 0 1px ${glow}`,
+                                    },
+                                    '&:focus-visible': {
+                                      outline: 'none',
+                                    },
+                                  }
+                                }}
+                              >
+                                {lockedActive ? <LockIcon fontSize="small" /> : <LockOpenOutlinedIcon fontSize="small" />}
+                              </IconButton>
+                            </Tooltip>
                           </ToggleButton>
                         )
                       })}
-                    </ToggleButtonGroup>
+                    </Box>
                     <Box sx={{ mt: 0.5, display: 'flex', alignItems: 'center', gap: 0.5 }}>
                       <Tooltip title={tooltipContent}>
                         <Box component="span" sx={{ display: 'inline-flex' }}>
