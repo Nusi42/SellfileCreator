@@ -490,7 +490,7 @@ export const TESTER_CONFIG_CHIP_MAX_WIDTH_PX = 520
 // Fixed dimensions for the Rule Tester dialog so its layout remains predictable.
 // Width is trimmed below the previous 1120px cap for a tighter footprint; height
 // keeps the content scrollable without overwhelming shorter displays.
-export const TESTER_DIALOG_WIDTH_PX = 850
+export const TESTER_DIALOG_WIDTH_PX = 920
 export const TESTER_DIALOG_HEIGHT_PX = 780
 // Virtualization heuristics keep the tester responsive even with many expanded rows.
 export const TESTER_VIRTUAL_OVERSCAN_PX = 320

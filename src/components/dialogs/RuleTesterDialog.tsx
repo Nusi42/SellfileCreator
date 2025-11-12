@@ -1467,7 +1467,7 @@ export default function RuleTesterDialog({
         <Box
           sx={{
             gridColumn: '3',
-            gridRow: '1 / -1',
+            gridRow: '1 / span 2',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
