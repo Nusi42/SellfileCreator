@@ -549,6 +549,11 @@ type AggregateMinContext = {
   rarityCode?: number | null
 }
 
+type LockedMinContext = {
+  cfg: BuilderConfig
+  lockedCount: number
+}
+
 function minRollEventsForSelection(rarityCode: RarityCode): number {
   switch (rarityCode) {
     case RarityCode.Common: return 0 // Common
@@ -585,6 +590,12 @@ function deriveGlobalMinRolls(context: AggregateMinContext): number {
   }
   if (base <= 1) return 0
   return clampRollRequirement(base)
+}
+
+function deriveLockedMinRolls(context: LockedMinContext): number {
+  const { cfg, lockedCount } = context
+  if (lockedCount === 0) return 0
+  return clampRollRequirement(cfg.lockedMinRequiredRolls)
 }
 
 // Whether the given rarity code includes Mythical items
@@ -661,8 +672,10 @@ export function resolveAutoRarityCode(cfg: BuilderConfig): RarityCode {
     worstSumMins = sumRequired + sumOptional
   }
   const globalMinRaw = deriveGlobalMinRolls({ cfg, selectedPoolV, requiredV, minTargetCount })
+  const lockedMinRaw = deriveLockedMinRolls({ cfg, lockedCount: requiredV.length })
   const globalMin = globalMinRaw
-  const required = Math.max(globalMin, worstSumMins)
+  const aggregateMin = Math.max(globalMin, lockedMinRaw)
+  const required = Math.max(aggregateMin, worstSumMins)
   const clamped = Math.max(0, Math.min(5, required))
 
   const baseByRequired: Record<number, RarityCode> = {
@@ -975,6 +988,8 @@ export function buildHsfRules(
   // Normalize fixed to be a subset of selected; preserve order of appearance from selected
   const fixedPoolV = selectedPoolV.filter(sv => fixedPoolRawV.includes(Number(sv)))
   const requiredV = fixedPoolV.slice(0, 4)
+  const lockedCount = requiredV.length
+  const lockedSet = new Set<number>(requiredV.map(Number))
   const minTargetCount = Math.min(4, Math.max(cfg.minCount, requiredV.length))
   const optionalPoolV = selectedPoolV.filter(sv => !requiredV.includes(Number(sv)))
 
@@ -1262,7 +1277,14 @@ export function buildHsfRules(
   const levelWindow = deriveLevelWindow()
 
   const globalMinValue = deriveGlobalMinRolls({ cfg, selectedPoolV, requiredV, minTargetCount, rarityCode })
-  const globalMinActive = globalMinValue > 0
+  const lockedMinValue = deriveLockedMinRolls({ cfg, lockedCount })
+  const aggregateMinValue = Math.max(globalMinValue, lockedMinValue)
+  const aggregateMinActive = aggregateMinValue > 0
+  const lockedMinActive = lockedMinValue > 0
+
+  if (lockedMinActive && lockedCount === 0) {
+    return []
+  }
 
   // Special case: No substats selected => presence-only.
   // - For full window 0..16: emit a single "Any level" rule (LVLForCheck=LEVEL_ANY_SENTINEL).
@@ -1294,7 +1316,7 @@ export function buildHsfRules(
 
   // If the aggregate minimum should apply to locked substats but none are locked,
   // the requirement cannot be satisfied; prune all rows.
-  if ((cfg.substatMinTarget ?? 'selected') === 'locked' && requiredV.length === 0 && globalMinActive) {
+  if ((cfg.substatMinTarget ?? 'selected') === 'locked' && requiredV.length === 0 && aggregateMinActive) {
     return []
   }
 
@@ -1305,8 +1327,8 @@ export function buildHsfRules(
   // warning for confusing configs like single SPD with Max=0 and MinRequired=1.
   // Note: This does not prune nuanced feasibility-at-intermediate-level cases;
   // it only catches hard impossibilities regardless of distribution.
-  if (globalMinActive && selectedPoolV.length > 0) {
-    const targetMin = globalMinValue
+  if (aggregateMinActive && selectedPoolV.length > 0) {
+    const targetMin = aggregateMinValue
     const supportsFive = (() => {
       // 5-roll capable when Mythical is included, or Any/Auto with 5+ target
       if (rarityCode === RarityCode.Mythical || rarityCode === RarityCode.LTE_Mythical) return true
@@ -1348,7 +1370,7 @@ export function buildHsfRules(
       if (typeof b.min === 'number' && b.min > 0) return true
     }
     // Also consider global aggregate minimum rolls as a signal to use Potential in Auto.
-    if (globalMinActive) return true
+    if (aggregateMinActive) return true
     return false
   })()
   const effectiveMode: 'strict' | 'potential' = hasCircled ? 'potential' : 'strict'
@@ -1393,7 +1415,7 @@ export function buildHsfRules(
     const factoryComboEligibleCache = new Map<string, boolean>()
     const sentinelCollapsedCombos = new Set<string>()
     const collapseGlobalOkForBranch = (() => {
-      if (!globalMinActive) return true
+      if (!aggregateMinActive) return true
       if ((cfg.substatMinTarget ?? 'selected') !== 'selected') return false
       const baseRollLevels = rollLevelsForRarityCode(rarityCodeLocal)
       const rollsUpTo16 = LEVELS.filter(l => l <= 16 && baseRollLevels.has(l)).length
@@ -1403,10 +1425,10 @@ export function buildHsfRules(
       const maxRollsAtTarget = baseline === 'upToLevel'
         ? (rollsUpTo16 + preRolls)
         : Math.max(0, (rollsUpTo16 - rollsUpToStart) + preRollsByStart)
-      if (additionLevels.size === 0 && globalMinValue <= baseStartByBranch) {
+      if (additionLevels.size === 0 && aggregateMinValue <= baseStartByBranch) {
         return true
       }
-      return globalMinValue === maxRollsAtTarget
+      return aggregateMinValue === maxRollsAtTarget
     })()
     const collapseBranchEligible = !flexActive &&
       !restrictLevels &&
@@ -1513,7 +1535,7 @@ export function buildHsfRules(
     // otherwise Rare paths that spend the first roll on an optional stat get pruned.
     const allowFlexAtLevel = flexActive && (
       numRollsForThisLevel >= 2 ||
-      (globalMinActive && numRollsForThisLevel > 0)
+      (aggregateMinActive && numRollsForThisLevel > 0)
     )
     const levelMinCount = Math.min(present, minTargetCount)
     const levelMaxCount = Math.min(present, allowFlexAtLevel ? maxTargetCount : minTargetCount)
@@ -1537,6 +1559,8 @@ export function buildHsfRules(
       const comboKey = combo.join(',')
       if (sentinelCollapsedCombos.has(comboKey)) continue
       const m = combo.length
+      const lockedMask = combo.map(v => lockedSet.has(Number(v)))
+      const sumLocked = (arr: number[]) => arr.reduce((acc, val, idx) => acc + (lockedMask[idx] ? val : 0), 0)
       if (present < m) {
         // Not enough substats can exist at this level to satisfy minCount -> skip emitting rows
         continue
@@ -1623,6 +1647,10 @@ export function buildHsfRules(
       const isLockedTarget = (cfg.substatMinTarget ?? 'selected') === 'locked'
       const targetedMask: boolean[] = combo.map(v => !isLockedTarget || requiredV.includes(v))
       const sumTargeted = (arr: number[]) => arr.reduce((acc, val, i) => acc + (targetedMask[i] ? val : 0), 0)
+      const canSatisfyLocked = (current: number, remaining: number) => {
+        if (!lockedMinActive) return true
+        return (current >= lockedMinValue) || ((lockedMinValue - current) <= remaining)
+      }
       const sumEqTargeted = (arr: number[], target: number) => sumTargeted(arr) === target
 
       for (const introLevels of introAssignments) {
@@ -1695,7 +1723,7 @@ export function buildHsfRules(
         }
         const sumMin = mins.reduce((a, b) => a + b, 0)
         // Aggregate minimum across selected substats (off when Auto).
-        const globalMin = globalMinValue
+        const globalMin = aggregateMinValue
         // Dynamic Mythical handling for 'Any' rarity: if either the per-substat mins or the
         // global minimum require 5 total rolls and rarity is Any (0), include one pre-roll to
         // model Mythical as the only feasible path. Apply consistently to availability and target.
@@ -1777,6 +1805,10 @@ export function buildHsfRules(
             if (!(s >= globalMin || (globalMin - s) <= remaining)) {
               continue
             }
+            const lockedApplied = lockedMask[0] ? applied : 0
+            if (!canSatisfyLocked(lockedApplied, remaining)) {
+              continue
+            }
           }
           const comboSubs = combo.map(v => variantToSub(v))
           if (mainChoicesV.length === 0) {
@@ -1822,6 +1854,10 @@ export function buildHsfRules(
           if (!(appliedTargeted >= globalMin || (globalMin - appliedTargeted) <= remaining)) {
             continue
           }
+          const lockedApplied = lockedMask[0] ? applied : 0
+          if (!canSatisfyLocked(lockedApplied, remaining)) {
+            continue
+          }
           const comboSubs = combo.map(v => variantToSub(v))
           if (mainChoicesV.length === 0) {
             const r = makeRule({ ...baseCore, MainStatID: StatId.Any, MainStatF: 1, LVLForCheck: lvl }, comboSubs)
@@ -1845,19 +1881,23 @@ export function buildHsfRules(
             // Enforce upper limits first
             let overMax = false
             for (let i = 0; i < m; i++) {
-              if (maxs[i] !== undefined && dist[i]! > (maxs[i]! as number)) { overMax = true; break }
-            }
-            if (overMax) continue
-            let overTimeline = false
-            for (let i = 0; i < m; i++) {
-              if (timelineCaps[i] !== undefined && dist[i]! > timelineCaps[i]!) { overTimeline = true; break }
-            }
-            if (overTimeline) continue
-            // In strict distributions, all rolls are allocated to selected substats.
-            if (globalMin > 0) {
-              const s = sumTargeted(dist)
-              if (s < globalMin) continue
-            }
+            if (maxs[i] !== undefined && dist[i]! > (maxs[i]! as number)) { overMax = true; break }
+          }
+          if (overMax) continue
+          let overTimeline = false
+          for (let i = 0; i < m; i++) {
+            if (timelineCaps[i] !== undefined && dist[i]! > timelineCaps[i]!) { overTimeline = true; break }
+          }
+          if (overTimeline) continue
+          // In strict distributions, all rolls are allocated to selected substats.
+          if (globalMin > 0) {
+            const s = sumTargeted(dist)
+            if (s < globalMin) continue
+          }
+          if (lockedMinActive) {
+            const lockedSum = sumLocked(dist)
+            if (lockedSum < lockedMinValue) continue
+          }
             if (!predicate(dist)) continue
             let optionalOnlyBaseline = false
             const values: number[] = []
@@ -1921,6 +1961,8 @@ export function buildHsfRules(
                   : Math.max(0, (rollsUpTo16 - rollsUpToStart) + (effectiveStart <= 0 ? mythPreCount : 0))
                 const remaining = Math.max(0, numTarget - avail)
                 if (!(s >= globalMin || (globalMin - s) <= remaining)) continue
+                const lockedSum = sumLocked(sel)
+                if (!canSatisfyLocked(lockedSum, remaining)) continue
               }
               if (!predicate(sel)) continue
               const values: number[] = []
@@ -2415,7 +2457,7 @@ export function buildHsfRules(
           if (mv > 0) anyMinFull = true
         }
         const sumMinFull = minsFull.reduce((a,b)=>a+b,0)
-        const globalMinFull = globalMinValue
+        const globalMinFull = aggregateMinValue
         // Only emit extra full-selected distributions when we have mins and are not yet feasible
             // Compute local availability with Mythical pre-roll when needed
             const mythPreExtraFull = (rarityCodeLocal === RarityCode.Any && (sumMinFull >= 5 || globalMinFull >= 5)) ? 1 : 0
