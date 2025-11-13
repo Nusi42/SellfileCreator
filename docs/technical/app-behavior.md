@@ -67,7 +67,11 @@ This document captures runtime behavior, builder interactions, and user-facing w
 
 - Builder cheat sheet: The help icon in `BuilderPanel` opens `BuilderCheatSheetPopover`, a scrollable overlay of curated examples for rarity ranges, substat locking/flex, roll targets, and milestone math. The popover reuses the Builder root via `ResizeObserver` so its max height tracks the panel height (capped to 60% of the viewport) and keeps scroll momentum predictable.
 - Shared substat toggles: `SubstatToggleDisplay` renders the lock badge, wildcard/min/max indicator, and alignment grid for both the live builder toggles and the cheat sheet snapshots. `substatToggleGroupSx` centralizes the spacing/hover behavior so static rows stay visually identical while interaction hooks remain active only inside the builder.
-- Min Required Rolls target: The label for "Min Required Rolls" is a small toggle. It switches the aggregate min target between Selected and Locked. The control disables switching to Locked when there are no locked substats.
+- Min Required Rolls behavior:
+  - Auto, the numeric Global Min Required Rolls (GMRR) buttons, and the Locked Min Required Rolls (LMRR) lock overlay now share one reducer. Auto clears both GMRR and LMR. Clicking a numeric button sets that exact GMRR; clicking it again reverts to Auto and clears any lock.
+  - Only one lock can exist. Locking a value greater than or equal to the current GMRR clears the GMRR (while keeping Auto off). Locking a lower value preserves the highlighted number. Unlocking re-highlights the locked number whenever that lock was the only active target.
+  - Selecting a numeric value below the current lock clears the lock automatically. Selecting Auto or toggling the last numeric button always clears the lock as well.
+  - HSFC imports/pastes normalize to these rules (0–5 only, at most one lock, GMRR strictly greater than the lock when both are present).
 - `Reset Config` button:
   - Left-click: shows a localized confirmation dialog (`builderResetConfirmTitle`) and, when confirmed, resets to user defaults when present; otherwise resets to factory defaults. Buttons reuse shared `cancel`/`reset` catalog entries.
 - Right-click (also available on `Insert as config` and `Apply as config`): opens a shared menu with Save local settings as user defaults, Reset to factory defaults, and toggle checkboxes.

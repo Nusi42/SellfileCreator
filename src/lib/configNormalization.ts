@@ -140,6 +140,81 @@ export function normalizeSubstatMinTarget<T extends Pick<BuilderConfig, 'substat
   }
 }
 
+const clampAggregateRollRequirement = (value: unknown): 0 | 1 | 2 | 3 | 4 | 5 => {
+  const num = typeof value === 'number' ? value : Number(value)
+  if (!Number.isFinite(num)) return 0
+  const rounded = Math.round(num)
+  const clamped = Math.max(0, Math.min(5, rounded))
+  return clamped as 0 | 1 | 2 | 3 | 4 | 5
+}
+
+/**
+ * Clamp and clear the locked aggregate minimum rolls requirement when invalid.
+ */
+export function normalizeLockedMinRequiredRolls<T extends Pick<BuilderConfig, 'lockedMinRequiredRolls' | 'fixedSubstatsV'>>(cfg: T): T {
+  try {
+    const lockedCount = Array.isArray(cfg.fixedSubstatsV) ? cfg.fixedSubstatsV.length : 0
+    const currentValue = (cfg as { lockedMinRequiredRolls?: number }).lockedMinRequiredRolls
+    const clamped = clampAggregateRollRequirement(currentValue ?? 0)
+    if (lockedCount <= 0 || clamped <= 0) {
+      if (currentValue == null) return cfg
+      const { lockedMinRequiredRolls: _omit, ...rest } = cfg as unknown as Record<string, unknown>
+      return rest as T
+    }
+    if (clamped !== currentValue) {
+      return { ...cfg, lockedMinRequiredRolls: clamped } as T
+    }
+    return cfg
+  } catch {
+    return cfg
+  }
+}
+
+export function normalizeMinRequiredRolls<T extends Pick<BuilderConfig, 'minRequiredRolls' | 'autoMinRequiredRolls'>>(cfg: T): T {
+  try {
+    const currentValue = (cfg as { minRequiredRolls?: number }).minRequiredRolls
+    const clamped = clampAggregateRollRequirement(currentValue ?? 0)
+    if ((cfg.autoMinRequiredRolls ?? true) === false) {
+      if (currentValue !== clamped) {
+        return { ...cfg, minRequiredRolls: clamped } as T
+      }
+      return cfg
+    }
+    if (currentValue == null) return cfg
+    if (currentValue !== clamped) {
+      return { ...cfg, minRequiredRolls: clamped } as T
+    }
+    return cfg
+  } catch {
+    return cfg
+  }
+}
+
+export function normalizeAggregateRollTargets<T extends Pick<BuilderConfig, 'lockedMinRequiredRolls' | 'fixedSubstatsV' | 'autoMinRequiredRolls' | 'minRequiredRolls'>>(cfg: T): T {
+  let next: T = normalizeLockedMinRequiredRolls(cfg)
+  next = normalizeMinRequiredRolls(next as T)
+  try {
+    const locked = clampAggregateRollRequirement((next as { lockedMinRequiredRolls?: number }).lockedMinRequiredRolls ?? 0)
+    if (locked <= 0) {
+      if ((next as { lockedMinRequiredRolls?: number }).lockedMinRequiredRolls == null) return next
+      const { lockedMinRequiredRolls: _omit, ...rest } = next as unknown as Record<string, unknown>
+      return rest as T
+    }
+    const manualActive = (next as { autoMinRequiredRolls?: boolean }).autoMinRequiredRolls === false
+    const manual = clampAggregateRollRequirement((next as { minRequiredRolls?: number }).minRequiredRolls ?? 0)
+    if (manualActive && manual > 0 && manual <= locked) {
+      return {
+        ...next,
+        minRequiredRolls: 0 as BuilderConfig['minRequiredRolls'],
+        autoMinRequiredRolls: false,
+      }
+    }
+    return next
+  } catch {
+    return next
+  }
+}
+
 /**
  * Keep min/max level milestones within the allowed window and maintain `min <= max`.
  * Falls back to the builder defaults (0/16) when values are missing or invalid.

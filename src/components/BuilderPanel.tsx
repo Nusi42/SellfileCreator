@@ -34,6 +34,7 @@ import {
 import {
   canEnableSubstatFlex,
   isMilestoneThresholdsActive,
+  normalizeAggregateRollTargets,
   normalizeAutoRaritySupplements,
   normalizeAutoSubstatFlex,
   normalizeKeepMode,
@@ -41,6 +42,15 @@ import {
   normalizeSubstatMinTarget,
   type AutoRaritySupplementsThreshold,
 } from '../lib/configNormalization'
+import {
+  aggregateRollStateFromConfig,
+  aggregateRollStateToConfig,
+  applyAggregateRollAction,
+  clampAggregateRollValue,
+  normalizeAggregateRollState as normalizeAggregateRollStateHelper,
+  type AggregateRollAction,
+  type AggregateRollState,
+} from '../lib/aggregateRollState'
 import { type Metaset, metasetGlyph, orderMetasetIds } from '../lib/metasets'
 import { fingerprintConfigForRules } from '../lib/ruleCache'
 
@@ -104,7 +114,6 @@ const MULTI_VALUE_SENTINEL = '__multi__mixed__'
 const MIN_REQUIRED_ROLL_OPTIONS = [0, 1, 2, 3, 4, 5] as const
 const REQUIRED_SUBSTAT_MIN_OPTIONS = [1, 2, 3, 4] as const
 type TriStateBase = 'all' | 'mixed' | 'none'
-
 const EMPTY_SELECTION: readonly number[] = []
 
 const deriveBaseTriState = (count: number, total: number): TriStateBase => {
@@ -707,7 +716,8 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
   }, [])
   const normalizeKeepWithAuto = React.useCallback((next: BuilderConfig): BuilderConfig => {
     const withKeep = normalizeKeepMode(next)
-    const withSubstatTarget = normalizeSubstatMinTarget(withKeep)
+    const withAggregate = normalizeAggregateRollTargets(withKeep)
+    const withSubstatTarget = normalizeSubstatMinTarget(withAggregate)
     const shouldApplyAuto = (withSubstatTarget.rarityMode === 'auto')
       && ((withSubstatTarget.earlyKeepMode ?? 'early') === 'late')
       && isMilestoneThresholdsActive(withSubstatTarget)
@@ -718,49 +728,57 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
     )
     return normalizeAutoSubstatFlex(withAuto)
   }, [pickAutoRarityFallback])
-  const clampMinRollValue = (value: number): 0 | 1 | 2 | 3 | 4 | 5 => {
-    const rounded = Math.round(value)
-    const clamped = Math.max(0, Math.min(5, rounded))
-    return clamped as 0 | 1 | 2 | 3 | 4 | 5
-  }
+  const commitRollState = React.useCallback((nextState: AggregateRollState) => {
+    onChange(normalizeKeepWithAuto({
+      ...cfg,
+      ...aggregateRollStateToConfig(nextState),
+    }))
+  }, [cfg, normalizeKeepWithAuto, onChange])
+
+  const readMultiRollState = React.useCallback((): AggregateRollState | null => {
+    if (!multiEditActive) return null
+    const autoField = multiAutoMinRequiredRollsField
+    const manualField = multiMinRequiredRollsField
+    const lockedField = multiLockedMinRequiredRollsField
+    if (autoField?.status === 'common' && manualField?.status === 'common' && lockedField?.status === 'common') {
+      return normalizeAggregateRollStateHelper({
+        auto: autoField.value !== false,
+        manual: clampAggregateRollValue(manualField.value ?? 0),
+        locked: clampAggregateRollValue(lockedField.value ?? 0),
+      })
+    }
+    return null
+  }, [multiAutoMinRequiredRollsField, multiEditActive, multiLockedMinRequiredRollsField, multiMinRequiredRollsField])
+
+  const commitMultiRollState = React.useCallback((nextState: AggregateRollState) => {
+    if (!multiEditActive || !multiEdit) return
+    const normalizedState = normalizeAggregateRollStateHelper(nextState)
+    multiEdit.updateField('autoMinRequiredRolls', { value: normalizedState.auto ? true : false, status: 'common' })
+    multiEdit.updateField('minRequiredRolls', { value: normalizedState.manual, status: 'common' })
+    multiEdit.updateField('lockedMinRequiredRolls', { value: normalizedState.locked, status: 'common' })
+  }, [multiEdit, multiEditActive])
+
+  const applyRollAction = React.useCallback((action: AggregateRollAction) => {
+    if (multiEditActive && multiEdit) {
+      const baseState = readMultiRollState() ?? aggregateRollStateFromConfig(cfg)
+      commitMultiRollState(applyAggregateRollAction(baseState, action))
+      return
+    }
+    const currentState = aggregateRollStateFromConfig(cfg)
+    commitRollState(applyAggregateRollAction(currentState, action))
+  }, [cfg, commitMultiRollState, commitRollState, multiEdit, multiEditActive, readMultiRollState])
+
   const handleAutoMinRequiredRolls = React.useCallback(() => {
-    if (multiEditActive && multiEdit) {
-      multiEdit.updateField('autoMinRequiredRolls', { value: true, status: 'common' })
-      multiEdit.updateField('minRequiredRolls', { value: 0 as BuilderConfig['minRequiredRolls'], status: 'common' })
-      return
-    }
-    onChange(normalizeKeepWithAuto({
-      ...cfg,
-      autoMinRequiredRolls: true,
-      minRequiredRolls: 0,
-    }))
-  }, [cfg, multiEdit, multiEditActive, normalizeKeepWithAuto, onChange])
+    applyRollAction({ type: 'set-auto' })
+  }, [applyRollAction])
+
   const handleManualMinRequiredRolls = React.useCallback((value: number) => {
-    const next = clampMinRollValue(value)
-    if (multiEditActive && multiEdit) {
-      multiEdit.updateField('autoMinRequiredRolls', { value: false, status: 'common' })
-      multiEdit.updateField('minRequiredRolls', { value: next, status: 'common' })
-      return
-    }
-    onChange(normalizeKeepWithAuto({
-      ...cfg,
-      autoMinRequiredRolls: false,
-      minRequiredRolls: next,
-    }))
-  }, [cfg, multiEdit, multiEditActive, normalizeKeepWithAuto, onChange])
+    applyRollAction({ type: 'toggle-manual', value: clampAggregateRollValue(value) })
+  }, [applyRollAction])
+
   const handleLockedMinRequiredRolls = React.useCallback((value: number) => {
-    const next = clampMinRollValue(value)
-    const current = clampMinRollValue(Number(cfg.lockedMinRequiredRolls ?? 0))
-    const adjusted = current === next ? 0 : next
-    if (multiEditActive && multiEdit) {
-      multiEdit.updateField('lockedMinRequiredRolls', { value: adjusted, status: 'common' })
-      return
-    }
-    onChange(normalizeKeepWithAuto({
-      ...cfg,
-      lockedMinRequiredRolls: adjusted,
-    }))
-  }, [cfg, multiEdit, multiEditActive, normalizeKeepWithAuto, onChange])
+    applyRollAction({ type: 'toggle-lock', value: clampAggregateRollValue(value) })
+  }, [applyRollAction])
 const applySingleSubstatBounds = React.useCallback((variant: number, builder: (current: SubstatRollBoundsEntry | undefined) => SubstatRollBoundsEntry | null) => {
   const prevMap = (cfg.substatRollBoundsV ?? {}) as Record<number, SubstatRollBoundsEntry>
   const prevRaw = prevMap[variant]
@@ -1687,10 +1705,15 @@ const maxLevelValue = multiEditActive
   }, [])
   const getMinRequiredRollsTriState = React.useCallback((target: 'auto' | 0 | 1 | 2 | 3 | 4 | 5): 'on' | 'mixed' | 'off' => {
     if (!multiEditActive || !multiSourceConfigs) {
-      const auto = cfg.autoMinRequiredRolls !== false
-      if (target === 'auto') return auto ? 'on' : 'off'
-      const value = Number(cfg.minRequiredRolls ?? 0)
-      return (!auto && value === target) ? 'on' : 'off'
+      const manualActive = cfg.autoMinRequiredRolls === false
+      const manualValue = clampAggregateRollValue(Number(cfg.minRequiredRolls ?? 0))
+      const lockedValue = clampAggregateRollValue(Number(cfg.lockedMinRequiredRolls ?? 0))
+      if (target === 'auto') return manualActive ? 'off' : 'on'
+      if (!manualActive) return 'off'
+      if (target === 0) {
+        return (manualValue === 0 && lockedValue === 0) ? 'on' : 'off'
+      }
+      return manualValue === target ? 'on' : 'off'
     }
     const autoField = multiAutoMinRequiredRollsField
     const manualField = multiMinRequiredRollsField
@@ -1705,12 +1728,28 @@ const maxLevelValue = multiEditActive
         }
         if (manualField) {
           if (manualField.status === 'common') {
-            const manualValue = Number(manualField.value ?? 0)
+            const manualValue = clampAggregateRollValue(Number(manualField.value ?? 0))
+            if (target === 0) {
+              if (multiLockedMinRequiredRollsField?.status === 'common') {
+                const lockedValue = clampAggregateRollValue(Number(multiLockedMinRequiredRollsField.value ?? 0))
+                return (manualValue === 0 && lockedValue === 0) ? 'on' : 'off'
+              }
+              if (multiLockedMinRequiredRollsField?.status === 'mixed') {
+                return 'mixed'
+              }
+            }
             return manualValue === target ? 'on' : 'off'
           }
           if (manualField.status === 'mixed') {
-            const values = manualField.mixedValues ?? []
-            return values.some((entry) => Number(entry) === target) ? 'mixed' : 'off'
+            const values = (manualField.mixedValues ?? []).map((entry) => clampAggregateRollValue(Number(entry ?? 0)))
+            if (target === 0) {
+              if (multiLockedMinRequiredRollsField?.status === 'mixed') return 'mixed'
+              if (multiLockedMinRequiredRollsField?.status === 'common') {
+                const lockedValue = clampAggregateRollValue(Number(multiLockedMinRequiredRollsField.value ?? 0))
+                return values.some((value) => value === 0) && lockedValue === 0 ? 'mixed' : 'off'
+              }
+            }
+            return values.some((entry) => entry === target) ? 'mixed' : 'off'
           }
         }
         return 'off'
@@ -1727,33 +1766,48 @@ const maxLevelValue = multiEditActive
         if (auto) matches += 1
         continue
       }
-      if (!auto && Number(config.minRequiredRolls ?? 0) === target) {
-        matches += 1
+      if (!auto) {
+        const manualValue = clampAggregateRollValue(Number(config.minRequiredRolls ?? 0))
+        const lockedValue = clampAggregateRollValue(Number(config.lockedMinRequiredRolls ?? 0))
+        if (target === 0) {
+          if (manualValue === 0 && lockedValue === 0) matches += 1
+          continue
+        }
+        if (manualValue === target) {
+          matches += 1
+        }
       }
     }
     return computeTriState(matches, total)
-  }, [cfg, computeTriState, multiAutoMinRequiredRollsField, multiEditActive, multiMinRequiredRollsField, multiSourceConfigs])
+  }, [cfg, computeTriState, multiAutoMinRequiredRollsField, multiEditActive, multiLockedMinRequiredRollsField, multiMinRequiredRollsField, multiSourceConfigs])
   const getLockedMinRequiredRollsTriState = React.useCallback((target: 0 | 1 | 2 | 3 | 4 | 5): 'on' | 'mixed' | 'off' => {
+    if (target === 0) return 'off'
     if (!lockedSubstatsExist) return 'off'
     if (!multiEditActive || !multiSourceConfigs) {
-      const value = Number(cfg.lockedMinRequiredRolls ?? 0)
+      const value = clampAggregateRollValue(Number(cfg.lockedMinRequiredRolls ?? 0))
+      if (value <= 0) return 'off'
       return value === target ? 'on' : 'off'
     }
     const lockedField = multiLockedMinRequiredRollsField
     if (lockedField) {
       if (lockedField.status === 'common') {
-        const fieldValue = Number(lockedField.value ?? 0)
+        const fieldValue = clampAggregateRollValue(Number(lockedField.value ?? 0))
+        if (fieldValue <= 0) return 'off'
         return fieldValue === target ? 'on' : 'off'
       }
       if (lockedField.status === 'mixed') {
-        const values = lockedField.mixedValues ?? []
-        return values.some((entry) => Number(entry) === target) ? 'mixed' : 'off'
+        const values = (lockedField.mixedValues ?? [])
+          .map((entry) => clampAggregateRollValue(Number(entry ?? 0)))
+          .filter((value) => value > 0)
+        if (values.length === 0) return 'off'
+        return values.some((value) => value === target) ? 'mixed' : 'off'
       }
     }
     const total = multiSourceConfigs.length
     let matches = 0
     for (const config of multiSourceConfigs) {
-      if (Number(config.lockedMinRequiredRolls ?? 0) === target) {
+      const value = clampAggregateRollValue(Number(config.lockedMinRequiredRolls ?? 0))
+      if (value > 0 && value === target) {
         matches += 1
       }
     }
@@ -2359,13 +2413,13 @@ const maxLevelValue = multiEditActive
     }
   }, [canFlexSubstats, cfg, onChange])
   useEffect(() => {
-    const fixed = Array.isArray((cfg as unknown as { fixedSubstatsV?: number[] }).fixedSubstatsV)
-      ? ((cfg as unknown as { fixedSubstatsV?: number[] }).fixedSubstatsV as number[])
-      : []
-    if (fixed.length === 0 && ((cfg as unknown as { substatMinTarget?: 'locked' | 'selected' }).substatMinTarget === 'locked')) {
-      onChange({ ...cfg, substatMinTarget: 'selected' })
-    }
-  }, [cfg, onChange])
+    const desiredTarget = ((Number(cfg.lockedMinRequiredRolls ?? 0) > 0) && lockedSubstatsExist)
+      ? 'locked'
+      : 'selected'
+    const currentTarget = ((cfg as unknown as { substatMinTarget?: 'locked' | 'selected' }).substatMinTarget ?? 'selected')
+    if (currentTarget === desiredTarget) return
+    onChange({ ...cfg, substatMinTarget: desiredTarget })
+  }, [cfg, lockedSubstatsExist, onChange])
   // Note: We no longer color the stat toggle button borders. The preference
   // now controls coloring of stat texts in chips and preview only.
   const buttonBorderSx = (_variant: number) => {
@@ -5882,71 +5936,12 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
             {/* Min Required Rolls */}
             <FormControl sx={{ m: 0 }}>
               {(() => {
-                const baseLockedCount = singleLockedCount
-                const baseTarget = ((cfg as unknown as { substatMinTarget?: 'locked' | 'selected' }).substatMinTarget === 'locked') ? 'locked' : 'selected'
-                type LockChipState = 'locked' | 'available' | 'disabled' | 'mixed'
-                let chipState: LockChipState
-                let chipEnabled: boolean
-                if (!multiEditActive || !multiSourceConfigs) {
-                  chipEnabled = baseLockedCount > 0
-                  chipState = (() => {
-                    if (!chipEnabled) return 'disabled'
-                    return baseTarget === 'locked' ? 'locked' : 'available'
-                  })()
-                } else {
-                  const total = multiSourceConfigs.length
-                  let lockedEligible = 0
-                  let lockedTargetCount = 0
-                  let selectedTargetCount = 0
-                  for (const config of multiSourceConfigs) {
-                    const locked = Array.isArray(config.fixedSubstatsV) ? config.fixedSubstatsV.length : 0
-                    const target = (config.substatMinTarget ?? 'selected') === 'locked' ? 'locked' : 'selected'
-                    if (locked > 0) lockedEligible += 1
-                    if (target === 'locked') {
-                      lockedTargetCount += 1
-                    } else {
-                      selectedTargetCount += 1
-                    }
-                  }
-                chipEnabled = lockedEligible > 0
-                if (!chipEnabled) {
-                  chipState = 'disabled'
-                } else if (lockedTargetCount === total) {
-                  chipState = 'locked'
-                } else if (selectedTargetCount === total) {
-                  chipState = 'available'
-                } else {
-                  chipState = 'mixed'
-                }
-                if (chipEnabled) {
-                  const stagedTarget = multiFields?.substatMinTarget
-                  if (stagedTarget) {
-                    if (stagedTarget.status === 'common') {
-                      chipState = (stagedTarget.value === 'locked') ? 'locked' : 'available'
-                    } else if (stagedTarget.status === 'mixed') {
-                      chipState = 'mixed'
-                    }
-                  }
-                }
-                }
-                const label = chipState === 'locked'
-                  ? t('builderMinRequiredRollsChipLocked')
-                  : t('builderMinRequiredRollsChipSelected')
-                const tooltipLines = (() => {
-                  switch (chipState) {
-                    case 'locked':
-                      return [t('builderMinRequiredRollsChipLockedTooltip')]
-                    case 'available':
-                      return [t('builderMinRequiredRollsChipSelectedTooltip')]
-                    case 'disabled':
-                      return [t('builderMinRequiredRollsChipDisabledTooltip')]
-                    default:
-                      return [
-                        t('builderMinRequiredRollsChipSelectedTooltip'),
-                        t('builderMultiMixedTriStateHint'),
-                      ]
-                  }
-                })()
+                const tooltipLines = [
+                  t('builderMinRequiredRollsTipSummary'),
+                  `• ${t('builderMinRequiredRollsTip1')}`,
+                  `• ${t('builderMinRequiredRollsTip2')}`,
+                  t('builderMultiMixedTooltipSuffix'),
+                ]
                 const resolvedLockedMin = (() => {
                   const source = multiEditActive && multiLockedMinRequiredRollsField
                     ? multiLockedMinRequiredRollsField
@@ -5966,35 +5961,12 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                   tooltipLines.push(t('builderLockedMinRequiredRollsLabel', { count: resolvedLockedMin }))
                 }
                 const tooltipContent = (<BuilderTooltipContent text={tooltipLines.join('\n')} />)
-                const nextLockIcon = chipState === 'locked' ? <LockIcon fontSize="small" /> : <LockOpenOutlinedIcon fontSize="small" />
-                const handleToggleTarget = () => {
-                  if (!chipEnabled) return
-                  if (multiEditActive && multiEdit) {
-                    const next = chipState === 'locked' ? 'selected' : 'locked'
-                    multiEdit.updateField('substatMinTarget', { value: next as BuilderConfig['substatMinTarget'], status: 'common' })
-                    return
-                  }
-                  const next = baseTarget === 'locked' ? 'selected' : 'locked'
-                  onChange(normalizeKeepWithAuto({ ...cfg, substatMinTarget: next }))
-                }
-                const currentTargetForAria = chipState === 'locked' ? 'locked' : 'selected'
+                const lockIconEnabled = lockedSubstatsExist
                 const autoState = getMinRequiredRollsTriState('auto')
                 return (
                   <>
                     <FormLabel sx={{ mb: 0.5 }} data-tour-id="builder.min-rolls.label">
-                      <Tooltip
-                        title={(
-                          <BuilderTooltipContent
-                            text={[
-                              t('builderMinRequiredRollsTipSummary'),
-                              `• ${t('builderMinRequiredRollsTip1')}`,
-                              `• ${t('builderMinRequiredRollsTip2')}`,
-                              `• ${t('builderMinRequiredRollsTip3')}`,
-                              t('builderMultiMixedTooltipSuffix'),
-                            ].join('\n')}
-                          />
-                        )}
-                      >
+                      <Tooltip title={tooltipContent}>
                         <span>{t('builderMinRequiredRolls')}</span>
                       </Tooltip>
                     </FormLabel>
@@ -6033,25 +6005,28 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                         const lockedActive = lockedState === 'on'
                         const isSelected = manualActive || lockedActive
                         const isMixed = manualState === 'mixed' || lockedState === 'mixed'
-                        const lockTooltip = lockedActive
-                          ? t('builderMinRequiredRollsLockIconClear')
-                          : chipEnabled
-                            ? t('builderMinRequiredRollsLockIconSet', { count: n })
-                            : t('builderMinRequiredRollsLockIconDisabled')
+                        const lockable = n > 0
+                        const lockTooltip = !lockable
+                          ? ''
+                          : lockedActive
+                            ? t('builderMinRequiredRollsLockIconClear')
+                            : lockIconEnabled
+                              ? t('builderMinRequiredRollsLockIconSet', { count: n })
+                              : t('builderMinRequiredRollsLockIconDisabled')
                         return (
-                      <ToggleButton
-                        key={n}
-                        value={String(n)}
-                        selected={isSelected}
-                        onClick={() => handleManualMinRequiredRolls(n)}
-                        sx={(theme) => ({
-                          position: 'relative',
-                          minWidth: 24,
-                          padding: 0,
-                          overflow: 'visible',
-                          ...(manualActive || lockedActive
-                            ? { fontWeight: theme.typography.fontWeightMedium ?? 500 }
-                            : {}),
+                          <ToggleButton
+                            key={n}
+                            value={String(n)}
+                            selected={isSelected}
+                            onClick={() => handleManualMinRequiredRolls(n)}
+                            sx={(theme) => ({
+                              position: 'relative',
+                              minWidth: 24,
+                              padding: 0,
+                              overflow: 'visible',
+                              ...(manualActive || lockedActive
+                                ? { fontWeight: theme.typography.fontWeightMedium ?? 500 }
+                                : {}),
                               ...(isMixed ? {
                                 borderStyle: 'dashed',
                                 borderColor: mixedBorderColor,
@@ -6062,95 +6037,68 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                             <Box component="span" sx={{ fontSize: FONT_SIZE_BASE_PX }}>
                               {n}
                             </Box>
-                            <Tooltip
-                              title={lockTooltip}
-                              disableHoverListener={!chipEnabled}
-                              arrow
-                            >
-                              <IconButton
-                                className="builder-min-roll-lock-icon"
-                                size="small"
-                                aria-label={lockTooltip}
-                                onClick={(event) => {
-                                  event.preventDefault()
-                                  event.stopPropagation()
-                                  if (!chipEnabled) return
-                                  handleLockedMinRequiredRolls(n)
-                                }}
-                                disabled={!chipEnabled}
-                                data-tour-id={`builder.min-rolls.lock-icon.${n}`}
-                                sx={(theme) => {
-                                  const glow = alpha(theme.palette.text.primary, theme.palette.mode === 'dark' ? 0.22 : 0.14)
-                                  return {
-                                    position: 'absolute',
-                                    top: -13,
-                                    left: -10,
-                                    width: LOCK_TOGGLE_HIT_SIZE_PX,
-                                    height: LOCK_TOGGLE_HIT_SIZE_PX,
-                                    p: 0,
-                                    pointerEvents: chipEnabled ? 'auto' : 'none',
-                                    borderRadius: LOCK_TOGGLE_HIT_SIZE_PX / 2,
-                                    opacity: lockedActive ? 1 : 0,
-                                    visibility: chipEnabled ? 'visible' : 'hidden',
-                                    transition: 'background-color .15s, box-shadow .15s, opacity .15s, visibility .15s',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    backgroundColor: 'transparent',
-                                    color: '#fff',
-                                    cursor: chipEnabled ? 'pointer' : 'default',
-                                    '--sub-lock-hover-opacity': lockedActive ? 1 : 0,
-                                    boxShadow: `0px 2px 1px -1px rgba(0,0,0,0.2),0px 1px 1px 0px rgba(0,0,0,0.14),0px 1px 3px 0px rgba(0,0,0,0.12)`,
-                                    '& svg': {
-                                      fontSize: 14,
-                                    },
-                                    '&:hover, &:focus-visible': {
-                                      opacity: chipEnabled ? 1 : 0,
-                                      visibility: chipEnabled ? 'visible' : 'hidden',
-                                      backgroundColor: glow,
-                                      boxShadow: `0 0 0 1px ${glow}`,
-                                    },
-                                    '&:focus-visible': {
-                                      outline: 'none',
-                                    },
-                                  }
-                                }}
+                            {lockable ? (
+                              <Tooltip
+                                title={lockTooltip}
+                                disableHoverListener={!lockIconEnabled}
+                                arrow
                               >
-                                {lockedActive ? <LockIcon fontSize="small" /> : <LockOpenOutlinedIcon fontSize="small" />}
-                              </IconButton>
-                            </Tooltip>
+                                <IconButton
+                                  className="builder-min-roll-lock-icon"
+                                  size="small"
+                                  aria-label={lockTooltip || undefined}
+                                  onClick={(event) => {
+                                    event.preventDefault()
+                                    event.stopPropagation()
+                                    if (!lockIconEnabled) return
+                                    handleLockedMinRequiredRolls(n)
+                                  }}
+                                  disabled={!lockIconEnabled}
+                                  data-tour-id={`builder.min-rolls.lock-icon.${n}`}
+                                  sx={(theme) => {
+                                    const glow = alpha(theme.palette.text.primary, theme.palette.mode === 'dark' ? 0.22 : 0.14)
+                                    return {
+                                      position: 'absolute',
+                                      top: -13,
+                                      left: -10,
+                                      width: LOCK_TOGGLE_HIT_SIZE_PX,
+                                      height: LOCK_TOGGLE_HIT_SIZE_PX,
+                                      p: 0,
+                                      pointerEvents: lockIconEnabled ? 'auto' : 'none',
+                                      borderRadius: LOCK_TOGGLE_HIT_SIZE_PX / 2,
+                                      opacity: lockedActive ? 1 : 0,
+                                      visibility: lockIconEnabled ? 'visible' : 'hidden',
+                                      transition: 'background-color .15s, box-shadow .15s, opacity .15s, visibility .15s',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'center',
+                                      backgroundColor: 'transparent',
+                                      color: '#fff',
+                                      cursor: lockIconEnabled ? 'pointer' : 'default',
+                                      '--sub-lock-hover-opacity': lockedActive ? 1 : 0,
+                                      boxShadow: `0px 2px 1px -1px rgba(0,0,0,0.2),0px 1px 1px 0px rgba(0,0,0,0.14),0px 1px 3px 0px rgba(0,0,0,0.12)`,
+                                      '& svg': {
+                                        fontSize: 14,
+                                      },
+                                      '&:hover, &:focus-visible': {
+                                        opacity: lockIconEnabled ? 1 : 0,
+                                        visibility: lockIconEnabled ? 'visible' : 'hidden',
+                                        backgroundColor: glow,
+                                        boxShadow: `0 0 0 1px ${glow}`,
+                                      },
+                                      '&:focus-visible': {
+                                        outline: 'none',
+                                      },
+                                    }
+                                  }}
+                                >
+                                  {lockedActive ? <LockIcon fontSize="small" /> : <LockOpenOutlinedIcon fontSize="small" />}
+                                </IconButton>
+                              </Tooltip>
+                            ) : null}
                           </ToggleButton>
                         )
                       })}
-                    </Box>
-                    <Box sx={{ mt: 0.5, display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                      <Tooltip title={tooltipContent}>
-                        <Box component="span" sx={{ display: 'inline-flex' }}>
-                          <Chip
-                            icon={nextLockIcon}
-                            label={label}
-                            size="small"
-                            variant="filled"
-                            clickable={chipEnabled}
-                            onClick={chipEnabled ? handleToggleTarget : undefined}
-                            disabled={!chipEnabled}
-                            aria-pressed={chipState === 'locked'}
-                            aria-label={t('builderMinRequiredRollsToggleAria', { target: currentTargetForAria })}
-                            data-tour-id="builder.min-rolls.toggle"
-                            sx={{
-                              ...(builderToggleChipSx(chipEnabled) as SystemStyleObject<Theme>),
-                              ...(chipState === 'mixed'
-                                ? {
-                                    borderStyle: 'dashed',
-                                    borderColor: mixedBorderColor,
-                                    color: mixedTextColor,
-                                    backgroundImage: `linear-gradient(135deg, ${mixedPatternColor} 50%, transparent 50%)`,
-                                  } as SystemStyleObject<Theme>
-                                : {}),
-                            }}
-                          />
-                        </Box>
-                      </Tooltip>
                     </Box>
                   </>
                 )

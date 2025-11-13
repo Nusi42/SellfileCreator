@@ -9,7 +9,7 @@
  * This module deliberately contains only HSFC read/write concerns to keep UI code tidy.
  */
 import { normalizeExportModeFields, resolveExportModeField, coerceSellfileExportModeToken, normalizeRollTargetEntry, type BuilderConfig, type SubstatTargetTable, type SellfileExportMode, type Star, type SubstatRollTargetEntry, type SubstatRollTargets } from './hsfBuilder'
-import { normalizeKeepMode, normalizeAutoRaritySupplements, isMilestoneThresholdsActive, canEnableSubstatFlex, normalizeSubstatMinTarget, normalizeAutoSubstatFlex } from './configNormalization'
+import { normalizeKeepMode, normalizeAutoRaritySupplements, isMilestoneThresholdsActive, canEnableSubstatFlex, normalizeSubstatMinTarget, normalizeAutoSubstatFlex, normalizeAggregateRollTargets } from './configNormalization'
 import { FINAL_SELL_DEFAULT_LEVELS, RARITY_AUTO_LABEL } from './constants'
 import { DEFAULT_METASET_ICON_ID, normalizeMetasetIconId } from './metasetIcons'
 import { orderMetasetIds, type Metaset } from './metasets'
@@ -368,6 +368,7 @@ export function normalizeConfig(input: unknown): BuilderConfig {
   normalized = normalizeExportModeFields(normalized as unknown as Record<string, unknown>) as unknown as BuilderConfig
   // Coerce keep mode to 'early' when thresholds are inactive to match UI behavior
   normalized = normalizeKeepMode(normalized)
+  normalized = normalizeAggregateRollTargets(normalized)
   normalized = normalizeAutoSubstatFlex(normalized)
   normalized = normalizeSubstatMinTarget(normalized)
   // Remove auto rarity supplements flag when not applicable (not Auto, not Late, or thresholds inactive)

@@ -5,6 +5,7 @@ import assert from 'node:assert/strict'
 
 import { buildHsfRules, resolveAutoRarityCode, type BuilderConfig } from '../src/lib/hsfBuilder'
 import { RankCode, RarityCode, StatVariant } from '../src/lib/types'
+import { normalizeAggregateRollTargets } from '../src/lib/configNormalization'
 
 const baseBuilderConfig = (overrides: Partial<BuilderConfig> = {}): BuilderConfig => ({
   keep: true,
@@ -45,6 +46,26 @@ test('lockedMinRequiredRolls raises Auto rarity even when global min is lower', 
     lockedMinRequiredRolls: 3,
   })
   assert.equal(withLockedMin, RarityCode.GTE_Epic, 'locked min should promote auto rarity to ≥ Epic')
+})
+
+test('aggregate normalization clears manual when locked exceeds manual', () => {
+  const cfg = normalizeAggregateRollTargets(baseBuilderConfig({
+    minRequiredRolls: 2,
+    autoMinRequiredRolls: false,
+    lockedMinRequiredRolls: 4,
+  }))
+  assert.equal(cfg.minRequiredRolls, 0, 'manual requirement should clear when it does not exceed the locked value')
+  assert.equal(cfg.lockedMinRequiredRolls, 4, 'locked requirement stays at the requested value')
+})
+
+test('aggregate normalization clears manual when totals match', () => {
+  const cfg = normalizeAggregateRollTargets(baseBuilderConfig({
+    minRequiredRolls: 3,
+    autoMinRequiredRolls: false,
+    lockedMinRequiredRolls: 3,
+  }))
+  assert.equal(cfg.minRequiredRolls, 0)
+  assert.equal(cfg.lockedMinRequiredRolls, 3, 'locked requirement remains at the requested value when manual clears')
 })
 
 export {}

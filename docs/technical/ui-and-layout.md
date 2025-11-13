@@ -90,7 +90,18 @@ This document outlines contributors' responsibilities for UI behavior, layout, a
 - Existing configs keep their saved flex state; the scratch builder alone auto-enables flex when a fresh combo first becomes eligible.
 - Builder permutations stay minimal even with flex: combos that never roll optional stats are skipped so the smaller locked/core combo remains the keeper. Optional stats demanding rolls still generate their own rows.
 - Canonicalization happens once through `canonicalizeRuleSelectors()` so pruning and dedupe logic never drift.
-- `Min Required Rolls` toggle cluster enforces aggregate roll floors. Distributions failing the aggregate are filtered in Strict mode; Potential/Early keeps early rows only when the aggregate is still attainable by +16. Auto derives the floor from your required substats (two or more) but caps it by the current rarity’s roll budget so edits stay feasible; single-stat configs remain at zero. UI separates the label hover target from the lock icon.
+- `Min Required Rolls` now has two distinct concepts:
+  - **Global Min Required Rolls (GMRR):** the numeric buttons (0‑5). Selecting one sets the aggregate floor and turns Auto off. Only one number is ever highlighted and it never carries a lock icon.
+  - **Locked Min Required Rolls (LMRR):** the lock icon perched over the numeric buttons. Only one lock can exist; locking a number greater than or equal to the current GMRR clears the GMRR (while keeping Auto off) so “locked” and “total” never contradict each other. Unlocking restores the button highlight when GMRR had been cleared purely because of the lock.
+  - **Auto GMRR:** the Auto button. Clicking it always clears both GMRR and LMR. Clicking an already-selected numeric button also returns to Auto (and clears any lock) so the control never gets stuck in a quasi-manual state.
+- Additional rules enforced in the UI and normalization:
+  - Locking a new value first replaces any existing lock, then clears the numeric selection only if the lock would otherwise exceed or match it.
+  - Selecting a numeric value lower than the current lock clears the lock (the button stays highlighted).
+  - Clicking the active lock again clears it and re-highlights that number as the new GMRR when none was selected.
+  - GMRR = 0 is treated as a real manual value (the `0` button lights up) but the lock icon is hidden for that button. A lock never makes the `0` button appear highlighted.
+  - Auto + lock cannot coexist: triggering Auto always resets both knobs.
+  - HSFC imports/clipboard pastes run through the same invariants so configs never load with “lock ≥ total” or multiple locks.
+  - Distributions still fail Fast/Strict filtering when the aggregate cannot be reached by +16; Potential/Early keeps partial rows only when the aggregate is still attainable.
 - Defaults: `keep=true`, `rankCode=0`, `rarityCode=0`, `mainStatsV=[]`, `minLevel=0`, `maxLevel=16`, `rollMode='auto'`, `minCount=0`, `autoMinCount=true`, `substatsV=[]`, `artifactTypes=[]`, `artifactSets=[]`.
 - Reset defaults restore the above and clear type/set/faction selections.
 - Config chips occupy a scrollable container (≈6 chips). Adding a new config selects it and scrolls it into view without moving the page.
