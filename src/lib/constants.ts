@@ -350,6 +350,9 @@ export const RULES_TABLE_SHOW_SLOT_ICONS_KEY = 'sellfileCreator.rulesTable.slotI
 export const RULES_TABLE_SHOW_SET_ICONS_KEY = 'sellfileCreator.rulesTable.setIcons.v2'
 export const RULES_TABLE_SHOW_FACTION_ICONS_KEY = 'sellfileCreator.rulesTable.factionIcons.v1'
 export const TESTER_PREVIEW_LAYOUT_KEY = 'sellfileCreator.tester.previewLayout.v1'
+export const TESTER_GRID_COLUMNS_KEY = 'sellfileCreator.tester.grid.columns.v1'
+export const TESTER_GRID_SHOW_FIRST_MATCH_KEY = 'sellfileCreator.tester.grid.showFirstMatch.v1'
+export const TESTER_GRID_SHOW_OTHER_MATCHES_KEY = 'sellfileCreator.tester.grid.showOtherMatches.v1'
 
 // Fixed width for Faction Select in the Rules filter
 // Why: Keep the input width stable regardless of selected label lengths,

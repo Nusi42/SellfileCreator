@@ -3462,8 +3462,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                 filterActive={testerFilterActive || testerConfigFilterActive}
                 substatColors={substatColors}
                 useStatButtonColors={statButtonBorders}
+                testerBuilding={testerBuilding}
                 onToggleStatColors={setStatButtonBorders}
                 onOpenManageColors={openColors}
+                colorBlindMode={colorBlindMode}
+                onChangeColorBlindMode={setColorBlindMode}
                 colorIconSrc={colorIconSrc}
                 configNames={testerConfigNames}
                 onJumpToRule={handleTesterRuleView}
