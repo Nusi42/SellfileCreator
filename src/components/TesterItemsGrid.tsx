@@ -1233,7 +1233,7 @@ const TesterGridCard = React.memo(function TesterGridCard({
     () => getTesterGridCardColumnHeights(theme, gridColumnCount),
     [theme, gridColumnCount],
   )
-  const cardOutcome = match
+  const cardOutcome = !testerBuilding && match
     ? {
         tone: match.keep === false ? theme.palette.error.main : theme.palette.success.main,
         glyph: match.keep === false ? <SellIcon fontSize="inherit" aria-hidden /> : '✓',
