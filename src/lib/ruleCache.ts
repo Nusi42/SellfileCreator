@@ -12,11 +12,8 @@ import { countRulesForConfig } from './ruleCacheHelpers'
 import type { BuilderConfig, SubstatTargetTable } from './hsfBuilder'
 import type { Metaset } from './metasets'
 import { resolveMetasetIds } from './metasets'
-import {
-  compareArtifactSets,
-  compareArtifactTypes,
-  compareVariants,
-} from './types'
+import { compareVariants } from './types'
+import { buildCanonicalConfigSnapshot } from './configSnapshot'
 
 /** Cache entry keyed by a stable fingerprint for a single config. */
 export type ConfigRuleCacheEntry = {
@@ -314,102 +311,8 @@ export function mergeArtifactSets(config: BuilderConfig, metasets: readonly Meta
  * selection order) do not invalidate the cache unnecessarily.
  */
 function configFingerprint(config: BuilderConfig, substatTargetsKey: string): string {
-  const canonical = canonicalizeConfig(config)
+  const canonical = buildCanonicalConfigSnapshot(config)
   return JSON.stringify({ cfg: canonical, substatTargets: substatTargetsKey })
-}
-
-function canonicalizeConfig(config: BuilderConfig): Record<string, unknown> {
-  const snapshot: Record<string, unknown> = {
-    keep: Boolean(config.keep),
-    exportMode: config.exportMode ?? 'active',
-    minLevel: config.minLevel ?? null,
-    maxLevel: config.maxLevel ?? null,
-    rankCode: Number(config.rankCode ?? 0),
-    rarityCode: Number(config.rarityCode ?? 0),
-    rarityMode: config.rarityMode ?? 'code',
-    autoRaritySupplementsThreshold: (config as { autoRaritySupplementsThreshold?: 'uncommon' | 'rare' | 'epic' }).autoRaritySupplementsThreshold ?? 'rare',
-    factionCode: Number(config.factionCode ?? 0),
-    minCount: Number(config.minCount ?? 0),
-    autoMinCount: Boolean(config.autoMinCount ?? false),
-    autoSubstatFlex: Boolean(config.autoSubstatFlex ?? false),
-    minRequiredRolls: Number(config.minRequiredRolls ?? 0),
-    autoMinRequiredRolls: config.autoMinRequiredRolls !== false,
-    artifactTypes: sortedNumbers(config.artifactTypes ?? [], compareArtifactTypes),
-    artifactSets: sortedNumbers(config.artifactSets ?? [], compareArtifactSets),
-    artifactMetaSets: sortedStrings(config.artifactMetaSets ?? []),
-    earlyKeepMode: config.earlyKeepMode ?? 'early',
-    mainStatsV: sortedNumbers(config.mainStatsV ?? [], compareVariants),
-    substatsV: sortedNumbers(config.substatsV ?? [], compareVariants),
-    fixedSubstatsV: sortedNumbers(config.fixedSubstatsV ?? [], compareVariants),
-  }
-  if (config.substatRollBoundsV && typeof config.substatRollBoundsV === 'object') {
-    snapshot.substatRollBoundsV = canonicalizeRollBounds(config.substatRollBoundsV)
-  }
-  if (config.substatRollTargetsV && typeof config.substatRollTargetsV === 'object') {
-    const normalizedTargets = canonicalizeRollTargets(config.substatRollTargetsV)
-    if (normalizedTargets.length > 0) {
-      snapshot.substatRollTargetsV = normalizedTargets
-    }
-  }
-  return snapshot
-}
-
-function sortedNumbers<T extends number>(
-  values: readonly T[],
-  comparator: (a: number, b: number) => number,
-): number[] {
-  const list = values.map(Number)
-  list.sort(comparator)
-  return list
-}
-
-function sortedStrings(values: readonly string[]): string[] {
-  const list = values.map(String)
-  list.sort()
-  return list
-}
-
-function canonicalizeRollBounds(bounds: Record<number, { min?: number; max?: number; any?: boolean }>): Array<[number, { min?: number; max?: number; any?: boolean }]> {
-  const entries = Object.entries(bounds)
-    .map(([raw, value]) => {
-      const variant = Number(raw)
-      const normalized: { min?: number; max?: number; any?: boolean } = {}
-      if (typeof value?.min === 'number') normalized.min = Math.max(0, Math.floor(value.min))
-      if (typeof value?.max === 'number') normalized.max = Math.max(0, Math.floor(value.max))
-      if (value?.any) normalized.any = true
-      return [variant, normalized] as [number, { min?: number; max?: number; any?: boolean }]
-    })
-  entries.sort((a, b) => compareVariants(Number(a[0]), Number(b[0])))
-  return entries
-}
-
-function canonicalizeRollTargets(
-  targets: Record<number, { base?: number; increments?: Array<number | null> }>,
-): Array<[number, { base?: number; increments?: number[] }]> {
-  const entries: Array<[number, { base?: number; increments?: number[] }]> = []
-  for (const [raw, entry] of Object.entries(targets)) {
-    if (!entry) continue
-    const variant = Number(raw)
-    const normalized: { base?: number; increments?: number[] } = {}
-    if (typeof entry.base === 'number' && Number.isFinite(entry.base)) {
-      normalized.base = Math.round(entry.base)
-    }
-    if (Array.isArray(entry.increments)) {
-      const increments = entry.increments.map((value) => (
-        typeof value === 'number' && Number.isFinite(value) ? Math.round(value) : null
-      ))
-      while (increments.length > 0 && increments[increments.length - 1] == null) {
-        increments.pop()
-      }
-      if (increments.length > 0) {
-        normalized.increments = increments as number[]
-      }
-    }
-    if (normalized.base == null && !normalized.increments) continue
-    entries.push([variant, normalized])
-  }
-  entries.sort((a, b) => compareVariants(a[0], b[0]))
-  return entries
 }
 
 /**

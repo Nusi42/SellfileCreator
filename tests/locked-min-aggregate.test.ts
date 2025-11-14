@@ -112,12 +112,24 @@ test('duplicate detection treats lockedMinRequiredRolls as part of the identity'
     substatsV: [StatVariant.SPD, StatVariant.CR, StatVariant.HP],
     fixedSubstatsV: [StatVariant.SPD, StatVariant.CR],
   })
-  const cfgB: BuilderConfig = {
-    ...cfgA,
-    lockedMinRequiredRolls: 3,
-  }
+  const cfgB: BuilderConfig = { ...cfgA, lockedMinRequiredRolls: 3 }
   const indices = computeDuplicateIndices([cfgA, cfgB])
   assert.deepEqual(indices, [null, null], 'configs with differing locked minimums should not be treated as duplicates')
+})
+
+test('duplicate detection ignores cosmetic metadata fields', () => {
+  const cfg = baseBuilderConfig({
+    substatsV: [StatVariant.SPD, StatVariant.CR],
+    fixedSubstatsV: [StatVariant.SPD],
+  })
+  const withMetadata = { ...cfg } as BuilderConfig & Record<string, unknown>
+  withMetadata.name = 'Speed tune'
+  withMetadata.__cfgIdx_ignoredWhenRead = 7
+  withMetadata.artifactTypeNames = ['Weapon']
+  withMetadata.artifactSetNames = ['Speed']
+  withMetadata.artifactMetaSetIds = ['set/1']
+  const indices = computeDuplicateIndices([cfg, withMetadata])
+  assert.deepEqual(indices, [null, 0], 'metadata-only changes should not produce duplicate warnings')
 })
 
 export {}

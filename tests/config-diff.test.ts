@@ -1,9 +1,10 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+import type { BuilderConfig } from '../src/lib/hsfBuilder.js'
 import { hasConfigMeaningfulDifferences } from '../src/lib/configDiff.js'
 import { fingerprintConfigForRules } from '../src/lib/ruleCache.js'
 import { createHistoryBuilderBaseline } from '../src/history/builderUpdateDescriptor.js'
-import { RarityCode } from '../src/lib/types.js'
+import { RarityCode, StatVariant } from '../src/lib/types.js'
 
 const SUBSTAT_TARGETS_KEY = '::test-targets'
 
@@ -52,6 +53,27 @@ test('switching between manual and auto rarity is detectable', () => {
     hasConfigMeaningfulDifferences(auto, manual, SUBSTAT_TARGETS_KEY),
     true,
     'dirty check should flag manual vs auto rarity as a change',
+  )
+})
+
+test('lockedMinRequiredRolls changes invalidate rule fingerprints', () => {
+  const baseline = createHistoryBuilderBaseline({
+    substatsV: [StatVariant.SPD, StatVariant.CR],
+    fixedSubstatsV: [StatVariant.SPD],
+    lockedMinRequiredRolls: 1 as const,
+  })
+  const stricter: BuilderConfig = { ...baseline, lockedMinRequiredRolls: 3 as const }
+
+  assert.notEqual(
+    fingerprintConfigForRules(stricter, SUBSTAT_TARGETS_KEY),
+    fingerprintConfigForRules(baseline, SUBSTAT_TARGETS_KEY),
+    'fingerprint should change when locked minimum rolls change',
+  )
+
+  assert.equal(
+    hasConfigMeaningfulDifferences(stricter, baseline, SUBSTAT_TARGETS_KEY),
+    true,
+    'dirty check should flag locked minimum roll edits',
   )
 })
 
