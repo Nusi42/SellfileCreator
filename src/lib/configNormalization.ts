@@ -79,12 +79,12 @@ export function normalizeAutoSubstatFlex<T extends FlexConfigShape & Pick<Builde
   return cfg
 }
 
-export function isMilestoneThresholdsActive(cfg: Pick<BuilderConfig, 'substatRollBoundsV' | 'autoMinRequiredRolls' | 'minRequiredRolls'>): boolean {
+export function isMilestoneThresholdsActive(cfg: Pick<BuilderConfig, 'substatRollBoundsV' | 'autoMinRequiredRolls' | 'minRequiredRolls' | 'lockedMinRequiredRolls' | 'fixedSubstatsV'>): boolean {
   try {
-    const bV = (cfg.substatRollBoundsV ?? {}) as Record<number, { min?: number; max?: number; any?: boolean }>
-    const hasPerStatMin = Object.values(bV).some(x => typeof x?.min === 'number' && (x.min ?? 0) > 0)
-    const hasGlobalMin = (cfg.autoMinRequiredRolls === false) && typeof cfg.minRequiredRolls === 'number' && (cfg.minRequiredRolls as number) > 0
-    return hasPerStatMin || hasGlobalMin
+    if (hasSubstatThresholds(cfg)) return true
+    if (hasManualAggregateMin(cfg)) return true
+    if (isLockedAggregateActive(cfg)) return true
+    return false
   } catch {
     return false
   }
@@ -244,4 +244,36 @@ export function normalizeLevelWindow<T extends Pick<BuilderConfig, 'minLevel' | 
   if (!isLevelMilestone(max)) max = defaultMax
   if (min > max) min = max
   return { ...cfg, minLevel: min, maxLevel: max } as T
+}
+
+const hasSubstatThresholds = (cfg: Pick<BuilderConfig, 'substatRollBoundsV'>): boolean => {
+  const bV = (cfg.substatRollBoundsV ?? {}) as Record<number, { min?: number; max?: number; any?: boolean }>
+  return Object.values(bV).some((b) => typeof b?.min === 'number' && (b.min ?? 0) > 0)
+}
+
+const hasManualAggregateMin = (cfg: Pick<BuilderConfig, 'autoMinRequiredRolls' | 'minRequiredRolls'>): boolean => (
+  (cfg.autoMinRequiredRolls === false)
+  && typeof cfg.minRequiredRolls === 'number'
+  && Number.isFinite(cfg.minRequiredRolls)
+  && cfg.minRequiredRolls > 0
+)
+
+const isLockedAggregateActive = (cfg: Pick<BuilderConfig, 'lockedMinRequiredRolls' | 'fixedSubstatsV'>): boolean => {
+  const lockedValue = typeof cfg.lockedMinRequiredRolls === 'number' ? cfg.lockedMinRequiredRolls : 0
+  if (!(lockedValue > 0)) return false
+  const fixed = cfg.fixedSubstatsV ?? []
+  return Array.isArray(fixed) && fixed.length > 0
+}
+
+/**
+ * Derive the roll baseline mode from the current level window.
+ * Windows that start at +0 (the default) behave like the legacy
+ * 'afterStart' mode, while any window that begins above +0 needs to
+ * count the rolls gained before the window and therefore acts like
+ * 'upToLevel'.
+ */
+export function deriveRollBaselineMode<T extends Pick<BuilderConfig, 'minLevel' | 'maxLevel'>>(cfg: T): 'afterStart' | 'upToLevel' {
+  const defaultMin: LevelMilestone = LEVEL_MILESTONES[0]!
+  const min: LevelMilestone = isLevelMilestone(cfg.minLevel) ? cfg.minLevel! : defaultMin
+  return min <= 0 ? 'afterStart' : 'upToLevel'
 }

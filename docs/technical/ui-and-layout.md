@@ -102,7 +102,7 @@ This document outlines contributors' responsibilities for UI behavior, layout, a
   - Auto + lock cannot coexist: triggering Auto always resets both knobs.
   - HSFC imports/clipboard pastes run through the same invariants so configs never load with “lock ≥ total” or multiple locks.
   - Distributions still fail Fast/Strict filtering when the aggregate cannot be reached by +16; Potential/Early keeps partial rows only when the aggregate is still attainable.
-- Defaults: `keep=true`, `rankCode=0`, `rarityCode=0`, `mainStatsV=[]`, `minLevel=0`, `maxLevel=16`, `rollBaseline='afterStart'`, `minCount=0`, `autoMinCount=true`, `substatsV=[]`, `artifactTypes=[]`, `artifactSets=[]`.
+- Defaults: `keep=true`, `rankCode=0`, `rarityCode=0`, `mainStatsV=[]`, `minLevel=0`, `maxLevel=16`, `minCount=0`, `autoMinCount=true`, `substatsV=[]`, `artifactTypes=[]`, `artifactSets=[]`.
 - Reset defaults restore the above and clear type/set/faction selections.
 - Config chips occupy a scrollable container (≈6 chips). Adding a new config selects it and scrolls it into view without moving the page.
 - Chips support drag-and-drop reordering: the dragged chips are dimmed but keep their spot (layout stays frozen), a blue guide line shows the drop slot (vertical between chips, horizontal between rows), auto-scroll kicks in near the container edges, tooltips/context hints are suppressed during the drag, and the actual reorder only happens on drop so previews do not churn mid-drag. Press `Esc` to cancel an in-flight drag without changing the list. Hold `Ctrl` (Cmd on macOS) while dragging to duplicate the selected chips into the highlighted slot instead of moving them; the new copies become the active selection after drop.

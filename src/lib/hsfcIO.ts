@@ -239,7 +239,6 @@ export function normalizeConfig(input: unknown): BuilderConfig {
       return 0
     })(),
     mainStatsV: mainStatsVParsed as number[],
-    rollBaseline: (rec['rollBaseline'] === 'upToLevel') ? 'upToLevel' : 'afterStart',
     // Accept both new ('early'|'late') and legacy ('progressive'|'reachable') spellings.
     earlyKeepMode: ((): 'early' | 'late' => {
       const m = rec['earlyKeepMode'] as unknown

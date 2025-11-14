@@ -72,7 +72,7 @@ This document covers file schemas, builder semantics, and compatibility notes.
   - Feasibility check: if the base mapping cannot reach the required rolls by +16 given the baseline/start, Mythical is chosen when it makes the target feasible (pre-roll at +0); otherwise the base mapping is used and infeasible rows are pruned as usual.
 - Levels follow `LEVEL_MILESTONES` (0/4/8/12/16).
 - Level window: HSFC uses `minLevel` and `maxLevel` to bound emitted rules. When these fields are omitted the parser now defaults to the full `[0..16]` window.
-- Count Rolls baseline (`rollBaseline`): still parsed for legacy configs and used for roll math, but new HSFC exports do not include it.
+- Count Rolls baseline: derived from the explicit level window. When the window starts at +0, rolls are credited only after the start level (legacy “afterStart”). Windows that begin above +0 treat rolls gained before the start as already allocated (“upToLevel”). Legacy HSFC `rollBaseline` fields are tolerated but ignored.
 - Substat thresholds: base substat targets derive from the star bucket inferred from `rankCode` (see `starForRankCode`). Each “roll” adds another base target for that substat.
 - Rarity roll schedule (mapping in `rollLevelsForRarityCode`):
   - Common: none; Uncommon: [4]; Rare: [4,8]; Epic: [4,8,12]; Legendary/Mythical: [4,8,12,16].

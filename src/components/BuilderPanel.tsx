@@ -33,6 +33,7 @@ import {
 } from '../lib/hsfBuilder'
 import {
   canEnableSubstatFlex,
+  deriveRollBaselineMode,
   isMilestoneThresholdsActive,
   normalizeAggregateRollTargets,
   normalizeAutoRaritySupplements,
@@ -524,7 +525,7 @@ const clampTargetValue = (value: number | null): number | null => {
 const computeRollBudgetForConfig = (config: BuilderConfig): number => {
   const rarityCode = (config.rarityMode === 'auto') ? resolveAutoRarityCode(config) : config.rarityCode
   const rollLevels = Array.from(rollLevelsForRarityCode(rarityCode)).sort((a, b) => a - b)
-  const baselineMode = config.rollBaseline === 'upToLevel' ? 'upToLevel' : 'afterStart'
+  const baselineMode = deriveRollBaselineMode(config)
   const minLevel = normalizeLevelMilestone(config.minLevel)
   const maxLevel = normalizeLevelMilestone(config.maxLevel)
   const windowMin = Math.min(minLevel, maxLevel)
@@ -594,7 +595,6 @@ export const createFactoryBuilderDefaults = (): BuilderConfig => ({
   mainStatsV: [],
   minLevel: 0,
   maxLevel: 16,
-  rollBaseline: 'afterStart',
   earlyKeepMode: 'early',
   substatsV: [],
   fixedSubstatsV: [],
@@ -2958,7 +2958,6 @@ const maxLevelValue = multiEditActive
       (cfg as unknown as { minLevel?: LevelMilestone }).minLevel === (target as unknown as { minLevel?: LevelMilestone }).minLevel &&
       (cfg as unknown as { maxLevel?: LevelMilestone }).maxLevel === (target as unknown as { maxLevel?: LevelMilestone }).maxLevel &&
       ((cfg as unknown as { earlyKeepMode?: 'early'|'late' }).earlyKeepMode ?? 'early') === ((target as unknown as { earlyKeepMode?: 'early'|'late' }).earlyKeepMode ?? 'early') &&
-      ((cfg as unknown as { rollBaseline?: 'afterStart'|'upToLevel' }).rollBaseline ?? 'afterStart') === ((target as unknown as { rollBaseline?: 'afterStart'|'upToLevel' }).rollBaseline ?? 'afterStart') &&
       JSON.stringify(asNumArr((cfg as unknown as { substatsV?: number[] }).substatsV).slice().sort()) === JSON.stringify(asNumArr((target as unknown as { substatsV?: number[] }).substatsV).slice().sort()) &&
       JSON.stringify(asNumArr((cfg as unknown as { fixedSubstatsV?: number[] }).fixedSubstatsV).slice().sort()) === JSON.stringify(asNumArr((target as unknown as { fixedSubstatsV?: number[] }).fixedSubstatsV).slice().sort()) &&
       Number(cfg.minCount) === Number(target.minCount) &&
@@ -4790,7 +4789,7 @@ const maxLevelValue = multiEditActive
                   const baseValue = Math.max(0, baseValueRaw ?? 0)
                   const rarityCode = (config.rarityMode === 'auto') ? resolveAutoRarityCode(config) : config.rarityCode
                   const rollLevels = Array.from(rollLevelsForRarityCode(rarityCode)).sort((a, b) => a - b)
-                const baselineMode = config.rollBaseline === 'upToLevel' ? 'upToLevel' : 'afterStart'
+                const baselineMode = deriveRollBaselineMode(config)
                 const minLevel = normalizeLevel(config.minLevel)
                 const maxLevel = normalizeLevel(config.maxLevel)
                 const windowMin = Math.min(minLevel, maxLevel)
@@ -7293,7 +7292,6 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                 mainStatsV: (cfg.mainStatsV ?? []),
                 minLevel: (cfg.minLevel ?? 0),
                 maxLevel: (cfg.maxLevel ?? 16),
-                rollBaseline: (cfg.rollBaseline ?? 'afterStart'),
                 earlyKeepMode: (cfg.earlyKeepMode ?? 'early'),
                 substatsV: (cfg.substatsV ?? []),
                 fixedSubstatsV: (cfg.fixedSubstatsV ?? []),

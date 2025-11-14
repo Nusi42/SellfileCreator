@@ -114,7 +114,6 @@ function parseSnapshot(entry: HistoryEntry): HsfcSnapshot | null {
           minLevel: 0,
           maxLevel: 16,
           earlyKeepMode: 'early',
-          rollBaseline: 'afterStart',
           substatsV: [],
           fixedSubstatsV: [],
           minCount: 0,

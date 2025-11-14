@@ -21,7 +21,7 @@ import {
   type RankValue,
   statIsAny,
 } from './types'
-import { canEnableSubstatFlex, isMilestoneThresholdsActive } from './configNormalization'
+import { canEnableSubstatFlex, deriveRollBaselineMode, isMilestoneThresholdsActive } from './configNormalization'
 import { variantToSub, variantToMain } from './hsfTypes'
 import type { ArtifactSetId, ArtifactTypeId, FactionId } from './types'
 import { SUBSTAT_TARGET_MAX_ROLLS } from './constants'
@@ -75,10 +75,6 @@ export interface BuilderConfig {
   factionCode?: FactionId
   // Main stats (variants). Empty -> Any. If provided, we unroll rules per selected main stat.
   mainStatsV?: StatVariant[]
-  // How to treat rolls relative to start level when generating thresholds
-  // 'afterStart' (default): treat start as a reset; only rolls after start count
-  // 'upToLevel': include prior rolls up to each milestone (incl. start)
-  rollBaseline?: 'afterStart' | 'upToLevel'
   // Substat targets (variants): choose K from this set; generate combinations of size minCount
   substatsV?: StatVariant[]
   // Substats that must always be included in generated permutations (subset of substats)
@@ -690,7 +686,7 @@ export function resolveAutoRarityCode(cfg: BuilderConfig): RarityCode {
   // Auto rarity always resolves against the full +0 → +16 progression so that
   // changing the level window only clips emitted rules instead of relaxing rarity.
   const minLevel: LevelMilestone = 0
-  const baseline: 'afterStart' | 'upToLevel' = cfg.rollBaseline === 'upToLevel' ? 'upToLevel' : 'afterStart'
+  const baseline: 'afterStart' | 'upToLevel' = deriveRollBaselineMode(cfg)
   const rollLevelsCand = rollLevelsForRarityCode(candidate)
   const preCand = rarityIncludesMythical(candidate) ? 1 : 0
   const rollsUpTo16Cand = LEVELS.filter(l => l <= 16 && rollLevelsCand.has(l)).length
@@ -1258,7 +1254,7 @@ export function buildHsfRules(
     ? cfg.mainStatsV.map(Number).sort(compareVariants)
     : []
 
-  const baseline: 'afterStart' | 'upToLevel' = cfg.rollBaseline === 'upToLevel' ? 'upToLevel' : 'afterStart'
+  const baseline: 'afterStart' | 'upToLevel' = deriveRollBaselineMode(cfg)
   const earlyMode: 'early' | 'late' = (cfg.earlyKeepMode === 'late' && isMilestoneThresholdsActive(cfg)) ? 'late' : 'early'
   const effectiveStart: LevelMilestone = 0
   // Level window: rely on normalized min/max window.

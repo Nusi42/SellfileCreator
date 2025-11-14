@@ -47,7 +47,6 @@ function snapshotKeyForConfig(cfg: BuilderConfig): SnapshotKey {
     minLevel: (cfg as unknown as { minLevel?: LevelMilestone }).minLevel ?? LEVEL_MILESTONES[0]!,
     maxLevel: (cfg as unknown as { maxLevel?: LevelMilestone }).maxLevel ?? LEVEL_MILESTONES[LEVEL_MILESTONES.length - 1]!,
     earlyKeepMode: ((cfg as unknown as { earlyKeepMode?: 'early' | 'late' }).earlyKeepMode ?? 'early'),
-    rollBaseline: ((cfg as unknown as { rollBaseline?: 'afterStart' | 'upToLevel' }).rollBaseline ?? 'afterStart'),
     substatsV: sortNumbers((cfg as unknown as { substatsV?: number[] }).substatsV),
     fixedSubstatsV: sortNumbers((cfg as unknown as { fixedSubstatsV?: number[] }).fixedSubstatsV),
     minCount: Number(cfg.minCount ?? 0),

@@ -329,7 +329,6 @@ function canonicalizeConfig(config: BuilderConfig): Record<string, unknown> {
     rarityMode: config.rarityMode ?? 'code',
     autoRaritySupplementsThreshold: (config as { autoRaritySupplementsThreshold?: 'uncommon' | 'rare' | 'epic' }).autoRaritySupplementsThreshold ?? 'rare',
     factionCode: Number(config.factionCode ?? 0),
-    rollBaseline: config.rollBaseline ?? 'afterStart',
     minCount: Number(config.minCount ?? 0),
     autoMinCount: Boolean(config.autoMinCount ?? false),
     autoSubstatFlex: Boolean(config.autoSubstatFlex ?? false),

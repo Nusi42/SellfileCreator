@@ -58,7 +58,6 @@ export function createHistoryBuilderBaseline(overrides: Partial<BuilderConfig> =
     mainStatsV: [],
     minLevel: 0,
     maxLevel: 16,
-    rollBaseline: 'afterStart',
     earlyKeepMode: 'early',
   substatsV: [],
   fixedSubstatsV: [],
@@ -162,9 +161,6 @@ export function summarizeBuilderConfigDiff(params: SummarizeBuilderConfigDiffPar
   }
   if (artifactSetsDiffLine) {
     detailLines.push(artifactSetsDiffLine)
-  }
-  if (changed.has('rollBaseline')) {
-    pushDiff(detailLines, t, t('historyBuilderRollBaselineLabel'), formatRollBaselineValue(previous, t), formatRollBaselineValue(next, t))
   }
   return { detailLines, changedKeys: changed }
 }
@@ -580,13 +576,6 @@ function formatMinRequiredRollsValue(cfg: BuilderConfig, t: TranslateFn): string
 function formatMilestoneModeValue(cfg: BuilderConfig, t: TranslateFn): string {
   const mode = (cfg.earlyKeepMode ?? 'early') === 'late' ? 'late' : 'early'
   return mode === 'late' ? t('builderLateLabel') : t('builderEarlyLabel')
-}
-
-function formatRollBaselineValue(cfg: BuilderConfig, t: TranslateFn): string {
-  const baseline = cfg.rollBaseline ?? 'afterStart'
-  return baseline === 'upToLevel'
-    ? t('historyBuilderRollBaselineUpToLevel')
-    : t('historyBuilderRollBaselineAfterStart')
 }
 
 function normalizeNumberArray(value: unknown): number[] {
