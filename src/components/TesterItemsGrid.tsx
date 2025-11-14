@@ -69,11 +69,22 @@ const GRID_GAP = 0.375
 const CARD_COLUMN_GAP_UNITS = 1.25
 const CARD_BORDER_RADIUS_PX = 8
 const CARD_PADDING_UNITS = 1
-const CARD_FIRST_ROW_HEIGHT_PX = 132
 const CARD_MATCH_ROW_HEIGHT_PX = 34
 const CARD_MATCH_ROW_GAP_PX = 2
 const CARD_MATCH_SECTION_LEADING_GAP_PX = 4
 const GRID_CARD_CONTAINER_PADDING_UNITS = 0.75
+const GRID_CARD_LEFT_COLUMN_GAP_UNITS = 0.5
+const GRID_CARD_SOURCE_ICON_SIZE_PX = 24
+const CARD_TEXT_STACK_GAP_UNITS = 0.75
+const CARD_SUBSTAT_ROW_GAP_UNITS = 0.25
+const CARD_SUBSTAT_LINE_HEIGHT = 1.1
+const CARD_SUBSTAT_LINE_COUNT = 4
+const CARD_SUMMARY_FONT_SIZE_REM = 0.9375
+const CARD_SUMMARY_LINE_HEIGHT_REM = 1.25
+const CARD_ASC_LINE_HEIGHT = 1.1
+const CARD_ASC_FONT_DECREMENT_PX = 1.5
+const CARD_ASC_BLOCK_MARGIN_TOP_UNITS = 0.125
+const CARD_COLUMN_HEIGHT_BUFFER_PX = 2
 const MAX_MATCHING_CHIPS = 6
 const ESTIMATED_ACCORDION_HEADER_PX = 60
 const ACCORDION_MARGIN_UNITS = 0.75
@@ -1226,7 +1237,7 @@ const TesterGridCard = React.memo(function TesterGridCard({
       component="span"
       sx={{
         display: 'block',
-        mt: 0.125,
+        mt: CARD_ASC_BLOCK_MARGIN_TOP_UNITS,
         pl: 1,
         color: theme.palette.text.secondary,
         fontWeight: 600,
@@ -1239,6 +1250,10 @@ const TesterGridCard = React.memo(function TesterGridCard({
       {ascSummaryContent}
     </Box>
   ) : null
+  const { leftColumnHeightPx, rightColumnHeightPx } = useMemo(
+    () => getTesterGridCardColumnHeights(theme, gridColumnCount),
+    [theme, gridColumnCount],
+  )
   const mainSummaryLabel = (
     <>
       <Box component="span" sx={{ color: mainColor ?? 'inherit' }}>
@@ -1272,7 +1287,19 @@ const TesterGridCard = React.memo(function TesterGridCard({
         overflow: 'hidden',
       })}
     >
-      <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5, textAlign: 'center' }}>
+      <Box
+        sx={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: GRID_CARD_LEFT_COLUMN_GAP_UNITS,
+          textAlign: 'center',
+          minHeight: leftColumnHeightPx,
+          height: leftColumnHeightPx,
+          maxHeight: leftColumnHeightPx,
+          justifyContent: 'flex-start',
+        }}
+      >
         <GridIconBox
           setId={setIdNumber as ArtifactSetId}
           slotId={artifact.slot as ArtifactTypeId}
@@ -1317,10 +1344,30 @@ const TesterGridCard = React.memo(function TesterGridCard({
           </Tooltip>
         ) : null}
       </Box>
-      <Stack spacing={0.75} minWidth={0} sx={{ gridColumn: '2', gridRow: '1', minWidth: 0 }}>
+      <Stack
+        spacing={CARD_TEXT_STACK_GAP_UNITS}
+        minWidth={0}
+        sx={{
+          gridColumn: '2',
+          gridRow: '1',
+          minWidth: 0,
+          minHeight: rightColumnHeightPx,
+          height: rightColumnHeightPx,
+          maxHeight: rightColumnHeightPx,
+          overflow: 'hidden',
+        }}
+      >
         <TesterSummaryLabel label={mainSummaryLabel} wrap />
         <Tooltip title={subTooltip}>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25, width: '100%' }}>
+          <Box
+            sx={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: CARD_SUBSTAT_ROW_GAP_UNITS,
+              width: '100%',
+              flexGrow: 1,
+            }}
+          >
             {substatEntries.length > 0 ? substatEntries.map((entry) => (
               <Box
                 key={`sub-${entry.variant}`}
@@ -1589,8 +1636,13 @@ function groupRowsBySet(rows: readonly TesterPreviewRow[], translate: TranslateF
   ].sort((a, b) => a.order - b.order)
 }
 
-function getTesterCardHeight(showFirst: boolean, showOther: boolean, cardVerticalPaddingPx: number): number {
-  let height = CARD_FIRST_ROW_HEIGHT_PX + cardVerticalPaddingPx
+function getTesterCardHeight(
+  showFirst: boolean,
+  showOther: boolean,
+  cardVerticalPaddingPx: number,
+  firstRowHeightPx: number,
+): number {
+  let height = firstRowHeightPx + cardVerticalPaddingPx
   const visibleRows = (showFirst ? 1 : 0) + (showOther ? 1 : 0)
   if (visibleRows > 0) {
     height += CARD_MATCH_SECTION_LEADING_GAP_PX
@@ -1608,6 +1660,60 @@ function formatConfigLabel(idx: number, configNames: Array<string | null>, trans
     return name.trim()
   }
   return translate('testerConfigChip', { index: idx + 1 })
+}
+
+type GridCardColumnHeights = {
+  leftColumnHeightPx: number
+  rightColumnHeightPx: number
+  firstRowHeightPx: number
+}
+
+const DEFAULT_HTML_FONT_SIZE_PX = 16
+
+const typographySizeToPx = (value: string | number | undefined, htmlFontSize: number): number => {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value
+  }
+  if (typeof value !== 'string') {
+    return 0
+  }
+  const trimmed = value.trim()
+  if (trimmed.endsWith('rem')) {
+    return Number.parseFloat(trimmed) * htmlFontSize
+  }
+  if (trimmed.endsWith('px')) {
+    return Number.parseFloat(trimmed)
+  }
+  const numeric = Number.parseFloat(trimmed)
+  return Number.isFinite(numeric) ? numeric : 0
+}
+
+function getTesterGridCardColumnHeights(theme: Theme, gridColumnCount: number): GridCardColumnHeights {
+  const htmlFontSize = Number(theme.typography.htmlFontSize) || DEFAULT_HTML_FONT_SIZE_PX
+  const summaryFontSizePx = CARD_SUMMARY_FONT_SIZE_REM * htmlFontSize
+  const summaryLineHeightPx = CARD_SUMMARY_LINE_HEIGHT_REM * htmlFontSize
+  const stackGapPx = pxValue(theme.spacing(CARD_TEXT_STACK_GAP_UNITS))
+  const fallbackFontSizePx = typographySizeToPx(theme.typography.fontSize, htmlFontSize) || htmlFontSize
+  const substatFontSizePx = typographySizeToPx(theme.typography.body2?.fontSize, htmlFontSize) || fallbackFontSizePx
+  const substatLineHeightPx = CARD_SUBSTAT_LINE_HEIGHT * substatFontSizePx
+  const substatGapPx = pxValue(theme.spacing(CARD_SUBSTAT_ROW_GAP_UNITS))
+  const totalSubstatHeightPx = (CARD_SUBSTAT_LINE_COUNT * substatLineHeightPx)
+    + (Math.max(0, CARD_SUBSTAT_LINE_COUNT - 1) * substatGapPx)
+  const shouldInlineAscension = gridColumnCount <= 4
+  const ascMarginPx = shouldInlineAscension ? 0 : pxValue(theme.spacing(CARD_ASC_BLOCK_MARGIN_TOP_UNITS))
+  const ascFontSizePx = Math.max(0, summaryFontSizePx - CARD_ASC_FONT_DECREMENT_PX)
+  const ascLineHeightPx = shouldInlineAscension ? 0 : CARD_ASC_LINE_HEIGHT * ascFontSizePx
+  const summarySectionHeightPx = summaryLineHeightPx + ascMarginPx + ascLineHeightPx
+  const rightColumnHeightPx = summarySectionHeightPx + stackGapPx + totalSubstatHeightPx
+  const leftColumnGapPx = pxValue(theme.spacing(GRID_CARD_LEFT_COLUMN_GAP_UNITS))
+  const leftColumnHeightPx = TESTER_GRID_ICON_BOX_SIZE_PX + GRID_CARD_SOURCE_ICON_SIZE_PX + leftColumnGapPx
+  const normalizedLeftPx = Math.max(0, Math.ceil(leftColumnHeightPx + CARD_COLUMN_HEIGHT_BUFFER_PX))
+  const normalizedRightPx = Math.max(0, Math.ceil(rightColumnHeightPx + CARD_COLUMN_HEIGHT_BUFFER_PX))
+  return {
+    leftColumnHeightPx: normalizedLeftPx,
+    rightColumnHeightPx: normalizedRightPx,
+    firstRowHeightPx: Math.max(normalizedLeftPx, normalizedRightPx),
+  }
 }
 
 type TesterGridLayoutMetrics = {
@@ -1631,16 +1737,20 @@ function useTesterGridLayoutMetrics({
   showOtherMatches,
   theme,
 }: UseTesterGridLayoutMetricsOptions): TesterGridLayoutMetrics {
+  const isMultiColumn = useMediaQuery(theme.breakpoints.up('sm'))
+  const gridColumnCount = isMultiColumn ? preferredColumnCount : 1
   const accordionSpacingPx = useMemo(() => pxValue(theme.spacing(ACCORDION_MARGIN_UNITS)), [theme])
   const gridGapPx = useMemo(() => pxValue(theme.spacing(GRID_GAP)), [theme])
   const leafPaddingPx = useMemo(() => pxValue(theme.spacing(GRID_CARD_CONTAINER_PADDING_UNITS)), [theme])
   const cardVerticalPaddingPx = useMemo(() => pxValue(theme.spacing(CARD_PADDING_UNITS)) * 2, [theme])
-  const cardHeightPx = useMemo(
-    () => getTesterCardHeight(showFirstMatch, showOtherMatches, cardVerticalPaddingPx),
-    [cardVerticalPaddingPx, showFirstMatch, showOtherMatches],
+  const { firstRowHeightPx: cardFirstRowHeightPx } = useMemo(
+    () => getTesterGridCardColumnHeights(theme, gridColumnCount),
+    [theme, gridColumnCount],
   )
-  const isMultiColumn = useMediaQuery(theme.breakpoints.up('sm'))
-  const gridColumnCount = isMultiColumn ? preferredColumnCount : 1
+  const cardHeightPx = useMemo(
+    () => getTesterCardHeight(showFirstMatch, showOtherMatches, cardVerticalPaddingPx, cardFirstRowHeightPx),
+    [cardFirstRowHeightPx, cardVerticalPaddingPx, showFirstMatch, showOtherMatches],
+  )
   return useMemo(() => ({
     accordionSpacingPx,
     cardHeightPx,
