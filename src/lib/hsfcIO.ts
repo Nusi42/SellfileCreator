@@ -405,8 +405,12 @@ export function normalizeConfig(input: unknown): BuilderConfig {
     normalized.lockedMinRequiredRolls = clamped
   }
   if (legacyManualMinValue !== null) {
-    normalized.autoMinRequiredRolls = false
-    normalized.minRequiredRolls = legacyManualMinValue as AggregateMinValue
+    const lockedCount = Array.isArray(normalized.fixedSubstatsV) ? normalized.fixedSubstatsV.length : 0
+    const shouldRestoreManual = !legacyMinRollsScopeLocked || lockedCount === 0
+    if (shouldRestoreManual) {
+      normalized.autoMinRequiredRolls = false
+      normalized.minRequiredRolls = legacyManualMinValue as AggregateMinValue
+    }
   }
   return normalized
 }

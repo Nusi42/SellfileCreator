@@ -3,9 +3,10 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 
-import { buildHsfRules, resolveAutoRarityCode, type BuilderConfig } from '../src/lib/hsfBuilder'
+import { buildHsfRules, defaultSubstatTargets, resolveAutoRarityCode, type BuilderConfig } from '../src/lib/hsfBuilder'
 import { RankCode, RarityCode, StatVariant } from '../src/lib/types'
 import { normalizeAggregateRollTargets } from '../src/lib/configNormalization'
+import { variantToSub } from '../src/lib/hsfTypes'
 
 const baseBuilderConfig = (overrides: Partial<BuilderConfig> = {}): BuilderConfig => ({
   keep: true,
@@ -46,6 +47,41 @@ test('lockedMinRequiredRolls raises Auto rarity even when global min is lower', 
     lockedMinRequiredRolls: 3,
   })
   assert.equal(withLockedMin, RarityCode.GTE_Epic, 'locked min should promote auto rarity to ≥ Epic')
+})
+
+test('global minimums still apply to every selected stat when locks are active', () => {
+  const cfg = baseBuilderConfig({
+    rarityCode: RarityCode.Legendary,
+    rarityMode: 'code',
+    substatsV: [StatVariant.SPD, StatVariant.CR, StatVariant.HP],
+    fixedSubstatsV: [StatVariant.SPD, StatVariant.CR],
+    minCount: 3,
+    autoMinCount: false,
+    minRequiredRolls: 3,
+    autoMinRequiredRolls: false,
+    lockedMinRequiredRolls: 2,
+    substatRollBoundsV: {
+      [StatVariant.SPD]: { any: true },
+      [StatVariant.CR]: { any: true },
+      [StatVariant.HP]: { any: true },
+    },
+  })
+  const targets = defaultSubstatTargets()
+  const hpVariant = StatVariant.HP
+  const hpBase = targets.six[hpVariant] ?? 0
+  const hpTuple = variantToSub(hpVariant)
+  const rules = buildHsfRules(cfg, targets)
+  const rowsAtSixteen = rules.filter(rule => rule.LVLForCheck === 16)
+  assert(rowsAtSixteen.length > 0, 'expected level 16 rows to exist for verification')
+  const rowWithHpRoll = rowsAtSixteen.find((rule) => (
+    rule.Substats?.some((sub) => (
+      sub?.ID === hpTuple.id
+      && !sub.NotAvailable
+      && sub.Condition === '>='
+      && Number(sub.Value ?? 0) > hpBase
+    ))
+  ))
+  assert(rowWithHpRoll, 'global minimums should force at least one non-locked stat to accumulate the remaining rolls')
 })
 
 test('aggregate normalization clears manual when locked exceeds manual', () => {

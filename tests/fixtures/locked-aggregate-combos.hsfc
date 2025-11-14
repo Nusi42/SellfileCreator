@@ -1,0 +1,422 @@
+{
+  "Version": "0.9.9-dev",
+  "Metasets": [],
+  "Configs": [
+    {
+      "__cfgIdx_ignoredWhenRead": 1,
+      "name": "",
+      "keep": true,
+      "SellfileVisibility": "Active",
+      "Rank": "Any",
+      "Rarity": "Auto",
+      "Faction": "Any",
+      "mainStats": [],
+      "minLevel": 0,
+      "maxLevel": 16,
+      "earlyKeepMode": "late",
+      "substats": [
+        "SPD",
+        "CR%",
+        "HP%"
+      ],
+      "fixedSubstats": [
+        "SPD",
+        "CR%"
+      ],
+      "autoRarityThreshold": "epic",
+      "substatRollBounds": {
+        "HP%": {
+          "any": true
+        },
+        "SPD": {
+          "any": true
+        },
+        "CR%": {
+          "any": true
+        }
+      },
+      "minCount": 3,
+      "autoMinCount": true,
+      "minRequiredRolls": 3,
+      "autoMinRequiredRolls": false,
+      "lockedMinRequiredRolls": 2,
+      "artifactTypeNames": [],
+      "artifactSetNames": [],
+      "artifactMetaSetIds": []
+    },
+    {
+      "__cfgIdx_ignoredWhenRead": 2,
+      "name": "",
+      "keep": true,
+      "SellfileVisibility": "Active",
+      "Rank": "Any",
+      "Rarity": "Auto",
+      "Faction": "Any",
+      "mainStats": [],
+      "minLevel": 0,
+      "maxLevel": 16,
+      "substats": [
+        "SPD",
+        "CR%",
+        "HP%"
+      ],
+      "fixedSubstats": [
+        "SPD",
+        "CR%"
+      ],
+      "substatRollBounds": {
+        "HP%": {
+          "any": true
+        },
+        "SPD": {
+          "any": true
+        },
+        "CR%": {
+          "any": true
+        }
+      },
+      "minCount": 3,
+      "autoMinCount": true,
+      "minRequiredRolls": 3,
+      "autoMinRequiredRolls": false,
+      "lockedMinRequiredRolls": 2,
+      "artifactTypeNames": [],
+      "artifactSetNames": [],
+      "artifactMetaSetIds": []
+    },
+    {
+      "__cfgIdx_ignoredWhenRead": 3,
+      "name": "",
+      "keep": true,
+      "SellfileVisibility": "Active",
+      "Rank": "Any",
+      "Rarity": "Auto",
+      "Faction": "Any",
+      "mainStats": [],
+      "minLevel": 0,
+      "maxLevel": 16,
+      "earlyKeepMode": "late",
+      "substats": [
+        "SPD",
+        "CR%",
+        "HP%"
+      ],
+      "fixedSubstats": [
+        "SPD",
+        "CR%"
+      ],
+      "autoRarityThreshold": "epic",
+      "substatRollBounds": {
+        "HP%": {
+          "any": true
+        },
+        "SPD": {
+          "any": true
+        },
+        "CR%": {
+          "any": true
+        }
+      },
+      "minCount": 3,
+      "autoMinCount": true,
+      "minRequiredRolls": 0,
+      "autoMinRequiredRolls": false,
+      "lockedMinRequiredRolls": 2,
+      "artifactTypeNames": [],
+      "artifactSetNames": [],
+      "artifactMetaSetIds": []
+    },
+    {
+      "__cfgIdx_ignoredWhenRead": 4,
+      "name": "",
+      "keep": true,
+      "SellfileVisibility": "Active",
+      "Rank": "Any",
+      "Rarity": "Auto",
+      "Faction": "Any",
+      "mainStats": [],
+      "minLevel": 0,
+      "maxLevel": 16,
+      "substats": [
+        "SPD",
+        "CR%",
+        "HP%"
+      ],
+      "fixedSubstats": [
+        "SPD",
+        "CR%"
+      ],
+      "substatRollBounds": {
+        "HP%": {
+          "any": true
+        },
+        "SPD": {
+          "any": true
+        },
+        "CR%": {
+          "any": true
+        }
+      },
+      "minCount": 3,
+      "autoMinCount": true,
+      "minRequiredRolls": 0,
+      "autoMinRequiredRolls": false,
+      "lockedMinRequiredRolls": 2,
+      "artifactTypeNames": [],
+      "artifactSetNames": [],
+      "artifactMetaSetIds": []
+    },
+    {
+      "__cfgIdx_ignoredWhenRead": 5,
+      "name": "",
+      "keep": true,
+      "SellfileVisibility": "Active",
+      "Rank": "Any",
+      "Rarity": "Auto",
+      "Faction": "Any",
+      "mainStats": [],
+      "minLevel": 0,
+      "maxLevel": 16,
+      "earlyKeepMode": "late",
+      "substats": [
+        "SPD",
+        "CR%",
+        "HP%"
+      ],
+      "fixedSubstats": [
+        "SPD",
+        "CR%"
+      ],
+      "autoRarityThreshold": "epic",
+      "substatRollBounds": {
+        "HP%": {
+          "any": true
+        },
+        "SPD": {
+          "any": true
+        },
+        "CR%": {
+          "any": true
+        }
+      },
+      "minCount": 3,
+      "autoMinCount": true,
+      "minRequiredRolls": 2,
+      "autoMinRequiredRolls": false,
+      "lockedMinRequiredRolls": 0,
+      "artifactTypeNames": [],
+      "artifactSetNames": [],
+      "artifactMetaSetIds": []
+    },
+    {
+      "__cfgIdx_ignoredWhenRead": 6,
+      "name": "",
+      "keep": true,
+      "SellfileVisibility": "Active",
+      "Rank": "Any",
+      "Rarity": "Auto",
+      "Faction": "Any",
+      "mainStats": [],
+      "minLevel": 0,
+      "maxLevel": 16,
+      "substats": [
+        "SPD",
+        "CR%",
+        "HP%"
+      ],
+      "fixedSubstats": [
+        "SPD",
+        "CR%"
+      ],
+      "substatRollBounds": {
+        "HP%": {
+          "any": true
+        },
+        "SPD": {
+          "any": true
+        },
+        "CR%": {
+          "any": true
+        }
+      },
+      "minCount": 3,
+      "autoMinCount": true,
+      "minRequiredRolls": 2,
+      "autoMinRequiredRolls": false,
+      "lockedMinRequiredRolls": 0,
+      "artifactTypeNames": [],
+      "artifactSetNames": [],
+      "artifactMetaSetIds": []
+    },
+    {
+      "__cfgIdx_ignoredWhenRead": 7,
+      "name": "",
+      "keep": true,
+      "SellfileVisibility": "Active",
+      "Rank": "Any",
+      "Rarity": "Auto",
+      "Faction": "Any",
+      "mainStats": [],
+      "minLevel": 0,
+      "maxLevel": 16,
+      "earlyKeepMode": "late",
+      "substats": [
+        "SPD",
+        "CR%",
+        "HP%"
+      ],
+      "fixedSubstats": [
+        "SPD",
+        "CR%"
+      ],
+      "autoRarityThreshold": "epic",
+      "substatRollBounds": {
+        "HP%": {
+          "any": true
+        },
+        "SPD": {
+          "any": true
+        },
+        "CR%": {
+          "any": true
+        }
+      },
+      "minCount": 3,
+      "autoMinCount": true,
+      "minRequiredRolls": 0,
+      "autoMinRequiredRolls": false,
+      "lockedMinRequiredRolls": 3,
+      "artifactTypeNames": [],
+      "artifactSetNames": [],
+      "artifactMetaSetIds": []
+    },
+    {
+      "__cfgIdx_ignoredWhenRead": 8,
+      "name": "",
+      "keep": true,
+      "SellfileVisibility": "Active",
+      "Rank": "Any",
+      "Rarity": "Auto",
+      "Faction": "Any",
+      "mainStats": [],
+      "minLevel": 0,
+      "maxLevel": 16,
+      "substats": [
+        "SPD",
+        "CR%",
+        "HP%"
+      ],
+      "fixedSubstats": [
+        "SPD",
+        "CR%"
+      ],
+      "substatRollBounds": {
+        "HP%": {
+          "any": true
+        },
+        "SPD": {
+          "any": true
+        },
+        "CR%": {
+          "any": true
+        }
+      },
+      "minCount": 3,
+      "autoMinCount": true,
+      "minRequiredRolls": 0,
+      "autoMinRequiredRolls": false,
+      "lockedMinRequiredRolls": 3,
+      "artifactTypeNames": [],
+      "artifactSetNames": [],
+      "artifactMetaSetIds": []
+    },
+    {
+      "__cfgIdx_ignoredWhenRead": 9,
+      "name": "",
+      "keep": true,
+      "SellfileVisibility": "Active",
+      "Rank": "Any",
+      "Rarity": "Auto",
+      "Faction": "Any",
+      "mainStats": [],
+      "minLevel": 0,
+      "maxLevel": 16,
+      "earlyKeepMode": "late",
+      "substats": [
+        "SPD",
+        "CR%",
+        "HP%"
+      ],
+      "fixedSubstats": [
+        "SPD",
+        "CR%"
+      ],
+      "autoRarityThreshold": "epic",
+      "substatRollBounds": {
+        "HP%": {
+          "any": true
+        },
+        "SPD": {
+          "any": true
+        },
+        "CR%": {
+          "any": true
+        }
+      },
+      "minCount": 3,
+      "autoMinCount": true,
+      "minRequiredRolls": 3,
+      "autoMinRequiredRolls": false,
+      "lockedMinRequiredRolls": 0,
+      "artifactTypeNames": [],
+      "artifactSetNames": [],
+      "artifactMetaSetIds": []
+    },
+    {
+      "__cfgIdx_ignoredWhenRead": 10,
+      "name": "",
+      "keep": true,
+      "SellfileVisibility": "Active",
+      "Rank": "Any",
+      "Rarity": "Auto",
+      "Faction": "Any",
+      "mainStats": [],
+      "minLevel": 0,
+      "maxLevel": 16,
+      "substats": [
+        "SPD",
+        "CR%",
+        "HP%"
+      ],
+      "fixedSubstats": [
+        "SPD",
+        "CR%"
+      ],
+      "substatRollBounds": {
+        "HP%": {
+          "any": true
+        },
+        "SPD": {
+          "any": true
+        },
+        "CR%": {
+          "any": true
+        }
+      },
+      "minCount": 3,
+      "autoMinCount": true,
+      "minRequiredRolls": 3,
+      "autoMinRequiredRolls": false,
+      "lockedMinRequiredRolls": 0,
+      "artifactTypeNames": [],
+      "artifactSetNames": [],
+      "artifactMetaSetIds": []
+    }
+  ],
+  "FinalSellRemainder": {
+    "artifacts": false,
+    "accessories": false,
+    "levels": [],
+    "setsMode": "any"
+  }
+}

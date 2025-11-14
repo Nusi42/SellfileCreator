@@ -1268,9 +1268,12 @@ export function buildHsfRules(
   const globalMinValue = deriveGlobalMinRolls({ cfg, selectedPoolV, requiredV, minTargetCount, rarityCode })
   const lockedMinValue = deriveLockedMinRolls({ cfg, lockedCount })
   const aggregateMinValue = Math.max(globalMinValue, lockedMinValue)
-  const aggregateMinActive = aggregateMinValue > 0
+  const globalMinActive = globalMinValue > 0
   const lockedMinActive = lockedMinValue > 0
-  const aggregateTargetsLocked = isLockedAggregateScopeActive(cfg, { lockedCountOverride: requiredV.length })
+  const aggregateMinActive = aggregateMinValue > 0
+  const aggregateTargetsLocked = (!globalMinActive)
+    && lockedMinActive
+    && isLockedAggregateScopeActive(cfg, { lockedCountOverride: requiredV.length })
 
   if (lockedMinActive && lockedCount === 0) {
     return []
