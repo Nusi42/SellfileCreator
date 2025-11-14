@@ -4,16 +4,21 @@ import {
   AccordionSummary,
   AccordionDetails,
   Box,
+  Button,
   Chip,
+  Divider,
+  Menu,
+  MenuItem,
   Popover,
   Stack,
   Tooltip,
   Typography,
+  useMediaQuery,
 } from '@mui/material'
 import type { PaperProps as MuiPaperProps } from '@mui/material/Paper'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import SellIcon from '@mui/icons-material/Sell'
-import { useTheme } from '@mui/material/styles'
+import { useTheme, type Theme } from '@mui/material/styles'
 import BuildOutlinedIcon from '@mui/icons-material/BuildOutlined'
 import Inventory2OutlinedIcon from '@mui/icons-material/Inventory2Outlined'
 import MailOutlineIcon from '@mui/icons-material/MailOutline'
@@ -51,23 +56,47 @@ import ContextMenuPaper from './ContextMenuPaper'
 import { ContextMenuHintOverlay } from './ContextMenuHintOverlay'
 import { useContextMenuHint } from '../hooks/useContextMenuHint'
 import GridIconBox from './GridIconBox'
+import { MENU_CONTROL_HEIGHT_PX, MENU_CONTROL_MIN_WIDTH_PX, type ColorBlindMode } from '../lib/constants'
+import { useContextMenuCloseOnOutsideRightClick } from '../hooks/useContextMenuCloseOnOutsideRightClick'
+import { useTesterGridPreferences } from '../state/testerGridPreferences'
 
 const GRID_CARD_SINGLE_COLUMN_TEMPLATE = 'minmax(0, 1fr)'
-const GRID_CARD_QUARTER_TEMPLATE = 'repeat(4, minmax(0, 1fr))'
-const GRID_CARD_ICON_COLUMN_PX = 88
-const GRID_CARD_STATS_MIN_COLUMN_PX = 132
+const TESTER_GRID_ICON_BOX_SIZE_PX = 72
+const GRID_CARD_ICON_COLUMN_PX = TESTER_GRID_ICON_BOX_SIZE_PX
+const GRID_CARD_STATS_MIN_COLUMN_PX = 112
 const GRID_CARD_TEMPLATE = `${GRID_CARD_ICON_COLUMN_PX}px minmax(${GRID_CARD_STATS_MIN_COLUMN_PX}px, 1fr)`
-const GRID_GAP = 1.25
-const CARD_BORDER_RADIUS = 2
+const GRID_GAP = 0.375
+const CARD_COLUMN_GAP_UNITS = 1.25
+const CARD_BORDER_RADIUS_PX = 8
+const CARD_PADDING_UNITS = 1
+const CARD_MATCH_ROW_HEIGHT_PX = 24
+const CARD_MATCH_ROW_GAP_PX = 2
+const CARD_MATCH_ROW_MARGIN_PX = 2
+const GRID_CARD_CONTAINER_PADDING_UNITS = 0.75
+const GRID_CARD_LEFT_COLUMN_GAP_UNITS = 0.5
+const GRID_CARD_SOURCE_ICON_SIZE_PX = 24
+const CARD_TEXT_STACK_GAP_UNITS = 0.75
+const CARD_SUBSTAT_ROW_GAP_UNITS = 0.25
+const CARD_SUBSTAT_LINE_HEIGHT = 1.1
+const CARD_SUBSTAT_LINE_COUNT = 4
+const CARD_SUMMARY_FONT_SIZE_REM = 0.9375
+const CARD_SUMMARY_LINE_HEIGHT_REM = 1.25
+const CARD_ASC_LINE_HEIGHT = 1.1
+const CARD_ASC_FONT_DECREMENT_PX = 1.5
+const CARD_ASC_BLOCK_MARGIN_TOP_UNITS = 0.125
+const CARD_COLUMN_HEIGHT_BUFFER_PX = 0
 const MAX_MATCHING_CHIPS = 6
-const ESTIMATED_CARD_HEIGHT_PX = 220
 const ESTIMATED_ACCORDION_HEADER_PX = 60
-const ESTIMATED_DETAILS_PADDING_PX = 32
 const ACCORDION_MARGIN_UNITS = 0.75
 const ACCORDION_BORDER_RADIUS_PX = 8
 const GRID_VIRTUALIZE_GROUP_THRESHOLD = 12
 const GRID_VIRTUALIZE_ROW_THRESHOLD = 150
+const GRID_VIRTUALIZATION_ENABLED = true
 const GRID_VIRTUALIZE_OVERSCAN_PX = 640
+const GRID_VIRTUALIZE_DEFAULT_VIEWPORT_PX = 720
+// Allow very tall single-column accordions without letting fallback heights overflow the browser layout.
+// 2M px ~= 9k tester cards stacked vertically, which is well above real data while keeping sums finite.
+const GRID_VIRTUALIZE_MAX_FALLBACK_HEIGHT_PX = 2_000_000
 const MATCHING_POPOVER_MAX_WIDTH_PX = 360
 const MATCHING_CHIP_MIN_WIDTH_PX = 50
 const MATCHING_CHIP_GAP_UNITS = 0.5
@@ -121,8 +150,11 @@ type TesterItemsGridProps = {
   filterActive?: boolean
   substatColors: Record<number, { fg: string; bg: string }>
   useStatButtonColors?: boolean
+  testerBuilding?: boolean
   onToggleStatColors: (next: boolean) => void
   onOpenManageColors: () => void
+  colorBlindMode: ColorBlindMode
+  onChangeColorBlindMode: (mode: ColorBlindMode) => void
   colorIconSrc: string
   configNames: Array<string | null>
   onJumpToRule?: ((ruleIndex: number, cfgIdx: number | null) => void) | undefined
@@ -154,6 +186,12 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     filterActive = false,
     substatColors,
     useStatButtonColors = false,
+    testerBuilding = false,
+    onToggleStatColors,
+    onOpenManageColors,
+    colorBlindMode,
+    onChangeColorBlindMode,
+    colorIconSrc,
     configNames,
     onJumpToRule,
   } = props
@@ -162,27 +200,34 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
   const groups = useMemo(() => groupRowsBySet(rows, t), [rows, t])
   const numberFormatter = useMemo(() => new Intl.NumberFormat(undefined), [])
   const {
-    shouldShow: shouldShowGroupContextHint,
-    markSeen: markGroupContextHintSeen,
-  } = useContextMenuHint('testerGroupAccordion')
-  const [groupContextHintPos, setGroupContextHintPos] = useState<{ x: number; y: number } | null>(null)
-  const groupContextHintActive = shouldShowGroupContextHint && groupContextHintPos !== null
-  const handleGroupHintPointerMove = useCallback((event: React.MouseEvent<Element>) => {
-    if (!shouldShowGroupContextHint) return
-    setGroupContextHintPos({ x: event.clientX, y: event.clientY })
-  }, [shouldShowGroupContextHint])
-  const handleGroupHintPointerLeave = useCallback(() => {
-    setGroupContextHintPos(null)
+    columns: gridColumnPreference,
+    showFirstMatch,
+    showOtherMatches,
+    setColumns,
+    setShowFirstMatch,
+    setShowOtherMatches,
+  } = useTesterGridPreferences()
+  const {
+    shouldShow: shouldShowGridContextHint,
+    markSeen: markGridContextHintSeen,
+  } = useContextMenuHint('testerGridContextMenu')
+  const [gridContextHintPos, setGridContextHintPos] = useState<{ x: number; y: number } | null>(null)
+  const handleGridHintPointerMove = useCallback((event: React.MouseEvent<Element>) => {
+    if (!shouldShowGridContextHint) return
+    setGridContextHintPos({ x: event.clientX, y: event.clientY })
+  }, [shouldShowGridContextHint])
+  const handleGridHintPointerLeave = useCallback(() => {
+    setGridContextHintPos(null)
   }, [])
-  const handleGroupHintSeen = useCallback(() => {
-    markGroupContextHintSeen()
-    setGroupContextHintPos(null)
-  }, [markGroupContextHintSeen])
+  const handleGridHintSeen = useCallback(() => {
+    markGridContextHintSeen()
+    setGridContextHintPos(null)
+  }, [markGridContextHintSeen])
   useEffect(() => {
-    if (!shouldShowGroupContextHint) {
-      setGroupContextHintPos(null)
+    if (!shouldShowGridContextHint) {
+      setGridContextHintPos(null)
     }
-  }, [shouldShowGroupContextHint])
+  }, [shouldShowGridContextHint])
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(() => new Set())
   const allGroupKeys = useMemo(() => {
     const keys = new Set<string>()
@@ -265,22 +310,46 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
   const containerRef = useRef<HTMLDivElement | null>(null)
   const [scrollTop, setScrollTop] = useState(0)
   const [viewportHeight, setViewportHeight] = useState(0)
-  const [containerWidth, setContainerWidth] = useState(0)
-  const groupHeightsRef = useRef<Map<string, number>>(new Map())
-  const [heightVersion, setHeightVersion] = useState(0)
+  const [gridMenuPosition, setGridMenuPosition] = useState<{ x: number; y: number } | null>(null)
+  const gridMenuOpen = Boolean(gridMenuPosition)
+  const gridMenuPaperRef = useRef<HTMLDivElement | null>(null)
+  const gridContextHintActive = shouldShowGridContextHint && gridContextHintPos !== null && !gridMenuOpen
+  const handleGridContextMenu = useCallback((event: React.MouseEvent<Element>) => {
+    event.preventDefault()
+    event.stopPropagation()
+    setGridMenuPosition({ x: event.clientX, y: event.clientY })
+    handleGridHintSeen()
+  }, [handleGridHintSeen])
+  const closeGridMenu = useCallback(() => {
+    setGridMenuPosition(null)
+  }, [])
+  useContextMenuCloseOnOutsideRightClick({
+    open: gridMenuOpen,
+    onClose: closeGridMenu,
+    menuRef: gridMenuPaperRef,
+  })
   const handleScroll = useCallback<React.UIEventHandler<HTMLDivElement>>((event) => {
     setScrollTop(event.currentTarget.scrollTop)
   }, [])
-  const gridGapPx = pxValue(theme.spacing(GRID_GAP))
-  const quarterColumnBreakpointPx = theme.breakpoints.values?.sm ?? 600
-  const accordionSpacingPx = pxValue(theme.spacing(ACCORDION_MARGIN_UNITS))
+  const preferredColumnCount = gridColumnPreference === 5 ? 5 : 4
+  const {
+    accordionSpacingPx,
+    cardHeightPx,
+    gridColumnCount,
+    gridGapPx,
+    leafPaddingPx: gridLeafPaddingPx,
+  } = useTesterGridLayoutMetrics({
+    preferredColumnCount,
+    showFirstMatch,
+    showOtherMatches,
+    theme,
+  })
   const groupCountChipBg = theme.palette.mode === 'dark' ? theme.palette.grey[800] : theme.palette.grey[100]
   useEffect(() => {
     const node = containerRef.current
     if (!node) return
     const measure = () => {
       setViewportHeight(node.clientHeight)
-      setContainerWidth(node.clientWidth)
     }
     measure()
     if (typeof ResizeObserver === 'undefined') {
@@ -291,41 +360,39 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     observer.observe(node)
     return () => observer.disconnect()
   }, [])
-  useEffect(() => {
-    const known = new Set(groups.map((group) => group.key))
-    const map = groupHeightsRef.current
-    let changed = false
-    map.forEach((_, key) => {
-      if (!known.has(key)) {
-        map.delete(key)
-        changed = true
-      }
-    })
-    if (changed) setHeightVersion((prev) => prev + 1)
-  }, [groups])
-  const handleGroupMeasure = useCallback((key: string, height: number) => {
-    const map = groupHeightsRef.current
-    const prev = map.get(key)
-    if (typeof prev === 'number' && Math.abs(prev - height) < 0.5) return
-    map.set(key, height)
-    setHeightVersion((prev) => prev + 1)
-  }, [])
-  const estimatedColumnCount = useMemo(() => {
-    if (containerWidth <= 0) return 1
-    return containerWidth >= quarterColumnBreakpointPx ? 4 : 1
-  }, [containerWidth, quarterColumnBreakpointPx])
-  const shouldVirtualize = rows.length > GRID_VIRTUALIZE_ROW_THRESHOLD || groups.length > GRID_VIRTUALIZE_GROUP_THRESHOLD
+  const estimatedColumnCount = gridColumnCount
+  const shouldVirtualize = GRID_VIRTUALIZATION_ENABLED
+    && (rows.length > GRID_VIRTUALIZE_ROW_THRESHOLD || groups.length > GRID_VIRTUALIZE_GROUP_THRESHOLD)
   const virtualization = useMemo<{
     visibleGroups: TesterGroup[]
     padTop: number
+    padBottom: number
     totalHeight: number | undefined
+    rangeStartIndex: number
+    rangeEndIndex: number
+    viewportHeight: number
   }>(() => {
-    void heightVersion
     if (!shouldVirtualize) {
-      return { visibleGroups: groups, padTop: 0, totalHeight: undefined }
+      return {
+        visibleGroups: groups,
+        padTop: 0,
+        padBottom: 0,
+        totalHeight: undefined,
+        rangeStartIndex: 0,
+        rangeEndIndex: groups.length,
+        viewportHeight: viewportHeight > 0 ? viewportHeight : GRID_VIRTUALIZE_DEFAULT_VIEWPORT_PX,
+      }
     }
     if (!groups.length) {
-      return { visibleGroups: [], padTop: 0, totalHeight: 0 }
+      return {
+        visibleGroups: [],
+        padTop: 0,
+        padBottom: 0,
+        totalHeight: 0,
+        rangeStartIndex: 0,
+        rangeEndIndex: 0,
+        viewportHeight: viewportHeight > 0 ? viewportHeight : GRID_VIRTUALIZE_DEFAULT_VIEWPORT_PX,
+      }
     }
     const heights: number[] = []
     const offsets: number[] = []
@@ -333,13 +400,22 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     for (let idx = 0; idx < groups.length; idx += 1) {
       const group = groups[idx]!
       offsets[idx] = total
-      const measured = groupHeightsRef.current.get(group.key)
-      const fallback = estimateGroupHeight(group, collapsedGroups, estimatedColumnCount, accordionSpacingPx, gridGapPx)
-      const height = typeof measured === 'number' && measured > 0 ? measured : fallback
-      heights[idx] = height
-      total += height
+      const estimated = estimateGroupHeight(
+        group,
+        collapsedGroups,
+        estimatedColumnCount,
+        accordionSpacingPx,
+        gridGapPx,
+        gridLeafPaddingPx,
+        cardHeightPx,
+      )
+      heights[idx] = estimated
+      total += estimated
     }
-    const viewport = viewportHeight > 0 ? viewportHeight : (containerRef.current?.clientHeight ?? 0)
+    const fallbackViewportHeight = viewportHeight > 0
+      ? viewportHeight
+      : (containerRef.current?.clientHeight ?? (typeof window !== 'undefined' ? window.innerHeight : 0))
+    const viewport = fallbackViewportHeight > 0 ? fallbackViewportHeight : GRID_VIRTUALIZE_DEFAULT_VIEWPORT_PX
     const startTarget = Math.max(0, scrollTop - GRID_VIRTUALIZE_OVERSCAN_PX)
     const endTarget = Math.min(total, scrollTop + viewport + GRID_VIRTUALIZE_OVERSCAN_PX)
     let startIdx = 0
@@ -353,22 +429,38 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     }
     if (endIdx <= startIdx) endIdx = startIdx + 1
     const padTop = offsets[startIdx] ?? 0
+    const visibleGroups = groups.slice(startIdx, endIdx)
+    const visibleHeight = visibleGroups.reduce((sum, _group, idx) => {
+      const actualIdx = startIdx + idx
+      const height = heights[actualIdx] ?? 0
+      return sum + Math.max(0, height)
+    }, 0)
+    const padBottom = Math.max(0, total - padTop - visibleHeight)
     return {
-      visibleGroups: groups.slice(startIdx, endIdx),
+      visibleGroups,
       padTop,
+      padBottom,
       totalHeight: total,
+      rangeStartIndex: startIdx,
+      rangeEndIndex: endIdx,
+      viewportHeight: viewport,
     }
   }, [
     accordionSpacingPx,
+    cardHeightPx,
     collapsedGroups,
     estimatedColumnCount,
     gridGapPx,
+    gridLeafPaddingPx,
     groups,
-    heightVersion,
     scrollTop,
     shouldVirtualize,
     viewportHeight,
   ])
+  const renderedGroups = virtualization.visibleGroups
+  const virtualizedHeight = shouldVirtualize ? Math.max(virtualization.totalHeight ?? 0, 0) : undefined
+  const virtualizedPadTop = shouldVirtualize ? virtualization.padTop : 0
+  const virtualizedPadBottom = shouldVirtualize ? virtualization.padBottom : 0
   if (rows.length === 0) {
     return (
       <Box
@@ -389,10 +481,6 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
       </Box>
     )
   }
-
-  const renderedGroups = virtualization.visibleGroups
-  const virtualizedHeight = shouldVirtualize ? Math.max(virtualization.totalHeight ?? 0, 0) : undefined
-  const virtualizedPadTop = shouldVirtualize ? virtualization.padTop : 0
   const renderGroup = (group: TesterGroup, depth = 0): React.ReactNode => {
     const groupCountLabel = group.rows.length === 1
       ? t('testerItemsCountOne')
@@ -406,16 +494,16 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
         groupCountLabel={groupCountLabel}
         chipBgColor={groupCountChipBg}
         onToggleGroup={handleGroupToggle}
-        contextHintEnabled={shouldShowGroupContextHint && depth === 0}
-        onContextMenuHintMove={handleGroupHintPointerMove}
-        onContextMenuHintLeave={handleGroupHintPointerLeave}
-        onContextMenuHintSeen={handleGroupHintSeen}
+        onAnyContextMenu={handleGridHintSeen}
         substatColors={substatColors}
         useStatButtonColors={useStatButtonColors}
+        testerBuilding={testerBuilding}
+        gridColumnCount={gridColumnCount}
+        showFirstMatchRow={showFirstMatch}
+        showOtherMatchesRow={showOtherMatches}
+        cardHeightPx={cardHeightPx}
         configNames={configNames}
         onJumpToRule={onJumpToRule}
-        onMeasure={shouldVirtualize && depth === 0 ? handleGroupMeasure : undefined}
-        marginBottomPx={accordionSpacingPx}
         childContent={group.children?.length ? group.children.map((child) => renderGroup(child, depth + 1)) : undefined}
         depth={depth}
       />
@@ -427,15 +515,162 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
       <Box
         ref={containerRef}
         onScroll={handleScroll}
+        onMouseMove={handleGridHintPointerMove}
+        onMouseLeave={handleGridHintPointerLeave}
+        onContextMenu={handleGridContextMenu}
         sx={{ flex: 1, minHeight: 0, overflowY: 'auto', pr: 0.5 }}
       >
-        <Box sx={{ position: 'relative', height: shouldVirtualize ? virtualizedHeight : 'auto', minHeight: shouldVirtualize ? virtualizedHeight : 'auto' }}>
-          <Box sx={{ transform: shouldVirtualize ? `translateY(${virtualizedPadTop}px)` : 'none' }}>
-            {renderedGroups.map((group) => renderGroup(group, 0))}
-          </Box>
+        <Box
+          sx={{
+            position: 'relative',
+            ...(shouldVirtualize && typeof virtualizedHeight === 'number'
+              ? {
+                  height: `${virtualizedHeight}px`,
+                  minHeight: `${virtualizedHeight}px`,
+                }
+              : {}),
+          }}
+        >
+          {shouldVirtualize ? (
+            <Box sx={{ height: `${virtualizedPadTop}px` }} />
+          ) : null}
+          {renderedGroups.map((group) => renderGroup(group, 0))}
+          {shouldVirtualize ? (
+            <Box sx={{ height: `${virtualizedPadBottom}px` }} />
+          ) : null}
         </Box>
       </Box>
-      <ContextMenuHintOverlay text={t('contextMenuHint')} position={groupContextHintActive ? groupContextHintPos : null} />
+      <ContextMenuHintOverlay text={t('contextMenuHint')} position={gridContextHintActive ? gridContextHintPos : null} />
+      <Menu
+        open={gridMenuOpen}
+        onClose={closeGridMenu}
+        anchorReference="anchorPosition"
+        {...(gridMenuPosition ? { anchorPosition: { top: gridMenuPosition.y, left: gridMenuPosition.x } } : {})}
+        slotProps={{
+          paper: {
+            component: ContextMenuPaper,
+            onRequestClose: closeGridMenu,
+            closeLabel: t('close'),
+            ref: gridMenuPaperRef,
+          } as unknown as MuiPaperProps,
+        }}
+      >
+        <MenuItem sx={{ gap: 1, alignItems: 'center' }} onClick={() => onToggleStatColors(!useStatButtonColors)}>
+          <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>{t('rulesMenuColorStatTexts')}</Typography>
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'stretch',
+              gap: 0.5,
+              width: MENU_CONTROL_MIN_WIDTH_PX,
+              height: MENU_CONTROL_HEIGHT_PX,
+              minHeight: MENU_CONTROL_HEIGHT_PX,
+            }}
+            onClick={(event) => { event.stopPropagation() }}
+          >
+            <Button
+              size="small"
+              variant={useStatButtonColors ? 'contained' : 'outlined'}
+              color="success"
+              sx={{ flex: '1 1 auto', minWidth: 0, height: '100%', lineHeight: 1, py: 0, px: 1 }}
+              onClick={(event) => { event.stopPropagation(); onToggleStatColors(!useStatButtonColors) }}
+            >
+              {useStatButtonColors ? t('commonOn') : t('commonOff')}
+            </Button>
+            <Tooltip title={t('manageColors')}>
+              <span>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  color="info"
+                  disabled={!useStatButtonColors}
+                  sx={{ flex: '0 0 auto', minWidth: 28, width: 28, height: '100%', lineHeight: 1, py: 0, ml: 'auto', px: 0.25 }}
+                  onClick={(event) => {
+                    event.stopPropagation()
+                    if (!useStatButtonColors) return
+                    onOpenManageColors()
+                  }}
+                  aria-label={t('manageColorsAria')}
+                >
+                  <img src={colorIconSrc} width={16} height={16} alt={t('manageColors')} style={{ display: 'block' }} />
+                </Button>
+              </span>
+            </Tooltip>
+          </Box>
+        </MenuItem>
+        <MenuItem sx={{ gap: 1, alignItems: 'center' }} onClick={() => {
+          const nextMode = colorBlindMode === 'normal'
+            ? 'okabeIto'
+            : (colorBlindMode === 'okabeIto' ? 'tritan' : 'normal')
+          onChangeColorBlindMode(nextMode)
+        }}
+        >
+          <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>{t('rulesMenuColorBlindPalette')}</Typography>
+          <Button
+            size="small"
+            variant={colorBlindMode === 'normal' ? 'outlined' : 'contained'}
+            color="success"
+            sx={{ minWidth: MENU_CONTROL_MIN_WIDTH_PX, height: MENU_CONTROL_HEIGHT_PX, minHeight: MENU_CONTROL_HEIGHT_PX, lineHeight: 1, py: 0 }}
+            onClick={(event) => {
+              event.stopPropagation()
+              const nextMode = colorBlindMode === 'normal'
+                ? 'okabeIto'
+                : (colorBlindMode === 'okabeIto' ? 'tritan' : 'normal')
+              onChangeColorBlindMode(nextMode)
+            }}
+          >
+            {colorBlindMode === 'normal'
+              ? t('colorBlindNormal')
+              : (colorBlindMode === 'okabeIto' ? t('colorBlindOkabeIto') : t('colorBlindTritan'))}
+          </Button>
+        </MenuItem>
+        <Divider sx={{ my: 0.5 }} />
+        <MenuItem sx={{ gap: 1, alignItems: 'center' }} onClick={() => setColumns(preferredColumnCount === 5 ? 4 : 5)}>
+          <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>{t('rulesMenuGridColumns')}</Typography>
+          <Button
+            size="small"
+            variant="contained"
+            color="success"
+            sx={{ minWidth: MENU_CONTROL_MIN_WIDTH_PX, height: MENU_CONTROL_HEIGHT_PX, minHeight: MENU_CONTROL_HEIGHT_PX, lineHeight: 1, py: 0 }}
+            onClick={(event) => {
+              event.stopPropagation()
+              setColumns(preferredColumnCount === 5 ? 4 : 5)
+            }}
+          >
+            {t('rulesMenuGridColumnsValue', { count: preferredColumnCount })}
+          </Button>
+        </MenuItem>
+        <MenuItem sx={{ gap: 1, alignItems: 'center' }} onClick={() => setShowFirstMatch(!showFirstMatch)}>
+          <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>{t('rulesMenuShowFirstMatch')}</Typography>
+          <Button
+            size="small"
+            variant={showFirstMatch ? 'contained' : 'outlined'}
+            color="success"
+            sx={{ minWidth: MENU_CONTROL_MIN_WIDTH_PX, height: MENU_CONTROL_HEIGHT_PX, minHeight: MENU_CONTROL_HEIGHT_PX, lineHeight: 1, py: 0 }}
+            onClick={(event) => {
+              event.stopPropagation()
+              setShowFirstMatch(!showFirstMatch)
+            }}
+          >
+            {showFirstMatch ? t('commonOn') : t('commonOff')}
+          </Button>
+        </MenuItem>
+        <MenuItem sx={{ gap: 1, alignItems: 'center' }} onClick={() => setShowOtherMatches(!showOtherMatches)}>
+          <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>{t('rulesMenuShowOtherMatches')}</Typography>
+          <Button
+            size="small"
+            variant={showOtherMatches ? 'contained' : 'outlined'}
+            color="success"
+            sx={{ minWidth: MENU_CONTROL_MIN_WIDTH_PX, height: MENU_CONTROL_HEIGHT_PX, minHeight: MENU_CONTROL_HEIGHT_PX, lineHeight: 1, py: 0 }}
+            onClick={(event) => {
+              event.stopPropagation()
+              setShowOtherMatches(!showOtherMatches)
+            }}
+          >
+            {showOtherMatches ? t('commonOn') : t('commonOff')}
+          </Button>
+        </MenuItem>
+      </Menu>
     </Box>
   )
 }
@@ -451,16 +686,16 @@ type TesterItemsGridGroupProps = {
     event?: React.SyntheticEvent<Element, Event> | null,
     options?: { applyToAll?: boolean },
   ) => void
-  contextHintEnabled: boolean
-  onContextMenuHintMove: (event: React.MouseEvent<Element>) => void
-  onContextMenuHintLeave: () => void
-  onContextMenuHintSeen: () => void
+  onAnyContextMenu?: () => void
   substatColors: Record<number, { fg: string; bg: string }>
   useStatButtonColors: boolean
+  testerBuilding: boolean
+  gridColumnCount: number
+  showFirstMatchRow: boolean
+  showOtherMatchesRow: boolean
+  cardHeightPx: number
   configNames: Array<string | null>
   onJumpToRule?: ((ruleIndex: number, cfgIdx: number | null) => void) | undefined
-  onMeasure?: ((key: string, height: number) => void) | undefined
-  marginBottomPx: number
   childContent?: React.ReactNode
   depth?: number
 }
@@ -471,20 +706,19 @@ const TesterItemsGridGroup = React.memo(function TesterItemsGridGroup({
   groupCountLabel,
   chipBgColor,
   onToggleGroup,
-  contextHintEnabled,
-  onContextMenuHintMove,
-  onContextMenuHintLeave,
-  onContextMenuHintSeen,
+  onAnyContextMenu,
   substatColors,
   useStatButtonColors,
+  testerBuilding,
+  gridColumnCount,
+  showFirstMatchRow,
+  showOtherMatchesRow,
+  cardHeightPx,
   configNames,
   onJumpToRule,
-  onMeasure,
-  marginBottomPx,
   childContent,
   depth = 0,
 }: TesterItemsGridGroupProps) {
-  const accordionRef = useRef<HTMLDivElement | null>(null)
   const hasChildren = Boolean(childContent)
   const nested = depth > 0
   const numericSetId = typeof group.setId === 'number' && group.setId > 0 ? group.setId : null
@@ -495,38 +729,8 @@ const TesterItemsGridGroup = React.memo(function TesterItemsGridGroup({
     </Box>
   ) : null
 
-  useEffect(() => {
-    if (!onMeasure) return undefined
-    const node = accordionRef.current
-    if (!node) return undefined
-    const marginOffset = Number.isFinite(marginBottomPx) ? marginBottomPx : 0
-    let raf: number | null = null
-    const report = () => {
-      raf = null
-      const rect = node.getBoundingClientRect()
-      if (!rect) return
-      onMeasure(group.key, rect.height + marginOffset)
-    }
-    report()
-    if (typeof ResizeObserver === 'undefined') {
-      return () => {
-        if (raf !== null) cancelAnimationFrame(raf)
-      }
-    }
-    const observer = new ResizeObserver(() => {
-      if (raf !== null) cancelAnimationFrame(raf)
-      raf = requestAnimationFrame(report)
-    })
-    observer.observe(node)
-    return () => {
-      observer.disconnect()
-      if (raf !== null) cancelAnimationFrame(raf)
-    }
-  }, [group.key, marginBottomPx, onMeasure, expanded, group.rows.length])
-
   return (
     <Accordion
-      ref={accordionRef}
       expanded={expanded}
       onChange={(event, isExpanded) => onToggleGroup(group.key, isExpanded, event)}
       sx={(theme) => ({
@@ -558,14 +762,11 @@ const TesterItemsGridGroup = React.memo(function TesterItemsGridGroup({
           },
         })}
         expandIcon={<ExpandMoreIcon />}
-        onMouseEnter={contextHintEnabled ? onContextMenuHintMove : undefined}
-        onMouseMove={contextHintEnabled ? onContextMenuHintMove : undefined}
-        onMouseLeave={contextHintEnabled ? onContextMenuHintLeave : undefined}
         onContextMenu={(event) => {
           event.preventDefault()
           event.stopPropagation()
           onToggleGroup(group.key, !expanded, event, { applyToAll: true })
-          if (contextHintEnabled) onContextMenuHintSeen()
+          onAnyContextMenu?.()
         }}
       >
         <Stack direction="row" spacing={1.5} alignItems="center" sx={{ width: '100%', flexWrap: 'nowrap' }}>
@@ -600,7 +801,9 @@ const TesterItemsGridGroup = React.memo(function TesterItemsGridGroup({
         <AccordionDetails
           sx={(theme) => ({
             backgroundColor: 'inherit',
-            p: hasChildren ? theme.spacing(ACCORDION_MARGIN_UNITS) : 0,
+            p: hasChildren
+              ? theme.spacing(ACCORDION_MARGIN_UNITS)
+              : theme.spacing(GRID_CARD_CONTAINER_PADDING_UNITS),
           })}
         >
           {hasChildren ? (
@@ -611,10 +814,7 @@ const TesterItemsGridGroup = React.memo(function TesterItemsGridGroup({
             <Box
               sx={(theme) => ({
                 display: 'grid',
-                gridTemplateColumns: {
-                  xs: GRID_CARD_SINGLE_COLUMN_TEMPLATE,
-                  sm: GRID_CARD_QUARTER_TEMPLATE,
-                },
+                gridTemplateColumns: `repeat(${Math.max(1, gridColumnCount)}, ${GRID_CARD_SINGLE_COLUMN_TEMPLATE})`,
                 gap: theme.spacing(GRID_GAP),
                 bgcolor: 'inherit',
               })}
@@ -625,6 +825,11 @@ const TesterItemsGridGroup = React.memo(function TesterItemsGridGroup({
                   row={row}
                   substatColors={substatColors}
                   useStatButtonColors={useStatButtonColors}
+                  testerBuilding={testerBuilding}
+                  showFirstMatchRow={showFirstMatchRow}
+                  showOtherMatchesRow={showOtherMatchesRow}
+                  cardHeightPx={cardHeightPx}
+                  gridColumnCount={gridColumnCount}
                   configNames={configNames}
                   onJumpToRule={onJumpToRule}
                 />
@@ -641,12 +846,22 @@ const TesterGridCard = React.memo(function TesterGridCard({
   row,
   substatColors,
   useStatButtonColors,
+  testerBuilding,
+  showFirstMatchRow,
+  showOtherMatchesRow,
+  cardHeightPx,
+  gridColumnCount,
   configNames,
   onJumpToRule,
 }: {
   row: TesterPreviewRow
   substatColors: Record<number, { fg: string; bg: string }>
   useStatButtonColors: boolean
+  testerBuilding: boolean
+  showFirstMatchRow: boolean
+  showOtherMatchesRow: boolean
+  cardHeightPx: number
+  gridColumnCount: number
   configNames: Array<string | null>
   onJumpToRule?: ((ruleIndex: number, cfgIdx: number | null) => void) | undefined
 }) {
@@ -795,26 +1010,6 @@ const TesterGridCard = React.memo(function TesterGridCard({
   const sourceTooltipTitle = sourceDescriptor ? (sourceDescriptor.tooltip ?? sourceDescriptor.label ?? '') : ''
   const rerollLabel = artifact.rerollCount > 0 ? '⟳' : ''
   const rerollTooltip = artifact.rerollCount > 0 ? t('testerRerollLabel') : ''
-  const outcomeLabel = match?.keep === true
-    ? t('testerMatchKeep')
-    : match?.keep === false
-      ? t('testerMatchSell')
-      : t('testerMatchNoRule')
-  const outcomeColor: 'success' | 'error' | 'default' = match?.keep === true
-    ? 'success'
-    : match?.keep === false
-      ? 'error'
-      : 'default'
-  const outcomeGlyph = match?.keep === true
-    ? '✓'
-    : match?.keep === false
-      ? <SellIcon fontSize="inherit" aria-hidden />
-      : '—'
-  const outcomeTone = outcomeColor === 'success'
-    ? theme.palette.success.main
-    : outcomeColor === 'error'
-      ? theme.palette.error.main
-      : theme.palette.text.secondary
   const primaryRuleIndex = typeof match?.ruleIndex === 'number' ? match.ruleIndex : null
   const primaryCfgIndex = typeof match?.cfgIdx === 'number' ? match.cfgIdx : null
   const canJumpToPrimaryMatch = typeof onJumpToRule === 'function' && primaryRuleIndex != null
@@ -830,7 +1025,10 @@ const TesterGridCard = React.memo(function TesterGridCard({
     cfgIdx: idx as number,
     label: formatConfigLabel(idx as number, configNames, t),
   }))
+  const suppressNoMatchChip = testerBuilding && !match && matchingEntries.length === 0
+  const shouldShowPrimaryMatchRow = showFirstMatchRow && (match !== null || (!match && !suppressNoMatchChip))
   const otherMatchingEntries = matchingEntries.slice(1)
+  const shouldShowOtherMatchesRow = showOtherMatchesRow && otherMatchingEntries.length > 0
   const totalOtherMatches = otherMatchingEntries.length
   const otherMatchingEntriesSignature = useMemo(
     () => otherMatchingEntries.map((entry) => `${entry.cfgIdx}:${entry.label}`).join('|'),
@@ -997,12 +1195,29 @@ const TesterGridCard = React.memo(function TesterGridCard({
       </Tooltip>
     )
   }
-  const ascSummaryLine = ascSummary ? (
+  const ascSummaryContent = ascSummary
+  const shouldInlineAscension = gridColumnCount <= 4
+  const ascSummaryInline = ascSummaryContent ? (
+    <Box
+      component="span"
+      sx={{
+        display: 'inline-flex',
+        alignItems: 'baseline',
+        gap: 0.25,
+        ml: 0.75,
+        flexWrap: 'wrap',
+      }}
+    >
+      <Box component="span" sx={{ color: theme.palette.text.secondary, fontWeight: 600 }}>+</Box>
+      {ascSummaryContent}
+    </Box>
+  ) : null
+  const ascSummaryBlock = ascSummaryContent ? (
     <Box
       component="span"
       sx={{
         display: 'block',
-        mt: 0.125,
+        mt: CARD_ASC_BLOCK_MARGIN_TOP_UNITS,
         pl: 1,
         color: theme.palette.text.secondary,
         fontWeight: 600,
@@ -1012,33 +1227,65 @@ const TesterGridCard = React.memo(function TesterGridCard({
     >
       +
       {' '}
-      {ascSummary}
+      {ascSummaryContent}
     </Box>
   ) : null
+  const { leftColumnHeightPx, rightColumnHeightPx } = useMemo(
+    () => getTesterGridCardColumnHeights(theme, gridColumnCount),
+    [theme, gridColumnCount],
+  )
+  const cardOutcome = match
+    ? {
+        tone: match.keep === false ? theme.palette.error.main : theme.palette.success.main,
+        glyph: match.keep === false ? <SellIcon fontSize="inherit" aria-hidden /> : '✓',
+        label: match.keep === false ? t('testerMatchSell') : t('testerMatchKeep'),
+        canJump: canJumpToPrimaryMatch,
+        onClick: handlePrimaryMatchClick,
+      }
+    : undefined
   const mainSummaryLabel = (
     <>
       <Box component="span" sx={{ color: mainColor ?? 'inherit' }}>
         {mainInline}
       </Box>
-      {ascSummaryLine}
+      {shouldInlineAscension ? ascSummaryInline : ascSummaryBlock}
     </>
   )
 
+  const cardHeightStyle = `${cardHeightPx}px`
+  const matchRowHeight = `${CARD_MATCH_ROW_HEIGHT_PX}px`
+
   return (
     <Box
-      sx={{
+      sx={(theme) => ({
         display: 'grid',
         gridTemplateColumns: GRID_CARD_TEMPLATE,
-        columnGap: 2,
-        rowGap: 1,
-        p: 2,
-        borderRadius: CARD_BORDER_RADIUS,
-        bgcolor: 'inherit',
-        minHeight: 176,
+        columnGap: theme.spacing(CARD_COLUMN_GAP_UNITS),
+        p: theme.spacing(CARD_PADDING_UNITS),
+        borderRadius: `${CARD_BORDER_RADIUS_PX}px`,
+        border: `1px solid ${theme.palette.divider}`,
+        bgcolor: theme.palette.background.paper,
+        minHeight: cardHeightStyle,
+        height: cardHeightStyle,
+        maxHeight: cardHeightStyle,
+        boxSizing: 'border-box',
         overflow: 'hidden',
-      }}
+        alignContent: 'start',
+      })}
     >
-      <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5, textAlign: 'center' }}>
+      <Box
+        sx={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: GRID_CARD_LEFT_COLUMN_GAP_UNITS,
+          textAlign: 'center',
+          minHeight: leftColumnHeightPx,
+          height: leftColumnHeightPx,
+          maxHeight: leftColumnHeightPx,
+          justifyContent: 'flex-start',
+        }}
+      >
         <GridIconBox
           setId={setIdNumber as ArtifactSetId}
           slotId={artifact.slot as ArtifactTypeId}
@@ -1052,13 +1299,8 @@ const TesterGridCard = React.memo(function TesterGridCard({
           rerollLabel={rerollLabel || undefined}
           rerollTooltip={rerollTooltip || undefined}
           levelLabel={levelChipLabel}
-          outcome={{
-            tone: outcomeTone,
-            glyph: outcomeGlyph,
-            label: outcomeLabel,
-            canJump: canJumpToPrimaryMatch,
-            onClick: handlePrimaryMatchClick,
-          }}
+          size={TESTER_GRID_ICON_BOX_SIZE_PX}
+          {...(cardOutcome ? { outcome: cardOutcome } : {})}
         />
         {(sourceDescriptor && SourceIcon) ? (
           <Tooltip title={sourceTooltipTitle}>
@@ -1082,10 +1324,30 @@ const TesterGridCard = React.memo(function TesterGridCard({
           </Tooltip>
         ) : null}
       </Box>
-      <Stack spacing={0.75} minWidth={0} sx={{ gridColumn: '2', gridRow: '1', minWidth: 0 }}>
+      <Stack
+        spacing={CARD_TEXT_STACK_GAP_UNITS}
+        minWidth={0}
+        sx={{
+          gridColumn: '2',
+          gridRow: '1',
+          minWidth: 0,
+          minHeight: rightColumnHeightPx,
+          height: rightColumnHeightPx,
+          maxHeight: rightColumnHeightPx,
+          overflow: 'hidden',
+        }}
+      >
         <TesterSummaryLabel label={mainSummaryLabel} wrap />
         <Tooltip title={subTooltip}>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25, width: '100%' }}>
+          <Box
+            sx={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: CARD_SUBSTAT_ROW_GAP_UNITS,
+              width: '100%',
+              flexGrow: 1,
+            }}
+          >
             {substatEntries.length > 0 ? substatEntries.map((entry) => (
               <Box
                 key={`sub-${entry.variant}`}
@@ -1135,21 +1397,45 @@ const TesterGridCard = React.memo(function TesterGridCard({
           </Box>
         </Tooltip>
       </Stack>
-      {match ? (
-        <Box sx={{ gridColumn: '1 / -1', width: '100%', display: 'flex', alignItems: 'center' }}>
-          <TesterRuleReferenceChip
-            match={match}
-            {...(onJumpToRule ? { onJump: onJumpToRule } : {})}
-            sx={{ width: '100%' }}
-          />
+      {shouldShowPrimaryMatchRow ? (
+        <Box
+          sx={{
+            gridColumn: '1 / -1',
+            width: '100%',
+            display: 'flex',
+            alignItems: 'center',
+            mt: `${CARD_MATCH_ROW_MARGIN_PX}px`,
+            mb: `${CARD_MATCH_ROW_MARGIN_PX}px`,
+            minHeight: matchRowHeight,
+            height: matchRowHeight,
+            maxHeight: matchRowHeight,
+          }}
+        >
+          {match ? (
+            <TesterRuleReferenceChip
+              match={match}
+              {...(onJumpToRule ? { onJump: onJumpToRule } : {})}
+              sx={{ width: '100%' }}
+            />
+          ) : (
+            <Chip size="small" color="success" variant="filled" label={t('testerNoMatch')} />
+          )}
         </Box>
-      ) : (
-        <Box sx={{ gridColumn: '1 / -1', width: '100%', display: 'flex', alignItems: 'center' }}>
-          <Chip size="small" color="success" variant="filled" label={t('testerNoMatch')} />
-        </Box>
-      )}
-      {otherMatchingEntries.length > 0 ? (
-        <Box sx={{ gridColumn: '1 / -1', width: '100%' }}>
+      ) : null}
+      {shouldShowOtherMatchesRow ? (
+        <Box
+          sx={{
+            gridColumn: '1 / -1',
+            width: '100%',
+            minHeight: matchRowHeight,
+            height: matchRowHeight,
+            maxHeight: matchRowHeight,
+            display: 'flex',
+            alignItems: 'center',
+            mt: `${CARD_MATCH_ROW_MARGIN_PX}px`,
+            mb: `${CARD_MATCH_ROW_MARGIN_PX}px`,
+          }}
+        >
           <Box
             ref={handleOtherMatchesRowRef}
             sx={{
@@ -1332,6 +1618,24 @@ function groupRowsBySet(rows: readonly TesterPreviewRow[], translate: TranslateF
   ].sort((a, b) => a.order - b.order)
 }
 
+function getTesterCardHeight(
+  showFirst: boolean,
+  showOther: boolean,
+  cardVerticalPaddingPx: number,
+  firstRowHeightPx: number,
+): number {
+  let height = firstRowHeightPx + cardVerticalPaddingPx
+  const visibleRows = (showFirst ? 1 : 0) + (showOther ? 1 : 0)
+  if (visibleRows > 0) {
+    const perRowHeight = CARD_MATCH_ROW_HEIGHT_PX + (CARD_MATCH_ROW_MARGIN_PX * 2)
+    height += visibleRows * perRowHeight
+    if (visibleRows > 1) {
+      height += (visibleRows - 1) * CARD_MATCH_ROW_GAP_PX
+    }
+  }
+  return height
+}
+
 function formatConfigLabel(idx: number, configNames: Array<string | null>, translate: TranslateFn): string {
   const name = configNames[idx]
   if (typeof name === 'string' && name.trim().length > 0) {
@@ -1340,28 +1644,148 @@ function formatConfigLabel(idx: number, configNames: Array<string | null>, trans
   return translate('testerConfigChip', { index: idx + 1 })
 }
 
+type GridCardColumnHeights = {
+  leftColumnHeightPx: number
+  rightColumnHeightPx: number
+  firstRowHeightPx: number
+}
+
+const DEFAULT_HTML_FONT_SIZE_PX = 16
+
+const typographySizeToPx = (value: string | number | undefined, htmlFontSize: number): number => {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value
+  }
+  if (typeof value !== 'string') {
+    return 0
+  }
+  const trimmed = value.trim()
+  if (trimmed.endsWith('rem')) {
+    return Number.parseFloat(trimmed) * htmlFontSize
+  }
+  if (trimmed.endsWith('px')) {
+    return Number.parseFloat(trimmed)
+  }
+  const numeric = Number.parseFloat(trimmed)
+  return Number.isFinite(numeric) ? numeric : 0
+}
+
+function getTesterGridCardColumnHeights(theme: Theme, gridColumnCount: number): GridCardColumnHeights {
+  const htmlFontSize = Number(theme.typography.htmlFontSize) || DEFAULT_HTML_FONT_SIZE_PX
+  const summaryFontSizePx = CARD_SUMMARY_FONT_SIZE_REM * htmlFontSize
+  const summaryLineHeightPx = CARD_SUMMARY_LINE_HEIGHT_REM * htmlFontSize
+  const stackGapPx = pxValue(theme.spacing(CARD_TEXT_STACK_GAP_UNITS))
+  const fallbackFontSizePx = typographySizeToPx(theme.typography.fontSize, htmlFontSize) || htmlFontSize
+  const substatFontSizePx = typographySizeToPx(theme.typography.body2?.fontSize, htmlFontSize) || fallbackFontSizePx
+  const substatLineHeightPx = CARD_SUBSTAT_LINE_HEIGHT * substatFontSizePx
+  const substatGapPx = pxValue(theme.spacing(CARD_SUBSTAT_ROW_GAP_UNITS))
+  const totalSubstatHeightPx = (CARD_SUBSTAT_LINE_COUNT * substatLineHeightPx)
+    + (Math.max(0, CARD_SUBSTAT_LINE_COUNT - 1) * substatGapPx)
+  const shouldInlineAscension = gridColumnCount <= 4
+  const ascMarginPx = shouldInlineAscension ? 0 : pxValue(theme.spacing(CARD_ASC_BLOCK_MARGIN_TOP_UNITS))
+  const ascFontSizePx = Math.max(0, summaryFontSizePx - CARD_ASC_FONT_DECREMENT_PX)
+  const ascLineHeightPx = shouldInlineAscension ? 0 : CARD_ASC_LINE_HEIGHT * ascFontSizePx
+  const summarySectionHeightPx = summaryLineHeightPx + ascMarginPx + ascLineHeightPx
+  const rightColumnHeightPx = summarySectionHeightPx + stackGapPx + totalSubstatHeightPx
+  const leftColumnGapPx = pxValue(theme.spacing(GRID_CARD_LEFT_COLUMN_GAP_UNITS))
+  const leftColumnHeightPx = TESTER_GRID_ICON_BOX_SIZE_PX + GRID_CARD_SOURCE_ICON_SIZE_PX + leftColumnGapPx
+  const normalizedLeftPx = Math.max(0, Math.ceil(leftColumnHeightPx + CARD_COLUMN_HEIGHT_BUFFER_PX))
+  const normalizedRightPx = Math.max(0, Math.ceil(rightColumnHeightPx + CARD_COLUMN_HEIGHT_BUFFER_PX))
+  return {
+    leftColumnHeightPx: normalizedLeftPx,
+    rightColumnHeightPx: normalizedRightPx,
+    firstRowHeightPx: Math.max(normalizedLeftPx, normalizedRightPx),
+  }
+}
+
+type TesterGridLayoutMetrics = {
+  accordionSpacingPx: number
+  cardHeightPx: number
+  gridColumnCount: number
+  gridGapPx: number
+  leafPaddingPx: number
+}
+
+type UseTesterGridLayoutMetricsOptions = {
+  preferredColumnCount: number
+  showFirstMatch: boolean
+  showOtherMatches: boolean
+  theme: Theme
+}
+
+function useTesterGridLayoutMetrics({
+  preferredColumnCount,
+  showFirstMatch,
+  showOtherMatches,
+  theme,
+}: UseTesterGridLayoutMetricsOptions): TesterGridLayoutMetrics {
+  const isMultiColumn = useMediaQuery(theme.breakpoints.up('sm'))
+  const gridColumnCount = isMultiColumn ? preferredColumnCount : 1
+  const accordionSpacingPx = useMemo(() => pxValue(theme.spacing(ACCORDION_MARGIN_UNITS)), [theme])
+  const gridGapPx = useMemo(() => pxValue(theme.spacing(GRID_GAP)), [theme])
+  const leafPaddingPx = useMemo(() => pxValue(theme.spacing(GRID_CARD_CONTAINER_PADDING_UNITS)), [theme])
+  const cardVerticalPaddingPx = useMemo(() => pxValue(theme.spacing(CARD_PADDING_UNITS)) * 2, [theme])
+  const { firstRowHeightPx: cardFirstRowHeightPx } = useMemo(
+    () => getTesterGridCardColumnHeights(theme, gridColumnCount),
+    [theme, gridColumnCount],
+  )
+  const cardHeightPx = useMemo(
+    () => getTesterCardHeight(showFirstMatch, showOtherMatches, cardVerticalPaddingPx, cardFirstRowHeightPx),
+    [cardFirstRowHeightPx, cardVerticalPaddingPx, showFirstMatch, showOtherMatches],
+  )
+  return useMemo(() => ({
+    accordionSpacingPx,
+    cardHeightPx,
+    gridColumnCount,
+    gridGapPx,
+    leafPaddingPx,
+  }), [
+    accordionSpacingPx,
+    cardHeightPx,
+    gridColumnCount,
+    gridGapPx,
+    leafPaddingPx,
+  ])
+}
+
 function estimateGroupHeight(
   group: TesterGroup,
   collapsedGroups: Set<string>,
   columnCount: number,
-  marginBottomPx: number,
+  accordionSpacingPx: number,
   gridGapPx: number,
+  leafPaddingPx: number,
+  cardHeightPx: number,
+  depth = 0,
 ): number {
   const header = ESTIMATED_ACCORDION_HEADER_PX
+  const marginBottom = depth === 0 ? accordionSpacingPx : 0
   const collapsed = collapsedGroups.has(group.key)
-  if (collapsed) return header + marginBottomPx
+  if (collapsed) return header + marginBottom
   if (group.children && group.children.length > 0) {
-    const childTotal = group.children.reduce((total, child) => (
-      total + estimateGroupHeight(child, collapsedGroups, columnCount, marginBottomPx, gridGapPx)
+    const childHeights = group.children.reduce((total, child) => (
+      total + estimateGroupHeight(
+        child,
+        collapsedGroups,
+        columnCount,
+        accordionSpacingPx,
+        gridGapPx,
+        leafPaddingPx,
+        cardHeightPx,
+        depth + 1,
+      )
     ), 0)
-    return header + childTotal + marginBottomPx
+    const stackGapTotal = Math.max(0, group.children.length - 1) * accordionSpacingPx
+    const stackPadding = accordionSpacingPx * 2
+    return header + childHeights + stackGapTotal + stackPadding + marginBottom
   }
   const columns = Math.max(1, columnCount)
   const rowsNeeded = Math.max(1, Math.ceil(group.rows.length / columns))
-  const gridHeight = (rowsNeeded * ESTIMATED_CARD_HEIGHT_PX)
+  const gridHeight = (rowsNeeded * cardHeightPx)
     + (Math.max(0, rowsNeeded - 1) * gridGapPx)
-    + ESTIMATED_DETAILS_PADDING_PX
-  return header + gridHeight + marginBottomPx
+  const paddingHeight = Math.max(0, leafPaddingPx) * 2
+  const totalHeight = header + gridHeight + paddingHeight + marginBottom
+  return Math.min(totalHeight, GRID_VIRTUALIZE_MAX_FALLBACK_HEIGHT_PX)
 }
 
 export default TesterItemsGrid
