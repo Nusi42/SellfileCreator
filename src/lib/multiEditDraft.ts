@@ -6,7 +6,7 @@
  * surface mixed fields and staged overrides before applying changes.
  */
 import type { BuilderConfig, SubstatRollTargetEntry } from './hsfBuilder'
-import { normalizeKeepMode, normalizeSubstatMinTarget, canEnableSubstatFlex, normalizeAutoRaritySupplements, normalizeLevelWindow, normalizeAutoSubstatFlex } from './configNormalization'
+import { normalizeKeepMode, canEnableSubstatFlex, normalizeAutoRaritySupplements, normalizeLevelWindow, normalizeAutoSubstatFlex } from './configNormalization'
 
 export const BUILDER_FIELD_KEYS = [
   'name',
@@ -31,7 +31,6 @@ export const BUILDER_FIELD_KEYS = [
   'minRequiredRolls',
   'autoMinRequiredRolls',
   'lockedMinRequiredRolls',
-  'substatMinTarget',
   'artifactTypes',
   'artifactSets',
   'artifactMetaSets',
@@ -642,13 +641,8 @@ export function applyMultiEditFieldToConfig(
   if (areBuilderFieldValuesEqual(key, cfg[key], nextValue)) return cfg
   let nextCfg: BuilderConfig = { ...cfg, [key]: nextValue }
   switch (key) {
-    case 'substatMinTarget':
-      nextCfg = normalizeSubstatMinTarget(nextCfg)
-      nextCfg = normalizeAutoSubstatFlex(nextCfg)
-      break
     case 'autoMinCount':
     case 'minCount':
-      nextCfg = normalizeSubstatMinTarget(nextCfg)
       nextCfg = normalizeAutoSubstatFlex(nextCfg)
       break
     case 'autoSubstatFlex':
@@ -774,7 +768,6 @@ function applySubstatsPatch(cfg: BuilderConfig, patch: MultiEditArrayPatch<numbe
 
   nextCfg = normalizeKeepMode(nextCfg)
   nextCfg = normalizeAutoRaritySupplements(nextCfg)
-  nextCfg = normalizeSubstatMinTarget(nextCfg)
   if (nextCfg.autoSubstatFlex && !canEnableSubstatFlex(nextCfg)) {
     nextCfg = { ...nextCfg, autoSubstatFlex: false }
   }
@@ -787,7 +780,6 @@ function applyFixedSubstatsPatch(cfg: BuilderConfig, patch: MultiEditArrayPatch<
   const next = applyNumberArrayPatch(current, patch, { sort: true, filter: selectable })
   if (arraysEqualNumber(current, next)) return cfg
   let nextCfg: BuilderConfig = { ...cfg, fixedSubstatsV: next }
-  nextCfg = normalizeSubstatMinTarget(nextCfg)
   if (nextCfg.autoSubstatFlex && !canEnableSubstatFlex(nextCfg)) {
     nextCfg = { ...nextCfg, autoSubstatFlex: false }
   }

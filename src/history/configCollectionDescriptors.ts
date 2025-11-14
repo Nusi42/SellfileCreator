@@ -241,7 +241,6 @@ const FIELD_LABEL_KEY_BY_BUILDER_KEY: Partial<Record<BuilderFieldKey, string>> =
   minRequiredRolls: 'builderMinRequiredRolls',
   autoMinRequiredRolls: 'builderMinRequiredRolls',
   lockedMinRequiredRolls: 'builderMinRequiredRolls',
-  substatMinTarget: 'builderMinRequiredRolls',
   artifactTypes: 'builderSlots',
   artifactSets: 'setsTitle',
   artifactMetaSets: 'menuMetasetsSection',

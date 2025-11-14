@@ -334,7 +334,6 @@ function canonicalizeConfig(config: BuilderConfig): Record<string, unknown> {
     autoSubstatFlex: Boolean(config.autoSubstatFlex ?? false),
     minRequiredRolls: Number(config.minRequiredRolls ?? 0),
     autoMinRequiredRolls: config.autoMinRequiredRolls !== false,
-    substatMinTarget: (config as { substatMinTarget?: 'locked' | 'selected' }).substatMinTarget ?? 'selected',
     artifactTypes: sortedNumbers(config.artifactTypes ?? [], compareArtifactTypes),
     artifactSets: sortedNumbers(config.artifactSets ?? [], compareArtifactSets),
     artifactMetaSets: sortedStrings(config.artifactMetaSets ?? []),

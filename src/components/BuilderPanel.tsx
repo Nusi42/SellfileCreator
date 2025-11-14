@@ -40,7 +40,6 @@ import {
   normalizeAutoSubstatFlex,
   normalizeKeepMode,
   normalizeLevelWindow,
-  normalizeSubstatMinTarget,
   type AutoRaritySupplementsThreshold,
 } from '../lib/configNormalization'
 import {
@@ -609,7 +608,6 @@ export const createFactoryBuilderDefaults = (): BuilderConfig => ({
   artifactTypes: [],
   artifactSets: [],
   artifactMetaSets: [],
-  substatMinTarget: 'selected',
 })
 
 const MAX_CONFIG_INDEX_FOR_BUTTON_WIDTH = 999_999 as const
@@ -718,13 +716,12 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
   const normalizeKeepWithAuto = React.useCallback((next: BuilderConfig): BuilderConfig => {
     const withKeep = normalizeKeepMode(next)
     const withAggregate = normalizeAggregateRollTargets(withKeep)
-    const withSubstatTarget = normalizeSubstatMinTarget(withAggregate)
-    const shouldApplyAuto = (withSubstatTarget.rarityMode === 'auto')
-      && ((withSubstatTarget.earlyKeepMode ?? 'early') === 'late')
-      && isMilestoneThresholdsActive(withSubstatTarget)
-    const fallback = shouldApplyAuto ? pickAutoRarityFallback(withSubstatTarget) : undefined
+    const shouldApplyAuto = (withAggregate.rarityMode === 'auto')
+      && ((withAggregate.earlyKeepMode ?? 'early') === 'late')
+      && isMilestoneThresholdsActive(withAggregate)
+    const fallback = shouldApplyAuto ? pickAutoRarityFallback(withAggregate) : undefined
     const withAuto = normalizeAutoRaritySupplements(
-      withSubstatTarget,
+      withAggregate,
       fallback ? { defaultThreshold: fallback } : undefined,
     )
     return normalizeAutoSubstatFlex(withAuto)
@@ -2413,14 +2410,6 @@ const maxLevelValue = multiEditActive
       }
     }
   }, [canFlexSubstats, cfg, onChange])
-  useEffect(() => {
-    const desiredTarget = ((Number(cfg.lockedMinRequiredRolls ?? 0) > 0) && lockedSubstatsExist)
-      ? 'locked'
-      : 'selected'
-    const currentTarget = ((cfg as unknown as { substatMinTarget?: 'locked' | 'selected' }).substatMinTarget ?? 'selected')
-    if (currentTarget === desiredTarget) return
-    onChange({ ...cfg, substatMinTarget: desiredTarget })
-  }, [cfg, lockedSubstatsExist, onChange])
   // Note: We no longer color the stat toggle button borders. The preference
   // now controls coloring of stat texts in chips and preview only.
   const buttonBorderSx = (_variant: number) => {
@@ -2944,7 +2933,6 @@ const maxLevelValue = multiEditActive
       if (v && typeof v === 'object') return Object.keys(v as object).length === 0
       return !v
     }
-    const substatMinTarget = (cfg as unknown as { substatMinTarget?: 'locked'|'selected' }).substatMinTarget ?? 'selected'
     return (
       (cfg.name ?? '') === (target.name ?? '') &&
       cfg.keep === Boolean(target.keep) &&
@@ -2968,8 +2956,7 @@ const maxLevelValue = multiEditActive
       empty((cfg as unknown as { substatRollBoundsV?: Record<number, unknown> }).substatRollBoundsV ?? {}) === empty((target as unknown as { substatRollBoundsV?: Record<number, unknown> }).substatRollBoundsV ?? {}) &&
       JSON.stringify(asNumArr((cfg as unknown as { artifactTypes?: number[] }).artifactTypes).slice().sort()) === JSON.stringify(asNumArr((target as unknown as { artifactTypes?: number[] }).artifactTypes).slice().sort()) &&
       JSON.stringify(asNumArr((cfg as unknown as { artifactSets?: number[] }).artifactSets).slice().sort()) === JSON.stringify(asNumArr((target as unknown as { artifactSets?: number[] }).artifactSets).slice().sort()) &&
-      JSON.stringify(((cfg as unknown as { artifactMetaSets?: string[] }).artifactMetaSets ?? []).slice().sort()) === JSON.stringify(((target as unknown as { artifactMetaSets?: string[] }).artifactMetaSets ?? []).slice().sort()) &&
-      substatMinTarget === ((target as unknown as { substatMinTarget?: 'locked'|'selected' }).substatMinTarget ?? 'selected')
+      JSON.stringify(((cfg as unknown as { artifactMetaSets?: string[] }).artifactMetaSets ?? []).slice().sort()) === JSON.stringify(((target as unknown as { artifactMetaSets?: string[] }).artifactMetaSets ?? []).slice().sort())
     )
   }, [cfg, defaultsEpoch])
   // Default builders reset the cached toggles so they mirror the factory state.
@@ -7304,7 +7291,6 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                 artifactTypes: (cfg.artifactTypes ?? []),
                 artifactSets: (cfg.artifactSets ?? []),
                 artifactMetaSets: (cfg.artifactMetaSets ?? []),
-                substatMinTarget: ((cfg.substatMinTarget === 'locked') ? 'locked' : 'selected'),
               }
               const same = JSON.stringify(current) === JSON.stringify(factory)
               try {

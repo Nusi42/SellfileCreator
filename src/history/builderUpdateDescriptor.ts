@@ -2,6 +2,7 @@ import type { HistoryEntryDescriptor } from '../hooks/useHsfcHistory'
 import type { BuilderConfig } from '../lib/hsfBuilder'
 import type { Metaset } from '../lib/metasets'
 import { NBSP } from '../lib/constants'
+import { isLockedAggregateScopeActive } from '../lib/configNormalization'
 import { DEFAULT_METASET_ICON_ID, metasetIconOptionById, normalizeMetasetIconId } from '../lib/metasetIcons'
 import {
   artifactSetI18nKey,
@@ -72,7 +73,6 @@ export function createHistoryBuilderBaseline(overrides: Partial<BuilderConfig> =
     artifactTypes: [],
     artifactSets: [],
     artifactMetaSets: [],
-    substatMinTarget: 'selected',
     ...overrides,
   }
 }
@@ -147,7 +147,7 @@ export function summarizeBuilderConfigDiff(params: SummarizeBuilderConfigDiffPar
   if (hasAny(changed, ['minCount', 'autoMinCount', 'autoSubstatFlex'])) {
     pushInlineDiff(detailLines, t, t('builderRequiredSubstats'), formatRequiredSubstatsValue(previous, t), formatRequiredSubstatsValue(next, t))
   }
-  if (hasAny(changed, ['minRequiredRolls', 'lockedMinRequiredRolls', 'autoMinRequiredRolls', 'substatMinTarget'])) {
+  if (hasAny(changed, ['minRequiredRolls', 'lockedMinRequiredRolls', 'autoMinRequiredRolls'])) {
     pushInlineDiff(detailLines, t, t('builderMinRequiredRolls'), formatMinRequiredRollsValue(previous, t), formatMinRequiredRollsValue(next, t))
   }
   if (changed.has('earlyKeepMode')) {
@@ -563,7 +563,7 @@ function formatMinRequiredRollsValue(cfg: BuilderConfig, t: TranslateFn): string
   const auto = cfg.autoMinRequiredRolls !== false
   const count = typeof cfg.minRequiredRolls === 'number' ? cfg.minRequiredRolls : 0
   const base = auto ? t('headerMenuAuto') : String(count)
-  const scope = (cfg.substatMinTarget ?? 'selected') === 'locked'
+  const scope = isLockedAggregateScopeActive(cfg)
     ? t('builderMinRequiredRollsChipLocked')
     : t('builderMinRequiredRollsChipSelected')
   const lockedCount = typeof cfg.lockedMinRequiredRolls === 'number' ? cfg.lockedMinRequiredRolls : 0

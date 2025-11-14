@@ -58,7 +58,6 @@ function snapshotKeyForConfig(cfg: BuilderConfig): SnapshotKey {
     artifactTypes: sortNumbers((cfg as unknown as { artifactTypes?: number[] }).artifactTypes),
     artifactSets: sortNumbers((cfg as unknown as { artifactSets?: number[] }).artifactSets),
     artifactMetaSets: sortStrings((cfg as unknown as { artifactMetaSets?: string[] }).artifactMetaSets),
-    substatMinTarget: ((cfg as unknown as { substatMinTarget?: 'locked' | 'selected' }).substatMinTarget ?? 'selected'),
   }
 
   let key: SnapshotKey

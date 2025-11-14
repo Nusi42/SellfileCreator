@@ -17,7 +17,7 @@ const isAutoRaritySupplementsThreshold = (value: unknown): value is AutoRaritySu
 
 type FlexConfigShape = Pick<BuilderConfig,
   'autoMinCount' | 'minCount' | 'substatsV' | 'fixedSubstatsV' | 'substatRollBoundsV' |
-  'autoMinRequiredRolls' | 'minRequiredRolls' | 'substatMinTarget'
+  'autoMinRequiredRolls' | 'minRequiredRolls'
 >
 
 /**
@@ -59,7 +59,7 @@ export function canEnableSubstatFlex(cfg: FlexConfigShape): boolean {
     })
 
     const globalMinActive = (cfg.autoMinRequiredRolls === false) && typeof cfg.minRequiredRolls === 'number' && cfg.minRequiredRolls > 0
-    const targetedCount = (cfg.substatMinTarget === 'locked') ? lockedCount : effectiveRequired
+    const targetedCount = isLockedAggregateScopeActive(cfg, { lockedCountOverride: lockedCount }) ? lockedCount : effectiveRequired
     const needsFlexForAggregate = globalMinActive && (cfg.minRequiredRolls as number) > targetedCount
 
     if (hasOptionalMin || needsFlexForAggregate) return true
@@ -130,30 +130,26 @@ export function normalizeAutoRaritySupplements<T extends Pick<BuilderConfig,
  * - When a locked-only aggregate floor exists (value > 0 and locked substats present), force the scope to 'locked'.
  * - Otherwise default to 'selected' so the total applies across all targeted substats.
  */
-export function normalizeSubstatMinTarget<T extends Pick<BuilderConfig, 'substatMinTarget' | 'fixedSubstatsV' | 'lockedMinRequiredRolls'>>(cfg: T): T {
-  try {
-    const fixed = Array.isArray(cfg.fixedSubstatsV) ? cfg.fixedSubstatsV : []
-    const lockedMinRaw = (cfg as { lockedMinRequiredRolls?: number }).lockedMinRequiredRolls
-    const lockedMinActive = typeof lockedMinRaw === 'number' && lockedMinRaw > 0 && fixed.length > 0
-    const currentTarget = (cfg.substatMinTarget ?? 'selected')
-    if (lockedMinActive && currentTarget !== 'locked') {
-      return { ...cfg, substatMinTarget: 'locked' } as T
-    }
-    if (!lockedMinActive && currentTarget === 'locked') {
-      return { ...cfg, substatMinTarget: 'selected' } as T
-    }
-    return cfg
-  } catch {
-    return cfg
-  }
-}
-
 const clampAggregateRollRequirement = (value: unknown): 0 | 1 | 2 | 3 | 4 | 5 => {
   const num = typeof value === 'number' ? value : Number(value)
   if (!Number.isFinite(num)) return 0
   const rounded = Math.round(num)
   const clamped = Math.max(0, Math.min(5, rounded))
   return clamped as 0 | 1 | 2 | 3 | 4 | 5
+}
+
+export function isLockedAggregateScopeActive<T extends Pick<BuilderConfig, 'lockedMinRequiredRolls' | 'fixedSubstatsV'>>(cfg: T, options?: { lockedCountOverride?: number }): boolean {
+  try {
+    const lockedCount = typeof options?.lockedCountOverride === 'number'
+      ? options.lockedCountOverride
+      : (Array.isArray(cfg.fixedSubstatsV) ? cfg.fixedSubstatsV.length : 0)
+    if (lockedCount <= 0) return false
+    const lockedMinRaw = (cfg as { lockedMinRequiredRolls?: number }).lockedMinRequiredRolls
+    const lockedMin = clampAggregateRollRequirement(lockedMinRaw ?? 0)
+    return lockedMin > 0
+  } catch {
+    return false
+  }
 }
 
 /**

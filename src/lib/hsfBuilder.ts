@@ -21,7 +21,7 @@ import {
   type RankValue,
   statIsAny,
 } from './types'
-import { canEnableSubstatFlex, deriveRollBaselineMode, isMilestoneThresholdsActive } from './configNormalization'
+import { canEnableSubstatFlex, deriveRollBaselineMode, isLockedAggregateScopeActive, isMilestoneThresholdsActive } from './configNormalization'
 import { variantToSub, variantToMain } from './hsfTypes'
 import type { ArtifactSetId, ArtifactTypeId, FactionId } from './types'
 import { SUBSTAT_TARGET_MAX_ROLLS } from './constants'
@@ -102,12 +102,6 @@ export interface BuilderConfig {
   // Applied independently from `minRequiredRolls` so locked stats can hit their
   // own floor before optional ones contribute additional rolls.
   lockedMinRequiredRolls?: 0 | 1 | 2 | 3 | 4 | 5
-  // Aggregate minimum rolls target scope: by default, the global MinRequiredRolls
-  // applies across all selected substats in a rule. When set to 'locked', the
-  // aggregate minimum applies only to locked substats (fixedSubstatsV). This
-  // enables configs where only the must-have stats need to meet the sum.
-  // Default: 'selected'.
-  substatMinTarget?: 'selected' | 'locked'
   // Optional slot and set filters (HSF numeric IDs or enums); omit for Any
   artifactTypes?: ArtifactTypeId[]
   artifactSets?: ArtifactSetId[]
@@ -577,8 +571,8 @@ function deriveGlobalMinRolls(context: AggregateMinContext): number {
     return clampRollRequirement(cfg.minRequiredRolls)
   }
   if (selectedPoolV.length === 0) return 0
-  const targetScope = (cfg.substatMinTarget ?? 'selected') === 'locked'
-  let base = targetScope ? requiredV.length : minTargetCount
+  const lockedScope = isLockedAggregateScopeActive(cfg, { lockedCountOverride: requiredV.length })
+  let base = lockedScope ? requiredV.length : minTargetCount
   if (rarityCode != null) {
     base = Math.min(base, minRollEventsForSelection(rarityCode))
   }
@@ -656,8 +650,9 @@ export function resolveAutoRarityCode(cfg: BuilderConfig): RarityCode {
     perMin[Number(v)] = m
   }
   const sumRequired = requiredV.reduce((a, v) => a + (perMin[Number(v)] ?? 0), 0)
+  const lockedScope = isLockedAggregateScopeActive(cfg, { lockedCountOverride: requiredV.length })
   let worstSumMins: number
-  if ((cfg.substatMinTarget ?? 'selected') === 'locked') {
+  if (lockedScope) {
     worstSumMins = sumRequired
   } else {
     const needLocal = Math.max(0, minTargetCount - requiredV.length)
@@ -1275,6 +1270,7 @@ export function buildHsfRules(
   const aggregateMinValue = Math.max(globalMinValue, lockedMinValue)
   const aggregateMinActive = aggregateMinValue > 0
   const lockedMinActive = lockedMinValue > 0
+  const aggregateTargetsLocked = isLockedAggregateScopeActive(cfg, { lockedCountOverride: requiredV.length })
 
   if (lockedMinActive && lockedCount === 0) {
     return []
@@ -1310,7 +1306,7 @@ export function buildHsfRules(
 
   // If the aggregate minimum should apply to locked substats but none are locked,
   // the requirement cannot be satisfied; prune all rows.
-  if ((cfg.substatMinTarget ?? 'selected') === 'locked' && requiredV.length === 0 && aggregateMinActive) {
+  if (aggregateTargetsLocked && requiredV.length === 0 && aggregateMinActive) {
     return []
   }
 
@@ -1341,7 +1337,7 @@ export function buildHsfRules(
     const optionalCaps = optionalPoolV.map(capFor).sort((a,b)=>b-a)
     let sumCaps = 0
     for (const c of fixedCaps) sumCaps += c
-    if ((cfg.substatMinTarget ?? 'selected') !== 'locked') {
+    if (!aggregateTargetsLocked) {
       for (let i = 0; i < Math.max(0, maxTargetCount - fixedCaps.length); i++) sumCaps += (optionalCaps[i] ?? 0)
     }
     if (sumCaps < targetMin) {
@@ -1410,7 +1406,7 @@ export function buildHsfRules(
     const sentinelCollapsedCombos = new Set<string>()
     const collapseGlobalOkForBranch = (() => {
       if (!aggregateMinActive) return true
-      if ((cfg.substatMinTarget ?? 'selected') !== 'selected') return false
+      if (aggregateTargetsLocked) return false
       const baseRollLevels = rollLevelsForRarityCode(rarityCodeLocal)
       const rollsUpTo16 = LEVELS.filter(l => l <= 16 && baseRollLevels.has(l)).length
       const rollsUpToStart = LEVELS.filter(l => l <= effectiveStart && baseRollLevels.has(l)).length
@@ -1638,8 +1634,7 @@ export function buildHsfRules(
       }
       const targetEntries = combo.map((variant) => getTargetEntry(Number(variant)))
       // Aggregate minimum rolls can target all selected substats or only locked ones.
-      const isLockedTarget = (cfg.substatMinTarget ?? 'selected') === 'locked'
-      const targetedMask: boolean[] = combo.map(v => !isLockedTarget || requiredV.includes(v))
+      const targetedMask: boolean[] = combo.map(v => !aggregateTargetsLocked || requiredV.includes(v))
       const sumTargeted = (arr: number[]) => arr.reduce((acc, val, i) => acc + (targetedMask[i] ? val : 0), 0)
       const canSatisfyLocked = (current: number, remaining: number) => {
         if (!lockedMinActive) return true
@@ -1990,7 +1985,7 @@ export function buildHsfRules(
           }
 
           const preferVirtualSink = (() => {
-            if (!isLockedTarget || globalMin <= 0 || othersCount !== 0 || avail <= 0) {
+            if (!aggregateTargetsLocked || globalMin <= 0 || othersCount !== 0 || avail <= 0) {
               return false
             }
             let hasTargeted = false
@@ -2073,8 +2068,7 @@ export function buildHsfRules(
             // Aggregate minimum in late mode: ensure the selected (or locked-only) sum required
             // by the target is also respected at this level. Compute the minimal targeted sum
             // needed now so that the aggregate can still be satisfied by +16.
-            const isLockedTarget = (cfg.substatMinTarget ?? 'selected') === 'locked'
-            const targetedMask: boolean[] = combo.map(v => !isLockedTarget || requiredV.includes(v))
+            const targetedMask: boolean[] = combo.map(v => !aggregateTargetsLocked || requiredV.includes(v))
             const sumNeedTargeted = needNow.reduce((a, v, i) => a + (targetedMask[i] ? v : 0), 0)
             const minAggNow = globalMin > 0 ? Math.max(0, globalMin - remaining) : 0
             const extraTargeted = Math.max(0, minAggNow - sumNeedTargeted)

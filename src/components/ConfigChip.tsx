@@ -23,6 +23,7 @@ import {
 } from '../lib/types'
 import { NBSP, CHIP_ROLL_BADGE_FONT_SIZE_PX, CHIP_ROLL_BADGE_SIZE_PX, HOVER_BG_ALPHA, SELECTED_HOVER_BG_ALPHA, CONFIG_CHIP_BORDER_RADIUS_PX, CONFIG_CHIP_CONTROL_BUTTON_SIZE_PX, CONFIG_CHIP_VERTICAL_PADDING_PX, SUBSTAT_TARGET_MAX_ROLLS } from '../lib/constants'
 import { normalizeLooseRollTargetEntry, resolveAutoRarityCode } from '../lib/hsfBuilder'
+import { isLockedAggregateScopeActive } from '../lib/configNormalization'
 import { artifactTypeIconFor } from './artifactTypeIcons'
 import { useContextMenuCloseOnOutsideRightClick } from '../hooks/useContextMenuCloseOnOutsideRightClick'
 import { useI18n } from '../lib/i18n'
@@ -963,7 +964,7 @@ function summaryParts(
     addText(`Σr${NBSP}≥${NBSP}${lockedSegment}${totalSegment}`)
   } else if (hasManualAggregateMin) {
     // Legacy locked scope still appends a lock so older configs remain understandable.
-    const lockedScope = (cfg.substatMinTarget === 'locked')
+    const lockedScope = isLockedAggregateScopeActive(cfg)
     addText(`Σr${NBSP}≥${NBSP}${manualAggregateMin}${lockedScope ? `${NBSP}🔒` : ''}`)
   } else if (hasLockedMin) {
     addText(`Σr${NBSP}≥${NBSP}${lockedMin}🔒`)

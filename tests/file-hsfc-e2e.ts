@@ -148,7 +148,7 @@ async function run(prep: FixturePrep = PREPARED_FIXTURES): Promise<void> {
       substatsV: [StatVariant.ACC], fixedSubstatsV: [], minCount: 0,
       autoMinCount: true, autoSubstatFlex: false, minRequiredRolls: 0, autoMinRequiredRolls: true,
       substatRollBoundsV: { [StatVariant.ACC]: { min: 1 } },
-      artifactTypes: [], artifactSets: [], artifactMetaSets: [], substatMinTarget: 'selected',
+      artifactTypes: [], artifactSets: [], artifactMetaSets: [],
     }
     const out = buildReadableConfig(cfg as any, []) as any
     assert(out.autoRarityThreshold === 'epic', 'IO A: writer should include autoRarityThreshold when Auto+Late+active')
@@ -168,7 +168,7 @@ async function run(prep: FixturePrep = PREPARED_FIXTURES): Promise<void> {
       substatsV: [StatVariant.ACC], fixedSubstatsV: [], minCount: 0,
       autoMinCount: true, autoSubstatFlex: false, minRequiredRolls: 0, autoMinRequiredRolls: true,
       substatRollBoundsV: { [StatVariant.ACC]: { min: 1 } },
-      artifactTypes: [], artifactSets: [], artifactMetaSets: [], substatMinTarget: 'selected',
+      artifactTypes: [], artifactSets: [], artifactMetaSets: [],
     }
     const out = buildReadableConfig(cfg as any, []) as any
     assert(!('autoRarityThreshold' in out), 'IO B: writer should omit autoRarityThreshold when Early')
@@ -188,7 +188,7 @@ async function run(prep: FixturePrep = PREPARED_FIXTURES): Promise<void> {
       substatsV: [StatVariant.ACC], fixedSubstatsV: [], minCount: 0,
       autoMinCount: true, autoSubstatFlex: false, minRequiredRolls: 0, autoMinRequiredRolls: true,
       substatRollBoundsV: { [StatVariant.ACC]: { min: 1 } },
-      artifactTypes: [], artifactSets: [], artifactMetaSets: [], substatMinTarget: 'selected',
+      artifactTypes: [], artifactSets: [], artifactMetaSets: [],
     }
     const out = buildReadableConfig(cfg as any, []) as any
     assert(!('autoRarityThreshold' in out), 'IO C: writer should omit autoRarityThreshold when rarityMode is code')
@@ -208,7 +208,7 @@ async function run(prep: FixturePrep = PREPARED_FIXTURES): Promise<void> {
       substatsV: [], fixedSubstatsV: [], minCount: 0,
       autoMinCount: true, autoSubstatFlex: false, minRequiredRolls: 0, autoMinRequiredRolls: true,
       substatRollBoundsV: {},
-      artifactTypes: [], artifactSets: [], artifactMetaSets: [], substatMinTarget: 'selected',
+      artifactTypes: [], artifactSets: [], artifactMetaSets: [],
     }
     const out = buildReadableConfig(cfg as any, []) as any
     assert(!('autoRarityThreshold' in out), 'IO D: writer should omit autoRarityThreshold when thresholds are inactive')
@@ -228,7 +228,7 @@ async function run(prep: FixturePrep = PREPARED_FIXTURES): Promise<void> {
       substatsV: [StatVariant.SPD], fixedSubstatsV: [], minCount: 0,
       autoMinCount: false, autoSubstatFlex: false, minRequiredRolls: 0, autoMinRequiredRolls: true,
       substatRollBoundsV: {},
-      artifactTypes: [], artifactSets: [], artifactMetaSets: [], substatMinTarget: 'selected',
+      artifactTypes: [], artifactSets: [], artifactMetaSets: [],
       substatRollTargetsV: {
         [StatVariant.SPD]: {
           base: 12,
@@ -263,7 +263,7 @@ async function run(prep: FixturePrep = PREPARED_FIXTURES): Promise<void> {
       substatsV: [], fixedSubstatsV: [], minCount: 0,
       autoMinCount: true, autoSubstatFlex: false, minRequiredRolls: 0, autoMinRequiredRolls: true,
       substatRollBoundsV: {},
-      artifactTypes: [], artifactSets: [], artifactMetaSets: [], substatMinTarget: 'selected',
+      artifactTypes: [], artifactSets: [], artifactMetaSets: [],
     }
     const built = buildHsfRules(cfg, defaultSubstatTargets())
     assert(built.length === 0, 'IO Draft: draft configs must not emit HSF rows')
@@ -288,7 +288,7 @@ async function run(prep: FixturePrep = PREPARED_FIXTURES): Promise<void> {
       substatsV: [StatVariant.SPD], fixedSubstatsV: [], minCount: 1,
       autoMinCount: false, autoSubstatFlex: false, minRequiredRolls: 0, autoMinRequiredRolls: true,
       substatRollBoundsV: {},
-      artifactTypes: [], artifactSets: [], artifactMetaSets: [], substatMinTarget: 'selected',
+      artifactTypes: [], artifactSets: [], artifactMetaSets: [],
     }
     const built = buildHsfRules(cfg, substatTargets)
     const spdValues = built
@@ -321,7 +321,6 @@ async function run(prep: FixturePrep = PREPARED_FIXTURES): Promise<void> {
       },
       artifactTypes: [ArtifactType.Banner],
       artifactSets: [], artifactMetaSets: [],
-      substatMinTarget: 'selected',
     }
     const factoryTargets = defaultSubstatTargets()
     const collapsed = buildHsfRules(cfg, factoryTargets)
