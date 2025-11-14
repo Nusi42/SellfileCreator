@@ -54,6 +54,7 @@ function snapshotKeyForConfig(cfg: BuilderConfig): SnapshotKey {
     autoSubstatFlex: ((cfg as unknown as { autoSubstatFlex?: boolean }).autoSubstatFlex === true) && !(cfg.autoMinCount ?? false),
     minRequiredRolls: Number((cfg as unknown as { minRequiredRolls?: number }).minRequiredRolls ?? 0),
     autoMinRequiredRolls: Boolean((cfg as unknown as { autoMinRequiredRolls?: boolean }).autoMinRequiredRolls ?? true),
+    lockedMinRequiredRolls: Number((cfg as unknown as { lockedMinRequiredRolls?: number }).lockedMinRequiredRolls ?? 0),
     substatRollBoundsV: normalizeBounds((cfg as unknown as { substatRollBoundsV?: Record<number, { min?: number; max?: number; any?: boolean }> }).substatRollBoundsV),
     artifactTypes: sortNumbers((cfg as unknown as { artifactTypes?: number[] }).artifactTypes),
     artifactSets: sortNumbers((cfg as unknown as { artifactSets?: number[] }).artifactSets),

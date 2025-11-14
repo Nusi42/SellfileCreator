@@ -4,6 +4,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 
 import { buildHsfRules, defaultSubstatTargets, resolveAutoRarityCode, type BuilderConfig } from '../src/lib/hsfBuilder'
+import { computeDuplicateIndices } from '../src/lib/configDuplicates'
 import { RankCode, RarityCode, StatVariant } from '../src/lib/types'
 import { normalizeAggregateRollTargets } from '../src/lib/configNormalization'
 import { variantToSub } from '../src/lib/hsfTypes'
@@ -102,6 +103,21 @@ test('aggregate normalization clears manual when totals match', () => {
   }))
   assert.equal(cfg.minRequiredRolls, 0)
   assert.equal(cfg.lockedMinRequiredRolls, 3, 'locked requirement remains at the requested value when manual clears')
+})
+
+test('duplicate detection treats lockedMinRequiredRolls as part of the identity', () => {
+  const cfgA = baseBuilderConfig({
+    lockedMinRequiredRolls: 2,
+    minRequiredRolls: 0,
+    substatsV: [StatVariant.SPD, StatVariant.CR, StatVariant.HP],
+    fixedSubstatsV: [StatVariant.SPD, StatVariant.CR],
+  })
+  const cfgB: BuilderConfig = {
+    ...cfgA,
+    lockedMinRequiredRolls: 3,
+  }
+  const indices = computeDuplicateIndices([cfgA, cfgB])
+  assert.deepEqual(indices, [null, null], 'configs with differing locked minimums should not be treated as duplicates')
 })
 
 export {}
