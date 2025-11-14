@@ -848,9 +848,11 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
   const configFilterButtonVariant: 'contained' | 'outlined' = configFilterButtonDisabled
     ? 'contained'
     : (configFilterButtonActive ? 'contained' : 'outlined')
-  const configFilterButtonLabel = isTesterMode && testerConfigFilterMode !== 'off'
-    ? (configFilterButtonActive ? testerConfigFilterLabel : t('testerFilterConfigsOff'))
-    : (configFilterButtonActive ? t('configFilterOn') : t('testerFilterConfigsOff'))
+  const configFilterButtonLabel = (
+    isTesterMode && testerConfigFilterMode !== 'off'
+      ? testerConfigFilterLabel
+      : (configFilterButtonActive ? t('configFilterOn') : t('testerFilterConfigsOff'))
+  )
   const previewConfigButtonActive = configChipFilterActive
   const previewConfigButtonVariant: 'contained' | 'outlined' = previewConfigButtonActive ? 'contained' : 'outlined'
   const previewConfigButtonLabel = previewConfigButtonActive ? t('configFilterOn') : t('testerFilterConfigsOff')
