@@ -505,7 +505,8 @@ export default function NoteDialog({
   const { t } = useI18n()
   const editCommitRef = useRef<() => void>(() => onClose())
   const deferredNote = useDeferredValue(note)
-  const renderNote = mode === 'view' ? deferredNote : note
+  const renderNote = mode === 'view' && !open ? deferredNote : note
+  const notePending = mode === 'view' && open && deferredNote !== note
   const markerResolutions = useMemo(() => buildConfigMarkerResolutions(renderNote ?? '', configs), [renderNote, configs])
   const contextValue = useMemo<NoteRenderContextValue>(
     () => ({ configs, metasets, substatColors, markerResolutions }),
@@ -623,7 +624,7 @@ export default function NoteDialog({
         ? (
           <>
             <DialogContent dividers sx={{ position: 'relative' }}>
-              {renderNote !== note ? (
+              {notePending ? (
                 <LinearProgress
                   sx={{
                     position: 'absolute',
