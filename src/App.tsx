@@ -77,6 +77,12 @@ import { filterHsfRules, filterTesterItems, isRulesFilterActive, normalizeRulesF
 import { useAutosaveRestore, metasetsSignature, substatTargetsSignature } from './hooks/useAutosaveRestore'
 import { makeManageColorsIcon } from './lib/icons'
 import type { ChampionLocation } from './lib/importers/gearDbNormalizer'
+
+type TesterMatchFreezeState = {
+  lockBuildId: number
+  pendingRules: boolean
+  createdAt: number
+}
 import { sellfileFilename, hsfcFilename, buildTimestamp } from './lib/filenames'
 import { README_SEEN_VERSION_KEY, RULE_COUNT_LIMIT } from './lib/constants'
 import { DEFAULT_METASET_ICON_ID } from './lib/metasetIcons'
@@ -87,7 +93,7 @@ import { useAppActions, useAppState } from './state/appState'
 import { useI18n } from './lib/i18n'
 import { computeDuplicateIndices } from './lib/configDuplicates'
 import { configsForRuleBuild } from './lib/ruleCacheHelpers'
-import { evaluateMatchesByConfig, type TestItem } from './lib/ruleEval'
+import { evaluateMatchesByConfig, type EvalResult, type TestItem } from './lib/ruleEval'
 import { importGearDatabaseFromFile } from './lib/importers/gearDbImporter'
 import type { NormalizedGearArtifact } from './lib/importers/gearDbNormalizer'
 import { TesterItemsGrid } from './components/TesterItemsGrid'
@@ -100,6 +106,7 @@ import { FINAL_SELL_DEFAULT_SETS_MODE } from './lib/finalSell'
 import type { FinalSellRemainderConfig, FinalSellLevel } from './lib/finalSell'
 import { useConfigSelection } from './hooks/useConfigSelection'
 import { useRuleCacheWorker } from './hooks/useRuleCacheWorker'
+import { useTesterMatchWorker } from './hooks/useTesterMatchWorker'
 import { getConfigHoverIndex, setConfigHoverIndex, subscribeConfigHover } from './lib/configHoverBridge'
 import { useBuilderPreviewLayout } from './hooks/useBuilderPreviewLayout'
 import { getDirtyBuilderFieldKeys } from './lib/multiEditDraft'
@@ -251,6 +258,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const { customCfgs, selectedCfgIdx, metasets, substatTargets, finalSellRemainder, hsfcNote } = useAppState()
   const { setCustomCfgs, setSelectedCfgIdx: setSelectedCfgIdxRaw, setMetasets, setSubstatTargets, setFinalSellRemainder, setHsfcNote } = useAppActions()
   const { warmCache, flush: flushRuleCache, countRules } = useRuleCacheWorker()
+  const {
+    configure: configureTesterMatchWorker,
+    evaluateRows: evaluateTesterMatchRows,
+    supportsWorker: testerMatchWorkerSupported,
+  } = useTesterMatchWorker()
   const { statButtonBorders } = useDisplayPreferences()
   const { setStatButtonBorders } = useDisplayPreferenceActions()
   // Use a deferred snapshot so bursty substatTargets updates (e.g., Restore Defaults) coalesce before recomputing merged rules.
@@ -344,6 +356,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     namesSignature: null,
   })
   const [testerRowsBuilding, setTesterRowsBuilding] = useState(false)
+  const [testerRowsCommittedBuildId, setTesterRowsCommittedBuildId] = useState(0)
+  const [testerMatchFreeze, setTesterMatchFreeze] = useState<TesterMatchFreezeState | null>(null)
+  const restoreFreezeRulesSeenRef = useRef(false)
+  const restoreFreezeRowsSeenRef = useRef(false)
   const exportBaselineResetRef = useRef(false)
   const { forceSideBySide: forceSideBySideLayout } = useAutoSideBySideZoom()
   const {
@@ -1975,6 +1991,23 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // Manage Colors icon (bitmap), generated once at runtime
   const configNames = useMemo(() => customCfgs.map(cfg => cfg?.name ?? ''), [customCfgs])
   const configModes = useMemo(() => customCfgs.map((cfg) => cfg.exportMode), [customCfgs])
+  const testerMatchWorkerRuleIndex = useMemo(
+    () => (testerMatchWorkerSupported ? buildRuleMatchIndexData(configRulesState.mergedRules) : null),
+    [testerMatchWorkerSupported, configRulesState.mergedRules],
+  )
+  useEffect(() => {
+    configureTesterMatchWorker({
+      rules: configRulesState.mergedRules,
+      configModes,
+      ruleMatchIndex: testerMatchWorkerSupported ? testerMatchWorkerRuleIndex : null,
+    }).catch(() => {})
+  }, [
+    configureTesterMatchWorker,
+    configRulesState.mergedRules,
+    configModes,
+    testerMatchWorkerSupported,
+    testerMatchWorkerRuleIndex,
+  ])
   const filterResult = useMemo<FilterHsfRulesResult<HsfRuleWithCfg>>(() => (
     filterHsfRules(mergedRules, rulesFilter, metasets, { configNames, configModes })
   ), [mergedRules, rulesFilter, metasets, configNames, configModes])
@@ -2018,58 +2051,110 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
 
     if (dirtyEntries.length === 0 && nextRowMap.size === prevRowMap.size) {
       testerPreviewMatchDepsRef.current = { rules: mergedRules, namesSignature }
-      setTesterRowsBuilding(false)
-      return
-    }
-
-    const buildId = testerRowsBuildIdRef.current + 1
-    testerRowsBuildIdRef.current = buildId
-    if (dirtyEntries.length === 0) {
-      testerPreviewMatchDepsRef.current = { rules: mergedRules, namesSignature }
-      testerPreviewRowMapRef.current = nextRowMap
-      setTesterPreviewRows(sortTesterRows(Array.from(nextRowMap.values())))
+      setTesterMatchFreeze((prev) => (prev ? null : prev))
       setTesterRowsBuilding(false)
       return
     }
 
     testerPreviewMatchDepsRef.current = { rules: mergedRules, namesSignature }
-    setTesterRowsBuilding(true)
-    let cancelled = false
-    let timeoutId: ReturnType<typeof setTimeout> | null = null
+    const buildId = testerRowsBuildIdRef.current + 1
+    testerRowsBuildIdRef.current = buildId
+    if (dirtyEntries.length === 0) {
+      testerPreviewRowMapRef.current = nextRowMap
+      setTesterPreviewRows(sortTesterRows(Array.from(nextRowMap.values())))
+      setTesterRowsCommittedBuildId(buildId)
+      setTesterRowsBuilding(false)
+      return
+    }
     const hasRules = mergedRules.length > 0
-    let index = 0
 
-    const buildRow = hasRules
-      ? (artifact: NormalizedGearArtifact): TesterPreviewRow => {
-          const { firstMatch, matchingConfigIndices } = evaluateMatchesByConfig(
-            mergedRules,
-            artifact.testerItem,
-            { configModes },
-          )
-          if (!firstMatch) {
-            return { artifact, match: null, matchingCfgIndices: matchingConfigIndices }
-          }
-          const rule = mergedRules[firstMatch.ruleIndex]
-          const cfgIdx = firstMatch.cfgIdx
-          const cfgName = (cfgIdx != null && cfgIdx >= 0) ? (names[cfgIdx] ?? null) : null
-          return {
-            artifact,
-            match: {
-              keep: firstMatch.keep,
-              cfgIdx: cfgIdx ?? null,
-              cfgName: cfgName && cfgName.length > 0 ? cfgName : null,
-              ruleIndex: firstMatch.ruleIndex,
-              ruleLabel: null,
-              ruleSource: rule?.__source ?? null,
-            },
-            matchingCfgIndices: matchingConfigIndices,
-          }
-        }
-      : (artifact: NormalizedGearArtifact): TesterPreviewRow => ({
-          artifact,
+    if (!hasRules) {
+      dirtyEntries.forEach((entry) => {
+        nextRowMap.set(entry.rowId, {
+          artifact: entry.artifact,
           match: null,
           matchingCfgIndices: [],
         })
+      })
+      testerPreviewRowMapRef.current = nextRowMap
+      setTesterPreviewRows(sortTesterRows(Array.from(nextRowMap.values())))
+      setTesterRowsCommittedBuildId(buildId)
+      setTesterRowsBuilding(false)
+      return
+    }
+
+    const toPreviewRow = (
+      artifact: NormalizedGearArtifact,
+      firstMatch: EvalResult | null,
+      matchingConfigIndices: number[],
+    ): TesterPreviewRow => {
+      if (!firstMatch) {
+        return { artifact, match: null, matchingCfgIndices: matchingConfigIndices }
+      }
+      const rule = mergedRules[firstMatch.ruleIndex]
+      const cfgIdx = firstMatch.cfgIdx
+      const cfgName = (cfgIdx != null && cfgIdx >= 0) ? (names[cfgIdx] ?? null) : null
+      return {
+        artifact,
+        match: {
+          keep: firstMatch.keep,
+          cfgIdx: cfgIdx ?? null,
+          cfgName: cfgName && cfgName.length > 0 ? cfgName : null,
+          ruleIndex: firstMatch.ruleIndex,
+          ruleLabel: null,
+          ruleSource: rule?.__source ?? null,
+        },
+        matchingCfgIndices: matchingConfigIndices,
+      }
+    }
+
+    if (testerMatchWorkerSupported) {
+      setTesterRowsBuilding(true)
+      const artifactByRowId = new Map<number, NormalizedGearArtifact>()
+      const rowsPayload = dirtyEntries.map(({ artifact, rowId }) => {
+        artifactByRowId.set(rowId, artifact)
+        return { rowId, item: artifact.testerItem }
+      })
+      let cancelled = false
+      evaluateTesterMatchRows({ rows: rowsPayload })
+        .then((results) => {
+          if (cancelled || testerRowsBuildIdRef.current !== buildId) return
+          results.forEach((result) => {
+            const artifact = artifactByRowId.get(result.rowId)
+            if (!artifact) return
+            nextRowMap.set(result.rowId, toPreviewRow(artifact, result.firstMatch, result.matchingConfigIndices))
+          })
+          testerPreviewRowMapRef.current = nextRowMap
+          setTesterPreviewRows(sortTesterRows(Array.from(nextRowMap.values())))
+          setTesterRowsCommittedBuildId(buildId)
+          if (testerRowsBuildIdRef.current === buildId) {
+            setTesterRowsBuilding(false)
+          }
+        })
+        .catch(() => {
+          if (cancelled) return
+          if (testerRowsBuildIdRef.current === buildId) {
+            setTesterRowsBuilding(false)
+          }
+        })
+      return () => {
+        cancelled = true
+      }
+    }
+
+    setTesterRowsBuilding(true)
+    let cancelled = false
+    let timeoutId: ReturnType<typeof setTimeout> | null = null
+    let index = 0
+
+    const buildRow = (artifact: NormalizedGearArtifact): TesterPreviewRow => {
+      const { firstMatch, matchingConfigIndices } = evaluateMatchesByConfig(
+        mergedRules,
+        artifact.testerItem,
+        { configModes },
+      )
+      return toPreviewRow(artifact, firstMatch, matchingConfigIndices)
+    }
 
     const processChunk = () => {
       if (cancelled || testerRowsBuildIdRef.current !== buildId) return
@@ -2087,6 +2172,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       }
       testerPreviewRowMapRef.current = nextRowMap
       setTesterPreviewRows(sortTesterRows(Array.from(nextRowMap.values())))
+      setTesterRowsCommittedBuildId(buildId)
       if (testerRowsBuildIdRef.current === buildId) {
         setTesterRowsBuilding(false)
       }
@@ -2100,7 +2186,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         setTesterRowsBuilding(false)
       }
     }
-  }, [testerPreviewArtifacts, mergedRules, customCfgs, configModes])
+  }, [testerPreviewArtifacts, mergedRules, customCfgs, configModes, testerMatchWorkerSupported, evaluateTesterMatchRows])
   const testerFilterResult = useMemo(() => (
     filterTesterItems(testerPreviewRows, testerRulesFilter, metasets, { configNames })
   ), [testerPreviewRows, testerRulesFilter, metasets, configNames])
@@ -2163,7 +2249,77 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     }
     return sortTesterRows(rows)
   }, [testerConfigFilterMode, testerConfigFilterSelectedSet, testerRowsAfterRulesFilter])
-  const testerBuilding = testerRowsBuilding
+  const testerBuilding = testerRowsBuilding || rulesBuilding || testerMatchFreeze !== null
+  const TESTER_FREEZE_IDLE_RELEASE_MS = 500
+  /* eslint-disable react-you-might-not-need-an-effect/no-event-handler, react-you-might-not-need-an-effect/no-chain-state-updates */
+  useEffect(() => {
+    if (!rulesBuilding) return
+    setTesterMatchFreeze((prev) => {
+      if (prev) return prev
+      return {
+        lockBuildId: testerRowsBuildIdRef.current,
+        pendingRules: true,
+        createdAt: Date.now(),
+      }
+    })
+  }, [rulesBuilding])
+  useEffect(() => {
+    if (!testerMatchFreeze?.pendingRules) {
+      restoreFreezeRulesSeenRef.current = false
+      return
+    }
+    if (rulesBuilding) {
+      restoreFreezeRulesSeenRef.current = true
+      return
+    }
+    if (restoreFreezeRulesSeenRef.current) {
+      setTesterMatchFreeze((prev) => {
+        if (!prev || !prev.pendingRules) return prev
+        return { ...prev, pendingRules: false, lockBuildId: testerRowsBuildIdRef.current }
+      })
+      restoreFreezeRulesSeenRef.current = false
+    }
+  }, [testerMatchFreeze, rulesBuilding])
+  useEffect(() => {
+    if (!testerMatchFreeze?.pendingRules) return undefined
+    const timeoutId = setTimeout(() => {
+      setTesterMatchFreeze((prev) => {
+        if (!prev || !prev.pendingRules) return prev
+        return { ...prev, pendingRules: false, lockBuildId: testerRowsBuildIdRef.current }
+      })
+      restoreFreezeRulesSeenRef.current = false
+    }, 4000)
+    return () => clearTimeout(timeoutId)
+  }, [testerMatchFreeze])
+  useEffect(() => {
+    if (!testerMatchFreeze || testerMatchFreeze.pendingRules) return
+    if (testerRowsBuilding) {
+      restoreFreezeRowsSeenRef.current = true
+    }
+  }, [testerMatchFreeze, testerRowsBuilding])
+  useEffect(() => {
+    if (!testerMatchFreeze) return
+    if (testerMatchFreeze.pendingRules) return
+    if (testerRowsBuilding || rulesBuilding) return
+    if (!restoreFreezeRowsSeenRef.current) {
+      const elapsed = Date.now() - testerMatchFreeze.createdAt
+      if (elapsed < TESTER_FREEZE_IDLE_RELEASE_MS) return
+      setTesterMatchFreeze(null)
+      return
+    }
+    if (testerRowsCommittedBuildId < testerMatchFreeze.lockBuildId) return
+    setTesterMatchFreeze(null)
+  }, [
+    testerMatchFreeze,
+    testerRowsCommittedBuildId,
+    testerRowsBuilding,
+    rulesBuilding,
+  ])
+  useEffect(() => {
+    if (testerMatchFreeze) return
+    restoreFreezeRowsSeenRef.current = false
+  }, [testerMatchFreeze])
+  /* eslint-enable react-you-might-not-need-an-effect/no-event-handler, react-you-might-not-need-an-effect/no-chain-state-updates */
   const matchingConfigIndices = filterResult.matchingConfigIndices
   const testerMatchingConfigIndices = testerFilterResult.matchingConfigIndices
   const chipMatchingConfigIndices = previewMode === 'tester'
@@ -3621,7 +3777,20 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             }
           }
           if (selection.tester && testerRestoreDraft) {
-            setTesterItems(testerRestoreDraft.items)
+            const restoredItems = testerRestoreDraft.items
+            const needsRuleRebuild = Boolean(
+              selection.configs
+              || (selection.metasets && restoreMetasetsDiffer)
+              || (selection.targets && restoreTargetsDiffer)
+            )
+            setTesterMatchFreeze({
+              lockBuildId: testerRowsBuildIdRef.current,
+              pendingRules: needsRuleRebuild,
+              createdAt: Date.now(),
+            })
+            restoreFreezeRulesSeenRef.current = false
+            restoreFreezeRowsSeenRef.current = false
+            setTesterItems(restoredItems)
             const maxRowId = testerRestoreDraft.items.reduce((max, item) => (
               Number.isFinite(item.rowId) && item.rowId > max ? item.rowId : max
             ), 0)
