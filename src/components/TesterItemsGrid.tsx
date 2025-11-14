@@ -1025,10 +1025,9 @@ const TesterGridCard = React.memo(function TesterGridCard({
     cfgIdx: idx as number,
     label: formatConfigLabel(idx as number, configNames, t),
   }))
-  const suppressNoMatchChip = testerBuilding && !match && matchingEntries.length === 0
-  const shouldShowPrimaryMatchRow = showFirstMatchRow && (match !== null || (!match && !suppressNoMatchChip))
+  const shouldShowPrimaryMatchRow = !testerBuilding && showFirstMatchRow
   const otherMatchingEntries = matchingEntries.slice(1)
-  const shouldShowOtherMatchesRow = showOtherMatchesRow && otherMatchingEntries.length > 0
+  const shouldShowOtherMatchesRow = !testerBuilding && showOtherMatchesRow && otherMatchingEntries.length > 0
   const totalOtherMatches = otherMatchingEntries.length
   const otherMatchingEntriesSignature = useMemo(
     () => otherMatchingEntries.map((entry) => `${entry.cfgIdx}:${entry.label}`).join('|'),

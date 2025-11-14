@@ -78,6 +78,12 @@ import { filterHsfRules, filterTesterItems, isRulesFilterActive, normalizeRulesF
 import { useAutosaveRestore, metasetsSignature, substatTargetsSignature } from './hooks/useAutosaveRestore'
 import { makeManageColorsIcon } from './lib/icons'
 import type { ChampionLocation } from './lib/importers/gearDbNormalizer'
+
+type TesterMatchFreezeState = {
+  lockBuildId: number
+  pendingRules: boolean
+  createdAt: number
+}
 import { sellfileFilename, hsfcFilename, buildTimestamp } from './lib/filenames'
 import { README_SEEN_VERSION_KEY, RULE_COUNT_LIMIT } from './lib/constants'
 import { DEFAULT_METASET_ICON_ID } from './lib/metasetIcons'
@@ -351,6 +357,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     namesSignature: null,
   })
   const [testerRowsBuilding, setTesterRowsBuilding] = useState(false)
+  const [testerRowsCommittedBuildId, setTesterRowsCommittedBuildId] = useState(0)
+  const [testerMatchFreeze, setTesterMatchFreeze] = useState<TesterMatchFreezeState | null>(null)
+  const restoreFreezeRulesSeenRef = useRef(false)
+  const restoreFreezeRowsSeenRef = useRef(false)
   const exportBaselineResetRef = useRef(false)
   const { forceSideBySide: forceSideBySideLayout } = useAutoSideBySideZoom()
   const {
@@ -2063,6 +2073,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
 
     if (dirtyEntries.length === 0 && nextRowMap.size === prevRowMap.size) {
       testerPreviewMatchDepsRef.current = { rules: mergedRules, namesSignature }
+      setTesterMatchFreeze((prev) => (prev ? null : prev))
       setTesterRowsBuilding(false)
       return
     }
@@ -2073,6 +2084,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     if (dirtyEntries.length === 0) {
       testerPreviewRowMapRef.current = nextRowMap
       setTesterPreviewRows(sortTesterRows(Array.from(nextRowMap.values())))
+      setTesterRowsCommittedBuildId(buildId)
       setTesterRowsBuilding(false)
       return
     }
@@ -2088,6 +2100,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       })
       testerPreviewRowMapRef.current = nextRowMap
       setTesterPreviewRows(sortTesterRows(Array.from(nextRowMap.values())))
+      setTesterRowsCommittedBuildId(buildId)
       setTesterRowsBuilding(false)
       return
     }
@@ -2135,6 +2148,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           })
           testerPreviewRowMapRef.current = nextRowMap
           setTesterPreviewRows(sortTesterRows(Array.from(nextRowMap.values())))
+          setTesterRowsCommittedBuildId(buildId)
           if (testerRowsBuildIdRef.current === buildId) {
             setTesterRowsBuilding(false)
           }
@@ -2180,6 +2194,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       }
       testerPreviewRowMapRef.current = nextRowMap
       setTesterPreviewRows(sortTesterRows(Array.from(nextRowMap.values())))
+      setTesterRowsCommittedBuildId(buildId)
       if (testerRowsBuildIdRef.current === buildId) {
         setTesterRowsBuilding(false)
       }
@@ -2256,7 +2271,66 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     }
     return sortTesterRows(rows)
   }, [testerConfigFilterMode, testerConfigFilterSelectedSet, testerRowsAfterRulesFilter])
-  const testerBuilding = testerRowsBuilding
+  const testerBuilding = testerRowsBuilding || rulesBuilding || testerMatchFreeze !== null
+  const TESTER_FREEZE_IDLE_RELEASE_MS = 500
+  /* eslint-disable react-you-might-not-need-an-effect/no-event-handler, react-you-might-not-need-an-effect/no-chain-state-updates */
+  useEffect(() => {
+    if (!testerMatchFreeze?.pendingRules) {
+      restoreFreezeRulesSeenRef.current = false
+      return
+    }
+    if (rulesBuilding) {
+      restoreFreezeRulesSeenRef.current = true
+      return
+    }
+    if (restoreFreezeRulesSeenRef.current) {
+      setTesterMatchFreeze((prev) => {
+        if (!prev || !prev.pendingRules) return prev
+        return { ...prev, pendingRules: false, lockBuildId: testerRowsBuildIdRef.current }
+      })
+      restoreFreezeRulesSeenRef.current = false
+    }
+  }, [testerMatchFreeze, rulesBuilding])
+  useEffect(() => {
+    if (!testerMatchFreeze?.pendingRules) return undefined
+    const timeoutId = setTimeout(() => {
+      setTesterMatchFreeze((prev) => {
+        if (!prev || !prev.pendingRules) return prev
+        return { ...prev, pendingRules: false, lockBuildId: testerRowsBuildIdRef.current }
+      })
+      restoreFreezeRulesSeenRef.current = false
+    }, 4000)
+    return () => clearTimeout(timeoutId)
+  }, [testerMatchFreeze])
+  useEffect(() => {
+    if (!testerMatchFreeze || testerMatchFreeze.pendingRules) return
+    if (testerRowsBuilding) {
+      restoreFreezeRowsSeenRef.current = true
+    }
+  }, [testerMatchFreeze, testerRowsBuilding])
+  useEffect(() => {
+    if (!testerMatchFreeze) return
+    if (testerMatchFreeze.pendingRules) return
+    if (testerRowsBuilding || rulesBuilding) return
+    if (!restoreFreezeRowsSeenRef.current) {
+      const elapsed = Date.now() - testerMatchFreeze.createdAt
+      if (elapsed < TESTER_FREEZE_IDLE_RELEASE_MS) return
+      setTesterMatchFreeze(null)
+      return
+    }
+    if (testerRowsCommittedBuildId < testerMatchFreeze.lockBuildId) return
+    setTesterMatchFreeze(null)
+  }, [
+    testerMatchFreeze,
+    testerRowsCommittedBuildId,
+    testerRowsBuilding,
+    rulesBuilding,
+  ])
+  useEffect(() => {
+    if (testerMatchFreeze) return
+    restoreFreezeRowsSeenRef.current = false
+  }, [testerMatchFreeze])
+  /* eslint-enable react-you-might-not-need-an-effect/no-event-handler, react-you-might-not-need-an-effect/no-chain-state-updates */
   const matchingConfigIndices = filterResult.matchingConfigIndices
   const testerMatchingConfigIndices = testerFilterResult.matchingConfigIndices
   const chipMatchingConfigIndices = previewMode === 'tester'
@@ -3714,7 +3788,20 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             }
           }
           if (selection.tester && testerRestoreDraft) {
-            setTesterItems(testerRestoreDraft.items)
+            const restoredItems = testerRestoreDraft.items
+            const needsRuleRebuild = Boolean(
+              selection.configs
+              || (selection.metasets && restoreMetasetsDiffer)
+              || (selection.targets && restoreTargetsDiffer)
+            )
+            setTesterMatchFreeze({
+              lockBuildId: testerRowsBuildIdRef.current,
+              pendingRules: needsRuleRebuild,
+              createdAt: Date.now(),
+            })
+            restoreFreezeRulesSeenRef.current = false
+            restoreFreezeRowsSeenRef.current = false
+            setTesterItems(restoredItems)
             const maxRowId = testerRestoreDraft.items.reduce((max, item) => (
               Number.isFinite(item.rowId) && item.rowId > max ? item.rowId : max
             ), 0)
