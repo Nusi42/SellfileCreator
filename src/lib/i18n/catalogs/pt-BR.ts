@@ -428,6 +428,7 @@ const catalog: Catalog = {
   rulesMenuGridColumnsValue: '{count}',
   rulesMenuShowFirstMatch: 'Mostrar primeira correspondência',
   rulesMenuShowOtherMatches: 'Mostrar outras correspondências',
+  rulesMenuShowChampionIcons: 'Show champion icons',
   commonOn: 'Ativo',
   commonOff: 'Inativo',
   headerMenuResetCols: 'Redefinir colunas',

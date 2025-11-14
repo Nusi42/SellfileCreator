@@ -353,6 +353,7 @@ export const TESTER_PREVIEW_LAYOUT_KEY = 'sellfileCreator.tester.previewLayout.v
 export const TESTER_GRID_COLUMNS_KEY = 'sellfileCreator.tester.grid.columns.v1'
 export const TESTER_GRID_SHOW_FIRST_MATCH_KEY = 'sellfileCreator.tester.grid.showFirstMatch.v1'
 export const TESTER_GRID_SHOW_OTHER_MATCHES_KEY = 'sellfileCreator.tester.grid.showOtherMatches.v1'
+export const TESTER_GRID_SHOW_CHAMP_ICONS_KEY = 'sellfileCreator.tester.grid.showChampIcons.v1'
 
 // Fixed width for Faction Select in the Rules filter
 // Why: Keep the input width stable regardless of selected label lengths,

@@ -76,6 +76,10 @@ const CARD_MATCH_ROW_MARGIN_PX = 2
 const GRID_CARD_CONTAINER_PADDING_UNITS = 0.75
 const GRID_CARD_LEFT_COLUMN_GAP_UNITS = 0.5
 const GRID_CARD_SOURCE_ICON_SIZE_PX = 24
+const CHAMPION_ICON_BASE_SIZE = { width: 32, height: 32 } as const
+const CHAMPION_ICON_LARGE_SIZE = { width: 40, height: 40 } as const
+const CHAMPION_ICON_LARGE_THRESHOLD = 5
+const CHAMPION_ICON_BORDER_RADIUS_PX = 8
 const CARD_TEXT_STACK_GAP_UNITS = 0.75
 const CARD_SUBSTAT_ROW_GAP_UNITS = 0.25
 const CARD_SUBSTAT_LINE_HEIGHT = 1.1
@@ -204,9 +208,11 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     columns: gridColumnPreference,
     showFirstMatch,
     showOtherMatches,
+    showChampionIcons,
     setColumns,
     setShowFirstMatch,
     setShowOtherMatches,
+    setShowChampionIcons,
   } = useTesterGridPreferences()
   const {
     shouldShow: shouldShowGridContextHint,
@@ -502,6 +508,7 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
         gridColumnCount={gridColumnCount}
         showFirstMatchRow={showFirstMatch}
         showOtherMatchesRow={showOtherMatches}
+        showChampionIcons={showChampionIcons}
         cardHeightPx={cardHeightPx}
         configNames={configNames}
         onJumpToRule={onJumpToRule}
@@ -671,6 +678,21 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
             {showOtherMatches ? t('commonOn') : t('commonOff')}
           </Button>
         </MenuItem>
+        <MenuItem sx={{ gap: 1, alignItems: 'center' }} onClick={() => setShowChampionIcons(!showChampionIcons)}>
+          <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>{t('rulesMenuShowChampionIcons')}</Typography>
+          <Button
+            size="small"
+            variant={showChampionIcons ? 'contained' : 'outlined'}
+            color="success"
+            sx={{ minWidth: MENU_CONTROL_MIN_WIDTH_PX, height: MENU_CONTROL_HEIGHT_PX, minHeight: MENU_CONTROL_HEIGHT_PX, lineHeight: 1, py: 0 }}
+            onClick={(event) => {
+              event.stopPropagation()
+              setShowChampionIcons(!showChampionIcons)
+            }}
+          >
+            {showChampionIcons ? t('commonOn') : t('commonOff')}
+          </Button>
+        </MenuItem>
       </Menu>
     </Box>
   )
@@ -694,6 +716,7 @@ type TesterItemsGridGroupProps = {
   gridColumnCount: number
   showFirstMatchRow: boolean
   showOtherMatchesRow: boolean
+  showChampionIcons: boolean
   cardHeightPx: number
   configNames: Array<string | null>
   onJumpToRule?: ((ruleIndex: number, cfgIdx: number | null) => void) | undefined
@@ -714,6 +737,7 @@ const TesterItemsGridGroup = React.memo(function TesterItemsGridGroup({
   gridColumnCount,
   showFirstMatchRow,
   showOtherMatchesRow,
+  showChampionIcons,
   cardHeightPx,
   configNames,
   onJumpToRule,
@@ -829,6 +853,7 @@ const TesterItemsGridGroup = React.memo(function TesterItemsGridGroup({
                   testerBuilding={testerBuilding}
                   showFirstMatchRow={showFirstMatchRow}
                   showOtherMatchesRow={showOtherMatchesRow}
+                  showChampionIcons={showChampionIcons}
                   cardHeightPx={cardHeightPx}
                   gridColumnCount={gridColumnCount}
                   configNames={configNames}
@@ -850,6 +875,7 @@ const TesterGridCard = React.memo(function TesterGridCard({
   testerBuilding,
   showFirstMatchRow,
   showOtherMatchesRow,
+  showChampionIcons,
   cardHeightPx,
   gridColumnCount,
   configNames,
@@ -861,6 +887,7 @@ const TesterGridCard = React.memo(function TesterGridCard({
   testerBuilding: boolean
   showFirstMatchRow: boolean
   showOtherMatchesRow: boolean
+  showChampionIcons: boolean
   cardHeightPx: number
   gridColumnCount: number
   configNames: Array<string | null>
@@ -1011,11 +1038,15 @@ const TesterGridCard = React.memo(function TesterGridCard({
   const sourceTooltipTitle = sourceDescriptor ? (sourceDescriptor.tooltip ?? sourceDescriptor.label ?? '') : ''
   const championIconSrc = championIconUrl(artifact.equippedChampionBaseId ?? artifact.equippedToChampionId)
   const shouldShowChampionIcon = Boolean(
-    championIconSrc
+    showChampionIcons
+    && championIconSrc
     && sourceDescriptor
     && (sourceDescriptor.category === 'collection' || sourceDescriptor.category === 'vault'),
   )
   const VaultBadgeIcon = (shouldShowChampionIcon && sourceDescriptor?.category === 'vault') ? SourceIcon : null
+  const championIconSize = gridColumnCount >= CHAMPION_ICON_LARGE_THRESHOLD
+    ? CHAMPION_ICON_LARGE_SIZE
+    : CHAMPION_ICON_BASE_SIZE
   const rerollLabel = artifact.rerollCount > 0 ? '⟳' : ''
   const rerollTooltip = artifact.rerollCount > 0 ? t('testerRerollLabel') : ''
   const primaryRuleIndex = typeof match?.ruleIndex === 'number' ? match.ruleIndex : null
@@ -1316,14 +1347,18 @@ const TesterGridCard = React.memo(function TesterGridCard({
               role="img"
               aria-label={sourceDescriptor?.label}
               sx={{
-                width: 32,
-                height: 32,
-                borderRadius: 2,
+                width: championIconSize.width,
+                height: championIconSize.height,
+                borderRadius: `${CHAMPION_ICON_BORDER_RADIUS_PX}px`,
                 overflow: 'hidden',
                 position: 'relative',
                 border: '1px solid',
                 borderColor: 'divider',
                 boxShadow: 1,
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0,
               }}
             >
               <Box
