@@ -1010,26 +1010,6 @@ const TesterGridCard = React.memo(function TesterGridCard({
   const sourceTooltipTitle = sourceDescriptor ? (sourceDescriptor.tooltip ?? sourceDescriptor.label ?? '') : ''
   const rerollLabel = artifact.rerollCount > 0 ? '⟳' : ''
   const rerollTooltip = artifact.rerollCount > 0 ? t('testerRerollLabel') : ''
-  const outcomeLabel = match?.keep === true
-    ? t('testerMatchKeep')
-    : match?.keep === false
-      ? t('testerMatchSell')
-      : t('testerMatchNoRule')
-  const outcomeColor: 'success' | 'error' | 'default' = match?.keep === true
-    ? 'success'
-    : match?.keep === false
-      ? 'error'
-      : 'default'
-  const outcomeGlyph = match?.keep === true
-    ? '✓'
-    : match?.keep === false
-      ? <SellIcon fontSize="inherit" aria-hidden />
-      : '—'
-  const outcomeTone = outcomeColor === 'success'
-    ? theme.palette.success.main
-    : outcomeColor === 'error'
-      ? theme.palette.error.main
-      : theme.palette.text.secondary
   const primaryRuleIndex = typeof match?.ruleIndex === 'number' ? match.ruleIndex : null
   const primaryCfgIndex = typeof match?.cfgIdx === 'number' ? match.cfgIdx : null
   const canJumpToPrimaryMatch = typeof onJumpToRule === 'function' && primaryRuleIndex != null
@@ -1254,6 +1234,15 @@ const TesterGridCard = React.memo(function TesterGridCard({
     () => getTesterGridCardColumnHeights(theme, gridColumnCount),
     [theme, gridColumnCount],
   )
+  const cardOutcome = match
+    ? {
+        tone: match.keep === false ? theme.palette.error.main : theme.palette.success.main,
+        glyph: match.keep === false ? <SellIcon fontSize="inherit" aria-hidden /> : '✓',
+        label: match.keep === false ? t('testerMatchSell') : t('testerMatchKeep'),
+        canJump: canJumpToPrimaryMatch,
+        onClick: handlePrimaryMatchClick,
+      }
+    : undefined
   const mainSummaryLabel = (
     <>
       <Box component="span" sx={{ color: mainColor ?? 'inherit' }}>
@@ -1314,13 +1303,7 @@ const TesterGridCard = React.memo(function TesterGridCard({
           rerollTooltip={rerollTooltip || undefined}
           levelLabel={levelChipLabel}
           size={TESTER_GRID_ICON_BOX_SIZE_PX}
-          outcome={{
-            tone: outcomeTone,
-            glyph: outcomeGlyph,
-            label: outcomeLabel,
-            canJump: canJumpToPrimaryMatch,
-            onClick: handlePrimaryMatchClick,
-          }}
+          {...(cardOutcome ? { outcome: cardOutcome } : {})}
         />
         {(sourceDescriptor && SourceIcon) ? (
           <Tooltip title={sourceTooltipTitle}>
