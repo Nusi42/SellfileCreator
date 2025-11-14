@@ -145,6 +145,7 @@ export type GearDbChampionRow = {
   Name?: string | null
   Vault?: number | null
   RVault?: number | null
+  BaseHeroID?: number | null
 }
 
 export type StatSource = 'main' | 'substat' | 'ascension'
@@ -156,6 +157,7 @@ export type ChampionLookupRecord = {
   name: string | null
   vault: boolean
   reserveVault: boolean
+  baseHeroId: number | null
 }
 
 export type NormalizedStat = {
@@ -186,6 +188,7 @@ export type NormalizedGearArtifact = {
   testerItem: TestItem
   rerollCount: number
   equippedToChampionId: number | null
+  equippedChampionBaseId: number | null
   source: 'artifacts' | 'inbox' | 'tester'
   equippedChampionName: string | null
   equippedChampionLocation: ChampionLocation | null
@@ -406,6 +409,7 @@ export function normalizeGearDbArtifact(row: GearDbArtifactRow, options: Normali
   const equippedChampionLocation: ChampionLocation | null = championRecord
     ? (championRecord.reserveVault ? 'reserveVault' : (championRecord.vault ? 'vault' : 'collection'))
     : null
+  const equippedChampionBaseId = championRecord?.baseHeroId ?? null
   const source = options.source ?? 'artifacts'
 
   const subValues = buildSubValueMap(substats)
@@ -425,6 +429,7 @@ export function normalizeGearDbArtifact(row: GearDbArtifactRow, options: Normali
       source,
       rerollCount,
       equippedToChampionId,
+      equippedChampionBaseId,
       equippedChampionName,
       equippedChampionLocation,
       mainStat,
@@ -449,6 +454,7 @@ export function normalizeGearDbArtifact(row: GearDbArtifactRow, options: Normali
     testerItem,
     rerollCount,
     equippedToChampionId,
+    equippedChampionBaseId,
     source,
     equippedChampionName,
     equippedChampionLocation,

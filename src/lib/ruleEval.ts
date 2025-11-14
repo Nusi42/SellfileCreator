@@ -19,6 +19,7 @@ export type TesterItemPreviewExtras = {
   source?: 'artifacts' | 'inbox' | 'tester'
   rerollCount?: number
   equippedToChampionId?: number | null
+  equippedChampionBaseId?: number | null
   equippedChampionName?: string | null
   equippedChampionLocation?: ChampionLocation | null
   mainStat?: NormalizedStat | null

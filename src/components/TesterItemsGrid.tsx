@@ -59,6 +59,7 @@ import GridIconBox from './GridIconBox'
 import { MENU_CONTROL_HEIGHT_PX, MENU_CONTROL_MIN_WIDTH_PX, type ColorBlindMode } from '../lib/constants'
 import { useContextMenuCloseOnOutsideRightClick } from '../hooks/useContextMenuCloseOnOutsideRightClick'
 import { useTesterGridPreferences } from '../state/testerGridPreferences'
+import { championIconUrl } from '../lib/iconMaps/championIconMap'
 
 const GRID_CARD_SINGLE_COLUMN_TEMPLATE = 'minmax(0, 1fr)'
 const TESTER_GRID_ICON_BOX_SIZE_PX = 72
@@ -1008,6 +1009,13 @@ const TesterGridCard = React.memo(function TesterGridCard({
   const sourceDescriptor = getItemSourceDescriptor(artifact, t)
   const SourceIcon = sourceDescriptor ? SOURCE_ICON_MAP[sourceDescriptor.category] : null
   const sourceTooltipTitle = sourceDescriptor ? (sourceDescriptor.tooltip ?? sourceDescriptor.label ?? '') : ''
+  const championIconSrc = championIconUrl(artifact.equippedChampionBaseId ?? artifact.equippedToChampionId)
+  const shouldShowChampionIcon = Boolean(
+    championIconSrc
+    && sourceDescriptor
+    && (sourceDescriptor.category === 'collection' || sourceDescriptor.category === 'vault'),
+  )
+  const VaultBadgeIcon = (shouldShowChampionIcon && sourceDescriptor?.category === 'vault') ? SourceIcon : null
   const rerollLabel = artifact.rerollCount > 0 ? '⟳' : ''
   const rerollTooltip = artifact.rerollCount > 0 ? t('testerRerollLabel') : ''
   const primaryRuleIndex = typeof match?.ruleIndex === 'number' ? match.ruleIndex : null
@@ -1301,7 +1309,64 @@ const TesterGridCard = React.memo(function TesterGridCard({
           size={TESTER_GRID_ICON_BOX_SIZE_PX}
           {...(cardOutcome ? { outcome: cardOutcome } : {})}
         />
-        {(sourceDescriptor && SourceIcon) ? (
+        {shouldShowChampionIcon ? (
+          <Tooltip title={sourceTooltipTitle}>
+            <Box
+              component="span"
+              role="img"
+              aria-label={sourceDescriptor?.label}
+              sx={{
+                width: 32,
+                height: 32,
+                borderRadius: 2,
+                overflow: 'hidden',
+                position: 'relative',
+                border: '1px solid',
+                borderColor: 'divider',
+                boxShadow: 1,
+              }}
+            >
+              <Box
+                component="img"
+                src={championIconSrc}
+                alt={sourceTooltipTitle}
+                draggable={false}
+                onDragStart={(event) => { event.preventDefault(); event.stopPropagation() }}
+                sx={{
+                  width: '100%',
+                  height: '100%',
+                  objectFit: 'cover',
+                  userSelect: 'none',
+                  WebkitUserDrag: 'none',
+                  display: 'block',
+                }}
+              />
+              {VaultBadgeIcon ? (
+                <Box
+                  sx={{
+                    position: 'absolute',
+                    bottom: -2,
+                    right: -2,
+                    width: 18,
+                    height: 18,
+                    borderRadius: '50%',
+                    bgcolor: 'background.paper',
+                    border: '2px solid',
+                    borderColor: 'background.paper',
+                    boxShadow: 2,
+                    color: 'text.secondary',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '0.65rem',
+                  }}
+                >
+                  <VaultBadgeIcon fontSize="inherit" />
+                </Box>
+              ) : null}
+            </Box>
+          </Tooltip>
+        ) : (sourceDescriptor && SourceIcon) ? (
           <Tooltip title={sourceTooltipTitle}>
             <Box
               component="span"

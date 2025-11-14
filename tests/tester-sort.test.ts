@@ -101,6 +101,7 @@ const makeTesterRow = (overrides: Partial<NormalizedGearArtifact> = {}): TesterP
     },
     rerollCount: overrides.rerollCount ?? 0,
     equippedToChampionId: overrides.equippedToChampionId ?? null,
+    equippedChampionBaseId: overrides.equippedChampionBaseId ?? null,
     equippedChampionName: overrides.equippedChampionName ?? null,
     equippedChampionLocation: overrides.equippedChampionLocation ?? null,
     source: overrides.source ?? 'tester',
