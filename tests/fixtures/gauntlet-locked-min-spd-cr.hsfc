@@ -1,0 +1,50 @@
+{
+  "Version": "0.9.9-dev",
+  "Metasets": [],
+  "Configs": [
+    {
+      "name": "10/10 Gloves 1",
+      "keep": true,
+      "SellfileVisibility": "Active",
+      "Rank": "6★",
+      "Rarity": "≥ Legendary",
+      "Faction": "Any",
+      "mainStats": [
+        "CDMG%"
+      ],
+      "minLevel": 0,
+      "maxLevel": 16,
+      "earlyKeepMode": "late",
+      "substats": [
+        "SPD",
+        "CR%",
+        "HP%"
+      ],
+      "fixedSubstats": [
+        "SPD",
+        "CR%"
+      ],
+      "substatRollBounds": {
+        "HP%": {
+          "any": true
+        },
+        "SPD": {
+          "min": 1
+        },
+        "CR%": {
+          "any": true
+        }
+      },
+      "minCount": 3,
+      "autoMinCount": false,
+      "minRequiredRolls": 3,
+      "autoMinRequiredRolls": false,
+      "lockedMinRequiredRolls": 2,
+      "artifactTypeNames": [
+        "Gauntlets"
+      ],
+      "artifactSetNames": [],
+      "artifactMetaSetIds": []
+    }
+  ]
+}

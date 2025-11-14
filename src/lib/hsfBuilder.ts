@@ -1714,6 +1714,8 @@ export function buildHsfRules(
           continue
         }
         const sumMin = mins.reduce((a, b) => a + b, 0)
+        const sumLockedMin = mins.reduce((acc, val, idx) => acc + (lockedMask[idx] ? val : 0), 0)
+        const needsLockedAggregate = lockedMinActive && sumLockedMin < lockedMinValue
         // Aggregate minimum across selected substats (off when Auto).
         const globalMin = aggregateMinValue
         // Dynamic Mythical handling for 'Any' rarity: if either the per-substat mins or the
@@ -2078,6 +2080,8 @@ export function buildHsfRules(
             const minNowRequired = Math.max(0, sumMin - remaining) + extraTargeted
             if (minNowRequired <= avail) {
               const extra = Math.max(0, minNowRequired - sumNeed)
+              const baseLockedNeed = needNow.reduce((a, v, i) => a + (lockedMask[i] ? v : 0), 0)
+              const lockedNeedAtLevel = lockedMinActive ? Math.max(0, lockedMinValue - remaining) : 0
               // Determine per-index additional capacity we can allocate now (bounded by per-stat min and upper limits)
               const addCaps: number[] = new Array(m)
               for (let i = 0; i < m; i++) {
@@ -2112,6 +2116,12 @@ export function buildHsfRules(
               }
               const comboSubs = combo.map(v => variantToSub(v))
               const emitWith = (inc: number[]) => {
+                if (lockedNeedAtLevel > 0) {
+                  const lockedAfter = baseLockedNeed + inc.reduce((sum, val, idx) => sum + (lockedMask[idx] ? val : 0), 0)
+                  if (lockedAfter < lockedNeedAtLevel) {
+                    return
+                  }
+                }
                 const optionalRowsOnlyBaseline = (
                   combo.length > minTargetCount &&
                   optionalMask.some(Boolean) &&
@@ -2166,6 +2176,8 @@ export function buildHsfRules(
               const minNowRequired = Math.max(0, sumMin - remaining)
               if (minNowRequired <= avail) {
                 const extra = Math.max(0, minNowRequired - sumNeed)
+                const baseLockedNeed = needNow.reduce((a, v, i) => a + (lockedMask[i] ? v : 0), 0)
+                const lockedNeedAtLevel = lockedMinActive ? Math.max(0, lockedMinValue - remaining) : 0
                 // Target-feasible and aggregate-feasible checks
                 if (sumMin <= numTarget && Math.max(0, sumMin - remaining) <= avail) {
                   let okAgg = true
@@ -2209,6 +2221,12 @@ export function buildHsfRules(
                       dist(0, extra, [])
                     }
                     const emitWith = (inc: number[]) => {
+                      if (lockedNeedAtLevel > 0) {
+                        const lockedAfter = baseLockedNeed + inc.reduce((sum, val, idx) => sum + (lockedMask[idx] ? val : 0), 0)
+                        if (lockedAfter < lockedNeedAtLevel) {
+                          return
+                        }
+                      }
                       if (mainChoicesV.length === 0) {
                         const r = makeRule({ ...baseCore, MainStatID: StatId.Any, MainStatF: 1, LVLForCheck: lvl }, comboSubs)
                         for (let i = 0; i < m; i++) setThreshold(r, i, needNow[i]! + inc[i]!)
@@ -2286,7 +2304,7 @@ export function buildHsfRules(
               // min-only at and after feasibility unless aggregate minimum exceeds sum of per-substat mins
               // When targeting locked-only, compare globalMin against the sum of mins across the targeted subset
               const sumMinTargeted = mins.reduce((a, v, i) => a + (targetedMask[i] ? (v ?? 0) : 0), 0)
-              if (globalMin > 0 && globalMin > sumMinTargeted) {
+              if ((globalMin > 0 && globalMin > sumMinTargeted) || needsLockedAggregate) {
                 emitDists((dist) => {
                   for (let i = 0; i < m; i++) { if (dist[i]! < mins[i]!) return false }
                   return true
@@ -2355,7 +2373,7 @@ export function buildHsfRules(
               // Feasible now: collapse to minimum-only row unless an aggregate minimum
               // requires more total rolls across the selected stats.
               const sumMinTargeted2 = mins.reduce((a, v, i) => a + (targetedMask[i] ? (v ?? 0) : 0), 0)
-              if (globalMin > 0 && globalMin > sumMinTargeted2) {
+              if ((globalMin > 0 && globalMin > sumMinTargeted2) || needsLockedAggregate) {
                 // Early mode semantics for aggregate target: emit minimal-progress rows that
                 // meet per‑stat mins now and allocate exactly the currently available number
                 // of rolls toward the aggregate (or the full aggregate if smaller), while
@@ -2383,7 +2401,7 @@ export function buildHsfRules(
               // Partial progress before feasibility; enumerate only selected stats allocations
               // and ensure deficits can still be made up by target.
               const sumMinTargeted3 = mins.reduce((a, v, i) => a + (targetedMask[i] ? (v ?? 0) : 0), 0)
-              const willEmitMinOnly = !(globalMin > 0 && globalMin > sumMinTargeted3)
+              const willEmitMinOnly = !((globalMin > 0 && globalMin > sumMinTargeted3) || needsLockedAggregate)
               emitDists((dist) => {
                 let deficit = 0
                 let isExactMin = true

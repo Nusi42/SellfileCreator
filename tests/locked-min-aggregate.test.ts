@@ -4,8 +4,9 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 
 import { buildHsfRules, defaultSubstatTargets, resolveAutoRarityCode, type BuilderConfig } from '../src/lib/hsfBuilder'
+import { buildRulesForConfig } from '../src/lib/merge'
 import { computeDuplicateIndices } from '../src/lib/configDuplicates'
-import { RankCode, RarityCode, StatVariant } from '../src/lib/types'
+import { ArtifactType, RankCode, RarityCode, StatVariant, subToVariant } from '../src/lib/types'
 import { normalizeAggregateRollTargets } from '../src/lib/configNormalization'
 import { variantToSub } from '../src/lib/hsfTypes'
 
@@ -48,6 +49,105 @@ test('lockedMinRequiredRolls raises Auto rarity even when global min is lower', 
     lockedMinRequiredRolls: 3,
   })
   assert.equal(withLockedMin, RarityCode.GTE_Epic, 'locked min should promote auto rarity to ≥ Epic')
+})
+
+test('locked minimum forces extra rolls on locked stats before collapsing to min-only rows', () => {
+  const cfg = baseBuilderConfig({
+    name: 'gauntlet sample',
+    minCount: 3,
+    autoMinCount: false,
+    artifactTypes: [ArtifactType.Gauntlets],
+    mainStatsV: [StatVariant.CDMG],
+    substatsV: [StatVariant.SPD, StatVariant.CR, StatVariant.HP],
+    fixedSubstatsV: [StatVariant.SPD, StatVariant.CR],
+    substatRollBoundsV: {
+      [StatVariant.SPD]: { min: 1 },
+      [StatVariant.CR]: { any: true },
+      [StatVariant.HP]: { any: true },
+    },
+    minRequiredRolls: 3,
+    autoMinRequiredRolls: false,
+    lockedMinRequiredRolls: 2,
+    earlyKeepMode: 'late',
+  })
+  const targets = defaultSubstatTargets()
+  const rules = buildHsfRules(cfg, targets)
+  const levelSixteen = rules.filter(rule => rule.LVLForCheck === 16)
+  assert(levelSixteen.length > 0, 'expected +16 rules to exist')
+  const baseFor = (variant: StatVariant): number => targets.six[variant] ?? 0
+  const lockedVariants: StatVariant[] = [StatVariant.SPD, StatVariant.CR]
+  const rollsForValue = (variant: StatVariant, value: number): number => {
+    const base = baseFor(variant)
+    if (base <= 0) return 0
+    if (value <= base) return 0
+    const delta = value - base
+    // Builder emits multiples of the base target for each additional roll.
+    if (delta % base !== 0) {
+      throw new Error(`unexpected threshold ${value} for variant ${variant}`)
+    }
+    return delta / base
+  }
+  for (const rule of levelSixteen) {
+    let lockedRolls = 0
+    for (const variant of lockedVariants) {
+      const match = rule.Substats?.find(sub => (
+        sub?.Condition === '>='
+        && subToVariant(sub?.ID, sub?.IsFlat) === variant
+      ))
+      assert(match, `expected locked variant ${variant} to be present in rule`)
+      lockedRolls += rollsForValue(variant, Number(match!.Value ?? 0))
+    }
+    assert(lockedRolls >= (cfg.lockedMinRequiredRolls ?? 0), `locked stats should have ≥ ${cfg.lockedMinRequiredRolls} rolls (saw ${lockedRolls})`)
+  }
+})
+
+test('locked minimum enforcement survives buildRulesForConfig wrappers', () => {
+  const targets = defaultSubstatTargets()
+  const cfg = baseBuilderConfig({
+    name: 'gauntlet sample',
+    minCount: 3,
+    autoMinCount: false,
+    artifactTypes: [ArtifactType.Gauntlets],
+    mainStatsV: [StatVariant.CDMG],
+    substatsV: [StatVariant.SPD, StatVariant.CR, StatVariant.HP],
+    fixedSubstatsV: [StatVariant.SPD, StatVariant.CR],
+    substatRollBoundsV: {
+      [StatVariant.SPD]: { min: 1 },
+      [StatVariant.CR]: { any: true },
+      [StatVariant.HP]: { any: true },
+    },
+    minRequiredRolls: 3,
+    autoMinRequiredRolls: false,
+    lockedMinRequiredRolls: 2,
+    earlyKeepMode: 'late',
+  })
+  const rules = buildRulesForConfig({ config: cfg, metasets: [], substatTargets: targets })
+  const lockedVariants: StatVariant[] = [StatVariant.SPD, StatVariant.CR]
+  const baseFor = (variant: StatVariant): number => targets.six[variant] ?? 0
+  const rollsForValue = (variant: StatVariant, value: number): number => {
+    const base = baseFor(variant)
+    if (base <= 0) return 0
+    if (value <= base) return 0
+    const delta = value - base
+    if (delta % base !== 0) {
+      throw new Error(`unexpected threshold ${value} for variant ${variant}`)
+    }
+    return delta / base
+  }
+  const sixteen = rules.filter(rule => rule.LVLForCheck === 16)
+  assert(sixteen.length > 0, 'expected +16 rows to verify aggregate enforcement')
+  for (const rule of sixteen) {
+    let lockedRolls = 0
+    for (const variant of lockedVariants) {
+      const match = rule.Substats?.find(sub => (
+        sub?.Condition === '>='
+        && subToVariant(sub?.ID, sub?.IsFlat) === variant
+      ))
+      assert(match, `expected locked variant ${variant} to be present in rule`)
+      lockedRolls += rollsForValue(variant, Number(match!.Value ?? 0))
+    }
+    assert(lockedRolls >= (cfg.lockedMinRequiredRolls ?? 0), 'locked subset should satisfy locked minimum even after merge wrappers')
+  }
 })
 
 test('global minimums still apply to every selected stat when locks are active', () => {
