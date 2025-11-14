@@ -712,7 +712,7 @@ export function resolveAutoRarityCode(cfg: BuilderConfig): RarityCode {
       return RarityCode.GTE_Legendary
     })()
     if (requiredByK !== RarityCode.Any) {
-      if (candidate === RarityCode.Any) return applyFloor(requiredByK)
+      if (candidate === RarityCode.Any && requiredV.length === 0) return applyFloor(requiredByK)
       const addSetCand = additionLevelsForRarityCode(candidate)
       const baseStartCand = Math.max(0, 4 - addSetCand.size)
       if (baseStartCand < k) return applyFloor(requiredByK)

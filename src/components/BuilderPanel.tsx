@@ -582,7 +582,7 @@ const LOCK_MENU_OFFSET_PX = (SUBSTAT_MENU_ROLL_BUTTON_WIDTH_PX - LOCK_MENU_BUTTO
 const LOCK_MENU_BORDER_RADIUS_PX = 3
 const ROLL_ANY_STAR = '★' as const
 
-const createFactoryBuilderDefaults = (): BuilderConfig => ({
+export const createFactoryBuilderDefaults = (): BuilderConfig => ({
   name: '',
   keep: true,
   exportMode: 'active',
@@ -603,6 +603,7 @@ const createFactoryBuilderDefaults = (): BuilderConfig => ({
   autoSubstatFlex: false,
   minRequiredRolls: 0,
   autoMinRequiredRolls: true,
+  lockedMinRequiredRolls: 0,
   substatRollBoundsV: {},
   substatRollTargetsV: {},
   artifactTypes: [],

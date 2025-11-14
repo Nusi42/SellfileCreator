@@ -44,6 +44,17 @@ import {
   type FinalSellSetsMode,
 } from './finalSell'
 
+type LockedMinValue = Exclude<BuilderConfig['lockedMinRequiredRolls'], undefined>
+type AggregateMinValue = Exclude<BuilderConfig['minRequiredRolls'], undefined>
+
+const parseAggregateScopeToken = (value: unknown): 'locked' | 'selected' | null => {
+  if (typeof value !== 'string') return null
+  const v = value.trim().toLowerCase()
+  if (v.startsWith('lock')) return 'locked'
+  if (v.startsWith('sel')) return 'selected'
+  return null
+}
+
 // Internal helpers for parsing unknown HSFC shapes
 function isRecord(v: unknown): v is Record<string, unknown> { return typeof v === 'object' && v !== null }
 // no longer used: only label-based parsing is accepted for HSFC
@@ -272,6 +283,7 @@ export function normalizeConfig(input: unknown): BuilderConfig {
   const __sreV = parseReadableRollTargetsMap(rec['substatRollTargets'])
 
   const opt: Partial<BuilderConfig> = {}
+  let legacyMinRollsScopeLocked = false
   // Optional: Auto rarity supplements threshold (Late + Auto behavior)
   const ar = rec['autoRarityThreshold']
   if (typeof ar === 'string') {
@@ -300,12 +312,20 @@ export function normalizeConfig(input: unknown): BuilderConfig {
   }
   if (__srbV !== undefined) opt.substatRollBoundsV = __srbV
   if (__sreV !== undefined) opt.substatRollTargetsV = __sreV
-  // Optional: target scope for aggregate min rolls
-  const mrt = rec['minRollsTarget']
-  if (typeof mrt === 'string') {
-    const v = mrt.toLowerCase()
-    if (v.startsWith('lock')) opt.substatMinTarget = 'locked'
-    else if (v.startsWith('sel')) opt.substatMinTarget = 'selected'
+  // Optional: target scope for aggregate min rolls (legacy fields)
+  const legacyScopes: Array<'locked' | 'selected' | null> = [
+    parseAggregateScopeToken(rec['substatMinTarget']),
+    parseAggregateScopeToken(rec['minRollsTarget']),
+  ]
+  for (const scope of legacyScopes) {
+    if (scope === 'locked') {
+      opt.substatMinTarget = 'locked'
+      legacyMinRollsScopeLocked = true
+      break
+    }
+    if (scope === 'selected') {
+      opt.substatMinTarget = 'selected'
+    }
   }
   const __artTypes = Array.isArray(rec['artifactTypeNames'])
     ? ((rec['artifactTypeNames'] as unknown[]).map((n) => typeIdByName.get(String(n))).filter((x): x is number => typeof x === 'number'))
@@ -357,6 +377,25 @@ export function normalizeConfig(input: unknown): BuilderConfig {
     }
   } catch {}
 
+  let legacyLockedCarryValue: number | null = null
+  let legacyManualMinValue: number | null = null
+  if (legacyMinRollsScopeLocked) {
+    const lockedCount = Array.isArray(normalized.fixedSubstatsV) ? normalized.fixedSubstatsV.length : 0
+    const manualMinValue = typeof normalized.minRequiredRolls === 'number' ? normalized.minRequiredRolls : 0
+    const lockedMinValue = typeof normalized.lockedMinRequiredRolls === 'number' ? normalized.lockedMinRequiredRolls : 0
+    const manualActive = (normalized.autoMinRequiredRolls === false) && manualMinValue > 0
+    const desiredLockedMin = manualActive ? Math.max(lockedMinValue, manualMinValue) : lockedMinValue
+    legacyLockedCarryValue = (manualActive && lockedCount === 0 && desiredLockedMin > 0)
+      ? desiredLockedMin
+      : null
+    if (desiredLockedMin > 0) {
+      normalized.lockedMinRequiredRolls = desiredLockedMin as LockedMinValue
+    }
+    if (manualActive) {
+      legacyManualMinValue = manualMinValue
+    }
+  }
+
   if (!canEnableSubstatFlex(normalized)) {
     normalized.autoSubstatFlex = false
   }
@@ -373,6 +412,14 @@ export function normalizeConfig(input: unknown): BuilderConfig {
   normalized = normalizeSubstatMinTarget(normalized)
   // Remove auto rarity supplements flag when not applicable (not Auto, not Late, or thresholds inactive)
   normalized = normalizeAutoRaritySupplements(normalized)
+  if (legacyLockedCarryValue !== null && ((normalized.lockedMinRequiredRolls ?? 0) <= 0)) {
+    const clamped = Math.max(0, Math.min(5, legacyLockedCarryValue)) as LockedMinValue
+    normalized.lockedMinRequiredRolls = clamped
+  }
+  if (legacyManualMinValue !== null) {
+    normalized.autoMinRequiredRolls = false
+    normalized.minRequiredRolls = legacyManualMinValue as AggregateMinValue
+  }
   return normalized
 }
 
@@ -472,7 +519,6 @@ export function buildReadableConfig(cfg: BuilderConfig, metasets: Metaset[]) {
     minRequiredRolls: (cfg.minRequiredRolls ?? 0),
     autoMinRequiredRolls: (cfg.autoMinRequiredRolls ?? true),
     lockedMinRequiredRolls: (cfg.lockedMinRequiredRolls ?? 0),
-    ...(cfg.substatMinTarget === 'locked' ? { minRollsTarget: 'Locked' as const } : {}),
     artifactTypeNames: (cfg.artifactTypes ?? []).slice().sort(compareArtifactTypes).map(t => artifactTypeNames[Number(t)]).filter(Boolean),
     artifactSetNames: (cfg.artifactSets ?? []).slice().sort(compareArtifactSets).map(s => artifactSetNames[Number(s)]).filter(Boolean),
     // Write compact metaset references by ID for smaller files. Names remain

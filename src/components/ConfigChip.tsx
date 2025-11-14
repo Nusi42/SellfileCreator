@@ -51,6 +51,12 @@ const SEPARATOR_HASHED_LINE_ALPHA_MIN = 0.3
 
 const NAME_COLOR_DIRECTIVE_PATTERN = /^\s*(#\s*)?\[\s*#?([0-9a-fA-F]{3}|[0-9a-fA-F]{6})\s*\]/
 
+const clampAggregateRollDisplayValue = (value: unknown): number => {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return 0
+  const rounded = Math.round(value)
+  return Math.max(0, Math.min(5, rounded))
+}
+
 const isDevBuild: boolean = Boolean((import.meta as unknown as { env?: { DEV?: boolean } }).env?.DEV)
 
 type NameColorDirective = {
@@ -946,11 +952,21 @@ function summaryParts(
   }
 
   // Min Required Rolls (aggregate across selected; show only when > 0)
-  if ((cfg.minRequiredRolls ?? 0) > 0) {
-    // Compact math-like notation to indicate total roll requirement.
-    // Show a lock when the aggregate target applies only to locked substats.
+  const lockedMin = clampAggregateRollDisplayValue(cfg.lockedMinRequiredRolls ?? 0)
+  const manualAggregateMin = clampAggregateRollDisplayValue(cfg.minRequiredRolls ?? 0)
+  const hasManualAggregateMin = manualAggregateMin > 0
+  const hasLockedMin = lockedMin > 0
+
+  if (hasManualAggregateMin && hasLockedMin) {
+    const lockedSegment = `${lockedMin}🔒`
+    const totalSegment = manualAggregateMin > lockedMin ? `/${manualAggregateMin}` : ''
+    addText(`Σr${NBSP}≥${NBSP}${lockedSegment}${totalSegment}`)
+  } else if (hasManualAggregateMin) {
+    // Legacy locked scope still appends a lock so older configs remain understandable.
     const lockedScope = (cfg.substatMinTarget === 'locked')
-    addText(`Σr${NBSP}≥${NBSP}${cfg.minRequiredRolls}${lockedScope ? `${NBSP}🔒` : ''}`)
+    addText(`Σr${NBSP}≥${NBSP}${manualAggregateMin}${lockedScope ? `${NBSP}🔒` : ''}`)
+  } else if (hasLockedMin) {
+    addText(`Σr${NBSP}≥${NBSP}${lockedMin}🔒`)
   }
 
   // Sets (icons when enabled) — render metasets as text and artifacts with icons respecting the preference toggle

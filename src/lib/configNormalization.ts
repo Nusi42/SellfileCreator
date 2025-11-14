@@ -126,12 +126,20 @@ export function normalizeAutoRaritySupplements<T extends Pick<BuilderConfig,
 }
 
 /**
- * Ensure the min-rolls target falls back to selected substats when no substats are locked.
+ * Keep the aggregate scope aligned with the locked aggregate floor:
+ * - When a locked-only aggregate floor exists (value > 0 and locked substats present), force the scope to 'locked'.
+ * - Otherwise default to 'selected' so the total applies across all targeted substats.
  */
-export function normalizeSubstatMinTarget<T extends Pick<BuilderConfig, 'substatMinTarget' | 'fixedSubstatsV'>>(cfg: T): T {
+export function normalizeSubstatMinTarget<T extends Pick<BuilderConfig, 'substatMinTarget' | 'fixedSubstatsV' | 'lockedMinRequiredRolls'>>(cfg: T): T {
   try {
     const fixed = Array.isArray(cfg.fixedSubstatsV) ? cfg.fixedSubstatsV : []
-    if ((cfg.substatMinTarget ?? 'selected') === 'locked' && fixed.length === 0) {
+    const lockedMinRaw = (cfg as { lockedMinRequiredRolls?: number }).lockedMinRequiredRolls
+    const lockedMinActive = typeof lockedMinRaw === 'number' && lockedMinRaw > 0 && fixed.length > 0
+    const currentTarget = (cfg.substatMinTarget ?? 'selected')
+    if (lockedMinActive && currentTarget !== 'locked') {
+      return { ...cfg, substatMinTarget: 'locked' } as T
+    }
+    if (!lockedMinActive && currentTarget === 'locked') {
       return { ...cfg, substatMinTarget: 'selected' } as T
     }
     return cfg

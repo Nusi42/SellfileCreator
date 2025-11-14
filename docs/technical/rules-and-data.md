@@ -25,7 +25,7 @@ This document covers file schemas, builder semantics, and compatibility notes.
   - `autoRarityThreshold?`: `'uncommon' | 'rare' | 'epic'` — emitted only when Milestone Thresholds are Late+Auto and active (defaults to `'rare'`).
   - `substatRollBounds?`: label-keyed map `{ [label: string]: { min?: number; max?: number; any?: boolean } }`.
   - `minCount`, `autoMinCount`, `autoSubstatFlex?` (true only when flex actually applies).
-  - `minRequiredRolls`, `autoMinRequiredRolls`, `lockedMinRequiredRolls`, `minRollsTarget?` (`'Locked'` when aggregate substat targets require every locked stat to hit the goal). `lockedMinRequiredRolls` tracks the aggregate floor for locked substats (ignored when no locked picks exist) so the builder can enforce a separate locked-only minimum alongside the global total.
+  - `minRequiredRolls`, `autoMinRequiredRolls`, `lockedMinRequiredRolls`. Older HSFC files may include `minRollsTarget: 'Locked'`; the importer now converts that scope into `lockedMinRequiredRolls` automatically so HSFC exports no longer need the extra field.
   - `artifactTypeNames?`: string[]; `artifactSetNames?`: string[]; `artifactMetaSetIds?`: string[] (IDs referencing the payload’s `Metasets` entries).
   - Meta hint: Each config written by Save/Copy includes `__cfgIdx_ignoredWhenRead: number` (1-based index at export time); readers ignore this field.
 - `SubstatTargetTable` write format: label-keyed maps (Substat Target Values per rank).

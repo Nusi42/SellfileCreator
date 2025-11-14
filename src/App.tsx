@@ -16,7 +16,6 @@ import type { HsfFile, HsfRule } from './lib/hsfTypes'
 import { type BuilderConfig, type SubstatTargetTable, type SellfileExportMode } from './lib/hsfBuilder'
 import { parseConfigsFromText, buildReadableConfig, readHsfcFile, buildHsfcPayload, hsfcToBlob } from './lib/hsfcIO'
 import { COPY_DIALOG_EVENT, writeTextSafe } from './lib/clipboard'
-import { LEVEL_MILESTONES, RarityCode, RankCode } from './lib/types'
 // Autosave restore logic lives in useAutosaveRestore.
 import {
   AUTOSAVE_KEY,
@@ -43,7 +42,7 @@ import { HsfRulesTableMemo } from './components/HsfRulesTable'
 // Config chips list panel component
 import ConfigChipsPanel from './components/ConfigChipsPanel'
 import ConfirmDialogs from './components/ConfirmDialogs'
-import BuilderPanel from './components/BuilderPanel'
+import BuilderPanel, { createFactoryBuilderDefaults } from './components/BuilderPanel'
 import CopyDialog from './components/CopyDialog'
 import PasteDialog from './components/PasteDialog'
 // Markdown preview for HSFC Note (read-only). Requires installation:
@@ -395,29 +394,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   }, [customCfgs])
   // colorsDlgOpen handled in useManageColorsDialog
 
-  const [builderState, setBuilderState] = useState<BuilderConfig>({
-    name: '',
-    keep: true,
-    exportMode: 'active',
-    rankCode: RankCode.Any,
-    rarityCode: RarityCode.Any,
-    rarityMode: 'auto',
-    autoRaritySupplementsThreshold: 'rare',
-    factionCode: 0,
-    mainStatsV: [],
-    minLevel: LEVEL_MILESTONES[0]!,
-    maxLevel: LEVEL_MILESTONES[LEVEL_MILESTONES.length - 1]!,
-    earlyKeepMode: 'early',
-    rollBaseline: 'afterStart',
-    substatsV: [],
-    fixedSubstatsV: [],
-    minCount: 0,
-    autoMinCount: true,
-    autoSubstatFlex: false,
-    minRequiredRolls: 0,
-    autoMinRequiredRolls: true,
-    lockedMinRequiredRolls: 0,
-  })
+  const [builderState, setBuilderState] = useState<BuilderConfig>(() => createFactoryBuilderDefaults())
   const builder = builderState
   // Keep a ref to the latest builder so tutorial helpers and action handlers can snapshot current
   // values without waiting for React to flush state updates.
