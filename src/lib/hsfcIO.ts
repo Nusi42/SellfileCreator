@@ -206,10 +206,6 @@ export function normalizeConfig(input: unknown): BuilderConfig {
     : []
 
 
-  const startLevelRaw = rec['startLevel'] as unknown
-  const startLevelWasAny = startLevelRaw === 'any'
-  const startLevel: LevelMilestone = isLevelMilestone(startLevelRaw) ? startLevelRaw : LEVEL_MILESTONES[0]!
-
   const exportMode: SellfileExportMode = resolveExportModeField({
     exportMode: (coerceSellfileExportModeToken(rec['exportMode'])
       ?? coerceSellfileExportModeToken(rec['ExportMode'])) ?? null,
@@ -298,18 +294,16 @@ export function normalizeConfig(input: unknown): BuilderConfig {
     const numeric = Number(v)
     return isLevelMilestone(numeric) ? numeric : undefined
   }
-  let minLevel = parseLevel(rec['minLevel'])
-  let maxLevel = parseLevel(rec['maxLevel'])
-  if (startLevelWasAny) {
-    minLevel = LEVEL_MILESTONES[0]!
-    maxLevel = LEVEL_MILESTONES[LEVEL_MILESTONES.length - 1]!
+  const defaultMinLevel = LEVEL_MILESTONES[0]!
+  const defaultMaxLevel = LEVEL_MILESTONES[LEVEL_MILESTONES.length - 1]!
+  let minLevel = parseLevel(rec['minLevel']) ?? defaultMinLevel
+  let maxLevel = parseLevel(rec['maxLevel']) ?? defaultMaxLevel
+  if (minLevel > maxLevel) {
+    minLevel = defaultMinLevel
+    maxLevel = defaultMaxLevel
   }
-  if (minLevel === undefined) minLevel = startLevel
-  if (maxLevel === undefined) maxLevel = LEVEL_MILESTONES[LEVEL_MILESTONES.length - 1]!
-  if (minLevel !== undefined && maxLevel !== undefined && minLevel <= maxLevel) {
-    opt.minLevel = minLevel
-    opt.maxLevel = maxLevel
-  }
+  opt.minLevel = minLevel
+  opt.maxLevel = maxLevel
   if (__srbV !== undefined) opt.substatRollBoundsV = __srbV
   if (__sreV !== undefined) opt.substatRollTargetsV = __sreV
   // Optional: target scope for aggregate min rolls (legacy fields)

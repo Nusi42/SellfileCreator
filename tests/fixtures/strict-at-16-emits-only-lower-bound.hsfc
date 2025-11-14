@@ -3,7 +3,6 @@
   "Rarity": "Any",
   "Faction": "Any",
   "rollBaseline": "upToLevel",
-  "rollMode": "strict",
   "substats": [
     "ACC"
   ],

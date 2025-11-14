@@ -60,8 +60,6 @@ export interface BuilderConfig {
   // 'disabled' keeps the config in exports but forces `Use: false` so RSL Helper ignores it.
   exportMode: SellfileExportMode
   // Explicit level window for which to emit rules (inclusive).
-  // Legacy configs with rollMode/startLevel are normalized upstream so
-  // builder callers always provide this window directly.
   minLevel?: LevelMilestone
   maxLevel?: LevelMilestone
   // Rank code: HSF-compatible (0..16): exact 1..6, >=1..>=5 (7..11), <=2..<=6 (12..16), 0 any
