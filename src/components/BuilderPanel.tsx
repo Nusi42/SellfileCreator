@@ -6060,10 +6060,11 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                                       alignItems: 'center',
                                       justifyContent: 'center',
                                       backgroundColor: 'transparent',
-                                      color: '#fff',
+                                      color: theme.palette.text.primary,
                                       cursor: lockIconEnabled ? 'pointer' : 'default',
                                       '--sub-lock-hover-opacity': lockedActive ? 1 : 0,
-                                      boxShadow: `0px 2px 1px -1px rgba(0,0,0,0.2),0px 1px 1px 0px rgba(0,0,0,0.14),0px 1px 3px 0px rgba(0,0,0,0.12)`,
+                                      boxShadow: 'none',
+                                      textShadow: 'none',
                                       '& svg': {
                                         fontSize: 14,
                                       },
