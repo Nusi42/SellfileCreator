@@ -158,18 +158,22 @@ export default function GridIconBox({
       <Box
         sx={{
           position: 'absolute',
-          right: -10,
-          top: -10,
+          right: -8,
+          top: -8,
           bgcolor: 'background.paper',
-          borderRadius: 1,
-          px: 0.5,
-          py: 0.25,
+          borderRadius: '50%',
+          width: 16,
+          height: 16,
           boxShadow: 2,
           border: '2px solid',
           borderColor,
-          fontSize: '0.8rem',
+          fontSize: '0.65rem',
           fontWeight: 600,
           color: 'text.primary',
+          display: 'inline-flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          lineHeight: 1,
         }}
       >
         {rerollLabel}
@@ -246,10 +250,10 @@ export default function GridIconBox({
         onClick={outcome.canJump ? outcome.onClick : undefined}
         sx={{
           position: 'absolute',
-          left: -10,
-          top: -10,
-          width: 24,
-          height: 24,
+          left: -8,
+          top: -8,
+          width: 16,
+          height: 16,
           borderRadius: '50%',
           bgcolor: 'background.paper',
           border: '2px solid',
@@ -260,7 +264,7 @@ export default function GridIconBox({
           alignItems: 'center',
           justifyContent: 'center',
           fontWeight: 700,
-          fontSize: '0.85rem',
+          fontSize: '0.55rem',
           cursor: outcome.canJump ? 'pointer' : undefined,
         }}
       >

@@ -425,7 +425,7 @@ const overrides: Catalog = {
   rulesMenuColorStatTexts: 'Кольоровий текст статів',
   rulesMenuColorBlindPalette: 'Палітра для дальтоніків',
   rulesMenuGridColumns: 'Стовпці сітки',
-  rulesMenuGridColumnsValue: 'Стовпців: {count}',
+  rulesMenuGridColumnsValue: '{count}',
   rulesMenuShowFirstMatch: 'Показати перший збіг',
   rulesMenuShowOtherMatches: 'Показати інші збіги',
   commonOn: 'Увімк.',

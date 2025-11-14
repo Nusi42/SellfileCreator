@@ -425,7 +425,7 @@ const overrides: Catalog = {
   rulesMenuColorStatTexts: 'Stat metinlerini renklendir',
   rulesMenuColorBlindPalette: 'Renk körü paleti',
   rulesMenuGridColumns: 'Izgara sütunları',
-  rulesMenuGridColumnsValue: '{count} sütun',
+  rulesMenuGridColumnsValue: '{count}',
   rulesMenuShowFirstMatch: 'İlk eşleşmeyi göster',
   rulesMenuShowOtherMatches: 'Diğer eşleşmeleri göster',
   commonOn: 'Açık',

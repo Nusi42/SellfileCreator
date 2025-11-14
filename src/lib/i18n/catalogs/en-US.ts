@@ -428,7 +428,7 @@ const enUS: Catalog = {
   rulesMenuColorStatTexts: 'Color stat texts',
   rulesMenuColorBlindPalette: 'Color-blind palette',
   rulesMenuGridColumns: 'Grid columns',
-  rulesMenuGridColumnsValue: '{count} columns',
+  rulesMenuGridColumnsValue: '{count}',
   rulesMenuShowFirstMatch: 'Show first match',
   rulesMenuShowOtherMatches: 'Show other matches',
   commonOn: 'On',

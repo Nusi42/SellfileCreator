@@ -425,7 +425,7 @@ const overrides: Catalog = {
   rulesMenuColorStatTexts: 'Цветной текст статов',
   rulesMenuColorBlindPalette: 'Палитра для дальтоников',
   rulesMenuGridColumns: 'Столбцы сетки',
-  rulesMenuGridColumnsValue: 'Колонок: {count}',
+  rulesMenuGridColumnsValue: '{count}',
   rulesMenuShowFirstMatch: 'Показать первое совпадение',
   rulesMenuShowOtherMatches: 'Показать другие совпадения',
   commonOn: 'Вкл.',

@@ -425,7 +425,7 @@ const catalog: Catalog = {
   rulesMenuColorStatTexts: 'Colorir textos de stats',
   rulesMenuColorBlindPalette: 'Paleta para daltônicos',
   rulesMenuGridColumns: 'Colunas da grade',
-  rulesMenuGridColumnsValue: '{count} colunas',
+  rulesMenuGridColumnsValue: '{count}',
   rulesMenuShowFirstMatch: 'Mostrar primeira correspondência',
   rulesMenuShowOtherMatches: 'Mostrar outras correspondências',
   commonOn: 'Ativo',

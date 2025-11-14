@@ -425,7 +425,7 @@ const overrides: Catalog = {
   rulesMenuColorStatTexts: 'Colorear textos de stats',
   rulesMenuColorBlindPalette: 'Paleta daltónica',
   rulesMenuGridColumns: 'Columnas de cuadrícula',
-  rulesMenuGridColumnsValue: '{count} columnas',
+  rulesMenuGridColumnsValue: '{count}',
   rulesMenuShowFirstMatch: 'Mostrar primer emparejamiento',
   rulesMenuShowOtherMatches: 'Mostrar otros emparejamientos',
   commonOn: 'Activado',

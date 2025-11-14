@@ -425,7 +425,7 @@ const overrides: Catalog = {
   rulesMenuColorStatTexts: 'Stat‑Texte färben',
   rulesMenuColorBlindPalette: 'Farbschwachen‑Palette',
   rulesMenuGridColumns: 'Rasterspalten',
-  rulesMenuGridColumnsValue: '{count} Spalten',
+  rulesMenuGridColumnsValue: '{count}',
   rulesMenuShowFirstMatch: 'Ersten Treffer anzeigen',
   rulesMenuShowOtherMatches: 'Weitere Treffer anzeigen',
   commonOn: 'An',

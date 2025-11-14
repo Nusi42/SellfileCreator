@@ -66,7 +66,8 @@ const GRID_CARD_ICON_COLUMN_PX = TESTER_GRID_ICON_BOX_SIZE_PX
 const GRID_CARD_STATS_MIN_COLUMN_PX = 112
 const GRID_CARD_TEMPLATE = `${GRID_CARD_ICON_COLUMN_PX}px minmax(${GRID_CARD_STATS_MIN_COLUMN_PX}px, 1fr)`
 const GRID_GAP = 0.375
-const CARD_BORDER_RADIUS = 2
+const CARD_COLUMN_GAP_UNITS = 1.25
+const CARD_BORDER_RADIUS_PX = 8
 const CARD_PADDING_UNITS = 1
 const CARD_FIRST_ROW_HEIGHT_PX = 132
 const CARD_MATCH_ROW_HEIGHT_PX = 34
@@ -82,6 +83,8 @@ const GRID_VIRTUALIZE_ROW_THRESHOLD = 150
 const GRID_VIRTUALIZATION_ENABLED = true
 const GRID_VIRTUALIZE_OVERSCAN_PX = 640
 const GRID_VIRTUALIZE_DEFAULT_VIEWPORT_PX = 720
+// Allow very tall single-column accordions without letting fallback heights overflow the browser layout.
+// 2M px ~= 9k tester cards stacked vertically, which is well above real data while keeping sums finite.
 const GRID_VIRTUALIZE_MAX_FALLBACK_HEIGHT_PX = 2_000_000
 const MATCHING_POPOVER_MAX_WIDTH_PX = 360
 const MATCHING_CHIP_MIN_WIDTH_PX = 50
@@ -397,13 +400,6 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
       )
       heights[idx] = estimated
       total += estimated
-      if (estimated === GRID_VIRTUALIZE_MAX_FALLBACK_HEIGHT_PX) {
-        console.log('[tester-grid-virtualization][fallback-capped]', {
-          key: group.key,
-          rows: group.rows.length,
-          estimatedColumnCount,
-        })
-      }
     }
     const fallbackViewportHeight = viewportHeight > 0
       ? viewportHeight
@@ -454,32 +450,6 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
   const virtualizedHeight = shouldVirtualize ? Math.max(virtualization.totalHeight ?? 0, 0) : undefined
   const virtualizedPadTop = shouldVirtualize ? virtualization.padTop : 0
   const virtualizedPadBottom = shouldVirtualize ? virtualization.padBottom : 0
-  const virtualizedPadBottom = shouldVirtualize ? virtualization.padBottom : 0
-  useEffect(() => {
-    if (!shouldVirtualize) return
-    const visibleCount = Math.max(0, virtualization.rangeEndIndex - virtualization.rangeStartIndex)
-    console.log(
-      `[tester-grid-virtualization] start=${virtualization.rangeStartIndex}`
-        + ` end=${virtualization.rangeEndIndex}`
-        + ` visible=${visibleCount}`
-        + ` total=${groups.length}`
-        + ` padTop=${Math.round(virtualization.padTop)}`
-        + ` padBottom=${Math.round(virtualization.padBottom)}`
-        + ` estHeight=${Math.round(virtualization.totalHeight ?? 0)}`
-        + ` scrollTop=${Math.round(scrollTop)}`
-        + ` viewport=${Math.round(virtualization.viewportHeight)}`,
-    )
-  }, [
-    groups.length,
-    scrollTop,
-    shouldVirtualize,
-    virtualization.padBottom,
-    virtualization.padTop,
-    virtualization.rangeEndIndex,
-    virtualization.rangeStartIndex,
-    virtualization.totalHeight,
-    virtualization.viewportHeight,
-  ])
   if (rows.length === 0) {
     return (
       <Box
@@ -500,10 +470,6 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
       </Box>
     )
   }
-
-  const renderedGroups = virtualization.visibleGroups
-  const virtualizedHeight = shouldVirtualize ? Math.max(virtualization.totalHeight ?? 0, 0) : undefined
-  const virtualizedPadTop = shouldVirtualize ? virtualization.padTop : 0
   const renderGroup = (group: TesterGroup, depth = 0): React.ReactNode => {
     const groupCountLabel = group.rows.length === 1
       ? t('testerItemsCountOne')
@@ -852,6 +818,7 @@ const TesterItemsGridGroup = React.memo(function TesterItemsGridGroup({
                   showFirstMatchRow={showFirstMatchRow}
                   showOtherMatchesRow={showOtherMatchesRow}
                   cardHeightPx={cardHeightPx}
+                  gridColumnCount={gridColumnCount}
                   configNames={configNames}
                   onJumpToRule={onJumpToRule}
                 />
@@ -872,6 +839,7 @@ const TesterGridCard = React.memo(function TesterGridCard({
   showFirstMatchRow,
   showOtherMatchesRow,
   cardHeightPx,
+  gridColumnCount,
   configNames,
   onJumpToRule,
 }: {
@@ -882,6 +850,7 @@ const TesterGridCard = React.memo(function TesterGridCard({
   showFirstMatchRow: boolean
   showOtherMatchesRow: boolean
   cardHeightPx: number
+  gridColumnCount: number
   configNames: Array<string | null>
   onJumpToRule?: ((ruleIndex: number, cfgIdx: number | null) => void) | undefined
 }) {
@@ -1235,7 +1204,24 @@ const TesterGridCard = React.memo(function TesterGridCard({
       </Tooltip>
     )
   }
-  const ascSummaryLine = ascSummary ? (
+  const ascSummaryContent = ascSummary
+  const shouldInlineAscension = gridColumnCount <= 4
+  const ascSummaryInline = ascSummaryContent ? (
+    <Box
+      component="span"
+      sx={{
+        display: 'inline-flex',
+        alignItems: 'baseline',
+        gap: 0.25,
+        ml: 0.75,
+        flexWrap: 'wrap',
+      }}
+    >
+      <Box component="span" sx={{ color: theme.palette.text.secondary, fontWeight: 600 }}>+</Box>
+      {ascSummaryContent}
+    </Box>
+  ) : null
+  const ascSummaryBlock = ascSummaryContent ? (
     <Box
       component="span"
       sx={{
@@ -1250,7 +1236,7 @@ const TesterGridCard = React.memo(function TesterGridCard({
     >
       +
       {' '}
-      {ascSummary}
+      {ascSummaryContent}
     </Box>
   ) : null
   const mainSummaryLabel = (
@@ -1258,7 +1244,7 @@ const TesterGridCard = React.memo(function TesterGridCard({
       <Box component="span" sx={{ color: mainColor ?? 'inherit' }}>
         {mainInline}
       </Box>
-      {ascSummaryLine}
+      {shouldInlineAscension ? ascSummaryInline : ascSummaryBlock}
     </>
   )
 
@@ -1273,10 +1259,10 @@ const TesterGridCard = React.memo(function TesterGridCard({
       sx={(theme) => ({
         display: 'grid',
         gridTemplateColumns: GRID_CARD_TEMPLATE,
-        columnGap: theme.spacing(1),
+        columnGap: theme.spacing(CARD_COLUMN_GAP_UNITS),
         rowGap: theme.spacing(1),
         p: theme.spacing(CARD_PADDING_UNITS),
-        borderRadius: CARD_BORDER_RADIUS,
+        borderRadius: `${CARD_BORDER_RADIUS_PX}px`,
         border: `1px solid ${theme.palette.divider}`,
         bgcolor: theme.palette.background.paper,
         minHeight: cardHeightStyle,
@@ -1391,7 +1377,7 @@ const TesterGridCard = React.memo(function TesterGridCard({
             width: '100%',
             display: 'flex',
             alignItems: 'center',
-            mt: matchSectionMarginTop,
+            mt: 0,
             minHeight: matchRowHeight,
             height: matchRowHeight,
             maxHeight: matchRowHeight,

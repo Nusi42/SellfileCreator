@@ -13,6 +13,13 @@ This document captures everything that changed (or was attempted) after commit `
 
 ## Features Introduced (rev `19752312…` → `HEAD`)
 
+### Current implementation summary (Jan 2025)
+
+- **Grid context menu:** Implemented in `TesterItemsGrid.tsx` with `ContextMenuPaper`, `useContextMenuHint('testerGridContextMenu')`, and shared button sizing. Menu items now control stat-coloring (plus Manage Colors), color-blind palette cycling, the 4/5-column toggle, and the per-row visibility toggles. Hints clear as soon as any context menu fires.
+- **Preference storage:** Column and match-row toggles persist via `src/state/testerGridPreferences.ts`, backed by the new keys in `src/lib/constants.ts`. The grid reads these live so reloads respawn the last layout.
+- **Deterministic card sizing:** Cards lock to `getTesterCardHeight()` so virtualization estimates and rendered heights match. The grid gap moved to `theme.spacing(0.375)`, the icon column shrank to `72px`, and match rows mount only when visible (avoiding empty space or “No match” flicker while worker chunks build).
+- **Docs & i18n:** This file and `docs/technical/app-behavior.md` capture the context-menu behavior, and every locale catalog includes the new `rulesMenuGridColumns*` / `rulesMenuShow*` strings so UI copy stays localized.
+
 ### Grid context menu & hints
 
 - Right-clicking anywhere inside the tester grid scroll container opens a dedicated menu that mirrors the HSF header menu styling. The menu is anchored at the cursor position and reuses `ContextMenuPaper` so Escape/Close works the same as other context menus.
@@ -20,14 +27,15 @@ This document captures everything that changed (or was attempted) after commit `
   - `rulesMenuColorStatTexts`: button toggles `useStatButtonColors`, plus an inline “Manage Colors” icon button that reuses the existing `colorIconSrc` and triggers `onOpenManageColors`.
   - `rulesMenuColorBlindPalette`: button cycles `colorBlindMode` through `normal → okabeIto → tritan → normal`. The button caption reflects the current mode (`colorBlindNormal`, `colorBlindOkabeIto`, `colorBlindTritan`).
   - Divider.
-  - `rulesMenuGridColumns`: button flips between `4` and `5` grid columns (see “Column configuration” below).
+  - `rulesMenuGridColumns`: button flips between `4` and `5` grid columns (see “Column configuration” below) and the button text now mirrors the active count (it literally shows `4` or `5`, no extra label).
   - `rulesMenuShowFirstMatch` & `rulesMenuShowOtherMatches`: buttons toggle the visibility of each match row.
 - Menu controls obey shared sizing constants from `src/lib/constants.ts`: `MENU_CONTROL_HEIGHT_PX = 28` and `MENU_CONTROL_MIN_WIDTH_PX = 120`.
 - Context hints: `useContextMenuHint('testerGridContextMenu')` displays the “Right-click for more” overlay while hovering the grid. The hint disappears as soon as *any* context menu fires (grid-level or accordion-level) so we don’t nag once users discover the pattern.
 
 ### Column configuration + match-row visibility
 
-- `Grid columns`: default to `5` columns at viewport widths ≥ the `sm` breakpoint (`theme.breakpoints.values.sm`, currently `600px`). Below that breakpoint the grid collapses to a single column regardless of the toggle. The cards themselves always reserve a `72px` icon column plus a `minmax(112px, 1fr)` stats column, and the inter-column gap is `theme.spacing(1.5)` ≈ `12px`.
+- `Grid columns`: default to `5` columns at viewport widths ≥ the `sm` breakpoint (`theme.breakpoints.values.sm`, currently `600px`). Below that breakpoint the grid collapses to a single column regardless of the toggle. The cards themselves always reserve a `72px` icon column plus a `minmax(112px, 1fr)` stats column, and the inter-column gap is `theme.spacing(1.25)` ≈ `10px` so the icon stack no longer crowds the stat text.
+- Leaf accordions wrap the grid with `theme.spacing(0.75)` padding so edge cards do not touch the accordion border.
 - Column preference persists via `sellfileCreator.tester.grid.columns.v1` (see `src/state/testerGridPreferences.ts`).
 - `Show first match` / `Show other matches`: persisted per user via two new `localStorage` keys in `src/lib/constants.ts` and `src/state/testerGridPreferences.ts`:
   - `sellfileCreator.tester.grid.showFirstMatch.v1`
@@ -51,12 +59,13 @@ This document captures everything that changed (or was attempted) after commit `
   - Hide both match rows: `132 + 16 = 148px`
 - `getTesterCardHeight(showFirst, showOther, cardVerticalPaddingPx)` centralizes the math so virtualization and actual cards stay in sync.
 - Each card’s root `Box` sets `minHeight`, `maxHeight`, and `height` to that computed value to avoid `ResizeObserver` noise during accordion toggles.
-- Virtualization falls back to `getTesterCardHeight` when a top-level group hasn’t been measured yet. Thresholds remain the same: enable virtualization when `rows.length > 150` or `group count > 12`, with `GRID_VIRTUALIZE_OVERSCAN_PX = 640`.
+- Virtualization falls back to `getTesterCardHeight` when a top-level group hasn’t been measured yet. Thresholds remain the same: enable virtualization when `rows.length > 150` or `group count > 12`, with `GRID_VIRTUALIZE_OVERSCAN_PX = 640`. The spacer that represents the skipped rows is now a real block element (instead of a `translateY`), which stops the scrolling “jump” that happened when switching between accordions.
 - Despite trying to avoid it, we still attach per-card `ResizeObserver`s for the “other matches” row so we can measure available width and decide how many chips to show. This undercuts the “no per-row observers” goal and is one of the perf regressions called out below.
 
 ### Card layout, chips, and icon polish
 
-- `GridIconBox` learned a `size` prop so tester cards can shrink the slot art to `72px` while other callers keep the old `88px`. The slot glyph font size now scales with `size * 0.59` (minimum `22px`), and the reroll/level badges were repositioned (level badge at bottom-right, reroll badge slightly above it). The keep/sell outcome circle shrank to `16px` and only renders when a rule decided the item.
+- `GridIconBox` learned a `size` prop so tester cards can shrink the slot art to `72px` while other callers keep the old `88px`. The slot glyph font size now scales with `size * 0.59` (minimum `22px`), and the reroll/level badges were repositioned (level badge at bottom-right, reroll badge slightly above it). The keep/sell outcome circle shrank to `16px` and only renders when a rule decided the item, and the reroll badge now matches that `16px` footprint so both overlays feel like icons rather than pills.
+- Cards use an `8px` border radius (previously `2px`), and the combination of the new column gap plus the accordion padding keeps edge cards from hitting the group borders.
 - Source glyphs grew to `48px` square, matching the new fixed-height column.
 - `TesterRuleReferenceChip` exposes `getTesterRuleReferenceLabel` so the keep/sell outcome tooltip can reuse the same formatting (`Cfg # | Rule # | Config name` when present).
 - Ascension summary now appears inline with the main stat only when the grid is at `≤ 4` columns. In `5`-column mode the ascension stat moves to its own line to keep text wrapping predictable.
