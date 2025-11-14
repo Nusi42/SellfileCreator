@@ -69,9 +69,9 @@ const GRID_GAP = 0.375
 const CARD_COLUMN_GAP_UNITS = 1.25
 const CARD_BORDER_RADIUS_PX = 8
 const CARD_PADDING_UNITS = 1
-const CARD_MATCH_ROW_HEIGHT_PX = 34
+const CARD_MATCH_ROW_HEIGHT_PX = 24
 const CARD_MATCH_ROW_GAP_PX = 2
-const CARD_MATCH_SECTION_LEADING_GAP_PX = 4
+const CARD_MATCH_ROW_MARGIN_PX = 2
 const GRID_CARD_CONTAINER_PADDING_UNITS = 0.75
 const GRID_CARD_LEFT_COLUMN_GAP_UNITS = 0.5
 const GRID_CARD_SOURCE_ICON_SIZE_PX = 24
@@ -84,7 +84,7 @@ const CARD_SUMMARY_LINE_HEIGHT_REM = 1.25
 const CARD_ASC_LINE_HEIGHT = 1.1
 const CARD_ASC_FONT_DECREMENT_PX = 1.5
 const CARD_ASC_BLOCK_MARGIN_TOP_UNITS = 0.125
-const CARD_COLUMN_HEIGHT_BUFFER_PX = 2
+const CARD_COLUMN_HEIGHT_BUFFER_PX = 0
 const MAX_MATCHING_CHIPS = 6
 const ESTIMATED_ACCORDION_HEADER_PX = 60
 const ACCORDION_MARGIN_UNITS = 0.75
@@ -1253,9 +1253,6 @@ const TesterGridCard = React.memo(function TesterGridCard({
   )
 
   const cardHeightStyle = `${cardHeightPx}px`
-  const matchSectionMarginTop = `${CARD_MATCH_SECTION_LEADING_GAP_PX}px`
-  const matchRowGapMarginTop = `${CARD_MATCH_ROW_GAP_PX}px`
-
   const matchRowHeight = `${CARD_MATCH_ROW_HEIGHT_PX}px`
 
   return (
@@ -1264,7 +1261,6 @@ const TesterGridCard = React.memo(function TesterGridCard({
         display: 'grid',
         gridTemplateColumns: GRID_CARD_TEMPLATE,
         columnGap: theme.spacing(CARD_COLUMN_GAP_UNITS),
-        rowGap: theme.spacing(1),
         p: theme.spacing(CARD_PADDING_UNITS),
         borderRadius: `${CARD_BORDER_RADIUS_PX}px`,
         border: `1px solid ${theme.palette.divider}`,
@@ -1407,7 +1403,8 @@ const TesterGridCard = React.memo(function TesterGridCard({
             width: '100%',
             display: 'flex',
             alignItems: 'center',
-            mt: 0,
+            mt: `${CARD_MATCH_ROW_MARGIN_PX}px`,
+            mb: `${CARD_MATCH_ROW_MARGIN_PX}px`,
             minHeight: matchRowHeight,
             height: matchRowHeight,
             maxHeight: matchRowHeight,
@@ -1429,12 +1426,13 @@ const TesterGridCard = React.memo(function TesterGridCard({
           sx={{
             gridColumn: '1 / -1',
             width: '100%',
-            mt: shouldShowPrimaryMatchRow ? matchRowGapMarginTop : matchSectionMarginTop,
             minHeight: matchRowHeight,
             height: matchRowHeight,
             maxHeight: matchRowHeight,
             display: 'flex',
             alignItems: 'center',
+            mt: `${CARD_MATCH_ROW_MARGIN_PX}px`,
+            mb: `${CARD_MATCH_ROW_MARGIN_PX}px`,
           }}
         >
           <Box
@@ -1628,8 +1626,8 @@ function getTesterCardHeight(
   let height = firstRowHeightPx + cardVerticalPaddingPx
   const visibleRows = (showFirst ? 1 : 0) + (showOther ? 1 : 0)
   if (visibleRows > 0) {
-    height += CARD_MATCH_SECTION_LEADING_GAP_PX
-    height += visibleRows * CARD_MATCH_ROW_HEIGHT_PX
+    const perRowHeight = CARD_MATCH_ROW_HEIGHT_PX + (CARD_MATCH_ROW_MARGIN_PX * 2)
+    height += visibleRows * perRowHeight
     if (visibleRows > 1) {
       height += (visibleRows - 1) * CARD_MATCH_ROW_GAP_PX
     }
