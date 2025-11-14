@@ -1270,6 +1270,7 @@ const TesterGridCard = React.memo(function TesterGridCard({
         maxHeight: cardHeightStyle,
         boxSizing: 'border-box',
         overflow: 'hidden',
+        alignContent: 'start',
       })}
     >
       <Box
