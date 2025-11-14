@@ -2275,6 +2275,17 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const TESTER_FREEZE_IDLE_RELEASE_MS = 500
   /* eslint-disable react-you-might-not-need-an-effect/no-event-handler, react-you-might-not-need-an-effect/no-chain-state-updates */
   useEffect(() => {
+    if (!rulesBuilding) return
+    setTesterMatchFreeze((prev) => {
+      if (prev) return prev
+      return {
+        lockBuildId: testerRowsBuildIdRef.current,
+        pendingRules: true,
+        createdAt: Date.now(),
+      }
+    })
+  }, [rulesBuilding])
+  useEffect(() => {
     if (!testerMatchFreeze?.pendingRules) {
       restoreFreezeRulesSeenRef.current = false
       return
