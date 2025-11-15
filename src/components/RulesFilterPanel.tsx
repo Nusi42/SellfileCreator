@@ -844,10 +844,15 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
   ), [testerConfigLabelStrings])
   const testerConfigFilterTooltip = t('filterLimitSelectedConfigsTooltip')
   const configFilterButtonActive = testerConfigFilterHasSelection && testerConfigFilterMode !== 'off'
-  const configFilterButtonVariant: 'contained' | 'outlined' = configFilterButtonActive ? 'contained' : 'outlined'
-  const configFilterButtonLabel = isTesterMode && testerConfigFilterMode !== 'off'
-    ? (configFilterButtonActive ? testerConfigFilterLabel : t('testerFilterConfigsOff'))
-    : (configFilterButtonActive ? t('configFilterOn') : t('testerFilterConfigsOff'))
+  const configFilterButtonDisabled = !hasConfigs || !onTesterConfigFilterModeChange
+  const configFilterButtonVariant: 'contained' | 'outlined' = configFilterButtonDisabled
+    ? 'contained'
+    : (configFilterButtonActive ? 'contained' : 'outlined')
+  const configFilterButtonLabel = (
+    isTesterMode && testerConfigFilterMode !== 'off'
+      ? testerConfigFilterLabel
+      : (configFilterButtonActive ? t('configFilterOn') : t('testerFilterConfigsOff'))
+  )
   const previewConfigButtonActive = configChipFilterActive
   const previewConfigButtonVariant: 'contained' | 'outlined' = previewConfigButtonActive ? 'contained' : 'outlined'
   const previewConfigButtonLabel = previewConfigButtonActive ? t('configFilterOn') : t('testerFilterConfigsOff')
@@ -1028,7 +1033,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                   color="success"
                   aria-label={t('filterLimitSelectedConfigs')}
                   aria-pressed={configFilterButtonActive || undefined}
-                  disabled={!hasConfigs || !onTesterConfigFilterModeChange}
+                  disabled={configFilterButtonDisabled}
                   onClick={handleTesterConfigFilterClick}
                   startIcon={configFilterButtonActive ? <FilterAltIcon fontSize="small" /> : <FilterAltOffIcon fontSize="small" />}
                   sx={{

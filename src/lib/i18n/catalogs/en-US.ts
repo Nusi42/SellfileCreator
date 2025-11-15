@@ -431,6 +431,7 @@ const enUS: Catalog = {
   rulesMenuGridColumnsValue: '{count}',
   rulesMenuShowFirstMatch: 'Show first match',
   rulesMenuShowOtherMatches: 'Show other matches',
+  rulesMenuShowChampionIcons: 'Show champion icons',
   commonOn: 'On',
   commonOff: 'Off',
   headerMenuResetCols: 'Reset columns',

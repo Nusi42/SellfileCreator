@@ -83,6 +83,7 @@ export function buildPreviewArtifactFromTesterItem(
   const source = extras?.source ?? 'tester'
   const rerollCount = extras?.rerollCount ?? 0
   const equippedToChampionId = extras?.equippedToChampionId ?? null
+  const equippedChampionBaseId = extras?.equippedChampionBaseId ?? null
   const equippedChampionName = extras?.equippedChampionName ?? null
   const equippedChampionLocation = extras?.equippedChampionLocation ?? null
   const mainStat = extras?.mainStat ? cloneStat(extras.mainStat) : buildManualMainStat(item.main)
@@ -107,6 +108,7 @@ export function buildPreviewArtifactFromTesterItem(
     testerItem: item,
     rerollCount,
     equippedToChampionId,
+    equippedChampionBaseId,
     source,
     equippedChampionName,
     equippedChampionLocation,

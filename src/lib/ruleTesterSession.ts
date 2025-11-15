@@ -353,6 +353,7 @@ type CanonicalPreviewExtras = {
   source: TesterItemPreviewExtras['source'] | null
   rerollCount: number | null
   equippedToChampionId: number | null
+  equippedChampionBaseId: number | null
   equippedChampionName: string | null
   equippedChampionLocation: TesterItemPreviewExtras['equippedChampionLocation'] | null
   mainStat: CanonicalNormalizedStat | null
@@ -427,6 +428,7 @@ const canonicalizePreviewExtras = (extras?: TesterItemPreviewExtras): CanonicalP
     source: extras.source ?? null,
     rerollCount: normalizeFiniteNumber(extras.rerollCount),
     equippedToChampionId: normalizeFiniteNumber(extras.equippedToChampionId),
+    equippedChampionBaseId: normalizeFiniteNumber(extras.equippedChampionBaseId),
     equippedChampionName: typeof extras.equippedChampionName === 'string' ? extras.equippedChampionName : null,
     equippedChampionLocation: extras.equippedChampionLocation ?? null,
     mainStat: canonicalizeNormalizedStat(extras.mainStat),

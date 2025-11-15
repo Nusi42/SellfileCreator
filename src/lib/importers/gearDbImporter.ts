@@ -69,6 +69,7 @@ const CHAMPION_COLUMN_KEYS: readonly (keyof GearDbChampionRow)[] = [
   'Name',
   'Vault',
   'RVault',
+  'BaseHeroID',
 ] as const
 
 type ChampionLookup = Map<number, ChampionLookupRecord>
@@ -216,7 +217,7 @@ function tableExists(db: Database, name: string): boolean {
 function readChampions(db: Database): ChampionLookup {
   const map: ChampionLookup = new Map()
   if (!tableExists(db, 'Champs')) return map
-  const stmt = db.prepare('SELECT ID, Name, Vault, RVault FROM Champs')
+  const stmt = db.prepare('SELECT ID, Name, Vault, RVault, BaseHeroID FROM Champs')
   try {
     while (stmt.step()) {
       const row = stmt.getAsObject() as Record<string, unknown>
@@ -224,11 +225,14 @@ function readChampions(db: Database): ChampionLookup {
       const id = Number(converted.ID)
       if (!Number.isFinite(id) || id <= 0) continue
       const name = typeof converted.Name === 'string' ? converted.Name.trim() : null
+      const baseHeroIdRaw = converted.BaseHeroID == null ? null : Number(converted.BaseHeroID)
+      const baseHeroId = (baseHeroIdRaw != null && Number.isFinite(baseHeroIdRaw) && baseHeroIdRaw > 0) ? baseHeroIdRaw : null
       map.set(id, {
         id,
         name: name && name.length > 0 ? name : null,
         vault: Boolean(Number(converted.Vault ?? 0)),
         reserveVault: Boolean(Number(converted.RVault ?? 0)),
+        baseHeroId,
       })
     }
   } finally {

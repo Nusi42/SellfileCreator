@@ -2408,11 +2408,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   useEffect(() => {
     scrollSelectedConfigIntoView()
   }, [scrollSelectedConfigIntoView, customCfgs.length, filterActive, limitConfigsToFiltered])
-  useEffect(() => {
-    if ((customCfgs.length === 0 || selectedCfgIndices.length === 0) && testerConfigFilterMode !== 'off') {
-      setTesterConfigFilterMode('off')
-    }
-  }, [customCfgs.length, selectedCfgIndices.length, testerConfigFilterMode])
   const prevHoveredChipRef = React.useRef<number | null>(null)
   const hoverCountRef = React.useRef(customCfgs.length)
   hoverCountRef.current = customCfgs.length

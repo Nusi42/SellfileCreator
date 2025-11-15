@@ -428,6 +428,7 @@ const overrides: Catalog = {
   rulesMenuGridColumnsValue: '{count}',
   rulesMenuShowFirstMatch: 'Показать первое совпадение',
   rulesMenuShowOtherMatches: 'Показать другие совпадения',
+  rulesMenuShowChampionIcons: 'Show champion icons',
   commonOn: 'Вкл.',
   commonOff: 'Выкл.',
   headerMenuResetCols: 'Сбросить колонки',
