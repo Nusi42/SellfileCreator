@@ -57,7 +57,7 @@ import ContextMenuPaper from './ContextMenuPaper'
 import { ContextMenuHintOverlay } from './ContextMenuHintOverlay'
 import { useContextMenuHint } from '../hooks/useContextMenuHint'
 import GridIconBox from './GridIconBox'
-import { MENU_CONTROL_HEIGHT_PX, MENU_CONTROL_MIN_WIDTH_PX, RULES_TABLE_SCROLL_HINT_HIDE_MS, type ColorBlindMode } from '../lib/constants'
+import { ACCESSORY_NO_SET_ID, MENU_CONTROL_HEIGHT_PX, MENU_CONTROL_MIN_WIDTH_PX, RULES_TABLE_SCROLL_HINT_HIDE_MS, type ColorBlindMode } from '../lib/constants'
 import { useContextMenuCloseOnOutsideRightClick } from '../hooks/useContextMenuCloseOnOutsideRightClick'
 import { useTesterGridPreferences } from '../state/testerGridPreferences'
 import { championIconUrl } from '../lib/iconMaps/championIconMap'
@@ -568,7 +568,7 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
       }
       const baseLabel = group.label ?? ''
       const resolvedLabel = (group.kind === 'accessorySet' && nextFactionLabel)
-        ? `${nextFactionLabel} – ${baseLabel}`
+        ? (baseLabel && baseLabel.trim().length > 0 ? `${nextFactionLabel} – ${baseLabel}` : nextFactionLabel)
         : baseLabel
       group.rows.forEach((row) => {
         const id = Number(row.artifact?.id)
@@ -1832,7 +1832,8 @@ function groupRowsBySet(rows: readonly TesterPreviewRow[], translate: TranslateF
   rows.forEach((row, index) => {
     const artifact = row.artifact
     const slot = artifact.slot as ArtifactTypeId
-    const setId = Number(artifact.set) || 0
+    const rawSetId = Number(artifact.set)
+    const setId = Number.isFinite(rawSetId) ? rawSetId : 0
     if (!isAccessorySlot(slot)) {
       const key = `art:${setId}`
       let group = artifactGroups.get(key)
@@ -1886,7 +1887,8 @@ function groupRowsBySet(rows: readonly TesterPreviewRow[], translate: TranslateF
     const setKey = `${factionKey}:set:${setId}`
     let setGroup = factionGroup.sets.get(setKey)
     if (!setGroup) {
-      const setLabel = formatTesterSetLabel({ setId, slot, translate })
+      const accessoryHasNoSet = setId === 0 || setId === ACCESSORY_NO_SET_ID
+      const setLabel = accessoryHasNoSet ? '' : formatTesterSetLabel({ setId, slot, translate })
       setGroup = {
         key: setKey,
         label: setLabel,
