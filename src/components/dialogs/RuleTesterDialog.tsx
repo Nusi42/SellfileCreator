@@ -27,7 +27,7 @@ import { useI18n } from '../../lib/i18n'
 import { useAppState } from '../../state/appState'
 import SetMenuSection from '../SetMenuSection'
 import { SetIcon } from '../SetIcon'
-import { FactionOptionLabel, FactionIcon } from '../FactionIcon'
+import { FactionIcon } from '../FactionIcon'
 import SetsOrderControls from '../SetsOrderControls'
 import { NumberSpinnerAdornment } from '../NumberSpinnerAdornment'
 import { SETS_MENU_WIDTH_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_MAX_HEIGHT_EXTRA_BUFFER, MENU_SCROLL_GUTTER_PX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, LIST_SUBHEADER_SX, TESTER_SUBSTAT_EDITOR_WIDTH_PX, TESTER_ROW_CONTROLS_WIDTH_PX, ACCESSORY_NO_SET_ID, TESTER_ANY_SLOT_ID, TESTER_MAINSTAT_SELECT_MIN_WIDTH_PX, TESTER_SUBSTAT_SELECT_MIN_WIDTH_PX, TESTER_SLOT_SELECT_WIDTH_PX, TESTER_SET_SELECT_WIDTH_PX, TESTER_FACTION_SELECT_WIDTH_PX, TESTER_RANK_SELECT_WIDTH_PX, TESTER_RARITY_SELECT_WIDTH_PX, TESTER_LEVEL_SELECT_WIDTH_PX, TESTER_SELECT_HEIGHT_PX, TESTER_RESULT_ROW_MIN_HEIGHT_PX, TESTER_CONFIG_CHIP_MAX_WIDTH_PX, TESTER_DIALOG_WIDTH_PX, TESTER_DIALOG_HEIGHT_PX, TESTER_VIRTUAL_OVERSCAN_PX, TESTER_ROW_ESTIMATE_COMPACT_PX, TESTER_ROW_ESTIMATE_EXPANDED_PX, TESTER_COMPACT_ICON_SIZE_PX, RSL_HELPER_CONFIG_PATH } from '../../lib/constants'
@@ -52,6 +52,7 @@ import EllipsisTooltip from '../EllipsisTooltip'
 import { triggerCopyDialog, writeTextSafe } from '../../lib/clipboard'
 import { useContextMenuHint } from '../../hooks/useContextMenuHint'
 import { ContextMenuHintOverlay } from '../ContextMenuHintOverlay'
+import { GearFactionSelect, GearMainStatSelect, GearRankSelect, GearRaritySelect, GearSlotSelect } from '../gear'
 
 type TesterSourceCountMap = Record<TesterSourceCategory, number>
 
@@ -900,44 +901,33 @@ export default function RuleTesterDialog({
             // Control strip mirrors Builder selectors: slot/rank/rarity/main stay aligned in one row.
           sx={{ gridColumn: '2', display: 'grid', gridTemplateColumns: TESTER_CONTROL_GRID_TEMPLATE, columnGap: 1, rowGap: 1, alignItems: 'center' }}
         >
-          <Select size="small" value={slotValue === TESTER_ANY_SLOT_ID ? '' : String(slotValue)} onChange={e => updateItemAt(idx, (v) => {
-            const raw = e.target.value
-            const newSlot = (raw === '' ? TESTER_ANY_SLOT_ID : Number(raw)) as ArtifactTypeId
-            const currentMain = Number(v.main ?? -1)
-            const supportsMain = (Number(newSlot) === TESTER_ANY_SLOT_ID) || slotSupportsMain(newSlot, currentMain)
-            const fixedMain = (currentMain === -1 || Number.isNaN(currentMain) || supportsMain)
-              ? currentMain
-              : (Array.from(ALLOWED_MAIN_BY_SLOT[Number(newSlot) as ArtifactType] || [])[0] ?? -1)
-            const allowedForSlot = new Set<number>(allowedTesterSetIds(newSlot))
-            const fixedSet = allowedForSlot.has(Number(v.set))
-              ? v.set
-              : (allowedForSlot.size > 0 ? (Array.from(allowedForSlot)[0] as ArtifactSetId) : v.set)
-            const fixedFaction: FactionId = (() => {
-              if (!isAccessorySlot(newSlot)) return 0 as FactionId
-              const existingFaction = Number(v.faction ?? 0) as FactionId
-              if (existingFaction && ACCESSORY_FACTION_POOL.includes(existingFaction)) {
-                return existingFaction
-              }
-              return pickRandomAccessoryFaction()
-            })()
-            const updated = { ...v, slot: newSlot, main: fixedMain, set: fixedSet, faction: fixedFaction }
-            return adjustSubValuesFor(updated)
-          })}
-            renderValue={() => {
-              if (slotValue === TESTER_ANY_SLOT_ID) {
-                return <Typography variant="body2">{t('any')}</Typography>
-              }
-              return (
-                <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 1 }}>
-                  {SlotIconComponent ? <SlotIconComponent fontSize="small" /> : null}
-                  <span>{slotLabel}</span>
-                </Box>
-              )
+          <GearSlotSelect
+            value={slotValue === TESTER_ANY_SLOT_ID ? null : (slotValue as ArtifactTypeId)}
+            onChange={(nextSlot) => {
+              updateItemAt(idx, (v) => {
+                const resolvedSlot = (nextSlot == null ? TESTER_ANY_SLOT_ID : nextSlot) as ArtifactTypeId
+                const currentMain = Number(v.main ?? -1)
+                const supportsMain = (Number(resolvedSlot) === TESTER_ANY_SLOT_ID) || slotSupportsMain(resolvedSlot, currentMain)
+                const fixedMain = (currentMain === -1 || Number.isNaN(currentMain) || supportsMain)
+                  ? currentMain
+                  : (Array.from(ALLOWED_MAIN_BY_SLOT[Number(resolvedSlot) as ArtifactType] || [])[0] ?? -1)
+                const allowedForSlot = new Set<number>(allowedTesterSetIds(resolvedSlot))
+                const fixedSet = allowedForSlot.has(Number(v.set))
+                  ? v.set
+                  : (allowedForSlot.size > 0 ? (Array.from(allowedForSlot)[0] as ArtifactSetId) : v.set)
+                const fixedFaction: FactionId = (() => {
+                  if (!isAccessorySlot(resolvedSlot)) return 0 as FactionId
+                  const existingFaction = Number(v.faction ?? 0) as FactionId
+                  if (existingFaction && ACCESSORY_FACTION_POOL.includes(existingFaction)) {
+                    return existingFaction
+                  }
+                  return pickRandomAccessoryFaction()
+                })()
+                const updated = { ...v, slot: resolvedSlot, main: fixedMain, set: fixedSet, faction: fixedFaction }
+                return adjustSubValuesFor(updated)
+              })
             }}
-            MenuProps={{
-              PaperProps: { sx: { width: 360 } },
-              MenuListProps: { sx: { width: '100%', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 1, p: 1 } },
-            }}
+            size="small"
             sx={{
               width: TESTER_SLOT_SELECT_WIDTH_PX,
               height: TESTER_SELECT_HEIGHT_PX,
@@ -947,92 +937,55 @@ export default function RuleTesterDialog({
                 ...TESTER_SELECT_VALUE_BASE_SX,
               },
             }}
-          >
-            {artifactTypeIconList.map(({ id, Icon }) => {
-              const selected = slotValue === Number(id)
-              return (
-                <MenuItem
-                  key={String(id)}
-                  value={String(Number(id))}
-                  selected={selected}
-                  sx={{
-                    border: '1px solid',
-                    borderColor: 'divider', // Fill handles selected state so we avoid blue outlines.
-                    borderRadius: 1,
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: 0.5,
-                    py: 1,
-                    '&.Mui-selected': { bgcolor: 'action.selected' },
-                  }}
-                >
-                  <Icon fontSize="medium" />
-                  <Typography variant="caption">{t(artifactTypeI18nKey(id))}</Typography>
-                </MenuItem>
-              )
-            })}
-          </Select>
+          />
 
-          <Select size="small" value={it.rank} onChange={e => updateItemAt(idx, (v) => {
-            const updated = { ...v, rank: Number(e.target.value) as 1|2|3|4|5|6 }
-            return adjustSubValuesFor(updated)
-          })} sx={{
-            width: TESTER_RANK_SELECT_WIDTH_PX,
-            height: TESTER_SELECT_HEIGHT_PX,
-            display: 'inline-flex',
-            alignItems: 'center',
-            '& .MuiSelect-select': TESTER_SELECT_VALUE_BASE_SX,
-          }}>
-            {[1,2,3,4,5,6].map(n => (<MenuItem key={n} value={n}>{rankLabel(n)}</MenuItem>))}
-          </Select>
-          <Select size="small" value={it.rarity} onChange={e => updateItemAt(idx, (v) => {
-            const updated = { ...v, rarity: Number(e.target.value) as 1|2|3|4|5|6 }
-            return adjustSubValuesFor(updated)
-          })} sx={{
-            width: TESTER_RARITY_SELECT_WIDTH_PX,
-            height: TESTER_SELECT_HEIGHT_PX,
-            display: 'inline-flex',
-            alignItems: 'center',
-            '& .MuiSelect-select': TESTER_SELECT_VALUE_BASE_SX,
-          }}>
-            {[1,2,3,4,5,6].map(n => (
-              <MenuItem key={n} value={n}>
-                {rarityLabel(n as 1|2|3|4|5|6)}
-              </MenuItem>
-            ))}
-          </Select>
-          <Select size="small" value={mainValue} onChange={e => updateItemAt(idx, (v) => {
-            const nv = Number(e.target.value)
-            const updated = { ...v, main: nv }
-            return adjustSubValuesFor(updated)
-          })} sx={{
-            width: TESTER_MAINSTAT_SELECT_MIN_WIDTH_PX,
-            height: TESTER_SELECT_HEIGHT_PX,
-            display: 'inline-flex',
-            alignItems: 'center',
-            '& .MuiSelect-select': {
-              ...TESTER_SELECT_VALUE_BASE_SX,
-              color: (() => {
-                if (mainValue < 0) return undefined
-                const fg = substatColors[mainValue]?.fg
-                const def = DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[mainValue]
-                return statButtonBorders ? (fg ?? def) : undefined
-              })(),
-            },
-          }}>
-            <MenuItem value={-1}>{t('any')}</MenuItem>
-            {mainOptions.map((variant) => (
-              <MenuItem
-                key={variant}
-                value={variant}
-                sx={{ color: statButtonBorders ? (substatColors[variant]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[variant]) : undefined }}
-              >
-                {t(statVariantI18nKey(variant))}
-              </MenuItem>
-            ))}
-          </Select>
+          <GearRankSelect
+            value={Number(it.rank) as 1|2|3|4|5|6}
+            onChange={(nextRank) => {
+              if (nextRank == null) return
+              updateItemAt(idx, (v) => adjustSubValuesFor({ ...v, rank: nextRank }))
+            }}
+            size="small"
+            sx={{
+              width: TESTER_RANK_SELECT_WIDTH_PX,
+              height: TESTER_SELECT_HEIGHT_PX,
+              display: 'inline-flex',
+              alignItems: 'center',
+              '& .MuiSelect-select': TESTER_SELECT_VALUE_BASE_SX,
+            }}
+          />
+          <GearRaritySelect
+            value={Number(it.rarity) || 1}
+            onChange={(nextRarity) => {
+              if (nextRarity == null) return
+              updateItemAt(idx, (v) => adjustSubValuesFor({ ...v, rarity: nextRarity as 1|2|3|4|5|6 }))
+            }}
+            size="small"
+            sx={{
+              width: TESTER_RARITY_SELECT_WIDTH_PX,
+              height: TESTER_SELECT_HEIGHT_PX,
+              display: 'inline-flex',
+              alignItems: 'center',
+              '& .MuiSelect-select': TESTER_SELECT_VALUE_BASE_SX,
+            }}
+          />
+          <GearMainStatSelect
+            value={mainValue as number}
+            options={mainOptions}
+            onChange={(variant) => {
+              updateItemAt(idx, (v) => adjustSubValuesFor({ ...v, main: Number(variant) }))
+            }}
+            colorOverrides={substatColors}
+            showBorderColors={statButtonBorders}
+            size="small"
+            sx={{
+              width: TESTER_MAINSTAT_SELECT_MIN_WIDTH_PX,
+              height: TESTER_SELECT_HEIGHT_PX,
+              display: 'inline-flex',
+              alignItems: 'center',
+              '& .MuiSelect-select': TESTER_SELECT_VALUE_BASE_SX,
+            }}
+          />
           </Box>
         )}
         {isCompact && (
@@ -1278,11 +1231,13 @@ export default function RuleTesterDialog({
             }}>
               {LEVEL_MILESTONES.map(n => (<MenuItem key={n} value={n}>{formatLevel(n)}</MenuItem>))}
             </Select>
-            <Select
-              size="small"
-              value={Number(it.faction ?? 0)}
+            <GearFactionSelect
+              value={Number(it.faction ?? 0) || null}
               disabled={!isAccessorySlot(it.slot)}
-              onChange={e => updateItemAt(idx, (v) => ({ ...v, faction: Number(e.target.value) as FactionId }))}
+              onChange={(nextFaction) => {
+                updateItemAt(idx, (v) => ({ ...v, faction: Number(nextFaction ?? 0) as FactionId }))
+              }}
+              size="small"
               sx={{
                 width: TESTER_FACTION_SELECT_WIDTH_PX,
                 height: TESTER_SELECT_HEIGHT_PX,
@@ -1292,44 +1247,7 @@ export default function RuleTesterDialog({
                   ...TESTER_SELECT_VALUE_BASE_SX,
                 },
               }}
-              MenuProps={{ PaperProps: { sx: { maxHeight: 360 } } }}
-              renderValue={(selected) => {
-                const numeric = Number(selected)
-                if (!numeric) return t('any')
-                const label = t(factionI18nKey(numeric as FactionId))
-                return (
-                  <Box component="span" title={label} sx={{ display: 'inline-flex', alignItems: 'center', width: '100%' }}>
-                    <FactionOptionLabel faction={numeric as FactionId} label={label} truncate textSx={{ fontSize: '0.875rem' }} />
-                  </Box>
-                )
-              }}
-            >
-              <MenuItem value={0}>{t('any')}</MenuItem>
-              <ListSubheader sx={LIST_SUBHEADER_SX}>{t('factionGroupTelerianLeague')}</ListSubheader>
-              {[Faction.BannerLords, Faction.HighElves, Faction.SacredOrder, Faction.Barbarians].map((code) => (
-                <MenuItem key={code} value={Number(code)}>
-                  <FactionOptionLabel faction={code} label={t(factionI18nKey(code))} size={23} />
-                </MenuItem>
-              ))}
-              <ListSubheader sx={LIST_SUBHEADER_SX}>{t('factionGroupGaellenPact')}</ListSubheader>
-              {[Faction.OgrynTribes, Faction.Lizardmen, Faction.Skinwalkers, Faction.Orcs].map((code) => (
-                <MenuItem key={code} value={Number(code)}>
-                  <FactionOptionLabel faction={code} label={t(factionI18nKey(code))} size={23} />
-                </MenuItem>
-              ))}
-              <ListSubheader sx={LIST_SUBHEADER_SX}>{t('factionGroupTheCorrupted')}</ListSubheader>
-              {[Faction.Demonspawn, Faction.UndeadHordes, Faction.DarkElves, Faction.KnightRevenant].map((code) => (
-                <MenuItem key={code} value={Number(code)}>
-                  <FactionOptionLabel faction={code} label={t(factionI18nKey(code))} size={23} />
-                </MenuItem>
-              ))}
-              <ListSubheader sx={LIST_SUBHEADER_SX}>{t('factionGroupNyresanUnion')}</ListSubheader>
-              {[Faction.Dwarves, Faction.Shadowkin, Faction.SylvanWatchers].map((code) => (
-                <MenuItem key={code} value={Number(code)}>
-                  <FactionOptionLabel faction={code} label={t(factionI18nKey(code))} size={23} />
-                </MenuItem>
-              ))}
-            </Select>
+            />
           </Box>
         )}
         {!isCompact && (

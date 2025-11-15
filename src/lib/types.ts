@@ -1,5 +1,6 @@
 // Shared domain catalogs && formatters (used by HSF viewer as well)
 import { NBSP } from './constants'
+import { artifactSetDescriptions } from './setDescriptions'
 export { NBSP } from './constants'
 
 // Artifact types (slots) as an enum for readability (values match HSF IDs)
@@ -207,6 +208,70 @@ export const artifactSetNames: Record<number, string> = {
   [ArtifactSet.Reaction]: 'Reaction',
   [ArtifactSet.Revenge]: 'Revenge',
 }
+
+// Canonical piece-count groupings keep set menus, seed catalogs, and Keep
+// Uniques in sync. We centralize the grouping metadata so UI components avoid
+// duplicating "1-piece accessory vs 2/4-piece armor vs 1–9 variable" logic.
+export const ArtifactSetPieceGroup = {
+  Accessories: 'accessories',
+  ArmorFixed: 'armorFixed',
+  ArmorVariable: 'armorVariable',
+} as const
+
+// eslint-disable-next-line no-redeclare -- share the identifier for runtime enum + type alias
+export type ArtifactSetPieceGroup = (typeof ArtifactSetPieceGroup)[keyof typeof ArtifactSetPieceGroup]
+
+type ArtifactSetPieceMeta = { id: number; group: ArtifactSetPieceGroup }
+
+const artifactSetPieceGroups: Record<number, ArtifactSetPieceGroup> = (() => {
+  const metaEntries: ArtifactSetPieceMeta[] = []
+  for (const [id, name] of Object.entries(artifactSetNames)) {
+    const pieces = artifactSetDescriptions[name]?.pieces
+    // Accessory sets always carry a single piece bonus.
+    if (pieces === 1) {
+      metaEntries.push({ id: Number(id), group: ArtifactSetPieceGroup.Accessories })
+      continue
+    }
+    // Armor sets with 2 or 4 pieces behave as fixed-size set bonuses.
+    if (pieces === 2 || pieces === 4) {
+      metaEntries.push({ id: Number(id), group: ArtifactSetPieceGroup.ArmorFixed })
+      continue
+    }
+    // Everything else (1–9 variable sets today) lands in the variable bucket.
+    metaEntries.push({ id: Number(id), group: ArtifactSetPieceGroup.ArmorVariable })
+  }
+  return metaEntries.reduce<Record<number, ArtifactSetPieceGroup>>((acc, entry) => {
+    acc[entry.id] = entry.group
+    return acc
+  }, {})
+})()
+
+/** Resolve the normalized piece-count grouping for an artifact set ID. */
+export function getArtifactSetPieceGroup(id: ArtifactSetId): ArtifactSetPieceGroup {
+  return artifactSetPieceGroups[Number(id)] ?? ArtifactSetPieceGroup.ArmorFixed
+}
+
+/** Convenience arrays keep UI filters and Keep Unique defaults in sync. */
+export const ACCESSORY_SET_IDS = Object.freeze(
+  Object.entries(artifactSetPieceGroups)
+    .filter(([, group]) => group === ArtifactSetPieceGroup.Accessories)
+    .map(([id]) => Number(id) as ArtifactSetId),
+)
+
+export const ARMOR_FIXED_SET_IDS = Object.freeze(
+  Object.entries(artifactSetPieceGroups)
+    .filter(([, group]) => group === ArtifactSetPieceGroup.ArmorFixed)
+    .map(([id]) => Number(id) as ArtifactSetId),
+)
+
+export const ARMOR_VARIABLE_SET_IDS = Object.freeze(
+  Object.entries(artifactSetPieceGroups)
+    .filter(([, group]) => group === ArtifactSetPieceGroup.ArmorVariable)
+    .map(([id]) => Number(id) as ArtifactSetId),
+)
+
+// Alias the variable list so "9-piece sets" callers have an intuitive export.
+export const NINE_PIECE_SET_IDS = ARMOR_VARIABLE_SET_IDS
 
 /**
  * Filter and sort artifact sets for UI menus.
