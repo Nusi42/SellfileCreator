@@ -98,6 +98,8 @@ const CLEAR_BUTTON_PLACEHOLDER_SX = {
   height: CLEAR_ICON_BUTTON_SIZE_PX,
   flexShrink: 0,
 } as const
+const CONFIG_FILTER_MODE_DEFAULT: TesterConfigFilterMode = 'off'
+const PREVIEW_CONFIGS_DEFAULT = false
 
 type GlyphLegendEntry = {
   glyph: string
@@ -134,7 +136,6 @@ type RulesFilterPanelProps = {
   onResetFilters?: () => void
   testerConfigFilterMode?: TesterConfigFilterMode
   onTesterConfigFilterModeChange?: (mode: TesterConfigFilterMode) => void
-  selectedConfigCount?: number
   configCount?: number
   collapsed: CollapsedSections
   onCollapsedChange: (next: CollapsedSections) => void
@@ -327,9 +328,8 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
     configChipFilterActive,
     onConfigChipFilterChange,
     onResetFilters,
-    testerConfigFilterMode = 'off',
+    testerConfigFilterMode = CONFIG_FILTER_MODE_DEFAULT,
     onTesterConfigFilterModeChange,
-    selectedConfigCount = 0,
     configCount = 0,
     collapsed,
     onCollapsedChange,
@@ -824,7 +824,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
   // Group toggles handled inline in onChange for Rank/Rarity condensed controls
 
   const toggleLabelSx = [ELLIPSIS_TEXT_SX, { width: '100%', textAlign: 'center', fontSize: 'inherit' as const }]
-  const testerConfigFilterHasSelection = hasConfigs && selectedConfigCount > 0
+  const testerConfigFilterOn = testerConfigFilterMode !== CONFIG_FILTER_MODE_DEFAULT
   const testerConfigLabelStrings = React.useMemo(() => ({
     first: t('testerFilterConfigsFirst'),
     any: t('testerFilterConfigsAny'),
@@ -843,20 +843,22 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
     )
   ), [testerConfigLabelStrings])
   const testerConfigFilterTooltip = t('filterLimitSelectedConfigsTooltip')
-  const configFilterButtonActive = testerConfigFilterHasSelection && testerConfigFilterMode !== 'off'
+  const configFilterButtonActive = testerConfigFilterOn
   const configFilterButtonDisabled = !hasConfigs || !onTesterConfigFilterModeChange
   const configFilterButtonVariant: 'contained' | 'outlined' = configFilterButtonDisabled
     ? 'contained'
     : (configFilterButtonActive ? 'contained' : 'outlined')
   const configFilterButtonLabel = (
-    isTesterMode && testerConfigFilterMode !== 'off'
-      ? testerConfigFilterLabel
-      : (configFilterButtonActive ? t('configFilterOn') : t('testerFilterConfigsOff'))
+    isTesterMode
+      ? (testerConfigFilterOn ? testerConfigFilterLabel : t('testerFilterConfigsOff'))
+      : (testerConfigFilterOn ? t('configFilterOn') : t('testerFilterConfigsOff'))
   )
   const previewConfigButtonActive = configChipFilterActive
   const previewConfigButtonVariant: 'contained' | 'outlined' = previewConfigButtonActive ? 'contained' : 'outlined'
   const previewConfigButtonLabel = previewConfigButtonActive ? t('configFilterOn') : t('testerFilterConfigsOff')
-  const filtersDirty = filterActive || configFilterButtonActive || !previewConfigButtonActive
+  const configFilterDirty = testerConfigFilterMode !== CONFIG_FILTER_MODE_DEFAULT
+  const previewConfigDirty = configChipFilterActive !== PREVIEW_CONFIGS_DEFAULT
+  const filtersDirty = filterActive || configFilterDirty || previewConfigDirty
 
   const testerSourceOptions = React.useMemo(() => ([
     { value: 'inventory', label: t('testerSourceInventory') },
@@ -1032,7 +1034,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                   variant={configFilterButtonVariant}
                   color="success"
                   aria-label={t('filterLimitSelectedConfigs')}
-                  aria-pressed={configFilterButtonActive || undefined}
+                  aria-pressed={configFilterButtonDisabled ? undefined : testerConfigFilterOn}
                   disabled={configFilterButtonDisabled}
                   onClick={handleTesterConfigFilterClick}
                   startIcon={configFilterButtonActive ? <FilterAltIcon fontSize="small" /> : <FilterAltOffIcon fontSize="small" />}
@@ -1105,8 +1107,8 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
               setHoverReset(false)
               const next = JSON.parse(JSON.stringify(DEFAULT_RULES_FILTER_STATE)) as RulesFilterState
               onChange(next)
-              onConfigChipFilterChange(false)
-              onTesterConfigFilterModeChange?.('off')
+              onConfigChipFilterChange(PREVIEW_CONFIGS_DEFAULT)
+              onTesterConfigFilterModeChange?.(CONFIG_FILTER_MODE_DEFAULT)
               onResetFilters?.()
             }}
             sx={{ whiteSpace: 'nowrap', px: 1.25, height: SMALL_BUTTON_HEIGHT_PX, minHeight: SMALL_BUTTON_HEIGHT_PX }}
