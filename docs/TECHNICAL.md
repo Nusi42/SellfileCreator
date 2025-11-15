@@ -18,7 +18,7 @@ All documents describe the *current* implementation; update the relevant file wh
 
 ### Commenting Expectations
 
-- Keep code self-documenting whenever possible, but add concise inline comments whenever the intent isn’t immediately obvious. For new or modified sections, aim to include a clarifying comment roughly every three lines unless the code is trivial. Remove stale comments that no longer represent the current behavior.
+- Keep code self-documenting whenever possible, but add concise inline comments whenever the intent isn’t immediately obvious. For new or modified sections, aim to include a clarifying comment roughly every three lines; only skip a comment when you can plainly state that the code is trivial (and document that decision in the surrounding comment block). Remove stale comments that no longer represent the current behavior.
 
 ### Performance Profiling (local only)
 
