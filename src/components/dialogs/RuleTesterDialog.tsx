@@ -104,6 +104,30 @@ const testerCookieFlip = keyframes`
   100% { transform: rotate(0deg); }
 `
 
+const ACCESSORY_FACTION_POOL: readonly FactionId[] = Object.freeze([
+  Faction.BannerLords,
+  Faction.HighElves,
+  Faction.SacredOrder,
+  Faction.Barbarians,
+  Faction.OgrynTribes,
+  Faction.Lizardmen,
+  Faction.Skinwalkers,
+  Faction.Orcs,
+  Faction.Demonspawn,
+  Faction.UndeadHordes,
+  Faction.DarkElves,
+  Faction.KnightRevenant,
+  Faction.Dwarves,
+  Faction.Shadowkin,
+  Faction.SylvanWatchers,
+])
+
+const pickRandomAccessoryFaction = (): FactionId => {
+  if (ACCESSORY_FACTION_POOL.length === 0) return Faction.BannerLords as FactionId
+  const idx = Math.floor(Math.random() * ACCESSORY_FACTION_POOL.length)
+  return ACCESSORY_FACTION_POOL[Math.max(0, Math.min(idx, ACCESSORY_FACTION_POOL.length - 1))] ?? Faction.BannerLords
+}
+
 export default function RuleTesterDialog({
   open,
   onClose,
@@ -888,7 +912,14 @@ export default function RuleTesterDialog({
             const fixedSet = allowedForSlot.has(Number(v.set))
               ? v.set
               : (allowedForSlot.size > 0 ? (Array.from(allowedForSlot)[0] as ArtifactSetId) : v.set)
-            const fixedFaction: FactionId = (isAccessorySlot(newSlot) ? (v.faction as FactionId) : (0 as FactionId))
+            const fixedFaction: FactionId = (() => {
+              if (!isAccessorySlot(newSlot)) return 0 as FactionId
+              const existingFaction = Number(v.faction ?? 0) as FactionId
+              if (existingFaction && ACCESSORY_FACTION_POOL.includes(existingFaction)) {
+                return existingFaction
+              }
+              return pickRandomAccessoryFaction()
+            })()
             const updated = { ...v, slot: newSlot, main: fixedMain, set: fixedSet, faction: fixedFaction }
             return adjustSubValuesFor(updated)
           })}
