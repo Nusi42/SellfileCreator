@@ -76,7 +76,7 @@ const CARD_MATCH_ROW_MARGIN_PX = 2
 const GRID_CARD_CONTAINER_PADDING_UNITS = 0.75
 const GRID_CARD_LEFT_COLUMN_GAP_UNITS = 0.5
 const GRID_CARD_SOURCE_ICON_SIZE_PX = 24
-const CHAMPION_ICON_BASE_SIZE = { width: 32, height: 32 } as const
+const CHAMPION_ICON_BASE_SIZE = { width: 28, height: 28 } as const
 const CHAMPION_ICON_LARGE_SIZE = { width: 40, height: 40 } as const
 const CHAMPION_ICON_LARGE_THRESHOLD = 5
 const CHAMPION_ICON_BORDER_RADIUS_PX = 8
@@ -1037,14 +1037,28 @@ const TesterGridCard = React.memo(function TesterGridCard({
   const SourceIcon = sourceDescriptor ? SOURCE_ICON_MAP[sourceDescriptor.category] : null
   const sourceTooltipTitle = sourceDescriptor ? (sourceDescriptor.tooltip ?? sourceDescriptor.label ?? '') : ''
   const championIconSrc = championIconUrl(artifact.equippedChampionBaseId ?? artifact.equippedToChampionId)
-  const shouldShowChampionIcon = Boolean(
-    showChampionIcons
-    && championIconSrc
-    && sourceDescriptor
-    && (sourceDescriptor.category === 'collection' || sourceDescriptor.category === 'vault'),
+  const championIconMode = (() => {
+    if (!showChampionIcons || !championIconSrc || !sourceDescriptor) return 'none' as const
+    if (sourceDescriptor.category !== 'collection' && sourceDescriptor.category !== 'vault') return 'none' as const
+    return gridColumnCount >= CHAMPION_ICON_LARGE_THRESHOLD ? 'large' : 'compact'
+  })()
+  const shouldShowChampionIcon = championIconMode !== 'none'
+  const sourceCategory = sourceDescriptor?.category
+  const isVaultSource = sourceCategory === 'vault'
+  const isCollectionSource = sourceCategory === 'collection'
+  const shouldShowVaultBadgeIcon = Boolean(shouldShowChampionIcon && isVaultSource && SourceIcon)
+  const shouldShowStandaloneSourceIcon = Boolean(
+    sourceDescriptor
+    && SourceIcon
+    && (
+      !shouldShowChampionIcon
+      || (!isCollectionSource && !isVaultSource)
+      || (isVaultSource && !shouldShowVaultBadgeIcon)
+    ),
   )
-  const VaultBadgeIcon = (shouldShowChampionIcon && sourceDescriptor?.category === 'vault') ? SourceIcon : null
-  const championIconSize = gridColumnCount >= CHAMPION_ICON_LARGE_THRESHOLD
+  const SourceGlyph = shouldShowStandaloneSourceIcon && SourceIcon ? SourceIcon : null
+  const sourceIconLabel = sourceDescriptor?.label ?? ''
+  const championIconSize = championIconMode === 'large'
     ? CHAMPION_ICON_LARGE_SIZE
     : CHAMPION_ICON_BASE_SIZE
   const rerollLabel = artifact.rerollCount > 0 ? '⟳' : ''
@@ -1341,72 +1355,78 @@ const TesterGridCard = React.memo(function TesterGridCard({
           {...(cardOutcome ? { outcome: cardOutcome } : {})}
         />
         {shouldShowChampionIcon ? (
-          <Tooltip title={sourceTooltipTitle}>
-            <Box
-              component="span"
-              role="img"
-              aria-label={sourceDescriptor?.label}
-              sx={{
-                width: championIconSize.width,
-                height: championIconSize.height,
-                borderRadius: `${CHAMPION_ICON_BORDER_RADIUS_PX}px`,
-                overflow: 'hidden',
-                position: 'relative',
-                border: '1px solid',
-                borderColor: 'divider',
-                boxShadow: 1,
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                flexShrink: 0,
-              }}
-            >
+          <Box
+            sx={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 0.5,
+            }}
+          >
+            <Tooltip title={sourceTooltipTitle}>
               <Box
-                component="img"
-                src={championIconSrc}
-                alt={sourceTooltipTitle}
-                draggable={false}
-                onDragStart={(event) => { event.preventDefault(); event.stopPropagation() }}
+                component="span"
+                role="img"
+                aria-label={sourceDescriptor?.label}
                 sx={{
-                  width: '100%',
-                  height: '100%',
-                  objectFit: 'cover',
-                  userSelect: 'none',
-                  WebkitUserDrag: 'none',
-                  display: 'block',
+                  width: championIconSize.width,
+                  height: championIconSize.height,
+                  borderRadius: `${CHAMPION_ICON_BORDER_RADIUS_PX}px`,
+                  overflow: 'hidden',
+                  position: 'relative',
+                  border: '1px solid',
+                  borderColor: 'divider',
+                  boxShadow: 1,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexShrink: 0,
                 }}
-              />
-              {VaultBadgeIcon ? (
+              >
                 <Box
+                  component="img"
+                  src={championIconSrc}
+                  alt={sourceTooltipTitle}
+                  draggable={false}
+                  onDragStart={(event) => { event.preventDefault(); event.stopPropagation() }}
                   sx={{
-                    position: 'absolute',
-                    bottom: -2,
-                    right: -2,
-                    width: 18,
-                    height: 18,
-                    borderRadius: '50%',
-                    bgcolor: 'background.paper',
-                    border: '2px solid',
-                    borderColor: 'background.paper',
-                    boxShadow: 2,
-                    color: 'text.secondary',
+                    width: '100%',
+                    height: '100%',
+                    objectFit: 'cover',
+                    userSelect: 'none',
+                    WebkitUserDrag: 'none',
+                    display: 'block',
+                  }}
+                />
+              </Box>
+            </Tooltip>
+            {shouldShowVaultBadgeIcon && SourceIcon ? (
+              <Tooltip title={sourceTooltipTitle}>
+                <Box
+                  component="span"
+                  role="img"
+                  aria-label={sourceIconLabel}
+                  sx={{
                     display: 'inline-flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    fontSize: '0.65rem',
+                    width: 24,
+                    height: 24,
+                    color: 'text.secondary',
+                    fontSize: '1rem',
                   }}
                 >
-                  <VaultBadgeIcon fontSize="inherit" />
+                  <SourceIcon fontSize="inherit" />
                 </Box>
-              ) : null}
-            </Box>
-          </Tooltip>
-        ) : (sourceDescriptor && SourceIcon) ? (
+              </Tooltip>
+            ) : null}
+          </Box>
+        ) : null}
+        {SourceGlyph ? (
           <Tooltip title={sourceTooltipTitle}>
             <Box
               component="span"
               role="img"
-              aria-label={sourceDescriptor.label}
+              aria-label={sourceIconLabel}
                 sx={{
                   width: 24,
                   height: 24,
@@ -1418,7 +1438,7 @@ const TesterGridCard = React.memo(function TesterGridCard({
                   fontSize: '1rem',
                 }}
             >
-              <SourceIcon fontSize="inherit" />
+              <SourceGlyph fontSize="inherit" />
             </Box>
           </Tooltip>
         ) : null}
