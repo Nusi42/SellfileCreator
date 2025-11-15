@@ -2363,9 +2363,18 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       setFocusRuleIndex(null)
     }
   }, [customCfgs, hsfRulesForTable, mergedRules, setBuilder, setFocusRuleIndex, setPreviewMode, setTesterOpen, syncSelectedCfgIdx])
-  const visibleConfigIndices = useMemo<Set<number> | null>(() => (
-    limitConfigsToFiltered ? chipMatchingConfigIndices : null
-  ), [chipMatchingConfigIndices, limitConfigsToFiltered])
+  const visibleConfigIndices = useMemo<Set<number> | null>(() => {
+    if (!limitConfigsToFiltered) return null
+    const indices = new Set(chipMatchingConfigIndices)
+    if (previewMode === 'tester' && testerConfigFilterMode === 'off') {
+      customCfgs.forEach((cfg, idx) => {
+        if (cfg?.exportMode === 'separator') {
+          indices.add(idx)
+        }
+      })
+    }
+    return indices
+  }, [chipMatchingConfigIndices, customCfgs, limitConfigsToFiltered, previewMode, testerConfigFilterMode])
   visibleConfigIndicesRef.current = visibleConfigIndices
   const selectAllLabelKey = visibleConfigIndices ? 'chipsMenuSelectVisible' : 'chipsMenuSelectAll'
   const scrollSelectedConfigIntoView = useCallback(() => {
@@ -3575,7 +3584,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             onResetFilters={scrollSelectedConfigIntoView}
             testerConfigFilterMode={testerConfigFilterMode}
             onTesterConfigFilterModeChange={setTesterConfigFilterMode}
-            selectedConfigCount={selectedCfgIndices.length}
             configCount={customCfgs.length}
             collapsed={filterCollapsed}
             onCollapsedChange={setFilterCollapsed}
