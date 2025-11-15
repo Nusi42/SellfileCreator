@@ -16,6 +16,10 @@ The technical reference is now split across focused documents. Start here, then 
 
 All documents describe the *current* implementation; update the relevant file whenever the behavior changes so this index stays accurate.
 
+### Commenting Expectations
+
+- Keep code self-documenting whenever possible, but add concise inline comments whenever the intent isn’t immediately obvious. For new or modified sections, aim to include a clarifying comment roughly every three lines unless the code is trivial. Remove stale comments that no longer represent the current behavior.
+
 ### Performance Profiling (local only)
 
 We do not ship instrumentation in production builds. When you need detailed HSFC/HSF timing data:
