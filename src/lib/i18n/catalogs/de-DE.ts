@@ -66,6 +66,7 @@ const overrides: Catalog = {
   noSetAccessories: 'Keine – nur Schmuckstücke',
   testerTableEmpty: 'Importiere Ausrüstung oder füge Tester-Gegenstände hinzu, um hier Treffer zu sehen.',
   testerTableEmptyFilter: 'Keine Tester-Gegenstände passen zu den aktuellen Filtern.',
+  testerGridScrollHint: '{group} • {detail}',
   testerLevelLabel: 'Stufe {level}',
   testerMainStatInline: '{stat} {value}',
   testerMainStatLabel: 'Hauptwert: {stat} {value}',

@@ -18,7 +18,7 @@ import {
 import type { PaperProps as MuiPaperProps } from '@mui/material/Paper'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import SellIcon from '@mui/icons-material/Sell'
-import { useTheme, type Theme } from '@mui/material/styles'
+import { alpha, useTheme, type Theme } from '@mui/material/styles'
 import BuildOutlinedIcon from '@mui/icons-material/BuildOutlined'
 import Inventory2OutlinedIcon from '@mui/icons-material/Inventory2Outlined'
 import MailOutlineIcon from '@mui/icons-material/MailOutline'
@@ -29,6 +29,7 @@ import { SetIcon } from './SetIcon'
 import { FactionIcon } from './FactionIcon'
 import {
   artifactSetNames,
+  artifactTypeI18nKey,
   artifactTypeName,
   factionI18nKey,
   DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT,
@@ -56,7 +57,7 @@ import ContextMenuPaper from './ContextMenuPaper'
 import { ContextMenuHintOverlay } from './ContextMenuHintOverlay'
 import { useContextMenuHint } from '../hooks/useContextMenuHint'
 import GridIconBox from './GridIconBox'
-import { MENU_CONTROL_HEIGHT_PX, MENU_CONTROL_MIN_WIDTH_PX, type ColorBlindMode } from '../lib/constants'
+import { MENU_CONTROL_HEIGHT_PX, MENU_CONTROL_MIN_WIDTH_PX, RULES_TABLE_SCROLL_HINT_HIDE_MS, type ColorBlindMode } from '../lib/constants'
 import { useContextMenuCloseOnOutsideRightClick } from '../hooks/useContextMenuCloseOnOutsideRightClick'
 import { useTesterGridPreferences } from '../state/testerGridPreferences'
 import { championIconUrl } from '../lib/iconMaps/championIconMap'
@@ -318,6 +319,11 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
   const containerRef = useRef<HTMLDivElement | null>(null)
   const [scrollTop, setScrollTop] = useState(0)
   const [viewportHeight, setViewportHeight] = useState(0)
+  const [showScrollGroupHint, setShowScrollGroupHint] = useState(false)
+  const [firstVisibleRowId, setFirstVisibleRowId] = useState<number | null>(null)
+  const scrollHintVisibleRef = useRef(false)
+  const scrollHintHideTimerRef = useRef<ReturnType<typeof window.setTimeout> | null>(null)
+  const measureVisibleRowRafRef = useRef<number | null>(null)
   const [gridMenuPosition, setGridMenuPosition] = useState<{ x: number; y: number } | null>(null)
   const gridMenuOpen = Boolean(gridMenuPosition)
   const gridMenuPaperRef = useRef<HTMLDivElement | null>(null)
@@ -336,9 +342,52 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     onClose: closeGridMenu,
     menuRef: gridMenuPaperRef,
   })
+  const measureFirstVisibleRow = useCallback(() => {
+    measureVisibleRowRafRef.current = null
+    const container = containerRef.current
+    if (!container || typeof window === 'undefined') return
+    const containerRect = container.getBoundingClientRect()
+    const nodes = container.querySelectorAll<HTMLElement>('[data-tester-grid-card="true"]')
+    let bestId: number | null = null
+    let bestTop = Number.POSITIVE_INFINITY
+    for (let idx = 0; idx < nodes.length; idx += 1) {
+      const node = nodes[idx]
+      if (!node) continue
+      const rect = node.getBoundingClientRect()
+      if (rect.bottom <= containerRect.top + 1) continue
+      if (rect.top >= containerRect.bottom - 1) continue
+      if (rect.top < bestTop) {
+        bestTop = rect.top
+        const rawId = Number(node.getAttribute('data-row-id'))
+        bestId = Number.isFinite(rawId) ? rawId : null
+      }
+    }
+    setFirstVisibleRowId((prev) => (prev === bestId ? prev : bestId))
+  }, [])
+
+  const scheduleMeasureFirstVisibleRow = useCallback(() => {
+    if (typeof window === 'undefined') return
+    if (measureVisibleRowRafRef.current != null) return
+    measureVisibleRowRafRef.current = window.requestAnimationFrame(measureFirstVisibleRow)
+  }, [measureFirstVisibleRow])
+
   const handleScroll = useCallback<React.UIEventHandler<HTMLDivElement>>((event) => {
     setScrollTop(event.currentTarget.scrollTop)
-  }, [])
+    if (!scrollHintVisibleRef.current) {
+      scrollHintVisibleRef.current = true
+      setShowScrollGroupHint(true)
+    }
+    if (scrollHintHideTimerRef.current) {
+      clearTimeout(scrollHintHideTimerRef.current)
+      scrollHintHideTimerRef.current = null
+    }
+    scrollHintHideTimerRef.current = window.setTimeout(() => {
+      scrollHintVisibleRef.current = false
+      setShowScrollGroupHint(false)
+      scrollHintHideTimerRef.current = null
+    }, RULES_TABLE_SCROLL_HINT_HIDE_MS)
+    scheduleMeasureFirstVisibleRow()
+  }, [scheduleMeasureFirstVisibleRow])
   const preferredColumnCount = gridColumnPreference === 5 ? 5 : 4
   const {
     accordionSpacingPx,
@@ -368,6 +417,16 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     observer.observe(node)
     return () => observer.disconnect()
   }, [])
+  useEffect(() => () => {
+    if (scrollHintHideTimerRef.current) {
+      clearTimeout(scrollHintHideTimerRef.current)
+      scrollHintHideTimerRef.current = null
+    }
+    if (measureVisibleRowRafRef.current != null && typeof window !== 'undefined') {
+      window.cancelAnimationFrame(measureVisibleRowRafRef.current)
+      measureVisibleRowRafRef.current = null
+    }
+  }, [])
   const estimatedColumnCount = gridColumnCount
   const shouldVirtualize = GRID_VIRTUALIZATION_ENABLED
     && (rows.length > GRID_VIRTUALIZE_ROW_THRESHOLD || groups.length > GRID_VIRTUALIZE_GROUP_THRESHOLD)
@@ -379,29 +438,13 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     rangeStartIndex: number
     rangeEndIndex: number
     viewportHeight: number
+    offsets: number[]
+    heights: number[]
   }>(() => {
-    if (!shouldVirtualize) {
-      return {
-        visibleGroups: groups,
-        padTop: 0,
-        padBottom: 0,
-        totalHeight: undefined,
-        rangeStartIndex: 0,
-        rangeEndIndex: groups.length,
-        viewportHeight: viewportHeight > 0 ? viewportHeight : GRID_VIRTUALIZE_DEFAULT_VIEWPORT_PX,
-      }
-    }
-    if (!groups.length) {
-      return {
-        visibleGroups: [],
-        padTop: 0,
-        padBottom: 0,
-        totalHeight: 0,
-        rangeStartIndex: 0,
-        rangeEndIndex: 0,
-        viewportHeight: viewportHeight > 0 ? viewportHeight : GRID_VIRTUALIZE_DEFAULT_VIEWPORT_PX,
-      }
-    }
+    const fallbackViewportHeight = viewportHeight > 0
+      ? viewportHeight
+      : (containerRef.current?.clientHeight ?? (typeof window !== 'undefined' ? window.innerHeight : 0))
+    const viewport = fallbackViewportHeight > 0 ? fallbackViewportHeight : GRID_VIRTUALIZE_DEFAULT_VIEWPORT_PX
     const heights: number[] = []
     const offsets: number[] = []
     let total = 0
@@ -420,10 +463,32 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
       heights[idx] = estimated
       total += estimated
     }
-    const fallbackViewportHeight = viewportHeight > 0
-      ? viewportHeight
-      : (containerRef.current?.clientHeight ?? (typeof window !== 'undefined' ? window.innerHeight : 0))
-    const viewport = fallbackViewportHeight > 0 ? fallbackViewportHeight : GRID_VIRTUALIZE_DEFAULT_VIEWPORT_PX
+    if (!shouldVirtualize) {
+      return {
+        visibleGroups: groups,
+        padTop: 0,
+        padBottom: 0,
+        totalHeight: undefined,
+        rangeStartIndex: 0,
+        rangeEndIndex: groups.length,
+        viewportHeight: viewport,
+        offsets,
+        heights,
+      }
+    }
+    if (!groups.length) {
+      return {
+        visibleGroups: [],
+        padTop: 0,
+        padBottom: 0,
+        totalHeight: total,
+        rangeStartIndex: 0,
+        rangeEndIndex: 0,
+        viewportHeight: viewport,
+        offsets,
+        heights,
+      }
+    }
     const startTarget = Math.max(0, scrollTop - GRID_VIRTUALIZE_OVERSCAN_PX)
     const endTarget = Math.min(total, scrollTop + viewport + GRID_VIRTUALIZE_OVERSCAN_PX)
     let startIdx = 0
@@ -452,6 +517,8 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
       rangeStartIndex: startIdx,
       rangeEndIndex: endIdx,
       viewportHeight: viewport,
+      offsets,
+      heights,
     }
   }, [
     accordionSpacingPx,
@@ -469,6 +536,83 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
   const virtualizedHeight = shouldVirtualize ? Math.max(virtualization.totalHeight ?? 0, 0) : undefined
   const virtualizedPadTop = shouldVirtualize ? virtualization.padTop : 0
   const virtualizedPadBottom = shouldVirtualize ? virtualization.padBottom : 0
+  const rowLookup = useMemo(() => {
+    const map = new Map<number, TesterPreviewRow>()
+    rows.forEach((row) => {
+      const rowId = Number(row.artifact?.id)
+      if (Number.isFinite(rowId)) {
+        map.set(rowId, row)
+      }
+    })
+    return map
+  }, [rows])
+  const rowGroupLabelLookup = useMemo(() => {
+    const map = new Map<number, string>()
+    const assign = (group: TesterGroup, factionLabel?: string | null) => {
+      const hasChildren = Boolean(group.children?.length)
+      const nextFactionLabel = group.kind === 'accessoryFaction'
+        ? (group.label ?? factionLabel ?? null)
+        : factionLabel ?? null
+      if (hasChildren) {
+        group.children?.forEach((child) => assign(child, nextFactionLabel))
+        if (group.kind !== 'accessoryFaction') {
+          const baseLabel = group.label ?? ''
+          group.rows.forEach((row) => {
+            const id = Number(row.artifact?.id)
+            if (Number.isFinite(id)) {
+              map.set(id, baseLabel)
+            }
+          })
+        }
+        return
+      }
+      const baseLabel = group.label ?? ''
+      const resolvedLabel = (group.kind === 'accessorySet' && nextFactionLabel)
+        ? `${nextFactionLabel} – ${baseLabel}`
+        : baseLabel
+      group.rows.forEach((row) => {
+        const id = Number(row.artifact?.id)
+        if (Number.isFinite(id)) {
+          map.set(id, resolvedLabel)
+        }
+      })
+    }
+    groups.forEach((group) => assign(group, null))
+    return map
+  }, [groups])
+  const scrollHintLabel = useMemo(() => {
+    if (firstVisibleRowId == null) return null
+    const row = rowLookup.get(firstVisibleRowId)
+    if (!row) return null
+    const artifact = row.artifact
+    if (!artifact) return null
+    const groupLabel = rowGroupLabelLookup.get(firstVisibleRowId) ?? ''
+    const slotLabel = typeof artifact.slot === 'number'
+      ? t(artifactTypeI18nKey(artifact.slot as ArtifactTypeId))
+      : ''
+    const rankLabel = formatTesterRankLabel(artifact.rank, t)
+    const rarityLabel = formatTesterRarityLabel(artifact.rarity, t)
+    const detailParts: string[] = []
+    if (slotLabel) detailParts.push(slotLabel)
+    if (rankLabel) detailParts.push(rankLabel)
+    if (rarityLabel) detailParts.push(rarityLabel)
+    const detail = detailParts.length > 0 ? detailParts.join(' ') : t('testerValueUnknown')
+    const resolvedGroup = groupLabel || t('testerValueUnknown')
+    return t('testerGridScrollHint', { group: resolvedGroup, detail })
+  }, [firstVisibleRowId, rowGroupLabelLookup, rowLookup, t])
+  useLayoutEffect(() => {
+    scheduleMeasureFirstVisibleRow()
+  }, [
+    scheduleMeasureFirstVisibleRow,
+    virtualization.rangeStartIndex,
+    virtualization.rangeEndIndex,
+    gridColumnCount,
+    showFirstMatch,
+    showOtherMatches,
+    collapsedGroups,
+    rows.length,
+    groups,
+  ])
   if (rows.length === 0) {
     return (
       <Box
@@ -520,7 +664,7 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
   }
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, position: 'relative' }}>
       <Box
         ref={containerRef}
         onScroll={handleScroll}
@@ -549,6 +693,32 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
           ) : null}
         </Box>
       </Box>
+      {scrollHintLabel ? (
+        <Box
+          aria-hidden={!showScrollGroupHint}
+          aria-live="polite"
+          sx={(theme) => ({
+            position: 'absolute',
+            top: theme.spacing(1.5),
+            right: theme.spacing(1.5),
+            zIndex: theme.zIndex.tooltip,
+            pointerEvents: 'none',
+            px: 1.25,
+            py: 0.5,
+            borderRadius: theme.shape.borderRadius,
+            backgroundColor: alpha(theme.palette.background.paper, theme.palette.mode === 'dark' ? 0.9 : 0.92),
+            boxShadow: theme.shadows[3],
+            color: theme.palette.text.primary,
+            transition: theme.transitions.create(['opacity', 'transform'], { duration: theme.transitions.duration.shorter }),
+            opacity: showScrollGroupHint ? 1 : 0,
+            transform: showScrollGroupHint ? 'translateY(0)' : 'translateY(-6px)',
+          })}
+        >
+          <Typography variant="caption" sx={{ fontWeight: 600, letterSpacing: 0.15 }}>
+            {scrollHintLabel}
+          </Typography>
+        </Box>
+      ) : null}
       <ContextMenuHintOverlay text={t('contextMenuHint')} position={gridContextHintActive ? gridContextHintPos : null} />
       <Menu
         open={gridMenuOpen}
@@ -1310,6 +1480,8 @@ const TesterGridCard = React.memo(function TesterGridCard({
 
   return (
     <Box
+      data-tester-grid-card="true"
+      data-row-id={artifact.id}
       sx={(theme) => ({
         display: 'grid',
         gridTemplateColumns: GRID_CARD_TEMPLATE,
@@ -1873,6 +2045,38 @@ function useTesterGridLayoutMetrics({
     gridGapPx,
     leafPaddingPx,
   ])
+}
+
+const STAR_LABEL_KEYS: readonly ['star1', 'star2', 'star3', 'star4', 'star5', 'star6'] = [
+  'star1',
+  'star2',
+  'star3',
+  'star4',
+  'star5',
+  'star6',
+] as const
+
+function formatTesterRankLabel(rank: number | null | undefined, translate: TranslateFn): string {
+  if (rank === null || rank === undefined) return ''
+  const numeric = Number(rank)
+  if (!Number.isFinite(numeric)) return ''
+  const clamped = Math.max(1, Math.min(6, Math.round(numeric)))
+  return translate(STAR_LABEL_KEYS[clamped - 1] ?? 'star1')
+}
+
+function formatTesterRarityLabel(rarity: number | null | undefined, translate: TranslateFn): string {
+  if (rarity === null || rarity === undefined) return ''
+  const numeric = Number(rarity)
+  if (!Number.isFinite(numeric)) return ''
+  const clamped = Math.max(1, Math.min(6, Math.round(numeric))) as 1 | 2 | 3 | 4 | 5 | 6
+  switch (clamped) {
+    case 1: return translate('rarityCommon')
+    case 2: return translate('rarityUncommon')
+    case 3: return translate('rarityRare')
+    case 4: return translate('rarityEpic')
+    case 5: return translate('rarityLegendary')
+    case 6: default: return translate('rarityMythical')
+  }
 }
 
 function estimateGroupHeight(

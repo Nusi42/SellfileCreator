@@ -66,6 +66,7 @@ const overrides: Catalog = {
   noSetAccessories: 'Yok — yalnızca aksesuarlar',
   testerTableEmpty: 'Eşleşmeleri görmek için ekipman içe aktarın veya test öğeleri ekleyin.',
   testerTableEmptyFilter: 'Hiçbir test öğesi geçerli filtrelere uymuyor.',
+  testerGridScrollHint: '{group} • {detail}',
   testerLevelLabel: 'Sev {level}',
   testerMainStatInline: '{stat} {value}',
   testerMainStatLabel: 'Ana özellik: {stat} {value}',

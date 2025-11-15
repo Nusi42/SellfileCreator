@@ -66,6 +66,7 @@ const overrides: Catalog = {
   noSetAccessories: 'Нет — только аксессуары',
   testerTableEmpty: 'Импортируйте снаряжение или добавьте тестовые предметы, чтобы увидеть совпадения здесь.',
   testerTableEmptyFilter: 'Нет тестовых предметов, подходящих текущим фильтрам.',
+  testerGridScrollHint: '{group} • {detail}',
   testerLevelLabel: 'Ур. {level}',
   testerMainStatInline: '{stat} {value}',
   testerMainStatLabel: 'Основная характеристика: {stat} {value}',

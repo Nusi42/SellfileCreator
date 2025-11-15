@@ -66,6 +66,7 @@ const enUS: Catalog = {
   noSetAccessories: 'None - Only accessories',
   testerTableEmpty: 'Import gear or add tester items to see matches here.',
   testerTableEmptyFilter: 'No tester items match the current filters.',
+  testerGridScrollHint: '{group} • {detail}',
   testerLevelLabel: 'Lv {level}',
   testerMainStatInline: '{stat} {value}',
   testerMainStatLabel: 'Main stat: {stat} {value}',

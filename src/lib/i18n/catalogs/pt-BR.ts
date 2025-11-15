@@ -66,6 +66,7 @@ const catalog: Catalog = {
   noSetAccessories: 'Nenhum – apenas acessórios',
   testerTableEmpty: 'Importe equipamentos ou adicione itens de teste para ver correspondências aqui.',
   testerTableEmptyFilter: 'Nenhum item de teste corresponde aos filtros atuais.',
+  testerGridScrollHint: '{group} • {detail}',
   testerLevelLabel: 'Nv {level}',
   testerMainStatInline: '{stat} {value}',
   testerMainStatLabel: 'Atributo principal: {stat} {value}',
