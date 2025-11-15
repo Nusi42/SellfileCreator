@@ -66,6 +66,7 @@ const overrides: Catalog = {
   noSetAccessories: 'Aucun – accessoires uniquement',
   testerTableEmpty: 'Importez de l’équipement ou ajoutez des objets de test pour voir les correspondances ici.',
   testerTableEmptyFilter: 'Aucun objet de test ne correspond aux filtres actuels.',
+  testerGridScrollHint: '{group} • {detail}',
   testerLevelLabel: 'Niv {level}',
   testerMainStatInline: '{stat} {value}',
   testerMainStatLabel: 'Statistique principale : {stat} {value}',

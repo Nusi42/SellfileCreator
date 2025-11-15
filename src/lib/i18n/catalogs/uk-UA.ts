@@ -66,6 +66,7 @@ const overrides: Catalog = {
   noSetAccessories: 'Немає — лише аксесуари',
   testerTableEmpty: 'Імпортуйте спорядження або додайте тестові предмети, щоб побачити збіги.',
   testerTableEmptyFilter: 'Жоден тестовий предмет не відповідає поточним фільтрам.',
+  testerGridScrollHint: '{group} • {detail}',
   testerLevelLabel: 'Рів {level}',
   testerMainStatInline: '{stat} {value}',
   testerMainStatLabel: 'Основний стат: {stat} {value}',
