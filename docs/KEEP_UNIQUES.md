@@ -2,6 +2,7 @@
 
 This note aggregates everything we know about the abandoned Keep Uniques prototype and spells out how the new implementation should behave. The next implementation pass must stay within these boundaries so we hit the usability and safety goals documented in `docs/TECHNICAL.md` (plus its linked references).
 
+> **Temporary doc**: This file exists only while the feature is under construction. Once the implementation is complete and the authoritative docs (`docs/TECHNICAL.md` + descendants) fully reflect the behavior, delete this file. Every change below must be mirrored in the permanent documentation before declaring the work complete.
 ---
 
 ## Purpose & Definition
@@ -221,3 +222,5 @@ All automated tests belong under the `tests/` directory (mirroring existing cove
 ---
 
 Updating this file (and `docs/TECHNICAL.md`) is part of the definition of done for the rebuild. The next agent should treat this checklist as authoritative and keep it in sync with any architectural decisions they make while implementing the feature.
+- Inline comments are required for new or modified code that is not self-explanatory (follow the guidance in `AGENTS.md` and `docs/TECHNICAL.md`). When touching legacy code that was hard to understand at first glance, add clarifying comments there as well so the next agent does not stumble again.
+- No duplicated logic: obey the Single Source of Truth / One Definition Rule at all times. Shared data, UI, and logic (set catalogs, selectors, tuple hashing, dialog controls, detection helpers) must live in shared modules and be imported wherever needed rather than copied.
