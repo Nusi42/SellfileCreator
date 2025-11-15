@@ -1159,7 +1159,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const setRulesFilter = setRulesFilterPref
   const filterCollapsed = filterCollapsedPref
   const setFilterCollapsed = setFilterCollapsedPref
-  const [limitConfigsToFiltered, setLimitConfigsToFiltered] = useState<boolean>(true)
+  const [limitConfigsToFiltered, setLimitConfigsToFiltered] = useState<boolean>(false)
   const [testerConfigFilterMode, setTesterConfigFilterMode] = useState<TesterConfigFilterMode>('off')
   useEffect(() => {
     if (customCfgs.length === 0 && !limitConfigsToFiltered) {

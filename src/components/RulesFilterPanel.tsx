@@ -1105,7 +1105,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
               setHoverReset(false)
               const next = JSON.parse(JSON.stringify(DEFAULT_RULES_FILTER_STATE)) as RulesFilterState
               onChange(next)
-              onConfigChipFilterChange(true)
+              onConfigChipFilterChange(false)
               onTesterConfigFilterModeChange?.('off')
               onResetFilters?.()
             }}

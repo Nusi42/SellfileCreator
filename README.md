@@ -114,7 +114,7 @@ Build, preview, and export sell rules for RSL Helper with a simple UI.
 
 ### Sellfile Preview Controls
 - Manage Colors: Click the palette icon above the table to customize text/background colors for substat labels. Use “Reset to defaults” in the dialog to restore recommended colors.
-- Filters: In Rules view you get Slot/Rank/Rarity/Level Any/Only chips plus both Config buttons — Preview Configs hides non-matching chips, and Config Filter is an On/Off toggle that limits the Sellfile rows to your selected config chips. Swap to Rule Tester and that row adds the Keep/Sell vs Matched/No Match outcome filter while Config Filter switches to its full `Off` → `First-Match` → `Any-Match` behavior for tester gear. “Reset filters” re-enables Preview Configs and returns the Config Filter control to `Off`.
+- Filters: In Rules view you get Slot/Rank/Rarity/Level Any/Only chips plus both Config buttons — Preview Configs (default Off) hides non-matching chips, and Config Filter is an On/Off toggle that limits the Sellfile rows to your selected config chips. Swap to Rule Tester and that row adds the Keep/Sell vs Matched/No Match outcome filter while Config Filter switches to its full `Off` → `First-Match` → `Any-Match` behavior for tester gear. “Reset filters” turns Preview Configs back Off and returns the Config Filter control to `Off`.
 - Column menu: Right-click the table header to open controls:
   - Reset columns: Restore default columns and widths.
   - Auto-fit widths: Fit columns to the viewport.
