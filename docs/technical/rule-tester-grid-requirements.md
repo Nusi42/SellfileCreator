@@ -4,7 +4,7 @@ This document captures everything that changed (or was attempted) after commit `
 
 ## Baseline (rev `19752312…`)
 
-- **Layout:** `src/components/TesterItemsGrid.tsx` rendered tester rows in a responsive grid (`1` column below the `sm` breakpoint, `4` columns above it) with generous gaps (`theme.spacing(1.25)` ≈ `10px`) and no explicit card-height constraints.
+- **Layout:** `src/components/TesterItemsGrid.tsx` rendered tester rows in a responsive grid (`1` column below the `sm` breakpoint, `4` columns above it) with generous gaps (`theme.spacing(1.5)` ≈ `12px`) and no explicit card-height constraints.
 - **Match chips:** Every card always showed the primary `TesterRuleReferenceChip` followed by the “other matches” row (with the `+N` chip expanding a popover). Both rows contributed to variable card heights.
 - **Context menu:** Only accordion headers reacted to the context menu (right-click toggled that group, with the tutorial hint overlay pointing at the header chevron). The grid surface did not expose its own menu.
 - **Color controls:** The tester surface inherited Manage Colors / Color stat text toggles from upstream state, but they were only reachable through the builder and HSF table menus.
@@ -35,7 +35,7 @@ This document captures everything that changed (or was attempted) after commit `
 
 ### Column configuration + match-row visibility
 
-- `Grid columns`: default to `5` columns at viewport widths ≥ the `sm` breakpoint (`theme.breakpoints.values.sm`, currently `600px`). Below that breakpoint the grid collapses to a single column regardless of the toggle. The cards themselves always reserve a `72px` icon column plus a `minmax(112px, 1fr)` stats column, and the inter-column gap is `theme.spacing(1.25)` ≈ `10px` so the icon stack no longer crowds the stat text.
+- `Grid columns`: default to `5` columns at viewport widths ≥ the `sm` breakpoint (`theme.breakpoints.values.sm`, currently `600px`). Below that breakpoint the grid collapses to a single column regardless of the toggle. The cards themselves always reserve a `72px` icon column plus a `minmax(112px, 1fr)` stats column, and the inter-column gap is `theme.spacing(1.5)` ≈ `12px` so the icon stack no longer crowds the stat text.
 - Leaf accordions wrap the grid with `theme.spacing(0.75)` padding so edge cards do not touch the accordion border.
 - Column preference persists via `sellfileCreator.tester.grid.columns.v1` (see `src/state/testerGridPreferences.ts`).
 - `Show first match` / `Show other matches`: persisted per user via two new `localStorage` keys in `src/lib/constants.ts` and `src/state/testerGridPreferences.ts`:
