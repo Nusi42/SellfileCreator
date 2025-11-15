@@ -1663,9 +1663,10 @@ export default function RuleTesterDialog({
         <Box
           sx={{
             display: 'flex',
-            flexWrap: 'wrap',
+            flexWrap: 'nowrap',
             gap: 1,
             alignItems: 'center',
+            width: '100%',
           }}
         >
           {deletableSources.map((section) => {
@@ -1684,9 +1685,8 @@ export default function RuleTesterDialog({
                 }}
                 disabled={disabled}
                 sx={{
-                  minWidth: 160,
-                  flex: '0 1 160px',
-                  maxWidth: '100%',
+                  minWidth: 0,
+                  flex: '1 1 0',
                   justifyContent: 'flex-start',
                   gap: 0.75,
                   overflow: 'hidden',
@@ -1728,7 +1728,7 @@ export default function RuleTesterDialog({
             )
             return (
               <Tooltip key={section.key} title={buttonLabel}>
-                <Box component="span" sx={{ display: 'inline-flex' }}>
+                <Box component="span" sx={{ display: 'inline-flex', flex: '1 1 0', minWidth: 0 }}>
                   {buttonNode}
                 </Box>
               </Tooltip>
