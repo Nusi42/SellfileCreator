@@ -76,10 +76,11 @@ const CARD_MATCH_ROW_MARGIN_PX = 2
 const GRID_CARD_CONTAINER_PADDING_UNITS = 0.75
 const GRID_CARD_LEFT_COLUMN_GAP_UNITS = 0.5
 const GRID_CARD_SOURCE_ICON_SIZE_PX = 24
-const CHAMPION_ICON_BASE_SIZE = { width: 28, height: 28 } as const
-const CHAMPION_ICON_LARGE_SIZE = { width: 40, height: 40 } as const
+const CHAMPION_ICON_BASE_SIZE = { width: 26, height: 26 } as const
+const CHAMPION_ICON_LARGE_SIZE = { width: 38, height: 38 } as const
 const CHAMPION_ICON_LARGE_THRESHOLD = 5
 const CHAMPION_ICON_BORDER_RADIUS_PX = 8
+const VAULT_GLYPH_SIZE_PX = 20
 const CARD_TEXT_STACK_GAP_UNITS = 0.75
 const CARD_SUBSTAT_ROW_GAP_UNITS = 0.25
 const CARD_SUBSTAT_LINE_HEIGHT = 1.1
@@ -1357,9 +1358,10 @@ const TesterGridCard = React.memo(function TesterGridCard({
         {shouldShowChampionIcon ? (
           <Box
             sx={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 0.5,
+              width: TESTER_GRID_ICON_BOX_SIZE_PX,
+              height: championIconSize.height,
+              position: 'relative',
+              mt: championIconMode === 'large' ? 1.25 : -0.25,
             }}
           >
             <Tooltip title={sourceTooltipTitle}>
@@ -1368,18 +1370,20 @@ const TesterGridCard = React.memo(function TesterGridCard({
                 role="img"
                 aria-label={sourceDescriptor?.label}
                 sx={{
+                  position: 'absolute',
+                  left: '50%',
+                  top: '50%',
+                  transform: 'translate(-50%, -50%)',
                   width: championIconSize.width,
                   height: championIconSize.height,
                   borderRadius: `${CHAMPION_ICON_BORDER_RADIUS_PX}px`,
                   overflow: 'hidden',
-                  position: 'relative',
                   border: '1px solid',
                   borderColor: 'divider',
                   boxShadow: 1,
                   display: 'inline-flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  flexShrink: 0,
                 }}
               >
                 <Box
@@ -1406,13 +1410,17 @@ const TesterGridCard = React.memo(function TesterGridCard({
                   role="img"
                   aria-label={sourceIconLabel}
                   sx={{
+                    position: 'absolute',
+                    top: `calc(50% + ${championIconMode === 'large' ? 0 : 3}px)`,
+                    left: `${TESTER_GRID_ICON_BOX_SIZE_PX - 5}px`,
+                    transform: 'translate(-50%, -50%)',
+                    width: VAULT_GLYPH_SIZE_PX,
+                    height: VAULT_GLYPH_SIZE_PX,
                     display: 'inline-flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    width: 24,
-                    height: 24,
                     color: 'text.secondary',
-                    fontSize: '1rem',
+                    fontSize: '0.95rem',
                   }}
                 >
                   <SourceIcon fontSize="inherit" />
