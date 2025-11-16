@@ -5,7 +5,7 @@
  * unchanged — App composes this inside a useMemo with identical inputs.
  */
 import type { HsfFile, HsfRule } from './hsfTypes'
-import { variantToMain } from './hsfTypes'
+import { variantToMain, variantToSub } from './hsfTypes'
 import type { BuilderConfig, SubstatTargetTable } from './hsfBuilder'
 import { RULE_COUNT_LIMIT, TOTAL_RULE_COUNT_LIMIT, ACCESSORY_NO_SET_ID } from './constants'
 import { buildHsfRules, RuleLimitReachedError, resolveAutoRarityCode } from './hsfBuilder'
@@ -22,6 +22,7 @@ import {
   LEVEL_ANY_SENTINEL,
   type LevelMilestone,
   RarityCode,
+  StatVariant,
 } from './types'
 import {
   FINAL_SELL_DEFAULT_SETS_MODE,
@@ -392,6 +393,38 @@ const rarityValueToCode = (value: unknown): RarityCode => {
   }
 }
 
+const coverageLevelsForArtifact = (artifact: KeepUniqueDetectionEntry['artifacts'][number]): LevelMilestone[] => {
+  const exact = Number(artifact.exactLevel)
+  const resolved = Number.isFinite(exact)
+    ? Math.max(0, Math.min(16, Math.floor(exact)))
+    : Number(artifact.level ?? 0)
+  if (resolved >= 16) return [16]
+  if (resolved >= 12) return [12, 16]
+  if (resolved >= 8) return [8, 12, 16]
+  if (resolved >= 4) return [4, 8, 12, 16]
+  return LEVEL_MILESTONES.slice()
+}
+
+const buildKeepUniqueSubstats = (substats: KeepUniqueDetectionEntry['artifacts'][number]['substats']): HsfRule['Substats'] => {
+  const cloned = cloneAnySubstats()
+  let idx = 0
+  for (const sub of substats) {
+    if (idx >= cloned.length) break
+    if (sub.variant === StatVariant.Any) continue
+    const { id, isFlat } = variantToSub(sub.variant)
+    if (id === StatId.Any) continue
+    cloned[idx] = {
+      ID: id,
+      Value: Math.max(0, Number(sub.value)),
+      IsFlat: isFlat ?? true,
+      Condition: '>=',
+      NotAvailable: false,
+    }
+    idx += 1
+  }
+  return cloned
+}
+
 const buildKeepUniqueRules = (
   rules: readonly KeepUniqueRule[],
   detection: KeepUniqueDetectionSnapshot | null,
@@ -403,36 +436,46 @@ const buildKeepUniqueRules = (
         .map((entry) => [entry.ruleId as string, entry]),
     )
     : new Map()
-  return rules.map((rule) => {
-    const tuple = rule.tuple
-    const mainTuple = variantToMain(tuple.mainStat)
-    const keepRule: HsfRuleWithCfg = {
-      Keep: true,
-      IsRuleTypeAND: false,
-      Use: rule.enabled,
-      Rank: clampRankOrRarityValue(tuple.rank),
-      Rarity: rarityValueToCode(tuple.rarity),
-      MainStatID: mainTuple.id,
-      MainStatF: mainTuple.f ?? 1,
-      LVLForCheck: LEVEL_ANY_SENTINEL,
-      Faction: tuple.factionId ?? 0,
-      ArtifactType: [Number(tuple.slot)],
-      ArtifactSet: [Number(tuple.set)],
-      Substats: cloneAnySubstats(),
-      __cfgIdx: KEEP_UNIQUES_CFG_SENTINEL,
-      __source: RULE_SOURCE_KEEP_UNIQUES,
+  const keepRules: HsfRuleWithCfg[] = []
+  const emitted = new Set<string>()
+  for (const rule of rules) {
+    if (!rule.enabled) continue
+    const entry = rule.id ? detectionMap.get(rule.id) : null
+    if (!entry || !entry.artifacts || entry.artifacts.length === 0) continue
+    for (const artifact of entry.artifacts) {
+      const levels = coverageLevelsForArtifact(artifact)
+      for (const level of levels) {
+        const artifactKey = `${artifact.rowKey}:${level}`
+        if (emitted.has(artifactKey)) continue
+        emitted.add(artifactKey)
+        const mainTuple = variantToMain(artifact.mainStat)
+        const keepRule: HsfRuleWithCfg = {
+          Keep: true,
+          IsRuleTypeAND: false,
+          Use: rule.enabled,
+          Rank: clampRankOrRarityValue(artifact.rank),
+          Rarity: rarityValueToCode(artifact.rarity),
+          MainStatID: mainTuple.id,
+          MainStatF: mainTuple.f ?? 1,
+          LVLForCheck: level ?? LEVEL_ANY_SENTINEL,
+          Faction: artifact.faction ?? 0,
+          ArtifactType: [Number(artifact.slot)],
+          ArtifactSet: [Number(artifact.set)],
+          Substats: buildKeepUniqueSubstats(artifact.substats),
+          __cfgIdx: KEEP_UNIQUES_CFG_SENTINEL,
+          __source: RULE_SOURCE_KEEP_UNIQUES,
+          __keepUniqueRuleId: rule.id,
+          __keepUniqueHash: hashKeepUniqueTuple(rule.tuple),
+          __keepUniqueRequired: entry.requiredCount,
+          __keepUniqueProjected: entry.projectedCount,
+          __keepUniqueDeficit: entry.deficit,
+        }
+        if (detection) keepRule.__keepUniqueScanMs = detection.scannedAt
+        keepRules.push(keepRule)
+      }
     }
-    const entry = detectionMap.get(rule.id)
-    if (entry) {
-      keepRule.__keepUniqueRuleId = rule.id
-      keepRule.__keepUniqueHash = hashKeepUniqueTuple(tuple)
-      keepRule.__keepUniqueRequired = entry.requiredCount
-      if (detection) keepRule.__keepUniqueScanMs = detection.scannedAt
-      keepRule.__keepUniqueProjected = entry.projectedCount
-      keepRule.__keepUniqueDeficit = entry.deficit
-    }
-    return keepRule
-  })
+  }
+  return keepRules
 }
 
 export function computeMergedRules(params: {

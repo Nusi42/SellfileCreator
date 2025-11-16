@@ -55,8 +55,8 @@ import { useSubstatTargetsDialog } from './hooks/useSubstatTargetsDialog'
 import { computeMergedRules, buildRulesForConfig, buildFinalSellRules, RULE_SOURCE_FINAL_SELL, RULE_SOURCE_HSF, RULE_SOURCE_KEEP_UNIQUES, type HsfRuleWithCfg } from './lib/merge'
 import {
   computeKeepUniqueProtection,
-  getKeepUniqueGroupKey,
-  getKeepUniqueRowKey,
+  collectKeepUniqueCandidates,
+  type KeepUniqueCandidateSnapshot,
   type KeepUniqueDetectionSnapshot,
   type KeepUniqueRule,
 } from './lib/keepUniques'
@@ -2412,6 +2412,24 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     restoreFreezeRowsSeenRef.current = false
   }, [testerMatchFreeze])
   /* eslint-enable react-you-might-not-need-an-effect/no-event-handler, react-you-might-not-need-an-effect/no-chain-state-updates */
+  const keepUniqueBaseRules = useMemo(() => {
+    let hasKeepUnique = false
+    for (const rule of mergedRules) {
+      if (rule.__source === RULE_SOURCE_KEEP_UNIQUES) {
+        hasKeepUnique = true
+        break
+      }
+    }
+    if (!hasKeepUnique) return mergedRules
+    return mergedRules.filter((rule) => rule.__source !== RULE_SOURCE_KEEP_UNIQUES)
+  }, [mergedRules])
+  const keepUniqueCandidates = useMemo<KeepUniqueCandidateSnapshot>(() => (
+    collectKeepUniqueCandidates({
+      rows: testerPreviewRows,
+      baseRules: keepUniqueBaseRules,
+      configModes,
+    })
+  ), [testerPreviewRows, keepUniqueBaseRules, configModes])
   useEffect(() => {
     if (!keepUniquesEnabled) {
       setKeepUniqueDetection(null)
@@ -2423,7 +2441,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     let cancelled = false
     const timeoutId = window.setTimeout(() => {
       const snapshot = computeKeepUniqueProtection({
-        rows: testerPreviewRows,
+        candidates: keepUniqueCandidates.candidates,
         rules: keepUniqueRules,
         enabled: keepUniquesEnabled,
       })
@@ -2440,10 +2458,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             || nextEntry.ruleEnabled !== prevEntry.ruleEnabled
             || nextEntry.requiredCount !== prevEntry.requiredCount
             || nextEntry.currentCount !== prevEntry.currentCount
-            || nextEntry.keptCount !== prevEntry.keptCount
             || nextEntry.projectedCount !== prevEntry.projectedCount
             || nextEntry.deficit !== prevEntry.deficit
             || nextEntry.coveredByExisting !== prevEntry.coveredByExisting
+            || nextEntry.rowKeys.length !== prevEntry.rowKeys.length
+            || nextEntry.artifacts.length !== prevEntry.artifacts.length
           ) {
             return snapshot
           }
@@ -2455,56 +2474,14 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       cancelled = true
       clearTimeout(timeoutId)
     }
-  }, [keepUniqueRules, keepUniquesEnabled, testerPreviewRows, testerMatchFreeze, testerRowsBuilding])
-  const keepUniqueGroupRowKeys = useMemo(() => {
-    const uniqueKeys = new Set<number>()
-    if (testerPreviewRows.length === 0) return uniqueKeys
-    let hasKeepUniqueRules = false
-    for (const rule of mergedRules) {
-      if (rule.__source === RULE_SOURCE_KEEP_UNIQUES) {
-        hasKeepUniqueRules = true
-        break
-      }
-    }
-    const baseRules = hasKeepUniqueRules
-      ? mergedRules.filter((rule) => rule.__source !== RULE_SOURCE_KEEP_UNIQUES)
-      : mergedRules
-    type GroupStats = { total: number; sold: number; rowKeys: number[] }
-    const groupStats = new Map<string, GroupStats>()
-    for (const row of testerPreviewRows) {
-      const rowKey = getKeepUniqueRowKey(row.artifact)
-      const groupKey = getKeepUniqueGroupKey(row.artifact)
-      const sold = (() => {
-        if (!hasKeepUniqueRules) return row.match?.keep !== true
-        const match = row.match
-        if (!match) return true
-        if (match.ruleSource !== RULE_SOURCE_KEEP_UNIQUES) return match.keep !== true
-        if (baseRules.length === 0) return true
-        const { firstMatch } = evaluateMatchesByConfig(baseRules, row.artifact.testerItem, { configModes })
-        return !firstMatch || firstMatch.keep !== true
-      })()
-      const entry = groupStats.get(groupKey)
-      if (entry) {
-        entry.total += 1
-        if (sold) {
-          entry.sold += 1
-          entry.rowKeys.push(rowKey)
-        }
-      } else {
-        groupStats.set(groupKey, {
-          total: 1,
-          sold: sold ? 1 : 0,
-          rowKeys: sold ? [rowKey] : [],
-        })
-      }
-    }
-    for (const entry of groupStats.values()) {
-      if (entry.total > 0 && entry.sold === entry.total) {
-        for (const key of entry.rowKeys) uniqueKeys.add(key)
-      }
-    }
-    return uniqueKeys
-  }, [testerPreviewRows, mergedRules, configModes])
+  }, [
+    keepUniqueRules,
+    keepUniquesEnabled,
+    keepUniqueCandidates,
+    testerMatchFreeze,
+    testerRowsBuilding,
+  ])
+  const keepUniqueGroupRowKeys = keepUniqueCandidates.uniqueRowKeys
   const matchingConfigIndices = filterResult.matchingConfigIndices
   const testerMatchingConfigIndices = testerFilterResult.matchingConfigIndices
   const chipMatchingConfigIndices = previewMode === 'tester'

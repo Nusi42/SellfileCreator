@@ -34,6 +34,10 @@ import {
   variantFromLabel,
   RankCode,
   RANK_CODES,
+  type ArtifactTypeId,
+  type ArtifactSetId,
+  type RankValue,
+  type FactionId,
 } from './types'
 import { NBSP } from './constants'
 import {
@@ -825,22 +829,19 @@ export function buildHsfcPayload(args: {
         setsMode: FINAL_SELL_DEFAULT_SETS_MODE,
       }
     })(),
-    KeepUniques: keepUniqueRules.map((rule) => {
-      const tuple = {
-        slot: Number(rule.tuple.slot),
-        set: Number(rule.tuple.set),
-        rank: Number(rule.tuple.rank),
-        rarity: Number(rule.tuple.rarity),
+    KeepUniques: keepUniqueRules.map((rule) => ({
+      id: rule.id,
+      requiredCount: Math.max(1, Math.floor(rule.requiredCount)),
+      enabled: rule.enabled !== false,
+      tuple: {
+        slots: rule.tuple.slots.map((slot) => Number(slot) as ArtifactTypeId),
+        sets: rule.tuple.sets.map((set) => Number(set) as ArtifactSetId),
+        ranks: rule.tuple.ranks.map((rank) => Number(rank) as RankValue),
+        rarities: rule.tuple.rarities.map((rarity) => Number(rarity) as RankValue),
         mainStat: Number(rule.tuple.mainStat),
-        factionId: rule.tuple.factionId ?? null,
-      } as KeepUniqueRule['tuple']
-      return {
-        id: rule.id,
-        requiredCount: Math.max(1, Math.floor(rule.requiredCount)),
-        enabled: rule.enabled !== false,
-        tuple,
-      }
-    }),
+        factions: rule.tuple.factions.map((faction) => Number(faction) as FactionId),
+      },
+    })),
     KeepUniquesEnabled: keepUniquesEnabled === true,
     ...(selectedConfigIndex != null ? { SelectedConfigIndex: selectedConfigIndex } : (configs.length ? { SelectedConfigIndex: configs.length - 1 } : {})),
     ...(note ? { Note: note } : {}),

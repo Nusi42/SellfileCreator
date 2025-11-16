@@ -273,6 +273,15 @@ export const ARMOR_VARIABLE_SET_IDS = Object.freeze(
 // Alias the variable list so "9-piece sets" callers have an intuitive export.
 export const NINE_PIECE_SET_IDS = ARMOR_VARIABLE_SET_IDS
 
+export const ALL_ARTIFACT_SET_IDS = Object.freeze(
+  Array.from(new Set<number>([
+    ...ACCESSORY_SET_IDS,
+    ...ARMOR_FIXED_SET_IDS,
+    ...ARMOR_VARIABLE_SET_IDS,
+  ])).sort((a, b) => a - b)
+    .map((id) => id as ArtifactSetId),
+)
+
 /**
  * Filter and sort artifact sets for UI menus.
  * - When `order === 'az'`, sorts alphabetically by set name.

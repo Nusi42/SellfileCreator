@@ -4,17 +4,24 @@ import {
   Box,
   Button,
   Chip,
+  Checkbox,
   Divider,
   FormControlLabel,
   IconButton,
   InputAdornment,
+  ListItemIcon,
+  ListItemText,
   MenuItem,
+  Select,
   Stack,
   Switch,
   TextField,
+  ToggleButton,
+  ToggleButtonGroup,
   Tooltip,
   Typography,
 } from '@mui/material'
+import type { SelectChangeEvent } from '@mui/material/Select'
 import { alpha } from '@mui/material/styles'
 import AddIcon from '@mui/icons-material/Add'
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline'
@@ -24,25 +31,27 @@ import { createKeepUniqueRuleId, getKeepUniqueRowKey } from '../../lib/keepUniqu
 import type { TesterPreviewRow } from '../../types/testerPreview'
 import type { ColorBlindMode } from '../../lib/constants'
 import { MENU_CONTROL_HEIGHT_PX } from '../../lib/constants'
-import type { ArtifactSetId, ArtifactTypeId, FactionId, RankValue, StatVariant } from '../../lib/types'
+import type { ArtifactSetId, ArtifactTypeId, RankValue, StatVariant } from '../../lib/types'
 import {
   ACCESSORY_SET_IDS,
   ALLOWED_MAIN_BY_SLOT,
   ARMOR_FIXED_SET_IDS,
   ARMOR_VARIABLE_SET_IDS,
+  ALL_ARTIFACT_SET_IDS,
   ArtifactType,
   artifactSetI18nKey,
   artifactSetNames,
   artifactTypeI18nKey,
-  Faction,
   factionI18nKey,
   filterAndSortSetEntries,
+  RANK_VALUES,
   StatVariant as StatVariantEnum,
   statVariantI18nKey,
 } from '../../lib/types'
 import { isAccessorySlot } from '../../lib/testerDomain'
 import { useI18n } from '../../lib/i18n'
-import { GearFactionSelect, GearMainStatSelect, GearRankSelect, GearRaritySelect, GearSlotSelect } from '../gear'
+import { GearFactionSelect, GearMainStatSelect } from '../gear'
+import { artifactTypeIconList } from '../artifactTypeIcons'
 import { SetIcon } from '../SetIcon'
 import { TesterItemsGrid } from '../TesterItemsGrid'
 import { NumberSpinnerAdornment } from '../NumberSpinnerAdornment'
@@ -71,10 +80,7 @@ type KeepUniquesTabProps = {
 const ARTIFACT_SET_POOL: readonly ArtifactSetId[] = Object.freeze([...ARMOR_FIXED_SET_IDS, ...ARMOR_VARIABLE_SET_IDS])
 const DEFAULT_ARTIFACT_SET_ID: ArtifactSetId = ARTIFACT_SET_POOL[0] ?? (ARMOR_FIXED_SET_IDS[0] ?? (0 as ArtifactSetId))
 const DEFAULT_ACCESSORY_SET_ID: ArtifactSetId = ACCESSORY_SET_IDS[0] ?? (0 as ArtifactSetId)
-const DEFAULT_FACTION: FactionId = Faction.BannerLords
 const DEFAULT_SLOT: ArtifactTypeId = ArtifactType.Weapon
-const DEFAULT_RANK = 6
-const DEFAULT_RARITY = 6
 
 export default function KeepUniquesTab({
   rules,
@@ -196,23 +202,88 @@ export default function KeepUniquesTab({
     return null
   })()
 
-  const setOptions = useMemo(() => filterAndSortSetEntries('', 'game', { translate: t }), [t])
-
   const renderRuleCard = (rule: KeepUniqueRule) => {
     const tuple = rule.tuple
     const ruleDetection = detectionByRuleId.get(rule.id) ?? null
-    const accessorySlot = isAccessorySlot(tuple.slot)
-    const allowedSetPool = accessorySlot ? ACCESSORY_SET_IDS : ARTIFACT_SET_POOL
-    const setMissing = !allowedSetPool.includes(tuple.set)
-    const setLabel = t(artifactSetI18nKey(tuple.set))
-    const slotLabel = t(artifactTypeI18nKey(tuple.slot))
-    const mainStatOptions = getMainStatOptions(tuple.slot)
+    const slotSelection = tuple.slots
+    const slotAny = slotSelection.length === 0
+    const hasAccessorySlot = slotAny || slotSelection.some((slotId) => isAccessorySlot(slotId))
+    const hasArmorSlot = slotAny || slotSelection.some((slotId) => !isAccessorySlot(slotId))
+    const allowedSetPool = hasAccessorySlot && hasArmorSlot
+      ? ALL_ARTIFACT_SET_IDS
+      : (hasAccessorySlot ? ACCESSORY_SET_IDS : ARTIFACT_SET_POOL)
+    const setSelection = tuple.sets.filter((setId) => allowedSetPool.includes(setId))
+    const rankSelection = tuple.ranks
+    const raritySelection = tuple.rarities
+    const mainStatOptions = getMainStatOptionsForSlots(slotSelection)
     const mainStatValue = mainStatOptions.includes(tuple.mainStat) ? tuple.mainStat : StatVariantEnum.Any
-    const factionValue = accessorySlot ? (tuple.factionId ?? DEFAULT_FACTION) : null
-    const rankValue: RankValue | null = (
-      tuple.rank >= 1 && tuple.rank <= 6 ? (tuple.rank as RankValue) : null
-    )
+    const factionValue = hasAccessorySlot ? (tuple.factions[0] ?? null) : null
     const selected = effectiveSelectedRuleId === rule.id
+    const slotChips = (() => {
+      if (slotSelection.length === 0) return [<Chip key="slot-any" label={t('any')} size="small" />]
+      const limit = 3
+      const nodes = slotSelection.slice(0, limit).map((slotId) => {
+        const def = artifactTypeIconList.find((entry) => Number(entry.id) === Number(slotId))
+        const SlotIconComponent = def?.Icon
+        const iconProps = SlotIconComponent ? { icon: <SlotIconComponent fontSize="small" /> } : {}
+        return (
+          <Chip
+            key={`slot-${slotId}`}
+            label={t(artifactTypeI18nKey(slotId))}
+            size="small"
+            {...iconProps}
+          />
+        )
+      })
+      if (slotSelection.length > limit) {
+        nodes.push(<Chip key="slot-more" label={`+${slotSelection.length - limit}`} size="small" />)
+      }
+      return nodes
+    })()
+    const setChips = (() => {
+      if (setSelection.length === 0) return [<Chip key="set-any" label={t('any')} size="small" />]
+      const limit = 3
+      const nodes = setSelection.slice(0, limit).map((setId) => {
+        const label = t(artifactSetI18nKey(setId)) || artifactSetNames[setId] || String(setId)
+        return (
+          <Chip
+            key={`set-${setId}`}
+            label={label}
+            size="small"
+            icon={<SetIcon setId={setId} size={16} />}
+          />
+        )
+      })
+      if (setSelection.length > limit) {
+        nodes.push(<Chip key="set-more" label={`+${setSelection.length - limit}`} size="small" />)
+      }
+      return nodes
+    })()
+    const rankChips = (() => {
+      if (rankSelection.length === 0) return [<Chip key="rank-any" label={t('any')} size="small" />]
+      return rankSelection.map((rank) => (
+        <Chip key={`rank-${rank}`} label={t('keepUniquesRankChip', { rank })} size="small" />
+      ))
+    })()
+    const rarityChips = (() => {
+      if (raritySelection.length === 0) return [<Chip key="rarity-any" label={t('any')} size="small" />]
+      return raritySelection.map((rarity) => (
+        <Chip key={`rarity-${rarity}`} label={t('keepUniquesRarityChip', { rarity })} size="small" />
+      ))
+    })()
+    const mainStatChip = (
+      <Chip
+        label={mainStatValue === StatVariantEnum.Any ? t('any') : t(statVariantI18nKey(mainStatValue))}
+        size="small"
+      />
+    )
+    const factionChips = (() => {
+      if (!hasAccessorySlot) return null
+      if (!tuple.factions.length) return <Chip key="faction-any" label={t('any')} size="small" />
+      return tuple.factions.map((faction) => (
+        <Chip key={`faction-${faction}`} label={t(factionI18nKey(faction))} size="small" />
+      ))
+    })()
     return (
       <Box
         key={rule.id}
@@ -244,63 +315,91 @@ export default function KeepUniquesTab({
             </IconButton>
           </Box>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-            <Chip label={slotLabel} size="small" />
-            <Chip
-              label={setMissing ? t('keepUniquesSetUnavailable') : setLabel}
-              size="small"
-              color={setMissing ? 'warning' : 'default'}
-              icon={<SetIcon setId={tuple.set} size={16} />}
-            />
-            <Chip label={tuple.rank ? t('keepUniquesRankChip', { rank: tuple.rank }) : t('any')} size="small" />
-            <Chip label={tuple.rarity ? t('keepUniquesRarityChip', { rarity: tuple.rarity }) : t('any')} size="small" />
-            <Chip label={tuple.mainStat === StatVariantEnum.Any ? t('any') : t(statVariantI18nKey(tuple.mainStat))} size="small" />
-            {accessorySlot && factionValue ? (
-              <Chip label={t(factionI18nKey(factionValue))} size="small" />
-            ) : null}
+            {slotChips}
+            {setChips}
+            {rankChips}
+            {rarityChips}
+            {mainStatChip}
+            {factionChips}
           </Box>
           <Stack spacing={1}>
             <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 1 }}>
-              <GearSlotSelect
-                value={tuple.slot}
-                onChange={(nextSlot) => {
-                  if (!nextSlot) return
-                  setRuleTuple(rule.id, (prev) => sanitizeTupleForSlot(nextSlot, prev))
-                }}
+              <ToggleButtonGroup
                 size="small"
-              />
-              <SetSelect
-                value={tuple.set}
-                options={setOptions}
+                value={tuple.slots.map(String)}
+                onChange={(_, values: string[]) => {
+                  const parsed = values.map((val) => Number(val) as ArtifactTypeId)
+                  setRuleTuple(rule.id, (prev) => sanitizeTupleForSlots(parsed, prev))
+                }}
+                sx={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+                  gap: 0.5,
+                }}
+              >
+                {artifactTypeIconList.map(({ id, Icon }) => (
+                  <Tooltip key={id} title={t(artifactTypeI18nKey(id))}>
+                    <ToggleButton value={String(id)} aria-label={t(artifactTypeI18nKey(id))}>
+                      <Icon fontSize="inherit" />
+                    </ToggleButton>
+                  </Tooltip>
+                ))}
+              </ToggleButtonGroup>
+              <KeepUniqueSetsSelect
+                value={setSelection}
                 allowedPool={allowedSetPool}
-                onChange={(nextSet) => {
-                  if (!nextSet) return
-                  setRuleTuple(rule.id, (prev) => ({ ...prev, set: nextSet }))
+                onChange={(nextSets) => {
+                  setRuleTuple(rule.id, (prev) => ({ ...prev, sets: dedupeNumericArray(nextSets) }))
                 }}
               />
             </Box>
             <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 1 }}>
-              <GearRankSelect
-                value={rankValue}
-                onChange={(nextRank) => {
-                  if (!nextRank) return
-                  setRuleTuple(rule.id, (prev) => ({ ...prev, rank: nextRank }))
-                }}
-                allowAny
+              <ToggleButtonGroup
                 size="small"
-              />
-              <GearRaritySelect
-                value={Number(tuple.rarity)}
-                onChange={(nextRarity) => {
-                  setRuleTuple(rule.id, (prev) => {
-                    const resolved = nextRarity == null ? prev.rarity : (nextRarity as RankValue)
-                    return { ...prev, rarity: resolved }
-                  })
+                value={rankSelection.map(String)}
+                onChange={(_, values: string[]) => {
+                  const parsed = values
+                    .map((val) => Number(val))
+                    .filter((num): num is RankValue => Number.isFinite(num) && num >= 1 && num <= 6)
+                    .sort((a, b) => a - b)
+                  setRuleTuple(rule.id, (prev) => ({ ...prev, ranks: parsed }))
                 }}
-                allowAny
+                sx={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+                  gap: 0.5,
+                }}
+              >
+                {RANK_VALUES.map((rank) => (
+                  <ToggleButton key={`rank-${rank}`} value={String(rank)}>
+                    {t(`star${rank}`)}
+                  </ToggleButton>
+                ))}
+              </ToggleButtonGroup>
+              <ToggleButtonGroup
                 size="small"
-              />
+                value={raritySelection.map(String)}
+                onChange={(_, values: string[]) => {
+                  const parsed = values
+                    .map((val) => Number(val))
+                    .filter((num): num is RankValue => Number.isFinite(num) && num >= 1 && num <= 6)
+                    .sort((a, b) => a - b)
+                  setRuleTuple(rule.id, (prev) => ({ ...prev, rarities: parsed }))
+                }}
+                sx={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+                  gap: 0.5,
+                }}
+              >
+                {RANK_VALUES.map((rarity) => (
+                  <ToggleButton key={`rarity-${rarity}`} value={String(rarity)}>
+                    {t('keepUniquesRarityChip', { rarity })}
+                  </ToggleButton>
+                ))}
+              </ToggleButtonGroup>
             </Box>
-            <Box sx={{ display: 'grid', gridTemplateColumns: accessorySlot ? 'repeat(2, minmax(0, 1fr))' : 'minmax(0, 1fr)', gap: 1 }}>
+            <Box sx={{ display: 'grid', gridTemplateColumns: hasAccessorySlot ? 'repeat(2, minmax(0, 1fr))' : 'minmax(0, 1fr)', gap: 1 }}>
               <GearMainStatSelect
                 value={mainStatValue}
                 options={mainStatOptions}
@@ -312,11 +411,11 @@ export default function KeepUniquesTab({
                 showBorderColors={useStatButtonColors}
                 size="small"
               />
-              {accessorySlot ? (
+              {hasAccessorySlot ? (
                 <GearFactionSelect
                   value={factionValue}
                   onChange={(nextFaction) => {
-                    setRuleTuple(rule.id, (prev) => ({ ...prev, factionId: nextFaction }))
+                    setRuleTuple(rule.id, (prev) => ({ ...prev, factions: nextFaction == null ? [] : [nextFaction] }))
                   }}
                   size="small"
                 />
@@ -475,72 +574,127 @@ export default function KeepUniquesTab({
 function makeTupleForSlot(slot: ArtifactTypeId): KeepUniqueRule['tuple'] {
   const accessorySlot = isAccessorySlot(slot)
   const setPool = accessorySlot ? ACCESSORY_SET_IDS : ARTIFACT_SET_POOL
-  const mainSet = ALLOWED_MAIN_BY_SLOT[Number(slot) as ArtifactType]
-  const defaultMain = (mainSet && mainSet.size > 0) ? Array.from(mainSet)[0]! : StatVariantEnum.Any
+  const mainOptions = getMainStatOptionsForSlots([slot])
   return {
-    slot,
-    set: setPool[0] ?? (accessorySlot ? DEFAULT_ACCESSORY_SET_ID : DEFAULT_ARTIFACT_SET_ID),
-    rank: DEFAULT_RANK as KeepUniqueRule['tuple']['rank'],
-    rarity: DEFAULT_RARITY as KeepUniqueRule['tuple']['rarity'],
-    mainStat: defaultMain as StatVariant,
-    factionId: accessorySlot ? DEFAULT_FACTION : null,
+    slots: [slot],
+    sets: setPool.length > 0 ? [setPool[0] ?? (accessorySlot ? DEFAULT_ACCESSORY_SET_ID : DEFAULT_ARTIFACT_SET_ID)] : [],
+    ranks: [],
+    rarities: [],
+    mainStat: mainOptions.includes(StatVariantEnum.Any) ? StatVariantEnum.Any : (mainOptions[0] ?? StatVariantEnum.Any),
+    factions: accessorySlot ? [] : [],
   }
 }
 
-function sanitizeTupleForSlot(slot: ArtifactTypeId, tuple: KeepUniqueRule['tuple']): KeepUniqueRule['tuple'] {
-  const normalized = makeTupleForSlot(slot)
-  const mainOptions = getMainStatOptions(slot)
+function sanitizeTupleForSlots(slots: ArtifactTypeId[], tuple: KeepUniqueRule['tuple']): KeepUniqueRule['tuple'] {
+  const normalizedSlots = dedupeNumericArray(slots)
+  const allowedSetPool = resolveAllowedSetPool(normalizedSlots)
+  const allowedSetIds = new Set(allowedSetPool.map(Number))
+  const filteredSets = tuple.sets.filter((setId) => allowedSetIds.has(Number(setId)))
+  const mainOptions = getMainStatOptionsForSlots(normalizedSlots)
+  const hasAccessory = normalizedSlots.length === 0 || normalizedSlots.some((slotId) => isAccessorySlot(slotId))
   return {
-    slot,
-    set: (isAccessorySlot(slot) ? ACCESSORY_SET_IDS : ARTIFACT_SET_POOL).includes(tuple.set)
-      ? tuple.set
-      : normalized.set,
-    rank: tuple.rank,
-    rarity: tuple.rarity,
-    mainStat: mainOptions.includes(tuple.mainStat) ? tuple.mainStat : normalized.mainStat,
-    factionId: isAccessorySlot(slot) ? (tuple.factionId ?? normalized.factionId) : null,
+    ...tuple,
+    slots: normalizedSlots,
+    sets: filteredSets.length > 0 ? filteredSets : (allowedSetPool[0] ? [allowedSetPool[0]] : []),
+    mainStat: mainOptions.includes(tuple.mainStat) ? tuple.mainStat : StatVariantEnum.Any,
+    factions: hasAccessory ? tuple.factions : [],
   }
 }
 
-function getMainStatOptions(slot: ArtifactTypeId): StatVariant[] {
-  const set = ALLOWED_MAIN_BY_SLOT[Number(slot) as ArtifactType]
-  if (!set || set.size === 0) return [StatVariantEnum.Any]
-  return Array.from(set) as StatVariant[]
+function resolveAllowedSetPool(slots: ArtifactTypeId[]): readonly ArtifactSetId[] {
+  const slotAny = slots.length === 0
+  const hasAccessory = slotAny || slots.some((slotId) => isAccessorySlot(slotId))
+  const hasArmor = slotAny || slots.some((slotId) => !isAccessorySlot(slotId))
+  if (hasAccessory && hasArmor) return ALL_ARTIFACT_SET_IDS
+  return hasAccessory ? ACCESSORY_SET_IDS : ARTIFACT_SET_POOL
 }
 
+function getMainStatOptionsForSlots(slots: ArtifactTypeId[]): StatVariant[] {
+  const union = new Set<StatVariant>()
+  if (slots.length === 0) {
+    Object.values(ALLOWED_MAIN_BY_SLOT).forEach((set) => {
+      set.forEach((variant) => union.add(variant as StatVariant))
+    })
+  } else {
+    slots.forEach((slotId) => {
+      const options = ALLOWED_MAIN_BY_SLOT[Number(slotId) as ArtifactType]
+      if (!options) return
+      options.forEach((variant) => union.add(variant as StatVariant))
+    })
+  }
+  if (union.size === 0) return [StatVariantEnum.Any]
+  const sorted = Array.from(union).sort((a, b) => a - b)
+  if (!sorted.includes(StatVariantEnum.Any)) {
+    sorted.unshift(StatVariantEnum.Any)
+  }
+  return sorted
+}
 
-type SetSelectProps = {
-  value: ArtifactSetId
-  options: Array<[string, string]>
+function dedupeNumericArray<T extends number>(values: readonly T[]): T[] {
+  if (!values.length) return []
+  const seen = new Set<number>()
+  const result: T[] = []
+  for (const value of values) {
+    const numeric = Number(value)
+    if (seen.has(numeric)) continue
+    seen.add(numeric)
+    result.push(value)
+  }
+  return result
+}
+
+type KeepUniqueSetsSelectProps = {
+  value: ArtifactSetId[]
   allowedPool: readonly ArtifactSetId[]
-  onChange: (next: ArtifactSetId | null) => void
+  onChange: (next: ArtifactSetId[]) => void
 }
 
-function SetSelect({ value, options, allowedPool, onChange }: SetSelectProps) {
+function KeepUniqueSetsSelect({ value, allowedPool, onChange }: KeepUniqueSetsSelectProps) {
   const { t } = useI18n()
   const allowed = useMemo(() => new Set(allowedPool.map(Number)), [allowedPool])
-  const rendered = options.filter(([id]) => allowed.has(Number(id)))
+  const options = useMemo(() => (
+    filterAndSortSetEntries('', 'game', { translate: t }).filter(([id]) => allowed.has(Number(id)))
+  ), [allowed, t])
+  const renderSelectedValue = (selected: string[]) => {
+    if (!selected.length) return t('any')
+    const labels = selected.map((idStr) => {
+      const id = Number(idStr) as ArtifactSetId
+      return t(artifactSetI18nKey(id)) || artifactSetNames[id] || idStr
+    })
+    if (labels.length <= 2) return labels.join(', ')
+    return `${labels.slice(0, 2).join(', ')} +${labels.length - 2}`
+  }
+  const handleChange = (event: SelectChangeEvent<string[]>) => {
+    const raw = event.target.value
+    const next = (Array.isArray(raw) ? raw : [])
+      .map((idStr) => Number(idStr))
+      .filter((id) => allowed.has(id))
+      .map((id) => id as ArtifactSetId)
+    onChange(next)
+  }
   return (
-    <TextField
-      select
+    <Select
+      multiple
       size="small"
-      value={String(value)}
-      onChange={(event) => {
-        const next = Number(event.target.value)
-        if (!Number.isFinite(next)) return
-        onChange(next as ArtifactSetId)
-      }}
-      label={t('keepUniquesSetLabel')}
+      value={value.map(String)}
+      onChange={handleChange}
+      renderValue={(selected) => renderSelectedValue(selected as string[])}
+      aria-label={t('keepUniquesSetLabel')}
     >
-      {rendered.map(([idStr]) => {
+      {options.map(([idStr]) => {
         const id = Number(idStr) as ArtifactSetId
         const label = t(artifactSetI18nKey(id)) || artifactSetNames[id] || idStr
+        const checked = value.some((setId) => Number(setId) === id)
         return (
           <MenuItem key={idStr} value={idStr}>
-            {label}
+            <Checkbox size="small" checked={checked} />
+            <ListItemIcon>
+              <SetIcon setId={id} size={18} />
+            </ListItemIcon>
+            <ListItemText primary={label} />
           </MenuItem>
         )
       })}
-    </TextField>
+    </Select>
   )
 }

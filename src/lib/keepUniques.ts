@@ -1,7 +1,17 @@
 import { isAccessorySlot } from './testerDomain'
+import { evaluateMatchesByConfig } from './ruleEval'
 import type { TesterPreviewRow } from '../types/testerPreview'
-import type { ArtifactSetId, ArtifactTypeId, FactionId, RankValue, StatVariant } from './types'
+import type {
+  ArtifactSetId,
+  ArtifactTypeId,
+  FactionId,
+  LevelMilestone,
+  RankValue,
+  StatVariant,
+} from './types'
 import { StatVariant as StatVariantEnum } from './types'
+import type { SellfileExportMode } from './hsfBuilder'
+import type { HsfRuleWithCfg } from './merge'
 import type { NormalizedGearArtifact } from './importers/gearDbNormalizer'
 
 const RANK_MIN = 1
@@ -11,12 +21,12 @@ const RANK_MAX = 6
 export const KEEP_UNIQUES_CFG_SENTINEL = -9000
 
 export type KeepUniqueTuple = {
-  slot: ArtifactTypeId
-  set: ArtifactSetId
-  rank: RankValue
-  rarity: RankValue
+  slots: ArtifactTypeId[]
+  sets: ArtifactSetId[]
+  ranks: RankValue[]
+  rarities: RankValue[]
   mainStat: StatVariant
-  factionId: FactionId | null
+  factions: FactionId[]
 }
 
 export type KeepUniqueRule = {
@@ -26,6 +36,25 @@ export type KeepUniqueRule = {
   enabled: boolean
 }
 
+export type KeepUniqueDetectionArtifact = {
+  rowKey: number
+  slot: ArtifactTypeId
+  set: ArtifactSetId
+  rank: RankValue
+  rarity: RankValue
+  level: LevelMilestone
+  exactLevel: number | null
+  faction: FactionId
+  mainStat: StatVariant
+  substats: KeepUniqueDetectionSubstat[]
+}
+
+export type KeepUniqueDetectionSubstat = {
+  variant: StatVariant
+  isFlat: boolean
+  value: number
+}
+
 export type KeepUniqueDetectionEntry = {
   hash: string
   tuple: KeepUniqueTuple
@@ -33,16 +62,28 @@ export type KeepUniqueDetectionEntry = {
   ruleEnabled: boolean
   requiredCount: number
   currentCount: number
-  keptCount: number
   projectedCount: number
   deficit: number
   coveredByExisting: boolean
   rowKeys: number[]
+  artifacts: KeepUniqueDetectionArtifact[]
 }
 
 export type KeepUniqueDetectionSnapshot = {
   scannedAt: number
   entries: KeepUniqueDetectionEntry[]
+}
+
+export type KeepUniqueCandidate = {
+  row: TesterPreviewRow
+  artifact: NormalizedGearArtifact
+  rowKey: number
+  groupKey: KeepUniqueGroupKey
+}
+
+export type KeepUniqueCandidateSnapshot = {
+  candidates: KeepUniqueCandidate[]
+  uniqueRowKeys: ReadonlySet<number>
 }
 
 export type KeepUniquesMergeInput = {
@@ -52,7 +93,7 @@ export type KeepUniquesMergeInput = {
 }
 
 export type KeepUniqueDetectionParams = {
-  rows: readonly TesterPreviewRow[]
+  candidates: readonly KeepUniqueCandidate[]
   rules: readonly KeepUniqueRule[]
   enabled: boolean
   now?: number
@@ -65,16 +106,23 @@ export function createKeepUniqueRuleId(): string {
 }
 
 /** Canonical hash for tuple comparisons and metadata lookups. */
+const canonicalizeList = (values: readonly number[]): string => {
+  if (!values.length) return '*'
+  const numeric = values.map((v) => Number(v)).filter((v) => Number.isFinite(v))
+  if (numeric.length === 0) return '*'
+  numeric.sort((a, b) => a - b)
+  return numeric.join(',')
+}
+
 export function hashKeepUniqueTuple(tuple: KeepUniqueTuple): string {
-  const factionPart = tuple.factionId == null ? '0' : String(tuple.factionId)
   return [
-    Number(tuple.slot),
-    Number(tuple.set),
-    Number(tuple.rank),
-    Number(tuple.rarity),
+    canonicalizeList(tuple.slots),
+    canonicalizeList(tuple.sets),
+    canonicalizeList(tuple.ranks),
+    canonicalizeList(tuple.rarities),
     Number(tuple.mainStat),
-    factionPart,
-  ].join(':')
+    canonicalizeList(tuple.factions),
+  ].join('|')
 }
 
 /** Clamp ranks/rarities to the valid 1..6 range. */
@@ -93,25 +141,78 @@ const coerceStatVariant = (value: unknown): StatVariant => {
   return numeric as StatVariant
 }
 
+const normalizeSelectionArray = <T extends number>(
+  value: unknown,
+  coerce: (raw: unknown) => T | null,
+): T[] => {
+  if (value == null) return []
+  const list = Array.isArray(value) ? value : [value]
+  const seen = new Set<string>()
+  const result: T[] = []
+  for (const raw of list) {
+    if (Array.isArray(raw)) {
+      for (const nested of normalizeSelectionArray(raw, coerce)) {
+        const key = String(nested)
+        if (seen.has(key)) continue
+        seen.add(key)
+        result.push(nested)
+      }
+      continue
+    }
+    const normalized = coerce(raw)
+    if (normalized == null) continue
+    const key = String(normalized)
+    if (seen.has(key)) continue
+    seen.add(key)
+    result.push(normalized)
+  }
+  return result
+}
+
+const coerceArtifactTypeId = (value: unknown): ArtifactTypeId | null => {
+  const numeric = Number(value)
+  if (!Number.isFinite(numeric)) return null
+  return Math.floor(numeric) as ArtifactTypeId
+}
+
+const coerceArtifactSetId = (value: unknown): ArtifactSetId | null => {
+  const numeric = Number(value)
+  if (!Number.isFinite(numeric)) return null
+  return Math.floor(numeric) as ArtifactSetId
+}
+
+const coerceFactionId = (value: unknown): FactionId | null => {
+  const numeric = Number(value)
+  if (!Number.isFinite(numeric)) return null
+  return Math.floor(numeric) as FactionId
+}
+
 /** Normalize tuple payloads loaded from HSFC/autosave. */
 export function normalizeKeepUniqueTuple(value: unknown): KeepUniqueTuple | null {
   if (!value || typeof value !== 'object') return null
   const rec = value as Record<string, unknown>
-  const slot = Number(rec.slot)
-  const set = Number(rec.set)
-  if (!Number.isFinite(slot) || !Number.isFinite(set)) return null
-  const rank = clampRankOrRarity(rec.rank)
-  const rarity = clampRankOrRarity(rec.rarity)
+  const slotValues = normalizeSelectionArray(rec.slots, coerceArtifactTypeId)
+  const setValues = normalizeSelectionArray(rec.sets, coerceArtifactSetId)
+  const rankValues = normalizeSelectionArray(rec.ranks, (raw) => {
+    if (raw == null || raw === '') return null
+    return clampRankOrRarity(raw)
+  })
+  const rarityValues = normalizeSelectionArray(rec.rarities, (raw) => {
+    if (raw == null || raw === '') return null
+    return clampRankOrRarity(raw)
+  })
   const mainStat = coerceStatVariant(rec.mainStat)
-  const factionValue = Number(rec.factionId ?? 0)
-  const factionId = Number.isFinite(factionValue) ? (factionValue as FactionId) : null
+  const factionValues = normalizeSelectionArray(rec.factions, (raw) => {
+    if (raw == null || raw === '') return null
+    return coerceFactionId(raw)
+  })
   return {
-    slot: slot as ArtifactTypeId,
-    set: set as ArtifactSetId,
-    rank,
-    rarity,
+    slots: slotValues,
+    sets: setValues,
+    ranks: rankValues,
+    rarities: rarityValues,
     mainStat,
-    factionId: isAccessorySlot(slot) ? factionId : null,
+    factions: factionValues,
   }
 }
 
@@ -133,13 +234,6 @@ export function normalizeKeepUniqueRule(value: unknown): KeepUniqueRule | null {
   }
 }
 
-type TupleStats = {
-  tuple: KeepUniqueTuple
-  currentCount: number
-  keptCount: number
-  rowKeys: number[]
-}
-
 /** Shared helper for mapping tester artifacts to the detection row-key. */
 export function getKeepUniqueRowKey(artifact: NormalizedGearArtifact): number {
   const testerRowId = Number((artifact.testerItem as { rowId?: number } | undefined)?.rowId ?? NaN)
@@ -159,78 +253,137 @@ export function getKeepUniqueGroupKey(artifact: NormalizedGearArtifact): KeepUni
   return [slot, set, mainStat, faction].join(':')
 }
 
-const tupleFromArtifact = (artifact: NormalizedGearArtifact): KeepUniqueTuple => {
-  const slot = Number(artifact.slot) as ArtifactTypeId
-  const mainStatVariant = artifact.mainStat?.variant ?? StatVariantEnum.Any
-  const tuple: KeepUniqueTuple = {
-    slot,
-    set: Number(artifact.set) as ArtifactSetId,
-    rank: clampRankOrRarity(artifact.rank),
-    rarity: clampRankOrRarity(artifact.rarity),
-    mainStat: mainStatVariant,
-    factionId: isAccessorySlot(slot) ? (artifact.faction as FactionId ?? 0) : null,
-  }
-  return tuple
+const matchesSelection = (selection: readonly number[], candidate: number): boolean => {
+  if (!selection.length) return true
+  return selection.some((value) => Number(value) === Number(candidate))
 }
 
-const buildTupleStats = (rows: readonly TesterPreviewRow[]): Map<string, TupleStats> => {
-  const stats = new Map<string, TupleStats>()
+/** Determine whether an artifact satisfies a Keep Unique tuple filter. */
+export function artifactMatchesKeepUniqueRule(artifact: NormalizedGearArtifact, tuple: KeepUniqueTuple): boolean {
+  const slot = Number(artifact.slot)
+  if (!matchesSelection(tuple.slots, slot)) return false
+
+  const setId = Number(artifact.set)
+  if (!matchesSelection(tuple.sets, setId)) return false
+
+  const rankValue = Number(artifact.rank)
+  if (!matchesSelection(tuple.ranks, rankValue)) return false
+
+  const rarityValue = Number(artifact.rarity)
+  if (!matchesSelection(tuple.rarities, rarityValue)) return false
+
+  if (tuple.mainStat !== StatVariantEnum.Any) {
+    const artifactMain = artifact.mainStat?.variant
+    if (artifactMain !== tuple.mainStat) return false
+  }
+
+  const faction = isAccessorySlot(slot) ? Number(artifact.faction ?? 0) : 0
+  if (!matchesSelection(tuple.factions, faction)) return false
+
+  return true
+}
+
+const toDetectionSubstats = (artifact: NormalizedGearArtifact): KeepUniqueDetectionSubstat[] => (
+  artifact.substats.map((stat) => ({
+    variant: stat.variant,
+    isFlat: stat.isFlat,
+    value: Number((stat.totalValue + stat.glyphValue).toFixed(3)),
+  }))
+)
+
+const toDetectionArtifact = (candidate: KeepUniqueCandidate): KeepUniqueDetectionArtifact => {
+  const { artifact, rowKey } = candidate
+  return {
+    rowKey,
+    slot: artifact.slot,
+    set: artifact.set,
+    rank: artifact.rank,
+    rarity: artifact.rarity,
+    level: artifact.level,
+    exactLevel: artifact.exactLevel ?? null,
+    faction: isAccessorySlot(artifact.slot) ? artifact.faction : (0 as FactionId),
+    mainStat: artifact.mainStat?.variant ?? StatVariantEnum.Any,
+    substats: toDetectionSubstats(artifact),
+  }
+}
+
+export function collectKeepUniqueCandidates(params: {
+  rows: readonly TesterPreviewRow[]
+  baseRules: readonly HsfRuleWithCfg[]
+  configModes: SellfileExportMode[]
+}): KeepUniqueCandidateSnapshot {
+  const { rows, baseRules, configModes } = params
+  if (!rows.length) return { candidates: [], uniqueRowKeys: new Set() }
+  const groupStats = new Map<string, { total: number; sold: number; matches: KeepUniqueCandidate[] }>()
+  const baseRuleList: HsfRuleWithCfg[] = Array.isArray(baseRules) ? [...baseRules] : []
+  const baseRuleCount = baseRuleList.length
+
   for (const row of rows) {
-    const tuple = tupleFromArtifact(row.artifact)
-    const hash = hashKeepUniqueTuple(tuple)
-    const entry = stats.get(hash)
+    const artifact = row.artifact
+    const rowKey = getKeepUniqueRowKey(artifact)
+    const groupKey = getKeepUniqueGroupKey(artifact)
+    const sold = (() => {
+      if (baseRuleCount === 0) return true
+      const { firstMatch } = evaluateMatchesByConfig(baseRuleList, artifact.testerItem, { configModes })
+      return !firstMatch || firstMatch.keep !== true
+    })()
+    const entry = groupStats.get(groupKey)
     if (entry) {
-      entry.currentCount += 1
-      if (row.match?.keep === true) entry.keptCount += 1
-      entry.rowKeys.push(getKeepUniqueRowKey(row.artifact))
-      continue
+      entry.total += 1
+      if (sold) {
+        entry.sold += 1
+        entry.matches.push({ row, artifact, rowKey, groupKey })
+      }
+    } else {
+      groupStats.set(groupKey, {
+        total: 1,
+        sold: sold ? 1 : 0,
+        matches: sold ? [{ row, artifact, rowKey, groupKey }] : [],
+      })
     }
-    stats.set(hash, {
-      tuple,
-      currentCount: 1,
-      keptCount: row.match?.keep === true ? 1 : 0,
-      rowKeys: [getKeepUniqueRowKey(row.artifact)],
-    })
   }
-  return stats
+
+  const candidates: KeepUniqueCandidate[] = []
+  const uniqueRowKeys = new Set<number>()
+  for (const entry of groupStats.values()) {
+    if (entry.total > 0 && entry.sold === entry.total) {
+      for (const candidate of entry.matches) {
+        candidates.push(candidate)
+        uniqueRowKeys.add(candidate.rowKey)
+      }
+    }
+  }
+
+  return { candidates, uniqueRowKeys }
 }
 
-/** Compute Keep Unique tuple coverage against the current tester rows. */
+/** Compute Keep Unique tuple coverage against the candidate sold rows. */
 export function computeKeepUniqueProtection(params: KeepUniqueDetectionParams): KeepUniqueDetectionSnapshot {
-  const { rows, rules, enabled, now } = params
-  const statsByHash = buildTupleStats(rows)
+  const { candidates, rules, enabled, now } = params
   const entries: KeepUniqueDetectionEntry[] = []
   const timestamp = Number.isFinite(now) ? Number(now) : Date.now()
 
   for (const rule of rules) {
     const tuple = rule.tuple
-    const hash = hashKeepUniqueTuple(tuple)
-    const stats = statsByHash.get(hash)
-    const currentCount = stats?.currentCount ?? 0
-    const keptCount = stats?.keptCount ?? 0
-    const rowKeys = stats?.rowKeys ?? []
+    const matching = candidates.filter((candidate) => artifactMatchesKeepUniqueRule(candidate.artifact, tuple))
     const required = Math.max(1, Math.floor(rule.requiredCount))
-    const projected = (() => {
-      if (enabled && rule.enabled) {
-        const target = Math.max(keptCount, required)
-        return Math.min(currentCount, target)
-      }
-      return Math.min(currentCount, keptCount)
-    })()
+    const currentCount = matching.length
+    const projected = enabled && rule.enabled ? currentCount : 0
     const deficit = Math.max(0, required - projected)
-    const coveredByExisting = keptCount >= Math.min(required, currentCount)
+    const rowKeys = matching.map((match) => match.rowKey)
+    const artifacts = matching.map((match) => toDetectionArtifact(match))
     entries.push({
-      hash,
+      hash: hashKeepUniqueTuple(tuple),
       tuple,
       ruleId: rule.id,
       ruleEnabled: rule.enabled,
       requiredCount: required,
       currentCount,
-      keptCount,
       projectedCount: projected,
       deficit,
-      coveredByExisting,
+      coveredByExisting: currentCount === 0,
       rowKeys,
+      artifacts,
     })
   }
 
