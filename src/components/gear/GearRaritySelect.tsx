@@ -74,15 +74,6 @@ export function GearRaritySelect({
               : t('rarityMythical')
   )
   const renderSelected = (() => {
-    if (isMulti) {
-      if (!multiValues || multiValues.length === 0) return <Typography variant="body2">{t('any')}</Typography>
-      const limit = 3
-      const labels = multiValues.map((entry) => rarityLabel(entry))
-      const displayed = labels.slice(0, limit)
-      const overflow = labels.length - displayed.length
-      const summary = overflow > 0 ? `${displayed.join(', ')} (+${overflow})` : displayed.join(', ')
-      return <Typography variant="body2">{summary}</Typography>
-    }
     if (singleValue == null) return <Typography variant="body2">{t('any')}</Typography>
     return <Typography variant="body2">{rarityLabel(Number(singleValue))}</Typography>
   })()
@@ -93,7 +84,7 @@ export function GearRaritySelect({
       onChange={handleChange}
       multiple={isMulti}
       displayEmpty
-      renderValue={() => renderSelected}
+      {...(!isMulti ? { renderValue: () => renderSelected } : {})}
       sx={resolvedSx}
       {...menuPropsAttr}
     >

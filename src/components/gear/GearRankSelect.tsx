@@ -83,18 +83,9 @@ export function GearRankSelect({
     singleHandler(valueString === '' ? null : (Math.max(1, Math.min(6, Number(valueString))) as RankValue))
   }
   const renderSelected = useMemo(() => {
-    if (isMulti) {
-      if (multiValues.length === 0) return <Typography variant="body2">{t('any')}</Typography>
-      const limit = 3
-      const labels = multiValues.map((entry) => rankLabel(entry))
-      const displayed = labels.slice(0, limit)
-      const overflow = labels.length - displayed.length
-      const summary = overflow > 0 ? `${displayed.join(', ')} (+${overflow})` : displayed.join(', ')
-      return <Typography variant="body2">{summary}</Typography>
-    }
     if (singleValue == null) return <Typography variant="body2">{t('any')}</Typography>
     return <Typography variant="body2">{rankLabel(Number(singleValue))}</Typography>
-  }, [isMulti, multiValues, rankLabel, singleValue, t])
+  }, [rankLabel, singleValue, t])
   return (
     <Select
       size={size}
@@ -103,7 +94,7 @@ export function GearRankSelect({
       sx={resolvedSx}
       multiple={isMulti}
       displayEmpty
-      renderValue={() => renderSelected}
+      {...(!isMulti ? { renderValue: () => renderSelected } : {})}
       {...menuPropsAttr}
     >
       {allowAny && !isMulti ? <MenuItem value="">{t('any')}</MenuItem> : null}

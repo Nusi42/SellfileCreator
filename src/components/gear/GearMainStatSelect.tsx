@@ -99,18 +99,9 @@ export function GearMainStatSelect({
     : (sx ?? {})
   const menuPropsAttr = menuProps ? { MenuProps: menuProps } : {}
   const renderSelected = useMemo(() => {
-    if (isMulti) {
-      if (multiValues.length === 0) return <Typography variant="body2">{anyText}</Typography>
-      const limit = 3
-      const labels = multiValues.map((variant) => t(statVariantI18nKey(variant)))
-      const displayed = labels.slice(0, limit)
-      const overflow = labels.length - displayed.length
-      const summary = overflow > 0 ? `${displayed.join(', ')} (+${overflow})` : displayed.join(', ')
-      return <Typography variant="body2">{summary}</Typography>
-    }
     if (Number(singleValue) === Number(anyValue)) return <Typography variant="body2">{anyText}</Typography>
     return <Typography variant="body2">{t(statVariantI18nKey(singleValue))}</Typography>
-  }, [anyText, anyValue, isMulti, multiValues, singleValue, t])
+  }, [anyText, anyValue, singleValue, t])
   return (
     <Select
       size={size}
@@ -119,7 +110,7 @@ export function GearMainStatSelect({
       {...menuPropsAttr}
       multiple={isMulti}
       displayEmpty
-      renderValue={() => renderSelected}
+      {...(!isMulti ? { renderValue: () => renderSelected } : {})}
       sx={resolvedSx}
     >
       {isMulti ? (

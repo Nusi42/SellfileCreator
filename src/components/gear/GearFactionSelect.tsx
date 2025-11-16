@@ -1,4 +1,4 @@
-import { Box, ListSubheader, MenuItem, Select, Typography } from '@mui/material'
+import { Box, ListSubheader, MenuItem, Select } from '@mui/material'
 import type { SelectChangeEvent, SelectProps } from '@mui/material/Select'
 import type { SxProps, Theme } from '@mui/material/styles'
 import { useMemo } from 'react'
@@ -77,15 +77,6 @@ export function GearFactionSelect({
     singleHandler(valueString === '' ? null : (Number(valueString) as FactionId))
   }
   const renderSelected = () => {
-    if (isMulti) {
-      if (!multiValues.length) return <Typography variant="body2">{t('any')}</Typography>
-      const limit = 3
-      const labels = multiValues.map((code) => t(factionI18nKey(code)))
-      const displayed = labels.slice(0, limit)
-      const overflow = labels.length - displayed.length
-      const summary = overflow > 0 ? `${displayed.join(', ')} (+${overflow})` : displayed.join(', ')
-      return <Typography variant="body2">{summary}</Typography>
-    }
     if (!singleValue) return t('any')
     const label = t(factionI18nKey(singleValue))
     return (
@@ -105,7 +96,7 @@ export function GearFactionSelect({
       onChange={handleChange}
       multiple={isMulti}
       displayEmpty
-      renderValue={() => renderSelected()}
+      {...(!isMulti ? { renderValue: () => renderSelected() } : {})}
       MenuProps={menuProps ?? FACTION_MENU_PROPS}
       sx={resolvedSx}
     >
