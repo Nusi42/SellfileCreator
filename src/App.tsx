@@ -1236,11 +1236,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const setFilterCollapsed = setFilterCollapsedPref
   const [limitConfigsToFiltered, setLimitConfigsToFiltered] = useState<boolean>(false)
   const [testerConfigFilterMode, setTesterConfigFilterMode] = useState<TesterConfigFilterMode>('off')
-  useEffect(() => {
-    if (customCfgs.length === 0 && !limitConfigsToFiltered) {
-      setLimitConfigsToFiltered(true)
-    }
-  }, [customCfgs.length, limitConfigsToFiltered])
   const rulesFilterPanelRef = useRef<RulesFilterPanelHandle | null>(null)
   const filterShortcutPendingFocusRef = useRef(false)
 
