@@ -1,22 +1,36 @@
-import { MenuItem, Select } from '@mui/material'
+import { MenuItem, Select, Typography } from '@mui/material'
 import type { SelectChangeEvent, SelectProps } from '@mui/material/Select'
 import type { SxProps, Theme } from '@mui/material/styles'
 import { useMemo } from 'react'
 import { useI18n } from '../../lib/i18n'
-import { DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT, statVariantI18nKey, type StatVariant } from '../../lib/types'
+import { DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT, compareVariants, statVariantI18nKey, type StatVariant } from '../../lib/types'
 
-type MainStatSelectProps = {
-  value: StatVariant
-  onChange: (next: StatVariant) => void
+const ANY_SENTINEL = '__main_any'
+
+type MainStatSelectBaseProps = {
   options: readonly StatVariant[]
   anyValue?: StatVariant
   anyLabel?: string
   colorOverrides?: Record<number, { fg?: string }>
   showBorderColors?: boolean
-  size?: SelectProps<number>['size']
-  menuProps?: SelectProps<number>['MenuProps']
+  size?: SelectProps<string>['size']
+  menuProps?: SelectProps<string>['MenuProps']
   sx?: SxProps<Theme>
 }
+
+type MainStatSelectSingleProps = MainStatSelectBaseProps & {
+  multiple?: false
+  value: StatVariant
+  onChange: (next: StatVariant) => void
+}
+
+type MainStatSelectMultiProps = MainStatSelectBaseProps & {
+  multiple: true
+  value: StatVariant[]
+  onChange: (next: StatVariant[]) => void
+}
+
+type MainStatSelectProps = MainStatSelectSingleProps | MainStatSelectMultiProps
 
 export function GearMainStatSelect({
   value,
@@ -29,10 +43,23 @@ export function GearMainStatSelect({
   size = 'small',
   menuProps,
   sx,
+  multiple = false,
 }: MainStatSelectProps) {
   const { t } = useI18n()
   const anyText = anyLabel ?? t('any')
-  const selectValue = Number(value)
+  const isMulti = Boolean(multiple)
+  const normalizedOptions = useMemo(() => {
+    const filtered = options.filter((variant) => Number(variant) !== Number(anyValue))
+    return filtered.slice().sort(compareVariants)
+  }, [anyValue, options])
+  const multiValues = useMemo<StatVariant[]>(() => {
+    if (!isMulti) return []
+    return Array.isArray(value) ? (value as StatVariant[]) : []
+  }, [isMulti, value])
+  const singleValue = !isMulti ? (value as StatVariant) : (anyValue as StatVariant)
+  const selectValue: string | string[] = isMulti
+    ? multiValues.map((variant) => String(variant))
+    : String(singleValue)
   const mergeSx = (base?: SxProps<Theme>, extra?: SxProps<Theme>): SxProps<Theme> => {
     if (!extra) return (base ?? {}) as SxProps<Theme>
     if (!base) return extra
@@ -41,31 +68,69 @@ export function GearMainStatSelect({
   }
   // Pull the current color ahead of render so the Select button mirrors the stat chips.
   const selectedColor = useMemo(() => {
-    if (!showBorderColors) return undefined
-    if (selectValue === Number(anyValue)) return undefined
-    return colorOverrides?.[selectValue]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[selectValue]
-  }, [colorOverrides, selectValue, showBorderColors, anyValue])
-  const handleChange = (event: SelectChangeEvent<number>) => {
-    const raw = Number(event.target.value)
-    onChange(Number.isFinite(raw) ? (raw as StatVariant) : anyValue)
+    if (!showBorderColors || isMulti) return undefined
+    if (Number(singleValue) === Number(anyValue)) return undefined
+    const numeric = Number(singleValue)
+    return colorOverrides?.[numeric]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[numeric]
+  }, [anyValue, colorOverrides, isMulti, showBorderColors, singleValue])
+  const handleChange = (event: SelectChangeEvent<string | string[]>) => {
+    const raw = event.target.value
+    if (isMulti) {
+      const multiHandler = onChange as (next: StatVariant[]) => void
+      const list = Array.isArray(raw) ? raw : [raw]
+      if (list.includes(ANY_SENTINEL)) {
+        multiHandler([])
+        return
+      }
+      const deduped = Array.from(new Set(list))
+        .map((entry) => Number(entry))
+        .filter((entry) => Number.isFinite(entry))
+        .map((entry) => entry as StatVariant)
+      deduped.sort(compareVariants)
+      multiHandler(deduped)
+      return
+    }
+    const numeric = Number(Array.isArray(raw) ? raw[0] : raw)
+    const singleHandler = onChange as (next: StatVariant) => void
+    singleHandler(Number.isFinite(numeric) ? (numeric as StatVariant) : anyValue)
   }
   const resolvedSx: SxProps<Theme> = showBorderColors
     ? mergeSx(sx, { '& .MuiSelect-select': { color: selectedColor } })
     : (sx ?? {})
   const menuPropsAttr = menuProps ? { MenuProps: menuProps } : {}
+  const renderSelected = useMemo(() => {
+    if (isMulti) {
+      if (multiValues.length === 0) return <Typography variant="body2">{anyText}</Typography>
+      const limit = 3
+      const labels = multiValues.map((variant) => t(statVariantI18nKey(variant)))
+      const displayed = labels.slice(0, limit)
+      const overflow = labels.length - displayed.length
+      const summary = overflow > 0 ? `${displayed.join(', ')} (+${overflow})` : displayed.join(', ')
+      return <Typography variant="body2">{summary}</Typography>
+    }
+    if (Number(singleValue) === Number(anyValue)) return <Typography variant="body2">{anyText}</Typography>
+    return <Typography variant="body2">{t(statVariantI18nKey(singleValue))}</Typography>
+  }, [anyText, anyValue, isMulti, multiValues, singleValue, t])
   return (
     <Select
       size={size}
       value={selectValue}
       onChange={handleChange}
       {...menuPropsAttr}
+      multiple={isMulti}
+      displayEmpty
+      renderValue={() => renderSelected}
       sx={resolvedSx}
     >
-      <MenuItem value={Number(anyValue)}>{anyText}</MenuItem>
-      {options.map((variant) => (
+      {isMulti ? (
+        <MenuItem value={ANY_SENTINEL}>{anyText}</MenuItem>
+      ) : (
+        <MenuItem value={String(anyValue)}>{anyText}</MenuItem>
+      )}
+      {normalizedOptions.map((variant) => (
         <MenuItem
           key={variant}
-          value={variant}
+          value={String(variant)}
           sx={{ color: showBorderColors ? (colorOverrides?.[variant]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[variant]) : undefined }}
         >
           {t(statVariantI18nKey(variant))}

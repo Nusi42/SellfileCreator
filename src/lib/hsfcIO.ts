@@ -38,6 +38,7 @@ import {
   type ArtifactSetId,
   type RankValue,
   type FactionId,
+  StatVariant as StatVariantEnum,
 } from './types'
 import { NBSP } from './constants'
 import {
@@ -839,7 +840,10 @@ export function buildHsfcPayload(args: {
         metaSetIds: [...(rule.tuple.metaSetIds ?? [])],
         ranks: rule.tuple.ranks.map((rank) => Number(rank) as RankValue),
         rarities: rule.tuple.rarities.map((rarity) => Number(rarity) as RankValue),
-        mainStat: Number(rule.tuple.mainStat),
+        mainStats: (rule.tuple.mainStats ?? []).map((stat) => Number(stat)),
+        mainStat: rule.tuple.mainStats.length > 0
+          ? Number(rule.tuple.mainStats[0])
+          : Number(StatVariantEnum.Any),
         factions: rule.tuple.factions.map((faction) => Number(faction) as FactionId),
       },
     })),

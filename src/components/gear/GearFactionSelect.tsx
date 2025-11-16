@@ -1,11 +1,13 @@
-import { Box, ListSubheader, MenuItem, Select } from '@mui/material'
+import { Box, ListSubheader, MenuItem, Select, Typography } from '@mui/material'
 import type { SelectChangeEvent, SelectProps } from '@mui/material/Select'
 import type { SxProps, Theme } from '@mui/material/styles'
+import { useMemo } from 'react'
 import { useI18n } from '../../lib/i18n'
 import { Faction, factionI18nKey, type FactionId } from '../../lib/types'
 import { FactionOptionLabel } from '../FactionIcon'
 
 const FACTION_MENU_PROPS = { PaperProps: { sx: { maxHeight: 360 } } } as const
+const ANY_SENTINEL = '__faction_any'
 
 const FACTION_GROUPS: Array<{ labelKey: string; ids: FactionId[] }> = [
   { labelKey: 'factionGroupTelerianLeague', ids: [Faction.BannerLords, Faction.HighElves, Faction.SacredOrder, Faction.Barbarians] },
@@ -14,15 +16,27 @@ const FACTION_GROUPS: Array<{ labelKey: string; ids: FactionId[] }> = [
   { labelKey: 'factionGroupNyresanUnion', ids: [Faction.Dwarves, Faction.Shadowkin, Faction.SylvanWatchers] },
 ]
 
-type FactionSelectProps = {
-  value: FactionId | null
-  onChange: (next: FactionId | null) => void
+type FactionSelectBaseProps = {
   disabled?: boolean
   allowAny?: boolean
-  size?: SelectProps<string>['size']
-  menuProps?: SelectProps<string>['MenuProps']
+  size?: SelectProps<string | string[]>['size']
+  menuProps?: SelectProps<string | string[]>['MenuProps']
   sx?: SxProps<Theme>
 }
+
+type FactionSelectSingleProps = FactionSelectBaseProps & {
+  multiple?: false
+  value: FactionId | null
+  onChange: (next: FactionId | null) => void
+}
+
+type FactionSelectMultiProps = FactionSelectBaseProps & {
+  multiple: true
+  value: FactionId[]
+  onChange: (next: FactionId[]) => void
+}
+
+type FactionSelectProps = FactionSelectSingleProps | FactionSelectMultiProps
 
 export function GearFactionSelect({
   value,
@@ -32,34 +46,74 @@ export function GearFactionSelect({
   size = 'small',
   menuProps,
   sx,
+  multiple = false,
 }: FactionSelectProps) {
   const { t } = useI18n()
   const resolvedSx: SxProps<Theme> = sx ?? {}
-  const handleChange = (event: SelectChangeEvent<string>) => {
+  const isMulti = Boolean(multiple)
+  const multiValues = useMemo<FactionId[]>(() => {
+    if (!isMulti) return []
+    return Array.isArray(value) ? (value as FactionId[]) : []
+  }, [isMulti, value])
+  const singleValue = !isMulti ? (value as FactionId | null) : null
+  const handleChange = (event: SelectChangeEvent<string | string[]>) => {
     const raw = event.target.value
-    // Carry null through for the "Any faction" case so accessories without faction quickly reset.
-    onChange(raw === '' ? null : (Number(raw) as FactionId))
+    if (isMulti) {
+      const list = Array.isArray(raw) ? raw : [raw]
+      const multiHandler = onChange as (next: FactionId[]) => void
+      if (list.includes(ANY_SENTINEL)) {
+        multiHandler([])
+        return
+      }
+      const deduped = Array.from(new Set(list))
+        .map((entry) => Number(entry))
+        .filter((entry) => Number.isFinite(entry))
+        .map((entry) => entry as FactionId)
+      multiHandler(deduped)
+      return
+    }
+    const valueString = Array.isArray(raw) ? raw[0] : raw
+    const singleHandler = onChange as (next: FactionId | null) => void
+    singleHandler(valueString === '' ? null : (Number(valueString) as FactionId))
   }
-  const renderValue = () => {
-    if (!value) return t('any')
-    const label = t(factionI18nKey(value))
+  const renderSelected = () => {
+    if (isMulti) {
+      if (!multiValues.length) return <Typography variant="body2">{t('any')}</Typography>
+      const limit = 3
+      const labels = multiValues.map((code) => t(factionI18nKey(code)))
+      const displayed = labels.slice(0, limit)
+      const overflow = labels.length - displayed.length
+      const summary = overflow > 0 ? `${displayed.join(', ')} (+${overflow})` : displayed.join(', ')
+      return <Typography variant="body2">{summary}</Typography>
+    }
+    if (!singleValue) return t('any')
+    const label = t(factionI18nKey(singleValue))
     return (
       <Box component="span" title={label} sx={{ display: 'inline-flex', alignItems: 'center', width: '100%' }}>
-        <FactionOptionLabel faction={value} label={label} truncate textSx={{ fontSize: '0.875rem' }} />
+        <FactionOptionLabel faction={singleValue} label={label} truncate textSx={{ fontSize: '0.875rem' }} />
       </Box>
     )
   }
+  const selectValue = isMulti
+    ? multiValues.map((entry) => String(entry))
+    : (singleValue == null ? '' : String(singleValue))
   return (
     <Select
       size={size}
       disabled={disabled}
-      value={value == null ? '' : String(value)}
+      value={selectValue}
       onChange={handleChange}
-      renderValue={renderValue}
+      multiple={isMulti}
+      displayEmpty
+      renderValue={() => renderSelected()}
       MenuProps={menuProps ?? FACTION_MENU_PROPS}
       sx={resolvedSx}
     >
-      {allowAny ? <MenuItem value="">{t('any')}</MenuItem> : null}
+      {allowAny ? (
+        isMulti
+          ? <MenuItem value={ANY_SENTINEL}>{t('any')}</MenuItem>
+          : <MenuItem value="">{t('any')}</MenuItem>
+      ) : null}
       {FACTION_GROUPS.map((group) => (
         <Box key={group.labelKey} component="div">
           {/* Render each faction group header before its member rows so localization stays readable. */}

@@ -37,7 +37,7 @@ This document covers file schemas, builder semantics, and compatibility notes.
 #### Keep Uniques payload
 
 - HSFC payloads also carry `KeepUniques?: KeepUniqueRule[]` plus `KeepUniquesEnabled?: boolean`. Autosave/clipboard/history reuse the same fields; omitting either key is treated as “off” with an empty tuple list.
-- Each rule entry serializes `{ id, requiredCount, enabled, tuple }`. Tuples are normalized via `normalizeKeepUniqueTuple`: `slot`, `set`, `rank`, `rarity`, `mainStat`, and optional `factionId` (accessory-only). Invalid combos are discarded during parsing so corrupted HSFC files never reach the UI.
+- Each rule entry serializes `{ id, requiredCount, enabled, tuple }`. Tuples are normalized via `normalizeKeepUniqueTuple`: `slot`, `set`, `rank`, `rarity`, `mainStats`, and optional `factionId` (accessory-only). `mainStats` stores the selected stat variants (empty array = Any). Invalid combos are discarded during parsing so corrupted HSFC files never reach the UI.
 - Importers clamp `rank`/`rarity` to `1..6`, coerce non-numeric stats to `StatVariant.Any`, and drop accessory factions whenever the tuple refers to an armor slot. IDs fall back to regenerated `ku_<timestamp>_<rand>` values when blanks arrive from external files.
 - Exporters write the tuples exactly as stored in app state. Detection snapshots (`keepUniqueDetection`) are runtime-only and never serialized; they rebuild automatically once the tester rows stabilize.
 - Downstream merge helpers label every emitted keep rule with `RULE_SOURCE_KEEP_UNIQUES` and `KEEP_UNIQUES_CFG_SENTINEL` so the Sellfile table, HSFC/HSF outputs, and downstream debuggers can pinpoint which keep rules were auto-generated from tuples.

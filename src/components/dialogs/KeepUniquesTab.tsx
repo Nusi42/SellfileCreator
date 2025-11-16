@@ -11,8 +11,6 @@ import {
   Stack,
   Switch,
   TextField,
-  ToggleButton,
-  ToggleButtonGroup,
   Tooltip,
   Typography,
 } from '@mui/material'
@@ -37,13 +35,12 @@ import {
   artifactSetNames,
   artifactTypeI18nKey,
   factionI18nKey,
-  RANK_VALUES,
   StatVariant as StatVariantEnum,
   statVariantI18nKey,
 } from '../../lib/types'
 import { isAccessorySlot } from '../../lib/testerDomain'
 import { useI18n } from '../../lib/i18n'
-import { GearFactionSelect, GearMainStatSelect, GearSetsSelect } from '../gear'
+import { GearFactionSelect, GearMainStatSelect, GearRankSelect, GearRaritySelect, GearSetsSelect, GearSlotSelect } from '../gear'
 import { artifactTypeIconList } from '../artifactTypeIcons'
 import { SetIcon } from '../SetIcon'
 import { TesterItemsGrid } from '../TesterItemsGrid'
@@ -222,8 +219,8 @@ export default function KeepUniquesTab({
     const rankSelection = tuple.ranks
     const raritySelection = tuple.rarities
     const mainStatOptions = getMainStatOptionsForSlots(slotSelection)
-    const mainStatValue = mainStatOptions.includes(tuple.mainStat) ? tuple.mainStat : StatVariantEnum.Any
-    const factionValue = hasAccessorySlot ? (tuple.factions[0] ?? null) : null
+    const mainStatSelection = dedupeNumericArray((tuple.mainStats ?? []).filter((variant) => mainStatOptions.includes(variant)))
+    const factionSelection = hasAccessorySlot ? dedupeNumericArray(tuple.factions ?? []) : []
     const selected = effectiveSelectedRuleId === rule.id
     const slotChips = (() => {
       if (slotSelection.length === 0) return [<Chip key="slot-any" label={t('any')} size="small" />]
@@ -297,12 +294,17 @@ export default function KeepUniquesTab({
         <Chip key={`rarity-${rarity}`} label={rarityLabel(rarity)} size="small" />
       ))
     })()
-    const mainStatChip = (
-      <Chip
-        label={mainStatValue === StatVariantEnum.Any ? t('any') : t(statVariantI18nKey(mainStatValue))}
-        size="small"
-      />
-    )
+    const mainStatChips = (() => {
+      if (mainStatSelection.length === 0) return [<Chip key="main-any" label={t('any')} size="small" />]
+      const limit = 3
+      const chips = mainStatSelection.slice(0, limit).map((variant) => (
+        <Chip key={`main-${variant}`} label={t(statVariantI18nKey(variant))} size="small" />
+      ))
+      if (mainStatSelection.length > limit) {
+        chips.push(<Chip key="main-more" label={`+${mainStatSelection.length - limit}`} size="small" />)
+      }
+      return chips
+    })()
     const factionChips = (() => {
       if (!hasAccessorySlot) return null
       if (!tuple.factions.length) return <Chip key="faction-any" label={t('any')} size="small" />
@@ -345,32 +347,20 @@ export default function KeepUniquesTab({
             {setChips}
             {rankChips}
             {rarityChips}
-            {mainStatChip}
+            {mainStatChips}
             {factionChips}
           </Box>
           <Stack spacing={1}>
             <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 1 }}>
-              <ToggleButtonGroup
+              <GearSlotSelect
+                multiple
+                value={slotSelection}
+                onChange={(nextSlots) => {
+                  setRuleTuple(rule.id, (prev) => sanitizeTupleForSlots(nextSlots, prev, metasets))
+                }}
                 size="small"
-                value={tuple.slots.map(String)}
-                onChange={(_, values: string[]) => {
-                  const parsed = values.map((val) => Number(val) as ArtifactTypeId)
-                  setRuleTuple(rule.id, (prev) => sanitizeTupleForSlots(parsed, prev, metasets))
-                }}
-                sx={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
-                  gap: 0.5,
-                }}
-              >
-                {artifactTypeIconList.map(({ id, Icon }) => (
-                  <Tooltip key={id} title={t(artifactTypeI18nKey(id))}>
-                    <ToggleButton value={String(id)} aria-label={t(artifactTypeI18nKey(id))}>
-                      <Icon fontSize="inherit" />
-                    </ToggleButton>
-                  </Tooltip>
-                ))}
-              </ToggleButtonGroup>
+                sx={{ minWidth: 0 }}
+              />
               <GearSetsSelect
                 value={setSelection}
                 onChange={(nextSets) => {
@@ -386,58 +376,33 @@ export default function KeepUniquesTab({
               />
             </Box>
             <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 1 }}>
-              <ToggleButtonGroup
+              <GearRankSelect
+                multiple
+                allowAny
+                value={rankSelection}
+                onChange={(nextRanks) => {
+                  setRuleTuple(rule.id, (prev) => ({ ...prev, ranks: nextRanks }))
+                }}
                 size="small"
-                value={rankSelection.map(String)}
-                onChange={(_, values: string[]) => {
-                  const parsed = values
-                    .map((val) => Number(val))
-                    .filter((num): num is RankValue => Number.isFinite(num) && num >= 1 && num <= 6)
-                    .sort((a, b) => a - b)
-                  setRuleTuple(rule.id, (prev) => ({ ...prev, ranks: parsed }))
+              />
+              <GearRaritySelect
+                multiple
+                allowAny
+                value={raritySelection}
+                onChange={(nextRarities) => {
+                  setRuleTuple(rule.id, (prev) => ({ ...prev, rarities: nextRarities }))
                 }}
-                sx={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
-                  gap: 0.5,
-                }}
-              >
-                {RANK_VALUES.map((rank) => (
-                  <ToggleButton key={`rank-${rank}`} value={String(rank)}>
-                    {t(`star${rank}`)}
-                  </ToggleButton>
-                ))}
-              </ToggleButtonGroup>
-              <ToggleButtonGroup
                 size="small"
-                value={raritySelection.map(String)}
-                onChange={(_, values: string[]) => {
-                  const parsed = values
-                    .map((val) => Number(val))
-                    .filter((num): num is RankValue => Number.isFinite(num) && num >= 1 && num <= 6)
-                    .sort((a, b) => a - b)
-                  setRuleTuple(rule.id, (prev) => ({ ...prev, rarities: parsed }))
-                }}
-                sx={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
-                  gap: 0.5,
-                }}
-              >
-                {RANK_VALUES.map((rarity) => (
-                  <ToggleButton key={`rarity-${rarity}`} value={String(rarity)}>
-                    {rarityLabel(rarity)}
-                  </ToggleButton>
-                ))}
-              </ToggleButtonGroup>
+              />
             </Box>
             <Box sx={{ display: 'grid', gridTemplateColumns: hasAccessorySlot ? 'repeat(2, minmax(0, 1fr))' : 'minmax(0, 1fr)', gap: 1 }}>
               <GearMainStatSelect
-                value={mainStatValue}
+                multiple
+                value={mainStatSelection}
                 options={mainStatOptions}
                 anyValue={StatVariantEnum.Any as StatVariant}
                 onChange={(nextMain) => {
-                  setRuleTuple(rule.id, (prev) => ({ ...prev, mainStat: nextMain }))
+                  setRuleTuple(rule.id, (prev) => ({ ...prev, mainStats: dedupeNumericArray(nextMain) }))
                 }}
                 colorOverrides={substatColors}
                 showBorderColors={useStatButtonColors}
@@ -445,9 +410,10 @@ export default function KeepUniquesTab({
               />
               {hasAccessorySlot ? (
                 <GearFactionSelect
-                  value={factionValue}
-                  onChange={(nextFaction) => {
-                    setRuleTuple(rule.id, (prev) => ({ ...prev, factions: nextFaction == null ? [] : [nextFaction] }))
+                  multiple
+                  value={factionSelection}
+                  onChange={(nextFactions) => {
+                    setRuleTuple(rule.id, (prev) => ({ ...prev, factions: dedupeNumericArray(nextFactions) }))
                   }}
                   size="small"
                 />
@@ -606,14 +572,13 @@ export default function KeepUniquesTab({
 function makeTupleForSlot(slot: ArtifactTypeId): KeepUniqueRule['tuple'] {
   const accessorySlot = isAccessorySlot(slot)
   const setPool = accessorySlot ? ACCESSORY_SET_IDS : ARTIFACT_SET_POOL
-  const mainOptions = getMainStatOptionsForSlots([slot])
   return {
     slots: [slot],
     sets: setPool.length > 0 ? [setPool[0] ?? (accessorySlot ? DEFAULT_ACCESSORY_SET_ID : DEFAULT_ARTIFACT_SET_ID)] : [],
     metaSetIds: [],
     ranks: [],
     rarities: [],
-    mainStat: mainOptions.includes(StatVariantEnum.Any) ? StatVariantEnum.Any : (mainOptions[0] ?? StatVariantEnum.Any),
+    mainStats: [],
     factions: accessorySlot ? [] : [],
   }
 }
@@ -630,13 +595,15 @@ function sanitizeTupleForSlots(slots: ArtifactTypeId[], tuple: KeepUniqueRule['t
   })
   const mainOptions = getMainStatOptionsForSlots(normalizedSlots)
   const hasAccessory = normalizedSlots.length === 0 || normalizedSlots.some((slotId) => isAccessorySlot(slotId))
+  const filteredMainStats = dedupeNumericArray((tuple.mainStats ?? []).filter((variant) => mainOptions.includes(variant)))
+  const filteredFactions = hasAccessory ? dedupeNumericArray(tuple.factions ?? []) : []
   return {
     ...tuple,
     slots: normalizedSlots,
     sets: filteredSets.length > 0 ? filteredSets : (allowedSetPool[0] ? [allowedSetPool[0]] : []),
     metaSetIds: filteredMetaIds,
-    mainStat: mainOptions.includes(tuple.mainStat) ? tuple.mainStat : StatVariantEnum.Any,
-    factions: hasAccessory ? tuple.factions : [],
+    mainStats: filteredMainStats,
+    factions: filteredFactions,
   }
 }
 

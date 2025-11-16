@@ -1,18 +1,32 @@
-import { MenuItem, Select } from '@mui/material'
+import { MenuItem, Select, Typography } from '@mui/material'
 import type { SelectChangeEvent, SelectProps } from '@mui/material/Select'
 import type { SxProps, Theme } from '@mui/material/styles'
 import { useMemo } from 'react'
 import { useI18n } from '../../lib/i18n'
 import type { RankValue } from '../../lib/types'
 
-type RankSelectProps = {
-  value: RankValue | null | number
-  onChange: (next: RankValue | null) => void
+const ANY_SENTINEL = '__rank_any'
+
+type RankSelectBaseProps = {
   allowAny?: boolean
   size?: SelectProps<string>['size']
   menuProps?: SelectProps<string>['MenuProps']
   sx?: SxProps<Theme>
 }
+
+type RankSelectSingleProps = RankSelectBaseProps & {
+  multiple?: false
+  value: RankValue | null | number
+  onChange: (next: RankValue | null) => void
+}
+
+type RankSelectMultiProps = RankSelectBaseProps & {
+  multiple: true
+  value: RankValue[]
+  onChange: (next: RankValue[]) => void
+}
+
+type RankSelectProps = RankSelectSingleProps | RankSelectMultiProps
 
 export function GearRankSelect({
   value,
@@ -21,6 +35,7 @@ export function GearRankSelect({
   size = 'small',
   menuProps,
   sx,
+  multiple = false,
 }: RankSelectProps) {
   const { t } = useI18n()
   const resolvedSx: SxProps<Theme> = sx ?? {}
@@ -40,20 +55,61 @@ export function GearRankSelect({
     // Translate lazily to avoid recomputing every render while still honoring locale changes.
     return (n: number) => t(starKey(n))
   }, [t])
-  const handleChange = (event: SelectChangeEvent<string>) => {
+  const isMulti = Boolean(multiple)
+  const multiValues = useMemo<RankValue[]>(() => {
+    if (!isMulti) return []
+    return Array.isArray(value) ? (value as RankValue[]) : []
+  }, [isMulti, value])
+  const singleValue = !isMulti ? (value as RankValue | null | number) : null
+  const selectValue: string | string[] = isMulti
+    ? multiValues.map((rank) => String(rank))
+    : (singleValue == null ? '' : String(singleValue))
+  const handleChange = (event: SelectChangeEvent<string | string[]>) => {
     const raw = event.target.value
-    // Empty string represents the "Any" sentinel when the caller opts in via allowAny.
-    onChange(raw === '' ? null : (Math.max(1, Math.min(6, Number(raw))) as RankValue))
+    if (isMulti) {
+      const list = Array.isArray(raw) ? raw : [raw]
+      const multiHandler = onChange as (next: RankValue[]) => void
+      if (list.includes(ANY_SENTINEL)) {
+        multiHandler([] as RankValue[])
+        return
+      }
+      const deduped = Array.from(new Set(list)).map((entry) => Math.max(1, Math.min(6, Number(entry))) as RankValue)
+      deduped.sort((a, b) => a - b)
+      multiHandler(deduped)
+      return
+    }
+    const valueString = typeof raw === 'string' ? raw : raw[0]
+    const singleHandler = onChange as (next: RankValue | null) => void
+    singleHandler(valueString === '' ? null : (Math.max(1, Math.min(6, Number(valueString))) as RankValue))
   }
+  const renderSelected = useMemo(() => {
+    if (isMulti) {
+      if (multiValues.length === 0) return <Typography variant="body2">{t('any')}</Typography>
+      const limit = 3
+      const labels = multiValues.map((entry) => rankLabel(entry))
+      const displayed = labels.slice(0, limit)
+      const overflow = labels.length - displayed.length
+      const summary = overflow > 0 ? `${displayed.join(', ')} (+${overflow})` : displayed.join(', ')
+      return <Typography variant="body2">{summary}</Typography>
+    }
+    if (singleValue == null) return <Typography variant="body2">{t('any')}</Typography>
+    return <Typography variant="body2">{rankLabel(Number(singleValue))}</Typography>
+  }, [isMulti, multiValues, rankLabel, singleValue, t])
   return (
     <Select
       size={size}
-      value={value == null ? '' : String(value)}
+      value={selectValue}
       onChange={handleChange}
       sx={resolvedSx}
+      multiple={isMulti}
+      displayEmpty
+      renderValue={() => renderSelected}
       {...menuPropsAttr}
     >
-      {allowAny ? <MenuItem value="">{t('any')}</MenuItem> : null}
+      {allowAny && !isMulti ? <MenuItem value="">{t('any')}</MenuItem> : null}
+      {allowAny && isMulti ? (
+        <MenuItem value={ANY_SENTINEL}>{t('any')}</MenuItem>
+      ) : null}
       {[1, 2, 3, 4, 5, 6].map((rank) => (
         <MenuItem key={rank} value={String(rank)}>
           {rankLabel(rank)}

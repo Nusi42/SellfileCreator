@@ -12,15 +12,27 @@ const SLOT_MENU_PROPS = {
   MenuListProps: { sx: { width: '100%', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 1, p: 1 } },
 } as const
 
-type SlotSelectProps = {
-  value: ArtifactTypeId | null
-  onChange: (next: ArtifactTypeId | null) => void
+type SlotSelectBaseProps = {
   allowAny?: boolean
   anyLabel?: string
   size?: SelectProps<string>['size']
   menuProps?: SelectProps<string>['MenuProps']
   sx?: SxProps<Theme>
 }
+
+type SlotSelectSingleProps = SlotSelectBaseProps & {
+  multiple?: false
+  value: ArtifactTypeId | null
+  onChange: (next: ArtifactTypeId | null) => void
+}
+
+type SlotSelectMultiProps = SlotSelectBaseProps & {
+  multiple: true
+  value: ArtifactTypeId[]
+  onChange: (next: ArtifactTypeId[]) => void
+}
+
+type SlotSelectProps = SlotSelectSingleProps | SlotSelectMultiProps
 
 export function GearSlotSelect({
   value,
@@ -30,30 +42,63 @@ export function GearSlotSelect({
   size = 'small',
   menuProps,
   sx,
+  multiple = false,
 }: SlotSelectProps) {
   const { t } = useI18n()
   const anyText = anyLabel ?? t('any')
   const resolvedSx: SxProps<Theme> = sx ?? {}
-  // Keep the Select value as a string so MenuItem values align with DOM data attributes.
-  const selectValue = value == null ? '' : String(value)
+  const isMulti = Boolean(multiple)
+  const multiSelected = useMemo<ArtifactTypeId[]>(() => {
+    if (!isMulti) return []
+    return Array.isArray(value) ? (value as ArtifactTypeId[]) : []
+  }, [isMulti, value])
+  const singleValue = !isMulti ? ((value as ArtifactTypeId | null) ?? null) : null
+  const selectValue: string | string[] = isMulti
+    ? multiSelected.map((slotId) => String(Number(slotId)))
+    : (singleValue == null ? '' : String(singleValue))
   const renderSelected = useMemo(() => {
-    if (value == null) {
-      // Null slot renders the shared "Any" label so both Gear dialog and Keep Uniques can share the affordance.
-      return <Typography variant="body2">{anyText}</Typography>
+    if (isMulti) {
+      if (multiSelected.length === 0) {
+        return <Typography variant="body2">{anyText}</Typography>
+      }
+      const limit = 3
+      const labels = multiSelected.map((slotId) => t(artifactTypeI18nKey(Number(slotId))))
+      const displayed = labels.slice(0, limit)
+      const overflow = labels.length - displayed.length
+      const summary = overflow > 0 ? `${displayed.join(', ')} (+${overflow})` : displayed.join(', ')
+      return <Typography variant="body2">{summary}</Typography>
     }
-    const slotDef = artifactTypeIconList.find((entry) => Number(entry.id) === Number(value))
+    if (singleValue == null) return <Typography variant="body2">{anyText}</Typography>
+    const slotDef = artifactTypeIconList.find((entry) => Number(entry.id) === Number(singleValue))
     const SlotIconComponent = slotDef?.Icon
     return (
       <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 1 }}>
         {SlotIconComponent ? <SlotIconComponent fontSize="small" /> : null}
-        <span>{t(artifactTypeI18nKey(Number(value)))}</span>
+        <span>{t(artifactTypeI18nKey(Number(singleValue)))}</span>
       </Box>
     )
-  }, [anyText, t, value])
-  const handleChange = (event: SelectChangeEvent<string>) => {
+  }, [anyText, isMulti, multiSelected, singleValue, t])
+  const handleChange = (event: SelectChangeEvent<string | string[]>) => {
     const raw = event.target.value
-    // Empty string acts as the "Any slot" sentinel so the caller can translate it to their preferred store value.
-    onChange(raw === '' ? null : (Number(raw) as ArtifactTypeId))
+    if (isMulti) {
+      const list = Array.isArray(raw) ? raw : [raw]
+      const multiHandler = onChange as (next: ArtifactTypeId[]) => void
+      const dedupedIds: ArtifactTypeId[] = []
+      const seen = new Set<string>()
+      list.forEach((entry) => {
+        const key = String(entry)
+        if (seen.has(key)) return
+        seen.add(key)
+        const numeric = Number(entry)
+        if (!Number.isFinite(numeric)) return
+        dedupedIds.push(Math.floor(numeric) as ArtifactTypeId)
+      })
+      multiHandler(dedupedIds)
+      return
+    }
+    const valueString = typeof raw === 'string' ? raw : raw[0]
+    const singleHandler = onChange as (next: ArtifactTypeId | null) => void
+    singleHandler(valueString === '' ? null : (Number(valueString) as ArtifactTypeId))
   }
   return (
     <Select
@@ -61,10 +106,12 @@ export function GearSlotSelect({
       value={selectValue}
       onChange={handleChange}
       renderValue={() => renderSelected}
+      multiple={isMulti}
       MenuProps={menuProps ?? SLOT_MENU_PROPS}
+      displayEmpty
       sx={resolvedSx}
     >
-      {allowAny ? (
+      {!isMulti && allowAny ? (
         <MenuItem value="">
           {anyText}
         </MenuItem>

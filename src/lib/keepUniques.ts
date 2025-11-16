@@ -27,7 +27,7 @@ export type KeepUniqueTuple = {
   metaSetIds: string[]
   ranks: RankValue[]
   rarities: RankValue[]
-  mainStat: StatVariant
+  mainStats: StatVariant[]
   factions: FactionId[]
 }
 
@@ -133,7 +133,7 @@ export function hashKeepUniqueTuple(tuple: KeepUniqueTuple): string {
     canonicalizeStringList(tuple.metaSetIds),
     canonicalizeList(tuple.ranks),
     canonicalizeList(tuple.rarities),
-    Number(tuple.mainStat),
+    canonicalizeList(tuple.mainStats),
     canonicalizeList(tuple.factions),
   ].join('|')
 }
@@ -238,7 +238,14 @@ export function normalizeKeepUniqueTuple(value: unknown): KeepUniqueTuple | null
     if (raw == null || raw === '') return null
     return clampRankOrRarity(raw)
   })
-  const mainStat = coerceStatVariant(rec.mainStat)
+  const mainSource = rec.mainStats ?? rec.mainStat
+  const mainStats = normalizeSelectionArray(mainSource, (raw) => {
+    if (raw == null || raw === '') return null
+    const variant = coerceStatVariant(raw)
+    if (variant === StatVariantEnum.Any) return null
+    return variant
+  })
+  if (mainStats.length > 1) mainStats.sort((a, b) => a - b)
   const factionValues = normalizeSelectionArray(rec.factions, (raw) => {
     if (raw == null || raw === '') return null
     return coerceFactionId(raw)
@@ -250,7 +257,7 @@ export function normalizeKeepUniqueTuple(value: unknown): KeepUniqueTuple | null
     metaSetIds,
     ranks: rankValues,
     rarities: rarityValues,
-    mainStat,
+    mainStats,
     factions: factionValues,
   }
 }
@@ -311,9 +318,10 @@ export function artifactMatchesKeepUniqueRule(artifact: NormalizedGearArtifact, 
   const rarityValue = Number(artifact.rarity)
   if (!matchesSelection(tuple.rarities, rarityValue)) return false
 
-  if (tuple.mainStat !== StatVariantEnum.Any) {
+  if (tuple.mainStats.length > 0) {
     const artifactMain = artifact.mainStat?.variant
-    if (artifactMain !== tuple.mainStat) return false
+    if (artifactMain == null) return false
+    if (!tuple.mainStats.some((variant) => variant === artifactMain)) return false
   }
 
   const faction = isAccessorySlot(slot) ? Number(artifact.faction ?? 0) : 0
