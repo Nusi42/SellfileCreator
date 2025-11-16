@@ -52,7 +52,7 @@ import PasteDialog from './components/PasteDialog'
 import NoteDialog from './components/NoteDialog'
 import { useManageColorsDialog } from './hooks/useManageColorsDialog'
 import { useSubstatTargetsDialog } from './hooks/useSubstatTargetsDialog'
-import { computeMergedRules, buildRulesForConfig, buildFinalSellRules, RULE_SOURCE_FINAL_SELL, RULE_SOURCE_HSF, type HsfRuleWithCfg } from './lib/merge'
+import { computeMergedRules, buildRulesForConfig, buildFinalSellRules, RULE_SOURCE_FINAL_SELL, RULE_SOURCE_HSF, RULE_SOURCE_KEEP_UNIQUES, type HsfRuleWithCfg } from './lib/merge'
 import { computeKeepUniqueProtection, type KeepUniqueDetectionSnapshot, type KeepUniqueRule } from './lib/keepUniques'
 import { updateConfigRulesCache, fingerprintConfigForRules, fingerprintSubstatTargets, mergeArtifactSets } from './lib/ruleCache'
 import { hasConfigMeaningfulDifferences } from './lib/configDiff'
@@ -229,7 +229,7 @@ function splitMergedRules(rules: readonly HsfRuleWithCfg[]): { baseRules: HsfRul
   const baseRules: HsfRuleWithCfg[] = []
   const finalSellRules: HsfRuleWithCfg[] = []
   for (const rule of rules) {
-    if (rule.__source === RULE_SOURCE_HSF) {
+    if (rule.__source === RULE_SOURCE_HSF || rule.__source === RULE_SOURCE_KEEP_UNIQUES) {
       baseRules.push(rule)
     } else if (rule.__source === RULE_SOURCE_FINAL_SELL) {
       finalSellRules.push(rule)
