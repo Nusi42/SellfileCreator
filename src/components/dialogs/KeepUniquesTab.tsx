@@ -192,9 +192,6 @@ export default function KeepUniquesTab({
       )
       return null
     }
-    if (deficitCount === 0) {
-      return <Alert severity="success">{t('keepUniquesAllProtected')}</Alert>
-    }
     detectionChip = (
       <Chip
         size="small"

@@ -174,7 +174,6 @@ const overrides: Catalog = {
   keepUniquesEnableLabel: 'Unikate behalten aktivieren',
   keepUniquesNoTesterData: 'Lade eine Gear-Datenbank, um gefährdete Tupel zu sehen.',
   keepUniquesScanPending: 'Testerreihen werden gescannt …',
-  keepUniquesAllProtected: 'Alle verfolgten Tupel sind bereits geschützt.',
   keepUniquesDeficitSummary: 'Gefährdete Tupel: {count}',
   keepUniquesRuleDeficit: '{count} fehlen',
   keepUniquesRuleCovered: 'Anderswo abgedeckt',

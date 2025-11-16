@@ -174,7 +174,6 @@ const catalog: Catalog = {
   keepUniquesEnableLabel: 'Ativar Manter únicos',
   keepUniquesNoTesterData: 'Carregue um banco de dados de equipamento para ver as tuplas em risco.',
   keepUniquesScanPending: 'Analisando linhas do testador…',
-  keepUniquesAllProtected: 'Todas as tuplas monitoradas já estão protegidas.',
   keepUniquesDeficitSummary: 'Tuplas em risco: {count}',
   keepUniquesRuleDeficit: 'Faltam {count}',
   keepUniquesRuleCovered: 'Coberta em outro lugar',

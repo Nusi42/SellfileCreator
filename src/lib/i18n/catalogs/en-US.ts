@@ -177,7 +177,6 @@ const enUS: Catalog = {
   keepUniquesEnableLabel: 'Enable Keep Uniques',
   keepUniquesNoTesterData: 'Load a gear database to inspect at-risk tuples.',
   keepUniquesScanPending: 'Scanning tester rows…',
-  keepUniquesAllProtected: 'All tracked tuples already have coverage.',
   keepUniquesDeficitSummary: 'At-risk tuples: {count}',
   keepUniquesRuleDeficit: 'Missing {count}',
   keepUniquesRuleCovered: 'Covered elsewhere',

@@ -174,7 +174,6 @@ const overrides: Catalog = {
   keepUniquesEnableLabel: 'Attiva Mantieni unici',
   keepUniquesNoTesterData: 'Carica un database di equipaggiamento per vedere le tuple a rischio.',
   keepUniquesScanPending: 'Scansione delle righe del tester…',
-  keepUniquesAllProtected: 'Tutte le tuple monitorate sono già protette.',
   keepUniquesDeficitSummary: 'Tuple a rischio: {count}',
   keepUniquesRuleDeficit: 'Ne mancano {count}',
   keepUniquesRuleCovered: 'Coperta altrove',
