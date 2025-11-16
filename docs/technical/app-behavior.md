@@ -91,6 +91,31 @@ This document captures runtime behavior, builder interactions, and user-facing w
   - **Worker still required:** inserting configs or applying the builder to multiple rows continues to flow through the worker. Earlier attempts to splice new batches locally regressed total-limit enforcement and metaset expansion, so the worker remains authoritative for those paths.
   - **Open issues:** the React dev warning _“Cannot update a component (App) while rendering a different component (AppStateProvider)”_ still fires when selection churn is heavy; the selection reducer still issues updates during render and needs a dedicated cleanup. Long lists also trigger `[Violation] Forced reflow` due to table virtualization—`HsfRulesTable` still requires follow-up profiling.
 
+## Keep Uniques
+
+### Final Sell dialog integration
+
+- `FinalSellDialog` is now tabbed: `Final Sell` retains the legacy layout, while `Keep Uniques` renders the tuple editor plus mirrored tester grid inside the same shell dimensions (`min(960px, 100vw - 32px)` × `min(800px, 100vh - 48px)`).
+- The active tab is tracked via `finalSellDialogTab` so autosave, clipboard, and undo/redo restore whichever side the user left open; new sessions default to `Final Sell`.
+- Keep Uniques exposes its own Reset button. It clears the tuple list and disables the feature without touching Final Sell settings, so the two tabs never stomp each other’s defaults.
+
+### Rule editing and detection
+
+- The feature is opt-in: the top-level switch mirrors `keepUniquesEnabled` and gates both tuple editing and detection. When off, detection state is cleared and an info alert explains that scans only run while the toggle is enabled.
+- Rules live in the left column. The list uses the shared Gear selectors (`GearSlotSelect`, rank/rarity dropdowns, `GearMainStatSelect`, `GearFactionSelect`) so slot-specific stat options, rarity labels, and localization stay in sync with the builder dialog.
+- Accessory slots automatically constrain set pools and show the faction selector; armor slots hide faction and reuse the curated set picker.
+- Editing any field updates the builder store immediately. The `≥ required count` input clamps at `1+`, and each card exposes Enable/Disable plus Delete actions.
+- The empty state promotes the `Add rule` CTA. Clicking it clones a tuple seeded from the slot’s default main stat and set pool; additional clicks append new entries and focus them for editing.
+- Detection ( `computeKeepUniqueProtection` ) only runs when tester preview rows are present, not building, and the match-freeze gate is released. While a scan is pending the tab shows the warning alert; once complete, chips on each rule summarize coverage, deficits, or “covered by existing keep rules.”
+- Alerts are contextual: disabled toggle, no tester rows loaded, scan pending, all protected, or `N` deficits.
+
+### Tester grid mirroring
+
+- The right column renders `TesterItemsGrid` with `variant="keepUniques"`, which enforces two-column cards, hides the column toggle inside the context menu, and keeps source glyph behavior identical to the Rule Tester.
+- Selecting a rule highlights the corresponding detection rows: the grid receives a predicate plus `dimUnhighlightedRows`, so matching cards stay vivid while non-matching entries fade without mutating the dataset.
+- Stat color controls, color-blind mode toggles, and the Manage Colors dialog are shared with the Rule Tester so palette tweaks stay synchronized across tabs.
+- Jump-to-config wiring (`onJumpToRule`) mirrors the Rule Tester: clicking a matching-config chip in the grid still focuses the builder rule, even while the Keep Uniques tab is active.
+
 ## Production-only Restrictions
 
 - Native context menu and text selection are disabled globally in production builds to reduce accidental edits and copy noise. App context menus continue to work (native menu is prevented, propagation allowed).

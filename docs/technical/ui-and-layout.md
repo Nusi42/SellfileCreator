@@ -142,6 +142,16 @@ This document outlines contributors' responsibilities for UI behavior, layout, a
   - Hover propagation syncs builder highlights via throttled `requestAnimationFrame` coordination.
   - Runtime-only metadata (`__cfgIdx`, `__lineIdx`) never enters exported HSF files.
 
+## Keep Uniques Tab
+
+- Layout: the dialog switches to a `Tabs` layout but keeps the existing shell size. On medium+ breakpoints the Keep Uniques tab renders a `360px` fixed-width left column (stacked on small screens) plus a flexible tester grid column.
+- Header block: the left column starts with explanatory copy, the enable toggle, and a contextual alert (`disabled`, `no tester data`, `scan pending`, `all protected`, `N deficits`). Alerts stay above the scroll area so status never scrolls away.
+- Rule list: cards map 1:1 with tuples and rely on shared select components (`GearSlotSelect`, `GearRankSelect`, `GearRaritySelect`, `GearMainStatSelect`, `GearFactionSelect`) plus the filtered set picker. Chips summarize the tuple and show detection state (`deficit`, `covered`, or `satisfied`), while Delete and Enable/Disable buttons sit inline.
+- Empty state: when no rules exist the column shows descriptive text plus a contained “Add rule” button. The same button lives in the footer alongside “Restore defaults” (which clears + disables Keep Uniques only).
+- Tester grid: the right column renders `TesterItemsGrid` with `variant="keepUniques"`. The variant forces two columns, disables the column-toggle action, and passes `highlightedRowPredicate`/`dimUnhighlightedRows` so non-matching cards fade instead of being removed. Source glyphs, color-blind toggles, and Manage Colors wiring mirror the Rule Tester.
+- Selection: clicking a rule highlights it, scrolls it into view, and pushes its detection rows into the tester grid highlight set. Chips above the grid show how many tester rows are currently highlighted.
+- Accessibility: all selectors remain keyboard navigable because they reuse the Gear dialog components. The dense layouts rely on `MENU_CONTROL_HEIGHT_PX` so buttons remain reachable with consistent hit targets.
+
 ## Hooks and Shared Components
 
 - `src/hooks/useAutosaveRestore.ts`: Encapsulates autosave restore prompt, dismiss baseline, and enablement.
