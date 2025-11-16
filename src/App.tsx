@@ -192,6 +192,11 @@ function analyzeConfigKeys(previous: readonly string[], next: readonly string[])
   return { mapping, removed, identical, reorderOnly }
 }
 
+const EMPTY_KEEP_UNIQUE_CANDIDATES: KeepUniqueCandidateSnapshot = {
+  candidates: [],
+  uniqueRowKeys: new Set<number>(),
+}
+
 const DEFAULT_GEAR_DB_FILENAME = 'RslHelper.db'
 
 const createGearDbFileFromBase64 = (name: string, base64?: string | null): File | null => {
@@ -371,6 +376,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const resolvedKeepUniqueRules = useMemo(() => (
     resolveKeepUniqueRulesWithMetasets(keepUniqueRules, metasets)
   ), [keepUniqueRules, metasets])
+  const keepUniquesActive = keepUniquesEnabled && resolvedKeepUniqueRules.length > 0
   const testerRowsBuildIdRef = useRef(0)
   const testerPreviewRowMapRef = useRef<Map<number, TesterPreviewRow>>(new Map())
   const testerPreviewMatchDepsRef = useRef<{ rules: readonly HsfRuleWithCfg[] | null; namesSignature: string | null }>({
@@ -454,9 +460,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       ...(finalSellRemainder ? { finalSellRemainder } : {}),
       prebuiltCustomRules: initial.rulesByConfig,
       keepUniques: {
-        enabled: keepUniquesEnabled,
+        enabled: keepUniquesActive,
         rules: resolvedKeepUniqueRules,
-        detection: keepUniqueDetection,
+        detection: keepUniquesActive ? keepUniqueDetection : null,
       },
     })
     const { baseRules, finalSellRules } = splitMergedRules(mergedRules)
@@ -482,7 +488,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     substatTargets: SubstatTargetTable | null
     hsf: HsfFile | null
     finalSell: FinalSellRemainderConfig | null | undefined
-    keepUniquesEnabled: boolean
+    keepUniquesActive: boolean
     keepUniqueRules: KeepUniqueRule[] | null
     keepUniqueDetection: KeepUniqueDetectionSnapshot | null
   } | null>(null)
@@ -515,7 +521,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     const prevWarm = lastWarmInputsRef.current
     const keepUniquesStable = !prevWarm
       || (
-        prevWarm.keepUniquesEnabled === keepUniquesEnabled
+        prevWarm.keepUniquesActive === keepUniquesActive
         && prevWarm.keepUniqueRules === keepUniqueRules
         && prevWarm.keepUniqueDetection === keepUniqueDetection
       )
@@ -544,7 +550,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           substatTargets: substatTargetsForPreview,
           hsf,
           finalSell: finalSellRemainder,
-          keepUniquesEnabled,
+          keepUniquesActive,
           keepUniqueRules,
           keepUniqueDetection,
         }
@@ -571,7 +577,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           substatTargets: substatTargetsForPreview,
           hsf,
           finalSell: finalSellRemainder,
-          keepUniquesEnabled,
+          keepUniquesActive,
           keepUniqueRules,
           keepUniqueDetection,
         }
@@ -625,7 +631,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           substatTargets: substatTargetsForPreview,
           hsf,
           finalSell: finalSellRemainder,
-          keepUniquesEnabled,
+          keepUniquesActive,
           keepUniqueRules,
           keepUniqueDetection,
         }
@@ -678,7 +684,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           substatTargets: substatTargetsForPreview,
           hsf,
           finalSell: finalSellRemainder,
-          keepUniquesEnabled,
+          keepUniquesActive,
           keepUniqueRules,
           keepUniqueDetection,
         }
@@ -692,7 +698,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       substatTargets: substatTargetsForPreview,
       hsf,
       finalSell: finalSellRemainder,
-      keepUniquesEnabled,
+      keepUniquesActive,
       keepUniqueRules,
       keepUniqueDetection,
     }
@@ -712,6 +718,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     }
 
     const resolvedKeepUniqueRulesForWarm = resolveKeepUniqueRulesWithMetasets(keepUniqueRules, metasets)
+    const keepUniquesActiveForWarm = keepUniquesEnabled && resolvedKeepUniqueRulesForWarm.length > 0
     const warmPromise = warmCache(
       {
         configs: ruleConfigsForPreview,
@@ -720,9 +727,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         hsf,
         ...(finalSellRemainder ? { finalSellRemainder } : {}),
         keepUniques: {
-          enabled: keepUniquesEnabled,
+          enabled: keepUniquesActiveForWarm,
           rules: resolvedKeepUniqueRulesForWarm,
-          detection: keepUniqueDetection,
+          detection: keepUniquesActiveForWarm ? keepUniqueDetection : null,
         },
       },
       { signal: abortController.signal },
@@ -825,6 +832,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     keepUniqueRules,
     metasets,
     keepUniquesEnabled,
+    keepUniquesActive,
     keepUniqueDetection,
   ])
 
@@ -2424,15 +2432,16 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     restoreFreezeRowsSeenRef.current = false
   }, [testerMatchFreeze])
   /* eslint-enable react-you-might-not-need-an-effect/no-event-handler, react-you-might-not-need-an-effect/no-chain-state-updates */
-  const keepUniqueCandidates = useMemo<KeepUniqueCandidateSnapshot>(() => (
-    collectKeepUniqueCandidates({
+  const keepUniqueCandidates = useMemo<KeepUniqueCandidateSnapshot>(() => {
+    if (!keepUniquesActive) return EMPTY_KEEP_UNIQUE_CANDIDATES
+    return collectKeepUniqueCandidates({
       rows: testerPreviewRows,
       baseRules: keepUniqueBaseRules,
       configModes,
     })
-  ), [testerPreviewRows, keepUniqueBaseRules, configModes])
+  }, [keepUniquesActive, testerPreviewRows, keepUniqueBaseRules, configModes])
   useEffect(() => {
-    if (!keepUniquesEnabled) {
+    if (!keepUniquesActive) {
       setKeepUniqueDetection(null)
       return
     }
@@ -2444,7 +2453,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       const snapshot = computeKeepUniqueProtection({
         candidates: keepUniqueCandidates.candidates,
         rules: resolvedKeepUniqueRules,
-        enabled: keepUniquesEnabled,
+        enabled: keepUniquesActive,
       })
       if (cancelled) return
       setKeepUniqueDetection((prev) => {
@@ -2477,7 +2486,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     }
   }, [
     resolvedKeepUniqueRules,
-    keepUniquesEnabled,
+    keepUniquesActive,
     keepUniqueCandidates,
     testerMatchFreeze,
     testerRowsBuilding,

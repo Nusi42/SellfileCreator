@@ -550,7 +550,10 @@ export function computeMergedRules(params: {
   // builder's Enable toggle semantics.
   const finalSellRules = buildFinalSellRules(finalSellRemainder)
   const keepRules: HsfRuleWithCfg[] = []
-  if (keepUniques && keepUniques.enabled && keepUniques.rules.length > 0) {
+  const keepUniquesInput = keepUniques && keepUniques.enabled && keepUniques.rules.length > 0
+    ? keepUniques
+    : null
+  if (keepUniquesInput) {
     const keepRuleKeys = new Set<string>()
     for (const rule of base) {
       if (rule.Keep === true) keepRuleKeys.add(canonicalRuleKey(rule))
@@ -558,7 +561,7 @@ export function computeMergedRules(params: {
     for (const rule of customs) {
       if (rule.Keep === true) keepRuleKeys.add(canonicalRuleKey(rule))
     }
-    const candidateKeepRules = buildKeepUniqueRules(keepUniques.rules, keepUniques.detection ?? null)
+    const candidateKeepRules = buildKeepUniqueRules(keepUniquesInput.rules, keepUniquesInput.detection ?? null)
     for (const rule of candidateKeepRules) {
       const key = canonicalRuleKey(rule)
       if (keepRuleKeys.has(key)) continue

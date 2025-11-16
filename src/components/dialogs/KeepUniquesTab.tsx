@@ -240,6 +240,7 @@ export default function KeepUniquesTab({
         size="small"
         onClick={(event) => { event.stopPropagation(); setPendingDeleteRuleId(rule.id) }}
         aria-label={t('keepUniquesDeleteRule')}
+        color="error"
       >
         <DeleteOutlineIcon fontSize="small" />
       </IconButton>
