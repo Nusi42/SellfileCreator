@@ -23,7 +23,7 @@ import { createKeepUniqueRuleId, getKeepUniqueRowKey } from '../../lib/keepUniqu
 import type { TesterPreviewRow } from '../../types/testerPreview'
 import type { ColorBlindMode } from '../../lib/constants'
 import { MENU_CONTROL_HEIGHT_PX } from '../../lib/constants'
-import type { ArtifactSetId, ArtifactTypeId, RankValue, StatVariant } from '../../lib/types'
+import type { ArtifactSetId, ArtifactTypeId, StatVariant } from '../../lib/types'
 import {
   ACCESSORY_SET_IDS,
   ALLOWED_MAIN_BY_SLOT,
@@ -31,23 +31,15 @@ import {
   ARMOR_VARIABLE_SET_IDS,
   ALL_ARTIFACT_SET_IDS,
   ArtifactType,
-  artifactSetI18nKey,
-  artifactSetNames,
-  artifactTypeI18nKey,
-  factionI18nKey,
   StatVariant as StatVariantEnum,
-  statVariantI18nKey,
 } from '../../lib/types'
 import { isAccessorySlot } from '../../lib/testerDomain'
 import { useI18n } from '../../lib/i18n'
 import { GearFactionSelect, GearMainStatSelect, GearRankSelect, GearRaritySelect, GearSetsSelect, GearSlotSelect } from '../gear'
-import { artifactTypeIconList } from '../artifactTypeIcons'
-import { SetIcon } from '../SetIcon'
 import { TesterItemsGrid } from '../TesterItemsGrid'
 import { NumberSpinnerAdornment } from '../NumberSpinnerAdornment'
 import type { SetStateAction } from 'react'
 import type { Metaset } from '../../lib/metasets'
-import { metasetGlyph } from '../../lib/metasets'
 
 type KeepUniquesTabProps = {
   rules: KeepUniqueRule[]
@@ -158,15 +150,6 @@ export default function KeepUniquesTab({
     onRulesChange((prev) => prev.map((rule) => (rule.id === ruleId ? updater(rule) : rule)))
   }, [onRulesChange])
 
-  const rarityLabel = useCallback((rarity: RankValue): string => {
-    if (rarity === 1) return t('rarityCommon')
-    if (rarity === 2) return t('rarityUncommon')
-    if (rarity === 3) return t('rarityRare')
-    if (rarity === 4) return t('rarityEpic')
-    if (rarity === 5) return t('rarityLegendary')
-    return t('rarityMythical')
-  }, [t])
-
   const setRuleTuple = useCallback((
     ruleId: string,
     updater: (tuple: KeepUniqueRule['tuple']) => KeepUniqueRule['tuple'],
@@ -219,96 +202,15 @@ export default function KeepUniquesTab({
     const mainStatSelection = dedupeNumericArray((tuple.mainStats ?? []).filter((variant) => mainStatOptions.includes(variant)))
     const factionSelection = hasAccessorySlot ? dedupeNumericArray(tuple.factions ?? []) : []
     const selected = effectiveSelectedRuleId === rule.id
-    const slotChips = (() => {
-      if (slotSelection.length === 0) return [<Chip key="slot-any" label={t('any')} size="small" />]
-      const limit = 3
-      const nodes = slotSelection.slice(0, limit).map((slotId) => {
-        const def = artifactTypeIconList.find((entry) => Number(entry.id) === Number(slotId))
-        const SlotIconComponent = def?.Icon
-        const iconProps = SlotIconComponent ? { icon: <SlotIconComponent fontSize="small" /> } : {}
-        return (
-          <Chip
-            key={`slot-${slotId}`}
-            label={t(artifactTypeI18nKey(slotId))}
-            size="small"
-            {...iconProps}
-          />
-        )
-      })
-      if (slotSelection.length > limit) {
-        nodes.push(<Chip key="slot-more" label={`+${slotSelection.length - limit}`} size="small" />)
-      }
-      return nodes
-    })()
-    const metasetSelection = tuple.metaSetIds ?? []
-    const setChips = (() => {
-      const chips: JSX.Element[] = []
-      const metaLimit = 3
-      metasetSelection.slice(0, metaLimit).forEach((metaId) => {
-        const meta = metasets.find((item) => item.id === metaId)
-        const label = meta ? meta.name : metaId
-        const { glyph, iconId } = meta ? metasetGlyph(meta) : { glyph: null, iconId: null }
-        chips.push(
-          <Chip
-            key={`meta-${metaId}`}
-            label={glyph ? `${glyph}${iconId && iconId !== 'empty' ? ` ${label}` : label}` : label}
-            size="small"
-          />,
-        )
-      })
-      if (metasetSelection.length > metaLimit) {
-        chips.push(<Chip key="meta-more" label={`+${metasetSelection.length - metaLimit}`} size="small" />)
-      }
-      const setLimit = 3
-      setSelection.slice(0, setLimit).forEach((setId) => {
-        const label = t(artifactSetI18nKey(setId)) || artifactSetNames[setId] || String(setId)
-        chips.push(
-          <Chip
-            key={`set-${setId}`}
-            label={label}
-            size="small"
-            icon={<SetIcon setId={setId} size={16} />}
-          />,
-        )
-      })
-      if (setSelection.length > setLimit) {
-        chips.push(<Chip key="set-more" label={`+${setSelection.length - setLimit}`} size="small" />)
-      }
-      if (chips.length === 0) {
-        chips.push(<Chip key="set-any" label={t('any')} size="small" />)
-      }
-      return chips
-    })()
-    const rankChips = (() => {
-      if (rankSelection.length === 0) return [<Chip key="rank-any" label={t('any')} size="small" />]
-      return rankSelection.map((rank) => (
-        <Chip key={`rank-${rank}`} label={t('keepUniquesRankChip', { rank })} size="small" />
-      ))
-    })()
-    const rarityChips = (() => {
-      if (raritySelection.length === 0) return [<Chip key="rarity-any" label={t('any')} size="small" />]
-      return raritySelection.map((rarity) => (
-        <Chip key={`rarity-${rarity}`} label={rarityLabel(rarity)} size="small" />
-      ))
-    })()
-    const mainStatChips = (() => {
-      if (mainStatSelection.length === 0) return [<Chip key="main-any" label={t('any')} size="small" />]
-      const limit = 3
-      const chips = mainStatSelection.slice(0, limit).map((variant) => (
-        <Chip key={`main-${variant}`} label={t(statVariantI18nKey(variant))} size="small" />
-      ))
-      if (mainStatSelection.length > limit) {
-        chips.push(<Chip key="main-more" label={`+${mainStatSelection.length - limit}`} size="small" />)
-      }
-      return chips
-    })()
-    const factionChips = (() => {
-      if (!hasAccessorySlot) return null
-      if (!tuple.factions.length) return <Chip key="faction-any" label={t('any')} size="small" />
-      return tuple.factions.map((faction) => (
-        <Chip key={`faction-${faction}`} label={t(factionI18nKey(faction))} size="small" />
-      ))
-    })()
+    const deleteButton = (
+      <IconButton
+        size="small"
+        onClick={(event) => { event.stopPropagation(); handleDeleteRule(rule.id) }}
+        aria-label={t('keepUniquesDeleteRule')}
+      >
+        <DeleteOutlineIcon fontSize="small" />
+      </IconButton>
+    )
     return (
       <Box
         key={rule.id}
@@ -324,29 +226,7 @@ export default function KeepUniquesTab({
         })}
       >
         <Stack spacing={1.5}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            {ruleDetection?.deficit ? (
-              <Chip size="small" color="error" label={t('keepUniquesRuleDeficit', { count: ruleDetection.deficit })} />
-            ) : ruleDetection ? (
-              <Chip size="small" color={ruleDetection.coveredByExisting ? 'success' : 'default'} label={ruleDetection.coveredByExisting ? t('keepUniquesRuleCovered') : t('keepUniquesRuleSatisfied')} />
-            ) : null}
-            <Box sx={{ flex: 1 }} />
-            <IconButton
-              size="small"
-              onClick={(event) => { event.stopPropagation(); handleDeleteRule(rule.id) }}
-              aria-label={t('keepUniquesDeleteRule')}
-            >
-              <DeleteOutlineIcon fontSize="small" />
-            </IconButton>
-          </Box>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-            {slotChips}
-            {setChips}
-            {rankChips}
-            {rarityChips}
-            {mainStatChips}
-            {factionChips}
-          </Box>
+          <Box sx={{ height: 4 }} />
           <Stack spacing={1}>
             <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 1 }}>
               <GearSlotSelect
@@ -470,14 +350,25 @@ export default function KeepUniquesTab({
               />
             </Box>
             {ruleDetection ? (
-              <Typography variant="caption" color={ruleDetection.deficit > 0 ? 'error.main' : 'text.secondary'}>
-                {t('keepUniquesRuleCounts', {
-                  have: ruleDetection.currentCount,
-                  keep: ruleDetection.requiredCount,
-                  projected: ruleDetection.projectedCount,
-                })}
-              </Typography>
-            ) : null}
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Typography
+                  variant="caption"
+                  color={ruleDetection.deficit > 0 ? 'error.main' : 'text.secondary'}
+                  sx={{ flex: 1 }}
+                >
+                  {t('keepUniquesRuleCounts', {
+                    have: ruleDetection.currentCount,
+                    keep: ruleDetection.requiredCount,
+                    projected: ruleDetection.projectedCount,
+                  })}
+                </Typography>
+                {deleteButton}
+              </Box>
+            ) : (
+              <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+                {deleteButton}
+              </Box>
+            )}
           </Stack>
         </Stack>
       </Box>
