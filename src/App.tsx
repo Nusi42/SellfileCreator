@@ -52,7 +52,17 @@ import PasteDialog from './components/PasteDialog'
 import NoteDialog from './components/NoteDialog'
 import { useManageColorsDialog } from './hooks/useManageColorsDialog'
 import { useSubstatTargetsDialog } from './hooks/useSubstatTargetsDialog'
-import { computeMergedRules, buildRulesForConfig, buildFinalSellRules, RULE_SOURCE_FINAL_SELL, RULE_SOURCE_HSF, RULE_SOURCE_KEEP_UNIQUES, type HsfRuleWithCfg } from './lib/merge'
+import {
+  computeMergedRules,
+  buildRulesForConfig,
+  buildFinalSellRules,
+  buildKeepUniqueRules,
+  canonicalRuleKey,
+  RULE_SOURCE_FINAL_SELL,
+  RULE_SOURCE_HSF,
+  RULE_SOURCE_KEEP_UNIQUES,
+  type HsfRuleWithCfg,
+} from './lib/merge'
 import {
   computeKeepUniqueProtection,
   collectKeepUniqueCandidates,
@@ -692,6 +702,70 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       }
     }
 
+    const canFastPathKeepUniques = Boolean(
+      keepUniquesActive
+      && prevWarm
+      && prevWarm.configs === ruleConfigsForPreview
+      && prevWarm.metasets === metasetsForPreview
+      && prevWarm.substatTargets === substatTargetsForPreview
+      && prevWarm.hsf === hsf
+      && prevWarm.finalSell === finalSellRemainder
+      && prevWarm.keepUniquesActive === keepUniquesActive
+      && prevWarm.keepUniqueRules === keepUniqueRules
+      && prevWarm.keepUniqueDetection !== keepUniqueDetection,
+    )
+    if (canFastPathKeepUniques) {
+      setConfigRulesState((prev) => {
+        const baseWithoutDynamic = prev.baseRules.filter((rule) => rule.__source !== RULE_SOURCE_KEEP_UNIQUES)
+        const keepRuleKeys = new Set<string>()
+        for (const rule of baseWithoutDynamic) {
+          if (rule.Keep === true) keepRuleKeys.add(canonicalRuleKey(rule))
+        }
+        const flattenedCustoms: HsfRuleWithCfg[] = []
+        for (let idx = 0; idx < prev.keys.length; idx += 1) {
+          const segment = prev.rulesByConfig.get(idx)
+          if (!segment || segment.length === 0) continue
+          flattenedCustoms.push(...segment)
+          for (const rule of segment) {
+            if (rule.Keep === true) keepRuleKeys.add(canonicalRuleKey(rule))
+          }
+        }
+        const candidateKeepRules = keepUniqueDetection
+          ? buildKeepUniqueRules(resolvedKeepUniqueRules, keepUniqueDetection)
+          : []
+        const filteredKeepRules: HsfRuleWithCfg[] = []
+        for (const rule of candidateKeepRules) {
+          const key = canonicalRuleKey(rule)
+          if (keepRuleKeys.has(key)) continue
+          keepRuleKeys.add(key)
+          filteredKeepRules.push(rule)
+        }
+        const nextBaseRules = baseWithoutDynamic.concat(filteredKeepRules)
+        const mergedRules = [...nextBaseRules, ...flattenedCustoms, ...prev.finalSellRules]
+        primeRuleMatchIndex(mergedRules, buildRuleMatchIndexData(mergedRules))
+        for (let i = 0; i < mergedRules.length; i += 1) {
+          (mergedRules[i] as HsfRuleWithCfg).__lineIdx = i
+        }
+        return {
+          ...prev,
+          baseRules: nextBaseRules,
+          mergedRules,
+        }
+      })
+      setRulesBuilding(false)
+      lastWarmInputsRef.current = {
+        configs: ruleConfigsForPreview,
+        metasets: metasetsForPreview,
+        substatTargets: substatTargetsForPreview,
+        hsf,
+        finalSell: finalSellRemainder,
+        keepUniquesActive,
+        keepUniqueRules,
+        keepUniqueDetection,
+      }
+      return undefined
+    }
+
     lastWarmInputsRef.current = {
       configs: ruleConfigsForPreview,
       metasets: metasetsForPreview,
@@ -834,6 +908,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     keepUniquesEnabled,
     keepUniquesActive,
     keepUniqueDetection,
+    resolvedKeepUniqueRules,
   ])
 
   const awaitRuleCounts = useCallback((): { token: number; promise: Promise<Map<number, number>> } | null => {

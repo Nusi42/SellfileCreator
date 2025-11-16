@@ -71,7 +71,7 @@ const BRANCH_SEQ = Symbol('branchSeq')
 type BranchAnnotatedRule = HsfRule & { [BRANCH_ORDER]?: number; [BRANCH_SEQ]?: number }
 type BranchAnnotatedRuleWithCfg = HsfRuleWithCfg & { [BRANCH_ORDER]?: number; [BRANCH_SEQ]?: number }
 
-function canonicalRuleKey(rule: HsfRule): string {
+export function canonicalRuleKey(rule: HsfRule): string {
   const artifactTypes = Array.isArray(rule.ArtifactType)
     ? (rule.ArtifactType as number[]).slice().sort((a, b) => a - b)
     : []
@@ -425,7 +425,7 @@ const buildKeepUniqueSubstats = (substats: KeepUniqueDetectionEntry['artifacts']
   return cloned
 }
 
-const buildKeepUniqueRules = (
+export const buildKeepUniqueRules = (
   rules: readonly KeepUniqueRule[],
   detection: KeepUniqueDetectionSnapshot | null,
 ): HsfRuleWithCfg[] => {
