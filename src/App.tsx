@@ -59,6 +59,7 @@ import {
   type KeepUniqueCandidateSnapshot,
   type KeepUniqueDetectionSnapshot,
   type KeepUniqueRule,
+  resolveKeepUniqueRulesWithMetasets,
 } from './lib/keepUniques'
 import { updateConfigRulesCache, fingerprintConfigForRules, fingerprintSubstatTargets, mergeArtifactSets } from './lib/ruleCache'
 import { hasConfigMeaningfulDifferences } from './lib/configDiff'
@@ -367,6 +368,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     return map
   }, [testerPreviewRows])
   const [keepUniqueDetection, setKeepUniqueDetection] = useState<KeepUniqueDetectionSnapshot | null>(null)
+  const resolvedKeepUniqueRules = useMemo(() => (
+    resolveKeepUniqueRulesWithMetasets(keepUniqueRules, metasets)
+  ), [keepUniqueRules, metasets])
   const testerRowsBuildIdRef = useRef(0)
   const testerPreviewRowMapRef = useRef<Map<number, TesterPreviewRow>>(new Map())
   const testerPreviewMatchDepsRef = useRef<{ rules: readonly HsfRuleWithCfg[] | null; namesSignature: string | null }>({
@@ -451,7 +455,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       prebuiltCustomRules: initial.rulesByConfig,
       keepUniques: {
         enabled: keepUniquesEnabled,
-        rules: keepUniqueRules,
+        rules: resolvedKeepUniqueRules,
         detection: keepUniqueDetection,
       },
     })
@@ -707,6 +711,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       return false
     }
 
+    const resolvedKeepUniqueRulesForWarm = resolveKeepUniqueRulesWithMetasets(keepUniqueRules, metasets)
     const warmPromise = warmCache(
       {
         configs: ruleConfigsForPreview,
@@ -716,7 +721,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         ...(finalSellRemainder ? { finalSellRemainder } : {}),
         keepUniques: {
           enabled: keepUniquesEnabled,
-          rules: keepUniqueRules,
+          rules: resolvedKeepUniqueRulesForWarm,
           detection: keepUniqueDetection,
         },
       },
@@ -818,6 +823,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     finalSellRemainder,
     configRulesState,
     keepUniqueRules,
+    metasets,
     keepUniquesEnabled,
     keepUniqueDetection,
   ])
@@ -1509,6 +1515,17 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const rulesByConfig = configRulesState.rulesByConfig
   const configRuleCounts = configRulesState.countsByConfig
   const mergedRules = configRulesState.mergedRules
+  const keepUniqueBaseRules = useMemo(() => {
+    let hasKeepUnique = false
+    for (const rule of mergedRules) {
+      if (rule.__source === RULE_SOURCE_KEEP_UNIQUES) {
+        hasKeepUnique = true
+        break
+      }
+    }
+    if (!hasKeepUnique) return mergedRules
+    return mergedRules.filter((rule) => rule.__source !== RULE_SOURCE_KEEP_UNIQUES)
+  }, [mergedRules])
   const truncatedConfigIndices = configRulesState.truncatedConfigIndices
   const totalLimitHit = configRulesState.totalLimitHit
   const limitExceeded = totalLimitHit || truncatedConfigIndices.length > 0
@@ -2412,17 +2429,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     restoreFreezeRowsSeenRef.current = false
   }, [testerMatchFreeze])
   /* eslint-enable react-you-might-not-need-an-effect/no-event-handler, react-you-might-not-need-an-effect/no-chain-state-updates */
-  const keepUniqueBaseRules = useMemo(() => {
-    let hasKeepUnique = false
-    for (const rule of mergedRules) {
-      if (rule.__source === RULE_SOURCE_KEEP_UNIQUES) {
-        hasKeepUnique = true
-        break
-      }
-    }
-    if (!hasKeepUnique) return mergedRules
-    return mergedRules.filter((rule) => rule.__source !== RULE_SOURCE_KEEP_UNIQUES)
-  }, [mergedRules])
   const keepUniqueCandidates = useMemo<KeepUniqueCandidateSnapshot>(() => (
     collectKeepUniqueCandidates({
       rows: testerPreviewRows,
@@ -2442,7 +2448,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     const timeoutId = window.setTimeout(() => {
       const snapshot = computeKeepUniqueProtection({
         candidates: keepUniqueCandidates.candidates,
-        rules: keepUniqueRules,
+        rules: resolvedKeepUniqueRules,
         enabled: keepUniquesEnabled,
       })
       if (cancelled) return
@@ -2475,7 +2481,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       clearTimeout(timeoutId)
     }
   }, [
-    keepUniqueRules,
+    resolvedKeepUniqueRules,
     keepUniquesEnabled,
     keepUniqueCandidates,
     testerMatchFreeze,

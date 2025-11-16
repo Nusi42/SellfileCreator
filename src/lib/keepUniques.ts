@@ -13,6 +13,7 @@ import { StatVariant as StatVariantEnum } from './types'
 import type { SellfileExportMode } from './hsfBuilder'
 import type { HsfRuleWithCfg } from './merge'
 import type { NormalizedGearArtifact } from './importers/gearDbNormalizer'
+import type { Metaset } from './metasets'
 
 const RANK_MIN = 1
 const RANK_MAX = 6
@@ -23,6 +24,7 @@ export const KEEP_UNIQUES_CFG_SENTINEL = -9000
 export type KeepUniqueTuple = {
   slots: ArtifactTypeId[]
   sets: ArtifactSetId[]
+  metaSetIds: string[]
   ranks: RankValue[]
   rarities: RankValue[]
   mainStat: StatVariant
@@ -114,10 +116,21 @@ const canonicalizeList = (values: readonly number[]): string => {
   return numeric.join(',')
 }
 
+const canonicalizeStringList = (values: readonly string[]): string => {
+  if (!values.length) return '*'
+  const cleaned = values
+    .map((v) => (typeof v === 'string' ? v.trim() : ''))
+    .filter((v) => v.length > 0)
+  if (!cleaned.length) return '*'
+  cleaned.sort()
+  return cleaned.join(',')
+}
+
 export function hashKeepUniqueTuple(tuple: KeepUniqueTuple): string {
   return [
     canonicalizeList(tuple.slots),
     canonicalizeList(tuple.sets),
+    canonicalizeStringList(tuple.metaSetIds),
     canonicalizeList(tuple.ranks),
     canonicalizeList(tuple.rarities),
     Number(tuple.mainStat),
@@ -187,6 +200,30 @@ const coerceFactionId = (value: unknown): FactionId | null => {
   return Math.floor(numeric) as FactionId
 }
 
+const normalizeStringSelectionArray = (value: unknown): string[] => {
+  if (!value) return []
+  const list = Array.isArray(value) ? value : [value]
+  const seen = new Set<string>()
+  const result: string[] = []
+  for (const raw of list) {
+    if (Array.isArray(raw)) {
+      for (const nested of normalizeStringSelectionArray(raw)) {
+        if (seen.has(nested)) continue
+        seen.add(nested)
+        result.push(nested)
+      }
+      continue
+    }
+    if (typeof raw !== 'string') continue
+    const trimmed = raw.trim()
+    if (!trimmed) continue
+    if (seen.has(trimmed)) continue
+    seen.add(trimmed)
+    result.push(trimmed)
+  }
+  return result
+}
+
 /** Normalize tuple payloads loaded from HSFC/autosave. */
 export function normalizeKeepUniqueTuple(value: unknown): KeepUniqueTuple | null {
   if (!value || typeof value !== 'object') return null
@@ -206,9 +243,11 @@ export function normalizeKeepUniqueTuple(value: unknown): KeepUniqueTuple | null
     if (raw == null || raw === '') return null
     return coerceFactionId(raw)
   })
+  const metaSetIds = normalizeStringSelectionArray(rec.metaSetIds ?? rec.metaSets)
   return {
     slots: slotValues,
     sets: setValues,
+    metaSetIds,
     ranks: rankValues,
     rarities: rarityValues,
     mainStat,
@@ -388,4 +427,42 @@ export function computeKeepUniqueProtection(params: KeepUniqueDetectionParams): 
   }
 
   return { scannedAt: timestamp, entries }
+}
+
+/** Expand metaset references to explicit set IDs for tuple evaluation. */
+export function resolveKeepUniqueRulesWithMetasets(
+  rules: readonly KeepUniqueRule[],
+  metasets: readonly Metaset[],
+): KeepUniqueRule[] {
+  if (!rules.length) return rules as KeepUniqueRule[]
+  if (!metasets.length) return rules as KeepUniqueRule[]
+  const metaMap = new Map(metasets.map((meta) => [meta.id, meta]))
+  let mutated = false
+  const resolved = rules.map((rule) => {
+    const metaIds = rule.tuple.metaSetIds ?? []
+    if (!metaIds.length) return rule
+    const expanded = new Set<number>(rule.tuple.sets.map((setId) => Number(setId)))
+    let tupleChanged = false
+    for (const metaId of metaIds) {
+      const meta = metaMap.get(metaId)
+      if (!meta || !Array.isArray(meta.sets)) continue
+      for (const setId of meta.sets) {
+        const numeric = Number(setId)
+        if (expanded.has(numeric)) continue
+        expanded.add(numeric)
+        tupleChanged = true
+      }
+    }
+    if (!tupleChanged) return rule
+    mutated = true
+    const sortedSets = Array.from(expanded).sort((a, b) => a - b) as ArtifactSetId[]
+    return {
+      ...rule,
+      tuple: {
+        ...rule.tuple,
+        sets: sortedSets,
+      },
+    }
+  })
+  return mutated ? resolved : rules as KeepUniqueRule[]
 }

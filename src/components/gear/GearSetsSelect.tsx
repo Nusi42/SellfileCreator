@@ -58,6 +58,9 @@ export default function GearSetsSelect({
   const metasetsMenuListRef = useRef<HTMLUListElement | null>(null)
   const selectContainerRef = useRef<HTMLDivElement | null>(null)
   const allowMetasets = showMetasets && Boolean(onChangeMetasetIds)
+  const allowedSetFilter = useMemo(() => (
+    allowedSetIds ? new Set(allowedSetIds.map(Number)) : null
+  ), [allowedSetIds])
   const visibleMetasets = useMemo(
     () => (allowMetasets ? metasets.filter((meta) => meta.show !== false) : []),
     [allowMetasets, metasets],
@@ -130,8 +133,7 @@ export default function GearSetsSelect({
     const list = setsMenuListRef.current
     if (!list) return
     const sortedForOrder = filterAndSortSetEntries(setsSearch, order, { translate: t })
-    const allowed = allowedSetIds ? new Set(allowedSetIds.map(Number)) : null
-    const filtered = allowed ? sortedForOrder.filter(([id]) => allowed.has(Number(id))) : sortedForOrder
+    const filtered = allowedSetFilter ? sortedForOrder.filter(([id]) => allowedSetFilter.has(Number(id))) : sortedForOrder
     const selectedIds = new Set(value.map(Number))
     let target: number | null = null
     for (const [id] of filtered) {
@@ -147,14 +149,13 @@ export default function GearSetsSelect({
       item?.scrollIntoView({ block: 'nearest' })
     }
     requestAnimationFrame(() => requestAnimationFrame(scroll))
-  }, [allowedSetIds, menuOpen, setsOrder, setsSearch, t, value])
+  }, [allowedSetFilter, menuOpen, setsOrder, setsSearch, t, value])
 
   const sortedSets = useMemo(() => {
     const base = filterAndSortSetEntries(setsSearch, setsOrder, { translate: t })
-    if (!allowedSetIds) return base
-    const allowed = new Set(allowedSetIds.map(Number))
-    return base.filter(([id]) => allowed.has(Number(id)))
-  }, [allowedSetIds, setsOrder, setsSearch, t])
+    if (!allowedSetFilter) return base
+    return base.filter(([id]) => allowedSetFilter.has(Number(id)))
+  }, [allowedSetFilter, setsOrder, setsSearch, t])
 
   const handleToggleSet = useCallback((setId: number) => {
     const numeric = Number(setId)
@@ -168,7 +169,11 @@ export default function GearSetsSelect({
     onChange(normalized)
   }, [onChange, value])
 
-  const metasetsMenu = visibleMetasets
+  const metasetsMenu = useMemo(() => {
+    if (!allowMetasets) return []
+    if (!allowedSetFilter) return visibleMetasets
+    return visibleMetasets.filter((meta) => meta.sets.every((setId) => allowedSetFilter.has(Number(setId))))
+  }, [allowMetasets, allowedSetFilter, visibleMetasets])
   const hasSelection = selectedTokens.length > 0
 
   const handleClear = useCallback(() => {

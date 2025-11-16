@@ -836,6 +836,7 @@ export function buildHsfcPayload(args: {
       tuple: {
         slots: rule.tuple.slots.map((slot) => Number(slot) as ArtifactTypeId),
         sets: rule.tuple.sets.map((set) => Number(set) as ArtifactSetId),
+        metaSetIds: [...(rule.tuple.metaSetIds ?? [])],
         ranks: rule.tuple.ranks.map((rank) => Number(rank) as RankValue),
         rarities: rule.tuple.rarities.map((rarity) => Number(rarity) as RankValue),
         mainStat: Number(rule.tuple.mainStat),

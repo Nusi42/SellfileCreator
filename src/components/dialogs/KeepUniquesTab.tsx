@@ -50,6 +50,7 @@ import { TesterItemsGrid } from '../TesterItemsGrid'
 import { NumberSpinnerAdornment } from '../NumberSpinnerAdornment'
 import type { SetStateAction } from 'react'
 import type { Metaset } from '../../lib/metasets'
+import { metasetGlyph } from '../../lib/metasets'
 
 type KeepUniquesTabProps = {
   rules: KeepUniqueRule[]
@@ -245,24 +246,44 @@ export default function KeepUniquesTab({
       }
       return nodes
     })()
+    const metasetSelection = tuple.metaSetIds ?? []
     const setChips = (() => {
-      if (setSelection.length === 0) return [<Chip key="set-any" label={t('any')} size="small" />]
-      const limit = 3
-      const nodes = setSelection.slice(0, limit).map((setId) => {
+      const chips: JSX.Element[] = []
+      const metaLimit = 3
+      metasetSelection.slice(0, metaLimit).forEach((metaId) => {
+        const meta = metasets.find((item) => item.id === metaId)
+        const label = meta ? meta.name : metaId
+        const { glyph, iconId } = meta ? metasetGlyph(meta) : { glyph: null, iconId: null }
+        chips.push(
+          <Chip
+            key={`meta-${metaId}`}
+            label={glyph ? `${glyph}${iconId && iconId !== 'empty' ? ` ${label}` : label}` : label}
+            size="small"
+          />,
+        )
+      })
+      if (metasetSelection.length > metaLimit) {
+        chips.push(<Chip key="meta-more" label={`+${metasetSelection.length - metaLimit}`} size="small" />)
+      }
+      const setLimit = 3
+      setSelection.slice(0, setLimit).forEach((setId) => {
         const label = t(artifactSetI18nKey(setId)) || artifactSetNames[setId] || String(setId)
-        return (
+        chips.push(
           <Chip
             key={`set-${setId}`}
             label={label}
             size="small"
             icon={<SetIcon setId={setId} size={16} />}
-          />
+          />,
         )
       })
-      if (setSelection.length > limit) {
-        nodes.push(<Chip key="set-more" label={`+${setSelection.length - limit}`} size="small" />)
+      if (setSelection.length > setLimit) {
+        chips.push(<Chip key="set-more" label={`+${setSelection.length - setLimit}`} size="small" />)
       }
-      return nodes
+      if (chips.length === 0) {
+        chips.push(<Chip key="set-any" label={t('any')} size="small" />)
+      }
+      return chips
     })()
     const rankChips = (() => {
       if (rankSelection.length === 0) return [<Chip key="rank-any" label={t('any')} size="small" />]
@@ -334,7 +355,7 @@ export default function KeepUniquesTab({
                 value={tuple.slots.map(String)}
                 onChange={(_, values: string[]) => {
                   const parsed = values.map((val) => Number(val) as ArtifactTypeId)
-                  setRuleTuple(rule.id, (prev) => sanitizeTupleForSlots(parsed, prev))
+                  setRuleTuple(rule.id, (prev) => sanitizeTupleForSlots(parsed, prev, metasets))
                 }}
                 sx={{
                   display: 'grid',
@@ -356,8 +377,12 @@ export default function KeepUniquesTab({
                   setRuleTuple(rule.id, (prev) => ({ ...prev, sets: dedupeNumericArray(nextSets) }))
                 }}
                 metasets={metasets}
-                showMetasets={false}
+                selectedMetasetIds={tuple.metaSetIds}
+                onChangeMetasetIds={(nextMetaIds) => {
+                  setRuleTuple(rule.id, (prev) => ({ ...prev, metaSetIds: dedupeStringArray(nextMetaIds) }))
+                }}
                 allowedSetIds={allowedSetPool}
+                showMetasets
               />
             </Box>
             <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 1 }}>
@@ -585,6 +610,7 @@ function makeTupleForSlot(slot: ArtifactTypeId): KeepUniqueRule['tuple'] {
   return {
     slots: [slot],
     sets: setPool.length > 0 ? [setPool[0] ?? (accessorySlot ? DEFAULT_ACCESSORY_SET_ID : DEFAULT_ARTIFACT_SET_ID)] : [],
+    metaSetIds: [],
     ranks: [],
     rarities: [],
     mainStat: mainOptions.includes(StatVariantEnum.Any) ? StatVariantEnum.Any : (mainOptions[0] ?? StatVariantEnum.Any),
@@ -592,17 +618,23 @@ function makeTupleForSlot(slot: ArtifactTypeId): KeepUniqueRule['tuple'] {
   }
 }
 
-function sanitizeTupleForSlots(slots: ArtifactTypeId[], tuple: KeepUniqueRule['tuple']): KeepUniqueRule['tuple'] {
+function sanitizeTupleForSlots(slots: ArtifactTypeId[], tuple: KeepUniqueRule['tuple'], metasets: Metaset[]): KeepUniqueRule['tuple'] {
   const normalizedSlots = dedupeNumericArray(slots)
   const allowedSetPool = resolveAllowedSetPool(normalizedSlots)
   const allowedSetIds = new Set(allowedSetPool.map(Number))
   const filteredSets = tuple.sets.filter((setId) => allowedSetIds.has(Number(setId)))
+  const filteredMetaIds = (tuple.metaSetIds ?? []).filter((metaId) => {
+    const meta = metasets.find((item) => item.id === metaId)
+    if (!meta || !meta.sets.length) return false
+    return meta.sets.every((setId) => allowedSetIds.has(Number(setId)))
+  })
   const mainOptions = getMainStatOptionsForSlots(normalizedSlots)
   const hasAccessory = normalizedSlots.length === 0 || normalizedSlots.some((slotId) => isAccessorySlot(slotId))
   return {
     ...tuple,
     slots: normalizedSlots,
     sets: filteredSets.length > 0 ? filteredSets : (allowedSetPool[0] ? [allowedSetPool[0]] : []),
+    metaSetIds: filteredMetaIds,
     mainStat: mainOptions.includes(tuple.mainStat) ? tuple.mainStat : StatVariantEnum.Any,
     factions: hasAccessory ? tuple.factions : [],
   }
@@ -646,6 +678,19 @@ function dedupeNumericArray<T extends number>(values: readonly T[]): T[] {
     if (seen.has(numeric)) continue
     seen.add(numeric)
     result.push(value)
+  }
+  return result
+}
+
+function dedupeStringArray(values: readonly string[]): string[] {
+  if (!values.length) return []
+  const seen = new Set<string>()
+  const result: string[] = []
+  for (const value of values) {
+    const trimmed = typeof value === 'string' ? value.trim() : ''
+    if (!trimmed || seen.has(trimmed)) continue
+    seen.add(trimmed)
+    result.push(trimmed)
   }
   return result
 }

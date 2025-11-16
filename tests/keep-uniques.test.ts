@@ -1,11 +1,12 @@
 /* eslint import/no-unused-modules: off */
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { collectKeepUniqueCandidates, computeKeepUniqueProtection, hashKeepUniqueTuple, normalizeKeepUniqueRule } from '../src/lib/keepUniques.js'
+import { collectKeepUniqueCandidates, computeKeepUniqueProtection, hashKeepUniqueTuple, normalizeKeepUniqueRule, resolveKeepUniqueRulesWithMetasets } from '../src/lib/keepUniques.js'
 import { ArtifactSet, ArtifactType, StatVariant, type RankValue } from '../src/lib/types.js'
 import type { TesterPreviewRow } from '../src/types/testerPreview.js'
 import type { NormalizedGearArtifact, NormalizedStat } from '../src/lib/importers/gearDbNormalizer.js'
 import type { KeepUniqueRule } from '../src/lib/keepUniques.js'
+import type { Metaset } from '../src/lib/metasets.js'
 
 let nextArtifactId = 1
 
@@ -64,6 +65,7 @@ const makeRule = (overrides: Partial<KeepUniqueRule> = {}): KeepUniqueRule => {
     tuple: overrides.tuple ?? {
       slots: [ArtifactType.Weapon],
       sets: [ArtifactSet.Speed],
+      metaSetIds: [],
       ranks: [6],
       rarities: [6],
       mainStat: StatVariant.ATK,
@@ -80,6 +82,7 @@ test('hashKeepUniqueTuple differentiates accessory factions', () => {
   const base = {
     slots: [ArtifactType.Ring],
     sets: [ArtifactSet.Refresh],
+    metaSetIds: [],
     ranks: [6 as RankValue],
     rarities: [6 as RankValue],
     mainStat: StatVariant.HP,
@@ -97,6 +100,7 @@ test('computeKeepUniqueProtection aggregates tuple counts', () => {
       tuple: {
         slots: [ArtifactType.Weapon],
         sets: [ArtifactSet.Speed],
+        metaSetIds: [],
         ranks: [6 as RankValue],
         rarities: [6 as RankValue],
         mainStat: StatVariant.ATK,
@@ -125,6 +129,7 @@ test('projected count mirrors existing keep state when disabled', () => {
     tuple: {
       slots: [ArtifactType.Ring],
       sets: [ArtifactSet.Refresh],
+      metaSetIds: [],
       ranks: [5 as RankValue],
       rarities: [5 as RankValue],
       mainStat: StatVariant.RES,
@@ -150,4 +155,29 @@ test('coveredByExisting flips when existing keep rules meet requirement', () => 
   const snapshot = computeKeepUniqueProtection({ candidates, rules, enabled: true })
   assert.strictEqual(snapshot.entries[0]?.coveredByExisting, true, 'no sold artifacts means existing coverage is sufficient')
   assert.strictEqual(snapshot.entries[0]?.projectedCount, 0)
+})
+
+test('resolveKeepUniqueRulesWithMetasets expands set lists', () => {
+  const rules = [
+    makeRule({
+      tuple: {
+        slots: [ArtifactType.Weapon],
+        sets: [],
+        metaSetIds: ['meta_speed'],
+        ranks: [],
+        rarities: [],
+        mainStat: StatVariant.ATK,
+        factions: [],
+      },
+    }),
+  ]
+  const metasets: Metaset[] = [{
+    id: 'meta_speed',
+    name: 'Speed Sets',
+    sets: [ArtifactSet.Speed, ArtifactSet.DivineSpeed],
+    show: true,
+  }]
+  const resolved = resolveKeepUniqueRulesWithMetasets(rules, metasets)
+  const tupleSets = resolved[0]?.tuple.sets ?? []
+  assert.deepStrictEqual(tupleSets.sort((a, b) => a - b), [ArtifactSet.DivineSpeed, ArtifactSet.Speed])
 })
