@@ -12,6 +12,33 @@ const SLOT_MENU_PROPS = {
   MenuListProps: { sx: { width: '100%', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 1, p: 1 } },
 } as const
 
+const SLOT_SELECT_DISPLAY_SX: SxProps<Theme> = (theme) => ({
+  '& .MuiSelect-select': {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: theme.spacing(1),
+    minHeight: theme.spacing(3),
+    paddingTop: theme.spacing(0.5),
+    paddingBottom: theme.spacing(0.5),
+  },
+  '& .MuiSelect-select .slot-value': {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: theme.spacing(0.5),
+    minWidth: 0,
+    width: '100%',
+  },
+  '& .MuiSelect-select .slot-label': {
+    minWidth: 0,
+    whiteSpace: 'nowrap',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+  },
+  '& .MuiSelect-select .MuiSvgIcon-root': {
+    fontSize: theme.typography.pxToRem(18),
+  },
+})
+
 type SlotSelectBaseProps = {
   allowAny?: boolean
   anyLabel?: string
@@ -46,7 +73,11 @@ export function GearSlotSelect({
 }: SlotSelectProps) {
   const { t } = useI18n()
   const anyText = anyLabel ?? t('any')
-  const resolvedSx: SxProps<Theme> = sx ?? {}
+  const resolvedSx: SxProps<Theme> = Array.isArray(sx)
+    ? [SLOT_SELECT_DISPLAY_SX, ...sx]
+    : sx
+      ? [SLOT_SELECT_DISPLAY_SX, sx]
+      : SLOT_SELECT_DISPLAY_SX
   const isMulti = Boolean(multiple)
   const multiSelected = useMemo<ArtifactTypeId[]>(() => {
     if (!isMulti) return []
@@ -56,28 +87,53 @@ export function GearSlotSelect({
   const selectValue: string | string[] = isMulti
     ? multiSelected.map((slotId) => String(Number(slotId)))
     : (singleValue == null ? '' : String(singleValue))
-  const renderSelected = useMemo(() => {
-    if (isMulti) {
-      if (multiSelected.length === 0) {
-        return <Typography variant="body2">{anyText}</Typography>
-      }
-      const limit = 3
-      const labels = multiSelected.map((slotId) => t(artifactTypeI18nKey(Number(slotId))))
-      const displayed = labels.slice(0, limit)
-      const overflow = labels.length - displayed.length
-      const summary = overflow > 0 ? `${displayed.join(', ')} (+${overflow})` : displayed.join(', ')
-      return <Typography variant="body2">{summary}</Typography>
+  const renderSingleValue = useMemo(() => {
+    if (singleValue == null) {
+      return (
+        <Box className="slot-value">
+          <Typography variant="body2" className="slot-label">
+            {anyText}
+          </Typography>
+        </Box>
+      )
     }
-    if (singleValue == null) return <Typography variant="body2">{anyText}</Typography>
     const slotDef = artifactTypeIconList.find((entry) => Number(entry.id) === Number(singleValue))
     const SlotIconComponent = slotDef?.Icon
     return (
-      <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 1 }}>
+      <Box className="slot-value">
         {SlotIconComponent ? <SlotIconComponent fontSize="small" /> : null}
-        <span>{t(artifactTypeI18nKey(Number(singleValue)))}</span>
+        <Typography variant="body2" className="slot-label">
+          {t(artifactTypeI18nKey(Number(singleValue)))}
+        </Typography>
       </Box>
     )
-  }, [anyText, isMulti, multiSelected, singleValue, t])
+  }, [anyText, singleValue, t])
+  const renderMultiValue = useMemo(() => {
+    if (!isMulti) return undefined
+    return () => {
+      if (multiSelected.length === 0) {
+        return (
+          <Box className="slot-value">
+            <Typography variant="body2" className="slot-label">
+              {anyText}
+            </Typography>
+          </Box>
+        )
+      }
+      const [firstSlot] = multiSelected
+      const firstSlotDef = artifactTypeIconList.find((entry) => Number(entry.id) === Number(firstSlot))
+      const FirstSlotIcon = firstSlotDef?.Icon
+      const labelText = multiSelected.map((slotId) => t(artifactTypeI18nKey(Number(slotId)))).join(', ')
+      return (
+        <Box className="slot-value">
+          {FirstSlotIcon ? <FirstSlotIcon fontSize="small" /> : null}
+          <Typography variant="body2" className="slot-label">
+            {labelText}
+          </Typography>
+        </Box>
+      )
+    }
+  }, [anyText, isMulti, multiSelected, t])
   const handleChange = (event: SelectChangeEvent<string | string[]>) => {
     const raw = event.target.value
     if (isMulti) {
@@ -100,12 +156,15 @@ export function GearSlotSelect({
     const singleHandler = onChange as (next: ArtifactTypeId | null) => void
     singleHandler(valueString === '' ? null : (Number(valueString) as ArtifactTypeId))
   }
+  const selectRenderValue = isMulti
+    ? (renderMultiValue ?? (() => null))
+    : (() => renderSingleValue)
   return (
     <Select
       size={size}
       value={selectValue}
       onChange={handleChange}
-      renderValue={() => renderSelected}
+      renderValue={selectRenderValue}
       multiple={isMulti}
       MenuProps={menuProps ?? SLOT_MENU_PROPS}
       displayEmpty
