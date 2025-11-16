@@ -4,15 +4,10 @@ import {
   Box,
   Button,
   Chip,
-  Checkbox,
   Divider,
   FormControlLabel,
   IconButton,
   InputAdornment,
-  ListItemIcon,
-  ListItemText,
-  MenuItem,
-  Select,
   Stack,
   Switch,
   TextField,
@@ -21,7 +16,6 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material'
-import type { SelectChangeEvent } from '@mui/material/Select'
 import { alpha } from '@mui/material/styles'
 import AddIcon from '@mui/icons-material/Add'
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline'
@@ -43,19 +37,19 @@ import {
   artifactSetNames,
   artifactTypeI18nKey,
   factionI18nKey,
-  filterAndSortSetEntries,
   RANK_VALUES,
   StatVariant as StatVariantEnum,
   statVariantI18nKey,
 } from '../../lib/types'
 import { isAccessorySlot } from '../../lib/testerDomain'
 import { useI18n } from '../../lib/i18n'
-import { GearFactionSelect, GearMainStatSelect } from '../gear'
+import { GearFactionSelect, GearMainStatSelect, GearSetsSelect } from '../gear'
 import { artifactTypeIconList } from '../artifactTypeIcons'
 import { SetIcon } from '../SetIcon'
 import { TesterItemsGrid } from '../TesterItemsGrid'
 import { NumberSpinnerAdornment } from '../NumberSpinnerAdornment'
 import type { SetStateAction } from 'react'
+import type { Metaset } from '../../lib/metasets'
 
 type KeepUniquesTabProps = {
   rules: KeepUniqueRule[]
@@ -73,6 +67,7 @@ type KeepUniquesTabProps = {
   onChangeColorBlindMode: (mode: ColorBlindMode) => void
   colorIconSrc: string
   configNames: Array<string | null>
+  metasets: Metaset[]
   testerBuilding?: boolean
   onJumpToRule?: ((ruleIndex: number, cfgIdx: number | null) => void) | undefined
 }
@@ -98,6 +93,7 @@ export default function KeepUniquesTab({
   onChangeColorBlindMode,
   colorIconSrc,
   configNames,
+  metasets,
   testerBuilding = false,
   onJumpToRule,
 }: KeepUniquesTabProps) {
@@ -354,12 +350,14 @@ export default function KeepUniquesTab({
                   </Tooltip>
                 ))}
               </ToggleButtonGroup>
-              <KeepUniqueSetsSelect
+              <GearSetsSelect
                 value={setSelection}
-                allowedPool={allowedSetPool}
                 onChange={(nextSets) => {
                   setRuleTuple(rule.id, (prev) => ({ ...prev, sets: dedupeNumericArray(nextSets) }))
                 }}
+                metasets={metasets}
+                showMetasets={false}
+                allowedSetIds={allowedSetPool}
               />
             </Box>
             <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 1 }}>
@@ -650,60 +648,4 @@ function dedupeNumericArray<T extends number>(values: readonly T[]): T[] {
     result.push(value)
   }
   return result
-}
-
-type KeepUniqueSetsSelectProps = {
-  value: ArtifactSetId[]
-  allowedPool: readonly ArtifactSetId[]
-  onChange: (next: ArtifactSetId[]) => void
-}
-
-function KeepUniqueSetsSelect({ value, allowedPool, onChange }: KeepUniqueSetsSelectProps) {
-  const { t } = useI18n()
-  const allowed = useMemo(() => new Set(allowedPool.map(Number)), [allowedPool])
-  const options = useMemo(() => (
-    filterAndSortSetEntries('', 'game', { translate: t }).filter(([id]) => allowed.has(Number(id)))
-  ), [allowed, t])
-  const renderSelectedValue = (selected: string[]) => {
-    if (!selected.length) return t('any')
-    const labels = selected.map((idStr) => {
-      const id = Number(idStr) as ArtifactSetId
-      return t(artifactSetI18nKey(id)) || artifactSetNames[id] || idStr
-    })
-    if (labels.length <= 2) return labels.join(', ')
-    return `${labels.slice(0, 2).join(', ')} +${labels.length - 2}`
-  }
-  const handleChange = (event: SelectChangeEvent<string[]>) => {
-    const raw = event.target.value
-    const next = (Array.isArray(raw) ? raw : [])
-      .map((idStr) => Number(idStr))
-      .filter((id) => allowed.has(id))
-      .map((id) => id as ArtifactSetId)
-    onChange(next)
-  }
-  return (
-    <Select
-      multiple
-      size="small"
-      value={value.map(String)}
-      onChange={handleChange}
-      renderValue={(selected) => renderSelectedValue(selected as string[])}
-      aria-label={t('keepUniquesSetLabel')}
-    >
-      {options.map(([idStr]) => {
-        const id = Number(idStr) as ArtifactSetId
-        const label = t(artifactSetI18nKey(id)) || artifactSetNames[id] || idStr
-        const checked = value.some((setId) => Number(setId) === id)
-        return (
-          <MenuItem key={idStr} value={idStr}>
-            <Checkbox size="small" checked={checked} />
-            <ListItemIcon>
-              <SetIcon setId={id} size={18} />
-            </ListItemIcon>
-            <ListItemText primary={label} />
-          </MenuItem>
-        )
-      })}
-    </Select>
-  )
 }

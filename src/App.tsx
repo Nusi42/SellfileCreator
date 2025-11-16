@@ -4023,6 +4023,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         onChangeColorBlindMode={setColorBlindMode}
         colorIconSrc={colorIconSrc}
         configNames={testerConfigNames}
+        metasets={metasets}
         testerBuilding={testerBuilding}
         onResetKeepUniques={handleResetKeepUniques}
         onJumpToRule={handleTesterRuleView}

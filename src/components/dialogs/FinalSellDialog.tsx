@@ -18,6 +18,7 @@ import {
 import type { KeepUniqueDetectionSnapshot, KeepUniqueRule } from '../../lib/keepUniques'
 import type { TesterPreviewRow } from '../../types/testerPreview'
 import KeepUniquesTab from './KeepUniquesTab'
+import type { Metaset } from '../../lib/metasets'
 
 type FinalSellDialogProps = {
   open: boolean
@@ -42,6 +43,7 @@ type FinalSellDialogProps = {
   onChangeColorBlindMode: (mode: ColorBlindMode) => void
   colorIconSrc: string
   configNames: Array<string | null>
+  metasets: Metaset[]
   testerBuilding?: boolean
   onResetKeepUniques?: () => void
   onJumpToRule?: (ruleIndex: number, cfgIdx: number | null) => void
@@ -67,14 +69,15 @@ export default function FinalSellDialog(props: FinalSellDialogProps) {
     useStatButtonColors,
     onToggleStatColors,
     onOpenManageColors,
-    colorBlindMode,
-    onChangeColorBlindMode,
-    colorIconSrc,
-    configNames,
-    testerBuilding = false,
-    onResetKeepUniques,
-    onJumpToRule,
-  } = props
+  colorBlindMode,
+  onChangeColorBlindMode,
+  colorIconSrc,
+  configNames,
+  metasets,
+  testerBuilding = false,
+  onResetKeepUniques,
+  onJumpToRule,
+} = props
   const { t } = useI18n()
   // Clamp unknown tab ids back to the Final Sell default so autosave/restore can't wedge the dialog.
   const normalizedTab = FINAL_SELL_DIALOG_TABS.includes(activeTab) ? activeTab : FINAL_SELL_DIALOG_TAB_FINAL_SELL
@@ -376,6 +379,7 @@ export default function FinalSellDialog(props: FinalSellDialogProps) {
             onChangeColorBlindMode={onChangeColorBlindMode}
             colorIconSrc={colorIconSrc}
             configNames={configNames}
+            metasets={metasets}
             testerBuilding={testerBuilding}
             onJumpToRule={onJumpToRule}
           />
