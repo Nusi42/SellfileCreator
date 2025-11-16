@@ -4,6 +4,10 @@ import {
   Box,
   Button,
   Chip,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   Divider,
   FormControlLabel,
   IconButton,
@@ -17,6 +21,7 @@ import {
 import { alpha } from '@mui/material/styles'
 import AddIcon from '@mui/icons-material/Add'
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline'
+import ContentCopyIcon from '@mui/icons-material/ContentCopy'
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined'
 import type { KeepUniqueDetectionEntry, KeepUniqueDetectionSnapshot, KeepUniqueRule } from '../../lib/keepUniques'
 import { createKeepUniqueRuleId, getKeepUniqueRowKey } from '../../lib/keepUniques'
@@ -63,10 +68,6 @@ type KeepUniquesTabProps = {
 }
 
 const ARTIFACT_SET_POOL: readonly ArtifactSetId[] = Object.freeze([...ARMOR_FIXED_SET_IDS, ...ARMOR_VARIABLE_SET_IDS])
-const DEFAULT_ARTIFACT_SET_ID: ArtifactSetId = ARTIFACT_SET_POOL[0] ?? (ARMOR_FIXED_SET_IDS[0] ?? (0 as ArtifactSetId))
-const DEFAULT_ACCESSORY_SET_ID: ArtifactSetId = ACCESSORY_SET_IDS[0] ?? (0 as ArtifactSetId)
-const DEFAULT_SLOT: ArtifactTypeId = ArtifactType.Weapon
-
 export default function KeepUniquesTab({
   rules,
   enabled,
@@ -89,6 +90,7 @@ export default function KeepUniquesTab({
 }: KeepUniquesTabProps) {
   const { t } = useI18n()
   const [selectedRuleId, setSelectedRuleId] = useState<string | null>(rules[0]?.id ?? null)
+  const [pendingDeleteRuleId, setPendingDeleteRuleId] = useState<string | null>(null)
   const effectiveSelectedRuleId = useMemo(() => {
     if (!selectedRuleId) return rules[0]?.id ?? null
     return rules.some((rule) => rule.id === selectedRuleId) ? selectedRuleId : (rules[0]?.id ?? null)
@@ -129,7 +131,7 @@ export default function KeepUniquesTab({
   const gridFiltered = uniqueFilterActive || highlightFilterActive
 
   const handleAddRule = useCallback(() => {
-    const tuple = makeTupleForSlot(DEFAULT_SLOT)
+    const tuple = makeDefaultKeepUniqueTuple()
     const newRule: KeepUniqueRule = { id: createKeepUniqueRuleId(), tuple, requiredCount: 1, enabled: true }
     onRulesChange((prev) => [...prev, newRule])
     setSelectedRuleId(newRule.id)
@@ -145,6 +147,37 @@ export default function KeepUniquesTab({
       return filtered
     })
   }, [onRulesChange])
+
+  const handleCancelDeleteRule = useCallback(() => {
+    setPendingDeleteRuleId(null)
+  }, [])
+
+  const handleConfirmDeleteRule = useCallback(() => {
+    if (!pendingDeleteRuleId) return
+    handleDeleteRule(pendingDeleteRuleId)
+    setPendingDeleteRuleId(null)
+  }, [handleDeleteRule, pendingDeleteRuleId])
+
+  const handleDuplicateRule = useCallback((ruleId: string) => {
+    let newRuleId: string | null = null
+    onRulesChange((prev) => {
+      const idx = prev.findIndex((rule) => rule.id === ruleId)
+      if (idx === -1) return prev
+      const source = prev[idx]
+      if (!source) return prev
+      const cloneId = createKeepUniqueRuleId()
+      newRuleId = cloneId
+      const duplicated: KeepUniqueRule = {
+        ...source,
+        id: cloneId,
+        tuple: cloneKeepUniqueTuple(source.tuple),
+      }
+      const next = prev.slice()
+      next.splice(idx + 1, 0, duplicated)
+      return next
+    })
+    if (newRuleId) setSelectedRuleId(newRuleId)
+  }, [onRulesChange, setSelectedRuleId])
 
   const updateRule = useCallback((ruleId: string, updater: (rule: KeepUniqueRule) => KeepUniqueRule) => {
     onRulesChange((prev) => prev.map((rule) => (rule.id === ruleId ? updater(rule) : rule)))
@@ -205,11 +238,26 @@ export default function KeepUniquesTab({
     const deleteButton = (
       <IconButton
         size="small"
-        onClick={(event) => { event.stopPropagation(); handleDeleteRule(rule.id) }}
+        onClick={(event) => { event.stopPropagation(); setPendingDeleteRuleId(rule.id) }}
         aria-label={t('keepUniquesDeleteRule')}
       >
         <DeleteOutlineIcon fontSize="small" />
       </IconButton>
+    )
+    const duplicateButton = (
+      <IconButton
+        size="small"
+        onClick={(event) => { event.stopPropagation(); handleDuplicateRule(rule.id) }}
+        aria-label={t('keepUniquesDuplicateRule')}
+      >
+        <ContentCopyIcon fontSize="small" />
+      </IconButton>
+    )
+    const actionButtons = (
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+        {duplicateButton}
+        {deleteButton}
+      </Box>
     )
     return (
       <Box
@@ -362,11 +410,11 @@ export default function KeepUniquesTab({
                     projected: ruleDetection.projectedCount,
                   })}
                 </Typography>
-                {deleteButton}
+                {actionButtons}
               </Box>
             ) : (
               <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-                {deleteButton}
+                {actionButtons}
               </Box>
             )}
           </Stack>
@@ -375,95 +423,107 @@ export default function KeepUniquesTab({
     )
   }
 
+  const deleteDialogOpen = pendingDeleteRuleId !== null
+
   return (
-    <Box sx={{ flex: 1, minHeight: 0, height: '100%', p: 3, boxSizing: 'border-box' }}>
-      <Box
-        sx={{
-          display: { xs: 'block', md: 'grid' },
-          gridTemplateColumns: { md: '360px minmax(0, 1fr)' },
-          height: '100%',
-          gap: 2,
-        }}
-      >
-        <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
-          <Box sx={{ pb: 2, borderBottom: '1px solid', borderColor: 'divider' }}>
-            <Stack spacing={1}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <Typography variant="subtitle2">{t('keepUniquesTabLabel')}</Typography>
-                <Tooltip title={t('keepUniquesTabHint')}>
-                  <InfoOutlinedIcon fontSize="small" color="action" />
-                </Tooltip>
-              </Box>
-              <Typography variant="body2" color="text.secondary">{t('keepUniquesTabIntro')}</Typography>
-              <FormControlLabel
-                control={(
-                  <Switch
-                    checked={enabled}
-                    onChange={(_, checked) => onToggleEnabled(checked)}
-                  />
-                )}
-                label={t('keepUniquesEnableLabel')}
+    <>
+      <Dialog open={deleteDialogOpen} onClose={handleCancelDeleteRule}>
+        <DialogTitle>{t('keepUniquesDeleteRuleTitle')}</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2">{t('keepUniquesDeleteRuleMessage')}</Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCancelDeleteRule}>{t('cancel')}</Button>
+          <Button color="error" onClick={handleConfirmDeleteRule}>{t('delete')}</Button>
+        </DialogActions>
+      </Dialog>
+      <Box sx={{ flex: 1, minHeight: 0, height: '100%', p: 3, boxSizing: 'border-box' }}>
+        <Box
+          sx={{
+            display: { xs: 'block', md: 'grid' },
+            gridTemplateColumns: { md: '360px minmax(0, 1fr)' },
+            height: '100%',
+            gap: 2,
+          }}
+        >
+          <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
+            <Box sx={{ pb: 2, borderBottom: '1px solid', borderColor: 'divider' }}>
+              <Stack spacing={1}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Typography variant="subtitle2">{t('keepUniquesTabLabel')}</Typography>
+                  <Tooltip title={t('keepUniquesTabHint')}>
+                    <InfoOutlinedIcon fontSize="small" color="action" />
+                  </Tooltip>
+                </Box>
+                <Typography variant="body2" color="text.secondary">{t('keepUniquesTabIntro')}</Typography>
+                <FormControlLabel
+                  control={(
+                    <Switch
+                      checked={enabled}
+                      onChange={(_, checked) => onToggleEnabled(checked)}
+                    />
+                  )}
+                  label={t('keepUniquesEnableLabel')}
+                />
+                {detectionStatus}
+              </Stack>
+            </Box>
+            <Box sx={{ flex: 1, minHeight: 0, overflowY: 'auto', pt: 2, pr: 1 }}>
+              {rules.length === 0 ? (
+                <Typography variant="body2" color="text.secondary">{t('keepUniquesNoRules')}</Typography>
+              ) : null}
+              {rules.map(renderRuleCard)}
+            </Box>
+            <Divider sx={{ my: 1 }} />
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, pb: 1 }}>
+              <Button startIcon={<AddIcon />} variant="contained" onClick={handleAddRule} sx={{ minHeight: MENU_CONTROL_HEIGHT_PX }}>
+                {t('keepUniquesAddRule')}
+              </Button>
+            </Box>
+          </Box>
+          <Box sx={{ minHeight: 0, display: 'flex', flexDirection: 'column', gap: 1 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+              <Typography variant="subtitle2">{t('keepUniquesGridTitle')}</Typography>
+              {selectedEntry ? (
+                <Chip size="small" label={t('keepUniquesGridSelectedCount', { count: selectedVisibleRowCount })} />
+              ) : null}
+              {detectionChip}
+            </Box>
+            <Box sx={{ flex: 1, minHeight: 0 }}>
+              <TesterItemsGrid
+                rows={gridRows}
+                filterActive={gridFiltered}
+                substatColors={substatColors}
+                useStatButtonColors={useStatButtonColors}
+                testerBuilding={testerBuilding}
+                onToggleStatColors={onToggleStatColors}
+                onOpenManageColors={onOpenManageColors}
+                colorBlindMode={colorBlindMode}
+                onChangeColorBlindMode={onChangeColorBlindMode}
+                colorIconSrc={colorIconSrc}
+                configNames={configNames}
+                onJumpToRule={onJumpToRule}
+                variant="keepUniques"
+                highlightedRowPredicate={highlightRowPredicate ?? null}
+                dimUnhighlightedRows={highlightActive}
               />
-              {detectionStatus}
-            </Stack>
-          </Box>
-          <Box sx={{ flex: 1, minHeight: 0, overflowY: 'auto', pt: 2, pr: 1 }}>
-            {rules.length === 0 ? (
-              <Typography variant="body2" color="text.secondary">{t('keepUniquesNoRules')}</Typography>
-            ) : null}
-            {rules.map(renderRuleCard)}
-          </Box>
-        <Divider sx={{ my: 1 }} />
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, pb: 1 }}>
-          <Button startIcon={<AddIcon />} variant="contained" onClick={handleAddRule} sx={{ minHeight: MENU_CONTROL_HEIGHT_PX }}>
-            {t('keepUniquesAddRule')}
-          </Button>
-        </Box>
-        </Box>
-        <Box sx={{ minHeight: 0, display: 'flex', flexDirection: 'column', gap: 1 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-          <Typography variant="subtitle2">{t('keepUniquesGridTitle')}</Typography>
-          {selectedEntry ? (
-            <Chip size="small" label={t('keepUniquesGridSelectedCount', { count: selectedVisibleRowCount })} />
-          ) : null}
-          {detectionChip}
-        </Box>
-          <Box sx={{ flex: 1, minHeight: 0 }}>
-            <TesterItemsGrid
-              rows={gridRows}
-              filterActive={gridFiltered}
-              substatColors={substatColors}
-              useStatButtonColors={useStatButtonColors}
-              testerBuilding={testerBuilding}
-              onToggleStatColors={onToggleStatColors}
-              onOpenManageColors={onOpenManageColors}
-              colorBlindMode={colorBlindMode}
-              onChangeColorBlindMode={onChangeColorBlindMode}
-              colorIconSrc={colorIconSrc}
-              configNames={configNames}
-              onJumpToRule={onJumpToRule}
-              variant="keepUniques"
-              highlightedRowPredicate={highlightRowPredicate ?? null}
-              dimUnhighlightedRows={highlightActive}
-            />
+            </Box>
           </Box>
         </Box>
       </Box>
-    </Box>
+    </>
   )
 }
 
-function makeTupleForSlot(slot: ArtifactTypeId): KeepUniqueRule['tuple'] {
-  const accessorySlot = isAccessorySlot(slot)
-  const setPool = accessorySlot ? ACCESSORY_SET_IDS : ARTIFACT_SET_POOL
+function makeDefaultKeepUniqueTuple(): KeepUniqueRule['tuple'] {
   return {
-    slots: [slot],
-    sets: setPool.length > 0 ? [setPool[0] ?? (accessorySlot ? DEFAULT_ACCESSORY_SET_ID : DEFAULT_ARTIFACT_SET_ID)] : [],
+    slots: [],
+    sets: [],
     metaSetIds: [],
     ranks: [],
     rarities: [],
     mainStats: [],
-    factions: accessorySlot ? [] : [],
+    factions: [],
   }
 }
 
@@ -481,13 +541,29 @@ function sanitizeTupleForSlots(slots: ArtifactTypeId[], tuple: KeepUniqueRule['t
   const hasAccessory = normalizedSlots.length === 0 || normalizedSlots.some((slotId) => isAccessorySlot(slotId))
   const filteredMainStats = dedupeNumericArray((tuple.mainStats ?? []).filter((variant) => mainOptions.includes(variant)))
   const filteredFactions = hasAccessory ? dedupeNumericArray(tuple.factions ?? []) : []
+  const hadExplicitSetSelection = tuple.sets.length > 0 || (tuple.metaSetIds?.length ?? 0) > 0
+  const resolvedSets = filteredSets.length > 0
+    ? filteredSets
+    : (hadExplicitSetSelection && allowedSetPool[0] ? [allowedSetPool[0]] : [])
   return {
     ...tuple,
     slots: normalizedSlots,
-    sets: filteredSets.length > 0 ? filteredSets : (allowedSetPool[0] ? [allowedSetPool[0]] : []),
+    sets: resolvedSets,
     metaSetIds: filteredMetaIds,
     mainStats: filteredMainStats,
     factions: filteredFactions,
+  }
+}
+
+function cloneKeepUniqueTuple(tuple: KeepUniqueRule['tuple']): KeepUniqueRule['tuple'] {
+  return {
+    slots: [...tuple.slots],
+    sets: [...tuple.sets],
+    metaSetIds: [...(tuple.metaSetIds ?? [])],
+    ranks: [...tuple.ranks],
+    rarities: [...tuple.rarities],
+    mainStats: [...(tuple.mainStats ?? [])],
+    factions: [...(tuple.factions ?? [])],
   }
 }
 
