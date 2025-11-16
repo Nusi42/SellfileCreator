@@ -164,6 +164,15 @@ export default function KeepUniquesTab({
     onRulesChange((prev) => prev.map((rule) => (rule.id === ruleId ? updater(rule) : rule)))
   }, [onRulesChange])
 
+  const rarityLabel = useCallback((rarity: RankValue): string => {
+    if (rarity === 1) return t('rarityCommon')
+    if (rarity === 2) return t('rarityUncommon')
+    if (rarity === 3) return t('rarityRare')
+    if (rarity === 4) return t('rarityEpic')
+    if (rarity === 5) return t('rarityLegendary')
+    return t('rarityMythical')
+  }, [t])
+
   const setRuleTuple = useCallback((
     ruleId: string,
     updater: (tuple: KeepUniqueRule['tuple']) => KeepUniqueRule['tuple'],
@@ -268,7 +277,7 @@ export default function KeepUniquesTab({
     const rarityChips = (() => {
       if (raritySelection.length === 0) return [<Chip key="rarity-any" label={t('any')} size="small" />]
       return raritySelection.map((rarity) => (
-        <Chip key={`rarity-${rarity}`} label={t('keepUniquesRarityChip', { rarity })} size="small" />
+        <Chip key={`rarity-${rarity}`} label={rarityLabel(rarity)} size="small" />
       ))
     })()
     const mainStatChip = (
@@ -394,7 +403,7 @@ export default function KeepUniquesTab({
               >
                 {RANK_VALUES.map((rarity) => (
                   <ToggleButton key={`rarity-${rarity}`} value={String(rarity)}>
-                    {t('keepUniquesRarityChip', { rarity })}
+                    {rarityLabel(rarity)}
                   </ToggleButton>
                 ))}
               </ToggleButtonGroup>
