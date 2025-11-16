@@ -182,7 +182,6 @@ const overrides: Catalog = {
   keepUniquesDeleteRule: 'Eliminar regla de conservación',
   keepUniquesSetUnavailable: 'No disponible para esta ranura',
   keepUniquesRankChip: '{rank}★',
-  keepUniquesRarityChip: 'Rareza {rarity}',
   keepUniquesRuleEnabledToggle: 'Regla activada',
   keepUniquesRuleCounts: 'Hay {have} / Conservar {keep} (proyección {projected})',
   keepUniquesRequiredCount: 'Cantidad necesaria',

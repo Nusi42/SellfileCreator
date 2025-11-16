@@ -182,7 +182,6 @@ const catalog: Catalog = {
   keepUniquesDeleteRule: 'Excluir regra de manutenção',
   keepUniquesSetUnavailable: 'Indisponível para este slot',
   keepUniquesRankChip: '{rank}★',
-  keepUniquesRarityChip: 'Raridade {rarity}',
   keepUniquesRuleEnabledToggle: 'Regra ativada',
   keepUniquesRuleCounts: 'Existem {have} / Manter {keep} (previsto {projected})',
   keepUniquesRequiredCount: 'Quantidade necessária',
