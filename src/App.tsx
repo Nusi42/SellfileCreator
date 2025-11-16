@@ -53,7 +53,13 @@ import NoteDialog from './components/NoteDialog'
 import { useManageColorsDialog } from './hooks/useManageColorsDialog'
 import { useSubstatTargetsDialog } from './hooks/useSubstatTargetsDialog'
 import { computeMergedRules, buildRulesForConfig, buildFinalSellRules, RULE_SOURCE_FINAL_SELL, RULE_SOURCE_HSF, RULE_SOURCE_KEEP_UNIQUES, type HsfRuleWithCfg } from './lib/merge'
-import { computeKeepUniqueProtection, type KeepUniqueDetectionSnapshot, type KeepUniqueRule } from './lib/keepUniques'
+import {
+  computeKeepUniqueProtection,
+  getKeepUniqueGroupKey,
+  getKeepUniqueRowKey,
+  type KeepUniqueDetectionSnapshot,
+  type KeepUniqueRule,
+} from './lib/keepUniques'
 import { updateConfigRulesCache, fingerprintConfigForRules, fingerprintSubstatTargets, mergeArtifactSets } from './lib/ruleCache'
 import { hasConfigMeaningfulDifferences } from './lib/configDiff'
 import { buildRuleTesterAutosavePayload, createRuleTesterMath, diffRuleTesterItems, fingerprintRuleTesterItem, loadRuleTesterAutosaveDraft, type RuleTesterItem } from './lib/ruleTesterSession'
@@ -2450,6 +2456,55 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       clearTimeout(timeoutId)
     }
   }, [keepUniqueRules, keepUniquesEnabled, testerPreviewRows, testerMatchFreeze, testerRowsBuilding])
+  const keepUniqueGroupRowKeys = useMemo(() => {
+    const uniqueKeys = new Set<number>()
+    if (testerPreviewRows.length === 0) return uniqueKeys
+    let hasKeepUniqueRules = false
+    for (const rule of mergedRules) {
+      if (rule.__source === RULE_SOURCE_KEEP_UNIQUES) {
+        hasKeepUniqueRules = true
+        break
+      }
+    }
+    const baseRules = hasKeepUniqueRules
+      ? mergedRules.filter((rule) => rule.__source !== RULE_SOURCE_KEEP_UNIQUES)
+      : mergedRules
+    type GroupStats = { total: number; sold: number; rowKeys: number[] }
+    const groupStats = new Map<string, GroupStats>()
+    for (const row of testerPreviewRows) {
+      const rowKey = getKeepUniqueRowKey(row.artifact)
+      const groupKey = getKeepUniqueGroupKey(row.artifact)
+      const sold = (() => {
+        if (!hasKeepUniqueRules) return row.match?.keep !== true
+        const match = row.match
+        if (!match) return true
+        if (match.ruleSource !== RULE_SOURCE_KEEP_UNIQUES) return match.keep !== true
+        if (baseRules.length === 0) return true
+        const { firstMatch } = evaluateMatchesByConfig(baseRules, row.artifact.testerItem, { configModes })
+        return !firstMatch || firstMatch.keep !== true
+      })()
+      const entry = groupStats.get(groupKey)
+      if (entry) {
+        entry.total += 1
+        if (sold) {
+          entry.sold += 1
+          entry.rowKeys.push(rowKey)
+        }
+      } else {
+        groupStats.set(groupKey, {
+          total: 1,
+          sold: sold ? 1 : 0,
+          rowKeys: sold ? [rowKey] : [],
+        })
+      }
+    }
+    for (const entry of groupStats.values()) {
+      if (entry.total > 0 && entry.sold === entry.total) {
+        for (const key of entry.rowKeys) uniqueKeys.add(key)
+      }
+    }
+    return uniqueKeys
+  }, [testerPreviewRows, mergedRules, configModes])
   const matchingConfigIndices = filterResult.matchingConfigIndices
   const testerMatchingConfigIndices = testerFilterResult.matchingConfigIndices
   const chipMatchingConfigIndices = previewMode === 'tester'
@@ -3982,6 +4037,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         onKeepUniquesEnabledChange={setKeepUniquesEnabled}
         keepUniqueDetection={keepUniqueDetection}
         testerRows={testerPreviewRows}
+        keepUniqueRowKeys={keepUniqueGroupRowKeys}
         substatColors={substatColors}
         useStatButtonColors={statButtonBorders}
         onToggleStatColors={setStatButtonBorders}

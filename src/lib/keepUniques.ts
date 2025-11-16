@@ -148,6 +148,17 @@ export function getKeepUniqueRowKey(artifact: NormalizedGearArtifact): number {
   return 0
 }
 
+export type KeepUniqueGroupKey = string
+
+/** Hash representing the slot+set+main+faction group used for uniqueness filtering. */
+export function getKeepUniqueGroupKey(artifact: NormalizedGearArtifact): KeepUniqueGroupKey {
+  const slot = Number(artifact.slot)
+  const set = Number(artifact.set)
+  const mainStat = Number(artifact.mainStat?.variant ?? StatVariantEnum.Any)
+  const faction = isAccessorySlot(slot) ? Number(artifact.faction ?? 0) : 0
+  return [slot, set, mainStat, faction].join(':')
+}
+
 const tupleFromArtifact = (artifact: NormalizedGearArtifact): KeepUniqueTuple => {
   const slot = Number(artifact.slot) as ArtifactTypeId
   const mainStatVariant = artifact.mainStat?.variant ?? StatVariantEnum.Any

@@ -108,6 +108,7 @@ This document captures runtime behavior, builder interactions, and user-facing w
 - The empty state promotes the `Add rule` CTA. Clicking it clones a tuple seeded from the slot’s default main stat and set pool; additional clicks append new entries and focus them for editing.
 - Detection ( `computeKeepUniqueProtection` ) only runs when tester preview rows are present, not building, and the match-freeze gate is released. While a scan is pending the tab shows the warning alert; once complete, chips on each rule summarize coverage, deficits, or “covered by existing keep rules.”
 - Alerts are contextual: disabled toggle, no tester rows loaded, scan pending, all protected, or `N` deficits.
+- The Keep Uniques grid only renders tester rows that qualify as “unique”: we group artifacts by slot + set + main stat + faction (armor treats faction as “Any”), replay the active HSF rules with Keep Unique tuples removed, and keep the group in view only when every artifact in that group would be sold under that trimmed ruleset. This makes the right-hand grid surface the at-risk combinations that still need protection rules.
 
 ### Tester grid mirroring
 

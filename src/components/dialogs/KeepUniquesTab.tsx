@@ -55,6 +55,7 @@ type KeepUniquesTabProps = {
   onToggleEnabled: (next: SetStateAction<boolean>) => void
   detection: KeepUniqueDetectionSnapshot | null
   testerRows: TesterPreviewRow[]
+  uniqueRowKeys: ReadonlySet<number>
   substatColors: Record<number, { fg: string; bg: string }>
   useStatButtonColors: boolean
   onToggleStatColors: (next: boolean) => void
@@ -82,6 +83,7 @@ export default function KeepUniquesTab({
   onToggleEnabled,
   detection,
   testerRows,
+  uniqueRowKeys,
   substatColors,
   useStatButtonColors,
   onToggleStatColors,
@@ -110,13 +112,29 @@ export default function KeepUniquesTab({
   }, [detectionEntries])
   const selectedEntry = effectiveSelectedRuleId ? detectionByRuleId.get(effectiveSelectedRuleId) ?? null : null
   const selectedRowKeys = useMemo(() => new Set<number>(selectedEntry?.rowKeys ?? []), [selectedEntry])
+  const uniqueRowKeySet = uniqueRowKeys
+  const gridRows = useMemo(() => {
+    if (uniqueRowKeySet.size === 0) return []
+    if (uniqueRowKeySet.size === testerRows.length) return testerRows
+    return testerRows.filter((row) => uniqueRowKeySet.has(getKeepUniqueRowKey(row.artifact)))
+  }, [testerRows, uniqueRowKeySet])
+  const uniqueFilterActive = testerRows.length > gridRows.length
   // Highlight callback lets the tester grid fade non-matching cards instead of mutating the dataset.
   const highlightRowPredicate = useMemo(() => {
     if (!selectedEntry || selectedRowKeys.size === 0) return null
     return (row: TesterPreviewRow) => selectedRowKeys.has(getKeepUniqueRowKey(row.artifact))
   }, [selectedEntry, selectedRowKeys])
   const highlightActive = Boolean(highlightRowPredicate)
-  const gridFiltered = highlightActive && testerRows.length > selectedRowKeys.size
+  const selectedVisibleRowCount = useMemo(() => {
+    if (!selectedEntry || selectedEntry.rowKeys.length === 0) return 0
+    let count = 0
+    for (const key of selectedEntry.rowKeys) {
+      if (uniqueRowKeySet.has(key)) count += 1
+    }
+    return count
+  }, [selectedEntry, uniqueRowKeySet])
+  const highlightFilterActive = highlightActive && gridRows.length > selectedVisibleRowCount
+  const gridFiltered = uniqueFilterActive || highlightFilterActive
 
   const handleAddRule = useCallback(() => {
     const tuple = makeTupleForSlot(DEFAULT_SLOT)
@@ -425,13 +443,13 @@ export default function KeepUniquesTab({
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
           <Typography variant="subtitle2">{t('keepUniquesGridTitle')}</Typography>
           {selectedEntry ? (
-            <Chip size="small" label={t('keepUniquesGridSelectedCount', { count: selectedRowKeys.size })} />
+            <Chip size="small" label={t('keepUniquesGridSelectedCount', { count: selectedVisibleRowCount })} />
           ) : null}
           {detectionChip}
         </Box>
           <Box sx={{ flex: 1, minHeight: 0 }}>
             <TesterItemsGrid
-              rows={testerRows}
+              rows={gridRows}
               filterActive={gridFiltered}
               substatColors={substatColors}
               useStatButtonColors={useStatButtonColors}
