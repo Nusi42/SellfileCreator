@@ -188,7 +188,6 @@ const catalog: Catalog = {
   keepUniquesRequiredCount: 'Quantidade necessária',
   keepUniquesNoRules: 'Ainda não há regras de manutenção.',
   keepUniquesAddRule: 'Adicionar regra de manutenção',
-  keepUniquesResetSeeds: 'Restaurar padrões',
   keepUniquesGridTitle: 'Linhas do testador',
   keepUniquesGridSelectedCount: '{count} linhas correspondem a esta tupla',
   keepUniquesSetLabel: 'Conjunto',

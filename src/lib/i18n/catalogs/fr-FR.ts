@@ -188,7 +188,6 @@ const overrides: Catalog = {
   keepUniquesRequiredCount: 'Quantité requise',
   keepUniquesNoRules: 'Aucune règle de conservation pour le moment.',
   keepUniquesAddRule: 'Ajouter une règle de conservation',
-  keepUniquesResetSeeds: 'Restaurer les valeurs par défaut',
   keepUniquesGridTitle: 'Lignes du testeur',
   keepUniquesGridSelectedCount: '{count} lignes correspondent à ce tuple',
   keepUniquesSetLabel: 'Ensemble',

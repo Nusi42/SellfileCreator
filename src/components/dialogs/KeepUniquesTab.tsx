@@ -45,6 +45,7 @@ import { useI18n } from '../../lib/i18n'
 import { GearFactionSelect, GearMainStatSelect, GearRankSelect, GearRaritySelect, GearSlotSelect } from '../gear'
 import { SetIcon } from '../SetIcon'
 import { TesterItemsGrid } from '../TesterItemsGrid'
+import { NumberSpinnerAdornment } from '../NumberSpinnerAdornment'
 import type { SetStateAction } from 'react'
 
 type KeepUniquesTabProps = {
@@ -64,7 +65,6 @@ type KeepUniquesTabProps = {
   configNames: Array<string | null>
   testerBuilding?: boolean
   onJumpToRule?: ((ruleIndex: number, cfgIdx: number | null) => void) | undefined
-  onReset?: (() => void) | undefined
 }
 
 const ARTIFACT_SET_POOL: readonly ArtifactSetId[] = Object.freeze([...ARMOR_FIXED_SET_IDS, ...ARMOR_VARIABLE_SET_IDS])
@@ -92,7 +92,6 @@ export default function KeepUniquesTab({
   configNames,
   testerBuilding = false,
   onJumpToRule,
-  onReset,
 }: KeepUniquesTabProps) {
   const { t } = useI18n()
   const [selectedRuleId, setSelectedRuleId] = useState<string | null>(rules[0]?.id ?? null)
@@ -150,18 +149,33 @@ export default function KeepUniquesTab({
 
   const deficitCount = detectionEntries.filter((entry) => entry.deficit > 0).length
 
+  let detectionChip: JSX.Element | null = null
   const detectionStatus = (() => {
     if (!enabled) return null
     if (testerRows.length === 0) {
       return <Alert severity="info">{t('keepUniquesNoTesterData')}</Alert>
     }
     if (!detection || testerBuilding) {
-      return <Alert severity="warning">{t('keepUniquesScanPending')}</Alert>
+      detectionChip = (
+        <Chip
+          size="small"
+          color="warning"
+          label={t('keepUniquesScanPending')}
+        />
+      )
+      return null
     }
     if (deficitCount === 0) {
       return <Alert severity="success">{t('keepUniquesAllProtected')}</Alert>
     }
-    return <Alert severity="warning">{t('keepUniquesDeficitSummary', { count: deficitCount })}</Alert>
+    detectionChip = (
+      <Chip
+        size="small"
+        color="warning"
+        label={t('keepUniquesDeficitSummary', { count: deficitCount })}
+      />
+    )
+    return null
   })()
 
   const setOptions = useMemo(() => filterAndSortSetEntries('', 'game', { translate: t }), [t])
@@ -302,6 +316,35 @@ export default function KeepUniquesTab({
                 }}
                 InputProps={{
                   startAdornment: <InputAdornment position="start">≥</InputAdornment>,
+                  endAdornment: (
+                    <NumberSpinnerAdornment
+                      ariaLabel={t('keepUniquesRequiredCount')}
+                      onStep={(delta) => {
+                        updateRule(rule.id, (prev) => {
+                          const next = Math.max(1, Math.floor((prev.requiredCount ?? 1) + delta))
+                          return { ...prev, requiredCount: next }
+                        })
+                      }}
+                    />
+                  ),
+                }}
+                sx={(themeInner) => ({
+                  '& input::-webkit-outer-spin-button, & input::-webkit-inner-spin-button': {
+                    WebkitAppearance: 'none',
+                    margin: 0,
+                  },
+                  '& input[type=number]': {
+                    MozAppearance: 'textfield',
+                  },
+                  '& input': {
+                    textAlign: 'right',
+                    paddingRight: themeInner.spacing(1),
+                    paddingLeft: themeInner.spacing(0.5),
+                  },
+                })}
+                inputProps={{
+                  min: 1,
+                  step: 1,
                 }}
               />
               <FormControlLabel
@@ -371,28 +414,21 @@ export default function KeepUniquesTab({
               rules.map(renderRuleCard)
             )}
           </Box>
-          <Divider sx={{ my: 1 }} />
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, pb: 1 }}>
-            <Button startIcon={<AddIcon />} variant="contained" onClick={handleAddRule} sx={{ minHeight: MENU_CONTROL_HEIGHT_PX }}>
-              {t('keepUniquesAddRule')}
-            </Button>
-            <Button
-              variant="text"
-              color="inherit"
-              onClick={() => onReset?.()}
-              disabled={!onReset}
-            >
-              {t('keepUniquesResetSeeds')}
-            </Button>
-          </Box>
+        <Divider sx={{ my: 1 }} />
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, pb: 1 }}>
+          <Button startIcon={<AddIcon />} variant="contained" onClick={handleAddRule} sx={{ minHeight: MENU_CONTROL_HEIGHT_PX }}>
+            {t('keepUniquesAddRule')}
+          </Button>
+        </Box>
         </Box>
         <Box sx={{ minHeight: 0, display: 'flex', flexDirection: 'column', gap: 1 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Typography variant="subtitle2">{t('keepUniquesGridTitle')}</Typography>
-            {selectedEntry ? (
-              <Chip size="small" label={t('keepUniquesGridSelectedCount', { count: selectedRowKeys.size })} />
-            ) : null}
-          </Box>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+          <Typography variant="subtitle2">{t('keepUniquesGridTitle')}</Typography>
+          {selectedEntry ? (
+            <Chip size="small" label={t('keepUniquesGridSelectedCount', { count: selectedRowKeys.size })} />
+          ) : null}
+          {detectionChip}
+        </Box>
           <Box sx={{ flex: 1, minHeight: 0 }}>
             <TesterItemsGrid
               rows={testerRows}

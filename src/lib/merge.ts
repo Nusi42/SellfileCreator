@@ -499,29 +499,36 @@ export function computeMergedRules(params: {
   // Build and then remove obsolete rules, but only when both the obsolete rule
   // and its covering rule originate from the same custom config. This preserves
   // duplicated configs and base-vs-custom overlaps in the preview.
-  const merged: HsfRuleWithCfg[] = base.concat(customs)
   // Optional: append final sell remainder rules across all milestones.
   // When Final Sell is enabled (artifacts || accessories), we include one
   // rule per level milestone (0/4/8/12/16). Milestones that are not selected
   // by the user are emitted with `Use: false` (disabled) instead of being
   // omitted. This keeps intent explicit in the exported HSF and mirrors the
   // builder's Enable toggle semantics.
-  merged.push(...buildFinalSellRules(finalSellRemainder))
+  const finalSellRules = buildFinalSellRules(finalSellRemainder)
+  const keepRules: HsfRuleWithCfg[] = []
   if (keepUniques && keepUniques.enabled && keepUniques.rules.length > 0) {
     const keepRuleKeys = new Set<string>()
-    for (const rule of merged) {
-      if (rule.Keep === true) {
-        keepRuleKeys.add(canonicalRuleKey(rule))
-      }
+    for (const rule of base) {
+      if (rule.Keep === true) keepRuleKeys.add(canonicalRuleKey(rule))
     }
-    const keepRules = buildKeepUniqueRules(keepUniques.rules, keepUniques.detection ?? null)
-    for (const rule of keepRules) {
+    for (const rule of customs) {
+      if (rule.Keep === true) keepRuleKeys.add(canonicalRuleKey(rule))
+    }
+    const candidateKeepRules = buildKeepUniqueRules(keepUniques.rules, keepUniques.detection ?? null)
+    for (const rule of candidateKeepRules) {
       const key = canonicalRuleKey(rule)
       if (keepRuleKeys.has(key)) continue
       keepRuleKeys.add(key)
-      merged.push(rule)
+      keepRules.push(rule)
     }
   }
+  const merged: HsfRuleWithCfg[] = [
+    ...base,
+    ...keepRules,
+    ...customs,
+    ...finalSellRules,
+  ]
   // Assign a stable preview line index so filtered views can still display
   // the original ordering (1-based when rendered).
   for (let i = 0; i < merged.length; i += 1) {

@@ -375,7 +375,6 @@ export default function FinalSellDialog(props: FinalSellDialogProps) {
             configNames={configNames}
             testerBuilding={testerBuilding}
             onJumpToRule={onJumpToRule}
-            onReset={onResetKeepUniques}
           />
         )}
       </DialogContent>
