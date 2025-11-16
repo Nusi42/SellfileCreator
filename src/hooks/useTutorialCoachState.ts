@@ -12,6 +12,7 @@ import { ArtifactSet, ArtifactType, StatVariant, RankCode, RarityCode, LEVEL_MIL
 import { DEFAULT_RULES_FILTER_STATE, type RulesFilterState } from '../lib/rulesFilter'
 import type { TutorialStep } from '../components/tutorial/TutorialCoach'
 import type { useI18n } from '../lib/i18n'
+import type { KeepUniqueRule } from '../lib/keepUniques'
 
 type Translate = ReturnType<typeof useI18n>['t']
 type SubstatTargetsState = SubstatTargetTable
@@ -23,6 +24,8 @@ type TutorialSnapshot = {
   metas: Metaset[]
   substatTargets: SubstatTargetsState
   fsr: FinalSellRemainderConfig
+  keepUniqueRules: KeepUniqueRule[]
+  keepUniquesEnabled: boolean
   note: string | null
   builder: BuilderConfig
   filterOpen: boolean
@@ -42,6 +45,10 @@ export type UseTutorialCoachStateParams = {
   setSubstatTargets: Dispatch<SetStateAction<SubstatTargetsState>>
   finalSellRemainder: FinalSellRemainderConfig
   setFinalSellRemainder: Dispatch<SetStateAction<FinalSellRemainderConfig>>
+  keepUniqueRules: KeepUniqueRule[]
+  setKeepUniqueRules: Dispatch<SetStateAction<KeepUniqueRule[]>>
+  keepUniquesEnabled: boolean
+  setKeepUniquesEnabled: Dispatch<SetStateAction<boolean>>
   hsfcNote: string | null
   setHsfcNote: Dispatch<SetStateAction<string | null>>
   builderRef: MutableRefObject<BuilderConfig>
@@ -90,6 +97,10 @@ export function useTutorialCoachState({
   setSubstatTargets,
   finalSellRemainder,
   setFinalSellRemainder,
+  keepUniqueRules,
+  setKeepUniqueRules,
+  keepUniquesEnabled,
+  setKeepUniquesEnabled,
   hsfcNote,
   setHsfcNote,
   builderRef,
@@ -141,6 +152,10 @@ export function useTutorialCoachState({
   useEffect(() => { substatTargetsRef.current = substatTargets }, [substatTargets])
   const fsrRef = useRef(finalSellRemainder)
   useEffect(() => { fsrRef.current = finalSellRemainder }, [finalSellRemainder])
+  const keepUniqueRulesRef = useRef(keepUniqueRules)
+  useEffect(() => { keepUniqueRulesRef.current = keepUniqueRules }, [keepUniqueRules])
+  const keepUniquesEnabledRef = useRef(keepUniquesEnabled)
+  useEffect(() => { keepUniquesEnabledRef.current = keepUniquesEnabled }, [keepUniquesEnabled])
   const noteRef = useRef(hsfcNote)
   useEffect(() => { noteRef.current = hsfcNote }, [hsfcNote])
   const filterOpenRef = useRef(filterOpen)
@@ -304,13 +319,29 @@ export function useTutorialCoachState({
         setMetasets(snap.metas)
         setSubstatTargets(snap.substatTargets)
         setFinalSellRemainder(snap.fsr)
+        setKeepUniqueRules(snap.keepUniqueRules)
+        setKeepUniquesEnabled(snap.keepUniquesEnabled)
         setHsfcNote(snap.note)
         setBuilder(snap.builder)
         setFilterOpen(snap.filterOpen)
         setRulesFilter(JSON.parse(JSON.stringify(snap.rulesFilter)) as RulesFilterState)
       })
     } catch {}
-  }, [setBuilder, setCustomCfgs, setFinalSellRemainder, setFilterOpen, setHsf, setHsfcNote, setMetasets, setSubstatTargets, setRulesFilter, setSelectedCfgIdx, tutorialSnapshot])
+  }, [
+    setBuilder,
+    setCustomCfgs,
+    setFinalSellRemainder,
+    setFilterOpen,
+    setHsf,
+    setHsfcNote,
+    setMetasets,
+    setSubstatTargets,
+    setRulesFilter,
+    setSelectedCfgIdx,
+    setKeepUniqueRules,
+    setKeepUniquesEnabled,
+    tutorialSnapshot,
+  ])
 
   const startTutorial = useCallback(() => {
     const isMetasetsDialogOpen = () => Boolean(document.querySelector('[role="dialog"] [data-tour-id="metasets.close"]'))
@@ -497,6 +528,8 @@ export function useTutorialCoachState({
         metas: cloneMetas,
         substatTargets: clonedSubstatTargets,
         fsr: cloneFsr,
+        keepUniqueRules: keepUniqueRulesRef.current?.map((rule) => ({ ...rule })) ?? [],
+        keepUniquesEnabled: keepUniquesEnabledRef.current,
         note: noteRef.current,
         builder: cloneBuilder,
         filterOpen: filterOpenRef.current,

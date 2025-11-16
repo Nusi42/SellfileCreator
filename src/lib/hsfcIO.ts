@@ -43,6 +43,7 @@ import {
   type FinalSellRemainderConfig,
   type FinalSellSetsMode,
 } from './finalSell'
+import { normalizeKeepUniqueRule, type KeepUniqueRule } from './keepUniques'
 
 type LockedMinValue = Exclude<BuilderConfig['lockedMinRequiredRolls'], undefined>
 type AggregateMinValue = Exclude<BuilderConfig['minRequiredRolls'], undefined>
@@ -612,7 +613,16 @@ export function parseConfigsFromText(text: string, metasetsForNames?: Metaset[])
 export function parseHsfcText(
   text: string,
   prev: { metasets: Metaset[]; substatTargets: SubstatTargetTable },
-): { cfgs: BuilderConfig[]; metasets: Metaset[]; substatTargets: SubstatTargetTable; selectedIndex: number | null; note?: string; finalSellRemainder: FinalSellRemainderConfig } {
+): {
+  cfgs: BuilderConfig[]
+  metasets: Metaset[]
+  substatTargets: SubstatTargetTable
+  selectedIndex: number | null
+  note?: string
+  finalSellRemainder: FinalSellRemainderConfig
+  keepUniqueRules: KeepUniqueRule[]
+  keepUniquesEnabled: boolean
+} {
   const parsed = JSON.parse(text) as unknown
   return parseHsfcObject(parsed, prev)
 }
@@ -621,7 +631,16 @@ export function parseHsfcText(
 export function parseHsfcObject(
   parsed: unknown,
   prev: { metasets: Metaset[]; substatTargets: SubstatTargetTable },
-): { cfgs: BuilderConfig[]; metasets: Metaset[]; substatTargets: SubstatTargetTable; selectedIndex: number | null; note?: string; finalSellRemainder: FinalSellRemainderConfig } {
+): {
+  cfgs: BuilderConfig[]
+  metasets: Metaset[]
+  substatTargets: SubstatTargetTable
+  selectedIndex: number | null
+  note?: string
+  finalSellRemainder: FinalSellRemainderConfig
+  keepUniqueRules: KeepUniqueRule[]
+  keepUniquesEnabled: boolean
+} {
   const parsedRec = (typeof parsed === 'object' && parsed !== null ? (parsed as Record<string, unknown>) : {})
   let rawCfgs = Array.isArray(parsed) ? parsed : (Array.isArray(parsedRec['Configs']) ? (parsedRec['Configs'] as unknown[]) : [])
   // Convenience: accept a single readable-config object (tests/fixtures/*.hsfc use this simplified shape).
@@ -694,17 +713,46 @@ export function parseHsfcObject(
         : DEFAULT_MODE
     return { artifacts, accessories, levels: finalLevels, setsMode }
   })()
+  const keepUniqueRules: KeepUniqueRule[] = (() => {
+    const raws = parsedRec['KeepUniques']
+    if (!Array.isArray(raws)) return []
+    const normalized: KeepUniqueRule[] = []
+    for (const entry of raws) {
+      const rule = normalizeKeepUniqueRule(entry)
+      if (rule) normalized.push(rule)
+    }
+    return normalized
+  })()
+  const keepUniquesEnabled = parsedRec['KeepUniquesEnabled'] === true
   const savedSel = (!Array.isArray(parsed) && typeof parsedRec['SelectedConfigIndex'] === 'number') ? (parsedRec['SelectedConfigIndex'] as number) : (cfgs.length ? cfgs.length - 1 : null)
   const selectedIndex = (savedSel !== null && savedSel >= 0 && savedSel < cfgs.length) ? savedSel : (cfgs.length ? cfgs.length - 1 : null)
   const note = (!Array.isArray(parsed) && typeof parsedRec['Note'] === 'string') ? String(parsedRec['Note']) : undefined
-  return { cfgs, metasets, substatTargets, selectedIndex, ...(note ? { note } : {}), finalSellRemainder: fsr }
+  return {
+    cfgs,
+    metasets,
+    substatTargets,
+    selectedIndex,
+    ...(note ? { note } : {}),
+    finalSellRemainder: fsr,
+    keepUniqueRules,
+    keepUniquesEnabled,
+  }
 }
 
 /** Read a `.hsfc`/JSON file and parse with the same semantics as parseHsfcText. */
 export async function readHsfcFile(
   file: File,
   prev: { metasets: Metaset[]; substatTargets: SubstatTargetTable },
-): Promise<{ cfgs: BuilderConfig[]; metasets: Metaset[]; substatTargets: SubstatTargetTable; selectedIndex: number | null; note?: string; finalSellRemainder: FinalSellRemainderConfig }>
+): Promise<{
+  cfgs: BuilderConfig[]
+  metasets: Metaset[]
+  substatTargets: SubstatTargetTable
+  selectedIndex: number | null
+  note?: string
+  finalSellRemainder: FinalSellRemainderConfig
+  keepUniqueRules: KeepUniqueRule[]
+  keepUniquesEnabled: boolean
+}>
 {
   const text = await file.text()
   return parseHsfcText(text, prev)
@@ -723,8 +771,30 @@ export function buildHsfcPayload(args: {
   finalSellRemainder?: FinalSellRemainderConfig,
   selectedConfigIndex: number | null,
   note?: string,
-  }): { Version: string; Metasets: Array<{ id: string; name: string; setNames: string[]; show?: boolean }>; Minima: unknown; Configs: unknown[]; FinalSellRemainder: FinalSellRemainderConfig; SelectedConfigIndex?: number; Note?: string } {
-  const { version, metasets, substatTargets, configs, finalSellRemainder, selectedConfigIndex, note } = args
+  keepUniqueRules?: KeepUniqueRule[],
+  keepUniquesEnabled?: boolean,
+  }): {
+    Version: string
+    Metasets: Array<{ id: string; name: string; setNames: string[]; show?: boolean }>
+    Minima: unknown
+    Configs: unknown[]
+    FinalSellRemainder: FinalSellRemainderConfig
+    KeepUniques: Array<{ id: string; requiredCount: number; enabled: boolean; tuple: KeepUniqueRule['tuple'] }>
+    KeepUniquesEnabled: boolean
+    SelectedConfigIndex?: number
+    Note?: string
+  } {
+  const {
+    version,
+    metasets,
+    substatTargets,
+    configs,
+    finalSellRemainder,
+    selectedConfigIndex,
+    note,
+    keepUniqueRules = [],
+    keepUniquesEnabled = false,
+  } = args
   const metasOut = metasets.map(m => {
     const iconId = normalizeMetasetIconId(m.iconId)
     return {
@@ -755,6 +825,23 @@ export function buildHsfcPayload(args: {
         setsMode: FINAL_SELL_DEFAULT_SETS_MODE,
       }
     })(),
+    KeepUniques: keepUniqueRules.map((rule) => {
+      const tuple = {
+        slot: Number(rule.tuple.slot),
+        set: Number(rule.tuple.set),
+        rank: Number(rule.tuple.rank),
+        rarity: Number(rule.tuple.rarity),
+        mainStat: Number(rule.tuple.mainStat),
+        factionId: rule.tuple.factionId ?? null,
+      } as KeepUniqueRule['tuple']
+      return {
+        id: rule.id,
+        requiredCount: Math.max(1, Math.floor(rule.requiredCount)),
+        enabled: rule.enabled !== false,
+        tuple,
+      }
+    }),
+    KeepUniquesEnabled: keepUniquesEnabled === true,
     ...(selectedConfigIndex != null ? { SelectedConfigIndex: selectedConfigIndex } : (configs.length ? { SelectedConfigIndex: configs.length - 1 } : {})),
     ...(note ? { Note: note } : {}),
   }

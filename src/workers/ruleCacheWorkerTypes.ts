@@ -4,6 +4,7 @@ import type { HsfRuleWithCfg } from '../lib/merge'
 import type { HsfFile } from '../lib/hsfTypes'
 import type { FinalSellRemainderConfig } from '../lib/finalSell'
 import type { RuleMatchIndexData } from '../lib/ruleMatchIndex'
+import type { KeepUniquesMergeInput } from '../lib/keepUniques'
 
 export type RuleCacheWarmRequest = {
   id: number
@@ -14,6 +15,7 @@ export type RuleCacheWarmRequest = {
     substatTargets: SubstatTargetTable
     hsf: HsfFile | null
     finalSellRemainder?: FinalSellRemainderConfig
+    keepUniques: KeepUniquesMergeInput
   }
 }
 

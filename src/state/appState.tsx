@@ -8,11 +8,17 @@
  */
 import React, { createContext, useContext, useMemo, useReducer } from 'react'
 import { FINAL_SELL_DEFAULT_LEVELS } from '../lib/constants'
-import { FINAL_SELL_DEFAULT_SETS_MODE, type FinalSellRemainderConfig } from '../lib/finalSell'
+import {
+  FINAL_SELL_DEFAULT_SETS_MODE,
+  FINAL_SELL_DIALOG_TAB_FINAL_SELL,
+  type FinalSellDialogTab,
+  type FinalSellRemainderConfig,
+} from '../lib/finalSell'
 import type { BuilderConfig, SubstatTargetTable } from '../lib/hsfBuilder'
 import type { Metaset } from '../lib/metasets'
 import { normalizeMetasetIcons } from '../lib/metasets'
 import type { LevelMilestone } from '../lib/types'
+import type { KeepUniqueRule } from '../lib/keepUniques'
 
 type AppState = {
   customCfgs: BuilderConfig[]
@@ -21,6 +27,9 @@ type AppState = {
   // Final "sell others" rule configuration, saved with HSFC.
   // This adds catch-all Sell rules at selected level ranges for artifacts/accessories.
   finalSellRemainder: FinalSellRemainderConfig
+  finalSellDialogTab: FinalSellDialogTab
+  keepUniqueRules: KeepUniqueRule[]
+  keepUniquesEnabled: boolean
   selectedCfgIdx: number | null
   hsfcNote: string | null
 }
@@ -32,6 +41,9 @@ type Action =
   | { type: 'setMetasets'; value: Updater<Metaset[]> }
   | { type: 'setSubstatTargets'; value: Updater<SubstatTargetTable> }
   | { type: 'setFinalSellRemainder'; value: Updater<FinalSellRemainderConfig> }
+  | { type: 'setFinalSellDialogTab'; value: Updater<FinalSellDialogTab> }
+  | { type: 'setKeepUniqueRules'; value: Updater<KeepUniqueRule[]> }
+  | { type: 'setKeepUniquesEnabled'; value: Updater<boolean> }
   | { type: 'setSelectedCfgIdx'; value: Updater<number | null> }
   | { type: 'setHsfcNote'; value: Updater<string | null> }
 
@@ -55,6 +67,25 @@ function reducer(state: AppState, action: Action): AppState {
         : action.value
       return { ...state, finalSellRemainder: next }
     }
+    case 'setFinalSellDialogTab': {
+      // Store the dialog tab preference centrally so autosave + restore flows can keep it in sync.
+      const next = typeof action.value === 'function'
+        ? (action.value as (p: FinalSellDialogTab) => FinalSellDialogTab)(state.finalSellDialogTab)
+        : action.value
+      return { ...state, finalSellDialogTab: next }
+    }
+    case 'setKeepUniqueRules': {
+      const next = typeof action.value === 'function'
+        ? (action.value as (p: KeepUniqueRule[]) => KeepUniqueRule[])(state.keepUniqueRules)
+        : action.value
+      return { ...state, keepUniqueRules: next }
+    }
+    case 'setKeepUniquesEnabled': {
+      const next = typeof action.value === 'function'
+        ? (action.value as (p: boolean) => boolean)(state.keepUniquesEnabled)
+        : Boolean(action.value)
+      return { ...state, keepUniquesEnabled: next }
+    }
     case 'setSelectedCfgIdx': {
       const next = typeof action.value === 'function' ? (action.value as (p: number | null) => number | null)(state.selectedCfgIdx) : action.value
       return { ...state, selectedCfgIdx: next }
@@ -72,6 +103,9 @@ type AppDispatchers = {
   setMetasets: (v: Updater<Metaset[]>) => void
   setSubstatTargets: (v: Updater<SubstatTargetTable>) => void
   setFinalSellRemainder: (v: Updater<FinalSellRemainderConfig>) => void
+  setFinalSellDialogTab: (v: Updater<FinalSellDialogTab>) => void
+  setKeepUniqueRules: (v: Updater<KeepUniqueRule[]>) => void
+  setKeepUniquesEnabled: (v: Updater<boolean>) => void
   setSelectedCfgIdx: (v: Updater<number | null>) => void
   setHsfcNote: (v: Updater<string | null>) => void
 }
@@ -87,6 +121,9 @@ export function AppStateProvider({ initial, children }: { initial: AppState; chi
     setMetasets: (v) => dispatch({ type: 'setMetasets', value: v }),
     setSubstatTargets: (v) => dispatch({ type: 'setSubstatTargets', value: v }),
     setFinalSellRemainder: (v) => dispatch({ type: 'setFinalSellRemainder', value: v }),
+    setFinalSellDialogTab: (v) => dispatch({ type: 'setFinalSellDialogTab', value: v }),
+    setKeepUniqueRules: (v) => dispatch({ type: 'setKeepUniqueRules', value: v }),
+    setKeepUniquesEnabled: (v) => dispatch({ type: 'setKeepUniquesEnabled', value: v }),
     setSelectedCfgIdx: (v) => dispatch({ type: 'setSelectedCfgIdx', value: v }),
     setHsfcNote: (v) => dispatch({ type: 'setHsfcNote', value: v }),
   }), [])
@@ -117,6 +154,9 @@ export function makeInitialAppState(params: Partial<AppState> & Pick<AppState, '
     customCfgs: [],
     // Final Sell defaults: ON with safe ranges (0–15). Old HSFC without this flag is treated as OFF when loaded.
     finalSellRemainder: { artifacts: true, accessories: true, levels: FINAL_SELL_DEFAULT_LEVELS.slice() as LevelMilestone[], setsMode: FINAL_SELL_DEFAULT_SETS_MODE },
+    finalSellDialogTab: FINAL_SELL_DIALOG_TAB_FINAL_SELL, // Start new sessions on the classic Final Sell tab for continuity.
+    keepUniqueRules: [],
+    keepUniquesEnabled: false,
     selectedCfgIdx: null,
     hsfcNote: null,
     ...rest,

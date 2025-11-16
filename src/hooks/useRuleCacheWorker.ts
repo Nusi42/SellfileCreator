@@ -11,6 +11,7 @@ import type { HsfFile } from '../lib/hsfTypes'
 import type { FinalSellRemainderConfig } from '../lib/finalSell'
 import { buildRuleMatchIndexData, primeRuleMatchIndex } from '../lib/ruleMatchIndex'
 import type { RuleMatchIndexData } from '../lib/ruleMatchIndex'
+import type { KeepUniquesMergeInput } from '../lib/keepUniques'
 
 type WarmCacheParams = {
   configs: BuilderConfig[]
@@ -18,6 +19,7 @@ type WarmCacheParams = {
   substatTargets: SubstatTargetTable
   hsf: HsfFile | null
   finalSellRemainder?: FinalSellRemainderConfig
+  keepUniques: KeepUniquesMergeInput
 }
 
 type RuleCacheStateSnapshot = {
@@ -183,6 +185,7 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
         substatTargets: params.substatTargets,
         ...(params.finalSellRemainder ? { finalSellRemainder: params.finalSellRemainder } : {}),
         prebuiltCustomRules: cacheResult.rulesByConfig,
+        keepUniques: params.keepUniques,
       })
       const ruleMatchIndex = buildRuleMatchIndexData(mergedRules)
       const state: RuleCacheStateSnapshot = {
@@ -238,6 +241,7 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
         substatTargets: params.substatTargets,
         hsf: params.hsf,
         ...(params.finalSellRemainder ? { finalSellRemainder: params.finalSellRemainder } : {}),
+        keepUniques: params.keepUniques,
       },
     }
 

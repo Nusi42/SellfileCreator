@@ -5,28 +5,49 @@
  * unchanged — App composes this inside a useMemo with identical inputs.
  */
 import type { HsfFile, HsfRule } from './hsfTypes'
+import { variantToMain } from './hsfTypes'
 import type { BuilderConfig, SubstatTargetTable } from './hsfBuilder'
 import { RULE_COUNT_LIMIT, TOTAL_RULE_COUNT_LIMIT, ACCESSORY_NO_SET_ID } from './constants'
 import { buildHsfRules, RuleLimitReachedError, resolveAutoRarityCode } from './hsfBuilder'
 import { findObsoleteRules } from './hsfObsolete'
 import type { Metaset } from './metasets'
 import { resolveMetasetIds } from './metasets'
-import { ArtifactType, compareArtifactTypes, compareArtifactSets, artifactSetNames, StatId, LEVEL_MILESTONES, type LevelMilestone, RarityCode } from './types'
+import {
+  ArtifactType,
+  compareArtifactTypes,
+  compareArtifactSets,
+  artifactSetNames,
+  StatId,
+  LEVEL_MILESTONES,
+  LEVEL_ANY_SENTINEL,
+  type LevelMilestone,
+  RarityCode,
+} from './types'
 import {
   FINAL_SELL_DEFAULT_SETS_MODE,
   FINAL_SELL_SETS_MODE_ANY,
   FINAL_SELL_SETS_MODE_EXPLICIT,
   type FinalSellRemainderConfig,
 } from './finalSell'
+import {
+  KEEP_UNIQUES_CFG_SENTINEL,
+  type KeepUniquesMergeInput,
+  hashKeepUniqueTuple,
+  type KeepUniqueRule,
+  type KeepUniqueDetectionSnapshot,
+  type KeepUniqueDetectionEntry,
+} from './keepUniques'
 
 export const RULE_SOURCE_HSF = 'hsf' as const
 export const RULE_SOURCE_HSFC = 'hsfc' as const
 export const RULE_SOURCE_FINAL_SELL = 'finalSell' as const
+export const RULE_SOURCE_KEEP_UNIQUES = 'keepUniques' as const
 
 export type RuleSource =
   | typeof RULE_SOURCE_HSF
   | typeof RULE_SOURCE_HSFC
   | typeof RULE_SOURCE_FINAL_SELL
+  | typeof RULE_SOURCE_KEEP_UNIQUES
 
 export type HsfRuleWithCfg = HsfRule & {
   __cfgIdx?: number
@@ -35,6 +56,12 @@ export type HsfRuleWithCfg = HsfRule & {
   __source?: RuleSource
   __rankMask?: number
   __rarityMask?: number
+  __keepUniqueRuleId?: string
+  __keepUniqueHash?: string
+  __keepUniqueRequired?: number
+  __keepUniqueScanMs?: number
+  __keepUniqueProjected?: number
+  __keepUniqueDeficit?: number
 }
 
 const BRANCH_ORDER = Symbol('branchOrder')
@@ -288,15 +315,16 @@ export function buildRulesForConfig(params: {
   }
 }
 
+const cloneAnySubstats = (): HsfRule['Substats'] => ([
+  { ID: StatId.Any, Value: 0, IsFlat: true, NotAvailable: false, Condition: '' },
+  { ID: StatId.Any, Value: 0, IsFlat: true, NotAvailable: false, Condition: '' },
+  { ID: StatId.Any, Value: 0, IsFlat: true, NotAvailable: false, Condition: '' },
+  { ID: StatId.Any, Value: 0, IsFlat: true, NotAvailable: false, Condition: '' },
+])
+
 export function buildFinalSellRules(finalSellRemainder: FinalSellRemainderConfig | null | undefined): HsfRuleWithCfg[] {
   if (!finalSellRemainder) return []
   const { artifacts, accessories, levels, setsMode = FINAL_SELL_DEFAULT_SETS_MODE } = finalSellRemainder
-  const ANY_SUB: HsfRule['Substats'] = [
-    { ID: StatId.Any, Value: 0, IsFlat: true, NotAvailable: false, Condition: '' },
-    { ID: StatId.Any, Value: 0, IsFlat: true, NotAvailable: false, Condition: '' },
-    { ID: StatId.Any, Value: 0, IsFlat: true, NotAvailable: false, Condition: '' },
-    { ID: StatId.Any, Value: 0, IsFlat: true, NotAvailable: false, Condition: '' },
-  ]
   const artTypes: ArtifactType[] = [ArtifactType.Weapon, ArtifactType.Helmet, ArtifactType.Shield, ArtifactType.Gauntlets, ArtifactType.Chestplate, ArtifactType.Boots]
   const accTypes: ArtifactType[] = [ArtifactType.Ring, ArtifactType.Amulet, ArtifactType.Banner]
   const selected = new Set<LevelMilestone>(levels ?? [])
@@ -329,7 +357,7 @@ export function buildFinalSellRules(finalSellRemainder: FinalSellRemainderConfig
         MainStatF: 1,
         LVLForCheck: lvl,
         Faction: 0,
-        Substats: ANY_SUB.map((s) => ({ ...s })),
+        Substats: cloneAnySubstats(),
       })
       const useFlag = enabled && selected.has(lvl)
       for (const combo of typeCombos) {
@@ -343,6 +371,70 @@ export function buildFinalSellRules(finalSellRemainder: FinalSellRemainderConfig
   return rules
 }
 
+const clampRankOrRarityValue = (value: unknown): 1 | 2 | 3 | 4 | 5 | 6 => {
+  const numeric = Number(value)
+  if (!Number.isFinite(numeric)) return 6
+  const rounded = Math.floor(numeric)
+  if (rounded < 1) return 1
+  if (rounded > 6) return 6
+  return rounded as 1 | 2 | 3 | 4 | 5 | 6
+}
+
+const rarityValueToCode = (value: unknown): RarityCode => {
+  switch (clampRankOrRarityValue(value)) {
+    case 1: return RarityCode.Common
+    case 2: return RarityCode.Uncommon
+    case 3: return RarityCode.Rare
+    case 4: return RarityCode.Epic
+    case 5: return RarityCode.Legendary
+    case 6:
+    default: return RarityCode.Mythical
+  }
+}
+
+const buildKeepUniqueRules = (
+  rules: readonly KeepUniqueRule[],
+  detection: KeepUniqueDetectionSnapshot | null,
+): HsfRuleWithCfg[] => {
+  const detectionMap = detection
+    ? new Map<string, KeepUniqueDetectionEntry>(
+      detection.entries
+        .filter((entry) => typeof entry.ruleId === 'string')
+        .map((entry) => [entry.ruleId as string, entry]),
+    )
+    : new Map()
+  return rules.map((rule) => {
+    const tuple = rule.tuple
+    const mainTuple = variantToMain(tuple.mainStat)
+    const keepRule: HsfRuleWithCfg = {
+      Keep: true,
+      IsRuleTypeAND: false,
+      Use: rule.enabled,
+      Rank: clampRankOrRarityValue(tuple.rank),
+      Rarity: rarityValueToCode(tuple.rarity),
+      MainStatID: mainTuple.id,
+      MainStatF: mainTuple.f ?? 1,
+      LVLForCheck: LEVEL_ANY_SENTINEL,
+      Faction: tuple.factionId ?? 0,
+      ArtifactType: [Number(tuple.slot)],
+      ArtifactSet: [Number(tuple.set)],
+      Substats: cloneAnySubstats(),
+      __cfgIdx: KEEP_UNIQUES_CFG_SENTINEL,
+      __source: RULE_SOURCE_KEEP_UNIQUES,
+    }
+    const entry = detectionMap.get(rule.id)
+    if (entry) {
+      keepRule.__keepUniqueRuleId = rule.id
+      keepRule.__keepUniqueHash = hashKeepUniqueTuple(tuple)
+      keepRule.__keepUniqueRequired = entry.requiredCount
+      if (detection) keepRule.__keepUniqueScanMs = detection.scannedAt
+      keepRule.__keepUniqueProjected = entry.projectedCount
+      keepRule.__keepUniqueDeficit = entry.deficit
+    }
+    return keepRule
+  })
+}
+
 export function computeMergedRules(params: {
   hsf: HsfFile | null
   customCfgs: BuilderConfig[]
@@ -350,8 +442,9 @@ export function computeMergedRules(params: {
   substatTargets: SubstatTargetTable
   finalSellRemainder?: FinalSellRemainderConfig
   prebuiltCustomRules?: ReadonlyMap<number, readonly HsfRuleWithCfg[]>
+  keepUniques?: KeepUniquesMergeInput
 }): HsfRuleWithCfg[] {
-  const { hsf, customCfgs, metasets, substatTargets, finalSellRemainder, prebuiltCustomRules } = params
+  const { hsf, customCfgs, metasets, substatTargets, finalSellRemainder, prebuiltCustomRules, keepUniques } = params
 
   // Always strip any foreign/internal fields (e.g., __cfgIdx) from base HSF rules
   const baseRaw = hsf?.Rules ?? []
@@ -414,6 +507,21 @@ export function computeMergedRules(params: {
   // omitted. This keeps intent explicit in the exported HSF and mirrors the
   // builder's Enable toggle semantics.
   merged.push(...buildFinalSellRules(finalSellRemainder))
+  if (keepUniques && keepUniques.enabled && keepUniques.rules.length > 0) {
+    const keepRuleKeys = new Set<string>()
+    for (const rule of merged) {
+      if (rule.Keep === true) {
+        keepRuleKeys.add(canonicalRuleKey(rule))
+      }
+    }
+    const keepRules = buildKeepUniqueRules(keepUniques.rules, keepUniques.detection ?? null)
+    for (const rule of keepRules) {
+      const key = canonicalRuleKey(rule)
+      if (keepRuleKeys.has(key)) continue
+      keepRuleKeys.add(key)
+      merged.push(rule)
+    }
+  }
   // Assign a stable preview line index so filtered views can still display
   // the original ordering (1-based when rendered).
   for (let i = 0; i < merged.length; i += 1) {

@@ -6,7 +6,7 @@ import { useI18n } from '../../lib/i18n'
 import type { RankValue } from '../../lib/types'
 
 type RankSelectProps = {
-  value: RankValue | null
+  value: RankValue | null | number
   onChange: (next: RankValue | null) => void
   allowAny?: boolean
   size?: SelectProps<string>['size']

@@ -12,9 +12,11 @@ import { parseHsfcObject } from '../lib/hsfcIO'
 import { normalizeMetasetIconId } from '../lib/metasetIcons'
 import type { SubstatTargetTable, BuilderConfig } from '../lib/hsfBuilder'
 import type { Metaset } from '../lib/metasets'
-import type { FinalSellRemainderConfig } from '../lib/finalSell'
+import type { FinalSellDialogTab, FinalSellRemainderConfig } from '../lib/finalSell'
+import { FINAL_SELL_DIALOG_TAB_FINAL_SELL, FINAL_SELL_DIALOG_TABS } from '../lib/finalSell'
 import type { RulesFilterState } from '../lib/rulesFilter'
 import type { TesterConfigFilterMode } from '../types/testerConfigFilterMode'
+import type { KeepUniqueRule } from '../lib/keepUniques'
 
 export type RestoreDraft = {
   Version?: string
@@ -22,10 +24,13 @@ export type RestoreDraft = {
   substatTargets?: SubstatTargetTable
   Configs?: BuilderConfig[]
   FinalSellRemainder?: FinalSellRemainderConfig
+  KeepUniques?: KeepUniqueRule[]
+  KeepUniquesEnabled?: boolean
   SelectedConfigIndex?: number
   Note?: string
   AutosaveSavedAt?: string
   Filters?: AutosaveFiltersState
+  FinalSellDialogTab?: FinalSellDialogTab
 }
 
 export type AutosaveFiltersState = {
@@ -97,6 +102,8 @@ function computeInitialAutosaveState(args: {
   finalSellRemainder: FinalSellRemainderConfig
   note: string | null
   filters: AutosaveFiltersState
+  keepUniqueRules: KeepUniqueRule[]
+  keepUniquesEnabled: boolean
 }): InitialAutosaveState {
   try {
     const entry = loadAutosave<unknown>(args.key)
@@ -106,6 +113,8 @@ function computeInitialAutosaveState(args: {
       const savedMetasets = parsed.metasets
       const savedSubstatTargets = parsed.substatTargets
       const savedFinalSell = parsed.finalSellRemainder
+      const savedKeepUniques = parsed.keepUniqueRules ?? []
+      const savedKeepEnabled = parsed.keepUniquesEnabled ?? false
       const metasetsMatchDefaults = metasetsSignature(savedMetasets as Metaset[]) === metasetsSignature(args.metasets)
       // Compare canonicalized copies so reordering the variant keys (common when
       // editing via the dialog) does not trick autosave into thinking the
@@ -144,6 +153,10 @@ function computeInitialAutosaveState(args: {
         }
       })()
       const filtersMatchDefaults = !savedFilters
+      const keepUniquesMatchDefaults = savedKeepUniques.length === 0
+        && !savedKeepEnabled
+        && args.keepUniqueRules.length === 0
+        && !args.keepUniquesEnabled
       const notePresent = typeof parsed.note === 'string' && parsed.note.trim().length > 0
       const essentiallyDefault = cfgs.length === 0
         && metasetsMatchDefaults
@@ -151,6 +164,7 @@ function computeInitialAutosaveState(args: {
         && finalSellMatches
         && !notePresent
         && filtersMatchDefaults
+        && keepUniquesMatchDefaults
       if (!essentiallyDefault) {
         const payload = entry.payload as Record<string, unknown>
         const savedAtRaw = typeof payload['AutosaveSavedAt'] === 'string' ? payload['AutosaveSavedAt'] : null
@@ -162,10 +176,22 @@ function computeInitialAutosaveState(args: {
             substatTargets: savedSubstatTargets,
             Configs: cfgs,
             ...(savedFinalSell ? { FinalSellRemainder: savedFinalSell } : {}),
+            ...(savedKeepUniques.length ? { KeepUniques: savedKeepUniques } : {}),
+            ...(savedKeepEnabled ? { KeepUniquesEnabled: savedKeepEnabled } : {}),
             ...(parsed.selectedIndex != null ? { SelectedConfigIndex: parsed.selectedIndex } : {}),
             ...(parsed.note ? { Note: parsed.note } : {}),
             ...(savedAtRaw ? { AutosaveSavedAt: savedAtRaw } : {}),
             ...(savedFilters ? { Filters: savedFilters } : {}),
+            ...(typeof payload['FinalSellDialogTab'] === 'string'
+              ? (() => {
+                const raw = payload['FinalSellDialogTab'] as string
+                // Clamp autosave payloads to the supported tab ids so stale values never break the dialog.
+                const normalized = FINAL_SELL_DIALOG_TABS.includes(raw as FinalSellDialogTab)
+                  ? raw as FinalSellDialogTab
+                  : FINAL_SELL_DIALOG_TAB_FINAL_SELL
+                return { FinalSellDialogTab: normalized }
+              })()
+              : {}),
           },
           enabled: false,
         }
@@ -185,12 +211,38 @@ export function useAutosaveRestore(opts: {
   selectedConfigIndex: number | null
   note: string | null
   filters: AutosaveFiltersState
+  keepUniqueRules: KeepUniqueRule[]
+  keepUniquesEnabled: boolean
+  finalSellDialogTab: FinalSellDialogTab
 }) {
-  const { key, version, metasets, substatTargets, configs, finalSellRemainder, selectedConfigIndex: _selectedConfigIndex, note, filters } = opts
+  const {
+    key,
+    version,
+    metasets,
+    substatTargets,
+    configs,
+    finalSellRemainder,
+    selectedConfigIndex: _selectedConfigIndex,
+    note,
+    filters,
+    keepUniqueRules,
+    keepUniquesEnabled,
+    finalSellDialogTab,
+  } = opts
 
   const initialAutosaveStateRef = useRef<InitialAutosaveState | null>(null)
   if (initialAutosaveStateRef.current === null) {
-    initialAutosaveStateRef.current = computeInitialAutosaveState({ key, metasets, substatTargets, configs, finalSellRemainder, note, filters })
+    initialAutosaveStateRef.current = computeInitialAutosaveState({
+      key,
+      metasets,
+      substatTargets,
+      configs,
+      finalSellRemainder,
+      note,
+      filters,
+      keepUniqueRules,
+      keepUniquesEnabled,
+    })
   }
   const { restoreDlgOpen: initialRestoreDlgOpen, restoreDraft: initialRestoreDraft, enabled: initialEnabled } = initialAutosaveStateRef.current
   const [restoreDlgOpen, setRestoreDlgOpen] = useState(initialRestoreDlgOpen)
@@ -208,11 +260,14 @@ export function useAutosaveRestore(opts: {
       substatTargets,
       Configs: configs,
       FinalSellRemainder: finalSellRemainder,
+      KeepUniques: keepUniqueRules,
+      KeepUniquesEnabled: keepUniquesEnabled,
+      FinalSellDialogTab: finalSellDialogTab,
       ...(note && note.trim() ? { Note: note } : {}),
       ...(filters ? { Filters: filters } : {}),
     }
     return JSON.stringify(base)
-  }, [version, metasets, substatTargets, configs, finalSellRemainder, note, filters])
+  }, [version, metasets, substatTargets, configs, finalSellRemainder, note, filters, keepUniqueRules, keepUniquesEnabled, finalSellDialogTab])
 
   // After dismissing, enable autosave only after divergence from baseline
   useEffect(() => {

@@ -53,6 +53,7 @@ import NoteDialog from './components/NoteDialog'
 import { useManageColorsDialog } from './hooks/useManageColorsDialog'
 import { useSubstatTargetsDialog } from './hooks/useSubstatTargetsDialog'
 import { computeMergedRules, buildRulesForConfig, buildFinalSellRules, RULE_SOURCE_FINAL_SELL, RULE_SOURCE_HSF, type HsfRuleWithCfg } from './lib/merge'
+import { computeKeepUniqueProtection, type KeepUniqueDetectionSnapshot, type KeepUniqueRule } from './lib/keepUniques'
 import { updateConfigRulesCache, fingerprintConfigForRules, fingerprintSubstatTargets, mergeArtifactSets } from './lib/ruleCache'
 import { hasConfigMeaningfulDifferences } from './lib/configDiff'
 import { buildRuleTesterAutosavePayload, createRuleTesterMath, diffRuleTesterItems, fingerprintRuleTesterItem, loadRuleTesterAutosaveDraft, type RuleTesterItem } from './lib/ruleTesterSession'
@@ -102,7 +103,7 @@ import { buildRuleMatchIndexData, primeRuleMatchIndex } from './lib/ruleMatchInd
 
 const NO_AUTO_APPLY: () => boolean = () => false
 const TESTER_PREVIEW_CHUNK_SIZE = 250
-import { FINAL_SELL_DEFAULT_SETS_MODE } from './lib/finalSell'
+import { FINAL_SELL_DEFAULT_SETS_MODE, FINAL_SELL_DIALOG_TAB_FINAL_SELL, FINAL_SELL_DIALOG_TABS } from './lib/finalSell'
 import type { FinalSellRemainderConfig, FinalSellLevel } from './lib/finalSell'
 import { useConfigSelection } from './hooks/useConfigSelection'
 import { useRuleCacheWorker } from './hooks/useRuleCacheWorker'
@@ -255,8 +256,18 @@ type ConfigRulesStateSnapshot = {
 export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindMode: ColorBlindMode; setColorBlindMode: (m: ColorBlindMode) => void }) {
   const [hsf, setHsf] = useState<HsfFile | null>(null)
   // Shared app state via context — reduces prop drilling and keeps behavior consistent.
-  const { customCfgs, selectedCfgIdx, metasets, substatTargets, finalSellRemainder, hsfcNote } = useAppState()
-  const { setCustomCfgs, setSelectedCfgIdx: setSelectedCfgIdxRaw, setMetasets, setSubstatTargets, setFinalSellRemainder, setHsfcNote } = useAppActions()
+  const { customCfgs, selectedCfgIdx, metasets, substatTargets, finalSellRemainder, finalSellDialogTab, hsfcNote, keepUniqueRules, keepUniquesEnabled } = useAppState()
+  const {
+    setCustomCfgs,
+    setSelectedCfgIdx: setSelectedCfgIdxRaw,
+    setMetasets,
+    setSubstatTargets,
+    setFinalSellRemainder,
+    setFinalSellDialogTab,
+    setHsfcNote,
+    setKeepUniqueRules,
+    setKeepUniquesEnabled,
+  } = useAppActions()
   const { warmCache, flush: flushRuleCache, countRules } = useRuleCacheWorker()
   const {
     configure: configureTesterMatchWorker,
@@ -349,6 +360,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     }
     return map
   }, [testerPreviewRows])
+  const [keepUniqueDetection, setKeepUniqueDetection] = useState<KeepUniqueDetectionSnapshot | null>(null)
   const testerRowsBuildIdRef = useRef(0)
   const testerPreviewRowMapRef = useRef<Map<number, TesterPreviewRow>>(new Map())
   const testerPreviewMatchDepsRef = useRef<{ rules: readonly HsfRuleWithCfg[] | null; namesSignature: string | null }>({
@@ -431,6 +443,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       substatTargets,
       ...(finalSellRemainder ? { finalSellRemainder } : {}),
       prebuiltCustomRules: initial.rulesByConfig,
+      keepUniques: {
+        enabled: keepUniquesEnabled,
+        rules: keepUniqueRules,
+        detection: keepUniqueDetection,
+      },
     })
     const { baseRules, finalSellRules } = splitMergedRules(mergedRules)
     return {
@@ -455,6 +472,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     substatTargets: SubstatTargetTable | null
     hsf: HsfFile | null
     finalSell: FinalSellRemainderConfig | null | undefined
+    keepUniquesEnabled: boolean
+    keepUniqueRules: KeepUniqueRule[] | null
+    keepUniqueDetection: KeepUniqueDetectionSnapshot | null
   } | null>(null)
   const immediateRuleConfigsRef = useRef(ruleConfigs)
   const immediateMetasetsRef = useRef(metasets)
@@ -483,6 +503,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     const nextKeys = resolvedConfigsForFingerprint.map((cfg) => fingerprintConfigForRules(cfg, nextSubstatTargetsKey))
 
     const prevWarm = lastWarmInputsRef.current
+    const keepUniquesStable = !prevWarm
+      || (
+        prevWarm.keepUniquesEnabled === keepUniquesEnabled
+        && prevWarm.keepUniqueRules === keepUniqueRules
+        && prevWarm.keepUniqueDetection === keepUniqueDetection
+      )
     if (
       prevWarm
       && prevWarm.configs === ruleConfigsForPreview
@@ -490,6 +516,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       && prevWarm.substatTargets === substatTargetsForPreview
       && prevWarm.hsf === hsf
       && prevWarm.finalSell === finalSellRemainder
+      && keepUniquesStable
     ) {
       return undefined
     }
@@ -497,15 +524,19 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     const canUseFingerprints = nextSubstatTargetsKey === configRulesState.substatTargetsKey
     const isBaseStable = !prevWarm || prevWarm.hsf === hsf
     const isFinalSellStable = !prevWarm || prevWarm.finalSell === finalSellRemainder
+    const isKeepUniquesStable = keepUniquesStable
     if (canUseFingerprints) {
       const analysis = analyzeConfigKeys(configRulesState.keys, nextKeys)
-      if (analysis.identical && isBaseStable && isFinalSellStable) {
+      if (analysis.identical && isBaseStable && isFinalSellStable && isKeepUniquesStable) {
         lastWarmInputsRef.current = {
           configs: ruleConfigsForPreview,
           metasets: metasetsForPreview,
           substatTargets: substatTargetsForPreview,
           hsf,
           finalSell: finalSellRemainder,
+          keepUniquesEnabled,
+          keepUniqueRules,
+          keepUniqueDetection,
         }
         return undefined
       }
@@ -530,6 +561,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           substatTargets: substatTargetsForPreview,
           hsf,
           finalSell: finalSellRemainder,
+          keepUniquesEnabled,
+          keepUniqueRules,
+          keepUniqueDetection,
         }
         return undefined
       }
@@ -581,6 +615,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           substatTargets: substatTargetsForPreview,
           hsf,
           finalSell: finalSellRemainder,
+          keepUniquesEnabled,
+          keepUniqueRules,
+          keepUniqueDetection,
         }
         return undefined
       }
@@ -631,6 +668,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           substatTargets: substatTargetsForPreview,
           hsf,
           finalSell: finalSellRemainder,
+          keepUniquesEnabled,
+          keepUniqueRules,
+          keepUniqueDetection,
         }
         return undefined
       }
@@ -642,6 +682,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       substatTargets: substatTargetsForPreview,
       hsf,
       finalSell: finalSellRemainder,
+      keepUniquesEnabled,
+      keepUniqueRules,
+      keepUniqueDetection,
     }
     const abortController = new AbortController()
     const requestToken = ruleCacheRequestTokenRef.current + 1
@@ -665,6 +708,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         substatTargets: substatTargetsForPreview,
         hsf,
         ...(finalSellRemainder ? { finalSellRemainder } : {}),
+        keepUniques: {
+          enabled: keepUniquesEnabled,
+          rules: keepUniqueRules,
+          detection: keepUniqueDetection,
+        },
       },
       { signal: abortController.signal },
     )
@@ -755,7 +803,18 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     return () => {
       abortController.abort()
     }
-  }, [ruleConfigsForPreview, metasetsForPreview, substatTargetsForPreview, warmCache, hsf, finalSellRemainder, configRulesState])
+  }, [
+    ruleConfigsForPreview,
+    metasetsForPreview,
+    substatTargetsForPreview,
+    warmCache,
+    hsf,
+    finalSellRemainder,
+    configRulesState,
+    keepUniqueRules,
+    keepUniquesEnabled,
+    keepUniqueDetection,
+  ])
 
   const awaitRuleCounts = useCallback((): { token: number; promise: Promise<Map<number, number>> } | null => {
     const pending = pendingWarmRef.current
@@ -905,6 +964,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     metasets,
     substatTargets,
     finalSellRemainder,
+    keepUniqueRules,
+    keepUniquesEnabled,
     hsfcNote,
     selectedCfgIdx,
     selectedCfgIndices,
@@ -917,6 +978,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setMetasets,
     setSubstatTargets,
     setFinalSellRemainder,
+    setKeepUniqueRules,
+    setKeepUniquesEnabled,
     setHsfcNote,
     setSelectedCfgIdx: setSelectedCfgIdxRaw,
     setSelectedCfgIndices,
@@ -1416,6 +1479,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setSubstatTargets,
     finalSellRemainder,
     setFinalSellRemainder,
+    keepUniqueRules,
+    setKeepUniqueRules,
+    keepUniquesEnabled,
+    setKeepUniquesEnabled,
     hsfcNote,
     setHsfcNote,
     builderRef,
@@ -1595,6 +1662,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       collapsed: filterCollapsed,
       testerConfigFilterMode,
     },
+    keepUniqueRules,
+    keepUniquesEnabled,
+    finalSellDialogTab,
   })
   const currentMetasetSignature = useMemo(() => metasetsSignature(metasets), [metasets])
   const currentTargetsSignature = useMemo(() => substatTargetsSignature(substatTargets), [substatTargets])
@@ -1800,6 +1870,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     customCfgs,
     hsfcNote,
     finalSellRemainder,
+    keepUniqueRules,
+    keepUniquesEnabled,
     selectedCfgIdx,
     selectedCfgIndices,
     describeNextChange,
@@ -1809,6 +1881,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     applySubstatTargetsChange,
     applyFinalSellChange,
     applyNoteChange,
+    setKeepUniqueRules,
+    setKeepUniquesEnabled,
     setSelectedCfgIdx: syncSelectedCfgIdx,
     setSelectedCfgIndices,
     setSelectionAnchor,
@@ -1937,6 +2011,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
 
   const handleRulesTableClearBase = useCallback(() => { setHsf(null) }, [setHsf])
   const handleRulesTableConfigureFinalSell = useCallback(() => { setFinalSellOpen(true) }, [setFinalSellOpen])
+  const handleResetKeepUniques = useCallback(() => {
+    // Clear keep rules and disable the feature so the user starts from a clean slate.
+    setKeepUniqueRules([])
+    setKeepUniquesEnabled(false)
+  }, [setKeepUniqueRules, setKeepUniquesEnabled])
 
 
   // Build autosave payload and write via useAutosave (enabled after restore choice)
@@ -1952,6 +2031,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       finalSellRemainder,
       selectedConfigIndex: null,
       ...(hsfcNote && hsfcNote.trim() ? { note: hsfcNote } : {}),
+      keepUniqueRules,
+      keepUniquesEnabled,
     })
     const filtersPayload = {
       open: filterOpen,
@@ -1959,8 +2040,13 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       collapsed: filterCollapsed,
       testerConfigFilterMode,
     }
-    return { ...base, AutosaveSavedAt: new Date().toISOString(), Filters: filtersPayload }
-  }, [metasets, substatTargets, customCfgs, finalSellRemainder, hsfcNote, filterOpen, rulesFilter, filterCollapsed, testerConfigFilterMode])
+    return {
+      ...base,
+      FinalSellDialogTab: finalSellDialogTab, // Persist the active tab so the dialog re-opens where the user left off.
+      AutosaveSavedAt: new Date().toISOString(),
+      Filters: filtersPayload,
+    }
+  }, [metasets, substatTargets, customCfgs, finalSellRemainder, hsfcNote, filterOpen, rulesFilter, filterCollapsed, testerConfigFilterMode, keepUniqueRules, keepUniquesEnabled, finalSellDialogTab])
   useAutosave({ key: AUTOSAVE_KEY, payload: autosavePayload, enabled: autosaveEnabled && !tutorial.tutorialOpen && !autosaveSilencedByClear })
   const testerAutosavePayload = useMemo(() => buildRuleTesterAutosavePayload(testerItems), [testerItems])
   const testerAutosavePayloadSignature = `${testerAutosavePayload.ItemsCompressed ?? ''}#${testerAutosavePayload.ItemCount ?? 0}`
@@ -2320,6 +2406,29 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     restoreFreezeRowsSeenRef.current = false
   }, [testerMatchFreeze])
   /* eslint-enable react-you-might-not-need-an-effect/no-event-handler, react-you-might-not-need-an-effect/no-chain-state-updates */
+  useEffect(() => {
+    if (!keepUniquesEnabled) {
+      setKeepUniqueDetection(null)
+      return
+    }
+    if (testerMatchFreeze?.pendingRules || testerRowsBuilding) {
+      return
+    }
+    let cancelled = false
+    const timeoutId = window.setTimeout(() => {
+      const snapshot = computeKeepUniqueProtection({
+        rows: testerPreviewRows,
+        rules: keepUniqueRules,
+        enabled: keepUniquesEnabled,
+      })
+      if (cancelled) return
+      setKeepUniqueDetection(snapshot)
+    }, 0)
+    return () => {
+      cancelled = true
+      clearTimeout(timeoutId)
+    }
+  }, [keepUniqueRules, keepUniquesEnabled, testerPreviewRows, testerMatchFreeze, testerRowsBuilding])
   const matchingConfigIndices = filterResult.matchingConfigIndices
   const testerMatchingConfigIndices = testerFilterResult.matchingConfigIndices
   const chipMatchingConfigIndices = previewMode === 'tester'
@@ -3013,6 +3122,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           finalSellRemainder,
           selectedConfigIndex: selectedCfgIdx,
           ...(hsfcNote ? { note: hsfcNote } : {}),
+          keepUniqueRules,
+          keepUniquesEnabled,
         })
         const blob = hsfcToBlob(payload)
         const url = URL.createObjectURL(blob)
@@ -3186,6 +3297,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
               setBuilder(cfgs[cfgs.length - 1]!)
             } catch {}
           }
+          setKeepUniqueRules(pendingImport.keepUniqueRules)
+          setKeepUniquesEnabled(pendingImport.keepUniquesEnabled)
         } finally {
           setMetasetConflictOpen(false)
           setPendingImport(null)
@@ -3799,6 +3912,20 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             ), 0)
             testerRowIdRef.current = Math.max(testerRowIdRef.current, (maxRowId || 0) + 1)
           }
+          const savedAutosaveTab = draft?.FinalSellDialogTab
+          if (savedAutosaveTab) {
+            // Clamp unknown values back to the default tab so corrupted autosave payloads stay recoverable.
+            const normalizedTab = FINAL_SELL_DIALOG_TABS.includes(savedAutosaveTab)
+              ? savedAutosaveTab
+              : FINAL_SELL_DIALOG_TAB_FINAL_SELL
+            setFinalSellDialogTab(normalizedTab)
+          }
+          if (selection.configs) {
+            if (Array.isArray(draft?.KeepUniques)) setKeepUniqueRules(draft.KeepUniques)
+            if (typeof draft?.KeepUniquesEnabled === 'boolean') {
+              setKeepUniquesEnabled(Boolean(draft.KeepUniquesEnabled))
+            }
+          }
           acceptRestore()
           setTesterRestoreDraft(null)
           flushTransientUi()
@@ -3825,6 +3952,26 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           levels: FINAL_SELL_DEFAULT_LEVELS.slice() as FinalSellLevel[],
           setsMode: FINAL_SELL_DEFAULT_SETS_MODE,
         }, { mode: 'reset' })}
+        activeTab={finalSellDialogTab}
+        onChangeTab={setFinalSellDialogTab}
+        // Pass preview grid state so the Keep Uniques tab can mirror the tester visuals without duplicating selectors.
+        keepUniqueRules={keepUniqueRules}
+        onKeepUniqueRulesChange={setKeepUniqueRules}
+        keepUniquesEnabled={keepUniquesEnabled}
+        onKeepUniquesEnabledChange={setKeepUniquesEnabled}
+        keepUniqueDetection={keepUniqueDetection}
+        testerRows={testerPreviewRows}
+        substatColors={substatColors}
+        useStatButtonColors={statButtonBorders}
+        onToggleStatColors={setStatButtonBorders}
+        onOpenManageColors={openColors}
+        colorBlindMode={colorBlindMode}
+        onChangeColorBlindMode={setColorBlindMode}
+        colorIconSrc={colorIconSrc}
+        configNames={testerConfigNames}
+        testerBuilding={testerBuilding}
+        onResetKeepUniques={handleResetKeepUniques}
+        onJumpToRule={handleTesterRuleView}
       />
       {/* Rule Tester dialog */}
       <RuleTesterDialog
