@@ -2422,7 +2422,28 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         enabled: keepUniquesEnabled,
       })
       if (cancelled) return
-      setKeepUniqueDetection(snapshot)
+      setKeepUniqueDetection((prev) => {
+        if (!prev) return snapshot
+        if (prev.entries.length !== snapshot.entries.length) return snapshot
+        for (let idx = 0; idx < snapshot.entries.length; idx += 1) {
+          const nextEntry = snapshot.entries[idx]
+          const prevEntry = prev.entries[idx]
+          if (!nextEntry || !prevEntry) return snapshot
+          if (
+            nextEntry.ruleId !== prevEntry.ruleId
+            || nextEntry.ruleEnabled !== prevEntry.ruleEnabled
+            || nextEntry.requiredCount !== prevEntry.requiredCount
+            || nextEntry.currentCount !== prevEntry.currentCount
+            || nextEntry.keptCount !== prevEntry.keptCount
+            || nextEntry.projectedCount !== prevEntry.projectedCount
+            || nextEntry.deficit !== prevEntry.deficit
+            || nextEntry.coveredByExisting !== prevEntry.coveredByExisting
+          ) {
+            return snapshot
+          }
+        }
+        return prev
+      })
     }, 0)
     return () => {
       cancelled = true

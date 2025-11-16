@@ -151,9 +151,7 @@ export default function KeepUniquesTab({
   const deficitCount = detectionEntries.filter((entry) => entry.deficit > 0).length
 
   const detectionStatus = (() => {
-    if (!enabled) {
-      return <Alert severity="info">{t('keepUniquesDisabledNotice')}</Alert>
-    }
+    if (!enabled) return null
     if (testerRows.length === 0) {
       return <Alert severity="info">{t('keepUniquesNoTesterData')}</Alert>
     }
@@ -199,11 +197,6 @@ export default function KeepUniquesTab({
       >
         <Stack spacing={1.5}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Chip
-              size="small"
-              color={rule.enabled ? 'success' : 'default'}
-              label={rule.enabled ? t('keepUniquesRuleEnabled') : t('keepUniquesRuleDisabled')}
-            />
             {ruleDetection?.deficit ? (
               <Chip size="small" color="error" label={t('keepUniquesRuleDeficit', { count: ruleDetection.deficit })} />
             ) : ruleDetection ? (
@@ -337,79 +330,88 @@ export default function KeepUniquesTab({
   }
 
   return (
-    <Box sx={{ display: { xs: 'block', md: 'grid' }, gridTemplateColumns: { md: '360px minmax(0, 1fr)' }, height: '100%', gap: 2 }}>
-      <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
-        <Box sx={{ pb: 2, borderBottom: '1px solid', borderColor: 'divider' }}>
-          <Stack spacing={1}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <Typography variant="subtitle2">{t('keepUniquesTabLabel')}</Typography>
-              <Tooltip title={t('keepUniquesTabHint')}>
-                <InfoOutlinedIcon fontSize="small" color="action" />
-              </Tooltip>
-            </Box>
-            <Typography variant="body2" color="text.secondary">{t('keepUniquesTabIntro')}</Typography>
-            <FormControlLabel
-              control={(
-                <Switch
-                  checked={enabled}
-                  onChange={(_, checked) => onToggleEnabled(checked)}
-                />
-              )}
-              label={t('keepUniquesEnableLabel')}
+    <Box sx={{ flex: 1, minHeight: 0, height: '100%', p: 3, boxSizing: 'border-box' }}>
+      <Box
+        sx={{
+          display: { xs: 'block', md: 'grid' },
+          gridTemplateColumns: { md: '360px minmax(0, 1fr)' },
+          height: '100%',
+          gap: 2,
+        }}
+      >
+        <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
+          <Box sx={{ pb: 2, borderBottom: '1px solid', borderColor: 'divider' }}>
+            <Stack spacing={1}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Typography variant="subtitle2">{t('keepUniquesTabLabel')}</Typography>
+                <Tooltip title={t('keepUniquesTabHint')}>
+                  <InfoOutlinedIcon fontSize="small" color="action" />
+                </Tooltip>
+              </Box>
+              <Typography variant="body2" color="text.secondary">{t('keepUniquesTabIntro')}</Typography>
+              <FormControlLabel
+                control={(
+                  <Switch
+                    checked={enabled}
+                    onChange={(_, checked) => onToggleEnabled(checked)}
+                  />
+                )}
+                label={t('keepUniquesEnableLabel')}
+              />
+              {detectionStatus}
+            </Stack>
+          </Box>
+          <Box sx={{ flex: 1, minHeight: 0, overflowY: 'auto', pt: 2, pr: 1 }}>
+            {rules.length === 0 ? (
+              <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 1 }}>
+                <Typography variant="body2" color="text.secondary">{t('keepUniquesNoRules')}</Typography>
+                <Button startIcon={<AddIcon />} variant="contained" onClick={handleAddRule}>{t('keepUniquesAddRule')}</Button>
+              </Box>
+            ) : (
+              rules.map(renderRuleCard)
+            )}
+          </Box>
+          <Divider sx={{ my: 1 }} />
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, pb: 1 }}>
+            <Button startIcon={<AddIcon />} variant="contained" onClick={handleAddRule} sx={{ minHeight: MENU_CONTROL_HEIGHT_PX }}>
+              {t('keepUniquesAddRule')}
+            </Button>
+            <Button
+              variant="text"
+              color="inherit"
+              onClick={() => onReset?.()}
+              disabled={!onReset}
+            >
+              {t('keepUniquesResetSeeds')}
+            </Button>
+          </Box>
+        </Box>
+        <Box sx={{ minHeight: 0, display: 'flex', flexDirection: 'column', gap: 1 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Typography variant="subtitle2">{t('keepUniquesGridTitle')}</Typography>
+            {selectedEntry ? (
+              <Chip size="small" label={t('keepUniquesGridSelectedCount', { count: selectedRowKeys.size })} />
+            ) : null}
+          </Box>
+          <Box sx={{ flex: 1, minHeight: 0 }}>
+            <TesterItemsGrid
+              rows={testerRows}
+              filterActive={gridFiltered}
+              substatColors={substatColors}
+              useStatButtonColors={useStatButtonColors}
+              testerBuilding={testerBuilding}
+              onToggleStatColors={onToggleStatColors}
+              onOpenManageColors={onOpenManageColors}
+              colorBlindMode={colorBlindMode}
+              onChangeColorBlindMode={onChangeColorBlindMode}
+              colorIconSrc={colorIconSrc}
+              configNames={configNames}
+              onJumpToRule={onJumpToRule}
+              variant="keepUniques"
+              highlightedRowPredicate={highlightRowPredicate ?? null}
+              dimUnhighlightedRows={highlightActive}
             />
-            {detectionStatus}
-          </Stack>
-        </Box>
-        <Box sx={{ flex: 1, minHeight: 0, overflowY: 'auto', pt: 2, pr: 1 }}>
-          {rules.length === 0 ? (
-            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 1 }}>
-              <Typography variant="body2" color="text.secondary">{t('keepUniquesNoRules')}</Typography>
-              <Button startIcon={<AddIcon />} variant="contained" onClick={handleAddRule}>{t('keepUniquesAddRule')}</Button>
-            </Box>
-          ) : (
-            rules.map(renderRuleCard)
-          )}
-        </Box>
-        <Divider sx={{ my: 1 }} />
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, pb: 1 }}>
-          <Button startIcon={<AddIcon />} variant="contained" onClick={handleAddRule} sx={{ minHeight: MENU_CONTROL_HEIGHT_PX }}>
-            {t('keepUniquesAddRule')}
-          </Button>
-          <Button
-            variant="text"
-            color="inherit"
-            onClick={() => onReset?.()}
-            disabled={!onReset}
-          >
-            {t('keepUniquesResetSeeds')}
-          </Button>
-        </Box>
-      </Box>
-      <Box sx={{ minHeight: 0, display: 'flex', flexDirection: 'column', gap: 1 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Typography variant="subtitle2">{t('keepUniquesGridTitle')}</Typography>
-          {selectedEntry ? (
-            <Chip size="small" label={t('keepUniquesGridSelectedCount', { count: selectedRowKeys.size })} />
-          ) : null}
-        </Box>
-        <Box sx={{ flex: 1, minHeight: 0 }}>
-          <TesterItemsGrid
-            rows={testerRows}
-            filterActive={gridFiltered}
-            substatColors={substatColors}
-            useStatButtonColors={useStatButtonColors}
-            testerBuilding={testerBuilding}
-            onToggleStatColors={onToggleStatColors}
-            onOpenManageColors={onOpenManageColors}
-            colorBlindMode={colorBlindMode}
-            onChangeColorBlindMode={onChangeColorBlindMode}
-            colorIconSrc={colorIconSrc}
-            configNames={configNames}
-            onJumpToRule={onJumpToRule}
-            variant="keepUniques"
-            highlightedRowPredicate={highlightRowPredicate ?? null}
-            dimUnhighlightedRows={highlightActive}
-          />
+          </Box>
         </Box>
       </Box>
     </Box>
