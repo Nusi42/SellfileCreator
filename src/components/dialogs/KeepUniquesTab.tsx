@@ -409,13 +409,9 @@ export default function KeepUniquesTab({
           </Box>
           <Box sx={{ flex: 1, minHeight: 0, overflowY: 'auto', pt: 2, pr: 1 }}>
             {rules.length === 0 ? (
-              <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 1 }}>
-                <Typography variant="body2" color="text.secondary">{t('keepUniquesNoRules')}</Typography>
-                <Button startIcon={<AddIcon />} variant="contained" onClick={handleAddRule}>{t('keepUniquesAddRule')}</Button>
-              </Box>
-            ) : (
-              rules.map(renderRuleCard)
-            )}
+              <Typography variant="body2" color="text.secondary">{t('keepUniquesNoRules')}</Typography>
+            ) : null}
+            {rules.map(renderRuleCard)}
           </Box>
         <Divider sx={{ my: 1 }} />
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, pb: 1 }}>
