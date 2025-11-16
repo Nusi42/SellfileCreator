@@ -204,6 +204,26 @@ function analyzeConfigKeys(previous: readonly string[], next: readonly string[])
   return { mapping, removed, identical, reorderOnly }
 }
 
+const fingerprintKeepUniqueDetection = (
+  snapshot: KeepUniqueDetectionSnapshot | null,
+): string | null => {
+  if (!snapshot) return null
+  const parts: string[] = []
+  for (const entry of snapshot.entries) {
+    parts.push([
+      entry.ruleId ?? '',
+      entry.ruleEnabled ? 1 : 0,
+      entry.requiredCount,
+      entry.currentCount,
+      entry.projectedCount,
+      entry.deficit,
+      entry.coveredByExisting ? 1 : 0,
+      entry.rowKeys.join(','),
+    ].join(':'))
+  }
+  return parts.join(';')
+}
+
 const EMPTY_KEEP_UNIQUE_CANDIDATES: KeepUniqueCandidateSnapshot = {
   candidates: [],
   uniqueRowKeys: new Set<number>(),
@@ -384,7 +404,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     return map
   }, [testerPreviewRows])
   const [keepUniqueDetection, setKeepUniqueDetection] = useState<KeepUniqueDetectionSnapshot | null>(null)
-  const keepUniqueScanAppliedRef = useRef<number | null>(null)
+  const keepUniqueDetectionSignature = useMemo(
+    () => fingerprintKeepUniqueDetection(keepUniqueDetection),
+    [keepUniqueDetection],
+  )
+  const keepUniqueScanAppliedRef = useRef<string | null>(null)
   const resolvedKeepUniqueRules = useMemo(() => (
     resolveKeepUniqueRulesWithMetasets(keepUniqueRules, metasets)
   ), [keepUniqueRules, metasets])
@@ -411,7 +435,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   } = useBuilderPreviewLayout({ forceSideBySide: forceSideBySideLayout })
   useTooltipScrollGuard()
   useModalCleanup()
-
   // Manage Colors dialog state + persisted substat colors
   const {
     open: colorsDlgOpen,
@@ -704,10 +727,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       }
     }
 
+    const keepUniqueReady = !testerRowsBuilding && !testerMatchFreeze?.pendingRules
     const canFastPathKeepUniques = Boolean(
       keepUniquesActive
       && keepUniqueDetection
-      && keepUniqueDetection.scannedAt !== keepUniqueScanAppliedRef.current
+      && keepUniqueDetectionSignature
+      && keepUniqueDetectionSignature !== keepUniqueScanAppliedRef.current
       && prevWarm
       && prevWarm.configs === ruleConfigsForPreview
       && prevWarm.metasets === metasetsForPreview
@@ -716,7 +741,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       && prevWarm.finalSell === finalSellRemainder
       && prevWarm.keepUniquesActive === keepUniquesActive
       && prevWarm.keepUniqueRules === keepUniqueRules
-      && prevWarm.keepUniqueDetection !== keepUniqueDetection,
+      && prevWarm.keepUniqueDetection !== keepUniqueDetection
+      && keepUniqueReady
     )
     if (canFastPathKeepUniques) {
       setConfigRulesState((prev) => {
@@ -756,7 +782,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           mergedRules,
         }
       })
-      keepUniqueScanAppliedRef.current = keepUniqueDetection?.scannedAt ?? null
+      keepUniqueScanAppliedRef.current = keepUniqueDetectionSignature
       setRulesBuilding(false)
       lastWarmInputsRef.current = {
         configs: ruleConfigsForPreview,
@@ -769,6 +795,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         keepUniqueDetection,
       }
       return undefined
+    }
+    if (keepUniquesActive && keepUniqueDetection && !keepUniqueReady) {
+      // No-op: waiting for tester rows to finish so detection can be applied.
     }
 
     lastWarmInputsRef.current = {
@@ -798,9 +827,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
 
     const resolvedKeepUniqueRulesForWarm = resolveKeepUniqueRulesWithMetasets(keepUniqueRules, metasets)
     const keepUniquesActiveForWarm = keepUniquesEnabled && resolvedKeepUniqueRulesForWarm.length > 0
-    const detectionScanIdForWarm = keepUniquesActiveForWarm && keepUniqueDetection
-      ? keepUniqueDetection.scannedAt ?? null
-      : null
+    const detectionSignatureForWarm = keepUniquesActiveForWarm ? keepUniqueDetectionSignature : null
     const warmPromise = warmCache(
       {
         configs: ruleConfigsForPreview,
@@ -854,7 +881,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             setConfigRulesState(snapshot)
             setRulesBuilding(false)
           })
-          keepUniqueScanAppliedRef.current = detectionScanIdForWarm
+          keepUniqueScanAppliedRef.current = detectionSignatureForWarm
           return snapshot
         }
         const { baseRules, finalSellRules } = splitMergedRules(state.mergedRules)
@@ -916,7 +943,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     metasets,
     keepUniquesEnabled,
     keepUniquesActive,
+    testerRowsBuilding,
+    testerMatchFreeze,
     keepUniqueDetection,
+    keepUniqueDetectionSignature,
     resolvedKeepUniqueRules,
   ])
 
@@ -2477,17 +2507,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     }
   }, [testerMatchFreeze, rulesBuilding])
   useEffect(() => {
-    if (!testerMatchFreeze?.pendingRules) return undefined
-    const timeoutId = setTimeout(() => {
-      setTesterMatchFreeze((prev) => {
-        if (!prev || !prev.pendingRules) return prev
-        return { ...prev, pendingRules: false, lockBuildId: testerRowsBuildIdRef.current }
-      })
-      restoreFreezeRulesSeenRef.current = false
-    }, 4000)
-    return () => clearTimeout(timeoutId)
-  }, [testerMatchFreeze])
-  useEffect(() => {
     if (!testerMatchFreeze || testerMatchFreeze.pendingRules) return
     if (testerRowsBuilding) {
       restoreFreezeRowsSeenRef.current = true
@@ -2525,12 +2544,13 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     })
   }, [keepUniquesActive, testerPreviewRows, keepUniqueBaseRules, configModes])
   useEffect(() => {
+    const rowsUpToDate = testerRowsCommittedBuildId >= testerRowsBuildIdRef.current && !testerRowsBuilding
     if (!keepUniquesActive) {
       keepUniqueScanAppliedRef.current = null
       setKeepUniqueDetection(null)
       return
     }
-    if (testerMatchFreeze?.pendingRules || testerRowsBuilding) {
+    if (testerMatchFreeze?.pendingRules || testerRowsBuilding || !rowsUpToDate) {
       return
     }
     let cancelled = false
@@ -2575,6 +2595,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     keepUniqueCandidates,
     testerMatchFreeze,
     testerRowsBuilding,
+    testerRowsCommittedBuildId,
   ])
   const keepUniqueGroupRowKeys = keepUniqueCandidates.uniqueRowKeys
   const matchingConfigIndices = filterResult.matchingConfigIndices
