@@ -195,6 +195,10 @@ export default function KeepUniquesTab({
   let detectionChip: JSX.Element | null = null
   const detectionStatus = (() => {
     if (!enabled) return null
+    if (rules.length === 0) {
+      detectionChip = null
+      return <Alert severity="info">{t('keepUniquesNoRules')}</Alert>
+    }
     if (testerRows.length === 0) {
       return <Alert severity="info">{t('keepUniquesNoTesterData')}</Alert>
     }

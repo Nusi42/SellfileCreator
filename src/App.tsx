@@ -157,6 +157,8 @@ import { useAutoSideBySideZoom } from './hooks/useAutoSideBySideZoom'
 
 import type { ColorBlindMode } from './lib/constants'
 
+const isDevBuild: boolean = Boolean((import.meta as unknown as { env?: { DEV?: boolean } }).env?.DEV)
+
 type ConfigKeyAnalysis = {
   mapping: Array<number | null>
   removed: number[]
@@ -308,7 +310,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const substatTargetsForPreview = useDeferredValue(substatTargets)
   const metasetsForPreview = useDeferredValue(metasets)
   const ruleConfigsForPreview = useDeferredValue(ruleConfigs)
-  const isDevBuild: boolean = Boolean((import.meta as unknown as { env?: { DEV?: boolean } }).env?.DEV)
   const testerRowIdRef = useRef(1)
   const allocTesterRowId = useCallback(() => {
     const id = testerRowIdRef.current
@@ -383,6 +384,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     return map
   }, [testerPreviewRows])
   const [keepUniqueDetection, setKeepUniqueDetection] = useState<KeepUniqueDetectionSnapshot | null>(null)
+  const keepUniqueScanAppliedRef = useRef<number | null>(null)
   const resolvedKeepUniqueRules = useMemo(() => (
     resolveKeepUniqueRulesWithMetasets(keepUniqueRules, metasets)
   ), [keepUniqueRules, metasets])
@@ -704,6 +706,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
 
     const canFastPathKeepUniques = Boolean(
       keepUniquesActive
+      && keepUniqueDetection
+      && keepUniqueDetection.scannedAt !== keepUniqueScanAppliedRef.current
       && prevWarm
       && prevWarm.configs === ruleConfigsForPreview
       && prevWarm.metasets === metasetsForPreview
@@ -752,6 +756,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           mergedRules,
         }
       })
+      keepUniqueScanAppliedRef.current = keepUniqueDetection?.scannedAt ?? null
       setRulesBuilding(false)
       lastWarmInputsRef.current = {
         configs: ruleConfigsForPreview,
@@ -793,6 +798,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
 
     const resolvedKeepUniqueRulesForWarm = resolveKeepUniqueRulesWithMetasets(keepUniqueRules, metasets)
     const keepUniquesActiveForWarm = keepUniquesEnabled && resolvedKeepUniqueRulesForWarm.length > 0
+    const detectionScanIdForWarm = keepUniquesActiveForWarm && keepUniqueDetection
+      ? keepUniqueDetection.scannedAt ?? null
+      : null
     const warmPromise = warmCache(
       {
         configs: ruleConfigsForPreview,
@@ -846,6 +854,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             setConfigRulesState(snapshot)
             setRulesBuilding(false)
           })
+          keepUniqueScanAppliedRef.current = detectionScanIdForWarm
           return snapshot
         }
         const { baseRules, finalSellRules } = splitMergedRules(state.mergedRules)
@@ -1737,7 +1746,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     const text = JSON.stringify(payload, null, 2)
     const ok = await writeTextSafe(text)
     if (!ok) { setCopyText(text); setCopyDlgOpen(true) }
-  }, [customCfgs, isDevBuild, metasets, mergedRules, setCopyDlgOpen, setCopyText])
+  }, [customCfgs, metasets, mergedRules, setCopyDlgOpen, setCopyText])
 
   
 
@@ -2517,6 +2526,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   }, [keepUniquesActive, testerPreviewRows, keepUniqueBaseRules, configModes])
   useEffect(() => {
     if (!keepUniquesActive) {
+      keepUniqueScanAppliedRef.current = null
       setKeepUniqueDetection(null)
       return
     }
