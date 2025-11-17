@@ -1416,19 +1416,6 @@ const TesterGridCard = React.memo(function TesterGridCard({
     if (!Number.isFinite(cfgIdx)) return
     onJumpToRule?.(primaryRuleIndex, cfgIdx)
   }
-  const testerRowId = Number((artifact.testerItem as { rowId?: number } | undefined)?.rowId ?? NaN)
-  const primaryMatchStateRef = useRef<PrimaryMatchRowState | null>(null)
-  useEffect(() => {
-    if (primaryMatchStateRef.current === primaryMatchRowState) return
-    primaryMatchStateRef.current = primaryMatchRowState
-    const rowLabel = Number.isFinite(testerRowId) ? `rowId=${testerRowId}` : `artifactId=${artifact.id}`
-    const matchCfgLabel = typeof match?.cfgIdx === 'number' ? match.cfgIdx : 'none'
-    console.debug(
-      `[tester-match-row] ${rowLabel} state=${primaryMatchRowState}`
-      + ` matchCfg=${matchCfgLabel} configs=${matchingEntries.length}`
-      + ` suppressed=${Number(suppressMatchDetails)}`,
-    )
-  }, [primaryMatchRowState, match?.cfgIdx, matchingEntries.length, suppressMatchDetails, testerRowId, artifact.id])
   const renderMatchingChip = (
     entry: MatchingConfigEntry,
     options?: { onSelect?: () => void },

@@ -96,10 +96,15 @@ import { useAutosaveRestore, metasetsSignature, substatTargetsSignature } from '
 import { makeManageColorsIcon } from './lib/icons'
 import type { ChampionLocation } from './lib/importers/gearDbNormalizer'
 
+type RestoreFreezeState = {
+  awaitingRulesBuild: boolean
+  targetBuildId: number | null
+}
 type TesterMatchFreezeState = {
   lockBuildId: number
   pendingRules: boolean
   createdAt: number
+  restore?: RestoreFreezeState
 }
 type TesterMatchResetReason = 'restore' | 'hsfc' | 'gearDb'
 const TESTER_MATCH_RESET_TIMEOUT_MS = 1500
@@ -2593,12 +2598,23 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setTesterMatchFreeze((prev) => {
       if (!prev || prev.pendingRules) return prev
       if (testerRowsActiveBuildId <= prev.lockBuildId) return prev
+      if (prev.restore?.awaitingRulesBuild) {
+        return {
+          ...prev,
+          lockBuildId: testerRowsActiveBuildId,
+          restore: {
+            awaitingRulesBuild: false,
+            targetBuildId: testerRowsActiveBuildId,
+          },
+        }
+      }
       return { ...prev, lockBuildId: testerRowsActiveBuildId }
     })
   }, [testerMatchFreeze, testerRowsActiveBuildId])
   useEffect(() => {
     if (!testerMatchFreeze) return
     if (testerMatchFreeze.pendingRules) return
+    if (testerMatchFreeze.restore?.awaitingRulesBuild) return
     if (testerRowsBuilding || rulesBuilding) return
     if (!restoreFreezeRowsSeenRef.current) {
       const elapsed = Date.now() - testerMatchFreeze.createdAt
@@ -4152,21 +4168,28 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
               }
             }
           }
-          if (selection.tester && testerRestoreDraft) {
-            const restoredItems = testerRestoreDraft.items
-            const needsRuleRebuild = Boolean(
-              selection.configs
-              || (selection.metasets && restoreMetasetsDiffer)
-              || (selection.targets && restoreTargetsDiffer)
-            )
-            setTesterMatchFreeze({
-              lockBuildId: testerRowsBuildIdRef.current,
-              pendingRules: needsRuleRebuild,
-              createdAt: Date.now(),
-            })
-            restoreFreezeRulesSeenRef.current = false
-            restoreFreezeRowsSeenRef.current = false
-            setTesterItems(restoredItems)
+            if (selection.tester && testerRestoreDraft) {
+              const restoredItems = testerRestoreDraft.items
+              const needsRuleRebuild = Boolean(
+                selection.configs
+                || (selection.metasets && restoreMetasetsDiffer)
+                || (selection.targets && restoreTargetsDiffer)
+              )
+              const restoreFreezeState = needsRuleRebuild
+                ? {
+                    awaitingRulesBuild: true,
+                    targetBuildId: null,
+                  }
+                : null
+              setTesterMatchFreeze({
+                lockBuildId: testerRowsBuildIdRef.current,
+                pendingRules: needsRuleRebuild,
+                createdAt: Date.now(),
+                ...(restoreFreezeState ? { restore: restoreFreezeState } : {}),
+              })
+              restoreFreezeRulesSeenRef.current = false
+              restoreFreezeRowsSeenRef.current = false
+              setTesterItems(restoredItems)
             const maxRowId = testerRestoreDraft.items.reduce((max, item) => (
               Number.isFinite(item.rowId) && item.rowId > max ? item.rowId : max
             ), 0)
