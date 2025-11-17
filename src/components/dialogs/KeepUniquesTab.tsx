@@ -65,6 +65,7 @@ type KeepUniquesTabProps = {
   metasets: Metaset[]
   testerBuilding?: boolean
   onJumpToRule?: ((ruleIndex: number, cfgIdx: number | null) => void) | undefined
+  suppressMatchDetails?: boolean
 }
 
 const ARTIFACT_SET_POOL: readonly ArtifactSetId[] = Object.freeze([...ARMOR_FIXED_SET_IDS, ...ARMOR_VARIABLE_SET_IDS])
@@ -87,6 +88,7 @@ export default function KeepUniquesTab({
   metasets,
   testerBuilding = false,
   onJumpToRule,
+  suppressMatchDetails = false,
 }: KeepUniquesTabProps) {
   const { t } = useI18n()
   const [selectedRuleId, setSelectedRuleId] = useState<string | null>(rules[0]?.id ?? null)
@@ -500,7 +502,6 @@ export default function KeepUniquesTab({
                 filterActive={gridFiltered}
                 substatColors={substatColors}
                 useStatButtonColors={useStatButtonColors}
-                testerBuilding={testerBuilding}
                 onToggleStatColors={onToggleStatColors}
                 onOpenManageColors={onOpenManageColors}
                 colorBlindMode={colorBlindMode}
@@ -511,6 +512,7 @@ export default function KeepUniquesTab({
                 variant="keepUniques"
                 highlightedRowPredicate={highlightRowPredicate ?? null}
                 dimUnhighlightedRows={highlightActive}
+                suppressMatchDetails={suppressMatchDetails}
               />
             </Box>
           </Box>

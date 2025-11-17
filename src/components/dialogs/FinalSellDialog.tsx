@@ -45,6 +45,7 @@ type FinalSellDialogProps = {
   configNames: Array<string | null>
   metasets: Metaset[]
   testerBuilding?: boolean
+  suppressMatchDetails?: boolean
   onResetKeepUniques?: () => void
   onJumpToRule?: (ruleIndex: number, cfgIdx: number | null) => void
 }
@@ -75,6 +76,7 @@ export default function FinalSellDialog(props: FinalSellDialogProps) {
   configNames,
   metasets,
   testerBuilding = false,
+  suppressMatchDetails = false,
   onResetKeepUniques,
   onJumpToRule,
 } = props
@@ -382,6 +384,7 @@ export default function FinalSellDialog(props: FinalSellDialogProps) {
             metasets={metasets}
             testerBuilding={testerBuilding}
             onJumpToRule={onJumpToRule}
+            suppressMatchDetails={suppressMatchDetails}
           />
         )}
       </DialogContent>
