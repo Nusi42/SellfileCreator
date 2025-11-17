@@ -160,7 +160,6 @@ type TesterItemsGridProps = {
   filterActive?: boolean
   substatColors: Record<number, { fg: string; bg: string }>
   useStatButtonColors?: boolean
-  testerBuilding?: boolean
   onToggleStatColors: (next: boolean) => void
   onOpenManageColors: () => void
   colorBlindMode: ColorBlindMode
@@ -169,6 +168,7 @@ type TesterItemsGridProps = {
   configNames: Array<string | null>
   onJumpToRule?: ((ruleIndex: number, cfgIdx: number | null) => void) | undefined
   variant?: TesterItemsGridVariant
+  suppressMatchDetails?: boolean
   // Optional highlighter lets Keep Uniques fade non-matching cards without forking the grid.
   highlightedRowPredicate?: ((row: TesterPreviewRow) => boolean) | null
   dimUnhighlightedRows?: boolean
@@ -200,7 +200,6 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     filterActive = false,
     substatColors,
     useStatButtonColors = false,
-    testerBuilding = false,
     onToggleStatColors,
     onOpenManageColors,
     colorBlindMode,
@@ -209,6 +208,7 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     configNames,
     onJumpToRule,
     variant = 'tester',
+    suppressMatchDetails: suppressMatchDetailsProp = false,
     highlightedRowPredicate = null,
     dimUnhighlightedRows = false,
   } = props
@@ -218,6 +218,7 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
   const shouldDimUnhighlightedRows = Boolean(dimUnhighlightedRows && highlightRowPredicate)
   const { t } = useI18n()
   const theme = useTheme()
+  const suppressMatchDetails = Boolean(suppressMatchDetailsProp)
   const groups = useMemo(() => groupRowsBySet(rows, t), [rows, t])
   const numberFormatter = useMemo(() => new Intl.NumberFormat(undefined), [])
   const {
@@ -671,7 +672,7 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
         onAnyContextMenu={handleGridHintSeen}
         substatColors={substatColors}
         useStatButtonColors={useStatButtonColors}
-        testerBuilding={testerBuilding}
+        suppressMatchDetails={suppressMatchDetails}
         gridColumnCount={gridColumnCount}
         showFirstMatchRow={showFirstMatch}
         showOtherMatchesRow={showOtherMatches}
@@ -912,7 +913,7 @@ type TesterItemsGridGroupProps = {
   onAnyContextMenu?: () => void
   substatColors: Record<number, { fg: string; bg: string }>
   useStatButtonColors: boolean
-  testerBuilding: boolean
+  suppressMatchDetails: boolean
   gridColumnCount: number
   showFirstMatchRow: boolean
   showOtherMatchesRow: boolean
@@ -936,7 +937,7 @@ const TesterItemsGridGroup = React.memo(function TesterItemsGridGroup({
   onAnyContextMenu,
   substatColors,
   useStatButtonColors,
-  testerBuilding,
+  suppressMatchDetails,
   gridColumnCount,
   showFirstMatchRow,
   showOtherMatchesRow,
@@ -1055,7 +1056,7 @@ const TesterItemsGridGroup = React.memo(function TesterItemsGridGroup({
                   row={row}
                   substatColors={substatColors}
                   useStatButtonColors={useStatButtonColors}
-                  testerBuilding={testerBuilding}
+                  suppressMatchDetails={suppressMatchDetails}
                   showFirstMatchRow={showFirstMatchRow}
                   showOtherMatchesRow={showOtherMatchesRow}
                   showChampionIcons={showChampionIcons}
@@ -1079,7 +1080,7 @@ const TesterGridCard = React.memo(function TesterGridCard({
   row,
   substatColors,
   useStatButtonColors,
-  testerBuilding,
+  suppressMatchDetails,
   showFirstMatchRow,
   showOtherMatchesRow,
   showChampionIcons,
@@ -1093,7 +1094,7 @@ const TesterGridCard = React.memo(function TesterGridCard({
   row: TesterPreviewRow
   substatColors: Record<number, { fg: string; bg: string }>
   useStatButtonColors: boolean
-  testerBuilding: boolean
+  suppressMatchDetails: boolean
   showFirstMatchRow: boolean
   showOtherMatchesRow: boolean
   showChampionIcons: boolean
@@ -1293,9 +1294,17 @@ const TesterGridCard = React.memo(function TesterGridCard({
     cfgIdx: idx as number,
     label: formatConfigLabel(idx as number, configNames, t),
   }))
-  const shouldShowPrimaryMatchRow = !testerBuilding && showFirstMatchRow
+  const shouldShowPrimaryMatchRow = !suppressMatchDetails && showFirstMatchRow
+  const hasMatchingConfigs = matchingEntries.length > 0
   const otherMatchingEntries = matchingEntries.slice(1)
-  const shouldShowOtherMatchesRow = !testerBuilding && showOtherMatchesRow && otherMatchingEntries.length > 0
+  const shouldShowOtherMatchesRow = !suppressMatchDetails && showOtherMatchesRow && otherMatchingEntries.length > 0
+  type PrimaryMatchRowState = 'hidden' | 'match' | 'pending' | 'no-match'
+  const primaryMatchRowState: PrimaryMatchRowState = (() => {
+    if (!shouldShowPrimaryMatchRow) return 'hidden'
+    if (match) return 'match'
+    return hasMatchingConfigs ? 'pending' : 'no-match'
+  })()
+  const shouldRenderNoMatchChip = primaryMatchRowState === 'no-match'
   const totalOtherMatches = otherMatchingEntries.length
   const otherMatchingEntriesSignature = useMemo(
     () => otherMatchingEntries.map((entry) => `${entry.cfgIdx}:${entry.label}`).join('|'),
@@ -1407,6 +1416,19 @@ const TesterGridCard = React.memo(function TesterGridCard({
     if (!Number.isFinite(cfgIdx)) return
     onJumpToRule?.(primaryRuleIndex, cfgIdx)
   }
+  const testerRowId = Number((artifact.testerItem as { rowId?: number } | undefined)?.rowId ?? NaN)
+  const primaryMatchStateRef = useRef<PrimaryMatchRowState | null>(null)
+  useEffect(() => {
+    if (primaryMatchStateRef.current === primaryMatchRowState) return
+    primaryMatchStateRef.current = primaryMatchRowState
+    const rowLabel = Number.isFinite(testerRowId) ? `rowId=${testerRowId}` : `artifactId=${artifact.id}`
+    const matchCfgLabel = typeof match?.cfgIdx === 'number' ? match.cfgIdx : 'none'
+    console.debug(
+      `[tester-match-row] ${rowLabel} state=${primaryMatchRowState}`
+      + ` matchCfg=${matchCfgLabel} configs=${matchingEntries.length}`
+      + ` suppressed=${Number(suppressMatchDetails)}`,
+    )
+  }, [primaryMatchRowState, match?.cfgIdx, matchingEntries.length, suppressMatchDetails, testerRowId, artifact.id])
   const renderMatchingChip = (
     entry: MatchingConfigEntry,
     options?: { onSelect?: () => void },
@@ -1501,7 +1523,7 @@ const TesterGridCard = React.memo(function TesterGridCard({
     () => getTesterGridCardColumnHeights(theme, gridColumnCount),
     [theme, gridColumnCount],
   )
-  const cardOutcome = !testerBuilding && match
+  const cardOutcome = !suppressMatchDetails && match
     ? {
         tone: match.keep === false ? theme.palette.error.main : theme.palette.success.main,
         glyph: match.keep === false ? <SellIcon fontSize="inherit" aria-hidden /> : '✓',
@@ -1764,9 +1786,9 @@ const TesterGridCard = React.memo(function TesterGridCard({
               {...(onJumpToRule ? { onJump: onJumpToRule } : {})}
               sx={{ width: '100%' }}
             />
-          ) : (
+          ) : shouldRenderNoMatchChip ? (
             <Chip size="small" color="success" variant="filled" label={t('testerNoMatch')} />
-          )}
+          ) : null}
         </Box>
       ) : null}
       {shouldShowOtherMatchesRow ? (

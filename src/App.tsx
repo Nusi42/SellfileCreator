@@ -101,6 +101,8 @@ type TesterMatchFreezeState = {
   pendingRules: boolean
   createdAt: number
 }
+type TesterMatchResetReason = 'restore' | 'hsfc' | 'gearDb'
+const TESTER_MATCH_RESET_TIMEOUT_MS = 1500
 import { sellfileFilename, hsfcFilename, buildTimestamp } from './lib/filenames'
 import { README_SEEN_VERSION_KEY, RULE_COUNT_LIMIT } from './lib/constants'
 import { DEFAULT_METASET_ICON_ID } from './lib/metasetIcons'
@@ -421,6 +423,66 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   })
   const [testerRowsBuilding, setTesterRowsBuilding] = useState(false)
   const [testerRowsCommittedBuildId, setTesterRowsCommittedBuildId] = useState(0)
+  const [testerRowsActiveBuildId, setTesterRowsActiveBuildId] = useState(0)
+  const testerRowsBuildingRef = useRef(testerRowsBuilding)
+  useEffect(() => { testerRowsBuildingRef.current = testerRowsBuilding }, [testerRowsBuilding])
+  const testerRowsCommittedBuildIdRef = useRef(testerRowsCommittedBuildId)
+  useEffect(() => { testerRowsCommittedBuildIdRef.current = testerRowsCommittedBuildId }, [testerRowsCommittedBuildId])
+  const testerMatchResetRef = useRef<{ reason: TesterMatchResetReason; targetBuildId: number; startedAt: number } | null>(null)
+  const [testerMatchResetReason, setTesterMatchResetReason] = useState<TesterMatchResetReason | null>(null)
+  const beginTesterMatchReset = useCallback((reason: TesterMatchResetReason) => {
+    const targetBuildId = testerRowsActiveBuildId > testerRowsCommittedBuildId
+      ? testerRowsActiveBuildId
+      : testerRowsCommittedBuildId + 1
+    testerMatchResetRef.current = {
+      reason,
+      targetBuildId,
+      startedAt: Date.now(),
+    }
+    setTesterMatchResetReason(reason)
+  }, [testerRowsActiveBuildId, testerRowsCommittedBuildId])
+  const testerMatchDetailsFrozen = Boolean(testerMatchResetReason)
+  useEffect(() => {
+    if (!testerMatchResetReason) return
+    let pending = testerMatchResetRef.current
+    if (!pending || pending.reason !== testerMatchResetReason) {
+      if (!pending) setTesterMatchResetReason(null)
+      return
+    }
+    if (testerRowsActiveBuildId > pending.targetBuildId) {
+      pending = {
+        ...pending,
+        targetBuildId: testerRowsActiveBuildId,
+      }
+      testerMatchResetRef.current = pending
+    }
+    if (!testerRowsBuilding && testerRowsCommittedBuildId >= pending.targetBuildId) {
+      testerMatchResetRef.current = null
+      setTesterMatchResetReason(null)
+      return
+    }
+    let timeoutId: ReturnType<typeof setTimeout> | null = null
+    const handleResetCheck = () => {
+      const current = testerMatchResetRef.current
+      if (!current || current.reason !== testerMatchResetReason) return
+      if (testerRowsBuildingRef.current) {
+        timeoutId = setTimeout(handleResetCheck, TESTER_MATCH_RESET_TIMEOUT_MS)
+        return
+      }
+      const committed = testerRowsCommittedBuildIdRef.current
+      if (committed >= current.targetBuildId) {
+        testerMatchResetRef.current = null
+        setTesterMatchResetReason(null)
+        return
+      }
+      testerMatchResetRef.current = null
+      setTesterMatchResetReason(null)
+    }
+    timeoutId = setTimeout(handleResetCheck, TESTER_MATCH_RESET_TIMEOUT_MS)
+    return () => {
+      if (timeoutId !== null) clearTimeout(timeoutId)
+    }
+  }, [testerMatchResetReason, testerRowsCommittedBuildId, testerRowsBuilding, testerRowsActiveBuildId])
   const [testerMatchFreeze, setTesterMatchFreeze] = useState<TesterMatchFreezeState | null>(null)
   const restoreFreezeRulesSeenRef = useRef(false)
   const restoreFreezeRowsSeenRef = useRef(false)
@@ -516,6 +578,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   })
   const ruleCacheRequestTokenRef = useRef(0)
   const [rulesBuilding, setRulesBuilding] = useState(false)
+  const finishRulesBuilding = useCallback(() => {
+    setRulesBuilding(false)
+  }, [])
   const pendingWarmRef = useRef<{ token: number; promise: Promise<ConfigRulesStateSnapshot> } | null>(null)
   const lastWarmInputsRef = useRef<{
     configs: BuilderConfig[] | null
@@ -593,19 +658,19 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       }
       if (analysis.identical && isBaseStable && !isFinalSellStable) {
         const nextFinalSellRules = buildFinalSellRules(finalSellRemainder)
-        setConfigRulesState((prev) => {
-          const customSegments: HsfRuleWithCfg[][] = []
-          for (let idx = 0; idx < prev.keys.length; idx += 1) {
-            customSegments.push(prev.rulesByConfig.get(idx) ?? [])
-          }
-          const mergedRules = prev.baseRules.concat(...customSegments, nextFinalSellRules)
-          return {
-            ...prev,
-            finalSellRules: nextFinalSellRules,
-            mergedRules,
-          }
-        })
-        setRulesBuilding(false)
+          setConfigRulesState((prev) => {
+            const customSegments: HsfRuleWithCfg[][] = []
+            for (let idx = 0; idx < prev.keys.length; idx += 1) {
+              customSegments.push(prev.rulesByConfig.get(idx) ?? [])
+            }
+            const mergedRules = prev.baseRules.concat(...customSegments, nextFinalSellRules)
+            return {
+              ...prev,
+              finalSellRules: nextFinalSellRules,
+              mergedRules,
+            }
+          })
+          finishRulesBuilding()
         lastWarmInputsRef.current = {
           configs: ruleConfigsForPreview,
           metasets: metasetsForPreview,
@@ -659,7 +724,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             excludedByTotalLimitIndices: newExcluded,
           }
         })
-        setRulesBuilding(false)
+        finishRulesBuilding()
         lastWarmInputsRef.current = {
           configs: ruleConfigsForPreview,
           metasets: metasetsForPreview,
@@ -712,7 +777,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             excludedByTotalLimitIndices: newExcluded,
           }
         })
-        setRulesBuilding(false)
+        finishRulesBuilding()
         lastWarmInputsRef.current = {
           configs: ruleConfigsForPreview,
           metasets: metasetsForPreview,
@@ -783,7 +848,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         }
       })
       keepUniqueScanAppliedRef.current = keepUniqueDetectionSignature
-      setRulesBuilding(false)
+      finishRulesBuilding()
       lastWarmInputsRef.current = {
         configs: ruleConfigsForPreview,
         metasets: metasetsForPreview,
@@ -859,7 +924,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             excludedByTotalLimitIndices: state.excludedByTotalLimitIndices,
           }
           if (requestToken === ruleCacheRequestTokenRef.current) {
-            setRulesBuilding(false)
+            finishRulesBuilding()
           }
           return snapshot
         }
@@ -879,7 +944,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           }
           startTransition(() => {
             setConfigRulesState(snapshot)
-            setRulesBuilding(false)
+            finishRulesBuilding()
           })
           keepUniqueScanAppliedRef.current = detectionSignatureForWarm
           return snapshot
@@ -909,7 +974,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         pendingWarmRef.current = null
       }
       if (requestToken === ruleCacheRequestTokenRef.current) {
-        setRulesBuilding(false)
+        finishRulesBuilding()
       }
     })
 
@@ -924,7 +989,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         pendingWarmRef.current = null
       }
       if (abortController.signal.aborted && requestToken === ruleCacheRequestTokenRef.current) {
-        setRulesBuilding(false)
+        finishRulesBuilding()
       }
     })
 
@@ -948,6 +1013,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     keepUniqueDetection,
     keepUniqueDetectionSignature,
     resolvedKeepUniqueRules,
+    finishRulesBuilding,
   ])
 
   const awaitRuleCounts = useCallback((): { token: number; promise: Promise<Map<number, number>> } | null => {
@@ -1899,6 +1965,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       setPreviewMode('tester')
       const desiredTesterItems = combined.map((artifact) => artifact.testerItem)
       const { removedCount, addedCount } = applyGearDbDiff(desiredTesterItems, source)
+      if (removedCount > 0 || addedCount > 0) {
+        beginTesterMatchReset('gearDb')
+      }
       const inboxCount = inboxArtifacts.length
       const totalCount = combined.length
       const diffSummary = t('toastGearDbDiffSummary', { added: addedCount, removed: removedCount })
@@ -1940,6 +2009,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setGearDbCommandError,
     setGearDbCommandSuccess,
     applyGearDbDiff,
+    beginTesterMatchReset,
   ])
 
   // Global file-drag overlay and file routing handled by hook
@@ -2285,6 +2355,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     testerPreviewMatchDepsRef.current = { rules: mergedRules, namesSignature }
     const buildId = testerRowsBuildIdRef.current + 1
     testerRowsBuildIdRef.current = buildId
+    setTesterRowsActiveBuildId(buildId)
     if (dirtyEntries.length === 0) {
       testerPreviewRowMapRef.current = nextRowMap
       setTesterPreviewRows(sortTesterRows(Array.from(nextRowMap.values())))
@@ -2475,6 +2546,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     }
     return sortTesterRows(rows)
   }, [testerConfigFilterMode, testerConfigFilterSelectedSet, testerRowsAfterRulesFilter])
+  const suppressTesterMatchDetails = testerMatchDetailsFrozen
+    || testerRowsBuilding
+    || testerMatchFreeze !== null
   const testerBuilding = testerRowsBuilding || rulesBuilding || testerMatchFreeze !== null
   const TESTER_FREEZE_IDLE_RELEASE_MS = 500
   /* eslint-disable react-you-might-not-need-an-effect/no-event-handler, react-you-might-not-need-an-effect/no-chain-state-updates */
@@ -2512,6 +2586,16 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       restoreFreezeRowsSeenRef.current = true
     }
   }, [testerMatchFreeze, testerRowsBuilding])
+  useEffect(() => {
+    if (!testerMatchFreeze || testerMatchFreeze.pendingRules) return
+    if (testerRowsActiveBuildId <= testerMatchFreeze.lockBuildId) return
+    restoreFreezeRowsSeenRef.current = false
+    setTesterMatchFreeze((prev) => {
+      if (!prev || prev.pendingRules) return prev
+      if (testerRowsActiveBuildId <= prev.lockBuildId) return prev
+      return { ...prev, lockBuildId: testerRowsActiveBuildId }
+    })
+  }, [testerMatchFreeze, testerRowsActiveBuildId])
   useEffect(() => {
     if (!testerMatchFreeze) return
     if (testerMatchFreeze.pendingRules) return
@@ -3199,6 +3283,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       : (cfgs.length > 0 ? 0 : null)
     const rawNote = typeof note === 'string' ? note : ''
     const importedNote = rawNote.trim().length > 0 ? rawNote : null
+    beginTesterMatchReset('hsfc')
 
     if (importedNote !== null) {
       applyNoteChange(importedNote, { mode: 'import', publish: false })
@@ -3253,6 +3338,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     substatTargets,
     syncSelectedCfgIdx,
     t,
+    beginTesterMatchReset,
   ])
 
   const importHsfcFile = useCallback(async (file: File) => {
@@ -3881,7 +3967,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                 filterActive={testerFilterActive || testerConfigFilterActive}
                 substatColors={substatColors}
                 useStatButtonColors={statButtonBorders}
-                testerBuilding={testerBuilding}
                 onToggleStatColors={setStatButtonBorders}
                 onOpenManageColors={openColors}
                 colorBlindMode={colorBlindMode}
@@ -3889,6 +3974,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                 colorIconSrc={colorIconSrc}
                 configNames={testerConfigNames}
                 onJumpToRule={handleTesterRuleView}
+                suppressMatchDetails={suppressTesterMatchDetails}
               />
             ) : (
               <HsfRulesTableMemo
@@ -4007,6 +4093,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         onRestore={(selection) => {
           flushTransientUi()
           const draft = restoreDraft
+          const shouldResetTesterMatches = Boolean(
+            (selection.configs && Array.isArray(draft?.Configs))
+            || (selection.tester && testerRestoreDraft)
+          )
+          if (shouldResetTesterMatches) beginTesterMatchReset('restore')
           const selectionKeys = Object.entries(selection).filter(([, value]) => value)
           if (selectionKeys.length > 0) {
             const autosaveDescriptor = describeAutosaveRestored({
@@ -4141,6 +4232,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         configNames={testerConfigNames}
         metasets={metasets}
         testerBuilding={testerBuilding}
+        suppressMatchDetails={suppressTesterMatchDetails}
         onResetKeepUniques={handleResetKeepUniques}
         onJumpToRule={handleTesterRuleView}
       />
