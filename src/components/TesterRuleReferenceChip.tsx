@@ -1,7 +1,8 @@
 import { Box, Chip, Tooltip } from '@mui/material'
 import type { ChipProps } from '@mui/material'
 import type { SxProps, Theme } from '@mui/material/styles'
-import { RULE_SOURCE_FINAL_SELL } from '../lib/merge'
+import type { SystemStyleObject } from '@mui/system'
+import { RULE_SOURCE_FINAL_SELL, RULE_SOURCE_KEEP_UNIQUES } from '../lib/merge'
 import { useI18n } from '../lib/i18n'
 import type { TesterPreviewMatch } from '../types/testerPreview'
 
@@ -12,6 +13,22 @@ type TesterRuleReferenceChipProps = {
   sx?: SxProps<Theme>
   showFinalSellLabel?: boolean
   icon?: ChipProps['icon']
+}
+
+const simpleMatchChipSx = (sx?: SxProps<Theme>): SxProps<Theme> => {
+  const base: SystemStyleObject<Theme> = {
+    width: 'auto',
+    maxWidth: '100%',
+    flexShrink: 0,
+    '& .MuiChip-label': {
+      display: 'inline-flex',
+      px: 0.75,
+      whiteSpace: 'nowrap',
+    },
+  }
+  if (!sx) return base
+  const asArray: SxProps<Theme>[] = Array.isArray(sx) ? sx : [sx]
+  return [...asArray, base] as SxProps<Theme>
 }
 
 export function TesterRuleReferenceChip({
@@ -26,26 +43,24 @@ export function TesterRuleReferenceChip({
   if (!match) return null
   if (match.ruleSource === RULE_SOURCE_FINAL_SELL) {
     if (!showFinalSellLabel) return null
-    const finalSellBaseSx: SxProps<Theme> = {
-      width: 'auto',
-      maxWidth: '100%',
-      flexShrink: 0,
-      '& .MuiChip-label': {
-        display: 'inline-flex',
-        px: 0.75,
-        whiteSpace: 'nowrap',
-      },
-    }
-    const mergedFinalSellSx: SxProps<Theme> = sx
-      ? (Array.isArray(sx) ? [...sx, finalSellBaseSx] : [sx, finalSellBaseSx])
-      : finalSellBaseSx
     return (
       <Chip
         size={size}
         label={t('testerFinalSellChip')}
         color="warning"
         title={t('testerFinalSellChip')}
-        sx={mergedFinalSellSx}
+        sx={simpleMatchChipSx(sx)}
+      />
+    )
+  }
+  if (match.ruleSource === RULE_SOURCE_KEEP_UNIQUES) {
+    return (
+      <Chip
+        size={size}
+        label={t('testerKeepUniqueChip')}
+        color="success"
+        title={t('testerKeepUniqueChip')}
+        sx={simpleMatchChipSx(sx)}
       />
     )
   }

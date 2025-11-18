@@ -88,6 +88,8 @@ const enUS: Catalog = {
   testerConfigChip: 'Config #{index}',
   testerRuleChip: 'Rule #{index}',
   testerFinalSellChip: 'Final Sell',
+
+  testerKeepUniqueChip: 'Keep Uniques',
   testerValueUnknown: '—',
   testerAddManualGear: 'Add custom gear',
   testerRerollLabel: 'Rerolled',

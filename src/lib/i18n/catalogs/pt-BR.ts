@@ -86,6 +86,8 @@ const catalog: Catalog = {
   testerConfigChip: 'Config #{index}',
   testerRuleChip: 'Regra #{index}',
   testerFinalSellChip: 'Venda final',
+
+  testerKeepUniqueChip: 'Manter únicos',
   testerValueUnknown: '—',
   testerAddManualGear: 'Adicionar equipamento manual',
   // Common UI bits used in Rule Tester

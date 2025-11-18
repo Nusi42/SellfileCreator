@@ -86,6 +86,8 @@ const overrides: Catalog = {
   testerConfigChip: 'Config #{index}',
   testerRuleChip: 'Règle #{index}',
   testerFinalSellChip: 'Vente finale',
+
+  testerKeepUniqueChip: 'Conserver les uniques',
   testerValueUnknown: '—',
   testerAddManualGear: 'Ajouter un équipement manuel',
   // Common UI bits used in Rule Tester
