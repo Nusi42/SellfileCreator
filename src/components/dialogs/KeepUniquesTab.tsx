@@ -417,7 +417,7 @@ export default function KeepUniquesTab({
                   <Typography
                     variant="caption"
                     color={ruleDetection.deficit > 0 ? 'error.main' : 'text.secondary'}
-                    sx={{ flex: 1, cursor: 'help' }}
+                    sx={{ flex: 1 }}
                   >
                     {t('keepUniquesRuleCounts', {
                       have: ruleDetection.currentCount,
