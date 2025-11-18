@@ -585,9 +585,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const [rulesBuilding, setRulesBuilding] = useState(false)
   const finishRulesBuilding = useCallback(() => {
     setRulesBuilding(false)
+    try {
+      console.log('[rules-building] finish')
+    } catch {}
   }, [])
   const pendingWarmRef = useRef<{ token: number; promise: Promise<ConfigRulesStateSnapshot> } | null>(null)
-  const lastWarmInputsRef = useRef<{
+  type WarmInputsSnapshot = {
     configs: BuilderConfig[] | null
     metasets: Metaset[] | null
     substatTargets: SubstatTargetTable | null
@@ -596,7 +599,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     keepUniquesActive: boolean
     keepUniqueRules: KeepUniqueRule[] | null
     keepUniqueDetection: KeepUniqueDetectionSnapshot | null
-  } | null>(null)
+  }
+  const lastWarmInputsRef = useRef<WarmInputsSnapshot | null>(null)
+  const pendingWarmInputsRef = useRef<WarmInputsSnapshot | null>(null)
   const immediateRuleConfigsRef = useRef(ruleConfigs)
   const immediateMetasetsRef = useRef(metasets)
   const immediateSubstatTargetsRef = useRef(substatTargets)
@@ -870,7 +875,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       // No-op: waiting for tester items to finish so detection can be applied.
     }
 
-    lastWarmInputsRef.current = {
+    const warmInputs: WarmInputsSnapshot = {
       configs: ruleConfigsForPreview,
       metasets: metasetsForPreview,
       substatTargets: substatTargetsForPreview,
@@ -880,11 +885,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       keepUniqueRules,
       keepUniqueDetection,
     }
+    pendingWarmInputsRef.current = warmInputs
     const abortController = new AbortController()
     const requestToken = ruleCacheRequestTokenRef.current + 1
     ruleCacheRequestTokenRef.current = requestToken
-    setRulesBuilding(true)
-
     const isAbortError = (error: unknown): boolean => {
       if (!error || typeof error !== 'object') return false
       const maybe = error as { name?: unknown }
@@ -897,6 +901,13 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
 
     const resolvedKeepUniqueRulesForWarm = resolveKeepUniqueRulesWithMetasets(keepUniqueRules, metasets)
     const keepUniquesActiveForWarm = keepUniquesEnabled && resolvedKeepUniqueRulesForWarm.length > 0
+    setRulesBuilding(true)
+    try {
+      console.log(
+        `[rules-building] start token=${requestToken} keepRules=${resolvedKeepUniqueRulesForWarm.length} enabled=${keepUniquesActiveForWarm} detection=${keepUniquesActiveForWarm ? Boolean(keepUniqueDetection) : false}`,
+      )
+    } catch {}
+
     const detectionSignatureForWarm = keepUniquesActiveForWarm ? keepUniqueDetectionSignature : null
     const warmPromise = warmCache(
       {
@@ -931,6 +942,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           if (requestToken === ruleCacheRequestTokenRef.current) {
             finishRulesBuilding()
           }
+          if (pendingWarmInputsRef.current === warmInputs) {
+            pendingWarmInputsRef.current = null
+          }
           return snapshot
         }
         if (requestToken === ruleCacheRequestTokenRef.current) {
@@ -951,8 +965,15 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             setConfigRulesState(snapshot)
             finishRulesBuilding()
           })
+          lastWarmInputsRef.current = warmInputs
+          if (pendingWarmInputsRef.current === warmInputs) {
+            pendingWarmInputsRef.current = null
+          }
           keepUniqueScanAppliedRef.current = detectionSignatureForWarm
           return snapshot
+        }
+        if (pendingWarmInputsRef.current === warmInputs) {
+          pendingWarmInputsRef.current = null
         }
         const { baseRules, finalSellRules } = splitMergedRules(state.mergedRules)
         return {
@@ -980,6 +1001,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       }
       if (requestToken === ruleCacheRequestTokenRef.current) {
         finishRulesBuilding()
+        if (pendingWarmInputsRef.current === warmInputs) {
+          pendingWarmInputsRef.current = null
+        }
       }
     })
 
@@ -996,10 +1020,16 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       if (abortController.signal.aborted && requestToken === ruleCacheRequestTokenRef.current) {
         finishRulesBuilding()
       }
+      if (pendingWarmInputsRef.current === warmInputs) {
+        pendingWarmInputsRef.current = null
+      }
     })
 
     return () => {
       abortController.abort()
+      if (pendingWarmInputsRef.current === warmInputs) {
+        pendingWarmInputsRef.current = null
+      }
     }
   }, [
     ruleConfigsForPreview,
@@ -2561,6 +2591,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     if (!rulesBuilding) return
     setTesterMatchFreeze((prev) => {
       if (prev) return prev
+      try {
+        console.log('[tester-freeze] start pendingRules due to rulesBuilding')
+      } catch {}
       return {
         lockBuildId: testerRowsBuildIdRef.current,
         pendingRules: true,
@@ -2577,14 +2610,15 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       restoreFreezeRulesSeenRef.current = true
       return
     }
-    if (restoreFreezeRulesSeenRef.current) {
-      setTesterMatchFreeze((prev) => {
-        if (!prev || !prev.pendingRules) return prev
-        return { ...prev, pendingRules: false, lockBuildId: testerRowsBuildIdRef.current }
-      })
-      restoreFreezeRulesSeenRef.current = false
+    if (testerRowsCommittedBuildId < testerRowsBuildIdRef.current) {
+      return
     }
-  }, [testerMatchFreeze, rulesBuilding])
+    setTesterMatchFreeze((prev) => {
+      if (!prev || !prev.pendingRules) return prev
+      return { ...prev, pendingRules: false, lockBuildId: testerRowsBuildIdRef.current }
+    })
+    restoreFreezeRulesSeenRef.current = false
+  }, [testerMatchFreeze, rulesBuilding, testerRowsCommittedBuildId])
   useEffect(() => {
     if (!testerMatchFreeze || testerMatchFreeze.pendingRules) return
     if (testerRowsBuilding) {
@@ -2619,10 +2653,16 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     if (!restoreFreezeRowsSeenRef.current) {
       const elapsed = Date.now() - testerMatchFreeze.createdAt
       if (elapsed < TESTER_FREEZE_IDLE_RELEASE_MS) return
+      try {
+        console.log('[tester-freeze] clearing after idle timeout')
+      } catch {}
       setTesterMatchFreeze(null)
       return
     }
     if (testerRowsCommittedBuildId < testerMatchFreeze.lockBuildId) return
+    try {
+      console.log('[tester-freeze] rows committed past lock, clearing freeze')
+    } catch {}
     setTesterMatchFreeze(null)
   }, [
     testerMatchFreeze,
@@ -3282,6 +3322,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       selectedIndex: number | null
       note?: string
       finalSellRemainder: FinalSellRemainderConfig
+      keepUniqueRules: KeepUniqueRule[]
+      keepUniquesEnabled: boolean
     },
   ) => {
     const {
@@ -3291,6 +3333,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       selectedIndex,
       note,
       finalSellRemainder: fsr,
+      keepUniqueRules,
+      keepUniquesEnabled,
     } = payload
 
     const loadDescriptor = describeHsfcLoaded({ fileName, t })
@@ -3300,6 +3344,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     const rawNote = typeof note === 'string' ? note : ''
     const importedNote = rawNote.trim().length > 0 ? rawNote : null
     beginTesterMatchReset('hsfc')
+    try {
+      console.log(`[hsfc-load] file=${fileName} keepRules=${keepUniqueRules.length} enabled=${keepUniquesEnabled}`)
+    } catch {}
 
     if (importedNote !== null) {
       applyNoteChange(importedNote, { mode: 'import', publish: false })
@@ -3320,6 +3367,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           applySubstatTargetsChange(nextSubstatTargets, { mode: 'import', publish: false })
         } catch {}
       }
+      setKeepUniqueRules(keepUniqueRules)
+      setKeepUniquesEnabled(keepUniquesEnabled)
       applyFinalSellChange(fsr, { mode: 'import', publish: false })
       syncSelectedCfgIdx(resolvedSel, { forceSync: true, suppressDraft: true })
       if (resolvedSel !== null && cfgs[resolvedSel]) {
@@ -3347,6 +3396,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     markSavedNow,
     metasets,
     openNoteViewer,
+    setKeepUniqueRules,
+    setKeepUniquesEnabled,
     setBuilder,
     setCustomCfgs,
     setLastExportSig,
