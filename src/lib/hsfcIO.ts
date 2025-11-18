@@ -784,7 +784,7 @@ export function buildHsfcPayload(args: {
     Minima: unknown
     Configs: unknown[]
     FinalSellRemainder: FinalSellRemainderConfig
-    KeepUniques: Array<{ id: string; requiredCount: number; enabled: boolean; tuple: KeepUniqueRule['tuple'] }>
+    KeepUniques: Array<{ id: string; requiredCount: number; enabled: boolean; tuple: KeepUniqueRule['combination'] }>
     KeepUniquesEnabled: boolean
     SelectedConfigIndex?: number
     Note?: string
@@ -835,16 +835,16 @@ export function buildHsfcPayload(args: {
       requiredCount: Math.max(1, Math.floor(rule.requiredCount)),
       enabled: rule.enabled !== false,
       tuple: {
-        slots: rule.tuple.slots.map((slot) => Number(slot) as ArtifactTypeId),
-        sets: rule.tuple.sets.map((set) => Number(set) as ArtifactSetId),
-        metaSetIds: [...(rule.tuple.metaSetIds ?? [])],
-        ranks: rule.tuple.ranks.map((rank) => Number(rank) as RankValue),
-        rarities: rule.tuple.rarities.map((rarity) => Number(rarity) as RankValue),
-        mainStats: (rule.tuple.mainStats ?? []).map((stat) => Number(stat)),
-        mainStat: rule.tuple.mainStats.length > 0
-          ? Number(rule.tuple.mainStats[0])
+        slots: rule.combination.slots.map((slot) => Number(slot) as ArtifactTypeId),
+        sets: rule.combination.sets.map((set) => Number(set) as ArtifactSetId),
+        metaSetIds: [...(rule.combination.metaSetIds ?? [])],
+        ranks: rule.combination.ranks.map((rank) => Number(rank) as RankValue),
+        rarities: rule.combination.rarities.map((rarity) => Number(rarity) as RankValue),
+        mainStats: (rule.combination.mainStats ?? []).map((stat) => Number(stat)),
+        mainStat: rule.combination.mainStats.length > 0
+          ? Number(rule.combination.mainStats[0])
           : Number(StatVariantEnum.Any),
-        factions: rule.tuple.factions.map((faction) => Number(faction) as FactionId),
+        factions: rule.combination.factions.map((faction) => Number(faction) as FactionId),
       },
     })),
     KeepUniquesEnabled: keepUniquesEnabled === true,

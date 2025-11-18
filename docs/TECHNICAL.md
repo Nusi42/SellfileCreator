@@ -6,7 +6,7 @@ The technical reference is now split across focused documents. Start here, then 
 - [Application Behavior](technical/app-behavior.md) — builder guardrails, preview filters, rule cache fast paths, clipboard/save flows, file import, and the rule tester.
 - [Tutorial and Onboarding](technical/tutorial.md) — help dialog, tutorial coach behavior, and guidance for extending scripted steps.
 - [Rules and Data](technical/rules-and-data.md) — HSFC/HSF schemas, builder roll semantics, autosave plumbing, and migration notes.
-- [Keep Uniques](technical/app-behavior.md#keep-uniques) — Final Sell tab layout, tuple detection, tester-grid linking, and reset behaviors.
+- [Keep Uniques](technical/app-behavior.md#keep-uniques) — Final Sell tab layout, gear-combination detection, tester-grid linking, and reset behaviors.
 - [Locked roll constraints](technical/app-behavior.md#builder-outputs-and-normalization) — how `lockedMinRequiredRolls` impacts aggregate targets so locked selections can demand their own roll floors alongside the global sum.
 - [Gear Database Import](technical/gear-db-import.md) — reverse-engineering the RSL Helper SQLite dump and mapping it into the Rule Tester.
 - [UI and Layout](technical/ui-and-layout.md) — localization, metasets, preview UX, shared hooks, effect guidelines, and responsive layout constraints.
@@ -41,13 +41,13 @@ Without the helper, the Playwright perf tests fall back to the built-in measurem
 
 ### Keep Uniques State
 
-- Builder state carries `keepUniqueRules` plus the global `keepUniquesEnabled` flag. Each tuple stores `(slot, set, rank, rarity, main stat, faction?)`, `requiredCount`, and a per-rule `enabled` toggle.
-- The Final Sell dialog stores `finalSellDialogTab` alongside the rest of the builder payload so autosave/restore reopen whichever tab (Final Sell vs. Keep Uniques) the user last used. Keep Uniques launches with an empty rule list—enabling the feature exposes the inline editors, and the Reset button simply clears every rule and disables the toggle so re-enabling starts from a clean slate instead of resurrecting stale tuples.
-- Autosave and HSFC payloads serialize the toggle plus tuples via `KeepUniques` and `KeepUniquesEnabled`. Autosave restore, clipboard import/export, and history snapshots treat them exactly like configs/metasets so undo/redo remains accurate.
-- Keep Unique scans only run while `keepUniquesEnabled` is true and the tester preview items are unfrozen; disabling the feature or rebuilding tester items clears `keepUniqueDetection` so the UI never shows stale tuple stats.
-- `computeKeepUniqueProtection` reads the normalized tester preview items and emits tuple stats (`currentCount`, `keptCount`, `projectedCount`, `coveredByExisting`, `deficit`, tester item ids) that the UI and keep-rule generator consume.
+- Builder state carries `keepUniqueRules` plus the global `keepUniquesEnabled` flag. Each gear combination stores `(slot, set, rank, rarity, main stat, faction?)`, `requiredCount`, and a per-rule `enabled` toggle.
+- The Final Sell dialog stores `finalSellDialogTab` alongside the rest of the builder payload so autosave/restore reopen whichever tab (Final Sell vs. Keep Uniques) the user last used. Keep Uniques launches with an empty rule list—enabling the feature exposes the inline editors, and the Reset button simply clears every rule and disables the toggle so re-enabling starts from a clean slate instead of resurrecting stale combinations.
+- Autosave and HSFC payloads serialize the toggle plus combinations via `KeepUniques` and `KeepUniquesEnabled`. Autosave restore, clipboard import/export, and history snapshots treat them exactly like configs/metasets so undo/redo remains accurate.
+- Keep Unique scans only run while `keepUniquesEnabled` is true and the tester preview items are unfrozen; disabling the feature or rebuilding tester items clears `keepUniqueDetection` so the UI never shows stale combination stats.
+- `computeKeepUniqueProtection` reads the normalized tester preview items and emits combination stats (`currentCount`, `keptCount`, `projectedCount`, `coveredByExisting`, `deficit`, tester item ids) that the UI and keep-rule generator consume.
 - `TesterItemsGrid` exposes a `variant="keepUniques"` path so the dialog can reuse the shared renderer with forced two-column cards and rule-linked highlighting.
-- `computeMergedRules` appends Keep Unique rules after the Final Sell batch, tagging each rule with `RULE_SOURCE_KEEP_UNIQUES`, `KEEP_UNIQUES_CFG_SENTINEL`, and metadata (`__keepUniqueRuleId`, tuple hash, required count, scan timestamp). Canonical keep-rule keys ensure we skip duplicates when HSFC/Final Sell already guarantee the same tuple.
+- `computeMergedRules` appends Keep Unique rules after the Final Sell batch, tagging each rule with `RULE_SOURCE_KEEP_UNIQUES`, `KEEP_UNIQUES_CFG_SENTINEL`, and metadata (`__keepUniqueRuleId`, combination hash, required count, scan timestamp). Canonical keep-rule keys ensure we skip duplicates when HSFC/Final Sell already guarantee the same combination.
 
 ### Faction Coverage
 

@@ -1,7 +1,7 @@
 /* eslint import/no-unused-modules: off */
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { collectKeepUniqueCandidates, computeKeepUniqueProtection, hashKeepUniqueTuple, normalizeKeepUniqueRule, resolveKeepUniqueRulesWithMetasets } from '../src/lib/keepUniques.js'
+import { collectKeepUniqueCandidates, computeKeepUniqueProtection, hashKeepUniqueCombination, normalizeKeepUniqueRule, resolveKeepUniqueRulesWithMetasets } from '../src/lib/keepUniques.js'
 import { ArtifactSet, ArtifactType, StatVariant, type RankValue } from '../src/lib/types.js'
 import type { TesterPreviewRow } from '../src/types/testerPreview.js'
 import type { NormalizedGearArtifact, NormalizedStat } from '../src/lib/importers/gearDbNormalizer.js'
@@ -60,9 +60,9 @@ const makeTesterRow = (overrides: Partial<NormalizedGearArtifact> = {}, keep = f
 })
 
 const makeRule = (overrides: Partial<KeepUniqueRule> = {}): KeepUniqueRule => {
-  const tuple = normalizeKeepUniqueRule({
+  const rule = normalizeKeepUniqueRule({
     id: overrides.id ?? `rule-${Math.random().toString(16).slice(2)}`,
-    tuple: overrides.tuple ?? {
+    combination: overrides.combination ?? {
       slots: [ArtifactType.Weapon],
       sets: [ArtifactSet.Speed],
       metaSetIds: [],
@@ -74,11 +74,11 @@ const makeRule = (overrides: Partial<KeepUniqueRule> = {}): KeepUniqueRule => {
     requiredCount: overrides.requiredCount ?? 1,
     enabled: overrides.enabled ?? true,
   })
-  if (!tuple) throw new Error('expected tuple')
-  return tuple
+  if (!rule) throw new Error('expected combination')
+  return rule
 }
 
-test('hashKeepUniqueTuple differentiates accessory factions', () => {
+test('hashKeepUniqueCombination differentiates accessory factions', () => {
   const base = {
     slots: [ArtifactType.Ring],
     sets: [ArtifactSet.Refresh],
@@ -88,16 +88,16 @@ test('hashKeepUniqueTuple differentiates accessory factions', () => {
     mainStats: [StatVariant.HP],
     factions: [1],
   }
-  const hashA = hashKeepUniqueTuple(base)
-  const hashB = hashKeepUniqueTuple({ ...base, factions: [2] })
+  const hashA = hashKeepUniqueCombination(base)
+  const hashB = hashKeepUniqueCombination({ ...base, factions: [2] })
   assert.notStrictEqual(hashA, hashB, 'different factions should yield different hashes')
 })
 
-test('computeKeepUniqueProtection aggregates tuple counts', () => {
+test('computeKeepUniqueProtection aggregates combination counts', () => {
   const rules = [
     makeRule({
       id: 'speed',
-      tuple: {
+      combination: {
         slots: [ArtifactType.Weapon],
         sets: [ArtifactSet.Speed],
         metaSetIds: [],
@@ -126,7 +126,7 @@ test('projected count mirrors existing keep state when disabled', () => {
   const rules = [makeRule({
     id: 'ring',
     requiredCount: 2,
-    tuple: {
+    combination: {
       slots: [ArtifactType.Ring],
       sets: [ArtifactSet.Refresh],
       metaSetIds: [],
@@ -160,7 +160,7 @@ test('coveredByExisting flips when existing keep rules meet requirement', () => 
 test('resolveKeepUniqueRulesWithMetasets expands set lists', () => {
   const rules = [
     makeRule({
-      tuple: {
+      combination: {
         slots: [ArtifactType.Weapon],
         sets: [],
         metaSetIds: ['meta_speed'],
@@ -178,6 +178,6 @@ test('resolveKeepUniqueRulesWithMetasets expands set lists', () => {
     show: true,
   }]
   const resolved = resolveKeepUniqueRulesWithMetasets(rules, metasets)
-  const tupleSets = resolved[0]?.tuple.sets ?? []
-  assert.deepStrictEqual(tupleSets.sort((a, b) => a - b), [ArtifactSet.DivineSpeed, ArtifactSet.Speed])
+  const combinationSets = resolved[0]?.combination.sets ?? []
+  assert.deepStrictEqual(combinationSets.sort((a, b) => a - b), [ArtifactSet.DivineSpeed, ArtifactSet.Speed])
 })

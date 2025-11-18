@@ -146,7 +146,7 @@ This document outlines contributors' responsibilities for UI behavior, layout, a
 
 - Layout: the dialog switches to a `Tabs` layout but keeps the existing shell size. On medium+ breakpoints the Keep Uniques tab renders a `360px` fixed-width left column (stacked on small screens) plus a flexible tester grid column.
 - Header block: the left column starts with explanatory copy, the enable toggle, and a contextual alert (`disabled`, `no tester data`, `scan pending`). Alerts stay above the scroll area so status never scrolls away, while deficit counts now surface via the inline detection chip instead of a success banner.
-- Rule list: cards map 1:1 with tuples and rely on shared select components (`GearSlotSelect`, `GearRankSelect`, `GearRaritySelect`, `GearMainStatSelect`, `GearFactionSelect`) plus the filtered set picker. Slots/Ranks/Rarities/Main stats run in multi-select mode now: empty slot or main-stat selections read as Any, while Rank/Rarity menus expose an explicit Any option that clears other picks so tuple filters mirror the builder affordances. Cards keep a single detection chip that shows `deficit`, `covered`, or `satisfied`, and Delete/Enable toggles remain inline.
+- Rule list: cards map 1:1 with gear combinations and rely on shared select components (`GearSlotSelect`, `GearRankSelect`, `GearRaritySelect`, `GearMainStatSelect`, `GearFactionSelect`) plus the filtered set picker. Slots/Ranks/Rarities/Main stats run in multi-select mode now: empty slot or main-stat selections read as Any, while Rank/Rarity menus expose an explicit Any option that clears other picks so combination filters mirror the builder affordances. Cards keep a single detection chip that shows `deficit`, `covered`, or `satisfied`, and Delete/Enable toggles remain inline.
 - Empty state: when no rules exist the column shows descriptive text plus a contained “Add rule” button. The same button lives in the footer alongside “Restore defaults” (which clears + disables Keep Uniques only).
 - Tester grid: the right column renders `TesterItemsGrid` with `variant="keepUniques"`. The variant forces two columns, disables the column-toggle action, and passes `highlightedRowPredicate`/`dimUnhighlightedRows` so non-matching cards fade instead of being removed. Source glyphs, color-blind toggles, and Manage Colors wiring mirror the Rule Tester.
 - Selection: clicking a rule highlights it, scrolls it into view, and pushes its detection items into the tester grid highlight set. Chips above the grid show how many tester items are currently highlighted.
@@ -189,12 +189,12 @@ This document outlines contributors' responsibilities for UI behavior, layout, a
 - HSFC write paths (Save, Copy All, Copy single config) emit compact metaset references `artifactMetaSetIds`. Read paths still accept `artifactMetaSetNames` and map them to IDs by name.
 - Copy single config writes `{ Version, Metasets: [subset], Configs: [config] }`.
 - Paste-only flows create hidden placeholder metasets with generated names when encountering unknown IDs so chips never show raw IDs.
-- HSF read/write behavior is unchanged; IO boundaries continue to enforce tuple conversions.
+- HSF read/write behavior is unchanged; IO boundaries continue to enforce the legacy stat conversions.
 
 ### Display Helpers
 
 - Use `labelOfVariant(variant)` for stat labels.
-- Avoid redundant `variantToSub(...)` followed by `statNameFromId(...)` in UI code; reserve tuple conversions for IO helpers.
+- Avoid redundant `variantToSub(...)` followed by `statNameFromId(...)` in UI code; reserve those conversions for IO helpers.
 - Slot icons: render via `src/components/artifactTypeIcons.tsx` to keep visuals consistent across surfaces. Base slot glyphs live under `ico/slots/*.svg`, set icons under `ico/sets/*.webp`, and the per-set slot art is staged under `ico/sets/slots/` (with raw PNGs in `docs/orig/ico-sets/ico-slots/`) using `<setId>_<Slot>` for numbered artifact sets and `SetName_Slot` for accessories/faction pieces, so future previews can look up the correct art without another translation layer.
 - Set tooltips: `src/lib/setDescriptions.ts` + `WithSetTooltip`/`getSetTooltipContent` render localized descriptions with color-coded `{buff:}`/`{debuff:}` tags.
   - Variable-sized sets (`byPieces`) render numbered lines `1: …` through `9: …`.

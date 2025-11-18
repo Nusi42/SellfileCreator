@@ -43,11 +43,11 @@ const buildManualSubstats = (
       const variant = Number(variantKey)
       const value = Number(rawValue)
       if (!Number.isFinite(variant) || !Number.isFinite(value)) return null
-      const tuple = variantToSub(variant)
+      const subTuple = variantToSub(variant)
       const stat: NormalizedStat = {
         source: 'substat',
-        statId: tuple.id,
-        isFlat: Boolean(tuple.isFlat),
+        statId: subTuple.id,
+        isFlat: Boolean(subTuple.isFlat),
         variant: variant as StatVariant,
         baseValue: value,
         glyphValue: 0,

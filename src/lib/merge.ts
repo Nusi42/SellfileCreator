@@ -33,7 +33,7 @@ import {
 import {
   KEEP_UNIQUES_CFG_SENTINEL,
   type KeepUniquesMergeInput,
-  hashKeepUniqueTuple,
+  hashKeepUniqueCombination,
   type KeepUniqueRule,
   type KeepUniqueDetectionSnapshot,
   type KeepUniqueDetectionEntry,
@@ -465,7 +465,7 @@ export const buildKeepUniqueRules = (
           __cfgIdx: KEEP_UNIQUES_CFG_SENTINEL,
           __source: RULE_SOURCE_KEEP_UNIQUES,
           __keepUniqueRuleId: rule.id,
-          __keepUniqueHash: hashKeepUniqueTuple(rule.tuple),
+          __keepUniqueHash: hashKeepUniqueCombination(rule.combination),
           __keepUniqueRequired: entry.requiredCount,
           __keepUniqueProjected: entry.projectedCount,
           __keepUniqueDeficit: entry.deficit,

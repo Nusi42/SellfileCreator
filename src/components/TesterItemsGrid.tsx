@@ -409,7 +409,7 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     }, RULES_TABLE_SCROLL_HINT_HIDE_MS)
     scheduleMeasureFirstVisibleRow()
   }, [scheduleMeasureFirstVisibleRow])
-  // Keep Uniques enforces two columns so tuple-specific cards stay legible.
+  // Keep Uniques enforces two columns so gear-combination cards stay legible.
   const preferredColumnCount = keepUniquesVariant ? 2 : storedColumnPreference
   const {
     accordionSpacingPx,
@@ -1105,7 +1105,7 @@ const TesterGridCard = React.memo(function TesterGridCard({
   highlightedRowPredicate?: ((row: TesterPreviewRow) => boolean) | null
   dimUnhighlightedRows?: boolean
 }) {
-  // Highlight state lets Keep Uniques call attention to the at-risk tuples without mutating the dataset.
+  // Highlight state lets Keep Uniques call attention to the at-risk combinations without mutating the dataset.
   const highlightFn = typeof highlightedRowPredicate === 'function' ? highlightedRowPredicate : null
   const cardHighlighted = highlightFn ? Boolean(highlightFn(row)) : false
   const cardDimmed = Boolean(highlightFn && dimUnhighlightedRows && !cardHighlighted)
@@ -1531,7 +1531,7 @@ const TesterGridCard = React.memo(function TesterGridCard({
   const cardHeightStyle = `${cardHeightPx}px`
   const matchRowHeight = `${CARD_MATCH_ROW_HEIGHT_PX}px`
 
-  // Cards tint when highlighted so Keep Uniques can spotlight the matching tuples.
+  // Cards tint when highlighted so Keep Uniques can spotlight the matching combinations.
   return (
     <Box
       data-tester-grid-card="true"

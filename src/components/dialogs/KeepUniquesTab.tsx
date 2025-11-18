@@ -133,8 +133,8 @@ export default function KeepUniquesTab({
   const gridFiltered = uniqueFilterActive || highlightFilterActive
 
   const handleAddRule = useCallback(() => {
-    const tuple = makeDefaultKeepUniqueTuple()
-    const newRule: KeepUniqueRule = { id: createKeepUniqueRuleId(), tuple, requiredCount: 1, enabled: true }
+    const combination = makeDefaultKeepUniqueCombination()
+    const newRule: KeepUniqueRule = { id: createKeepUniqueRuleId(), combination, requiredCount: 1, enabled: true }
     onRulesChange((prev) => [...prev, newRule])
     setSelectedRuleId(newRule.id)
   }, [onRulesChange])
@@ -172,7 +172,7 @@ export default function KeepUniquesTab({
       const duplicated: KeepUniqueRule = {
         ...source,
         id: cloneId,
-        tuple: cloneKeepUniqueTuple(source.tuple),
+        combination: cloneKeepUniqueCombination(source.combination),
       }
       const next = prev.slice()
       next.splice(idx + 1, 0, duplicated)
@@ -185,11 +185,11 @@ export default function KeepUniquesTab({
     onRulesChange((prev) => prev.map((rule) => (rule.id === ruleId ? updater(rule) : rule)))
   }, [onRulesChange])
 
-  const setRuleTuple = useCallback((
+  const setRuleCombination = useCallback((
     ruleId: string,
-    updater: (tuple: KeepUniqueRule['tuple']) => KeepUniqueRule['tuple'],
+    updater: (combination: KeepUniqueRule['combination']) => KeepUniqueRule['combination'],
   ) => {
-    updateRule(ruleId, (rule) => ({ ...rule, tuple: updater(rule.tuple) }))
+    updateRule(ruleId, (rule) => ({ ...rule, combination: updater(rule.combination) }))
   }, [updateRule])
 
   const deficitCount = detectionEntries.filter((entry) => entry.deficit > 0).length
@@ -225,21 +225,21 @@ export default function KeepUniquesTab({
   })()
 
   const renderRuleCard = (rule: KeepUniqueRule) => {
-    const tuple = rule.tuple
+    const combination = rule.combination
     const ruleDetection = detectionByRuleId.get(rule.id) ?? null
-    const slotSelection = tuple.slots
+    const slotSelection = combination.slots
     const slotAny = slotSelection.length === 0
     const hasAccessorySlot = slotAny || slotSelection.some((slotId) => isAccessorySlot(slotId))
     const hasArmorSlot = slotAny || slotSelection.some((slotId) => !isAccessorySlot(slotId))
     const allowedSetPool = hasAccessorySlot && hasArmorSlot
       ? ALL_ARTIFACT_SET_IDS
       : (hasAccessorySlot ? ACCESSORY_SET_IDS : ARTIFACT_SET_POOL)
-    const setSelection = tuple.sets.filter((setId) => allowedSetPool.includes(setId))
-    const rankSelection = tuple.ranks
-    const raritySelection = tuple.rarities
+    const setSelection = combination.sets.filter((setId) => allowedSetPool.includes(setId))
+    const rankSelection = combination.ranks
+    const raritySelection = combination.rarities
     const mainStatOptions = getMainStatOptionsForSlots(slotSelection)
-    const mainStatSelection = dedupeNumericArray((tuple.mainStats ?? []).filter((variant) => mainStatOptions.includes(variant)))
-    const factionSelection = hasAccessorySlot ? dedupeNumericArray(tuple.factions ?? []) : []
+    const mainStatSelection = dedupeNumericArray((combination.mainStats ?? []).filter((variant) => mainStatOptions.includes(variant)))
+    const factionSelection = hasAccessorySlot ? dedupeNumericArray(combination.factions ?? []) : []
     const selected = effectiveSelectedRuleId === rule.id
     const deleteButton = (
       <IconButton
@@ -288,7 +288,7 @@ export default function KeepUniquesTab({
                 multiple
                 value={slotSelection}
                 onChange={(nextSlots) => {
-                  setRuleTuple(rule.id, (prev) => sanitizeTupleForSlots(nextSlots, prev, metasets))
+                  setRuleCombination(rule.id, (prev) => sanitizeCombinationForSlots(nextSlots, prev, metasets))
                 }}
                 size="small"
                 sx={{ minWidth: 0 }}
@@ -296,12 +296,12 @@ export default function KeepUniquesTab({
               <GearSetsSelect
                 value={setSelection}
                 onChange={(nextSets) => {
-                  setRuleTuple(rule.id, (prev) => ({ ...prev, sets: dedupeNumericArray(nextSets) }))
+                  setRuleCombination(rule.id, (prev) => ({ ...prev, sets: dedupeNumericArray(nextSets) }))
                 }}
                 metasets={metasets}
-                selectedMetasetIds={tuple.metaSetIds}
+                selectedMetasetIds={combination.metaSetIds}
                 onChangeMetasetIds={(nextMetaIds) => {
-                  setRuleTuple(rule.id, (prev) => ({ ...prev, metaSetIds: dedupeStringArray(nextMetaIds) }))
+                  setRuleCombination(rule.id, (prev) => ({ ...prev, metaSetIds: dedupeStringArray(nextMetaIds) }))
                 }}
                 allowedSetIds={allowedSetPool}
                 showMetasets
@@ -313,7 +313,7 @@ export default function KeepUniquesTab({
                 allowAny
                 value={rankSelection}
                 onChange={(nextRanks) => {
-                  setRuleTuple(rule.id, (prev) => ({ ...prev, ranks: nextRanks }))
+                  setRuleCombination(rule.id, (prev) => ({ ...prev, ranks: nextRanks }))
                 }}
                 size="small"
               />
@@ -322,7 +322,7 @@ export default function KeepUniquesTab({
                 allowAny
                 value={raritySelection}
                 onChange={(nextRarities) => {
-                  setRuleTuple(rule.id, (prev) => ({ ...prev, rarities: nextRarities }))
+                  setRuleCombination(rule.id, (prev) => ({ ...prev, rarities: nextRarities }))
                 }}
                 size="small"
               />
@@ -334,7 +334,7 @@ export default function KeepUniquesTab({
                 options={mainStatOptions}
                 anyValue={StatVariantEnum.Any as StatVariant}
                 onChange={(nextMain) => {
-                  setRuleTuple(rule.id, (prev) => ({ ...prev, mainStats: dedupeNumericArray(nextMain) }))
+                  setRuleCombination(rule.id, (prev) => ({ ...prev, mainStats: dedupeNumericArray(nextMain) }))
                 }}
                 colorOverrides={substatColors}
                 showBorderColors={useStatButtonColors}
@@ -345,7 +345,7 @@ export default function KeepUniquesTab({
                   multiple
                   value={factionSelection}
                   onChange={(nextFactions) => {
-                    setRuleTuple(rule.id, (prev) => ({ ...prev, factions: dedupeNumericArray(nextFactions) }))
+                    setRuleCombination(rule.id, (prev) => ({ ...prev, factions: dedupeNumericArray(nextFactions) }))
                   }}
                   size="small"
                 />
@@ -522,7 +522,7 @@ export default function KeepUniquesTab({
   )
 }
 
-function makeDefaultKeepUniqueTuple(): KeepUniqueRule['tuple'] {
+function makeDefaultKeepUniqueCombination(): KeepUniqueRule['combination'] {
   return {
     slots: [],
     sets: [],
@@ -534,26 +534,26 @@ function makeDefaultKeepUniqueTuple(): KeepUniqueRule['tuple'] {
   }
 }
 
-function sanitizeTupleForSlots(slots: ArtifactTypeId[], tuple: KeepUniqueRule['tuple'], metasets: Metaset[]): KeepUniqueRule['tuple'] {
+function sanitizeCombinationForSlots(slots: ArtifactTypeId[], combination: KeepUniqueRule['combination'], metasets: Metaset[]): KeepUniqueRule['combination'] {
   const normalizedSlots = dedupeNumericArray(slots)
   const allowedSetPool = resolveAllowedSetPool(normalizedSlots)
   const allowedSetIds = new Set(allowedSetPool.map(Number))
-  const filteredSets = tuple.sets.filter((setId) => allowedSetIds.has(Number(setId)))
-  const filteredMetaIds = (tuple.metaSetIds ?? []).filter((metaId) => {
+  const filteredSets = combination.sets.filter((setId) => allowedSetIds.has(Number(setId)))
+  const filteredMetaIds = (combination.metaSetIds ?? []).filter((metaId) => {
     const meta = metasets.find((item) => item.id === metaId)
     if (!meta || !meta.sets.length) return false
     return meta.sets.every((setId) => allowedSetIds.has(Number(setId)))
   })
   const mainOptions = getMainStatOptionsForSlots(normalizedSlots)
   const hasAccessory = normalizedSlots.length === 0 || normalizedSlots.some((slotId) => isAccessorySlot(slotId))
-  const filteredMainStats = dedupeNumericArray((tuple.mainStats ?? []).filter((variant) => mainOptions.includes(variant)))
-  const filteredFactions = hasAccessory ? dedupeNumericArray(tuple.factions ?? []) : []
-  const hadExplicitSetSelection = tuple.sets.length > 0 || (tuple.metaSetIds?.length ?? 0) > 0
+  const filteredMainStats = dedupeNumericArray((combination.mainStats ?? []).filter((variant) => mainOptions.includes(variant)))
+  const filteredFactions = hasAccessory ? dedupeNumericArray(combination.factions ?? []) : []
+  const hadExplicitSetSelection = combination.sets.length > 0 || (combination.metaSetIds?.length ?? 0) > 0
   const resolvedSets = filteredSets.length > 0
     ? filteredSets
     : (hadExplicitSetSelection && allowedSetPool[0] ? [allowedSetPool[0]] : [])
   return {
-    ...tuple,
+    ...combination,
     slots: normalizedSlots,
     sets: resolvedSets,
     metaSetIds: filteredMetaIds,
@@ -562,15 +562,15 @@ function sanitizeTupleForSlots(slots: ArtifactTypeId[], tuple: KeepUniqueRule['t
   }
 }
 
-function cloneKeepUniqueTuple(tuple: KeepUniqueRule['tuple']): KeepUniqueRule['tuple'] {
+function cloneKeepUniqueCombination(combination: KeepUniqueRule['combination']): KeepUniqueRule['combination'] {
   return {
-    slots: [...tuple.slots],
-    sets: [...tuple.sets],
-    metaSetIds: [...(tuple.metaSetIds ?? [])],
-    ranks: [...tuple.ranks],
-    rarities: [...tuple.rarities],
-    mainStats: [...(tuple.mainStats ?? [])],
-    factions: [...(tuple.factions ?? [])],
+    slots: [...combination.slots],
+    sets: [...combination.sets],
+    metaSetIds: [...(combination.metaSetIds ?? [])],
+    ranks: [...combination.ranks],
+    rarities: [...combination.rarities],
+    mainStats: [...(combination.mainStats ?? [])],
+    factions: [...(combination.factions ?? [])],
   }
 }
 

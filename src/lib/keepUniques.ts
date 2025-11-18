@@ -21,7 +21,7 @@ const RANK_MAX = 6
 /** Sentinel `__cfgIdx` value used to tag Keep Uniques derived rules. */
 export const KEEP_UNIQUES_CFG_SENTINEL = -9000
 
-export type KeepUniqueTuple = {
+export type KeepUniqueCombination = {
   slots: ArtifactTypeId[]
   sets: ArtifactSetId[]
   metaSetIds: string[]
@@ -33,7 +33,7 @@ export type KeepUniqueTuple = {
 
 export type KeepUniqueRule = {
   id: string
-  tuple: KeepUniqueTuple
+  combination: KeepUniqueCombination
   requiredCount: number
   enabled: boolean
 }
@@ -59,7 +59,7 @@ export type KeepUniqueDetectionSubstat = {
 
 export type KeepUniqueDetectionEntry = {
   hash: string
-  tuple: KeepUniqueTuple
+  combination: KeepUniqueCombination
   ruleId: string | null
   ruleEnabled: boolean
   requiredCount: number
@@ -101,13 +101,13 @@ export type KeepUniqueDetectionParams = {
   now?: number
 }
 
-/** Generate a short, unique id for tuple rules. */
+/** Generate a short, unique id for combination rules. */
 export function createKeepUniqueRuleId(): string {
   const rand = Math.random().toString(36).slice(2, 10)
   return `ku_${Date.now().toString(36)}_${rand}`
 }
 
-/** Canonical hash for tuple comparisons and metadata lookups. */
+/** Canonical hash for combination comparisons and metadata lookups. */
 const canonicalizeList = (values: readonly number[]): string => {
   if (!values.length) return '*'
   const numeric = values.map((v) => Number(v)).filter((v) => Number.isFinite(v))
@@ -126,15 +126,15 @@ const canonicalizeStringList = (values: readonly string[]): string => {
   return cleaned.join(',')
 }
 
-export function hashKeepUniqueTuple(tuple: KeepUniqueTuple): string {
+export function hashKeepUniqueCombination(combination: KeepUniqueCombination): string {
   return [
-    canonicalizeList(tuple.slots),
-    canonicalizeList(tuple.sets),
-    canonicalizeStringList(tuple.metaSetIds),
-    canonicalizeList(tuple.ranks),
-    canonicalizeList(tuple.rarities),
-    canonicalizeList(tuple.mainStats),
-    canonicalizeList(tuple.factions),
+    canonicalizeList(combination.slots),
+    canonicalizeList(combination.sets),
+    canonicalizeStringList(combination.metaSetIds),
+    canonicalizeList(combination.ranks),
+    canonicalizeList(combination.rarities),
+    canonicalizeList(combination.mainStats),
+    canonicalizeList(combination.factions),
   ].join('|')
 }
 
@@ -224,8 +224,8 @@ const normalizeStringSelectionArray = (value: unknown): string[] => {
   return result
 }
 
-/** Normalize tuple payloads loaded from HSFC/autosave. */
-export function normalizeKeepUniqueTuple(value: unknown): KeepUniqueTuple | null {
+/** Normalize combination payloads loaded from HSFC/autosave. */
+export function normalizeKeepUniqueCombination(value: unknown): KeepUniqueCombination | null {
   if (!value || typeof value !== 'object') return null
   const rec = value as Record<string, unknown>
   const slotValues = normalizeSelectionArray(rec.slots, coerceArtifactTypeId)
@@ -262,19 +262,19 @@ export function normalizeKeepUniqueTuple(value: unknown): KeepUniqueTuple | null
   }
 }
 
-/** Normalize rule payloads; returns null when tuple data is invalid. */
+/** Normalize rule payloads; returns null when combination data is invalid. */
 export function normalizeKeepUniqueRule(value: unknown): KeepUniqueRule | null {
   if (!value || typeof value !== 'object') return null
   const rec = value as Record<string, unknown>
-  const tuple = normalizeKeepUniqueTuple(rec.tuple ?? rec)
-  if (!tuple) return null
+  const combination = normalizeKeepUniqueCombination(rec.combination ?? rec.tuple ?? rec)
+  if (!combination) return null
   const rawId = typeof rec.id === 'string' && rec.id.trim().length > 0 ? rec.id.trim() : createKeepUniqueRuleId()
   const rawRequired = Number(rec.requiredCount)
   const requiredCount = Number.isFinite(rawRequired) && rawRequired >= 1 ? Math.floor(rawRequired) : 1
   const enabled = rec.enabled !== false
   return {
     id: rawId,
-    tuple,
+    combination,
     requiredCount,
     enabled,
   }
@@ -304,28 +304,28 @@ const matchesSelection = (selection: readonly number[], candidate: number): bool
   return selection.some((value) => Number(value) === Number(candidate))
 }
 
-/** Determine whether an artifact satisfies a Keep Unique tuple filter. */
-export function artifactMatchesKeepUniqueRule(artifact: NormalizedGearArtifact, tuple: KeepUniqueTuple): boolean {
+/** Determine whether an artifact satisfies a Keep Unique combination filter. */
+export function artifactMatchesKeepUniqueRule(artifact: NormalizedGearArtifact, combination: KeepUniqueCombination): boolean {
   const slot = Number(artifact.slot)
-  if (!matchesSelection(tuple.slots, slot)) return false
+  if (!matchesSelection(combination.slots, slot)) return false
 
   const setId = Number(artifact.set)
-  if (!matchesSelection(tuple.sets, setId)) return false
+  if (!matchesSelection(combination.sets, setId)) return false
 
   const rankValue = Number(artifact.rank)
-  if (!matchesSelection(tuple.ranks, rankValue)) return false
+  if (!matchesSelection(combination.ranks, rankValue)) return false
 
   const rarityValue = Number(artifact.rarity)
-  if (!matchesSelection(tuple.rarities, rarityValue)) return false
+  if (!matchesSelection(combination.rarities, rarityValue)) return false
 
-  if (tuple.mainStats.length > 0) {
+  if (combination.mainStats.length > 0) {
     const artifactMain = artifact.mainStat?.variant
     if (artifactMain == null) return false
-    if (!tuple.mainStats.some((variant) => variant === artifactMain)) return false
+    if (!combination.mainStats.some((variant) => variant === artifactMain)) return false
   }
 
   const faction = isAccessorySlot(slot) ? Number(artifact.faction ?? 0) : 0
-  if (!matchesSelection(tuple.factions, faction)) return false
+  if (!matchesSelection(combination.factions, faction)) return false
 
   return true
 }
@@ -404,15 +404,15 @@ export function collectKeepUniqueCandidates(params: {
   return { candidates, uniqueItemKeys }
 }
 
-/** Compute Keep Unique tuple coverage against the candidate sold rows. */
+/** Compute Keep Unique combination coverage against the candidate sold rows. */
 export function computeKeepUniqueProtection(params: KeepUniqueDetectionParams): KeepUniqueDetectionSnapshot {
   const { candidates, rules, enabled, now } = params
   const entries: KeepUniqueDetectionEntry[] = []
   const timestamp = Number.isFinite(now) ? Number(now) : Date.now()
 
   for (const rule of rules) {
-    const tuple = rule.tuple
-    const matching = candidates.filter((candidate) => artifactMatchesKeepUniqueRule(candidate.artifact, tuple))
+    const combination = rule.combination
+    const matching = candidates.filter((candidate) => artifactMatchesKeepUniqueRule(candidate.artifact, combination))
     const required = Math.max(1, Math.floor(rule.requiredCount))
     const currentCount = matching.length
     const projected = enabled && rule.enabled ? currentCount : 0
@@ -420,8 +420,8 @@ export function computeKeepUniqueProtection(params: KeepUniqueDetectionParams): 
     const itemKeys = matching.map((match) => match.itemKey)
     const artifacts = matching.map((match) => toDetectionArtifact(match))
     entries.push({
-      hash: hashKeepUniqueTuple(tuple),
-      tuple,
+      hash: hashKeepUniqueCombination(combination),
+      combination,
       ruleId: rule.id,
       ruleEnabled: rule.enabled,
       requiredCount: required,
@@ -437,7 +437,7 @@ export function computeKeepUniqueProtection(params: KeepUniqueDetectionParams): 
   return { scannedAt: timestamp, entries }
 }
 
-/** Expand metaset references to explicit set IDs for tuple evaluation. */
+/** Expand metaset references to explicit set IDs for combination evaluation. */
 export function resolveKeepUniqueRulesWithMetasets(
   rules: readonly KeepUniqueRule[],
   metasets: readonly Metaset[],
@@ -447,10 +447,10 @@ export function resolveKeepUniqueRulesWithMetasets(
   const metaMap = new Map(metasets.map((meta) => [meta.id, meta]))
   let mutated = false
   const resolved = rules.map((rule) => {
-    const metaIds = rule.tuple.metaSetIds ?? []
+    const metaIds = rule.combination.metaSetIds ?? []
     if (!metaIds.length) return rule
-    const expanded = new Set<number>(rule.tuple.sets.map((setId) => Number(setId)))
-    let tupleChanged = false
+    const expanded = new Set<number>(rule.combination.sets.map((setId) => Number(setId)))
+    let combinationChanged = false
     for (const metaId of metaIds) {
       const meta = metaMap.get(metaId)
       if (!meta || !Array.isArray(meta.sets)) continue
@@ -458,16 +458,16 @@ export function resolveKeepUniqueRulesWithMetasets(
         const numeric = Number(setId)
         if (expanded.has(numeric)) continue
         expanded.add(numeric)
-        tupleChanged = true
+        combinationChanged = true
       }
     }
-    if (!tupleChanged) return rule
+    if (!combinationChanged) return rule
     mutated = true
     const sortedSets = Array.from(expanded).sort((a, b) => a - b) as ArtifactSetId[]
     return {
       ...rule,
-      tuple: {
-        ...rule.tuple,
+      combination: {
+        ...rule.combination,
         sets: sortedSets,
       },
     }
