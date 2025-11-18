@@ -394,6 +394,13 @@ export default function KeepUniquesTab({
                   step: 1,
                 }}
               />
+              <Typography
+                variant="caption"
+                color="text.secondary"
+                sx={{ mt: -1, display: 'block' }}
+              >
+                {t('keepUniquesRequiredCountHint')}
+              </Typography>
               <FormControlLabel
                 control={(
                   <Switch
@@ -406,17 +413,19 @@ export default function KeepUniquesTab({
             </Box>
             {ruleDetection ? (
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <Typography
-                  variant="caption"
-                  color={ruleDetection.deficit > 0 ? 'error.main' : 'text.secondary'}
-                  sx={{ flex: 1 }}
-                >
-                  {t('keepUniquesRuleCounts', {
-                    have: ruleDetection.currentCount,
-                    keep: ruleDetection.requiredCount,
-                    projected: ruleDetection.projectedCount,
-                  })}
-                </Typography>
+                <Tooltip title={t('keepUniquesRuleCountsTooltip')}>
+                  <Typography
+                    variant="caption"
+                    color={ruleDetection.deficit > 0 ? 'error.main' : 'text.secondary'}
+                    sx={{ flex: 1, cursor: 'help' }}
+                  >
+                    {t('keepUniquesRuleCounts', {
+                      have: ruleDetection.currentCount,
+                      keep: ruleDetection.requiredCount,
+                      projected: ruleDetection.projectedCount,
+                    })}
+                  </Typography>
+                </Tooltip>
                 {actionButtons}
               </Box>
             ) : (
