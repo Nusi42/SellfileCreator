@@ -585,9 +585,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const [rulesBuilding, setRulesBuilding] = useState(false)
   const finishRulesBuilding = useCallback(() => {
     setRulesBuilding(false)
-    try {
-      console.log('[rules-building] finish')
-    } catch {}
   }, [])
   const pendingWarmRef = useRef<{ token: number; promise: Promise<ConfigRulesStateSnapshot> } | null>(null)
   type WarmInputsSnapshot = {
@@ -902,12 +899,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     const resolvedKeepUniqueRulesForWarm = resolveKeepUniqueRulesWithMetasets(keepUniqueRules, metasets)
     const keepUniquesActiveForWarm = keepUniquesEnabled && resolvedKeepUniqueRulesForWarm.length > 0
     setRulesBuilding(true)
-    try {
-      console.log(
-        `[rules-building] start token=${requestToken} keepRules=${resolvedKeepUniqueRulesForWarm.length} enabled=${keepUniquesActiveForWarm} detection=${keepUniquesActiveForWarm ? Boolean(keepUniqueDetection) : false}`,
-      )
-    } catch {}
-
     const detectionSignatureForWarm = keepUniquesActiveForWarm ? keepUniqueDetectionSignature : null
     const warmPromise = warmCache(
       {
@@ -2591,9 +2582,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     if (!rulesBuilding) return
     setTesterMatchFreeze((prev) => {
       if (prev) return prev
-      try {
-        console.log('[tester-freeze] start pendingRules due to rulesBuilding')
-      } catch {}
       return {
         lockBuildId: testerRowsBuildIdRef.current,
         pendingRules: true,
@@ -2653,16 +2641,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     if (!restoreFreezeRowsSeenRef.current) {
       const elapsed = Date.now() - testerMatchFreeze.createdAt
       if (elapsed < TESTER_FREEZE_IDLE_RELEASE_MS) return
-      try {
-        console.log('[tester-freeze] clearing after idle timeout')
-      } catch {}
       setTesterMatchFreeze(null)
       return
     }
     if (testerRowsCommittedBuildId < testerMatchFreeze.lockBuildId) return
-    try {
-      console.log('[tester-freeze] rows committed past lock, clearing freeze')
-    } catch {}
     setTesterMatchFreeze(null)
   }, [
     testerMatchFreeze,
@@ -3344,9 +3326,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     const rawNote = typeof note === 'string' ? note : ''
     const importedNote = rawNote.trim().length > 0 ? rawNote : null
     beginTesterMatchReset('hsfc')
-    try {
-      console.log(`[hsfc-load] file=${fileName} keepRules=${keepUniqueRules.length} enabled=${keepUniquesEnabled}`)
-    } catch {}
 
     if (importedNote !== null) {
       applyNoteChange(importedNote, { mode: 'import', publish: false })
