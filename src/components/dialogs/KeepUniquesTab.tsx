@@ -24,7 +24,7 @@ import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline'
 import ContentCopyIcon from '@mui/icons-material/ContentCopy'
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined'
 import type { KeepUniqueDetectionEntry, KeepUniqueDetectionSnapshot, KeepUniqueRule } from '../../lib/keepUniques'
-import { createKeepUniqueRuleId, getKeepUniqueRowKey } from '../../lib/keepUniques'
+import { createKeepUniqueRuleId, getKeepUniqueItemKey } from '../../lib/keepUniques'
 import type { TesterPreviewRow } from '../../types/testerPreview'
 import type { ColorBlindMode } from '../../lib/constants'
 import { MENU_CONTROL_HEIGHT_PX } from '../../lib/constants'
@@ -53,7 +53,7 @@ type KeepUniquesTabProps = {
   onToggleEnabled: (next: SetStateAction<boolean>) => void
   detection: KeepUniqueDetectionSnapshot | null
   testerRows: TesterPreviewRow[]
-  uniqueRowKeys: ReadonlySet<number>
+  uniqueItemKeys: ReadonlySet<number>
   substatColors: Record<number, { fg: string; bg: string }>
   useStatButtonColors: boolean
   onToggleStatColors: (next: boolean) => void
@@ -76,7 +76,7 @@ export default function KeepUniquesTab({
   onToggleEnabled,
   detection,
   testerRows,
-  uniqueRowKeys,
+  uniqueItemKeys,
   substatColors,
   useStatButtonColors,
   onToggleStatColors,
@@ -107,28 +107,28 @@ export default function KeepUniquesTab({
     return map
   }, [detectionEntries])
   const selectedEntry = effectiveSelectedRuleId ? detectionByRuleId.get(effectiveSelectedRuleId) ?? null : null
-  const selectedRowKeys = useMemo(() => new Set<number>(selectedEntry?.rowKeys ?? []), [selectedEntry])
-  const uniqueRowKeySet = uniqueRowKeys
+  const selectedItemKeys = useMemo(() => new Set<number>(selectedEntry?.itemKeys ?? []), [selectedEntry])
+  const uniqueItemKeySet = uniqueItemKeys
   const gridRows = useMemo(() => {
-    if (uniqueRowKeySet.size === 0) return []
-    if (uniqueRowKeySet.size === testerRows.length) return testerRows
-    return testerRows.filter((row) => uniqueRowKeySet.has(getKeepUniqueRowKey(row.artifact)))
-  }, [testerRows, uniqueRowKeySet])
+    if (uniqueItemKeySet.size === 0) return []
+    if (uniqueItemKeySet.size === testerRows.length) return testerRows
+    return testerRows.filter((row) => uniqueItemKeySet.has(getKeepUniqueItemKey(row.artifact)))
+  }, [testerRows, uniqueItemKeySet])
   const uniqueFilterActive = testerRows.length > gridRows.length
   // Highlight callback lets the tester grid fade non-matching cards instead of mutating the dataset.
   const highlightRowPredicate = useMemo(() => {
-    if (!selectedEntry || selectedRowKeys.size === 0) return null
-    return (row: TesterPreviewRow) => selectedRowKeys.has(getKeepUniqueRowKey(row.artifact))
-  }, [selectedEntry, selectedRowKeys])
+    if (!selectedEntry || selectedItemKeys.size === 0) return null
+    return (row: TesterPreviewRow) => selectedItemKeys.has(getKeepUniqueItemKey(row.artifact))
+  }, [selectedEntry, selectedItemKeys])
   const highlightActive = Boolean(highlightRowPredicate)
   const selectedVisibleRowCount = useMemo(() => {
-    if (!selectedEntry || selectedEntry.rowKeys.length === 0) return 0
+    if (!selectedEntry || selectedEntry.itemKeys.length === 0) return 0
     let count = 0
-    for (const key of selectedEntry.rowKeys) {
-      if (uniqueRowKeySet.has(key)) count += 1
+    for (const key of selectedEntry.itemKeys) {
+      if (uniqueItemKeySet.has(key)) count += 1
     }
     return count
-  }, [selectedEntry, uniqueRowKeySet])
+  }, [selectedEntry, uniqueItemKeySet])
   const highlightFilterActive = highlightActive && gridRows.length > selectedVisibleRowCount
   const gridFiltered = uniqueFilterActive || highlightFilterActive
 

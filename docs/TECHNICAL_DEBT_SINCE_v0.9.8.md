@@ -28,7 +28,7 @@
 
 ## 2. Localization gaps
 - `src/components/dialogs/RuleTesterDialog.tsx:701` hardcodes the “Coookieees!” tooltip when the cookie-monster animation kicks in, so that Easter-egg text never flows through `t('…')` and is missing from `src/lib/i18n/catalogs/en-US.ts`. Add a proper key or remove the string.
-- `src/components/dialogs/RuleTesterDialog.tsx:764-783` added delete/insert buttons for tester rows with literal `aria-label="add-row"` / `"remove-row"`. These labels need to reference the existing `add`/`delete` text (or new catalog entries) so screen readers receive localized copy.
+- `src/components/dialogs/RuleTesterDialog.tsx:764-783` added delete/insert buttons for tester items with literal `aria-label="add-row"` / `"remove-row"`. These labels need to reference the existing `add`/`delete` text (or new catalog entries) so screen readers receive localized copy.
 - `src/components/RulesFilterPanel.tsx:470-478` now sets the accordion chevrons’ aria-labels to `'Expand'` / `'Collapse'` directly. That bypasses i18n and prevents non-English locales from hearing localized narration; wire those labels through the catalog (the same keys we already use for other accordions) to restore parity.
 
 ## 3. Documentation, README, tutorial, and cheat sheet gaps

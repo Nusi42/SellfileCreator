@@ -456,7 +456,7 @@ export const TESTER_ROW_CONTROLS_WIDTH_PX = 56
 // Reduced by ~15% for tighter layout
 // Reduced by another 3% for a tighter layout while keeping readability.
 // Keep as a calculation to preserve intent for future tuning.
-// Reduce a bit further to improve fit in the tester row
+// Reduce a bit further to improve fit in the tester item row
 export const TESTER_MAINSTAT_SELECT_MIN_WIDTH_PX = 125
 export const TESTER_SUBSTAT_SELECT_MIN_WIDTH_PX = 125
 // Fixed widths so Select content changes don't shift layout

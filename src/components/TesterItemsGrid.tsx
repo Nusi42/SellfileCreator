@@ -561,9 +561,9 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
   const rowLookup = useMemo(() => {
     const map = new Map<number, TesterPreviewRow>()
     rows.forEach((row) => {
-      const rowId = Number(row.artifact?.id)
-      if (Number.isFinite(rowId)) {
-        map.set(rowId, row)
+      const artifactId = Number(row.artifact?.id)
+      if (Number.isFinite(artifactId)) {
+        map.set(artifactId, row)
       }
     })
     return map

@@ -39,7 +39,7 @@ export type KeepUniqueRule = {
 }
 
 export type KeepUniqueDetectionArtifact = {
-  rowKey: number
+  itemKey: number
   slot: ArtifactTypeId
   set: ArtifactSetId
   rank: RankValue
@@ -67,7 +67,7 @@ export type KeepUniqueDetectionEntry = {
   projectedCount: number
   deficit: number
   coveredByExisting: boolean
-  rowKeys: number[]
+  itemKeys: number[]
   artifacts: KeepUniqueDetectionArtifact[]
 }
 
@@ -79,13 +79,13 @@ export type KeepUniqueDetectionSnapshot = {
 export type KeepUniqueCandidate = {
   row: TesterPreviewRow
   artifact: NormalizedGearArtifact
-  rowKey: number
+  itemKey: number
   groupKey: KeepUniqueGroupKey
 }
 
 export type KeepUniqueCandidateSnapshot = {
   candidates: KeepUniqueCandidate[]
-  uniqueRowKeys: ReadonlySet<number>
+  uniqueItemKeys: ReadonlySet<number>
 }
 
 export type KeepUniquesMergeInput = {
@@ -280,10 +280,10 @@ export function normalizeKeepUniqueRule(value: unknown): KeepUniqueRule | null {
   }
 }
 
-/** Shared helper for mapping tester artifacts to the detection row-key. */
-export function getKeepUniqueRowKey(artifact: NormalizedGearArtifact): number {
-  const testerRowId = Number((artifact.testerItem as { rowId?: number } | undefined)?.rowId ?? NaN)
-  if (Number.isFinite(testerRowId)) return testerRowId
+/** Shared helper for mapping tester artifacts to the detection item key. */
+export function getKeepUniqueItemKey(artifact: NormalizedGearArtifact): number {
+  const testerItemId = Number((artifact.testerItem as { itemId?: number } | undefined)?.itemId ?? NaN)
+  if (Number.isFinite(testerItemId)) return testerItemId
   if (Number.isFinite(artifact.id)) return Number(artifact.id)
   return 0
 }
@@ -339,9 +339,9 @@ const toDetectionSubstats = (artifact: NormalizedGearArtifact): KeepUniqueDetect
 )
 
 const toDetectionArtifact = (candidate: KeepUniqueCandidate): KeepUniqueDetectionArtifact => {
-  const { artifact, rowKey } = candidate
+  const { artifact, itemKey } = candidate
   return {
-    rowKey,
+    itemKey,
     slot: artifact.slot,
     set: artifact.set,
     rank: artifact.rank,
@@ -360,14 +360,14 @@ export function collectKeepUniqueCandidates(params: {
   configModes: SellfileExportMode[]
 }): KeepUniqueCandidateSnapshot {
   const { rows, baseRules, configModes } = params
-  if (!rows.length) return { candidates: [], uniqueRowKeys: new Set() }
+  if (!rows.length) return { candidates: [], uniqueItemKeys: new Set() }
   const groupStats = new Map<string, { total: number; sold: number; matches: KeepUniqueCandidate[] }>()
   const baseRuleList: HsfRuleWithCfg[] = Array.isArray(baseRules) ? [...baseRules] : []
   const baseRuleCount = baseRuleList.length
 
   for (const row of rows) {
     const artifact = row.artifact
-    const rowKey = getKeepUniqueRowKey(artifact)
+    const itemKey = getKeepUniqueItemKey(artifact)
     const groupKey = getKeepUniqueGroupKey(artifact)
     const sold = (() => {
       if (baseRuleCount === 0) return true
@@ -379,29 +379,29 @@ export function collectKeepUniqueCandidates(params: {
       entry.total += 1
       if (sold) {
         entry.sold += 1
-        entry.matches.push({ row, artifact, rowKey, groupKey })
+        entry.matches.push({ row, artifact, itemKey, groupKey })
       }
     } else {
       groupStats.set(groupKey, {
         total: 1,
         sold: sold ? 1 : 0,
-        matches: sold ? [{ row, artifact, rowKey, groupKey }] : [],
+        matches: sold ? [{ row, artifact, itemKey, groupKey }] : [],
       })
     }
   }
 
   const candidates: KeepUniqueCandidate[] = []
-  const uniqueRowKeys = new Set<number>()
+  const uniqueItemKeys = new Set<number>()
   for (const entry of groupStats.values()) {
     if (entry.total > 0 && entry.sold === entry.total) {
       for (const candidate of entry.matches) {
         candidates.push(candidate)
-        uniqueRowKeys.add(candidate.rowKey)
+        uniqueItemKeys.add(candidate.itemKey)
       }
     }
   }
 
-  return { candidates, uniqueRowKeys }
+  return { candidates, uniqueItemKeys }
 }
 
 /** Compute Keep Unique tuple coverage against the candidate sold rows. */
@@ -417,7 +417,7 @@ export function computeKeepUniqueProtection(params: KeepUniqueDetectionParams): 
     const currentCount = matching.length
     const projected = enabled && rule.enabled ? currentCount : 0
     const deficit = Math.max(0, required - projected)
-    const rowKeys = matching.map((match) => match.rowKey)
+    const itemKeys = matching.map((match) => match.itemKey)
     const artifacts = matching.map((match) => toDetectionArtifact(match))
     entries.push({
       hash: hashKeepUniqueTuple(tuple),
@@ -429,7 +429,7 @@ export function computeKeepUniqueProtection(params: KeepUniqueDetectionParams): 
       projectedCount: projected,
       deficit,
       coveredByExisting: currentCount === 0,
-      rowKeys,
+      itemKeys,
       artifacts,
     })
   }

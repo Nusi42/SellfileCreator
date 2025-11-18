@@ -6,10 +6,10 @@ import type { HsfRuleWithCfg } from '../lib/merge'
 import { buildRuleMatchIndexData, primeRuleMatchIndex, type RuleMatchIndexData } from '../lib/ruleMatchIndex'
 import { evaluateMatchesByConfig } from '../lib/ruleEval'
 import type {
-  TesterMatchWorkerEvaluateRow,
+  TesterMatchWorkerEvaluateItem,
   TesterMatchWorkerRequest,
   TesterMatchWorkerResponse,
-  TesterMatchWorkerRowResult,
+  TesterMatchWorkerItemResult,
 } from './testerMatchWorkerTypes'
 
 declare const self: DedicatedWorkerGlobalScope
@@ -28,19 +28,19 @@ const configureRules = (rules: HsfRuleWithCfg[], configModes: SellfileExportMode
   }
 }
 
-const evaluateRows = (rows: TesterMatchWorkerEvaluateRow[]): TesterMatchWorkerRowResult[] => {
-  if (!Array.isArray(rows) || rows.length === 0) return []
+const evaluateRows = (items: TesterMatchWorkerEvaluateItem[]): TesterMatchWorkerItemResult[] => {
+  if (!Array.isArray(items) || items.length === 0) return []
   if (currentRules.length === 0) {
-    return rows.map((row) => ({
-      rowId: row.rowId,
+    return items.map((entry) => ({
+      itemId: entry.itemId,
       firstMatch: null,
       matchingConfigIndices: [],
     }))
   }
-  return rows.map((row) => {
-    const result = evaluateMatchesByConfig(currentRules, row.item, { configModes: currentConfigModes })
+  return items.map((entry) => {
+    const result = evaluateMatchesByConfig(currentRules, entry.item, { configModes: currentConfigModes })
     return {
-      rowId: row.rowId,
+      itemId: entry.itemId,
       firstMatch: result.firstMatch,
       matchingConfigIndices: result.matchingConfigIndices,
     }
@@ -70,7 +70,7 @@ self.onmessage = (event: MessageEvent<TesterMatchWorkerRequest>) => {
   }
   if (message.kind === 'evaluate') {
     try {
-      const results = evaluateRows(message.payload.rows)
+      const results = evaluateRows(message.payload.items)
       const response: TesterMatchWorkerResponse = {
         id: message.id,
         kind: 'evaluate:done',

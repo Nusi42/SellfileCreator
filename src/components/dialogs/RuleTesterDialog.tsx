@@ -137,7 +137,7 @@ export default function RuleTesterDialog({
   substatColors,
   testerItems,
   setTesterItems,
-  allocTesterRowId,
+  allocTesterItemId,
   testerMatches,
   pendingExternalItems = [],
   onConsumeExternalItems,
@@ -149,7 +149,7 @@ export default function RuleTesterDialog({
   substatColors: Record<number, { fg: string; bg: string }>
   testerItems: RuleTesterItem[]
   setTesterItems: Dispatch<SetStateAction<RuleTesterItem[]>>
-  allocTesterRowId: () => number
+  allocTesterItemId: () => number
   testerMatches: ReadonlyMap<number, TesterPreviewMatch | null>
   pendingExternalItems?: TestItem[]
   onConsumeExternalItems?: () => void
@@ -223,7 +223,7 @@ export default function RuleTesterDialog({
   const toggleHistoryRef = useRef<Map<number, number[]>>(new Map())
   const cookieTimeoutRef = useRef<Map<number, ReturnType<typeof window.setTimeout>>>(new Map())
   const [cookieMonsterExpiryByRow, setCookieMonsterExpiryByRow] = useState<Record<number, number>>({})
-  const [compactByRowId, setCompactByRowId] = useState<Map<number, boolean>>(() => new Map())
+  const [compactByItemId, setCompactByRowId] = useState<Map<number, boolean>>(() => new Map())
 
   const scrollContainerRef = useRef<HTMLDivElement | null>(null)
   const [scrollTop, setScrollTop] = useState(0)
@@ -234,12 +234,12 @@ export default function RuleTesterDialog({
     isCompact ? TESTER_ROW_ESTIMATE_COMPACT_PX : TESTER_ROW_ESTIMATE_EXPANDED_PX
   ), [])
   const isItemCompact = useCallback((item: TesterItem): boolean => {
-    const rowId = Number(item.rowId)
-    if (Number.isFinite(rowId) && compactByRowId.has(rowId)) {
-      return compactByRowId.get(rowId)!
+    const itemId = Number(item.itemId)
+    if (Number.isFinite(itemId) && compactByItemId.has(itemId)) {
+      return compactByItemId.get(itemId)!
     }
     return Boolean((item as { compact?: boolean }).compact)
-  }, [compactByRowId])
+  }, [compactByItemId])
   // Local Sets menu state to mirror Filters/Builder
   const [setsOrder, setSetsOrder] = useState<'game' | 'az' | 'icons'>('icons')
   const [setsSearch, setSetsSearch] = useState('')
@@ -289,22 +289,22 @@ export default function RuleTesterDialog({
     setScrollTop(event.currentTarget.scrollTop)
   }, [])
 
-  const registerRowHeight = useCallback((rowId: number, height: number) => {
+  const registerRowHeight = useCallback((itemId: number, height: number) => {
     if (!Number.isFinite(height)) return
     const nextHeight = Math.max(1, Math.round(height))
     const map = measuredHeightsRef.current
-    const prev = map.get(rowId)
+    const prev = map.get(itemId)
     if (prev === nextHeight) return
-    map.set(rowId, nextHeight)
+    map.set(itemId, nextHeight)
     setRowHeightsVersion((v) => v + 1)
   }, [])
-  const scrollTesterSetsMenuToSelected = useCallback((rowIdx: number, orderOverride?: 'game' | 'az' | 'icons', opts?: { force?: boolean }) => {
-    if (!opts?.force && setsMenuOpenIdx !== rowIdx) return
+  const scrollTesterSetsMenuToSelected = useCallback((itemIdx: number, orderOverride?: 'game' | 'az' | 'icons', opts?: { force?: boolean }) => {
+    if (!opts?.force && setsMenuOpenIdx !== itemIdx) return
     const order = orderOverride ?? setsOrder
     if (order === 'icons') return
-    const list = setsMenuListRefs.current[rowIdx]
+    const list = setsMenuListRefs.current[itemIdx]
     if (!list) return
-    const item = items[rowIdx]
+    const item = items[itemIdx]
     if (!item) return
     const setIdNumber = Number(item.set ?? 0)
     if (setIdNumber <= 0 || setIdNumber === ACCESSORY_NO_SET_ID) return
@@ -321,7 +321,7 @@ export default function RuleTesterDialog({
   const { rowOffsets, rowHeights, totalContentHeight } = useMemo(() => {
     void rowHeightsVersion
     const map = measuredHeightsRef.current
-    const activeRowIds = new Set<number>(items.map((it) => it.rowId))
+    const activeRowIds = new Set<number>(items.map((it) => it.itemId))
     for (const key of Array.from(map.keys())) {
       if (!activeRowIds.has(key)) map.delete(key)
     }
@@ -331,7 +331,7 @@ export default function RuleTesterDialog({
     for (let i = 0; i < items.length; i += 1) {
       const item = items[i] as TesterItem
       offsets.push(total)
-      const measured = map.get(item.rowId)
+      const measured = map.get(item.itemId)
       const compact = isItemCompact(item)
       const resolved = typeof measured === 'number' && measured > 0
         ? measured
@@ -427,17 +427,17 @@ export default function RuleTesterDialog({
   const compactColumnTemplate = 'max-content max-content max-content minmax(0, 1fr)'
 
   const pruneEasterEggStateForItems = useCallback((nextItems: TesterItem[]) => {
-    const activeRowIds = new Set(nextItems.map((item) => item.rowId))
+    const activeRowIds = new Set(nextItems.map((item) => item.itemId))
     const history = toggleHistoryRef.current
     for (const key of Array.from(history.keys())) {
       if (!activeRowIds.has(key)) {
         history.delete(key)
       }
     }
-    for (const [rowId, timeoutId] of Array.from(cookieTimeoutRef.current.entries())) {
-      if (!activeRowIds.has(rowId)) {
+    for (const [itemId, timeoutId] of Array.from(cookieTimeoutRef.current.entries())) {
+      if (!activeRowIds.has(itemId)) {
         window.clearTimeout(timeoutId)
-        cookieTimeoutRef.current.delete(rowId)
+        cookieTimeoutRef.current.delete(itemId)
       }
     }
     setCookieMonsterExpiryByRow((prev) => {
@@ -469,9 +469,9 @@ export default function RuleTesterDialog({
   const updateItemAt = useCallback((index: number, updater: (item: TesterItem) => TesterItem) => {
     const target = manualEntries[index]
     if (!target) return
-    const rowId = target.item.rowId
+    const itemId = target.item.itemId
     setItems((prev) => {
-      const targetIdx = prev.findIndex((entry) => entry.rowId === rowId)
+      const targetIdx = prev.findIndex((entry) => entry.itemId === itemId)
       if (targetIdx === -1) return prev
       const next = prev.slice()
       next[targetIdx] = updater(next[targetIdx]!)
@@ -482,23 +482,23 @@ export default function RuleTesterDialog({
 
   const insertItemAfter = useCallback((index: number) => {
     const anchor = manualEntries[index]
-    const anchorRowId = anchor?.item.rowId ?? null
+    const anchorRowId = anchor?.item.itemId ?? null
     setItems((prev) => {
-      const anchorIdx = anchorRowId == null ? -1 : prev.findIndex((entry) => entry.rowId === anchorRowId)
+      const anchorIdx = anchorRowId == null ? -1 : prev.findIndex((entry) => entry.itemId === anchorRowId)
       const insertIdx = anchorIdx === -1 ? prev.length : anchorIdx + 1
       const next = prev.slice()
-      next.splice(insertIdx, 0, makeDefaultItem(allocTesterRowId))
+      next.splice(insertIdx, 0, makeDefaultItem(allocTesterItemId))
       pruneEasterEggStateForItems(next)
       return next
     })
-  }, [allocTesterRowId, manualEntries, makeDefaultItem, pruneEasterEggStateForItems, setItems])
+  }, [allocTesterItemId, manualEntries, makeDefaultItem, pruneEasterEggStateForItems, setItems])
 
   const deleteItemAt = useCallback((index: number) => {
     const target = manualEntries[index]
     if (!target) return
-    const rowId = target.item.rowId
+    const itemId = target.item.itemId
     setItems((prev) => {
-      const next = prev.filter((entry) => entry.rowId !== rowId)
+      const next = prev.filter((entry) => entry.itemId !== itemId)
       if (next.length === prev.length) return prev
       pruneEasterEggStateForItems(next)
       return next
@@ -507,7 +507,7 @@ export default function RuleTesterDialog({
 
   const handleAddManualGear = useCallback(() => {
     setItems((prev) => {
-      const next = prev.concat(makeDefaultItem(allocTesterRowId))
+      const next = prev.concat(makeDefaultItem(allocTesterItemId))
       pruneEasterEggStateForItems(next)
       return next
     })
@@ -517,7 +517,7 @@ export default function RuleTesterDialog({
         node.scrollTo({ top: node.scrollHeight, behavior: 'smooth' })
       }
     })
-  }, [allocTesterRowId, makeDefaultItem, pruneEasterEggStateForItems, setItems])
+  }, [allocTesterItemId, makeDefaultItem, pruneEasterEggStateForItems, setItems])
 
   const deletableSources = useMemo(() => ([
     { key: 'manual' as const, label: t('testerSourceManual') },
@@ -548,33 +548,33 @@ export default function RuleTesterDialog({
   }, [pruneEasterEggStateForItems, setItems])
 
   // Track compact toggles per row; hitting the threshold triggers the cookie monster halo.
-  const registerCompactToggle = useCallback((rowId: number) => {
+  const registerCompactToggle = useCallback((itemId: number) => {
     const now = Date.now()
     const history = toggleHistoryRef.current
-    const existing = history.get(rowId) ?? []
+    const existing = history.get(itemId) ?? []
     const recent = existing.filter((ts) => (now - ts) <= TESTER_COOKIE_WINDOW_MS)
     recent.push(now)
-    history.set(rowId, recent)
+    history.set(itemId, recent)
     if (recent.length >= TESTER_COOKIE_TOGGLE_THRESHOLD) {
-      history.set(rowId, [])
+      history.set(itemId, [])
       setCookieMonsterExpiryByRow((prev) => ({
         ...prev,
-        [rowId]: now + TESTER_COOKIE_ANIMATION_MS,
+        [itemId]: now + TESTER_COOKIE_ANIMATION_MS,
       }))
-      const activeTimeout = cookieTimeoutRef.current.get(rowId)
+      const activeTimeout = cookieTimeoutRef.current.get(itemId)
       if (activeTimeout != null) {
         window.clearTimeout(activeTimeout)
       }
       const timeoutId = window.setTimeout(() => {
         setCookieMonsterExpiryByRow((prev) => {
-          if (!(rowId in prev)) return prev
+          if (!(itemId in prev)) return prev
           const next = { ...prev }
-          delete next[rowId]
+          delete next[itemId]
           return next
         })
-        cookieTimeoutRef.current.delete(rowId)
+        cookieTimeoutRef.current.delete(itemId)
       }, TESTER_COOKIE_ANIMATION_MS)
-      cookieTimeoutRef.current.set(rowId, timeoutId)
+      cookieTimeoutRef.current.set(itemId, timeoutId)
     }
   }, [])
 
@@ -582,10 +582,10 @@ export default function RuleTesterDialog({
     setCompactByRowId(() => {
       const next = new Map<number, boolean>()
       for (const item of itemsRef.current) {
-        const rowId = Number(item.rowId)
+        const itemId = Number(item.itemId)
         const baseState = Boolean((item as { compact?: boolean })?.compact)
         if (baseState !== nextState) {
-          next.set(rowId, nextState)
+          next.set(itemId, nextState)
         }
       }
       return next
@@ -593,15 +593,15 @@ export default function RuleTesterDialog({
   }, [setCompactByRowId])
 
   const handleToggleCompact = useCallback((
-    rowId: number,
+    itemId: number,
     event?: MouseEvent<HTMLButtonElement>,
     options?: { applyGlobally?: boolean },
   ) => {
     const baseState = (() => {
-      const item = itemsRef.current.find((entry) => entry.rowId === rowId)
+      const item = itemsRef.current.find((entry) => entry.itemId === itemId)
       return Boolean((item as { compact?: boolean })?.compact)
     })()
-    const current = compactByRowId.has(rowId) ? compactByRowId.get(rowId)! : baseState
+    const current = compactByItemId.has(itemId) ? compactByItemId.get(itemId)! : baseState
     const nextState = !current
     if (options?.applyGlobally || event?.ctrlKey || event?.metaKey) {
       applyGlobalCompactState(nextState)
@@ -610,19 +610,19 @@ export default function RuleTesterDialog({
     setCompactByRowId((prev) => {
       const next = new Map(prev)
       if (nextState === baseState) {
-        next.delete(rowId)
+        next.delete(itemId)
       } else {
-        next.set(rowId, nextState)
+        next.set(itemId, nextState)
       }
       return next
     })
-    registerCompactToggle(rowId)
-  }, [applyGlobalCompactState, compactByRowId, registerCompactToggle])
+    registerCompactToggle(itemId)
+  }, [applyGlobalCompactState, compactByItemId, registerCompactToggle])
 
   const renderTesterRow = (it: TesterItem, idx: number): JSX.Element => {
-    const rowId = Number(it.rowId)
+    const itemId = Number(it.itemId)
     const isCompact = isItemCompact(it)
-    const match = Number.isFinite(rowId) ? testerMatches.get(rowId) ?? null : null
+    const match = Number.isFinite(itemId) ? testerMatches.get(itemId) ?? null : null
     const cfgIdx = match?.cfgIdx ?? null
     const cfg = (cfgIdx != null ? customCfgs[cfgIdx] : undefined)
     const cfgFactionCode = cfg ? Number((cfg as { factionCode?: number }).factionCode ?? 0) : 0
@@ -698,7 +698,7 @@ export default function RuleTesterDialog({
         color,
       }
     })
-    const cookieMonsterActive = Object.prototype.hasOwnProperty.call(cookieMonsterExpiryByRow, it.rowId)
+    const cookieMonsterActive = Object.prototype.hasOwnProperty.call(cookieMonsterExpiryByRow, it.itemId)
     const toggleTooltip = cookieMonsterActive ? 'Coookieees!' : (isCompact ? t('expanded') : t('compact'))
     const ruleChipNode = (
       <TesterRuleReferenceChip
@@ -818,7 +818,7 @@ export default function RuleTesterDialog({
                   },
                 } : {}),
               }}
-              onClick={(event) => handleToggleCompact(it.rowId, event)}
+              onClick={(event) => handleToggleCompact(it.itemId, event)}
               onMouseEnter={handleCompactHintPointerMove}
               onMouseMove={handleCompactHintPointerMove}
               onMouseLeave={handleCompactHintPointerLeave}
@@ -826,7 +826,7 @@ export default function RuleTesterDialog({
                 event.preventDefault()
                 event.stopPropagation()
                 handleCompactHintSeen()
-                handleToggleCompact(it.rowId, event, { applyGlobally: true })
+                handleToggleCompact(it.itemId, event, { applyGlobally: true })
               }}
             >
               {isCompact ? <OpenInFullIcon fontSize="small" /> : <CloseFullscreenIcon fontSize="small" />}
@@ -1466,7 +1466,7 @@ export default function RuleTesterDialog({
       index = end
       if (chunk.length > 0) {
         for (const incomingItem of chunk) {
-          const base = adjustSubValuesFor({ ...(incomingItem as TestItem), rowId: allocTesterRowId() } as TesterItem)
+          const base = adjustSubValuesFor({ ...(incomingItem as TestItem), itemId: allocTesterItemId() } as TesterItem)
           const key = fingerprintRuleTesterItem(base)
           if (existing.has(key)) continue
           existing.add(key)
@@ -1499,7 +1499,7 @@ export default function RuleTesterDialog({
     }
   // adjustSubValuesFor is recreated per render; pendingExternalItems change is the trigger we care about.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pendingExternalItems, allocTesterRowId, pruneEasterEggStateForItems, onConsumeExternalItems])
+  }, [pendingExternalItems, allocTesterItemId, pruneEasterEggStateForItems, onConsumeExternalItems])
 
   // No Import/Export buttons; autosave restores when dialog opens.
 
@@ -1589,7 +1589,7 @@ export default function RuleTesterDialog({
               {visibleIndices.map((idx) => {
                 const item = items[idx] as TesterItem
                 return (
-                  <MeasuredTesterRow key={item.rowId} rowId={item.rowId} registerHeight={registerRowHeight}>
+                  <MeasuredTesterRow key={item.itemId} itemId={item.itemId} registerHeight={registerRowHeight}>
                     {renderTesterRow(item, idx)}
                   </MeasuredTesterRow>
                 )
@@ -1731,29 +1731,29 @@ export default function RuleTesterDialog({
 }
 
 type MeasuredTesterRowProps = {
-  rowId: number
-  registerHeight: (rowId: number, height: number) => void
+  itemId: number
+  registerHeight: (itemId: number, height: number) => void
   children: ReactNode
 }
 
-function MeasuredTesterRow({ rowId, registerHeight, children }: MeasuredTesterRowProps) {
+function MeasuredTesterRow({ itemId, registerHeight, children }: MeasuredTesterRowProps) {
   const rowRef = useRef<HTMLDivElement | null>(null)
 
   useLayoutEffect(() => {
     const node = rowRef.current
     if (!node) return
-    const measure = () => registerHeight(rowId, node.offsetHeight)
+    const measure = () => registerHeight(itemId, node.offsetHeight)
     measure()
     const observer = new ResizeObserver(() => {
       const current = rowRef.current
       if (!current) return
-      registerHeight(rowId, current.offsetHeight)
+      registerHeight(itemId, current.offsetHeight)
     })
     observer.observe(node)
     return () => {
       observer.disconnect()
     }
-  }, [rowId, registerHeight])
+  }, [itemId, registerHeight])
 
   return <Box ref={rowRef}>{children}</Box>
 }

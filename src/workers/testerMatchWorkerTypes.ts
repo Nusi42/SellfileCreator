@@ -9,17 +9,17 @@ export type TesterMatchWorkerConfigurePayload = {
   ruleMatchIndex: RuleMatchIndexData | null
 }
 
-export type TesterMatchWorkerEvaluateRow = {
-  rowId: number
+export type TesterMatchWorkerEvaluateItem = {
+  itemId: number
   item: TestItem
 }
 
 export type TesterMatchWorkerEvaluatePayload = {
-  rows: TesterMatchWorkerEvaluateRow[]
+  items: TesterMatchWorkerEvaluateItem[]
 }
 
-export type TesterMatchWorkerRowResult = {
-  rowId: number
+export type TesterMatchWorkerItemResult = {
+  itemId: number
   firstMatch: EvalResult | null
   matchingConfigIndices: number[]
 }
@@ -45,7 +45,7 @@ export type TesterMatchWorkerResponse =
       id: number
       kind: 'evaluate:done'
       payload: {
-        results: TesterMatchWorkerRowResult[]
+        results: TesterMatchWorkerItemResult[]
       }
     }
   | {
@@ -53,4 +53,3 @@ export type TesterMatchWorkerResponse =
       kind: 'error'
       error: string
     }
-

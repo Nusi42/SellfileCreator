@@ -225,7 +225,7 @@ const fingerprintKeepUniqueDetection = (
       entry.projectedCount,
       entry.deficit,
       entry.coveredByExisting ? 1 : 0,
-      entry.rowKeys.join(','),
+      entry.itemKeys.join(','),
     ].join(':'))
   }
   return parts.join(';')
@@ -233,7 +233,7 @@ const fingerprintKeepUniqueDetection = (
 
 const EMPTY_KEEP_UNIQUE_CANDIDATES: KeepUniqueCandidateSnapshot = {
   candidates: [],
-  uniqueRowKeys: new Set<number>(),
+  uniqueItemKeys: new Set<number>(),
 }
 
 const DEFAULT_GEAR_DB_FILENAME = 'RslHelper.db'
@@ -322,7 +322,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const { warmCache, flush: flushRuleCache, countRules } = useRuleCacheWorker()
   const {
     configure: configureTesterMatchWorker,
-    evaluateRows: evaluateTesterMatchRows,
+    evaluateItems: evaluateTesterMatchItems,
     supportsWorker: testerMatchWorkerSupported,
   } = useTesterMatchWorker()
   const { statButtonBorders } = useDisplayPreferences()
@@ -337,10 +337,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const substatTargetsForPreview = useDeferredValue(substatTargets)
   const metasetsForPreview = useDeferredValue(metasets)
   const ruleConfigsForPreview = useDeferredValue(ruleConfigs)
-  const testerRowIdRef = useRef(1)
-  const allocTesterRowId = useCallback(() => {
-    const id = testerRowIdRef.current
-    testerRowIdRef.current += 1
+  const testerItemIdRef = useRef(1)
+  const allocTesterItemId = useCallback(() => {
+    const id = testerItemIdRef.current
+    testerItemIdRef.current += 1
     return id
   }, [])
   const [testerItems, setTesterItems] = useState<RuleTesterItem[]>([])
@@ -352,7 +352,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     count: number
   } | null>(() => {
     const math = createRuleTesterMath(substatTargets)
-    const draft = loadRuleTesterAutosaveDraft({ math, allocRowId: allocTesterRowId })
+    const draft = loadRuleTesterAutosaveDraft({ math, allocItemId: allocTesterItemId })
     if (!draft) return null
     return { items: draft.items, savedAt: draft.savedAt, count: draft.itemCount }
   })
@@ -366,33 +366,33 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const testerPreviewArtifacts = useMemo<NormalizedGearArtifact[]>(() => {
     const cache = testerArtifactCacheRef.current
     const next: NormalizedGearArtifact[] = []
-    const activeRowIds = new Set<number>()
+    const activeItemIds = new Set<number>()
     testerItems.forEach((item, idx) => {
-      const rowId = Number.isFinite(item.rowId)
-        ? item.rowId
+      const itemId = Number.isFinite(item.itemId)
+        ? item.itemId
         : -(idx + 1)
       const fingerprint = fingerprintRuleTesterItem(item)
-      const cached = cache.get(rowId)
+      const cached = cache.get(itemId)
       if (cached && cached.fingerprint === fingerprint) {
         next.push(cached.artifact)
-        activeRowIds.add(rowId)
+        activeItemIds.add(itemId)
         return
       }
       try {
         const artifact = buildPreviewArtifactFromTesterItem(item, {
-          fallbackId: Number.isFinite(item.rowId) ? -Math.abs(item.rowId) : undefined,
+          fallbackId: Number.isFinite(item.itemId) ? -Math.abs(item.itemId) : undefined,
           subOrder: item.subOrder,
         })
-        cache.set(rowId, { fingerprint, artifact })
+        cache.set(itemId, { fingerprint, artifact })
         next.push(artifact)
-        activeRowIds.add(rowId)
+        activeItemIds.add(itemId)
       } catch {
-        cache.delete(rowId)
+        cache.delete(itemId)
       }
     })
-    if (cache.size > activeRowIds.size) {
+    if (cache.size > activeItemIds.size) {
       for (const key of Array.from(cache.keys())) {
-        if (!activeRowIds.has(key)) {
+        if (!activeItemIds.has(key)) {
           cache.delete(key)
         }
       }
@@ -400,12 +400,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     return next
   }, [testerItems])
   const [testerPreviewRows, setTesterPreviewRows] = useState<TesterPreviewRow[]>([])
-  const testerMatchesByRowId = useMemo(() => {
+  const testerMatchesByItemId = useMemo(() => {
     const map = new Map<number, TesterPreviewMatch | null>()
     for (const row of testerPreviewRows) {
-      const rowId = Number((row.artifact.testerItem as RuleTesterItem | undefined)?.rowId ?? NaN)
-      if (Number.isFinite(rowId)) {
-        map.set(rowId, row.match)
+      const itemId = Number((row.artifact.testerItem as RuleTesterItem | undefined)?.itemId ?? NaN)
+      if (Number.isFinite(itemId)) {
+        map.set(itemId, row.match)
       }
     }
     return map
@@ -867,7 +867,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       return undefined
     }
     if (keepUniquesActive && keepUniqueDetection && !keepUniqueReady) {
-      // No-op: waiting for tester rows to finish so detection can be applied.
+      // No-op: waiting for tester items to finish so detection can be applied.
     }
 
     lastWarmInputsRef.current = {
@@ -1909,25 +1909,25 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       if (items.length === 0) return prev
       const next = prev.slice()
       for (const addition of items) {
-        const assignedRowId = allocTesterRowId()
-        next.push({ ...(addition as RuleTesterItem), rowId: assignedRowId })
+        const assignedItemId = allocTesterItemId()
+        next.push({ ...(addition as RuleTesterItem), itemId: assignedItemId })
       }
       return next
     })
-  }, [allocTesterRowId, setTesterItems])
+  }, [allocTesterItemId, setTesterItems])
 
   const applyGearDbDiff = useCallback((desiredTesterItems: TestItem[], mode: 'manual' | 'command') => {
     const pendingQueueInput = (mode === 'manual') ? [] : pendingTesterItemsRef.current
-    const { removalRowIds, nextPendingQueue, additions } = diffRuleTesterItems(
+    const { removalItemIds, nextPendingQueue, additions } = diffRuleTesterItems(
       testerItemsRef.current,
       desiredTesterItems,
       pendingQueueInput,
       { retainManualItems: true },
     )
-    const removedCount = removalRowIds.length
-    if (removalRowIds.length > 0) {
-      const removalSet = new Set(removalRowIds)
-      setTesterItems((prev) => prev.filter((item) => !removalSet.has(item.rowId)))
+    const removedCount = removalItemIds.length
+    if (removalItemIds.length > 0) {
+      const removalSet = new Set(removalItemIds)
+      setTesterItems((prev) => prev.filter((item) => !removalSet.has(item.itemId)))
     }
     if (mode === 'manual') {
       setPendingTesterItems([])
@@ -2322,31 +2322,31 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       || prevMatchDeps.namesSignature !== namesSignature
     const prevRowMap = testerPreviewRowMapRef.current
     const nextRowMap = new Map(prevRowMap)
-    const seenRowIds = new Set<number>()
-    let dirtyEntries: Array<{ artifact: NormalizedGearArtifact; rowId: number }> = []
+    const seenItemIds = new Set<number>()
+    let dirtyEntries: Array<{ artifact: NormalizedGearArtifact; itemId: number }> = []
 
     artifacts.forEach((artifact) => {
-      const rowId = Number((artifact.testerItem as RuleTesterItem | undefined)?.rowId ?? NaN)
-      if (!Number.isFinite(rowId)) return
-      seenRowIds.add(rowId)
-      const prevRow = prevRowMap.get(rowId)
+      const itemId = Number((artifact.testerItem as RuleTesterItem | undefined)?.itemId ?? NaN)
+      if (!Number.isFinite(itemId)) return
+      seenItemIds.add(itemId)
+      const prevRow = prevRowMap.get(itemId)
       if (!prevRow || prevRow.artifact !== artifact) {
-        dirtyEntries.push({ artifact, rowId })
+        dirtyEntries.push({ artifact, itemId })
       }
     })
 
-    for (const [rowId] of prevRowMap) {
-      if (!seenRowIds.has(rowId)) {
-        nextRowMap.delete(rowId)
+    for (const [itemId] of prevRowMap) {
+      if (!seenItemIds.has(itemId)) {
+        nextRowMap.delete(itemId)
       }
     }
 
     if (forceRebuildAllRows) {
       dirtyEntries = []
       artifacts.forEach((artifact) => {
-        const rowId = Number((artifact.testerItem as RuleTesterItem | undefined)?.rowId ?? NaN)
-        if (!Number.isFinite(rowId)) return
-        dirtyEntries.push({ artifact, rowId })
+        const itemId = Number((artifact.testerItem as RuleTesterItem | undefined)?.itemId ?? NaN)
+        if (!Number.isFinite(itemId)) return
+        dirtyEntries.push({ artifact, itemId })
       })
     }
 
@@ -2372,7 +2372,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
 
     if (!hasRules) {
       dirtyEntries.forEach((entry) => {
-        nextRowMap.set(entry.rowId, {
+        nextRowMap.set(entry.itemId, {
           artifact: entry.artifact,
           match: null,
           matchingCfgIndices: [],
@@ -2412,19 +2412,19 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
 
     if (testerMatchWorkerSupported) {
       setTesterRowsBuilding(true)
-      const artifactByRowId = new Map<number, NormalizedGearArtifact>()
-      const rowsPayload = dirtyEntries.map(({ artifact, rowId }) => {
-        artifactByRowId.set(rowId, artifact)
-        return { rowId, item: artifact.testerItem }
+      const artifactByItemId = new Map<number, NormalizedGearArtifact>()
+      const itemsPayload = dirtyEntries.map(({ artifact, itemId }) => {
+        artifactByItemId.set(itemId, artifact)
+        return { itemId, item: artifact.testerItem }
       })
       let cancelled = false
-      evaluateTesterMatchRows({ rows: rowsPayload })
+      evaluateTesterMatchItems({ items: itemsPayload })
         .then((results) => {
           if (cancelled || testerRowsBuildIdRef.current !== buildId) return
           results.forEach((result) => {
-            const artifact = artifactByRowId.get(result.rowId)
+            const artifact = artifactByItemId.get(result.itemId)
             if (!artifact) return
-            nextRowMap.set(result.rowId, toPreviewRow(artifact, result.firstMatch, result.matchingConfigIndices))
+            nextRowMap.set(result.itemId, toPreviewRow(artifact, result.firstMatch, result.matchingConfigIndices))
           })
           testerPreviewRowMapRef.current = nextRowMap
           setTesterPreviewRows(sortTesterRows(Array.from(nextRowMap.values())))
@@ -2465,7 +2465,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       for (let cursor = start; cursor < end; cursor += 1) {
         const entry = dirtyEntries[cursor]
         if (!entry) continue
-        nextRowMap.set(entry.rowId, buildRow(entry.artifact))
+        nextRowMap.set(entry.itemId, buildRow(entry.artifact))
       }
       index = end
       if (index < dirtyEntries.length) {
@@ -2488,7 +2488,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         setTesterRowsBuilding(false)
       }
     }
-  }, [testerPreviewArtifacts, mergedRules, customCfgs, configModes, testerMatchWorkerSupported, evaluateTesterMatchRows])
+  }, [testerPreviewArtifacts, mergedRules, customCfgs, configModes, testerMatchWorkerSupported, evaluateTesterMatchItems])
   const testerFilterResult = useMemo(() => (
     filterTesterItems(testerPreviewRows, testerRulesFilter, metasets, { configNames })
   ), [testerPreviewRows, testerRulesFilter, metasets, configNames])
@@ -2676,7 +2676,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             || nextEntry.projectedCount !== prevEntry.projectedCount
             || nextEntry.deficit !== prevEntry.deficit
             || nextEntry.coveredByExisting !== prevEntry.coveredByExisting
-            || nextEntry.rowKeys.length !== prevEntry.rowKeys.length
+            || nextEntry.itemKeys.length !== prevEntry.itemKeys.length
             || nextEntry.artifacts.length !== prevEntry.artifacts.length
           ) {
             return snapshot
@@ -2697,7 +2697,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     testerRowsBuilding,
     testerRowsCommittedBuildId,
   ])
-  const keepUniqueGroupRowKeys = keepUniqueCandidates.uniqueRowKeys
+  const keepUniqueGroupItemKeys = keepUniqueCandidates.uniqueItemKeys
   const matchingConfigIndices = filterResult.matchingConfigIndices
   const testerMatchingConfigIndices = testerFilterResult.matchingConfigIndices
   const chipMatchingConfigIndices = previewMode === 'tester'
@@ -4190,10 +4190,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
               restoreFreezeRulesSeenRef.current = false
               restoreFreezeRowsSeenRef.current = false
               setTesterItems(restoredItems)
-            const maxRowId = testerRestoreDraft.items.reduce((max, item) => (
-              Number.isFinite(item.rowId) && item.rowId > max ? item.rowId : max
+            const maxItemId = testerRestoreDraft.items.reduce((max, item) => (
+              Number.isFinite(item.itemId) && item.itemId > max ? item.itemId : max
             ), 0)
-            testerRowIdRef.current = Math.max(testerRowIdRef.current, (maxRowId || 0) + 1)
+            testerItemIdRef.current = Math.max(testerItemIdRef.current, (maxItemId || 0) + 1)
           }
           const savedAutosaveTab = draft?.FinalSellDialogTab
           if (savedAutosaveTab) {
@@ -4244,7 +4244,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         onKeepUniquesEnabledChange={setKeepUniquesEnabled}
         keepUniqueDetection={keepUniqueDetection}
         testerRows={testerPreviewRows}
-        keepUniqueRowKeys={keepUniqueGroupRowKeys}
+        keepUniqueItemKeys={keepUniqueGroupItemKeys}
         substatColors={substatColors}
         useStatButtonColors={statButtonBorders}
         onToggleStatColors={setStatButtonBorders}
@@ -4267,8 +4267,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         substatColors={substatColors}
         testerItems={testerItems}
         setTesterItems={setTesterItems}
-        allocTesterRowId={allocTesterRowId}
-        testerMatches={testerMatchesByRowId}
+        allocTesterItemId={allocTesterItemId}
+        testerMatches={testerMatchesByItemId}
         pendingExternalItems={pendingTesterItems}
         onConsumeExternalItems={() => setPendingTesterItems([])}
         onView={handleTesterRuleView}

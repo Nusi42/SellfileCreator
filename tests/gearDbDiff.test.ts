@@ -29,8 +29,8 @@ const fingerprintSnapshot = (items: Array<RuleTesterItem | TestItem>): Array<[st
   return Array.from(counts.entries()).sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0))
 }
 
-const stripRowId = (items: RuleTesterItem[], removalRowIds: Set<number>): RuleTesterItem[] => (
-  items.filter((item) => !removalRowIds.has(item.rowId))
+const stripItemId = (items: RuleTesterItem[], removalItemIds: Set<number>): RuleTesterItem[] => (
+  items.filter((item) => !removalItemIds.has(item.itemId))
 )
 
 test('gear DB diff reuses entries across example backups', async (t) => {
@@ -52,15 +52,15 @@ test('gear DB diff reuses entries across example backups', async (t) => {
 
   const currentItems: RuleTesterItem[] = first.map((artifact, idx) => ({
     ...(artifact.testerItem as RuleTesterItem),
-    rowId: idx + 1,
+    itemId: idx + 1,
   }))
   const desiredItems = second.map((artifact) => artifact.testerItem)
 
-  const { removalRowIds, nextPendingQueue, additions } = diffRuleTesterItems(currentItems, desiredItems)
-  assert(removalRowIds.length < currentItems.length, 'diff should keep some existing rows')
+  const { removalItemIds, nextPendingQueue, additions } = diffRuleTesterItems(currentItems, desiredItems)
+  assert(removalItemIds.length < currentItems.length, 'diff should keep some existing rows')
   assert(additions.length >= 0, 'added count should be non-negative')
 
-  const survivors = stripRowId(currentItems, new Set(removalRowIds))
+  const survivors = stripItemId(currentItems, new Set(removalItemIds))
   const finalSnapshot = fingerprintSnapshot([...survivors, ...nextPendingQueue])
   const desiredSnapshot = fingerprintSnapshot(desiredItems)
 
@@ -70,7 +70,7 @@ test('gear DB diff reuses entries across example backups', async (t) => {
 test('gear DB diff retains manual tester items when requested', () => {
   const makePreviewExtras = (source: 'tester' | 'artifacts') => ({ source })
   const manual: RuleTesterItem = {
-    rowId: 1,
+    itemId: 1,
     slot: 1,
     set: 0,
     rank: 6,
@@ -80,7 +80,7 @@ test('gear DB diff retains manual tester items when requested', () => {
     previewExtras: makePreviewExtras('tester'),
   }
   const imported: RuleTesterItem = {
-    rowId: 2,
+    itemId: 2,
     slot: 1,
     set: 0,
     rank: 6,
@@ -90,13 +90,13 @@ test('gear DB diff retains manual tester items when requested', () => {
     previewExtras: makePreviewExtras('artifacts'),
   }
   {
-    const { removalRowIds } = diffRuleTesterItems([manual, imported], [])
-    assert(removalRowIds.includes(manual.rowId), 'manual gear should be removed without retention flag')
+    const { removalItemIds } = diffRuleTesterItems([manual, imported], [])
+    assert(removalItemIds.includes(manual.itemId), 'manual gear should be removed without retention flag')
   }
   {
-    const { removalRowIds } = diffRuleTesterItems([manual, imported], [], [], { retainManualItems: true })
-    assert(!removalRowIds.includes(manual.rowId), 'manual gear should persist when retention flag is on')
-    assert(removalRowIds.includes(imported.rowId), 'non-manual gear should still be removed when desired list is empty')
+    const { removalItemIds } = diffRuleTesterItems([manual, imported], [], [], { retainManualItems: true })
+    assert(!removalItemIds.includes(manual.itemId), 'manual gear should persist when retention flag is on')
+    assert(removalItemIds.includes(imported.itemId), 'non-manual gear should still be removed when desired list is empty')
   }
 })
 

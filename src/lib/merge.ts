@@ -445,7 +445,7 @@ export const buildKeepUniqueRules = (
     for (const artifact of entry.artifacts) {
       const levels = coverageLevelsForArtifact(artifact)
       for (const level of levels) {
-        const artifactKey = `${artifact.rowKey}:${level}`
+        const artifactKey = `${artifact.itemKey}:${level}`
         if (emitted.has(artifactKey)) continue
         emitted.add(artifactKey)
         const mainTuple = variantToMain(artifact.mainStat)
