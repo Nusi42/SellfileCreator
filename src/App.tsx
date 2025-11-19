@@ -2444,16 +2444,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     const holdKeepUniqueMatches = shouldHoldRowsBuilding()
     const prevRowSnapshot = testerPreviewRowMapRef.current
 
-    const shouldLogKeepUniqueHold = import.meta.env.DEV
-    const logKeepUniqueHold = (message: string, context?: Record<string, unknown>) => {
-      if (!shouldLogKeepUniqueHold) return
-      if (context) {
-        console.log(`[keep-unique-hold] ${message}`, context)
-      } else {
-        console.log(`[keep-unique-hold] ${message}`)
-      }
-    }
-
     const toPreviewRow = (
       itemId: number,
       artifact: NormalizedGearArtifact,
@@ -2469,22 +2459,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       ) {
         const prevRow = prevRowSnapshot.get(itemId)
         if (prevRow?.match?.ruleSource === RULE_SOURCE_KEEP_UNIQUES) {
-          logKeepUniqueHold('reusing keep match until detection applies', {
-            itemId,
-            prevSource: prevRow.match.ruleSource,
-            nextSource: match?.ruleSource ?? null,
-          })
           match = prevRow.match
-        } else if (match) {
-          logKeepUniqueHold('allowing non-keep match while hold active', {
-            itemId,
-            source: match.ruleSource ?? null,
-          })
         }
-      } else if (holdKeepUniqueMatches && match?.ruleSource === RULE_SOURCE_KEEP_UNIQUES) {
-        logKeepUniqueHold('keep match already applied from latest detection', {
-          itemId,
-        })
       }
       return {
         artifact,
