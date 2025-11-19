@@ -2435,22 +2435,40 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       }
     }
 
-    const toPreviewRow = (
-      artifact: NormalizedGearArtifact,
-      firstMatch: EvalResult | null,
-      baseMatch: EvalResult | null,
-      matchingConfigIndices: number[],
-    ): TesterPreviewRow => ({
-      artifact,
-      match: toTesterPreviewMatch(firstMatch),
-      baseMatch: toTesterPreviewMatch(baseMatch),
-      matchingCfgIndices: matchingConfigIndices,
-    })
     const shouldHoldRowsBuilding = (): boolean => (
       keepUniquesActive
       && !!keepUniqueDetectionSignature
       && keepUniqueDetectionSignature !== keepUniqueScanAppliedRef.current
     )
+
+    const holdKeepUniqueMatches = shouldHoldRowsBuilding()
+    const prevRowSnapshot = testerPreviewRowMapRef.current
+
+    const toPreviewRow = (
+      itemId: number,
+      artifact: NormalizedGearArtifact,
+      firstMatch: EvalResult | null,
+      baseMatch: EvalResult | null,
+      matchingConfigIndices: number[],
+    ): TesterPreviewRow => {
+      let match = toTesterPreviewMatch(firstMatch)
+      if (
+        holdKeepUniqueMatches
+        && (!match || match.ruleSource !== RULE_SOURCE_KEEP_UNIQUES)
+        && prevRowSnapshot
+      ) {
+        const prevRow = prevRowSnapshot.get(itemId)
+        if (prevRow?.match?.ruleSource === RULE_SOURCE_KEEP_UNIQUES) {
+          match = prevRow.match
+        }
+      }
+      return {
+        artifact,
+        match,
+        baseMatch: toTesterPreviewMatch(baseMatch),
+        matchingCfgIndices: matchingConfigIndices,
+      }
+    }
 
     if (testerMatchWorkerSupported) {
       setTesterRowsBuilding(true)
@@ -2467,6 +2485,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             const artifact = artifactByItemId.get(result.itemId)
             if (!artifact) return
             nextRowMap.set(result.itemId, toPreviewRow(
+              result.itemId,
               artifact,
               result.firstMatch,
               result.firstNonExcludedMatch,
@@ -2496,13 +2515,13 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     let timeoutId: ReturnType<typeof setTimeout> | null = null
     let index = 0
 
-    const buildRow = (artifact: NormalizedGearArtifact): TesterPreviewRow => {
+    const buildRow = (artifact: NormalizedGearArtifact, itemId: number): TesterPreviewRow => {
       const { firstMatch, firstNonExcludedMatch, matchingConfigIndices } = evaluateMatchesByConfig(
         mergedRules,
         artifact.testerItem,
         { configModes, excludeSources: [RULE_SOURCE_KEEP_UNIQUES] },
       )
-      return toPreviewRow(artifact, firstMatch, firstNonExcludedMatch, matchingConfigIndices)
+      return toPreviewRow(itemId, artifact, firstMatch, firstNonExcludedMatch, matchingConfigIndices)
     }
 
     const processChunk = () => {
@@ -2512,7 +2531,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       for (let cursor = start; cursor < end; cursor += 1) {
         const entry = dirtyEntries[cursor]
         if (!entry) continue
-        nextRowMap.set(entry.itemId, buildRow(entry.artifact))
+        nextRowMap.set(entry.itemId, buildRow(entry.artifact, entry.itemId))
       }
       index = end
       if (index < dirtyEntries.length) {
