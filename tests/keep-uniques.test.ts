@@ -53,11 +53,16 @@ const makeArtifact = (overrides: Partial<NormalizedGearArtifact> = {}, variant: 
   }
 }
 
-const makeTesterRow = (overrides: Partial<NormalizedGearArtifact> = {}, keep = false, variant: StatVariant = StatVariant.ATK): TesterPreviewRow => ({
-  artifact: makeArtifact(overrides, variant),
-  match: keep ? { keep: true, cfgIdx: 0, cfgName: 'Keep', ruleIndex: 0, ruleLabel: null, ruleSource: 'hsfc' } : null,
-  matchingCfgIndices: keep ? [0] : [],
-})
+const makeTesterRow = (overrides: Partial<NormalizedGearArtifact> = {}, keep = false, variant: StatVariant = StatVariant.ATK): TesterPreviewRow => {
+  const artifact = makeArtifact(overrides, variant)
+  const match = keep ? { keep: true, cfgIdx: 0, cfgName: 'Keep', ruleIndex: 0, ruleLabel: null, ruleSource: 'hsfc' } : null
+  return {
+    artifact,
+    match,
+    baseMatch: match,
+    matchingCfgIndices: keep ? [0] : [],
+  }
+}
 
 const makeRule = (overrides: Partial<KeepUniqueRule> = {}): KeepUniqueRule => {
   const rule = normalizeKeepUniqueRule({

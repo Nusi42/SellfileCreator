@@ -370,6 +370,10 @@ export function collectKeepUniqueCandidates(params: {
     const itemKey = getKeepUniqueItemKey(artifact)
     const groupKey = getKeepUniqueGroupKey(artifact)
     const sold = (() => {
+      if (row.baseMatch !== undefined) {
+        const baseMatch = row.baseMatch
+        return !baseMatch || baseMatch.keep !== true
+      }
       if (baseRuleCount === 0) return true
       const { firstMatch } = evaluateMatchesByConfig(baseRuleList, artifact.testerItem, { configModes })
       return !firstMatch || firstMatch.keep !== true

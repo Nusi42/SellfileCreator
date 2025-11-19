@@ -21,6 +21,7 @@ export type TesterMatchWorkerEvaluatePayload = {
 export type TesterMatchWorkerItemResult = {
   itemId: number
   firstMatch: EvalResult | null
+  firstNonExcludedMatch: EvalResult | null
   matchingConfigIndices: number[]
 }
 

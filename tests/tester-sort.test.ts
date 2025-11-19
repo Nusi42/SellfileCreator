@@ -110,6 +110,7 @@ const makeTesterRow = (overrides: Partial<NormalizedGearArtifact> = {}): TesterP
   return {
     artifact,
     match: null,
+    baseMatch: null,
     matchingCfgIndices: [],
   }
 }

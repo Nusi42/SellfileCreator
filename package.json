@@ -10,6 +10,7 @@
         "typecheck": "tsc --noEmit",
         "generate:third-party-notices": "node scripts/update-third-party-notices.mjs",
         "export:l10n": "tsc -p tsconfig.scripts.json && node scripts/patch-esm-specifiers.cjs && node scripts/.tmp/scripts/export-catalogs.js",
+        "measure:rule-tester": "tsc -p tsconfig.scripts.json && node scripts/patch-esm-specifiers.cjs && node scripts/.tmp/scripts/measure-rule-tester.js",
         "lint": "eslint . --ext .ts,.tsx",
         "release:win": "powershell -ExecutionPolicy Bypass -File ./scripts/release-win.ps1",
         "release:win-dev": "powershell -ExecutionPolicy Bypass -File ./scripts/release-win-dev.ps1",

@@ -11,5 +11,6 @@ export type TesterPreviewMatch = {
 
 export type TesterPreviewRow = TesterFilterRow & {
   match: TesterPreviewMatch | null
+  baseMatch: TesterPreviewMatch | null
   matchingCfgIndices: number[]
 }

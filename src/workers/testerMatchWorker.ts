@@ -2,7 +2,7 @@
 /// <reference lib="webworker" />
 
 import type { SellfileExportMode } from '../lib/hsfBuilder'
-import type { HsfRuleWithCfg } from '../lib/merge'
+import { RULE_SOURCE_KEEP_UNIQUES, type HsfRuleWithCfg } from '../lib/merge'
 import { buildRuleMatchIndexData, primeRuleMatchIndex, type RuleMatchIndexData } from '../lib/ruleMatchIndex'
 import { evaluateMatchesByConfig } from '../lib/ruleEval'
 import type {
@@ -34,14 +34,19 @@ const evaluateRows = (items: TesterMatchWorkerEvaluateItem[]): TesterMatchWorker
     return items.map((entry) => ({
       itemId: entry.itemId,
       firstMatch: null,
+      firstNonExcludedMatch: null,
       matchingConfigIndices: [],
     }))
   }
   return items.map((entry) => {
-    const result = evaluateMatchesByConfig(currentRules, entry.item, { configModes: currentConfigModes })
+    const result = evaluateMatchesByConfig(currentRules, entry.item, {
+      configModes: currentConfigModes,
+      excludeSources: [RULE_SOURCE_KEEP_UNIQUES],
+    })
     return {
       itemId: entry.itemId,
       firstMatch: result.firstMatch,
+      firstNonExcludedMatch: result.firstNonExcludedMatch,
       matchingConfigIndices: result.matchingConfigIndices,
     }
   })

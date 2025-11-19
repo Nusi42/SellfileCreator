@@ -182,10 +182,12 @@ export function evaluateFirst(rules: HsfRuleWithCfg[], item: TestItem): EvalResu
 
 export type EvalMatchesByConfigOptions = {
   configModes?: SellfileExportMode[]
+  excludeSources?: readonly string[]
 }
 
 export type EvalMatchesByConfigResult = {
   firstMatch: EvalResult | null
+  firstNonExcludedMatch: EvalResult | null
   matchingConfigIndices: number[]
 }
 
@@ -196,6 +198,10 @@ export function evaluateMatchesByConfig(
   options?: EvalMatchesByConfigOptions,
 ): EvalMatchesByConfigResult {
   const configModes = options?.configModes
+  const excludeSources = options?.excludeSources ?? null
+  const excludeSourceSet = excludeSources && excludeSources.length > 0
+    ? new Set(excludeSources)
+    : null
   const shouldIncludeConfig = (cfgIdx: number | null): boolean => {
     if (cfgIdx == null || !Array.isArray(configModes)) return true
     const mode = configModes[cfgIdx]
@@ -203,6 +209,7 @@ export function evaluateMatchesByConfig(
   }
 
   let firstMatch: EvalResult | null = null
+  let firstNonExcludedMatch: EvalResult | null = null
   const matchingConfigs = new Set<number>()
   const slotIndex = getRuleMatchIndex(rules)
   const slot = Number(item.slot)
@@ -215,9 +222,15 @@ export function evaluateMatchesByConfig(
     const rawCfgIdx = (rule as HsfRuleWithCfg).__cfgIdx
     const cfgIdx = typeof rawCfgIdx === 'number' && Number.isFinite(rawCfgIdx) && rawCfgIdx >= 0 ? rawCfgIdx : null
     if (!shouldIncludeConfig(cfgIdx)) return true
+    const keep = rule.Keep === true
+    const match: EvalResult = { ruleIndex, keep, cfgIdx }
     if (!firstMatch) {
-      const keep = rule.Keep === true
-      firstMatch = { ruleIndex, keep, cfgIdx }
+      firstMatch = match
+    }
+    const source = typeof (rule as HsfRuleWithCfg).__source === 'string' ? String((rule as HsfRuleWithCfg).__source) : null
+    const isExcluded = source && excludeSourceSet ? excludeSourceSet.has(source) : false
+    if (!isExcluded && !firstNonExcludedMatch) {
+      firstNonExcludedMatch = match
     }
     if (cfgIdx !== null) {
       matchingConfigs.add(cfgIdx)
@@ -226,6 +239,7 @@ export function evaluateMatchesByConfig(
   })
   return {
     firstMatch,
+    firstNonExcludedMatch: firstNonExcludedMatch ?? firstMatch,
     matchingConfigIndices: matchingConfigs.size > 0
       ? Array.from(matchingConfigs).sort((a, b) => a - b)
       : [],
