@@ -416,6 +416,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     [keepUniqueDetection],
   )
   const keepUniqueScanAppliedRef = useRef<string | null>(null)
+  const pendingKeepUniqueDetectionSigRef = useRef<string | null>(null)
+  const resetKeepUniqueDetectionState = useCallback(() => {
+    keepUniqueScanAppliedRef.current = null
+    pendingKeepUniqueDetectionSigRef.current = null
+    setKeepUniqueDetection(null)
+  }, [setKeepUniqueDetection])
   const resolvedKeepUniqueRules = useMemo(() => (
     resolveKeepUniqueRulesWithMetasets(keepUniqueRules, metasets)
   ), [keepUniqueRules, metasets])
@@ -436,6 +442,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const testerMatchResetRef = useRef<{ reason: TesterMatchResetReason; targetBuildId: number; startedAt: number } | null>(null)
   const [testerMatchResetReason, setTesterMatchResetReason] = useState<TesterMatchResetReason | null>(null)
   const beginTesterMatchReset = useCallback((reason: TesterMatchResetReason) => {
+    resetKeepUniqueDetectionState()
     const targetBuildId = testerRowsActiveBuildId > testerRowsCommittedBuildId
       ? testerRowsActiveBuildId
       : testerRowsCommittedBuildId + 1
@@ -445,7 +452,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       startedAt: Date.now(),
     }
     setTesterMatchResetReason(reason)
-  }, [testerRowsActiveBuildId, testerRowsCommittedBuildId])
+  }, [resetKeepUniqueDetectionState, testerRowsActiveBuildId, testerRowsCommittedBuildId])
   const testerMatchDetailsFrozen = Boolean(testerMatchResetReason)
   useEffect(() => {
     if (!testerMatchResetReason) return
@@ -933,6 +940,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           if (requestToken === ruleCacheRequestTokenRef.current) {
             finishRulesBuilding()
           }
+          if (pendingKeepUniqueDetectionSigRef.current === detectionSignatureForWarm) {
+            pendingKeepUniqueDetectionSigRef.current = null
+          }
           if (pendingWarmInputsRef.current === warmInputs) {
             pendingWarmInputsRef.current = null
           }
@@ -961,6 +971,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             pendingWarmInputsRef.current = null
           }
           keepUniqueScanAppliedRef.current = detectionSignatureForWarm
+          if (pendingKeepUniqueDetectionSigRef.current === detectionSignatureForWarm) {
+            pendingKeepUniqueDetectionSigRef.current = null
+          }
           return snapshot
         }
         if (pendingWarmInputsRef.current === warmInputs) {
@@ -2396,6 +2409,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         nextRowMap.set(entry.itemId, {
           artifact: entry.artifact,
           match: null,
+          baseMatch: null,
           matchingCfgIndices: [],
         })
       })
@@ -2406,30 +2420,37 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       return
     }
 
+    const toTesterPreviewMatch = (result: EvalResult | null): TesterPreviewMatch | null => {
+      if (!result) return null
+      const rule = mergedRules[result.ruleIndex]
+      const cfgIdx = result.cfgIdx
+      const cfgName = (cfgIdx != null && cfgIdx >= 0) ? (names[cfgIdx] ?? null) : null
+      return {
+        keep: result.keep,
+        cfgIdx: cfgIdx ?? null,
+        cfgName: cfgName && cfgName.length > 0 ? cfgName : null,
+        ruleIndex: result.ruleIndex,
+        ruleLabel: null,
+        ruleSource: rule?.__source ?? null,
+      }
+    }
+
     const toPreviewRow = (
       artifact: NormalizedGearArtifact,
       firstMatch: EvalResult | null,
+      baseMatch: EvalResult | null,
       matchingConfigIndices: number[],
-    ): TesterPreviewRow => {
-      if (!firstMatch) {
-        return { artifact, match: null, matchingCfgIndices: matchingConfigIndices }
-      }
-      const rule = mergedRules[firstMatch.ruleIndex]
-      const cfgIdx = firstMatch.cfgIdx
-      const cfgName = (cfgIdx != null && cfgIdx >= 0) ? (names[cfgIdx] ?? null) : null
-      return {
-        artifact,
-        match: {
-          keep: firstMatch.keep,
-          cfgIdx: cfgIdx ?? null,
-          cfgName: cfgName && cfgName.length > 0 ? cfgName : null,
-          ruleIndex: firstMatch.ruleIndex,
-          ruleLabel: null,
-          ruleSource: rule?.__source ?? null,
-        },
-        matchingCfgIndices: matchingConfigIndices,
-      }
-    }
+    ): TesterPreviewRow => ({
+      artifact,
+      match: toTesterPreviewMatch(firstMatch),
+      baseMatch: toTesterPreviewMatch(baseMatch),
+      matchingCfgIndices: matchingConfigIndices,
+    })
+    const shouldHoldRowsBuilding = (): boolean => (
+      keepUniquesActive
+      && !!keepUniqueDetectionSignature
+      && keepUniqueDetectionSignature !== keepUniqueScanAppliedRef.current
+    )
 
     if (testerMatchWorkerSupported) {
       setTesterRowsBuilding(true)
@@ -2445,18 +2466,23 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           results.forEach((result) => {
             const artifact = artifactByItemId.get(result.itemId)
             if (!artifact) return
-            nextRowMap.set(result.itemId, toPreviewRow(artifact, result.firstMatch, result.matchingConfigIndices))
+            nextRowMap.set(result.itemId, toPreviewRow(
+              artifact,
+              result.firstMatch,
+              result.firstNonExcludedMatch,
+              result.matchingConfigIndices,
+            ))
           })
           testerPreviewRowMapRef.current = nextRowMap
           setTesterPreviewRows(sortTesterRows(Array.from(nextRowMap.values())))
           setTesterRowsCommittedBuildId(buildId)
-          if (testerRowsBuildIdRef.current === buildId) {
+          if (testerRowsBuildIdRef.current === buildId && !shouldHoldRowsBuilding()) {
             setTesterRowsBuilding(false)
           }
         })
         .catch(() => {
           if (cancelled) return
-          if (testerRowsBuildIdRef.current === buildId) {
+          if (testerRowsBuildIdRef.current === buildId && !shouldHoldRowsBuilding()) {
             setTesterRowsBuilding(false)
           }
         })
@@ -2471,12 +2497,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     let index = 0
 
     const buildRow = (artifact: NormalizedGearArtifact): TesterPreviewRow => {
-      const { firstMatch, matchingConfigIndices } = evaluateMatchesByConfig(
+      const { firstMatch, firstNonExcludedMatch, matchingConfigIndices } = evaluateMatchesByConfig(
         mergedRules,
         artifact.testerItem,
-        { configModes },
+        { configModes, excludeSources: [RULE_SOURCE_KEEP_UNIQUES] },
       )
-      return toPreviewRow(artifact, firstMatch, matchingConfigIndices)
+      return toPreviewRow(artifact, firstMatch, firstNonExcludedMatch, matchingConfigIndices)
     }
 
     const processChunk = () => {
@@ -2496,7 +2522,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       testerPreviewRowMapRef.current = nextRowMap
       setTesterPreviewRows(sortTesterRows(Array.from(nextRowMap.values())))
       setTesterRowsCommittedBuildId(buildId)
-      if (testerRowsBuildIdRef.current === buildId) {
+      if (testerRowsBuildIdRef.current === buildId && !shouldHoldRowsBuilding()) {
         setTesterRowsBuilding(false)
       }
     }
@@ -2505,11 +2531,20 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     return () => {
       cancelled = true
       if (timeoutId !== null) clearTimeout(timeoutId)
-      if (testerRowsBuildIdRef.current === buildId) {
+      if (testerRowsBuildIdRef.current === buildId && !shouldHoldRowsBuilding()) {
         setTesterRowsBuilding(false)
       }
     }
-  }, [testerPreviewArtifacts, mergedRules, customCfgs, configModes, testerMatchWorkerSupported, evaluateTesterMatchItems])
+  }, [
+    testerPreviewArtifacts,
+    mergedRules,
+    customCfgs,
+    configModes,
+    testerMatchWorkerSupported,
+    evaluateTesterMatchItems,
+    keepUniquesActive,
+    keepUniqueDetectionSignature,
+  ])
   const testerFilterResult = useMemo(() => (
     filterTesterItems(testerPreviewRows, testerRulesFilter, metasets, { configNames })
   ), [testerPreviewRows, testerRulesFilter, metasets, configNames])
@@ -2669,12 +2704,14 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     const rowsUpToDate = testerRowsCommittedBuildId >= testerRowsBuildIdRef.current && !testerRowsBuilding
     if (!keepUniquesActive) {
       keepUniqueScanAppliedRef.current = null
+      pendingKeepUniqueDetectionSigRef.current = null
       setKeepUniqueDetection(null)
       return
     }
-    if (testerMatchFreeze?.pendingRules || testerRowsBuilding || !rowsUpToDate) {
-      return
-    }
+    if (pendingKeepUniqueDetectionSigRef.current) return
+    if (testerMatchFreeze) return
+    if (testerRowsBuilding) return
+    if (!rowsUpToDate) return
     let cancelled = false
     const timeoutId = window.setTimeout(() => {
       const snapshot = computeKeepUniqueProtection({
@@ -2682,14 +2719,24 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         rules: resolvedKeepUniqueRules,
         enabled: keepUniquesActive,
       })
+      const snapshotSignature = fingerprintKeepUniqueDetection(snapshot)
       if (cancelled) return
       setKeepUniqueDetection((prev) => {
-        if (!prev) return snapshot
-        if (prev.entries.length !== snapshot.entries.length) return snapshot
+        if (!prev) {
+          pendingKeepUniqueDetectionSigRef.current = snapshotSignature
+          return snapshot
+        }
+        if (prev.entries.length !== snapshot.entries.length) {
+          pendingKeepUniqueDetectionSigRef.current = snapshotSignature
+          return snapshot
+        }
         for (let idx = 0; idx < snapshot.entries.length; idx += 1) {
           const nextEntry = snapshot.entries[idx]
           const prevEntry = prev.entries[idx]
-          if (!nextEntry || !prevEntry) return snapshot
+          if (!nextEntry || !prevEntry) {
+            pendingKeepUniqueDetectionSigRef.current = snapshotSignature
+            return snapshot
+          }
           if (
             nextEntry.ruleId !== prevEntry.ruleId
             || nextEntry.ruleEnabled !== prevEntry.ruleEnabled
@@ -2701,6 +2748,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             || nextEntry.itemKeys.length !== prevEntry.itemKeys.length
             || nextEntry.artifacts.length !== prevEntry.artifacts.length
           ) {
+            pendingKeepUniqueDetectionSigRef.current = snapshotSignature
             return snapshot
           }
         }
