@@ -919,9 +919,18 @@ const TesterItemsGridGroup = React.memo(function TesterItemsGridGroup({
   const nested = depth > 0
   const numericSetId = typeof group.setId === 'number' && group.setId > 0 ? group.setId : null
   const groupSetTooltipName = numericSetId != null ? (artifactSetNames[numericSetId] ?? null) : null
+  const trimmedGroupLabel = group.label.trim()
+  const groupDisplayName = trimmedGroupLabel.length > 0 ? trimmedGroupLabel : undefined
+  const groupSetTooltipProps = groupDisplayName
+    ? { displayName: groupDisplayName, showName: true }
+    : undefined
   const summarySetIcon = numericSetId != null ? (
     <Box sx={{ lineHeight: 0, display: 'flex', alignItems: 'center' }}>
-      <SetIcon setId={numericSetId as ArtifactSetId} size={24} />
+      <SetIcon
+        setId={numericSetId as ArtifactSetId}
+        size={24}
+        {...(groupDisplayName ? { label: groupDisplayName } : {})}
+      />
     </Box>
   ) : null
 
@@ -968,7 +977,7 @@ const TesterItemsGridGroup = React.memo(function TesterItemsGridGroup({
         <Stack direction="row" spacing={1.5} alignItems="center" sx={{ width: '100%', flexWrap: 'nowrap' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
             {groupSetTooltipName && summarySetIcon ? (
-              <WithSetTooltip name={groupSetTooltipName} displayName={group.label}>
+              <WithSetTooltip name={groupSetTooltipName} {...(groupSetTooltipProps ?? {})}>
                 {summarySetIcon}
               </WithSetTooltip>
             ) : summarySetIcon}
@@ -1069,7 +1078,8 @@ const TesterGridCard = React.memo(function TesterGridCard({
   const artifact = row.artifact
   const match = row.match
   const setIdNumber = Number(artifact.set) || 0
-  const setLabel = formatTesterSetLabel({ setId: setIdNumber, slot: artifact.slot as ArtifactTypeId, translate: t })
+  const setLabelRaw = formatTesterSetLabel({ setId: setIdNumber, slot: artifact.slot as ArtifactTypeId, translate: t })
+  const setLabel = setLabelRaw.trim().length > 0 ? setLabelRaw : undefined
   const setTooltipName = Number.isFinite(setIdNumber) ? artifactSetNames[setIdNumber] ?? null : null
   const levelBucketLabel = formatLevel(artifact.level)
   const hasExactLevel = typeof artifact.exactLevel === 'number' && Number.isFinite(artifact.exactLevel)
@@ -1518,7 +1528,7 @@ const TesterGridCard = React.memo(function TesterGridCard({
           rank={artifact.rank}
           rarity={artifact.rarity}
           ascensionRolls={artifact.ascension?.rolls}
-          setLabel={setLabel}
+          {...(setLabel ? { setLabel } : {})}
           setTooltipName={setTooltipName}
           slotLabel={artifactTypeName(artifact.slot as ArtifactTypeId)}
           rerollLabel={rerollLabel || undefined}

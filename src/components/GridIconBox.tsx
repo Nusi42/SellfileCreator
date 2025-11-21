@@ -80,6 +80,9 @@ export default function GridIconBox({
     slotId,
     factionId != null ? { factionId } : undefined,
   )
+  const normalizedSetLabel = typeof setLabel === 'string' && setLabel.trim().length > 0 ? setLabel : undefined
+  const normalizedSetTooltipName = typeof setTooltipName === 'string' && setTooltipName.trim().length > 0 ? setTooltipName : undefined
+  const setIconLabel = normalizedSetLabel ?? normalizedSetTooltipName ?? null
   const numericRarity = Number(rarity)
   const borderColor = RARITY_BORDER_COLORS[Number.isFinite(numericRarity) ? numericRarity : 0] ?? theme.palette.divider
   const numericRank = Math.max(0, Math.min(6, Math.round(Number(rank) || 0)))
@@ -102,7 +105,7 @@ export default function GridIconBox({
       <Box
         component="img"
         src={slotArtSrc}
-        alt={setLabel || slotLabel || setTooltipName || ''}
+        alt={normalizedSetLabel || slotLabel || normalizedSetTooltipName || ''}
         draggable={false}
         onDragStart={(event) => { event.preventDefault(); event.stopPropagation() }}
         sx={{
@@ -142,13 +145,18 @@ export default function GridIconBox({
         lineHeight: 0,
       }}
     >
-      <SetIcon setId={setId as ArtifactSetId} size={20} sx={{ mr: 0, display: 'block' }} />
+      <SetIcon
+        setId={setId as ArtifactSetId}
+        size={20}
+        sx={{ mr: 0, display: 'block' }}
+        {...(setIconLabel ? { label: setIconLabel } : {})}
+      />
     </Box>
   )
-  const tooltipProps = setLabel ? { displayName: setLabel } : {}
+  const tooltipProps = normalizedSetLabel ? { displayName: normalizedSetLabel, showName: true } : undefined
   const setIconOverlay = hasRealSet && !slotArtSrc ? (
-    setTooltipName ? (
-      <WithSetTooltip name={setTooltipName} {...tooltipProps}>
+    normalizedSetTooltipName ? (
+      <WithSetTooltip name={normalizedSetTooltipName} {...(tooltipProps ?? {})}>
         {setIconContent}
       </WithSetTooltip>
     ) : setIconContent

@@ -703,7 +703,7 @@ function ConfigChipsPanel(props: {
         ) : null}
         {configs.length === 0 ? (
           <Box sx={{ width: '100%', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', color: 'text.secondary', py: 0.5 }}>
-            <Typography variant="body2" sx={{ textAlign: 'center' }}>No configs yet — right-click to Paste</Typography>
+            <Typography variant="body2" sx={{ textAlign: 'center' }}>{t('chipsEmptyPasteHint')}</Typography>
           </Box>
         ) : visibleCount === 0 ? (
           <Box sx={{ width: '100%', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', color: 'text.secondary', py: 0.5 }}>

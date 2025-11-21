@@ -1049,6 +1049,7 @@ const enUS: Catalog = {
   chipsMenuSelectVisible: 'Select Visible',
   chipsMenuCopyAllConfigs: 'Copy all Configs',
   chipsMenuPasteAtEnd: 'Paste at End',
+  chipsEmptyPasteHint: 'No configs yet — right-click to Paste',
   chipsFilteredEmpty: 'No configs match the current filters',
   chipTooltipDuplicateOf: 'This is a duplicate of config #{n}',
   chipBtnMoveUp: 'Move up',
