@@ -1135,6 +1135,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const editingConfigIndex = useMemo(() => (
     selectedCfgIndices.length === 1 ? selectedCfgIndices[0]! : null
   ), [selectedCfgIndices])
+  const [previewSelectedCfgIdx, setPreviewSelectedCfgIdx] = useState<number | null>(selectedCfgIdx)
+  useEffect(() => {
+    startTransition(() => {
+      setPreviewSelectedCfgIdx(selectedCfgIdx)
+    })
+  }, [selectedCfgIdx])
   const syncSelectedCfgIdx = useCallback((value: React.SetStateAction<number | null>, options?: { preserveSelection?: boolean; forceSync?: boolean; suppressDraft?: boolean }) => {
     autoApplyNowRef.current()
     const applySelectionChange = () => {
@@ -3836,7 +3842,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                 rules={hsfRulesForTable}
                 building={rulesBuilding}
                 setHoveredCfgIdx={setHoveredCfgIdx}
-                selectedCfgIdx={selectedCfgIdx}
+                selectedCfgIdx={previewSelectedCfgIdx}
                 multiselectActive={multiselectActive}
                 focusRuleIndex={focusRuleIndex}
                 onFocusRuleSettled={() => setFocusRuleIndex(null)}
