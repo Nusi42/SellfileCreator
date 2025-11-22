@@ -11,6 +11,8 @@ Crea, revisa y exporta reglas de venta para RSL Helper con una interfaz sencilla
 - Metasets: agrupa conjuntos de equipo (por ejemplo, Velocidad + Percepción) y reutilízalos en varias reglas.
 - Exportación con un clic: genera un archivo HSF (Sellfile de RSL Helper) listo para cargar en RSL Helper.
 - Vista previa del Probador de Reglas + diálogo «Equipo...»: crea equipo de ejemplo, pega filas o arrastra tu base de datos de RSL Helper (normalmente `%APPDATA%\\RslHelper\\Config`) al diálogo. Después, deja el diálogo cerrado y usa el interruptor de vista previa para mantener esas filas visibles mientras las comparas con tus reglas.
+- Diálogo de restauración de Autosave: cuando se encuentra un autoguardado, eliges qué cargar — configs, metasets, Objetivos de substats, resto de Venta final, nota fijada, estado del panel de filtros e incluso equipo del Probador de Reglas.
+- Copiar la carpeta de la base de datos de RSL Helper: el encabezado de la vista previa incluye un botón que copia `%APPDATA%\\RslHelper\\Config` al portapapeles para que pegues la ruta en el Explorador antes de arrastrar la `.db` a Sellfile Creator.
 
 ## Cómo usarlo
 
@@ -23,7 +25,9 @@ Crea, revisa y exporta reglas de venta para RSL Helper con una interfaz sencilla
 - Completa el Constructor de configs y da un nombre claro a tu config.
 - Pulsa «Agregar como nueva config» para guardarla. Después selecciónala en la lista debajo del constructor para editarla y guarda los cambios con «Actualizar config seleccionada».
 - Cargar/Guardar: usa «Cargar configs» y «Guardar configs» para reutilizar tus reglas. Estas acciones guardan todo lo necesario para reconstruir la vista previa.
+- Menús de Reset/Insert/Apply: haz clic derecho en «Reset», «Insert as config» o «Apply as config» para abrir las opciones compartidas. Guarda el estado actual del constructor como plantilla predeterminada, vuelve a los valores de fábrica, habilita «Auto reset after Insert» (limpia el constructor en cuanto insertas una config) o «Auto apply to selected config» (envía los cambios a la config seleccionada automáticamente tras ~400 ms de inactividad). Auto reset y Auto apply no pueden estar activos al mismo tiempo: al activar uno se apaga el otro, y ambas preferencias permanecen entre sesiones.
 - Nota: pulsa «Agregar nota…» (o «Editar nota…») para adjuntar un texto al archivo de configs. Al cargar un archivo que contiene nota, se mostrará automáticamente. Usa `<!-- configs:1,0 -->` para insertar chips de configs concretas (0 toma la siguiente config). Usa `<!-- configs-re:"speed" -->` para mostrar todas las configs cuyo nombre coincide con el patrón (sin distinguir mayúsculas/minúsculas).
+- Restaurar Autosave: al iniciar, el diálogo lista cada sección autoguardada con su propia casilla. Restaura solo lo que necesites — configs (incluida la selección actual), metasets, Objetivos de substats, resto de Venta final, nota fijada, panel de filtros (estado, chips, secciones colapsadas) y equipo del Probador de Reglas. Deja una casilla desmarcada para conservar tu trabajo. Autosave también recuerda qué interruptores de Venta final (Artefactos, Accesorios y rangos de nivel) estaban activos, así que al reabrirlo refleja exactamente lo que exportaste la última vez.
 
 ### Diseño del constructor (de arriba hacia abajo)
 - Acción y Activado: Indica qué debe ocurrir cuando un objeto coincide con la config.
@@ -62,6 +66,8 @@ Crea, revisa y exporta reglas de venta para RSL Helper con una interfaz sencilla
   - `Auto` mantiene la cuenta alineada con lo que eliges (hasta cuatro).
   - Los substats bloqueados (🔒) siempre cuentan y aparecen avisos cuando la combinación es imposible.
 - Tiradas mínimas (global): Marca cuántas tiradas totales deben repartirse los substats seleccionados o bloqueados. `0` salta la comprobación agregada. Temprano muestra solo combinaciones que aún pueden alcanzar tu objetivo a +16.
+- Tiradas mínimas bloqueadas (🔒) aparece cuando al menos un substat está bloqueado. Haz clic en un número de la fila del candado para reservar esa cantidad de tiradas solo para los stats bloqueados; el resto del constructor sigue la mínima global. Si el candado iguala o supera el número resaltado en la insignia global, esa insignia se limpia y el candado se convierte en el único piso agregado. Al desbloquear el substat (o pulsar Auto) se vacían ambos indicadores; al usar un valor global más pequeño, la insignia global se vuelve a encender junto al candado para mostrar qué piso aplica a cada grupo de stats.
+- Ejemplo: Bloquea SPD y CR%, define Tiradas mínimas = 3 y luego fija la fila 🔒 en 2. El constructor ahora exige 3 tiradas totales entre todos los substats seleccionados, al menos 2 de ellas sobre los picks bloqueados de SPD/CR%. Si marcas el candado en 3, la insignia global se borra automáticamente porque ambos pisos serían idénticos.
 - Umbrales por hitos: Controla cómo se aplican los mínimos por stat antes de +16 cuando pides tiradas mínimas.
   - `Temprano` sigue las tiradas que ya tienes en cada hito.
   - `Tardío` exige solo lo que debe existir ahora para que la meta de +16 siga siendo alcanzable.
@@ -108,7 +114,7 @@ Crea, revisa y exporta reglas de venta para RSL Helper con una interfaz sencilla
 
 ### Controles de la vista previa del Sellfile
 - Gestionar colores: usa el icono de la paleta; «Restablecer valores predeterminados» recupera los recomendados.
-- Filtros: En `Reglas` se muestran los chips Cualquiera/Solo para Ranura/Rango/Rareza/Nivel y ambos botones de Configs: `Configs vista` controla la visibilidad de chips y el `Filtro de configs` se comporta como un interruptor Activado/Desactivado que reduce las filas del Sellfile a tus configs seleccionadas. En `Probador de Reglas` el botón sigue activo y vuelve a ofrecer Primera/Cualquiera para las filas del tester, y además aparece el filtro Conservar/Vender vs Coincidencia/Sin coincidencia. «Restablecer filtros» vuelve a activar los chips y deja el Filtro de configs en `Off`.
+- Filtros: Pulsa `Ctrl+F` (`Cmd+F` en macOS) para abrir el panel y enfocar al instante la búsqueda de configs. Haz clic derecho en cualquier encabezado de sección (o `Ctrl`/`Cmd`+clic en su chevrón) para colapsar o expandir todas las secciones de una sola vez. `Configs vista` oculta chips que no coinciden con el filtro activo para que la tabla siga legible. `Filtro de configs` decide qué configs se permiten en la tabla: en `Reglas` actúa como un simple interruptor Activado/Desactivado, y en la vista del Probador de Reglas rota por `Off` → `Primera` → `Cualquiera` para controlar también cómo responden las filas del tester.
 - Menú de columnas (clic derecho en la cabecera):
   - Restablecer columnas: vuelve a los valores iniciales.
   - Ajustar anchura: adapta las columnas al ancho de la ventana.

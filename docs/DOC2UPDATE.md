@@ -62,12 +62,11 @@ We shipped multiple UI/behavior changes after release `2fcc9d04db1a3a045827ee17e
 **Files to inspect**
 - `src/lib/i18n/catalogs/en-US.ts`
 - Locale mirrors: `de-DE.ts`, `es-ES.ts`, `fr-FR.ts`, `it-IT.ts`, `pt-PT.ts`, `pt-BR.ts`, `ru-RU.ts`, `tr-TR.ts`, `uk-UA.ts`
-- Supporting checklist: `docs/technical/l10n-translation-checklist.md`
 
 **Focus areas**
 - Audit any strings added since `2fcc9d0` (locked-min roll controls, builder auto-reset/auto-apply menus, preview export hints, tester-grid context menu, copy-path status toasts, new filter slider/glyph labels, context-menu hint text) and ensure every locale provides translations.
 - Check tooltip/aria-label coverage where we hard-coded English text after the last release (`RulesFilterPanel` accordion controls, Rule Tester dialog add/remove row buttons, Cookie Monster easter-egg tooltip).
-- Keep catalogs alphabetized with `en-US` as the source of truth; update `docs/technical/l10n-translation-checklist.md` with any new workflows uncovered while localizing the new strings.
+- Keep catalogs alphabetized with `en-US` as the source of truth; record any new localization workflows in `OTHER_LANGS.md` so there is a single follow-up checklist.
 - Once translations land, re-run our normal verification commands (`npm run typecheck`, `npm run lint`, `npm test`) to ensure catalog imports remain type-safe (strict TS types depend on the shape of `en-US`).
 
 ---

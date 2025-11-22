@@ -6,11 +6,13 @@ RSL Helper için satış kurallarını basit bir arayüzle oluşturun, önizleyi
 
 ## Özellikler
 - Kuralları oluşturun ve kaydedin: Konfigler hazırlayın ve tekrar kullanabileceğiniz bir kitaplık oluşturun.
-- Sellfile Önizleme anahtarı: Başlıktaki `Rules`/`Rule Tester` anahtarıyla kurallar tablosu ile Rule Tester ekipman tablosu arasında anında geçiş yapın. Sayaçlar ve sonuç rozetleri (Keep/Sell vs Matched/No Match) seçtiğiniz görünüme göre güncellenir, filtre satırı da aynı görünümü izler.
-- Sürükle-bırak veya Load düğmesi: `.hsfc`, `.hsf` ya da `.db` dosyalarını herhangi bir yere bırakın (katman doğrular) ya da “Load RSL Helper Sellfile” düğmesine tıklayın. İki yol da aynı yönlendirmeyi kullanır; `.hsfc` oluşturucuyu değiştirir, `.hsf` isteğe bağlı baz Sellfile olarak katmanlanır ve `.db` dökümleri Rule Tester kuyruğuna aktarılır (oluşturucuya dokunmadan).
+- Sellfile Önizleme anahtarı: Başlıktaki `Rules`/`Kural testi` anahtarıyla kurallar tablosu ile Kural testi ekipman tablosu arasında anında geçiş yapın. Sayaçlar ve sonuç rozetleri (Keep/Sell vs Matched/No Match) seçtiğiniz görünüme göre güncellenir, filtre satırı da aynı görünümü izler.
+- Sürükle-bırak veya Load düğmesi: `.hsfc`, `.hsf` ya da `.db` dosyalarını herhangi bir yere bırakın (katman doğrular) ya da “Load RSL Helper Sellfile” düğmesine tıklayın. İki yol da aynı yönlendirmeyi kullanır; `.hsfc` oluşturucuyu değiştirir, `.hsf` isteğe bağlı baz Sellfile olarak katmanlanır ve `.db` dökümleri Kural testi kuyruğuna aktarılır (oluşturucuya dokunmadan).
 - Metasetler: Ekipman setlerini (ör. Hız + Algı) gruplayın ve birçok kuralda tekrar kullanın.
 - Tek tıkla dışa aktarma: RSL Helper’da kullanılmaya hazır bir HSF dosyası üretin.
-- Rule Tester önizlemesi + Gear iletişim kutusu (“Gear...”): Örnek ekipman oluşturun, satırları yapıştırın veya RSL Helper veritabanınızı (genellikle `%APPDATA%\RslHelper\Config`) iletişim kutusuna sürükleyip bırakın. Sonra iletişim kutusunu kapalı bırakıp önizleme anahtarıyla bu tester satırlarını kurallarınızla karşılaştırırken görünürde tutun.
+- Kural testi önizlemesi + Gear iletişim kutusu (“Gear...”): Örnek ekipman oluşturun, satırları yapıştırın veya RSL Helper veritabanınızı (genellikle `%APPDATA%\RslHelper\Config`) iletişim kutusuna sürükleyip bırakın. Sonra iletişim kutusunu kapalı bırakıp önizleme anahtarıyla bu tester satırlarını kurallarınızla karşılaştırırken görünürde tutun.
+- Autosave geri yükleme iletişim kutusu: Bir autosave bulunduğunda, hangi bölümlerin yükleneceğini tek tek seç — konfigler, metasetler, Alt stat hedef değerleri, Final satış bakiyesi, sabitlenmiş not, filtre paneli durumu ve hatta Kural testi ekipmanı.
+- RSL Helper DB klasörünü kopyala: Önizleme başlığındaki pano düğmesi `%APPDATA%\RslHelper\Config` yolunu kopyalar; böylece `.db` dosyasını Sellfile Creator’a sürüklemeden önce yolu Explorer’a/gezgine yapıştırabilirsin.
 
 ## Nasıl kullanılır
 
@@ -23,7 +25,9 @@ RSL Helper için satış kurallarını basit bir arayüzle oluşturun, önizleyi
 - Konfig Oluşturucu alanlarını doldurun ve konfige net bir isim verin.
 - «Yeni konfig olarak ekle» seçeneğiyle kaydedin. Ardından oluşturucunun altındaki listeden seçip «Seçili konfigi güncelle» ile değişiklikleri kaydedin.
 - Yükle/Kaydet: «Konfigleri yükle» ve «Konfigleri kaydet» işlemleri önizlemeyi yeniden oluşturmak için gereken her şeyi saklar.
+- Reset/Insert/Apply menüleri: Reset, «Konfig olarak ekle» veya «Konfig olarak uygula» seçeneklerine sağ tıklayarak ortak menüyü aç. Mevcut oluşturucu durumunu varsayılan şablon olarak kaydet, fabrika varsayılanlarına geri dön, «Eklendikten sonra otomatik sıfırla» seçeneğini açarak ekledikten hemen sonra alanları temizle veya «Seçili konfige otomatik uygula»yı açarak ~400 ms hareketsizlikten sonra düzenlemeleri vurgulanan konfige işle. Auto reset ve Auto apply aynı anda açık kalamaz — biri açıldığında diğeri kapanır — ve tercihlerin her ikisi de oturumlar arasında saklanır.
 - Not: «Not ekle…» / «Not düzenle…» konfig dosyasına not ekler. Not içeren dosyayı yüklediğinizde otomatik gösterilir. `<!-- configs:1,0 -->` belirli konfig çiplerini ekler (0 bir sonrakini seçer). `<!-- configs-re:"speed" -->` adı desene uyan tüm konfigleri gösterir (büyük/küçük harf duyarsızdır).
+- Autosave geri yükleme: Uygulama açıldığında iletişim kutusu her autosave bölümünü kendi onay kutusuyla listeler. Yalnızca ihtiyacın olanı geri yükle — konfigler (seçili çip dahil), metasetler, Alt stat hedef değerleri, Final satış bakiyesi, sabitlenmiş not, filtre paneli (açık/kapalı durumu, çipler, daraltılmış bölümler) ve Kural testi ekipmanı. Kutuyu boş bırakırsan mevcut çalışman aynen kalır. Autosave ayrıca hangi Final satış anahtarlarının (Artefaktlar, Aksesuarlar ve seviye aralıkları) açık olduğunu hatırlar, bu yüzden iletişim kutusu tekrar açıldığında son dışa aktarmanın birebir kopyasını görürsün.
 
 ### Oluşturucu düzeni (yukarıdan aşağıya)
 - Eylem ve Etkin: Bir eşya konfigle eşleştiğinde ne olacağını tanımlar.
@@ -62,6 +66,8 @@ RSL Helper için satış kurallarını basit bir arayüzle oluşturun, önizleyi
   - `Oto` seçimi takip eder (en fazla dört).
   - Kilitli alt statlar (🔒) her zaman sayılır ve imkânsız kombinasyonlarda uyarı gösterilir.
 - Minimum rulolar (global): Seçili ya da kilitli alt statlar arasında paylaşılması gereken toplam rulo sayısını ayarlar. `0` toplam kontrolünü atlar. Erken mod +16’ya kadar hedefe ulaşabilecek kombinasyonları listeler.
+- Kilitli Minimum rulolar (🔒) en az bir alt stat kilitliyken görünür. Kilit satırındaki sayılara tıklayarak yalnızca kilitli statlar için ayrılacak rulo sayısını belirle; oluşturucunun geri kalanı global minimumu izlemeye devam eder. Kilit değeri vurgulanan global sayıya eşit veya ondan yüksek olduğunda global rozet temizlenir ve tek taban olarak kilit kalır. Stati kilitten çıkarmak (veya Auto’ya dokunmak) her iki rozeti de temizler; globalde daha küçük bir sayı seçmek iki rozeti yeniden açar ve hangi tabanın hangi statlara uygulandığını gösterir.
+- Örnek: SPD ve CR% statlarını kilitle, Minimum ruloları = 3 yap ve 🔒 satırını 2’ye ayarla. Oluşturucu toplamda 3 rulo ister; bunların en az 2 tanesi kilitli SPD/CR% seçimlerine gitmelidir. Kilit = 3 olduğunda global rozet otomatik olarak söner çünkü iki taban aynı olur.
 - Eşikler (Seviye başına): Minimum rulo istediğinizde +16 öncesinde nasıl davranacağını belirtir.
   - `Erken` her seviyede halihazırda kazanılan ruloları takip eder.
   - `Geç` +16 hedefinin hâlâ mümkün olması için şu anda zorunlu olan ruloları ister.
@@ -98,17 +104,17 @@ RSL Helper için satış kurallarını basit bir arayüzle oluşturun, önizleyi
 - Tabloda satıra tıklamak satırın ait olduğu konfigi seçer (baz HSF satırları seçimi değiştirmez).
 - Panoya alternatif: Clipboard erişimi engellenirse, metni seçili şekilde gösteren bir iletişim kutusu açılır.
 
-### Sellfile önizlemesi (Rules & Rule Tester)
-- Önizleme başlığı `Rules`/`Rule Tester` anahtarını, “Gear...” düğmesini ve “Load RSL Helper Sellfile” düğmesini yan yana tutar; böylece tabloyu nereden değiştireceğinizi veya Rule Tester iletişim kutusunu nereden açacağınızı her zaman bilirsiniz.
+### Sellfile önizlemesi (Rules & Kural testi)
+- Önizleme başlığı `Rules`/`Kural testi` anahtarını, “Gear...” düğmesini ve “Load RSL Helper Sellfile” düğmesini yan yana tutar; böylece tabloyu nereden değiştireceğinizi veya Kural testi iletişim kutusunu nereden açacağınızı her zaman bilirsiniz.
 - `Rules` görünümü (varsayılan): Dışa aktarılacak tüm kuralları, yüklediğiniz isteğe bağlı baz `.hsf` satırları dahil gösterir. Başlıktaki sayaçlar Keep vs Sell dağılımında kalır; filtre satırı Slot/Rütbe/Nadirlik/Seviye için Any/Only çiplerini ve iki Configs düğmesini birlikte gösterir: `Önizleme konfigleri` çip görünürlüğünü kontrol eder, `Konfig filtresi` ise seçtiğiniz çiplere göre Sellfile satırlarını gizleyen basit Açık/Kapalı düğmesi olarak çalışır ve tester’a geçmeden önce bile hazır kalır.
-- `Rule Tester` görünümü: Tabloyu tester ekipman listesine çevirir, böylece içeri aktardığınız veya oluşturduğunuz öğeleri iletişim kutusunu yeniden açmadan inceleyebilirsiniz. Sayaçlar/rozetler Matched vs No Match (ve Keep vs Sell) kombinasyonuna, yani “ilk eşleşen konfig kazanır” kuralına göre geçer; filtre satırı ise her iki düğmeyi (`Önizleme konfigleri` + `Konfig filtresi`) korur ve buna tester’a özel Keep/Sell + Matched/No Match filtresini ekler. `Konfig filtresi` tri-state’i (`Off` → `İlk` → `Herhangi`) bu görünümde tester satırlarını İlk/Herhangi davranışına göre ayırır ve `Rules`’a döndüğünüzde de Sellfile satırlarını seçtiğiniz konfiglerle sınırlamaya devam eder. `.db` içe aktarmaları otomatik olarak bu görünüme geçer; istediğiniz zaman `Rules`’a dönebilirsiniz.
-- “Load RSL Helper Sellfile” sürükle-bırak ile aynı yönlendirmeyi paylaşır: `.hsfc` oluşturucuyu değiştirir, `.hsf` isteğe bağlı baz Sellfile olarak katmanlanır ve `.db` dosyaları Rule Tester önizlemesine kuyruklanır (konfiglere dokunmadan). “Clear” düğmesi baz `.hsf` katmanını kaldırır.
+- `Kural testi` görünümü: Tabloyu tester ekipman listesine çevirir, böylece içeri aktardığınız veya oluşturduğunuz öğeleri iletişim kutusunu yeniden açmadan inceleyebilirsiniz. Sayaçlar/rozetler Matched vs No Match (ve Keep vs Sell) kombinasyonuna, yani “ilk eşleşen konfig kazanır” kuralına göre geçer; filtre satırı ise `Önizleme konfigleri` ve `Konfig filtresi` düğmelerini korur ve bunlara Kural testi’ne özel Keep/Sell + Matched/No Match filtresini ekler. `Konfig filtresi` tri-state’i (`Off` → `İlk` → `Herhangi`) bu görünümde Kural testi satırlarının İlk/Herhangi davranışını ayırır ve `Rules`’a döndüğünüzde de Sellfile satırlarını seçtiğiniz konfiglerle sınırlamaya devam eder. `.db` içe aktarmaları otomatik olarak bu görünüme geçer; istediğiniz zaman `Rules`’a dönebilirsiniz.
+- “Load RSL Helper Sellfile” sürükle-bırak ile aynı yönlendirmeyi paylaşır: `.hsfc` oluşturucuyu değiştirir, `.hsf` isteğe bağlı baz Sellfile olarak katmanlanır ve `.db` dosyaları Kural testi önizlemesine kuyruklanır (konfiglere dokunmadan). “Clear” düğmesi baz `.hsf` katmanını kaldırır.
 - Palet simgesini kullanarak alt stat etiketleri için metin/arka plan renklerini düzenleyin.
-- `Rules` görünümünde tablo sütunları hâlâ “Idx” ve “Konf” alanlarını içerir (baz dosyadan gelen satırlarda “Konf” boş kalır). `Rule Tester` görünümünde aynı alanlar yuva/set, eşya istatistikleri ve ilk eşleşen konfig rozetini gösterir; böylece her artefakta ne olacağını doğrudan önizleme içinde görebilirsiniz.
+- `Rules` görünümünde tablo sütunları hâlâ “Idx” ve “Konf” alanlarını içerir (baz dosyadan gelen satırlarda “Konf” boş kalır). `Kural testi` görünümünde aynı alanlar yuva/set, eşya istatistikleri ve ilk eşleşen konfig rozetini gösterir; böylece her artefakta ne olacağını doğrudan önizleme içinde görebilirsiniz.
 
 ### Önizleme kontrolleri
 - Renkleri yönet: Palet ikonunu kullanın; «Varsayılanlara döndür» önerilen renkleri geri yükler.
-- Filtreler: `Rules` görünümünde Slot/Rütbe/Nadirlik/Seviye için Any/Only çipleri ve iki Configs düğmesi vardır; `Önizleme konfigleri` çipleri gösterir/gizler, `Konfig filtresi` ise (`Kapalı`/`Açık`) artık Sellfile satırlarını seçtiğiniz konfiglerle sınırlar ve aynı odak noktasını tester için hazırlar. `Rule Tester` görünümünde düğme aktif kalır ve tester satırlarında İlk/Herhangi davranışına geri döner; satır buna ek olarak Keep/Sell vs Matched/No Match filtresini alır. “Reset filters” çipleri yeniden açar ve `Konfig filtresi`ni `Off` konumuna çeker.
+- Filtreler: Paneli açıp Konfig aramasına anında odaklanmak için `Ctrl+F` (`Cmd+F` macOS’ta) kısayolunu kullanın. Bir bölüm başlığını sağ tıklayın (veya simgesine `Ctrl`/`Cmd`+tıklayın) ve tüm bölümleri tek seferde daraltıp genişletin. `Önizleme konfigleri`, aktif filtreyle eşleşmeyen kayıtlı çipleri gizleyerek önizlemenin okunabilir kalmasını sağlar. `Konfig filtresi` tabloda hangi konfiglerin izinli olduğunu yönetir: `Rules` görünümünde basit bir Açık/Kapalı anahtardır, `Kural testi` önizlemesinde ise `Off` → `İlk` → `Herhangi` döngüsünü izleyerek Kural testi satırlarını İlk/Herhangi davranışına göre ayırır.
 - Sütun menüsü (başlığa sağ tık):
   - Sütunları sıfırla: Varsayılan sütunları ve genişlikleri geri getirir.
   - Genişlikleri uyarla: Sütunları pencere genişliğine göre ayarlar.
@@ -118,12 +124,12 @@ RSL Helper için satış kurallarını basit bir arayüzle oluşturun, önizleyi
 - Sütun genişliği: Başlığın sağ kenarını sürükleyin.
 - Tıklama davranışı: Tablo satırına tıklamak ilgili konfigi seçer (otomatik kaydırma yok). Bir konfig etiketine tıklamak tabloyu ilk eşleşen satıra kaydırır.
 
-### Rule Tester önizlemesi
-- Sellfile Önizlemesi başlığındaki “Gear...” düğmesine tıklayarak Rule Tester iletişim kutusunu açın. Örnek ekipman oluşturun veya satırları (JSON/metin) yapıştırın; öğeler anında önizlemeye senkronize edilir, bu yüzden iletişim kutusunu kapatmak tester tablosunu temizlemez.
-- `.db` dosyalarını uygulamaya bırakarak ya da “Load RSL Helper Sellfile” düğmesini kullanarak RSL Helper ekipman veritabanınızı içe aktarın (aynı yönlendirme). Bu içe aktarmalar binlerce envanter + gelen kutusu parçasını kuyruğa ekler, önizlemeyi tester tablosuna geçirir ve oluşturucu/dışa aktarma durumunu bozmadan bırakır.
-- Her tester satırı yuva, set, seviye, ana stat, alt statlar (glifler ve rulolar dahil), kaynağı (envanter vs gelen kutusu) ve Keep/Sell ile ilk eşleşen konfig etiketlerini gösterir. Devre dışı kurallar asla eşleşmez; “No Match” satırları Sellfile’ın dokunmayacağı öğeleri temsil eder.
-- Başlıktaki sayaçlar Matched vs No Match toplamlarının yanı sıra Keep/Sell dağılımlarını da gösterir. Rule Tester filtrelerini (Keep/Sell sonucu + Matched/No Match + `Tester konfigleri` `Off`/`İlk`/`Herhangi`) kullanarak dışa aktarmadan önce edge case’lere odaklanın.
-- Önizleme anahtarını kullanarak kurallar tablosu ile Rule Tester tablosu arasında iletişim kutusunu yeniden açmadan gidip gelin; böylece üretilen satırları tetikleyen ekipmanla yan yana karşılaştırabilirsiniz.
+### Kural testi önizlemesi
+- Sellfile Önizlemesi başlığındaki “Gear...” düğmesine tıklayarak Kural testi iletişim kutusunu açın. Örnek ekipman oluşturun veya satırları (JSON/metin) yapıştırın; öğeler anında önizlemeye senkronize edilir, bu yüzden iletişim kutusunu kapatmak Kural testi tablosunu temizlemez.
+- `.db` dosyalarını uygulamaya bırakarak ya da “Load RSL Helper Sellfile” düğmesini kullanarak RSL Helper ekipman veritabanınızı içe aktarın (aynı yönlendirme). Bu içe aktarmalar binlerce envanter + gelen kutusu parçasını kuyruğa ekler, önizlemeyi Kural testi tablosuna geçirir ve oluşturucu/dışa aktarma durumunu bozmadan bırakır.
+- Her Kural testi satırı yuva, set, seviye, ana stat, alt statlar (glifler ve rulolar dahil), kaynağı (envanter vs gelen kutusu) ve Keep/Sell ile ilk eşleşen konfig etiketlerini gösterir. Devre dışı kurallar asla eşleşmez; “No Match” satırları Sellfile’ın dokunmayacağı öğeleri temsil eder.
+- Başlıktaki sayaçlar Matched vs No Match toplamlarının yanı sıra Keep/Sell dağılımlarını da gösterir. Kural testi filtrelerini (Keep/Sell sonucu + Matched/No Match + `Tester konfigleri` `Off`/`İlk`/`Herhangi`) kullanarak dışa aktarmadan önce edge case’lere odaklanın.
+- Önizleme anahtarını kullanarak kurallar tablosu ile Kural testi tablosu arasında iletişim kutusunu yeniden açmadan gidip gelin; böylece üretilen satırları tetikleyen ekipmanla yan yana karşılaştırabilirsiniz.
 
 ### Dışa aktarma
 - Baz dosya yüklüyse «Birleştirilmiş RSL Helper Sellfile’ı dışa aktar» görünür; aksi durumda «RSL Helper Sellfile’ı dışa aktar».
@@ -199,7 +205,7 @@ Erken vs Geç
 - Düzenle ve test et: Uygulamayı açıp düzenlediğin `*.l10n.json` dosyasını üzerine sürükleyerek anlık oturumda hemen uygula (herhangi bir kurulum gerekmez veya yapılamaz).
 - Düzeltme gönder: Güncellenmiş JSON’u Discord mesajı olarak gönder. Anahtarları değiştirme; eksik anahtarlar İngilizceye geri döner.
 - Yerleşik diller: Gönderilen tüm diller tek HTML dosyasına derlenir, bu yüzden uygulama tamamen çevrimdışı çalışır. Düzeltmelerin bir sonraki sürüme eklenir.
-- RSL Helper veritabanını izle: `%APPDATA%\\RslHelper\\Config` yolunu takip etmek için `scripts/run-sample-server.ps1 -WatchGearDb` (veya `-GearDbPath <dosya>`) kullan. `.db` her güncellendiğinde örnek sunucu onu doğrudan başlattığı Rule Tester’a gönderir ve birden fazla dosya varsa hangisinin izleneceğini sorar.
+- RSL Helper veritabanını izle: `%APPDATA%\\RslHelper\\Config` yolunu takip etmek için `scripts/run-sample-server.ps1 -WatchGearDb` (veya `-GearDbPath <dosya>`) kullan. `.db` her güncellendiğinde örnek sunucu onu doğrudan başlattığı Kural testine gönderir ve birden fazla dosya varsa hangisinin izleneceğini sorar.
 - Çift tıklama kısayolu: `Stream-Helper-DB-to-Creator.bat`, PowerShell’de `-WatchGearDb "%APPDATA%\\RslHelper\\Config"` parametreleriyle örnek sunucuyu başlatır; böylece varsayılan RSL Helper veritabanını konsola dokunmadan aktarabilir ve `.bat` adından sonra ek bayraklar yazarak davranışı özelleştirebilirsin.
 
 ## Teşekkürler

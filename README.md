@@ -12,6 +12,7 @@ Build, preview, and export sell rules for RSL Helper with a simple UI.
 - One-click Export: export an HSF file (the RSL Helper Sellfile) ready for RSL Helper.
 - Rule Tester preview + Gear dialog (“Gear...”): create example gear, paste items, or drag-and-drop your RSL Helper DB (usually `%APPDATA%\RslHelper\Config`) into the dialog. Then leave the dialog closed and use the preview toggle to keep those tester items visible while you compare them against your rules.
 - Autosave restore dialog: when an autosave is found, pick exactly what to load — configs, metasets, Substat Target Values, Final Sell remainder, pinned note, filter panel state, and even Rule Tester gear.
+- Copy the RSL Helper DB folder: the preview header exposes a clipboard button that copies `%APPDATA%\RslHelper\Config` so you can paste the folder path into Explorer before dragging the `.db` into Sellfile Creator.
 
 ## How To Use
 
@@ -24,8 +25,9 @@ Build, preview, and export sell rules for RSL Helper with a simple UI.
 - Fill in the Configs Builder and give your config a clear “Config Name”.
 - Click “Add as new config” to save it; then click the saved config in the list below the builder to select it for editing, and click “Update selected config”.
 - Load/Save: Use “Load Configs” and “Save Configs” to reuse your custom rules. These actions save everything needed to rebuild what you see in the preview into a Configs file.
+- Reset/Insert/Apply menus: Right-click Reset, Insert as config, or Apply as config to open the shared options menu. Save your current builder state as the default template, jump back to the factory defaults, enable Auto reset after Insert (clear the builder immediately after inserting a config), or enable Auto apply to selected config (push edits into the highlighted config automatically after ~400 ms of inactivity). Auto reset and Auto apply cannot be on at the same time—turning one on turns the other off—and both preferences persist between sessions.
 - Note: Click “Add Note…” (or “Edit Note…”) to attach a note to your Configs file. The note is shown automatically after loading a Configs file that contains one. Use `<!-- configs:1,0 -->` to drop chips for specific configs (0 continues to the next one). Use `<!-- configs-re:"speed" -->` to show every config whose name matches the case-insensitive pattern.
-- Autosave restore: On launch, the dialog lists every autosaved section with its own checkbox. Restore only what you need — configs (including the selected chip), metasets, Substat Target Values, Final Sell remainder, the pinned note, the filter panel (open state, chips, collapsed sections), and Rule Tester gear. Leave a box unchecked to keep your current work untouched.
+- Autosave restore: On launch, the dialog lists every autosaved section with its own checkbox. Restore only what you need — configs (including the selected chip), metasets, Substat Target Values, Final Sell remainder, the pinned note, the filter panel (open state, chips, collapsed sections), and Rule Tester gear. Leave a box unchecked to keep your current work untouched. Autosave also remembers which Final Sell toggles (Artifacts, Accessories, and level ranges) were enabled, so reopening the dialog mirrors exactly what you exported last time.
 
 ### Builder layout (top → bottom)
 - Action & Enable: Tell the Sellfile what should happen when an item matches the config.
@@ -65,6 +67,8 @@ Build, preview, and export sell rules for RSL Helper with a simple UI.
   - `Auto` keeps the count in sync with the number you selected (up to four).
   - Locked substats (🔒) always count toward the requirement, and warnings flag impossible combinations (for example, locking more than four stats).
 - Min Required Rolls (global): Set the total number of rolls your selected or locked substats must share. `0` skips the aggregate check. Auto keeps the total aligned with your required substats when two or more are tracked, and caps it at what the current rarity can roll; single-stat configs stay at zero. Early milestones list any splits that can still hit that target by +16.
+- Locked Min Required Rolls (🔒) appears when at least one substat is locked. Click a number in the lock row to reserve that many rolls for the locked stats only; the rest of the builder keeps following the global minimum. If the lock equals or exceeds the highlighted global number, the global badge clears so the lock becomes the only aggregate floor. Unlocking the substat (or tapping Auto) clears both badges; picking a smaller global value re-lights the global badge alongside the lock so you can see which floor applies to which stats.
+- Example: Lock SPD and CR%, set Min Required Rolls = 3, then set the 🔒 row to 2. The builder now needs 3 total rolls across every selected substat, at least 2 of which must land on the locked SPD/CR% picks. Lock = 3 automatically clears the global badge because both floors would be identical.
 - Milestone Thresholds: Decide how per-stat minimums behave before +16 once you ask for roll minimums.
   - `Early` tracks the rolls you already have at each milestone.
   - `Late` only demands what must be present now so the +16 goal stays achievable.
@@ -114,7 +118,7 @@ Build, preview, and export sell rules for RSL Helper with a simple UI.
 
 ### Sellfile Preview Controls
 - Manage Colors: Click the palette icon above the table to customize text/background colors for substat labels. Use “Reset to defaults” in the dialog to restore recommended colors.
-- Filters: In Rules view you get Slot/Rank/Rarity/Level Any/Only chips plus both Config buttons — Preview Configs (default Off) hides non-matching chips, and Config Filter is an On/Off toggle that limits the Sellfile rows to your selected config chips. Swap to Rule Tester and that row adds the Keep/Sell vs Matched/No Match outcome filter while Config Filter switches to its full `Off` → `First-Match` → `Any-Match` behavior for tester gear. “Reset filters” turns Preview Configs back Off and returns the Config Filter control to `Off`.
+- Filters: Press `Ctrl+F` (`Cmd+F` on macOS) to open the panel and focus the Config search instantly. Right-click any section header (or `Ctrl`/`Cmd`+click its chevron) to collapse or expand every section at once. Preview Configs hides saved-config chips that do not match the active filter so the preview stays readable. Config Filter controls which configs are allowed in the table: it’s a simple On/Off toggle in Rules mode, and it cycles through `Off` → `First-Match` → `Any-Match` when the Rule Tester preview is active.
 - Column menu: Right-click the table header to open controls:
   - Reset columns: Restore default columns and widths.
   - Auto-fit widths: Fit columns to the viewport.

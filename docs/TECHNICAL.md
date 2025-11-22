@@ -19,6 +19,7 @@ The technical reference is now split across focused documents. Start here, then 
 - [Locked roll constraints](technical/app-behavior.md#builder-outputs-and-normalization) — how `lockedMinRequiredRolls` impacts aggregate targets so locked selections can demand their own roll floors alongside the global sum.
 - [Gear Database Import](technical/gear-db-import.md) — reverse-engineering the RSL Helper SQLite dump and mapping it into the Rule Tester.
 - [UI and Layout](technical/ui-and-layout.md) — localization, metasets, preview UX, shared hooks, effect guidelines, and responsive layout constraints.
+- [Tooltip & Context Hints](TOOLTIPS.md) — inventory of every tooltip/context menu hint so localization and QA can keep the surfaces in sync.
 - [Release Notes Prompt](CREATE-RELEASE-NOTES.md) — Codex orchestration instructions for maintaining `docs/HISTORY.txt`.
 - [Artifact Rules](#artifact-rules) — slot catalogs, rarity/rank expectations, stat restrictions, and roll behavior.
 
