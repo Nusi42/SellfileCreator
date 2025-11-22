@@ -245,11 +245,6 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
   const multiSourceConfigs = multiEditActive && multiSelectedConfigs && multiSelectedConfigs.length >= 2
     ? multiSelectedConfigs
     : null
-  const singleLockedCount = Array.isArray(cfg.fixedSubstatsV) ? cfg.fixedSubstatsV.length : 0
-  const multiLockedPresence = multiSourceConfigs
-    ? multiSourceConfigs.some((config) => Array.isArray(config.fixedSubstatsV) && config.fixedSubstatsV.length > 0)
-    : false
-  const lockedSubstatsExist = multiEditActive ? multiLockedPresence : singleLockedCount > 0
   const multiDirtyKeys = React.useMemo(() => (
     multiEditActive && multiFields ? getDirtyBuilderFieldKeys(multiFields) : []
   ), [multiEditActive, multiFields])
@@ -264,6 +259,31 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
     })
     return changed ? projected : multiSourceConfigs
   }, [multiDirtyKeys, multiEditActive, multiFields, multiSourceConfigs])
+  const aggregateRollConfigs = React.useMemo<readonly BuilderConfig[]>(() => {
+    // Prefer projected configs while staging multi-edit changes so the toggles mirror the preview.
+    if (multiEditActive) {
+      const staged = (multiProjectedConfigs && multiProjectedConfigs.length > 0)
+        ? multiProjectedConfigs
+        : (multiSourceConfigs ?? [])
+      if (staged.length > 0) return staged
+    }
+    // Fall back to the live config when multi-edit is inactive.
+    return [cfg]
+  }, [cfg, multiEditActive, multiProjectedConfigs, multiSourceConfigs])
+  const aggregateRollSnapshots = React.useMemo(() => (
+    aggregateRollConfigs.map((config) => ({
+      // Auto mode uses `false` as the opt-out flag, so everything else is considered manual.
+      auto: config.autoMinRequiredRolls !== false,
+      manual: clampAggregateRollValue(Number(config.minRequiredRolls ?? 0)),
+      locked: clampAggregateRollValue(Number(config.lockedMinRequiredRolls ?? 0)),
+    }))
+  ), [aggregateRollConfigs])
+  const lockedSubstatsExist = React.useMemo(() => (
+    aggregateRollConfigs.some((config) => {
+      const locked = (config as { fixedSubstatsV?: number[] }).fixedSubstatsV
+      return Array.isArray(locked) && locked.length > 0
+    })
+  ), [aggregateRollConfigs])
   const pickAutoRarityFallback = React.useCallback((target: BuilderConfig): AutoRaritySupplementsThreshold => {
     const code = resolveAutoRarityCode(target)
     return (code >= 9) ? 'epic' : 'rare'
@@ -1196,115 +1216,42 @@ const maxLevelValue = multiEditActive
     return 'mixed'
   }, [])
   const getMinRequiredRollsTriState = React.useCallback((target: 'auto' | 0 | 1 | 2 | 3 | 4 | 5): 'on' | 'mixed' | 'off' => {
-    if (!multiEditActive || !multiSourceConfigs) {
-      const manualActive = cfg.autoMinRequiredRolls === false
-      const manualValue = clampAggregateRollValue(Number(cfg.minRequiredRolls ?? 0))
-      const lockedValue = clampAggregateRollValue(Number(cfg.lockedMinRequiredRolls ?? 0))
-      if (target === 'auto') return manualActive ? 'off' : 'on'
-      if (!manualActive) return 'off'
-      if (target === 0) {
-        return (manualValue === 0 && lockedValue === 0) ? 'on' : 'off'
-      }
-      return manualValue === target ? 'on' : 'off'
+    const total = aggregateRollSnapshots.length
+    if (total <= 0) return 'off'
+    if (target === 'auto') {
+      // Auto state is simply the count of configs that have not opted into manual mode.
+      const autoMatches = aggregateRollSnapshots.reduce((sum, snapshot) => sum + (snapshot.auto ? 1 : 0), 0)
+      return computeTriState(autoMatches, total)
     }
-    const autoField = multiAutoMinRequiredRollsField
-    const manualField = multiMinRequiredRollsField
-    if (autoField) {
-      if (autoField.status === 'common') {
-        const autoOn = autoField.value !== false
-        if (target === 'auto') {
-          return autoOn ? 'on' : 'off'
-        }
-        if (autoOn) {
-          return 'off'
-        }
-        if (manualField) {
-          if (manualField.status === 'common') {
-            const manualValue = clampAggregateRollValue(Number(manualField.value ?? 0))
-            if (target === 0) {
-              if (multiLockedMinRequiredRollsField?.status === 'common') {
-                const lockedValue = clampAggregateRollValue(Number(multiLockedMinRequiredRollsField.value ?? 0))
-                return (manualValue === 0 && lockedValue === 0) ? 'on' : 'off'
-              }
-              if (multiLockedMinRequiredRollsField?.status === 'mixed') {
-                return 'mixed'
-              }
-            }
-            return manualValue === target ? 'on' : 'off'
-          }
-          if (manualField.status === 'mixed') {
-            const values = (manualField.mixedValues ?? []).map((entry) => clampAggregateRollValue(Number(entry ?? 0)))
-            if (target === 0) {
-              if (multiLockedMinRequiredRollsField?.status === 'mixed') return 'mixed'
-              if (multiLockedMinRequiredRollsField?.status === 'common') {
-                const lockedValue = clampAggregateRollValue(Number(multiLockedMinRequiredRollsField.value ?? 0))
-                return values.some((value) => value === 0) && lockedValue === 0 ? 'mixed' : 'off'
-              }
-            }
-            return values.some((entry) => entry === target) ? 'mixed' : 'off'
-          }
-        }
-        return 'off'
-      }
-      if (autoField.status === 'mixed') {
-        return 'mixed'
-      }
-    }
-    const total = multiSourceConfigs.length
     let matches = 0
-    for (const config of multiSourceConfigs) {
-      const auto = config.autoMinRequiredRolls !== false
-      if (target === 'auto') {
-        if (auto) matches += 1
-        continue
-      }
-      if (!auto) {
-        const manualValue = clampAggregateRollValue(Number(config.minRequiredRolls ?? 0))
-        const lockedValue = clampAggregateRollValue(Number(config.lockedMinRequiredRolls ?? 0))
-        if (target === 0) {
-          if (manualValue === 0 && lockedValue === 0) matches += 1
-          continue
-        }
-        if (manualValue === target) {
+    for (const snapshot of aggregateRollSnapshots) {
+      if (snapshot.auto) continue
+      if (target === 0) {
+        // The "0" button only lights up when both manual and locked floors are cleared.
+        if (snapshot.manual === 0 && snapshot.locked === 0) {
           matches += 1
         }
+        continue
       }
-    }
-    return computeTriState(matches, total)
-  }, [cfg, computeTriState, multiAutoMinRequiredRollsField, multiEditActive, multiLockedMinRequiredRollsField, multiMinRequiredRollsField, multiSourceConfigs])
-  const getLockedMinRequiredRollsTriState = React.useCallback((target: 0 | 1 | 2 | 3 | 4 | 5): 'on' | 'mixed' | 'off' => {
-    if (target === 0) return 'off'
-    if (!lockedSubstatsExist) return 'off'
-    if (!multiEditActive || !multiSourceConfigs) {
-      const value = clampAggregateRollValue(Number(cfg.lockedMinRequiredRolls ?? 0))
-      if (value <= 0) return 'off'
-      return value === target ? 'on' : 'off'
-    }
-    const lockedField = multiLockedMinRequiredRollsField
-    if (lockedField) {
-      if (lockedField.status === 'common') {
-        const fieldValue = clampAggregateRollValue(Number(lockedField.value ?? 0))
-        if (fieldValue <= 0) return 'off'
-        return fieldValue === target ? 'on' : 'off'
-      }
-      if (lockedField.status === 'mixed') {
-        const values = (lockedField.mixedValues ?? [])
-          .map((entry) => clampAggregateRollValue(Number(entry ?? 0)))
-          .filter((value) => value > 0)
-        if (values.length === 0) return 'off'
-        return values.some((value) => value === target) ? 'mixed' : 'off'
-      }
-    }
-    const total = multiSourceConfigs.length
-    let matches = 0
-    for (const config of multiSourceConfigs) {
-      const value = clampAggregateRollValue(Number(config.lockedMinRequiredRolls ?? 0))
-      if (value > 0 && value === target) {
+      if (snapshot.manual === target) {
         matches += 1
       }
     }
     return computeTriState(matches, total)
-  }, [cfg, computeTriState, multiEditActive, multiLockedMinRequiredRollsField, multiSourceConfigs, lockedSubstatsExist])
+  }, [aggregateRollSnapshots, computeTriState])
+  const getLockedMinRequiredRollsTriState = React.useCallback((target: 0 | 1 | 2 | 3 | 4 | 5): 'on' | 'mixed' | 'off' => {
+    if (target === 0) return 'off'
+    if (!lockedSubstatsExist) return 'off'
+    const total = aggregateRollSnapshots.length
+    if (total <= 0) return 'off'
+    let matches = 0
+    for (const snapshot of aggregateRollSnapshots) {
+      if (snapshot.locked > 0 && snapshot.locked === target) {
+        matches += 1
+      }
+    }
+    return computeTriState(matches, total)
+  }, [aggregateRollSnapshots, computeTriState, lockedSubstatsExist])
   const getRequiredCountTriState = React.useCallback((target: 'auto' | 1 | 2 | 3 | 4): 'on' | 'mixed' | 'off' => {
     if (!multiEditActive || !multiSourceConfigs) {
       const auto = cfg.autoMinCount === true
@@ -4969,8 +4916,9 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                         const lockedState = getLockedMinRequiredRollsTriState(n)
                         const manualActive = manualState === 'on'
                         const lockedActive = lockedState === 'on'
+                        const lockedMixed = lockedState === 'mixed'
                         const isSelected = manualActive || lockedActive
-                        const isMixed = manualState === 'mixed' || lockedState === 'mixed'
+                        const isMixed = (manualState === 'mixed') || lockedMixed
                         const lockable = n > 0
                         const lockTooltip = !lockable
                           ? ''
@@ -4997,6 +4945,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                                 borderStyle: 'dashed',
                                 borderColor: mixedBorderColor,
                                 color: mixedTextColor,
+                                backgroundImage: `linear-gradient(135deg, ${mixedPatternColor} 50%, transparent 50%)`,
                               } : {}),
                             })}
                           >
@@ -5012,7 +4961,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                                 <Box
                                   component="span"
                                   role="button"
-                                  aria-pressed={lockedActive}
+                                  aria-pressed={lockedMixed ? 'mixed' : lockedActive}
                                   aria-label={lockTooltip || undefined}
                                   aria-disabled={lockIconEnabled ? undefined : true}
                                   tabIndex={lockIconEnabled ? 0 : -1}
@@ -5046,16 +4995,16 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                                       p: 0,
                                       pointerEvents: lockIconEnabled ? 'auto' : 'none',
                                       borderRadius: LOCK_TOGGLE_HIT_SIZE_PX / 2,
-                                      opacity: lockedActive ? 1 : 0,
+                                      opacity: lockedActive ? 1 : (lockedMixed ? 0.7 : 0),
                                       visibility: lockIconEnabled ? 'visible' : 'hidden',
                                       transition: 'background-color .15s, box-shadow .15s, opacity .15s, visibility .15s',
                                       display: 'flex',
                                       alignItems: 'center',
                                       justifyContent: 'center',
                                       backgroundColor: 'transparent',
-                                      color: theme.palette.text.primary,
+                                      color: lockedActive ? theme.palette.text.primary : (lockedMixed ? mixedTextColor : theme.palette.text.primary),
                                       cursor: lockIconEnabled ? 'pointer' : 'default',
-                                      '--sub-lock-hover-opacity': lockedActive ? 1 : 0,
+                                      '--sub-lock-hover-opacity': lockedActive ? 1 : (lockedMixed ? 0.7 : 0),
                                       boxShadow: 'none',
                                       textShadow: 'none',
                                       '& svg': {
@@ -5073,7 +5022,9 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                                     }
                                   }}
                                 >
-                                  {lockedActive ? <LockIcon fontSize="small" /> : <LockOpenOutlinedIcon fontSize="small" />}
+                                  {(lockedActive || lockedMixed)
+                                    ? <LockIcon fontSize="small" />
+                                    : <LockOpenOutlinedIcon fontSize="small" />}
                                 </Box>
                               </Tooltip>
                             ) : null}
