@@ -544,13 +544,8 @@ export function useTutorialCoachState({
       } catch {}
     }
 
-    const isFinalSellDialogOpen = () => Boolean(document.querySelector('[data-tour-id="finalsell.dialog"]'))
     const ensureFinalSellDialog = (open: boolean) => {
-      try {
-        const openNow = isFinalSellDialogOpen()
-        if (open && !openNow) { setFinalSellOpen(true) }
-        else if (!open && openNow) { setFinalSellOpen(false) }
-      } catch {}
+      try { setFinalSellOpen(open) } catch {}
     }
 
     const isPreviewHeaderMenuOpen = () => Boolean(document.querySelector('[data-tour-id="preview.header.menu"]'))
@@ -1025,17 +1020,6 @@ export function useTutorialCoachState({
         },
       },
       {
-        id: 'tester-dialog',
-        title: t('tutTesterDialogTitle'),
-        body: t('tutTesterDialogBody'),
-        targetId: 'tester.dialog',
-        before: () => {
-          ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensureFinalSellDialog(false); ensurePreviewHighlight(null)
-          setPreviewMode('rules')
-          ensureRuleTesterDialog(true)
-        },
-      },
-      {
         id: 'tester-add-manual',
         title: t('tutTesterAddTitle'),
         body: t('tutTesterAddBody'),
@@ -1051,7 +1035,7 @@ export function useTutorialCoachState({
         id: 'tester-preview',
         title: t('tutTesterPreviewTitle'),
         body: t('tutTesterPreviewBody'),
-        targetId: 'preview.table',
+        targetIds: ['preview.mode-toggle', 'preview.tester-grid-top'],
         before: () => {
           ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensureFinalSellDialog(false); ensurePreviewHighlight(null)
           setTesterOpen(false)
@@ -1069,9 +1053,10 @@ export function useTutorialCoachState({
         id: 'finalsell-dialog',
         title: t('tutFinalSellDialogTitle'),
         body: t('tutFinalSellDialogBody'),
-        targetIds: ['finalsell.dialog', 'finalsell.dialog.types', 'finalsell.dialog.levels'],
+        targetIds: ['finalsell.dialog.sets', 'finalsell.dialog.warning', 'finalsell.dialog.types', 'finalsell.dialog.levels', 'finalsell.dialog.status'],
         before: () => {
           ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensurePreviewHighlight(null)
+          setFinalSellDialogTab(FINAL_SELL_DIALOG_TAB_FINAL_SELL)
           try {
             setFinalSellOpen(true)
             setFinalSellRemainder((prev) => {
@@ -1113,7 +1098,10 @@ export function useTutorialCoachState({
         title: t('tutNoteTitle'),
         body: t('tutNoteBody'),
         targetId: 'note.toggle',
-        before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensureFinalSellDialog(false); ensurePreviewHighlight(null) },
+        before: () => {
+          ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensureFinalSellDialog(false); ensurePreviewHighlight(null)
+          try { setFinalSellOpen(false) } catch {}
+        },
       },
       {
         id: 'save-explain',
@@ -1127,7 +1115,11 @@ export function useTutorialCoachState({
         title: t('tutPreviewFinishTitle'),
         body: t('tutPreviewFinishBody'),
         targetId: 'preview.paper',
-        before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensurePreviewHeaderMenu(false); ensurePreviewHighlight(null); try { setFinalSellOpen(false) } catch {} },
+        before: () => {
+          ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensurePreviewHeaderMenu(false); ensurePreviewHighlight(null)
+          setPreviewMode('rules')
+          try { setFinalSellOpen(false) } catch {}
+        },
       },
       {
         id: 'export-explain',

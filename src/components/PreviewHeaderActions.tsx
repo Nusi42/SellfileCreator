@@ -374,6 +374,7 @@ export default function PreviewHeaderActions(props: {
           exclusive
           onChange={(_, next) => { if (next === 'rules' || next === 'tester') onChangePreviewMode(next) }}
           aria-label={t('previewModeAria')}
+          data-tour-id="preview.mode-toggle"
           sx={{
             height: SMALL_BUTTON_HEIGHT_PX,
             '& .MuiToggleButtonGroup-grouped:not(:first-of-type)': {

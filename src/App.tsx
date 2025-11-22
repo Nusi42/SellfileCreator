@@ -3831,20 +3831,26 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           )}
           <Box sx={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
             {previewMode === 'tester' ? (
-              <TesterItemsGrid
-                rows={testerRowsForTable}
-                filterActive={testerFilterActive || testerConfigFilterActive}
-                substatColors={substatColors}
-                useStatButtonColors={statButtonBorders}
-                onToggleStatColors={setStatButtonBorders}
-                onOpenManageColors={openColors}
-                colorBlindMode={colorBlindMode}
-                onChangeColorBlindMode={setColorBlindMode}
-                colorIconSrc={colorIconSrc}
-                configNames={testerConfigNames}
-                onJumpToRule={handleTesterRuleView}
-                suppressMatchDetails={suppressTesterMatchDetails}
-              />
+              <Box sx={{ height: '100%', minHeight: 0, display: 'flex', flexDirection: 'column', position: 'relative' }} data-tour-id="preview.tester-grid">
+                <Box
+                  data-tour-id="preview.tester-grid-top"
+                  sx={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: '50%', pointerEvents: 'none' }}
+                />
+                <TesterItemsGrid
+                  rows={testerRowsForTable}
+                  filterActive={testerFilterActive || testerConfigFilterActive}
+                  substatColors={substatColors}
+                  useStatButtonColors={statButtonBorders}
+                  onToggleStatColors={setStatButtonBorders}
+                  onOpenManageColors={openColors}
+                  colorBlindMode={colorBlindMode}
+                  onChangeColorBlindMode={setColorBlindMode}
+                  colorIconSrc={colorIconSrc}
+                  configNames={testerConfigNames}
+                  onJumpToRule={handleTesterRuleView}
+                  suppressMatchDetails={suppressTesterMatchDetails}
+                />
+              </Box>
             ) : (
               <HsfRulesTableMemo
                 rules={hsfRulesForTable}

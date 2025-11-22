@@ -111,7 +111,7 @@
 
 ### Rule Tester Coverage
 
-- The new Rule Tester section (inserted before Final Sell) mirrors the metaset walkthrough. The `tester-open` step highlights the `Gear…` button in the preview header, `tester-dialog` opens the dialog (`data-tour-id="tester.dialog"`) and explains both `.db` imports and live sync via `run-sample-server.ps1`, and `tester-add-manual` focuses the Add Gear button while the tutorial injects a sample 5★ Rare Refresh amulet from the Banner Lords. The follow-up `tester-preview` step closes the dialog, switches the preview mode to `Rule Tester`, and highlights the grid so the scripted item is the only row rendered.
+- The new Rule Tester section (inserted before Final Sell) mirrors the metaset walkthrough. The `tester-open` step highlights the `Gear…` button in the preview header, and the combined `tester-add-manual` (`Add a custom gear`) step keeps the dialog open while covering `.db` drag-and-drop, `%APPDATA%\RslHelper\Config` imports, `run-sample-server.ps1`, and the scripted 5★ Rare Refresh amulet from the Banner Lords. The follow-up `tester-preview` step closes the dialog, switches the preview mode to `Rule Tester`, and highlights the Sellfile Preview ⇄ Rule Tester toggle so the scripted item is the only row rendered.
 
 ### Keep Uniques Coverage
 
