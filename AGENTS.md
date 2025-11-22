@@ -11,9 +11,11 @@ This document summarizes how we collaborate on Sellfile Creator. Detailed techni
 ## Working Agreements
 
 - TypeScript-first with strict types; avoid `any` unless the type system cannot describe the value. Reuse exported domain enums/tokens (see `docs/technical/rules-and-data.md`).
-- Single source of truth: centralize constants and catalogs, then import them. If multiple places need the same literal, promote it to a shared constant.
+- Maintain dense, purposeful inline documentation—new or updated code should average a short comment every 2–3 lines to explain intent, not mechanics.
+- Single source of truth / One Definition Rule compliance is a hard gate: consolidate every shared literal or behavior into a single exported definition and import it everywhere else.
 - Comments and docs must reflect the *current* state. Update or remove anything that has drifted, even if the surrounding code was not otherwise touched.
 - When adding console debug output for transcripts, log formatted primitives (e.g. ``console.log(`[builder-count] pending=${pendingId}`)``) instead of passing raw objects—DevTools collapses objects and they do not copy well into chat.
+- Cap files at roughly 1,500 lines; split large modules (without breaking SSOT) before they become unwieldy.
 - Keep modules focused and diffs small. Follow existing patterns before introducing new abstractions, unless doing so would violate the single-source-of-truth / One Definition Rule—then factor the shared abstraction instead of duplicating logic.
 - UI code must keep parallel entry points in sync (e.g., toggles, badges, multi-edit). Shared helpers exist for a reason — extend them, don't fork them.
 

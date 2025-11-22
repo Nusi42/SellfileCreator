@@ -6,6 +6,34 @@
  * rarity schedules, substatTargets application, and per-substat roll bounds.
  */
 import type { HsfRule } from './hsfTypes'
+import type {
+  BuilderConfig,
+  LegacyVisibilityFields,
+  SellfileExportMode,
+  Star,
+  SubstatRollTargetEntry,
+  SubstatTargetTable,
+} from './hsfBuilder/types'
+import { normalizeRollTargetEntry } from './hsfBuilder/targets'
+import {
+  combinations,
+  introAssignmentsForCombo,
+} from './hsfBuilder/combinatorics'
+export type {
+  BuilderConfig,
+  LegacyVisibilityFields,
+  SellfileExportMode,
+  SellfileMode,
+  Star,
+  SubstatRollTargetEntry,
+  SubstatRollTargets,
+  SubstatTargetTable,
+} from './hsfBuilder/types'
+export {
+  clampTargetOverrideValue,
+  normalizeLooseRollTargetEntry,
+  normalizeRollTargetEntry,
+} from './hsfBuilder/targets'
 import {
   StatVariant,
   StatId,
@@ -18,13 +46,10 @@ import {
   RankCode,
   LevelMilestone,
   LEVEL_MILESTONES,
-  type RankValue,
   statIsAny,
 } from './types'
 import { canEnableSubstatFlex, deriveRollBaselineMode, isLockedAggregateScopeActive, isMilestoneThresholdsActive } from './configNormalization'
 import { variantToSub, variantToMain } from './hsfTypes'
-import type { ArtifactSetId, ArtifactTypeId, FactionId } from './types'
-import { SUBSTAT_TARGET_MAX_ROLLS } from './constants'
 
 const COLLAPSE_FACTORY_RARITY_CODES = new Set<number>([
   RarityCode.Any,
@@ -45,87 +70,6 @@ const isDevEnvironment = (): boolean => {
     // ignore: import.meta may be unavailable in some runtimes
   }
   return true
-}
-
-// Sellfile export modes used across the builder.
-export type SellfileExportMode = 'active' | 'disabled' | 'separator'
-/** @deprecated Use SellfileExportMode instead. */
-export type SellfileMode = SellfileExportMode
-
-export interface BuilderConfig {
-  // Optional display name for this rule configuration (saved in HSFC)
-  name?: string
-  keep: boolean
-  // Sellfile export mode. Separator configs export only to HSFC (no Sellfile rules).
-  // 'disabled' keeps the config in exports but forces `Use: false` so RSL Helper ignores it.
-  exportMode: SellfileExportMode
-  // Explicit level window for which to emit rules (inclusive).
-  minLevel?: LevelMilestone
-  maxLevel?: LevelMilestone
-  // Rank code: HSF-compatible (0..16): exact 1..6, >=1..>=5 (7..11), <=2..<=6 (12..16), 0 any
-  rankCode: RankCode
-  // Rarity selection:
-  // - When rarityMode === 'auto', the builder resolves an effective rarity
-  //   code before generating HSF rules using the current level window and
-  //   roll requirements (per‑stat mins and aggregate minRequiredRolls).
-  // - When rarityMode !== 'auto', use the explicit HSF-compatible 0..16 code.
-  rarityCode: RarityCode
-  rarityMode?: 'auto' | 'code'
-  // Faction code (0 Any, 1..15 per factionNames in types.ts)
-  factionCode?: FactionId
-  // Main stats (variants). Empty -> Any. If provided, we unroll rules per selected main stat.
-  mainStatsV?: StatVariant[]
-  // Substat targets (variants): choose K from this set; generate combinations of size minCount
-  substatsV?: StatVariant[]
-  // Substats that must always be included in generated permutations (subset of substats)
-  fixedSubstatsV?: StatVariant[]
-  // Optional per-substat roll bounds used to filter distributions
-  // Variant-keyed: key is StatVariant (encoded number)
-  // min: require at least N rolls; max: optional upper bound; any: wildcard (permute all)
-  substatRollBoundsV?: Record<number, { min?: number; max?: number; any?: boolean }>
-  // Optional per-substat roll target overrides.
-  // Variant-keyed: Base value (roll 0) plus explicit increments for +1 … +5.
-  substatRollTargetsV?: SubstatRollTargets
-  minCount: 0 | 1 | 2 | 3 | 4
-  // When true, UI keeps minCount in sync with selected substat count: min(4, substats.length)
-  autoMinCount?: boolean
-  // When true (with autoMinCount=false), starred substats (★) are permuted across totals ≥ minCount
-  // while locked/non-star picks remain mandatory.
-  autoSubstatFlex: boolean
-  // Global minimum total rolls across the selected substats.
-  // When active, generated rows ensure the sum of rolls assigned to the targeted
-  // substats meets or can reach this total by the target level (Potential mode).
-  // Auto = no additional aggregate constraint beyond per-substat mins.
-  minRequiredRolls?: 0 | 1 | 2 | 3 | 4 | 5
-  autoMinRequiredRolls?: boolean
-  // Aggregate minimum for locked substats only (subset of `fixedSubstatsV`).
-  // Applied independently from `minRequiredRolls` so locked stats can hit their
-  // own floor before optional ones contribute additional rolls.
-  lockedMinRequiredRolls?: 0 | 1 | 2 | 3 | 4 | 5
-  // Optional slot and set filters (HSF numeric IDs or enums); omit for Any
-  artifactTypes?: ArtifactTypeId[]
-  artifactSets?: ArtifactSetId[]
-  // Optional metaset references (IDs defined in HSFC Metasets)
-  artifactMetaSets?: string[]
-  // Early/Late keep mode:
-  // - 'early' (formerly 'progressive'): thresholds rise with gained rolls until feasible, then stay fixed.
-  // - 'late' (formerly 'reachable'): require only what must be present now so +16 remains achievable.
-  // Default: 'early'.
-  earlyKeepMode?: 'early' | 'late'
-  // When rarityMode is 'auto' and keep mode is 'late', the builder may emit
-  // supplemental ≥-rarity branches at milestone levels to reflect timing
-  // differences (e.g., ≥ Rare, ≥ Epic, ≥ Legendary). This threshold picks the
-  // minimum ≥ tier to include as supplements. Default: 'rare' (≥ Rare).
-  // UI cycles: 'uncommon' → 'rare' → 'epic'. Has no effect when rarityMode !== 'auto'.
-  autoRaritySupplementsThreshold?: 'uncommon' | 'rare' | 'epic'
-}
-
-type LegacyVisibilityFields = {
-  exportMode?: SellfileExportMode | null
-  visibility?: SellfileExportMode | SellfileMode | null
-  sellfileMode?: SellfileExportMode | SellfileMode | null
-  SellfileVisibility?: string | null
-  enabled?: boolean | null
 }
 
 export function coerceSellfileExportModeToken(value: unknown): SellfileExportMode | null {
@@ -194,197 +138,6 @@ export class RuleLimitReachedError extends Error {
 
 // Levels: 0/4/8/12/16 are milestone checks.
 export const LEVELS = LEVEL_MILESTONES
-
-// User-configurable substatTargets table for substats per star bucket
-export type Star = RankValue
-export type SubstatRollTargetEntry = {
-  base?: number
-  increments?: Array<number | null>
-}
-export type SubstatRollTargets = Record<number, SubstatRollTargetEntry>
-
-// User input (HSFC or Builder UI) is sanitized through this clamp to keep roll
-// target math integer-only and within the supported range.
-export const clampTargetOverrideValue = (value: unknown): number | null => {
-  if (typeof value !== 'number' || !Number.isFinite(value)) return null
-  const rounded = Math.round(value)
-  if (rounded < 0) return 0
-  return rounded
-}
-
-// Roll targets can be partially specified (Base only, sparse increments). Normalize
-// them so builder math and serialization always operate on trimmed data.
-export const normalizeRollTargetEntry = (
-  entry: SubstatRollTargetEntry | null | undefined,
-): SubstatRollTargetEntry | null => {
-  // Converts arbitrary `{ base, increments }` payloads into the compact shape we
-  // persist inside BuilderConfig. Null-only arrays collapse to `undefined` so
-  // downstream JSON exports skip empty overrides.
-  if (!entry) return null
-  let hasOverride = false
-  const normalized: SubstatRollTargetEntry = {}
-  const baseValue = clampTargetOverrideValue(entry.base)
-  if (baseValue != null) {
-    normalized.base = baseValue
-    hasOverride = true
-  }
-  if (Array.isArray(entry.increments)) {
-    const trimmed: Array<number | null> = []
-    let hasIncrement = false
-    const limit = Math.min(entry.increments.length, SUBSTAT_TARGET_MAX_ROLLS)
-    for (let i = 0; i < limit; i += 1) {
-      const raw = entry.increments[i]
-      if (raw == null) {
-        trimmed[i] = null
-        continue
-      }
-      const clamped = clampTargetOverrideValue(raw)
-      if (clamped == null) {
-        trimmed[i] = null
-        continue
-      }
-      trimmed[i] = clamped
-      hasIncrement = true
-    }
-    while (trimmed.length > 0 && trimmed[trimmed.length - 1] == null) {
-      trimmed.pop()
-    }
-    if (hasIncrement && trimmed.length > 0) {
-      normalized.increments = trimmed
-      hasOverride = true
-    }
-  }
-  return hasOverride ? normalized : null
-}
-
-export const normalizeLooseRollTargetEntry = (entry: unknown): SubstatRollTargetEntry | null => {
-  if (entry == null) return null
-  if (typeof entry === 'number' && Number.isFinite(entry)) {
-    return normalizeRollTargetEntry({ base: entry })
-  }
-  if (typeof entry === 'string') {
-    const trimmed = entry.trim()
-    if (trimmed.length > 0) {
-      const parsed = Number(trimmed)
-      if (Number.isFinite(parsed)) {
-        return normalizeRollTargetEntry({ base: parsed })
-      }
-    }
-    return null
-  }
-  if (typeof entry === 'object') {
-    return normalizeRollTargetEntry(entry as SubstatRollTargetEntry)
-  }
-  return null
-}
-
-export type SubstatTargetTable = {
-  one: Record<number, number>
-  two: Record<number, number>
-  three: Record<number, number>
-  four: Record<number, number>
-  five: Record<number, number>
-  six: Record<number, number>
-  anyRankDefaultsTo: Star
-}
-
-// Generate all combinations of size k from array a
-/**
- * Generate all k-sized combinations from array a (without repetition).
- * Returns an array of arrays, each a distinct selection of k items in order of indices.
- */
-function combinations<T>(a: T[], k: number): T[][] {
-  if (k <= 0) return [[]]
-  if (k > a.length) return []
-  const res: T[][] = []
-  function backtrack(start: number, path: T[]) {
-    if (path.length === k) { res.push([...path]); return }
-    for (let i = start; i < a.length; i++) {
-      path.push(a[i]!)
-      backtrack(i + 1, path)
-      path.pop()
-    }
-  }
-  backtrack(0, [])
-  return res
-}
-
-function permutations<T>(a: T[]): T[][] {
-  if (a.length <= 1) return [a.slice()]
-  const res: T[][] = []
-  const used = new Array<boolean>(a.length).fill(false)
-  const path: T[] = []
-  function backtrack() {
-    if (path.length === a.length) {
-      res.push(path.slice())
-      return
-    }
-    for (let i = 0; i < a.length; i++) {
-      if (used[i]!) continue
-      used[i] = true
-      path.push(a[i]!)
-      backtrack()
-      path.pop()
-      used[i] = false
-    }
-  }
-  backtrack()
-  return res
-}
-
-function introAssignmentsForCombo(
-  count: number,
-  baseSlots: number,
-  additionLevels: LevelMilestone[],
-  forcedBase: number[],
-): number[][] {
-  if (count <= 0) return [[]]
-  const totalBase = Math.max(0, Math.min(baseSlots, count))
-  const additionNeeded = Math.max(0, count - totalBase)
-  const indices = Array.from({ length: count }, (_, idx) => idx)
-  const forcedSet = new Set<number>()
-  for (const idx of forcedBase) {
-    if (idx >= 0 && idx < count) forcedSet.add(idx)
-  }
-  const forcedIndices = Array.from(forcedSet).sort((a, b) => a - b)
-  const forcedPick = Math.min(totalBase, forcedIndices.length)
-  const optionalPick = totalBase - forcedPick
-  const optionalIndices = indices.filter(idx => !forcedSet.has(idx))
-  if (optionalPick > optionalIndices.length) return []
-  const additionLevelCombos: LevelMilestone[][] = additionNeeded > 0
-    ? combinations(additionLevels, additionNeeded)
-    : [[]]
-  const results: number[][] = []
-  const seen = new Set<string>()
-  const forcedCombos = forcedPick > 0 ? combinations(forcedIndices, forcedPick) : [[]]
-  const optionalCombos = optionalPick > 0 ? combinations(optionalIndices, optionalPick) : [[]]
-  for (const forcedCombo of forcedCombos) {
-    for (const optCombo of optionalCombos) {
-      const baseCombo = [...forcedCombo, ...optCombo]
-      if (baseCombo.length !== totalBase) continue
-      const baseSet = new Set(baseCombo)
-      const remainingIndices = indices.filter(idx => !baseSet.has(idx))
-      const orders = additionNeeded > 0 ? permutations(remainingIndices) : [[]]
-      for (const additionCombo of additionLevelCombos) {
-        if (additionCombo.length !== additionNeeded) continue
-        for (const order of orders) {
-          if (order.length !== additionNeeded) continue
-          const intro = new Array<number>(count).fill(0)
-          for (const idx of baseCombo) intro[idx]! = 0
-          for (let i = 0; i < additionNeeded; i++) {
-            const targetIdx = order[i]!
-            intro[targetIdx] = additionCombo[i]!
-          }
-          const key = intro.join(',')
-          if (seen.has(key)) continue
-          seen.add(key)
-          results.push(intro)
-        }
-      }
-    }
-  }
-  return results
-}
 
 // Build a single HSF rule from pieces
 /**

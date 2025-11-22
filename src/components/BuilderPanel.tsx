@@ -5,6 +5,7 @@
  * previews generated HSF rules plus obsolete detection. Stateless except for
  * local UI state; all persisted state lives in App.
  */
+// React drives the builder UI; hooks keep state localized while config flows from App.
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { rarityCodeToName, StatVariant, RankCode, RarityCode, Faction, type FactionId, filterAndSortSetEntries, statVariantI18nKey, artifactSetI18nKey, LEVEL_MILESTONES, type LevelMilestone, STAT_VARIANTS_PRIORITY_ROW1, STAT_VARIANTS_PRIORITY_ROW2 } from '../lib/types'
 import { variantToSub } from '../lib/hsfTypes'
@@ -108,417 +109,46 @@ import { useSetsOrderPreference } from '../state/setsOrderPreference'
 import { useAutoApplySelectedConfigPreference, useAutoResetAfterInsertPreference } from '../state/builderPreferences'
 import { HistoryContextMenu } from './HistoryContextMenu'
 import { NumberSpinnerAdornment } from './NumberSpinnerAdornment'
+import { createFactoryBuilderDefaults } from './builderPanel/defaults'
+import {
+  applyNumberPatchPreview,
+  applyStringPatchPreview,
+  computeNumberPatchToggle,
+  computeStringPatchToggle,
+  deriveBaseTriState,
+  mergeRollPatchForVariant,
+  mergeTargetPatchForVariant,
+  toTriStateBase,
+} from './builderPanel/multiEditHelpers'
+import {
+  buildTargetEntryFromDraft,
+  clampRollMax,
+  clampRollMin,
+  clampTargetValue,
+  cloneTargetRolls,
+  createEmptyTargetRolls,
+  normalizeRollBoundsEntry,
+  normalizeRollTargetEntry,
+  parseNumericInput,
+  rollBoundsEqual,
+  targetEntriesEqual,
+  type SubstatMenuDraftState,
+  type SubstatMenuInfo,
+  type SubstatRollBoundsEntry,
+} from './builderPanel/substatMenuHelpers'
+
+export { createFactoryBuilderDefaults } from './builderPanel/defaults'
 
 // Factory builder defaults used for resets and stored overrides.
 const MULTI_VALUE_SENTINEL = '__multi__mixed__'
 const MIN_REQUIRED_ROLL_OPTIONS = [0, 1, 2, 3, 4, 5] as const
 const REQUIRED_SUBSTAT_MIN_OPTIONS = [1, 2, 3, 4] as const
-type TriStateBase = 'all' | 'mixed' | 'none'
 const EMPTY_SELECTION: readonly number[] = []
-
-const deriveBaseTriState = (count: number, total: number): TriStateBase => {
-  if (total <= 0 || count <= 0) return 'none'
-  if (count >= total) return 'all'
-  return 'mixed'
-}
-
-const toTriStateBase = (state: 'none' | 'partial' | 'all'): TriStateBase => (
-  state === 'partial' ? 'mixed' : state
-)
-
-const cloneNumberArrayPatch = (
-  patch: MultiEditArrayPatch<number> | null | undefined,
-): MultiEditArrayPatch<number> | null => {
-  if (!patch) return null
-  return {
-    clear: patch.clear,
-    replace: patch.replace ? [...patch.replace] : undefined,
-    add: patch.add ? [...patch.add] : undefined,
-    remove: patch.remove ? [...patch.remove] : undefined,
-  }
-}
-
-const computeNumberPatchToggle = (
-  patch: MultiEditArrayPatch<number> | null | undefined,
-  variant: number,
-  baseState: TriStateBase,
-  target: 'all' | 'none',
-): MultiEditArrayPatch<number> | null => {
-  const draft = cloneNumberArrayPatch(patch)
-  if (draft?.clear) {
-    if (target === 'all') {
-      return { replace: [variant] }
-    }
-    return { clear: true }
-  }
-  if (draft?.replace) {
-    const values = new Set(draft.replace.map(Number))
-    if (target === 'all') {
-      values.add(variant)
-    } else {
-      values.delete(variant)
-    }
-    if (values.size === 0) {
-      return { clear: true }
-    }
-    return { replace: Array.from(values).sort((a, b) => a - b) }
-  }
-  const addSet = new Set<number>((draft?.add ?? []).map(Number))
-  const removeSet = new Set<number>((draft?.remove ?? []).map(Number))
-
-  if (target === 'all') {
-    removeSet.delete(variant)
-    if (baseState !== 'all') {
-      addSet.add(variant)
-    } else {
-      addSet.delete(variant)
-    }
-  } else {
-    addSet.delete(variant)
-    if (baseState !== 'none') {
-      removeSet.add(variant)
-    } else {
-      removeSet.delete(variant)
-    }
-  }
-
-  const nextPatch: MultiEditArrayPatch<number> = {}
-  if (addSet.size > 0) nextPatch.add = Array.from(addSet)
-  if (removeSet.size > 0) nextPatch.remove = Array.from(removeSet)
-  return (nextPatch.add || nextPatch.remove) ? nextPatch : null
-}
-
-const cloneStringArrayPatch = (
-  patch: MultiEditArrayPatch<string> | null | undefined,
-): MultiEditArrayPatch<string> | null => {
-  if (!patch) return null
-  return {
-    clear: patch.clear,
-    replace: patch.replace ? [...patch.replace] : undefined,
-    add: patch.add ? [...patch.add] : undefined,
-    remove: patch.remove ? [...patch.remove] : undefined,
-  }
-}
-
-const computeStringPatchToggle = (
-  patch: MultiEditArrayPatch<string> | null | undefined,
-  token: string,
-  baseState: TriStateBase,
-  target: 'all' | 'none',
-): MultiEditArrayPatch<string> | null => {
-  const draft = cloneStringArrayPatch(patch)
-  if (draft?.clear) {
-    if (target === 'all') {
-      return { replace: [token] }
-    }
-    return { clear: true }
-  }
-  if (draft?.replace) {
-    const values = new Set(draft.replace.map(String))
-    if (target === 'all') {
-      values.add(token)
-    } else {
-      values.delete(token)
-    }
-    if (values.size === 0) {
-      return { clear: true }
-    }
-    return { replace: Array.from(values).sort((a, b) => a.localeCompare(b)) }
-  }
-  const addSet = new Set<string>((draft?.add ?? []).map(String))
-  const removeSet = new Set<string>((draft?.remove ?? []).map(String))
-
-  if (target === 'all') {
-    removeSet.delete(token)
-    if (baseState !== 'all') {
-      addSet.add(token)
-    } else {
-      addSet.delete(token)
-    }
-  } else {
-    addSet.delete(token)
-    if (baseState !== 'none') {
-      removeSet.add(token)
-    } else {
-      removeSet.delete(token)
-    }
-  }
-
-  const nextPatch: MultiEditArrayPatch<string> = {}
-  if (addSet.size > 0) nextPatch.add = Array.from(addSet)
-  if (removeSet.size > 0) nextPatch.remove = Array.from(removeSet)
-  return (nextPatch.add || nextPatch.remove) ? nextPatch : null
-}
-
-// Multi-edit draft helpers: keep per-substat roll and target patches additive so
-// multiple controls can stage changes without clobbering earlier variants.
-const mergeRollPatchForVariant = (
-  source: MultiEditRollPatch | null | undefined,
-  variant: number,
-  delta: MultiEditRollPatchEntry,
-): MultiEditRollPatch | null => {
-  const result: MultiEditRollPatch = {}
-  if (source) {
-    for (const [key, value] of Object.entries(source)) {
-      const idx = Number(key)
-      if (!Number.isFinite(idx)) continue
-      result[idx] = value ? { ...value } : {}
-    }
-  }
-  const previous = result[variant] ? { ...result[variant]! } : {}
-  if (Object.prototype.hasOwnProperty.call(delta, 'any')) {
-    const nextAny = delta.any
-    if (nextAny === undefined) {
-      delete previous.any
-    } else {
-      previous.any = nextAny
-    }
-  }
-  if (Object.prototype.hasOwnProperty.call(delta, 'min')) {
-    const nextMin = delta.min
-    if (nextMin === undefined) {
-      delete previous.min
-    } else {
-      previous.min = nextMin
-    }
-  }
-  if (Object.prototype.hasOwnProperty.call(delta, 'max')) {
-    const nextMax = delta.max
-    if (nextMax === undefined) {
-      delete previous.max
-    } else {
-      previous.max = nextMax
-    }
-  }
-  if (Object.keys(previous).length === 0) {
-    delete result[variant]
-  } else {
-    result[variant] = previous
-  }
-  return Object.keys(result).length > 0 ? result : null
-}
-
-const cloneTargetPatchValue = (entry: SubstatRollTargetEntry | null): SubstatRollTargetEntry | null => {
-  if (!entry) return entry
-  const clone: SubstatRollTargetEntry = {}
-  if (typeof entry.base === 'number' && Number.isFinite(entry.base)) {
-    clone.base = entry.base
-  }
-  if (Array.isArray(entry.increments)) {
-    clone.increments = entry.increments.map((value) => (
-      typeof value === 'number' && Number.isFinite(value) ? value : null
-    ))
-  }
-  return clone
-}
-
-const mergeTargetPatchForVariant = (
-  source: MultiEditTargetPatch | null | undefined,
-  variant: number,
-  value: SubstatRollTargetEntry | null,
-): MultiEditTargetPatch | null => {
-  const result: MultiEditTargetPatch = {}
-  if (source) {
-    for (const [key, entry] of Object.entries(source)) {
-      const idx = Number(key)
-      if (!Number.isFinite(idx)) continue
-      if (entry) {
-        const nextEntry: { value?: SubstatRollTargetEntry | null } = {}
-        if (Object.prototype.hasOwnProperty.call(entry, 'value')) {
-          const entryValue = (entry as { value?: SubstatRollTargetEntry | null }).value
-          if (entryValue === undefined) {
-            delete nextEntry.value
-          } else {
-            nextEntry.value = entryValue === null ? null : cloneTargetPatchValue(entryValue)
-          }
-        }
-        if (Object.keys(nextEntry).length > 0) {
-          result[idx] = nextEntry
-        }
-      }
-    }
-  }
-  result[variant] = {
-    value: value == null ? value : cloneTargetPatchValue(value),
-  }
-  return Object.keys(result).length > 0 ? result : null
-}
-
-const applyNumberPatchPreview = (
-  source: readonly number[],
-  patch: MultiEditArrayPatch<number> | null | undefined,
-): number[] => {
-  if (!patch || (!patch.clear && !patch.replace && !patch.add && !patch.remove)) {
-    return [...source]
-  }
-  if (patch.clear) return []
-  if (patch.replace && patch.replace.length >= 0) {
-    return Array.from(new Set(patch.replace.map(Number))).sort((a, b) => a - b)
-  }
-  const set = new Set(source.map(Number))
-  if (patch.remove) {
-    for (const value of patch.remove) set.delete(Number(value))
-  }
-  if (patch.add) {
-    for (const value of patch.add) set.add(Number(value))
-  }
-  return Array.from(set).sort((a, b) => a - b)
-}
-
-const applyStringPatchPreview = (
-  source: readonly string[],
-  patch: MultiEditArrayPatch<string> | null | undefined,
-): string[] => {
-  if (!patch || (!patch.clear && !patch.replace && !patch.add && !patch.remove)) {
-    return [...source]
-  }
-  if (patch.clear) return []
-  if (patch.replace && patch.replace.length >= 0) {
-    return Array.from(new Set(patch.replace.map(String))).sort((a, b) => a.localeCompare(b))
-  }
-  const set = new Set(source.map(String))
-  if (patch.remove) {
-    for (const value of patch.remove) set.delete(String(value))
-  }
-  if (patch.add) {
-    for (const value of patch.add) set.add(String(value))
-  }
-  return Array.from(set).sort((a, b) => a.localeCompare(b))
-}
-
-type SubstatRollBoundsEntry = { min?: number; max?: number; any?: boolean }
-
-type SubstatMenuInfo = {
-  variant: StatVariant
-  presence: 'all' | 'partial'
-  lockState: 'none' | 'partial' | 'all'
-  minValue: number | null
-  maxValue: number | null
-  minMixed: boolean
-  maxMixed: boolean
-  wildcard: boolean
-  rollKind: 'none' | 'any' | 'min' | 'max' | 'mixed'
-}
-
-// Local draft for the currently open substat context menu. Tracks staged min/max
-// roll edits plus per-roll target overrides so typing inside the menu never
-// mutates BuilderConfig until the user explicitly applies the change.
-type SubstatMenuDraftState = {
-  min: number | null
-  max: number | null
-  targetBase: number | null
-  targetRolls: Array<number | null>
-}
-
-const clampRollMin = (value: number): number => Math.max(0, Math.min(5, Math.round(Number(value))))
-const clampRollMax = (value: number): number => Math.max(0, Math.min(4, Math.round(Number(value))))
-
-const normalizeRollBoundsEntry = (entry: SubstatRollBoundsEntry | null | undefined): SubstatRollBoundsEntry | null => {
-  if (!entry) return null
-  const next: SubstatRollBoundsEntry = {}
-  const hasMin = typeof entry.min === 'number' && Number.isFinite(entry.min)
-  const hasMax = typeof entry.max === 'number' && Number.isFinite(entry.max)
-  if (hasMin) next.min = clampRollMin(entry.min!)
-  if (hasMax) next.max = clampRollMax(entry.max!)
-  if (typeof next.min === 'number' && typeof next.max === 'number' && next.max < Math.min(next.min, 4)) {
-    next.max = Math.min(4, next.min)
-  }
-  if (!hasMin && !hasMax) {
-    return entry.any ? { any: true } : null
-  }
-  return next
-}
-
-const rollBoundsEqual = (a: SubstatRollBoundsEntry | null, b: SubstatRollBoundsEntry | null): boolean => (
-  ((a?.min ?? null) === (b?.min ?? null))
-  && ((a?.max ?? null) === (b?.max ?? null))
-  && (Boolean(a?.any) === Boolean(b?.any))
-)
-
-const normalizeRollTargetEntry = (
-  entry: SubstatRollTargetEntry | null | undefined,
-): SubstatRollTargetEntry | null => {
-  // Builder stores overrides as variant keyed objects. UI accepts partial drafts,
-  // so we sanitize them before comparing or persisting to avoid false positives.
-  if (!entry) return null
-  const next: SubstatRollTargetEntry = {}
-  const hasBase = typeof entry.base === 'number' && Number.isFinite(entry.base)
-  if (hasBase) next.base = entry.base!
-  if (Array.isArray(entry.increments)) {
-    const trimmed = entry.increments
-      .slice(0, SUBSTAT_TARGET_MAX_ROLLS)
-      .map((value) => (typeof value === 'number' && Number.isFinite(value) ? value : null))
-    while (trimmed.length > 0 && (trimmed[trimmed.length - 1] == null)) {
-      trimmed.pop()
-    }
-    if (trimmed.some((value) => value != null)) {
-      next.increments = trimmed
-    }
-  }
-  if (next.base == null && !next.increments) return null
-  return next
-}
-
-const targetEntriesEqual = (
-  a: SubstatRollTargetEntry | null | undefined,
-  b: SubstatRollTargetEntry | null | undefined,
-): boolean => {
-  if (a === b) return true
-  if (!a && !b) return true
-  if (!a || !b) return false
-  if (a.base !== b.base) return false
-  const left = Array.isArray(a.increments) ? a.increments : []
-  const right = Array.isArray(b.increments) ? b.increments : []
-  if (left.length !== right.length) return false
-  for (let i = 0; i < left.length; i += 1) {
-    if (left[i] !== right[i]) return false
-  }
-  return true
-}
-
-const createEmptyTargetRolls = (): Array<number | null> => Array.from({ length: SUBSTAT_TARGET_MAX_ROLLS }, () => null)
-
-const cloneTargetRolls = (source: readonly (number | null)[] | undefined): Array<number | null> => {
-  // Editors always work with a fixed-length array (Base + up to 5 rolls) so
-  // derived components can rely on index math instead of guarding for length.
-  const next = createEmptyTargetRolls()
-  if (!source) return next
-  for (let i = 0; i < Math.min(source.length, SUBSTAT_TARGET_MAX_ROLLS); i += 1) {
-    next[i] = source[i] ?? null
-  }
-  return next
-}
-
-const buildTargetEntryFromDraft = (
-  base: number | null,
-  rolls: readonly (number | null)[],
-): SubstatRollTargetEntry | null => {
-  const hasRollValues = rolls.some((value) => value != null)
-  if (base == null && !hasRollValues) return null
-  const entry: SubstatRollTargetEntry = {}
-  if (base != null) entry.base = base
-  if (hasRollValues) {
-    entry.increments = rolls.map((value) => (value == null ? null : value))
-  }
-  return entry
-}
-
 const normalizeLevelMilestone = (value: number | null | undefined): LevelMilestone => {
-  if (value != null && LEVEL_MILESTONES.includes(value as LevelMilestone)) return value as LevelMilestone
+  if (value != null && LEVEL_MILESTONES.includes(value as LevelMilestone)) {
+    return value as LevelMilestone
+  }
   return LEVEL_MILESTONES[0]!
-}
-
-const parseNumericInput = (raw: string): number | null => {
-  const trimmed = raw.trim()
-  if (trimmed.length === 0) return null
-  const next = Number(trimmed)
-  if (Number.isNaN(next) || !Number.isFinite(next)) return null
-  return next
-}
-
-const clampTargetValue = (value: number | null): number | null => {
-  if (value == null) return null
-  return Math.max(0, Math.round(value))
 }
 
 const computeRollBudgetForConfig = (config: BuilderConfig): number => {
@@ -581,34 +211,6 @@ const LOCK_MENU_GAP_PX = (SUBSTAT_MENU_ROLL_BUTTON_WIDTH_PX + SUBSTAT_MENU_ROLL_
 const LOCK_MENU_OFFSET_PX = (SUBSTAT_MENU_ROLL_BUTTON_WIDTH_PX - LOCK_MENU_BUTTON_WIDTH_PX) / 2
 const LOCK_MENU_BORDER_RADIUS_PX = 3
 const ROLL_ANY_STAR = '★' as const
-
-export const createFactoryBuilderDefaults = (): BuilderConfig => ({
-  name: '',
-  keep: true,
-  exportMode: 'active',
-  rankCode: 0,
-  rarityCode: 0,
-  rarityMode: 'auto',
-  autoRaritySupplementsThreshold: 'rare',
-  factionCode: 0,
-  mainStatsV: [],
-  minLevel: 0,
-  maxLevel: 16,
-  earlyKeepMode: 'early',
-  substatsV: [],
-  fixedSubstatsV: [],
-  minCount: 0,
-  autoMinCount: true,
-  autoSubstatFlex: false,
-  minRequiredRolls: 0,
-  autoMinRequiredRolls: true,
-  lockedMinRequiredRolls: 0,
-  substatRollBoundsV: {},
-  substatRollTargetsV: {},
-  artifactTypes: [],
-  artifactSets: [],
-  artifactMetaSets: [],
-})
 
 const MAX_CONFIG_INDEX_FOR_BUTTON_WIDTH = 999_999 as const
 export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSelected, registerAutoApplyHandler, onApplyMultiEdit, onUndo, onRedo, canUndo, canRedo, undoPreview, redoPreview, historyTimeline, onJumpToHistoryIndex, onRequestClearHistory, metasets, onMetasetsChange, describeNextChange, onDeleteMetaset, onResetMetasets, substatTargets, onSubstatTargetsChange, setUsageCounts, metasetUsageCounts, substatColors: _substatColors, configCount: _configCount, configRuleCounts, configRuleFingerprints, configsExcludedByTotalLimit, ruleSubstatTargetsKey, rulesBuilding, awaitRuleCounts, countRulesForConfigs, selectedIsDirty, configHiddenByFilters, onSelectConfigsByMetaset, substatTargetsDialogOpen, onCloseSubstatTargetsDialog, multiEdit: _multiEdit = null, multiSelectedConfigs = null, onBeforeMetasetsDialogClose }: {
@@ -2528,7 +2130,7 @@ const maxLevelValue = multiEditActive
   const selectedRuleFingerprint = (typeof editingIndex === 'number' && editingIndex >= 0)
     ? (configRuleFingerprints[editingIndex] ?? null)
     : null
-  const multiEditSelection = multiEdit?.state.selection ?? EMPTY_SELECTION
+  const multiEditSelection: readonly number[] = multiEdit?.state.selection ?? EMPTY_SELECTION
 
   const singleRuleCacheRef = useRef<{ cfgRef: BuilderConfig | null; substatTargetsRef: SubstatTargetTable | null; fingerprint: string | null; count: number | null }>({
     cfgRef: null,

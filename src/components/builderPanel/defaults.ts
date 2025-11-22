@@ -1,0 +1,30 @@
+import type { BuilderConfig } from '../../lib/hsfBuilder'
+
+// Core builder defaults used for resets, user overrides, and fresh configs.
+export const createFactoryBuilderDefaults = (): BuilderConfig => ({
+  name: '',
+  keep: true,
+  exportMode: 'active',
+  rankCode: 0,
+  rarityCode: 0,
+  rarityMode: 'auto',
+  autoRaritySupplementsThreshold: 'rare',
+  factionCode: 0,
+  mainStatsV: [],
+  minLevel: 0,
+  maxLevel: 16,
+  earlyKeepMode: 'early',
+  substatsV: [],
+  fixedSubstatsV: [],
+  minCount: 0,
+  autoMinCount: true,
+  autoSubstatFlex: false,
+  minRequiredRolls: 0,
+  autoMinRequiredRolls: true,
+  lockedMinRequiredRolls: 0,
+  substatRollBoundsV: {},
+  substatRollTargetsV: {},
+  artifactTypes: [],
+  artifactSets: [],
+  artifactMetaSets: [],
+})
