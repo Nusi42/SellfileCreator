@@ -374,6 +374,7 @@ export default function PreviewHeaderActions(props: {
           exclusive
           onChange={(_, next) => { if (next === 'rules' || next === 'tester') onChangePreviewMode(next) }}
           aria-label={t('previewModeAria')}
+          data-tour-id="preview.mode-toggle"
           sx={{
             height: SMALL_BUTTON_HEIGHT_PX,
             '& .MuiToggleButtonGroup-grouped:not(:first-of-type)': {
@@ -424,6 +425,7 @@ export default function PreviewHeaderActions(props: {
             sx={{ whiteSpace: 'nowrap', px: 1.25, height: SMALL_BUTTON_HEIGHT_PX, minHeight: SMALL_BUTTON_HEIGHT_PX, flexShrink: 0, maxWidth: LONG_LABEL_BUTTON_MAX_WIDTH_PX, overflow: 'hidden' }}
             aria-label={ruleTesterLabel}
             title={ruleTesterLabel}
+            data-tour-id="preview.rule-tester-button"
           >
             <Typography component="span" noWrap sx={ELLIPSIS_TEXT_SX}>{ruleTesterLabel}</Typography>
           </Button>

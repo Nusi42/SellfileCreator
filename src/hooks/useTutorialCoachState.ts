@@ -7,12 +7,19 @@ import { defaultSubstatTargets, type BuilderConfig, type SubstatTargetTable } fr
 import type { HsfFile } from '../lib/hsfTypes'
 import { defaultMetasets, makeMetasetId, type Metaset } from '../lib/metasets'
 import { DEFAULT_METASET_ICON_ID } from '../lib/metasetIcons'
-import { FINAL_SELL_DEFAULT_SETS_MODE, type FinalSellRemainderConfig } from '../lib/finalSell'
-import { ArtifactSet, ArtifactType, StatVariant, RankCode, RarityCode, LEVEL_MILESTONES, type LevelMilestone } from '../lib/types'
+import {
+  FINAL_SELL_DEFAULT_SETS_MODE,
+  FINAL_SELL_DIALOG_TAB_FINAL_SELL,
+  FINAL_SELL_DIALOG_TAB_KEEP_UNIQUES,
+  type FinalSellDialogTab,
+  type FinalSellRemainderConfig,
+} from '../lib/finalSell'
+import { ArtifactSet, ArtifactType, Faction, StatVariant, RankCode, RarityCode, LEVEL_MILESTONES, type LevelMilestone } from '../lib/types'
 import { DEFAULT_RULES_FILTER_STATE, type RulesFilterState } from '../lib/rulesFilter'
 import type { TutorialStep } from '../components/tutorial/TutorialCoach'
 import type { useI18n } from '../lib/i18n'
 import type { KeepUniqueRule } from '../lib/keepUniques'
+import type { RuleTesterItem } from '../lib/ruleTesterSession'
 
 type Translate = ReturnType<typeof useI18n>['t']
 type SubstatTargetsState = SubstatTargetTable
@@ -30,7 +37,67 @@ type TutorialSnapshot = {
   builder: BuilderConfig
   filterOpen: boolean
   rulesFilter: RulesFilterState
+  testerItems: RuleTesterItem[]
+  previewMode: 'rules' | 'tester'
+  testerOpen: boolean
+  finalSellDialogTab: FinalSellDialogTab
 }
+
+const buildTutorialTesterItems = (): RuleTesterItem[] => [{
+  itemId: 1,
+  name: 'Refresh Bannerlords Amulet',
+  slot: ArtifactType.Amulet,
+  set: ArtifactSet.Refresh,
+  rank: 5,
+  rarity: 3,
+  level: LEVEL_MILESTONES[0]!,
+  faction: Faction.BannerLords,
+  main: StatVariant.CDMG,
+  subValues: {
+    [StatVariant.SPD]: 12,
+    [StatVariant.ACC]: 11,
+    [StatVariant.RES]: 15,
+  },
+  previewExtras: {
+    source: 'tester',
+    exactLevel: LEVEL_MILESTONES[0]!,
+  },
+}]
+
+const buildTutorialKeepUniqueRules = (): KeepUniqueRule[] => [{
+  id: 'tutorial-refresh-keep-unique',
+  combination: {
+    slots: [ArtifactType.Amulet],
+    sets: [ArtifactSet.Refresh],
+    metaSetIds: [],
+    ranks: [5],
+    rarities: [3],
+    mainStats: [StatVariant.CDMG],
+    factions: [Faction.BannerLords],
+  },
+  requiredCount: 1,
+  enabled: true,
+}]
+
+const cloneTesterItem = (item: RuleTesterItem): RuleTesterItem => ({
+  ...item,
+  ...(item.subValues ? { subValues: { ...item.subValues } } : {}),
+  ...(item.subOrder ? { subOrder: [...item.subOrder] } : {}),
+  ...(item.previewExtras ? { previewExtras: { ...item.previewExtras } } : {}),
+})
+
+const cloneKeepUniqueRule = (rule: KeepUniqueRule): KeepUniqueRule => ({
+  ...rule,
+  combination: {
+    slots: [...rule.combination.slots],
+    sets: [...rule.combination.sets],
+    metaSetIds: [...(rule.combination.metaSetIds ?? [])],
+    ranks: [...rule.combination.ranks],
+    rarities: [...rule.combination.rarities],
+    mainStats: [...rule.combination.mainStats],
+    factions: [...rule.combination.factions],
+  },
+})
 
 export type UseTutorialCoachStateParams = {
   hsf: HsfFile | null
@@ -45,10 +112,18 @@ export type UseTutorialCoachStateParams = {
   setSubstatTargets: Dispatch<SetStateAction<SubstatTargetsState>>
   finalSellRemainder: FinalSellRemainderConfig
   setFinalSellRemainder: Dispatch<SetStateAction<FinalSellRemainderConfig>>
+  finalSellDialogTab: FinalSellDialogTab
+  setFinalSellDialogTab: Dispatch<SetStateAction<FinalSellDialogTab>>
   keepUniqueRules: KeepUniqueRule[]
   setKeepUniqueRules: Dispatch<SetStateAction<KeepUniqueRule[]>>
   keepUniquesEnabled: boolean
   setKeepUniquesEnabled: Dispatch<SetStateAction<boolean>>
+  testerItems: RuleTesterItem[]
+  setTesterItems: Dispatch<SetStateAction<RuleTesterItem[]>>
+  testerOpen: boolean
+  setTesterOpen: Dispatch<SetStateAction<boolean>>
+  previewMode: 'rules' | 'tester'
+  setPreviewMode: Dispatch<SetStateAction<'rules' | 'tester'>>
   hsfcNote: string | null
   setHsfcNote: Dispatch<SetStateAction<string | null>>
   builderRef: MutableRefObject<BuilderConfig>
@@ -97,10 +172,18 @@ export function useTutorialCoachState({
   setSubstatTargets,
   finalSellRemainder,
   setFinalSellRemainder,
+  finalSellDialogTab,
+  setFinalSellDialogTab,
   keepUniqueRules,
   setKeepUniqueRules,
   keepUniquesEnabled,
   setKeepUniquesEnabled,
+  testerItems,
+  setTesterItems,
+  testerOpen,
+  setTesterOpen,
+  previewMode,
+  setPreviewMode,
   hsfcNote,
   setHsfcNote,
   builderRef,
@@ -162,6 +245,14 @@ export function useTutorialCoachState({
   useEffect(() => { filterOpenRef.current = filterOpen }, [filterOpen])
   const rulesFilterRef = useRef<RulesFilterState>(rulesFilter)
   useEffect(() => { rulesFilterRef.current = rulesFilter }, [rulesFilter])
+  const testerItemsRef = useRef<RuleTesterItem[]>(testerItems)
+  useEffect(() => { testerItemsRef.current = testerItems }, [testerItems])
+  const previewModeRef = useRef<'rules' | 'tester'>(previewMode)
+  useEffect(() => { previewModeRef.current = previewMode }, [previewMode])
+  const testerOpenRef = useRef<boolean>(testerOpen)
+  useEffect(() => { testerOpenRef.current = testerOpen }, [testerOpen])
+  const finalSellDialogTabRef = useRef<FinalSellDialogTab>(finalSellDialogTab)
+  useEffect(() => { finalSellDialogTabRef.current = finalSellDialogTab }, [finalSellDialogTab])
 
   const clearPreviewHighlight = useCallback(() => {
     if (previewHighlightCleanupRef.current) {
@@ -268,6 +359,9 @@ export function useTutorialCoachState({
     } catch {}
     try { ensurePreviewHighlight(null) } catch {}
     try {
+      setTesterOpen(false)
+    } catch {}
+    try {
       setFinalSellOpen(false)
     } catch {}
     try {
@@ -306,7 +400,7 @@ export function useTutorialCoachState({
         } catch {}
       }, 60)
     } catch {}
-  }, [ensurePreviewHighlight, setFinalSellOpen])
+  }, [ensurePreviewHighlight, setFinalSellOpen, setTesterOpen])
 
   const restoreFromTutorialSnapshot = useCallback(() => {
     const snap = tutorialSnapshot
@@ -325,6 +419,10 @@ export function useTutorialCoachState({
         setBuilder(snap.builder)
         setFilterOpen(snap.filterOpen)
         setRulesFilter(JSON.parse(JSON.stringify(snap.rulesFilter)) as RulesFilterState)
+        setTesterItems(snap.testerItems)
+        setPreviewMode(snap.previewMode)
+        setTesterOpen(snap.testerOpen)
+        setFinalSellDialogTab(snap.finalSellDialogTab)
       })
     } catch {}
   }, [
@@ -340,6 +438,10 @@ export function useTutorialCoachState({
     setSelectedCfgIdx,
     setKeepUniqueRules,
     setKeepUniquesEnabled,
+    setTesterItems,
+    setPreviewMode,
+    setTesterOpen,
+    setFinalSellDialogTab,
     tutorialSnapshot,
   ])
 
@@ -355,6 +457,12 @@ export function useTutorialCoachState({
           const btn = document.querySelector('[data-tour-id="metasets.close"]') as HTMLButtonElement | null
           btn?.click()
         }
+      } catch {}
+    }
+
+    const ensureRuleTesterDialog = (open: boolean) => {
+      try {
+        setTesterOpen(open)
       } catch {}
     }
 
@@ -436,13 +544,8 @@ export function useTutorialCoachState({
       } catch {}
     }
 
-    const isFinalSellDialogOpen = () => Boolean(document.querySelector('[data-tour-id="finalsell.dialog"]'))
     const ensureFinalSellDialog = (open: boolean) => {
-      try {
-        const openNow = isFinalSellDialogOpen()
-        if (open && !openNow) { setFinalSellOpen(true) }
-        else if (!open && openNow) { setFinalSellOpen(false) }
-      } catch {}
+      try { setFinalSellOpen(open) } catch {}
     }
 
     const isPreviewHeaderMenuOpen = () => Boolean(document.querySelector('[data-tour-id="preview.header.menu"]'))
@@ -528,12 +631,16 @@ export function useTutorialCoachState({
         metas: cloneMetas,
         substatTargets: clonedSubstatTargets,
         fsr: cloneFsr,
-        keepUniqueRules: keepUniqueRulesRef.current?.map((rule) => ({ ...rule })) ?? [],
+        keepUniqueRules: keepUniqueRulesRef.current?.map((rule) => cloneKeepUniqueRule(rule)) ?? [],
         keepUniquesEnabled: keepUniquesEnabledRef.current,
         note: noteRef.current,
         builder: cloneBuilder,
         filterOpen: filterOpenRef.current,
         rulesFilter: cloneRulesFilter,
+        testerItems: testerItemsRef.current.map((item) => cloneTesterItem(item)),
+        previewMode: previewModeRef.current,
+        testerOpen: testerOpenRef.current,
+        finalSellDialogTab: finalSellDialogTabRef.current,
       })
     } catch {}
 
@@ -544,6 +651,7 @@ export function useTutorialCoachState({
       setMetasets([])
       setSubstatTargets(defaultSubstatTargets())
       setFinalSellRemainder({ artifacts: false, accessories: false, levels: FINAL_SELL_DEFAULT_LEVELS.slice() as LevelMilestone[], setsMode: FINAL_SELL_DEFAULT_SETS_MODE })
+      setFinalSellDialogTab(FINAL_SELL_DIALOG_TAB_FINAL_SELL)
       setHsfcNote(null)
       setBuilder({
         name: '',
@@ -567,6 +675,11 @@ export function useTutorialCoachState({
       })
       setFilterOpen(false)
       setRulesFilter(JSON.parse(JSON.stringify(DEFAULT_RULES_FILTER_STATE)) as RulesFilterState)
+      setTesterItems([])
+      setTesterOpen(false)
+      setPreviewMode('rules')
+      setKeepUniqueRules([])
+      setKeepUniquesEnabled(false)
     } catch {}
 
     setTutorialIdx(0)
@@ -896,6 +1009,40 @@ export function useTutorialCoachState({
         before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensurePreviewHeaderMenu(false); ensurePreviewHighlight('lower') },
       },
       {
+        id: 'tester-open',
+        title: t('tutTesterOpenTitle'),
+        body: t('tutTesterOpenBody'),
+        targetId: 'preview.rule-tester-button',
+        before: () => {
+          ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensureFinalSellDialog(false); ensurePreviewHighlight(null)
+          setPreviewMode('rules')
+          ensureRuleTesterDialog(false)
+        },
+      },
+      {
+        id: 'tester-add-manual',
+        title: t('tutTesterAddTitle'),
+        body: t('tutTesterAddBody'),
+        targetId: 'tester.add-manual',
+        before: () => {
+          ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensureFinalSellDialog(false); ensurePreviewHighlight(null)
+          setPreviewMode('rules')
+          ensureRuleTesterDialog(true)
+          setTesterItems(buildTutorialTesterItems())
+        },
+      },
+      {
+        id: 'tester-preview',
+        title: t('tutTesterPreviewTitle'),
+        body: t('tutTesterPreviewBody'),
+        targetIds: ['preview.mode-toggle', 'preview.tester-grid-top'],
+        before: () => {
+          ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensureFinalSellDialog(false); ensurePreviewHighlight(null)
+          setTesterOpen(false)
+          setPreviewMode('tester')
+        },
+      },
+      {
         id: 'finalsell-intro',
         title: t('tutFinalSellIntroTitle'),
         body: t('tutFinalSellIntroBody'),
@@ -906,9 +1053,10 @@ export function useTutorialCoachState({
         id: 'finalsell-dialog',
         title: t('tutFinalSellDialogTitle'),
         body: t('tutFinalSellDialogBody'),
-        targetIds: ['finalsell.dialog', 'finalsell.dialog.types', 'finalsell.dialog.levels'],
+        targetIds: ['finalsell.dialog.sets', 'finalsell.dialog.warning', 'finalsell.dialog.types', 'finalsell.dialog.levels', 'finalsell.dialog.status'],
         before: () => {
           ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensurePreviewHighlight(null)
+          setFinalSellDialogTab(FINAL_SELL_DIALOG_TAB_FINAL_SELL)
           try {
             setFinalSellOpen(true)
             setFinalSellRemainder((prev) => {
@@ -920,11 +1068,40 @@ export function useTutorialCoachState({
         },
       },
       {
+        id: 'keep-uniques-intro',
+        title: t('tutKeepUniquesIntroTitle'),
+        body: t('tutKeepUniquesIntroBody'),
+        targetId: 'keepuniques.tab',
+        before: () => {
+          ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensurePreviewHighlight(null)
+          setFinalSellOpen(true)
+          setFinalSellDialogTab(FINAL_SELL_DIALOG_TAB_KEEP_UNIQUES)
+          setKeepUniqueRules(buildTutorialKeepUniqueRules())
+          setKeepUniquesEnabled(true)
+        },
+      },
+      {
+        id: 'keep-uniques-rule',
+        title: t('tutKeepUniquesRuleTitle'),
+        body: t('tutKeepUniquesRuleBody'),
+        targetId: 'keepuniques.rules',
+        before: () => {
+          ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensurePreviewHighlight(null)
+          setFinalSellOpen(true)
+          setFinalSellDialogTab(FINAL_SELL_DIALOG_TAB_KEEP_UNIQUES)
+          setKeepUniqueRules(buildTutorialKeepUniqueRules())
+          setKeepUniquesEnabled(true)
+        },
+      },
+      {
         id: 'note',
         title: t('tutNoteTitle'),
         body: t('tutNoteBody'),
         targetId: 'note.toggle',
-        before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensureFinalSellDialog(false); ensurePreviewHighlight(null) },
+        before: () => {
+          ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensureFinalSellDialog(false); ensurePreviewHighlight(null)
+          try { setFinalSellOpen(false) } catch {}
+        },
       },
       {
         id: 'save-explain',
@@ -938,7 +1115,11 @@ export function useTutorialCoachState({
         title: t('tutPreviewFinishTitle'),
         body: t('tutPreviewFinishBody'),
         targetId: 'preview.paper',
-        before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensurePreviewHeaderMenu(false); ensurePreviewHighlight(null); try { setFinalSellOpen(false) } catch {} },
+        before: () => {
+          ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensurePreviewHeaderMenu(false); ensurePreviewHighlight(null)
+          setPreviewMode('rules')
+          try { setFinalSellOpen(false) } catch {}
+        },
       },
       {
         id: 'export-explain',
@@ -966,6 +1147,7 @@ export function useTutorialCoachState({
       { label: t('tutSectionMetasetsLabel'), index: find('metasets-open') },
       { label: t('tutSectionConfigChipsLabel'), index: find('adv-add') },
       { label: t('tutSectionAutoLateLabel'), index: find('auto-late-slot') },
+      { label: t('tutSectionRuleTesterLabel'), index: find('tester-open') },
       { label: t('tutSectionFinalSellLabel'), index: find('finalsell-intro') },
       { label: t('tutSectionSaveExportLabel'), index: find('note') },
     ].filter((section) => section.index >= 0)
@@ -985,6 +1167,12 @@ export function useTutorialCoachState({
     setSubstatTargets,
     setRulesFilter,
     setSelectedCfgIdx,
+    setTesterItems,
+    setTesterOpen,
+    setPreviewMode,
+    setFinalSellDialogTab,
+    setKeepUniqueRules,
+    setKeepUniquesEnabled,
     setTutorialAddedAutoLate,
     setTutorialAddedAdvanced,
     setTutorialAddedBasic,
@@ -1014,6 +1202,12 @@ export function useTutorialCoachState({
         levels: FINAL_SELL_DEFAULT_LEVELS.slice() as LevelMilestone[],
         setsMode: FINAL_SELL_DEFAULT_SETS_MODE,
       }
+      let nextTesterItems: RuleTesterItem[] = []
+      let nextPreviewMode: 'rules' | 'tester' = 'rules'
+      let nextTesterOpen = false
+      let nextKeepUniqueRules: KeepUniqueRule[] = []
+      let nextKeepUniquesEnabled = false
+      let nextFinalSellDialogTab: FinalSellDialogTab = FINAL_SELL_DIALOG_TAB_FINAL_SELL
       let nextNote: string | null = null
       let nextBuilder: BuilderConfig = {
         name: '',
@@ -1150,9 +1344,44 @@ export function useTutorialCoachState({
             nextSel = nextCfgs.length - 1
             break
           }
+          case 'tester-open': {
+            nextTesterOpen = false
+            nextPreviewMode = 'rules'
+            break
+          }
+          case 'tester-dialog': {
+            nextTesterOpen = true
+            nextPreviewMode = 'rules'
+            break
+          }
+          case 'tester-add-manual': {
+            nextTesterOpen = true
+            nextPreviewMode = 'rules'
+            nextTesterItems = buildTutorialTesterItems()
+            break
+          }
+          case 'tester-preview': {
+            if (nextTesterItems.length === 0) nextTesterItems = buildTutorialTesterItems()
+            nextTesterOpen = false
+            nextPreviewMode = 'tester'
+            break
+          }
           case 'finalsell-dialog': {
             const levels = nextFsr.levels?.length ? nextFsr.levels : (FINAL_SELL_DEFAULT_LEVELS.slice() as LevelMilestone[])
             nextFsr = { ...nextFsr, artifacts: true, accessories: false, levels }
+            nextFinalSellDialogTab = FINAL_SELL_DIALOG_TAB_FINAL_SELL
+            break
+          }
+          case 'keep-uniques-intro': {
+            nextKeepUniqueRules = buildTutorialKeepUniqueRules()
+            nextKeepUniquesEnabled = true
+            nextFinalSellDialogTab = FINAL_SELL_DIALOG_TAB_KEEP_UNIQUES
+            break
+          }
+          case 'keep-uniques-rule': {
+            if (nextKeepUniqueRules.length === 0) nextKeepUniqueRules = buildTutorialKeepUniqueRules()
+            nextKeepUniquesEnabled = true
+            nextFinalSellDialogTab = FINAL_SELL_DIALOG_TAB_KEEP_UNIQUES
             break
           }
           default:
@@ -1165,6 +1394,12 @@ export function useTutorialCoachState({
       setMetasets(nextMetas)
       setSubstatTargets(nextSubstatTargets)
       setFinalSellRemainder(nextFsr)
+      setKeepUniqueRules(nextKeepUniqueRules)
+      setKeepUniquesEnabled(nextKeepUniquesEnabled)
+      setTesterItems(nextTesterItems)
+      setPreviewMode(nextPreviewMode)
+      setTesterOpen(nextTesterOpen)
+      setFinalSellDialogTab(nextFinalSellDialogTab)
       setHsfcNote(nextNote)
       setBuilder(nextBuilder)
       setTutorialIdx(idx)
@@ -1181,6 +1416,12 @@ export function useTutorialCoachState({
     setMetasets,
     setSubstatTargets,
     setSelectedCfgIdx,
+    setKeepUniqueRules,
+    setKeepUniquesEnabled,
+    setTesterItems,
+    setPreviewMode,
+    setTesterOpen,
+    setFinalSellDialogTab,
     tutorialSteps,
   ])
 

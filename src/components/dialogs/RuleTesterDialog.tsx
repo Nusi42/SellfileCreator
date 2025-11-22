@@ -1527,6 +1527,7 @@ export default function RuleTesterDialog({
         <Tooltip title={t('close')}><IconButton onClick={onClose} size="small"><CloseIcon fontSize="small" /></IconButton></Tooltip>
       </DialogTitle>
       <DialogContent
+        data-tour-id="tester.dialog"
         dividers
         sx={{
           display: 'flex',
@@ -1691,7 +1692,7 @@ export default function RuleTesterDialog({
             gap: 1,
           }}
         >
-          <Button onClick={handleAddManualGear}>{t('testerAddManualGear')}</Button>
+          <Button data-tour-id="tester.add-manual" onClick={handleAddManualGear}>{t('testerAddManualGear')}</Button>
           <Box sx={{ flex: 1 }} />
           <Button onClick={onClose}>{t('close')}</Button>
         </Box>

@@ -134,7 +134,11 @@ export default function FinalSellDialog(props: FinalSellDialogProps) {
             indicatorColor="primary"
           >
             <Tab value={FINAL_SELL_DIALOG_TAB_FINAL_SELL} label={t('testerFinalSell')} />
-            <Tab value={FINAL_SELL_DIALOG_TAB_KEEP_UNIQUES} label={t('tabKeepUniques')} />
+            <Tab
+              value={FINAL_SELL_DIALOG_TAB_KEEP_UNIQUES}
+              label={t('tabKeepUniques')}
+              data-tour-id="keepuniques.tab"
+            />
           </Tabs>
         </Stack>
       </DialogTitle>
@@ -143,7 +147,7 @@ export default function FinalSellDialog(props: FinalSellDialogProps) {
           <Box data-tour-id="finalsell.dialog" sx={{ flex: 1, minHeight: 0, overflowY: 'auto', p: 3 }}>
             <Stack spacing={2} sx={{ mt: 0.5 }}>
           <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: 'pre-line' }}>{t('msgFinalSellExplainer')}</Typography>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+          <Box data-tour-id="finalsell.dialog.sets" sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
               <Typography variant="body2">{t('labelFinalSellSetsMode')}</Typography>
               <ToggleButtonGroup
@@ -210,6 +214,7 @@ export default function FinalSellDialog(props: FinalSellDialogProps) {
               </ToggleButtonGroup>
             </Box>
             <Alert
+              data-tour-id="finalsell.dialog.warning"
               severity="warning"
               variant="outlined"
               color="warning"
@@ -348,7 +353,7 @@ export default function FinalSellDialog(props: FinalSellDialogProps) {
                 justifyContent: 'center',
               }}
             >
-              <Typography variant="body2" color="text.secondary">
+              <Typography data-tour-id="finalsell.dialog.status" variant="body2" color="text.secondary">
                 {t('hintFinalSellStatusLead')}{' '}
                 <Box
                   component="span"
