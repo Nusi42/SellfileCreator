@@ -94,14 +94,13 @@ function safeGetLanguage(): Language {
   }
 }
 
-type I18nContextValue = {
+export type I18nContextValue = {
   lang: Language
   setLang: (lang: Language) => void
   t: (key: I18nKey, params?: Record<string, string | number>) => string
   // Register a runtime catalog for quick testing (e.g., via dropped file)
   registerRuntimeCatalog: (langCode: string, catalog: Partial<StrictCatalog>) => void
 }
-
 const I18nContext = React.createContext<I18nContextValue | null>(null)
 
 function detectPreferredLanguage(): Language {
