@@ -419,6 +419,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   })
   const keepUniqueMergeAlreadyAppliedLoggedRef = useRef(false)
   const keepUniqueMergeNoDetectionLoggedRef = useRef(false)
+  const keepUniqueMergeWaitingLoggedRef = useRef(false)
   // Force a re-apply when the detection fingerprint changes so late DB loads still inject keep-unique rules.
   useEffect(() => {
     if (!keepUniqueDetectionSignature) return
@@ -601,6 +602,15 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       },
     })
       const { baseRules, finalSellRules } = splitMergedRules(mergedRules)
+      if (keepUniquesActive && keepUniqueDetection) {
+        // Seed applied-state refs so the detection effect knows this snapshot already includes the scan results.
+        keepUniqueAppliedStateRef.current = {
+          baseRules,
+          rulesByConfig: initial.rulesByConfig,
+          finalSellRules,
+        }
+        keepUniqueScanAppliedRef.current = fingerprintKeepUniqueDetection(keepUniqueDetection)
+      }
       return {
         baseRules,
         finalSellRules,
@@ -905,9 +915,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
 
     const resolvedKeepUniqueRulesForWarm = resolveKeepUniqueRulesWithMetasets(keepUniqueRules, metasets)
     const keepUniquesActiveForWarm = keepUniquesEnabled && resolvedKeepUniqueRulesForWarm.length > 0
+    // Only forward detection data when keep-unique guards are actually in play.
+    const detectionSnapshotForWarm = keepUniquesActiveForWarm ? keepUniqueDetectionSnapshot : null
+    // Fingerprint ahead of time so we know whether the worker commit already applied the scan.
+    const detectionSignatureForWarm = detectionSnapshotForWarm ? fingerprintKeepUniqueDetection(detectionSnapshotForWarm) : null
     setRulesBuilding(true)
     rulesBuildingTokenRef.current = requestToken
-    const detectionSignatureForWarm = null
     const warmPromise = warmCache(
       {
         configs: configsForWarm,
@@ -918,7 +931,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         keepUniques: {
           enabled: keepUniquesActiveForWarm,
           rules: resolvedKeepUniqueRulesForWarm,
-          detection: null,
+          // Worker builds keep-unique injections when detection data is present; null keeps legacy behavior.
+          detection: detectionSnapshotForWarm,
         },
       },
       { signal: abortController.signal },
@@ -943,6 +957,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             excludedByTotalLimitIndices: state.excludedByTotalLimitIndices,
           }
           setConfigRulesState(snapshot)
+          // Remember which data set produced the current keep-unique merge so the detector effect can skip redundant work.
+          keepUniqueAppliedStateRef.current = {
+            baseRules: snapshot.baseRules,
+            rulesByConfig: snapshot.rulesByConfig,
+            finalSellRules: snapshot.finalSellRules,
+          }
           finishRulesBuilding()
           console.log(
             '[rule-cache:warm] commit token=%d merged=%d base=%d finalSell=%d truncated=%d limitHit=%s',
@@ -1731,6 +1751,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     if (!keepUniquesActive) {
       keepUniqueMergeAlreadyAppliedLoggedRef.current = false
       keepUniqueMergeNoDetectionLoggedRef.current = false
+      keepUniqueMergeWaitingLoggedRef.current = false
       return
     }
     // No detection = nothing to inject yet.
@@ -1740,6 +1761,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         keepUniqueMergeNoDetectionLoggedRef.current = true
       }
       keepUniqueMergeAlreadyAppliedLoggedRef.current = false
+      keepUniqueMergeWaitingLoggedRef.current = false
       return
     }
     keepUniqueMergeNoDetectionLoggedRef.current = false
@@ -1756,7 +1778,15 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       && applied.finalSellRules === finalSellRulesRef
     )
     const detectionAwaitingApply = pendingDetectionSignature === keepUniqueDetectionSignature
-    if (alreadyApplied && !detectionAwaitingApply) {
+    if (detectionAwaitingApply) {
+      if (!keepUniqueMergeWaitingLoggedRef.current) {
+        console.log('[keep-unique-merge] waiting for worker detection signature=%s', describeSignature(keepUniqueDetectionSignature))
+        keepUniqueMergeWaitingLoggedRef.current = true
+      }
+      return
+    }
+    keepUniqueMergeWaitingLoggedRef.current = false
+    if (alreadyApplied) {
       if (!keepUniqueMergeAlreadyAppliedLoggedRef.current) {
         console.log('[keep-unique-merge] already applied detection signature=%s', describeSignature(keepUniqueDetectionSignature))
         keepUniqueMergeAlreadyAppliedLoggedRef.current = true

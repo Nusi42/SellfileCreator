@@ -202,9 +202,8 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
 
   const warmCache = useCallback<UseRuleCacheWorkerResult['warmCache']>((params, options) => {
     const signal = options?.signal ?? null
-    const shouldForceLocal = params.keepUniques?.enabled === true
 
-    if (shouldForceLocal || !supportsWorkerEnv || !workerRef.current) {
+    if (!supportsWorkerEnv || !workerRef.current) {
       return Promise.resolve(runWarmLocally(params))
     }
 

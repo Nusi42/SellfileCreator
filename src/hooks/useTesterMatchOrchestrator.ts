@@ -179,9 +179,8 @@ export function useTesterMatchOrchestrator(params: UseTesterMatchOrchestratorPar
 } = params
   // Keep-unique detection is enabled again.
   const keepUniqueDetectionDisabled = false
-  // Match worker is temporarily disabled to avoid async churn during restores.
-  const workerDisabled = true
-  const effectiveWorkerSupported = workerDisabled ? false : rawTesterMatchWorkerSupported
+  // Re-enable the worker so heavy tester scans stay off the main thread whenever the browser allows it.
+  const effectiveWorkerSupported = rawTesterMatchWorkerSupported
 
   // Track rows by item id so incremental rebuilds avoid churn.
   const testerPreviewRowMapRef = useRef<Map<number, TesterPreviewRow>>(new Map())
@@ -197,6 +196,8 @@ export function useTesterMatchOrchestrator(params: UseTesterMatchOrchestratorPar
   const testerRowsBuildingRef = useRef(testerRowsBuilding)
   // Mirror committed build id for downstream guards.
   const testerRowsCommittedBuildIdRef = useRef(testerRowsCommittedBuildId)
+  // Track which rule signature has actually been rendered so we can detect pending rebuilds when signatures change.
+  const testerRowsCommittedRulesSignatureRef = useRef<string | null>(null)
   // Suppress redundant stable-input logs.
   const testerRowsStableSkipLoggedRef = useRef(false)
 
@@ -235,12 +236,14 @@ export function useTesterMatchOrchestrator(params: UseTesterMatchOrchestratorPar
     )
     // Previous deps determine whether a rebuild is necessary.
     const prevMatchDeps = testerPreviewMatchDepsRef.current
+    const rulesChangedSinceCommit = testerRowsCommittedRulesSignatureRef.current !== mergedRulesSignature
     const rowsSettled = !testerRowsBuildingRef.current && testerRowsCommittedBuildIdRef.current === testerRowsBuildIdRef.current
     if (
       rowsSettled
       && prevMatchDeps.rulesSignature === mergedRulesSignature
       && prevMatchDeps.namesSignature === namesSignature
       && lastSettledArtifactsRef.current === artifacts
+      && !rulesChangedSinceCommit
     ) {
       if (!testerRowsStableSkipLoggedRef.current) {
         lastSettledArtifactsRef.current = artifacts
@@ -282,7 +285,7 @@ export function useTesterMatchOrchestrator(params: UseTesterMatchOrchestratorPar
     // Force rebuild when rules or config names change.
     const rulesChanged = prevMatchDeps.rulesSignature !== mergedRulesSignature
     const namesChanged = prevMatchDeps.namesSignature !== namesSignature
-    const forceRebuildAllRows = rulesChanged || namesChanged
+    const forceRebuildAllRows = rulesChanged || namesChanged || rulesChangedSinceCommit
     // Previous rows by item id allow incremental diffs.
     const prevRowMap = testerPreviewRowMapRef.current
     // Start with a shallow clone we can mutate safely.
@@ -365,6 +368,7 @@ export function useTesterMatchOrchestrator(params: UseTesterMatchOrchestratorPar
       testerPreviewRowMapRef.current = nextRowMap
       setTesterPreviewRows(sortTesterRows(Array.from(nextRowMap.values())))
       setTesterRowsCommittedBuildId(buildId)
+      testerRowsCommittedRulesSignatureRef.current = mergedRulesSignature
       lastSettledArtifactsRef.current = artifacts
       console.log('[tester-match] commit no-dirty buildId=%d rows=%d', buildId, nextRowMap.size)
       setTesterRowsBuilding(false)
@@ -408,7 +412,17 @@ export function useTesterMatchOrchestrator(params: UseTesterMatchOrchestratorPar
     }
 
     // Keep-unique detection waits for latest scan to avoid flicker.
-    const shouldHoldRowsBuilding = (): boolean => false
+    // Hold the visible match rows whenever keep-unique protection is in flux so users never see stale overrides.
+    const shouldHoldRowsBuilding = (): boolean => (
+      keepUniquesActive
+      && (
+        Boolean(pendingKeepUniqueDetectionSigRef.current)
+        || (
+          Boolean(keepUniqueDetectionSignature)
+          && keepUniqueDetectionSignature !== keepUniqueScanAppliedRef.current
+        )
+      )
+    )
 
     // Capture previous rows to reuse keep-unique matches while frozen.
     const prevRowSnapshot = testerPreviewRowMapRef.current
@@ -485,6 +499,7 @@ export function useTesterMatchOrchestrator(params: UseTesterMatchOrchestratorPar
           const sortedRows = sortTesterRows(Array.from(nextRowMap.values()))
           setTesterPreviewRows(sortedRows)
           setTesterRowsCommittedBuildId(buildId)
+          testerRowsCommittedRulesSignatureRef.current = mergedRulesSignature
           lastSettledArtifactsRef.current = artifacts
           console.log('[tester-match] worker-commit buildId=%d rows=%d dirty=%d', buildId, nextRowMap.size, dirtyEntries.length)
           logSampleMatches('worker', sortedRows)
@@ -545,6 +560,7 @@ export function useTesterMatchOrchestrator(params: UseTesterMatchOrchestratorPar
       const sortedRows = sortTesterRows(Array.from(nextRowMap.values()))
       setTesterPreviewRows(sortedRows)
       setTesterRowsCommittedBuildId(buildId)
+      testerRowsCommittedRulesSignatureRef.current = mergedRulesSignature
       lastSettledArtifactsRef.current = artifacts
       console.log('[tester-match] fallback-commit buildId=%d rows=%d dirty=%d', buildId, nextRowMap.size, dirtyEntries.length)
       logSampleMatches('fallback', sortedRows)
@@ -571,6 +587,7 @@ export function useTesterMatchOrchestrator(params: UseTesterMatchOrchestratorPar
     keepUniquesActive,
     keepUniqueDetectionSignature,
     keepUniqueScanAppliedRef,
+    pendingKeepUniqueDetectionSigRef,
     setTesterPreviewRows,
     setTesterRowsBuilding,
     setTesterRowsCommittedBuildId,
