@@ -6,7 +6,7 @@
  * local UI state; all persisted state lives in App.
  */
 // React drives the builder UI; hooks keep state localized while config flows from App.
-import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { rarityCodeToName, StatVariant, RankCode, RarityCode, Faction, type FactionId, filterAndSortSetEntries, statVariantI18nKey, artifactSetI18nKey, LEVEL_MILESTONES, type LevelMilestone, STAT_VARIANTS_PRIORITY_ROW1, STAT_VARIANTS_PRIORITY_ROW2 } from '../lib/types'
 import { variantToSub } from '../lib/hsfTypes'
 import { NBSP, GLYPH_TOGGLE_ON, GLYPH_TOGGLE_OFF } from '../lib/constants'
@@ -16,7 +16,6 @@ import { useMetasetsDialog } from '../hooks/useMetasetsDialog'
 import { useContextMenuCloseOnOutsideRightClick } from '../hooks/useContextMenuCloseOnOutsideRightClick'
 import { useContextMenuHint } from '../hooks/useContextMenuHint'
 import type { HistoryPreview, DescribeNextChangeFn, HistoryTimelineEntry } from '../hooks/useHsfcHistory'
-import { formatHistoryTooltipText } from '../history/historyTooltip'
 import {
   LEVELS,
   normalizeExportModeFields,
@@ -53,7 +52,6 @@ import {
   type AggregateRollState,
 } from '../lib/aggregateRollState'
 import { type Metaset, metasetGlyph, orderMetasetIds } from '../lib/metasets'
-import { fingerprintConfigForRules } from '../lib/ruleCache'
 
 
 //
@@ -81,7 +79,7 @@ import PlaylistAddCheckIcon from '@mui/icons-material/PlaylistAddCheck'
 import UndoIcon from '@mui/icons-material/Undo'
 import RedoIcon from '@mui/icons-material/Redo'
 import ClearIconButton from './ClearIconButton'
-import { UI_BG_HOVER_DANGER_TRANSITION, DANGER_TINT_BG, LIST_SUBHEADER_SX, MENU_SELECTED_BG_ALPHA, MENU_SELECTED_BG_HOVER_ALPHA, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, MENU_MAX_HEIGHT_EXTRA_BUFFER, SETS_MENU_WIDTH_PX, UI_SUBSTAT_WARNING_ROW_HEIGHT_PX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, BUILDER_USER_DEFAULTS_KEY, BUILDER_DEFAULT_SAVE_TARGET, BUILDER_DIRTY_NUDGE_IDLE_MS, BUILDER_DIRTY_ATTENTION_INTERVAL_MS, FONT_SIZE_BASE_PX, ELLIPSIS_TEXT_SX, BUILDER_SLOT_LABEL_WIDTH_BUFFER_PX, BUILDER_TOGGLE_BUTTON_HEIGHT_PX, BUILDER_TOGGLE_BUTTON_MIN_WIDTH_PX, SMALL_BUTTON_HEIGHT_PX, SETS_SELECT_INLINE_GUTTER_PX, CLEAR_ICON_BUTTON_SIZE_PX, SETS_TOOLTIP_MAX_WIDTH_PX, MULTI_EDIT_MIXED_BG_ALPHA, MULTI_EDIT_MIXED_BORDER_ALPHA, MULTI_EDIT_MIXED_TEXT_ALPHA, MENU_LABEL_WIDTH_PX, MENU_CONTROL_HEIGHT_PX, ROLL_BADGE_HOVER_GUTTER_PX, ROLL_BADGE_SIZE_PX, ROLL_BADGE_SCALE, FONT_SIZE_SECONDARY_PX, SUBSTAT_TARGET_MAX_ROLLS, RULE_COUNT_LIMIT, TOTAL_RULE_COUNT_LIMIT, HISTORY_TOOLTIP_MAX_WIDTH_PX, BUILDER_AUTO_APPLY_DEBOUNCE_MS } from '../lib/constants'
+import { UI_BG_HOVER_DANGER_TRANSITION, DANGER_TINT_BG, LIST_SUBHEADER_SX, MENU_SELECTED_BG_ALPHA, MENU_SELECTED_BG_HOVER_ALPHA, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, MENU_MAX_HEIGHT_EXTRA_BUFFER, SETS_MENU_WIDTH_PX, UI_SUBSTAT_WARNING_ROW_HEIGHT_PX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, BUILDER_USER_DEFAULTS_KEY, BUILDER_DEFAULT_SAVE_TARGET, BUILDER_DIRTY_NUDGE_IDLE_MS, BUILDER_DIRTY_ATTENTION_INTERVAL_MS, FONT_SIZE_BASE_PX, ELLIPSIS_TEXT_SX, BUILDER_SLOT_LABEL_WIDTH_BUFFER_PX, BUILDER_TOGGLE_BUTTON_HEIGHT_PX, BUILDER_TOGGLE_BUTTON_MIN_WIDTH_PX, SMALL_BUTTON_HEIGHT_PX, SETS_SELECT_INLINE_GUTTER_PX, CLEAR_ICON_BUTTON_SIZE_PX, SETS_TOOLTIP_MAX_WIDTH_PX, MULTI_EDIT_MIXED_BG_ALPHA, MULTI_EDIT_MIXED_BORDER_ALPHA, MULTI_EDIT_MIXED_TEXT_ALPHA, MENU_LABEL_WIDTH_PX, MENU_CONTROL_HEIGHT_PX, ROLL_BADGE_HOVER_GUTTER_PX, ROLL_BADGE_SIZE_PX, ROLL_BADGE_SCALE, FONT_SIZE_SECONDARY_PX, SUBSTAT_TARGET_MAX_ROLLS, HISTORY_TOOLTIP_MAX_WIDTH_PX, BUILDER_AUTO_APPLY_DEBOUNCE_MS } from '../lib/constants'
 import Checkbox from '@mui/material/Checkbox'
 import { useAttentionEffectStyles, useFortyTwoLegendaryOverlay } from '../lib/attentionEffects'
 import { alpha, useTheme } from '@mui/material/styles'
@@ -136,6 +134,8 @@ import {
   type SubstatMenuInfo,
   type SubstatRollBoundsEntry,
 } from './builderPanel/substatMenuHelpers'
+import { useBuilderHistoryMenu } from './builderPanel/useBuilderHistoryMenu'
+import { useRuleCountBadge } from './builderPanel/useRuleCountBadge'
 
 export { createFactoryBuilderDefaults } from './builderPanel/defaults'
 
@@ -260,6 +260,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
 }) {
   const multiEdit = _multiEdit
   const multiEditSelectionCount = multiEdit?.state.selection.length ?? 0
+  const multiEditSelection: readonly number[] = multiEdit?.state.selection ?? EMPTY_SELECTION
   const multiEditActive = multiEditSelectionCount >= 2
   const multiFields = multiEdit?.state.fields ?? null
   const multiKeepField = multiFields?.keep ?? null
@@ -1527,79 +1528,28 @@ const maxLevelValue = multiEditActive
     }
     return 'off'
   }
-  const isMacPlatform = React.useMemo(() => {
-    if (typeof navigator === 'undefined') return false
-    const platform = navigator.platform || navigator.userAgent || ''
-    return /Mac|iPhone|iPad|iPod/i.test(platform)
-  }, [])
-  const undoShortcutLabel = isMacPlatform ? '⌘+Z' : 'Ctrl+Z'
-  const redoShortcutLabel = isMacPlatform ? '⌘+Shift+Z' : 'Ctrl+Y'
-  const undoTooltipText = useMemo(
-    () => formatHistoryTooltipText({
-      descriptor: undoPreview?.descriptor ?? null,
-      fallbackText: t('builderUndoTooltip', { shortcut: undoShortcutLabel }),
-      shortcutHintText: t('builderHistoryShortcutHint', { shortcut: undoShortcutLabel }),
-    }),
-    [undoPreview, t, undoShortcutLabel],
-  )
-  const redoTooltipText = useMemo(
-    () => formatHistoryTooltipText({
-      descriptor: redoPreview?.descriptor ?? null,
-      fallbackText: t('builderRedoTooltip', { shortcut: redoShortcutLabel }),
-      shortcutHintText: t('builderHistoryShortcutHint', { shortcut: redoShortcutLabel }),
-    }),
-    [redoPreview, t, redoShortcutLabel],
-  )
-  const [historyMenuState, setHistoryMenuState] = useState<{ open: boolean; x: number; y: number } | null>(null)
-  const historyMenuPaperRef = React.useRef<HTMLDivElement | null>(null)
-  const historyMenuOpen = Boolean(historyMenuState?.open)
-  const historyMenuAnchor = historyMenuOpen && historyMenuState ? { top: historyMenuState.y, left: historyMenuState.x } : null
-  const closeHistoryMenu = React.useCallback(() => { setHistoryMenuState(null) }, [])
-  useContextMenuCloseOnOutsideRightClick({
-    open: historyMenuOpen,
-    onClose: closeHistoryMenu,
-    menuRef: historyMenuPaperRef,
+  const {
+    undoTooltipText,
+    redoTooltipText,
+    historyMenuOpen,
+    historyMenuAnchor,
+    historyMenuPaperRef,
+    closeHistoryMenu,
+    handleHistoryContextMenu,
+    handleHistoryMouseMove,
+    handleHistoryMouseLeave,
+    handleHistoryMenuContextMenu,
+    handleRequestClearHistory,
+    handleHistoryEntrySelect,
+    historyHintActive,
+    historyHintPos,
+  } = useBuilderHistoryMenu({
+    undoPreview,
+    redoPreview,
+    t,
+    onRequestClearHistory,
+    onJumpToHistoryIndex,
   })
-  const { shouldShow: shouldShowHistoryHint, markSeen: markHistoryHintSeen } = useContextMenuHint('builderHistoryMenu')
-  const [historyHintPos, setHistoryHintPos] = useState<{ x: number; y: number } | null>(null)
-  useEffect(() => {
-    if (!shouldShowHistoryHint) setHistoryHintPos(null)
-  }, [shouldShowHistoryHint])
-  const historyHintActive = shouldShowHistoryHint && historyHintPos !== null && !historyMenuOpen
-  const handleHistoryContextMenu = React.useCallback((event: React.MouseEvent) => {
-    event.preventDefault()
-    event.stopPropagation()
-    setHistoryMenuState({ open: true, x: event.clientX, y: event.clientY })
-    if (shouldShowHistoryHint) {
-      markHistoryHintSeen()
-      setHistoryHintPos(null)
-    }
-  }, [markHistoryHintSeen, shouldShowHistoryHint])
-  const handleHistoryMouseMove = React.useCallback((event: React.MouseEvent) => {
-    if (!shouldShowHistoryHint || historyMenuOpen) return
-    setHistoryHintPos({ x: event.clientX, y: event.clientY })
-  }, [historyMenuOpen, shouldShowHistoryHint])
-  const handleHistoryMouseLeave = React.useCallback(() => {
-    setHistoryHintPos(null)
-  }, [])
-  const handleHistoryMenuContextMenu = React.useCallback((event: React.MouseEvent) => {
-    event.preventDefault()
-    event.stopPropagation()
-  }, [])
-  const handleRequestClearHistory = React.useCallback(() => {
-    if (shouldShowHistoryHint) {
-      markHistoryHintSeen()
-    }
-    onRequestClearHistory()
-  }, [markHistoryHintSeen, onRequestClearHistory, shouldShowHistoryHint])
-  const handleHistoryEntrySelect = React.useCallback((index: number) => {
-    if (shouldShowHistoryHint) {
-      markHistoryHintSeen()
-    }
-    closeHistoryMenu()
-    setHistoryHintPos(null)
-    onJumpToHistoryIndex(index)
-  }, [closeHistoryMenu, markHistoryHintSeen, onJumpToHistoryIndex, shouldShowHistoryHint])
   const theme = useTheme()
   const { statButtonBorders: colorStatTexts } = useDisplayPreferences()
   const mixedBorderColor = useMemo(
@@ -2098,417 +2048,34 @@ const maxLevelValue = multiEditActive
   // Subtle highlight of controls affected by Reset when hovering the button
   const [hoverReset, setHoverReset] = useState(false)
   // Debounced rule count for the current builder config
-  const immediateRuleFingerprint = React.useMemo(
-    () => fingerprintConfigForRules(cfg, ruleSubstatTargetsKey),
-    [cfg, ruleSubstatTargetsKey],
-  )
-  const deferredMultiProjectedConfigs = React.useDeferredValue(multiProjectedConfigs)
-  const deferredCfg = React.useDeferredValue(cfg)
-  const deferredSubstatTargets = React.useDeferredValue(substatTargets)
-  const builderRuleFingerprint = React.useMemo(
-    () => fingerprintConfigForRules(deferredCfg, ruleSubstatTargetsKey),
-    [deferredCfg, ruleSubstatTargetsKey],
-  )
-  // Multi-edit snapshots build a composite fingerprint so shared worker requests
-  // can reuse cached totals when the projected configs stay the same.
-  const multiRuleFingerprint = React.useMemo(() => {
-    if (!multiEditActive) return null
-    const projected = deferredMultiProjectedConfigs ?? multiProjectedConfigs ?? multiSourceConfigs
-    if (!projected || projected.length === 0) return null
-    const parts: string[] = []
-    for (const config of projected) {
-      parts.push(fingerprintConfigForRules(config, ruleSubstatTargetsKey))
-    }
-    return parts.join('|')
-  }, [
-    multiEditActive,
-    deferredMultiProjectedConfigs,
-    multiProjectedConfigs,
-    multiSourceConfigs,
+  const {
+    counting,
+    ruleCount,
+    countingLabel,
+    ruleCountLimitValue,
+    limitExceededWarning,
+    limitWarningTooltip,
+    ruleCountChipSx,
+  } = useRuleCountBadge({
+    cfg,
+    substatTargets,
     ruleSubstatTargetsKey,
-  ])
-  const selectedRuleFingerprint = (typeof editingIndex === 'number' && editingIndex >= 0)
-    ? (configRuleFingerprints[editingIndex] ?? null)
-    : null
-  const multiEditSelection: readonly number[] = multiEdit?.state.selection ?? EMPTY_SELECTION
-
-  const singleRuleCacheRef = useRef<{ cfgRef: BuilderConfig | null; substatTargetsRef: SubstatTargetTable | null; fingerprint: string | null; count: number | null }>({
-    cfgRef: null,
-    substatTargetsRef: null,
-    fingerprint: null,
-    count: null,
-  })
-  const previousEditingIndexRef = useRef<number | null>(editingIndex)
-  const editingSelectionChanged = previousEditingIndexRef.current !== editingIndex
-
-  const precomputedRuleCount = React.useMemo((): number | null => {
-    if (multiEditActive) {
-      if (multiDirtyKeys.length > 0) return null
-      if (multiEditSelection.length === 0) {
-        return 0
-      }
-      let total = 0
-      for (const idx of multiEditSelection) {
-        const cachedCount = configRuleCounts.get(idx)
-        if (cachedCount === undefined) {
-          return null
-        }
-        total += cachedCount
-      }
-      return total
-    }
-    if (typeof editingIndex === 'number' && editingIndex >= 0) {
-      const cachedCount = configRuleCounts.get(editingIndex)
-      if (cachedCount === undefined) {
-        return null
-      }
-      if (!selectedIsDirty) {
-        const fingerprintMatches = !selectedRuleFingerprint || immediateRuleFingerprint === selectedRuleFingerprint
-        if (fingerprintMatches) {
-          return cachedCount
-        }
-        return null
-      }
-      if (editingSelectionChanged) {
-        return cachedCount
-      }
-    }
-    if (!multiEditActive) {
-      const cache = singleRuleCacheRef.current
-      const fingerprintMatchesCache = Boolean(cache.fingerprint && cache.fingerprint === builderRuleFingerprint)
-      const configMatches = cache.cfgRef === deferredCfg
-      const substatTargetsMatch = cache.substatTargetsRef === deferredSubstatTargets
-      if (fingerprintMatchesCache && configMatches && substatTargetsMatch) {
-        return cache.count ?? null
-      }
-    }
-    return null
-  }, [
-    builderRuleFingerprint,
-    immediateRuleFingerprint,
-    configRuleCounts,
-    editingIndex,
-    multiDirtyKeys,
     multiEditActive,
-    multiEditSelection,
-    selectedIsDirty,
-    selectedRuleFingerprint,
-    deferredCfg,
-    deferredSubstatTargets,
-    editingSelectionChanged,
-  ])
-
-  // Rule counts are resolved asynchronously via the worker helper to avoid UI stalls on large configs.
-  const latestRuleCountRef = useRef<number | null>(precomputedRuleCount)
-  const [asyncRuleCount, setAsyncRuleCount] = useState<number | null>(() => precomputedRuleCount)
-  const [asyncCounting, setAsyncCounting] = useState(false)
-  const lastRuleFingerprintRef = useRef<string | null>(precomputedRuleCount !== null ? (multiEditActive ? multiRuleFingerprint : builderRuleFingerprint) : null)
-  const pendingCountAbortRef = useRef<AbortController | null>(null)
-  const pendingFingerprintRef = useRef<string | null>(null)
-  const previousActiveRuleFingerprintRef = useRef<string | null>(multiEditActive ? multiRuleFingerprint : builderRuleFingerprint)
-
-  useLayoutEffect(() => {
-    const fingerprint = multiEditActive ? multiRuleFingerprint : builderRuleFingerprint
-    const previous = previousActiveRuleFingerprintRef.current
-    previousActiveRuleFingerprintRef.current = fingerprint
-    if (precomputedRuleCount !== null) return
-    if (!fingerprint) return
-    if (previous && previous === fingerprint) return
-    setAsyncRuleCount(null)
-    latestRuleCountRef.current = null
-    lastRuleFingerprintRef.current = null
-  }, [builderRuleFingerprint, multiEditActive, multiRuleFingerprint, precomputedRuleCount])
-
-  // Resolve rule counts lazily. When the cache has an answer we reuse it; otherwise
-  // we ask the worker to crunch the totals off-thread so Select open/close stays snappy.
-  useEffect(() => {
-    if (precomputedRuleCount !== null) {
-      pendingCountAbortRef.current?.abort()
-      pendingCountAbortRef.current = null
-      pendingFingerprintRef.current = null
-      lastRuleFingerprintRef.current = multiEditActive ? multiRuleFingerprint : builderRuleFingerprint
-      latestRuleCountRef.current = precomputedRuleCount
-      setAsyncRuleCount(precomputedRuleCount)
-      setAsyncCounting(false)
-      if (!multiEditActive) {
-        singleRuleCacheRef.current = {
-          cfgRef: deferredCfg,
-          substatTargetsRef: deferredSubstatTargets,
-          fingerprint: builderRuleFingerprint,
-          count: precomputedRuleCount,
-        }
-      }
-      return
-    }
-
-    const activeConfigs: readonly BuilderConfig[] | null = multiEditActive
-      ? (deferredMultiProjectedConfigs ?? multiProjectedConfigs ?? multiSourceConfigs ?? null)
-      : [deferredCfg]
-    if (!activeConfigs || activeConfigs.length === 0) {
-      pendingCountAbortRef.current?.abort()
-      pendingCountAbortRef.current = null
-      pendingFingerprintRef.current = null
-      lastRuleFingerprintRef.current = null
-      latestRuleCountRef.current = null
-      setAsyncRuleCount(null)
-      setAsyncCounting(false)
-      return
-    }
-
-    const fingerprint = multiEditActive ? multiRuleFingerprint : builderRuleFingerprint
-    if (!fingerprint) {
-      pendingCountAbortRef.current?.abort()
-      pendingCountAbortRef.current = null
-      setAsyncCounting(false)
-      return
-    }
-
-    if (lastRuleFingerprintRef.current === fingerprint) {
-      setAsyncCounting(false)
-      setAsyncRuleCount(latestRuleCountRef.current ?? null)
-      return
-    }
-
-    if (pendingFingerprintRef.current === fingerprint) {
-      setAsyncCounting(true)
-      return
-    }
-
-    const cleanupFns: Array<() => void> = []
-    latestRuleCountRef.current = null
-    setAsyncRuleCount(null)
-
-    const isAbortError = (error: unknown): boolean => {
-      if (!error || typeof error !== 'object') return false
-      const maybe = error as { name?: unknown }
-      if (typeof maybe.name === 'string' && maybe.name === 'AbortError') return true
-      if (typeof DOMException !== 'undefined' && error instanceof DOMException) return error.name === 'AbortError'
-      return false
-    }
-
-    const sumCountsFromMap = (map: Map<number, number>): number | null => {
-      if (multiEditActive) {
-        if (multiEditSelection.length === 0) return 0
-        let total = 0
-        let infinite = false
-        for (const idx of multiEditSelection) {
-          const value = map.get(idx)
-          if (value === undefined) return null
-          if (!Number.isFinite(value)) {
-            infinite = true
-            continue
-          }
-          if (!infinite) total += Number(value)
-        }
-        return infinite ? Number.POSITIVE_INFINITY : total
-      }
-      if (typeof editingIndex === 'number' && editingIndex >= 0) {
-        const value = map.get(editingIndex)
-        if (value === undefined) return null
-        return Number.isFinite(value) ? Number(value) : Number.POSITIVE_INFINITY
-      }
-      return null
-    }
-
-    const tryResolveViaWarm = (): boolean => {
-      if (!awaitRuleCounts) return false
-      if (!rulesBuilding) return false
-      if (multiEditActive && multiDirtyKeys.length > 0) return false
-      if (!multiEditActive && selectedIsDirty) return false
-      const handle = awaitRuleCounts()
-      if (!handle) return false
-      const { promise } = handle
-      pendingCountAbortRef.current?.abort()
-      pendingCountAbortRef.current = null
-      pendingFingerprintRef.current = fingerprint
-      let cancelled = false
-      const cleanup = () => {
-        cancelled = true
-        if (pendingFingerprintRef.current === fingerprint) {
-          pendingFingerprintRef.current = null
-        }
-      }
-      cleanupFns.push(cleanup)
-      setAsyncCounting(true)
-
-      promise
-        .then((countsMap) => {
-          if (cancelled) return
-          if (pendingFingerprintRef.current !== fingerprint) return
-          const total = sumCountsFromMap(countsMap)
-          if (total === null) {
-            pendingFingerprintRef.current = null
-            setAsyncCounting(false)
-            setAsyncRuleCount(null)
-            return
-          }
-          pendingFingerprintRef.current = null
-          lastRuleFingerprintRef.current = fingerprint
-          latestRuleCountRef.current = total
-          if (!multiEditActive) {
-            singleRuleCacheRef.current = {
-              cfgRef: deferredCfg,
-              substatTargetsRef: deferredSubstatTargets,
-              fingerprint,
-              count: total,
-            }
-          }
-          setAsyncRuleCount(total)
-          setAsyncCounting(false)
-        })
-        .catch((error) => {
-          if (cancelled) return
-          if (!isAbortError(error)) {
-            console.error('builder warm rule count failed', error)
-          }
-          pendingFingerprintRef.current = null
-          lastRuleFingerprintRef.current = null
-          latestRuleCountRef.current = null
-          setAsyncCounting(false)
-          setAsyncRuleCount(null)
-        })
-
-      return true
-    }
-
-    if (tryResolveViaWarm()) {
-      return () => {
-        for (const fn of cleanupFns) fn()
-      }
-    }
-
-    pendingCountAbortRef.current?.abort()
-    const abortController = new AbortController()
-    pendingCountAbortRef.current = abortController
-   pendingFingerprintRef.current = fingerprint
-   setAsyncCounting(true)
-
-    countRulesForConfigs({ configs: activeConfigs, substatTargets: deferredSubstatTargets }, { signal: abortController.signal })
-      .then((counts) => {
-        if (abortController.signal.aborted) return
-        const hasInfinite = counts.some((value) => !Number.isFinite(value))
-        const total = hasInfinite
-          ? Number.POSITIVE_INFINITY
-          : counts.reduce((sum, value) => sum + Number(value), 0)
-        pendingFingerprintRef.current = null
-        lastRuleFingerprintRef.current = fingerprint
-        latestRuleCountRef.current = total
-        if (!multiEditActive) {
-          singleRuleCacheRef.current = {
-            cfgRef: deferredCfg,
-            substatTargetsRef: deferredSubstatTargets,
-            fingerprint,
-            count: total,
-          }
-        }
-        setAsyncRuleCount(total)
-        setAsyncCounting(false)
-      })
-      .catch((error) => {
-        if (abortController.signal.aborted || isAbortError(error)) return
-        pendingFingerprintRef.current = null
-        lastRuleFingerprintRef.current = null
-        latestRuleCountRef.current = null
-        setAsyncCounting(false)
-        setAsyncRuleCount(null)
-        console.error('builder rule count failed', error)
-      })
-
-    cleanupFns.push(() => {
-      abortController.abort()
-      if (pendingFingerprintRef.current === fingerprint) {
-        pendingFingerprintRef.current = null
-      }
-    })
-
-    return () => {
-      for (const fn of cleanupFns) fn()
-    }
-  }, [
-    awaitRuleCounts,
-    builderRuleFingerprint,
-    countRulesForConfigs,
-    deferredCfg,
-    deferredSubstatTargets,
-    deferredMultiProjectedConfigs,
-    multiDirtyKeys,
-    multiEditActive,
-    multiEditSelection,
     multiProjectedConfigs,
-    multiRuleFingerprint,
     multiSourceConfigs,
-    precomputedRuleCount,
-    rulesBuilding,
-    editingIndex,
+    multiEditSelection,
+    multiDirtyKeys,
+    configRuleCounts,
+    configRuleFingerprints,
     selectedIsDirty,
-  ])
+    editingIndex,
+    countRulesForConfigs,
+    awaitRuleCounts: awaitRuleCounts ?? null,
+    rulesBuilding,
+    configsExcludedByTotalLimit,
+    t,
+  })
 
-  const activeRuleFingerprint = multiEditActive ? multiRuleFingerprint : builderRuleFingerprint
-  const hasResolvedCountForActiveFingerprint = Boolean(
-    activeRuleFingerprint &&
-    lastRuleFingerprintRef.current &&
-    lastRuleFingerprintRef.current === activeRuleFingerprint,
-  )
-  const resolvedAsyncRuleCount = hasResolvedCountForActiveFingerprint
-    ? (asyncRuleCount ?? latestRuleCountRef.current)
-    : null
-  const counting = precomputedRuleCount === null && (!hasResolvedCountForActiveFingerprint || asyncCounting)
-  const ruleCount = precomputedRuleCount ?? resolvedAsyncRuleCount
-  const hasTotalLimitSelection = useMemo(() => {
-    if (multiEditActive) {
-      return multiEditSelection.some((idx) => configsExcludedByTotalLimit.has(idx))
-    }
-    if (typeof editingIndex === 'number' && editingIndex >= 0) {
-      return configsExcludedByTotalLimit.has(editingIndex)
-    }
-    return false
-  }, [configsExcludedByTotalLimit, editingIndex, multiEditActive, multiEditSelection])
-  const ruleCountLimitValue = hasTotalLimitSelection ? TOTAL_RULE_COUNT_LIMIT : RULE_COUNT_LIMIT
-  const warnEligibleExportMode = useMemo(() => {
-    if (multiEditActive) {
-      const projected = deferredMultiProjectedConfigs ?? multiProjectedConfigs ?? multiSourceConfigs
-      if (!projected || projected.length === 0) return false
-      return projected.every((config) => {
-        const mode = (config.exportMode ?? 'active') as SellfileExportMode
-        return mode === 'active' || mode === 'disabled'
-      })
-    }
-    const singleMode = (cfg.exportMode ?? 'active') as SellfileExportMode
-    return singleMode === 'active' || singleMode === 'disabled'
-  }, [cfg.exportMode, deferredMultiProjectedConfigs, multiEditActive, multiProjectedConfigs, multiSourceConfigs])
-  // Flag zero-rule outputs so we can warn via the status chip before committing.
-  const countingLabel = t('counting')
-  const sampleMaxRulesLabel = formatRulesCount(t, Number.POSITIVE_INFINITY, { limit: ruleCountLimitValue })
-  const limitWarningTooltip = useMemo(() => t('rulesLimitExceeded', { limit: ruleCountLimitValue }), [ruleCountLimitValue, t])
-  const ruleCountChipMinChars = Math.max(
-    Array.from(countingLabel).length,
-    Array.from(sampleMaxRulesLabel).length,
-    0,
-  )
-  // Reserve width so the chip stays stable while the async placeholder swaps with the resolved count.
-  const ruleCountChipMinWidth = ruleCountChipMinChars > 0 ? `${ruleCountChipMinChars}ch` : undefined
-
-  const zeroRuleCountWarning = !counting && ruleCount === 0 && warnEligibleExportMode
-  const limitExceededWarning = !counting && ruleCount === Number.POSITIVE_INFINITY && warnEligibleExportMode
-  const showRuleCountWarning = zeroRuleCountWarning || limitExceededWarning
-  const ruleCountChipSx = useMemo<SxProps<Theme>>(() => {
-    const base: SxProps<Theme> = {
-      ml: 0.5,
-      ...(ruleCountChipMinWidth ? { minWidth: ruleCountChipMinWidth } : {}),
-    }
-    if (!showRuleCountWarning) {
-      return base
-    }
-    return {
-      ...base,
-      bgcolor: theme.palette.error.main,
-      color: theme.palette.error.contrastText,
-      '.MuiChip-label': { color: theme.palette.error.contrastText },
-    }
-  }, [ruleCountChipMinWidth, showRuleCountWarning, theme])
-  useEffect(() => {
-    previousEditingIndexRef.current = editingIndex
-  }, [editingIndex])
   // setsLeftRef is used to align the Sets search row menu. No width measuring needed here.
 
   // Config name is edited directly on the builder state; no local draft needed.

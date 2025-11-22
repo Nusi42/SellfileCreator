@@ -160,6 +160,8 @@ This document outlines contributors' responsibilities for UI behavior, layout, a
 - `src/hooks/useMetasetsDialog.ts`: Governs the Manage Metasets dialog lifecycle.
 - `src/hooks/useConfirmDialog.ts`: Generic confirm dialog state.
 - `src/components/FilePickerButton.tsx`: Shared file-picker button (label + hidden input) with `accept` and `onSelect` props.
+- `src/components/builderPanel/useBuilderHistoryMenu.ts`: Centralizes undo/redo tooltip formatting, builder history context-menu positioning, and context-menu hint lifecycles so the top row stays declarative.
+- `src/components/builderPanel/useRuleCountBadge.ts`: Handles deferred fingerprinting, worker coordination, and status-chip sizing for builder rule counts; always import this hook instead of duplicating the async pipeline.
 
 ## Effect Usage Guidelines
 

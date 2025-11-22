@@ -8,6 +8,7 @@ The technical reference is now split across focused documents. Start here, then 
 - Enforce the Single Source of Truth / One Definition Rule without exception: centralize each constant, helper, and schema definition once, then import it everywhere else.
 - Watch file size creep; split modules or move helpers into shared files before they cross roughly 1,500 lines so reviews stay manageable.
 - Large surfaces such as the builder now keep their helper logic in dedicated siblings (`src/components/builderPanel/*`, `src/lib/hsfBuilder/*`); add new helpers beside those files instead of expanding the main component/module.
+- BuilderPanel-specific controller hooks (`builderPanel/useBuilderHistoryMenu.ts`, `builderPanel/useRuleCountBadge.ts`) encapsulate context-menu hints, undo tooltips, and asynchronous rule-count caching. When adding new UI flows, introduce a sibling hook rather than embedding another 200+ line block back into `BuilderPanel.tsx`.
 
 - [Build and Tooling](technical/build-and-tooling.md) — stack, scripts, packaging, project structure, and the Tauri wrapper.
 - [Application Behavior](technical/app-behavior.md) — builder guardrails, preview filters, rule cache fast paths, clipboard/save flows, file import, and the rule tester.
