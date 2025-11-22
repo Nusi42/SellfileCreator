@@ -422,6 +422,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const [testerRowsBuilding, setTesterRowsBuilding] = useState(false)
   const [testerRowsCommittedBuildId, setTesterRowsCommittedBuildId] = useState(0)
   const [testerRowsActiveBuildId, setTesterRowsActiveBuildId] = useState(0)
+  // Track tester-row progress separately so the preview chips can show determinate progress.
   const [testerRowsProgress, setTesterRowsProgress] = useState<ProgressSnapshot | null>(null)
   const testerRowsBuildingRef = useRef(testerRowsBuilding)
   useEffect(() => { testerRowsBuildingRef.current = testerRowsBuilding }, [testerRowsBuilding])
@@ -586,6 +587,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   useEffect(() => { configRulesStateRef.current = configRulesState }, [configRulesState])
   const ruleCacheRequestTokenRef = useRef(0)
   const [rulesBuilding, setRulesBuilding] = useState(false)
+  // Persist the current warm-cache snapshot so the preview chip can render an overlay.
   const [rulesBuildProgress, setRulesBuildProgress] = useState<ProgressSnapshot | null>(null)
   const finishRulesBuilding = useCallback(() => {
     setRulesBuilding(false)
@@ -840,6 +842,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     const detectionSignatureForWarm = detectionSnapshotForWarm ? fingerprintKeepUniqueDetection(detectionSnapshotForWarm) : null
     setRulesBuilding(true)
     if (configsForWarm.length > 0) {
+      // Reset the determinate progress whenever a new warm pass starts.
       setRulesBuildProgress({ completed: 0, total: configsForWarm.length })
     } else {
       setRulesBuildProgress(null)
@@ -862,6 +865,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       {
         signal: abortController.signal,
         onProgress: (snapshot) => {
+          // Ignore out-of-date snapshots so aborted work does not regress the UI.
           if (requestToken !== rulesBuildingTokenRef.current) return
           setRulesBuildProgress(snapshot)
         },

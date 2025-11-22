@@ -50,6 +50,7 @@ type PendingRequest<T> = {
   promise: Promise<T>
 }
 
+// Pending warm requests need to remember attached progress handlers so we can forward worker updates.
 type PendingWarmRequest = PendingRequest<WarmCacheResult> & { onProgress?: (progress: ProgressSnapshot) => void }
 type PendingCountRequest = PendingRequest<number[]>
 
@@ -81,6 +82,7 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
           substatTargets: params.substatTargets,
           previousCache,
           baseRuleCount,
+          // Forward local progress to consumers whenever a caller opts in.
           ...(options?.onProgress ? { onProgress: options.onProgress } : {}),
         }
       : {
@@ -211,6 +213,7 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
   const warmCache = useCallback<UseRuleCacheWorkerResult['warmCache']>((params, options) => {
     const signal = options?.signal ?? null
 
+    // Local fallback should stay parity with worker mode, including determinate updates.
     const localProgressOptions = options?.onProgress ? { onProgress: options.onProgress } : undefined
     if (!supportsWorkerEnv || !workerRef.current) {
       return Promise.resolve(runWarmLocally(params, localProgressOptions))

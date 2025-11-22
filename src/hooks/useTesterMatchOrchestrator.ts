@@ -157,13 +157,14 @@ export function useTesterMatchOrchestrator(params: UseTesterMatchOrchestratorPar
     pendingKeepUniqueDetectionSigRef,
     rulesBuilding,
     testerMatchWorkerSupported: rawTesterMatchWorkerSupported,
-  testerRowsBuilding,
-  setTesterRowsBuilding,
-  testerRowsCommittedBuildId,
-  setTesterRowsCommittedBuildId,
-  setTesterRowsActiveBuildId,
-  setTesterRowsProgress,
-} = params
+    testerRowsBuilding,
+    setTesterRowsBuilding,
+    testerRowsCommittedBuildId,
+    setTesterRowsCommittedBuildId,
+    setTesterRowsActiveBuildId,
+    // App-supplied setter that feeds the determinate overlay on preview chips.
+    setTesterRowsProgress,
+  } = params
   // Keep-unique detection is enabled again.
   const keepUniqueDetectionDisabled = false
   // Re-enable the worker so heavy tester scans stay off the main thread whenever the browser allows it.
@@ -386,6 +387,7 @@ export function useTesterMatchOrchestrator(params: UseTesterMatchOrchestratorPar
       inFlightArtifactsRef.current = artifacts
       setTesterRowsBuilding(true)
       if (dirtyEntries.length > 0) {
+        // Worker mode: reset progress before handing items to the worker.
         setTesterRowsProgress({ completed: 0, total: dirtyEntries.length })
       } else {
         setTesterRowsProgress(null)
@@ -452,6 +454,7 @@ export function useTesterMatchOrchestrator(params: UseTesterMatchOrchestratorPar
     inFlightArtifactsRef.current = artifacts
     setTesterRowsBuilding(true)
     if (dirtyEntries.length > 0) {
+      // Manual evaluation still reports determinate progress so the UI stays consistent.
       setTesterRowsProgress({ completed: 0, total: dirtyEntries.length })
     } else {
       setTesterRowsProgress(null)

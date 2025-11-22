@@ -47,6 +47,7 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
       previousCache: cache,
       baseRuleCount,
       onProgress: (progress) => {
+        // Stream determinate progress back to the main thread so UI overlays stay responsive.
         const progressResponse: RuleCacheWorkerResponse = {
           id,
           kind: 'warm:progress',

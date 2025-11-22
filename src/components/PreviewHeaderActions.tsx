@@ -57,6 +57,7 @@ function ProgressChip({ progressRatio, children }: ProgressChipProps) {
           }}
         >
           <Box
+            // Blur a soft badge behind the spinner so the determinate ring remains visible on any chip color.
             sx={(theme) => ({
               position: 'absolute',
               inset: 0,
@@ -67,6 +68,7 @@ function ProgressChip({ progressRatio, children }: ProgressChipProps) {
             })}
           />
           <CircularProgress
+            // Determinate spinner mirrors the worker-provided ratio so users see a true percentage.
             variant="determinate"
             value={clampedRatio * 100}
             size={18}
@@ -202,6 +204,7 @@ export default function PreviewHeaderActions(props: {
     [chipBaseLabel],
   )
   const rulesChipMinWidth = rulesChipMinChars > 0 ? `${rulesChipMinChars}ch` : undefined
+  // Clamp determinate values from both rule and tester builders so the UI never overflows.
   const rulesProgressRatio = clampProgressRatio(rulesProgress)
   const testerProgressRatio = clampProgressRatio(testerProgress)
   const chipProgressRatio = isBuilding

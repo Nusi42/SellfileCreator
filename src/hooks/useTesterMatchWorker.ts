@@ -35,6 +35,7 @@ type PendingRequest<T> = {
   reject: (reason?: unknown) => void
 }
 
+// Evaluate requests carry optional progress callbacks so we can surface determinate UI.
 type PendingEvaluateRequest = PendingRequest<TesterMatchWorkerItemResult[]> & { onProgress?: (progress: ProgressSnapshot) => void }
 
 const supportsWorkerEnv = typeof window !== 'undefined' && typeof Worker !== 'undefined'
@@ -64,6 +65,7 @@ const evaluateRowsFallback = (
       entry.item,
       { configModes, excludeSources: [RULE_SOURCE_KEEP_UNIQUES] },
     )
+    // Mirror worker behavior so determinate UI continues to move in fallback mode.
     onProgress?.({ completed: idx + 1, total })
     return {
       itemId: entry.itemId,

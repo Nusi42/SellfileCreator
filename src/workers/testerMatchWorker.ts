@@ -63,6 +63,7 @@ const evaluateRows = (
       firstNonExcludedMatch: base.firstMatch,
       matchingConfigIndices: full.matchingConfigIndices,
     })
+    // Emit determinate progress so the UI overlay can update mid-batch.
     if (onProgress) onProgress(idx + 1, total)
   }
   return results
