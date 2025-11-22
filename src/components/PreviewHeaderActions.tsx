@@ -1,5 +1,5 @@
 import React from 'react'
-import { Box, Button, Chip, Stack, Tooltip, ToggleButton, ToggleButtonGroup, Typography, Menu, MenuItem } from '@mui/material'
+import { Box, Button, Chip, Stack, ToggleButton, ToggleButtonGroup, Typography, Menu, MenuItem } from '@mui/material'
 import { alpha, type Theme } from '@mui/material/styles'
 import TuneIcon from '@mui/icons-material/Tune'
 import {
@@ -27,6 +27,8 @@ import { ContextMenuHintOverlay } from './ContextMenuHintOverlay'
 import { useContextMenuHint } from '../hooks/useContextMenuHint'
 import Checkbox from '@mui/material/Checkbox'
 import { stripAnimatedEllipsisSource, useAnimatedEllipsis } from '../hooks/useAnimatedEllipsis'
+// MarkdownTooltip keeps all preview tooltips (filter toggle, export warnings, etc.) aligned with the global styling/delay.
+import MarkdownTooltip from './MarkdownTooltip'
 
 const EXPORT_HOVER_DELAY_MS = 2000 as const
 const HIGHLIGHT_REPLAY_DELAY_MS = 500 as const
@@ -336,14 +338,17 @@ export default function PreviewHeaderActions(props: {
         <Typography variant="h6">{previewHeading}</Typography>
         <Stack direction="row" spacing={1} alignItems="center" sx={{ flexShrink: 0 }}>
           {limitHit && !building && isRulesMode ? (
-          <Tooltip title={limitTooltip}>
-            <Box component="span" sx={{ display: 'inline-flex' }}>
-              <Chip label={rulesChipLabel} size="small" sx={rulesChipSx} />
-            </Box>
-          </Tooltip>
-        ) : (
-          <Chip label={rulesChipLabel} size="small" sx={rulesChipSx} />
-        )}
+            <>
+              {/* MarkdownTooltip ensures the limit warning uses the shared hover delay and Markdown formatting. */}
+              <MarkdownTooltip markdown={limitTooltip}>
+                <Box component="span" sx={{ display: 'inline-flex' }}>
+                  <Chip label={rulesChipLabel} size="small" sx={rulesChipSx} />
+                </Box>
+              </MarkdownTooltip>
+            </>
+          ) : (
+            <Chip label={rulesChipLabel} size="small" sx={rulesChipSx} />
+          )}
           {baseRulesLabel ? (
             <Typography variant="caption" color="text.secondary" sx={{ lineHeight: 1.2 }}>
               {baseRulesLabel}
@@ -403,19 +408,22 @@ export default function PreviewHeaderActions(props: {
           </ToggleButton>
         </ToggleButtonGroup>
         {onToggleFilter && (
-          <Tooltip title={t('filterTooltip')}>
-            <Button
-              size="small"
-              variant="outlined"
-              color={filterActive ? 'warning' : 'success'}
-              onClick={onToggleFilter}
-              endIcon={<TuneIcon fontSize="small" />}
-              sx={{ whiteSpace: 'nowrap', px: 1.25, height: SMALL_BUTTON_HEIGHT_PX, minHeight: SMALL_BUTTON_HEIGHT_PX, flexShrink: 0, maxWidth: LONG_LABEL_BUTTON_MAX_WIDTH_PX, overflow: 'hidden' }}
-              aria-label={filterLabel}
-            >
-              <Typography component="span" noWrap sx={ELLIPSIS_TEXT_SX}>{filterLabel}</Typography>
-            </Button>
-          </Tooltip>
+          <>
+            {/* Filter toggle tooltip can now express list-style hints thanks to MarkdownTooltip. */}
+            <MarkdownTooltip markdown={t('filterTooltip')}>
+              <Button
+                size="small"
+                variant="outlined"
+                color={filterActive ? 'warning' : 'success'}
+                onClick={onToggleFilter}
+                endIcon={<TuneIcon fontSize="small" />}
+                sx={{ whiteSpace: 'nowrap', px: 1.25, height: SMALL_BUTTON_HEIGHT_PX, minHeight: SMALL_BUTTON_HEIGHT_PX, flexShrink: 0, maxWidth: LONG_LABEL_BUTTON_MAX_WIDTH_PX, overflow: 'hidden' }}
+                aria-label={filterLabel}
+              >
+                <Typography component="span" noWrap sx={ELLIPSIS_TEXT_SX}>{filterLabel}</Typography>
+              </Button>
+            </MarkdownTooltip>
+          </>
         )}
         {onOpenRuleTester && (
           <Button
@@ -446,11 +454,13 @@ export default function PreviewHeaderActions(props: {
               },
             }}
           >
-            <Tooltip title={t('addFinalSellTooltip')}>
-              <ToggleButton
-                value="finalSellToggle"
-                selected={fsEnabled}
-                onClick={() => onToggleFinalSell(!fsEnabled)}
+            <>
+              {/* Final Sell controls also use MarkdownTooltip so their multi-line copy stays legible. */}
+              <MarkdownTooltip markdown={t('addFinalSellTooltip')}>
+                <ToggleButton
+                  value="finalSellToggle"
+                  selected={fsEnabled}
+                  onClick={() => onToggleFinalSell(!fsEnabled)}
                 data-tour-id="finalsell.toggle"
                 aria-label={finalSellLabel}
                 aria-pressed={fsEnabled}
@@ -479,23 +489,24 @@ export default function PreviewHeaderActions(props: {
                   },
                   ...getHighlightEffectSx(finalSellHighlightIdx),
                 })}
-              >
-                <Box
-                  component="span"
-                  className="highlight-target"
-                  sx={{
-                    ...ELLIPSIS_TEXT_SX,
-                    width: '100%',
-                    typography: 'button',
-                    textAlign: 'center',
-                    lineHeight: 1,
-                  }}
                 >
-                  {finalSellLabel}
-                </Box>
-              </ToggleButton>
-            </Tooltip>
-            <Tooltip title={t('configure')}>
+                  <Box
+                    component="span"
+                    className="highlight-target"
+                    sx={{
+                      ...ELLIPSIS_TEXT_SX,
+                      width: '100%',
+                      typography: 'button',
+                      textAlign: 'center',
+                      lineHeight: 1,
+                    }}
+                  >
+                    {finalSellLabel}
+                  </Box>
+                </ToggleButton>
+              </MarkdownTooltip>
+            </>
+            <MarkdownTooltip markdown={t('configure')}>
               <ToggleButton
                 value="finalSellConfig"
                 onClick={onOpenFinalSellDialog}
@@ -521,7 +532,7 @@ export default function PreviewHeaderActions(props: {
               >
                 <TuneIcon fontSize="small" />
               </ToggleButton>
-            </Tooltip>
+            </MarkdownTooltip>
           </ToggleButtonGroup>
         </Stack>
         <Box sx={{ flex: 1, minWidth: 0 }} />
@@ -536,57 +547,105 @@ export default function PreviewHeaderActions(props: {
             />
           ) : null}
           <Box sx={{ position: 'relative', display: 'inline-flex', flexShrink: 0 }}>
-            <Tooltip
-              title={(
-                <Box component="span">
-                  {t('loadSellfile')}
-                  <br />
-                  {t('optionalLoadSellfile')}
-                </Box>
-              )}
-            >
-              <FilePickerButton
-                label={t('loadSellfile')}
-                accept={ACCEPT_HSF}
-                onSelect={handleSelectBaseFile}
-                buttonProps={{
-                  sx: {
-                    minWidth: SELLFILE_BUTTON_HEIGHT_PX,
-                    width: SELLFILE_BUTTON_HEIGHT_PX,
-                    height: SELLFILE_BUTTON_HEIGHT_PX,
-                    minHeight: SELLFILE_BUTTON_HEIGHT_PX,
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    p: 0,
-                    flexShrink: 0,
-                  },
-                  'aria-label': t('loadSellfile'),
-                }}
-              >
-                <UploadFileIcon fontSize="small" />
-              </FilePickerButton>
-            </Tooltip>
+            <>
+              {/* Load button uses MarkdownTooltip so the two-line explanation renders cleanly across locales. */}
+              <MarkdownTooltip markdown={`${t('loadSellfile')}\n\n${t('optionalLoadSellfile')}`}>
+                <FilePickerButton
+                  label={t('loadSellfile')}
+                  accept={ACCEPT_HSF}
+                  onSelect={handleSelectBaseFile}
+                  buttonProps={{
+                    sx: {
+                      minWidth: SELLFILE_BUTTON_HEIGHT_PX,
+                      width: SELLFILE_BUTTON_HEIGHT_PX,
+                      height: SELLFILE_BUTTON_HEIGHT_PX,
+                      minHeight: SELLFILE_BUTTON_HEIGHT_PX,
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      p: 0,
+                      flexShrink: 0,
+                    },
+                    'aria-label': t('loadSellfile'),
+                  }}
+                >
+                  <UploadFileIcon fontSize="small" />
+                </FilePickerButton>
+              </MarkdownTooltip>
+            </>
             {gearDbCommandError ? (
-              <Tooltip
-                title={gearDbCommandError}
-                placement="left"
-                onClose={() => { onClearGearDbCommandError?.() }}
-              >
-                <Box component="span" sx={statusBadgeSx('warning')}>!</Box>
-              </Tooltip>
+              <>
+                {/* Status badges use MarkdownTooltip so the success/error strings inherit the global delay. */}
+                <MarkdownTooltip
+                  markdown={gearDbCommandError}
+                  placement="left"
+                  onClose={() => { onClearGearDbCommandError?.() }}
+                >
+                  <Box component="span" sx={statusBadgeSx('warning')}>!</Box>
+                </MarkdownTooltip>
+              </>
             ) : null}
             {!gearDbCommandError && gearDbCommandSuccess ? (
-              <Tooltip
-                title={gearDbCommandSuccess}
-                placement="left"
-                onClose={() => { onClearGearDbCommandSuccess?.() }}
-              >
-                <Box component="span" sx={statusBadgeSx('success')}>{'✓'}</Box>
-              </Tooltip>
+              <>
+                <MarkdownTooltip
+                  markdown={gearDbCommandSuccess}
+                  placement="left"
+                  onClose={() => { onClearGearDbCommandSuccess?.() }}
+                >
+                  <Box component="span" sx={statusBadgeSx('success')}>{'✓'}</Box>
+                </MarkdownTooltip>
+              </>
             ) : null}
           </Box>
-          <Tooltip title={exportTooltip || undefined}>
+          {(exportTooltip?.trim().length ?? 0) > 0 ? (
+            <>
+              {/* Export tooltip strings can include lists, so route them through MarkdownTooltip for consistent formatting. */}
+              <MarkdownTooltip markdown={exportTooltip}>
+              <DirtyBadge
+                active={hsfDirty}
+                sx={{ display: 'inline-flex', flexShrink: 0, ml: 1 }}
+              >
+                <Box
+                  component="span"
+                  onMouseEnter={(event) => {
+                    handleExportHoverStart()
+                    if (!exportMenuEnabled || !showExportHint) return
+                    setExportHintPos({ x: event.clientX, y: event.clientY })
+                  }}
+                  onMouseMove={(event) => {
+                    if (!exportMenuEnabled || !showExportHint) return
+                    setExportHintPos({ x: event.clientX, y: event.clientY })
+                  }}
+                  onMouseLeave={() => {
+                    handleExportHoverEnd()
+                    setExportHintPos(null)
+                  }}
+                  onContextMenu={(event) => {
+                    if (!exportMenuEnabled) return
+                    try {
+                      event.preventDefault()
+                      event.stopPropagation()
+                    } catch {}
+                    setExportMenuAnchor(event.currentTarget as HTMLElement)
+                    markExportHintSeen()
+                    setExportHintPos(null)
+                  }}
+                >
+                  <Button
+                    startIcon={<SaveIcon />}
+                    sx={{ whiteSpace: 'nowrap', px: 1.25, maxWidth: LONG_LABEL_BUTTON_MAX_WIDTH_PX, overflow: 'hidden' }}
+                    onClick={onExport}
+                    disabled={exportDisabled}
+                    data-tour-id="hsf.export"
+                    aria-label={exportLabel}
+                  >
+                    <Typography component="span" noWrap sx={ELLIPSIS_TEXT_SX}>{exportLabel}</Typography>
+                  </Button>
+                </Box>
+              </DirtyBadge>
+              </MarkdownTooltip>
+            </>
+          ) : (
             <DirtyBadge
               active={hsfDirty}
               sx={{ display: 'inline-flex', flexShrink: 0, ml: 1 }}
@@ -629,7 +688,7 @@ export default function PreviewHeaderActions(props: {
                 </Button>
               </Box>
             </DirtyBadge>
-          </Tooltip>
+          )}
           <ContextMenuHintOverlay text={t('contextMenuHint')} position={exportHintActive ? exportHintPos : null} />
           {exportMenuEnabled ? (
             <Menu

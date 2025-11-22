@@ -12,3 +12,6 @@
 - Rule Tester copy-path button — Tooltip text comes from `t('rowMenuCopy')` and the button lives inline with the `%APPDATA%\\RslHelper\\Config` path; document that this tooltip must stay in sync with the clipboard fallback dialog.
 - Preview header copy-path button — Shares the same tooltip text and status toast as the dialog button; note that both rely on `writeTextSafe` plus the fallback copy dialog.
 - Builder auto-reset / auto-apply toggles — Describe the tooltip text that clarifies mutual exclusion.
+
+## Shared tooltip helpers
+- `src/components/MarkdownTooltip.tsx` — Wraps MUI Tooltip with a fixed 250 ms enter delay, theme-aware width cap, and simplified Markdown rendering (paragraphs, bullet lists, `**bold**`, `_italic_`, inline `` `code` ``). Use this component for explanatory copy everywhere so translators keep working with plain strings and hover timing stays consistent.

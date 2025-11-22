@@ -3429,16 +3429,13 @@ const maxLevelValue = multiEditActive
                 onChange(nextCfg)
               }
 
-              const rollIndicatorTooltip = (
-                <BuilderTooltipContent
-                  text={[
-                    t('rollIndicatorTip1'),
-                    `• ${t('rollIndicatorTip2')}`,
-                    `• ${t('rollIndicatorTip3')}`,
-                    `• ${t('rollIndicatorTip4')}`,
-                  ].join('\n')}
-                />
-              )
+              // Emit Markdown-friendly copy so the substat roll indicator can drop straight into MarkdownTooltip without JSX wrappers.
+              const rollIndicatorTooltip = [
+                t('rollIndicatorTip1'),
+                `- ${t('rollIndicatorTip2')}`,
+                `- ${t('rollIndicatorTip3')}`,
+                `- ${t('rollIndicatorTip4')}`,
+              ].join('\n')
 
               const renderSubstatToggle = (variant: StatVariant, options?: { dataTourId?: string }) => {
                 const singleBounds = getBounds(variant)

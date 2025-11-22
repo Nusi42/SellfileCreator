@@ -1,10 +1,12 @@
-import { Box, Chip, Tooltip } from '@mui/material'
+import { Box, Chip } from '@mui/material'
 import type { ChipProps } from '@mui/material'
 import type { SxProps, Theme } from '@mui/material/styles'
 import type { SystemStyleObject } from '@mui/system'
 import { RULE_SOURCE_FINAL_SELL, RULE_SOURCE_KEEP_UNIQUES } from '../lib/merge'
 import { useI18n } from '../lib/i18n'
 import type { TesterPreviewMatch } from '../types/testerPreview'
+// MarkdownTooltip keeps the “jump to config” hint aligned with the rest of the tooltip rollout.
+import MarkdownTooltip from './MarkdownTooltip'
 
 type TesterRuleReferenceChipProps = {
   match: TesterPreviewMatch | null
@@ -118,10 +120,11 @@ export function TesterRuleReferenceChip({
   )
   if (!clickable) return chip
   return (
-    <Tooltip title={t('testerJumpToConfig')}>
+    // Keep the jump-to-config hint in sync with other Markdown tooltips so multi-line copy stays readable.
+    <MarkdownTooltip markdown={t('testerJumpToConfig')}>
       <Box component="span" sx={{ display: 'block', maxWidth: '100%', minWidth: 0 }}>
         {chip}
       </Box>
-    </Tooltip>
+    </MarkdownTooltip>
   )
 }

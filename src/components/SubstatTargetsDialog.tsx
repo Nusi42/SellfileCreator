@@ -6,7 +6,7 @@
  * interaction stays identical everywhere numeric substatTargets appear.
  */
 import React, { useMemo, useState } from 'react'
-import { Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, TextField, Tooltip, Typography } from '@mui/material'
+import { Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, TextField, Typography } from '@mui/material'
 import { alpha, useTheme } from '@mui/material/styles'
 import type { Theme } from '@mui/material/styles'
 import type { SystemStyleObject } from '@mui/system'
@@ -17,6 +17,8 @@ import { StatVariant, DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT, statVariantI18nKey, 
 import { createBuilderStatusChipSx } from './builderStatusChipStyles'
 import { useDisplayPreferences } from '../state/preferencesState'
 import { NumberSpinnerAdornment } from './NumberSpinnerAdornment'
+// Use the Markdown-aware tooltip so this dialog inherits the global delay/style and translators can keep plain strings.
+import MarkdownTooltip from './MarkdownTooltip'
 
 type SubstatColorMap = Record<number, { fg: string; bg: string }>
 type SubstatTargetStarKey = Exclude<keyof SubstatTargetTable, 'anyRankDefaultsTo'>
@@ -163,7 +165,8 @@ export default function SubstatTargetsDialog({ open, onClose, substatTargets, on
       },
     }
     return (
-      <Tooltip title={t('substatTargetsUseForAnyTooltip', { rank: label })}>
+      // Keep the “use as Any” hint aligned with other Markdown tooltips so translations can add bullet lists.
+      <MarkdownTooltip markdown={t('substatTargetsUseForAnyTooltip', { rank: label })}>
         <Chip
           label={label}
           size="small"
@@ -174,7 +177,7 @@ export default function SubstatTargetsDialog({ open, onClose, substatTargets, on
           aria-label={t('substatTargetsUseForAnyAria', { rank: label })}
           sx={isSelected ? baseSx : plainSx}
         />
-      </Tooltip>
+      </MarkdownTooltip>
     )
   }
 

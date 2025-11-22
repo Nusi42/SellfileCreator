@@ -140,6 +140,13 @@ export const MULTI_EDIT_MIXED_TEXT_ALPHA = {
 // scrollable containers move. We add a short-lived body class to hide all
 // tooltips during active scroll interactions for visual stability.
 export const SCROLLING_TOOLTIP_HIDE_MS = 250
+// Shared enter-delay for explanatory tooltips rendered via MarkdownTooltip.
+// Why: Keep hover behavior consistent across the app and avoid instant pop-ups
+// while moving the cursor between dense controls.
+export const MARKDOWN_TOOLTIP_ENTER_DELAY_MS = 250
+// Consistent width cap for MarkdownTooltip content so longer translations wrap
+// gracefully without spanning the entire viewport.
+export const MARKDOWN_TOOLTIP_MAX_WIDTH_PX = 520
 
 // Compact reserved height for the Substats warning row in the Builder
 // Why: Keep a stable layout (no shift when warnings appear) while minimizing

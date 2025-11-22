@@ -11,7 +11,6 @@ import {
   MenuItem,
   Popover,
   Stack,
-  Tooltip,
   Typography,
   useMediaQuery,
 } from '@mui/material'
@@ -52,6 +51,8 @@ import { isAccessorySlot } from '../lib/testerDomain'
 import type { TesterSourceFilter } from '../lib/rulesFilter'
 import { TesterSummaryLabel } from './TesterSummaryLabel'
 import { TesterRuleReferenceChip } from './TesterRuleReferenceChip'
+// MarkdownTooltip unifies the tester’s tooltip behavior (source glyphs, manage colors, etc.) with the rest of the UI.
+import MarkdownTooltip from './MarkdownTooltip'
 import { WithSetTooltip } from './SetTooltip'
 import ContextMenuPaper from './ContextMenuPaper'
 import { ContextMenuHintOverlay } from './ContextMenuHintOverlay'
@@ -781,7 +782,8 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
             >
               {useStatButtonColors ? t('commonOn') : t('commonOff')}
             </Button>
-            <Tooltip title={t('manageColors')}>
+            {/* Manage colors button now uses MarkdownTooltip so its multi-line hint inherits the global delay. */}
+            <MarkdownTooltip markdown={t('manageColors')}>
               <span>
                 <Button
                   size="small"
@@ -799,7 +801,7 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
                   <img src={colorIconSrc} width={16} height={16} alt={t('manageColors')} style={{ display: 'block' }} />
                 </Button>
               </span>
-            </Tooltip>
+            </MarkdownTooltip>
           </Box>
         </MenuItem>
         <MenuItem sx={{ gap: 1, alignItems: 'center' }} onClick={() => {
@@ -1476,9 +1478,9 @@ const TesterGridCard = React.memo(function TesterGridCard({
     }
 
     return (
-      <Tooltip key={key} title={t('testerJumpToConfig')}>
+      <MarkdownTooltip key={key} markdown={t('testerJumpToConfig')}>
         {wrappedChip}
-      </Tooltip>
+      </MarkdownTooltip>
     )
   }
   const ascSummaryContent = ascSummary
@@ -1603,7 +1605,8 @@ const TesterGridCard = React.memo(function TesterGridCard({
               mt: championIconMode === 'large' ? 1.25 : -0.25,
             }}
           >
-            <Tooltip title={sourceTooltipTitle}>
+            {/* Source badges consistently run through MarkdownTooltip so the rich copy stays readable. */}
+            <MarkdownTooltip markdown={sourceTooltipTitle}>
               <Box
                 component="span"
                 role="img"
@@ -1641,9 +1644,9 @@ const TesterGridCard = React.memo(function TesterGridCard({
                   }}
                 />
               </Box>
-            </Tooltip>
+            </MarkdownTooltip>
             {shouldShowVaultBadgeIcon && SourceIcon ? (
-              <Tooltip title={sourceTooltipTitle}>
+              <MarkdownTooltip markdown={sourceTooltipTitle}>
                 <Box
                   component="span"
                   role="img"
@@ -1664,12 +1667,13 @@ const TesterGridCard = React.memo(function TesterGridCard({
                 >
                   <SourceIcon fontSize="inherit" />
                 </Box>
-              </Tooltip>
+              </MarkdownTooltip>
             ) : null}
           </Box>
         ) : null}
         {SourceGlyph ? (
-          <Tooltip title={sourceTooltipTitle}>
+          // The smaller glyph badges reuse MarkdownTooltip as well, so tooltip styling stays aligned.
+          <MarkdownTooltip markdown={sourceTooltipTitle}>
             <Box
               component="span"
               role="img"
@@ -1687,7 +1691,7 @@ const TesterGridCard = React.memo(function TesterGridCard({
             >
               <SourceGlyph fontSize="inherit" />
             </Box>
-          </Tooltip>
+          </MarkdownTooltip>
         ) : null}
       </Box>
       <Stack
@@ -1704,7 +1708,8 @@ const TesterGridCard = React.memo(function TesterGridCard({
         }}
       >
         <TesterSummaryLabel label={mainSummaryLabel} wrap />
-        <Tooltip title={subTooltip}>
+        {/* Summary chips share MarkdownTooltip to keep the multi-line substat text readable with the new delay. */}
+        <MarkdownTooltip markdown={subTooltip}>
           <Box
             sx={{
               display: 'flex',
@@ -1761,7 +1766,7 @@ const TesterGridCard = React.memo(function TesterGridCard({
               <TesterSummaryLabel label="—" />
             )}
           </Box>
-        </Tooltip>
+        </MarkdownTooltip>
       </Stack>
       {shouldShowPrimaryMatchRow ? (
         <Box
@@ -1829,7 +1834,8 @@ const TesterGridCard = React.memo(function TesterGridCard({
             </Box>
             {hiddenOtherMatching.length > 0 ? (
               <>
-                <Tooltip title={`${t('testerConfigMatches')} (+${hiddenOtherMatching.length})`}>
+                {/* MarkdownTooltip keeps the “+N” overflow chip consistent with other tester tooltips. */}
+                <MarkdownTooltip markdown={`${t('testerConfigMatches')} (+${hiddenOtherMatching.length})`}>
                   <Box component="span" ref={handleMoreChipRef} sx={MATCHING_CHIP_WRAPPER_SX}>
                     <Chip
                       label={`+${hiddenOtherMatching.length}`}
@@ -1845,7 +1851,7 @@ const TesterGridCard = React.memo(function TesterGridCard({
                       }}
                     />
                   </Box>
-                </Tooltip>
+                </MarkdownTooltip>
                 <Popover
                   open={matchingPopoverOpen}
                   anchorEl={matchingPopoverAnchor}

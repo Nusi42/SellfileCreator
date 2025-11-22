@@ -7,7 +7,7 @@
  */
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode, UIEvent, Dispatch, SetStateAction, MouseEvent } from 'react'
-import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, MenuItem, Select, Stack, Tooltip, Typography, Chip, TextField, ListSubheader, keyframes } from '@mui/material'
+import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, MenuItem, Select, Stack, Typography, Chip, TextField, ListSubheader, keyframes } from '@mui/material'
 import CloseIcon from '@mui/icons-material/Close'
 import ContentCopyIcon from '@mui/icons-material/ContentCopy'
 import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline'
@@ -18,6 +18,8 @@ import DeleteIcon from '@mui/icons-material/Delete'
 import type { BuilderConfig } from '../../lib/hsfBuilder'
 import type { ArtifactSetId, ArtifactTypeId, FactionId, LevelMilestone } from '../../lib/types'
 import { ArtifactType, /* rarityCodeToName, */ formatLevel, slotSupportsSub, slotSupportsMain, ALLOWED_MAIN_BY_SLOT, Faction, factionI18nKey, filterAndSortSetEntries, artifactTypeI18nKey, artifactSetName, artifactSetI18nKey, DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT, statVariantI18nKey, StatId, LEVEL_MILESTONES, STAT_VARIANTS_PRIORITY } from '../../lib/types'
+// MarkdownTooltip keeps all dialog hints (add/delete toggles, source glyphs, copy buttons) consistent with global styling.
+import MarkdownTooltip from '../MarkdownTooltip'
 import { allowedTesterSetIds, isAccessorySlot, normalizeTesterSetForSlot } from '../../lib/testerDomain'
 import { formatTesterSetLabel } from '../../lib/testerFormatters'
 import { variantToSub, variantToMain } from '../../lib/hsfTypes'
@@ -761,7 +763,8 @@ export default function RuleTesterDialog({
           }}
         >
           <Stack direction="row" spacing={0.25} alignItems="center" sx={{ width: '100%', justifyContent: 'center' }}>
-            <Tooltip title={t('add')}>
+            {/* Button tooltips now flow through MarkdownTooltip so the cookie-monster easter egg and normal hints share formatting. */}
+            <MarkdownTooltip markdown={t('add')}>
               <IconButton size="small" onClick={() => insertItemAfter(idx)} aria-label="add-row" sx={{
                 p: 0.25,
                 ...(cookieMonsterActive ? {
@@ -773,8 +776,8 @@ export default function RuleTesterDialog({
               }}>
                 <AddCircleOutlineIcon fontSize="small" />
               </IconButton>
-            </Tooltip>
-            <Tooltip title={t('delete')}>
+            </MarkdownTooltip>
+            <MarkdownTooltip markdown={t('delete')}>
               <Box component="span" sx={{ display: 'inline-flex' }}>
                 <IconButton
                   size="small"
@@ -795,9 +798,9 @@ export default function RuleTesterDialog({
                   <RemoveCircleOutlineIcon fontSize="small" />
                 </IconButton>
               </Box>
-            </Tooltip>
+            </MarkdownTooltip>
           </Stack>
-          <Tooltip title={toggleTooltip}>
+          <MarkdownTooltip markdown={toggleTooltip}>
             <Button
               aria-label={toggleTooltip}
               size="small"
@@ -831,7 +834,7 @@ export default function RuleTesterDialog({
             >
               {isCompact ? <OpenInFullIcon fontSize="small" /> : <CloseFullscreenIcon fontSize="small" />}
             </Button>
-          </Tooltip>
+          </MarkdownTooltip>
         </Stack>
         {isCompact ? (
           <Box
@@ -875,11 +878,11 @@ export default function RuleTesterDialog({
             >
               {showFactionChip ? (
                 showFactionIcon && factionIconNode ? (
-                  <Tooltip title={factionLabel}>
+                  <MarkdownTooltip markdown={factionLabel}>
                     <Box sx={{ minWidth: 0 }}>
                       <TesterSummaryLabel label={factionChipLabel} icon={factionIconNode} />
                     </Box>
-                  </Tooltip>
+                  </MarkdownTooltip>
                 ) : (
                   <TesterSummaryLabel label={factionChipLabel} />
                 )
@@ -1524,7 +1527,10 @@ export default function RuleTesterDialog({
     >
       <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <Box sx={{ flex: 1 }}>{t('testerTitle')}</Box>
-        <Tooltip title={t('close')}><IconButton onClick={onClose} size="small"><CloseIcon fontSize="small" /></IconButton></Tooltip>
+        {/* Close button inherits MarkdownTooltip to match other dialog close buttons. */}
+        <MarkdownTooltip markdown={t('close')}>
+          <IconButton onClick={onClose} size="small"><CloseIcon fontSize="small" /></IconButton>
+        </MarkdownTooltip>
       </DialogTitle>
       <DialogContent
         data-tour-id="tester.dialog"
@@ -1550,7 +1556,8 @@ export default function RuleTesterDialog({
                 <Box component="span" sx={{ fontFamily: 'monospace', fontWeight: 500 }}>
                   {RSL_HELPER_CONFIG_PATH}
                 </Box>
-                <Tooltip title={copyGearDbPathLabel}>
+                {/* Clipboard helper uses MarkdownTooltip so the combined path hint stays readable. */}
+                <MarkdownTooltip markdown={copyGearDbPathLabel}>
                   <IconButton
                     size="small"
                     aria-label={copyGearDbPathLabel}
@@ -1565,7 +1572,7 @@ export default function RuleTesterDialog({
                   >
                     <ContentCopyIcon fontSize="inherit" />
                   </IconButton>
-                </Tooltip>
+                </MarkdownTooltip>
               </Box>
               {testerIntroSuffix}
             </>
@@ -1677,11 +1684,11 @@ export default function RuleTesterDialog({
               </Button>
             )
             return (
-              <Tooltip key={section.key} title={buttonLabel}>
+              <MarkdownTooltip key={section.key} markdown={buttonLabel}>
                 <Box component="span" sx={{ display: 'inline-flex', flex: '1 1 0', minWidth: 0 }}>
                   {buttonNode}
                 </Box>
-              </Tooltip>
+              </MarkdownTooltip>
             )
           })}
         </Box>

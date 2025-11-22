@@ -1,6 +1,7 @@
 import React, { useRef, useState } from 'react'
-import { Box, Tooltip } from '@mui/material'
+import { Box } from '@mui/material'
 import { useScrollingFlag } from '../hooks/useScrollingFlag'
+import MarkdownTooltip from './MarkdownTooltip'
 
 export function EllipsisTooltip({
   title,
@@ -11,7 +12,7 @@ export function EllipsisTooltip({
   disablePortal = true,
   maxWidth,
 }: {
-  title: React.ReactNode
+  title: React.ReactNode | string
   children: React.ReactNode
   selector?: string
   disabled?: boolean
@@ -53,9 +54,13 @@ export function EllipsisTooltip({
   }
   const popperSlotProps = { disablePortal }
   const tooltipSlotProps = maxWidth != null ? { sx: { maxWidth } } : null
+  const tooltipProps = typeof title === 'string'
+    ? { markdown: title }
+    : { render: title }
+
   return (
-    <Tooltip
-      title={title}
+    <MarkdownTooltip
+      {...tooltipProps}
       followCursor={false}
       disableHoverListener
       slotProps={tooltipSlotProps ? { popper: popperSlotProps, tooltip: tooltipSlotProps } : { popper: popperSlotProps }}
@@ -75,7 +80,7 @@ export function EllipsisTooltip({
       >
         {children}
       </Box>
-    </Tooltip>
+    </MarkdownTooltip>
   )
 }
 

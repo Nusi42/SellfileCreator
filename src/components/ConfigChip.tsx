@@ -1,6 +1,6 @@
 import { memo, useCallback, useMemo, useRef, useState, useEffect } from 'react'
 import type React from 'react'
-import { Box, IconButton, Tooltip, Typography } from '@mui/material'
+import { Box, IconButton, Typography } from '@mui/material'
 import { alpha, useTheme } from '@mui/material/styles'
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward'
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward'
@@ -35,6 +35,7 @@ import type { MetasetIconId } from '../lib/metasetIcons'
 import type { SellfileExportMode } from '../lib/hsfBuilder'
 import { ConfigContextMenu } from './ConfigContextMenu'
 import { BuilderTooltipContent } from './BuilderTooltipContent'
+import MarkdownTooltip from './MarkdownTooltip'
 
 // Separate baseline nudges keep bitmap faction icons and font slot icons visually centered.
 const CONFIG_CHIP_FACTION_ICON_OFFSET_EM = -0.45
@@ -468,8 +469,8 @@ function ConfigChip({
       )}
       {!isSeparator ? (
         <>
-          <Tooltip
-            title={t('chipBtnMoveUp')}
+          <MarkdownTooltip
+            markdown={t('chipBtnMoveUp')}
             slotProps={{ popper: { disablePortal: true } }}
             {...(tooltipListenerProps ?? {})}
             {...(tooltipForceClosedProps ?? {})}
@@ -488,9 +489,9 @@ function ConfigChip({
                 disabled={index === 0}
               ><ArrowUpwardIcon fontSize="inherit" /></IconButton>
             </span>
-          </Tooltip>
-          <Tooltip
-            title={t('chipBtnMoveDown')}
+          </MarkdownTooltip>
+          <MarkdownTooltip
+            markdown={t('chipBtnMoveDown')}
             slotProps={{ popper: { disablePortal: true } }}
             {...(tooltipListenerProps ?? {})}
             {...(tooltipForceClosedProps ?? {})}
@@ -509,9 +510,9 @@ function ConfigChip({
                 disabled={isLast}
               ><ArrowDownwardIcon fontSize="inherit" /></IconButton>
             </span>
-          </Tooltip>
-          <Tooltip
-            title={t('chipBtnDuplicate')}
+          </MarkdownTooltip>
+          <MarkdownTooltip
+            markdown={t('chipBtnDuplicate')}
             slotProps={{ popper: { disablePortal: true } }}
             {...(tooltipListenerProps ?? {})}
             {...(tooltipForceClosedProps ?? {})}
@@ -529,9 +530,9 @@ function ConfigChip({
                 onClick={(e) => { e.stopPropagation(); onDuplicate() }}
               ><ContentCopyIcon fontSize="inherit" /></IconButton>
             </span>
-          </Tooltip>
-          <Tooltip
-            title={t('chipBtnDelete')}
+          </MarkdownTooltip>
+          <MarkdownTooltip
+            markdown={t('chipBtnDelete')}
             slotProps={{ popper: { disablePortal: true } }}
             {...(tooltipListenerProps ?? {})}
             {...(tooltipForceClosedProps ?? {})}
@@ -550,7 +551,7 @@ function ConfigChip({
                 color="error"
               ><DeleteIcon fontSize="inherit" /></IconButton>
             </span>
-          </Tooltip>
+          </MarkdownTooltip>
         </>
       ) : null}
       <ConfigContextMenu
@@ -593,14 +594,14 @@ function ConfigChip({
 
   if (showTooltip) {
     return (
-      <Tooltip
-        title={tooltipTitle}
+      <MarkdownTooltip
+        markdown={tooltipTitle || ''}
         slotProps={{ popper: { disablePortal: true } }}
         {...(tooltipListenerProps ?? {})}
         open={tooltipSuppressed ? false : (chipHover && !overControls)}
       >
         {chipNode}
-      </Tooltip>
+      </MarkdownTooltip>
     )
   }
 
@@ -916,14 +917,14 @@ function summaryParts(
 
           if (tooltipSections.length > 0 && !opts.tooltipsDisabled) {
             return (
-              <Tooltip
+              <MarkdownTooltip
                 key={`s-${vk}-${i}`}
-                title={<BuilderTooltipContent text={tooltipSections.join('\n')} />}
+                render={<BuilderTooltipContent text={tooltipSections.join('\n')} />}
                 arrow
                 enterDelay={200}
               >
                 {content}
-              </Tooltip>
+              </MarkdownTooltip>
             )
           }
 

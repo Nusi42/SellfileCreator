@@ -15,7 +15,6 @@ import {
   Stack,
   Switch,
   TextField,
-  Tooltip,
   Typography,
 } from '@mui/material'
 import { alpha } from '@mui/material/styles'
@@ -43,6 +42,8 @@ import { useI18n } from '../../lib/i18n'
 import { GearFactionSelect, GearMainStatSelect, GearRankSelect, GearRaritySelect, GearSetsSelect, GearSlotSelect } from '../gear'
 import { TesterItemsGrid } from '../TesterItemsGrid'
 import { NumberSpinnerAdornment } from '../NumberSpinnerAdornment'
+// MarkdownTooltip keeps the rule-count hints and info icons synchronized with the broader tooltip refactor.
+import MarkdownTooltip from '../MarkdownTooltip'
 import type { SetStateAction } from 'react'
 import type { Metaset } from '../../lib/metasets'
 
@@ -413,7 +414,8 @@ export default function KeepUniquesTab({
             </Box>
             {ruleDetection ? (
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <Tooltip title={t('keepUniquesRuleCountsTooltip')}>
+                {/* Rule detection counts use MarkdownTooltip so the formatter can add bullets later if needed. */}
+                <MarkdownTooltip markdown={t('keepUniquesRuleCountsTooltip')}>
                   <Typography
                     variant="caption"
                     color={ruleDetection.deficit > 0 ? 'error.main' : 'text.secondary'}
@@ -425,7 +427,7 @@ export default function KeepUniquesTab({
                       projected: ruleDetection.projectedCount,
                     })}
                   </Typography>
-                </Tooltip>
+                </MarkdownTooltip>
                 {actionButtons}
               </Box>
             ) : (
@@ -467,9 +469,10 @@ export default function KeepUniquesTab({
               <Stack spacing={1}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   <Typography variant="subtitle2">{t('keepUniquesTabLabel')}</Typography>
-                  <Tooltip title={t('keepUniquesTabHint')}>
+                  {/* Info icon uses MarkdownTooltip so the hint shares the global hover delay. */}
+                  <MarkdownTooltip markdown={t('keepUniquesTabHint')}>
                     <InfoOutlinedIcon fontSize="small" color="action" />
-                  </Tooltip>
+                  </MarkdownTooltip>
                 </Box>
                 <Typography variant="body2" color="text.secondary">{t('keepUniquesTabIntro')}</Typography>
                 <FormControlLabel

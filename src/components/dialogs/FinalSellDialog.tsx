@@ -1,5 +1,5 @@
 import type { MouseEvent, SetStateAction } from 'react'
-import { Alert, Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Stack, Tab, Tabs, ToggleButton, ToggleButtonGroup, Tooltip, Typography } from '@mui/material'
+import { Alert, Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Stack, Tab, Tabs, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material'
 import { useI18n } from '../../lib/i18n'
 import { MENU_CONTROL_HEIGHT_PX, type ColorBlindMode } from '../../lib/constants'
 import {
@@ -18,6 +18,8 @@ import {
 import type { KeepUniqueDetectionSnapshot, KeepUniqueRule } from '../../lib/keepUniques'
 import type { TesterPreviewRow } from '../../types/testerPreview'
 import KeepUniquesTab from './KeepUniquesTab'
+// MarkdownTooltip keeps the level-hint copy behavior aligned with the rest of the app.
+import MarkdownTooltip from '../MarkdownTooltip'
 import type { Metaset } from '../../lib/metasets'
 
 type FinalSellDialogProps = {
@@ -330,13 +332,13 @@ export default function FinalSellDialog(props: FinalSellDialogProps) {
                     )
                     if (key === 16) {
                       return (
-                        <Tooltip
+                        <MarkdownTooltip
                           key={key}
-                          title={t('offByDefaultTooltip')}
+                          markdown={t('offByDefaultTooltip')}
                         >
                           {/* Wrap in span to satisfy Tooltip's single child requirement */}
                           <span>{button}</span>
-                        </Tooltip>
+                        </MarkdownTooltip>
                       )
                     }
                     return button
