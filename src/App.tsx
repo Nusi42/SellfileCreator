@@ -30,6 +30,7 @@ import {
   FONT_SIZE_BASE_PX,
 } from './lib/constants'
 import { buildPreviewArtifactFromTesterItem } from './lib/testerPreviewArtifacts'
+import type { ProgressSnapshot } from './types/progress'
 
 import { Box, Container, Paper, Stack, Typography, GlobalStyles, Tooltip, Button } from '@mui/material'
 import SaveIcon from '@mui/icons-material/Save'
@@ -421,6 +422,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const [testerRowsBuilding, setTesterRowsBuilding] = useState(false)
   const [testerRowsCommittedBuildId, setTesterRowsCommittedBuildId] = useState(0)
   const [testerRowsActiveBuildId, setTesterRowsActiveBuildId] = useState(0)
+  const [testerRowsProgress, setTesterRowsProgress] = useState<ProgressSnapshot | null>(null)
   const testerRowsBuildingRef = useRef(testerRowsBuilding)
   useEffect(() => { testerRowsBuildingRef.current = testerRowsBuilding }, [testerRowsBuilding])
   const testerRowsCommittedBuildIdRef = useRef(testerRowsCommittedBuildId)
@@ -584,8 +586,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   useEffect(() => { configRulesStateRef.current = configRulesState }, [configRulesState])
   const ruleCacheRequestTokenRef = useRef(0)
   const [rulesBuilding, setRulesBuilding] = useState(false)
+  const [rulesBuildProgress, setRulesBuildProgress] = useState<ProgressSnapshot | null>(null)
   const finishRulesBuilding = useCallback(() => {
     setRulesBuilding(false)
+    setRulesBuildProgress(null)
   }, [])
   const rulesBuildingTokenRef = useRef<number | null>(null)
   const pendingWarmRef = useRef<{ token: number; promise: Promise<ConfigRulesStateSnapshot> } | null>(null)
@@ -835,6 +839,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     // Fingerprint ahead of time so we know whether the worker commit already applied the scan.
     const detectionSignatureForWarm = detectionSnapshotForWarm ? fingerprintKeepUniqueDetection(detectionSnapshotForWarm) : null
     setRulesBuilding(true)
+    if (configsForWarm.length > 0) {
+      setRulesBuildProgress({ completed: 0, total: configsForWarm.length })
+    } else {
+      setRulesBuildProgress(null)
+    }
     rulesBuildingTokenRef.current = requestToken
     const warmPromise = warmCache(
       {
@@ -850,7 +859,13 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           detection: detectionSnapshotForWarm,
         },
       },
-      { signal: abortController.signal },
+      {
+        signal: abortController.signal,
+        onProgress: (snapshot) => {
+          if (requestToken !== rulesBuildingTokenRef.current) return
+          setRulesBuildProgress(snapshot)
+        },
+      },
     )
       .then(({ state }) => {
         if (abortController.signal.aborted) {
@@ -945,6 +960,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     // Row-building and detection updates should not abort in-flight warm cache updates.
     resolvedKeepUniqueRules,
     finishRulesBuilding,
+    setRulesBuildProgress,
     // Intentionally omit configRulesState (and row/detection state) to avoid self-triggered abort
     // loops when downstream injections update the cached snapshot while a warm is inflight.
   ])
@@ -2317,6 +2333,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     testerRowsCommittedBuildId,
     setTesterRowsCommittedBuildId,
     setTesterRowsActiveBuildId,
+    setTesterRowsProgress,
   })
   const testerFilterResult = useMemo(() => (
     filterTesterItems(testerPreviewRows, testerRulesFilter, metasets, { configNames })
@@ -3516,6 +3533,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         filterActive={previewFilterActive}
         building={rulesBuilding}
         testerBuilding={testerBuilding}
+        rulesProgress={rulesBuildProgress}
+        testerProgress={testerRowsProgress}
         limitHit={totalLimitHit}
         onToggleFilter={() => setFilterOpen((v) => !v)}
         onSelectHsf={async (file) => {

@@ -46,6 +46,14 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
       substatTargets: payload.substatTargets,
       previousCache: cache,
       baseRuleCount,
+      onProgress: (progress) => {
+        const progressResponse: RuleCacheWorkerResponse = {
+          id,
+          kind: 'warm:progress',
+          payload: progress,
+        }
+        self.postMessage(progressResponse)
+      },
     })
     cache = result.cache
     const mergedRules = computeMergedRules({

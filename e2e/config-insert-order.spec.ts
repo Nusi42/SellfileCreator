@@ -62,7 +62,7 @@ test.describe('config insert ordering', () => {
     const previewRow = page.locator('[data-cfg-idx]')
     await previewRow.first().waitFor({ timeout: 10_000 })
 
-    const buildingLabel = page.getByText('Building…', { exact: true })
+    const buildingLabel = page.getByLabel('Building…', { exact: true })
     try {
       await buildingLabel.waitFor({ state: 'hidden', timeout: 10_000 })
     } catch {

@@ -11,6 +11,7 @@ import type {
   TesterMatchWorkerResponse,
   TesterMatchWorkerItemResult,
 } from '../workers/testerMatchWorkerTypes'
+import type { ProgressSnapshot } from '../types/progress'
 
 type ConfigureParams = {
   rules: HsfRuleWithCfg[]
@@ -20,6 +21,7 @@ type ConfigureParams = {
 
 type EvaluateParams = {
   items: TesterMatchWorkerEvaluateItem[]
+  onProgress?: (progress: ProgressSnapshot) => void
 }
 
 type UseTesterMatchWorkerResult = {
@@ -33,28 +35,36 @@ type PendingRequest<T> = {
   reject: (reason?: unknown) => void
 }
 
+type PendingEvaluateRequest = PendingRequest<TesterMatchWorkerItemResult[]> & { onProgress?: (progress: ProgressSnapshot) => void }
+
 const supportsWorkerEnv = typeof window !== 'undefined' && typeof Worker !== 'undefined'
 
 const evaluateRowsFallback = (
   rules: HsfRuleWithCfg[],
   configModes: SellfileExportMode[],
   items: readonly TesterMatchWorkerEvaluateItem[],
+  onProgress?: (progress: ProgressSnapshot) => void,
 ): TesterMatchWorkerItemResult[] => {
   if (!Array.isArray(items) || items.length === 0) return []
+  const total = items.length
   if (!rules.length) {
-    return items.map((entry) => ({
-      itemId: entry.itemId,
-      firstMatch: null,
-      firstNonExcludedMatch: null,
-      matchingConfigIndices: [],
-    }))
+    return items.map((entry, idx) => {
+      onProgress?.({ completed: idx + 1, total })
+      return {
+        itemId: entry.itemId,
+        firstMatch: null,
+        firstNonExcludedMatch: null,
+        matchingConfigIndices: [],
+      }
+    })
   }
-  return items.map((entry) => {
+  return items.map((entry, idx) => {
     const { firstMatch, firstNonExcludedMatch, matchingConfigIndices } = evaluateMatchesByConfig(
       rules,
       entry.item,
       { configModes, excludeSources: [RULE_SOURCE_KEEP_UNIQUES] },
     )
+    onProgress?.({ completed: idx + 1, total })
     return {
       itemId: entry.itemId,
       firstMatch,
@@ -68,7 +78,7 @@ export function useTesterMatchWorker(): UseTesterMatchWorkerResult {
   const workerRef = useRef<Worker | null>(null)
   const requestIdRef = useRef(0)
   const pendingConfigureRef = useRef<Map<number, PendingRequest<void>>>(new Map())
-  const pendingEvaluateRef = useRef<Map<number, PendingRequest<TesterMatchWorkerItemResult[]>>>(new Map())
+  const pendingEvaluateRef = useRef<Map<number, PendingEvaluateRequest>>(new Map())
   const lastConfigurePromiseRef = useRef<Promise<void> | null>(null)
   const fallbackRulesRef = useRef<HsfRuleWithCfg[]>([])
   const fallbackConfigModesRef = useRef<SellfileExportMode[]>([])
@@ -88,6 +98,11 @@ export function useTesterMatchWorker(): UseTesterMatchWorkerResult {
         if (!pending) return
         configureMap.delete(data.id)
         pending.resolve()
+        return
+      }
+      if (data.kind === 'evaluate:progress') {
+        const pending = evaluateMap.get(data.id)
+        pending?.onProgress?.(data.payload)
         return
       }
       if (data.kind === 'evaluate:done') {
@@ -164,14 +179,21 @@ export function useTesterMatchWorker(): UseTesterMatchWorkerResult {
   const evaluateItems = useCallback<UseTesterMatchWorkerResult['evaluateItems']>((params) => {
     if (!params.items.length) return Promise.resolve([])
     if (!supportsWorkerEnv || !workerRef.current) {
-      const results = evaluateRowsFallback(fallbackRulesRef.current, fallbackConfigModesRef.current, params.items)
+      const results = evaluateRowsFallback(
+        fallbackRulesRef.current,
+        fallbackConfigModesRef.current,
+        params.items,
+        params.onProgress,
+      )
       return Promise.resolve(results)
     }
     const worker = workerRef.current
     const sendEvaluate = () => {
       const id = ++requestIdRef.current
       const promise = new Promise<TesterMatchWorkerItemResult[]>((resolve, reject) => {
-        pendingEvaluateRef.current.set(id, { resolve, reject })
+        const pendingEntry: PendingEvaluateRequest = { resolve, reject }
+        if (params.onProgress) pendingEntry.onProgress = params.onProgress
+        pendingEvaluateRef.current.set(id, pendingEntry)
       })
       const payload: TesterMatchWorkerEvaluatePayload = {
         items: params.items,

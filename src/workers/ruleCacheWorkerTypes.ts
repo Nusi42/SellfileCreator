@@ -5,6 +5,7 @@ import type { HsfFile } from '../lib/hsfTypes'
 import type { FinalSellRemainderConfig } from '../lib/finalSell'
 import type { RuleMatchIndexData } from '../lib/ruleMatchIndex'
 import type { KeepUniquesMergeInput } from '../lib/keepUniques'
+import type { ProgressSnapshot } from '../types/progress'
 
 export type RuleCacheWarmRequest = {
   id: number
@@ -35,6 +36,12 @@ export type RuleCacheWarmResponse = {
   }
 }
 
+export type RuleCacheWarmProgressResponse = {
+  id: number
+  kind: 'warm:progress'
+  payload: ProgressSnapshot
+}
+
 export type RuleCacheBuilderCountRequest = {
   id: number
   kind: 'builderCount'
@@ -58,6 +65,10 @@ export type RuleCacheErrorResponse = {
   error: string
 }
 
-export type RuleCacheWorkerResponse = RuleCacheWarmResponse | RuleCacheBuilderCountResponse | RuleCacheErrorResponse
+export type RuleCacheWorkerResponse =
+  | RuleCacheWarmResponse
+  | RuleCacheWarmProgressResponse
+  | RuleCacheBuilderCountResponse
+  | RuleCacheErrorResponse
 
 export type RuleCacheWorkerRequest = RuleCacheWarmRequest | RuleCacheBuilderCountRequest

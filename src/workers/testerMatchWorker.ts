@@ -28,17 +28,28 @@ const configureRules = (rules: HsfRuleWithCfg[], configModes: SellfileExportMode
   }
 }
 
-const evaluateRows = (items: TesterMatchWorkerEvaluateItem[]): TesterMatchWorkerItemResult[] => {
+const evaluateRows = (
+  items: TesterMatchWorkerEvaluateItem[],
+  onProgress?: (completed: number, total: number) => void,
+): TesterMatchWorkerItemResult[] => {
   if (!Array.isArray(items) || items.length === 0) return []
+  const total = items.length
   if (currentRules.length === 0) {
-    return items.map((entry) => ({
-      itemId: entry.itemId,
-      firstMatch: null,
-      firstNonExcludedMatch: null,
-      matchingConfigIndices: [],
-    }))
+    const emptyResults = items.map((entry, idx) => {
+      if (onProgress) onProgress(idx + 1, total)
+      return {
+        itemId: entry.itemId,
+        firstMatch: null,
+        firstNonExcludedMatch: null,
+        matchingConfigIndices: [],
+      }
+    })
+    return emptyResults
   }
-  return items.map((entry) => {
+  const results: TesterMatchWorkerItemResult[] = []
+  for (let idx = 0; idx < items.length; idx += 1) {
+    const entry = items[idx]
+    if (!entry) continue
     // Full evaluation includes keep-unique injections so the tester grid shows overrides.
     const full = evaluateMatchesByConfig(currentRules, entry.item, { configModes: currentConfigModes })
     // Base evaluation excludes keep-unique so detection can still see the baseline keep/sell result.
@@ -46,13 +57,15 @@ const evaluateRows = (items: TesterMatchWorkerEvaluateItem[]): TesterMatchWorker
       configModes: currentConfigModes,
       excludeSources: [RULE_SOURCE_KEEP_UNIQUES],
     })
-    return {
+    results.push({
       itemId: entry.itemId,
       firstMatch: full.firstMatch,
       firstNonExcludedMatch: base.firstMatch,
       matchingConfigIndices: full.matchingConfigIndices,
-    }
-  })
+    })
+    if (onProgress) onProgress(idx + 1, total)
+  }
+  return results
 }
 
 self.onmessage = (event: MessageEvent<TesterMatchWorkerRequest>) => {
@@ -78,7 +91,14 @@ self.onmessage = (event: MessageEvent<TesterMatchWorkerRequest>) => {
   }
   if (message.kind === 'evaluate') {
     try {
-      const results = evaluateRows(message.payload.items)
+      const results = evaluateRows(message.payload.items, (completed, total) => {
+        const progressResponse: TesterMatchWorkerResponse = {
+          id: message.id,
+          kind: 'evaluate:progress',
+          payload: { completed, total },
+        }
+        self.postMessage(progressResponse)
+      })
       const response: TesterMatchWorkerResponse = {
         id: message.id,
         kind: 'evaluate:done',
