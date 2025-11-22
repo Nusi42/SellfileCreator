@@ -381,8 +381,8 @@ export const FILTER_CHIP_OPACITY = 0.75
 // Overscan is the buffer of off-screen rows rendered above/below the view.
 // Smaller during fast scrolling to reduce per-frame work; larger when idle
 // for smoother edges with fewer pop-ins.
-export const RULES_TABLE_OVERSCAN_FAST = 6
-export const RULES_TABLE_OVERSCAN_IDLE = 50
+export const RULES_TABLE_OVERSCAN_FAST = 4
+export const RULES_TABLE_OVERSCAN_IDLE = 20
 
 // Rules table scroll behavior
 // Nearby threshold for deciding when to use smooth scrolling in single-line mode.
