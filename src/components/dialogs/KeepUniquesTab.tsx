@@ -462,7 +462,7 @@ export default function KeepUniquesTab({
             gap: 2,
           }}
         >
-          <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
+          <Box data-tour-id="keepuniques.rules" sx={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
             <Box sx={{ pb: 2, borderBottom: '1px solid', borderColor: 'divider' }}>
               <Stack spacing={1}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -497,7 +497,7 @@ export default function KeepUniquesTab({
               </Button>
             </Box>
           </Box>
-          <Box sx={{ minHeight: 0, display: 'flex', flexDirection: 'column', gap: 1 }}>
+          <Box data-tour-id="keepuniques.grid" sx={{ minHeight: 0, display: 'flex', flexDirection: 'column', gap: 1 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
               <Typography variant="subtitle2">{t('keepUniquesGridTitle')}</Typography>
               {selectedEntry ? (
