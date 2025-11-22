@@ -56,23 +56,6 @@ export const fingerprintKeepUniqueDetection = (
   return parts.join(';')
 }
 
-// Compact representation for log messages to avoid huge payloads.
-const signatureDigest = (signature: string | null | undefined): string => (
-  signature ? `len=${signature.length} hash=${hashSignature(signature)}` : 'null'
-)
-
-const describeArtifactSet = (artifacts: readonly NormalizedGearArtifact[]): string => {
-  const count = artifacts.length
-  if (count === 0) return '0 items'
-  const itemLabel = (artifact: NormalizedGearArtifact): string => {
-    const itemId = Number((artifact.testerItem as { itemId?: number } | undefined)?.itemId ?? NaN)
-    const normalized = Number.isFinite(itemId) ? itemId : -1
-    return `${normalized}:${artifact.slot}`
-  }
-  if (count === 1) return `1 item ${itemLabel(artifacts[0]!)}`
-  return `${count} items ${itemLabel(artifacts[0]!)}..${itemLabel(artifacts[count - 1]!)}`
-}
-
 const fingerprintMergedRules = (rules: readonly HsfRuleWithCfg[]): string => {
   if (!rules || rules.length === 0) return '0:0'
   let hash = 0
@@ -198,8 +181,6 @@ export function useTesterMatchOrchestrator(params: UseTesterMatchOrchestratorPar
   const testerRowsCommittedBuildIdRef = useRef(testerRowsCommittedBuildId)
   // Track which rule signature has actually been rendered so we can detect pending rebuilds when signatures change.
   const testerRowsCommittedRulesSignatureRef = useRef<string | null>(null)
-  // Suppress redundant stable-input logs.
-  const testerRowsStableSkipLoggedRef = useRef(false)
 
   // Keep building ref aligned with external state for correctness.
   useEffect(() => { testerRowsBuildingRef.current = testerRowsBuilding }, [testerRowsBuilding])
@@ -213,27 +194,10 @@ export function useTesterMatchOrchestrator(params: UseTesterMatchOrchestratorPar
     // Defer rebuilding while upstream rules are still warming to avoid thrash.
     if (rulesBuilding) {
       inFlightArtifactsRef.current = null
-      console.log('[tester-match] skip build while rulesBuilding names=%s', configNames.length === 0 ? 'none' : `${configNames.length} names`)
       return
     }
     // Build a simple signature for config names to detect label changes.
     const namesSignature = configNames.map((name) => name ?? '').join('\u0001')
-    // Track digest instead of full names to reduce log spam.
-    const namesDigest = `${configNames.length} names / len=${namesSignature.length} / hash=${hashSignature(namesSignature)}`
-    // Source histogram helps debug missing keep-unique coverage without dumping whole rule objects.
-    const sourceCounts = mergedRules.reduce<Record<string, number>>((acc, rule) => {
-      const src = (rule as HsfRuleWithCfg).__source ?? 'unknown'
-      acc[src] = (acc[src] ?? 0) + 1
-      return acc
-    }, {})
-    console.log(
-      '[tester-match] sources hsf=%d custom=%d keepU=%d finalSell=%d total=%d',
-      sourceCounts.hsf ?? 0,
-      sourceCounts.hsfc ?? 0,
-      sourceCounts.keepUniques ?? 0,
-      sourceCounts.finalSell ?? 0,
-      mergedRules.length,
-    )
     // Previous deps determine whether a rebuild is necessary.
     const prevMatchDeps = testerPreviewMatchDepsRef.current
     const rulesChangedSinceCommit = testerRowsCommittedRulesSignatureRef.current !== mergedRulesSignature
@@ -245,30 +209,9 @@ export function useTesterMatchOrchestrator(params: UseTesterMatchOrchestratorPar
       && lastSettledArtifactsRef.current === artifacts
       && !rulesChangedSinceCommit
     ) {
-      if (!testerRowsStableSkipLoggedRef.current) {
-        lastSettledArtifactsRef.current = artifacts
-        console.log(
-          '[tester-match] skip rebuild (stable inputs) rows=%d artifacts=%s rules=%s names=%s',
-          testerPreviewRowMapRef.current.size,
-          describeArtifactSet(artifacts),
-          mergedRulesSignature,
-          namesDigest,
-        )
-        testerRowsStableSkipLoggedRef.current = true
-      }
+      lastSettledArtifactsRef.current = artifacts
       return
     }
-    testerRowsStableSkipLoggedRef.current = false
-    console.log(
-      '[tester-match] begin build artifacts=%d prevRows=%d mergedRules=%d committedBuild=%d activeBuild=%d digest=%s prevDigest=%s',
-      artifacts.length,
-      testerPreviewRowMapRef.current.size,
-      mergedRules.length,
-      testerRowsCommittedBuildIdRef.current,
-      testerRowsBuildIdRef.current,
-      mergedRulesSignature,
-      prevMatchDeps.rulesSignature ?? 'null',
-    )
     // Avoid restarting a build when the same inputs are already being processed.
     const inFlightBuildId = testerRowsBuildIdRef.current
     const hasUncommittedBuild = testerRowsCommittedBuildIdRef.current < inFlightBuildId
@@ -279,7 +222,6 @@ export function useTesterMatchOrchestrator(params: UseTesterMatchOrchestratorPar
       && prevMatchDeps.rulesSignature === mergedRulesSignature
       && prevMatchDeps.namesSignature === namesSignature
     ) {
-      console.log('[tester-match] reuse in-flight build buildId=%d names=%s', inFlightBuildId, namesDigest)
       return
     }
     // Force rebuild when rules or config names change.
@@ -322,21 +264,6 @@ export function useTesterMatchOrchestrator(params: UseTesterMatchOrchestratorPar
         dirtyEntries.push({ artifact, itemId })
       })
     }
-
-    // Quick summary of the rebuild decision.
-    console.log(
-      '[tester-match] plan artifacts=%d prevRows=%d dirty=%d force=%s rulesChanged=%s namesChanged=%s building=%s rulesBuilding=%s committed=%d',
-      artifacts.length,
-      prevRowMap.size,
-      dirtyEntries.length,
-      forceRebuildAllRows,
-      rulesChanged,
-      namesChanged,
-      testerRowsBuilding,
-      rulesBuilding,
-      testerRowsCommittedBuildIdRef.current,
-    )
-
     const noOpBuild = dirtyEntries.length === 0 && nextRowMap.size === prevRowMap.size
     const nextBuildId = testerRowsBuildIdRef.current + 1
     if (noOpBuild) {
@@ -345,14 +272,6 @@ export function useTesterMatchOrchestrator(params: UseTesterMatchOrchestratorPar
       setTesterRowsActiveBuildId(nextBuildId)
       setTesterRowsCommittedBuildId(nextBuildId)
       lastSettledArtifactsRef.current = artifacts
-      console.log(
-        '[tester-match] no-op build artifacts=%d rows=%d -> committed buildId=%d rulesChanged=%s namesChanged=%s',
-        artifacts.length,
-        nextRowMap.size,
-        nextBuildId,
-        rulesChanged,
-        namesChanged,
-      )
       setTesterRowsBuilding(false)
       return
     }
@@ -370,7 +289,6 @@ export function useTesterMatchOrchestrator(params: UseTesterMatchOrchestratorPar
       setTesterRowsCommittedBuildId(buildId)
       testerRowsCommittedRulesSignatureRef.current = mergedRulesSignature
       lastSettledArtifactsRef.current = artifacts
-      console.log('[tester-match] commit no-dirty buildId=%d rows=%d', buildId, nextRowMap.size)
       setTesterRowsBuilding(false)
       return
     }
@@ -390,7 +308,6 @@ export function useTesterMatchOrchestrator(params: UseTesterMatchOrchestratorPar
       setTesterPreviewRows(sortTesterRows(Array.from(nextRowMap.values())))
       setTesterRowsCommittedBuildId(buildId)
       lastSettledArtifactsRef.current = artifacts
-      console.log('[tester-match] commit no-rules buildId=%d rows=%d dirty=%d', buildId, nextRowMap.size, dirtyEntries.length)
       setTesterRowsBuilding(false)
       return
     }
@@ -456,19 +373,6 @@ export function useTesterMatchOrchestrator(params: UseTesterMatchOrchestratorPar
     }
   }
 
-  // Helper: log a small sample of matches without dumping heavy objects.
-  const logSampleMatches = (label: string, rows: Iterable<TesterPreviewRow>): void => {
-    const entries = Array.from(rows).slice(0, 10).map((row) => {
-      const src = row.match?.ruleSource ?? 'none'
-      const cfg = row.match?.cfgIdx ?? -1
-      const keep = row.match?.keep ?? null
-      const itemId = Number((row.artifact.testerItem as { itemId?: number } | undefined)?.itemId ?? NaN)
-      const itemLabel = Number.isFinite(itemId) ? itemId : -1
-      return `${itemLabel}:${src}:${cfg}:${keep === null ? 'null' : keep ? 'keep' : 'sell'}`
-    })
-    console.log(`[tester-match] sample ${label} count=${entries.length} entries=${entries.join('|')}`)
-  }
-
     // Start a worker-based build when supported.
     if (effectiveWorkerSupported) {
       inFlightArtifactsRef.current = artifacts
@@ -479,8 +383,6 @@ export function useTesterMatchOrchestrator(params: UseTesterMatchOrchestratorPar
         return { itemId, item: artifact.testerItem }
       })
       let cancelled = false
-      // Verbose log for traceability across builds.
-      console.log('[tester-match] worker-start buildId=%d dirty=%d rules=%d hold=%s names=%s', buildId, dirtyEntries.length, mergedRules.length, shouldHoldRowsBuilding(), namesDigest)
       evaluateTesterMatchItems({ items: itemsPayload })
         .then((results) => {
           if (cancelled || testerRowsBuildIdRef.current !== buildId) return
@@ -501,18 +403,13 @@ export function useTesterMatchOrchestrator(params: UseTesterMatchOrchestratorPar
           setTesterRowsCommittedBuildId(buildId)
           testerRowsCommittedRulesSignatureRef.current = mergedRulesSignature
           lastSettledArtifactsRef.current = artifacts
-          console.log('[tester-match] worker-commit buildId=%d rows=%d dirty=%d', buildId, nextRowMap.size, dirtyEntries.length)
-          logSampleMatches('worker', sortedRows)
-          console.log('[tester-match] worker-commit buildId=%d rows=%d hold=%s names=%s', buildId, nextRowMap.size, shouldHoldRowsBuilding(), namesDigest)
           inFlightArtifactsRef.current = null
           // Release building flag even when keep-unique hold is active so the UI does not spin forever.
           if (testerRowsBuildIdRef.current === buildId) {
             setTesterRowsBuilding(false)
           }
         })
-        .catch((error) => {
-          // Log error with build context for debugging.
-          console.log('[tester-match] worker-error buildId=%d reason=%s names=%s', buildId, (error as Error)?.message ?? 'unknown', namesDigest)
+        .catch(() => {
           if (cancelled) return
           inFlightArtifactsRef.current = null
           if (testerRowsBuildIdRef.current === buildId) {
@@ -548,7 +445,6 @@ export function useTesterMatchOrchestrator(params: UseTesterMatchOrchestratorPar
     }
 
     // Process all dirty entries synchronously for now (no chunked timeouts).
-    console.log('[tester-match] fallback-start buildId=%d dirty=%d rules=%d hold=%s names=%s', buildId, dirtyEntries.length, mergedRules.length, shouldHoldRowsBuilding(), namesDigest)
     for (let cursor = 0; cursor < dirtyEntries.length; cursor += 1) {
       if (cancelled || testerRowsBuildIdRef.current !== buildId) break
       const entry = dirtyEntries[cursor]
@@ -562,9 +458,6 @@ export function useTesterMatchOrchestrator(params: UseTesterMatchOrchestratorPar
       setTesterRowsCommittedBuildId(buildId)
       testerRowsCommittedRulesSignatureRef.current = mergedRulesSignature
       lastSettledArtifactsRef.current = artifacts
-      console.log('[tester-match] fallback-commit buildId=%d rows=%d dirty=%d', buildId, nextRowMap.size, dirtyEntries.length)
-      logSampleMatches('fallback', sortedRows)
-      console.log('[tester-match] fallback-commit buildId=%d rows=%d hold=%s names=%s', buildId, nextRowMap.size, shouldHoldRowsBuilding(), namesDigest)
       inFlightArtifactsRef.current = null
       if (testerRowsBuildIdRef.current === buildId) {
         setTesterRowsBuilding(false)
@@ -609,53 +502,22 @@ export function useTesterMatchOrchestrator(params: UseTesterMatchOrchestratorPar
   }, [keepUniquesActive, testerPreviewRows, keepUniqueBaseRules, configModes])
 
   // Keep-unique detection refresh runs when candidates or rules change.
-  const keepUniqueDetectionStableLoggedRef = useRef(false)
   useEffect(() => {
-    console.log(
-      '[tester-keep-unique] effect enter active=%s rowsCommitted=%d buildId=%d detectionSig=%s candidates=%d building=%s',
-      keepUniquesActive,
-      testerRowsCommittedBuildId,
-      testerRowsBuildIdRef.current,
-      signatureDigest(keepUniqueDetectionSignature),
-      keepUniqueCandidates.candidates.length,
-      testerRowsBuilding,
-    )
     // Only run detection when rows are settled.
     const rowsUpToDate = testerRowsCommittedBuildId >= testerRowsBuildIdRef.current && !testerRowsBuilding
     // When disabled, clear any cached detection + pending signatures.
     if (!keepUniquesActive) {
-      if (keepUniqueScanAppliedRef.current || pendingKeepUniqueDetectionSigRef.current) {
-        console.log('[tester-keep-unique] clearing detection (disabled) applied=%s pending=%s', signatureDigest(keepUniqueScanAppliedRef.current), signatureDigest(pendingKeepUniqueDetectionSigRef.current))
-      }
       keepUniqueScanAppliedRef.current = null
       pendingKeepUniqueDetectionSigRef.current = null
       setKeepUniqueDetection(null)
-      keepUniqueDetectionStableLoggedRef.current = false
       return
     }
     // Defer until rows catch up to the latest build.
-    if (testerRowsBuilding) {
-      console.log('[tester-keep-unique] waiting for tester rows build completion buildId=%d', testerRowsBuildIdRef.current)
-      return
-    }
-    if (!rowsUpToDate) {
-      console.log('[tester-keep-unique] waiting rowsUpToDate committed=%d buildId=%d', testerRowsCommittedBuildId, testerRowsBuildIdRef.current)
-      return
-    }
+    if (testerRowsBuilding || !rowsUpToDate) return
     if (testerPreviewRows.length === 0 || keepUniqueCandidates.candidates.length === 0) {
-      if (keepUniqueScanAppliedRef.current || pendingKeepUniqueDetectionSigRef.current || keepUniqueDetectionSignature) {
-        console.log(
-          '[tester-keep-unique] skip detection (no tester items) applied=%s pending=%s rows=%d candidates=%d',
-          signatureDigest(keepUniqueScanAppliedRef.current),
-          signatureDigest(pendingKeepUniqueDetectionSigRef.current),
-          testerPreviewRows.length,
-          keepUniqueCandidates.candidates.length,
-        )
-      }
       keepUniqueScanAppliedRef.current = null
       pendingKeepUniqueDetectionSigRef.current = null
       setKeepUniqueDetection(null)
-      keepUniqueDetectionStableLoggedRef.current = false
       return
     }
 
@@ -666,29 +528,15 @@ export function useTesterMatchOrchestrator(params: UseTesterMatchOrchestratorPar
       enabled: keepUniquesActive,
     })
     const snapshotSignature = fingerprintKeepUniqueDetection(snapshot)
-    console.log(
-      '[tester-keep-unique] compute rows=%d candidates=%d entries=%d artifacts=%d signature=%s rowsUpToDate=%s testerRowsBuilding=%s',
-      testerPreviewRows.length,
-      keepUniqueCandidates.candidates.length,
-      snapshot.entries.length,
-      snapshot.entries.reduce((sum, entry) => sum + entry.artifacts.length, 0),
-      signatureDigest(snapshotSignature),
-      rowsUpToDate,
-      testerRowsBuilding,
-    )
     setKeepUniqueDetection((prev) => {
       // When there was no prior snapshot, always apply and record signature.
       if (!prev) {
         pendingKeepUniqueDetectionSigRef.current = snapshotSignature
-        console.log('[tester-keep-unique] detection-applied entries=%d signature=%s', snapshot.entries.length, signatureDigest(snapshotSignature))
-        keepUniqueDetectionStableLoggedRef.current = false
         return snapshot
       }
       // Compare lengths + entry fields; if identical, reuse previous snapshot.
       if (prev.entries.length !== snapshot.entries.length) {
         pendingKeepUniqueDetectionSigRef.current = snapshotSignature
-        console.log('[tester-keep-unique] detection-updated entries=%d prev=%d signature=%s', snapshot.entries.length, prev.entries.length, signatureDigest(snapshotSignature))
-        keepUniqueDetectionStableLoggedRef.current = false
         return snapshot
       }
       for (let idx = 0; idx < snapshot.entries.length; idx += 1) {
@@ -696,8 +544,6 @@ export function useTesterMatchOrchestrator(params: UseTesterMatchOrchestratorPar
         const prevEntry = prev.entries[idx]
         if (!nextEntry || !prevEntry) {
           pendingKeepUniqueDetectionSigRef.current = snapshotSignature
-          console.log('[tester-keep-unique] detection-mismatch index=%d signature=%s', idx, signatureDigest(snapshotSignature))
-          keepUniqueDetectionStableLoggedRef.current = false
           return snapshot
         }
         if (
@@ -712,14 +558,8 @@ export function useTesterMatchOrchestrator(params: UseTesterMatchOrchestratorPar
           || nextEntry.artifacts.length !== prevEntry.artifacts.length
         ) {
           pendingKeepUniqueDetectionSigRef.current = snapshotSignature
-          console.log('[tester-keep-unique] detection-changed index=%d signature=%s', idx, signatureDigest(snapshotSignature))
-          keepUniqueDetectionStableLoggedRef.current = false
           return snapshot
         }
-      }
-      if (!keepUniqueDetectionStableLoggedRef.current) {
-        console.log('[tester-keep-unique] detection-stable signature=%s', signatureDigest(snapshotSignature))
-        keepUniqueDetectionStableLoggedRef.current = true
       }
       return prev
     })
