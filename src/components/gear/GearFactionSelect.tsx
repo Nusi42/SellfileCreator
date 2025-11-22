@@ -105,17 +105,16 @@ export function GearFactionSelect({
           ? <MenuItem value={ANY_SENTINEL}>{t('any')}</MenuItem>
           : <MenuItem value="">{t('any')}</MenuItem>
       ) : null}
-      {FACTION_GROUPS.map((group) => (
-        <Box key={group.labelKey} component="div">
-          {/* Render each faction group header before its member rows so localization stays readable. */}
-          <ListSubheader sx={{ fontSize: '0.75rem' }}>{t(group.labelKey)}</ListSubheader>
-          {group.ids.map((code) => (
-            <MenuItem key={code} value={String(code)}>
-              <FactionOptionLabel faction={code} label={t(factionI18nKey(code))} size={23} />
-            </MenuItem>
-          ))}
-        </Box>
-      ))}
+      {FACTION_GROUPS.flatMap((group) => [
+        <ListSubheader key={`${group.labelKey}-header`} sx={{ fontSize: '0.75rem' }}>
+          {t(group.labelKey)}
+        </ListSubheader>,
+        ...group.ids.map((code) => (
+          <MenuItem key={`${group.labelKey}-${code}`} value={String(code)}>
+            <FactionOptionLabel faction={code} label={t(factionI18nKey(code))} size={23} />
+          </MenuItem>
+        )),
+      ])}
     </Select>
   )
 }

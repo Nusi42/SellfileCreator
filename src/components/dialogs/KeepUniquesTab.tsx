@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState, type MouseEvent as ReactMouseEvent } from 'react'
 import {
   Alert,
   Box,
@@ -261,6 +261,18 @@ export default function KeepUniquesTab({
     const mainStatSelection = dedupeNumericArray((combination.mainStats ?? []).filter((variant) => mainStatOptions.includes(variant)))
     const factionSelection = hasAccessorySlot ? dedupeNumericArray(combination.factions ?? []) : []
     const selected = effectiveSelectedRuleId === rule.id
+    const handleRuleCardClick = (event: ReactMouseEvent<HTMLDivElement>) => {
+      const target = event.target as HTMLElement | null
+      const interactiveElements = target?.closest('button, input, select, textarea, [contenteditable="true"], [role="button"], [role="option"], [role="menuitem"], [role="combobox"], [data-rule-card-interactive="true"]')
+      if (interactiveElements) return
+      if (selected) {
+        setSelectedRuleId(null)
+        setRespectManualDeselect(true)
+      } else {
+        setSelectedRuleId(rule.id)
+        setRespectManualDeselect(false)
+      }
+    }
     const deleteButton = (
       <IconButton
         size="small"
@@ -289,15 +301,7 @@ export default function KeepUniquesTab({
     return (
       <Box
         key={rule.id}
-        onClick={() => {
-          if (selected) {
-            setSelectedRuleId(null)
-            setRespectManualDeselect(true)
-          } else {
-            setSelectedRuleId(rule.id)
-            setRespectManualDeselect(false)
-          }
-        }}
+        onClick={handleRuleCardClick}
         sx={{
           borderRadius: '8px',
           border: '1px solid',
