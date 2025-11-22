@@ -1,5 +1,5 @@
 import React from 'react'
-import { Box, Button, Chip, Stack, Tooltip, ToggleButton, ToggleButtonGroup, Typography, Menu, MenuItem } from '@mui/material'
+import { Box, Button, Chip, Stack, Tooltip, ToggleButton, ToggleButtonGroup, Typography, Menu, MenuItem, CircularProgress } from '@mui/material'
 import { alpha, type Theme } from '@mui/material/styles'
 import TuneIcon from '@mui/icons-material/Tune'
 import {
@@ -26,10 +26,63 @@ import { useContextMenuCloseOnOutsideRightClick } from '../hooks/useContextMenuC
 import { ContextMenuHintOverlay } from './ContextMenuHintOverlay'
 import { useContextMenuHint } from '../hooks/useContextMenuHint'
 import Checkbox from '@mui/material/Checkbox'
-import { stripAnimatedEllipsisSource, useAnimatedEllipsis } from '../hooks/useAnimatedEllipsis'
+import type { ProgressSnapshot } from '../types/progress'
+import { clampProgressRatio } from '../types/progress'
 
 const EXPORT_HOVER_DELAY_MS = 2000 as const
 const HIGHLIGHT_REPLAY_DELAY_MS = 500 as const
+
+type ProgressChipProps = {
+  progressRatio: number
+  children: React.ReactElement
+}
+
+function ProgressChip({ progressRatio, children }: ProgressChipProps) {
+  const clampedRatio = Math.max(0, Math.min(1, progressRatio))
+  return (
+    <Box sx={{ position: 'relative', display: 'inline-flex', borderRadius: '999px' }}>
+      {children}
+      {clampedRatio > 0 ? (
+        <Box
+          sx={{
+            position: 'absolute',
+            top: -8,
+            right: -8,
+            width: 28,
+            height: 28,
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            borderRadius: '50%',
+          }}
+        >
+          <Box
+            // Blur a soft badge behind the spinner so the determinate ring remains visible on any chip color.
+            sx={(theme) => ({
+              position: 'absolute',
+              inset: 0,
+              borderRadius: '50%',
+              backgroundColor: alpha(theme.palette.background.paper, 0.55),
+              boxShadow: `0 4px 10px ${alpha(theme.palette.common.black, 0.4)}`,
+              filter: 'blur(2px)',
+            })}
+          />
+          <CircularProgress
+            // Determinate spinner mirrors the worker-provided ratio so users see a true percentage.
+            variant="determinate"
+            value={clampedRatio * 100}
+            size={18}
+            thickness={4}
+            sx={{
+              position: 'relative',
+              color: 'info.main',
+            }}
+          />
+        </Box>
+      ) : null}
+    </Box>
+  )
+}
 
 const isGearDbFilename = (filename?: string | null) => {
   if (!filename) return false
@@ -57,6 +110,8 @@ export default function PreviewHeaderActions(props: {
   hsfDirty: boolean
   building?: boolean
   testerBuilding?: boolean
+  rulesProgress?: ProgressSnapshot | null
+  testerProgress?: ProgressSnapshot | null
   limitHit?: boolean
   // Final sell remainder controls
   finalSell: FinalSellRemainderConfig
@@ -101,6 +156,8 @@ export default function PreviewHeaderActions(props: {
     testerCount,
     testerFilteredCount,
     testerBuilding = false,
+    rulesProgress = null,
+    testerProgress = null,
     gearDbCommandError,
     onClearGearDbCommandError,
     gearDbCommandSuccess,
@@ -141,21 +198,19 @@ export default function PreviewHeaderActions(props: {
       : testerTotalLabel)
   const buildingLabel = t('rulesBuilding')
   const isBuilding = isRulesMode ? building : testerBuilding
-  const animatedBuildingLabel = useAnimatedEllipsis(buildingLabel, { active: isBuilding })
-  const buildingMaxLabel = React.useMemo(() => {
-    const base = stripAnimatedEllipsisSource(buildingLabel)
-    return `${base}${'.'.repeat(3)}`
-  }, [buildingLabel])
-  const rulesChipLabel = isBuilding ? animatedBuildingLabel : chipBaseLabel
+  const rulesChipLabel = chipBaseLabel
   const rulesChipMinChars = React.useMemo(
-    () => Math.max(
-      Array.from(buildingMaxLabel).length,
-      Array.from(chipBaseLabel).length,
-    ),
-    [chipBaseLabel, buildingMaxLabel],
+    () => Array.from(chipBaseLabel).length,
+    [chipBaseLabel],
   )
   const rulesChipMinWidth = rulesChipMinChars > 0 ? `${rulesChipMinChars}ch` : undefined
-  const rulesChipSx = React.useMemo(() => {
+  // Clamp determinate values from both rule and tester builders so the UI never overflows.
+  const rulesProgressRatio = clampProgressRatio(rulesProgress)
+  const testerProgressRatio = clampProgressRatio(testerProgress)
+  const chipProgressRatio = isBuilding
+    ? (isRulesMode ? rulesProgressRatio : testerProgressRatio)
+    : 0
+  const rulesChipBaseSx = React.useMemo(() => {
     const base: Record<string, unknown> = {
       ...(rulesChipMinWidth ? { minWidth: rulesChipMinWidth } : {}),
     }
@@ -169,6 +224,7 @@ export default function PreviewHeaderActions(props: {
     }
     return base
   }, [building, isRulesMode, limitHit, rulesChipMinWidth])
+  const rulesChipSx = rulesChipBaseSx
   const limitTooltip = React.useMemo(() => {
     if (!limitHit || building || !isRulesMode) return ''
     const formattedLimit = new Intl.NumberFormat(undefined).format(TOTAL_RULE_COUNT_LIMIT)
@@ -336,14 +392,18 @@ export default function PreviewHeaderActions(props: {
         <Typography variant="h6">{previewHeading}</Typography>
         <Stack direction="row" spacing={1} alignItems="center" sx={{ flexShrink: 0 }}>
           {limitHit && !building && isRulesMode ? (
-          <Tooltip title={limitTooltip}>
-            <Box component="span" sx={{ display: 'inline-flex' }}>
-              <Chip label={rulesChipLabel} size="small" sx={rulesChipSx} />
-            </Box>
-          </Tooltip>
-        ) : (
-          <Chip label={rulesChipLabel} size="small" sx={rulesChipSx} />
-        )}
+            <Tooltip title={limitTooltip}>
+              <Box component="span" sx={{ display: 'inline-flex' }}>
+                <ProgressChip progressRatio={chipProgressRatio}>
+                  <Chip label={rulesChipLabel} size="small" sx={rulesChipSx} aria-label={isBuilding ? buildingLabel : undefined} />
+                </ProgressChip>
+              </Box>
+            </Tooltip>
+          ) : (
+            <ProgressChip progressRatio={chipProgressRatio}>
+              <Chip label={rulesChipLabel} size="small" sx={rulesChipSx} aria-label={isBuilding ? buildingLabel : undefined} />
+            </ProgressChip>
+          )}
           {baseRulesLabel ? (
             <Typography variant="caption" color="text.secondary" sx={{ lineHeight: 1.2 }}>
               {baseRulesLabel}

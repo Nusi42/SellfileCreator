@@ -14,6 +14,7 @@ import type { Metaset } from './metasets'
 import { resolveMetasetIds } from './metasets'
 import { compareVariants } from './types'
 import { buildCanonicalConfigSnapshot } from './configSnapshot'
+import type { ProgressSnapshot } from '../types/progress'
 
 /** Cache entry keyed by a stable fingerprint for a single config. */
 export type ConfigRuleCacheEntry = {
@@ -78,6 +79,7 @@ type UpdateArgs = {
   previousCache?: ConfigRulesCache
   baseRuleCount?: number
   totalLimit?: number
+  onProgress?: (progress: ProgressSnapshot) => void
 }
 
 type UpdateResult = {
@@ -104,7 +106,21 @@ export function updateConfigRulesCache(args: UpdateArgs): UpdateResult {
     previousCache,
     baseRuleCount = 0,
     totalLimit = TOTAL_RULE_COUNT_LIMIT,
+    onProgress,
   } = args
+  const totalConfigs = configs.length
+  const emitProgress = (completed: number) => {
+    if (!onProgress || totalConfigs <= 0) return
+    const snapshot: ProgressSnapshot = {
+      completed: Math.max(0, Math.min(completed, totalConfigs)),
+      total: totalConfigs,
+    }
+    try {
+      onProgress(snapshot)
+    } catch {
+      // Ignore listener errors so rule building keeps advancing.
+    }
+  }
   const substatTargetsKey = substatTargetsFingerprint(substatTargets)
   const nextCache: ConfigRulesCache = new Map()
   const rulesByConfig = new Map<number, HsfRuleWithCfg[]>()
@@ -174,6 +190,7 @@ export function updateConfigRulesCache(args: UpdateArgs): UpdateResult {
       countsByConfig.set(cfgIdx, Number.POSITIVE_INFINITY)
       truncatedConfigIndices.push(cfgIdx)
       reportedTotalCount = Number.POSITIVE_INFINITY
+      emitProgress(cfgIdx + 1)
       continue
     }
 
@@ -206,6 +223,7 @@ export function updateConfigRulesCache(args: UpdateArgs): UpdateResult {
       countsByConfig.set(cfgIdx, Number.POSITIVE_INFINITY)
       truncatedConfigIndices.push(cfgIdx)
       reportedTotalCount = Number.POSITIVE_INFINITY
+      emitProgress(cfgIdx + 1)
       continue
     }
 
@@ -239,6 +257,7 @@ export function updateConfigRulesCache(args: UpdateArgs): UpdateResult {
     } else {
       reportedTotalCount = Number.POSITIVE_INFINITY
     }
+    emitProgress(cfgIdx + 1)
   }
 
   return {
