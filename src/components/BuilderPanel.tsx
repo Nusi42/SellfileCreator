@@ -79,7 +79,7 @@ import PlaylistAddCheckIcon from '@mui/icons-material/PlaylistAddCheck'
 import UndoIcon from '@mui/icons-material/Undo'
 import RedoIcon from '@mui/icons-material/Redo'
 import ClearIconButton from './ClearIconButton'
-import { UI_BG_HOVER_DANGER_TRANSITION, DANGER_TINT_BG, LIST_SUBHEADER_SX, MENU_SELECTED_BG_ALPHA, MENU_SELECTED_BG_HOVER_ALPHA, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, MENU_MAX_HEIGHT_EXTRA_BUFFER, SETS_MENU_WIDTH_PX, UI_SUBSTAT_WARNING_ROW_HEIGHT_PX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, BUILDER_USER_DEFAULTS_KEY, BUILDER_DEFAULT_SAVE_TARGET, BUILDER_DIRTY_NUDGE_IDLE_MS, BUILDER_DIRTY_ATTENTION_INTERVAL_MS, FONT_SIZE_BASE_PX, ELLIPSIS_TEXT_SX, BUILDER_SLOT_LABEL_WIDTH_BUFFER_PX, BUILDER_TOGGLE_BUTTON_HEIGHT_PX, BUILDER_TOGGLE_BUTTON_MIN_WIDTH_PX, SMALL_BUTTON_HEIGHT_PX, SETS_SELECT_INLINE_GUTTER_PX, CLEAR_ICON_BUTTON_SIZE_PX, SETS_TOOLTIP_MAX_WIDTH_PX, MULTI_EDIT_MIXED_BG_ALPHA, MULTI_EDIT_MIXED_BORDER_ALPHA, MULTI_EDIT_MIXED_TEXT_ALPHA, MENU_LABEL_WIDTH_PX, MENU_CONTROL_HEIGHT_PX, ROLL_BADGE_HOVER_GUTTER_PX, ROLL_BADGE_SIZE_PX, ROLL_BADGE_SCALE, FONT_SIZE_SECONDARY_PX, SUBSTAT_TARGET_MAX_ROLLS, HISTORY_TOOLTIP_MAX_WIDTH_PX, BUILDER_AUTO_APPLY_DEBOUNCE_MS } from '../lib/constants'
+import { UI_BG_HOVER_DANGER_TRANSITION, DANGER_TINT_BG, LIST_SUBHEADER_SX, MENU_SELECTED_BG_ALPHA, MENU_SELECTED_BG_HOVER_ALPHA, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, MENU_MAX_HEIGHT_EXTRA_BUFFER, SETS_MENU_WIDTH_PX, UI_SUBSTAT_WARNING_ROW_HEIGHT_PX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, BUILDER_USER_DEFAULTS_KEY, BUILDER_DEFAULT_SAVE_TARGET, BUILDER_DIRTY_NUDGE_IDLE_MS, BUILDER_DIRTY_ATTENTION_INTERVAL_MS, FONT_SIZE_BASE_PX, ELLIPSIS_TEXT_SX, BUILDER_SLOT_LABEL_WIDTH_BUFFER_PX, BUILDER_TOGGLE_BUTTON_HEIGHT_PX, BUILDER_TOGGLE_BUTTON_MIN_WIDTH_PX, SMALL_BUTTON_HEIGHT_PX, SETS_SELECT_INLINE_GUTTER_PX, CLEAR_ICON_BUTTON_SIZE_PX, SETS_TOOLTIP_MAX_WIDTH_PX, MULTI_EDIT_MIXED_BG_ALPHA, MULTI_EDIT_MIXED_BORDER_ALPHA, MULTI_EDIT_MIXED_TEXT_ALPHA, MENU_LABEL_WIDTH_PX, MENU_CONTROL_HEIGHT_PX, SUBSTAT_TARGET_MAX_ROLLS, HISTORY_TOOLTIP_MAX_WIDTH_PX, BUILDER_AUTO_APPLY_DEBOUNCE_MS } from '../lib/constants'
 import Checkbox from '@mui/material/Checkbox'
 import { useAttentionEffectStyles, useFortyTwoLegendaryOverlay } from '../lib/attentionEffects'
 import { alpha, useTheme } from '@mui/material/styles'
@@ -87,8 +87,6 @@ import type { SxProps, Theme } from '@mui/material/styles'
 import type { SystemStyleObject } from '@mui/system'
 import { useI18n, formatRulesCount } from '../lib/i18n'
 import { substatSupportsColor } from '../lib/substatDisplay'
-
-const LOCK_TOGGLE_HIT_SIZE_PX = ROLL_BADGE_SIZE_PX + (ROLL_BADGE_HOVER_GUTTER_PX * 2)
 import { createBuilderStatusChipSx } from './builderStatusChipStyles'
 import { FactionOptionLabel } from './FactionIcon'
 import { ContextMenuHintOverlay } from './ContextMenuHintOverlay'
@@ -136,83 +134,37 @@ import {
 } from './builderPanel/substatMenuHelpers'
 import { useBuilderHistoryMenu } from './builderPanel/useBuilderHistoryMenu'
 import { useRuleCountBadge } from './builderPanel/useRuleCountBadge'
+import { useMultiEditSummary } from './builderPanel/useMultiEditSummary'
+import { useBuilderPanelActionMenus } from './builderPanel/useBuilderPanelActionMenus'
+import {
+  computeRollBudgetForConfig,
+  EMPTY_SELECTION,
+  LOCK_MENU_BORDER_RADIUS_PX,
+  LOCK_MENU_BUTTON_WIDTH_PX,
+  LOCK_MENU_GAP_PX,
+  LOCK_MENU_OFFSET_PX,
+  LOCK_TOGGLE_HIT_SIZE_PX,
+  MAX_CONFIG_INDEX_FOR_BUTTON_WIDTH,
+  MIN_REQUIRED_ROLL_OPTIONS,
+  MULTI_VALUE_SENTINEL,
+  REQUIRED_SUBSTAT_MIN_OPTIONS,
+  ROLL_ANY_STAR,
+  SUBSTAT_MENU_COLUMN_GAP_PX,
+  SUBSTAT_MENU_EXPECTATION_INPUT_HEIGHT_PX,
+  SUBSTAT_MENU_EXPECTATION_INPUT_WIDTH_PX,
+  SUBSTAT_MENU_EXPECTATION_SECTION_MIN_WIDTH_PX,
+  SUBSTAT_MENU_ROLL_BUTTON_WIDTH_PX,
+  SUBSTAT_MENU_ROLL_COLUMNS,
+  SUBSTAT_MENU_ROLL_FONT_SIZE_PX,
+  SUBSTAT_MENU_ROLL_GAP_PX,
+  SUBSTAT_MENU_ROLL_GROUP_WIDTH_PX,
+  SUBSTAT_MENU_VALUE_COLUMN_WIDTH_PX,
+  SUBSTAT_MENU_VALUE_PILL_MIN_HEIGHT_PX,
+  SUBSTAT_MENU_WIDTH_PX,
+} from './builderPanel/constants'
 
 export { createFactoryBuilderDefaults } from './builderPanel/defaults'
 
-// Factory builder defaults used for resets and stored overrides.
-const MULTI_VALUE_SENTINEL = '__multi__mixed__'
-const MIN_REQUIRED_ROLL_OPTIONS = [0, 1, 2, 3, 4, 5] as const
-const REQUIRED_SUBSTAT_MIN_OPTIONS = [1, 2, 3, 4] as const
-const EMPTY_SELECTION: readonly number[] = []
-const normalizeLevelMilestone = (value: number | null | undefined): LevelMilestone => {
-  if (value != null && LEVEL_MILESTONES.includes(value as LevelMilestone)) {
-    return value as LevelMilestone
-  }
-  return LEVEL_MILESTONES[0]!
-}
-
-const computeRollBudgetForConfig = (config: BuilderConfig): number => {
-  const rarityCode = (config.rarityMode === 'auto') ? resolveAutoRarityCode(config) : config.rarityCode
-  const rollLevels = Array.from(rollLevelsForRarityCode(rarityCode)).sort((a, b) => a - b)
-  const baselineMode = deriveRollBaselineMode(config)
-  const minLevel = normalizeLevelMilestone(config.minLevel)
-  const maxLevel = normalizeLevelMilestone(config.maxLevel)
-  const windowMin = Math.min(minLevel, maxLevel)
-  const windowMax = Math.max(minLevel, maxLevel)
-  const preRolls = rarityIncludesMythical(rarityCode) ? 1 : 0
-  const countUpTo = (limit: number) => {
-    let total = 0
-    for (const lvl of rollLevels) {
-      if (lvl <= limit) total += 1
-    }
-    return total
-  }
-  let maxRolls = 0
-  if (baselineMode === 'upToLevel') {
-    maxRolls = countUpTo(windowMax) + preRolls
-  } else {
-    maxRolls = Math.max(0, countUpTo(windowMax) - countUpTo(windowMin))
-    if (windowMin <= 0) {
-      maxRolls += preRolls
-    }
-  }
-  const hardCap = rarityIncludesMythical(rarityCode) ? 5 : 4
-  return Math.max(0, Math.min(maxRolls, hardCap))
-}
-
-const SUBSTAT_MENU_ROLL_COLUMNS = 7 as const
-const SUBSTAT_MENU_ROLL_BUTTON_WIDTH_PX = Math.round(ROLL_BADGE_SIZE_PX * ROLL_BADGE_SCALE)
-const SUBSTAT_MENU_ROLL_GAP_PX = 12 as const
-const SUBSTAT_MENU_ROLL_GROUP_WIDTH_PX = (SUBSTAT_MENU_ROLL_COLUMNS * SUBSTAT_MENU_ROLL_BUTTON_WIDTH_PX)
-  + ((SUBSTAT_MENU_ROLL_COLUMNS - 1) * SUBSTAT_MENU_ROLL_GAP_PX)
-const SUBSTAT_MENU_VALUE_COLUMN_WIDTH_PX = 176 as const
-const SUBSTAT_MENU_COLUMN_GAP_PX = 16 as const
-const SUBSTAT_MENU_EXPECTATION_INPUT_WIDTH_PX = 72 as const
-const SUBSTAT_MENU_EXPECTATION_INPUT_HEIGHT_PX = 32 as const
-const SUBSTAT_MENU_TARGET_INPUT_COUNT = SUBSTAT_TARGET_MAX_ROLLS + 1
-const SUBSTAT_MENU_EXPECTATION_COLUMN_GAP_PX = 8 as const
-const SUBSTAT_MENU_EXPECTATION_SECTION_MIN_WIDTH_PX = (SUBSTAT_MENU_TARGET_INPUT_COUNT * SUBSTAT_MENU_EXPECTATION_INPUT_WIDTH_PX)
-  + (SUBSTAT_MENU_EXPECTATION_COLUMN_GAP_PX * SUBSTAT_MENU_TARGET_INPUT_COUNT)
-  + CLEAR_ICON_BUTTON_SIZE_PX
-  + SUBSTAT_MENU_EXPECTATION_COLUMN_GAP_PX
-const SUBSTAT_MENU_ROW_HORIZONTAL_PADDING_PX = 16 as const
-const SUBSTAT_MENU_SECTION_GAP_PX = 12 as const
-const SUBSTAT_MENU_WIDTH_PX = MENU_LABEL_WIDTH_PX
-  + Math.max(
-    SUBSTAT_MENU_EXPECTATION_SECTION_MIN_WIDTH_PX,
-    SUBSTAT_MENU_ROLL_GROUP_WIDTH_PX + SUBSTAT_MENU_VALUE_COLUMN_WIDTH_PX,
-  )
-  + SUBSTAT_MENU_SECTION_GAP_PX
-  + (SUBSTAT_MENU_ROW_HORIZONTAL_PADDING_PX * 2)
-const SUBSTAT_MENU_ROLL_FONT_SIZE_PX = Math.round(FONT_SIZE_SECONDARY_PX * ROLL_BADGE_SCALE)
-const SUBSTAT_MENU_VALUE_PILL_MIN_HEIGHT_PX = 28 as const
-const LOCK_MENU_BUTTON_WIDTH_PX = MENU_CONTROL_HEIGHT_PX + 4
-const LOCK_MENU_GAP_PX = (SUBSTAT_MENU_ROLL_BUTTON_WIDTH_PX + SUBSTAT_MENU_ROLL_GAP_PX) - LOCK_MENU_BUTTON_WIDTH_PX
-const LOCK_MENU_OFFSET_PX = (SUBSTAT_MENU_ROLL_BUTTON_WIDTH_PX - LOCK_MENU_BUTTON_WIDTH_PX) / 2
-const LOCK_MENU_BORDER_RADIUS_PX = 3
-const ROLL_ANY_STAR = '★' as const
-
-const MAX_CONFIG_INDEX_FOR_BUTTON_WIDTH = 999_999 as const
 export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSelected, registerAutoApplyHandler, onApplyMultiEdit, onUndo, onRedo, canUndo, canRedo, undoPreview, redoPreview, historyTimeline, onJumpToHistoryIndex, onRequestClearHistory, metasets, onMetasetsChange, describeNextChange, onDeleteMetaset, onResetMetasets, substatTargets, onSubstatTargetsChange, setUsageCounts, metasetUsageCounts, substatColors: _substatColors, configCount: _configCount, configRuleCounts, configRuleFingerprints, configsExcludedByTotalLimit, ruleSubstatTargetsKey, rulesBuilding, awaitRuleCounts, countRulesForConfigs, selectedIsDirty, configHiddenByFilters, onSelectConfigsByMetaset, substatTargetsDialogOpen, onCloseSubstatTargetsDialog, multiEdit: _multiEdit = null, multiSelectedConfigs = null, onBeforeMetasetsDialogClose }: {
   cfg: BuilderConfig,
   onChange: (c: BuilderConfig) => void
@@ -458,68 +410,7 @@ const markSubstatHintSeenAndClear = React.useCallback(() => {
 const [interactiveHoverVariant, setInteractiveHoverVariant] = React.useState<StatVariant | null>(null)
 const canFlexSubstats = canEnableSubstatFlex(cfg)
 const milestoneThresholdsActive = isMilestoneThresholdsActive(cfg)
-const multiSummary = useMemo(() => {
-    if (!multiEditActive || !multiSourceConfigs) return null
-    const total = multiSourceConfigs.length
-    const mainCounts = new Map<number, number>()
-    const subCounts = new Map<number, { present: number; locked: number }>()
-    const rollSummary = new Map<number, { any: number; minValues: Set<number>; maxValues: Set<number> }>()
-    const slotCounts = new Map<number, number>()
-    const setCounts = new Map<number, number>()
-    const metaCounts = new Map<string, number>()
-    for (const config of multiSourceConfigs) {
-      const main = Array.isArray(config.mainStatsV) ? config.mainStatsV : []
-      for (const variant of main) {
-        mainCounts.set(variant, (mainCounts.get(variant) ?? 0) + 1)
-      }
-      const substats = Array.isArray(config.substatsV) ? config.substatsV : []
-      const fixed = new Set<number>(Array.isArray(config.fixedSubstatsV) ? config.fixedSubstatsV : [])
-      const bounds = (config.substatRollBoundsV ?? {}) as Record<number, { min?: number; max?: number; any?: boolean }>
-      for (const variant of substats) {
-        const entry = subCounts.get(variant) ?? { present: 0, locked: 0 }
-        entry.present += 1
-        if (fixed.has(variant)) entry.locked += 1
-        subCounts.set(variant, entry)
-        const roll = rollSummary.get(variant) ?? { any: 0, minValues: new Set<number>(), maxValues: new Set<number>() }
-        const b = bounds[variant]
-        const hasMin = typeof b?.min === 'number'
-        const hasMax = typeof b?.max === 'number'
-        const isWildcard = !b || b.any || (!hasMin && !hasMax)
-        if (isWildcard) {
-          roll.any += 1
-        }
-        if (hasMin) roll.minValues.add(Math.max(0, Math.min(5, Number(b!.min))))
-        if (hasMax) roll.maxValues.add(Math.max(0, Math.min(4, Number(b!.max))))
-        rollSummary.set(variant, roll)
-      }
-      for (const variant of fixed) {
-        if (!subCounts.has(variant)) {
-          subCounts.set(variant, { present: 0, locked: 1 })
-        }
-      }
-      const slots = Array.isArray(config.artifactTypes) ? config.artifactTypes : []
-      for (const slot of slots) {
-        slotCounts.set(slot, (slotCounts.get(slot) ?? 0) + 1)
-      }
-      const sets = Array.isArray(config.artifactSets) ? config.artifactSets : []
-      for (const set of sets) {
-        setCounts.set(set, (setCounts.get(set) ?? 0) + 1)
-      }
-      const metas = Array.isArray(config.artifactMetaSets) ? config.artifactMetaSets : []
-      for (const meta of metas) {
-        metaCounts.set(meta, (metaCounts.get(meta) ?? 0) + 1)
-      }
-    }
-    return {
-      total,
-      mainCounts,
-      subCounts,
-      rollSummary,
-      slotCounts,
-      setCounts,
-      metaCounts,
-    }
-  }, [multiEditActive, multiSourceConfigs])
+const multiSummary = useMultiEditSummary(multiEditActive, multiSourceConfigs)
   const resolveTokenPresence = React.useCallback((token: number, baseCount: number, patch: MultiEditArrayPatch<number> | null | undefined): number => {
     if (!multiSummary) return baseCount
     if (!patch) return baseCount
@@ -2149,111 +2040,60 @@ const maxLevelValue = multiEditActive
     return createFactoryBuilderDefaults()
   }, [])
 
-  // Context menu for Reset to defaults
-  const [insertMenuAnchor, setInsertMenuAnchor] = useState<HTMLElement | null>(null)
-  const insertMenuPaperRef = React.useRef<HTMLDivElement | null>(null)
-  const closeInsertMenu = React.useCallback(() => { setInsertMenuAnchor(null) }, [])
-  useContextMenuCloseOnOutsideRightClick({
-    open: Boolean(insertMenuAnchor),
-    onClose: closeInsertMenu,
-    menuRef: insertMenuPaperRef,
-  })
   const {
-    shouldShow: showInsertHint,
-    markSeen: markInsertHintSeen,
-  } = useContextMenuHint('builderInsertMenu')
-  const [insertHintPos, setInsertHintPos] = useState<{ x: number; y: number } | null>(null)
-  const insertHintActive = showInsertHint && insertHintPos !== null && !insertMenuAnchor && builderCanAdd && !multiEditActive
-  useEffect(() => {
-    if (!showInsertHint) setInsertHintPos(null)
-  }, [showInsertHint])
-  const handleInsertHintMouseEnter = useCallback((event: React.MouseEvent<HTMLElement>) => {
-    if (!showInsertHint) return
-    if (!builderCanAdd) return
-    if (multiEditActive) return
-    if (insertMenuAnchor) return
-    setInsertHintPos({ x: event.clientX, y: event.clientY })
-  }, [builderCanAdd, insertMenuAnchor, multiEditActive, showInsertHint])
-  const handleInsertHintMouseMove = useCallback((event: React.MouseEvent<HTMLElement>) => {
-    if (!showInsertHint) return
-    if (!builderCanAdd) return
-    if (multiEditActive) return
-    if (insertMenuAnchor) return
-    setInsertHintPos({ x: event.clientX, y: event.clientY })
-  }, [builderCanAdd, insertMenuAnchor, multiEditActive, showInsertHint])
-  const handleInsertHintMouseLeave = useCallback(() => {
-    setInsertHintPos(null)
-  }, [])
-
-  const [applyMenuAnchor, setApplyMenuAnchor] = useState<HTMLElement | null>(null)
-  const applyMenuPaperRef = React.useRef<HTMLDivElement | null>(null)
-  const closeApplyMenu = React.useCallback(() => { setApplyMenuAnchor(null) }, [])
-  useContextMenuCloseOnOutsideRightClick({
-    open: Boolean(applyMenuAnchor),
-    onClose: closeApplyMenu,
-    menuRef: applyMenuPaperRef,
+    insert: {
+      menu: {
+        anchor: insertMenuAnchor,
+        paperRef: insertMenuPaperRef,
+        close: closeInsertMenu,
+        onContextMenu: handleInsertContextMenu,
+      },
+      hint: {
+        active: insertHintActive,
+        pos: insertHintPos,
+        onMouseEnter: handleInsertHintMouseEnter,
+        onMouseMove: handleInsertHintMouseMove,
+        onMouseLeave: handleInsertHintMouseLeave,
+      },
+    },
+    apply: {
+      menu: {
+        anchor: applyMenuAnchor,
+        paperRef: applyMenuPaperRef,
+        close: closeApplyMenu,
+        onContextMenu: handleApplyContextMenu,
+      },
+      hint: {
+        active: applyHintActive,
+        pos: applyHintPos,
+        onMouseEnter: handleApplyHintMouseEnter,
+        onMouseMove: handleApplyHintMouseMove,
+        onMouseLeave: handleApplyHintMouseLeave,
+      },
+    },
+    reset: {
+      menu: {
+        anchor: resetMenuAnchor,
+        paperRef: resetMenuPaperRef,
+        close: closeResetMenu,
+        onContextMenu: handleResetContextMenu,
+      },
+      hint: {
+        shouldShow: showResetHint,
+        active: resetHintActive,
+        pos: resetHintPos,
+        onMouseEnter: handleResetHintMouseEnter,
+        onMouseMove: handleResetHintMouseMove,
+        onMouseLeave: handleResetHintMouseLeave,
+        setPosition: setResetHintPos,
+      },
+    },
+  } = useBuilderPanelActionMenus({
+    builderCanAdd,
+    multiEditActive,
+    saveDisabled,
+    isDefaultBuilder,
   })
-  const {
-    shouldShow: showApplyHint,
-    markSeen: markApplyHintSeen,
-  } = useContextMenuHint('builderApplyMenu')
-  const [applyHintPos, setApplyHintPos] = useState<{ x: number; y: number } | null>(null)
-  const applyHintActive = showApplyHint && applyHintPos !== null && !applyMenuAnchor && !multiEditActive
-  useEffect(() => {
-    if (!showApplyHint) setApplyHintPos(null)
-  }, [showApplyHint])
-  const handleApplyHintMouseEnter = useCallback((event: React.MouseEvent<HTMLElement>) => {
-    if (!showApplyHint) return
-    if (multiEditActive) return
-    if (applyMenuAnchor) return
-    if (saveDisabled) return
-    setApplyHintPos({ x: event.clientX, y: event.clientY })
-  }, [applyMenuAnchor, multiEditActive, saveDisabled, showApplyHint])
-  const handleApplyHintMouseMove = useCallback((event: React.MouseEvent<HTMLElement>) => {
-    if (!showApplyHint) return
-    if (multiEditActive) return
-    if (applyMenuAnchor) return
-    if (saveDisabled) return
-    setApplyHintPos({ x: event.clientX, y: event.clientY })
-  }, [applyMenuAnchor, multiEditActive, saveDisabled, showApplyHint])
-  const handleApplyHintMouseLeave = useCallback(() => {
-    setApplyHintPos(null)
-  }, [])
-
-  const [resetMenuAnchor, setResetMenuAnchor] = useState<HTMLElement | null>(null)
-  const resetMenuPaperRef = React.useRef<HTMLDivElement | null>(null)
-  const closeResetMenu = React.useCallback(() => { setResetMenuAnchor(null) }, [])
-  useContextMenuCloseOnOutsideRightClick({
-    open: Boolean(resetMenuAnchor),
-    onClose: closeResetMenu,
-    menuRef: resetMenuPaperRef,
-  })
-  const {
-    shouldShow: showResetHint,
-    markSeen: markResetHintSeen,
-  } = useContextMenuHint('builderReset')
-  const [resetHintPos, setResetHintPos] = useState<{ x: number; y: number } | null>(null)
-  const resetHintActive = showResetHint && resetHintPos !== null && !resetMenuAnchor && !multiEditActive && !isDefaultBuilder
-  useEffect(() => {
-    if (!showResetHint) setResetHintPos(null)
-  }, [showResetHint])
-  const handleResetHintMouseEnter = useCallback((event: React.MouseEvent<HTMLElement>) => {
-    if (!showResetHint) return
-    if (isDefaultBuilder) return
-    if (multiEditActive) return
-    if (resetMenuAnchor) return
-    setResetHintPos({ x: event.clientX, y: event.clientY })
-  }, [isDefaultBuilder, multiEditActive, resetMenuAnchor, showResetHint])
-  const handleResetHintMouseMove = useCallback((event: React.MouseEvent<HTMLElement>) => {
-    if (!showResetHint) return
-    if (isDefaultBuilder) return
-    if (multiEditActive) return
-    if (resetMenuAnchor) return
-    setResetHintPos({ x: event.clientX, y: event.clientY })
-  }, [isDefaultBuilder, multiEditActive, resetMenuAnchor, showResetHint])
-  const handleResetHintMouseLeave = useCallback(() => {
-    setResetHintPos(null)
-  }, [])
   // Persisted toggle: auto reset the builder after inserting a config
   const [autoResetAfterInsert, setAutoResetAfterInsert] = useAutoResetAfterInsertPreference()
   // Persisted toggle: auto apply edits to the selected config after a short debounce.
@@ -2303,36 +2143,6 @@ const maxLevelValue = multiEditActive
       onChange({ ...cfg, ...eff })
     }
   }
-  const handleInsertContextMenu = useCallback((event: React.MouseEvent<HTMLElement>) => {
-    try {
-      event.preventDefault()
-      event.stopPropagation()
-    } catch {}
-    if (!builderCanAdd) return
-    markInsertHintSeen()
-    setInsertHintPos(null)
-    setInsertMenuAnchor(event.currentTarget as HTMLElement)
-  }, [builderCanAdd, markInsertHintSeen])
-  const handleApplyContextMenu = useCallback((event: React.MouseEvent<HTMLElement>) => {
-    try {
-      event.preventDefault()
-      event.stopPropagation()
-    } catch {}
-    if (multiEditActive) return
-    markApplyHintSeen()
-    setApplyHintPos(null)
-    setApplyMenuAnchor(event.currentTarget as HTMLElement)
-  }, [markApplyHintSeen, multiEditActive])
-  const handleResetContextMenu = useCallback((event: React.MouseEvent<HTMLElement>) => {
-    try {
-      event.preventDefault()
-      event.stopPropagation()
-    } catch {}
-    if (multiEditActive) return
-    markResetHintSeen()
-    setResetHintPos(null)
-    setResetMenuAnchor(event.currentTarget as HTMLElement)
-  }, [markResetHintSeen, multiEditActive])
   // Attention phase: After idle threshold while dirty, replay suite effects every interval.
   const [attentionState, setAttentionState] = useState<{ phase: boolean; burst: boolean }>({ phase: false, burst: false })
   const attentionPhase = attentionState.phase
@@ -6390,9 +6200,9 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
             onFocus={(e) => {
               if (multiEditActive || isDefaultBuilder || !showResetHint) return
               const rect = e.currentTarget.getBoundingClientRect()
-              setResetHintPos({ x: rect.right, y: rect.top })
+              setResetHintPos?.({ x: rect.right, y: rect.top })
             }}
-            onBlur={() => setResetHintPos(null)}
+            onBlur={() => setResetHintPos?.(null)}
             onMouseMove={handleResetHintMouseMove}
             sx={{ whiteSpace: 'nowrap', px: 1.25, height: SMALL_BUTTON_HEIGHT_PX, minHeight: SMALL_BUTTON_HEIGHT_PX }}
           >

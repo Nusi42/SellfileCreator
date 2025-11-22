@@ -162,6 +162,9 @@ This document outlines contributors' responsibilities for UI behavior, layout, a
 - `src/components/FilePickerButton.tsx`: Shared file-picker button (label + hidden input) with `accept` and `onSelect` props.
 - `src/components/builderPanel/useBuilderHistoryMenu.ts`: Centralizes undo/redo tooltip formatting, builder history context-menu positioning, and context-menu hint lifecycles so the top row stays declarative.
 - `src/components/builderPanel/useRuleCountBadge.ts`: Handles deferred fingerprinting, worker coordination, and status-chip sizing for builder rule counts; always import this hook instead of duplicating the async pipeline.
+- `src/components/builderPanel/constants.ts`: Single source for BuilderPanel layout measurements, roll budget helpers, sentinel arrays, and other constants shared between the component and its dialogs.
+- `src/components/builderPanel/useMultiEditSummary.ts`: Memoizes per-stat/set/meta counts for the active multi-edit selection so toggles and roll indicators can stay pure render logic.
+- `src/components/builderPanel/useBuilderPanelActionMenus.ts`: Owns the insert/apply/reset context-menu anchors plus hint overlays, ensuring BuilderPanel proper only renders buttons and consumes the structured state.
 
 ## Effect Usage Guidelines
 
