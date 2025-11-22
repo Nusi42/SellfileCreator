@@ -115,7 +115,7 @@ test('computeKeepUniqueProtection aggregates combination counts', () => {
   ]
   const rows: TesterPreviewRow[] = [
     makeTesterRow({ slot: ArtifactType.Weapon, set: ArtifactSet.Speed, rank: 6 as RankValue, rarity: 6 as RankValue }, false, StatVariant.ATK),
-    makeTesterRow({ slot: ArtifactType.Weapon, set: ArtifactSet.Speed, rank: 6 as RankValue, rarity: 6 as RankValue }, true, StatVariant.ATK),
+    makeTesterRow({ slot: ArtifactType.Weapon, set: ArtifactSet.Speed, rank: 6 as RankValue, rarity: 6 as RankValue }, false, StatVariant.ATK),
   ]
   const candidates = collectKeepUniqueCandidates({ rows, baseRules: [], configModes: [] }).candidates
   const snapshot = computeKeepUniqueProtection({ candidates, rules, enabled: true })
@@ -184,5 +184,5 @@ test('resolveKeepUniqueRulesWithMetasets expands set lists', () => {
   }]
   const resolved = resolveKeepUniqueRulesWithMetasets(rules, metasets)
   const combinationSets = resolved[0]?.combination.sets ?? []
-  assert.deepStrictEqual(combinationSets.sort((a, b) => a - b), [ArtifactSet.DivineSpeed, ArtifactSet.Speed])
+  assert.deepStrictEqual(combinationSets.sort((a, b) => a - b), [ArtifactSet.Speed, ArtifactSet.DivineSpeed])
 })

@@ -478,6 +478,56 @@ export const buildKeepUniqueRules = (
   return keepRules
 }
 
+type KeepUniqueMergeParams = {
+  baseRules: HsfRuleWithCfg[]
+  customRules: HsfRuleWithCfg[]
+  finalSellRules: HsfRuleWithCfg[]
+  resolvedKeepUniqueRules: readonly KeepUniqueRule[]
+  detection: KeepUniqueDetectionSnapshot | null
+}
+
+type KeepUniqueMergeResult = {
+  baseRules: HsfRuleWithCfg[]
+  mergedRules: HsfRuleWithCfg[]
+}
+
+// Shared helper: inject keep-unique rules ahead of base/custom/final-sell with duplicate protection.
+export function prependKeepUniqueRules({
+  baseRules,
+  customRules,
+  finalSellRules,
+  resolvedKeepUniqueRules,
+  detection,
+}: KeepUniqueMergeParams): KeepUniqueMergeResult {
+  // Strip any prior keep-unique injections to avoid double-prepending.
+  const baseWithoutKeep = baseRules.filter((rule) => rule.__source !== RULE_SOURCE_KEEP_UNIQUES)
+  // Collect keys of existing keep rules so we skip duplicates.
+  const keepRuleKeys = new Set<string>()
+  for (const rule of baseWithoutKeep) {
+    if (rule.Keep === true) keepRuleKeys.add(canonicalRuleKey(rule))
+  }
+  for (const rule of customRules) {
+    if (rule.Keep === true) keepRuleKeys.add(canonicalRuleKey(rule))
+  }
+  // Build injected keep rules from detection snapshot + resolved combinations.
+  const candidateKeepRules = detection ? buildKeepUniqueRules(resolvedKeepUniqueRules, detection) : []
+  const filteredKeepRules: HsfRuleWithCfg[] = []
+  for (const rule of candidateKeepRules) {
+    const key = canonicalRuleKey(rule)
+    if (keepRuleKeys.has(key)) continue
+    keepRuleKeys.add(key)
+    filteredKeepRules.push(rule)
+  }
+  // Keep-unique rules must precede base rules to override.
+  const nextBaseRules = filteredKeepRules.concat(baseWithoutKeep)
+  const mergedRules: HsfRuleWithCfg[] = [
+    ...nextBaseRules,
+    ...customRules,
+    ...finalSellRules,
+  ]
+  return { baseRules: nextBaseRules, mergedRules }
+}
+
 export function computeMergedRules(params: {
   hsf: HsfFile | null
   customCfgs: BuilderConfig[]
@@ -549,37 +599,25 @@ export function computeMergedRules(params: {
   // omitted. This keeps intent explicit in the exported HSF and mirrors the
   // builder's Enable toggle semantics.
   const finalSellRules = buildFinalSellRules(finalSellRemainder)
-  const keepRules: HsfRuleWithCfg[] = []
   const keepUniquesInput = keepUniques && keepUniques.enabled && keepUniques.rules.length > 0
     ? keepUniques
     : null
-  if (keepUniquesInput) {
-    const keepRuleKeys = new Set<string>()
-    for (const rule of base) {
-      if (rule.Keep === true) keepRuleKeys.add(canonicalRuleKey(rule))
-    }
-    for (const rule of customs) {
-      if (rule.Keep === true) keepRuleKeys.add(canonicalRuleKey(rule))
-    }
-    const candidateKeepRules = buildKeepUniqueRules(keepUniquesInput.rules, keepUniquesInput.detection ?? null)
-    for (const rule of candidateKeepRules) {
-      const key = canonicalRuleKey(rule)
-      if (keepRuleKeys.has(key)) continue
-      keepRuleKeys.add(key)
-      keepRules.push(rule)
-    }
-  }
-  const merged: HsfRuleWithCfg[] = [
-    ...base,
-    ...keepRules,
-    ...customs,
-    ...finalSellRules,
-  ]
+  const keepMergeResult: KeepUniqueMergeResult = keepUniquesInput
+    ? prependKeepUniqueRules({
+      baseRules: base,
+      customRules: customs,
+      finalSellRules,
+      resolvedKeepUniqueRules: keepUniquesInput.rules,
+      detection: keepUniquesInput.detection ?? null,
+    })
+    : { baseRules: base, mergedRules: [...base, ...customs, ...finalSellRules] }
+  const merged = keepMergeResult.mergedRules
   // Assign a stable preview line index so filtered views can still display
   // the original ordering (1-based when rendered).
   for (let i = 0; i < merged.length; i += 1) {
     (merged[i] as HsfRuleWithCfg).__lineIdx = i
   }
   // Do not perform cross-config pruning here; per-config pruning already applied above.
+  // Pass through merged rules (baseWithKeep reused by splitMergedRules elsewhere).
   return merged
 }

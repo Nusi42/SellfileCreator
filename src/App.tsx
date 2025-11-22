@@ -56,24 +56,20 @@ import {
   computeMergedRules,
   buildRulesForConfig,
   buildFinalSellRules,
-  buildKeepUniqueRules,
-  canonicalRuleKey,
+  prependKeepUniqueRules,
   RULE_SOURCE_FINAL_SELL,
   RULE_SOURCE_HSF,
   RULE_SOURCE_KEEP_UNIQUES,
   type HsfRuleWithCfg,
 } from './lib/merge'
 import {
-  computeKeepUniqueProtection,
-  collectKeepUniqueCandidates,
-  type KeepUniqueCandidateSnapshot,
   type KeepUniqueDetectionSnapshot,
   type KeepUniqueRule,
   resolveKeepUniqueRulesWithMetasets,
 } from './lib/keepUniques'
 import { updateConfigRulesCache, fingerprintConfigForRules, fingerprintSubstatTargets, mergeArtifactSets } from './lib/ruleCache'
 import { hasConfigMeaningfulDifferences } from './lib/configDiff'
-import { buildRuleTesterAutosavePayload, createRuleTesterMath, diffRuleTesterItems, fingerprintRuleTesterItem, loadRuleTesterAutosaveDraft, type RuleTesterItem } from './lib/ruleTesterSession'
+import { buildRuleTesterAutosavePayload, createRuleTesterMath, fingerprintRuleTesterItem, loadRuleTesterAutosaveDraft, type RuleTesterItem } from './lib/ruleTesterSession'
 import { sortTesterRows } from './lib/testerSort'
 import FileDragOverlay from './components/FileDragOverlay'
 import { BuilderColumn } from './components/AppLayout/BuilderColumn'
@@ -96,17 +92,6 @@ import { useAutosaveRestore, metasetsSignature, substatTargetsSignature } from '
 import { makeManageColorsIcon } from './lib/icons'
 import type { ChampionLocation } from './lib/importers/gearDbNormalizer'
 
-type RestoreFreezeState = {
-  awaitingRulesBuild: boolean
-  targetBuildId: number | null
-}
-type TesterMatchFreezeState = {
-  lockBuildId: number
-  pendingRules: boolean
-  createdAt: number
-  restore?: RestoreFreezeState
-}
-type TesterMatchResetReason = 'restore' | 'hsfc' | 'gearDb'
 const TESTER_MATCH_RESET_TIMEOUT_MS = 1500
 import { sellfileFilename, hsfcFilename, buildTimestamp } from './lib/filenames'
 import { README_SEEN_VERSION_KEY, RULE_COUNT_LIMIT } from './lib/constants'
@@ -118,20 +103,24 @@ import { useAppActions, useAppState } from './state/appState'
 import { useI18n } from './lib/i18n'
 import { computeDuplicateIndices } from './lib/configDuplicates'
 import { configsForRuleBuild } from './lib/ruleCacheHelpers'
-import { evaluateMatchesByConfig, type EvalResult, type TestItem } from './lib/ruleEval'
+import { type TestItem } from './lib/ruleEval'
 import { importGearDatabaseFromFile } from './lib/importers/gearDbImporter'
 import type { NormalizedGearArtifact } from './lib/importers/gearDbNormalizer'
 import { TesterItemsGrid } from './components/TesterItemsGrid'
 import type { TesterPreviewMatch, TesterPreviewRow } from './types/testerPreview'
 import { buildRuleMatchIndexData, primeRuleMatchIndex } from './lib/ruleMatchIndex'
-
-const NO_AUTO_APPLY: () => boolean = () => false
-const TESTER_PREVIEW_CHUNK_SIZE = 250
 import { FINAL_SELL_DEFAULT_SETS_MODE, FINAL_SELL_DIALOG_TAB_FINAL_SELL, FINAL_SELL_DIALOG_TABS } from './lib/finalSell'
 import type { FinalSellRemainderConfig, FinalSellLevel } from './lib/finalSell'
 import { useConfigSelection } from './hooks/useConfigSelection'
 import { useRuleCacheWorker } from './hooks/useRuleCacheWorker'
 import { useTesterMatchWorker } from './hooks/useTesterMatchWorker'
+import {
+  useTesterMatchOrchestrator,
+  fingerprintKeepUniqueDetection,
+} from './hooks/useTesterMatchOrchestrator'
+import { useTesterItemsActions } from './hooks/useTesterItemsActions'
+// Local tag for tester reset triggers; persists only in memory.
+type TesterMatchResetReason = 'restore' | 'hsfc' | 'gearDb'
 import { getConfigHoverIndex, setConfigHoverIndex, subscribeConfigHover } from './lib/configHoverBridge'
 import { useBuilderPreviewLayout } from './hooks/useBuilderPreviewLayout'
 import { getDirtyBuilderFieldKeys } from './lib/multiEditDraft'
@@ -165,6 +154,8 @@ import { useAutoSideBySideZoom } from './hooks/useAutoSideBySideZoom'
 import type { ColorBlindMode } from './lib/constants'
 
 const isDevBuild: boolean = Boolean((import.meta as unknown as { env?: { DEV?: boolean } }).env?.DEV)
+
+const NO_AUTO_APPLY: () => boolean = () => false
 
 type ConfigKeyAnalysis = {
   mapping: Array<number | null>
@@ -211,33 +202,17 @@ function analyzeConfigKeys(previous: readonly string[], next: readonly string[])
   return { mapping, removed, identical, reorderOnly }
 }
 
-const fingerprintKeepUniqueDetection = (
-  snapshot: KeepUniqueDetectionSnapshot | null,
-): string | null => {
-  if (!snapshot) return null
-  const parts: string[] = []
-  for (const entry of snapshot.entries) {
-    parts.push([
-      entry.ruleId ?? '',
-      entry.ruleEnabled ? 1 : 0,
-      entry.requiredCount,
-      entry.currentCount,
-      entry.projectedCount,
-      entry.deficit,
-      entry.coveredByExisting ? 1 : 0,
-      entry.itemKeys.join(','),
-    ].join(':'))
+const describeSignature = (signature: string | null | undefined): string => {
+  if (!signature) return 'null'
+  let hash = 0
+  for (let i = 0; i < signature.length; i += 1) {
+    hash = ((hash << 5) - hash) + signature.charCodeAt(i)
+    hash |= 0
   }
-  return parts.join(';')
-}
-
-const EMPTY_KEEP_UNIQUE_CANDIDATES: KeepUniqueCandidateSnapshot = {
-  candidates: [],
-  uniqueItemKeys: new Set<number>(),
+  return `len=${signature.length} hash=${hash}`
 }
 
 const DEFAULT_GEAR_DB_FILENAME = 'RslHelper.db'
-
 const createGearDbFileFromBase64 = (name: string, base64?: string | null): File | null => {
   const atobFn = typeof globalThis !== 'undefined' && typeof globalThis.atob === 'function'
     ? globalThis.atob.bind(globalThis)
@@ -365,8 +340,14 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const testerAutosaveBaselineRef = useRef<string | null>(null)
   const testerPreviewArtifacts = useMemo<NormalizedGearArtifact[]>(() => {
     const cache = testerArtifactCacheRef.current
+    const initialCacheEntries = cache.size
     const next: NormalizedGearArtifact[] = []
     const activeItemIds = new Set<number>()
+    console.log(
+      '[tester-items] preview artifacts start items=%d cacheEntries=%d',
+      testerItems.length,
+      initialCacheEntries,
+    )
     testerItems.forEach((item, idx) => {
       const itemId = Number.isFinite(item.itemId)
         ? item.itemId
@@ -397,6 +378,15 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         }
       }
     }
+    const finalCacheEntries = cache.size
+    console.log(
+      '[tester-items] preview artifacts done items=%d artifacts=%d cache=%d->%d active=%d',
+      testerItems.length,
+      next.length,
+      initialCacheEntries,
+      finalCacheEntries,
+      activeItemIds.size,
+    )
     return next
   }, [testerItems])
   const [testerPreviewRows, setTesterPreviewRows] = useState<TesterPreviewRow[]>([])
@@ -411,27 +401,56 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     return map
   }, [testerPreviewRows])
   const [keepUniqueDetection, setKeepUniqueDetection] = useState<KeepUniqueDetectionSnapshot | null>(null)
+  const keepUniqueDetectionRef = useRef<KeepUniqueDetectionSnapshot | null>(keepUniqueDetection)
+  useEffect(() => { keepUniqueDetectionRef.current = keepUniqueDetection }, [keepUniqueDetection])
   const keepUniqueDetectionSignature = useMemo(
     () => fingerprintKeepUniqueDetection(keepUniqueDetection),
     [keepUniqueDetection],
   )
   const keepUniqueScanAppliedRef = useRef<string | null>(null)
+  const keepUniqueAppliedStateRef = useRef<{
+    baseRules: readonly HsfRuleWithCfg[] | null
+    rulesByConfig: ConfigRulesStateSnapshot['rulesByConfig'] | null
+    finalSellRules: readonly HsfRuleWithCfg[] | null
+  }>({
+    baseRules: null,
+    rulesByConfig: null,
+    finalSellRules: null,
+  })
+  const keepUniqueMergeAlreadyAppliedLoggedRef = useRef(false)
+  const keepUniqueMergeNoDetectionLoggedRef = useRef(false)
+  // Force a re-apply when the detection fingerprint changes so late DB loads still inject keep-unique rules.
+  useEffect(() => {
+    if (!keepUniqueDetectionSignature) return
+    if (keepUniqueDetectionSignature !== keepUniqueScanAppliedRef.current) {
+      console.log(
+        '[keep-unique] detection signature change prev=%s next=%s (reset applied state)',
+        describeSignature(keepUniqueScanAppliedRef.current),
+        describeSignature(keepUniqueDetectionSignature),
+      )
+      keepUniqueAppliedStateRef.current = {
+        baseRules: null,
+        rulesByConfig: null,
+        finalSellRules: null,
+      }
+    }
+  }, [keepUniqueDetectionSignature])
   const pendingKeepUniqueDetectionSigRef = useRef<string | null>(null)
   const resetKeepUniqueDetectionState = useCallback(() => {
+    console.log('[keep-unique] reset detection state (appliedSig=%s pending=%s)', describeSignature(keepUniqueScanAppliedRef.current), describeSignature(pendingKeepUniqueDetectionSigRef.current))
     keepUniqueScanAppliedRef.current = null
     pendingKeepUniqueDetectionSigRef.current = null
+    keepUniqueAppliedStateRef.current = {
+      baseRules: null,
+      rulesByConfig: null,
+      finalSellRules: null,
+    }
     setKeepUniqueDetection(null)
   }, [setKeepUniqueDetection])
   const resolvedKeepUniqueRules = useMemo(() => (
     resolveKeepUniqueRulesWithMetasets(keepUniqueRules, metasets)
   ), [keepUniqueRules, metasets])
   const keepUniquesActive = keepUniquesEnabled && resolvedKeepUniqueRules.length > 0
-  const testerRowsBuildIdRef = useRef(0)
-  const testerPreviewRowMapRef = useRef<Map<number, TesterPreviewRow>>(new Map())
-  const testerPreviewMatchDepsRef = useRef<{ rules: readonly HsfRuleWithCfg[] | null; namesSignature: string | null }>({
-    rules: null,
-    namesSignature: null,
-  })
   const [testerRowsBuilding, setTesterRowsBuilding] = useState(false)
   const [testerRowsCommittedBuildId, setTesterRowsCommittedBuildId] = useState(0)
   const [testerRowsActiveBuildId, setTesterRowsActiveBuildId] = useState(0)
@@ -446,6 +465,13 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     const targetBuildId = testerRowsActiveBuildId > testerRowsCommittedBuildId
       ? testerRowsActiveBuildId
       : testerRowsCommittedBuildId + 1
+    console.log(
+      '[tester-match] reset requested reason=%s activeBuild=%d committed=%d target=%d',
+      reason,
+      testerRowsActiveBuildId,
+      testerRowsCommittedBuildId,
+      targetBuildId,
+    )
     testerMatchResetRef.current = {
       reason,
       targetBuildId,
@@ -469,6 +495,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       testerMatchResetRef.current = pending
     }
     if (!testerRowsBuilding && testerRowsCommittedBuildId >= pending.targetBuildId) {
+      console.log('[tester-match] reset finished reason=%s committed=%d target=%d (no longer building)', testerMatchResetReason, testerRowsCommittedBuildId, pending.targetBuildId)
       testerMatchResetRef.current = null
       setTesterMatchResetReason(null)
       return
@@ -483,10 +510,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       }
       const committed = testerRowsCommittedBuildIdRef.current
       if (committed >= current.targetBuildId) {
+        console.log('[tester-match] reset finished via timeout reason=%s committed=%d target=%d', testerMatchResetReason, committed, current.targetBuildId)
         testerMatchResetRef.current = null
         setTesterMatchResetReason(null)
         return
       }
+      console.log('[tester-match] reset still pending reason=%s committed=%d target=%d (retrying)', testerMatchResetReason, committed, current.targetBuildId)
       testerMatchResetRef.current = null
       setTesterMatchResetReason(null)
     }
@@ -495,9 +524,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       if (timeoutId !== null) clearTimeout(timeoutId)
     }
   }, [testerMatchResetReason, testerRowsCommittedBuildId, testerRowsBuilding, testerRowsActiveBuildId])
-  const [testerMatchFreeze, setTesterMatchFreeze] = useState<TesterMatchFreezeState | null>(null)
-  const restoreFreezeRulesSeenRef = useRef(false)
-  const restoreFreezeRowsSeenRef = useRef(false)
   const exportBaselineResetRef = useRef(false)
   const { forceSideBySide: forceSideBySideLayout } = useAutoSideBySideZoom()
   const {
@@ -574,11 +600,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         detection: keepUniquesActive ? keepUniqueDetection : null,
       },
     })
-    const { baseRules, finalSellRules } = splitMergedRules(mergedRules)
-    return {
-      baseRules,
-      finalSellRules,
-      rulesByConfig: initial.rulesByConfig,
+      const { baseRules, finalSellRules } = splitMergedRules(mergedRules)
+      return {
+        baseRules,
+        finalSellRules,
+        rulesByConfig: initial.rulesByConfig,
       countsByConfig: initial.countsByConfig,
       keys: initial.keys,
       substatTargetsKey: initial.substatTargetsKey,
@@ -588,11 +614,14 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       excludedByTotalLimitIndices: initial.excludedByTotalLimitIndices.slice(),
     }
   })
+  const configRulesStateRef = useRef(configRulesState)
+  useEffect(() => { configRulesStateRef.current = configRulesState }, [configRulesState])
   const ruleCacheRequestTokenRef = useRef(0)
   const [rulesBuilding, setRulesBuilding] = useState(false)
   const finishRulesBuilding = useCallback(() => {
     setRulesBuilding(false)
   }, [])
+  const rulesBuildingTokenRef = useRef<number | null>(null)
   const pendingWarmRef = useRef<{ token: number; promise: Promise<ConfigRulesStateSnapshot> } | null>(null)
   type WarmInputsSnapshot = {
     configs: BuilderConfig[] | null
@@ -618,60 +647,83 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   useEffect(() => {
     immediateSubstatTargetsRef.current = substatTargets
   }, [substatTargets])
-
   useEffect(() => {
-    if (
-      ruleConfigsForPreview !== immediateRuleConfigsRef.current
-      || metasetsForPreview !== immediateMetasetsRef.current
-      || substatTargetsForPreview !== immediateSubstatTargetsRef.current
-    ) {
-      return undefined
-    }
+    const configsForWarm = ruleConfigsForPreview === immediateRuleConfigsRef.current
+      ? ruleConfigsForPreview
+      : immediateRuleConfigsRef.current
+    const metasetsForWarm = metasetsForPreview === immediateMetasetsRef.current
+      ? metasetsForPreview
+      : immediateMetasetsRef.current
+    const substatTargetsForWarm = substatTargetsForPreview === immediateSubstatTargetsRef.current
+      ? substatTargetsForPreview
+      : immediateSubstatTargetsRef.current
 
-    const nextSubstatTargetsKey = fingerprintSubstatTargets(substatTargetsForPreview)
-    const resolvedConfigsForFingerprint = ruleConfigsForPreview.map((cfg) => mergeArtifactSets(cfg, metasetsForPreview))
+    const usingDeferredConfigs = configsForWarm === ruleConfigsForPreview
+    const usingDeferredMetasets = metasetsForWarm === metasetsForPreview
+    const usingDeferredSubstats = substatTargetsForWarm === substatTargetsForPreview
+    const configRulesSnapshot = configRulesStateRef.current
+    const keepUniqueDetectionSnapshot = keepUniqueDetectionRef.current
+    const nextSubstatTargetsKey = fingerprintSubstatTargets(substatTargetsForWarm)
+    const resolvedConfigsForFingerprint = configsForWarm.map((cfg) => mergeArtifactSets(cfg, metasetsForWarm))
     const nextKeys = resolvedConfigsForFingerprint.map((cfg) => fingerprintConfigForRules(cfg, nextSubstatTargetsKey))
+    console.log(
+      '[rule-cache:warm] evaluate configs=%d deferredConfigs=%s metasets=%d deferredMetasets=%s substatKey=%s deferredSubstats=%s keepActive=%s detectionSig=%s baseRules=%d finalSell=%d rulesBuilding=%s',
+      configsForWarm?.length ?? 0,
+      usingDeferredConfigs,
+      metasetsForWarm?.length ?? 0,
+      usingDeferredMetasets,
+      nextSubstatTargetsKey,
+      usingDeferredSubstats,
+      keepUniquesActive,
+      describeSignature(keepUniqueDetectionSignature),
+      configRulesSnapshot.baseRules.length,
+      configRulesSnapshot.finalSellRules.length,
+      rulesBuilding,
+    )
 
     const prevWarm = lastWarmInputsRef.current
-    const keepUniquesStable = !prevWarm
-      || (
-        prevWarm.keepUniquesActive === keepUniquesActive
-        && prevWarm.keepUniqueRules === keepUniqueRules
-        && prevWarm.keepUniqueDetection === keepUniqueDetection
-      )
+    const keepUniquesStable = Boolean(
+      prevWarm
+      && prevWarm.keepUniquesActive === keepUniquesActive
+      && prevWarm.keepUniqueRules === keepUniqueRules
+      && prevWarm.keepUniqueDetection === keepUniqueDetectionSnapshot,
+    )
     if (
       prevWarm
-      && prevWarm.configs === ruleConfigsForPreview
-      && prevWarm.metasets === metasetsForPreview
-      && prevWarm.substatTargets === substatTargetsForPreview
+      && prevWarm.configs === configsForWarm
+      && prevWarm.metasets === metasetsForWarm
+      && prevWarm.substatTargets === substatTargetsForWarm
       && prevWarm.hsf === hsf
       && prevWarm.finalSell === finalSellRemainder
       && keepUniquesStable
     ) {
+      console.log('[rule-cache:warm] skip: inputs identical + stable keep-unique state (key=%s)', nextSubstatTargetsKey)
       return undefined
     }
 
-    const canUseFingerprints = nextSubstatTargetsKey === configRulesState.substatTargetsKey
-    const isBaseStable = !prevWarm || prevWarm.hsf === hsf
-    const isFinalSellStable = !prevWarm || prevWarm.finalSell === finalSellRemainder
+    const canUseFingerprints = nextSubstatTargetsKey === configRulesSnapshot.substatTargetsKey
+    const isBaseStable = Boolean(prevWarm && prevWarm.hsf === hsf)
+    const isFinalSellStable = Boolean(prevWarm && prevWarm.finalSell === finalSellRemainder)
     const isKeepUniquesStable = keepUniquesStable
     if (canUseFingerprints) {
-      const analysis = analyzeConfigKeys(configRulesState.keys, nextKeys)
+      const analysis = analyzeConfigKeys(configRulesSnapshot.keys, nextKeys)
       if (analysis.identical && isBaseStable && isFinalSellStable && isKeepUniquesStable) {
+        console.log('[rule-cache:warm] skip: fingerprint match (configs=%d key=%s)', configsForWarm.length, nextSubstatTargetsKey)
         lastWarmInputsRef.current = {
-          configs: ruleConfigsForPreview,
-          metasets: metasetsForPreview,
-          substatTargets: substatTargetsForPreview,
+          configs: configsForWarm,
+          metasets: metasetsForWarm,
+          substatTargets: substatTargetsForWarm,
           hsf,
           finalSell: finalSellRemainder,
           keepUniquesActive,
           keepUniqueRules,
-          keepUniqueDetection,
+          keepUniqueDetection: keepUniqueDetectionSnapshot,
         }
         return undefined
       }
       if (analysis.identical && isBaseStable && !isFinalSellStable) {
         const nextFinalSellRules = buildFinalSellRules(finalSellRemainder)
+        console.log('[rule-cache:warm] fast-path final sell update rules=%d', nextFinalSellRules.length)
           setConfigRulesState((prev) => {
             const customSegments: HsfRuleWithCfg[][] = []
             for (let idx = 0; idx < prev.keys.length; idx += 1) {
@@ -686,19 +738,20 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           })
           finishRulesBuilding()
         lastWarmInputsRef.current = {
-          configs: ruleConfigsForPreview,
-          metasets: metasetsForPreview,
-          substatTargets: substatTargetsForPreview,
+          configs: configsForWarm,
+          metasets: metasetsForWarm,
+          substatTargets: substatTargetsForWarm,
           hsf,
           finalSell: finalSellRemainder,
           keepUniquesActive,
           keepUniqueRules,
-          keepUniqueDetection,
+          keepUniqueDetection: keepUniqueDetectionSnapshot,
         }
         return undefined
       }
       if (analysis.reorderOnly && isBaseStable && isFinalSellStable) {
         const mapping = analysis.mapping.map((value) => value!)
+        console.log('[rule-cache:warm] fast-path reorder mapping=%s', mapping.join(','))
         setConfigRulesState((prev) => {
           const newRulesByConfig = new Map<number, HsfRuleWithCfg[]>()
           const newCountsByConfig = new Map<number, number>()
@@ -740,20 +793,21 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         })
         finishRulesBuilding()
         lastWarmInputsRef.current = {
-          configs: ruleConfigsForPreview,
-          metasets: metasetsForPreview,
-          substatTargets: substatTargetsForPreview,
+          configs: configsForWarm,
+          metasets: metasetsForWarm,
+          substatTargets: substatTargetsForWarm,
           hsf,
           finalSell: finalSellRemainder,
           keepUniquesActive,
           keepUniqueRules,
-          keepUniqueDetection,
+          keepUniqueDetection: keepUniqueDetectionSnapshot,
         }
         return undefined
       }
       const mappingHasNull = analysis.mapping.some((value) => value === null)
       if (!mappingHasNull && analysis.removed.length > 0 && isBaseStable && isFinalSellStable) {
         const mapping = analysis.mapping.map((value) => value!)
+        console.log('[rule-cache:warm] fast-path removal mapping=%s removed=%d', mapping.join(','), analysis.removed.length)
         setConfigRulesState((prev) => {
           const newRulesByConfig = new Map<number, HsfRuleWithCfg[]>()
           const newCountsByConfig = new Map<number, number>()
@@ -793,106 +847,52 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         })
         finishRulesBuilding()
         lastWarmInputsRef.current = {
-          configs: ruleConfigsForPreview,
-          metasets: metasetsForPreview,
-          substatTargets: substatTargetsForPreview,
+          configs: configsForWarm,
+          metasets: metasetsForWarm,
+          substatTargets: substatTargetsForWarm,
           hsf,
           finalSell: finalSellRemainder,
           keepUniquesActive,
           keepUniqueRules,
-          keepUniqueDetection,
+          keepUniqueDetection: keepUniqueDetectionSnapshot,
         }
         return undefined
       }
     }
 
-    const keepUniqueReady = !testerRowsBuilding && !testerMatchFreeze?.pendingRules
-    const canFastPathKeepUniques = Boolean(
-      keepUniquesActive
-      && keepUniqueDetection
-      && keepUniqueDetectionSignature
-      && keepUniqueDetectionSignature !== keepUniqueScanAppliedRef.current
-      && prevWarm
-      && prevWarm.configs === ruleConfigsForPreview
-      && prevWarm.metasets === metasetsForPreview
-      && prevWarm.substatTargets === substatTargetsForPreview
-      && prevWarm.hsf === hsf
-      && prevWarm.finalSell === finalSellRemainder
-      && prevWarm.keepUniquesActive === keepUniquesActive
-      && prevWarm.keepUniqueRules === keepUniqueRules
-      && prevWarm.keepUniqueDetection !== keepUniqueDetection
-      && keepUniqueReady
-    )
-    if (canFastPathKeepUniques) {
-      setConfigRulesState((prev) => {
-        const baseWithoutDynamic = prev.baseRules.filter((rule) => rule.__source !== RULE_SOURCE_KEEP_UNIQUES)
-        const keepRuleKeys = new Set<string>()
-        for (const rule of baseWithoutDynamic) {
-          if (rule.Keep === true) keepRuleKeys.add(canonicalRuleKey(rule))
-        }
-        const flattenedCustoms: HsfRuleWithCfg[] = []
-        for (let idx = 0; idx < prev.keys.length; idx += 1) {
-          const segment = prev.rulesByConfig.get(idx)
-          if (!segment || segment.length === 0) continue
-          flattenedCustoms.push(...segment)
-          for (const rule of segment) {
-            if (rule.Keep === true) keepRuleKeys.add(canonicalRuleKey(rule))
-          }
-        }
-        const candidateKeepRules = keepUniqueDetection
-          ? buildKeepUniqueRules(resolvedKeepUniqueRules, keepUniqueDetection)
-          : []
-        const filteredKeepRules: HsfRuleWithCfg[] = []
-        for (const rule of candidateKeepRules) {
-          const key = canonicalRuleKey(rule)
-          if (keepRuleKeys.has(key)) continue
-          keepRuleKeys.add(key)
-          filteredKeepRules.push(rule)
-        }
-        const nextBaseRules = baseWithoutDynamic.concat(filteredKeepRules)
-        const mergedRules = [...nextBaseRules, ...flattenedCustoms, ...prev.finalSellRules]
-        primeRuleMatchIndex(mergedRules, buildRuleMatchIndexData(mergedRules))
-        for (let i = 0; i < mergedRules.length; i += 1) {
-          (mergedRules[i] as HsfRuleWithCfg).__lineIdx = i
-        }
-        return {
-          ...prev,
-          baseRules: nextBaseRules,
-          mergedRules,
-        }
-      })
-      keepUniqueScanAppliedRef.current = keepUniqueDetectionSignature
-      finishRulesBuilding()
-      lastWarmInputsRef.current = {
-        configs: ruleConfigsForPreview,
-        metasets: metasetsForPreview,
-        substatTargets: substatTargetsForPreview,
-        hsf,
-        finalSell: finalSellRemainder,
-        keepUniquesActive,
-        keepUniqueRules,
-        keepUniqueDetection,
-      }
-      return undefined
-    }
-    if (keepUniquesActive && keepUniqueDetection && !keepUniqueReady) {
-      // No-op: waiting for tester items to finish so detection can be applied.
-    }
-
     const warmInputs: WarmInputsSnapshot = {
-      configs: ruleConfigsForPreview,
-      metasets: metasetsForPreview,
-      substatTargets: substatTargetsForPreview,
+      configs: configsForWarm,
+      metasets: metasetsForWarm,
+      substatTargets: substatTargetsForWarm,
       hsf,
       finalSell: finalSellRemainder,
       keepUniquesActive,
       keepUniqueRules,
-      keepUniqueDetection,
+      keepUniqueDetection: keepUniqueDetectionSnapshot,
     }
     pendingWarmInputsRef.current = warmInputs
     const abortController = new AbortController()
     const requestToken = ruleCacheRequestTokenRef.current + 1
     ruleCacheRequestTokenRef.current = requestToken
+    const warmReason = (() => {
+      if (!canUseFingerprints) return 'substat-key-changed'
+      if (!isBaseStable) return 'base-hsf-changed'
+      if (!isFinalSellStable) return 'final-sell-changed'
+      if (!isKeepUniquesStable) return 'keep-uniques-changed'
+      return 'fingerprint-miss'
+    })()
+    console.log(
+      '[rule-cache:warm] dispatch token=%d reason=%s configs=%d metasets=%d deferredConfigs=%s deferredMetasets=%s deferredSubstats=%s keepActive=%s detectionSig=%s',
+      requestToken,
+      warmReason,
+      configsForWarm.length,
+      metasetsForWarm.length,
+      usingDeferredConfigs,
+      usingDeferredMetasets,
+      usingDeferredSubstats,
+      keepUniquesActive,
+      describeSignature(keepUniqueDetectionSignature),
+    )
     const isAbortError = (error: unknown): boolean => {
       if (!error || typeof error !== 'object') return false
       const maybe = error as { name?: unknown }
@@ -906,49 +906,29 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     const resolvedKeepUniqueRulesForWarm = resolveKeepUniqueRulesWithMetasets(keepUniqueRules, metasets)
     const keepUniquesActiveForWarm = keepUniquesEnabled && resolvedKeepUniqueRulesForWarm.length > 0
     setRulesBuilding(true)
-    const detectionSignatureForWarm = keepUniquesActiveForWarm ? keepUniqueDetectionSignature : null
+    rulesBuildingTokenRef.current = requestToken
+    const detectionSignatureForWarm = null
     const warmPromise = warmCache(
       {
-        configs: ruleConfigsForPreview,
-        metasets: metasetsForPreview,
-        substatTargets: substatTargetsForPreview,
+        configs: configsForWarm,
+        metasets: metasetsForWarm,
+        substatTargets: substatTargetsForWarm,
         hsf,
         ...(finalSellRemainder ? { finalSellRemainder } : {}),
         keepUniques: {
           enabled: keepUniquesActiveForWarm,
           rules: resolvedKeepUniqueRulesForWarm,
-          detection: keepUniquesActiveForWarm ? keepUniqueDetection : null,
+          detection: null,
         },
       },
       { signal: abortController.signal },
     )
       .then(({ state }) => {
         if (abortController.signal.aborted) {
-          const { baseRules, finalSellRules } = splitMergedRules(state.mergedRules)
-          const snapshot: ConfigRulesStateSnapshot = {
-            baseRules,
-            finalSellRules,
-            rulesByConfig: state.rulesByConfig,
-            countsByConfig: state.countsByConfig,
-            keys: state.keys,
-            substatTargetsKey: state.substatTargetsKey,
-            mergedRules: state.mergedRules,
-            truncatedConfigIndices: state.truncatedConfigIndices,
-            totalLimitHit: state.totalLimitHit,
-            excludedByTotalLimitIndices: state.excludedByTotalLimitIndices,
-          }
-          if (requestToken === ruleCacheRequestTokenRef.current) {
-            finishRulesBuilding()
-          }
-          if (pendingKeepUniqueDetectionSigRef.current === detectionSignatureForWarm) {
-            pendingKeepUniqueDetectionSigRef.current = null
-          }
-          if (pendingWarmInputsRef.current === warmInputs) {
-            pendingWarmInputsRef.current = null
-          }
-          return snapshot
+          console.log('[rule-cache:warm] abort resolved token=%d (signal aborted)', requestToken)
+          return configRulesStateRef.current
         }
-        if (requestToken === ruleCacheRequestTokenRef.current) {
+        if (requestToken === rulesBuildingTokenRef.current) {
           const { baseRules, finalSellRules } = splitMergedRules(state.mergedRules)
           const snapshot: ConfigRulesStateSnapshot = {
             baseRules,
@@ -962,10 +942,17 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             totalLimitHit: state.totalLimitHit,
             excludedByTotalLimitIndices: state.excludedByTotalLimitIndices,
           }
-          startTransition(() => {
-            setConfigRulesState(snapshot)
-            finishRulesBuilding()
-          })
+          setConfigRulesState(snapshot)
+          finishRulesBuilding()
+          console.log(
+            '[rule-cache:warm] commit token=%d merged=%d base=%d finalSell=%d truncated=%d limitHit=%s',
+            requestToken,
+            state.mergedRules.length,
+            baseRules.length,
+            finalSellRules.length,
+            state.truncatedConfigIndices.length,
+            state.totalLimitHit,
+          )
           lastWarmInputsRef.current = warmInputs
           if (pendingWarmInputsRef.current === warmInputs) {
             pendingWarmInputsRef.current = null
@@ -979,19 +966,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         if (pendingWarmInputsRef.current === warmInputs) {
           pendingWarmInputsRef.current = null
         }
-        const { baseRules, finalSellRules } = splitMergedRules(state.mergedRules)
-        return {
-          baseRules,
-          finalSellRules,
-          rulesByConfig: state.rulesByConfig,
-          countsByConfig: state.countsByConfig,
-          keys: state.keys,
-          substatTargetsKey: state.substatTargetsKey,
-          mergedRules: state.mergedRules,
-          truncatedConfigIndices: state.truncatedConfigIndices,
-          totalLimitHit: state.totalLimitHit,
-          excludedByTotalLimitIndices: state.excludedByTotalLimitIndices,
-        }
+        console.log('[rule-cache:warm] discard stale token=%d (latest=%s)', requestToken, rulesBuildingTokenRef.current)
+        return configRulesStateRef.current
       })
 
     pendingWarmRef.current = { token: requestToken, promise: warmPromise }
@@ -1000,10 +976,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       if (abortController.signal.aborted) return
       if (isAbortError(error)) return
       console.error('rule cache update failed', error)
+      console.log('[rule-cache:warm] error token=%d reason=%s', requestToken, (error as Error)?.message ?? 'unknown')
       if (pendingWarmRef.current?.token === requestToken) {
         pendingWarmRef.current = null
       }
-      if (requestToken === ruleCacheRequestTokenRef.current) {
+      if (requestToken === rulesBuildingTokenRef.current) {
         finishRulesBuilding()
         if (pendingWarmInputsRef.current === warmInputs) {
           pendingWarmInputsRef.current = null
@@ -1012,20 +989,15 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     })
 
     warmPromise.finally(() => {
-      if (requestToken !== ruleCacheRequestTokenRef.current) {
-        if (pendingWarmRef.current?.token === requestToken) {
-          pendingWarmRef.current = null
-        }
-        return
-      }
       if (pendingWarmRef.current?.token === requestToken) {
         pendingWarmRef.current = null
       }
-      if (abortController.signal.aborted && requestToken === ruleCacheRequestTokenRef.current) {
+      console.log('[rule-cache:warm] finalize token=%d aborted=%s', requestToken, abortController.signal.aborted)
+      if (requestToken === rulesBuildingTokenRef.current) {
         finishRulesBuilding()
-      }
-      if (pendingWarmInputsRef.current === warmInputs) {
-        pendingWarmInputsRef.current = null
+        if (pendingWarmInputsRef.current === warmInputs) {
+          pendingWarmInputsRef.current = null
+        }
       }
     })
 
@@ -1042,17 +1014,17 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     warmCache,
     hsf,
     finalSellRemainder,
-    configRulesState,
     keepUniqueRules,
     metasets,
     keepUniquesEnabled,
     keepUniquesActive,
-    testerRowsBuilding,
-    testerMatchFreeze,
-    keepUniqueDetection,
     keepUniqueDetectionSignature,
+    rulesBuilding,
+    // Row-building and detection updates should not abort in-flight warm cache updates.
     resolvedKeepUniqueRules,
     finishRulesBuilding,
+    // Intentionally omit configRulesState (and row/detection state) to avoid self-triggered abort
+    // loops when downstream injections update the cached snapshot while a warm is inflight.
   ])
 
   const awaitRuleCounts = useCallback((): { token: number; promise: Promise<Map<number, number>> } | null => {
@@ -1753,6 +1725,125 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const limitExceeded = totalLimitHit || truncatedConfigIndices.length > 0
   const configsExcludedByTotalLimit = useMemo(() => new Set<number>(configRulesState.excludedByTotalLimitIndices), [configRulesState.excludedByTotalLimitIndices])
 
+  // Apply keep-unique rules immediately when a fresh detection snapshot is available so the tester grid sees them.
+  useEffect(() => {
+    // Exit early when keep-unique is off; detection is ignored in that state.
+    if (!keepUniquesActive) {
+      keepUniqueMergeAlreadyAppliedLoggedRef.current = false
+      keepUniqueMergeNoDetectionLoggedRef.current = false
+      return
+    }
+    // No detection = nothing to inject yet.
+    if (!keepUniqueDetection || !keepUniqueDetectionSignature) {
+      if (!keepUniqueMergeNoDetectionLoggedRef.current) {
+        console.log('[keep-unique-merge] skip merge (no detection snapshot)')
+        keepUniqueMergeNoDetectionLoggedRef.current = true
+      }
+      keepUniqueMergeAlreadyAppliedLoggedRef.current = false
+      return
+    }
+    keepUniqueMergeNoDetectionLoggedRef.current = false
+    // Skip redundant applications when both detection fingerprint and rule sources match.
+    const pendingDetectionSignature = pendingKeepUniqueDetectionSigRef.current
+    const applied = keepUniqueAppliedStateRef.current
+    const baseRulesRef = configRulesState.baseRules
+    const rulesByConfigRef = configRulesState.rulesByConfig
+    const finalSellRulesRef = configRulesState.finalSellRules
+    const alreadyApplied = (
+      keepUniqueDetectionSignature === keepUniqueScanAppliedRef.current
+      && applied.baseRules === baseRulesRef
+      && applied.rulesByConfig === rulesByConfigRef
+      && applied.finalSellRules === finalSellRulesRef
+    )
+    const detectionAwaitingApply = pendingDetectionSignature === keepUniqueDetectionSignature
+    if (alreadyApplied && !detectionAwaitingApply) {
+      if (!keepUniqueMergeAlreadyAppliedLoggedRef.current) {
+        console.log('[keep-unique-merge] already applied detection signature=%s', describeSignature(keepUniqueDetectionSignature))
+        keepUniqueMergeAlreadyAppliedLoggedRef.current = true
+      }
+      return
+    }
+    keepUniqueMergeAlreadyAppliedLoggedRef.current = false
+    console.log(
+      '[keep-unique-merge] evaluate keepActive=%s detection=%s appliedSig=%s baseRules=%d customs=%d finalSell=%d',
+      keepUniquesActive,
+      describeSignature(keepUniqueDetectionSignature),
+      describeSignature(keepUniqueScanAppliedRef.current),
+      configRulesState.baseRules.length,
+      configRulesState.rulesByConfig.size,
+      configRulesState.finalSellRules.length,
+    )
+    // Rebuild the merge list with keep-unique rules at the front so matches see them.
+    setConfigRulesState((prev) => {
+      // Flatten customs once; helper handles dedupe + injection.
+      const flattenedCustoms: HsfRuleWithCfg[] = []
+      for (let idx = 0; idx < prev.keys.length; idx += 1) {
+        const segment = prev.rulesByConfig.get(idx)
+        if (!segment || segment.length === 0) continue
+        flattenedCustoms.push(...segment)
+      }
+      const { baseRules: nextBaseRules, mergedRules: merged } = prependKeepUniqueRules({
+        baseRules: prev.baseRules,
+        customRules: flattenedCustoms,
+        finalSellRules: prev.finalSellRules,
+        resolvedKeepUniqueRules,
+        detection: keepUniqueDetection,
+      })
+      // Debug totals to trace missing keep-unique coverage without dumping full rules.
+      const keepRuleCount = nextBaseRules.filter((rule) => rule.__source === RULE_SOURCE_KEEP_UNIQUES).length
+      const baseCount = nextBaseRules.length - keepRuleCount
+      const sigDigest = (() => {
+        if (!keepUniqueDetectionSignature) return 'null'
+        let hash = 0
+        for (let i = 0; i < keepUniqueDetectionSignature.length; i += 1) {
+          hash = ((hash << 5) - hash) + keepUniqueDetectionSignature.charCodeAt(i)
+          hash |= 0
+        }
+        return `len=${keepUniqueDetectionSignature.length} hash=${hash}`
+      })()
+      console.log(
+        '[keep-unique-merge] sig=%s keepRules=%d base=%d customs=%d finalSell=%d merged=%d resolvedRules=%d detectionEntries=%d',
+        sigDigest,
+        keepRuleCount,
+        baseCount,
+        flattenedCustoms.length,
+        prev.finalSellRules.length,
+        merged.length,
+        resolvedKeepUniqueRules.length,
+        keepUniqueDetection?.entries.length ?? 0,
+      )
+      // Prime the rule-match index so testers and workers use the updated ordering.
+      primeRuleMatchIndex(merged, buildRuleMatchIndexData(merged))
+      for (let i = 0; i < merged.length; i += 1) {
+        (merged[i] as HsfRuleWithCfg).__lineIdx = i
+      }
+      keepUniqueAppliedStateRef.current = {
+        baseRules: nextBaseRules,
+        rulesByConfig: prev.rulesByConfig,
+        finalSellRules: prev.finalSellRules,
+      }
+      return {
+        ...prev,
+        baseRules: nextBaseRules,
+        mergedRules: merged,
+      }
+    })
+    // Record the applied signature to avoid re-applying the same snapshot.
+    if (pendingKeepUniqueDetectionSigRef.current === keepUniqueDetectionSignature) {
+      pendingKeepUniqueDetectionSigRef.current = null
+    }
+    keepUniqueScanAppliedRef.current = keepUniqueDetectionSignature
+  }, [
+    keepUniquesActive,
+    keepUniqueDetection,
+    keepUniqueDetectionSignature,
+    resolvedKeepUniqueRules,
+    configRulesState.baseRules,
+    configRulesState.rulesByConfig,
+    configRulesState.finalSellRules,
+    setConfigRulesState,
+  ])
+
   const selectedIsDirty = useMemo(() => {
     if (selectedCfgIdx === null) return false
     const target = customCfgs[selectedCfgIdx]
@@ -1937,42 +2028,13 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   }, [restoreDialogPending])
   // Show the autosave restore prompt only after the README dialog is dismissed.
   const restoreDlgOpen = !tutorial.helpOpen && (restoreDialogPending || Boolean(testerRestoreDraft))
-  const appendTesterRuleItems = useCallback((items: TestItem[]) => {
-    if (!items || items.length === 0) return
-    setTesterItems((prev) => {
-      if (items.length === 0) return prev
-      const next = prev.slice()
-      for (const addition of items) {
-        const assignedItemId = allocTesterItemId()
-        next.push({ ...(addition as RuleTesterItem), itemId: assignedItemId })
-      }
-      return next
-    })
-  }, [allocTesterItemId, setTesterItems])
-
-  const applyGearDbDiff = useCallback((desiredTesterItems: TestItem[], mode: 'manual' | 'command') => {
-    const pendingQueueInput = (mode === 'manual') ? [] : pendingTesterItemsRef.current
-    const { removalItemIds, nextPendingQueue, additions } = diffRuleTesterItems(
-      testerItemsRef.current,
-      desiredTesterItems,
-      pendingQueueInput,
-      { retainManualItems: true },
-    )
-    const removedCount = removalItemIds.length
-    if (removalItemIds.length > 0) {
-      const removalSet = new Set(removalItemIds)
-      setTesterItems((prev) => prev.filter((item) => !removalSet.has(item.itemId)))
-    }
-    if (mode === 'manual') {
-      setPendingTesterItems([])
-      appendTesterRuleItems(additions)
-      return { removedCount, addedCount: additions.length }
-    }
-    if (nextPendingQueue !== pendingTesterItemsRef.current) {
-      setPendingTesterItems(nextPendingQueue)
-    }
-    return { removedCount, addedCount: additions.length }
-  }, [appendTesterRuleItems, setPendingTesterItems])
+  const { applyGearDbDiff } = useTesterItemsActions({
+    allocTesterItemId,
+    setTesterItems,
+    testerItemsRef,
+    pendingTesterItemsRef,
+    setPendingTesterItems,
+  })
 
   const handleGearDbImport = useCallback(async (file: File, options?: { source?: 'manual' | 'command' }) => {
     const source = options?.source ?? 'manual'
@@ -2347,223 +2409,30 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     filterHsfRules(mergedRules, rulesFilter, metasets, { configNames, configModes })
   ), [mergedRules, rulesFilter, metasets, configNames, configModes])
   const filteredRules = filterResult.rules
-  useEffect(() => {
-    const artifacts = testerPreviewArtifacts
-    const names = customCfgs.map(cfg => (cfg?.name && cfg.name.length > 0) ? cfg.name : null)
-    const namesSignature = names.map((name) => name ?? '').join('\u0001')
-    const prevMatchDeps = testerPreviewMatchDepsRef.current
-    const forceRebuildAllRows = prevMatchDeps.rules !== mergedRules
-      || prevMatchDeps.namesSignature !== namesSignature
-    const prevRowMap = testerPreviewRowMapRef.current
-    const nextRowMap = new Map(prevRowMap)
-    const seenItemIds = new Set<number>()
-    let dirtyEntries: Array<{ artifact: NormalizedGearArtifact; itemId: number }> = []
-
-    artifacts.forEach((artifact) => {
-      const itemId = Number((artifact.testerItem as RuleTesterItem | undefined)?.itemId ?? NaN)
-      if (!Number.isFinite(itemId)) return
-      seenItemIds.add(itemId)
-      const prevRow = prevRowMap.get(itemId)
-      if (!prevRow || prevRow.artifact !== artifact) {
-        dirtyEntries.push({ artifact, itemId })
-      }
-    })
-
-    for (const [itemId] of prevRowMap) {
-      if (!seenItemIds.has(itemId)) {
-        nextRowMap.delete(itemId)
-      }
-    }
-
-    if (forceRebuildAllRows) {
-      dirtyEntries = []
-      artifacts.forEach((artifact) => {
-        const itemId = Number((artifact.testerItem as RuleTesterItem | undefined)?.itemId ?? NaN)
-        if (!Number.isFinite(itemId)) return
-        dirtyEntries.push({ artifact, itemId })
-      })
-    }
-
-    if (dirtyEntries.length === 0 && nextRowMap.size === prevRowMap.size) {
-      testerPreviewMatchDepsRef.current = { rules: mergedRules, namesSignature }
-      setTesterMatchFreeze((prev) => (prev ? null : prev))
-      setTesterRowsBuilding(false)
-      return
-    }
-
-    testerPreviewMatchDepsRef.current = { rules: mergedRules, namesSignature }
-    const buildId = testerRowsBuildIdRef.current + 1
-    testerRowsBuildIdRef.current = buildId
-    setTesterRowsActiveBuildId(buildId)
-    if (dirtyEntries.length === 0) {
-      testerPreviewRowMapRef.current = nextRowMap
-      setTesterPreviewRows(sortTesterRows(Array.from(nextRowMap.values())))
-      setTesterRowsCommittedBuildId(buildId)
-      setTesterRowsBuilding(false)
-      return
-    }
-    const hasRules = mergedRules.length > 0
-
-    if (!hasRules) {
-      dirtyEntries.forEach((entry) => {
-        nextRowMap.set(entry.itemId, {
-          artifact: entry.artifact,
-          match: null,
-          baseMatch: null,
-          matchingCfgIndices: [],
-        })
-      })
-      testerPreviewRowMapRef.current = nextRowMap
-      setTesterPreviewRows(sortTesterRows(Array.from(nextRowMap.values())))
-      setTesterRowsCommittedBuildId(buildId)
-      setTesterRowsBuilding(false)
-      return
-    }
-
-    const toTesterPreviewMatch = (result: EvalResult | null): TesterPreviewMatch | null => {
-      if (!result) return null
-      const rule = mergedRules[result.ruleIndex]
-      const cfgIdx = result.cfgIdx
-      const cfgName = (cfgIdx != null && cfgIdx >= 0) ? (names[cfgIdx] ?? null) : null
-      return {
-        keep: result.keep,
-        cfgIdx: cfgIdx ?? null,
-        cfgName: cfgName && cfgName.length > 0 ? cfgName : null,
-        ruleIndex: result.ruleIndex,
-        ruleLabel: null,
-        ruleSource: rule?.__source ?? null,
-      }
-    }
-
-    const shouldHoldRowsBuilding = (): boolean => (
-      keepUniquesActive
-      && !!keepUniqueDetectionSignature
-      && keepUniqueDetectionSignature !== keepUniqueScanAppliedRef.current
-    )
-
-    const holdKeepUniqueMatches = shouldHoldRowsBuilding()
-    const prevRowSnapshot = testerPreviewRowMapRef.current
-
-    const toPreviewRow = (
-      itemId: number,
-      artifact: NormalizedGearArtifact,
-      firstMatch: EvalResult | null,
-      baseMatch: EvalResult | null,
-      matchingConfigIndices: number[],
-    ): TesterPreviewRow => {
-      let match = toTesterPreviewMatch(firstMatch)
-      if (
-        holdKeepUniqueMatches
-        && (!match || match.ruleSource !== RULE_SOURCE_KEEP_UNIQUES)
-        && prevRowSnapshot
-      ) {
-        const prevRow = prevRowSnapshot.get(itemId)
-        if (prevRow?.match?.ruleSource === RULE_SOURCE_KEEP_UNIQUES) {
-          match = prevRow.match
-        }
-      }
-      return {
-        artifact,
-        match,
-        baseMatch: toTesterPreviewMatch(baseMatch),
-        matchingCfgIndices: matchingConfigIndices,
-      }
-    }
-
-    if (testerMatchWorkerSupported) {
-      setTesterRowsBuilding(true)
-      const artifactByItemId = new Map<number, NormalizedGearArtifact>()
-      const itemsPayload = dirtyEntries.map(({ artifact, itemId }) => {
-        artifactByItemId.set(itemId, artifact)
-        return { itemId, item: artifact.testerItem }
-      })
-      let cancelled = false
-      evaluateTesterMatchItems({ items: itemsPayload })
-        .then((results) => {
-          if (cancelled || testerRowsBuildIdRef.current !== buildId) return
-          results.forEach((result) => {
-            const artifact = artifactByItemId.get(result.itemId)
-            if (!artifact) return
-            nextRowMap.set(result.itemId, toPreviewRow(
-              result.itemId,
-              artifact,
-              result.firstMatch,
-              result.firstNonExcludedMatch,
-              result.matchingConfigIndices,
-            ))
-          })
-          testerPreviewRowMapRef.current = nextRowMap
-          setTesterPreviewRows(sortTesterRows(Array.from(nextRowMap.values())))
-          setTesterRowsCommittedBuildId(buildId)
-          if (testerRowsBuildIdRef.current === buildId && !shouldHoldRowsBuilding()) {
-            setTesterRowsBuilding(false)
-          }
-        })
-        .catch(() => {
-          if (cancelled) return
-          if (testerRowsBuildIdRef.current === buildId && !shouldHoldRowsBuilding()) {
-            setTesterRowsBuilding(false)
-          }
-        })
-      return () => {
-        cancelled = true
-      }
-    }
-
-    setTesterRowsBuilding(true)
-    let cancelled = false
-    let timeoutId: ReturnType<typeof setTimeout> | null = null
-    let index = 0
-
-    const buildRow = (artifact: NormalizedGearArtifact, itemId: number): TesterPreviewRow => {
-      const { firstMatch, firstNonExcludedMatch, matchingConfigIndices } = evaluateMatchesByConfig(
-        mergedRules,
-        artifact.testerItem,
-        { configModes, excludeSources: [RULE_SOURCE_KEEP_UNIQUES] },
-      )
-      return toPreviewRow(itemId, artifact, firstMatch, firstNonExcludedMatch, matchingConfigIndices)
-    }
-
-    const processChunk = () => {
-      if (cancelled || testerRowsBuildIdRef.current !== buildId) return
-      const start = index
-      const end = Math.min(start + TESTER_PREVIEW_CHUNK_SIZE, dirtyEntries.length)
-      for (let cursor = start; cursor < end; cursor += 1) {
-        const entry = dirtyEntries[cursor]
-        if (!entry) continue
-        nextRowMap.set(entry.itemId, buildRow(entry.artifact, entry.itemId))
-      }
-      index = end
-      if (index < dirtyEntries.length) {
-        timeoutId = setTimeout(processChunk, 0)
-        return
-      }
-      testerPreviewRowMapRef.current = nextRowMap
-      setTesterPreviewRows(sortTesterRows(Array.from(nextRowMap.values())))
-      setTesterRowsCommittedBuildId(buildId)
-      if (testerRowsBuildIdRef.current === buildId && !shouldHoldRowsBuilding()) {
-        setTesterRowsBuilding(false)
-      }
-    }
-
-    processChunk()
-    return () => {
-      cancelled = true
-      if (timeoutId !== null) clearTimeout(timeoutId)
-      if (testerRowsBuildIdRef.current === buildId && !shouldHoldRowsBuilding()) {
-        setTesterRowsBuilding(false)
-      }
-    }
-  }, [
-    testerPreviewArtifacts,
+  // Centralize tester match + keep-unique orchestration to avoid scattered effects and noisy rebuilds.
+  const { keepUniqueCandidates } = useTesterMatchOrchestrator({
+    artifacts: testerPreviewArtifacts,
     mergedRules,
-    customCfgs,
+    configNames,
     configModes,
+    testerPreviewRows,
+    setTesterPreviewRows,
     testerMatchWorkerSupported,
     evaluateTesterMatchItems,
     keepUniquesActive,
+    keepUniqueBaseRules,
+    resolvedKeepUniqueRules,
     keepUniqueDetectionSignature,
-  ])
+    setKeepUniqueDetection,
+    keepUniqueScanAppliedRef,
+    pendingKeepUniqueDetectionSigRef,
+    rulesBuilding,
+    testerRowsBuilding,
+    setTesterRowsBuilding,
+    testerRowsCommittedBuildId,
+    setTesterRowsCommittedBuildId,
+    setTesterRowsActiveBuildId,
+  })
   const testerFilterResult = useMemo(() => (
     filterTesterItems(testerPreviewRows, testerRulesFilter, metasets, { configNames })
   ), [testerPreviewRows, testerRulesFilter, metasets, configNames])
@@ -2628,164 +2497,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   }, [testerConfigFilterMode, testerConfigFilterSelectedSet, testerRowsAfterRulesFilter])
   const suppressTesterMatchDetails = testerMatchDetailsFrozen
     || testerRowsBuilding
-    || testerMatchFreeze !== null
-  const testerBuilding = testerRowsBuilding || rulesBuilding || testerMatchFreeze !== null
-  const TESTER_FREEZE_IDLE_RELEASE_MS = 500
-  /* eslint-disable react-you-might-not-need-an-effect/no-event-handler, react-you-might-not-need-an-effect/no-chain-state-updates */
-  useEffect(() => {
-    if (!rulesBuilding) return
-    setTesterMatchFreeze((prev) => {
-      if (prev) return prev
-      return {
-        lockBuildId: testerRowsBuildIdRef.current,
-        pendingRules: true,
-        createdAt: Date.now(),
-      }
-    })
-  }, [rulesBuilding])
-  useEffect(() => {
-    if (!testerMatchFreeze?.pendingRules) {
-      restoreFreezeRulesSeenRef.current = false
-      return
-    }
-    if (rulesBuilding) {
-      restoreFreezeRulesSeenRef.current = true
-      return
-    }
-    if (testerRowsCommittedBuildId < testerRowsBuildIdRef.current) {
-      return
-    }
-    setTesterMatchFreeze((prev) => {
-      if (!prev || !prev.pendingRules) return prev
-      return { ...prev, pendingRules: false, lockBuildId: testerRowsBuildIdRef.current }
-    })
-    restoreFreezeRulesSeenRef.current = false
-  }, [testerMatchFreeze, rulesBuilding, testerRowsCommittedBuildId])
-  useEffect(() => {
-    if (!testerMatchFreeze || testerMatchFreeze.pendingRules) return
-    if (testerRowsBuilding) {
-      restoreFreezeRowsSeenRef.current = true
-    }
-  }, [testerMatchFreeze, testerRowsBuilding])
-  useEffect(() => {
-    if (!testerMatchFreeze || testerMatchFreeze.pendingRules) return
-    if (testerRowsActiveBuildId <= testerMatchFreeze.lockBuildId) return
-    restoreFreezeRowsSeenRef.current = false
-    setTesterMatchFreeze((prev) => {
-      if (!prev || prev.pendingRules) return prev
-      if (testerRowsActiveBuildId <= prev.lockBuildId) return prev
-      if (prev.restore?.awaitingRulesBuild) {
-        return {
-          ...prev,
-          lockBuildId: testerRowsActiveBuildId,
-          restore: {
-            awaitingRulesBuild: false,
-            targetBuildId: testerRowsActiveBuildId,
-          },
-        }
-      }
-      return { ...prev, lockBuildId: testerRowsActiveBuildId }
-    })
-  }, [testerMatchFreeze, testerRowsActiveBuildId])
-  useEffect(() => {
-    if (!testerMatchFreeze) return
-    if (testerMatchFreeze.pendingRules) return
-    if (testerMatchFreeze.restore?.awaitingRulesBuild) return
-    if (testerRowsBuilding || rulesBuilding) return
-    if (!restoreFreezeRowsSeenRef.current) {
-      const elapsed = Date.now() - testerMatchFreeze.createdAt
-      if (elapsed < TESTER_FREEZE_IDLE_RELEASE_MS) return
-      setTesterMatchFreeze(null)
-      return
-    }
-    if (testerRowsCommittedBuildId < testerMatchFreeze.lockBuildId) return
-    setTesterMatchFreeze(null)
-  }, [
-    testerMatchFreeze,
-    testerRowsCommittedBuildId,
-    testerRowsBuilding,
-    rulesBuilding,
-  ])
-  useEffect(() => {
-    if (testerMatchFreeze) return
-    restoreFreezeRowsSeenRef.current = false
-  }, [testerMatchFreeze])
-  /* eslint-enable react-you-might-not-need-an-effect/no-event-handler, react-you-might-not-need-an-effect/no-chain-state-updates */
-  const keepUniqueCandidates = useMemo<KeepUniqueCandidateSnapshot>(() => {
-    if (!keepUniquesActive) return EMPTY_KEEP_UNIQUE_CANDIDATES
-    return collectKeepUniqueCandidates({
-      rows: testerPreviewRows,
-      baseRules: keepUniqueBaseRules,
-      configModes,
-    })
-  }, [keepUniquesActive, testerPreviewRows, keepUniqueBaseRules, configModes])
-  useEffect(() => {
-    const rowsUpToDate = testerRowsCommittedBuildId >= testerRowsBuildIdRef.current && !testerRowsBuilding
-    if (!keepUniquesActive) {
-      keepUniqueScanAppliedRef.current = null
-      pendingKeepUniqueDetectionSigRef.current = null
-      setKeepUniqueDetection(null)
-      return
-    }
-    if (pendingKeepUniqueDetectionSigRef.current) return
-    if (testerMatchFreeze) return
-    if (testerRowsBuilding) return
-    if (!rowsUpToDate) return
-    let cancelled = false
-    const timeoutId = window.setTimeout(() => {
-      const snapshot = computeKeepUniqueProtection({
-        candidates: keepUniqueCandidates.candidates,
-        rules: resolvedKeepUniqueRules,
-        enabled: keepUniquesActive,
-      })
-      const snapshotSignature = fingerprintKeepUniqueDetection(snapshot)
-      if (cancelled) return
-      setKeepUniqueDetection((prev) => {
-        if (!prev) {
-          pendingKeepUniqueDetectionSigRef.current = snapshotSignature
-          return snapshot
-        }
-        if (prev.entries.length !== snapshot.entries.length) {
-          pendingKeepUniqueDetectionSigRef.current = snapshotSignature
-          return snapshot
-        }
-        for (let idx = 0; idx < snapshot.entries.length; idx += 1) {
-          const nextEntry = snapshot.entries[idx]
-          const prevEntry = prev.entries[idx]
-          if (!nextEntry || !prevEntry) {
-            pendingKeepUniqueDetectionSigRef.current = snapshotSignature
-            return snapshot
-          }
-          if (
-            nextEntry.ruleId !== prevEntry.ruleId
-            || nextEntry.ruleEnabled !== prevEntry.ruleEnabled
-            || nextEntry.requiredCount !== prevEntry.requiredCount
-            || nextEntry.currentCount !== prevEntry.currentCount
-            || nextEntry.projectedCount !== prevEntry.projectedCount
-            || nextEntry.deficit !== prevEntry.deficit
-            || nextEntry.coveredByExisting !== prevEntry.coveredByExisting
-            || nextEntry.itemKeys.length !== prevEntry.itemKeys.length
-            || nextEntry.artifacts.length !== prevEntry.artifacts.length
-          ) {
-            pendingKeepUniqueDetectionSigRef.current = snapshotSignature
-            return snapshot
-          }
-        }
-        return prev
-      })
-    }, 0)
-    return () => {
-      cancelled = true
-      clearTimeout(timeoutId)
-    }
-  }, [
-    resolvedKeepUniqueRules,
-    keepUniquesActive,
-    keepUniqueCandidates,
-    testerMatchFreeze,
-    testerRowsBuilding,
-    testerRowsCommittedBuildId,
-  ])
+  const testerBuilding = testerRowsBuilding || rulesBuilding
   const keepUniqueGroupItemKeys = keepUniqueCandidates.uniqueItemKeys
   const matchingConfigIndices = filterResult.matchingConfigIndices
   const testerMatchingConfigIndices = testerFilterResult.matchingConfigIndices
@@ -4263,30 +3975,17 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
               } else {
                 syncSelectedCfgIdx(null, { forceSync: true, suppressDraft: true })
               }
-            }
           }
-            if (selection.tester && testerRestoreDraft) {
-              const restoredItems = testerRestoreDraft.items
-              const needsRuleRebuild = Boolean(
-                selection.configs
-                || (selection.metasets && restoreMetasetsDiffer)
-                || (selection.targets && restoreTargetsDiffer)
-              )
-              const restoreFreezeState = needsRuleRebuild
-                ? {
-                    awaitingRulesBuild: true,
-                    targetBuildId: null,
-                  }
-                : null
-              setTesterMatchFreeze({
-                lockBuildId: testerRowsBuildIdRef.current,
-                pendingRules: needsRuleRebuild,
-                createdAt: Date.now(),
-                ...(restoreFreezeState ? { restore: restoreFreezeState } : {}),
-              })
-              restoreFreezeRulesSeenRef.current = false
-              restoreFreezeRowsSeenRef.current = false
-              setTesterItems(restoredItems)
+        }
+          if (selection.tester && testerRestoreDraft) {
+            const restoredItems = testerRestoreDraft.items
+            console.log(
+              '[tester-items:restore] apply count=%d savedAt=%s committedBuild=%s',
+              restoredItems.length,
+              testerRestoreDraft.savedAt ?? 'null',
+              testerRowsCommittedBuildId === null ? 'null' : testerRowsCommittedBuildId,
+            )
+            setTesterItems(restoredItems)
             const maxItemId = testerRestoreDraft.items.reduce((max, item) => (
               Number.isFinite(item.itemId) && item.itemId > max ? item.itemId : max
             ), 0)

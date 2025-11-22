@@ -39,15 +39,18 @@ const evaluateRows = (items: TesterMatchWorkerEvaluateItem[]): TesterMatchWorker
     }))
   }
   return items.map((entry) => {
-    const result = evaluateMatchesByConfig(currentRules, entry.item, {
+    // Full evaluation includes keep-unique injections so the tester grid shows overrides.
+    const full = evaluateMatchesByConfig(currentRules, entry.item, { configModes: currentConfigModes })
+    // Base evaluation excludes keep-unique so detection can still see the baseline keep/sell result.
+    const base = evaluateMatchesByConfig(currentRules, entry.item, {
       configModes: currentConfigModes,
       excludeSources: [RULE_SOURCE_KEEP_UNIQUES],
     })
     return {
       itemId: entry.itemId,
-      firstMatch: result.firstMatch,
-      firstNonExcludedMatch: result.firstNonExcludedMatch,
-      matchingConfigIndices: result.matchingConfigIndices,
+      firstMatch: full.firstMatch,
+      firstNonExcludedMatch: base.firstMatch,
+      matchingConfigIndices: full.matchingConfigIndices,
     }
   })
 }

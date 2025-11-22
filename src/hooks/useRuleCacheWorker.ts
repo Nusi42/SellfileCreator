@@ -69,6 +69,50 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
   const abortedIdsRef = useRef<Set<number>>(new Set())
   const fallbackCacheRef = useRef<ConfigRulesCache | null>(supportsWorkerEnv ? null : createConfigRulesCache())
 
+  const runWarmLocally = useCallback((params: WarmCacheParams): WarmCacheResult => {
+    const configsForRules = configsForRuleBuild(params.configs)
+    const previousCache = fallbackCacheRef.current ?? undefined
+    const baseRuleCount = Array.isArray(params.hsf?.Rules) ? (params.hsf?.Rules.length ?? 0) : 0
+    const cacheResult = updateConfigRulesCache(previousCache
+      ? {
+          configs: configsForRules,
+          metasets: params.metasets,
+          substatTargets: params.substatTargets,
+          previousCache,
+          baseRuleCount,
+        }
+      : {
+          configs: configsForRules,
+          metasets: params.metasets,
+          substatTargets: params.substatTargets,
+          baseRuleCount,
+        })
+    fallbackCacheRef.current = cacheResult.cache
+    const mergedRules = computeMergedRules({
+      hsf: params.hsf,
+      customCfgs: configsForRules,
+      metasets: params.metasets,
+      substatTargets: params.substatTargets,
+      ...(params.finalSellRemainder ? { finalSellRemainder: params.finalSellRemainder } : {}),
+      prebuiltCustomRules: cacheResult.rulesByConfig,
+      keepUniques: params.keepUniques,
+    })
+    const ruleMatchIndex = buildRuleMatchIndexData(mergedRules)
+    const state: RuleCacheStateSnapshot = {
+      rulesByConfig: cacheResult.rulesByConfig,
+      countsByConfig: cacheResult.countsByConfig,
+      keys: cacheResult.keys,
+      substatTargetsKey: cacheResult.substatTargetsKey,
+      mergedRules,
+      truncatedConfigIndices: cacheResult.truncatedConfigIndices.slice(),
+      totalLimitHit: cacheResult.totalLimitHit,
+      excludedByTotalLimitIndices: cacheResult.excludedByTotalLimitIndices.slice(),
+      ruleMatchIndex,
+    }
+    primeRuleMatchIndex(state.mergedRules, state.ruleMatchIndex)
+    return { state }
+  }, [])
+
   useEffect(() => {
     if (!supportsWorkerEnv) return
     const worker = new RuleCacheWorker()
@@ -158,49 +202,10 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
 
   const warmCache = useCallback<UseRuleCacheWorkerResult['warmCache']>((params, options) => {
     const signal = options?.signal ?? null
+    const shouldForceLocal = params.keepUniques?.enabled === true
 
-    if (!supportsWorkerEnv || !workerRef.current) {
-      const configsForRules = configsForRuleBuild(params.configs)
-      const previousCache = fallbackCacheRef.current ?? undefined
-      const baseRuleCount = Array.isArray(params.hsf?.Rules) ? (params.hsf?.Rules.length ?? 0) : 0
-      const cacheResult = updateConfigRulesCache(previousCache
-        ? {
-            configs: configsForRules,
-            metasets: params.metasets,
-            substatTargets: params.substatTargets,
-            previousCache,
-            baseRuleCount,
-          }
-        : {
-            configs: configsForRules,
-            metasets: params.metasets,
-            substatTargets: params.substatTargets,
-            baseRuleCount,
-          })
-      fallbackCacheRef.current = cacheResult.cache
-      const mergedRules = computeMergedRules({
-        hsf: params.hsf,
-        customCfgs: configsForRules,
-        metasets: params.metasets,
-        substatTargets: params.substatTargets,
-        ...(params.finalSellRemainder ? { finalSellRemainder: params.finalSellRemainder } : {}),
-        prebuiltCustomRules: cacheResult.rulesByConfig,
-        keepUniques: params.keepUniques,
-      })
-      const ruleMatchIndex = buildRuleMatchIndexData(mergedRules)
-      const state: RuleCacheStateSnapshot = {
-        rulesByConfig: cacheResult.rulesByConfig,
-        countsByConfig: cacheResult.countsByConfig,
-        keys: cacheResult.keys,
-        substatTargetsKey: cacheResult.substatTargetsKey,
-        mergedRules,
-        truncatedConfigIndices: cacheResult.truncatedConfigIndices.slice(),
-        totalLimitHit: cacheResult.totalLimitHit,
-        excludedByTotalLimitIndices: cacheResult.excludedByTotalLimitIndices.slice(),
-        ruleMatchIndex,
-      }
-      primeRuleMatchIndex(state.mergedRules, state.ruleMatchIndex)
-      return Promise.resolve({ state })
+    if (shouldForceLocal || !supportsWorkerEnv || !workerRef.current) {
+      return Promise.resolve(runWarmLocally(params))
     }
 
     if (signal?.aborted) {
@@ -209,6 +214,16 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
 
     const worker = workerRef.current
     const id = ++requestIdRef.current
+
+    const runFallback = (error: unknown): Promise<WarmCacheResult> => {
+      if (signal?.aborted) {
+        return Promise.reject(new DOMException('Aborted', 'AbortError'))
+      }
+      if ((import.meta as { env?: { DEV?: boolean } }).env?.DEV) {
+        console.warn('rule cache worker failed; falling back to local merge', error)
+      }
+      return Promise.resolve(runWarmLocally(params))
+    }
 
     let resolveFn: (value: WarmCacheResult) => void = () => {}
     let rejectFn: (reason?: unknown) => void = () => {}
@@ -245,12 +260,26 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
       },
     }
 
-    worker.postMessage(message)
-
-    return promise.finally(() => {
+    try {
+      worker.postMessage(message)
+    } catch (error) {
+      pendingWarmRef.current.delete(id)
       cleanupAbort?.()
-    })
-  }, [])
+      return runFallback(error)
+    }
+
+    return promise
+      .catch((error) => {
+        const aborted = abortedIdsRef.current.delete(id)
+        if (aborted) {
+          return Promise.reject(new DOMException('Aborted', 'AbortError'))
+        }
+        return runFallback(error)
+      })
+      .finally(() => {
+        cleanupAbort?.()
+      })
+  }, [runWarmLocally])
 
   const countRules = useCallback<UseRuleCacheWorkerResult['countRules']>((params, options) => {
     const signal = options?.signal ?? null
