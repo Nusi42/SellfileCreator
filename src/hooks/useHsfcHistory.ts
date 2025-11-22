@@ -5,12 +5,15 @@ import type { FinalSellRemainderConfig } from '../lib/finalSell'
 import { computeCrc32 } from '../lib/autosave'
 import { compressToBase64, decompressFromBase64 } from '../lib/compression'
 import type { MultiEditDraftState } from '../lib/multiEditDraft'
+import type { KeepUniqueRule } from '../lib/keepUniques'
 
 export type HsfcSnapshot = {
   customCfgs: BuilderConfig[]
   metasets: Metaset[]
   substatTargets: SubstatTargetTable
   finalSellRemainder: FinalSellRemainderConfig
+  keepUniqueRules: KeepUniqueRule[]
+  keepUniquesEnabled: boolean
   note: string | null
   selectedCfgIdx: number | null
   selectedCfgIndices: number[]
@@ -88,6 +91,8 @@ function parseSnapshot(entry: HistoryEntry): HsfcSnapshot | null {
       builderNameDraft,
       builderNameDraftKey,
       multiEditDraft,
+      keepUniqueRules,
+      keepUniquesEnabled,
     } = parsed
     if (!Array.isArray(customCfgs) || !Array.isArray(metasets) || !substatTargets || typeof finalSellRemainder !== 'object' || finalSellRemainder === null) {
       return null
@@ -136,6 +141,8 @@ function parseSnapshot(entry: HistoryEntry): HsfcSnapshot | null {
       metasets: metasets as Metaset[],
       substatTargets: substatTargets as SubstatTargetTable,
       finalSellRemainder: finalSellRemainder as FinalSellRemainderConfig,
+      keepUniqueRules: Array.isArray(keepUniqueRules) ? keepUniqueRules as KeepUniqueRule[] : [],
+      keepUniquesEnabled: keepUniquesEnabled === true,
       note: normalizedNote,
       selectedCfgIdx: sel,
       selectedCfgIndices: normalizedSelectedIndices,

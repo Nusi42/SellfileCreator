@@ -18,11 +18,10 @@ import EllipsisTooltip from './EllipsisTooltip'
 import { SetIcon, SET_ICON_PX } from './SetIcon'
 import { WithSetTooltip } from './SetTooltip'
 import { LIST_SUBHEADER_SX, MENU_SELECTED_BG_ALPHA, MENU_SELECTED_BG_HOVER_ALPHA, MENU_SCROLL_GUTTER_PX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, MULTI_EDIT_MIXED_BG_ALPHA, MULTI_EDIT_MIXED_BORDER_ALPHA, MULTI_EDIT_MIXED_TEXT_ALPHA } from '../lib/constants'
-import { artifactSetDescriptions } from '../lib/setDescriptions'
 import type { Metaset } from '../lib/metasets'
 import SetsOrderControls from './SetsOrderControls'
 import { useI18n } from '../lib/i18n'
-import { artifactSetI18nKey } from '../lib/types'
+import { artifactSetI18nKey, ArtifactSetPieceGroup, getArtifactSetPieceGroup } from '../lib/types'
 
 // Icon grid sizing — tuned to fit 15 items within a ~520px menu width.
 const ICON_GRID_ITEM_PX = 32 as const
@@ -133,16 +132,11 @@ export default function SetMenuSection({
       )}
       {setsOrder === 'icons' ? (
           (() => {
-            // Split by piece count from set descriptions to avoid magic ID thresholds.
-            // Accessories are 1‑piece; regular armor sets are 2‑ or 4‑piece; variable sets are anything not 1/2/4 (e.g., "1–9").
-            const isOne = (name: string) => artifactSetDescriptions[name]?.pieces === 1
-            const isTwo = (name: string) => artifactSetDescriptions[name]?.pieces === 2
-            const isFour = (name: string) => artifactSetDescriptions[name]?.pieces === 4
-            const accessories = sorted.filter(([, name]) => isOne(name))
-            // Fixed armor: exactly 2 or 4 pieces
-            const armorFixed = sorted.filter(([, name]) => isTwo(name) || isFour(name))
-            // Variable piece sets (not 1,2,4). Covers "1–9" and any future variants.
-            const armorVar19 = sorted.filter(([, name]) => !(isOne(name) || isTwo(name) || isFour(name)))
+            // Centralized grouping keeps the menu categories aligned with the Keep
+            // Uniques defaults and any other callers importing the same helper.
+            const accessories = sorted.filter(([id]) => getArtifactSetPieceGroup(Number(id)) === ArtifactSetPieceGroup.Accessories)
+            const armorFixed = sorted.filter(([id]) => getArtifactSetPieceGroup(Number(id)) === ArtifactSetPieceGroup.ArmorFixed)
+            const armorVar19 = sorted.filter(([id]) => getArtifactSetPieceGroup(Number(id)) === ArtifactSetPieceGroup.ArmorVariable)
             const renderIconItem = ([id, name]: [string, string]) => {
               const idNum = Number(id)
               const localizedName = t(artifactSetI18nKey(idNum))

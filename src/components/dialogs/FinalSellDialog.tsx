@@ -1,32 +1,101 @@
-import type { MouseEvent } from 'react'
-import { Alert, Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Stack, ToggleButton, ToggleButtonGroup, Tooltip, Typography } from '@mui/material'
+import type { MouseEvent, SetStateAction } from 'react'
+import { Alert, Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Stack, Tab, Tabs, ToggleButton, ToggleButtonGroup, Tooltip, Typography } from '@mui/material'
 import { useI18n } from '../../lib/i18n'
-import { MENU_CONTROL_HEIGHT_PX } from '../../lib/constants'
+import { MENU_CONTROL_HEIGHT_PX, type ColorBlindMode } from '../../lib/constants'
 import {
   FINAL_SELL_DEFAULT_SETS_MODE,
+  FINAL_SELL_DIALOG_TAB_FINAL_SELL,
+  FINAL_SELL_DIALOG_TAB_KEEP_UNIQUES,
+  FINAL_SELL_DIALOG_TABS,
   FINAL_SELL_SETS_MODE_ANY,
   FINAL_SELL_SETS_MODE_EXPLICIT,
   FINAL_SELL_LEVEL_CHOICES,
+  type FinalSellDialogTab,
   type FinalSellLevel,
   type FinalSellRemainderConfig,
   type FinalSellSetsMode,
 } from '../../lib/finalSell'
+import type { KeepUniqueDetectionSnapshot, KeepUniqueRule } from '../../lib/keepUniques'
+import type { TesterPreviewRow } from '../../types/testerPreview'
+import KeepUniquesTab from './KeepUniquesTab'
+import type { Metaset } from '../../lib/metasets'
 
-export default function FinalSellDialog(props: {
+type FinalSellDialogProps = {
   open: boolean
   value: FinalSellRemainderConfig
   onChange: (next: FinalSellRemainderConfig) => void
   onClose: () => void
   onReset?: () => void
-}) {
-  const { open, value, onChange, onClose, onReset } = props
+  activeTab: FinalSellDialogTab
+  onChangeTab: (next: FinalSellDialogTab) => void
+  keepUniqueRules: KeepUniqueRule[]
+  onKeepUniqueRulesChange: (next: SetStateAction<KeepUniqueRule[]>) => void
+  keepUniquesEnabled: boolean
+  onKeepUniquesEnabledChange: (next: SetStateAction<boolean>) => void
+  keepUniqueDetection: KeepUniqueDetectionSnapshot | null
+  testerRows: TesterPreviewRow[]
+  keepUniqueItemKeys: ReadonlySet<number>
+  substatColors: Record<number, { fg: string; bg: string }>
+  useStatButtonColors: boolean
+  onToggleStatColors: (next: boolean) => void
+  onOpenManageColors: () => void
+  colorBlindMode: ColorBlindMode
+  onChangeColorBlindMode: (mode: ColorBlindMode) => void
+  colorIconSrc: string
+  configNames: Array<string | null>
+  metasets: Metaset[]
+  testerBuilding?: boolean
+  suppressMatchDetails?: boolean
+  onResetKeepUniques?: () => void
+  onJumpToRule?: (ruleIndex: number, cfgIdx: number | null) => void
+}
+
+export default function FinalSellDialog(props: FinalSellDialogProps) {
+  const {
+    open,
+    value,
+    onChange,
+    onClose,
+    onReset,
+    activeTab,
+    onChangeTab,
+    keepUniqueRules,
+    onKeepUniqueRulesChange,
+    keepUniquesEnabled,
+    onKeepUniquesEnabledChange,
+    keepUniqueDetection,
+    testerRows,
+    keepUniqueItemKeys,
+    substatColors,
+    useStatButtonColors,
+    onToggleStatColors,
+    onOpenManageColors,
+  colorBlindMode,
+  onChangeColorBlindMode,
+  colorIconSrc,
+  configNames,
+  metasets,
+  testerBuilding = false,
+  suppressMatchDetails = false,
+  onResetKeepUniques,
+  onJumpToRule,
+} = props
   const { t } = useI18n()
+  // Clamp unknown tab ids back to the Final Sell default so autosave/restore can't wedge the dialog.
+  const normalizedTab = FINAL_SELL_DIALOG_TABS.includes(activeTab) ? activeTab : FINAL_SELL_DIALOG_TAB_FINAL_SELL
   const hasGear = value.artifacts || value.accessories
   const hasLevelRanges = value.levels.length > 0
   const finalSellActive = hasGear && hasLevelRanges
   const statusWordKey = finalSellActive ? 'hintFinalSellStatusWordOn' : 'hintFinalSellStatusWordOff'
   const statusDetailKey = finalSellActive ? 'hintFinalSellStatusOnDetail' : 'hintFinalSellStatusOffDetail'
   const setsMode: FinalSellSetsMode = value.setsMode ?? FINAL_SELL_DEFAULT_SETS_MODE
+  const handleTabChange = (_event: React.SyntheticEvent, nextValue: string) => {
+    const nextTab = FINAL_SELL_DIALOG_TABS.includes(nextValue as FinalSellDialogTab)
+      ? nextValue as FinalSellDialogTab
+      : FINAL_SELL_DIALOG_TAB_FINAL_SELL
+    if (nextTab === normalizedTab) return
+    onChangeTab(nextTab)
+  }
   const handleSetsModeChange = (_: MouseEvent<HTMLElement>, next: FinalSellSetsMode | null) => {
     if (!next) return
     onChange({ ...value, setsMode: next })
@@ -36,11 +105,43 @@ export default function FinalSellDialog(props: {
     if (next.has(lvl)) next.delete(lvl); else next.add(lvl)
     onChange({ ...value, levels: Array.from(next.values()).sort((a,b)=>a-b) as FinalSellLevel[] })
   }
+  const showFinalSellTab = normalizedTab === FINAL_SELL_DIALOG_TAB_FINAL_SELL
+  // Reset button targets whichever tab is visible; skip rendering when no handler exists.
+  const resetHandler = showFinalSellTab ? onReset : onResetKeepUniques
+  // Dialog follows the spec'd min width/height so both tabs have enough breathing room.
+  const paperSx = {
+    width: 'min(960px, calc(100vw - 32px))',
+    maxWidth: 'min(960px, calc(100vw - 32px))',
+    height: 'min(800px, calc(100vh - 48px))',
+  }
+
   return (
-    <Dialog open={open} onClose={onClose}>
-      <DialogTitle>{t('titleFinalSellRules')}</DialogTitle>
-      <DialogContent data-tour-id="finalsell.dialog">
-        <Stack spacing={2} sx={{ mt: 0.5 }}>
+    <Dialog
+      open={open}
+      onClose={onClose}
+      fullWidth
+      maxWidth={false}
+      PaperProps={{ sx: paperSx }}
+    >
+      <DialogTitle sx={{ pb: 0 }}>
+        <Stack spacing={1}>
+          <Typography variant="h6">{t('titleFinalSellRules')}</Typography>
+          <Tabs
+            value={normalizedTab}
+            onChange={handleTabChange}
+            variant="fullWidth"
+            textColor="primary"
+            indicatorColor="primary"
+          >
+            <Tab value={FINAL_SELL_DIALOG_TAB_FINAL_SELL} label={t('testerFinalSell')} />
+            <Tab value={FINAL_SELL_DIALOG_TAB_KEEP_UNIQUES} label={t('tabKeepUniques')} />
+          </Tabs>
+        </Stack>
+      </DialogTitle>
+      <DialogContent sx={{ p: 0, display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
+        {showFinalSellTab ? (
+          <Box data-tour-id="finalsell.dialog" sx={{ flex: 1, minHeight: 0, overflowY: 'auto', p: 3 }}>
+            <Stack spacing={2} sx={{ mt: 0.5 }}>
           <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: 'pre-line' }}>{t('msgFinalSellExplainer')}</Typography>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
@@ -261,14 +362,39 @@ export default function FinalSellDialog(props: {
             </Box>
           </Box>
         </Stack>
+          </Box>
+        ) : (
+          // Keep Uniques tab reuses tester grid context; props land even while the UI is under construction.
+          <KeepUniquesTab
+            rules={keepUniqueRules}
+            enabled={keepUniquesEnabled}
+            onRulesChange={onKeepUniqueRulesChange}
+            onToggleEnabled={onKeepUniquesEnabledChange}
+            detection={keepUniqueDetection}
+            testerRows={testerRows}
+            uniqueItemKeys={keepUniqueItemKeys}
+            substatColors={substatColors}
+            useStatButtonColors={useStatButtonColors}
+            onToggleStatColors={onToggleStatColors}
+            onOpenManageColors={onOpenManageColors}
+            colorBlindMode={colorBlindMode}
+            onChangeColorBlindMode={onChangeColorBlindMode}
+            colorIconSrc={colorIconSrc}
+            configNames={configNames}
+            metasets={metasets}
+            testerBuilding={testerBuilding}
+            onJumpToRule={onJumpToRule}
+            suppressMatchDetails={suppressMatchDetails}
+          />
+        )}
       </DialogContent>
-      <DialogActions>
-        {onReset && (
+      <DialogActions sx={{ px: 3, py: 2 }}>
+        {resetHandler && (
           <Button
             size="small"
             variant="outlined"
             color="error"
-            onClick={onReset}
+            onClick={resetHandler}
             sx={{ mr: 'auto' }}
           >
             {t('resetToDefaults')}

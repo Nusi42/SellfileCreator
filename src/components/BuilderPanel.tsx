@@ -5632,20 +5632,34 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                                 disableHoverListener={!lockIconEnabled}
                                 arrow
                               >
-                                <IconButton
-                                  className="builder-min-roll-lock-icon"
-                                  size="small"
+                                <Box
+                                  component="span"
+                                  role="button"
+                                  aria-pressed={lockedActive}
                                   aria-label={lockTooltip || undefined}
+                                  aria-disabled={lockIconEnabled ? undefined : true}
+                                  tabIndex={lockIconEnabled ? 0 : -1}
+                                  className="builder-min-roll-lock-icon"
+                                  data-tour-id={`builder.min-rolls.lock-icon.${n}`}
                                   onClick={(event) => {
                                     event.preventDefault()
                                     event.stopPropagation()
                                     if (!lockIconEnabled) return
                                     handleLockedMinRequiredRolls(n)
                                   }}
-                                  disabled={!lockIconEnabled}
-                                  data-tour-id={`builder.min-rolls.lock-icon.${n}`}
+                                  onKeyDown={(event) => {
+                                    if (!lockIconEnabled) return
+                                    if (event.key === 'Enter' || event.key === ' ') {
+                                      event.preventDefault()
+                                      event.stopPropagation()
+                                      handleLockedMinRequiredRolls(n)
+                                    }
+                                  }}
                                   sx={(theme) => {
-                                    const glow = alpha(theme.palette.text.primary, theme.palette.mode === 'dark' ? 0.22 : 0.14)
+                                    const glow = alpha(
+                                      theme.palette.text.primary,
+                                      theme.palette.mode === 'dark' ? 0.22 : 0.14,
+                                    )
                                     return {
                                       position: 'absolute',
                                       top: -13,
@@ -5683,7 +5697,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                                   }}
                                 >
                                   {lockedActive ? <LockIcon fontSize="small" /> : <LockOpenOutlinedIcon fontSize="small" />}
-                                </IconButton>
+                                </Box>
                               </Tooltip>
                             ) : null}
                           </ToggleButton>

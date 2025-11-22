@@ -9,7 +9,7 @@ import type { HsfRule, HsfSubstat } from './hsfTypes'
 import { rankMask, rarityMask } from './hsfTypes'
 import type { ArtifactSetId, ArtifactTypeId, FactionId, StatVariantLike } from './types'
 import { LEVEL_ANY_SENTINEL, StatId, StatVariant, mainToVariant, subToVariant, type LevelMilestone, type RankValue } from './types'
-import type { HsfRuleWithCfg } from './merge'
+import { RULE_SOURCE_KEEP_UNIQUES, type HsfRuleWithCfg } from './merge'
 import type { SellfileExportMode } from './hsfBuilder'
 import { forEachRuleMatchCandidate, getRuleMatchIndex } from './ruleMatchIndex'
 
@@ -182,10 +182,12 @@ export function evaluateFirst(rules: HsfRuleWithCfg[], item: TestItem): EvalResu
 
 export type EvalMatchesByConfigOptions = {
   configModes?: SellfileExportMode[]
+  excludeSources?: readonly string[]
 }
 
 export type EvalMatchesByConfigResult = {
   firstMatch: EvalResult | null
+  firstNonExcludedMatch: EvalResult | null
   matchingConfigIndices: number[]
 }
 
@@ -196,6 +198,10 @@ export function evaluateMatchesByConfig(
   options?: EvalMatchesByConfigOptions,
 ): EvalMatchesByConfigResult {
   const configModes = options?.configModes
+  const excludeSources = options?.excludeSources ?? null
+  const excludeSourceSet = excludeSources && excludeSources.length > 0
+    ? new Set(excludeSources)
+    : null
   const shouldIncludeConfig = (cfgIdx: number | null): boolean => {
     if (cfgIdx == null || !Array.isArray(configModes)) return true
     const mode = configModes[cfgIdx]
@@ -203,6 +209,9 @@ export function evaluateMatchesByConfig(
   }
 
   let firstMatch: EvalResult | null = null
+  let firstNonExcludedMatch: EvalResult | null = null
+  let nonKeepUniqueKeepMatched = false
+  let pendingKeepUnique: EvalResult | null = null
   const matchingConfigs = new Set<number>()
   const slotIndex = getRuleMatchIndex(rules)
   const slot = Number(item.slot)
@@ -212,20 +221,45 @@ export function evaluateMatchesByConfig(
   forEachRuleMatchCandidate(slotIndex, slot, setId, rankValue, rarityValue, (ruleIndex) => {
     const rule = rules[ruleIndex]!
     if (!matchRule(rule, item)) return true
+    // Source/type hints drive the exclusion toggle (e.g., keep-unique injections).
+    const source = typeof (rule as HsfRuleWithCfg).__source === 'string' ? String((rule as HsfRuleWithCfg).__source) : null
+    const isExcluded = source && excludeSourceSet ? excludeSourceSet.has(source) : false
     const rawCfgIdx = (rule as HsfRuleWithCfg).__cfgIdx
     const cfgIdx = typeof rawCfgIdx === 'number' && Number.isFinite(rawCfgIdx) && rawCfgIdx >= 0 ? rawCfgIdx : null
+    // Skip configs that are disabled/separator or explicitly excluded by source.
     if (!shouldIncludeConfig(cfgIdx)) return true
-    if (!firstMatch) {
-      const keep = rule.Keep === true
-      firstMatch = { ruleIndex, keep, cfgIdx }
+    const keep = rule.Keep === true
+    const match: EvalResult = { ruleIndex, keep, cfgIdx }
+    const isKeepUnique = source === RULE_SOURCE_KEEP_UNIQUES
+    if (isKeepUnique) {
+      // Defer keep-unique so primary rules always win.
+      if (!pendingKeepUnique && !isExcluded) pendingKeepUnique = match
+    } else {
+      // Track whether any non-keep-unique KEEP rule matched; keep-unique should not override those.
+      if (keep && !isExcluded) nonKeepUniqueKeepMatched = true
+      // Only record firstMatch when the source is not excluded.
+      if (!firstMatch && !isExcluded) firstMatch = match
+      if (!isExcluded && !firstNonExcludedMatch) firstNonExcludedMatch = match
     }
     if (cfgIdx !== null) {
       matchingConfigs.add(cfgIdx)
     }
     return true
   })
+  // If nothing else matched, fall back to keep-unique (only when no other KEEP rule matched).
+  const firstMatchIsKeep = firstMatch != null && (firstMatch as NonNullable<EvalResult>).keep === true
+  const allowKeepUnique = Boolean(
+    pendingKeepUnique
+    && !nonKeepUniqueKeepMatched
+    && !firstMatchIsKeep,
+  )
+  if (allowKeepUnique) {
+    firstMatch = pendingKeepUnique
+    if (!firstNonExcludedMatch) firstNonExcludedMatch = pendingKeepUnique
+  }
   return {
     firstMatch,
+    firstNonExcludedMatch: firstNonExcludedMatch ?? firstMatch,
     matchingConfigIndices: matchingConfigs.size > 0
       ? Array.from(matchingConfigs).sort((a, b) => a - b)
       : [],

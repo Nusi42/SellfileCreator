@@ -55,6 +55,7 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
       substatTargets: payload.substatTargets,
       ...(payload.finalSellRemainder ? { finalSellRemainder: payload.finalSellRemainder } : {}),
       prebuiltCustomRules: result.rulesByConfig,
+      keepUniques: payload.keepUniques,
     })
     const ruleMatchIndex = buildRuleMatchIndexData(mergedRules)
     const response: RuleCacheWorkerResponse = {

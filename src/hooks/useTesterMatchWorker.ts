@@ -1,15 +1,15 @@
 import { useCallback, useEffect, useRef } from 'react'
 import type { SellfileExportMode } from '../lib/hsfBuilder'
-import type { HsfRuleWithCfg } from '../lib/merge'
+import { RULE_SOURCE_KEEP_UNIQUES, type HsfRuleWithCfg } from '../lib/merge'
 import { evaluateMatchesByConfig } from '../lib/ruleEval'
 import type { RuleMatchIndexData } from '../lib/ruleMatchIndex'
 import TesterMatchWorker from '../workers/testerMatchWorker?worker&inline'
 import type {
   TesterMatchWorkerEvaluatePayload,
-  TesterMatchWorkerEvaluateRow,
+  TesterMatchWorkerEvaluateItem,
   TesterMatchWorkerRequest,
   TesterMatchWorkerResponse,
-  TesterMatchWorkerRowResult,
+  TesterMatchWorkerItemResult,
 } from '../workers/testerMatchWorkerTypes'
 
 type ConfigureParams = {
@@ -19,12 +19,12 @@ type ConfigureParams = {
 }
 
 type EvaluateParams = {
-  rows: TesterMatchWorkerEvaluateRow[]
+  items: TesterMatchWorkerEvaluateItem[]
 }
 
 type UseTesterMatchWorkerResult = {
   configure: (params: ConfigureParams) => Promise<void>
-  evaluateRows: (params: EvaluateParams) => Promise<TesterMatchWorkerRowResult[]>
+  evaluateItems: (params: EvaluateParams) => Promise<TesterMatchWorkerItemResult[]>
   supportsWorker: boolean
 }
 
@@ -38,21 +38,27 @@ const supportsWorkerEnv = typeof window !== 'undefined' && typeof Worker !== 'un
 const evaluateRowsFallback = (
   rules: HsfRuleWithCfg[],
   configModes: SellfileExportMode[],
-  rows: readonly TesterMatchWorkerEvaluateRow[],
-): TesterMatchWorkerRowResult[] => {
-  if (!Array.isArray(rows) || rows.length === 0) return []
+  items: readonly TesterMatchWorkerEvaluateItem[],
+): TesterMatchWorkerItemResult[] => {
+  if (!Array.isArray(items) || items.length === 0) return []
   if (!rules.length) {
-    return rows.map((row) => ({
-      rowId: row.rowId,
+    return items.map((entry) => ({
+      itemId: entry.itemId,
       firstMatch: null,
+      firstNonExcludedMatch: null,
       matchingConfigIndices: [],
     }))
   }
-  return rows.map((row) => {
-    const { firstMatch, matchingConfigIndices } = evaluateMatchesByConfig(rules, row.item, { configModes })
+  return items.map((entry) => {
+    const { firstMatch, firstNonExcludedMatch, matchingConfigIndices } = evaluateMatchesByConfig(
+      rules,
+      entry.item,
+      { configModes, excludeSources: [RULE_SOURCE_KEEP_UNIQUES] },
+    )
     return {
-      rowId: row.rowId,
+      itemId: entry.itemId,
       firstMatch,
+      firstNonExcludedMatch,
       matchingConfigIndices,
     }
   })
@@ -62,7 +68,7 @@ export function useTesterMatchWorker(): UseTesterMatchWorkerResult {
   const workerRef = useRef<Worker | null>(null)
   const requestIdRef = useRef(0)
   const pendingConfigureRef = useRef<Map<number, PendingRequest<void>>>(new Map())
-  const pendingEvaluateRef = useRef<Map<number, PendingRequest<TesterMatchWorkerRowResult[]>>>(new Map())
+  const pendingEvaluateRef = useRef<Map<number, PendingRequest<TesterMatchWorkerItemResult[]>>>(new Map())
   const lastConfigurePromiseRef = useRef<Promise<void> | null>(null)
   const fallbackRulesRef = useRef<HsfRuleWithCfg[]>([])
   const fallbackConfigModesRef = useRef<SellfileExportMode[]>([])
@@ -155,20 +161,20 @@ export function useTesterMatchWorker(): UseTesterMatchWorkerResult {
     return promise
   }, [])
 
-  const evaluateRows = useCallback<UseTesterMatchWorkerResult['evaluateRows']>((params) => {
-    if (!params.rows.length) return Promise.resolve([])
+  const evaluateItems = useCallback<UseTesterMatchWorkerResult['evaluateItems']>((params) => {
+    if (!params.items.length) return Promise.resolve([])
     if (!supportsWorkerEnv || !workerRef.current) {
-      const results = evaluateRowsFallback(fallbackRulesRef.current, fallbackConfigModesRef.current, params.rows)
+      const results = evaluateRowsFallback(fallbackRulesRef.current, fallbackConfigModesRef.current, params.items)
       return Promise.resolve(results)
     }
     const worker = workerRef.current
     const sendEvaluate = () => {
       const id = ++requestIdRef.current
-      const promise = new Promise<TesterMatchWorkerRowResult[]>((resolve, reject) => {
+      const promise = new Promise<TesterMatchWorkerItemResult[]>((resolve, reject) => {
         pendingEvaluateRef.current.set(id, { resolve, reject })
       })
       const payload: TesterMatchWorkerEvaluatePayload = {
-        rows: params.rows,
+        items: params.items,
       }
       const message: TesterMatchWorkerRequest = {
         id,
@@ -189,7 +195,7 @@ export function useTesterMatchWorker(): UseTesterMatchWorkerResult {
 
   return {
     configure,
-    evaluateRows,
+    evaluateItems,
     supportsWorker: supportsWorkerEnv,
   }
 }

@@ -2,14 +2,14 @@
 /// <reference lib="webworker" />
 
 import type { SellfileExportMode } from '../lib/hsfBuilder'
-import type { HsfRuleWithCfg } from '../lib/merge'
+import { RULE_SOURCE_KEEP_UNIQUES, type HsfRuleWithCfg } from '../lib/merge'
 import { buildRuleMatchIndexData, primeRuleMatchIndex, type RuleMatchIndexData } from '../lib/ruleMatchIndex'
 import { evaluateMatchesByConfig } from '../lib/ruleEval'
 import type {
-  TesterMatchWorkerEvaluateRow,
+  TesterMatchWorkerEvaluateItem,
   TesterMatchWorkerRequest,
   TesterMatchWorkerResponse,
-  TesterMatchWorkerRowResult,
+  TesterMatchWorkerItemResult,
 } from './testerMatchWorkerTypes'
 
 declare const self: DedicatedWorkerGlobalScope
@@ -28,21 +28,29 @@ const configureRules = (rules: HsfRuleWithCfg[], configModes: SellfileExportMode
   }
 }
 
-const evaluateRows = (rows: TesterMatchWorkerEvaluateRow[]): TesterMatchWorkerRowResult[] => {
-  if (!Array.isArray(rows) || rows.length === 0) return []
+const evaluateRows = (items: TesterMatchWorkerEvaluateItem[]): TesterMatchWorkerItemResult[] => {
+  if (!Array.isArray(items) || items.length === 0) return []
   if (currentRules.length === 0) {
-    return rows.map((row) => ({
-      rowId: row.rowId,
+    return items.map((entry) => ({
+      itemId: entry.itemId,
       firstMatch: null,
+      firstNonExcludedMatch: null,
       matchingConfigIndices: [],
     }))
   }
-  return rows.map((row) => {
-    const result = evaluateMatchesByConfig(currentRules, row.item, { configModes: currentConfigModes })
+  return items.map((entry) => {
+    // Full evaluation includes keep-unique injections so the tester grid shows overrides.
+    const full = evaluateMatchesByConfig(currentRules, entry.item, { configModes: currentConfigModes })
+    // Base evaluation excludes keep-unique so detection can still see the baseline keep/sell result.
+    const base = evaluateMatchesByConfig(currentRules, entry.item, {
+      configModes: currentConfigModes,
+      excludeSources: [RULE_SOURCE_KEEP_UNIQUES],
+    })
     return {
-      rowId: row.rowId,
-      firstMatch: result.firstMatch,
-      matchingConfigIndices: result.matchingConfigIndices,
+      itemId: entry.itemId,
+      firstMatch: full.firstMatch,
+      firstNonExcludedMatch: base.firstMatch,
+      matchingConfigIndices: full.matchingConfigIndices,
     }
   })
 }
@@ -70,7 +78,7 @@ self.onmessage = (event: MessageEvent<TesterMatchWorkerRequest>) => {
   }
   if (message.kind === 'evaluate') {
     try {
-      const results = evaluateRows(message.payload.rows)
+      const results = evaluateRows(message.payload.items)
       const response: TesterMatchWorkerResponse = {
         id: message.id,
         kind: 'evaluate:done',

@@ -24,7 +24,12 @@ import { variantToSub, variantToMain } from './hsfTypes'
 import type { NormalizedStat } from './importers/gearDbNormalizer'
 import type { TestItem, TesterItemPreviewExtras } from './ruleEval'
 
-export type RuleTesterItem = Omit<TestItem, 'subRolls'> & { rowId: number; subValues?: Record<number, number>; subOrder?: number[]; compact?: boolean }
+export type RuleTesterItem = Omit<TestItem, 'subRolls'> & {
+  itemId: number
+  subValues?: Record<number, number>
+  subOrder?: number[]
+  compact?: boolean
+}
 
 type StoredTesterItem = RuleTesterItem
 
@@ -299,7 +304,7 @@ export function createRuleTesterMath(substatTargets: SubstatTargetTable) {
     return { ...it, subValues: values }
   }
 
-  const makeDefaultItem = (allocRowId: () => number): RuleTesterItem => {
+  const makeDefaultItem = (allocItemId: () => number): RuleTesterItem => {
     const pick = <T,>(arr: readonly T[]): T => arr[Math.floor(Math.random() * arr.length)]!
     const slotIds = Object.keys(artifactTypeNames).map(Number)
     const levelMilestones: readonly LevelMilestone[] = LEVEL_MILESTONES
@@ -328,7 +333,7 @@ export function createRuleTesterMath(substatTargets: SubstatTargetTable) {
       faction: (isAccessory ? pick(factionPool) : 0) as FactionId,
       main,
       subValues,
-      rowId: allocRowId(),
+      itemId: allocItemId(),
     }
     return applyRandomRollsForLevel(adjustSubValuesFor(baseItem))
   }
@@ -468,7 +473,7 @@ export function diffRuleTesterItems(
   desiredItems: TestItem[],
   pendingQueue: TestItem[] = [],
   options?: DiffRuleTesterItemsOptions,
-): { removalRowIds: number[]; nextPendingQueue: TestItem[]; additions: TestItem[] } {
+): { removalItemIds: number[]; nextPendingQueue: TestItem[]; additions: TestItem[] } {
   const retainManualItems = Boolean(options?.retainManualItems)
   const desiredCounts = new Map<string, number>()
   for (const desired of desiredItems) {
@@ -493,7 +498,7 @@ export function diffRuleTesterItems(
     }
   }
 
-  const removalRowIds: number[] = []
+  const removalItemIds: number[] = []
   const currentKeptCounts = new Map<string, number>()
   for (const item of currentItems) {
     if (retainManualItems && isManualTesterItem(item)) continue
@@ -504,7 +509,7 @@ export function diffRuleTesterItems(
       currentKeptCounts.set(key, kept + 1)
       continue
     }
-    removalRowIds.push(item.rowId)
+    removalItemIds.push(item.itemId)
   }
 
   const pendingKeepLimits = new Map<string, number>()
@@ -548,12 +553,12 @@ export function diffRuleTesterItems(
   }
 
   const nextPendingQueue = retainedPending.concat(additions)
-  return { removalRowIds, nextPendingQueue, additions }
+  return { removalItemIds, nextPendingQueue, additions }
 }
 
 const deserializeTesterItems = (
   payload: RuleTesterAutosavePayload | null | undefined,
-  opts: { math: RuleTesterMath; allocRowId: () => number },
+  opts: { math: RuleTesterMath; allocItemId: () => number },
 ): RuleTesterItem[] | null => {
   if (!payload) return null
   const compressed = payload.ItemsCompressed
@@ -569,15 +574,21 @@ const deserializeTesterItems = (
     for (const [key, value] of Object.entries(payloadValues)) {
       subValues[Number(key)] = Math.max(0, Number(value) || 0)
     }
-    const rowId = typeof raw.rowId === 'number' && Number.isFinite(raw.rowId)
-      ? raw.rowId
-      : -(idx + 1)
-    restored.push(math.adjustSubValuesFor({ ...(raw as TestItem), subValues, rowId }))
+    const rawItem = raw as { itemId?: number; rowId?: number }
+    const payloadItemId = typeof rawItem.itemId === 'number' && Number.isFinite(rawItem.itemId)
+      ? rawItem.itemId
+      : null
+    const legacyRowId = typeof rawItem.rowId === 'number' && Number.isFinite(rawItem.rowId)
+      ? rawItem.rowId
+      : null
+    const fallbackId = -(idx + 1)
+    const itemId = payloadItemId ?? legacyRowId ?? opts.allocItemId() ?? fallbackId
+    restored.push(math.adjustSubValuesFor({ ...(raw as TestItem), subValues, itemId }))
   })
   return restored.length > 0 ? restored : null
 }
 
-export function loadRuleTesterAutosaveDraft(opts: { math: RuleTesterMath; allocRowId: () => number }): {
+export function loadRuleTesterAutosaveDraft(opts: { math: RuleTesterMath; allocItemId: () => number }): {
   items: RuleTesterItem[]
   savedAt: string | null
   itemCount: number

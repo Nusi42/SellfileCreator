@@ -152,12 +152,14 @@ const measureMatchingRowContentWidth = (node: HTMLElement): number => {
 }
 type TranslateFn = ReturnType<typeof useI18n>['t']
 
+// Variant toggles keep-uniques specific layout while keeping the base tester grid intact.
+type TesterItemsGridVariant = 'tester' | 'keepUniques'
+
 type TesterItemsGridProps = {
   rows: TesterPreviewRow[]
   filterActive?: boolean
   substatColors: Record<number, { fg: string; bg: string }>
   useStatButtonColors?: boolean
-  testerBuilding?: boolean
   onToggleStatColors: (next: boolean) => void
   onOpenManageColors: () => void
   colorBlindMode: ColorBlindMode
@@ -165,6 +167,11 @@ type TesterItemsGridProps = {
   colorIconSrc: string
   configNames: Array<string | null>
   onJumpToRule?: ((ruleIndex: number, cfgIdx: number | null) => void) | undefined
+  variant?: TesterItemsGridVariant
+  suppressMatchDetails?: boolean
+  // Optional highlighter lets Keep Uniques fade non-matching cards without forking the grid.
+  highlightedRowPredicate?: ((row: TesterPreviewRow) => boolean) | null
+  dimUnhighlightedRows?: boolean
 }
 
 type TesterGroupKind = 'artifactSet' | 'accessorySet' | 'accessoryFaction'
@@ -193,7 +200,6 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     filterActive = false,
     substatColors,
     useStatButtonColors = false,
-    testerBuilding = false,
     onToggleStatColors,
     onOpenManageColors,
     colorBlindMode,
@@ -201,9 +207,18 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     colorIconSrc,
     configNames,
     onJumpToRule,
+    variant = 'tester',
+    suppressMatchDetails: suppressMatchDetailsProp = false,
+    highlightedRowPredicate = null,
+    dimUnhighlightedRows = false,
   } = props
+  const keepUniquesVariant = variant === 'keepUniques'
+  // Memoized predicates avoid re-render churn when Keep Uniques toggles highlighting.
+  const highlightRowPredicate = typeof highlightedRowPredicate === 'function' ? highlightedRowPredicate : null
+  const shouldDimUnhighlightedRows = Boolean(dimUnhighlightedRows && highlightRowPredicate)
   const { t } = useI18n()
   const theme = useTheme()
+  const suppressMatchDetails = Boolean(suppressMatchDetailsProp)
   const groups = useMemo(() => groupRowsBySet(rows, t), [rows, t])
   const numberFormatter = useMemo(() => new Intl.NumberFormat(undefined), [])
   const {
@@ -216,6 +231,7 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     setShowOtherMatches,
     setShowChampionIcons,
   } = useTesterGridPreferences()
+  const storedColumnPreference = gridColumnPreference === 5 ? 5 : 4
   const {
     shouldShow: shouldShowGridContextHint,
     markSeen: markGridContextHintSeen,
@@ -337,6 +353,11 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
   const closeGridMenu = useCallback(() => {
     setGridMenuPosition(null)
   }, [])
+  // Column toggle is disabled for Keep Uniques because the variant forces two columns.
+  const handleColumnToggle = useCallback(() => {
+    if (keepUniquesVariant) return
+    setColumns(storedColumnPreference === 5 ? 4 : 5)
+  }, [keepUniquesVariant, setColumns, storedColumnPreference])
   useContextMenuCloseOnOutsideRightClick({
     open: gridMenuOpen,
     onClose: closeGridMenu,
@@ -388,7 +409,8 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     }, RULES_TABLE_SCROLL_HINT_HIDE_MS)
     scheduleMeasureFirstVisibleRow()
   }, [scheduleMeasureFirstVisibleRow])
-  const preferredColumnCount = gridColumnPreference === 5 ? 5 : 4
+  // Keep Uniques enforces two columns so gear-combination cards stay legible.
+  const preferredColumnCount = keepUniquesVariant ? 2 : storedColumnPreference
   const {
     accordionSpacingPx,
     cardHeightPx,
@@ -539,9 +561,9 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
   const rowLookup = useMemo(() => {
     const map = new Map<number, TesterPreviewRow>()
     rows.forEach((row) => {
-      const rowId = Number(row.artifact?.id)
-      if (Number.isFinite(rowId)) {
-        map.set(rowId, row)
+      const artifactId = Number(row.artifact?.id)
+      if (Number.isFinite(artifactId)) {
+        map.set(artifactId, row)
       }
     })
     return map
@@ -614,6 +636,7 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     groups,
   ])
   if (rows.length === 0) {
+    // Highlight props bubble through the group tree so only the leaf cards need to know about Keep Uniques.
     return (
       <Box
         sx={{
@@ -649,7 +672,7 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
         onAnyContextMenu={handleGridHintSeen}
         substatColors={substatColors}
         useStatButtonColors={useStatButtonColors}
-        testerBuilding={testerBuilding}
+        suppressMatchDetails={suppressMatchDetails}
         gridColumnCount={gridColumnCount}
         showFirstMatchRow={showFirstMatch}
         showOtherMatchesRow={showOtherMatches}
@@ -657,6 +680,8 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
         cardHeightPx={cardHeightPx}
         configNames={configNames}
         onJumpToRule={onJumpToRule}
+        highlightedRowPredicate={highlightRowPredicate}
+        dimUnhighlightedRows={shouldDimUnhighlightedRows}
         childContent={group.children?.length ? group.children.map((child) => renderGroup(child, depth + 1)) : undefined}
         depth={depth}
       />
@@ -804,16 +829,21 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
           </Button>
         </MenuItem>
         <Divider sx={{ my: 0.5 }} />
-        <MenuItem sx={{ gap: 1, alignItems: 'center' }} onClick={() => setColumns(preferredColumnCount === 5 ? 4 : 5)}>
+        <MenuItem
+          sx={{ gap: 1, alignItems: 'center' }}
+          onClick={handleColumnToggle}
+          disabled={keepUniquesVariant}
+        >
           <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>{t('rulesMenuGridColumns')}</Typography>
           <Button
             size="small"
             variant="contained"
             color="success"
+            disabled={keepUniquesVariant}
             sx={{ minWidth: MENU_CONTROL_MIN_WIDTH_PX, height: MENU_CONTROL_HEIGHT_PX, minHeight: MENU_CONTROL_HEIGHT_PX, lineHeight: 1, py: 0 }}
             onClick={(event) => {
               event.stopPropagation()
-              setColumns(preferredColumnCount === 5 ? 4 : 5)
+              handleColumnToggle()
             }}
           >
             {t('rulesMenuGridColumnsValue', { count: preferredColumnCount })}
@@ -883,7 +913,7 @@ type TesterItemsGridGroupProps = {
   onAnyContextMenu?: () => void
   substatColors: Record<number, { fg: string; bg: string }>
   useStatButtonColors: boolean
-  testerBuilding: boolean
+  suppressMatchDetails: boolean
   gridColumnCount: number
   showFirstMatchRow: boolean
   showOtherMatchesRow: boolean
@@ -893,6 +923,9 @@ type TesterItemsGridGroupProps = {
   onJumpToRule?: ((ruleIndex: number, cfgIdx: number | null) => void) | undefined
   childContent?: React.ReactNode
   depth?: number
+  // Highlight predicate trickles down so nested accordions stay presentation-only.
+  highlightedRowPredicate?: ((row: TesterPreviewRow) => boolean) | null
+  dimUnhighlightedRows?: boolean
 }
 
 const TesterItemsGridGroup = React.memo(function TesterItemsGridGroup({
@@ -904,7 +937,7 @@ const TesterItemsGridGroup = React.memo(function TesterItemsGridGroup({
   onAnyContextMenu,
   substatColors,
   useStatButtonColors,
-  testerBuilding,
+  suppressMatchDetails,
   gridColumnCount,
   showFirstMatchRow,
   showOtherMatchesRow,
@@ -914,6 +947,8 @@ const TesterItemsGridGroup = React.memo(function TesterItemsGridGroup({
   onJumpToRule,
   childContent,
   depth = 0,
+  highlightedRowPredicate = null,
+  dimUnhighlightedRows = false,
 }: TesterItemsGridGroupProps) {
   const hasChildren = Boolean(childContent)
   const nested = depth > 0
@@ -1030,7 +1065,7 @@ const TesterItemsGridGroup = React.memo(function TesterItemsGridGroup({
                   row={row}
                   substatColors={substatColors}
                   useStatButtonColors={useStatButtonColors}
-                  testerBuilding={testerBuilding}
+                  suppressMatchDetails={suppressMatchDetails}
                   showFirstMatchRow={showFirstMatchRow}
                   showOtherMatchesRow={showOtherMatchesRow}
                   showChampionIcons={showChampionIcons}
@@ -1038,6 +1073,8 @@ const TesterItemsGridGroup = React.memo(function TesterItemsGridGroup({
                   gridColumnCount={gridColumnCount}
                   configNames={configNames}
                   onJumpToRule={onJumpToRule}
+                  highlightedRowPredicate={highlightedRowPredicate}
+                  dimUnhighlightedRows={dimUnhighlightedRows}
                 />
               ))}
             </Box>
@@ -1052,7 +1089,7 @@ const TesterGridCard = React.memo(function TesterGridCard({
   row,
   substatColors,
   useStatButtonColors,
-  testerBuilding,
+  suppressMatchDetails,
   showFirstMatchRow,
   showOtherMatchesRow,
   showChampionIcons,
@@ -1060,11 +1097,13 @@ const TesterGridCard = React.memo(function TesterGridCard({
   gridColumnCount,
   configNames,
   onJumpToRule,
+  highlightedRowPredicate = null,
+  dimUnhighlightedRows = false,
 }: {
   row: TesterPreviewRow
   substatColors: Record<number, { fg: string; bg: string }>
   useStatButtonColors: boolean
-  testerBuilding: boolean
+  suppressMatchDetails: boolean
   showFirstMatchRow: boolean
   showOtherMatchesRow: boolean
   showChampionIcons: boolean
@@ -1072,7 +1111,13 @@ const TesterGridCard = React.memo(function TesterGridCard({
   gridColumnCount: number
   configNames: Array<string | null>
   onJumpToRule?: ((ruleIndex: number, cfgIdx: number | null) => void) | undefined
+  highlightedRowPredicate?: ((row: TesterPreviewRow) => boolean) | null
+  dimUnhighlightedRows?: boolean
 }) {
+  // Highlight state lets Keep Uniques call attention to the at-risk combinations without mutating the dataset.
+  const highlightFn = typeof highlightedRowPredicate === 'function' ? highlightedRowPredicate : null
+  const cardHighlighted = highlightFn ? Boolean(highlightFn(row)) : false
+  const cardDimmed = Boolean(highlightFn && dimUnhighlightedRows && !cardHighlighted)
   const { t } = useI18n()
   const theme = useTheme()
   const artifact = row.artifact
@@ -1259,9 +1304,17 @@ const TesterGridCard = React.memo(function TesterGridCard({
     cfgIdx: idx as number,
     label: formatConfigLabel(idx as number, configNames, t),
   }))
-  const shouldShowPrimaryMatchRow = !testerBuilding && showFirstMatchRow
+  const shouldShowPrimaryMatchRow = !suppressMatchDetails && showFirstMatchRow
+  const hasMatchingConfigs = matchingEntries.length > 0
   const otherMatchingEntries = matchingEntries.slice(1)
-  const shouldShowOtherMatchesRow = !testerBuilding && showOtherMatchesRow && otherMatchingEntries.length > 0
+  const shouldShowOtherMatchesRow = !suppressMatchDetails && showOtherMatchesRow && otherMatchingEntries.length > 0
+  type PrimaryMatchRowState = 'hidden' | 'match' | 'pending' | 'no-match'
+  const primaryMatchRowState: PrimaryMatchRowState = (() => {
+    if (!shouldShowPrimaryMatchRow) return 'hidden'
+    if (match) return 'match'
+    return hasMatchingConfigs ? 'pending' : 'no-match'
+  })()
+  const shouldRenderNoMatchChip = primaryMatchRowState === 'no-match'
   const totalOtherMatches = otherMatchingEntries.length
   const otherMatchingEntriesSignature = useMemo(
     () => otherMatchingEntries.map((entry) => `${entry.cfgIdx}:${entry.label}`).join('|'),
@@ -1467,7 +1520,7 @@ const TesterGridCard = React.memo(function TesterGridCard({
     () => getTesterGridCardColumnHeights(theme, gridColumnCount),
     [theme, gridColumnCount],
   )
-  const cardOutcome = !testerBuilding && match
+  const cardOutcome = !suppressMatchDetails && match
     ? {
         tone: match.keep === false ? theme.palette.error.main : theme.palette.success.main,
         glyph: match.keep === false ? <SellIcon fontSize="inherit" aria-hidden /> : '✓',
@@ -1488,6 +1541,7 @@ const TesterGridCard = React.memo(function TesterGridCard({
   const cardHeightStyle = `${cardHeightPx}px`
   const matchRowHeight = `${CARD_MATCH_ROW_HEIGHT_PX}px`
 
+  // Cards tint when highlighted so Keep Uniques can spotlight the matching combinations.
   return (
     <Box
       data-tester-grid-card="true"
@@ -1498,7 +1552,7 @@ const TesterGridCard = React.memo(function TesterGridCard({
         columnGap: theme.spacing(CARD_COLUMN_GAP_UNITS),
         p: theme.spacing(CARD_PADDING_UNITS),
         borderRadius: `${CARD_BORDER_RADIUS_PX}px`,
-        border: `1px solid ${theme.palette.divider}`,
+        border: `1px solid ${cardHighlighted ? theme.palette.info.light : theme.palette.divider}`,
         bgcolor: theme.palette.background.paper,
         minHeight: cardHeightStyle,
         height: cardHeightStyle,
@@ -1506,6 +1560,9 @@ const TesterGridCard = React.memo(function TesterGridCard({
         boxSizing: 'border-box',
         overflow: 'hidden',
         alignContent: 'start',
+        boxShadow: cardHighlighted ? `0 0 0 1px ${alpha(theme.palette.info.main, 0.3)}` : 'none',
+        opacity: cardDimmed ? 0.35 : 1,
+        transition: 'opacity 120ms ease, border-color 120ms ease, box-shadow 120ms ease',
       })}
     >
       <Box
@@ -1726,9 +1783,9 @@ const TesterGridCard = React.memo(function TesterGridCard({
               {...(onJumpToRule ? { onJump: onJumpToRule } : {})}
               sx={{ width: '100%' }}
             />
-          ) : (
+          ) : shouldRenderNoMatchChip ? (
             <Chip size="small" color="success" variant="filled" label={t('testerNoMatch')} />
-          )}
+          ) : null}
         </Box>
       ) : null}
       {shouldShowOtherMatchesRow ? (

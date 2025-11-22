@@ -81,7 +81,7 @@ Numbers that drive layout, sizing, timing, etc. must live in a single shared con
 
 - No duplication of logic or data. Centralize and import instead of re-encoding knowledge in multiple files.
 - Domain catalogs, enums, and formatting live in `src/lib/types.ts` (artifact sets/types, rarity/rank/faction, `StatVariant`, and slot constraints). Consumers must use these exports and not redefine them.
-- HSF schema and tuple converters live in `src/lib/hsfTypes.ts`. App code should use `StatVariant` and helpers rather than rolling custom `{ id, flat }` handling.
+- HSF schema and stat converters live in `src/lib/hsfTypes.ts`. App code should use `StatVariant` and helpers rather than rolling custom `{ id, flat }` handling.
 - UI/app constants (storage keys, sizes, timing, tooltip keywords, typography scale) live in `src/lib/constants.ts`.
   - Font tiers: display heading (32px) for the hero, base text (15px) for content, secondary text (12px) for chips/controls, 10px badges, and markdown explicitly pinned to 16px.
   - All small buttons share the 15px base font via the theme override and `SMALL_BUTTON_HEIGHT_PX` (28px) so identical controls stay visually aligned across locales.
@@ -102,7 +102,7 @@ Numbers that drive layout, sizing, timing, etc. must live in a single shared con
 
 ### Type Safety & Linting
 
-- Domain types first: use the exported enums and opaque types (`StatVariant`, `RankCode`, `RarityCode`, `Faction`, etc.) instead of bare `string`/`number`. Only convert to legacy `{ id, flat }` tuples or raw codes at IO boundaries, and keep those conversions documented alongside the boundary helpers.
+- Domain types first: use the exported enums and opaque types (`StatVariant`, `RankCode`, `RarityCode`, `Faction`, etc.) instead of bare `string`/`number`. Only convert to legacy `{ id, flat }` payloads or raw codes at IO boundaries, and keep those conversions documented alongside the boundary helpers.
 - Prefer discriminated unions or branded wrappers over ad-hoc flags when widening functionality; this keeps the TypeScript compiler enforcing intent for future refactors.
 - TypeScript compiler (see `tsconfig.json`):
   - `strict: true`, `alwaysStrict: true`

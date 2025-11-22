@@ -173,7 +173,7 @@ test('filterTesterItems filters by tester Keep/Sell result', () => {
   assert.equal(sellMatches.items[0]?.match?.keep, false)
 })
 
-test('filterTesterItems filters by matched vs unmatched tester rows', () => {
+test('filterTesterItems filters by matched vs unmatched tester items', () => {
   const rows: TesterFilterRow[] = [
     { artifact: makeArtifact(), match: { keep: true, cfgIdx: 0 } },
     { artifact: makeArtifact({ set: ArtifactSet.Life }), match: null },

@@ -11,12 +11,15 @@ import {
   type DescribeNextChangeFn,
   type HistoryTimelineEntry,
 } from './useHsfcHistory'
+import type { KeepUniqueRule } from '../lib/keepUniques'
 
 type Params = {
   customCfgs: BuilderConfig[]
   metasets: Metaset[]
   substatTargets: SubstatTargetTable
   finalSellRemainder: FinalSellRemainderConfig
+  keepUniqueRules: KeepUniqueRule[]
+  keepUniquesEnabled: boolean
   hsfcNote: string | null
   selectedCfgIdx: number | null
   selectedCfgIndices: number[]
@@ -29,6 +32,8 @@ type Params = {
   setMetasets: (value: SetStateAction<Metaset[]>) => void
   setSubstatTargets: (value: SetStateAction<SubstatTargetTable>) => void
   setFinalSellRemainder: (value: SetStateAction<FinalSellRemainderConfig>) => void
+  setKeepUniqueRules: (value: SetStateAction<KeepUniqueRule[]>) => void
+  setKeepUniquesEnabled: (value: SetStateAction<boolean>) => void
   setHsfcNote: (value: SetStateAction<string | null>) => void
   setSelectedCfgIdx: (value: SetStateAction<number | null>) => void
   setSelectedCfgIndices: (value: number[]) => void
@@ -60,11 +65,13 @@ type ControllerResult = {
 
 export function useHsfcHistoryController(params: Params): ControllerResult {
   const {
-    customCfgs,
-    metasets,
-    substatTargets,
-    finalSellRemainder,
-    hsfcNote,
+  customCfgs,
+  metasets,
+  substatTargets,
+  finalSellRemainder,
+  keepUniqueRules,
+  keepUniquesEnabled,
+  hsfcNote,
     selectedCfgIdx,
     selectedCfgIndices,
     selectionAnchor,
@@ -75,7 +82,9 @@ export function useHsfcHistoryController(params: Params): ControllerResult {
     setCustomCfgs,
     setMetasets,
     setSubstatTargets,
-    setFinalSellRemainder,
+  setFinalSellRemainder,
+  setKeepUniqueRules,
+  setKeepUniquesEnabled,
     setHsfcNote,
     setSelectedCfgIdx,
     setSelectedCfgIndices,
@@ -101,6 +110,8 @@ export function useHsfcHistoryController(params: Params): ControllerResult {
       metasets,
       substatTargets,
       finalSellRemainder,
+      keepUniqueRules,
+      keepUniquesEnabled,
       note: hsfcNote ?? null,
       selectedCfgIdx: selectedIdx,
       selectedCfgIndices,
@@ -116,6 +127,8 @@ export function useHsfcHistoryController(params: Params): ControllerResult {
       metasets,
       substatTargets,
       finalSellRemainder,
+      keepUniqueRules,
+      keepUniquesEnabled,
       note: hsfcNote ?? null,
     })
     return { payloadTemplate, signature }
@@ -130,6 +143,8 @@ export function useHsfcHistoryController(params: Params): ControllerResult {
     safeSelectedIndex,
     selectedCfgIndices,
     selectionAnchor,
+    keepUniqueRules,
+    keepUniquesEnabled,
   ])
 
   const historyStrings = useMemo(() => {
@@ -151,6 +166,8 @@ export function useHsfcHistoryController(params: Params): ControllerResult {
     setMetasets(snap.metasets)
     setSubstatTargets(snap.substatTargets)
     setFinalSellRemainder(snap.finalSellRemainder)
+    setKeepUniqueRules(snap.keepUniqueRules)
+    setKeepUniquesEnabled(Boolean(snap.keepUniquesEnabled))
     setHsfcNote(snap.note)
     const len = snap.customCfgs.length
     let restoredIdx: number | null = null
@@ -184,7 +201,23 @@ export function useHsfcHistoryController(params: Params): ControllerResult {
     setBuilderNameDraftKey(hasNameDraft ? snap.builderNameDraftKey ?? null : null)
     setBuilderNameDraft(hasNameDraft && typeof snap.builderNameDraft === 'string' ? snap.builderNameDraft : '')
     setMultiEditDraft(snap.multiEditDraft ?? null)
-  }, [setBuilder, setBuilderNameDraft, setBuilderNameDraftKey, setCustomCfgs, setFinalSellRemainder, setHsfcNote, setMetasets, setSubstatTargets, setMultiEditDraft, setSelectedCfgIdx, setSelectedCfgIndices, setSelectionAnchor, suppressSelectionDraft])
+  }, [
+    setBuilder,
+    setBuilderNameDraft,
+    setBuilderNameDraftKey,
+    setCustomCfgs,
+    setFinalSellRemainder,
+    setHsfcNote,
+    setMetasets,
+    setSubstatTargets,
+    setMultiEditDraft,
+    setSelectedCfgIdx,
+    setSelectedCfgIndices,
+    setSelectionAnchor,
+    setKeepUniqueRules,
+    setKeepUniquesEnabled,
+    suppressSelectionDraft,
+  ])
 
   const {
     undo,

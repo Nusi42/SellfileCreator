@@ -34,6 +34,14 @@ This document covers file schemas, builder semantics, and compatibility notes.
 - Final Sell (remainder) rules: when enabled (at least one gear type and at least one level selected), the merge appends Sell rules for every entry in `LEVEL_MILESTONES` (0/4/8/12/16). Milestones not selected in the UI are emitted as disabled (`Use: false`) instead of being omitted. In **Explicit** mode the rules list every currently known set in `ArtifactSet` so new game sets stay protected; in **Any** mode the `ArtifactSet` field is omitted so every present and future set matches. The alternate coverage mode (the option not selected in the dialog) is also emitted with `Use: false` so exports make the operator’s intent explicit.
   - Preview rows use ellipsis tooltips so the shorthand remains accessible even when truncated inside the table cell.
 
+#### Keep Uniques payload
+
+- HSFC payloads also carry `KeepUniques?: KeepUniqueRule[]` plus `KeepUniquesEnabled?: boolean`. Autosave/clipboard/history reuse the same fields; omitting either key is treated as “off” with an empty gear-combination list.
+- Each rule entry serializes `{ id, requiredCount, enabled, combination }` (persisted as `tuple` in HSFC). Combinations are normalized via `normalizeKeepUniqueCombination`: `slot`, `set`, `rank`, `rarity`, `mainStats`, and optional `factionId` (accessory-only). `mainStats` stores the selected stat variants (empty array = Any). Invalid combos are discarded during parsing so corrupted HSFC files never reach the UI.
+- Importers clamp `rank`/`rarity` to `1..6`, coerce non-numeric stats to `StatVariant.Any`, and drop accessory factions whenever the combination refers to an armor slot. IDs fall back to regenerated `ku_<timestamp>_<rand>` values when blanks arrive from external files.
+- Exporters write the combinations exactly as stored in app state. Detection snapshots (`keepUniqueDetection`) are runtime-only and never serialized; they rebuild automatically once the tester items stabilize.
+- Downstream merge helpers label every emitted keep rule with `RULE_SOURCE_KEEP_UNIQUES` and `KEEP_UNIQUES_CFG_SENTINEL` so the Sellfile table, HSFC/HSF outputs, and downstream debuggers can pinpoint which keep rules were auto-generated from these combinations.
+
 ### IO Helpers (HSFC)
 - Parse text/file: `parseHsfcText`, `readHsfcFile`.
 - Build & write: `buildReadableConfig`, `substatTargetsToReadable`, `buildHsfcPayload`, `hsfcToBlob`.
