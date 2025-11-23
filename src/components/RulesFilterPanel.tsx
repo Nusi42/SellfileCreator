@@ -32,7 +32,7 @@ import {
   STAT_VARIANTS_PRIORITY_ROW2,
   DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT,
 } from '../lib/types'
-import { LIST_SUBHEADER_SX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, SETS_MENU_WIDTH_PX, FILTER_FACTION_SELECT_WIDTH_PX, FILTER_SETS_SELECT_WIDTH_PX, FILTER_CHIP_TOP_MARGIN, ELLIPSIS_TEXT_SX, FILTER_TOGGLE_BUTTON_WIDTH_PX, SMALL_BUTTON_HEIGHT_PX, BUILDER_STATUS_CHIP_HEIGHT_PX, UI_BG_HOVER_DANGER_TRANSITION, DANGER_TINT_BG, SETS_SELECT_INLINE_GUTTER_PX, STATUS_CHIP_BORDER_RADIUS_PX, FONT_SIZE_BASE_PX, SETS_SELECT_CLEAR_BUTTON_RIGHT_PX, CLEAR_ICON_BUTTON_SIZE_PX, GLYPH_TOGGLE_ON, GLYPH_TOGGLE_OFF, GLYPH_GLYPHS_SELECTED, ROLL_BADGE_SIZE_PX, ROLL_BADGE_SCALE, ROLL_BADGE_HOVER_GUTTER_PX } from '../lib/constants'
+import { LIST_SUBHEADER_SX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, SETS_MENU_WIDTH_PX, FILTER_FACTION_SELECT_WIDTH_PX, FILTER_SETS_SELECT_WIDTH_PX, FILTER_CHIP_TOP_MARGIN, ELLIPSIS_TEXT_SX, FILTER_TOGGLE_BUTTON_WIDTH_PX, SMALL_BUTTON_HEIGHT_PX, BUILDER_STATUS_CHIP_HEIGHT_PX, UI_BG_HOVER_DANGER_TRANSITION, DANGER_TINT_BG, SETS_SELECT_INLINE_GUTTER_COLLAPSED_PX, SETS_SELECT_INLINE_GUTTER_PX, STATUS_CHIP_BORDER_RADIUS_PX, FONT_SIZE_BASE_PX, SETS_SELECT_CLEAR_BUTTON_RIGHT_PX, CLEAR_ICON_BUTTON_SIZE_PX, GLYPH_TOGGLE_ON, GLYPH_TOGGLE_OFF, GLYPH_GLYPHS_SELECTED, ROLL_BADGE_SIZE_PX, ROLL_BADGE_SCALE, ROLL_BADGE_HOVER_GUTTER_PX } from '../lib/constants'
 import { metasetGlyph, orderMetasetIds, type Metaset } from '../lib/metasets'
 import React from 'react'
 import { alpha, useTheme } from '@mui/material/styles'
@@ -868,8 +868,14 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
   const testerAscStats = state.testerAscension?.stats ?? []
   const championSelection = state.testerChampions?.selected ?? []
   const extraChampionCount = Math.max(0, championSelection.length - 1)
+  const championInlinePaddingPx = championSelection.length > 0
+    ? SETS_SELECT_INLINE_GUTTER_PX
+    : SETS_SELECT_INLINE_GUTTER_COLLAPSED_PX
   const factionSelection = state.faction.selected ?? []
   const extraFactionCount = Math.max(0, factionSelection.length - 1)
+  const factionInlinePaddingPx = factionSelection.length > 0
+    ? SETS_SELECT_INLINE_GUTTER_PX
+    : SETS_SELECT_INLINE_GUTTER_COLLAPSED_PX
   const showChampionFilter = isTesterMode && (testerChampionOptions?.length ?? 0) > 0
   const [championSearch, setChampionSearch] = React.useState('')
   const normalizedChampionSearch = championSearch.trim()
@@ -1341,6 +1347,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
               const sorted = filterAndSortSetEntries(setsSearch, setsOrder, { translate: t })
               const metasetsMenu = visibleMetasets
               const hasAnySelection = selectedSetTokens.length > 0
+              const inlinePaddingPx = hasAnySelection ? SETS_SELECT_INLINE_GUTTER_PX : SETS_SELECT_INLINE_GUTTER_COLLAPSED_PX
               const handleClearSets = () => {
                 setHoveredSetMetaId(null)
                 onChange({ ...state, sets: { ...state.sets, selected: [], metaSelected: [] } })
@@ -1425,7 +1432,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                       width: '100%',
                       minWidth: 0,
                       cursor: 'pointer',
-                      pr: `${SETS_SELECT_INLINE_GUTTER_PX}px`,
+                      pr: `${inlinePaddingPx}px`,
                       '& .MuiSelect-select': {
                         overflow: 'hidden',
                         textOverflow: 'ellipsis',
@@ -1592,6 +1599,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                     if (!root) return null
                     return root.querySelector('[role="combobox"]') as HTMLElement | null
                   }}
+                  widthPx={hasAnySelection ? undefined : SETS_SELECT_INLINE_GUTTER_COLLAPSED_PX}
                 />
               </Box>
             )
@@ -1739,7 +1747,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                                 alignItems: 'center',
                                 gap: 0.5,
                                 width: '100%',
-                                pr: `${SETS_SELECT_INLINE_GUTTER_PX}px`,
+                                pr: `${championInlinePaddingPx}px`,
                               }}
                             >
                               <Typography variant="body2" sx={[ELLIPSIS_TEXT_SX, { flex: '1 1 auto' }]}>
@@ -1778,7 +1786,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                             flexWrap: 'nowrap',
                             paddingTop: 0,
                             paddingBottom: 0,
-                            paddingRight: `${SETS_SELECT_INLINE_GUTTER_PX}px`,
+                            paddingRight: `${championInlinePaddingPx}px`,
                             maxWidth: '100%',
                             cursor: 'pointer',
                           },
@@ -2255,7 +2263,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                                 gap: 0.5,
                                 minWidth: 0,
                                 width: '100%',
-                                pr: `${SETS_SELECT_INLINE_GUTTER_PX}px`,
+                                pr: `${factionInlinePaddingPx}px`,
                               }}
                             >
                               <Box
@@ -2292,7 +2300,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                           flexWrap: 'nowrap',
                           paddingTop: 0,
                           paddingBottom: 0,
-                          paddingRight: `${SETS_SELECT_INLINE_GUTTER_PX}px`,
+                          paddingRight: `${factionInlinePaddingPx}px`,
                           maxWidth: '100%',
                           cursor: 'pointer',
                         },

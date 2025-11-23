@@ -255,10 +255,15 @@ export const SETS_ORDER_TOGGLE_SIZE_PX = 28
 export const SETS_ORDER_KEY = 'sellfileCreator.setsOrder.v1'
 // Inline controls for the gear-sets Select. Reserve enough space inside the
 // input so the dropdown icon and the inline clear button never overlap.
-export const SETS_SELECT_INLINE_GUTTER_PX = 72
-export const SETS_SELECT_CLEAR_BUTTON_RIGHT_PX = 40
+const SETS_SELECT_ICON_TEXT_GAP_PX = 4
+const SETS_SELECT_CLEAR_BUTTON_GAP_PX = 4
+export const SETS_SELECT_DROPDOWN_ICON_HITBOX_PX = 32
+export const SETS_SELECT_CLEAR_BUTTON_RIGHT_PX = SETS_SELECT_DROPDOWN_ICON_HITBOX_PX + SETS_SELECT_CLEAR_BUTTON_GAP_PX
 export const SETS_SELECT_CLEAR_BUTTON_SIZE_PX = SMALL_BUTTON_HEIGHT_PX
-export const SETS_SELECT_DROPDOWN_ICON_HITBOX_PX = SETS_SELECT_CLEAR_BUTTON_RIGHT_PX - 8
+export const SETS_SELECT_INLINE_GUTTER_PX = SETS_SELECT_CLEAR_BUTTON_SIZE_PX + SETS_SELECT_CLEAR_BUTTON_RIGHT_PX
+// Collapsed gutter used whenever the inline clear affordance is hidden. Matches the
+// dropdown icon hitbox so the empty space still opens the Select menu.
+export const SETS_SELECT_INLINE_GUTTER_COLLAPSED_PX = SETS_SELECT_DROPDOWN_ICON_HITBOX_PX + SETS_SELECT_ICON_TEXT_GAP_PX
 
 
 // Shared style for MUI ListSubheader inside menus

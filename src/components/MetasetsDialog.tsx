@@ -20,7 +20,7 @@ import InlineSelectClearButton from './InlineSelectClearButton'
 import SelectDropdownActivator from './SelectDropdownActivator'
 // MarkdownTooltip keeps the move/visibility/usage hints aligned with the rest of the tooltip cleanup.
 import MarkdownTooltip from './MarkdownTooltip'
-import { MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, MENU_MAX_HEIGHT_EXTRA_BUFFER, SETS_MENU_WIDTH_PX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, BUILDER_TOGGLE_BUTTON_HEIGHT_PX, SETS_SELECT_INLINE_GUTTER_PX, SMALL_BUTTON_HEIGHT_PX, METASETS_DIALOG_LIST_HEIGHT_PX } from '../lib/constants'
+import { MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, MENU_MAX_HEIGHT_EXTRA_BUFFER, SETS_MENU_WIDTH_PX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, BUILDER_TOGGLE_BUTTON_HEIGHT_PX, SETS_SELECT_INLINE_GUTTER_COLLAPSED_PX, SETS_SELECT_INLINE_GUTTER_PX, SMALL_BUTTON_HEIGHT_PX, METASETS_DIALOG_LIST_HEIGHT_PX } from '../lib/constants'
 import type { HistoryEntryDescriptor, DescribeNextChangeFn } from '../hooks/useHsfcHistory'
 import { describeMetasetAdded, describeMetasetDeleted, describeMetasetIconChanged, describeMetasetRenamed, describeMetasetSetsChanged, describeMetasetVisibilityChanged } from '../history/metasetDescriptors'
 
@@ -479,6 +479,8 @@ export default function MetasetsDialog({
             <Stack spacing={1}>
               {metasets.map((m, idx) => {
                 const iconId = (m.iconId ?? DEFAULT_METASET_ICON_ID) as MetasetIconId
+                const hasSelectedSets = (m.sets?.length ?? 0) > 0
+                const inlinePaddingPx = hasSelectedSets ? SETS_SELECT_INLINE_GUTTER_PX : SETS_SELECT_INLINE_GUTTER_COLLAPSED_PX
                 return (
                 <Box
                   key={m.id}
@@ -670,7 +672,7 @@ export default function MetasetsDialog({
                         sx={{
                           minWidth: 0,
                           cursor: 'pointer',
-                          pr: `${SETS_SELECT_INLINE_GUTTER_PX}px`,
+                          pr: `${inlinePaddingPx}px`,
                           '& .MuiSelect-select': {
                             overflow: 'hidden',
                             textOverflow: 'ellipsis',
@@ -762,7 +764,7 @@ export default function MetasetsDialog({
                         })()}
                       </Select>
                       <InlineSelectClearButton
-                        disabled={m.sets.length === 0}
+                        disabled={!hasSelectedSets}
                         label={t('clear')}
                         onClear={() => setConfirmClearMetaId(m.id)}
                       />
@@ -772,6 +774,7 @@ export default function MetasetsDialog({
                           if (!root) return null
                           return root.querySelector('[role="combobox"]') as HTMLElement | null
                         }}
+                        widthPx={hasSelectedSets ? undefined : SETS_SELECT_INLINE_GUTTER_COLLAPSED_PX}
                       />
                     </Box>
                   </EllipsisTooltip>
