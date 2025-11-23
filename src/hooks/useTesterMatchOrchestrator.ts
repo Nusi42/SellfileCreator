@@ -45,6 +45,9 @@ export const fingerprintKeepUniqueDetection = (
     parts.push([
       entry.ruleId ?? '',
       entry.ruleEnabled ? 1 : 0,
+      entry.countMode,
+      entry.groupsTracked,
+      entry.perGroupRequiredCount,
       entry.requiredCount,
       entry.currentCount,
       entry.projectedCount,

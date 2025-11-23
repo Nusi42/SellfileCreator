@@ -164,7 +164,14 @@ export default function KeepUniquesTab({
 
   const handleAddRule = useCallback(() => {
     const combination = makeDefaultKeepUniqueCombination()
-    const newRule: KeepUniqueRule = { id: createKeepUniqueRuleId(), combination, requiredCount: 1, enabled: true }
+    // Default new rules to per-rule counting so they match legacy behavior until toggled.
+    const newRule: KeepUniqueRule = {
+      id: createKeepUniqueRuleId(),
+      combination,
+      requiredCount: 1,
+      enabled: true,
+      countMode: 'perRule',
+    }
     onRulesChange((prev) => [...prev, newRule])
     setSelectedRuleId(newRule.id)
     setRespectManualDeselect(false)
@@ -301,6 +308,11 @@ export default function KeepUniquesTab({
         {deleteButton}
       </Box>
     )
+    const perCombinationMode = rule.countMode === 'perCombination'
+    // Extend the counts chip with a suffix that explains how the totals were derived.
+    const detectionScopeSuffix = (ruleDetection && ruleDetection.countMode === 'perCombination' && ruleDetection.groupsTracked > 0)
+      ? t('keepUniquesRuleCountsPerComboSuffix', { perGroup: ruleDetection.perGroupRequiredCount, groups: ruleDetection.groupsTracked })
+      : ''
     return (
       <Box
         key={rule.id}
@@ -317,6 +329,19 @@ export default function KeepUniquesTab({
       >
         <Stack spacing={1.5}>
           <Box sx={{ height: 4 }} />
+          <Box sx={{ display: 'flex', justifyContent: 'flex-start' }}>
+            <Box component="span" data-rule-card-interactive="true">
+              <FormControlLabel
+                control={(
+                  <Switch
+                    checked={rule.enabled}
+                    onChange={(_event, checked) => updateRule(rule.id, (prev) => ({ ...prev, enabled: checked }))}
+                  />
+                )}
+                label={t('keepUniquesRuleEnabledToggle')}
+              />
+            </Box>
+          </Box>
           <Stack spacing={1}>
             <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 1 }}>
               <GearSlotSelect
@@ -429,22 +454,25 @@ export default function KeepUniquesTab({
                   step: 1,
                 }}
               />
-              <Typography
-                variant="caption"
-                color="text.secondary"
-                sx={{ mt: -1, display: 'block' }}
-              >
-                {t('keepUniquesRequiredCountHint')}
-              </Typography>
-              <FormControlLabel
-                control={(
-                  <Switch
-                    checked={rule.enabled}
-                    onChange={(_event, checked) => updateRule(rule.id, (prev) => ({ ...prev, enabled: checked }))}
-                  />
-                )}
-                label={t('keepUniquesRuleEnabledToggle')}
-              />
+              <Box sx={{ gridColumn: 'span 2', display: 'flex', flexDirection: 'column', gap: 0.25 }}>
+                {/* Count-mode toggle keeps the quota scope explicit per rule; wrap with tooltip for the hint copy. */}
+                <MarkdownTooltip markdown={t('keepUniquesCountModeHint')}>
+                  <Box component="span" data-rule-card-interactive="true" sx={{ display: 'inline-flex' }}>
+                    <FormControlLabel
+                      control={(
+                        <Switch
+                          checked={perCombinationMode}
+                          onChange={(_event, checked) => updateRule(rule.id, (prev) => ({
+                            ...prev,
+                            countMode: checked ? 'perCombination' : 'perRule',
+                          }))}
+                        />
+                      )}
+                      label={t('keepUniquesCountModeToggleLabel')}
+                    />
+                  </Box>
+                </MarkdownTooltip>
+              </Box>
             </Box>
             {ruleDetection ? (
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -460,6 +488,7 @@ export default function KeepUniquesTab({
                       keep: ruleDetection.requiredCount,
                       projected: ruleDetection.projectedCount,
                     })}
+                    {detectionScopeSuffix}
                   </Typography>
                 </MarkdownTooltip>
                 {actionButtons}
