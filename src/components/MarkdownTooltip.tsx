@@ -13,6 +13,7 @@ import {
   MARKDOWN_TOOLTIP_ENTER_DELAY_MS,
   MARKDOWN_TOOLTIP_MAX_WIDTH_PX,
 } from '../lib/constants'
+import { hasEllipsisOverflow, pickEllipsisTarget } from '../lib/ellipsis'
 
 /**
  * MarkdownTooltip
@@ -27,6 +28,10 @@ export interface MarkdownTooltipProps extends Omit<TooltipProps, 'title'> {
   // Optional JSX renderer for rich/structured content (builder diff previews, set descriptions, etc.).
   render?: React.ReactNode | (() => React.ReactNode)
   maxWidth?: number
+  // Optional label exposed via a native title attribute when the trigger text is ellipsized.
+  ellipsisTitle?: string
+  // Optional selector for the node that owns the ellipsis styles (defaults to `[data-ellipsis-target]`).
+  ellipsisSelector?: string
 }
 
 type MarkdownSegment =
@@ -182,6 +187,8 @@ export function MarkdownTooltip({
   enterDelay,
   placement,
   disableFocusListener = true,
+  ellipsisTitle,
+  ellipsisSelector,
   children,
   ...tooltipProps
 }: MarkdownTooltipProps) {
@@ -229,8 +236,41 @@ export function MarkdownTooltip({
     ? (children as React.ReactElement & { ref?: React.Ref<Element> }).ref ?? null
     : null
   const mergedChildRef = useForkRef(childRef, anchorCallback)
+  const ellipsisEnabled = typeof ellipsisTitle === 'string' && ellipsisTitle.trim() !== ''
+  const applyEllipsisTitle = useCallback((root?: HTMLElement | null) => {
+    if (!ellipsisEnabled || !root) return
+    const target = pickEllipsisTarget(root, ellipsisSelector)
+    if (hasEllipsisOverflow(target)) {
+      target.setAttribute('title', ellipsisTitle)
+    } else {
+      target.removeAttribute('title')
+    }
+  }, [ellipsisEnabled, ellipsisSelector, ellipsisTitle])
+  const clearEllipsisTitle = useCallback((root?: HTMLElement | null) => {
+    if (!ellipsisEnabled || !root) return
+    const target = pickEllipsisTarget(root, ellipsisSelector)
+    target.removeAttribute('title')
+  }, [ellipsisEnabled, ellipsisSelector])
   const childWithRef = React.isValidElement(children)
-    ? React.cloneElement(children as React.ReactElement, { ref: mergedChildRef })
+    ? (() => {
+        const originalProps = (children as React.ReactElement).props ?? {}
+        const nextProps: Record<string, unknown> = { ref: mergedChildRef }
+        if (ellipsisEnabled) {
+          nextProps.onMouseEnter = (event: React.MouseEvent<HTMLElement>) => {
+            originalProps.onMouseEnter?.(event)
+            applyEllipsisTitle(event.currentTarget)
+          }
+          nextProps.onMouseLeave = (event: React.MouseEvent<HTMLElement>) => {
+            originalProps.onMouseLeave?.(event)
+            clearEllipsisTitle(event.currentTarget)
+          }
+          nextProps.onBlur = (event: React.FocusEvent<HTMLElement>) => {
+            originalProps.onBlur?.(event)
+            clearEllipsisTitle(event.currentTarget)
+          }
+        }
+        return React.cloneElement(children as React.ReactElement, nextProps)
+      })()
     : children
 
   // Poll every animation frame while open: once the trigger is gone or no longer hovered/focused we close.

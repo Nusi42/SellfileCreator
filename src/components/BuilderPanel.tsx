@@ -2276,6 +2276,7 @@ const maxLevelValue = multiEditActive
           {/* Keep the Action label glued to the toggle width so translations never wrap. */}
           <FormLabel sx={[BUILDER_LABEL_INLINE_SX, { mb: 0.5 }]}>
             <MarkdownTooltip
+              ellipsisTitle={t('builderAction')}
               render={(
                 <BuilderTooltipContent
                   text={[
@@ -2285,7 +2286,7 @@ const maxLevelValue = multiEditActive
                 />
               )}
             >
-              <Box component="span" sx={BUILDER_LABEL_TEXT_SX}>{t('builderAction')}</Box>
+              <Box component="span" data-ellipsis-target sx={BUILDER_LABEL_TEXT_SX}>{t('builderAction')}</Box>
             </MarkdownTooltip>
           </FormLabel>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
@@ -2552,6 +2553,7 @@ const maxLevelValue = multiEditActive
           {/* Rank label mirrors the select width and ellipsizes when German strings run long. */}
           <FormLabel sx={[BUILDER_LABEL_INLINE_SX, { mb: 0.5 }]}>
             <MarkdownTooltip
+              ellipsisTitle={t('builderRank')}
               render={(
                 <BuilderTooltipContent
                   text={[
@@ -2561,7 +2563,7 @@ const maxLevelValue = multiEditActive
                 />
               )}
             >
-              <Box component="span" sx={BUILDER_LABEL_TEXT_SX}>{t('builderRank')}</Box>
+              <Box component="span" data-ellipsis-target sx={BUILDER_LABEL_TEXT_SX}>{t('builderRank')}</Box>
             </MarkdownTooltip>
           </FormLabel>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
@@ -2625,6 +2627,7 @@ const maxLevelValue = multiEditActive
           {/* Rarity label uses the shared inline span so Auto/GTE text stays single-line. */}
           <FormLabel sx={[BUILDER_LABEL_INLINE_SX, { mb: 0.5 }]}>
             <MarkdownTooltip
+              ellipsisTitle={t('filterRarity')}
               render={(
                 <BuilderTooltipContent
                   text={[
@@ -2638,7 +2641,7 @@ const maxLevelValue = multiEditActive
                 />
               )}
             >
-              <Box component="span" sx={BUILDER_LABEL_TEXT_SX}>{t('filterRarity')}</Box>
+              <Box component="span" data-ellipsis-target sx={BUILDER_LABEL_TEXT_SX}>{t('filterRarity')}</Box>
             </MarkdownTooltip>
           </FormLabel>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
@@ -2736,6 +2739,7 @@ const maxLevelValue = multiEditActive
           {/* Faction label stays constrained to the Select width for DE translations. */}
           <FormLabel sx={[BUILDER_LABEL_INLINE_SX, { mb: 0.5 }]}>
             <MarkdownTooltip
+              ellipsisTitle={t('builderFaction')}
               render={(
                 <BuilderTooltipContent
                   text={[
@@ -2745,7 +2749,7 @@ const maxLevelValue = multiEditActive
                 />
               )}
             >
-              <Box component="span" sx={BUILDER_LABEL_TEXT_SX}>{t('builderFaction')}</Box>
+              <Box component="span" data-ellipsis-target sx={BUILDER_LABEL_TEXT_SX}>{t('builderFaction')}</Box>
             </MarkdownTooltip>
           </FormLabel>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
@@ -2840,6 +2844,7 @@ const maxLevelValue = multiEditActive
           {/* Min level header shares the ellipsis style with the toggle group. */}
           <FormLabel sx={[BUILDER_LABEL_INLINE_SX, { mb: 0.5 }]}>
             <MarkdownTooltip
+              ellipsisTitle={t('builderMinLevel')}
               render={(
                 <BuilderTooltipContent
                   text={[
@@ -2849,7 +2854,7 @@ const maxLevelValue = multiEditActive
                 />
               )}
             >
-              <Box component="span" sx={BUILDER_LABEL_TEXT_SX}>{t('builderMinLevel')}</Box>
+              <Box component="span" data-ellipsis-target sx={BUILDER_LABEL_TEXT_SX}>{t('builderMinLevel')}</Box>
             </MarkdownTooltip>
           </FormLabel>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
@@ -2911,6 +2916,7 @@ const maxLevelValue = multiEditActive
           {/* Max level header also clamps to the toggle button row to avoid wraps. */}
           <FormLabel sx={[BUILDER_LABEL_INLINE_SX, { mb: 0.5 }]}>
             <MarkdownTooltip
+              ellipsisTitle={t('builderMaxLevel')}
               render={(
                 <BuilderTooltipContent
                   text={[
@@ -2920,7 +2926,7 @@ const maxLevelValue = multiEditActive
                 />
               )}
             >
-              <Box component="span" sx={BUILDER_LABEL_TEXT_SX}>{t('builderMaxLevel')}</Box>
+              <Box component="span" data-ellipsis-target sx={BUILDER_LABEL_TEXT_SX}>{t('builderMaxLevel')}</Box>
             </MarkdownTooltip>
           </FormLabel>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
@@ -3001,13 +3007,14 @@ const maxLevelValue = multiEditActive
             {/* Mainstat label tracks the toggle width so it never pushes the clear button. */}
             <FormLabel sx={[BUILDER_LABEL_INLINE_SX, { m: 0 }]}>
               <MarkdownTooltip
+                ellipsisTitle={t('builderMain')}
                 render={(
                   <BuilderTooltipContent
                     text={[t('builderMainHelp'), t('builderMultiMixedTriStateHint')].join('\n')}
                   />
                 )}
               >
-                <Box component="span" sx={BUILDER_LABEL_TEXT_SX}>{t('builderMain')}</Box>
+                <Box component="span" data-ellipsis-target sx={BUILDER_LABEL_TEXT_SX}>{t('builderMain')}</Box>
               </MarkdownTooltip>
             </FormLabel>
             {(() => {
@@ -3174,6 +3181,7 @@ const maxLevelValue = multiEditActive
             {/* Substats label uses the same inline span to keep the reset button aligned. */}
             <FormLabel sx={[BUILDER_LABEL_INLINE_SX, { m: 0 }]}>
               <MarkdownTooltip
+                ellipsisTitle={t('builderSubstats')}
                 render={(
                   <BuilderTooltipContent
                     text={[
@@ -3188,7 +3196,7 @@ const maxLevelValue = multiEditActive
                   />
                 )}
               >
-                <Box component="span" sx={BUILDER_LABEL_TEXT_SX}>{t('builderSubstats')}</Box>
+                <Box component="span" data-ellipsis-target sx={BUILDER_LABEL_TEXT_SX}>{t('builderSubstats')}</Box>
               </MarkdownTooltip>
             </FormLabel>
             {(() => {
@@ -4684,13 +4692,14 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
             {/* Slot label clamps to the toggle width so translations don't wrap under icons. */}
             <FormLabel sx={[BUILDER_LABEL_INLINE_SX, { m: 0 }]}>
               <MarkdownTooltip
+                ellipsisTitle={t('builderSlots')}
                 render={(
                   <BuilderTooltipContent
                     text={[t('builderSlotsHelp'), t('builderMultiMixedTriStateHint')].join('\n')}
                   />
                 )}
               >
-                <Box component="span" sx={BUILDER_LABEL_TEXT_SX}>{t('builderSlots')}</Box>
+                <Box component="span" data-ellipsis-target sx={BUILDER_LABEL_TEXT_SX}>{t('builderSlots')}</Box>
               </MarkdownTooltip>
             </FormLabel>
             {(() => {
@@ -4901,8 +4910,8 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                   <>
                     {/* Keep the German “Mindestwürfe” label from wrapping under the toggles. */}
                     <FormLabel sx={[BUILDER_LABEL_INLINE_SX, { mb: 0.5 }]} data-tour-id="builder.min-rolls.label">
-                      <MarkdownTooltip render={tooltipContent}>
-                        <Box component="span" sx={BUILDER_LABEL_TEXT_SX}>{t('builderMinRequiredRolls')}</Box>
+                      <MarkdownTooltip render={tooltipContent} ellipsisTitle={t('builderMinRequiredRolls')}>
+                        <Box component="span" data-ellipsis-target sx={BUILDER_LABEL_TEXT_SX}>{t('builderMinRequiredRolls')}</Box>
                       </MarkdownTooltip>
                     </FormLabel>
                     <Box
@@ -5117,9 +5126,10 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                 const autoState = getRequiredCountTriState('auto')
                 return (
                   <>
-                    {/* Required substats caption matches the same ellipsis treatment. */}
+                    {/* Required substats caption exposes overflow through the shared label helper. */}
                     <FormLabel sx={[BUILDER_LABEL_INLINE_SX, { mb: 0.5 }]} data-tour-id="builder.required.label">
                       <MarkdownTooltip
+                        ellipsisTitle={t('builderRequiredSubstats')}
                         render={(
                           <BuilderTooltipContent
                             text={[
@@ -5129,7 +5139,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                           />
                         )}
                       >
-                        <Box component="span" sx={BUILDER_LABEL_TEXT_SX}>{t('builderRequiredSubstats')}</Box>
+                        <Box component="span" data-ellipsis-target sx={BUILDER_LABEL_TEXT_SX}>{t('builderRequiredSubstats')}</Box>
                       </MarkdownTooltip>
                     </FormLabel>
                     <ToggleButtonGroup
@@ -5313,6 +5323,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                   {/* Milestone Thresholds label also clamps to the 146px column width. */}
                   <FormLabel sx={[BUILDER_LABEL_INLINE_SX, { mb: 0.5 }]} data-tour-id="builder.thresholds.label">
                     <MarkdownTooltip
+                      ellipsisTitle={t('builderMilestoneThresholds')}
                       render={(
                         <BuilderTooltipContent
                           text={[
@@ -5322,7 +5333,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                         />
                       )}
                     >
-                      <Box component="span" sx={BUILDER_LABEL_TEXT_SX}>{t('builderMilestoneThresholds')}</Box>
+                      <Box component="span" data-ellipsis-target sx={BUILDER_LABEL_TEXT_SX}>{t('builderMilestoneThresholds')}</Box>
                     </MarkdownTooltip>
                   </FormLabel>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -5492,13 +5503,14 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
             {/* Sets label mirrors the ellipsis span so the Manage Metasets button stays put. */}
             <FormLabel sx={[BUILDER_LABEL_INLINE_SX, { mb: 0, mr: 1, flex: '0 1 auto' }]}>
               <MarkdownTooltip
+                ellipsisTitle={t('setsTitle')}
                 render={(
                   <BuilderTooltipContent
                     text={[t('builderSetsHelp'), t('builderMultiMixedTriStateHint')].join('\n')}
                   />
                 )}
               >
-                <Box component="span" sx={BUILDER_LABEL_TEXT_SX}>{t('setsTitle')}</Box>
+                <Box component="span" data-ellipsis-target sx={BUILDER_LABEL_TEXT_SX}>{t('setsTitle')}</Box>
               </MarkdownTooltip>
             </FormLabel>
             {/* Flexible spacer keeps the label left-aligned and the button right-aligned */}
