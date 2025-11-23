@@ -58,7 +58,15 @@ import ContextMenuPaper from './ContextMenuPaper'
 import { ContextMenuHintOverlay } from './ContextMenuHintOverlay'
 import { useContextMenuHint } from '../hooks/useContextMenuHint'
 import GridIconBox from './GridIconBox'
-import { ACCESSORY_NO_SET_ID, MENU_CONTROL_HEIGHT_PX, MENU_CONTROL_MIN_WIDTH_PX, RULES_TABLE_SCROLL_HINT_HIDE_MS, type ColorBlindMode } from '../lib/constants'
+import {
+  ACCESSORY_NO_SET_ID,
+  MENU_CONTROL_HEIGHT_PX,
+  MENU_CONTROL_MIN_WIDTH_PX,
+  RULES_TABLE_SCROLL_HINT_HIDE_MS,
+  TESTER_GRID_VIRTUAL_CARD_HEIGHT_TRIM_PX,
+  TESTER_GRID_VIRTUAL_WIDE_CARD_HEIGHT_TRIM_PX,
+  type ColorBlindMode,
+} from '../lib/constants'
 import { useContextMenuCloseOnOutsideRightClick } from '../hooks/useContextMenuCloseOnOutsideRightClick'
 import { useTesterGridPreferences } from '../state/testerGridPreferences'
 import { championIconUrl } from '../lib/iconMaps/championIconMap'
@@ -425,6 +433,13 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     showOtherMatches,
     theme,
   })
+  const virtualCardHeightPx = useMemo(() => {
+    let trimmed = cardHeightPx - TESTER_GRID_VIRTUAL_CARD_HEIGHT_TRIM_PX
+    if (gridColumnCount >= 5) {
+      trimmed -= TESTER_GRID_VIRTUAL_WIDE_CARD_HEIGHT_TRIM_PX
+    }
+    return Math.max(1, trimmed)
+  }, [cardHeightPx, gridColumnCount])
   const groupCountChipBg = theme.palette.mode === 'dark' ? theme.palette.grey[800] : theme.palette.grey[100]
   useEffect(() => {
     const node = containerRef.current
@@ -482,7 +497,7 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
         accordionSpacingPx,
         gridGapPx,
         gridLeafPaddingPx,
-        cardHeightPx,
+        virtualCardHeightPx,
       )
       heights[idx] = estimated
       total += estimated
@@ -546,7 +561,7 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     }
   }, [
     accordionSpacingPx,
-    cardHeightPx,
+    virtualCardHeightPx,
     collapsedGroups,
     estimatedColumnCount,
     gridGapPx,
@@ -958,7 +973,6 @@ const TesterItemsGridGroup = React.memo(function TesterItemsGridGroup({
       />
     </Box>
   ) : null
-
   return (
     <Accordion
       expanded={expanded}
