@@ -1,7 +1,7 @@
 import { Box, ListSubheader, MenuItem, Select } from '@mui/material'
 import type { SelectChangeEvent, SelectProps } from '@mui/material/Select'
 import type { SxProps, Theme } from '@mui/material/styles'
-import { useMemo } from 'react'
+import { Fragment, useMemo, useRef, type ReactNode } from 'react'
 import { useI18n } from '../../lib/i18n'
 import { Faction, factionI18nKey, type FactionId } from '../../lib/types'
 import { FactionOptionLabel } from '../FactionIcon'
@@ -49,15 +49,15 @@ export function GearFactionSelect({
   multiple = false,
 }: FactionSelectProps) {
   const { t } = useI18n()
-  const resolvedSx: SxProps<Theme> = sx ?? {}
+  const resolvedSx = sx
   const isMulti = Boolean(multiple)
   const multiValues = useMemo<FactionId[]>(() => {
     if (!isMulti) return []
     return Array.isArray(value) ? (value as FactionId[]) : []
   }, [isMulti, value])
   const singleValue = !isMulti ? (value as FactionId | null) : null
-  const handleChange = (event: SelectChangeEvent<string | string[]>) => {
-    const raw = event.target.value
+  const handleChange = (event: SelectChangeEvent<unknown>, _child: ReactNode) => {
+    const raw = event.target.value as string | string[]
     if (isMulti) {
       const list = Array.isArray(raw) ? raw : [raw]
       const multiHandler = onChange as (next: FactionId[]) => void
@@ -76,15 +76,84 @@ export function GearFactionSelect({
     const singleHandler = onChange as (next: FactionId | null) => void
     singleHandler(valueString === '' ? null : (Number(valueString) as FactionId))
   }
+  const labelContainerSx = useMemo<SxProps<Theme>>(() => ({
+    display: 'inline-flex',
+    alignItems: 'center',
+    width: '100%',
+    minWidth: 0,
+    '& > *': {
+      minWidth: 0,
+    },
+  }), [])
   const renderSelected = () => {
     if (!singleValue) return t('any')
     const label = t(factionI18nKey(singleValue))
     return (
-      <Box component="span" title={label} sx={{ display: 'inline-flex', alignItems: 'center', width: '100%' }}>
+      <Box component="span" title={label} sx={labelContainerSx}>
         <FactionOptionLabel faction={singleValue} label={label} truncate textSx={{ fontSize: '0.875rem' }} />
       </Box>
     )
   }
+  const ellipsisClampRef = useRef<HTMLSpanElement | null>(null)
+  // Multi-select displays comma-separated labels with icons within a single clamp span so height never changes.
+  const renderMultiSelected = (selected: unknown) => {
+    const entries = Array.isArray(selected) ? selected : []
+    if (entries.length === 0) return t('any')
+    const numericEntries = entries
+      .map((entry) => Number(entry))
+      .filter((entry) => Number.isFinite(entry))
+      .map((entry) => entry as FactionId)
+    const labelledEntries = numericEntries.map((entry) => ({
+      id: entry,
+      label: t(factionI18nKey(entry)),
+    }))
+    const labelString = labelledEntries.map((entry) => entry.label).join(', ')
+    return (
+      <Box component="span" title={labelString} sx={labelContainerSx}>
+        <Box
+          component="span"
+          ref={(node: HTMLSpanElement | null) => { ellipsisClampRef.current = node }}
+          sx={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            gap: 0.5,
+            maxWidth: '100%',
+          }}
+        >
+          {labelledEntries.map((entry, index) => (
+            <Fragment key={entry.id}>
+              {index === 0 ? null : <Box component="span" sx={{ color: 'text.disabled', flexShrink: 0 }}>,</Box>}
+              <FactionOptionLabel
+                faction={entry.id}
+                label={entry.label}
+                size={23}
+                textSx={{ fontSize: '0.875rem' }}
+                truncate
+                sx={{ minWidth: 0, maxWidth: '100%' }}
+              />
+            </Fragment>
+          ))}
+        </Box>
+      </Box>
+    )
+  }
+  // Compose the caller styles with the shared guards so selects stay consistent across surfaces.
+  const normalizedSx = resolvedSx == null ? [] : Array.isArray(resolvedSx) ? resolvedSx : [resolvedSx]
+  const baseSelectContentSx: SxProps<Theme> = useMemo(() => ({
+    '& .MuiSelect-select': {
+      display: 'inline-flex',
+      alignItems: 'center',
+      minHeight: 'unset',
+      width: '100%',
+      gap: 0.5,
+      paddingTop: 0,
+      paddingBottom: 0,
+    },
+  }), [])
+  const selectSx: SxProps<Theme> | undefined = [baseSelectContentSx, ...normalizedSx]
   const selectValue = isMulti
     ? multiValues.map((entry) => String(entry))
     : (singleValue == null ? '' : String(singleValue))
@@ -96,9 +165,9 @@ export function GearFactionSelect({
       onChange={handleChange}
       multiple={isMulti}
       displayEmpty
-      {...(!isMulti ? { renderValue: () => renderSelected() } : {})}
+      {...(isMulti ? { renderValue: (selected) => renderMultiSelected(selected) } : { renderValue: () => renderSelected() })}
       MenuProps={menuProps ?? FACTION_MENU_PROPS}
-      sx={resolvedSx}
+      {...(selectSx ? { sx: selectSx } : {})}
     >
       {allowAny ? (
         isMulti
