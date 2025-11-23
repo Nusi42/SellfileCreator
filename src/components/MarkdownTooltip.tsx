@@ -237,20 +237,24 @@ export function MarkdownTooltip({
     : null
   const mergedChildRef = useForkRef(childRef, anchorCallback)
   const ellipsisEnabled = typeof ellipsisTitle === 'string' && ellipsisTitle.trim() !== ''
-  const applyEllipsisTitle = useCallback((root?: HTMLElement | null) => {
-    if (!ellipsisEnabled || !root) return
-    const target = pickEllipsisTarget(root, ellipsisSelector)
-    if (hasEllipsisOverflow(target)) {
-      target.setAttribute('title', ellipsisTitle)
-    } else {
-      target.removeAttribute('title')
+  const [showNativeEllipsisTitle, setShowNativeEllipsisTitle] = useState(false)
+  useEffect(() => {
+    if (!ellipsisEnabled && showNativeEllipsisTitle) {
+      setShowNativeEllipsisTitle(false)
     }
-  }, [ellipsisEnabled, ellipsisSelector, ellipsisTitle])
-  const clearEllipsisTitle = useCallback((root?: HTMLElement | null) => {
-    if (!ellipsisEnabled || !root) return
+  }, [ellipsisEnabled, showNativeEllipsisTitle])
+  const applyEllipsisTitle = useCallback((root?: HTMLElement | null) => {
+    if (!ellipsisEnabled || !root) {
+      setShowNativeEllipsisTitle(false)
+      return
+    }
     const target = pickEllipsisTarget(root, ellipsisSelector)
-    target.removeAttribute('title')
+    setShowNativeEllipsisTitle(hasEllipsisOverflow(target))
   }, [ellipsisEnabled, ellipsisSelector])
+  const clearEllipsisTitle = useCallback(() => {
+    if (!ellipsisEnabled) return
+    setShowNativeEllipsisTitle(false)
+  }, [ellipsisEnabled])
   const childWithRef = React.isValidElement(children)
     ? (() => {
         const originalProps = (children as React.ReactElement).props ?? {}
@@ -265,11 +269,11 @@ export function MarkdownTooltip({
           }
           nextProps.onMouseLeave = (event: React.MouseEvent<HTMLElement>) => {
             originalProps.onMouseLeave?.(event)
-            clearEllipsisTitle(event.currentTarget)
+            clearEllipsisTitle()
           }
           nextProps.onBlur = (event: React.FocusEvent<HTMLElement>) => {
             originalProps.onBlur?.(event)
-            clearEllipsisTitle(event.currentTarget)
+            clearEllipsisTitle()
           }
         }
         return React.cloneElement(children as React.ReactElement, nextProps)
@@ -320,6 +324,21 @@ export function MarkdownTooltip({
       }
     }
   }, [anchorEl, forceCloseUncontrolled, resolvedOpen])
+
+  useEffect(() => {
+    if (!ellipsisEnabled) return undefined
+    const root = anchorEl
+    if (!root) return undefined
+    const target = pickEllipsisTarget(root, ellipsisSelector)
+    if (showNativeEllipsisTitle) {
+      target.setAttribute('title', ellipsisTitle ?? '')
+    } else {
+      target.removeAttribute('title')
+    }
+    return () => {
+      target.removeAttribute('title')
+    }
+  }, [anchorEl, ellipsisEnabled, ellipsisSelector, ellipsisTitle, showNativeEllipsisTitle])
 
   return (
     <Tooltip
