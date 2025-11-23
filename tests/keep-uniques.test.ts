@@ -78,6 +78,7 @@ const makeRule = (overrides: Partial<KeepUniqueRule> = {}): KeepUniqueRule => {
     },
     requiredCount: overrides.requiredCount ?? 1,
     enabled: overrides.enabled ?? true,
+    countMode: overrides.countMode ?? 'perRule',
   })
   if (!rule) throw new Error('expected combination')
   return rule
@@ -160,6 +161,35 @@ test('coveredByExisting flips when existing keep rules meet requirement', () => 
   const snapshot = computeKeepUniqueProtection({ candidates, rules, enabled: true })
   assert.strictEqual(snapshot.entries[0]?.coveredByExisting, true, 'no sold artifacts means existing coverage is sufficient')
   assert.strictEqual(snapshot.entries[0]?.projectedCount, 0)
+})
+
+test('per combination mode multiplies targets and deficits', () => {
+  const rules = [makeRule({
+    countMode: 'perCombination',
+    requiredCount: 2,
+    combination: {
+      slots: [ArtifactType.Weapon],
+      sets: [ArtifactSet.Speed, ArtifactSet.Accuracy],
+      metaSetIds: [],
+      ranks: [6 as RankValue],
+      rarities: [6 as RankValue],
+      mainStats: [StatVariant.ATK],
+      factions: [],
+    },
+  })]
+  const rows = [
+    makeTesterRow({ slot: ArtifactType.Weapon, set: ArtifactSet.Speed }, false, StatVariant.ATK),
+    makeTesterRow({ slot: ArtifactType.Weapon, set: ArtifactSet.Accuracy }, false, StatVariant.ATK),
+  ]
+  const { candidates } = collectKeepUniqueCandidates({ rows, baseRules: [], configModes: [] })
+  const snapshot = computeKeepUniqueProtection({ candidates, rules, enabled: true })
+  const entry = snapshot.entries[0]
+  assert.ok(entry)
+  assert.strictEqual(entry.countMode, 'perCombination')
+  assert.strictEqual(entry.groupsTracked, 2, 'tracks each set/main tuple separately')
+  assert.strictEqual(entry.perGroupRequiredCount, 2, 'preserves the base requirement for tooltips')
+  assert.strictEqual(entry.requiredCount, 4, 'aggregated requirement scales by the number of tuples')
+  assert.strictEqual(entry.deficit, 2, 'missing one artifact per tuple yields two deficits total')
 })
 
 test('resolveKeepUniqueRulesWithMetasets expands set lists', () => {
