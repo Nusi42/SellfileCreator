@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Box, Button, Divider, Menu, MenuItem, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from '@mui/material'
 import { alpha } from '@mui/material/styles'
 import type { PaperProps as MuiPaperProps } from '@mui/material/Paper'
@@ -37,6 +37,7 @@ import { useRulesTableColumnsPreference, type StoredColumnConfig } from '../stat
 import ContextMenuPaper from './ContextMenuPaper'
 import { useAnimatedEllipsis } from '../hooks/useAnimatedEllipsis'
 import { HEADER_MENU_LABEL_SX } from './tableHeaderMenuStyles'
+import { EmptyStateMessage } from './EmptyStateMessage'
 
 // Preview rows stay at their fixed height (≈30px). Keep the inline faction icon
 // slightly smaller than the default select size so the row metrics remain
@@ -89,8 +90,17 @@ export function HsfRulesTable({ rules, building = false, setHoveredCfgIdx, selec
   // Why: Smaller lists render in full, but we still reuse the same scroll-range
   // math so the position indicator reflects the actual viewport.
   const VIRTUALIZE_AFTER_RULES = 200
+  const emptyLabel = useMemo(() => {
+    if (rules.length > 0) return null
+    const limitText = new Intl.NumberFormat(undefined).format(RULE_COUNT_LIMIT)
+    return limitExceeded
+      ? t('rulesLimitExceeded', { limit: limitText })
+      : (building ? animatedBuildingLabel : (emptyDueToFilter ? t('rulesEmptyFiltered') : t('rulesEmpty')))
+  }, [rules.length, limitExceeded, t, building, animatedBuildingLabel, emptyDueToFilter])
+  const showEmptyOverlay = rules.length === 0 && Boolean(emptyLabel)
   // Virtualization state and helpers
   const tableContainerRef = useRef<HTMLDivElement | null>(null)
+  const headerRef = useRef<HTMLTableSectionElement | null>(null)
   // Sticky header height used to offset scroll targets for better alignment.
   // Why: In wrap (multi-line) mode, row heights are measured lazily. Using a
   // measured header height (instead of a magic number) improves accuracy when
@@ -116,6 +126,7 @@ export function HsfRulesTable({ rules, building = false, setHoveredCfgIdx, selec
   const prefixHeightsRef = useRef<number[]>([])
   const totalHeightRef = useRef<number>(0)
   const prevRulesMetricsRef = useRef<{ length: number; totalHeight: number } | null>(null)
+  const [emptyOverlayOffset, setEmptyOverlayOffset] = useState(0)
   // Version to trigger prefix recompute and a stable re-render when row heights change.
   const [heightsVersion, setHeightsVersion] = useState(0)
   const pendingRuleFocusRef = useRef<{ index: number; attempts: number } | null>(null)
@@ -967,6 +978,25 @@ export function HsfRulesTable({ rules, building = false, setHoveredCfgIdx, selec
 
   // Visible columns (memoized): used for header, width calc, and rows
   const visibleColsForContainer = useMemo(() => cols.filter(c => isColVisible(c)), [cols, isColVisible])
+
+  useLayoutEffect(() => {
+    const node = headerRef.current
+    if (!node) {
+      setEmptyOverlayOffset(0)
+      return
+    }
+    const measure = () => {
+      setEmptyOverlayOffset(node.getBoundingClientRect().height || 0)
+    }
+    measure()
+    if (typeof ResizeObserver !== 'undefined') {
+      const observer = new ResizeObserver(measure)
+      observer.observe(node)
+      return () => observer.disconnect()
+    }
+    window.addEventListener('resize', measure)
+    return () => window.removeEventListener('resize', measure)
+  }, [visibleColsForContainer])
   // Compute whether horizontal scroll is needed to avoid column width jitter
   const totalVisibleWidth = visibleColsForContainer.reduce((sum, c) => sum + (c.width || 0), 0)
   // Add small hysteresis to avoid rapid flip-flopping when widths are near the container boundary.
@@ -1006,6 +1036,9 @@ export function HsfRulesTable({ rules, building = false, setHoveredCfgIdx, selec
           const selectedHoverBg = alpha(theme.palette.primary.main, theme.palette.mode === 'dark' ? SELECTED_HOVER_BG_ALPHA.dark : SELECTED_HOVER_BG_ALPHA.light)
           return {
             width: '100%',
+            position: 'relative',
+            flex: '1 1 auto',
+            minHeight: 0,
             overflowY: 'auto',
             overflowX: needHScroll ? 'auto' : 'hidden',
             // Prevent scroll chaining to the page and stabilize scrollbar space
@@ -1057,6 +1090,7 @@ export function HsfRulesTable({ rules, building = false, setHoveredCfgIdx, selec
       >
         <Table size="small" stickyHeader sx={{ tableLayout: 'fixed', width: '100%' }}>
           <TableHead
+            ref={headerRef}
             data-tour-id="preview.header"
             onContextMenu={(e) => {
               try {
@@ -1106,20 +1140,8 @@ export function HsfRulesTable({ rules, building = false, setHoveredCfgIdx, selec
               const colSpan = Math.max(1, visibleCols.length)
               // Smaller overscan during fast scroll to reduce render cost; increase when idle
               const overscan = fastScroll ? RULES_TABLE_OVERSCAN_FAST : RULES_TABLE_OVERSCAN_IDLE
-              // When there are no rules, render a single placeholder row to communicate state.
-              if (rules.length === 0) {
-                const limitText = new Intl.NumberFormat(undefined).format(RULE_COUNT_LIMIT)
-                const emptyLabel = limitExceeded
-                  ? t('rulesLimitExceeded', { limit: limitText })
-                  : (building ? animatedBuildingLabel : (emptyDueToFilter ? t('rulesEmptyFiltered') : t('rulesEmpty')))
-                return (
-                  <TableRow>
-                    <TableCell colSpan={colSpan} sx={{ textAlign: 'center', color: 'text.secondary', py: 3 }}>
-                      {emptyLabel}
-                    </TableCell>
-                  </TableRow>
-                )
-              }
+              // Empty overlay handles the messaging; no rows render when empty.
+              if (rules.length === 0) return null
               let start = 0, end = rules.length, padTop = 0, padBottom = 0
               let visibleStartIdx = 0
               let visibleEndIdxExclusive = rules.length
@@ -1563,6 +1585,28 @@ export function HsfRulesTable({ rules, building = false, setHoveredCfgIdx, selec
             })()}
           </TableBody>
         </Table>
+        {showEmptyOverlay && emptyLabel ? (
+          <Box
+            sx={{
+              pointerEvents: 'none',
+              position: 'absolute',
+              left: 0,
+              right: 0,
+              top: emptyOverlayOffset,
+              bottom: 0,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              px: 2,
+            }}
+          >
+            <Box sx={{ pointerEvents: 'auto', width: '100%', maxWidth: 520 }}>
+              <EmptyStateMessage typographyVariant="body2" minHeight="100%">
+                {emptyLabel}
+              </EmptyStateMessage>
+            </Box>
+          </Box>
+        ) : null}
       </TableContainer>
       {scrollRangeOverlay ? (() => {
         const { start, end, total } = scrollRangeOverlay
@@ -1824,9 +1868,3 @@ export function HsfRulesTable({ rules, building = false, setHoveredCfgIdx, selec
 
 // Avoid re-rendering the large rules table when unrelated state (like builder name) changes
 export const HsfRulesTableMemo = React.memo(HsfRulesTable)
-/**
- * HsfRulesTable
- *
- * Read-only table that renders merged HSF rules and supports highlighting
- * by originating config, inline labels, and basic sorting.
- */
