@@ -58,11 +58,27 @@ import ContextMenuPaper from './ContextMenuPaper'
 import { ContextMenuHintOverlay } from './ContextMenuHintOverlay'
 import { useContextMenuHint } from '../hooks/useContextMenuHint'
 import GridIconBox from './GridIconBox'
-import { ACCESSORY_NO_SET_ID, MENU_CONTROL_HEIGHT_PX, MENU_CONTROL_MIN_WIDTH_PX, RULES_TABLE_SCROLL_HINT_HIDE_MS, type ColorBlindMode } from '../lib/constants'
+import {
+  ACCESSORY_NO_SET_ID,
+  MENU_CONTROL_HEIGHT_PX,
+  MENU_CONTROL_MIN_WIDTH_PX,
+  RULES_TABLE_SCROLL_HINT_HIDE_MS,
+  TESTER_GRID_VIRTUAL_CARD_HEIGHT_TRIM_PX,
+  TESTER_GRID_VIRTUAL_WIDE_CARD_HEIGHT_TRIM_PX,
+  type ColorBlindMode,
+} from '../lib/constants'
 import { useContextMenuCloseOnOutsideRightClick } from '../hooks/useContextMenuCloseOnOutsideRightClick'
 import { useTesterGridPreferences } from '../state/testerGridPreferences'
 import { championIconUrl } from '../lib/iconMaps/championIconMap'
 import { EmptyStateMessage } from './EmptyStateMessage'
+import {
+  TESTER_GRID_METRICS_ENABLED,
+  recordTesterGridGroupEstimate,
+  recordTesterGridGroupMeasurement,
+  recordTesterGridSubstatSample,
+  recordTesterGridVirtualizationFrame,
+  type TesterGridGroupMeasurementPayload,
+} from '../lib/debug/testerGridMetrics'
 
 const GRID_CARD_SINGLE_COLUMN_TEMPLATE = 'minmax(0, 1fr)'
 const TESTER_GRID_ICON_BOX_SIZE_PX = 72
@@ -425,6 +441,13 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     showOtherMatches,
     theme,
   })
+  const virtualCardHeightPx = useMemo(() => {
+    let trimmed = cardHeightPx - TESTER_GRID_VIRTUAL_CARD_HEIGHT_TRIM_PX
+    if (gridColumnCount >= 5) {
+      trimmed -= TESTER_GRID_VIRTUAL_WIDE_CARD_HEIGHT_TRIM_PX
+    }
+    return Math.max(1, trimmed)
+  }, [cardHeightPx, gridColumnCount])
   const groupCountChipBg = theme.palette.mode === 'dark' ? theme.palette.grey[800] : theme.palette.grey[100]
   useEffect(() => {
     const node = containerRef.current
@@ -482,7 +505,7 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
         accordionSpacingPx,
         gridGapPx,
         gridLeafPaddingPx,
-        cardHeightPx,
+        virtualCardHeightPx,
       )
       heights[idx] = estimated
       total += estimated
@@ -546,7 +569,7 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     }
   }, [
     accordionSpacingPx,
-    cardHeightPx,
+    virtualCardHeightPx,
     collapsedGroups,
     estimatedColumnCount,
     gridGapPx,
@@ -560,6 +583,59 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
   const virtualizedHeight = shouldVirtualize ? Math.max(virtualization.totalHeight ?? 0, 0) : undefined
   const virtualizedPadTop = shouldVirtualize ? virtualization.padTop : 0
   const virtualizedPadBottom = shouldVirtualize ? virtualization.padBottom : 0
+  const handleGroupMeasuredHeight = useCallback((payload: TesterGridGroupMeasurementPayload) => {
+    // Feed the debug collector whenever the top-level accordion reports a new height.
+    recordTesterGridGroupMeasurement(payload)
+  }, [])
+  const measurementHandler = TESTER_GRID_METRICS_ENABLED ? handleGroupMeasuredHeight : null
+  // Mirror the virtual estimates so the debug stream can compare them with the measured heights.
+  useEffect(() => {
+    if (!TESTER_GRID_METRICS_ENABLED) return
+    groups.forEach((group, idx) => {
+      recordTesterGridGroupEstimate({
+        groupKey: group.key,
+        estimatedHeight: virtualization.heights[idx] ?? 0,
+        columnCount: gridColumnCount,
+        rowCount: group.rows.length,
+        collapsed: collapsedGroups.has(group.key),
+        hasChildren: Boolean(group.children?.length),
+      })
+    })
+  }, [collapsedGroups, gridColumnCount, groups, virtualization.heights])
+
+  // Emit a frame summary whenever the virtualization math changes so we always have a recent snapshot.
+  useEffect(() => {
+    if (!TESTER_GRID_METRICS_ENABLED) return
+    const effectiveTotalHeight = typeof virtualization.totalHeight === 'number'
+      ? virtualization.totalHeight
+      : (virtualizedHeight ?? 0)
+    recordTesterGridVirtualizationFrame({
+      columns: gridColumnCount,
+      groups: groups.length,
+      rows: rows.length,
+      visibleGroups: renderedGroups.length,
+      scrollTop,
+      padTop: virtualizedPadTop,
+      padBottom: virtualizedPadBottom,
+      totalHeight: effectiveTotalHeight,
+      viewportHeight: virtualization.viewportHeight,
+      overscanPx: GRID_VIRTUALIZE_OVERSCAN_PX,
+      shouldVirtualize,
+    })
+  }, [
+    gridColumnCount,
+    groups.length,
+    renderedGroups.length,
+    rows.length,
+    scrollTop,
+    shouldVirtualize,
+    virtualizedPadBottom,
+    virtualizedPadTop,
+    virtualizedHeight,
+    virtualization.totalHeight,
+    virtualization.viewportHeight,
+  ])
+
   const rowLookup = useMemo(() => {
     const map = new Map<number, TesterPreviewRow>()
     rows.forEach((row) => {
@@ -671,6 +747,7 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
         onJumpToRule={onJumpToRule}
         highlightedRowPredicate={highlightRowPredicate}
         dimUnhighlightedRows={shouldDimUnhighlightedRows}
+        onMeasureHeight={measurementHandler}
         childContent={group.children?.length ? group.children.map((child) => renderGroup(child, depth + 1)) : undefined}
         depth={depth}
       />
@@ -916,6 +993,7 @@ type TesterItemsGridGroupProps = {
   // Highlight predicate trickles down so nested accordions stay presentation-only.
   highlightedRowPredicate?: ((row: TesterPreviewRow) => boolean) | null
   dimUnhighlightedRows?: boolean
+  onMeasureHeight?: ((payload: TesterGridGroupMeasurementPayload) => void) | null
 }
 
 const TesterItemsGridGroup = React.memo(function TesterItemsGridGroup({
@@ -939,6 +1017,7 @@ const TesterItemsGridGroup = React.memo(function TesterItemsGridGroup({
   depth = 0,
   highlightedRowPredicate = null,
   dimUnhighlightedRows = false,
+  onMeasureHeight = null,
 }: TesterItemsGridGroupProps) {
   const hasChildren = Boolean(childContent)
   const nested = depth > 0
@@ -958,9 +1037,34 @@ const TesterItemsGridGroup = React.memo(function TesterItemsGridGroup({
       />
     </Box>
   ) : null
+  // Only the root-level accordions report heights so the virtual rows have real-world baselines.
+  const groupRef = useRef<HTMLDivElement | null>(null)
+  useLayoutEffect(() => {
+    if (typeof onMeasureHeight !== 'function') return
+    if (depth !== 0) return
+    const node = groupRef.current
+    if (!node) return
+    const report = () => {
+      onMeasureHeight({
+        groupKey: group.key,
+        depth,
+        columnCount: gridColumnCount,
+        actualHeight: node.offsetHeight,
+        rowCount: group.rows.length,
+        hasChildren,
+        isExpanded: expanded,
+      })
+    }
+    report()
+    if (typeof ResizeObserver === 'undefined') return
+    const observer = new ResizeObserver(() => { report() })
+    observer.observe(node)
+    return () => observer.disconnect()
+  }, [onMeasureHeight, depth, group.key, gridColumnCount, group.rows.length, hasChildren, expanded])
 
   return (
     <Accordion
+      ref={groupRef}
       expanded={expanded}
       onChange={(event, isExpanded) => onToggleGroup(group.key, isExpanded, event)}
       sx={(theme) => ({
@@ -1111,6 +1215,9 @@ const TesterGridCard = React.memo(function TesterGridCard({
   const { t } = useI18n()
   const theme = useTheme()
   const artifact = row.artifact
+  const artifactIdRaw = Number(artifact.id)
+  // Numeric IDs let the debug logs point back to concrete cards when we review the dump.
+  const artifactId = Number.isFinite(artifactIdRaw) ? artifactIdRaw : null
   const match = row.match
   const setIdNumber = Number(artifact.set) || 0
   const setLabelRaw = formatTesterSetLabel({ setId: setIdNumber, slot: artifact.slot as ArtifactTypeId, translate: t })
@@ -1135,6 +1242,17 @@ const TesterGridCard = React.memo(function TesterGridCard({
     .map((stat) => {
       const statLabel = t(statVariantI18nKey(stat.variant))
       const statValue = formatStatPreGlyph(stat) || t('testerValueUnknown')
+      const combinedLabel = `${statLabel} ${statValue}`.trim()
+      if (TESTER_GRID_METRICS_ENABLED) {
+        // Capture the textual lengths for each stat/value pair so we can tighten card widths later.
+        recordTesterGridSubstatSample({
+          rowId: artifactId,
+          combinedLabel,
+          statLabel,
+          valueLabel: statValue,
+          variantId: typeof stat.variant === 'number' ? stat.variant : null,
+        })
+      }
       const statColor = useStatButtonColors
         ? (substatColors[stat.variant]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[stat.variant])
         : undefined
