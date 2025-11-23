@@ -73,7 +73,7 @@ import { useContextMenuHint } from '../hooks/useContextMenuHint'
 import { ContextMenuHintOverlay } from './ContextMenuHintOverlay'
 import type { PaperProps as MuiPaperProps } from '@mui/material/Paper'
 import { useSetsOrderPreference } from '../state/setsOrderPreference'
-import type { TesterConfigFilterMode } from '../types/testerConfigFilterMode'
+import { TESTER_CONFIG_FILTER_MODE_DEFAULT, type TesterConfigFilterMode } from '../types/testerConfigFilterMode'
 import type { ChampionLocation } from '../lib/importers/gearDbNormalizer'
 import type { SubstatColorMap } from '../lib/renderColoredStatText'
 
@@ -99,7 +99,6 @@ const CLEAR_BUTTON_PLACEHOLDER_SX = {
   height: CLEAR_ICON_BUTTON_SIZE_PX,
   flexShrink: 0,
 } as const
-const CONFIG_FILTER_MODE_DEFAULT: TesterConfigFilterMode = 'off'
 const PREVIEW_CONFIGS_DEFAULT = false
 
 type GlyphLegendEntry = {
@@ -321,7 +320,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
     configChipFilterActive,
     onConfigChipFilterChange,
     onResetFilters,
-    testerConfigFilterMode = CONFIG_FILTER_MODE_DEFAULT,
+    testerConfigFilterMode = TESTER_CONFIG_FILTER_MODE_DEFAULT,
     onTesterConfigFilterModeChange,
     configCount = 0,
     collapsed,
@@ -818,7 +817,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
   // Group toggles handled inline in onChange for Rank/Rarity condensed controls
 
   const toggleLabelSx = [ELLIPSIS_TEXT_SX, { width: '100%', textAlign: 'center', fontSize: 'inherit' as const }]
-  const testerConfigFilterOn = testerConfigFilterMode !== CONFIG_FILTER_MODE_DEFAULT
+  const testerConfigFilterOn = testerConfigFilterMode !== TESTER_CONFIG_FILTER_MODE_DEFAULT
   const testerConfigLabelStrings = React.useMemo(() => ({
     first: t('testerFilterConfigsFirst'),
     any: t('testerFilterConfigsAny'),
@@ -848,7 +847,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
   const previewConfigButtonActive = configChipFilterActive
   const previewConfigButtonVariant: 'contained' | 'outlined' = previewConfigButtonActive ? 'contained' : 'outlined'
   const previewConfigButtonLabel = previewConfigButtonActive ? t('configFilterOn') : t('testerFilterConfigsOff')
-  const configFilterDirty = testerConfigFilterMode !== CONFIG_FILTER_MODE_DEFAULT
+  const configFilterDirty = testerConfigFilterMode !== TESTER_CONFIG_FILTER_MODE_DEFAULT
   const previewConfigDirty = configChipFilterActive !== PREVIEW_CONFIGS_DEFAULT
   const filtersDirty = filterActive || configFilterDirty || previewConfigDirty
 
@@ -1106,7 +1105,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
               const next = JSON.parse(JSON.stringify(DEFAULT_RULES_FILTER_STATE)) as RulesFilterState
               onChange(next)
               onConfigChipFilterChange(PREVIEW_CONFIGS_DEFAULT)
-              onTesterConfigFilterModeChange?.(CONFIG_FILTER_MODE_DEFAULT)
+              onTesterConfigFilterModeChange?.(TESTER_CONFIG_FILTER_MODE_DEFAULT)
               onResetFilters?.()
             }}
             sx={{ whiteSpace: 'nowrap', px: 1.25, height: SMALL_BUTTON_HEIGHT_PX, minHeight: SMALL_BUTTON_HEIGHT_PX }}

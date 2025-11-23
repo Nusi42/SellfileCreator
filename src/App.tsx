@@ -90,7 +90,7 @@ import RuleTesterDialog from './components/dialogs/RuleTesterDialog'
 import RulesFilterPanel, { type RulesFilterPanelHandle } from './components/RulesFilterPanel'
 import type { TesterConfigFilterMode } from './types/testerConfigFilterMode'
 import { filterHsfRules, filterTesterItems, isRulesFilterActive, normalizeRulesFilterForTester, type FilterHsfRulesResult, type RulesFilterState } from './lib/rulesFilter'
-import { useAutosaveRestore, metasetsSignature, substatTargetsSignature } from './hooks/useAutosaveRestore'
+import { useAutosaveRestore, metasetsSignature, substatTargetsSignature, areAutosaveFiltersDefault } from './hooks/useAutosaveRestore'
 import { makeManageColorsIcon } from './lib/icons'
 import type { ChampionLocation } from './lib/importers/gearDbNormalizer'
 
@@ -1883,6 +1883,14 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   
 
 
+  // Keep filter persistence snapshot sharable across autosave restore and writes.
+  const autosaveFiltersState = useMemo(() => ({
+    open: filterOpen,
+    state: rulesFilter,
+    collapsed: filterCollapsed,
+    testerConfigFilterMode,
+  }), [filterOpen, rulesFilter, filterCollapsed, testerConfigFilterMode])
+
   const {
     restoreDlgOpen: restoreDialogPending,
     restoreDraft,
@@ -1898,12 +1906,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     finalSellRemainder,
     selectedConfigIndex: selectedCfgIdx,
     note: hsfcNote,
-    filters: {
-      open: filterOpen,
-      state: rulesFilter,
-      collapsed: filterCollapsed,
-      testerConfigFilterMode,
-    },
+    filters: autosaveFiltersState,
     keepUniqueRules,
     keepUniquesEnabled,
     finalSellDialogTab,
@@ -2251,19 +2254,14 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       keepUniqueRules,
       keepUniquesEnabled,
     })
-    const filtersPayload = {
-      open: filterOpen,
-      state: rulesFilter,
-      collapsed: filterCollapsed,
-      testerConfigFilterMode,
-    }
+    const filtersPayload = areAutosaveFiltersDefault(autosaveFiltersState) ? null : autosaveFiltersState
     return {
       ...base,
       FinalSellDialogTab: finalSellDialogTab, // Persist the active tab so the dialog re-opens where the user left off.
       AutosaveSavedAt: new Date().toISOString(),
-      Filters: filtersPayload,
+      ...(filtersPayload ? { Filters: filtersPayload } : {}),
     }
-  }, [metasets, substatTargets, customCfgs, finalSellRemainder, hsfcNote, filterOpen, rulesFilter, filterCollapsed, testerConfigFilterMode, keepUniqueRules, keepUniquesEnabled, finalSellDialogTab])
+  }, [metasets, substatTargets, customCfgs, finalSellRemainder, hsfcNote, autosaveFiltersState, keepUniqueRules, keepUniquesEnabled, finalSellDialogTab])
   useAutosave({ key: AUTOSAVE_KEY, payload: autosavePayload, enabled: autosaveEnabled && !tutorial.tutorialOpen && !autosaveSilencedByClear })
   const testerAutosavePayload = useMemo(() => buildRuleTesterAutosavePayload(testerItems), [testerItems])
   const testerAutosavePayloadSignature = `${testerAutosavePayload.ItemsCompressed ?? ''}#${testerAutosavePayload.ItemCount ?? 0}`

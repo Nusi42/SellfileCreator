@@ -4,11 +4,15 @@
  * Shared persistence helpers for the view-only rules filter UI.
  */
 import { DEFAULT_RULES_FILTER_STATE, type RulesFilterState } from '../lib/rulesFilter'
+import { canonicalize } from '../lib/canonicalize'
 import { createLocalStorageStateHook, createLocalStorageStore } from './localStorageStore'
 
 const FILTER_OPEN_KEY = 'sellfileCreator.rulesFilter.open.v1'
 const FILTER_STATE_KEY = 'sellfileCreator.rulesFilter.state.v1'
 const FILTER_COLLAPSED_KEY = 'sellfileCreator.rulesFilter.collapse.v2'
+
+// Filter drawer defaults to closed so the UI stays compact until summoned.
+export const RULES_FILTER_OPEN_DEFAULT = false
 
 export const RULES_FILTER_COLLAPSIBLE_SECTION_IDS = Object.freeze([
   'rule',
@@ -42,11 +46,14 @@ const collapsedEquals = (a: CollapsedSections, b: CollapsedSections): boolean =>
 export const cloneDefaultRulesFilterState = (): RulesFilterState =>
   JSON.parse(JSON.stringify(DEFAULT_RULES_FILTER_STATE)) as RulesFilterState
 
+const DEFAULT_RULES_FILTER_STATE_SIGNATURE = JSON.stringify(canonicalize(DEFAULT_RULES_FILTER_STATE))
+const rulesFilterStateSignature = (value: RulesFilterState): string => JSON.stringify(canonicalize(value))
+
 const filterOpenStore = createLocalStorageStore<boolean>({
   key: FILTER_OPEN_KEY,
-  fallback: false,
+  fallback: RULES_FILTER_OPEN_DEFAULT,
   parse: (raw) => raw === 'true',
-  serialize: (value) => String(value),
+  serialize: (value) => (value ? 'true' : null),
 })
 
 const filterStateStore = createLocalStorageStore<RulesFilterState>({
@@ -62,6 +69,7 @@ const filterStateStore = createLocalStorageStore<RulesFilterState>({
   },
   serialize: (value) => {
     try {
+      if (rulesFilterStateSignature(value) === DEFAULT_RULES_FILTER_STATE_SIGNATURE) return null
       return JSON.stringify(value)
     } catch {
       return null
@@ -90,6 +98,7 @@ const filterCollapsedStore = createLocalStorageStore<CollapsedSections>({
   },
   serialize: (value) => {
     try {
+      if (collapsedEquals(value, DEFAULT_COLLAPSED_SECTIONS)) return null
       return JSON.stringify(value)
     } catch {
       return null
@@ -103,7 +112,7 @@ export const useRulesFilterStatePreference = createLocalStorageStateHook(filterS
 export const useRulesFilterCollapsedPreference = createLocalStorageStateHook(filterCollapsedStore)
 
 export function resetRulesFilterPreferences() {
-  filterOpenStore.set(false)
+  filterOpenStore.set(RULES_FILTER_OPEN_DEFAULT)
   filterStateStore.set(cloneDefaultRulesFilterState())
   filterCollapsedStore.set(cloneDefaultRulesFilterCollapsed())
 }
