@@ -381,7 +381,7 @@ export default function KeepUniquesTab({
                 size="small"
               />
             </Box>
-            <Box sx={{ display: 'grid', gridTemplateColumns: hasAccessorySlot ? 'repeat(2, minmax(0, 1fr))' : 'minmax(0, 1fr)', gap: 1 }}>
+            <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 1 }}>
               <GearMainStatSelect
                 multiple
                 value={mainStatSelection}
@@ -394,16 +394,16 @@ export default function KeepUniquesTab({
                 showBorderColors={useStatButtonColors}
                 size="small"
               />
-              {hasAccessorySlot ? (
-                <GearFactionSelect
-                  multiple
-                  value={factionSelection}
-                  onChange={(nextFactions) => {
-                    setRuleCombination(rule.id, (prev) => ({ ...prev, factions: dedupeNumericArray(nextFactions) }))
-                  }}
-                  size="small"
-                />
-              ) : null}
+              {/* Keep the faction selector visible so users understand why accessory-only filters are required. */}
+              <GearFactionSelect
+                multiple
+                disabled={!hasAccessorySlot}
+                value={factionSelection}
+                onChange={(nextFactions) => {
+                  setRuleCombination(rule.id, (prev) => ({ ...prev, factions: dedupeNumericArray(nextFactions) }))
+                }}
+                size="small"
+              />
             </Box>
             <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 1, alignItems: 'center' }}>
               <TextField
