@@ -19,22 +19,33 @@ export const pickEllipsisTarget = (root: HTMLElement, selector?: string): HTMLEl
   return target || root
 }
 
+const CSS_WIDTH_TOLERANCE_PX = 2
+
+const measureCssWidth = (target: HTMLElement): number => {
+  // Offset/client widths remain in CSS pixels even when zoom/scale transforms shrink the viewport.
+  const layoutWidth = Math.max(target.offsetWidth || 0, target.clientWidth || 0)
+  if (layoutWidth > 0) return layoutWidth
+  // Fallback to the bounding box when layout metrics are unavailable (hidden nodes, SVG, etc.).
+  return Math.floor(target.getBoundingClientRect().width || 0)
+}
+
 export const hasEllipsisOverflow = (rootEl?: HTMLElement | null, selector?: string): boolean => {
   try {
     const root = rootEl ?? null
     if (!root) return false
     const target = pickEllipsisTarget(root, selector)
-    const rect = target.getBoundingClientRect()
-    if ((rect.width || 0) <= 0) return false
     const cs = getComputedStyle(target)
     const isEllipsisStyle = (
       (cs.overflow === 'hidden' || cs.overflowX === 'hidden')
       && cs.textOverflow === 'ellipsis'
       && cs.whiteSpace === 'nowrap'
     )
-    const rectW = Math.floor(target.getBoundingClientRect().width || 0)
+    const visibleWidth = measureCssWidth(target)
+    if (visibleWidth <= 0) return false
     const scrollW = Math.floor(target.scrollWidth || 0)
-    return Boolean(isEllipsisStyle && scrollW > 0 && rectW + 2 < scrollW)
+    // Compare scroll width (intrinsic text width) against the zoom-safe visible width to avoid
+    // false positives when the app auto-zooms for side-by-side mode.
+    return Boolean(isEllipsisStyle && scrollW > 0 && visibleWidth + CSS_WIDTH_TOLERANCE_PX < scrollW)
   } catch {
     return false
   }
