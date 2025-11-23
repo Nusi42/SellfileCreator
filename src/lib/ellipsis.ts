@@ -1,3 +1,6 @@
+// Ellipsis helpers live in their own module so both MarkdownTooltip and EllipsisTooltip can reuse
+// the exact same overflow detection logic. Keeping the measurement centralized prevents subtle
+// drift (e.g., different selectors or math) across call sites.
 export const pickEllipsisTarget = (root: HTMLElement, selector?: string): HTMLElement => {
   let target: HTMLElement | null = null
   if (selector) target = root.querySelector(selector)

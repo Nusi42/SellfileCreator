@@ -256,6 +256,9 @@ export function MarkdownTooltip({
         const originalProps = (children as React.ReactElement).props ?? {}
         const nextProps: Record<string, unknown> = { ref: mergedChildRef }
         if (ellipsisEnabled) {
+          // Mirror EllipsisTooltip semantics: only surface the native title when hover/focus hits a
+          // truncated label. This keeps MarkdownTooltip the single popper owner while still exposing
+          // the full text for locales that overflow their inline container.
           nextProps.onMouseEnter = (event: React.MouseEvent<HTMLElement>) => {
             originalProps.onMouseEnter?.(event)
             applyEllipsisTitle(event.currentTarget)

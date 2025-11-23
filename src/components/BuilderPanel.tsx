@@ -2276,6 +2276,8 @@ const maxLevelValue = multiEditActive
           {/* Keep the Action label glued to the toggle width so translations never wrap. */}
           <FormLabel sx={[BUILDER_LABEL_INLINE_SX, { mb: 0.5 }]}>
             <MarkdownTooltip
+              // ellipsisTitle mirrors the inline ellipsis span so DE strings expose their full text via
+              // the OS tooltip without stacking another Markdown popper.
               ellipsisTitle={t('builderAction')}
               render={(
                 <BuilderTooltipContent
