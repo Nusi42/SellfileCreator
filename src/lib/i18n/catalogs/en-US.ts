@@ -198,6 +198,10 @@ const enUS: Catalog = {
   keepUniquesAddRule: 'Add Keep Rule',
   keepUniquesGridTitle: 'Tester items',
   keepUniquesGridSelectedCount: '{count} items match this combination',
+  keepUniquesGridFilterLabel: 'Filter: {mode}',
+  keepUniquesGridFilterModeAll: 'All',
+  keepUniquesGridFilterModeSelection: 'Selection',
+  keepUniquesGridFilterTooltip: 'Toggle between showing all unique tester items and only the rows that match the selected keep rule. Selection mode behaves like All whenever no rule is selected.',
   keepUniquesSetLabel: 'Set',
 
   titleSubstatChipColors: 'Substat Chip Colors',

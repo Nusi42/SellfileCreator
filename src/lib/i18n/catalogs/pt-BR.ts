@@ -195,6 +195,10 @@ const catalog: Catalog = {
   keepUniquesAddRule: 'Adicionar regra de manutenção',
   keepUniquesGridTitle: 'Itens do testador',
   keepUniquesGridSelectedCount: '{count} itens correspondem a esta tupla',
+  keepUniquesGridFilterLabel: 'Filter: {mode}',
+  keepUniquesGridFilterModeAll: 'All',
+  keepUniquesGridFilterModeSelection: 'Selection',
+  keepUniquesGridFilterTooltip: 'Toggle between showing all unique tester items and only the rows that match the selected keep rule. Selection mode behaves like All whenever no rule is selected.',
   keepUniquesSetLabel: 'Conjunto',
 
   titleSubstatChipColors: 'Cores dos chips de substats',

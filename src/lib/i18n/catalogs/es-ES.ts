@@ -195,6 +195,10 @@ const overrides: Catalog = {
   keepUniquesAddRule: 'Añadir regla de conservación',
   keepUniquesGridTitle: 'Objetos del tester',
   keepUniquesGridSelectedCount: '{count} objetos coinciden con esta tupla',
+  keepUniquesGridFilterLabel: 'Filter: {mode}',
+  keepUniquesGridFilterModeAll: 'All',
+  keepUniquesGridFilterModeSelection: 'Selection',
+  keepUniquesGridFilterTooltip: 'Toggle between showing all unique tester items and only the rows that match the selected keep rule. Selection mode behaves like All whenever no rule is selected.',
   keepUniquesSetLabel: 'Conjunto',
 
   titleSubstatChipColors: 'Colores de las chips de substats',

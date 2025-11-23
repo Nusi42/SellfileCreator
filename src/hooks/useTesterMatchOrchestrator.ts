@@ -527,13 +527,13 @@ export function useTesterMatchOrchestrator(params: UseTesterMatchOrchestratorPar
 
   // Keep-unique candidate snapshot shared with detectors downstream.
   const keepUniqueCandidates = useMemo<KeepUniqueCandidateSnapshot>(() => {
-    if (!keepUniquesActive) return EMPTY_KEEP_UNIQUE_CANDIDATES
+    if (!testerPreviewRows.length) return EMPTY_KEEP_UNIQUE_CANDIDATES
     return collectKeepUniqueCandidates({
       rows: testerPreviewRows,
       baseRules: keepUniqueBaseRules,
       configModes,
     })
-  }, [keepUniquesActive, testerPreviewRows, keepUniqueBaseRules, configModes])
+  }, [testerPreviewRows, keepUniqueBaseRules, configModes])
 
   // Keep-unique detection refresh runs when candidates or rules change.
   useEffect(() => {

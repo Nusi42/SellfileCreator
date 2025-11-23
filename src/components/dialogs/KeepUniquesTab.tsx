@@ -20,6 +20,8 @@ import {
 import AddIcon from '@mui/icons-material/Add'
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline'
 import ContentCopyIcon from '@mui/icons-material/ContentCopy'
+import FilterListIcon from '@mui/icons-material/FilterList'
+import FilterListOffIcon from '@mui/icons-material/FilterListOff'
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined'
 import type { KeepUniqueDetectionEntry, KeepUniqueDetectionSnapshot, KeepUniqueRule } from '../../lib/keepUniques'
 import { createKeepUniqueRuleId, getKeepUniqueItemKey } from '../../lib/keepUniques'
@@ -94,6 +96,7 @@ export default function KeepUniquesTab({
   const [selectedRuleId, setSelectedRuleId] = useState<string | null>(() => rules[0]?.id ?? null)
   const [respectManualDeselect, setRespectManualDeselect] = useState(false)
   const [pendingDeleteRuleId, setPendingDeleteRuleId] = useState<string | null>(null)
+  const [gridFilterMode, setGridFilterMode] = useState<'all' | 'selection'>('all')
   const effectiveSelectedRuleId = useMemo(() => {
     if (selectedRuleId === null) {
       if (respectManualDeselect) return null
@@ -120,18 +123,23 @@ export default function KeepUniquesTab({
   const selectedEntry = effectiveSelectedRuleId ? detectionByRuleId.get(effectiveSelectedRuleId) ?? null : null
   const selectedItemKeys = useMemo(() => new Set<number>(selectedEntry?.itemKeys ?? []), [selectedEntry])
   const uniqueItemKeySet = uniqueItemKeys
-  const gridRows = useMemo(() => {
+  const uniqueRows = useMemo(() => {
     if (uniqueItemKeySet.size === 0) return []
     if (uniqueItemKeySet.size === testerRows.length) return testerRows
     return testerRows.filter((row) => uniqueItemKeySet.has(getKeepUniqueItemKey(row.artifact)))
   }, [testerRows, uniqueItemKeySet])
-  const uniqueFilterActive = testerRows.length > gridRows.length
+  const uniqueFilterActive = testerRows.length > uniqueRows.length
   // Highlight callback lets the tester grid fade non-matching cards instead of mutating the dataset.
   const highlightRowPredicate = useMemo(() => {
     if (!selectedEntry || selectedItemKeys.size === 0) return null
     return (row: TesterPreviewRow) => selectedItemKeys.has(getKeepUniqueItemKey(row.artifact))
   }, [selectedEntry, selectedItemKeys])
   const highlightActive = Boolean(highlightRowPredicate)
+  const selectionFilterApplied = gridFilterMode === 'selection' && Boolean(highlightRowPredicate)
+  const gridRows = useMemo(() => {
+    if (!selectionFilterApplied || !highlightRowPredicate) return uniqueRows
+    return uniqueRows.filter((row) => highlightRowPredicate(row))
+  }, [highlightRowPredicate, selectionFilterApplied, uniqueRows])
   const selectedVisibleRowCount = useMemo(() => {
     if (!selectedEntry || selectedEntry.itemKeys.length === 0) return 0
     let count = 0
@@ -140,8 +148,8 @@ export default function KeepUniquesTab({
     }
     return count
   }, [selectedEntry, uniqueItemKeySet])
-  const highlightFilterActive = highlightActive && gridRows.length > selectedVisibleRowCount
-  const gridFiltered = uniqueFilterActive || highlightFilterActive
+  const highlightFilterActive = highlightActive && !selectionFilterApplied && uniqueRows.length > selectedVisibleRowCount
+  const gridFiltered = uniqueFilterActive || highlightFilterActive || selectionFilterApplied
 
   const handleAddRule = useCallback(() => {
     const combination = makeDefaultKeepUniqueCombination()
@@ -212,6 +220,9 @@ export default function KeepUniquesTab({
   ) => {
     updateRule(ruleId, (rule) => ({ ...rule, combination: updater(rule.combination) }))
   }, [updateRule])
+  const handleToggleGridFilterMode = useCallback(() => {
+    setGridFilterMode((prev) => (prev === 'all' ? 'selection' : 'all'))
+  }, [])
 
   const deficitCount = detectionEntries.filter((entry) => entry.deficit > 0).length
 
@@ -533,12 +544,38 @@ export default function KeepUniquesTab({
             </Box>
           </Box>
           <Box data-tour-id="keepuniques.grid" sx={{ minHeight: 0, display: 'flex', flexDirection: 'column', gap: 1 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-              <Typography variant="subtitle2">{t('keepUniquesGridTitle')}</Typography>
-              {selectedEntry ? (
-                <Chip size="small" label={t('keepUniquesGridSelectedCount', { count: selectedVisibleRowCount })} />
-              ) : null}
-              {detectionChip}
+            <Box sx={{ display: 'flex', alignItems: { xs: 'flex-start', sm: 'center' }, flexWrap: 'wrap', gap: 1 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', flex: '1 1 auto' }}>
+                <Typography variant="subtitle2">{t('keepUniquesGridTitle')}</Typography>
+                {selectedEntry ? (
+                  <Chip size="small" label={t('keepUniquesGridSelectedCount', { count: selectedVisibleRowCount })} />
+                ) : null}
+                {detectionChip}
+              </Box>
+              <MarkdownTooltip markdown={t('keepUniquesGridFilterTooltip')}>
+                <span>
+                  <Button
+                    size="small"
+                    color="success"
+                    variant={gridFilterMode === 'selection' ? 'contained' : 'outlined'}
+                    onClick={handleToggleGridFilterMode}
+                    aria-pressed={gridFilterMode === 'selection'}
+                    startIcon={gridFilterMode === 'selection' ? <FilterListIcon fontSize="small" /> : <FilterListOffIcon fontSize="small" />}
+                    sx={{
+                      height: MENU_CONTROL_HEIGHT_PX,
+                      minHeight: MENU_CONTROL_HEIGHT_PX,
+                      px: 1.25,
+                      '& .MuiTypography-root': { fontWeight: 600 },
+                    }}
+                  >
+                    {t('keepUniquesGridFilterLabel', {
+                      mode: gridFilterMode === 'selection'
+                        ? t('keepUniquesGridFilterModeSelection')
+                        : t('keepUniquesGridFilterModeAll'),
+                    })}
+                  </Button>
+                </span>
+              </MarkdownTooltip>
             </Box>
             <Box sx={{ flex: 1, minHeight: 0 }}>
               <TesterItemsGrid
