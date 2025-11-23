@@ -29,7 +29,7 @@ import type { ColorBlindMode } from '../../lib/constants'
 import { MENU_CONTROL_HEIGHT_PX } from '../../lib/constants'
 import type { ArtifactSetId, ArtifactTypeId, StatVariant } from '../../lib/types'
 import {
-  ACCESSORY_SET_IDS,
+  ACCESSORY_SLOTS_COMPATIBLE_SET_IDS,
   ALLOWED_MAIN_BY_SLOT,
   ARMOR_FIXED_SET_IDS,
   ARMOR_VARIABLE_SET_IDS,
@@ -253,7 +253,7 @@ export default function KeepUniquesTab({
     const hasArmorSlot = slotAny || slotSelection.some((slotId) => !isAccessorySlot(slotId))
     const allowedSetPool = hasAccessorySlot && hasArmorSlot
       ? ALL_ARTIFACT_SET_IDS
-      : (hasAccessorySlot ? ACCESSORY_SET_IDS : ARTIFACT_SET_POOL)
+      : (hasAccessorySlot ? ACCESSORY_SLOTS_COMPATIBLE_SET_IDS : ARTIFACT_SET_POOL)
     const setSelection = combination.sets.filter((setId) => allowedSetPool.includes(setId))
     const rankSelection = combination.ranks
     const raritySelection = combination.rarities
@@ -620,7 +620,7 @@ function resolveAllowedSetPool(slots: ArtifactTypeId[]): readonly ArtifactSetId[
   const hasAccessory = slotAny || slots.some((slotId) => isAccessorySlot(slotId))
   const hasArmor = slotAny || slots.some((slotId) => !isAccessorySlot(slotId))
   if (hasAccessory && hasArmor) return ALL_ARTIFACT_SET_IDS
-  return hasAccessory ? ACCESSORY_SET_IDS : ARTIFACT_SET_POOL
+  return hasAccessory ? ACCESSORY_SLOTS_COMPATIBLE_SET_IDS : ARTIFACT_SET_POOL
 }
 
 function getMainStatOptionsForSlots(slots: ArtifactTypeId[]): StatVariant[] {

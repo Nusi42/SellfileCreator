@@ -5,39 +5,23 @@
  * coercion stay consistent across external command ingestion and the UI.
  */
 import { ACCESSORY_NO_SET_ID, TESTER_ANY_SLOT_ID } from './constants'
-import { artifactSetDescriptions } from './setDescriptions'
 import {
-  ArtifactSet,
   type ArtifactSetId,
-  artifactSetNames,
   ArtifactType,
   type ArtifactTypeId,
   type FactionId,
   compareArtifactSets,
   LEVEL_MILESTONES,
   type LevelMilestone,
+  ALL_ARTIFACT_SET_IDS,
+  ARMOR_FIXED_SET_IDS,
+  ARMOR_VARIABLE_SET_IDS,
+  ACCESSORY_SLOTS_COMPATIBLE_SET_IDS,
 } from './types'
-
-// Accessory-only sets (1000+ range) that remain valid for rings/amulets/banners.
-const ACCESSORY_SET_IDS: readonly number[] = [
-  ArtifactSet.Refresh,
-  ArtifactSet.Cleansing,
-  ArtifactSet.Bloodshield,
-  ArtifactSet.Reaction,
-  ArtifactSet.Revenge,
-].map(Number)
-
-// Variable-piece sets have a textual `pieces` description (e.g., 1-piece).
-// They can appear on both armor and accessories, so keep them whitelisted.
-const VARIABLE_PIECE_SET_IDS: readonly number[] = Object.entries(artifactSetNames)
-  .filter(([, name]) => typeof artifactSetDescriptions[name]?.pieces === 'string')
-  .map(([id]) => Number(id))
-
-const ALL_SET_IDS: readonly number[] = Object.keys(artifactSetNames)
-  .map(Number)
-  .sort(compareArtifactSets)
-
-const ARMOR_SET_IDS: readonly number[] = ALL_SET_IDS.filter((id) => id < 1000)
+const ARMOR_SET_IDS: readonly number[] = Array.from(new Set<number>([
+  ...ARMOR_FIXED_SET_IDS,
+  ...ARMOR_VARIABLE_SET_IDS,
+])).sort(compareArtifactSets)
 
 const RANK_VALUES: readonly [1, 2, 3, 4, 5, 6] = [1, 2, 3, 4, 5, 6]
 const RARITY_VALUES: readonly [1, 2, 3, 4, 5, 6] = [1, 2, 3, 4, 5, 6]
@@ -59,17 +43,15 @@ export function allowedTesterSetIds(slot: ArtifactTypeId): number[] {
   if (numeric === TESTER_ANY_SLOT_ID) {
     const merged = new Set<number>([
       ACCESSORY_NO_SET_ID,
-      ...ALL_SET_IDS,
-      ...ACCESSORY_SET_IDS,
-      ...VARIABLE_PIECE_SET_IDS,
+      ...ALL_ARTIFACT_SET_IDS,
+      ...ACCESSORY_SLOTS_COMPATIBLE_SET_IDS,
     ])
     return Array.from(merged).sort(compareArtifactSets)
   }
   if (isAccessorySlot(numeric)) {
     const merged = new Set<number>([
       ACCESSORY_NO_SET_ID,
-      ...ACCESSORY_SET_IDS,
-      ...VARIABLE_PIECE_SET_IDS,
+      ...ACCESSORY_SLOTS_COMPATIBLE_SET_IDS,
     ])
     return Array.from(merged).sort(compareArtifactSets)
   }
