@@ -3502,7 +3502,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           forceSideBySide={forceSideBySideLayout}
           title={t('appBuilderTitle')}
           caption={t('builderIntroCaption')}
-          substatValuesLabel={t('builderSubstatValues')}
+          substatTargetsLabel={t('builderSubstatTargets')}
+          substatTargetsTooltip={t('builderSubstatTargetsTooltip')}
           onOpenSubstatValues={openSubstatTargetsDialog}
           builderPanel={builderPanelElement}
           headerActions={headerActionsElement}

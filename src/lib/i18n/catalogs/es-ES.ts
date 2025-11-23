@@ -4,6 +4,7 @@ const overrides: Catalog = {
   // App / Panels
   appBuilderTitle: 'Constructor de configs',
   loadConfigs: 'Cargar configs (.hsfc)',
+  loadConfigsTooltip: 'Carga un archivo Configs (.hsfc) para restaurar tus configuraciones, metasets, mínimos y notas guardados.',
   configOne: 'config',
   configMany: 'configs',
   configsSelectedCount: '{selected} de {total} {word}',
@@ -12,6 +13,7 @@ const overrides: Catalog = {
   editNote: 'Editar nota…',
   addNote: 'Añadir nota…',
   saveAllConfigs: 'Guardar todas las configs (.hsfc)',
+  saveAllConfigsTooltip: 'Guarda todas las configuraciones, metasets, mínimos y notas en un archivo Configs (.hsfc) para volver a cargarlo más adelante.',
   deleteConfigs: 'Eliminar todas las configs',
 
   sellfilePreview: 'Vista previa del Sellfile',
@@ -51,6 +53,7 @@ const overrides: Catalog = {
   manageColorsAria: 'Gestionar colores',
   // Rule Tester
   testerOpenLabel: 'Equipo...',
+  testerOpenTooltip: 'Abre el probador de equipo para cargar una base de datos de RSL Helper o crear equipo de ejemplo y comprobar las reglas actuales.',
   testerTitle: 'Equipo',
   testerIntro: 'Crea equipo de muestra para ver qué regla coincide primero y si mantiene o vende la pieza. Carga o arrastra una base de datos de RSL Helper (normalmente en %APPDATA%\\RslHelper\\Config) a la aplicación para previsualizar equipo real en la vista del Probador de reglas.',
   testerManualOnlyNotice: 'Este panel solo muestra las entradas personalizadas. El equipo importado del inventario, la colección, la bóveda y la bandeja de entrada permanece visible en la vista del Probador de reglas; usa los botones de abajo para borrar esas fuentes si lo necesitas.',
@@ -611,7 +614,8 @@ const overrides: Catalog = {
   builderRank: 'Rango',
   builderRankHelp: 'Restringe la regla a ciertos rangos de estrellas para tratar las piezas de 6★ distinto a 5★.\n• “Todos” deja que todos los rangos sean válidos.',
   any: 'Todos',
-  builderSubstatValues: 'Objetivos de substats…',
+  builderSubstatTargets: 'Objetivos de substats…',
+  builderSubstatTargetsTooltip: 'Revisa o ajusta los objetivos mínimos por rango que alimentan los indicadores de substats y las filas del Sellfile. Los cambios se aplican a todas las configuraciones.',
   builderMain: 'Stat principal',
   builderMainHelp: 'Exige stats principales concretas para que solo las piezas que te interesan coincidan.\n• Selecciona varias stats para aceptar cualquiera de ellas.\n• Deja vacío para permitir cualquier stat principal.',
   builderClearMainStats: 'Borrar selección de stat principal',
@@ -661,6 +665,7 @@ const overrides: Catalog = {
   builderLateLabel: 'Tardío',
   builderAutoGeLabel: 'Auto ≥ {tier}',
   builderManageMetasetsButton: 'Gestionar meta-sets…',
+  builderManageMetasetsTooltip: 'Crea, renombra u ordena grupos de sets con nombre. Los metasets aparecen arriba del selector de sets para que las reglas puedan referenciar conjuntos completos.',
   builderRequiredSubstats: 'Substats requeridos',
   builderRequiredSubstatsHelp: 'Define cuántos de tus substats seleccionados deben aparecer para que la regla pase.\n• Los substats bloqueados (🔒) siempre cuentan.\n• “Auto” mantiene el recuento alineado con lo seleccionado (máximo cuatro).',
   builderFlexChipOn: 'Flex: Activado',

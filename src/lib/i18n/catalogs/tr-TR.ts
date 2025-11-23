@@ -4,6 +4,7 @@ const overrides: Catalog = {
   // App / Panels
   appBuilderTitle: 'Konfig Oluşturucu',
   loadConfigs: 'Konfigleri yükle (.hsfc)',
+  loadConfigsTooltip: 'Kaydedilmiş konfigleri, metasetleri, minimumları ve notları geri yüklemek için bir Configs (.hsfc) dosyası yükleyin.',
   configOne: 'konfig',
   configMany: 'konfigler',
   configsSelectedCount: '{total} {word} içinden {selected}',
@@ -12,6 +13,7 @@ const overrides: Catalog = {
   editNote: 'Notu düzenle…',
   addNote: 'Not ekle…',
   saveAllConfigs: 'Tüm konfigleri kaydet (.hsfc)',
+  saveAllConfigsTooltip: 'Tüm konfigleri, metasetleri, minimumları ve notları daha sonra tekrar yükleyebileceğiniz bir Configs (.hsfc) dosyasına kaydedin.',
   deleteConfigs: 'Tüm konfigleri sil',
 
   sellfilePreview: 'Sellfile önizlemesi',
@@ -51,6 +53,7 @@ const overrides: Catalog = {
   manageColorsAria: 'Renkleri yönet',
   // Rule Tester
   testerOpenLabel: 'Ekipman...',
+  testerOpenTooltip: 'RSL Helper veritabanı yüklemek veya örnek eşyalar hazırlayıp mevcut kuralları doğrulamak için ekipman test aracını açın.',
   testerTitle: 'Ekipman',
   testerIntro: 'Örnek ekipman oluşturun ve hangi kuralın önce eşleştiğini, öğeyi tutup tutmadığını görün. RSL Helper veritabanını (genellikle %APPDATA%\\RslHelper\\Config altında) uygulamaya yükleyin veya sürükleyip bırakın; böylece Kural Testi görünümünde gerçek ekipmanı inceleyebilirsiniz.',
   testerManualOnlyNotice: 'Bu panel sadece özel girişleri listeler. İçeri aktarılan envanter, koleksiyon, kasa ve gelen kutusu parçaları Kural Testi görünümünde kalır; gerekirse bu kaynakları aşağıdaki düğmelerle temizleyin.',
@@ -611,7 +614,8 @@ const overrides: Catalog = {
   builderRank: 'Rütbe',
   builderRankHelp: '6★ eşyayı 5★\'den farklı değerlendirmek için kuralı belirli yıldız rütbeleriyle sınırlandırın.\n• “Hepsi” tüm rütbeleri geçerli bırakır.',
   any: 'Hepsi',
-  builderSubstatValues: 'Alt stat hedefleri…',
+  builderSubstatTargets: 'Alt stat hedefleri…',
+  builderSubstatTargetsTooltip: 'Alt stat göstergeleri ve Sellfile satırlarını besleyen seviye başına minimum hedefleri gözden geçirin veya ayarlayın. Değişiklikler tüm konfiglere uygulanır.',
   builderMain: 'Ana stat',
   builderMainHelp: 'Yalnızca istediğiniz yapılar eşleşsin diye belirli ana statları zorunlu kılın.\n• Birden fazla stat seçerek bunlardan herhangi birini kabul edin.\n• Her ana stat uygunsa boş bırakın.',
   builderClearMainStats: 'Ana stat seçimini temizle',
@@ -661,6 +665,7 @@ const overrides: Catalog = {
   builderLateLabel: 'Geç',
   builderAutoGeLabel: 'Oto ≥ {tier}',
   builderManageMetasetsButton: 'Meta setleri yönet…',
+  builderManageMetasetsTooltip: 'Adlandırılmış set grupları oluşturun, yeniden adlandırın veya sıralarını değiştirin. Metasetler set seçicinin üstünde görünür, böylece kurallar tüm paketlere referans verebilir.',
   builderRequiredSubstats: 'Gerekli alt statlar',
   builderRequiredSubstatsHelp: 'Bir kuralın geçmesi için seçtiğiniz alt statlerden kaçının bulunması gerektiğini ayarlayın.\n• Kilitli alt statlar (🔒) her zaman sayılır.\n• “Oto” sayıyı seçili alt statlerle senkron tutar (en fazla dört).',
   builderFlexChipOn: 'Flex: Açık',

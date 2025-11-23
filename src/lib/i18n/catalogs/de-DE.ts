@@ -4,6 +4,7 @@ const overrides: Catalog = {
   // App / Panels
   appBuilderTitle: 'Konfig-Builder',
   loadConfigs: 'Konfigs laden (.hsfc)',
+  loadConfigsTooltip: 'Lade eine Configs-Datei (.hsfc), um gespeicherte Konfigs, Metasets, Minima und Notizen wiederherzustellen.',
   configOne: 'Konfig',
   configMany: 'Konfigs',
   configsSelectedCount: '{selected} von {total} {word}',
@@ -12,6 +13,7 @@ const overrides: Catalog = {
   editNote: 'Notiz bearbeiten…',
   addNote: 'Notiz hinzufügen…',
   saveAllConfigs: 'Alle Konfigs speichern (.hsfc)',
+  saveAllConfigsTooltip: 'Speichere alle Konfigs, Metasets, Minima und Notizen als Configs-Schnappschuss (.hsfc), den du später erneut laden kannst.',
   deleteConfigs: 'Alle Konfigs löschen',
 
   sellfilePreview: 'Sellfile‑Vorschau',
@@ -51,6 +53,7 @@ const overrides: Catalog = {
   manageColorsAria: 'Farben verwalten',
   // Rule Tester
   testerOpenLabel: 'Ausrüstung...',
+  testerOpenTooltip: 'Öffne den Gear-Tester, um eine RSL-Helper-Datenbank zu laden oder Beispielgear zu erstellen und die aktuellen Regeln zu prüfen.',
   testerTitle: 'Ausrüstung',
   testerIntro: 'Erstelle Beispielgear, um zu sehen, welche Regel zuerst greift und ob sie den Gegenstand behält oder verkauft. Lade eine RSL-Helper-DB (normalerweise unter %APPDATA%\\RslHelper\\Config) oder ziehe sie in die App, um echtes Gear in der Rule-Tester-Ansicht zu prüfen.',
   testerManualOnlyNotice: 'Dieses Panel zeigt nur die benutzerdefinierten Einträge. Importierte Gegenstände aus Inventar, Sammlung, Tresor und Posteingang bleiben in der Rule-Tester-Ansicht sichtbar; lösche diese Quellen bei Bedarf über die Buttons unten.',
@@ -611,7 +614,8 @@ const overrides: Catalog = {
   builderRank: 'Rang',
   builderRankHelp: 'Begrenze die Regel auf bestimmte Ränge, damit du 6★ anders behandeln kannst als 5★.\n• „Alle“ lässt alle Ränge zu.',
   any: 'Alle',
-  builderSubstatValues: 'Substat-Richtwerte…',
+  builderSubstatTargets: 'Substat-Richtwerte…',
+  builderSubstatTargetsTooltip: 'Prüfe oder passe die per Rang gültigen Mindestrollziele an, die die Substat-Anzeigen und Sellfile-Zeilen steuern. Änderungen wirken global auf alle Konfigs.',
   builderMain: 'Mainstat',
   builderMainHelp: 'Verlange bestimmte Mainstats, damit nur Builds matchen, die dich interessieren.\n• Wähle mehrere Stats, um beliebige davon zu akzeptieren.\n• Leer lassen, um jeden Mainstat zu erlauben.',
   builderClearMainStats: 'Mainstat-Auswahl löschen',
@@ -661,6 +665,7 @@ const overrides: Catalog = {
   builderLateLabel: 'Spät',
   builderAutoGeLabel: 'Auto ≥ {tier}',
   builderManageMetasetsButton: 'Metasets verwalten…',
+  builderManageMetasetsTooltip: 'Erstelle, benenne um oder sortiere benannte Set-Gruppen. Metasets erscheinen oben im Sets-Auswahlmenü, damit Regeln komplette Bündel referenzieren können.',
   builderRequiredSubstats: 'Erforderliche Substats',
   builderRequiredSubstatsHelp: 'Lege fest, wie viele deiner ausgewählten Substats auf dem Teil vorhanden sein müssen, damit die Regel passt.\n• Gesperrte Substats (🔒) zählen immer mit.\n• „Auto“ hält die Zahl im Einklang mit der Auswahl (maximal vier).',
   builderFlexChipOn: 'Flex: An',
