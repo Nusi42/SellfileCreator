@@ -80,7 +80,7 @@ import PlaylistAddCheckIcon from '@mui/icons-material/PlaylistAddCheck'
 import UndoIcon from '@mui/icons-material/Undo'
 import RedoIcon from '@mui/icons-material/Redo'
 import ClearIconButton from './ClearIconButton'
-import { UI_BG_HOVER_DANGER_TRANSITION, DANGER_TINT_BG, LIST_SUBHEADER_SX, MENU_SELECTED_BG_ALPHA, MENU_SELECTED_BG_HOVER_ALPHA, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, MENU_MAX_HEIGHT_EXTRA_BUFFER, SETS_MENU_WIDTH_PX, UI_SUBSTAT_WARNING_ROW_HEIGHT_PX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, BUILDER_USER_DEFAULTS_KEY, BUILDER_DEFAULT_SAVE_TARGET, BUILDER_DIRTY_NUDGE_IDLE_MS, BUILDER_DIRTY_ATTENTION_INTERVAL_MS, FONT_SIZE_BASE_PX, ELLIPSIS_TEXT_SX, BUILDER_SLOT_LABEL_WIDTH_BUFFER_PX, BUILDER_TOGGLE_BUTTON_HEIGHT_PX, BUILDER_TOGGLE_BUTTON_MIN_WIDTH_PX, SMALL_BUTTON_HEIGHT_PX, SETS_SELECT_INLINE_GUTTER_COLLAPSED_PX, SETS_SELECT_INLINE_GUTTER_PX, CLEAR_ICON_BUTTON_SIZE_PX, SETS_TOOLTIP_MAX_WIDTH_PX, MULTI_EDIT_MIXED_BG_ALPHA, MULTI_EDIT_MIXED_BORDER_ALPHA, MULTI_EDIT_MIXED_TEXT_ALPHA, MENU_LABEL_WIDTH_PX, MENU_CONTROL_HEIGHT_PX, SUBSTAT_TARGET_MAX_ROLLS, HISTORY_TOOLTIP_MAX_WIDTH_PX, BUILDER_AUTO_APPLY_DEBOUNCE_MS } from '../lib/constants'
+import { UI_BG_HOVER_DANGER_TRANSITION, DANGER_TINT_BG, LIST_SUBHEADER_SX, MENU_SELECTED_BG_ALPHA, MENU_SELECTED_BG_HOVER_ALPHA, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, MENU_MAX_HEIGHT_EXTRA_BUFFER, SETS_MENU_WIDTH_PX, UI_SUBSTAT_WARNING_ROW_HEIGHT_PX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, BUILDER_USER_DEFAULTS_KEY, BUILDER_DEFAULT_SAVE_TARGET, BUILDER_DIRTY_NUDGE_IDLE_MS, BUILDER_DIRTY_ATTENTION_INTERVAL_MS, FONT_SIZE_BASE_PX, ELLIPSIS_TEXT_SX, BUILDER_SLOT_LABEL_WIDTH_BUFFER_PX, BUILDER_TOGGLE_BUTTON_HEIGHT_PX, BUILDER_TOGGLE_BUTTON_MIN_WIDTH_PX, SMALL_BUTTON_HEIGHT_PX, SETS_SELECT_INLINE_GUTTER_COLLAPSED_PX, SETS_SELECT_INLINE_GUTTER_PX, CLEAR_ICON_BUTTON_SIZE_PX, SETS_TOOLTIP_MAX_WIDTH_PX, MULTI_EDIT_MIXED_BG_ALPHA, MULTI_EDIT_MIXED_BORDER_ALPHA, MULTI_EDIT_MIXED_TEXT_ALPHA, MENU_LABEL_WIDTH_PX, MENU_CONTROL_HEIGHT_PX, SUBSTAT_TARGET_MAX_ROLLS, HISTORY_TOOLTIP_MAX_WIDTH_PX, BUILDER_AUTO_APPLY_DEBOUNCE_MS, BUILDER_LABEL_INLINE_SX, BUILDER_LABEL_TEXT_SX, BUILDER_MIN_ROLLS_COLUMN_WIDTH_PX, BUILDER_REQUIRED_SUBSTATS_COLUMN_WIDTH_PX, BUILDER_MILESTONE_THRESHOLDS_COLUMN_WIDTH_PX } from '../lib/constants'
 import Checkbox from '@mui/material/Checkbox'
 import { useAttentionEffectStyles, useFortyTwoLegendaryOverlay } from '../lib/attentionEffects'
 import { alpha, useTheme } from '@mui/material/styles'
@@ -2273,7 +2273,8 @@ const maxLevelValue = multiEditActive
           boxShadow: 'none',
           backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? DANGER_TINT_BG.dark : DANGER_TINT_BG.light) : 'transparent',
         })}>
-          <FormLabel sx={{ mb: 0.5 }}>
+          {/* Keep the Action label glued to the toggle width so translations never wrap. */}
+          <FormLabel sx={[BUILDER_LABEL_INLINE_SX, { mb: 0.5 }]}>
             <MarkdownTooltip
               render={(
                 <BuilderTooltipContent
@@ -2284,7 +2285,7 @@ const maxLevelValue = multiEditActive
                 />
               )}
             >
-              <span>{t('builderAction')}</span>
+              <Box component="span" sx={BUILDER_LABEL_TEXT_SX}>{t('builderAction')}</Box>
             </MarkdownTooltip>
           </FormLabel>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
@@ -2548,7 +2549,8 @@ const maxLevelValue = multiEditActive
           backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? DANGER_TINT_BG.dark : DANGER_TINT_BG.light) : 'transparent',
         })}>
         <FormControl fullWidth sx={{ position: 'relative' }}>
-          <FormLabel sx={{ mb: 0.5 }}>
+          {/* Rank label mirrors the select width and ellipsizes when German strings run long. */}
+          <FormLabel sx={[BUILDER_LABEL_INLINE_SX, { mb: 0.5 }]}>
             <MarkdownTooltip
               render={(
                 <BuilderTooltipContent
@@ -2559,7 +2561,7 @@ const maxLevelValue = multiEditActive
                 />
               )}
             >
-              <span>{t('builderRank')}</span>
+              <Box component="span" sx={BUILDER_LABEL_TEXT_SX}>{t('builderRank')}</Box>
             </MarkdownTooltip>
           </FormLabel>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
@@ -2620,7 +2622,8 @@ const maxLevelValue = multiEditActive
         </FormControl>
 
         <FormControl fullWidth>
-          <FormLabel sx={{ mb: 0.5 }}>
+          {/* Rarity label uses the shared inline span so Auto/GTE text stays single-line. */}
+          <FormLabel sx={[BUILDER_LABEL_INLINE_SX, { mb: 0.5 }]}>
             <MarkdownTooltip
               render={(
                 <BuilderTooltipContent
@@ -2635,7 +2638,7 @@ const maxLevelValue = multiEditActive
                 />
               )}
             >
-              <span>{t('filterRarity')}</span>
+              <Box component="span" sx={BUILDER_LABEL_TEXT_SX}>{t('filterRarity')}</Box>
             </MarkdownTooltip>
           </FormLabel>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
@@ -2730,7 +2733,8 @@ const maxLevelValue = multiEditActive
 
         {/* Faction selection (accessories only) */}
         <FormControl fullWidth>
-          <FormLabel sx={{ mb: 0.5 }}>
+          {/* Faction label stays constrained to the Select width for DE translations. */}
+          <FormLabel sx={[BUILDER_LABEL_INLINE_SX, { mb: 0.5 }]}>
             <MarkdownTooltip
               render={(
                 <BuilderTooltipContent
@@ -2741,7 +2745,7 @@ const maxLevelValue = multiEditActive
                 />
               )}
             >
-              <span>{t('builderFaction')}</span>
+              <Box component="span" sx={BUILDER_LABEL_TEXT_SX}>{t('builderFaction')}</Box>
             </MarkdownTooltip>
           </FormLabel>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
@@ -2833,7 +2837,8 @@ const maxLevelValue = multiEditActive
           backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? DANGER_TINT_BG.dark : DANGER_TINT_BG.light) : 'transparent',
         })}>
         <FormControl data-tour-id="builder.min-level">
-          <FormLabel sx={{ mb: 0.5 }}>
+          {/* Min level header shares the ellipsis style with the toggle group. */}
+          <FormLabel sx={[BUILDER_LABEL_INLINE_SX, { mb: 0.5 }]}>
             <MarkdownTooltip
               render={(
                 <BuilderTooltipContent
@@ -2844,7 +2849,7 @@ const maxLevelValue = multiEditActive
                 />
               )}
             >
-              <span>{t('builderMinLevel')}</span>
+              <Box component="span" sx={BUILDER_LABEL_TEXT_SX}>{t('builderMinLevel')}</Box>
             </MarkdownTooltip>
           </FormLabel>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
@@ -2903,7 +2908,8 @@ const maxLevelValue = multiEditActive
         </FormControl>
 
         <FormControl data-tour-id="builder.max-level">
-          <FormLabel sx={{ mb: 0.5 }}>
+          {/* Max level header also clamps to the toggle button row to avoid wraps. */}
+          <FormLabel sx={[BUILDER_LABEL_INLINE_SX, { mb: 0.5 }]}>
             <MarkdownTooltip
               render={(
                 <BuilderTooltipContent
@@ -2914,7 +2920,7 @@ const maxLevelValue = multiEditActive
                 />
               )}
             >
-              <span>{t('builderMaxLevel')}</span>
+              <Box component="span" sx={BUILDER_LABEL_TEXT_SX}>{t('builderMaxLevel')}</Box>
             </MarkdownTooltip>
           </FormLabel>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
@@ -2992,7 +2998,8 @@ const maxLevelValue = multiEditActive
           backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? DANGER_TINT_BG.dark : DANGER_TINT_BG.light) : 'transparent',
         })} data-tour-id="builder.mainstat">
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
-            <FormLabel sx={{ m: 0 }}>
+            {/* Mainstat label tracks the toggle width so it never pushes the clear button. */}
+            <FormLabel sx={[BUILDER_LABEL_INLINE_SX, { m: 0 }]}>
               <MarkdownTooltip
                 render={(
                   <BuilderTooltipContent
@@ -3000,7 +3007,7 @@ const maxLevelValue = multiEditActive
                   />
                 )}
               >
-                <span>{t('builderMain')}</span>
+                <Box component="span" sx={BUILDER_LABEL_TEXT_SX}>{t('builderMain')}</Box>
               </MarkdownTooltip>
             </FormLabel>
             {(() => {
@@ -3164,7 +3171,8 @@ const maxLevelValue = multiEditActive
           backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? DANGER_TINT_BG.dark : DANGER_TINT_BG.light) : 'transparent',
         })} data-tour-id="builder.substats">
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
-            <FormLabel sx={{ m: 0 }}>
+            {/* Substats label uses the same inline span to keep the reset button aligned. */}
+            <FormLabel sx={[BUILDER_LABEL_INLINE_SX, { m: 0 }]}>
               <MarkdownTooltip
                 render={(
                   <BuilderTooltipContent
@@ -3180,7 +3188,7 @@ const maxLevelValue = multiEditActive
                   />
                 )}
               >
-                <span>{t('builderSubstats')}</span>
+                <Box component="span" sx={BUILDER_LABEL_TEXT_SX}>{t('builderSubstats')}</Box>
               </MarkdownTooltip>
             </FormLabel>
             {(() => {
@@ -4673,7 +4681,8 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
           backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? DANGER_TINT_BG.dark : DANGER_TINT_BG.light) : 'transparent',
         })} data-tour-id="builder.slots">
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
-            <FormLabel sx={{ m: 0 }}>
+            {/* Slot label clamps to the toggle width so translations don't wrap under icons. */}
+            <FormLabel sx={[BUILDER_LABEL_INLINE_SX, { m: 0 }]}>
               <MarkdownTooltip
                 render={(
                   <BuilderTooltipContent
@@ -4681,7 +4690,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                   />
                 )}
               >
-                <span>{t('builderSlots')}</span>
+                <Box component="span" sx={BUILDER_LABEL_TEXT_SX}>{t('builderSlots')}</Box>
               </MarkdownTooltip>
             </FormLabel>
             {(() => {
@@ -4730,7 +4739,8 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                 : (<Box sx={{ ...CLEAR_BUTTON_PLACEHOLDER_SX, pointerEvents: 'none' }} />)
             })()}
           </Box>
-          <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 1 }}>
+          {/* Tighten the slot matrix spacing to 4px (0.5 spacing unit) so nine buttons remain compact. */}
+          <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 0.5 }}>
             {artifactTypeIconList.map(({ id, name, Icon }) => {
               const slotState = multiEditActive ? getSlotState(id) : ((cfg.artifactTypes ?? []).includes(id) ? 'all' : 'none')
               const selected = slotState === 'all' || (!multiEditActive && (cfg.artifactTypes ?? []).includes(id))
@@ -4841,9 +4851,24 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
           backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? DANGER_TINT_BG.dark : DANGER_TINT_BG.light) : 'transparent',
         })}>
         <FormControl sx={{ m: 0 }}>
-          <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start', flexWrap: 'nowrap' }}>
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'flex-start',
+              flexWrap: 'wrap',
+              columnGap: 1,
+              rowGap: 1,
+            }}
+          >
             {/* Min Required Rolls */}
-            <FormControl sx={{ m: 0 }}>
+            {/* Anchor Min Required Rolls to its English width so buttons never wrap in DE. */}
+            <FormControl
+              sx={{
+                m: 0,
+                width: `${BUILDER_MIN_ROLLS_COLUMN_WIDTH_PX}px`,
+                flex: `0 0 ${BUILDER_MIN_ROLLS_COLUMN_WIDTH_PX}px`,
+              }}
+            >
               {(() => {
                 const tooltipLines = [
                   t('builderMinRequiredRollsTipSummary'),
@@ -4874,9 +4899,10 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                 const autoState = getMinRequiredRollsTriState('auto')
                 return (
                   <>
-                    <FormLabel sx={{ mb: 0.5 }} data-tour-id="builder.min-rolls.label">
+                    {/* Keep the German “Mindestwürfe” label from wrapping under the toggles. */}
+                    <FormLabel sx={[BUILDER_LABEL_INLINE_SX, { mb: 0.5 }]} data-tour-id="builder.min-rolls.label">
                       <MarkdownTooltip render={tooltipContent}>
-                        <span>{t('builderMinRequiredRolls')}</span>
+                        <Box component="span" sx={BUILDER_LABEL_TEXT_SX}>{t('builderMinRequiredRolls')}</Box>
                       </MarkdownTooltip>
                     </FormLabel>
                     <Box
@@ -5032,7 +5058,14 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
               })()}
             </FormControl>
             {/* Required substats */}
-            <FormControl sx={{ ml: 1 }}>
+            {/* Required substats column mirrors the English 135px width for parity. */}
+            <FormControl
+              sx={{
+                m: 0,
+                width: `${BUILDER_REQUIRED_SUBSTATS_COLUMN_WIDTH_PX}px`,
+                flex: `0 0 ${BUILDER_REQUIRED_SUBSTATS_COLUMN_WIDTH_PX}px`,
+              }}
+            >
               {(() => {
                 type FlexChipState = 'on' | 'off' | 'disabled' | 'mixed'
                 let flexState: FlexChipState
@@ -5084,7 +5117,8 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                 const autoState = getRequiredCountTriState('auto')
                 return (
                   <>
-                    <FormLabel sx={{ mb: 0.5 }} data-tour-id="builder.required.label">
+                    {/* Required substats caption matches the same ellipsis treatment. */}
+                    <FormLabel sx={[BUILDER_LABEL_INLINE_SX, { mb: 0.5 }]} data-tour-id="builder.required.label">
                       <MarkdownTooltip
                         render={(
                           <BuilderTooltipContent
@@ -5095,7 +5129,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                           />
                         )}
                       >
-                        <span>{t('builderRequiredSubstats')}</span>
+                        <Box component="span" sx={BUILDER_LABEL_TEXT_SX}>{t('builderRequiredSubstats')}</Box>
                       </MarkdownTooltip>
                     </FormLabel>
                     <ToggleButtonGroup
@@ -5267,9 +5301,17 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
               const autoChipLabel = autoRarityChipState === 'on'
                 ? t('builderAutoGeLabel', { tier: tierLabel })
                 : t('builderAutoPlusLate')
+              // Milestone Thresholds keeps the remaining 146px slice so chip spacing matches EN.
               return (
-                <FormControl sx={{ ml: 1 }}>
-                  <FormLabel sx={{ mb: 0.5 }} data-tour-id="builder.thresholds.label">
+                <FormControl
+                  sx={{
+                    m: 0,
+                    width: `${BUILDER_MILESTONE_THRESHOLDS_COLUMN_WIDTH_PX}px`,
+                    flex: `0 0 ${BUILDER_MILESTONE_THRESHOLDS_COLUMN_WIDTH_PX}px`,
+                  }}
+                >
+                  {/* Milestone Thresholds label also clamps to the 146px column width. */}
+                  <FormLabel sx={[BUILDER_LABEL_INLINE_SX, { mb: 0.5 }]} data-tour-id="builder.thresholds.label">
                     <MarkdownTooltip
                       render={(
                         <BuilderTooltipContent
@@ -5280,7 +5322,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                         />
                       )}
                     >
-                      <span>{t('builderMilestoneThresholds')}</span>
+                      <Box component="span" sx={BUILDER_LABEL_TEXT_SX}>{t('builderMilestoneThresholds')}</Box>
                     </MarkdownTooltip>
                   </FormLabel>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -5447,7 +5489,8 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
         <FormControl sx={{ m: 0 }}>
           {/* Header row: label on the left, Manage metasets on the right */}
           <Box sx={{ display: 'flex', alignItems: 'center', minWidth: 0, mb: 0.5 }}>
-            <FormLabel sx={{ mb: 0, mr: 1 }}>
+            {/* Sets label mirrors the ellipsis span so the Manage Metasets button stays put. */}
+            <FormLabel sx={[BUILDER_LABEL_INLINE_SX, { mb: 0, mr: 1, flex: '0 1 auto' }]}>
               <MarkdownTooltip
                 render={(
                   <BuilderTooltipContent
@@ -5455,7 +5498,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                   />
                 )}
               >
-                <span>{t('setsTitle')}</span>
+                <Box component="span" sx={BUILDER_LABEL_TEXT_SX}>{t('setsTitle')}</Box>
               </MarkdownTooltip>
             </FormLabel>
             {/* Flexible spacer keeps the label left-aligned and the button right-aligned */}

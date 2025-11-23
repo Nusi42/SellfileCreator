@@ -199,6 +199,28 @@ export const ELLIPSIS_TEXT_SX = {
   whiteSpace: 'nowrap',
 } as const
 
+// Labels next to inline controls lean on this helper so translations hit an ellipsis
+// instead of stretching the row or wrapping under the control.
+export const BUILDER_LABEL_INLINE_SX = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  minWidth: 0,
+  maxWidth: '100%',
+} as const
+
+// Label text inherits the ellipsis treatment; splitting the style lets us drop it on spans.
+export const BUILDER_LABEL_TEXT_SX = {
+  ...ELLIPSIS_TEXT_SX,
+  display: 'block',
+  minWidth: 0,
+} as const
+
+// Mirror the English layout widths for the Min Required / Required / Milestone trio so
+// other locales preserve the same proportions without wrapping their controls.
+export const BUILDER_MIN_ROLLS_COLUMN_WIDTH_PX = 224
+export const BUILDER_REQUIRED_SUBSTATS_COLUMN_WIDTH_PX = 135
+export const BUILDER_MILESTONE_THRESHOLDS_COLUMN_WIDTH_PX = 146
+
 // Default config number shown when no existing config is selected yet.
 export const BUILDER_DEFAULT_SAVE_TARGET = 42
 
