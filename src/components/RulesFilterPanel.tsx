@@ -839,9 +839,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
   const testerConfigFilterTooltip = t('filterLimitSelectedConfigsTooltip')
   const configFilterButtonActive = testerConfigFilterOn
   const configFilterButtonDisabled = !hasConfigs || !onTesterConfigFilterModeChange
-  const configFilterButtonVariant: 'contained' | 'outlined' = configFilterButtonDisabled
-    ? 'contained'
-    : (configFilterButtonActive ? 'contained' : 'outlined')
+  const configFilterButtonVariant: 'contained' | 'outlined' = configFilterButtonActive ? 'contained' : 'outlined'
   const configFilterButtonLabel = (
     isTesterMode
       ? (testerConfigFilterOn ? testerConfigFilterLabel : t('testerFilterConfigsOff'))
