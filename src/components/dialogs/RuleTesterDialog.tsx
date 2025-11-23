@@ -8,7 +8,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode, UIEvent, Dispatch, SetStateAction, MouseEvent } from 'react'
 import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, MenuItem, Select, Stack, Typography, Chip, TextField, ListSubheader, keyframes } from '@mui/material'
-import CloseIcon from '@mui/icons-material/Close'
 import ContentCopyIcon from '@mui/icons-material/ContentCopy'
 import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline'
 import RemoveCircleOutlineIcon from '@mui/icons-material/RemoveCircleOutline'
@@ -1526,11 +1525,7 @@ export default function RuleTesterDialog({
       }}
     >
       <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Box sx={{ flex: 1 }}>{t('testerTitle')}</Box>
-        {/* Close button inherits MarkdownTooltip to match other dialog close buttons. */}
-        <MarkdownTooltip markdown={t('close')}>
-          <IconButton onClick={onClose} size="small"><CloseIcon fontSize="small" /></IconButton>
-        </MarkdownTooltip>
+        <Box sx={{ flex: 1 }}>{t('testerTitle')}</Box>
       </DialogTitle>
       <DialogContent
         data-tour-id="tester.dialog"
