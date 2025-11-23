@@ -1,5 +1,7 @@
 # Tooltip Surfaces — 2025 Refresh
 
+> **Canonical reference:** The full tooltip/context-hint specification now lives in `docs/technical/ui-and-layout.md#tooltips-and-context-hints`. This file exists only as an operational snapshot until we delete it; keep it in sync with the docs or replace it outright once downstream consumers stop depending on it.
+
 The February 2025 refactor collapsed every tooltip surface onto two React components:
 
 1. **`MarkdownTooltip`** – the single source of truth for rendered tooltips. It still wraps MUI’s `<Tooltip>` under the hood, but it enforces the shared delay (`MARKDOWN_TOOLTIP_ENTER_DELAY_MS` = 250 ms), width (`MARKDOWN_TOOLTIP_MAX_WIDTH_PX`), and arrow/interactivity config. Callers either pass a localized markdown string (`markdown=...`) or supply rich JSX via `render=...` when colors, chips, or glyphs are required.

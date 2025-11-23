@@ -44,7 +44,8 @@ We shipped multiple UI/behavior changes after release `2fcc9d04db1a3a045827ee17e
 ## 4. Tooltip / context-hint inventory
 
 **Files to inspect**
-- `docs/TOOLTIPS.md` (create/update; currently missing the recent surfaces called out in `docs/TECHNICAL_DEBT_SINCE_v0.9.8.md`)
+- `docs/technical/ui-and-layout.md#tooltips-and-context-hints` (authoritative guidance)
+- `CURRENT_TOOLTIPS.md` (until we delete it, ensure it points at the canonical doc and stays consistent)
 - `src/components/ContextMenuHintOverlay.tsx`
 - `src/components/PreviewHeaderActions.tsx`
 - `src/components/TesterItemsGrid.tsx`
@@ -52,10 +53,9 @@ We shipped multiple UI/behavior changes after release `2fcc9d04db1a3a045827ee17e
 - `src/components/dialogs/RuleTesterDialog.tsx` (copy-path tooltip)
 
 **Focus areas**
-- Document every surface that now uses `ContextMenuHintOverlay` (builder reset/insert/apply buttons, config chips, preview export menu, tester grid, Rules table header rows, Rule Tester dialog compact button, filter sections) so future auditors know which tooltips must stay in sync.
+- Document every surface that now uses `ContextMenuHintOverlay` (builder reset/insert/apply buttons, config chips, preview export menu, tester grid, Rules table header rows, Rule Tester dialog compact button, filter sections) inside the UI doc so future auditors know which tooltips must stay in sync.
 - Capture the tester-grid context menu entries (color palettes, column count, match-row pinning, champion avatar toggles) and the associated tooltips introduced post-release.
-- Note the Rule Tester copy-path tooltip and the new `rulesFilterSections` context hint: both surfaced after `2fcc9d0` and have never been described in the tooltip inventory.
-- If `docs/TOOLTIPS.md` truly does not exist, create it under `docs/` and index it from `docs/TECHNICAL.md`.
+- Note the Rule Tester copy-path tooltip and the new `rulesFilterSections` context hint: both surfaced after `2fcc9d0` and have never been described in the tooltip section.
 
 ## 5. Localization catalogs & strings
 
