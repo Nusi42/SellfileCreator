@@ -1,5 +1,12 @@
-import React, { useMemo } from 'react'
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react'
 import Tooltip, { type TooltipProps } from '@mui/material/Tooltip'
+import { useForkRef } from '@mui/material/utils'
 import Box from '@mui/material/Box'
 import Typography from '@mui/material/Typography'
 import {
@@ -174,9 +181,36 @@ export function MarkdownTooltip({
   slotProps,
   enterDelay,
   placement,
+  disableFocusListener = true,
   children,
   ...tooltipProps
 }: MarkdownTooltipProps) {
+  // Tooltip open state must be mirrored locally so we can forcibly close when the control disappears.
+  const {
+    open: openProp,
+    onOpen: externalOnOpen,
+    onClose: externalOnClose,
+    ...restTooltipProps
+  } = tooltipProps
+  const isControlled = typeof openProp === 'boolean'
+  const [internalOpen, setInternalOpen] = useState(false)
+  const resolvedOpen = isControlled ? Boolean(openProp) : internalOpen
+  const forceCloseUncontrolled = useCallback(() => {
+    if (!isControlled) {
+      setInternalOpen(false)
+    }
+  }, [isControlled])
+  const handleTooltipOpen = useCallback<NonNullable<TooltipProps['onOpen']>>((event) => {
+    externalOnOpen?.(event)
+    if (!isControlled) {
+      setInternalOpen(true)
+    }
+  }, [externalOnOpen, isControlled])
+  const handleTooltipClose = useCallback<NonNullable<TooltipProps['onClose']>>((event) => {
+    externalOnClose?.(event)
+    forceCloseUncontrolled()
+  }, [externalOnClose, forceCloseUncontrolled])
+
   // Pre-render Markdown content so we can hand JSX directly to MUI’s Tooltip.
   const content = useMemo(() => {
     if (typeof render === 'function') return render()
@@ -185,18 +219,80 @@ export function MarkdownTooltip({
     return renderMarkdownTooltipContent(resolved, { maxWidth: maxWidth ?? MARKDOWN_TOOLTIP_MAX_WIDTH_PX })
   }, [markdown, maxWidth, render])
   const resolvedPlacement = placement ?? 'top-start'
+  // Track the rendered child element so we can monitor its visibility/hover state outside MUI.
+  const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null)
+  const scheduleRef = useRef<number | null>(null)
+  const anchorCallback = useCallback((node: HTMLElement | null) => {
+    setAnchorEl(node)
+  }, [])
+  const childRef = React.isValidElement(children)
+    ? (children as React.ReactElement & { ref?: React.Ref<Element> }).ref ?? null
+    : null
+  const mergedChildRef = useForkRef(childRef, anchorCallback)
+  const childWithRef = React.isValidElement(children)
+    ? React.cloneElement(children as React.ReactElement, { ref: mergedChildRef })
+    : children
+
+  // Poll every animation frame while open: once the trigger is gone or no longer hovered/focused we close.
+  useEffect(() => {
+    if (!resolvedOpen) return undefined
+    if (!anchorEl) {
+      forceCloseUncontrolled()
+      return undefined
+    }
+    if (typeof window === 'undefined') return undefined
+
+    const checkAnchorVisibility = () => {
+      const node = anchorEl
+      if (!node || !node.isConnected) {
+        forceCloseUncontrolled()
+        return
+      }
+      const rects = node.getClientRects()
+      if (rects.length === 0) {
+        forceCloseUncontrolled()
+        return
+      }
+      const style = window.getComputedStyle(node)
+      const fullyTransparent = Number.parseFloat(style.opacity) === 0
+      const pointerSuppressed = style.pointerEvents === 'none'
+      if (style.visibility === 'hidden' || style.display === 'none' || fullyTransparent || pointerSuppressed) {
+        forceCloseUncontrolled()
+        return
+      }
+      const activeElement = typeof document !== 'undefined' ? document.activeElement : null
+      const focusWithin = Boolean(activeElement && (node === activeElement || node.contains(activeElement)))
+      const hovered = node.matches(':hover')
+      if (!hovered && !focusWithin) {
+        forceCloseUncontrolled()
+        return
+      }
+      scheduleRef.current = window.requestAnimationFrame(checkAnchorVisibility)
+    }
+    scheduleRef.current = window.requestAnimationFrame(checkAnchorVisibility)
+    return () => {
+      if (scheduleRef.current) {
+        window.cancelAnimationFrame(scheduleRef.current)
+        scheduleRef.current = null
+      }
+    }
+  }, [anchorEl, forceCloseUncontrolled, resolvedOpen])
 
   return (
     <Tooltip
       arrow
       disableInteractive
+      disableFocusListener={disableFocusListener}
       enterDelay={enterDelay ?? MARKDOWN_TOOLTIP_ENTER_DELAY_MS}
       placement={resolvedPlacement}
       {...(slotProps ? { slotProps } : {})}
       title={content}
-      {...tooltipProps}
+      open={resolvedOpen}
+      onOpen={handleTooltipOpen}
+      onClose={handleTooltipClose}
+      {...restTooltipProps}
     >
-      {children}
+      {childWithRef}
     </Tooltip>
   )
 }
