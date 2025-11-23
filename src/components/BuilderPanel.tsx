@@ -67,6 +67,7 @@ import { artifactTypeIconList } from './artifactTypeIcons'
 import EllipsisTooltip from './EllipsisTooltip'
 import { BuilderTooltipContent } from './BuilderTooltipContent'
 import MarkdownTooltip from './MarkdownTooltip'
+import WorkloadProgressIndicator from './WorkloadProgressIndicator'
 import InlineSelectClearButton from './InlineSelectClearButton'
 import SelectDropdownActivator from './SelectDropdownActivator'
 import BuilderCheatSheetPopover from './BuilderCheatSheetPopover'
@@ -1889,7 +1890,7 @@ const maxLevelValue = multiEditActive
   // Debounced rule count for the current builder config
   const {
     counting,
-    ruleCount,
+    displayRuleCount,
     countingLabel,
     ruleCountLimitValue,
     limitExceededWarning,
@@ -1914,6 +1915,25 @@ const maxLevelValue = multiEditActive
     configsExcludedByTotalLimit,
     t,
   })
+  // Chip text stays stable even when the spinner is active so tooltips + badges reuse the same string.
+  const ruleCountChipText = useMemo(() => {
+    if (displayRuleCount === null) return '—'
+    return formatRulesCount(t, displayRuleCount, { limit: ruleCountLimitValue })
+  }, [displayRuleCount, ruleCountLimitValue, t])
+  // Aligns with the preview paper layout: chip first, spinner immediately to the right while counts resolve.
+  const ruleCountChipWithSpinner = useMemo(() => (
+    <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: counting ? 0.75 : 0 }}>
+      <Chip
+        size="small"
+        data-testid="builder-rule-count-chip"
+        label={ruleCountChipText}
+        sx={ruleCountChipSx}
+      />
+      {counting
+        ? <WorkloadProgressIndicator progressRatio={0.01} ariaLabel={countingLabel} />
+        : null}
+    </Box>
+  ), [counting, countingLabel, ruleCountChipSx, ruleCountChipText])
 
   // setsLeftRef is used to align the Sets search row menu. No width measuring needed here.
 
@@ -6180,34 +6200,10 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
         {(limitExceededWarning && limitWarningTooltip)
           ? (
             <MarkdownTooltip markdown={limitWarningTooltip}>
-              <Chip
-                size="small"
-                data-testid="builder-rule-count-chip"
-                label={
-                  counting
-                    ? countingLabel
-                    : (ruleCount === null
-                        ? '—'
-                        : formatRulesCount(t, ruleCount, { limit: ruleCountLimitValue }))
-                }
-                sx={ruleCountChipSx}
-              />
+              {ruleCountChipWithSpinner}
             </MarkdownTooltip>
           )
-          : (
-            <Chip
-              size="small"
-              data-testid="builder-rule-count-chip"
-              label={
-                counting
-                  ? countingLabel
-                  : (ruleCount === null
-                      ? '—'
-                      : formatRulesCount(t, ruleCount, { limit: ruleCountLimitValue }))
-              }
-              sx={ruleCountChipSx}
-            />
-          )}
+          : ruleCountChipWithSpinner}
         <Box sx={{ flex: 1 }} />
         <Box
           component="span"
