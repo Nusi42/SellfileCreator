@@ -510,7 +510,8 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
   // rules with "Any" in a field (or wildcard for substats). Keeps wording
   // consistent across fields and makes the intent explicit to users.
   const anyChip = (fieldLabel: string, value: AnyMode, setValue: (v: AnyMode) => void, tooltip: string) => {
-    const prefixText = `'${t('any')}' ${fieldLabel}:`
+    const prefixText = `'${t('any')}':`
+    const ariaPrefixText = `'${t('any')}' ${fieldLabel}:`
     const stateLabel = value === 'include' ? t('filterShow') : value === 'off' ? t('filterHide') : t('filterOnly')
     const glyphTooltip = renderGlyphTooltip(tooltip, [{ glyph: GLYPH_ONLY, label: t('filterOnly') }])
     const chipLabel = (
@@ -536,7 +537,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
         <Chip
           size="small"
           variant="filled"
-          aria-label={`${prefixText} ${stateLabel}`}
+          aria-label={`${ariaPrefixText} ${stateLabel}`}
           label={chipLabel}
           onClick={() => setValue(value === 'include' ? 'off' : value === 'off' ? 'only' : 'include')}
           sx={filterChipSx(value)}
