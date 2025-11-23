@@ -19,6 +19,7 @@ import {
   MENU_MAX_HEIGHT_SETS_LIST_PX,
   MENU_SCROLL_GUTTER_PX,
   SETS_MENU_WIDTH_PX,
+  SETS_SELECT_INLINE_GUTTER_COLLAPSED_PX,
   SETS_SELECT_INLINE_GUTTER_PX,
 } from '../../lib/constants'
 
@@ -176,6 +177,7 @@ export default function GearSetsSelect({
     return visibleMetasets.filter((meta) => meta.sets.every((setId) => allowedSetFilter.has(Number(setId))))
   }, [allowMetasets, allowedSetFilter, visibleMetasets])
   const hasSelection = selectedTokens.length > 0
+  const inlinePaddingPx = hasSelection ? SETS_SELECT_INLINE_GUTTER_PX : SETS_SELECT_INLINE_GUTTER_COLLAPSED_PX
 
   const handleClear = useCallback(() => {
     onChange([])
@@ -268,7 +270,7 @@ export default function GearSetsSelect({
           width: '100%',
           minWidth: 0,
           cursor: 'pointer',
-          pr: `${SETS_SELECT_INLINE_GUTTER_PX}px`,
+          pr: `${inlinePaddingPx}px`,
           '& .MuiSelect-select': {
             overflow: 'hidden',
             textOverflow: 'ellipsis',
@@ -419,6 +421,7 @@ export default function GearSetsSelect({
           if (!root) return null
           return root.querySelector('[role="combobox"]') as HTMLElement | null
         }}
+        widthPx={hasSelection ? undefined : SETS_SELECT_INLINE_GUTTER_COLLAPSED_PX}
       />
     </Box>
   )
