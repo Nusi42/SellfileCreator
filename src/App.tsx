@@ -32,7 +32,7 @@ import {
 import { buildPreviewArtifactFromTesterItem } from './lib/testerPreviewArtifacts'
 import type { ProgressSnapshot } from './types/progress'
 
-import { Box, Container, Paper, Stack, Typography, GlobalStyles, Tooltip, Button } from '@mui/material'
+import { Box, Container, Paper, Stack, Typography, GlobalStyles, Button } from '@mui/material'
 import SaveIcon from '@mui/icons-material/Save'
 import StorageIcon from '@mui/icons-material/Storage'
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline'
@@ -79,6 +79,7 @@ import HeaderActions from './components/HeaderActions'
 import ManageColorsDialog from './components/dialogs/ManageColorsDialog'
 import FinalSellDialog from './components/dialogs/FinalSellDialog'
 import HelpDialog from './components/HelpDialog'
+import MarkdownTooltip from './components/MarkdownTooltip'
 import { TutorialCoach } from './components/tutorial/TutorialCoach'
 import RestoreAutosaveDialog from './components/dialogs/RestoreAutosaveDialog'
 import MetasetConflictDialog from './components/dialogs/MetasetConflictDialog'
@@ -3447,7 +3448,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
               </Typography>
             </Box>
             <Box sx={{ alignSelf: 'flex-start' }}>
-              <Tooltip title={t('helpOpenTooltip')}>
+              <MarkdownTooltip markdown={t('helpOpenTooltip')}>
                 <Button
                   size="medium"
                   variant="contained"
@@ -3458,7 +3459,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                 >
                   {t('helpOpenLabel')}
                 </Button>
-              </Tooltip>
+              </MarkdownTooltip>
             </Box>
           </Box>
         </Box>

@@ -1,4 +1,4 @@
-import { Box, Tooltip } from '@mui/material'
+import { Box } from '@mui/material'
 import { useTheme } from '@mui/material/styles'
 import StarRoundedIcon from '@mui/icons-material/StarRounded'
 import type { ReactNode } from 'react'
@@ -9,6 +9,8 @@ import { ACCESSORY_NO_SET_ID } from '../lib/constants'
 import { gearSetSlotIconUrl } from '../lib/iconMaps/setSlotIconMap'
 import type { ArtifactSetId, ArtifactTypeId, FactionId, RankValue } from '../lib/types'
 import { ArtifactSet } from '../lib/types'
+// MarkdownTooltip keeps reroll/outcome/tooltips consistent with the new global styling.
+import MarkdownTooltip from './MarkdownTooltip'
 
 const GRID_ICON_BOX_SIZE_PX = 88
 const GRID_ICON_BORDER_RADIUS_PX = 8
@@ -162,7 +164,8 @@ export default function GridIconBox({
     ) : setIconContent
   ) : null
   const rerollNode = rerollLabel ? (
-    <Tooltip title={rerollTooltip ?? ''}>
+    // Render reroll explanations via MarkdownTooltip so long translations wrap cleanly.
+    <MarkdownTooltip markdown={rerollTooltip ?? ''}>
       <Box
         sx={{
           position: 'absolute',
@@ -186,7 +189,7 @@ export default function GridIconBox({
       >
         {rerollLabel}
       </Box>
-    </Tooltip>
+    </MarkdownTooltip>
   ) : null
   const levelNode = levelLabel ? (
     <Box
@@ -251,7 +254,8 @@ export default function GridIconBox({
   ) : null
 
   const outcomeNode = outcome && outcome.glyph ? (
-    <Tooltip title={outcome.label ?? ''}>
+    // Outcome chips may carry multi-line text; MarkdownTooltip keeps the formatting consistent.
+    <MarkdownTooltip markdown={outcome.label ?? ''}>
       <Box
         component={outcome.canJump ? 'button' : 'div'}
         type={outcome.canJump ? 'button' : undefined}
@@ -278,7 +282,7 @@ export default function GridIconBox({
       >
         {outcome.glyph}
       </Box>
-    </Tooltip>
+    </MarkdownTooltip>
   ) : null
 
   return (

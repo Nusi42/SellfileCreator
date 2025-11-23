@@ -61,11 +61,12 @@ import type { PaperProps as MuiPaperProps } from '@mui/material/Paper'
 import SetsOrderControls from './SetsOrderControls'
 import SubstatTargetsDialog from './SubstatTargetsDialog'
 import type { SelectChangeEvent } from '@mui/material/Select'
-import { IconButton, Tooltip, ToggleButton, ToggleButtonGroup } from '@mui/material'
+import { IconButton, ToggleButton, ToggleButtonGroup } from '@mui/material'
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline'
 import { artifactTypeIconList } from './artifactTypeIcons'
 import EllipsisTooltip from './EllipsisTooltip'
 import { BuilderTooltipContent } from './BuilderTooltipContent'
+import MarkdownTooltip from './MarkdownTooltip'
 import InlineSelectClearButton from './InlineSelectClearButton'
 import SelectDropdownActivator from './SelectDropdownActivator'
 import BuilderCheatSheetPopover from './BuilderCheatSheetPopover'
@@ -2273,8 +2274,8 @@ const maxLevelValue = multiEditActive
           backgroundColor: hoverReset ? (theme.palette.mode === 'dark' ? DANGER_TINT_BG.dark : DANGER_TINT_BG.light) : 'transparent',
         })}>
           <FormLabel sx={{ mb: 0.5 }}>
-            <Tooltip
-              title={(
+            <MarkdownTooltip
+              render={(
                 <BuilderTooltipContent
                   text={[
                     t('builderActionHelp'),
@@ -2284,7 +2285,7 @@ const maxLevelValue = multiEditActive
               )}
             >
               <span>{t('builderAction')}</span>
-            </Tooltip>
+            </MarkdownTooltip>
           </FormLabel>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
@@ -2425,14 +2426,14 @@ const maxLevelValue = multiEditActive
                     },
                   })}
                 >
-                  <Tooltip
+                  <MarkdownTooltip
                     placement="top"
-                    title={<BuilderTooltipContent text={t('builderExportModeActiveTooltip')} />}
+                    render={<BuilderTooltipContent text={t('builderExportModeActiveTooltip')} />}
                   >
                     <Box component="span" sx={{ display: 'inline-flex', width: '100%', justifyContent: 'center' }}>
                       {t('builderExportModeActive')}
                     </Box>
-                  </Tooltip>
+                  </MarkdownTooltip>
                 </ToggleButton>
                 <ToggleButton
                   value="disabled"
@@ -2446,24 +2447,24 @@ const maxLevelValue = multiEditActive
                     },
                   })}
                 >
-                  <Tooltip
+                  <MarkdownTooltip
                     placement="top"
-                    title={<BuilderTooltipContent text={t('builderExportModeDisabledTooltip')} />}
+                    render={<BuilderTooltipContent text={t('builderExportModeDisabledTooltip')} />}
                   >
                     <Box component="span" sx={{ display: 'inline-flex', width: '100%', justifyContent: 'center' }}>
                       {t('builderExportModeDisabled')}
                     </Box>
-                  </Tooltip>
+                  </MarkdownTooltip>
                 </ToggleButton>
                 <ToggleButton value="separator" sx={{ px: 1.5 }}>
-                  <Tooltip
+                  <MarkdownTooltip
                     placement="top"
-                    title={<BuilderTooltipContent text={t('builderExportModeSeparatorTooltip')} />}
+                    render={<BuilderTooltipContent text={t('builderExportModeSeparatorTooltip')} />}
                   >
                     <Box component="span" sx={{ display: 'inline-flex', width: '100%', justifyContent: 'center' }}>
                       {t('builderExportModeSeparator')}
                     </Box>
-                  </Tooltip>
+                  </MarkdownTooltip>
                 </ToggleButton>
                 </ToggleButtonGroup>
               </Box>
@@ -2474,8 +2475,8 @@ const maxLevelValue = multiEditActive
               onMouseMove={handleHistoryMouseMove}
               onMouseLeave={handleHistoryMouseLeave}
             >
-              <Tooltip
-                title={<BuilderTooltipContent text={undoTooltipText} colorizeStats substatColors={substatColors} />}
+              <MarkdownTooltip
+                render={<BuilderTooltipContent text={undoTooltipText} colorizeStats substatColors={substatColors} />}
                 slotProps={{ tooltip: { sx: { maxWidth: HISTORY_TOOLTIP_MAX_WIDTH_PX } } }}
               >
                 <span>
@@ -2489,9 +2490,9 @@ const maxLevelValue = multiEditActive
                     <UndoIcon fontSize="small" />
                   </IconButton>
                 </span>
-              </Tooltip>
-              <Tooltip
-                title={<BuilderTooltipContent text={redoTooltipText} colorizeStats substatColors={substatColors} />}
+              </MarkdownTooltip>
+              <MarkdownTooltip
+                render={<BuilderTooltipContent text={redoTooltipText} colorizeStats substatColors={substatColors} />}
                 slotProps={{ tooltip: { sx: { maxWidth: HISTORY_TOOLTIP_MAX_WIDTH_PX } } }}
               >
                 <span>
@@ -2505,8 +2506,8 @@ const maxLevelValue = multiEditActive
                     <RedoIcon fontSize="small" />
                   </IconButton>
                 </span>
-              </Tooltip>
-              <Tooltip title={t('builderHelpOpen')}>
+              </MarkdownTooltip>
+              <MarkdownTooltip markdown={t('builderHelpOpen')}>
                 <IconButton
                   size="small"
                   color="primary"
@@ -2516,7 +2517,7 @@ const maxLevelValue = multiEditActive
                 >
                   <HelpOutlineIcon fontSize="small" />
                 </IconButton>
-              </Tooltip>
+              </MarkdownTooltip>
             </Box>
             <ContextMenuHintOverlay text={t('contextMenuHint')} position={historyHintActive ? historyHintPos : null} />
             <HistoryContextMenu
@@ -2548,8 +2549,8 @@ const maxLevelValue = multiEditActive
         })}>
         <FormControl fullWidth sx={{ position: 'relative' }}>
           <FormLabel sx={{ mb: 0.5 }}>
-            <Tooltip
-              title={(
+            <MarkdownTooltip
+              render={(
                 <BuilderTooltipContent
                   text={[
                     t('builderRankHelp'),
@@ -2559,7 +2560,7 @@ const maxLevelValue = multiEditActive
               )}
             >
               <span>{t('builderRank')}</span>
-            </Tooltip>
+            </MarkdownTooltip>
           </FormLabel>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
             <Select
@@ -2620,8 +2621,8 @@ const maxLevelValue = multiEditActive
 
         <FormControl fullWidth>
           <FormLabel sx={{ mb: 0.5 }}>
-            <Tooltip
-              title={(
+            <MarkdownTooltip
+              render={(
                 <BuilderTooltipContent
                   text={[
                     t('builderRarityHelpIntro'),
@@ -2635,7 +2636,7 @@ const maxLevelValue = multiEditActive
               )}
             >
               <span>{t('filterRarity')}</span>
-            </Tooltip>
+            </MarkdownTooltip>
           </FormLabel>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
             <Select
@@ -2730,8 +2731,8 @@ const maxLevelValue = multiEditActive
         {/* Faction selection (accessories only) */}
         <FormControl fullWidth>
           <FormLabel sx={{ mb: 0.5 }}>
-            <Tooltip
-              title={(
+            <MarkdownTooltip
+              render={(
                 <BuilderTooltipContent
                   text={[
                     t('builderFactionHelp'),
@@ -2741,7 +2742,7 @@ const maxLevelValue = multiEditActive
               )}
             >
               <span>{t('builderFaction')}</span>
-            </Tooltip>
+            </MarkdownTooltip>
           </FormLabel>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
             <Select
@@ -2783,9 +2784,11 @@ const maxLevelValue = multiEditActive
                 if (!numeric) return t('any')
                 const label = factionLabel(numeric)
                 return (
-                  <Box component="span" title={label} sx={{ display: 'inline-flex', alignItems: 'center', width: '100%' }}>
-                    <FactionOptionLabel faction={numeric as FactionId} label={label} truncate textSx={{ fontSize: FONT_SIZE_BASE_PX }} />
-                  </Box>
+                  <EllipsisTooltip title={label}>
+                    <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', width: '100%' }}>
+                      <FactionOptionLabel faction={numeric as FactionId} label={label} truncate textSx={{ fontSize: FONT_SIZE_BASE_PX }} />
+                    </Box>
+                  </EllipsisTooltip>
                 )
               }}
             >
@@ -2831,8 +2834,8 @@ const maxLevelValue = multiEditActive
         })}>
         <FormControl data-tour-id="builder.min-level">
           <FormLabel sx={{ mb: 0.5 }}>
-            <Tooltip
-              title={(
+            <MarkdownTooltip
+              render={(
                 <BuilderTooltipContent
                   text={[
                     t('builderMinLevelHelp'),
@@ -2842,7 +2845,7 @@ const maxLevelValue = multiEditActive
               )}
             >
               <span>{t('builderMinLevel')}</span>
-            </Tooltip>
+            </MarkdownTooltip>
           </FormLabel>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
             <ToggleButtonGroup
@@ -2901,8 +2904,8 @@ const maxLevelValue = multiEditActive
 
         <FormControl data-tour-id="builder.max-level">
           <FormLabel sx={{ mb: 0.5 }}>
-            <Tooltip
-              title={(
+            <MarkdownTooltip
+              render={(
                 <BuilderTooltipContent
                   text={[
                     t('builderMaxLevelHelp'),
@@ -2912,7 +2915,7 @@ const maxLevelValue = multiEditActive
               )}
             >
               <span>{t('builderMaxLevel')}</span>
-            </Tooltip>
+            </MarkdownTooltip>
           </FormLabel>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
             <ToggleButtonGroup
@@ -2990,15 +2993,15 @@ const maxLevelValue = multiEditActive
         })} data-tour-id="builder.mainstat">
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
             <FormLabel sx={{ m: 0 }}>
-              <Tooltip
-                title={(
+              <MarkdownTooltip
+                render={(
                   <BuilderTooltipContent
                     text={[t('builderMainHelp'), t('builderMultiMixedTriStateHint')].join('\n')}
                   />
                 )}
               >
                 <span>{t('builderMain')}</span>
-              </Tooltip>
+              </MarkdownTooltip>
             </FormLabel>
             {(() => {
               const baseMainSelected = (((cfg as (BuilderConfig & { mainStatsV?: number[] })).mainStatsV ?? []).length > 0)
@@ -3162,8 +3165,8 @@ const maxLevelValue = multiEditActive
         })} data-tour-id="builder.substats">
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
             <FormLabel sx={{ m: 0 }}>
-              <Tooltip
-                title={(
+              <MarkdownTooltip
+                render={(
                   <BuilderTooltipContent
                     text={[
                       t('builderSubstatsPickHelp'),
@@ -3178,7 +3181,7 @@ const maxLevelValue = multiEditActive
                 )}
               >
                 <span>{t('builderSubstats')}</span>
-              </Tooltip>
+              </MarkdownTooltip>
             </FormLabel>
             {(() => {
               if (multiEditActive && multiSummary) {
@@ -3429,16 +3432,13 @@ const maxLevelValue = multiEditActive
                 onChange(nextCfg)
               }
 
-              const rollIndicatorTooltip = (
-                <BuilderTooltipContent
-                  text={[
-                    t('rollIndicatorTip1'),
-                    `• ${t('rollIndicatorTip2')}`,
-                    `• ${t('rollIndicatorTip3')}`,
-                    `• ${t('rollIndicatorTip4')}`,
-                  ].join('\n')}
-                />
-              )
+              // Emit Markdown-friendly copy so the substat roll indicator can drop straight into MarkdownTooltip without JSX wrappers.
+              const rollIndicatorTooltip = [
+                t('rollIndicatorTip1'),
+                `- ${t('rollIndicatorTip2')}`,
+                `- ${t('rollIndicatorTip3')}`,
+                `- ${t('rollIndicatorTip4')}`,
+              ].join('\n')
 
               const renderSubstatToggle = (variant: StatVariant, options?: { dataTourId?: string }) => {
                 const singleBounds = getBounds(variant)
@@ -4191,8 +4191,8 @@ const menuLabelSx = (theme: Theme): SystemStyleObject<Theme> => ({
   whiteSpace: 'normal',
 })
 const renderMenuHeading = (label: string, tooltipText: string | null) => (
-  <Tooltip
-    title={(
+  <MarkdownTooltip
+    render={(
       <BuilderTooltipContent
         text={(tooltipText && tooltipText.trim().length > 0) ? tooltipText : label}
       />
@@ -4207,7 +4207,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
     >
       {label}
     </Typography>
-  </Tooltip>
+  </MarkdownTooltip>
 )
               const lockGroupSx: SxProps<Theme> = {
                   display: 'flex',
@@ -4384,10 +4384,8 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                           onClick={(event) => { event.stopPropagation() }}
                           sx={lockGroupSx}
                         >
-                          <Tooltip
-                            title={<BuilderTooltipContent text={t('builderSubstatLockTooltipUnlock')} />}
-                            arrow
-                            enterDelay={200}
+                          <MarkdownTooltip
+                            render={<BuilderTooltipContent text={t('builderSubstatLockTooltipUnlock')} />}
                           >
                             <ToggleButton
                               value="unlocked"
@@ -4396,11 +4394,9 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                             >
                               <LockOpenOutlinedIcon fontSize="small" />
                             </ToggleButton>
-                          </Tooltip>
-                          <Tooltip
-                            title={<BuilderTooltipContent text={t('builderSubstatLockTooltipLock')} />}
-                            arrow
-                            enterDelay={200}
+                          </MarkdownTooltip>
+                          <MarkdownTooltip
+                            render={<BuilderTooltipContent text={t('builderSubstatLockTooltipLock')} />}
                           >
                             <ToggleButton
                               value="locked"
@@ -4409,7 +4405,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                             >
                               <LockIcon fontSize="small" />
                             </ToggleButton>
-                          </Tooltip>
+                          </MarkdownTooltip>
                         </ToggleButtonGroup>
                         <Box sx={menuValueColumnSx}>
                           <Box sx={menuValuePillPlaceholderSx} />
@@ -4587,7 +4583,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                                       {label}
                                     </Typography>
                                     {showWarning && warningTooltip ? (
-                                      <Tooltip title={warningTooltip} arrow enterDelay={200}>
+                                      <MarkdownTooltip markdown={warningTooltip}>
                                         <Box
                                           component="span"
                                           role="img"
@@ -4596,7 +4592,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                                         >
                                           !
                                         </Box>
-                                      </Tooltip>
+                                      </MarkdownTooltip>
                                     ) : null}
                                   </Box>
                                   <TextField
@@ -4678,15 +4674,15 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
         })} data-tour-id="builder.slots">
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
             <FormLabel sx={{ m: 0 }}>
-              <Tooltip
-                title={(
+              <MarkdownTooltip
+                render={(
                   <BuilderTooltipContent
                     text={[t('builderSlotsHelp'), t('builderMultiMixedTriStateHint')].join('\n')}
                   />
                 )}
               >
                 <span>{t('builderSlots')}</span>
-              </Tooltip>
+              </MarkdownTooltip>
             </FormLabel>
             {(() => {
               if (multiEditActive && multiSummary) {
@@ -4879,9 +4875,9 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                 return (
                   <>
                     <FormLabel sx={{ mb: 0.5 }} data-tour-id="builder.min-rolls.label">
-                      <Tooltip title={tooltipContent}>
+                      <MarkdownTooltip render={tooltipContent}>
                         <span>{t('builderMinRequiredRolls')}</span>
-                      </Tooltip>
+                      </MarkdownTooltip>
                     </FormLabel>
                     <Box
                       data-tour-id="builder.min-rolls"
@@ -4953,10 +4949,9 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                               {n}
                             </Box>
                             {lockable ? (
-                              <Tooltip
-                                title={lockTooltip}
+                              <MarkdownTooltip
+                                markdown={lockTooltip ?? ''}
                                 disableHoverListener={!lockIconEnabled}
-                                arrow
                               >
                                 <Box
                                   component="span"
@@ -5026,7 +5021,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                                     ? <LockIcon fontSize="small" />
                                     : <LockOpenOutlinedIcon fontSize="small" />}
                                 </Box>
-                              </Tooltip>
+                              </MarkdownTooltip>
                             ) : null}
                           </ToggleButton>
                         )
@@ -5090,8 +5085,8 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                 return (
                   <>
                     <FormLabel sx={{ mb: 0.5 }} data-tour-id="builder.required.label">
-                      <Tooltip
-                        title={(
+                      <MarkdownTooltip
+                        render={(
                           <BuilderTooltipContent
                             text={[
                               t('builderRequiredSubstatsHelp'),
@@ -5101,7 +5096,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                         )}
                       >
                         <span>{t('builderRequiredSubstats')}</span>
-                      </Tooltip>
+                      </MarkdownTooltip>
                     </FormLabel>
                     <ToggleButtonGroup
                       exclusive
@@ -5186,7 +5181,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                       })}
                     </ToggleButtonGroup>
                     <Box sx={{ mt: 0.5, display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                      <Tooltip title={<BuilderTooltipContent text={t('builderSubstatFlexToggleTooltip')} />}>
+                      <MarkdownTooltip render={<BuilderTooltipContent text={t('builderSubstatFlexToggleTooltip')} />}>
                         <Box component="span" sx={{ display: 'inline-flex' }}>
                           <Chip
                             label={label}
@@ -5211,7 +5206,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                             data-tour-id="builder.flex-chip"
                           />
                         </Box>
-                      </Tooltip>
+                      </MarkdownTooltip>
                     </Box>
                   </>
                 )
@@ -5275,8 +5270,8 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
               return (
                 <FormControl sx={{ ml: 1 }}>
                   <FormLabel sx={{ mb: 0.5 }} data-tour-id="builder.thresholds.label">
-                    <Tooltip
-                      title={(
+                    <MarkdownTooltip
+                      render={(
                         <BuilderTooltipContent
                           text={[
                             t('builderMilestoneThresholdsHelp'),
@@ -5286,7 +5281,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                       )}
                     >
                       <span>{t('builderMilestoneThresholds')}</span>
-                    </Tooltip>
+                    </MarkdownTooltip>
                   </FormLabel>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                     <ToggleButtonGroup
@@ -5336,7 +5331,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                     </ToggleButtonGroup>
                   </Box>
                   <Box sx={{ mt: 0.5, display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                    <Tooltip title={<BuilderTooltipContent text={tooltipLines.join('\n')} />}>
+                    <MarkdownTooltip render={<BuilderTooltipContent text={tooltipLines.join('\n')} />}>
                       <Box component="span" sx={{ display: 'inline-flex' }}>
                         <Chip
                           size="small"
@@ -5358,7 +5353,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                           data-tour-id="builder.thresholds.auto-chip"
                         />
                       </Box>
-                    </Tooltip>
+                    </MarkdownTooltip>
                   </Box>
                 </FormControl>
               )
@@ -5453,28 +5448,31 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
           {/* Header row: label on the left, Manage metasets on the right */}
           <Box sx={{ display: 'flex', alignItems: 'center', minWidth: 0, mb: 0.5 }}>
             <FormLabel sx={{ mb: 0, mr: 1 }}>
-              <Tooltip
-                title={(
+              <MarkdownTooltip
+                render={(
                   <BuilderTooltipContent
                     text={[t('builderSetsHelp'), t('builderMultiMixedTriStateHint')].join('\n')}
                   />
                 )}
               >
                 <span>{t('setsTitle')}</span>
-              </Tooltip>
+              </MarkdownTooltip>
             </FormLabel>
             {/* Flexible spacer keeps the label left-aligned and the button right-aligned */}
             <Box ref={setsLeftRef} sx={{ flex: 1, minWidth: 0, overflow: 'hidden' }} />
-            <Button
-              size="small"
-              variant="outlined"
-              onClick={openMetaDlg}
-              sx={{ minWidth: 160, whiteSpace: 'nowrap', ml: 'auto' }}
-              data-tour-id="builder.manage-metasets"
-              title={t('builderManageMetasetsButton')}
-            >
-              {t('builderManageMetasetsButton')}
-            </Button>
+            <EllipsisTooltip title={t('builderManageMetasetsButton')}>
+              <Button
+                size="small"
+                variant="outlined"
+                onClick={openMetaDlg}
+                sx={{ minWidth: 160, whiteSpace: 'nowrap', ml: 'auto', overflow: 'hidden', textOverflow: 'ellipsis' }}
+                data-tour-id="builder.manage-metasets"
+              >
+                <Box component="span" data-ellipsis-target sx={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {t('builderManageMetasetsButton')}
+                </Box>
+              </Button>
+            </EllipsisTooltip>
           </Box>
           {(() => {
             const tokenOf = {
@@ -6030,7 +6028,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
       <Divider sx={{ my: 1, opacity: 0.5 }} />
 
       <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', alignItems: 'center' }}>
-        <Tooltip title={t('builderInsertHiddenTooltip')} disableHoverListener={!configHiddenByFilters || !builderCanAdd}>
+        <MarkdownTooltip markdown={t('builderInsertHiddenTooltip')} disableHoverListener={!configHiddenByFilters || !builderCanAdd}>
           <Box
             component="span"
             onContextMenu={handleInsertContextMenu}
@@ -6059,10 +6057,10 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
               </Button>
             </Badge>
           </Box>
-        </Tooltip>
-        <Tooltip
+        </MarkdownTooltip>
+        <MarkdownTooltip
           key={saveTooltipScope}
-          title={t('builderSaveHiddenTooltip')}
+          markdown={t('builderSaveHiddenTooltip')}
           disableHoverListener={!configHiddenByFilters || saveDisabled}
           open={saveTooltipOpen && configHiddenByFilters && !saveDisabled}
           onOpen={() => setSaveTooltipOpen(true)}
@@ -6102,7 +6100,6 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                 disabled={saveDisabled}
                 startIcon={<PlaylistAddCheckIcon fontSize="small" />}
                 sx={saveButtonSx}
-                title={saveButtonLabel}
                 onMouseEnter={() => {
                   if (attentionPhase) {
                     setAttentionState({ phase: false, burst: false })
@@ -6116,20 +6113,38 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
               </Button>
             </Badge>
           </Box>
-        </Tooltip>
-        <Chip
-          size="small"
-          data-testid="builder-rule-count-chip"
-          label={
-            counting
-              ? countingLabel
-            : (ruleCount === null
-                ? '—'
-                : formatRulesCount(t, ruleCount, { limit: ruleCountLimitValue }))
-          }
-          sx={ruleCountChipSx}
-          title={limitExceededWarning ? limitWarningTooltip : undefined}
-        />
+        </MarkdownTooltip>
+        {(limitExceededWarning && limitWarningTooltip)
+          ? (
+            <MarkdownTooltip markdown={limitWarningTooltip}>
+              <Chip
+                size="small"
+                data-testid="builder-rule-count-chip"
+                label={
+                  counting
+                    ? countingLabel
+                    : (ruleCount === null
+                        ? '—'
+                        : formatRulesCount(t, ruleCount, { limit: ruleCountLimitValue }))
+                }
+                sx={ruleCountChipSx}
+              />
+            </MarkdownTooltip>
+          )
+          : (
+            <Chip
+              size="small"
+              data-testid="builder-rule-count-chip"
+              label={
+                counting
+                  ? countingLabel
+                  : (ruleCount === null
+                      ? '—'
+                      : formatRulesCount(t, ruleCount, { limit: ruleCountLimitValue }))
+              }
+              sx={ruleCountChipSx}
+            />
+          )}
         <Box sx={{ flex: 1 }} />
         <Box
           component="span"

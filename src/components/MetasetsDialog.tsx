@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, FormControlLabel, IconButton, MenuItem, Select, Stack, TextField as MuiTextField, Tooltip, Typography, Divider, Radio, RadioGroup, ListSubheader } from '@mui/material'
+import { Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, FormControlLabel, IconButton, MenuItem, Select, Stack, TextField as MuiTextField, Typography, Divider, Radio, RadioGroup, ListSubheader } from '@mui/material'
 import { useI18n } from '../lib/i18n'
 import VisibilityIcon from '@mui/icons-material/Visibility'
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff'
@@ -18,6 +18,8 @@ import SetMenuSection from './SetMenuSection'
 import SetsOrderControls from './SetsOrderControls'
 import InlineSelectClearButton from './InlineSelectClearButton'
 import SelectDropdownActivator from './SelectDropdownActivator'
+// MarkdownTooltip keeps the move/visibility/usage hints aligned with the rest of the tooltip cleanup.
+import MarkdownTooltip from './MarkdownTooltip'
 import { MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, MENU_MAX_HEIGHT_EXTRA_BUFFER, SETS_MENU_WIDTH_PX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, BUILDER_TOGGLE_BUTTON_HEIGHT_PX, SETS_SELECT_INLINE_GUTTER_PX, SMALL_BUTTON_HEIGHT_PX, METASETS_DIALOG_LIST_HEIGHT_PX } from '../lib/constants'
 import type { HistoryEntryDescriptor, DescribeNextChangeFn } from '../hooks/useHsfcHistory'
 import { describeMetasetAdded, describeMetasetDeleted, describeMetasetIconChanged, describeMetasetRenamed, describeMetasetSetsChanged, describeMetasetVisibilityChanged } from '../history/metasetDescriptors'
@@ -491,7 +493,8 @@ export default function MetasetsDialog({
                 >
                   {/* Move up/down controls */}
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25 }}>
-                    <Tooltip title={t('metasetsMoveUp')}>
+                    {/* Move/visibility controls now run through MarkdownTooltip, keeping tooltip styling consistent. */}
+                    <MarkdownTooltip markdown={t('metasetsMoveUp')}>
                       <span>
                         <IconButton size="small" onClick={() => {
                           if (idx === 0) return
@@ -505,8 +508,8 @@ export default function MetasetsDialog({
                           <ArrowUpwardIcon fontSize="inherit" />
                         </IconButton>
                       </span>
-                    </Tooltip>
-                    <Tooltip title={t('metasetsMoveDown')}>
+                    </MarkdownTooltip>
+                    <MarkdownTooltip markdown={t('metasetsMoveDown')}>
                       <span>
                         <IconButton size="small" onClick={() => {
                           if (idx === metasets.length - 1) return
@@ -520,11 +523,11 @@ export default function MetasetsDialog({
                           <ArrowDownwardIcon fontSize="inherit" />
                         </IconButton>
                       </span>
-                    </Tooltip>
+                    </MarkdownTooltip>
                   </Box>
                   {/* Visibility toggle aligns with reorder controls so names stay centered. */}
                   <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <Tooltip title={m.show === false ? t('metasetsHiddenFromMenus') : t('metasetsVisibleInMenus')}>
+                    <MarkdownTooltip markdown={m.show === false ? t('metasetsHiddenFromMenus') : t('metasetsVisibleInMenus')}>
                       <span>
                         <IconButton
                           size="small"
@@ -554,7 +557,7 @@ export default function MetasetsDialog({
                           {m.show === false ? <VisibilityOffIcon fontSize="small" /> : <VisibilityIcon fontSize="small" />}
                         </IconButton>
                       </span>
-                    </Tooltip>
+                    </MarkdownTooltip>
                   </Box>
                   <MetasetNameField
                     id={m.id}
@@ -857,7 +860,7 @@ export default function MetasetsDialog({
                           setConfirmDeleteMetaId(m.id)
                         }}>{t('delete')}</Button>
                         {used > 0 ? (
-                          <Tooltip title={t('metasetsUsesTooltip')}>
+                          <MarkdownTooltip markdown={t('metasetsUsesTooltip')}>
                             <Chip
                               size="small"
                               label={t('metasetsUses', { n: used })}
@@ -869,7 +872,7 @@ export default function MetasetsDialog({
                                 try { onClose() } catch {}
                               }}
                             />
-                          </Tooltip>
+                          </MarkdownTooltip>
                         ) : (
                           <Chip
                             size="small"

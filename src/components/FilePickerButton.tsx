@@ -2,6 +2,7 @@ import React from 'react'
 import { Button, Typography } from '@mui/material'
 import type { ButtonProps } from '@mui/material/Button'
 import { ELLIPSIS_TEXT_SX, FONT_SIZE_BASE_PX } from '../lib/constants'
+import EllipsisTooltip from './EllipsisTooltip'
 
 type FilePickerButtonProps = Omit<ButtonProps, 'component' | 'children' | 'onSelect'> & {
   label: string
@@ -100,8 +101,7 @@ const FilePickerButton = React.forwardRef<HTMLButtonElement, FilePickerButtonPro
   )
 
   const resolvedTitle = buttonTitle ?? injectedTitle ?? label
-
-  return (
+  const buttonNode = (
     <Button
       ref={handleButtonRef}
       component="label"
@@ -110,10 +110,11 @@ const FilePickerButton = React.forwardRef<HTMLButtonElement, FilePickerButtonPro
       {...restButtonProps}
       {...restInjectedProps}
       {...(mergedSx ? { sx: mergedSx } : {})}
-      title={resolvedTitle}
     >
       {children ?? (
-        <Typography component="span" noWrap sx={[ELLIPSIS_TEXT_SX, { fontSize: FONT_SIZE_BASE_PX }]}>{label}</Typography>
+        <Typography component="span" noWrap sx={[ELLIPSIS_TEXT_SX, { fontSize: FONT_SIZE_BASE_PX }]} data-ellipsis-target>
+          {label}
+        </Typography>
       )}
       <input
         ref={inputRef}
@@ -127,6 +128,13 @@ const FilePickerButton = React.forwardRef<HTMLButtonElement, FilePickerButtonPro
         }}
       />
     </Button>
+  )
+
+  if (!resolvedTitle) return buttonNode
+  return (
+    <EllipsisTooltip title={resolvedTitle}>
+      {buttonNode}
+    </EllipsisTooltip>
   )
 })
 

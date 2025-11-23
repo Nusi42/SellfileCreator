@@ -2,6 +2,7 @@ import { Box, Button, Paper, Typography } from '@mui/material'
 import type { MutableRefObject, ReactNode } from 'react'
 
 import { PANEL_WIDTH_PX, SIDE_BY_SIDE_BREAKPOINT_PX } from '../../lib/constants'
+import MarkdownTooltip from '../MarkdownTooltip'
 
 /**
  * BuilderColumn renders the builder-side layout: the rule form header, metaset controls, config chips,
@@ -66,15 +67,16 @@ export function BuilderColumn({
           <Typography variant="caption" color="text.secondary">
             {caption}
           </Typography>
-          <Button
-            size="small"
-            variant="outlined"
-            onClick={onOpenSubstatValues}
-            sx={{ whiteSpace: 'nowrap', minWidth: 160, justifySelf: 'end' }}
-            title={substatValuesLabel}
-          >
-            {substatValuesLabel}
-          </Button>
+          <MarkdownTooltip markdown={substatValuesLabel}>
+            <Button
+              size="small"
+              variant="outlined"
+              onClick={onOpenSubstatValues}
+              sx={{ whiteSpace: 'nowrap', minWidth: 160, justifySelf: 'end' }}
+            >
+              {substatValuesLabel}
+            </Button>
+          </MarkdownTooltip>
         </Box>
         <Box sx={{ position: 'relative', flexShrink: 0 }}>{builderPanel}</Box>
         <Box sx={{ flexShrink: 0 }}>{headerActions}</Box>

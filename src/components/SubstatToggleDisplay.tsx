@@ -1,5 +1,5 @@
 import React from 'react'
-import { Box, IconButton, Tooltip } from '@mui/material'
+import { Box, IconButton } from '@mui/material'
 import type { BoxProps } from '@mui/material/Box'
 import LockIcon from '@mui/icons-material/Lock'
 import LockOpenOutlinedIcon from '@mui/icons-material/LockOpenOutlined'
@@ -16,6 +16,8 @@ import {
   MULTI_EDIT_MIXED_BORDER_ALPHA,
   MULTI_EDIT_MIXED_TEXT_ALPHA,
 } from '../lib/constants'
+// Use MarkdownTooltip for both the lock badge and roll indicator so builders see consistent multi-line copy.
+import MarkdownTooltip from './MarkdownTooltip'
 
 const LOCK_TOGGLE_HIT_SIZE_PX = ROLL_BADGE_SIZE_PX + (ROLL_BADGE_HOVER_GUTTER_PX * 2)
 const LOCK_TOGGLE_OFFSET_X_PX = ROLL_BADGE_HOVER_GUTTER_PX
@@ -25,7 +27,7 @@ export interface SubstatToggleIndicatorState {
   wildcard: boolean
   min?: number
   max?: number
-  tooltip?: React.ReactNode
+  tooltip?: string
 }
 
 export interface SubstatToggleDisplayProps {
@@ -124,7 +126,8 @@ export function SubstatToggleDisplay({
         }}
       >
         {onLockToggle ? (
-          <Tooltip title={lockTooltip ?? ''} disableHoverListener={!lockTooltip}>
+          // Let the lock badge reuse MarkdownTooltip so these hints match the builder label tooltips.
+          <MarkdownTooltip markdown={lockTooltip ?? ''} disableHoverListener={!lockTooltip}>
             <span>
               <IconButton
                 component="span"
@@ -199,7 +202,7 @@ export function SubstatToggleDisplay({
                 {(locked || lockIsMixed) ? <LockIcon sx={{ fontSize: 14 }} /> : <LockOpenOutlinedIcon sx={{ fontSize: 14 }} />}
               </IconButton>
             </span>
-          </Tooltip>
+          </MarkdownTooltip>
         ) : (
           <Box
             sx={{
@@ -213,7 +216,8 @@ export function SubstatToggleDisplay({
           </Box>
         )}
       </Box>
-      <Tooltip title={tooltip} disableHoverListener={!tooltip}>
+      {/* Roll indicator hints also route through MarkdownTooltip so multi-line copy stays consistent. */}
+      <MarkdownTooltip markdown={tooltip} disableHoverListener={!tooltip}>
         <Box
           className="roll-indicator"
           role="button"
@@ -316,7 +320,7 @@ export function SubstatToggleDisplay({
         >
           {indicatorLabel}
         </Box>
-      </Tooltip>
+      </MarkdownTooltip>
     </Box>
   )
 }

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Box, Button, Divider, Menu, MenuItem, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography, Tooltip } from '@mui/material'
+import { Box, Button, Divider, Menu, MenuItem, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from '@mui/material'
 import { alpha } from '@mui/material/styles'
 import type { PaperProps as MuiPaperProps } from '@mui/material/Paper'
 import VisibilityIcon from '@mui/icons-material/Visibility'
@@ -8,6 +8,7 @@ import type { HsfRule } from '../lib/hsfTypes'
 import { RULE_SOURCE_FINAL_SELL, RULE_SOURCE_HSF, RULE_SOURCE_HSFC, type HsfRuleWithCfg, type RuleSource } from '../lib/merge'
 import { /* formatArtifactSets */ formatLevel, formatRank, /* labelOfVariant, */ mainToVariant, rarityCodeToName, artifactSetName, compareArtifactTypes, artifactTypeI18nKey, artifactSetI18nKey, statVariantI18nKey, compareArtifactSets, factionI18nKey, type FactionId } from '../lib/types'
 import EllipsisTooltip from './EllipsisTooltip'
+import MarkdownTooltip from './MarkdownTooltip'
 import {
   NBSP,
   MENU_CONTROL_HEIGHT_PX,
@@ -1087,11 +1088,11 @@ export function HsfRulesTable({ rules, building = false, setHoveredCfgIdx, selec
                     onDrop={() => onHeaderDrop(realIdx)}
                     sx={{ width: c.width, fontWeight: 600, fontSize: FONT_SIZE_BASE_PX, userSelect: 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
                   >
-                    <Tooltip title={t('rulesHeaderHelp', { label: colLabel(c.key) })}>
+                    <MarkdownTooltip markdown={t('rulesHeaderHelp', { label: colLabel(c.key) })}>
                       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start' }}>
                         <span>{colLabel(c.key)}</span>
                       </Box>
-                    </Tooltip>
+                    </MarkdownTooltip>
                     <Box onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); startResize(realIdx, e.clientX) }} sx={{ position: 'absolute', right: 0, top: 0, height: '100%', width: 6, cursor: 'col-resize', zIndex: 2 }} />
                   </TableCell>
                 )
@@ -1327,7 +1328,7 @@ export function HsfRulesTable({ rules, building = false, setHoveredCfgIdx, selec
                           const types = getSortedArtifactTypes(rule)
                           const tooltipTitle = getArtifactTypeLabel(rule)
                           content = (
-                            <Tooltip title={tooltipTitle}>
+                            <MarkdownTooltip markdown={tooltipTitle}>
                               <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, flexWrap: wrapRows ? 'wrap' : 'nowrap', maxWidth: '100%', overflow: wrapRows ? 'visible' : 'hidden', whiteSpace: wrapRows ? 'normal' : 'nowrap' }}>
                                 {(() => {
                                   if (wrapRows) {
@@ -1370,14 +1371,14 @@ export function HsfRulesTable({ rules, building = false, setHoveredCfgIdx, selec
                                   )
                                 })()}
                               </Box>
-                            </Tooltip>
+                            </MarkdownTooltip>
                           )
                         }
                         if (c.key === 'Faction' && showFactionIcons) {
                           const fc = Number(rule.Faction)
                           if (fc && fc !== 0 && factionLabel) {
                             content = (
-                              <Tooltip title={factionLabel}>
+                              <MarkdownTooltip markdown={factionLabel}>
                                 <Box
                                   component="span"
                                   sx={{
@@ -1398,7 +1399,7 @@ export function HsfRulesTable({ rules, building = false, setHoveredCfgIdx, selec
                                     sx={{ transform: `scale(${FACTION_ICON_PREVIEW_SCALE})`, transformOrigin: 'center center' }}
                                   />
                                 </Box>
-                              </Tooltip>
+                              </MarkdownTooltip>
                             )
                           }
                         }
@@ -1430,7 +1431,7 @@ export function HsfRulesTable({ rules, building = false, setHoveredCfgIdx, selec
                             const setEntries = setIds.map((id) => ({ id, label: artifactSetName(id) }))
                             const tooltipTitle = getArtifactSetLabel(rule)
                             content = (
-                              <Tooltip title={tooltipTitle}>
+                              <MarkdownTooltip markdown={tooltipTitle}>
                                 <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.25, flexWrap: wrapRows ? 'wrap' : 'nowrap', maxWidth: '100%', overflow: wrapRows ? 'visible' : 'hidden', whiteSpace: wrapRows ? 'normal' : 'nowrap' }}>
                                   {(() => {
                                     if (wrapRows) return setEntries.map(({ id, label }, i) => (
@@ -1455,17 +1456,25 @@ export function HsfRulesTable({ rules, building = false, setHoveredCfgIdx, selec
                                     )
                                   })()}
                                 </Box>
-                              </Tooltip>
+                              </MarkdownTooltip>
                             )
                           }
                         }
                         let cellInner: React.ReactNode = content
                         if (isSub) {
-                          cellInner = (
-                            <Tooltip title={getSubstatTooltipSummary(rule) || ''}>
-                              <span style={{ display: 'inline-block', width: '100%', overflow: 'hidden', textOverflow: wrapRows ? 'clip' : 'ellipsis', whiteSpace: wrapRows ? 'normal' : 'nowrap', textDecoration: strike ? 'line-through' : 'none' }}>{content}</span>
-                            </Tooltip>
+                          const substatTooltip = getSubstatTooltipSummary(rule)
+                          const substatSpan = (
+                            <span style={{ display: 'inline-block', width: '100%', overflow: 'hidden', textOverflow: wrapRows ? 'clip' : 'ellipsis', whiteSpace: wrapRows ? 'normal' : 'nowrap', textDecoration: strike ? 'line-through' : 'none' }}>
+                              {content}
+                            </span>
                           )
+                          cellInner = substatTooltip
+                            ? (
+                              <MarkdownTooltip markdown={substatTooltip}>
+                                {substatSpan}
+                              </MarkdownTooltip>
+                            )
+                            : substatSpan
                         } else if (String(value).length && c.key !== 'ArtifactTypeNames' && c.key !== 'ArtifactSetNames') {
                           cellInner = (
                             <EllipsisTooltip title={value} wrap="block">
@@ -1679,7 +1688,7 @@ export function HsfRulesTable({ rules, building = false, setHoveredCfgIdx, selec
               sx={{ flex: '1 1 auto', minWidth: 0, height: '100%', lineHeight: 1, py: 0, px: 1 }}
               onClick={(e) => { e.stopPropagation(); setStatButtonBorders(!statButtonBorders) }}
             >{statButtonBorders ? t('commonOn') : t('commonOff')}</Button>
-            <Tooltip title={t('manageColors')}>
+            <MarkdownTooltip markdown={t('manageColors')}>
               <span>
                 <Button
                   size="small"
@@ -1697,7 +1706,7 @@ export function HsfRulesTable({ rules, building = false, setHoveredCfgIdx, selec
                   <img src={colorIconSrc} width={16} height={16} alt={t('manageColors')} style={{ display: 'block' }} />
                 </Button>
               </span>
-            </Tooltip>
+            </MarkdownTooltip>
           </Box>
         </MenuItem>
         <MenuItem sx={{ gap: 1, alignItems: 'center' }} onClick={(e) => { e.stopPropagation(); applyNextColorBlindMode() }}>
@@ -1759,7 +1768,7 @@ export function HsfRulesTable({ rules, building = false, setHoveredCfgIdx, selec
                   }}
                 >{val === 'auto' ? t('headerMenuAuto') : (val === 'show' ? t('headerMenuShown') : t('headerMenuHidden'))}</Button>
               ) : (
-                <Tooltip title={val === 'show' ? t('headerMenuShownInTable') : t('headerMenuHiddenInTable')}>
+                <MarkdownTooltip markdown={val === 'show' ? t('headerMenuShownInTable') : t('headerMenuHiddenInTable')}>
                   <Button
                     size="small"
                     variant={val === 'show' ? 'contained' : 'outlined'}
@@ -1768,7 +1777,7 @@ export function HsfRulesTable({ rules, building = false, setHoveredCfgIdx, selec
                     sx={{ minWidth: MENU_CONTROL_MIN_WIDTH_PX, height: MENU_CONTROL_HEIGHT_PX, minHeight: MENU_CONTROL_HEIGHT_PX, lineHeight: 1, py: 0 }}
                     onClick={(e) => { e.stopPropagation(); const next = val === 'show' ? 'hide' : 'show'; updateColumns(prev => prev.map((x, i) => (i === idx ? { ...x, visible: next === 'show' } : x))) }}
                   >{val === 'show' ? t('headerMenuShown') : t('headerMenuHidden')}</Button>
-                </Tooltip>
+                </MarkdownTooltip>
               )}
             </MenuItem>
           )

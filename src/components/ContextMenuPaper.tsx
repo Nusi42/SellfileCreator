@@ -1,17 +1,18 @@
 import * as React from 'react'
 import Paper, { type PaperProps } from '@mui/material/Paper'
 import IconButton from '@mui/material/IconButton'
-import Tooltip from '@mui/material/Tooltip'
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded'
 import type { SxProps, Theme } from '@mui/material/styles'
 import {
   CONTEXT_MENU_CLOSE_BUTTON_OFFSET_PX,
   CONTEXT_MENU_CLOSE_BUTTON_SIZE_PX,
 } from '../lib/constants'
+// Close button tooltip now uses MarkdownTooltip so every context menu inherits the same hover feel.
+import MarkdownTooltip from './MarkdownTooltip'
 
 interface ContextMenuPaperProps extends PaperProps {
   onRequestClose: () => void
-  closeLabel: React.ReactNode
+  closeLabel: string
 }
 
 const basePaperSx: SxProps<Theme> = {
@@ -91,7 +92,7 @@ const ContextMenuPaper = React.forwardRef<HTMLDivElement, ContextMenuPaperProps>
     <IconButton
       size="small"
       onClick={handleCloseClick}
-      aria-label={typeof closeLabel === 'string' ? closeLabel : undefined}
+      aria-label={closeLabel}
       sx={closeButtonSx}
     >
       <CloseRoundedIcon fontSize="small" />
@@ -100,7 +101,8 @@ const ContextMenuPaper = React.forwardRef<HTMLDivElement, ContextMenuPaperProps>
 
   return (
     <Paper {...paperProps} ref={ref} sx={mergedSx}>
-      <Tooltip title={closeLabel}>{closeButton}</Tooltip>
+      {/* Using MarkdownTooltip keeps the close button hover text consistent with every other tooltip upgrade. */}
+      <MarkdownTooltip markdown={closeLabel}>{closeButton}</MarkdownTooltip>
       {children}
     </Paper>
   )

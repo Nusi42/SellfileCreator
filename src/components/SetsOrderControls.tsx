@@ -6,7 +6,7 @@
  * to keep behavior and look identical. This component is purely presentational
  * and does not persist to localStorage; callers may persist via props.
  */
-import { Box, ToggleButton, ToggleButtonGroup, TextField as MuiTextField, Tooltip, InputAdornment, IconButton } from '@mui/material'
+import { Box, ToggleButton, ToggleButtonGroup, TextField as MuiTextField, InputAdornment, IconButton } from '@mui/material'
 import { keyframes } from '@emotion/react'
 import { alpha } from '@mui/material/styles'
 import ClearIcon from '@mui/icons-material/Clear'
@@ -15,6 +15,8 @@ import FormatListNumberedIcon from '@mui/icons-material/FormatListNumbered'
 import SortByAlphaIcon from '@mui/icons-material/SortByAlpha'
 import { SETS_ORDER_TOGGLE_SIZE_PX, FONT_SIZE_SECONDARY_PX } from '../lib/constants'
 import { useI18n } from '../lib/i18n'
+// MarkdownTooltip keeps the view-mode hints synced with the rest of the tooltip refactor.
+import MarkdownTooltip from './MarkdownTooltip'
 
 export type SetsOrder = 'game' | 'az' | 'icons'
 
@@ -136,21 +138,22 @@ export default function SetsOrderControls({
           },
         }}
       >
-        <Tooltip title={t('setsTooltipIcons')}>
+        {/* Toggle tooltips route through MarkdownTooltip so their copy stays consistent across dialogs. */}
+        <MarkdownTooltip markdown={t('setsTooltipIcons')}>
           <ToggleButton value="icons" aria-label={t('setsTooltipIcons')}>
             <GridViewIcon fontSize="small" />
           </ToggleButton>
-        </Tooltip>
-        <Tooltip title={t('setsTooltipGame')}>
+        </MarkdownTooltip>
+        <MarkdownTooltip markdown={t('setsTooltipGame')}>
           <ToggleButton value="game" aria-label={t('setsTooltipGame')}>
             <FormatListNumberedIcon fontSize="small" />
           </ToggleButton>
-        </Tooltip>
-        <Tooltip title={t('setsTooltipAz')}>
+        </MarkdownTooltip>
+        <MarkdownTooltip markdown={t('setsTooltipAz')}>
           <ToggleButton value="az" aria-label={t('setsTooltipAz')}>
             <SortByAlphaIcon fontSize="small" />
           </ToggleButton>
-        </Tooltip>
+        </MarkdownTooltip>
       </ToggleButtonGroup>
     </Box>
   )

@@ -5,6 +5,7 @@ import { useMemo, type ReactNode } from 'react'
 import { useI18n } from '../../lib/i18n'
 import { Faction, factionI18nKey, type FactionId } from '../../lib/types'
 import { FactionOptionLabel } from '../FactionIcon'
+import EllipsisTooltip from '../EllipsisTooltip'
 
 const FACTION_MENU_PROPS = { PaperProps: { sx: { maxHeight: 360 } } } as const
 const ANY_SENTINEL = '__faction_any'
@@ -89,9 +90,11 @@ export function GearFactionSelect({
     if (!singleValue) return t('any')
     const label = t(factionI18nKey(singleValue))
     return (
-      <Box component="span" title={label} sx={labelContainerSx}>
-        <FactionOptionLabel faction={singleValue} label={label} truncate textSx={{ fontSize: '0.875rem' }} />
-      </Box>
+      <EllipsisTooltip title={label}>
+        <Box component="span" sx={labelContainerSx}>
+          <FactionOptionLabel faction={singleValue} label={label} truncate textSx={{ fontSize: '0.875rem' }} />
+        </Box>
+      </EllipsisTooltip>
     )
   }
   // Multi-select only renders text (no icons) so height stays fixed; long lists collapse behind an ellipsis.

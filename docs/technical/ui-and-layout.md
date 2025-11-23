@@ -28,6 +28,29 @@ This document outlines contributors' responsibilities for UI behavior, layout, a
   - Submit updates by editing `src/lib/i18n/catalogs/<lang>.ts` (overrides only) or attach `.l10n.json` files.
   - Before handoff: quick in-app test (language switch), then `npm run typecheck && npm run lint && npm run build`.
 
+## Tooltips and Context Hints
+
+- Two components cover every tooltip surface:
+  - `MarkdownTooltip` (`src/components/MarkdownTooltip.tsx`) wraps MUI Tooltip with standardized delay (250 ms), width caps, and a markdown renderer (paragraphs, bullet lists, `**bold**`, `_italic_`, inline code). Every explanatory tooltip uses this path. Pass `markdown="..."` for localized strings or `render={...}` when you need JSX (e.g., `BuilderTooltipContent`, colored chips).
+  - `EllipsisTooltip` (`src/components/EllipsisTooltip.tsx`) is the only allowed overflow helper. Wrap the element that can clip text, add `data-ellipsis-target` to the truncating node, and it automatically opens a MarkdownTooltip *only* when the content is visually ellipsized. Never reach for browser `title=` attributes.
+- All implementations (builder, rules filter, preview tables, dialog buttons, tester grids) import those helpers. Do **not** import `@mui/material/Tooltip` elsewhere; the shared wrapper already exposes `slotProps`, `placement`, etc.
+- When converting legacy JSX tooltips, keep the content declarative: reuse `BuilderTooltipContent`, avoid inline HTML entities, and keep translation strings in `en-US.ts`. Multi-line copy should be separated with blank lines or `- bullet` formatting to match the markdown renderer’s expectations.
+- Overflow-only surfaces (buttons with shrinking labels, select render-value spans, table cells that switch to icons) should:
+  1. Wrap the surface in `<EllipsisTooltip title={label}>`.
+  2. Ensure the truncated element has `data-ellipsis-target`.
+  3. Avoid additional hover listeners—EllipsisTooltip manages open/close and respects scroll containers.
+- Informational tooltips should:
+  1. Wrap the control directly in `<MarkdownTooltip markdown={t('key')}>` or `<MarkdownTooltip render={<BuilderTooltipContent .../>}>`.
+  2. Skip explicit `enterDelay`/`leaveDelay`; the wrapper centralizes timing.
+  3. Prefer `placement="top"`/`"right"` only when alignment truly matters (e.g., builder export mode toggles). Otherwise let the default `top-start` stand.
+- Set descriptions (`WithSetTooltip`) and other shared helpers must also compose `MarkdownTooltip` so there is **one** place to adjust behavior (timing, width, disableInteractive). If you need a variant, extend `MarkdownTooltip` rather than wrapping MUI Tooltip again.
+- Context-menu hints use `ContextMenuHintOverlay` + `useContextMenuHint`. Hook the surface into the overlay map (see `docs/technical/app-behavior.md` for IDs) and reuse the localized hint strings (`contextMenuHint`, `contextMenuHintRulesTableHeader`, etc.). Do not hand-roll new popovers; the overlay already manages per-version dismissals.
+- When adding new tooltip copy:
+  - Keep it intent-focused (“Explains what toggling does”) rather than narrating mechanics.
+  - Mention right-click affordances in tooltip text when relevant, but keep longer walkthroughs in the Help dialog.
+  - Update `docs/TECHNICAL.md` and this section whenever the behavior changes so translators and QA have a single reference.
+  - Run `npm run lint` after touching tooltips to catch accidental reintroductions of `title=`.
+
 ## Metaset Management
 
 - Delete dialog behaviors:

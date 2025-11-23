@@ -1,9 +1,10 @@
 import * as React from 'react'
 import IconButton, { type IconButtonProps } from '@mui/material/IconButton'
-import Tooltip from '@mui/material/Tooltip'
 import ClearIcon from '@mui/icons-material/Clear'
 import type { SxProps, Theme } from '@mui/material/styles'
 import { CLEAR_ICON_BUTTON_SIZE_PX } from '../lib/constants'
+// Wrap the clear affordance with MarkdownTooltip so every consumer gets the same tooltip delay/styling.
+import MarkdownTooltip from './MarkdownTooltip'
 
 const baseClearButtonSx: SxProps<Theme> = (theme) => ({
   color: theme.palette.text.secondary,
@@ -32,7 +33,7 @@ const baseClearButtonSx: SxProps<Theme> = (theme) => ({
 })
 
 export interface ClearIconButtonProps extends Omit<IconButtonProps, 'color'> {
-  tooltip?: React.ReactNode
+  tooltip?: string
 }
 
 const ClearIconButton = React.forwardRef<HTMLButtonElement, ClearIconButtonProps>(function ClearIconButton(
@@ -63,15 +64,16 @@ const ClearIconButton = React.forwardRef<HTMLButtonElement, ClearIconButtonProps
 
   const disabled = Boolean(iconButtonProps.disabled)
   return (
-    <Tooltip
-      title={tooltip}
+    // Wrapping the button keeps the clear tooltip delay/style identical wherever this component is used.
+    <MarkdownTooltip
+      markdown={tooltip}
       disableHoverListener={disabled}
       disableFocusListener={disabled}
       disableTouchListener={disabled}
-      componentsProps={{ tooltip: { sx: { pointerEvents: 'auto' } } }}
+      slotProps={{ tooltip: { sx: { pointerEvents: 'auto' } } }}
     >
       {button}
-    </Tooltip>
+    </MarkdownTooltip>
   )
 })
 

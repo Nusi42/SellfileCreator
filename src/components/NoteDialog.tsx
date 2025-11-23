@@ -1,5 +1,5 @@
 import React, { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
-import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, LinearProgress, Tooltip, Typography } from '@mui/material'
+import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, LinearProgress, Typography } from '@mui/material'
 import { useI18n } from '../lib/i18n'
 import { FONT_SIZE_MARKDOWN_PX, FONT_SIZE_SECONDARY_PX } from '../lib/constants'
 import MDEditor from '@uiw/react-md-editor'
@@ -17,6 +17,8 @@ import { metasetGlyph } from '../lib/metasets'
 import { metasetIconOptionById, DEFAULT_METASET_ICON_ID, type MetasetIconId } from '../lib/metasetIcons'
 import { artifactSetNames, compareArtifactSets } from '../lib/types'
 import ConfigChip from './ConfigChip'
+// MarkdownTooltip ensures the color pickers + toolbar reuse the same hover delay/style across the app.
+import MarkdownTooltip from './MarkdownTooltip'
 
 // Limited color palette for Note highlighting rendered from Markdown via
 //   <span data-color="{name}">…</span>
@@ -565,7 +567,8 @@ export default function NoteDialog({
     children: (handle) => (
       <div style={{ display: 'flex', gap: 6, padding: '6px 8px', maxWidth: 220, flexWrap: 'wrap' }}>
         {(Object.keys(NOTE_COLOR_HEX) as Array<keyof typeof NOTE_COLOR_HEX>).map((c) => (
-          <Tooltip key={c} title={t('noteColorTooltip', { name: String(c) })} placement="bottom">
+          // Color swatches now share the same Markdown-friendly tooltip, which helps translators add inline formatting.
+          <MarkdownTooltip key={c} markdown={t('noteColorTooltip', { name: String(c) })} placement="bottom">
             <button
               type="button"
               aria-label={`${t('mdColor')} ${String(c)}`}
@@ -587,7 +590,7 @@ export default function NoteDialog({
             >
               <span style={{ display: 'inline-block', width: 12, height: 12, borderRadius: 2, backgroundColor: NOTE_COLOR_HEX[c] }} />
             </button>
-          </Tooltip>
+          </MarkdownTooltip>
         ))}
       </div>
     ),
@@ -948,7 +951,8 @@ function NoteEditorContent({
                         l.includes('color') ? t('mdColor') : raw
                       )
                       return (
-                        <Tooltip title={label} placement="bottom">
+                        // MarkdownTooltip keeps every toolbar command consistent (some strings contain Markdown tokens already).
+                        <MarkdownTooltip markdown={label} placement="bottom">
                           <button
                             type="button"
                             aria-label={label || undefined}
@@ -961,7 +965,7 @@ function NoteEditorContent({
                           >
                             {command?.icon}
                           </button>
-                        </Tooltip>
+                        </MarkdownTooltip>
                       )
                     } catch {
                       return undefined
