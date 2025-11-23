@@ -2,23 +2,12 @@ import { Box, Button, Checkbox, Dialog, DialogActions, DialogContent, DialogTitl
 import { useMemo, useState, useEffect } from 'react'
 import { useI18n } from '../../lib/i18n'
 import type { RestoreDraft } from '../../hooks/useAutosaveRestore'
-
-type RestoreOptionKey = 'configs' | 'metasets' | 'targets' | 'note' | 'filters' | 'tester'
-
-export type RestoreSelection = Record<RestoreOptionKey, boolean>
+import { RESTORE_SELECTION_DEFAULT, RESTORE_SELECTION_KEYS, type RestoreOptionKey, type RestoreSelection } from '../../types/restoreAutosaveSelection'
+import { useRestoreAutosaveSelectionPreference } from '../../state/restoreAutosaveSelection'
 
 export type TesterRestoreDraftMeta = {
   count: number
   savedAt: string | null
-}
-
-const EMPTY_SELECTION: RestoreSelection = {
-  configs: false,
-  metasets: false,
-  targets: false,
-  note: false,
-  filters: false,
-  tester: false,
 }
 
 type RestoreAutosaveDialogProps = {
@@ -52,6 +41,21 @@ const formatSavedAt = (value?: string | null): string | null => {
   }
 }
 
+const mergeStoredSelection = (defaults: RestoreSelection, stored: Partial<RestoreSelection>): RestoreSelection => {
+  const merged: RestoreSelection = { ...defaults }
+  RESTORE_SELECTION_KEYS.forEach((key) => {
+    if (Object.prototype.hasOwnProperty.call(stored, key)) {
+      const value = stored[key]
+      if (typeof value === 'boolean') merged[key] = value
+    }
+  })
+  return merged
+}
+
+const selectionsEqual = (a: RestoreSelection, b: RestoreSelection): boolean => (
+  RESTORE_SELECTION_KEYS.every((key) => a[key] === b[key])
+)
+
 export default function RestoreAutosaveDialog({
   open,
   draft,
@@ -63,7 +67,8 @@ export default function RestoreAutosaveDialog({
   onRestore,
 }: RestoreAutosaveDialogProps) {
   const { t } = useI18n()
-  const [selection, setSelection] = useState<RestoreSelection>(EMPTY_SELECTION)
+  const [persistedSelection, setPersistedSelection] = useRestoreAutosaveSelectionPreference()
+  const [selection, setSelection] = useState<RestoreSelection>(RESTORE_SELECTION_DEFAULT)
   const configsCount = draft?.Configs?.length ?? 0
   const metasCount = draft?.Metasets?.length ?? 0
   const hasTargets = Boolean(draft?.substatTargets)
@@ -71,19 +76,22 @@ export default function RestoreAutosaveDialog({
   const hasFilters = Boolean(draft?.Filters)
   const builderSavedAt = formatSavedAt(draft?.AutosaveSavedAt ?? null)
   const testerSavedAt = formatSavedAt(testerDraft?.savedAt ?? null)
+  const defaultSelection = useMemo<RestoreSelection>(() => {
+    const next: RestoreSelection = { ...RESTORE_SELECTION_DEFAULT }
+    if (configsCount > 0) next.configs = true
+    if (metasCount > 0 && metasetsDiffer) next.metasets = true
+    if (hasTargets && targetsDiffer) next.targets = true
+    if (hasNote) next.note = true
+    if (hasFilters && filtersDiffer) next.filters = true
+    if (testerDraft) next.tester = true
+    return next
+  }, [configsCount, hasFilters, hasNote, hasTargets, metasCount, metasetsDiffer, targetsDiffer, testerDraft, filtersDiffer])
 
   useEffect(() => {
-    setSelection(() => {
-      const next: RestoreSelection = { ...EMPTY_SELECTION }
-      if (configsCount > 0) next.configs = true
-      if (metasCount > 0 && metasetsDiffer) next.metasets = true
-      if (hasTargets && targetsDiffer) next.targets = true
-      if (hasNote) next.note = true
-      if (hasFilters && filtersDiffer) next.filters = true
-      if (testerDraft) next.tester = true
-      return next
-    })
-  }, [configsCount, hasFilters, hasNote, hasTargets, metasCount, metasetsDiffer, targetsDiffer, testerDraft, open, filtersDiffer])
+    if (!open) return
+    const merged = mergeStoredSelection(defaultSelection, persistedSelection)
+    setSelection((prev) => (selectionsEqual(prev, merged) ? prev : merged))
+  }, [open, defaultSelection, persistedSelection])
 
   const options = useMemo<RestoreOption[]>(() => {
     const rows: RestoreOption[] = []
@@ -132,8 +140,23 @@ export default function RestoreAutosaveDialog({
     return rows
   }, [configsCount, hasFilters, hasNote, hasTargets, metasCount, metasetsDiffer, targetsDiffer, testerDraft, t, filtersDiffer])
 
+  const hasOptions = options.length > 0
+  // Autosave prompts must feel invisible when there's nothing actionable.
+  useEffect(() => {
+    if (!open || hasOptions) return
+    // Mirror legacy “no prompt” behavior by rolling back the open flag ASAP.
+    onDismiss()
+  }, [open, hasOptions, onDismiss])
+
+  if (!hasOptions) return null
+
   const handleToggle = (key: RestoreOptionKey) => (_event: React.ChangeEvent<HTMLInputElement>, checked: boolean) => {
-    setSelection(prev => ({ ...prev, [key]: checked }))
+    setSelection((prev) => {
+      if (prev[key] === checked) return prev
+      const next: RestoreSelection = { ...prev, [key]: checked }
+      setPersistedSelection((stored) => ({ ...stored, [key]: checked }))
+      return next
+    })
   }
 
   const selectableOptions = options
@@ -185,11 +208,6 @@ export default function RestoreAutosaveDialog({
                 />
               </Box>
             ))}
-            {options.length === 0 && (
-              <Typography variant="body2" color="text.secondary">
-                {t('restoreAutosaveNothingToRestore')}
-              </Typography>
-            )}
           </Stack>
           </FormGroup>
         </Stack>
