@@ -196,6 +196,7 @@ const overrides: Catalog = {
   keepUniquesNoRules: 'No keep rules yet.',
   keepUniquesAddRule: 'Add Keep Rule',
   keepUniquesGridSelectedCount: '{count} items match this combination',
+  keepUniquesGridUniqueCount: '{count} unique items',
   keepUniquesGridFilterLabel: 'Filter: {mode}',
   keepUniquesGridFilterModeAll: 'All',
   keepUniquesGridFilterModeSelection: 'Selection',
