@@ -4,6 +4,7 @@ import {
   Box,
   Button,
   Chip,
+  CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
@@ -224,37 +225,21 @@ export default function KeepUniquesTab({
     setGridFilterMode((prev) => (prev === 'all' ? 'selection' : 'all'))
   }, [])
 
-  const deficitCount = detectionEntries.filter((entry) => entry.deficit > 0).length
-
-  let detectionChip: JSX.Element | null = null
+  let detectionSpinnerActive = false
   const detectionStatus = (() => {
     if (!enabled) return null
     if (rules.length === 0) {
-      detectionChip = null
       return <Alert severity="info">{t('keepUniquesNoRules')}</Alert>
     }
     if (testerRows.length === 0) {
       // Grid now surfaces the load-database hint, so the sidebar can stay focused on rules.
-      detectionChip = null
       return null
     }
     if (!detection || testerBuilding) {
-      detectionChip = (
-        <Chip
-          size="small"
-          color="warning"
-          label={t('keepUniquesScanPending')}
-        />
-      )
+      detectionSpinnerActive = true
       return null
     }
-    detectionChip = (
-      <Chip
-        size="small"
-        color="warning"
-        label={t('keepUniquesDeficitSummary', { count: deficitCount })}
-      />
-    )
+    detectionSpinnerActive = false
     return null
   })()
 
@@ -546,38 +531,66 @@ export default function KeepUniquesTab({
             </Box>
           </Box>
           <Box data-tour-id="keepuniques.grid" sx={{ minHeight: 0, display: 'flex', flexDirection: 'column', gap: 1 }}>
-            <Box sx={{ display: 'flex', alignItems: { xs: 'flex-start', sm: 'center' }, flexWrap: 'wrap', gap: 1 }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', flex: '1 1 auto' }}>
-                <Typography variant="subtitle2">{t('keepUniquesGridTitle')}</Typography>
-                {selectedEntry ? (
-                  <Chip size="small" label={t('keepUniquesGridSelectedCount', { count: selectedVisibleRowCount })} />
-                ) : null}
-                {detectionChip}
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                flexWrap: 'wrap',
+                gap: 1,
+              }}
+            >
+              <Box sx={{ flex: '0 0 auto' }}>
+                <MarkdownTooltip markdown={t('keepUniquesGridFilterTooltip')}>
+                  <span>
+                    <Button
+                      size="small"
+                      color="success"
+                      variant={gridFilterMode === 'selection' ? 'contained' : 'outlined'}
+                      onClick={handleToggleGridFilterMode}
+                      aria-pressed={gridFilterMode === 'selection'}
+                      startIcon={gridFilterMode === 'selection' ? <FilterListIcon fontSize="small" /> : <FilterListOffIcon fontSize="small" />}
+                      sx={{
+                        height: MENU_CONTROL_HEIGHT_PX,
+                        minHeight: MENU_CONTROL_HEIGHT_PX,
+                        px: 1.25,
+                        '& .MuiTypography-root': { fontWeight: 600 },
+                      }}
+                    >
+                      {t('keepUniquesGridFilterLabel', {
+                        mode: gridFilterMode === 'selection'
+                          ? t('keepUniquesGridFilterModeSelection')
+                          : t('keepUniquesGridFilterModeAll'),
+                      })}
+                    </Button>
+                  </span>
+                </MarkdownTooltip>
               </Box>
-              <MarkdownTooltip markdown={t('keepUniquesGridFilterTooltip')}>
-                <span>
-                  <Button
+              <Box
+                sx={{
+                  flex: '1 1 auto',
+                  display: 'flex',
+                  justifyContent: 'flex-end',
+                  alignItems: 'center',
+                  gap: 1,
+                  minWidth: 0,
+                }}
+              >
+                {detectionSpinnerActive ? (
+                  <CircularProgress
+                    size={20}
+                    thickness={4}
+                    aria-label={t('keepUniquesScanPending')}
+                    sx={{ color: 'warning.main' }}
+                  />
+                ) : null}
+                {selectedEntry ? (
+                  <Chip
                     size="small"
-                    color="success"
-                    variant={gridFilterMode === 'selection' ? 'contained' : 'outlined'}
-                    onClick={handleToggleGridFilterMode}
-                    aria-pressed={gridFilterMode === 'selection'}
-                    startIcon={gridFilterMode === 'selection' ? <FilterListIcon fontSize="small" /> : <FilterListOffIcon fontSize="small" />}
-                    sx={{
-                      height: MENU_CONTROL_HEIGHT_PX,
-                      minHeight: MENU_CONTROL_HEIGHT_PX,
-                      px: 1.25,
-                      '& .MuiTypography-root': { fontWeight: 600 },
-                    }}
-                  >
-                    {t('keepUniquesGridFilterLabel', {
-                      mode: gridFilterMode === 'selection'
-                        ? t('keepUniquesGridFilterModeSelection')
-                        : t('keepUniquesGridFilterModeAll'),
-                    })}
-                  </Button>
-                </span>
-              </MarkdownTooltip>
+                    label={t('keepUniquesGridSelectedCount', { count: selectedVisibleRowCount })}
+                    sx={{ flexShrink: 0 }}
+                  />
+                ) : null}
+              </Box>
             </Box>
             <Box sx={{ flex: 1, minHeight: 0 }}>
               {testerRows.length === 0 ? (
