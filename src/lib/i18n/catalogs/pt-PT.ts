@@ -936,7 +936,7 @@ const overrides: Catalog = {
   statRollCount: 'Contagem de rolagens',
 
   // Builder panel caption and toasts
-  builderIntroCaption: 'Use este espaço de trabalho para dizer ao Sellfile o que deve manter ou vender. Construa cada config aqui, adicione-a à sua lista e carregue ou guarde ficheiros HSFC (meta-sets incluídos) sem sair do painel.',
+  builderIntroCaption: 'Use este espaço de trabalho para dizer ao Sellfile o que deve manter ou vender. Construa cada config aqui, adicione-a à sua lista e carregue ou guarde ficheiros HSFC (meta-sets incluídos).',
   toastConfigsSaved: 'Configs guardadas. Verifique a sua pasta de Descargas.',
   toastSellfileSaved: 'Sellfile exportado.',
   toastSellfileExportFailed: 'Falha ao exportar o Sellfile. Consulte a consola.',

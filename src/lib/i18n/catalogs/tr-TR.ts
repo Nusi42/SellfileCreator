@@ -936,7 +936,7 @@ const overrides: Catalog = {
   statRollCount: 'Rulo sayısı',
 
   // Builder panel caption and toasts
-  builderIntroCaption: 'Bu çalışma alanını, Sellfile\'a neyin tutulup neyin satılacağını söylemek için kullanın. Konfigleri burada hazırlayın, listenize ekleyin ve panelden ayrılmadan metasetlerle birlikte HSFC dosyalarını yükleyip kaydedin.',
+  builderIntroCaption: 'Bu çalışma alanını, Sellfile\'a neyin tutulup neyin satılacağını söylemek için kullanın. Konfigleri burada hazırlayın, listenize ekleyin ve metasetlerle birlikte HSFC dosyalarını yükleyip kaydedin.',
   toastConfigsSaved: 'Konfigler kaydedildi. İndirilenler’i kontrol edin.',
   toastSellfileSaved: 'Sellfile dışa aktarıldı.',
   toastSellfileExportFailed: 'Sellfile dışa aktarma başarısız oldu. Ayrıntılar için konsola bakın.',

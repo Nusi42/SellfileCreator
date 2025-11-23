@@ -936,7 +936,7 @@ const overrides: Catalog = {
   statRollCount: 'Nombre de lancers',
 
   // Builder panel caption and toasts
-  builderIntroCaption: 'Utilisez cet espace de travail pour indiquer au Sellfile quoi garder ou vendre. Construisez chaque config ici, ajoutez-la à votre liste et chargez ou enregistrez des fichiers HSFC (méta-sets inclus) sans quitter le panneau.',
+  builderIntroCaption: 'Utilisez cet espace de travail pour indiquer au Sellfile quoi garder ou vendre. Construisez chaque config ici, ajoutez-la à votre liste et chargez ou enregistrez des fichiers HSFC (méta-sets inclus).',
   toastConfigsSaved: 'Configs enregistrées. Vérifiez votre dossier Téléchargements.',
   toastSellfileSaved: 'Sellfile exporté.',
   toastSellfileExportFailed: "Échec de l'exportation du Sellfile. Consultez la console.",

@@ -936,7 +936,7 @@ const catalog: Catalog = {
   statRollCount: 'Contagem de rolagens',
 
   // Builder panel caption and toasts
-  builderIntroCaption: 'Use este espaço de trabalho para indicar ao Sellfile o que deve manter ou vender. Construa cada config aqui, adicione à lista e carregue ou salve arquivos HSFC (meta-sets incluídos) sem sair do painel.',
+  builderIntroCaption: 'Use este espaço de trabalho para indicar ao Sellfile o que deve manter ou vender. Construa cada config aqui, adicione à lista e carregue ou salve arquivos HSFC (meta-sets incluídos).',
   toastConfigsSaved: 'Configs salvas. Confira sua pasta Downloads.',
   toastSellfileSaved: 'Sellfile exportado.',
   toastSellfileExportFailed: 'Falha ao exportar o Sellfile. Veja o console.',
