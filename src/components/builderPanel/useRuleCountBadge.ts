@@ -39,6 +39,7 @@ export interface RuleCountBadgeOptions {
 export interface RuleCountBadgeResult {
   counting: boolean
   ruleCount: number | null
+  displayRuleCount: number | null
   countingLabel: string
   ruleCountLimitValue: number
   limitExceededWarning: boolean
@@ -419,6 +420,13 @@ export function useRuleCountBadge({
     : null
   const counting = precomputedRuleCount === null && (!hasResolvedCountForActiveFingerprint || asyncCounting)
   const ruleCount = precomputedRuleCount ?? resolvedAsyncRuleCount
+  const lastResolvedRuleCountRef = useRef<number | null>(ruleCount)
+  useEffect(() => {
+    if (ruleCount !== null) {
+      lastResolvedRuleCountRef.current = ruleCount
+    }
+  }, [ruleCount])
+  const displayRuleCount = ruleCount ?? lastResolvedRuleCountRef.current ?? null
   const hasTotalLimitSelection = useMemo(() => {
     if (multiEditActive) {
       return multiEditSelection.some((idx) => configsExcludedByTotalLimit.has(idx))
@@ -441,16 +449,12 @@ export function useRuleCountBadge({
     const singleMode = (cfg.exportMode ?? 'active') as SellfileExportMode
     return singleMode === 'active' || singleMode === 'disabled'
   }, [cfg.exportMode, deferredMultiProjectedConfigs, multiEditActive, multiProjectedConfigs, multiSourceConfigs])
-  // Flag zero-rule outputs so we can warn via the status chip before committing.
+  // Translation stored for the spinner aria-label so screen readers still hear "counting".
   const countingLabel = t('counting')
   const sampleMaxRulesLabel = formatRulesCount(t, Number.POSITIVE_INFINITY, { limit: ruleCountLimitValue })
   const limitWarningTooltip = useMemo(() => t('rulesLimitExceeded', { limit: ruleCountLimitValue }), [ruleCountLimitValue, t])
-  const ruleCountChipMinChars = Math.max(
-    Array.from(countingLabel).length,
-    Array.from(sampleMaxRulesLabel).length,
-    0,
-  )
-  // Reserve width so the chip stays stable while the async placeholder swaps with the resolved count.
+  const ruleCountChipMinChars = Math.max(Array.from(sampleMaxRulesLabel).length, 0)
+  // Reserve width so the chip stays stable while the formatted total updates underneath the spinner.
   const ruleCountChipMinWidth = ruleCountChipMinChars > 0 ? `${ruleCountChipMinChars}ch` : undefined
 
   const zeroRuleCountWarning = !counting && ruleCount === 0 && warnEligibleExportMode
@@ -480,6 +484,7 @@ export function useRuleCountBadge({
   return {
     counting,
     ruleCount,
+    displayRuleCount,
     countingLabel,
     ruleCountLimitValue,
     limitExceededWarning,
