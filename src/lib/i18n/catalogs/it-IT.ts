@@ -192,7 +192,7 @@ const overrides: Catalog = {
   keepUniquesRuleCounts: 'Presenti {have} / Conservare {keep} (previsto {projected})',
   keepUniquesRuleCountsTooltip: 'Have = currently protected items; Keep = your target; Projected = the items Keep Uniques will export if deficits remain. Counts only include tester items matching this rule.',
   keepUniquesRequiredCount: 'Quantità richiesta',
-  keepUniquesRequiredCountHint: 'Minimum artifacts to keep for this exact combination.',
+  keepUniquesRequiredCountHint: 'Numero minimo di artefatti da conservare per questa combinazione esatta.',
   keepUniquesNoRules: 'Nessuna regola di mantenimento.',
   keepUniquesAddRule: 'Aggiungi regola di mantenimento',
   keepUniquesGridSelectedCount: '{count} oggetti corrispondono a questa combinazione',
