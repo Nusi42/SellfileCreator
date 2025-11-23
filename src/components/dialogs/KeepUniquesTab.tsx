@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type MouseEvent as ReactMouseEvent } from 'react'
 import {
-  Alert,
   Box,
   Button,
   Chip,
@@ -22,7 +21,6 @@ import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline'
 import ContentCopyIcon from '@mui/icons-material/ContentCopy'
 import FilterListIcon from '@mui/icons-material/FilterList'
 import FilterListOffIcon from '@mui/icons-material/FilterListOff'
-import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined'
 import type { KeepUniqueDetectionEntry, KeepUniqueDetectionSnapshot, KeepUniqueRule } from '../../lib/keepUniques'
 import { createKeepUniqueRuleId, getKeepUniqueItemKey } from '../../lib/keepUniques'
 import type { TesterPreviewRow } from '../../types/testerPreview'
@@ -241,18 +239,6 @@ export default function KeepUniquesTab({
   const handleToggleGridFilterMode = useCallback(() => {
     setGridFilterMode((prev) => (prev === 'all' ? 'selection' : 'all'))
   }, [])
-
-  const detectionStatus = (() => {
-    if (!enabled) return null
-    if (rules.length === 0) {
-      return <Alert severity="info">{t('keepUniquesNoRules')}</Alert>
-    }
-    if (testerRows.length === 0) {
-      // Grid now surfaces the load-database hint, so the sidebar can stay focused on rules.
-      return null
-    }
-    return null
-  })()
 
   const renderRuleCard = (rule: KeepUniqueRule) => {
     const combination = rule.combination
@@ -530,13 +516,7 @@ export default function KeepUniquesTab({
           <Box data-tour-id="keepuniques.rules" sx={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
             <Box sx={{ pb: 2, borderBottom: '1px solid', borderColor: 'divider' }}>
               <Stack spacing={1}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Typography variant="subtitle2">{t('keepUniquesTabLabel')}</Typography>
-                  {/* Info icon uses MarkdownTooltip so the hint shares the global hover delay. */}
-                  <MarkdownTooltip markdown={t('keepUniquesTabHint')}>
-                    <InfoOutlinedIcon fontSize="small" color="action" />
-                  </MarkdownTooltip>
-                </Box>
+                <Typography variant="subtitle2">{t('keepUniquesTabLabel')}</Typography>
                 <Typography variant="body2" color="text.secondary">{t('keepUniquesTabIntro')}</Typography>
                 <FormControlLabel
                   control={(
@@ -547,7 +527,6 @@ export default function KeepUniquesTab({
                   )}
                   label={t('keepUniquesEnableLabel')}
                 />
-                {detectionStatus}
               </Stack>
             </Box>
             <Box sx={{ flex: 1, minHeight: 0, overflowY: 'auto', pt: 2, pr: 1 }}>
