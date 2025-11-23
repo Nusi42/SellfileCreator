@@ -286,7 +286,7 @@ export function normalizeKeepUniqueRule(value: unknown): KeepUniqueRule | null {
     if (rawMode === 'perCombination' || rawMode === 'perCombo' || rawMode === 'combination') return 'perCombination'
     if (rawMode === 'perRule' || rawMode === 'rule') return 'perRule'
     if (rec.requirePerCombination === true) return 'perCombination'
-    return 'perRule'
+    return 'perCombination'
   })()
   return {
     id: rawId,

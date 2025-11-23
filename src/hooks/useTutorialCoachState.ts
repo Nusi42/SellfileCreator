@@ -77,7 +77,7 @@ const buildTutorialKeepUniqueRules = (): KeepUniqueRule[] => [{
   },
   requiredCount: 1,
   enabled: true,
-  countMode: 'perRule',
+  countMode: 'perCombination',
 }]
 
 const cloneTesterItem = (item: RuleTesterItem): RuleTesterItem => ({

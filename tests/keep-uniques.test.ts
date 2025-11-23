@@ -78,7 +78,7 @@ const makeRule = (overrides: Partial<KeepUniqueRule> = {}): KeepUniqueRule => {
     },
     requiredCount: overrides.requiredCount ?? 1,
     enabled: overrides.enabled ?? true,
-    countMode: overrides.countMode ?? 'perRule',
+    countMode: overrides.countMode ?? 'perCombination',
   })
   if (!rule) throw new Error('expected combination')
   return rule

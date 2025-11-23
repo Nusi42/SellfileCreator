@@ -14,6 +14,8 @@ import {
   Stack,
   Switch,
   TextField,
+  ToggleButton,
+  ToggleButtonGroup,
   Typography,
 } from '@mui/material'
 import AddIcon from '@mui/icons-material/Add'
@@ -25,7 +27,7 @@ import type { KeepUniqueDetectionEntry, KeepUniqueDetectionSnapshot, KeepUniqueR
 import { createKeepUniqueRuleId, getKeepUniqueItemKey } from '../../lib/keepUniques'
 import type { TesterPreviewRow } from '../../types/testerPreview'
 import type { ColorBlindMode } from '../../lib/constants'
-import { MENU_CONTROL_HEIGHT_PX } from '../../lib/constants'
+import { ELLIPSIS_TEXT_SX, MENU_CONTROL_HEIGHT_PX, SMALL_BUTTON_HEIGHT_PX } from '../../lib/constants'
 import type { ArtifactSetId, ArtifactTypeId, StatVariant } from '../../lib/types'
 import {
   ACCESSORY_SLOTS_COMPATIBLE_SET_IDS,
@@ -170,13 +172,13 @@ export default function KeepUniquesTab({
 
   const handleAddRule = useCallback(() => {
     const combination = makeDefaultKeepUniqueCombination()
-    // Default new rules to per-rule counting so they match legacy behavior until toggled.
+    // Default new rules to per-set counting so cards immediately guard each combination.
     const newRule: KeepUniqueRule = {
       id: createKeepUniqueRuleId(),
       combination,
       requiredCount: 1,
       enabled: true,
-      countMode: 'perRule',
+      countMode: 'perCombination',
     }
     mutateRules((prev) => [...prev, newRule])
     setSelectedRuleId(newRule.id)
@@ -303,6 +305,9 @@ export default function KeepUniquesTab({
       </Box>
     )
     const perCombinationMode = rule.countMode === 'perCombination'
+    const perSetLabel = t('keepUniquesCountModePerSet')
+    const perRuleLabel = t('keepUniquesCountModePerRule')
+    const countModeToggleValue = perCombinationMode ? 'perCombination' : 'perRule'
     // Extend the counts chip with a suffix that explains how the totals were derived.
     const detectionScopeSuffix = (ruleDetection && ruleDetection.countMode === 'perCombination' && ruleDetection.groupsTracked > 0)
       ? t('keepUniquesRuleCountsPerComboSuffix', { perGroup: ruleDetection.perGroupRequiredCount, groups: ruleDetection.groupsTracked })
@@ -405,8 +410,17 @@ export default function KeepUniquesTab({
                 size="small"
               />
             </Box>
-            <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 1, alignItems: 'center' }}>
+            <Box
+              // Align the count input beside the scope toggle so the quota intent reads as a single control row.
+              sx={{
+                display: 'grid',
+                gridTemplateColumns: 'minmax(0, 140px) minmax(0, 1fr)',
+                gap: 1,
+                alignItems: 'center',
+              }}
+            >
               <TextField
+                fullWidth
                 size="small"
                 type="number"
                 label={t('keepUniquesRequiredCount')}
@@ -430,6 +444,7 @@ export default function KeepUniquesTab({
                   ),
                 }}
                 sx={(themeInner) => ({
+                  maxWidth: 100, // Shrink further so long localized labels have more horizontal room.
                   '& input::-webkit-outer-spin-button, & input::-webkit-inner-spin-button': {
                     WebkitAppearance: 'none',
                     margin: 0,
@@ -446,24 +461,56 @@ export default function KeepUniquesTab({
                 inputProps={{
                   min: 1,
                   step: 1,
+                  max: 9999, // UI enforces realistic quotas while still allowing manual entry if needed.
                 }}
               />
-              <Box sx={{ gridColumn: 'span 2', display: 'flex', flexDirection: 'column', gap: 0.25 }}>
-                {/* Count-mode toggle keeps the quota scope explicit per rule; wrap with tooltip for the hint copy. */}
+              <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+                {/* Toggle mirrors the preview button group so the quota scope is obvious at a glance. */}
                 <MarkdownTooltip markdown={t('keepUniquesCountModeHint')}>
-                  <Box component="span" data-rule-card-interactive="true" sx={{ display: 'inline-flex' }}>
-                    <FormControlLabel
-                      control={(
-                        <Switch
-                          checked={perCombinationMode}
-                          onChange={(_event, checked) => updateRule(rule.id, (prev) => ({
-                            ...prev,
-                            countMode: checked ? 'perCombination' : 'perRule',
-                          }))}
-                        />
-                      )}
-                      label={t('keepUniquesCountModeToggleLabel')}
-                    />
+                  <Box
+                    component="span"
+                    data-rule-card-interactive="true"
+                    sx={{ display: 'inline-flex', width: '100%', justifyContent: 'flex-end' }}
+                  >
+                    <ToggleButtonGroup
+                      size="small"
+                      value={countModeToggleValue}
+                      exclusive
+                      aria-label={t('keepUniquesCountModeToggleLabel')}
+                      onChange={(_event, next) => {
+                        if (next !== 'perCombination' && next !== 'perRule') return
+                        updateRule(rule.id, (prev) => ({
+                          ...prev,
+                          countMode: next,
+                        }))
+                      }}
+                      sx={{
+                        height: SMALL_BUTTON_HEIGHT_PX,
+                        '& .MuiToggleButtonGroup-grouped:not(:first-of-type)': {
+                          marginLeft: 0,
+                          borderLeft: '1px solid transparent',
+                        },
+                        '& .MuiToggleButtonGroup-grouped.Mui-selected + .MuiToggleButtonGroup-grouped.Mui-selected': {
+                          marginLeft: 0,
+                          borderLeft: '1px solid transparent',
+                        },
+                      }}
+                    >
+                      <ToggleButton
+                        value="perCombination"
+                        aria-label={perSetLabel}
+                        sx={{ px: 1.25, minWidth: 0, height: SMALL_BUTTON_HEIGHT_PX, minHeight: SMALL_BUTTON_HEIGHT_PX, textTransform: 'none' }}
+                      >
+                        <Typography component="span" noWrap sx={ELLIPSIS_TEXT_SX}>{perSetLabel}</Typography>
+                      </ToggleButton>
+                      <ToggleButton
+                        value="perRule"
+                        aria-label={perRuleLabel}
+                        sx={{ px: 1.25, minWidth: 0, height: SMALL_BUTTON_HEIGHT_PX, minHeight: SMALL_BUTTON_HEIGHT_PX, textTransform: 'none' }}
+                      >
+                        <Typography component="span" noWrap sx={ELLIPSIS_TEXT_SX}>{perRuleLabel}</Typography>
+                      </ToggleButton>
+                    </ToggleButtonGroup>
                   </Box>
                 </MarkdownTooltip>
               </Box>

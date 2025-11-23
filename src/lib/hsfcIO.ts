@@ -835,7 +835,7 @@ export function buildHsfcPayload(args: {
       requiredCount: Math.max(1, Math.floor(rule.requiredCount)),
       enabled: rule.enabled !== false,
       // Persist the count scope so downstream imports recreate the toggle exactly.
-      countMode: rule.countMode ?? 'perRule',
+      countMode: rule.countMode ?? 'perCombination',
       tuple: {
         slots: rule.combination.slots.map((slot) => Number(slot) as ArtifactTypeId),
         sets: rule.combination.sets.map((set) => Number(set) as ArtifactSetId),
