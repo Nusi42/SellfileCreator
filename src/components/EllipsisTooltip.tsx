@@ -4,6 +4,47 @@ import { useScrollingFlag } from '../hooks/useScrollingFlag'
 import MarkdownTooltip from './MarkdownTooltip'
 import { MARKDOWN_TOOLTIP_ENTER_DELAY_MS } from '../lib/constants'
 
+// Re-exportable helper so other components can probe whether their own overflow needs surfacing.
+export const pickEllipsisTarget = (root: HTMLElement, selector?: string): HTMLElement => {
+  let target: HTMLElement | null = null
+  if (selector) target = root.querySelector(selector)
+  if (!target) target = root.querySelector('[data-ellipsis-target]') as HTMLElement | null
+  if (!target) {
+    const all = Array.from(root.querySelectorAll<HTMLElement>('*'))
+    target = all.find((el) => {
+      const style = getComputedStyle(el)
+      return (
+        (style.textOverflow === 'ellipsis')
+        && (style.overflow === 'hidden' || style.overflowX === 'hidden')
+        && style.whiteSpace === 'nowrap'
+      )
+    }) || null
+  }
+  return target || root
+}
+
+// Export the overflow measurement so callers can toggle their own `title` attributes or tooltips.
+export const hasEllipsisOverflow = (rootEl?: HTMLElement | null, selector?: string): boolean => {
+  try {
+    const root = rootEl ?? null
+    if (!root) return false
+    const target = pickEllipsisTarget(root, selector)
+    const rect = target.getBoundingClientRect()
+    if ((rect.width || 0) <= 0) return false
+    const cs = getComputedStyle(target)
+    const isEllipsisStyle = (
+      (cs.overflow === 'hidden' || cs.overflowX === 'hidden')
+      && cs.textOverflow === 'ellipsis'
+      && cs.whiteSpace === 'nowrap'
+    )
+    const rectW = Math.floor(target.getBoundingClientRect().width || 0)
+    const scrollW = Math.floor(target.scrollWidth || 0)
+    return Boolean(isEllipsisStyle && scrollW > 0 && rectW + 2 < scrollW)
+  } catch {
+    return false
+  }
+}
+
 export function EllipsisTooltip({
   title,
   children,
@@ -27,35 +68,6 @@ export function EllipsisTooltip({
   // Mirror MarkdownTooltip’s hover delay so overflow tooltips don’t pop instantly.
   const hoverTimerRef = useRef<number | null>(null)
   const scrolling = useScrollingFlag()
-  const pickTarget = (root: HTMLElement): HTMLElement => {
-    let target: HTMLElement | null = null
-    if (selector) target = root.querySelector(selector)
-    if (!target) target = root.querySelector('[data-ellipsis-target]') as HTMLElement | null
-    if (!target) {
-      const all = Array.from(root.querySelectorAll<HTMLElement>('*'))
-      target = all.find(el => {
-        const s = getComputedStyle(el)
-        return (s.textOverflow === 'ellipsis' && (s.overflow === 'hidden' || s.overflowX === 'hidden') && s.whiteSpace === 'nowrap')
-      }) || null
-    }
-    return target || root
-  }
-  const measure = (rootEl?: HTMLElement): boolean => {
-    try {
-      const root = (rootEl || ref.current) as HTMLElement | null
-      if (!root) { return false }
-      const target = pickTarget(root)
-      // Ensure element is laid out
-      const rect = target.getBoundingClientRect()
-      if ((rect.width || 0) <= 0) { return false }
-      const cs = getComputedStyle(target)
-      const isEllipsisStyle = (cs.overflow === 'hidden' || cs.overflowX === 'hidden') && cs.textOverflow === 'ellipsis' && cs.whiteSpace === 'nowrap'
-      const rectW = Math.floor(target.getBoundingClientRect().width || 0)
-      const scrollW = Math.floor(target.scrollWidth || 0)
-      const over = isEllipsisStyle && scrollW > 0 && rectW + 2 < scrollW
-      return over
-    } catch { return false }
-  }
   const popperSlotProps = { disablePortal }
   const tooltipSlotProps = maxWidth != null ? { sx: { maxWidth } } : null
   const tooltipProps = typeof title === 'string'
@@ -87,14 +99,14 @@ export function EllipsisTooltip({
           if (disabled) return
           const root = e.currentTarget as HTMLElement
           clearHoverTimer()
-          if (!measure(root)) {
+          if (!hasEllipsisOverflow(root, selector)) {
             setOpen(false)
             return
           }
           hoverTimerRef.current = window.setTimeout(() => {
             hoverTimerRef.current = null
             // Re-measure after the delay so dynamic labels don't show stale tooltips.
-            setOpen(measure(root))
+            setOpen(hasEllipsisOverflow(root, selector))
           }, MARKDOWN_TOOLTIP_ENTER_DELAY_MS)
         }}
         onMouseLeave={() => {

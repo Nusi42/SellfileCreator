@@ -1,3 +1,4 @@
+import { useCallback, useRef, useState } from 'react'
 import { Box, Chip } from '@mui/material'
 import type { ChipProps } from '@mui/material'
 import type { SxProps, Theme } from '@mui/material/styles'
@@ -7,7 +8,7 @@ import { useI18n } from '../lib/i18n'
 import type { TesterPreviewMatch } from '../types/testerPreview'
 // MarkdownTooltip keeps the “jump to config” hint aligned with the rest of the tooltip rollout.
 import MarkdownTooltip from './MarkdownTooltip'
-import EllipsisTooltip from './EllipsisTooltip'
+import EllipsisTooltip, { hasEllipsisOverflow } from './EllipsisTooltip'
 
 type TesterRuleReferenceChipProps = {
   match: TesterPreviewMatch | null
@@ -84,8 +85,62 @@ export function TesterRuleReferenceChip({
   })()
   const labelParts = [numberSegment, formattedConfigName].filter((part) => part && part.length > 0)
   const label = labelParts.length > 1 ? `${labelParts[0]} | ${labelParts[1]}` : (labelParts[0] ?? '')
-  if (!label) return null
   const clickable = typeof onJump === 'function' && ruleIndex != null
+  if (!label) return null
+  return (
+    <TesterRuleReferenceChipBody
+      label={label}
+      clickable={clickable}
+      ruleIndex={ruleIndex}
+      cfgIdx={typeof match.cfgIdx === 'number' ? match.cfgIdx : null}
+      size={size}
+      jumpTooltip={t('testerJumpToConfig')}
+      {...(sx ? { sx } : {})}
+      {...(icon ? { icon } : {})}
+      {...(onJump ? { onJump } : {})}
+    />
+  )
+}
+
+type TesterRuleReferenceChipBodyProps = {
+  label: string
+  clickable: boolean
+  ruleIndex: number | null
+  cfgIdx: number | null
+  onJump?: (ruleIndex: number, cfgIdx: number | null) => void
+  size?: ChipProps['size']
+  sx?: SxProps<Theme>
+  icon?: ChipProps['icon']
+  jumpTooltip: string
+}
+
+function TesterRuleReferenceChipBody({
+  label,
+  clickable,
+  ruleIndex,
+  cfgIdx,
+  onJump,
+  size = 'small',
+  sx,
+  icon,
+  jumpTooltip,
+}: TesterRuleReferenceChipBodyProps) {
+  const chipWrapperRef = useRef<HTMLSpanElement | null>(null)
+  const [nativeEllipsisTitle, setNativeEllipsisTitle] = useState<string | undefined>(undefined)
+  const handleChipMouseEnter = useCallback(() => {
+    if (!clickable) return
+    const root = chipWrapperRef.current
+    // Only mirror the truncated label when it is actually ellipsized; otherwise we keep the tooltip copy focused on jumping.
+    if (hasEllipsisOverflow(root, '.MuiChip-label')) {
+      setNativeEllipsisTitle(label)
+    } else {
+      setNativeEllipsisTitle(undefined)
+    }
+  }, [clickable, label])
+  const handleChipMouseLeave = useCallback(() => {
+    if (!clickable) return
+    setNativeEllipsisTitle(undefined)
+  }, [clickable])
   const baseSx: SxProps<Theme> = {
     cursor: clickable ? 'pointer' : 'default',
     bgcolor: 'primary.main',
@@ -107,8 +162,9 @@ export function TesterRuleReferenceChip({
   const combinedSx: SxProps<Theme> = sx
     ? [baseSx, ...(Array.isArray(sx) ? sx : [sx])]
     : baseSx
-  const interactiveProps = clickable
-    ? { component: 'button' as const, onClick: () => onJump?.(ruleIndex, match.cfgIdx ?? null) }
+  const canJump = clickable && typeof onJump === 'function' && typeof ruleIndex === 'number'
+  const interactiveProps = canJump
+    ? { component: 'button' as const, onClick: () => onJump(ruleIndex, cfgIdx) }
     : {}
   const iconProps = icon ? { icon } : {}
   const baseChip = (
@@ -121,17 +177,34 @@ export function TesterRuleReferenceChip({
     />
   )
   const chipWithEllipsis = (
-    <EllipsisTooltip title={label} selector=".MuiChip-label">
+    // Force the tooltip wrapper to behave like the old block-level chip so tester cards never overflow.
+    <EllipsisTooltip title={label} selector=".MuiChip-label" wrap="block">
       {baseChip}
     </EllipsisTooltip>
   )
-  if (!clickable) return chipWithEllipsis
-  return (
-    // Keep the jump-to-config hint in sync with other Markdown tooltips so multi-line copy stays readable.
-    <MarkdownTooltip markdown={t('testerJumpToConfig')}>
+  if (!clickable) {
+    return (
       <Box component="span" sx={{ display: 'block', maxWidth: '100%', minWidth: 0 }}>
         {chipWithEllipsis}
       </Box>
+    )
+  }
+  const chipWrapper = (
+    <Box
+      component="span"
+      ref={chipWrapperRef}
+      onMouseEnter={handleChipMouseEnter}
+      onMouseLeave={handleChipMouseLeave}
+      title={nativeEllipsisTitle}
+      sx={{ display: 'block', maxWidth: '100%', minWidth: 0 }}
+    >
+      {baseChip}
+    </Box>
+  )
+  return (
+    // Keep the jump-to-config hint in sync with other Markdown tooltips so multi-line copy stays readable.
+    <MarkdownTooltip markdown={jumpTooltip}>
+      {chipWrapper}
     </MarkdownTooltip>
   )
 }
