@@ -32,7 +32,7 @@ This document outlines contributors' responsibilities for UI behavior, layout, a
 
 - Two components cover every tooltip surface:
   - `MarkdownTooltip` (`src/components/MarkdownTooltip.tsx`) wraps MUI Tooltip with standardized delay (250 ms), width caps, and a markdown renderer (paragraphs, bullet lists, `**bold**`, `_italic_`, inline code). Every explanatory tooltip uses this path. Pass `markdown="..."` for localized strings or `render={...}` when you need JSX (e.g., `BuilderTooltipContent`, colored chips).
-- `EllipsisTooltip` (`src/components/EllipsisTooltip.tsx`) is the only allowed overflow helper. Wrap the element that can clip text, add `data-ellipsis-target` to the truncating node, and it automatically opens a MarkdownTooltip *only* when the content is visually ellipsized. Tooltips render through the shared portal by default so overflow helpers never expand their scroll parents; pass `disablePortal` only when a surface must stay clipped to its container. Never reach for browser `title=` attributes.
+- `EllipsisTooltip` (`src/components/EllipsisTooltip.tsx`) is the only allowed overflow helper. Wrap the element that can clip text, add `data-ellipsis-target` to the truncating node, and it automatically opens a MarkdownTooltip *only* when the content is visually ellipsized. Tooltips render through the shared portal by default so overflow helpers never expand their scroll parents; pass `disablePortal` only when a surface must stay clipped to its container. Surfaces that already host informational tooltips (e.g., the tester “Jump to Config” chip) can use the exported `hasEllipsisOverflow(root, selector?)` helper to set a transient `title` attribute during hover so the OS tooltip reveals the truncated label without spawning a second markdown popper. Avoid `title=` everywhere else.
 - All implementations (builder, rules filter, preview tables, dialog buttons, tester grids) import those helpers. Do **not** import `@mui/material/Tooltip` elsewhere; the shared wrapper already exposes `slotProps`, `placement`, etc.
 - When converting legacy JSX tooltips, keep the content declarative: reuse `BuilderTooltipContent`, avoid inline HTML entities, and keep translation strings in `en-US.ts`. Multi-line copy should be separated with blank lines or `- bullet` formatting to match the markdown renderer’s expectations.
 - Overflow-only surfaces (buttons with shrinking labels, select render-value spans, table cells that switch to icons) should:
@@ -44,12 +44,56 @@ This document outlines contributors' responsibilities for UI behavior, layout, a
   2. Skip explicit `enterDelay`/`leaveDelay`; the wrapper centralizes timing.
   3. Prefer `placement="top"`/`"right"` only when alignment truly matters (e.g., builder export mode toggles). Otherwise let the default `top-start` stand.
 - Set descriptions (`WithSetTooltip`) and other shared helpers must also compose `MarkdownTooltip` so there is **one** place to adjust behavior (timing, width, disableInteractive). If you need a variant, extend `MarkdownTooltip` rather than wrapping MUI Tooltip again.
-- Context-menu hints use `ContextMenuHintOverlay` + `useContextMenuHint`. Hook the surface into the overlay map (see `docs/technical/app-behavior.md` for IDs) and reuse the localized hint strings (`contextMenuHint`, `contextMenuHintRulesTableHeader`, etc.). Do not hand-roll new popovers; the overlay already manages per-version dismissals.
+- Context-menu hints use `ContextMenuHintOverlay` + `useContextMenuHint`. Hook every eligible surface into the overlay map (see `docs/technical/app-behavior.md` for IDs) and reuse the localized hint strings (`contextMenuHint`, `contextMenuHintRulesTableHeader`, etc.). Existing surfaces include the builder history menu, rules-table headers/context menus, preview export/header menus, tester grid menu + scroll hint, dialog filter sections, and the Rule Tester intro copy-path button; mirror their patterns when adding new popovers. Do not hand-roll ad-hoc overlays—the shared helper already manages per-version dismissals.
 - When adding new tooltip copy:
   - Keep it intent-focused (“Explains what toggling does”) rather than narrating mechanics.
   - Mention right-click affordances in tooltip text when relevant, but keep longer walkthroughs in the Help dialog.
   - Update `docs/TECHNICAL.md` and this section whenever the behavior changes so translators and QA have a single reference.
   - Run `npm run lint` after touching tooltips to catch accidental reintroductions of `title=`.
+
+### Tooltip component map
+
+| Surface | Component(s) | Notes |
+| --- | --- | --- |
+| Builder form labels (action/rank/rarity/faction/level/main/substats/slots/etc.) | `MarkdownTooltip` + `BuilderTooltipContent` | Helper text that lived in inline `<Tooltip>` nodes now routes through the markdown wrapper so bullet lists share the global delay/width. |
+| Builder action buttons (add/save, undo/redo, export modes, help) | `MarkdownTooltip` | Buttons that expose multi-line guidance (hidden configs reminder, undo history, help links) all share the markdown wrapper with capped width. |
+| Builder flex/min/threshold chips + lock toggles | `MarkdownTooltip` (`render`) | Contextual icons still render via JSX, but that JSX flows through the markdown wrapper so colored badges share timing. |
+| Builder ellipsis-only surfaces (note/save buttons, metaset button, select renderers) | `EllipsisTooltip` | Wrap the button/select and tag the text node with `data-ellipsis-target` so the tooltip appears only when the label overflows. |
+| Rules filter chips/toggles | `MarkdownTooltip` for guidance, `EllipsisTooltip` for summaries | Glyph legend helpers return markdown strings (e.g., `≥ 0 = show any`). Icon/button labels use EllipsisTooltip so the tooltip only appears when text overflows. |
+| Preview/tester tables | `EllipsisTooltip` for overflow cells, `MarkdownTooltip` everywhere else | Slot/faction/set icons and column headers use MarkdownTooltip. Substat summaries wrap their chips with EllipsisTooltip whenever scroll containers clip the content. |
+| Context menus (builder history, rules table rows, config chips) | `MarkdownTooltip` | Inline helper text (builder context actions, chip menus, copy buttons) renders through the shared wrapper so keyboard users get consistent poppers. |
+| Set descriptions (`WithSetTooltip`) | `MarkdownTooltip` (`render`) | Structured descriptions still emit JSX (piece counts, colored buffs) but they flow through MarkdownTooltip so the timing knob lives in one place. |
+| Glyph/legend helpers (`renderGlyphTooltip`) | `MarkdownTooltip` (`markdown`) | Helper returns a markdown string so chips/buttons can simply call `<MarkdownTooltip markdown={renderGlyphTooltip(...)}/>` without bespoke JSX. |
+| Native titles | Targeted surfaces only | Most overflow still runs through EllipsisTooltip. Components that already host a MarkdownTooltip (e.g., tester “Jump to Config” chips) may call `hasEllipsisOverflow()` and temporarily set `title` so the OS tooltip can expose truncated labels without spawning a second markdown popper. |
+
+### Ellipsis inventory
+
+Representative overflow-only surfaces:
+
+- Iconic buttons whose labels can collapse (builder note/save buttons, preview header actions, dialog primary actions).
+- Select `renderValue` spans (gear sets, factions, champions, builder set/faction pickers, rules filter chips).
+- Table cells that toggle between icons and text (HSF slot/faction columns, metaset menus, builder set menus).
+- Config/tester chips plus the tester grid’s matching-config badges.
+
+`EllipsisTooltip` keeps the popper inside the current scroll container, so callers rarely need `disablePortal`. When the same surface also needs a Markdown tooltip (tester Jump-to-Config chips), probe overflow with `hasEllipsisOverflow` and surface a transient `title` instead of nesting two markdown poppers.
+
+### Markdown inventory
+
+Anything that is not overflow-triggered runs through `MarkdownTooltip`. Representative groupings:
+
+- Builder form labels, action buttons, flex/min controls, lock toggles, roll target warnings, history entries, and metaset dialogs.
+- Rules filter chips/toggles (sets, chaos ore, glyph filters, roll summary), tester config buttons, preview header menus, and filter sections.
+- Headers, icons, and buttons inside the HSF preview table and tester grid (match rows, champion badges, Keep Uniques chips, context-menu affordances).
+- Dialog controls (Note dialog toolbar, Keep Uniques tabs, Substat Targets star chips, Rule Tester action buttons, copy-to-clipboard helpers).
+- Export/load/save buttons, load-sellfile helpers, final-sell toggles, context shorthand hints, etc.
+
+If tooltips need rich formatting (colored badges, inline icons), pass JSX via `render={<BuilderTooltipContent .../>}`. Everything else should use `markdown=` strings so translations stay readable and formatting stays consistent.
+
+### Verification checklist
+
+- `rg '<Tooltip' src` should match only the definition in `MarkdownTooltip.tsx`.
+- `rg 'title=' src` should flag only deliberate usages (e.g., EllipsisTooltip props or the limited overflow cases noted above).
+- `npm run typecheck`, `npm run lint`, `npm run build`, and `npm test` must pass after tooltip changes so regressions are caught before release.
 
 ## Metaset Management
 
