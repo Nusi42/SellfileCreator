@@ -234,7 +234,9 @@ export default function KeepUniquesTab({
       return <Alert severity="info">{t('keepUniquesNoRules')}</Alert>
     }
     if (testerRows.length === 0) {
-      return <Alert severity="info">{t('keepUniquesNoTesterData')}</Alert>
+      // Grid now surfaces the load-database hint, so the sidebar can stay focused on rules.
+      detectionChip = null
+      return null
     }
     if (!detection || testerBuilding) {
       detectionChip = (
@@ -578,23 +580,44 @@ export default function KeepUniquesTab({
               </MarkdownTooltip>
             </Box>
             <Box sx={{ flex: 1, minHeight: 0 }}>
-              <TesterItemsGrid
-                rows={gridRows}
-                filterActive={gridFiltered}
-                substatColors={substatColors}
-                useStatButtonColors={useStatButtonColors}
-                onToggleStatColors={onToggleStatColors}
-                onOpenManageColors={onOpenManageColors}
-                colorBlindMode={colorBlindMode}
-                onChangeColorBlindMode={onChangeColorBlindMode}
-                colorIconSrc={colorIconSrc}
-                configNames={configNames}
-                onJumpToRule={onJumpToRule}
-                variant="keepUniques"
-                highlightedRowPredicate={highlightRowPredicate ?? null}
-                dimUnhighlightedRows={highlightActive}
-                suppressMatchDetails={suppressMatchDetails}
-              />
+              {testerRows.length === 0 ? (
+                <Box
+                  sx={{
+                    borderRadius: '8px',
+                    border: '1px dashed',
+                    borderColor: 'divider',
+                    height: '100%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    textAlign: 'center',
+                    px: 3,
+                  }}
+                >
+                  {/* Empty tester states keep the grid column purposeful instead of blank space. */}
+                  <Typography variant="body2" color="text.secondary">
+                    {t('keepUniquesNoTesterData')}
+                  </Typography>
+                </Box>
+              ) : (
+                <TesterItemsGrid
+                  rows={gridRows}
+                  filterActive={gridFiltered}
+                  substatColors={substatColors}
+                  useStatButtonColors={useStatButtonColors}
+                  onToggleStatColors={onToggleStatColors}
+                  onOpenManageColors={onOpenManageColors}
+                  colorBlindMode={colorBlindMode}
+                  onChangeColorBlindMode={onChangeColorBlindMode}
+                  colorIconSrc={colorIconSrc}
+                  configNames={configNames}
+                  onJumpToRule={onJumpToRule}
+                  variant="keepUniques"
+                  highlightedRowPredicate={highlightRowPredicate ?? null}
+                  dimUnhighlightedRows={highlightActive}
+                  suppressMatchDetails={suppressMatchDetails}
+                />
+              )}
             </Box>
           </Box>
         </Box>
