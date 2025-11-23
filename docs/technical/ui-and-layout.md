@@ -32,7 +32,8 @@ This document outlines contributors' responsibilities for UI behavior, layout, a
 
 - Two components cover every tooltip surface:
   - `MarkdownTooltip` (`src/components/MarkdownTooltip.tsx`) wraps MUI Tooltip with standardized delay (250 ms), width caps, and a markdown renderer (paragraphs, bullet lists, `**bold**`, `_italic_`, inline code). Every explanatory tooltip uses this path. Pass `markdown="..."` for localized strings or `render={...}` when you need JSX (e.g., `BuilderTooltipContent`, colored chips).
-- `EllipsisTooltip` (`src/components/EllipsisTooltip.tsx`) is the only allowed overflow helper. Wrap the element that can clip text, add `data-ellipsis-target` to the truncating node, and it automatically opens a MarkdownTooltip *only* when the content is visually ellipsized. Tooltips render through the shared portal by default so overflow helpers never expand their scroll parents; pass `disablePortal` only when a surface must stay clipped to its container. Surfaces that already host informational tooltips (e.g., the tester “Jump to Config” chip) can use the exported `hasEllipsisOverflow(root, selector?)` helper to set a transient `title` attribute during hover so the OS tooltip reveals the truncated label without spawning a second markdown popper. Avoid `title=` everywhere else.
+- `EllipsisTooltip` (`src/components/EllipsisTooltip.tsx`) is the only allowed overflow helper. Wrap the element that can clip text, add `data-ellipsis-target` to the truncating node, and it automatically opens a MarkdownTooltip *only* when the content is visually ellipsized. Tooltips render through the shared portal by default so overflow helpers never expand their scroll parents; pass `disablePortal` only when a surface must stay clipped to its container.
+- `MarkdownTooltip` now accepts `ellipsisTitle` (and optional `ellipsisSelector`). When you pass a label, it automatically sets a transient native `title` on the ellipsized trigger so the OS tooltip exposes the full text without stacking a second popper. Tag the truncating element with `data-ellipsis-target` (or pass a selector) so the helper knows which node to probe.
 - All implementations (builder, rules filter, preview tables, dialog buttons, tester grids) import those helpers. Do **not** import `@mui/material/Tooltip` elsewhere; the shared wrapper already exposes `slotProps`, `placement`, etc.
 - When converting legacy JSX tooltips, keep the content declarative: reuse `BuilderTooltipContent`, avoid inline HTML entities, and keep translation strings in `en-US.ts`. Multi-line copy should be separated with blank lines or `- bullet` formatting to match the markdown renderer’s expectations.
 - Overflow-only surfaces (buttons with shrinking labels, select render-value spans, table cells that switch to icons) should:
@@ -64,7 +65,7 @@ This document outlines contributors' responsibilities for UI behavior, layout, a
 | Context menus (builder history, rules table rows, config chips) | `MarkdownTooltip` | Inline helper text (builder context actions, chip menus, copy buttons) renders through the shared wrapper so keyboard users get consistent poppers. |
 | Set descriptions (`WithSetTooltip`) | `MarkdownTooltip` (`render`) | Structured descriptions still emit JSX (piece counts, colored buffs) but they flow through MarkdownTooltip so the timing knob lives in one place. |
 | Glyph/legend helpers (`renderGlyphTooltip`) | `MarkdownTooltip` (`markdown`) | Helper returns a markdown string so chips/buttons can simply call `<MarkdownTooltip markdown={renderGlyphTooltip(...)}/>` without bespoke JSX. |
-| Native titles | Targeted surfaces only | Most overflow still runs through EllipsisTooltip. Components that already host a MarkdownTooltip (e.g., tester “Jump to Config” chips) may call `hasEllipsisOverflow()` and temporarily set `title` so the OS tooltip can expose truncated labels without spawning a second markdown popper. |
+| Native titles | Targeted surfaces only | Most overflow still runs through EllipsisTooltip. Components that already host a MarkdownTooltip (builder labels, tester “Jump to Config” chips) should pass `ellipsisTitle` so the component auto-manages the transient `title`. When MarkdownTooltip isn’t present, call `hasEllipsisOverflow()` manually only if there’s no other option. |
 
 ### Ellipsis inventory
 
@@ -75,7 +76,7 @@ Representative overflow-only surfaces:
 - Table cells that toggle between icons and text (HSF slot/faction columns, metaset menus, builder set menus).
 - Config/tester chips plus the tester grid’s matching-config badges.
 
-`EllipsisTooltip` keeps the popper inside the current scroll container, so callers rarely need `disablePortal`. When the same surface also needs a Markdown tooltip (tester Jump-to-Config chips), probe overflow with `hasEllipsisOverflow` and surface a transient `title` instead of nesting two markdown poppers.
+`EllipsisTooltip` keeps the popper inside the current scroll container, so callers rarely need `disablePortal`. When the same surface also needs a Markdown tooltip (tester Jump-to-Config chips, builder labels), pass `ellipsisTitle` to MarkdownTooltip so it handles the overflow probe and native `title` for you instead of nesting two markdown poppers.
 
 ### Markdown inventory
 
