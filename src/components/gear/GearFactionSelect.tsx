@@ -1,7 +1,7 @@
 import { Box, ListSubheader, MenuItem, Select } from '@mui/material'
 import type { SelectChangeEvent, SelectProps } from '@mui/material/Select'
 import type { SxProps, Theme } from '@mui/material/styles'
-import { Fragment, useMemo, useRef, type ReactNode } from 'react'
+import { useMemo, type ReactNode } from 'react'
 import { useI18n } from '../../lib/i18n'
 import { Faction, factionI18nKey, type FactionId } from '../../lib/types'
 import { FactionOptionLabel } from '../FactionIcon'
@@ -94,8 +94,7 @@ export function GearFactionSelect({
       </Box>
     )
   }
-  const ellipsisClampRef = useRef<HTMLSpanElement | null>(null)
-  // Multi-select displays comma-separated labels with icons within a single clamp span so height never changes.
+  // Multi-select only renders text (no icons) so height stays fixed; long lists collapse behind an ellipsis.
   const renderMultiSelected = (selected: unknown) => {
     const entries = Array.isArray(selected) ? selected : []
     if (entries.length === 0) return t('any')
@@ -103,39 +102,20 @@ export function GearFactionSelect({
       .map((entry) => Number(entry))
       .filter((entry) => Number.isFinite(entry))
       .map((entry) => entry as FactionId)
-    const labelledEntries = numericEntries.map((entry) => ({
-      id: entry,
-      label: t(factionI18nKey(entry)),
-    }))
-    const labelString = labelledEntries.map((entry) => entry.label).join(', ')
+    const labelString = numericEntries.map((entry) => t(factionI18nKey(entry))).join(', ')
     return (
       <Box component="span" title={labelString} sx={labelContainerSx}>
         <Box
           component="span"
-          ref={(node: HTMLSpanElement | null) => { ellipsisClampRef.current = node }}
           sx={{
-            display: 'inline-flex',
-            alignItems: 'center',
+            display: 'inline-block',
             whiteSpace: 'nowrap',
             overflow: 'hidden',
             textOverflow: 'ellipsis',
-            gap: 0.5,
             maxWidth: '100%',
           }}
         >
-          {labelledEntries.map((entry, index) => (
-            <Fragment key={entry.id}>
-              {index === 0 ? null : <Box component="span" sx={{ color: 'text.disabled', flexShrink: 0 }}>,</Box>}
-              <FactionOptionLabel
-                faction={entry.id}
-                label={entry.label}
-                size={23}
-                textSx={{ fontSize: '0.875rem' }}
-                truncate
-                sx={{ minWidth: 0, maxWidth: '100%' }}
-              />
-            </Fragment>
-          ))}
+          {labelString}
         </Box>
       </Box>
     )

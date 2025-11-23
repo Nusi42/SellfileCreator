@@ -120,15 +120,16 @@ export function GearSlotSelect({
           </Box>
         )
       }
-      const [firstSlot] = multiSelected
-      const firstSlotDef = artifactTypeIconList.find((entry) => Number(entry.id) === Number(firstSlot))
-      const FirstSlotIcon = firstSlotDef?.Icon
-      const labelText = multiSelected.map((slotId) => t(artifactTypeI18nKey(Number(slotId)))).join(', ')
+      const tooltipLabel = multiSelected.map((slotId) => t(artifactTypeI18nKey(Number(slotId)))).join(', ')
       return (
-        <Box className="slot-value">
-          {FirstSlotIcon ? <FirstSlotIcon fontSize="small" /> : null}
-          <Typography variant="body2" className="slot-label">
-            {labelText}
+        <Box className="slot-value" title={tooltipLabel} sx={{ maxWidth: '100%' }}>
+          <Typography
+            variant="body2"
+            className="slot-label"
+            component="span"
+            sx={{ display: 'inline-block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', width: '100%' }}
+          >
+            {tooltipLabel}
           </Typography>
         </Box>
       )
