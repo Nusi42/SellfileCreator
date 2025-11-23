@@ -390,7 +390,7 @@ export const TESTER_GRID_COLUMNS_KEY = 'sellfileCreator.tester.grid.columns.v1'
 export const TESTER_GRID_SHOW_FIRST_MATCH_KEY = 'sellfileCreator.tester.grid.showFirstMatch.v1'
 export const TESTER_GRID_SHOW_OTHER_MATCHES_KEY = 'sellfileCreator.tester.grid.showOtherMatches.v1'
 export const TESTER_GRID_SHOW_CHAMP_ICONS_KEY = 'sellfileCreator.tester.grid.showChampIcons.v1'
-// Virtualization trims derived from testerGridMetrics measurements so group estimates align with real-world card heights.
+// Virtualization trims derived from historical tester grid measurements so group estimates align with real-world card heights.
 export const TESTER_GRID_VIRTUAL_CARD_HEIGHT_TRIM_PX = 6
 export const TESTER_GRID_VIRTUAL_WIDE_CARD_HEIGHT_TRIM_PX = 6
 
