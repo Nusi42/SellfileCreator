@@ -1819,18 +1819,31 @@ const TesterGridCard = React.memo(function TesterGridCard({
             }}
           >
             <Box
-              ref={handleVisibleChipsContainerRef}
               sx={{
                 display: 'flex',
                 flexWrap: 'nowrap',
                 gap: MATCHING_CHIP_GAP_UNITS,
                 minWidth: 0,
-                width: hasHiddenMatches
-                  ? `${visibleChipsAvailableWidth}px`
-                  : '100%',
+                width: '100%',
               }}
             >
-              {visibleOtherMatching.map((entry) => renderMatchingChip(entry))}
+              <Box
+                ref={handleVisibleChipsContainerRef}
+                sx={{
+                  display: 'flex',
+                  flexWrap: 'nowrap',
+                  gap: MATCHING_CHIP_GAP_UNITS,
+                  minWidth: 0,
+                  width: hasHiddenMatches
+                    ? `${visibleChipsAvailableWidth}px`
+                    : '100%',
+                  maxWidth: hasHiddenMatches
+                    ? `${visibleChipsAvailableWidth}px`
+                    : '100%',
+                }}
+              >
+                {visibleOtherMatching.map((entry) => renderMatchingChip(entry))}
+              </Box>
             </Box>
             {hiddenOtherMatching.length > 0 ? (
               <>
