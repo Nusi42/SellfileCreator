@@ -10,7 +10,8 @@ export function EllipsisTooltip({
   selector,
   disabled,
   wrap = 'inline',
-  disablePortal = true,
+  // Default to the global tooltip portal so overflow helpers never enlarge their scroll parents.
+  disablePortal = false,
   maxWidth,
 }: {
   title: React.ReactNode | string
