@@ -97,6 +97,11 @@ Crie, reveja e exporte regras de venda para o RSL Helper com uma interface simpl
 - Sem venda final, o RSL Helper mantém tudo o que não coincide com uma regra. Só vende quando uma regra explícita diz Vender.
 - Com venda final ativa, as regras geradas incluem todos os sets conhecidos. Na prévia surge «Todos os sets conhecidos» para reduzir ruído; o ficheiro exportado lista os sets um a um.
 
+### Manter únicos
+- O diálogo de Venda final agora inclui a aba `Manter únicos`. O painel esquerdo lista as combinações (slot/set/estatística) que, segundo os dados do tester, seriam todas vendidas, enquanto o lado direito reutiliza a grelha do Teste de Regras para veres cada artefacto com os filtros sincronizados ao resto da app.
+- A varredura do `Manter únicos` usa os mesmos dados do Teste de Regras: ao carregar uma `.db`, o sistema atualiza os estados (`Faltam {count}`, `Coberta noutro local`, `Satisfeita`) e a faixa superior oferece o filtro `Filtro: Todos / Seleção` para mostrar todas as combinações ou apenas as ligadas à regra selecionada.
+- Cada regra de manutenção descreve slot, set, raridade e estatística principal, e podes ajustar a quantidade requerida para manter pelo menos um artefacto. O botão `Repor` no painel limpa todas as regras e desativa o `Manter únicos`, deixando a Venda final intacta para recomeçar do zero.
+
 ### Gestão de configs
 - As configs guardadas aparecem como etiquetas sob o builder. Clique para selecionar; clique direito para duplicar, mover, copiar ou eliminar.
 - «Delete Configs» remove todas (com confirmação).
