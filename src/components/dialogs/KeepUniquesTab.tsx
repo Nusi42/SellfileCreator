@@ -44,7 +44,7 @@ import { GearFactionSelect, GearMainStatSelect, GearRankSelect, GearRaritySelect
 import { TesterItemsGrid } from '../TesterItemsGrid'
 import { NumberSpinnerAdornment } from '../NumberSpinnerAdornment'
 import { EmptyStateMessage } from '../EmptyStateMessage'
-import InlineProgressSpinner from '../InlineProgressSpinner'
+import WorkloadProgressIndicator from '../WorkloadProgressIndicator'
 // MarkdownTooltip keeps the rule-count hints and info icons synchronized with the broader tooltip refactor.
 import MarkdownTooltip from '../MarkdownTooltip'
 import type { SetStateAction } from 'react'
@@ -67,9 +67,9 @@ type KeepUniquesTabProps = {
   colorIconSrc: string
   configNames: Array<string | null>
   metasets: Metaset[]
-  testerBuilding?: boolean
   onJumpToRule?: ((ruleIndex: number, cfgIdx: number | null) => void) | undefined
   suppressMatchDetails?: boolean
+  workloadProgressRatio: number
 }
 
 const ARTIFACT_SET_POOL: readonly ArtifactSetId[] = Object.freeze([...ARMOR_FIXED_SET_IDS, ...ARMOR_VARIABLE_SET_IDS])
@@ -90,9 +90,9 @@ export default function KeepUniquesTab({
   colorIconSrc,
   configNames,
   metasets,
-  testerBuilding = false,
   onJumpToRule,
   suppressMatchDetails = false,
+  workloadProgressRatio,
 }: KeepUniquesTabProps) {
   const { t } = useI18n()
   const [selectedRuleId, setSelectedRuleId] = useState<string | null>(() => rules[0]?.id ?? null)
@@ -235,7 +235,6 @@ export default function KeepUniquesTab({
     setGridFilterMode((prev) => (prev === 'all' ? 'selection' : 'all'))
   }, [])
 
-  let detectionSpinnerActive = false
   const detectionStatus = (() => {
     if (!enabled) return null
     if (rules.length === 0) {
@@ -245,11 +244,6 @@ export default function KeepUniquesTab({
       // Grid now surfaces the load-database hint, so the sidebar can stay focused on rules.
       return null
     }
-    if (!detection || testerBuilding) {
-      detectionSpinnerActive = true
-      return null
-    }
-    detectionSpinnerActive = false
     return null
   })()
 
@@ -585,9 +579,8 @@ export default function KeepUniquesTab({
                   minWidth: 0,
                 }}
               >
-                {detectionSpinnerActive ? (
-                  <InlineProgressSpinner ariaLabel={t('keepUniquesScanPending')} />
-                ) : null}
+                {/* Shared spinner keeps the dialog aligned with the preview chip busy indicator. */}
+                <WorkloadProgressIndicator progressRatio={workloadProgressRatio} ariaLabel={t('keepUniquesScanPending')} />
                 {selectionChipLabel ? (
                   <Chip
                     size="small"

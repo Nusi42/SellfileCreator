@@ -28,24 +28,23 @@ import { useContextMenuHint } from '../hooks/useContextMenuHint'
 import Checkbox from '@mui/material/Checkbox'
 // MarkdownTooltip keeps all preview tooltips (filter toggle, export warnings, etc.) aligned with the global styling/delay.
 import MarkdownTooltip from './MarkdownTooltip'
-import type { ProgressSnapshot } from '../types/progress'
-import { clampProgressRatio } from '../types/progress'
-import InlineProgressSpinner from './InlineProgressSpinner'
+import WorkloadProgressIndicator from './WorkloadProgressIndicator'
 
 const EXPORT_HOVER_DELAY_MS = 2000 as const
 const HIGHLIGHT_REPLAY_DELAY_MS = 500 as const
 
 type ProgressChipProps = {
   progressRatio: number
+  ariaLabel?: string | undefined
   children: React.ReactElement
 }
 
-function ProgressChip({ progressRatio, children }: ProgressChipProps) {
+function ProgressChip({ progressRatio, ariaLabel, children }: ProgressChipProps) {
   const clampedRatio = Math.max(0, Math.min(1, progressRatio))
   return (
     <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75 }}>
       {children}
-      {clampedRatio > 0 ? <InlineProgressSpinner /> : null}
+      <WorkloadProgressIndicator progressRatio={clampedRatio} ariaLabel={ariaLabel} />
     </Box>
   )
 }
@@ -76,8 +75,7 @@ export default function PreviewHeaderActions(props: {
   hsfDirty: boolean
   building?: boolean
   testerBuilding?: boolean
-  rulesProgress?: ProgressSnapshot | null
-  testerProgress?: ProgressSnapshot | null
+  workloadProgressRatio: number
   limitHit?: boolean
   // Final sell remainder controls
   finalSell: FinalSellRemainderConfig
@@ -122,8 +120,7 @@ export default function PreviewHeaderActions(props: {
     testerCount,
     testerFilteredCount,
     testerBuilding = false,
-    rulesProgress = null,
-    testerProgress = null,
+    workloadProgressRatio,
     gearDbCommandError,
     onClearGearDbCommandError,
     gearDbCommandSuccess,
@@ -171,11 +168,8 @@ export default function PreviewHeaderActions(props: {
   )
   const rulesChipMinWidth = rulesChipMinChars > 0 ? `${rulesChipMinChars}ch` : undefined
   // Clamp determinate values from both rule and tester builders so the UI never overflows.
-  const rulesProgressRatio = clampProgressRatio(rulesProgress)
-  const testerProgressRatio = clampProgressRatio(testerProgress)
-  const chipProgressRatio = isBuilding
-    ? (isRulesMode ? rulesProgressRatio : testerProgressRatio)
-    : 0
+  const chipProgressRatio = workloadProgressRatio
+  const spinnerAriaLabel = chipProgressRatio > 0 ? buildingLabel : undefined
   const rulesChipBaseSx = React.useMemo(() => {
     const base: Record<string, unknown> = {
       ...(rulesChipMinWidth ? { minWidth: rulesChipMinWidth } : {}),
@@ -362,14 +356,14 @@ export default function PreviewHeaderActions(props: {
               {/* MarkdownTooltip ensures the limit warning uses the shared hover delay and Markdown formatting. */}
               <MarkdownTooltip markdown={limitTooltip}>
                 <Box component="span" sx={{ display: 'inline-flex' }}>
-                  <ProgressChip progressRatio={chipProgressRatio}>
+                  <ProgressChip progressRatio={chipProgressRatio} ariaLabel={spinnerAriaLabel}>
                     <Chip label={rulesChipLabel} size="small" sx={rulesChipSx} aria-label={isBuilding ? buildingLabel : undefined} />
                   </ProgressChip>
                 </Box>
               </MarkdownTooltip>
             </>
           ) : (
-            <ProgressChip progressRatio={chipProgressRatio}>
+            <ProgressChip progressRatio={chipProgressRatio} ariaLabel={spinnerAriaLabel}>
               <Chip label={rulesChipLabel} size="small" sx={rulesChipSx} aria-label={isBuilding ? buildingLabel : undefined} />
             </ProgressChip>
           )}

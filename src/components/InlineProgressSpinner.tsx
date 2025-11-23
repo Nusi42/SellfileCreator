@@ -3,7 +3,7 @@ import CircularProgress from '@mui/material/CircularProgress'
 type InlineProgressSpinnerProps = {
   variant?: 'determinate' | 'indeterminate'
   value?: number
-  ariaLabel?: string
+  ariaLabel?: string | undefined
 }
 
 const INLINE_SPINNER_SIZE_PX = 20 as const

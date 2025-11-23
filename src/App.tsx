@@ -30,7 +30,7 @@ import {
   FONT_SIZE_BASE_PX,
 } from './lib/constants'
 import { buildPreviewArtifactFromTesterItem } from './lib/testerPreviewArtifacts'
-import type { ProgressSnapshot } from './types/progress'
+import { clampProgressRatio, type ProgressSnapshot } from './types/progress'
 
 import { Box, Container, Paper, Stack, Typography, GlobalStyles, Button } from '@mui/material'
 import SaveIcon from '@mui/icons-material/Save'
@@ -95,6 +95,10 @@ import { makeManageColorsIcon } from './lib/icons'
 import type { ChampionLocation } from './lib/importers/gearDbNormalizer'
 
 const TESTER_MATCH_RESET_TIMEOUT_MS = 1500
+// Keep the chip spinner visible with at least a whisper of progress so the pulse animation can show.
+const WORKLOAD_PENDING_MIN_RATIO = 0.02 as const
+// Hold the spinner a touch longer so sequential builders do not flicker off between phases.
+const WORKLOAD_SPINNER_HANG_MS = 450 as const
 import { sellfileFilename, hsfcFilename, buildTimestamp } from './lib/filenames'
 import { README_SEEN_VERSION_KEY, RULE_COUNT_LIMIT } from './lib/constants'
 import { DEFAULT_METASET_ICON_ID } from './lib/metasetIcons'
@@ -590,6 +594,37 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const [rulesBuilding, setRulesBuilding] = useState(false)
   // Persist the current warm-cache snapshot so the preview chip can render an overlay.
   const [rulesBuildProgress, setRulesBuildProgress] = useState<ProgressSnapshot | null>(null)
+  // Shared spinner ratio merges both rule + tester builders so the UI has a single busy signal.
+  const [workloadProgressRatio, setWorkloadProgressRatio] = useState(0)
+  const workloadSpinnerHangTimeoutRef = useRef<number | null>(null)
+  const rulesWorkloadRatio = rulesBuilding ? clampProgressRatio(rulesBuildProgress) : 0
+  const testerWorkloadRatio = testerRowsBuilding ? clampProgressRatio(testerRowsProgress) : 0
+  const workloadDeterminateRatio = Math.max(rulesWorkloadRatio, testerWorkloadRatio)
+  const workloadBusy = rulesBuilding || testerRowsBuilding
+  useEffect(() => {
+    // Hang the spinner through idle gaps so sequence builds do not flash the chip.
+    const clearHangTimeout = () => {
+      if (workloadSpinnerHangTimeoutRef.current !== null) {
+        window.clearTimeout(workloadSpinnerHangTimeoutRef.current)
+        workloadSpinnerHangTimeoutRef.current = null
+      }
+    }
+    if (workloadBusy) {
+      clearHangTimeout()
+      setWorkloadProgressRatio(Math.max(workloadDeterminateRatio, WORKLOAD_PENDING_MIN_RATIO))
+      return () => {
+        clearHangTimeout()
+      }
+    }
+    clearHangTimeout()
+    workloadSpinnerHangTimeoutRef.current = window.setTimeout(() => {
+      workloadSpinnerHangTimeoutRef.current = null
+      setWorkloadProgressRatio(0)
+    }, WORKLOAD_SPINNER_HANG_MS)
+    return () => {
+      clearHangTimeout()
+    }
+  }, [workloadBusy, workloadDeterminateRatio])
   const finishRulesBuilding = useCallback(() => {
     setRulesBuilding(false)
     setRulesBuildProgress(null)
@@ -3537,8 +3572,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         filterActive={previewFilterActive}
         building={rulesBuilding}
         testerBuilding={testerBuilding}
-        rulesProgress={rulesBuildProgress}
-        testerProgress={testerRowsProgress}
+        workloadProgressRatio={workloadProgressRatio}
         limitHit={totalLimitHit}
         onToggleFilter={() => setFilterOpen((v) => !v)}
         onSelectHsf={async (file) => {
@@ -3958,8 +3992,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         colorIconSrc={colorIconSrc}
         configNames={testerConfigNames}
         metasets={metasets}
-        testerBuilding={testerBuilding}
         suppressMatchDetails={suppressTesterMatchDetails}
+        workloadProgressRatio={workloadProgressRatio}
         onResetKeepUniques={handleResetKeepUniques}
         onJumpToRule={handleTesterRuleView}
       />
