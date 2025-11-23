@@ -121,11 +121,18 @@ export function TesterRuleReferenceChip({
     />
   )
   const chipWithEllipsis = (
-    <EllipsisTooltip title={label} selector=".MuiChip-label">
+    // Force the tooltip wrapper to behave like the old block-level chip so tester cards never overflow.
+    <EllipsisTooltip title={label} selector=".MuiChip-label" wrap="block">
       {baseChip}
     </EllipsisTooltip>
   )
-  if (!clickable) return chipWithEllipsis
+  if (!clickable) {
+    return (
+      <Box component="span" sx={{ display: 'block', maxWidth: '100%', minWidth: 0 }}>
+        {chipWithEllipsis}
+      </Box>
+    )
+  }
   return (
     // Keep the jump-to-config hint in sync with other Markdown tooltips so multi-line copy stays readable.
     <MarkdownTooltip markdown={t('testerJumpToConfig')}>
