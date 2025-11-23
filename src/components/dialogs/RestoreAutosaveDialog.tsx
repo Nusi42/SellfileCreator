@@ -132,6 +132,16 @@ export default function RestoreAutosaveDialog({
     return rows
   }, [configsCount, hasFilters, hasNote, hasTargets, metasCount, metasetsDiffer, targetsDiffer, testerDraft, t, filtersDiffer])
 
+  const hasOptions = options.length > 0
+  // Autosave prompts must feel invisible when there's nothing actionable.
+  useEffect(() => {
+    if (!open || hasOptions) return
+    // Mirror legacy “no prompt” behavior by rolling back the open flag ASAP.
+    onDismiss()
+  }, [open, hasOptions, onDismiss])
+
+  if (!hasOptions) return null
+
   const handleToggle = (key: RestoreOptionKey) => (_event: React.ChangeEvent<HTMLInputElement>, checked: boolean) => {
     setSelection(prev => ({ ...prev, [key]: checked }))
   }
@@ -185,11 +195,6 @@ export default function RestoreAutosaveDialog({
                 />
               </Box>
             ))}
-            {options.length === 0 && (
-              <Typography variant="body2" color="text.secondary">
-                {t('restoreAutosaveNothingToRestore')}
-              </Typography>
-            )}
           </Stack>
           </FormGroup>
         </Stack>

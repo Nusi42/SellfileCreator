@@ -63,6 +63,7 @@ This document captures runtime behavior, builder interactions, and user-facing w
 
 - Hook: `useAutosaveRestore` compares the stored HSFC payload (metasets, Substat Target Values, configs, Final Sell remainder, pinned note, filter state) against the current defaults. When anything differs and the README overlay isn’t blocking, it opens `RestoreAutosaveDialog`.
 - Selective restore: Each section appears with its own checkbox (pre-selected). Applying the autosave only touches the checked sections, so builders can import metasets without overwriting configs, or pull in filters while leaving everything else intact.
+- Silent skip: When none of the sections above have anything to restore (e.g., the autosave only contained configs but the builder already has configs loaded), App immediately dismisses the dialog instead of flashing an empty shell. This mirrors the pre-dialog UX where no prompt appeared unless there was work to do.
 - Filters: The dialog can now restore whether the panel was open, its chips, and collapsed sections; those values live alongside the HSFC payload in localStorage.
 - Rule Tester gear: Tester autosave (`AUTOSAVE_TESTER_KEY`) is decoded up front and offered as another checkbox. The saved queue only replaces the current tester state when the box is checked; otherwise it stays in storage until selected (or overwritten by a newer autosave).
 - Dismissal: Dismissing the dialog keeps the previous autosave in storage and delays builder autosave writes until the current session diverges, preventing accidental overwrites.
