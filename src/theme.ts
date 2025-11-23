@@ -81,6 +81,8 @@ export function makeTheme(mode: ColorBlindMode) {
           tooltip: {
             fontSize: `${FONT_SIZE_SECONDARY_PX}px`,
             maxWidth: 640,
+            whiteSpace: 'pre-line',
+            wordBreak: 'break-word',
           },
         },
       },
