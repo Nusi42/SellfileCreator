@@ -152,6 +152,15 @@ export default function KeepUniquesTab({
   }, [selectedEntry, uniqueItemKeySet])
   const highlightFilterActive = highlightActive && !selectionFilterApplied && uniqueRows.length > selectedVisibleRowCount
   const gridFiltered = uniqueFilterActive || highlightFilterActive || selectionFilterApplied
+  const selectionChipLabel = useMemo(() => {
+    if (selectedEntry) {
+      // Keep the detail chip focused on the highlighted combination whenever a rule is active.
+      return t('keepUniquesGridSelectedCount', { count: selectedVisibleRowCount })
+    }
+    if (testerRows.length === 0 && uniqueRows.length === 0) return null
+    // Surface the aggregate unique count so the toolbar never collapses when no rule is selected.
+    return t('keepUniquesGridUniqueCount', { count: uniqueRows.length })
+  }, [selectedEntry, selectedVisibleRowCount, testerRows.length, t, uniqueRows.length])
 
   const handleAddRule = useCallback(() => {
     const combination = makeDefaultKeepUniqueCombination()
@@ -584,10 +593,10 @@ export default function KeepUniquesTab({
                     sx={{ color: 'warning.main' }}
                   />
                 ) : null}
-                {selectedEntry ? (
+                {selectionChipLabel ? (
                   <Chip
                     size="small"
-                    label={t('keepUniquesGridSelectedCount', { count: selectedVisibleRowCount })}
+                    label={selectionChipLabel}
                     sx={{ flexShrink: 0 }}
                   />
                 ) : null}
