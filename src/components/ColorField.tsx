@@ -1,6 +1,7 @@
 import React from 'react'
 import { Box, Button, Popover, Typography, TextField } from '@mui/material'
 import { COLOR_FIELD_BUTTON_MAX_WIDTH_PX, ELLIPSIS_TEXT_SX } from '../lib/constants'
+import EllipsisTooltip from './EllipsisTooltip'
 
 const COLOR_PRESETS = ['#90CAF9','#4FC3F7','#81C784','#66BB6A','#E57373','#FFB74D','#CE93D8','#B0BEC5','#FFD54F','#A5D6A7','#80CBC4','#F48FB1']
 
@@ -58,18 +59,24 @@ export function ColorField({ value, onChange, label, allowAlpha = false }: { val
     onChange(valueWithHash)
     return true
   }, [allowAlpha, onChange])
+  const button = (
+    <Button
+      size="small"
+      variant="outlined"
+      onClick={(e) => setAnchorEl(e.currentTarget)}
+      sx={{ minWidth: 0, px: 1, py: 0.25, borderColor: value, color: value, bgcolor: '#0000', maxWidth: COLOR_FIELD_BUTTON_MAX_WIDTH_PX, overflow: 'hidden', justifyContent: 'flex-start' }}
+    >
+      <Box sx={{ width: 16, height: 16, borderRadius: 0.5, bgcolor: value, border: '1px solid', borderColor: 'divider', mr: 0.75, flexShrink: 0 }} />
+      {label ? (
+        <Typography component="span" noWrap sx={ELLIPSIS_TEXT_SX} data-ellipsis-target>
+          {label}
+        </Typography>
+      ) : null}
+    </Button>
+  )
   return (
     <>
-      <Button
-        size="small"
-        variant="outlined"
-        onClick={(e) => setAnchorEl(e.currentTarget)}
-        sx={{ minWidth: 0, px: 1, py: 0.25, borderColor: value, color: value, bgcolor: '#0000', maxWidth: COLOR_FIELD_BUTTON_MAX_WIDTH_PX, overflow: 'hidden', justifyContent: 'flex-start' }}
-        title={label}
-      >
-        <Box sx={{ width: 16, height: 16, borderRadius: 0.5, bgcolor: value, border: '1px solid', borderColor: 'divider', mr: 0.75, flexShrink: 0 }} />
-        {label ? <Typography component="span" noWrap sx={ELLIPSIS_TEXT_SX}>{label}</Typography> : null}
-      </Button>
+      {label ? <EllipsisTooltip title={label}>{button}</EllipsisTooltip> : button}
       <Popover open={open} onClose={handleClose} anchorEl={anchorEl} anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}>
         {open ? (
           <ColorPickerContent

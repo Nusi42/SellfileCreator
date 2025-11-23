@@ -5,6 +5,7 @@ import UploadFileIcon from '@mui/icons-material/UploadFile'
 import SaveIcon from '@mui/icons-material/Save'
 import { useI18n, formatConfigsCount } from '../lib/i18n'
 import DirtyBadge from './DirtyBadge'
+import EllipsisTooltip from './EllipsisTooltip'
 
 export default function HeaderActions(props: {
   onAboutToOpenHsfc?: () => void
@@ -49,21 +50,24 @@ export default function HeaderActions(props: {
       }}
     >
       <Box sx={{ minWidth: 0, display: 'flex', justifyContent: 'flex-start' }}>
-        <Button
-          variant="outlined"
-          size="small"
-          onClick={onOpenNote}
-          sx={{
-            maxWidth: LONG_LABEL_BUTTON_MAX_WIDTH_PX,
-            overflow: 'hidden',
-            minWidth: 0,
-            whiteSpace: 'nowrap',
-          }}
-          data-tour-id="note.toggle"
-          title={notePresent ? t('editNote') : t('addNote')}
-        >
-          <Typography component="span" noWrap sx={ELLIPSIS_TEXT_SX}>{notePresent ? t('editNote') : t('addNote')}</Typography>
-        </Button>
+        <EllipsisTooltip title={notePresent ? t('editNote') : t('addNote')}>
+          <Button
+            variant="outlined"
+            size="small"
+            onClick={onOpenNote}
+            sx={{
+              maxWidth: LONG_LABEL_BUTTON_MAX_WIDTH_PX,
+              overflow: 'hidden',
+              minWidth: 0,
+              whiteSpace: 'nowrap',
+            }}
+            data-tour-id="note.toggle"
+          >
+            <Typography component="span" noWrap sx={ELLIPSIS_TEXT_SX} data-ellipsis-target>
+              {notePresent ? t('editNote') : t('addNote')}
+            </Typography>
+          </Button>
+        </EllipsisTooltip>
       </Box>
       <Box
         sx={{
@@ -107,16 +111,19 @@ export default function HeaderActions(props: {
           sx={{ flexShrink: 1, minWidth: 0, maxWidth: LONG_LABEL_BUTTON_MAX_WIDTH_PX, ml: 2 }}
         />
         <DirtyBadge active={hsfcDirty} sx={{ flexShrink: 1, minWidth: 0, display: 'inline-flex' }}>
-          <Button
-            startIcon={<SaveIcon />}
-            onClick={onSaveHsfc}
-            disabled={false}
-            data-tour-id="hsfc.save"
-            sx={{ maxWidth: LONG_LABEL_BUTTON_MAX_WIDTH_PX, overflow: 'hidden', flexShrink: 1, minWidth: 0 }}
-            title={t('saveAllConfigs')}
-          >
-            <Typography component="span" noWrap sx={ELLIPSIS_TEXT_SX}>{t('saveAllConfigs')}</Typography>
-          </Button>
+          <EllipsisTooltip title={t('saveAllConfigs')}>
+            <Button
+              startIcon={<SaveIcon />}
+              onClick={onSaveHsfc}
+              disabled={false}
+              data-tour-id="hsfc.save"
+              sx={{ maxWidth: LONG_LABEL_BUTTON_MAX_WIDTH_PX, overflow: 'hidden', flexShrink: 1, minWidth: 0 }}
+            >
+              <Typography component="span" noWrap sx={ELLIPSIS_TEXT_SX} data-ellipsis-target>
+                {t('saveAllConfigs')}
+              </Typography>
+            </Button>
+          </EllipsisTooltip>
         </DirtyBadge>
       </Box>
     </Box>

@@ -1,4 +1,4 @@
-import { Box, Button, Chip, Collapse, Divider, FormControl, FormLabel, IconButton, InputAdornment, ListSubheader, MenuItem, Select, SelectChangeEvent, Slider, Stack, TextField, ToggleButton, ToggleButtonGroup, Tooltip, Typography, Popover } from '@mui/material'
+import { Box, Button, Chip, Collapse, Divider, FormControl, FormLabel, IconButton, InputAdornment, ListSubheader, MenuItem, Select, SelectChangeEvent, Slider, Stack, TextField, ToggleButton, ToggleButtonGroup, Typography, Popover } from '@mui/material'
 import { useI18n } from '../lib/i18n'
 import SetMenuSection from './SetMenuSection'
 import SetsOrderControls from './SetsOrderControls'
@@ -12,6 +12,7 @@ import FilterAltOffIcon from '@mui/icons-material/FilterAltOff'
 import FilterListIcon from '@mui/icons-material/FilterList'
 import FilterListOffIcon from '@mui/icons-material/FilterListOff'
 import EllipsisTooltip from './EllipsisTooltip'
+import MarkdownTooltip from './MarkdownTooltip'
 import {
   artifactSetName,
   PREFERRED_ARTIFACT_TYPE_ORDER,
@@ -106,17 +107,9 @@ type GlyphLegendEntry = {
   label: string
 }
 
-function renderGlyphTooltip(description: string, entries: GlyphLegendEntry[]) {
-  return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25 }}>
-      <Typography variant="body2">{description}</Typography>
-      {entries.map(({ glyph, label }) => (
-        <Typography key={`${glyph}-${label}`} variant="caption" component="span">
-          {`${glyph} = ${label}`}
-        </Typography>
-      ))}
-    </Box>
-  )
+function renderGlyphTooltip(description: string, entries: GlyphLegendEntry[]): string {
+  const details = entries.map(({ glyph, label }) => `- ${glyph} = ${label}`)
+  return [description, ...details].join('\n')
 }
 
 export type RulesFilterPanelHandle = {
@@ -540,7 +533,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
       </Box>
     )
     return (
-      <Tooltip title={glyphTooltip}>
+      <MarkdownTooltip markdown={glyphTooltip}>
         <Chip
           size="small"
           variant="filled"
@@ -549,7 +542,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
           onClick={() => setValue(value === 'include' ? 'off' : value === 'off' ? 'only' : 'include')}
           sx={filterChipSx(value)}
         />
-      </Tooltip>
+      </MarkdownTooltip>
     )
   }
   const wildcardState = testerRollsState.wildcard ?? createDefaultTesterRollsState().wildcard
@@ -747,14 +740,15 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
     }
     const text = (names.length === 0) ? t('any') : names.join(', ')
     return (
-      <Box
-        component="span"
-        data-ellipsis-target
-        title={text}
-        sx={{ display: 'block', width: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
-      >
-        {text}
-      </Box>
+      <EllipsisTooltip title={text}>
+        <Box
+          component="span"
+          data-ellipsis-target
+          sx={{ display: 'block', width: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+        >
+          {text}
+        </Box>
+      </EllipsisTooltip>
     )
   }
 
@@ -1027,7 +1021,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
             sx={{ flexWrap: 'wrap', justifyContent: headerActionJustify }}
           >
           {Boolean(onTesterConfigFilterModeChange) && (
-            <Tooltip title={testerConfigFilterTooltip}>
+            <MarkdownTooltip markdown={testerConfigFilterTooltip}>
               <span>
                 <Button
                   size="small"
@@ -1063,9 +1057,9 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                   </Typography>
                 </Button>
               </span>
-            </Tooltip>
+            </MarkdownTooltip>
           )}
-          <Tooltip title={t('filterLimitPreviewConfigsTooltip')}>
+          <MarkdownTooltip markdown={t('filterLimitPreviewConfigsTooltip')}>
             <span>
               <Button
                 size="small"
@@ -1095,7 +1089,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                 </Typography>
               </Button>
             </span>
-          </Tooltip>
+          </MarkdownTooltip>
           <Button
             size="small"
             variant="contained"
@@ -1177,15 +1171,19 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                       '& .MuiToggleButtonGroup-grouped.Mui-selected + .MuiToggleButtonGroup-grouped.Mui-selected': { marginLeft: '0 !important', borderLeft: '1px solid transparent' },
                     }}
                   >
-                    <ToggleButton value={'yes'} title={t('keepValueKeep')}>
-                      <Typography component="span" noWrap sx={toggleLabelSx}>
-                        {t('keepValueKeep')}
-                      </Typography>
+                    <ToggleButton value={'yes'}>
+                      <EllipsisTooltip title={t('keepValueKeep')} wrap="block">
+                        <Typography component="span" noWrap sx={toggleLabelSx} data-ellipsis-target>
+                          {t('keepValueKeep')}
+                        </Typography>
+                      </EllipsisTooltip>
                     </ToggleButton>
-                    <ToggleButton value={'no'} title={t('keepValueSell')}>
-                      <Typography component="span" noWrap sx={toggleLabelSx}>
-                        {t('keepValueSell')}
-                      </Typography>
+                    <ToggleButton value={'no'}>
+                      <EllipsisTooltip title={t('keepValueSell')} wrap="block">
+                        <Typography component="span" noWrap sx={toggleLabelSx} data-ellipsis-target>
+                          {t('keepValueSell')}
+                        </Typography>
+                      </EllipsisTooltip>
                     </ToggleButton>
                   </ToggleButtonGroup>
                 </Box>
@@ -1218,15 +1216,19 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                       '& .MuiToggleButtonGroup-grouped.Mui-selected + .MuiToggleButtonGroup-grouped.Mui-selected': { marginLeft: '0 !important', borderLeft: '1px solid transparent' },
                     }}
                   >
-                    <ToggleButton value={'yes'} title={t('testerResultMatched')}>
-                      <Typography component="span" noWrap sx={toggleLabelSx}>
-                        {t('testerResultMatched')}
-                      </Typography>
+                    <ToggleButton value={'yes'}>
+                      <EllipsisTooltip title={t('testerResultMatched')} wrap="block">
+                        <Typography component="span" noWrap sx={toggleLabelSx} data-ellipsis-target>
+                          {t('testerResultMatched')}
+                        </Typography>
+                      </EllipsisTooltip>
                     </ToggleButton>
-                    <ToggleButton value={'no'} title={t('testerMatchNoRule')}>
-                      <Typography component="span" noWrap sx={toggleLabelSx}>
-                        {t('testerMatchNoRule')}
-                      </Typography>
+                    <ToggleButton value={'no'}>
+                      <EllipsisTooltip title={t('testerMatchNoRule')} wrap="block">
+                        <Typography component="span" noWrap sx={toggleLabelSx} data-ellipsis-target>
+                          {t('testerMatchNoRule')}
+                        </Typography>
+                      </EllipsisTooltip>
                     </ToggleButton>
                   </ToggleButtonGroup>
                 </Box>
@@ -1259,15 +1261,19 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                       '& .MuiToggleButtonGroup-grouped.Mui-selected + .MuiToggleButtonGroup-grouped.Mui-selected': { marginLeft: '0 !important', borderLeft: '1px solid transparent' },
                     }}
                   >
-                    <ToggleButton value={'yes'} title={t('keepValueKeep')}>
-                      <Typography component="span" noWrap sx={toggleLabelSx}>
-                        {t('keepValueKeep')}
-                      </Typography>
+                    <ToggleButton value={'yes'}>
+                      <EllipsisTooltip title={t('keepValueKeep')} wrap="block">
+                        <Typography component="span" noWrap sx={toggleLabelSx} data-ellipsis-target>
+                          {t('keepValueKeep')}
+                        </Typography>
+                      </EllipsisTooltip>
                     </ToggleButton>
-                    <ToggleButton value={'no'} title={t('keepValueSell')}>
-                      <Typography component="span" noWrap sx={toggleLabelSx}>
-                        {t('keepValueSell')}
-                      </Typography>
+                    <ToggleButton value={'no'}>
+                      <EllipsisTooltip title={t('keepValueSell')} wrap="block">
+                        <Typography component="span" noWrap sx={toggleLabelSx} data-ellipsis-target>
+                          {t('keepValueSell')}
+                        </Typography>
+                      </EllipsisTooltip>
                     </ToggleButton>
                   </ToggleButtonGroup>
                 </Box>
@@ -1297,15 +1303,19 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                       '& .MuiToggleButtonGroup-grouped.Mui-selected + .MuiToggleButtonGroup-grouped.Mui-selected': { marginLeft: '0 !important', borderLeft: '1px solid transparent' },
                     }}
                   >
-                    <ToggleButton value={'yes'} title={t('builderExportModeActive')}>
-                      <Typography component="span" noWrap sx={toggleLabelSx}>
-                        {t('builderExportModeActive')}
-                      </Typography>
+                    <ToggleButton value={'yes'}>
+                      <EllipsisTooltip title={t('builderExportModeActive')} wrap="block">
+                        <Typography component="span" noWrap sx={toggleLabelSx} data-ellipsis-target>
+                          {t('builderExportModeActive')}
+                        </Typography>
+                      </EllipsisTooltip>
                     </ToggleButton>
-                    <ToggleButton value={'no'} title={t('builderExportModeDisabled')}>
-                      <Typography component="span" noWrap sx={toggleLabelSx}>
-                        {t('builderExportModeDisabled')}
-                      </Typography>
+                    <ToggleButton value={'no'}>
+                      <EllipsisTooltip title={t('builderExportModeDisabled')} wrap="block">
+                        <Typography component="span" noWrap sx={toggleLabelSx} data-ellipsis-target>
+                          {t('builderExportModeDisabled')}
+                        </Typography>
+                      </EllipsisTooltip>
                     </ToggleButton>
                   </ToggleButtonGroup>
                 </Box>
@@ -1586,8 +1596,8 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
           })()}
             <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: FILTER_CHIP_TOP_MARGIN, flexWrap: 'wrap' }}>
               {anyChip(t('filterSets'), state.sets.anyMode, (v) => onChange({ ...state, sets: { ...state.sets, anyMode: v } }), t('filterAnyTooltip', { field: t('filterSets') }))}
-              <Tooltip
-                title={renderGlyphTooltip(t('filterMatchTooltipSets'), [
+              <MarkdownTooltip
+                markdown={renderGlyphTooltip(t('filterMatchTooltipSets'), [
                   { glyph: GLYPH_GTE_ONE, label: t('filterAnyOf') },
                   { glyph: GLYPH_ALL, label: t('filterAllOf') },
                 ])}
@@ -1603,7 +1613,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                   }}
                   sx={tintedChipSx((state.sets.match ?? 'any') === 'any' ? theme.palette.success : theme.palette.info)}
                 />
-              </Tooltip>
+              </MarkdownTooltip>
             </Stack>
             </Collapse>
           </FormControl>
@@ -1660,10 +1670,12 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                     }}
                   >
                     {testerSourceOptions.map((option) => (
-                      <ToggleButton key={option.value} value={option.value} title={option.label}>
-                        <Typography component="span" noWrap sx={toggleLabelSx}>
-                          {option.label}
-                        </Typography>
+                      <ToggleButton key={option.value} value={option.value}>
+                        <EllipsisTooltip title={option.label} wrap="block">
+                          <Typography component="span" noWrap sx={toggleLabelSx} data-ellipsis-target>
+                            {option.label}
+                          </Typography>
+                        </EllipsisTooltip>
                       </ToggleButton>
                     ))}
                   </ToggleButtonGroup>
@@ -1699,14 +1711,15 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                           const list = (vals as string[]).map((v) => Number(v)).filter((n) => Number.isFinite(n) && n > 0)
                           if (!list.length) {
                             return (
-                              <Typography
-                                variant="body2"
-                                data-ellipsis-target
-                                title={t('any')}
-                                sx={[ELLIPSIS_TEXT_SX, { display: 'block', width: '100%', fontSize: FONT_SIZE_BASE_PX }]}
-                              >
-                                {t('any')}
-                              </Typography>
+                              <EllipsisTooltip title={t('any')} wrap="block">
+                                <Typography
+                                  variant="body2"
+                                  data-ellipsis-target
+                                  sx={[ELLIPSIS_TEXT_SX, { display: 'block', width: '100%', fontSize: FONT_SIZE_BASE_PX }]}
+                                >
+                                  {t('any')}
+                                </Typography>
+                              </EllipsisTooltip>
                             )
                           }
                           const firstId = list[0]!
@@ -1715,22 +1728,23 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                           const locationLabel = formatChampionLocation(firstOption)
                           const summaryTitle = locationLabel ? `${firstName} · ${locationLabel}` : firstName
                         return (
-                          <Box
-                            component="span"
-                            data-ellipsis-target
-                            title={summaryTitle}
-                            sx={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: 0.5,
-                              width: '100%',
-                              pr: `${SETS_SELECT_INLINE_GUTTER_PX}px`,
-                            }}
-                          >
-                            <Typography variant="body2" sx={[ELLIPSIS_TEXT_SX, { flex: '1 1 auto' }]}>
-                              {summaryTitle}
-                            </Typography>
-                          </Box>
+                          <EllipsisTooltip title={summaryTitle} wrap="block">
+                            <Box
+                              component="span"
+                              data-ellipsis-target
+                              sx={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 0.5,
+                                width: '100%',
+                                pr: `${SETS_SELECT_INLINE_GUTTER_PX}px`,
+                              }}
+                            >
+                              <Typography variant="body2" sx={[ELLIPSIS_TEXT_SX, { flex: '1 1 auto' }]}>
+                                {summaryTitle}
+                              </Typography>
+                            </Box>
+                          </EllipsisTooltip>
                         )
                       }}
                         MenuProps={{
@@ -1910,8 +1924,8 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
               </Box>
               {isTesterMode ? (
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', mt: FILTER_CHIP_TOP_MARGIN }}>
-                  <Tooltip
-                    title={renderGlyphTooltip(t('filterChaosOreTooltip'), [
+                  <MarkdownTooltip
+                    markdown={renderGlyphTooltip(t('filterChaosOreTooltip'), [
                       { glyph: GLYPH_GTE_ZERO, label: t('filterChaosOreAny') },
                       { glyph: GLYPH_NOT_REROLLED, label: t('filterChaosOreNotRerolled') },
                       { glyph: GLYPH_REROLLED, label: t('filterChaosOreRerolled') },
@@ -1944,7 +1958,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                       }}
                       sx={tintedChipSx(testerChaosMode === 'any' ? theme.palette.success : testerChaosMode === 'notRerolled' ? theme.palette.info : theme.palette.warning)}
                     />
-                  </Tooltip>
+                  </MarkdownTooltip>
                 </Box>
               ) : (
                 <Box sx={{ mt: FILTER_CHIP_TOP_MARGIN }}>
@@ -2000,8 +2014,8 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
               </Box>
               {/* Chips row below substats */}
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', mt: FILTER_CHIP_TOP_MARGIN }}>
-                <Tooltip
-                  title={renderGlyphTooltip(t('filterMatchTooltipSubstats'), [
+                <MarkdownTooltip
+                  markdown={renderGlyphTooltip(t('filterMatchTooltipSubstats'), [
                     { glyph: GLYPH_GTE_ONE, label: t('filterAnyOf') },
                     { glyph: GLYPH_ALL, label: t('filterAllOf') },
                   ])}
@@ -2017,10 +2031,10 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                     }}
                     sx={tintedChipSx(state.sub.mode === 'any' ? theme.palette.success : theme.palette.info)}
                   />
-                </Tooltip>
+                </MarkdownTooltip>
                 {isTesterMode && (
-                  <Tooltip
-                    title={renderGlyphTooltip(t('filterGlyphsTooltip'), [
+                  <MarkdownTooltip
+                    markdown={renderGlyphTooltip(t('filterGlyphsTooltip'), [
                       { glyph: GLYPH_GTE_ZERO, label: t('filterGlyphsAny') },
                       { glyph: GLYPH_GLYPHS_ON, label: t('filterGlyphsOn') },
                       { glyph: GLYPH_GLYPHS_SELECTED, label: t('filterGlyphsSelected') },
@@ -2068,10 +2082,10 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                               : theme.palette.warning,
                       )}
                     />
-                  </Tooltip>
+                  </MarkdownTooltip>
                 )}
                 {isTesterMode && (
-                  <Tooltip title={rollSummaryDescription}>
+                  <MarkdownTooltip markdown={rollSummaryDescription}>
                     <Chip
                       size="small"
                       label={rollChipLabel}
@@ -2080,7 +2094,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                       variant="filled"
                       sx={tintedChipSx(testerRollsActive ? theme.palette.info : theme.palette.success)}
                     />
-                  </Tooltip>
+                  </MarkdownTooltip>
                 )}
                 {/* Wildcard filter chip removed per UX simplification: wildcard rows are treated like normal rows in the preview filters. */}
               </Box>
@@ -2200,14 +2214,15 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                         const list = (vals as string[]).map(v => Number(v)).filter(n => Number.isFinite(n) && n > 0)
                         if (!list.length) {
                           return (
-                            <Typography
-                              variant="body2"
-                              data-ellipsis-target
-                              title={t('any')}
-                              sx={[ELLIPSIS_TEXT_SX, { display: 'block', width: '100%', fontSize: FONT_SIZE_BASE_PX }]}
-                            >
-                              {t('any')}
-                            </Typography>
+                            <EllipsisTooltip title={t('any')} wrap="block">
+                              <Typography
+                                variant="body2"
+                                data-ellipsis-target
+                                sx={[ELLIPSIS_TEXT_SX, { display: 'block', width: '100%', fontSize: FONT_SIZE_BASE_PX }]}
+                              >
+                                {t('any')}
+                              </Typography>
+                            </EllipsisTooltip>
                           )
                         }
                         const labels = list.map(code => t(factionI18nKey(code as FactionId)))
@@ -2215,51 +2230,53 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                         const [firstCode] = list
                         if (typeof firstCode !== 'number') {
                           return (
-                            <Typography
-                              variant="body2"
-                              data-ellipsis-target
-                              title={summaryTitle}
-                              sx={[ELLIPSIS_TEXT_SX, { display: 'block', width: '100%', fontSize: FONT_SIZE_BASE_PX }]}
-                            >
-                              {summaryTitle}
-                            </Typography>
+                            <EllipsisTooltip title={summaryTitle} wrap="block">
+                              <Typography
+                                variant="body2"
+                                data-ellipsis-target
+                                sx={[ELLIPSIS_TEXT_SX, { display: 'block', width: '100%', fontSize: FONT_SIZE_BASE_PX }]}
+                              >
+                                {summaryTitle}
+                              </Typography>
+                            </EllipsisTooltip>
                           )
                         }
                         const firstLabel = t(factionI18nKey(firstCode as FactionId))
                         return (
-                          <Box
-                            component="span"
-                            data-ellipsis-target
-                            title={summaryTitle}
-                            sx={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: 0.5,
-                              minWidth: 0,
-                              width: '100%',
-                              pr: `${SETS_SELECT_INLINE_GUTTER_PX}px`,
-                            }}
-                          >
+                          <EllipsisTooltip title={summaryTitle} wrap="block">
                             <Box
                               component="span"
+                              data-ellipsis-target
                               sx={{
-                                minWidth: 0,
-                                flex: '1 1 auto',
                                 display: 'flex',
                                 alignItems: 'center',
                                 gap: 0.5,
+                                minWidth: 0,
+                                width: '100%',
+                                pr: `${SETS_SELECT_INLINE_GUTTER_PX}px`,
                               }}
                             >
-                              <FactionOptionLabel
-                                faction={firstCode as FactionId}
-                                label={firstLabel}
-                                size={21}
-                                truncate
-                                sx={{ minWidth: 0, flexShrink: 1 }}
-                                textSx={{ fontSize: FONT_SIZE_BASE_PX, minWidth: 0 }}
-                              />
+                              <Box
+                                component="span"
+                                sx={{
+                                  minWidth: 0,
+                                  flex: '1 1 auto',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: 0.5,
+                                }}
+                              >
+                                <FactionOptionLabel
+                                  faction={firstCode as FactionId}
+                                  label={firstLabel}
+                                  size={21}
+                                  truncate
+                                  sx={{ minWidth: 0, flexShrink: 1 }}
+                                  textSx={{ fontSize: FONT_SIZE_BASE_PX, minWidth: 0 }}
+                                />
+                              </Box>
                             </Box>
-                          </Box>
+                          </EllipsisTooltip>
                         )
                       }}
                       MenuProps={{ PaperProps: { sx: { maxHeight: 360 } } }}
@@ -2385,11 +2402,11 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                     return null
                   }
                   return (
-                    <Tooltip key={s.id} title={s.name} placement="bottom">
+                    <MarkdownTooltip key={s.id} markdown={s.name} placement="bottom">
                       <ToggleButton value={String(s.id)} aria-label={s.name}>
                         <Icon fontSize="inherit" />
                       </ToggleButton>
-                    </Tooltip>
+                    </MarkdownTooltip>
                   )
                 })}
               </ToggleButtonGroup>
@@ -2486,10 +2503,12 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                     { value: '5', labelKey: 'rarityLegendary' },
                     { value: '6', labelKey: 'rarityMythical' },
                   ].map((option) => (
-                    <ToggleButton key={option.value} value={option.value} title={t(option.labelKey)}>
-                      <Typography component="span" noWrap sx={toggleLabelSx}>
-                        {t(option.labelKey)}
-                      </Typography>
+                    <ToggleButton key={option.value} value={option.value}>
+                      <EllipsisTooltip title={t(option.labelKey)} wrap="block">
+                        <Typography component="span" noWrap sx={toggleLabelSx} data-ellipsis-target>
+                          {t(option.labelKey)}
+                        </Typography>
+                      </EllipsisTooltip>
                     </ToggleButton>
                   ))}
                 </ToggleButtonGroup>

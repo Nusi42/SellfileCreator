@@ -1,5 +1,5 @@
 import React from 'react'
-import { Box, ListSubheader, Menu, MenuItem, Tooltip, Typography } from '@mui/material'
+import { Box, ListSubheader, Menu, MenuItem, Typography } from '@mui/material'
 import type { PaperProps as MuiPaperProps } from '@mui/material/Paper'
 import type { PopoverPosition } from '@mui/material/Popover'
 import type { Theme } from '@mui/material/styles'
@@ -11,6 +11,7 @@ import { BuilderTooltipContent } from './BuilderTooltipContent'
 import { HISTORY_MENU_MAX_HEIGHT_PX, HISTORY_TOOLTIP_MAX_WIDTH_PX, LIST_SUBHEADER_SX } from '../lib/constants'
 import { formatHistoryTooltipText } from '../history/historyTooltip'
 import type { SubstatColorMap } from '../lib/renderColoredStatText'
+import MarkdownTooltip from './MarkdownTooltip'
 
 type AnchorPosition = { top: number; left: number } | null
 
@@ -106,11 +107,10 @@ export function HistoryContextMenu({
             fallbackText: title,
           })
           return (
-            <Tooltip
+            <MarkdownTooltip
               key={entry.index}
-              title={<BuilderTooltipContent text={tooltipText} colorizeStats substatColors={substatColors} />}
+              render={<BuilderTooltipContent text={tooltipText} colorizeStats substatColors={substatColors} />}
               slotProps={{ tooltip: { sx: { maxWidth: HISTORY_TOOLTIP_MAX_WIDTH_PX } } }}
-              disableInteractive
             >
               <MenuItem
                 onClick={(event) => {
@@ -160,7 +160,7 @@ export function HistoryContextMenu({
                   </Typography>
                 </Box>
               </MenuItem>
-            </Tooltip>
+            </MarkdownTooltip>
           )
         })}
       </Box>

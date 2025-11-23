@@ -104,14 +104,15 @@ export default function GearSetsSelect({
     }
     const text = names.length === 0 ? t('any') : names.join(', ')
     return (
-      <Box
-        component="span"
-        data-ellipsis-target
-        title={text}
-        sx={{ display: 'block', width: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
-      >
-        {text}
-      </Box>
+      <EllipsisTooltip title={text}>
+        <Box
+          component="span"
+          data-ellipsis-target
+          sx={{ display: 'block', width: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+        >
+          {text}
+        </Box>
+      </EllipsisTooltip>
     )
   }, [metasets, t])
 
@@ -340,9 +341,11 @@ export default function GearSetsSelect({
                         </Box>
                       </EllipsisTooltip>
                       {setNames.length > 0 ? (
-                        <Box component="span" sx={{ fontSize: 12, color: 'primary.main', opacity: 0.9, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block', width: '100%' }} title={joined}>
-                          {joined}
-                        </Box>
+                        <EllipsisTooltip title={joined} wrap="block" disablePortal={false}>
+                          <Box component="span" data-ellipsis-target sx={{ fontSize: 12, color: 'primary.main', opacity: 0.9, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block', width: '100%' }}>
+                            {joined}
+                          </Box>
+                        </EllipsisTooltip>
                       ) : null}
                     </Box>
                   </MenuItem>

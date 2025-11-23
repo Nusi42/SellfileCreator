@@ -5,6 +5,7 @@ import { useMemo } from 'react'
 import { useI18n } from '../../lib/i18n'
 import { Faction, factionI18nKey, type FactionId } from '../../lib/types'
 import { FactionOptionLabel } from '../FactionIcon'
+import EllipsisTooltip from '../EllipsisTooltip'
 
 const FACTION_MENU_PROPS = { PaperProps: { sx: { maxHeight: 360 } } } as const
 const ANY_SENTINEL = '__faction_any'
@@ -80,9 +81,11 @@ export function GearFactionSelect({
     if (!singleValue) return t('any')
     const label = t(factionI18nKey(singleValue))
     return (
-      <Box component="span" title={label} sx={{ display: 'inline-flex', alignItems: 'center', width: '100%' }}>
-        <FactionOptionLabel faction={singleValue} label={label} truncate textSx={{ fontSize: '0.875rem' }} />
-      </Box>
+      <EllipsisTooltip title={label}>
+        <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', width: '100%', minWidth: 0 }}>
+          <FactionOptionLabel faction={singleValue} label={label} truncate textSx={{ fontSize: '0.875rem' }} />
+        </Box>
+      </EllipsisTooltip>
     )
   }
   const selectValue = isMulti

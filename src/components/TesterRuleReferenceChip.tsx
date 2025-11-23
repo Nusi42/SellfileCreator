@@ -7,6 +7,7 @@ import { useI18n } from '../lib/i18n'
 import type { TesterPreviewMatch } from '../types/testerPreview'
 // MarkdownTooltip keeps the “jump to config” hint aligned with the rest of the tooltip rollout.
 import MarkdownTooltip from './MarkdownTooltip'
+import EllipsisTooltip from './EllipsisTooltip'
 
 type TesterRuleReferenceChipProps = {
   match: TesterPreviewMatch | null
@@ -46,24 +47,26 @@ export function TesterRuleReferenceChip({
   if (match.ruleSource === RULE_SOURCE_FINAL_SELL) {
     if (!showFinalSellLabel) return null
     return (
-      <Chip
-        size={size}
-        label={t('testerFinalSellChip')}
-        color="warning"
-        title={t('testerFinalSellChip')}
-        sx={simpleMatchChipSx(sx)}
-      />
+      <MarkdownTooltip markdown={t('testerFinalSellChip')}>
+        <Chip
+          size={size}
+          label={t('testerFinalSellChip')}
+          color="warning"
+          sx={simpleMatchChipSx(sx)}
+        />
+      </MarkdownTooltip>
     )
   }
   if (match.ruleSource === RULE_SOURCE_KEEP_UNIQUES) {
     return (
-      <Chip
-        size={size}
-        label={t('testerKeepUniqueChip')}
-        color="success"
-        title={t('testerKeepUniqueChip')}
-        sx={simpleMatchChipSx(sx)}
-      />
+      <MarkdownTooltip markdown={t('testerKeepUniqueChip')}>
+        <Chip
+          size={size}
+          label={t('testerKeepUniqueChip')}
+          color="success"
+          sx={simpleMatchChipSx(sx)}
+        />
+      </MarkdownTooltip>
     )
   }
   const ruleIndex = typeof match.ruleIndex === 'number' ? match.ruleIndex : null
@@ -108,22 +111,26 @@ export function TesterRuleReferenceChip({
     ? { component: 'button' as const, onClick: () => onJump?.(ruleIndex, match.cfgIdx ?? null) }
     : {}
   const iconProps = icon ? { icon } : {}
-  const chip = (
+  const baseChip = (
     <Chip
       size={size}
       {...iconProps}
       label={label}
-      title={label}
       {...interactiveProps}
       sx={combinedSx}
     />
   )
-  if (!clickable) return chip
+  const chipWithEllipsis = (
+    <EllipsisTooltip title={label} selector=".MuiChip-label">
+      {baseChip}
+    </EllipsisTooltip>
+  )
+  if (!clickable) return chipWithEllipsis
   return (
     // Keep the jump-to-config hint in sync with other Markdown tooltips so multi-line copy stays readable.
     <MarkdownTooltip markdown={t('testerJumpToConfig')}>
       <Box component="span" sx={{ display: 'block', maxWidth: '100%', minWidth: 0 }}>
-        {chip}
+        {chipWithEllipsis}
       </Box>
     </MarkdownTooltip>
   )

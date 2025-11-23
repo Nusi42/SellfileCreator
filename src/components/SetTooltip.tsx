@@ -1,8 +1,9 @@
-import { Box, Tooltip, Typography, Divider } from '@mui/material'
+import { Box, Typography, Divider } from '@mui/material'
 import type { ReactNode } from 'react'
 import { artifactSetDescriptions } from '../lib/setDescriptions'
 import { useI18n } from '../lib/i18n'
 import { artifactSetI18nKey, artifactSetNames } from '../lib/types'
+import MarkdownTooltip from './MarkdownTooltip'
 // no theme import needed; using palette keywords directly
 
 // Compact formatting constants for tooltip styling.
@@ -173,15 +174,8 @@ export function WithSetTooltip({
     : getSetTooltipContent(name, t)
   if (!content) return <>{children}</>
   return (
-    <Tooltip
-      title={content}
-      arrow
-      enterDelay={180}
-      enterNextDelay={0}
-      leaveDelay={0}
-      placement="right"
-    >
+    <MarkdownTooltip render={content} placement="right">
       <span>{children}</span>
-    </Tooltip>
+    </MarkdownTooltip>
   )
 }
