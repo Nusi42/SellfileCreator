@@ -44,6 +44,7 @@ import { useI18n } from '../../lib/i18n'
 import { GearFactionSelect, GearMainStatSelect, GearRankSelect, GearRaritySelect, GearSetsSelect, GearSlotSelect } from '../gear'
 import { TesterItemsGrid } from '../TesterItemsGrid'
 import { NumberSpinnerAdornment } from '../NumberSpinnerAdornment'
+import { EmptyStateMessage } from '../EmptyStateMessage'
 // MarkdownTooltip keeps the rule-count hints and info icons synchronized with the broader tooltip refactor.
 import MarkdownTooltip from '../MarkdownTooltip'
 import type { SetStateAction } from 'react'
@@ -594,24 +595,14 @@ export default function KeepUniquesTab({
             </Box>
             <Box sx={{ flex: 1, minHeight: 0 }}>
               {testerRows.length === 0 ? (
-                <Box
-                  sx={{
-                    borderRadius: '8px',
-                    border: '1px dashed',
-                    borderColor: 'divider',
-                    height: '100%',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    textAlign: 'center',
-                    px: 3,
-                  }}
+                <EmptyStateMessage
+                  borderVariant="dashed"
+                  minHeight="100%"
+                  sx={{ height: '100%', px: 3 }}
                 >
                   {/* Empty tester states keep the grid column purposeful instead of blank space. */}
-                  <Typography variant="body2" color="text.secondary">
-                    {t('keepUniquesNoTesterData')}
-                  </Typography>
-                </Box>
+                  {t('keepUniquesNoTesterData')}
+                </EmptyStateMessage>
               ) : (
                 <TesterItemsGrid
                   rows={gridRows}
