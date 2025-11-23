@@ -4,7 +4,6 @@ import {
   Box,
   Button,
   Chip,
-  CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
@@ -45,6 +44,7 @@ import { GearFactionSelect, GearMainStatSelect, GearRankSelect, GearRaritySelect
 import { TesterItemsGrid } from '../TesterItemsGrid'
 import { NumberSpinnerAdornment } from '../NumberSpinnerAdornment'
 import { EmptyStateMessage } from '../EmptyStateMessage'
+import InlineProgressSpinner from '../InlineProgressSpinner'
 // MarkdownTooltip keeps the rule-count hints and info icons synchronized with the broader tooltip refactor.
 import MarkdownTooltip from '../MarkdownTooltip'
 import type { SetStateAction } from 'react'
@@ -586,12 +586,7 @@ export default function KeepUniquesTab({
                 }}
               >
                 {detectionSpinnerActive ? (
-                  <CircularProgress
-                    size={20}
-                    thickness={4}
-                    aria-label={t('keepUniquesScanPending')}
-                    sx={{ color: 'warning.main' }}
-                  />
+                  <InlineProgressSpinner ariaLabel={t('keepUniquesScanPending')} />
                 ) : null}
                 {selectionChipLabel ? (
                   <Chip

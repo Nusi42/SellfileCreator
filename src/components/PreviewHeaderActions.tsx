@@ -1,5 +1,5 @@
 import React from 'react'
-import { Box, Button, Chip, Stack, ToggleButton, ToggleButtonGroup, Typography, Menu, MenuItem, CircularProgress } from '@mui/material'
+import { Box, Button, Chip, Stack, ToggleButton, ToggleButtonGroup, Typography, Menu, MenuItem } from '@mui/material'
 import { alpha, type Theme } from '@mui/material/styles'
 import TuneIcon from '@mui/icons-material/Tune'
 import {
@@ -30,6 +30,7 @@ import Checkbox from '@mui/material/Checkbox'
 import MarkdownTooltip from './MarkdownTooltip'
 import type { ProgressSnapshot } from '../types/progress'
 import { clampProgressRatio } from '../types/progress'
+import InlineProgressSpinner from './InlineProgressSpinner'
 
 const EXPORT_HOVER_DELAY_MS = 2000 as const
 const HIGHLIGHT_REPLAY_DELAY_MS = 500 as const
@@ -42,46 +43,9 @@ type ProgressChipProps = {
 function ProgressChip({ progressRatio, children }: ProgressChipProps) {
   const clampedRatio = Math.max(0, Math.min(1, progressRatio))
   return (
-    <Box sx={{ position: 'relative', display: 'inline-flex', borderRadius: '999px' }}>
+    <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75 }}>
       {children}
-      {clampedRatio > 0 ? (
-        <Box
-          sx={{
-            position: 'absolute',
-            top: -8,
-            right: -8,
-            width: 28,
-            height: 28,
-            display: 'inline-flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            borderRadius: '50%',
-          }}
-        >
-          <Box
-            // Blur a soft badge behind the spinner so the determinate ring remains visible on any chip color.
-            sx={(theme) => ({
-              position: 'absolute',
-              inset: 0,
-              borderRadius: '50%',
-              backgroundColor: alpha(theme.palette.background.paper, 0.55),
-              boxShadow: `0 4px 10px ${alpha(theme.palette.common.black, 0.4)}`,
-              filter: 'blur(2px)',
-            })}
-          />
-          <CircularProgress
-            // Determinate spinner mirrors the worker-provided ratio so users see a true percentage.
-            variant="determinate"
-            value={clampedRatio * 100}
-            size={18}
-            thickness={4}
-            sx={{
-              position: 'relative',
-              color: 'info.main',
-            }}
-          />
-        </Box>
-      ) : null}
+      {clampedRatio > 0 ? <InlineProgressSpinner /> : null}
     </Box>
   )
 }
