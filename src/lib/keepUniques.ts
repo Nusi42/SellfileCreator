@@ -31,11 +31,15 @@ export type KeepUniqueCombination = {
   factions: FactionId[]
 }
 
+// Count mode decides whether the required total is per rule or enforced per set/faction/main tuple.
+export type KeepUniqueRuleCountMode = 'perRule' | 'perCombination'
+
 export type KeepUniqueRule = {
   id: string
   combination: KeepUniqueCombination
   requiredCount: number
   enabled: boolean
+  countMode: KeepUniqueRuleCountMode
 }
 
 export type KeepUniqueDetectionArtifact = {
@@ -62,6 +66,10 @@ export type KeepUniqueDetectionEntry = {
   combination: KeepUniqueCombination
   ruleId: string | null
   ruleEnabled: boolean
+  // Carry the scope metadata so the UI can explain how totals were derived.
+  countMode: KeepUniqueRuleCountMode
+  perGroupRequiredCount: number
+  groupsTracked: number
   requiredCount: number
   currentCount: number
   projectedCount: number
@@ -272,11 +280,20 @@ export function normalizeKeepUniqueRule(value: unknown): KeepUniqueRule | null {
   const rawRequired = Number(rec.requiredCount)
   const requiredCount = Number.isFinite(rawRequired) && rawRequired >= 1 ? Math.floor(rawRequired) : 1
   const enabled = rec.enabled !== false
+  // Loader accepts the new string field plus the transitional boolean from autosave/history payloads.
+  const countMode: KeepUniqueRuleCountMode = (() => {
+    const rawMode = rec.countMode
+    if (rawMode === 'perCombination' || rawMode === 'perCombo' || rawMode === 'combination') return 'perCombination'
+    if (rawMode === 'perRule' || rawMode === 'rule') return 'perRule'
+    if (rec.requirePerCombination === true) return 'perCombination'
+    return 'perRule'
+  })()
   return {
     id: rawId,
     combination,
     requiredCount,
     enabled,
+    countMode,
   }
 }
 
@@ -297,6 +314,16 @@ export function getKeepUniqueGroupKey(artifact: NormalizedGearArtifact): KeepUni
   const mainStat = Number(artifact.mainStat?.variant ?? StatVariantEnum.Any)
   const faction = isAccessorySlot(slot) ? Number(artifact.faction ?? 0) : 0
   return [slot, set, mainStat, faction].join(':')
+}
+
+type KeepUniqueCountKey = string
+
+// Counts share the user-facing grouping (set/faction/main stat) so per-combination quotas remain intuitive.
+const getKeepUniqueCountKey = (artifact: NormalizedGearArtifact): KeepUniqueCountKey => {
+  const set = Number(artifact.set)
+  const mainStat = Number(artifact.mainStat?.variant ?? StatVariantEnum.Any)
+  const faction = isAccessorySlot(Number(artifact.slot)) ? Number(artifact.faction ?? 0) : 0
+  return [set, faction, mainStat].join(':')
 }
 
 const matchesSelection = (selection: readonly number[], candidate: number): boolean => {
@@ -416,11 +443,34 @@ export function computeKeepUniqueProtection(params: KeepUniqueDetectionParams): 
 
   for (const rule of rules) {
     const combination = rule.combination
+    // Current matches reflect the “at risk” combos and double as the data source for both scopes.
     const matching = candidates.filter((candidate) => artifactMatchesKeepUniqueRule(candidate.artifact, combination))
-    const required = Math.max(1, Math.floor(rule.requiredCount))
+    const requiredPerGroup = Math.max(1, Math.floor(rule.requiredCount))
     const currentCount = matching.length
-    const projected = enabled && rule.enabled ? currentCount : 0
-    const deficit = Math.max(0, required - projected)
+    const ruleActive = enabled && rule.enabled
+    let groupsTracked = rule.countMode === 'perCombination' ? 0 : (currentCount > 0 ? 1 : 0)
+    let requiredTotal = requiredPerGroup
+    let deficit = 0
+    if (rule.countMode === 'perCombination') {
+      // Group counts by set/faction/main stat so each tuple can enforce the requested quota.
+      const groupCounts = new Map<KeepUniqueCountKey, number>()
+      for (const candidate of matching) {
+        const key = getKeepUniqueCountKey(candidate.artifact)
+        groupCounts.set(key, (groupCounts.get(key) ?? 0) + 1)
+      }
+      groupsTracked = groupCounts.size
+      requiredTotal = requiredPerGroup * groupsTracked
+      for (const groupCount of groupCounts.values()) {
+        const projectedGroup = ruleActive ? groupCount : 0
+        if (projectedGroup >= requiredPerGroup) continue
+        deficit += requiredPerGroup - projectedGroup
+      }
+    } else {
+      // Legacy behavior keeps a single aggregate quota per rule.
+      const projectedRule = ruleActive ? currentCount : 0
+      deficit = Math.max(0, requiredPerGroup - projectedRule)
+    }
+    const projected = ruleActive ? currentCount : 0
     const itemKeys = matching.map((match) => match.itemKey)
     const artifacts = matching.map((match) => toDetectionArtifact(match))
     entries.push({
@@ -428,7 +478,10 @@ export function computeKeepUniqueProtection(params: KeepUniqueDetectionParams): 
       combination,
       ruleId: rule.id,
       ruleEnabled: rule.enabled,
-      requiredCount: required,
+      countMode: rule.countMode,
+      perGroupRequiredCount: requiredPerGroup,
+      groupsTracked,
+      requiredCount: requiredTotal,
       currentCount,
       projectedCount: projected,
       deficit,

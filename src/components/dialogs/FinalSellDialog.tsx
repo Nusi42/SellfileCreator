@@ -46,10 +46,10 @@ type FinalSellDialogProps = {
   colorIconSrc: string
   configNames: Array<string | null>
   metasets: Metaset[]
-  testerBuilding?: boolean
   suppressMatchDetails?: boolean
   onResetKeepUniques?: () => void
   onJumpToRule?: (ruleIndex: number, cfgIdx: number | null) => void
+  workloadProgressRatio: number
 }
 
 export default function FinalSellDialog(props: FinalSellDialogProps) {
@@ -77,10 +77,10 @@ export default function FinalSellDialog(props: FinalSellDialogProps) {
   colorIconSrc,
   configNames,
   metasets,
-  testerBuilding = false,
   suppressMatchDetails = false,
   onResetKeepUniques,
   onJumpToRule,
+  workloadProgressRatio,
 } = props
   const { t } = useI18n()
   // Clamp unknown tab ids back to the Final Sell default so autosave/restore can't wedge the dialog.
@@ -389,9 +389,9 @@ export default function FinalSellDialog(props: FinalSellDialogProps) {
             colorIconSrc={colorIconSrc}
             configNames={configNames}
             metasets={metasets}
-            testerBuilding={testerBuilding}
             onJumpToRule={onJumpToRule}
             suppressMatchDetails={suppressMatchDetails}
+            workloadProgressRatio={workloadProgressRatio}
           />
         )}
       </DialogContent>

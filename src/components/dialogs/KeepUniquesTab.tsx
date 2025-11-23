@@ -4,7 +4,6 @@ import {
   Box,
   Button,
   Chip,
-  CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
@@ -44,6 +43,8 @@ import { useI18n } from '../../lib/i18n'
 import { GearFactionSelect, GearMainStatSelect, GearRankSelect, GearRaritySelect, GearSetsSelect, GearSlotSelect } from '../gear'
 import { TesterItemsGrid } from '../TesterItemsGrid'
 import { NumberSpinnerAdornment } from '../NumberSpinnerAdornment'
+import { EmptyStateMessage } from '../EmptyStateMessage'
+import WorkloadProgressIndicator from '../WorkloadProgressIndicator'
 // MarkdownTooltip keeps the rule-count hints and info icons synchronized with the broader tooltip refactor.
 import MarkdownTooltip from '../MarkdownTooltip'
 import type { SetStateAction } from 'react'
@@ -66,9 +67,9 @@ type KeepUniquesTabProps = {
   colorIconSrc: string
   configNames: Array<string | null>
   metasets: Metaset[]
-  testerBuilding?: boolean
   onJumpToRule?: ((ruleIndex: number, cfgIdx: number | null) => void) | undefined
   suppressMatchDetails?: boolean
+  workloadProgressRatio: number
 }
 
 const ARTIFACT_SET_POOL: readonly ArtifactSetId[] = Object.freeze([...ARMOR_FIXED_SET_IDS, ...ARMOR_VARIABLE_SET_IDS])
@@ -89,9 +90,9 @@ export default function KeepUniquesTab({
   colorIconSrc,
   configNames,
   metasets,
-  testerBuilding = false,
   onJumpToRule,
   suppressMatchDetails = false,
+  workloadProgressRatio,
 }: KeepUniquesTabProps) {
   const { t } = useI18n()
   const [selectedRuleId, setSelectedRuleId] = useState<string | null>(() => rules[0]?.id ?? null)
@@ -151,10 +152,26 @@ export default function KeepUniquesTab({
   }, [selectedEntry, uniqueItemKeySet])
   const highlightFilterActive = highlightActive && !selectionFilterApplied && uniqueRows.length > selectedVisibleRowCount
   const gridFiltered = uniqueFilterActive || highlightFilterActive || selectionFilterApplied
+  const selectionChipLabel = useMemo(() => {
+    if (selectedEntry) {
+      // Keep the detail chip focused on the highlighted combination whenever a rule is active.
+      return t('keepUniquesGridSelectedCount', { count: selectedVisibleRowCount })
+    }
+    if (testerRows.length === 0 && uniqueRows.length === 0) return null
+    // Surface the aggregate unique count so the toolbar never collapses when no rule is selected.
+    return t('keepUniquesGridUniqueCount', { count: uniqueRows.length })
+  }, [selectedEntry, selectedVisibleRowCount, testerRows.length, t, uniqueRows.length])
 
   const handleAddRule = useCallback(() => {
     const combination = makeDefaultKeepUniqueCombination()
-    const newRule: KeepUniqueRule = { id: createKeepUniqueRuleId(), combination, requiredCount: 1, enabled: true }
+    // Default new rules to per-rule counting so they match legacy behavior until toggled.
+    const newRule: KeepUniqueRule = {
+      id: createKeepUniqueRuleId(),
+      combination,
+      requiredCount: 1,
+      enabled: true,
+      countMode: 'perRule',
+    }
     onRulesChange((prev) => [...prev, newRule])
     setSelectedRuleId(newRule.id)
     setRespectManualDeselect(false)
@@ -225,7 +242,6 @@ export default function KeepUniquesTab({
     setGridFilterMode((prev) => (prev === 'all' ? 'selection' : 'all'))
   }, [])
 
-  let detectionSpinnerActive = false
   const detectionStatus = (() => {
     if (!enabled) return null
     if (rules.length === 0) {
@@ -235,11 +251,6 @@ export default function KeepUniquesTab({
       // Grid now surfaces the load-database hint, so the sidebar can stay focused on rules.
       return null
     }
-    if (!detection || testerBuilding) {
-      detectionSpinnerActive = true
-      return null
-    }
-    detectionSpinnerActive = false
     return null
   })()
 
@@ -297,6 +308,11 @@ export default function KeepUniquesTab({
         {deleteButton}
       </Box>
     )
+    const perCombinationMode = rule.countMode === 'perCombination'
+    // Extend the counts chip with a suffix that explains how the totals were derived.
+    const detectionScopeSuffix = (ruleDetection && ruleDetection.countMode === 'perCombination' && ruleDetection.groupsTracked > 0)
+      ? t('keepUniquesRuleCountsPerComboSuffix', { perGroup: ruleDetection.perGroupRequiredCount, groups: ruleDetection.groupsTracked })
+      : ''
     return (
       <Box
         key={rule.id}
@@ -313,6 +329,19 @@ export default function KeepUniquesTab({
       >
         <Stack spacing={1.5}>
           <Box sx={{ height: 4 }} />
+          <Box sx={{ display: 'flex', justifyContent: 'flex-start' }}>
+            <Box component="span" data-rule-card-interactive="true">
+              <FormControlLabel
+                control={(
+                  <Switch
+                    checked={rule.enabled}
+                    onChange={(_event, checked) => updateRule(rule.id, (prev) => ({ ...prev, enabled: checked }))}
+                  />
+                )}
+                label={t('keepUniquesRuleEnabledToggle')}
+              />
+            </Box>
+          </Box>
           <Stack spacing={1}>
             <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 1 }}>
               <GearSlotSelect
@@ -425,22 +454,25 @@ export default function KeepUniquesTab({
                   step: 1,
                 }}
               />
-              <Typography
-                variant="caption"
-                color="text.secondary"
-                sx={{ mt: -1, display: 'block' }}
-              >
-                {t('keepUniquesRequiredCountHint')}
-              </Typography>
-              <FormControlLabel
-                control={(
-                  <Switch
-                    checked={rule.enabled}
-                    onChange={(_event, checked) => updateRule(rule.id, (prev) => ({ ...prev, enabled: checked }))}
-                  />
-                )}
-                label={t('keepUniquesRuleEnabledToggle')}
-              />
+              <Box sx={{ gridColumn: 'span 2', display: 'flex', flexDirection: 'column', gap: 0.25 }}>
+                {/* Count-mode toggle keeps the quota scope explicit per rule; wrap with tooltip for the hint copy. */}
+                <MarkdownTooltip markdown={t('keepUniquesCountModeHint')}>
+                  <Box component="span" data-rule-card-interactive="true" sx={{ display: 'inline-flex' }}>
+                    <FormControlLabel
+                      control={(
+                        <Switch
+                          checked={perCombinationMode}
+                          onChange={(_event, checked) => updateRule(rule.id, (prev) => ({
+                            ...prev,
+                            countMode: checked ? 'perCombination' : 'perRule',
+                          }))}
+                        />
+                      )}
+                      label={t('keepUniquesCountModeToggleLabel')}
+                    />
+                  </Box>
+                </MarkdownTooltip>
+              </Box>
             </Box>
             {ruleDetection ? (
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -456,6 +488,7 @@ export default function KeepUniquesTab({
                       keep: ruleDetection.requiredCount,
                       projected: ruleDetection.projectedCount,
                     })}
+                    {detectionScopeSuffix}
                   </Typography>
                 </MarkdownTooltip>
                 {actionButtons}
@@ -575,18 +608,12 @@ export default function KeepUniquesTab({
                   minWidth: 0,
                 }}
               >
-                {detectionSpinnerActive ? (
-                  <CircularProgress
-                    size={20}
-                    thickness={4}
-                    aria-label={t('keepUniquesScanPending')}
-                    sx={{ color: 'warning.main' }}
-                  />
-                ) : null}
-                {selectedEntry ? (
+                {/* Shared spinner keeps the dialog aligned with the preview chip busy indicator. */}
+                <WorkloadProgressIndicator progressRatio={workloadProgressRatio} ariaLabel={t('keepUniquesScanPending')} />
+                {selectionChipLabel ? (
                   <Chip
                     size="small"
-                    label={t('keepUniquesGridSelectedCount', { count: selectedVisibleRowCount })}
+                    label={selectionChipLabel}
                     sx={{ flexShrink: 0 }}
                   />
                 ) : null}
@@ -594,24 +621,14 @@ export default function KeepUniquesTab({
             </Box>
             <Box sx={{ flex: 1, minHeight: 0 }}>
               {testerRows.length === 0 ? (
-                <Box
-                  sx={{
-                    borderRadius: '8px',
-                    border: '1px dashed',
-                    borderColor: 'divider',
-                    height: '100%',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    textAlign: 'center',
-                    px: 3,
-                  }}
+                <EmptyStateMessage
+                  borderVariant="dashed"
+                  minHeight="100%"
+                  sx={{ height: '100%', px: 3 }}
                 >
                   {/* Empty tester states keep the grid column purposeful instead of blank space. */}
-                  <Typography variant="body2" color="text.secondary">
-                    {t('keepUniquesNoTesterData')}
-                  </Typography>
-                </Box>
+                  {t('keepUniquesNoTesterData')}
+                </EmptyStateMessage>
               ) : (
                 <TesterItemsGrid
                   rows={gridRows}

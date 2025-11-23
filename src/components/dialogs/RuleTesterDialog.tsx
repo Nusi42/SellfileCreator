@@ -54,6 +54,7 @@ import { triggerCopyDialog, writeTextSafe } from '../../lib/clipboard'
 import { useContextMenuHint } from '../../hooks/useContextMenuHint'
 import { ContextMenuHintOverlay } from '../ContextMenuHintOverlay'
 import { GearFactionSelect, GearMainStatSelect, GearRankSelect, GearRaritySelect, GearSlotSelect } from '../gear'
+import { EmptyStateMessage } from '../EmptyStateMessage'
 
 type TesterSourceCountMap = Record<TesterSourceCategory, number>
 
@@ -1599,7 +1600,11 @@ export default function RuleTesterDialog({
               })}
               {bottomSpacerHeight > 0 ? <Box sx={{ height: bottomSpacerHeight }} /> : null}
             </Box>
-          ) : null}
+          ) : (
+            <EmptyStateMessage minHeight="100%">
+              {t('testerTableEmpty')}
+            </EmptyStateMessage>
+          )}
         </Box>
       </DialogContent>
       <DialogActions

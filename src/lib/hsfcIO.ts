@@ -784,7 +784,7 @@ export function buildHsfcPayload(args: {
     Minima: unknown
     Configs: unknown[]
     FinalSellRemainder: FinalSellRemainderConfig
-    KeepUniques: Array<{ id: string; requiredCount: number; enabled: boolean; tuple: KeepUniqueRule['combination'] }>
+    KeepUniques: Array<{ id: string; requiredCount: number; enabled: boolean; countMode: KeepUniqueRule['countMode']; tuple: KeepUniqueRule['combination'] }>
     KeepUniquesEnabled: boolean
     SelectedConfigIndex?: number
     Note?: string
@@ -834,6 +834,8 @@ export function buildHsfcPayload(args: {
       id: rule.id,
       requiredCount: Math.max(1, Math.floor(rule.requiredCount)),
       enabled: rule.enabled !== false,
+      // Persist the count scope so downstream imports recreate the toggle exactly.
+      countMode: rule.countMode ?? 'perRule',
       tuple: {
         slots: rule.combination.slots.map((slot) => Number(slot) as ArtifactTypeId),
         sets: rule.combination.sets.map((set) => Number(set) as ArtifactSetId),

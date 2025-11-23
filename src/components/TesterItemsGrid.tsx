@@ -62,6 +62,7 @@ import { ACCESSORY_NO_SET_ID, MENU_CONTROL_HEIGHT_PX, MENU_CONTROL_MIN_WIDTH_PX,
 import { useContextMenuCloseOnOutsideRightClick } from '../hooks/useContextMenuCloseOnOutsideRightClick'
 import { useTesterGridPreferences } from '../state/testerGridPreferences'
 import { championIconUrl } from '../lib/iconMaps/championIconMap'
+import { EmptyStateMessage } from './EmptyStateMessage'
 
 const GRID_CARD_SINGLE_COLUMN_TEMPLATE = 'minmax(0, 1fr)'
 const TESTER_GRID_ICON_BOX_SIZE_PX = 72
@@ -639,22 +640,9 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
   if (rows.length === 0) {
     // Highlight props bubble through the group tree so only the leaf cards need to know about Keep Uniques.
     return (
-      <Box
-        sx={{
-          flex: '1 1 auto',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          textAlign: 'center',
-          color: 'text.secondary',
-          px: 2,
-          py: 3,
-        }}
-      >
-        <Typography variant="body2" color="inherit">
-          {filterActive ? t('testerTableEmptyFilter') : t('testerTableEmpty')}
-        </Typography>
-      </Box>
+      <EmptyStateMessage sx={{ flex: '1 1 auto', minHeight: 0 }} minHeight="100%">
+        {filterActive ? t('testerTableEmptyFilter') : t('testerTableEmpty')}
+      </EmptyStateMessage>
     )
   }
   const renderGroup = (group: TesterGroup, depth = 0): React.ReactNode => {
