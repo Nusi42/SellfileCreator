@@ -731,17 +731,18 @@ function summaryParts(
     const label = withNbsp(rawLabel)
     if (opts.showFactionIcons) {
       addNode(
-        <Box
-          component="span"
-          title={label}
-          sx={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            verticalAlign: `${CONFIG_CHIP_FACTION_ICON_OFFSET_EM}em`,
-          }}
-        >
-          <FactionIcon faction={cfg.factionCode} size={18} sx={{ mr: 0.25 }} />
-        </Box>
+        <MarkdownTooltip markdown={label}>
+          <Box
+            component="span"
+            sx={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              verticalAlign: `${CONFIG_CHIP_FACTION_ICON_OFFSET_EM}em`,
+            }}
+          >
+            <FactionIcon faction={cfg.factionCode} size={18} sx={{ mr: 0.25 }} />
+          </Box>
+        </MarkdownTooltip>
       )
     } else {
       addText(label)
@@ -993,18 +994,24 @@ function summaryParts(
         sx: Record<string, unknown>,
         title?: string,
       ) => {
+        const sharedSx = {
+          ...(!isFirst ? { ml: 0.35 } : {}),
+          ...sx,
+        }
         nodes.push(
-          <Box
-            key={key}
-            component="span"
-            title={title}
-            sx={{
-              ...(!isFirst ? { ml: 0.35 } : {}),
-              ...sx,
-            }}
-          >
-            {children}
-          </Box>,
+          title
+            ? (
+              <MarkdownTooltip key={key} markdown={title}>
+                <Box component="span" sx={sharedSx}>
+                  {children}
+                </Box>
+              </MarkdownTooltip>
+            )
+            : (
+              <Box key={key} component="span" sx={sharedSx}>
+                {children}
+              </Box>
+            ),
         )
         isFirst = false
       }

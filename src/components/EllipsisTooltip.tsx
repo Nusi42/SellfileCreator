@@ -1,7 +1,8 @@
-import React, { useRef, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { Box } from '@mui/material'
 import { useScrollingFlag } from '../hooks/useScrollingFlag'
 import MarkdownTooltip from './MarkdownTooltip'
+import { MARKDOWN_TOOLTIP_ENTER_DELAY_MS } from '../lib/constants'
 
 export function EllipsisTooltip({
   title,
@@ -22,6 +23,8 @@ export function EllipsisTooltip({
 }) {
   const ref = useRef<HTMLElement | null>(null)
   const [open, setOpen] = useState(false)
+  // Mirror MarkdownTooltip’s hover delay so overflow tooltips don’t pop instantly.
+  const hoverTimerRef = useRef<number | null>(null)
   const scrolling = useScrollingFlag()
   const pickTarget = (root: HTMLElement): HTMLElement => {
     let target: HTMLElement | null = null
@@ -58,6 +61,14 @@ export function EllipsisTooltip({
     ? { markdown: title }
     : { render: title }
 
+  const clearHoverTimer = () => {
+    if (hoverTimerRef.current === null) return
+    window.clearTimeout(hoverTimerRef.current)
+    hoverTimerRef.current = null
+  }
+
+  useEffect(() => clearHoverTimer, [])
+
   return (
     <MarkdownTooltip
       {...tooltipProps}
@@ -72,11 +83,23 @@ export function EllipsisTooltip({
         component={wrap === 'block' ? 'div' : 'span'}
         sx={{ display: wrap === 'block' ? 'block' : 'inline-flex', minWidth: 0, width: wrap === 'block' ? '100%' : undefined }}
         onMouseEnter={(e: React.MouseEvent<HTMLElement>) => {
+          if (disabled) return
           const root = e.currentTarget as HTMLElement
-          const over = measure(root)
-          setOpen(over)
+          clearHoverTimer()
+          if (!measure(root)) {
+            setOpen(false)
+            return
+          }
+          hoverTimerRef.current = window.setTimeout(() => {
+            hoverTimerRef.current = null
+            // Re-measure after the delay so dynamic labels don't show stale tooltips.
+            setOpen(measure(root))
+          }, MARKDOWN_TOOLTIP_ENTER_DELAY_MS)
         }}
-        onMouseLeave={() => setOpen(false)}
+        onMouseLeave={() => {
+          clearHoverTimer()
+          setOpen(false)
+        }}
       >
         {children}
       </Box>

@@ -107,20 +107,23 @@ export function GearFactionSelect({
       .map((entry) => entry as FactionId)
     const labelString = numericEntries.map((entry) => t(factionI18nKey(entry))).join(', ')
     return (
-      <Box component="span" title={labelString} sx={labelContainerSx}>
-        <Box
-          component="span"
-          sx={{
-            display: 'inline-block',
-            whiteSpace: 'nowrap',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            maxWidth: '100%',
-          }}
-        >
-          {labelString}
+      <EllipsisTooltip title={labelString}>
+        <Box component="span" sx={labelContainerSx}>
+          <Box
+            component="span"
+            data-ellipsis-target
+            sx={{
+              display: 'inline-block',
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              maxWidth: '100%',
+            }}
+          >
+            {labelString}
+          </Box>
         </Box>
-      </Box>
+      </EllipsisTooltip>
     )
   }
   // Compose the caller styles with the shared guards so selects stay consistent across surfaces.

@@ -1505,14 +1505,16 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                                 </Box>
                               </EllipsisTooltip>
                               {setNames.length > 0 && (
-                                <Typography
-                                  variant="caption"
-                                  title={joined}
-                                  sx={{ color: 'primary.main', opacity: 0.9, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block', width: '100%' }}
+                                <EllipsisTooltip title={joined} wrap="block">
+                                  <Typography
+                                    variant="caption"
+                                    data-ellipsis-target
+                                    sx={{ color: 'primary.main', opacity: 0.9, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block', width: '100%' }}
                                   >
                                     {joined}
                                   </Typography>
-                                )}
+                                </EllipsisTooltip>
+                              )}
                               </Box>
                             </MenuItem>
                           )

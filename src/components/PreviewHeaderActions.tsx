@@ -486,17 +486,18 @@ export default function PreviewHeaderActions(props: {
           </>
         )}
         {onOpenRuleTester && (
-          <Button
-            size="small"
-            variant="outlined"
-            onClick={onOpenRuleTester}
-            sx={{ whiteSpace: 'nowrap', px: 1.25, height: SMALL_BUTTON_HEIGHT_PX, minHeight: SMALL_BUTTON_HEIGHT_PX, flexShrink: 0, maxWidth: LONG_LABEL_BUTTON_MAX_WIDTH_PX, overflow: 'hidden' }}
-            aria-label={ruleTesterLabel}
-            title={ruleTesterLabel}
-            data-tour-id="preview.rule-tester-button"
-          >
-            <Typography component="span" noWrap sx={ELLIPSIS_TEXT_SX}>{ruleTesterLabel}</Typography>
-          </Button>
+          <MarkdownTooltip markdown={ruleTesterLabel}>
+            <Button
+              size="small"
+              variant="outlined"
+              onClick={onOpenRuleTester}
+              sx={{ whiteSpace: 'nowrap', px: 1.25, height: SMALL_BUTTON_HEIGHT_PX, minHeight: SMALL_BUTTON_HEIGHT_PX, flexShrink: 0, maxWidth: LONG_LABEL_BUTTON_MAX_WIDTH_PX, overflow: 'hidden' }}
+              aria-label={ruleTesterLabel}
+              data-tour-id="preview.rule-tester-button"
+            >
+              <Typography component="span" noWrap sx={ELLIPSIS_TEXT_SX}>{ruleTesterLabel}</Typography>
+            </Button>
+          </MarkdownTooltip>
         )}
         <Stack direction="row" spacing={1} alignItems="center" sx={{ flexShrink: 0 }}>
           <ToggleButtonGroup

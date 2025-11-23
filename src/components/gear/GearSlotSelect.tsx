@@ -6,6 +6,7 @@ import { useI18n } from '../../lib/i18n'
 import type { ArtifactTypeId } from '../../lib/types'
 import { artifactTypeI18nKey } from '../../lib/types'
 import { artifactTypeIconList } from '../artifactTypeIcons'
+import EllipsisTooltip from '../EllipsisTooltip'
 
 const SLOT_MENU_PROPS = {
   PaperProps: { sx: { width: 360 } },
@@ -122,16 +123,19 @@ export function GearSlotSelect({
       }
       const tooltipLabel = multiSelected.map((slotId) => t(artifactTypeI18nKey(Number(slotId)))).join(', ')
       return (
-        <Box className="slot-value" title={tooltipLabel} sx={{ maxWidth: '100%' }}>
-          <Typography
-            variant="body2"
-            className="slot-label"
-            component="span"
-            sx={{ display: 'inline-block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', width: '100%' }}
-          >
-            {tooltipLabel}
-          </Typography>
-        </Box>
+        <EllipsisTooltip title={tooltipLabel}>
+          <Box className="slot-value" sx={{ maxWidth: '100%' }}>
+            <Typography
+              variant="body2"
+              className="slot-label"
+              component="span"
+              data-ellipsis-target
+              sx={{ display: 'inline-block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', width: '100%' }}
+            >
+              {tooltipLabel}
+            </Typography>
+          </Box>
+        </EllipsisTooltip>
       )
     }
   }, [anyText, isMulti, multiSelected, t])
