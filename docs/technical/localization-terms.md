@@ -97,28 +97,30 @@ This document captures the current vocabulary for the Rule Tester / Keep Uniques
 - **Notes**: Catalog and documentation now share the same Keep Uniques vocabulary and filter labels; keep them synchronized if either the UI or README copy changes.
 
 ## tr-TR (`README.tr.md`, `src/lib/i18n/catalogs/tr-TR.ts`)
-- **README wording**: “Kural testi” names the Rule Tester preview/dialog (lines 9‑132), glyph references appear as “glifler”, and the wildcard examples mention “Joker”.
+- **README wording**: “Kural testi” describes the Rule Tester preview/dialog and the guidance already talks about `glifler` and `Joker`; the new `### Benzersizleri Koru` section explains how the dialog’s `Benzersizleri Koru` sekmesi, `Eksik {count}` / `Başka yerde korunuyor` / `Gereksinim karşılandı` statüleri ve `Filtre: Hepsi / Seçim` anahtarı çalışır.
 - **Catalog values**:
   * `testerPreviewHeading`: “Kural Testi”.
-  * `keepUniques*`: still English (“Keep Uniques”, “Enable Keep Uniques”, etc.).
-  * `filterGlyphs` + `filterRolls` keys remain English.
-  * `tutSectionRuleTesterLabel`: “Rule Tester” (should become “Kural testi” or a matching Turkish term).
+  * `keepUniques*`: tab and labels now read “Benzersizleri Koru”/“Benzersizleri Koru’yu etkinleştir”, the statuses are `Eksik {count}` / `Başka yerde korunuyor` / `Gereksinim karşılandı`, the tooltip now references how many öğeler Benzersizleri Koru dışa aktarıyor, and the filter modes show `Filtre: Hepsi / Seçim`.
+  * `filterGlyphs`: localized to `Glifler`, `Hepsi`, `Glifli`, `Glifsiz`, `Seçili` (the tooltip already explained the states in Turkish).
+  * `filterRolls`: localized to `Rulolar`, a Turkish helper about tester verileri, `Joker gereksinimi`, `Rulo sayıları`, `Stat başına gereksinimler`, `Aktif rulo filtresi yok`, and summaries such as `Roller {counts} olan herhangi bir stat`.
+  * `tutSectionRuleTesterLabel`: “Kural testi”.
 - **Glyph wording**: README uses “glifler”.
 - **Wildcard wording**: README uses “Joker”.
-- **Notes**: Translate the keep-uniques keys, the filter strings, and the tutorial section label to reflect the Turkish README terminology.
+- **Notes**: Keep the `Benzersizleri Koru` vocabulary (tab name, statuses, filter labels) aligned between the UI and README; the new Turkish descriptions mirror the `Filtre: Hepsi / Seçim` toggle and the status chips so future translators can reuse the same terms.
 
 ## uk-UA (`README.uk.md`, `src/lib/i18n/catalogs/uk-UA.ts`)
-- **README wording**: The preview copy refers to the tester as “Тестер”, glyphs as “гліфами”, and the wildcard examples mention “джокером”.
+- **README wording**: The preview copy keeps calling the tester “Тестер”, references glyphs as “гліфами”, and uses “джокером” for wildcards; a new `### Збереження унікальних комбінацій` section now mirrors the catalog vocabulary and points translators toward the two-column layout in the Final Sell dialog.
 - **Catalog values**:
   * `testerPreviewHeading`: “Тестер”.
-  * `keepUniques*`: still English (“Keep Uniques” etc.).
-  * `filterGlyphs` and `filterRolls` entries stay English.
+  * `keepUniques*`: Tab/labels describe “Збереження унікальних комбінацій”, rule status badges reference “Не вистачає”, “Покрито в іншому місці”, “Вимога виконана”, and the grid filter reads “Фільтр: {mode}` with `Усі`/`Вибір`.
+  * `filterGlyphs*`: The glyph filter now uses “Гліфи”, “Усі”, “Увімкнено”, “Вимкнено”, “Обрані” and a tooltip that mirrors the README description.
+  * `filterRolls*`: All roll labels are Ukrainian (`Ролі`, `Кількість ролів`, `Вимога джокера`, `Вимоги до кожного стату`, etc.), and the summary lines describe active roll constraints in Ukrainian.
   * `tutSectionRuleTesterLabel`: “Тестер”.
 - **Glyph wording**: README uses “гліфами”.
 - **Wildcard wording**: README uses “джокером”.
-- **Notes**: Localize `keepUniques*`, `filterGlyphs`, and `filterRolls` strings to match Ukrainian terms once the roadmap calls for these translations.
+- **Notes**: No outstanding catalog gaps remain in uk-UA — the README and catalog now share the same vocabulary for Keep Uniques, glyph filters, and roll filters.
 
 ## Common catalog gaps
-- The `filterGlyphs` (`Glyphs`, `Any`, `On`, `Off`, `Selected`, tooltip) and `filterRolls` strings remain English in every catalog except en-US. Translators should replace these entries with localized text that mirrors the glyph/wildcard language used in the README (e.g., `glifos` / `glyphes` / `glifi` / `glifler` / `гліфами`).
-- Several locales have `keepUniques*` keys still in English (ru-RU, tr-TR, uk-UA) even though the UI introduces the feature; those catalogs need localized variants before the feature ships in those locales.
-- Tutorial section labels expose the same trouble spots: `tutSectionRuleTesterLabel` still reads “Rule Tester” only for tr-TR, so translate that key to match the Turkish `README.tr.md` wording (the other locales already align with their preview copy).
+- The `filterGlyphs` (`Glyphs`, `Any`, `On`, `Off`, `Selected`, tooltip) and `filterRolls` strings are still English in many catalogs; translators should replace these entries with localized text that mirrors the glyph/wildcard language used in their README (e.g., `glifos`, `glyphes`, `glifi`, `glifler`, `гліфами`).
+- Several locales may still ship `keepUniques*` keys in English; add localized variants before exposing the feature.
+- Tutorial section labels expose the same trouble spot: ensure `tutSectionRuleTesterLabel` matches the localized name that appears in each README so the terminology stays consistent.

@@ -85,6 +85,11 @@ Crea, visualizza in anteprima ed esporta regole di vendita per RSL Helper tramit
 - Senza Vendita finale gli oggetti che non corrispondono a nessuna regola vengono mantenuti automaticamente da RSL Helper. La vendita avviene solo quando una regola Vendi si attiva.
 - Quando Vendita finale è attiva, le regole Vendi generate includono esplicitamente tutti i set conosciuti. Nell'anteprima la colonna Set mostra "Tutti i set attualmente noti" per ridurre il rumore; il file esportato elenca comunque ogni set.
 
+### Mantieni unici
+- Il dialogo di Vendita finale ora contiene anche la scheda `Mantieni unici`. Lato sinistro elenca le combinazioni di slot/set/stat che, secondo i dati del tester, verrebbero tutte vendute; lato destro riutilizza la griglia del Verificatore regole così puoi osservare ogni artefatto e i filtri rimangono sincronizzati con il resto dell'app.
+- La scansione di `Mantieni unici` gira sui dati già presenti nel Verificatore regole: una volta caricata la `.db`, il sistema aggiorna le etichette di stato (`Ne mancano {count}`, `Coperta altrove`, `Soddisfatta`) e la banda superiore propone il filtro `Filtro: Tutti / Selezione` per mostrare tutte le combinazioni o solo quelle collegate alla regola selezionata.
+- Ogni regola di mantenimento descrive slot, set, rarità e statistica principale e ne puoi impostare la quantità richiesta per conservare almeno un pezzo. Il pulsante `Ripristina` nel pannello azzera tutte le regole e disabilita Mantieni unici, per ripartire da zero senza toccare la Vendita finale.
+
 ### Gestione delle configurazioni
 - Elenco configurazioni salvate: ogni configurazione appare come un'etichetta sotto il builder. Usa l'elenco per selezionare (clic sinistro), duplicare, riordinare o eliminare (con conferma). "Elimina configurazioni" rimuove tutte (con conferma).
 - Collegamenti al passaggio del mouse: passando il mouse su una configurazione evidenzi tutte le righe correlate nell'Anteprima Sellfile. Passando su una riga dell'Anteprima Sellfile si evidenzia la configurazione salvata corrispondente.

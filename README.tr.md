@@ -131,6 +131,11 @@ RSL Helper için satış kurallarını basit bir arayüzle oluşturun, önizleyi
 - Başlıktaki sayaçlar Matched vs No Match toplamlarının yanı sıra Keep/Sell dağılımlarını da gösterir. Kural testi filtrelerini (Keep/Sell sonucu + Matched/No Match + `Tester konfigleri` `Off`/`İlk`/`Herhangi`) kullanarak dışa aktarmadan önce edge case’lere odaklanın.
 - Önizleme anahtarını kullanarak kurallar tablosu ile Kural testi tablosu arasında iletişim kutusunu yeniden açmadan gidip gelin; böylece üretilen satırları tetikleyen ekipmanla yan yana karşılaştırabilirsiniz.
 
+### Benzersizleri Koru
+- `Nihai satış` iletişim kutusunda şimdi `Benzersizleri Koru` sekmesi var; sol sütun slot/set/ana stat kombinasyonlarını listeler, sağ sütun tester ızgarasını seçili kuralla eşleşen filtrelerle yeniden kullanır.
+- `Benzersizleri Koru` taraması tester verilerinden `Eksik {count}` / `Başka yerde korunuyor` / `Gereksinim karşılandı` etiketlerini günceller; üstteki `Filtre: Hepsi / Seçim` anahtarı tüm kombinasyonları ya da sadece seçili kuralla ilişkili satırları gösterir (`Seçim` kural seçilmemişse `Hepsi` gibi davranır).
+- Her koruma kuralı slot, set, nadirlik ve ana stat tanımlar; isterseniz gereken sayıyı ayarlayabilir ve `Sıfırla` düğmesiyle tüm kuralları temizleyip `Benzersizleri Koru` özelliğini kapatarak Nihai Satış ayarlarını değiştirmeden yeniden başlayabilirsiniz.
+
 ### Dışa aktarma
 - Baz dosya yüklüyse «Birleştirilmiş RSL Helper Sellfile’ı dışa aktar» görünür; aksi durumda «RSL Helper Sellfile’ı dışa aktar».
 - Çalışmanızı korumak için oluşturucu alanındaki «Konfigleri kaydet»/«Konfigleri yükle» seçeneklerini kullanın.

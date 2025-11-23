@@ -764,7 +764,7 @@ export default function RuleTesterDialog({
           <Stack direction="row" spacing={0.25} alignItems="center" sx={{ width: '100%', justifyContent: 'center' }}>
             {/* Button tooltips now flow through MarkdownTooltip so the cookie-monster easter egg and normal hints share formatting. */}
             <MarkdownTooltip markdown={t('add')}>
-              <IconButton size="small" onClick={() => insertItemAfter(idx)} aria-label="add-row" sx={{
+              <IconButton size="small" onClick={() => insertItemAfter(idx)} aria-label={t('testerAddRowAriaLabel')} sx={{
                 p: 0.25,
                 ...(cookieMonsterActive ? {
                   '& svg': {
@@ -782,7 +782,7 @@ export default function RuleTesterDialog({
                   size="small"
                   color="warning"
                   onClick={() => deleteItemAt(idx)}
-                  aria-label="remove-row"
+                  aria-label={t('testerRemoveRowAriaLabel')}
                   sx={{
                     p: 0.25,
                     ...(cookieMonsterActive ? {

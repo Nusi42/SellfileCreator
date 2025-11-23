@@ -95,6 +95,8 @@ const enUS: Catalog = {
   testerKeepUniqueChip: 'Keep Uniques',
   testerValueUnknown: '—',
   testerAddManualGear: 'Add custom gear',
+  testerAddRowAriaLabel: 'Add row',
+  testerRemoveRowAriaLabel: 'Remove row',
   testerRerollLabel: 'Rerolled',
   // Common UI bits used in Rule Tester
   add: 'Add',
