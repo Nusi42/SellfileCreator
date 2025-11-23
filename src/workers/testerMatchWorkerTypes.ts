@@ -2,6 +2,7 @@ import type { SellfileExportMode } from '../lib/hsfBuilder'
 import type { HsfRuleWithCfg } from '../lib/merge'
 import type { RuleMatchIndexData } from '../lib/ruleMatchIndex'
 import type { EvalResult, TestItem } from '../lib/ruleEval'
+import type { ProgressSnapshot } from '../types/progress'
 
 export type TesterMatchWorkerConfigurePayload = {
   rules: HsfRuleWithCfg[]
@@ -48,6 +49,11 @@ export type TesterMatchWorkerResponse =
       payload: {
         results: TesterMatchWorkerItemResult[]
       }
+    }
+  | {
+      id: number
+      kind: 'evaluate:progress'
+      payload: ProgressSnapshot
     }
   | {
       id: number

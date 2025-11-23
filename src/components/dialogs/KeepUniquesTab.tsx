@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState, type MouseEvent as ReactMouseEvent } from 'react'
 import {
   Alert,
   Box,
@@ -17,7 +17,6 @@ import {
   TextField,
   Typography,
 } from '@mui/material'
-import { alpha } from '@mui/material/styles'
 import AddIcon from '@mui/icons-material/Add'
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline'
 import ContentCopyIcon from '@mui/icons-material/ContentCopy'
@@ -29,7 +28,7 @@ import type { ColorBlindMode } from '../../lib/constants'
 import { MENU_CONTROL_HEIGHT_PX } from '../../lib/constants'
 import type { ArtifactSetId, ArtifactTypeId, StatVariant } from '../../lib/types'
 import {
-  ACCESSORY_SET_IDS,
+  ACCESSORY_SLOTS_COMPATIBLE_SET_IDS,
   ALLOWED_MAIN_BY_SLOT,
   ARMOR_FIXED_SET_IDS,
   ARMOR_VARIABLE_SET_IDS,
@@ -92,12 +91,23 @@ export default function KeepUniquesTab({
   suppressMatchDetails = false,
 }: KeepUniquesTabProps) {
   const { t } = useI18n()
-  const [selectedRuleId, setSelectedRuleId] = useState<string | null>(rules[0]?.id ?? null)
+  const [selectedRuleId, setSelectedRuleId] = useState<string | null>(() => rules[0]?.id ?? null)
+  const [respectManualDeselect, setRespectManualDeselect] = useState(false)
   const [pendingDeleteRuleId, setPendingDeleteRuleId] = useState<string | null>(null)
   const effectiveSelectedRuleId = useMemo(() => {
-    if (!selectedRuleId) return rules[0]?.id ?? null
+    if (selectedRuleId === null) {
+      if (respectManualDeselect) return null
+      return rules[0]?.id ?? null
+    }
     return rules.some((rule) => rule.id === selectedRuleId) ? selectedRuleId : (rules[0]?.id ?? null)
-  }, [rules, selectedRuleId])
+  }, [respectManualDeselect, rules, selectedRuleId])
+  /* eslint-disable react-you-might-not-need-an-effect/no-event-handler -- Rules can disappear outside local handlers, so we realign selection when the autosave payload swaps in. */
+  useEffect(() => {
+    if (rules.length !== 0) return
+    if (selectedRuleId !== null) setSelectedRuleId(null)
+    if (respectManualDeselect) setRespectManualDeselect(false)
+  }, [respectManualDeselect, rules.length, selectedRuleId])
+  /* eslint-enable react-you-might-not-need-an-effect/no-event-handler */
 
   const detectionEntries = useMemo(() => detection?.entries ?? [], [detection])
   const detectionByRuleId = useMemo(() => {
@@ -138,18 +148,25 @@ export default function KeepUniquesTab({
     const newRule: KeepUniqueRule = { id: createKeepUniqueRuleId(), combination, requiredCount: 1, enabled: true }
     onRulesChange((prev) => [...prev, newRule])
     setSelectedRuleId(newRule.id)
-  }, [onRulesChange])
+    setRespectManualDeselect(false)
+  }, [onRulesChange, setRespectManualDeselect])
 
   const handleDeleteRule = useCallback((ruleId: string) => {
+    let filtered: KeepUniqueRule[] = []
     onRulesChange((prev) => {
-      const filtered = prev.filter((rule) => rule.id !== ruleId)
-      setSelectedRuleId((current) => {
-        if (current !== ruleId) return current
-        return filtered[0]?.id ?? null
-      })
+      filtered = prev.filter((rule) => rule.id !== ruleId)
       return filtered
     })
-  }, [onRulesChange])
+    if (filtered.length === 0) {
+      if (selectedRuleId !== null) setSelectedRuleId(null)
+      setRespectManualDeselect(false)
+      return
+    }
+    if (selectedRuleId === ruleId) {
+      setSelectedRuleId(filtered[0]?.id ?? null)
+      setRespectManualDeselect(false)
+    }
+  }, [onRulesChange, selectedRuleId, setRespectManualDeselect])
 
   const handleCancelDeleteRule = useCallback(() => {
     setPendingDeleteRuleId(null)
@@ -179,8 +196,11 @@ export default function KeepUniquesTab({
       next.splice(idx + 1, 0, duplicated)
       return next
     })
-    if (newRuleId) setSelectedRuleId(newRuleId)
-  }, [onRulesChange, setSelectedRuleId])
+    if (newRuleId) {
+      setSelectedRuleId(newRuleId)
+      setRespectManualDeselect(false)
+    }
+  }, [onRulesChange, setRespectManualDeselect])
 
   const updateRule = useCallback((ruleId: string, updater: (rule: KeepUniqueRule) => KeepUniqueRule) => {
     onRulesChange((prev) => prev.map((rule) => (rule.id === ruleId ? updater(rule) : rule)))
@@ -234,7 +254,7 @@ export default function KeepUniquesTab({
     const hasArmorSlot = slotAny || slotSelection.some((slotId) => !isAccessorySlot(slotId))
     const allowedSetPool = hasAccessorySlot && hasArmorSlot
       ? ALL_ARTIFACT_SET_IDS
-      : (hasAccessorySlot ? ACCESSORY_SET_IDS : ARTIFACT_SET_POOL)
+      : (hasAccessorySlot ? ACCESSORY_SLOTS_COMPATIBLE_SET_IDS : ARTIFACT_SET_POOL)
     const setSelection = combination.sets.filter((setId) => allowedSetPool.includes(setId))
     const rankSelection = combination.ranks
     const raritySelection = combination.rarities
@@ -242,6 +262,18 @@ export default function KeepUniquesTab({
     const mainStatSelection = dedupeNumericArray((combination.mainStats ?? []).filter((variant) => mainStatOptions.includes(variant)))
     const factionSelection = hasAccessorySlot ? dedupeNumericArray(combination.factions ?? []) : []
     const selected = effectiveSelectedRuleId === rule.id
+    const handleRuleCardClick = (event: ReactMouseEvent<HTMLDivElement>) => {
+      const target = event.target as HTMLElement | null
+      const interactiveElements = target?.closest('button, input, select, textarea, [contenteditable="true"], [role="button"], [role="option"], [role="menuitem"], [role="combobox"], [data-rule-card-interactive="true"]')
+      if (interactiveElements) return
+      if (selected) {
+        setSelectedRuleId(null)
+        setRespectManualDeselect(true)
+      } else {
+        setSelectedRuleId(rule.id)
+        setRespectManualDeselect(false)
+      }
+    }
     const deleteButton = (
       <IconButton
         size="small"
@@ -270,16 +302,16 @@ export default function KeepUniquesTab({
     return (
       <Box
         key={rule.id}
-        onClick={() => setSelectedRuleId(rule.id)}
-        sx={(theme) => ({
-          borderRadius: 2,
+        onClick={handleRuleCardClick}
+        sx={{
+          borderRadius: '8px',
           border: '1px solid',
-          borderColor: selected ? theme.palette.warning.main : theme.palette.divider,
+          borderColor: selected ? 'primary.main' : 'divider', // Selected rules now rely on the dialog's blue accent.
           p: 1.5,
           mb: 1.5,
           cursor: 'pointer',
-          backgroundColor: selected ? alpha(theme.palette.warning.main, 0.08) : theme.palette.background.paper,
-        })}
+          bgcolor: 'background.paper', // Keep the card background aligned with the dialog shell even when selected.
+        }}
       >
         <Stack spacing={1.5}>
           <Box sx={{ height: 4 }} />
@@ -591,7 +623,7 @@ function resolveAllowedSetPool(slots: ArtifactTypeId[]): readonly ArtifactSetId[
   const hasAccessory = slotAny || slots.some((slotId) => isAccessorySlot(slotId))
   const hasArmor = slotAny || slots.some((slotId) => !isAccessorySlot(slotId))
   if (hasAccessory && hasArmor) return ALL_ARTIFACT_SET_IDS
-  return hasAccessory ? ACCESSORY_SET_IDS : ARTIFACT_SET_POOL
+  return hasAccessory ? ACCESSORY_SLOTS_COMPATIBLE_SET_IDS : ARTIFACT_SET_POOL
 }
 
 function getMainStatOptionsForSlots(slots: ArtifactTypeId[]): StatVariant[] {

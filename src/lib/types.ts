@@ -273,6 +273,16 @@ export const ARMOR_VARIABLE_SET_IDS = Object.freeze(
 // Alias the variable list so "9-piece sets" callers have an intuitive export.
 export const NINE_PIECE_SET_IDS = ARMOR_VARIABLE_SET_IDS
 
+// Accessory slots accept traditional accessory sets (1-piece bonuses) and
+// any of the flexible 1–9 piece families.
+export const ACCESSORY_SLOTS_COMPATIBLE_SET_IDS = Object.freeze(
+  Array.from(new Set<number>([
+    ...ACCESSORY_SET_IDS,
+    ...ARMOR_VARIABLE_SET_IDS,
+  ])).sort((a, b) => a - b)
+    .map((id) => id as ArtifactSetId),
+)
+
 export const ALL_ARTIFACT_SET_IDS = Object.freeze(
   Array.from(new Set<number>([
     ...ACCESSORY_SET_IDS,

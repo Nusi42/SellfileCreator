@@ -12,6 +12,7 @@ import type { FinalSellRemainderConfig } from '../lib/finalSell'
 import { buildRuleMatchIndexData, primeRuleMatchIndex } from '../lib/ruleMatchIndex'
 import type { RuleMatchIndexData } from '../lib/ruleMatchIndex'
 import type { KeepUniquesMergeInput } from '../lib/keepUniques'
+import type { ProgressSnapshot } from '../types/progress'
 
 type WarmCacheParams = {
   configs: BuilderConfig[]
@@ -49,11 +50,12 @@ type PendingRequest<T> = {
   promise: Promise<T>
 }
 
-type PendingWarmRequest = PendingRequest<WarmCacheResult>
+// Pending warm requests need to remember attached progress handlers so we can forward worker updates.
+type PendingWarmRequest = PendingRequest<WarmCacheResult> & { onProgress?: (progress: ProgressSnapshot) => void }
 type PendingCountRequest = PendingRequest<number[]>
 
 type UseRuleCacheWorkerResult = {
-  warmCache: (params: WarmCacheParams, options?: { signal?: AbortSignal }) => Promise<WarmCacheResult>
+  warmCache: (params: WarmCacheParams, options?: { signal?: AbortSignal; onProgress?: (progress: ProgressSnapshot) => void }) => Promise<WarmCacheResult>
   countRules: (params: CountRulesParams, options?: { signal?: AbortSignal }) => Promise<number[]>
   flush: () => Promise<void>
   supportsWorker: boolean
@@ -69,7 +71,7 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
   const abortedIdsRef = useRef<Set<number>>(new Set())
   const fallbackCacheRef = useRef<ConfigRulesCache | null>(supportsWorkerEnv ? null : createConfigRulesCache())
 
-  const runWarmLocally = useCallback((params: WarmCacheParams): WarmCacheResult => {
+  const runWarmLocally = useCallback((params: WarmCacheParams, options?: { onProgress?: (progress: ProgressSnapshot) => void }): WarmCacheResult => {
     const configsForRules = configsForRuleBuild(params.configs)
     const previousCache = fallbackCacheRef.current ?? undefined
     const baseRuleCount = Array.isArray(params.hsf?.Rules) ? (params.hsf?.Rules.length ?? 0) : 0
@@ -80,12 +82,15 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
           substatTargets: params.substatTargets,
           previousCache,
           baseRuleCount,
+          // Forward local progress to consumers whenever a caller opts in.
+          ...(options?.onProgress ? { onProgress: options.onProgress } : {}),
         }
       : {
           configs: configsForRules,
           metasets: params.metasets,
           substatTargets: params.substatTargets,
           baseRuleCount,
+          ...(options?.onProgress ? { onProgress: options.onProgress } : {}),
         })
     fallbackCacheRef.current = cacheResult.cache
     const mergedRules = computeMergedRules({
@@ -125,6 +130,11 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
     const handleMessage = (event: MessageEvent<RuleCacheWorkerResponse>) => {
       const data = event.data
       if (!data) return
+      if (data.kind === 'warm:progress') {
+        const pending = warmMap.get(data.id)
+        pending?.onProgress?.(data.payload)
+        return
+      }
       if (data.kind === 'warm:done') {
         const pending = warmMap.get(data.id)
         if (!pending) return
@@ -203,8 +213,10 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
   const warmCache = useCallback<UseRuleCacheWorkerResult['warmCache']>((params, options) => {
     const signal = options?.signal ?? null
 
+    // Local fallback should stay parity with worker mode, including determinate updates.
+    const localProgressOptions = options?.onProgress ? { onProgress: options.onProgress } : undefined
     if (!supportsWorkerEnv || !workerRef.current) {
-      return Promise.resolve(runWarmLocally(params))
+      return Promise.resolve(runWarmLocally(params, localProgressOptions))
     }
 
     if (signal?.aborted) {
@@ -221,7 +233,7 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
       if ((import.meta as { env?: { DEV?: boolean } }).env?.DEV) {
         console.warn('rule cache worker failed; falling back to local merge', error)
       }
-      return Promise.resolve(runWarmLocally(params))
+      return Promise.resolve(runWarmLocally(params, localProgressOptions))
     }
 
     let resolveFn: (value: WarmCacheResult) => void = () => {}
@@ -231,7 +243,9 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
       rejectFn = reject
     })
 
-    pendingWarmRef.current.set(id, { resolve: resolveFn, reject: rejectFn, promise })
+    const pendingEntry: PendingWarmRequest = { resolve: resolveFn, reject: rejectFn, promise }
+    if (options?.onProgress) pendingEntry.onProgress = options.onProgress
+    pendingWarmRef.current.set(id, pendingEntry)
 
     const cleanupAbort = signal
       ? (() => {

@@ -14,6 +14,7 @@ import type { TesterPreviewMatch } from '../types/testerPreview'
 import { sortTesterRows } from '../lib/testerSort'
 import type { NormalizedGearArtifact } from '../lib/importers/gearDbNormalizer'
 import type { TesterMatchWorkerEvaluateItem, TesterMatchWorkerItemResult } from '../workers/testerMatchWorkerTypes'
+import type { ProgressSnapshot } from '../types/progress'
 
 export const TESTER_PREVIEW_CHUNK_SIZE = 250
 
@@ -96,7 +97,7 @@ type UseTesterMatchOrchestratorParams = {
   // Whether the match worker is available.
   testerMatchWorkerSupported: boolean
   // Evaluator from worker hook or fallback.
-  evaluateTesterMatchItems: (params: { items: TesterMatchWorkerEvaluateItem[] }) => Promise<TesterMatchWorkerItemResult[]>
+  evaluateTesterMatchItems: (params: { items: TesterMatchWorkerEvaluateItem[]; onProgress?: (progress: ProgressSnapshot) => void }) => Promise<TesterMatchWorkerItemResult[]>
   // Keep-unique state shared with rule warm logic.
   keepUniquesActive: boolean
   // Keep-unique base rules allow calculating candidates without injected keep rules.
@@ -122,6 +123,8 @@ type UseTesterMatchOrchestratorParams = {
   setTesterRowsCommittedBuildId: (value: number | ((prev: number) => number)) => void
   // Setter for active build id exposed for external consumers.
   setTesterRowsActiveBuildId: (value: number | ((prev: number) => number)) => void
+  // Setter tracking progress for status chips.
+  setTesterRowsProgress: (value: ProgressSnapshot | null) => void
 }
 
 type UseTesterMatchOrchestratorResult = {
@@ -155,11 +158,13 @@ export function useTesterMatchOrchestrator(params: UseTesterMatchOrchestratorPar
     rulesBuilding,
     testerMatchWorkerSupported: rawTesterMatchWorkerSupported,
     testerRowsBuilding,
-  setTesterRowsBuilding,
-  testerRowsCommittedBuildId,
-  setTesterRowsCommittedBuildId,
-  setTesterRowsActiveBuildId,
-} = params
+    setTesterRowsBuilding,
+    testerRowsCommittedBuildId,
+    setTesterRowsCommittedBuildId,
+    setTesterRowsActiveBuildId,
+    // App-supplied setter that feeds the determinate overlay on preview chips.
+    setTesterRowsProgress,
+  } = params
   // Keep-unique detection is enabled again.
   const keepUniqueDetectionDisabled = false
   // Re-enable the worker so heavy tester scans stay off the main thread whenever the browser allows it.
@@ -194,6 +199,7 @@ export function useTesterMatchOrchestrator(params: UseTesterMatchOrchestratorPar
     // Defer rebuilding while upstream rules are still warming to avoid thrash.
     if (rulesBuilding) {
       inFlightArtifactsRef.current = null
+      setTesterRowsProgress(null)
       return
     }
     // Build a simple signature for config names to detect label changes.
@@ -273,6 +279,7 @@ export function useTesterMatchOrchestrator(params: UseTesterMatchOrchestratorPar
       setTesterRowsCommittedBuildId(nextBuildId)
       lastSettledArtifactsRef.current = artifacts
       setTesterRowsBuilding(false)
+      setTesterRowsProgress(null)
       return
     }
 
@@ -290,6 +297,7 @@ export function useTesterMatchOrchestrator(params: UseTesterMatchOrchestratorPar
       testerRowsCommittedRulesSignatureRef.current = mergedRulesSignature
       lastSettledArtifactsRef.current = artifacts
       setTesterRowsBuilding(false)
+      setTesterRowsProgress(null)
       return
     }
 
@@ -309,6 +317,7 @@ export function useTesterMatchOrchestrator(params: UseTesterMatchOrchestratorPar
       setTesterRowsCommittedBuildId(buildId)
       lastSettledArtifactsRef.current = artifacts
       setTesterRowsBuilding(false)
+      setTesterRowsProgress(null)
       return
     }
 
@@ -377,13 +386,25 @@ export function useTesterMatchOrchestrator(params: UseTesterMatchOrchestratorPar
     if (effectiveWorkerSupported) {
       inFlightArtifactsRef.current = artifacts
       setTesterRowsBuilding(true)
+      if (dirtyEntries.length > 0) {
+        // Worker mode: reset progress before handing items to the worker.
+        setTesterRowsProgress({ completed: 0, total: dirtyEntries.length })
+      } else {
+        setTesterRowsProgress(null)
+      }
       const artifactByItemId = new Map<number, NormalizedGearArtifact>()
       const itemsPayload = dirtyEntries.map(({ artifact, itemId }) => {
         artifactByItemId.set(itemId, artifact)
         return { itemId, item: artifact.testerItem }
       })
       let cancelled = false
-      evaluateTesterMatchItems({ items: itemsPayload })
+      evaluateTesterMatchItems({
+        items: itemsPayload,
+        onProgress: (snapshot) => {
+          if (testerRowsBuildIdRef.current !== buildId) return
+          setTesterRowsProgress(snapshot)
+        },
+      })
         .then((results) => {
           if (cancelled || testerRowsBuildIdRef.current !== buildId) return
           results.forEach((result) => {
@@ -407,6 +428,7 @@ export function useTesterMatchOrchestrator(params: UseTesterMatchOrchestratorPar
           // Release building flag even when keep-unique hold is active so the UI does not spin forever.
           if (testerRowsBuildIdRef.current === buildId) {
             setTesterRowsBuilding(false)
+            setTesterRowsProgress(null)
           }
         })
         .catch(() => {
@@ -414,6 +436,7 @@ export function useTesterMatchOrchestrator(params: UseTesterMatchOrchestratorPar
           inFlightArtifactsRef.current = null
           if (testerRowsBuildIdRef.current === buildId) {
             setTesterRowsBuilding(false)
+            setTesterRowsProgress(null)
           }
         })
       return () => {
@@ -422,6 +445,7 @@ export function useTesterMatchOrchestrator(params: UseTesterMatchOrchestratorPar
         // Ensure the building flag releases if this run is aborted.
         if (testerRowsBuildIdRef.current === buildId) {
           setTesterRowsBuilding(false)
+          setTesterRowsProgress(null)
         }
       }
     }
@@ -429,6 +453,12 @@ export function useTesterMatchOrchestrator(params: UseTesterMatchOrchestratorPar
     // Fallback path chunked to keep UI responsive.
     inFlightArtifactsRef.current = artifacts
     setTesterRowsBuilding(true)
+    if (dirtyEntries.length > 0) {
+      // Manual evaluation still reports determinate progress so the UI stays consistent.
+      setTesterRowsProgress({ completed: 0, total: dirtyEntries.length })
+    } else {
+      setTesterRowsProgress(null)
+    }
     let cancelled = false
 
     // Evaluates one artifact synchronously.
@@ -450,6 +480,7 @@ export function useTesterMatchOrchestrator(params: UseTesterMatchOrchestratorPar
       const entry = dirtyEntries[cursor]
       if (!entry) continue
       nextRowMap.set(entry.itemId, buildRow(entry.artifact, entry.itemId))
+      setTesterRowsProgress({ completed: cursor + 1, total: dirtyEntries.length })
     }
     if (!cancelled && testerRowsBuildIdRef.current === buildId) {
       testerPreviewRowMapRef.current = nextRowMap
@@ -461,6 +492,7 @@ export function useTesterMatchOrchestrator(params: UseTesterMatchOrchestratorPar
       inFlightArtifactsRef.current = null
       if (testerRowsBuildIdRef.current === buildId) {
         setTesterRowsBuilding(false)
+        setTesterRowsProgress(null)
       }
     }
     return () => {
@@ -468,6 +500,7 @@ export function useTesterMatchOrchestrator(params: UseTesterMatchOrchestratorPar
       inFlightArtifactsRef.current = null
       if (testerRowsBuildIdRef.current === buildId) {
         setTesterRowsBuilding(false)
+        setTesterRowsProgress(null)
       }
     }
   }, [
@@ -485,6 +518,7 @@ export function useTesterMatchOrchestrator(params: UseTesterMatchOrchestratorPar
     setTesterRowsBuilding,
     setTesterRowsCommittedBuildId,
     setTesterRowsActiveBuildId,
+    setTesterRowsProgress,
     effectiveWorkerSupported,
     keepUniqueDetectionDisabled,
     testerRowsBuilding,
