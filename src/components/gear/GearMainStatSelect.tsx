@@ -102,6 +102,27 @@ export function GearMainStatSelect({
     if (Number(singleValue) === Number(anyValue)) return <Typography variant="body2">{anyText}</Typography>
     return <Typography variant="body2">{t(statVariantI18nKey(singleValue))}</Typography>
   }, [anyText, anyValue, singleValue, t])
+  // Multi-select main stats also surface the "Any" placeholder so new Keep Unique cards aren't blank.
+  const renderMultiValue = useMemo(() => {
+    if (!isMulti) return undefined
+    return () => {
+      if (multiValues.length === 0) {
+        return <Typography variant="body2">{anyText}</Typography>
+      }
+      const summary = multiValues.map((variant) => t(statVariantI18nKey(variant))).join(', ')
+      return (
+        <Typography
+          variant="body2"
+          sx={{ display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
+        >
+          {summary}
+        </Typography>
+      )
+    }
+  }, [anyText, isMulti, multiValues, t])
+  const selectRenderValue = isMulti
+    ? (renderMultiValue ?? (() => null))
+    : (() => renderSelected)
   return (
     <Select
       size={size}
@@ -110,7 +131,7 @@ export function GearMainStatSelect({
       {...menuPropsAttr}
       multiple={isMulti}
       displayEmpty
-      {...(!isMulti ? { renderValue: () => renderSelected } : {})}
+      renderValue={selectRenderValue}
       sx={resolvedSx}
     >
       {isMulti ? (

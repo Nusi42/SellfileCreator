@@ -77,6 +77,27 @@ export function GearRaritySelect({
     if (singleValue == null) return <Typography variant="body2">{t('any')}</Typography>
     return <Typography variant="body2">{rarityLabel(Number(singleValue))}</Typography>
   })()
+  // Keep multi-select defaults visible so Keep Uniques shows "Any" instead of empty badges.
+  const renderMultiValue = (() => {
+    if (!isMulti) return undefined
+    return () => {
+      if (!multiValues || multiValues.length === 0) {
+        return <Typography variant="body2">{t('any')}</Typography>
+      }
+      const summary = multiValues.map((rarity) => rarityLabel(Number(rarity))).join(', ')
+      return (
+        <Typography
+          variant="body2"
+          sx={{ display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
+        >
+          {summary}
+        </Typography>
+      )
+    }
+  })()
+  const selectRenderValue = isMulti
+    ? (renderMultiValue ?? (() => null))
+    : (() => renderSelected)
   return (
     <Select
       size={size}
@@ -84,7 +105,7 @@ export function GearRaritySelect({
       onChange={handleChange}
       multiple={isMulti}
       displayEmpty
-      {...(!isMulti ? { renderValue: () => renderSelected } : {})}
+      renderValue={selectRenderValue}
       sx={resolvedSx}
       {...menuPropsAttr}
     >

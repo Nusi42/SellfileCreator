@@ -64,6 +64,24 @@ export function GearRankSelect({
   const selectValue: string | string[] = isMulti
     ? multiValues.map((rank) => String(rank))
     : (singleValue == null ? '' : String(singleValue))
+  // Custom renderers keep multi-select defaults labeled "Any" so Keep Uniques cards never show empty pills.
+  const renderMultiValue = useMemo(() => {
+    if (!isMulti) return undefined
+    return () => {
+      if (multiValues.length === 0) {
+        return <Typography variant="body2">{t('any')}</Typography>
+      }
+      const summary = multiValues.map((rank) => rankLabel(Number(rank))).join(', ')
+      return (
+        <Typography
+          variant="body2"
+          sx={{ display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
+        >
+          {summary}
+        </Typography>
+      )
+    }
+  }, [isMulti, multiValues, rankLabel, t])
   const handleChange = (event: SelectChangeEvent<string | string[]>) => {
     const raw = event.target.value
     if (isMulti) {
@@ -86,6 +104,9 @@ export function GearRankSelect({
     if (singleValue == null) return <Typography variant="body2">{t('any')}</Typography>
     return <Typography variant="body2">{rankLabel(Number(singleValue))}</Typography>
   }, [rankLabel, singleValue, t])
+  const selectRenderValue = isMulti
+    ? (renderMultiValue ?? (() => null))
+    : (() => renderSelected)
   return (
     <Select
       size={size}
@@ -94,7 +115,7 @@ export function GearRankSelect({
       sx={resolvedSx}
       multiple={isMulti}
       displayEmpty
-      {...(!isMulti ? { renderValue: () => renderSelected } : {})}
+      renderValue={selectRenderValue}
       {...menuPropsAttr}
     >
       {allowAny && !isMulti ? <MenuItem value="">{t('any')}</MenuItem> : null}
