@@ -6,13 +6,13 @@ Crie, reveja e exporte regras de venda para o RSL Helper com uma interface simpl
 
 ## Funcionalidades
 - Criar e guardar regras: construa configs e mantenha uma biblioteca reutilizável.
-- Interruptor da Pré-visualização do Sellfile: alterna entre a tabela de Regras e a tabela do Testador de regras diretamente no cabeçalho. Os contadores/badges adaptam-se (Manter/Vender para regras, `Matched`/`No Match` para o tester) e os filtros seguem a tabela escolhida.
-- Arrastar e largar ou botão “Load RSL Helper Sellfile”: larga `.hsfc`, `.hsf` ou `.db` em qualquer ponto (a sobreposição confirma) ou clica no botão para carregar. Ambos os caminhos fazem exatamente o mesmo: `.hsfc` substitui o builder, `.hsf` acrescenta o Sellfile base opcional e `.db` entra diretamente na fila do Testador de regras sem tocar no builder/export.
+- Interruptor da Prévia Sellfile: alterna entre a tabela de Regras e a tabela do Teste de Regras diretamente no cabeçalho. Os contadores/badges adaptam-se (Manter/Vender para regras, `Matched`/`No Match` para o tester) e os filtros seguem a tabela escolhida.
+- Arrastar e largar ou botão “Load RSL Helper Sellfile”: larga `.hsfc`, `.hsf` ou `.db` em qualquer ponto (a sobreposição confirma) ou clica no botão para carregar. Ambos os caminhos fazem exatamente o mesmo: `.hsfc` substitui o builder, `.hsf` acrescenta o Sellfile base opcional e `.db` entra diretamente na fila do Teste de Regras sem tocar no builder/export.
 - Meta-sets: agrupe conjuntos de equipamento (por exemplo, Velocidade + Perceção) e volte a usá-los em várias regras.
 - Exportação com um clique: gere um ficheiro HSF (Sellfile do RSL Helper) pronto a carregar no RSL Helper.
-- Pré-visualização do Testador de regras + botão «Gear...»: cria equipamento de exemplo, cola linhas ou arrasta a tua base de dados do RSL Helper (normalmente `%APPDATA%\RslHelper\Config`) para o diálogo. Depois fecha-o e usa o interruptor da pré-visualização para manter as linhas do tester visíveis enquanto comparas esses itens com as tuas regras.
-- Diálogo de restauro do Autosave: quando existe um autosave, escolhe exatamente o que carregar — configs, meta-sets, Alvos de substats, resto da Venda final, nota fixada, estado do painel de filtros e até equipamento do Testador de regras.
-- Copiar a pasta da base de dados do RSL Helper: o cabeçalho da pré-visualização mostra um botão que copia `%APPDATA%\RslHelper\Config` para o porta‑papéis para que possas colar a rota no Explorador antes de arrastar a `.db` para o Sellfile Creator.
+- Prévia do Teste de Regras + botão «Gear...»: cria equipamento de exemplo, cola linhas ou arrasta a tua base de dados do RSL Helper (normalmente `%APPDATA%\RslHelper\Config`) para o diálogo. Depois fecha-o e usa o interruptor da prévia para manter as linhas do tester visíveis enquanto comparas esses itens com as tuas regras.
+- Diálogo de restauro do Autosave: quando existe um autosave, escolhe exatamente o que carregar — configs, meta-sets, Alvos de substats, resto da Venda final, nota fixada, estado do painel de filtros e até equipamento do Teste de Regras.
+- Copiar a pasta da base de dados do RSL Helper: o cabeçalho da prévia mostra um botão que copia `%APPDATA%\RslHelper\Config` para o porta‑papéis para que possas colar a rota no Explorador antes de arrastar a `.db` para o Sellfile Creator.
 
 ## Como utilizar
 
@@ -24,16 +24,16 @@ Crie, reveja e exporte regras de venda para o RSL Helper com uma interface simpl
 ### Configs Builder
 - Preencha o Configs Builder e atribua um nome claro à config.
 - Clique em «Adicionar como nova config» para guardar. Depois selecione a config na lista por baixo do builder para a editar e confirme com «Atualizar config selecionada».
-- Carregar/Guardar: use «Carregar configs» e «Guardar configs» para reutilizar as regras. Estas ações mantêm tudo o que é necessário para reconstruir a pré-visualização.
+- Carregar/Guardar: use «Carregar configs» e «Guardar configs» para reutilizar as regras. Estas ações mantêm tudo o que é necessário para reconstruir a prévia.
 - Menus de Reset/Insert/Apply: clique com o botão direito em «Reset», «Insert as config» ou «Apply as config» para abrir o menu partilhado. Guarde o estado atual do builder como modelo predefinido, volte às definições de fábrica, ative «Auto reset after Insert» (limpa o builder imediatamente após inserir uma config) ou ative «Auto apply to selected config» (envia as edições para a config destacada automaticamente após ~400 ms de inatividade). Auto reset e Auto apply não podem ficar ativos ao mesmo tempo — ligar um desliga o outro — e ambas as preferências mantêm-se entre sessões.
 - Nota: clique em «Adicionar nota…» (ou «Editar nota…») para anexar um texto ao ficheiro de configs. Ao carregar um ficheiro que contenha nota, esta é mostrada automaticamente. Use `<!-- configs:1,0 -->` para inserir chips de configs específicas (0 escolhe a seguinte). Use `<!-- configs-re:"speed" -->` para mostrar todas as configs cujo nome corresponde ao padrão (ignorando maiúsculas/minúsculas).
-- Restauro do Autosave: ao iniciar, o diálogo lista cada secção auto-guardada com a sua própria caixa. Restaure apenas o que precisa — configs (incluindo o chip selecionado), meta-sets, Alvos de substats, resto da Venda final, nota fixada, painel de filtros (estado aberto, chips, secções recolhidas) e equipamento do Testador de regras. Deixe uma caixa desmarcada para manter o trabalho atual. O Autosave também recorda quais os interruptores da Venda final (Artefactos, Acessórios e intervalos de nível) estavam ativos, por isso reabrir o diálogo reflete exatamente o que exportou da última vez.
+- Restauro do Autosave: ao iniciar, o diálogo lista cada secção auto-guardada com a sua própria caixa. Restaure apenas o que precisa — configs (incluindo o chip selecionado), meta-sets, Alvos de substats, resto da Venda final, nota fixada, painel de filtros (estado aberto, chips, secções recolhidas) e equipamento do Teste de Regras. Deixe uma caixa desmarcada para manter o trabalho atual. O Autosave também recorda quais os interruptores da Venda final (Artefactos, Acessórios e intervalos de nível) estavam ativos, por isso reabrir o diálogo reflete exatamente o que exportou da última vez.
 
 ### Estrutura do builder (de cima para baixo)
 - Ação e Ativo: Defina o que acontece quando um item coincide.
   - `Manter` marca o item como Manter; o RSL Helper deixa-o intacto.
   - `Vender` marca o item como Vender; o RSL Helper coloca-o na fila de venda automática.
-  - O interruptor «Ativado no Sellfile» decide se as linhas exportadas permanecem ativas. Configs desativadas exportam com Use = false (ficam riscadas na pré-visualização); ativa «Omitir regras desativadas ao exportar» no menu de exportação se quiseres deixá-las de fora.
+  - O interruptor «Ativado no Sellfile» decide se as linhas exportadas permanecem ativas. Configs desativadas exportam com Use = false (ficam riscadas na prévia); ativa «Omitir regras desativadas ao exportar» no menu de exportação se quiseres deixá-las de fora.
 - Rank: Limite a regra a determinados ranks de estrelas caso queira tratar as peças de 6★ de forma diferente das de 5★. `Todos` mantém todos os ranks elegíveis.
 - Níveis: Escolha Nível mínimo e máximo entre os marcos +0, +4, +8, +12, +16. As linhas só são geradas dentro dessa janela.
 - Raridade: `Auto` (recomendado) escolhe a raridade mais baixa que continua a satisfazer os requisitos nos níveis selecionados.
@@ -61,7 +61,7 @@ Crie, reveja e exporte regras de venda para o RSL Helper com uma interface simpl
   - Clique esquerdo aumenta a expectativa; direito diminui.
 - A partir de ★: esquerda passa para mínimo verde (0→1→…→5), direita para limite superior vermelho (0→1→…→4).
 - Com um limite superior vermelho, esquerda reduz o teto (1→0→★) e direita aumenta (0→1→…→4→★). Mínimo e limite superior são exclusivos.
-- Alvos de rolagem (Base/+1…+5): Clique com o botão direito num substat selecionado para abrir a grelha de alvos. Base guarda o valor em +0 e cada campo +N representa o valor após esse número de rolagens extra. Deixe um campo em branco para reutilizar os seus Alvos de substats ou escolha «Usar alvos globais de substats» para limpar. As fichas da pré-visualização atualizam-se no momento para que confirme os números antes de exportar.
+- Alvos de rolagem (Base/+1…+5): Clique com o botão direito num substat selecionado para abrir a grelha de alvos. Base guarda o valor em +0 e cada campo +N representa o valor após esse número de rolagens extra. Deixe um campo em branco para reutilizar os seus Alvos de substats ou escolha «Usar alvos globais de substats» para limpar. As fichas da prévia atualizam-se no momento para que confirme os números antes de exportar.
 - Substats obrigatórios: Defina quantos substats escolhidos o item precisa de ter.
   - `Auto` mantém a contagem alinhada com a seleção (até quatro).
   - Substats bloqueados (🔒) contam sempre e surgem avisos quando a combinação é impossível.
@@ -95,26 +95,26 @@ Crie, reveja e exporte regras de venda para o RSL Helper com uma interface simpl
 - Interruptor ao lado de Exportar que ativa regras de venda para itens restantes. Vem ligado por defeito.
 - Defina se deve abranger Artefactos e/ou Acessórios e quais os intervalos de nível (0–3, 4–7, 8–11, 12–15, 16). Por defeito é 0–15 para evitar vender peças +16.
 - Sem venda final, o RSL Helper mantém tudo o que não coincide com uma regra. Só vende quando uma regra explícita diz Vender.
-- Com venda final ativa, as regras geradas incluem todos os sets conhecidos. Na pré-visualização surge «Todos os sets conhecidos» para reduzir ruído; o ficheiro exportado lista os sets um a um.
+- Com venda final ativa, as regras geradas incluem todos os sets conhecidos. Na prévia surge «Todos os sets conhecidos» para reduzir ruído; o ficheiro exportado lista os sets um a um.
 
 ### Gestão de configs
 - As configs guardadas aparecem como etiquetas sob o builder. Clique para selecionar; clique direito para duplicar, mover, copiar ou eliminar.
 - «Delete Configs» remove todas (com confirmação).
-- Ligação por hover: passar o cursor sobre uma etiqueta destaca as linhas associadas na pré-visualização e vice-versa.
+- Ligação por hover: passar o cursor sobre uma etiqueta destaca as linhas associadas na prévia e vice-versa.
 - Ligação por clique: clicar uma linha da tabela seleciona a config de origem (linhas da HSF base não alteram a seleção).
 - Cópia alternativa: Se o acesso ao porta‑papéis falhar, abre-se um diálogo com o texto já selecionado para copiar manualmente.
 
-### Pré-visualização do Sellfile (Regras e Testador de regras)
-- O cabeçalho da pré-visualização mantém o interruptor «Rules»/«Testador de regras», o botão «Gear...» e o botão “Load RSL Helper Sellfile” juntos para saber sempre onde alternar de tabela ou abrir o diálogo do tester.
+### Prévia Sellfile (Regras e Teste de Regras)
+- O cabeçalho da prévia mantém o interruptor «Rules»/«Teste de Regras», o botão «Gear...» e o botão “Load RSL Helper Sellfile” juntos para saber sempre onde alternar de tabela ou abrir o diálogo do tester.
 - Vista «Rules» (padrão): mostra todas as linhas que serão exportadas, incluindo quaisquer `.hsf` base opcionais. Os contadores mantêm o resumo Manter vs Vender, a linha de filtros conserva os chips Todos/Só (Any/Only) para Slots/Rank/Raridade/Nível e agora apresenta os dois botões de Configs em paralelo: «Configs prévia» decide se as etiquetas fora dos filtros atuais ficam ocultas e o «Filtro de configs» funciona como um interruptor Ligado/Desligado que limita as linhas do Sellfile às etiquetas selecionadas (deixando a mesma seleção pronta para o tester).
-- Vista «Testador de regras»: muda a tabela para a lista de equipamento importado ou criado sem precisares de reabrir o diálogo. Os contadores passam a `Matched` vs `No Match` (mais Manter/Vender) segundo a regra “a primeira coincidência ganha” e a linha de filtros mantém ambos os botões de Configs («Configs prévia» + «Filtro de configs»). O primeiro continua a gerir a visibilidade das etiquetas, enquanto o «Filtro de configs» aplica o triestado (`Off` → `Primeira` → `Qualquer`) para isolar as linhas do tester e continua a limitar as regras do Sellfile à mesma seleção quando regressas a «Rules». Soma-se ainda o filtro de resultados (Manter/Vender vs `Matched`/`No Match`), permitindo isolar peças cujo primeiro — ou qualquer — match pertence à tua seleção sem esconder as etiquetas. Importar um `.db` alterna automaticamente para esta vista, mas podes voltar a «Rules» a qualquer momento.
-- O botão “Load RSL Helper Sellfile” comporta-se da mesma forma que o arrastar-e-largar: `.hsfc` substitui o estado do builder, `.hsf` adiciona o Sellfile base opcional e `.db` envia itens para a pré-visualização do tester sem tocar em configs ou export. «Limpar» remove o `.hsf` base quando existir.
+- Vista «Teste de Regras»: muda a tabela para a lista de equipamento importado ou criado sem precisares de reabrir o diálogo. Os contadores passam a `Matched` vs `No Match` (mais Manter/Vender) segundo a regra “a primeira coincidência ganha” e a linha de filtros mantém ambos os botões de Configs («Configs prévia» + «Filtro de configs»). O primeiro continua a gerir a visibilidade das etiquetas, enquanto o «Filtro de configs» aplica o triestado (`Off` → `Primeira` → `Qualquer`) para isolar as linhas do tester e continua a limitar as regras do Sellfile à mesma seleção quando regressas a «Rules». Soma-se ainda o filtro de resultados (Manter/Vender vs `Matched`/`No Match`), permitindo isolar peças cujo primeiro — ou qualquer — match pertence à tua seleção sem esconder as etiquetas. Importar um `.db` alterna automaticamente para esta vista, mas podes voltar a «Rules» a qualquer momento.
+- O botão “Load RSL Helper Sellfile” comporta-se da mesma forma que o arrastar-e-largar: `.hsfc` substitui o estado do builder, `.hsf` adiciona o Sellfile base opcional e `.db` envia itens para a prévia do tester sem tocar em configs ou export. «Limpar» remove o `.hsf` base quando existir.
 - O ícone da paleta abre a gestão de cores para personalizar texto e fundo dos substats.
-- Na vista «Rules» a tabela continua a mostrar «Idx» e «Cfg» (linhas do ficheiro base deixam «Cfg» em branco). Na vista «Testador de regras», o mesmo espaço lista slot/set, estatísticas e o chip da primeira config correspondente para veres diretamente o que acontece a cada artefacto.
+- Na vista «Rules» a tabela continua a mostrar «Idx» e «Cfg» (linhas do ficheiro base deixam «Cfg» em branco). Na vista «Teste de Regras», o mesmo espaço lista slot/set, estatísticas e o chip da primeira config correspondente para veres diretamente o que acontece a cada artefacto.
 
-### Controlos da pré-visualização
+### Controlos da prévia
 - Gerir cores: através do ícone da paleta; «Repor predefinições» restaura as recomendações.
-- Filtros: prima `Ctrl+F` (`Cmd+F` no macOS) para abrir o painel e focar de imediato a pesquisa de configs. Clique direito em qualquer cabeçalho de secção (ou `Ctrl`/`Cmd`+clique no respetivo chevron) para recolher ou expandir todas as secções de uma só vez. `Configs prévia` oculta chips que não correspondem ao filtro ativo para manter a tabela legível. `Filtro de configs` decide quais as configs permitidas na tabela: em «Rules» funciona como um simples interruptor Ligado/Desligado, e na vista do Testador de regras alterna por `Off` → `Primeira` → `Qualquer` para controlares também como respondem as linhas do tester.
+- Filtros: prima `Ctrl+F` (`Cmd+F` no macOS) para abrir o painel e focar de imediato a pesquisa de configs. Clique direito em qualquer cabeçalho de secção (ou `Ctrl`/`Cmd`+clique no respetivo chevron) para recolher ou expandir todas as secções de uma só vez. `Configs prévia` oculta chips que não correspondem ao filtro ativo para manter a tabela legível. `Filtro de configs` decide quais as configs permitidas na tabela: em «Rules» funciona como um simples interruptor Ligado/Desligado, e na vista do Teste de Regras alterna por `Off` → `Primeira` → `Qualquer` para controlares também como respondem as linhas do tester.
 - Menu de colunas (clique direito na cabeça da tabela):
   - Repor colunas: restaura colunas e larguras padrão.
   - Ajustar largura: adapta as colunas à janela.
@@ -124,12 +124,12 @@ Crie, reveja e exporte regras de venda para o RSL Helper com uma interface simpl
 - Redimensionar: arraste o bordo direito da cabeça.
 - Comportamento de clique: uma linha seleciona a config correspondente (sem deslocação automática). Clicar uma etiqueta de config desloca a tabela até à primeira linha associada.
 
-### Pré-visualização do Testador de regras
-- Clique em «Gear...» no cabeçalho da Pré-visualização do Sellfile para abrir o diálogo do Testador de regras. Crie equipamento de exemplo ou cole linhas (JSON/texto). Os itens sincronizam imediatamente com a pré-visualização, por isso fechar o diálogo não limpa a grelha do tester.
-- Importe a base de dados do RSL Helper arrastando `.db` para a aplicação ou usando o botão “Load RSL Helper Sellfile” (mesmo comportamento). Estes imports enfileiram milhares de artefactos (incluindo itens da caixa de entrada), mudam a pré-visualização para a tabela do tester e deixam o estado do builder/export inalterado.
+### Prévia do Teste de Regras
+- Clique em «Gear...» no cabeçalho da Prévia Sellfile para abrir o diálogo do Teste de Regras. Crie equipamento de exemplo ou cole linhas (JSON/texto). Os itens sincronizam imediatamente com a prévia, por isso fechar o diálogo não limpa a grelha do tester.
+- Importe a base de dados do RSL Helper arrastando `.db` para a aplicação ou usando o botão “Load RSL Helper Sellfile” (mesmo comportamento). Estes imports enfileiram milhares de artefactos (incluindo itens da caixa de entrada), mudam a prévia para a tabela do tester e deixam o estado do builder/export inalterado.
 - Cada linha do tester mostra slot, set, nível, mainstat, substats (com glifos e rolagens), a origem (inventário vs inbox) e os chips Keep/Sell + a primeira config/regra correspondente. Regras desativadas nunca fazem match, portanto `No Match` identifica peças que o Sellfile deixaria passar.
 - Os contadores no cabeçalho passam a `Matched` vs `No Match` juntamente com o resumo Manter/Vender. Combina-os com os filtros do tester (resultado + «Configs tester» em `Off`/`Primeira`/`Qualquer`) para focar casos-limite antes de exportar.
-- Usa o interruptor da pré-visualização para alternar entre as tabelas de Regras e do Testador de regras sem reabrir o diálogo — ideal para comparar as linhas geradas com o equipamento que as ativou.
+- Usa o interruptor da prévia para alternar entre as tabelas de Regras e do Teste de Regras sem reabrir o diálogo — ideal para comparar as linhas geradas com o equipamento que as ativou.
 
 ### Exportar
 - «Exportar Sellfile do RSL Helper combinado» aparece quando existe ficheiro base; caso contrário verá «Exportar Sellfile do RSL Helper».
@@ -205,7 +205,7 @@ Exemplo: Soma de rolagens com curingas (2 substats)
 - Editar e testar: Abre a app e arrasta o teu `*.l10n.json` editado para o aplicar de imediato à sessão atual (não é necessária nem possível qualquer instalação).
 - Enviar correções: Envia o JSON atualizado por mensagem no Discord. Mantém as chaves inalteradas; as chaves em falta voltam ao inglês.
 - Idiomas integrados: Todos os idiomas incluídos são compilados no único HTML, por isso a app funciona totalmente offline. As tuas correções entram na próxima versão.
-- Vigiar a base de dados do RSL Helper: executa `scripts/run-sample-server.ps1 -WatchGearDb` (ou passa `-GearDbPath <ficheiro>`) para observar `%APPDATA%\\RslHelper\\Config`. Cada atualização da `.db` é enviada diretamente para o Testador de regras iniciado pelo script e, se existirem vários ficheiros, o utilitário pergunta qual acompanhar.
+- Vigiar a base de dados do RSL Helper: executa `scripts/run-sample-server.ps1 -WatchGearDb` (ou passa `-GearDbPath <ficheiro>`) para observar `%APPDATA%\\RslHelper\\Config`. Cada atualização da `.db` é enviada diretamente para o Teste de Regras iniciado pelo script e, se existirem vários ficheiros, o utilitário pergunta qual acompanhar.
 - Atalho de duplo clique: `Stream-Helper-DB-to-Creator.bat` inicia o servidor de exemplo no PowerShell com `-WatchGearDb "%APPDATA%\\RslHelper\\Config"`, transmitindo a base padrão do RSL Helper sem recorreres à consola; podes acrescentar mais parâmetros depois do nome do `.bat` para personalizar a execução.
 
 ## Agradecimentos

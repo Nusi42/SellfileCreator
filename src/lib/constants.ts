@@ -220,6 +220,8 @@ export const BUILDER_LABEL_TEXT_SX = {
 export const BUILDER_MIN_ROLLS_COLUMN_WIDTH_PX = 224
 export const BUILDER_REQUIRED_SUBSTATS_COLUMN_WIDTH_PX = 135
 export const BUILDER_MILESTONE_THRESHOLDS_COLUMN_WIDTH_PX = 146
+// Fixed width for builder "Auto" toggle buttons so translations stay aligned with numeric chips.
+export const BUILDER_AUTO_TOGGLE_WIDTH_PX = 46
 
 // Default config number shown when no existing config is selected yet.
 export const BUILDER_DEFAULT_SAVE_TARGET = 42

@@ -947,7 +947,7 @@ const enUS: Catalog = {
   statRollCount: 'Roll Count',
 
   // Builder panel caption and toasts
-  builderIntroCaption: 'Use this workspace to tell the sellfile what to keep or sell. Build each config here, add it to your custom list, and load or save HSFC files (Metasets included) without leaving the panel.',
+  builderIntroCaption: 'Use this workspace to tell the sellfile what to keep or sell. Build each config here, add it to your custom list, and load or save HSFC files (Metasets included).',
   toastConfigsSaved: 'Configs saved. Check your Downloads folder.',
   toastSellfileSaved: 'Sellfile exported.',
   toastSellfileExportFailed: 'Sellfile export failed. See console for details.',

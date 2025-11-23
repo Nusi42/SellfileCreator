@@ -940,7 +940,7 @@ const overrides: Catalog = {
   statRollCount: 'Roll-Anzahl',
 
   // Builder panel caption and toasts
-  builderIntroCaption: 'Nutze diesen Arbeitsbereich, um dem Sellfile mitzuteilen, was es behalten oder verkaufen soll. Baue jede Konfig hier, füge sie deiner Liste hinzu und lade oder speichere HSFC-Dateien (Metasets inklusive), ohne das Panel zu verlassen.',
+  builderIntroCaption: 'Nutze diesen Arbeitsbereich, um dem Sellfile mitzuteilen, was es behalten oder verkaufen soll. Baue jede Konfig hier, füge sie deiner Liste hinzu und lade oder speichere HSFC-Dateien (Metasets inklusive).',
   toastConfigsSaved: 'Konfigs gespeichert. Prüfe deinen Downloads-Ordner.',
   toastSellfileSaved: 'Sellfile exportiert.',
   toastSellfileExportFailed: 'Sellfile-Export fehlgeschlagen. Details in der Konsole.',
