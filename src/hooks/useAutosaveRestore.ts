@@ -15,7 +15,9 @@ import type { Metaset } from '../lib/metasets'
 import type { FinalSellDialogTab, FinalSellRemainderConfig } from '../lib/finalSell'
 import { FINAL_SELL_DIALOG_TAB_FINAL_SELL, FINAL_SELL_DIALOG_TABS } from '../lib/finalSell'
 import type { RulesFilterState } from '../lib/rulesFilter'
-import type { TesterConfigFilterMode } from '../types/testerConfigFilterMode'
+import { canonicalize } from '../lib/canonicalize'
+import { RULES_FILTER_OPEN_DEFAULT, cloneDefaultRulesFilterCollapsed, cloneDefaultRulesFilterState } from '../state/rulesFilterPersistence'
+import { TESTER_CONFIG_FILTER_MODE_DEFAULT, type TesterConfigFilterMode } from '../types/testerConfigFilterMode'
 import type { KeepUniqueRule } from '../lib/keepUniques'
 
 export type RestoreDraft = {
@@ -46,17 +48,6 @@ type InitialAutosaveState = {
   enabled: boolean
 }
 
-const canonicalize = (x: unknown): unknown => {
-  if (Array.isArray(x)) return x.map(canonicalize)
-  if (x && typeof x === 'object') {
-    const keys = Object.keys(x).sort()
-    const out: Record<string, unknown> = {}
-    for (const k of keys) out[k] = canonicalize((x as Record<string, unknown>)[k])
-    return out
-  }
-  return x
-}
-
 export const metasetsSignature = (mets?: Metaset[] | null): string => {
   if (!mets || mets.length === 0) return '[]'
   const copy = mets.map((m) => ({
@@ -85,8 +76,27 @@ export const filtersSignature = (filters: AutosaveFiltersState | null | undefine
     open: Boolean(filters.open),
     state: canonicalize(filters.state),
     collapsed: canonicalize(filters.collapsed),
-    testerConfigFilterMode: filters.testerConfigFilterMode ?? 'off',
+    testerConfigFilterMode: filters.testerConfigFilterMode ?? TESTER_CONFIG_FILTER_MODE_DEFAULT,
   })
+}
+
+const DEFAULT_AUTOSAVE_FILTERS_SIGNATURE = filtersSignature({
+  open: RULES_FILTER_OPEN_DEFAULT,
+  state: cloneDefaultRulesFilterState(),
+  collapsed: cloneDefaultRulesFilterCollapsed(),
+  testerConfigFilterMode: TESTER_CONFIG_FILTER_MODE_DEFAULT,
+})
+
+// Treat exact matches to the factory defaults as "no filters" so autosave stays clean.
+export const areAutosaveFiltersDefault = (filters: AutosaveFiltersState | null | undefined): boolean => {
+  if (!filters) return true
+  const normalized: AutosaveFiltersState = {
+    open: Boolean(filters.open),
+    state: filters.state,
+    collapsed: filters.collapsed ?? cloneDefaultRulesFilterCollapsed(),
+    testerConfigFilterMode: filters.testerConfigFilterMode ?? TESTER_CONFIG_FILTER_MODE_DEFAULT,
+  }
+  return filtersSignature(normalized) === DEFAULT_AUTOSAVE_FILTERS_SIGNATURE
 }
 
 export const finalSellSignature = (fsr?: FinalSellRemainderConfig | null): string => {
@@ -152,7 +162,7 @@ function computeInitialAutosaveState(args: {
           ...(testerConfigFilterMode ? { testerConfigFilterMode } : {}),
         }
       })()
-      const filtersMatchDefaults = !savedFilters
+      const filtersMatchDefaults = areAutosaveFiltersDefault(savedFilters)
       const keepUniquesMatchDefaults = savedKeepUniques.length === 0
         && !savedKeepEnabled
         && args.keepUniqueRules.length === 0
@@ -254,6 +264,7 @@ export function useAutosaveRestore(opts: {
   const snapshot = useMemo(() => {
     // Selection changes should not enable autosave by themselves.
     // Exclude SelectedConfigIndex from the divergence snapshot.
+    const filtersForSnapshot = areAutosaveFiltersDefault(filters) ? null : filters
     const base = {
       Version: version,
       Metasets: metasets,
@@ -264,7 +275,7 @@ export function useAutosaveRestore(opts: {
       KeepUniquesEnabled: keepUniquesEnabled,
       FinalSellDialogTab: finalSellDialogTab,
       ...(note && note.trim() ? { Note: note } : {}),
-      ...(filters ? { Filters: filters } : {}),
+      ...(filtersForSnapshot ? { Filters: filtersForSnapshot } : {}),
     }
     return JSON.stringify(base)
   }, [version, metasets, substatTargets, configs, finalSellRemainder, note, filters, keepUniqueRules, keepUniquesEnabled, finalSellDialogTab])
