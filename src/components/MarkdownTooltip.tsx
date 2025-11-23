@@ -260,8 +260,6 @@ export function MarkdownTooltip({
         const originalProps = (children as React.ReactElement).props ?? {}
         const nextProps: Record<string, unknown> = { ref: mergedChildRef }
         if (ellipsisEnabled) {
-          const nextTitle = showNativeEllipsisTitle ? ellipsisTitle : originalProps.title
-          if (nextTitle !== undefined) nextProps.title = nextTitle
           // Mirror EllipsisTooltip semantics: only surface the native title when hover/focus hits a
           // truncated label. This keeps MarkdownTooltip the single popper owner while still exposing
           // the full text for locales that overflow their inline container.
@@ -326,6 +324,21 @@ export function MarkdownTooltip({
       }
     }
   }, [anchorEl, forceCloseUncontrolled, resolvedOpen])
+
+  useEffect(() => {
+    if (!ellipsisEnabled) return undefined
+    const root = anchorEl
+    if (!root) return undefined
+    const target = pickEllipsisTarget(root, ellipsisSelector)
+    if (showNativeEllipsisTitle) {
+      target.setAttribute('title', ellipsisTitle ?? '')
+    } else {
+      target.removeAttribute('title')
+    }
+    return () => {
+      target.removeAttribute('title')
+    }
+  }, [anchorEl, ellipsisEnabled, ellipsisSelector, ellipsisTitle, showNativeEllipsisTitle])
 
   return (
     <Tooltip
