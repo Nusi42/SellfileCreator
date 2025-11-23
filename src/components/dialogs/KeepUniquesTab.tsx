@@ -97,6 +97,14 @@ export default function KeepUniquesTab({
   const [respectManualDeselect, setRespectManualDeselect] = useState(false)
   const [pendingDeleteRuleId, setPendingDeleteRuleId] = useState<string | null>(null)
   const [gridFilterMode, setGridFilterMode] = useState<'all' | 'selection'>('all')
+  const ensureKeepUniquesEnabled = useCallback(() => {
+    if (!enabled) onToggleEnabled(true)
+  }, [enabled, onToggleEnabled])
+  // Rule edits should immediately re-enable Keep Uniques so users never lose their changes silently.
+  const mutateRules = useCallback((action: SetStateAction<KeepUniqueRule[]>) => {
+    ensureKeepUniquesEnabled()
+    onRulesChange(action)
+  }, [ensureKeepUniquesEnabled, onRulesChange])
   const effectiveSelectedRuleId = useMemo(() => {
     if (selectedRuleId === null) {
       if (respectManualDeselect) return null
@@ -170,14 +178,14 @@ export default function KeepUniquesTab({
       enabled: true,
       countMode: 'perRule',
     }
-    onRulesChange((prev) => [...prev, newRule])
+    mutateRules((prev) => [...prev, newRule])
     setSelectedRuleId(newRule.id)
     setRespectManualDeselect(false)
-  }, [onRulesChange, setRespectManualDeselect])
+  }, [mutateRules, setRespectManualDeselect])
 
   const handleDeleteRule = useCallback((ruleId: string) => {
     let filtered: KeepUniqueRule[] = []
-    onRulesChange((prev) => {
+    mutateRules((prev) => {
       filtered = prev.filter((rule) => rule.id !== ruleId)
       return filtered
     })
@@ -190,7 +198,7 @@ export default function KeepUniquesTab({
       setSelectedRuleId(filtered[0]?.id ?? null)
       setRespectManualDeselect(false)
     }
-  }, [onRulesChange, selectedRuleId, setRespectManualDeselect])
+  }, [mutateRules, selectedRuleId, setRespectManualDeselect])
 
   const handleCancelDeleteRule = useCallback(() => {
     setPendingDeleteRuleId(null)
@@ -204,7 +212,7 @@ export default function KeepUniquesTab({
 
   const handleDuplicateRule = useCallback((ruleId: string) => {
     let newRuleId: string | null = null
-    onRulesChange((prev) => {
+    mutateRules((prev) => {
       const idx = prev.findIndex((rule) => rule.id === ruleId)
       if (idx === -1) return prev
       const source = prev[idx]
@@ -224,11 +232,11 @@ export default function KeepUniquesTab({
       setSelectedRuleId(newRuleId)
       setRespectManualDeselect(false)
     }
-  }, [onRulesChange, setRespectManualDeselect])
+  }, [mutateRules, setRespectManualDeselect])
 
   const updateRule = useCallback((ruleId: string, updater: (rule: KeepUniqueRule) => KeepUniqueRule) => {
-    onRulesChange((prev) => prev.map((rule) => (rule.id === ruleId ? updater(rule) : rule)))
-  }, [onRulesChange])
+    mutateRules((prev) => prev.map((rule) => (rule.id === ruleId ? updater(rule) : rule)))
+  }, [mutateRules])
 
   const setRuleCombination = useCallback((
     ruleId: string,
