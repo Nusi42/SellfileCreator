@@ -486,7 +486,7 @@ export default function PreviewHeaderActions(props: {
           </>
         )}
         {onOpenRuleTester && (
-          <MarkdownTooltip markdown={ruleTesterLabel}>
+          <MarkdownTooltip markdown={t('testerOpenTooltip')}>
             <Button
               size="small"
               variant="outlined"

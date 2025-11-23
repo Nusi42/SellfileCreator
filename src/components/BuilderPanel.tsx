@@ -5521,7 +5521,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
             </FormLabel>
             {/* Flexible spacer keeps the label left-aligned and the button right-aligned */}
             <Box ref={setsLeftRef} sx={{ flex: 1, minWidth: 0, overflow: 'hidden' }} />
-            <EllipsisTooltip title={t('builderManageMetasetsButton')}>
+            <MarkdownTooltip markdown={t('builderManageMetasetsTooltip')}>
               <Button
                 size="small"
                 variant="outlined"
@@ -5533,7 +5533,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                   {t('builderManageMetasetsButton')}
                 </Box>
               </Button>
-            </EllipsisTooltip>
+            </MarkdownTooltip>
           </Box>
           {(() => {
             const tokenOf = {

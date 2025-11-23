@@ -15,7 +15,8 @@ export type BuilderColumnProps = {
   forceSideBySide?: boolean
   title: string
   caption: string
-  substatValuesLabel: string
+  substatTargetsLabel: string
+  substatTargetsTooltip: string
   onOpenSubstatValues: () => void
   builderPanel: ReactNode
   headerActions: ReactNode
@@ -31,7 +32,8 @@ export function BuilderColumn({
   forceSideBySide = false,
   title,
   caption,
-  substatValuesLabel,
+  substatTargetsLabel,
+  substatTargetsTooltip,
   onOpenSubstatValues,
   builderPanel,
   headerActions,
@@ -67,14 +69,14 @@ export function BuilderColumn({
           <Typography variant="caption" color="text.secondary">
             {caption}
           </Typography>
-          <MarkdownTooltip markdown={substatValuesLabel}>
+          <MarkdownTooltip markdown={substatTargetsTooltip}>
             <Button
               size="small"
               variant="outlined"
               onClick={onOpenSubstatValues}
               sx={{ whiteSpace: 'nowrap', minWidth: 160, justifySelf: 'end' }}
             >
-              {substatValuesLabel}
+              {substatTargetsLabel}
             </Button>
           </MarkdownTooltip>
         </Box>

@@ -6,6 +6,7 @@ import SaveIcon from '@mui/icons-material/Save'
 import { useI18n, formatConfigsCount } from '../lib/i18n'
 import DirtyBadge from './DirtyBadge'
 import EllipsisTooltip from './EllipsisTooltip'
+import MarkdownTooltip from './MarkdownTooltip'
 
 export default function HeaderActions(props: {
   onAboutToOpenHsfc?: () => void
@@ -100,18 +101,20 @@ export default function HeaderActions(props: {
           alignItems: 'center',
         }}
       >
-        <FilePickerButton
-          label={t('loadConfigs')}
-          startIcon={<UploadFileIcon />}
-          accept={ACCEPT_HSFC}
-          onBeforeOpen={() => { onAboutToOpenHsfc?.() }}
-          onSelect={onSelectHsfc}
-          data-tour-id="hsfc.load"
-          labelMaxWidth={LONG_LABEL_BUTTON_MAX_WIDTH_PX}
-          sx={{ flexShrink: 1, minWidth: 0, maxWidth: LONG_LABEL_BUTTON_MAX_WIDTH_PX, ml: 2 }}
-        />
+        <MarkdownTooltip markdown={t('loadConfigsTooltip')}>
+          <FilePickerButton
+            label={t('loadConfigs')}
+            startIcon={<UploadFileIcon />}
+            accept={ACCEPT_HSFC}
+            onBeforeOpen={() => { onAboutToOpenHsfc?.() }}
+            onSelect={onSelectHsfc}
+            data-tour-id="hsfc.load"
+            labelMaxWidth={LONG_LABEL_BUTTON_MAX_WIDTH_PX}
+            sx={{ flexShrink: 1, minWidth: 0, maxWidth: LONG_LABEL_BUTTON_MAX_WIDTH_PX, ml: 2 }}
+          />
+        </MarkdownTooltip>
         <DirtyBadge active={hsfcDirty} sx={{ flexShrink: 1, minWidth: 0, display: 'inline-flex' }}>
-          <EllipsisTooltip title={t('saveAllConfigs')}>
+          <MarkdownTooltip markdown={t('saveAllConfigsTooltip')}>
             <Button
               startIcon={<SaveIcon />}
               onClick={onSaveHsfc}
@@ -123,7 +126,7 @@ export default function HeaderActions(props: {
                 {t('saveAllConfigs')}
               </Typography>
             </Button>
-          </EllipsisTooltip>
+          </MarkdownTooltip>
         </DirtyBadge>
       </Box>
     </Box>

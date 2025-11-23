@@ -4,6 +4,7 @@ const enUS: Catalog = {
   // App / Panels
   appBuilderTitle: 'Configs Builder',
   loadConfigs: 'Load Configs (.hsfc)',
+  loadConfigsTooltip: 'Load a Configs (.hsfc) file to restore your saved configs, metasets, minima, and notes.',
   configOne: 'config',
   configMany: 'configs',
   configsSelectedCount: '{selected} of {total} {word}',
@@ -12,6 +13,7 @@ const enUS: Catalog = {
   editNote: 'Edit Note…',
   addNote: 'Add Note…',
   saveAllConfigs: 'Save all configs (.hsfc)',
+  saveAllConfigsTooltip: 'Save every config, metaset, minima, and note into a Configs (.hsfc) snapshot you can reload later.',
   deleteConfigs: 'Delete all Configs',
 
   sellfilePreview: 'Sellfile Preview',
@@ -51,6 +53,7 @@ const enUS: Catalog = {
   manageColorsAria: 'Manage colors',
   // Rule Tester
   testerOpenLabel: 'Gear...',
+  testerOpenTooltip: 'Open the Gear tester to load an RSL Helper database or craft sample gear to validate the current rules.',
   testerTitle: 'Gear',
   testerIntro: 'Build sample gear to see the first matching rule and whether it keeps or sells the item. Load or drag an RSL Helper DB (typically under %APPDATA%\\RslHelper\\Config) into the app to preview real gear in the Rule Tester view.',
   testerManualOnlyNotice: 'This pane lists only the custom entries. Imported inventory, collection, vault, and inbox items remain in the Rule Tester view; clear those sources with the buttons below if needed.',
@@ -612,7 +615,8 @@ const enUS: Catalog = {
   builderRank: 'Rank',
   builderRankHelp: 'Limit the rule to specific star ranks so you can treat 6★ gear differently from 5★.\n• “Any” keeps all ranks eligible.',
   any: 'Any',
-  builderSubstatValues: 'Substat Targets…',
+  builderSubstatTargets: 'Substat Targets…',
+  builderSubstatTargetsTooltip: 'Review or tweak the per-rank minimum roll targets that drive the substat indicators and Sellfile rows. Changes apply to every config.',
   builderMain: 'Mainstat',
   builderMainHelp: 'Require particular main stats on the item so only the builds you care about match.\n• Select multiple stats to accept any of them.\n• Leave empty to accept any main stat.',
   builderClearMainStats: 'Clear main stat selection',
@@ -662,6 +666,7 @@ const enUS: Catalog = {
   builderLateLabel: 'Late',
   builderAutoGeLabel: 'Auto ≥ {tier}',
   builderManageMetasetsButton: 'Manage Metasets…',
+  builderManageMetasetsTooltip: 'Create, rename, or reorder named set groups. Metasets show up at the top of the Sets picker so rules can reference whole bundles.',
   builderRequiredSubstats: 'Required Substats',
   builderRequiredSubstatsHelp: 'Set how many of the selected substats must appear on the item before the rule passes.\n• Locked substats (🔒) always count toward the requirement.\n• “Auto” keeps the count in sync with how many substats you picked (capped at four).',
   builderFlexChipOn: 'Flex: On',
