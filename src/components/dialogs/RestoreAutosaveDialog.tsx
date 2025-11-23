@@ -41,11 +41,13 @@ const formatSavedAt = (value?: string | null): string | null => {
   }
 }
 
-const mergeStoredSelection = (defaults: RestoreSelection, stored: RestoreSelection): RestoreSelection => {
+const mergeStoredSelection = (defaults: RestoreSelection, stored: Partial<RestoreSelection>): RestoreSelection => {
   const merged: RestoreSelection = { ...defaults }
   RESTORE_SELECTION_KEYS.forEach((key) => {
-    const value = stored[key]
-    if (typeof value === 'boolean') merged[key] = value
+    if (Object.prototype.hasOwnProperty.call(stored, key)) {
+      const value = stored[key]
+      if (typeof value === 'boolean') merged[key] = value
+    }
   })
   return merged
 }
@@ -66,7 +68,7 @@ export default function RestoreAutosaveDialog({
 }: RestoreAutosaveDialogProps) {
   const { t } = useI18n()
   const [persistedSelection, setPersistedSelection] = useRestoreAutosaveSelectionPreference()
-  const [selection, setSelection] = useState<RestoreSelection>(persistedSelection)
+  const [selection, setSelection] = useState<RestoreSelection>(RESTORE_SELECTION_DEFAULT)
   const configsCount = draft?.Configs?.length ?? 0
   const metasCount = draft?.Metasets?.length ?? 0
   const hasTargets = Boolean(draft?.substatTargets)
@@ -89,10 +91,7 @@ export default function RestoreAutosaveDialog({
     if (!open) return
     const merged = mergeStoredSelection(defaultSelection, persistedSelection)
     setSelection((prev) => (selectionsEqual(prev, merged) ? prev : merged))
-    if (!selectionsEqual(persistedSelection, merged)) {
-      setPersistedSelection(merged)
-    }
-  }, [open, defaultSelection, persistedSelection, setPersistedSelection])
+  }, [open, defaultSelection, persistedSelection])
 
   const options = useMemo<RestoreOption[]>(() => {
     const rows: RestoreOption[] = []
@@ -155,7 +154,7 @@ export default function RestoreAutosaveDialog({
     setSelection((prev) => {
       if (prev[key] === checked) return prev
       const next: RestoreSelection = { ...prev, [key]: checked }
-      setPersistedSelection(next)
+      setPersistedSelection((stored) => ({ ...stored, [key]: checked }))
       return next
     })
   }
