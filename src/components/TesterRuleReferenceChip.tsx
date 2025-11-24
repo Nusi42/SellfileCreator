@@ -48,26 +48,22 @@ export function TesterRuleReferenceChip({
   if (match.ruleSource === RULE_SOURCE_FINAL_SELL) {
     if (!showFinalSellLabel) return null
     return (
-      <MarkdownTooltip markdown={t('testerFinalSellChip')}>
-        <Chip
-          size={size}
-          label={t('testerFinalSellChip')}
-          color="warning"
-          sx={simpleMatchChipSx(sx)}
-        />
-      </MarkdownTooltip>
+      <Chip
+        size={size}
+        label={t('testerFinalSellChip')}
+        color="warning"
+        sx={simpleMatchChipSx(sx)}
+      />
     )
   }
   if (match.ruleSource === RULE_SOURCE_KEEP_UNIQUES) {
     return (
-      <MarkdownTooltip markdown={t('testerKeepUniqueChip')}>
-        <Chip
-          size={size}
-          label={t('testerKeepUniqueChip')}
-          color="success"
-          sx={simpleMatchChipSx(sx)}
-        />
-      </MarkdownTooltip>
+      <Chip
+        size={size}
+        label={t('testerKeepUniqueChip')}
+        color="success"
+        sx={simpleMatchChipSx(sx)}
+      />
     )
   }
   const ruleIndex = typeof match.ruleIndex === 'number' ? match.ruleIndex : null
