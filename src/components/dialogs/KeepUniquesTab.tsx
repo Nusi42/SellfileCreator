@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type MouseEvent as ReactMouseEvent } from 'react'
+import { useCallback, useEffect, useMemo, useState, type FocusEvent as ReactFocusEvent, type MouseEvent as ReactMouseEvent } from 'react'
 import {
   Box,
   Button,
@@ -47,6 +47,7 @@ import { EmptyStateMessage } from '../EmptyStateMessage'
 import WorkloadProgressIndicator from '../WorkloadProgressIndicator'
 // MarkdownTooltip keeps the rule-count hints and info icons synchronized with the broader tooltip refactor.
 import MarkdownTooltip from '../MarkdownTooltip'
+import { hasEllipsisOverflow } from '../../lib/ellipsis'
 import type { SetStateAction } from 'react'
 import type { Metaset } from '../../lib/metasets'
 
@@ -308,6 +309,23 @@ export default function KeepUniquesTab({
     const perSetLabel = t('keepUniquesCountModePerSet')
     const perRuleLabel = t('keepUniquesCountModePerRule')
     const countModeToggleValue = perCombinationMode ? 'perCombination' : 'perRule'
+    const applyNativeEllipsisTitle = (node: HTMLElement | null, label: string) => {
+      if (!node) return
+      if (hasEllipsisOverflow(node)) {
+        node.setAttribute('title', label)
+      } else {
+        node.removeAttribute('title')
+      }
+    }
+    const handleToggleLabelMouseEnter = (label: string) => (event: ReactMouseEvent<HTMLElement>) => {
+      applyNativeEllipsisTitle(event.currentTarget as HTMLElement, label)
+    }
+    const handleToggleLabelFocus = (label: string) => (event: ReactFocusEvent<HTMLElement>) => {
+      applyNativeEllipsisTitle(event.currentTarget as HTMLElement, label)
+    }
+    const handleToggleLabelLeave = (event: ReactMouseEvent<HTMLElement> | ReactFocusEvent<HTMLElement>) => {
+      (event.currentTarget as HTMLElement).removeAttribute('title')
+    }
     // Extend the counts chip with a suffix that explains how the totals were derived.
     const detectionScopeSuffix = (ruleDetection && ruleDetection.countMode === 'perCombination' && ruleDetection.groupsTracked > 0)
       ? t('keepUniquesRuleCountsPerComboSuffix', { perGroup: ruleDetection.perGroupRequiredCount, groups: ruleDetection.groupsTracked })
@@ -413,10 +431,10 @@ export default function KeepUniquesTab({
             <Box
               // Align the count input beside the scope toggle so the quota intent reads as a single control row.
               sx={{
-                display: 'grid',
-                gridTemplateColumns: 'minmax(0, 140px) minmax(0, 1fr)',
-                gap: 1,
+                display: 'flex',
                 alignItems: 'center',
+                gap: 1,
+                flexWrap: 'wrap',
               }}
             >
               <TextField
@@ -426,7 +444,7 @@ export default function KeepUniquesTab({
                 label={t('keepUniquesRequiredCount')}
                 value={rule.requiredCount}
                 onChange={(event) => {
-                  const raw = Math.max(1, Math.floor(Number(event.target.value) || 1))
+                  const raw = Math.min(9999, Math.max(1, Math.floor(Number(event.target.value) || 1)))
                   updateRule(rule.id, (prev) => ({ ...prev, requiredCount: raw }))
                 }}
                 InputProps={{
@@ -436,7 +454,7 @@ export default function KeepUniquesTab({
                       ariaLabel={t('keepUniquesRequiredCount')}
                       onStep={(delta) => {
                         updateRule(rule.id, (prev) => {
-                          const next = Math.max(1, Math.floor((prev.requiredCount ?? 1) + delta))
+                          const next = Math.max(1, Math.min(9999, Math.floor((prev.requiredCount ?? 1) + delta)))
                           return { ...prev, requiredCount: next }
                         })
                       }}
@@ -444,7 +462,8 @@ export default function KeepUniquesTab({
                   ),
                 }}
                 sx={(themeInner) => ({
-                  maxWidth: 100, // Shrink further so long localized labels have more horizontal room.
+                  flex: '0 0 auto',
+                  maxWidth: 130, // Slightly wider so long translations can still read the quantity without wrapping.
                   '& input::-webkit-outer-spin-button, & input::-webkit-inner-spin-button': {
                     WebkitAppearance: 'none',
                     margin: 0,
@@ -464,13 +483,13 @@ export default function KeepUniquesTab({
                   max: 9999, // UI enforces realistic quotas while still allowing manual entry if needed.
                 }}
               />
-              <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <Box sx={{ display: 'flex', justifyContent: 'flex-end', minWidth: 0, flex: 1 }}>
                 {/* Toggle mirrors the preview button group so the quota scope is obvious at a glance. */}
                 <MarkdownTooltip markdown={t('keepUniquesCountModeHint')}>
                   <Box
                     component="span"
                     data-rule-card-interactive="true"
-                    sx={{ display: 'inline-flex', width: '100%', justifyContent: 'flex-end' }}
+                    sx={{ display: 'inline-flex', minWidth: 0 }}
                   >
                     <ToggleButtonGroup
                       size="small"
@@ -485,6 +504,7 @@ export default function KeepUniquesTab({
                         }))
                       }}
                       sx={{
+                        minWidth: 0,
                         height: SMALL_BUTTON_HEIGHT_PX,
                         '& .MuiToggleButtonGroup-grouped:not(:first-of-type)': {
                           marginLeft: 0,
@@ -501,14 +521,36 @@ export default function KeepUniquesTab({
                         aria-label={perSetLabel}
                         sx={{ px: 1.25, minWidth: 0, height: SMALL_BUTTON_HEIGHT_PX, minHeight: SMALL_BUTTON_HEIGHT_PX, textTransform: 'none' }}
                       >
-                        <Typography component="span" noWrap sx={ELLIPSIS_TEXT_SX}>{perSetLabel}</Typography>
+                        <Typography
+                          component="span"
+                          noWrap
+                          sx={ELLIPSIS_TEXT_SX}
+                          data-ellipsis-target
+                          onMouseEnter={handleToggleLabelMouseEnter(perSetLabel)}
+                          onMouseLeave={handleToggleLabelLeave}
+                          onFocus={handleToggleLabelFocus(perSetLabel)}
+                          onBlur={handleToggleLabelLeave}
+                        >
+                          {perSetLabel}
+                        </Typography>
                       </ToggleButton>
                       <ToggleButton
                         value="perRule"
                         aria-label={perRuleLabel}
                         sx={{ px: 1.25, minWidth: 0, height: SMALL_BUTTON_HEIGHT_PX, minHeight: SMALL_BUTTON_HEIGHT_PX, textTransform: 'none' }}
                       >
-                        <Typography component="span" noWrap sx={ELLIPSIS_TEXT_SX}>{perRuleLabel}</Typography>
+                        <Typography
+                          component="span"
+                          noWrap
+                          sx={ELLIPSIS_TEXT_SX}
+                          data-ellipsis-target
+                          onMouseEnter={handleToggleLabelMouseEnter(perRuleLabel)}
+                          onMouseLeave={handleToggleLabelLeave}
+                          onFocus={handleToggleLabelFocus(perRuleLabel)}
+                          onBlur={handleToggleLabelLeave}
+                        >
+                          {perRuleLabel}
+                        </Typography>
                       </ToggleButton>
                     </ToggleButtonGroup>
                   </Box>
