@@ -434,7 +434,7 @@ export default function KeepUniquesTab({
                 display: 'flex',
                 alignItems: 'center',
                 gap: 1,
-                flexWrap: 'wrap',
+                flexWrap: 'nowrap',
               }}
             >
               <TextField
@@ -483,7 +483,7 @@ export default function KeepUniquesTab({
                   max: 9999, // UI enforces realistic quotas while still allowing manual entry if needed.
                 }}
               />
-              <Box sx={{ display: 'flex', justifyContent: 'flex-end', minWidth: 0, flex: 1 }}>
+              <Box sx={{ display: 'flex', justifyContent: 'flex-start', minWidth: 0, flex: '0 1 auto' }}>
                 {/* Toggle mirrors the preview button group so the quota scope is obvious at a glance. */}
                 <MarkdownTooltip markdown={t('keepUniquesCountModeHint')}>
                   <Box
