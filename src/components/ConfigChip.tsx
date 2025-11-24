@@ -353,6 +353,10 @@ function ConfigChip({
       onMouseLeave={() => { onHover(false); setChipHover(false) }}
       onContextMenu={(e) => {
         try { e.preventDefault(); e.stopPropagation() } catch {}
+        if (!isSeparator && !selected) {
+          // Align context-click with normal selection so menu actions target the right chip.
+          onSelect(e)
+        }
         onContextMenuHintSeen?.()
         onHover(false)
         setChipHover(false)
