@@ -146,6 +146,11 @@ This document captures runtime behavior, builder interactions, and user-facing w
 - Jump-to-config wiring (`onJumpToRule`) mirrors the Rule Tester: clicking a matching-config chip in the grid still focuses the builder rule, even while the Keep Uniques tab is active.
 - The tester-match worker is enabled again. Rule configurations (and the keep-unique injections that come back from the worker warm) are serialized via a fingerprint; whenever that fingerprint changes we rebuild the tester rows even if no artifacts changed so keep-only rules surface in the `match` column immediately. While the worker processes a build, the Keep Unique grid keeps rendering the last applied matches and only unfreezes rows once the worker commit includes the new ruleset and detection fingerprint.
 
+### Sellfile preview integration
+
+- Keep Unique injections land at the top of the Sellfile Preview table (ahead of base/custom/final rules) but are rendered as config-less rows so the “Cfg” column shows a hollow star icon instead of a numeric index. Clicking these rows no longer attempts to select a builder config, preventing the `KEEP_UNIQUES_CFG_SENTINEL` value from polluting selection state.
+- The preview scroll helper ignores those sentinel rows when it computes config spans, so jumping to a config or clicking a config chip always scrolls to the first matching builder row even if Keep Unique overrides are prepended to the list. Keep Unique rows still participate in focus jumps (Rule Tester → preview, Keep Unique grid chips → preview); when a jump targets one of these rules the preview scrolls directly to that row while leaving the builder selection untouched.
+
 ## Production-only Restrictions
 
 - Native context menu and text selection are disabled globally in production builds to reduce accidental edits and copy noise. App context menus continue to work (native menu is prevented, propagation allowed).

@@ -4,8 +4,9 @@ import { alpha } from '@mui/material/styles'
 import type { PaperProps as MuiPaperProps } from '@mui/material/Paper'
 import VisibilityIcon from '@mui/icons-material/Visibility'
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff'
+import StarBorderIcon from '@mui/icons-material/StarBorder'
 import type { HsfRule } from '../lib/hsfTypes'
-import { RULE_SOURCE_FINAL_SELL, RULE_SOURCE_HSF, RULE_SOURCE_HSFC, type HsfRuleWithCfg, type RuleSource } from '../lib/merge'
+import { RULE_SOURCE_FINAL_SELL, RULE_SOURCE_HSF, RULE_SOURCE_HSFC, RULE_SOURCE_KEEP_UNIQUES, type HsfRuleWithCfg, type RuleSource } from '../lib/merge'
 import { /* formatArtifactSets */ formatLevel, formatRank, /* labelOfVariant, */ mainToVariant, rarityCodeToName, artifactSetName, compareArtifactTypes, artifactTypeI18nKey, artifactSetI18nKey, statVariantI18nKey, compareArtifactSets, factionI18nKey, type FactionId } from '../lib/types'
 import EllipsisTooltip from './EllipsisTooltip'
 import MarkdownTooltip from './MarkdownTooltip'
@@ -38,6 +39,7 @@ import ContextMenuPaper from './ContextMenuPaper'
 import { useAnimatedEllipsis } from '../hooks/useAnimatedEllipsis'
 import { HEADER_MENU_LABEL_SX } from './tableHeaderMenuStyles'
 import { EmptyStateMessage } from './EmptyStateMessage'
+import { KEEP_UNIQUES_CFG_SENTINEL } from '../lib/keepUniques'
 
 // Preview rows stay at their fixed height (≈30px). Keep the inline faction icon
 // slightly smaller than the default select size so the row metrics remain
@@ -49,6 +51,14 @@ const FACTION_ICON_PREVIEW_OFFSET_PX = 0 as const
 // Single-line spans now stay centered with no vertical nudge; keep the constant for quick tuning across browsers.
 const SINGLE_LINE_PREVIEW_OFFSET_PX = 3 as const
 const FOCUS_SCROLL_MAX_ATTEMPTS = 6 as const
+// Builder configs map rows by __cfgIdx, but keep-unique injections carry a negative sentinel.
+// Filter those sentinels (and any other negative indexes) so selection math only considers real configs.
+const resolveDisplayCfgIdx = (raw: unknown): number | null => {
+  if (typeof raw !== 'number' || !Number.isFinite(raw)) return null
+  if (raw === KEEP_UNIQUES_CFG_SENTINEL) return null
+  if (raw < 0) return null
+  return Math.floor(raw)
+}
 
 export function HsfRulesTable({ rules, building = false, setHoveredCfgIdx, selectedCfgIdx, multiselectActive, onSelectCfgIdx, onConfigAction, onClearBase, onConfigureFinalSell, onOpenManageColors, colorIconSrc, substatColors, colorBlindMode, onChangeColorBlindMode, emptyDueToFilter = false, limitExceeded = false, focusRuleIndex = null, onFocusRuleSettled }: {
   rules: HsfRuleWithCfg[]
@@ -305,8 +315,8 @@ export function HsfRulesTable({ rules, building = false, setHoveredCfgIdx, selec
     for (let i = 0; i < rules.length; i += 1) {
       const rule = rules[i] as HsfRuleWithCfg | undefined
       if (!rule) continue
-      const cfgIdx = rule.__cfgIdx
-      if (typeof cfgIdx !== 'number' || Number.isNaN(cfgIdx)) continue
+      const cfgIdx = resolveDisplayCfgIdx(rule.__cfgIdx)
+      if (cfgIdx === null) continue
       const existing = spans.get(cfgIdx)
       if (existing) {
         existing.last = i
@@ -1226,7 +1236,7 @@ export function HsfRulesTable({ rules, building = false, setHoveredCfgIdx, selec
                     const idx = baseIndex + i
                     const rule = r as HsfRuleWithCfg
                     const cfgIdxRaw = rule.__cfgIdx
-                    const cfgIdxNumber = (typeof cfgIdxRaw === 'number' && Number.isFinite(cfgIdxRaw)) ? cfgIdxRaw : null
+                    const cfgIdxNumber = resolveDisplayCfgIdx(cfgIdxRaw)
                     const lineIdx = typeof rule.__lineIdx === 'number' ? rule.__lineIdx : idx
                     if (idx >= visibleStartIdx && idx < visibleEndIdxExclusive) {
                       const lineForRange = lineIdx
@@ -1234,12 +1244,18 @@ export function HsfRulesTable({ rules, building = false, setHoveredCfgIdx, selec
                       if (lastVisibleLineIdx === null || lineForRange > lastVisibleLineIdx) lastVisibleLineIdx = lineForRange
                     }
                     const resolvedSource: RuleSource = (() => {
-                      if (rule.__source === RULE_SOURCE_HSF || rule.__source === RULE_SOURCE_HSFC || rule.__source === RULE_SOURCE_FINAL_SELL) {
+                      if (
+                        rule.__source === RULE_SOURCE_HSF
+                        || rule.__source === RULE_SOURCE_HSFC
+                        || rule.__source === RULE_SOURCE_FINAL_SELL
+                        || rule.__source === RULE_SOURCE_KEEP_UNIQUES
+                      ) {
                         return rule.__source
                       }
                       if (cfgIdxNumber !== null) return RULE_SOURCE_HSFC
                       return RULE_SOURCE_HSF
                     })()
+                    const isKeepUniqueSource = resolvedSource === RULE_SOURCE_KEEP_UNIQUES
                 return (
                 <TableRow
                   key={idx}
@@ -1266,7 +1282,7 @@ export function HsfRulesTable({ rules, building = false, setHoveredCfgIdx, selec
                   // Do not clear on row leave; container onMouseLeave clears once.
                   onClick={() => {
                     if (cfgIdxNumber !== null) {
-                      // Mark that selection originated from table row; suppress auto-scroll once
+                      // Keep-unique rows surface in the preview but do not map to chips, so only real configs trigger selection + auto-scroll.
                       suppressNextScrollRef.current = true
                       onSelectCfgIdx(cfgIdxNumber)
                     }
@@ -1303,8 +1319,26 @@ export function HsfRulesTable({ rules, building = false, setHoveredCfgIdx, selec
                       {visibleCols.map((c) => {
                         let value: string = ''
                         let factionLabel: string | null = null
+                        let cfgSpecialContent: React.ReactNode | null = null
                         if (c.key === 'SubstatsSummary') value = getSubstatSummary(rule)
-                        else if (c.key === 'CfgIdx') value = (cfgIdxNumber !== null) ? String(cfgIdxNumber + 1) : ''
+                        else if (c.key === 'CfgIdx') {
+                          if (cfgIdxNumber !== null) {
+                            value = String(cfgIdxNumber + 1)
+                          } else if (isKeepUniqueSource) {
+                            // Keep-unique injections display a hollow star so users can distinguish them from builder configs at a glance.
+                            cfgSpecialContent = (
+                              <Box
+                                component="span"
+                                sx={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '100%' }}
+                                aria-label={t('keepUniquesTabLabel')}
+                              >
+                                <StarBorderIcon fontSize="inherit" />
+                              </Box>
+                            )
+                          } else {
+                            value = ''
+                          }
+                        }
                         else if (c.key === 'Keep') value = rule.Keep ? t('keepValueKeep') : t('keepValueSell')
                         else if (c.key === 'Use') value = rule.Use ? '✓' : '-'
                     else if (c.key === 'ArtifactTypeNames') {
@@ -1345,6 +1379,9 @@ export function HsfRulesTable({ rules, building = false, setHoveredCfgIdx, selec
                             />
                           )
                           : (value || '')
+                        if (c.key === 'CfgIdx' && cfgSpecialContent) {
+                          content = cfgSpecialContent
+                        }
                         // Replace textual slots with icons when enabled
                         if (c.key === 'ArtifactTypeNames' && showSlotIcons) {
                           const types = getSortedArtifactTypes(rule)
