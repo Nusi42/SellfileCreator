@@ -12,6 +12,7 @@ import {
   BUILDER_FIELD_KEYS,
   applyMultiEditFieldsToConfig,
   getDirtyBuilderFieldKeys,
+  cloneBuilderConfig,
   type MultiEditDraftState,
   type BuilderFieldKey,
   type MultiEditFieldCommit,
@@ -456,7 +457,7 @@ export function useConfigSelection({
         const copies = selected
           .map(i => (i >= 0 && i < prev.length ? prev[i] : undefined))
           .filter((cfg): cfg is BuilderConfig => Boolean(cfg))
-          .map(cfg => ({ ...cfg }))
+          .map(cfg => cloneBuilderConfig(cfg)) // ensure duplicates never share references
         if (copies.length === 0) {
           describeNextChange(null)
           return prev
@@ -657,7 +658,7 @@ export function useConfigSelection({
         }
         const clampedTarget = Math.max(0, Math.min(prev.length, rawTargetIndex))
         if (mode === 'copy') {
-          const copies = movingItems.map(cfg => ({ ...cfg }))
+          const copies = movingItems.map(cfg => cloneBuilderConfig(cfg)) // copy entries with fresh identity
           if (copies.length === 0) {
             describeNextChange(null)
             return prev

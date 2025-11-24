@@ -103,6 +103,12 @@ This document captures runtime behavior, builder interactions, and user-facing w
   - **Worker still required:** inserting configs or applying the builder to multiple rows continues to flow through the worker. Earlier attempts to splice new batches locally regressed total-limit enforcement and metaset expansion, so the worker remains authoritative for those paths.
   - **Open issues:** the React dev warning _“Cannot update a component (App) while rendering a different component (AppStateProvider)”_ still fires when selection churn is heavy; the selection reducer still issues updates during render and needs a dedicated cleanup. Long lists also trigger `[Violation] Forced reflow` due to table virtualization—`HsfRulesTable` still requires follow-up profiling.
 
+### Config selection identity
+
+- The chips panel and history stack track configs by object identity so reorders can map selections back onto the mutated array without diffing every field. Whenever an operation produces a new config (builder insert, duplicate, reorder-copy, clipboard paste, tutorial snapshot), call `cloneBuilderConfig` from `src/lib/multiEditDraft.ts` before writing it into `customCfgs`.
+- Never push shared references into the configs array; identical payloads must still be distinct objects so selection updates don’t accidentally sweep every matching config. `cloneBuilderConfig` reuses the per-field clone helpers, so nested arrays (`substatsV`, `artifactSets`, etc.) are detached as well.
+- When updating an existing config (e.g., “Apply Builder”), clone the builder draft once and reuse that object for both history descriptors and the `setCustomCfgs` call. This keeps undo/redo snapshots aligned with the chip identity the selection logic will reference after the update.
+
 ## Keep Uniques
 
 ### Final Sell dialog integration

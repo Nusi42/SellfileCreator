@@ -129,7 +129,7 @@ import { useTesterItemsActions } from './hooks/useTesterItemsActions'
 type TesterMatchResetReason = 'restore' | 'hsfc' | 'gearDb'
 import { getConfigHoverIndex, setConfigHoverIndex, subscribeConfigHover } from './lib/configHoverBridge'
 import { useBuilderPreviewLayout } from './hooks/useBuilderPreviewLayout'
-import { getDirtyBuilderFieldKeys } from './lib/multiEditDraft'
+import { getDirtyBuilderFieldKeys, cloneBuilderConfig } from './lib/multiEditDraft'
 import { useTooltipScrollGuard } from './hooks/useTooltipScrollGuard'
 import { useModalCleanup } from './hooks/useModalCleanup'
 import { useTutorialCoachState } from './hooks/useTutorialCoachState'
@@ -2177,7 +2177,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       setCustomCfgs(prev => {
         const base = prev[idx]
         if (!base) return prev
-        const copy: BuilderConfig = { ...base }
+        // Duplicate via clone so downstream selection sees a unique object.
+        const copy: BuilderConfig = cloneBuilderConfig(base)
         const arr = [...prev]
         const insertIdx = insertIndexAfter(arr, idx)
         arr.splice(insertIdx, 0, copy)
@@ -2828,17 +2829,19 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       onChange={setBuilder}
       onAddToCustom={() => {
         const currentBuilder = builderRef.current
+        // Clone the builder snapshot so configs never share object identity.
+        const insertedCfg = cloneBuilderConfig(currentBuilder)
         const insertIdx = (selectedCfgIdx !== null && selectedCfgIdx >= 0 && selectedCfgIdx < customCfgs.length)
           ? selectedCfgIdx + 1
           : customCfgs.length
         const nextCfgs = [
           ...customCfgs.slice(0, insertIdx),
-          currentBuilder,
+          insertedCfg,
           ...customCfgs.slice(insertIdx),
         ]
         const descriptor = describeConfigAdded({
           index: insertIdx,
-          cfg: currentBuilder,
+          cfg: insertedCfg,
           previous: customCfgs,
           t,
           metasets,
@@ -2861,11 +2864,13 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       onUpdateSelected={() => {
         if (selectedCfgIdx === null) return
         const currentBuilder = builderRef.current
+        // Clone once so history + state updates see the same detached snapshot.
+        const nextConfig = cloneBuilderConfig(currentBuilder)
         const previousCfg = customCfgs[selectedCfgIdx] ?? null
         if (previousCfg) {
           const descriptor = describeBuilderConfigUpdate({
             previous: previousCfg,
-            next: currentBuilder,
+            next: nextConfig,
             index: selectedCfgIdx,
             t,
             metasets,
@@ -2874,7 +2879,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         } else {
           describeNextChange(null)
         }
-        setCustomCfgs(prev => prev.map((c, i) => (i === selectedCfgIdx ? currentBuilder : c)))
+        setCustomCfgs(prev => prev.map((c, i) => (i === selectedCfgIdx ? nextConfig : c)))
       }}
       registerAutoApplyHandler={registerAutoApplyHandler}
       metasets={metasets}

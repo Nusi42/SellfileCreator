@@ -4,6 +4,7 @@ import { flushSync } from 'react-dom'
 import { APP_VERSION } from '../version'
 import { FINAL_SELL_DEFAULT_LEVELS, README_SEEN_VERSION_KEY, TUTORIAL_SEEN_VERSION_KEY } from '../lib/constants'
 import { defaultSubstatTargets, type BuilderConfig, type SubstatTargetTable } from '../lib/hsfBuilder'
+import { cloneBuilderConfig } from '../lib/multiEditDraft'
 import type { HsfFile } from '../lib/hsfTypes'
 import { defaultMetasets, makeMetasetId, type Metaset } from '../lib/metasets'
 import { DEFAULT_METASET_ICON_ID } from '../lib/metasetIcons'
@@ -619,7 +620,7 @@ export function useTutorialCoachState({
       const srcSubstatTargets = substatTargetsRef.current
       const srcFsr = fsrRef.current
       const srcBuilder = builderRef.current
-      const cloneCfgs = srcCfgs.map((cfg) => ({ ...cfg }))
+      const cloneCfgs = srcCfgs.map((cfg) => cloneBuilderConfig(cfg)) // ensure tutorial snapshots stay isolated
       const cloneMetas = srcMetas.map((meta) => ({ ...meta, sets: meta.sets.slice() }))
       const clonedSubstatTargets = JSON.parse(JSON.stringify(srcSubstatTargets)) as SubstatTargetsState
       const cloneFsr = JSON.parse(JSON.stringify(srcFsr)) as FinalSellRemainderConfig

@@ -233,6 +233,24 @@ export function cloneBuilderFieldValue(key: BuilderFieldKey, value: unknown): un
   }
 }
 
+/**
+ * cloneBuilderConfig
+ *
+ * Creates a field-aware clone so configs stored elsewhere never share object
+ * identity. Selection logic tracks entries by reference, so duplicate configs
+ * must receive fresh objects even when their payloads match.
+ */
+export function cloneBuilderConfig(source: BuilderConfig): BuilderConfig {
+  const clone: BuilderConfig = { ...source }
+  for (const key of BUILDER_FIELD_KEYS) {
+    if (!Object.prototype.hasOwnProperty.call(source, key)) continue
+    // Use the per-field clone helper so nested collections are detached.
+    const clonedValue = cloneBuilderFieldValue(key, source[key]) as BuilderConfig[typeof key]
+    (clone as Record<BuilderFieldKey, BuilderConfig[BuilderFieldKey]>)[key] = clonedValue
+  }
+  return clone
+}
+
 function createFieldStateForKey(configs: BuilderConfig[], key: BuilderFieldKey): MultiEditFieldState {
   const first = configs[0]!
   const firstValue = first[key]
