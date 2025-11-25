@@ -250,6 +250,7 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
   const { t } = useI18n()
   const theme = useTheme()
   const suppressMatchDetails = Boolean(suppressMatchDetailsProp)
+  // Group tree is recalculated only when the dataset or locale changes so TanStack can reuse measured rows.
   const groups = useMemo(() => groupRowsBySet(rows, t), [rows, t])
   const numberFormatter = useMemo(() => new Intl.NumberFormat(undefined), [])
   const {
@@ -262,7 +263,9 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     setShowOtherMatches,
     setShowChampionIcons,
   } = useTesterGridPreferences()
+  // Preferences keep the old 4/5 column toggle alive even while Keep Uniques forces two columns.
   const storedColumnPreference = gridColumnPreference === 5 ? 5 : 4
+  // Context-menu helper drives the "long press for menu" overlay when users have not seen it yet.
   const {
     shouldShow: shouldShowGridContextHint,
     markSeen: markGridContextHintSeen,
@@ -436,6 +439,7 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     observer.observe(node)
     return () => observer.disconnect()
   }, [])
+  // Scroll-hint text mirrors the first visible card, so we sample DOM positions whenever virtualization shifts.
   const measureFirstVisibleRow = useCallback(() => {
     measureVisibleRowRafRef.current = null
     const container = containerRef.current
@@ -466,6 +470,7 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
   }, [measureFirstVisibleRow])
 
   const [scrollVersion, setScrollVersion] = useState(0)
+  // Scroll handler feeds TanStack, the scroll hint, and the on-demand card reveal queue.
   const handleScroll = useCallback<React.UIEventHandler<HTMLDivElement>>((event) => {
     setScrollTop(event.currentTarget.scrollTop)
     if (!scrollHintVisibleRef.current) {
@@ -534,6 +539,7 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
   ])
   const getGroupKey = useCallback((index: number) => groupKeys[index] ?? `tester-group-${index}`, [groupKeys])
   // Virtualizer tracks just the top-level groups; it measures the rendered accordions so expansion/collapse stays in sync automatically.
+  // Top-level TanStack virtualizer handles accordion headers; leaf grids clip rows internally.
   const rowVirtualizer = useVirtualizer({
     count: groups.length,
     getScrollElement: () => containerRef.current,
@@ -622,6 +628,7 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     const resolvedGroup = groupLabel || t('testerValueUnknown')
     return t('testerGridScrollHint', { group: resolvedGroup, detail })
   }, [firstVisibleRowId, rowGroupLabelLookup, rowLookup, t])
+  // Scroll hint stays accurate even when virtualization reshuffles rows or the user toggles chip rows.
   useLayoutEffect(() => {
     scheduleMeasureFirstVisibleRow()
   }, [
@@ -643,6 +650,7 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
       </EmptyStateMessage>
     )
   }
+  // Recursive renderer keeps accessory faction/group accordions in sync with the virtualized rows.
   const renderGroup = (group: TesterGroup, depth = 0): React.ReactNode => {
     const groupCountLabel = group.rows.length === 1
       ? t('testerItemsCountOne')
@@ -968,6 +976,7 @@ const TesterItemsGridGroup = React.memo(function TesterItemsGridGroup({
   const nested = depth > 0
   const theme = useTheme()
   const gridRowGapPx = pxValue(theme.spacing(GRID_GAP))
+  // Card rows are chunked per accordion so nested groups can virtualize independently of the root list.
   const cardRowChunks = useMemo(() => {
     if (hasChildren) return []
     const columns = Math.max(1, gridColumnCount)
@@ -982,6 +991,7 @@ const TesterItemsGridGroup = React.memo(function TesterItemsGridGroup({
   // Tall leaf accordions animate poorly because TanStack remeasures every frame, so skip the transition once the
   // virtualization path is active (global mass-expands still flip the shared disable flag).
   const shouldSkipAccordionAnimation = disableAccordionAnimations || shouldVirtualizeLeafRows
+  // Leaf accordions track scroll offsets to decide how aggressively to virtualize their cards.
   const gridContentRef = useRef<HTMLDivElement | null>(null)
   const leafPriorityBaseRef = useRef<number>(0)
   const leafPrioritySignatureRef = useRef<string | null>(null)
@@ -1023,6 +1033,7 @@ const TesterItemsGridGroup = React.memo(function TesterItemsGridGroup({
   }, [cardHeightPx, cardRowCount, gridRowGapPx])
   const effectiveGridAbsoluteOffset = gridAbsoluteOffset ?? scrollOffset
   const hasUsableGridOffset = Number.isFinite(effectiveGridAbsoluteOffset)
+  // Leaf virtualization only kicks in once we know the card stride; nested accordions fall back otherwise.
   const canVirtualizeLeafRows = Boolean(
     shouldVirtualizeLeafRows
       && hasUsableGridOffset
@@ -1039,6 +1050,7 @@ const TesterItemsGridGroup = React.memo(function TesterItemsGridGroup({
     // Fallback offset keeps virtualization active on the first expansion before the accordion reports its true position.
     const relativeStart = viewportStart - effectiveGridAbsoluteOffset
     const relativeEnd = viewportEnd - effectiveGridAbsoluteOffset
+    // Manual overscan keeps keyboard/PageDown smooth without re-rendering the full accordion.
     const overscan = GRID_LEAF_VIRTUAL_OVERSCAN_ROWS
     const start = Math.max(0, Math.floor(relativeStart / cardRowStridePx) - overscan)
     const end = Math.min(cardRowCount, Math.ceil(relativeEnd / cardRowStridePx) + overscan)
@@ -1050,6 +1062,7 @@ const TesterItemsGridGroup = React.memo(function TesterItemsGridGroup({
     rowPadBottomPx = Math.max(0, totalRowsHeightPx - rowPadTopPx - visibleHeightPx)
   }
   // Signature pairs the scroll version with the measured row window so we only bump the priority base when needed.
+  // Priority signature avoids starving off-screen reveals when accordions are recycled mid-scroll.
   const prioritySignature = canVirtualizeLeafRows
     ? `${scrollVersion}:${rowRangeStart}:${rowRangeEnd}`
     : `${scrollVersion}:static:${group.key}:${group.rows.length}`
@@ -1310,6 +1323,7 @@ const TesterGridCard = React.memo(function TesterGridCard({
       onJumpToRule?.(primaryRuleIndex, primaryCfgIndex ?? null)
     }
   }
+  // Matching chips hydrate lazily so skeleton rows can avoid heavy string work until revealed.
   const matchingEntries: MatchingConfigEntry[] = useMemo(() => {
     if (!cardContentReady) return []
     if (!Array.isArray(row.matchingCfgIndices)) return []
@@ -1380,6 +1394,7 @@ const TesterGridCard = React.memo(function TesterGridCard({
     : normalizedVisibleLimit
   const visibleOtherMatching = otherMatchingEntries.slice(0, effectiveVisibleOtherMatchingLimit)
   const hiddenOtherMatching = otherMatchingEntries.slice(effectiveVisibleOtherMatchingLimit)
+  // Gap + refs let us squeeze as many chips as possible before handing the overflow to a popover.
   const matchingChipGapPx = pxValue(String(theme.spacing(MATCHING_CHIP_GAP_UNITS)))
   const visibleChipsContainerRef = useRef<HTMLDivElement | null>(null)
   const handleVisibleChipsContainerRef = useCallback((node: HTMLDivElement | null) => {
@@ -1410,6 +1425,7 @@ const TesterGridCard = React.memo(function TesterGridCard({
     }
   }, [hiddenOtherMatching.length])
   const hasHiddenMatches = hiddenOtherMatching.length > 0
+  // Available width is recalculated whenever the +N chip resizes so text never overflows.
   const visibleChipsAvailableWidth = hasHiddenMatches
     ? Math.max(0, otherMatchesRowWidth - (moreChipWidth + matchingChipGapPx))
     : otherMatchesRowWidth
@@ -1439,6 +1455,7 @@ const TesterGridCard = React.memo(function TesterGridCard({
   const handleMatchingPopoverClose = useCallback(() => {
     setMatchingPopoverAnchor(null)
   }, [])
+  // Overflow chip defers the popover until the user explicitly taps it to keep VT tree shallow.
   const handleMatchingMoreClick = (event: React.MouseEvent<HTMLElement>) => {
     if (hiddenOtherMatching.length === 0) return
     setMatchingPopoverAnchor(event.currentTarget)
@@ -1657,6 +1674,7 @@ const TesterGridCard = React.memo(function TesterGridCard({
   const SourceIcon = sourceDescriptor ? SOURCE_ICON_MAP[sourceDescriptor.category] : null
   const sourceTooltipTitle = sourceDescriptor ? (sourceDescriptor.tooltip ?? sourceDescriptor.label ?? '') : ''
   const championIconSrc = championIconUrl(artifact.equippedChampionBaseId ?? artifact.equippedToChampionId)
+  // Collection/vault rows show champion avatars inline when there is enough grid width.
   const championIconMode = (() => {
     if (!showChampionIcons || !championIconSrc || !sourceDescriptor) return 'none' as const
     if (sourceDescriptor.category !== 'collection' && sourceDescriptor.category !== 'vault') return 'none' as const
@@ -1676,6 +1694,7 @@ const TesterGridCard = React.memo(function TesterGridCard({
       || (isVaultSource && !shouldShowVaultBadgeIcon)
     ),
   )
+  // Smaller badges fall back to a single glyph so collapsed accordions stay lightweight.
   const SourceGlyph = shouldShowStandaloneSourceIcon && SourceIcon ? SourceIcon : null
   const sourceIconLabel = sourceDescriptor?.label ?? ''
   const championIconSize = championIconMode === 'large'
@@ -1718,6 +1737,7 @@ const TesterGridCard = React.memo(function TesterGridCard({
       {ascSummaryContent}
     </Box>
   ) : null
+  // Keep/sell outcome surfaces the rule chip inline so keyboard users do not need to open popovers.
   const cardOutcome = !suppressMatchDetails && match
     ? {
         tone: match.keep === false ? theme.palette.error.main : theme.palette.success.main,
@@ -2240,6 +2260,7 @@ let testerGridCardRevealQueueDirty = false
 const testerGridCardSeenIds = new Set<number>()
 
 function useTesterGridCardContentReady(rowId: number | null, priorityBase: number, priorityOrder: number): boolean {
+  // Priority values keep row order deterministic while cards are still in their skeleton state.
   const normalizedBase = Number.isFinite(priorityBase) ? Math.max(0, priorityBase) : 0
   const normalizedOrder = Number.isFinite(priorityOrder) ? Math.max(0, priorityOrder) : 0
   const [ready, setReady] = useState(() => (
@@ -2333,6 +2354,7 @@ type FactionGroupBuilder = {
 }
 
 function groupRowsBySet(rows: readonly TesterPreviewRow[], translate: TranslateFn): TesterGroup[] {
+  // Artifact sets form flat accordions, while accessories nest faction->set accordions for readability.
   const artifactGroups = new Map<string, TesterGroup>()
   const factionGroups = new Map<string, FactionGroupBuilder>()
 
@@ -2432,6 +2454,7 @@ function getTesterCardHeight(
   cardVerticalPaddingPx: number,
   firstRowHeightPx: number,
 ): number {
+  // Card height is deterministic so TanStack can predict row heights without sampling.
   let height = firstRowHeightPx + cardVerticalPaddingPx
   const visibleRows = (showFirst ? 1 : 0) + (showOther ? 1 : 0)
   if (visibleRows > 0) {
@@ -2479,6 +2502,7 @@ const typographySizeToPx = (value: string | number | undefined, htmlFontSize: nu
 }
 
 function getTesterGridCardColumnHeights(theme: Theme, gridColumnCount: number): GridCardColumnHeights {
+  // Both columns feed into card height + virtualization, so we translate theme typography to raw px once.
   const htmlFontSize = Number(theme.typography.htmlFontSize) || DEFAULT_HTML_FONT_SIZE_PX
   const summaryFontSizePx = CARD_SUMMARY_FONT_SIZE_REM * htmlFontSize
   const summaryLineHeightPx = CARD_SUMMARY_LINE_HEIGHT_REM * htmlFontSize
@@ -2527,6 +2551,7 @@ function useTesterGridLayoutMetrics({
   showOtherMatches,
   theme,
 }: UseTesterGridLayoutMetricsOptions): TesterGridLayoutMetrics {
+  // Layout metrics re-run only on breakpoint or toggle changes so the cards stay stable across renders.
   const isMultiColumn = useMediaQuery(theme.breakpoints.up('sm'))
   const gridColumnCount = isMultiColumn ? preferredColumnCount : 1
   const accordionSpacingPx = useMemo(() => pxValue(theme.spacing(ACCORDION_MARGIN_UNITS)), [theme])
