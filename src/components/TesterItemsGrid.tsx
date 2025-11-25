@@ -515,7 +515,17 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     }
   }, [])
   const estimatedColumnCount = gridColumnCount
-  const groupKeys = useMemo(() => groups.map((group) => group.key), [groups])
+  const virtualizationLayoutSignature = useMemo(() => (
+    // Layout signature rolls up every spacing input TanStack cares about so collapsed accordions reset stale heights.
+    `${gridColumnCount}:${accordionSpacingPx}:${gridGapPx}:${gridLeafPaddingPx}:${cardHeightPx}`
+  ), [accordionSpacingPx, cardHeightPx, gridColumnCount, gridGapPx, gridLeafPaddingPx])
+  const groupKeys = useMemo(() => (
+    groups.map((group) => {
+      // Include the collapsed state in the key so off-screen accordions shed their cached measurement immediately.
+      const collapsedMarker = collapsedGroups.has(group.key) ? 'collapsed' : 'expanded'
+      return `${group.key}:${collapsedMarker}:${virtualizationLayoutSignature}`
+    })
+  ), [collapsedGroups, groups, virtualizationLayoutSignature])
   const estimateGroupSize = useCallback((index: number) => {
     const group = groups[index]
     if (!group) return 0
