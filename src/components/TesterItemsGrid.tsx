@@ -111,6 +111,7 @@ const ACCORDION_BORDER_RADIUS_PX = 8
 const GRID_GROUP_VIRTUAL_OVERSCAN_ROWS = 2
 const GRID_LEAF_VIRTUALIZE_ROW_THRESHOLD = 40
 const GRID_LEAF_VIRTUAL_OVERSCAN_ROWS = 1
+// Penalize off-screen rows so the reveal queue prefers on-screen cards even while overscanning nested accordions.
 const GRID_CARD_OFFSCREEN_PRIORITY_PENALTY = 1_000_000
 // Allow very tall single-column accordions without letting fallback heights overflow the browser layout.
 // 2M px ~= 9k tester cards stacked vertically, which is well above real data while keeping sums finite.
@@ -146,8 +147,6 @@ const MATCHING_CHIP_WRAPPER_SX = {
 // Skeleton batches spread icon decoding across frames so collapsed accordions can re-open instantly.
 const GRID_CARD_SKELETON_BATCH_SIZE = 6
 const GRID_CARD_SKELETON_FRAME_DELAY_MS = 24
-// Penalize off-screen rows so the reveal queue prefers on-screen cards even while overscanning.
-const GRID_CARD_OFFSCREEN_PRIORITY_PENALTY = 1_000_000
 
 const SOURCE_ICON_MAP: Record<TesterSourceFilter, React.ElementType | null> = {
   manual: BuildOutlinedIcon,
