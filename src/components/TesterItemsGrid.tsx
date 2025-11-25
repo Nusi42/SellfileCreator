@@ -460,6 +460,7 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
         bestId = Number.isFinite(rawId) ? rawId : null
       }
     }
+    if (bestId == null) return
     setFirstVisibleRowId((prev) => (prev === bestId ? prev : bestId))
   }, [])
 
@@ -468,7 +469,6 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     if (measureVisibleRowRafRef.current != null) return
     measureVisibleRowRafRef.current = window.requestAnimationFrame(measureFirstVisibleRow)
   }, [measureFirstVisibleRow])
-
   const [scrollVersion, setScrollVersion] = useState(0)
   // Scroll handler feeds TanStack, the scroll hint, and the on-demand card reveal queue.
   const handleScroll = useCallback<React.UIEventHandler<HTMLDivElement>>((event) => {
@@ -574,6 +574,15 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     })
     return map
   }, [rows])
+  const fallbackScrollHintRowId = useMemo(() => {
+    for (let idx = 0; idx < rows.length; idx += 1) {
+      const candidateId = Number(rows[idx]?.artifact?.id)
+      if (Number.isFinite(candidateId)) {
+        return candidateId
+      }
+    }
+    return null
+  }, [rows])
   const rowGroupLabelLookup = useMemo(() => {
     const map = new Map<number, string>()
     const assign = (group: TesterGroup, factionLabel?: string | null) => {
@@ -608,13 +617,19 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     groups.forEach((group) => assign(group, null))
     return map
   }, [groups])
+  const effectiveScrollHintRowId = useMemo(() => {
+    if (firstVisibleRowId != null && rowLookup.has(firstVisibleRowId)) {
+      return firstVisibleRowId
+    }
+    return fallbackScrollHintRowId
+  }, [fallbackScrollHintRowId, firstVisibleRowId, rowLookup])
   const scrollHintLabel = useMemo(() => {
-    if (firstVisibleRowId == null) return null
-    const row = rowLookup.get(firstVisibleRowId)
+    if (effectiveScrollHintRowId == null) return null
+    const row = rowLookup.get(effectiveScrollHintRowId)
     if (!row) return null
     const artifact = row.artifact
     if (!artifact) return null
-    const groupLabel = rowGroupLabelLookup.get(firstVisibleRowId) ?? ''
+    const groupLabel = rowGroupLabelLookup.get(effectiveScrollHintRowId) ?? ''
     const slotLabel = typeof artifact.slot === 'number'
       ? t(artifactTypeI18nKey(artifact.slot as ArtifactTypeId))
       : ''
@@ -627,7 +642,7 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     const detail = detailParts.length > 0 ? detailParts.join(' ') : t('testerValueUnknown')
     const resolvedGroup = groupLabel || t('testerValueUnknown')
     return t('testerGridScrollHint', { group: resolvedGroup, detail })
-  }, [firstVisibleRowId, rowGroupLabelLookup, rowLookup, t])
+  }, [effectiveScrollHintRowId, rowGroupLabelLookup, rowLookup, t])
   // Scroll hint stays accurate even when virtualization reshuffles rows or the user toggles chip rows.
   useLayoutEffect(() => {
     scheduleMeasureFirstVisibleRow()
@@ -729,6 +744,7 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
           })}
         </Box>
       </Box>
+      {/* Flyout floats above the grid but ignores all pointer/touch events so cards stay interactive. */}
       {scrollHintLabel ? (
         <Box
           aria-hidden={!showScrollGroupHint}
@@ -738,7 +754,6 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
             top: theme.spacing(1.5),
             right: theme.spacing(1.5),
             zIndex: theme.zIndex.tooltip,
-            pointerEvents: 'none',
             px: 1.25,
             py: 0.5,
             borderRadius: theme.shape.borderRadius,
@@ -748,6 +763,8 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
             transition: theme.transitions.create(['opacity', 'transform'], { duration: theme.transitions.duration.shorter }),
             opacity: showScrollGroupHint ? 1 : 0,
             transform: showScrollGroupHint ? 'translateY(0)' : 'translateY(-6px)',
+            pointerEvents: 'none',
+            '& *': { pointerEvents: 'none' },
           })}
         >
           <Typography variant="caption" sx={{ fontWeight: 600, letterSpacing: 0.15 }}>
