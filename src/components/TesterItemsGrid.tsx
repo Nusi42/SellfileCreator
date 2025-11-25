@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useVirtualizer } from '@tanstack/react-virtual'
 import {
   Accordion,
   AccordionSummary,
@@ -9,12 +10,14 @@ import {
   Divider,
   Menu,
   MenuItem,
+  Skeleton,
   Popover,
   Stack,
   Typography,
   useMediaQuery,
 } from '@mui/material'
 import type { PaperProps as MuiPaperProps } from '@mui/material/Paper'
+import type { TransitionProps } from '@mui/material/transitions'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import SellIcon from '@mui/icons-material/Sell'
 import { alpha, useTheme, type Theme } from '@mui/material/styles'
@@ -63,8 +66,6 @@ import {
   MENU_CONTROL_HEIGHT_PX,
   MENU_CONTROL_MIN_WIDTH_PX,
   RULES_TABLE_SCROLL_HINT_HIDE_MS,
-  TESTER_GRID_VIRTUAL_CARD_HEIGHT_TRIM_PX,
-  TESTER_GRID_VIRTUAL_WIDE_CARD_HEIGHT_TRIM_PX,
   type ColorBlindMode,
 } from '../lib/constants'
 import { useContextMenuCloseOnOutsideRightClick } from '../hooks/useContextMenuCloseOnOutsideRightClick'
@@ -106,11 +107,11 @@ const MAX_MATCHING_CHIPS = 6
 const ESTIMATED_ACCORDION_HEADER_PX = 60
 const ACCORDION_MARGIN_UNITS = 0.75
 const ACCORDION_BORDER_RADIUS_PX = 8
-const GRID_VIRTUALIZE_GROUP_THRESHOLD = 12
-const GRID_VIRTUALIZE_ROW_THRESHOLD = 150
-const GRID_VIRTUALIZATION_ENABLED = true
-const GRID_VIRTUALIZE_OVERSCAN_PX = 640
-const GRID_VIRTUALIZE_DEFAULT_VIEWPORT_PX = 720
+// Group-level virtualization uses light overscan because the heavy lifting happens at the card row level.
+const GRID_GROUP_VIRTUAL_OVERSCAN_ROWS = 2
+const GRID_LEAF_VIRTUALIZE_ROW_THRESHOLD = 40
+const GRID_LEAF_VIRTUAL_OVERSCAN_ROWS = 1
+const GRID_CARD_OFFSCREEN_PRIORITY_PENALTY = 1_000_000
 // Allow very tall single-column accordions without letting fallback heights overflow the browser layout.
 // 2M px ~= 9k tester cards stacked vertically, which is well above real data while keeping sums finite.
 const GRID_VIRTUALIZE_MAX_FALLBACK_HEIGHT_PX = 2_000_000
@@ -142,6 +143,12 @@ const MATCHING_CHIP_WRAPPER_SX = {
   flexShrink: 0,
 } as const
 
+// Skeleton batches spread icon decoding across frames so collapsed accordions can re-open instantly.
+const GRID_CARD_SKELETON_BATCH_SIZE = 6
+const GRID_CARD_SKELETON_FRAME_DELAY_MS = 24
+// Penalize off-screen rows so the reveal queue prefers on-screen cards even while overscanning.
+const GRID_CARD_OFFSCREEN_PRIORITY_PENALTY = 1_000_000
+
 const SOURCE_ICON_MAP: Record<TesterSourceFilter, React.ElementType | null> = {
   manual: BuildOutlinedIcon,
   inventory: null,
@@ -160,6 +167,21 @@ const measureMatchingRowContentWidth = (node: HTMLElement): number => {
   const paddingRight = pxValue(style.paddingRight)
   return Math.max(0, node.clientWidth - paddingLeft - paddingRight)
 }
+// Skip Collapse measurement when we need every accordion to open at once.
+const InstantAccordionTransition = React.forwardRef<HTMLDivElement, TransitionProps & { children?: React.ReactNode }>(
+  function InstantAccordionTransition({ in: inProp, children }, ref) {
+    if (!inProp) {
+      return null
+    }
+    if (!React.isValidElement(children)) {
+      return null
+    }
+    return React.cloneElement(children, { ref })
+  },
+)
+
+const INSTANT_ACCORDION_TRANSITION_SLOTS = { transition: InstantAccordionTransition } as const
+
 type TranslateFn = ReturnType<typeof useI18n>['t']
 
 // Variant toggles keep-uniques specific layout while keeping the base tester grid intact.
@@ -264,6 +286,30 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     }
   }, [shouldShowGridContextHint])
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(() => new Set())
+  // Accordion animation state lets mass-expands skip the expensive auto height tween.
+  const [accordionAnimationsDisabled, setAccordionAnimationsDisabled] = useState(false)
+  const accordionAnimationResetRafRef = useRef<number | null>(null)
+  const disableAccordionAnimationsTemporarily = useCallback(() => {
+    setAccordionAnimationsDisabled(true)
+    if (typeof window === 'undefined') {
+      setAccordionAnimationsDisabled(false)
+      return
+    }
+    if (accordionAnimationResetRafRef.current != null) {
+      window.cancelAnimationFrame(accordionAnimationResetRafRef.current)
+    }
+    accordionAnimationResetRafRef.current = window.requestAnimationFrame(() => {
+      accordionAnimationResetRafRef.current = null
+      setAccordionAnimationsDisabled(false)
+    })
+  }, [])
+  useEffect(() => () => {
+    if (typeof window === 'undefined') return
+    if (accordionAnimationResetRafRef.current != null) {
+      window.cancelAnimationFrame(accordionAnimationResetRafRef.current)
+      accordionAnimationResetRafRef.current = null
+    }
+  }, [])
   const allGroupKeys = useMemo(() => {
     const keys = new Set<string>()
     const addKeys = (group: TesterGroup) => {
@@ -306,6 +352,9 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
         || Boolean((event && 'ctrlKey' in event && (event as React.MouseEvent).ctrlKey)
           || (event && 'metaKey' in event && (event as React.MouseEvent).metaKey))
       if (isMultiToggle) {
+        if (shouldExpand) {
+          disableAccordionAnimationsTemporarily()
+        }
         let changed = false
         for (const key of getMultiToggleScope(groupKey)) {
           if (shouldExpand) {
@@ -326,7 +375,7 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
       next.add(groupKey)
       return next
     })
-  }, [getMultiToggleScope])
+  }, [disableAccordionAnimationsTemporarily, getMultiToggleScope])
 
   useEffect(() => {
     setCollapsedGroups((prev) => {
@@ -373,6 +422,21 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     onClose: closeGridMenu,
     menuRef: gridMenuPaperRef,
   })
+  useEffect(() => {
+    const node = containerRef.current
+    if (!node) return
+    const measure = () => {
+      setViewportHeight(node.clientHeight)
+    }
+    measure()
+    if (typeof ResizeObserver === 'undefined') {
+      window.addEventListener('resize', measure)
+      return () => window.removeEventListener('resize', measure)
+    }
+    const observer = new ResizeObserver(() => { measure() })
+    observer.observe(node)
+    return () => observer.disconnect()
+  }, [])
   const measureFirstVisibleRow = useCallback(() => {
     measureVisibleRowRafRef.current = null
     const container = containerRef.current
@@ -402,6 +466,7 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     measureVisibleRowRafRef.current = window.requestAnimationFrame(measureFirstVisibleRow)
   }, [measureFirstVisibleRow])
 
+  const [scrollVersion, setScrollVersion] = useState(0)
   const handleScroll = useCallback<React.UIEventHandler<HTMLDivElement>>((event) => {
     setScrollTop(event.currentTarget.scrollTop)
     if (!scrollHintVisibleRef.current) {
@@ -417,6 +482,7 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
       setShowScrollGroupHint(false)
       scrollHintHideTimerRef.current = null
     }, RULES_TABLE_SCROLL_HINT_HIDE_MS)
+    setScrollVersion((prev) => (prev + 1) % Number.MAX_SAFE_INTEGER)
     scheduleMeasureFirstVisibleRow()
   }, [scheduleMeasureFirstVisibleRow])
   // Keep Uniques enforces two columns so gear-combination cards stay legible.
@@ -433,29 +499,7 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     showOtherMatches,
     theme,
   })
-  const virtualCardHeightPx = useMemo(() => {
-    let trimmed = cardHeightPx - TESTER_GRID_VIRTUAL_CARD_HEIGHT_TRIM_PX
-    if (gridColumnCount >= 5) {
-      trimmed -= TESTER_GRID_VIRTUAL_WIDE_CARD_HEIGHT_TRIM_PX
-    }
-    return Math.max(1, trimmed)
-  }, [cardHeightPx, gridColumnCount])
   const groupCountChipBg = theme.palette.mode === 'dark' ? theme.palette.grey[800] : theme.palette.grey[100]
-  useEffect(() => {
-    const node = containerRef.current
-    if (!node) return
-    const measure = () => {
-      setViewportHeight(node.clientHeight)
-    }
-    measure()
-    if (typeof ResizeObserver === 'undefined') {
-      window.addEventListener('resize', measure)
-      return () => window.removeEventListener('resize', measure)
-    }
-    const observer = new ResizeObserver(() => { measure() })
-    observer.observe(node)
-    return () => observer.disconnect()
-  }, [])
   useEffect(() => () => {
     if (scrollHintHideTimerRef.current) {
       clearTimeout(scrollHintHideTimerRef.current)
@@ -467,114 +511,54 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     }
   }, [])
   const estimatedColumnCount = gridColumnCount
-  const shouldVirtualize = GRID_VIRTUALIZATION_ENABLED
-    && (rows.length > GRID_VIRTUALIZE_ROW_THRESHOLD || groups.length > GRID_VIRTUALIZE_GROUP_THRESHOLD)
-  const virtualization = useMemo<{
-    visibleGroups: TesterGroup[]
-    padTop: number
-    padBottom: number
-    totalHeight: number | undefined
-    rangeStartIndex: number
-    rangeEndIndex: number
-    viewportHeight: number
-    offsets: number[]
-    heights: number[]
-  }>(() => {
-    const fallbackViewportHeight = viewportHeight > 0
-      ? viewportHeight
-      : (containerRef.current?.clientHeight ?? (typeof window !== 'undefined' ? window.innerHeight : 0))
-    const viewport = fallbackViewportHeight > 0 ? fallbackViewportHeight : GRID_VIRTUALIZE_DEFAULT_VIEWPORT_PX
-    const heights: number[] = []
-    const offsets: number[] = []
-    let total = 0
-    for (let idx = 0; idx < groups.length; idx += 1) {
-      const group = groups[idx]!
-      offsets[idx] = total
-      const estimated = estimateGroupHeight(
-        group,
-        collapsedGroups,
-        estimatedColumnCount,
-        accordionSpacingPx,
-        gridGapPx,
-        gridLeafPaddingPx,
-        virtualCardHeightPx,
-      )
-      heights[idx] = estimated
-      total += estimated
-    }
-    if (!shouldVirtualize) {
-      return {
-        visibleGroups: groups,
-        padTop: 0,
-        padBottom: 0,
-        totalHeight: undefined,
-        rangeStartIndex: 0,
-        rangeEndIndex: groups.length,
-        viewportHeight: viewport,
-        offsets,
-        heights,
-      }
-    }
-    if (!groups.length) {
-      return {
-        visibleGroups: [],
-        padTop: 0,
-        padBottom: 0,
-        totalHeight: total,
-        rangeStartIndex: 0,
-        rangeEndIndex: 0,
-        viewportHeight: viewport,
-        offsets,
-        heights,
-      }
-    }
-    const startTarget = Math.max(0, scrollTop - GRID_VIRTUALIZE_OVERSCAN_PX)
-    const endTarget = Math.min(total, scrollTop + viewport + GRID_VIRTUALIZE_OVERSCAN_PX)
-    let startIdx = 0
-    while (startIdx < heights.length && ((offsets[startIdx] ?? 0) + (heights[startIdx] ?? 0)) <= startTarget) {
-      startIdx += 1
-    }
-    if (startIdx >= groups.length) startIdx = Math.max(0, groups.length - 1)
-    let endIdx = startIdx
-    while (endIdx < heights.length && (offsets[endIdx] ?? 0) < endTarget) {
-      endIdx += 1
-    }
-    if (endIdx <= startIdx) endIdx = startIdx + 1
-    const padTop = offsets[startIdx] ?? 0
-    const visibleGroups = groups.slice(startIdx, endIdx)
-    const visibleHeight = visibleGroups.reduce((sum, _group, idx) => {
-      const actualIdx = startIdx + idx
-      const height = heights[actualIdx] ?? 0
-      return sum + Math.max(0, height)
-    }, 0)
-    const padBottom = Math.max(0, total - padTop - visibleHeight)
-    return {
-      visibleGroups,
-      padTop,
-      padBottom,
-      totalHeight: total,
-      rangeStartIndex: startIdx,
-      rangeEndIndex: endIdx,
-      viewportHeight: viewport,
-      offsets,
-      heights,
-    }
+  const groupKeys = useMemo(() => groups.map((group) => group.key), [groups])
+  const estimateGroupSize = useCallback((index: number) => {
+    const group = groups[index]
+    if (!group) return 0
+    return estimateGroupHeight(
+      group,
+      collapsedGroups,
+      estimatedColumnCount,
+      accordionSpacingPx,
+      gridGapPx,
+      gridLeafPaddingPx,
+      cardHeightPx,
+    )
   }, [
     accordionSpacingPx,
-    virtualCardHeightPx,
+    cardHeightPx,
     collapsedGroups,
     estimatedColumnCount,
     gridGapPx,
     gridLeafPaddingPx,
     groups,
-    scrollTop,
-    shouldVirtualize,
-    viewportHeight,
   ])
-  const renderedGroups = virtualization.visibleGroups
-  const virtualizedHeight = shouldVirtualize ? Math.max(virtualization.totalHeight ?? 0, 0) : undefined
-  const virtualizedPadTop = shouldVirtualize ? virtualization.padTop : 0
-  const virtualizedPadBottom = shouldVirtualize ? virtualization.padBottom : 0
+  const getGroupKey = useCallback((index: number) => groupKeys[index] ?? `tester-group-${index}`, [groupKeys])
+  // Virtualizer tracks just the top-level groups; it measures the rendered accordions so expansion/collapse stays in sync automatically.
+  const rowVirtualizer = useVirtualizer({
+    count: groups.length,
+    getScrollElement: () => containerRef.current,
+    estimateSize: estimateGroupSize,
+    overscan: GRID_GROUP_VIRTUAL_OVERSCAN_ROWS,
+    getItemKey: getGroupKey,
+  })
+  useEffect(() => {
+    rowVirtualizer.measure()
+  }, [
+    rowVirtualizer,
+    accordionSpacingPx,
+    cardHeightPx,
+    collapsedGroups,
+    gridColumnCount,
+    gridGapPx,
+    gridLeafPaddingPx,
+  ])
+  const virtualItems = rowVirtualizer.getVirtualItems()
+  const virtualizedHeight = Math.max(rowVirtualizer.getTotalSize(), 0)
+  const virtualizationRangeStartIndex = virtualItems.length > 0 ? virtualItems[0]!.index : 0
+  const virtualizationRangeEndIndex = virtualItems.length > 0
+    ? virtualItems[virtualItems.length - 1]!.index + 1
+    : groups.length
   const rowLookup = useMemo(() => {
     const map = new Map<number, TesterPreviewRow>()
     rows.forEach((row) => {
@@ -643,8 +627,8 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     scheduleMeasureFirstVisibleRow()
   }, [
     scheduleMeasureFirstVisibleRow,
-    virtualization.rangeStartIndex,
-    virtualization.rangeEndIndex,
+    virtualizationRangeStartIndex,
+    virtualizationRangeEndIndex,
     gridColumnCount,
     showFirstMatch,
     showOtherMatches,
@@ -666,8 +650,8 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
       : t('testerItemsCountMany', { n: numberFormatter.format(group.rows.length) })
     const expanded = !collapsedGroups.has(group.key)
     return (
-      <TesterItemsGridGroup
-        key={group.key}
+        <TesterItemsGridGroup
+          key={group.key}
         group={group}
         expanded={expanded}
         groupCountLabel={groupCountLabel}
@@ -686,9 +670,14 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
         onJumpToRule={onJumpToRule}
         highlightedRowPredicate={highlightRowPredicate}
         dimUnhighlightedRows={shouldDimUnhighlightedRows}
+        disableAccordionAnimations={accordionAnimationsDisabled}
         childContent={group.children?.length ? group.children.map((child) => renderGroup(child, depth + 1)) : undefined}
         depth={depth}
-      />
+          scrollContainerRef={containerRef}
+          scrollOffset={scrollTop}
+          viewportHeight={viewportHeight}
+          scrollVersion={scrollVersion}
+        />
     )
   }
 
@@ -705,21 +694,32 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
         <Box
           sx={{
             position: 'relative',
-            ...(shouldVirtualize && typeof virtualizedHeight === 'number'
-              ? {
-                  height: `${virtualizedHeight}px`,
-                  minHeight: `${virtualizedHeight}px`,
-                }
-              : {}),
+            height: `${virtualizedHeight}px`,
+            minHeight: `${virtualizedHeight}px`,
           }}
         >
-          {shouldVirtualize ? (
-            <Box sx={{ height: `${virtualizedPadTop}px` }} />
-          ) : null}
-          {renderedGroups.map((group) => renderGroup(group, 0))}
-          {shouldVirtualize ? (
-            <Box sx={{ height: `${virtualizedPadBottom}px` }} />
-          ) : null}
+          {/* Every group render flows through TanStack virtualization so accordions can recycle smoothly. */}
+          {virtualItems.map((virtualItem) => {
+            const group = groups[virtualItem.index]
+            if (!group) return null
+            const rowKey = groupKeys[virtualItem.index] ?? virtualItem.key
+            return (
+              <Box
+                key={rowKey}
+                data-index={virtualItem.index}
+                ref={rowVirtualizer.measureElement}
+                sx={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  width: '100%',
+                  transform: `translateY(${virtualItem.start}px)`,
+                }}
+              >
+                {renderGroup(group, 0)}
+              </Box>
+            )
+          })}
         </Box>
       </Box>
       {scrollHintLabel ? (
@@ -931,6 +931,11 @@ type TesterItemsGridGroupProps = {
   // Highlight predicate trickles down so nested accordions stay presentation-only.
   highlightedRowPredicate?: ((row: TesterPreviewRow) => boolean) | null
   dimUnhighlightedRows?: boolean
+  disableAccordionAnimations: boolean
+  scrollContainerRef: React.RefObject<HTMLDivElement | null>
+  scrollOffset: number
+  viewportHeight: number
+  scrollVersion: number
 }
 
 const TesterItemsGridGroup = React.memo(function TesterItemsGridGroup({
@@ -954,9 +959,106 @@ const TesterItemsGridGroup = React.memo(function TesterItemsGridGroup({
   depth = 0,
   highlightedRowPredicate = null,
   dimUnhighlightedRows = false,
+  disableAccordionAnimations,
+  scrollContainerRef,
+  scrollOffset,
+  viewportHeight,
+  scrollVersion,
 }: TesterItemsGridGroupProps) {
   const hasChildren = Boolean(childContent)
   const nested = depth > 0
+  const theme = useTheme()
+  const gridRowGapPx = pxValue(theme.spacing(GRID_GAP))
+  const cardRowChunks = useMemo(() => {
+    if (hasChildren) return []
+    const columns = Math.max(1, gridColumnCount)
+    const rows: TesterPreviewRow[][] = []
+    for (let idx = 0; idx < group.rows.length; idx += columns) {
+      rows.push(group.rows.slice(idx, idx + columns))
+    }
+    return rows
+  }, [group.rows, gridColumnCount, hasChildren])
+  const cardRowCount = cardRowChunks.length
+  const shouldVirtualizeLeafRows = !hasChildren && cardRowCount > GRID_LEAF_VIRTUALIZE_ROW_THRESHOLD
+  // Tall leaf accordions animate poorly because TanStack remeasures every frame, so skip the transition once the
+  // virtualization path is active (global mass-expands still flip the shared disable flag).
+  const shouldSkipAccordionAnimation = disableAccordionAnimations || shouldVirtualizeLeafRows
+  const gridContentRef = useRef<HTMLDivElement | null>(null)
+  const leafPriorityBaseRef = useRef<number>(0)
+  const leafPrioritySignatureRef = useRef<string | null>(null)
+  const [gridAbsoluteOffset, setGridAbsoluteOffset] = useState<number | null>(null)
+  // Observe the rendered card grid so every accordion knows its absolute scroll offset, even when nested.
+  useLayoutEffect(() => {
+    const node = gridContentRef.current
+    const scrollNode = scrollContainerRef.current
+    if (!node || !scrollNode) return undefined
+    const measure = () => {
+      const containerRect = scrollNode.getBoundingClientRect()
+      const nodeRect = node.getBoundingClientRect()
+      const offset = scrollNode.scrollTop + (nodeRect.top - containerRect.top)
+      setGridAbsoluteOffset(offset)
+    }
+    measure()
+    if (typeof ResizeObserver === 'undefined') {
+      const handleResize = () => { measure() }
+      window.addEventListener('resize', handleResize)
+      return () => window.removeEventListener('resize', handleResize)
+    }
+    const observer = new ResizeObserver(() => { measure() })
+    observer.observe(node)
+    return () => observer.disconnect()
+  }, [
+    scrollContainerRef,
+    gridColumnCount,
+    group.rows.length,
+    expanded,
+    cardHeightPx,
+    showFirstMatchRow,
+    showOtherMatchesRow,
+  ])
+  const cardRowStridePx = cardHeightPx + gridRowGapPx
+  const totalRowsHeightPx = useMemo(() => {
+    if (!cardRowCount) return 0
+    const spacing = Math.max(0, cardRowCount - 1) * gridRowGapPx
+    return (cardRowCount * cardHeightPx) + spacing
+  }, [cardHeightPx, cardRowCount, gridRowGapPx])
+  const effectiveGridAbsoluteOffset = gridAbsoluteOffset ?? scrollOffset
+  const hasUsableGridOffset = Number.isFinite(effectiveGridAbsoluteOffset)
+  const canVirtualizeLeafRows = Boolean(
+    shouldVirtualizeLeafRows
+      && hasUsableGridOffset
+      && viewportHeight > 0
+      && cardRowStridePx > 0,
+  )
+  let rowRangeStart = 0
+  let rowRangeEnd = cardRowCount
+  let rowPadTopPx = 0
+  let rowPadBottomPx = 0
+  if (canVirtualizeLeafRows && cardRowCount > 0 && hasUsableGridOffset) {
+    const viewportStart = scrollOffset
+    const viewportEnd = viewportStart + viewportHeight
+    // Fallback offset keeps virtualization active on the first expansion before the accordion reports its true position.
+    const relativeStart = viewportStart - effectiveGridAbsoluteOffset
+    const relativeEnd = viewportEnd - effectiveGridAbsoluteOffset
+    const overscan = GRID_LEAF_VIRTUAL_OVERSCAN_ROWS
+    const start = Math.max(0, Math.floor(relativeStart / cardRowStridePx) - overscan)
+    const end = Math.min(cardRowCount, Math.ceil(relativeEnd / cardRowStridePx) + overscan)
+    rowRangeStart = Math.min(Math.max(0, start), Math.max(0, cardRowCount - 1))
+    rowRangeEnd = Math.max(rowRangeStart + 1, Math.min(cardRowCount, Math.max(rowRangeStart + 1, end)))
+    rowPadTopPx = rowRangeStart === 0 ? 0 : rowRangeStart * cardRowStridePx
+    const visibleRows = rowRangeEnd - rowRangeStart
+    const visibleHeightPx = (visibleRows * cardHeightPx) + (Math.max(0, visibleRows - 1) * gridRowGapPx)
+    rowPadBottomPx = Math.max(0, totalRowsHeightPx - rowPadTopPx - visibleHeightPx)
+  }
+  // Signature pairs the scroll version with the measured row window so we only bump the priority base when needed.
+  const prioritySignature = canVirtualizeLeafRows
+    ? `${scrollVersion}:${rowRangeStart}:${rowRangeEnd}`
+    : `${scrollVersion}:static:${group.key}:${group.rows.length}`
+  if (leafPrioritySignatureRef.current !== prioritySignature) {
+    leafPrioritySignatureRef.current = prioritySignature
+    leafPriorityBaseRef.current = scrollVersion
+  }
+  const cardPriorityBase = leafPriorityBaseRef.current
   const numericSetId = typeof group.setId === 'number' && group.setId > 0 ? group.setId : null
   const groupSetTooltipName = numericSetId != null ? (artifactSetNames[numericSetId] ?? null) : null
   const trimmedGroupLabel = group.label.trim()
@@ -973,6 +1075,7 @@ const TesterItemsGridGroup = React.memo(function TesterItemsGridGroup({
       />
     </Box>
   ) : null
+  const transitionTimeout = shouldSkipAccordionAnimation ? 0 : theme.transitions.duration.shorter
   return (
     <Accordion
       expanded={expanded}
@@ -991,6 +1094,9 @@ const TesterItemsGridGroup = React.memo(function TesterItemsGridGroup({
       square={false}
       disableGutters
       elevation={0}
+      // Mass-expands skip the slow auto height tween while single toggles keep the subtle motion.
+      slotProps={{ transition: { timeout: transitionTimeout } }}
+      {...(shouldSkipAccordionAnimation ? { slots: INSTANT_ACCORDION_TRANSITION_SLOTS } : {})}
     >
       <AccordionSummary
         sx={(theme) => ({
@@ -1056,31 +1162,75 @@ const TesterItemsGridGroup = React.memo(function TesterItemsGridGroup({
             </Stack>
           ) : (
             <Box
-              sx={(theme) => ({
-                display: 'grid',
-                gridTemplateColumns: `repeat(${Math.max(1, gridColumnCount)}, ${GRID_CARD_SINGLE_COLUMN_TEMPLATE})`,
-                gap: theme.spacing(GRID_GAP),
+              ref={gridContentRef}
+              sx={{
+                display: 'flex',
+                flexDirection: 'column',
                 bgcolor: 'inherit',
-              })}
+              }}
             >
-              {group.rows.map((row) => (
-                <TesterGridCard
-                  key={row.artifact.id}
-                  row={row}
-                  substatColors={substatColors}
-                  useStatButtonColors={useStatButtonColors}
-                  suppressMatchDetails={suppressMatchDetails}
-                  showFirstMatchRow={showFirstMatchRow}
-                  showOtherMatchesRow={showOtherMatchesRow}
-                  showChampionIcons={showChampionIcons}
-                  cardHeightPx={cardHeightPx}
-                  gridColumnCount={gridColumnCount}
-                  configNames={configNames}
-                  onJumpToRule={onJumpToRule}
-                  highlightedRowPredicate={highlightedRowPredicate}
-                  dimUnhighlightedRows={dimUnhighlightedRows}
-                />
-              ))}
+              {canVirtualizeLeafRows && rowPadTopPx > 0 ? (
+                <Box sx={{ height: `${rowPadTopPx}px`, flex: '0 0 auto' }} />
+              ) : null}
+              {cardRowChunks.slice(rowRangeStart, rowRangeEnd).map((rowEntries, visibleIdx) => {
+                const absoluteRowIndex = rowRangeStart + visibleIdx
+                return (
+                  <Box
+                    key={`${group.key}-row-${absoluteRowIndex}`}
+                    sx={(theme) => ({
+                      display: 'grid',
+                      gridTemplateColumns: `repeat(${Math.max(1, gridColumnCount)}, ${GRID_CARD_SINGLE_COLUMN_TEMPLATE})`,
+                      columnGap: theme.spacing(GRID_GAP),
+                      rowGap: 0,
+                      ...(absoluteRowIndex > 0 ? { mt: theme.spacing(GRID_GAP) } : {}),
+                    })}
+                  >
+                    {rowEntries.map((row, columnIdx) => {
+                      // Prioritize rows by absolute Y so nested accordions resolve sequentially; anything outside the
+                      // current viewport pays a huge penalty so overscan never jumps the queue.
+                      const rowAbsoluteTopPx = effectiveGridAbsoluteOffset + (absoluteRowIndex * cardRowStridePx)
+                      const rowAbsoluteBottomPx = rowAbsoluteTopPx + cardHeightPx
+                      const viewportStartPx = scrollOffset
+                      const viewportEndPx = viewportStartPx + viewportHeight
+                      const viewportReady = viewportHeight > 0
+                      const intersectsViewport = viewportReady
+                        ? (rowAbsoluteBottomPx >= viewportStartPx && rowAbsoluteTopPx <= viewportEndPx)
+                        : true
+                      let positionOrder = rowAbsoluteTopPx
+                      if (viewportReady && !intersectsViewport) {
+                        if (rowAbsoluteBottomPx < viewportStartPx) {
+                          positionOrder = GRID_CARD_OFFSCREEN_PRIORITY_PENALTY + (viewportStartPx - rowAbsoluteBottomPx)
+                        } else if (rowAbsoluteTopPx > viewportEndPx) {
+                          positionOrder = GRID_CARD_OFFSCREEN_PRIORITY_PENALTY + (rowAbsoluteTopPx - viewportEndPx)
+                        }
+                      }
+                      const cardPriorityOrder = positionOrder + (columnIdx * 0.01)
+                      return (
+                        <TesterGridCard
+                          key={row.artifact.id}
+                          row={row}
+                          substatColors={substatColors}
+                          useStatButtonColors={useStatButtonColors}
+                          suppressMatchDetails={suppressMatchDetails}
+                          showFirstMatchRow={showFirstMatchRow}
+                          showOtherMatchesRow={showOtherMatchesRow}
+                          showChampionIcons={showChampionIcons}
+                          cardHeightPx={cardHeightPx}
+                          gridColumnCount={gridColumnCount}
+                          configNames={configNames}
+                          onJumpToRule={onJumpToRule}
+                          highlightedRowPredicate={highlightedRowPredicate}
+                          dimUnhighlightedRows={dimUnhighlightedRows}
+                          cardPriority={{ base: cardPriorityBase, order: cardPriorityOrder }}
+                        />
+                      )
+                    })}
+                  </Box>
+                )
+              })}
+              {canVirtualizeLeafRows && rowPadBottomPx > 0 ? (
+                <Box sx={{ height: `${rowPadBottomPx}px`, flex: '0 0 auto' }} />
+              ) : null}
             </Box>
           )}
         </AccordionDetails>
@@ -1103,6 +1253,7 @@ const TesterGridCard = React.memo(function TesterGridCard({
   onJumpToRule,
   highlightedRowPredicate = null,
   dimUnhighlightedRows = false,
+  cardPriority,
 }: {
   row: TesterPreviewRow
   substatColors: Record<number, { fg: string; bg: string }>
@@ -1117,6 +1268,7 @@ const TesterGridCard = React.memo(function TesterGridCard({
   onJumpToRule?: ((ruleIndex: number, cfgIdx: number | null) => void) | undefined
   highlightedRowPredicate?: ((row: TesterPreviewRow) => boolean) | null
   dimUnhighlightedRows?: boolean
+  cardPriority: { base: number; order: number }
 }) {
   // Highlight state lets Keep Uniques call attention to the at-risk combinations without mutating the dataset.
   const highlightFn = typeof highlightedRowPredicate === 'function' ? highlightedRowPredicate : null
@@ -1125,174 +1277,32 @@ const TesterGridCard = React.memo(function TesterGridCard({
   const { t } = useI18n()
   const theme = useTheme()
   const artifact = row.artifact
-  const match = row.match
-  const setIdNumber = Number(artifact.set) || 0
-  const setLabelRaw = formatTesterSetLabel({ setId: setIdNumber, slot: artifact.slot as ArtifactTypeId, translate: t })
-  const setLabel = setLabelRaw.trim().length > 0 ? setLabelRaw : undefined
-  const setTooltipName = Number.isFinite(setIdNumber) ? artifactSetNames[setIdNumber] ?? null : null
-  const levelBucketLabel = formatLevel(artifact.level)
-  const hasExactLevel = typeof artifact.exactLevel === 'number' && Number.isFinite(artifact.exactLevel)
-  const exactLevelLabel = hasExactLevel ? String(Math.max(0, Math.min(16, Math.round(Number(artifact.exactLevel))))) : null
-  const levelLabel = exactLevelLabel ?? levelBucketLabel
-  const levelChipLabel = levelLabel || t('any')
-  const mainLabel = artifact.mainStat ? t(statVariantI18nKey(artifact.mainStat.variant)) : t('any')
-  const mainValue = formatStatPreGlyph(artifact.mainStat ?? null)
-  const mainInline = mainValue ? t('testerMainStatInline', { stat: mainLabel, value: mainValue }) : mainLabel
-  const mainVariant = artifact.mainStat?.variant
-  const mainColor = useStatButtonColors && typeof mainVariant === 'number'
-    ? (substatColors[mainVariant]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[mainVariant])
-    : undefined
-  const { tooltip: subTooltip } = formatSubstats(artifact.substats, t)
-  const glyphDeltaColor = theme.palette.success.main
-  const substatEntries = artifact.substats
-    .filter((stat) => stat.variant !== StatVariant.Any)
-    .map((stat) => {
-      const statLabel = t(statVariantI18nKey(stat.variant))
-      const statValue = formatStatPreGlyph(stat) || t('testerValueUnknown')
-      const statColor = useStatButtonColors
-        ? (substatColors[stat.variant]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[stat.variant])
-        : undefined
-      const glyphMagnitude = Math.abs(Number(stat.glyphValue) || 0)
-      const glyphDelta = glyphMagnitude >= 0.01
-        ? `${Number(stat.glyphValue) >= 0 ? '+' : '-'}${formatStatNumber(glyphMagnitude)}`
-        : null
-      const mythMagnitude = Math.abs(Number(stat.mythValue) || 0)
-      const hasMythBonus = mythMagnitude >= 0.01
-      const rollGlyph = (typeof stat.rolls === 'number' && stat.rolls > 0)
-        ? formatCircledDigit(stat.rolls)
-        : null
-      const rollAriaLabel = (typeof stat.rolls === 'number' && stat.rolls > 0)
-        ? t('testerRollsLabel', { rolls: stat.rolls })
-        : null
-      return {
-        variant: stat.variant,
-        isMythicBonus: hasMythBonus,
-        content: (
-          <>
-            <Box component="span" sx={{ color: statColor ?? 'inherit' }}>
-              {statLabel} {statValue}
-            </Box>
-            {rollGlyph ? (
-              <Box
-                component="span"
-                sx={{
-                  ml: 0.5,
-                  fontSize: '1rem',
-                  lineHeight: 1,
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  position: 'relative',
-                  top: '0.06em',
-                }}
-                aria-label={rollAriaLabel ?? undefined}
-              >
-                {rollGlyph}
-              </Box>
-            ) : null}
-            {glyphDelta ? (
-              <Box component="span" sx={{ color: glyphDeltaColor, fontWeight: 600, ml: 0.5 }}>
-                {glyphDelta}
-              </Box>
-            ) : null}
-          </>
-        ),
+  const priorityBase = Number(cardPriority?.base) || 0
+  const priorityOrder = Number(cardPriority?.order) || 0
+  const rawArtifactId = Number(artifact?.id)
+  const normalizedArtifactId = Number.isFinite(rawArtifactId) ? rawArtifactId : null
+  const mightShowOtherMatchesRow = useMemo(() => {
+    if (!Array.isArray(row.matchingCfgIndices)) return false
+    const seen = new Set<number>()
+    for (const rawIdx of row.matchingCfgIndices) {
+      const numericIdx = Number(rawIdx)
+      if (!Number.isFinite(numericIdx)) continue
+      if (seen.has(numericIdx)) continue
+      seen.add(numericIdx)
+      if (seen.size > 1) {
+        return true
       }
-});
-  const ascVariant = artifact.ascension?.variant
-  const ascValue = artifact.ascension ? formatStatNumber(artifact.ascension.baseValue) : ''
-  const ascLabel = artifact.ascension ? t(statVariantI18nKey(artifact.ascension.variant)) : ''
-  const ascStatColor = useStatButtonColors && typeof ascVariant === 'number'
-    ? (substatColors[ascVariant]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[ascVariant])
-    : undefined
-  const ascInlineFontSize = 'calc(100% - 1.5px)'
-  const ascLabelNode = ascLabel ? (
-    <Box component="span" sx={{ color: ascStatColor ?? 'inherit', fontSize: ascInlineFontSize }}>
-      {ascLabel}
-    </Box>
-  ) : null
-  const ascValueNode = ascValue ? (
-    <Box
-      component="span"
-      sx={{ color: theme.palette.secondary.main, fontWeight: 600, fontSize: ascInlineFontSize }}
-    >
-      {ascValue}
-    </Box>
-  ) : null
-  const ascSummary = (() => {
-    if (!artifact.ascension) return null
-    if (ascValue && ascLabelNode && ascValueNode) {
-      const statToken = '__STAT__'
-      const valueToken = '__VALUE__'
-      const template = t('testerMainStatInline', { stat: statToken, value: valueToken })
-      const replacements = [
-        { token: statToken, node: ascLabelNode },
-        { token: valueToken, node: ascValueNode },
-      ]
-      const parts: React.ReactNode[] = []
-      let remaining = template
-      while (remaining.length > 0) {
-        let matchIdx = -1
-        let match: { token: string; node: React.ReactNode } | null = null
-        for (const rep of replacements) {
-          const idx = remaining.indexOf(rep.token)
-          if (idx === -1) continue
-          if (matchIdx === -1 || idx < matchIdx) {
-            matchIdx = idx
-            match = rep
-          }
-        }
-        if (!match || matchIdx === -1) {
-          if (remaining) parts.push(remaining)
-          break
-        }
-        if (matchIdx > 0) {
-          parts.push(remaining.slice(0, matchIdx))
-        }
-        parts.push(match.node)
-        remaining = remaining.slice(matchIdx + match.token.length)
-      }
-      return (
-        <>
-          {parts.map((part, idx) => (
-            typeof part === 'string'
-              ? <React.Fragment key={`asc-str-${idx}`}>{part}</React.Fragment>
-              : <React.Fragment key={`asc-node-${idx}`}>{part}</React.Fragment>
-          ))}
-        </>
-      )
     }
-    return ascLabelNode ?? ascValueNode ?? null
-  })()
-  const sourceDescriptor = getItemSourceDescriptor(artifact, t)
-  const SourceIcon = sourceDescriptor ? SOURCE_ICON_MAP[sourceDescriptor.category] : null
-  const sourceTooltipTitle = sourceDescriptor ? (sourceDescriptor.tooltip ?? sourceDescriptor.label ?? '') : ''
-  const championIconSrc = championIconUrl(artifact.equippedChampionBaseId ?? artifact.equippedToChampionId)
-  const championIconMode = (() => {
-    if (!showChampionIcons || !championIconSrc || !sourceDescriptor) return 'none' as const
-    if (sourceDescriptor.category !== 'collection' && sourceDescriptor.category !== 'vault') return 'none' as const
-    return gridColumnCount >= CHAMPION_ICON_LARGE_THRESHOLD ? 'large' : 'compact'
-  })()
-  const shouldShowChampionIcon = championIconMode !== 'none'
-  const sourceCategory = sourceDescriptor?.category
-  const isVaultSource = sourceCategory === 'vault'
-  const isCollectionSource = sourceCategory === 'collection'
-  const shouldShowVaultBadgeIcon = Boolean(shouldShowChampionIcon && isVaultSource && SourceIcon)
-  const shouldShowStandaloneSourceIcon = Boolean(
-    sourceDescriptor
-    && SourceIcon
-    && (
-      !shouldShowChampionIcon
-      || (!isCollectionSource && !isVaultSource)
-      || (isVaultSource && !shouldShowVaultBadgeIcon)
-    ),
+    return false
+  }, [row.matchingCfgIndices])
+  const basePrimaryMatchRowVisible = !suppressMatchDetails && showFirstMatchRow
+  const baseOtherMatchesRowVisible = !suppressMatchDetails && showOtherMatchesRow && mightShowOtherMatchesRow
+  const { leftColumnHeightPx, rightColumnHeightPx } = useMemo(
+    () => getTesterGridCardColumnHeights(theme, gridColumnCount),
+    [theme, gridColumnCount],
   )
-  const SourceGlyph = shouldShowStandaloneSourceIcon && SourceIcon ? SourceIcon : null
-  const sourceIconLabel = sourceDescriptor?.label ?? ''
-  const championIconSize = championIconMode === 'large'
-    ? CHAMPION_ICON_LARGE_SIZE
-    : CHAMPION_ICON_BASE_SIZE
-  const rerollLabel = artifact.rerollCount > 0 ? '⟳' : ''
-  const rerollTooltip = artifact.rerollCount > 0 ? t('testerRerollLabel') : ''
+  const cardContentReady = useTesterGridCardContentReady(normalizedArtifactId, priorityBase, priorityOrder)
+  const match = row.match
   const primaryRuleIndex = typeof match?.ruleIndex === 'number' ? match.ruleIndex : null
   const primaryCfgIndex = typeof match?.cfgIdx === 'number' ? match.cfgIdx : null
   const canJumpToPrimaryMatch = typeof onJumpToRule === 'function' && primaryRuleIndex != null
@@ -1301,14 +1311,23 @@ const TesterGridCard = React.memo(function TesterGridCard({
       onJumpToRule?.(primaryRuleIndex, primaryCfgIndex ?? null)
     }
   }
-  const matchingIndices = Array.isArray(row.matchingCfgIndices)
-    ? Array.from(new Set(row.matchingCfgIndices.filter((idx) => Number.isFinite(idx))))
-    : []
-  const matchingEntries: MatchingConfigEntry[] = matchingIndices.map((idx) => ({
-    cfgIdx: idx as number,
-    label: formatConfigLabel(idx as number, configNames, t),
-  }))
-  const shouldShowPrimaryMatchRow = !suppressMatchDetails && showFirstMatchRow
+  const matchingEntries: MatchingConfigEntry[] = useMemo(() => {
+    if (!cardContentReady) return []
+    if (!Array.isArray(row.matchingCfgIndices)) return []
+    const seen = new Set<number>()
+    const entries: MatchingConfigEntry[] = []
+    for (const rawIdx of row.matchingCfgIndices) {
+      const numericIdx = Number(rawIdx)
+      if (!Number.isFinite(numericIdx) || seen.has(numericIdx)) continue
+      seen.add(numericIdx)
+      entries.push({
+        cfgIdx: numericIdx,
+        label: formatConfigLabel(numericIdx as number, configNames, t),
+      })
+    }
+    return entries
+  }, [cardContentReady, row.matchingCfgIndices, configNames, t])
+  const shouldShowPrimaryMatchRow = basePrimaryMatchRowVisible
   const hasMatchingConfigs = matchingEntries.length > 0
   const otherMatchingEntries = matchingEntries.slice(1)
   const shouldShowOtherMatchesRow = !suppressMatchDetails && showOtherMatchesRow && otherMatchingEntries.length > 0
@@ -1485,6 +1504,186 @@ const TesterGridCard = React.memo(function TesterGridCard({
       </MarkdownTooltip>
     )
   }
+  if (!cardContentReady) {
+    return (
+      <TesterGridCardSkeleton
+        cardHeightPx={cardHeightPx}
+        leftColumnHeightPx={leftColumnHeightPx}
+        rightColumnHeightPx={rightColumnHeightPx}
+        showPrimaryMatchRow={basePrimaryMatchRowVisible}
+        showOtherMatchesRow={baseOtherMatchesRowVisible}
+        highlighted={cardHighlighted}
+        dimmed={cardDimmed}
+      />
+    )
+  }
+  const setIdNumber = Number(artifact.set) || 0
+  const setLabelRaw = formatTesterSetLabel({ setId: setIdNumber, slot: artifact.slot as ArtifactTypeId, translate: t })
+  const setLabel = setLabelRaw.trim().length > 0 ? setLabelRaw : undefined
+  const setTooltipName = Number.isFinite(setIdNumber) ? artifactSetNames[setIdNumber] ?? null : null
+  const levelBucketLabel = formatLevel(artifact.level)
+  const hasExactLevel = typeof artifact.exactLevel === 'number' && Number.isFinite(artifact.exactLevel)
+  const exactLevelLabel = hasExactLevel ? String(Math.max(0, Math.min(16, Math.round(Number(artifact.exactLevel))))) : null
+  const levelLabel = exactLevelLabel ?? levelBucketLabel
+  const levelChipLabel = levelLabel || t('any')
+  const mainLabel = artifact.mainStat ? t(statVariantI18nKey(artifact.mainStat.variant)) : t('any')
+  const mainValue = formatStatPreGlyph(artifact.mainStat ?? null)
+  const mainInline = mainValue ? t('testerMainStatInline', { stat: mainLabel, value: mainValue }) : mainLabel
+  const mainVariant = artifact.mainStat?.variant
+  const mainColor = useStatButtonColors && typeof mainVariant === 'number'
+    ? (substatColors[mainVariant]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[mainVariant])
+    : undefined
+  const { tooltip: subTooltip } = formatSubstats(artifact.substats, t)
+  const glyphDeltaColor = theme.palette.success.main
+  const substatEntries = artifact.substats
+    .filter((stat) => stat.variant !== StatVariant.Any)
+    .map((stat) => {
+      const statLabel = t(statVariantI18nKey(stat.variant))
+      const statValue = formatStatPreGlyph(stat) || t('testerValueUnknown')
+      const statColor = useStatButtonColors
+        ? (substatColors[stat.variant]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[stat.variant])
+        : undefined
+      const glyphMagnitude = Math.abs(Number(stat.glyphValue) || 0)
+      const glyphDelta = glyphMagnitude >= 0.01
+        ? `${Number(stat.glyphValue) >= 0 ? '+' : '-'}${formatStatNumber(glyphMagnitude)}`
+        : null
+      const mythMagnitude = Math.abs(Number(stat.mythValue) || 0)
+      const hasMythBonus = mythMagnitude >= 0.01
+      const rollGlyph = (typeof stat.rolls === 'number' && stat.rolls > 0)
+        ? formatCircledDigit(stat.rolls)
+        : null
+      const rollAriaLabel = (typeof stat.rolls === 'number' && stat.rolls > 0)
+        ? t('testerRollsLabel', { rolls: stat.rolls })
+        : null
+      return {
+        variant: stat.variant,
+        isMythicBonus: hasMythBonus,
+        content: (
+          <>
+            <Box component="span" sx={{ color: statColor ?? 'inherit' }}>
+              {statLabel} {statValue}
+            </Box>
+            {rollGlyph ? (
+              <Box
+                component="span"
+                sx={{
+                  ml: 0.5,
+                  fontSize: '1rem',
+                  lineHeight: 1,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  position: 'relative',
+                  top: '0.06em',
+                }}
+                aria-label={rollAriaLabel ?? undefined}
+              >
+                {rollGlyph}
+              </Box>
+            ) : null}
+            {glyphDelta ? (
+              <Box component="span" sx={{ color: glyphDeltaColor, fontWeight: 600, ml: 0.5 }}>
+                {glyphDelta}
+              </Box>
+            ) : null}
+          </>
+        ),
+      }
+});
+  const ascVariant = artifact.ascension?.variant
+  const ascValue = artifact.ascension ? formatStatNumber(artifact.ascension.baseValue) : ''
+  const ascLabel = artifact.ascension ? t(statVariantI18nKey(artifact.ascension.variant)) : ''
+  const ascStatColor = useStatButtonColors && typeof ascVariant === 'number'
+    ? (substatColors[ascVariant]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[ascVariant])
+    : undefined
+  const ascInlineFontSize = 'calc(100% - 1.5px)'
+  const ascLabelNode = ascLabel ? (
+    <Box component="span" sx={{ color: ascStatColor ?? 'inherit', fontSize: ascInlineFontSize }}>
+      {ascLabel}
+    </Box>
+  ) : null
+  const ascValueNode = ascValue ? (
+    <Box
+      component="span"
+      sx={{ color: theme.palette.secondary.main, fontWeight: 600, fontSize: ascInlineFontSize }}
+    >
+      {ascValue}
+    </Box>
+  ) : null
+  const ascSummary = (() => {
+    if (!artifact.ascension) return null
+    if (ascValue && ascLabelNode && ascValueNode) {
+      const statToken = '__STAT__'
+      const valueToken = '__VALUE__'
+      const template = t('testerMainStatInline', { stat: statToken, value: valueToken })
+      const replacements = [
+        { token: statToken, node: ascLabelNode },
+        { token: valueToken, node: ascValueNode },
+      ]
+      const parts: React.ReactNode[] = []
+      let remaining = template
+      while (remaining.length > 0) {
+        let matchIdx = -1
+        let match: { token: string; node: React.ReactNode } | null = null
+        for (const rep of replacements) {
+          const idx = remaining.indexOf(rep.token)
+          if (idx === -1) continue
+          if (matchIdx === -1 || idx < matchIdx) {
+            matchIdx = idx
+            match = rep
+          }
+        }
+        if (!match || matchIdx === -1) {
+          if (remaining) parts.push(remaining)
+          break
+        }
+        if (matchIdx > 0) {
+          parts.push(remaining.slice(0, matchIdx))
+        }
+        parts.push(match.node)
+        remaining = remaining.slice(matchIdx + match.token.length)
+      }
+      return (
+        <>
+          {parts.map((part, idx) => (
+            typeof part === 'string'
+              ? <React.Fragment key={`asc-str-${idx}`}>{part}</React.Fragment>
+              : <React.Fragment key={`asc-node-${idx}`}>{part}</React.Fragment>
+          ))}
+        </>
+      )
+    }
+    return ascLabelNode ?? ascValueNode ?? null
+  })()
+  const sourceDescriptor = getItemSourceDescriptor(artifact, t)
+  const SourceIcon = sourceDescriptor ? SOURCE_ICON_MAP[sourceDescriptor.category] : null
+  const sourceTooltipTitle = sourceDescriptor ? (sourceDescriptor.tooltip ?? sourceDescriptor.label ?? '') : ''
+  const championIconSrc = championIconUrl(artifact.equippedChampionBaseId ?? artifact.equippedToChampionId)
+  const championIconMode = (() => {
+    if (!showChampionIcons || !championIconSrc || !sourceDescriptor) return 'none' as const
+    if (sourceDescriptor.category !== 'collection' && sourceDescriptor.category !== 'vault') return 'none' as const
+    return gridColumnCount >= CHAMPION_ICON_LARGE_THRESHOLD ? 'large' : 'compact'
+  })()
+  const shouldShowChampionIcon = championIconMode !== 'none'
+  const sourceCategory = sourceDescriptor?.category
+  const isVaultSource = sourceCategory === 'vault'
+  const isCollectionSource = sourceCategory === 'collection'
+  const shouldShowVaultBadgeIcon = Boolean(shouldShowChampionIcon && isVaultSource && SourceIcon)
+  const shouldShowStandaloneSourceIcon = Boolean(
+    sourceDescriptor
+    && SourceIcon
+    && (
+      !shouldShowChampionIcon
+      || (!isCollectionSource && !isVaultSource)
+      || (isVaultSource && !shouldShowVaultBadgeIcon)
+    ),
+  )
+  const SourceGlyph = shouldShowStandaloneSourceIcon && SourceIcon ? SourceIcon : null
+  const sourceIconLabel = sourceDescriptor?.label ?? ''
+  const championIconSize = championIconMode === 'large'
+    ? CHAMPION_ICON_LARGE_SIZE
+    : CHAMPION_ICON_BASE_SIZE
+  const rerollLabel = artifact.rerollCount > 0 ? '⟳' : ''
+  const rerollTooltip = artifact.rerollCount > 0 ? t('testerRerollLabel') : ''
   const ascSummaryContent = ascSummary
   const shouldInlineAscension = gridColumnCount <= 4
   const ascSummaryInline = ascSummaryContent ? (
@@ -1520,10 +1719,6 @@ const TesterGridCard = React.memo(function TesterGridCard({
       {ascSummaryContent}
     </Box>
   ) : null
-  const { leftColumnHeightPx, rightColumnHeightPx } = useMemo(
-    () => getTesterGridCardColumnHeights(theme, gridColumnCount),
-    [theme, gridColumnCount],
-  )
   const cardOutcome = !suppressMatchDetails && match
     ? {
         tone: match.keep === false ? theme.palette.error.main : theme.palette.success.main,
@@ -1908,6 +2103,231 @@ const TesterGridCard = React.memo(function TesterGridCard({
   )
 });
 
+
+type TesterGridCardSkeletonProps = {
+  cardHeightPx: number
+  leftColumnHeightPx: number
+  rightColumnHeightPx: number
+  showPrimaryMatchRow: boolean
+  showOtherMatchesRow: boolean
+  highlighted: boolean
+  dimmed: boolean
+}
+
+// Skeleton cards borrow the real grid metrics so TanStack virtualization keeps accurate heights while assets defer.
+function TesterGridCardSkeleton({
+  cardHeightPx,
+  leftColumnHeightPx,
+  rightColumnHeightPx,
+  showPrimaryMatchRow,
+  showOtherMatchesRow,
+  highlighted,
+  dimmed,
+}: TesterGridCardSkeletonProps) {
+  const skeletonTheme = useTheme()
+  const cardHeightStyle = `${cardHeightPx}px`
+  const matchRowHeight = `${CARD_MATCH_ROW_HEIGHT_PX}px`
+  return (
+    <Box
+      sx={(theme) => ({
+        display: 'grid',
+        gridTemplateColumns: GRID_CARD_TEMPLATE,
+        columnGap: theme.spacing(CARD_COLUMN_GAP_UNITS),
+        p: theme.spacing(CARD_PADDING_UNITS),
+        borderRadius: `${CARD_BORDER_RADIUS_PX}px`,
+        border: `1px solid ${highlighted ? theme.palette.info.light : theme.palette.divider}`,
+        bgcolor: theme.palette.background.paper,
+        minHeight: cardHeightStyle,
+        height: cardHeightStyle,
+        maxHeight: cardHeightStyle,
+        boxSizing: 'border-box',
+        overflow: 'hidden',
+        opacity: dimmed ? 0.35 : 1,
+        transition: 'opacity 120ms ease',
+      })}
+    >
+      <Box
+        sx={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: GRID_CARD_LEFT_COLUMN_GAP_UNITS,
+          minHeight: leftColumnHeightPx,
+          height: leftColumnHeightPx,
+          maxHeight: leftColumnHeightPx,
+          justifyContent: 'flex-start',
+        }}
+      >
+        <Skeleton variant="rounded" width={TESTER_GRID_ICON_BOX_SIZE_PX} height={TESTER_GRID_ICON_BOX_SIZE_PX} />
+        <Skeleton
+          variant="rounded"
+          width={CHAMPION_ICON_LARGE_SIZE.width}
+          height={CHAMPION_ICON_LARGE_SIZE.height}
+        />
+        <Skeleton variant="circular" width={GRID_CARD_SOURCE_ICON_SIZE_PX} height={GRID_CARD_SOURCE_ICON_SIZE_PX} />
+      </Box>
+      <Stack
+        spacing={CARD_TEXT_STACK_GAP_UNITS}
+        minWidth={0}
+        sx={{
+          gridColumn: '2',
+          gridRow: '1',
+          minWidth: 0,
+          minHeight: rightColumnHeightPx,
+          height: rightColumnHeightPx,
+          maxHeight: rightColumnHeightPx,
+          overflow: 'hidden',
+        }}
+      >
+        <Skeleton variant="text" width="75%" sx={{ fontSize: `${CARD_SUMMARY_FONT_SIZE_REM}rem` }} />
+        <Skeleton variant="text" width="50%" />
+        {Array.from({ length: CARD_SUBSTAT_LINE_COUNT }).map((_, idx) => (
+          <Skeleton
+            key={`sub-skeleton-${idx}`}
+            variant="text"
+            width={`${80 - (idx * 8)}%`}
+            sx={{ fontSize: skeletonTheme.typography.body2?.fontSize ?? '0.875rem' }}
+          />
+        ))}
+      </Stack>
+      {showPrimaryMatchRow ? (
+        <Box
+          sx={{
+            gridColumn: '1 / -1',
+            width: '100%',
+            display: 'flex',
+            alignItems: 'center',
+            mt: `${CARD_MATCH_ROW_MARGIN_PX}px`,
+            mb: `${CARD_MATCH_ROW_MARGIN_PX}px`,
+            minHeight: matchRowHeight,
+            height: matchRowHeight,
+            maxHeight: matchRowHeight,
+          }}
+        >
+          <Skeleton variant="rounded" width="100%" height={CARD_MATCH_ROW_HEIGHT_PX - 6} />
+        </Box>
+      ) : null}
+      {showOtherMatchesRow ? (
+        <Box
+          sx={{
+            gridColumn: '1 / -1',
+            width: '100%',
+            minHeight: matchRowHeight,
+            height: matchRowHeight,
+            maxHeight: matchRowHeight,
+            display: 'flex',
+            alignItems: 'center',
+            mt: `${CARD_MATCH_ROW_MARGIN_PX}px`,
+            mb: `${CARD_MATCH_ROW_MARGIN_PX}px`,
+          }}
+        >
+          <Skeleton variant="rounded" width="60%" height={CARD_MATCH_ROW_HEIGHT_PX - 6} />
+        </Box>
+      ) : null}
+    </Box>
+  )
+}
+
+type TesterGridCardRevealTask = {
+  priorityBase: number
+  priorityOrder: number
+  run: () => void
+}
+
+// Queue gated reveals throttle IMG decode churn so expanding large accordions stays interactive.
+const testerGridCardRevealQueue: TesterGridCardRevealTask[] = []
+let testerGridCardRevealScheduled = false
+let testerGridCardRevealQueueDirty = false
+const testerGridCardSeenIds = new Set<number>()
+
+function useTesterGridCardContentReady(rowId: number | null, priorityBase: number, priorityOrder: number): boolean {
+  const normalizedBase = Number.isFinite(priorityBase) ? Math.max(0, priorityBase) : 0
+  const normalizedOrder = Number.isFinite(priorityOrder) ? Math.max(0, priorityOrder) : 0
+  const [ready, setReady] = useState(() => (
+    typeof window === 'undefined' || rowId === null || testerGridCardSeenIds.has(rowId)
+  ))
+  useEffect(() => {
+    if (ready) return undefined
+    if (rowId !== null && testerGridCardSeenIds.has(rowId)) {
+      setReady(true)
+      return undefined
+    }
+    let cancelled = false
+    const cleanup = enqueueTesterGridCardReveal(normalizedBase, normalizedOrder, () => {
+      if (cancelled) return
+      if (rowId !== null) {
+        testerGridCardSeenIds.add(rowId)
+      }
+      setReady(true)
+    })
+    return () => {
+      cancelled = true
+      cleanup()
+    }
+  }, [ready, rowId, normalizedBase, normalizedOrder])
+  return ready
+}
+
+function enqueueTesterGridCardReveal(priorityBase: number, priorityOrder: number, run: () => void): () => void {
+  if (typeof window === 'undefined') {
+    run()
+    return () => {}
+  }
+  const task: TesterGridCardRevealTask = {
+    priorityBase,
+    priorityOrder,
+    run,
+  }
+  testerGridCardRevealQueue.push(task)
+  testerGridCardRevealQueueDirty = true
+  scheduleTesterGridCardRevealFlush()
+  return () => {
+    const idx = testerGridCardRevealQueue.indexOf(task)
+    if (idx >= 0) {
+      testerGridCardRevealQueue.splice(idx, 1)
+    }
+  }
+}
+
+function scheduleTesterGridCardRevealFlush() {
+  if (testerGridCardRevealScheduled) return
+  if (typeof window === 'undefined') {
+    flushTesterGridCardRevealQueue()
+    return
+  }
+  testerGridCardRevealScheduled = true
+  const scheduleFrame: (cb: FrameRequestCallback) => number = typeof window.requestAnimationFrame === 'function'
+    ? window.requestAnimationFrame.bind(window)
+    : (cb) => window.setTimeout(
+      () => cb(typeof performance !== 'undefined' ? performance.now() : Date.now()),
+      GRID_CARD_SKELETON_FRAME_DELAY_MS,
+    )
+  scheduleFrame(() => {
+    testerGridCardRevealScheduled = false
+    flushTesterGridCardRevealQueue()
+  })
+}
+
+function flushTesterGridCardRevealQueue() {
+  if (!testerGridCardRevealQueue.length) return
+  if (testerGridCardRevealQueueDirty) {
+    testerGridCardRevealQueue.sort((a, b) => {
+      if (a.priorityBase !== b.priorityBase) {
+        return b.priorityBase - a.priorityBase
+      }
+      return a.priorityOrder - b.priorityOrder
+    })
+    testerGridCardRevealQueueDirty = false
+  }
+  const batch = testerGridCardRevealQueue.splice(0, GRID_CARD_SKELETON_BATCH_SIZE)
+  batch.forEach((task) => {
+    task.run()
+  })
+  if (testerGridCardRevealQueue.length) {
+    scheduleTesterGridCardRevealFlush()
+  }
+}
+
 type FactionGroupBuilder = {
   group: TesterGroup
   sets: Map<string, TesterGroup>
@@ -2179,13 +2599,16 @@ function estimateGroupHeight(
   cardHeightPx: number,
   depth = 0,
 ): number {
+  // Every tester card row shares the same height once the column count + match-row toggles are known, so we can estimate
+  // accordion size with deterministic math instead of sampling DOM nodes.
   const header = ESTIMATED_ACCORDION_HEADER_PX
   const marginBottom = depth === 0 ? accordionSpacingPx : 0
   const collapsed = collapsedGroups.has(group.key)
   if (collapsed) return header + marginBottom
   if (group.children && group.children.length > 0) {
-    const childHeights = group.children.reduce((total, child) => (
-      total + estimateGroupHeight(
+    let childHeights = 0
+    for (const child of group.children) {
+      childHeights += estimateGroupHeight(
         child,
         collapsedGroups,
         columnCount,
@@ -2195,7 +2618,7 @@ function estimateGroupHeight(
         cardHeightPx,
         depth + 1,
       )
-    ), 0)
+    }
     const stackGapTotal = Math.max(0, group.children.length - 1) * accordionSpacingPx
     const stackPadding = accordionSpacingPx * 2
     return header + childHeights + stackGapTotal + stackPadding + marginBottom
