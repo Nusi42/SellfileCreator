@@ -191,10 +191,15 @@ function TesterRuleReferenceChipBody({
       ref={chipWrapperRef}
       onMouseEnter={handleChipMouseEnter}
       onMouseLeave={handleChipMouseLeave}
-      title={nativeEllipsisTitle}
       sx={{ display: 'block', maxWidth: '100%', minWidth: 0 }}
     >
-      {baseChip}
+      <Box
+        component="span"
+        {...(nativeEllipsisTitle ? { title: nativeEllipsisTitle } : {})}
+        sx={{ display: 'block', maxWidth: '100%', minWidth: 0 }}
+      >
+        {baseChip}
+      </Box>
     </Box>
   )
   return (
