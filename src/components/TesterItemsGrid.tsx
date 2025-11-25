@@ -581,6 +581,24 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     overscan: GRID_GROUP_VIRTUAL_OVERSCAN_ROWS,
     getItemKey: getGroupKey,
   })
+  const virtualRowNodesRef = useRef<Map<number, HTMLElement>>(new Map())
+  const registerVirtualRow = useCallback((index: number) => (node: HTMLElement | null) => {
+    if (node) {
+      virtualRowNodesRef.current.set(index, node)
+    } else {
+      virtualRowNodesRef.current.delete(index)
+    }
+    rowVirtualizer.measureElement(node)
+  }, [rowVirtualizer])
+  useLayoutEffect(() => {
+    // Nested accordion toggles shrink the top-level row without changing its index, so force TanStack to remeasure the
+    // currently mounted nodes whenever the collapse signature or grid layout changes.
+    virtualRowNodesRef.current.forEach((node) => {
+      if (node && node.isConnected) {
+        rowVirtualizer.measureElement(node)
+      }
+    })
+  }, [collapsedDescendantSignatures, rowVirtualizer, virtualizationLayoutSignature])
   useEffect(() => {
     rowVirtualizer.measure()
   }, [
@@ -763,7 +781,7 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
               <Box
                 key={rowKey}
                 data-index={virtualItem.index}
-                ref={rowVirtualizer.measureElement}
+                ref={registerVirtualRow(virtualItem.index)}
                 sx={{
                   position: 'absolute',
                   top: 0,
