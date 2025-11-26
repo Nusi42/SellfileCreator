@@ -102,13 +102,10 @@ const CARD_ASC_FONT_DECREMENT_PX = 1.5
 const CARD_ASC_BLOCK_MARGIN_TOP_UNITS = 0.125
 const CARD_COLUMN_HEIGHT_BUFFER_PX = 0
 const MAX_MATCHING_CHIPS = 6
-const ESTIMATED_ACCORDION_HEADER_PX = 60
 const ACCORDION_MARGIN_UNITS = 0.75
 const ACCORDION_BORDER_RADIUS_PX = 8
 // Group-level virtualization uses light overscan because the heavy lifting happens at the card row level.
 const GRID_GROUP_VIRTUAL_OVERSCAN_ROWS = 2
-const GRID_LEAF_VIRTUALIZE_ROW_THRESHOLD = 12 // Chunk almost every accordion so we only hydrate rows near the viewport.
-const GRID_LEAF_VIRTUAL_OVERSCAN_ROWS = 1
 // Penalize off-screen rows so the reveal queue prefers on-screen cards even while overscanning nested accordions.
 const GRID_CARD_OFFSCREEN_PRIORITY_PENALTY = 1_000_000
 // Keep the reveal queue short by pruning rows that are multiple viewports away; scrolling back to them re-enqueues a fresh task.
@@ -119,9 +116,6 @@ const GRID_CARD_REVEAL_FRAME_BUDGET_MS = 6
 const GRID_CARD_REVEAL_PRUNE_THRESHOLD = 72
 const GRID_CARD_REVEAL_BATCH_MULTIPLIER = 4
 const GRID_CARD_REVEAL_IDLE_DRAIN_DELAY_MS = 180
-// Allow very tall single-column accordions without letting fallback heights overflow the browser layout.
-// 2M px ~= 9k tester cards stacked vertically, which is well above real data while keeping sums finite.
-const GRID_VIRTUALIZE_MAX_FALLBACK_HEIGHT_PX = 2_000_000
 const MATCHING_POPOVER_MAX_WIDTH_PX = 360
 const MATCHING_CHIP_MIN_WIDTH_PX = 50
 const MATCHING_CHIP_GAP_UNITS = 0.5
@@ -500,7 +494,6 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
   })
   const groupCountChipBg = theme.palette.mode === 'dark' ? theme.palette.grey[800] : theme.palette.grey[100]
   const accordionSummaryHeightPx = useMemo(() => pxValue(theme.spacing(5)), [theme])
-  const nestedDetailsPaddingPx = accordionSpacingPx
   useEffect(() => () => {
     if (scrollHintHideTimerRef.current) {
       clearTimeout(scrollHintHideTimerRef.current)
@@ -515,108 +508,44 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
       revealIdleDrainTimerRef.current = null
     }
   }, [])
-  const estimatedColumnCount = gridColumnCount
-  const virtualizationLayoutSignature = useMemo(() => (
-    // Layout signature rolls up every spacing input TanStack cares about so collapsed accordions reset stale heights.
-    `${gridColumnCount}:${accordionSpacingPx}:${gridGapPx}:${gridLeafPaddingPx}:${cardHeightPx}`
-  ), [accordionSpacingPx, cardHeightPx, gridColumnCount, gridGapPx, gridLeafPaddingPx])
-  // Descendant signatures flatten the collapsed-key set per group so parents remount when any nested accordion toggles.
-  const collapsedDescendantSignatures = useMemo(() => {
-    const map = new Map<string, string>()
-    const buildSignature = (group: TesterGroup): string => {
-      const parts: string[] = []
-      if (collapsedGroups.has(group.key)) {
-        parts.push(group.key)
-      }
-      if (group.children?.length) {
-        group.children.forEach((child) => {
-          const childSignature = buildSignature(child)
-          if (childSignature) {
-            parts.push(childSignature)
-          }
-        })
-      }
-      const signature = parts.join('|')
-      map.set(group.key, signature)
-      return signature
-    }
-    groups.forEach((group) => { buildSignature(group) })
-    return map
-  }, [collapsedGroups, groups])
-  const groupKeys = useMemo(() => (
-    groups.map((group) => {
-      // Include the collapsed state in the key so off-screen accordions shed their cached measurement immediately.
-      const collapsedMarker = collapsedGroups.has(group.key) ? 'collapsed' : 'expanded'
-      const descendantSignature = collapsedDescendantSignatures.get(group.key) ?? ''
-      return `${group.key}:${collapsedMarker}:${virtualizationLayoutSignature}:${descendantSignature}`
-    })
-  ), [collapsedDescendantSignatures, collapsedGroups, groups, virtualizationLayoutSignature])
-  const estimateGroupSize = useCallback((index: number) => {
-    const group = groups[index]
-    if (!group) return 0
-    return estimateGroupHeight(
-      group,
-      collapsedGroups,
-      estimatedColumnCount,
-      accordionSpacingPx,
-      gridGapPx,
-      gridLeafPaddingPx,
-      cardHeightPx,
-    )
-  }, [
-    accordionSpacingPx,
-    cardHeightPx,
-    collapsedGroups,
-    estimatedColumnCount,
-    gridGapPx,
-    gridLeafPaddingPx,
+  // Flatten the accordion tree whenever layout inputs change so item heights stay deterministic across renders.
+  const flattenedItems = useMemo(() => buildFlattenedGridItems({
     groups,
-  ])
-  const getGroupKey = useCallback((index: number) => groupKeys[index] ?? `tester-group-${index}`, [groupKeys])
-  // Virtualizer tracks just the top-level groups; it measures the rendered accordions so expansion/collapse stays in sync automatically.
-  // Top-level TanStack virtualizer handles accordion headers; leaf grids clip rows internally.
-  const rowVirtualizer = useVirtualizer({
-    count: groups.length,
-    getScrollElement: () => containerRef.current,
-    estimateSize: estimateGroupSize,
-    overscan: GRID_GROUP_VIRTUAL_OVERSCAN_ROWS,
-    getItemKey: getGroupKey,
-  })
-  const virtualRowNodesRef = useRef<Map<number, HTMLElement>>(new Map())
-  const registerVirtualRow = useCallback((index: number) => (node: HTMLElement | null) => {
-    if (node) {
-      virtualRowNodesRef.current.set(index, node)
-    } else {
-      virtualRowNodesRef.current.delete(index)
-    }
-    rowVirtualizer.measureElement(node)
-  }, [rowVirtualizer])
-  useLayoutEffect(() => {
-    // Nested accordion toggles shrink the top-level row without changing its index, so force TanStack to remeasure the
-    // currently mounted nodes whenever the collapse signature or grid layout changes.
-    virtualRowNodesRef.current.forEach((node) => {
-      if (node && node.isConnected) {
-        rowVirtualizer.measureElement(node)
-      }
-    })
-  }, [collapsedDescendantSignatures, rowVirtualizer, virtualizationLayoutSignature])
-  useEffect(() => {
-    rowVirtualizer.measure()
-  }, [
-    rowVirtualizer,
+    collapsedGroups,
+    gridColumnCount,
+    accordionSummaryHeightPx,
     accordionSpacingPx,
+    leafPaddingPx: gridLeafPaddingPx,
+    gridGapPx,
+    cardHeightPx,
+  }), [
+    accordionSpacingPx,
+    accordionSummaryHeightPx,
     cardHeightPx,
     collapsedGroups,
     gridColumnCount,
     gridGapPx,
     gridLeafPaddingPx,
+    groups,
   ])
+  const getFlattenedItemKey = useCallback(
+    (index: number) => flattenedItems[index]?.key ?? `tester-grid-item-${index}`,
+    [flattenedItems],
+  )
+  // Single virtualizer now covers headers + rows; item height hints keep scroll position stable when toggling groups.
+  const rowVirtualizer = useVirtualizer({
+    count: flattenedItems.length,
+    getScrollElement: () => containerRef.current,
+    estimateSize: (index) => flattenedItems[index]?.height ?? accordionSummaryHeightPx,
+    overscan: GRID_GROUP_VIRTUAL_OVERSCAN_ROWS,
+    getItemKey: getFlattenedItemKey,
+  })
   const virtualItems = rowVirtualizer.getVirtualItems()
   const virtualizedHeight = Math.max(rowVirtualizer.getTotalSize(), 0)
   const virtualizationRangeStartIndex = virtualItems.length > 0 ? virtualItems[0]!.index : 0
   const virtualizationRangeEndIndex = virtualItems.length > 0
     ? virtualItems[virtualItems.length - 1]!.index + 1
-    : groups.length
+    : flattenedItems.length
   const rowLookup = useMemo(() => {
     const map = new Map<number, TesterPreviewRow>()
     rows.forEach((row) => {
@@ -707,7 +636,7 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     showOtherMatches,
     collapsedGroups,
     rows.length,
-    groups,
+    flattenedItems,
   ])
   if (rows.length === 0) {
     // Highlight props bubble through the group tree so only the leaf cards need to know about Keep Uniques.
@@ -717,67 +646,206 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
       </EmptyStateMessage>
     )
   }
-  const renderGroup = (group: TesterGroup, depth = 0, absoluteTop = 0): React.ReactNode => {
-    const groupCountLabel = group.rows.length === 1
-      ? t('testerItemsCountOne')
-      : t('testerItemsCountMany', { n: numberFormatter.format(group.rows.length) })
-    const expanded = !collapsedGroups.has(group.key)
-    const hasChildren = Boolean(group.children?.length)
-    let childContent: React.ReactNode | undefined
-    if (hasChildren && group.children) {
-      const children = group.children
-      const childNodes: React.ReactNode[] = []
-      let nextChildTop = absoluteTop + accordionSummaryHeightPx + nestedDetailsPaddingPx
-      children.forEach((child, idx) => {
-        childNodes.push(renderGroup(child, depth + 1, nextChildTop))
-        const childHeight = estimateGroupHeight(
-          child,
-          collapsedGroups,
-          estimatedColumnCount,
-          accordionSpacingPx,
-          gridGapPx,
-          gridLeafPaddingPx,
-          cardHeightPx,
-          depth + 1,
-        )
-        if (Number.isFinite(childHeight)) {
-          nextChildTop += childHeight + (idx < children.length - 1 ? accordionSpacingPx : 0)
-        }
-      })
-      childContent = childNodes
+  const renderFlattenedItem = (item: FlattenedGridItem, virtualItem: ReturnType<typeof rowVirtualizer.getVirtualItems>[number]) => {
+    if (!item) return null
+    const nested = item.depth > 0
+    const sharedBodySx = (theme: Theme) => ({
+      ml: nested ? theme.spacing(1.5) : 0,
+      borderLeft: `1px solid ${theme.palette.divider}`,
+      borderRight: `1px solid ${theme.palette.divider}`,
+      backgroundColor: nested ? theme.palette.background.default : theme.palette.background.paper,
+      height: '100%',
+      display: 'flex',
+      flexDirection: 'column',
+      justifyContent: 'center',
+    })
+    if (item.kind === 'groupHeader') {
+      const group = item.group
+      const groupCountLabel = group.rows.length === 1
+        ? t('testerItemsCountOne')
+        : t('testerItemsCountMany', { n: numberFormatter.format(group.rows.length) })
+      const expanded = item.expanded
+      const numericSetId = typeof group.setId === 'number' && group.setId > 0 ? group.setId : null
+      const groupSetTooltipName = numericSetId != null ? (artifactSetNames[numericSetId] ?? null) : null
+      const trimmedGroupLabel = group.label.trim()
+      const groupDisplayName = trimmedGroupLabel.length > 0 ? trimmedGroupLabel : undefined
+      const groupSetTooltipProps = groupDisplayName
+        ? { displayName: groupDisplayName, showName: true }
+        : undefined
+      const summarySetIcon = numericSetId != null ? (
+        <Box sx={{ lineHeight: 0, display: 'flex', alignItems: 'center' }}>
+          <SetIcon
+            setId={numericSetId as ArtifactSetId}
+            size={24}
+            {...(groupDisplayName ? { label: groupDisplayName } : {})}
+          />
+        </Box>
+      ) : null
+      const headerRadius = Math.max(ACCORDION_BORDER_RADIUS_PX - (nested ? 2 : 0), 2)
+      return (
+        <Box
+          sx={(theme) => ({
+            ml: nested ? theme.spacing(1.5) : 0,
+            borderRadius: `${headerRadius}px`,
+            border: `1px solid ${theme.palette.divider}`,
+            borderBottomLeftRadius: expanded ? 0 : `${headerRadius}px`,
+            borderBottomRightRadius: expanded ? 0 : `${headerRadius}px`,
+            backgroundColor: nested ? theme.palette.background.default : theme.palette.background.paper,
+            height: '100%',
+            overflow: 'hidden',
+          })}
+        >
+          <ButtonBase
+            onClick={(event) => handleGroupToggle(group.key, !expanded, event)}
+            onContextMenu={(event) => {
+              event.preventDefault()
+              event.stopPropagation()
+              handleGroupToggle(group.key, !expanded, event, { applyToAll: true })
+              handleGridHintSeen()
+            }}
+            sx={(theme) => ({
+              display: 'flex',
+              width: '100%',
+              textAlign: 'left',
+              justifyContent: 'flex-start',
+              px: theme.spacing(1.5),
+              py: theme.spacing(1),
+              minHeight: `${item.height}px`,
+              borderBottom: expanded ? `1px solid ${theme.palette.divider}` : 'none',
+            })}
+            aria-expanded={expanded}
+            type="button"
+          >
+            <Stack direction="row" spacing={1.5} alignItems="center" sx={{ width: '100%', flexWrap: 'nowrap' }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
+                {groupSetTooltipName && summarySetIcon ? (
+                  <WithSetTooltip name={groupSetTooltipName} {...(groupSetTooltipProps ?? {})}>
+                    {summarySetIcon}
+                  </WithSetTooltip>
+                ) : summarySetIcon}
+                {group.factionId ? (
+                  <FactionIcon
+                    faction={group.factionId}
+                    size={group.kind === 'accessoryFaction' ? 24 : 18}
+                  />
+                ) : null}
+              </Box>
+              <Typography
+                variant={nested ? 'subtitle2' : 'subtitle1'}
+                sx={{ flex: 1, minWidth: 0 }}
+                noWrap
+              >
+                {group.label}
+              </Typography>
+              <Chip
+                size="small"
+                label={groupCountLabel}
+                sx={{ bgcolor: groupCountChipBg, flexShrink: 0 }}
+              />
+              <Box sx={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+                {expanded ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
+              </Box>
+            </Stack>
+          </ButtonBase>
+        </Box>
+      )
     }
-    return (
-      <TesterItemsGridGroup
-        key={group.key}
-        group={group}
-        expanded={expanded}
-        groupCountLabel={groupCountLabel}
-        chipBgColor={groupCountChipBg}
-        onToggleGroup={handleGroupToggle}
-        onAnyContextMenu={handleGridHintSeen}
-        substatColors={substatColors}
-        useStatButtonColors={useStatButtonColors}
-        suppressMatchDetails={suppressMatchDetails}
-        gridColumnCount={gridColumnCount}
-        showFirstMatchRow={showFirstMatch}
-        showOtherMatchesRow={showOtherMatches}
-        showChampionIcons={showChampionIcons}
-        cardHeightPx={cardHeightPx}
-        configNames={configNames}
-        onJumpToRule={onJumpToRule}
-        highlightedRowPredicate={highlightRowPredicate}
-        dimUnhighlightedRows={shouldDimUnhighlightedRows}
-        childContent={childContent}
-        depth={depth}
-        scrollOffset={scrollTop}
-        viewportHeight={viewportHeight}
-        scrollVersion={scrollVersion}
-        absoluteTop={absoluteTop}
-        accordionSummaryHeightPx={accordionSummaryHeightPx}
-        accordionSpacingPx={accordionSpacingPx}
-        leafPaddingPx={gridLeafPaddingPx}
-      />
-    )
+    if (item.kind === 'spacer') {
+      return (
+        <Box
+          sx={(theme) => ({
+            height: '100%',
+            ml: item.variant === 'child' ? theme.spacing(1.5 * item.depth) : 0,
+          })}
+        />
+      )
+    }
+    if (item.kind === 'cardPadding') {
+      return (
+        <Box
+          sx={(theme) => ({
+            ...sharedBodySx(theme),
+            borderBottom: item.position === 'bottom'
+              ? `1px solid ${theme.palette.divider}`
+              : 'none',
+            borderBottomLeftRadius: item.position === 'bottom'
+              ? `${Math.max(ACCORDION_BORDER_RADIUS_PX - (nested ? 2 : 0), 2)}px`
+              : 0,
+            borderBottomRightRadius: item.position === 'bottom'
+              ? `${Math.max(ACCORDION_BORDER_RADIUS_PX - (nested ? 2 : 0), 2)}px`
+              : 0,
+          })}
+        />
+      )
+    }
+    if (item.kind === 'cardRow') {
+      const isLastRow = item.rowIndex === item.rowCount - 1
+      const rowAbsoluteTopPx = virtualItem.start
+      const rowAbsoluteBottomPx = rowAbsoluteTopPx + virtualItem.size
+      const viewportStartPx = scrollTop
+      const viewportEndPx = viewportStartPx + viewportHeight
+      const viewportReady = viewportHeight > 0
+      const intersectsViewport = viewportReady
+        ? (rowAbsoluteBottomPx >= viewportStartPx && rowAbsoluteTopPx <= viewportEndPx)
+        : true
+      let positionOrder = rowAbsoluteTopPx
+      if (viewportReady && !intersectsViewport) {
+        if (rowAbsoluteBottomPx < viewportStartPx) {
+          positionOrder = GRID_CARD_OFFSCREEN_PRIORITY_PENALTY + (viewportStartPx - rowAbsoluteBottomPx)
+        } else if (rowAbsoluteTopPx > viewportEndPx) {
+          positionOrder = GRID_CARD_OFFSCREEN_PRIORITY_PENALTY + (rowAbsoluteTopPx - viewportEndPx)
+        }
+      }
+      return (
+        <Box
+          sx={(theme) => ({
+            ...sharedBodySx(theme),
+            borderBottom: isLastRow ? `1px solid ${theme.palette.divider}` : 'none',
+            borderBottomLeftRadius: isLastRow
+              ? `${Math.max(ACCORDION_BORDER_RADIUS_PX - (nested ? 2 : 0), 2)}px`
+              : 0,
+            borderBottomRightRadius: isLastRow
+              ? `${Math.max(ACCORDION_BORDER_RADIUS_PX - (nested ? 2 : 0), 2)}px`
+              : 0,
+            px: theme.spacing(GRID_CARD_CONTAINER_PADDING_UNITS),
+          })}
+        >
+          <Box
+            sx={(theme) => ({
+              display: 'grid',
+              gridTemplateColumns: `repeat(${Math.max(1, gridColumnCount)}, ${GRID_CARD_SINGLE_COLUMN_TEMPLATE})`,
+              columnGap: theme.spacing(GRID_GAP),
+              rowGap: 0,
+              width: '100%',
+            })}
+          >
+            {item.rowEntries.map((row, columnIdx) => {
+              const cardPriorityOrder = positionOrder + (columnIdx * 0.01)
+              return (
+                <TesterGridCard
+                  key={row.artifact.id}
+                  row={row}
+                  substatColors={substatColors}
+                  useStatButtonColors={useStatButtonColors}
+                  suppressMatchDetails={suppressMatchDetails}
+                  showFirstMatchRow={showFirstMatch}
+                  showOtherMatchesRow={showOtherMatches}
+                  showChampionIcons={showChampionIcons}
+                  cardHeightPx={cardHeightPx}
+                  gridColumnCount={gridColumnCount}
+                  configNames={configNames}
+                  onJumpToRule={onJumpToRule}
+                  highlightedRowPredicate={highlightRowPredicate}
+                  dimUnhighlightedRows={shouldDimUnhighlightedRows}
+                  cardPriority={{ base: scrollVersion, order: cardPriorityOrder }}
+                />
+              )
+            })}
+          </Box>
+        </Box>
+      )
+    }
+    return null
   }
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, position: 'relative' }}>
@@ -797,25 +865,24 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
             minHeight: `${virtualizedHeight}px`,
           }}
         >
-          {/* Every group render flows through TanStack virtualization so accordions can recycle smoothly. */}
+          {/* Flattened virtualization keeps only the visible headers, spacers, and card rows in the DOM. */}
           {virtualItems.map((virtualItem) => {
-            const group = groups[virtualItem.index]
-            if (!group) return null
-            const rowKey = groupKeys[virtualItem.index] ?? virtualItem.key
+            const item = flattenedItems[virtualItem.index]
+            if (!item) return null
             return (
               <Box
-                key={rowKey}
+                key={item.key}
                 data-index={virtualItem.index}
-                ref={registerVirtualRow(virtualItem.index)}
                 sx={{
                   position: 'absolute',
                   top: 0,
                   left: 0,
                   width: '100%',
                   transform: `translateY(${virtualItem.start}px)`,
+                  height: `${virtualItem.size}px`,
                 }}
               >
-                {renderGroup(group, 0, virtualItem.start)}
+                {renderFlattenedItem(item, virtualItem)}
               </Box>
             )
           })}
@@ -1005,307 +1072,170 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
   )
 }
 
-type TesterItemsGridGroupProps = {
-  group: TesterGroup
-  expanded: boolean
-  groupCountLabel: string
-  chipBgColor: string
-  onToggleGroup: (
-    groupKey: string,
-    shouldExpand: boolean,
-    event?: React.SyntheticEvent<Element, Event> | null,
-    options?: { applyToAll?: boolean },
-  ) => void
-  onAnyContextMenu?: () => void
-  substatColors: Record<number, { fg: string; bg: string }>
-  useStatButtonColors: boolean
-  suppressMatchDetails: boolean
+// Flattened items treat headers, spacers, and card rows uniformly so TanStack only mounts what's visible.
+type FlattenedGridSpacerVariant = 'top' | 'child' | 'row'
+
+type FlattenedGridItem =
+  | {
+      kind: 'groupHeader'
+      key: string
+      group: TesterGroup
+      depth: number
+      expanded: boolean
+      height: number
+    }
+  | {
+      kind: 'spacer'
+      key: string
+      depth: number
+      height: number
+      variant: FlattenedGridSpacerVariant
+    }
+  | {
+      kind: 'cardPadding'
+      key: string
+      group: TesterGroup
+      depth: number
+      position: 'top' | 'bottom'
+      height: number
+    }
+  | {
+      kind: 'cardRow'
+      key: string
+      group: TesterGroup
+      depth: number
+      rowEntries: TesterPreviewRow[]
+      rowIndex: number
+      rowCount: number
+      height: number
+    }
+
+// Leaf grids still render as chunked rows per column count so Keep Uniques + tester variants share one calculator.
+function chunkGroupRows(group: TesterGroup, gridColumnCount: number): TesterPreviewRow[][] {
+  const columns = Math.max(1, gridColumnCount)
+  const rows: TesterPreviewRow[][] = []
+  for (let idx = 0; idx < group.rows.length; idx += columns) {
+    rows.push(group.rows.slice(idx, idx + columns))
+  }
+  return rows
+}
+
+type BuildFlattenedGridItemsOptions = {
+  groups: TesterGroup[]
+  collapsedGroups: Set<string>
   gridColumnCount: number
-  showFirstMatchRow: boolean
-  showOtherMatchesRow: boolean
-  showChampionIcons: boolean
-  cardHeightPx: number
-  configNames: Array<string | null>
-  onJumpToRule?: ((ruleIndex: number, cfgIdx: number | null) => void) | undefined
-  childContent?: React.ReactNode
-  depth?: number
-  // Highlight predicate trickles down so nested accordions stay presentation-only.
-  highlightedRowPredicate?: ((row: TesterPreviewRow) => boolean) | null
-  dimUnhighlightedRows?: boolean
-  scrollOffset: number
-  viewportHeight: number
-  scrollVersion: number
-  absoluteTop: number
   accordionSummaryHeightPx: number
   accordionSpacingPx: number
   leafPaddingPx: number
+  gridGapPx: number
+  cardHeightPx: number
 }
 
-const TesterItemsGridGroup = React.memo(function TesterItemsGridGroup({
-  group,
-  expanded,
-  groupCountLabel,
-  chipBgColor,
-  onToggleGroup,
-  onAnyContextMenu,
-  substatColors,
-  useStatButtonColors,
-  suppressMatchDetails,
+// Recursively convert the nested accordion tree into fixed-height slices so the virtual list stays deterministic.
+function buildFlattenedGridItems({
+  groups,
+  collapsedGroups,
   gridColumnCount,
-  showFirstMatchRow,
-  showOtherMatchesRow,
-  showChampionIcons,
-  cardHeightPx,
-  configNames,
-  onJumpToRule,
-  childContent,
-  depth = 0,
-  highlightedRowPredicate = null,
-  dimUnhighlightedRows = false,
-  scrollOffset,
-  viewportHeight,
-  scrollVersion,
-  absoluteTop,
   accordionSummaryHeightPx,
   accordionSpacingPx,
   leafPaddingPx,
-}: TesterItemsGridGroupProps) {
-  const hasChildren = Boolean(childContent)
-  const nested = depth > 0
-  const theme = useTheme()
-  const gridRowGapPx = pxValue(theme.spacing(GRID_GAP))
-  // Card rows are chunked per accordion so nested groups can virtualize independently of the root list.
-  const cardRowChunks = useMemo(() => {
-    if (hasChildren) return []
-    const columns = Math.max(1, gridColumnCount)
-    const rows: TesterPreviewRow[][] = []
-    for (let idx = 0; idx < group.rows.length; idx += columns) {
-      rows.push(group.rows.slice(idx, idx + columns))
+  gridGapPx,
+  cardHeightPx,
+}: BuildFlattenedGridItemsOptions): FlattenedGridItem[] {
+  const items: FlattenedGridItem[] = []
+  const rowChunkCache = new Map<string, TesterPreviewRow[][]>()
+  const getRowChunks = (group: TesterGroup): TesterPreviewRow[][] => {
+    let cached = rowChunkCache.get(group.key)
+    if (!cached) {
+      cached = chunkGroupRows(group, gridColumnCount)
+      rowChunkCache.set(group.key, cached)
     }
-    return rows
-  }, [group.rows, gridColumnCount, hasChildren])
-  const cardRowCount = cardRowChunks.length
-  const shouldVirtualizeLeafRows = !hasChildren && cardRowCount > GRID_LEAF_VIRTUALIZE_ROW_THRESHOLD
-  const leafPriorityBaseRef = useRef<number>(0)
-  const leafPrioritySignatureRef = useRef<string | null>(null)
-  const gridAbsoluteOffset = absoluteTop + accordionSummaryHeightPx + (hasChildren ? accordionSpacingPx : leafPaddingPx)
-  const cardRowStridePx = cardHeightPx + gridRowGapPx
-  const totalRowsHeightPx = useMemo(() => {
-    if (!cardRowCount) return 0
-    const spacing = Math.max(0, cardRowCount - 1) * gridRowGapPx
-    return (cardRowCount * cardHeightPx) + spacing
-  }, [cardHeightPx, cardRowCount, gridRowGapPx])
-  const effectiveGridAbsoluteOffset = gridAbsoluteOffset
-  const hasUsableGridOffset = Number.isFinite(effectiveGridAbsoluteOffset)
-  // Leaf virtualization only kicks in once we know the card stride; nested accordions fall back otherwise.
-  const canVirtualizeLeafRows = Boolean(
-    shouldVirtualizeLeafRows
-      && hasUsableGridOffset
-      && viewportHeight > 0
-      && cardRowStridePx > 0,
-  )
-  let rowRangeStart = 0
-  let rowRangeEnd = cardRowCount
-  let rowPadTopPx = 0
-  let rowPadBottomPx = 0
-  if (canVirtualizeLeafRows && cardRowCount > 0 && hasUsableGridOffset) {
-    const viewportStart = scrollOffset
-    const viewportEnd = viewportStart + viewportHeight
-    // Fallback offset keeps virtualization active on the first expansion before the accordion reports its true position.
-    const relativeStart = viewportStart - effectiveGridAbsoluteOffset
-    const relativeEnd = viewportEnd - effectiveGridAbsoluteOffset
-    // Manual overscan keeps keyboard/PageDown smooth without re-rendering the full accordion.
-    const overscan = GRID_LEAF_VIRTUAL_OVERSCAN_ROWS
-    const start = Math.max(0, Math.floor(relativeStart / cardRowStridePx) - overscan)
-    const end = Math.min(cardRowCount, Math.ceil(relativeEnd / cardRowStridePx) + overscan)
-    rowRangeStart = Math.min(Math.max(0, start), Math.max(0, cardRowCount - 1))
-    rowRangeEnd = Math.max(rowRangeStart + 1, Math.min(cardRowCount, Math.max(rowRangeStart + 1, end)))
-    rowPadTopPx = rowRangeStart === 0 ? 0 : rowRangeStart * cardRowStridePx
-    const visibleRows = rowRangeEnd - rowRangeStart
-    const visibleHeightPx = (visibleRows * cardHeightPx) + (Math.max(0, visibleRows - 1) * gridRowGapPx)
-    rowPadBottomPx = Math.max(0, totalRowsHeightPx - rowPadTopPx - visibleHeightPx)
+    return cached
   }
-  // Signature pairs the scroll version with the measured row window so we only bump the priority base when needed.
-  // Priority signature avoids starving off-screen reveals when accordions are recycled mid-scroll.
-  const prioritySignature = canVirtualizeLeafRows
-    ? `${scrollVersion}:${rowRangeStart}:${rowRangeEnd}`
-    : `${scrollVersion}:static:${group.key}:${group.rows.length}`
-  if (leafPrioritySignatureRef.current !== prioritySignature) {
-    leafPrioritySignatureRef.current = prioritySignature
-    leafPriorityBaseRef.current = scrollVersion
+  const visit = (group: TesterGroup, depth: number) => {
+    const expanded = !collapsedGroups.has(group.key)
+    items.push({
+      kind: 'groupHeader',
+      key: `header:${group.key}`,
+      group,
+      depth,
+      expanded,
+      height: accordionSummaryHeightPx,
+    })
+    if (expanded) {
+      if (group.children?.length) {
+        group.children.forEach((child, idx) => {
+          if (idx > 0) {
+            items.push({
+              kind: 'spacer',
+              key: `child-gap:${group.key}:${child.key}:${idx}`,
+              depth: depth + 1,
+              height: accordionSpacingPx,
+              variant: 'child',
+            })
+          }
+          visit(child, depth + 1)
+        })
+      } else if (group.rows.length > 0 || leafPaddingPx > 0) {
+        if (leafPaddingPx > 0) {
+          items.push({
+            kind: 'cardPadding',
+            key: `pad-top:${group.key}`,
+            group,
+            depth,
+            position: 'top',
+            height: leafPaddingPx,
+          })
+        }
+        const rowChunks = getRowChunks(group)
+        rowChunks.forEach((rowEntries, rowIdx) => {
+          if (rowIdx > 0 && gridGapPx > 0) {
+            items.push({
+              kind: 'spacer',
+              key: `row-gap:${group.key}:${rowIdx}`,
+              depth,
+              height: gridGapPx,
+              variant: 'row',
+            })
+          }
+          items.push({
+            kind: 'cardRow',
+            key: `row:${group.key}:${rowIdx}`,
+            group,
+            depth,
+            rowEntries,
+            rowIndex: rowIdx,
+            rowCount: rowChunks.length,
+            height: cardHeightPx,
+          })
+        })
+        if (leafPaddingPx > 0) {
+          items.push({
+            kind: 'cardPadding',
+            key: `pad-bottom:${group.key}`,
+            group,
+            depth,
+            position: 'bottom',
+            height: leafPaddingPx,
+          })
+        }
+      }
+    }
   }
-  const cardPriorityBase = leafPriorityBaseRef.current
-  const numericSetId = typeof group.setId === 'number' && group.setId > 0 ? group.setId : null
-  const groupSetTooltipName = numericSetId != null ? (artifactSetNames[numericSetId] ?? null) : null
-  const trimmedGroupLabel = group.label.trim()
-  const groupDisplayName = trimmedGroupLabel.length > 0 ? trimmedGroupLabel : undefined
-  const groupSetTooltipProps = groupDisplayName
-    ? { displayName: groupDisplayName, showName: true }
-    : undefined
-  const summarySetIcon = numericSetId != null ? (
-    <Box sx={{ lineHeight: 0, display: 'flex', alignItems: 'center' }}>
-      <SetIcon
-        setId={numericSetId as ArtifactSetId}
-        size={24}
-        {...(groupDisplayName ? { label: groupDisplayName } : {})}
-      />
-    </Box>
-  ) : null
-  // Group rows still behave like accordions, but this wrapper stays lightweight to keep TanStack remeasures cheap.
-  return (
-    <Box
-      sx={(theme) => ({
-        mb: nested ? 0 : ACCORDION_MARGIN_UNITS,
-        borderRadius: `${Math.max(ACCORDION_BORDER_RADIUS_PX - (nested ? 2 : 0), 2)}px`,
-        ml: nested ? theme.spacing(1.5) : 0,
-        overflow: 'hidden',
-        border: `1px solid ${theme.palette.divider}`,
-        backgroundColor: nested ? theme.palette.background.default : theme.palette.background.paper,
-      })}
-    >
-      <ButtonBase
-        onClick={(event) => onToggleGroup(group.key, !expanded, event)}
-        onContextMenu={(event) => {
-          event.preventDefault()
-          event.stopPropagation()
-          onToggleGroup(group.key, !expanded, event, { applyToAll: true })
-          onAnyContextMenu?.()
-        }}
-        sx={(theme) => ({
-          display: 'flex',
-          width: '100%',
-          textAlign: 'left',
-          justifyContent: 'flex-start',
-          px: theme.spacing(1.5),
-          py: theme.spacing(1),
-          minHeight: theme.spacing(5),
-          borderBottom: expanded ? `1px solid ${theme.palette.divider}` : 'none',
-        })}
-        aria-expanded={expanded}
-        type="button"
-      >
-        <Stack direction="row" spacing={1.5} alignItems="center" sx={{ width: '100%', flexWrap: 'nowrap' }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
-            {groupSetTooltipName && summarySetIcon ? (
-              <WithSetTooltip name={groupSetTooltipName} {...(groupSetTooltipProps ?? {})}>
-                {summarySetIcon}
-              </WithSetTooltip>
-            ) : summarySetIcon}
-            {group.factionId ? (
-              <FactionIcon
-                faction={group.factionId}
-                size={group.kind === 'accessoryFaction' ? 24 : 18}
-              />
-            ) : null}
-          </Box>
-          <Typography
-            variant={nested ? 'subtitle2' : 'subtitle1'}
-            sx={{ flex: 1, minWidth: 0 }}
-            noWrap
-          >
-            {group.label}
-          </Typography>
-          <Chip
-            size="small"
-            label={groupCountLabel}
-            sx={{ bgcolor: chipBgColor, flexShrink: 0 }}
-          />
-          <Box sx={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
-            {expanded ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
-          </Box>
-        </Stack>
-      </ButtonBase>
-      {expanded ? (
-        <Box
-          sx={(theme) => ({
-            backgroundColor: 'inherit',
-            borderTop: `1px solid ${theme.palette.divider}`,
-            p: hasChildren
-              ? theme.spacing(ACCORDION_MARGIN_UNITS)
-              : theme.spacing(GRID_CARD_CONTAINER_PADDING_UNITS),
-          })}
-        >
-          {hasChildren ? (
-            <Stack spacing={ACCORDION_MARGIN_UNITS}>
-              {childContent}
-            </Stack>
-          ) : (
-            <Box
-              sx={{
-                display: 'flex',
-                flexDirection: 'column',
-                bgcolor: 'inherit',
-              }}
-            >
-              {canVirtualizeLeafRows && rowPadTopPx > 0 ? (
-                <Box sx={{ height: `${rowPadTopPx}px`, flex: '0 0 auto' }} />
-              ) : null}
-              {cardRowChunks.slice(rowRangeStart, rowRangeEnd).map((rowEntries, visibleIdx) => {
-                const absoluteRowIndex = rowRangeStart + visibleIdx
-                return (
-                  <Box
-                    key={`${group.key}-row-${absoluteRowIndex}`}
-                    sx={(theme) => ({
-                      display: 'grid',
-                      gridTemplateColumns: `repeat(${Math.max(1, gridColumnCount)}, ${GRID_CARD_SINGLE_COLUMN_TEMPLATE})`,
-                      columnGap: theme.spacing(GRID_GAP),
-                      rowGap: 0,
-                      ...(absoluteRowIndex > 0 ? { mt: theme.spacing(GRID_GAP) } : {}),
-                    })}
-                  >
-                    {rowEntries.map((row, columnIdx) => {
-                      // Prioritize rows by absolute Y so nested accordions resolve sequentially; anything outside the
-                      // current viewport pays a huge penalty so overscan never jumps the queue.
-                      const rowAbsoluteTopPx = effectiveGridAbsoluteOffset + (absoluteRowIndex * cardRowStridePx)
-                      const rowAbsoluteBottomPx = rowAbsoluteTopPx + cardHeightPx
-                      const viewportStartPx = scrollOffset
-                      const viewportEndPx = viewportStartPx + viewportHeight
-                      const viewportReady = viewportHeight > 0
-                      const intersectsViewport = viewportReady
-                        ? (rowAbsoluteBottomPx >= viewportStartPx && rowAbsoluteTopPx <= viewportEndPx)
-                        : true
-                      let positionOrder = rowAbsoluteTopPx
-                      if (viewportReady && !intersectsViewport) {
-                        if (rowAbsoluteBottomPx < viewportStartPx) {
-                          positionOrder = GRID_CARD_OFFSCREEN_PRIORITY_PENALTY + (viewportStartPx - rowAbsoluteBottomPx)
-                        } else if (rowAbsoluteTopPx > viewportEndPx) {
-                          positionOrder = GRID_CARD_OFFSCREEN_PRIORITY_PENALTY + (rowAbsoluteTopPx - viewportEndPx)
-                        }
-                      }
-                      const cardPriorityOrder = positionOrder + (columnIdx * 0.01)
-                      return (
-                        <TesterGridCard
-                          key={row.artifact.id}
-                          row={row}
-                          substatColors={substatColors}
-                          useStatButtonColors={useStatButtonColors}
-                          suppressMatchDetails={suppressMatchDetails}
-                          showFirstMatchRow={showFirstMatchRow}
-                          showOtherMatchesRow={showOtherMatchesRow}
-                          showChampionIcons={showChampionIcons}
-                          cardHeightPx={cardHeightPx}
-                          gridColumnCount={gridColumnCount}
-                          configNames={configNames}
-                          onJumpToRule={onJumpToRule}
-                          highlightedRowPredicate={highlightedRowPredicate}
-                          dimUnhighlightedRows={dimUnhighlightedRows}
-                          cardPriority={{ base: cardPriorityBase, order: cardPriorityOrder }}
-                        />
-                      )
-                    })}
-                  </Box>
-                )
-              })}
-              {canVirtualizeLeafRows && rowPadBottomPx > 0 ? (
-                <Box sx={{ height: `${rowPadBottomPx}px`, flex: '0 0 auto' }} />
-              ) : null}
-            </Box>
-          )}
-        </Box>
-      ) : null}
-    </Box>
-  )
-});
+  groups.forEach((group, idx) => {
+    visit(group, 0)
+    if (idx < groups.length - 1 && accordionSpacingPx > 0) {
+      items.push({
+        kind: 'spacer',
+        key: `top-gap:${group.key}:${idx}`,
+        depth: 0,
+        height: accordionSpacingPx,
+        variant: 'top',
+      })
+    }
+  })
+  return items
+}
 
 const TesterGridCard = React.memo(function TesterGridCard({
   row,
@@ -2723,49 +2653,6 @@ function formatTesterRarityLabel(rarity: number | null | undefined, translate: T
     case 5: return translate('rarityLegendary')
     case 6: default: return translate('rarityMythical')
   }
-}
-
-function estimateGroupHeight(
-  group: TesterGroup,
-  collapsedGroups: Set<string>,
-  columnCount: number,
-  accordionSpacingPx: number,
-  gridGapPx: number,
-  leafPaddingPx: number,
-  cardHeightPx: number,
-  depth = 0,
-): number {
-  // Every tester card row shares the same height once the column count + match-row toggles are known, so we can estimate
-  // accordion size with deterministic math instead of sampling DOM nodes.
-  const header = ESTIMATED_ACCORDION_HEADER_PX
-  const marginBottom = depth === 0 ? accordionSpacingPx : 0
-  const collapsed = collapsedGroups.has(group.key)
-  if (collapsed) return header + marginBottom
-  if (group.children && group.children.length > 0) {
-    let childHeights = 0
-    for (const child of group.children) {
-      childHeights += estimateGroupHeight(
-        child,
-        collapsedGroups,
-        columnCount,
-        accordionSpacingPx,
-        gridGapPx,
-        leafPaddingPx,
-        cardHeightPx,
-        depth + 1,
-      )
-    }
-    const stackGapTotal = Math.max(0, group.children.length - 1) * accordionSpacingPx
-    const stackPadding = accordionSpacingPx * 2
-    return header + childHeights + stackGapTotal + stackPadding + marginBottom
-  }
-  const columns = Math.max(1, columnCount)
-  const rowsNeeded = Math.max(1, Math.ceil(group.rows.length / columns))
-  const gridHeight = (rowsNeeded * cardHeightPx)
-    + (Math.max(0, rowsNeeded - 1) * gridGapPx)
-  const paddingHeight = Math.max(0, leafPaddingPx) * 2
-  const totalHeight = header + gridHeight + paddingHeight + marginBottom
-  return Math.min(totalHeight, GRID_VIRTUALIZE_MAX_FALLBACK_HEIGHT_PX)
 }
 
 export default TesterItemsGrid
