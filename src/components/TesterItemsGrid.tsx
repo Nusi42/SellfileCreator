@@ -109,10 +109,18 @@ const ACCORDION_MARGIN_UNITS = 0.75
 const ACCORDION_BORDER_RADIUS_PX = 8
 // Group-level virtualization uses light overscan because the heavy lifting happens at the card row level.
 const GRID_GROUP_VIRTUAL_OVERSCAN_ROWS = 2
-const GRID_LEAF_VIRTUALIZE_ROW_THRESHOLD = 40
+const GRID_LEAF_VIRTUALIZE_ROW_THRESHOLD = 12 // Chunk almost every accordion so we only hydrate rows near the viewport.
 const GRID_LEAF_VIRTUAL_OVERSCAN_ROWS = 1
 // Penalize off-screen rows so the reveal queue prefers on-screen cards even while overscanning nested accordions.
 const GRID_CARD_OFFSCREEN_PRIORITY_PENALTY = 1_000_000
+// Keep the reveal queue short by pruning rows that are multiple viewports away; scrolling back to them re-enqueues a fresh task.
+const GRID_CARD_REVEAL_MAX_OFFSCREEN_DISTANCE_PX = 4_000
+const GRID_CARD_REVEAL_FAST_BATCH_THRESHOLD = 50
+const GRID_CARD_REVEAL_EMERGENCY_THRESHOLD = 100
+const GRID_CARD_REVEAL_FRAME_BUDGET_MS = 6
+const GRID_CARD_REVEAL_PRUNE_THRESHOLD = 72
+const GRID_CARD_REVEAL_BATCH_MULTIPLIER = 4
+const GRID_CARD_REVEAL_IDLE_DRAIN_DELAY_MS = 180
 // Allow very tall single-column accordions without letting fallback heights overflow the browser layout.
 // 2M px ~= 9k tester cards stacked vertically, which is well above real data while keeping sums finite.
 const GRID_VIRTUALIZE_MAX_FALLBACK_HEIGHT_PX = 2_000_000
@@ -401,6 +409,8 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
   const scrollHintVisibleRef = useRef(false)
   const scrollHintHideTimerRef = useRef<ReturnType<typeof window.setTimeout> | null>(null)
   const measureVisibleRowRafRef = useRef<number | null>(null)
+  const viewportMeasureRafRef = useRef<number | null>(null)
+  const revealIdleDrainTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [gridMenuPosition, setGridMenuPosition] = useState<{ x: number; y: number } | null>(null)
   const gridMenuOpen = Boolean(gridMenuPosition)
   const gridMenuPaperRef = useRef<HTMLDivElement | null>(null)
@@ -427,8 +437,20 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
   useEffect(() => {
     const node = containerRef.current
     if (!node) return
+    const scheduleViewportMeasure = () => {
+      if (typeof window === 'undefined') return
+      if (viewportMeasureRafRef.current != null) return
+      viewportMeasureRafRef.current = window.requestAnimationFrame(() => {
+        viewportMeasureRafRef.current = null
+        measure()
+      })
+    }
     const measure = () => {
-      setViewportHeight(node.clientHeight)
+      const nextHeight = node.clientHeight
+      setViewportHeight(nextHeight)
+      if (nextHeight <= 0) {
+        scheduleViewportMeasure()
+      }
     }
     measure()
     if (typeof ResizeObserver === 'undefined') {
@@ -437,7 +459,13 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     }
     const observer = new ResizeObserver(() => { measure() })
     observer.observe(node)
-    return () => observer.disconnect()
+    return () => {
+      observer.disconnect()
+      if (viewportMeasureRafRef.current != null && typeof window !== 'undefined') {
+        window.cancelAnimationFrame(viewportMeasureRafRef.current)
+        viewportMeasureRafRef.current = null
+      }
+    }
   }, [])
   // Scroll-hint text mirrors the first visible card, so we sample DOM positions whenever virtualization shifts.
   const measureFirstVisibleRow = useCallback(() => {
@@ -472,7 +500,8 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
   const [scrollVersion, setScrollVersion] = useState(0)
   // Scroll handler feeds TanStack, the scroll hint, and the on-demand card reveal queue.
   const handleScroll = useCallback<React.UIEventHandler<HTMLDivElement>>((event) => {
-    setScrollTop(event.currentTarget.scrollTop)
+    const nextScrollTop = event.currentTarget.scrollTop
+    setScrollTop(nextScrollTop)
     if (!scrollHintVisibleRef.current) {
       scrollHintVisibleRef.current = true
       setShowScrollGroupHint(true)
@@ -488,6 +517,16 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     }, RULES_TABLE_SCROLL_HINT_HIDE_MS)
     setScrollVersion((prev) => (prev + 1) % Number.MAX_SAFE_INTEGER)
     scheduleMeasureFirstVisibleRow()
+    // After scrolling calms down, drain the reveal queue so reverse scrolling hits hydrated cards.
+    if (typeof window !== 'undefined') {
+      if (revealIdleDrainTimerRef.current != null) {
+        window.clearTimeout(revealIdleDrainTimerRef.current)
+      }
+      revealIdleDrainTimerRef.current = window.setTimeout(() => {
+        revealIdleDrainTimerRef.current = null
+        flushTesterGridCardRevealQueue(true)
+      }, GRID_CARD_REVEAL_IDLE_DRAIN_DELAY_MS)
+    }
   }, [scheduleMeasureFirstVisibleRow])
   // Keep Uniques enforces two columns so gear-combination cards stay legible.
   const preferredColumnCount = keepUniquesVariant ? 2 : storedColumnPreference
@@ -512,6 +551,10 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     if (measureVisibleRowRafRef.current != null && typeof window !== 'undefined') {
       window.cancelAnimationFrame(measureVisibleRowRafRef.current)
       measureVisibleRowRafRef.current = null
+    }
+    if (typeof window !== 'undefined' && revealIdleDrainTimerRef.current != null) {
+      window.clearTimeout(revealIdleDrainTimerRef.current)
+      revealIdleDrainTimerRef.current = null
     }
   }, [])
   const estimatedColumnCount = gridColumnCount
@@ -718,11 +761,37 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     )
   }
   // Recursive renderer keeps accessory faction/group accordions in sync with the virtualized rows.
-  const renderGroup = (group: TesterGroup, depth = 0): React.ReactNode => {
+  const accordionSummaryHeightPx = pxValue(theme.spacing(5))
+  const nestedDetailsPaddingPx = accordionSpacingPx
+  const renderGroup = (group: TesterGroup, depth = 0, absoluteTop = 0): React.ReactNode => {
     const groupCountLabel = group.rows.length === 1
       ? t('testerItemsCountOne')
       : t('testerItemsCountMany', { n: numberFormatter.format(group.rows.length) })
     const expanded = !collapsedGroups.has(group.key)
+    const hasChildren = Boolean(group.children?.length)
+    let childContent: React.ReactNode | undefined
+    if (hasChildren && group.children) {
+      const children = group.children
+      const childNodes: React.ReactNode[] = []
+      let nextChildTop = absoluteTop + accordionSummaryHeightPx + nestedDetailsPaddingPx
+      children.forEach((child, idx) => {
+        childNodes.push(renderGroup(child, depth + 1, nextChildTop))
+        const childHeight = estimateGroupHeight(
+          child,
+          collapsedGroups,
+          estimatedColumnCount,
+          accordionSpacingPx,
+          gridGapPx,
+          gridLeafPaddingPx,
+          cardHeightPx,
+          depth + 1,
+        )
+        if (Number.isFinite(childHeight)) {
+          nextChildTop += childHeight + (idx < children.length - 1 ? accordionSpacingPx : 0)
+        }
+      })
+      childContent = childNodes
+    }
     return (
         <TesterItemsGridGroup
           key={group.key}
@@ -745,12 +814,15 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
         highlightedRowPredicate={highlightRowPredicate}
         dimUnhighlightedRows={shouldDimUnhighlightedRows}
         disableAccordionAnimations={accordionAnimationsDisabled}
-        childContent={group.children?.length ? group.children.map((child) => renderGroup(child, depth + 1)) : undefined}
+        childContent={childContent}
         depth={depth}
-          scrollContainerRef={containerRef}
           scrollOffset={scrollTop}
           viewportHeight={viewportHeight}
           scrollVersion={scrollVersion}
+        absoluteTop={absoluteTop}
+        accordionSummaryHeightPx={accordionSummaryHeightPx}
+        accordionSpacingPx={accordionSpacingPx}
+        leafPaddingPx={gridLeafPaddingPx}
         />
     )
   }
@@ -763,6 +835,7 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
         onMouseMove={handleGridHintPointerMove}
         onMouseLeave={handleGridHintPointerLeave}
         onContextMenu={handleGridContextMenu}
+        data-tester-grid-container="true"
         sx={{ flex: 1, minHeight: 0, overflowY: 'auto', pr: 0.5 }}
       >
         <Box
@@ -790,7 +863,7 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
                   transform: `translateY(${virtualItem.start}px)`,
                 }}
               >
-                {renderGroup(group, 0)}
+                {renderGroup(group, 0, virtualItem.start)}
               </Box>
             )
           })}
@@ -1008,10 +1081,13 @@ type TesterItemsGridGroupProps = {
   highlightedRowPredicate?: ((row: TesterPreviewRow) => boolean) | null
   dimUnhighlightedRows?: boolean
   disableAccordionAnimations: boolean
-  scrollContainerRef: React.RefObject<HTMLDivElement | null>
   scrollOffset: number
   viewportHeight: number
   scrollVersion: number
+  absoluteTop: number
+  accordionSummaryHeightPx: number
+  accordionSpacingPx: number
+  leafPaddingPx: number
 }
 
 const TesterItemsGridGroup = React.memo(function TesterItemsGridGroup({
@@ -1036,10 +1112,13 @@ const TesterItemsGridGroup = React.memo(function TesterItemsGridGroup({
   highlightedRowPredicate = null,
   dimUnhighlightedRows = false,
   disableAccordionAnimations,
-  scrollContainerRef,
   scrollOffset,
   viewportHeight,
   scrollVersion,
+  absoluteTop,
+  accordionSummaryHeightPx,
+  accordionSpacingPx,
+  leafPaddingPx,
 }: TesterItemsGridGroupProps) {
   const hasChildren = Boolean(childContent)
   const nested = depth > 0
@@ -1060,47 +1139,16 @@ const TesterItemsGridGroup = React.memo(function TesterItemsGridGroup({
   // Tall leaf accordions animate poorly because TanStack remeasures every frame, so skip the transition once the
   // virtualization path is active (global mass-expands still flip the shared disable flag).
   const shouldSkipAccordionAnimation = disableAccordionAnimations || shouldVirtualizeLeafRows
-  // Leaf accordions track scroll offsets to decide how aggressively to virtualize their cards.
-  const gridContentRef = useRef<HTMLDivElement | null>(null)
   const leafPriorityBaseRef = useRef<number>(0)
   const leafPrioritySignatureRef = useRef<string | null>(null)
-  const [gridAbsoluteOffset, setGridAbsoluteOffset] = useState<number | null>(null)
-  // Observe the rendered card grid so every accordion knows its absolute scroll offset, even when nested.
-  useLayoutEffect(() => {
-    const node = gridContentRef.current
-    const scrollNode = scrollContainerRef.current
-    if (!node || !scrollNode) return undefined
-    const measure = () => {
-      const containerRect = scrollNode.getBoundingClientRect()
-      const nodeRect = node.getBoundingClientRect()
-      const offset = scrollNode.scrollTop + (nodeRect.top - containerRect.top)
-      setGridAbsoluteOffset(offset)
-    }
-    measure()
-    if (typeof ResizeObserver === 'undefined') {
-      const handleResize = () => { measure() }
-      window.addEventListener('resize', handleResize)
-      return () => window.removeEventListener('resize', handleResize)
-    }
-    const observer = new ResizeObserver(() => { measure() })
-    observer.observe(node)
-    return () => observer.disconnect()
-  }, [
-    scrollContainerRef,
-    gridColumnCount,
-    group.rows.length,
-    expanded,
-    cardHeightPx,
-    showFirstMatchRow,
-    showOtherMatchesRow,
-  ])
+  const gridAbsoluteOffset = absoluteTop + accordionSummaryHeightPx + (hasChildren ? accordionSpacingPx : leafPaddingPx)
   const cardRowStridePx = cardHeightPx + gridRowGapPx
   const totalRowsHeightPx = useMemo(() => {
     if (!cardRowCount) return 0
     const spacing = Math.max(0, cardRowCount - 1) * gridRowGapPx
     return (cardRowCount * cardHeightPx) + spacing
   }, [cardHeightPx, cardRowCount, gridRowGapPx])
-  const effectiveGridAbsoluteOffset = gridAbsoluteOffset ?? scrollOffset
+  const effectiveGridAbsoluteOffset = gridAbsoluteOffset
   const hasUsableGridOffset = Number.isFinite(effectiveGridAbsoluteOffset)
   // Leaf virtualization only kicks in once we know the card stride; nested accordions fall back otherwise.
   const canVirtualizeLeafRows = Boolean(
@@ -1243,7 +1291,6 @@ const TesterItemsGridGroup = React.memo(function TesterItemsGridGroup({
             </Stack>
           ) : (
             <Box
-              ref={gridContentRef}
               sx={{
                 display: 'flex',
                 flexDirection: 'column',
@@ -2369,7 +2416,12 @@ function enqueueTesterGridCardReveal(priorityBase: number, priorityOrder: number
   }
   testerGridCardRevealQueue.push(task)
   testerGridCardRevealQueueDirty = true
-  scheduleTesterGridCardRevealFlush()
+  const queueSize = testerGridCardRevealQueue.length
+  if (queueSize >= GRID_CARD_REVEAL_EMERGENCY_THRESHOLD) {
+    flushTesterGridCardRevealQueue(true)
+  } else {
+    scheduleTesterGridCardRevealFlush()
+  }
   return () => {
     const idx = testerGridCardRevealQueue.indexOf(task)
     if (idx >= 0) {
@@ -2397,8 +2449,42 @@ function scheduleTesterGridCardRevealFlush() {
   })
 }
 
-function flushTesterGridCardRevealQueue() {
+// Off-screen pruning trims queued rows that are several viewports away; they re-enqueue automatically when scroll moves.
+const shouldPruneRevealTask = (task: TesterGridCardRevealTask): boolean => (
+  task.priorityOrder >= GRID_CARD_OFFSCREEN_PRIORITY_PENALTY
+    && task.priorityOrder > (GRID_CARD_OFFSCREEN_PRIORITY_PENALTY + GRID_CARD_REVEAL_MAX_OFFSCREEN_DISTANCE_PX)
+)
+
+// Mutates the queue in place so stale rows never dominate the backlog; returns the number of discarded tasks.
+const pruneOffscreenRevealTasks = (): number => {
+  if (testerGridCardRevealQueue.length < GRID_CARD_REVEAL_PRUNE_THRESHOLD) {
+    return 0
+  }
+  let writeIdx = 0
+  let dropped = 0
+  for (let idx = 0; idx < testerGridCardRevealQueue.length; idx += 1) {
+    const task = testerGridCardRevealQueue[idx]
+    if (!task) {
+      continue
+    }
+    if (shouldPruneRevealTask(task)) {
+      dropped += 1
+      continue
+    }
+    testerGridCardRevealQueue[writeIdx] = task
+    writeIdx += 1
+  }
+  if (dropped > 0) {
+    testerGridCardRevealQueue.length = writeIdx
+  }
+  return dropped
+}
+
+function flushTesterGridCardRevealQueue(forceDrain = false) {
   if (!testerGridCardRevealQueue.length) return
+  if (!forceDrain) {
+    pruneOffscreenRevealTasks()
+  }
   if (testerGridCardRevealQueueDirty) {
     testerGridCardRevealQueue.sort((a, b) => {
       if (a.priorityBase !== b.priorityBase) {
@@ -2408,10 +2494,27 @@ function flushTesterGridCardRevealQueue() {
     })
     testerGridCardRevealQueueDirty = false
   }
-  const batch = testerGridCardRevealQueue.splice(0, GRID_CARD_SKELETON_BATCH_SIZE)
-  batch.forEach((task) => {
+  const flushStart = typeof performance !== 'undefined' ? performance.now() : Date.now()
+  const frameBudgetMs = forceDrain ? Number.POSITIVE_INFINITY : GRID_CARD_REVEAL_FRAME_BUDGET_MS
+  const maxBatchSize = forceDrain
+    ? testerGridCardRevealQueue.length
+    : (
+      testerGridCardRevealQueue.length >= GRID_CARD_REVEAL_FAST_BATCH_THRESHOLD
+        ? GRID_CARD_SKELETON_BATCH_SIZE * GRID_CARD_REVEAL_BATCH_MULTIPLIER
+        : GRID_CARD_SKELETON_BATCH_SIZE
+    )
+  let processed = 0
+  while (testerGridCardRevealQueue.length && processed < maxBatchSize) {
+    const task = testerGridCardRevealQueue.shift()!
+    processed += 1
     task.run()
-  })
+    if (!forceDrain) {
+      const now = typeof performance !== 'undefined' ? performance.now() : Date.now()
+      if ((now - flushStart) >= frameBudgetMs) {
+        break
+      }
+    }
+  }
   if (testerGridCardRevealQueue.length) {
     scheduleTesterGridCardRevealFlush()
   }
