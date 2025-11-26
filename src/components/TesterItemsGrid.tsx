@@ -312,6 +312,7 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
   const recordScrollAnchor = useCallback((groupKey: string, node?: Element | null) => {
     const container = containerRef.current
     if (!container) return
+    // When we have a live header node (e.g., header click) use it; otherwise defer and let the virtualizer jump later.
     const resolvedNode = node ?? container.querySelector<HTMLElement>(
       `[data-tester-grid-header="true"][data-header-key="${groupKey}"]`,
     )
@@ -583,12 +584,14 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     if (!pending) return
     const container = containerRef.current
     if (!container) {
+      // Container unmounted; nothing to keep in view.
       pendingScrollAnchorRef.current = null
       return
     }
     // After the flattened list settles, measure the header again and nudge scrollTop so it stays in-frame.
     const targetNode = container.querySelector<HTMLElement>(`[data-tester-grid-header="true"][data-header-key="${pending.key}"]`)
     if (!targetNode) {
+      // Header is not in the DOM yet (collapsed list, new sibling), so scroll the virtualizer to it explicitly.
       const targetIndex = flattenedItems.findIndex(
         (item) => item.kind === 'groupHeader' && item.group.key === pending.key,
       )
