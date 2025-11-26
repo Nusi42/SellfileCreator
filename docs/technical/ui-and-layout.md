@@ -198,6 +198,18 @@ If tooltips need rich formatting (colored badges, inline icons), pass JSX via `r
 - Row interactions:
   - Hover highlights only while pointer stays inside the preview.
   - Clicking a row selects the config but suppresses auto-scroll (prevents loops).
+
+### Tester Grid Virtualization
+
+- `src/components/TesterItemsGrid.tsx` now feeds TanStack a *flattened* list of headers, spacers, and card rows instead of mounting whole accordions. Each flattened item carries its own deterministic height so the virtualizer never needs to sample DOM nodes.
+- Group expansion simply rebuilds the flattened list; the TanStack instance keeps scroll position stable by reusing keys (`header:<key>`, `row:<key>:<index>`, etc.).
+- Nested faction → set trees no longer mount en masse: child accordions emit spacer entries plus their own header/cell rows, and anything outside the viewport collapses down to a single placeholder block.
+- Card rows still hydrate lazily. Skeletons appear whenever a flattened row is rendered before its reveal task finishes, but scrolling back up no longer forces an entire faction/set subtree to remount; only the specific flattened rows in view re-enter the DOM.
+- Scroll-hint sampling keeps using `[data-tester-grid-card="true"]` so the existing flyout logic works unchanged. Because virtual rows now mirror the actual viewport, the hint updates immediately even when the user drags the scrollbar thumb.
+- When adjusting tester-grid behavior:
+  - Update the flattened builder (`buildFlattenedGridItems`) so the virtualizer stays authoritative.
+  - Keep the chunked row helper (`chunkGroupRows`) in sync with the card grid layout; card height math still depends on the column count and match-row toggles.
+  - Remember to update this section plus the inline comments in `TesterItemsGrid.tsx` whenever you tweak virtualization heuristics, skeleton batching (`useTesterGridCardContentReady`), or the scroll-hint sampling strategy.
   - Selecting a chip auto-scrolls to its first rule row (smooth when close; jump when distant).
 - Row context menu matches chip actions (Duplicate, Move, Copy, Paste after, Delete). Base rows show Clear instead of Delete.
 - Cells:

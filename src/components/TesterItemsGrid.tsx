@@ -649,6 +649,7 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
   const renderFlattenedItem = (item: FlattenedGridItem, virtualItem: ReturnType<typeof rowVirtualizer.getVirtualItems>[number]) => {
     if (!item) return null
     const nested = item.depth > 0
+    // Inner slices reuse the same border + background logic so nested accordions still look layered.
     const sharedBodySx = (theme: Theme) => ({
       ml: nested ? theme.spacing(1.5) : 0,
       borderLeft: `1px solid ${theme.palette.divider}`,
@@ -788,6 +789,7 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
       const intersectsViewport = viewportReady
         ? (rowAbsoluteBottomPx >= viewportStartPx && rowAbsoluteTopPx <= viewportEndPx)
         : true
+      // Reveal queue still orders tasks by absolute Y with heavy penalties for off-screen rows.
       let positionOrder = rowAbsoluteTopPx
       if (viewportReady && !intersectsViewport) {
         if (rowAbsoluteBottomPx < viewportStartPx) {
@@ -1112,6 +1114,7 @@ type FlattenedGridItem =
 
 // Leaf grids still render as chunked rows per column count so Keep Uniques + tester variants share one calculator.
 function chunkGroupRows(group: TesterGroup, gridColumnCount: number): TesterPreviewRow[][] {
+  // Every chunk mirrors one rendered row so the flattened list can translate heights straight into DOM slots.
   const columns = Math.max(1, gridColumnCount)
   const rows: TesterPreviewRow[][] = []
   for (let idx = 0; idx < group.rows.length; idx += columns) {
@@ -1145,6 +1148,7 @@ function buildFlattenedGridItems({
   const items: FlattenedGridItem[] = []
   const rowChunkCache = new Map<string, TesterPreviewRow[][]>()
   const getRowChunks = (group: TesterGroup): TesterPreviewRow[][] => {
+    // Chunked rows depend solely on the column count, so keep a short-lived cache per flatten pass.
     let cached = rowChunkCache.get(group.key)
     if (!cached) {
       cached = chunkGroupRows(group, gridColumnCount)
@@ -1153,6 +1157,7 @@ function buildFlattenedGridItems({
     return cached
   }
   const visit = (group: TesterGroup, depth: number) => {
+    // Headers always appear so users can toggle collapsed parents without forcing their children to mount.
     const expanded = !collapsedGroups.has(group.key)
     items.push({
       kind: 'groupHeader',
@@ -1166,6 +1171,7 @@ function buildFlattenedGridItems({
       if (group.children?.length) {
         group.children.forEach((child, idx) => {
           if (idx > 0) {
+            // Preserve nested accordion spacing between sibling sets/factions.
             items.push({
               kind: 'spacer',
               key: `child-gap:${group.key}:${child.key}:${idx}`,
@@ -1178,6 +1184,7 @@ function buildFlattenedGridItems({
         })
       } else if (group.rows.length > 0 || leafPaddingPx > 0) {
         if (leafPaddingPx > 0) {
+          // Top padding emulates the original card container inset.
           items.push({
             kind: 'cardPadding',
             key: `pad-top:${group.key}`,
@@ -1190,6 +1197,7 @@ function buildFlattenedGridItems({
         const rowChunks = getRowChunks(group)
         rowChunks.forEach((rowEntries, rowIdx) => {
           if (rowIdx > 0 && gridGapPx > 0) {
+            // Row spacers give TanStack the exact per-row gap budget and avoid stacking DOM nodes for empty space.
             items.push({
               kind: 'spacer',
               key: `row-gap:${group.key}:${rowIdx}`,
@@ -1210,6 +1218,7 @@ function buildFlattenedGridItems({
           })
         })
         if (leafPaddingPx > 0) {
+          // Bottom padding mirrors the accordion body padding so the card grid looks unchanged.
           items.push({
             kind: 'cardPadding',
             key: `pad-bottom:${group.key}`,
@@ -1225,6 +1234,7 @@ function buildFlattenedGridItems({
   groups.forEach((group, idx) => {
     visit(group, 0)
     if (idx < groups.length - 1 && accordionSpacingPx > 0) {
+      // Top level still keeps the classic accordion margin between sibling groups.
       items.push({
         kind: 'spacer',
         key: `top-gap:${group.key}:${idx}`,
