@@ -303,12 +303,44 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     return [groupKey]
   }, [allGroupKeys, groupLookup])
 
+  // Scroll anchors keep the toggled header pinned in place even when expansion collapses a large subtree.
+  const pendingScrollAnchorRef = useRef<{
+    key: string
+    targetOffset: number
+    attemptedMount?: boolean
+  } | null>(null)
+  const recordScrollAnchor = useCallback((groupKey: string, node?: Element | null) => {
+    const container = containerRef.current
+    if (!container) return
+    const resolvedNode = node ?? container.querySelector<HTMLElement>(
+      `[data-tester-grid-header="true"][data-header-key="${groupKey}"]`,
+    )
+    if (!resolvedNode) {
+      pendingScrollAnchorRef.current = {
+        key: groupKey,
+        targetOffset: 0,
+      }
+      return
+    }
+    const containerRect = container.getBoundingClientRect()
+    const targetRect = resolvedNode.getBoundingClientRect()
+    pendingScrollAnchorRef.current = {
+      key: groupKey,
+      targetOffset: targetRect.top - containerRect.top,
+    }
+  }, [])
   const handleGroupToggle = useCallback((
     groupKey: string,
     shouldExpand: boolean,
     event?: React.SyntheticEvent<Element, Event> | null,
     options?: { applyToAll?: boolean },
   ) => {
+    if (event?.currentTarget) {
+      const headerNode = (event.currentTarget as HTMLElement).closest('[data-tester-grid-header="true"]')
+      recordScrollAnchor(groupKey, headerNode)
+    } else {
+      recordScrollAnchor(groupKey)
+    }
     setCollapsedGroups((prev) => {
       const next = new Set(prev)
       const isMultiToggle = Boolean(options?.applyToAll)
@@ -335,7 +367,7 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
       next.add(groupKey)
       return next
     })
-  }, [getMultiToggleScope])
+  }, [getMultiToggleScope, recordScrollAnchor])
 
   useEffect(() => {
     setCollapsedGroups((prev) => {
@@ -546,6 +578,36 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
   const virtualizationRangeEndIndex = virtualItems.length > 0
     ? virtualItems[virtualItems.length - 1]!.index + 1
     : flattenedItems.length
+  useLayoutEffect(() => {
+    const pending = pendingScrollAnchorRef.current
+    if (!pending) return
+    const container = containerRef.current
+    if (!container) {
+      pendingScrollAnchorRef.current = null
+      return
+    }
+    // After the flattened list settles, measure the header again and nudge scrollTop so it stays in-frame.
+    const targetNode = container.querySelector<HTMLElement>(`[data-tester-grid-header="true"][data-header-key="${pending.key}"]`)
+    if (!targetNode) {
+      const targetIndex = flattenedItems.findIndex(
+        (item) => item.kind === 'groupHeader' && item.group.key === pending.key,
+      )
+      if (targetIndex >= 0) {
+        rowVirtualizer.scrollToIndex(targetIndex, { align: 'start' })
+        pending.attemptedMount = true
+        return
+      }
+      pendingScrollAnchorRef.current = null
+      return
+    }
+    const containerRect = container.getBoundingClientRect()
+    const targetRect = targetNode.getBoundingClientRect()
+    const delta = (targetRect.top - containerRect.top) - pending.targetOffset
+    if (Math.abs(delta) > 0.5) {
+      container.scrollTop += delta
+    }
+    pendingScrollAnchorRef.current = null
+  }, [flattenedItems, rowVirtualizer, virtualizationRangeStartIndex, virtualizationRangeEndIndex])
   const rowLookup = useMemo(() => {
     const map = new Map<number, TesterPreviewRow>()
     rows.forEach((row) => {
@@ -685,6 +747,8 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
       const headerRadius = Math.max(ACCORDION_BORDER_RADIUS_PX - (nested ? 2 : 0), 2)
       return (
         <Box
+          data-tester-grid-header="true"
+          data-header-key={group.key}
           sx={(theme) => ({
             ml: nested ? theme.spacing(1.5) : 0,
             borderRadius: `${headerRadius}px`,
