@@ -2030,7 +2030,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         }
         return
       }
-      setPreviewMode('tester')
+      // Manual imports should guide the user to Tester view, but external pushes stay passive.
+      if (source === 'manual') {
+        setPreviewMode('tester')
+      }
       const desiredTesterItems = combined.map((artifact) => artifact.testerItem)
       const { removedCount, addedCount } = applyGearDbDiff(desiredTesterItems, source)
       if (removedCount > 0 || addedCount > 0) {
