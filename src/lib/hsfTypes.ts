@@ -13,6 +13,10 @@ export interface HsfSubstat {
 }
 
 export interface HsfRule {
+  /** Builder config index (1-based) for host integrations that expect stable IDs. */
+  ConfigID?: number
+  /** Optional builder config name (trimmed) so exported HSF stays human-readable. */
+  ConfigName?: string
   Keep?: boolean
   Use?: boolean
   IsRuleTypeAND?: boolean

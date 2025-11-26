@@ -3,10 +3,7 @@ import { buildHsfRules, RuleLimitReachedError, type BuilderConfig, type SubstatT
 import { findObsoleteRules } from './hsfObsolete'
 
 export function configsForRuleBuild(configs: readonly BuilderConfig[]): BuilderConfig[] {
-  return configs.map((cfg) => {
-    const { name: _omitName, ...rest } = cfg
-    return rest
-  })
+  return configs.map((cfg) => ({ ...cfg }))
 }
 
 export function countRulesForConfig(

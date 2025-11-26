@@ -31,7 +31,6 @@ import {
   type FinalSellRemainderConfig,
 } from './finalSell'
 import {
-  KEEP_UNIQUES_CFG_SENTINEL,
   type KeepUniquesMergeInput,
   hashKeepUniqueCombination,
   type KeepUniqueRule,
@@ -51,7 +50,6 @@ export type RuleSource =
   | typeof RULE_SOURCE_KEEP_UNIQUES
 
 export type HsfRuleWithCfg = HsfRule & {
-  __cfgIdx?: number
   __lineIdx?: number
   __allKnownSets?: boolean
   __source?: RuleSource
@@ -248,6 +246,10 @@ export function buildRulesForConfig(params: {
   cfgIdx?: number
 }, options?: { limit?: number; onLimit?: () => void }): HsfRuleWithCfg[] {
   const { config, metasets, substatTargets, cfgIdx } = params
+  // Carry a stable 1-based config identifier through builder → HSF exports.
+  const configIdForExport = (typeof cfgIdx === 'number' && Number.isFinite(cfgIdx) && cfgIdx >= 0)
+    ? (Math.floor(cfgIdx) + 1)
+    : null
   const fromMetas = resolveMetasetIds(config.artifactMetaSets, metasets)
   const explicit = config.artifactSets ?? []
   const union = Array.from(new Set<number>([...explicit, ...fromMetas].map(Number)))
@@ -258,7 +260,10 @@ export function buildRulesForConfig(params: {
       const built = buildHsfRules(
         branch,
         substatTargets,
-        options?.limit != null ? { limit: options.limit } : undefined,
+        {
+          ...(options?.limit != null ? { limit: options.limit } : {}),
+          ...(configIdForExport !== null ? { configId: configIdForExport } : {}),
+        },
       )
       built.forEach((rule, seq) => {
         const annotated = rule as BranchAnnotatedRuleWithCfg
@@ -303,9 +308,6 @@ export function buildRulesForConfig(params: {
       delete rule[BRANCH_ORDER]
       delete rule[BRANCH_SEQ]
     })
-    if (typeof cfgIdx === 'number') {
-      return sorted.map((r): HsfRuleWithCfg => ({ ...r, __cfgIdx: cfgIdx, __source: RULE_SOURCE_HSFC }))
-    }
     return sorted.map((r): HsfRuleWithCfg => ({ ...r, __source: RULE_SOURCE_HSFC }))
   } catch (error) {
     if (error instanceof RuleLimitReachedError) {
@@ -462,7 +464,6 @@ export const buildKeepUniqueRules = (
           ArtifactType: [Number(artifact.slot)],
           ArtifactSet: [Number(artifact.set)],
           Substats: buildKeepUniqueSubstats(artifact.substats),
-          __cfgIdx: KEEP_UNIQUES_CFG_SENTINEL,
           __source: RULE_SOURCE_KEEP_UNIQUES,
           __keepUniqueRuleId: rule.id,
           __keepUniqueHash: hashKeepUniqueCombination(rule.combination),
@@ -539,7 +540,7 @@ export function computeMergedRules(params: {
 }): HsfRuleWithCfg[] {
   const { hsf, customCfgs, metasets, substatTargets, finalSellRemainder, prebuiltCustomRules, keepUniques } = params
 
-  // Always strip any foreign/internal fields (e.g., __cfgIdx) from base HSF rules
+  // Always strip any foreign/internal fields (e.g., __lineIdx) from base HSF rules
   const baseRaw = hsf?.Rules ?? []
   const base: HsfRuleWithCfg[] = baseRaw.map((r: HsfRule) => ({ ...r, __source: RULE_SOURCE_HSF }))
 

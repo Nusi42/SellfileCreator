@@ -18,9 +18,6 @@ import type { Metaset } from './metasets'
 const RANK_MIN = 1
 const RANK_MAX = 6
 
-/** Sentinel `__cfgIdx` value used to tag Keep Uniques derived rules. */
-export const KEEP_UNIQUES_CFG_SENTINEL = -9000
-
 export type KeepUniqueCombination = {
   slots: ArtifactTypeId[]
   sets: ArtifactSetId[]

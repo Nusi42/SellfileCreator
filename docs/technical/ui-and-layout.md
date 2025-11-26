@@ -139,7 +139,7 @@ If tooltips need rich formatting (colored badges, inline icons), pass JSX via `r
 ### Obsolete Rules Handling
 
 - Obsolete detection groups rules by coarse selectors (action, rank/rarity/level, sets/types, main stat, faction) and normalized substats. A rule is “obsolete” if another in the same group dominates it (componentwise looser-or-equal thresholds, with tie-breaking to earlier indices for exact duplicates).
-- Preview pruning only removes an obsolete rule when both rules originate from the same custom config (`__cfgIdx`). Duplicate configs, overlaps versus base configs, and cross-config overlaps remain visible for auditability.
+- Preview pruning only removes an obsolete rule when both rules originate from the same custom config (ConfigID). Duplicate configs, overlaps versus base configs, and cross-config overlaps remain visible for auditability.
 
 ## UI Notes (developer-facing)
 
@@ -208,7 +208,7 @@ If tooltips need rich formatting (colored badges, inline icons), pass JSX via `r
   - `EllipsisTooltip` only renders when text overflows.
   - Derived labels (slots, sets, stat summaries) cache in WeakMaps per rule to avoid recomputation during virtualization.
   - Hover propagation syncs builder highlights via throttled `requestAnimationFrame` coordination.
-  - Runtime-only metadata (`__cfgIdx`, `__lineIdx`) never enters exported HSF files.
+- Runtime-only metadata (e.g., `__lineIdx`) never enters exported HSF files.
 
 ## Keep Uniques Tab
 
@@ -286,6 +286,7 @@ If tooltips need rich formatting (colored badges, inline icons), pass JSX via `r
 - Roll timeline caps: multi-stat permutations clamp credited rolls to those obtainable after the stat appears; late optionals no longer inherit early thresholds.
 - Intro assignment: builder enumerates how selected stats occupy base vs later rarity slots. Fixed picks fill earliest slots; optional stats inherit remaining introductions, keeping thresholds aligned with availability.
 - `IsRuleTypeAND` always exports `false`; current RSL Helper compatibility does not require AND rules for our output.
+- Generated rules always carry `ConfigID` (1-based) ahead of `Keep`/`IsRuleTypeAND`; the export step injects the current trimmed `ConfigName` so downstream tooling can map Sellfile rows back to their configs without forcing the preview table to rebuild when names change.
 
 ## Layout Notes (responsive + headers)
 

@@ -816,7 +816,7 @@ export function buildHsfcPayload(args: {
     Version: version,
     Metasets: metasOut,
     Minima: substatTargetsToReadable(substatTargets),
-    Configs: configs.map((cfg, i) => ({ __cfgIdx_ignoredWhenRead: i + 1, ...buildReadableConfig(cfg, metasets) })),
+    Configs: configs.map((cfg) => buildReadableConfig(cfg, metasets)),
     FinalSellRemainder: (() => {
       if (finalSellRemainder) {
         const safeLevels = Array.from(new Set(finalSellRemainder.levels)).sort((a, b) => a - b) as LevelMilestone[]

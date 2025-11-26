@@ -7,12 +7,11 @@ import {
 } from './types'
 
 const IGNORED_KEYS = new Set([
-  'name',
-  '__cfgIdx_ignoredWhenRead',
-  '__cfgIdx',
+  // Cosmetic metadata never alters the generated rules, so we exclude it from fingerprints.
   'artifactTypeNames',
   'artifactSetNames',
   'artifactMetaSetIds',
+  'name',
 ])
 
 const DEFAULT_MIN_LEVEL = LEVEL_MILESTONES[0]!

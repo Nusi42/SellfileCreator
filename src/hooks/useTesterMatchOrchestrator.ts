@@ -15,6 +15,7 @@ import { sortTesterRows } from '../lib/testerSort'
 import type { NormalizedGearArtifact } from '../lib/importers/gearDbNormalizer'
 import type { TesterMatchWorkerEvaluateItem, TesterMatchWorkerItemResult } from '../workers/testerMatchWorkerTypes'
 import type { ProgressSnapshot } from '../types/progress'
+import { getRuleConfigIndex } from '../lib/ruleConfigIndex'
 
 export const TESTER_PREVIEW_CHUNK_SIZE = 250
 
@@ -66,10 +67,11 @@ const fingerprintMergedRules = (rules: readonly HsfRuleWithCfg[]): string => {
   for (let idx = 0; idx < rules.length; idx += 1) {
     const rule = rules[idx]
     if (!rule) continue
+    const cfgIdx = getRuleConfigIndex(rule)
     const parts = [
       idx.toString(10),
       rule.__source ?? '',
-      typeof rule.__cfgIdx === 'number' ? rule.__cfgIdx.toString(10) : 'none',
+      cfgIdx != null ? cfgIdx.toString(10) : 'none',
       rule.__keepUniqueRuleId ?? '',
       rule.__keepUniqueHash ?? '',
       String(rule.__keepUniqueRequired ?? ''),

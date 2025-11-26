@@ -217,14 +217,12 @@ test('duplicate detection treats lockedMinRequiredRolls as part of the identity'
   assert.deepEqual(indices, [null, null], 'configs with differing locked minimums should not be treated as duplicates')
 })
 
-test('duplicate detection ignores cosmetic metadata fields', () => {
+test('duplicate detection ignores cosmetic metadata fields (excluding config name)', () => {
   const cfg = baseBuilderConfig({
     substatsV: [StatVariant.SPD, StatVariant.CR],
     fixedSubstatsV: [StatVariant.SPD],
   })
   const withMetadata = { ...cfg } as BuilderConfig & Record<string, unknown>
-  withMetadata.name = 'Speed tune'
-  withMetadata.__cfgIdx_ignoredWhenRead = 7
   withMetadata.artifactTypeNames = ['Weapon']
   withMetadata.artifactSetNames = ['Speed']
   withMetadata.artifactMetaSetIds = ['set/1']

@@ -12,6 +12,7 @@ import { LEVEL_ANY_SENTINEL, StatId, StatVariant, mainToVariant, subToVariant, t
 import { RULE_SOURCE_KEEP_UNIQUES, type HsfRuleWithCfg } from './merge'
 import type { SellfileExportMode } from './hsfBuilder'
 import { forEachRuleMatchCandidate, getRuleMatchIndex } from './ruleMatchIndex'
+import { getRuleConfigIndex } from './ruleConfigIndex'
 
 // Attach provenance (config index) as done in merge.ts
 export type TesterItemPreviewExtras = {
@@ -172,8 +173,7 @@ export function evaluateFirst(rules: HsfRuleWithCfg[], item: TestItem): EvalResu
     const rule = rules[ruleIndex]!
     if (!matchRule(rule, item)) return true
     const keep = rule.Keep === true
-    const rawCfgIdx = (rule as HsfRuleWithCfg).__cfgIdx
-    const cfgIdx = typeof rawCfgIdx === 'number' && Number.isFinite(rawCfgIdx) && rawCfgIdx >= 0 ? rawCfgIdx : null
+    const cfgIdx = getRuleConfigIndex(rule)
     result = { ruleIndex, keep, cfgIdx }
     return false
   })
@@ -224,8 +224,7 @@ export function evaluateMatchesByConfig(
     // Source/type hints drive the exclusion toggle (e.g., keep-unique injections).
     const source = typeof (rule as HsfRuleWithCfg).__source === 'string' ? String((rule as HsfRuleWithCfg).__source) : null
     const isExcluded = source && excludeSourceSet ? excludeSourceSet.has(source) : false
-    const rawCfgIdx = (rule as HsfRuleWithCfg).__cfgIdx
-    const cfgIdx = typeof rawCfgIdx === 'number' && Number.isFinite(rawCfgIdx) && rawCfgIdx >= 0 ? rawCfgIdx : null
+    const cfgIdx = getRuleConfigIndex(rule)
     // Skip configs that are disabled/separator or explicitly excluded by source.
     if (!shouldIncludeConfig(cfgIdx)) return true
     const keep = rule.Keep === true
