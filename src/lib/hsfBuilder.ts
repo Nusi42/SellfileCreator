@@ -51,6 +51,8 @@ import {
 import { canEnableSubstatFlex, deriveRollBaselineMode, isLockedAggregateScopeActive, isMilestoneThresholdsActive } from './configNormalization'
 import { variantToSub, variantToMain } from './hsfTypes'
 
+// Rarity codes that are eligible for collapsing to factory minima rules so
+// default substat baselines remain the single source of truth for those tiers.
 const COLLAPSE_FACTORY_RARITY_CODES = new Set<number>([
   RarityCode.Any,
   RarityCode.Rare,
@@ -61,14 +63,19 @@ const COLLAPSE_FACTORY_RARITY_CODES = new Set<number>([
 ])
 
 const isDevEnvironment = (): boolean => {
+  // First consult process.env to honor CLI/Vite NODE_ENV, which is stable
+  // across both Node and Vite preview harnesses.
   const nodeEnv = (globalThis as { process?: { env?: { NODE_ENV?: string } } }).process?.env?.NODE_ENV
   if (typeof nodeEnv === 'string') return nodeEnv !== 'production'
   try {
+    // Fallback to Vite's import.meta.MODE during browser builds so preview
+    // tables still gate dev-only assertions.
     const mode = (import.meta as { env?: { MODE?: string } }).env?.MODE
     if (typeof mode === 'string') return mode !== 'production'
   } catch {
     // ignore: import.meta may be unavailable in some runtimes
   }
+  // With no explicit signal, err toward true so invariant checks stay enabled.
   return true
 }
 
@@ -76,6 +83,7 @@ export function coerceSellfileExportModeToken(value: unknown): SellfileExportMod
   if (typeof value === 'string') {
     const lower = value.trim().toLowerCase()
     if (lower.length === 0) return null
+    // Accept a friendly set of english toggles so legacy configs continue to load.
     if (lower === 'active' || lower === 'enabled' || lower.startsWith('enable') || lower.startsWith('visible')) return 'active'
     if (lower === 'disabled' || lower === 'hidden' || lower.startsWith('disab') || lower.startsWith('hide') || lower.startsWith('mute')) return 'disabled'
     if (
@@ -402,6 +410,7 @@ export function resolveAutoRarityCode(cfg: BuilderConfig): RarityCode {
     const m = (typeof b?.min === 'number' ? Math.max(0, Math.min(5, Math.floor(b.min))) : 0)
     perMin[Number(v)] = m
   }
+  // Locked substats always count toward the aggregate minimum with their declared mins.
   const sumRequired = requiredV.reduce((a, v) => a + (perMin[Number(v)] ?? 0), 0)
   const lockedScope = isLockedAggregateScopeActive(cfg, { lockedCountOverride: requiredV.length })
   let worstSumMins: number
@@ -409,6 +418,7 @@ export function resolveAutoRarityCode(cfg: BuilderConfig): RarityCode {
     worstSumMins = sumRequired
   } else {
     const needLocal = Math.max(0, minTargetCount - requiredV.length)
+    // Conservative: assume the strongest optional mins enter the set first.
     const optionMins = optionalPoolV.map(v => perMin[Number(v)] ?? 0).sort((a,b)=>b-a)
     const sumOptional = optionMins.slice(0, needLocal).reduce((a,b)=>a+b,0)
     worstSumMins = sumRequired + sumOptional
@@ -726,6 +736,7 @@ export function buildHsfRules(
   const selectedPoolV = Array.isArray(cfg.substatsV) && cfg.substatsV.length > 0
     ? cfg.substatsV.map(Number).sort(compareVariants)
     : []
+  // Preserve the literal fixed selections as entered so we can mirror UI locking faithfully.
   const fixedPoolRawV = Array.isArray(cfg.fixedSubstatsV) && cfg.fixedSubstatsV.length > 0 ? cfg.fixedSubstatsV.map(Number) : []
   // Normalize fixed to be a subset of selected; preserve order of appearance from selected
   const fixedPoolV = selectedPoolV.filter(sv => fixedPoolRawV.includes(Number(sv)))
@@ -737,11 +748,14 @@ export function buildHsfRules(
 
   const maxSelectableCount = Math.min(4, requiredV.length + optionalPoolV.length)
   const flexEligible = canEnableSubstatFlex(cfg)
+  // Flex mode only activates when both the config allows it and the toggle is on.
   const flexActive = cfg.autoSubstatFlex === true && flexEligible
   const maxTargetCount = flexActive ? maxSelectableCount : minTargetCount
 
+  // Cache per-target-count combos so multi-level windows reuse the same permutations.
   const combosCache = new Map<number, number[][]>()
   const combosFor = (totalCount: number): number[][] => {
+    // Short-circuit impossible requests so later logic can just iterate results.
     if (totalCount < requiredV.length) return []
     const maxPossible = requiredV.length + optionalPoolV.length
     if (totalCount > maxPossible || totalCount > 4) return []
@@ -761,6 +775,7 @@ export function buildHsfRules(
     combosCache.set(totalCount, combos)
     return combos
   }
+  // Convert the HSF rank code into the substat target star bucket so thresholds stay coherent.
   const star = starForRankCode(rankCode, substatTargets.anyRankDefaultsTo ?? 6)
 
   // Resolve Auto rarity to a concrete rarity code before rule generation.
@@ -785,10 +800,12 @@ export function buildHsfRules(
   }
 
   const rules: HsfRule[] = []
+  // Track emission order so we can re-sort after pruning while preserving deterministic grouping.
   const emissionMeta: Array<{ levelIdx: number; branchIdx: number; seq: number }> = []
   let nextSeq = 0
   let currentBranchIdx = 0
   let currentLevelIdx = 0
+  // Map milestone levels to a monotonic index so branch ordering stays stable post-sort.
   const levelOrderMap = new Map<number, number>([
     [LEVEL_ANY_SENTINEL, -1],
     [0, 0],
@@ -802,6 +819,7 @@ export function buildHsfRules(
     return mapped !== undefined ? mapped : (levelOrderMap.size + Number(lvl))
   }
   const recordMeta = () => {
+    // Capture the emission context before pruning potentially shuffles the array.
     emissionMeta.push({ levelIdx: currentLevelIdx, branchIdx: currentBranchIdx, seq: nextSeq++ })
   }
   // Shared selector snapshot so signature caching and pruning see identical keys.
@@ -869,6 +887,7 @@ export function buildHsfRules(
     ...canonicalizeRuleSelectors(rule),
     substats: normalizeSubstats(rule),
   })
+  // Memoize per-variant overrides so repeated lookups inside loops stay cheap.
   const targetEntryCache = new Map<number, SubstatRollTargetEntry | null>()
   const getTargetEntry = (variant: number): SubstatRollTargetEntry | null => {
     if (!cfg.substatRollTargetsV) return null
@@ -1007,6 +1026,7 @@ export function buildHsfRules(
   const effectiveStart: LevelMilestone = 0
   // Level window: rely on normalized min/max window.
   const deriveLevelWindow = (): { min: LevelMilestone; max: LevelMilestone } => {
+    // User sliders only allow milestone values, so silently clamp anything else.
     const toLevel = (v: unknown): LevelMilestone | null => {
       if (v === 0 || v === 4 || v === 8 || v === 12 || v === 16) return v as LevelMilestone
       return null
@@ -1018,17 +1038,20 @@ export function buildHsfRules(
   }
   const levelWindow = deriveLevelWindow()
 
+  // Aggregate roll requirements split into global (selected stats) and locked-only scopes.
   const globalMinValue = deriveGlobalMinRolls({ cfg, selectedPoolV, requiredV, minTargetCount, rarityCode })
   const lockedMinValue = deriveLockedMinRolls({ cfg, lockedCount })
   const aggregateMinValue = Math.max(globalMinValue, lockedMinValue)
   const globalMinActive = globalMinValue > 0
   const lockedMinActive = lockedMinValue > 0
   const aggregateMinActive = aggregateMinValue > 0
+  // When only locked mins are active, the aggregate target narrows to the locked subset only.
   const aggregateTargetsLocked = (!globalMinActive)
     && lockedMinActive
     && isLockedAggregateScopeActive(cfg, { lockedCountOverride: requiredV.length })
 
   if (lockedMinActive && lockedCount === 0) {
+    // Locked-only min rolls cannot be satisfied without any locked stats.
     return []
   }
 
@@ -1037,6 +1060,7 @@ export function buildHsfRules(
   // - Otherwise: emit rules for each milestone within the window.
   if (selectedPoolV.length === 0) {
     const emitAtLevel = (lvl: LevelMilestone | typeof LEVEL_ANY_SENTINEL) => {
+      // Presence-only rules never filter by substats, so just unroll main stats per level.
       currentLevelIdx = levelOrderValue(lvl)
       if (mainChoicesV.length === 0) {
         pushRule(makeRule({ ...baseCoreGlobal, MainStatID: StatId.Any, MainStatF: 1, LVLForCheck: lvl }, []))
@@ -1076,6 +1100,7 @@ export function buildHsfRules(
   if (aggregateMinActive && selectedPoolV.length > 0) {
     const targetMin = aggregateMinValue
     const supportsFive = (() => {
+      // Only treat five-roll caps as reachable when Mythical or Any can provide the pre-roll.
       // 5-roll capable when Mythical is included, or Any/Auto with 5+ target
       if (rarityCode === RarityCode.Mythical || rarityCode === RarityCode.LTE_Mythical) return true
       if (rarityCode === RarityCode.Any) return true
@@ -1086,6 +1111,7 @@ export function buildHsfRules(
     const capFor = (v: number): number => {
       const b = (cfg.substatRollBoundsV ?? {})[Number(v)]
       const hasMax = (typeof b?.max === 'number' && isFinite(b.max))
+      // Respect per-stat max overrides when provided; otherwise stick to rarity cap.
       const raw = hasMax ? Math.floor(Number(b!.max)) : defaultCap
       return Math.max(0, Math.min(defaultCap, raw))
     }
@@ -1119,6 +1145,7 @@ export function buildHsfRules(
     if (aggregateMinActive) return true
     return false
   })()
+  // Auto toggles to potential mode when any stat has explicit roll targeting.
   const effectiveMode: 'strict' | 'potential' = hasCircled ? 'potential' : 'strict'
 
   // Build rules at milestone levels according to baseline option
@@ -1151,16 +1178,22 @@ export function buildHsfRules(
   for (const branch of rarityBranches) {
     currentBranchIdx = branchIdxCounter++
     const rarityCodeLocal = branch.code
+    // Late supplemental branches only emit at the fixed milestone trio to avoid duplicates.
     const restrictLevels = branch.restrict
+    // Copy the global base once per branch so downstream merges stay cheap.
     const baseCore = { ...baseCoreGlobal, Rarity: rarityCodeLocal }
     const additionLevels = additionLevelsForRarityCode(rarityCodeLocal)
+    // Precompute addition milestones per branch since many later checks need sorted access.
     const additionTimelineAll = Array.from(additionLevels.values())
     additionTimelineAll.sort((a, b) => a - b)
     const totalAddsByBranch = additionLevels.size
     const baseStartByBranch = Math.max(0, 4 - totalAddsByBranch)
+    // Track combos that match pristine factory minima so collapse checks stay O(1).
     const factoryComboEligibleCache = new Map<string, boolean>()
+    // Sentinel combos collapse to a single LEVEL_ANY row when all invariants align.
     const sentinelCollapsedCombos = new Set<string>()
     const collapseGlobalOkForBranch = (() => {
+      // Only collapse when aggregate requirements are fully satisfied by the branch timeline.
       if (!aggregateMinActive) return true
       if (aggregateTargetsLocked) return false
       const baseRollLevels = rollLevelsForRarityCode(rarityCodeLocal)
@@ -1180,11 +1213,13 @@ export function buildHsfRules(
       !restrictLevels &&
       collapseGlobalOkForBranch &&
       COLLAPSE_FACTORY_RARITY_CODES.has(rarityCodeLocal)
+    // Sentinel collapse requires pristine 0→16 window with no additions for that rarity.
     const sentinelEligibleForBranch = collapseBranchEligible && additionLevels.size === 0 && levelWindow.min === 0 && levelWindow.max === 16
     const factoryComboEligible = (combo: number[]): boolean => {
       const key = combo.join(',')
       const cached = factoryComboEligibleCache.get(key)
       if (cached !== undefined) return cached
+      // Factory collapse only triggers when every substat sticks to the shipped base minima.
       for (const variantRaw of combo) {
         const variant = Number(variantRaw)
         const bounds = cfg.substatRollBoundsV?.[variant]
@@ -1224,6 +1259,7 @@ export function buildHsfRules(
     ) => {
       currentLevelIdx = levelOrderValue(lvl)
       const applyThresholds = (rule: HsfRule) => {
+        // Collapse rows always emit base-only thresholds per stat.
         for (let i = 0; i < combo.length; i++) {
           const variant = Number(combo[i]!)
           const { id: statId } = variantToSub(variant)
@@ -1248,6 +1284,7 @@ export function buildHsfRules(
       }
     }
     const rollLevels = rollLevelsForRarityCode(rarityCodeLocal)
+    // Cache sorted roll milestones for this branch to avoid re-deriving inside loops.
     const rollTimeline = LEVELS.filter(l => rollLevels.has(l)).sort((a, b) => a - b)
     for (const lvl of LEVELS) {
       if (restrictLevels && !restrictLevels.has(lvl)) continue
@@ -1303,6 +1340,7 @@ export function buildHsfRules(
     // For each chosen substat combination, distribute available rolls among them
     for (const combo of levelCombosV) {
       const comboKey = combo.join(',')
+      // Skip combos that already emitted a sentinel LevelAny row.
       if (sentinelCollapsedCombos.has(comboKey)) continue
       const m = combo.length
       const lockedMask = combo.map(v => lockedSet.has(Number(v)))
@@ -1311,6 +1349,7 @@ export function buildHsfRules(
         // Not enough substats can exist at this level to satisfy minCount -> skip emitting rows
         continue
       }
+      // Addition events change how many slots exist, so collapse rules must avoid them.
       const additionEventAtLevel = additionTimelineAll.includes(lvl)
       const baseVals = combo.map(v => baseMinForStarV(Number(v), star, substatTargets))
       const comboSubs = combo.map(v => variantToSub(v))
@@ -1357,11 +1396,15 @@ export function buildHsfRules(
         emitFactoryMinimaRule(combo, comboSubs, baseVals, lvl)
         continue
       }
+      // Track which positions are optional so we can skip redundant flex supersets later.
       const optionalMask = combo.map(v => !requiredV.includes(v))
+      // List of additions that have already occurred by this level for intro scheduling.
       const additionAvailable = additionTimelineAll.filter(level => level <= lvl)
       const baseSlots = Math.min(baseStartByBranch, m)
+      // Locked stats occupy the earliest slots so intro scheduling never drops them.
       const forcedBaseIndices = Array.from({ length: Math.min(requiredV.length, m) }, (_, idx) => idx)
       const introAssignments = introAssignmentsForCombo(m, baseSlots, additionAvailable, forcedBaseIndices)
+      // Utility helper to count how many roll milestones satisfy the provided filter.
       const countRollEvents = (predicate: (level: LevelMilestone) => boolean): number => {
         let count = 0
         for (const eventLevel of rollTimeline) {
@@ -1388,8 +1431,10 @@ export function buildHsfRules(
       if (introAssignments.length === 0) {
         continue
       }
+      // Capture per-variant target overrides so we can compute roll thresholds once per combo.
       const targetEntries = combo.map((variant) => getTargetEntry(Number(variant)))
       // Aggregate minimum rolls can target all selected substats or only locked ones.
+      // Aggregate mins either touch all selected stats or just the locked subset.
       const targetedMask: boolean[] = combo.map(v => !aggregateTargetsLocked || requiredV.includes(v))
       const sumTargeted = (arr: number[]) => arr.reduce((acc, val, i) => acc + (targetedMask[i] ? val : 0), 0)
       const canSatisfyLocked = (current: number, remaining: number) => {
@@ -1426,6 +1471,7 @@ export function buildHsfRules(
           if (any) anyWildcard = true
         }
         const targetValueFor = (idx: number, rollsApplied: number): number => {
+          // Roll-count pseudo stat maps to applied rolls directly.
           const statId = comboSubIds[idx]!
           if (statId === StatId.RollCount) return rollsApplied
           const entry = targetEntries[idx]
@@ -1442,12 +1488,14 @@ export function buildHsfRules(
           return base + rollsApplied * base
         }
         const maxThresholds: Array<number | undefined> = maxs.map((cap, idx) => (
+          // Precompute <= thresholds so wildcard-driven caps reuse the same values.
           cap === undefined ? undefined : targetValueFor(idx, cap)
         ))
         const setThreshold = (rule: HsfRule, idx: number, rollsApplied: number) => {
           const hasMin = mins[idx]! > 0
           const cap = maxs[idx]
           if (cap !== undefined && !hasMin) {
+            // Pure max-only bounds emit <= rows to mirror UI semantics.
             const limit = maxThresholds[idx] ?? 0
             rule.Substats[idx]!.Condition = '<='
             rule.Substats[idx]!.Value = limit
@@ -1467,6 +1515,7 @@ export function buildHsfRules(
           continue
         }
         const sumMin = mins.reduce((a, b) => a + b, 0)
+        // Locked aggregate comparisons only count mins on the locked subset.
         const sumLockedMin = mins.reduce((acc, val, idx) => acc + (lockedMask[idx] ? val : 0), 0)
         const needsLockedAggregate = lockedMinActive && sumLockedMin < lockedMinValue
         // Aggregate minimum across selected substats (off when Auto).
@@ -1475,6 +1524,7 @@ export function buildHsfRules(
         // global minimum require 5 total rolls and rarity is Any (0), include one pre-roll to
         // model Mythical as the only feasible path. Apply consistently to availability and target.
         const mythPreExtra = (rarityCodeLocal === RarityCode.Any && (sumMin >= 5 || globalMin >= 5)) ? 1 : 0
+        // For each intro slot, figure out how many rolls can have landed on it by this level.
         const timelineCaps = introLevels.map(intro => {
           if (baseline === 'afterStart') {
             const earliest = Math.max(effectiveStart, intro)
@@ -1489,6 +1539,7 @@ export function buildHsfRules(
           return rollsAfterIntro + includePre + extraMyth
         })
         const mythPreCount = (rarityIncludesMythical(rarityCodeLocal) ? 1 : 0) + mythPreExtra
+        // Availability/target counters include Any→Mythical pre-roll modeling when applicable.
         const avail = numRollsForThisLevel + mythPreExtra
         const numTarget = numRollsByTarget + mythPreExtra
         const remaining = Math.max(0, numTarget - avail)
@@ -1622,6 +1673,7 @@ export function buildHsfRules(
           }
           continue
         }
+        // Enumerate strict roll allocations where every roll must land on a selected stat.
         const emitDists = (predicate: (dist: number[]) => boolean) => {
           let emitted = false
           for (const dist of rollDistributions(m, avail)) {
@@ -1677,6 +1729,7 @@ export function buildHsfRules(
         }
         // Like emitDists, but allow some of the available rolls to go to non-targeted substats.
         // Implemented by adding a single "other" bucket that can absorb any leftover rolls.
+        // Variant that allows spare rolls to land on "other" stats using a sink bucket.
         const emitDistsAllowOther = (predicate: (dist: number[]) => boolean) => {
           const addSet = additionLevelsForRarityCode(rarityCode)
           const totalAdds = addSet.size
@@ -1743,6 +1796,7 @@ export function buildHsfRules(
           }
 
           const preferVirtualSink = (() => {
+            // Virtual sink lets us satisfy locked-only aggregate mins without inventing extra options.
             if (!aggregateTargetsLocked || globalMin <= 0 || othersCount !== 0 || avail <= 0) {
               return false
             }
@@ -1776,6 +1830,7 @@ export function buildHsfRules(
           return false
         }
         const emitMinOnly = () => {
+          // Emit the minimal >= targets per stat once feasibility is achieved.
           // Flex supersets (autoSubstatFlex) can introduce optional stats that never
           // receive rolls when we only need the locked/core substats to meet their
           // substatTargets. Skip emitting those redundant rows so the smaller combo remains
