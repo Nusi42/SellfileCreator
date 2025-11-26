@@ -64,6 +64,7 @@ import {
   MENU_CONTROL_HEIGHT_PX,
   MENU_CONTROL_MIN_WIDTH_PX,
   RULES_TABLE_SCROLL_HINT_HIDE_MS,
+  SMALL_BUTTON_HEIGHT_PX,
   type ColorBlindMode,
 } from '../lib/constants'
 import { useContextMenuCloseOnOutsideRightClick } from '../hooks/useContextMenuCloseOnOutsideRightClick'
@@ -394,29 +395,6 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
   const measureVisibleRowRafRef = useRef<number | null>(null)
   const viewportMeasureRafRef = useRef<number | null>(null)
   const revealIdleDrainTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const [gridMenuPosition, setGridMenuPosition] = useState<{ x: number; y: number } | null>(null)
-  const gridMenuOpen = Boolean(gridMenuPosition)
-  const gridMenuPaperRef = useRef<HTMLDivElement | null>(null)
-  const gridContextHintActive = shouldShowGridContextHint && gridContextHintPos !== null && !gridMenuOpen
-  const handleGridContextMenu = useCallback((event: React.MouseEvent<Element>) => {
-    event.preventDefault()
-    event.stopPropagation()
-    setGridMenuPosition({ x: event.clientX, y: event.clientY })
-    handleGridHintSeen()
-  }, [handleGridHintSeen])
-  const closeGridMenu = useCallback(() => {
-    setGridMenuPosition(null)
-  }, [])
-  // Column toggle is disabled for Keep Uniques because the variant forces two columns.
-  const handleColumnToggle = useCallback(() => {
-    if (keepUniquesVariant) return
-    setColumns(storedColumnPreference === 5 ? 4 : 5)
-  }, [keepUniquesVariant, setColumns, storedColumnPreference])
-  useContextMenuCloseOnOutsideRightClick({
-    open: gridMenuOpen,
-    onClose: closeGridMenu,
-    menuRef: gridMenuPaperRef,
-  })
   useEffect(() => {
     const node = containerRef.current
     if (!node) return
@@ -621,6 +599,27 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     })
     return map
   }, [rows])
+  const rowGroupKeyLookup = useMemo(() => {
+    // Map every rendered artifact id to its leaf group so context-menu actions can scope themselves correctly.
+    const map = new Map<number, string>()
+    const assignGroup = (group: TesterGroup) => {
+      const hasChildren = Boolean(group.children?.length)
+      if (hasChildren) {
+        // Keep walking to leaves so nested accessories resolve to the concrete accordion we can collapse.
+        group.children?.forEach(assignGroup)
+        return
+      }
+      // Leaf groups own the actual cards; capture their artifact ids for quick reverse lookup.
+      group.rows.forEach((row) => {
+        const artifactId = Number(row.artifact?.id)
+        if (Number.isFinite(artifactId)) {
+          map.set(artifactId, group.key)
+        }
+      })
+    }
+    groups.forEach(assignGroup)
+    return map
+  }, [groups])
   const fallbackScrollHintRowId = useMemo(() => {
     for (let idx = 0; idx < rows.length; idx += 1) {
       const candidateId = Number(rows[idx]?.artifact?.id)
@@ -664,6 +663,66 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     groups.forEach((group) => assign(group, null))
     return map
   }, [groups])
+  // Context menu state tracks the pointer anchor plus the owning group so actions stay scoped.
+  const [gridMenuGroupKey, setGridMenuGroupKey] = useState<string | null>(null)
+  const [gridMenuPosition, setGridMenuPosition] = useState<{ x: number; y: number } | null>(null)
+  const gridMenuOpen = Boolean(gridMenuPosition)
+  const gridMenuPaperRef = useRef<HTMLDivElement | null>(null)
+  const gridContextHintActive = shouldShowGridContextHint && gridContextHintPos !== null && !gridMenuOpen
+  const resolveGridContextGroupKey = useCallback((target: EventTarget | null): string | null => {
+    // Headers expose their group key directly while cards rely on the artifact id to locate the owning group.
+    const element = target as Element | null
+    if (!element || typeof element.closest !== 'function') return null
+    const headerNode = element.closest<HTMLElement>('[data-tester-grid-header="true"]')
+    const headerKey = headerNode?.getAttribute('data-header-key')
+    if (headerKey && groupLookup.has(headerKey)) {
+      // Clicking inside a header keeps the lookup cheap by reading the exported data attribute.
+      return headerKey
+    }
+    const cardNode = element.closest<HTMLElement>('[data-tester-grid-card="true"]')
+    const rowIdAttr = cardNode?.getAttribute('data-row-id')
+    if (rowIdAttr) {
+      const rowId = Number(rowIdAttr)
+      if (Number.isFinite(rowId)) {
+        // Cards only know their artifact id, so pivot through the lookup we built above.
+        return rowGroupKeyLookup.get(rowId) ?? null
+      }
+    }
+    return null
+  }, [groupLookup, rowGroupKeyLookup])
+  const handleGridContextMenu = useCallback((event: React.MouseEvent<Element>) => {
+    event.preventDefault()
+    event.stopPropagation()
+    // Track the pointer target so the menu actions know which group to mutate.
+    setGridMenuGroupKey(resolveGridContextGroupKey(event.target))
+    setGridMenuPosition({ x: event.clientX, y: event.clientY })
+    handleGridHintSeen()
+  }, [handleGridHintSeen, resolveGridContextGroupKey])
+  const closeGridMenu = useCallback(() => {
+    setGridMenuPosition(null)
+    setGridMenuGroupKey(null)
+  }, [])
+  // Column toggle is disabled for Keep Uniques because the variant forces two columns.
+  const handleColumnToggle = useCallback(() => {
+    if (keepUniquesVariant) return
+    setColumns(storedColumnPreference === 5 ? 4 : 5)
+  }, [keepUniquesVariant, setColumns, storedColumnPreference])
+  const handleCompactCurrentGroup = useCallback(() => {
+    if (!gridMenuGroupKey) return
+    setCollapsedGroups((prev) => {
+      if (prev.has(gridMenuGroupKey)) return prev
+      const next = new Set(prev)
+      // Collapsing is just a set insert; keep the mutation scoped to the resolved group key.
+      next.add(gridMenuGroupKey)
+      return next
+    })
+    closeGridMenu()
+  }, [closeGridMenu, gridMenuGroupKey])
+  useContextMenuCloseOnOutsideRightClick({
+    open: gridMenuOpen,
+    onClose: closeGridMenu,
+    menuRef: gridMenuPaperRef,
+  })
   const effectiveScrollHintRowId = useMemo(() => {
     if (firstVisibleRowId != null && rowLookup.has(firstVisibleRowId)) {
       return firstVisibleRowId
@@ -919,6 +978,12 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     }
     return null
   }
+  // Disable group-compaction when we cannot resolve the group or it is already collapsed.
+  const canCompactCurrentGroup = Boolean(
+    gridMenuGroupKey
+    && groupLookup.has(gridMenuGroupKey)
+    && !collapsedGroups.has(gridMenuGroupKey),
+  )
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, position: 'relative' }}>
       <Box
@@ -1071,6 +1136,33 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
             {colorBlindMode === 'normal'
               ? t('colorBlindNormal')
               : (colorBlindMode === 'okabeIto' ? t('colorBlindOkabeIto') : t('colorBlindTritan'))}
+          </Button>
+        </MenuItem>
+        <Divider sx={{ my: 0.5 }} />
+        {/* Place the compact action directly above the Columns control with matching spacing. */}
+        <MenuItem
+          disableRipple
+          disabled={!canCompactCurrentGroup}
+          sx={{ justifyContent: 'center', py: 0.5 }}
+        >
+          <Button
+            // Mirror the RulesFilterPanel close button styling so this action reads as a centered primary control.
+            size="small"
+            variant="contained"
+            color="primary"
+            disabled={!canCompactCurrentGroup}
+            onClick={(event) => {
+              event.stopPropagation()
+              handleCompactCurrentGroup()
+            }}
+            sx={{
+              px: 1.25,
+              minWidth: MENU_CONTROL_MIN_WIDTH_PX,
+              height: SMALL_BUTTON_HEIGHT_PX,
+              minHeight: SMALL_BUTTON_HEIGHT_PX,
+            }}
+          >
+            {t('testerGridCompactGroup')}
           </Button>
         </MenuItem>
         <Divider sx={{ my: 0.5 }} />

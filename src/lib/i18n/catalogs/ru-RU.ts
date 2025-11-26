@@ -70,6 +70,7 @@ const overrides: Catalog = {
   testerTableEmpty: 'Импортируйте снаряжение или добавьте тестовые предметы, чтобы увидеть совпадения здесь.',
   testerTableEmptyFilter: 'Нет тестовых предметов, подходящих текущим фильтрам.',
   testerGridScrollHint: '{group} • {detail}',
+  testerGridCompactGroup: 'Сжать текущую группу',
   testerLevelLabel: 'Ур. {level}',
   testerMainStatInline: '{stat} {value}',
   testerMainStatLabel: 'Основная характеристика: {stat} {value}',

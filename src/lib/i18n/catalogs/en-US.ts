@@ -70,6 +70,7 @@ const enUS: Catalog = {
   testerTableEmpty: 'Import gear or add tester items to see matches here.',
   testerTableEmptyFilter: 'No tester items match the current filters.',
   testerGridScrollHint: '{group} • {detail}',
+  testerGridCompactGroup: 'Compact Current Group',
   testerLevelLabel: 'Lv {level}',
   testerMainStatInline: '{stat} {value}',
   testerMainStatLabel: 'Main stat: {stat} {value}',

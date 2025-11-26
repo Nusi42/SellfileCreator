@@ -70,6 +70,7 @@ const overrides: Catalog = {
   testerTableEmpty: 'Importiere Ausrüstung oder füge Tester-Gegenstände hinzu, um hier Treffer zu sehen.',
   testerTableEmptyFilter: 'Keine Tester-Gegenstände passen zu den aktuellen Filtern.',
   testerGridScrollHint: '{group} • {detail}',
+  testerGridCompactGroup: 'Aktuelle Gruppe komprimieren',
   testerLevelLabel: 'Stufe {level}',
   testerMainStatInline: '{stat} {value}',
   testerMainStatLabel: 'Hauptwert: {stat} {value}',
