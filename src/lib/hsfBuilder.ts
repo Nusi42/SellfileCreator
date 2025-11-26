@@ -1050,11 +1050,6 @@ export function buildHsfRules(
     && lockedMinActive
     && isLockedAggregateScopeActive(cfg, { lockedCountOverride: requiredV.length })
 
-  if (lockedMinActive && lockedCount === 0) {
-    // Locked-only min rolls cannot be satisfied without any locked stats.
-    return []
-  }
-
   // Special case: No substats selected => presence-only.
   // - For full window 0..16: emit a single "Any level" rule (LVLForCheck=LEVEL_ANY_SENTINEL).
   // - Otherwise: emit rules for each milestone within the window.
@@ -1082,12 +1077,6 @@ export function buildHsfRules(
     }
     finalizeRules()
     return rules
-  }
-
-  // If the aggregate minimum should apply to locked substats but none are locked,
-  // the requirement cannot be satisfied; prune all rows.
-  if (aggregateTargetsLocked && requiredV.length === 0 && aggregateMinActive) {
-    return []
   }
 
 // Global infeasibility prune (upper limits vs aggregate minimum):
