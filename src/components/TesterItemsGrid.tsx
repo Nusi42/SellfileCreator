@@ -1,11 +1,9 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import {
-  Accordion,
-  AccordionSummary,
-  AccordionDetails,
   Box,
   Button,
+  ButtonBase,
   Chip,
   Divider,
   Menu,
@@ -17,7 +15,7 @@ import {
   useMediaQuery,
 } from '@mui/material'
 import type { PaperProps as MuiPaperProps } from '@mui/material/Paper'
-import type { TransitionProps } from '@mui/material/transitions'
+import ExpandLessIcon from '@mui/icons-material/ExpandLess'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import SellIcon from '@mui/icons-material/Sell'
 import { alpha, useTheme, type Theme } from '@mui/material/styles'
@@ -174,21 +172,6 @@ const measureMatchingRowContentWidth = (node: HTMLElement): number => {
   const paddingRight = pxValue(style.paddingRight)
   return Math.max(0, node.clientWidth - paddingLeft - paddingRight)
 }
-// Skip Collapse measurement when we need every accordion to open at once.
-const InstantAccordionTransition = React.forwardRef<HTMLDivElement, TransitionProps & { children?: React.ReactNode }>(
-  function InstantAccordionTransition({ in: inProp, children }, ref) {
-    if (!inProp) {
-      return null
-    }
-    if (!React.isValidElement(children)) {
-      return null
-    }
-    return React.cloneElement(children, { ref })
-  },
-)
-
-const INSTANT_ACCORDION_TRANSITION_SLOTS = { transition: InstantAccordionTransition } as const
-
 type TranslateFn = ReturnType<typeof useI18n>['t']
 
 // Variant toggles keep-uniques specific layout while keeping the base tester grid intact.
@@ -296,30 +279,6 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     }
   }, [shouldShowGridContextHint])
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(() => new Set())
-  // Accordion animation state lets mass-expands skip the expensive auto height tween.
-  const [accordionAnimationsDisabled, setAccordionAnimationsDisabled] = useState(false)
-  const accordionAnimationResetRafRef = useRef<number | null>(null)
-  const disableAccordionAnimationsTemporarily = useCallback(() => {
-    setAccordionAnimationsDisabled(true)
-    if (typeof window === 'undefined') {
-      setAccordionAnimationsDisabled(false)
-      return
-    }
-    if (accordionAnimationResetRafRef.current != null) {
-      window.cancelAnimationFrame(accordionAnimationResetRafRef.current)
-    }
-    accordionAnimationResetRafRef.current = window.requestAnimationFrame(() => {
-      accordionAnimationResetRafRef.current = null
-      setAccordionAnimationsDisabled(false)
-    })
-  }, [])
-  useEffect(() => () => {
-    if (typeof window === 'undefined') return
-    if (accordionAnimationResetRafRef.current != null) {
-      window.cancelAnimationFrame(accordionAnimationResetRafRef.current)
-      accordionAnimationResetRafRef.current = null
-    }
-  }, [])
   const allGroupKeys = useMemo(() => {
     const keys = new Set<string>()
     const addKeys = (group: TesterGroup) => {
@@ -362,9 +321,6 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
         || Boolean((event && 'ctrlKey' in event && (event as React.MouseEvent).ctrlKey)
           || (event && 'metaKey' in event && (event as React.MouseEvent).metaKey))
       if (isMultiToggle) {
-        if (shouldExpand) {
-          disableAccordionAnimationsTemporarily()
-        }
         let changed = false
         for (const key of getMultiToggleScope(groupKey)) {
           if (shouldExpand) {
@@ -385,7 +341,7 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
       next.add(groupKey)
       return next
     })
-  }, [disableAccordionAnimationsTemporarily, getMultiToggleScope])
+  }, [getMultiToggleScope])
 
   useEffect(() => {
     setCollapsedGroups((prev) => {
@@ -467,7 +423,8 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
       }
     }
   }, [])
-  // Scroll-hint text mirrors the first visible card, so we sample DOM positions whenever virtualization shifts.
+  const [scrollVersion, setScrollVersion] = useState(0)
+  // Scroll handler feeds TanStack, the scroll hint, and the on-demand card reveal queue.
   const measureFirstVisibleRow = useCallback(() => {
     measureVisibleRowRafRef.current = null
     const container = containerRef.current
@@ -497,8 +454,7 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     if (measureVisibleRowRafRef.current != null) return
     measureVisibleRowRafRef.current = window.requestAnimationFrame(measureFirstVisibleRow)
   }, [measureFirstVisibleRow])
-  const [scrollVersion, setScrollVersion] = useState(0)
-  // Scroll handler feeds TanStack, the scroll hint, and the on-demand card reveal queue.
+
   const handleScroll = useCallback<React.UIEventHandler<HTMLDivElement>>((event) => {
     const nextScrollTop = event.currentTarget.scrollTop
     setScrollTop(nextScrollTop)
@@ -543,6 +499,8 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     theme,
   })
   const groupCountChipBg = theme.palette.mode === 'dark' ? theme.palette.grey[800] : theme.palette.grey[100]
+  const accordionSummaryHeightPx = useMemo(() => pxValue(theme.spacing(5)), [theme])
+  const nestedDetailsPaddingPx = accordionSpacingPx
   useEffect(() => () => {
     if (scrollHintHideTimerRef.current) {
       clearTimeout(scrollHintHideTimerRef.current)
@@ -738,7 +696,6 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     const resolvedGroup = groupLabel || t('testerValueUnknown')
     return t('testerGridScrollHint', { group: resolvedGroup, detail })
   }, [effectiveScrollHintRowId, rowGroupLabelLookup, rowLookup, t])
-  // Scroll hint stays accurate even when virtualization reshuffles rows or the user toggles chip rows.
   useLayoutEffect(() => {
     scheduleMeasureFirstVisibleRow()
   }, [
@@ -760,9 +717,6 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
       </EmptyStateMessage>
     )
   }
-  // Recursive renderer keeps accessory faction/group accordions in sync with the virtualized rows.
-  const accordionSummaryHeightPx = pxValue(theme.spacing(5))
-  const nestedDetailsPaddingPx = accordionSpacingPx
   const renderGroup = (group: TesterGroup, depth = 0, absoluteTop = 0): React.ReactNode => {
     const groupCountLabel = group.rows.length === 1
       ? t('testerItemsCountOne')
@@ -793,8 +747,8 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
       childContent = childNodes
     }
     return (
-        <TesterItemsGridGroup
-          key={group.key}
+      <TesterItemsGridGroup
+        key={group.key}
         group={group}
         expanded={expanded}
         groupCountLabel={groupCountLabel}
@@ -813,20 +767,18 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
         onJumpToRule={onJumpToRule}
         highlightedRowPredicate={highlightRowPredicate}
         dimUnhighlightedRows={shouldDimUnhighlightedRows}
-        disableAccordionAnimations={accordionAnimationsDisabled}
         childContent={childContent}
         depth={depth}
-          scrollOffset={scrollTop}
-          viewportHeight={viewportHeight}
-          scrollVersion={scrollVersion}
+        scrollOffset={scrollTop}
+        viewportHeight={viewportHeight}
+        scrollVersion={scrollVersion}
         absoluteTop={absoluteTop}
         accordionSummaryHeightPx={accordionSummaryHeightPx}
         accordionSpacingPx={accordionSpacingPx}
         leafPaddingPx={gridLeafPaddingPx}
-        />
+      />
     )
   }
-
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, position: 'relative' }}>
       <Box
@@ -1080,7 +1032,6 @@ type TesterItemsGridGroupProps = {
   // Highlight predicate trickles down so nested accordions stay presentation-only.
   highlightedRowPredicate?: ((row: TesterPreviewRow) => boolean) | null
   dimUnhighlightedRows?: boolean
-  disableAccordionAnimations: boolean
   scrollOffset: number
   viewportHeight: number
   scrollVersion: number
@@ -1111,7 +1062,6 @@ const TesterItemsGridGroup = React.memo(function TesterItemsGridGroup({
   depth = 0,
   highlightedRowPredicate = null,
   dimUnhighlightedRows = false,
-  disableAccordionAnimations,
   scrollOffset,
   viewportHeight,
   scrollVersion,
@@ -1136,9 +1086,6 @@ const TesterItemsGridGroup = React.memo(function TesterItemsGridGroup({
   }, [group.rows, gridColumnCount, hasChildren])
   const cardRowCount = cardRowChunks.length
   const shouldVirtualizeLeafRows = !hasChildren && cardRowCount > GRID_LEAF_VIRTUALIZE_ROW_THRESHOLD
-  // Tall leaf accordions animate poorly because TanStack remeasures every frame, so skip the transition once the
-  // virtualization path is active (global mass-expands still flip the shared disable flag).
-  const shouldSkipAccordionAnimation = disableAccordionAnimations || shouldVirtualizeLeafRows
   const leafPriorityBaseRef = useRef<number>(0)
   const leafPrioritySignatureRef = useRef<string | null>(null)
   const gridAbsoluteOffset = absoluteTop + accordionSummaryHeightPx + (hasChildren ? accordionSpacingPx : leafPaddingPx)
@@ -1204,11 +1151,9 @@ const TesterItemsGridGroup = React.memo(function TesterItemsGridGroup({
       />
     </Box>
   ) : null
-  const transitionTimeout = shouldSkipAccordionAnimation ? 0 : theme.transitions.duration.shorter
+  // Group rows still behave like accordions, but this wrapper stays lightweight to keep TanStack remeasures cheap.
   return (
-    <Accordion
-      expanded={expanded}
-      onChange={(event, isExpanded) => onToggleGroup(group.key, isExpanded, event)}
+    <Box
       sx={(theme) => ({
         mb: nested ? 0 : ACCORDION_MARGIN_UNITS,
         borderRadius: `${Math.max(ACCORDION_BORDER_RADIUS_PX - (nested ? 2 : 0), 2)}px`,
@@ -1216,37 +1161,28 @@ const TesterItemsGridGroup = React.memo(function TesterItemsGridGroup({
         overflow: 'hidden',
         border: `1px solid ${theme.palette.divider}`,
         backgroundColor: nested ? theme.palette.background.default : theme.palette.background.paper,
-        '&::before': {
-          display: 'none',
-        },
       })}
-      square={false}
-      disableGutters
-      elevation={0}
-      // Mass-expands skip the slow auto height tween while single toggles keep the subtle motion.
-      slotProps={{ transition: { timeout: transitionTimeout } }}
-      {...(shouldSkipAccordionAnimation ? { slots: INSTANT_ACCORDION_TRANSITION_SLOTS } : {})}
     >
-      <AccordionSummary
-        sx={(theme) => ({
-          minHeight: theme.spacing(5),
-          '&.Mui-expanded': {
-            minHeight: theme.spacing(5),
-          },
-          '& .MuiAccordionSummary-content': {
-            my: 0,
-          },
-          '& .MuiAccordionSummary-content.Mui-expanded': {
-            my: 0,
-          },
-        })}
-        expandIcon={<ExpandMoreIcon />}
+      <ButtonBase
+        onClick={(event) => onToggleGroup(group.key, !expanded, event)}
         onContextMenu={(event) => {
           event.preventDefault()
           event.stopPropagation()
           onToggleGroup(group.key, !expanded, event, { applyToAll: true })
           onAnyContextMenu?.()
         }}
+        sx={(theme) => ({
+          display: 'flex',
+          width: '100%',
+          textAlign: 'left',
+          justifyContent: 'flex-start',
+          px: theme.spacing(1.5),
+          py: theme.spacing(1),
+          minHeight: theme.spacing(5),
+          borderBottom: expanded ? `1px solid ${theme.palette.divider}` : 'none',
+        })}
+        aria-expanded={expanded}
+        type="button"
       >
         <Stack direction="row" spacing={1.5} alignItems="center" sx={{ width: '100%', flexWrap: 'nowrap' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
@@ -1272,14 +1208,18 @@ const TesterItemsGridGroup = React.memo(function TesterItemsGridGroup({
           <Chip
             size="small"
             label={groupCountLabel}
-            sx={{ bgcolor: chipBgColor }}
+            sx={{ bgcolor: chipBgColor, flexShrink: 0 }}
           />
+          <Box sx={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+            {expanded ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
+          </Box>
         </Stack>
-      </AccordionSummary>
+      </ButtonBase>
       {expanded ? (
-        <AccordionDetails
+        <Box
           sx={(theme) => ({
             backgroundColor: 'inherit',
+            borderTop: `1px solid ${theme.palette.divider}`,
             p: hasChildren
               ? theme.spacing(ACCORDION_MARGIN_UNITS)
               : theme.spacing(GRID_CARD_CONTAINER_PADDING_UNITS),
@@ -1361,9 +1301,9 @@ const TesterItemsGridGroup = React.memo(function TesterItemsGridGroup({
               ) : null}
             </Box>
           )}
-        </AccordionDetails>
+        </Box>
       ) : null}
-    </Accordion>
+    </Box>
   )
 });
 
