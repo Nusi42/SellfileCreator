@@ -706,7 +706,10 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
             }}
             sx={(theme) => ({
               display: 'flex',
+              alignItems: 'center',
               width: '100%',
+              height: '100%',
+              boxSizing: 'border-box',
               textAlign: 'left',
               justifyContent: 'flex-start',
               px: theme.spacing(1.5),
