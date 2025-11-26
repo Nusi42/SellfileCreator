@@ -204,6 +204,7 @@ If tooltips need rich formatting (colored badges, inline icons), pass JSX via `r
 - `src/components/TesterItemsGrid.tsx` now feeds TanStack a *flattened* list of headers, spacers, and card rows instead of mounting whole accordions. Each flattened item carries its own deterministic height so the virtualizer never needs to sample DOM nodes.
 - Group expansion simply rebuilds the flattened list; the TanStack instance keeps scroll position stable by reusing keys (`header:<key>`, `row:<key>:<index>`, etc.).
 - Nested faction → set trees no longer mount en masse: child accordions emit spacer entries plus their own header/cell rows, and anything outside the viewport collapses down to a single placeholder block.
+- Terminology: we call a top-level accessory node a *faction header*, any child set node (artifact or accessory) a *set header*, and when a faction header has no children it behaves like a leaf (set) header. All three flow through the same `groupHeader` flattened item so the DOM stays consistent.
 - Card rows still hydrate lazily. Skeletons appear whenever a flattened row is rendered before its reveal task finishes, but scrolling back up no longer forces an entire faction/set subtree to remount; only the specific flattened rows in view re-enter the DOM.
 - Scroll-hint sampling keeps using `[data-tester-grid-card="true"]` so the existing flyout logic works unchanged. Because virtual rows now mirror the actual viewport, the hint updates immediately even when the user drags the scrollbar thumb.
 - When adjusting tester-grid behavior:
