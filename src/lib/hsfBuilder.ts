@@ -131,6 +131,8 @@ export function normalizeExportModeFields<T extends Record<string, unknown>>(sou
 export type BuildHsfRulesOptions = {
   /** Maximum number of rules to emit before aborting generation. */
   limit?: number
+  /** Optional 1-based builder config reference for downstream HSF consumers. */
+  configId?: number
 }
 
 export class RuleLimitReachedError extends Error {
@@ -176,6 +178,9 @@ function makeRule(base: Omit<HsfRule, 'Substats'> & { Substats?: HsfRule['Substa
   // revisited.
   const isAnd = false
   return {
+    // Config metadata comes first so JSON readers find it before the legacy flags.
+    ...(base.ConfigID !== undefined ? { ConfigID: base.ConfigID } : {}),
+    ...(typeof base.ConfigName === 'string' && base.ConfigName.length > 0 ? { ConfigName: base.ConfigName } : {}),
     ...(base.Keep !== undefined ? { Keep: base.Keep } : {}),
     // Emit AND flag between Keep and Use for compatibility with some readers.
     IsRuleTypeAND: isAnd,
@@ -730,6 +735,10 @@ export function buildHsfRules(
   const emissionLimit = (options?.limit != null && Number.isFinite(options.limit) && options.limit > 0)
     ? Math.max(1, Math.floor(options.limit))
     : null
+  // Propagate config metadata so exported HSF rows retain their builder lineage.
+  const configId = (options && typeof options.configId === 'number' && Number.isFinite(options.configId) && options.configId > 0)
+    ? Math.floor(options.configId)
+    : null
 
   // Build permutation pool respecting fixed substats (variants only)
   // Canonicalize substat selection order so output does not depend on click order.
@@ -783,6 +792,7 @@ export function buildHsfRules(
   const rarityCode = (cfg.rarityMode === 'auto') ? resolveAutoRarityCode(cfg) : cfg.rarityCode
 
   const baseCoreGlobal = {
+    ...(configId !== null ? { ConfigID: configId } : {}),
     ...(cfg.keep !== undefined ? { Keep: cfg.keep } : {}),
     ...(exportMode === 'disabled' ? { Use: false }
       : exportMode === 'active' ? { Use: true } : {}),

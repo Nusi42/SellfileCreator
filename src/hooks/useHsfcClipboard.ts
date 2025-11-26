@@ -648,10 +648,7 @@ export function useHsfcClipboard({
     if (multi) {
       const sel = selectedCfgIndices.slice().sort((a, b) => a - b)
       const cfgs = sel.map(i => customCfgs[i]!).filter(Boolean)
-      const readable = cfgs.map((cfg, index) => ({
-        __cfgIdx_ignoredWhenRead: sel[index]! + 1,
-        ...buildReadableConfig(cfg, metasets),
-      }))
+      const readable = cfgs.map((cfg) => buildReadableConfig(cfg, metasets))
       const usedMetaIds = new Set<string>()
       for (const cfg of cfgs) for (const id of (cfg.artifactMetaSets ?? [])) usedMetaIds.add(String(id))
       const metasOut = metasets
@@ -672,7 +669,7 @@ export function useHsfcClipboard({
     } else {
       const cfg = customCfgs[idx]
       if (!cfg) return
-      const readable = { __cfgIdx_ignoredWhenRead: idx + 1, ...buildReadableConfig(cfg, metasets) }
+      const readable = buildReadableConfig(cfg, metasets)
       const usedMetaIds = cfg.artifactMetaSets ?? []
       const metasOut = metasets
         .filter(m => usedMetaIds.includes(m.id))

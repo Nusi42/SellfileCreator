@@ -15,7 +15,7 @@ test('name-only changes mark the builder as dirty', () => {
   assert.equal(
     fingerprintConfigForRules(renamed, SUBSTAT_TARGETS_KEY),
     fingerprintConfigForRules(baseline, SUBSTAT_TARGETS_KEY),
-    'fingerprints should ignore cosmetic name edits',
+    'renaming should reuse the fingerprint so cached rules stay valid',
   )
 
   assert.equal(

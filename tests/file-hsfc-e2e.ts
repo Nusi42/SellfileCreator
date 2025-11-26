@@ -27,12 +27,14 @@ declare const console: any
 function assert(cond: boolean, msg: string): void { if (!cond) throw new Error(msg) }
 
 function stripRuleMetadata(rules: any[]): any[] {
+  // Golden fixtures focus on structural rule data — config metadata is exercised via dedicated tests.
   return (rules || []).map((rule) => {
     const {
-      __cfgIdx: _cfgIdx,
       __lineIdx: _lineIdx,
       __allKnownSets: _allKnownSets,
       __source: _source,
+      ConfigID: _configId,
+      ConfigName: _configName,
       ...rest
     } = rule ?? {}
     return rest

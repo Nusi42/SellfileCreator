@@ -25,6 +25,7 @@ import type { HsfRuleWithCfg } from './merge'
 import type { NormalizedGearArtifact } from './importers/gearDbNormalizer'
 import { isAccessorySlot } from './testerDomain'
 import { ACCESSORY_NO_SET_ID } from './constants'
+import { getRuleConfigIndex } from './ruleConfigIndex'
 
 // Tri-state for handling explicit "Any" fields in rules.
 export type AnyMode = 'off' | 'include' | 'only'
@@ -233,7 +234,7 @@ export function filterHsfRules<T extends HsfRule>(
 
   const shouldIncludeRule = (r: T): boolean => {
     const withCfg = r as unknown as HsfRuleWithCfg
-    const cfgIdx = withCfg.__cfgIdx
+    const cfgIdx = getRuleConfigIndex(withCfg)
     // Rule-level: Keep/Sell and Enabled/Disabled
     {
       const keepMode = f.rule?.keep ?? 'any'
@@ -271,7 +272,7 @@ export function filterHsfRules<T extends HsfRule>(
 
     if (configNameFilterActive) {
       if (!configNameRegexValid) return false
-      if (typeof cfgIdx !== 'number' || !Number.isFinite(cfgIdx)) return false
+      if (cfgIdx == null || !Number.isFinite(cfgIdx)) return false
       const rawName = options?.configNames?.[cfgIdx] ?? ''
       const candidate = typeof rawName === 'string' ? rawName : ''
       if (!configNameRegex!.test(candidate)) return false
@@ -381,8 +382,8 @@ export function filterHsfRules<T extends HsfRule>(
   for (const r of rules) {
     if (!shouldIncludeRule(r)) continue
     filtered.push(r)
-    const cfgIdx = (r as unknown as HsfRuleWithCfg).__cfgIdx
-    if (typeof cfgIdx === 'number' && Number.isFinite(cfgIdx)) {
+    const cfgIdx = getRuleConfigIndex(r as unknown as HsfRuleWithCfg)
+    if (cfgIdx !== null) {
       matchingConfigIndices.add(cfgIdx)
       configRuleCounts.set(cfgIdx, (configRuleCounts.get(cfgIdx) ?? 0) + 1)
     }

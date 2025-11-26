@@ -1,7 +1,7 @@
 /**
  * hsfDeduplicate.ts
  *
- * Development-only helpers for collapsing redundant HSF rules prior to export.
+ * Helpers for collapsing redundant HSF rules prior to export.
  * The dedupe pass preserves first-match semantics by operating on contiguous
  * keep blocks and never crossing `Keep === false` boundaries.
  */

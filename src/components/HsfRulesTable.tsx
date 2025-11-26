@@ -39,7 +39,7 @@ import ContextMenuPaper from './ContextMenuPaper'
 import { useAnimatedEllipsis } from '../hooks/useAnimatedEllipsis'
 import { HEADER_MENU_LABEL_SX } from './tableHeaderMenuStyles'
 import { EmptyStateMessage } from './EmptyStateMessage'
-import { KEEP_UNIQUES_CFG_SENTINEL } from '../lib/keepUniques'
+import { getRuleConfigIndex } from '../lib/ruleConfigIndex'
 
 // Preview rows stay at their fixed height (≈30px). Keep the inline faction icon
 // slightly smaller than the default select size so the row metrics remain
@@ -51,13 +51,11 @@ const FACTION_ICON_PREVIEW_OFFSET_PX = 0 as const
 // Single-line spans now stay centered with no vertical nudge; keep the constant for quick tuning across browsers.
 const SINGLE_LINE_PREVIEW_OFFSET_PX = 3 as const
 const FOCUS_SCROLL_MAX_ATTEMPTS = 6 as const
-// Builder configs map rows by __cfgIdx, but keep-unique injections carry a negative sentinel.
-// Filter those sentinels (and any other negative indexes) so selection math only considers real configs.
-const resolveDisplayCfgIdx = (raw: unknown): number | null => {
-  if (typeof raw !== 'number' || !Number.isFinite(raw)) return null
-  if (raw === KEEP_UNIQUES_CFG_SENTINEL) return null
-  if (raw < 0) return null
-  return Math.floor(raw)
+// Builder configs map rows via ConfigID (1-based). Base rules, keep-unique injections, and other
+// config-less rows omit ConfigID, so they should not participate in config selection math.
+const resolveDisplayCfgIdx = (rule: HsfRuleWithCfg | null | undefined): number | null => {
+  const idx = getRuleConfigIndex(rule ?? null)
+  return idx !== null && idx >= 0 ? idx : null
 }
 
 export function HsfRulesTable({ rules, building = false, setHoveredCfgIdx, selectedCfgIdx, multiselectActive, onSelectCfgIdx, onConfigAction, onClearBase, onConfigureFinalSell, onOpenManageColors, colorIconSrc, substatColors, colorBlindMode, onChangeColorBlindMode, emptyDueToFilter = false, limitExceeded = false, focusRuleIndex = null, onFocusRuleSettled }: {
@@ -315,7 +313,7 @@ export function HsfRulesTable({ rules, building = false, setHoveredCfgIdx, selec
     for (let i = 0; i < rules.length; i += 1) {
       const rule = rules[i] as HsfRuleWithCfg | undefined
       if (!rule) continue
-      const cfgIdx = resolveDisplayCfgIdx(rule.__cfgIdx)
+      const cfgIdx = resolveDisplayCfgIdx(rule as HsfRuleWithCfg)
       if (cfgIdx === null) continue
       const existing = spans.get(cfgIdx)
       if (existing) {
@@ -964,7 +962,7 @@ export function HsfRulesTable({ rules, building = false, setHoveredCfgIdx, selec
   }, [updateColumns])
   // Show the Faction column automatically when any rule (from HSFC or loaded HSF)
   // has a non-zero faction filter. Previously this only reacted to HSFC-built rows
-  // (those carrying __cfgIdx), which hid the column for loaded HSF files.
+  // (those carrying ConfigID), which hid the column for loaded HSF files.
   const anyWithFaction = useMemo(() => rules.some((r) => r && typeof r.Faction === 'number' && (r.Faction as number) !== 0), [rules])
   const isColVisible = React.useCallback((c: ColCfg) => {
     if (c.key === 'Faction') {
@@ -1235,8 +1233,7 @@ export function HsfRulesTable({ rules, building = false, setHoveredCfgIdx, selec
                   {rows.map((r, i) => {
                     const idx = baseIndex + i
                     const rule = r as HsfRuleWithCfg
-                    const cfgIdxRaw = rule.__cfgIdx
-                    const cfgIdxNumber = resolveDisplayCfgIdx(cfgIdxRaw)
+                    const cfgIdxNumber = resolveDisplayCfgIdx(rule as HsfRuleWithCfg)
                     const lineIdx = typeof rule.__lineIdx === 'number' ? rule.__lineIdx : idx
                     if (idx >= visibleStartIdx && idx < visibleEndIdxExclusive) {
                       const lineForRange = lineIdx

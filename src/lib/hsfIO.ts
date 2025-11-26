@@ -11,6 +11,7 @@
 import type { HsfFile, HsfRule } from './hsfTypes'
 import type { HsfRuleWithCfg } from './merge'
 import { dedupeHsfRulesForExport } from './hsfDeduplicate'
+import { getRuleConfigIndex, normalizeConfigName } from './ruleConfigIndex'
 
 /** Strip UTF‑8 BOM and parse `.hsf` JSON. Ensures a `Rules` array exists. */
 export function parseHsfFile(text: string): HsfFile {
@@ -26,11 +27,20 @@ export function parseHsfFile(text: string): HsfFile {
   return parsed as HsfFile
 }
 
-/** Remove UI-only fields (e.g., `__cfgIdx`) and wrap in HSF container. */
-export function cleanHsfForExport(rules: Array<HsfRule & { __cfgIdx?: number; __lineIdx?: number; __allKnownSets?: boolean; __source?: unknown }>): HsfFile {
+type ExportableRule = HsfRuleWithCfg
+type ConfigNameList = Array<string | null | undefined>
+
+/** Remove UI-only fields (e.g., `__lineIdx`) and wrap in HSF container. */
+export function cleanHsfForExport(rules: ExportableRule[]): HsfFile {
   const cleaned: HsfRule[] = rules.map((r) => {
-    const { __cfgIdx, __lineIdx, __allKnownSets, __source, ...rest } = r
-    return rest as HsfRule
+    const { __lineIdx, __allKnownSets, __source, ...rest } = r
+    const { ConfigID, ConfigName, ...others } = rest
+    const ordered: HsfRule = {
+      ...(ConfigID !== undefined ? { ConfigID } : {}),
+      ...(ConfigName !== undefined ? { ConfigName } : {}),
+      ...(others as HsfRule),
+    }
+    return ordered
   })
   return { Rules: cleaned }
 }
@@ -41,9 +51,32 @@ export async function readHsfFile(file: File): Promise<HsfFile> {
   return parseHsfFile(text)
 }
 
+type ExportMetadataOptions = { configNames?: ConfigNameList }
+
+function applyConfigNamesForExport(rules: ExportableRule[], options?: ExportMetadataOptions): ExportableRule[] {
+  const names = options?.configNames
+  if (!names || names.length === 0) {
+    return rules.map((rule) => ({ ...rule }))
+  }
+  return rules.map((rule) => {
+    const clone = { ...rule }
+    const cfgIdx = getRuleConfigIndex(rule)
+    if (cfgIdx !== null) {
+      const normalized = normalizeConfigName(names[cfgIdx] ?? null)
+      if (normalized) {
+        clone.ConfigName = normalized
+      } else if ('ConfigName' in clone) {
+        delete (clone as { ConfigName?: string }).ConfigName
+      }
+    }
+    return clone
+  })
+}
+
 /** Build an HSF file object from merged rules (strips UI-only fields). */
-export function buildHsfFileFromMerged(rules: Array<HsfRule & { __cfgIdx?: number; __lineIdx?: number; __allKnownSets?: boolean; __source?: unknown }>): HsfFile {
-  return cleanHsfForExport(rules)
+export function buildHsfFileFromMerged(rules: ExportableRule[], options?: ExportMetadataOptions): HsfFile {
+  const prepared = applyConfigNamesForExport(rules, options)
+  return cleanHsfForExport(prepared)
 }
 
 /** Convert an HSF file object to a Blob ready to download. */
@@ -52,7 +85,8 @@ export function hsfToBlob(file: HsfFile): Blob {
 }
 
 /** Build a deduplicated HSF file object from merged rules (dev export helper). */
-export function buildDedupedHsfFileFromMerged(rules: HsfRuleWithCfg[]): HsfFile {
+export function buildDedupedHsfFileFromMerged(rules: HsfRuleWithCfg[], options?: ExportMetadataOptions): HsfFile {
   const deduped = dedupeHsfRulesForExport(rules)
-  return cleanHsfForExport(deduped)
+  const prepared = applyConfigNamesForExport(deduped, options)
+  return cleanHsfForExport(prepared)
 }

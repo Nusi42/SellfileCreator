@@ -63,6 +63,7 @@ import {
   RULE_SOURCE_KEEP_UNIQUES,
   type HsfRuleWithCfg,
 } from './lib/merge'
+import { applyConfigIndexMutable, getRuleConfigIndex } from './lib/ruleConfigIndex'
 import {
   type KeepUniqueDetectionSnapshot,
   type KeepUniqueRule,
@@ -240,9 +241,8 @@ const createGearDbFileFromBase64 = (name: string, base64?: string | null): File 
 
 function remapRulesForIndex(rules: readonly HsfRuleWithCfg[], cfgIdx: number): HsfRuleWithCfg[] {
   for (const rule of rules) {
-    if (rule.__cfgIdx !== cfgIdx) {
-      (rule as HsfRuleWithCfg).__cfgIdx = cfgIdx
-    }
+    if (!rule) continue
+    applyConfigIndexMutable(rule, cfgIdx)
   }
   return rules as HsfRuleWithCfg[]
 }
@@ -305,6 +305,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     const trimmed = cfg.name.trim()
     return trimmed.length > 0 ? trimmed : null
   }), [customCfgs])
+  const configNames = useMemo(() => customCfgs.map((cfg) => (typeof cfg?.name === 'string' ? cfg.name : '')), [customCfgs])
   const substatTargetsForPreview = useDeferredValue(substatTargets)
   const metasetsForPreview = useDeferredValue(metasets)
   const ruleConfigsForPreview = useDeferredValue(ruleConfigs)
@@ -1001,6 +1002,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     resolvedKeepUniqueRules,
     finishRulesBuilding,
     setRulesBuildProgress,
+    customCfgs,
     // Intentionally omit configRulesState (and row/detection state) to avoid self-triggered abort
     // loops when downstream injections update the cached snapshot while a warm is inflight.
   ])
@@ -1838,8 +1840,14 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     () => (omitDisabledForExport ? mergedRules.filter((rule) => rule?.Use !== false) : mergedRules),
     [mergedRules, omitDisabledForExport],
   )
-  const hsfExportPayload = useMemo(() => buildHsfFileFromMerged(exportRules), [exportRules])
-  const hsfExportPayloadDeduped = useMemo(() => buildDedupedHsfFileFromMerged(exportRules), [exportRules])
+  const hsfExportPayload = useMemo(
+    () => buildHsfFileFromMerged(exportRules, { configNames }),
+    [exportRules, configNames],
+  )
+  const hsfExportPayloadDeduped = useMemo(
+    () => buildDedupedHsfFileFromMerged(exportRules, { configNames }),
+    [exportRules, configNames],
+  )
   const activeExportPayload = useMemo(
     () => (dedupeDefault ? hsfExportPayloadDeduped : hsfExportPayload),
     [dedupeDefault, hsfExportPayload, hsfExportPayloadDeduped],
@@ -1891,13 +1899,13 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     if (!isDevBuild) return
     const cfg = customCfgs[idx]
     if (!cfg) return
-    const readable = { __cfgIdx_ignoredWhenRead: idx + 1, ...buildReadableConfig(cfg, metasets) }
+    const readable = buildReadableConfig(cfg, metasets)
     const builderSnapshot = JSON.parse(JSON.stringify(cfg)) as BuilderConfig
     const rulesForCfg = mergedRules
       .map((rule, ruleIdx) => ({ rule, ruleIdx }))
-      .filter(({ rule }) => rule.__cfgIdx === idx)
+      .filter(({ rule }) => getRuleConfigIndex(rule) === idx)
       .map(({ rule, ruleIdx }) => {
-        const { __cfgIdx: _omitCfgIdx, __lineIdx: _omitLineIdx, __allKnownSets: _omitAllKnownSets, __source: _omitSource, ...rest } = rule as HsfRuleWithCfg & { __allKnownSets?: boolean }
+        const { __lineIdx: _omitLineIdx, __allKnownSets: _omitAllKnownSets, __source: _omitSource, ...rest } = rule as HsfRuleWithCfg & { __allKnownSets?: boolean }
         const sanitized = JSON.parse(JSON.stringify(rest)) as HsfRule
         const line = typeof rule.__lineIdx === 'number' ? (rule.__lineIdx + 1) : (ruleIdx + 1)
         return { line, rule: sanitized }
@@ -2326,7 +2334,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
 
 
   // Manage Colors icon (bitmap), generated once at runtime
-  const configNames = useMemo(() => customCfgs.map(cfg => cfg?.name ?? ''), [customCfgs])
   const configModes = useMemo(() => customCfgs.map((cfg) => cfg.exportMode), [customCfgs])
   const testerMatchWorkerRuleIndex = useMemo(
     () => (testerMatchWorkerSupported ? buildRuleMatchIndexData(configRulesState.mergedRules) : null),
@@ -2454,8 +2461,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     const baseRules = filterActive ? filteredRules : mergedRules
     if (!testerConfigFilterSelectedSet || testerConfigFilterSelectedSet.size === 0) return baseRules
     return baseRules.filter((rule) => {
-      const cfgIdx = (rule as HsfRuleWithCfg).__cfgIdx
-      return typeof cfgIdx === 'number' && testerConfigFilterSelectedSet.has(cfgIdx)
+      const cfgIdx = getRuleConfigIndex(rule)
+      return cfgIdx !== null && testerConfigFilterSelectedSet.has(cfgIdx)
     })
   }, [filterActive, filteredRules, mergedRules, testerConfigFilterSelectedSet])
   const hsfTableEmptyDueToFilters = (filterActive || testerConfigFilterActive) && mergedRules.length > 0 && hsfRulesForTable.length === 0
@@ -2588,8 +2595,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     if (ruleIndex < 0 || ruleIndex >= mergedRules.length) return false
     const rule = mergedRules[ruleIndex]
     if (!rule) return false
-    const cfgIdx = (rule as HsfRuleWithCfg).__cfgIdx
-    if (typeof cfgIdx === 'number' && cfgIdx >= 0 && cfgIdx < customCfgs.length) {
+    const cfgIdx = getRuleConfigIndex(rule)
+    if (cfgIdx !== null && cfgIdx >= 0 && cfgIdx < customCfgs.length) {
       syncSelectedCfgIdx(cfgIdx, { forceSync: true })
       const cfg = customCfgs[cfgIdx]
       if (cfg) setBuilder(cfg)

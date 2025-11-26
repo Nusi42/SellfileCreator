@@ -9,6 +9,7 @@ This document covers file schemas, builder semantics, and compatibility notes.
 - Types: `src/lib/hsfTypes.ts`.
 - Parsing: `src/lib/hsfIO.ts#parseHsfFile`.
 - Build & write: `buildHsfFileFromMerged`, `hsfToBlob`.
+- Builder-generated rules always prepend `ConfigID` (1-based config index) ahead of `Keep`/`IsRuleTypeAND`. `ConfigName` is injected during export (using the latest trimmed label) so Sellfiles can reference the source config without forcing the preview table to rebuild on every rename.
 
 ### HSFC (this app)
 - JSON container: `{ "Version": string, "Metasets": Metaset[], "Minima": SubstatTargetTable, "Configs": ReadableConfig[], "FinalSellRemainder": { artifacts: boolean; accessories: boolean; levels: LevelMilestone[]; setsMode: 'any' | 'explicit' }, "SelectedConfigIndex"?: number }`. `Minima` stores the Substat Target Values table; the legacy name is preserved for compatibility. Also accepts a raw array `ReadableConfig[]` for convenience.
@@ -27,7 +28,6 @@ This document covers file schemas, builder semantics, and compatibility notes.
   - `minCount`, `autoMinCount`, `autoSubstatFlex?` (true only when flex actually applies).
 - `minRequiredRolls`, `autoMinRequiredRolls`, `lockedMinRequiredRolls`. When `lockedMinRequiredRolls` is present and at least one substat is fixed, the builder treats the aggregate floor as “locked only” automatically — there is no separate scope flag anymore. Older HSFC files may include `minRollsTarget: 'Locked'` or `substatMinTarget`; the importer converts those scope hints into `lockedMinRequiredRolls` (and clears the manual global floor when locked substats exist) so HSFC exports no longer need the extra field while pure locked-scope configs stay locked-only.
   - `artifactTypeNames?`: string[]; `artifactSetNames?`: string[]; `artifactMetaSetIds?`: string[] (IDs referencing the payload’s `Metasets` entries).
-  - Meta hint: Each config written by Save/Copy includes `__cfgIdx_ignoredWhenRead: number` (1-based index at export time); readers ignore this field.
 - `SubstatTargetTable` write format: label-keyed maps (Substat Target Values per rank).
 - Compatibility: HSFC loader targets the readable schema (labels + metaset IDs). For backward compatibility it still maps `artifactMetaSetNames` to IDs and tolerates legacy helpers like `rankCode`, but numeric stat IDs are no longer accepted.
 - Merged rules: metaset references are resolved to their member sets and unioned with explicit `artifactSets`, then `(base HSF Rules) + sum(Configs.map(buildHsfRules))`.
@@ -40,7 +40,7 @@ This document covers file schemas, builder semantics, and compatibility notes.
 - Each rule entry serializes `{ id, requiredCount, enabled, countMode, combination }` (persisted as `tuple` in HSFC). `countMode` now defaults to `'perCombination'` (per-set quotas) and switches to `'perRule'` only when the quota should apply to the card as a whole. Combinations are normalized via `normalizeKeepUniqueCombination`: `slot`, `set`, `rank`, `rarity`, `mainStats`, and optional `factionId` (accessory-only). `mainStats` stores the selected stat variants (empty array = Any). Invalid combos are discarded during parsing so corrupted HSFC files never reach the UI.
 - Importers clamp `rank`/`rarity` to `1..6`, coerce non-numeric stats to `StatVariant.Any`, and drop accessory factions whenever the combination refers to an armor slot. IDs fall back to regenerated `ku_<timestamp>_<rand>` values when blanks arrive from external files.
 - Exporters write the combinations exactly as stored in app state. Detection snapshots (`keepUniqueDetection`) are runtime-only and never serialized; they rebuild automatically once the tester items stabilize.
-- Downstream merge helpers label every emitted keep rule with `RULE_SOURCE_KEEP_UNIQUES` and `KEEP_UNIQUES_CFG_SENTINEL` so the Sellfile table, HSFC/HSF outputs, and downstream debuggers can pinpoint which keep rules were auto-generated from these combinations.
+- Downstream merge helpers label every emitted keep rule with `RULE_SOURCE_KEEP_UNIQUES` (and omit ConfigID) so the Sellfile table, HSFC/HSF outputs, and downstream debuggers can pinpoint which keep rules were auto-generated from these combinations.
 
 ### IO Helpers (HSFC)
 - Parse text/file: `parseHsfcText`, `readHsfcFile`.

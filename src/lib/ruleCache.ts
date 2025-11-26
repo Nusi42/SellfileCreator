@@ -15,6 +15,7 @@ import { resolveMetasetIds } from './metasets'
 import { compareVariants } from './types'
 import { buildCanonicalConfigSnapshot } from './configSnapshot'
 import type { ProgressSnapshot } from '../types/progress'
+import { applyConfigIndexMutable, cloneRuleWithConfigIndex } from './ruleConfigIndex'
 
 /** Cache entry keyed by a stable fingerprint for a single config. */
 export type ConfigRuleCacheEntry = {
@@ -54,17 +55,28 @@ function remapConfigIndex(entry: ConfigRuleCacheEntry, cfgIdx: number): ConfigRu
       rules: entry.rules,
     }
   }
-  let needsClone = false
+  const targetConfigId = Math.floor(cfgIdx) + 1
+  // Exit quickly when every rule already points at this ConfigID.
+  let needsRemap = false
   for (const rule of entry.rules) {
-    if (rule.__cfgIdx !== cfgIdx) {
-      needsClone = true
+    if (!rule) continue
+    const currentId = Number(rule.ConfigID)
+    if (currentId !== targetConfigId) {
+      needsRemap = true
       break
     }
   }
-  if (!needsClone) return entry
+  if (!needsRemap) return entry
   const remappedRules = entry.rules.map((rule) => {
-    if (rule.__cfgIdx === cfgIdx) return rule
-    return { ...rule, __cfgIdx: cfgIdx }
+    if (!rule) return rule
+    const currentId = Number(rule.ConfigID)
+    if (currentId !== targetConfigId) {
+      // ConfigID drifted because the config moved; clone so we do not mutate shared entries.
+      return cloneRuleWithConfigIndex(rule, cfgIdx)
+    }
+    // IDs already match, so mutate in place.
+    applyConfigIndexMutable(rule, cfgIdx)
+    return rule
   })
   return {
     ...entry,

@@ -26,7 +26,6 @@ const basePayload = {
   Metasets: [],
   Configs: [
     {
-      __cfgIdx_ignoredWhenRead: 1,
       name: 'Saved Config',
       keep: true,
       SellfileVisibility: 'Active',
