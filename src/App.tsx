@@ -1355,6 +1355,16 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setToastIcon(options?.icon ?? <SaveIcon fontSize="inherit" />)
     setToastOpen(true)
   }, [])
+  // Command push feedback needs its own lightweight toast so the global snackbar stays unobtrusive.
+  const [gearDbCommandToast, setGearDbCommandToast] = useState<{ message: string; severity: 'success' | 'error' } | null>(null)
+  // Small helper centralizes toast creation so every command path feels consistent.
+  const showGearDbCommandToast = useCallback((message: string, severity: 'success' | 'error') => {
+    setGearDbCommandToast({ message, severity })
+  }, [])
+  // Shared closer lets timers and manual dismissals reuse a single path.
+  const dismissGearDbCommandToast = useCallback(() => {
+    setGearDbCommandToast(null)
+  }, [])
   const [fileFormatError, setFileFormatError] = useState<{ fileName?: string | null } | null>(null)
   const showFileFormatError = useCallback((fileName?: string | null) => {
     setFileFormatError({ fileName: fileName ?? null })
@@ -2002,6 +2012,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     if (source === 'command') {
       setGearDbCommandError(null)
       setGearDbCommandSuccess(null)
+      // Clear the mini-toast so stale status never overlaps the next push.
+      dismissGearDbCommandToast()
     }
     setGearImportBusy(true)
     try {
@@ -2009,7 +2021,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       const combined = [...artifacts, ...inboxArtifacts]
       if (combined.length === 0) {
         if (source === 'command') {
-          setGearDbCommandError(t('toastGearDbImportEmpty'))
+          const emptyMessage = t('toastGearDbImportEmpty')
+          setGearDbCommandError(emptyMessage)
+          // Bubble the empty import to the inline toast so the indicator is not the sole signal.
+          showGearDbCommandToast(emptyMessage, 'error')
         } else {
           showToast(t('toastGearDbImportEmpty'), { severity: 'error', icon: <ErrorOutlineIcon fontSize="inherit" /> })
         }
@@ -2030,6 +2045,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       if (source === 'command') {
         setGearDbCommandError(null)
         setGearDbCommandSuccess(message)
+        // Success toasts stay compact so they do not block the preview controls.
+        showGearDbCommandToast(message, 'success')
       } else {
         showToast(message, { icon: <StorageIcon fontSize="inherit" /> })
       }
@@ -2038,8 +2055,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         console.error('Failed to import gear database', err)
       }
       if (source === 'command') {
-        setGearDbCommandError(formatFileFormatErrorMessage(file.name))
+        const fileErrorMessage = formatFileFormatErrorMessage(file.name)
+        setGearDbCommandError(fileErrorMessage)
         setGearDbCommandSuccess(null)
+        // Error toast matches the badge copy so screen readers hear the same text.
+        showGearDbCommandToast(fileErrorMessage, 'error')
       } else {
         showFileFormatError(file.name)
       }
@@ -2063,6 +2083,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setGearDbCommandSuccess,
     applyGearDbDiff,
     beginTesterMatchReset,
+    dismissGearDbCommandToast,
+    showGearDbCommandToast,
   ])
 
   // Global file-drag overlay and file routing handled by hook
@@ -3849,6 +3871,34 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           {toastMsg}
         </Alert>
       </Snackbar>
+      {/* Command pushes reuse a slimmer toast parked in the top-right corner. */}
+      {gearDbCommandToast ? (
+        <Snackbar
+          open
+          autoHideDuration={3000}
+          onClose={dismissGearDbCommandToast}
+          anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+          sx={{
+            '& .MuiSnackbarContent-root': { p: 0 },
+          }}
+        >
+          <Alert
+            icon={gearDbCommandToast.severity === 'success' ? <StorageIcon fontSize="inherit" /> : <ErrorOutlineIcon fontSize="inherit" />}
+            severity={gearDbCommandToast.severity}
+            variant="filled"
+            onClose={dismissGearDbCommandToast}
+            sx={{
+              alignItems: 'center',
+              fontSize: Math.max(12, FONT_SIZE_BASE_PX - 2),
+              px: 1.75,
+              py: 1,
+              minWidth: 240,
+            }}
+          >
+            {gearDbCommandToast.message}
+          </Alert>
+        </Snackbar>
+      ) : null}
       <ConfirmDialogs
         openClear={confirmClearOpen}
         setOpenClear={setConfirmClearOpen}
