@@ -32,7 +32,7 @@ import {
   STAT_VARIANTS_PRIORITY_ROW2,
   DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT,
 } from '../lib/types'
-import { LIST_SUBHEADER_SX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, SETS_MENU_WIDTH_PX, FILTER_FACTION_SELECT_WIDTH_PX, FILTER_SETS_SELECT_WIDTH_PX, FILTER_CHIP_TOP_MARGIN, ELLIPSIS_TEXT_SX, FILTER_TOGGLE_BUTTON_WIDTH_PX, SMALL_BUTTON_HEIGHT_PX, BUILDER_STATUS_CHIP_HEIGHT_PX, UI_BG_HOVER_DANGER_TRANSITION, DANGER_TINT_BG, SETS_SELECT_INLINE_GUTTER_COLLAPSED_PX, SETS_SELECT_INLINE_GUTTER_PX, STATUS_CHIP_BORDER_RADIUS_PX, FONT_SIZE_BASE_PX, SETS_SELECT_CLEAR_BUTTON_RIGHT_PX, CLEAR_ICON_BUTTON_SIZE_PX, GLYPH_TOGGLE_ON, GLYPH_TOGGLE_OFF, GLYPH_GLYPHS_SELECTED, ROLL_BADGE_SIZE_PX, ROLL_BADGE_SCALE, ROLL_BADGE_HOVER_GUTTER_PX } from '../lib/constants'
+import { LIST_SUBHEADER_SX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, SETS_MENU_WIDTH_PX, FILTER_FACTION_SELECT_WIDTH_PX, FILTER_SETS_SELECT_WIDTH_PX, FILTER_CHIP_TOP_MARGIN, ELLIPSIS_TEXT_SX, FILTER_TOGGLE_BUTTON_WIDTH_PX, SMALL_BUTTON_HEIGHT_PX, BUILDER_STATUS_CHIP_HEIGHT_PX, UI_BG_HOVER_DANGER_TRANSITION, DANGER_TINT_BG, SETS_SELECT_INLINE_GUTTER_COLLAPSED_PX, SETS_SELECT_INLINE_GUTTER_PX, STATUS_CHIP_BORDER_RADIUS_PX, FONT_SIZE_BASE_PX, SETS_SELECT_CLEAR_BUTTON_RIGHT_PX, CLEAR_ICON_BUTTON_SIZE_PX, GLYPH_TOGGLE_ON, GLYPH_TOGGLE_OFF, GLYPH_GLYPHS_SELECTED, ROLL_BADGE_SIZE_PX, ROLL_BADGE_SCALE, ROLL_BADGE_HOVER_GUTTER_PX, SETS_SELECT_DROPDOWN_ICON_HITBOX_PX } from '../lib/constants'
 import { metasetGlyph, orderMetasetIds, type Metaset } from '../lib/metasets'
 import React from 'react'
 import { alpha, useTheme } from '@mui/material/styles'
@@ -100,6 +100,17 @@ const CLEAR_BUTTON_PLACEHOLDER_SX = {
   flexShrink: 0,
 } as const
 const PREVIEW_CONFIGS_DEFAULT = false
+// Multi-selects in the filters panel show a stacked "+N" badge ahead of the inline clear affordance.
+// This padding/right-offset pair mirrors the badge placement so long champion/faction names never sit under the controls.
+const INLINE_EXTRA_BADGE_PADDING_PX = CLEAR_ICON_BUTTON_SIZE_PX + (SETS_SELECT_CLEAR_BUTTON_RIGHT_PX - SETS_SELECT_DROPDOWN_ICON_HITBOX_PX)
+const INLINE_EXTRA_BADGE_RIGHT_PX = SETS_SELECT_CLEAR_BUTTON_RIGHT_PX + INLINE_EXTRA_BADGE_PADDING_PX
+// The Select already reserves SETS_SELECT_DROPDOWN_ICON_HITBOX_PX for the caret; we only subtract the additional gutter
+// introduced by the inline clear + "+N" badge so long names use every remaining pixel before the overlays.
+const computeInlineSelectContentMaxWidth = (paddingPx: number) => {
+  const extra = Math.max(0, paddingPx - SETS_SELECT_DROPDOWN_ICON_HITBOX_PX)
+  if (extra <= 0) return '100%'
+  return `calc(100% - ${extra}px)`
+}
 
 type GlyphLegendEntry = {
   glyph: string
@@ -866,14 +877,26 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
   const testerAscStats = state.testerAscension?.stats ?? []
   const championSelection = state.testerChampions?.selected ?? []
   const extraChampionCount = Math.max(0, championSelection.length - 1)
+  // Expand the inline gutter when the "+N" badge is visible so long names respect the stacked controls.
   const championInlinePaddingPx = championSelection.length > 0
-    ? SETS_SELECT_INLINE_GUTTER_PX
+    ? SETS_SELECT_INLINE_GUTTER_PX + (extraChampionCount > 0 ? INLINE_EXTRA_BADGE_PADDING_PX : 0)
     : SETS_SELECT_INLINE_GUTTER_COLLAPSED_PX
+  // This memo enforces the clamp described above while letting selects continue to reserve the dropdown caret gutter.
+  const championInlineContentMaxWidth = React.useMemo(
+    () => computeInlineSelectContentMaxWidth(championInlinePaddingPx),
+    [championInlinePaddingPx],
+  )
   const factionSelection = state.faction.selected ?? []
   const extraFactionCount = Math.max(0, factionSelection.length - 1)
+  // Mirror the champion gutter logic so faction summaries leave identical clearance around the badge + clear button.
   const factionInlinePaddingPx = factionSelection.length > 0
-    ? SETS_SELECT_INLINE_GUTTER_PX
+    ? SETS_SELECT_INLINE_GUTTER_PX + (extraFactionCount > 0 ? INLINE_EXTRA_BADGE_PADDING_PX : 0)
     : SETS_SELECT_INLINE_GUTTER_COLLAPSED_PX
+  // Same inline clamp for faction summaries; keeps the layout identical regardless of which filter is active.
+  const factionInlineContentMaxWidth = React.useMemo(
+    () => computeInlineSelectContentMaxWidth(factionInlinePaddingPx),
+    [factionInlinePaddingPx],
+  )
   const showChampionFilter = isTesterMode && (testerChampionOptions?.length ?? 0) > 0
   const [championSearch, setChampionSearch] = React.useState('')
   const normalizedChampionSearch = championSearch.trim()
@@ -1745,10 +1768,11 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                                 alignItems: 'center',
                                 gap: 0.5,
                                 width: '100%',
-                                pr: `${championInlinePaddingPx}px`,
+                                minWidth: 0,
+                                maxWidth: championInlineContentMaxWidth,
                               }}
                             >
-                              <Typography variant="body2" sx={[ELLIPSIS_TEXT_SX, { flex: '1 1 auto' }]}>
+                              <Typography variant="body2" sx={[ELLIPSIS_TEXT_SX, { flex: '1 1 auto', minWidth: 0 }]}>
                                 {summaryTitle}
                               </Typography>
                             </Box>
@@ -1853,7 +1877,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                           sx={{
                             position: 'absolute',
                             top: '50%',
-                            right: `${SETS_SELECT_CLEAR_BUTTON_RIGHT_PX + CLEAR_ICON_BUTTON_SIZE_PX + 4}px`,
+                            right: `${INLINE_EXTRA_BADGE_RIGHT_PX}px`,
                             transform: 'translateY(-50%)',
                             width: CLEAR_ICON_BUTTON_SIZE_PX,
                             height: CLEAR_ICON_BUTTON_SIZE_PX,
@@ -2261,7 +2285,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                                 gap: 0.5,
                                 minWidth: 0,
                                 width: '100%',
-                                pr: `${factionInlinePaddingPx}px`,
+                                maxWidth: factionInlineContentMaxWidth,
                               }}
                             >
                               <Box
@@ -2340,7 +2364,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                         sx={{
                           position: 'absolute',
                           top: '50%',
-                          right: `${SETS_SELECT_CLEAR_BUTTON_RIGHT_PX + CLEAR_ICON_BUTTON_SIZE_PX + 4}px`,
+                          right: `${INLINE_EXTRA_BADGE_RIGHT_PX}px`,
                           transform: 'translateY(-50%)',
                           width: CLEAR_ICON_BUTTON_SIZE_PX,
                           height: CLEAR_ICON_BUTTON_SIZE_PX,
