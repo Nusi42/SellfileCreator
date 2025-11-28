@@ -49,7 +49,6 @@ import {
   TESTER_LAST_USE_MAX_DAYS,
   TESTER_LAST_USE_MIN_DAYS,
   createDefaultTesterLastUseCustom,
-  createDefaultTesterLastUseFilter,
   createDefaultTesterRollsState,
   isRulesFilterActive,
   isTesterRollFilterActive,
@@ -62,7 +61,6 @@ import {
   type TesterChaosFilterMode,
   type TesterGlyphFilterMode,
   type TesterLastUsePreset,
-  type TesterLastUseUnknownMode,
   type TesterLastUseCustomFilter,
   type TesterRollCountSet,
   type TesterRollCountValue,
@@ -70,6 +68,7 @@ import {
   type TesterRollFilterState,
   type TesterRollWildcardMode,
   type TesterSourceFilter,
+  toggleTesterLastUsePresetSelection,
 } from '../lib/rulesFilter'
 import { FactionOptionLabel } from './FactionIcon'
 import InlineSelectClearButton from './InlineSelectClearButton'
@@ -121,15 +120,6 @@ const computeInlineSelectContentMaxWidth = (paddingPx: number) => {
   return `calc(100% - ${extra}px)`
 }
 const CHAMPION_SELECT_WIDTH_PX = Math.round(FILTER_FACTION_SELECT_WIDTH_PX * 0.8)
-const LAST_USE_PRESET_SEQUENCE: readonly TesterLastUsePreset[] = ['never', 'recent7', 'recent30', 'recent90', 'older90']
-const LAST_USE_PRESET_LABELS: Record<TesterLastUsePreset, string> = {
-  never: '∅',
-  recent7: '≤7d',
-  recent30: '≤30d',
-  recent90: '≤90d',
-  older90: '>90d',
-}
-const LAST_USE_UNKNOWN_SEQUENCE: readonly TesterLastUseUnknownMode[] = ['include', 'exclude', 'only']
 const LAST_USE_TOGGLE_BUTTON_WIDTH_PX = FILTER_TOGGLE_BUTTON_WIDTH_PX / 2
 
 type GlyphLegendEntry = {
@@ -802,14 +792,27 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
   )
   const lastUsePresetSelection = testerLastUseFilter.presets
   const lastUseCustom = testerLastUseFilter.custom
-  const lastUsePresetValue: string | null = lastUsePresetSelection[0] ?? null
-  const lastUsePresetOptions = React.useMemo(() => ([
-    { value: 'never', label: LAST_USE_PRESET_LABELS.never, tooltip: t('testerLastUsedPresetNever') },
-    { value: 'recent7', label: LAST_USE_PRESET_LABELS.recent7, tooltip: t('testerLastUsedPreset7d') },
-    { value: 'recent30', label: LAST_USE_PRESET_LABELS.recent30, tooltip: t('testerLastUsedPreset30d') },
-    { value: 'recent90', label: LAST_USE_PRESET_LABELS.recent90, tooltip: t('testerLastUsedPreset90d') },
-    { value: 'older90', label: LAST_USE_PRESET_LABELS.older90, tooltip: t('testerLastUsedPresetOlder90d') },
-  ]), [t])
+  const dayShort = React.useMemo(() => {
+    const raw = t('testerLastUsedDayShort')
+    const trimmed = typeof raw === 'string' ? raw.trim() : ''
+    return trimmed.length > 0 ? trimmed : 'd'
+  }, [t])
+  const lastUsePresetOptions = React.useMemo(() => {
+    const labels: Record<TesterLastUsePreset, string> = {
+      never: '∅',
+      recent7: `≤7${dayShort}`,
+      recent30: `≤30${dayShort}`,
+      recent90: `≤90${dayShort}`,
+      older90: `>90${dayShort}`,
+    }
+    return [
+      { value: 'never', label: labels.never, tooltip: t('testerLastUsedPresetNever') },
+      { value: 'recent7', label: labels.recent7, tooltip: t('testerLastUsedPreset7d') },
+      { value: 'recent30', label: labels.recent30, tooltip: t('testerLastUsedPreset30d') },
+      { value: 'recent90', label: labels.recent90, tooltip: t('testerLastUsedPreset90d') },
+      { value: 'older90', label: labels.older90, tooltip: t('testerLastUsedPresetOlder90d') },
+    ]
+  }, [dayShort, t])
   const lastUseCustomSummary = React.useMemo(() => {
     if (!lastUseCustom.enabled) return null
     const parts: string[] = []
@@ -822,14 +825,11 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
     } else if (maxActive) {
       parts.push(t('testerLastUsedCustomSummaryMax', { maxDays: lastUseCustom.maxDays }))
     }
-    if (lastUseCustom.unknownMode === 'only') {
-      parts.push(t('testerLastUsedCustomSummaryUnknownOnly'))
-    } else if (lastUseCustom.unknownMode === 'exclude') {
-      parts.push(t('testerLastUsedCustomSummaryUnknownHide'))
-    }
     const summary = parts.join(' • ')
     return summary || t('testerLastUsedCustomChipLabel')
   }, [lastUseCustom, t])
+
+  const lastUseAdvancedLabel = lastUseCustomSummary ?? t('testerLastUsedAdvancedButton')
 
   const handleSetsChange = (e: SelectChangeEvent<string[]>) => {
     const tokens = e.target.value as string[]
@@ -838,49 +838,52 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
     const metaIds = orderMetasetIds(metaIdsRaw, orderBasis)
     onChange({ ...state, sets: { ...state.sets, selected: setIds, metaSelected: metaIds } })
   }
-  const resetLastUseFilter = React.useCallback(() => {
-    onChange({ ...state, testerLastUse: createDefaultTesterLastUseFilter() })
-  }, [onChange, state])
-  const applyLastUsePresets = React.useCallback((presets: TesterLastUsePreset[]) => {
+  const resetLastUseCustom = React.useCallback(() => {
     onChange({
       ...state,
-      testerLastUse: normalizeTesterLastUseFilter({ presets, custom: createDefaultTesterLastUseCustom() }),
+      testerLastUse: normalizeTesterLastUseFilter({
+        presets: testerLastUseFilter.presets,
+        custom: { ...createDefaultTesterLastUseCustom(), enabled: false },
+      }),
     })
-  }, [onChange, state])
+  }, [onChange, state, testerLastUseFilter.presets])
+  const applyLastUsePresets = React.useCallback((presets: TesterLastUsePreset[]) => {
+    // Keep the custom range intact so users can stack presets + range without re-entering values.
+    onChange({
+      ...state,
+      testerLastUse: normalizeTesterLastUseFilter({
+        presets,
+        custom: testerLastUseFilter.custom,
+      }),
+    })
+  }, [onChange, state, testerLastUseFilter.custom])
   const applyLastUseCustom = React.useCallback((partial: Partial<TesterLastUseCustomFilter>) => {
     const merged: TesterLastUseCustomFilter = {
       ...testerLastUseFilter.custom,
       ...partial,
       enabled: true,
     }
+    // Preserve preset selection while toggling the custom slider so both act as a union.
     onChange({
       ...state,
-      testerLastUse: normalizeTesterLastUseFilter({ presets: [], custom: merged }),
+      testerLastUse: normalizeTesterLastUseFilter({
+        presets: testerLastUseFilter.presets,
+        custom: merged,
+      }),
     })
-  }, [onChange, state, testerLastUseFilter.custom])
+  }, [onChange, state, testerLastUseFilter.custom, testerLastUseFilter.presets])
   const handleLastUsePopoverOpen = React.useCallback((event: React.MouseEvent<HTMLElement>) => {
     setLastUseAnchorEl(event.currentTarget as HTMLElement)
   }, [])
   const handleLastUseReset = React.useCallback(() => {
-    resetLastUseFilter()
-  }, [resetLastUseFilter])
+    resetLastUseCustom()
+  }, [resetLastUseCustom])
 
-  const handleLastUsePresetChange = React.useCallback((event: React.MouseEvent<HTMLElement>, value: string | null) => {
-    if (value === 'advanced') {
-      event.preventDefault()
-      handleLastUsePopoverOpen(event)
-      return
-    }
-    if (!value) {
-      resetLastUseFilter()
-      return
-    }
-    if (!LAST_USE_PRESET_SEQUENCE.includes(value as TesterLastUsePreset)) {
-      resetLastUseFilter()
-      return
-    }
-    applyLastUsePresets([value as TesterLastUsePreset])
-  }, [applyLastUsePresets, handleLastUsePopoverOpen, resetLastUseFilter])
+  const handleLastUsePresetToggle = React.useCallback((preset: TesterLastUsePreset) => {
+    // Collapse redundant recency choices whenever a button toggles so the selection stays meaningful.
+    const nextSelection = toggleTesterLastUsePresetSelection(lastUsePresetSelection, preset)
+    applyLastUsePresets(nextSelection)
+  }, [applyLastUsePresets, lastUsePresetSelection])
   const handleLastUseSliderChange = React.useCallback((_: Event, value: number | number[]) => {
     if (!Array.isArray(value) || value.length !== 2) return
     const [min, max] = value as [number, number]
@@ -895,13 +898,6 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
       : { maxDays: isValid ? parsed : fallback }
     applyLastUseCustom(payload)
   }, [applyLastUseCustom])
-  const handleLastUseUnknownToggle = React.useCallback(() => {
-    const current = lastUseCustom.unknownMode
-    const idx = LAST_USE_UNKNOWN_SEQUENCE.indexOf(current)
-    const nextIndex = (idx + 1 + LAST_USE_UNKNOWN_SEQUENCE.length) % LAST_USE_UNKNOWN_SEQUENCE.length
-    const next = LAST_USE_UNKNOWN_SEQUENCE[nextIndex] ?? 'include'
-    applyLastUseCustom({ unknownMode: next })
-  }, [applyLastUseCustom, lastUseCustom.unknownMode])
   const scrollSetsMenuToSelected = React.useCallback((orderOverride?: 'game' | 'az' | 'icons', opts?: { force?: boolean }) => {
     if (!opts?.force && !setsMenuOpen) return
     const order = orderOverride ?? setsOrder
@@ -2089,9 +2085,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                   <Stack spacing={0.75}>
                     <ToggleButtonGroup
                       size="small"
-                      exclusive
-                      value={lastUsePresetValue}
-                      onChange={handleLastUsePresetChange}
+                      value={lastUsePresetSelection}
                       sx={{
                         display: 'grid',
                         gridTemplateColumns: `repeat(3, minmax(0, ${LAST_USE_TOGGLE_BUTTON_WIDTH_PX}px))`,
@@ -2113,7 +2107,17 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                       }}
                     >
                       {lastUsePresetOptions.map((option) => (
-                        <ToggleButton key={option.value} value={option.value} aria-label={option.tooltip}>
+                        <ToggleButton
+                          key={option.value}
+                          value={option.value}
+                          aria-label={option.tooltip}
+                          title={option.tooltip}
+                          onClick={(event) => {
+                            event.preventDefault()
+                            event.stopPropagation()
+                            handleLastUsePresetToggle(option.value as TesterLastUsePreset)
+                          }}
+                        >
                           <EllipsisTooltip title={option.tooltip} wrap="block">
                             <Typography component="span" noWrap sx={toggleLabelSx} data-ellipsis-target>
                               {option.label}
@@ -2123,24 +2127,20 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                       ))}
                       <ToggleButton
                         value="advanced"
-                        aria-label={t('testerLastUsedAdvancedButton')}
-                        selected={false}
+                        aria-label={lastUseAdvancedLabel}
+                        title={lastUseAdvancedLabel}
+                        selected={lastUseCustom.enabled}
                         onClick={(event) => {
                           event.preventDefault()
                           event.stopPropagation()
                           handleLastUsePopoverOpen(event)
                         }}
                       >
-                        <SettingsIcon fontSize="small" />
+                        <EllipsisTooltip title={lastUseAdvancedLabel} wrap="block">
+                          <SettingsIcon fontSize="small" data-ellipsis-target />
+                        </EllipsisTooltip>
                       </ToggleButton>
                     </ToggleButtonGroup>
-                    {lastUseCustom.enabled && (
-                      <Chip
-                        size="small"
-                        label={lastUseCustomSummary}
-                        sx={{ maxWidth: 200 }}
-                      />
-                    )}
                   </Stack>
                 </Collapse>
               </FormControl>
@@ -3054,21 +3054,6 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                 onChange={handleLastUseSliderChange}
                 valueLabelDisplay="auto"
               />
-              <Stack spacing={0.75}>
-                <Typography variant="caption" color="text.secondary">
-                  {t('testerLastUsedUnknownLabel')}
-                </Typography>
-                <Chip
-                  size="small"
-                  variant="outlined"
-                  label={(() => {
-                    if (lastUseCustom.unknownMode === 'only') return t('testerLastUsedUnknownOnly')
-                    if (lastUseCustom.unknownMode === 'exclude') return t('testerLastUsedUnknownExclude')
-                    return t('testerLastUsedUnknownInclude')
-                  })()}
-                  onClick={handleLastUseUnknownToggle}
-                />
-              </Stack>
               <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
                 <Button size="small" onClick={handleLastUseReset}>
                   {t('testerLastUsedRangeReset')}

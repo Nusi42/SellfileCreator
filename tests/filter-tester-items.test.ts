@@ -492,7 +492,7 @@ test('filterTesterItems filters by last-used presets', () => {
       ...DEFAULT_RULES_FILTER_STATE,
       testerLastUse: {
         presets: ['recent7'],
-        custom: { enabled: false, minDays: 0, maxDays: 365, unknownMode: 'include' },
+        custom: { enabled: false, minDays: 0, maxDays: 365 },
       },
     }
     const recentResult = filterTesterItems(rows, recentState)
@@ -503,7 +503,7 @@ test('filterTesterItems filters by last-used presets', () => {
       ...recentState,
       testerLastUse: {
         presets: ['older90', 'never'],
-        custom: { enabled: false, minDays: 0, maxDays: 365, unknownMode: 'include' },
+        custom: { enabled: false, minDays: 0, maxDays: 365 },
       },
     }
     const olderResult = filterTesterItems(rows, olderState)
@@ -514,7 +514,7 @@ test('filterTesterItems filters by last-used presets', () => {
   }
 })
 
-test('filterTesterItems filters by custom last-used range and unknown mode', () => {
+test('filterTesterItems unions custom last-used ranges with presets', () => {
   const realNow = Date.now
   Date.now = () => Date.parse('2024-06-01T00:00:00Z')
   try {
@@ -530,23 +530,40 @@ test('filterTesterItems filters by custom last-used range and unknown mode', () 
       ...DEFAULT_RULES_FILTER_STATE,
       testerLastUse: {
         presets: [],
-        custom: { enabled: true, minDays: 30, maxDays: 90, unknownMode: 'exclude' },
+        custom: { enabled: true, minDays: 30, maxDays: 90 },
       },
     }
     const rangeResult = filterTesterItems(rows, rangeState)
     assert.equal(rangeResult.items.length, 1)
     assert.equal(rangeResult.items[0]?.artifact.id, mid.id)
 
-    const unknownOnlyState: RulesFilterState = {
+    const rangePlusNever: RulesFilterState = {
       ...rangeState,
       testerLastUse: {
-        presets: [],
-        custom: { enabled: true, minDays: 0, maxDays: 365, unknownMode: 'only' },
+        presets: ['never'],
+        custom: { enabled: true, minDays: 30, maxDays: 90 },
       },
     }
-    const unknownOnlyResult = filterTesterItems(rows, unknownOnlyState)
-    assert.equal(unknownOnlyResult.items.length, 1)
-    assert.equal(unknownOnlyResult.items[0]?.artifact.id, never.id)
+    const rangePlusNeverResult = filterTesterItems(rows, rangePlusNever)
+    assert.equal(rangePlusNeverResult.items.length, 2)
+    assert.deepEqual(
+      new Set(rangePlusNeverResult.items.map((row) => row.artifact.id)),
+      new Set([mid.id, never.id]),
+    )
+
+    const rangePlusOlder: RulesFilterState = {
+      ...rangeState,
+      testerLastUse: {
+        presets: ['older90'],
+        custom: { enabled: true, minDays: 30, maxDays: 90 },
+      },
+    }
+    const rangePlusOlderResult = filterTesterItems(rows, rangePlusOlder)
+    assert.equal(rangePlusOlderResult.items.length, 2)
+    assert.deepEqual(
+      new Set(rangePlusOlderResult.items.map((row) => row.artifact.id)),
+      new Set([mid.id, old.id]),
+    )
   } finally {
     Date.now = realNow
   }

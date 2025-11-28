@@ -44,13 +44,11 @@ export type TesterRollWildcardMode = 'off' | 'any'
 
 export const TESTER_LAST_USE_PRESETS = ['never', 'recent7', 'recent30', 'recent90', 'older90'] as const
 export type TesterLastUsePreset = typeof TESTER_LAST_USE_PRESETS[number]
-export type TesterLastUseUnknownMode = 'include' | 'only' | 'exclude'
 
 export type TesterLastUseCustomFilter = {
   enabled: boolean
   minDays: number
   maxDays: number
-  unknownMode: TesterLastUseUnknownMode
 }
 
 export type TesterLastUseFilter = {
@@ -111,14 +109,12 @@ const DEFAULT_TESTER_LAST_USE_CUSTOM: TesterLastUseCustomFilter = Object.freeze(
   enabled: false,
   minDays: TESTER_LAST_USE_MIN_DAYS,
   maxDays: TESTER_LAST_USE_MAX_DAYS,
-  unknownMode: 'include',
 })
 
 export const createDefaultTesterLastUseCustom = (): TesterLastUseCustomFilter => ({
   enabled: DEFAULT_TESTER_LAST_USE_CUSTOM.enabled,
   minDays: DEFAULT_TESTER_LAST_USE_CUSTOM.minDays,
   maxDays: DEFAULT_TESTER_LAST_USE_CUSTOM.maxDays,
-  unknownMode: DEFAULT_TESTER_LAST_USE_CUSTOM.unknownMode,
 })
 
 export const createDefaultTesterLastUseFilter = (): TesterLastUseFilter => ({
@@ -704,31 +700,38 @@ export function filterTesterItems<T extends TesterFilterRow>(
       const hasTimestamp = Boolean(timestamp)
       const daysSince = hasTimestamp ? getDaysSince(timestamp) : null
 
-      if (testerLastUsePresetsActive) {
-        let presetMatch = false
-        if (!hasTimestamp || daysSince == null) {
-          presetMatch = testerLastUsePresetSet.has('never')
-        } else {
-          for (const preset of testerLastUsePresetSet) {
-            if (preset === 'never') continue
-            if (matchesTesterLastUsePreset(daysSince, preset)) {
-              presetMatch = true
-              break
+      if (testerLastUsePresetsActive || testerLastUseCustomActive) {
+        // Evaluate presets/custom as a union so the row survives if either path wins.
+        let presetMatch: boolean | null = null
+        if (testerLastUsePresetsActive) {
+          // Presets boil down to discrete buckets, so null timestamps only pass if "never" is active.
+          presetMatch = false
+          if (!hasTimestamp || daysSince == null) {
+            presetMatch = testerLastUsePresetSet.has('never')
+          } else {
+            for (const preset of testerLastUsePresetSet) {
+              if (preset === 'never') continue
+              if (matchesTesterLastUsePreset(daysSince, preset)) {
+                presetMatch = true
+                break
+              }
             }
           }
         }
-        if (!presetMatch) continue
-      }
 
-      if (testerLastUseCustomActive) {
-        const unknownMode = testerLastUseCustom.unknownMode
-        if (!hasTimestamp || daysSince == null) {
-          if (unknownMode === 'exclude') continue
-        } else {
-          if (unknownMode === 'only') continue
-          if (daysSince < testerLastUseCustom.minDays || daysSince > testerLastUseCustom.maxDays) continue
+        let customMatch: boolean | null = null
+        if (testerLastUseCustomActive) {
+          // Custom ranges only check timestamped gear; null timestamps route through the "Never used" preset.
+          if (!hasTimestamp || daysSince == null) customMatch = false
+          else {
+            customMatch =
+              daysSince >= testerLastUseCustom.minDays && daysSince <= testerLastUseCustom.maxDays
+          }
         }
-        if (unknownMode === 'only' && hasTimestamp) continue
+
+        const passesPreset = presetMatch ?? false
+        const passesCustom = customMatch ?? false
+        if (!(passesPreset || passesCustom)) continue
       }
     }
 
@@ -970,10 +973,55 @@ const normalizeLastUseRange = (
   return { min: max, max: min }
 }
 
-const normalizeLastUseUnknownMode = (mode?: TesterLastUseUnknownMode | string): TesterLastUseUnknownMode => {
-  if (mode === 'only') return 'only'
-  if (mode === 'exclude') return 'exclude'
-  return 'include'
+const TESTER_LAST_USE_RECENT_PRESETS: TesterLastUsePreset[] = ['recent7', 'recent30', 'recent90']
+const RECENT_PRESET_PRIORITY = new Map(
+  TESTER_LAST_USE_RECENT_PRESETS.map((preset, index) => [preset, index]),
+)
+
+/**
+ * Collapse redundant preset selections so only the widest "recent" range sticks
+ * around while orthogonal tokens (Never, Older) remain untouched. This lets the
+ * UI expose toggle-like affordances without pushing duplicated predicates into
+ * the core filter logic.
+ */
+export const sanitizeTesterLastUsePresets = (
+  rawPresets: Iterable<TesterLastUsePreset>,
+): TesterLastUsePreset[] => {
+  const base = new Set<TesterLastUsePreset>()
+  let widestRecent: TesterLastUsePreset | null = null
+  for (const preset of rawPresets) {
+    if (TESTER_LAST_USE_RECENT_PRESETS.includes(preset)) {
+      const currentRank = RECENT_PRESET_PRIORITY.get(widestRecent ?? preset) ?? -1
+      const nextRank = RECENT_PRESET_PRIORITY.get(preset) ?? -1
+      if (nextRank >= currentRank) widestRecent = preset
+      continue
+    }
+    base.add(preset)
+  }
+  if (widestRecent) base.add(widestRecent)
+  return Array.from(base).sort(
+    (a, b) => LAST_USE_PRESET_ORDER.indexOf(a) - LAST_USE_PRESET_ORDER.indexOf(b),
+  )
+}
+
+/**
+ * Toggle helper used by the filter UI to add/remove presets while enforcing the
+ * sanitized shape described above (only one "recent" bucket at a time).
+ */
+export const toggleTesterLastUsePresetSelection = (
+  current: readonly TesterLastUsePreset[],
+  preset: TesterLastUsePreset,
+): TesterLastUsePreset[] => {
+  const draft = new Set<TesterLastUsePreset>(current)
+  if (draft.has(preset)) {
+    draft.delete(preset)
+  } else {
+    if (TESTER_LAST_USE_RECENT_PRESETS.includes(preset)) {
+      for (const recent of TESTER_LAST_USE_RECENT_PRESETS) draft.delete(recent)
+    }
+    draft.add(preset)
+  }
+  return sanitizeTesterLastUsePresets(draft)
 }
 
 export const normalizeTesterLastUseFilter = (
@@ -991,16 +1039,15 @@ export const normalizeTesterLastUseFilter = (
       presets.push(value)
     }
   }
-  presets.sort((a, b) => LAST_USE_PRESET_ORDER.indexOf(a) - LAST_USE_PRESET_ORDER.indexOf(b))
+  const collapsedPresets = sanitizeTesterLastUsePresets(presets)
   const baseCustom = input.custom ?? DEFAULT_TESTER_LAST_USE_CUSTOM
   const range = normalizeLastUseRange(baseCustom.minDays, baseCustom.maxDays)
   return {
-    presets,
+    presets: collapsedPresets,
     custom: {
       enabled: Boolean(baseCustom.enabled),
       minDays: range.min,
       maxDays: range.max,
-      unknownMode: normalizeLastUseUnknownMode(baseCustom.unknownMode),
     },
   }
 }
@@ -1009,7 +1056,6 @@ export const isTesterLastUseFilterActive = (value?: RulesFilterState['testerLast
   const filter = normalizeTesterLastUseFilter(value)
   if (filter.presets.length > 0) return true
   if (!filter.custom.enabled) return false
-  if (filter.custom.unknownMode !== 'include') return true
   if (filter.custom.minDays > TESTER_LAST_USE_MIN_DAYS) return true
   if (filter.custom.maxDays < TESTER_LAST_USE_MAX_DAYS) return true
   return false
