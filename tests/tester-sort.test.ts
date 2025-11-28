@@ -105,6 +105,8 @@ const makeTesterRow = (overrides: Partial<NormalizedGearArtifact> = {}): TesterP
     equippedChampionName: overrides.equippedChampionName ?? null,
     equippedChampionLocation: overrides.equippedChampionLocation ?? null,
     source: overrides.source ?? 'tester',
+    exactLevel: overrides.exactLevel ?? null,
+    lastUseLocalTimestamp: overrides.lastUseLocalTimestamp ?? null,
   }
 
   return {

@@ -65,6 +65,7 @@ const makeArtifact = (overrides: Partial<NormalizedGearArtifact> = {}): Normaliz
   equippedChampionName: null,
   equippedChampionLocation: null,
   source: 'artifacts',
+  lastUseLocalTimestamp: null,
   ...overrides,
 })
 
@@ -473,4 +474,97 @@ test('filterTesterItems filters by per-stat roll requirements', () => {
   const result = filterTesterItems(rows, state)
   assert.equal(result.items.length, 1)
   assert.equal(result.items[0]?.artifact.id, matching.id)
+})
+
+test('filterTesterItems filters by last-used presets', () => {
+  const realNow = Date.now
+  Date.now = () => Date.parse('2024-05-10T00:00:00Z')
+  try {
+    const recent = makeArtifact({ lastUseLocalTimestamp: '2024-05-09 12:00:00' })
+    const older = makeArtifact({ lastUseLocalTimestamp: '2024-02-01 08:00:00' })
+    const never = makeArtifact({ lastUseLocalTimestamp: null })
+    const rows: TesterFilterRow[] = [
+      { artifact: recent, match: null },
+      { artifact: older, match: null },
+      { artifact: never, match: null },
+    ]
+    const recentState: RulesFilterState = {
+      ...DEFAULT_RULES_FILTER_STATE,
+      testerLastUse: {
+        presets: ['recent7'],
+        custom: { enabled: false, minDays: 0, maxDays: 365 },
+      },
+    }
+    const recentResult = filterTesterItems(rows, recentState)
+    assert.equal(recentResult.items.length, 1)
+    assert.equal(recentResult.items[0]?.artifact.id, recent.id)
+
+    const olderState: RulesFilterState = {
+      ...recentState,
+      testerLastUse: {
+        presets: ['older90', 'never'],
+        custom: { enabled: false, minDays: 0, maxDays: 365 },
+      },
+    }
+    const olderResult = filterTesterItems(rows, olderState)
+    assert.equal(olderResult.items.length, 2)
+    assert.deepEqual(new Set(olderResult.items.map((row) => row.artifact.id)), new Set([older.id, never.id]))
+  } finally {
+    Date.now = realNow
+  }
+})
+
+test('filterTesterItems unions custom last-used ranges with presets', () => {
+  const realNow = Date.now
+  Date.now = () => Date.parse('2024-06-01T00:00:00Z')
+  try {
+    const mid = makeArtifact({ lastUseLocalTimestamp: '2024-04-20 00:00:00' })
+    const old = makeArtifact({ lastUseLocalTimestamp: '2023-12-01 00:00:00' })
+    const never = makeArtifact({ lastUseLocalTimestamp: null })
+    const rows: TesterFilterRow[] = [
+      { artifact: mid, match: null },
+      { artifact: old, match: null },
+      { artifact: never, match: null },
+    ]
+    const rangeState: RulesFilterState = {
+      ...DEFAULT_RULES_FILTER_STATE,
+      testerLastUse: {
+        presets: [],
+        custom: { enabled: true, minDays: 30, maxDays: 90 },
+      },
+    }
+    const rangeResult = filterTesterItems(rows, rangeState)
+    assert.equal(rangeResult.items.length, 1)
+    assert.equal(rangeResult.items[0]?.artifact.id, mid.id)
+
+    const rangePlusNever: RulesFilterState = {
+      ...rangeState,
+      testerLastUse: {
+        presets: ['never'],
+        custom: { enabled: true, minDays: 30, maxDays: 90 },
+      },
+    }
+    const rangePlusNeverResult = filterTesterItems(rows, rangePlusNever)
+    assert.equal(rangePlusNeverResult.items.length, 2)
+    assert.deepEqual(
+      new Set(rangePlusNeverResult.items.map((row) => row.artifact.id)),
+      new Set([mid.id, never.id]),
+    )
+
+    const rangePlusOlder: RulesFilterState = {
+      ...rangeState,
+      testerLastUse: {
+        presets: ['older90'],
+        custom: { enabled: true, minDays: 30, maxDays: 90 },
+      },
+    }
+    const rangePlusOlderResult = filterTesterItems(rows, rangePlusOlder)
+    assert.equal(rangePlusOlderResult.items.length, 2)
+    assert.deepEqual(
+      new Set(rangePlusOlderResult.items.map((row) => row.artifact.id)),
+      new Set([mid.id, old.id]),
+    )
+  } finally {
+    Date.now = realNow
+  }
 })

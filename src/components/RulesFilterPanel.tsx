@@ -11,6 +11,7 @@ import FilterAltIcon from '@mui/icons-material/FilterAlt'
 import FilterAltOffIcon from '@mui/icons-material/FilterAltOff'
 import FilterListIcon from '@mui/icons-material/FilterList'
 import FilterListOffIcon from '@mui/icons-material/FilterListOff'
+import SettingsIcon from '@mui/icons-material/Settings'
 import EllipsisTooltip from './EllipsisTooltip'
 import MarkdownTooltip from './MarkdownTooltip'
 import {
@@ -32,7 +33,7 @@ import {
   STAT_VARIANTS_PRIORITY_ROW2,
   DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT,
 } from '../lib/types'
-import { LIST_SUBHEADER_SX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, SETS_MENU_WIDTH_PX, FILTER_FACTION_SELECT_WIDTH_PX, FILTER_SETS_SELECT_WIDTH_PX, FILTER_CHIP_TOP_MARGIN, ELLIPSIS_TEXT_SX, FILTER_TOGGLE_BUTTON_WIDTH_PX, SMALL_BUTTON_HEIGHT_PX, BUILDER_STATUS_CHIP_HEIGHT_PX, UI_BG_HOVER_DANGER_TRANSITION, DANGER_TINT_BG, SETS_SELECT_INLINE_GUTTER_COLLAPSED_PX, SETS_SELECT_INLINE_GUTTER_PX, STATUS_CHIP_BORDER_RADIUS_PX, FONT_SIZE_BASE_PX, SETS_SELECT_CLEAR_BUTTON_RIGHT_PX, CLEAR_ICON_BUTTON_SIZE_PX, GLYPH_TOGGLE_ON, GLYPH_TOGGLE_OFF, GLYPH_GLYPHS_SELECTED, ROLL_BADGE_SIZE_PX, ROLL_BADGE_SCALE, ROLL_BADGE_HOVER_GUTTER_PX } from '../lib/constants'
+import { LIST_SUBHEADER_SX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, SETS_MENU_WIDTH_PX, FILTER_FACTION_SELECT_WIDTH_PX, FILTER_SETS_SELECT_WIDTH_PX, FILTER_CHIP_TOP_MARGIN, ELLIPSIS_TEXT_SX, FILTER_TOGGLE_BUTTON_WIDTH_PX, SMALL_BUTTON_HEIGHT_PX, BUILDER_STATUS_CHIP_HEIGHT_PX, UI_BG_HOVER_DANGER_TRANSITION, DANGER_TINT_BG, SETS_SELECT_INLINE_GUTTER_COLLAPSED_PX, SETS_SELECT_INLINE_GUTTER_PX, STATUS_CHIP_BORDER_RADIUS_PX, FONT_SIZE_BASE_PX, SETS_SELECT_CLEAR_BUTTON_RIGHT_PX, CLEAR_ICON_BUTTON_SIZE_PX, GLYPH_TOGGLE_ON, GLYPH_TOGGLE_OFF, GLYPH_GLYPHS_SELECTED, ROLL_BADGE_SIZE_PX, ROLL_BADGE_SCALE, ROLL_BADGE_HOVER_GUTTER_PX, SETS_SELECT_DROPDOWN_ICON_HITBOX_PX } from '../lib/constants'
 import { metasetGlyph, orderMetasetIds, type Metaset } from '../lib/metasets'
 import React from 'react'
 import { alpha, useTheme } from '@mui/material/styles'
@@ -45,9 +46,13 @@ import {
   TESTER_LEVEL_MAX,
   TESTER_LEVEL_MIN,
   TESTER_ROLL_COUNT_VALUES,
+  TESTER_LAST_USE_MAX_DAYS,
+  TESTER_LAST_USE_MIN_DAYS,
+  createDefaultTesterLastUseCustom,
   createDefaultTesterRollsState,
   isRulesFilterActive,
   isTesterRollFilterActive,
+  normalizeTesterLastUseFilter,
   normalizeTesterRollCountSelection,
   resolveTesterLevelRange,
   type AnyMode,
@@ -55,12 +60,15 @@ import {
   type RulesFilterState,
   type TesterChaosFilterMode,
   type TesterGlyphFilterMode,
+  type TesterLastUsePreset,
+  type TesterLastUseCustomFilter,
   type TesterRollCountSet,
   type TesterRollCountValue,
   type TesterRollFilterRow,
   type TesterRollFilterState,
   type TesterRollWildcardMode,
   type TesterSourceFilter,
+  toggleTesterLastUsePresetSelection,
 } from '../lib/rulesFilter'
 import { FactionOptionLabel } from './FactionIcon'
 import InlineSelectClearButton from './InlineSelectClearButton'
@@ -100,6 +108,19 @@ const CLEAR_BUTTON_PLACEHOLDER_SX = {
   flexShrink: 0,
 } as const
 const PREVIEW_CONFIGS_DEFAULT = false
+// Multi-selects in the filters panel show a stacked "+N" badge ahead of the inline clear affordance.
+// This padding/right-offset pair mirrors the badge placement so long champion/faction names never sit under the controls.
+const INLINE_EXTRA_BADGE_PADDING_PX = CLEAR_ICON_BUTTON_SIZE_PX + (SETS_SELECT_CLEAR_BUTTON_RIGHT_PX - SETS_SELECT_DROPDOWN_ICON_HITBOX_PX)
+const INLINE_EXTRA_BADGE_RIGHT_PX = SETS_SELECT_CLEAR_BUTTON_RIGHT_PX + INLINE_EXTRA_BADGE_PADDING_PX
+// The Select already reserves SETS_SELECT_DROPDOWN_ICON_HITBOX_PX for the caret; we only subtract the additional gutter
+// introduced by the inline clear + "+N" badge so long names use every remaining pixel before the overlays.
+const computeInlineSelectContentMaxWidth = (paddingPx: number) => {
+  const extra = Math.max(0, paddingPx - SETS_SELECT_DROPDOWN_ICON_HITBOX_PX)
+  if (extra <= 0) return '100%'
+  return `calc(100% - ${extra}px)`
+}
+const CHAMPION_SELECT_WIDTH_PX = Math.round(FILTER_FACTION_SELECT_WIDTH_PX * 0.8)
+const LAST_USE_TOGGLE_BUTTON_WIDTH_PX = FILTER_TOGGLE_BUTTON_WIDTH_PX / 2
 
 type GlyphLegendEntry = {
   glyph: string
@@ -134,6 +155,7 @@ type RulesFilterPanelProps = {
   testerChampionOptions?: TesterChampionOption[]
   substatColors?: SubstatColorMap
   useStatButtonColors?: boolean
+  hasManualTesterItems?: boolean
 }
 
 const STAT_VARIANT_ORDER_LOOKUP = new Map<number, number>(
@@ -328,6 +350,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
     testerChampionOptions = [],
     substatColors,
     useStatButtonColors = false,
+    hasManualTesterItems = false,
   },
   ref,
 ) {
@@ -346,6 +369,17 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
     open: testerRollsOpen,
     onClose: handleTesterRollsClose,
     menuRef: testerRollsPaperRef,
+  })
+  const [lastUseAnchorEl, setLastUseAnchorEl] = React.useState<HTMLElement | null>(null)
+  const lastUsePopoverPaperRef = React.useRef<HTMLDivElement | null>(null)
+  const lastUsePopoverOpen = Boolean(lastUseAnchorEl)
+  const handleLastUsePopoverClose = React.useCallback(() => {
+    setLastUseAnchorEl(null)
+  }, [])
+  useContextMenuCloseOnOutsideRightClick({
+    open: lastUsePopoverOpen,
+    onClose: handleLastUsePopoverClose,
+    menuRef: lastUsePopoverPaperRef,
   })
   const rollFilterStatOptions = React.useMemo(() => STAT_VARIANTS_PRIORITY.slice(), [])
   const [hoverReset, setHoverReset] = React.useState(false)
@@ -752,6 +786,51 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
     )
   }
 
+  const testerLastUseFilter = React.useMemo(
+    () => normalizeTesterLastUseFilter(state.testerLastUse),
+    [state.testerLastUse],
+  )
+  const lastUsePresetSelection = testerLastUseFilter.presets
+  const lastUseCustom = testerLastUseFilter.custom
+  const dayShort = React.useMemo(() => {
+    const raw = t('testerLastUsedDayShort')
+    const trimmed = typeof raw === 'string' ? raw.trim() : ''
+    return trimmed.length > 0 ? trimmed : 'd'
+  }, [t])
+  const lastUsePresetOptions = React.useMemo(() => {
+    const labels: Record<TesterLastUsePreset, string> = {
+      never: '∅',
+      recent7: `≤7${dayShort}`,
+      recent30: `≤30${dayShort}`,
+      recent90: `≤90${dayShort}`,
+      older90: `>90${dayShort}`,
+    }
+    return [
+      { value: 'never', label: labels.never, tooltip: t('testerLastUsedPresetNever') },
+      { value: 'recent7', label: labels.recent7, tooltip: t('testerLastUsedPreset7d') },
+      { value: 'recent30', label: labels.recent30, tooltip: t('testerLastUsedPreset30d') },
+      { value: 'recent90', label: labels.recent90, tooltip: t('testerLastUsedPreset90d') },
+      { value: 'older90', label: labels.older90, tooltip: t('testerLastUsedPresetOlder90d') },
+    ]
+  }, [dayShort, t])
+  const lastUseCustomSummary = React.useMemo(() => {
+    if (!lastUseCustom.enabled) return null
+    const parts: string[] = []
+    const minActive = lastUseCustom.minDays > TESTER_LAST_USE_MIN_DAYS
+    const maxActive = lastUseCustom.maxDays < TESTER_LAST_USE_MAX_DAYS
+    if (minActive && maxActive) {
+      parts.push(t('testerLastUsedCustomSummaryRange', { minDays: lastUseCustom.minDays, maxDays: lastUseCustom.maxDays }))
+    } else if (minActive) {
+      parts.push(t('testerLastUsedCustomSummaryMin', { minDays: lastUseCustom.minDays }))
+    } else if (maxActive) {
+      parts.push(t('testerLastUsedCustomSummaryMax', { maxDays: lastUseCustom.maxDays }))
+    }
+    const summary = parts.join(' • ')
+    return summary || t('testerLastUsedCustomChipLabel')
+  }, [lastUseCustom, t])
+
+  const lastUseAdvancedLabel = lastUseCustomSummary ?? t('testerLastUsedAdvancedButton')
+
   const handleSetsChange = (e: SelectChangeEvent<string[]>) => {
     const tokens = e.target.value as string[]
     const setIds = tokens.filter(t => t.startsWith('s:')).map(t => Number(t.slice(2)))
@@ -759,6 +838,66 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
     const metaIds = orderMetasetIds(metaIdsRaw, orderBasis)
     onChange({ ...state, sets: { ...state.sets, selected: setIds, metaSelected: metaIds } })
   }
+  const resetLastUseCustom = React.useCallback(() => {
+    onChange({
+      ...state,
+      testerLastUse: normalizeTesterLastUseFilter({
+        presets: testerLastUseFilter.presets,
+        custom: { ...createDefaultTesterLastUseCustom(), enabled: false },
+      }),
+    })
+  }, [onChange, state, testerLastUseFilter.presets])
+  const applyLastUsePresets = React.useCallback((presets: TesterLastUsePreset[]) => {
+    // Keep the custom range intact so users can stack presets + range without re-entering values.
+    onChange({
+      ...state,
+      testerLastUse: normalizeTesterLastUseFilter({
+        presets,
+        custom: testerLastUseFilter.custom,
+      }),
+    })
+  }, [onChange, state, testerLastUseFilter.custom])
+  const applyLastUseCustom = React.useCallback((partial: Partial<TesterLastUseCustomFilter>) => {
+    const merged: TesterLastUseCustomFilter = {
+      ...testerLastUseFilter.custom,
+      ...partial,
+      enabled: true,
+    }
+    // Preserve preset selection while toggling the custom slider so both act as a union.
+    onChange({
+      ...state,
+      testerLastUse: normalizeTesterLastUseFilter({
+        presets: testerLastUseFilter.presets,
+        custom: merged,
+      }),
+    })
+  }, [onChange, state, testerLastUseFilter.custom, testerLastUseFilter.presets])
+  const handleLastUsePopoverOpen = React.useCallback((event: React.MouseEvent<HTMLElement>) => {
+    setLastUseAnchorEl(event.currentTarget as HTMLElement)
+  }, [])
+  const handleLastUseReset = React.useCallback(() => {
+    resetLastUseCustom()
+  }, [resetLastUseCustom])
+
+  const handleLastUsePresetToggle = React.useCallback((preset: TesterLastUsePreset) => {
+    // Collapse redundant recency choices whenever a button toggles so the selection stays meaningful.
+    const nextSelection = toggleTesterLastUsePresetSelection(lastUsePresetSelection, preset)
+    applyLastUsePresets(nextSelection)
+  }, [applyLastUsePresets, lastUsePresetSelection])
+  const handleLastUseSliderChange = React.useCallback((_: Event, value: number | number[]) => {
+    if (!Array.isArray(value) || value.length !== 2) return
+    const [min, max] = value as [number, number]
+    applyLastUseCustom({ minDays: min, maxDays: max })
+  }, [applyLastUseCustom])
+  const handleLastUseInputChange = React.useCallback((field: 'minDays' | 'maxDays') => (event: React.ChangeEvent<HTMLInputElement>) => {
+    const parsed = Number(event.target.value)
+    const isValid = Number.isFinite(parsed)
+    const fallback = field === 'minDays' ? TESTER_LAST_USE_MIN_DAYS : TESTER_LAST_USE_MAX_DAYS
+    const payload: Partial<TesterLastUseCustomFilter> = field === 'minDays'
+      ? { minDays: isValid ? parsed : fallback }
+      : { maxDays: isValid ? parsed : fallback }
+    applyLastUseCustom(payload)
+  }, [applyLastUseCustom])
   const scrollSetsMenuToSelected = React.useCallback((orderOverride?: 'game' | 'az' | 'icons', opts?: { force?: boolean }) => {
     if (!opts?.force && !setsMenuOpen) return
     const order = orderOverride ?? setsOrder
@@ -852,28 +991,73 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
   const previewConfigDirty = configChipFilterActive !== PREVIEW_CONFIGS_DEFAULT
   const filtersDirty = filterActive || configFilterDirty || previewConfigDirty
 
-  const testerSourceOptions = React.useMemo(() => ([
-    { value: 'inventory', label: t('testerSourceInventory') },
-    { value: 'collection', label: t('testerSourceEquippedCollection') },
-    { value: 'vault', label: t('testerSourceEquippedVault') },
-    { value: 'inbox', label: t('testerSourceInbox') },
-    { value: 'manual', label: t('testerSourceManual') },
-  ]), [t])
-  const testerSourceSelection = state.testerSources?.selected ?? []
+  const testerSourceOptions = React.useMemo(() => {
+    const options = [
+      { value: 'inventory', label: t('testerSourceInventory') },
+      { value: 'collection', label: t('testerSourceEquippedCollection') },
+      { value: 'vault', label: t('testerSourceEquippedVault') },
+      { value: 'inbox', label: t('testerSourceInbox') },
+    ] as const
+    return hasManualTesterItems
+      ? [...options, { value: 'manual', label: t('testerSourceManual') }]
+      : options.slice()
+  }, [hasManualTesterItems, t])
+  // Keep the first two options anchored on the top row so the base grid stays 2x2.
+  const testerSourceRows = React.useMemo(() => {
+    const firstRow = testerSourceOptions.slice(0, 2)
+    // The second row absorbs the remaining options (manual gear adds the third column here).
+    const remaining = testerSourceOptions.slice(2)
+    return [firstRow, remaining]
+  }, [testerSourceOptions])
+  const testerSourcesSelected = state.testerSources?.selected
+  const testerSourceSelectionRaw = React.useMemo(
+    () => testerSourcesSelected ?? [],
+    [testerSourcesSelected],
+  )
+  const testerSourceSelection = hasManualTesterItems
+    ? testerSourceSelectionRaw
+    : testerSourceSelectionRaw.filter((value) => value !== 'manual')
+  React.useEffect(() => {
+    if (!isTesterMode) return
+    if (hasManualTesterItems) return
+    if (!testerSourceSelectionRaw.includes('manual')) return
+    const filtered = testerSourceSelectionRaw.filter((value) => value !== 'manual')
+    onChange({
+      ...state,
+      testerSources: { selected: filtered },
+    })
+  }, [hasManualTesterItems, isTesterMode, onChange, state, testerSourceSelectionRaw])
+  // Shared handler so both toggle rows update the same testerSources payload.
+  const handleTesterSourceToggleChange = React.useCallback((_: React.MouseEvent<HTMLElement>, vals: string[]) => {
+    const parsed = vals.map((v) => v as TesterSourceFilter)
+    onChange({ ...state, testerSources: { selected: parsed } })
+  }, [onChange, state])
   const testerChaosMode: TesterChaosFilterMode = state.testerChaos?.mode ?? 'any'
   const testerGlyphMode: TesterGlyphFilterMode = state.testerGlyphs?.mode ?? 'any'
   const testerAscStars = state.testerAscension?.stars ?? []
   const testerAscStats = state.testerAscension?.stats ?? []
   const championSelection = state.testerChampions?.selected ?? []
   const extraChampionCount = Math.max(0, championSelection.length - 1)
+  // Expand the inline gutter when the "+N" badge is visible so long names respect the stacked controls.
   const championInlinePaddingPx = championSelection.length > 0
-    ? SETS_SELECT_INLINE_GUTTER_PX
+    ? SETS_SELECT_INLINE_GUTTER_PX + (extraChampionCount > 0 ? INLINE_EXTRA_BADGE_PADDING_PX : 0)
     : SETS_SELECT_INLINE_GUTTER_COLLAPSED_PX
+  // This memo enforces the clamp described above while letting selects continue to reserve the dropdown caret gutter.
+  const championInlineContentMaxWidth = React.useMemo(
+    () => computeInlineSelectContentMaxWidth(championInlinePaddingPx),
+    [championInlinePaddingPx],
+  )
   const factionSelection = state.faction.selected ?? []
   const extraFactionCount = Math.max(0, factionSelection.length - 1)
+  // Mirror the champion gutter logic so faction summaries leave identical clearance around the badge + clear button.
   const factionInlinePaddingPx = factionSelection.length > 0
-    ? SETS_SELECT_INLINE_GUTTER_PX
+    ? SETS_SELECT_INLINE_GUTTER_PX + (extraFactionCount > 0 ? INLINE_EXTRA_BADGE_PADDING_PX : 0)
     : SETS_SELECT_INLINE_GUTTER_COLLAPSED_PX
+  // Same inline clamp for faction summaries; keeps the layout identical regardless of which filter is active.
+  const factionInlineContentMaxWidth = React.useMemo(
+    () => computeInlineSelectContentMaxWidth(factionInlinePaddingPx),
+    [factionInlinePaddingPx],
+  )
   const showChampionFilter = isTesterMode && (testerChampionOptions?.length ?? 0) > 0
   const [championSearch, setChampionSearch] = React.useState('')
   const normalizedChampionSearch = championSearch.trim()
@@ -1643,50 +1827,62 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                   <FormLabel sx={{ m: 0 }}>{t('filterSource')}</FormLabel>
                 </Box>
                 <Collapse in={!collapsed.sources} timeout="auto" unmountOnExit>
-                  <ToggleButtonGroup
-                    size="small"
-                    value={testerSourceSelection}
-                    onChange={(_, vals: string[]) => {
-                      const parsed = vals.map((v) => v as TesterSourceFilter)
-                      onChange({ ...state, testerSources: { selected: parsed } })
-                    }}
+                  <Box
+                    // Stack two button rows: base view shows 2x2, manual rows expand the second tier to three columns.
                     sx={{
-                      display: 'grid',
-                      gridTemplateColumns: `repeat(3, minmax(0, ${FILTER_TOGGLE_BUTTON_WIDTH_PX}px))`,
-                      columnGap: 0.5,
-                      rowGap: 0.5,
-                      '& .MuiToggleButton-root': {
-                        p: 0.5,
-                        width: FILTER_TOGGLE_BUTTON_WIDTH_PX,
-                        minWidth: FILTER_TOGGLE_BUTTON_WIDTH_PX,
-                        maxWidth: FILTER_TOGGLE_BUTTON_WIDTH_PX,
-                        height: 28,
-                        overflow: 'hidden',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        lineHeight: 1.2,
-                      },
-                      '& .MuiToggleButtonGroup-grouped:not(:first-of-type)': {
-                        marginLeft: '0 !important',
-                        borderLeft: '1px solid transparent',
-                      },
-                      '& .MuiToggleButtonGroup-grouped.Mui-selected + .MuiToggleButtonGroup-grouped.Mui-selected': {
-                        marginLeft: '0 !important',
-                        borderLeft: '1px solid transparent',
-                      },
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 0.5,
                     }}
                   >
-                    {testerSourceOptions.map((option) => (
-                      <ToggleButton key={option.value} value={option.value}>
-                        <EllipsisTooltip title={option.label} wrap="block">
-                          <Typography component="span" noWrap sx={toggleLabelSx} data-ellipsis-target>
-                            {option.label}
-                          </Typography>
-                        </EllipsisTooltip>
-                      </ToggleButton>
-                    ))}
-                  </ToggleButtonGroup>
+                    {testerSourceRows.map((rowOptions, rowIdx) => {
+                      if (rowOptions.length === 0) return null
+                      return (
+                        <ToggleButtonGroup
+                          key={`tester-sources-row-${rowIdx}`}
+                          size="small"
+                          value={testerSourceSelection}
+                          onChange={handleTesterSourceToggleChange}
+                          sx={{
+                            display: 'grid',
+                            gridTemplateColumns: `repeat(${rowOptions.length}, minmax(0, ${FILTER_TOGGLE_BUTTON_WIDTH_PX}px))`,
+                            columnGap: 0.5,
+                            rowGap: 0.5,
+                            '& .MuiToggleButton-root': {
+                              p: 0.5,
+                              width: FILTER_TOGGLE_BUTTON_WIDTH_PX,
+                              minWidth: FILTER_TOGGLE_BUTTON_WIDTH_PX,
+                              maxWidth: FILTER_TOGGLE_BUTTON_WIDTH_PX,
+                              height: 28,
+                              overflow: 'hidden',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              lineHeight: 1.2,
+                            },
+                            '& .MuiToggleButtonGroup-grouped:not(:first-of-type)': {
+                              marginLeft: '0 !important',
+                              borderLeft: '1px solid transparent',
+                            },
+                            '& .MuiToggleButtonGroup-grouped.Mui-selected + .MuiToggleButtonGroup-grouped.Mui-selected': {
+                              marginLeft: '0 !important',
+                              borderLeft: '1px solid transparent',
+                            },
+                          }}
+                        >
+                          {rowOptions.map((option) => (
+                            <ToggleButton key={option.value} value={option.value}>
+                              <EllipsisTooltip title={option.label} wrap="block">
+                                <Typography component="span" noWrap sx={toggleLabelSx} data-ellipsis-target>
+                                  {option.label}
+                                </Typography>
+                              </EllipsisTooltip>
+                            </ToggleButton>
+                          ))}
+                        </ToggleButtonGroup>
+                      )
+                    })}
+                  </Box>
                 </Collapse>
               </FormControl>
               {showChampionFilter && (
@@ -1699,8 +1895,8 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                     <Box
                       sx={{
                         position: 'relative',
-                        width: { xs: '100%', sm: FILTER_FACTION_SELECT_WIDTH_PX },
-                        maxWidth: FILTER_FACTION_SELECT_WIDTH_PX,
+                        width: { xs: '100%', sm: CHAMPION_SELECT_WIDTH_PX },
+                        maxWidth: CHAMPION_SELECT_WIDTH_PX,
                       }}
                     >
                       <Select
@@ -1745,10 +1941,11 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                                 alignItems: 'center',
                                 gap: 0.5,
                                 width: '100%',
-                                pr: `${championInlinePaddingPx}px`,
+                                minWidth: 0,
+                                maxWidth: championInlineContentMaxWidth,
                               }}
                             >
-                              <Typography variant="body2" sx={[ELLIPSIS_TEXT_SX, { flex: '1 1 auto' }]}>
+                              <Typography variant="body2" sx={[ELLIPSIS_TEXT_SX, { flex: '1 1 auto', minWidth: 0 }]}>
                                 {summaryTitle}
                               </Typography>
                             </Box>
@@ -1765,8 +1962,8 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                           },
                           PaperProps: {
                             sx: {
-                              width: { xs: 'calc(100vw - 32px)', sm: FILTER_FACTION_SELECT_WIDTH_PX },
-                              maxWidth: FILTER_FACTION_SELECT_WIDTH_PX,
+                              width: { xs: 'calc(100vw - 32px)', sm: CHAMPION_SELECT_WIDTH_PX },
+                              maxWidth: CHAMPION_SELECT_WIDTH_PX,
                               maxHeight: 360,
                               '& .MuiList-root': {
                                 py: 0,
@@ -1853,7 +2050,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                           sx={{
                             position: 'absolute',
                             top: '50%',
-                            right: `${SETS_SELECT_CLEAR_BUTTON_RIGHT_PX + CLEAR_ICON_BUTTON_SIZE_PX + 4}px`,
+                            right: `${INLINE_EXTRA_BADGE_RIGHT_PX}px`,
                             transform: 'translateY(-50%)',
                             width: CLEAR_ICON_BUTTON_SIZE_PX,
                             height: CLEAR_ICON_BUTTON_SIZE_PX,
@@ -1879,6 +2076,74 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                   </Collapse>
                 </FormControl>
               )}
+              <FormControl sx={{ ...collapsibleSectionSx }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
+                  <SectionToggle id="lastUse" />
+                  <FormLabel sx={{ m: 0 }}>{t('testerLastUsedFilterLabel')}</FormLabel>
+                </Box>
+                <Collapse in={!collapsed.lastUse} timeout="auto" unmountOnExit>
+                  <Stack spacing={0.75}>
+                    <ToggleButtonGroup
+                      size="small"
+                      value={lastUsePresetSelection}
+                      sx={{
+                        display: 'grid',
+                        gridTemplateColumns: `repeat(3, minmax(0, ${LAST_USE_TOGGLE_BUTTON_WIDTH_PX}px))`,
+                        columnGap: 0.5,
+                        rowGap: 0.5,
+                        '& .MuiToggleButton-root': {
+                          p: 0.5,
+                          width: LAST_USE_TOGGLE_BUTTON_WIDTH_PX,
+                          minWidth: LAST_USE_TOGGLE_BUTTON_WIDTH_PX,
+                          maxWidth: LAST_USE_TOGGLE_BUTTON_WIDTH_PX,
+                          height: 28,
+                          overflow: 'hidden',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          lineHeight: 1.2,
+                        },
+                        ...TOGGLE_BUTTON_GROUP_SHARED_SX,
+                      }}
+                    >
+                      {lastUsePresetOptions.map((option) => (
+                        <ToggleButton
+                          key={option.value}
+                          value={option.value}
+                          aria-label={option.tooltip}
+                          title={option.tooltip}
+                          onClick={(event) => {
+                            event.preventDefault()
+                            event.stopPropagation()
+                            handleLastUsePresetToggle(option.value as TesterLastUsePreset)
+                          }}
+                        >
+                          <EllipsisTooltip title={option.tooltip} wrap="block">
+                            <Typography component="span" noWrap sx={toggleLabelSx} data-ellipsis-target>
+                              {option.label}
+                            </Typography>
+                          </EllipsisTooltip>
+                        </ToggleButton>
+                      ))}
+                      <ToggleButton
+                        value="advanced"
+                        aria-label={lastUseAdvancedLabel}
+                        title={lastUseAdvancedLabel}
+                        selected={lastUseCustom.enabled}
+                        onClick={(event) => {
+                          event.preventDefault()
+                          event.stopPropagation()
+                          handleLastUsePopoverOpen(event)
+                        }}
+                      >
+                        <EllipsisTooltip title={lastUseAdvancedLabel} wrap="block">
+                          <SettingsIcon fontSize="small" data-ellipsis-target />
+                        </EllipsisTooltip>
+                      </ToggleButton>
+                    </ToggleButtonGroup>
+                  </Stack>
+                </Collapse>
+              </FormControl>
             </Box>
           )}
           <Box
@@ -2261,7 +2526,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                                 gap: 0.5,
                                 minWidth: 0,
                                 width: '100%',
-                                pr: `${factionInlinePaddingPx}px`,
+                                maxWidth: factionInlineContentMaxWidth,
                               }}
                             >
                               <Box
@@ -2340,7 +2605,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                         sx={{
                           position: 'absolute',
                           top: '50%',
-                          right: `${SETS_SELECT_CLEAR_BUTTON_RIGHT_PX + CLEAR_ICON_BUTTON_SIZE_PX + 4}px`,
+                          right: `${INLINE_EXTRA_BADGE_RIGHT_PX}px`,
                           transform: 'translateY(-50%)',
                           width: CLEAR_ICON_BUTTON_SIZE_PX,
                           height: CLEAR_ICON_BUTTON_SIZE_PX,
@@ -2617,127 +2882,186 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
         {/* No full-width Main/Sub section: they live under Sets in the left column */}
       </Box>
       {isTesterMode && (
-        <Popover
-          open={testerRollsOpen}
-          anchorEl={testerRollsAnchorEl}
-          onClose={handleTesterRollsClose}
-          anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
-          transformOrigin={{ vertical: 'top', horizontal: 'left' }}
-          slotProps={{
-            paper: {
-              component: ContextMenuPaper,
-              onRequestClose: handleTesterRollsClose,
-              closeLabel: t('close'),
-              ref: testerRollsPaperRef,
-              sx: { width: 310, maxWidth: 'calc(100vw - 32px)', p: 2.25 },
-            } as unknown as MuiPaperProps,
-          }}
-        >
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-              <Typography variant="subtitle2">{t('filterRolls')}</Typography>
-              <Typography variant="body2" color="text.secondary">
-                {t('filterRollsHelper')}
-              </Typography>
-            </Box>
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-              <Typography variant="caption" color="text.secondary">
-                {t('filterRollsWildcardTitle')}
-              </Typography>
-              <Box
-                sx={{
-                  display: 'flex',
-                  flexDirection: { xs: 'column', sm: 'row' },
-                  alignItems: { xs: 'flex-start', sm: 'center' },
-                  gap: 1,
-                  flexWrap: 'wrap',
-                }}
-              >
-                <Typography
-                  variant="body2"
-                  color="text.secondary"
-                  sx={{ minWidth: ROLL_FILTER_LABEL_MIN_WIDTH_PX, flexShrink: 0 }}
-                >
-                  {t('any')}
+        <>
+          <Popover
+            open={testerRollsOpen}
+            anchorEl={testerRollsAnchorEl}
+            onClose={handleTesterRollsClose}
+            anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+            transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+            slotProps={{
+              paper: {
+                component: ContextMenuPaper,
+                onRequestClose: handleTesterRollsClose,
+                closeLabel: t('close'),
+                ref: testerRollsPaperRef,
+                sx: { width: 310, maxWidth: 'calc(100vw - 32px)', p: 2.25 },
+              } as unknown as MuiPaperProps,
+            }}
+          >
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                <Typography variant="subtitle2">{t('filterRolls')}</Typography>
+                <Typography variant="body2" color="text.secondary">
+                  {t('filterRollsHelper')}
                 </Typography>
-                <Box sx={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                  <RollCountToggleButtons
-                    counts={wildcardDisplayCounts}
-                    ariaLabelPrefix={t('filterRollsValueLabel')}
-                    onToggle={handleWildcardToggleValue}
-                  />
-                  {wildcardCounts.length === 0 ? (
-                    <Box sx={{ ...CLEAR_BUTTON_PLACEHOLDER_SX, pointerEvents: 'none' }} />
-                  ) : (
-                    <ClearIconButton
-                      size="small"
-                      aria-label={t('filterRollsSelectNone')}
-                      tooltip={t('filterRollsSelectNone')}
-                      onClick={handleWildcardSelectNone}
+              </Box>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                <Typography variant="caption" color="text.secondary">
+                  {t('filterRollsWildcardTitle')}
+                </Typography>
+                <Box
+                  sx={{
+                    display: 'flex',
+                    flexDirection: { xs: 'column', sm: 'row' },
+                    alignItems: { xs: 'flex-start', sm: 'center' },
+                    gap: 1,
+                    flexWrap: 'wrap',
+                  }}
+                >
+                  <Typography
+                    variant="body2"
+                    color="text.secondary"
+                    sx={{ minWidth: ROLL_FILTER_LABEL_MIN_WIDTH_PX, flexShrink: 0 }}
+                  >
+                    {t('any')}
+                  </Typography>
+                  <Box sx={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                    <RollCountToggleButtons
+                      counts={wildcardDisplayCounts}
+                      ariaLabelPrefix={t('filterRollsValueLabel')}
+                      onToggle={handleWildcardToggleValue}
                     />
-                  )}
+                    {wildcardCounts.length === 0 ? (
+                      <Box sx={{ ...CLEAR_BUTTON_PLACEHOLDER_SX, pointerEvents: 'none' }} />
+                    ) : (
+                      <ClearIconButton
+                        size="small"
+                        aria-label={t('filterRollsSelectNone')}
+                        tooltip={t('filterRollsSelectNone')}
+                        onClick={handleWildcardSelectNone}
+                      />
+                    )}
+                  </Box>
                 </Box>
               </Box>
-            </Box>
-            <Divider />
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-              <Typography variant="caption" color="text.secondary">
-                {t('filterRollsPerStatTitle')}
-              </Typography>
-              <Stack spacing={1}>
-                {rollFilterStatOptions.map((variant) => {
-                  const counts = getPerStatCounts(variant)
-                  const label = t(statVariantI18nKey(variant))
-                  const displayColor = useStatButtonColors
-                    ? (substatColors?.[variant]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[variant] ?? theme.palette.text.primary)
-                    : undefined
-                  const isActive = counts.length > 0
-                  return (
-                    <Box
-                      key={`roll-row-${variant}`}
-                      sx={{
-                        display: 'flex',
-                        flexDirection: { xs: 'column', sm: 'row' },
-                        alignItems: { xs: 'flex-start', sm: 'center' },
-                        gap: 1,
-                        flexWrap: 'wrap',
-                      }}
-                    >
-                      <Typography
-                        variant="body2"
+              <Divider />
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                <Typography variant="caption" color="text.secondary">
+                  {t('filterRollsPerStatTitle')}
+                </Typography>
+                <Stack spacing={1}>
+                  {rollFilterStatOptions.map((variant) => {
+                    const counts = getPerStatCounts(variant)
+                    const label = t(statVariantI18nKey(variant))
+                    const displayColor = useStatButtonColors
+                      ? (substatColors?.[variant]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[variant] ?? theme.palette.text.primary)
+                      : undefined
+                    const isActive = counts.length > 0
+                    return (
+                      <Box
+                        key={`roll-row-${variant}`}
                         sx={{
-                          minWidth: ROLL_FILTER_LABEL_MIN_WIDTH_PX,
-                          flexShrink: 0,
-                          ...(isActive ? { fontWeight: theme.typography.fontWeightMedium ?? 600 } : {}),
-                          ...(displayColor ? { color: displayColor } : {}),
+                          display: 'flex',
+                          flexDirection: { xs: 'column', sm: 'row' },
+                          alignItems: { xs: 'flex-start', sm: 'center' },
+                          gap: 1,
+                          flexWrap: 'wrap',
                         }}
                       >
-                        {label}
-                      </Typography>
-                      <Box sx={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                        <RollCountToggleButtons
-                          counts={counts}
-                          ariaLabelPrefix={`${label} ${t('filterRollsValueLabel')}`}
-                          onToggle={(value) => handlePerStatToggleValue(variant, value)}
-                        />
-                        {counts.length === 0 ? (
-                          <Box sx={{ ...CLEAR_BUTTON_PLACEHOLDER_SX, pointerEvents: 'none' }} />
-                        ) : (
-                          <ClearIconButton
-                            size="small"
-                            aria-label={t('filterRollsSelectNone')}
-                            tooltip={t('filterRollsSelectNone')}
-                            onClick={() => handlePerStatSelectNone(variant)}
+                        <Typography
+                          variant="body2"
+                          sx={{
+                            minWidth: ROLL_FILTER_LABEL_MIN_WIDTH_PX,
+                            flexShrink: 0,
+                            ...(isActive ? { fontWeight: theme.typography.fontWeightMedium ?? 600 } : {}),
+                            ...(displayColor ? { color: displayColor } : {}),
+                          }}
+                        >
+                          {label}
+                        </Typography>
+                        <Box sx={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                          <RollCountToggleButtons
+                            counts={counts}
+                            ariaLabelPrefix={`${label} ${t('filterRollsValueLabel')}`}
+                            onToggle={(value) => handlePerStatToggleValue(variant, value)}
                           />
-                        )}
+                          {counts.length === 0 ? (
+                            <Box sx={{ ...CLEAR_BUTTON_PLACEHOLDER_SX, pointerEvents: 'none' }} />
+                          ) : (
+                            <ClearIconButton
+                              size="small"
+                              aria-label={t('filterRollsSelectNone')}
+                              tooltip={t('filterRollsSelectNone')}
+                              onClick={() => handlePerStatSelectNone(variant)}
+                            />
+                          )}
+                        </Box>
                       </Box>
-                    </Box>
-                  )
-                })}
-              </Stack>
+                    )
+                  })}
+                </Stack>
+              </Box>
             </Box>
-          </Box>
-        </Popover>
+          </Popover>
+          <Popover
+            open={lastUsePopoverOpen}
+            anchorEl={lastUseAnchorEl}
+            onClose={handleLastUsePopoverClose}
+            anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+            transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+            slotProps={{
+              paper: {
+                component: ContextMenuPaper,
+                onRequestClose: handleLastUsePopoverClose,
+                closeLabel: t('close'),
+                ref: lastUsePopoverPaperRef,
+                sx: { width: 320, maxWidth: 'calc(100vw - 32px)', p: 2.25 },
+              } as unknown as MuiPaperProps,
+            }}
+          >
+            <Stack spacing={1.5}>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                <Typography variant="subtitle2">{t('testerLastUsedRangeTitle')}</Typography>
+                <Typography variant="body2" color="text.secondary">
+                  {t('testerLastUsedRangeDescription')}
+                </Typography>
+              </Box>
+              <Box sx={{ display: 'flex', gap: 0.75, flexWrap: 'wrap' }}>
+                <TextField
+                  type="number"
+                  size="small"
+                  label={t('testerLastUsedRangeMinLabel')}
+                  inputProps={{ min: TESTER_LAST_USE_MIN_DAYS, max: TESTER_LAST_USE_MAX_DAYS }}
+                  value={lastUseCustom.minDays}
+                  onChange={handleLastUseInputChange('minDays')}
+                  sx={{ flex: '1 1 120px' }}
+                />
+                <TextField
+                  type="number"
+                  size="small"
+                  label={t('testerLastUsedRangeMaxLabel')}
+                  inputProps={{ min: TESTER_LAST_USE_MIN_DAYS, max: TESTER_LAST_USE_MAX_DAYS }}
+                  value={lastUseCustom.maxDays}
+                  onChange={handleLastUseInputChange('maxDays')}
+                  sx={{ flex: '1 1 120px' }}
+                />
+              </Box>
+              <Slider
+                value={[lastUseCustom.minDays, lastUseCustom.maxDays]}
+                min={TESTER_LAST_USE_MIN_DAYS}
+                max={TESTER_LAST_USE_MAX_DAYS}
+                onChange={handleLastUseSliderChange}
+                valueLabelDisplay="auto"
+              />
+              <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+                <Button size="small" onClick={handleLastUseReset}>
+                  {t('testerLastUsedRangeReset')}
+                </Button>
+              </Box>
+            </Stack>
+          </Popover>
+        </>
       )}
       <ContextMenuHintOverlay text={t('contextMenuHint')} position={sectionHintActive ? sectionHintPos : null} />
     </>

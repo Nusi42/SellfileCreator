@@ -50,6 +50,7 @@ const makeArtifact = (overrides: Partial<NormalizedGearArtifact> = {}, variant: 
     source: overrides.source ?? 'tester',
     equippedChampionName: overrides.equippedChampionName ?? null,
     equippedChampionLocation: overrides.equippedChampionLocation ?? null,
+    lastUseLocalTimestamp: overrides.lastUseLocalTimestamp ?? null,
   }
 }
 

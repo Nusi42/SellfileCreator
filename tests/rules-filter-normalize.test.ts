@@ -1,7 +1,12 @@
 /* eslint import/no-unused-modules: off */
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { DEFAULT_RULES_FILTER_STATE, normalizeRulesFilterForTester, type RulesFilterState } from '../src/lib/rulesFilter.js'
+import {
+  DEFAULT_RULES_FILTER_STATE,
+  normalizeRulesFilterForTester,
+  toggleTesterLastUsePresetSelection,
+  type RulesFilterState,
+} from '../src/lib/rulesFilter.js'
 
 test('normalizeRulesFilterForTester returns the same object when no changes are required', () => {
   const result = normalizeRulesFilterForTester(DEFAULT_RULES_FILTER_STATE)
@@ -29,4 +34,18 @@ test('normalizeRulesFilterForTester forces tester-incompatible Any modes back to
 
   // Ensure untouched sections retain referential equality so shallow compares still work elsewhere.
   assert.equal(normalized.sets, dirty.sets)
+})
+
+test('toggleTesterLastUsePresetSelection swaps recency buckets when choosing a narrower preset', () => {
+  const initial = toggleTesterLastUsePresetSelection([], 'recent90')
+  assert.deepEqual(initial, ['recent90'])
+
+  const narrowed = toggleTesterLastUsePresetSelection(initial, 'recent30')
+  assert.deepEqual(narrowed, ['recent30'])
+
+  const narrowest = toggleTesterLastUsePresetSelection(narrowed, 'recent7')
+  assert.deepEqual(narrowest, ['recent7'])
+
+  const cleared = toggleTesterLastUsePresetSelection(narrowest, 'recent7')
+  assert.deepEqual(cleared, [])
 })

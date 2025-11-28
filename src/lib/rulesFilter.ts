@@ -26,6 +26,7 @@ import type { NormalizedGearArtifact } from './importers/gearDbNormalizer'
 import { isAccessorySlot } from './testerDomain'
 import { ACCESSORY_NO_SET_ID } from './constants'
 import { getRuleConfigIndex } from './ruleConfigIndex'
+import { getDaysSince } from './dateDisplay'
 
 // Tri-state for handling explicit "Any" fields in rules.
 export type AnyMode = 'off' | 'include' | 'only'
@@ -40,6 +41,20 @@ export type TesterSourceFilter = 'inventory' | 'collection' | 'vault' | 'inbox' 
 export type TesterChaosFilterMode = 'any' | 'notRerolled' | 'rerolled'
 export type TesterGlyphFilterMode = 'any' | 'on' | 'off' | 'selected'
 export type TesterRollWildcardMode = 'off' | 'any'
+
+export const TESTER_LAST_USE_PRESETS = ['never', 'recent7', 'recent30', 'recent90', 'older90'] as const
+export type TesterLastUsePreset = typeof TESTER_LAST_USE_PRESETS[number]
+
+export type TesterLastUseCustomFilter = {
+  enabled: boolean
+  minDays: number
+  maxDays: number
+}
+
+export type TesterLastUseFilter = {
+  presets: TesterLastUsePreset[]
+  custom: TesterLastUseCustomFilter
+}
 
 export const TESTER_ROLL_COUNT_VALUES = [0, 1, 2, 3, 4, 5] as const
 export type TesterRollCountValue = typeof TESTER_ROLL_COUNT_VALUES[number]
@@ -85,6 +100,28 @@ export const DEFAULT_TESTER_LEVEL_RANGE: TesterLevelRange = Object.freeze({
   max: TESTER_LEVEL_MAX,
 })
 
+export const TESTER_LAST_USE_MIN_DAYS = 0
+export const TESTER_LAST_USE_MAX_DAYS = 365
+
+const LAST_USE_PRESET_ORDER: readonly TesterLastUsePreset[] = TESTER_LAST_USE_PRESETS
+
+const DEFAULT_TESTER_LAST_USE_CUSTOM: TesterLastUseCustomFilter = Object.freeze({
+  enabled: false,
+  minDays: TESTER_LAST_USE_MIN_DAYS,
+  maxDays: TESTER_LAST_USE_MAX_DAYS,
+})
+
+export const createDefaultTesterLastUseCustom = (): TesterLastUseCustomFilter => ({
+  enabled: DEFAULT_TESTER_LAST_USE_CUSTOM.enabled,
+  minDays: DEFAULT_TESTER_LAST_USE_CUSTOM.minDays,
+  maxDays: DEFAULT_TESTER_LAST_USE_CUSTOM.maxDays,
+})
+
+export const createDefaultTesterLastUseFilter = (): TesterLastUseFilter => ({
+  presets: [],
+  custom: createDefaultTesterLastUseCustom(),
+})
+
 export interface RulesFilterState {
   // Rule-level filters
   rule?: { keep: Bool3; use: Bool3 }
@@ -106,6 +143,7 @@ export interface RulesFilterState {
   testerAscension?: { stars: number[]; stats: StatVariant[] }
   testerChampions?: { selected: number[] }
   testerRolls?: TesterRollFilterState
+  testerLastUse?: TesterLastUseFilter
 }
 
 const clampTesterLevelValue = (value: number | null | undefined): number => {
@@ -142,6 +180,7 @@ export const DEFAULT_RULES_FILTER_STATE: RulesFilterState = {
   testerAscension: { stars: [], stats: [] },
   testerChampions: { selected: [] },
   testerRolls: createDefaultTesterRollsState(),
+  testerLastUse: createDefaultTesterLastUseFilter(),
 }
 
 // Back-compat helpers: accept legacy range shapes (min/max) if present
@@ -169,7 +208,8 @@ export function isRulesFilterActive(f: RulesFilterState, options?: { includeTest
   const p = isTesterRollFilterActive(f.testerRolls)
   const n = ((f.testerAscension?.stars?.length ?? 0) > 0) || ((f.testerAscension?.stats?.length ?? 0) > 0)
   const o = (f.testerChampions?.selected?.length ?? 0) > 0
-  return ra || tr || a || b || c || d || e || g || h || i || j || k || l || m || p || n || o
+  const q = isTesterLastUseFilterActive(f.testerLastUse)
+  return ra || tr || a || b || c || d || e || g || h || i || j || k || l || m || p || n || o || q
 }
 
 // Coverage helpers for Rank and Rarity codes (map rule code -> set of underlying values 1..6).
@@ -469,6 +509,11 @@ export function filterTesterItems<T extends TesterFilterRow>(
   const testerLevelRange = resolveTesterLevelRange(f.level)
   const testerExactLevelRangeActive =
     testerLevelRange.min > DEFAULT_TESTER_LEVEL_RANGE.min || testerLevelRange.max < DEFAULT_TESTER_LEVEL_RANGE.max
+  const testerLastUse = normalizeTesterLastUseFilter(f.testerLastUse)
+  const testerLastUsePresetSet = new Set<TesterLastUsePreset>(testerLastUse.presets)
+  const testerLastUsePresetsActive = testerLastUsePresetSet.size > 0
+  const testerLastUseCustom = testerLastUse.custom
+  const testerLastUseCustomActive = testerLastUseCustom.enabled
 
   const subMode = f.sub?.mode ?? 'all'
   const subWildcardMode = f.sub?.wildcardMode ?? 'include'
@@ -648,6 +693,46 @@ export function filterTesterItems<T extends TesterFilterRow>(
     if (selectedChampionIds.size > 0) {
       const championId = artifact.equippedToChampionId
       if (championId == null || !selectedChampionIds.has(Number(championId))) continue
+    }
+
+    if (testerLastUsePresetsActive || testerLastUseCustomActive) {
+      const timestamp = typeof artifact.lastUseLocalTimestamp === 'string' ? artifact.lastUseLocalTimestamp : null
+      const hasTimestamp = Boolean(timestamp)
+      const daysSince = hasTimestamp ? getDaysSince(timestamp) : null
+
+      if (testerLastUsePresetsActive || testerLastUseCustomActive) {
+        // Evaluate presets/custom as a union so the row survives if either path wins.
+        let presetMatch: boolean | null = null
+        if (testerLastUsePresetsActive) {
+          // Presets boil down to discrete buckets, so null timestamps only pass if "never" is active.
+          presetMatch = false
+          if (!hasTimestamp || daysSince == null) {
+            presetMatch = testerLastUsePresetSet.has('never')
+          } else {
+            for (const preset of testerLastUsePresetSet) {
+              if (preset === 'never') continue
+              if (matchesTesterLastUsePreset(daysSince, preset)) {
+                presetMatch = true
+                break
+              }
+            }
+          }
+        }
+
+        let customMatch: boolean | null = null
+        if (testerLastUseCustomActive) {
+          // Custom ranges only check timestamped gear; null timestamps route through the "Never used" preset.
+          if (!hasTimestamp || daysSince == null) customMatch = false
+          else {
+            customMatch =
+              daysSince >= testerLastUseCustom.minDays && daysSince <= testerLastUseCustom.maxDays
+          }
+        }
+
+        const passesPreset = presetMatch ?? false
+        const passesCustom = customMatch ?? false
+        if (!(passesPreset || passesCustom)) continue
+      }
     }
 
     if (chaosMode === 'notRerolled') {
@@ -869,4 +954,124 @@ const clampRollTarget = (value: number | null | undefined): number => {
   const numeric = Number(value ?? 0)
   if (!Number.isFinite(numeric)) return 0
   return Math.max(0, Math.min(5, Math.round(numeric)))
+}
+
+const clampLastUseDays = (value: number | null | undefined): number => {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return TESTER_LAST_USE_MIN_DAYS
+  if (value < TESTER_LAST_USE_MIN_DAYS) return TESTER_LAST_USE_MIN_DAYS
+  if (value > TESTER_LAST_USE_MAX_DAYS) return TESTER_LAST_USE_MAX_DAYS
+  return Math.round(value)
+}
+
+const normalizeLastUseRange = (
+  rawMin?: number | null,
+  rawMax?: number | null,
+): { min: number; max: number } => {
+  const min = clampLastUseDays(rawMin)
+  const max = clampLastUseDays(rawMax)
+  if (min <= max) return { min, max }
+  return { min: max, max: min }
+}
+
+const TESTER_LAST_USE_RECENT_PRESETS: TesterLastUsePreset[] = ['recent7', 'recent30', 'recent90']
+const RECENT_PRESET_PRIORITY = new Map(
+  TESTER_LAST_USE_RECENT_PRESETS.map((preset, index) => [preset, index]),
+)
+
+/**
+ * Collapse redundant preset selections so only the widest "recent" range sticks
+ * around while orthogonal tokens (Never, Older) remain untouched. This lets the
+ * UI expose toggle-like affordances without pushing duplicated predicates into
+ * the core filter logic.
+ */
+export const sanitizeTesterLastUsePresets = (
+  rawPresets: Iterable<TesterLastUsePreset>,
+): TesterLastUsePreset[] => {
+  const base = new Set<TesterLastUsePreset>()
+  let widestRecent: TesterLastUsePreset | null = null
+  for (const preset of rawPresets) {
+    if (TESTER_LAST_USE_RECENT_PRESETS.includes(preset)) {
+      const currentRank = RECENT_PRESET_PRIORITY.get(widestRecent ?? preset) ?? -1
+      const nextRank = RECENT_PRESET_PRIORITY.get(preset) ?? -1
+      if (nextRank >= currentRank) widestRecent = preset
+      continue
+    }
+    base.add(preset)
+  }
+  if (widestRecent) base.add(widestRecent)
+  return Array.from(base).sort(
+    (a, b) => LAST_USE_PRESET_ORDER.indexOf(a) - LAST_USE_PRESET_ORDER.indexOf(b),
+  )
+}
+
+/**
+ * Toggle helper used by the filter UI to add/remove presets while enforcing the
+ * sanitized shape described above (only one "recent" bucket at a time).
+ */
+export const toggleTesterLastUsePresetSelection = (
+  current: readonly TesterLastUsePreset[],
+  preset: TesterLastUsePreset,
+): TesterLastUsePreset[] => {
+  const draft = new Set<TesterLastUsePreset>(current)
+  if (draft.has(preset)) {
+    draft.delete(preset)
+  } else {
+    if (TESTER_LAST_USE_RECENT_PRESETS.includes(preset)) {
+      for (const recent of TESTER_LAST_USE_RECENT_PRESETS) draft.delete(recent)
+    }
+    draft.add(preset)
+  }
+  return sanitizeTesterLastUsePresets(draft)
+}
+
+export const normalizeTesterLastUseFilter = (
+  input?: RulesFilterState['testerLastUse'] | null,
+): TesterLastUseFilter => {
+  if (!input) return createDefaultTesterLastUseFilter()
+  const rawPresets = Array.isArray(input.presets) ? input.presets : []
+  const seen = new Set<TesterLastUsePreset>()
+  const presets: TesterLastUsePreset[] = []
+  for (const raw of rawPresets) {
+    if (TESTER_LAST_USE_PRESETS.includes(raw as TesterLastUsePreset)) {
+      const value = raw as TesterLastUsePreset
+      if (seen.has(value)) continue
+      seen.add(value)
+      presets.push(value)
+    }
+  }
+  const collapsedPresets = sanitizeTesterLastUsePresets(presets)
+  const baseCustom = input.custom ?? DEFAULT_TESTER_LAST_USE_CUSTOM
+  const range = normalizeLastUseRange(baseCustom.minDays, baseCustom.maxDays)
+  return {
+    presets: collapsedPresets,
+    custom: {
+      enabled: Boolean(baseCustom.enabled),
+      minDays: range.min,
+      maxDays: range.max,
+    },
+  }
+}
+
+export const isTesterLastUseFilterActive = (value?: RulesFilterState['testerLastUse']): boolean => {
+  const filter = normalizeTesterLastUseFilter(value)
+  if (filter.presets.length > 0) return true
+  if (!filter.custom.enabled) return false
+  if (filter.custom.minDays > TESTER_LAST_USE_MIN_DAYS) return true
+  if (filter.custom.maxDays < TESTER_LAST_USE_MAX_DAYS) return true
+  return false
+}
+
+const matchesTesterLastUsePreset = (days: number, preset: TesterLastUsePreset): boolean => {
+  switch (preset) {
+    case 'recent7':
+      return days <= 7
+    case 'recent30':
+      return days <= 30
+    case 'recent90':
+      return days <= 90
+    case 'older90':
+      return days > 90
+    default:
+      return false
+  }
 }

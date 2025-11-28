@@ -73,6 +73,7 @@ const CHAMPION_COLUMN_KEYS: readonly (keyof GearDbChampionRow)[] = [
 ] as const
 
 type ChampionLookup = Map<number, ChampionLookupRecord>
+type LastUsedLookup = Map<number, string>
 
 type SqlJsInstance = SqlJsStatic
 
@@ -190,9 +191,12 @@ export async function importGearDatabaseFromArrayBuffer(buffer: ArrayBufferLike,
     const champions = tableExists(db, 'Champs')
       ? readChampions(db)
       : new Map<number, ChampionLookupRecord>()
-    const artifacts = await readTable(db, 'Artifacts', 'artifacts', champions, options)
+    const lastUsed = tableExists(db, 'LastUsedArtifacts')
+      ? readLastUsedArtifacts(db)
+      : new Map<number, string>()
+    const artifacts = await readTable(db, 'Artifacts', 'artifacts', champions, lastUsed, options)
     const inboxArtifacts = tableExists(db, 'InboxArtifacts')
-      ? await readTable(db, 'InboxArtifacts', 'inbox', champions, options)
+      ? await readTable(db, 'InboxArtifacts', 'inbox', champions, lastUsed, options)
       : []
     return { artifacts, inboxArtifacts }
   } finally {
@@ -201,12 +205,12 @@ export async function importGearDatabaseFromArrayBuffer(buffer: ArrayBufferLike,
 }
 
 function tableExists(db: Database, name: string): boolean {
+  const safeName = name.replace(/'/g, "''")
   const statement = db.prepare(
-    'SELECT 1 FROM sqlite_master WHERE type = ? AND name = ? LIMIT 1',
+    `SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = '${safeName}' LIMIT 1`,
   )
   try {
-    const match = statement.getAsObject(['table', name])
-    return Object.keys(match).length > 0
+    return statement.step()
   } catch {
     return false
   } finally {
@@ -234,6 +238,38 @@ function readChampions(db: Database): ChampionLookup {
         reserveVault: Boolean(Number(converted.RVault ?? 0)),
         baseHeroId,
       })
+    }
+  } finally {
+    stmt.free()
+  }
+  return map
+}
+
+const getRowValueIgnoreCase = (row: Record<string, unknown>, target: string): unknown => {
+  const lower = target.toLowerCase()
+  for (const key of Object.keys(row)) {
+    if (key.toLowerCase() === lower) return row[key]
+  }
+  return undefined
+}
+
+// LastUsedArtifacts stores `{ id, lastUse }` rows with local timestamps so we
+// can annotate tester entries with “last equipped” metadata.
+function readLastUsedArtifacts(db: Database): LastUsedLookup {
+  const map: LastUsedLookup = new Map()
+  if (!tableExists(db, 'LastUsedArtifacts')) return map
+  const stmt = db.prepare('SELECT id, lastUse FROM LastUsedArtifacts')
+  try {
+    while (stmt.step()) {
+      const row = stmt.getAsObject() as Record<string, unknown>
+      const idValue = getRowValueIgnoreCase(row, 'id')
+      const tsValue = getRowValueIgnoreCase(row, 'lastUse')
+      const idNumber = typeof idValue === 'number' ? idValue : Number(idValue)
+      if (!Number.isFinite(idNumber) || idNumber <= 0) continue
+      if (typeof tsValue !== 'string') continue
+      const trimmed = tsValue.trim()
+      if (!trimmed) continue
+      map.set(idNumber, trimmed)
     }
   } finally {
     stmt.free()
@@ -275,6 +311,7 @@ async function readTable(
   tableName: string,
   source: 'artifacts' | 'inbox',
   champions: ChampionLookup,
+  lastUsed: LastUsedLookup,
   options?: GearDbImportOptions,
 ): Promise<NormalizedGearArtifact[]> {
   const total = countRows(db, tableName)
@@ -285,7 +322,12 @@ async function readTable(
     while (stmt.step()) {
       const row = stmt.getAsObject() as Record<string, unknown>
       const typedRow = convertRow(row)
-      items.push(normalizeGearDbArtifact(typedRow, { source, championLookup: champions }))
+      const lastUseValue = lastUsed.get(typedRow.ID) ?? null
+      items.push(normalizeGearDbArtifact(typedRow, {
+        source,
+        championLookup: champions,
+        lastUseLocalTimestamp: lastUseValue,
+      }))
       processed += 1
       if (processed % CHUNK_YIELD_COUNT === 0) {
         options?.onProgress?.(processed, total, source)

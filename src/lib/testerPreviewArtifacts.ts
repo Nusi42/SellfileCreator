@@ -92,6 +92,10 @@ export function buildPreviewArtifactFromTesterItem(
   const exactLevel = (typeof extras?.exactLevel === 'number' && Number.isFinite(extras.exactLevel))
     ? Math.max(0, Math.min(16, Math.round(extras.exactLevel)))
     : null
+  // Last-use metadata only exists for imported gear DB entries.
+  const lastUseLocalTimestamp = typeof extras?.lastUseLocalTimestamp === 'string'
+    ? extras.lastUseLocalTimestamp
+    : null
 
   return {
     id,
@@ -112,5 +116,6 @@ export function buildPreviewArtifactFromTesterItem(
     source,
     equippedChampionName,
     equippedChampionLocation,
+    lastUseLocalTimestamp,
   }
 }
