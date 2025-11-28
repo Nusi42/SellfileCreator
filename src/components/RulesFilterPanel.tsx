@@ -1006,6 +1006,13 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
       ? [...options, { value: 'manual', label: t('testerSourceManual') }]
       : options.slice()
   }, [hasManualTesterItems, t])
+  // Keep the first two options anchored on the top row so the base grid stays 2x2.
+  const testerSourceRows = React.useMemo(() => {
+    const firstRow = testerSourceOptions.slice(0, 2)
+    // The second row absorbs the remaining options (manual gear adds the third column here).
+    const remaining = testerSourceOptions.slice(2)
+    return [firstRow, remaining]
+  }, [testerSourceOptions])
   const testerSourcesSelected = state.testerSources?.selected
   const testerSourceSelectionRaw = React.useMemo(
     () => testerSourcesSelected ?? [],
@@ -1024,6 +1031,11 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
       testerSources: { selected: filtered },
     })
   }, [hasManualTesterItems, isTesterMode, onChange, state, testerSourceSelectionRaw])
+  // Shared handler so both toggle rows update the same testerSources payload.
+  const handleTesterSourceToggleChange = React.useCallback((_: React.MouseEvent<HTMLElement>, vals: string[]) => {
+    const parsed = vals.map((v) => v as TesterSourceFilter)
+    onChange({ ...state, testerSources: { selected: parsed } })
+  }, [onChange, state])
   const testerChaosMode: TesterChaosFilterMode = state.testerChaos?.mode ?? 'any'
   const testerGlyphMode: TesterGlyphFilterMode = state.testerGlyphs?.mode ?? 'any'
   const testerAscStars = state.testerAscension?.stars ?? []
@@ -1819,50 +1831,62 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                   <FormLabel sx={{ m: 0 }}>{t('filterSource')}</FormLabel>
                 </Box>
                 <Collapse in={!collapsed.sources} timeout="auto" unmountOnExit>
-                  <ToggleButtonGroup
-                    size="small"
-                    value={testerSourceSelection}
-                    onChange={(_, vals: string[]) => {
-                      const parsed = vals.map((v) => v as TesterSourceFilter)
-                      onChange({ ...state, testerSources: { selected: parsed } })
-                    }}
+                  <Box
+                    // Stack two button rows: base view shows 2x2, manual rows expand the second tier to three columns.
                     sx={{
-                      display: 'grid',
-                      gridTemplateColumns: `repeat(3, minmax(0, ${FILTER_TOGGLE_BUTTON_WIDTH_PX}px))`,
-                      columnGap: 0.5,
-                      rowGap: 0.5,
-                      '& .MuiToggleButton-root': {
-                        p: 0.5,
-                        width: FILTER_TOGGLE_BUTTON_WIDTH_PX,
-                        minWidth: FILTER_TOGGLE_BUTTON_WIDTH_PX,
-                        maxWidth: FILTER_TOGGLE_BUTTON_WIDTH_PX,
-                        height: 28,
-                        overflow: 'hidden',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        lineHeight: 1.2,
-                      },
-                      '& .MuiToggleButtonGroup-grouped:not(:first-of-type)': {
-                        marginLeft: '0 !important',
-                        borderLeft: '1px solid transparent',
-                      },
-                      '& .MuiToggleButtonGroup-grouped.Mui-selected + .MuiToggleButtonGroup-grouped.Mui-selected': {
-                        marginLeft: '0 !important',
-                        borderLeft: '1px solid transparent',
-                      },
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 0.5,
                     }}
                   >
-                    {testerSourceOptions.map((option) => (
-                      <ToggleButton key={option.value} value={option.value}>
-                        <EllipsisTooltip title={option.label} wrap="block">
-                          <Typography component="span" noWrap sx={toggleLabelSx} data-ellipsis-target>
-                            {option.label}
-                          </Typography>
-                        </EllipsisTooltip>
-                      </ToggleButton>
-                    ))}
-                  </ToggleButtonGroup>
+                    {testerSourceRows.map((rowOptions, rowIdx) => {
+                      if (rowOptions.length === 0) return null
+                      return (
+                        <ToggleButtonGroup
+                          key={`tester-sources-row-${rowIdx}`}
+                          size="small"
+                          value={testerSourceSelection}
+                          onChange={handleTesterSourceToggleChange}
+                          sx={{
+                            display: 'grid',
+                            gridTemplateColumns: `repeat(${rowOptions.length}, minmax(0, ${FILTER_TOGGLE_BUTTON_WIDTH_PX}px))`,
+                            columnGap: 0.5,
+                            rowGap: 0.5,
+                            '& .MuiToggleButton-root': {
+                              p: 0.5,
+                              width: FILTER_TOGGLE_BUTTON_WIDTH_PX,
+                              minWidth: FILTER_TOGGLE_BUTTON_WIDTH_PX,
+                              maxWidth: FILTER_TOGGLE_BUTTON_WIDTH_PX,
+                              height: 28,
+                              overflow: 'hidden',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              lineHeight: 1.2,
+                            },
+                            '& .MuiToggleButtonGroup-grouped:not(:first-of-type)': {
+                              marginLeft: '0 !important',
+                              borderLeft: '1px solid transparent',
+                            },
+                            '& .MuiToggleButtonGroup-grouped.Mui-selected + .MuiToggleButtonGroup-grouped.Mui-selected': {
+                              marginLeft: '0 !important',
+                              borderLeft: '1px solid transparent',
+                            },
+                          }}
+                        >
+                          {rowOptions.map((option) => (
+                            <ToggleButton key={option.value} value={option.value}>
+                              <EllipsisTooltip title={option.label} wrap="block">
+                                <Typography component="span" noWrap sx={toggleLabelSx} data-ellipsis-target>
+                                  {option.label}
+                                </Typography>
+                              </EllipsisTooltip>
+                            </ToggleButton>
+                          ))}
+                        </ToggleButtonGroup>
+                      )
+                    })}
+                  </Box>
                 </Collapse>
               </FormControl>
               {showChampionFilter && (

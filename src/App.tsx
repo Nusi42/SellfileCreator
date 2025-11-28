@@ -2469,8 +2469,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     return sortTesterRows(rows)
   }, [testerConfigFilterMode, testerConfigFilterSelectedSet, testerRowsAfterRulesFilter])
   const hasManualTesterRows = useMemo(() => (
-    testerRowsForTable.some((row) => row.artifact.source === 'tester')
-  ), [testerRowsForTable])
+    testerPreviewRows.some((row) => row.artifact.source === 'tester')
+  ), [testerPreviewRows])
   const suppressTesterMatchDetails = testerMatchDetailsFrozen
     || testerRowsBuilding
   const testerBuilding = testerRowsBuilding || rulesBuilding
