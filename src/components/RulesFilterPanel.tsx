@@ -3095,7 +3095,12 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                 valueLabelDisplay="auto"
               />
               <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-                <Button size="small" onClick={handleLastUseReset}>
+                <Button
+                  size="small"
+                  onClick={handleLastUseReset}
+                  // Match Close button sizing so the control widths stay aligned.
+                  sx={{ whiteSpace: 'nowrap', px: 1.25, height: SMALL_BUTTON_HEIGHT_PX, minHeight: SMALL_BUTTON_HEIGHT_PX }}
+                >
                   {t('testerLastUsedRangeReset')}
                 </Button>
               </Box>
