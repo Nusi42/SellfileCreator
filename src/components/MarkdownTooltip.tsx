@@ -25,7 +25,7 @@ import { hasEllipsisOverflow, pickEllipsisTarget } from '../lib/ellipsis'
  */
 export type TooltipHoverIntent = 'auto' | 'informational' | 'interactive'
 
-// Inspect the immediate child element so hover timing can respond to interactive controls.
+// Inspect the rendered child tree so hover timing can respond to interactive controls even when nested.
 export function hasPrimaryPointerHandler(node: React.ReactNode): boolean {
   const stack: React.ReactNode[] = [node]
   while (stack.length > 0) {
@@ -79,6 +79,7 @@ function parseInlineMarkdown(text: string): React.ReactNode[] {
   let lastIndex = 0
   text.replace(INLINE_PATTERN, (match, _group, offset) => {
     if (typeof offset === 'number' && offset > lastIndex) {
+      // Collect the plain text that precedes the matched token.
       nodes.push(text.slice(lastIndex, offset))
     }
     const startsWithDouble = match.startsWith('**') || match.startsWith('__')
@@ -92,6 +93,7 @@ function parseInlineMarkdown(text: string): React.ReactNode[] {
       ? match.slice(2, -2)
       : match.slice(1, -1)
     if (isCode) {
+      // Inline code draws from the mono stack so stats/numbers stay legible.
       nodes.push(
         <Box
           key={`code-${offset}`}
@@ -102,12 +104,14 @@ function parseInlineMarkdown(text: string): React.ReactNode[] {
         </Box>,
       )
     } else if (isStrong) {
+      // Translators frequently bold keywords—preserve that styling explicitly.
       nodes.push(
         <Box key={`strong-${offset}`} component="strong" sx={{ fontWeight: 600 }}>
           {content}
         </Box>,
       )
     } else if (isEmphasis) {
+      // Italic markers funnel through an `<em>` tag so screen readers keep semantics.
       nodes.push(
         <Box key={`em-${offset}`} component="em" sx={{ fontStyle: 'italic' }}>
           {content}
@@ -127,6 +131,7 @@ function parseInlineMarkdown(text: string): React.ReactNode[] {
 
 // Collapse the markdown string into either paragraphs or bullet segments so tooltips render predictable structure.
 function segmentMarkdown(markdown: string): MarkdownSegment[] {
+  // Normalize CRLF to LF so line handling stays predictable across platforms.
   const lines = markdown.replace(/\r\n/g, '\n').split('\n')
   const segments: MarkdownSegment[] = []
   let paragraph: string[] = []
@@ -165,6 +170,7 @@ function segmentMarkdown(markdown: string): MarkdownSegment[] {
 }
 
 export function renderMarkdownTooltipContent(markdown: string, options?: { maxWidth?: number }): React.ReactNode {
+  // Bail early for blank strings so callers don't see empty poppers.
   const normalized = markdown.trim()
   if (!normalized) return ''
   const segments = segmentMarkdown(normalized)
@@ -252,6 +258,7 @@ export function MarkdownTooltip({
   }, [externalOnClose, forceCloseUncontrolled])
 
   // Pre-render Markdown content so we can hand JSX directly to MUI’s Tooltip.
+  // Precompute the tooltip body so Popper never re-renders markdown mid-hover.
   const content = useMemo(() => {
     if (typeof render === 'function') return render()
     if (render) return render
@@ -260,6 +267,7 @@ export function MarkdownTooltip({
   }, [markdown, maxWidth, render])
   const resolvedPlacement = placement ?? 'top-start'
   // Track the rendered child element so we can monitor its visibility/hover state outside MUI.
+  // Anchor bookkeeping lets us mirror MUI's positioning logic while still policing visibility ourselves.
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null)
   const scheduleRef = useRef<number | null>(null)
   const anchorCallback = useCallback((node: HTMLElement | null) => {
@@ -269,6 +277,7 @@ export function MarkdownTooltip({
     ? (children as React.ReactElement & { ref?: React.Ref<Element> }).ref ?? null
     : null
   const mergedChildRef = useForkRef(childRef, anchorCallback)
+  // Native-title support only runs when the caller explicitly wants overflow copy exposed.
   const ellipsisEnabled = typeof ellipsisTitle === 'string' && ellipsisTitle.trim() !== ''
   const [showNativeEllipsisTitle, setShowNativeEllipsisTitle] = useState(false)
   useEffect(() => {
@@ -312,6 +321,7 @@ export function MarkdownTooltip({
         return React.cloneElement(children as React.ReactElement, nextProps)
       })()
     : children
+  // Detect handlers inside the provided subtree so buttons inside wrappers still use the slow delay.
   const childHasPrimaryPointerHandler = useMemo(() => hasPrimaryPointerHandler(children), [children])
   const treatAsInteractive = hoverIntent === 'interactive' || (hoverIntent === 'auto' && childHasPrimaryPointerHandler)
   const resolvedEnterDelay = enterDelay ?? (treatAsInteractive
@@ -342,6 +352,7 @@ export function MarkdownTooltip({
       const fullyTransparent = Number.parseFloat(style.opacity) === 0
       const pointerSuppressed = style.pointerEvents === 'none'
       if (style.visibility === 'hidden' || style.display === 'none' || fullyTransparent || pointerSuppressed) {
+        // Collapsed nodes should not keep the tooltip alive; close immediately.
         forceCloseUncontrolled()
         return
       }
@@ -363,6 +374,7 @@ export function MarkdownTooltip({
     }
   }, [anchorEl, forceCloseUncontrolled, resolvedOpen])
 
+  // Keep the native title attribute in sync with the ellipsis measurement so OS tooltips mirror the text.
   useEffect(() => {
     if (!ellipsisEnabled) return undefined
     const root = anchorEl

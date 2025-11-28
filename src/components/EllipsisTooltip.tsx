@@ -7,6 +7,7 @@ import { hasEllipsisOverflow } from '../lib/ellipsis'
 
 export { hasEllipsisOverflow, pickEllipsisTarget } from '../lib/ellipsis'
 
+// EllipsisTooltip wraps content that might truncate and only opens when text is visually clipped.
 export function EllipsisTooltip({
   title,
   children,
@@ -37,18 +38,21 @@ export function EllipsisTooltip({
   const tooltipProps = typeof title === 'string'
     ? { markdown: title }
     : { render: title }
+  // Detect nested click targets so the overflow helper inherits the slower hover delay when wrapping buttons.
   const childHasPrimaryPointerHandler = useMemo(() => hasPrimaryPointerHandler(children), [children])
   const treatAsInteractive = hoverIntent === 'interactive' || (hoverIntent === 'auto' && childHasPrimaryPointerHandler)
   const resolvedEnterDelay = treatAsInteractive
     ? MARKDOWN_TOOLTIP_INTERACTIVE_ENTER_DELAY_MS
     : MARKDOWN_TOOLTIP_INFO_ENTER_DELAY_MS
 
+  // Shared helper ensures delayed openings cancel cleanly when the pointer exits early.
   const clearHoverTimer = () => {
     if (hoverTimerRef.current === null) return
     window.clearTimeout(hoverTimerRef.current)
     hoverTimerRef.current = null
   }
 
+  // Dispose timers when the component unmounts so we never fire stale state updates.
   useEffect(() => clearHoverTimer, [])
 
   return (
@@ -64,6 +68,7 @@ export function EllipsisTooltip({
       <Box
         ref={(el) => { ref.current = el as HTMLElement | null }}
         component={wrap === 'block' ? 'div' : 'span'}
+        // Wrapper mimics the child’s display mode so we can attach hover listeners without layout shifts.
         sx={{ display: wrap === 'block' ? 'block' : 'inline-flex', minWidth: 0, width: wrap === 'block' ? '100%' : undefined }}
         onMouseEnter={(e: React.MouseEvent<HTMLElement>) => {
           if (disabled) return
