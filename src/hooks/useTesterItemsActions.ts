@@ -1,7 +1,7 @@
 /**
  * useTesterItemsActions
  *
- * This hook centralizes the helper callbacks that mutate tester items.
+ * This hook centralizes the helper callbacks that mutate imported gear entries.
  * App.tsx stays leaner, and the shared logic is now easier to exercise.
  * Every block is documented heavily per the orchestration guidelines.
  */
@@ -54,7 +54,7 @@ export function useTesterItemsActions(options: UseTesterItemsActionsOptions): Te
   } = options
 
   /**
-   * Append incoming tester items (from commands or manual adds).
+   * Append incoming gear entries (from commands or manual adds).
    * Every artifact gets a stable `itemId` so matcher diffs stay deterministic.
    */
   const appendTesterRuleItems = useCallback((items: TestItem[]) => {
@@ -75,7 +75,7 @@ export function useTesterItemsActions(options: UseTesterItemsActionsOptions): Te
   }, [allocTesterItemId, setTesterItems])
 
   /**
-   * Diff tester items after a Gear DB import or an automation command.
+   * Diff the gear queue after a Gear DB import or an automation command.
    * Returns a summary so the caller can toast how many artifacts changed.
    */
   const applyGearDbDiff = useCallback((desiredTesterItems: TestItem[], mode: 'manual' | 'command'): GearDbDiffSummary => {

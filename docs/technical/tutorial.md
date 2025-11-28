@@ -26,7 +26,7 @@
 
 - Intent: Section jumps reconstruct state as if the user walked through intermediate steps, rather than literally skipping.
 - Implementation: On jump, the app resets to a clean baseline and replays step effects up to the target index (slots, mainstat, sets, substats, required count, min rolls, config adds/selection, metaset creation/defaults, metaset selection, Final Sell defaults including sets mode).
-- Include tester state in replay: when a jump lands on or past the Rule Tester section, hydrate the tester gear queue, preview mode (`'tester'`), and tester filter state before showing the step. Reuse the same helpers the live tutorial uses (`useTesterItemsActions`, `setPreviewMode('tester')`, `setTesterFilters`) so jumps never flash empty grids.
+- Include tester state in replay: when a jump lands on or past the Rule Tester section, hydrate the gear queue, preview mode (`'tester'`), and tester filter state before showing the step. Reuse the same helpers the live tutorial uses (`useTesterItemsActions`, `setPreviewMode('tester')`, `setTesterFilters`) so jumps never flash empty grids.
 - Persist builder preference toggles: when a step toggles Auto reset or Auto apply, record the toggles in `nextPreferences` so replays and jumps keep the same defaults active.
 - Determinism: After hydration, the target step’s `before` still opens/closes any dialogs/menus to match the intended view.
 

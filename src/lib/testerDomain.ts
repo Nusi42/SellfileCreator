@@ -1,7 +1,7 @@
 /**
  * testerDomain.ts
  *
- * Shared helpers for Rule Tester gear entries so slot/set normalization and rank/rarity
+ * Shared helpers for the Rule Tester queue so slot/set normalization and rank/rarity
  * coercion stay consistent across external command ingestion and the UI.
  */
 import { ACCESSORY_NO_SET_ID, TESTER_ANY_SLOT_ID } from './constants'

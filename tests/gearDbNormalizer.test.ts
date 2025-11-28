@@ -148,7 +148,7 @@ const mythGauntletRow: GearDbArtifactRow = {
   REROLLCOUNT: 0,
 }
 
-test('normalizeGearDbArtifact converts weapon row to tester item', () => {
+test('normalizeGearDbArtifact converts weapon row to gear entry', () => {
   const normalized = normalizeGearDbArtifact(weaponRow)
   assert.equal(normalized.slot, ArtifactType.Weapon)
   assert.equal(normalized.set, ArtifactSet.Savage)
