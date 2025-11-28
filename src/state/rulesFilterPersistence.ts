@@ -18,6 +18,7 @@ export const RULES_FILTER_COLLAPSIBLE_SECTION_IDS = Object.freeze([
   'rule',
   'sets',
   'sources',
+  'lastUse',
   'champions',
   'main',
   'sub',

@@ -2468,6 +2468,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     }
     return sortTesterRows(rows)
   }, [testerConfigFilterMode, testerConfigFilterSelectedSet, testerRowsAfterRulesFilter])
+  const hasManualTesterRows = useMemo(() => (
+    testerRowsForTable.some((row) => row.artifact.source === 'tester')
+  ), [testerRowsForTable])
   const suppressTesterMatchDetails = testerMatchDetailsFrozen
     || testerRowsBuilding
   const testerBuilding = testerRowsBuilding || rulesBuilding
@@ -3762,6 +3765,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             testerChampionOptions={testerChampionOptions}
             substatColors={substatColors}
             useStatButtonColors={statButtonBorders}
+            hasManualTesterItems={hasManualTesterRows}
           />
           )}
           <Box sx={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>

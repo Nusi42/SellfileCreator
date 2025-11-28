@@ -151,3 +151,4 @@ Write down open questions as you go—especially when sample rows expose partial
   - `lastUse` — local timestamp string in the format `YYYY-MM-DD HH:MM:SS.sss`.
 - The importer trims those strings, maps them onto each normalized artifact, and exposes them via `NormalizedGearArtifact.lastUseLocalTimestamp` plus the tester preview extras. The tester grid renders the value in a tooltip on the gear icon using the user’s locale.
 - When the table is missing (older DBs), we simply omit the tooltip—no fallback data is guessed.
+- Tester filters consume this metadata: the `Last used` presets (`Never used`, `≤7d`, `≤30d`, `≤90d`, `>90d`) and the custom day-range popover both evaluate against `lastUseLocalTimestamp`, so any DB without the table automatically treats those rows as “unknown.”

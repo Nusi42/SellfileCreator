@@ -48,3 +48,16 @@ export function formatLocalDateTime(
     return date.toLocaleString()
   }
 }
+
+const MS_PER_DAY = 24 * 60 * 60 * 1000
+
+export function getDaysSince(value: string | number | Date | null | undefined): number | null {
+  const date = toDate(value)
+  if (!date) return null
+  const diffMs = Date.now() - date.getTime()
+  if (!Number.isFinite(diffMs)) return null
+  const days = diffMs / MS_PER_DAY
+  if (!Number.isFinite(days)) return null
+  if (days <= 0) return 0
+  return days
+}
