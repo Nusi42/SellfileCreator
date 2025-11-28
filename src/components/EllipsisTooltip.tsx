@@ -1,8 +1,8 @@
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { Box } from '@mui/material'
 import { useScrollingFlag } from '../hooks/useScrollingFlag'
-import MarkdownTooltip from './MarkdownTooltip'
-import { MARKDOWN_TOOLTIP_ENTER_DELAY_MS } from '../lib/constants'
+import MarkdownTooltip, { hasPrimaryPointerHandler, type TooltipHoverIntent } from './MarkdownTooltip'
+import { MARKDOWN_TOOLTIP_INFO_ENTER_DELAY_MS, MARKDOWN_TOOLTIP_INTERACTIVE_ENTER_DELAY_MS } from '../lib/constants'
 import { hasEllipsisOverflow } from '../lib/ellipsis'
 
 export { hasEllipsisOverflow, pickEllipsisTarget } from '../lib/ellipsis'
@@ -16,6 +16,7 @@ export function EllipsisTooltip({
   // Default to the global tooltip portal so overflow helpers never enlarge their scroll parents.
   disablePortal = false,
   maxWidth,
+  hoverIntent = 'auto',
 }: {
   title: React.ReactNode | string
   children: React.ReactNode
@@ -24,6 +25,7 @@ export function EllipsisTooltip({
   wrap?: 'inline' | 'block'
   disablePortal?: boolean
   maxWidth?: number | string
+  hoverIntent?: TooltipHoverIntent
 }) {
   const ref = useRef<HTMLElement | null>(null)
   const [open, setOpen] = useState(false)
@@ -35,6 +37,11 @@ export function EllipsisTooltip({
   const tooltipProps = typeof title === 'string'
     ? { markdown: title }
     : { render: title }
+  const childHasPrimaryPointerHandler = useMemo(() => hasPrimaryPointerHandler(children), [children])
+  const treatAsInteractive = hoverIntent === 'interactive' || (hoverIntent === 'auto' && childHasPrimaryPointerHandler)
+  const resolvedEnterDelay = treatAsInteractive
+    ? MARKDOWN_TOOLTIP_INTERACTIVE_ENTER_DELAY_MS
+    : MARKDOWN_TOOLTIP_INFO_ENTER_DELAY_MS
 
   const clearHoverTimer = () => {
     if (hoverTimerRef.current === null) return
@@ -49,6 +56,7 @@ export function EllipsisTooltip({
       {...tooltipProps}
       followCursor={false}
       disableHoverListener
+      hoverIntent={hoverIntent}
       slotProps={tooltipSlotProps ? { popper: popperSlotProps, tooltip: tooltipSlotProps } : { popper: popperSlotProps }}
       // Close while scrolling to avoid stale placement after scroll.
       open={!disabled && open && !scrolling}
@@ -69,7 +77,7 @@ export function EllipsisTooltip({
             hoverTimerRef.current = null
             // Re-measure after the delay so dynamic labels don't show stale tooltips.
             setOpen(hasEllipsisOverflow(root, selector))
-          }, MARKDOWN_TOOLTIP_ENTER_DELAY_MS)
+          }, resolvedEnterDelay)
         }}
         onMouseLeave={() => {
           clearHoverTimer()

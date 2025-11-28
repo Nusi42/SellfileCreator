@@ -10,7 +10,8 @@ import { useForkRef } from '@mui/material/utils'
 import Box from '@mui/material/Box'
 import Typography from '@mui/material/Typography'
 import {
-  MARKDOWN_TOOLTIP_ENTER_DELAY_MS,
+  MARKDOWN_TOOLTIP_INFO_ENTER_DELAY_MS,
+  MARKDOWN_TOOLTIP_INTERACTIVE_ENTER_DELAY_MS,
   MARKDOWN_TOOLTIP_MAX_WIDTH_PX,
 } from '../lib/constants'
 import { hasEllipsisOverflow, pickEllipsisTarget } from '../lib/ellipsis'
@@ -22,6 +23,35 @@ import { hasEllipsisOverflow, pickEllipsisTarget } from '../lib/ellipsis'
  * Why: Many tooltips share the same multi-line/bullet requirements and we want
  * a single implementation that enforces consistent spacing, width, and delay.
  */
+export type TooltipHoverIntent = 'auto' | 'informational' | 'interactive'
+
+// Inspect the immediate child element so hover timing can respond to interactive controls.
+export function hasPrimaryPointerHandler(node: React.ReactNode): boolean {
+  const stack: React.ReactNode[] = [node]
+  while (stack.length > 0) {
+    const current = stack.pop()
+    if (!current) continue
+    if (Array.isArray(current)) {
+      stack.push(...current)
+      continue
+    }
+    if (!React.isValidElement(current)) continue
+    const props = (current as React.ReactElement).props ?? {}
+    if (
+      ['onClick', 'onMouseDown', 'onPointerDown'].some(
+        (handler) => typeof (props as Record<string, unknown>)[handler] === 'function',
+      )
+    ) {
+      return true
+    }
+    const childrenArray = React.Children.toArray((props as { children?: React.ReactNode }).children)
+    if (childrenArray.length > 0) {
+      stack.push(...childrenArray)
+    }
+  }
+  return false
+}
+
 export interface MarkdownTooltipProps extends Omit<TooltipProps, 'title'> {
   // Plain markdown string (default path). Useful for i18n copy.
   markdown?: string
@@ -32,6 +62,8 @@ export interface MarkdownTooltipProps extends Omit<TooltipProps, 'title'> {
   ellipsisTitle?: string
   // Optional selector for the node that owns the ellipsis styles (defaults to `[data-ellipsis-target]`).
   ellipsisSelector?: string
+  // Override the automatic delay heuristics. Only needed when the tooltip wraps deeply nested buttons.
+  hoverIntent?: TooltipHoverIntent
 }
 
 type MarkdownSegment =
@@ -189,6 +221,7 @@ export function MarkdownTooltip({
   disableFocusListener = true,
   ellipsisTitle,
   ellipsisSelector,
+  hoverIntent = 'auto',
   children,
   ...tooltipProps
 }: MarkdownTooltipProps) {
@@ -279,6 +312,11 @@ export function MarkdownTooltip({
         return React.cloneElement(children as React.ReactElement, nextProps)
       })()
     : children
+  const childHasPrimaryPointerHandler = useMemo(() => hasPrimaryPointerHandler(children), [children])
+  const treatAsInteractive = hoverIntent === 'interactive' || (hoverIntent === 'auto' && childHasPrimaryPointerHandler)
+  const resolvedEnterDelay = enterDelay ?? (treatAsInteractive
+    ? MARKDOWN_TOOLTIP_INTERACTIVE_ENTER_DELAY_MS
+    : MARKDOWN_TOOLTIP_INFO_ENTER_DELAY_MS)
 
   // Poll every animation frame while open: once the trigger is gone or no longer hovered/focused we close.
   useEffect(() => {
@@ -345,7 +383,7 @@ export function MarkdownTooltip({
       arrow
       disableInteractive
       disableFocusListener={disableFocusListener}
-      enterDelay={enterDelay ?? MARKDOWN_TOOLTIP_ENTER_DELAY_MS}
+      enterDelay={resolvedEnterDelay}
       placement={resolvedPlacement}
       {...(slotProps ? { slotProps } : {})}
       title={content}
