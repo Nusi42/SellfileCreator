@@ -580,7 +580,7 @@ export function filterTesterItems<T extends TesterFilterRow>(
 
     const slotsMode = f.slots?.anyMode ?? 'include'
     if (slotsMode === 'only') {
-      // Tester items always specify a slot; nothing matches "Only Any".
+      // Imported gear always specifies a slot; nothing matches "Only Any".
       continue
     }
     if (selectedSlots.size > 0 && !selectedSlots.has(slotId)) continue
@@ -590,7 +590,7 @@ export function filterTesterItems<T extends TesterFilterRow>(
     if (rankMode === 'only') {
       continue
     } else if (rankMode === 'off') {
-      // Rank is always specified for tester items.
+      // Rank is always specified for the Rule Tester queue.
     }
     if (selectedRanks.size > 0 && !selectedRanks.has(rank as RankValue)) continue
 

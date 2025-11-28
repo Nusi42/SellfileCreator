@@ -10,7 +10,7 @@
 
 ## 3. Documentation/tooltips needing revision
 - `README.md:117-140` describes the preview filters strictly in terms of the old Any/Only chips; it does not mention the new tester-mode glyph roll filters, the level slider, or the `Ctrl+F` shortcut that opens the filter panel (`src/components/RulesFilterPanel.tsx:811-2147`, `ba3764d` commit). Update the guide to highlight the slider’s +0/+16 range, the glyph legend, and the new keyboard shortcut so readers know the new controls exist.
-- `docs/technical/tutorial.md:1-90` is still centered on builder-only steps and does not mention the Rule Tester gear grid, `.db` import flow, or the new copy-to-clipboard path button introduced in `RuleTesterDialog`. The onboarding guide should include a brief step that opens the `Gear...` dialog, imports a `.db`, explains the preview toggle, and demonstrates the copy-path button that helps users find `%APPDATA%\RslHelper\Config`.
+- `docs/technical/tutorial.md:1-90` is still centered on builder-only steps and does not mention the Rule Tester grid, `.db` import flow, or the new copy-to-clipboard path button introduced in `RuleTesterDialog`. The onboarding guide should include a brief step that opens the `Gear...` dialog, imports a `.db`, explains the preview toggle, and demonstrates the copy-path button that helps users find `%APPDATA%\RslHelper\Config`.
 - `docs/technical/app-behavior.md:60-100` describes the builder cheat sheet in broad strokes, but the cheat sheet now has dedicated “Rolls Cap,” “Rolls Sum,” and milestone timeline examples (see `src/components/BuilderCheatSheetPopover.tsx:360-520` and the CDMG cap preview tweaks in commit `5c24a10`). That doc should explicitly list the new sections (roll cap, sum, milestone timelines) so the “Builder cheat sheet” entry reflects the UI the popover currently renders.
 
 ## 4. New technical debt introduced since v0.9.8
@@ -27,7 +27,7 @@
 
 ## 2. Localization gaps
 - `src/components/dialogs/RuleTesterDialog.tsx:701` hardcodes the “Coookieees!” tooltip when the cookie-monster animation kicks in, so that Easter-egg text never flows through `t('…')` and is missing from `src/lib/i18n/catalogs/en-US.ts`. Add a proper key or remove the string.
-- `src/components/dialogs/RuleTesterDialog.tsx:764-783` added delete/insert buttons for tester items with literal `aria-label="add-row"` / `"remove-row"`. These labels need to reference the existing `add`/`delete` text (or new catalog entries) so screen readers receive localized copy.
+- `src/components/dialogs/RuleTesterDialog.tsx:764-783` added delete/insert buttons for the gear rows with literal `aria-label="add-row"` / `"remove-row"`. These labels need to reference the existing `add`/`delete` text (or new catalog entries) so screen readers receive localized copy.
 - `src/components/RulesFilterPanel.tsx:470-478` now sets the accordion chevrons’ aria-labels to `'Expand'` / `'Collapse'` directly. That bypasses i18n and prevents non-English locales from hearing localized narration; wire those labels through the catalog (the same keys we already use for other accordions) to restore parity.
 
 ## 3. Documentation, README, tutorial, and cheat sheet gaps

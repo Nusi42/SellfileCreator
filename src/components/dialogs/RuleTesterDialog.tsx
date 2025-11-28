@@ -1437,7 +1437,7 @@ export default function RuleTesterDialog({
     )
   }
 
-  // Append externally injected tester items once per payload, skipping duplicates and scrolling to the newest row when items arrive.
+  // Append externally injected gear entries once per payload, skipping duplicates and scrolling to the newest row when items arrive.
   useEffect(() => {
     if (!pendingExternalItems || pendingExternalItems.length === 0) return
     let cancelled = false

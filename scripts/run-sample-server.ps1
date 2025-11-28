@@ -1720,7 +1720,7 @@ function Get-RandomTesterItemsSelection {
     $state = $script:DemoState
     $pool = $state.TesterItemPool
     if (-not $pool -or $pool.Count -eq 0) {
-        throw 'Tester item samples are not available.'
+        throw 'Gear samples are not available.'
     }
 
     $random = $state.Random
@@ -2359,7 +2359,7 @@ try {
         New-Item -ItemType Directory -Path $outputDir -Force | Out-Null
     }
 
-    Write-ConsoleHeader -Message 'Shortcuts: [T] queue sample tester items, [R] queue sample selectRule. Press Ctrl+C to stop the listener.' -Color DarkGray
+    Write-ConsoleHeader -Message 'Shortcuts: [T] queue sample gear, [R] queue sample selectRule. Press Ctrl+C to stop the listener.' -Color DarkGray
 
     $pendingContext = $null
     $contextWaitHandle = $null
