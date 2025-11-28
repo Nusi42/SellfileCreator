@@ -121,6 +121,8 @@ const computeInlineSelectContentMaxWidth = (paddingPx: number) => {
 }
 const CHAMPION_SELECT_WIDTH_PX = Math.round(FILTER_FACTION_SELECT_WIDTH_PX * 0.8)
 const LAST_USE_TOGGLE_BUTTON_WIDTH_PX = FILTER_TOGGLE_BUTTON_WIDTH_PX / 2
+// Clamp the header width to the three-button grid so labels never exceed the controls.
+const LAST_USE_SECTION_WIDTH_PX = (LAST_USE_TOGGLE_BUTTON_WIDTH_PX * 3) + 8
 
 type GlyphLegendEntry = {
   glyph: string
@@ -235,6 +237,47 @@ const collapsibleSectionSx = {
   minWidth: 0,
   alignSelf: 'flex-start',
 } as const
+
+// Shared header layout keeps toggles + titles inside the same width budget as their content.
+const sectionHeaderBaseSx = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 0.5,
+  mb: 0.5,
+  minWidth: 0,
+  maxWidth: '100%',
+  flexWrap: 'nowrap',
+} as const
+
+// Labels get forced ellipsis styling so translations trigger the tooltip when they overflow.
+const sectionHeaderLabelSx = {
+  m: 0,
+  minWidth: 0,
+  flex: '1 1 auto',
+  display: 'block',
+  width: '100%',
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+  whiteSpace: 'nowrap',
+} as const
+
+const sectionHeaderLabelTextSx = {
+  display: 'block',
+  width: '100%',
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+  whiteSpace: 'nowrap',
+} as const
+
+const SectionHeaderLabel = ({ label }: { label: React.ReactNode }) => (
+  <EllipsisTooltip title={label} wrap="block">
+    <FormLabel sx={sectionHeaderLabelSx}>
+      <Box component="span" data-ellipsis-target sx={sectionHeaderLabelTextSx}>
+        {label}
+      </Box>
+    </FormLabel>
+  </EllipsisTooltip>
+)
 
 const ZERO_RESULTS_PULSE = keyframes`
   0%, 100% { background-color: rgba(0,0,0,0); }
@@ -606,8 +649,9 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
       const wildcardSummary = summarizeRollCounts(wildcardCounts)
       if (wildcardSummary) {
         parts.push(t('filterRollsSummaryAnyStat', { counts: wildcardSummary }))
-      }
     }
+  }
+
     if (testerRollRowCount > 0) {
       const joiner = t('filterRollsChipPerStatJoiner')
       const entries = activePerStatRows
@@ -625,6 +669,36 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
     const separator = t('filterRollsChipSeparator')
     return parts.join(separator)
   }, [activePerStatRows, t, testerRollRowCount, wildcardCounts, wildcardIsActive])
+
+  // SectionHeader pairs the toggle with an ellipsized label so every section handles long translations uniformly.
+  const SectionHeader = ({
+    id,
+    label,
+    actions,
+    fullWidth = true,
+    maxWidth,
+  }: {
+    id: keyof typeof collapsed
+    label: React.ReactNode
+    actions?: React.ReactNode
+    fullWidth?: boolean
+    maxWidth?: number | string
+  }) => {
+    const resolvedMax = typeof maxWidth === 'number' ? `${maxWidth}px` : maxWidth
+    return (
+      <Box
+        sx={{
+          ...sectionHeaderBaseSx,
+          width: fullWidth ? '100%' : resolvedMax ?? 'fit-content',
+          maxWidth: fullWidth ? '100%' : resolvedMax ?? '100%',
+        }}
+      >
+        <SectionToggle id={id} />
+        <SectionHeaderLabel label={label} />
+        {actions}
+      </Box>
+    )
+  }
 
   const rollChipGlyph = React.useMemo(() => {
     if (!testerRollsActive) return GLYPH_GTE_ZERO
@@ -1323,10 +1397,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
           {/* Top row: Rule/Result (left) and Sets (right) inside a nested grid */}
           <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'auto minmax(0, 1fr)' }, columnGap: 1, rowGap: 0.75 }}>
           <FormControl fullWidth sx={{ mb: 0.75 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
-              <SectionToggle id="rule" />
-              <FormLabel sx={{ m: 0 }}>{t(isTesterMode ? 'filterTesterResult' : 'filterRule')}</FormLabel>
-            </Box>
+            <SectionHeader id="rule" label={t(isTesterMode ? 'filterTesterResult' : 'filterRule')} />
             <Collapse in={!collapsed.rule} timeout="auto" unmountOnExit>
             {isTesterMode ? (
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75 }}>
@@ -1520,10 +1591,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
               maxWidth: FILTER_SETS_SELECT_WIDTH_PX,
             }}
           >
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
-              <SectionToggle id="sets" />
-              <FormLabel sx={{ m: 0 }}>{t('filterSets')}</FormLabel>
-            </Box>
+            <SectionHeader id="sets" label={t('filterSets')} />
             <Collapse in={!collapsed.sets} timeout="auto" unmountOnExit>
             {(() => {
               const sorted = filterAndSortSetEntries(setsSearch, setsOrder, { translate: t })
@@ -1822,10 +1890,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
               }}
             >
               <FormControl sx={{ ...collapsibleSectionSx }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
-                  <SectionToggle id="sources" />
-                  <FormLabel sx={{ m: 0 }}>{t('filterSource')}</FormLabel>
-                </Box>
+                <SectionHeader id="sources" label={t('filterSource')} fullWidth={false} />
                 <Collapse in={!collapsed.sources} timeout="auto" unmountOnExit>
                   <Box
                     // Stack two button rows: base view shows 2x2, manual rows expand the second tier to three columns.
@@ -1887,10 +1952,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
               </FormControl>
               {showChampionFilter && (
                 <FormControl sx={{ ...collapsibleSectionSx }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
-                    <SectionToggle id="champions" />
-                    <FormLabel sx={{ m: 0 }}>{t('testerChampionFilterLabel')}</FormLabel>
-                  </Box>
+                  <SectionHeader id="champions" label={t('testerChampionFilterLabel')} />
                   <Collapse in={!collapsed.champions} timeout="auto" unmountOnExit>
                     <Box
                       sx={{
@@ -2077,10 +2139,12 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                 </FormControl>
               )}
               <FormControl sx={{ ...collapsibleSectionSx }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
-                  <SectionToggle id="lastUse" />
-                  <FormLabel sx={{ m: 0 }}>{t('testerLastUsedFilterLabel')}</FormLabel>
-                </Box>
+                <SectionHeader
+                  id="lastUse"
+                  label={t('testerLastUsedFilterLabel')}
+                  fullWidth={false}
+                  maxWidth={`${LAST_USE_SECTION_WIDTH_PX}px`}
+                />
                 <Collapse in={!collapsed.lastUse} timeout="auto" unmountOnExit>
                   <Stack spacing={0.75}>
                     <ToggleButtonGroup
@@ -2158,10 +2222,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
           >
             {/* Mainstat (below Sets) */}
             <FormControl sx={collapsibleSectionSx}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
-                <SectionToggle id="main" />
-                <FormLabel sx={{ m: 0 }}>{t('filterMainstat')}</FormLabel>
-              </Box>
+              <SectionHeader id="main" label={t('filterMainstat')} />
               <Collapse in={!collapsed.main} timeout="auto" unmountOnExit>
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
                 <ToggleButtonGroup
@@ -2248,10 +2309,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
 
             {/* Substats (below Sets) */}
             <FormControl sx={collapsibleSectionSx}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
-                <SectionToggle id="sub" />
-                <FormLabel sx={{ m: 0 }}>{t('filterSubstats')}</FormLabel>
-              </Box>
+              <SectionHeader id="sub" label={t('filterSubstats')} />
               <Collapse in={!collapsed.sub} timeout="auto" unmountOnExit>
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
                 <ToggleButtonGroup
@@ -2384,10 +2442,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
           <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: showFaction ? 'auto 1fr' : '1fr' }, columnGap: 1, rowGap: 1 }}>
             {/* Level */}
             <FormControl fullWidth sx={{ mb: 0.75 }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
-                <SectionToggle id="level" />
-                <FormLabel sx={{ m: 0 }}>{t('filterLevel')}</FormLabel>
-              </Box>
+              <SectionHeader id="level" label={t('filterLevel')} />
               <Collapse in={!collapsed.level} timeout="auto" unmountOnExit>
                 {isTesterMode ? (
                   <Box sx={{
@@ -2462,10 +2517,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
             {/* Faction */}
             {showFaction && (
               <FormControl fullWidth sx={{ mb: 0.75 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
-                  <SectionToggle id="faction" />
-                  <FormLabel sx={{ m: 0 }}>{t('filterFaction')}</FormLabel>
-                </Box>
+                <SectionHeader id="faction" label={t('filterFaction')} />
                 <Collapse in={!collapsed.faction} timeout="auto" unmountOnExit>
                   <Box
                     sx={{
@@ -2646,10 +2698,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
         >
           {/* Slots */}
           <FormControl sx={collapsibleSectionSx}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
-              <SectionToggle id="slots" />
-              <FormLabel sx={{ m: 0 }}>{t('filterSlots')}</FormLabel>
-            </Box>
+            <SectionHeader id="slots" label={t('filterSlots')} />
             <Collapse in={!collapsed.slots} timeout="auto" unmountOnExit>
               <ToggleButtonGroup
                 size="small"
@@ -2693,10 +2742,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
 
           {/* Rank */}
           <FormControl sx={collapsibleSectionSx}>
-            <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
-              <SectionToggle id="rank" />
-              <FormLabel sx={{ m: 0, mr: 'auto' }}>{t('filterRank')}</FormLabel>
-            </Box>
+            <SectionHeader id="rank" label={t('filterRank')} />
             <Collapse in={!collapsed.rank} timeout="auto" unmountOnExit>
                 <ToggleButtonGroup
                   size="small"
@@ -2733,10 +2779,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
 
           {/* Rarity */}
           <FormControl sx={collapsibleSectionSx}>
-            <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
-              <SectionToggle id="rarity" />
-              <FormLabel sx={{ m: 0, mr: 'auto' }}>{t('filterRarity')}</FormLabel>
-              </Box>
+            <SectionHeader id="rarity" label={t('filterRarity')} />
               <Collapse in={!collapsed.rarity} timeout="auto" unmountOnExit>
                 <ToggleButtonGroup
                   size="small"
@@ -2795,10 +2838,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
         </Box>
         {isTesterMode && (
           <FormControl sx={{ ...collapsibleSectionSx, mb: 0.75 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
-              <SectionToggle id="ascension" />
-              <FormLabel sx={{ m: 0 }}>{t('filterAscension')}</FormLabel>
-            </Box>
+            <SectionHeader id="ascension" label={t('filterAscension')} />
             <Collapse in={!collapsed.ascension} timeout="auto" unmountOnExit>
               <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
                 <Box sx={{ flex: { xs: '1 1 100%', md: '0 0 auto' }, minWidth: 0 }}>
