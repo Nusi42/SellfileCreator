@@ -198,4 +198,10 @@ test('normalizeGearDbArtifact carries Mythical pre-roll bonus into totals', () =
   assert.equal(subValues[StatVariant.CR], 18)
 })
 
+test('normalizeGearDbArtifact records last-use timestamps from options', () => {
+  const normalized = normalizeGearDbArtifact(weaponRow, { lastUseLocalTimestamp: '2024-05-07 12:34:56.789' })
+  assert.equal(normalized.lastUseLocalTimestamp, '2024-05-07 12:34:56.789')
+  assert.equal(normalized.testerItem.previewExtras?.lastUseLocalTimestamp, '2024-05-07 12:34:56.789')
+})
+
 export {}

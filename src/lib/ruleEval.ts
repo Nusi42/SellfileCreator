@@ -27,6 +27,7 @@ export type TesterItemPreviewExtras = {
   substats?: NormalizedStat[]
   ascension?: NormalizedStat | null
   exactLevel?: number | null
+  lastUseLocalTimestamp?: string | null
 }
 
 export type TestItem = {

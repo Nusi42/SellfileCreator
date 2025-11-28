@@ -192,12 +192,14 @@ export type NormalizedGearArtifact = {
   source: 'artifacts' | 'inbox' | 'tester'
   equippedChampionName: string | null
   equippedChampionLocation: ChampionLocation | null
+  lastUseLocalTimestamp: string | null
 }
 
 export type NormalizeOptions = {
   source?: 'artifacts' | 'inbox'
   name?: string
   championLookup?: ReadonlyMap<number, ChampionLookupRecord>
+  lastUseLocalTimestamp?: string | null
 }
 
 const toNumber = (value: number | null | undefined): number | null => {
@@ -377,6 +379,15 @@ const buildSubValueMap = (stats: NormalizedStat[]): Record<number, number> => {
   return Object.fromEntries(map.entries())
 }
 
+// Last-used timestamps arrive as local strings (`YYYY-MM-DD HH:MM:SS.sss`);
+// normalize by trimming whitespace and dropping empty payloads.
+const sanitizeLastUseTimestamp = (value?: string | null): string | null => {
+  if (typeof value !== 'string') return null
+  const trimmed = value.trim()
+  if (!trimmed) return null
+  return trimmed
+}
+
 export function normalizeGearDbArtifact(row: GearDbArtifactRow, options: NormalizeOptions = {}): NormalizedGearArtifact {
   const slot = determineSlot(row.type)
   const rawSet = determineSet(slot, row.aset)
@@ -411,6 +422,7 @@ export function normalizeGearDbArtifact(row: GearDbArtifactRow, options: Normali
     : null
   const equippedChampionBaseId = championRecord?.baseHeroId ?? null
   const source = options.source ?? 'artifacts'
+  const lastUseLocalTimestamp = sanitizeLastUseTimestamp(options.lastUseLocalTimestamp)
 
   const subValues = buildSubValueMap(substats)
 
@@ -436,6 +448,7 @@ export function normalizeGearDbArtifact(row: GearDbArtifactRow, options: Normali
       substats,
       ascension: ascension ?? null,
       exactLevel,
+      lastUseLocalTimestamp,
     },
   }
 
@@ -458,5 +471,6 @@ export function normalizeGearDbArtifact(row: GearDbArtifactRow, options: Normali
     source,
     equippedChampionName,
     equippedChampionLocation,
+    lastUseLocalTimestamp,
   }
 }

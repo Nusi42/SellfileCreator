@@ -99,6 +99,7 @@ const enUS: Catalog = {
   testerAddRowAriaLabel: 'Add row',
   testerRemoveRowAriaLabel: 'Remove row',
   testerRerollLabel: 'Rerolled',
+  testerLastUsedTooltip: 'Last used {timestamp}.',
   // Common UI bits used in Rule Tester
   add: 'Add',
   compact: 'Compact',

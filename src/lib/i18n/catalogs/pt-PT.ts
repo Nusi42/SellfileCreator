@@ -93,6 +93,7 @@ const overrides: Catalog = {
 
   testerKeepUniqueChip: 'Manter únicos',
   testerValueUnknown: '—',
+  testerLastUsedTooltip: 'Última utilização {timestamp}.',
   testerAddManualGear: 'Adicionar equipamento manual',
   // Common UI bits used in Teste de Regras
   add: 'Adicionar',

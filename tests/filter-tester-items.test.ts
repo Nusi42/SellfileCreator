@@ -65,6 +65,7 @@ const makeArtifact = (overrides: Partial<NormalizedGearArtifact> = {}): Normaliz
   equippedChampionName: null,
   equippedChampionLocation: null,
   source: 'artifacts',
+  lastUseLocalTimestamp: null,
   ...overrides,
 })
 

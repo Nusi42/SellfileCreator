@@ -1,6 +1,7 @@
 import { Box, Button, Checkbox, Dialog, DialogActions, DialogContent, DialogTitle, FormControlLabel, FormGroup, Stack, Typography } from '@mui/material'
 import { useMemo, useState, useEffect } from 'react'
 import { useI18n } from '../../lib/i18n'
+import { formatLocalDateTime } from '../../lib/dateDisplay'
 import type { RestoreDraft } from '../../hooks/useAutosaveRestore'
 import { RESTORE_SELECTION_DEFAULT, RESTORE_SELECTION_KEYS, type RestoreOptionKey, type RestoreSelection } from '../../types/restoreAutosaveSelection'
 import { useRestoreAutosaveSelectionPreference } from '../../state/restoreAutosaveSelection'
@@ -27,19 +28,7 @@ type RestoreOption = {
   helper?: string
 }
 
-const formatSavedAt = (value?: string | null): string | null => {
-  if (!value) return null
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return null
-  try {
-    return new Intl.DateTimeFormat(undefined, {
-      dateStyle: 'medium',
-      timeStyle: 'short',
-    }).format(date)
-  } catch {
-    return date.toLocaleString()
-  }
-}
+const formatSavedAt = (value?: string | null): string | null => formatLocalDateTime(value)
 
 const mergeStoredSelection = (defaults: RestoreSelection, stored: Partial<RestoreSelection>): RestoreSelection => {
   const merged: RestoreSelection = { ...defaults }

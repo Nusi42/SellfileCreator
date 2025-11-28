@@ -57,6 +57,7 @@ type GridIconBoxProps = {
   levelLabel?: string | undefined
   size?: number
   showRankStarsBackground?: boolean
+  gearTooltip?: string | null
 }
 
 export default function GridIconBox({
@@ -75,6 +76,7 @@ export default function GridIconBox({
   levelLabel,
   size = GRID_ICON_BOX_SIZE_PX,
   showRankStarsBackground = true,
+  gearTooltip,
 }: GridIconBoxProps) {
   const theme = useTheme()
   const slotArtSrc = gearSetSlotIconUrl(
@@ -285,7 +287,7 @@ export default function GridIconBox({
     </MarkdownTooltip>
   ) : null
 
-  return (
+  const iconNode = (
     <Box
       sx={{
         width: size,
@@ -337,6 +339,15 @@ export default function GridIconBox({
       {outcomeNode}
     </Box>
   )
+  if (gearTooltip) {
+    // Gear hover copy runs through MarkdownTooltip so translations keep the shared delay + styling.
+    return (
+      <MarkdownTooltip markdown={gearTooltip}>
+        {iconNode}
+      </MarkdownTooltip>
+    )
+  }
+  return iconNode
 }
 
 export {

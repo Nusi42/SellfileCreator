@@ -93,6 +93,7 @@ const catalog: Catalog = {
 
   testerKeepUniqueChip: 'Manter únicos',
   testerValueUnknown: '—',
+  testerLastUsedTooltip: 'Último uso {timestamp}.',
   testerAddManualGear: 'Adicionar equipamento manual',
   // Common UI bits used in Teste de Regras
   add: 'Adicionar',

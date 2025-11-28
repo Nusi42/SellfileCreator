@@ -31,6 +31,7 @@ This note tracks the reverse-engineering work required to ingest RSL Helper’s 
 | `Artifacts` | 6 900 | Equipped + inventory items; core source for Rule Tester import. |
 | `InboxArtifacts` | 358 | Pending drops in the inbox; same schema as `Artifacts` but `sum*` aggregates are zeroed until equipped. |
 | `Champs` | 1 688 | Champion roster, including equipped artifact IDs and faction codes. |
+| `LastUsedArtifacts` | varies | Stores `{ id, lastUse }` entries so we can show when a piece was last equipped (local timestamps). |
 | `AccRecords` | 218 | Arena/Clan Boss snapshot metadata with binary hero renders. |
 | `CBLoot` | 146 | Clan Boss chest history. |
 | `ArtifactsBackup`, `LockedArtifacts`, `accessories`, `artifact_ids`, `accessory_ids`, `presets` | 0 | Present but empty in this dump. |
@@ -143,3 +144,10 @@ Write down open questions as you go—especially when sample rows expose partial
 3. Add integration tests that load a small fixture DB (redacted/synthetic) and assert the importer emits the same structures as our `.hsf` samples.
 4. Wire the normalizer into a DB reader (Python or Node bridge) so the Rule Tester can ingest whole inventories without manual exports.
 5. Update this document—and `docs/TECHNICAL.md`’s index—whenever we uncover new fields or evolve the importer.
+### Last-Used Tracking
+
+- RSL Helper now emits a `LastUsedArtifacts` table with two columns:
+  - `id` — matches the artifact ID in both `Artifacts` and `InboxArtifacts`.
+  - `lastUse` — local timestamp string in the format `YYYY-MM-DD HH:MM:SS.sss`.
+- The importer trims those strings, maps them onto each normalized artifact, and exposes them via `NormalizedGearArtifact.lastUseLocalTimestamp` plus the tester preview extras. The tester grid renders the value in a tooltip on the gear icon using the user’s locale.
+- When the table is missing (older DBs), we simply omit the tooltip—no fallback data is guessed.

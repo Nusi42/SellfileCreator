@@ -55,6 +55,7 @@ import { TesterRuleReferenceChip } from './TesterRuleReferenceChip'
 // MarkdownTooltip unifies the tester’s tooltip behavior (source glyphs, manage colors, etc.) with the rest of the UI.
 import MarkdownTooltip from './MarkdownTooltip'
 import { WithSetTooltip } from './SetTooltip'
+import { formatLocalDateTime } from '../lib/dateDisplay'
 import ContextMenuPaper from './ContextMenuPaper'
 import { ContextMenuHintOverlay } from './ContextMenuHintOverlay'
 import { useContextMenuHint } from '../hooks/useContextMenuHint'
@@ -1860,6 +1861,13 @@ const TesterGridCard = React.memo(function TesterGridCard({
     : CHAMPION_ICON_BASE_SIZE
   const rerollLabel = artifact.rerollCount > 0 ? '⟳' : ''
   const rerollTooltip = artifact.rerollCount > 0 ? t('testerRerollLabel') : ''
+  // Tooltip copy surfaces the localized last-used timestamp whenever the DB provided one.
+  const lastUseTooltip = (() => {
+    if (!artifact.lastUseLocalTimestamp) return null
+    const formatted = formatLocalDateTime(artifact.lastUseLocalTimestamp, { dateStyle: 'medium', timeStyle: 'medium' })
+    const displayTimestamp = formatted ?? artifact.lastUseLocalTimestamp
+    return t('testerLastUsedTooltip', { timestamp: displayTimestamp })
+  })()
   const ascSummaryContent = ascSummary
   const shouldInlineAscension = gridColumnCount <= 4
   const ascSummaryInline = ascSummaryContent ? (
@@ -1968,6 +1976,7 @@ const TesterGridCard = React.memo(function TesterGridCard({
           rerollTooltip={rerollTooltip || undefined}
           levelLabel={levelChipLabel}
           size={TESTER_GRID_ICON_BOX_SIZE_PX}
+          gearTooltip={lastUseTooltip}
           {...(cardOutcome ? { outcome: cardOutcome } : {})}
         />
         {shouldShowChampionIcon ? (
