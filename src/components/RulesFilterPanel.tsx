@@ -238,7 +238,7 @@ const collapsibleSectionSx = {
   alignSelf: 'flex-start',
 } as const
 
-// Shared header layout keeps toggles + titles inside the same width budget as their content.
+// Shared header layout keeps toggles + titles inside the same width budget to avoid divergent clipping.
 const sectionHeaderBaseSx = {
   display: 'flex',
   alignItems: 'center',
@@ -249,7 +249,7 @@ const sectionHeaderBaseSx = {
   flexWrap: 'nowrap',
 } as const
 
-// Labels get forced ellipsis styling so translations trigger the tooltip when they overflow.
+// Labels render as block ellipsis targets so SectionHeaderLabel can consistently detect overflow.
 const sectionHeaderLabelSx = {
   m: 0,
   minWidth: 0,
