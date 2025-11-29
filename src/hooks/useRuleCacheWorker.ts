@@ -172,6 +172,7 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
       }
       return params.artifacts
     })()
+    // Do not spend detection/match passes when keep-unique is effectively disabled.
     const hasActiveKeepUniques = hasActiveKeepUniqueRules(params.keepUniques)
     const needsDetection = needsMatches
       && params.skipDetection !== true

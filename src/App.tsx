@@ -283,7 +283,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       return `${rule.id ?? comboHash}:${enabled}:${required}:${rule.countMode}:${comboHash}`
     }).join('|')
   }, [])
-  // Combined fingerprint captures every input that affects the warmed rule cache.
+  // Combined fingerprint captures every input that affects the warmed rule cache while ignoring display-only fields.
   const buildRulesFingerprint = useCallback((args: {
     substatTargetsKey: string
     configKeys: string[]
@@ -302,8 +302,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       keepUniquesEnabled: kuEnabled,
       finalSell,
     } = args
+    // Metaset + keep-unique signatures ensure warm reuse stays aligned with resolved datasets.
     const metasetSig = fingerprintMetasetsForRules(metasets)
     const keepUniqueSig = `${kuEnabled ? 'on' : 'off'}:${fingerprintKeepUniqueRuleList(keepUniqueRules)}`
+    // Final-sell settings affect injected rules, so fold them into the warm fingerprint.
     const finalSellSig = (() => {
       if (!finalSell) return 'fs:none'
       const levels = Array.isArray(finalSell.levels)
@@ -682,6 +684,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     })
     // If the warmed state already covers this fingerprint, skip the worker warm pass and avoid toggling spinners.
     const canSkipWarm = lastWarmFingerprintRef.current === nextFingerprint
+    // Name-only edits should not wake the worker; detect them explicitly.
     const configNamesChanged = (() => {
       if (prevConfigNames.length !== configNamesForPreview.length) return true
       for (let i = 0; i < configNamesForPreview.length; i += 1) {
@@ -865,6 +868,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       }
     }
 
+    // Guard against empty deferred snapshots on first load by falling back to immediate state.
     const configsForPipeline = ruleConfigsForPreview.length > 0 ? ruleConfigsForPreview : ruleConfigs
     const metasetsForPipeline = metasetsForPreview.length > 0 ? metasetsForPreview : metasets
     const substatTargetsForPipeline = substatTargetsForPreview ?? substatTargets
@@ -885,6 +889,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       skipDetection: false,
     }
 
+    // One pipeline invocation per update after early fast paths.
     runPipeline(pipelinePayload, {
       signal: abortController.signal,
       onProgress: (progress) => {
@@ -956,9 +961,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         const totalCustomRules = Array.from(state.countsByConfig.values()).reduce((acc, val) => (
           acc + (Number.isFinite(val) ? Number(val) : 0)
         ), 0)
+        // Rare restore edge: if nothing built but configs exist, force a fresh warm+match once.
         const shouldRetryWarm = baseRules.length === 0
           && totalCustomRules === 0
-          && ruleConfigsForPreview.length > 0
+          && configsForPipeline.length > 0
           && !recoverMissingRulesRef.current
         if (shouldRetryWarm) {
           recoverMissingRulesRef.current = true

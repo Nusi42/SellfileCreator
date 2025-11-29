@@ -32,6 +32,7 @@ type WarmState = {
 
 let cache = createConfigRulesCache()
 let lastWarmState: WarmState | null = null
+// Cache tester artifacts across pipeline runs so patches can be applied incrementally.
 const artifactCache = new Map<number, NormalizedGearArtifact>()
 
 const postError = (id: number, error: unknown): void => {
@@ -228,6 +229,7 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
       { skipProgress: true, fingerprint: payload.fingerprint ?? null },
     ).state
     const prebuiltCustomRules = warmState.rulesByConfig
+    // Skip the extra detection/merge work when keep-unique is effectively off.
     const hasActiveKeepUniques = hasActiveKeepUniqueRules(payload.keepUniques)
     const baseKeepUniques = hasActiveKeepUniques
       ? { ...payload.keepUniques, detection: null }
