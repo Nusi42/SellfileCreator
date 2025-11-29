@@ -141,11 +141,14 @@ export default function KeepUniquesTab({
   const ensureKeepUniquesEnabled = useCallback(() => {
     if (!enabled) onToggleEnabled(true)
   }, [enabled, onToggleEnabled])
-  // Rule edits should immediately re-enable Keep Uniques so users never lose their changes silently.
-  const mutateRules = useCallback((action: SetStateAction<KeepUniqueRule[]>) => {
-    ensureKeepUniquesEnabled()
-    onRulesChange(action)
-  }, [ensureKeepUniquesEnabled, onRulesChange])
+  // Rule edits should immediately re-enable Keep Uniques so users never lose changes silently, except when disabling a rule.
+  const mutateRules = useCallback(
+    (action: SetStateAction<KeepUniqueRule[]>, ensureEnabled = true) => {
+      if (ensureEnabled) ensureKeepUniquesEnabled()
+      onRulesChange(action)
+    },
+    [ensureKeepUniquesEnabled, onRulesChange],
+  )
   const effectiveSelectedRuleId = useMemo(() => {
     if (selectedRuleId === null) {
       if (respectManualDeselect) return null
@@ -275,9 +278,12 @@ export default function KeepUniquesTab({
     }
   }, [mutateRules, setRespectManualDeselect])
 
-  const updateRule = useCallback((ruleId: string, updater: (rule: KeepUniqueRule) => KeepUniqueRule) => {
-    mutateRules((prev) => prev.map((rule) => (rule.id === ruleId ? updater(rule) : rule)))
-  }, [mutateRules])
+  const updateRule = useCallback(
+    (ruleId: string, updater: (rule: KeepUniqueRule) => KeepUniqueRule, ensureEnabled = true) => {
+      mutateRules((prev) => prev.map((rule) => (rule.id === ruleId ? updater(rule) : rule)), ensureEnabled)
+    },
+    [mutateRules],
+  )
 
   const setRuleCombination = useCallback((
     ruleId: string,
@@ -438,7 +444,7 @@ export default function KeepUniquesTab({
                 control={(
                   <Switch
                     checked={rule.enabled}
-                    onChange={(_event, checked) => updateRule(rule.id, (prev) => ({ ...prev, enabled: checked }))}
+                    onChange={(_event, checked) => updateRule(rule.id, (prev) => ({ ...prev, enabled: checked }), checked)}
                   />
                 )}
                 label={t('keepUniquesRuleEnabledToggle')}
