@@ -8,6 +8,7 @@ import type { Metaset } from '../../lib/metasets'
 import { metasetGlyph, orderMetasetIds } from '../../lib/metasets'
 import { useSetsOrderPreference } from '../../state/setsOrderPreference'
 import InlineSelectClearButton from '../InlineSelectClearButton'
+import InlineSelectExtraBadge from '../InlineSelectExtraBadge'
 import SelectDropdownActivator from '../SelectDropdownActivator'
 import SetMenuSection from '../SetMenuSection'
 import SetsOrderControls from '../SetsOrderControls'
@@ -20,8 +21,8 @@ import {
   MENU_SCROLL_GUTTER_PX,
   SETS_MENU_WIDTH_PX,
   SETS_SELECT_INLINE_GUTTER_COLLAPSED_PX,
-  SETS_SELECT_INLINE_GUTTER_PX,
 } from '../../lib/constants'
+import { computeInlineSelectPadding } from '../../lib/inlineSelectAffordances'
 
 type GearSetsSelectProps = {
   value: ArtifactSetId[]
@@ -177,7 +178,9 @@ export default function GearSetsSelect({
     return visibleMetasets.filter((meta) => meta.sets.every((setId) => allowedSetFilter.has(Number(setId))))
   }, [allowMetasets, allowedSetFilter, visibleMetasets])
   const hasSelection = selectedTokens.length > 0
-  const inlinePaddingPx = hasSelection ? SETS_SELECT_INLINE_GUTTER_PX : SETS_SELECT_INLINE_GUTTER_COLLAPSED_PX
+  // Mirror the tester filter behavior by showing how many sets/metasets extend beyond the inline label.
+  const extraSelectionCount = Math.max(0, selectedTokens.length - 1)
+  const inlinePaddingPx = computeInlineSelectPadding(hasSelection, extraSelectionCount > 0)
 
   const handleClear = useCallback(() => {
     onChange([])
@@ -410,6 +413,7 @@ export default function GearSetsSelect({
           </Box>
         </Box>
       </Select>
+      <InlineSelectExtraBadge count={extraSelectionCount} />
       <InlineSelectClearButton
         disabled={!hasSelection}
         label={t('clear')}

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type FocusEvent as ReactFocusEvent, type MouseEvent as ReactMouseEvent } from 'react'
+import { useCallback, useEffect, useMemo, useState, type FocusEvent as ReactFocusEvent, type MouseEvent as ReactMouseEvent, type ReactNode } from 'react'
 import {
   Box,
   Button,
@@ -27,7 +27,7 @@ import type { KeepUniqueDetectionEntry, KeepUniqueDetectionSnapshot, KeepUniqueR
 import { createKeepUniqueRuleId, getKeepUniqueItemKey } from '../../lib/keepUniques'
 import type { TesterPreviewRow } from '../../types/testerPreview'
 import type { ColorBlindMode } from '../../lib/constants'
-import { ELLIPSIS_TEXT_SX, MENU_CONTROL_HEIGHT_PX, SMALL_BUTTON_HEIGHT_PX } from '../../lib/constants'
+import { ELLIPSIS_TEXT_SX, FONT_SIZE_BASE_PX, MENU_CONTROL_HEIGHT_PX, SMALL_BUTTON_HEIGHT_PX } from '../../lib/constants'
 import type { ArtifactSetId, ArtifactTypeId, StatVariant } from '../../lib/types'
 import {
   ACCESSORY_SLOTS_COMPATIBLE_SET_IDS,
@@ -50,6 +50,11 @@ import MarkdownTooltip from '../MarkdownTooltip'
 import { hasEllipsisOverflow } from '../../lib/ellipsis'
 import type { SetStateAction } from 'react'
 import type { Metaset } from '../../lib/metasets'
+import InlineSelectClearButton from '../InlineSelectClearButton'
+import InlineSelectExtraBadge from '../InlineSelectExtraBadge'
+import { computeInlineSelectContentMaxWidth, computeInlineSelectPadding } from '../../lib/inlineSelectAffordances'
+import type { Theme } from '@mui/material/styles'
+import type { SystemStyleObject } from '@mui/system'
 
 type KeepUniquesTabProps = {
   rules: KeepUniqueRule[]
@@ -96,6 +101,7 @@ export default function KeepUniquesTab({
   workloadProgressRatio,
 }: KeepUniquesTabProps) {
   const { t } = useI18n()
+  const clearLabel = t('clear')
   const [selectedRuleId, setSelectedRuleId] = useState<string | null>(() => rules[0]?.id ?? null)
   const [respectManualDeselect, setRespectManualDeselect] = useState(false)
   const [pendingDeleteRuleId, setPendingDeleteRuleId] = useState<string | null>(null)
@@ -361,15 +367,23 @@ export default function KeepUniquesTab({
           </Box>
           <Stack spacing={1}>
             <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 1 }}>
-              <GearSlotSelect
-                multiple
-                value={slotSelection}
-                onChange={(nextSlots) => {
-                  setRuleCombination(rule.id, (prev) => sanitizeCombinationForSlots(nextSlots, prev, metasets))
+              <RuleSelectAffordances
+                selectionCount={slotSelection.length}
+                clearLabel={clearLabel}
+                onClear={() => {
+                  setRuleCombination(rule.id, (prev) => ({ ...prev, slots: [] }))
                 }}
-                size="small"
-                sx={{ minWidth: 0 }}
-              />
+              >
+                <GearSlotSelect
+                  multiple
+                  value={slotSelection}
+                  onChange={(nextSlots) => {
+                    setRuleCombination(rule.id, (prev) => sanitizeCombinationForSlots(nextSlots, prev, metasets))
+                  }}
+                  size="small"
+                  sx={getRuleSelectPaddingSx(slotSelection.length, INLINE_SELECT_FIXED_HEIGHT_PX)}
+                />
+              </RuleSelectAffordances>
               <GearSetsSelect
                 value={setSelection}
                 onChange={(nextSets) => {
@@ -385,48 +399,84 @@ export default function KeepUniquesTab({
               />
             </Box>
             <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 1 }}>
-              <GearRankSelect
-                multiple
-                allowAny
-                value={rankSelection}
-                onChange={(nextRanks) => {
-                  setRuleCombination(rule.id, (prev) => ({ ...prev, ranks: nextRanks }))
+              <RuleSelectAffordances
+                selectionCount={rankSelection.length}
+                clearLabel={clearLabel}
+                onClear={() => {
+                  setRuleCombination(rule.id, (prev) => ({ ...prev, ranks: [] }))
                 }}
-                size="small"
-              />
-              <GearRaritySelect
-                multiple
-                allowAny
-                value={raritySelection}
-                onChange={(nextRarities) => {
-                  setRuleCombination(rule.id, (prev) => ({ ...prev, rarities: nextRarities }))
+              >
+                <GearRankSelect
+                  multiple
+                  allowAny
+                  value={rankSelection}
+                  onChange={(nextRanks) => {
+                    setRuleCombination(rule.id, (prev) => ({ ...prev, ranks: nextRanks }))
+                  }}
+                  size="small"
+                  sx={getRuleSelectPaddingSx(rankSelection.length)}
+                />
+              </RuleSelectAffordances>
+              <RuleSelectAffordances
+                selectionCount={raritySelection.length}
+                clearLabel={clearLabel}
+                onClear={() => {
+                  setRuleCombination(rule.id, (prev) => ({ ...prev, rarities: [] }))
                 }}
-                size="small"
-              />
+              >
+                <GearRaritySelect
+                  multiple
+                  allowAny
+                  value={raritySelection}
+                  onChange={(nextRarities) => {
+                    setRuleCombination(rule.id, (prev) => ({ ...prev, rarities: nextRarities }))
+                  }}
+                  size="small"
+                  sx={getRuleSelectPaddingSx(raritySelection.length)}
+                />
+              </RuleSelectAffordances>
             </Box>
             <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 1 }}>
-              <GearMainStatSelect
-                multiple
-                value={mainStatSelection}
-                options={mainStatOptions}
-                anyValue={StatVariantEnum.Any as StatVariant}
-                onChange={(nextMain) => {
-                  setRuleCombination(rule.id, (prev) => ({ ...prev, mainStats: dedupeNumericArray(nextMain) }))
+              <RuleSelectAffordances
+                selectionCount={mainStatSelection.length}
+                clearLabel={clearLabel}
+                onClear={() => {
+                  setRuleCombination(rule.id, (prev) => ({ ...prev, mainStats: [] }))
                 }}
-                colorOverrides={substatColors}
-                showBorderColors={useStatButtonColors}
-                size="small"
-              />
+              >
+                <GearMainStatSelect
+                  multiple
+                  value={mainStatSelection}
+                  options={mainStatOptions}
+                  anyValue={StatVariantEnum.Any as StatVariant}
+                  onChange={(nextMain) => {
+                    setRuleCombination(rule.id, (prev) => ({ ...prev, mainStats: dedupeNumericArray(nextMain) }))
+                  }}
+                  colorOverrides={substatColors}
+                  showBorderColors={useStatButtonColors}
+                  size="small"
+                  sx={getRuleSelectPaddingSx(mainStatSelection.length)}
+                />
+              </RuleSelectAffordances>
               {/* Keep the faction selector visible so users understand why accessory-only filters are required. */}
-              <GearFactionSelect
-                multiple
-                disabled={!hasAccessorySlot}
-                value={factionSelection}
-                onChange={(nextFactions) => {
-                  setRuleCombination(rule.id, (prev) => ({ ...prev, factions: dedupeNumericArray(nextFactions) }))
+              <RuleSelectAffordances
+                selectionCount={factionSelection.length}
+                clearLabel={clearLabel}
+                onClear={() => {
+                  setRuleCombination(rule.id, (prev) => ({ ...prev, factions: [] }))
                 }}
-                size="small"
-              />
+              >
+                <GearFactionSelect
+                  multiple
+                  disabled={!hasAccessorySlot}
+                  value={factionSelection}
+                  onChange={(nextFactions) => {
+                    setRuleCombination(rule.id, (prev) => ({ ...prev, factions: dedupeNumericArray(nextFactions) }))
+                  }}
+                  size="small"
+                  sx={getRuleSelectPaddingSx(factionSelection.length, INLINE_SELECT_FIXED_HEIGHT_PX)}
+                />
+              </RuleSelectAffordances>
             </Box>
             <Box
               // Align the count input beside the scope toggle so the quota intent reads as a single control row.
@@ -837,4 +887,60 @@ function dedupeStringArray(values: readonly string[]): string[] {
     result.push(trimmed)
   }
   return result
+}
+
+const INLINE_SELECT_FIXED_HEIGHT_PX = (FONT_SIZE_BASE_PX * 2.4375) + 2
+
+function getRuleSelectPaddingSx(selectionCount: number, fixedHeightPx?: number): SystemStyleObject<Theme> {
+  const paddingPx = computeInlineSelectPadding(selectionCount > 0, selectionCount > 1)
+  const contentMaxWidth = computeInlineSelectContentMaxWidth(paddingPx)
+  const selectSx: SystemStyleObject<Theme> = {
+    paddingRight: `${paddingPx}px`,
+    width: '100%',
+    minWidth: 0,
+  }
+  if (fixedHeightPx) {
+    selectSx.minHeight = `${fixedHeightPx}px`
+    selectSx.height = `${fixedHeightPx}px`
+    selectSx.lineHeight = `${fixedHeightPx}px`
+    selectSx.display = 'flex'
+    selectSx.alignItems = 'center'
+  }
+  return {
+    width: '100%',
+    minWidth: 0,
+    ...(fixedHeightPx ? { minHeight: `${fixedHeightPx}px`, height: `${fixedHeightPx}px` } : null),
+    '& .MuiSelect-select': selectSx,
+    '& .MuiSelect-select > *': {
+      minWidth: 0,
+      maxWidth: contentMaxWidth,
+    },
+  }
+}
+
+type RuleSelectAffordancesProps = {
+  selectionCount: number
+  clearLabel: string
+  onClear: () => void
+  children: ReactNode
+}
+
+function RuleSelectAffordances({
+  selectionCount,
+  clearLabel,
+  onClear,
+  children,
+}: RuleSelectAffordancesProps) {
+  const extraCount = Math.max(0, selectionCount - 1)
+  return (
+    <Box sx={{ position: 'relative', width: '100%', minWidth: 0 }}>
+      {children}
+      <InlineSelectExtraBadge count={extraCount} />
+      <InlineSelectClearButton
+        disabled={selectionCount === 0}
+        label={clearLabel}
+        onClear={onClear}
+      />
+    </Box>
+  )
 }

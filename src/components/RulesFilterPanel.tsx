@@ -33,7 +33,7 @@ import {
   STAT_VARIANTS_PRIORITY_ROW2,
   DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT,
 } from '../lib/types'
-import { LIST_SUBHEADER_SX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, SETS_MENU_WIDTH_PX, FILTER_FACTION_SELECT_WIDTH_PX, FILTER_SETS_SELECT_WIDTH_PX, FILTER_CHIP_TOP_MARGIN, ELLIPSIS_TEXT_SX, FILTER_TOGGLE_BUTTON_WIDTH_PX, SMALL_BUTTON_HEIGHT_PX, BUILDER_STATUS_CHIP_HEIGHT_PX, UI_BG_HOVER_DANGER_TRANSITION, DANGER_TINT_BG, SETS_SELECT_INLINE_GUTTER_COLLAPSED_PX, SETS_SELECT_INLINE_GUTTER_PX, STATUS_CHIP_BORDER_RADIUS_PX, FONT_SIZE_BASE_PX, SETS_SELECT_CLEAR_BUTTON_RIGHT_PX, CLEAR_ICON_BUTTON_SIZE_PX, GLYPH_TOGGLE_ON, GLYPH_TOGGLE_OFF, GLYPH_GLYPHS_SELECTED, ROLL_BADGE_SIZE_PX, ROLL_BADGE_SCALE, ROLL_BADGE_HOVER_GUTTER_PX, SETS_SELECT_DROPDOWN_ICON_HITBOX_PX } from '../lib/constants'
+import { LIST_SUBHEADER_SX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, SETS_MENU_WIDTH_PX, FILTER_FACTION_SELECT_WIDTH_PX, FILTER_SETS_SELECT_WIDTH_PX, FILTER_CHIP_TOP_MARGIN, ELLIPSIS_TEXT_SX, FILTER_TOGGLE_BUTTON_WIDTH_PX, SMALL_BUTTON_HEIGHT_PX, BUILDER_STATUS_CHIP_HEIGHT_PX, UI_BG_HOVER_DANGER_TRANSITION, DANGER_TINT_BG, SETS_SELECT_INLINE_GUTTER_COLLAPSED_PX, SETS_SELECT_INLINE_GUTTER_PX, STATUS_CHIP_BORDER_RADIUS_PX, FONT_SIZE_BASE_PX, CLEAR_ICON_BUTTON_SIZE_PX, GLYPH_TOGGLE_ON, GLYPH_TOGGLE_OFF, GLYPH_GLYPHS_SELECTED, ROLL_BADGE_SIZE_PX, ROLL_BADGE_SCALE, ROLL_BADGE_HOVER_GUTTER_PX } from '../lib/constants'
 import { metasetGlyph, orderMetasetIds, type Metaset } from '../lib/metasets'
 import React from 'react'
 import { alpha, useTheme } from '@mui/material/styles'
@@ -72,6 +72,7 @@ import {
 } from '../lib/rulesFilter'
 import { FactionOptionLabel } from './FactionIcon'
 import InlineSelectClearButton from './InlineSelectClearButton'
+import InlineSelectExtraBadge from './InlineSelectExtraBadge'
 import SelectDropdownActivator from './SelectDropdownActivator'
 import ClearIconButton from './ClearIconButton'
 import ClearIcon from '@mui/icons-material/Clear'
@@ -84,6 +85,7 @@ import { useSetsOrderPreference } from '../state/setsOrderPreference'
 import { TESTER_CONFIG_FILTER_MODE_DEFAULT, type TesterConfigFilterMode } from '../types/testerConfigFilterMode'
 import type { ChampionLocation } from '../lib/importers/gearDbNormalizer'
 import type { SubstatColorMap } from '../lib/renderColoredStatText'
+import { computeInlineSelectContentMaxWidth, computeInlineSelectPadding } from '../lib/inlineSelectAffordances'
 
 type TesterChampionOption = {
   id: number
@@ -108,17 +110,6 @@ const CLEAR_BUTTON_PLACEHOLDER_SX = {
   flexShrink: 0,
 } as const
 const PREVIEW_CONFIGS_DEFAULT = false
-// Multi-selects in the filters panel show a stacked "+N" badge ahead of the inline clear affordance.
-// This padding/right-offset pair mirrors the badge placement so long champion/faction names never sit under the controls.
-const INLINE_EXTRA_BADGE_PADDING_PX = CLEAR_ICON_BUTTON_SIZE_PX + (SETS_SELECT_CLEAR_BUTTON_RIGHT_PX - SETS_SELECT_DROPDOWN_ICON_HITBOX_PX)
-const INLINE_EXTRA_BADGE_RIGHT_PX = SETS_SELECT_CLEAR_BUTTON_RIGHT_PX + INLINE_EXTRA_BADGE_PADDING_PX
-// The Select already reserves SETS_SELECT_DROPDOWN_ICON_HITBOX_PX for the caret; we only subtract the additional gutter
-// introduced by the inline clear + "+N" badge so long names use every remaining pixel before the overlays.
-const computeInlineSelectContentMaxWidth = (paddingPx: number) => {
-  const extra = Math.max(0, paddingPx - SETS_SELECT_DROPDOWN_ICON_HITBOX_PX)
-  if (extra <= 0) return '100%'
-  return `calc(100% - ${extra}px)`
-}
 const CHAMPION_SELECT_WIDTH_PX = Math.round(FILTER_FACTION_SELECT_WIDTH_PX * 0.8)
 const LAST_USE_TOGGLE_BUTTON_WIDTH_PX = FILTER_TOGGLE_BUTTON_WIDTH_PX / 2
 // Clamp the header width to the three-button grid so labels never exceed the controls.
@@ -1111,22 +1102,20 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
   const testerAscStars = state.testerAscension?.stars ?? []
   const testerAscStats = state.testerAscension?.stats ?? []
   const championSelection = state.testerChampions?.selected ?? []
-  const extraChampionCount = Math.max(0, championSelection.length - 1)
+  const championSelectionCount = championSelection.length
+  const extraChampionCount = Math.max(0, championSelectionCount - 1)
   // Expand the inline gutter when the "+N" badge is visible so long names respect the stacked controls.
-  const championInlinePaddingPx = championSelection.length > 0
-    ? SETS_SELECT_INLINE_GUTTER_PX + (extraChampionCount > 0 ? INLINE_EXTRA_BADGE_PADDING_PX : 0)
-    : SETS_SELECT_INLINE_GUTTER_COLLAPSED_PX
+  const championInlinePaddingPx = computeInlineSelectPadding(championSelectionCount > 0, extraChampionCount > 0)
   // This memo enforces the clamp described above while letting selects continue to reserve the dropdown caret gutter.
   const championInlineContentMaxWidth = React.useMemo(
     () => computeInlineSelectContentMaxWidth(championInlinePaddingPx),
     [championInlinePaddingPx],
   )
   const factionSelection = state.faction.selected ?? []
-  const extraFactionCount = Math.max(0, factionSelection.length - 1)
+  const factionSelectionCount = factionSelection.length
+  const extraFactionCount = Math.max(0, factionSelectionCount - 1)
   // Mirror the champion gutter logic so faction summaries leave identical clearance around the badge + clear button.
-  const factionInlinePaddingPx = factionSelection.length > 0
-    ? SETS_SELECT_INLINE_GUTTER_PX + (extraFactionCount > 0 ? INLINE_EXTRA_BADGE_PADDING_PX : 0)
-    : SETS_SELECT_INLINE_GUTTER_COLLAPSED_PX
+  const factionInlinePaddingPx = computeInlineSelectPadding(factionSelectionCount > 0, extraFactionCount > 0)
   // Same inline clamp for faction summaries; keeps the layout identical regardless of which filter is active.
   const factionInlineContentMaxWidth = React.useMemo(
     () => computeInlineSelectContentMaxWidth(factionInlinePaddingPx),
@@ -2106,29 +2095,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                         )
                       })}
                       </Select>
-                      {extraChampionCount > 0 && (
-                        <Box
-                          component="span"
-                          sx={{
-                            position: 'absolute',
-                            top: '50%',
-                            right: `${INLINE_EXTRA_BADGE_RIGHT_PX}px`,
-                            transform: 'translateY(-50%)',
-                            width: CLEAR_ICON_BUTTON_SIZE_PX,
-                            height: CLEAR_ICON_BUTTON_SIZE_PX,
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            color: 'text.secondary',
-                            pointerEvents: 'none',
-                            zIndex: 1,
-                          }}
-                        >
-                          <Typography component="span" variant="body2" sx={{ fontSize: FONT_SIZE_BASE_PX, lineHeight: 1 }}>
-                            {`+${extraChampionCount}`}
-                          </Typography>
-                        </Box>
-                      )}
+                      <InlineSelectExtraBadge count={extraChampionCount} />
                       <InlineSelectClearButton
                         disabled={championSelection.length === 0}
                         label={t('clear')}
@@ -2651,29 +2618,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                       </MenuItem>
                     ))}
                     </Select>
-                    {extraFactionCount > 0 && (
-                      <Box
-                        component="span"
-                        sx={{
-                          position: 'absolute',
-                          top: '50%',
-                          right: `${INLINE_EXTRA_BADGE_RIGHT_PX}px`,
-                          transform: 'translateY(-50%)',
-                          width: CLEAR_ICON_BUTTON_SIZE_PX,
-                          height: CLEAR_ICON_BUTTON_SIZE_PX,
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          color: 'text.secondary',
-                          pointerEvents: 'none',
-                          zIndex: 1,
-                        }}
-                      >
-                        <Typography component="span" variant="body2" sx={{ fontSize: FONT_SIZE_BASE_PX, lineHeight: 1 }}>
-                          {`+${extraFactionCount}`}
-                        </Typography>
-                      </Box>
-                    )}
+                    <InlineSelectExtraBadge count={extraFactionCount} />
                     <InlineSelectClearButton
                       disabled={factionSelection.length === 0}
                       label={t('clear')}
