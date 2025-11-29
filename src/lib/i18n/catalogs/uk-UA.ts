@@ -1,6 +1,6 @@
 import type { Catalog } from '../types'
 
-const enUS: Catalog = {
+const overrides: Catalog = {
   // App / Panels
   appBuilderTitle: 'Конструктор конфігів',
   loadConfigs: 'Завантажити конфіги (.hsfc)',
@@ -51,7 +51,7 @@ const enUS: Catalog = {
   pushSellfile: 'Надіслати Sellfile до RSL Helper',
   pushSellfileTooltip: 'Надсилає Sellfile на {endpoint}',
   manageColorsAria: 'Керування кольорами',
-  // Rule Tester
+  // Тестер
   testerOpenLabel: 'Спорядження...',
   testerOpenTooltip: 'Відкрийте тестер спорядження, щоб завантажити базу RSL Helper або зібрати зразкові речі й перевірити поточні правила.',
   testerTitle: 'Спорядження',
@@ -82,16 +82,11 @@ const enUS: Catalog = {
   testerMatchKeep: 'Зберегти',
   testerMatchSell: 'Продати',
   testerMatchNoRule: 'Немає збігів',
-  testerConfigMatches: 'Matching Configs',
   testerConfigChip: 'Конфіг #{index}',
   testerFinalSellChip: 'Фінальний продаж',
 
   testerKeepUniqueChip: 'Зберегти унікальні',
   testerValueUnknown: '—',
-  testerAddManualGear: 'Додати ручне спорядження',
-  testerAddRowAriaLabel: 'Add Row',
-  testerRemoveRowAriaLabel: 'Remove Row',
-  testerRerollLabel: 'Rerolled',
   testerLastUsedTooltip: 'Востаннє використано {timestamp}.',
   testerLastUsedFilterLabel: 'Востаннє використання',
   testerLastUsedPresetNever: 'Ніколи не використовувалось',
@@ -110,7 +105,8 @@ const enUS: Catalog = {
   testerLastUsedCustomSummaryRange: '{minDays}–{maxDays} днів тому',
   testerLastUsedCustomSummaryMin: '≥{minDays} днів тому',
   testerLastUsedCustomSummaryMax: '≤{maxDays} днів тому',
-  // Common UI bits used in Rule Tester
+  testerAddManualGear: 'Додати ручне спорядження',
+  // Common UI bits used in Тестер
   add: 'Додати',
   compact: 'Компактний',
   expanded: 'Розгорнутий',
@@ -677,10 +673,6 @@ const enUS: Catalog = {
   builderMinRequiredRollsTargetLocked: 'Ціль: заблоковані підстати',
   builderMinRequiredRollsChipLocked: 'Лише зафіксовані',
   builderMinRequiredRollsChipSelected: 'Усі підстати',
-  builderMinRequiredRollsLockIconSet: 'Lock {count} rolls to apply only to locked substats.',
-  builderMinRequiredRollsLockIconClear: 'Clear the locked roll target.',
-  builderMinRequiredRollsLockIconDisabled: 'Lock at least one substat to set a locked roll target.',
-  builderLockedMinRequiredRollsLabel: 'Locked Min: {count}',
   builderSubstatFlexToggleTooltip: 'Flex по черзі прокручує необов’язкові підстати у всіх перестановках, щоб згенерувати кожну допустиму комбінацію понад межу «Обов’язкові підстати».\n• Виберіть число (1–4) в «Обов’язкові підстати» замість «Авто» й позначте ★ більше підстатів, ніж це число.\n• Залиште щонайменше одну додаткову ★ без мін./макс. цілей ролів, щоб було що обертати.\n• Заблоковані підстати залишаються на місці, а перемикач вимикається, щойно Flex більше не потрібен.',
   builderMilestoneThresholdsHelp: 'Визначає, як поводяться мінімальні ролі до +16, щойно ви їх вимагаєте.\n• «Рано» показує, скільки ролів уже є на кожній вісі.\n• «Пізно» вимагає тільки те, що потрібно зараз, аби мета на +16 залишалася досяжною.\n• Працює лише коли якийсь підстат має Min > 0 або задано глобальний мінімум.',
   builderMinRequiredRollsImpossibleWarn: 'Попередження: мінімум рулонів недосяжний до +16 із поточними верхніми лімітами на стат',
@@ -1086,7 +1078,6 @@ const enUS: Catalog = {
   chipsMenuSelectVisible: 'Вибрати видимі',
   chipsMenuCopyAllConfigs: 'Копіювати всі конфіги',
   chipsMenuPasteAtEnd: 'Вставити в кінець',
-  chipsEmptyPasteHint: 'No Configs Yet — Right-Click to Paste',
   chipsFilteredEmpty: 'Немає конфігів, що відповідають поточним фільтрам',
   chipTooltipDuplicateOf: 'Це дублікат конфіга №{n}',
   chipBtnMoveUp: 'Перемістити вище',
@@ -1173,4 +1164,4 @@ const enUS: Catalog = {
   setRevenge: 'Помста',
 }
 
-export default enUS
+export default overrides

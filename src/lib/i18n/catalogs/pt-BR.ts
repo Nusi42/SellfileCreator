@@ -1,6 +1,6 @@
 import type { Catalog } from '../types'
 
-const enUS: Catalog = {
+const catalog: Catalog = {
   // App / Panels
   appBuilderTitle: 'Construtor de configs',
   loadConfigs: 'Carregar configs (.hsfc)',
@@ -51,7 +51,7 @@ const enUS: Catalog = {
   pushSellfile: 'Enviar Sellfile para o RSL Helper',
   pushSellfileTooltip: 'Envia o Sellfile para {endpoint}',
   manageColorsAria: 'Gerenciar cores',
-  // Rule Tester
+  // Teste de Regras
   testerOpenLabel: 'Equipamentos...',
   testerOpenTooltip: 'Abra o testador de equipamentos para carregar um banco de dados do RSL Helper ou montar itens de exemplo e validar as regras atuais.',
   testerTitle: 'Equipamentos',
@@ -82,16 +82,11 @@ const enUS: Catalog = {
   testerMatchKeep: 'Manter',
   testerMatchSell: 'Vender',
   testerMatchNoRule: 'Sem correspondência',
-  testerConfigMatches: 'Matching Configs',
   testerConfigChip: 'Config #{index}',
   testerFinalSellChip: 'Venda final',
 
   testerKeepUniqueChip: 'Manter únicos',
   testerValueUnknown: '—',
-  testerAddManualGear: 'Adicionar equipamento manual',
-  testerAddRowAriaLabel: 'Add Row',
-  testerRemoveRowAriaLabel: 'Remove Row',
-  testerRerollLabel: 'Rerolled',
   testerLastUsedTooltip: 'Último uso {timestamp}.',
   testerLastUsedFilterLabel: 'Último uso',
   testerLastUsedPresetNever: 'Nunca usado',
@@ -110,7 +105,8 @@ const enUS: Catalog = {
   testerLastUsedCustomSummaryRange: '{minDays}–{maxDays} dias atrás',
   testerLastUsedCustomSummaryMin: '≥{minDays} dias atrás',
   testerLastUsedCustomSummaryMax: '≤{maxDays} dias atrás',
-  // Common UI bits used in Rule Tester
+  testerAddManualGear: 'Adicionar equipamento manual',
+  // Common UI bits used in Teste de Regras
   add: 'Adicionar',
   compact: 'Compacto',
   expanded: 'Expandido',
@@ -677,10 +673,6 @@ const enUS: Catalog = {
   builderMinRequiredRollsTargetLocked: 'Alvo: Substats bloqueados',
   builderMinRequiredRollsChipLocked: 'Só bloqueados',
   builderMinRequiredRollsChipSelected: 'Todos os substats',
-  builderMinRequiredRollsLockIconSet: 'Lock {count} rolls to apply only to locked substats.',
-  builderMinRequiredRollsLockIconClear: 'Clear the locked roll target.',
-  builderMinRequiredRollsLockIconDisabled: 'Lock at least one substat to set a locked roll target.',
-  builderLockedMinRequiredRollsLabel: 'Locked Min: {count}',
   builderSubstatFlexToggleTooltip: 'Flex gira os substats opcionais por todas as permutações para gerar cada combinação válida acima da contagem de Substats Necessários.\n• Escolha um número em Substats Necessários (1–4) em vez de Auto e marque com ★ mais substats do que esse número.\n• Deixe pelo menos uma ★ extra sem metas de rolagem mín./máx. para ter algo a rotacionar.\n• Os bloqueados ficam fixos e o botão se desativa quando o Flex deixa de valer.',
   builderMilestoneThresholdsHelp: 'Define como os mínimos de rolagens se comportam antes de +16 assim que você os exige.\n• Cedo mostra as rolagens que já existem em cada marco.\n• Tarde lista apenas o que precisa existir agora para que o objetivo +16 continue viável.\n• Só tem efeito se algum substat tiver Min > 0 ou se você definir um mínimo global.',
   builderMinRequiredRollsImpossibleWarn: 'Aviso: as rolagens mínimas não podem ser atingidas até +16 com os limites superiores atuais por stat',
@@ -1086,7 +1078,6 @@ const enUS: Catalog = {
   chipsMenuSelectVisible: 'Selecionar visíveis',
   chipsMenuCopyAllConfigs: 'Copiar todas as configs',
   chipsMenuPasteAtEnd: 'Colar no fim',
-  chipsEmptyPasteHint: 'No Configs Yet — Right-Click to Paste',
   chipsFilteredEmpty: 'Nenhuma config corresponde aos filtros atuais',
   chipTooltipDuplicateOf: 'Esta é uma duplicata da config nº{n}',
   chipBtnMoveUp: 'Mover para cima',
@@ -1173,4 +1164,4 @@ const enUS: Catalog = {
   setRevenge: 'Vingança',
 }
 
-export default enUS
+export default catalog

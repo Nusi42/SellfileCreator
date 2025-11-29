@@ -1,6 +1,6 @@
 import type { Catalog } from '../types'
 
-const enUS: Catalog = {
+const overrides: Catalog = {
   // App / Panels
   appBuilderTitle: 'Konfig-Builder',
   loadConfigs: 'Konfigs laden (.hsfc)',
@@ -82,16 +82,11 @@ const enUS: Catalog = {
   testerMatchKeep: 'Behalten',
   testerMatchSell: 'Verkaufen',
   testerMatchNoRule: 'Kein Treffer',
-  testerConfigMatches: 'Matching Configs',
   testerConfigChip: 'Konfig #{index}',
   testerFinalSellChip: 'Finaler Verkauf',
 
   testerKeepUniqueChip: 'Unikate behalten',
   testerValueUnknown: '—',
-  testerAddManualGear: 'Manuelle Ausrüstung hinzufügen',
-  testerAddRowAriaLabel: 'Add Row',
-  testerRemoveRowAriaLabel: 'Remove Row',
-  testerRerollLabel: 'Rerolled',
   testerLastUsedTooltip: 'Zuletzt verwendet {timestamp}.',
   testerLastUsedFilterLabel: 'Zuletzt verwendet',
   testerLastUsedPresetNever: 'Nie verwendet',
@@ -110,6 +105,7 @@ const enUS: Catalog = {
   testerLastUsedCustomSummaryRange: '{minDays}–{maxDays} Tage alt',
   testerLastUsedCustomSummaryMin: '≥{minDays} Tage alt',
   testerLastUsedCustomSummaryMax: '≤{maxDays} Tage alt',
+  testerAddManualGear: 'Manuelle Ausrüstung hinzufügen',
   // Common UI bits used in Rule Tester
   add: 'Hinzufügen',
   compact: 'Kompakt',
@@ -677,10 +673,6 @@ const enUS: Catalog = {
   builderMinRequiredRollsTargetLocked: 'Ziel: Gesperrte Substats',
   builderMinRequiredRollsChipLocked: 'Nur gesperrte',
   builderMinRequiredRollsChipSelected: 'Alle Substats',
-  builderMinRequiredRollsLockIconSet: 'Lock {count} rolls to apply only to locked substats.',
-  builderMinRequiredRollsLockIconClear: 'Clear the locked roll target.',
-  builderMinRequiredRollsLockIconDisabled: 'Lock at least one substat to set a locked roll target.',
-  builderLockedMinRequiredRollsLabel: 'Locked Min: {count}',
   builderSubstatFlexToggleTooltip: 'Flex rotiert optionale Substats über alle Permutationen, damit jede gültige Mischung oberhalb der Vorgabe für Erforderliche Substats entsteht.\n• Stell Erforderliche Substats auf eine Zahl (1–4) statt Auto und markiere mehr Substats mit ★ als diese Zahl.\n• Lass mindestens ein zusätzliches ★ ohne Min-/Max-Rollvorgaben, damit es etwas zu rotieren gibt.\n• Gesperrte Picks bleiben fix, und der Schalter deaktiviert sich, sobald Flex nicht mehr greift.',
   builderMilestoneThresholdsHelp: 'Bestimmt, wie Mindest-Rolls vor +16 wirken, sobald du Roll-Minima verlangst.\n• Früh zeigt, welche Rolls du an jedem Meilenstein bereits hast.\n• Spät zeigt nur, was jetzt vorhanden sein muss, damit das +16-Ziel erreichbar bleibt.\n• Wirkt nur, wenn irgendein Substat ein Min > 0 hat oder du ein globales Minimum setzt.',
   builderMinRequiredRollsImpossibleWarn: 'Warnung: Mindest‑Rolls können bis +16 mit aktuellen per‑Stat‑Obergrenzen nicht erreicht werden',
@@ -1086,7 +1078,6 @@ const enUS: Catalog = {
   chipsMenuSelectVisible: 'Sichtbare auswählen',
   chipsMenuCopyAllConfigs: 'Alle Konfigs kopieren',
   chipsMenuPasteAtEnd: 'Am Ende einfügen',
-  chipsEmptyPasteHint: 'No Configs Yet — Right-Click to Paste',
   chipsFilteredEmpty: 'Keine Konfigs passen zu den aktuellen Filtern',
   chipTooltipDuplicateOf: 'Dies ist ein Duplikat von Konfig #{n}',
   chipBtnMoveUp: 'Hoch',
@@ -1173,4 +1164,4 @@ const enUS: Catalog = {
   setRevenge: 'Rache',
 }
 
-export default enUS
+export default overrides

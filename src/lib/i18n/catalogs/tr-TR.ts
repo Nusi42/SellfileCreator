@@ -1,6 +1,6 @@
 import type { Catalog } from '../types'
 
-const enUS: Catalog = {
+const overrides: Catalog = {
   // App / Panels
   appBuilderTitle: 'Konfig Oluşturucu',
   loadConfigs: 'Konfigleri yükle (.hsfc)',
@@ -82,16 +82,11 @@ const enUS: Catalog = {
   testerMatchKeep: 'Tut',
   testerMatchSell: 'Sat',
   testerMatchNoRule: 'Eşleşme yok',
-  testerConfigMatches: 'Matching Configs',
   testerConfigChip: 'Konfig #{index}',
   testerFinalSellChip: 'Son Satış',
 
   testerKeepUniqueChip: 'Benzersizleri Koru',
   testerValueUnknown: '—',
-  testerAddManualGear: 'Özel ekipman ekle',
-  testerAddRowAriaLabel: 'Add Row',
-  testerRemoveRowAriaLabel: 'Remove Row',
-  testerRerollLabel: 'Rerolled',
   testerLastUsedTooltip: 'Son kullanım {timestamp}.',
   testerLastUsedFilterLabel: 'Son kullanım',
   testerLastUsedPresetNever: 'Hiç kullanılmadı',
@@ -110,6 +105,7 @@ const enUS: Catalog = {
   testerLastUsedCustomSummaryRange: '{minDays}–{maxDays} gün önce',
   testerLastUsedCustomSummaryMin: '≥{minDays} gün önce',
   testerLastUsedCustomSummaryMax: '≤{maxDays} gün önce',
+  testerAddManualGear: 'Özel ekipman ekle',
   // Common UI bits used in Rule Tester
   add: 'Ekle',
   compact: 'Kompakt',
@@ -677,10 +673,6 @@ const enUS: Catalog = {
   builderMinRequiredRollsTargetLocked: 'Hedef: Kilitli alt statlar',
   builderMinRequiredRollsChipLocked: 'Sadece kilitli',
   builderMinRequiredRollsChipSelected: 'Tüm alt statlar',
-  builderMinRequiredRollsLockIconSet: 'Lock {count} rolls to apply only to locked substats.',
-  builderMinRequiredRollsLockIconClear: 'Clear the locked roll target.',
-  builderMinRequiredRollsLockIconDisabled: 'Lock at least one substat to set a locked roll target.',
-  builderLockedMinRequiredRollsLabel: 'Locked Min: {count}',
   builderSubstatFlexToggleTooltip: 'Flex, Gerekli alt statlar sayısının üzerindeki her geçerli kombinasyonu üretmek için isteğe bağlı alt statları permütasyonlarda döndürür.\n• Gerekli alt statlar için Oto yerine 1–4 arası bir sayı seçin ve bu sayıdan fazla alt stati ★ ile işaretleyin.\n• Döndürülecek bir şey kalması için min./maks. yuvarlanma hedefi olmayan en az bir ekstra ★ bırakın.\n• Kilitlenmiş seçimler sabit kalır ve Flex uygulanmadığında anahtar kendini kapatır.',
   builderMilestoneThresholdsHelp: 'Rulo minimumu istediğiniz anda +16 öncesi davranışı belirler.\n• Erken, her basamakta halihazırda sahip olduğunuz ruloları gösterir.\n• Geç, +16 hedefi ulaşılabilir kalsın diye şu anda mevcut olması gerekenleri ister.\n• Sadece herhangi bir alt statte Min > 0 ise veya genel bir minimum belirlediyseniz etkili olur.',
   builderMinRequiredRollsImpossibleWarn: 'Uyarı: Min gerekli rulolar mevcut stat üst sınırlarıyla +16\'ya kadar sağlanamaz',
@@ -1086,7 +1078,6 @@ const enUS: Catalog = {
   chipsMenuSelectVisible: 'Görüneni seç',
   chipsMenuCopyAllConfigs: 'Tüm konfigleri kopyala',
   chipsMenuPasteAtEnd: 'Sona yapıştır',
-  chipsEmptyPasteHint: 'No Configs Yet — Right-Click to Paste',
   chipsFilteredEmpty: 'Mevcut filtrelere uyan konfig yok',
   chipTooltipDuplicateOf: 'Bu, konfig #{n} kopyasıdır',
   chipBtnMoveUp: 'Yukarı taşı',
@@ -1173,4 +1164,4 @@ const enUS: Catalog = {
   setRevenge: 'İntikam',
 }
 
-export default enUS
+export default overrides

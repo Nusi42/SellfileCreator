@@ -1,6 +1,6 @@
 import type { Catalog } from '../types'
 
-const enUS: Catalog = {
+const overrides: Catalog = {
   // App / Panels
   appBuilderTitle: 'Générateur de configs',
   loadConfigs: 'Charger des configs (.hsfc)',
@@ -82,16 +82,11 @@ const enUS: Catalog = {
   testerMatchKeep: 'Garder',
   testerMatchSell: 'Vendre',
   testerMatchNoRule: 'Aucune correspondance',
-  testerConfigMatches: 'Matching Configs',
   testerConfigChip: 'Config #{index}',
   testerFinalSellChip: 'Vente finale',
 
   testerKeepUniqueChip: 'Conserver les uniques',
   testerValueUnknown: '—',
-  testerAddManualGear: 'Ajouter un équipement manuel',
-  testerAddRowAriaLabel: 'Add Row',
-  testerRemoveRowAriaLabel: 'Remove Row',
-  testerRerollLabel: 'Rerolled',
   testerLastUsedTooltip: 'Dernière utilisation {timestamp}.',
   testerLastUsedFilterLabel: 'Dernière utilisation',
   testerLastUsedPresetNever: 'Jamais utilisé',
@@ -110,6 +105,7 @@ const enUS: Catalog = {
   testerLastUsedCustomSummaryRange: '{minDays}–{maxDays} jours',
   testerLastUsedCustomSummaryMin: '≥{minDays} jours',
   testerLastUsedCustomSummaryMax: '≤{maxDays} jours',
+  testerAddManualGear: 'Ajouter un équipement manuel',
   // Common UI bits used in Rule Tester
   add: 'Ajouter',
   compact: 'Compact',
@@ -677,10 +673,6 @@ const enUS: Catalog = {
   builderMinRequiredRollsTargetLocked: 'Cible : Sous‑stats verrouillées',
   builderMinRequiredRollsChipLocked: 'Verrouillés uniquement',
   builderMinRequiredRollsChipSelected: 'Tous les sous-stats',
-  builderMinRequiredRollsLockIconSet: 'Lock {count} rolls to apply only to locked substats.',
-  builderMinRequiredRollsLockIconClear: 'Clear the locked roll target.',
-  builderMinRequiredRollsLockIconDisabled: 'Lock at least one substat to set a locked roll target.',
-  builderLockedMinRequiredRollsLabel: 'Locked Min: {count}',
   builderSubstatFlexToggleTooltip: 'Flex fait tourner les sous-stats optionnelles sur toutes les permutations pour générer chaque combinaison valide au-delà du nombre de Sous‑stats requises.\n• Choisissez un nombre de Sous‑stats requises (1–4) plutôt que Auto, puis marquez plus de sous-stats avec ★ que ce nombre.\n• Gardez au moins une ★ supplémentaire sans objectifs de roulis min/max pour avoir quelque chose à faire tourner.\n• Les choix verrouillés restent fixes et l’interrupteur se désactive dès que Flex ne s’applique plus.',
   builderMilestoneThresholdsHelp: 'Définit le comportement des substatTargets de lancers avant +16 dès que vous en demandez.\n• Tôt montre les lancers déjà obtenus à chaque jalon.\n• Tard montre seulement ce qui doit être présent maintenant pour que l’objectif +16 reste atteignable.\n• N’a d’effet que si une sous-stat a un Min > 0 ou si vous fixez un minimum global.',
   builderMinRequiredRollsImpossibleWarn: 'Avertissement : les lancers min ne peuvent pas être atteints à +16 avec les limites supérieures par stat actuelles',
@@ -1086,7 +1078,6 @@ const enUS: Catalog = {
   chipsMenuSelectVisible: 'Sélectionner visibles',
   chipsMenuCopyAllConfigs: 'Copier toutes les configs',
   chipsMenuPasteAtEnd: 'Coller à la fin',
-  chipsEmptyPasteHint: 'No Configs Yet — Right-Click to Paste',
   chipsFilteredEmpty: 'Aucune config ne correspond aux filtres actuels',
   chipTooltipDuplicateOf: 'Ceci est un doublon de la config n°{n}',
   chipBtnMoveUp: 'Monter',
@@ -1173,4 +1164,4 @@ const enUS: Catalog = {
   setRevenge: 'Vengeance',
 }
 
-export default enUS
+export default overrides

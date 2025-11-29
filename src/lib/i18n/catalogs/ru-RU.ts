@@ -1,6 +1,6 @@
 import type { Catalog } from '../types'
 
-const enUS: Catalog = {
+const overrides: Catalog = {
   // App / Panels
   appBuilderTitle: 'Конструктор конфигов',
   loadConfigs: 'Загрузить конфиги (.hsfc)',
@@ -51,7 +51,7 @@ const enUS: Catalog = {
   pushSellfile: 'Отправить Sellfile в RSL Helper',
   pushSellfileTooltip: 'Отправляет Sellfile на {endpoint}',
   manageColorsAria: 'Управление цветами',
-  // Rule Tester
+  // Тестер
   testerOpenLabel: 'Снаряжение...',
   testerOpenTooltip: 'Откройте тестер снаряжения, чтобы загрузить базу данных RSL Helper или собрать примерные предметы и проверить текущие правила.',
   testerTitle: 'Снаряжение',
@@ -82,16 +82,11 @@ const enUS: Catalog = {
   testerMatchKeep: 'Оставить',
   testerMatchSell: 'Продать',
   testerMatchNoRule: 'Совпадение отсутствует',
-  testerConfigMatches: 'Matching Configs',
   testerConfigChip: 'Конфиг #{index}',
   testerFinalSellChip: 'Финпродажа',
 
   testerKeepUniqueChip: 'Сохранение уникальных',
   testerValueUnknown: '—',
-  testerAddManualGear: 'Добавить ручную экипировку',
-  testerAddRowAriaLabel: 'Add Row',
-  testerRemoveRowAriaLabel: 'Remove Row',
-  testerRerollLabel: 'Rerolled',
   testerLastUsedTooltip: 'Последнее использование {timestamp}.',
   testerLastUsedFilterLabel: 'Последнее использование',
   testerLastUsedPresetNever: 'Никогда не использовалось',
@@ -110,7 +105,8 @@ const enUS: Catalog = {
   testerLastUsedCustomSummaryRange: '{minDays}–{maxDays} дней назад',
   testerLastUsedCustomSummaryMin: '≥{minDays} дней назад',
   testerLastUsedCustomSummaryMax: '≤{maxDays} дней назад',
-  // Common UI bits used in Rule Tester
+  testerAddManualGear: 'Добавить ручную экипировку',
+  // Common UI bits used in Тестер
   add: 'Добавить',
   compact: 'Компактный',
   expanded: 'Развёрнутый',
@@ -677,10 +673,6 @@ const enUS: Catalog = {
   builderMinRequiredRollsTargetLocked: 'Цель: закреплённые подстаты',
   builderMinRequiredRollsChipLocked: 'Только закреплённые',
   builderMinRequiredRollsChipSelected: 'Все подстаты',
-  builderMinRequiredRollsLockIconSet: 'Lock {count} rolls to apply only to locked substats.',
-  builderMinRequiredRollsLockIconClear: 'Clear the locked roll target.',
-  builderMinRequiredRollsLockIconDisabled: 'Lock at least one substat to set a locked roll target.',
-  builderLockedMinRequiredRollsLabel: 'Locked Min: {count}',
   builderSubstatFlexToggleTooltip: 'Flex поочерёдно перебирает необязательные подстаты во всех перестановках, чтобы сгенерировать каждую допустимую комбинацию сверх числа «Обязательные подстаты».\n• Выберите число в «Обязательные подстаты» (1–4) вместо «Авто» и отметьте ★ больше подстатов, чем это число.\n• Оставьте минимум одну лишнюю ★ без ограничений по мин./макс. роллам, чтобы было что вращать.\n• Закреплённые подстаты остаются на месте, а переключатель отключается, как только Flex перестаёт применяться.',
   builderMilestoneThresholdsHelp: 'Определяет поведение минимальных ролей до +16, как только вы их требуете.\n• «Рано» показывает, сколько ролей у вас уже есть на каждой вехе.\n• «Поздно» требует лишь то, что нужно прямо сейчас, чтобы цель к +16 оставалась достижимой.\n• Работает только если у какого-то подстата Min > 0 или задан глобальный минимум.',
   builderMinRequiredRollsImpossibleWarn: 'Предупреждение: минимум ролей недостижим к +16 с текущими верхними лимитами по статам',
@@ -1086,7 +1078,6 @@ const enUS: Catalog = {
   chipsMenuSelectVisible: 'Выбрать видимые',
   chipsMenuCopyAllConfigs: 'Копировать все конфиги',
   chipsMenuPasteAtEnd: 'Вставить в конец',
-  chipsEmptyPasteHint: 'No Configs Yet — Right-Click to Paste',
   chipsFilteredEmpty: 'Нет конфигов, подходящих под текущие фильтры',
   chipTooltipDuplicateOf: 'Дубликат конфига №{n}',
   chipBtnMoveUp: 'Выше',
@@ -1173,4 +1164,4 @@ const enUS: Catalog = {
   setRevenge: 'Месть',
 }
 
-export default enUS
+export default overrides
