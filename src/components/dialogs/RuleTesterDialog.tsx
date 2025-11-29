@@ -1282,7 +1282,7 @@ export default function RuleTesterDialog({
                 commitSubstatValue(clampTesterValue(next))
               }
               return (
-                <Stack key={v} direction="row" spacing={0.5} alignItems="center" sx={{ width: `${TESTER_SUBSTAT_EDITOR_WIDTH_PX}px`, border: theme => `1px solid ${theme.palette.divider}`, borderRadius: 1, px: 0.75, py: 0.25 }}>
+                <Stack key={v} direction="row" spacing={0.5} alignItems="center" sx={{ width: `${TESTER_SUBSTAT_EDITOR_WIDTH_PX}px`, borderRadius: 1, px: 0.75, py: 0.25 }}>
                   <Select
                     size="small"
                     value={v}

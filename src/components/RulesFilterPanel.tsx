@@ -190,35 +190,62 @@ function mergeRowSelection(
   })
 }
 
-const TOGGLE_BUTTON_GROUP_SHARED_SX = {
-  '& .MuiToggleButtonGroup-grouped:not(:first-of-type)': {
-    marginLeft: '0 !important',
-    borderLeft: '1px solid transparent',
-  },
-  '& .MuiToggleButtonGroup-grouped.Mui-selected + .MuiToggleButtonGroup-grouped.Mui-selected': {
-    marginLeft: '0 !important',
-    borderLeft: '1px solid transparent',
-  },
-} as const
+const TOGGLE_BUTTON_BORDER_RADIUS = `${STATUS_CHIP_BORDER_RADIUS_PX}px`
+const toggleBorderColor = (theme: Theme) => theme.palette.divider
+// Grid-based toggle groups rely on real spacing, so restore each chip's outline.
+const GRID_TOGGLE_BUTTON_GROUP_SX: SxProps<Theme> = (theme) => {
+  const borderColor = toggleBorderColor(theme)
+  return {
+    '& .MuiToggleButtonGroup-grouped': {
+      margin: '0 !important',
+      borderRadius: TOGGLE_BUTTON_BORDER_RADIUS,
+      borderColor,
+    },
+    '& .MuiToggleButtonGroup-grouped:not(:first-of-type)': {
+      marginLeft: '0 !important',
+      borderLeft: `1px solid ${borderColor}`,
+    },
+  }
+}
+// Segmented toggles sit flush; keep the fused seam while matching the neutral border color.
+const SEGMENTED_TOGGLE_BUTTON_GROUP_SX: SxProps<Theme> = (theme) => {
+  const borderColor = toggleBorderColor(theme)
+  return {
+    display: 'inline-flex',
+    columnGap: 0.5,
+    rowGap: 0,
+    '& .MuiToggleButtonGroup-grouped': {
+      margin: '0 !important',
+      borderRadius: TOGGLE_BUTTON_BORDER_RADIUS,
+      borderColor,
+    },
+    '& .MuiToggleButtonGroup-grouped:not(:first-of-type)': {
+      marginLeft: '0 !important',
+      borderLeft: `1px solid ${borderColor}`,
+    },
+  }
+}
 
 const buildToggleGridSx = (
   _columns: number,
   options?: { minWidth?: number; height?: number },
-) => {
+): SxProps<Theme> => {
   const minWidth = options?.minWidth
   const height = options?.height ?? 28
-  return {
-    display: 'inline-flex',
-    flexWrap: 'wrap',
-    columnGap: 0.5,
-    rowGap: 0.5,
-    '& .MuiToggleButton-root': {
-      p: 0.5,
-      ...(minWidth != null ? { minWidth } : {}),
-      height,
+  return [
+    {
+      display: 'inline-flex',
+      flexWrap: 'wrap',
+      columnGap: 0.5,
+      rowGap: 0.5,
+      '& .MuiToggleButton-root': {
+        p: 0.5,
+        ...(minWidth != null ? { minWidth } : {}),
+        height,
+      },
     },
-    ...TOGGLE_BUTTON_GROUP_SHARED_SX,
-  }
+    GRID_TOGGLE_BUTTON_GROUP_SX,
+  ]
 }
 
 const collapsibleSectionSx = {
@@ -303,10 +330,6 @@ const rollCountToggleGroupSx: SxProps<Theme> = (theme) => {
     '& .MuiToggleButtonGroup-grouped': {
       margin: '0 !important',
       borderRadius: '50% !important',
-      borderLeft: '1px solid transparent',
-    },
-    '& .MuiToggleButtonGroup-grouped:not(:first-of-type)': {
-      marginLeft: '0 !important',
     },
     '& .MuiToggleButton-root': {
       minWidth: ROLL_COUNT_TOGGLE_SIZE_PX,
@@ -1021,7 +1044,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
   const raritySelected = new Set((state.rarity.selected ?? []).map(Number))
   // Group toggles handled inline in onChange for Rank/Rarity condensed controls
 
-  const toggleLabelSx = [ELLIPSIS_TEXT_SX, { width: '100%', textAlign: 'center', fontSize: 'inherit' as const }]
+  const toggleLabelSx = [ELLIPSIS_TEXT_SX, { display: 'block', width: '100%', textAlign: 'center', fontSize: 'inherit' as const }]
   const testerConfigFilterOn = testerConfigFilterMode !== TESTER_CONFIG_FILTER_MODE_DEFAULT
   const testerConfigLabelStrings = React.useMemo(() => ({
     first: t('testerFilterConfigsFirst'),
@@ -1402,7 +1425,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                         testerResult: { keep: next, matched: state.testerResult?.matched ?? DEFAULT_RULES_FILTER_STATE.testerResult!.matched },
                       })
                     }}
-                    sx={{
+                    sx={[{
                       '& .MuiToggleButton-root': {
                         p: 0.5,
                         width: FILTER_TOGGLE_BUTTON_WIDTH_PX,
@@ -1415,9 +1438,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                         justifyContent: 'center',
                         lineHeight: 1.2,
                       },
-                      '& .MuiToggleButtonGroup-grouped:not(:first-of-type)': { marginLeft: '0 !important', borderLeft: '1px solid transparent' },
-                      '& .MuiToggleButtonGroup-grouped.Mui-selected + .MuiToggleButtonGroup-grouped.Mui-selected': { marginLeft: '0 !important', borderLeft: '1px solid transparent' },
-                    }}
+                    }, SEGMENTED_TOGGLE_BUTTON_GROUP_SX]}
                   >
                     <ToggleButton value={'yes'}>
                       <EllipsisTooltip title={t('keepValueKeep')} wrap="block">
@@ -1447,7 +1468,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                         testerResult: { keep: state.testerResult?.keep ?? DEFAULT_RULES_FILTER_STATE.testerResult!.keep, matched: next },
                       })
                     }}
-                    sx={{
+                    sx={[{
                       '& .MuiToggleButton-root': {
                         p: 0.5,
                         width: FILTER_TOGGLE_BUTTON_WIDTH_PX,
@@ -1460,9 +1481,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                         justifyContent: 'center',
                         lineHeight: 1.2,
                       },
-                      '& .MuiToggleButtonGroup-grouped:not(:first-of-type)': { marginLeft: '0 !important', borderLeft: '1px solid transparent' },
-                      '& .MuiToggleButtonGroup-grouped.Mui-selected + .MuiToggleButtonGroup-grouped.Mui-selected': { marginLeft: '0 !important', borderLeft: '1px solid transparent' },
-                    }}
+                    }, SEGMENTED_TOGGLE_BUTTON_GROUP_SX]}
                   >
                     <ToggleButton value={'yes'}>
                       <EllipsisTooltip title={t('testerResultMatched')} wrap="block">
@@ -1492,7 +1511,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                       const next = v ?? 'any'
                       onChange({ ...state, rule: { keep: next, use: state.rule?.use ?? 'any' } })
                     }}
-                    sx={{
+                    sx={[{
                       '& .MuiToggleButton-root': {
                         p: 0.5,
                         width: FILTER_TOGGLE_BUTTON_WIDTH_PX,
@@ -1505,9 +1524,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                         justifyContent: 'center',
                         lineHeight: 1.2,
                       },
-                      '& .MuiToggleButtonGroup-grouped:not(:first-of-type)': { marginLeft: '0 !important', borderLeft: '1px solid transparent' },
-                      '& .MuiToggleButtonGroup-grouped.Mui-selected + .MuiToggleButtonGroup-grouped.Mui-selected': { marginLeft: '0 !important', borderLeft: '1px solid transparent' },
-                    }}
+                    }, SEGMENTED_TOGGLE_BUTTON_GROUP_SX]}
                   >
                     <ToggleButton value={'yes'}>
                       <EllipsisTooltip title={t('keepValueKeep')} wrap="block">
@@ -1534,7 +1551,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                       const next = v ?? 'any'
                       onChange({ ...state, rule: { keep: state.rule?.keep ?? 'any', use: next } })
                     }}
-                    sx={{
+                    sx={[{
                       '& .MuiToggleButton-root': {
                         p: 0.5,
                         width: FILTER_TOGGLE_BUTTON_WIDTH_PX,
@@ -1547,9 +1564,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                         justifyContent: 'center',
                         lineHeight: 1.2,
                       },
-                      '& .MuiToggleButtonGroup-grouped:not(:first-of-type)': { marginLeft: '0 !important', borderLeft: '1px solid transparent' },
-                      '& .MuiToggleButtonGroup-grouped.Mui-selected + .MuiToggleButtonGroup-grouped.Mui-selected': { marginLeft: '0 !important', borderLeft: '1px solid transparent' },
-                    }}
+                    }, SEGMENTED_TOGGLE_BUTTON_GROUP_SX]}
                   >
                     <ToggleButton value={'yes'}>
                       <EllipsisTooltip title={t('builderExportModeActive')} wrap="block">
@@ -1897,7 +1912,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                           size="small"
                           value={testerSourceSelection}
                           onChange={handleTesterSourceToggleChange}
-                          sx={{
+                          sx={[{
                             display: 'grid',
                             gridTemplateColumns: `repeat(${rowOptions.length}, minmax(0, ${FILTER_TOGGLE_BUTTON_WIDTH_PX}px))`,
                             columnGap: 0.5,
@@ -1914,15 +1929,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                               justifyContent: 'center',
                               lineHeight: 1.2,
                             },
-                            '& .MuiToggleButtonGroup-grouped:not(:first-of-type)': {
-                              marginLeft: '0 !important',
-                              borderLeft: '1px solid transparent',
-                            },
-                            '& .MuiToggleButtonGroup-grouped.Mui-selected + .MuiToggleButtonGroup-grouped.Mui-selected': {
-                              marginLeft: '0 !important',
-                              borderLeft: '1px solid transparent',
-                            },
-                          }}
+                          }, GRID_TOGGLE_BUTTON_GROUP_SX]}
                         >
                           {rowOptions.map((option) => (
                             <ToggleButton key={option.value} value={option.value}>
@@ -2117,7 +2124,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                     <ToggleButtonGroup
                       size="small"
                       value={lastUsePresetSelection}
-                      sx={{
+                      sx={[{
                         display: 'grid',
                         gridTemplateColumns: `repeat(3, minmax(0, ${LAST_USE_TOGGLE_BUTTON_WIDTH_PX}px))`,
                         columnGap: 0.5,
@@ -2134,8 +2141,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                           justifyContent: 'center',
                           lineHeight: 1.2,
                         },
-                        ...TOGGLE_BUTTON_GROUP_SHARED_SX,
-                      }}
+                      }, GRID_TOGGLE_BUTTON_GROUP_SX]}
                     >
                       {lastUsePresetOptions.map((option) => (
                         <ToggleButton
@@ -2457,20 +2463,12 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                     <ToggleButtonGroup size="small" value={state.level.selected.map(String)} onChange={(_, vals: string[]) => {
                       const parsed = vals.map(v => Number(v) as LevelMilestone)
                       onChange({ ...state, level: { ...state.level, selected: parsed } })
-                    }} sx={{
+                    }} sx={[{
                       width: levelControlResponsiveWidth,
                       maxWidth: '100%',
                       flexWrap: 'wrap',
                       '& .MuiToggleButton-root': { p: 0.5, minWidth: 36, height: 28 },
-                      '& .MuiToggleButtonGroup-grouped:not(:first-of-type)': {
-                        marginLeft: '0 !important',
-                        borderLeft: '1px solid transparent',
-                      },
-                      '& .MuiToggleButtonGroup-grouped.Mui-selected + .MuiToggleButtonGroup-grouped.Mui-selected': {
-                        marginLeft: '0 !important',
-                        borderLeft: '1px solid transparent',
-                      },
-                    }}>
+                    }, GRID_TOGGLE_BUTTON_GROUP_SX]}>
                       {levelValues.map(v => (<ToggleButton key={v} value={String(v)}>+{v}</ToggleButton>))}
                     </ToggleButtonGroup>
                     <Box sx={{ mt: FILTER_CHIP_TOP_MARGIN }}>
@@ -2652,14 +2650,13 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                   const ids = vals.map(v => Number(v))
                   onChange({ ...state, slots: { ...state.slots, selected: ids } })
                 }}
-                sx={{
+                sx={[{
                   display: 'inline-grid',
                   gridTemplateColumns: 'repeat(3, auto)',
                   columnGap: 0.5,
                   rowGap: 0.5,
                   '& .MuiToggleButton-root': { p: 0.5, minWidth: 36, height: 28 },
-                  ...TOGGLE_BUTTON_GROUP_SHARED_SX,
-                }}
+                }, GRID_TOGGLE_BUTTON_GROUP_SX]}
               >
                 {slotButtons.map((s) => {
                   const Icon = artifactTypeIconFor(s.id)
@@ -2699,14 +2696,13 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                       .sort((a, b) => a - b)
                     onChange({ ...state, rank: { ...state.rank, selected: parsed } })
                   }}
-                  sx={{
+                  sx={[{
                     display: 'grid',
                     gridTemplateColumns: 'repeat(3, auto)',
                     columnGap: 0.5,
                     rowGap: 0.5,
                     '& .MuiToggleButton-root': { p: 0.5, minWidth: 44, height: 28 },
-                    ...TOGGLE_BUTTON_GROUP_SHARED_SX,
-                  }}
+                  }, GRID_TOGGLE_BUTTON_GROUP_SX]}
                 >
                   {[1, 2, 3, 4, 5, 6].map((rank) => (
                     <ToggleButton key={rank} value={String(rank)}>
@@ -2736,7 +2732,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                       .sort((a, b) => a - b)
                     onChange({ ...state, rarity: { ...state.rarity, selected: parsed } })
                   }}
-                  sx={{
+                  sx={[{
                     display: 'grid',
                     gridTemplateColumns: `repeat(3, minmax(0, ${FILTER_TOGGLE_BUTTON_WIDTH_PX}px))`,
                     columnGap: 0.5,
@@ -2753,8 +2749,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                       justifyContent: 'center',
                       lineHeight: 1.2,
                     },
-                    ...TOGGLE_BUTTON_GROUP_SHARED_SX,
-                  }}
+                  }, GRID_TOGGLE_BUTTON_GROUP_SX]}
                 >
                   {[
                     { value: '1', labelKey: 'rarityCommon' },
@@ -2797,14 +2792,13 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                       const prev = state.testerAscension ?? DEFAULT_RULES_FILTER_STATE.testerAscension!
                       onChange({ ...state, testerAscension: { ...prev, stars: parsed } })
                     }}
-                    sx={{
+                    sx={[{
                       display: 'grid',
                       gridTemplateColumns: 'repeat(4, auto)',
                       columnGap: 0.5,
                       rowGap: 0.5,
                       '& .MuiToggleButton-root': { p: 0.5, minWidth: 44, height: 28 },
-                      ...TOGGLE_BUTTON_GROUP_SHARED_SX,
-                    }}
+                    }, GRID_TOGGLE_BUTTON_GROUP_SX]}
                   >
                     {ASCENSION_STAR_VALUES.map((star) => (
                       <ToggleButton key={star} value={String(star)}>
