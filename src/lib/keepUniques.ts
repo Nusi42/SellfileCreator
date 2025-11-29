@@ -34,14 +34,16 @@ export type KeepUniqueRuleCountMode = {
   perSet: boolean
   perFaction: boolean
   perMainStat: boolean
+  perSlot: boolean
 }
 
-// Mirrors the default toggle state in the 2×2 scope grid (set+faction+main) so HSFC imports and tutorials stay aligned.
+// Mirrors the default scope-chip state (slot+set+faction+main) so HSFC imports and tutorials stay aligned.
 export const KEEP_UNIQUE_DEFAULT_COUNT_MODE: KeepUniqueRuleCountMode = {
   perRule: false,
   perSet: true,
   perFaction: true,
   perMainStat: true,
+  perSlot: false,
 }
 
 const coerceBoolean = (value: unknown): boolean => value === true
@@ -51,21 +53,24 @@ const sanitizeCountMode = (raw: Partial<KeepUniqueRuleCountMode> | null | undefi
   const perSet = coerceBoolean(raw?.perSet)
   const perFaction = coerceBoolean(raw?.perFaction)
   const perMainStat = coerceBoolean(raw?.perMainStat)
+  const perSlot = coerceBoolean(raw?.perSlot)
   if (perRule) {
     return {
       perRule: true,
       perSet: false,
       perFaction: false,
       perMainStat: false,
+      perSlot: false,
     }
   }
-  const hasGrouping = perSet || perFaction || perMainStat
+  const hasGrouping = perSet || perFaction || perMainStat || perSlot
   if (!hasGrouping) {
     return {
       perRule: true,
       perSet: false,
       perFaction: false,
       perMainStat: false,
+      perSlot: false,
     }
   }
   return {
@@ -73,6 +78,7 @@ const sanitizeCountMode = (raw: Partial<KeepUniqueRuleCountMode> | null | undefi
     perSet,
     perFaction,
     perMainStat,
+    perSlot,
   }
 }
 
@@ -85,9 +91,10 @@ const normalizeCountMode = (value: unknown): KeepUniqueRuleCountMode => {
         perSet: false,
         perFaction: false,
         perMainStat: false,
+        perSlot: false,
       }
     }
-    // Legacy per-combination strings default to the full grouping set (set+faction+main stat).
+    // Legacy per-combination strings default to the full grouping set (slot+set+faction+main stat).
     return { ...KEEP_UNIQUE_DEFAULT_COUNT_MODE }
   }
   if (typeof value === 'object') {
@@ -394,6 +401,9 @@ type KeepUniqueCountKey = string
 const getKeepUniqueCountKey = (artifact: NormalizedGearArtifact, mode: KeepUniqueRuleCountMode): KeepUniqueCountKey => {
   if (mode.perRule) return 'global'
   const parts: string[] = []
+  if (mode.perSlot) {
+    parts.push(`slot:${Number(artifact.slot)}`)
+  }
   if (mode.perSet) {
     parts.push(`set:${Number(artifact.set)}`)
   }

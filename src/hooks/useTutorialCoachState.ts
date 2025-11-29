@@ -78,8 +78,8 @@ const buildTutorialKeepUniqueRules = (): KeepUniqueRule[] => [{
   },
   requiredCount: 1,
   enabled: true,
-  // Tutorial snapshot mirrors the new 2×2 scope grid by cloning the
-  // sanitized default so demos highlight the same toggle state as the UI.
+  // Tutorial snapshot mirrors the scope chip defaults by cloning the
+  // sanitized count mode so demos highlight the same state as the UI.
   countMode: { ...KEEP_UNIQUE_DEFAULT_COUNT_MODE },
 }]
 
@@ -106,6 +106,7 @@ const cloneKeepUniqueRule = (rule: KeepUniqueRule): KeepUniqueRule => ({
     perSet: rule.countMode.perSet,
     perFaction: rule.countMode.perFaction,
     perMainStat: rule.countMode.perMainStat,
+    perSlot: rule.countMode.perSlot,
   },
 })
 

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type FocusEvent as ReactFocusEvent, type MouseEvent as ReactMouseEvent, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useState, type MouseEvent as ReactMouseEvent, type ReactNode } from 'react'
 import {
   Box,
   Button,
@@ -14,8 +14,6 @@ import {
   Stack,
   Switch,
   TextField,
-  ToggleButton,
-  ToggleButtonGroup,
   Typography,
 } from '@mui/material'
 import AddIcon from '@mui/icons-material/Add'
@@ -34,7 +32,7 @@ import {
 import { createKeepUniqueRuleId, getKeepUniqueItemKey } from '../../lib/keepUniques'
 import type { TesterPreviewRow } from '../../types/testerPreview'
 import type { ColorBlindMode } from '../../lib/constants'
-import { ELLIPSIS_TEXT_SX, FONT_SIZE_BASE_PX, MENU_CONTROL_HEIGHT_PX, SMALL_BUTTON_HEIGHT_PX } from '../../lib/constants'
+import { FONT_SIZE_BASE_PX, MENU_CONTROL_HEIGHT_PX } from '../../lib/constants'
 import type { ArtifactSetId, ArtifactTypeId, StatVariant } from '../../lib/types'
 import {
   ACCESSORY_SLOTS_COMPATIBLE_SET_IDS,
@@ -54,43 +52,17 @@ import { EmptyStateMessage } from '../EmptyStateMessage'
 import WorkloadProgressIndicator from '../WorkloadProgressIndicator'
 // MarkdownTooltip keeps the rule-count hints and info icons synchronized with the broader tooltip refactor.
 import MarkdownTooltip from '../MarkdownTooltip'
-import { hasEllipsisOverflow } from '../../lib/ellipsis'
 import type { SetStateAction } from 'react'
 import type { Metaset } from '../../lib/metasets'
 import InlineSelectClearButton from '../InlineSelectClearButton'
 import InlineSelectExtraBadge from '../InlineSelectExtraBadge'
 import { computeInlineSelectContentMaxWidth, computeInlineSelectPadding } from '../../lib/inlineSelectAffordances'
-import type { Theme } from '@mui/material/styles'
+import { alpha, useTheme } from '@mui/material/styles'
+import type { SxProps, Theme } from '@mui/material/styles'
 import type { SystemStyleObject } from '@mui/system'
+import { createBuilderStatusChipSx } from '../builderStatusChipStyles'
 
-// Two-row grid styling so the new quota toggles read like a 2×2 button pad without fighting MUI's default borders.
-const COUNT_MODE_ROW_SX: SystemStyleObject<Theme> = {
-  width: '100%',
-  '& .MuiToggleButtonGroup-grouped': {
-    flex: 1,
-    minWidth: 0,
-    border: '1px solid',
-    borderColor: 'divider',
-    borderRadius: 1,
-    margin: 0,
-  },
-  '& .MuiToggleButtonGroup-grouped:not(:first-of-type)': {
-    marginLeft: '-1px',
-  },
-  '& .MuiToggleButtonGroup-grouped:first-of-type': {
-    marginLeft: 0,
-  },
-}
-
-// Shared button tweaks keep the label ellipses stable while matching the compact height of the old pills.
-const COUNT_MODE_BUTTON_SX = {
-  px: 1.25,
-  flex: 1,
-  minWidth: 0,
-  height: SMALL_BUTTON_HEIGHT_PX,
-  minHeight: SMALL_BUTTON_HEIGHT_PX,
-  textTransform: 'none' as const,
-}
+const SCOPE_CHIP_HOVER_ALPHA = { light: 0.12, dark: 0.24 } as const
 
 type KeepUniquesTabProps = {
   rules: KeepUniqueRule[]
@@ -113,6 +85,8 @@ type KeepUniquesTabProps = {
   suppressMatchDetails?: boolean
   workloadProgressRatio: number
 }
+
+type KeepUniqueScopeKey = 'perSlot' | 'perSet' | 'perFaction' | 'perMainStat'
 
 const ARTIFACT_SET_POOL: readonly ArtifactSetId[] = Object.freeze([...ARMOR_FIXED_SET_IDS, ...ARMOR_VARIABLE_SET_IDS])
 export default function KeepUniquesTab({
@@ -137,6 +111,28 @@ export default function KeepUniquesTab({
   workloadProgressRatio,
 }: KeepUniquesTabProps) {
   const { t } = useI18n()
+  const theme = useTheme()
+  const scopeChipSx = useMemo<((active: boolean) => SxProps<Theme>)>(() => {
+    const builderChipSx = createBuilderStatusChipSx(theme)
+    const baseChipSx = builderChipSx(true, { dimDisabled: true }) as SystemStyleObject<Theme>
+    const inactiveChipSx = builderChipSx(false, { dimDisabled: true }) as SystemStyleObject<Theme>
+    const hoverBg = alpha(
+      theme.palette.text.primary,
+      theme.palette.mode === 'dark' ? SCOPE_CHIP_HOVER_ALPHA.dark : SCOPE_CHIP_HOVER_ALPHA.light,
+    )
+    return (active: boolean): SxProps<Theme> => (
+      active
+        ? baseChipSx
+        : [
+            baseChipSx,
+            inactiveChipSx,
+            {
+              '&.MuiChip-clickable:hover': { backgroundColor: hoverBg },
+              '&.MuiChip-clickable:active': { backgroundColor: hoverBg },
+            } as SystemStyleObject<Theme>,
+          ]
+    )
+  }, [theme])
   const clearLabel = t('clear')
   const [selectedRuleId, setSelectedRuleId] = useState<string | null>(() => rules[0]?.id ?? null)
   const [respectManualDeselect, setRespectManualDeselect] = useState(false)
@@ -348,44 +344,33 @@ export default function KeepUniquesTab({
       </Box>
     )
     const countMode = sanitizeKeepUniqueCountMode(rule.countMode ?? KEEP_UNIQUE_DEFAULT_COUNT_MODE)
+    const perSlotLabel = t('keepUniquesCountModePerSlot')
     const perSetLabel = t('keepUniquesCountModePerSet')
-    const perRuleLabel = t('keepUniquesCountModePerRule')
     const perFactionLabel = t('keepUniquesCountModePerFaction')
     const perMainLabel = t('keepUniquesCountModePerMain')
-    const handleCountModeToggle = (target: 'perRule' | 'perSet' | 'perFaction' | 'perMain') => {
+    const scopeActive = {
+      perSlot: !countMode.perRule && countMode.perSlot,
+      perSet: !countMode.perRule && countMode.perSet,
+      perFaction: !countMode.perRule && countMode.perFaction,
+      perMainStat: !countMode.perRule && countMode.perMainStat,
+    }
+    const handleScopeChipToggle = (scope: KeepUniqueScopeKey) => {
       updateRule(rule.id, (prev) => {
         const prevMode = sanitizeKeepUniqueCountMode(prev.countMode ?? KEEP_UNIQUE_DEFAULT_COUNT_MODE)
-        if (target === 'perRule') {
-          if (prevMode.perRule) {
-            return { ...prev, countMode: { ...KEEP_UNIQUE_DEFAULT_COUNT_MODE } }
-          }
-          return {
-            ...prev,
-            countMode: {
-              perRule: true,
-              perSet: false,
-              perFaction: false,
-              perMainStat: false,
-            },
-          }
-        }
-        const key: 'perSet' | 'perFaction' | 'perMainStat' = target === 'perSet'
-          ? 'perSet'
-          : target === 'perFaction'
-            ? 'perFaction'
-            : 'perMainStat'
-        const toggled = !prevMode[key]
+        const nextValue = !prevMode[scope]
         const nextMode: KeepUniqueRule['countMode'] = {
           perRule: false,
-          perSet: key === 'perSet' ? toggled : prevMode.perSet,
-          perFaction: key === 'perFaction' ? toggled : prevMode.perFaction,
-          perMainStat: key === 'perMainStat' ? toggled : prevMode.perMainStat,
+          perSlot: scope === 'perSlot' ? nextValue : prevMode.perSlot,
+          perSet: scope === 'perSet' ? nextValue : prevMode.perSet,
+          perFaction: scope === 'perFaction' ? nextValue : prevMode.perFaction,
+          perMainStat: scope === 'perMainStat' ? nextValue : prevMode.perMainStat,
         }
-        if (!nextMode.perSet && !nextMode.perFaction && !nextMode.perMainStat) {
+        if (!nextMode.perSlot && !nextMode.perSet && !nextMode.perFaction && !nextMode.perMainStat) {
           return {
             ...prev,
             countMode: {
               perRule: true,
+              perSlot: false,
               perSet: false,
               perFaction: false,
               perMainStat: false,
@@ -395,30 +380,25 @@ export default function KeepUniquesTab({
         return { ...prev, countMode: nextMode }
       })
     }
+    const renderScopeChip = (scope: KeepUniqueScopeKey, label: string, active: boolean) => (
+      <Chip
+        size="small"
+        variant="filled"
+        clickable
+        onClick={(event) => { event.stopPropagation(); handleScopeChipToggle(scope) }}
+        aria-pressed={active}
+        label={label}
+        sx={scopeChipSx(active)}
+      />
+    )
 
-    const applyNativeEllipsisTitle = (node: HTMLElement | null, label: string) => {
-      if (!node) return
-      if (hasEllipsisOverflow(node)) {
-        node.setAttribute('title', label)
-      } else {
-        node.removeAttribute('title')
-      }
-    }
-    const handleToggleLabelMouseEnter = (label: string) => (event: ReactMouseEvent<HTMLElement>) => {
-      applyNativeEllipsisTitle(event.currentTarget as HTMLElement, label)
-    }
-    const handleToggleLabelFocus = (label: string) => (event: ReactFocusEvent<HTMLElement>) => {
-      applyNativeEllipsisTitle(event.currentTarget as HTMLElement, label)
-    }
-    const handleToggleLabelLeave = (event: ReactMouseEvent<HTMLElement> | ReactFocusEvent<HTMLElement>) => {
-      (event.currentTarget as HTMLElement).removeAttribute('title')
-    }
     // Extend the counts chip with a suffix that explains how the totals were derived.
     const detectionScopeSuffix = (() => {
       if (!ruleDetection) return ''
       const mode = sanitizeKeepUniqueCountMode(ruleDetection.countMode ?? KEEP_UNIQUE_DEFAULT_COUNT_MODE)
       if (mode.perRule || ruleDetection.groupsTracked === 0) return ''
       const scopeParts: string[] = []
+      if (mode.perSlot) scopeParts.push(perSlotLabel)
       if (mode.perSet) scopeParts.push(perSetLabel)
       if (mode.perFaction) scopeParts.push(perFactionLabel)
       if (mode.perMainStat) scopeParts.push(perMainLabel)
@@ -444,8 +424,15 @@ export default function KeepUniquesTab({
         }}
       >
         <Stack spacing={1.5}>
-          <Box sx={{ height: 4 }} />
-          <Box sx={{ display: 'flex', justifyContent: 'flex-start' }}>
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
+              gap: 1,
+            }}
+          >
             <Box component="span" data-rule-card-interactive="true">
               <FormControlLabel
                 control={(
@@ -457,129 +444,159 @@ export default function KeepUniquesTab({
                 label={t('keepUniquesRuleEnabledToggle')}
               />
             </Box>
+            <Stack
+              direction="row"
+              spacing={0.5}
+              alignItems="center"
+              sx={{ color: 'text.secondary' }}
+              data-rule-card-interactive="true"
+            >
+              <Typography variant="caption" component="span" color="inherit">
+                {t('keepUniquesCountModeToggleLabel')}
+              </Typography>
+              <MarkdownTooltip markdown={t('keepUniquesCountModeHint')}>
+                <IconButton
+                  size="small"
+                  color="inherit"
+                  aria-label={t('keepUniquesCountModeHintLabel')}
+                  sx={{
+                    p: 0.25,
+                    fontSize: 16,
+                    '&:hover': { color: 'text.primary' },
+                    '&:focus-visible': { color: 'text.primary' },
+                  }}
+                >
+                  <InfoOutlinedIcon fontSize="inherit" />
+                </IconButton>
+              </MarkdownTooltip>
+            </Stack>
           </Box>
           <Stack spacing={1}>
             <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 1 }}>
-              <RuleSelectAffordances
-                selectionCount={slotSelection.length}
-                clearLabel={clearLabel}
-                onClear={() => {
-                  setRuleCombination(rule.id, (prev) => ({ ...prev, slots: [] }))
-                }}
-              >
-                <GearSlotSelect
-                  multiple
-                  value={slotSelection}
-                  onChange={(nextSlots) => {
-                    setRuleCombination(rule.id, (prev) => sanitizeCombinationForSlots(nextSlots, prev, metasets))
+              <RuleFieldWithScopeChip chip={renderScopeChip('perSlot', perSlotLabel, scopeActive.perSlot)}>
+                <RuleSelectAffordances
+                  selectionCount={slotSelection.length}
+                  clearLabel={clearLabel}
+                  onClear={() => {
+                    setRuleCombination(rule.id, (prev) => ({ ...prev, slots: [] }))
                   }}
-                  size="small"
-                  sx={getRuleSelectPaddingSx(slotSelection.length, INLINE_SELECT_FIXED_HEIGHT_PX)}
+                >
+                  <GearSlotSelect
+                    multiple
+                    value={slotSelection}
+                    onChange={(nextSlots) => {
+                      setRuleCombination(rule.id, (prev) => sanitizeCombinationForSlots(nextSlots, prev, metasets))
+                    }}
+                    size="small"
+                    sx={getRuleSelectPaddingSx(slotSelection.length, INLINE_SELECT_FIXED_HEIGHT_PX)}
+                  />
+                </RuleSelectAffordances>
+              </RuleFieldWithScopeChip>
+              <RuleFieldWithScopeChip chip={renderScopeChip('perSet', perSetLabel, scopeActive.perSet)}>
+                <GearSetsSelect
+                  value={setSelection}
+                  onChange={(nextSets) => {
+                    setRuleCombination(rule.id, (prev) => ({ ...prev, sets: dedupeNumericArray(nextSets) }))
+                  }}
+                  metasets={metasets}
+                  selectedMetasetIds={combination.metaSetIds}
+                  onChangeMetasetIds={(nextMetaIds) => {
+                    setRuleCombination(rule.id, (prev) => ({ ...prev, metaSetIds: dedupeStringArray(nextMetaIds) }))
+                  }}
+                  allowedSetIds={allowedSetPool}
+                  showMetasets
                 />
-              </RuleSelectAffordances>
-              <GearSetsSelect
-                value={setSelection}
-                onChange={(nextSets) => {
-                  setRuleCombination(rule.id, (prev) => ({ ...prev, sets: dedupeNumericArray(nextSets) }))
-                }}
-                metasets={metasets}
-                selectedMetasetIds={combination.metaSetIds}
-                onChangeMetasetIds={(nextMetaIds) => {
-                  setRuleCombination(rule.id, (prev) => ({ ...prev, metaSetIds: dedupeStringArray(nextMetaIds) }))
-                }}
-                allowedSetIds={allowedSetPool}
-                showMetasets
-              />
+              </RuleFieldWithScopeChip>
             </Box>
             <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 1 }}>
-              <RuleSelectAffordances
-                selectionCount={rankSelection.length}
-                clearLabel={clearLabel}
-                onClear={() => {
-                  setRuleCombination(rule.id, (prev) => ({ ...prev, ranks: [] }))
-                }}
-              >
-                <GearRankSelect
-                  multiple
-                  allowAny
-                  value={rankSelection}
-                  onChange={(nextRanks) => {
-                    setRuleCombination(rule.id, (prev) => ({ ...prev, ranks: nextRanks }))
+              <RuleFieldWithScopeChip>
+                <RuleSelectAffordances
+                  selectionCount={rankSelection.length}
+                  clearLabel={clearLabel}
+                  onClear={() => {
+                    setRuleCombination(rule.id, (prev) => ({ ...prev, ranks: [] }))
                   }}
-                  size="small"
-                  sx={getRuleSelectPaddingSx(rankSelection.length)}
-                />
-              </RuleSelectAffordances>
-              <RuleSelectAffordances
-                selectionCount={raritySelection.length}
-                clearLabel={clearLabel}
-                onClear={() => {
-                  setRuleCombination(rule.id, (prev) => ({ ...prev, rarities: [] }))
-                }}
-              >
-                <GearRaritySelect
-                  multiple
-                  allowAny
-                  value={raritySelection}
-                  onChange={(nextRarities) => {
-                    setRuleCombination(rule.id, (prev) => ({ ...prev, rarities: nextRarities }))
+                >
+                  <GearRankSelect
+                    multiple
+                    allowAny
+                    value={rankSelection}
+                    onChange={(nextRanks) => {
+                      setRuleCombination(rule.id, (prev) => ({ ...prev, ranks: nextRanks }))
+                    }}
+                    size="small"
+                    sx={getRuleSelectPaddingSx(rankSelection.length)}
+                  />
+                </RuleSelectAffordances>
+              </RuleFieldWithScopeChip>
+              <RuleFieldWithScopeChip>
+                <RuleSelectAffordances
+                  selectionCount={raritySelection.length}
+                  clearLabel={clearLabel}
+                  onClear={() => {
+                    setRuleCombination(rule.id, (prev) => ({ ...prev, rarities: [] }))
                   }}
-                  size="small"
-                  sx={getRuleSelectPaddingSx(raritySelection.length)}
-                />
-              </RuleSelectAffordances>
+                >
+                  <GearRaritySelect
+                    multiple
+                    allowAny
+                    value={raritySelection}
+                    onChange={(nextRarities) => {
+                      setRuleCombination(rule.id, (prev) => ({ ...prev, rarities: nextRarities }))
+                    }}
+                    size="small"
+                    sx={getRuleSelectPaddingSx(raritySelection.length)}
+                  />
+                </RuleSelectAffordances>
+              </RuleFieldWithScopeChip>
             </Box>
             <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 1 }}>
-              <RuleSelectAffordances
-                selectionCount={mainStatSelection.length}
-                clearLabel={clearLabel}
-                onClear={() => {
-                  setRuleCombination(rule.id, (prev) => ({ ...prev, mainStats: [] }))
-                }}
-              >
-                <GearMainStatSelect
-                  multiple
-                  value={mainStatSelection}
-                  options={mainStatOptions}
-                  anyValue={StatVariantEnum.Any as StatVariant}
-                  onChange={(nextMain) => {
-                    setRuleCombination(rule.id, (prev) => ({ ...prev, mainStats: dedupeNumericArray(nextMain) }))
+              <RuleFieldWithScopeChip chip={renderScopeChip('perMainStat', perMainLabel, scopeActive.perMainStat)}>
+                <RuleSelectAffordances
+                  selectionCount={mainStatSelection.length}
+                  clearLabel={clearLabel}
+                  onClear={() => {
+                    setRuleCombination(rule.id, (prev) => ({ ...prev, mainStats: [] }))
                   }}
-                  colorOverrides={substatColors}
-                  showBorderColors={useStatButtonColors}
-                  size="small"
-                  sx={getRuleSelectPaddingSx(mainStatSelection.length)}
-                />
-              </RuleSelectAffordances>
+                >
+                  <GearMainStatSelect
+                    multiple
+                    value={mainStatSelection}
+                    options={mainStatOptions}
+                    anyValue={StatVariantEnum.Any as StatVariant}
+                    onChange={(nextMain) => {
+                      setRuleCombination(rule.id, (prev) => ({ ...prev, mainStats: dedupeNumericArray(nextMain) }))
+                    }}
+                    colorOverrides={substatColors}
+                    showBorderColors={useStatButtonColors}
+                    size="small"
+                    sx={getRuleSelectPaddingSx(mainStatSelection.length)}
+                  />
+                </RuleSelectAffordances>
+              </RuleFieldWithScopeChip>
               {/* Keep the faction selector visible so users understand why accessory-only filters are required. */}
-              <RuleSelectAffordances
-                selectionCount={factionSelection.length}
-                clearLabel={clearLabel}
-                onClear={() => {
-                  setRuleCombination(rule.id, (prev) => ({ ...prev, factions: [] }))
-                }}
-              >
-                <GearFactionSelect
-                  multiple
-                  disabled={!hasAccessorySlot}
-                  value={factionSelection}
-                  onChange={(nextFactions) => {
-                    setRuleCombination(rule.id, (prev) => ({ ...prev, factions: dedupeNumericArray(nextFactions) }))
+              <RuleFieldWithScopeChip chip={renderScopeChip('perFaction', perFactionLabel, scopeActive.perFaction)}>
+                <RuleSelectAffordances
+                  selectionCount={factionSelection.length}
+                  clearLabel={clearLabel}
+                  onClear={() => {
+                    setRuleCombination(rule.id, (prev) => ({ ...prev, factions: [] }))
                   }}
-                  size="small"
-                  sx={getRuleSelectPaddingSx(factionSelection.length, INLINE_SELECT_FIXED_HEIGHT_PX)}
-                />
-              </RuleSelectAffordances>
+                >
+                  <GearFactionSelect
+                    multiple
+                    disabled={!hasAccessorySlot}
+                    value={factionSelection}
+                    onChange={(nextFactions) => {
+                      setRuleCombination(rule.id, (prev) => ({ ...prev, factions: dedupeNumericArray(nextFactions) }))
+                    }}
+                    size="small"
+                    sx={getRuleSelectPaddingSx(factionSelection.length, INLINE_SELECT_FIXED_HEIGHT_PX)}
+                  />
+                </RuleSelectAffordances>
+              </RuleFieldWithScopeChip>
             </Box>
-            <Box
-              // Align the count input beside the scope toggle so the quota intent reads as a single control row.
-              sx={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 1,
-                flexWrap: 'nowrap',
-              }}
-            >
+            <Box sx={{ display: 'flex', justifyContent: 'flex-start' }}>
               <TextField
                 fullWidth
                 size="small"
@@ -626,149 +643,21 @@ export default function KeepUniquesTab({
                   max: 9999, // UI enforces realistic quotas while still allowing manual entry if needed.
                 }}
               />
-              <Box sx={{ display: 'flex', justifyContent: 'flex-start', minWidth: 0, flex: '0 1 auto' }}>
-                <Box
-                  component="span"
-                  data-rule-card-interactive="true"
-                  sx={{ display: 'inline-flex', minWidth: 0, width: '100%' }}
-                >
-                  {/* Stack renders two compact rows so Per rule stays isolated while Set/Faction/Main can combine freely. */}
-                  <Stack spacing={0.5} sx={{ minWidth: 0, width: '100%' }}>
-                    <Stack direction="row" alignItems="center" spacing={0.5} sx={{ color: 'text.secondary' }}>
-                      <Typography variant="caption" component="span" color="inherit">
-                        {t('keepUniquesCountModeToggleLabel')}
-                      </Typography>
-                      <MarkdownTooltip markdown={t('keepUniquesCountModeHint')}>
-                        <IconButton
-                          size="small"
-                          color="inherit"
-                          aria-label={t('keepUniquesCountModeHintLabel')}
-                          sx={{
-                            p: 0.25,
-                            fontSize: 16,
-                            '&:hover': { color: 'text.primary' },
-                            '&:focus-visible': { color: 'text.primary' },
-                          }}
-                        >
-                          <InfoOutlinedIcon fontSize="inherit" />
-                        </IconButton>
-                      </MarkdownTooltip>
-                    </Stack>
-                    <ToggleButtonGroup
-                      size="small"
-                      value={[]}
-                      aria-label={t('keepUniquesCountModeToggleLabel')}
-                      sx={COUNT_MODE_ROW_SX}
-                    >
-                      <ToggleButton
-                        value="perRule"
-                        aria-label={perRuleLabel}
-                        selected={countMode.perRule}
-                        sx={COUNT_MODE_BUTTON_SX}
-                        onClick={(event) => { event.stopPropagation(); handleCountModeToggle('perRule') }}
-                      >
-                        <Typography
-                          component="span"
-                          noWrap
-                          sx={ELLIPSIS_TEXT_SX}
-                          data-ellipsis-target
-                          onMouseEnter={handleToggleLabelMouseEnter(perRuleLabel)}
-                          onMouseLeave={handleToggleLabelLeave}
-                          onFocus={handleToggleLabelFocus(perRuleLabel)}
-                          onBlur={handleToggleLabelLeave}
-                        >
-                          {perRuleLabel}
-                        </Typography>
-                      </ToggleButton>
-                      <ToggleButton
-                        value="perSet"
-                        aria-label={perSetLabel}
-                        selected={countMode.perSet && !countMode.perRule}
-                        sx={COUNT_MODE_BUTTON_SX}
-                        onClick={(event) => { event.stopPropagation(); handleCountModeToggle('perSet') }}
-                      >
-                        <Typography
-                          component="span"
-                          noWrap
-                          sx={ELLIPSIS_TEXT_SX}
-                          data-ellipsis-target
-                          onMouseEnter={handleToggleLabelMouseEnter(perSetLabel)}
-                          onMouseLeave={handleToggleLabelLeave}
-                          onFocus={handleToggleLabelFocus(perSetLabel)}
-                          onBlur={handleToggleLabelLeave}
-                        >
-                          {perSetLabel}
-                        </Typography>
-                      </ToggleButton>
-                    </ToggleButtonGroup>
-                    <ToggleButtonGroup
-                      size="small"
-                      value={[]}
-                      aria-label={t('keepUniquesCountModeToggleLabel')}
-                      sx={COUNT_MODE_ROW_SX}
-                    >
-                      <ToggleButton
-                        value="perFaction"
-                        aria-label={perFactionLabel}
-                        selected={countMode.perFaction && !countMode.perRule}
-                        sx={COUNT_MODE_BUTTON_SX}
-                        onClick={(event) => { event.stopPropagation(); handleCountModeToggle('perFaction') }}
-                      >
-                        <Typography
-                          component="span"
-                          noWrap
-                          sx={ELLIPSIS_TEXT_SX}
-                          data-ellipsis-target
-                          onMouseEnter={handleToggleLabelMouseEnter(perFactionLabel)}
-                          onMouseLeave={handleToggleLabelLeave}
-                          onFocus={handleToggleLabelFocus(perFactionLabel)}
-                          onBlur={handleToggleLabelLeave}
-                        >
-                          {perFactionLabel}
-                        </Typography>
-                      </ToggleButton>
-                      <ToggleButton
-                        value="perMain"
-                        aria-label={perMainLabel}
-                        selected={countMode.perMainStat && !countMode.perRule}
-                        sx={COUNT_MODE_BUTTON_SX}
-                        onClick={(event) => { event.stopPropagation(); handleCountModeToggle('perMain') }}
-                      >
-                        <Typography
-                          component="span"
-                          noWrap
-                          sx={ELLIPSIS_TEXT_SX}
-                          data-ellipsis-target
-                          onMouseEnter={handleToggleLabelMouseEnter(perMainLabel)}
-                          onMouseLeave={handleToggleLabelLeave}
-                          onFocus={handleToggleLabelFocus(perMainLabel)}
-                          onBlur={handleToggleLabelLeave}
-                        >
-                          {perMainLabel}
-                        </Typography>
-                      </ToggleButton>
-                    </ToggleButtonGroup>
-                  </Stack>
-                </Box>
-              </Box>
             </Box>
             {ruleDetection ? (
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                {/* Rule detection counts use MarkdownTooltip so the formatter can add bullets later if needed. */}
-                <MarkdownTooltip markdown={t('keepUniquesRuleCountsTooltip')}>
-                  <Typography
-                    variant="caption"
-                    color={ruleDetection.deficit > 0 ? 'error.main' : 'text.secondary'}
-                    sx={{ flex: 1 }}
-                  >
-                    {t('keepUniquesRuleCounts', {
-                      have: ruleDetection.currentCount,
-                      keep: ruleDetection.requiredCount,
-                      projected: ruleDetection.projectedCount,
-                    })}
-                    {detectionScopeSuffix}
-                  </Typography>
-                </MarkdownTooltip>
+                <Typography
+                  variant="caption"
+                  color={ruleDetection.deficit > 0 ? 'error.main' : 'text.secondary'}
+                  sx={{ flex: 1 }}
+                >
+                  {t('keepUniquesRuleCounts', {
+                    have: ruleDetection.currentCount,
+                    keep: ruleDetection.requiredCount,
+                    projected: ruleDetection.projectedCount,
+                  })}
+                  {detectionScopeSuffix}
+                </Typography>
                 {actionButtons}
               </Box>
             ) : (
@@ -1086,6 +975,24 @@ function RuleSelectAffordances({
         label={clearLabel}
         onClear={onClear}
       />
+    </Box>
+  )
+}
+
+type RuleFieldWithScopeChipProps = {
+  chip?: ReactNode | null
+  children: ReactNode
+}
+
+function RuleFieldWithScopeChip({ chip, children }: RuleFieldWithScopeChipProps) {
+  return (
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+      {children}
+      {chip ? (
+        <Box component="span" data-rule-card-interactive="true" sx={{ display: 'inline-flex' }}>
+          {chip}
+        </Box>
+      ) : null}
     </Box>
   )
 }

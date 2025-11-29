@@ -204,7 +204,7 @@ test('per rule mode keeps a single aggregate quota', () => {
       mainStats: [],
       factions: [],
     },
-    countMode: { perRule: true, perSet: false, perFaction: false, perMainStat: false },
+    countMode: { perRule: true, perSet: false, perFaction: false, perMainStat: false, perSlot: false },
   })]
   const rows = [
     makeTesterRow({ slot: ArtifactType.Weapon, set: ArtifactSet.Speed }, false, StatVariant.ATK),
@@ -232,7 +232,7 @@ test('custom grouping honors the selected dimensions only', () => {
       mainStats: [],
       factions: [],
     },
-    countMode: { perRule: false, perSet: true, perFaction: false, perMainStat: false },
+    countMode: { perRule: false, perSet: true, perFaction: false, perMainStat: false, perSlot: false },
   })]
   const rows = [
     makeTesterRow({ slot: ArtifactType.Weapon, set: ArtifactSet.Speed, faction: 1 }, false, StatVariant.ATK),
