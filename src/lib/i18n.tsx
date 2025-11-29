@@ -33,6 +33,20 @@ const en = enUS
 type I18nKey = keyof typeof en
 type StrictCatalog = { [K in I18nKey]: string }
 
+const STAT_TOKEN_PATTERN = /\[\[\s*stat\s*:\s*([A-Za-z0-9_]+)\s*\]\]/g
+
+// Replace [[stat:...]] placeholders with the localized stat label so builder/tooltips
+// render consistent text/color regardless of catalog overrides.
+function expandStatTokens(value: string, catalog: StrictCatalog): string {
+  if (!value || value.indexOf('[[stat:') === -1) return value
+  const dict = catalog as unknown as Record<string, string>
+  const fallback = en as unknown as Record<string, string>
+  return value.replace(STAT_TOKEN_PATTERN, (_, rawKey: string) => {
+    const key = rawKey.trim()
+    return dict[key] ?? fallback[key] ?? ''
+  })
+}
+
 // Dev-only empty catalog: same keys, all values empty.
 const EMPTY_CATALOG: StrictCatalog = Object.fromEntries(Object.keys(en).map((k) => [k, ''])) as unknown as StrictCatalog
 
@@ -155,7 +169,7 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
         val = val.replace(new RegExp(`\\{${k}\\}`, 'g'), String(v))
       }
     }
-    return val
+    return expandStatTokens(val, cat)
   }, [lang, runtimeCatalogs])
 
   const value = React.useMemo<I18nContextValue>(() => ({ lang, setLang, t, registerRuntimeCatalog }), [lang, setLang, t, registerRuntimeCatalog])
