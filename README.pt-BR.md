@@ -11,6 +11,7 @@ Crie, reveja e exporte regras de venda para o RSL Helper com uma interface simpl
 - Meta-sets: agrupe conjuntos de equipamento (por exemplo, Velocidade + Percepção) e reutilize-os em várias regras.
 - Exportação com um clique: gere um arquivo HSF (Sellfile do RSL Helper) pronto a carregar no RSL Helper.
 - Prévia do Teste de Regras + botão «Gear...»: crie equipamentos de exemplo, cole linhas ou arraste o banco de dados do RSL Helper (geralmente `%APPDATA%\RslHelper\Config`) para o diálogo. Depois feche-o e use o interruptor da prévia para manter esse equipamento visível enquanto compara esses itens com as suas regras.
+- Aba «Manter únicos»: defina as combinações que você não quer perder. Quando as suas configs mais a Venda final removerem todas as cópias, o scanner gera automaticamente regras de manutenção.
 - Diálogo de restauração do Autosave: quando existe um autosave, escolha exatamente o que recuperar — configs, meta-sets, Alvos de substats, restante da Venda final, nota fixada, estado do painel de filtros e até as importações do Teste de Regras.
 - Copiar a pasta do banco de dados do RSL Helper: o cabeçalho da prévia mostra um botão que copia `%APPDATA%\\RslHelper\\Config` para o porta‑papéis para colar o caminho no Explorer antes de arrastar a `.db` para o Sellfile Creator.
 
@@ -98,9 +99,20 @@ Crie, reveja e exporte regras de venda para o RSL Helper com uma interface simpl
 - Com venda final ativa, as regras geradas incluem todos os sets conhecidos. Na prévia surge «Todos os sets conhecidos» para reduzir ruído; o arquivo exportado lista os sets um a um.
 
 ### Manter únicos
-- O diálogo de Venda final agora inclui a aba `Manter únicos`. O painel esquerdo lista as combinações (slot/conjunto/estatística) que, segundo os dados do tester, seriam todas vendidas, enquanto o lado direito reutiliza a grade do Teste de Regras para mostrar cada artefato com os filtros sincronizados ao restante da aplicação.
-- A varredura do `Manter únicos` usa os mesmos dados do Teste de Regras: ao carregar uma `.db`, o sistema atualiza os estados (`Faltam {count}`, `Coberta noutro local`, `Satisfeita`) e a faixa superior oferece o filtro `Filtro: Todos / Seleção` para mostrar todas as combinações ou apenas as ligadas à regra selecionada.
-- Cada regra de manutenção descreve slot, conjunto, raridade e estatística principal, e você pode ajustar a quantidade necessária para manter pelo menos um artefato. O botão `Repor` limpa todas as regras e desativa o `Manter únicos`, mantendo a Venda final pronta para recomeçar do zero.
+- Abra o diálogo Venda final e mude para a aba «Manter únicos» para marcar as combinações que não quer vender nunca. Ative «Manter únicos» para começar a editá-las.
+- Cada regra permite escolher slot, sets ou meta-sets, ranks, raridades, mainstats e, no caso dos acessórios, facções. Seletores vazios significam «qualquer um».
+- `≥ Quantidade necessária` é a promessa que o app precisa cumprir. Deixe o seletor em «Por set» quando quiser essa cota para cada combinação de set/facção/mainstat ou troque para «Por regra» quando um total único bastar.
+- O scanner só adiciona linhas extras quando todos os itens que combinam com a regra acabariam vendidos. Se as configs normais já salvam o suficiente, a regra mostra «Coberta noutro local» e nada novo é exportado.
+
+#### Exemplos
+1. **Acabaram as botas SPD:** Slot = Botas, Mainstat = SPD, Sets vazios. Ajuste `≥ Quantidade necessária = 5`, modo «Por regra». Assim pelo menos cinco botas SPD sobrevivem, não importa o set.
+2. **Misturar luvas Savage e Lethal:** Slot = Luvas, Sets = Savage + Lethal, Mainstat = CDMG%. Defina `≥ Quantidade necessária = 3`, «Por regra». Você mantém três luvas de dano mesmo quando a divisão entre os sets muda.
+3. **Anéis Merciless por facção:** Slot = Anel, Set = Merciless, Facção sem filtro. Defina `≥ Quantidade necessária = 3`, mantenha «Por set». Cada facção agora precisa de três anéis próprios antes de a regra ficar satisfeita.
+4. **Anéis de HP% por facção:** Slot = Anel, Mainstat = HP%, Sets vazios. `≥ Quantidade necessária = 2`, «Por set». O app acompanha cada facção separadamente e protege dois anéis de HP% por facção.
+5. **Acessórios básicos por facção:** Crie três regras (Anel, Amuleto, Estandarte). Deixe Sets e Mainstat vazios, defina `≥ Quantidade necessária = 5`, «Por set». Cada facção guarda cinco peças de cada slot.
+6. **Stoneskin/Protection por facção:** Para cada slot de acessório selecione Sets = Stoneskin + Protection, deixe o Mainstat vazio e use `≥ Quantidade necessária = 2`, «Por set». Isso mantém dois itens de cada slot para cada facção sempre que esses sets caem.
+
+Dica: importe a sua `.db` ou cole itens no Teste de Regras antes de abrir a aba para que o scanner veja equipamentos reais. Quando a regra mostrar «Faltam 2», clique nela: as linhas correspondentes do Teste de Regras serão destacadas e você verá qual facção ou set ainda precisa de cobertura.
 
 ### Gestão de configs
 - As configs salvas aparecem como etiquetas sob o construtor. Clique para selecionar; clique direito para duplicar, mover, copiar ou eliminar.

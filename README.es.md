@@ -11,6 +11,7 @@ Crea, revisa y exporta reglas de venta para RSL Helper con una interfaz sencilla
 - Metasets: agrupa conjuntos de equipo (por ejemplo, Velocidad + Percepción) y reutilízalos en varias reglas.
 - Exportación con un clic: genera un archivo HSF (Sellfile de RSL Helper) listo para cargar en RSL Helper.
 - Vista del Probador + diálogo «Equipo...»: crea equipo de ejemplo, pega filas o arrastra tu base de datos de RSL Helper (normalmente `%APPDATA%\\RslHelper\\Config`) al diálogo. Después, deja el diálogo cerrado y usa el interruptor de vista previa para mantener ese equipo visible mientras lo comparas con tus reglas.
+- Pestaña «Conservar únicos»: define las combinaciones que nunca quieres perder. El escáner genera reglas de conservación automáticamente cuando tus configs más la Venta final eliminarían todas las copias.
 - Diálogo de restauración de Autosave: cuando se encuentra un autoguardado, eliges qué cargar — configs, metasets, Objetivos de substats, resto de Venta final, nota fijada, estado del panel de filtros e incluso importaciones del Probador.
 - Copiar la carpeta de la base de datos de RSL Helper: el encabezado de la vista previa incluye un botón que copia `%APPDATA%\\RslHelper\\Config` al portapapeles para que pegues la ruta en el Explorador antes de arrastrar la `.db` a Sellfile Creator.
 
@@ -96,6 +97,22 @@ Crea, revisa y exporta reglas de venta para RSL Helper con una interfaz sencilla
 - Decide si afecta a Artefactos y/o Accesorios y qué rangos de nivel (0–3, 4–7, 8–11, 12–15, 16). El valor por defecto cubre 0–15 para no vender piezas ya subidas a +16.
 - Sin venta final, RSL Helper conserva todo lo que no coincide con una regla. Solo se vende si una regla explícita indica Vender.
 - Con venta final activa, las reglas generadas incluyen todos los sets conocidos. En la vista previa se muestra «Todos los sets conocidos» para reducir ruido, pero el archivo exportado enumera cada set.
+
+### Conservar únicos
+- Abre el diálogo de Venta final y cambia a la pestaña «Conservar únicos» para marcar las combinaciones que no quieres vender jamás. Activa «Conservar únicos» para empezar a editarlas.
+- Cada regla te deja elegir ranura, sets o metasets, rangos, rarezas, atributos principales y (en accesorios) facciones. Sin selección significa «cualquiera».
+- `≥ Cantidad necesaria` es la promesa que debe cumplir la app. Deja el interruptor en «Por conjunto» cuando necesites esa cantidad por cada mezcla de set/facción/atributo principal, o pásalo a «Por regla» si te basta un total compartido.
+- El escáner solo añade filas extra cuando todos los objetos que encajan con la regla acabarían vendidos. Si tus configs normales ya salvan suficientes piezas, verás «Cubierto en otro lugar» y no se exporta nada nuevo.
+
+#### Ejemplos reales
+1. **Se acaban las botas de SPD:** Ranura = Botas, Atributo principal = SPD, Sets vacíos. Ajusta `≥ Cantidad necesaria = 5`, modo «Por regla». Siempre sobrevivirán al menos cinco botas de SPD, sin importar el set.
+2. **Mezclar guantes Savage y Lethal:** Ranura = Guantes, Sets = Savage + Lethal, Atributo principal = CDMG%. Pon `≥ Cantidad necesaria = 3`, «Por regla». Así conservas tres guantes con CDMG% aunque cambie la mezcla de sets.
+3. **Anillos Merciless por facción:** Ranura = Anillo, Set = Merciless, Facción sin filtrar. Fija `≥ Cantidad necesaria = 3`, deja «Por conjunto». Cada facción debe tener tres anillos propios antes de que la regla se marque como cumplida.
+4. **Anillos de HP% por facción:** Ranura = Anillo, Atributo principal = HP%, Sets vacíos. `≥ Cantidad necesaria = 2`, «Por conjunto». La app vigila cada facción por separado y protege dos anillos de HP% para cada una.
+5. **Accesorios básicos por facción:** Crea tres reglas (Anillo, Amuleto, Estandarte). Deja Sets y Atributo principal vacíos, pon `≥ Cantidad necesaria = 5`, «Por conjunto». Cada facción conservará cinco piezas por ranura.
+6. **Stoneskin/Protection por facción:** Para cada ranura de accesorio elige Sets = Stoneskin + Protection, deja el Atributo principal vacío y usa `≥ Cantidad necesaria = 2`, «Por conjunto». Así cada facción guardará dos piezas de esas series en cada ranura.
+
+Consejo: Importa tu `.db` o pega equipo en el Probador antes de abrir la pestaña para que el escáner tenga objetos reales. Cuando una regla muestre «Faltan 2», haz clic en ella: se resaltarán esas filas del Probador y verás qué facción o set necesita ayuda.
 
 ### Gestión de configs
 - Las configs guardadas aparecen como chips debajo del constructor. Haz clic para seleccionarlas, o clic derecho para duplicar, mover, copiar o borrar.

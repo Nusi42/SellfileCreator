@@ -11,6 +11,7 @@ Crea, visualizza in anteprima ed esporta regole di vendita per RSL Helper tramit
 - Metaset: assegna un nome a gruppi di set (es. Velocità + Percezione) e riutilizzali nelle regole.
 - Esporta con un clic: esporta un file HSF (il Sellfile di RSL Helper) pronto per RSL Helper.
 - Anteprima del Tester regole + dialogo "Equipaggiamento...": crea equipaggiamento di esempio, incolla righe oppure trascina il database di RSL Helper (di solito `%APPDATA%\RslHelper\Config`) nel dialog per vedere quale regola si applica per prima e se l'oggetto viene mantenuto o venduto. Poi lascia chiuso il dialogo e usa l'interruttore dell'anteprima per tenere visibile quell’attrezzatura mentre confronti i risultati con le tue regole.
+- Scheda "Mantieni unici": definisci le combinazioni che non vuoi perdere mai. Quando le tue configurazioni più la Vendita finale eliminerebbero tutte le copie, lo scanner genera automaticamente regole di mantenimento.
 - Dialogo di ripristino Autosave: quando troviamo un Autosave, scegli con precisione cosa ricaricare: configurazioni, Metaset, Valori obiettivo delle sotto-stat, resto di Vendita finale, nota fissata, stato del pannello filtri e perfino le importazioni del Tester regole.
 - Copia la cartella del DB di RSL Helper: l'intestazione dell'anteprima offre un pulsante negli appunti che copia `%APPDATA%\RslHelper\Config` così puoi incollare subito il percorso in Esplora risorse prima di trascinare dentro il `.db`.
 
@@ -86,9 +87,20 @@ Crea, visualizza in anteprima ed esporta regole di vendita per RSL Helper tramit
 - Quando Vendita finale è attiva, le regole Vendi generate includono esplicitamente tutti i set conosciuti. Nell'anteprima la colonna Set mostra "Tutti i set attualmente noti" per ridurre il rumore; il file esportato elenca comunque ogni set.
 
 ### Mantieni unici
-- Il dialogo di Vendita finale ora contiene anche la scheda `Mantieni unici`. Lato sinistro elenca le combinazioni di slot/set/stat che, secondo i dati del tester, verrebbero tutte vendute; lato destro riutilizza la griglia del Tester regole così puoi osservare ogni artefatto e i filtri rimangono sincronizzati con il resto dell'app.
-- La scansione di `Mantieni unici` gira sui dati già presenti nel Tester regole: una volta caricata la `.db`, il sistema aggiorna le etichette di stato (`Ne mancano {count}`, `Coperta altrove`, `Soddisfatta`) e la banda superiore propone il filtro `Filtro: Tutti / Selezione` per mostrare tutte le combinazioni o solo quelle collegate alla regola selezionata.
-- Ogni regola di mantenimento descrive slot, set, rarità e statistica principale e ne puoi impostare la quantità richiesta per conservare almeno un pezzo. Il pulsante `Ripristina` nel pannello azzera tutte le regole e disabilita Mantieni unici, per ripartire da zero senza toccare la Vendita finale.
+- Apri il dialogo Vendita finale e passa alla scheda «Mantieni unici» per segnare le combinazioni che non vuoi vendere mai. Attiva «Mantieni unici» per iniziare a modificarle.
+- Ogni regola ti permette di scegliere slot, set o Metaset, ranghi, rarità, statistiche principali e (per gli accessori) fazioni. Lasciare un selettore vuoto significa «qualsiasi».
+- `≥ Quantità richiesta` è la promessa che l’app deve mantenere. Lascia il selettore su «Per set» quando vuoi proteggere quella quantità per ogni combinazione di set/fazione/stat principale, oppure passa a «Per regola» se ti basta un totale condiviso.
+- Lo scanner aggiunge nuove righe Mantieni solo quando tutti gli oggetti che corrispondono alla regola verrebbero altrimenti venduti. Se le configurazioni standard salvano già abbastanza pezzi, la regola mostra «Coperta altrove» e non viene esportato nulla di nuovo.
+
+#### Esempi concreti
+1. **Le scarpe SPD scarseggiano:** Slot = Stivali, Stat principale = SPD, Set vuoti. Imposta `≥ Quantità richiesta = 5`, modalità «Per regola». Così sopravvivono sempre almeno cinque stivali con SPD, indipendentemente dal set.
+2. **Mischiare guanti Savage e Lethal:** Slot = Guanti, Set = Savage + Lethal, Stat principale = CDMG%. Imposta `≥ Quantità richiesta = 3`, «Per regola». In questo modo conservi tre guanti con CDMG% anche se la divisione tra i due set cambia.
+3. **Anelli Merciless per fazione:** Slot = Anello, Set = Merciless, Fazione non filtrata. Imposta `≥ Quantità richiesta = 3`, lascia «Per set». Ogni fazione deve possedere tre anelli Merciless propri prima che la regola risulti soddisfatta.
+4. **Anelli HP% per fazione:** Slot = Anello, Stat principale = HP%, Set vuoti. `≥ Quantità richiesta = 2`, «Per set». L’app monitora ogni fazione separatamente e protegge due anelli HP% per ciascuna.
+5. **Accessori base per ogni fazione:** Crea tre regole (Anello, Amuleto, Vessillo). Lascia vuoti Set e Stat principale, imposta `≥ Quantità richiesta = 5`, «Per set». Ogni fazione manterrà cinque pezzi per slot.
+6. **Set Stoneskin/Protection per fazione:** Per ogni slot accessorio seleziona Set = Stoneskin + Protection, lascia la Stat principale vuota e imposta `≥ Quantità richiesta = 2`, «Per set». Così ogni fazione conserva due pezzi per slot quando ricevi quei set.
+
+Suggerimento: importa il tuo `.db` o incolla equipaggiamento nel Tester regole prima di aprire la scheda, così lo scanner analizza oggetti reali. Quando una regola mostra «Ne mancano 2», cliccala: le righe corrispondenti del Tester regole si evidenziano e vedi quale fazione o set ha ancora bisogno di attenzione.
 
 ### Gestione delle configurazioni
 - Elenco configurazioni salvate: ogni configurazione appare come un'etichetta sotto il builder. Usa l'elenco per selezionare (clic sinistro), duplicare, riordinare o eliminare (con conferma). "Elimina configurazioni" rimuove tutte (con conferma).
