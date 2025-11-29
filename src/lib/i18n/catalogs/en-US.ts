@@ -681,6 +681,7 @@ const enUS: Catalog = {
   builderSubstatFlexToggleTooltip: 'Flex rotates optional substats across permutations so every valid mix beyond the Required Substats count is generated.\n• Choose a Required Substats number (1–4) instead of Auto, then star more substats than that number.\n• Keep at least one extra ★ without min/max roll targets so there’s something to rotate.\n• Locked picks stay fixed, and the toggle disables itself once Flex no longer applies.',
   builderMilestoneThresholdsHelp: 'Decide how minimum-roll thresholds behave before +16 once you ask for roll minimums.\n• Early tracks what rolls you already have at each milestone.\n• Late shows what you must have right now so the +16 goal stays achievable.\n• This only matters if any substat has Min > 0 or you set a global minimum.',
   builderMinRequiredRollsImpossibleWarn: 'Warning: Min Required Rolls cannot be met by +16 with current per‑stat upper limits',
+  builderMinRequiredRollsNoSubstatsWarn: 'Warning: Min Required Rolls > 0 does nothing until substats are selected',
   builderInsertAsConfig: 'Insert as Config #{n}',
   builderInsertHiddenTooltip: 'Current filters will hide the new config after it is inserted.',
   builderAddAsNew: 'Add as New Config',

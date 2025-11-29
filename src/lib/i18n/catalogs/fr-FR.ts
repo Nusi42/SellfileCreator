@@ -673,6 +673,7 @@ const overrides: Catalog = {
   builderSubstatFlexToggleTooltip: 'Flex fait tourner les sous-stats optionnelles sur toutes les permutations pour générer chaque combinaison valide au-delà du nombre de Sous‑stats requises.\n• Choisissez un nombre de Sous‑stats requises (1–4) plutôt que Auto, puis marquez plus de sous-stats avec ★ que ce nombre.\n• Gardez au moins une ★ supplémentaire sans objectifs de roulis min/max pour avoir quelque chose à faire tourner.\n• Les choix verrouillés restent fixes et l’interrupteur se désactive dès que Flex ne s’applique plus.',
   builderMilestoneThresholdsHelp: 'Définit le comportement des substatTargets de lancers avant +16 dès que vous en demandez.\n• Tôt montre les lancers déjà obtenus à chaque jalon.\n• Tard montre seulement ce qui doit être présent maintenant pour que l’objectif +16 reste atteignable.\n• N’a d’effet que si une sous-stat a un Min > 0 ou si vous fixez un minimum global.',
   builderMinRequiredRollsImpossibleWarn: 'Avertissement : les lancers min ne peuvent pas être atteints à +16 avec les limites supérieures par stat actuelles',
+  builderMinRequiredRollsNoSubstatsWarn: 'Avertissement : les lancers min > 0 ne servent à rien tant que vous n’avez sélectionné aucun sous-stat',
   builderInsertAsConfig: 'Insérer comme config n°{n}',
   builderInsertHiddenTooltip: 'Les filtres actuels masqueront la nouvelle config après son insertion.',
   builderAddAsNew: 'Ajouter comme nouvelle config',
