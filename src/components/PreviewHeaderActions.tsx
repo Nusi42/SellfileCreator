@@ -90,6 +90,9 @@ export default function PreviewHeaderActions(props: {
   onClearGearDbCommandError?: () => void
   gearDbCommandSuccess?: string | null
   onClearGearDbCommandSuccess?: () => void
+  filtersSynced?: boolean
+  onToggleFiltersSynced?: (next: boolean) => void
+  onResetFilters?: () => void
 }) {
   const {
     mergedCount,
@@ -125,6 +128,9 @@ export default function PreviewHeaderActions(props: {
     onClearGearDbCommandError,
     gearDbCommandSuccess,
     onClearGearDbCommandSuccess,
+    filtersSynced = false,
+    onToggleFiltersSynced,
+    onResetFilters,
   } = props
   const handleSelectBaseFile = React.useCallback(async (file: File) => {
     if (onSelectGearDb && isGearDbFilename(file.name)) {
@@ -212,6 +218,24 @@ export default function PreviewHeaderActions(props: {
   } = useContextMenuHint('previewExportMenu')
   const [exportHintPos, setExportHintPos] = React.useState<{ x: number; y: number } | null>(null)
   const exportHintActive = showExportHint && exportHintPos !== null && !exportMenuAnchor
+  const filterMenuEnabled = React.useMemo(
+    () => Boolean(onToggleFiltersSynced) || Boolean(onResetFilters),
+    [onToggleFiltersSynced, onResetFilters],
+  )
+  const [filterMenuAnchor, setFilterMenuAnchor] = React.useState<HTMLElement | null>(null)
+  const closeFilterMenu = React.useCallback(() => { setFilterMenuAnchor(null) }, [])
+  const filterMenuPaperRef = React.useRef<HTMLDivElement | null>(null)
+  useContextMenuCloseOnOutsideRightClick({
+    open: Boolean(filterMenuAnchor),
+    onClose: closeFilterMenu,
+    menuRef: filterMenuPaperRef,
+  })
+  const {
+    shouldShow: showFilterHint,
+    markSeen: markFilterHintSeen,
+  } = useContextMenuHint('previewFilterMenu')
+  const [filterHintPos, setFilterHintPos] = React.useState<{ x: number; y: number } | null>(null)
+  const filterHintActive = showFilterHint && filterHintPos !== null && !filterMenuAnchor
   const filterLabel = filterActive ? t('filtersOn') : t('filtersOff')
   const ruleTesterLabel = t('testerOpenLabel')
   const filterHeaderLabel = t('filterHeader')
@@ -429,18 +453,78 @@ export default function PreviewHeaderActions(props: {
           <>
             {/* Filter toggle tooltip can now express list-style hints thanks to MarkdownTooltip. */}
             <MarkdownTooltip markdown={t('filterTooltip')}>
-              <Button
-                size="small"
-                variant="outlined"
-                color={filterActive ? 'warning' : 'success'}
-                onClick={onToggleFilter}
-                endIcon={<TuneIcon fontSize="small" />}
-                sx={{ whiteSpace: 'nowrap', px: 1.25, height: SMALL_BUTTON_HEIGHT_PX, minHeight: SMALL_BUTTON_HEIGHT_PX, flexShrink: 0, maxWidth: LONG_LABEL_BUTTON_MAX_WIDTH_PX, overflow: 'hidden' }}
-                aria-label={filterLabel}
+              <Box
+                component="span"
+                onMouseEnter={(event) => {
+                  if (!filterMenuEnabled || !showFilterHint) return
+                  setFilterHintPos({ x: event.clientX, y: event.clientY })
+                }}
+                onMouseMove={(event) => {
+                  if (!filterMenuEnabled || !showFilterHint) return
+                  setFilterHintPos({ x: event.clientX, y: event.clientY })
+                }}
+                onMouseLeave={() => {
+                  setFilterHintPos(null)
+                }}
+                onContextMenu={(event) => {
+                  if (!filterMenuEnabled) return
+                  try {
+                    event.preventDefault()
+                    event.stopPropagation()
+                  } catch {}
+                  setFilterMenuAnchor(event.currentTarget as HTMLElement)
+                  markFilterHintSeen()
+                  setFilterHintPos(null)
+                }}
               >
-                <Typography component="span" noWrap sx={ELLIPSIS_TEXT_SX}>{filterLabel}</Typography>
-              </Button>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  color={filterActive ? 'warning' : 'success'}
+                  onClick={onToggleFilter}
+                  endIcon={<TuneIcon fontSize="small" />}
+                  sx={{ whiteSpace: 'nowrap', px: 1.25, height: SMALL_BUTTON_HEIGHT_PX, minHeight: SMALL_BUTTON_HEIGHT_PX, flexShrink: 0, maxWidth: LONG_LABEL_BUTTON_MAX_WIDTH_PX, overflow: 'hidden' }}
+                  aria-label={filterLabel}
+                >
+                  <Typography component="span" noWrap sx={ELLIPSIS_TEXT_SX}>{filterLabel}</Typography>
+                </Button>
+              </Box>
             </MarkdownTooltip>
+            <ContextMenuHintOverlay text={t('contextMenuHint')} position={filterHintActive ? filterHintPos : null} />
+            {filterMenuEnabled ? (
+              <Menu
+                anchorEl={filterMenuAnchor}
+                open={Boolean(filterMenuAnchor)}
+                onClose={closeFilterMenu}
+                PaperProps={{ ref: filterMenuPaperRef }}
+                anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+                transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+              >
+                {onToggleFiltersSynced ? (
+                  <MenuItem
+                    onClick={() => onToggleFiltersSynced(!filtersSynced)}
+                  >
+                    <Checkbox
+                      size="small"
+                      checked={filtersSynced}
+                      onChange={(event) => onToggleFiltersSynced(Boolean(event.target.checked))}
+                      sx={{ mr: 1, p: 0.5 }}
+                    />
+                    {t('filterSyncViews')}
+                  </MenuItem>
+                ) : null}
+                {onResetFilters ? (
+                  <MenuItem
+                    onClick={() => {
+                      closeFilterMenu()
+                      onResetFilters()
+                    }}
+                  >
+                    {t('filterReset')}
+                  </MenuItem>
+                ) : null}
+              </Menu>
+            ) : null}
           </>
         )}
         {onOpenRuleTester && (

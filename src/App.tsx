@@ -151,7 +151,9 @@ import {
   setRulesFilterOpenForMode,
   setRulesFilterStateForMode,
   setRulesFilterCollapsedForMode,
+  useRulesFilterSyncPreference,
   cloneDefaultRulesFilterCollapsed,
+  type CollapsedSections,
 } from './state/rulesFilterPersistence'
 import { useSellfileDedupPreference, useSellfileOmitDisabledPreference } from './state/exportPreferences'
 import { useHsfcDialogs } from './hooks/useHsfcDialogs'
@@ -1509,12 +1511,66 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     finalSellSessionModeRef.current = null
   }
   // View-only rules filter state
-  const [filterOpen, setFilterOpen, filterOpenByMode] = useRulesFilterOpenPreference(previewMode)
-  const [rulesFilter, setRulesFilter, rulesFilterByMode] = useRulesFilterStatePreference(previewMode)
-  const [filterCollapsed, setFilterCollapsed, filterCollapsedByMode] = useRulesFilterCollapsedPreference(previewMode)
+  const [filterOpen, setFilterOpenRaw, filterOpenByMode] = useRulesFilterOpenPreference(previewMode)
+  const [rulesFilter, setRulesFilterRaw, rulesFilterByMode] = useRulesFilterStatePreference(previewMode)
+  const [filterCollapsed, setFilterCollapsedRaw, filterCollapsedByMode] = useRulesFilterCollapsedPreference(previewMode)
+  const [filtersSynced, setFiltersSyncedRaw] = useRulesFilterSyncPreference()
   const testerRulesFilter = useMemo(() => normalizeRulesFilterForTester(rulesFilter), [rulesFilter])
+  const setFilterOpen = useCallback((next: boolean | ((prev: boolean) => boolean)) => {
+    if (filtersSynced) {
+      const resolved = typeof next === 'function' ? (next as (prev: boolean) => boolean)(filterOpen) : Boolean(next)
+      for (const mode of RULES_FILTER_PREVIEW_MODES) {
+        setRulesFilterOpenForMode(mode, resolved)
+      }
+    } else {
+      setFilterOpenRaw(next)
+    }
+  }, [filtersSynced, filterOpen, setFilterOpenRaw])
+  const setRulesFilter = useCallback((next: RulesFilterState | ((prev: RulesFilterState) => RulesFilterState)) => {
+    if (filtersSynced) {
+      const resolved = typeof next === 'function' ? (next as (prev: RulesFilterState) => RulesFilterState)(rulesFilter) : next
+      for (const mode of RULES_FILTER_PREVIEW_MODES) {
+        setRulesFilterStateForMode(mode, resolved)
+      }
+    } else {
+      setRulesFilterRaw(next)
+    }
+  }, [filtersSynced, rulesFilter, setRulesFilterRaw])
+  const setFilterCollapsed = useCallback((next: CollapsedSections | ((prev: CollapsedSections) => CollapsedSections)) => {
+    if (filtersSynced) {
+      const resolved = typeof next === 'function' ? (next as (prev: CollapsedSections) => CollapsedSections)(filterCollapsed) : next
+      for (const mode of RULES_FILTER_PREVIEW_MODES) {
+        setRulesFilterCollapsedForMode(mode, resolved)
+      }
+    } else {
+      setFilterCollapsedRaw(next)
+    }
+  }, [filtersSynced, filterCollapsed, setFilterCollapsedRaw])
   const [limitConfigsToFiltered, setLimitConfigsToFiltered] = useState<boolean>(false)
   const [testerConfigFilterMode, setTesterConfigFilterMode] = useState<TesterConfigFilterMode>('off')
+  const handleToggleFiltersSynced = useCallback((next: boolean) => {
+    setFiltersSyncedRaw(Boolean(next))
+  }, [setFiltersSyncedRaw])
+  const handleResetFilters = useCallback(() => {
+    resetRulesFilterPreferences()
+    setTesterConfigFilterMode('off')
+  }, [setTesterConfigFilterMode])
+  const filtersSyncedPrevRef = useRef(filtersSynced)
+  useEffect(() => {
+    if (!filtersSynced || filtersSyncedPrevRef.current) return
+    const sourceMode = previewMode
+    const sourceOpen = Boolean(filterOpenByMode[sourceMode])
+    const sourceState = rulesFilterByMode[sourceMode]
+    const sourceCollapsed = filterCollapsedByMode[sourceMode]
+    for (const mode of RULES_FILTER_PREVIEW_MODES) {
+      setRulesFilterOpenForMode(mode, sourceOpen)
+      setRulesFilterStateForMode(mode, sourceState)
+      setRulesFilterCollapsedForMode(mode, sourceCollapsed)
+    }
+  }, [filtersSynced, previewMode, filterCollapsedByMode, filterOpenByMode, rulesFilterByMode])
+  useEffect(() => {
+    filtersSyncedPrevRef.current = filtersSynced
+  }, [filtersSynced])
   const rulesFilterPanelRef = useRef<RulesFilterPanelHandle | null>(null)
   const filterShortcutPendingFocusRef = useRef(false)
 
@@ -3774,6 +3830,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         onOpenRuleTester={() => setTesterOpen(true)}
         previewMode={previewMode}
         onChangePreviewMode={setPreviewMode}
+        filtersSynced={filtersSynced}
+        onToggleFiltersSynced={handleToggleFiltersSynced}
+        onResetFilters={handleResetFilters}
         testerCount={testerItems.length}
         testerFilteredCount={testerRowsForTable.length}
         gearDbCommandError={gearDbCommandError}

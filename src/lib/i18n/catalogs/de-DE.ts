@@ -825,6 +825,7 @@ const overrides: Catalog = {
   testerChampionSearchPlaceholder: 'Search champions',
   testerChampionUnknownName: 'Unknown champion #{id}',
   filterReset: 'Filter zurücksetzen',
+  filterSyncViews: 'Filter zwischen Ansichten synchronisieren',
   filterMatch: 'Treffer',
   filterAnyOf: 'Eines von',
   filterAllOf: 'Alle von',
