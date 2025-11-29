@@ -113,6 +113,7 @@ import { DEFAULT_METASET_ICON_ID } from './lib/metasetIcons'
 import { defaultMetasets, type Metaset } from './lib/metasets'
 import { generateMetasetNameWithFlag } from './lib/namegen'
 import { useDisplayPreferences, useDisplayPreferenceActions } from './state/preferencesState'
+import { useAutoApplySelectedConfigPreference } from './state/builderPreferences'
 import { useAppActions, useAppState } from './state/appState'
 import { useI18n } from './lib/i18n'
 import { computeDuplicateIndices } from './lib/configDuplicates'
@@ -253,6 +254,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   } = useAppActions()
   const { runPipeline, flush: flushRuleCache, countRules } = useRuleCacheWorker()
   const { statButtonBorders } = useDisplayPreferences()
+  const [autoApplySelectedConfig] = useAutoApplySelectedConfigPreference()
   const { setStatButtonBorders } = useDisplayPreferenceActions()
   // Use a deferred snapshot so bursty substatTargets updates (e.g., Restore Defaults) coalesce before recomputing merged rules.
   const ruleConfigs = useMemo(() => configsForRuleBuild(customCfgs), [customCfgs])
@@ -1273,6 +1275,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setBuilderNameDraftKey: () => {},
     setMultiEditDraft: setMultiEditDraftState,
     suppressSelectionDraft: runWithSelectionDraftSuppressed,
+    autoApplySelectedConfig,
   })
   describeNextChangeRef.current = describeNextChange
 

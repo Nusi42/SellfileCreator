@@ -43,6 +43,7 @@ type Params = {
   setBuilderNameDraftKey: (value: SetStateAction<number | 'builder' | null>) => void
   setMultiEditDraft: (value: SetStateAction<MultiEditDraftState | null>) => void
   suppressSelectionDraft: <T>(fn: () => T) => T
+  autoApplySelectedConfig: boolean
 }
 
 type ControllerResult = {
@@ -94,6 +95,7 @@ export function useHsfcHistoryController(params: Params): ControllerResult {
     setBuilderNameDraftKey,
     setMultiEditDraft,
     suppressSelectionDraft,
+    autoApplySelectedConfig,
   } = params
 
   const safeSelectedIndex = useMemo(() => {
@@ -192,10 +194,21 @@ export function useHsfcHistoryController(params: Params): ControllerResult {
           : restoredIdx)
       setSelectionAnchor(resolvedAnchor ?? null)
     })
-    if (snap.builder) {
-      setBuilder(snap.builder)
-    } else if (restoredIdx !== null && snap.customCfgs[restoredIdx]) {
-      setBuilder(snap.customCfgs[restoredIdx]!)
+    const builderSource = (() => {
+      if (autoApplySelectedConfig) {
+        if (restoredIdx !== null && snap.customCfgs[restoredIdx]) {
+          return snap.customCfgs[restoredIdx]!
+        }
+        return snap.builder ?? null
+      }
+      if (snap.builder) return snap.builder
+      if (restoredIdx !== null && snap.customCfgs[restoredIdx]) {
+        return snap.customCfgs[restoredIdx]!
+      }
+      return null
+    })()
+    if (builderSource) {
+      setBuilder(builderSource)
     }
     const hasNameDraft = snap.builderNameDraftKey === 'builder' || typeof snap.builderNameDraftKey === 'number'
     setBuilderNameDraftKey(hasNameDraft ? snap.builderNameDraftKey ?? null : null)
@@ -217,6 +230,7 @@ export function useHsfcHistoryController(params: Params): ControllerResult {
     setKeepUniqueRules,
     setKeepUniquesEnabled,
     suppressSelectionDraft,
+    autoApplySelectedConfig,
   ])
 
   const {
