@@ -92,7 +92,13 @@ import RuleTesterDialog from './components/dialogs/RuleTesterDialog'
 import RulesFilterPanel, { type RulesFilterPanelHandle } from './components/RulesFilterPanel'
 import type { TesterConfigFilterMode } from './types/testerConfigFilterMode'
 import { filterHsfRules, filterTesterItems, isRulesFilterActive, normalizeRulesFilterForTester, type FilterHsfRulesResult, type RulesFilterState } from './lib/rulesFilter'
-import { useAutosaveRestore, metasetsSignature, substatTargetsSignature, areAutosaveFiltersDefault } from './hooks/useAutosaveRestore'
+import {
+  useAutosaveRestore,
+  metasetsSignature,
+  substatTargetsSignature,
+  areAutosaveFiltersDefault,
+  type AutosaveFilterView,
+} from './hooks/useAutosaveRestore'
 import { makeManageColorsIcon } from './lib/icons'
 import type { ChampionLocation } from './lib/importers/gearDbNormalizer'
 
@@ -134,7 +140,18 @@ import { useTutorialCoachState } from './hooks/useTutorialCoachState'
 import { useExternalCommands } from './hooks/useExternalCommands'
 import { useHsfcClipboard, type PendingImport } from './hooks/useHsfcClipboard'
 import { useRuntimeCatalogLoader } from './hooks/useRuntimeCatalogLoader'
-import { useRulesFilterCollapsedPreference, useRulesFilterOpenPreference, useRulesFilterStatePreference, cloneDefaultRulesFilterState, cloneDefaultRulesFilterCollapsed } from './state/rulesFilterPersistence'
+import {
+  useRulesFilterCollapsedPreference,
+  useRulesFilterOpenPreference,
+  useRulesFilterStatePreference,
+  RULES_FILTER_PREVIEW_MODES,
+  type RulesFilterPreviewMode,
+  resetRulesFilterPreferences,
+  setRulesFilterOpenForMode,
+  setRulesFilterStateForMode,
+  setRulesFilterCollapsedForMode,
+  cloneDefaultRulesFilterCollapsed,
+} from './state/rulesFilterPersistence'
 import { useSellfileDedupPreference, useSellfileOmitDisabledPreference } from './state/exportPreferences'
 import { useHsfcDialogs } from './hooks/useHsfcDialogs'
 import { useHsfcHistoryController } from './hooks/useHsfcHistoryController'
@@ -1489,16 +1506,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     finalSellSessionModeRef.current = null
   }
   // View-only rules filter state
-  const [filterOpenPref, setFilterOpenPref] = useRulesFilterOpenPreference()
-  const [rulesFilterPref, setRulesFilterPref] = useRulesFilterStatePreference()
-  const [filterCollapsedPref, setFilterCollapsedPref] = useRulesFilterCollapsedPreference()
-  const filterOpen = filterOpenPref
-  const setFilterOpen = setFilterOpenPref
-  const rulesFilter = rulesFilterPref
+  const [filterOpen, setFilterOpen, filterOpenByMode] = useRulesFilterOpenPreference(previewMode)
+  const [rulesFilter, setRulesFilter, rulesFilterByMode] = useRulesFilterStatePreference(previewMode)
+  const [filterCollapsed, setFilterCollapsed, filterCollapsedByMode] = useRulesFilterCollapsedPreference(previewMode)
   const testerRulesFilter = useMemo(() => normalizeRulesFilterForTester(rulesFilter), [rulesFilter])
-  const setRulesFilter = setRulesFilterPref
-  const filterCollapsed = filterCollapsedPref
-  const setFilterCollapsed = setFilterCollapsedPref
   const [limitConfigsToFiltered, setLimitConfigsToFiltered] = useState<boolean>(false)
   const [testerConfigFilterMode, setTesterConfigFilterMode] = useState<TesterConfigFilterMode>('off')
   const rulesFilterPanelRef = useRef<RulesFilterPanelHandle | null>(null)
@@ -1996,12 +2007,22 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
 
 
   // Keep filter persistence snapshot sharable across autosave restore and writes.
-  const autosaveFiltersState = useMemo(() => ({
-    open: filterOpen,
-    state: rulesFilter,
-    collapsed: filterCollapsed,
-    testerConfigFilterMode,
-  }), [filterOpen, rulesFilter, filterCollapsed, testerConfigFilterMode])
+  const autosaveFiltersState = useMemo(() => {
+    const views = RULES_FILTER_PREVIEW_MODES.reduce<Record<RulesFilterPreviewMode, AutosaveFilterView>>((acc, mode) => {
+      // Each preview mode tracks its own drawer state so autosave restores the exact surface the user left.
+      acc[mode] = {
+        open: Boolean(filterOpenByMode[mode]),
+        state: rulesFilterByMode[mode],
+        collapsed: filterCollapsedByMode[mode],
+      }
+      return acc
+    }, {} as Record<RulesFilterPreviewMode, AutosaveFilterView>)
+    return {
+      activeMode: previewMode,
+      views,
+      testerConfigFilterMode,
+    }
+  }, [filterOpenByMode, rulesFilterByMode, filterCollapsedByMode, previewMode, testerConfigFilterMode])
 
   const {
     restoreDlgOpen: restoreDialogPending,
@@ -2039,11 +2060,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     if (!restoreDialogPending || !restoreDraft?.Filters || !restoreFiltersDiffer) return
     if (filtersResetRef.current) return
     filtersResetRef.current = true
-    setFilterOpenPref(false)
-    setRulesFilterPref(cloneDefaultRulesFilterState())
-    setFilterCollapsedPref(cloneDefaultRulesFilterCollapsed())
+    resetRulesFilterPreferences()
     setTesterConfigFilterMode('off')
-  }, [restoreDialogPending, restoreDraft, restoreFiltersDiffer, setFilterOpenPref, setRulesFilterPref, setFilterCollapsedPref, setTesterConfigFilterMode])
+  }, [restoreDialogPending, restoreDraft, restoreFiltersDiffer, setTesterConfigFilterMode])
   useEffect(() => {
     if (!restoreDialogPending) filtersResetRef.current = false
   }, [restoreDialogPending])
@@ -3974,17 +3993,23 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             }
             if (selection.filters && restoreFiltersDiffer && draft.Filters) {
               try {
-                setFilterOpen(Boolean(draft.Filters.open))
-                const clonedState = JSON.parse(JSON.stringify(draft.Filters.state)) as RulesFilterState
-                setRulesFilter(clonedState)
-                const collapsedDraft = (draft.Filters.collapsed && typeof draft.Filters.collapsed === 'object')
-                  ? (draft.Filters.collapsed as Record<string, boolean>)
-                  : {}
-                setFilterCollapsed((prev) => ({
-                  ...prev,
-                  ...collapsedDraft,
-                }))
+                const views = draft.Filters.views
+                if (views && typeof views === 'object') {
+                  // Replay the saved view for every mode so toggling between Sellfile preview and Rule Tester feels seamless.
+                  for (const mode of RULES_FILTER_PREVIEW_MODES) {
+                    const view = views[mode]
+                    if (!view) continue
+                    setRulesFilterOpenForMode(mode, Boolean(view.open))
+                    const clonedState = JSON.parse(JSON.stringify(view.state)) as RulesFilterState
+                    setRulesFilterStateForMode(mode, clonedState)
+                    const collapsed = view.collapsed ?? cloneDefaultRulesFilterCollapsed()
+                    setRulesFilterCollapsedForMode(mode, collapsed)
+                  }
+                }
                 setTesterConfigFilterMode(draft.Filters.testerConfigFilterMode ?? 'off')
+                if (draft.Filters.activeMode === 'rules' || draft.Filters.activeMode === 'tester') {
+                  setPreviewMode(draft.Filters.activeMode)
+                }
               } catch {}
             }
             if (selection.configs && Array.isArray(draft.Configs)) {
