@@ -102,6 +102,8 @@ This document captures runtime behavior, builder interactions, and user-facing w
   - **Final Sell toggles:** flipping Final Sell options rebuilds only the final-sell tail locally. Base HSF rules and the cached custom batches remain intact; the worker is bypassed unless the underlying configs change.
   - **Worker still required:** inserting configs or applying the builder to multiple rows continues to flow through the worker. Earlier attempts to splice new batches locally regressed total-limit enforcement and metaset expansion, so the worker remains authoritative for those paths.
   - **Open issues:** the React dev warning _“Cannot update a component (App) while rendering a different component (AppStateProvider)”_ still fires when selection churn is heavy; the selection reducer still issues updates during render and needs a dedicated cleanup. Long lists also trigger `[Violation] Forced reflow` due to table virtualization—`HsfRulesTable` still requires follow-up profiling.
+  - **Name-only edits:** when the rule fingerprint is unchanged and only config names differ, the preview rows update the stored `cfgName` labels in place and skip the worker entirely. Matches and detection remain intact because rule keys did not change.
+  - **Restore safety:** autosave restores sometimes surface before deferred snapshots populate; the pipeline now falls back to immediate configs/metasets/substatTargets to avoid sending an empty payload (which previously yielded final-sell-only previews). A retry guard forces one full warm+match pass if configs exist but both base and custom rule counts come back zero.
 
 ### Config selection identity
 

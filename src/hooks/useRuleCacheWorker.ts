@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react'
 import { updateConfigRulesCache, createConfigRulesCache, type ConfigRulesCache } from '../lib/ruleCache'
-import type { BuilderConfig, SubstatTargetTable } from '../lib/hsfBuilder'
+import type { BuilderConfig, SellfileExportMode, SubstatTargetTable } from '../lib/hsfBuilder'
 import type { Metaset } from '../lib/metasets'
 import type { HsfRuleWithCfg } from '../lib/merge'
-import { computeMergedRules } from '../lib/merge'
+import { RULE_SOURCE_KEEP_UNIQUES, computeMergedRules } from '../lib/merge'
 import { configsForRuleBuild, countRulesForConfigs } from '../lib/ruleCacheHelpers'
 import type { RuleCacheWorkerRequest, RuleCacheWorkerResponse } from '../workers/ruleCacheWorkerTypes'
 import RuleCacheWorker from '../workers/ruleCacheWorker?worker&inline'
@@ -11,8 +11,12 @@ import type { HsfFile } from '../lib/hsfTypes'
 import type { FinalSellRemainderConfig } from '../lib/finalSell'
 import { buildRuleMatchIndexData, primeRuleMatchIndex } from '../lib/ruleMatchIndex'
 import type { RuleMatchIndexData } from '../lib/ruleMatchIndex'
-import type { KeepUniquesMergeInput } from '../lib/keepUniques'
+import { collectKeepUniqueCandidates, computeKeepUniqueProtection, hasActiveKeepUniqueRules, type KeepUniqueDetectionSnapshot, type KeepUniquesMergeInput } from '../lib/keepUniques'
+import type { NormalizedGearArtifact } from '../lib/importers/gearDbNormalizer'
+import { evaluateMatchesByConfig } from '../lib/ruleEval'
+import type { TesterMatchWorkerItemResult } from '../workers/testerMatchWorkerTypes'
 import type { ProgressSnapshot } from '../types/progress'
+import type { TesterPreviewMatch } from '../types/testerPreview'
 
 type WarmCacheParams = {
   configs: BuilderConfig[]
@@ -21,6 +25,21 @@ type WarmCacheParams = {
   hsf: HsfFile | null
   finalSellRemainder?: FinalSellRemainderConfig
   keepUniques: KeepUniquesMergeInput
+}
+
+type PipelineParams = WarmCacheParams & {
+  configModes: SellfileExportMode[]
+  artifacts: NormalizedGearArtifact[]
+  artifactSignature?: string | null
+  artifactPatch?: {
+    changed: Array<[number, NormalizedGearArtifact]>
+    removed: number[]
+    signature: string | null
+  }
+  fingerprint?: string | null
+  skipWarm?: boolean
+  skipMatches?: boolean
+  skipDetection?: boolean
 }
 
 type RuleCacheStateSnapshot = {
@@ -39,6 +58,14 @@ type WarmCacheResult = {
   state: RuleCacheStateSnapshot
 }
 
+type PipelineResult = {
+  state: RuleCacheStateSnapshot
+  matches: TesterMatchWorkerItemResult[]
+  detection: KeepUniqueDetectionSnapshot | null
+  fingerprint: string | null
+  artifactSignature: string | null
+}
+
 type CountRulesParams = {
   configs: readonly BuilderConfig[]
   substatTargets: SubstatTargetTable
@@ -52,10 +79,12 @@ type PendingRequest<T> = {
 
 // Pending warm requests need to remember attached progress handlers so we can forward worker updates.
 type PendingWarmRequest = PendingRequest<WarmCacheResult> & { onProgress?: (progress: ProgressSnapshot) => void }
+type PendingPipelineRequest = PendingRequest<PipelineResult> & { onProgress?: (progress: ProgressSnapshot) => void }
 type PendingCountRequest = PendingRequest<number[]>
 
 type UseRuleCacheWorkerResult = {
   warmCache: (params: WarmCacheParams, options?: { signal?: AbortSignal; onProgress?: (progress: ProgressSnapshot) => void }) => Promise<WarmCacheResult>
+  runPipeline: (params: PipelineParams, options?: { signal?: AbortSignal; onProgress?: (progress: ProgressSnapshot) => void }) => Promise<PipelineResult>
   countRules: (params: CountRulesParams, options?: { signal?: AbortSignal }) => Promise<number[]>
   flush: () => Promise<void>
   supportsWorker: boolean
@@ -67,19 +96,25 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
   const workerRef = useRef<Worker | null>(null)
   const requestIdRef = useRef(0)
   const pendingWarmRef = useRef<Map<number, PendingWarmRequest>>(new Map())
+  const pendingPipelineRef = useRef<Map<number, PendingPipelineRequest>>(new Map())
   const pendingCountRef = useRef<Map<number, PendingCountRequest>>(new Map())
   const abortedIdsRef = useRef<Set<number>>(new Set())
   const fallbackCacheRef = useRef<ConfigRulesCache | null>(supportsWorkerEnv ? null : createConfigRulesCache())
+  const fallbackWarmStateRef = useRef<{
+    snapshot: RuleCacheStateSnapshot
+    configsForRules: BuilderConfig[]
+    fingerprint: string | null
+  } | null>(null)
 
   const runWarmLocally = useCallback((params: WarmCacheParams, options?: { onProgress?: (progress: ProgressSnapshot) => void }): WarmCacheResult => {
     const configsForRules = configsForRuleBuild(params.configs)
     const previousCache = fallbackCacheRef.current ?? undefined
     const baseRuleCount = Array.isArray(params.hsf?.Rules) ? (params.hsf?.Rules.length ?? 0) : 0
-    const cacheResult = updateConfigRulesCache(previousCache
-      ? {
-          configs: configsForRules,
-          metasets: params.metasets,
-          substatTargets: params.substatTargets,
+      const cacheResult = updateConfigRulesCache(previousCache
+        ? {
+            configs: configsForRules,
+            metasets: params.metasets,
+            substatTargets: params.substatTargets,
           previousCache,
           baseRuleCount,
           // Forward local progress to consumers whenever a caller opts in.
@@ -115,7 +150,218 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
       ruleMatchIndex,
     }
     primeRuleMatchIndex(state.mergedRules, state.ruleMatchIndex)
+    fallbackWarmStateRef.current = {
+      snapshot: state,
+      configsForRules,
+      fingerprint: null,
+    }
     return { state }
+  }, [])
+
+  const runPipelineLocally = useCallback((params: PipelineParams, options?: { onProgress?: (progress: ProgressSnapshot) => void }): PipelineResult => {
+    const warmTotal = params.skipWarm ? 0 : params.configs.length
+    const needsMatches = params.skipMatches !== true
+    const artifactList = (() => {
+      if (params.artifactPatch) {
+        // Local fallback does not cache patches; apply patch to a local map per run.
+        const map = new Map<number, NormalizedGearArtifact>()
+        for (const [itemId, artifact] of params.artifactPatch.changed) {
+          map.set(itemId, artifact)
+        }
+        return Array.from(map.values())
+      }
+      return params.artifacts
+    })()
+    // Do not spend detection/match passes when keep-unique is effectively disabled.
+    const hasActiveKeepUniques = hasActiveKeepUniqueRules(params.keepUniques)
+    const needsDetection = needsMatches
+      && params.skipDetection !== true
+      && hasActiveKeepUniques
+      && artifactList.length > 0
+    const matchPasses = needsMatches ? (needsDetection ? 2 : 1) : 0
+    const total = warmTotal + (artifactList.length * matchPasses)
+    let completed = 0
+    const emitProgress = () => {
+      if (!options?.onProgress) return
+      options.onProgress({ completed, total })
+    }
+
+    const cachedWarm = fallbackWarmStateRef.current
+    const canReuseWarm = Boolean(
+      cachedWarm
+      && params.fingerprint
+      && cachedWarm.fingerprint
+      && cachedWarm.fingerprint === params.fingerprint,
+    )
+    const configsForRules = canReuseWarm ? cachedWarm!.configsForRules : configsForRuleBuild(params.configs)
+    let cacheResult
+    if (canReuseWarm) {
+      cacheResult = {
+        cache: fallbackCacheRef.current,
+        rulesByConfig: cachedWarm!.snapshot.rulesByConfig,
+        countsByConfig: cachedWarm!.snapshot.countsByConfig,
+        keys: cachedWarm!.snapshot.keys,
+        substatTargetsKey: cachedWarm!.snapshot.substatTargetsKey,
+        truncatedConfigIndices: cachedWarm!.snapshot.truncatedConfigIndices,
+        totalLimitHit: cachedWarm!.snapshot.totalLimitHit,
+        excludedByTotalLimitIndices: cachedWarm!.snapshot.excludedByTotalLimitIndices,
+      }
+      completed = warmTotal
+    } else {
+      const previousCache = fallbackCacheRef.current ?? undefined
+      const baseRuleCount = Array.isArray(params.hsf?.Rules) ? (params.hsf?.Rules.length ?? 0) : 0
+      cacheResult = updateConfigRulesCache(previousCache
+        ? {
+            configs: configsForRules,
+            metasets: params.metasets,
+            substatTargets: params.substatTargets,
+            previousCache,
+            baseRuleCount,
+          }
+        : {
+            configs: configsForRules,
+            metasets: params.metasets,
+            substatTargets: params.substatTargets,
+            baseRuleCount,
+          })
+      fallbackCacheRef.current = cacheResult.cache ?? null
+      completed = warmTotal
+    }
+    if (total > 0 && completed > 0) emitProgress()
+
+    const baseKeepUniques = hasActiveKeepUniques
+      ? { ...params.keepUniques, detection: null }
+      : params.keepUniques
+    const mergedRulesBaseline = computeMergedRules({
+      hsf: params.hsf,
+      customCfgs: configsForRules,
+      metasets: params.metasets,
+      substatTargets: params.substatTargets,
+      ...(params.finalSellRemainder ? { finalSellRemainder: params.finalSellRemainder } : {}),
+      prebuiltCustomRules: cacheResult.rulesByConfig,
+      keepUniques: baseKeepUniques,
+    })
+
+    const baselineMatchMap = new Map<number, TesterMatchWorkerItemResult>()
+    if (needsDetection) {
+      for (const artifact of artifactList) {
+        if (!artifact) continue
+        const itemId = Number((artifact.testerItem as { itemId?: number } | undefined)?.itemId ?? artifact.id ?? NaN)
+        if (!Number.isFinite(itemId)) continue
+        const baseEval = evaluateMatchesByConfig(
+          mergedRulesBaseline,
+          artifact.testerItem,
+          { configModes: params.configModes, excludeSources: [RULE_SOURCE_KEEP_UNIQUES] },
+        )
+        baselineMatchMap.set(itemId, {
+          itemId,
+          firstMatch: baseEval.firstMatch,
+          firstNonExcludedMatch: baseEval.firstNonExcludedMatch ?? baseEval.firstMatch,
+          matchingConfigIndices: baseEval.matchingConfigIndices,
+        })
+      }
+      completed += artifactList.length
+      if (total > 0) emitProgress()
+    }
+
+    const toPreviewMatch = (result: ReturnType<typeof evaluateMatchesByConfig>['firstMatch'], rules: HsfRuleWithCfg[]): TesterPreviewMatch | null => {
+      if (!result) return null
+      const rule = rules[result.ruleIndex]
+      const cfgIdx = result.cfgIdx ?? null
+      return {
+        ruleIndex: result.ruleIndex,
+        keep: result.keep,
+        cfgIdx,
+        cfgName: null,
+        ruleLabel: null,
+        ruleSource: rule?.__source ?? null,
+      }
+    }
+
+    let detectionSnapshot: KeepUniqueDetectionSnapshot | null = null
+    if (needsDetection) {
+      const rows = artifactList.map((artifact, idx) => {
+        const itemId = Number((artifact.testerItem as { itemId?: number } | undefined)?.itemId ?? artifact.id ?? idx ?? NaN)
+        const match = baselineMatchMap.get(itemId)
+        return {
+          artifact,
+          match: null,
+          baseMatch: toPreviewMatch(match?.firstNonExcludedMatch ?? match?.firstMatch ?? null, mergedRulesBaseline),
+          matchingCfgIndices: match?.matchingConfigIndices ?? [],
+        }
+      })
+      const candidates = collectKeepUniqueCandidates({
+        rows,
+        baseRules: mergedRulesBaseline,
+        configModes: params.configModes,
+      })
+      detectionSnapshot = computeKeepUniqueProtection({
+        candidates: candidates.candidates,
+        rules: params.keepUniques.rules,
+        enabled: params.keepUniques.enabled,
+      })
+    }
+
+    const mergedRulesFinal = computeMergedRules({
+      hsf: params.hsf,
+      customCfgs: configsForRules,
+      metasets: params.metasets,
+      substatTargets: params.substatTargets,
+      ...(params.finalSellRemainder ? { finalSellRemainder: params.finalSellRemainder } : {}),
+      prebuiltCustomRules: cacheResult.rulesByConfig,
+      keepUniques: baseKeepUniques
+        ? { ...params.keepUniques, detection: detectionSnapshot }
+        : params.keepUniques,
+    })
+
+    const matches: TesterMatchWorkerItemResult[] = []
+    if (needsMatches) {
+      for (const artifact of artifactList) {
+        if (!artifact) continue
+        const itemId = Number((artifact.testerItem as { itemId?: number } | undefined)?.itemId ?? NaN)
+        if (!Number.isFinite(itemId)) continue
+        const fullEval = evaluateMatchesByConfig(mergedRulesFinal, artifact.testerItem, { configModes: params.configModes })
+        const baseEval = baselineMatchMap.get(itemId)
+          ?? evaluateMatchesByConfig(
+            mergedRulesFinal,
+            artifact.testerItem,
+            { configModes: params.configModes, excludeSources: [RULE_SOURCE_KEEP_UNIQUES] },
+          )
+        matches.push({
+          itemId,
+          firstMatch: fullEval.firstMatch,
+          firstNonExcludedMatch: baseEval.firstMatch,
+          matchingConfigIndices: fullEval.matchingConfigIndices,
+        })
+        completed += 1
+        if (total > 0 && options?.onProgress) emitProgress()
+      }
+    }
+
+    const state: RuleCacheStateSnapshot = {
+      rulesByConfig: cacheResult.rulesByConfig instanceof Map ? cacheResult.rulesByConfig : new Map<number, HsfRuleWithCfg[]>(cacheResult.rulesByConfig),
+      countsByConfig: cacheResult.countsByConfig instanceof Map ? cacheResult.countsByConfig : new Map<number, number>(cacheResult.countsByConfig),
+      keys: cacheResult.keys.slice(),
+      substatTargetsKey: cacheResult.substatTargetsKey,
+      mergedRules: mergedRulesFinal,
+      truncatedConfigIndices: cacheResult.truncatedConfigIndices.slice(),
+      totalLimitHit: cacheResult.totalLimitHit,
+      excludedByTotalLimitIndices: cacheResult.excludedByTotalLimitIndices.slice(),
+      ruleMatchIndex: buildRuleMatchIndexData(mergedRulesFinal),
+    }
+    primeRuleMatchIndex(state.mergedRules, state.ruleMatchIndex)
+    fallbackWarmStateRef.current = {
+      snapshot: state,
+      configsForRules,
+      fingerprint: params.fingerprint ?? null,
+    }
+    return {
+      state,
+      matches,
+      detection: detectionSnapshot,
+      fingerprint: params.fingerprint ?? null,
+      artifactSignature: params.artifactSignature ?? params.artifactPatch?.signature ?? null,
+    }
   }, [])
 
   useEffect(() => {
@@ -124,6 +370,7 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
     workerRef.current = worker
     // Stash the mutable maps so the cleanup closure observes the same instances.
     const warmMap = pendingWarmRef.current
+    const pipelineMap = pendingPipelineRef.current
     const countMap = pendingCountRef.current
     const abortedSet = abortedIdsRef.current
 
@@ -132,6 +379,11 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
       if (!data) return
       if (data.kind === 'warm:progress') {
         const pending = warmMap.get(data.id)
+        pending?.onProgress?.(data.payload)
+        return
+      }
+      if (data.kind === 'pipeline:progress') {
+        const pending = pipelineMap.get(data.id)
         pending?.onProgress?.(data.payload)
         return
       }
@@ -156,6 +408,33 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
         pending.resolve({ state })
         return
       }
+      if (data.kind === 'pipeline:done') {
+        const pending = pipelineMap.get(data.id)
+        if (!pending) return
+        pipelineMap.delete(data.id)
+        const aborted = abortedSet.delete(data.id)
+        if (aborted) return
+        const state: RuleCacheStateSnapshot = {
+          rulesByConfig: new Map<number, HsfRuleWithCfg[]>(data.payload.rulesByConfigEntries),
+          countsByConfig: new Map<number, number>(data.payload.countsByConfigEntries),
+          keys: data.payload.keys,
+          substatTargetsKey: data.payload.substatTargetsKey,
+          mergedRules: data.payload.mergedRules,
+          truncatedConfigIndices: data.payload.truncatedConfigIndices.slice(),
+          totalLimitHit: data.payload.totalLimitHit,
+          excludedByTotalLimitIndices: data.payload.excludedByTotalLimitIndices.slice(),
+          ruleMatchIndex: data.payload.ruleMatchIndex,
+        }
+        primeRuleMatchIndex(state.mergedRules, state.ruleMatchIndex)
+        pending.resolve({
+          state,
+          matches: data.payload.matches,
+          detection: data.payload.detection,
+          fingerprint: data.payload.fingerprint,
+          artifactSignature: data.payload.artifactSignature,
+        })
+        return
+      }
       if (data.kind === 'builderCount:done') {
         const pending = countMap.get(data.id)
         if (!pending) return
@@ -172,6 +451,11 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
           warmMap.delete(data.id)
           if (!aborted) warmPending.reject(new Error(data.error))
         }
+        const pipelinePending = pipelineMap.get(data.id)
+        if (pipelinePending) {
+          pipelineMap.delete(data.id)
+          if (!aborted) pipelinePending.reject(new Error(data.error))
+        }
         const countPending = countMap.get(data.id)
         if (countPending) {
           countMap.delete(data.id)
@@ -187,6 +471,10 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
         pending.reject(reason)
       })
       warmMap.clear()
+      pipelineMap.forEach((pending) => {
+        pending.reject(reason)
+      })
+      pipelineMap.clear()
       countMap.forEach((pending) => {
         pending.reject(reason)
       })
@@ -205,6 +493,7 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
       worker.terminate()
       workerRef.current = null
       warmMap.clear()
+      pipelineMap.clear()
       countMap.clear()
       abortedSet.clear()
     }
@@ -294,6 +583,96 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
       })
   }, [runWarmLocally])
 
+  const runPipeline = useCallback<UseRuleCacheWorkerResult['runPipeline']>((params, options) => {
+    const signal = options?.signal ?? null
+    const localProgressOptions = options?.onProgress ? { onProgress: options.onProgress } : undefined
+    if (!supportsWorkerEnv || !workerRef.current) {
+      return Promise.resolve(runPipelineLocally(params, localProgressOptions))
+    }
+
+    if (signal?.aborted) {
+      return Promise.reject(new DOMException('Aborted', 'AbortError'))
+    }
+
+    const worker = workerRef.current
+    const id = ++requestIdRef.current
+
+    const runFallback = (error: unknown): Promise<PipelineResult> => {
+      if (signal?.aborted) {
+        return Promise.reject(new DOMException('Aborted', 'AbortError'))
+      }
+      if ((import.meta as { env?: { DEV?: boolean } }).env?.DEV) {
+        console.warn('rule cache pipeline worker failed; falling back to local merge', error)
+      }
+      return Promise.resolve(runPipelineLocally(params, localProgressOptions))
+    }
+
+    let resolveFn: (value: PipelineResult) => void = () => {}
+    let rejectFn: (reason?: unknown) => void = () => {}
+    const promise = new Promise<PipelineResult>((resolve, reject) => {
+      resolveFn = resolve
+      rejectFn = reject
+    })
+
+    const pendingEntry: PendingPipelineRequest = { resolve: resolveFn, reject: rejectFn, promise }
+    if (options?.onProgress) pendingEntry.onProgress = options.onProgress
+    pendingPipelineRef.current.set(id, pendingEntry)
+
+    const cleanupAbort = signal
+      ? (() => {
+          const abortHandler = () => {
+            if (!pendingPipelineRef.current.has(id)) return
+            abortedIdsRef.current.add(id)
+            pendingPipelineRef.current.get(id)?.reject(new DOMException('Aborted', 'AbortError'))
+            pendingPipelineRef.current.delete(id)
+          }
+          signal.addEventListener('abort', abortHandler, { once: true })
+          return () => signal.removeEventListener('abort', abortHandler)
+        })()
+      : null
+
+    const message: RuleCacheWorkerRequest = {
+      id,
+      kind: 'pipeline',
+      payload: {
+        configs: params.configs,
+        metasets: params.metasets,
+        substatTargets: params.substatTargets,
+        hsf: params.hsf,
+        ...(params.finalSellRemainder ? { finalSellRemainder: params.finalSellRemainder } : {}),
+        keepUniques: params.keepUniques,
+        configModes: params.configModes,
+        artifacts: params.artifacts,
+        ...(params.artifactPatch ? { artifactPatch: params.artifactPatch } : {}),
+        ...(params.artifactSignature !== undefined ? { artifactSignature: params.artifactSignature ?? null } : {}),
+        fingerprint: params.fingerprint ?? null,
+        skipWarm: params.skipWarm ?? false,
+        skipMatches: params.skipMatches ?? false,
+        skipDetection: params.skipDetection ?? false,
+      },
+    }
+
+    try {
+      worker.postMessage(message)
+    } catch (error) {
+      pendingPipelineRef.current.delete(id)
+      cleanupAbort?.()
+      return runFallback(error)
+    }
+
+    return promise
+      .catch((error) => {
+        const aborted = abortedIdsRef.current.delete(id)
+        if (aborted) {
+          return Promise.reject(new DOMException('Aborted', 'AbortError'))
+        }
+        return runFallback(error)
+      })
+      .finally(() => {
+        cleanupAbort?.()
+      })
+  }, [runPipelineLocally])
+
   const countRules = useCallback<UseRuleCacheWorkerResult['countRules']>((params, options) => {
     const signal = options?.signal ?? null
     const configs = Array.from(params.configs)
@@ -358,6 +737,9 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
     pendingWarmRef.current.forEach((entry) => {
       pendingPromises.push(entry.promise)
     })
+    pendingPipelineRef.current.forEach((entry) => {
+      pendingPromises.push(entry.promise)
+    })
     pendingCountRef.current.forEach((entry) => {
       pendingPromises.push(entry.promise)
     })
@@ -367,8 +749,9 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
 
   return useMemo<UseRuleCacheWorkerResult>(() => ({
     warmCache,
+    runPipeline,
     countRules,
     flush,
     supportsWorker: supportsWorkerEnv,
-  }), [warmCache, countRules, flush])
+  }), [warmCache, runPipeline, countRules, flush])
 }
