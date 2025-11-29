@@ -101,18 +101,18 @@ Crea, revisa y exporta reglas de venta para RSL Helper con una interfaz sencilla
 ### Conservar únicos
 - Abre el diálogo de Venta final y cambia a la pestaña «Conservar únicos» para marcar las combinaciones que no quieres vender jamás. Activa «Conservar únicos» para empezar a editarlas.
 - Cada regla te deja elegir ranura, sets o metasets, rangos, rarezas, atributos principales y (en accesorios) facciones. Sin selección significa «cualquiera».
-- `≥ Cantidad necesaria` es la promesa que debe cumplir la app. Deja el interruptor en «Por conjunto» cuando necesites esa cantidad por cada mezcla de set/facción/atributo principal, o pásalo a «Por regla» si te basta un total compartido.
+- `≥ Cantidad necesaria` vive junto a un pequeño grupo de botones. «Por regla» mantiene una cuota única; combina los botones «Por conjunto», «Por facción» y «Por atributo principal» para multiplicar la cuota por cada mezcla pertinente (si los tres están apagados, el modo vuelve automáticamente a «Por regla»).
 - El escáner solo añade filas extra cuando todos los objetos que encajan con la regla acabarían vendidos. Si tus configs normales ya salvan suficientes piezas, verás «Cubierto en otro lugar» y no se exporta nada nuevo.
 
 #### Ejemplos reales
 1. **Se acaban las botas de SPD:** Ranura = Botas, Atributo principal = SPD, Sets vacíos. Ajusta `≥ Cantidad necesaria = 5`, modo «Por regla». Siempre sobrevivirán al menos cinco botas de SPD, sin importar el set.
 2. **Mezclar guantes Savage y Lethal:** Ranura = Guantes, Sets = Savage + Lethal, Atributo principal = CDMG%. Pon `≥ Cantidad necesaria = 3`, «Por regla». Así conservas tres guantes con CDMG% aunque cambie la mezcla de sets.
-3. **Anillos Merciless por facción:** Ranura = Anillo, Set = Merciless, Facción sin filtrar. Fija `≥ Cantidad necesaria = 3`, deja «Por conjunto». Cada facción debe tener tres anillos propios antes de que la regla se marque como cumplida.
-4. **Anillos de HP% por facción:** Ranura = Anillo, Atributo principal = HP%, Sets vacíos. `≥ Cantidad necesaria = 2`, «Por conjunto». La app vigila cada facción por separado y protege dos anillos de HP% para cada una.
-5. **Accesorios básicos por facción:** Crea tres reglas (Anillo, Amuleto, Estandarte). Deja Sets y Atributo principal vacíos, pon `≥ Cantidad necesaria = 5`, «Por conjunto». Cada facción conservará cinco piezas por ranura.
-6. **Stoneskin/Protection por facción:** Para cada ranura de accesorio elige Sets = Stoneskin + Protection, deja el Atributo principal vacío y usa `≥ Cantidad necesaria = 2`, «Por conjunto». Así cada facción guardará dos piezas de esas series en cada ranura.
+3. **Anillos Merciless por facción:** Ranura = Anillo, Set = Merciless, Facción sin filtrar. Fija `≥ Cantidad necesaria = 3` y activa «Por facción». Cada facción debe tener tres anillos propios antes de que la regla se marque como cumplida.
+4. **Anillos de HP% por facción:** Ranura = Anillo, Atributo principal = HP%, Sets vacíos. `≥ Cantidad necesaria = 2` con «Por facción». La app vigila cada facción por separado y protege dos anillos de HP% para cada una.
+5. **Accesorios básicos por facción:** Crea tres reglas (Anillo, Amuleto, Estandarte). Deja Sets y Atributo principal vacíos, pon `≥ Cantidad necesaria = 5` y activa «Por facción». Cada facción conservará cinco piezas por ranura.
+6. **Stoneskin/Protection por facción:** Para cada ranura de accesorio elige Sets = Stoneskin + Protection, deja el Atributo principal vacío y usa `≥ Cantidad necesaria = 2` con «Por conjunto» y «Por facción» activos. Así cada facción guardará dos piezas de esas series en cada ranura.
 
-Consejo: Importa tu `.db` o pega equipo en el Probador antes de abrir la pestaña para que el escáner tenga objetos reales. Cuando una regla muestre «Faltan 2», haz clic en ella: se resaltarán esas filas del Probador y verás qué facción o set necesita ayuda.
+Consejo: Importa tu `.db` o pega equipo en el Probador antes de abrir la pestaña para que el escáner tenga objetos reales. Cuando una regla muestre «Faltan 2», haz clic en ella: el Probador resaltará ese equipo y verás qué facción o set necesita ayuda.
 
 ### Gestión de configs
 - Las configs guardadas aparecen como chips debajo del constructor. Haz clic para seleccionarlas, o clic derecho para duplicar, mover, copiar o borrar.

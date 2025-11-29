@@ -101,18 +101,18 @@ Erstelle, prüfe und exportiere Verkaufsregeln für RSL Helper mit einer übersi
 ### Unikate behalten
 - Öffne den Dialog „Finaler Verkauf“ und wechsle zur Registerkarte „Unikate behalten“, um Kombinationen zu markieren, die du nie verlieren willst. Aktiviere „Unikate behalten“, um mit dem Bearbeiten zu beginnen.
 - Jede Regel lässt dich Slot, Sets oder Metasets, Ränge, Seltenheiten, Mainstats und (bei Zubehör) Fraktionen wählen. Leer bedeutet „egal“.
-- `≥ Benötigte Anzahl` ist das Versprechen, das die App halten soll. Lass den Schalter auf „Pro Set“, wenn jede Set-/Fraktions-/Mainstat-Kombination ihre eigene Menge behalten soll, oder schalte auf „Pro Regel“, wenn dir eine gemeinsame Gesamtzahl reicht.
+- `≥ Benötigte Anzahl` sitzt neben einem kleinen Button-Cluster. „Pro Regel“ hält eine gemeinsame Quote, während du „Pro Set“, „Pro Fraktion“ und „Pro Hauptstat“ beliebig kombinieren kannst, um die Quote für jede passende Mischung zu vervielfachen (sind alle drei aus, fällt die Regel automatisch auf „Pro Regel“ zurück).
 - Der Scanner fügt nur zusätzliche Behalte-Zeilen ein, wenn jedes Item, das zur Regel passt, sonst verkauft würde. Wenn deine normalen Konfigs bereits genug Gear sichern, zeigt die Regel „Anderswo abgedeckt“ und es wird nichts exportiert.
 
 #### Praxisbeispiele
 1. **SPD-Stiefel gehen aus:** Slot = Stiefel, Mainstat = SPD, Sets leer. Setze `≥ Benötigte Anzahl = 5`, Modus „Pro Regel“. So überleben immer mindestens fünf SPD-Stiefel, egal aus welchem Set sie stammen.
 2. **Savage- und Lethal-Handschuhe mischen:** Slot = Handschuhe, Sets = Savage + Lethal, Mainstat = CDMG%. Setze `≥ Benötigte Anzahl = 3`, „Pro Regel“. Damit behältst du drei Handschuhe mit CDMG%-Mainstat, selbst wenn die Mischung aus beiden Sets variiert.
-3. **Gnadenlos-Ringe pro Fraktion sichern:** Slot = Ring, Set = Merciless, Fraktion leer. Setze `≥ Benötigte Anzahl = 3`, bleib bei „Pro Set“. Jede Fraktion braucht jetzt drei ihrer eigenen Merciless-Ringe, bevor die Regel als erfüllt gilt.
-4. **HP%-Ringe pro Fraktion behalten:** Slot = Ring, Mainstat = HP%, Sets leer. Setze `≥ Benötigte Anzahl = 2`, „Pro Set“. Die App beobachtet jede Fraktion einzeln und schützt jeweils zwei HP%-Ringe.
-5. **Kernzubehör pro Fraktion schützen:** Erstelle drei Regeln (Ring, Amulett, Banner). Lass Sets und Mainstat leer, setze `≥ Benötigte Anzahl = 5`, „Pro Set“. Jede Fraktion behält damit fünf Stück pro Zubehör-Slot.
-6. **Stoneskin/Protection pro Fraktion halten:** Für jeden Zubehör-Slot Sets = Stoneskin + Protection wählen, Mainstat leer lassen, `≥ Benötigte Anzahl = 2`, „Pro Set“. So bleiben pro Fraktion zwei Teile je Slot, sobald diese Sets bei dir landen.
+3. **Gnadenlos-Ringe pro Fraktion sichern:** Slot = Ring, Set = Merciless, Fraktion leer. Setze `≥ Benötigte Anzahl = 3` und aktiviere „Pro Fraktion“. Jede Fraktion braucht jetzt drei ihrer eigenen Merciless-Ringe, bevor die Regel als erfüllt gilt.
+4. **HP%-Ringe pro Fraktion behalten:** Slot = Ring, Mainstat = HP%, Sets leer. Setze `≥ Benötigte Anzahl = 2` und wähle „Pro Fraktion“. Die App beobachtet jede Fraktion einzeln und schützt jeweils zwei HP%-Ringe.
+5. **Kernzubehör pro Fraktion schützen:** Erstelle drei Regeln (Ring, Amulett, Banner). Lass Sets und Mainstat leer, setze `≥ Benötigte Anzahl = 5` und aktiviere „Pro Fraktion“. Jede Fraktion behält damit fünf Stück pro Zubehör-Slot.
+6. **Stoneskin/Protection pro Fraktion halten:** Für jeden Zubehör-Slot Sets = Stoneskin + Protection wählen, Mainstat leer lassen, `≥ Benötigte Anzahl = 2`, und sowohl „Pro Set“ als auch „Pro Fraktion“ aktivieren. So bleiben pro Fraktion zwei Teile je Slot, sobald diese Sets bei dir landen.
 
-Tipp: Importiere deine `.db` oder füge Items im Regel Tester ein, bevor du die Registerkarte öffnest. Dann hat der Scanner echte Ausrüstung zum Prüfen. Wenn eine Regel „Fehlen 2“ meldet, klicke sie an: Die passenden Regel Tester-Zeilen werden hervorgehoben und zeigen, welche Fraktion oder welches Set noch fehlt.
+Tipp: Importiere deine `.db` oder füge Items im Regel Tester ein, bevor du die Registerkarte öffnest. Dann hat der Scanner echte Ausrüstung zum Prüfen. Wenn eine Regel „Fehlen 2“ meldet, klicke sie an: Die passenden Regel Tester-Einträge werden hervorgehoben und zeigen, welche Fraktion oder welches Set noch fehlt.
 
 ### Konfigs verwalten
 - Gespeicherte Konfigs erscheinen als Chips unter dem Builder. Linksklick wählt sie zum Bearbeiten, Rechtsklick öffnet das Kontextmenü (Duplizieren, Verschieben, Kopieren, Löschen).

@@ -135,18 +135,18 @@ RSL Helper için satış kurallarını basit bir arayüzle oluşturun, önizleyi
 ### Benzersizleri Koru
 - Nihai satış iletişim kutusunu açıp «Benzersizleri Koru» sekmesine geçin; kaybetmek istemediğiniz kombinasyonları burada işaretleyin. Anahtarını açtığınızda düzenlemeye başlayabilirsiniz.
 - Her kuralda slot, set ya da metaset, rank, nadirlik, ana stat ve (aksesuarlar için) faksiyon seçebilirsiniz. Seçimi boş bırakmak «farketmez» anlamına gelir.
-- `≥ Gerekli adet` uygulamanın tutmasını istediğiniz sayıdır. Anahtarı «Set başına» durumda bırakırsanız her set/faksiyon/ana stat karışımı ayrı kota ister; «Kural başına» derseniz tek toplam yeterli olur.
+- `≥ Gerekli adet` uygulamanın tutmasını istediğiniz sayıdır. Hemen yanındaki küçük düğme grubu «Kural başına» seçeneğiyle birlikte «Set başına», «Fraksiyon başına» ve «Ana stat başına» anahtarlarını içerir. «Kural başına» tek bir kotayı korur; bu üç düğmeden istediğinizi açarak kotayı her uygun karışım için çarpabilirsiniz (üçü de kapalıyken mod otomatik olarak «Kural başına» döner).
 - Tarayıcı yalnızca eşleşen tüm eşyalar aksi hâlde satılacaksa ekstra Koru satırları ekler. Normal konfigleriniz zaten yeterince eşya tutuyorsa kartta «Başka yerde korunuyor» yazar ve yeni satır çıkmaz.
 
 #### Gerçek örnekler
 1. **SPD botlar tükeniyor:** Slot = Botlar, Ana stat = SPD, setler boş. `≥ Gerekli adet = 5`, mod «Kural başına». Böylece hangi setten gelirse gelsin en az beş SPD botu hep kalır.
 2. **Savage ve Lethal eldivenleri karıştırmak:** Slot = Eldiven, Set = Savage + Lethal, Ana stat = CDMG%. `≥ Gerekli adet = 3`, «Kural başına». CDMG% ana statlı üç hasar eldivenini karışım ne olursa olsun korursunuz.
-3. **Her faksiyona Merciless yüzük:** Slot = Yüzük, Set = Merciless, Faksiyon boş. `≥ Gerekli adet = 3`, mod «Set başına». Her faksiyon kendi üç yüzüğünü tutmak zorunda kalır.
-4. **Faksiyon başına HP% yüzük:** Slot = Yüzük, Ana stat = HP%, setler boş. `≥ Gerekli adet = 2`, «Set başına». Uygulama her faksiyonu ayrı izler ve ikişer HP% yüzüğü saklar.
-5. **Çekirdek aksesuarları korumak:** Üç kural ekleyin (Yüzük, Muska, Sancak). Set ve ana stat boş, `≥ Gerekli adet = 5`, «Set başına». Böylece her faksiyon her aksesuar yuvasından beşer tane saklar.
-6. **Stoneskin/Protection setlerini paylaşmak:** Her aksesuar yuvası için Set = Stoneskin + Protection seçin, ana stati boş bırakın, `≥ Gerekli adet = 2`, «Set başına». Bu sayede bu setler düştüğünde her faksiyonda her yuva için iki parça kalır.
+3. **Her faksiyona Merciless yüzük:** Slot = Yüzük, Set = Merciless, Faksiyon boş. `≥ Gerekli adet = 3`, «Fraksiyon başına» düğmesini açın. Her fraksiyon kendi üç yüzüğünü tutmak zorunda kalır.
+4. **Faksiyon başına HP% yüzük:** Slot = Yüzük, Ana stat = HP%, setler boş. `≥ Gerekli adet = 2`, «Fraksiyon başına» aktif. Uygulama her fraksiyonu ayrı izler ve ikişer HP% yüzüğü saklar.
+5. **Çekirdek aksesuarları korumak:** Üç kural ekleyin (Yüzük, Muska, Sancak). Set ve ana stat boş, `≥ Gerekli adet = 5`, «Fraksiyon başına» açık. Böylece her fraksiyon her aksesuar yuvasından beşer tane saklar.
+6. **Stoneskin/Protection setlerini paylaşmak:** Her aksesuar yuvası için Set = Stoneskin + Protection seçin, ana stati boş bırakın, `≥ Gerekli adet = 2`, hem «Set başına» hem «Fraksiyon başına» açık. Bu sayede bu setler düştüğünde her faksiyonda her yuva için iki parça kalır.
 
-İpucu: Sekmeyi açmadan önce `.db` yükleyin veya tester’a eşya ekleyin ki tarayıcı gerçek veriyi görsün. Bir kural «Eksik 2» yazdığında üzerine tıklayın; ilgili tester satırları vurgulanır ve hangi faksiyon/setin açıkta kaldığını görürsünüz.
+İpucu: Sekmeyi açmadan önce `.db` yükleyin veya tester’a eşya ekleyin ki tarayıcı gerçek veriyi görsün. Bir kural «Eksik 2» yazdığında üzerine tıklayın; tester tablosu bu eşyaları vurgular ve hangi faksiyon/setin açıkta kaldığını görürsünüz.
 
 ### Dışa aktarma
 - Baz dosya yüklüyse «Birleştirilmiş RSL Helper Sellfile’ı dışa aktar» görünür; aksi durumda «RSL Helper Sellfile’ı dışa aktar».

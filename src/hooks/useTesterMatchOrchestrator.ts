@@ -8,6 +8,7 @@ import {
   type KeepUniqueDetectionSnapshot,
   type KeepUniqueRule,
   computeKeepUniqueProtection,
+  sanitizeKeepUniqueCountMode,
 } from '../lib/keepUniques'
 import type { TesterPreviewRow } from '../types/testerPreview'
 import type { TesterPreviewMatch } from '../types/testerPreview'
@@ -43,10 +44,14 @@ export const fingerprintKeepUniqueDetection = (
   const parts: string[] = []
   for (const entry of snapshot.entries) {
     // Encode only primitives + joined arrays to avoid object churn.
+    const mode = sanitizeKeepUniqueCountMode(entry.countMode)
     parts.push([
       entry.ruleId ?? '',
       entry.ruleEnabled ? 1 : 0,
-      entry.countMode,
+      mode.perRule ? 1 : 0,
+      mode.perSet ? 1 : 0,
+      mode.perFaction ? 1 : 0,
+      mode.perMainStat ? 1 : 0,
       entry.groupsTracked,
       entry.perGroupRequiredCount,
       entry.requiredCount,

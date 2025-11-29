@@ -105,18 +105,18 @@ Build, preview, and export sell rules for RSL Helper with a simple UI.
 ### Keep Uniques
 - Open the Final Sell dialog and switch to the `Keep Uniques` tab to mark the gear combinations you never want to lose. Turn on `Enable Keep Uniques` to start editing.
 - Each keep rule lets you pick the slot, sets or metasets, ranks, rarities, main stats, and (for accessories) factions you care about. Leaving a picker empty means “any”.
-- `≥ Required Count` is the promise you want the app to keep. Leave the toggle on `Per set` when you want that promise for every set/faction/main-stat mix, or flip to `Per rule` when one shared total is enough.
+- `≥ Required Count` is the promise you want the app to keep. `Per rule` keeps one shared quota; the `Per set`, `Per faction`, and `Per main stat` buttons can be combined to multiply that quota for each matching mix (turning all three off automatically falls back to `Per rule`).
 - The scanner only adds extra keep rows when every item that matches a rule would otherwise be sold. If your normal configs already save enough pieces, the rule shows “Covered elsewhere” and nothing new is exported.
 
 #### Real-world examples
 1. **Running out of SPD boots:** Slot = Boots, Main Stat = SPD, Sets blank. Set `≥ Required Count = 5`, scope `Per rule`. Now the app guarantees at least five SPD boots survive, no matter which sets they came from.
 2. **Mixing Savage and Lethal gloves:** Slot = Gloves, Sets = Savage + Lethal, Main Stat = CDMG%. Set `≥ Required Count = 3`, `Per rule`. That covers any mix of the two sets while insisting on CDMG% mains, so you always keep three damage gloves.
-3. **Keeping Merciless rings for every faction:** Slot = Ring, Set = Merciless, Faction blank. Set `≥ Required Count = 3`, keep `Per set`. Each faction now needs three of its own Merciless rings before the rule is satisfied.
-4. **Saving HP% rings for every faction:** Slot = Ring, Main Stat = HP%, Sets blank. Set `≥ Required Count = 2`, `Per set`. The app watches every faction separately and protects two HP% rings for each one.
-5. **Protecting core accessories per faction:** Make three rules (Ring, Amulet, Banner). Leave Sets and Main Stat blank, set `≥ Required Count = 5`, `Per set`. Every faction now keeps five of each accessory slot.
-6. **Holding Stoneskin/Protection sets per faction:** For each accessory slot, pick Sets = Stoneskin + Protection, leave Main Stat blank, set `≥ Required Count = 2`, `Per set`. This keeps two of each slot for every faction whenever those sets drop.
+3. **Keeping Merciless rings for every faction:** Slot = Ring, Set = Merciless, Faction blank. Set `≥ Required Count = 3`, turn on `Per faction`. Each faction now needs three of its own Merciless rings before the rule is satisfied.
+4. **Saving HP% rings for every faction:** Slot = Ring, Main Stat = HP%, Sets blank. Set `≥ Required Count = 2`, toggle `Per faction`. The app watches every faction separately and protects two HP% rings for each one.
+5. **Protecting core accessories per faction:** Make three rules (Ring, Amulet, Banner). Leave Sets and Main Stat blank, set `≥ Required Count = 5`, toggle `Per faction`. Every faction now keeps five of each accessory slot.
+6. **Holding Stoneskin/Protection sets per faction:** For each accessory slot, pick Sets = Stoneskin + Protection, leave Main Stat blank, set `≥ Required Count = 2`, toggle both `Per set` and `Per faction`. This keeps two Stoneskin/Protection pieces of each slot for every faction whenever those sets drop.
 
-Tip: Import your `.db` or paste gear into the Rule Tester before opening the tab so the scanner sees real items. When a rule says “Missing 2”, click it to highlight those tester rows and see which faction or set needs attention.
+Tip: Import your `.db` or paste gear into the Rule Tester before opening the tab so the scanner sees real items. When a rule says “Missing 2”, click it to highlight that Rule Tester gear and see which faction or set needs attention.
 
 ### Managing Configs
 - Saved configs list: Each saved config appears as a small label below the builder. Use this list to select (left‑click), duplicate, reorder, or delete (deletions are confirmed). “Delete Configs” removes all (with confirmation).

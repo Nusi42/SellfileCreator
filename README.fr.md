@@ -101,18 +101,18 @@ Construisez, prévisualisez et exportez des règles de vente pour RSL Helper via
 ### Conserver les uniques
 - Ouvrez le dialogue Vente finale et passez sur l’onglet « Conserver les uniques » pour marquer les combinaisons que vous refusez de vendre. Activez « Conserver les uniques » pour commencer à les éditer.
 - Chaque règle vous permet de choisir slot, sets ou méta-sets, rangs, raretés, stats principales et, pour les accessoires, factions. Laisser un sélecteur vide signifie « n’importe lequel ».
-- `≥ Quantité requise` est la promesse que l’application doit tenir. Laissez le sélecteur sur « Par ensemble » si vous souhaitez cette quantité pour chaque combinaison set/faction/stat principale, ou passez sur « Par règle » si un total partagé suffit.
+- `≥ Quantité requise` se trouve juste à côté d'un petit groupe de boutons. « Par règle » garde une seule quote-part, et les boutons « Par ensemble », « Par faction » et « Par stat principale » peuvent être combinés pour multiplier la quote-part selon chaque mélange concerné (les désactiver tous ramène automatiquement le mode « Par règle »).
 - L’analyse n’ajoute des lignes supplémentaires que lorsque chaque objet correspondant serait vendu autrement. Si vos configs habituelles sauvent déjà assez de pièces, la règle affiche « Couvert ailleurs » et rien n’est ajouté à l’export.
 
 #### Exemples concrets
 1. **Les bottes SPD disparaissent :** Slot = Bottes, Stat principale = SPD, Sets vides. Réglez `≥ Quantité requise = 5` en mode « Par règle ». Au moins cinq paires de bottes SPD survivent, quel que soit le set.
 2. **Mélanger gants Savage et Lethal :** Slot = Gants, Sets = Savage + Lethal, Stat principale = DCC%. Réglez `≥ Quantité requise = 3`, « Par règle ». Vous conservez ainsi trois gants DCC%, peu importe la répartition entre les deux sets.
-3. **Anneaux Merciless par faction :** Slot = Anneau, Set = Merciless, Faction non filtrée. Fixez `≥ Quantité requise = 3`, restez en « Par ensemble ». Chaque faction doit désormais disposer de trois anneaux Merciless avant que la règle ne soit considérée comme satisfaite.
-4. **Anneaux PV% par faction :** Slot = Anneau, Stat principale = PV%, Sets vides. `≥ Quantité requise = 2`, « Par ensemble ». L’application suit chaque faction séparément et protège deux anneaux PV% pour chacune.
-5. **Accessoires essentiels par faction :** Créez trois règles (Anneau, Amulette, Bannière). Laissez Sets et Stat principale vides, réglez `≥ Quantité requise = 5`, « Par ensemble ». Chaque faction garde cinq pièces de chaque type d’accessoire.
-6. **Séries Stoneskin/Protection par faction :** Pour chaque accessoire, choisissez Sets = Stoneskin + Protection, laissez la Stat principale vide et mettez `≥ Quantité requise = 2`, « Par ensemble ». Ainsi, chaque faction conserve deux exemplaires par slot lorsque ces sets tombent.
+3. **Anneaux Merciless par faction :** Slot = Anneau, Set = Merciless, Faction non filtrée. Fixez `≥ Quantité requise = 3` et activez « Par faction ». Chaque faction doit désormais disposer de trois anneaux Merciless avant que la règle ne soit considérée comme satisfaite.
+4. **Anneaux PV% par faction :** Slot = Anneau, Stat principale = PV%, Sets vides. `≥ Quantité requise = 2` avec le bouton « Par faction ». L’application suit chaque faction séparément et protège deux anneaux PV% pour chacune.
+5. **Accessoires essentiels par faction :** Créez trois règles (Anneau, Amulette, Bannière). Laissez Sets et Stat principale vides, réglez `≥ Quantité requise = 5` et activez « Par faction ». Chaque faction garde cinq pièces de chaque type d’accessoire.
+6. **Séries Stoneskin/Protection par faction :** Pour chaque accessoire, choisissez Sets = Stoneskin + Protection, laissez la Stat principale vide, mettez `≥ Quantité requise = 2` et activez à la fois « Par ensemble » et « Par faction ». Ainsi, chaque faction conserve deux exemplaires par slot lorsque ces sets tombent.
 
-Astuce : Importez votre `.db` ou collez des objets dans le Testeur de règles avant d’ouvrir l’onglet pour fournir de vrais items à l’analyse. Si une règle affiche « Il manque 2 », cliquez dessus : les lignes correspondantes du Testeur de règles se surlignent et révèlent quelles factions ou quels sets ont encore besoin d’aide.
+Astuce : Importez votre `.db` ou collez des objets dans le Testeur de règles avant d’ouvrir l’onglet pour fournir de vrais items à l’analyse. Si une règle affiche « Il manque 2 », cliquez dessus : le Testeur de règles met en évidence ces objets et révèle quelles factions ou quels sets ont encore besoin d’aide.
 
 ### Gestion des configs
 - Les configs sauvegardées apparaissent sous forme de puces sous le builder. Clic gauche pour sélectionner ; clic droit pour dupliquer, déplacer, copier ou supprimer.

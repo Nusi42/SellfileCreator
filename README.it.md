@@ -89,18 +89,18 @@ Crea, visualizza in anteprima ed esporta regole di vendita per RSL Helper tramit
 ### Mantieni unici
 - Apri il dialogo Vendita finale e passa alla scheda «Mantieni unici» per segnare le combinazioni che non vuoi vendere mai. Attiva «Mantieni unici» per iniziare a modificarle.
 - Ogni regola ti permette di scegliere slot, set o Metaset, ranghi, rarità, statistiche principali e (per gli accessori) fazioni. Lasciare un selettore vuoto significa «qualsiasi».
-- `≥ Quantità richiesta` è la promessa che l’app deve mantenere. Lascia il selettore su «Per set» quando vuoi proteggere quella quantità per ogni combinazione di set/fazione/stat principale, oppure passa a «Per regola» se ti basta un totale condiviso.
+- `≥ Quantità richiesta` vive accanto a un piccolo gruppo di pulsanti. «Per regola» mantiene una quota unica; combina «Per set», «Per fazione» e «Per statistica principale» per moltiplicare la quota per ogni combinazione rilevante (se tutti e tre sono disattivati si torna automaticamente a «Per regola»).
 - Lo scanner aggiunge nuove righe Mantieni solo quando tutti gli oggetti che corrispondono alla regola verrebbero altrimenti venduti. Se le configurazioni standard salvano già abbastanza pezzi, la regola mostra «Coperta altrove» e non viene esportato nulla di nuovo.
 
 #### Esempi concreti
 1. **Le scarpe SPD scarseggiano:** Slot = Stivali, Stat principale = SPD, Set vuoti. Imposta `≥ Quantità richiesta = 5`, modalità «Per regola». Così sopravvivono sempre almeno cinque stivali con SPD, indipendentemente dal set.
 2. **Mischiare guanti Savage e Lethal:** Slot = Guanti, Set = Savage + Lethal, Stat principale = CDMG%. Imposta `≥ Quantità richiesta = 3`, «Per regola». In questo modo conservi tre guanti con CDMG% anche se la divisione tra i due set cambia.
-3. **Anelli Merciless per fazione:** Slot = Anello, Set = Merciless, Fazione non filtrata. Imposta `≥ Quantità richiesta = 3`, lascia «Per set». Ogni fazione deve possedere tre anelli Merciless propri prima che la regola risulti soddisfatta.
-4. **Anelli HP% per fazione:** Slot = Anello, Stat principale = HP%, Set vuoti. `≥ Quantità richiesta = 2`, «Per set». L’app monitora ogni fazione separatamente e protegge due anelli HP% per ciascuna.
-5. **Accessori base per ogni fazione:** Crea tre regole (Anello, Amuleto, Vessillo). Lascia vuoti Set e Stat principale, imposta `≥ Quantità richiesta = 5`, «Per set». Ogni fazione manterrà cinque pezzi per slot.
-6. **Set Stoneskin/Protection per fazione:** Per ogni slot accessorio seleziona Set = Stoneskin + Protection, lascia la Stat principale vuota e imposta `≥ Quantità richiesta = 2`, «Per set». Così ogni fazione conserva due pezzi per slot quando ricevi quei set.
+3. **Anelli Merciless per fazione:** Slot = Anello, Set = Merciless, Fazione non filtrata. Imposta `≥ Quantità richiesta = 3` e attiva «Per fazione». Ogni fazione deve possedere tre anelli Merciless propri prima che la regola risulti soddisfatta.
+4. **Anelli HP% per fazione:** Slot = Anello, Stat principale = HP%, Set vuoti. `≥ Quantità richiesta = 2` con «Per fazione». L’app monitora ogni fazione separatamente e protegge due anelli HP% per ciascuna.
+5. **Accessori base per ogni fazione:** Crea tre regole (Anello, Amuleto, Vessillo). Lascia vuoti Set e Stat principale, imposta `≥ Quantità richiesta = 5` e attiva «Per fazione». Ogni fazione manterrà cinque pezzi per slot.
+6. **Set Stoneskin/Protection per fazione:** Per ogni slot accessorio seleziona Set = Stoneskin + Protection, lascia la Stat principale vuota e imposta `≥ Quantità richiesta = 2`, con «Per set» e «Per fazione» attivi. Così ogni fazione conserva due pezzi per slot quando ricevi quei set.
 
-Suggerimento: importa il tuo `.db` o incolla equipaggiamento nel Tester regole prima di aprire la scheda, così lo scanner analizza oggetti reali. Quando una regola mostra «Ne mancano 2», cliccala: le righe corrispondenti del Tester regole si evidenziano e vedi quale fazione o set ha ancora bisogno di attenzione.
+Suggerimento: importa il tuo `.db` o incolla equipaggiamento nel Tester regole prima di aprire la scheda, così lo scanner analizza oggetti reali. Quando una regola mostra «Ne mancano 2», cliccala: il Tester regole evidenzia quei pezzi e vedi quale fazione o set ha ancora bisogno di attenzione.
 
 ### Gestione delle configurazioni
 - Elenco configurazioni salvate: ogni configurazione appare come un'etichetta sotto il builder. Usa l'elenco per selezionare (clic sinistro), duplicare, riordinare o eliminare (con conferma). "Elimina configurazioni" rimuove tutte (con conferma).

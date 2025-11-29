@@ -19,7 +19,7 @@ import { ArtifactSet, ArtifactType, Faction, StatVariant, RankCode, RarityCode, 
 import { DEFAULT_RULES_FILTER_STATE, type RulesFilterState } from '../lib/rulesFilter'
 import type { TutorialStep } from '../components/tutorial/TutorialCoach'
 import type { useI18n } from '../lib/i18n'
-import type { KeepUniqueRule } from '../lib/keepUniques'
+import { KEEP_UNIQUE_DEFAULT_COUNT_MODE, type KeepUniqueRule } from '../lib/keepUniques'
 import type { RuleTesterItem } from '../lib/ruleTesterSession'
 
 type Translate = ReturnType<typeof useI18n>['t']
@@ -78,7 +78,7 @@ const buildTutorialKeepUniqueRules = (): KeepUniqueRule[] => [{
   },
   requiredCount: 1,
   enabled: true,
-  countMode: 'perCombination',
+  countMode: { ...KEEP_UNIQUE_DEFAULT_COUNT_MODE },
 }]
 
 const cloneTesterItem = (item: RuleTesterItem): RuleTesterItem => ({
@@ -98,6 +98,12 @@ const cloneKeepUniqueRule = (rule: KeepUniqueRule): KeepUniqueRule => ({
     rarities: [...rule.combination.rarities],
     mainStats: [...rule.combination.mainStats],
     factions: [...rule.combination.factions],
+  },
+  countMode: {
+    perRule: rule.countMode.perRule,
+    perSet: rule.countMode.perSet,
+    perFaction: rule.countMode.perFaction,
+    perMainStat: rule.countMode.perMainStat,
   },
 })
 
