@@ -869,6 +869,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     }
 
     // Guard against empty deferred snapshots on first load by falling back to immediate state.
+    // Avoid empty payloads on first render by falling back to immediate snapshots when deferred values lag.
     const configsForPipeline = ruleConfigsForPreview.length > 0 ? ruleConfigsForPreview : ruleConfigs
     const metasetsForPipeline = metasetsForPreview.length > 0 ? metasetsForPreview : metasets
     const substatTargetsForPipeline = substatTargetsForPreview ?? substatTargets
