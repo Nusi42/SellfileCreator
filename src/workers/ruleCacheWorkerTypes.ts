@@ -1,10 +1,12 @@
-import type { BuilderConfig, SubstatTargetTable } from '../lib/hsfBuilder'
+import type { BuilderConfig, SellfileExportMode, SubstatTargetTable } from '../lib/hsfBuilder'
 import type { Metaset } from '../lib/metasets'
 import type { HsfRuleWithCfg } from '../lib/merge'
 import type { HsfFile } from '../lib/hsfTypes'
 import type { FinalSellRemainderConfig } from '../lib/finalSell'
 import type { RuleMatchIndexData } from '../lib/ruleMatchIndex'
-import type { KeepUniquesMergeInput } from '../lib/keepUniques'
+import type { KeepUniqueDetectionSnapshot, KeepUniquesMergeInput } from '../lib/keepUniques'
+import type { NormalizedGearArtifact } from '../lib/importers/gearDbNormalizer'
+import type { TesterMatchWorkerItemResult } from './testerMatchWorkerTypes'
 import type { ProgressSnapshot } from '../types/progress'
 
 export type RuleCacheWarmRequest = {
@@ -59,6 +61,50 @@ export type RuleCacheBuilderCountResponse = {
   }
 }
 
+export type RuleCachePipelineRequest = {
+  id: number
+  kind: 'pipeline'
+  payload: {
+    configs: BuilderConfig[]
+    metasets: Metaset[]
+    substatTargets: SubstatTargetTable
+    hsf: HsfFile | null
+    finalSellRemainder?: FinalSellRemainderConfig
+    keepUniques: KeepUniquesMergeInput
+    configModes: SellfileExportMode[]
+    artifacts: NormalizedGearArtifact[]
+    fingerprint?: string | null
+    skipWarm?: boolean
+    skipMatches?: boolean
+    skipDetection?: boolean
+  }
+}
+
+export type RuleCachePipelineResponse = {
+  id: number
+  kind: 'pipeline:done'
+  payload: {
+    rulesByConfigEntries: Array<[number, HsfRuleWithCfg[]]>
+    countsByConfigEntries: Array<[number, number]>
+    keys: string[]
+    substatTargetsKey: string
+    mergedRules: HsfRuleWithCfg[]
+    truncatedConfigIndices: number[]
+    totalLimitHit: boolean
+    excludedByTotalLimitIndices: number[]
+    ruleMatchIndex: RuleMatchIndexData
+    matches: TesterMatchWorkerItemResult[]
+    detection: KeepUniqueDetectionSnapshot | null
+    fingerprint: string | null
+  }
+}
+
+export type RuleCachePipelineProgressResponse = {
+  id: number
+  kind: 'pipeline:progress'
+  payload: ProgressSnapshot
+}
+
 export type RuleCacheErrorResponse = {
   id: number
   kind: 'error'
@@ -69,6 +115,11 @@ export type RuleCacheWorkerResponse =
   | RuleCacheWarmResponse
   | RuleCacheWarmProgressResponse
   | RuleCacheBuilderCountResponse
+  | RuleCachePipelineResponse
+  | RuleCachePipelineProgressResponse
   | RuleCacheErrorResponse
 
-export type RuleCacheWorkerRequest = RuleCacheWarmRequest | RuleCacheBuilderCountRequest
+export type RuleCacheWorkerRequest =
+  | RuleCacheWarmRequest
+  | RuleCacheBuilderCountRequest
+  | RuleCachePipelineRequest
