@@ -14,15 +14,15 @@ This document captures the current vocabulary for the Rule Tester / Keep Uniques
 - **Notes**: No conflicts yet; catalogs already match README for Rule Tester wording. Keep Uniques needs README coverage once the feature copy is written so the term can be referenced consistently. UI labels now follow a strict title-case style (menus, buttons, toggle labels, status chips) while tooltips and paragraph copy stay in sentence case—mirror this split when editing English strings or seeding new locales so button text doesn’t drift into sentence case over time.
 
 ## de-DE (`README.de.md`, `src/lib/i18n/catalogs/de-DE.ts`)
-- **README wording**: The preview copy uses “Regeltester/Regeltester-Vorschau” (`README.de.md` lines 9‑132) and the Rule Tester section describes glyphs (“Glyphen”) and the wildcard examples still say “Wildcard”. Keep Uniques is not described yet.
+- **README wording**: The preview copy now refers to the toggle and preview as “Regel Tester”/“Regel Tester-Vorschau” (`README.de.md` lines 9‑132) so the prose matches the UI label. The section also calls out glyphs (“Glyphen”) and the wildcard examples still say “Wildcard”. Keep Uniques is not described yet.
 - **Catalog values**:
-  * `testerPreviewHeading`: “Regel-Tester”.
+  * `testerPreviewHeading`: “Regel Tester”.
   * `tabKeepUniques` + helpers: “Unikate behalten”.
   * `filterGlyphs` entries are localized (`Glyphen`, `Beliebig`, `An`, `Aus`, `Ausgewählt`, with a German tooltip), but `filterRolls` entries (helper, wildcard title, roll chips, validation text) remain in English.
-  * `tutSectionRuleTesterLabel`: still “Rule Tester”, which disagrees with the README’s “Regeltester”.
+  * `tutSectionRuleTesterLabel`: “Regel Tester”.
 - **Glyph wording**: README explicitly calls out “Glyphen und Rollen”.
 - **Wildcard wording**: The examples keep using “Wildcard”, so future copy should confirm whether the English term is acceptable or should be replaced.
-- **Notes**: Localize `tutSectionRuleTesterLabel` to “Regeltester” (or equivalent) and translate the `filterRolls*` keys while keeping the README terminology. Keep Uniques copy still needs to propagate into the README once the feature text is ready.
+- **Notes**: Translate the `filterRolls*` keys while keeping the updated “Regel Tester” text in sync with the README. Keep Uniques copy still needs to propagate into the README once the feature text is ready.
 
 ## es-ES (`README.es.md`, `src/lib/i18n/catalogs/es-ES.ts`)
 - **README wording**: “Probador” is used for the Rule Tester preview and dialog (see the Sellfile preview sections around lines 90‑140). Glyph references use “glifos” and the wildcard examples use “comodín”. Keep Uniques is not yet described.
@@ -50,14 +50,14 @@ This document captures the current vocabulary for the Rule Tester / Keep Uniques
 - **Notes**: Localize the tooltip/labels under `filterGlyphs` and `filterRolls` and translate `tutSectionRuleTesterLabel`. Keep Uniques needs README coverage as soon as the feature documentation is written.
 
 ## it-IT (`README.it.md`, `src/lib/i18n/catalogs/it-IT.ts`)
-- **README wording**: The preview keeps the `Rules`/`Verificatore regole` toggle in the header, references `glifi e roll` plus `jolly` in the filter descriptions, and now includes a `### Mantieni unici` section that explains the second tab in the Vendita finale dialog, the combination scanning, the `Ne mancano / Coperta altrove / Soddisfatta` chips, and the `Filtro: Tutti / Selezione` switch.
+- **README wording**: The preview keeps the `Rules`/`Tester regole` toggle in the header, references `glifi e roll` plus `jolly` in the filter descriptions, and now includes a `### Mantieni unici` section that explains the second tab in the Vendita finale dialog, the combination scanning, the `Ne mancano / Coperta altrove / Soddisfatta` chips, and the `Filtro: Tutti / Selezione` switch.
 - **Catalog values**:
   * `testerPreviewHeading`: “Tester regole”.
   * `keepUniques*`: “Mantieni unici”.
   * `keepUniquesGridFilterLabel`/`keepUniquesGridFilterMode*`/`keepUniquesGridFilterTooltip`: “Filtro: {mode}”, “Tutti”, “Selezione”, and the Italian tooltip that mirrors the README copy.
   * `filterGlyphs` entries: “Glifi”, “Qualsiasi”, “Con glifi”, “Senza glifi”, “Selezionati” with the Italian tooltip.
   * `filterRolls` entries: “Roll”, the Italian helper text, `Richiesta jolly`, the roll-count terminology, and Italian summaries that repeat `roll`.
-  * `tutSectionRuleTesterLabel`: “Verificatore regole”.
+  * `tutSectionRuleTesterLabel`: “Tester regole”.
 - **Glyph wording**: README calls them “glifi”.
 - **Wildcard wording**: README calls them “jolly”.
 - **Notes**: Keep the Italian `Mantieni unici` prose, filter labels, and tutorial section label aligned between README and the catalog. Future tweaks should maintain the same `glifi`/`roll` vocabulary so the UI copy stays consistent with the documented guidance.

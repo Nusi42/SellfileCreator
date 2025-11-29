@@ -673,6 +673,7 @@ const overrides: Catalog = {
   builderSubstatFlexToggleTooltip: 'Flex, Gerekli alt statlar sayısının üzerindeki her geçerli kombinasyonu üretmek için isteğe bağlı alt statları permütasyonlarda döndürür.\n• Gerekli alt statlar için Oto yerine 1–4 arası bir sayı seçin ve bu sayıdan fazla alt stati ★ ile işaretleyin.\n• Döndürülecek bir şey kalması için min./maks. yuvarlanma hedefi olmayan en az bir ekstra ★ bırakın.\n• Kilitlenmiş seçimler sabit kalır ve Flex uygulanmadığında anahtar kendini kapatır.',
   builderMilestoneThresholdsHelp: 'Rulo minimumu istediğiniz anda +16 öncesi davranışı belirler.\n• Erken, her basamakta halihazırda sahip olduğunuz ruloları gösterir.\n• Geç, +16 hedefi ulaşılabilir kalsın diye şu anda mevcut olması gerekenleri ister.\n• Sadece herhangi bir alt statte Min > 0 ise veya genel bir minimum belirlediyseniz etkili olur.',
   builderMinRequiredRollsImpossibleWarn: 'Uyarı: Min gerekli rulolar mevcut stat üst sınırlarıyla +16\'ya kadar sağlanamaz',
+  builderMinRequiredRollsNoSubstatsWarn: 'Uyarı: Alt stat seçmeden min gerekli rulolar > 0 hiçbir işe yaramaz',
   builderInsertAsConfig: 'Konfig #{n} olarak ekle',
   builderInsertHiddenTooltip: 'Mevcut filtreler yeni konfigi eklendikten sonra gizler.',
   builderAddAsNew: 'Yeni konfig olarak ekle',

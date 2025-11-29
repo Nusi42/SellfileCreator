@@ -673,6 +673,7 @@ const overrides: Catalog = {
   builderSubstatFlexToggleTooltip: 'Flex ruota le sotto-stat opzionali nelle permutazioni così ogni combinazione valida oltre il conteggio di Sotto-stat richieste viene generata.\n• Imposta Sotto-stat richieste su un numero (1–4) invece di Auto e segna con ★ più sotto-stat di quel numero.\n• Lascia almeno una ★ aggiuntiva senza obiettivi di roll min/max così c’è qualcosa da ruotare.\n• Le scelte bloccate restano fisse e l’interruttore si disattiva quando Flex non è più applicabile.',
   builderMilestoneThresholdsHelp: 'Decidi come si comportano le soglie di roll minimi prima del +16 quando chiedi dei minimi.\n• Anticipato mostra i roll già ottenuti a ogni traguardo.\n• Tardivo mostra cosa devi avere ora per mantenere raggiungibile l’obiettivo +16.\n• Conta solo se almeno una sotto-stat ha Min > 0 o hai impostato un minimo globale.',
   builderMinRequiredRollsImpossibleWarn: 'Attenzione: i roll minimi richiesti non sono raggiungibili entro +16 con gli attuali limiti superiori per statistica',
+  builderMinRequiredRollsNoSubstatsWarn: 'Attenzione: i roll minimi > 0 non hanno effetto finché non selezioni delle sotto-stat',
   builderInsertAsConfig: 'Inserisci come configurazione #{n}',
   builderInsertHiddenTooltip: 'I filtri attuali nasconderanno la nuova configurazione dopo l’inserimento.',
   builderAddAsNew: 'Aggiungi come nuova configurazione',

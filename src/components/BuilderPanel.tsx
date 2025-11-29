@@ -5456,6 +5456,14 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
           const flexActive = cfg.autoSubstatFlex === true && canFlexSubstats
           const warnReqBelowLocked = (cfg.minCount ?? 0) < fixedCount
           const warnReqEqLocked = (cfg.minCount === fixedCount) && hasUnlockedSelected && !flexActive
+          // Aggregate floors without any tracked substats confuse users because they
+          // never fire; warn whenever a manual global Min Required Rolls is set
+          // while zero selections keep the builder idle.
+          const warnMinRollsWithoutSubstats = (() => {
+            if (chosenCount !== 0) return false
+            if (cfg.autoMinRequiredRolls !== false) return false
+            return (cfg.minRequiredRolls ?? 0) > 0
+          })()
           // New: detect an impossible-by-target case under simple sufficient conditions:
           // If a global MinRequiredRolls is set and even the best-case sum of per‑stat caps
           // across the required number of selected substats is below that minimum, then
@@ -5507,7 +5515,9 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                         ? `Warning: Required (${cfg.minCount}) equals locked (${fixedCount}); other selected (${chosenCount - fixedCount}) will be ignored`
                         : (warnImpossible
                             ? t('builderMinRequiredRollsImpossibleWarn')
-                            : ''))))
+                            : (warnMinRollsWithoutSubstats
+                                ? t('builderMinRequiredRollsNoSubstatsWarn')
+                                : '')))))
           return (
             // Always reserve a compact space to avoid layout shift while keeping the gap minimal
             <Box sx={{ height: UI_SUBSTAT_WARNING_ROW_HEIGHT_PX, display: 'flex', alignItems: 'center', overflow: 'hidden' }}>

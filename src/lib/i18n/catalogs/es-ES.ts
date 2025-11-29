@@ -673,6 +673,7 @@ const overrides: Catalog = {
   builderSubstatFlexToggleTooltip: 'Flex rota los substats opcionales en todas las permutaciones para generar cada mezcla válida por encima del conteo de Substats requeridos.\n• Elige un número de Substats requeridos (1–4) en lugar de Auto y marca con ★ más substats que ese número.\n• Mantén al menos un ★ adicional sin objetivos de tiradas mínimas/máximas para que haya algo que rotar.\n• Los bloqueados se quedan fijos y el interruptor se desactiva cuando Flex deja de aplicar.',
   builderMilestoneThresholdsHelp: 'Define cómo se comportan las tiradas mínimas antes de +16 en cuanto las exiges.\n• Temprano muestra las tiradas que ya llevas en cada hito.\n• Tardío solo pide lo que debe existir ahora para que el objetivo +16 siga siendo posible.\n• Solo afecta si algún substat tiene Min > 0 o marcas un mínimo global.',
   builderMinRequiredRollsImpossibleWarn: 'Aviso: las tiradas mínimas no pueden alcanzarse para +16 con los límites superiores por stat actuales',
+  builderMinRequiredRollsNoSubstatsWarn: 'Aviso: las tiradas mínimas > 0 no surten efecto hasta que selecciones substats',
   builderInsertAsConfig: 'Insertar como config #{n}',
   builderInsertHiddenTooltip: 'Los filtros actuales ocultarán la nueva config después de insertarla.',
   builderAddAsNew: 'Agregar como nueva config',
