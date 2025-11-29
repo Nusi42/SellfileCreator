@@ -254,18 +254,12 @@ const getRowValueIgnoreCase = (row: Record<string, unknown>, target: string): un
   return undefined
 }
 
-// SQL.js mirrors SQLite's typing rules, so REAL date columns can surface as
-// Julian day floats, Unix seconds, or Unix milliseconds depending on which
-// writer touched the DB. Keep generous bounds so we can coerce each flavor.
+// SQL.js mirrors SQLite's typing rules, so REAL date columns surface as Julian
+// day floats when Helper stores timestamps as REAL.
 const SQLITE_JULIAN_UNIX_EPOCH = 2440587.5
 const MS_PER_DAY = 24 * 60 * 60 * 1000
-const MS_PER_SECOND = 1000
 const JULIAN_MIN = 1_700_000
 const JULIAN_MAX = 3_000_000
-const EPOCH_SECOND_MIN = 1_000_000_000
-const EPOCH_SECOND_MAX = 10_000_000_000
-const EPOCH_MS_MIN = 100_000_000_000
-const EPOCH_MS_MAX = 100_000_000_000_000
 
 const padNumber = (value: number, size: number): string => {
   // Preserve leading zeros for calendar fields (hours, minutes, etc.).
@@ -286,18 +280,6 @@ const formatDateAsLocalTimestamp = (date: Date): string | null => {
   return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}.${millis}`
 }
 
-const fromEpochMilliseconds = (value: number): string | null => {
-  // Accept both millisecond and second payloads so we stay resilient if SQL
-  // clients emit either flavor when writing REAL columns.
-  if (value >= EPOCH_MS_MIN && value <= EPOCH_MS_MAX) {
-    return formatDateAsLocalTimestamp(new Date(value))
-  }
-  if (value >= EPOCH_SECOND_MIN && value <= EPOCH_SECOND_MAX) {
-    return formatDateAsLocalTimestamp(new Date(value * MS_PER_SECOND))
-  }
-  return null
-}
-
 const fromJulianDay = (value: number): string | null => {
   // SQL.js exposes raw REAL payloads (Julian days) for DATE/TIME columns when
   // tables store floats instead of strings. Convert those numbers back to local
@@ -309,15 +291,14 @@ const fromJulianDay = (value: number): string | null => {
 }
 
 const coerceLastUseValue = (value: unknown): string | null => {
-  // Accept both textual timestamps and REAL payloads, trimming noise while
-  // translating raw numbers back into their human-readable counterpart.
+  // Accept textual timestamps or Julian-day REAL payloads.
   if (typeof value === 'string') {
     const trimmed = value.trim()
     return trimmed.length > 0 ? trimmed : null
   }
   const numeric = typeof value === 'bigint' ? Number(value) : value
   if (typeof numeric !== 'number' || !Number.isFinite(numeric)) return null
-  return fromJulianDay(numeric) ?? fromEpochMilliseconds(numeric)
+  return fromJulianDay(numeric)
 }
 
 // LastUsedArtifacts stores `{ id, lastUse }` rows with local timestamps so we
