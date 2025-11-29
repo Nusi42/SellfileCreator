@@ -106,15 +106,28 @@ Build, preview, and export sell rules for RSL Helper with a simple UI.
 - Open the Final Sell dialog and switch to the `Keep Uniques` tab to mark the gear combinations you never want to lose. Turn on `Enable Keep Uniques` to start editing.
 - Each keep rule lets you pick the slot, sets or metasets, ranks, rarities, main stats, and (for accessories) factions you care about. Leaving a picker empty means “any”.
 - `≥ Required Count` is the promise you want the app to keep. `Per rule` keeps one shared quota; the `Per set`, `Per faction`, and `Per main stat` buttons can be combined to multiply that quota for each matching mix (turning all three off automatically falls back to `Per rule`).
+- The `Have {have} / Keep {keep} (Projected {projected})` counter shows exactly what the tooltip explains: **Have** counts tester gear already protected by configs, Final Sell, or existing Keep rules; **Keep** is the quota from `≥ Required Count`; **Projected** previews how many additional keep rules will be exported if the scanner still sees a deficit. Only tester rows that match the rule contribute to these numbers.
 - The scanner only adds extra keep rows when every item that matches a rule would otherwise be sold. If your normal configs already save enough pieces, the rule shows “Covered elsewhere” and nothing new is exported.
 
+#### Quota scopes at a glance
+Stacking the scope buttons changes who gets their own quota. Leave `Per rule` on to share one pool, then layer `Per set`, `Per faction`, and `Per main stat` to enforce Set × Faction × Main stat mixes independently.
+
+| Scope button | Quota behavior | When it shines |
+| --- | --- | --- |
+| `Per rule` | One shared pool for the entire rule. | Keep five SPD boots regardless of set. |
+| `Per set` | Duplicates the quota for each set/metaset on the card. | Track two Stoneskin and two Protection drops separately. |
+| `Per faction` | Duplicates the quota for each faction. | Guarantee three Merciless rings for every faction. |
+| `Per main stat` | Duplicates the quota for each selected main stat. | Keep separate pools for ACC versus RES banners. |
+
 #### Real-world examples
-1. **Running out of SPD boots:** Slot = Boots, Main Stat = SPD, Sets blank. Set `≥ Required Count = 5`, scope `Per rule`. Now the app guarantees at least five SPD boots survive, no matter which sets they came from.
-2. **Mixing Savage and Lethal gloves:** Slot = Gloves, Sets = Savage + Lethal, Main Stat = CDMG%. Set `≥ Required Count = 3`, `Per rule`. That covers any mix of the two sets while insisting on CDMG% mains, so you always keep three damage gloves.
-3. **Keeping Merciless rings for every faction:** Slot = Ring, Set = Merciless, Faction blank. Set `≥ Required Count = 3`, turn on `Per faction`. Each faction now needs three of its own Merciless rings before the rule is satisfied.
-4. **Saving HP% rings for every faction:** Slot = Ring, Main Stat = HP%, Sets blank. Set `≥ Required Count = 2`, toggle `Per faction`. The app watches every faction separately and protects two HP% rings for each one.
-5. **Protecting core accessories per faction:** Make three rules (Ring, Amulet, Banner). Leave Sets and Main Stat blank, set `≥ Required Count = 5`, toggle `Per faction`. Every faction now keeps five of each accessory slot.
-6. **Holding Stoneskin/Protection sets per faction:** For each accessory slot, pick Sets = Stoneskin + Protection, leave Main Stat blank, set `≥ Required Count = 2`, toggle both `Per set` and `Per faction`. This keeps two Stoneskin/Protection pieces of each slot for every faction whenever those sets drop.
+| Scenario | Filters | Scope buttons | What the scanner guarantees |
+| --- | --- | --- | --- |
+| Running out of SPD boots | Slot = Boots, Main Stat = SPD, Sets blank | `Per rule` | At least five SPD boots survive, no matter the set. |
+| Mixing Savage + Lethal gloves | Slot = Gloves, Sets = Savage + Lethal, Main Stat = CDMG% | `Per rule` | Three high-damage gloves stay safe even if the set mix changes. |
+| Merciless rings per faction | Slot = Ring, Set = Merciless, Faction blank | `Per faction` | Every faction keeps three of its own Merciless rings. |
+| HP% rings per faction | Slot = Ring, Main Stat = HP%, Sets blank | `Per faction` | Two HP% rings per faction stay in inventory. |
+| Core accessories per faction | Three rules (Ring, Amulet, Banner), Sets/Main blank, `≥ Required Count = 5` | `Per faction` | Five Rings, Amulets, and Banners survive per faction. |
+| Stoneskin + Protection accessories | Slot = Ring/Amulet/Banner, Sets = Stoneskin + Protection, Main blank | `Per set` + `Per faction` | Each faction holds two Stoneskin and two Protection drops for every accessory slot. |
 
 Tip: Import your `.db` or paste gear into the Rule Tester before opening the tab so the scanner sees real items. When a rule says “Missing 2”, click it to highlight that Rule Tester gear and see which faction or set needs attention.
 
@@ -161,64 +174,22 @@ Tip: Import your `.db` or paste gear into the Rule Tester before opening the tab
 
 Examples below assume 6★ Substat Target Values (per roll unit): SPD=5, CR%=5, CDMG%=5.
 
-Early vs Late
-- Early: thresholds reflect rolls gained so far. For wildcard + Min Required, shows only minimal splits at each milestone (stable list). Otherwise, before feasibility, enumerates selected‑only progress and then collapses to your per‑stat targets (unless a global Σ minimum requires more).
-- Late: requires only what must be present now so the +16 target remains achievable. For wildcard + Min Required, it lists the same minimal splits at the early milestones and repeats them at +16. For per‑stat targets, it emits the minimal lower bounds per level.
+**Early vs Late thresholds**
+- **Early**: thresholds reflect rolls gained so far. For wildcard + Min Required, it lists the minimal splits at each milestone (stable list). Otherwise it enumerates selected-only progress until the +16 goal is feasible, then collapses to your per-stat targets (unless a global Σ minimum requires more).
+- **Late**: demands only what must exist now so the +16 goal stays reachable. For wildcard + Min Required, it repeats the same minimal splits at the early milestones and again at +16. For per-stat targets, it emits the minimal lower bounds per level.
 
-Example: Early (2 substats) — SPD min=2, CR% min=1 (levels 0..16)
-- +0: SPD ≥ 5, CR ≥ 5
-- +4: [10,5] and [5,10]
-- +8: [15,5], [10,10], [5,15]
-- +12/+16: [15,10]
+#### Builder scenarios at a glance
 
-Example: Late (2 substats) — SPD min=2, CR% min=1 (levels 0..16)
-- +0/+4: [5,5]
-- +8: [10,5] or [5,10]
-- +12: [15,5] or [10,10]
-- +16: [15,10]
-
-Example: Early (3 substats) — SPD min=2, CR% min=1, CDMG% any, Required=3
-- +0: [SPD,CR,CDMG] ≥ [5,5,5]
-- +4: one‑roll splits: [10,5,5], [5,10,5], [5,5,10]
-- +8: two‑roll splits across the three (upper limits respected)
-- +12/+16: [15,10,5]
-
-Example: Late (3 substats) — SPD min=2, CR% min=1, CDMG% any, Required=3
-- +0/+4: [5,5,5]
-- +8: [10,5,5] or [5,10,5]
-- +12: [15,5,5] or [10,10,5]
-- +16: [15,10,5]
-
-Tip: Use Roll Upper Limits to forbid rolls on a stat. From ★, Right‑click to enter the Roll Upper Limit and set it to 0. For example, set the CDMG% Roll Upper Limit = 0 to keep it at base while SPD/CR get the rolls.
-
-Example: Lock one, require two
-- Select Substats: SPD, HP, ATK. Click SPD, then tap the lock badge (🔒) to require it.
-- Set Required substats = 2.
-- Effect: Rules include SPD+HP and SPD+ATK. They do not include HP+ATK without SPD (locked substats are always included).
-
-Example: Focus rolls on 3 stats, forbid rolls on the 4th
-- Goal: Keep items that have SPD, CR%, CDMG% and one of HP%/ATK%/DEF%, but do not allow rolls on that 4th substat.
-- Select Substats: SPD, CR%, CDMG%, HP%, ATK%, DEF%.
-- Required substats = 4.
-- Roll indicators:
-  - From ★, Left‑click (Min Rolls): set SPD, CR%, CDMG% to your desired mins (for example 1 each).
-  - From ★, Right‑click (Roll Upper Limit): set HP%, ATK%, DEF% to Roll Upper Limit = 0.
-- Effect: The fourth substat is always one of HP%/ATK%/DEF%, and whichever it is, it gets zero rolls. SPD/CR%/CDMG% receive the rolls.
-
-Example: Early with a wildcard (selected-only)
-- Select Substats: SPD and ACC.
-- Roll indicators: SPD Min = 2; ACC = ★ (wildcard).
-- Required substats: Auto (2).
-- Levels: Min +0, Max +16.
-- Effect: Early milestones show items that can still reach SPD(2) by +16 (shows early rows where either SPD or ACC has rolled). Once two SPD rolls are possible, the SPD minimum row appears.
-
-Example: Sum‑of‑rolls with wildcards (2 substats)
-- Select Substats: SPD and ACC. Set both to ★ (wildcard).
-- Required substats: 2. Min Required Rolls: 1.
-- Early:
-  - +4/+8/+12/+16: two rows — SPD ≥ 10, ACC ≥ 9 and SPD ≥ 5, ACC ≥ 18 (minimal splits; stable across milestones).
-- Late:
-  - +0/+4/+8/+12: baseline rows only (nothing extra required yet); +16: the two rows above. For higher Min required values, Late enforces the minimal selected‑sum needed now at the appropriate milestones (e.g., with Min required = 2, +12 shows the single‑roll splits; +16 shows the two‑roll splits).
+| Scenario | Setup | What the builder emits |
+| --- | --- | --- |
+| Early (2 substats) | SPD min = 2, CR% min = 1, Levels +0..+16 | `+0:` SPD ≥ 5, CR ≥ 5<br>`+4:` [10,5] and [5,10]<br>`+8:` [15,5], [10,10], [5,15]<br>`+12/+16:` [15,10] |
+| Late (2 substats) | Same as above | `+0/+4:` [5,5]<br>`+8:` [10,5] or [5,10]<br>`+12:` [15,5] or [10,10]<br>`+16:` [15,10] |
+| Early (3 substats) | SPD min = 2, CR% min = 1, CDMG% selected, Required = 3 | `+0:` [SPD,CR,CDMG] ≥ [5,5,5]<br>`+4:` single-roll splits (10/5/5 permutations)<br>`+8:` every two-roll permutation (upper limits respected)<br>`+12/+16:` [15,10,5] |
+| Late (3 substats) | Same stats as above | `+0/+4:` [5,5,5]<br>`+8:` [10,5,5] or [5,10,5]<br>`+12:` [15,5,5] or [10,10,5]<br>`+16:` [15,10,5] |
+| Lock one, require two | Substats SPD/HP/ATK; lock SPD (🔒); Required substats = 2 | Builder emits SPD+HP and SPD+ATK rows; HP+ATK is excluded because locked SPD must appear in every match. |
+| Focus rolls on 3 stats, freeze the flex slot | Substats SPD/CR%/CDMG%/HP%/ATK%/DEF%; Required substats = 4; SPD/CR%/CDMG% get Min Roll = 1; HP%/ATK%/DEF% Roll Upper Limit = 0 | SPD/CR%/CDMG% always receive the rolls while the fourth stat (whichever of HP%/ATK%/DEF% appears) stays at base. Use Roll Upper Limits (Right-click from ★) whenever a stat must never gain rolls. |
+| Early with a wildcard | Substats SPD (Min = 2) and ACC (★ wildcard); Required substats = Auto; Levels +0..+16 | Early milestones highlight any gear that can still reach SPD(2) by +16 (rows where SPD or ACC rolled). Once two SPD rolls are feasible, the SPD ≥ row appears. |
+| Sum-of-rolls with wildcards | Substats SPD and ACC both set to ★; Required substats = 2; Min Required Rolls = 1 | **Early:** At +4/+8/+12/+16 the grid shows the two minimal splits (SPD ≥ 10 & ACC ≥ 9, plus SPD ≥ 5 & ACC ≥ 18).<br>**Late:** +0/+4/+8/+12 show baseline rows, +16 shows the same two splits. Higher Min Required targets cause Late to demand the necessary total earlier (e.g., with Min Required = 2, +12 displays the single-roll splits and +16 the double-roll splits). |
 
 ## Notes for contributors
 
