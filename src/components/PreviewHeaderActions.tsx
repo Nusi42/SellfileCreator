@@ -92,7 +92,6 @@ export default function PreviewHeaderActions(props: {
   onClearGearDbCommandSuccess?: () => void
   filtersSynced?: boolean
   onToggleFiltersSynced?: (next: boolean) => void
-  onResetFilters?: () => void
 }) {
   const {
     mergedCount,
@@ -130,7 +129,6 @@ export default function PreviewHeaderActions(props: {
     onClearGearDbCommandSuccess,
     filtersSynced = false,
     onToggleFiltersSynced,
-    onResetFilters,
   } = props
   const handleSelectBaseFile = React.useCallback(async (file: File) => {
     if (onSelectGearDb && isGearDbFilename(file.name)) {
@@ -219,8 +217,8 @@ export default function PreviewHeaderActions(props: {
   const [exportHintPos, setExportHintPos] = React.useState<{ x: number; y: number } | null>(null)
   const exportHintActive = showExportHint && exportHintPos !== null && !exportMenuAnchor
   const filterMenuEnabled = React.useMemo(
-    () => Boolean(onToggleFiltersSynced) || Boolean(onResetFilters),
-    [onToggleFiltersSynced, onResetFilters],
+    () => Boolean(onToggleFiltersSynced),
+    [onToggleFiltersSynced],
   )
   const [filterMenuAnchor, setFilterMenuAnchor] = React.useState<HTMLElement | null>(null)
   const closeFilterMenu = React.useCallback(() => { setFilterMenuAnchor(null) }, [])
@@ -511,16 +509,6 @@ export default function PreviewHeaderActions(props: {
                       sx={{ mr: 1, p: 0.5 }}
                     />
                     {t('filterSyncViews')}
-                  </MenuItem>
-                ) : null}
-                {onResetFilters ? (
-                  <MenuItem
-                    onClick={() => {
-                      closeFilterMenu()
-                      onResetFilters()
-                    }}
-                  >
-                    {t('filterReset')}
                   </MenuItem>
                 ) : null}
               </Menu>

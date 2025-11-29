@@ -1548,10 +1548,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const handleToggleFiltersSynced = useCallback((next: boolean) => {
     setFiltersSyncedRaw(Boolean(next))
   }, [setFiltersSyncedRaw])
-  const handleResetFilters = useCallback(() => {
-    resetRulesFilterPreferences()
-    setTesterConfigFilterMode('off')
-  }, [setTesterConfigFilterMode])
   const filtersSyncedPrevRef = useRef(filtersSynced)
   useEffect(() => {
     if (!filtersSynced || filtersSyncedPrevRef.current) return
@@ -3829,7 +3825,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         onChangePreviewMode={setPreviewMode}
         filtersSynced={filtersSynced}
         onToggleFiltersSynced={handleToggleFiltersSynced}
-        onResetFilters={handleResetFilters}
         testerCount={testerItems.length}
         testerFilteredCount={testerRowsForTable.length}
         gearDbCommandError={gearDbCommandError}
