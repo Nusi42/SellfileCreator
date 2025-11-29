@@ -24,6 +24,14 @@ import type { TestItem } from '../ruleEval'
 
 export const STAT_SCALE = 2 ** 32 // 4_294_967_296
 
+// Specialized error lets the importer drop metadata rows without masking real failures.
+export class UnsupportedGearDbRowError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'UnsupportedGearDbRowError'
+  }
+}
+
 const DB_SLOT_TO_ARTIFACT_TYPE: Record<number, ArtifactTypeId> = {
   1: ArtifactType.Helmet,
   2: ArtifactType.Chestplate,
@@ -347,7 +355,7 @@ const determineSlot = (value: number | null | undefined): ArtifactTypeId => {
   if (key !== null && DB_SLOT_TO_ARTIFACT_TYPE[key]) {
     return DB_SLOT_TO_ARTIFACT_TYPE[key]
   }
-  throw new Error(`Unsupported artifact slot id: ${value}`)
+  throw new UnsupportedGearDbRowError(`Unsupported artifact slot id: ${value}`)
 }
 
 const determineSet = (slot: ArtifactTypeId, value: number | null | undefined): number => {

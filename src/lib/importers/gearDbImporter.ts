@@ -5,6 +5,7 @@ import {
   type GearDbChampionRow,
   type NormalizedGearArtifact,
   type ChampionLookupRecord,
+  UnsupportedGearDbRowError,
 } from './gearDbNormalizer'
 
 const ARTIFACT_COLUMN_KEYS: readonly (keyof GearDbArtifactRow)[] = [
@@ -253,6 +254,72 @@ const getRowValueIgnoreCase = (row: Record<string, unknown>, target: string): un
   return undefined
 }
 
+// SQL.js mirrors SQLite's typing rules, so REAL date columns can surface as
+// Julian day floats, Unix seconds, or Unix milliseconds depending on which
+// writer touched the DB. Keep generous bounds so we can coerce each flavor.
+const SQLITE_JULIAN_UNIX_EPOCH = 2440587.5
+const MS_PER_DAY = 24 * 60 * 60 * 1000
+const MS_PER_SECOND = 1000
+const JULIAN_MIN = 1_700_000
+const JULIAN_MAX = 3_000_000
+const EPOCH_SECOND_MIN = 1_000_000_000
+const EPOCH_SECOND_MAX = 10_000_000_000
+const EPOCH_MS_MIN = 100_000_000_000
+const EPOCH_MS_MAX = 100_000_000_000_000
+
+const padNumber = (value: number, size: number): string => {
+  // Preserve leading zeros for calendar fields (hours, minutes, etc.).
+  return `${Math.abs(value)}`.padStart(size, '0')
+}
+
+const formatDateAsLocalTimestamp = (date: Date): string | null => {
+  // Format the JS Date into the `YYYY-MM-DD HH:MM:SS.mmm` string our UI/tooltips
+  // already expect so downstream logic stays string-based.
+  if (Number.isNaN(date.getTime())) return null
+  const year = date.getFullYear()
+  const month = padNumber(date.getMonth() + 1, 2)
+  const day = padNumber(date.getDate(), 2)
+  const hours = padNumber(date.getHours(), 2)
+  const minutes = padNumber(date.getMinutes(), 2)
+  const seconds = padNumber(date.getSeconds(), 2)
+  const millis = padNumber(date.getMilliseconds(), 3)
+  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}.${millis}`
+}
+
+const fromEpochMilliseconds = (value: number): string | null => {
+  // Accept both millisecond and second payloads so we stay resilient if SQL
+  // clients emit either flavor when writing REAL columns.
+  if (value >= EPOCH_MS_MIN && value <= EPOCH_MS_MAX) {
+    return formatDateAsLocalTimestamp(new Date(value))
+  }
+  if (value >= EPOCH_SECOND_MIN && value <= EPOCH_SECOND_MAX) {
+    return formatDateAsLocalTimestamp(new Date(value * MS_PER_SECOND))
+  }
+  return null
+}
+
+const fromJulianDay = (value: number): string | null => {
+  // SQL.js exposes raw REAL payloads (Julian days) for DATE/TIME columns when
+  // tables store floats instead of strings. Convert those numbers back to local
+  // timestamps so downstream filters still get the human-readable payload.
+  if (value < JULIAN_MIN || value > JULIAN_MAX) return null
+  const msSinceEpoch = (value - SQLITE_JULIAN_UNIX_EPOCH) * MS_PER_DAY
+  if (!Number.isFinite(msSinceEpoch)) return null
+  return formatDateAsLocalTimestamp(new Date(msSinceEpoch))
+}
+
+const coerceLastUseValue = (value: unknown): string | null => {
+  // Accept both textual timestamps and REAL payloads, trimming noise while
+  // translating raw numbers back into their human-readable counterpart.
+  if (typeof value === 'string') {
+    const trimmed = value.trim()
+    return trimmed.length > 0 ? trimmed : null
+  }
+  const numeric = typeof value === 'bigint' ? Number(value) : value
+  if (typeof numeric !== 'number' || !Number.isFinite(numeric)) return null
+  return fromJulianDay(numeric) ?? fromEpochMilliseconds(numeric)
+}
+
 // LastUsedArtifacts stores `{ id, lastUse }` rows with local timestamps so we
 // can annotate tester entries with “last equipped” metadata.
 function readLastUsedArtifacts(db: Database): LastUsedLookup {
@@ -266,10 +333,9 @@ function readLastUsedArtifacts(db: Database): LastUsedLookup {
       const tsValue = getRowValueIgnoreCase(row, 'lastUse')
       const idNumber = typeof idValue === 'number' ? idValue : Number(idValue)
       if (!Number.isFinite(idNumber) || idNumber <= 0) continue
-      if (typeof tsValue !== 'string') continue
-      const trimmed = tsValue.trim()
-      if (!trimmed) continue
-      map.set(idNumber, trimmed)
+      const timestamp = coerceLastUseValue(tsValue)
+      if (!timestamp) continue
+      map.set(idNumber, timestamp)
     }
   } finally {
     stmt.free()
@@ -322,12 +388,24 @@ async function readTable(
     while (stmt.step()) {
       const row = stmt.getAsObject() as Record<string, unknown>
       const typedRow = convertRow(row)
-      const lastUseValue = lastUsed.get(typedRow.ID) ?? null
-      items.push(normalizeGearDbArtifact(typedRow, {
-        source,
-        championLookup: champions,
-        lastUseLocalTimestamp: lastUseValue,
-      }))
+      const artifactId = Number(typedRow.ID)
+      // Helper dumps inject sentinel rows (ID <= 0) for internal metadata; drop them upfront.
+      if (!Number.isFinite(artifactId) || artifactId <= 0) continue
+      typedRow.ID = artifactId
+      const lastUseValue = lastUsed.get(artifactId) ?? null
+      try {
+        items.push(normalizeGearDbArtifact(typedRow, {
+          source,
+          championLookup: champions,
+          lastUseLocalTimestamp: lastUseValue,
+        }))
+      } catch (err) {
+        if (err instanceof UnsupportedGearDbRowError) {
+          // Unknown slot/type also indicates helper metadata, so skip without failing the import.
+          continue
+        }
+        throw err
+      }
       processed += 1
       if (processed % CHUNK_YIELD_COUNT === 0) {
         options?.onProgress?.(processed, total, source)
