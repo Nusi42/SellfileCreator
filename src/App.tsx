@@ -636,6 +636,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const testerWorkloadRatio = testerRowsBuilding ? clampProgressRatio(testerRowsProgress) : 0
   const workloadDeterminateRatio = Math.max(rulesWorkloadRatio, testerWorkloadRatio)
   const workloadBusy = rulesBuilding || testerRowsBuilding
+  const restoringAutosaveRef = useRef(false)
   useEffect(() => {
     // Hang the spinner through idle gaps so sequence builds do not flash the chip.
     const clearHangTimeout = () => {
@@ -701,7 +702,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       ? buildIndexMapping(prevState.keys, nextConfigKeys)
       : null
     const hasArtifacts = testerPreviewArtifacts.length > 0
-    if (mapping && mapping.some((idx, newIdx) => idx !== newIdx) && !hasArtifacts) {
+    if (!restoringAutosaveRef.current && mapping && mapping.some((idx, newIdx) => idx !== newIdx) && !hasArtifacts) {
       // Fast path: reorder-only changes can remap cached rules without waking the worker.
       const inverse = new Map<number, number>()
       mapping.forEach((prevIdx, newIdx) => { inverse.set(prevIdx, newIdx) })
@@ -3990,10 +3991,14 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
               setKeepUniquesEnabled(Boolean(draft.KeepUniquesEnabled))
             }
           }
+          // Coalesce downstream rebuilds into a single pass.
+          restoringAutosaveRef.current = true
           acceptRestore()
           setTesterRestoreDraft(null)
-          flushTransientUi()
-          setTimeout(flushTransientUi, 0)
+          setTimeout(() => {
+            restoringAutosaveRef.current = false
+            flushTransientUi()
+          }, 0)
         }}
     />
       {/* Manage Colors Dialog */}
