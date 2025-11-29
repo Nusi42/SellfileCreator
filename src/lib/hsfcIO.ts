@@ -831,6 +831,8 @@ export function buildHsfcPayload(args: {
       }
     })(),
     KeepUniques: keepUniqueRules.map((rule) => {
+      // Persist the normalized scope object explicitly so the loader can
+      // rehydrate the same 2×2 button state without guessing at defaults.
       const mode = sanitizeKeepUniqueCountMode(rule.countMode)
       return {
         id: rule.id,

@@ -205,6 +205,7 @@ const overrides: Catalog = {
   keepUniquesCountModePerFaction: 'Per fazione',
   keepUniquesCountModePerMain: 'Per statistica principale',
   keepUniquesCountModePerRule: 'Per regola',
+  // La descrizione ripete gli esempi del README così la nuova griglia 2×2 parla lo stesso linguaggio in ogni vista.
   keepUniquesCountModeHint: '**Modalità di quota con esempi**\n- **Per regola** mantiene un unico pool per l’intera scheda — es. Stivali con stat principale [[stat:statSPD]], tienine ≥5 anche se il set cambia.\n- **Per fazione** suddivide la quota per fazione — es. ≥3 Anelli Merciless per fazione, ≥2 Anelli con [[stat:statHP_percent]] principale o la regola «5 Anelli/Amuleti/Stendardi per fazione».\n- **Per set** si abbina agli altri interruttori quando il set conta — es. per Stoneskin/Protection (Anelli/Amuleti/Stendardi) con ≥2 per fazione attiva Per set + Per fazione.\n- **Per statistica principale** restringe la quota a un solo main — es. Guanti Savage + Lethal con [[stat:statCDMG]] principale, tienine ≥3 anche quando alterni i set.',
   keepUniquesNoRules: 'Nessuna regola di mantenimento.',
   keepUniquesAddRule: 'Aggiungi regola di mantenimento',

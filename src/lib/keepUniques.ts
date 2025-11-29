@@ -36,6 +36,7 @@ export type KeepUniqueRuleCountMode = {
   perMainStat: boolean
 }
 
+// Mirrors the default toggle state in the 2×2 scope grid (set+faction+main) so HSFC imports and tutorials stay aligned.
 export const KEEP_UNIQUE_DEFAULT_COUNT_MODE: KeepUniqueRuleCountMode = {
   perRule: false,
   perSet: true,

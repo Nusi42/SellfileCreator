@@ -62,6 +62,7 @@ import { computeInlineSelectContentMaxWidth, computeInlineSelectPadding } from '
 import type { Theme } from '@mui/material/styles'
 import type { SystemStyleObject } from '@mui/system'
 
+// Two-row grid styling so the new quota toggles read like a 2×2 button pad without fighting MUI's default borders.
 const COUNT_MODE_ROW_SX: SystemStyleObject<Theme> = {
   width: '100%',
   '& .MuiToggleButtonGroup-grouped': {
@@ -80,6 +81,7 @@ const COUNT_MODE_ROW_SX: SystemStyleObject<Theme> = {
   },
 }
 
+// Shared button tweaks keep the label ellipses stable while matching the compact height of the old pills.
 const COUNT_MODE_BUTTON_SX = {
   px: 1.25,
   flex: 1,
@@ -631,6 +633,7 @@ export default function KeepUniquesTab({
                     data-rule-card-interactive="true"
                     sx={{ display: 'inline-flex', minWidth: 0 }}
                   >
+                    {/* Stack renders two compact rows so Per rule stays isolated from the combinable Set/Faction/Main buttons. */}
                     <Stack spacing={0.5} sx={{ minWidth: 0, width: '100%' }}>
                       <ToggleButtonGroup
                         size="small"

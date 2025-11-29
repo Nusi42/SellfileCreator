@@ -205,6 +205,7 @@ const overrides: Catalog = {
   keepUniquesCountModePerFaction: 'Fraksiyon başına',
   keepUniquesCountModePerMain: 'Ana stat başına',
   keepUniquesCountModePerRule: 'Kural başına',
+  // README’deki aynı örnekleri tekrar ederek yeni 2×2 kapsam ızgarasının anlamı her dilde tutarlı kalır.
   keepUniquesCountModeHint: '**Kota modları ve örnekleri**\n- **Kural başına** tek havuz tutar — örn. Ana stati [[stat:statSPD]] olan Botlar, setten bağımsız ≥5 kalsın.\n- **Fraksiyon başına** kotayı fraksiyonlara ayırır — örn. Her fraksiyon için ≥3 Merciless yüzük, ≥2 [[stat:statHP_percent]] ana statlı yüzük veya “fraksiyon başına 5 Yüzük/Amulet/Sancak” kuralı.\n- **Set başına** set önemli olduğunda diğer anahtarlarla birlikte çalışır — örn. Stoneskin/Protection (Yüzük/Amulet/Sancak) için fraksiyon başına ≥2 istiyorsanız Set + Fraksiyon başına açın.\n- **Ana stat başına** kotayı tek bir main stat\'e indirir — örn. [[stat:statCDMG]] ana statlı Savage + Lethal eldivenleri, set karışımı değişse bile ≥3 hasar eldiveni tutar.',
   keepUniquesNoRules: 'Henüz koruma kuralı yok.',
   keepUniquesAddRule: 'Koruma kuralı ekle',
