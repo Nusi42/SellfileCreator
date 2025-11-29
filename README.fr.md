@@ -11,6 +11,7 @@ Construisez, prévisualisez et exportez des règles de vente pour RSL Helper via
 - Méta-sets : nommez des groupes de sets (ex. Vitesse + Perception) et réutilisez-les dans plusieurs règles.
 - Export en un clic : exportez un fichier HSF (Sellfile RSL Helper) prêt à être chargé dans RSL Helper.
 - Aperçu Testeur de règles + dialogue « Équipement... » : créez un équipement d’exemple, collez des lignes ou glissez votre base de données RSL Helper (souvent `%APPDATA%\\RslHelper\\Config`) dans le dialogue. Laissez le dialogue fermé et utilisez l’interrupteur d’aperçu pour garder cet équipement visible pendant que vous le comparez à vos règles.
+- Onglet « Conserver les uniques » : définissez les combinaisons que vous ne voulez jamais perdre. Dès que vos configs plus la Vente finale supprimeraient toutes les copies, l’analyse génère automatiquement des règles de conservation.
 - Dialogue de restauration Autosave : lorsqu’un Autosave est détecté, choisissez précisément quoi recharger — configs, méta-sets, Objectifs de sous-stats, reste de Vente finale, note épinglée, état du panneau de filtres et même les importations du Testeur de règles.
 - Copier le dossier RSL Helper : le bandeau de l’aperçu expose un bouton presse-papiers qui copie `%APPDATA%\\RslHelper\\Config` pour coller le chemin dans l’Explorateur avant de faire glisser la `.db` dans Sellfile Creator.
 
@@ -96,6 +97,22 @@ Construisez, prévisualisez et exportez des règles de vente pour RSL Helper via
 - Choisissez si cela concerne Artefacts et/ou Accessoires et quels intervalles de niveau (0–3, 4–7, 8–11, 12–15, 16). Par défaut : 0–15 pour éviter la vente de pièces +16.
 - Sans vente finale, RSL Helper conserve tout ce qui ne correspond à aucune règle. Une vente n’a lieu que si une règle explicite le demande.
 - Avec vente finale active, les règles générées incluent tous les sets connus. L’aperçu indique « Tous les sets connus » pour alléger la vue, mais le fichier exporté liste chacun d’eux.
+
+### Conserver les uniques
+- Ouvrez le dialogue Vente finale et passez sur l’onglet « Conserver les uniques » pour marquer les combinaisons que vous refusez de vendre. Activez « Conserver les uniques » pour commencer à les éditer.
+- Chaque règle vous permet de choisir slot, sets ou méta-sets, rangs, raretés, stats principales et, pour les accessoires, factions. Laisser un sélecteur vide signifie « n’importe lequel ».
+- `≥ Quantité requise` est la promesse que l’application doit tenir. Laissez le sélecteur sur « Par ensemble » si vous souhaitez cette quantité pour chaque combinaison set/faction/stat principale, ou passez sur « Par règle » si un total partagé suffit.
+- L’analyse n’ajoute des lignes supplémentaires que lorsque chaque objet correspondant serait vendu autrement. Si vos configs habituelles sauvent déjà assez de pièces, la règle affiche « Couvert ailleurs » et rien n’est ajouté à l’export.
+
+#### Exemples concrets
+1. **Les bottes SPD disparaissent :** Slot = Bottes, Stat principale = SPD, Sets vides. Réglez `≥ Quantité requise = 5` en mode « Par règle ». Au moins cinq paires de bottes SPD survivent, quel que soit le set.
+2. **Mélanger gants Savage et Lethal :** Slot = Gants, Sets = Savage + Lethal, Stat principale = DCC%. Réglez `≥ Quantité requise = 3`, « Par règle ». Vous conservez ainsi trois gants DCC%, peu importe la répartition entre les deux sets.
+3. **Anneaux Merciless par faction :** Slot = Anneau, Set = Merciless, Faction non filtrée. Fixez `≥ Quantité requise = 3`, restez en « Par ensemble ». Chaque faction doit désormais disposer de trois anneaux Merciless avant que la règle ne soit considérée comme satisfaite.
+4. **Anneaux PV% par faction :** Slot = Anneau, Stat principale = PV%, Sets vides. `≥ Quantité requise = 2`, « Par ensemble ». L’application suit chaque faction séparément et protège deux anneaux PV% pour chacune.
+5. **Accessoires essentiels par faction :** Créez trois règles (Anneau, Amulette, Bannière). Laissez Sets et Stat principale vides, réglez `≥ Quantité requise = 5`, « Par ensemble ». Chaque faction garde cinq pièces de chaque type d’accessoire.
+6. **Séries Stoneskin/Protection par faction :** Pour chaque accessoire, choisissez Sets = Stoneskin + Protection, laissez la Stat principale vide et mettez `≥ Quantité requise = 2`, « Par ensemble ». Ainsi, chaque faction conserve deux exemplaires par slot lorsque ces sets tombent.
+
+Astuce : Importez votre `.db` ou collez des objets dans le Testeur de règles avant d’ouvrir l’onglet pour fournir de vrais items à l’analyse. Si une règle affiche « Il manque 2 », cliquez dessus : les lignes correspondantes du Testeur de règles se surlignent et révèlent quelles factions ou quels sets ont encore besoin d’aide.
 
 ### Gestion des configs
 - Les configs sauvegardées apparaissent sous forme de puces sous le builder. Clic gauche pour sélectionner ; clic droit pour dupliquer, déplacer, copier ou supprimer.
