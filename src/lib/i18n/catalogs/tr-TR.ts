@@ -281,12 +281,12 @@ const overrides: Catalog = {
   // Set descriptions (tooltips). Locales may override these.
   // Armor (fixed-piece)
   setDesc_setAccuracy_text: '+40 [[stat:statACC]]',
-  setDesc_setAffinitybreaker_text: '[[stat:statCDMG]] +30%\nZayıf vuruşu kritik vuruşa çevirme şansı %50',
+  setDesc_setAffinitybreaker_text: '[[stat:statCDMG|bare]] +30%\nZayıf vuruşu kritik vuruşa çevirme şansı %50',
   setDesc_setAvenging_text: 'Taşıyıcıya bir debuff uygulandığında %45 karşı saldırı şansı',
-  setDesc_setBloodthirst_text: '[[stat:statCR]] +12%\nVerilen hasarın %30\'u kadar iyileşir',
+  setDesc_setBloodthirst_text: '[[stat:statCR|bare]] +12%\nVerilen hasarın %30\'u kadar iyileşir',
   setDesc_setBolster_text: 'Raund başında tüm müttefiklere, taşıyıcının maksimum [[stat:statHP]]\'sinin %30\'u kadar 3 tur korumalı {buff:Shield}',
   setDesc_setCleansing_text: 'Parça başına: Raund başında rastgele 1 debuff silme şansı %8; toplam: 1/2/3 parçada %8/%16/%24',
-  setDesc_setCriticalRate_text: '[[stat:statCR]] +12%',
+  setDesc_setCriticalRate_text: '[[stat:statCR|bare]] +12%',
   setDesc_setCruel_text: '[[stat:statATK]] +15%\n%5 [[stat:statDEF]] yok sayar',
   setDesc_setCuring_text: 'İyileştirme +20%\nEk iyileştirme kadar yok edilen [[stat:statHP]]\'yi geri kazandırır',
   setDesc_setCursed_text: 'Saldırırken {debuff:Hex} uygulama şansı %50 (2 tur)',
@@ -295,11 +295,11 @@ const overrides: Catalog = {
   setDesc_setDefiant_text: '[[stat:statDEF]] +10%\nDüşman AoE saldırılarından alınan hasar -%15',
   setDesc_setDeflection_text: '[[stat:statHP]] +20%\n[[stat:statDEF]] +20%\nTaşıyıcıya debuff geldiğinde %25 ihtimalle debuff\'ı saldırgana yansıtır',
   setDesc_setDestroy_text: 'Verilen hasarın %40\'ı kadar hedef maksimum [[stat:statHP]]\'sini düşürür',
-  setDesc_setDivineCriticalRate_text: '[[stat:statCR]] +12%\nRaund başında 3 tur boyunca kendi üzerinde maksimum [[stat:statHP]]\'nin %15\'i kadar {buff:Shield}',
+  setDesc_setDivineCriticalRate_text: '[[stat:statCR|bare]] +12%\nRaund başında 3 tur boyunca kendi üzerinde maksimum [[stat:statHP]]\'nin %15\'i kadar {buff:Shield}',
   setDesc_setDivineLife_text: '[[stat:statHP]] +15%\nRaund başında 3 tur boyunca kendi üzerinde maksimum [[stat:statHP]]\'nin %15\'i kadar {buff:Shield}',
   setDesc_setDivineOffense_text: '[[stat:statATK]] +15%\nRaund başında 3 tur boyunca kendi üzerinde maksimum [[stat:statHP]]\'nin %15\'i kadar {buff:Shield}',
   setDesc_setDivineSpeed_text: '[[stat:statSPD]] +12%\nRaund başında 3 tur boyunca kendi üzerinde maksimum [[stat:statHP]]\'nin %15\'i kadar {buff:Shield}',
-  setDesc_setFatal_text: '[[stat:statATK]] +15%\n[[stat:statCR]] +5%',
+  setDesc_setFatal_text: '[[stat:statATK]] +15%\n[[stat:statCR|bare]] +5%',
   setDesc_setFortitude_text: '[[stat:statDEF]] +10%\n+40 [[stat:statRES]]',
   setDesc_setFrenzy_text: 'Alınan her debuff için Turn Meter +5%',
   setDesc_setFrost_text: 'Vurulduğunda {debuff:Freeze} uygulama şansı %20 (1 tur)',
@@ -310,8 +310,8 @@ const overrides: Catalog = {
   setDesc_setImmunity_text: 'Raund başında 2 tur {buff:Block Debuffs}',
   setDesc_setImpulse_text: '[[stat:statSPD]] +12%\nRastgele bir yetenek bekleme süresini 1 tur azaltma şansı %12',
   setDesc_setInstinct_text: '[[stat:statSPD]] +12%\n%20 [[stat:statDEF]] yok sayar',
-  setDesc_setKillstroke_text: '[[stat:statCDMG]] +20%\n[[stat:statSPD]] +5%',
-  setDesc_setLethal_text: '%25 [[stat:statDEF]] yok sayar\n[[stat:statCR]] +10%',
+  setDesc_setKillstroke_text: '[[stat:statCDMG|bare]] +20%\n[[stat:statSPD]] +5%',
+  setDesc_setLethal_text: '%25 [[stat:statDEF]] yok sayar\n[[stat:statCR|bare]] +10%',
   setDesc_setLife_text: '+15% [[stat:statHP]]',
   setDesc_setLifesteal_text: 'Verilen hasarın %30\'u kadar iyileşir',
   setDesc_setOffense_text: '+15% [[stat:statATK]]',
@@ -331,11 +331,11 @@ const overrides: Catalog = {
   setDesc_setSpeed_text: '+12% [[stat:statSPD]]',
   setDesc_setStalwart_text: 'Gelen AoE hasarı -%30',
   setDesc_setStun_text: 'Saldırırken {debuff:Stun} uygulama şansı %18 (1 tur)',
-  setDesc_setSwiftParry_text: '[[stat:statSPD]] +18%\n[[stat:statCDMG]] +30%\nÖlümcül darbe aldığında {buff:Unkillable} kazanma şansı %50 (1 tur)',
+  setDesc_setSwiftParry_text: '[[stat:statSPD]] +18%\n[[stat:statCDMG|bare]] +30%\nÖlümcül darbe aldığında {buff:Unkillable} kazanma şansı %50 (1 tur)',
   setDesc_setToxic_text: 'Saldırırken %75 şansla 2 tur 2.5% {debuff:Poison} uygular',
   setDesc_setUntouchable_text: 'Raund başında 2 tur {buff:Block Debuffs}\n+40 [[stat:statRES]]',
-  setDesc_setZeal_text: '[[stat:statCDMG]] +20%\nHer %25 mevcut [[stat:statHP]] için hasar +3%',
-  setDesc_setCritDamage_text: '[[stat:statCDMG]] +20%',
+  setDesc_setZeal_text: '[[stat:statCDMG|bare]] +20%\nHer %25 mevcut [[stat:statHP]] için hasar +3%',
+  setDesc_setCritDamage_text: '[[stat:statCDMG|bare]] +20%',
   setDesc_setProvoke_text: 'Saldırırken {debuff:Provoke} uygulama şansı %30 (1 tur)',
 
   // Armor (variable 1–9 piece sets)
@@ -363,13 +363,13 @@ const overrides: Catalog = {
 
   // Merciless
   setDesc_setMerciless_by_1: '+10% [[stat:statATK]]',
-  setDesc_setMerciless_by_2: '+15% [[stat:statCDMG]]',
+  setDesc_setMerciless_by_2: '+15% [[stat:statCDMG|bare]]',
   setDesc_setMerciless_by_3: '+5% [[stat:statSPD]]',
   setDesc_setMerciless_by_4: 'Rastgele bir yetenek bekleme süresini azaltma şansı %30',
   setDesc_setMerciless_by_5: '+15% [[stat:statATK]]',
   setDesc_setMerciless_by_6: '%35 [[stat:statDEF]] yok sayar',
   setDesc_setMerciless_by_7: '+5% [[stat:statSPD]]',
-  setDesc_setMerciless_by_8: '+15% [[stat:statCDMG]]',
+  setDesc_setMerciless_by_8: '+15% [[stat:statCDMG|bare]]',
   setDesc_setMerciless_by_9: 'Vuruşta ekstra tur kazanma şansı %15',
 
   // Pinpoint
@@ -406,25 +406,25 @@ const overrides: Catalog = {
   setDesc_setRebirth_by_9: 'Dirilen müttefiklerin yetenek bekleme sürelerini 1 tur azaltır',
 
   // Slayer
-  setDesc_setSlayer_by_1: '+5% [[stat:statCR]]',
-  setDesc_setSlayer_by_2: '+15% [[stat:statCDMG]]',
+  setDesc_setSlayer_by_1: '+5% [[stat:statCR|bare]]',
+  setDesc_setSlayer_by_2: '+15% [[stat:statCDMG|bare]]',
   setDesc_setSlayer_by_3: '+5% [[stat:statSPD]]',
   setDesc_setSlayer_by_4: 'AoE saldırılarının vurduğu düşman başına Turn Meter +5%',
-  setDesc_setSlayer_by_5: '+10% [[stat:statCR]]',
+  setDesc_setSlayer_by_5: '+10% [[stat:statCR|bare]]',
   setDesc_setSlayer_by_6: 'AoE yetenekleri düşman [[stat:statDEF]]\'inin %30\'unu yok sayar',
-  setDesc_setSlayer_by_7: '+15% [[stat:statCDMG]]',
+  setDesc_setSlayer_by_7: '+15% [[stat:statCDMG|bare]]',
   setDesc_setSlayer_by_8: '+5% [[stat:statSPD]]',
   setDesc_setSlayer_by_9: 'AoE hasarını tekrarlama şansı %30',
 
   // Stonecleaver
   setDesc_setStonecleaver_by_1: '+10% [[stat:statATK]]',
-  setDesc_setStonecleaver_by_2: '+15% [[stat:statCDMG]]',
+  setDesc_setStonecleaver_by_2: '+15% [[stat:statCDMG|bare]]',
   setDesc_setStonecleaver_by_3: '+5% [[stat:statSPD]]',
   setDesc_setStonecleaver_by_4: 'Taş Deri kalkanlarına hasar +30%',
   setDesc_setStonecleaver_by_5: '+15% [[stat:statATK]]',
   setDesc_setStonecleaver_by_6: '%20 [[stat:statDEF]] yok sayar',
   setDesc_setStonecleaver_by_7: '+5% [[stat:statSPD]]',
-  setDesc_setStonecleaver_by_8: '+15% [[stat:statCDMG]]',
+  setDesc_setStonecleaver_by_8: '+15% [[stat:statCDMG|bare]]',
   setDesc_setStonecleaver_by_9: 'Taş Deri kalkanlarına hasar +70%',
 
   // Stoneskin

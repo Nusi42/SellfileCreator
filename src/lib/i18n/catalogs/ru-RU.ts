@@ -281,12 +281,12 @@ const overrides: Catalog = {
   // Set descriptions (tooltips). Locales may override these.
   // Armor (fixed-piece)
   setDesc_setAccuracy_text: '+40 [[stat:statACC]]',
-  setDesc_setAffinitybreaker_text: '[[stat:statCDMG]] +30%\n50% шанс превратить слабый удар в критический',
+  setDesc_setAffinitybreaker_text: '[[stat:statCDMG|bare]] +30%\n50% шанс превратить слабый удар в критический',
   setDesc_setAvenging_text: '45% шанс контратаковать, когда на владельца накладывают дебафф',
-  setDesc_setBloodthirst_text: '[[stat:statCR]] +12%\nисцеляет на 30% нанесённого урона',
+  setDesc_setBloodthirst_text: '[[stat:statCR|bare]] +12%\nисцеляет на 30% нанесённого урона',
   setDesc_setBolster_text: 'Защищённый {buff:Shield} для всех союзников равен 30% макс. [[stat:statHP]] владельца на 3 хода в начале раунда',
   setDesc_setCleansing_text: 'за предмет: 8% шанс снять 1 случайный дебафф в начале хода владельца; итого: 8/16/24% при 1/2/3 предметах',
-  setDesc_setCriticalRate_text: '[[stat:statCR]] +12%',
+  setDesc_setCriticalRate_text: '[[stat:statCR|bare]] +12%',
   setDesc_setCruel_text: '[[stat:statATK]] +15%\nигнорирует 5% [[stat:statDEF]]',
   setDesc_setCuring_text: 'исцеление +20%\nвосстанавливает разрушенное [[stat:statHP]], равное бонусному лечению',
   setDesc_setCursed_text: '50% шанс наложить {debuff:Hex} на 2 хода при атаке',
@@ -295,11 +295,11 @@ const overrides: Catalog = {
   setDesc_setDefiant_text: '[[stat:statDEF]] +10%\n-15% урона от вражеских AoE атак',
   setDesc_setDeflection_text: '[[stat:statHP]] +20%\n[[stat:statDEF]] +20%\n25% шанс отразить 1 дебафф на атакующего при наложении на владельца',
   setDesc_setDestroy_text: 'уменьшает макс. [[stat:statHP]] цели на 40% нанесённого урона',
-  setDesc_setDivineCriticalRate_text: '[[stat:statCR]] +12%\n{buff:Shield} на себя равен 15% макс. [[stat:statHP]] на 3 хода в начале раунда',
+  setDesc_setDivineCriticalRate_text: '[[stat:statCR|bare]] +12%\n{buff:Shield} на себя равен 15% макс. [[stat:statHP]] на 3 хода в начале раунда',
   setDesc_setDivineLife_text: '[[stat:statHP]] +15%\n{buff:Shield} на себя равен 15% макс. [[stat:statHP]] на 3 хода в начале раунда',
   setDesc_setDivineOffense_text: '[[stat:statATK]] +15%\n{buff:Shield} на себя равен 15% макс. [[stat:statHP]] на 3 хода в начале раунда',
   setDesc_setDivineSpeed_text: '[[stat:statSPD]] +12%\n{buff:Shield} на себя равен 15% макс. [[stat:statHP]] на 3 хода в начале раунда',
-  setDesc_setFatal_text: '[[stat:statATK]] +15%\n[[stat:statCR]] +5%',
+  setDesc_setFatal_text: '[[stat:statATK]] +15%\n[[stat:statCR|bare]] +5%',
   setDesc_setFortitude_text: '[[stat:statDEF]] +10%\n+40 [[stat:statRES]]',
   setDesc_setFrenzy_text: 'Шкала хода +5% за каждый полученный дебафф',
   setDesc_setFrost_text: '20% шанс наложить {debuff:Freeze} на 1 ход при получении удара',
@@ -310,8 +310,8 @@ const overrides: Catalog = {
   setDesc_setImmunity_text: '{buff:Block Debuffs} на 2 хода в начале раунда',
   setDesc_setImpulse_text: '[[stat:statSPD]] +12%\n12% шанс сократить перезарядку случайного навыка на 1 ход',
   setDesc_setInstinct_text: '[[stat:statSPD]] +12%\nигнорирует 20% [[stat:statDEF]]',
-  setDesc_setKillstroke_text: '[[stat:statCDMG]] +20%\n[[stat:statSPD]] +5%',
-  setDesc_setLethal_text: 'игнорирует 25% [[stat:statDEF]]\n[[stat:statCR]] +10%',
+  setDesc_setKillstroke_text: '[[stat:statCDMG|bare]] +20%\n[[stat:statSPD]] +5%',
+  setDesc_setLethal_text: 'игнорирует 25% [[stat:statDEF]]\n[[stat:statCR|bare]] +10%',
   setDesc_setLife_text: '+15% [[stat:statHP]]',
   setDesc_setLifesteal_text: 'восстанавливает 30% нанесённого урона',
   setDesc_setOffense_text: '+15% [[stat:statATK]]',
@@ -331,11 +331,11 @@ const overrides: Catalog = {
   setDesc_setSpeed_text: '+12% [[stat:statSPD]]',
   setDesc_setStalwart_text: '–30% урона от входящих AoE атак',
   setDesc_setStun_text: '18% шанс наложить {debuff:Stun} на 1 ход при атаке',
-  setDesc_setSwiftParry_text: '[[stat:statSPD]] +18%\n[[stat:statCDMG]] +30%\n50% шанс получить {buff:Unkillable} на 1 ход при смертельном ударе',
+  setDesc_setSwiftParry_text: '[[stat:statSPD]] +18%\n[[stat:statCDMG|bare]] +30%\n50% шанс получить {buff:Unkillable} на 1 ход при смертельном ударе',
   setDesc_setToxic_text: '75% шанс наложить 2.5% {debuff:Poison} на 2 хода при атаке',
   setDesc_setUntouchable_text: '{buff:Block Debuffs} на 2 хода в начале раунда\n+40 [[stat:statRES]]',
-  setDesc_setZeal_text: '[[stat:statCDMG]] +20%\nурон +3% за каждые 25% текущего [[stat:statHP]]',
-  setDesc_setCritDamage_text: '[[stat:statCDMG]] +20%',
+  setDesc_setZeal_text: '[[stat:statCDMG|bare]] +20%\nурон +3% за каждые 25% текущего [[stat:statHP]]',
+  setDesc_setCritDamage_text: '[[stat:statCDMG|bare]] +20%',
   setDesc_setProvoke_text: '30% шанс наложить {debuff:Provoke} на 1 ход при атаке',
 
   // Armor (variable 1–9 piece sets)
@@ -363,13 +363,13 @@ const overrides: Catalog = {
 
   // Merciless
   setDesc_setMerciless_by_1: '+10% [[stat:statATK]]',
-  setDesc_setMerciless_by_2: '+15% [[stat:statCDMG]]',
+  setDesc_setMerciless_by_2: '+15% [[stat:statCDMG|bare]]',
   setDesc_setMerciless_by_3: '+5% [[stat:statSPD]]',
   setDesc_setMerciless_by_4: '30% шанс сократить перезарядку случайного навыка',
   setDesc_setMerciless_by_5: '+15% [[stat:statATK]]',
   setDesc_setMerciless_by_6: 'игнорирует 35% [[stat:statDEF]]',
   setDesc_setMerciless_by_7: '+5% [[stat:statSPD]]',
-  setDesc_setMerciless_by_8: '+15% [[stat:statCDMG]]',
+  setDesc_setMerciless_by_8: '+15% [[stat:statCDMG|bare]]',
   setDesc_setMerciless_by_9: '15% шанс получить дополнительный ход при ударе',
 
   // Pinpoint
@@ -406,25 +406,25 @@ const overrides: Catalog = {
   setDesc_setRebirth_by_9: 'уменьшает перезарядку навыков воскрешённых союзников на 1 ход',
 
   // Slayer
-  setDesc_setSlayer_by_1: '+5% [[stat:statCR]]',
-  setDesc_setSlayer_by_2: '+15% [[stat:statCDMG]]',
+  setDesc_setSlayer_by_1: '+5% [[stat:statCR|bare]]',
+  setDesc_setSlayer_by_2: '+15% [[stat:statCDMG|bare]]',
   setDesc_setSlayer_by_3: '+5% [[stat:statSPD]]',
   setDesc_setSlayer_by_4: 'шкала хода +5% за каждого врага, поражённого AoE',
-  setDesc_setSlayer_by_5: '+10% [[stat:statCR]]',
+  setDesc_setSlayer_by_5: '+10% [[stat:statCR|bare]]',
   setDesc_setSlayer_by_6: 'AoE-навыки игнорируют 30% [[stat:statDEF]] врагов',
-  setDesc_setSlayer_by_7: '+15% [[stat:statCDMG]]',
+  setDesc_setSlayer_by_7: '+15% [[stat:statCDMG|bare]]',
   setDesc_setSlayer_by_8: '+5% [[stat:statSPD]]',
   setDesc_setSlayer_by_9: '30% шанс повторить AoE-урон',
 
   // Stonecleaver
   setDesc_setStonecleaver_by_1: '+10% [[stat:statATK]]',
-  setDesc_setStonecleaver_by_2: '+15% [[stat:statCDMG]]',
+  setDesc_setStonecleaver_by_2: '+15% [[stat:statCDMG|bare]]',
   setDesc_setStonecleaver_by_3: '+5% [[stat:statSPD]]',
   setDesc_setStonecleaver_by_4: '+30% урона по щитам Каменной кожи',
   setDesc_setStonecleaver_by_5: '+15% [[stat:statATK]]',
   setDesc_setStonecleaver_by_6: 'игнорирует 20% [[stat:statDEF]]',
   setDesc_setStonecleaver_by_7: '+5% [[stat:statSPD]]',
-  setDesc_setStonecleaver_by_8: '+15% [[stat:statCDMG]]',
+  setDesc_setStonecleaver_by_8: '+15% [[stat:statCDMG|bare]]',
   setDesc_setStonecleaver_by_9: '+70% урона по щитам Каменной кожи',
 
   // Stoneskin

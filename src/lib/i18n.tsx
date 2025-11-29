@@ -33,7 +33,7 @@ const en = enUS
 type I18nKey = keyof typeof en
 type StrictCatalog = { [K in I18nKey]: string }
 
-const STAT_TOKEN_PATTERN = /\[\[\s*stat\s*:\s*([A-Za-z0-9_]+)\s*\]\]/g
+const STAT_TOKEN_PATTERN = /\[\[\s*stat\s*:\s*([A-Za-z0-9_]+)(?:\|([A-Za-z0-9_-]+))?\s*\]\]/g
 
 // Replace [[stat:...]] placeholders with the localized stat label so builder/tooltips
 // render consistent text/color regardless of catalog overrides.
@@ -41,10 +41,20 @@ function expandStatTokens(value: string, catalog: StrictCatalog): string {
   if (!value || value.indexOf('[[stat:') === -1) return value
   const dict = catalog as unknown as Record<string, string>
   const fallback = en as unknown as Record<string, string>
-  return value.replace(STAT_TOKEN_PATTERN, (_, rawKey: string) => {
+  return value.replace(STAT_TOKEN_PATTERN, (_, rawKey: string, modifierRaw?: string) => {
     const key = rawKey.trim()
-    return dict[key] ?? fallback[key] ?? ''
+    const modifier = modifierRaw?.trim().toLowerCase()
+    const raw = dict[key] ?? fallback[key] ?? ''
+    return applyStatTokenModifier(raw, modifier)
   })
+}
+
+function applyStatTokenModifier(label: string, modifier?: string | null): string {
+  if (!modifier) return label
+  if (modifier === 'bare') {
+    return label.replace(/\s*%$/, '')
+  }
+  return label
 }
 
 // Dev-only empty catalog: same keys, all values empty.

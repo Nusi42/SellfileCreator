@@ -281,12 +281,12 @@ const overrides: Catalog = {
   // Set descriptions (tooltips). Locales may override these.
   // Armor (fixed-piece)
   setDesc_setAccuracy_text: '+40 [[stat:statACC]]',
-  setDesc_setAffinitybreaker_text: '[[stat:statCDMG]] +30%\n50% de chances de convertir un coup faible en coup critique',
+  setDesc_setAffinitybreaker_text: '[[stat:statCDMG|bare]] +30%\n50% de chances de convertir un coup faible en coup critique',
   setDesc_setAvenging_text: '45% de chances de contre-attaquer lorsqu’un debuff est appliqué au porteur',
-  setDesc_setBloodthirst_text: '[[stat:statCR]] +12%\nsoigne de 30% des dégâts infligés',
+  setDesc_setBloodthirst_text: '[[stat:statCR|bare]] +12%\nsoigne de 30% des dégâts infligés',
   setDesc_setBolster_text: '{buff:Shield} protégé pour tous les alliés égal à 30% des [[stat:statHP]] max du porteur pendant 3 tours au début du round',
   setDesc_setCleansing_text: 'par pièce : 8% de chances de retirer 1 debuff aléatoire au début du tour du porteur ; totaux : 8/16/24% avec 1/2/3 pièces',
-  setDesc_setCriticalRate_text: '+12% [[stat:statCR]]',
+  setDesc_setCriticalRate_text: '+12% [[stat:statCR|bare]]',
   setDesc_setCruel_text: '[[stat:statATK]] +15%\nignore 5% [[stat:statDEF]]',
   setDesc_setCuring_text: 'soins effectués +20%\nrestaure les [[stat:statHP]] détruits égaux au soin bonus',
   setDesc_setCursed_text: '50% de chances d’appliquer {debuff:Hex} pendant 2 tours en attaquant',
@@ -295,11 +295,11 @@ const overrides: Catalog = {
   setDesc_setDefiant_text: '[[stat:statDEF]] +10%\n-15% de dégâts subis par les attaques AoE ennemies',
   setDesc_setDeflection_text: '[[stat:statHP]] +20%\n[[stat:statDEF]] +20%\n25% de chances de renvoyer 1 debuff sur l’attaquant lorsqu’un debuff est appliqué au porteur',
   setDesc_setDestroy_text: 'réduit les [[stat:statHP]] max de la cible de 40% des dégâts infligés',
-  setDesc_setDivineCriticalRate_text: '[[stat:statCR]] +12%\n{buff:Shield} sur soi égal à 15% des [[stat:statHP]] max pendant 3 tours au début du round',
+  setDesc_setDivineCriticalRate_text: '[[stat:statCR|bare]] +12%\n{buff:Shield} sur soi égal à 15% des [[stat:statHP]] max pendant 3 tours au début du round',
   setDesc_setDivineLife_text: '[[stat:statHP]] +15%\n{buff:Shield} sur soi égal à 15% des [[stat:statHP]] max pendant 3 tours au début du round',
   setDesc_setDivineOffense_text: '[[stat:statATK]] +15%\n{buff:Shield} sur soi égal à 15% des [[stat:statHP]] max pendant 3 tours au début du round',
   setDesc_setDivineSpeed_text: '[[stat:statSPD]] +12%\n{buff:Shield} sur soi égal à 15% des [[stat:statHP]] max pendant 3 tours au début du round',
-  setDesc_setFatal_text: '[[stat:statATK]] +15%\n[[stat:statCR]] +5%',
+  setDesc_setFatal_text: '[[stat:statATK]] +15%\n[[stat:statCR|bare]] +5%',
   setDesc_setFortitude_text: '[[stat:statDEF]] +10%\n+40 [[stat:statRES]]',
   setDesc_setFrenzy_text: 'Jauge +5% par debuff reçu',
   setDesc_setFrost_text: '20% de chances d’appliquer {debuff:Freeze} pendant 1 tour quand il est touché',
@@ -310,8 +310,8 @@ const overrides: Catalog = {
   setDesc_setImmunity_text: '{buff:Block Debuffs} pendant 2 tours au début du round',
   setDesc_setImpulse_text: '[[stat:statSPD]] +12%\n12% de chances de réduire le temps de recharge d’une compétence aléatoire de 1 tour',
   setDesc_setInstinct_text: '[[stat:statSPD]] +12%\nignore 20% [[stat:statDEF]]',
-  setDesc_setKillstroke_text: '[[stat:statCDMG]] +20%\n[[stat:statSPD]] +5%',
-  setDesc_setLethal_text: 'ignore 25% [[stat:statDEF]]\n[[stat:statCR]] +10%',
+  setDesc_setKillstroke_text: '[[stat:statCDMG|bare]] +20%\n[[stat:statSPD]] +5%',
+  setDesc_setLethal_text: 'ignore 25% [[stat:statDEF]]\n[[stat:statCR|bare]] +10%',
   setDesc_setLife_text: '+15% [[stat:statHP]]',
   setDesc_setLifesteal_text: 'soigne 30% des dégâts infligés',
   setDesc_setOffense_text: '+15% [[stat:statATK]]',
@@ -331,11 +331,11 @@ const overrides: Catalog = {
   setDesc_setSpeed_text: '+12% [[stat:statSPD]]',
   setDesc_setStalwart_text: '-30% de dégâts des attaques AoE entrantes',
   setDesc_setStun_text: '18% de chances d’appliquer {debuff:Stun} pendant 1 tour en attaquant',
-  setDesc_setSwiftParry_text: '[[stat:statSPD]] +18%\n[[stat:statCDMG]] +30%\n50% de chances de gagner {buff:Unkillable} pendant 1 tour lorsqu’il subit un coup fatal',
+  setDesc_setSwiftParry_text: '[[stat:statSPD]] +18%\n[[stat:statCDMG|bare]] +30%\n50% de chances de gagner {buff:Unkillable} pendant 1 tour lorsqu’il subit un coup fatal',
   setDesc_setToxic_text: '75% de chances d’appliquer un {debuff:Poison} de 2,5% pendant 2 tours en attaquant',
   setDesc_setUntouchable_text: '{buff:Block Debuffs} pendant 2 tours au début du round\n+40 [[stat:statRES]]',
-  setDesc_setZeal_text: '[[stat:statCDMG]] +20%\n+3% de dégâts par tranche de 25% de [[stat:statHP]] actuels',
-  setDesc_setCritDamage_text: '[[stat:statCDMG]] +20%',
+  setDesc_setZeal_text: '[[stat:statCDMG|bare]] +20%\n+3% de dégâts par tranche de 25% de [[stat:statHP]] actuels',
+  setDesc_setCritDamage_text: '[[stat:statCDMG|bare]] +20%',
   setDesc_setProvoke_text: '30% de chances d’appliquer {debuff:Provoke} pendant 1 tour en attaquant',
 
   // Armor (variable 1–9 piece sets)
@@ -363,13 +363,13 @@ const overrides: Catalog = {
 
   // Merciless
   setDesc_setMerciless_by_1: '+10% [[stat:statATK]]',
-  setDesc_setMerciless_by_2: '+15% [[stat:statCDMG]]',
+  setDesc_setMerciless_by_2: '+15% [[stat:statCDMG|bare]]',
   setDesc_setMerciless_by_3: '+5% [[stat:statSPD]]',
   setDesc_setMerciless_by_4: '30% de chances de réduire le temps de recharge d’une compétence aléatoire',
   setDesc_setMerciless_by_5: '+15% [[stat:statATK]]',
   setDesc_setMerciless_by_6: 'ignore 35% [[stat:statDEF]]',
   setDesc_setMerciless_by_7: '+5% [[stat:statSPD]]',
-  setDesc_setMerciless_by_8: '+15% [[stat:statCDMG]]',
+  setDesc_setMerciless_by_8: '+15% [[stat:statCDMG|bare]]',
   setDesc_setMerciless_by_9: '15% de chances de jouer un tour supplémentaire en touchant',
 
   // Pinpoint
@@ -406,25 +406,25 @@ const overrides: Catalog = {
   setDesc_setRebirth_by_9: 'réduit les temps de recharge des alliés ressuscités de 1 tour',
 
   // Slayer
-  setDesc_setSlayer_by_1: '+5% [[stat:statCR]]',
-  setDesc_setSlayer_by_2: '+15% [[stat:statCDMG]]',
+  setDesc_setSlayer_by_1: '+5% [[stat:statCR|bare]]',
+  setDesc_setSlayer_by_2: '+15% [[stat:statCDMG|bare]]',
   setDesc_setSlayer_by_3: '+5% [[stat:statSPD]]',
   setDesc_setSlayer_by_4: 'Jauge +5% par ennemi touché par les attaques AoE',
-  setDesc_setSlayer_by_5: '+10% [[stat:statCR]]',
+  setDesc_setSlayer_by_5: '+10% [[stat:statCR|bare]]',
   setDesc_setSlayer_by_6: 'les compétences AoE ignorent 30% de la [[stat:statDEF]] ennemie',
-  setDesc_setSlayer_by_7: '+15% [[stat:statCDMG]]',
+  setDesc_setSlayer_by_7: '+15% [[stat:statCDMG|bare]]',
   setDesc_setSlayer_by_8: '+5% [[stat:statSPD]]',
   setDesc_setSlayer_by_9: '30% de chances de répéter les dégâts AoE',
 
   // Stonecleaver
   setDesc_setStonecleaver_by_1: '+10% [[stat:statATK]]',
-  setDesc_setStonecleaver_by_2: '+15% [[stat:statCDMG]]',
+  setDesc_setStonecleaver_by_2: '+15% [[stat:statCDMG|bare]]',
   setDesc_setStonecleaver_by_3: '+5% [[stat:statSPD]]',
   setDesc_setStonecleaver_by_4: '+30% de dégâts contre les boucliers Peau de pierre',
   setDesc_setStonecleaver_by_5: '+15% [[stat:statATK]]',
   setDesc_setStonecleaver_by_6: '+20% d’ignore [[stat:statDEF]]',
   setDesc_setStonecleaver_by_7: '+5% [[stat:statSPD]]',
-  setDesc_setStonecleaver_by_8: '+15% [[stat:statCDMG]]',
+  setDesc_setStonecleaver_by_8: '+15% [[stat:statCDMG|bare]]',
   setDesc_setStonecleaver_by_9: '+70% de dégâts contre les boucliers Peau de pierre',
 
   // Stoneskin
