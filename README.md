@@ -11,6 +11,7 @@ Build, preview, and export sell rules for RSL Helper with a simple UI.
 - Metasets: name groups of gear sets (e.g., Speed + Perception) and reuse them across rules.
 - One-click Export: export an HSF file (the RSL Helper Sellfile) ready for RSL Helper.
 - Rule Tester preview + Gear dialog (“Gear...”): create example gear, paste items, or drag-and-drop your RSL Helper DB (usually `%APPDATA%\RslHelper\Config`) into the dialog. Then leave the dialog closed and use the preview toggle to keep that gear visible while you compare it against your rules.
+- Keep Uniques tab: define combinations you never want to lose, and the scanner injects keep rules automatically whenever your configs plus Final Sell would sell every piece in that combination.
 - Autosave restore dialog: when an autosave is found, pick exactly what to load — configs, metasets, Substat Target Values, Final Sell remainder, pinned note, filter panel state, and even Rule Tester imports.
 - Copy the RSL Helper DB folder: the preview header exposes a clipboard button that copies `%APPDATA%\RslHelper\Config` so you can paste the folder path into Explorer before dragging the `.db` into Sellfile Creator.
 
@@ -100,6 +101,22 @@ Build, preview, and export sell rules for RSL Helper with a simple UI.
 - Configure which gear (Artifacts and/or Accessories) and which level ranges (0–3, 4–7, 8–11, 12–15, 16). The default targets 0–15 to avoid selling fully leveled gear.
 - Without Final Sell, items that do not match any rule are automatically kept by RSL Helper. Selling only happens when a Sell rule matches.
 - When Final Sell is on, the generated Sell rules explicitly include all currently known sets. In the preview, the Sets column shows “All Currently Known” for these rules to reduce clutter; the exported file still lists every set explicitly.
+
+### Keep Uniques
+- Open the Final Sell dialog and switch to the `Keep Uniques` tab to mark the gear combinations you never want to lose. Turn on `Enable Keep Uniques` to start editing.
+- Each keep rule lets you pick the slot, sets or metasets, ranks, rarities, main stats, and (for accessories) factions you care about. Leaving a picker empty means “any”.
+- `≥ Required Count` is the promise you want the app to keep. Leave the toggle on `Per set` when you want that promise for every set/faction/main-stat mix, or flip to `Per rule` when one shared total is enough.
+- The scanner only adds extra keep rows when every item that matches a rule would otherwise be sold. If your normal configs already save enough pieces, the rule shows “Covered elsewhere” and nothing new is exported.
+
+#### Real-world examples
+1. **Running out of SPD boots:** Slot = Boots, Main Stat = SPD, Sets blank. Set `≥ Required Count = 5`, scope `Per rule`. Now the app guarantees at least five SPD boots survive, no matter which sets they came from.
+2. **Mixing Savage and Lethal gloves:** Slot = Gloves, Sets = Savage + Lethal, Main Stat = CDMG%. Set `≥ Required Count = 3`, `Per rule`. That covers any mix of the two sets while insisting on CDMG% mains, so you always keep three damage gloves.
+3. **Keeping Merciless rings for every faction:** Slot = Ring, Set = Merciless, Faction blank. Set `≥ Required Count = 3`, keep `Per set`. Each faction now needs three of its own Merciless rings before the rule is satisfied.
+4. **Saving HP% rings for every faction:** Slot = Ring, Main Stat = HP%, Sets blank. Set `≥ Required Count = 2`, `Per set`. The app watches every faction separately and protects two HP% rings for each one.
+5. **Protecting core accessories per faction:** Make three rules (Ring, Amulet, Banner). Leave Sets and Main Stat blank, set `≥ Required Count = 5`, `Per set`. Every faction now keeps five of each accessory slot.
+6. **Holding Stoneskin/Protection sets per faction:** For each accessory slot, pick Sets = Stoneskin + Protection, leave Main Stat blank, set `≥ Required Count = 2`, `Per set`. This keeps two of each slot for every faction whenever those sets drop.
+
+Tip: Import your `.db` or paste gear into the Rule Tester before opening the tab so the scanner sees real items. When a rule says “Missing 2”, click it to highlight those tester rows and see which faction or set needs attention.
 
 ### Managing Configs
 - Saved configs list: Each saved config appears as a small label below the builder. Use this list to select (left‑click), duplicate, reorder, or delete (deletions are confirmed). “Delete Configs” removes all (with confirmation).
