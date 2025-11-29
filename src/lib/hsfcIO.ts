@@ -48,7 +48,7 @@ import {
   type FinalSellRemainderConfig,
   type FinalSellSetsMode,
 } from './finalSell'
-import { normalizeKeepUniqueRule, type KeepUniqueRule } from './keepUniques'
+import { normalizeKeepUniqueRule, sanitizeKeepUniqueCountMode, type KeepUniqueRule } from './keepUniques'
 
 type LockedMinValue = Exclude<BuilderConfig['lockedMinRequiredRolls'], undefined>
 type AggregateMinValue = Exclude<BuilderConfig['minRequiredRolls'], undefined>
@@ -830,25 +830,32 @@ export function buildHsfcPayload(args: {
         setsMode: FINAL_SELL_DEFAULT_SETS_MODE,
       }
     })(),
-    KeepUniques: keepUniqueRules.map((rule) => ({
-      id: rule.id,
-      requiredCount: Math.max(1, Math.floor(rule.requiredCount)),
-      enabled: rule.enabled !== false,
-      // Persist the count scope so downstream imports recreate the toggle exactly.
-      countMode: rule.countMode ?? 'perCombination',
-      tuple: {
-        slots: rule.combination.slots.map((slot) => Number(slot) as ArtifactTypeId),
-        sets: rule.combination.sets.map((set) => Number(set) as ArtifactSetId),
-        metaSetIds: [...(rule.combination.metaSetIds ?? [])],
-        ranks: rule.combination.ranks.map((rank) => Number(rank) as RankValue),
-        rarities: rule.combination.rarities.map((rarity) => Number(rarity) as RankValue),
-        mainStats: (rule.combination.mainStats ?? []).map((stat) => Number(stat)),
-        mainStat: rule.combination.mainStats.length > 0
-          ? Number(rule.combination.mainStats[0])
-          : Number(StatVariantEnum.Any),
-        factions: rule.combination.factions.map((faction) => Number(faction) as FactionId),
-      },
-    })),
+    KeepUniques: keepUniqueRules.map((rule) => {
+      const mode = sanitizeKeepUniqueCountMode(rule.countMode)
+      return {
+        id: rule.id,
+        requiredCount: Math.max(1, Math.floor(rule.requiredCount)),
+        enabled: rule.enabled !== false,
+        countMode: {
+          perRule: mode.perRule,
+          perSet: mode.perSet,
+          perFaction: mode.perFaction,
+          perMainStat: mode.perMainStat,
+        },
+        tuple: {
+          slots: rule.combination.slots.map((slot) => Number(slot) as ArtifactTypeId),
+          sets: rule.combination.sets.map((set) => Number(set) as ArtifactSetId),
+          metaSetIds: [...(rule.combination.metaSetIds ?? [])],
+          ranks: rule.combination.ranks.map((rank) => Number(rank) as RankValue),
+          rarities: rule.combination.rarities.map((rarity) => Number(rarity) as RankValue),
+          mainStats: (rule.combination.mainStats ?? []).map((stat) => Number(stat)),
+          mainStat: rule.combination.mainStats.length > 0
+            ? Number(rule.combination.mainStats[0])
+            : Number(StatVariantEnum.Any),
+          factions: rule.combination.factions.map((faction) => Number(faction) as FactionId),
+        },
+      }
+    }),
     KeepUniquesEnabled: keepUniquesEnabled === true,
     ...(selectedConfigIndex != null ? { SelectedConfigIndex: selectedConfigIndex } : (configs.length ? { SelectedConfigIndex: configs.length - 1 } : {})),
     ...(note ? { Note: note } : {}),

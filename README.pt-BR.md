@@ -101,18 +101,18 @@ Crie, reveja e exporte regras de venda para o RSL Helper com uma interface simpl
 ### Manter únicos
 - Abra o diálogo Venda final e mude para a aba «Manter únicos» para marcar as combinações que não quer vender nunca. Ative «Manter únicos» para começar a editá-las.
 - Cada regra permite escolher slot, sets ou meta-sets, ranks, raridades, mainstats e, no caso dos acessórios, facções. Seletores vazios significam «qualquer um».
-- `≥ Quantidade necessária` é a promessa que o app precisa cumprir. Deixe o seletor em «Por set» quando quiser essa cota para cada combinação de set/facção/mainstat ou troque para «Por regra» quando um total único bastar.
+- `≥ Quantidade necessária` fica ao lado de um pequeno grupo de botões. «Por regra» mantém uma única quota; combine «Por conjunto», «Por facção» e «Por atributo principal» para multiplicar a quota por cada combinação relevante (se os três estiverem desligados, o modo volta automaticamente para «Por regra»).
 - O scanner só adiciona linhas extras quando todos os itens que combinam com a regra acabariam vendidos. Se as configs normais já salvam o suficiente, a regra mostra «Coberta noutro local» e nada novo é exportado.
 
 #### Exemplos
 1. **Acabaram as botas SPD:** Slot = Botas, Mainstat = SPD, Sets vazios. Ajuste `≥ Quantidade necessária = 5`, modo «Por regra». Assim pelo menos cinco botas SPD sobrevivem, não importa o set.
 2. **Misturar luvas Savage e Lethal:** Slot = Luvas, Sets = Savage + Lethal, Mainstat = CDMG%. Defina `≥ Quantidade necessária = 3`, «Por regra». Você mantém três luvas de dano mesmo quando a divisão entre os sets muda.
-3. **Anéis Merciless por facção:** Slot = Anel, Set = Merciless, Facção sem filtro. Defina `≥ Quantidade necessária = 3`, mantenha «Por set». Cada facção agora precisa de três anéis próprios antes de a regra ficar satisfeita.
-4. **Anéis de HP% por facção:** Slot = Anel, Mainstat = HP%, Sets vazios. `≥ Quantidade necessária = 2`, «Por set». O app acompanha cada facção separadamente e protege dois anéis de HP% por facção.
-5. **Acessórios básicos por facção:** Crie três regras (Anel, Amuleto, Estandarte). Deixe Sets e Mainstat vazios, defina `≥ Quantidade necessária = 5`, «Por set». Cada facção guarda cinco peças de cada slot.
-6. **Stoneskin/Protection por facção:** Para cada slot de acessório selecione Sets = Stoneskin + Protection, deixe o Mainstat vazio e use `≥ Quantidade necessária = 2`, «Por set». Isso mantém dois itens de cada slot para cada facção sempre que esses sets caem.
+3. **Anéis Merciless por facção:** Slot = Anel, Set = Merciless, Facção sem filtro. Defina `≥ Quantidade necessária = 3` e ative «Por facção». Cada facção agora precisa de três anéis próprios antes de a regra ficar satisfeita.
+4. **Anéis de HP% por facção:** Slot = Anel, Mainstat = HP%, Sets vazios. `≥ Quantidade necessária = 2` com «Por facção». O app acompanha cada facção separadamente e protege dois anéis de HP% por facção.
+5. **Acessórios básicos por facção:** Crie três regras (Anel, Amuleto, Estandarte). Deixe Sets e Mainstat vazios, defina `≥ Quantidade necessária = 5` e ative «Por facção». Cada facção guarda cinco peças de cada slot.
+6. **Stoneskin/Protection por facção:** Para cada slot de acessório selecione Sets = Stoneskin + Protection, deixe o Mainstat vazio e use `≥ Quantidade necessária = 2` com «Por conjunto» e «Por facção» ligados. Isso mantém dois itens de cada slot para cada facção sempre que esses sets caem.
 
-Dica: importe a sua `.db` ou cole itens no Teste de Regras antes de abrir a aba para que o scanner veja equipamentos reais. Quando a regra mostrar «Faltam 2», clique nela: as linhas correspondentes do Teste de Regras serão destacadas e você verá qual facção ou set ainda precisa de cobertura.
+Dica: importe a sua `.db` ou cole itens no Teste de Regras antes de abrir a aba para que o scanner veja equipamentos reais. Quando a regra mostrar «Faltam 2», clique nela: o Teste de Regras destaca esses itens e você vê qual facção ou set ainda precisa de cobertura.
 
 ### Gestão de configs
 - As configs salvas aparecem como etiquetas sob o construtor. Clique para selecionar; clique direito para duplicar, mover, copiar ou eliminar.

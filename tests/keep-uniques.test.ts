@@ -1,7 +1,7 @@
 /* eslint import/no-unused-modules: off */
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { collectKeepUniqueCandidates, computeKeepUniqueProtection, hashKeepUniqueCombination, normalizeKeepUniqueRule, resolveKeepUniqueRulesWithMetasets } from '../src/lib/keepUniques.js'
+import { KEEP_UNIQUE_DEFAULT_COUNT_MODE, collectKeepUniqueCandidates, computeKeepUniqueProtection, hashKeepUniqueCombination, normalizeKeepUniqueRule, resolveKeepUniqueRulesWithMetasets } from '../src/lib/keepUniques.js'
 import { ArtifactSet, ArtifactType, StatVariant, type RankValue } from '../src/lib/types.js'
 import type { TesterPreviewRow } from '../src/types/testerPreview.js'
 import type { NormalizedGearArtifact, NormalizedStat } from '../src/lib/importers/gearDbNormalizer.js'
@@ -79,7 +79,7 @@ const makeRule = (overrides: Partial<KeepUniqueRule> = {}): KeepUniqueRule => {
     },
     requiredCount: overrides.requiredCount ?? 1,
     enabled: overrides.enabled ?? true,
-    countMode: overrides.countMode ?? 'perCombination',
+    countMode: overrides.countMode ?? KEEP_UNIQUE_DEFAULT_COUNT_MODE,
   })
   if (!rule) throw new Error('expected combination')
   return rule
@@ -166,7 +166,6 @@ test('coveredByExisting flips when existing keep rules meet requirement', () => 
 
 test('per combination mode multiplies targets and deficits', () => {
   const rules = [makeRule({
-    countMode: 'perCombination',
     requiredCount: 2,
     combination: {
       slots: [ArtifactType.Weapon],
@@ -186,11 +185,66 @@ test('per combination mode multiplies targets and deficits', () => {
   const snapshot = computeKeepUniqueProtection({ candidates, rules, enabled: true })
   const entry = snapshot.entries[0]
   assert.ok(entry)
-  assert.strictEqual(entry.countMode, 'perCombination')
+  assert.strictEqual(entry.countMode.perRule, false)
   assert.strictEqual(entry.groupsTracked, 2, 'tracks each set/main tuple separately')
   assert.strictEqual(entry.perGroupRequiredCount, 2, 'preserves the base requirement for tooltips')
   assert.strictEqual(entry.requiredCount, 4, 'aggregated requirement scales by the number of tuples')
   assert.strictEqual(entry.deficit, 2, 'missing one artifact per tuple yields two deficits total')
+})
+
+test('per rule mode keeps a single aggregate quota', () => {
+  const rules = [makeRule({
+    requiredCount: 2,
+    combination: {
+      slots: [ArtifactType.Weapon],
+      sets: [],
+      metaSetIds: [],
+      ranks: [],
+      rarities: [],
+      mainStats: [],
+      factions: [],
+    },
+    countMode: { perRule: true, perSet: false, perFaction: false, perMainStat: false },
+  })]
+  const rows = [
+    makeTesterRow({ slot: ArtifactType.Weapon, set: ArtifactSet.Speed }, false, StatVariant.ATK),
+    makeTesterRow({ slot: ArtifactType.Weapon, set: ArtifactSet.Accuracy }, false, StatVariant.CDMG),
+  ]
+  const { candidates } = collectKeepUniqueCandidates({ rows, baseRules: [], configModes: [] })
+  const snapshot = computeKeepUniqueProtection({ candidates, rules, enabled: true })
+  const entry = snapshot.entries[0]
+  assert.ok(entry)
+  assert.strictEqual(entry.countMode.perRule, true)
+  assert.strictEqual(entry.groupsTracked, 1)
+  assert.strictEqual(entry.requiredCount, 2)
+  assert.strictEqual(entry.deficit, 0)
+})
+
+test('custom grouping honors the selected dimensions only', () => {
+  const rules = [makeRule({
+    requiredCount: 1,
+    combination: {
+      slots: [ArtifactType.Weapon],
+      sets: [ArtifactSet.Speed, ArtifactSet.Accuracy],
+      metaSetIds: [],
+      ranks: [],
+      rarities: [],
+      mainStats: [],
+      factions: [],
+    },
+    countMode: { perRule: false, perSet: true, perFaction: false, perMainStat: false },
+  })]
+  const rows = [
+    makeTesterRow({ slot: ArtifactType.Weapon, set: ArtifactSet.Speed, faction: 1 }, false, StatVariant.ATK),
+    makeTesterRow({ slot: ArtifactType.Weapon, set: ArtifactSet.Speed, faction: 2 }, false, StatVariant.DEF),
+    makeTesterRow({ slot: ArtifactType.Weapon, set: ArtifactSet.Accuracy, faction: 1 }, false, StatVariant.CDMG),
+  ]
+  const { candidates } = collectKeepUniqueCandidates({ rows, baseRules: [], configModes: [] })
+  const snapshot = computeKeepUniqueProtection({ candidates, rules, enabled: true })
+  const entry = snapshot.entries[0]
+  assert.ok(entry)
+  assert.strictEqual(entry.groupsTracked, 2, 'groups only by set when faction/main toggles are off')
+  assert.strictEqual(entry.requiredCount, 2, 'requirement multiplies per set')
 })
 
 test('resolveKeepUniqueRulesWithMetasets expands set lists', () => {

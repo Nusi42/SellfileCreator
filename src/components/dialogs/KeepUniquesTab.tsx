@@ -23,7 +23,13 @@ import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline'
 import ContentCopyIcon from '@mui/icons-material/ContentCopy'
 import FilterListIcon from '@mui/icons-material/FilterList'
 import FilterListOffIcon from '@mui/icons-material/FilterListOff'
-import type { KeepUniqueDetectionEntry, KeepUniqueDetectionSnapshot, KeepUniqueRule } from '../../lib/keepUniques'
+import {
+  KEEP_UNIQUE_DEFAULT_COUNT_MODE,
+  sanitizeKeepUniqueCountMode,
+  type KeepUniqueDetectionEntry,
+  type KeepUniqueDetectionSnapshot,
+  type KeepUniqueRule,
+} from '../../lib/keepUniques'
 import { createKeepUniqueRuleId, getKeepUniqueItemKey } from '../../lib/keepUniques'
 import type { TesterPreviewRow } from '../../types/testerPreview'
 import type { ColorBlindMode } from '../../lib/constants'
@@ -55,6 +61,33 @@ import InlineSelectExtraBadge from '../InlineSelectExtraBadge'
 import { computeInlineSelectContentMaxWidth, computeInlineSelectPadding } from '../../lib/inlineSelectAffordances'
 import type { Theme } from '@mui/material/styles'
 import type { SystemStyleObject } from '@mui/system'
+
+const COUNT_MODE_ROW_SX: SystemStyleObject<Theme> = {
+  width: '100%',
+  '& .MuiToggleButtonGroup-grouped': {
+    flex: 1,
+    minWidth: 0,
+    border: '1px solid',
+    borderColor: 'divider',
+    borderRadius: 1,
+    margin: 0,
+  },
+  '& .MuiToggleButtonGroup-grouped:not(:first-of-type)': {
+    marginLeft: '-1px',
+  },
+  '& .MuiToggleButtonGroup-grouped:first-of-type': {
+    marginLeft: 0,
+  },
+}
+
+const COUNT_MODE_BUTTON_SX = {
+  px: 1.25,
+  flex: 1,
+  minWidth: 0,
+  height: SMALL_BUTTON_HEIGHT_PX,
+  minHeight: SMALL_BUTTON_HEIGHT_PX,
+  textTransform: 'none' as const,
+}
 
 type KeepUniquesTabProps = {
   rules: KeepUniqueRule[]
@@ -185,7 +218,7 @@ export default function KeepUniquesTab({
       combination,
       requiredCount: 1,
       enabled: true,
-      countMode: 'perCombination',
+      countMode: { ...KEEP_UNIQUE_DEFAULT_COUNT_MODE },
     }
     mutateRules((prev) => [...prev, newRule])
     setSelectedRuleId(newRule.id)
@@ -311,10 +344,55 @@ export default function KeepUniquesTab({
         {deleteButton}
       </Box>
     )
-    const perCombinationMode = rule.countMode === 'perCombination'
+    const countMode = sanitizeKeepUniqueCountMode(rule.countMode ?? KEEP_UNIQUE_DEFAULT_COUNT_MODE)
     const perSetLabel = t('keepUniquesCountModePerSet')
     const perRuleLabel = t('keepUniquesCountModePerRule')
-    const countModeToggleValue = perCombinationMode ? 'perCombination' : 'perRule'
+    const perFactionLabel = t('keepUniquesCountModePerFaction')
+    const perMainLabel = t('keepUniquesCountModePerMain')
+    const handleCountModeToggle = (target: 'perRule' | 'perSet' | 'perFaction' | 'perMain') => {
+      updateRule(rule.id, (prev) => {
+        const prevMode = sanitizeKeepUniqueCountMode(prev.countMode ?? KEEP_UNIQUE_DEFAULT_COUNT_MODE)
+        if (target === 'perRule') {
+          if (prevMode.perRule) {
+            return { ...prev, countMode: { ...KEEP_UNIQUE_DEFAULT_COUNT_MODE } }
+          }
+          return {
+            ...prev,
+            countMode: {
+              perRule: true,
+              perSet: false,
+              perFaction: false,
+              perMainStat: false,
+            },
+          }
+        }
+        const key: 'perSet' | 'perFaction' | 'perMainStat' = target === 'perSet'
+          ? 'perSet'
+          : target === 'perFaction'
+            ? 'perFaction'
+            : 'perMainStat'
+        const toggled = !prevMode[key]
+        const nextMode: KeepUniqueRule['countMode'] = {
+          perRule: false,
+          perSet: key === 'perSet' ? toggled : prevMode.perSet,
+          perFaction: key === 'perFaction' ? toggled : prevMode.perFaction,
+          perMainStat: key === 'perMainStat' ? toggled : prevMode.perMainStat,
+        }
+        if (!nextMode.perSet && !nextMode.perFaction && !nextMode.perMainStat) {
+          return {
+            ...prev,
+            countMode: {
+              perRule: true,
+              perSet: false,
+              perFaction: false,
+              perMainStat: false,
+            },
+          }
+        }
+        return { ...prev, countMode: nextMode }
+      })
+    }
+
     const applyNativeEllipsisTitle = (node: HTMLElement | null, label: string) => {
       if (!node) return
       if (hasEllipsisOverflow(node)) {
@@ -333,9 +411,21 @@ export default function KeepUniquesTab({
       (event.currentTarget as HTMLElement).removeAttribute('title')
     }
     // Extend the counts chip with a suffix that explains how the totals were derived.
-    const detectionScopeSuffix = (ruleDetection && ruleDetection.countMode === 'perCombination' && ruleDetection.groupsTracked > 0)
-      ? t('keepUniquesRuleCountsPerComboSuffix', { perGroup: ruleDetection.perGroupRequiredCount, groups: ruleDetection.groupsTracked })
-      : ''
+    const detectionScopeSuffix = (() => {
+      if (!ruleDetection) return ''
+      const mode = sanitizeKeepUniqueCountMode(ruleDetection.countMode ?? KEEP_UNIQUE_DEFAULT_COUNT_MODE)
+      if (mode.perRule || ruleDetection.groupsTracked === 0) return ''
+      const scopeParts: string[] = []
+      if (mode.perSet) scopeParts.push(perSetLabel)
+      if (mode.perFaction) scopeParts.push(perFactionLabel)
+      if (mode.perMainStat) scopeParts.push(perMainLabel)
+      const scopeLabel = scopeParts.join(' × ')
+      return t('keepUniquesRuleCountsPerGroupSuffix', {
+        perGroup: ruleDetection.perGroupRequiredCount,
+        groups: ruleDetection.groupsTracked,
+        scope: scopeLabel,
+      })
+    })()
     return (
       <Box
         key={rule.id}
@@ -541,68 +631,102 @@ export default function KeepUniquesTab({
                     data-rule-card-interactive="true"
                     sx={{ display: 'inline-flex', minWidth: 0 }}
                   >
-                    <ToggleButtonGroup
-                      size="small"
-                      value={countModeToggleValue}
-                      exclusive
-                      aria-label={t('keepUniquesCountModeToggleLabel')}
-                      onChange={(_event, next) => {
-                        if (next !== 'perCombination' && next !== 'perRule') return
-                        updateRule(rule.id, (prev) => ({
-                          ...prev,
-                          countMode: next,
-                        }))
-                      }}
-                      sx={{
-                        minWidth: 0,
-                        height: SMALL_BUTTON_HEIGHT_PX,
-                        '& .MuiToggleButtonGroup-grouped:not(:first-of-type)': {
-                          marginLeft: 0,
-                          borderLeft: '1px solid transparent',
-                        },
-                        '& .MuiToggleButtonGroup-grouped.Mui-selected + .MuiToggleButtonGroup-grouped.Mui-selected': {
-                          marginLeft: 0,
-                          borderLeft: '1px solid transparent',
-                        },
-                      }}
-                    >
-                      <ToggleButton
-                        value="perCombination"
-                        aria-label={perSetLabel}
-                        sx={{ px: 1.25, minWidth: 0, height: SMALL_BUTTON_HEIGHT_PX, minHeight: SMALL_BUTTON_HEIGHT_PX, textTransform: 'none' }}
+                    <Stack spacing={0.5} sx={{ minWidth: 0, width: '100%' }}>
+                      <ToggleButtonGroup
+                        size="small"
+                        value={[]}
+                        aria-label={t('keepUniquesCountModeToggleLabel')}
+                        sx={COUNT_MODE_ROW_SX}
                       >
-                        <Typography
-                          component="span"
-                          noWrap
-                          sx={ELLIPSIS_TEXT_SX}
-                          data-ellipsis-target
-                          onMouseEnter={handleToggleLabelMouseEnter(perSetLabel)}
-                          onMouseLeave={handleToggleLabelLeave}
-                          onFocus={handleToggleLabelFocus(perSetLabel)}
-                          onBlur={handleToggleLabelLeave}
+                        <ToggleButton
+                          value="perRule"
+                          aria-label={perRuleLabel}
+                          selected={countMode.perRule}
+                          sx={COUNT_MODE_BUTTON_SX}
+                          onClick={(event) => { event.stopPropagation(); handleCountModeToggle('perRule') }}
                         >
-                          {perSetLabel}
-                        </Typography>
-                      </ToggleButton>
-                      <ToggleButton
-                        value="perRule"
-                        aria-label={perRuleLabel}
-                        sx={{ px: 1.25, minWidth: 0, height: SMALL_BUTTON_HEIGHT_PX, minHeight: SMALL_BUTTON_HEIGHT_PX, textTransform: 'none' }}
+                          <Typography
+                            component="span"
+                            noWrap
+                            sx={ELLIPSIS_TEXT_SX}
+                            data-ellipsis-target
+                            onMouseEnter={handleToggleLabelMouseEnter(perRuleLabel)}
+                            onMouseLeave={handleToggleLabelLeave}
+                            onFocus={handleToggleLabelFocus(perRuleLabel)}
+                            onBlur={handleToggleLabelLeave}
+                          >
+                            {perRuleLabel}
+                          </Typography>
+                        </ToggleButton>
+                        <ToggleButton
+                          value="perSet"
+                          aria-label={perSetLabel}
+                          selected={countMode.perSet && !countMode.perRule}
+                          sx={COUNT_MODE_BUTTON_SX}
+                          onClick={(event) => { event.stopPropagation(); handleCountModeToggle('perSet') }}
+                        >
+                          <Typography
+                            component="span"
+                            noWrap
+                            sx={ELLIPSIS_TEXT_SX}
+                            data-ellipsis-target
+                            onMouseEnter={handleToggleLabelMouseEnter(perSetLabel)}
+                            onMouseLeave={handleToggleLabelLeave}
+                            onFocus={handleToggleLabelFocus(perSetLabel)}
+                            onBlur={handleToggleLabelLeave}
+                          >
+                            {perSetLabel}
+                          </Typography>
+                        </ToggleButton>
+                      </ToggleButtonGroup>
+                      <ToggleButtonGroup
+                        size="small"
+                        value={[]}
+                        aria-label={t('keepUniquesCountModeToggleLabel')}
+                        sx={COUNT_MODE_ROW_SX}
                       >
-                        <Typography
-                          component="span"
-                          noWrap
-                          sx={ELLIPSIS_TEXT_SX}
-                          data-ellipsis-target
-                          onMouseEnter={handleToggleLabelMouseEnter(perRuleLabel)}
-                          onMouseLeave={handleToggleLabelLeave}
-                          onFocus={handleToggleLabelFocus(perRuleLabel)}
-                          onBlur={handleToggleLabelLeave}
+                        <ToggleButton
+                          value="perFaction"
+                          aria-label={perFactionLabel}
+                          selected={countMode.perFaction && !countMode.perRule}
+                          sx={COUNT_MODE_BUTTON_SX}
+                          onClick={(event) => { event.stopPropagation(); handleCountModeToggle('perFaction') }}
                         >
-                          {perRuleLabel}
-                        </Typography>
-                      </ToggleButton>
-                    </ToggleButtonGroup>
+                          <Typography
+                            component="span"
+                            noWrap
+                            sx={ELLIPSIS_TEXT_SX}
+                            data-ellipsis-target
+                            onMouseEnter={handleToggleLabelMouseEnter(perFactionLabel)}
+                            onMouseLeave={handleToggleLabelLeave}
+                            onFocus={handleToggleLabelFocus(perFactionLabel)}
+                            onBlur={handleToggleLabelLeave}
+                          >
+                            {perFactionLabel}
+                          </Typography>
+                        </ToggleButton>
+                        <ToggleButton
+                          value="perMain"
+                          aria-label={perMainLabel}
+                          selected={countMode.perMainStat && !countMode.perRule}
+                          sx={COUNT_MODE_BUTTON_SX}
+                          onClick={(event) => { event.stopPropagation(); handleCountModeToggle('perMain') }}
+                        >
+                          <Typography
+                            component="span"
+                            noWrap
+                            sx={ELLIPSIS_TEXT_SX}
+                            data-ellipsis-target
+                            onMouseEnter={handleToggleLabelMouseEnter(perMainLabel)}
+                            onMouseLeave={handleToggleLabelLeave}
+                            onFocus={handleToggleLabelFocus(perMainLabel)}
+                            onBlur={handleToggleLabelLeave}
+                          >
+                            {perMainLabel}
+                          </Typography>
+                        </ToggleButton>
+                      </ToggleButtonGroup>
+                    </Stack>
                   </Box>
                 </MarkdownTooltip>
               </Box>
