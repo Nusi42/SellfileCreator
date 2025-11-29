@@ -205,6 +205,7 @@ const overrides: Catalog = {
   keepUniquesCountModePerFaction: 'Par faction',
   keepUniquesCountModePerMain: 'Par stat principale',
   keepUniquesCountModePerRule: 'Par règle',
+  // Tooltip mirrors the README examples so users see the same scenarios we use to explain the 2×2 count-mode grid.
   keepUniquesCountModeHint: '**Modes de quota avec exemples**\n- **Par règle** garde un seul pool pour toute la carte — ex. Bottes avec stat principale [[stat:statSPD]], conserver ≥5 même si les sets changent.\n- **Par faction** découpe la quota par faction — ex. ≥3 Anneaux Merciless par faction, ≥2 Anneaux avec [[stat:statHP_percent]] principal ou la règle «5 Anneaux/Amulettes/Bannières par faction».\n- **Par ensemble** se combine avec les autres boutons quand le set est critique — ex. Stoneskin/Protection (Anneaux/Amulettes/Bannières) nécessitent ≥2 par faction, donc activez Par ensemble + Par faction.\n- **Par stat principale** limite la quota à un main — ex. Gants Savage + Lethal avec [[stat:statCDMG]] principal, garder ≥3 gants de dégâts même si le mélange de sets change.',
   keepUniquesNoRules: 'Aucune règle de conservation pour le moment.',
   keepUniquesAddRule: 'Ajouter une règle de conservation',

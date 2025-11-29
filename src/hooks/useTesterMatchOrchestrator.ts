@@ -44,6 +44,8 @@ export const fingerprintKeepUniqueDetection = (
   const parts: string[] = []
   for (const entry of snapshot.entries) {
     // Encode only primitives + joined arrays to avoid object churn.
+    // Encode the 2×2 scope toggles explicitly so flips in the new UI grid
+    // always mutate the fingerprint and force a fresh detection snapshot.
     const mode = sanitizeKeepUniqueCountMode(entry.countMode)
     parts.push([
       entry.ruleId ?? '',

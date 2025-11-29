@@ -209,6 +209,7 @@ const enUS: Catalog = {
   keepUniquesCountModePerFaction: 'Per faction',
   keepUniquesCountModePerMain: 'Per main stat',
   keepUniquesCountModePerRule: 'Per rule',
+  // Tooltip mirrors the README examples so users see the same scenarios we use to explain the 2×2 count-mode grid.
   keepUniquesCountModeHint: '**Quota modes with real examples**\n- **Per rule** keeps one pool for the whole card — e.g., Boots with [[stat:statSPD]] main stat, keep ≥5 across every set.\n- **Per faction** splits the pool per faction — e.g., ≥3 Merciless Rings each, ≥2 Rings with [[stat:statHP_percent]] mains each, or the “5 Rings/Amulets/Banners per faction” rule.\n- **Per set** stacks with the other toggles when the set matters — e.g., Stoneskin/Protection Rings/Amulets/Banners need ≥2 per faction, so enable Per set + Per faction.\n- **Per main stat** narrows quotas to one main — e.g., Savage + Lethal Gloves with [[stat:statCDMG]] mains, keep ≥3 high-damage gloves even when the set mix changes.',
   keepUniquesNoRules: 'No keep rules yet.',
   keepUniquesAddRule: 'Add Keep Rule',

@@ -78,6 +78,8 @@ const buildTutorialKeepUniqueRules = (): KeepUniqueRule[] => [{
   },
   requiredCount: 1,
   enabled: true,
+  // Tutorial snapshot mirrors the new 2×2 scope grid by cloning the
+  // sanitized default so demos highlight the same toggle state as the UI.
   countMode: { ...KEEP_UNIQUE_DEFAULT_COUNT_MODE },
 }]
 

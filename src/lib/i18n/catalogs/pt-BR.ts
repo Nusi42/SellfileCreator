@@ -205,6 +205,7 @@ const catalog: Catalog = {
   keepUniquesCountModePerFaction: 'Por facção',
   keepUniquesCountModePerMain: 'Por atributo principal',
   keepUniquesCountModePerRule: 'Por regra',
+  // Tooltip mirrors the README examples so users see the same scenarios we use to explain the 2×2 count-mode grid.
   keepUniquesCountModeHint: '**Modos de cota com exemplos**\n- **Por regra** mantém um único pool — ex.: Botas com stat principal [[stat:statSPD]], guarde ≥5 mesmo misturando sets.\n- **Por facção** separa a cota por facção — ex.: ≥3 Anéis Merciless por facção, ≥2 Anéis com [[stat:statHP_percent]] principal ou a regra de “5 Anéis/Amuletos/Bandeiras por facção”.\n- **Por conjunto** combina com os outros botões quando o set importa — ex.: para Stoneskin/Protection (Anéis/Amuletos/Bandeiras) com ≥2 por facção, ligue Por conjunto + Por facção.\n- **Por atributo principal** limita a cota a um único main — ex.: Luvas Savage + Lethal com [[stat:statCDMG]] principal, mantenha ≥3 peças de dano mesmo mudando o mix de sets.',
   keepUniquesNoRules: 'Ainda não há regras de manutenção.',
   keepUniquesAddRule: 'Adicionar regra de manutenção',
