@@ -1217,7 +1217,11 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
   }
 
   return (
-    <>
+    <Box
+      // Ensure the “right-click for actions” hint disappears whenever the pointer leaves the panel.
+      onMouseLeave={handleSectionHintPointerLeave}
+      sx={{ display: 'contents' }}
+    >
       <Box
         sx={(theme) => ({
           border: `1px solid ${theme.palette.divider}`,
@@ -3048,7 +3052,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
         </>
       )}
       <ContextMenuHintOverlay text={t('contextMenuHint')} position={sectionHintActive ? sectionHintPos : null} />
-    </>
+    </Box>
   )
 })
 

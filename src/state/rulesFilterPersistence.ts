@@ -13,6 +13,7 @@ import { createLocalStorageStateHook, createLocalStorageStore } from './localSto
 export const RULES_FILTER_OPEN_STORAGE_KEY = 'sellfileCreator.rulesFilter.open.v2'
 export const RULES_FILTER_STATE_STORAGE_KEY = 'sellfileCreator.rulesFilter.state.v2'
 export const RULES_FILTER_COLLAPSED_STORAGE_KEY = 'sellfileCreator.rulesFilter.collapse.v3'
+const RULES_FILTER_SYNC_STORAGE_KEY = 'sellfileCreator.rulesFilter.sync.v1'
 
 export const RULES_FILTER_PREVIEW_MODES = Object.freeze(['rules', 'tester'] as const)
 export type RulesFilterPreviewMode = typeof RULES_FILTER_PREVIEW_MODES[number]
@@ -219,6 +220,13 @@ const filterCollapsedStore = createLocalStorageStore<ModeScoped<CollapsedSection
 const useFilterOpenMap = createLocalStorageStateHook(filterOpenStore)
 const useFilterStateMap = createLocalStorageStateHook(filterStateStore)
 const useCollapsedMap = createLocalStorageStateHook(filterCollapsedStore)
+const filterSyncStore = createLocalStorageStore<boolean>({
+  key: RULES_FILTER_SYNC_STORAGE_KEY,
+  fallback: false,
+  parse: (raw) => raw === 'true',
+  serialize: (value) => (value ? 'true' : null),
+})
+const useFilterSync = createLocalStorageStateHook(filterSyncStore)
 
 type ModePreferenceHookResult<T> = [T, (next: T | ((prev: T) => T)) => void, ModeScoped<T>]
 
@@ -293,4 +301,12 @@ export function setRulesFilterCollapsedForMode(mode: RulesFilterPreviewMode, val
     if (collapsedEquals(previous[mode], value)) return previous
     return { ...previous, [mode]: value }
   })
+}
+
+export const useRulesFilterSyncPreference = (): [boolean, (next: boolean | ((prev: boolean) => boolean)) => void] => {
+  return useFilterSync()
+}
+
+export function setRulesFilterSyncPreference(sync: boolean) {
+  filterSyncStore.set(Boolean(sync))
 }

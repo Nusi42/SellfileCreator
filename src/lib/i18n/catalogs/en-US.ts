@@ -825,6 +825,7 @@ const enUS: Catalog = {
   testerChampionSearchPlaceholder: 'Search Champions',
   testerChampionUnknownName: 'Unknown Champion #{id}',
   filterReset: 'Reset Filters',
+  filterSyncViews: 'Sync filters between views',
   filterMatch: 'Match',
   filterAnyOf: 'Any Of',
   filterAllOf: 'All Of',
