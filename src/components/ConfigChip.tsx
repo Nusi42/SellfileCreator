@@ -23,7 +23,7 @@ import {
 } from '../lib/types'
 import { NBSP, CHIP_ROLL_BADGE_FONT_SIZE_PX, CHIP_ROLL_BADGE_SIZE_PX, HOVER_BG_ALPHA, SELECTED_HOVER_BG_ALPHA, CONFIG_CHIP_BORDER_RADIUS_PX, CONFIG_CHIP_CONTROL_BUTTON_SIZE_PX, CONFIG_CHIP_VERTICAL_PADDING_PX, SUBSTAT_TARGET_MAX_ROLLS } from '../lib/constants'
 import { normalizeLooseRollTargetEntry, resolveAutoRarityCode } from '../lib/hsfBuilder'
-import { isLockedAggregateScopeActive } from '../lib/configNormalization'
+import { isLockedAggregateScopeActive, isMilestoneThresholdsActive } from '../lib/configNormalization'
 import { artifactTypeIconFor } from './artifactTypeIcons'
 import { useContextMenuCloseOnOutsideRightClick } from '../hooks/useContextMenuCloseOnOutsideRightClick'
 import { useI18n } from '../lib/i18n'
@@ -654,6 +654,7 @@ function summaryParts(
   }
 ): JSX.Element | null {
   const parts: Array<JSX.Element> = []
+  const milestoneThresholdsActive = isMilestoneThresholdsActive(cfg)
   const addText = (text: string) => { if (text) parts.push(<Box key={`t-${parts.length}`} component="span">{text}</Box>) }
   const addNode = (node: JSX.Element) => parts.push(<Box key={`n-${parts.length}`} component="span">{node}</Box>)
 
@@ -722,8 +723,9 @@ function summaryParts(
   }
 
   // Keep mode indicator: show a compact emoji for timing to make it explicit.
-  // 🌅 for Early, 🌙 for Late.
-  {
+  // 🌅 for Early, 🌙 for Late. Hide the section entirely when Milestone Thresholds
+  // cannot go Late so the summary stays focused on active behavior.
+  if (milestoneThresholdsActive) {
     const mode = (cfg.earlyKeepMode ?? 'early')
     addText(mode === 'late' ? '🌙' : '🌅')
   }
