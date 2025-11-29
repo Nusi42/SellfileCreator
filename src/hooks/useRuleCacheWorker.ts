@@ -11,7 +11,7 @@ import type { HsfFile } from '../lib/hsfTypes'
 import type { FinalSellRemainderConfig } from '../lib/finalSell'
 import { buildRuleMatchIndexData, primeRuleMatchIndex } from '../lib/ruleMatchIndex'
 import type { RuleMatchIndexData } from '../lib/ruleMatchIndex'
-import { collectKeepUniqueCandidates, computeKeepUniqueProtection, type KeepUniqueDetectionSnapshot, type KeepUniquesMergeInput } from '../lib/keepUniques'
+import { collectKeepUniqueCandidates, computeKeepUniqueProtection, hasActiveKeepUniqueRules, type KeepUniqueDetectionSnapshot, type KeepUniquesMergeInput } from '../lib/keepUniques'
 import type { NormalizedGearArtifact } from '../lib/importers/gearDbNormalizer'
 import { evaluateMatchesByConfig } from '../lib/ruleEval'
 import type { TesterMatchWorkerItemResult } from '../workers/testerMatchWorkerTypes'
@@ -30,6 +30,12 @@ type WarmCacheParams = {
 type PipelineParams = WarmCacheParams & {
   configModes: SellfileExportMode[]
   artifacts: NormalizedGearArtifact[]
+  artifactSignature?: string | null
+  artifactPatch?: {
+    changed: Array<[number, NormalizedGearArtifact]>
+    removed: number[]
+    signature: string | null
+  }
   fingerprint?: string | null
   skipWarm?: boolean
   skipMatches?: boolean
@@ -57,6 +63,7 @@ type PipelineResult = {
   matches: TesterMatchWorkerItemResult[]
   detection: KeepUniqueDetectionSnapshot | null
   fingerprint: string | null
+  artifactSignature: string | null
 }
 
 type CountRulesParams = {
@@ -103,11 +110,11 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
     const configsForRules = configsForRuleBuild(params.configs)
     const previousCache = fallbackCacheRef.current ?? undefined
     const baseRuleCount = Array.isArray(params.hsf?.Rules) ? (params.hsf?.Rules.length ?? 0) : 0
-    const cacheResult = updateConfigRulesCache(previousCache
-      ? {
-          configs: configsForRules,
-          metasets: params.metasets,
-          substatTargets: params.substatTargets,
+      const cacheResult = updateConfigRulesCache(previousCache
+        ? {
+            configs: configsForRules,
+            metasets: params.metasets,
+            substatTargets: params.substatTargets,
           previousCache,
           baseRuleCount,
           // Forward local progress to consumers whenever a caller opts in.
@@ -154,13 +161,24 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
   const runPipelineLocally = useCallback((params: PipelineParams, options?: { onProgress?: (progress: ProgressSnapshot) => void }): PipelineResult => {
     const warmTotal = params.skipWarm ? 0 : params.configs.length
     const needsMatches = params.skipMatches !== true
+    const artifactList = (() => {
+      if (params.artifactPatch) {
+        // Local fallback does not cache patches; apply patch to a local map per run.
+        const map = new Map<number, NormalizedGearArtifact>()
+        for (const [itemId, artifact] of params.artifactPatch.changed) {
+          map.set(itemId, artifact)
+        }
+        return Array.from(map.values())
+      }
+      return params.artifacts
+    })()
+    const hasActiveKeepUniques = hasActiveKeepUniqueRules(params.keepUniques)
     const needsDetection = needsMatches
       && params.skipDetection !== true
-      && params.keepUniques.enabled
-      && params.keepUniques.rules.length > 0
-      && params.artifacts.length > 0
+      && hasActiveKeepUniques
+      && artifactList.length > 0
     const matchPasses = needsMatches ? (needsDetection ? 2 : 1) : 0
-    const total = warmTotal + (params.artifacts.length * matchPasses)
+    const total = warmTotal + (artifactList.length * matchPasses)
     let completed = 0
     const emitProgress = () => {
       if (!options?.onProgress) return
@@ -210,7 +228,7 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
     }
     if (total > 0 && completed > 0) emitProgress()
 
-    const baseKeepUniques = params.keepUniques.enabled && params.keepUniques.rules.length > 0
+    const baseKeepUniques = hasActiveKeepUniques
       ? { ...params.keepUniques, detection: null }
       : params.keepUniques
     const mergedRulesBaseline = computeMergedRules({
@@ -225,9 +243,9 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
 
     const baselineMatchMap = new Map<number, TesterMatchWorkerItemResult>()
     if (needsDetection) {
-      for (const artifact of params.artifacts) {
+      for (const artifact of artifactList) {
         if (!artifact) continue
-        const itemId = Number((artifact.testerItem as { itemId?: number } | undefined)?.itemId ?? NaN)
+        const itemId = Number((artifact.testerItem as { itemId?: number } | undefined)?.itemId ?? artifact.id ?? NaN)
         if (!Number.isFinite(itemId)) continue
         const baseEval = evaluateMatchesByConfig(
           mergedRulesBaseline,
@@ -241,7 +259,7 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
           matchingConfigIndices: baseEval.matchingConfigIndices,
         })
       }
-      completed += params.artifacts.length
+      completed += artifactList.length
       if (total > 0) emitProgress()
     }
 
@@ -261,8 +279,8 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
 
     let detectionSnapshot: KeepUniqueDetectionSnapshot | null = null
     if (needsDetection) {
-      const rows = params.artifacts.map((artifact) => {
-        const itemId = Number((artifact.testerItem as { itemId?: number } | undefined)?.itemId ?? NaN)
+      const rows = artifactList.map((artifact, idx) => {
+        const itemId = Number((artifact.testerItem as { itemId?: number } | undefined)?.itemId ?? artifact.id ?? idx ?? NaN)
         const match = baselineMatchMap.get(itemId)
         return {
           artifact,
@@ -297,7 +315,7 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
 
     const matches: TesterMatchWorkerItemResult[] = []
     if (needsMatches) {
-      for (const artifact of params.artifacts) {
+      for (const artifact of artifactList) {
         if (!artifact) continue
         const itemId = Number((artifact.testerItem as { itemId?: number } | undefined)?.itemId ?? NaN)
         if (!Number.isFinite(itemId)) continue
@@ -341,6 +359,7 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
       matches,
       detection: detectionSnapshot,
       fingerprint: params.fingerprint ?? null,
+      artifactSignature: params.artifactSignature ?? params.artifactPatch?.signature ?? null,
     }
   }, [])
 
@@ -411,6 +430,7 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
           matches: data.payload.matches,
           detection: data.payload.detection,
           fingerprint: data.payload.fingerprint,
+          artifactSignature: data.payload.artifactSignature,
         })
         return
       }
@@ -622,6 +642,8 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
         keepUniques: params.keepUniques,
         configModes: params.configModes,
         artifacts: params.artifacts,
+        ...(params.artifactPatch ? { artifactPatch: params.artifactPatch } : {}),
+        ...(params.artifactSignature !== undefined ? { artifactSignature: params.artifactSignature ?? null } : {}),
         fingerprint: params.fingerprint ?? null,
         skipWarm: params.skipWarm ?? false,
         skipMatches: params.skipMatches ?? false,

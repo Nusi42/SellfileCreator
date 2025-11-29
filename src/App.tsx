@@ -56,20 +56,19 @@ import { useSubstatTargetsDialog } from './hooks/useSubstatTargetsDialog'
 import {
   computeMergedRules,
   buildRulesForConfig,
-  buildFinalSellRules,
   prependKeepUniqueRules,
   RULE_SOURCE_FINAL_SELL,
   RULE_SOURCE_HSF,
   RULE_SOURCE_KEEP_UNIQUES,
   type HsfRuleWithCfg,
 } from './lib/merge'
-import { applyConfigIndexMutable, getRuleConfigIndex } from './lib/ruleConfigIndex'
+import { getRuleConfigIndex } from './lib/ruleConfigIndex'
 import {
   type KeepUniqueDetectionSnapshot,
   type KeepUniqueRule,
   resolveKeepUniqueRulesWithMetasets,
 } from './lib/keepUniques'
-import { updateConfigRulesCache, fingerprintConfigForRules, fingerprintSubstatTargets, mergeArtifactSets } from './lib/ruleCache'
+import { updateConfigRulesCache } from './lib/ruleCache'
 import { hasConfigMeaningfulDifferences } from './lib/configDiff'
 import { buildRuleTesterAutosavePayload, createRuleTesterMath, fingerprintRuleTesterItem, loadRuleTesterAutosaveDraft, type RuleTesterItem } from './lib/ruleTesterSession'
 import { sortTesterRows } from './lib/testerSort'
@@ -115,16 +114,13 @@ import { importGearDatabaseFromFile } from './lib/importers/gearDbImporter'
 import type { NormalizedGearArtifact } from './lib/importers/gearDbNormalizer'
 import { TesterItemsGrid } from './components/TesterItemsGrid'
 import type { TesterPreviewMatch, TesterPreviewRow } from './types/testerPreview'
+import type { TesterMatchWorkerItemResult } from './workers/testerMatchWorkerTypes'
 import { buildRuleMatchIndexData, primeRuleMatchIndex } from './lib/ruleMatchIndex'
 import { FINAL_SELL_DEFAULT_SETS_MODE, FINAL_SELL_DIALOG_TAB_FINAL_SELL, FINAL_SELL_DIALOG_TABS } from './lib/finalSell'
 import type { FinalSellRemainderConfig, FinalSellLevel } from './lib/finalSell'
 import { useConfigSelection } from './hooks/useConfigSelection'
 import { useRuleCacheWorker } from './hooks/useRuleCacheWorker'
-import { useTesterMatchWorker } from './hooks/useTesterMatchWorker'
-import {
-  useTesterMatchOrchestrator,
-  fingerprintKeepUniqueDetection,
-} from './hooks/useTesterMatchOrchestrator'
+import { fingerprintKeepUniqueDetection } from './hooks/useTesterMatchOrchestrator'
 import { useTesterItemsActions } from './hooks/useTesterItemsActions'
 // Local tag for tester reset triggers; persists only in memory.
 type TesterMatchResetReason = 'restore' | 'hsfc' | 'gearDb'
@@ -164,51 +160,6 @@ const isDevBuild: boolean = Boolean((import.meta as unknown as { env?: { DEV?: b
 
 const NO_AUTO_APPLY: () => boolean = () => false
 
-type ConfigKeyAnalysis = {
-  mapping: Array<number | null>
-  removed: number[]
-  identical: boolean
-  reorderOnly: boolean
-}
-
-function analyzeConfigKeys(previous: readonly string[], next: readonly string[]): ConfigKeyAnalysis {
-  const available = new Map<string, number[]>()
-  for (let i = 0; i < previous.length; i += 1) {
-    const key = previous[i]!
-    const bucket = available.get(key)
-    if (bucket) {
-      bucket.push(i)
-    } else {
-      available.set(key, [i])
-    }
-  }
-  const mapping: Array<number | null> = []
-  for (let i = 0; i < next.length; i += 1) {
-    const key = next[i]!
-    const bucket = available.get(key)
-    if (!bucket || bucket.length === 0) {
-      mapping.push(null)
-    } else {
-      const prevIdx = bucket.shift()!
-      mapping.push(prevIdx)
-    }
-  }
-  const removed: number[] = []
-  for (const bucket of available.values()) {
-    while (bucket.length > 0) {
-      removed.push(bucket.shift()!)
-    }
-  }
-  const identical = previous.length === next.length
-    && removed.length === 0
-    && mapping.every((prevIdx, idx) => prevIdx === idx)
-  const reorderOnly = previous.length === next.length
-    && removed.length === 0
-    && mapping.every((prevIdx) => prevIdx !== null)
-    && !identical
-  return { mapping, removed, identical, reorderOnly }
-}
-
 const DEFAULT_GEAR_DB_FILENAME = 'RslHelper.db'
 const createGearDbFileFromBase64 = (name: string, base64?: string | null): File | null => {
   const atobFn = typeof globalThis !== 'undefined' && typeof globalThis.atob === 'function'
@@ -237,14 +188,6 @@ const createGearDbFileFromBase64 = (name: string, base64?: string | null): File 
   } catch {
     return null
   }
-}
-
-function remapRulesForIndex(rules: readonly HsfRuleWithCfg[], cfgIdx: number): HsfRuleWithCfg[] {
-  for (const rule of rules) {
-    if (!rule) continue
-    applyConfigIndexMutable(rule, cfgIdx)
-  }
-  return rules as HsfRuleWithCfg[]
 }
 
 function splitMergedRules(rules: readonly HsfRuleWithCfg[]): { baseRules: HsfRuleWithCfg[]; finalSellRules: HsfRuleWithCfg[] } {
@@ -290,12 +233,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setKeepUniqueRules,
     setKeepUniquesEnabled,
   } = useAppActions()
-  const { warmCache, flush: flushRuleCache, countRules } = useRuleCacheWorker()
-  const {
-    configure: configureTesterMatchWorker,
-    evaluateItems: evaluateTesterMatchItems,
-    supportsWorker: testerMatchWorkerSupported,
-  } = useTesterMatchWorker()
+  const { runPipeline, flush: flushRuleCache, countRules } = useRuleCacheWorker()
   const { statButtonBorders } = useDisplayPreferences()
   const { setStatButtonBorders } = useDisplayPreferenceActions()
   // Use a deferred snapshot so bursty substatTargets updates (e.g., Restore Defaults) coalesce before recomputing merged rules.
@@ -306,9 +244,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     return trimmed.length > 0 ? trimmed : null
   }), [customCfgs])
   const configNames = useMemo(() => customCfgs.map((cfg) => (typeof cfg?.name === 'string' ? cfg.name : '')), [customCfgs])
+  const configModes = useMemo(() => customCfgs.map((cfg) => cfg.exportMode), [customCfgs])
   const substatTargetsForPreview = useDeferredValue(substatTargets)
   const metasetsForPreview = useDeferredValue(metasets)
   const ruleConfigsForPreview = useDeferredValue(ruleConfigs)
+  const configModesForPreview = useDeferredValue(configModes)
+  const configNamesForPreview = useDeferredValue(configNames)
   const testerItemIdRef = useRef(1)
   const allocTesterItemId = useCallback(() => {
     const id = testerItemIdRef.current
@@ -371,6 +312,33 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     }
     return next
   }, [testerItems])
+  const testerArtifactsSignature = useMemo(() => {
+    const cache = testerArtifactCacheRef.current
+    const entries = Array.from(cache.entries()).sort((a, b) => a[0] - b[0])
+    let sig = `${entries.length}`
+    for (const [itemId, entry] of entries) {
+      const artifact = entry.artifact
+      const level = artifact.level ?? -1
+      const exact = artifact.exactLevel ?? -1
+      const asc = artifact.ascension
+      const ascSegment = asc
+        ? `${asc.variant}:${asc.totalValue.toFixed(3)}:${asc.glyphValue.toFixed(3)}`
+        : 'na'
+      const subSegment = (artifact.substats ?? [])
+        .map((sub) => `${sub.variant}:${sub.totalValue.toFixed(3)}:${sub.glyphValue.toFixed(3)}`)
+        .join(',')
+      sig += `|${itemId}:${level}:${exact}:${ascSegment}:${subSegment}`
+    }
+    return sig
+  }, [testerItems])
+  const getArtifactItemId = useCallback((artifact: NormalizedGearArtifact, fallbackIdx?: number): number | null => {
+    const testerId = Number((artifact.testerItem as { itemId?: number } | undefined)?.itemId ?? NaN)
+    if (Number.isFinite(testerId)) return testerId
+    const artifactId = Number((artifact as { id?: number } | undefined)?.id ?? NaN)
+    if (Number.isFinite(artifactId)) return artifactId
+    if (typeof fallbackIdx === 'number') return -(fallbackIdx + 1)
+    return null
+  }, [])
   const [testerPreviewRows, setTesterPreviewRows] = useState<TesterPreviewRow[]>([])
   const testerMatchesByItemId = useMemo(() => {
     const map = new Map<number, TesterPreviewMatch | null>()
@@ -383,6 +351,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     return map
   }, [testerPreviewRows])
   const [keepUniqueDetection, setKeepUniqueDetection] = useState<KeepUniqueDetectionSnapshot | null>(null)
+  const [keepUniqueGroupItemKeys, setKeepUniqueGroupItemKeys] = useState<Set<number>>(new Set())
   const keepUniqueDetectionRef = useRef<KeepUniqueDetectionSnapshot | null>(keepUniqueDetection)
   useEffect(() => { keepUniqueDetectionRef.current = keepUniqueDetection }, [keepUniqueDetection])
   const keepUniqueDetectionSignature = useMemo(
@@ -591,7 +560,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   })
   const configRulesStateRef = useRef(configRulesState)
   useEffect(() => { configRulesStateRef.current = configRulesState }, [configRulesState])
-  const ruleCacheRequestTokenRef = useRef(0)
   const [rulesBuilding, setRulesBuilding] = useState(false)
   // Persist the current warm-cache snapshot so the preview chip can render an overlay.
   const [rulesBuildProgress, setRulesBuildProgress] = useState<ProgressSnapshot | null>(null)
@@ -626,395 +594,172 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       clearHangTimeout()
     }
   }, [workloadBusy, workloadDeterminateRatio])
-  const finishRulesBuilding = useCallback(() => {
-    setRulesBuilding(false)
-    setRulesBuildProgress(null)
-  }, [])
   const rulesBuildingTokenRef = useRef<number | null>(null)
-  const pendingWarmRef = useRef<{ token: number; promise: Promise<ConfigRulesStateSnapshot> } | null>(null)
-  type WarmInputsSnapshot = {
-    configs: BuilderConfig[] | null
-    metasets: Metaset[] | null
-    substatTargets: SubstatTargetTable | null
-    hsf: HsfFile | null
-    finalSell: FinalSellRemainderConfig | null | undefined
-    keepUniquesActive: boolean
-    keepUniqueRules: KeepUniqueRule[] | null
-    keepUniqueDetection: KeepUniqueDetectionSnapshot | null
-  }
-  const lastWarmInputsRef = useRef<WarmInputsSnapshot | null>(null)
-  const pendingWarmInputsRef = useRef<WarmInputsSnapshot | null>(null)
-  const immediateRuleConfigsRef = useRef(ruleConfigs)
-  const immediateMetasetsRef = useRef(metasets)
-  const immediateSubstatTargetsRef = useRef(substatTargets)
   useEffect(() => {
-    immediateRuleConfigsRef.current = ruleConfigs
-  }, [ruleConfigs])
-  useEffect(() => {
-    immediateMetasetsRef.current = metasets
-  }, [metasets])
-  useEffect(() => {
-    immediateSubstatTargetsRef.current = substatTargets
-  }, [substatTargets])
-  useEffect(() => {
-    const configsForWarm = ruleConfigsForPreview === immediateRuleConfigsRef.current
-      ? ruleConfigsForPreview
-      : immediateRuleConfigsRef.current
-    const metasetsForWarm = metasetsForPreview === immediateMetasetsRef.current
-      ? metasetsForPreview
-      : immediateMetasetsRef.current
-    const substatTargetsForWarm = substatTargetsForPreview === immediateSubstatTargetsRef.current
-      ? substatTargetsForPreview
-      : immediateSubstatTargetsRef.current
-
-    const configRulesSnapshot = configRulesStateRef.current
-    const keepUniqueDetectionSnapshot = keepUniqueDetectionRef.current
-    const nextSubstatTargetsKey = fingerprintSubstatTargets(substatTargetsForWarm)
-    const resolvedConfigsForFingerprint = configsForWarm.map((cfg) => mergeArtifactSets(cfg, metasetsForWarm))
-    const nextKeys = resolvedConfigsForFingerprint.map((cfg) => fingerprintConfigForRules(cfg, nextSubstatTargetsKey))
-
-    const prevWarm = lastWarmInputsRef.current
-    const keepUniquesStable = Boolean(
-      prevWarm
-      && prevWarm.keepUniquesActive === keepUniquesActive
-      && prevWarm.keepUniqueRules === keepUniqueRules
-      && prevWarm.keepUniqueDetection === keepUniqueDetectionSnapshot,
-    )
-    if (
-      prevWarm
-      && prevWarm.configs === configsForWarm
-      && prevWarm.metasets === metasetsForWarm
-      && prevWarm.substatTargets === substatTargetsForWarm
-      && prevWarm.hsf === hsf
-      && prevWarm.finalSell === finalSellRemainder
-      && keepUniquesStable
-    ) {
-      return undefined
-    }
-
-    const canUseFingerprints = nextSubstatTargetsKey === configRulesSnapshot.substatTargetsKey
-    const isBaseStable = Boolean(prevWarm && prevWarm.hsf === hsf)
-    const isFinalSellStable = Boolean(prevWarm && prevWarm.finalSell === finalSellRemainder)
-    const isKeepUniquesStable = keepUniquesStable
-    if (canUseFingerprints) {
-      const analysis = analyzeConfigKeys(configRulesSnapshot.keys, nextKeys)
-      if (analysis.identical && isBaseStable && isFinalSellStable && isKeepUniquesStable) {
-        lastWarmInputsRef.current = {
-          configs: configsForWarm,
-          metasets: metasetsForWarm,
-          substatTargets: substatTargetsForWarm,
-          hsf,
-          finalSell: finalSellRemainder,
-          keepUniquesActive,
-          keepUniqueRules,
-          keepUniqueDetection: keepUniqueDetectionSnapshot,
-        }
-        return undefined
-      }
-      if (analysis.identical && isBaseStable && !isFinalSellStable) {
-        const nextFinalSellRules = buildFinalSellRules(finalSellRemainder)
-        setConfigRulesState((prev) => {
-          const customSegments: HsfRuleWithCfg[][] = []
-          for (let idx = 0; idx < prev.keys.length; idx += 1) {
-              customSegments.push(prev.rulesByConfig.get(idx) ?? [])
-            }
-            const mergedRules = prev.baseRules.concat(...customSegments, nextFinalSellRules)
-            return {
-              ...prev,
-              finalSellRules: nextFinalSellRules,
-              mergedRules,
-            }
-          })
-          finishRulesBuilding()
-        lastWarmInputsRef.current = {
-          configs: configsForWarm,
-          metasets: metasetsForWarm,
-          substatTargets: substatTargetsForWarm,
-          hsf,
-          finalSell: finalSellRemainder,
-          keepUniquesActive,
-          keepUniqueRules,
-          keepUniqueDetection: keepUniqueDetectionSnapshot,
-        }
-        return undefined
-      }
-      if (analysis.reorderOnly && isBaseStable && isFinalSellStable) {
-        const mapping = analysis.mapping.map((value) => value!)
-        setConfigRulesState((prev) => {
-          const newRulesByConfig = new Map<number, HsfRuleWithCfg[]>()
-          const newCountsByConfig = new Map<number, number>()
-          const truncatedPrev = new Set(prev.truncatedConfigIndices)
-          const excludedPrev = new Set(prev.excludedByTotalLimitIndices)
-          const newTruncated: number[] = []
-          const newExcluded: number[] = []
-          const customSegments: HsfRuleWithCfg[][] = []
-          for (let idx = 0; idx < mapping.length; idx += 1) {
-            const previousIdx = mapping[idx]!
-            const prevRules = prev.rulesByConfig.get(previousIdx) ?? []
-            const remapped = remapRulesForIndex(prevRules, idx)
-            newRulesByConfig.set(idx, remapped)
-            const prevCount = prev.countsByConfig.get(previousIdx)
-            const wasTruncated = truncatedPrev.has(previousIdx)
-            if (wasTruncated) {
-              newCountsByConfig.set(idx, Number.POSITIVE_INFINITY)
-              newTruncated.push(idx)
-            } else {
-              const countValue = typeof prevCount === 'number' ? prevCount : remapped.length
-              newCountsByConfig.set(idx, countValue)
-            }
-            if (excludedPrev.has(previousIdx)) newExcluded.push(idx)
-            customSegments.push(remapped)
-          }
-          const mergedRules = prev.baseRules.concat(...customSegments, prev.finalSellRules)
-          return {
-            ...prev,
-            baseRules: prev.baseRules,
-            finalSellRules: prev.finalSellRules,
-            rulesByConfig: newRulesByConfig,
-            countsByConfig: newCountsByConfig,
-            keys: nextKeys.slice(),
-            substatTargetsKey: nextSubstatTargetsKey,
-            mergedRules,
-            truncatedConfigIndices: newTruncated,
-            excludedByTotalLimitIndices: newExcluded,
-          }
-        })
-        finishRulesBuilding()
-        lastWarmInputsRef.current = {
-          configs: configsForWarm,
-          metasets: metasetsForWarm,
-          substatTargets: substatTargetsForWarm,
-          hsf,
-          finalSell: finalSellRemainder,
-          keepUniquesActive,
-          keepUniqueRules,
-          keepUniqueDetection: keepUniqueDetectionSnapshot,
-        }
-        return undefined
-      }
-      const mappingHasNull = analysis.mapping.some((value) => value === null)
-      if (!mappingHasNull && analysis.removed.length > 0 && isBaseStable && isFinalSellStable) {
-        const mapping = analysis.mapping.map((value) => value!)
-        setConfigRulesState((prev) => {
-          const newRulesByConfig = new Map<number, HsfRuleWithCfg[]>()
-          const newCountsByConfig = new Map<number, number>()
-          const truncatedPrev = new Set(prev.truncatedConfigIndices)
-          const excludedPrev = new Set(prev.excludedByTotalLimitIndices)
-          const newTruncated: number[] = []
-          const newExcluded: number[] = []
-          const customSegments: HsfRuleWithCfg[][] = []
-          for (let idx = 0; idx < mapping.length; idx += 1) {
-            const previousIdx = mapping[idx]!
-            const prevRules = prev.rulesByConfig.get(previousIdx) ?? []
-            const remapped = remapRulesForIndex(prevRules, idx)
-            newRulesByConfig.set(idx, remapped)
-            const prevCount = prev.countsByConfig.get(previousIdx)
-            if (truncatedPrev.has(previousIdx)) {
-              newCountsByConfig.set(idx, Number.POSITIVE_INFINITY)
-              newTruncated.push(idx)
-            } else {
-              const countValue = typeof prevCount === 'number' ? prevCount : remapped.length
-              newCountsByConfig.set(idx, countValue)
-            }
-            if (excludedPrev.has(previousIdx)) newExcluded.push(idx)
-            customSegments.push(remapped)
-          }
-        const mergedRules = prev.baseRules.concat(...customSegments, prev.finalSellRules)
-        primeRuleMatchIndex(mergedRules, buildRuleMatchIndexData(mergedRules))
-        return {
-          ...prev,
-          rulesByConfig: newRulesByConfig,
-          countsByConfig: newCountsByConfig,
-            keys: nextKeys.slice(),
-            substatTargetsKey: nextSubstatTargetsKey,
-            mergedRules,
-            truncatedConfigIndices: newTruncated,
-            excludedByTotalLimitIndices: newExcluded,
-          }
-        })
-        finishRulesBuilding()
-        lastWarmInputsRef.current = {
-          configs: configsForWarm,
-          metasets: metasetsForWarm,
-          substatTargets: substatTargetsForWarm,
-          hsf,
-          finalSell: finalSellRemainder,
-          keepUniquesActive,
-          keepUniqueRules,
-          keepUniqueDetection: keepUniqueDetectionSnapshot,
-        }
-        return undefined
-      }
-    }
-
-    const warmInputs: WarmInputsSnapshot = {
-      configs: configsForWarm,
-      metasets: metasetsForWarm,
-      substatTargets: substatTargetsForWarm,
-      hsf,
-      finalSell: finalSellRemainder,
-      keepUniquesActive,
-      keepUniqueRules,
-      keepUniqueDetection: keepUniqueDetectionSnapshot,
-    }
-    pendingWarmInputsRef.current = warmInputs
     const abortController = new AbortController()
-    const requestToken = ruleCacheRequestTokenRef.current + 1
-    ruleCacheRequestTokenRef.current = requestToken
-    const isAbortError = (error: unknown): boolean => {
-      if (!error || typeof error !== 'object') return false
-      const maybe = error as { name?: unknown }
-      if (typeof maybe.name === 'string' && maybe.name === 'AbortError') return true
-      if (typeof DOMException !== 'undefined' && error instanceof DOMException) {
-        return error.name === 'AbortError'
+    const requestToken = (rulesBuildingTokenRef.current ?? 0) + 1
+    rulesBuildingTokenRef.current = requestToken
+    setTesterRowsActiveBuildId(requestToken)
+    setRulesBuilding(true)
+    setTesterRowsBuilding(true)
+    setRulesBuildProgress(null)
+    setTesterRowsProgress(null)
+
+    const keepUniquesPayload = {
+      enabled: keepUniquesEnabled && resolvedKeepUniqueRules.length > 0,
+      rules: resolvedKeepUniqueRules,
+      detection: null as KeepUniqueDetectionSnapshot | null,
+    }
+    const artifactPatch = (() => {
+      const cache = testerArtifactCacheRef.current
+      const changed: Array<[number, NormalizedGearArtifact]> = []
+      const removed: number[] = []
+      const activeIds = new Set<number>()
+      for (let idx = 0; idx < testerPreviewArtifacts.length; idx += 1) {
+        const artifact = testerPreviewArtifacts[idx]
+        if (!artifact) continue
+        const itemId = getArtifactItemId(artifact, idx)
+        if (!Number.isFinite(itemId)) continue
+        activeIds.add(itemId!)
+        changed.push([itemId!, artifact])
       }
-      return false
+      for (const [itemId] of cache.entries()) {
+        if (!activeIds.has(itemId)) removed.push(itemId)
+      }
+      return { changed, removed, signature: testerArtifactsSignature }
+    })()
+
+    const toPreviewMatch = (
+      result: TesterMatchWorkerItemResult['firstMatch'],
+      rules: readonly HsfRuleWithCfg[],
+    ): TesterPreviewMatch | null => {
+      if (!result) return null
+      const rule = rules[result.ruleIndex]
+      const cfgIdx = result.cfgIdx ?? null
+      return {
+        ruleIndex: result.ruleIndex,
+        keep: result.keep,
+        cfgIdx,
+        cfgName: cfgIdx != null ? (configNamesForPreview[cfgIdx] ?? null) : null,
+        ruleLabel: null,
+        ruleSource: rule?.__source ?? null,
+      }
     }
 
-    const resolvedKeepUniqueRulesForWarm = resolveKeepUniqueRulesWithMetasets(keepUniqueRules, metasets)
-    const keepUniquesActiveForWarm = keepUniquesEnabled && resolvedKeepUniqueRulesForWarm.length > 0
-    // Only forward detection data when keep-unique guards are actually in play.
-    const detectionSnapshotForWarm = keepUniquesActiveForWarm ? keepUniqueDetectionSnapshot : null
-    // Fingerprint ahead of time so we know whether the worker commit already applied the scan.
-    const detectionSignatureForWarm = detectionSnapshotForWarm ? fingerprintKeepUniqueDetection(detectionSnapshotForWarm) : null
-    setRulesBuilding(true)
-    if (configsForWarm.length > 0) {
-      // Reset the determinate progress whenever a new warm pass starts.
-      setRulesBuildProgress({ completed: 0, total: configsForWarm.length })
-    } else {
-      setRulesBuildProgress(null)
-    }
-    rulesBuildingTokenRef.current = requestToken
-    const warmPromise = warmCache(
+    runPipeline(
       {
-        configs: configsForWarm,
-        metasets: metasetsForWarm,
-        substatTargets: substatTargetsForWarm,
+        configs: ruleConfigsForPreview,
+        metasets: metasetsForPreview,
+        substatTargets: substatTargetsForPreview,
         hsf,
         ...(finalSellRemainder ? { finalSellRemainder } : {}),
-        keepUniques: {
-          enabled: keepUniquesActiveForWarm,
-          rules: resolvedKeepUniqueRulesForWarm,
-          // Worker builds keep-unique injections when detection data is present; null keeps legacy behavior.
-          detection: detectionSnapshotForWarm,
-        },
+        keepUniques: keepUniquesPayload,
+        configModes: configModesForPreview,
+        artifacts: [],
+        artifactPatch,
+        artifactSignature: testerArtifactsSignature,
+        fingerprint: null,
+        skipWarm: false,
+        skipMatches: false,
+        skipDetection: false,
       },
       {
         signal: abortController.signal,
-        onProgress: (snapshot) => {
-          // Ignore out-of-date snapshots so aborted work does not regress the UI.
+        onProgress: (progress) => {
           if (requestToken !== rulesBuildingTokenRef.current) return
-          setRulesBuildProgress(snapshot)
+          setRulesBuildProgress(progress)
+          setTesterRowsProgress(progress)
         },
       },
     )
-      .then(({ state }) => {
-        if (abortController.signal.aborted) {
-          return configRulesStateRef.current
+      .then(({ state, matches, detection }) => {
+        if (abortController.signal.aborted || requestToken !== rulesBuildingTokenRef.current) return
+        const { baseRules, finalSellRules } = splitMergedRules(state.mergedRules)
+        const snapshot: ConfigRulesStateSnapshot = {
+          baseRules,
+          finalSellRules,
+          rulesByConfig: state.rulesByConfig,
+          countsByConfig: state.countsByConfig,
+          keys: state.keys,
+          substatTargetsKey: state.substatTargetsKey,
+          mergedRules: state.mergedRules,
+          truncatedConfigIndices: state.truncatedConfigIndices,
+          totalLimitHit: state.totalLimitHit,
+          excludedByTotalLimitIndices: state.excludedByTotalLimitIndices,
         }
-        if (requestToken === rulesBuildingTokenRef.current) {
-          const { baseRules, finalSellRules } = splitMergedRules(state.mergedRules)
-          const snapshot: ConfigRulesStateSnapshot = {
-            baseRules,
-            finalSellRules,
-            rulesByConfig: state.rulesByConfig,
-            countsByConfig: state.countsByConfig,
-            keys: state.keys,
-            substatTargetsKey: state.substatTargetsKey,
-            mergedRules: state.mergedRules,
-            truncatedConfigIndices: state.truncatedConfigIndices,
-            totalLimitHit: state.totalLimitHit,
-            excludedByTotalLimitIndices: state.excludedByTotalLimitIndices,
-          }
-          setConfigRulesState(snapshot)
-          // Remember which data set produced the current keep-unique merge so the detector effect can skip redundant work.
-          keepUniqueAppliedStateRef.current = {
-            baseRules: snapshot.baseRules,
-            rulesByConfig: snapshot.rulesByConfig,
-            finalSellRules: snapshot.finalSellRules,
-          }
-          finishRulesBuilding()
-          lastWarmInputsRef.current = warmInputs
-          if (pendingWarmInputsRef.current === warmInputs) {
-            pendingWarmInputsRef.current = null
-          }
-          keepUniqueScanAppliedRef.current = detectionSignatureForWarm
-          if (pendingKeepUniqueDetectionSigRef.current === detectionSignatureForWarm) {
-            pendingKeepUniqueDetectionSigRef.current = null
-          }
-          return snapshot
+        setConfigRulesState(snapshot)
+        keepUniqueAppliedStateRef.current = {
+          baseRules,
+          rulesByConfig: state.rulesByConfig,
+          finalSellRules,
         }
-        if (pendingWarmInputsRef.current === warmInputs) {
-          pendingWarmInputsRef.current = null
+        const matchMap = new Map<number, TesterMatchWorkerItemResult>()
+        for (const entry of matches) {
+          if (!entry) continue
+          matchMap.set(entry.itemId, entry)
         }
-        return configRulesStateRef.current
+        const rows: TesterPreviewRow[] = []
+        const artifactEntries = artifactPatch.changed.length > 0
+          ? artifactPatch.changed
+          : testerPreviewArtifacts.map((artifact, idx) => [getArtifactItemId(artifact, idx), artifact] as [number | null, NormalizedGearArtifact])
+        for (const [itemIdMaybe, artifact] of artifactEntries) {
+          if (!artifact) continue
+          const itemId = Number(itemIdMaybe ?? NaN)
+          if (!Number.isFinite(itemId)) continue
+          const matchEntry = matchMap.get(itemId)
+          const match = toPreviewMatch(matchEntry?.firstMatch ?? null, state.mergedRules)
+          const baseMatch = toPreviewMatch(matchEntry?.firstNonExcludedMatch ?? null, state.mergedRules)
+          rows.push({
+            artifact,
+            match,
+            baseMatch,
+            matchingCfgIndices: matchEntry?.matchingConfigIndices ?? [],
+          })
+        }
+        setTesterPreviewRows(sortTesterRows(rows))
+        setTesterRowsCommittedBuildId(requestToken)
+        setTesterRowsActiveBuildId(requestToken)
+        const uniqueKeys = new Set<number>()
+        if (detection?.entries) {
+          for (const entry of detection.entries) {
+            if (!entry) continue
+            for (const key of entry.itemKeys) uniqueKeys.add(key)
+          }
+        }
+        setKeepUniqueDetection(detection ?? null)
+        setKeepUniqueGroupItemKeys(uniqueKeys)
+        keepUniqueScanAppliedRef.current = detection ? fingerprintKeepUniqueDetection(detection) : null
+        pendingKeepUniqueDetectionSigRef.current = null
       })
-
-    pendingWarmRef.current = { token: requestToken, promise: warmPromise }
-
-    warmPromise.catch((error) => {
-      if (abortController.signal.aborted) return
-      if (isAbortError(error)) return
-      console.error('rule cache update failed', error)
-      if (pendingWarmRef.current?.token === requestToken) {
-        pendingWarmRef.current = null
-      }
-      if (requestToken === rulesBuildingTokenRef.current) {
-        finishRulesBuilding()
-        if (pendingWarmInputsRef.current === warmInputs) {
-          pendingWarmInputsRef.current = null
-        }
-      }
-    })
-
-    warmPromise.finally(() => {
-      if (pendingWarmRef.current?.token === requestToken) {
-        pendingWarmRef.current = null
-      }
-      if (requestToken === rulesBuildingTokenRef.current) {
-        finishRulesBuilding()
-        if (pendingWarmInputsRef.current === warmInputs) {
-          pendingWarmInputsRef.current = null
-        }
-      }
-    })
+      .catch(() => {
+        if (abortController.signal.aborted) return
+      })
+      .finally(() => {
+        if (requestToken !== rulesBuildingTokenRef.current) return
+        setRulesBuilding(false)
+        setTesterRowsBuilding(false)
+        setRulesBuildProgress(null)
+        setTesterRowsProgress(null)
+      })
 
     return () => {
       abortController.abort()
-      if (pendingWarmInputsRef.current === warmInputs) {
-        pendingWarmInputsRef.current = null
-      }
     }
   }, [
+    runPipeline,
     ruleConfigsForPreview,
     metasetsForPreview,
     substatTargetsForPreview,
-    warmCache,
     hsf,
     finalSellRemainder,
-    keepUniqueRules,
-    metasets,
     keepUniquesEnabled,
-    keepUniquesActive,
-    keepUniqueDetectionSignature,
-    rulesBuilding,
-    // Row-building and detection updates should not abort in-flight warm cache updates.
     resolvedKeepUniqueRules,
-    finishRulesBuilding,
-    setRulesBuildProgress,
-    customCfgs,
-    // Intentionally omit configRulesState (and row/detection state) to avoid self-triggered abort
-    // loops when downstream injections update the cached snapshot while a warm is inflight.
+    configModesForPreview,
+    testerPreviewArtifacts,
+    configNamesForPreview,
   ])
 
-  const awaitRuleCounts = useCallback((): { token: number; promise: Promise<Map<number, number>> } | null => {
-    const pending = pendingWarmRef.current
-    if (!pending) return null
-    return {
-      token: pending.token,
-      promise: pending.promise.then((state) => state.countsByConfig),
-    }
-  }, [])
+  const awaitRuleCounts = useCallback((): { token: number; promise: Promise<Map<number, number>> } | null => null, [])
   const selectionGuardRef = useRef<(prev: number[], next: number[]) => void>(() => {})
   const autoApplyNowRef = useRef<() => boolean>(NO_AUTO_APPLY)
   const registerAutoApplyHandler = useCallback((fn: (() => boolean) | null) => {
@@ -1713,17 +1458,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const rulesByConfig = configRulesState.rulesByConfig
   const configRuleCounts = configRulesState.countsByConfig
   const mergedRules = configRulesState.mergedRules
-  const keepUniqueBaseRules = useMemo(() => {
-    let hasKeepUnique = false
-    for (const rule of mergedRules) {
-      if (rule.__source === RULE_SOURCE_KEEP_UNIQUES) {
-        hasKeepUnique = true
-        break
-      }
-    }
-    if (!hasKeepUnique) return mergedRules
-    return mergedRules.filter((rule) => rule.__source !== RULE_SOURCE_KEEP_UNIQUES)
-  }, [mergedRules])
   const truncatedConfigIndices = configRulesState.truncatedConfigIndices
   const totalLimitHit = configRulesState.totalLimitHit
   const limitExceeded = totalLimitHit || truncatedConfigIndices.length > 0
@@ -2359,53 +2093,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
 
 
   // Manage Colors icon (bitmap), generated once at runtime
-  const configModes = useMemo(() => customCfgs.map((cfg) => cfg.exportMode), [customCfgs])
-  const testerMatchWorkerRuleIndex = useMemo(
-    () => (testerMatchWorkerSupported ? buildRuleMatchIndexData(configRulesState.mergedRules) : null),
-    [testerMatchWorkerSupported, configRulesState.mergedRules],
-  )
-  useEffect(() => {
-    configureTesterMatchWorker({
-      rules: configRulesState.mergedRules,
-      configModes,
-      ruleMatchIndex: testerMatchWorkerSupported ? testerMatchWorkerRuleIndex : null,
-    }).catch(() => {})
-  }, [
-    configureTesterMatchWorker,
-    configRulesState.mergedRules,
-    configModes,
-    testerMatchWorkerSupported,
-    testerMatchWorkerRuleIndex,
-  ])
   const filterResult = useMemo<FilterHsfRulesResult<HsfRuleWithCfg>>(() => (
     filterHsfRules(mergedRules, rulesFilter, metasets, { configNames, configModes })
   ), [mergedRules, rulesFilter, metasets, configNames, configModes])
   const filteredRules = filterResult.rules
-  // Centralize tester match + keep-unique orchestration to avoid scattered effects and noisy rebuilds.
-  const { keepUniqueCandidates } = useTesterMatchOrchestrator({
-    artifacts: testerPreviewArtifacts,
-    mergedRules,
-    configNames,
-    configModes,
-    testerPreviewRows,
-    setTesterPreviewRows,
-    testerMatchWorkerSupported,
-    evaluateTesterMatchItems,
-    keepUniquesActive,
-    keepUniqueBaseRules,
-    resolvedKeepUniqueRules,
-    keepUniqueDetectionSignature,
-    setKeepUniqueDetection,
-    keepUniqueScanAppliedRef,
-    pendingKeepUniqueDetectionSigRef,
-    rulesBuilding,
-    testerRowsBuilding,
-    setTesterRowsBuilding,
-    testerRowsCommittedBuildId,
-    setTesterRowsCommittedBuildId,
-    setTesterRowsActiveBuildId,
-    setTesterRowsProgress,
-  })
   const testerFilterResult = useMemo(() => (
     filterTesterItems(testerPreviewRows, testerRulesFilter, metasets, { configNames })
   ), [testerPreviewRows, testerRulesFilter, metasets, configNames])
@@ -2474,7 +2165,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const suppressTesterMatchDetails = testerMatchDetailsFrozen
     || testerRowsBuilding
   const testerBuilding = testerRowsBuilding || rulesBuilding
-  const keepUniqueGroupItemKeys = keepUniqueCandidates.uniqueItemKeys
   const matchingConfigIndices = filterResult.matchingConfigIndices
   const testerMatchingConfigIndices = testerFilterResult.matchingConfigIndices
   const chipMatchingConfigIndices = previewMode === 'tester'

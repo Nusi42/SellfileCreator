@@ -33,6 +33,7 @@ import {
 import {
   type KeepUniquesMergeInput,
   hashKeepUniqueCombination,
+  hasActiveKeepUniqueRules,
   type KeepUniqueRule,
   type KeepUniqueDetectionSnapshot,
   type KeepUniqueDetectionEntry,
@@ -600,7 +601,7 @@ export function computeMergedRules(params: {
   // omitted. This keeps intent explicit in the exported HSF and mirrors the
   // builder's Enable toggle semantics.
   const finalSellRules = buildFinalSellRules(finalSellRemainder)
-  const keepUniquesInput = keepUniques && keepUniques.enabled && keepUniques.rules.length > 0
+  const keepUniquesInput = hasActiveKeepUniqueRules(keepUniques)
     ? keepUniques
     : null
   const keepMergeResult: KeepUniqueMergeResult = keepUniquesInput

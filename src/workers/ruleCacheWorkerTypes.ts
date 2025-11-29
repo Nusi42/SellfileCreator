@@ -72,7 +72,13 @@ export type RuleCachePipelineRequest = {
     finalSellRemainder?: FinalSellRemainderConfig
     keepUniques: KeepUniquesMergeInput
     configModes: SellfileExportMode[]
-    artifacts: NormalizedGearArtifact[]
+    artifacts?: NormalizedGearArtifact[]
+    artifactPatch?: {
+      changed: Array<[number, NormalizedGearArtifact]>
+      removed: number[]
+      signature: string | null
+    }
+    artifactSignature?: string | null
     fingerprint?: string | null
     skipWarm?: boolean
     skipMatches?: boolean
@@ -96,6 +102,7 @@ export type RuleCachePipelineResponse = {
     matches: TesterMatchWorkerItemResult[]
     detection: KeepUniqueDetectionSnapshot | null
     fingerprint: string | null
+    artifactSignature: string | null
   }
 }
 

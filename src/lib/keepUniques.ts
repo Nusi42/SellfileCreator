@@ -99,6 +99,16 @@ export type KeepUniquesMergeInput = {
   detection?: KeepUniqueDetectionSnapshot | null
 }
 
+/**
+ * True when the master toggle is on and at least one rule is enabled.
+ * Used by pipeline callers to avoid unnecessary detection passes.
+ */
+export const hasActiveKeepUniqueRules = (input: KeepUniquesMergeInput | null | undefined): boolean => {
+  if (!input || input.enabled !== true) return false
+  if (!Array.isArray(input.rules) || input.rules.length === 0) return false
+  return input.rules.some((rule) => rule?.enabled === true)
+}
+
 export type KeepUniqueDetectionParams = {
   candidates: readonly KeepUniqueCandidate[]
   rules: readonly KeepUniqueRule[]

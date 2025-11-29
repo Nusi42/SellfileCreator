@@ -6,7 +6,7 @@ import { RULE_SOURCE_KEEP_UNIQUES, computeMergedRules } from '../lib/merge'
 import { configsForRuleBuild, countRulesForConfigs } from '../lib/ruleCacheHelpers'
 import { buildRuleMatchIndexData } from '../lib/ruleMatchIndex'
 import { evaluateMatchesByConfig, type EvalResult } from '../lib/ruleEval'
-import { collectKeepUniqueCandidates, computeKeepUniqueProtection } from '../lib/keepUniques'
+import { collectKeepUniqueCandidates, computeKeepUniqueProtection, hasActiveKeepUniqueRules } from '../lib/keepUniques'
 import type { KeepUniqueDetectionSnapshot } from '../lib/keepUniques'
 import type { NormalizedGearArtifact } from '../lib/importers/gearDbNormalizer'
 import type { HsfRuleWithCfg } from '../lib/merge'
@@ -27,10 +27,12 @@ type WarmState = {
   excludedByTotalLimitIndices: number[]
   configsForRules: BuilderConfig[]
   fingerprint: string | null
+  artifactSignature: string | null
 }
 
 let cache = createConfigRulesCache()
 let lastWarmState: WarmState | null = null
+const artifactCache = new Map<number, NormalizedGearArtifact>()
 
 const postError = (id: number, error: unknown): void => {
   const response: RuleCacheWorkerResponse = {
@@ -104,6 +106,7 @@ const buildWarmState = (
     excludedByTotalLimitIndices: result.excludedByTotalLimitIndices.slice(),
     configsForRules,
     fingerprint: options?.fingerprint ?? null,
+    artifactSignature: null,
   }
   lastWarmState = state
   return { state, mergedRules }
@@ -139,9 +142,18 @@ const toWarmResponsePayload = (
   },
 })
 
+const resolveItemId = (artifact: NormalizedGearArtifact, fallbackIdx?: number): number => {
+  const testerId = Number((artifact.testerItem as { itemId?: number } | undefined)?.itemId ?? NaN)
+  if (Number.isFinite(testerId)) return testerId
+  const artifactId = Number((artifact as { id?: number } | undefined)?.id ?? NaN)
+  if (Number.isFinite(artifactId)) return artifactId
+  if (typeof fallbackIdx === 'number') return -(fallbackIdx + 1)
+  return -1
+}
+
 const buildPipelineMatches = (
   mergedRules: HsfRuleWithCfg[],
-  artifacts: readonly NormalizedGearArtifact[],
+  artifactEntries: ReadonlyArray<[number, NormalizedGearArtifact]>,
   configModes: SellfileExportMode[] | undefined,
   baseMatchMap: Map<number, TesterMatchWorkerItemResult> | null,
   total: number,
@@ -149,13 +161,10 @@ const buildPipelineMatches = (
   id: number,
   emitProgress: boolean,
 ): TesterMatchWorkerItemResult[] => {
-  if (!artifacts.length) return []
+  if (!artifactEntries.length) return []
   const results: TesterMatchWorkerItemResult[] = []
-  for (let idx = 0; idx < artifacts.length; idx += 1) {
-    const artifact = artifacts[idx]
+  for (const [itemId, artifact] of artifactEntries) {
     if (!artifact) continue
-    const itemId = Number((artifact.testerItem as { itemId?: number } | undefined)?.itemId ?? NaN)
-    if (!Number.isFinite(itemId)) continue
     const fullOptions = configModes ? { configModes } : undefined
     const baseOptions = configModes
       ? { configModes, excludeSources: [RULE_SOURCE_KEEP_UNIQUES] as const }
@@ -219,16 +228,41 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
       { skipProgress: true, fingerprint: payload.fingerprint ?? null },
     ).state
     const prebuiltCustomRules = warmState.rulesByConfig
-    const baseKeepUniques = payload.keepUniques && payload.keepUniques.enabled && payload.keepUniques.rules.length > 0
+    const hasActiveKeepUniques = hasActiveKeepUniqueRules(payload.keepUniques)
+    const baseKeepUniques = hasActiveKeepUniques
       ? { ...payload.keepUniques, detection: null }
       : payload.keepUniques
     const configsForRules = warmState.configsForRules
     const warmTotal = reused ? 0 : payload.configs.length
     const needsMatches = payload.skipMatches !== true
-    const needsDetection = needsMatches && payload.skipDetection !== true && Boolean(baseKeepUniques) && payload.artifacts.length > 0
+
+    if (payload.artifactPatch) {
+      for (const [itemId, artifact] of payload.artifactPatch.changed) {
+        artifactCache.set(itemId, artifact)
+      }
+      for (const removed of payload.artifactPatch.removed) {
+        artifactCache.delete(removed)
+      }
+    } else if (payload.artifacts && payload.artifacts.length > 0) {
+      artifactCache.clear()
+      payload.artifacts.forEach((artifact, idx) => {
+        const itemId = resolveItemId(artifact, idx)
+        artifactCache.set(itemId, artifact)
+      })
+    }
+    const artifactEntries: Array<[number, NormalizedGearArtifact]> = (() => {
+      if (payload.artifacts && payload.artifacts.length > 0) {
+        return payload.artifacts.map((artifact, idx) => [resolveItemId(artifact, idx), artifact] as [number, NormalizedGearArtifact])
+      }
+      return Array.from(artifactCache.entries())
+    })()
+    const needsDetection = needsMatches
+      && payload.skipDetection !== true
+      && hasActiveKeepUniques
+      && artifactEntries.length > 0
     const matchPasses = needsMatches ? (needsDetection ? 2 : 1) : 0
-    const total = warmTotal + (payload.artifacts.length * matchPasses)
-    let completed = reused ? warmTotal : warmTotal
+    const total = warmTotal + (artifactEntries.length * matchPasses)
+    let completed = warmTotal
     if (total > 0 && completed > 0) postPipelineProgress(id, { completed, total })
 
     const mergedRulesBaseline = computeMergedRules({
@@ -245,7 +279,7 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
     if (needsDetection) {
       const baseMatchResults = buildPipelineMatches(
         mergedRulesBaseline,
-        payload.artifacts,
+        artifactEntries,
         payload.configModes,
         null,
         total,
@@ -254,7 +288,7 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
         true,
       )
       for (const result of baseMatchResults) baselineMatchMap.set(result.itemId, result)
-      completed = warmTotal + payload.artifacts.length
+      completed = warmTotal + artifactEntries.length
     }
 
     const toPreviewMatch = (result: EvalResult | null, rules: HsfRuleWithCfg[]): TesterPreviewMatch | null => {
@@ -273,8 +307,7 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
 
     let detectionSnapshot: KeepUniqueDetectionSnapshot | null = null
     if (needsDetection) {
-      const rows = payload.artifacts.map((artifact) => {
-        const itemId = Number((artifact.testerItem as { itemId?: number } | undefined)?.itemId ?? NaN)
+      const rows = artifactEntries.map(([itemId, artifact]) => {
         const match = baselineMatchMap.get(itemId)
         return {
           artifact,
@@ -312,7 +345,7 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
     const matches = needsMatches
       ? buildPipelineMatches(
         mergedRulesFinal,
-        payload.artifacts,
+        artifactEntries,
         payload.configModes,
         baselineMatchMap.size > 0 ? baselineMatchMap : null,
         total,
@@ -338,12 +371,14 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
         matches,
         detection: detectionSnapshot,
         fingerprint: payload.fingerprint ?? null,
+        artifactSignature: payload.artifactPatch?.signature ?? payload.artifactSignature ?? null,
       },
     }
     // Update warm cache so subsequent requests can skip redundant work.
     lastWarmState = {
       ...warmState,
       fingerprint: payload.fingerprint ?? null,
+      artifactSignature: payload.artifactPatch?.signature ?? payload.artifactSignature ?? null,
     }
     self.postMessage(response)
   } catch (error) {
