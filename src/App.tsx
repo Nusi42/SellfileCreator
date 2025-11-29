@@ -62,13 +62,15 @@ import {
   RULE_SOURCE_KEEP_UNIQUES,
   type HsfRuleWithCfg,
 } from './lib/merge'
-import { getRuleConfigIndex } from './lib/ruleConfigIndex'
+import { buildRuleMatchIndexData, primeRuleMatchIndex } from './lib/ruleMatchIndex'
+import { cloneRuleWithConfigIndex, getRuleConfigIndex } from './lib/ruleConfigIndex'
 import {
   type KeepUniqueDetectionSnapshot,
   type KeepUniqueRule,
   resolveKeepUniqueRulesWithMetasets,
+  hashKeepUniqueCombination,
 } from './lib/keepUniques'
-import { updateConfigRulesCache } from './lib/ruleCache'
+import { fingerprintConfigForRules, fingerprintSubstatTargets, updateConfigRulesCache } from './lib/ruleCache'
 import { hasConfigMeaningfulDifferences } from './lib/configDiff'
 import { buildRuleTesterAutosavePayload, createRuleTesterMath, fingerprintRuleTesterItem, loadRuleTesterAutosaveDraft, type RuleTesterItem } from './lib/ruleTesterSession'
 import { sortTesterRows } from './lib/testerSort'
@@ -115,7 +117,6 @@ import type { NormalizedGearArtifact } from './lib/importers/gearDbNormalizer'
 import { TesterItemsGrid } from './components/TesterItemsGrid'
 import type { TesterPreviewMatch, TesterPreviewRow } from './types/testerPreview'
 import type { TesterMatchWorkerItemResult } from './workers/testerMatchWorkerTypes'
-import { buildRuleMatchIndexData, primeRuleMatchIndex } from './lib/ruleMatchIndex'
 import { FINAL_SELL_DEFAULT_SETS_MODE, FINAL_SELL_DIALOG_TAB_FINAL_SELL, FINAL_SELL_DIALOG_TABS } from './lib/finalSell'
 import type { FinalSellRemainderConfig, FinalSellLevel } from './lib/finalSell'
 import { useConfigSelection } from './hooks/useConfigSelection'
@@ -259,6 +260,68 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const [testerItems, setTesterItems] = useState<RuleTesterItem[]>([])
   const testerItemsRef = useRef(testerItems)
   useEffect(() => { testerItemsRef.current = testerItems }, [testerItems])
+  // Cache warm fingerprints so lightweight updates can skip a full rebuild.
+  const lastWarmFingerprintRef = useRef<string | null>(null)
+  // Stable metaset fingerprint keeps warm reuse keyed to the actual set payloads.
+  const fingerprintMetasetsForRules = useCallback((metasetList: readonly Metaset[]): string => {
+    const parts = metasetList
+      .map((meta) => {
+        const sortedSets = Array.isArray(meta.sets) ? [...meta.sets].map(Number).sort((a, b) => a - b) : []
+        return `${meta.id}:${sortedSets.join(',')}`
+      })
+      .sort((a, b) => a.localeCompare(b))
+    return parts.join('|')
+  }, [])
+  // Keep-unique rules get a canonical hash so cosmetic edits do not churn the cache.
+  const fingerprintKeepUniqueRuleList = useCallback((rules: readonly KeepUniqueRule[]): string => {
+    if (!rules.length) return ''
+    return rules.map((rule) => {
+      const comboHash = hashKeepUniqueCombination(rule.combination)
+      const enabled = rule.enabled ? 1 : 0
+      const required = Number.isFinite(rule.requiredCount) ? Number(rule.requiredCount) : 0
+      return `${rule.id ?? comboHash}:${enabled}:${required}:${rule.countMode}:${comboHash}`
+    }).join('|')
+  }, [])
+  // Combined fingerprint captures every input that affects the warmed rule cache.
+  const buildRulesFingerprint = useCallback((args: {
+    substatTargetsKey: string
+    configKeys: string[]
+    metasets: readonly Metaset[]
+    hsf: HsfFile | null
+    keepUniqueRules: readonly KeepUniqueRule[]
+    keepUniquesEnabled: boolean
+    finalSell: FinalSellRemainderConfig | null | undefined
+  }): string => {
+    const {
+      substatTargetsKey,
+      configKeys,
+      metasets,
+      hsf: hsfFile,
+      keepUniqueRules,
+      keepUniquesEnabled: kuEnabled,
+      finalSell,
+    } = args
+    const metasetSig = fingerprintMetasetsForRules(metasets)
+    const keepUniqueSig = `${kuEnabled ? 'on' : 'off'}:${fingerprintKeepUniqueRuleList(keepUniqueRules)}`
+    const finalSellSig = (() => {
+      if (!finalSell) return 'fs:none'
+      const levels = Array.isArray(finalSell.levels)
+        ? [...finalSell.levels].map(Number).sort((a, b) => a - b).join(',')
+        : ''
+      const mode = typeof finalSell.setsMode === 'string' ? finalSell.setsMode : 'any'
+      const artifactsFlag = finalSell.artifacts ? 1 : 0
+      const accessoriesFlag = finalSell.accessories ? 1 : 0
+      return `fs:${mode}:${artifactsFlag}:${accessoriesFlag}:${levels}`
+    })()
+    const hsfSig = (() => {
+      if (!hsfFile) return 'hsf:none'
+      const hash = (hsfFile as { Hash?: string }).Hash
+      if (hash) return `hsf:${hash}`
+      const ruleCount = Array.isArray(hsfFile.Rules) ? hsfFile.Rules.length : 0
+      return `hsf:rules:${ruleCount}`
+    })()
+    return [substatTargetsKey, configKeys.join(','), metasetSig, hsfSig, finalSellSig, keepUniqueSig].join('|')
+  }, [fingerprintKeepUniqueRuleList, fingerprintMetasetsForRules])
   const [testerRestoreDraft, setTesterRestoreDraft] = useState<{
     items: RuleTesterItem[]
     savedAt: string | null
@@ -340,6 +403,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     return null
   }, [])
   const [testerPreviewRows, setTesterPreviewRows] = useState<TesterPreviewRow[]>([])
+  const testerPreviewRowsRef = useRef<TesterPreviewRow[]>([])
+  useEffect(() => { testerPreviewRowsRef.current = testerPreviewRows }, [testerPreviewRows])
+  const recoverMissingRulesRef = useRef(false)
   const testerMatchesByItemId = useMemo(() => {
     const map = new Map<number, TesterPreviewMatch | null>()
     for (const row of testerPreviewRows) {
@@ -597,6 +663,129 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const rulesBuildingTokenRef = useRef<number | null>(null)
   useEffect(() => {
     const abortController = new AbortController()
+    const prevState = configRulesStateRef.current
+    const prevMatches = testerPreviewRowsRef.current
+    // Use immediate configs for key comparisons so reorders are detected even if deferred snapshots lag.
+    const nextSubstatTargetsKey = fingerprintSubstatTargets(substatTargets)
+    const nextConfigKeys = ruleConfigs.map((cfg) => fingerprintConfigForRules(cfg, nextSubstatTargetsKey))
+    const nextFingerprint = buildRulesFingerprint({
+      substatTargetsKey: nextSubstatTargetsKey,
+      configKeys: nextConfigKeys,
+      metasets,
+      hsf,
+      keepUniqueRules: resolvedKeepUniqueRules,
+      keepUniquesEnabled,
+      finalSell: finalSellRemainder,
+    })
+    // If the warmed state already covers this fingerprint, skip the worker warm pass and avoid toggling spinners.
+    const canSkipWarm = lastWarmFingerprintRef.current === nextFingerprint
+    const buildIndexMapping = (previousKeys: string[], nextKeys: string[]): number[] | null => {
+      if (previousKeys.length !== nextKeys.length) return null
+      const buckets = new Map<string, number[]>()
+      previousKeys.forEach((key, idx) => {
+        const list = buckets.get(key) ?? []
+        list.push(idx)
+        buckets.set(key, list)
+      })
+      const mapping: number[] = []
+      for (const key of nextKeys) {
+        const list = buckets.get(key)
+        if (!list || list.length === 0) return null
+        const sourceIdx = list.shift()!
+        mapping.push(sourceIdx)
+      }
+      return mapping
+    }
+    const mapping = prevState
+      && prevState.substatTargetsKey === nextSubstatTargetsKey
+      ? buildIndexMapping(prevState.keys, nextConfigKeys)
+      : null
+    const hasArtifacts = testerPreviewArtifacts.length > 0
+    if (mapping && mapping.some((idx, newIdx) => idx !== newIdx) && !hasArtifacts) {
+      // Fast path: reorder-only changes can remap cached rules without waking the worker.
+      const inverse = new Map<number, number>()
+      mapping.forEach((prevIdx, newIdx) => { inverse.set(prevIdx, newIdx) })
+      const remapRulesForIndex = (rules: readonly HsfRuleWithCfg[], newIdx: number): HsfRuleWithCfg[] => (
+        rules.map((rule) => cloneRuleWithConfigIndex(rule, newIdx))
+      )
+      const newRulesByConfig = new Map<number, HsfRuleWithCfg[]>()
+      const newCountsByConfig = new Map<number, number>()
+      const newTruncated: number[] = []
+      const newExcluded: number[] = []
+      const prevTruncated = new Set(prevState.truncatedConfigIndices)
+      const prevExcluded = new Set(prevState.excludedByTotalLimitIndices)
+      const customSegments: HsfRuleWithCfg[][] = []
+      for (let newIdx = 0; newIdx < mapping.length; newIdx += 1) {
+        const prevIdx = mapping[newIdx]!
+        const prevRules = prevState.rulesByConfig.get(prevIdx) ?? []
+        const remapped = remapRulesForIndex(prevRules, newIdx)
+        newRulesByConfig.set(newIdx, remapped)
+        customSegments.push(remapped)
+        const prevCount = prevState.countsByConfig.get(prevIdx)
+        if (prevTruncated.has(prevIdx)) {
+          newCountsByConfig.set(newIdx, Number.POSITIVE_INFINITY)
+          newTruncated.push(newIdx)
+        } else {
+          newCountsByConfig.set(newIdx, typeof prevCount === 'number' ? prevCount : remapped.length)
+        }
+        if (prevExcluded.has(prevIdx)) newExcluded.push(newIdx)
+      }
+      const mergedRules = prevState.baseRules.concat(...customSegments, prevState.finalSellRules)
+      const ruleMatchIndex = buildRuleMatchIndexData(mergedRules)
+      primeRuleMatchIndex(mergedRules, ruleMatchIndex)
+      setConfigRulesState({
+        ...prevState,
+        rulesByConfig: newRulesByConfig,
+        countsByConfig: newCountsByConfig,
+        keys: nextConfigKeys,
+        substatTargetsKey: nextSubstatTargetsKey,
+        mergedRules,
+        truncatedConfigIndices: newTruncated,
+        excludedByTotalLimitIndices: newExcluded,
+      })
+      keepUniqueAppliedStateRef.current = {
+        baseRules: prevState.baseRules,
+        rulesByConfig: newRulesByConfig,
+        finalSellRules: prevState.finalSellRules,
+      }
+      lastWarmFingerprintRef.current = nextFingerprint
+      // Avoid flashing the preview spinner when we served this entirely from the cache.
+      setRulesBuilding(false)
+      setTesterRowsBuilding(false)
+      setRulesBuildProgress(null)
+      setTesterRowsProgress(null)
+      if (prevMatches && prevMatches.length > 0) {
+        const remapCfgIdx = (cfgIdx: number | null): number | null => {
+          if (cfgIdx == null) return null
+          const nextIdx = inverse.get(cfgIdx)
+          return typeof nextIdx === 'number' ? nextIdx : null
+        }
+        const remappedRows = prevMatches.map((row) => ({
+          ...row,
+          match: (() => {
+            if (!row.match) return null
+            const nextIdx = remapCfgIdx(row.match.cfgIdx)
+            const nextName = nextIdx != null ? configNamesForPreview[nextIdx] ?? null : null
+            return { ...row.match, cfgIdx: nextIdx, cfgName: nextName }
+          })(),
+          baseMatch: (() => {
+            if (!row.baseMatch) return null
+            const nextIdx = remapCfgIdx(row.baseMatch.cfgIdx)
+            const nextName = nextIdx != null ? configNamesForPreview[nextIdx] ?? null : null
+            return { ...row.baseMatch, cfgIdx: nextIdx, cfgName: nextName }
+          })(),
+          matchingCfgIndices: row.matchingCfgIndices.map((idx) => {
+            const nextIdx = inverse.get(idx)
+            return typeof nextIdx === 'number' ? nextIdx : idx
+          }),
+        }))
+        setTesterPreviewRows(sortTesterRows(remappedRows))
+      }
+      return () => {
+        abortController.abort()
+      }
+    }
+
     const requestToken = (rulesBuildingTokenRef.current ?? 0) + 1
     rulesBuildingTokenRef.current = requestToken
     setTesterRowsActiveBuildId(requestToken)
@@ -646,34 +835,35 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       }
     }
 
-    runPipeline(
-      {
-        configs: ruleConfigsForPreview,
-        metasets: metasetsForPreview,
-        substatTargets: substatTargetsForPreview,
-        hsf,
-        ...(finalSellRemainder ? { finalSellRemainder } : {}),
-        keepUniques: keepUniquesPayload,
-        configModes: configModesForPreview,
-        artifacts: [],
-        artifactPatch,
-        artifactSignature: testerArtifactsSignature,
-        fingerprint: null,
-        skipWarm: false,
-        skipMatches: false,
-        skipDetection: false,
+    const pipelinePayload: Parameters<typeof runPipeline>[0] = {
+      configs: ruleConfigsForPreview,
+      metasets: metasetsForPreview,
+      substatTargets: substatTargetsForPreview,
+      hsf,
+      ...(finalSellRemainder ? { finalSellRemainder } : {}),
+      keepUniques: keepUniquesPayload,
+      configModes: configModesForPreview,
+      artifacts: [],
+      artifactPatch,
+      artifactSignature: testerArtifactsSignature,
+      fingerprint: nextFingerprint,
+      skipWarm: canSkipWarm,
+      skipMatches: false,
+      skipDetection: false,
+    }
+
+    runPipeline(pipelinePayload, {
+      signal: abortController.signal,
+      onProgress: (progress) => {
+        if (requestToken !== rulesBuildingTokenRef.current) return
+        setRulesBuildProgress(progress)
+        setTesterRowsProgress(progress)
       },
-      {
-        signal: abortController.signal,
-        onProgress: (progress) => {
-          if (requestToken !== rulesBuildingTokenRef.current) return
-          setRulesBuildProgress(progress)
-          setTesterRowsProgress(progress)
-        },
-      },
-    )
-      .then(({ state, matches, detection }) => {
+    })
+      .then((result) => {
+        const { state, matches, detection } = result
         if (abortController.signal.aborted || requestToken !== rulesBuildingTokenRef.current) return
+        lastWarmFingerprintRef.current = nextFingerprint
         const { baseRules, finalSellRules } = splitMergedRules(state.mergedRules)
         const snapshot: ConfigRulesStateSnapshot = {
           baseRules,
@@ -730,6 +920,97 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         setKeepUniqueGroupItemKeys(uniqueKeys)
         keepUniqueScanAppliedRef.current = detection ? fingerprintKeepUniqueDetection(detection) : null
         pendingKeepUniqueDetectionSigRef.current = null
+        const totalCustomRules = Array.from(state.countsByConfig.values()).reduce((acc, val) => (
+          acc + (Number.isFinite(val) ? Number(val) : 0)
+        ), 0)
+        const shouldRetryWarm = baseRules.length === 0
+          && totalCustomRules === 0
+          && ruleConfigsForPreview.length > 0
+          && !recoverMissingRulesRef.current
+        if (shouldRetryWarm) {
+          recoverMissingRulesRef.current = true
+          // Force a full warm/match pass so restored configs cannot get stuck empty.
+          runPipeline(
+            {
+              ...pipelinePayload,
+              artifacts: [],
+              skipWarm: false,
+              fingerprint: null,
+            },
+            {
+              signal: abortController.signal,
+              onProgress: (progress) => {
+                if (requestToken !== rulesBuildingTokenRef.current) return
+                setRulesBuildProgress(progress)
+                setTesterRowsProgress(progress)
+              },
+            },
+          )
+            .then((retryResult) => {
+              if (abortController.signal.aborted || requestToken !== rulesBuildingTokenRef.current) return
+              recoverMissingRulesRef.current = false
+              lastWarmFingerprintRef.current = retryResult.fingerprint ?? null
+              // Re-run the success handler with the retried payload.
+              const { state: retryState, matches: retryMatches, detection: retryDetection } = retryResult
+              const splitRetry = splitMergedRules(retryState.mergedRules)
+              setConfigRulesState({
+                baseRules: splitRetry.baseRules,
+                finalSellRules: splitRetry.finalSellRules,
+                rulesByConfig: retryState.rulesByConfig,
+                countsByConfig: retryState.countsByConfig,
+                keys: retryState.keys,
+                substatTargetsKey: retryState.substatTargetsKey,
+                mergedRules: retryState.mergedRules,
+                truncatedConfigIndices: retryState.truncatedConfigIndices,
+                totalLimitHit: retryState.totalLimitHit,
+                excludedByTotalLimitIndices: retryState.excludedByTotalLimitIndices,
+              })
+              keepUniqueAppliedStateRef.current = {
+                baseRules: splitRetry.baseRules,
+                rulesByConfig: retryState.rulesByConfig,
+                finalSellRules: splitRetry.finalSellRules,
+              }
+              const retryMap = new Map<number, TesterMatchWorkerItemResult>()
+              for (const entry of retryMatches) retryMap.set(entry.itemId, entry)
+              const retryRows: TesterPreviewRow[] = []
+              const entries = artifactPatch.changed.length > 0
+                ? artifactPatch.changed
+                : testerPreviewArtifacts.map((artifact, idx) => [getArtifactItemId(artifact, idx), artifact] as [number | null, NormalizedGearArtifact])
+              for (const [itemIdMaybe, artifact] of entries) {
+                if (!artifact) continue
+                const itemId = Number(itemIdMaybe ?? NaN)
+                if (!Number.isFinite(itemId)) continue
+                const matchEntry = retryMap.get(itemId)
+                const match = toPreviewMatch(matchEntry?.firstMatch ?? null, retryState.mergedRules)
+                const baseMatch = toPreviewMatch(matchEntry?.firstNonExcludedMatch ?? null, retryState.mergedRules)
+                retryRows.push({
+                  artifact,
+                  match,
+                  baseMatch,
+                  matchingCfgIndices: matchEntry?.matchingConfigIndices ?? [],
+                })
+              }
+              setTesterPreviewRows(sortTesterRows(retryRows))
+              setTesterRowsCommittedBuildId(requestToken)
+              setTesterRowsActiveBuildId(requestToken)
+              const retryUniqueKeys = new Set<number>()
+              if (retryDetection?.entries) {
+                for (const entry of retryDetection.entries) {
+                  if (!entry) continue
+                  for (const key of entry.itemKeys) retryUniqueKeys.add(key)
+                }
+              }
+              setKeepUniqueDetection(retryDetection ?? null)
+              setKeepUniqueGroupItemKeys(retryUniqueKeys)
+              keepUniqueScanAppliedRef.current = retryDetection ? fingerprintKeepUniqueDetection(retryDetection) : null
+              pendingKeepUniqueDetectionSigRef.current = null
+            })
+            .catch(() => {
+              if (abortController.signal.aborted) return
+            })
+          return
+        }
+        recoverMissingRulesRef.current = false
       })
       .catch(() => {
         if (abortController.signal.aborted) return
@@ -757,6 +1038,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     configModesForPreview,
     testerPreviewArtifacts,
     configNamesForPreview,
+    fingerprintSubstatTargets,
+    fingerprintConfigForRules,
+    buildRulesFingerprint,
   ])
 
   const awaitRuleCounts = useCallback((): { token: number; promise: Promise<Map<number, number>> } | null => null, [])
