@@ -105,16 +105,17 @@ Build, preview, and export sell rules for RSL Helper with a simple UI.
 ### Keep Uniques
 - Open the Final Sell dialog and switch to the `Keep Uniques` tab to mark the gear combinations you never want to lose. Turn on `Enable Keep Uniques` to start editing.
 - Each keep rule lets you pick the slot, sets or metasets, ranks, rarities, main stats, and (for accessories) factions you care about. Leaving a picker empty means “any”.
-- `≥ Required Count` is the promise you want the app to keep. `Per rule` keeps one shared quota; the `Per set`, `Per faction`, and `Per main stat` buttons can be combined to multiply that quota for each matching mix (turning all three off automatically falls back to `Per rule`).
+- `≥ Required Count` is the promise you want the app to keep. Scope chips directly under each picker (everything except `Rank` and `Rarity`) decide how that quota is split: `Per slot`, `Per set`, `Per faction`, and `Per main stat` can be combined freely. Turning every chip off automatically falls back to the shared `Per rule` pool.
 - The `Have {have} / Keep {keep} (Projected {projected})` counter shows exactly what the tooltip explains: **Have** counts tester gear already protected by configs, Final Sell, or existing Keep rules; **Keep** is the quota from `≥ Required Count`; **Projected** previews how many additional keep rules will be exported if the scanner still sees a deficit. Only tester rows that match the rule contribute to these numbers.
 - The scanner only adds extra keep rows when every item that matches a rule would otherwise be sold. If your normal configs already save enough pieces, the rule shows “Covered elsewhere” and nothing new is exported.
 
 #### Quota scopes at a glance
-Stacking the scope buttons changes who gets their own quota. Leave `Per rule` on to share one pool, then layer `Per set`, `Per faction`, and `Per main stat` to enforce Set × Faction × Main stat mixes independently.
+Stacking the scope chips changes who gets their own quota. Leave `Per rule` on to share one pool, then layer `Per slot`, `Per set`, `Per faction`, and `Per main stat` to enforce Slot × Set × Faction × Main stat mixes independently.
 
 | Scope button | Quota behavior | When it shines |
 | --- | --- | --- |
 | `Per rule` | One shared pool for the entire rule. | Keep five SPD boots regardless of set. |
+| `Per slot` | Duplicates the quota for each slot. | Keep two rings, two amulets, and two banners independently. |
 | `Per set` | Duplicates the quota for each set/metaset on the card. | Track two Stoneskin and two Protection drops separately. |
 | `Per faction` | Duplicates the quota for each faction. | Guarantee three Merciless rings for every faction. |
 | `Per main stat` | Duplicates the quota for each selected main stat. | Keep separate pools for ACC versus RES banners. |

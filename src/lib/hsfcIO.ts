@@ -832,7 +832,7 @@ export function buildHsfcPayload(args: {
     })(),
     KeepUniques: keepUniqueRules.map((rule) => {
       // Persist the normalized scope object explicitly so the loader can
-      // rehydrate the same 2×2 button state without guessing at defaults.
+      // rehydrate the same chip state without guessing at defaults.
       const mode = sanitizeKeepUniqueCountMode(rule.countMode)
       return {
         id: rule.id,
@@ -843,6 +843,7 @@ export function buildHsfcPayload(args: {
           perSet: mode.perSet,
           perFaction: mode.perFaction,
           perMainStat: mode.perMainStat,
+          perSlot: mode.perSlot,
         },
         tuple: {
           slots: rule.combination.slots.map((slot) => Number(slot) as ArtifactTypeId),
