@@ -51,7 +51,7 @@ const overrides: Catalog = {
   pushSellfile: 'Отправить Sellfile в RSL Helper',
   pushSellfileTooltip: 'Отправляет Sellfile на {endpoint}',
   manageColorsAria: 'Управление цветами',
-  // Тестер
+  // Rule Tester
   testerOpenLabel: 'Снаряжение...',
   testerOpenTooltip: 'Откройте тестер снаряжения, чтобы загрузить базу данных RSL Helper или собрать примерные предметы и проверить текущие правила.',
   testerTitle: 'Снаряжение',
@@ -82,11 +82,16 @@ const overrides: Catalog = {
   testerMatchKeep: 'Оставить',
   testerMatchSell: 'Продать',
   testerMatchNoRule: 'Совпадение отсутствует',
+  testerConfigMatches: 'Совпадающие конфиги',
   testerConfigChip: 'Конфиг #{index}',
   testerFinalSellChip: 'Финпродажа',
 
   testerKeepUniqueChip: 'Сохранение уникальных',
   testerValueUnknown: '—',
+  testerAddManualGear: 'Добавить ручную экипировку',
+  testerAddRowAriaLabel: 'Добавить строку',
+  testerRemoveRowAriaLabel: 'Удалить строку',
+  testerRerollLabel: 'Перековано',
   testerLastUsedTooltip: 'Последнее использование {timestamp}.',
   testerLastUsedFilterLabel: 'Последнее использование',
   testerLastUsedPresetNever: 'Никогда не использовалось',
@@ -105,8 +110,7 @@ const overrides: Catalog = {
   testerLastUsedCustomSummaryRange: '{minDays}–{maxDays} дней назад',
   testerLastUsedCustomSummaryMin: '≥{minDays} дней назад',
   testerLastUsedCustomSummaryMax: '≤{maxDays} дней назад',
-  testerAddManualGear: 'Добавить ручную экипировку',
-  // Common UI bits used in Тестер
+  // Common UI bits used in Rule Tester
   add: 'Добавить',
   compact: 'Компактный',
   expanded: 'Развёрнутый',
@@ -205,6 +209,7 @@ const overrides: Catalog = {
   keepUniquesCountModePerFaction: 'По фракции',
   keepUniquesCountModePerMain: 'По осн. стату',
   keepUniquesCountModePerRule: 'По правилу',
+  // Tooltip mirrors the README examples so users see the same scenarios we use to explain the 2×2 count-mode grid.
   keepUniquesCountModeHint: '**Режимы квот с примерами**\n- **По правилу** — один общий пул. Пример: Ботинки с основным статом [[stat:statSPD]], держим ≥5 независимо от набора.\n- **По фракции** — делит квоту по фракциям. Пример: ≥3 кольца Merciless на каждую фракцию, ≥2 кольца с основным [[stat:statHP_percent]] или правило «5 колец/амулетов/знамен на фракцию».\n- **По набору** — комбинируется с другими переключателями, когда важен сет. Пример: для Stoneskin/Protection (кольца/амулеты/знамена) с ≥2 на фракцию включаем «По набору» + «По фракции».\n- **По осн. стату** — ограничивает квоту одним мейн-статом. Пример: перчатки Savage + Lethal с основным [[stat:statCDMG]], держим ≥3 дамажные пары даже при смене набора.',
   keepUniquesNoRules: 'Правила сохранения ещё не добавлены.',
   keepUniquesAddRule: 'Добавить правило сохранения',
@@ -672,6 +677,10 @@ const overrides: Catalog = {
   builderMinRequiredRollsTargetLocked: 'Цель: закреплённые подстаты',
   builderMinRequiredRollsChipLocked: 'Только закреплённые',
   builderMinRequiredRollsChipSelected: 'Все подстаты',
+  builderMinRequiredRollsLockIconSet: 'Закрепите {count} ролей, чтобы применять их только к заблокированным подстатам.',
+  builderMinRequiredRollsLockIconClear: 'Сбросить цель для ролей на замках.',
+  builderMinRequiredRollsLockIconDisabled: 'Закрепите хотя бы один подстат, чтобы задавать цель для ролей на замках.',
+  builderLockedMinRequiredRollsLabel: 'Мин. на замках: {count}',
   builderSubstatFlexToggleTooltip: 'Flex поочерёдно перебирает необязательные подстаты во всех перестановках, чтобы сгенерировать каждую допустимую комбинацию сверх числа «Обязательные подстаты».\n• Выберите число в «Обязательные подстаты» (1–4) вместо «Авто» и отметьте ★ больше подстатов, чем это число.\n• Оставьте минимум одну лишнюю ★ без ограничений по мин./макс. роллам, чтобы было что вращать.\n• Закреплённые подстаты остаются на месте, а переключатель отключается, как только Flex перестаёт применяться.',
   builderMilestoneThresholdsHelp: 'Определяет поведение минимальных ролей до +16, как только вы их требуете.\n• «Рано» показывает, сколько ролей у вас уже есть на каждой вехе.\n• «Поздно» требует лишь то, что нужно прямо сейчас, чтобы цель к +16 оставалась достижимой.\n• Работает только если у какого-то подстата Min > 0 или задан глобальный минимум.',
   builderMinRequiredRollsImpossibleWarn: 'Предупреждение: минимум ролей недостижим к +16 с текущими верхними лимитами по статам',
@@ -1077,6 +1086,7 @@ const overrides: Catalog = {
   chipsMenuSelectVisible: 'Выбрать видимые',
   chipsMenuCopyAllConfigs: 'Копировать все конфиги',
   chipsMenuPasteAtEnd: 'Вставить в конец',
+  chipsEmptyPasteHint: 'Пока нет конфигов — щёлкните правой кнопкой для вставки',
   chipsFilteredEmpty: 'Нет конфигов, подходящих под текущие фильтры',
   chipTooltipDuplicateOf: 'Дубликат конфига №{n}',
   chipBtnMoveUp: 'Выше',

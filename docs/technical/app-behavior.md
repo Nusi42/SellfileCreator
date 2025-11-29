@@ -27,6 +27,7 @@ This document captures runtime behavior, builder interactions, and user-facing w
 ## Preview Filters (RulesFilterPanel)
 
 - View-only; export is not affected. State lives in `src/lib/rulesFilter.ts`.
+- Persistence is mode-aware: Sellfile Preview and Rule Tester each remember whether the drawer was open, which chips were selected, and which sections were collapsed. Switching modes rehydrates the matching snapshot, and both sets of values persist across sessions.
 - Shortcut: `Ctrl+F` (`Cmd+F` on macOS) opens the filter panel (when closed) and focuses the config-name input if it is present, mirroring the browser “Find” gesture without reusing the native overlay.
 - AnyMode chips: `Show` (state `include`) keeps rules that don't specify a field, `Hide` removes them, `Only` shows only those rules.
 - Sets

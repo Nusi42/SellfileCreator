@@ -51,7 +51,7 @@ const catalog: Catalog = {
   pushSellfile: 'Enviar Sellfile para o RSL Helper',
   pushSellfileTooltip: 'Envia o Sellfile para {endpoint}',
   manageColorsAria: 'Gerenciar cores',
-  // Teste de Regras
+  // Rule Tester
   testerOpenLabel: 'Equipamentos...',
   testerOpenTooltip: 'Abra o testador de equipamentos para carregar um banco de dados do RSL Helper ou montar itens de exemplo e validar as regras atuais.',
   testerTitle: 'Equipamentos',
@@ -82,11 +82,16 @@ const catalog: Catalog = {
   testerMatchKeep: 'Manter',
   testerMatchSell: 'Vender',
   testerMatchNoRule: 'Sem correspondência',
+  testerConfigMatches: 'Configs correspondentes',
   testerConfigChip: 'Config #{index}',
   testerFinalSellChip: 'Venda final',
 
   testerKeepUniqueChip: 'Manter únicos',
   testerValueUnknown: '—',
+  testerAddManualGear: 'Adicionar equipamento manual',
+  testerAddRowAriaLabel: 'Adicionar linha',
+  testerRemoveRowAriaLabel: 'Remover linha',
+  testerRerollLabel: 'Rerolado',
   testerLastUsedTooltip: 'Último uso {timestamp}.',
   testerLastUsedFilterLabel: 'Último uso',
   testerLastUsedPresetNever: 'Nunca usado',
@@ -105,8 +110,7 @@ const catalog: Catalog = {
   testerLastUsedCustomSummaryRange: '{minDays}–{maxDays} dias atrás',
   testerLastUsedCustomSummaryMin: '≥{minDays} dias atrás',
   testerLastUsedCustomSummaryMax: '≤{maxDays} dias atrás',
-  testerAddManualGear: 'Adicionar equipamento manual',
-  // Common UI bits used in Teste de Regras
+  // Common UI bits used in Rule Tester
   add: 'Adicionar',
   compact: 'Compacto',
   expanded: 'Expandido',
@@ -205,6 +209,7 @@ const catalog: Catalog = {
   keepUniquesCountModePerFaction: 'Por facção',
   keepUniquesCountModePerMain: 'Por atributo principal',
   keepUniquesCountModePerRule: 'Por regra',
+  // Tooltip mirrors the README examples so users see the same scenarios we use to explain the 2×2 count-mode grid.
   keepUniquesCountModeHint: '**Modos de cota com exemplos**\n- **Por regra** mantém um único pool — ex.: Botas com stat principal [[stat:statSPD]], guarde ≥5 mesmo misturando sets.\n- **Por facção** separa a cota por facção — ex.: ≥3 Anéis Merciless por facção, ≥2 Anéis com [[stat:statHP_percent]] principal ou a regra de “5 Anéis/Amuletos/Bandeiras por facção”.\n- **Por conjunto** combina com os outros botões quando o set importa — ex.: para Stoneskin/Protection (Anéis/Amuletos/Bandeiras) com ≥2 por facção, ligue Por conjunto + Por facção.\n- **Por atributo principal** limita a cota a um único main — ex.: Luvas Savage + Lethal com [[stat:statCDMG]] principal, mantenha ≥3 peças de dano mesmo mudando o mix de sets.',
   keepUniquesNoRules: 'Ainda não há regras de manutenção.',
   keepUniquesAddRule: 'Adicionar regra de manutenção',
@@ -672,6 +677,10 @@ const catalog: Catalog = {
   builderMinRequiredRollsTargetLocked: 'Alvo: Substats bloqueados',
   builderMinRequiredRollsChipLocked: 'Só bloqueados',
   builderMinRequiredRollsChipSelected: 'Todos os substats',
+  builderMinRequiredRollsLockIconSet: 'Bloqueie {count} rolagens para aplicar só aos substats bloqueados.',
+  builderMinRequiredRollsLockIconClear: 'Limpe a meta de rolagens bloqueadas.',
+  builderMinRequiredRollsLockIconDisabled: 'Bloqueie ao menos um substat para definir essa meta.',
+  builderLockedMinRequiredRollsLabel: 'Mín. bloqueado: {count}',
   builderSubstatFlexToggleTooltip: 'Flex gira os substats opcionais por todas as permutações para gerar cada combinação válida acima da contagem de Substats Necessários.\n• Escolha um número em Substats Necessários (1–4) em vez de Auto e marque com ★ mais substats do que esse número.\n• Deixe pelo menos uma ★ extra sem metas de rolagem mín./máx. para ter algo a rotacionar.\n• Os bloqueados ficam fixos e o botão se desativa quando o Flex deixa de valer.',
   builderMilestoneThresholdsHelp: 'Define como os mínimos de rolagens se comportam antes de +16 assim que você os exige.\n• Cedo mostra as rolagens que já existem em cada marco.\n• Tarde lista apenas o que precisa existir agora para que o objetivo +16 continue viável.\n• Só tem efeito se algum substat tiver Min > 0 ou se você definir um mínimo global.',
   builderMinRequiredRollsImpossibleWarn: 'Aviso: as rolagens mínimas não podem ser atingidas até +16 com os limites superiores atuais por stat',
@@ -1077,6 +1086,7 @@ const catalog: Catalog = {
   chipsMenuSelectVisible: 'Selecionar visíveis',
   chipsMenuCopyAllConfigs: 'Copiar todas as configs',
   chipsMenuPasteAtEnd: 'Colar no fim',
+  chipsEmptyPasteHint: 'Ainda não há configs — clique com o botão direito para colar',
   chipsFilteredEmpty: 'Nenhuma config corresponde aos filtros atuais',
   chipTooltipDuplicateOf: 'Esta é uma duplicata da config nº{n}',
   chipBtnMoveUp: 'Mover para cima',

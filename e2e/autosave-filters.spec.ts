@@ -3,23 +3,18 @@ import { computeCrc32 } from '../src/lib/autosave'
 import { DEFAULT_RULES_FILTER_STATE, type RulesFilterState } from '../src/lib/rulesFilter'
 import { prepareApp, APP_VERSION } from './app-init'
 import { PREVIEW_MODE_STORAGE_KEY } from '../src/lib/constants'
+import {
+  RULES_FILTER_OPEN_STORAGE_KEY,
+  RULES_FILTER_STATE_STORAGE_KEY,
+  RULES_FILTER_COLLAPSED_STORAGE_KEY,
+  RULES_FILTER_OPEN_DEFAULT,
+  cloneDefaultRulesFilterCollapsed,
+  cloneDefaultRulesFilterState,
+  type RulesFilterPreviewMode,
+  type CollapsedSections,
+} from '../src/state/rulesFilterPersistence'
 
 const AUTOSAVE_KEY = 'sellfileCreator.autosave.hsfc.v1'
-const FILTER_OPEN_KEY = 'sellfileCreator.rulesFilter.open.v1'
-const FILTER_STATE_KEY = 'sellfileCreator.rulesFilter.state.v1'
-const FILTER_COLLAPSED_KEY = 'sellfileCreator.rulesFilter.collapse.v1'
-
-const DEFAULT_COLLAPSED_SECTIONS: Record<string, boolean> = {
-  rule: false,
-  sets: false,
-  main: false,
-  sub: false,
-  level: false,
-  slots: false,
-  rank: false,
-  rarity: false,
-  faction: false,
-}
 
 const basePayload = {
   Version: APP_VERSION,
@@ -56,6 +51,14 @@ const basePayload = {
   Note: 'Example autosave payload',
 }
 
+const buildModeMap = <T>(factory: (mode: RulesFilterPreviewMode) => T): Record<RulesFilterPreviewMode, T> => ({
+  rules: factory('rules'),
+  tester: factory('tester'),
+})
+
+const defaultFilterState = cloneDefaultRulesFilterState()
+const defaultCollapsedState = cloneDefaultRulesFilterCollapsed()
+
 const savedFilterState: RulesFilterState = (() => {
   const clone = JSON.parse(JSON.stringify(DEFAULT_RULES_FILTER_STATE)) as RulesFilterState
   clone.rule = { keep: 'yes', use: 'any' }
@@ -66,14 +69,13 @@ const savedFilterState: RulesFilterState = (() => {
   return clone
 })()
 
-const savedCollapsedState: Record<string, boolean> = {
-  ...DEFAULT_COLLAPSED_SECTIONS,
-  sets: true,
-  main: true,
-  rarity: true,
-}
-const defaultFilterState = JSON.parse(JSON.stringify(DEFAULT_RULES_FILTER_STATE)) as RulesFilterState
-const defaultCollapsedState = { ...DEFAULT_COLLAPSED_SECTIONS }
+const savedCollapsedState: CollapsedSections = (() => {
+  const clone = cloneDefaultRulesFilterCollapsed()
+  clone.rule = false
+  clone.sets = false
+  clone.rarity = false
+  return clone
+})()
 
 const savedAutosaveEntry = (() => {
   const payload = {
@@ -81,9 +83,19 @@ const savedAutosaveEntry = (() => {
     AutosaveSavedAt: '2024-12-12T00:00:00.000Z',
     Version: APP_VERSION,
     Filters: {
-      open: true,
-      state: savedFilterState,
-      collapsed: savedCollapsedState,
+      activeMode: 'tester' as RulesFilterPreviewMode,
+      views: {
+        rules: {
+          open: false,
+          state: JSON.parse(JSON.stringify(defaultFilterState)) as RulesFilterState,
+          collapsed: { ...defaultCollapsedState },
+        },
+        tester: {
+          open: true,
+          state: savedFilterState,
+          collapsed: savedCollapsedState,
+        },
+      },
       testerConfigFilterMode: 'first',
     },
   }
@@ -92,11 +104,37 @@ const savedAutosaveEntry = (() => {
   return JSON.stringify([crc, payload])
 })()
 
+const defaultStateMap = buildModeMap(() => cloneDefaultRulesFilterState())
+const defaultCollapsedMap = buildModeMap(() => cloneDefaultRulesFilterCollapsed())
+const defaultOpenMap = buildModeMap(() => RULES_FILTER_OPEN_DEFAULT)
+const restoredStateMap = {
+  rules: JSON.parse(JSON.stringify(defaultStateMap.rules)) as RulesFilterState,
+  tester: savedFilterState,
+}
+const restoredCollapsedMap = {
+  rules: { ...defaultCollapsedMap.rules },
+  tester: savedCollapsedState,
+}
+const restoredOpenMap = {
+  rules: RULES_FILTER_OPEN_DEFAULT,
+  tester: true,
+}
+
 test.describe('autosave filter restore', () => {
   test('applies saved filters when restoring autosave', async ({ page }) => {
     await prepareApp(page)
     await page.addInitScript(
-      ({ autosaveKey, entry, filterStateKey, filterOpenKey, filterCollapsedKey, previewModeKey, defaultState, defaultCollapsed }) => {
+      ({
+        autosaveKey,
+        entry,
+        filterStateKey,
+        filterOpenKey,
+        filterCollapsedKey,
+        previewModeKey,
+        defaultState,
+        defaultCollapsed,
+        defaultOpen,
+      }) => {
         try {
           window.localStorage.setItem(autosaveKey, entry)
         } catch {}
@@ -107,7 +145,7 @@ test.describe('autosave filter restore', () => {
           window.localStorage.setItem(filterCollapsedKey, JSON.stringify(defaultCollapsed))
         } catch {}
         try {
-          window.localStorage.setItem(filterOpenKey, 'false')
+          window.localStorage.setItem(filterOpenKey, JSON.stringify(defaultOpen))
         } catch {}
         try {
           window.localStorage.setItem(previewModeKey, 'tester')
@@ -116,12 +154,13 @@ test.describe('autosave filter restore', () => {
       {
         autosaveKey: AUTOSAVE_KEY,
         entry: savedAutosaveEntry,
-        filterStateKey: FILTER_STATE_KEY,
-        filterOpenKey: FILTER_OPEN_KEY,
-        filterCollapsedKey: FILTER_COLLAPSED_KEY,
+        filterStateKey: RULES_FILTER_STATE_STORAGE_KEY,
+        filterOpenKey: RULES_FILTER_OPEN_STORAGE_KEY,
+        filterCollapsedKey: RULES_FILTER_COLLAPSED_STORAGE_KEY,
         previewModeKey: PREVIEW_MODE_STORAGE_KEY,
-        defaultState: DEFAULT_RULES_FILTER_STATE,
-        defaultCollapsed: DEFAULT_COLLAPSED_SECTIONS,
+        defaultState: defaultStateMap,
+        defaultCollapsed: defaultCollapsedMap,
+        defaultOpen: defaultOpenMap,
       },
     )
 
@@ -137,22 +176,22 @@ test.describe('autosave filter restore', () => {
           return false
         }
       },
-      { key: FILTER_STATE_KEY, expected: defaultFilterState },
+      { key: RULES_FILTER_STATE_STORAGE_KEY, expected: defaultStateMap },
     )
     const preState = await page.evaluate((key) => {
       const raw = window.localStorage.getItem(key)
       return raw ? JSON.parse(raw) : null
-    }, FILTER_STATE_KEY)
-    expect(preState).toEqual(defaultFilterState)
+    }, RULES_FILTER_STATE_STORAGE_KEY)
+    expect(preState).toEqual(defaultStateMap)
 
     const preCollapsed = await page.evaluate((key) => {
       const raw = window.localStorage.getItem(key)
       return raw ? JSON.parse(raw) : null
-    }, FILTER_COLLAPSED_KEY)
-    expect(preCollapsed).toEqual(defaultCollapsedState)
+    }, RULES_FILTER_COLLAPSED_STORAGE_KEY)
+    expect(preCollapsed).toEqual(defaultCollapsedMap)
 
-    const preOpen = await page.evaluate((key) => window.localStorage.getItem(key), FILTER_OPEN_KEY)
-    expect(preOpen).toBe('false')
+    const preOpen = await page.evaluate((key) => window.localStorage.getItem(key), RULES_FILTER_OPEN_STORAGE_KEY)
+    expect(preOpen).toBe(JSON.stringify(defaultOpenMap))
 
     const dialog = page.getByRole('dialog', { name: /restore/i })
     await expect(dialog).toBeVisible()
@@ -176,23 +215,23 @@ test.describe('autosave filter restore', () => {
           return false
         }
       },
-      { key: FILTER_STATE_KEY, expected: savedFilterState },
+      { key: RULES_FILTER_STATE_STORAGE_KEY, expected: restoredStateMap },
     )
 
     const storedState = await page.evaluate((key) => {
       const raw = window.localStorage.getItem(key)
       return raw ? JSON.parse(raw) : null
-    }, FILTER_STATE_KEY)
-    expect(storedState).toEqual(savedFilterState)
+    }, RULES_FILTER_STATE_STORAGE_KEY)
+    expect(storedState).toEqual(restoredStateMap)
 
     const storedCollapsed = await page.evaluate((key) => {
       const raw = window.localStorage.getItem(key)
       return raw ? JSON.parse(raw) : null
-    }, FILTER_COLLAPSED_KEY)
-    expect(storedCollapsed).toEqual(savedCollapsedState)
+    }, RULES_FILTER_COLLAPSED_STORAGE_KEY)
+    expect(storedCollapsed).toEqual(restoredCollapsedMap)
 
-    const storedOpen = await page.evaluate((key) => window.localStorage.getItem(key), FILTER_OPEN_KEY)
-    expect(storedOpen).toBe('true')
+    const storedOpen = await page.evaluate((key) => window.localStorage.getItem(key), RULES_FILTER_OPEN_STORAGE_KEY)
+    expect(storedOpen).toBe(JSON.stringify(restoredOpenMap))
 
     const testerToggle = page.getByRole('button', { name: /Rule Tester/i })
     await expect(testerToggle).toHaveAttribute('aria-pressed', 'true')

@@ -51,7 +51,7 @@ const overrides: Catalog = {
   pushSellfile: 'Надіслати Sellfile до RSL Helper',
   pushSellfileTooltip: 'Надсилає Sellfile на {endpoint}',
   manageColorsAria: 'Керування кольорами',
-  // Тестер
+  // Rule Tester
   testerOpenLabel: 'Спорядження...',
   testerOpenTooltip: 'Відкрийте тестер спорядження, щоб завантажити базу RSL Helper або зібрати зразкові речі й перевірити поточні правила.',
   testerTitle: 'Спорядження',
@@ -82,11 +82,16 @@ const overrides: Catalog = {
   testerMatchKeep: 'Зберегти',
   testerMatchSell: 'Продати',
   testerMatchNoRule: 'Немає збігів',
+  testerConfigMatches: 'Відповідні конфіги',
   testerConfigChip: 'Конфіг #{index}',
   testerFinalSellChip: 'Фінальний продаж',
 
   testerKeepUniqueChip: 'Зберегти унікальні',
   testerValueUnknown: '—',
+  testerAddManualGear: 'Додати ручне спорядження',
+  testerAddRowAriaLabel: 'Додати рядок',
+  testerRemoveRowAriaLabel: 'Вилучити рядок',
+  testerRerollLabel: 'Перековано',
   testerLastUsedTooltip: 'Востаннє використано {timestamp}.',
   testerLastUsedFilterLabel: 'Востаннє використання',
   testerLastUsedPresetNever: 'Ніколи не використовувалось',
@@ -105,8 +110,7 @@ const overrides: Catalog = {
   testerLastUsedCustomSummaryRange: '{minDays}–{maxDays} днів тому',
   testerLastUsedCustomSummaryMin: '≥{minDays} днів тому',
   testerLastUsedCustomSummaryMax: '≤{maxDays} днів тому',
-  testerAddManualGear: 'Додати ручне спорядження',
-  // Common UI bits used in Тестер
+  // Common UI bits used in Rule Tester
   add: 'Додати',
   compact: 'Компактний',
   expanded: 'Розгорнутий',
@@ -205,6 +209,7 @@ const overrides: Catalog = {
   keepUniquesCountModePerFaction: 'На фракцію',
   keepUniquesCountModePerMain: 'На осн. стат',
   keepUniquesCountModePerRule: 'На правило',
+  // Tooltip mirrors the README examples so users see the same scenarios we use to explain the 2×2 count-mode grid.
   keepUniquesCountModeHint: '**Режими квот із прикладами**\n- **На правило** — один спільний пул. Приклад: Чоботи з основним [[stat:statSPD]], тримаємо ≥5 незалежно від сету.\n- **На фракцію** — окрема квота для кожної фракції. Приклад: ≥3 персні Merciless на фракцію, ≥2 персні з [[stat:statHP_percent]] або правило «5 Перснів/Амулетів/Прапорів на фракцію».\n- **На сет** — комбінується з іншими кнопками, коли важливий сет. Приклад: Stoneskin/Protection (персні/амулети/прапори) з вимогою ≥2 на фракцію потребують «На сет» + «На фракцію».\n- **На осн. стат** — звужує квоту до одного мейна. Приклад: рукавиці Savage + Lethal з основним [[stat:statCDMG]], тримаємо ≥3 дамажні рукавиці навіть коли змінюється комбінація сетів.',
   keepUniquesNoRules: 'Правила збереження ще не додані.',
   keepUniquesAddRule: 'Додати правило збереження',
@@ -672,6 +677,10 @@ const overrides: Catalog = {
   builderMinRequiredRollsTargetLocked: 'Ціль: заблоковані підстати',
   builderMinRequiredRollsChipLocked: 'Лише зафіксовані',
   builderMinRequiredRollsChipSelected: 'Усі підстати',
+  builderMinRequiredRollsLockIconSet: 'Зафіксуйте {count} ролів, щоб застосовувати їх лише до заблокованих підстатів.',
+  builderMinRequiredRollsLockIconClear: 'Скинути ціль для ролів на замках.',
+  builderMinRequiredRollsLockIconDisabled: 'Зафіксуйте хоча б один підстат, щоб налаштувати цю ціль.',
+  builderLockedMinRequiredRollsLabel: 'Мін. на замках: {count}',
   builderSubstatFlexToggleTooltip: 'Flex по черзі прокручує необов’язкові підстати у всіх перестановках, щоб згенерувати кожну допустиму комбінацію понад межу «Обов’язкові підстати».\n• Виберіть число (1–4) в «Обов’язкові підстати» замість «Авто» й позначте ★ більше підстатів, ніж це число.\n• Залиште щонайменше одну додаткову ★ без мін./макс. цілей ролів, щоб було що обертати.\n• Заблоковані підстати залишаються на місці, а перемикач вимикається, щойно Flex більше не потрібен.',
   builderMilestoneThresholdsHelp: 'Визначає, як поводяться мінімальні ролі до +16, щойно ви їх вимагаєте.\n• «Рано» показує, скільки ролів уже є на кожній вісі.\n• «Пізно» вимагає тільки те, що потрібно зараз, аби мета на +16 залишалася досяжною.\n• Працює лише коли якийсь підстат має Min > 0 або задано глобальний мінімум.',
   builderMinRequiredRollsImpossibleWarn: 'Попередження: мінімум рулонів недосяжний до +16 із поточними верхніми лімітами на стат',
@@ -1077,6 +1086,7 @@ const overrides: Catalog = {
   chipsMenuSelectVisible: 'Вибрати видимі',
   chipsMenuCopyAllConfigs: 'Копіювати всі конфіги',
   chipsMenuPasteAtEnd: 'Вставити в кінець',
+  chipsEmptyPasteHint: 'Конфігів ще немає — клацніть правою кнопкою, щоб вставити',
   chipsFilteredEmpty: 'Немає конфігів, що відповідають поточним фільтрам',
   chipTooltipDuplicateOf: 'Це дублікат конфіга №{n}',
   chipBtnMoveUp: 'Перемістити вище',
