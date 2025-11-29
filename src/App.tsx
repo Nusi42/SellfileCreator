@@ -251,6 +251,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const ruleConfigsForPreview = useDeferredValue(ruleConfigs)
   const configModesForPreview = useDeferredValue(configModes)
   const configNamesForPreview = useDeferredValue(configNames)
+  const lastConfigNamesRef = useRef<string[]>(configNamesForPreview)
   const testerItemIdRef = useRef(1)
   const allocTesterItemId = useCallback(() => {
     const id = testerItemIdRef.current
@@ -666,6 +667,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     const abortController = new AbortController()
     const prevState = configRulesStateRef.current
     const prevMatches = testerPreviewRowsRef.current
+    const prevConfigNames = lastConfigNamesRef.current
     // Use immediate configs for key comparisons so reorders are detected even if deferred snapshots lag.
     const nextSubstatTargetsKey = fingerprintSubstatTargets(substatTargets)
     const nextConfigKeys = ruleConfigs.map((cfg) => fingerprintConfigForRules(cfg, nextSubstatTargetsKey))
@@ -680,6 +682,13 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     })
     // If the warmed state already covers this fingerprint, skip the worker warm pass and avoid toggling spinners.
     const canSkipWarm = lastWarmFingerprintRef.current === nextFingerprint
+    const configNamesChanged = (() => {
+      if (prevConfigNames.length !== configNamesForPreview.length) return true
+      for (let i = 0; i < configNamesForPreview.length; i += 1) {
+        if (configNamesForPreview[i] !== prevConfigNames[i]) return true
+      }
+      return false
+    })()
     const buildIndexMapping = (previousKeys: string[], nextKeys: string[]): number[] | null => {
       if (previousKeys.length !== nextKeys.length) return null
       const buckets = new Map<string, number[]>()
@@ -702,6 +711,26 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       ? buildIndexMapping(prevState.keys, nextConfigKeys)
       : null
     const hasArtifacts = testerPreviewArtifacts.length > 0
+    if (canSkipWarm && configNamesChanged && prevMatches.length > 0) {
+      // Names changed but rule fingerprints are stable; update cached rows without rebuilding.
+      const updatedRows = prevMatches.map((row) => {
+        const remapName = (cfgIdx: number | null): string | null => {
+          if (cfgIdx == null) return null
+          return configNamesForPreview[cfgIdx] ?? null
+        }
+        return {
+          ...row,
+          match: row.match ? { ...row.match, cfgName: remapName(row.match.cfgIdx) } : null,
+          baseMatch: row.baseMatch ? { ...row.baseMatch, cfgName: remapName(row.baseMatch.cfgIdx) } : null,
+        }
+      })
+      setTesterPreviewRows(sortTesterRows(updatedRows))
+      lastConfigNamesRef.current = configNamesForPreview
+      return () => {
+        abortController.abort()
+      }
+    }
+
     if (!restoringAutosaveRef.current && mapping && mapping.some((idx, newIdx) => idx !== newIdx) && !hasArtifacts) {
       // Fast path: reorder-only changes can remap cached rules without waking the worker.
       const inverse = new Map<number, number>()
@@ -836,10 +865,13 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       }
     }
 
+    const configsForPipeline = ruleConfigsForPreview.length > 0 ? ruleConfigsForPreview : ruleConfigs
+    const metasetsForPipeline = metasetsForPreview.length > 0 ? metasetsForPreview : metasets
+    const substatTargetsForPipeline = substatTargetsForPreview ?? substatTargets
     const pipelinePayload: Parameters<typeof runPipeline>[0] = {
-      configs: ruleConfigsForPreview,
-      metasets: metasetsForPreview,
-      substatTargets: substatTargetsForPreview,
+      configs: configsForPipeline,
+      metasets: metasetsForPipeline,
+      substatTargets: substatTargetsForPipeline,
       hsf,
       ...(finalSellRemainder ? { finalSellRemainder } : {}),
       keepUniques: keepUniquesPayload,
@@ -1024,6 +1056,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         setTesterRowsProgress(null)
       })
 
+    lastConfigNamesRef.current = configNamesForPreview
     return () => {
       abortController.abort()
     }
