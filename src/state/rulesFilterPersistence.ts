@@ -2,14 +2,22 @@
  * rulesFilterPersistence.ts
  *
  * Shared persistence helpers for the view-only rules filter UI.
+ * Every mode (Sellfile vs Rule Tester) keeps an independent snapshot so
+ * switching tabs never clobbers the other side’s state.
  */
+import { useCallback } from 'react'
 import { DEFAULT_RULES_FILTER_STATE, type RulesFilterState } from '../lib/rulesFilter'
 import { canonicalize } from '../lib/canonicalize'
 import { createLocalStorageStateHook, createLocalStorageStore } from './localStorageStore'
 
-const FILTER_OPEN_KEY = 'sellfileCreator.rulesFilter.open.v1'
-const FILTER_STATE_KEY = 'sellfileCreator.rulesFilter.state.v1'
-const FILTER_COLLAPSED_KEY = 'sellfileCreator.rulesFilter.collapse.v2'
+export const RULES_FILTER_OPEN_STORAGE_KEY = 'sellfileCreator.rulesFilter.open.v2'
+export const RULES_FILTER_STATE_STORAGE_KEY = 'sellfileCreator.rulesFilter.state.v2'
+export const RULES_FILTER_COLLAPSED_STORAGE_KEY = 'sellfileCreator.rulesFilter.collapse.v3'
+
+export const RULES_FILTER_PREVIEW_MODES = Object.freeze(['rules', 'tester'] as const)
+export type RulesFilterPreviewMode = typeof RULES_FILTER_PREVIEW_MODES[number]
+
+type ModeScoped<T> = Record<RulesFilterPreviewMode, T>
 
 // Filter drawer defaults to closed so the UI stays compact until summoned.
 export const RULES_FILTER_OPEN_DEFAULT = false
@@ -44,76 +52,245 @@ export const cloneDefaultRulesFilterCollapsed = (): CollapsedSections => ({ ...D
 const collapsedEquals = (a: CollapsedSections, b: CollapsedSections): boolean =>
   RULES_FILTER_COLLAPSIBLE_SECTION_IDS.every((key) => Boolean(a[key]) === Boolean(b[key]))
 
+const cloneDefaultRulesFilterCollapsedByMode = (): ModeScoped<CollapsedSections> =>
+  createModeScopedValue(cloneDefaultRulesFilterCollapsed)
+
 export const cloneDefaultRulesFilterState = (): RulesFilterState =>
   JSON.parse(JSON.stringify(DEFAULT_RULES_FILTER_STATE)) as RulesFilterState
 
 const DEFAULT_RULES_FILTER_STATE_SIGNATURE = JSON.stringify(canonicalize(DEFAULT_RULES_FILTER_STATE))
 const rulesFilterStateSignature = (value: RulesFilterState): string => JSON.stringify(canonicalize(value))
 
-const filterOpenStore = createLocalStorageStore<boolean>({
-  key: FILTER_OPEN_KEY,
-  fallback: RULES_FILTER_OPEN_DEFAULT,
-  parse: (raw) => raw === 'true',
-  serialize: (value) => (value ? 'true' : null),
-})
+const cloneDefaultRulesFilterStateByMode = (): ModeScoped<RulesFilterState> =>
+  createModeScopedValue(cloneDefaultRulesFilterState)
 
-const filterStateStore = createLocalStorageStore<RulesFilterState>({
-  key: FILTER_STATE_KEY,
-  fallback: cloneDefaultRulesFilterState(),
-  parse: (raw) => {
-    if (!raw) return cloneDefaultRulesFilterState()
-    try {
-      const parsed = JSON.parse(raw) as RulesFilterState
-      if (parsed && typeof parsed === 'object') return parsed
-    } catch {}
-    return cloneDefaultRulesFilterState()
-  },
-  serialize: (value) => {
-    try {
-      if (rulesFilterStateSignature(value) === DEFAULT_RULES_FILTER_STATE_SIGNATURE) return null
-      return JSON.stringify(value)
-    } catch {
-      return null
+const cloneDefaultFilterOpenByMode = (): ModeScoped<boolean> =>
+  createModeScopedValue(() => RULES_FILTER_OPEN_DEFAULT)
+
+const booleanMapEquals = (a: ModeScoped<boolean>, b: ModeScoped<boolean>): boolean =>
+  RULES_FILTER_PREVIEW_MODES.every((mode) => Boolean(a[mode]) === Boolean(b[mode]))
+
+const modeScopedEquals = <T>(
+  equals: (left: T, right: T) => boolean,
+) => (left: ModeScoped<T>, right: ModeScoped<T>): boolean =>
+  RULES_FILTER_PREVIEW_MODES.every((mode) => equals(left[mode], right[mode]))
+
+function createModeScopedValue<T>(factory: () => T): ModeScoped<T> {
+  // Every mode gets its own clone so edits never leak between modes via shared refs.
+  const value: Partial<ModeScoped<T>> = {}
+  for (const mode of RULES_FILTER_PREVIEW_MODES) {
+    value[mode] = factory()
+  }
+  return value as ModeScoped<T>
+}
+
+// LocalStorage entries are user-editable, so sanitize them back into a complete per-mode map.
+const parseBooleanMap = (raw: string | null): ModeScoped<boolean> => {
+  if (!raw) return cloneDefaultFilterOpenByMode()
+  try {
+    const parsed = JSON.parse(raw) as Record<string, unknown>
+    if (!parsed || typeof parsed !== 'object') return cloneDefaultFilterOpenByMode()
+    const next = cloneDefaultFilterOpenByMode()
+    for (const mode of RULES_FILTER_PREVIEW_MODES) {
+      const candidate = parsed[mode]
+      next[mode] = typeof candidate === 'boolean' ? candidate : RULES_FILTER_OPEN_DEFAULT
     }
-  },
+    return next
+  } catch {
+    return cloneDefaultFilterOpenByMode()
+  }
+}
+
+// Skip writes when both modes match the default so storage stays lean.
+const serializeBooleanMap = (value: ModeScoped<boolean>): string | null => {
+  try {
+    const normalized = cloneDefaultFilterOpenByMode()
+    for (const mode of RULES_FILTER_PREVIEW_MODES) {
+      normalized[mode] = Boolean(value?.[mode])
+    }
+    const anyEnabled = RULES_FILTER_PREVIEW_MODES.some((mode) => normalized[mode] !== RULES_FILTER_OPEN_DEFAULT)
+    return anyEnabled ? JSON.stringify(normalized) : null
+  } catch {
+    return null
+  }
+}
+
+const filterOpenStore = createLocalStorageStore<ModeScoped<boolean>>({
+  key: RULES_FILTER_OPEN_STORAGE_KEY,
+  fallback: cloneDefaultFilterOpenByMode(),
+  parse: parseBooleanMap,
+  serialize: serializeBooleanMap,
+  equals: booleanMapEquals,
 })
 
-const filterCollapsedStore = createLocalStorageStore<CollapsedSections>({
-  key: FILTER_COLLAPSED_KEY,
-  fallback: cloneDefaultRulesFilterCollapsed(),
-  parse: (raw) => {
-    if (!raw) return cloneDefaultRulesFilterCollapsed()
-    try {
-      const parsed = JSON.parse(raw) as Record<string, unknown>
-      if (!parsed || typeof parsed !== 'object') return cloneDefaultRulesFilterCollapsed()
-      const next = cloneDefaultRulesFilterCollapsed()
-      for (const key of RULES_FILTER_COLLAPSIBLE_SECTION_IDS) {
-        const value = parsed[key]
+// Rules filter state can be large; treat malformed payloads as fresh clones so UI never crashes.
+const parseRulesFilterStateMap = (raw: string | null): ModeScoped<RulesFilterState> => {
+  if (!raw) return cloneDefaultRulesFilterStateByMode()
+  try {
+    const parsed = JSON.parse(raw) as Record<string, unknown>
+    if (!parsed || typeof parsed !== 'object') return cloneDefaultRulesFilterStateByMode()
+    const next = cloneDefaultRulesFilterStateByMode()
+    for (const mode of RULES_FILTER_PREVIEW_MODES) {
+      const candidate = parsed[mode]
+      if (candidate && typeof candidate === 'object') {
+        next[mode] = candidate as RulesFilterState
+      }
+    }
+    return next
+  } catch {
+    return cloneDefaultRulesFilterStateByMode()
+  }
+}
+
+const serializeRulesFilterStateMap = (value: ModeScoped<RulesFilterState>): string | null => {
+  try {
+    const normalized = cloneDefaultRulesFilterStateByMode()
+    let dirty = false
+    for (const mode of RULES_FILTER_PREVIEW_MODES) {
+      const candidate = value?.[mode]
+      normalized[mode] = candidate ?? cloneDefaultRulesFilterState()
+      if (!dirty && rulesFilterStateSignature(normalized[mode]) !== DEFAULT_RULES_FILTER_STATE_SIGNATURE) {
+        dirty = true
+      }
+    }
+    return dirty ? JSON.stringify(normalized) : null
+  } catch {
+    return null
+  }
+}
+
+const filterStateStore = createLocalStorageStore<ModeScoped<RulesFilterState>>({
+  key: RULES_FILTER_STATE_STORAGE_KEY,
+  fallback: cloneDefaultRulesFilterStateByMode(),
+  parse: parseRulesFilterStateMap,
+  serialize: serializeRulesFilterStateMap,
+})
+
+// Collapsed sections are stored per mode; clamp unknown keys back to the default collapsed map.
+const parseCollapsedMap = (raw: string | null): ModeScoped<CollapsedSections> => {
+  if (!raw) return cloneDefaultRulesFilterCollapsedByMode()
+  try {
+    const parsed = JSON.parse(raw) as Record<string, unknown>
+    if (!parsed || typeof parsed !== 'object') return cloneDefaultRulesFilterCollapsedByMode()
+    const next = cloneDefaultRulesFilterCollapsedByMode()
+    for (const mode of RULES_FILTER_PREVIEW_MODES) {
+      const candidate = parsed[mode]
+      if (!candidate || typeof candidate !== 'object') continue
+      const snapshot = cloneDefaultRulesFilterCollapsed()
+      for (const section of RULES_FILTER_COLLAPSIBLE_SECTION_IDS) {
+        const value = (candidate as Record<string, unknown>)[section]
         if (typeof value === 'boolean') {
-          next[key] = value
+          snapshot[section] = value
         }
       }
-      return next
-    } catch {}
-    return cloneDefaultRulesFilterCollapsed()
-  },
-  serialize: (value) => {
-    try {
-      if (collapsedEquals(value, DEFAULT_COLLAPSED_SECTIONS)) return null
-      return JSON.stringify(value)
-    } catch {
-      return null
+      next[mode] = snapshot
     }
-  },
-  equals: collapsedEquals,
+    return next
+  } catch {
+    return cloneDefaultRulesFilterCollapsedByMode()
+  }
+}
+
+const serializeCollapsedMap = (value: ModeScoped<CollapsedSections>): string | null => {
+  try {
+    const normalized = cloneDefaultRulesFilterCollapsedByMode()
+    let dirty = false
+    for (const mode of RULES_FILTER_PREVIEW_MODES) {
+      const snapshot = value?.[mode]
+      normalized[mode] = snapshot ? snapshot : cloneDefaultRulesFilterCollapsed()
+      if (!dirty && !collapsedEquals(normalized[mode], DEFAULT_COLLAPSED_SECTIONS)) {
+        dirty = true
+      }
+    }
+    return dirty ? JSON.stringify(normalized) : null
+  } catch {
+    return null
+  }
+}
+
+const filterCollapsedStore = createLocalStorageStore<ModeScoped<CollapsedSections>>({
+  key: RULES_FILTER_COLLAPSED_STORAGE_KEY,
+  fallback: cloneDefaultRulesFilterCollapsedByMode(),
+  parse: parseCollapsedMap,
+  serialize: serializeCollapsedMap,
+  equals: modeScopedEquals(collapsedEquals),
 })
 
-export const useRulesFilterOpenPreference = createLocalStorageStateHook(filterOpenStore)
-export const useRulesFilterStatePreference = createLocalStorageStateHook(filterStateStore)
-export const useRulesFilterCollapsedPreference = createLocalStorageStateHook(filterCollapsedStore)
+const useFilterOpenMap = createLocalStorageStateHook(filterOpenStore)
+const useFilterStateMap = createLocalStorageStateHook(filterStateStore)
+const useCollapsedMap = createLocalStorageStateHook(filterCollapsedStore)
+
+type ModePreferenceHookResult<T> = [T, (next: T | ((prev: T) => T)) => void, ModeScoped<T>]
+
+export const useRulesFilterOpenPreference = (mode: RulesFilterPreviewMode): ModePreferenceHookResult<boolean> => {
+  const [map, setMap] = useFilterOpenMap()
+  const setValue = useCallback((next: boolean | ((prev: boolean) => boolean)) => {
+    setMap((prev) => {
+      const previous = prev ?? cloneDefaultFilterOpenByMode()
+      const prevValue = previous[mode]
+      const nextValue = typeof next === 'function' ? (next as (value: boolean) => boolean)(prevValue) : Boolean(next)
+      if (prevValue === nextValue) return previous
+      return { ...previous, [mode]: nextValue }
+    })
+  }, [mode, setMap])
+  return [map[mode], setValue, map]
+}
+
+export const useRulesFilterStatePreference = (mode: RulesFilterPreviewMode): ModePreferenceHookResult<RulesFilterState> => {
+  const [map, setMap] = useFilterStateMap()
+  const setValue = useCallback((next: RulesFilterState | ((prev: RulesFilterState) => RulesFilterState)) => {
+    setMap((prev) => {
+      const previous = prev ?? cloneDefaultRulesFilterStateByMode()
+      const prevValue = previous[mode]
+      const nextValue = typeof next === 'function' ? (next as (value: RulesFilterState) => RulesFilterState)(prevValue) : next
+      if (prevValue === nextValue) return previous
+      return { ...previous, [mode]: nextValue }
+    })
+  }, [mode, setMap])
+  return [map[mode], setValue, map]
+}
+
+export const useRulesFilterCollapsedPreference = (mode: RulesFilterPreviewMode): ModePreferenceHookResult<CollapsedSections> => {
+  const [map, setMap] = useCollapsedMap()
+  const setValue = useCallback((next: CollapsedSections | ((prev: CollapsedSections) => CollapsedSections)) => {
+    setMap((prev) => {
+      const previous = prev ?? cloneDefaultRulesFilterCollapsedByMode()
+      const prevValue = previous[mode]
+      const nextValue = typeof next === 'function' ? (next as (value: CollapsedSections) => CollapsedSections)(prevValue) : next
+      if (collapsedEquals(prevValue, nextValue)) return previous
+      return { ...previous, [mode]: nextValue }
+    })
+  }, [mode, setMap])
+  return [map[mode], setValue, map]
+}
 
 export function resetRulesFilterPreferences() {
-  filterOpenStore.set(RULES_FILTER_OPEN_DEFAULT)
-  filterStateStore.set(cloneDefaultRulesFilterState())
-  filterCollapsedStore.set(cloneDefaultRulesFilterCollapsed())
+  filterOpenStore.set(cloneDefaultFilterOpenByMode())
+  filterStateStore.set(cloneDefaultRulesFilterStateByMode())
+  filterCollapsedStore.set(cloneDefaultRulesFilterCollapsedByMode())
+}
+
+// Imperative helpers allow restores/autosave to write individual modes without juggling hooks.
+export function setRulesFilterOpenForMode(mode: RulesFilterPreviewMode, value: boolean) {
+  filterOpenStore.update((prev) => {
+    const previous = prev ?? cloneDefaultFilterOpenByMode()
+    if (previous[mode] === value) return previous
+    return { ...previous, [mode]: value }
+  })
+}
+
+export function setRulesFilterStateForMode(mode: RulesFilterPreviewMode, value: RulesFilterState) {
+  filterStateStore.update((prev) => {
+    const previous = prev ?? cloneDefaultRulesFilterStateByMode()
+    if (previous[mode] === value) return previous
+    return { ...previous, [mode]: value }
+  })
+}
+
+export function setRulesFilterCollapsedForMode(mode: RulesFilterPreviewMode, value: CollapsedSections) {
+  filterCollapsedStore.update((prev) => {
+    const previous = prev ?? cloneDefaultRulesFilterCollapsedByMode()
+    if (collapsedEquals(previous[mode], value)) return previous
+    return { ...previous, [mode]: value }
+  })
 }

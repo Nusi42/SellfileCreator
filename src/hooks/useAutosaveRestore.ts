@@ -16,7 +16,15 @@ import type { FinalSellDialogTab, FinalSellRemainderConfig } from '../lib/finalS
 import { FINAL_SELL_DIALOG_TAB_FINAL_SELL, FINAL_SELL_DIALOG_TABS } from '../lib/finalSell'
 import type { RulesFilterState } from '../lib/rulesFilter'
 import { canonicalize } from '../lib/canonicalize'
-import { RULES_FILTER_OPEN_DEFAULT, cloneDefaultRulesFilterCollapsed, cloneDefaultRulesFilterState } from '../state/rulesFilterPersistence'
+import {
+  RULES_FILTER_OPEN_DEFAULT,
+  RULES_FILTER_PREVIEW_MODES,
+  RULES_FILTER_COLLAPSIBLE_SECTION_IDS,
+  type RulesFilterPreviewMode,
+  cloneDefaultRulesFilterCollapsed,
+  cloneDefaultRulesFilterState,
+  type CollapsedSections,
+} from '../state/rulesFilterPersistence'
 import { TESTER_CONFIG_FILTER_MODE_DEFAULT, type TesterConfigFilterMode } from '../types/testerConfigFilterMode'
 import type { KeepUniqueRule } from '../lib/keepUniques'
 
@@ -35,10 +43,15 @@ export type RestoreDraft = {
   FinalSellDialogTab?: FinalSellDialogTab
 }
 
-export type AutosaveFiltersState = {
+export type AutosaveFilterView = {
   open: boolean
   state: RulesFilterState
-  collapsed: Record<string, boolean>
+  collapsed: CollapsedSections
+}
+
+export type AutosaveFiltersState = {
+  activeMode: RulesFilterPreviewMode
+  views: Record<RulesFilterPreviewMode, AutosaveFilterView>
   testerConfigFilterMode?: TesterConfigFilterMode
 }
 
@@ -70,33 +83,138 @@ export const substatTargetsSignature = (targets?: SubstatTargetTable | null): st
   return JSON.stringify(canonicalize(targets))
 }
 
-export const filtersSignature = (filters: AutosaveFiltersState | null | undefined): string => {
-  if (!filters) return ''
-  return JSON.stringify({
-    open: Boolean(filters.open),
-    state: canonicalize(filters.state),
-    collapsed: canonicalize(filters.collapsed),
+const normalizeAutosaveFilters = (filters: AutosaveFiltersState | null | undefined): AutosaveFiltersState | null => {
+  if (!filters) return null
+  const views: Record<RulesFilterPreviewMode, AutosaveFilterView> = {} as Record<RulesFilterPreviewMode, AutosaveFilterView>
+  for (const mode of RULES_FILTER_PREVIEW_MODES) {
+    const view = filters.views?.[mode]
+    views[mode] = {
+      open: Boolean(view?.open),
+      state: view?.state ?? cloneDefaultRulesFilterState(),
+      collapsed: view?.collapsed ?? cloneDefaultRulesFilterCollapsed(),
+    }
+  }
+  return {
+    activeMode: filters.activeMode === 'tester' ? 'tester' : 'rules',
+    views,
     testerConfigFilterMode: filters.testerConfigFilterMode ?? TESTER_CONFIG_FILTER_MODE_DEFAULT,
+  }
+}
+
+const parseCollapsedSections = (raw: unknown): CollapsedSections => {
+  const next = cloneDefaultRulesFilterCollapsed()
+  if (!raw || typeof raw !== 'object') return next
+  const rec = raw as Record<string, unknown>
+  for (const section of RULES_FILTER_COLLAPSIBLE_SECTION_IDS) {
+    const value = rec[section]
+    if (typeof value === 'boolean') {
+      next[section] = value
+    }
+  }
+  return next
+}
+
+// Autosave payloads may come from older versions; decode both the new per-mode structure and the legacy single-mode shape.
+const parseSavedFilters = (raw: unknown): AutosaveFiltersState | null => {
+  if (!raw || typeof raw !== 'object') return null
+  const rec = raw as Record<string, unknown>
+  if (rec['views'] && typeof rec['views'] === 'object') {
+    const viewsRaw = rec['views'] as Record<string, unknown>
+    const views = {} as Record<RulesFilterPreviewMode, AutosaveFilterView>
+    for (const mode of RULES_FILTER_PREVIEW_MODES) {
+      const viewRaw = viewsRaw[mode]
+      if (!viewRaw || typeof viewRaw !== 'object') {
+        views[mode] = {
+          open: RULES_FILTER_OPEN_DEFAULT,
+          state: cloneDefaultRulesFilterState(),
+          collapsed: cloneDefaultRulesFilterCollapsed(),
+        }
+        continue
+      }
+      const viewRec = viewRaw as Record<string, unknown>
+      const stateRaw = viewRec['state']
+      const state = (stateRaw && typeof stateRaw === 'object')
+        ? stateRaw as RulesFilterState
+        : cloneDefaultRulesFilterState()
+      views[mode] = {
+        open: viewRec['open'] === true,
+        state,
+        collapsed: parseCollapsedSections(viewRec['collapsed']),
+      }
+    }
+    const testerModeRaw = rec['testerConfigFilterMode']
+    const testerConfigFilterMode: TesterConfigFilterMode | undefined =
+      testerModeRaw === 'first' || testerModeRaw === 'any' || testerModeRaw === 'off'
+        ? testerModeRaw
+        : undefined
+    const activeModeRaw = rec['activeMode']
+    const activeMode: RulesFilterPreviewMode = activeModeRaw === 'tester' ? 'tester' : 'rules'
+    return {
+      activeMode,
+      views,
+      ...(testerConfigFilterMode ? { testerConfigFilterMode } : {}),
+    }
+  }
+  const stateRaw = rec['state']
+  if (!stateRaw || typeof stateRaw !== 'object') return null
+  const legacyView: AutosaveFilterView = {
+    open: rec['open'] === true,
+    state: stateRaw as RulesFilterState,
+    collapsed: parseCollapsedSections(rec['collapsed']),
+  }
+  const testerModeRaw = rec['testerConfigFilterMode']
+  const testerConfigFilterMode: TesterConfigFilterMode | undefined =
+    testerModeRaw === 'first' || testerModeRaw === 'any' || testerModeRaw === 'off'
+      ? testerModeRaw
+      : undefined
+  const views = RULES_FILTER_PREVIEW_MODES.reduce((acc, mode) => {
+    acc[mode] = {
+      open: legacyView.open,
+      state: legacyView.state,
+      collapsed: legacyView.collapsed,
+    }
+    return acc
+  }, {} as Record<RulesFilterPreviewMode, AutosaveFilterView>)
+  return {
+    activeMode: 'rules',
+    views,
+    ...(testerConfigFilterMode ? { testerConfigFilterMode } : {}),
+  }
+}
+
+export const filtersSignature = (filters: AutosaveFiltersState | null | undefined): string => {
+  const normalized = normalizeAutosaveFilters(filters)
+  if (!normalized) return ''
+  const views = RULES_FILTER_PREVIEW_MODES.map((mode) => ({
+    mode,
+    open: normalized.views[mode].open,
+    state: canonicalize(normalized.views[mode].state),
+    collapsed: canonicalize(normalized.views[mode].collapsed),
+  }))
+  return JSON.stringify({
+    activeMode: normalized.activeMode,
+    views,
+    testerConfigFilterMode: normalized.testerConfigFilterMode ?? TESTER_CONFIG_FILTER_MODE_DEFAULT,
   })
 }
 
 const DEFAULT_AUTOSAVE_FILTERS_SIGNATURE = filtersSignature({
-  open: RULES_FILTER_OPEN_DEFAULT,
-  state: cloneDefaultRulesFilterState(),
-  collapsed: cloneDefaultRulesFilterCollapsed(),
+  activeMode: 'rules',
+  views: RULES_FILTER_PREVIEW_MODES.reduce((acc, mode) => {
+    acc[mode] = {
+      open: RULES_FILTER_OPEN_DEFAULT,
+      state: cloneDefaultRulesFilterState(),
+      collapsed: cloneDefaultRulesFilterCollapsed(),
+    }
+    return acc
+  }, {} as Record<RulesFilterPreviewMode, AutosaveFilterView>),
   testerConfigFilterMode: TESTER_CONFIG_FILTER_MODE_DEFAULT,
 })
 
 // Treat exact matches to the factory defaults as "no filters" so autosave stays clean.
 export const areAutosaveFiltersDefault = (filters: AutosaveFiltersState | null | undefined): boolean => {
   if (!filters) return true
-  const normalized: AutosaveFiltersState = {
-    open: Boolean(filters.open),
-    state: filters.state,
-    collapsed: filters.collapsed ?? cloneDefaultRulesFilterCollapsed(),
-    testerConfigFilterMode: filters.testerConfigFilterMode ?? TESTER_CONFIG_FILTER_MODE_DEFAULT,
-  }
-  return filtersSignature(normalized) === DEFAULT_AUTOSAVE_FILTERS_SIGNATURE
+  return filtersSignature(filters) === DEFAULT_AUTOSAVE_FILTERS_SIGNATURE
 }
 
 export const finalSellSignature = (fsr?: FinalSellRemainderConfig | null): string => {
@@ -131,37 +249,10 @@ function computeInitialAutosaveState(args: {
       // session diverged.
       const substatTargetsMatchDefaults = substatTargetsSignature(savedSubstatTargets) === substatTargetsSignature(args.substatTargets)
       const finalSellMatches = finalSellSignature(savedFinalSell) === finalSellSignature(args.finalSellRemainder)
-      const savedFiltersRaw = (entry.payload && typeof entry.payload === 'object') ? (entry.payload as Record<string, unknown>)['Filters'] : null
-      const savedFilters: AutosaveFiltersState | null = (() => {
-        if (!savedFiltersRaw || typeof savedFiltersRaw !== 'object') return null
-        const rec = savedFiltersRaw as Record<string, unknown>
-        const collapsed = ((): Record<string, boolean> => {
-          const raw = rec['collapsed']
-          if (!raw || typeof raw !== 'object') return {}
-          const out: Record<string, boolean> = {}
-          for (const [key, value] of Object.entries(raw)) {
-            out[String(key)] = Boolean(value)
-          }
-          return out
-        })()
-        const state = ((): RulesFilterState | null => {
-          const rawState = rec['state']
-          if (!rawState || typeof rawState !== 'object') return null
-          return rawState as RulesFilterState
-        })()
-        if (!state) return null
-        const testerModeRaw = rec['testerConfigFilterMode']
-        const testerConfigFilterMode: TesterConfigFilterMode | undefined =
-          testerModeRaw === 'first' || testerModeRaw === 'any' || testerModeRaw === 'off'
-            ? testerModeRaw
-            : undefined
-        return {
-          open: rec['open'] === true,
-          state,
-          collapsed,
-          ...(testerConfigFilterMode ? { testerConfigFilterMode } : {}),
-        }
-      })()
+      const savedFiltersRaw = (entry.payload && typeof entry.payload === 'object')
+        ? (entry.payload as Record<string, unknown>)['Filters']
+        : null
+      const savedFilters = parseSavedFilters(savedFiltersRaw)
       const filtersMatchDefaults = areAutosaveFiltersDefault(savedFilters)
       const keepUniquesMatchDefaults = savedKeepUniques.length === 0
         && !savedKeepEnabled
@@ -191,7 +282,7 @@ function computeInitialAutosaveState(args: {
             ...(parsed.selectedIndex != null ? { SelectedConfigIndex: parsed.selectedIndex } : {}),
             ...(parsed.note ? { Note: parsed.note } : {}),
             ...(savedAtRaw ? { AutosaveSavedAt: savedAtRaw } : {}),
-            ...(savedFilters ? { Filters: savedFilters } : {}),
+        ...(savedFilters ? { Filters: savedFilters } : {}),
             ...(typeof payload['FinalSellDialogTab'] === 'string'
               ? (() => {
                 const raw = payload['FinalSellDialogTab'] as string
@@ -264,7 +355,7 @@ export function useAutosaveRestore(opts: {
   const snapshot = useMemo(() => {
     // Selection changes should not enable autosave by themselves.
     // Exclude SelectedConfigIndex from the divergence snapshot.
-    const filtersForSnapshot = areAutosaveFiltersDefault(filters) ? null : filters
+    const filtersForSnapshot = areAutosaveFiltersDefault(filters) ? null : normalizeAutosaveFilters(filters)
     const base = {
       Version: version,
       Metasets: metasets,
