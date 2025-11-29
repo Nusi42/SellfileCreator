@@ -148,7 +148,9 @@ Write down open questions as you go—especially when sample rows expose partial
 
 - RSL Helper now emits a `LastUsedArtifacts` table with two columns:
   - `id` — matches the artifact ID in both `Artifacts` and `InboxArtifacts`.
-  - `lastUse` — local timestamp string in the format `YYYY-MM-DD HH:MM:SS.sss`.
-- The importer trims those strings, maps them onto each normalized artifact, and exposes them via `NormalizedGearArtifact.lastUseLocalTimestamp` plus the tester preview extras. The tester grid renders the value in a tooltip on the gear icon using the user’s locale.
+  - `lastUse` — declared as `REAL` in the shipped schema. SQL.js will surface either trimmed text (older dumps) or floats (Julian day numbers) depending on how the DB was saved.
+- The importer now normalizes both shapes: strings are trimmed in-place, while REAL payloads are converted into `YYYY-MM-DD HH:MM:SS.sss` strings using the runtime’s local timezone so the tester consumes the same format regardless of source DB quirks. Those strings feed `NormalizedGearArtifact.lastUseLocalTimestamp` plus the tester preview extras. The tester grid renders the value in a tooltip on the gear icon using the user’s locale.
+- REAL conversions only accept values inside the safe Julian range we’ve observed in helper dumps (`[1.7M, 3M]`). Anything else is dropped so bogus payloads cannot poison tester filters.
 - When the table is missing (older DBs), we simply omit the tooltip—no fallback data is guessed.
 - Tester filters consume this metadata: the `Last used` presets (`Never used`, `≤7d`, `≤30d`, `≤90d`, `>90d`) and the custom day-range popover both evaluate against `lastUseLocalTimestamp`, so any DB without the table automatically treats those rows as “unknown.”
+- Helper dumps also ship a sentinel artifact row (ID `-1`, nonsense slot/type) that carries metadata for RSL Helper itself. SQL.js surfaced that as an “artifact,” so the importer now drops any row whose ID ≤ 0 or whose slot mapping is unknown before normalization. Real gear is unaffected, and malformed rows no longer trigger the “File Not Supported” dialog.
