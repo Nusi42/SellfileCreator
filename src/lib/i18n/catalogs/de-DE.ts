@@ -205,7 +205,7 @@ const overrides: Catalog = {
   keepUniquesCountModePerFaction: 'Pro Fraktion',
   keepUniquesCountModePerMain: 'Pro Hauptstat',
   keepUniquesCountModePerRule: 'Pro Regel',
-  // Tooltip text mirrors the README scenarios so every locale explains the new scope grid consistently.
+  // Tooltip mirrors the README examples so users see the same scenarios we use to explain the 2×2 count-mode grid.
   keepUniquesCountModeHint: '**Quotenmodi mit Beispielen**\n- **Pro Regel** hält einen gemeinsamen Pool – z. B. Stiefel mit [[stat:statSPD]]-Mainstat, mindestens 5 unabhängig vom Set.\n- **Pro Fraktion** trennt die Quote je Fraktion – z. B. ≥3 Merciless-Ringe pro Fraktion, ≥2 Ringe mit [[stat:statHP_percent]]-Main oder „5 Ringe/Amulette/Banner pro Fraktion“.\n- **Pro Set** lässt sich mit den anderen Schaltern kombinieren, wenn das Set entscheidend ist – z. B. Stoneskin/Protection-Ringe/-Amulette/-Banner (≥2 pro Fraktion) brauchen Pro Set + Pro Fraktion.\n- **Pro Hauptstat** begrenzt die Quote auf einen Mainstat – z. B. Savage- + Lethal-Handschuhe mit [[stat:statCDMG]]-Mainstat, ≥3 Stück selbst wenn sich das Set-Mix ändert.',
   keepUniquesNoRules: 'Noch keine Behalte-Regeln.',
   keepUniquesAddRule: 'Behalte-Regel hinzufügen',

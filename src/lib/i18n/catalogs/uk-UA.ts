@@ -205,7 +205,7 @@ const overrides: Catalog = {
   keepUniquesCountModePerFaction: 'На фракцію',
   keepUniquesCountModePerMain: 'На осн. стат',
   keepUniquesCountModePerRule: 'На правило',
-  // Повторюємо приклади з README, щоб нова сітка режимів пояснювалася однаково в усіх мовах.
+  // Tooltip mirrors the README examples so users see the same scenarios we use to explain the 2×2 count-mode grid.
   keepUniquesCountModeHint: '**Режими квот із прикладами**\n- **На правило** — один спільний пул. Приклад: Чоботи з основним [[stat:statSPD]], тримаємо ≥5 незалежно від сету.\n- **На фракцію** — окрема квота для кожної фракції. Приклад: ≥3 персні Merciless на фракцію, ≥2 персні з [[stat:statHP_percent]] або правило «5 Перснів/Амулетів/Прапорів на фракцію».\n- **На сет** — комбінується з іншими кнопками, коли важливий сет. Приклад: Stoneskin/Protection (персні/амулети/прапори) з вимогою ≥2 на фракцію потребують «На сет» + «На фракцію».\n- **На осн. стат** — звужує квоту до одного мейна. Приклад: рукавиці Savage + Lethal з основним [[stat:statCDMG]], тримаємо ≥3 дамажні рукавиці навіть коли змінюється комбінація сетів.',
   keepUniquesNoRules: 'Правила збереження ще не додані.',
   keepUniquesAddRule: 'Додати правило збереження',

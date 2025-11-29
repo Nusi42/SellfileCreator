@@ -205,7 +205,7 @@ const overrides: Catalog = {
   keepUniquesCountModePerFaction: 'Por facción',
   keepUniquesCountModePerMain: 'Por stat principal',
   keepUniquesCountModePerRule: 'Por regla',
-  // Mantiene la misma narrativa del README para que la cuadrícula de ámbitos se entienda igual en cada idioma.
+  // Tooltip mirrors the README examples so users see the same scenarios we use to explain the 2×2 count-mode grid.
   keepUniquesCountModeHint: '**Modos de cuota con ejemplos**\n- **Por regla** mantiene un único cupo para toda la tarjeta. Ejemplo: Botas con stat principal [[stat:statSPD]], conserva ≥5 aunque cambien los sets.\n- **Por facción** divide la cuota por facción. Ejemplo: ≥3 Anillos Merciless por facción, ≥2 Anillos con [[stat:statHP_percent]] principal o la regla de “5 Anillos/Amuletos/Banderas por facción”.\n- **Por conjunto** se combina con los otros interruptores cuando el set importa. Ejemplo: para Stoneskin/Protection en Anillos/Amuletos/Banderas (≥2 por facción) activa Por conjunto + Por facción.\n- **Por stat principal** limita la cuota a un único main. Ejemplo: Guantes Savage + Lethal con [[stat:statCDMG]] principal, conserva ≥3 guantes de daño aunque cambie la mezcla de sets.',
   keepUniquesNoRules: 'Aún no hay reglas de conservación.',
   keepUniquesAddRule: 'Añadir regla de conservación',
