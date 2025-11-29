@@ -1,6 +1,6 @@
 import type { Catalog } from '../types'
 
-const overrides: Catalog = {
+const enUS: Catalog = {
   // App / Panels
   appBuilderTitle: 'Generatore di configurazioni',
   loadConfigs: 'Carica configurazioni (.hsfc)',
@@ -82,11 +82,16 @@ const overrides: Catalog = {
   testerMatchKeep: 'Mantieni',
   testerMatchSell: 'Vendi',
   testerMatchNoRule: 'Nessuna corrispondenza',
+  testerConfigMatches: 'Matching Configs',
   testerConfigChip: 'Config #{index}',
   testerFinalSellChip: 'Vendita finale',
 
   testerKeepUniqueChip: 'Mantieni unici',
   testerValueUnknown: '—',
+  testerAddManualGear: 'Aggiungi equipaggiamento manuale',
+  testerAddRowAriaLabel: 'Add Row',
+  testerRemoveRowAriaLabel: 'Remove Row',
+  testerRerollLabel: 'Rerolled',
   testerLastUsedTooltip: 'Ultimo utilizzo {timestamp}.',
   testerLastUsedFilterLabel: 'Ultimo utilizzo',
   testerLastUsedPresetNever: 'Mai usato',
@@ -105,7 +110,6 @@ const overrides: Catalog = {
   testerLastUsedCustomSummaryRange: '{minDays}–{maxDays} giorni fa',
   testerLastUsedCustomSummaryMin: '≥{minDays} giorni fa',
   testerLastUsedCustomSummaryMax: '≤{maxDays} giorni fa',
-  testerAddManualGear: 'Aggiungi equipaggiamento manuale',
   // Common UI bits used in Rule Tester
   add: 'Aggiungi',
   compact: 'Compatta',
@@ -673,6 +677,10 @@ const overrides: Catalog = {
   builderMinRequiredRollsTargetLocked: 'Target: sotto-stat bloccate',
   builderMinRequiredRollsChipLocked: 'Solo bloccate',
   builderMinRequiredRollsChipSelected: 'Tutte le sotto-stat',
+  builderMinRequiredRollsLockIconSet: 'Lock {count} rolls to apply only to locked substats.',
+  builderMinRequiredRollsLockIconClear: 'Clear the locked roll target.',
+  builderMinRequiredRollsLockIconDisabled: 'Lock at least one substat to set a locked roll target.',
+  builderLockedMinRequiredRollsLabel: 'Locked Min: {count}',
   builderSubstatFlexToggleTooltip: 'Flex ruota le sotto-stat opzionali nelle permutazioni così ogni combinazione valida oltre il conteggio di Sotto-stat richieste viene generata.\n• Imposta Sotto-stat richieste su un numero (1–4) invece di Auto e segna con ★ più sotto-stat di quel numero.\n• Lascia almeno una ★ aggiuntiva senza obiettivi di roll min/max così c’è qualcosa da ruotare.\n• Le scelte bloccate restano fisse e l’interruttore si disattiva quando Flex non è più applicabile.',
   builderMilestoneThresholdsHelp: 'Decidi come si comportano le soglie di roll minimi prima del +16 quando chiedi dei minimi.\n• Anticipato mostra i roll già ottenuti a ogni traguardo.\n• Tardivo mostra cosa devi avere ora per mantenere raggiungibile l’obiettivo +16.\n• Conta solo se almeno una sotto-stat ha Min > 0 o hai impostato un minimo globale.',
   builderMinRequiredRollsImpossibleWarn: 'Attenzione: i roll minimi richiesti non sono raggiungibili entro +16 con gli attuali limiti superiori per statistica',
@@ -1078,6 +1086,7 @@ const overrides: Catalog = {
   chipsMenuSelectVisible: 'Seleziona visibili',
   chipsMenuCopyAllConfigs: 'Copia tutte le configurazioni',
   chipsMenuPasteAtEnd: 'Incolla in coda',
+  chipsEmptyPasteHint: 'No Configs Yet — Right-Click to Paste',
   chipsFilteredEmpty: 'Nessuna configurazione soddisfa i filtri attuali',
   chipTooltipDuplicateOf: 'Duplicato della configurazione #{n}',
   chipBtnMoveUp: 'Sposta su',
@@ -1164,4 +1173,4 @@ const overrides: Catalog = {
   setRevenge: 'Vendetta',
 }
 
-export default overrides
+export default enUS
