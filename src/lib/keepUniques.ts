@@ -14,6 +14,11 @@ import {
   ArtifactSet,
   ArtifactType,
   StatVariant as StatVariantEnum,
+  artifactSetNames,
+  artifactTypeNames,
+  factionNames,
+  rarityNames,
+  variantFromLabel,
 } from './types'
 import type { SellfileExportMode } from './hsfBuilder'
 import type { HsfRuleWithCfg } from './merge'
@@ -332,7 +337,41 @@ export function hashKeepUniqueCombination(combination: KeepUniqueCombination): s
 }
 
 /** Clamp ranks/rarities to the valid 1..6 range. */
+// Name lookups keep HSFC tuple fields readable while still resolving back to enum IDs on load.
+const artifactTypeIdByName = new Map<string, ArtifactTypeId>(
+  Object.entries(artifactTypeNames).map(([id, label]) => [label.trim().toLowerCase(), Number(id) as ArtifactTypeId]),
+)
+
+const artifactSetIdByName = new Map<string, ArtifactSetId>(
+  Object.entries(artifactSetNames).map(([id, label]) => [label.trim().toLowerCase(), Number(id) as ArtifactSetId]),
+)
+
+const factionIdByName = new Map<string, FactionId>(
+  Object.entries(factionNames)
+    .filter(([, name]) => Boolean(name && name.trim()))
+    .map(([id, name]) => [name.trim().toLowerCase(), Number(id) as FactionId]),
+)
+
+// Rarity is captured as labels in HSFC; keep a reverse map so loader can stay locale-agnostic.
+const rarityCodeByName = new Map<string, RankValue>(
+  Object.entries(rarityNames)
+    .filter(([, name]) => Boolean(name && name.trim()))
+    .map(([id, name]) => [name.trim().toLowerCase(), Math.max(RANK_MIN, Math.min(RANK_MAX, Number(id))) as RankValue]),
+)
+
+/** Clamp ranks/rarities to the valid 1..6 range, accepting either numbers or labels. */
 const clampRankOrRarity = (value: unknown): RankValue => {
+  if (typeof value === 'string') {
+    const trimmed = value.trim()
+    if (!trimmed) return RANK_MAX
+    const namedRarity = rarityCodeByName.get(trimmed.toLowerCase())
+    if (namedRarity != null) return namedRarity
+    const numericInLabel = Number(trimmed.replace(/[^0-9]/g, ''))
+    if (Number.isFinite(numericInLabel) && numericInLabel > 0) {
+      const clamped = Math.max(RANK_MIN, Math.min(RANK_MAX, Math.floor(numericInLabel)))
+      return clamped as RankValue
+    }
+  }
   const numeric = Number(value)
   if (!Number.isFinite(numeric)) return RANK_MAX
   const rounded = Math.floor(numeric)
@@ -340,8 +379,13 @@ const clampRankOrRarity = (value: unknown): RankValue => {
   return clamped as RankValue
 }
 
-/** Resolve the stat variant from user input; falls back to Any. */
+/** Resolve the stat variant from user input (label or numeric); falls back to Any. */
 const coerceStatVariant = (value: unknown): StatVariant => {
+  if (typeof value === 'string') {
+    // Stat labels should be readable in HSFC; keep the parser tolerant of labels first.
+    const parsed = variantFromLabel(value.trim())
+    if (parsed !== null) return parsed
+  }
   const numeric = Number(value)
   if (!Number.isFinite(numeric) || numeric < 0) return StatVariantEnum.Any
   return numeric as StatVariant
@@ -376,18 +420,33 @@ const normalizeSelectionArray = <T extends number>(
 }
 
 const coerceArtifactTypeId = (value: unknown): ArtifactTypeId | null => {
+  if (typeof value === 'string') {
+    // Handle readable slot labels in HSFC first, then allow numeric ids for resilience.
+    const found = artifactTypeIdByName.get(value.trim().toLowerCase())
+    if (found != null) return found
+  }
   const numeric = Number(value)
   if (!Number.isFinite(numeric)) return null
   return Math.floor(numeric) as ArtifactTypeId
 }
 
 const coerceArtifactSetId = (value: unknown): ArtifactSetId | null => {
+  if (typeof value === 'string') {
+    // Accept readable set names so exported HSFC stays human-friendly.
+    const found = artifactSetIdByName.get(value.trim().toLowerCase())
+    if (found != null) return found
+  }
   const numeric = Number(value)
   if (!Number.isFinite(numeric)) return null
   return Math.floor(numeric) as ArtifactSetId
 }
 
 const coerceFactionId = (value: unknown): FactionId | null => {
+  if (typeof value === 'string') {
+    // Faction names only apply to accessories; still resolve strings to keep tuples readable.
+    const found = factionIdByName.get(value.trim().toLowerCase())
+    if (found != null) return found
+  }
   const numeric = Number(value)
   if (!Number.isFinite(numeric)) return null
   return Math.floor(numeric) as FactionId

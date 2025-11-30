@@ -34,11 +34,6 @@ import {
   variantFromLabel,
   RankCode,
   RANK_CODES,
-  type ArtifactTypeId,
-  type ArtifactSetId,
-  type RankValue,
-  type FactionId,
-  StatVariant as StatVariantEnum,
 } from './types'
 import { NBSP } from './constants'
 import {
@@ -140,6 +135,16 @@ function rollTargetsToReadable(
     sorted[label] = entry
   }
   return sorted
+}
+
+// Keep Unique rarities store the 1..6 bucket; map those rank-like values to readable rarity names.
+const KEEP_UNIQUE_RARITY_LABEL: Record<number, string> = {
+  1: 'Common',
+  2: 'Uncommon',
+  3: 'Rare',
+  4: 'Epic',
+  5: 'Legendary',
+  6: 'Mythical',
 }
 
 function mergeMetasetIds(base: BuilderConfig, metasets: Metaset[], extras: readonly string[] = []): BuilderConfig {
@@ -768,6 +773,19 @@ export async function readHsfcFile(
 /**
  * Build a full, readable HSFC payload object for Save/Copy, given current state.
  */
+// Keep Unique entries in HSFC should stay human-readable; this tuple mirrors the
+// in-memory shape but with labels instead of numeric IDs so saved files are self-explanatory.
+type ReadableKeepUniqueTuple = {
+  slots: string[]
+  sets: string[]
+  metaSetIds: string[]
+  ranks: string[]
+  rarities: string[]
+  mainStats: string[]
+  mainStat: string
+  factions: string[]
+}
+
 export function buildHsfcPayload(args: {
   version: string,
   metasets: Metaset[],
@@ -784,7 +802,7 @@ export function buildHsfcPayload(args: {
     Minima: unknown
     Configs: unknown[]
     FinalSellRemainder: FinalSellRemainderConfig
-    KeepUniques: Array<{ id: string; name?: string; requiredCount: number; enabled: boolean; countMode: KeepUniqueRule['countMode']; tuple: KeepUniqueRule['combination'] }>
+    KeepUniques: Array<{ id: string; name?: string; requiredCount: number; enabled: boolean; countMode: KeepUniqueRule['countMode']; tuple: ReadableKeepUniqueTuple }>
     KeepUniquesEnabled: boolean
     SelectedConfigIndex?: number
     Note?: string
@@ -835,6 +853,24 @@ export function buildHsfcPayload(args: {
       // rehydrate the same chip state without guessing at defaults.
       const mode = sanitizeKeepUniqueCountMode(rule.countMode)
       const trimmedName = typeof rule.name === 'string' ? rule.name.trim() : ''
+      // Emit readable tuple fields so HSFC is inspectable without a catalog.
+      const slotLabels = rule.combination.slots
+        .map((slot) => artifactTypeNames[Number(slot)] ?? String(slot))
+      const setLabels = rule.combination.sets
+        .map((set) => artifactSetNames[Number(set)] ?? String(set))
+      const rankLabels = rule.combination.ranks
+        .map((rank) => formatRank(rank as RankCode))
+        .filter((label) => Boolean(label && label.trim()))
+      const rarityLabels = rule.combination.rarities
+        .map((rarity) => KEEP_UNIQUE_RARITY_LABEL[Number(rarity)] ?? rarityCodeToName(rarity))
+        .filter((label) => Boolean(label && label.trim()))
+      const mainStatLabels = (rule.combination.mainStats ?? [])
+        .map((stat) => labelOfVariant(stat))
+        .filter((label) => Boolean(label && label.trim()))
+      const factionLabels = rule.combination.factions
+        .map((faction) => factionNames[Number(faction)] ?? String(faction))
+        .filter((label) => Boolean(label && label.trim()))
+      const mainStat = mainStatLabels.length > 0 ? (mainStatLabels[0] ?? '') : ''
       return {
         id: rule.id,
         ...(trimmedName ? { name: trimmedName } : {}),
@@ -848,16 +884,14 @@ export function buildHsfcPayload(args: {
           perSlot: mode.perSlot,
         },
         tuple: {
-          slots: rule.combination.slots.map((slot) => Number(slot) as ArtifactTypeId),
-          sets: rule.combination.sets.map((set) => Number(set) as ArtifactSetId),
+          slots: slotLabels,
+          sets: setLabels,
           metaSetIds: [...(rule.combination.metaSetIds ?? [])],
-          ranks: rule.combination.ranks.map((rank) => Number(rank) as RankValue),
-          rarities: rule.combination.rarities.map((rarity) => Number(rarity) as RankValue),
-          mainStats: (rule.combination.mainStats ?? []).map((stat) => Number(stat)),
-          mainStat: rule.combination.mainStats.length > 0
-            ? Number(rule.combination.mainStats[0])
-            : Number(StatVariantEnum.Any),
-          factions: rule.combination.factions.map((faction) => Number(faction) as FactionId),
+          ranks: rankLabels,
+          rarities: rarityLabels,
+          mainStats: mainStatLabels,
+          mainStat,
+          factions: factionLabels,
         },
       }
     }),
