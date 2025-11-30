@@ -758,7 +758,7 @@ function KeepUniqueBlock({ node }: KeepUniqueBlockProps): JSX.Element | null {
   return (
     <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5, my: 1, alignItems: 'stretch' }}>
       {entries.map(({ id, rule }) => (
-        <Box key={`note-ku-${id}`} sx={{ flex: '1 1 320px', minWidth: 280, maxWidth: 560 }}>
+        <Box key={`note-ku-${id}`} sx={{ flex: '1 1 300px', minWidth: 260, maxWidth: 400 }}>
           <KeepUniqueSummaryCard
             id={id}
             rule={rule}
