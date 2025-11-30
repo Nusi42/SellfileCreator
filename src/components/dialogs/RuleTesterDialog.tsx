@@ -23,7 +23,8 @@ import { allowedTesterSetIds, isAccessorySlot, normalizeTesterSetForSlot } from 
 import { formatTesterSetLabel } from '../../lib/testerFormatters'
 import { variantToSub, variantToMain } from '../../lib/hsfTypes'
 import { artifactTypeIconList } from '../artifactTypeIcons'
-import type { TestItem } from '../../lib/ruleEval'
+import type { TestItem, TesterItemPreviewExtras } from '../../lib/ruleEval'
+import type { NormalizedStat } from '../../lib/importers/gearDbNormalizer'
 import { useI18n } from '../../lib/i18n'
 import { useAppState } from '../../state/appState'
 import SetMenuSection from '../SetMenuSection'
@@ -106,6 +107,48 @@ const testerCookieFlip = keyframes`
   50% { transform: rotate(90deg); }
   100% { transform: rotate(0deg); }
 `
+
+// cloneNormalizedStat ensures duplicate rows never mutate the original stat metadata.
+const cloneNormalizedStat = (stat?: NormalizedStat | null): NormalizedStat | null => {
+  if (!stat) return stat ?? null
+  return { ...stat }
+}
+
+// cloneTesterPreviewExtras copies nested preview payloads so “duplicate” rows stay isolated.
+const cloneTesterPreviewExtras = (extras: TesterItemPreviewExtras): TesterItemPreviewExtras => {
+  const { substats, mainStat, ascension, ...rest } = extras
+  const next: TesterItemPreviewExtras = {
+    ...rest,
+    mainStat: cloneNormalizedStat(mainStat),
+    ascension: cloneNormalizedStat(ascension),
+  }
+  if (substats) {
+    next.substats = substats.map((entry) => ({ ...entry }))
+  }
+  return next
+}
+
+// cloneManualTesterItem reuses the preview clones and assigns a brand-new item id.
+const cloneManualTesterItem = (
+  item: RuleTesterItem,
+  allocItemId: () => number,
+): RuleTesterItem => {
+  const { subValues, subOrder, previewExtras, itemId: _ignored, ...rest } = item
+  const next: RuleTesterItem = {
+    ...rest,
+    itemId: allocItemId(),
+  }
+  if (subValues) {
+    next.subValues = { ...subValues }
+  }
+  if (subOrder) {
+    next.subOrder = [...subOrder]
+  }
+  if (previewExtras) {
+    next.previewExtras = cloneTesterPreviewExtras(previewExtras)
+  }
+  return next
+}
 
 const ACCESSORY_FACTION_POOL: readonly FactionId[] = Object.freeze([
   Faction.BannerLords,
@@ -482,18 +525,21 @@ export default function RuleTesterDialog({
     })
   }, [manualEntries, pruneEasterEggStateForItems, setItems])
 
-  const insertItemAfter = useCallback((index: number) => {
+  // duplicateItemAt clones the current manual row so + mirrors the exact gear snapshot.
+  const duplicateItemAt = useCallback((index: number) => {
     const anchor = manualEntries[index]
-    const anchorRowId = anchor?.item.itemId ?? null
+    if (!anchor) return
+    const duplicate = cloneManualTesterItem(anchor.item, allocTesterItemId)
     setItems((prev) => {
-      const anchorIdx = anchorRowId == null ? -1 : prev.findIndex((entry) => entry.itemId === anchorRowId)
+      // Insert immediately after the source row to keep surrounding context intact.
+      const anchorIdx = prev.findIndex((entry) => entry.itemId === anchor.item.itemId)
       const insertIdx = anchorIdx === -1 ? prev.length : anchorIdx + 1
       const next = prev.slice()
-      next.splice(insertIdx, 0, makeDefaultItem(allocTesterItemId))
+      next.splice(insertIdx, 0, duplicate)
       pruneEasterEggStateForItems(next)
       return next
     })
-  }, [allocTesterItemId, manualEntries, makeDefaultItem, pruneEasterEggStateForItems, setItems])
+  }, [allocTesterItemId, manualEntries, pruneEasterEggStateForItems, setItems])
 
   const deleteItemAt = useCallback((index: number) => {
     const target = manualEntries[index]
@@ -764,8 +810,8 @@ export default function RuleTesterDialog({
         >
           <Stack direction="row" spacing={0.25} alignItems="center" sx={{ width: '100%', justifyContent: 'center' }}>
             {/* Button tooltips now flow through MarkdownTooltip so the cookie-monster easter egg and normal hints share formatting. */}
-            <MarkdownTooltip markdown={t('add')}>
-              <IconButton size="small" onClick={() => insertItemAfter(idx)} aria-label={t('testerAddRowAriaLabel')} sx={{
+            <MarkdownTooltip markdown={t('testerDuplicateRowAction')}>
+              <IconButton size="small" onClick={() => duplicateItemAt(idx)} aria-label={t('testerDuplicateRowAction')} sx={{
                 p: 0.25,
                 ...(cookieMonsterActive ? {
                   '& svg': {

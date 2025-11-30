@@ -91,7 +91,7 @@ const overrides: Catalog = {
   testerKeepUniqueChip: 'Manter únicos',
   testerValueUnknown: '—',
   testerAddManualGear: 'Adicionar equipamento manual',
-  testerAddRowAriaLabel: 'Adicionar linha',
+  testerDuplicateRowAction: 'Duplicar linha',
   testerRemoveRowAriaLabel: 'Remover linha',
   testerRerollLabel: 'Relançado',
   testerLastUsedTooltip: 'Última utilização {timestamp}.',

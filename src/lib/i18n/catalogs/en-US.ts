@@ -91,7 +91,7 @@ const enUS: Catalog = {
   testerKeepUniqueChip: 'Keep Uniques',
   testerValueUnknown: '—',
   testerAddManualGear: 'Add Custom Gear',
-  testerAddRowAriaLabel: 'Add Row',
+  testerDuplicateRowAction: 'Duplicate Row',
   testerRemoveRowAriaLabel: 'Remove Row',
   testerRerollLabel: 'Rerolled',
   testerLastUsedTooltip: 'Last used {timestamp}.',

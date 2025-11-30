@@ -91,7 +91,7 @@ const overrides: Catalog = {
   testerKeepUniqueChip: 'Зберегти унікальні',
   testerValueUnknown: '—',
   testerAddManualGear: 'Додати ручне спорядження',
-  testerAddRowAriaLabel: 'Додати рядок',
+  testerDuplicateRowAction: 'Дублювати рядок',
   testerRemoveRowAriaLabel: 'Вилучити рядок',
   testerRerollLabel: 'Перековано',
   testerLastUsedTooltip: 'Востаннє використано {timestamp}.',

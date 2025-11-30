@@ -91,7 +91,7 @@ const overrides: Catalog = {
   testerKeepUniqueChip: 'Benzersizleri Koru',
   testerValueUnknown: '—',
   testerAddManualGear: 'Özel ekipman ekle',
-  testerAddRowAriaLabel: 'Satır ekle',
+  testerDuplicateRowAction: 'Satırı çoğalt',
   testerRemoveRowAriaLabel: 'Satırı kaldır',
   testerRerollLabel: 'Yeniden atıldı',
   testerLastUsedTooltip: 'Son kullanım {timestamp}.',

@@ -91,7 +91,7 @@ const catalog: Catalog = {
   testerKeepUniqueChip: 'Manter únicos',
   testerValueUnknown: '—',
   testerAddManualGear: 'Adicionar equipamento manual',
-  testerAddRowAriaLabel: 'Adicionar linha',
+  testerDuplicateRowAction: 'Duplicar linha',
   testerRemoveRowAriaLabel: 'Remover linha',
   testerRerollLabel: 'Rerolado',
   testerLastUsedTooltip: 'Último uso {timestamp}.',
