@@ -989,12 +989,12 @@ function KeepUniqueSummaryCard({
         height: '100%',
       }}
     >
-      <Stack spacing={0.5}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 0.5, alignItems: 'center', flexWrap: 'wrap' }}>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25, minWidth: 0 }}>
+      <Stack spacing={0.5} sx={{ width: 1 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 0.5, alignItems: 'center', flexWrap: 'wrap', width: 1 }}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25, minWidth: 0, width: 1 }}>
             <Typography
               variant="subtitle2"
-              sx={{ fontWeight: 700, wordBreak: 'break-word', lineHeight: 1, fontSize: '0.9rem' }}
+              sx={{ fontWeight: 700, wordBreak: 'break-word', lineHeight: 1, fontSize: '0.9rem', width: 1 }}
             >
               {titleLabel}
             </Typography>
