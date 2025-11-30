@@ -277,10 +277,11 @@ test('default keep unique rules seed the accessory guard and optional armor sets
   assert.strictEqual(rules.length, 2)
   const accessoryRule = rules[0]
   assert.ok(accessoryRule)
+  assert.strictEqual(accessoryRule.name, 'Rare+ Accessories (5-6★)')
   assert.deepStrictEqual(accessoryRule.combination.slots, [ArtifactType.Ring, ArtifactType.Amulet, ArtifactType.Banner])
   assert.deepStrictEqual(accessoryRule.combination.sets, ACCESSORY_SLOTS_COMPATIBLE_SET_IDS)
   assert.deepStrictEqual(accessoryRule.combination.ranks, [5, 6])
-  assert.deepStrictEqual(accessoryRule.combination.rarities, [5, 6])
+  assert.deepStrictEqual(accessoryRule.combination.rarities, [3, 4, 5, 6])
   assert.strictEqual(accessoryRule.requiredCount, 1)
   const accessoryCountMode = accessoryRule.countMode
   assert.ok(accessoryCountMode.perSlot)
@@ -290,6 +291,7 @@ test('default keep unique rules seed the accessory guard and optional armor sets
 
   const armorRule = rules[1]
   assert.ok(armorRule)
+  assert.strictEqual(armorRule.name, 'Utility Sets (5-6★)')
   assert.strictEqual(armorRule.enabled, false)
   assert.deepStrictEqual(armorRule.combination.slots, [
     ArtifactType.Weapon,
@@ -300,9 +302,9 @@ test('default keep unique rules seed the accessory guard and optional armor sets
     ArtifactType.Boots,
   ])
   assert.deepStrictEqual(armorRule.combination.sets,
-    [ArtifactSet.Stun, ArtifactSet.Toxic, ArtifactSet.Daze, ArtifactSet.Cursed, ArtifactSet.Provoke, ArtifactSet.Destroy],
+    [ArtifactSet.Stun, ArtifactSet.Toxic, ArtifactSet.Cursed, ArtifactSet.Provoke, ArtifactSet.Destroy],
   )
-  assert.deepStrictEqual(armorRule.combination.ranks, [5, 6])
+  assert.deepStrictEqual(armorRule.combination.ranks, [6])
   assert.deepStrictEqual(armorRule.combination.rarities, [5, 6])
   assert.strictEqual(armorRule.requiredCount, 1)
   const armorCountMode = armorRule.countMode
