@@ -426,7 +426,7 @@ export default function KeepUniquesTab({
           p: 1.5,
           mb: 1.5,
           cursor: 'pointer',
-          bgcolor: 'background.paper', // Keep the card background aligned with the dialog shell even when selected.
+          bgcolor: 'inherit', // Match the surrounding dialog background so cards don't float on a separate surface.
         }}
       >
         <Stack spacing={1.5}>
