@@ -995,6 +995,8 @@ const overrides: Catalog = {
   noteKeepUniqueRuleTitle: 'Regola Keep Unique #{index}',
   noteKeepUniqueRuleDisabled: 'Disattivata',
   noteKeepUniqueQuota: 'Quota: ≥{count} — {scope}',
+  noteKeepUniqueQuotaLabel: 'Quota',
+  noteKeepUniqueQuotaValue: '≥{count}',
   noteKeepUniqueSlotsLabel: 'Slot',
   noteKeepUniqueSetsLabel: 'Set',
   noteKeepUniqueMainLabel: 'Statistiche principali',

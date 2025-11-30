@@ -995,6 +995,8 @@ const overrides: Catalog = {
   noteKeepUniqueRuleTitle: 'Keep Unique Kuralı #{index}',
   noteKeepUniqueRuleDisabled: 'Devre dışı',
   noteKeepUniqueQuota: 'Kota: ≥{count} — {scope}',
+  noteKeepUniqueQuotaLabel: 'Kota',
+  noteKeepUniqueQuotaValue: '≥{count}',
   noteKeepUniqueSlotsLabel: 'Yuvalar',
   noteKeepUniqueSetsLabel: 'Setler',
   noteKeepUniqueMainLabel: 'Ana statlar',

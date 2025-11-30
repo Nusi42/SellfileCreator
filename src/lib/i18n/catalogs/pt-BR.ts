@@ -995,6 +995,8 @@ const catalog: Catalog = {
   noteKeepUniqueRuleTitle: 'Regra Keep Unique #{index}',
   noteKeepUniqueRuleDisabled: 'Desativada',
   noteKeepUniqueQuota: 'Cota: ≥{count} — {scope}',
+  noteKeepUniqueQuotaLabel: 'Cota',
+  noteKeepUniqueQuotaValue: '≥{count}',
   noteKeepUniqueSlotsLabel: 'Slots',
   noteKeepUniqueSetsLabel: 'Sets',
   noteKeepUniqueMainLabel: 'Stats principais',

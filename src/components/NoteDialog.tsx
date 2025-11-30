@@ -1,5 +1,6 @@
 import React, { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
 import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, LinearProgress, Stack, Typography } from '@mui/material'
+import { alpha, useTheme } from '@mui/material/styles'
 import { useI18n } from '../lib/i18n'
 import { FONT_SIZE_MARKDOWN_PX, FONT_SIZE_SECONDARY_PX } from '../lib/constants'
 import MDEditor from '@uiw/react-md-editor'
@@ -58,10 +59,16 @@ const DEFAULT_ALLOWED_TAG_REGEX = /^[A-Za-z0-9]+$/
 
 const KEEP_UNIQUE_COMMENT_REGEX = /^\s*keep-uniques\s*:\s*([0-9,\s]+)\s*$/i
 const KEEP_UNIQUE_MARKER_REGEX = /<!--\s*keep-uniques\s*:\s*([0-9,\s]+)\s*-->/i
-const KEEP_UNIQUE_ANY_MARKER_GLOBAL_REGEX = /<!--\s*keep-uniques\s*:[\s\S]*?-->/gi
+const KEEP_UNIQUE_REGEX_COMMENT_REGEX = /^\s*keep-uniques-re\s*:\s*"([^"\\]*(?:\\.[^"\\]*)*)"\s*$/i
+const KEEP_UNIQUE_REGEX_MARKER_REGEX = /<!--\s*keep-uniques-re\s*:\s*"([^"\\]*(?:\\.[^"\\]*)*)"\s*-->/i
+const KEEP_UNIQUE_ANY_MARKER_GLOBAL_REGEX = /<!--\s*keep-uniques(?:-re)?\s*:[\s\S]*?-->/gi
 const KEEP_UNIQUE_ELEMENT_TAG = 'keep-unique-summary'
 const KEEP_UNIQUE_ELEMENT_ATTR = 'data-ku-ids'
+const KEEP_UNIQUE_ELEMENT_FILTER_ATTR = 'data-ku-filter'
+const KEEP_UNIQUE_ELEMENT_PATTERN_ATTR = 'data-ku-pattern'
 const KEEP_UNIQUE_ELEMENT_INDEX_ATTR = 'data-ku-marker-index'
+const KEEP_UNIQUE_FILTER_IDS = 'ids'
+const KEEP_UNIQUE_FILTER_REGEXP = 'regexp'
 
 // Defensive guard: reject control characters that would break markdown parsing or regex compilation.
 function containsControlCharacters(value: string): boolean {
@@ -267,6 +274,23 @@ const rehypeKeepUniqueComments: Pluggable = () => {
         if (!child) continue
         if (child.type === 'comment') {
           const value = (child as { value: string }).value
+          const regexMatch = KEEP_UNIQUE_REGEX_COMMENT_REGEX.exec(value)
+          if (regexMatch) {
+            const patternRaw = regexMatch[1] ?? ''
+            const element: Element = {
+              type: 'element',
+              tagName: KEEP_UNIQUE_ELEMENT_TAG,
+              properties: {
+                [KEEP_UNIQUE_ELEMENT_FILTER_ATTR]: KEEP_UNIQUE_FILTER_REGEXP,
+                [KEEP_UNIQUE_ELEMENT_PATTERN_ATTR]: patternRaw,
+                [KEEP_UNIQUE_ELEMENT_INDEX_ATTR]: String(markerIndex),
+              },
+              children: [],
+            }
+            markerIndex += 1
+            nodeChildren.splice(i, 1, element)
+            continue
+          }
           const match = KEEP_UNIQUE_COMMENT_REGEX.exec(value)
           if (!match) continue
           const tokens = parseMarkerTokens(match[1] ?? '')
@@ -279,6 +303,7 @@ const rehypeKeepUniqueComments: Pluggable = () => {
             type: 'element',
             tagName: KEEP_UNIQUE_ELEMENT_TAG,
             properties: {
+              [KEEP_UNIQUE_ELEMENT_FILTER_ATTR]: KEEP_UNIQUE_FILTER_IDS,
               [KEEP_UNIQUE_ELEMENT_ATTR]: serializeMarkerTokens(tokens),
               [KEEP_UNIQUE_ELEMENT_INDEX_ATTR]: String(markerIndex),
             },
@@ -290,6 +315,23 @@ const rehypeKeepUniqueComments: Pluggable = () => {
         }
         if (child.type === 'raw') {
           const value = (child as { value: string }).value
+          const regexMatch = KEEP_UNIQUE_REGEX_MARKER_REGEX.exec(value)
+          if (regexMatch) {
+            const patternRaw = regexMatch[1] ?? ''
+            const element: Element = {
+              type: 'element',
+              tagName: KEEP_UNIQUE_ELEMENT_TAG,
+              properties: {
+                [KEEP_UNIQUE_ELEMENT_FILTER_ATTR]: KEEP_UNIQUE_FILTER_REGEXP,
+                [KEEP_UNIQUE_ELEMENT_PATTERN_ATTR]: patternRaw,
+                [KEEP_UNIQUE_ELEMENT_INDEX_ATTR]: String(markerIndex),
+              },
+              children: [],
+            }
+            markerIndex += 1
+            nodeChildren.splice(i, 1, element)
+            continue
+          }
           const match = KEEP_UNIQUE_MARKER_REGEX.exec(value)
           if (!match) continue
           const tokens = parseMarkerTokens(match[1] ?? '')
@@ -302,6 +344,7 @@ const rehypeKeepUniqueComments: Pluggable = () => {
             type: 'element',
             tagName: KEEP_UNIQUE_ELEMENT_TAG,
             properties: {
+              [KEEP_UNIQUE_ELEMENT_FILTER_ATTR]: KEEP_UNIQUE_FILTER_IDS,
               [KEEP_UNIQUE_ELEMENT_ATTR]: serializeMarkerTokens(tokens),
               [KEEP_UNIQUE_ELEMENT_INDEX_ATTR]: String(markerIndex),
             },
@@ -420,26 +463,43 @@ function buildKeepUniqueMarkerResolutions(text: string, keepUniqueRules: KeepUni
       continue
     }
     let entries: KeepUniqueMarkerEntry[] = []
-    const idsMatch = KEEP_UNIQUE_MARKER_REGEX.exec(raw)
-    if (idsMatch && typeof idsMatch[1] === 'string') {
-      const tokens = parseMarkerTokens(idsMatch[1])
-      if (tokens.length > 0) {
-        const fallback: KeepUniqueMarkerEntry[] = []
-        let markerLast = lastRendered
-        for (const token of tokens) {
-          let candidate: number | null = null
-          if (token.type === 'absolute') {
-            candidate = token.value
-          } else {
-            candidate = markerLast + 1
+    const regexMatch = KEEP_UNIQUE_REGEX_MARKER_REGEX.exec(raw)
+    if (regexMatch) {
+      const patternRaw = regexMatch[1] ?? ''
+      const compiled = buildNotePattern(patternRaw)
+      if (compiled) {
+        const safeCompiled = compiled
+        entries = keepUniqueRules
+          .map((rule, idx) => ({ rule, idx }))
+          .filter(({ rule }) => {
+            const name = typeof rule?.name === 'string' ? rule.name : ''
+            safeCompiled.lastIndex = 0
+            return safeCompiled.test(name)
+          })
+          .map(({ rule, idx }) => ({ id: idx + 1, rule }))
+      }
+    } else {
+      const idsMatch = KEEP_UNIQUE_MARKER_REGEX.exec(raw)
+      if (idsMatch && typeof idsMatch[1] === 'string') {
+        const tokens = parseMarkerTokens(idsMatch[1])
+        if (tokens.length > 0) {
+          const fallback: KeepUniqueMarkerEntry[] = []
+          let markerLast = lastRendered
+          for (const token of tokens) {
+            let candidate: number | null = null
+            if (token.type === 'absolute') {
+              candidate = token.value
+            } else {
+              candidate = markerLast + 1
+            }
+            if (!candidate || candidate <= 0) continue
+            const rule = keepUniqueRules[candidate - 1]
+            if (!rule) continue
+            fallback.push({ id: candidate, rule })
+            markerLast = candidate
           }
-          if (!candidate || candidate <= 0) continue
-          const rule = keepUniqueRules[candidate - 1]
-          if (!rule) continue
-          fallback.push({ id: candidate, rule })
-          markerLast = candidate
+          entries = fallback
         }
-        entries = fallback
       }
     }
     if (entries.length > 0) {
@@ -624,10 +684,18 @@ type KeepUniqueBlockProps = React.PropsWithChildren<{ node?: Element & { propert
 function KeepUniqueBlock({ node }: KeepUniqueBlockProps): JSX.Element | null {
   const { t } = useI18n()
   const { keepUniqueRules, keepUniqueMarkerResolutions, metasets } = useNoteRenderContext()
-  // Parse the marker payload so the renderer can replace the comment with summary cards.
-  const rawSpec = coerceFirstString(node?.properties?.[KEEP_UNIQUE_ELEMENT_ATTR]) ?? ''
-  const tokens = parseMarkerTokens(rawSpec)
-  if (tokens.length === 0) return null
+  // Keep Uniques mirror config markers: ids render positional cards, `keep-uniques-re` filters by rule name.
+  const filterAttr = coerceFirstString(node?.properties?.[KEEP_UNIQUE_ELEMENT_FILTER_ATTR])
+  const filterType = filterAttr === KEEP_UNIQUE_FILTER_REGEXP ? KEEP_UNIQUE_FILTER_REGEXP : KEEP_UNIQUE_FILTER_IDS
+  let tokens: MarkerToken[] = []
+  let patternRaw = ''
+  if (filterType === KEEP_UNIQUE_FILTER_IDS) {
+    const rawSpec = coerceFirstString(node?.properties?.[KEEP_UNIQUE_ELEMENT_ATTR]) ?? ''
+    tokens = parseMarkerTokens(rawSpec)
+    if (tokens.length === 0) return null
+  } else {
+    patternRaw = coerceFirstString(node?.properties?.[KEEP_UNIQUE_ELEMENT_PATTERN_ATTR]) ?? ''
+  }
   const rawIndexAttr = coerceFirstString(node?.properties?.[KEEP_UNIQUE_ELEMENT_INDEX_ATTR])
   let markerIndex: number | null = null
   if (rawIndexAttr) {
@@ -640,45 +708,63 @@ function KeepUniqueBlock({ node }: KeepUniqueBlockProps): JSX.Element | null {
   }
   if (!resolvedEntries) {
     // Fall back to positional resolution when preview rendering did not precompute this marker (e.g., live edits).
-    let priorLast = 0
-    if (markerIndex != null) {
-      for (let idx = markerIndex - 1; idx >= 0; idx -= 1) {
-        const prev = keepUniqueMarkerResolutions.get(idx)
-        if (prev && prev.length > 0) {
-          priorLast = prev[prev.length - 1]!.id
-          break
+    if (filterType === KEEP_UNIQUE_FILTER_REGEXP) {
+      const compiled = buildNotePattern(patternRaw)
+      if (compiled) {
+        const safeCompiled = compiled
+        resolvedEntries = keepUniqueRules
+          .map((rule, idx) => ({ rule, idx }))
+          .filter(({ rule }) => {
+            const name = typeof rule?.name === 'string' ? rule.name : ''
+            safeCompiled.lastIndex = 0
+            return safeCompiled.test(name)
+          })
+          .map(({ rule, idx }) => ({ id: idx + 1, rule }))
+      } else {
+        resolvedEntries = []
+      }
+    } else {
+      let priorLast = 0
+      if (markerIndex != null) {
+        for (let idx = markerIndex - 1; idx >= 0; idx -= 1) {
+          const prev = keepUniqueMarkerResolutions.get(idx)
+          if (prev && prev.length > 0) {
+            priorLast = prev[prev.length - 1]!.id
+            break
+          }
         }
       }
-    }
-    const fallbackEntries: KeepUniqueMarkerEntry[] = []
-    let markerLast = priorLast
-    for (const token of tokens) {
-      let candidate: number | null = null
-      if (token.type === 'absolute') {
-        candidate = token.value
-      } else {
-        candidate = markerLast + 1
+      const fallbackEntries: KeepUniqueMarkerEntry[] = []
+      let markerLast = priorLast
+      for (const token of tokens) {
+        let candidate: number | null = null
+        if (token.type === 'absolute') {
+          candidate = token.value
+        } else {
+          candidate = markerLast + 1
+        }
+        if (!candidate || candidate <= 0) continue
+        const rule = keepUniqueRules[candidate - 1]
+        if (!rule) continue
+        fallbackEntries.push({ id: candidate, rule })
+        markerLast = candidate
       }
-      if (!candidate || candidate <= 0) continue
-      const rule = keepUniqueRules[candidate - 1]
-      if (!rule) continue
-      fallbackEntries.push({ id: candidate, rule })
-      markerLast = candidate
+      resolvedEntries = fallbackEntries
     }
-    resolvedEntries = fallbackEntries
   }
   const entries = resolvedEntries ?? []
   if (entries.length === 0) return null
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, my: 1 }}>
+    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5, my: 1, alignItems: 'stretch' }}>
       {entries.map(({ id, rule }) => (
-        <KeepUniqueSummaryCard
-          key={`note-ku-${id}`}
-          id={id}
-          rule={rule}
-          metasets={metasets}
-          t={t}
-        />
+        <Box key={`note-ku-${id}`} sx={{ flex: '1 1 320px', minWidth: 280, maxWidth: 560 }}>
+          <KeepUniqueSummaryCard
+            id={id}
+            rule={rule}
+            metasets={metasets}
+            t={t}
+          />
+        </Box>
       ))}
     </Box>
   )
@@ -695,6 +781,7 @@ function KeepUniqueSummaryCard({
   metasets: Metaset[]
   t: ReturnType<typeof useI18n>['t']
 }): JSX.Element {
+  const theme = useTheme()
   // Scope defaults mirror the dialog so notes stay in sync if count mode is missing.
   const countMode = sanitizeKeepUniqueCountMode(rule.countMode ?? KEEP_UNIQUE_DEFAULT_COUNT_MODE)
   const scopeParts: string[] = []
@@ -708,6 +795,19 @@ function KeepUniqueSummaryCard({
     if (scopeParts.length === 0) scopeParts.push(t('keepUniquesCountModePerRule'))
   }
   const scopeLabel = scopeParts.join(' × ')
+  const scopeLegendLabel = t('keepUniquesCountModeToggleLabel')
+  // Scope chips mirror the dialog toggles so markdown exports stay aligned.
+  const scopeFlags = [
+    { key: 'perRule', label: t('keepUniquesCountModePerRule'), active: countMode.perRule },
+    { key: 'perSlot', label: t('keepUniquesCountModePerSlot'), active: countMode.perSlot },
+    { key: 'perSet', label: t('keepUniquesCountModePerSet'), active: countMode.perSet },
+    { key: 'perFaction', label: t('keepUniquesCountModePerFaction'), active: countMode.perFaction },
+    { key: 'perMain', label: t('keepUniquesCountModePerMain'), active: countMode.perMainStat },
+  ]
+  // Surface explicit names when present so ordered exports stay recognizable.
+  const ruleName = typeof rule.name === 'string' ? rule.name.trim() : ''
+  const titleLabel = ruleName || t('noteKeepUniqueRuleTitle', { index: id })
+  const subtitleLabel = ruleName ? t('noteKeepUniqueRuleTitle', { index: id }) : ''
   const fallbackAny = t('any')
 
   const formatList = (values: string[]): string => (values.length ? values.join(', ') : fallbackAny)
@@ -794,6 +894,7 @@ function KeepUniqueSummaryCard({
     { label: t('noteKeepUniqueRaritiesLabel'), value: formatList(rarityLabels) },
   ]
 
+  // Layout keeps the quota pill anchored while letting cards wrap into two columns.
   return (
     <Box
       sx={{
@@ -802,23 +903,101 @@ function KeepUniqueSummaryCard({
         borderColor: 'divider',
         p: 1.25,
         bgcolor: 'background.paper',
+        height: '100%',
       }}
     >
-      <Stack spacing={0.75}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
-          <Typography variant="subtitle2" sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-            {t('noteKeepUniqueRuleTitle', { index: id })}
-            {!rule.enabled ? (
-              <Typography component="span" variant="caption" color="text.disabled">
-                {t('noteKeepUniqueRuleDisabled')}
+      <Stack spacing={1}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 1, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25, minWidth: 0 }}>
+            <Typography variant="subtitle2" sx={{ fontWeight: 700, wordBreak: 'break-word' }}>
+              {titleLabel}
+            </Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
+              <Typography variant="caption" color="text.secondary">
+                {subtitleLabel || t('noteKeepUniqueRuleTitle', { index: id })}
               </Typography>
-            ) : null}
-          </Typography>
-          <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: 'nowrap' }}>
-            {t('noteKeepUniqueQuota', { count: rule.requiredCount, scope: scopeLabel })}
-          </Typography>
+              {!rule.enabled ? (
+                <Box
+                  sx={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 0.5,
+                    px: 0.5,
+                    py: 0.25,
+                    borderRadius: 1,
+                    bgcolor: 'action.hover',
+                  }}
+                >
+                  <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: 'text.disabled' }} />
+                  <Typography component="span" variant="caption" color="text.disabled" sx={{ fontWeight: 700 }}>
+                    {t('noteKeepUniqueRuleDisabled')}
+                  </Typography>
+                </Box>
+              ) : null}
+            </Box>
+          </Box>
+          <Box
+            sx={{
+              display: 'inline-flex',
+              flexDirection: 'column',
+              alignItems: 'flex-start',
+              gap: 0.25,
+              px: 1,
+              py: 0.75,
+              borderRadius: 1,
+              bgcolor: 'action.hover',
+              border: '1px solid',
+              borderColor: 'divider',
+              minWidth: 180,
+            }}
+          >
+            <Typography variant="caption" sx={{ fontWeight: 700, letterSpacing: 0.2, textTransform: 'uppercase' }}>
+              {t('noteKeepUniqueQuotaLabel')}
+            </Typography>
+            <Typography variant="body2" sx={{ fontWeight: 700, lineHeight: 1.2 }}>
+              {t('noteKeepUniqueQuotaValue', { count: rule.requiredCount })}
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              {scopeLabel}
+            </Typography>
+          </Box>
         </Box>
-        <Stack spacing={0.25}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
+          <Typography variant="caption" sx={{ fontWeight: 700 }}>
+            {scopeLegendLabel}:
+          </Typography>
+          {scopeFlags.map((flag) => (
+            <Box
+              key={`ku-scope-${flag.key}`}
+              sx={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 0.5,
+                px: 0.75,
+                py: 0.35,
+                borderRadius: 1,
+                border: '1px solid',
+                borderColor: flag.active ? alpha(theme.palette.primary.main, 0.6) : 'divider',
+                bgcolor: flag.active ? alpha(theme.palette.primary.main, theme.palette.mode === 'dark' ? 0.2 : 0.12) : 'transparent',
+                color: flag.active ? theme.palette.primary.main : 'text.secondary',
+              }}
+            >
+              <Box
+                sx={{
+                  width: 8,
+                  height: 8,
+                  borderRadius: '50%',
+                  bgcolor: flag.active ? theme.palette.primary.main : 'divider',
+                  boxShadow: flag.active ? `0 0 0 2px ${alpha(theme.palette.primary.main, 0.16)}` : 'none',
+                }}
+              />
+              <Typography variant="caption" sx={{ fontWeight: 700, lineHeight: 1.2 }}>
+                {flag.label}
+              </Typography>
+            </Box>
+          ))}
+        </Box>
+        <Stack spacing={0.3}>
           {filters.map((item) => (
             <Typography
               key={`ku-filter-${item.label}`}
@@ -896,6 +1075,8 @@ export default function NoteDialog({
     const mergedKeepUniqueAttrs = Array.from(new Set<SanitizeProp>([
       ...keepUniqueAttrs,
       KEEP_UNIQUE_ELEMENT_ATTR,
+      KEEP_UNIQUE_ELEMENT_FILTER_ATTR,
+      KEEP_UNIQUE_ELEMENT_PATTERN_ATTR,
       KEEP_UNIQUE_ELEMENT_INDEX_ATTR,
     ]))
     return {

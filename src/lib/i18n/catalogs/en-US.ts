@@ -994,6 +994,8 @@ const enUS: Catalog = {
   noteKeepUniqueRuleTitle: 'Keep Unique Rule #{index}',
   noteKeepUniqueRuleDisabled: 'Disabled',
   noteKeepUniqueQuota: 'Quota: ≥{count} — {scope}',
+  noteKeepUniqueQuotaLabel: 'Quota',
+  noteKeepUniqueQuotaValue: '≥{count}',
   noteKeepUniqueSlotsLabel: 'Slots',
   noteKeepUniqueSetsLabel: 'Sets',
   noteKeepUniqueMainLabel: 'Main stats',
