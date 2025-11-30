@@ -819,7 +819,7 @@ const catalog: Catalog = {
   filterLimitPreviewConfigs: 'Configs prévia',
   filterLimitPreviewConfigsTooltip: 'Ative para mostrar apenas os chips de config cujas regras passam pelos filtros atuais da prévia.',
   filterLimitSelectedConfigs: 'Filtro de configs',
-  filterLimitSelectedConfigsTooltip: 'Filtra a visualização atual pelas configs selecionadas. Desligado = mostra todas as linhas. Ligado = oculta as linhas cujas configs não estão na sua seleção. Mude para o Teste de Regras para escolher se as entradas usam Primeira ou Qualquer.',
+  filterLimitSelectedConfigsTooltip: '**Prévia Sellfile**\n- `Desligado`: mostra todas as linhas.\n- `Ligado`: oculta as linhas cujas configs não estão na sua seleção.\n**Rule Tester**\n- Alterna `Desligado` → `Primeira` → `Qualquer` para que as entradas sigam a política de matching escolhida.',
   configFilterOn: 'Ligado',
   testerFilterConfigsOff: 'Desligado',
   testerFilterConfigsFirst: 'Primeira',

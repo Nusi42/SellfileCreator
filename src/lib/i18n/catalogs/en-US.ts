@@ -818,7 +818,7 @@ const enUS: Catalog = {
   filterLimitPreviewConfigs: 'Preview Configs',
   filterLimitPreviewConfigsTooltip: 'Toggle to show only config chips whose rules survive the current preview filters.',
   filterLimitSelectedConfigs: 'Config Filter',
-  filterLimitSelectedConfigsTooltip: 'Filter the current preview by your selected configs. Off = show all rows. On = hide rows from configs outside your selection; switch to Rule Tester to choose whether the imported gear uses First-Match or Any-Match.',
+  filterLimitSelectedConfigsTooltip: '**Sellfile preview**\n- `Off`: show every row.\n- `On`: hide rules whose configs are outside your selection.\n**Rule Tester**\n- Cycles `Off` → `First-Match` → `Any-Match` so imported gear respects the matching config policy you choose.',
   configFilterOn: 'On',
   testerFilterConfigsOff: 'Off',
   testerFilterConfigsFirst: 'First',

@@ -819,7 +819,7 @@ const overrides: Catalog = {
   filterLimitPreviewConfigs: 'Configs vista',
   filterLimitPreviewConfigsTooltip: 'Alterna para mostrar solo los chips de config cuyas reglas superan los filtros actuales de la vista previa.',
   filterLimitSelectedConfigs: 'Filtro de configs',
-  filterLimitSelectedConfigsTooltip: 'Filtra la vista actual según tus configs seleccionadas. Desactivado = muestra todas las filas. Activado = oculta las filas cuyas configs no están en tu selección. Cambia al Probador para elegir si las entradas usan Primera o Cualquiera.',
+  filterLimitSelectedConfigsTooltip: '**Vista Sellfile**\n- `Desactivado`: muestra todas las filas.\n- `Activado`: oculta las filas cuyas configs no están en tu selección.\n**Rule Tester**\n- Alterna `Desactivado` → `Primera` → `Cualquiera` para que las entradas sigan la política de matching que elijas.',
   configFilterOn: 'Activado',
   testerFilterConfigsOff: 'Desactivado',
   testerFilterConfigsFirst: 'Primera',

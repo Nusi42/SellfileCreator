@@ -819,7 +819,7 @@ const overrides: Catalog = {
   filterLimitPreviewConfigs: 'Конфиги (обзор)',
   filterLimitPreviewConfigsTooltip: 'Показывать только конфиг-чипы, чьи правила проходят текущие фильтры превью.',
   filterLimitSelectedConfigs: 'Фильтр конфигов',
-  filterLimitSelectedConfigsTooltip: 'Фильтрует текущий просмотр по выбранным конфигам. Выкл. = показать все строки. Вкл. = скрывать строки конфигов вне выбранных чипов. Переключитесь в Тестер, чтобы выбрать, должны ли записи тестера использовать «Первая» или «Любая».',
+  filterLimitSelectedConfigsTooltip: '**Превью Sellfile**\n- `Выкл.`: показывает все строки.\n- `Вкл.`: скрывает строки конфигов вне выбранных чипов.\n**Rule Tester**\n- Переключается `Выкл.` → `Первая` → `Любая`, чтобы записи тестера соответствовали выбранной политике.',
   configFilterOn: 'Вкл.',
   testerFilterConfigsOff: 'Выкл.',
   testerFilterConfigsFirst: 'Первая',

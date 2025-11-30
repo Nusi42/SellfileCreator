@@ -819,7 +819,7 @@ const overrides: Catalog = {
   filterLimitPreviewConfigs: 'Vorschau-Konfigs',
   filterLimitPreviewConfigsTooltip: 'Schaltet um, damit nur Konfig-Chips angezeigt werden, deren Regeln die aktuellen Vorschau-Filter bestehen.',
   filterLimitSelectedConfigs: 'Konfig-Filter',
-  filterLimitSelectedConfigsTooltip: 'Filtert die aktuelle Ansicht nach deinen ausgewählten Konfigs. Aus = zeigt alle Zeilen. An = blendet Regeln oder Items aus, deren Konfig nicht in deiner Auswahl liegt. Wechsle zum Regel Tester, um zwischen First-Match-Auswertung und Beliebig für die Test-Einträge umzuschalten.',
+  filterLimitSelectedConfigsTooltip: '**Sellfile-Vorschau**\n- `Aus`: zeigt alle Zeilen.\n- `An`: blendet Regeln oder Items aus, deren Konfig nicht in deiner Auswahl liegt.\n**Regel Tester**\n- Rotiert `Aus` → `Erste` → `Beliebig`, damit die Tester-Einträge der gewählten Matching-Policy folgen.',
   configFilterOn: 'An',
   testerFilterConfigsOff: 'Aus',
   testerFilterConfigsFirst: 'Erste',
