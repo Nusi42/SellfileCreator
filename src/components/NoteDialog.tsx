@@ -1033,9 +1033,9 @@ function KeepUniqueSummaryCard({
                   sx={{
                     display: 'inline-flex',
                     alignItems: 'center',
-                    gap: 0.5,
-                    px: 0.75,
-                    py: 0.35,
+                    gap: 0.4,
+                    px: 0.5,
+                    py: 0.3,
                     borderRadius: 1,
                     border: '1px solid',
                     borderColor: flag.active ? alpha(theme.palette.primary.main, 0.6) : 'divider',
@@ -1043,15 +1043,6 @@ function KeepUniqueSummaryCard({
                     color: flag.active ? theme.palette.primary.main : 'text.secondary',
                   }}
                 >
-                  <Box
-                    sx={{
-                      width: 8,
-                      height: 8,
-                      borderRadius: '50%',
-                      bgcolor: flag.active ? theme.palette.primary.main : 'divider',
-                      boxShadow: flag.active ? `0 0 0 2px ${alpha(theme.palette.primary.main, 0.16)}` : 'none',
-                    }}
-                  />
                   <Typography variant="caption" sx={{ fontWeight: 700, lineHeight: 1.2 }}>
                     {flag.label}
                   </Typography>
