@@ -114,6 +114,7 @@ export const sanitizeKeepUniqueCountMode = (mode: KeepUniqueRuleCountMode): Keep
 
 export type KeepUniqueRule = {
   id: string
+  name: string
   combination: KeepUniqueCombination
   requiredCount: number
   enabled: boolean
@@ -149,6 +150,7 @@ function createDefaultAccessoryKeepUniqueRule(): KeepUniqueRule {
       mainStats: [],
       factions: [],
     },
+    name: '',
     requiredCount: 1,
     enabled: true,
     countMode: { ...ACCESSORY_KEEP_UNIQUE_COUNT_MODE },
@@ -193,6 +195,7 @@ function createDefaultArmorKeepUniqueRule(): KeepUniqueRule {
       mainStats: [],
       factions: [],
     },
+    name: '',
     requiredCount: 1,
     enabled: false,
     countMode: { ...ARMOR_KEEP_UNIQUE_COUNT_MODE },
@@ -449,6 +452,12 @@ export function normalizeKeepUniqueRule(value: unknown): KeepUniqueRule | null {
   const rec = value as Record<string, unknown>
   const combination = normalizeKeepUniqueCombination(rec.combination ?? rec.tuple ?? rec)
   if (!combination) return null
+  const name = (() => {
+    if (typeof rec.name !== 'string') return ''
+    const trimmed = rec.name.trim()
+    if (!trimmed) return ''
+    return trimmed.slice(0, 160)
+  })()
   const rawId = typeof rec.id === 'string' && rec.id.trim().length > 0 ? rec.id.trim() : createKeepUniqueRuleId()
   const rawRequired = Number(rec.requiredCount)
   const requiredCount = Number.isFinite(rawRequired) && rawRequired >= 1 ? Math.floor(rawRequired) : 1
@@ -464,6 +473,7 @@ export function normalizeKeepUniqueRule(value: unknown): KeepUniqueRule | null {
     requiredCount,
     enabled,
     countMode,
+    name,
   }
 }
 

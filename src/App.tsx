@@ -243,6 +243,7 @@ type ConfigRulesStateSnapshot = {
 
 type KeepUniqueLogRule = {
   id: string
+  name: string
   enabled: boolean
   requiredCount: number
   countMode: KeepUniqueRuleCountMode
@@ -308,6 +309,7 @@ const formatKeepUniqueRuleForLog = (rule: KeepUniqueRule): KeepUniqueLogRule => 
   // Include the combination hash to simplify matching UI rows to detection payloads.
   return {
     id: rule.id,
+    name: rule.name,
     enabled: rule.enabled,
     requiredCount: Number.isFinite(rule.requiredCount) ? Number(rule.requiredCount) : 0,
     countMode: rule.countMode,

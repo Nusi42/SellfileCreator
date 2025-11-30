@@ -203,6 +203,7 @@ const overrides: Catalog = {
   keepUniquesDeleteRuleTitle: 'Koruma kuralı silinsin mi?',
   keepUniquesDeleteRuleMessage: 'Bu koruma kuralı hemen kaldırılacak. Bu işlem geri alınamaz.',
   keepUniquesRuleEnabledToggle: 'Kural etkin',
+  keepUniquesRuleNameLabel: 'Kural adı',
   keepUniquesRuleCounts: 'Var {have} / Koru {keep}',
   keepUniquesRuleCountsPerGroupSuffix: '{perGroup} {scope} için (takip edilen {groups})',
   keepUniquesRuleCountsHint: '**Var / Koru**\n- `Var`: konfigler, Final Sell veya önceki keep kuralları sayesinde zaten korunan öğeler.\n- `Koru`: `≥ Gerekli adet` alanında belirlediğiniz kota.\nYalnızca kuralla eşleşen Tester öğeleri sayılır.',

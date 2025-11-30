@@ -203,6 +203,7 @@ const enUS: Catalog = {
   keepUniquesDeleteRuleTitle: 'Delete Keep Rule?',
   keepUniquesDeleteRuleMessage: 'This keep rule will be removed immediately. This action cannot be undone.',
   keepUniquesRuleEnabledToggle: 'Rule Enabled',
+  keepUniquesRuleNameLabel: 'Rule name',
   keepUniquesRuleCounts: 'Have {have} / Keep {keep}',
   keepUniquesRuleCountsPerGroupSuffix: '{perGroup} per {scope} ({groups} tracked)',
   keepUniquesRuleCountsHint: '**Have / Keep**\n- `Have`: items already protected by configs, Final Sell, or earlier keep rules.\n- `Keep`: the quota you set in `≥ Required Count`.\nOnly tester gear that matches the rule contributes to these numbers.',

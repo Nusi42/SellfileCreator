@@ -67,6 +67,7 @@ const buildTutorialTesterItems = (): RuleTesterItem[] => [{
 
 const buildTutorialKeepUniqueRules = (): KeepUniqueRule[] => [{
   id: 'tutorial-refresh-keep-unique',
+  name: 'Refresh Bannerlords Amulet',
   combination: {
     slots: [ArtifactType.Amulet],
     sets: [ArtifactSet.Refresh],

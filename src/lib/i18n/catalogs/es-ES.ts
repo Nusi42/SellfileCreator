@@ -203,6 +203,7 @@ const overrides: Catalog = {
   keepUniquesDeleteRuleTitle: '¿Eliminar la regla de conservación?',
   keepUniquesDeleteRuleMessage: 'Esta regla se eliminará de inmediato. Esta acción no se puede deshacer.',
   keepUniquesRuleEnabledToggle: 'Regla activada',
+  keepUniquesRuleNameLabel: 'Nombre de la regla',
   keepUniquesRuleCounts: 'Hay {have} / Conservar {keep}',
   keepUniquesRuleCountsPerGroupSuffix: '{perGroup} por {scope} (se siguen {groups})',
   keepUniquesRuleCountsHint: '**Hay / Conservar**\n- `Hay`: objetos ya protegidos por las configuraciones, Final Sell o reglas anteriores.\n- `Conservar`: la cuota que defines en `≥ Cantidad necesaria`.\nSolo cuentan los objetos del Tester que coinciden con la regla.',

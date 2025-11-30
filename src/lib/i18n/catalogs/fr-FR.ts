@@ -203,6 +203,7 @@ const overrides: Catalog = {
   keepUniquesDeleteRuleTitle: 'Supprimer la règle de conservation ?',
   keepUniquesDeleteRuleMessage: 'Cette règle sera supprimée immédiatement. Cette action est irréversible.',
   keepUniquesRuleEnabledToggle: 'Règle activée',
+  keepUniquesRuleNameLabel: 'Nom de la règle',
   keepUniquesRuleCounts: '{have} existants / Conserver {keep}',
   keepUniquesRuleCountsPerGroupSuffix: '{perGroup} par {scope} ({groups} suivies)',
   keepUniquesRuleCountsHint: '**Existants / Conserver**\n- `Existants` : objets déjà protégés par les configs, le Final Sell ou d’anciennes règles de conservation.\n- `Conserver` : la quote-part définie dans `≥ Quantité requise`.\nSeuls les objets du testeur qui correspondent à la règle sont comptés.',

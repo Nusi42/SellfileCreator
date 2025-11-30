@@ -203,6 +203,7 @@ const overrides: Catalog = {
   keepUniquesDeleteRuleTitle: 'Видалити правило збереження?',
   keepUniquesDeleteRuleMessage: 'Це правило збереження буде видалено одразу. Скасувати дію не можна.',
   keepUniquesRuleEnabledToggle: 'Правило увімкнено',
+  keepUniquesRuleNameLabel: 'Назва правила',
   keepUniquesRuleCounts: 'Є {have} / Зберегти {keep}',
   keepUniquesRuleCountsPerGroupSuffix: '{perGroup} на {scope} (відстежено {groups})',
   keepUniquesRuleCountsHint: '**Є / Зберегти**\n- `Є`: предмети, які вже захищають конфіги, Final Sell або попередні правила.\n- `Зберегти`: квота з `≥ Потрібна кількість`.\nДо цих чисел потрапляють лише предмети тестера, що відповідають правилу.',
