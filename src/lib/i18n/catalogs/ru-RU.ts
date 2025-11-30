@@ -254,10 +254,11 @@ const overrides: Catalog = {
   titleDeleteMetaset: 'Удалить этот метасет?',
   msgNoRefs: 'Метасет будет удалён. На него нет ссылок в конфигах.',
   refsCount: '{n} конфигов ссылаются на этот метасет.',
+  refsCountWithKeepUniques: '{configCount} конфиг(ов) и {keepUniqueCount} правило(а) Keep Unique ссылаются на этот метасет.',
   msgChooseUpdate: 'Выберите, как обновить эти конфиги.',
   titleResetMetasets: 'Сбросить метасеты к умолчанию?',
-  msgResetNoRefs: 'Ни один конфиг не использует ваши метасеты. Список будет заменён значениями по умолчанию.',
-  msgResetSomeRefs: 'Некоторые конфиги используют ваши метасеты. Выберите способ обновления.',
+  msgResetNoRefs: 'Ни один конфиг или правило Keep Unique не использует ваши метасеты. Список будет заменён значениями по умолчанию.',
+  msgResetSomeRefs: 'Конфиги или правила Keep Unique используют ваши метасеты. Выберите способ обновления.',
 
   // Sets search/order controls
   setsSearch: 'Поиск сетов',

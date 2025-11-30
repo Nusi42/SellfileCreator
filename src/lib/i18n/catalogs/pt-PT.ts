@@ -254,10 +254,11 @@ const overrides: Catalog = {
   titleDeleteMetaset: 'Eliminar este meta‑set?',
   msgNoRefs: 'Remove o meta‑set. Nenhuma config o referencia.',
   refsCount: '{n} config(s) referenciam este meta‑set.',
+  refsCountWithKeepUniques: '{configCount} config(s) e {keepUniqueCount} regra(s) Keep Unique referenciam este meta‑set.',
   msgChooseUpdate: 'Escolha como atualizar essas configs.',
   titleResetMetasets: 'Redefinir meta‑sets para padrões?',
-  msgResetNoRefs: 'Nenhuma config referencia seus meta‑sets. A lista será substituída pelos padrões.',
-  msgResetSomeRefs: 'Algumas configs referenciam seus meta‑sets. Escolha como atualizá‑las.',
+  msgResetNoRefs: 'Nenhuma config ou regra Keep Unique referencia seus meta‑sets. A lista será substituída pelos padrões.',
+  msgResetSomeRefs: 'Configs ou regras Keep Unique referenciam seus meta‑sets. Escolha como atualizá‑las.',
 
   // Sets search/order controls
   setsSearch: 'Pesquisar sets',

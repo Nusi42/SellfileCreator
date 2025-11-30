@@ -254,10 +254,11 @@ const overrides: Catalog = {
   titleDeleteMetaset: 'Dieses Metaset löschen?',
   msgNoRefs: 'Entfernt das Metaset. Keine Konfigs verweisen darauf.',
   refsCount: '{n} Konfig(en) verweisen auf dieses Metaset.',
+  refsCountWithKeepUniques: '{configCount} Konfig(en) und {keepUniqueCount} Keep Unique-Regel(n) verweisen auf dieses Metaset.',
   msgChooseUpdate: 'Wähle, wie diese Konfigs aktualisiert werden sollen.',
   titleResetMetasets: 'Metasets auf Standard zurücksetzen?',
-  msgResetNoRefs: 'Keine Konfigs verweisen auf deine Metasets. Die Liste wird durch Standardwerte ersetzt.',
-  msgResetSomeRefs: 'Einige Konfigs verweisen auf deine Metasets. Wähle, wie sie aktualisiert werden sollen.',
+  msgResetNoRefs: 'Keine Konfigs oder Keep Unique-Regeln verweisen auf deine Metasets. Die Liste wird durch Standardwerte ersetzt.',
+  msgResetSomeRefs: 'Konfigs oder Keep Unique-Regeln verweisen auf deine Metasets. Wähle, wie sie aktualisiert werden sollen.',
 
   // Sets search/order controls
   setsSearch: 'Sets suchen',

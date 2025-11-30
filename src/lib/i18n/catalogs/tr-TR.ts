@@ -254,10 +254,11 @@ const overrides: Catalog = {
   titleDeleteMetaset: 'Bu meta set silinsin mi?',
   msgNoRefs: 'Meta set kaldırılacak. Hiçbir konfig onu kullanmıyor.',
   refsCount: '{n} konfig bu meta sete referans veriyor.',
+  refsCountWithKeepUniques: '{configCount} konfig ve {keepUniqueCount} Keep Unique kural(lar)ı bu meta sete referans veriyor.',
   msgChooseUpdate: 'Bu konfigleri nasıl güncelleyeceğinizi seçin.',
   titleResetMetasets: 'Meta setler varsayılanlara sıfırlansın mı?',
-  msgResetNoRefs: 'Hiçbir konfig mevcut meta setlerinizi kullanmıyor. Liste varsayılanlarla değiştirilecek.',
-  msgResetSomeRefs: 'Bazı konfigler mevcut meta setlerinizi kullanıyor. Nasıl güncelleneceğini seçin.',
+  msgResetNoRefs: 'Hiçbir konfig veya Keep Unique kuralı mevcut meta setlerinizi kullanmıyor. Liste varsayılanlarla değiştirilecek.',
+  msgResetSomeRefs: 'Konfigler veya Keep Unique kuralları mevcut meta setlerinizi kullanıyor. Nasıl güncelleneceğini seçin.',
 
   // Sets search/order controls
   setsSearch: 'Set ara',
