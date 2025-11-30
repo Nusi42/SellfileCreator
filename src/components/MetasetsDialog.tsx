@@ -875,6 +875,8 @@ export default function MetasetsDialog({
                               color={'warning'}
                               sx={{ width: 84, justifyContent: 'center', cursor: 'pointer' }}
                               onClick={() => {
+                                // Map Keep Unique references are informational only; the chip keeps
+                                // selecting configs to mirror the previous affordance.
                                 try { onSelectConfigsByMetaset(m.id) } catch {}
                                 // Close the dialog so the selection is visible in the chips list
                                 try { onClose() } catch {}
@@ -899,6 +901,7 @@ export default function MetasetsDialog({
                                   pointerEvents: 'none',
                                 })}
                               >
+                                {/* Inline badge shows the Keep Unique rule count (+X). */}
                                 {`+${keepUniqueUsed}`}
                               </Box>
                             ) : null}
@@ -1135,6 +1138,7 @@ export default function MetasetsDialog({
             </Box>
           )}
           {(() => {
+            // Combine config + Keep Unique references; reset flow must keep both in sync.
             const totalRefs = metasets.reduce((acc, meta) => (
               acc + (metasetUsageCounts[meta.id] || 0) + (keepUniqueMetasetUsageCounts[meta.id] || 0)
             ), 0)
