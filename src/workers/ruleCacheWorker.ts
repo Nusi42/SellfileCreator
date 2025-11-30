@@ -228,6 +228,10 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
       payload,
       { skipProgress: true, fingerprint: payload.fingerprint ?? null },
     ).state
+    if (payload.resetArtifacts) {
+      // Drop any cached tester artifacts so the next detection run cannot reference deleted items.
+      artifactCache.clear()
+    }
     const prebuiltCustomRules = warmState.rulesByConfig
     // Skip the extra detection/merge work when keep-unique is effectively off.
     const hasActiveKeepUniques = hasActiveKeepUniqueRules(payload.keepUniques)

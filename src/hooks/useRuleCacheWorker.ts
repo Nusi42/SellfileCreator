@@ -36,6 +36,8 @@ type PipelineParams = WarmCacheParams & {
     removed: number[]
     signature: string | null
   }
+  // Explicit worker cache purge when artifacts disappear so keep-unique detection cannot reuse stale entries.
+  resetArtifacts?: boolean
   fingerprint?: string | null
   skipWarm?: boolean
   skipMatches?: boolean
@@ -162,6 +164,7 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
     const warmTotal = params.skipWarm ? 0 : params.configs.length
     const needsMatches = params.skipMatches !== true
     const artifactList = (() => {
+      if (params.resetArtifacts) return []
       if (params.artifactPatch) {
         // Local fallback does not cache patches; apply patch to a local map per run.
         const map = new Map<number, NormalizedGearArtifact>()
@@ -645,6 +648,7 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
         artifacts: params.artifacts,
         ...(params.artifactPatch ? { artifactPatch: params.artifactPatch } : {}),
         ...(params.artifactSignature !== undefined ? { artifactSignature: params.artifactSignature ?? null } : {}),
+        resetArtifacts: params.resetArtifacts ?? false,
         fingerprint: params.fingerprint ?? null,
         skipWarm: params.skipWarm ?? false,
         skipMatches: params.skipMatches ?? false,

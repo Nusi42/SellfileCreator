@@ -79,6 +79,7 @@ export type RuleCachePipelineRequest = {
       signature: string | null
     }
     artifactSignature?: string | null
+    resetArtifacts?: boolean
     fingerprint?: string | null
     skipWarm?: boolean
     skipMatches?: boolean
