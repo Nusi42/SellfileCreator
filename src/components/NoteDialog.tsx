@@ -808,9 +808,7 @@ function KeepUniqueSummaryCard({
   const ruleName = typeof rule.name === 'string' ? rule.name.trim() : ''
   const titleLabel = ruleName || t('noteKeepUniqueRuleTitle', { index: id })
   const subtitleLabel = ruleName ? t('noteKeepUniqueRuleTitle', { index: id }) : ''
-  const fallbackAny = t('any')
-
-  const formatList = (values: string[]): string => (values.length ? values.join(', ') : fallbackAny)
+  const formatList = (values: string[]): string => values.join(', ')
 
   const slotLabels = (() => {
     const sorted = [...(rule.combination.slots ?? [])].sort(compareArtifactTypes)
@@ -875,24 +873,30 @@ function KeepUniqueSummaryCard({
     return rarities.map((rarity) => rarityCodeToName(rarity) || `${rarity}★`)
   })()
 
-  const filters: Array<{ label: string; value: string }> = [
-    { label: t('noteKeepUniqueSlotsLabel'), value: formatList(slotLabels) },
-    {
-      label: t('noteKeepUniqueSetsLabel'),
-      value: (() => {
-        const parts: string[] = []
-        if (setLabels.length > 0) parts.push(formatList(setLabels))
-        if (metasetLabels.length > 0) {
-          parts.push(`${t('menuMetasetsSection')}: ${formatList(metasetLabels)}`)
-        }
-        return parts.length ? parts.join(' • ') : fallbackAny
-      })(),
-    },
-    { label: t('noteKeepUniqueMainLabel'), value: formatList(mainLabels) },
-    { label: t('noteKeepUniqueFactionsLabel'), value: formatList(factionLabels) },
-    { label: t('noteKeepUniqueRanksLabel'), value: formatList(rankLabels) },
-    { label: t('noteKeepUniqueRaritiesLabel'), value: formatList(rarityLabels) },
-  ]
+  const filters: Array<{ label: string; value: string }> = []
+  if (slotLabels.length > 0) {
+    filters.push({ label: t('noteKeepUniqueSlotsLabel'), value: formatList(slotLabels) })
+  }
+  const setsParts: string[] = []
+  if (setLabels.length > 0) setsParts.push(formatList(setLabels))
+  if (metasetLabels.length > 0) {
+    setsParts.push(`${t('menuMetasetsSection')}: ${formatList(metasetLabels)}`)
+  }
+  if (setsParts.length > 0) {
+    filters.push({ label: t('noteKeepUniqueSetsLabel'), value: setsParts.join(' • ') })
+  }
+  if (mainLabels.length > 0) {
+    filters.push({ label: t('noteKeepUniqueMainLabel'), value: formatList(mainLabels) })
+  }
+  if (factionLabels.length > 0) {
+    filters.push({ label: t('noteKeepUniqueFactionsLabel'), value: formatList(factionLabels) })
+  }
+  if (rankLabels.length > 0) {
+    filters.push({ label: t('noteKeepUniqueRanksLabel'), value: formatList(rankLabels) })
+  }
+  if (rarityLabels.length > 0) {
+    filters.push({ label: t('noteKeepUniqueRaritiesLabel'), value: formatList(rarityLabels) })
+  }
 
   // Layout keeps the quota pill anchored while letting cards wrap into two columns.
   return (
