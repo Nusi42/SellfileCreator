@@ -191,7 +191,7 @@ const catalog: Catalog = {
 
   tabKeepUniques: 'Manter únicos',
   keepUniquesTabLabel: 'Manter únicos',
-  keepUniquesTabIntro: 'Adicione regras por slot/conjunto/estatística para que a venda final nunca remova todas as cópias dessa combinação.',
+  keepUniquesTabIntro: 'Adicione regras por slot/conjunto/estatística para que suas regras de venda atualmente ativas nunca removam todas as cópias dessa combinação.',
   keepUniquesEnableLabel: 'Ativar Manter únicos',
   keepUniquesNoTesterData: 'Carregue um banco de dados de equipamento para ver as combinações em risco.',
   keepUniquesScanPending: 'Analisando o equipamento…',

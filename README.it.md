@@ -11,7 +11,7 @@ Crea, visualizza in anteprima ed esporta regole di vendita per RSL Helper tramit
 - Metaset: assegna un nome a gruppi di set (es. Velocità + Percezione) e riutilizzali nelle regole.
 - Esporta con un clic: esporta un file HSF (il Sellfile di RSL Helper) pronto per RSL Helper.
 - Anteprima del Tester regole + dialogo "Equipaggiamento...": crea equipaggiamento di esempio, incolla righe oppure trascina il database di RSL Helper (di solito `%APPDATA%\RslHelper\Config`) nel dialog per vedere quale regola si applica per prima e se l'oggetto viene mantenuto o venduto. Poi lascia chiuso il dialogo e usa l'interruttore dell'anteprima per tenere visibile quell’attrezzatura mentre confronti i risultati con le tue regole.
-- Scheda "Mantieni unici": definisci le combinazioni che non vuoi perdere mai. Quando le tue configurazioni più la Vendita finale eliminerebbero tutte le copie, lo scanner genera automaticamente regole di mantenimento.
+- Scheda "Mantieni unici": definisci le combinazioni che non vuoi perdere mai. Quando le tue configurazioni più le tue regole di vendita attualmente attive eliminerebbero tutte le copie, lo scanner genera automaticamente regole di mantenimento.
 - Dialogo di ripristino Autosave: quando troviamo un Autosave, scegli con precisione cosa ricaricare: configurazioni, Metaset, Valori obiettivo delle sotto-stat, resto di Vendita finale, nota fissata, stato del pannello filtri e perfino le importazioni del Tester regole.
 - Copia la cartella del DB di RSL Helper: l'intestazione dell'anteprima offre un pulsante negli appunti che copia `%APPDATA%\RslHelper\Config` così puoi incollare subito il percorso in Esplora risorse prima di trascinare dentro il `.db`.
 

@@ -191,7 +191,7 @@ const overrides: Catalog = {
 
   tabKeepUniques: 'Benzersizleri Koru',
   keepUniquesTabLabel: 'Benzersizleri Koru',
-  keepUniquesTabIntro: 'Final Sell bu kombinasyonun tüm kopyalarını asla silmesin diye slot/set/istatistik bazında kurallar ekleyin.',
+  keepUniquesTabIntro: 'Slot/set/istatistik kombinasyonu bazında kurallar ekleyin, böylece şu anda aktif olan Satış kurallarınız bu kombinasyonun tüm kopyalarını asla silmesin.',
   keepUniquesEnableLabel: 'Benzersizleri Koru\'yu etkinleştir',
   keepUniquesNoTesterData: 'Risk altındaki kombinasyonları görmek için bir ekipman veritabanı yükleyin.',
   keepUniquesScanPending: 'Ekipman taranıyor…',

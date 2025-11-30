@@ -191,7 +191,7 @@ const overrides: Catalog = {
 
   tabKeepUniques: 'Unikate behalten',
   keepUniquesTabLabel: 'Unikate behalten',
-  keepUniquesTabIntro: 'Füge Behalte-Regeln pro Slot/Set/Stat-Kombination hinzu, damit der finale Verkauf niemals jedes Exemplar entfernt.',
+  keepUniquesTabIntro: 'Füge Behalte-Regeln pro Slot/Set/Stat-Kombination hinzu, damit deine aktuell aktiven Verkaufsregeln niemals jedes Exemplar dieser Kombination entfernen.',
   keepUniquesEnableLabel: 'Unikate behalten aktivieren',
   keepUniquesNoTesterData: 'Lade eine Gear-Datenbank, um gefährdete Kombinationen zu sehen.',
   keepUniquesScanPending: 'Scanne Ausrüstung …',

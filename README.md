@@ -11,7 +11,7 @@ Build, preview, and export sell rules for RSL Helper with a simple UI.
 - Metasets: name groups of gear sets (e.g., Speed + Perception) and reuse them across rules.
 - One-click Export: export an HSF file (the RSL Helper Sellfile) ready for RSL Helper.
 - Rule Tester preview + Gear dialog (“Gear...”): create example gear, paste items, or drag-and-drop your RSL Helper DB (usually `%APPDATA%\RslHelper\Config`) into the dialog. Then leave the dialog closed and use the preview toggle to keep that gear visible while you compare it against your rules.
-- Keep Uniques tab: define combinations you never want to lose, and the scanner injects keep rules automatically whenever your configs plus Final Sell would sell every piece in that combination.
+- Keep Uniques tab: define combinations you never want to lose, and the scanner injects keep rules automatically whenever your configs plus your current active Sell rules would sell every piece in that combination.
 - Autosave restore dialog: when an autosave is found, pick exactly what to load — configs, metasets, Substat Target Values, Final Sell remainder, pinned note, filter panel state, and even Rule Tester imports.
 - Copy the RSL Helper DB folder: the preview header exposes a clipboard button that copies `%APPDATA%\RslHelper\Config` so you can paste the folder path into Explorer before dragging the `.db` into Sellfile Creator.
 

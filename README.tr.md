@@ -11,7 +11,7 @@ RSL Helper için satış kurallarını basit bir arayüzle oluşturun, önizleyi
 - Metasetler: Ekipman setlerini (ör. Hız + Algı) gruplayın ve birçok kuralda tekrar kullanın.
 - Tek tıkla dışa aktarma: RSL Helper’da kullanılmaya hazır bir HSF dosyası üretin.
 - Kural testi önizlemesi + Gear iletişim kutusu (“Gear...”): Örnek ekipman oluşturun, satırları yapıştırın veya RSL Helper veritabanınızı (genellikle `%APPDATA%\RslHelper\Config`) iletişim kutusuna sürükleyip bırakın. Sonra iletişim kutusunu kapalı bırakıp önizleme anahtarıyla bu ekipmanı kurallarınızla karşılaştırırken görünürde tutun.
-- «Benzersizleri Koru» sekmesi: Kaybetmenize asla izin vermek istemediğiniz kombinasyonları tanımlayın. Konfigleriniz + Final satış tüm kopyaları siliyorsa tarayıcı otomatik olarak koruma kuralları üretir.
+- «Benzersizleri Koru» sekmesi: Kaybetmenize asla izin vermek istemediğiniz kombinasyonları tanımlayın. Konfigleriniz + şu anda aktif olan Satış kurallarınız tüm kopyaları siliyorsa tarayıcı otomatik olarak koruma kuralları üretir.
 - Autosave geri yükleme iletişim kutusu: Bir autosave bulunduğunda, hangi bölümlerin yükleneceğini tek tek seç — konfigler, metasetler, Alt stat hedef değerleri, Final satış bakiyesi, sabitlenmiş not, filtre paneli durumu ve hatta Kural testi kuyruğu.
 - RSL Helper DB klasörünü kopyala: Önizleme başlığındaki pano düğmesi `%APPDATA%\RslHelper\Config` yolunu kopyalar; böylece `.db` dosyasını Sellfile Creator’a sürüklemeden önce yolu Explorer’a/gezgine yapıştırabilirsin.
 
