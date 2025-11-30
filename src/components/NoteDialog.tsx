@@ -990,33 +990,31 @@ function KeepUniqueSummaryCard({
       }}
     >
       <Stack spacing={0.5} sx={{ width: 1 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 0.5, alignItems: 'center', flexWrap: 'wrap', width: 1 }}>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25, minWidth: 0, width: 1 }}>
-            <Typography
-              variant="subtitle2"
-              sx={{ fontWeight: 700, wordBreak: 'break-word', lineHeight: 1, fontSize: '0.9rem', width: 1 }}
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 0.75, alignItems: 'center', flexWrap: 'wrap', width: 1 }}>
+          <Typography
+            variant="subtitle2"
+            sx={{ fontWeight: 700, wordBreak: 'break-word', lineHeight: 1, fontSize: '0.9rem', flex: '1 1 auto', minWidth: 0 }}
+          >
+            {titleLabel}
+          </Typography>
+          {!rule.enabled ? (
+            <Box
+              sx={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 0.5,
+                px: 0.5,
+                py: 0.25,
+                borderRadius: 1,
+                bgcolor: 'action.hover',
+              }}
             >
-              {titleLabel}
-            </Typography>
-            {!rule.enabled ? (
-              <Box
-                sx={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 0.5,
-                  px: 0.5,
-                  py: 0.25,
-                  borderRadius: 1,
-                  bgcolor: 'action.hover',
-                }}
-              >
-                <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: 'text.disabled' }} />
-                <Typography component="span" variant="caption" color="text.disabled" sx={{ fontWeight: 700 }}>
-                  {t('noteKeepUniqueRuleDisabled')}
-                </Typography>
-              </Box>
-            ) : null}
-          </Box>
+              <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: 'text.disabled' }} />
+              <Typography component="span" variant="caption" color="text.disabled" sx={{ fontWeight: 700 }}>
+                {t('noteKeepUniqueRuleDisabled')}
+              </Typography>
+            </Box>
+          ) : null}
         </Box>
         <Stack spacing={0.6}>
           {renderRow(
