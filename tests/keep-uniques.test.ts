@@ -126,7 +126,7 @@ test('computeKeepUniqueProtection aggregates combination counts', () => {
   assert.ok(entry)
   assert.strictEqual(entry.currentCount, 2, 'tracks all sold artifacts')
   assert.strictEqual(entry.projectedCount, 2, 'projected count mirrors sold artifacts when enabled')
-  assert.strictEqual(entry.deficit, 0, 'no deficit when enough artifacts exist')
+  assert.strictEqual(entry.deficit, 0, 'no deficit once sold artifacts cover the quota')
 })
 
 test('projected count mirrors existing keep state when disabled', () => {
@@ -152,7 +152,7 @@ test('projected count mirrors existing keep state when disabled', () => {
   const entry = snapshot.entries[0]
   assert.ok(entry)
   assert.strictEqual(entry.projectedCount, 0, 'disabled feature mirrors existing keep state (0 kept)')
-  assert.strictEqual(entry.deficit, 2)
+  assert.strictEqual(entry.deficit, 0, 'deficit is zero because quota can be met if enabled')
 })
 
 test('coveredByExisting flips when existing keep rules meet requirement', () => {
@@ -217,7 +217,7 @@ test('per rule mode keeps a single aggregate quota', () => {
   assert.strictEqual(entry.countMode.perRule, true)
   assert.strictEqual(entry.groupsTracked, 1)
   assert.strictEqual(entry.requiredCount, 2)
-  assert.strictEqual(entry.deficit, 0)
+  assert.strictEqual(entry.deficit, 0, 'no deficit because available artifacts can satisfy the quota')
 })
 
 test('custom grouping honors the selected dimensions only', () => {
