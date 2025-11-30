@@ -811,6 +811,7 @@ function KeepUniqueSummaryCard({
     { key: 'perFaction', label: t('keepUniquesCountModePerFaction'), active: countMode.perFaction },
     { key: 'perMain', label: t('keepUniquesCountModePerMain'), active: countMode.perMainStat },
   ]
+  const activeScopeFlags = scopeFlags.filter((flag) => flag.active)
   // Surface explicit names when present so ordered exports stay recognizable.
   const ruleName = typeof rule.name === 'string' ? rule.name.trim() : ''
   const titleLabel = ruleName || t('noteKeepUniqueRuleTitle', { index: id })
@@ -1026,7 +1027,7 @@ function KeepUniqueSummaryCard({
           {renderRow(
             scopeLegendLabel,
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
-              {scopeFlags.map((flag) => (
+              {activeScopeFlags.map((flag) => (
                 <Box
                   key={`ku-scope-${flag.key}`}
                   sx={{
