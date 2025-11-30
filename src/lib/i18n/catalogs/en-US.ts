@@ -253,10 +253,11 @@ const enUS: Catalog = {
   titleDeleteMetaset: 'Delete This Metaset?',
   msgNoRefs: 'This removes the Metaset. No configs reference it.',
   refsCount: '{n} Config(s) reference this Metaset.',
+  refsCountWithKeepUniques: '{configCount} Config(s) and {keepUniqueCount} Keep Unique rule(s) reference this Metaset.',
   msgChooseUpdate: 'Choose how to update those configs.',
   titleResetMetasets: 'Reset Metasets to Defaults?',
-  msgResetNoRefs: 'No configs reference your current Metasets. This will replace your Metasets list with defaults.',
-  msgResetSomeRefs: 'Some configs reference your current Metasets. Choose how to update them.',
+  msgResetNoRefs: 'No configs or Keep Unique rules reference your current Metasets. This will replace your Metasets list with defaults.',
+  msgResetSomeRefs: 'Configs or Keep Unique rules reference your current Metasets. Choose how to update them.',
 
   // Sets search/order controls
   setsSearch: 'Search Sets',

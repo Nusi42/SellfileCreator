@@ -57,6 +57,7 @@ export default function MetasetsDialog({
   onResetMetasets,
   setUsageCounts,
   metasetUsageCounts,
+  keepUniqueMetasetUsageCounts,
   onSelectConfigsByMetaset,
   setsSearch,
   onSetsSearchChange,
@@ -74,6 +75,7 @@ export default function MetasetsDialog({
   onResetMetasets: (mode: 'delete' | 'replaceSets' | 'replaceMeta', replacementMetaId?: string) => void
   setUsageCounts: Record<number, number>
   metasetUsageCounts: Record<string, number>
+  keepUniqueMetasetUsageCounts: Record<string, number>
   // When the "Used" chip is clicked, select all configs that reference this metaset.
   onSelectConfigsByMetaset: (id: string) => void
   setsSearch: string
@@ -844,29 +846,32 @@ export default function MetasetsDialog({
                           <Box component="span" sx={{ fontSize: 20, width: 32, textAlign: 'center' }} aria-hidden>{option.glyph}</Box>
                         </MenuItem>
                       )
-                    })}
-                    </Select>
-                  {(() => {
-                    const used = metasetUsageCounts[m.id] || 0
-                    return (
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                        <Button color="error" onClick={() => {
-                          const hasSets = m.sets.length > 0
-                          if (used === 0 && !hasSets) {
-                            // Safe auto-delete: not used and empty
-                            onDeleteMetaset(m.id)
-                            return
-                          }
-                          // Otherwise open confirmation; default to delete action
-                          setDeleteMode(used > 0 && hasSets ? 'replaceSets' : 'delete')
-                          setDeleteReplaceMetaId('')
-                          setConfirmDeleteMetaId(m.id)
-                        }}>{t('delete')}</Button>
-                        {used > 0 ? (
-                          <MarkdownTooltip markdown={t('metasetsUsesTooltip')}>
+                  })}
+                  </Select>
+                {(() => {
+                  const configUsed = metasetUsageCounts[m.id] || 0
+                  const keepUniqueUsed = keepUniqueMetasetUsageCounts[m.id] || 0
+                  const totalUsed = configUsed + keepUniqueUsed
+                  return (
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                      <Button color="error" onClick={() => {
+                        const hasSets = m.sets.length > 0
+                        if (totalUsed === 0 && !hasSets) {
+                          // Safe auto-delete: not used and empty
+                          onDeleteMetaset(m.id)
+                          return
+                        }
+                        // Otherwise open confirmation; default to delete action
+                        setDeleteMode(totalUsed > 0 && hasSets ? 'replaceSets' : 'delete')
+                        setDeleteReplaceMetaId('')
+                        setConfirmDeleteMetaId(m.id)
+                      }}>{t('delete')}</Button>
+                      {totalUsed > 0 ? (
+                        <MarkdownTooltip markdown={t('metasetsUsesTooltip')}>
+                          <Box sx={{ position: 'relative', display: 'inline-flex' }}>
                             <Chip
                               size="small"
-                              label={t('metasetsUses', { n: used })}
+                              label={t('metasetsUses', { n: configUsed })}
                               color={'warning'}
                               sx={{ width: 84, justifyContent: 'center', cursor: 'pointer' }}
                               onClick={() => {
@@ -875,16 +880,39 @@ export default function MetasetsDialog({
                                 try { onClose() } catch {}
                               }}
                             />
-                          </MarkdownTooltip>
-                        ) : (
-                          <Chip
-                            size="small"
-                            label={t('metasetsUses', { n: used })}
-                            color={'default'}
-                            sx={{ width: 84, justifyContent: 'center' }}
-                          />
-                        )}
-                      </Box>
+                            {keepUniqueUsed > 0 ? (
+                              <Box
+                                component="span"
+                                sx={(theme) => ({
+                                  position: 'absolute',
+                                  top: -6,
+                                  right: -6,
+                                  borderRadius: 1,
+                                  px: 0.5,
+                                  py: 0.25,
+                                  fontSize: 11,
+                                  lineHeight: 1,
+                                  fontWeight: 700,
+                                  bgcolor: theme.palette.warning.main,
+                                  color: theme.palette.getContrastText(theme.palette.warning.main),
+                                  boxShadow: theme.shadows[2],
+                                  pointerEvents: 'none',
+                                })}
+                              >
+                                {`+${keepUniqueUsed}`}
+                              </Box>
+                            ) : null}
+                          </Box>
+                        </MarkdownTooltip>
+                      ) : (
+                        <Chip
+                          size="small"
+                          label={t('metasetsUses', { n: configUsed })}
+                          color={'default'}
+                          sx={{ width: 84, justifyContent: 'center' }}
+                        />
+                      )}
+                    </Box>
                     )
                   })()}
                   </Box>
@@ -913,7 +941,7 @@ export default function MetasetsDialog({
           <Button size="small" variant="outlined" color="error" onClick={() => {
             // Default selection mirrors Delete: prefer replace-with-sets when possible
             try {
-              const used = metasets.filter(m => (metasetUsageCounts[m.id] || 0) > 0)
+              const used = metasets.filter(m => (metasetUsageCounts[m.id] || 0) > 0 || (keepUniqueMetasetUsageCounts[m.id] || 0) > 0)
               const anyHasSets = used.some(m => m.sets.length > 0)
               setResetMode(anyHasSets ? 'replaceSets' : 'delete')
             } catch { setResetMode('delete') }
@@ -979,14 +1007,16 @@ export default function MetasetsDialog({
           {(() => {
             const id = confirmDeleteMetaId
             const m = metasets.find(x => x.id === id)
-            const used = id ? (metasetUsageCounts[id] || 0) : 0
+            const configUsed = id ? (metasetUsageCounts[id] || 0) : 0
+            const keepUniqueUsed = id ? (keepUniqueMetasetUsageCounts[id] || 0) : 0
+            const totalUsed = configUsed + keepUniqueUsed
             const otherMetas = metasets.filter(x => x.id !== id)
             const hasOtherMetas = otherMetas.length > 0
             const hasSets = Boolean(m && m.sets.length > 0)
 
             if (!id) return null
 
-            if (used === 0) {
+            if (totalUsed === 0) {
               // Simple confirmation (no replace options)
               return (
                 <>
@@ -998,7 +1028,9 @@ export default function MetasetsDialog({
             // Used > 0: present standard radio-driven choices
             return (
               <>
-                <Typography variant="body2" sx={{ mb: 0.5 }}>{t('refsCount', { n: used })}</Typography>
+                <Typography variant="body2" sx={{ mb: 0.5 }}>
+                  {t('refsCountWithKeepUniques', { configCount: configUsed, keepUniqueCount: keepUniqueUsed })}
+                </Typography>
                 <Typography variant="body2" color="text.secondary">{t('msgChooseUpdate')}</Typography>
                 <Divider sx={{ my: 1, opacity: 0.5 }} />
                 <RadioGroup
@@ -1033,12 +1065,14 @@ export default function MetasetsDialog({
         <DialogActions>
           {(() => {
             const id = confirmDeleteMetaId
-            const used = id ? (metasetUsageCounts[id] || 0) : 0
+            const configUsed = id ? (metasetUsageCounts[id] || 0) : 0
+            const keepUniqueUsed = id ? (keepUniqueMetasetUsageCounts[id] || 0) : 0
+            const totalUsed = configUsed + keepUniqueUsed
             const okReplaceMeta = deleteMode === 'replaceMeta' && Boolean(deleteReplaceMetaId)
             return (
               <>
                 <Button onClick={() => { setConfirmDeleteMetaId(null); setDeleteReplaceMetaId(''); setDeleteMode('delete') }}>{t('cancel')}</Button>
-                {used === 0 ? (
+                {totalUsed === 0 ? (
                   <Button
                     color="error"
                     onClick={() => {
@@ -1101,7 +1135,9 @@ export default function MetasetsDialog({
             </Box>
           )}
           {(() => {
-            const totalRefs = Object.values(metasetUsageCounts).reduce((a, b) => a + (b || 0), 0)
+            const totalRefs = metasets.reduce((acc, meta) => (
+              acc + (metasetUsageCounts[meta.id] || 0) + (keepUniqueMetasetUsageCounts[meta.id] || 0)
+            ), 0)
             if (totalRefs === 0) {
               return (
                   <Typography variant="body2">{t('msgResetNoRefs')}</Typography>
