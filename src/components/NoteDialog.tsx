@@ -983,7 +983,7 @@ function KeepUniqueSummaryCard({
         alignItems: options.valueAlign === 'center' ? 'center' : 'flex-start',
       }}
     >
-      <Typography variant="caption" sx={{ fontWeight: 800, textAlign: 'right', lineHeight: 1.4 }}>
+      <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 800, textAlign: 'right', lineHeight: 1.4 }}>
         {label}
       </Typography>
       <Box sx={{ minWidth: 0 }}>{value}</Box>
@@ -1002,17 +1002,23 @@ function KeepUniqueSummaryCard({
       }}
     >
       <Stack spacing={0.25} sx={{ width: 1 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 0.35, alignItems: 'flex-start', flexWrap: 'wrap', width: 1 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 0.35, alignItems: 'center', flexWrap: 'wrap', width: 1 }}>
           <Typography
             variant="subtitle2"
+            component="p"
             sx={{
               fontWeight: 700,
               wordBreak: 'break-word',
               lineHeight: 1,
-              fontSize: '0.82rem',
+              fontSize: '0.9rem',
               flex: '1 1 auto',
               minWidth: 0,
               m: 0,
+              p: 0,
+              mt: 0,
+              mb: 0,
+              display: 'flex',
+              alignItems: 'center',
             }}
           >
             {titleLabel}
