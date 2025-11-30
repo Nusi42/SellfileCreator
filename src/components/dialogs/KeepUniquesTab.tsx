@@ -349,7 +349,7 @@ export default function KeepUniquesTab({
       </IconButton>
     )
     const actionButtons = (
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, justifyContent: 'flex-end', flexShrink: 0 }}>
         {duplicateButton}
         {deleteButton}
       </Box>
@@ -403,6 +403,13 @@ export default function KeepUniquesTab({
       />
     )
 
+    const ruleCountsLabel = ruleDetection
+      ? t('keepUniquesRuleCounts', {
+        have: ruleDetection.currentCount,
+        keep: ruleDetection.requiredCount,
+      })
+      : ''
+    const ruleCountsColor = (ruleDetection?.deficit ?? 0) > 0 ? 'error.main' : 'text.secondary'
     // Extend the counts chip with a suffix that explains how the totals were derived.
     const detectionScopeSuffix = (() => {
       if (!ruleDetection) return ''
@@ -420,6 +427,9 @@ export default function KeepUniquesTab({
         scope: scopeLabel,
       })
     })()
+    const ruleCountsTooltip = detectionScopeSuffix
+      ? `${ruleCountsLabel}\n${detectionScopeSuffix}`
+      : ruleCountsLabel
     return (
       <Box
         key={rule.id}
@@ -607,101 +617,77 @@ export default function KeepUniquesTab({
                 </RuleSelectAffordances>
               </RuleFieldWithScopeChip>
             </Box>
-            <Box sx={{ display: 'flex', justifyContent: 'flex-start' }}>
-              <TextField
-                fullWidth
-                size="small"
-                type="number"
-                label={t('keepUniquesRequiredCount')}
-                value={rule.requiredCount}
-                onChange={(event) => {
-                  const raw = Math.min(9999, Math.max(1, Math.floor(Number(event.target.value) || 1)))
-                  updateRule(rule.id, (prev) => ({ ...prev, requiredCount: raw }))
-                }}
-                InputProps={{
-                  startAdornment: <InputAdornment position="start">≥</InputAdornment>,
-                  endAdornment: (
-                    <NumberSpinnerAdornment
-                      ariaLabel={t('keepUniquesRequiredCount')}
-                      onStep={(delta) => {
-                        updateRule(rule.id, (prev) => {
-                          const next = Math.max(1, Math.min(9999, Math.floor((prev.requiredCount ?? 1) + delta)))
-                          return { ...prev, requiredCount: next }
-                        })
-                      }}
-                    />
-                  ),
-                }}
-                sx={(themeInner) => ({
-                  flex: '0 0 auto',
-                  maxWidth: 130, // Slightly wider so long translations can still read the quantity without wrapping.
-                  '& input::-webkit-outer-spin-button, & input::-webkit-inner-spin-button': {
-                    WebkitAppearance: 'none',
-                    margin: 0,
-                  },
-                  '& input[type=number]': {
-                    MozAppearance: 'textfield',
-                  },
-                  '& input': {
-                    textAlign: 'right',
-                    paddingRight: themeInner.spacing(1),
-                    paddingLeft: themeInner.spacing(0.5),
-                  },
-                })}
-                inputProps={{
-                  min: 1,
-                  step: 1,
-                  max: 9999, // UI enforces realistic quotas while still allowing manual entry if needed.
-                }}
-              />
-            </Box>
-            {ruleDetection ? (
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.5, flex: 1 }}>
-                  <Box sx={{ flex: 1 }}>
-                    <Typography
-                      variant="caption"
-                      color={ruleDetection.deficit > 0 ? 'error.main' : 'text.secondary'}
-                      sx={{ display: 'block' }}
-                    >
-                      {t('keepUniquesRuleCounts', {
-                        have: ruleDetection.currentCount,
-                        keep: ruleDetection.requiredCount,
-                      })}
-                    </Typography>
-                    {detectionScopeSuffix ? (
-                      <Typography
-                        variant="caption"
-                        color="text.secondary"
-                        sx={{ mt: 0.25, display: 'block' }}
-                      >
-                        {detectionScopeSuffix}
-                      </Typography>
-                    ) : null}
-                  </Box>
-                  <MarkdownTooltip markdown={t('keepUniquesRuleCountsHint')}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flex: 1, minWidth: 0 }}>
+                {/* Keep the info glyph on the same line as the quota so it no longer consumes a separate row. */}
+                <TextField
+                  fullWidth
+                  size="small"
+                  type="number"
+                  label={t('keepUniquesRequiredCount')}
+                  value={rule.requiredCount}
+                  onChange={(event) => {
+                    const raw = Math.min(9999, Math.max(1, Math.floor(Number(event.target.value) || 1)))
+                    updateRule(rule.id, (prev) => ({ ...prev, requiredCount: raw }))
+                  }}
+                  InputProps={{
+                    startAdornment: <InputAdornment position="start">≥</InputAdornment>,
+                    endAdornment: (
+                      <NumberSpinnerAdornment
+                        ariaLabel={t('keepUniquesRequiredCount')}
+                        onStep={(delta) => {
+                          updateRule(rule.id, (prev) => {
+                            const next = Math.max(1, Math.min(9999, Math.floor((prev.requiredCount ?? 1) + delta)))
+                            return { ...prev, requiredCount: next }
+                          })
+                        }}
+                      />
+                    ),
+                  }}
+                  sx={(themeInner) => ({
+                    flex: '0 0 auto',
+                    maxWidth: 130, // Slightly wider so long translations can still read the quantity without wrapping.
+                    '& input::-webkit-outer-spin-button, & input::-webkit-inner-spin-button': {
+                      WebkitAppearance: 'none',
+                      margin: 0,
+                    },
+                    '& input[type=number]': {
+                      MozAppearance: 'textfield',
+                    },
+                    '& input': {
+                      textAlign: 'right',
+                      paddingRight: themeInner.spacing(1),
+                      paddingLeft: themeInner.spacing(0.5),
+                    },
+                  })}
+                  inputProps={{
+                    min: 1,
+                    step: 1,
+                    max: 9999, // UI enforces realistic quotas while still allowing manual entry if needed.
+                  }}
+                />
+                {ruleDetection ? (
+                  <MarkdownTooltip markdown={ruleCountsTooltip}>
                     <IconButton
                       size="small"
                       color="inherit"
-                      aria-label={t('keepUniquesRuleCountsHintLabel')}
+                      aria-label={ruleCountsTooltip}
                       sx={{
                         p: 0.25,
                         fontSize: 16,
-                        '&:hover': { color: 'text.primary' },
-                        '&:focus-visible': { color: 'text.primary' },
+                        color: ruleCountsColor,
+                        // Mirror the old label's warning color while keeping hover/focus consistent.
+                        '&:hover': { color: ruleCountsColor === 'error.main' ? 'error.dark' : 'text.primary' },
+                        '&:focus-visible': { color: ruleCountsColor === 'error.main' ? 'error.dark' : 'text.primary' },
                       }}
                     >
                       <InfoOutlinedIcon fontSize="inherit" />
                     </IconButton>
                   </MarkdownTooltip>
-                </Box>
-                {actionButtons}
+                ) : null}
               </Box>
-            ) : (
-              <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-                {actionButtons}
-              </Box>
-            )}
+              {actionButtons}
+            </Box>
           </Stack>
         </Stack>
       </Box>
