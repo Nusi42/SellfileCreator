@@ -244,7 +244,8 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
   const shouldDimUnhighlightedRows = Boolean(dimUnhighlightedRows && highlightRowPredicate)
   const { t } = useI18n()
   const theme = useTheme()
-  const suppressMatchDetails = Boolean(suppressMatchDetailsProp)
+  // Frozen match details stay rendered but dimmed so users remember the last result during rebuilds.
+  const matchDetailsFrozen = Boolean(suppressMatchDetailsProp)
   // Group tree is recalculated only when the dataset or locale changes so TanStack can reuse measured rows.
   const groups = useMemo(() => groupRowsBySet(rows, t), [rows, t])
   const numberFormatter = useMemo(() => new Intl.NumberFormat(undefined), [])
@@ -980,7 +981,7 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
                   row={row}
                   substatColors={substatColors}
                   useStatButtonColors={useStatButtonColors}
-                  suppressMatchDetails={suppressMatchDetails}
+                  suppressMatchDetails={matchDetailsFrozen}
                   showFirstMatchRow={showFirstMatch}
                   showOtherMatchesRow={showOtherMatches}
                   showChampionIcons={showChampionIcons}
@@ -1466,6 +1467,9 @@ const TesterGridCard = React.memo(function TesterGridCard({
   const highlightFn = typeof highlightedRowPredicate === 'function' ? highlightedRowPredicate : null
   const cardHighlighted = highlightFn ? Boolean(highlightFn(row)) : false
   const cardDimmed = Boolean(highlightFn && dimUnhighlightedRows && !cardHighlighted)
+  // Frozen match rows keep stale data visible but low-opacity until the rebuild commits.
+  const matchDetailsFrozen = Boolean(suppressMatchDetails)
+  const matchDetailsOpacity = matchDetailsFrozen ? 0.45 : 1
   const { t } = useI18n()
   const theme = useTheme()
   const artifact = row.artifact
@@ -1487,8 +1491,9 @@ const TesterGridCard = React.memo(function TesterGridCard({
     }
     return false
   }, [row.matchingCfgIndices])
-  const basePrimaryMatchRowVisible = !suppressMatchDetails && showFirstMatchRow
-  const baseOtherMatchesRowVisible = !suppressMatchDetails && showOtherMatchesRow && mightShowOtherMatchesRow
+  // Match rows stay mounted even while frozen so the stale data can be seen at a glance.
+  const basePrimaryMatchRowVisible = showFirstMatchRow
+  const baseOtherMatchesRowVisible = showOtherMatchesRow && mightShowOtherMatchesRow
   const { leftColumnHeightPx, rightColumnHeightPx } = useMemo(
     () => getTesterGridCardColumnHeights(theme, gridColumnCount),
     [theme, gridColumnCount],
@@ -1498,10 +1503,11 @@ const TesterGridCard = React.memo(function TesterGridCard({
   const primaryRuleIndex = typeof match?.ruleIndex === 'number' ? match.ruleIndex : null
   const primaryCfgIndex = typeof match?.cfgIdx === 'number' ? match.cfgIdx : null
   const canJumpToPrimaryMatch = typeof onJumpToRule === 'function' && primaryRuleIndex != null
+  // Jump affordances stay disabled until the rebuild commits so stale matches never focus the wrong config.
+  const allowPrimaryMatchJump = Boolean(!matchDetailsFrozen && canJumpToPrimaryMatch)
   const handlePrimaryMatchClick = () => {
-    if (canJumpToPrimaryMatch && primaryRuleIndex != null) {
-      onJumpToRule?.(primaryRuleIndex, primaryCfgIndex ?? null)
-    }
+    if (!allowPrimaryMatchJump || primaryRuleIndex == null) return
+    onJumpToRule?.(primaryRuleIndex, primaryCfgIndex ?? null)
   }
   // Matching chips hydrate lazily so skeleton rows can avoid heavy string work until revealed.
   const matchingEntries: MatchingConfigEntry[] = useMemo(() => {
@@ -1523,7 +1529,7 @@ const TesterGridCard = React.memo(function TesterGridCard({
   const shouldShowPrimaryMatchRow = basePrimaryMatchRowVisible
   const hasMatchingConfigs = matchingEntries.length > 0
   const otherMatchingEntries = matchingEntries.slice(1)
-  const shouldShowOtherMatchesRow = !suppressMatchDetails && showOtherMatchesRow && otherMatchingEntries.length > 0
+  const shouldShowOtherMatchesRow = showOtherMatchesRow && otherMatchingEntries.length > 0
   type PrimaryMatchRowState = 'hidden' | 'match' | 'pending' | 'no-match'
   const primaryMatchRowState: PrimaryMatchRowState = (() => {
     if (!shouldShowPrimaryMatchRow) return 'hidden'
@@ -1641,7 +1647,7 @@ const TesterGridCard = React.memo(function TesterGridCard({
     setMatchingPopoverAnchor(event.currentTarget)
   }
   const handleMatchingConfigJump = (cfgIdx: number) => {
-    if (!canJumpToPrimaryMatch || primaryRuleIndex == null) return
+    if (!allowPrimaryMatchJump || primaryRuleIndex == null) return
     if (!Number.isFinite(cfgIdx)) return
     onJumpToRule?.(primaryRuleIndex, cfgIdx)
   }
@@ -1650,7 +1656,7 @@ const TesterGridCard = React.memo(function TesterGridCard({
     options?: { onSelect?: () => void },
   ): React.ReactNode => {
     const key = `matching-chip-${entry.cfgIdx}`
-    const clickable = canJumpToPrimaryMatch
+    const clickable = allowPrimaryMatchJump
     const sharedChipProps = {
       label: entry.label,
       size: 'small' as const,
@@ -1925,13 +1931,14 @@ const TesterGridCard = React.memo(function TesterGridCard({
     </Box>
   ) : null
   // Keep/sell outcome surfaces the rule chip inline so keyboard users do not need to open popovers.
-  const cardOutcome = !suppressMatchDetails && match
+  const cardOutcome = match
     ? {
         tone: match.keep === false ? theme.palette.error.main : theme.palette.success.main,
         glyph: match.keep === false ? <SellIcon fontSize="inherit" aria-hidden /> : '✓',
         label: match.keep === false ? t('testerMatchSell') : t('testerMatchKeep'),
-        canJump: canJumpToPrimaryMatch,
-        onClick: handlePrimaryMatchClick,
+        canJump: allowPrimaryMatchJump,
+        ...(allowPrimaryMatchJump ? { onClick: handlePrimaryMatchClick } : {}),
+        inactive: matchDetailsFrozen,
       }
     : undefined
   const mainSummaryLabel = (
@@ -2184,12 +2191,13 @@ const TesterGridCard = React.memo(function TesterGridCard({
             minHeight: matchRowHeight,
             height: matchRowHeight,
             maxHeight: matchRowHeight,
+            opacity: matchDetailsOpacity,
           }}
         >
           {match ? (
             <TesterRuleReferenceChip
               match={match}
-              {...(onJumpToRule ? { onJump: onJumpToRule } : {})}
+              {...(!matchDetailsFrozen && onJumpToRule ? { onJump: onJumpToRule } : {})}
               sx={{ width: '100%' }}
             />
           ) : shouldRenderNoMatchChip ? (
@@ -2209,6 +2217,7 @@ const TesterGridCard = React.memo(function TesterGridCard({
             alignItems: 'center',
             mt: `${CARD_MATCH_ROW_MARGIN_PX}px`,
             mb: `${CARD_MATCH_ROW_MARGIN_PX}px`,
+            opacity: matchDetailsOpacity,
           }}
         >
           <Box

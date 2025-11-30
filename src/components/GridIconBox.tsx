@@ -39,6 +39,7 @@ type OutcomeIndicatorProps = {
   label?: string
   canJump?: boolean
   onClick?: (() => void)
+  inactive?: boolean
 }
 
 type GridIconBoxProps = {
@@ -259,9 +260,9 @@ export default function GridIconBox({
     // Outcome chips may carry multi-line text; MarkdownTooltip keeps the formatting consistent.
     <MarkdownTooltip markdown={outcome.label ?? ''}>
       <Box
-        component={outcome.canJump ? 'button' : 'div'}
-        type={outcome.canJump ? 'button' : undefined}
-        onClick={outcome.canJump ? outcome.onClick : undefined}
+        component={outcome.canJump && !outcome.inactive ? 'button' : 'div'}
+        type={outcome.canJump && !outcome.inactive ? 'button' : undefined}
+        onClick={outcome.canJump && !outcome.inactive ? outcome.onClick : undefined}
         sx={{
           position: 'absolute',
           left: -8,
@@ -279,7 +280,9 @@ export default function GridIconBox({
           justifyContent: 'center',
           fontWeight: 700,
           fontSize: '0.55rem',
-          cursor: outcome.canJump ? 'pointer' : undefined,
+          // Frozen rebuilds keep the badge visible but low-opacity + read-only.
+          opacity: outcome.inactive ? 0.45 : 1,
+          cursor: outcome.canJump && !outcome.inactive ? 'pointer' : undefined,
         }}
       >
         {outcome.glyph}
