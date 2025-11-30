@@ -40,6 +40,7 @@ import {
   type FactionId,
   StatVariant,
 } from '../lib/types'
+import { resolveRarityAccentColor } from '../lib/rarityColors'
 import { formatTesterSetLabel } from '../lib/testerFormatters'
 import {
   formatCircledDigit,
@@ -399,10 +400,11 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
   const [scrollTop, setScrollTop] = useState(0)
   const [viewportHeight, setViewportHeight] = useState(0)
   const [showScrollGroupHint, setShowScrollGroupHint] = useState(false)
-  const [firstVisibleRowId, setFirstVisibleRowId] = useState<number | null>(null)
   const scrollHintVisibleRef = useRef(false)
   const scrollHintHideTimerRef = useRef<ReturnType<typeof window.setTimeout> | null>(null)
-  const measureVisibleRowRafRef = useRef<number | null>(null)
+  const scrollHintRef = useRef<HTMLDivElement | null>(null)
+  const scrollHintWidthMeasureRafRef = useRef<number | null>(null)
+  const [scrollHintMinWidthPx, setScrollHintMinWidthPx] = useState(0)
   const viewportMeasureRafRef = useRef<number | null>(null)
   const revealIdleDrainTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   useEffect(() => {
@@ -440,36 +442,6 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
   }, [])
   const [scrollVersion, setScrollVersion] = useState(0)
   // Scroll handler feeds TanStack, the scroll hint, and the on-demand card reveal queue.
-  const measureFirstVisibleRow = useCallback(() => {
-    measureVisibleRowRafRef.current = null
-    const container = containerRef.current
-    if (!container || typeof window === 'undefined') return
-    const containerRect = container.getBoundingClientRect()
-    const nodes = container.querySelectorAll<HTMLElement>('[data-tester-grid-card="true"]')
-    let bestId: number | null = null
-    let bestTop = Number.POSITIVE_INFINITY
-    for (let idx = 0; idx < nodes.length; idx += 1) {
-      const node = nodes[idx]
-      if (!node) continue
-      const rect = node.getBoundingClientRect()
-      if (rect.bottom <= containerRect.top + 1) continue
-      if (rect.top >= containerRect.bottom - 1) continue
-      if (rect.top < bestTop) {
-        bestTop = rect.top
-        const rawId = Number(node.getAttribute('data-row-id'))
-        bestId = Number.isFinite(rawId) ? rawId : null
-      }
-    }
-    if (bestId == null) return
-    setFirstVisibleRowId((prev) => (prev === bestId ? prev : bestId))
-  }, [])
-
-  const scheduleMeasureFirstVisibleRow = useCallback(() => {
-    if (typeof window === 'undefined') return
-    if (measureVisibleRowRafRef.current != null) return
-    measureVisibleRowRafRef.current = window.requestAnimationFrame(measureFirstVisibleRow)
-  }, [measureFirstVisibleRow])
-
   const handleScroll = useCallback<React.UIEventHandler<HTMLDivElement>>((event) => {
     const nextScrollTop = event.currentTarget.scrollTop
     setScrollTop(nextScrollTop)
@@ -487,7 +459,6 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
       scrollHintHideTimerRef.current = null
     }, RULES_TABLE_SCROLL_HINT_HIDE_MS)
     setScrollVersion((prev) => (prev + 1) % Number.MAX_SAFE_INTEGER)
-    scheduleMeasureFirstVisibleRow()
     // After scrolling calms down, drain the reveal queue so reverse scrolling hits hydrated cards.
     if (typeof window !== 'undefined') {
       if (revealIdleDrainTimerRef.current != null) {
@@ -498,7 +469,7 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
         flushTesterGridCardRevealQueue(true)
       }, GRID_CARD_REVEAL_IDLE_DRAIN_DELAY_MS)
     }
-  }, [scheduleMeasureFirstVisibleRow])
+  }, [])
   // Keep Uniques enforces two columns so gear-combination cards stay legible.
   const preferredColumnCount = keepUniquesVariant ? 2 : storedColumnPreference
   const {
@@ -520,9 +491,9 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
       clearTimeout(scrollHintHideTimerRef.current)
       scrollHintHideTimerRef.current = null
     }
-    if (measureVisibleRowRafRef.current != null && typeof window !== 'undefined') {
-      window.cancelAnimationFrame(measureVisibleRowRafRef.current)
-      measureVisibleRowRafRef.current = null
+    if (scrollHintWidthMeasureRafRef.current != null && typeof window !== 'undefined') {
+      window.cancelAnimationFrame(scrollHintWidthMeasureRafRef.current)
+      scrollHintWidthMeasureRafRef.current = null
     }
     if (typeof window !== 'undefined' && revealIdleDrainTimerRef.current != null) {
       window.clearTimeout(revealIdleDrainTimerRef.current)
@@ -639,40 +610,6 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     }
     return null
   }, [rows])
-  const rowGroupLabelLookup = useMemo(() => {
-    const map = new Map<number, string>()
-    const assign = (group: TesterGroup, factionLabel?: string | null) => {
-      const hasChildren = Boolean(group.children?.length)
-      const nextFactionLabel = group.kind === 'accessoryFaction'
-        ? (group.label ?? factionLabel ?? null)
-        : factionLabel ?? null
-      if (hasChildren) {
-        group.children?.forEach((child) => assign(child, nextFactionLabel))
-        if (group.kind !== 'accessoryFaction') {
-          const baseLabel = group.label ?? ''
-          group.rows.forEach((row) => {
-            const id = Number(row.artifact?.id)
-            if (Number.isFinite(id)) {
-              map.set(id, baseLabel)
-            }
-          })
-        }
-        return
-      }
-      const baseLabel = group.label ?? ''
-      const resolvedLabel = (group.kind === 'accessorySet' && nextFactionLabel)
-        ? (baseLabel && baseLabel.trim().length > 0 ? `${nextFactionLabel} – ${baseLabel}` : nextFactionLabel)
-        : baseLabel
-      group.rows.forEach((row) => {
-        const id = Number(row.artifact?.id)
-        if (Number.isFinite(id)) {
-          map.set(id, resolvedLabel)
-        }
-      })
-    }
-    groups.forEach((group) => assign(group, null))
-    return map
-  }, [groups])
   // Context menu state tracks the pointer anchor plus the owning group so actions stay scoped.
   const [gridMenuGroupKey, setGridMenuGroupKey] = useState<string | null>(null)
   const [gridMenuPosition, setGridMenuPosition] = useState<{ x: number; y: number } | null>(null)
@@ -733,45 +670,90 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     onClose: closeGridMenu,
     menuRef: gridMenuPaperRef,
   })
+  // Virtualizer data exposes row bounds immediately after scroll, so resolve the first visible card without waiting for DOM effects.
+  const firstVisibleRowId = useMemo(() => {
+    const viewportStartPx = scrollTop
+    const viewportEndPx = viewportStartPx + viewportHeight
+    for (let idx = 0; idx < virtualItems.length; idx += 1) {
+      const virtualItem = virtualItems[idx]! // Length check above guarantees this entry exists.
+      const flattenedItem = flattenedItems[virtualItem.index]
+      if (!flattenedItem || flattenedItem.kind !== 'cardRow') continue
+      const rowTopPx = virtualItem.start
+      const rowBottomPx = rowTopPx + virtualItem.size
+      if (rowBottomPx <= viewportStartPx) continue
+      if (rowTopPx >= viewportEndPx && idx > 0) break
+      for (let entryIdx = 0; entryIdx < flattenedItem.rowEntries.length; entryIdx += 1) {
+        const artifactId = Number(flattenedItem.rowEntries[entryIdx]?.artifact?.id)
+        if (Number.isFinite(artifactId)) {
+          return artifactId
+        }
+      }
+    }
+    return fallbackScrollHintRowId
+  }, [fallbackScrollHintRowId, flattenedItems, scrollTop, viewportHeight, virtualItems])
   const effectiveScrollHintRowId = useMemo(() => {
     if (firstVisibleRowId != null && rowLookup.has(firstVisibleRowId)) {
       return firstVisibleRowId
     }
     return fallbackScrollHintRowId
   }, [fallbackScrollHintRowId, firstVisibleRowId, rowLookup])
-  const scrollHintLabel = useMemo(() => {
+  const scrollHintDetails = useMemo(() => {
     if (effectiveScrollHintRowId == null) return null
     const row = rowLookup.get(effectiveScrollHintRowId)
     if (!row) return null
     const artifact = row.artifact
     if (!artifact) return null
-    const groupLabel = rowGroupLabelLookup.get(effectiveScrollHintRowId) ?? ''
-    const slotLabel = typeof artifact.slot === 'number'
-      ? t(artifactTypeI18nKey(artifact.slot as ArtifactTypeId))
+    const fallback = t('testerValueUnknown')
+    const slotValue = Number(artifact.slot)
+    const resolvedSlotId = Number.isFinite(slotValue) ? (slotValue as ArtifactTypeId) : (1 as ArtifactTypeId)
+    const slotIsAccessory = Number.isFinite(slotValue) && isAccessorySlot(resolvedSlotId)
+    const factionLabel = slotIsAccessory && typeof artifact.faction === 'number'
+      ? t(factionI18nKey(artifact.faction as FactionId))
       : ''
+    const setLabel = formatTesterSetLabel({
+      setId: artifact.set ?? null,
+      slot: resolvedSlotId,
+      translate: t,
+    })
+    const slotLabel = Number.isFinite(slotValue)
+      ? t(artifactTypeI18nKey(resolvedSlotId))
+      : fallback
     const rankLabel = formatTesterRankLabel(artifact.rank, t)
     const rarityLabel = formatTesterRarityLabel(artifact.rarity, t)
-    const detailParts: string[] = []
-    if (slotLabel) detailParts.push(slotLabel)
-    if (rankLabel) detailParts.push(rankLabel)
-    if (rarityLabel) detailParts.push(rarityLabel)
-    const detail = detailParts.length > 0 ? detailParts.join(' ') : t('testerValueUnknown')
-    const resolvedGroup = groupLabel || t('testerValueUnknown')
-    return t('testerGridScrollHint', { group: resolvedGroup, detail })
-  }, [effectiveScrollHintRowId, rowGroupLabelLookup, rowLookup, t])
+    return {
+      factionLabel,
+      showFactionRow: factionLabel.length > 0,
+      setLabel: setLabel || fallback,
+      slotLabel: slotLabel || fallback,
+      rankLabel: rankLabel || fallback,
+      rarityLabel: rarityLabel || fallback,
+      rarityAccentColor: resolveRarityAccentColor(artifact.rarity) ?? undefined,
+    }
+  }, [effectiveScrollHintRowId, rowLookup, t])
+  const measureScrollHintWidth = useCallback(() => {
+    const node = scrollHintRef.current
+    if (!node) return
+    const width = node.offsetWidth
+    if (!Number.isFinite(width) || width <= 0) return
+    setScrollHintMinWidthPx((prev) => (width > prev ? width : prev))
+  }, [])
   useLayoutEffect(() => {
-    scheduleMeasureFirstVisibleRow()
-  }, [
-    scheduleMeasureFirstVisibleRow,
-    virtualizationRangeStartIndex,
-    virtualizationRangeEndIndex,
-    gridColumnCount,
-    showFirstMatch,
-    showOtherMatches,
-    collapsedGroups,
-    rows.length,
-    flattenedItems,
-  ])
+    if (typeof window === 'undefined') return undefined
+    if (!scrollHintDetails) return undefined
+    if (scrollHintWidthMeasureRafRef.current != null) {
+      window.cancelAnimationFrame(scrollHintWidthMeasureRafRef.current)
+    }
+    scrollHintWidthMeasureRafRef.current = window.requestAnimationFrame(() => {
+      scrollHintWidthMeasureRafRef.current = null
+      measureScrollHintWidth()
+    })
+    return () => {
+      if (scrollHintWidthMeasureRafRef.current != null) {
+        window.cancelAnimationFrame(scrollHintWidthMeasureRafRef.current)
+        scrollHintWidthMeasureRafRef.current = null
+      }
+    }
+  }, [measureScrollHintWidth, scrollHintDetails])
   if (rows.length === 0) {
     const emptyStateMessage = (() => {
       if (keepUniquesVariant) {
@@ -1049,8 +1031,9 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
         </Box>
       </Box>
       {/* Flyout floats above the grid but ignores all pointer/touch events so cards stay interactive. */}
-      {scrollHintLabel ? (
+      {scrollHintDetails ? (
         <Box
+          ref={scrollHintRef}
           aria-hidden={!showScrollGroupHint}
           aria-live="polite"
           sx={(theme) => ({
@@ -1060,7 +1043,7 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
             zIndex: theme.zIndex.tooltip,
             px: 1.25,
             py: 0.5,
-            borderRadius: theme.shape.borderRadius,
+            borderRadius: `${Math.max(2, Math.round(Number(theme.shape.borderRadius) / 2))}px`,
             backgroundColor: alpha(theme.palette.background.paper, theme.palette.mode === 'dark' ? 0.9 : 0.92),
             boxShadow: theme.shadows[3],
             color: theme.palette.text.primary,
@@ -1068,11 +1051,27 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
             opacity: showScrollGroupHint ? 1 : 0,
             transform: showScrollGroupHint ? 'translateY(0)' : 'translateY(-6px)',
             pointerEvents: 'none',
+            minWidth: scrollHintMinWidthPx > 0 ? `${scrollHintMinWidthPx}px` : undefined,
             '& *': { pointerEvents: 'none' },
           })}
         >
-          <Typography variant="caption" sx={{ fontWeight: 600, letterSpacing: 0.15 }}>
-            {scrollHintLabel}
+          <Typography
+            variant="caption"
+            component="div"
+            sx={{ fontWeight: 600, letterSpacing: 0.15, display: 'flex', flexDirection: 'column', gap: 0.25 }}
+          >
+            {scrollHintDetails.showFactionRow ? (
+              <Box component="span">{scrollHintDetails.factionLabel}</Box>
+            ) : null}
+            <Box component="span">{scrollHintDetails.setLabel}</Box>
+            <Box component="span">{scrollHintDetails.slotLabel}</Box>
+            <Box component="span" sx={{ display: 'flex', alignItems: 'baseline', gap: 0.5 }}>
+              <Box component="span">{scrollHintDetails.rankLabel}</Box>
+              <Box component="span" sx={{ opacity: 0.8 }}>•</Box>
+              <Box component="span" sx={{ color: scrollHintDetails.rarityAccentColor ?? 'inherit' }}>
+                {scrollHintDetails.rarityLabel}
+              </Box>
+            </Box>
           </Typography>
         </Box>
       ) : null}
