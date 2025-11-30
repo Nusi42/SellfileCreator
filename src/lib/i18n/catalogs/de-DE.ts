@@ -66,7 +66,7 @@ const overrides: Catalog = {
   testerDeleteSourceConfirmBody: 'Dadurch wird alle Ausrüstung aus „{source}“ aus der „Regel Tester“-Vorschau entfernt.',
   noSetAccessories: 'Keine – nur Schmuckstücke',
   testerTableEmpty: 'Importiere Ausrüstung oder füge eigene Einträge hinzu, um hier Treffer zu sehen.',
-  testerTableEmptyKeepUniquesDisabled: '„Keep Uniques“ ist deaktiviert; aktiviere es, um nach Ausrüstung zu suchen.',
+  testerTableEmptyKeepUniquesDisabled: '„Unikate behalten“ ist deaktiviert; aktiviere es, um deine Ausrüstung zu scannen.',
   testerTableEmptyKeepUniquesNoMatches: 'Keine Tester-Ausrüstung passt zu den aktuellen Keep-Uniques-Filtern.',
   testerTableEmptyFilter: 'Keine Einträge passen zu den aktuellen Test-Filtern.',
   testerGridScrollHint: '{group} • {detail}',
@@ -224,6 +224,8 @@ const overrides: Catalog = {
   keepUniquesGridFilterModeAll: 'Alle',
   keepUniquesGridFilterModeSelection: 'Auswahl',
   keepUniquesGridFilterTooltip: 'Schaltet zwischen allen einzigartigen Einträgen und nur den Zeilen um, die zur gewählten Behalte-Regel passen. Der Auswahlmodus verhält sich wie „Alle“, wenn keine Regel ausgewählt ist.',
+  titleResetKeepUniques: 'Unikate behalten auf Standardwerte zurücksetzen?',
+  msgResetKeepUniques: 'Stellt die empfohlenen Regeln für „Unikate behalten“ wieder her und deaktiviert die Funktion.',
 
   titleSubstatChipColors: 'Substat‑Chip‑Farben',
   msgChooseColors: 'Farben pro Substat wählen.',

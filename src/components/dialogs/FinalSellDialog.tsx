@@ -1,4 +1,4 @@
-import type { MouseEvent, SetStateAction } from 'react'
+import { useState, type MouseEvent, type SetStateAction } from 'react'
 import { Alert, Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Stack, Tab, Tabs, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material'
 import { useI18n } from '../../lib/i18n'
 import { MENU_CONTROL_HEIGHT_PX, type ColorBlindMode } from '../../lib/constants'
@@ -83,6 +83,8 @@ export default function FinalSellDialog(props: FinalSellDialogProps) {
   workloadProgressRatio,
 } = props
   const { t } = useI18n()
+  // Keep Uniques resets need their own confirmation flow so accidental clicks do not wipe custom rules.
+  const [confirmResetKeepUniques, setConfirmResetKeepUniques] = useState(false)
   // Clamp unknown tab ids back to the Final Sell default so autosave/restore can't wedge the dialog.
   const normalizedTab = FINAL_SELL_DIALOG_TABS.includes(activeTab) ? activeTab : FINAL_SELL_DIALOG_TAB_FINAL_SELL
   const hasGear = value.artifacts || value.accessories
@@ -108,17 +110,30 @@ export default function FinalSellDialog(props: FinalSellDialogProps) {
     onChange({ ...value, levels: Array.from(next.values()).sort((a,b)=>a-b) as FinalSellLevel[] })
   }
   const showFinalSellTab = normalizedTab === FINAL_SELL_DIALOG_TAB_FINAL_SELL
-  // Reset button targets whichever tab is visible; skip rendering when no handler exists.
-  const resetHandler = showFinalSellTab ? onReset : onResetKeepUniques
+  // The reset affordance still sits in the Dialog actions, but Keep Uniques routes through a confirm prompt.
+  const showResetButton = showFinalSellTab ? Boolean(onReset) : Boolean(onResetKeepUniques)
+  const handleResetButtonClick = () => {
+    if (showFinalSellTab) {
+      onReset?.()
+      return
+    }
+    if (onResetKeepUniques) setConfirmResetKeepUniques(true)
+  }
+  // Once confirmed we immediately run the keep-unique reset so custom overrides do not linger in a half-reset state.
+  const handleConfirmResetKeepUniques = () => {
+    if (!onResetKeepUniques) return
+    setConfirmResetKeepUniques(false)
+    onResetKeepUniques()
+  }
   // Dialog follows the spec'd min width/height so both tabs have enough breathing room.
   const paperSx = {
     width: 'min(960px, calc(100vw - 32px))',
     maxWidth: 'min(960px, calc(100vw - 32px))',
     height: 'min(800px, calc(100vh - 48px))',
   }
-
   return (
-    <Dialog
+    <>
+      <Dialog
       open={open}
       onClose={onClose}
       fullWidth
@@ -396,12 +411,12 @@ export default function FinalSellDialog(props: FinalSellDialogProps) {
         )}
       </DialogContent>
       <DialogActions sx={{ px: 3, py: 2 }}>
-        {resetHandler && (
+        {showResetButton && (
           <Button
             size="small"
             variant="outlined"
             color="error"
-            onClick={resetHandler}
+            onClick={handleResetButtonClick}
             sx={{ mr: 'auto' }}
           >
             {t('resetToDefaults')}
@@ -410,5 +425,20 @@ export default function FinalSellDialog(props: FinalSellDialogProps) {
         <Button onClick={onClose} data-tour-id="finalsell.dialog.close">{t('close')}</Button>
       </DialogActions>
     </Dialog>
+      {/* Dedicated confirm dialog spells out the destructive Keep Uniques reset details before applying the change. */}
+      <Dialog
+        open={confirmResetKeepUniques}
+        onClose={() => setConfirmResetKeepUniques(false)}
+      >
+        <DialogTitle>{t('titleResetKeepUniques')}</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2">{t('msgResetKeepUniques')}</Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setConfirmResetKeepUniques(false)}>{t('cancel')}</Button>
+          <Button color="error" onClick={handleConfirmResetKeepUniques}>{t('reset')}</Button>
+        </DialogActions>
+      </Dialog>
+    </>
   )
 }

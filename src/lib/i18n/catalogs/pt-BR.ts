@@ -224,6 +224,8 @@ const catalog: Catalog = {
   keepUniquesGridFilterModeAll: 'Todos',
   keepUniquesGridFilterModeSelection: 'Seleção',
   keepUniquesGridFilterTooltip: 'Alterne entre mostrar todos os itens únicos e só as linhas que correspondem à regra de manutenção selecionada. O modo Seleção age como Todos sempre que nenhuma regra estiver ativa.',
+  titleResetKeepUniques: 'Redefinir Manter únicos para os padrões?',
+  msgResetKeepUniques: 'Restaura as regras recomendadas de Manter únicos e desativa a função.',
 
   titleSubstatChipColors: 'Cores dos chips de substats',
   msgChooseColors: 'Escolha cores por substat.',

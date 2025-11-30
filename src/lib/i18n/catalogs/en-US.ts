@@ -223,6 +223,8 @@ const enUS: Catalog = {
   keepUniquesGridFilterModeAll: 'All',
   keepUniquesGridFilterModeSelection: 'Selection',
   keepUniquesGridFilterTooltip: 'Toggle between showing all unique gear entries and only the rows that match the selected keep rule. Selection mode behaves like All whenever no rule is selected.',
+  titleResetKeepUniques: 'Reset Keep Uniques to Defaults?',
+  msgResetKeepUniques: 'This restores the recommended Keep Uniques rules and turns the feature off.',
 
   titleSubstatChipColors: 'Substat Chip Colors',
   msgChooseColors: 'Choose colors per substat.',
