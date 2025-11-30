@@ -988,8 +988,18 @@ const catalog: Catalog = {
   mdColor: 'Cor',
   noteColorTooltip: 'Cor: {name}',
   noteInsertConfigs: 'Inserir etiqueta de chips de configs',
+  noteInsertKeepUniques: 'Inserir resumo de Keep Uniques',
   noteInsertMetasets: 'Inserir lista de meta-sets',
   noteMetasetNoSets: 'Sem sets',
+  noteKeepUniqueRuleTitle: 'Regra Keep Unique #{index}',
+  noteKeepUniqueRuleDisabled: 'Desativada',
+  noteKeepUniqueQuota: 'Cota: ≥{count} — {scope}',
+  noteKeepUniqueSlotsLabel: 'Slots',
+  noteKeepUniqueSetsLabel: 'Sets',
+  noteKeepUniqueMainLabel: 'Stats principais',
+  noteKeepUniqueFactionsLabel: 'Facções',
+  noteKeepUniqueRanksLabel: 'Ranks',
+  noteKeepUniqueRaritiesLabel: 'Raridades',
 
   // Tutorial steps (titles and bodies)
   tutWelcomeTitle: 'Bem-vindo',

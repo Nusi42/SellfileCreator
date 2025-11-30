@@ -1,5 +1,5 @@
 import React, { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
-import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, LinearProgress, Typography } from '@mui/material'
+import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, LinearProgress, Stack, Typography } from '@mui/material'
 import { useI18n } from '../lib/i18n'
 import { FONT_SIZE_MARKDOWN_PX, FONT_SIZE_SECONDARY_PX } from '../lib/constants'
 import MDEditor from '@uiw/react-md-editor'
@@ -15,10 +15,11 @@ import type { BuilderConfig } from '../lib/hsfBuilder'
 import type { Metaset } from '../lib/metasets'
 import { metasetGlyph } from '../lib/metasets'
 import { metasetIconOptionById, DEFAULT_METASET_ICON_ID, type MetasetIconId } from '../lib/metasetIcons'
-import { artifactSetNames, compareArtifactSets } from '../lib/types'
+import { artifactSetI18nKey, artifactTypeI18nKey, artifactSetNames, artifactTypeNames, compareArtifactSets, compareArtifactTypes, factionI18nKey, rarityCodeToName, statVariantI18nKey } from '../lib/types'
 import ConfigChip from './ConfigChip'
 // MarkdownTooltip ensures the color pickers + toolbar reuse the same hover delay/style across the app.
 import MarkdownTooltip from './MarkdownTooltip'
+import { KEEP_UNIQUE_DEFAULT_COUNT_MODE, sanitizeKeepUniqueCountMode, type KeepUniqueRule } from '../lib/keepUniques'
 
 // Limited color palette for Note highlighting rendered from Markdown via
 //   <span data-color="{name}">…</span>
@@ -55,6 +56,13 @@ const CONFIG_FILTER_IDS = 'ids'
 const CONFIG_FILTER_REGEXP = 'regexp'
 const DEFAULT_ALLOWED_TAG_REGEX = /^[A-Za-z0-9]+$/
 
+const KEEP_UNIQUE_COMMENT_REGEX = /^\s*keep-uniques\s*:\s*([0-9,\s]+)\s*$/i
+const KEEP_UNIQUE_MARKER_REGEX = /<!--\s*keep-uniques\s*:\s*([0-9,\s]+)\s*-->/i
+const KEEP_UNIQUE_ANY_MARKER_GLOBAL_REGEX = /<!--\s*keep-uniques\s*:[\s\S]*?-->/gi
+const KEEP_UNIQUE_ELEMENT_TAG = 'keep-unique-summary'
+const KEEP_UNIQUE_ELEMENT_ATTR = 'data-ku-ids'
+const KEEP_UNIQUE_ELEMENT_INDEX_ATTR = 'data-ku-marker-index'
+
 // Defensive guard: reject control characters that would break markdown parsing or regex compilation.
 function containsControlCharacters(value: string): boolean {
   for (let idx = 0; idx < value.length; idx += 1) {
@@ -87,12 +95,16 @@ function buildNotePattern(raw: string): RegExp | null {
 
 type ConfigMarkerEntry = { id: number; cfg: BuilderConfig }
 type ConfigMarkerMap = Map<number, ConfigMarkerEntry[]>
+type KeepUniqueMarkerEntry = { id: number; rule: KeepUniqueRule }
+type KeepUniqueMarkerMap = Map<number, KeepUniqueMarkerEntry[]>
 
 type NoteRenderContextValue = {
   configs: BuilderConfig[]
   metasets: Metaset[]
   substatColors: Record<number, { fg: string; bg: string }>
   markerResolutions: ConfigMarkerMap
+  keepUniqueRules: KeepUniqueRule[]
+  keepUniqueMarkerResolutions: KeepUniqueMarkerMap
 }
 
 const NoteRenderContext = React.createContext<NoteRenderContextValue | null>(null)
@@ -106,7 +118,7 @@ function useNoteRenderContext(): NoteRenderContextValue {
 type MarkdownComponentMap = Record<string, React.ComponentType<Record<string, unknown>>>
 type MarkdownAllowElement = NonNullable<React.ComponentProps<typeof MDEditor.Markdown>['allowElement']>
 
-type ConfigMarkerToken =
+type MarkerToken =
   | { type: 'absolute'; value: number }
   | { type: 'relativeNext' }
 
@@ -120,8 +132,8 @@ function coerceFirstString(value: unknown): string | null {
   return null
 }
 
-function parseConfigTokens(raw: string): ConfigMarkerToken[] {
-  const tokens: ConfigMarkerToken[] = []
+function parseMarkerTokens(raw: string): MarkerToken[] {
+  const tokens: MarkerToken[] = []
   const seen = new Set<number>()
   raw
     .split(',')
@@ -142,7 +154,7 @@ function parseConfigTokens(raw: string): ConfigMarkerToken[] {
   return tokens
 }
 
-function serializeConfigTokens(tokens: ConfigMarkerToken[]): string {
+function serializeMarkerTokens(tokens: MarkerToken[]): string {
   return tokens.map((token) => (token.type === 'relativeNext' ? '0' : String(token.value))).join(',')
 }
 
@@ -175,7 +187,7 @@ const rehypeConfigComments: Pluggable = () => {
           }
           const match = CONFIG_COMMENT_REGEX.exec(value)
           if (!match) continue
-          const tokens = parseConfigTokens(match[1] ?? '')
+          const tokens = parseMarkerTokens(match[1] ?? '')
           if (tokens.length === 0) {
             nodeChildren.splice(i, 1)
             i -= 1
@@ -186,7 +198,7 @@ const rehypeConfigComments: Pluggable = () => {
             tagName: CONFIG_ELEMENT_TAG,
             properties: {
               [CONFIG_ELEMENT_FILTER_ATTR]: CONFIG_FILTER_IDS,
-              [CONFIG_ELEMENT_ATTR]: serializeConfigTokens(tokens),
+              [CONFIG_ELEMENT_ATTR]: serializeMarkerTokens(tokens),
               [CONFIG_ELEMENT_INDEX_ATTR]: String(markerIndex),
             },
             children: [],
@@ -216,7 +228,7 @@ const rehypeConfigComments: Pluggable = () => {
           }
           const match = CONFIG_MARKER_REGEX.exec(value)
           if (!match) continue
-          const tokens = parseConfigTokens(match[1] ?? '')
+          const tokens = parseMarkerTokens(match[1] ?? '')
           if (tokens.length === 0) {
             nodeChildren.splice(i, 1)
             i -= 1
@@ -227,8 +239,71 @@ const rehypeConfigComments: Pluggable = () => {
             tagName: CONFIG_ELEMENT_TAG,
             properties: {
               [CONFIG_ELEMENT_FILTER_ATTR]: CONFIG_FILTER_IDS,
-              [CONFIG_ELEMENT_ATTR]: serializeConfigTokens(tokens),
+              [CONFIG_ELEMENT_ATTR]: serializeMarkerTokens(tokens),
               [CONFIG_ELEMENT_INDEX_ATTR]: String(markerIndex),
+            },
+            children: [],
+          }
+          markerIndex += 1
+          nodeChildren.splice(i, 1, element)
+          continue
+        }
+        if ((child as Element).type === 'element' && Array.isArray((child as Element).children)) {
+          transform(child as unknown as Element)
+        }
+      }
+    }
+    transform(tree)
+  }
+}
+
+const rehypeKeepUniqueComments: Pluggable = () => {
+  return (tree: Root) => {
+    let markerIndex = 0
+    const transform = (node: Root | Element): void => {
+      const nodeChildren = (node.children ?? []) as RootContent[]
+      for (let i = 0; i < nodeChildren.length; i++) {
+        const child = nodeChildren[i]
+        if (!child) continue
+        if (child.type === 'comment') {
+          const value = (child as { value: string }).value
+          const match = KEEP_UNIQUE_COMMENT_REGEX.exec(value)
+          if (!match) continue
+          const tokens = parseMarkerTokens(match[1] ?? '')
+          if (tokens.length === 0) {
+            nodeChildren.splice(i, 1)
+            i -= 1
+            continue
+          }
+          const element: Element = {
+            type: 'element',
+            tagName: KEEP_UNIQUE_ELEMENT_TAG,
+            properties: {
+              [KEEP_UNIQUE_ELEMENT_ATTR]: serializeMarkerTokens(tokens),
+              [KEEP_UNIQUE_ELEMENT_INDEX_ATTR]: String(markerIndex),
+            },
+            children: [],
+          }
+          markerIndex += 1
+          nodeChildren.splice(i, 1, element)
+          continue
+        }
+        if (child.type === 'raw') {
+          const value = (child as { value: string }).value
+          const match = KEEP_UNIQUE_MARKER_REGEX.exec(value)
+          if (!match) continue
+          const tokens = parseMarkerTokens(match[1] ?? '')
+          if (tokens.length === 0) {
+            nodeChildren.splice(i, 1)
+            i -= 1
+            continue
+          }
+          const element: Element = {
+            type: 'element',
+            tagName: KEEP_UNIQUE_ELEMENT_TAG,
+            properties: {
+              [KEEP_UNIQUE_ELEMENT_ATTR]: serializeMarkerTokens(tokens),
+              [KEEP_UNIQUE_ELEMENT_INDEX_ATTR]: String(markerIndex),
             },
             children: [],
           }
@@ -287,7 +362,7 @@ function buildConfigMarkerResolutions(text: string, configs: BuilderConfig[]): C
     } else {
       const idsMatch = CONFIG_MARKER_REGEX.exec(raw)
       if (idsMatch && typeof idsMatch[1] === 'string') {
-        const tokens = parseConfigTokens(idsMatch[1])
+        const tokens = parseMarkerTokens(idsMatch[1])
         if (tokens.length > 0) {
           const fallback: ConfigMarkerEntry[] = []
           let markerLast = lastRendered
@@ -319,6 +394,65 @@ function buildConfigMarkerResolutions(text: string, configs: BuilderConfig[]): C
 
 function buildConfigMarker(ids: number[]): string {
   return `<!-- configs:${ids.join(',')} -->`
+}
+
+function collectKeepUniqueIds(text: string, keepUniqueRules: KeepUniqueRule[]): Set<number> {
+  const used = new Set<number>()
+  const resolutions = buildKeepUniqueMarkerResolutions(text, keepUniqueRules)
+  for (const entries of resolutions.values()) {
+    for (const entry of entries) {
+      used.add(entry.id)
+    }
+  }
+  return used
+}
+
+function buildKeepUniqueMarkerResolutions(text: string, keepUniqueRules: KeepUniqueRule[]): KeepUniqueMarkerMap {
+  const result: KeepUniqueMarkerMap = new Map()
+  if (!text) return result
+  KEEP_UNIQUE_ANY_MARKER_GLOBAL_REGEX.lastIndex = 0
+  let markerIndex = 0
+  let lastRendered = 0
+  for (const match of text.matchAll(KEEP_UNIQUE_ANY_MARKER_GLOBAL_REGEX)) {
+    const raw = match?.[0] ?? ''
+    if (!raw) {
+      markerIndex += 1
+      continue
+    }
+    let entries: KeepUniqueMarkerEntry[] = []
+    const idsMatch = KEEP_UNIQUE_MARKER_REGEX.exec(raw)
+    if (idsMatch && typeof idsMatch[1] === 'string') {
+      const tokens = parseMarkerTokens(idsMatch[1])
+      if (tokens.length > 0) {
+        const fallback: KeepUniqueMarkerEntry[] = []
+        let markerLast = lastRendered
+        for (const token of tokens) {
+          let candidate: number | null = null
+          if (token.type === 'absolute') {
+            candidate = token.value
+          } else {
+            candidate = markerLast + 1
+          }
+          if (!candidate || candidate <= 0) continue
+          const rule = keepUniqueRules[candidate - 1]
+          if (!rule) continue
+          fallback.push({ id: candidate, rule })
+          markerLast = candidate
+        }
+        entries = fallback
+      }
+    }
+    if (entries.length > 0) {
+      lastRendered = entries[entries.length - 1]!.id
+    }
+    result.set(markerIndex, entries)
+    markerIndex += 1
+  }
+  return result
+}
+
+function buildKeepUniqueMarker(ids: number[]): string {
+  return `<!-- keep-uniques:${ids.join(',')} -->`
 }
 
 function computeBlockInsertion(
@@ -380,11 +514,11 @@ function ConfigChipBlock({ node }: ConfigChipBlockProps): JSX.Element | null {
   const { configs, metasets, substatColors, markerResolutions } = useNoteRenderContext()
   const filterAttr = coerceFirstString(node?.properties?.[CONFIG_ELEMENT_FILTER_ATTR])
   const filterType = filterAttr === CONFIG_FILTER_REGEXP ? CONFIG_FILTER_REGEXP : CONFIG_FILTER_IDS
-  let tokens: ConfigMarkerToken[] = []
+  let tokens: MarkerToken[] = []
   let patternRaw = ''
   if (filterType === CONFIG_FILTER_IDS) {
     const rawSpec = coerceFirstString(node?.properties?.[CONFIG_ELEMENT_ATTR]) ?? ''
-    tokens = parseConfigTokens(rawSpec)
+    tokens = parseMarkerTokens(rawSpec)
     if (tokens.length === 0) return null
   } else {
     patternRaw = coerceFirstString(node?.properties?.[CONFIG_ELEMENT_PATTERN_ATTR]) ?? ''
@@ -485,6 +619,225 @@ function ConfigChipBlock({ node }: ConfigChipBlockProps): JSX.Element | null {
   )
 }
 
+type KeepUniqueBlockProps = React.PropsWithChildren<{ node?: Element & { properties?: Record<string, unknown> } }>
+
+function KeepUniqueBlock({ node }: KeepUniqueBlockProps): JSX.Element | null {
+  const { t } = useI18n()
+  const { keepUniqueRules, keepUniqueMarkerResolutions, metasets } = useNoteRenderContext()
+  // Parse the marker payload so the renderer can replace the comment with summary cards.
+  const rawSpec = coerceFirstString(node?.properties?.[KEEP_UNIQUE_ELEMENT_ATTR]) ?? ''
+  const tokens = parseMarkerTokens(rawSpec)
+  if (tokens.length === 0) return null
+  const rawIndexAttr = coerceFirstString(node?.properties?.[KEEP_UNIQUE_ELEMENT_INDEX_ATTR])
+  let markerIndex: number | null = null
+  if (rawIndexAttr) {
+    const parsed = Number.parseInt(rawIndexAttr, 10)
+    if (Number.isFinite(parsed)) markerIndex = parsed
+  }
+  let resolvedEntries: KeepUniqueMarkerEntry[] | undefined
+  if (markerIndex != null) {
+    resolvedEntries = keepUniqueMarkerResolutions.get(markerIndex)
+  }
+  if (!resolvedEntries) {
+    // Fall back to positional resolution when preview rendering did not precompute this marker (e.g., live edits).
+    let priorLast = 0
+    if (markerIndex != null) {
+      for (let idx = markerIndex - 1; idx >= 0; idx -= 1) {
+        const prev = keepUniqueMarkerResolutions.get(idx)
+        if (prev && prev.length > 0) {
+          priorLast = prev[prev.length - 1]!.id
+          break
+        }
+      }
+    }
+    const fallbackEntries: KeepUniqueMarkerEntry[] = []
+    let markerLast = priorLast
+    for (const token of tokens) {
+      let candidate: number | null = null
+      if (token.type === 'absolute') {
+        candidate = token.value
+      } else {
+        candidate = markerLast + 1
+      }
+      if (!candidate || candidate <= 0) continue
+      const rule = keepUniqueRules[candidate - 1]
+      if (!rule) continue
+      fallbackEntries.push({ id: candidate, rule })
+      markerLast = candidate
+    }
+    resolvedEntries = fallbackEntries
+  }
+  const entries = resolvedEntries ?? []
+  if (entries.length === 0) return null
+  return (
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, my: 1 }}>
+      {entries.map(({ id, rule }) => (
+        <KeepUniqueSummaryCard
+          key={`note-ku-${id}`}
+          id={id}
+          rule={rule}
+          metasets={metasets}
+          t={t}
+        />
+      ))}
+    </Box>
+  )
+}
+
+function KeepUniqueSummaryCard({
+  id,
+  rule,
+  metasets,
+  t,
+}: {
+  id: number
+  rule: KeepUniqueRule
+  metasets: Metaset[]
+  t: ReturnType<typeof useI18n>['t']
+}): JSX.Element {
+  // Scope defaults mirror the dialog so notes stay in sync if count mode is missing.
+  const countMode = sanitizeKeepUniqueCountMode(rule.countMode ?? KEEP_UNIQUE_DEFAULT_COUNT_MODE)
+  const scopeParts: string[] = []
+  if (countMode.perRule) {
+    scopeParts.push(t('keepUniquesCountModePerRule'))
+  } else {
+    if (countMode.perSlot) scopeParts.push(t('keepUniquesCountModePerSlot'))
+    if (countMode.perSet) scopeParts.push(t('keepUniquesCountModePerSet'))
+    if (countMode.perFaction) scopeParts.push(t('keepUniquesCountModePerFaction'))
+    if (countMode.perMainStat) scopeParts.push(t('keepUniquesCountModePerMain'))
+    if (scopeParts.length === 0) scopeParts.push(t('keepUniquesCountModePerRule'))
+  }
+  const scopeLabel = scopeParts.join(' × ')
+  const fallbackAny = t('any')
+
+  const formatList = (values: string[]): string => (values.length ? values.join(', ') : fallbackAny)
+
+  const slotLabels = (() => {
+    const sorted = [...(rule.combination.slots ?? [])].sort(compareArtifactTypes)
+    if (sorted.length === 0) return []
+    return sorted.map((slot) => {
+      const key = artifactTypeI18nKey(slot)
+      const translated = t(key)
+      return translated || (artifactTypeNames[Number(slot)] ?? String(slot))
+    })
+  })()
+
+  const setLabels = (() => {
+    const sorted = [...(rule.combination.sets ?? [])].sort(compareArtifactSets)
+    return sorted.map((setId) => {
+      const key = artifactSetI18nKey(setId)
+      const translated = t(key)
+      return translated || (artifactSetNames[Number(setId)] ?? String(setId))
+    })
+  })()
+
+  const metasetLabels = (() => {
+    const ids = rule.combination.metaSetIds ?? []
+    const seen = new Set<string>()
+    const labels: string[] = []
+    ids.forEach((metaId) => {
+      if (seen.has(metaId)) return
+      seen.add(metaId)
+      const meta = metasets.find((item) => item.id === metaId)
+      if (!meta) return
+      const name = meta.name && meta.name.trim() ? meta.name.trim() : t('menuMetasetsSection')
+      labels.push(name)
+    })
+    return labels
+  })()
+
+  const mainLabels = (() => {
+    const mains = Array.from(new Set<number>(rule.combination.mainStats ?? []))
+    return mains.map((variant) => {
+      const key = statVariantI18nKey(variant)
+      const translated = t(key)
+      return translated || String(variant)
+    })
+  })()
+
+  const factionLabels = (() => {
+    const factions = Array.from(new Set<number>(rule.combination.factions ?? []))
+    return factions.map((factionId) => {
+      const key = factionI18nKey(factionId)
+      const translated = t(key)
+      return translated || String(factionId)
+    })
+  })()
+
+  const rankLabels = (() => {
+    const ranks = Array.from(new Set<number>(rule.combination.ranks ?? []))
+    return ranks.map((rank) => `${rank}★`)
+  })()
+
+  const rarityLabels = (() => {
+    const rarities = Array.from(new Set<number>(rule.combination.rarities ?? []))
+    if (rarities.length === 0) return []
+    return rarities.map((rarity) => rarityCodeToName(rarity) || `${rarity}★`)
+  })()
+
+  const filters: Array<{ label: string; value: string }> = [
+    { label: t('noteKeepUniqueSlotsLabel'), value: formatList(slotLabels) },
+    {
+      label: t('noteKeepUniqueSetsLabel'),
+      value: (() => {
+        const parts: string[] = []
+        if (setLabels.length > 0) parts.push(formatList(setLabels))
+        if (metasetLabels.length > 0) {
+          parts.push(`${t('menuMetasetsSection')}: ${formatList(metasetLabels)}`)
+        }
+        return parts.length ? parts.join(' • ') : fallbackAny
+      })(),
+    },
+    { label: t('noteKeepUniqueMainLabel'), value: formatList(mainLabels) },
+    { label: t('noteKeepUniqueFactionsLabel'), value: formatList(factionLabels) },
+    { label: t('noteKeepUniqueRanksLabel'), value: formatList(rankLabels) },
+    { label: t('noteKeepUniqueRaritiesLabel'), value: formatList(rarityLabels) },
+  ]
+
+  return (
+    <Box
+      sx={{
+        borderRadius: 1,
+        border: '1px solid',
+        borderColor: 'divider',
+        p: 1.25,
+        bgcolor: 'background.paper',
+      }}
+    >
+      <Stack spacing={0.75}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
+          <Typography variant="subtitle2" sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+            {t('noteKeepUniqueRuleTitle', { index: id })}
+            {!rule.enabled ? (
+              <Typography component="span" variant="caption" color="text.disabled">
+                {t('noteKeepUniqueRuleDisabled')}
+              </Typography>
+            ) : null}
+          </Typography>
+          <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: 'nowrap' }}>
+            {t('noteKeepUniqueQuota', { count: rule.requiredCount, scope: scopeLabel })}
+          </Typography>
+        </Box>
+        <Stack spacing={0.25}>
+          {filters.map((item) => (
+            <Typography
+              key={`ku-filter-${item.label}`}
+              variant="caption"
+              color="text.secondary"
+              sx={{ display: 'block' }}
+            >
+              <Box component="span" sx={{ fontWeight: 600 }}>
+                {item.label}:
+              </Box>{' '}
+              {item.value}
+            </Typography>
+          ))}
+        </Stack>
+      </Stack>
+    </Box>
+  )
+}
+
 export default function NoteDialog({
   open,
   mode,
@@ -493,6 +846,7 @@ export default function NoteDialog({
   onClose,
   configs,
   metasets,
+  keepUniqueRules,
   substatColors,
 }: {
   open: boolean
@@ -502,6 +856,7 @@ export default function NoteDialog({
   onClose: () => void
   configs: BuilderConfig[]
   metasets: Metaset[]
+  keepUniqueRules: KeepUniqueRule[]
   substatColors: Record<number, { fg: string; bg: string }>
 }) {
   const { t } = useI18n()
@@ -510,13 +865,17 @@ export default function NoteDialog({
   const renderNote = mode === 'view' && !open ? deferredNote : note
   const notePending = mode === 'view' && open && deferredNote !== note
   const markerResolutions = useMemo(() => buildConfigMarkerResolutions(renderNote ?? '', configs), [renderNote, configs])
+  const keepUniqueMarkerResolutions = useMemo(
+    () => buildKeepUniqueMarkerResolutions(renderNote ?? '', keepUniqueRules),
+    [renderNote, keepUniqueRules],
+  )
   const contextValue = useMemo<NoteRenderContextValue>(
-    () => ({ configs, metasets, substatColors, markerResolutions }),
-    [configs, metasets, substatColors, markerResolutions],
+    () => ({ configs, metasets, substatColors, markerResolutions, keepUniqueRules, keepUniqueMarkerResolutions }),
+    [configs, metasets, substatColors, markerResolutions, keepUniqueRules, keepUniqueMarkerResolutions],
   )
   const allowMarkdownElement = React.useCallback<MarkdownAllowElement>((element) => {
     const tag = typeof element.tagName === 'string' ? element.tagName.toLowerCase() : ''
-    if (tag === CONFIG_ELEMENT_TAG) return true
+    if (tag === CONFIG_ELEMENT_TAG || tag === KEEP_UNIQUE_ELEMENT_TAG) return true
     return DEFAULT_ALLOWED_TAG_REGEX.test(tag)
   }, [])
   // Memoized sanitize schema and plugins for performance during typing.
@@ -526,6 +885,7 @@ export default function NoteDialog({
     const baseAttrs = (defaultSchema.attributes ?? {}) as Record<string, SanitizeProp[]>
     const spanAttrs: SanitizeProp[] = Array.isArray(baseAttrs.span) ? baseAttrs.span : []
     const configAttrs: SanitizeProp[] = Array.isArray(baseAttrs[CONFIG_ELEMENT_TAG]) ? baseAttrs[CONFIG_ELEMENT_TAG] : []
+    const keepUniqueAttrs: SanitizeProp[] = Array.isArray(baseAttrs[KEEP_UNIQUE_ELEMENT_TAG]) ? baseAttrs[KEEP_UNIQUE_ELEMENT_TAG] : []
     const mergedConfigAttrs = Array.from(new Set<SanitizeProp>([
       ...configAttrs,
       CONFIG_ELEMENT_ATTR,
@@ -533,24 +893,32 @@ export default function NoteDialog({
       CONFIG_ELEMENT_FILTER_ATTR,
       CONFIG_ELEMENT_INDEX_ATTR,
     ]))
+    const mergedKeepUniqueAttrs = Array.from(new Set<SanitizeProp>([
+      ...keepUniqueAttrs,
+      KEEP_UNIQUE_ELEMENT_ATTR,
+      KEEP_UNIQUE_ELEMENT_INDEX_ATTR,
+    ]))
     return {
       ...defaultSchema,
       attributes: {
         ...defaultSchema.attributes,
         span: [...spanAttrs, 'data-color', 'dataColor'],
         [CONFIG_ELEMENT_TAG]: mergedConfigAttrs,
+        [KEEP_UNIQUE_ELEMENT_TAG]: mergedKeepUniqueAttrs,
       },
-      tagNames: Array.from(new Set([...(defaultSchema.tagNames ?? []), 'span', CONFIG_ELEMENT_TAG])),
+      tagNames: Array.from(new Set([...(defaultSchema.tagNames ?? []), 'span', CONFIG_ELEMENT_TAG, KEEP_UNIQUE_ELEMENT_TAG])),
     }
   }, [])
   const rehypePluginsSafe = useMemo<Pluggable[]>(() => (
     [
       rehypeConfigComments,
+      rehypeKeepUniqueComments,
       [rehypeSanitize, sanitizeSchema] as unknown as Pluggable,
     ]
   ), [sanitizeSchema])
   const markdownComponents = useMemo<MarkdownComponentMap>(() => ({
     [CONFIG_ELEMENT_TAG]: ConfigChipBlock as unknown as React.ComponentType<Record<string, unknown>>,
+    [KEEP_UNIQUE_ELEMENT_TAG]: KeepUniqueBlock as unknown as React.ComponentType<Record<string, unknown>>,
   }), [])
 
   // Color toolbar command and full commands list; injected before HR.
@@ -675,6 +1043,7 @@ export default function NoteDialog({
             registerCommit={(fn) => { editCommitRef.current = fn }}
             configs={configs}
             metasets={metasets}
+            keepUniqueRules={keepUniqueRules}
             markdownComponents={markdownComponents}
             allowElement={allowMarkdownElement}
           />
@@ -694,6 +1063,7 @@ function NoteEditorContent({
   registerCommit,
   configs,
   metasets,
+  keepUniqueRules,
   markdownComponents,
   allowElement,
 }: {
@@ -706,6 +1076,7 @@ function NoteEditorContent({
   registerCommit: (fn: () => void) => void
   configs: BuilderConfig[]
   metasets: Metaset[]
+  keepUniqueRules: KeepUniqueRule[]
   markdownComponents: MarkdownComponentMap
   allowElement: MarkdownAllowElement
 }) {
@@ -715,9 +1086,18 @@ function NoteEditorContent({
   const [draft, setDraft] = useState<string>(note ?? '')
   const baseContext = useNoteRenderContext()
   const editorMarkerResolutions = useMemo(() => buildConfigMarkerResolutions(draft ?? '', configs), [draft, configs])
+  const editorKeepUniqueMarkerResolutions = useMemo(
+    () => buildKeepUniqueMarkerResolutions(draft ?? '', keepUniqueRules),
+    [draft, keepUniqueRules],
+  )
   const editorContextValue = useMemo<NoteRenderContextValue>(
-    () => ({ ...baseContext, markerResolutions: editorMarkerResolutions }),
-    [baseContext, editorMarkerResolutions],
+    () => ({
+      ...baseContext,
+      markerResolutions: editorMarkerResolutions,
+      keepUniqueMarkerResolutions: editorKeepUniqueMarkerResolutions,
+      keepUniqueRules,
+    }),
+    [baseContext, editorMarkerResolutions, editorKeepUniqueMarkerResolutions, keepUniqueRules],
   )
 
   const commitAndClose = React.useCallback(() => {
@@ -748,6 +1128,28 @@ function NoteEditorContent({
       setDraft(nextState.text)
     },
   }), [configs, setDraft])
+
+  const keepUniqueCommand = useMemo<ICommand>(() => ({
+    name: 'insert-keep-uniques',
+    keyCommand: 'insert-keep-uniques',
+    execute: (state, api) => {
+      if (!keepUniqueRules.length) return
+      const text = state.text ?? ''
+      const allIds = keepUniqueRules.map((_, idx) => idx + 1)
+      const usedIds = collectKeepUniqueIds(text, keepUniqueRules)
+      const missing = allIds.filter((id) => !usedIds.has(id))
+      const markerIds = missing.length ? missing : allIds
+      if (!markerIds.length) return
+      const marker = buildKeepUniqueMarker(markerIds)
+      const start = state.selection?.start ?? 0
+      const end = state.selection?.end ?? start
+      const { insert, cursorOffset } = computeBlockInsertion(text, start, end, marker)
+      const nextState = api.replaceSelection(insert)
+      const nextPos = start + cursorOffset
+      api.setSelectionRange({ start: nextPos, end: nextPos })
+      setDraft(nextState.text)
+    },
+  }), [keepUniqueRules, setDraft])
 
   const metasetCommand = useMemo<ICommand>(() => ({
     name: 'insert-metasets',
@@ -809,6 +1211,10 @@ function NoteEditorContent({
   const handleInsertConfigChips = React.useCallback(() => {
     executeCustomCommand(configCommand)
   }, [executeCustomCommand, configCommand])
+
+  const handleInsertKeepUniqueSummary = React.useCallback(() => {
+    executeCustomCommand(keepUniqueCommand)
+  }, [executeCustomCommand, keepUniqueCommand])
 
   const handleInsertMetasetsList = React.useCallback(() => {
     executeCustomCommand(metasetCommand)
@@ -981,6 +1387,7 @@ function NoteEditorContent({
       <DialogActions sx={{ justifyContent: 'space-between', gap: 1, flexWrap: 'wrap' }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
           <Button onClick={handleInsertConfigChips}>{t('noteInsertConfigs')}</Button>
+          <Button onClick={handleInsertKeepUniqueSummary}>{t('noteInsertKeepUniques')}</Button>
           <Button onClick={handleInsertMetasetsList}>{t('noteInsertMetasets')}</Button>
           <Button
             size="small"

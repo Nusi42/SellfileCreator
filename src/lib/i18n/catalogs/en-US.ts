@@ -987,8 +987,18 @@ const enUS: Catalog = {
   mdColor: 'Color',
   noteColorTooltip: 'Color: {name}',
   noteInsertConfigs: 'Insert Config Chips Tag',
+  noteInsertKeepUniques: 'Insert Keep Unique Summary',
   noteInsertMetasets: 'Insert Metaset List',
   noteMetasetNoSets: 'No Sets',
+  noteKeepUniqueRuleTitle: 'Keep Unique Rule #{index}',
+  noteKeepUniqueRuleDisabled: 'Disabled',
+  noteKeepUniqueQuota: 'Quota: ≥{count} — {scope}',
+  noteKeepUniqueSlotsLabel: 'Slots',
+  noteKeepUniqueSetsLabel: 'Sets',
+  noteKeepUniqueMainLabel: 'Main stats',
+  noteKeepUniqueFactionsLabel: 'Factions',
+  noteKeepUniqueRanksLabel: 'Ranks',
+  noteKeepUniqueRaritiesLabel: 'Rarities',
 
   // Tutorial steps (titles and bodies)
   tutWelcomeTitle: 'Welcome',

@@ -988,8 +988,18 @@ const overrides: Catalog = {
   mdColor: 'Renk',
   noteColorTooltip: 'Renk: {name}',
   noteInsertConfigs: 'Konfig çip etiketini ekle',
+  noteInsertKeepUniques: 'Keep Uniques özetini ekle',
   noteInsertMetasets: 'Metaset listesini ekle',
   noteMetasetNoSets: 'Set yok',
+  noteKeepUniqueRuleTitle: 'Keep Unique Kuralı #{index}',
+  noteKeepUniqueRuleDisabled: 'Devre dışı',
+  noteKeepUniqueQuota: 'Kota: ≥{count} — {scope}',
+  noteKeepUniqueSlotsLabel: 'Yuvalar',
+  noteKeepUniqueSetsLabel: 'Setler',
+  noteKeepUniqueMainLabel: 'Ana statlar',
+  noteKeepUniqueFactionsLabel: 'Faksiyonlar',
+  noteKeepUniqueRanksLabel: 'Rütbeler',
+  noteKeepUniqueRaritiesLabel: 'Nadirlikler',
 
   // Tutorial steps (titles and bodies)
   tutWelcomeTitle: 'Hoş geldiniz',

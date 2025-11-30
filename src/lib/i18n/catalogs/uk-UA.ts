@@ -988,8 +988,18 @@ const overrides: Catalog = {
   mdColor: 'Колір',
   noteColorTooltip: 'Колір: {name}',
   noteInsertConfigs: 'Вставити тег чипів конфігів',
+  noteInsertKeepUniques: 'Вставити зведення Keep Uniques',
   noteInsertMetasets: 'Вставити список метасетів',
   noteMetasetNoSets: 'Немає сетів',
+  noteKeepUniqueRuleTitle: 'Правило Keep Unique №{index}',
+  noteKeepUniqueRuleDisabled: 'Вимкнено',
+  noteKeepUniqueQuota: 'Квота: ≥{count} — {scope}',
+  noteKeepUniqueSlotsLabel: 'Слоти',
+  noteKeepUniqueSetsLabel: 'Сети',
+  noteKeepUniqueMainLabel: 'Основні стати',
+  noteKeepUniqueFactionsLabel: 'Фракції',
+  noteKeepUniqueRanksLabel: 'Ранги',
+  noteKeepUniqueRaritiesLabel: 'Рідкості',
 
   // Tutorial steps (titles and bodies)
   tutWelcomeTitle: 'Ласкаво просимо',

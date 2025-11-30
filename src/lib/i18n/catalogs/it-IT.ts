@@ -988,8 +988,18 @@ const overrides: Catalog = {
   mdColor: 'Colore',
   noteColorTooltip: 'Colore: {name}',
   noteInsertConfigs: 'Inserisci tag chip configurazioni',
+  noteInsertKeepUniques: 'Inserisci riepilogo Keep Uniques',
   noteInsertMetasets: 'Inserisci elenco Metaset',
   noteMetasetNoSets: 'Nessun set',
+  noteKeepUniqueRuleTitle: 'Regola Keep Unique #{index}',
+  noteKeepUniqueRuleDisabled: 'Disattivata',
+  noteKeepUniqueQuota: 'Quota: ≥{count} — {scope}',
+  noteKeepUniqueSlotsLabel: 'Slot',
+  noteKeepUniqueSetsLabel: 'Set',
+  noteKeepUniqueMainLabel: 'Statistiche principali',
+  noteKeepUniqueFactionsLabel: 'Fazioni',
+  noteKeepUniqueRanksLabel: 'Rango',
+  noteKeepUniqueRaritiesLabel: 'Rarità',
 
   // Tutorial steps (titles and bodies)
   tutWelcomeTitle: 'Benvenuto',
