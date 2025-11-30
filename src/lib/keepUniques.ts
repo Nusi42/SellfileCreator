@@ -456,7 +456,7 @@ export function normalizeKeepUniqueRule(value: unknown): KeepUniqueRule | null {
     if (typeof rec.name !== 'string') return ''
     const trimmed = rec.name.trim()
     if (!trimmed) return ''
-    return trimmed.slice(0, 160)
+    return trimmed
   })()
   const rawId = typeof rec.id === 'string' && rec.id.trim().length > 0 ? rec.id.trim() : createKeepUniqueRuleId()
   const rawRequired = Number(rec.requiredCount)

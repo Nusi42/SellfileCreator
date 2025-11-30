@@ -501,11 +501,8 @@ export default function KeepUniquesTab({
             onClick={(event) => event.stopPropagation()}
             onChange={(event) => {
               const raw = event.target.value ?? ''
-              // Cap the name field so exports stay compact while still allowing descriptive labels.
-              const next = raw.slice(0, 160)
-              updateRule(rule.id, (prev) => ({ ...prev, name: next }))
+              updateRule(rule.id, (prev) => ({ ...prev, name: raw }))
             }}
-            inputProps={{ maxLength: 160 }}
           />
           <Stack spacing={1}>
             <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 1 }}>
