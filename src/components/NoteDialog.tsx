@@ -1015,11 +1015,9 @@ function KeepUniqueSummaryCard({
         <Stack spacing={0.6}>
           {renderRow(
             t('noteKeepUniqueQuotaLabel'),
-            <Typography variant="body2" sx={{ fontWeight: 800, lineHeight: 1.2 }}>
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', wordBreak: 'break-word' }}>
               {t('noteKeepUniqueQuotaValue', { count: rule.requiredCount })}{' '}
-              <Typography component="span" variant="caption" color="text.secondary">
-                ({scopeLabel})
-              </Typography>
+              <Box component="span">({scopeLabel})</Box>
             </Typography>,
             { valueAlign: 'center' },
           )}
