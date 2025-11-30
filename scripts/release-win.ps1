@@ -179,6 +179,12 @@ try {
   Write-Host ("Using samples: {0} and {1}" -f $sampleHsfc.Name, $sampleHsf.Name)
   Copy-Item -LiteralPath $sampleHsfc.FullName -Destination (Join-Path $staging 'Example.hsfc') -Force
   Copy-Item -LiteralPath $sampleHsf.FullName  -Destination (Join-Path $staging 'Example.hsf')  -Force
+  # Ship the baseline Basic.hsfc so newcomers can inspect an intentionally minimal config.
+  $basicHsfcPath = Join-Path $samplesDir 'Basic.hsfc'
+  if (-not (Test-Path -LiteralPath $basicHsfcPath)) {
+    throw "Basic HSFC sample not found in 'examples'"
+  }
+  Copy-Item -LiteralPath $basicHsfcPath -Destination (Join-Path $staging 'Basic.hsfc') -Force
 
   # Stage the sample server + Sellfile Creator Web Protocol payload examples under dev/
   $devDir = Join-Path $staging 'dev'
