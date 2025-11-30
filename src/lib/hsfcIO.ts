@@ -834,7 +834,7 @@ export function buildHsfcPayload(args: {
       // Persist the normalized scope object explicitly so the loader can
       // rehydrate the same chip state without guessing at defaults.
       const mode = sanitizeKeepUniqueCountMode(rule.countMode)
-      const trimmedName = typeof rule.name === 'string' ? rule.name.trim().slice(0, 160) : ''
+      const trimmedName = typeof rule.name === 'string' ? rule.name.trim() : ''
       return {
         id: rule.id,
         ...(trimmedName ? { name: trimmedName } : {}),
