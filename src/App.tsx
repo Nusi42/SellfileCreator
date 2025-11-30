@@ -4210,6 +4210,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         onClose={handleCloseNote}
         configs={customCfgs}
         metasets={metasets}
+        keepUniqueRules={keepUniqueRules}
         substatColors={substatColors}
       />
       <Snackbar
