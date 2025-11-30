@@ -16,11 +16,12 @@ import type { BuilderConfig } from '../lib/hsfBuilder'
 import type { Metaset } from '../lib/metasets'
 import { metasetGlyph } from '../lib/metasets'
 import { metasetIconOptionById, DEFAULT_METASET_ICON_ID, type MetasetIconId } from '../lib/metasetIcons'
-import { artifactSetI18nKey, artifactTypeI18nKey, artifactSetNames, artifactTypeNames, compareArtifactSets, compareArtifactTypes, factionI18nKey, rarityCodeToName, statVariantI18nKey } from '../lib/types'
+import { artifactSetI18nKey, artifactTypeI18nKey, artifactSetNames, artifactTypeNames, compareArtifactSets, compareArtifactTypes, factionI18nKey, statVariantI18nKey } from '../lib/types'
 import ConfigChip from './ConfigChip'
 // MarkdownTooltip ensures the color pickers + toolbar reuse the same hover delay/style across the app.
 import MarkdownTooltip from './MarkdownTooltip'
 import { KEEP_UNIQUE_DEFAULT_COUNT_MODE, sanitizeKeepUniqueCountMode, type KeepUniqueRule } from '../lib/keepUniques'
+import { resolveRarityLabel } from '../lib/testerPreviewFormatting'
 
 // Limited color palette for Note highlighting rendered from Markdown via
 //   <span data-color="{name}">…</span>
@@ -879,7 +880,8 @@ function KeepUniqueSummaryCard({
   const rarityLabels = (() => {
     const rarities = Array.from(new Set<number>(rule.combination.rarities ?? []))
     if (rarities.length === 0) return []
-    return rarities.map((rarity) => rarityCodeToName(rarity) || `${rarity}★`)
+    // Format discrete rarity values (1..6) so Mythical renders correctly instead of hitting ≥ Common.
+    return rarities.map((rarity) => resolveRarityLabel(t, rarity))
   })()
 
   const filters: Array<{ label: string; value: React.ReactNode }> = []
