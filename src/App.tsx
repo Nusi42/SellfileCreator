@@ -402,6 +402,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   }, [testerItems])
   const testerArtifactsSignature = useMemo(() => {
     const cache = testerArtifactCacheRef.current
+    const previewArtifactCount = testerPreviewArtifacts.length
+    // Fast-path empty caches so the dependency on testerPreviewArtifacts is meaningful without changing existing behavior.
+    if (previewArtifactCount === 0 && cache.size === 0) return '0'
     const entries = Array.from(cache.entries()).sort((a, b) => a[0] - b[0])
     let sig = `${entries.length}`
     for (const [itemId, entry] of entries) {
@@ -418,7 +421,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       sig += `|${itemId}:${level}:${exact}:${ascSegment}:${subSegment}`
     }
     return sig
-  }, [testerItems])
+  }, [testerPreviewArtifacts])
   const getArtifactItemId = useCallback((artifact: NormalizedGearArtifact, fallbackIdx?: number): number | null => {
     const testerId = Number((artifact.testerItem as { itemId?: number } | undefined)?.itemId ?? NaN)
     if (Number.isFinite(testerId)) return testerId
@@ -1091,8 +1094,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     }
   }, [
     runPipeline,
+    ruleConfigs,
     ruleConfigsForPreview,
+    metasets,
     metasetsForPreview,
+    substatTargets,
     substatTargetsForPreview,
     hsf,
     finalSellRemainder,
@@ -1100,9 +1106,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     resolvedKeepUniqueRules,
     configModesForPreview,
     testerPreviewArtifacts,
+    testerArtifactsSignature,
     configNamesForPreview,
-    fingerprintSubstatTargets,
-    fingerprintConfigForRules,
+    getArtifactItemId,
     buildRulesFingerprint,
   ])
 
