@@ -9,21 +9,13 @@ import { ACCESSORY_NO_SET_ID } from '../lib/constants'
 import { gearSetSlotIconUrl } from '../lib/iconMaps/setSlotIconMap'
 import type { ArtifactSetId, ArtifactTypeId, FactionId, RankValue } from '../lib/types'
 import { ArtifactSet } from '../lib/types'
+import { resolveRarityAccentColor } from '../lib/rarityColors'
 // MarkdownTooltip keeps reroll/outcome/tooltips consistent with the new global styling.
 import MarkdownTooltip from './MarkdownTooltip'
 
 const GRID_ICON_BOX_SIZE_PX = 88
 const GRID_ICON_BORDER_RADIUS_PX = 8
 const GRID_ICON_BORDER_WIDTH_PX = 2
-
-const RARITY_BORDER_COLORS: Record<number, string> = {
-  1: '#9ca3af',
-  2: '#34d399',
-  3: '#60a5fa',
-  4: '#7c3aed',
-  5: '#f9a825',
-  6: '#8b0000',
-}
 
 const ACCESSORY_BADGED_SET_IDS = new Set<number>([
   ArtifactSet.Refresh,
@@ -88,8 +80,7 @@ export default function GridIconBox({
   const normalizedSetLabel = typeof setLabel === 'string' && setLabel.trim().length > 0 ? setLabel : undefined
   const normalizedSetTooltipName = typeof setTooltipName === 'string' && setTooltipName.trim().length > 0 ? setTooltipName : undefined
   const setIconLabel = normalizedSetLabel ?? normalizedSetTooltipName ?? null
-  const numericRarity = Number(rarity)
-  const borderColor = RARITY_BORDER_COLORS[Number.isFinite(numericRarity) ? numericRarity : 0] ?? theme.palette.divider
+  const borderColor = resolveRarityAccentColor(rarity) ?? theme.palette.divider
   const numericRank = Math.max(0, Math.min(6, Math.round(Number(rank) || 0)))
   const ascensionStars = Math.max(0, Math.min(numericRank, Math.round(Number(ascensionRolls) || 0)))
   const hasRealSet = Number.isFinite(Number(setId)) && Number(setId) > 0

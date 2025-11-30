@@ -119,6 +119,7 @@ This document captures runtime behavior, builder interactions, and user-facing w
 
 - `FinalSellDialog` is now tabbed: `Final Sell` retains the legacy layout, while `Keep Uniques` renders the gear-combination editor plus mirrored tester grid inside the same shell dimensions (`min(960px, 100vw - 32px)` × `min(800px, 100vh - 48px)`).
 - The active tab is tracked via `finalSellDialogTab` so autosave, clipboard, and undo/redo restore whichever side the user left open; new sessions default to `Final Sell`.
+- Factory default: a new session (or reset) preselects the standard 0/4/8/12 ranges but turns both Artifacts and Accessories off so nothing sells until the user opts in. The quick toggle flips both gear types on (and keeps the ranges) the first time Final Sell is enabled without manual selections.
 - Keep Uniques exposes its own Reset button. It clears the combination list and disables the feature without touching Final Sell settings, so the two tabs never stomp each other’s defaults.
 - When no tester rows are loaded the right column replaces the grid with a dashed empty-state card that repeats “Load a gear database to inspect at-risk combinations.” so the guidance appears exactly where results will eventually render; the rule sidebar intentionally suppresses a duplicate alert to keep that column focused on rule editing.
 

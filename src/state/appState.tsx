@@ -153,8 +153,8 @@ export function makeInitialAppState(params: Partial<AppState> & Pick<AppState, '
   const { metasets, ...rest } = params
   return {
     customCfgs: [],
-    // Final Sell defaults: ON with safe ranges (0–15). Old HSFC without this flag is treated as OFF when loaded.
-    finalSellRemainder: { artifacts: true, accessories: true, levels: FINAL_SELL_DEFAULT_LEVELS.slice() as LevelMilestone[], setsMode: FINAL_SELL_DEFAULT_SETS_MODE },
+    // Final Sell defaults: leave the standard level ranges visible but keep both gear toggles off until the user opts in.
+    finalSellRemainder: { artifacts: false, accessories: false, levels: FINAL_SELL_DEFAULT_LEVELS.slice() as LevelMilestone[], setsMode: FINAL_SELL_DEFAULT_SETS_MODE },
     finalSellDialogTab: FINAL_SELL_DIALOG_TAB_FINAL_SELL, // Start new sessions on the classic Final Sell tab for continuity.
     keepUniqueRules: buildDefaultKeepUniqueRules(),
     keepUniquesEnabled: false,
