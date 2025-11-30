@@ -819,7 +819,7 @@ const overrides: Catalog = {
   filterLimitPreviewConfigs: 'Önizleme konfigleri',
   filterLimitPreviewConfigsTooltip: 'Geçerli önizleme filtrelerini geçen konfig çiplerini göstermek için aç/kapat.',
   filterLimitSelectedConfigs: 'Konfig filtresi',
-  filterLimitSelectedConfigsTooltip: 'Geçerli önizlemeyi seçili konfiglerinize göre filtreler. Kapalı = tüm satırlar görünür. Açık = seçiminizde olmayan konfiglerin satırlarını gizler. Rule Tester görünümüne geçerek tester kayıtlarının İlk mi yoksa Herhangi eşleşmeyi mi kullanacağını seçebilirsiniz.',
+  filterLimitSelectedConfigsTooltip: '**Sellfile önizlemesi**\n- `Kapalı`: tüm satırlar görünür.\n- `Açık`: seçiminizde olmayan konfiglerin satırlarını gizler.\n**Rule Tester**\n- `Kapalı` → `İlk` → `Herhangi` arasında geçiş yaparak tester kayıtlarının seçtiğiniz eşleşme politikasına uymasını sağlayın.',
   configFilterOn: 'Açık',
   testerFilterConfigsOff: 'Kapalı',
   testerFilterConfigsFirst: 'İlk',

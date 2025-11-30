@@ -819,7 +819,7 @@ const overrides: Catalog = {
   filterLimitPreviewConfigs: 'Конфіги (превʼю)',
   filterLimitPreviewConfigsTooltip: 'Увімкніть, щоб показувати лише конфіг-чипи, чиї правила проходять поточні фільтри превʼю.',
   filterLimitSelectedConfigs: 'Фільтр конфігів',
-  filterLimitSelectedConfigsTooltip: 'Фільтрує поточний перегляд за вибраними конфігами. Вимкн. = показує всі рядки. Увімк. = приховує рядки конфігів, що не входять до вибраних чипів. Перейдіть у Тестер, щоб обрати, чи повинні записи тестера використовувати «Перша» чи «Будь-яка».',
+  filterLimitSelectedConfigsTooltip: '**Превʼю Sellfile**\n- `Вимк.`: показує всі рядки.\n- `Увімк.`: приховує рядки конфігів, що не входять до вибраних чипів.\n**Rule Tester**\n- Крутіть `Вимк.` → `Перша` → `Будь-яка`, щоб записи тестера дотримувалися обраної політики.',
   configFilterOn: 'Увімк.',
   testerFilterConfigsOff: 'Вимкнено',
   testerFilterConfigsFirst: 'Перша',

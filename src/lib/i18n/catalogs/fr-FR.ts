@@ -819,7 +819,7 @@ const overrides: Catalog = {
   filterLimitPreviewConfigs: 'Configs aperçu',
   filterLimitPreviewConfigsTooltip: 'Activez pour n’afficher que les puces de config dont les règles passent les filtres d’aperçu actuels.',
   filterLimitSelectedConfigs: 'Filtre configs',
-  filterLimitSelectedConfigsTooltip: 'Filtre la vue en cours selon vos configs sélectionnées. Désactivé = toutes les lignes. Activé = masque les règles ou items dont la config n’est pas dans votre sélection. Passez en Rule Tester pour choisir si les entrées utilisent Première ou N’importe.',
+  filterLimitSelectedConfigsTooltip: '**Aperçu du Sellfile**\n- `Désactivé` : affiche toutes les lignes.\n- `Activé` : masque les règles ou items dont la config n’est pas dans votre sélection.\n**Rule Tester**\n- Bascule `Désactivé` → `Première` → `N’importe` afin que les entrées suivent la politique de matching choisie.',
   configFilterOn: 'Activé',
   testerFilterConfigsOff: 'Désactivé',
   testerFilterConfigsFirst: 'Première',

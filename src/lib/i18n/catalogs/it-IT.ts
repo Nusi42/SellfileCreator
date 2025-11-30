@@ -819,7 +819,7 @@ const overrides: Catalog = {
   filterLimitPreviewConfigs: 'Configs anteprima',
   filterLimitPreviewConfigsTooltip: 'Attiva per mostrare solo i chip delle configurazioni le cui regole superano i filtri attuali dell’anteprima.',
   filterLimitSelectedConfigs: 'Filtro config',
-  filterLimitSelectedConfigsTooltip: 'Filtra la vista corrente in base alle config selezionate. Disattivato = mostra tutte le righe. Attivo = nasconde le righe delle config fuori dalla tua selezione. Passa al Rule Tester per decidere se le righe del tester usano Prima o Qualsiasi.',
+  filterLimitSelectedConfigsTooltip: '**Anteprima Sellfile**\n- `Disattivato`: mostra tutte le righe.\n- `Attivo`: nasconde le righe delle config fuori dalla tua selezione.\n**Rule Tester**\n- Alterna `Disattivato` → `Prima` → `Qualsiasi` affinché le righe del tester seguano la politica di matching scelta.',
   configFilterOn: 'Attivo',
   testerFilterConfigsOff: 'Disattivato',
   testerFilterConfigsFirst: 'Prima',
