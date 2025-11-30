@@ -10,6 +10,7 @@ import { rankMask, rarityMask } from './hsfTypes'
 import type { ArtifactSetId, ArtifactTypeId, FactionId, StatVariantLike } from './types'
 import { LEVEL_ANY_SENTINEL, StatId, StatVariant, mainToVariant, subToVariant, type LevelMilestone, type RankValue } from './types'
 import { RULE_SOURCE_KEEP_UNIQUES, type HsfRuleWithCfg } from './merge'
+import { ArtifactSet, ArtifactType, Faction } from './types'
 import type { SellfileExportMode } from './hsfBuilder'
 import { forEachRuleMatchCandidate, getRuleMatchIndex } from './ruleMatchIndex'
 import { getRuleConfigIndex } from './ruleConfigIndex'
@@ -213,12 +214,24 @@ export function evaluateMatchesByConfig(
   let firstNonExcludedMatch: EvalResult | null = null
   let nonKeepUniqueKeepMatched = false
   let pendingKeepUnique: EvalResult | null = null
+  let fallbackKeepUnique: EvalResult | null = null
+  let anyKeepUniqueMatch: EvalResult | null = null
   const matchingConfigs = new Set<number>()
   const slotIndex = getRuleMatchIndex(rules)
   const slot = Number(item.slot)
   const setId = Number(item.set)
   const rankValue = clampRankOrRarity(item.rank)
   const rarityValue = clampRankOrRarity(item.rarity)
+  // Pre-scan for a keep-unique match so Final Sell cannot mask it due to ordering.
+  let prekeepUnique: EvalResult | null = null
+  for (let idx = 0; idx < rules.length; idx += 1) {
+    const rule = rules[idx]!
+    if (!rule || (rule as HsfRuleWithCfg).__source !== RULE_SOURCE_KEEP_UNIQUES) continue
+    if (!matchRule(rule, item)) continue
+    const cfgIdx = getRuleConfigIndex(rule)
+    prekeepUnique = { ruleIndex: idx, keep: true, cfgIdx }
+    break
+  }
   forEachRuleMatchCandidate(slotIndex, slot, setId, rankValue, rarityValue, (ruleIndex) => {
     const rule = rules[ruleIndex]!
     if (!matchRule(rule, item)) return true
@@ -231,9 +244,21 @@ export function evaluateMatchesByConfig(
     const keep = rule.Keep === true
     const match: EvalResult = { ruleIndex, keep, cfgIdx }
     const isKeepUnique = source === RULE_SOURCE_KEEP_UNIQUES
+    // Targeted debug: trace Keep Unique matches on Banner Lords Merciless rings to see ordering.
+    if (
+      isKeepUnique
+      && Number(item.slot) === ArtifactType.Ring
+      && Number(item.set) === ArtifactSet.Merciless
+      && Number((item as { faction?: number }).faction ?? 0) === Faction.BannerLords
+    ) {
+      const mainStatId = Number((item as { mainStatId?: number }).mainStatId ?? NaN)
+      console.log(`[keep-unique-eval-debug] idx=${ruleIndex} cfg=${cfgIdx ?? 'na'} level=${item.level} rarity=${item.rarity} main=${Number.isFinite(mainStatId) ? mainStatId : 'na'} keep=${keep} excluded=${isExcluded}`)
+    }
     if (isKeepUnique) {
       // Defer keep-unique so primary rules always win.
       if (!pendingKeepUnique && !isExcluded) pendingKeepUnique = match
+      if (!fallbackKeepUnique && !isExcluded) fallbackKeepUnique = match
+      if (!anyKeepUniqueMatch && !isExcluded) anyKeepUniqueMatch = match
     } else {
       // Track whether any non-keep-unique KEEP rule matched; keep-unique should not override those.
       if (keep && !isExcluded) nonKeepUniqueKeepMatched = true
@@ -248,14 +273,13 @@ export function evaluateMatchesByConfig(
   })
   // If nothing else matched, fall back to keep-unique (only when no other KEEP rule matched).
   const firstMatchIsKeep = firstMatch != null && (firstMatch as NonNullable<EvalResult>).keep === true
-  const allowKeepUnique = Boolean(
-    pendingKeepUnique
-    && !nonKeepUniqueKeepMatched
-    && !firstMatchIsKeep,
-  )
+  const allowKeepUnique = !nonKeepUniqueKeepMatched && !firstMatchIsKeep
   if (allowKeepUnique) {
-    firstMatch = pendingKeepUnique
-    if (!firstNonExcludedMatch) firstNonExcludedMatch = pendingKeepUnique
+    const keepCandidate = pendingKeepUnique ?? fallbackKeepUnique ?? anyKeepUniqueMatch ?? prekeepUnique
+    if (keepCandidate) {
+      firstMatch = keepCandidate
+      if (!firstNonExcludedMatch) firstNonExcludedMatch = keepCandidate
+    }
   }
   return {
     firstMatch,
