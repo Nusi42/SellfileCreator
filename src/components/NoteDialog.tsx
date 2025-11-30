@@ -893,19 +893,34 @@ function KeepUniqueSummaryCard({
       ),
     })
   }
-  const setsParts: string[] = []
-  if (setLabels.length > 0) setsParts.push(formatList(setLabels))
-  if (metasetLabels.length > 0) {
-    setsParts.push(`${t('menuMetasetsSection')}: ${formatList(metasetLabels)}`)
-  }
-  if (setsParts.length > 0) {
+  const setsValue = (() => {
+    const metaLine = metasetLabels.length > 0 ? (
+      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', wordBreak: 'break-word' }}>
+        {metasetLabels.join(', ')}
+      </Typography>
+    ) : null
+    const setLine = setLabels.length > 0 ? (
+      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', wordBreak: 'break-word' }}>
+        {formatList(setLabels)}
+      </Typography>
+    ) : null
+    if (metaLine && setLine) {
+      return (
+        <Stack spacing={0.1}>
+          {metaLine}
+          <Typography variant="caption" color="text.disabled" sx={{ fontWeight: 700, lineHeight: 1, pl: 0.25 }}>
+            +
+          </Typography>
+          {setLine}
+        </Stack>
+      )
+    }
+    return metaLine ?? setLine
+  })()
+  if (setsValue) {
     filters.push({
       label: t('noteKeepUniqueSetsLabel'),
-      value: (
-        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', wordBreak: 'break-word' }}>
-          {setsParts.join(' • ')}
-        </Typography>
-      ),
+      value: setsValue,
     })
   }
   if (mainLabels.length > 0) {
