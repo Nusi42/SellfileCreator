@@ -261,11 +261,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const { setStatButtonBorders } = useDisplayPreferenceActions()
   // Use a deferred snapshot so bursty substatTargets updates (e.g., Restore Defaults) coalesce before recomputing merged rules.
   const ruleConfigs = useMemo(() => configsForRuleBuild(customCfgs), [customCfgs])
-  const testerConfigNames = useMemo(() => customCfgs.map((cfg) => {
-    if (!cfg || typeof cfg.name !== 'string') return null
-    const trimmed = cfg.name.trim()
-    return trimmed.length > 0 ? trimmed : null
-  }), [customCfgs])
   const configNames = useMemo(() => customCfgs.map((cfg) => (typeof cfg?.name === 'string' ? cfg.name : '')), [customCfgs])
   const configModes = useMemo(() => customCfgs.map((cfg) => cfg.exportMode), [customCfgs])
   const substatTargetsForPreview = useDeferredValue(substatTargets)
@@ -274,6 +269,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const configModesForPreview = useDeferredValue(configModes)
   const configNamesForPreview = useDeferredValue(configNames)
   const lastConfigNamesRef = useRef<string[]>(configNamesForPreview)
+  // Track the last dispatched pipeline so deferred snapshots cannot retrigger identical worker runs.
+  const lastPipelineSignatureRef = useRef<{ fingerprint: string | null; artifactSig: string | null } | null>(null)
   const testerItemIdRef = useRef(1)
   const allocTesterItemId = useCallback(() => {
     const id = testerItemIdRef.current
@@ -664,6 +661,17 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const testerWorkloadRatio = testerRowsBuilding ? clampProgressRatio(testerRowsProgress) : 0
   const workloadDeterminateRatio = Math.max(rulesWorkloadRatio, testerWorkloadRatio)
   const workloadBusy = rulesBuilding || testerRowsBuilding
+  // Freeze config names to the last committed snapshot while rows build so displayed indices do not shift mid-run.
+  const configNamesForGrid = useMemo(
+    () => ((rulesBuilding || testerRowsBuilding) ? lastConfigNamesRef.current : configNamesForPreview),
+    [rulesBuilding, testerRowsBuilding, configNamesForPreview],
+  )
+  // Keep tester chip labels in sync with the frozen config-name snapshot so chips never display mid-build indices.
+  const testerConfigNamesForGrid = useMemo(() => configNamesForGrid.map((name) => {
+    if (typeof name !== 'string') return null
+    const trimmed = name.trim()
+    return trimmed.length > 0 ? trimmed : null
+  }), [configNamesForGrid])
   const restoringAutosaveRef = useRef(false)
   useEffect(() => {
     // Hang the spinner through idle gaps so sequence builds do not flash the chip.
@@ -695,13 +703,37 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     const prevState = configRulesStateRef.current
     const prevMatches = testerPreviewRowsRef.current
     const prevConfigNames = lastConfigNamesRef.current
-    // Use immediate configs for key comparisons so reorders are detected even if deferred snapshots lag.
-    const nextSubstatTargetsKey = fingerprintSubstatTargets(substatTargets)
-    const nextConfigKeys = ruleConfigs.map((cfg) => fingerprintConfigForRules(cfg, nextSubstatTargetsKey))
+    // Prefer live snapshots whenever deferred previews lag so fingerprints match the payload we send to the worker.
+    const previewConfigsStale = (
+      ruleConfigsForPreview.length !== ruleConfigs.length
+      || ruleConfigsForPreview.some((cfg, idx) => cfg !== ruleConfigs[idx])
+    )
+    const configsForBuild = previewConfigsStale ? ruleConfigs : ruleConfigsForPreview
+    // Align config-name snapshots with the config payload so match chips stay in sync.
+    // Align config-name snapshot with the config payload so cfgIdx remaps stay deterministic.
+    const previewNamesStale = (
+      configNamesForPreview.length !== configNames.length
+      || configNamesForPreview.some((name, idx) => name !== configNames[idx])
+    )
+    const configNamesForBuild = previewNamesStale ? configNames : configNamesForPreview
+    // Artifact signature drives match reuse; keep it alongside the fingerprint so duplicate builds can bail quickly.
+    const pipelineArtifactSignature = testerArtifactsSignature
+    // Mirror metasets and substat targets to the same snapshot to avoid stale warm fingerprints.
+    const previewMetasetsStale = (
+      metasetsForPreview.length !== metasets.length
+      || metasetsForPreview.some((meta, idx) => meta !== metasets[idx])
+    )
+    const metasetsForBuild = previewMetasetsStale ? metasets : metasetsForPreview
+    const substatTargetsForBuild = substatTargetsForPreview === substatTargets
+      ? substatTargets
+      : (substatTargetsForPreview ?? substatTargets)
+    // Use the build-aligned snapshot for key comparisons so reorders are detected even if deferred previews lag.
+    const nextSubstatTargetsKey = fingerprintSubstatTargets(substatTargetsForBuild)
+    const nextConfigKeys = configsForBuild.map((cfg) => fingerprintConfigForRules(cfg, nextSubstatTargetsKey))
     const nextFingerprint = buildRulesFingerprint({
       substatTargetsKey: nextSubstatTargetsKey,
       configKeys: nextConfigKeys,
-      metasets,
+      metasets: metasetsForBuild,
       hsf,
       keepUniqueRules: resolvedKeepUniqueRules,
       keepUniquesEnabled,
@@ -711,12 +743,24 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     const canSkipWarm = lastWarmFingerprintRef.current === nextFingerprint
     // Name-only edits should not wake the worker; detect them explicitly.
     const configNamesChanged = (() => {
-      if (prevConfigNames.length !== configNamesForPreview.length) return true
-      for (let i = 0; i < configNamesForPreview.length; i += 1) {
-        if (configNamesForPreview[i] !== prevConfigNames[i]) return true
+      if (prevConfigNames.length !== configNamesForBuild.length) return true
+      for (let i = 0; i < configNamesForBuild.length; i += 1) {
+        if (configNamesForBuild[i] !== prevConfigNames[i]) return true
       }
       return false
     })()
+    // Skip redundant pipelines when deferred snapshots catch up without changing the rule or artifact signatures.
+    if (
+      canSkipWarm
+      && !configNamesChanged
+      && lastPipelineSignatureRef.current
+      && lastPipelineSignatureRef.current.fingerprint === nextFingerprint
+      && lastPipelineSignatureRef.current.artifactSig === pipelineArtifactSignature
+    ) {
+      return () => {
+        abortController.abort()
+      }
+    }
     const buildIndexMapping = (previousKeys: string[], nextKeys: string[]): number[] | null => {
       if (previousKeys.length !== nextKeys.length) return null
       const buckets = new Map<string, number[]>()
@@ -744,7 +788,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       const updatedRows = prevMatches.map((row) => {
         const remapName = (cfgIdx: number | null): string | null => {
           if (cfgIdx == null) return null
-          return configNamesForPreview[cfgIdx] ?? null
+          return configNamesForBuild[cfgIdx] ?? null
         }
         return {
           ...row,
@@ -753,7 +797,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         }
       })
       setTesterPreviewRows(sortTesterRows(updatedRows))
-      lastConfigNamesRef.current = configNamesForPreview
+      lastConfigNamesRef.current = configNamesForBuild
       return () => {
         abortController.abort()
       }
@@ -823,13 +867,13 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           match: (() => {
             if (!row.match) return null
             const nextIdx = remapCfgIdx(row.match.cfgIdx)
-            const nextName = nextIdx != null ? configNamesForPreview[nextIdx] ?? null : null
+            const nextName = nextIdx != null ? configNamesForBuild[nextIdx] ?? null : null
             return { ...row.match, cfgIdx: nextIdx, cfgName: nextName }
           })(),
           baseMatch: (() => {
             if (!row.baseMatch) return null
             const nextIdx = remapCfgIdx(row.baseMatch.cfgIdx)
-            const nextName = nextIdx != null ? configNamesForPreview[nextIdx] ?? null : null
+            const nextName = nextIdx != null ? configNamesForBuild[nextIdx] ?? null : null
             return { ...row.baseMatch, cfgIdx: nextIdx, cfgName: nextName }
           })(),
           matchingCfgIndices: row.matchingCfgIndices.map((idx) => {
@@ -839,6 +883,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         }))
         setTesterPreviewRows(sortTesterRows(remappedRows))
       }
+      lastConfigNamesRef.current = configNamesForBuild
       return () => {
         abortController.abort()
       }
@@ -887,7 +932,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         ruleIndex: result.ruleIndex,
         keep: result.keep,
         cfgIdx,
-        cfgName: cfgIdx != null ? (configNamesForPreview[cfgIdx] ?? null) : null,
+        cfgName: cfgIdx != null ? (configNamesForBuild[cfgIdx] ?? null) : null,
         ruleLabel: null,
         ruleSource: rule?.__source ?? null,
       }
@@ -895,9 +940,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
 
     // Guard against empty deferred snapshots on first load by falling back to immediate state.
     // Avoid empty payloads on first render by falling back to immediate snapshots when deferred values lag.
-    const configsForPipeline = ruleConfigsForPreview.length > 0 ? ruleConfigsForPreview : ruleConfigs
-    const metasetsForPipeline = metasetsForPreview.length > 0 ? metasetsForPreview : metasets
-    const substatTargetsForPipeline = substatTargetsForPreview ?? substatTargets
+    const configsForPipeline = configsForBuild
+    const metasetsForPipeline = metasetsForBuild
+    const substatTargetsForPipeline = substatTargetsForBuild
     const pipelinePayload: Parameters<typeof runPipeline>[0] = {
       configs: configsForPipeline,
       metasets: metasetsForPipeline,
@@ -915,6 +960,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       skipDetection: false,
     }
 
+    lastPipelineSignatureRef.current = { fingerprint: nextFingerprint, artifactSig: pipelineArtifactSignature }
     // One pipeline invocation per update after early fast paths.
     runPipeline(pipelinePayload, {
       signal: abortController.signal,
@@ -984,6 +1030,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         setKeepUniqueGroupItemKeys(uniqueKeys)
         keepUniqueScanAppliedRef.current = detection ? fingerprintKeepUniqueDetection(detection) : null
         pendingKeepUniqueDetectionSigRef.current = null
+        lastPipelineSignatureRef.current = { fingerprint: nextFingerprint, artifactSig: pipelineArtifactSignature }
+        lastConfigNamesRef.current = configNamesForBuild
         const totalCustomRules = Array.from(state.countsByConfig.values()).reduce((acc, val) => (
           acc + (Number.isFinite(val) ? Number(val) : 0)
         ), 0)
@@ -1069,6 +1117,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
               setKeepUniqueGroupItemKeys(retryUniqueKeys)
               keepUniqueScanAppliedRef.current = retryDetection ? fingerprintKeepUniqueDetection(retryDetection) : null
               pendingKeepUniqueDetectionSigRef.current = null
+              lastPipelineSignatureRef.current = { fingerprint: nextFingerprint, artifactSig: pipelineArtifactSignature }
+              lastConfigNamesRef.current = configNamesForBuild
             })
             .catch(() => {
               if (abortController.signal.aborted) return
@@ -1088,7 +1138,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         setTesterRowsProgress(null)
       })
 
-    lastConfigNamesRef.current = configNamesForPreview
     return () => {
       abortController.abort()
     }
@@ -1096,6 +1145,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     runPipeline,
     ruleConfigs,
     ruleConfigsForPreview,
+    configNames,
     metasets,
     metasetsForPreview,
     substatTargets,
@@ -3883,7 +3933,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                   colorBlindMode={colorBlindMode}
                   onChangeColorBlindMode={setColorBlindMode}
                   colorIconSrc={colorIconSrc}
-                  configNames={testerConfigNames}
+                  configNames={testerConfigNamesForGrid}
                   onJumpToRule={handleTesterRuleView}
                   suppressMatchDetails={suppressTesterMatchDetails}
                 />
@@ -4167,7 +4217,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         colorBlindMode={colorBlindMode}
         onChangeColorBlindMode={setColorBlindMode}
         colorIconSrc={colorIconSrc}
-        configNames={testerConfigNames}
+        configNames={testerConfigNamesForGrid}
         metasets={metasets}
         suppressMatchDetails={suppressTesterMatchDetails}
         workloadProgressRatio={workloadProgressRatio}
