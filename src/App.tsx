@@ -589,6 +589,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const keepUniqueMetasetUsageCounts = useMemo(() => {
     const counts: Record<string, number> = {}
     for (const rule of keepUniqueRules) {
+      // Treat a rule that references the same metaset multiple times as a single hit
+      // so the overlay reflects “number of rules” rather than raw ID frequency.
       const metaIds = Array.from(new Set(rule.combination.metaSetIds ?? []))
       if (!metaIds.length) continue
       for (const metaId of metaIds) {
@@ -3195,6 +3197,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             const next = prev.map((rule) => {
               const metaIds = rule.combination.metaSetIds ?? []
               if (!metaIds.includes(id)) return rule
+              // Rewrite Keep Unique combinations so deleted metaset IDs are dropped
+              // or swapped, matching the config/builder behavior.
               const seen = new Set<string>()
               const nextMetaIds: string[] = []
               for (const metaId of metaIds) {
