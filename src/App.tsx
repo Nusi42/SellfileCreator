@@ -4211,6 +4211,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         configs={customCfgs}
         metasets={metasets}
         keepUniqueRules={keepUniqueRules}
+        useStatButtonColors={statButtonBorders}
         substatColors={substatColors}
       />
       <Snackbar

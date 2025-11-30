@@ -109,6 +109,7 @@ type NoteRenderContextValue = {
   configs: BuilderConfig[]
   metasets: Metaset[]
   substatColors: Record<number, { fg: string; bg: string }>
+  useStatButtonColors: boolean
   markerResolutions: ConfigMarkerMap
   keepUniqueRules: KeepUniqueRule[]
   keepUniqueMarkerResolutions: KeepUniqueMarkerMap
@@ -683,7 +684,7 @@ type KeepUniqueBlockProps = React.PropsWithChildren<{ node?: Element & { propert
 
 function KeepUniqueBlock({ node }: KeepUniqueBlockProps): JSX.Element | null {
   const { t } = useI18n()
-  const { keepUniqueRules, keepUniqueMarkerResolutions, metasets } = useNoteRenderContext()
+  const { keepUniqueRules, keepUniqueMarkerResolutions, metasets, useStatButtonColors, substatColors } = useNoteRenderContext()
   // Keep Uniques mirror config markers: ids render positional cards, `keep-uniques-re` filters by rule name.
   const filterAttr = coerceFirstString(node?.properties?.[KEEP_UNIQUE_ELEMENT_FILTER_ATTR])
   const filterType = filterAttr === KEEP_UNIQUE_FILTER_REGEXP ? KEEP_UNIQUE_FILTER_REGEXP : KEEP_UNIQUE_FILTER_IDS
@@ -763,6 +764,8 @@ function KeepUniqueBlock({ node }: KeepUniqueBlockProps): JSX.Element | null {
             rule={rule}
             metasets={metasets}
             t={t}
+            useStatButtonColors={useStatButtonColors}
+            substatColors={substatColors}
           />
         </Box>
       ))}
@@ -775,11 +778,15 @@ function KeepUniqueSummaryCard({
   rule,
   metasets,
   t,
+  useStatButtonColors,
+  substatColors,
 }: {
   id: number
   rule: KeepUniqueRule
   metasets: Metaset[]
   t: ReturnType<typeof useI18n>['t']
+  useStatButtonColors: boolean
+  substatColors: Record<number, { fg: string; bg: string }>
 }): JSX.Element {
   const theme = useTheme()
   // Scope defaults mirror the dialog so notes stay in sync if count mode is missing.
@@ -848,7 +855,9 @@ function KeepUniqueSummaryCard({
     return mains.map((variant) => {
       const key = statVariantI18nKey(variant)
       const translated = t(key)
-      return translated || String(variant)
+      const label = translated || String(variant)
+      const color = useStatButtonColors ? substatColors[variant]?.fg : undefined
+      return { label, color, key: String(variant) }
     })
   })()
 
@@ -872,9 +881,16 @@ function KeepUniqueSummaryCard({
     return rarities.map((rarity) => rarityCodeToName(rarity) || `${rarity}★`)
   })()
 
-  const filters: Array<{ label: string; value: string }> = []
+  const filters: Array<{ label: string; value: React.ReactNode }> = []
   if (slotLabels.length > 0) {
-    filters.push({ label: t('noteKeepUniqueSlotsLabel'), value: formatList(slotLabels) })
+    filters.push({
+      label: t('noteKeepUniqueSlotsLabel'),
+      value: (
+        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', wordBreak: 'break-word' }}>
+          {formatList(slotLabels)}
+        </Typography>
+      ),
+    })
   }
   const setsParts: string[] = []
   if (setLabels.length > 0) setsParts.push(formatList(setLabels))
@@ -882,19 +898,59 @@ function KeepUniqueSummaryCard({
     setsParts.push(`${t('menuMetasetsSection')}: ${formatList(metasetLabels)}`)
   }
   if (setsParts.length > 0) {
-    filters.push({ label: t('noteKeepUniqueSetsLabel'), value: setsParts.join(' • ') })
+    filters.push({
+      label: t('noteKeepUniqueSetsLabel'),
+      value: (
+        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', wordBreak: 'break-word' }}>
+          {setsParts.join(' • ')}
+        </Typography>
+      ),
+    })
   }
   if (mainLabels.length > 0) {
-    filters.push({ label: t('noteKeepUniqueMainLabel'), value: formatList(mainLabels) })
+    filters.push({
+      label: t('noteKeepUniqueMainLabel'),
+      value: (
+        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', wordBreak: 'break-word' }}>
+          {mainLabels.map((entry, idx) => (
+            <React.Fragment key={`main-${entry.key ?? idx}`}>
+              {idx > 0 ? ', ' : null}
+              <Box component="span" sx={{ color: entry.color }}>{entry.label}</Box>
+            </React.Fragment>
+          ))}
+        </Typography>
+      ),
+    })
   }
   if (factionLabels.length > 0) {
-    filters.push({ label: t('noteKeepUniqueFactionsLabel'), value: formatList(factionLabels) })
+    filters.push({
+      label: t('noteKeepUniqueFactionsLabel'),
+      value: (
+        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', wordBreak: 'break-word' }}>
+          {formatList(factionLabels)}
+        </Typography>
+      ),
+    })
   }
   if (rankLabels.length > 0) {
-    filters.push({ label: t('noteKeepUniqueRanksLabel'), value: formatList(rankLabels) })
+    filters.push({
+      label: t('noteKeepUniqueRanksLabel'),
+      value: (
+        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', wordBreak: 'break-word' }}>
+          {formatList(rankLabels)}
+        </Typography>
+      ),
+    })
   }
   if (rarityLabels.length > 0) {
-    filters.push({ label: t('noteKeepUniqueRaritiesLabel'), value: formatList(rarityLabels) })
+    filters.push({
+      label: t('noteKeepUniqueRaritiesLabel'),
+      value: (
+        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', wordBreak: 'break-word' }}>
+          {formatList(rarityLabels)}
+        </Typography>
+      ),
+    })
   }
 
   const renderRow = (
@@ -1004,9 +1060,7 @@ function KeepUniqueSummaryCard({
           )}
           {filters.map((item) => renderRow(
             item.label,
-            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', wordBreak: 'break-word' }}>
-              {item.value}
-            </Typography>,
+            item.value,
           ))}
         </Stack>
       </Stack>
@@ -1023,6 +1077,7 @@ export default function NoteDialog({
   configs,
   metasets,
   keepUniqueRules,
+  useStatButtonColors,
   substatColors,
 }: {
   open: boolean
@@ -1033,6 +1088,7 @@ export default function NoteDialog({
   configs: BuilderConfig[]
   metasets: Metaset[]
   keepUniqueRules: KeepUniqueRule[]
+  useStatButtonColors: boolean
   substatColors: Record<number, { fg: string; bg: string }>
 }) {
   const { t } = useI18n()
@@ -1046,8 +1102,8 @@ export default function NoteDialog({
     [renderNote, keepUniqueRules],
   )
   const contextValue = useMemo<NoteRenderContextValue>(
-    () => ({ configs, metasets, substatColors, markerResolutions, keepUniqueRules, keepUniqueMarkerResolutions }),
-    [configs, metasets, substatColors, markerResolutions, keepUniqueRules, keepUniqueMarkerResolutions],
+    () => ({ configs, metasets, substatColors, useStatButtonColors, markerResolutions, keepUniqueRules, keepUniqueMarkerResolutions }),
+    [configs, metasets, substatColors, useStatButtonColors, markerResolutions, keepUniqueRules, keepUniqueMarkerResolutions],
   )
   const allowMarkdownElement = React.useCallback<MarkdownAllowElement>((element) => {
     const tag = typeof element.tagName === 'string' ? element.tagName.toLowerCase() : ''
