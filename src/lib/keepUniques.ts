@@ -121,12 +121,16 @@ export type KeepUniqueRule = {
   countMode: KeepUniqueRuleCountMode
 }
 
+// Accessory defaults keep Rare+ pieces to skip fodder while still catching Epic/Legendary/Mythical.
+const ACCESSORY_KEEP_UNIQUE_DEFAULT_NAME = 'Rare+ Accessories (5-6★)'
+
 const ACCESSORY_KEEP_UNIQUE_SLOTS: readonly ArtifactType[] = [
   ArtifactType.Ring,
   ArtifactType.Amulet,
   ArtifactType.Banner,
 ] as const
 
+const ACCESSORY_KEEP_UNIQUE_RARE_PLUS_RARITIES: readonly RankValue[] = [3, 4, 5, 6]
 const ACCESSORY_KEEP_UNIQUE_STAR_VALUES: readonly RankValue[] = [5, 6]
 
 const ACCESSORY_KEEP_UNIQUE_COUNT_MODE: KeepUniqueRuleCountMode = {
@@ -146,16 +150,18 @@ function createDefaultAccessoryKeepUniqueRule(): KeepUniqueRule {
       sets: [...ACCESSORY_SLOTS_COMPATIBLE_SET_IDS],
       metaSetIds: [],
       ranks: [...ACCESSORY_KEEP_UNIQUE_STAR_VALUES],
-      rarities: [...ACCESSORY_KEEP_UNIQUE_STAR_VALUES],
+      rarities: [...ACCESSORY_KEEP_UNIQUE_RARE_PLUS_RARITIES],
       mainStats: [],
       factions: [],
     },
-    name: '',
+    name: ACCESSORY_KEEP_UNIQUE_DEFAULT_NAME,
     requiredCount: 1,
     enabled: true,
     countMode: { ...ACCESSORY_KEEP_UNIQUE_COUNT_MODE },
   }
 }
+
+const ARMOR_KEEP_UNIQUE_DEFAULT_NAME = 'Utility Sets (5-6★)'
 
 const ARMOR_KEEP_UNIQUE_SLOTS: readonly ArtifactType[] = [
   ArtifactType.Weapon,
@@ -169,7 +175,6 @@ const ARMOR_KEEP_UNIQUE_SLOTS: readonly ArtifactType[] = [
 const ARMOR_KEEP_UNIQUE_SET_IDS: readonly ArtifactSetId[] = [
   ArtifactSet.Stun,
   ArtifactSet.Toxic,
-  ArtifactSet.Daze,
   ArtifactSet.Cursed,
   ArtifactSet.Provoke,
   ArtifactSet.Destroy,
@@ -183,6 +188,10 @@ const ARMOR_KEEP_UNIQUE_COUNT_MODE: KeepUniqueRuleCountMode = {
   perSlot: true,
 }
 
+// Armor defaults focus on top-end control sets: Legendary+/Mythical at 6★ only.
+const ARMOR_KEEP_UNIQUE_LEGENDARY_PLUS_RARITIES: readonly RankValue[] = [5, 6]
+const ARMOR_KEEP_UNIQUE_STAR_VALUES: readonly RankValue[] = [6]
+
 function createDefaultArmorKeepUniqueRule(): KeepUniqueRule {
   return {
     id: createKeepUniqueRuleId(),
@@ -190,12 +199,12 @@ function createDefaultArmorKeepUniqueRule(): KeepUniqueRule {
       slots: [...ARMOR_KEEP_UNIQUE_SLOTS],
       sets: [...ARMOR_KEEP_UNIQUE_SET_IDS],
       metaSetIds: [],
-      ranks: [...ACCESSORY_KEEP_UNIQUE_STAR_VALUES],
-      rarities: [...ACCESSORY_KEEP_UNIQUE_STAR_VALUES],
+      ranks: [...ARMOR_KEEP_UNIQUE_STAR_VALUES],
+      rarities: [...ARMOR_KEEP_UNIQUE_LEGENDARY_PLUS_RARITIES],
       mainStats: [],
       factions: [],
     },
-    name: '',
+    name: ARMOR_KEEP_UNIQUE_DEFAULT_NAME,
     requiredCount: 1,
     enabled: false,
     countMode: { ...ARMOR_KEEP_UNIQUE_COUNT_MODE },
