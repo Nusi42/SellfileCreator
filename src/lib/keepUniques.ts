@@ -251,6 +251,7 @@ export type KeepUniqueCandidate = {
   artifact: NormalizedGearArtifact
   itemKey: number
   groupKey: KeepUniqueGroupKey
+  isSold: boolean
 }
 
 export type KeepUniqueCandidateSnapshot = {
@@ -569,15 +570,16 @@ export function collectKeepUniqueCandidates(params: {
 }): KeepUniqueCandidateSnapshot {
   const { rows, baseRules, configModes } = params
   if (!rows.length) return { candidates: [], uniqueItemKeys: new Set() }
-  const groupStats = new Map<string, { total: number; sold: number; matches: KeepUniqueCandidate[] }>()
   const baseRuleList: HsfRuleWithCfg[] = Array.isArray(baseRules) ? [...baseRules] : []
   const baseRuleCount = baseRuleList.length
+  const candidates: KeepUniqueCandidate[] = []
+  const uniqueItemKeys = new Set<number>()
 
   for (const row of rows) {
     const artifact = row.artifact
     const itemKey = getKeepUniqueItemKey(artifact)
     const groupKey = getKeepUniqueGroupKey(artifact)
-    const sold = (() => {
+    const isSold = (() => {
       if (row.baseMatch !== undefined) {
         const baseMatch = row.baseMatch
         return !baseMatch || baseMatch.keep !== true
@@ -586,31 +588,9 @@ export function collectKeepUniqueCandidates(params: {
       const { firstMatch } = evaluateMatchesByConfig(baseRuleList, artifact.testerItem, { configModes })
       return !firstMatch || firstMatch.keep !== true
     })()
-    const entry = groupStats.get(groupKey)
-    if (entry) {
-      entry.total += 1
-      if (sold) {
-        entry.sold += 1
-        entry.matches.push({ row, artifact, itemKey, groupKey })
-      }
-    } else {
-      groupStats.set(groupKey, {
-        total: 1,
-        sold: sold ? 1 : 0,
-        matches: sold ? [{ row, artifact, itemKey, groupKey }] : [],
-      })
-    }
-  }
-
-  const candidates: KeepUniqueCandidate[] = []
-  const uniqueItemKeys = new Set<number>()
-  for (const entry of groupStats.values()) {
-    if (entry.total > 0 && entry.sold === entry.total) {
-      for (const candidate of entry.matches) {
-        candidates.push(candidate)
-        uniqueItemKeys.add(candidate.itemKey)
-      }
-    }
+    const candidate: KeepUniqueCandidate = { row, artifact, itemKey, groupKey, isSold }
+    candidates.push(candidate)
+    if (isSold) uniqueItemKeys.add(itemKey)
   }
 
   return { candidates, uniqueItemKeys }
@@ -626,34 +606,86 @@ export function computeKeepUniqueProtection(params: KeepUniqueDetectionParams): 
     const combination = rule.combination
     const countMode = sanitizeCountMode(rule.countMode)
     const perRuleMode = countMode.perRule
-    // Current matches reflect the “at risk” combos and double as the data source for both scopes.
+    // Current matches split into “kept” vs “sold” so deficits consider what is already safe.
     const matching = candidates.filter((candidate) => artifactMatchesKeepUniqueRule(candidate.artifact, combination))
     const requiredPerGroup = Math.max(1, Math.floor(rule.requiredCount))
-    const currentCount = matching.length
     const ruleActive = enabled && rule.enabled
-    let groupsTracked = perRuleMode ? (currentCount > 0 ? 1 : 0) : 0
-    let requiredTotal = requiredPerGroup
-    let deficit = 0
-    if (!perRuleMode) {
-      const groupCounts = new Map<KeepUniqueCountKey, number>()
+
+    if (perRuleMode) {
+      let keptCount = 0
+      let soldCount = 0
       for (const candidate of matching) {
-        const key = getKeepUniqueCountKey(candidate.artifact, countMode)
-        groupCounts.set(key, (groupCounts.get(key) ?? 0) + 1)
+        if (candidate.isSold) soldCount += 1
+        else keptCount += 1
       }
-      groupsTracked = groupCounts.size
-      requiredTotal = requiredPerGroup * (groupsTracked || 1)
-      for (const groupCount of groupCounts.values()) {
-        const projectedGroup = ruleActive ? groupCount : 0
-        if (projectedGroup >= requiredPerGroup) continue
-        deficit += requiredPerGroup - projectedGroup
-      }
-    } else {
-      const projectedRule = ruleActive ? currentCount : 0
-      deficit = Math.max(0, requiredPerGroup - projectedRule)
+      const requiredTotal = matching.length > 0 ? requiredPerGroup : 0
+      const projected = keptCount + (ruleActive ? soldCount : 0)
+      const deficit = Math.max(0, requiredTotal - (keptCount + soldCount))
+      // When short, emit only the sold artifacts; already-kept items do not need injected rules.
+      const atRisk = keptCount < requiredPerGroup
+        ? matching.filter((candidate) => candidate.isSold)
+        : []
+      const itemKeys = atRisk.map((match) => match.itemKey)
+      const artifacts = atRisk.map((match) => toDetectionArtifact(match))
+      entries.push({
+        hash: hashKeepUniqueCombination(combination),
+        combination,
+        ruleId: rule.id,
+        ruleEnabled: rule.enabled,
+        countMode,
+        perGroupRequiredCount: requiredPerGroup,
+        groupsTracked: matching.length > 0 ? 1 : 0,
+        requiredCount: requiredTotal,
+        // current reflects how many matching items exist (kept + sold).
+        currentCount: keptCount + soldCount,
+        projectedCount: projected,
+        deficit,
+        coveredByExisting: keptCount >= requiredTotal,
+        itemKeys,
+        artifacts,
+      })
+      continue
     }
-    const projected = ruleActive ? currentCount : 0
-    const itemKeys = matching.map((match) => match.itemKey)
-    const artifacts = matching.map((match) => toDetectionArtifact(match))
+
+    const groupCounts = new Map<KeepUniqueCountKey, { kept: KeepUniqueCandidate[]; sold: KeepUniqueCandidate[] }>()
+    for (const candidate of matching) {
+      const key = getKeepUniqueCountKey(candidate.artifact, countMode)
+      const entry = groupCounts.get(key)
+      if (entry) {
+        if (candidate.isSold) {
+          entry.sold.push(candidate)
+        } else {
+          entry.kept.push(candidate)
+        }
+      } else {
+        groupCounts.set(key, {
+          kept: candidate.isSold ? [] : [candidate],
+          sold: candidate.isSold ? [candidate] : [],
+        })
+      }
+    }
+
+    const groupsTracked = groupCounts.size
+    const requiredTotal = groupsTracked > 0 ? requiredPerGroup * groupsTracked : 0
+    let deficit = 0
+    let keptTotal = 0
+    let soldTotal = 0
+    const atRisk: KeepUniqueCandidate[] = []
+    for (const group of groupCounts.values()) {
+      keptTotal += group.kept.length
+      soldTotal += group.sold.length
+      const projectedGroup = group.kept.length + group.sold.length
+      const deficitGroup = Math.max(0, requiredPerGroup - projectedGroup)
+      if (group.kept.length < requiredPerGroup) {
+        // Only sold artifacts need injected keep rules; already-kept artifacts are safe.
+        atRisk.push(...group.sold)
+      }
+      deficit += deficitGroup
+    }
+
+    const projected = keptTotal + (ruleActive ? soldTotal : 0)
+    const itemKeys = atRisk.map((match) => match.itemKey)
+    const artifacts = atRisk.map((match) => toDetectionArtifact(match))
     entries.push({
       hash: hashKeepUniqueCombination(combination),
       combination,
@@ -663,10 +695,10 @@ export function computeKeepUniqueProtection(params: KeepUniqueDetectionParams): 
       perGroupRequiredCount: requiredPerGroup,
       groupsTracked,
       requiredCount: requiredTotal,
-      currentCount,
+      currentCount: keptTotal + soldTotal,
       projectedCount: projected,
       deficit,
-      coveredByExisting: currentCount === 0,
+      coveredByExisting: keptTotal >= requiredTotal,
       itemKeys,
       artifacts,
     })
