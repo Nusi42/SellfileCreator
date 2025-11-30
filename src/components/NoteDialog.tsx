@@ -982,17 +982,20 @@ function KeepUniqueSummaryCard({
         borderRadius: 1,
         border: '1px solid',
         borderColor: 'divider',
-        px: 1.25,
-        pt: 0.75,
-        pb: 1.25,
+        px: 1,
+        pt: 0.5,
+        pb: 1,
         bgcolor: 'background.paper',
         height: '100%',
       }}
     >
-      <Stack spacing={0.75}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 0.75, alignItems: 'center', flexWrap: 'wrap' }}>
+      <Stack spacing={0.5}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 0.5, alignItems: 'center', flexWrap: 'wrap' }}>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25, minWidth: 0 }}>
-            <Typography variant="subtitle2" sx={{ fontWeight: 700, wordBreak: 'break-word', lineHeight: 1.1 }}>
+            <Typography
+              variant="subtitle2"
+              sx={{ fontWeight: 700, wordBreak: 'break-word', lineHeight: 1, fontSize: '0.9rem' }}
+            >
               {titleLabel}
             </Typography>
             {!rule.enabled ? (
