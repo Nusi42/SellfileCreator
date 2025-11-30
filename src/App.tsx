@@ -67,9 +67,7 @@ import { cloneRuleWithConfigIndex, getRuleConfigIndex } from './lib/ruleConfigIn
 import {
   buildDefaultKeepUniqueRules,
   type KeepUniqueDetectionSnapshot,
-  type KeepUniqueCombination,
   type KeepUniqueRule,
-  type KeepUniqueRuleCountMode,
   resolveKeepUniqueRulesWithMetasets,
   hashKeepUniqueCombination,
 } from './lib/keepUniques'
@@ -104,8 +102,6 @@ import {
 } from './hooks/useAutosaveRestore'
 import { makeManageColorsIcon } from './lib/icons'
 import type { ChampionLocation } from './lib/importers/gearDbNormalizer'
-import type { ArtifactSetId, ArtifactTypeId, FactionId, LevelMilestone, RankValue, StatVariant } from './lib/types'
-
 const TESTER_MATCH_RESET_TIMEOUT_MS = 1500
 // Keep the chip spinner visible with at least a whisper of progress so the pulse animation can show.
 const WORKLOAD_PENDING_MIN_RATIO = 0.02 as const
@@ -240,167 +236,6 @@ type ConfigRulesStateSnapshot = {
   totalLimitHit: boolean
   excludedByTotalLimitIndices: number[]
 }
-
-type KeepUniqueLogRule = {
-  id: string
-  name: string
-  enabled: boolean
-  requiredCount: number
-  countMode: KeepUniqueRuleCountMode
-  combination: KeepUniqueCombination
-  hash: string
-}
-
-type KeepUniqueLogArtifact = {
-  itemId: number
-  slot: ArtifactTypeId
-  set: ArtifactSetId
-  rank: RankValue
-  rarity: RankValue
-  level: LevelMilestone
-  exactLevel: number | null
-  faction: FactionId
-  source: string
-  mainStat: {
-    variant: StatVariant
-    isFlat: boolean
-    total: number
-    glyph: number
-    myth: number
-  } | null
-  ascension: {
-    variant: StatVariant
-    isFlat: boolean
-    total: number
-    glyph: number
-    myth: number
-  } | null
-  substats: Array<{
-    variant: StatVariant
-    isFlat: boolean
-    total: number
-    glyph: number
-    myth: number
-    rolls: number | null
-    position: number | null
-  }>
-}
-
-type KeepUniqueLogSnapshot = {
-  enabled: boolean
-  rules: KeepUniqueLogRule[]
-  resolvedRules: KeepUniqueLogRule[]
-  detection: KeepUniqueDetectionSnapshot | null
-  testerItems: KeepUniqueLogArtifact[]
-  groupItemKeys: number[]
-}
-
-const formatKeepUniqueRuleForLog = (rule: KeepUniqueRule): KeepUniqueLogRule => {
-  // Copy the combination so console dumps stay stable even if callers mutate state later.
-  const combination = {
-    slots: Array.isArray(rule.combination.slots) ? [...rule.combination.slots] : [],
-    sets: Array.isArray(rule.combination.sets) ? [...rule.combination.sets] : [],
-    metaSetIds: Array.isArray(rule.combination.metaSetIds) ? [...rule.combination.metaSetIds] : [],
-    ranks: Array.isArray(rule.combination.ranks) ? [...rule.combination.ranks] : [],
-    rarities: Array.isArray(rule.combination.rarities) ? [...rule.combination.rarities] : [],
-    mainStats: Array.isArray(rule.combination.mainStats) ? [...rule.combination.mainStats] : [],
-    factions: Array.isArray(rule.combination.factions) ? [...rule.combination.factions] : [],
-  }
-  // Include the combination hash to simplify matching UI rows to detection payloads.
-  return {
-    id: rule.id,
-    name: rule.name,
-    enabled: rule.enabled,
-    requiredCount: Number.isFinite(rule.requiredCount) ? Number(rule.requiredCount) : 0,
-    countMode: rule.countMode,
-    combination,
-    hash: hashKeepUniqueCombination(combination),
-  }
-}
-
-const formatKeepUniqueArtifactForLog = (artifact: NormalizedGearArtifact, fallbackItemId: number): KeepUniqueLogArtifact => {
-  // Prefer the tester-item id because that is what detection keys against in the UI.
-  const testerId = Number((artifact.testerItem as { itemId?: number } | undefined)?.itemId ?? NaN)
-  const itemId = Number.isFinite(testerId) ? testerId : fallbackItemId
-  // Inline stats so DevTools shows concrete numbers without expanding objects.
-  const mainStat = artifact.mainStat
-    ? {
-        variant: artifact.mainStat.variant,
-        isFlat: artifact.mainStat.isFlat,
-        total: Number(artifact.mainStat.totalValue),
-        glyph: Number(artifact.mainStat.glyphValue),
-        myth: Number(artifact.mainStat.mythValue),
-      }
-    : null
-  const ascension = artifact.ascension
-    ? {
-        variant: artifact.ascension.variant,
-        isFlat: artifact.ascension.isFlat,
-        total: Number(artifact.ascension.totalValue),
-        glyph: Number(artifact.ascension.glyphValue),
-        myth: Number(artifact.ascension.mythValue),
-      }
-    : null
-  const substats = artifact.substats.map((stat) => ({
-    variant: stat.variant,
-    isFlat: stat.isFlat,
-    total: Number(stat.totalValue),
-    glyph: Number(stat.glyphValue),
-    myth: Number(stat.mythValue),
-    rolls: Number.isFinite(stat.rolls) ? Number(stat.rolls) : null,
-    position: Number.isFinite(stat.position) ? Number(stat.position) : null,
-  }))
-  return {
-    itemId,
-    slot: artifact.slot,
-    set: artifact.set,
-    rank: artifact.rank,
-    rarity: artifact.rarity,
-    level: artifact.level,
-    exactLevel: artifact.exactLevel ?? null,
-    faction: artifact.faction,
-    source: artifact.source,
-    mainStat,
-    ascension,
-    substats,
-  }
-}
-
-const formatKeepUniqueDetectionForLog = (snapshot: KeepUniqueDetectionSnapshot): KeepUniqueDetectionSnapshot => ({
-  // Keep the timestamp so users can line up multiple dumps over time.
-  scannedAt: snapshot.scannedAt,
-  entries: snapshot.entries.map((entry) => ({
-    hash: entry.hash,
-    combination: entry.combination,
-    ruleId: entry.ruleId,
-    ruleEnabled: entry.ruleEnabled,
-    countMode: entry.countMode,
-    perGroupRequiredCount: entry.perGroupRequiredCount,
-    groupsTracked: entry.groupsTracked,
-    requiredCount: entry.requiredCount,
-    currentCount: entry.currentCount,
-    projectedCount: entry.projectedCount,
-    deficit: entry.deficit,
-    coveredByExisting: entry.coveredByExisting,
-    itemKeys: [...entry.itemKeys],
-    artifacts: entry.artifacts.map((artifact) => ({
-      itemKey: artifact.itemKey,
-      slot: artifact.slot,
-      set: artifact.set,
-      rank: artifact.rank,
-      rarity: artifact.rarity,
-      level: artifact.level,
-      exactLevel: artifact.exactLevel,
-      faction: artifact.faction,
-      mainStat: artifact.mainStat,
-      substats: artifact.substats.map((substat) => ({
-        variant: substat.variant,
-        isFlat: substat.isFlat,
-        value: substat.value,
-      })),
-    })),
-  })),
-})
 
 // Inserts/updates still flow through the worker; the UI only handles pure reorders locally.
 
@@ -634,8 +469,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       }
     }
   }, [keepUniqueDetectionSignature])
-  // Avoid spamming devtools; we only dump keep-unique payloads when the snapshot signature changes.
-  const keepUniqueDebugSigRef = useRef<string | null>(null)
   const pendingKeepUniqueDetectionSigRef = useRef<string | null>(null)
   const resetKeepUniqueDetectionState = useCallback(() => {
     keepUniqueScanAppliedRef.current = null
@@ -2143,56 +1976,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     configRulesState.rulesByConfig,
     configRulesState.finalSellRules,
     setConfigRulesState,
-  ])
-
-  const keepUniqueLogBundle = useMemo<{
-    signature: string
-    payload: KeepUniqueLogSnapshot
-  }>(() => {
-    // Build a stable signature so we only emit a dump when rules, toggles, or tester items change.
-    const detectionSig = fingerprintKeepUniqueDetection(keepUniqueDetection)
-    const ruleSig = fingerprintKeepUniqueRuleList(keepUniqueRules)
-    const itemIds = testerPreviewRows.map((row, idx) => {
-      const maybeId = getArtifactItemId(row.artifact, idx)
-      return Number.isFinite(maybeId ?? NaN) ? Number(maybeId) : -(idx + 1)
-    })
-    const itemSig = itemIds.length > 0 ? itemIds.join(',') : 'none'
-    // Inline everything into primitives so DevTools shows every field without manual expansion.
-    const payload: KeepUniqueLogSnapshot = {
-      enabled: keepUniquesActive,
-      rules: keepUniqueRules.map((rule) => formatKeepUniqueRuleForLog(rule)),
-      resolvedRules: resolvedKeepUniqueRules.map((rule) => formatKeepUniqueRuleForLog(rule)),
-      detection: keepUniqueDetection ? formatKeepUniqueDetectionForLog(keepUniqueDetection) : null,
-      testerItems: testerPreviewRows.map((row, idx) => formatKeepUniqueArtifactForLog(
-        row.artifact,
-        itemIds[idx] ?? getArtifactItemId(row.artifact, idx) ?? -(idx + 1),
-      )),
-      groupItemKeys: Array.from(keepUniqueGroupItemKeys.values()),
-    }
-    const signature = `${keepUniquesEnabled ? 'on' : 'off'}|rules:${ruleSig}|detect:${detectionSig ?? 'none'}|items:${itemSig}`
-    return { signature, payload }
-  }, [
-    keepUniquesEnabled,
-    keepUniquesActive,
-    keepUniqueRules,
-    resolvedKeepUniqueRules,
-    keepUniqueDetection,
-    testerPreviewRows,
-    keepUniqueGroupItemKeys,
-    fingerprintKeepUniqueRuleList,
-    getArtifactItemId,
-  ])
-
-  useEffect(() => {
-    const { signature, payload } = keepUniqueLogBundle
-    const alreadyLogged = signature === keepUniqueDebugSigRef.current
-    if (alreadyLogged) return
-    keepUniqueDebugSigRef.current = signature
-    // Print a compact summary first, then the full JSON block for copy/paste into chat.
-    console.log(`[keep-uniques][snapshot] enabled=${payload.enabled} rules=${payload.rules.length} resolved=${payload.resolvedRules.length} detectionEntries=${payload.detection?.entries.length ?? 0} testerItems=${payload.testerItems.length}`)
-    console.log(`[keep-uniques][payload] ${JSON.stringify(payload, null, 2)}`)
-  }, [
-    keepUniqueLogBundle,
   ])
 
   const selectedIsDirty = useMemo(() => {
