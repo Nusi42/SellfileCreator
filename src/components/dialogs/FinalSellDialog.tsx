@@ -10,6 +10,7 @@ import {
   FINAL_SELL_SETS_MODE_ANY,
   FINAL_SELL_SETS_MODE_EXPLICIT,
   FINAL_SELL_LEVEL_CHOICES,
+  finalSellCoversFullLevelRange,
   type FinalSellDialogTab,
   type FinalSellLevel,
   type FinalSellRemainderConfig,
@@ -90,6 +91,9 @@ export default function FinalSellDialog(props: FinalSellDialogProps) {
   const hasGear = value.artifacts || value.accessories
   const hasLevelRanges = value.levels.length > 0
   const finalSellActive = hasGear && hasLevelRanges
+  const finalSellFullRange = finalSellCoversFullLevelRange(value.levels)
+  // Keep Uniques depends on Final Sell covering the full ladder so protection rules stay aligned.
+  const keepUniquesFinalSellWarning = keepUniquesEnabled && (!finalSellActive || !finalSellFullRange)
   const statusWordKey = finalSellActive ? 'hintFinalSellStatusWordOn' : 'hintFinalSellStatusWordOff'
   const statusDetailKey = finalSellActive ? 'hintFinalSellStatusOnDetail' : 'hintFinalSellStatusOffDetail'
   const setsMode: FinalSellSetsMode = value.setsMode ?? FINAL_SELL_DEFAULT_SETS_MODE
@@ -390,6 +394,7 @@ export default function FinalSellDialog(props: FinalSellDialogProps) {
           <KeepUniquesTab
             rules={keepUniqueRules}
             enabled={keepUniquesEnabled}
+            finalSellCoverageWarningActive={keepUniquesFinalSellWarning}
             onRulesChange={onKeepUniqueRulesChange}
             onToggleEnabled={onKeepUniquesEnabledChange}
             detection={keepUniqueDetection}

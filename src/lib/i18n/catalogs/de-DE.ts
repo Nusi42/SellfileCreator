@@ -195,6 +195,7 @@ const overrides: Catalog = {
   keepUniquesTabLabel: 'Unikate behalten',
   keepUniquesTabIntro: 'Füge Behalte-Regeln pro Slot/Set/Stat-Kombination hinzu, damit deine aktuell aktiven Verkaufsregeln niemals jedes Exemplar dieser Kombination entfernen.',
   keepUniquesEnableLabel: 'Unikate behalten aktivieren',
+  keepUniquesFinalSellCoverageWarning: '`Unikate behalten` funktioniert am besten, wenn `Finaler Verkauf` aktiv ist und den kompletten Stufenbereich 0–16 abdeckt.',
   keepUniquesNoTesterData: 'Lade eine Gear-Datenbank, um gefährdete Kombinationen zu sehen.',
   keepUniquesScanPending: 'Scanne Ausrüstung …',
   keepUniquesDuplicateRule: 'Behalte-Regel duplizieren',

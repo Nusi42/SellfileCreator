@@ -195,6 +195,7 @@ const overrides: Catalog = {
   keepUniquesTabLabel: 'Benzersizleri Koru',
   keepUniquesTabIntro: 'Slot/set/istatistik kombinasyonu bazında kurallar ekleyin, böylece şu anda aktif olan Satış kurallarınız bu kombinasyonun tüm kopyalarını asla silmesin.',
   keepUniquesEnableLabel: 'Benzersizleri Koru\'yu etkinleştir',
+  keepUniquesFinalSellCoverageWarning: '`Benzersizleri Koru`, `Nihai satış` açık olup 0–16 seviye aralığını kapsadığında en iyi sonucu verir.',
   keepUniquesNoTesterData: 'Risk altındaki kombinasyonları görmek için bir ekipman veritabanı yükleyin.',
   keepUniquesScanPending: 'Ekipman taranıyor…',
   keepUniquesDuplicateRule: 'Yinelenen koruma kuralı',
