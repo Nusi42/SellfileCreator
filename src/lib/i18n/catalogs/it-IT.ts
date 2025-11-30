@@ -195,6 +195,7 @@ const overrides: Catalog = {
   keepUniquesTabLabel: 'Mantieni unici',
   keepUniquesTabIntro: 'Aggiungi regole per slot/set/statistica affinché le tue regole di vendita attualmente attive non eliminino tutte le copie di quella combinazione.',
   keepUniquesEnableLabel: 'Attiva Mantieni unici',
+  keepUniquesFinalSellCoverageWarning: '`Mantieni unici` funziona meglio se `Vendita finale` è attiva e copre l\'intero intervallo di livelli 0–16.',
   keepUniquesNoTesterData: 'Carica un database di equipaggiamento per vedere le combinazioni a rischio.',
   keepUniquesScanPending: 'Analisi dell\'equipaggiamento…',
   keepUniquesDuplicateRule: 'Duplica regola di mantenimento',

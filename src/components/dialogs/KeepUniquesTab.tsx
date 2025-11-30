@@ -22,6 +22,7 @@ import ContentCopyIcon from '@mui/icons-material/ContentCopy'
 import FilterListIcon from '@mui/icons-material/FilterList'
 import FilterListOffIcon from '@mui/icons-material/FilterListOff'
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined'
+import WarningAmberRoundedIcon from '@mui/icons-material/WarningAmberRounded'
 import {
   KEEP_UNIQUE_DEFAULT_COUNT_MODE,
   sanitizeKeepUniqueCountMode,
@@ -66,6 +67,7 @@ const SCOPE_CHIP_HOVER_ALPHA = { light: 0.12, dark: 0.24 } as const
 type KeepUniquesTabProps = {
   rules: KeepUniqueRule[]
   enabled: boolean
+  finalSellCoverageWarningActive: boolean
   onRulesChange: (next: SetStateAction<KeepUniqueRule[]>) => void
   onToggleEnabled: (next: SetStateAction<boolean>) => void
   detection: KeepUniqueDetectionSnapshot | null
@@ -91,6 +93,7 @@ const ARTIFACT_SET_POOL: readonly ArtifactSetId[] = Object.freeze([...ARMOR_FIXE
 export default function KeepUniquesTab({
   rules,
   enabled,
+  finalSellCoverageWarningActive,
   onRulesChange,
   onToggleEnabled,
   detection,
@@ -133,6 +136,8 @@ export default function KeepUniquesTab({
     )
   }, [theme])
   const clearLabel = t('clear')
+  // Warn when Keep Uniques runs without Final Sell covering 0–16 so users revisit the baseline sweep.
+  const keepUniquesFinalSellWarning = enabled && finalSellCoverageWarningActive
   const [selectedRuleId, setSelectedRuleId] = useState<string | null>(() => rules[0]?.id ?? null)
   const [respectManualDeselect, setRespectManualDeselect] = useState(false)
   const [pendingDeleteRuleId, setPendingDeleteRuleId] = useState<string | null>(null)
@@ -738,7 +743,27 @@ export default function KeepUniquesTab({
                       onChange={(_, checked) => onToggleEnabled(checked)}
                     />
                   )}
-                  label={t('keepUniquesEnableLabel')}
+                  label={(
+                    <Stack direction="row" spacing={0.5} alignItems="center">
+                      <Typography component="span">{t('keepUniquesEnableLabel')}</Typography>
+                      {keepUniquesFinalSellWarning ? (
+                        // Tooltip nudges users to align Keep Uniques with a full Final Sell sweep.
+                        <MarkdownTooltip markdown={t('keepUniquesFinalSellCoverageWarning')}>
+                          <Box
+                            component="span"
+                            aria-label={t('keepUniquesFinalSellCoverageWarning')}
+                            sx={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              color: 'warning.main',
+                            }}
+                          >
+                            <WarningAmberRoundedIcon fontSize="small" />
+                          </Box>
+                        </MarkdownTooltip>
+                      ) : null}
+                    </Stack>
+                  )}
                 />
               </Stack>
             </Box>

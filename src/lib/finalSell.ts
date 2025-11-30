@@ -32,6 +32,17 @@ export const FINAL_SELL_LEVEL_CHOICES: ReadonlyArray<{ key: FinalSellLevel; labe
   { key: 16, label: '16' },
 ] as const
 
+export function finalSellCoversFullLevelRange(levels: FinalSellLevel[]): boolean {
+  // Empty selections never cover 0–16, so Keep Uniques can lean on this to nudge users.
+  if (!levels.length) return false
+  const levelSet = new Set(levels)
+  for (const choice of FINAL_SELL_LEVEL_CHOICES) {
+    // Require every milestone so Final Sell spans the full 0–16 ladder without gaps.
+    if (!levelSet.has(choice.key)) return false
+  }
+  return true
+}
+
 export type FinalSellRemainderConfig = {
   artifacts: boolean
   accessories: boolean

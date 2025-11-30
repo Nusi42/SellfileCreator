@@ -195,6 +195,7 @@ const overrides: Catalog = {
   keepUniquesTabLabel: 'Conserver les uniques',
   keepUniquesTabIntro: 'Ajoutez des règles par emplacement/ensemble/stat afin que vos règles de vente actuellement actives ne suppriment jamais toutes les copies d’une combinaison.',
   keepUniquesEnableLabel: 'Activer Conserver les uniques',
+  keepUniquesFinalSellCoverageWarning: '`Conserver les uniques` fonctionne mieux si la `vente finale` est activée et couvre toute la plage de niveaux 0–16.',
   keepUniquesNoTesterData: 'Chargez une base de données d’équipement pour voir les combinaisons à risque.',
   keepUniquesScanPending: 'Analyse de l’équipement…',
   keepUniquesDuplicateRule: 'Dupliquer la règle de conservation',
