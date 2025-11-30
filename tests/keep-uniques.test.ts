@@ -1,8 +1,8 @@
 /* eslint import/no-unused-modules: off */
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { KEEP_UNIQUE_DEFAULT_COUNT_MODE, collectKeepUniqueCandidates, computeKeepUniqueProtection, hashKeepUniqueCombination, normalizeKeepUniqueRule, resolveKeepUniqueRulesWithMetasets } from '../src/lib/keepUniques.js'
-import { ArtifactSet, ArtifactType, StatVariant, type RankValue } from '../src/lib/types.js'
+import { KEEP_UNIQUE_DEFAULT_COUNT_MODE, collectKeepUniqueCandidates, computeKeepUniqueProtection, hashKeepUniqueCombination, normalizeKeepUniqueRule, resolveKeepUniqueRulesWithMetasets, buildDefaultKeepUniqueRules } from '../src/lib/keepUniques.js'
+import { ACCESSORY_SLOTS_COMPATIBLE_SET_IDS, ArtifactSet, ArtifactType, StatVariant, type RankValue } from '../src/lib/types.js'
 import type { TesterPreviewRow } from '../src/types/testerPreview.js'
 import type { NormalizedGearArtifact, NormalizedStat } from '../src/lib/importers/gearDbNormalizer.js'
 import type { KeepUniqueRule } from '../src/lib/keepUniques.js'
@@ -270,4 +270,44 @@ test('resolveKeepUniqueRulesWithMetasets expands set lists', () => {
   const resolved = resolveKeepUniqueRulesWithMetasets(rules, metasets)
   const combinationSets = resolved[0]?.combination.sets ?? []
   assert.deepStrictEqual(combinationSets.sort((a, b) => a - b), [ArtifactSet.Speed, ArtifactSet.DivineSpeed])
+})
+
+test('default keep unique rules seed the accessory guard and optional armor sets', () => {
+  const rules = buildDefaultKeepUniqueRules()
+  assert.strictEqual(rules.length, 2)
+  const accessoryRule = rules[0]
+  assert.ok(accessoryRule)
+  assert.deepStrictEqual(accessoryRule.combination.slots, [ArtifactType.Ring, ArtifactType.Amulet, ArtifactType.Banner])
+  assert.deepStrictEqual(accessoryRule.combination.sets, ACCESSORY_SLOTS_COMPATIBLE_SET_IDS)
+  assert.deepStrictEqual(accessoryRule.combination.ranks, [5, 6])
+  assert.deepStrictEqual(accessoryRule.combination.rarities, [5, 6])
+  assert.strictEqual(accessoryRule.requiredCount, 1)
+  const accessoryCountMode = accessoryRule.countMode
+  assert.ok(accessoryCountMode.perSlot)
+  assert.ok(accessoryCountMode.perSet)
+  assert.ok(accessoryCountMode.perFaction)
+  assert.ok(accessoryCountMode.perMainStat)
+
+  const armorRule = rules[1]
+  assert.ok(armorRule)
+  assert.strictEqual(armorRule.enabled, false)
+  assert.deepStrictEqual(armorRule.combination.slots, [
+    ArtifactType.Weapon,
+    ArtifactType.Helmet,
+    ArtifactType.Shield,
+    ArtifactType.Gauntlets,
+    ArtifactType.Chestplate,
+    ArtifactType.Boots,
+  ])
+  assert.deepStrictEqual(armorRule.combination.sets,
+    [ArtifactSet.Stun, ArtifactSet.Toxic, ArtifactSet.Daze, ArtifactSet.Cursed, ArtifactSet.Provoke, ArtifactSet.Destroy],
+  )
+  assert.deepStrictEqual(armorRule.combination.ranks, [5, 6])
+  assert.deepStrictEqual(armorRule.combination.rarities, [5, 6])
+  assert.strictEqual(armorRule.requiredCount, 1)
+  const armorCountMode = armorRule.countMode
+  assert.ok(armorCountMode.perSlot)
+  assert.ok(armorCountMode.perSet)
+  assert.strictEqual(armorCountMode.perFaction, false)
+  assert.strictEqual(armorCountMode.perMainStat, false)
 })

@@ -66,6 +66,8 @@ const overrides: Catalog = {
   testerDeleteSourceConfirmBody: 'Це вилучить усе спорядження «{source}» із превʼю тестера.',
   noSetAccessories: 'Немає — лише аксесуари',
   testerTableEmpty: 'Імпортуйте спорядження або додайте власні записи, щоб побачити збіги.',
+  testerTableEmptyKeepUniquesDisabled: '«Keep Uniques» вимкнено; увімкніть його, щоб повторно просканувати спорядження.',
+  testerTableEmptyKeepUniquesNoMatches: 'Жодне спорядження тестера не відповідає поточним фільтрам Keep Uniques.',
   testerTableEmptyFilter: 'Жоден запис тестера не відповідає поточним фільтрам.',
   testerGridScrollHint: '{group} • {detail}',
   testerGridCompactGroup: 'Стиснути поточну групу',

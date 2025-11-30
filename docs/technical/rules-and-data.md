@@ -41,6 +41,8 @@ This document covers file schemas, builder semantics, and compatibility notes.
 - Importers clamp `rank`/`rarity` to `1..6`, coerce non-numeric stats to `StatVariant.Any`, and drop accessory factions whenever the combination refers to an armor slot. IDs fall back to regenerated `ku_<timestamp>_<rand>` values when blanks arrive from external files.
 - Exporters write the combinations exactly as stored in app state. Detection snapshots (`keepUniqueDetection`) are runtime-only and never serialized; they rebuild automatically once the gear queue stabilizes.
 - Downstream merge helpers label every emitted keep rule with `RULE_SOURCE_KEEP_UNIQUES` (and omit ConfigID) so the Sellfile table, HSFC/HSF outputs, and downstream debuggers can pinpoint which keep rules were auto-generated from these combinations.
+- New sessions seed a default Keep Unique rule that protects 5★/6★ rings, amulets, and banners across every accessory-friendly set (1–9 families plus single-piece accessories) with `Per slot`, `Per set`, `Per faction`, and `Per main stat` scopes enabled so each combination preserves at least one item.
+- A second rule (disabled by default) guards 5★/6★ weapons and armor pieces (weapon, helmet, shield, gauntlets, chestplate, boots) for the stun, toxic, daze, cursed, provoke, and destroy sets with `Per slot` and `Per set` scopes so you can enable it later when those rare sets become important.
 
 ### IO Helpers (HSFC)
 - Parse text/file: `parseHsfcText`, `readHsfcFile`.

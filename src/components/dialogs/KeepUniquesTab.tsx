@@ -48,7 +48,6 @@ import { useI18n } from '../../lib/i18n'
 import { GearFactionSelect, GearMainStatSelect, GearRankSelect, GearRaritySelect, GearSetsSelect, GearSlotSelect } from '../gear'
 import { TesterItemsGrid } from '../TesterItemsGrid'
 import { NumberSpinnerAdornment } from '../NumberSpinnerAdornment'
-import { EmptyStateMessage } from '../EmptyStateMessage'
 import WorkloadProgressIndicator from '../WorkloadProgressIndicator'
 // MarkdownTooltip keeps the rule-count hints and info icons synchronized with the broader tooltip refactor.
 import MarkdownTooltip from '../MarkdownTooltip'
@@ -202,6 +201,7 @@ export default function KeepUniquesTab({
   }, [selectedEntry, uniqueItemKeySet])
   const highlightFilterActive = highlightActive && !selectionFilterApplied && uniqueRows.length > selectedVisibleRowCount
   const gridFiltered = uniqueFilterActive || highlightFilterActive || selectionFilterApplied
+  const hasTesterGear = testerRows.length > 0
   const selectionChipLabel = useMemo(() => {
     if (selectedEntry) {
       // Keep the detail chip focused on the highlighted combination whenever a rule is active.
@@ -812,34 +812,30 @@ export default function KeepUniquesTab({
               </Box>
             </Box>
             <Box sx={{ flex: 1, minHeight: 0 }}>
-              {testerRows.length === 0 ? (
-                <EmptyStateMessage
-                  borderVariant="dashed"
-                  minHeight="100%"
-                  sx={{ height: '100%', px: 3 }}
-                >
-                  {/* Empty tester states keep the grid column purposeful instead of blank space. */}
-                  {t('keepUniquesNoTesterData')}
-                </EmptyStateMessage>
-              ) : (
-                <TesterItemsGrid
-                  rows={gridRows}
-                  filterActive={gridFiltered}
-                  substatColors={substatColors}
-                  useStatButtonColors={useStatButtonColors}
-                  onToggleStatColors={onToggleStatColors}
-                  onOpenManageColors={onOpenManageColors}
-                  colorBlindMode={colorBlindMode}
-                  onChangeColorBlindMode={onChangeColorBlindMode}
-                  colorIconSrc={colorIconSrc}
-                  configNames={configNames}
-                  onJumpToRule={onJumpToRule}
-                  variant="keepUniques"
-                  highlightedRowPredicate={highlightRowPredicate ?? null}
-                  dimUnhighlightedRows={highlightActive}
-                  suppressMatchDetails={suppressMatchDetails}
-                />
-              )}
+              <TesterItemsGrid
+                rows={gridRows}
+                filterActive={gridFiltered}
+                substatColors={substatColors}
+                useStatButtonColors={useStatButtonColors}
+                onToggleStatColors={onToggleStatColors}
+                onOpenManageColors={onOpenManageColors}
+                colorBlindMode={colorBlindMode}
+                onChangeColorBlindMode={onChangeColorBlindMode}
+                colorIconSrc={colorIconSrc}
+                configNames={configNames}
+                onJumpToRule={onJumpToRule}
+                variant="keepUniques"
+                highlightedRowPredicate={highlightRowPredicate ?? null}
+                dimUnhighlightedRows={highlightActive}
+                suppressMatchDetails={suppressMatchDetails}
+                keepUniquesEnabled={enabled}
+                hasTesterData={hasTesterGear}
+                emptyStateOptions={!hasTesterGear ? {
+                  borderVariant: 'dashed',
+                  minHeight: '100%',
+                  sx: { height: '100%', px: 3 },
+                } : undefined}
+              />
             </Box>
           </Box>
         </Box>

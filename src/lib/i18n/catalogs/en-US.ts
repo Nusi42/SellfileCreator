@@ -66,6 +66,8 @@ const enUS: Catalog = {
   testerDeleteSourceConfirmBody: 'This removes all "{source}" gear from the Rule Tester preview.',
   noSetAccessories: 'None - Only Accessories',
   testerTableEmpty: 'Import gear or add custom entries to see matches here.',
+  testerTableEmptyKeepUniquesDisabled: 'Keep Uniques is disabled; turn it on to scan your gear.',
+  testerTableEmptyKeepUniquesNoMatches: 'No tester gear matches the current Keep Uniques filters.',
   testerTableEmptyFilter: 'No gear matches the current filters.',
   testerGridScrollHint: '{group} • {detail}',
   testerGridCompactGroup: 'Compact Current Group',

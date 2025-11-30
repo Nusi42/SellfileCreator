@@ -71,7 +71,9 @@ import {
 import { useContextMenuCloseOnOutsideRightClick } from '../hooks/useContextMenuCloseOnOutsideRightClick'
 import { useTesterGridPreferences } from '../state/testerGridPreferences'
 import { championIconUrl } from '../lib/iconMaps/championIconMap'
-import { EmptyStateMessage } from './EmptyStateMessage'
+import EmptyStateMessage, { type EmptyStateMessageProps } from './EmptyStateMessage'
+
+type EmptyStateWrapperProps = Omit<EmptyStateMessageProps, 'children'>
 
 const GRID_CARD_SINGLE_COLUMN_TEMPLATE = 'minmax(0, 1fr)'
 const TESTER_GRID_ICON_BOX_SIZE_PX = 72
@@ -186,6 +188,9 @@ type TesterItemsGridProps = {
   configNames: Array<string | null>
   onJumpToRule?: ((ruleIndex: number, cfgIdx: number | null) => void) | undefined
   variant?: TesterItemsGridVariant
+  keepUniquesEnabled?: boolean
+  hasTesterData?: boolean
+  emptyStateOptions?: Partial<EmptyStateMessageProps> | undefined
   suppressMatchDetails?: boolean
   // Optional highlighter lets Keep Uniques fade non-matching cards without forking the grid.
   highlightedRowPredicate?: ((row: TesterPreviewRow) => boolean) | null
@@ -226,6 +231,9 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     configNames,
     onJumpToRule,
     variant = 'tester',
+    keepUniquesEnabled = true,
+    hasTesterData = true,
+    emptyStateOptions,
     suppressMatchDetails: suppressMatchDetailsProp = false,
     highlightedRowPredicate = null,
     dimUnhighlightedRows = false,
@@ -764,10 +772,23 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     flattenedItems,
   ])
   if (rows.length === 0) {
-    // Highlight props bubble through the group tree so only the leaf cards need to know about Keep Uniques.
+    const emptyStateMessage = (() => {
+      if (keepUniquesVariant) {
+        if (!hasTesterData) return t('keepUniquesNoTesterData')
+        if (!keepUniquesEnabled) return t('testerTableEmptyKeepUniquesDisabled')
+        if (filterActive) return t('testerTableEmptyFilter')
+        return t('testerTableEmptyKeepUniquesNoMatches')
+      }
+      return filterActive ? t('testerTableEmptyFilter') : t('testerTableEmpty')
+    })()
+    const emptyStateProps: EmptyStateWrapperProps = {
+      borderVariant: 'none',
+      minHeight: 'auto',
+      ...(emptyStateOptions ?? {}),
+    }
     return (
-      <EmptyStateMessage sx={{ flex: '1 1 auto', minHeight: 0 }} minHeight="100%">
-        {filterActive ? t('testerTableEmptyFilter') : t('testerTableEmpty')}
+      <EmptyStateMessage {...emptyStateProps}>
+        {emptyStateMessage}
       </EmptyStateMessage>
     )
   }
