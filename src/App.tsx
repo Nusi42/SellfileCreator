@@ -748,6 +748,15 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       }
       return false
     })()
+    // Artifact signature drift signals that the tester payload meaningfully changed.
+    const artifactsChanged = !lastPipelineSignatureRef.current
+      || lastPipelineSignatureRef.current.artifactSig !== pipelineArtifactSignature
+    // When the preview empties out we need to purge the worker's artifact cache explicitly;
+    // otherwise, stale cached artifacts would keep producing keep-unique rows.
+    const workerNeedsReset = testerPreviewArtifacts.length === 0
+      && lastPipelineSignatureRef.current?.artifactSig !== pipelineArtifactSignature
+      && lastPipelineSignatureRef.current?.artifactSig !== undefined
+      && lastPipelineSignatureRef.current?.artifactSig !== null
     // Skip redundant pipelines when deferred snapshots catch up without changing the rule or artifact signatures.
     if (
       canSkipWarm
@@ -755,6 +764,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       && lastPipelineSignatureRef.current
       && lastPipelineSignatureRef.current.fingerprint === nextFingerprint
       && lastPipelineSignatureRef.current.artifactSig === pipelineArtifactSignature
+      && !workerNeedsReset
     ) {
       return () => {
         abortController.abort()
@@ -782,7 +792,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       ? buildIndexMapping(prevState.keys, nextConfigKeys)
       : null
     const hasArtifacts = testerPreviewArtifacts.length > 0
-    if (canSkipWarm && configNamesChanged && prevMatches.length > 0) {
+    if (!artifactsChanged && canSkipWarm && configNamesChanged && prevMatches.length > 0) {
       // Names changed but rule fingerprints are stable; update cached rows without rebuilding.
       const updatedRows = prevMatches.map((row) => {
         const remapName = (cfgIdx: number | null): string | null => {
@@ -802,7 +812,13 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       }
     }
 
-    if (!restoringAutosaveRef.current && mapping && mapping.some((idx, newIdx) => idx !== newIdx) && !hasArtifacts) {
+    if (
+      !artifactsChanged
+      && !restoringAutosaveRef.current
+      && mapping
+      && mapping.some((idx, newIdx) => idx !== newIdx)
+      && !hasArtifacts
+    ) {
       // Fast path: reorder-only changes can remap cached rules without waking the worker.
       const inverse = new Map<number, number>()
       mapping.forEach((prevIdx, newIdx) => { inverse.set(prevIdx, newIdx) })
@@ -957,6 +973,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       skipWarm: canSkipWarm,
       skipMatches: false,
       skipDetection: false,
+      resetArtifacts: workerNeedsReset,
     }
 
     lastPipelineSignatureRef.current = { fingerprint: nextFingerprint, artifactSig: pipelineArtifactSignature }
@@ -1977,7 +1994,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     configRulesState.finalSellRules,
     setConfigRulesState,
   ])
-
   const selectedIsDirty = useMemo(() => {
     if (selectedCfgIdx === null) return false
     const target = customCfgs[selectedCfgIdx]
