@@ -962,7 +962,7 @@ function KeepUniqueSummaryCard({
       key={`ku-row-${label}`}
       sx={{
         display: 'grid',
-        gridTemplateColumns: '120px minmax(0, 1fr)',
+        gridTemplateColumns: 'minmax(96px, min(50%, 140px)) minmax(0, 1fr)',
         columnGap: 1,
         alignItems: options.valueAlign === 'center' ? 'center' : 'flex-start',
       }}
