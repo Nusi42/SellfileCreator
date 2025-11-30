@@ -756,7 +756,7 @@ function KeepUniqueBlock({ node }: KeepUniqueBlockProps): JSX.Element | null {
   const entries = resolvedEntries ?? []
   if (entries.length === 0) return null
   return (
-    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5, my: 1, alignItems: 'stretch' }}>
+    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5, my: 1, alignItems: 'flex-start' }}>
       {entries.map(({ id, rule }) => (
         <Box key={`note-ku-${id}`} sx={{ flex: '1 1 300px', minWidth: 260, maxWidth: 400 }}>
           <KeepUniqueSummaryCard
@@ -978,7 +978,7 @@ function KeepUniqueSummaryCard({
       key={`ku-row-${label}`}
       sx={{
         display: 'grid',
-        gridTemplateColumns: 'minmax(96px, min(50%, 140px)) minmax(0, 1fr)',
+        gridTemplateColumns: 'minmax(90px, 1fr) minmax(0, 2fr)',
         columnGap: 1,
         alignItems: options.valueAlign === 'center' ? 'center' : 'flex-start',
       }}
@@ -998,14 +998,13 @@ function KeepUniqueSummaryCard({
         border: '1px solid',
         borderColor: 'divider',
         px: 1,
-        pt: 0.35,
-        pb: 1,
+        pt: 0.25,
+        pb: 0.75,
         bgcolor: 'background.paper',
-        height: '100%',
       }}
     >
-      <Stack spacing={0.35} sx={{ width: 1 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 0.5, alignItems: 'center', flexWrap: 'wrap', width: 1 }}>
+      <Stack spacing={0.25} sx={{ width: 1 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 0.35, alignItems: 'flex-start', flexWrap: 'wrap', width: 1 }}>
           <Typography
             variant="subtitle2"
             sx={{ fontWeight: 700, wordBreak: 'break-word', lineHeight: 1, fontSize: '0.82rem', flex: '1 1 auto', minWidth: 0 }}
