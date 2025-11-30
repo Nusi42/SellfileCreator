@@ -784,7 +784,7 @@ export function buildHsfcPayload(args: {
     Minima: unknown
     Configs: unknown[]
     FinalSellRemainder: FinalSellRemainderConfig
-    KeepUniques: Array<{ id: string; requiredCount: number; enabled: boolean; countMode: KeepUniqueRule['countMode']; tuple: KeepUniqueRule['combination'] }>
+    KeepUniques: Array<{ id: string; name?: string; requiredCount: number; enabled: boolean; countMode: KeepUniqueRule['countMode']; tuple: KeepUniqueRule['combination'] }>
     KeepUniquesEnabled: boolean
     SelectedConfigIndex?: number
     Note?: string
@@ -834,8 +834,10 @@ export function buildHsfcPayload(args: {
       // Persist the normalized scope object explicitly so the loader can
       // rehydrate the same chip state without guessing at defaults.
       const mode = sanitizeKeepUniqueCountMode(rule.countMode)
+      const trimmedName = typeof rule.name === 'string' ? rule.name.trim().slice(0, 160) : ''
       return {
         id: rule.id,
+        ...(trimmedName ? { name: trimmedName } : {}),
         requiredCount: Math.max(1, Math.floor(rule.requiredCount)),
         enabled: rule.enabled !== false,
         countMode: {

@@ -203,6 +203,7 @@ const overrides: Catalog = {
   keepUniquesDeleteRuleTitle: 'Behalte-Regel löschen?',
   keepUniquesDeleteRuleMessage: 'Diese Regel wird sofort entfernt. Das kann nicht rückgängig gemacht werden.',
   keepUniquesRuleEnabledToggle: 'Regel aktiviert',
+  keepUniquesRuleNameLabel: 'Regelname',
   keepUniquesRuleCounts: 'Vorhanden {have} / Behalten {keep}',
   keepUniquesRuleCountsPerGroupSuffix: '{perGroup} je {scope} (verfolgt {groups})',
   keepUniquesRuleCountsHint: '**Vorhanden / Behalten**\n- `Vorhanden`: bereits durch Konfigs, Final Sell oder frühere Keep-Regeln geschützte Items.\n- `Behalten`: die Quote aus `≥ Benötigte Anzahl`.\nNur Tester-Gegenstände, die zur Regel passen, fließen in diese Zahlen ein.',

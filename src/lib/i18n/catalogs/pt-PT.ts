@@ -203,6 +203,7 @@ const overrides: Catalog = {
   keepUniquesDeleteRuleTitle: 'Eliminar a regra de manutenção?',
   keepUniquesDeleteRuleMessage: 'Esta regra será removida imediatamente. Esta ação não pode ser desfeita.',
   keepUniquesRuleEnabledToggle: 'Regra ativada',
+  keepUniquesRuleNameLabel: 'Nome da regra',
   keepUniquesRuleCounts: 'Existem {have} / Manter {keep}',
   keepUniquesRuleCountsPerGroupSuffix: '{perGroup} por {scope} (acompanhados {groups})',
   keepUniquesRuleCountsHint: '**Existem / Manter**\n- `Existem`: itens já protegidos pelas configs, Final Sell ou regras anteriores.\n- `Manter`: a cota definida em `≥ Quantidade necessária`.\nSó contam os itens do Tester que coincidem com a regra.',

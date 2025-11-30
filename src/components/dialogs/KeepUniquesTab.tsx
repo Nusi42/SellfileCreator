@@ -223,6 +223,7 @@ export default function KeepUniquesTab({
     const newRule: KeepUniqueRule = {
       id: createKeepUniqueRuleId(),
       combination,
+      name: '',
       requiredCount: 1,
       enabled: true,
       countMode: { ...KEEP_UNIQUE_DEFAULT_COUNT_MODE },
@@ -492,6 +493,20 @@ export default function KeepUniquesTab({
               </MarkdownTooltip>
             </Stack>
           </Box>
+          <TextField
+            fullWidth
+            size="small"
+            label={t('keepUniquesRuleNameLabel')}
+            value={rule.name}
+            onClick={(event) => event.stopPropagation()}
+            onChange={(event) => {
+              const raw = event.target.value ?? ''
+              // Cap the name field so exports stay compact while still allowing descriptive labels.
+              const next = raw.slice(0, 160)
+              updateRule(rule.id, (prev) => ({ ...prev, name: next }))
+            }}
+            inputProps={{ maxLength: 160 }}
+          />
           <Stack spacing={1}>
             <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 1 }}>
               <RuleFieldWithScopeChip chip={renderScopeChip('perSlot', perSlotLabel, scopeActive.perSlot)}>

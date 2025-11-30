@@ -203,6 +203,7 @@ const overrides: Catalog = {
   keepUniquesDeleteRuleTitle: 'Eliminare la regola di mantenimento?',
   keepUniquesDeleteRuleMessage: 'Questa regola verrà rimossa subito. Questa azione non può essere annullata.',
   keepUniquesRuleEnabledToggle: 'Regola abilitata',
+  keepUniquesRuleNameLabel: 'Nome della regola',
   keepUniquesRuleCounts: 'Presenti {have} / Conservare {keep}',
   keepUniquesRuleCountsPerGroupSuffix: '{perGroup} per {scope} (monitorati {groups})',
   keepUniquesRuleCountsHint: '**Presenti / Conservare**\n- `Presenti`: oggetti già protetti da configurazioni, Final Sell o vecchie regole di mantenimento.\n- `Conservare`: la quota definita in `≥ Quantità richiesta`.\nSolo gli oggetti del Tester che corrispondono alla regola vengono conteggiati.',
