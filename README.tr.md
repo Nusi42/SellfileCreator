@@ -35,7 +35,7 @@ RSL Helper için satış kurallarını basit bir arayüzle oluşturun, önizleyi
   - `Koru` eşyayı Koru olarak işaretler; RSL Helper dokunmaz.
   - `Sat` eşyayı Sat olarak işaretler; RSL Helper satışı sıraya koyar.
   - «Sellfile içinde etkin» anahtarı, dışa aktarılan satırların aktif kalıp kalmayacağını belirler. Kapalı konfigler Use = false olarak dışa aktarılır (önizlemede üstü çizilir); tamamen hariç tutmak isterseniz dışa aktarma menüsünden «Dışa aktarırken devre dışı kuralları atla» seçeneğini açın.
-- Rütbe: 6★ ekipmanı 5★’dan farklı ele almak istiyorsanız kuralı belirli yıldız rütbeleriyle sınırlandırın. `Hepsi` tüm rütbeleri kapsar.
+- Rütbe: 6★ ekipmanı 5★’dan farklı ele almak istiyorsanız kuralı belirli yıldız rütbeleriyle sınırlandırın. `Herhangi` tüm rütbeleri kapsar.
 - Seviyeler: +0, +4, +8, +12, +16 dönüm noktaları arasından minimum ve maksimum seviyeyi seçin. Satırlar yalnızca bu aralıkta üretilir.
 - Nadirlik: `Oto` (önerilen) seçili seviyelerde koşulları karşılayan en düşük nadirliği bulur.
   - Stat başına minimum ya da toplam hedef yoksa, Oto kuralı geniş tutar; tüm nadirlikler geçerlidir.
@@ -46,7 +46,7 @@ RSL Helper için satış kurallarını basit bir arayüzle oluşturun, önizleyi
     - Yalnızca Nadirlik = Oto ve Eşikler = Geç iken aktiftir; diğer durumda çip üzerinde eğik çizgi görünür.
     - Örnek: SPD ve ATK% alt statlı bir sancak, ATK% için 2 rulo istiyor. Nadirlik = Oto, Eşikler = Geç, Oto ≥ Destansı. Sonuç: Her seviyede Destansı satırlar ve +8/+12’de ≥ Efsanevi dallar; nadir droplar elenmez.
   - +16’ya kadar oluşturucu, nadirliğin o anda izin verdiği alt stat sayısını kullanır. +16’da hedefiniz tam olarak uygulanır.
-- Faksiyon: Belirli bir takım için aksesuar topluyorsanız kuralı o faksiyonla sınırlandırın. Yüzük, Muska ve Sancak filtreye uyar; zırh faksiyon görmez, bu yüzden `Hepsi` güvenlidir.
+- Faksiyon: Belirli bir takım için aksesuar topluyorsanız kuralı o faksiyonla sınırlandırın. Yüzük, Muska ve Sancak filtreye uyar; zırh faksiyon görmez, bu yüzden `Herhangi` güvenlidir.
 - Yuvalar: Kuralları belirli ekipman parçalarına (Silah, Çizme vb.) odaklayın. Boş bırakırsanız tüm yuvaları kapsar.
 - Setler ve metasetler: Belirli setleri veya isimlendirilmiş metasetleri hedefleyin. Boş = tüm setler.
 - Ana stat: Kabul edilen ana statları tanımlar.
@@ -107,7 +107,7 @@ RSL Helper için satış kurallarını basit bir arayüzle oluşturun, önizleyi
 
 ### Sellfile önizlemesi (Rules & Kural testi)
 - Önizleme başlığı `Rules`/`Kural testi` anahtarını, “Gear...” düğmesini ve “Load RSL Helper Sellfile” düğmesini yan yana tutar; böylece tabloyu nereden değiştireceğinizi veya Kural testi iletişim kutusunu nereden açacağınızı her zaman bilirsiniz.
-- `Rules` görünümü (varsayılan): Dışa aktarılacak tüm kuralları, yüklediğiniz isteğe bağlı baz `.hsf` satırları dahil gösterir. Başlıktaki sayaçlar Keep vs Sell dağılımında kalır; filtre satırı Slot/Rütbe/Nadirlik/Seviye için Any/Only çiplerini ve iki Configs düğmesini birlikte gösterir: `Önizleme konfigleri` çip görünürlüğünü kontrol eder, `Konfig filtresi` ise seçtiğiniz çiplere göre Sellfile satırlarını gizleyen basit Açık/Kapalı düğmesi olarak çalışır ve tester’a geçmeden önce bile hazır kalır.
+- `Rules` görünümü (varsayılan): Dışa aktarılacak tüm kuralları, yüklediğiniz isteğe bağlı baz `.hsf` satırları dahil gösterir. Başlıktaki sayaçlar Keep vs Sell dağılımında kalır; filtre satırı Slot/Rütbe/Nadirlik/Seviye için Herhangi/Yalnızca (`Any/Only`) çiplerini ve iki Configs düğmesini birlikte gösterir: `Önizleme konfigleri` çip görünürlüğünü kontrol eder, `Konfig filtresi` ise seçtiğiniz çiplere göre Sellfile satırlarını gizleyen basit Açık/Kapalı düğmesi olarak çalışır ve tester’a geçmeden önce bile hazır kalır.
 - `Kural testi` görünümü: Tabloyu içeri aktardığınız veya oluşturduğunuz öğelerin listesine çevirir, böylece iletişim kutusunu yeniden açmadan inceleme yapabilirsiniz. Sayaçlar/rozetler Matched vs No Match (ve Keep vs Sell) kombinasyonuna, yani “ilk eşleşen konfig kazanır” kuralına göre geçer; filtre satırı ise `Önizleme konfigleri` ve `Konfig filtresi` düğmelerini korur ve bunlara Kural testi’ne özel Keep/Sell + Matched/No Match filtresini ekler. `Konfig filtresi` tri-state’i (`Off` → `İlk` → `Herhangi`) bu görünümde Kural testi satırlarının İlk/Herhangi davranışını ayırır ve `Rules`’a döndüğünüzde de Sellfile satırlarını seçtiğiniz konfiglerle sınırlamaya devam eder. `.db` içe aktarmaları otomatik olarak bu görünüme geçer; istediğiniz zaman `Rules`’a dönebilirsiniz.
 - “Load RSL Helper Sellfile” sürükle-bırak ile aynı yönlendirmeyi paylaşır: `.hsfc` oluşturucuyu değiştirir, `.hsf` isteğe bağlı baz Sellfile olarak katmanlanır ve `.db` dosyaları Kural testi önizlemesine kuyruklanır (konfiglere dokunmadan). “Clear” düğmesi baz `.hsf` katmanını kaldırır.
 - Palet simgesini kullanarak alt stat etiketleri için metin/arka plan renklerini düzenleyin.

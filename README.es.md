@@ -35,7 +35,7 @@ Crea, revisa y exporta reglas de venta para RSL Helper con una interfaz sencilla
   - `Conservar` marca el objeto como Conservar; RSL Helper lo deja intacto.
   - `Vender` marca el objeto como Vender; RSL Helper lo pone en la cola de venta.
   - El interruptor «Activado en el Sellfile» decide si las filas exportadas siguen activas. Las configs desactivadas se exportan con Use = false (se ven tachadas en la vista previa); activa «Omitir reglas desactivadas al exportar» en el menú de exportación si prefieres dejarlas fuera.
-- Rango: Limita la regla a ciertos rangos de estrellas si quieres tratar las piezas de 6★ distinto a 5★. `Todos` deja todos los rangos válidos.
+- Rango: Limita la regla a ciertos rangos de estrellas si quieres tratar las piezas de 6★ distinto a 5★. `Cualquiera` deja todos los rangos válidos.
 - Niveles: Elige Nivel mínimo y máximo entre los hitos +0, +4, +8, +12, +16. Solo se generan filas dentro de esa ventana.
 - Rareza: `Auto` (recomendado) escoge la rareza más baja que sigue cumpliendo tus requisitos en los niveles seleccionados.
   - ¿Sin mínimos por stat ni suma global? Auto mantiene la regla amplia para que todas las rarezas sigan siendo válidas.
@@ -46,7 +46,7 @@ Crea, revisa y exporta reglas de venta para RSL Helper con una interfaz sencilla
     - Solo está activo cuando Rareza = Auto y Umbrales por hitos = Tardío. En caso contrario verás una barra diagonal.
     - Ejemplo: Estandarte con SPD y ATK%, donde ATK% necesita 2 tiradas. Rareza = Auto, Umbrales = Tardío, Auto ≥ Épico. Obtienes filas épicas en todos los niveles y ≥ Legendaria en +8 y +12, de modo que las piezas más raras siguen contando.
   - Antes de +16 el constructor usa el número de substats que la rareza puede tener en ese momento. A +16 aplica tu objetivo completo.
-- Facción: Restringe las reglas de accesorios a una facción concreta cuando construyes un equipo específico. Anillos, Amuletos y Estandartes respetan el filtro; la armadura lo ignora, así que `Todos` es la opción segura para ella.
+- Facción: Restringe las reglas de accesorios a una facción concreta cuando construyes un equipo específico. Anillos, Amuletos y Estandartes respetan el filtro; la armadura lo ignora, así que `Cualquiera` es la opción segura para ella.
 - Ranuras: Centra la regla en piezas concretas (Arma, Botas, etc.) para evitar que coincidan objetos fuera de slot. Déjalo vacío para abarcar todas las ranuras.
 - Sets y Metasets: Filtra por conjuntos concretos o metasets nombrados cuando solo quieres esas combinaciones. Vacío = todos los sets.
 - Mainstats: Define qué mainstats son aceptables.
@@ -55,7 +55,7 @@ Crea, revisa y exporta reglas de venta para RSL Helper con una interfaz sencilla
 - Substats: Indica qué substats importan.
   - Haz clic para activar o desactivar un substat. Los bloqueados siempre aparecen en las filas generadas.
   - Usa el candado (🔒) junto a la etiqueta para exigirlo; con clic derecho abres las opciones rápidas de bloqueo y límites de tiradas.
-  - `Any` restablece la selección y significa «sin restricciones». Al elegir substats concretos, `Any` se desactiva.
+  - `Cualquiera` restablece la selección y significa «sin restricciones». Al elegir substats concretos, `Cualquiera` se desactiva.
   - Cada fila usa `max(Requeridos, bloqueados)` con un máximo de cuatro substats, así que un substat bloqueado siempre reserva hueco.
 - Interruptor Flex: Si tienes más opciones que la cantidad requerida, Flex rota esas opciones por todas las permutaciones válidas para generar cada mezcla posible. Los bloqueados permanecen fijos y el interruptor se apaga solo cuando ya no hay nada que rotar.
 - Indicador de tiradas: Cada substat seleccionado muestra un círculo para las mejoras.

@@ -35,7 +35,7 @@ Crie, reveja e exporte regras de venda para o RSL Helper com uma interface simpl
   - `Manter` marca o item como Manter; o RSL Helper deixa-o intacto.
   - `Vender` marca o item como Vender; o RSL Helper coloca-o na fila de venda automática.
   - O interruptor «Ativado no Sellfile» decide se as linhas exportadas permanecem ativas. Configs desativadas exportam com Use = false (ficam riscadas na prévia); ativa «Omitir regras desativadas ao exportar» no menu de exportação se quiseres deixá-las de fora.
-- Rank: Limite a regra a determinados ranks de estrelas caso queira tratar as peças de 6★ de forma diferente das de 5★. `Todos` mantém todos os ranks elegíveis.
+- Rank: Limite a regra a determinados ranks de estrelas caso queira tratar as peças de 6★ de forma diferente das de 5★. `Qualquer` mantém todos os ranks elegíveis.
 - Níveis: Escolha Nível mínimo e máximo entre os marcos +0, +4, +8, +12, +16. As linhas só são geradas dentro dessa janela.
 - Raridade: `Auto` (recomendado) escolhe a raridade mais baixa que continua a satisfazer os requisitos nos níveis selecionados.
   - Sem mínimos por stat ou soma global? Auto mantém a regra abrangente, compatível com todas as raridades.
@@ -46,7 +46,7 @@ Crie, reveja e exporte regras de venda para o RSL Helper com uma interface simpl
     - Só fica ativo quando Raridade = Auto e Limiar por marcos = Tarde. Caso contrário vê uma barra diagonal.
     - Exemplo: estandarte com SPD e ATK%, onde ATK% precisa de 2 rolagens. Raridade = Auto, Limiar = Tarde, Auto ≥ Épico. Resultado: linhas Épicas em todos os marcos e ≥ Lendária em +8/+12 para manter peças raras elegíveis.
   - Antes de +16 o builder usa o número de substats que a raridade suporta nesse momento. Em +16 aplica o objetivo completo.
-- Fação: Restrinja regras de acessórios a uma fação específica quando está a montar uma equipa. Anéis, Amuletos e Estandartes respeitam o filtro; a armadura ignora a fação, pelo que `Todos` é a opção segura.
+- Fação: Restrinja regras de acessórios a uma fação específica quando está a montar uma equipa. Anéis, Amuletos e Estandartes respeitam o filtro; a armadura ignora a fação, pelo que `Qualquer` é a opção segura.
 - Slots: Foque a regra em slots específicos (Arma, Botas, etc.) para impedir que itens fora do slot coincidam. Vazio = todos os slots.
 - Sets e Meta-sets: Filtre para conjuntos específicos ou meta-sets nomeados quando só pretende essas combinações. Vazio = todos os sets.
 - Mainstats: Defina quais os mainstats aceites.
@@ -55,7 +55,7 @@ Crie, reveja e exporte regras de venda para o RSL Helper com uma interface simpl
 - Substats: Indique quais contam.
   - Clique para ativar ou desativar um substat. Os bloqueados aparecem sempre nas linhas geradas.
   - Use o cadeado (🔒) junto ao rótulo para o tornar obrigatório; o clique direito abre as ações rápidas de bloqueio e limites de rolagem.
-  - `Any` repõe a seleção e significa «sem restrições». Ao escolher substats concretos, `Any` desativa-se.
+  - `Qualquer` repõe a seleção e significa «sem restrições». Ao escolher substats concretos, `Qualquer` desativa-se.
   - Cada linha usa `max(Obrigatórios, bloqueados)` até um máximo de quatro substats; bloquear reserva sempre um espaço.
 - Interruptor Flex: Se houver mais opções do que o total obrigatório, o Flex roda essas opções por todas as permutações válidas para gerar cada mistura. Os bloqueados mantêm-se e o interruptor desliga-se sozinho quando já não há nada para rodar.
 - Indicador de rolagens: Cada substat selecionado mostra um círculo para as melhorias.
@@ -123,7 +123,7 @@ Dica: importa a tua `.db` ou cola itens no Teste de Regras antes de abrir a aba 
 
 ### Prévia Sellfile (Regras e Teste de Regras)
 - O cabeçalho da prévia mantém o interruptor «Rules»/«Teste de Regras», o botão «Gear...» e o botão “Load RSL Helper Sellfile” juntos para saber sempre onde alternar de tabela ou abrir o diálogo do tester.
-- Vista «Rules» (padrão): mostra todas as linhas que serão exportadas, incluindo quaisquer `.hsf` base opcionais. Os contadores mantêm o resumo Manter vs Vender, a linha de filtros conserva os chips Todos/Só (Any/Only) para Slots/Rank/Raridade/Nível e agora apresenta os dois botões de Configs em paralelo: «Configs prévia» decide se as etiquetas fora dos filtros atuais ficam ocultas e o «Filtro de configs» funciona como um interruptor Ligado/Desligado que limita as linhas do Sellfile às etiquetas selecionadas (deixando a mesma seleção pronta para o tester).
+- Vista «Rules» (padrão): mostra todas as linhas que serão exportadas, incluindo quaisquer `.hsf` base opcionais. Os contadores mantêm o resumo Manter vs Vender, a linha de filtros conserva os chips Qualquer/Apenas (`Any/Only`) para Slots/Rank/Raridade/Nível e agora apresenta os dois botões de Configs em paralelo: «Configs prévia» decide se as etiquetas fora dos filtros atuais ficam ocultas e o «Filtro de configs» funciona como um interruptor Ligado/Desligado que limita as linhas do Sellfile às etiquetas selecionadas (deixando a mesma seleção pronta para o tester).
 - Vista «Teste de Regras»: muda a tabela para a lista de equipamento importado ou criado sem precisares de reabrir o diálogo. Os contadores passam a `Matched` vs `No Match` (mais Manter/Vender) segundo a regra “a primeira coincidência ganha” e a linha de filtros mantém ambos os botões de Configs («Configs prévia» + «Filtro de configs»). O primeiro continua a gerir a visibilidade das etiquetas, enquanto o «Filtro de configs» aplica o triestado (`Off` → `Primeira` → `Qualquer`) para isolar as linhas do Teste de Regras e continua a limitar as regras do Sellfile à mesma seleção quando regressas a «Rules». Soma-se ainda o filtro de resultados (Manter/Vender vs `Matched`/`No Match`), permitindo isolar peças cujo primeiro — ou qualquer — match pertence à tua seleção sem esconder as etiquetas. Importar um `.db` alterna automaticamente para esta vista, mas podes voltar a «Rules» a qualquer momento.
 - O botão “Load RSL Helper Sellfile” comporta-se da mesma forma que o arrastar-e-largar: `.hsfc` substitui o estado do builder, `.hsf` adiciona o Sellfile base opcional e `.db` envia itens para a prévia do Teste de Regras sem tocar em configs ou export. «Limpar» remove o `.hsf` base quando existir.
 - O ícone da paleta abre a gestão de cores para personalizar texto e fundo dos substats.

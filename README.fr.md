@@ -35,7 +35,7 @@ Construisez, prévisualisez et exportez des règles de vente pour RSL Helper via
   - `Conserver` marque l’objet comme Conserver ; RSL Helper le laisse intact.
   - `Vendre` marque l’objet comme Vendre ; RSL Helper le place dans la file de vente.
   - L’interrupteur « Activé dans le Sellfile » décide si les lignes exportées restent actives. Les configs désactivées sont exportées avec Use = false (affichées barrées dans l’aperçu) ; activez « Ignorer les règles désactivées lors de l\'export » dans le menu d’export si vous préférez les exclure.
-- Rang : Limitez la règle à certains rangs d’étoiles si vous souhaitez traiter différemment les pièces 6★ et 5★. `Tous` laisse tout éligible.
+- Rang : Limitez la règle à certains rangs d’étoiles si vous souhaitez traiter différemment les pièces 6★ et 5★. `Peu importe` laisse tout éligible.
 - Niveaux : Choisissez un niveau minimum et maximum parmi +0, +4, +8, +12, +16. Les lignes ne sont générées qu’à l’intérieur de cette fenêtre.
 - Rareté : `Auto` (recommandé) sélectionne la rareté la plus basse qui respecte vos critères aux niveaux choisis.
   - Pas de minima par stat ni de somme globale ? Auto garde la règle large pour toutes les raretés.
@@ -46,7 +46,7 @@ Construisez, prévisualisez et exportez des règles de vente pour RSL Helper via
     - Actif uniquement lorsque Rareté = Auto et Seuils par jalons = Tard. Sinon la puce affiche une barre diagonale.
     - Exemple : Bannière SPD/ATQ% avec 2 jets sur ATQ%. Rareté = Auto, Seuils = Tard, Auto ≥ Épique. Résultat : lignes Épiques à chaque palier et ≥ Légendaire à +8/+12 pour garder les pièces rares admissibles.
   - Avant +16, le builder s’aligne sur le nombre de sous-stats réellement possible pour la rareté. À +16, votre objectif complet s’applique.
-- Faction : Restreignez les règles d’accessoires à une faction donnée pour viser une équipe précise. Anneaux, Amulettes et Bannières respectent ce filtre ; l’armure l’ignore, donc `Tous` reste le choix sûr.
+- Faction : Restreignez les règles d’accessoires à une faction donnée pour viser une équipe précise. Anneaux, Amulettes et Bannières respectent ce filtre ; l’armure l’ignore, donc `Peu importe` reste le choix sûr.
 - Slots : Ciblez certaines pièces (Arme, Bottes, etc.) afin que les objets hors slot ne correspondent pas. Laissez vide pour couvrir tous les slots.
 - Sets & Méta-sets : Filtrez sur des sets explicites ou des méta-sets nommés quand seules certaines combinaisons sont autorisées. Vide = tous les sets.
 - Stat principale : Définissez les stats principales acceptées.
@@ -55,7 +55,7 @@ Construisez, prévisualisez et exportez des règles de vente pour RSL Helper via
 - Sous-stats : Définissez ce qui compte.
   - Cliquez pour activer ou désactiver une sous-stat. Les verrouillées restent toujours présentes dans les lignes générées.
   - Utilisez le badge cadenas (🔒) à côté du libellé pour la rendre obligatoire ; un clic droit ouvre les raccourcis de verrouillage/déverrouillage et de règles de jets.
-  - `Any` réinitialise la sélection et signifie « aucune restriction ». Dès que vous choisissez des sous-stats précis, `Any` se désactive.
+  - `Peu importe` réinitialise la sélection et signifie « aucune restriction ». Dès que vous choisissez des sous-stats précis, `Peu importe` se désactive.
   - Chaque ligne applique `max(Obligatoires, verrouillés)` avec un maximum de quatre sous-stats. Verrouiller réserve donc la place.
 - Bascule Flex : Si vous avez plus d’options que de sous-stats requis, Flex répartit ces options sur toutes les permutations valides pour générer chaque combinaison. Les verrouillés restent fixés et la bascule se désactive seule lorsqu’il n’y a plus rien à faire tourner.
 - Indicateur de jets : Chaque sous-stat sélectionné affiche un cercle pour les améliorations.
@@ -123,7 +123,7 @@ Astuce : Importez votre `.db` ou collez des objets dans le Testeur de règles av
 
 ### Aperçu du Sellfile (Règles & Testeur de règles)
 - L’en-tête de l’aperçu regroupe l’interrupteur `Règles`/`Testeur de règles`, le bouton « Équipement... » et « Charger Sellfile RSL Helper » pour que vous sachiez toujours où changer de table ou ouvrir le dialogue du Testeur de règles.
-- Vue `Règles` (par défaut) : affiche toutes les règles qui seront exportées, y compris les lignes provenant d’un éventuel `.hsf` de base. Les compteurs restent sur Conserver vs Vendre, la rangée de filtres conserve les puces Any/Only (Tout/Seulement) pour Slots/Rang/Rareté/Niveau et expose désormais les deux boutons `Configs` côte à côte : `Configs aperçu` décide si les puces restent visibles sous les filtres actuels et le `Filtre configs` se comporte ici comme un simple bouton Activé/Désactivé qui masque les lignes du Sellfile hors de votre sélection (tout en gardant le filtre prêt pour le tester).
+- Vue `Règles` (par défaut) : affiche toutes les règles qui seront exportées, y compris les lignes provenant d’un éventuel `.hsf` de base. Les compteurs restent sur Conserver vs Vendre, la rangée de filtres conserve les puces Peu importe/Seulement (`Any/Only`) pour Slots/Rang/Rareté/Niveau et expose désormais les deux boutons `Configs` côte à côte : `Configs aperçu` décide si les puces restent visibles sous les filtres actuels et le `Filtre configs` se comporte ici comme un simple bouton Activé/Désactivé qui masque les lignes du Sellfile hors de votre sélection (tout en gardant le filtre prêt pour le tester).
 - Vue `Testeur de règles` : bascule la table sur la liste importée du tester afin d’examiner les objets importés ou créés sans rouvrir le dialogue. Les compteurs passent en Correspondance vs Aucune correspondance (ainsi que Conserver/Vendre) selon la règle « la première config correspondante l’emporte », et la rangée de filtres conserve les deux boutons `Configs` (`Configs aperçu` + `Filtre configs`). Le premier continue de gérer la visibilité des puces, tandis que le `Filtre configs` applique le tri-état (`Off` → `Première` → `N’importe`) pour isoler les lignes du Testeur et continue de restreindre les règles correspondantes lorsque vous revenez sur `Règles`. Un filtre de résultat spécifique (Conserver/Vendre vs Correspondance/Aucune correspondance) s’y ajoute, ce qui permet d’isoler les objets frappés d’abord ou ailleurs par votre sélection sans masquer les puces. L’import d’un `.db` passe automatiquement dans cette vue, mais vous pouvez revenir aux règles quand vous le souhaitez.
 - Le bouton « Charger Sellfile RSL Helper » se comporte exactement comme le glisser-déposer : `.hsfc` remplace l’état du builder, `.hsf` ajoute un fichier de base optionnel et `.db` injecte des objets directement dans l’aperçu du Testeur de règles (sans toucher aux configs). Le bouton « Vider » déconnecte l’éventuel `.hsf` de base.
 - L’icône palette ouvre la gestion des couleurs pour ajuster texte et fond des étiquettes de sous-stats.
