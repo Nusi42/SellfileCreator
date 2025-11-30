@@ -191,7 +191,7 @@ const overrides: Catalog = {
 
   tabKeepUniques: 'Conservar únicos',
   keepUniquesTabLabel: 'Conservar únicos',
-  keepUniquesTabIntro: 'Añade reglas por ranura/conjunto/estadística para que el final de venta nunca elimine todas las copias de esa combinación.',
+  keepUniquesTabIntro: 'Añade reglas por ranura/conjunto/estadística para que tus reglas de venta actualmente activas nunca eliminen todas las copias de esa combinación.',
   keepUniquesEnableLabel: 'Activar Conservar únicos',
   keepUniquesNoTesterData: 'Carga una base de datos de equipo para ver las combinaciones en riesgo.',
   keepUniquesScanPending: 'Escaneando equipo…',

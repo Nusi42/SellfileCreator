@@ -11,7 +11,7 @@ Crea, revisa y exporta reglas de venta para RSL Helper con una interfaz sencilla
 - Metasets: agrupa conjuntos de equipo (por ejemplo, Velocidad + Percepción) y reutilízalos en varias reglas.
 - Exportación con un clic: genera un archivo HSF (Sellfile de RSL Helper) listo para cargar en RSL Helper.
 - Vista del Probador + diálogo «Equipo...»: crea equipo de ejemplo, pega filas o arrastra tu base de datos de RSL Helper (normalmente `%APPDATA%\\RslHelper\\Config`) al diálogo. Después, deja el diálogo cerrado y usa el interruptor de vista previa para mantener ese equipo visible mientras lo comparas con tus reglas.
-- Pestaña «Conservar únicos»: define las combinaciones que nunca quieres perder. El escáner genera reglas de conservación automáticamente cuando tus configs más la Venta final eliminarían todas las copias.
+- Pestaña «Conservar únicos»: define las combinaciones que nunca quieres perder. El escáner genera reglas de conservación automáticamente cuando tus configs más tus reglas de venta actualmente activas eliminarían todas las copias.
 - Diálogo de restauración de Autosave: cuando se encuentra un autoguardado, eliges qué cargar — configs, metasets, Objetivos de substats, resto de Venta final, nota fijada, estado del panel de filtros e incluso importaciones del Probador.
 - Copiar la carpeta de la base de datos de RSL Helper: el encabezado de la vista previa incluye un botón que copia `%APPDATA%\\RslHelper\\Config` al portapapeles para que pegues la ruta en el Explorador antes de arrastrar la `.db` a Sellfile Creator.
 

@@ -191,7 +191,7 @@ const enUS: Catalog = {
 
   tabKeepUniques: 'Keep Uniques',
   keepUniquesTabLabel: 'Keep Uniques',
-  keepUniquesTabIntro: 'Add keep rules per slot/set/stat combination so Final Sell never removes every copy of that combination.',
+  keepUniquesTabIntro: 'Add keep rules per slot/set/stat combination so your current active Sell rules never remove every copy of that combination.',
   keepUniquesEnableLabel: 'Enable Keep Uniques',
   keepUniquesNoTesterData: 'Load a gear database to inspect at-risk combinations.',
   keepUniquesScanPending: 'Scanning gear…',

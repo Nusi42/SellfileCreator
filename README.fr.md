@@ -11,7 +11,7 @@ Construisez, prévisualisez et exportez des règles de vente pour RSL Helper via
 - Méta-sets : nommez des groupes de sets (ex. Vitesse + Perception) et réutilisez-les dans plusieurs règles.
 - Export en un clic : exportez un fichier HSF (Sellfile RSL Helper) prêt à être chargé dans RSL Helper.
 - Aperçu Testeur de règles + dialogue « Équipement... » : créez un équipement d’exemple, collez des lignes ou glissez votre base de données RSL Helper (souvent `%APPDATA%\\RslHelper\\Config`) dans le dialogue. Laissez le dialogue fermé et utilisez l’interrupteur d’aperçu pour garder cet équipement visible pendant que vous le comparez à vos règles.
-- Onglet « Conserver les uniques » : définissez les combinaisons que vous ne voulez jamais perdre. Dès que vos configs plus la Vente finale supprimeraient toutes les copies, l’analyse génère automatiquement des règles de conservation.
+- Onglet « Conserver les uniques » : définissez les combinaisons que vous ne voulez jamais perdre. Dès que vos configs plus vos règles de vente actuellement actives supprimeraient toutes les copies, l’analyse génère automatiquement des règles de conservation.
 - Dialogue de restauration Autosave : lorsqu’un Autosave est détecté, choisissez précisément quoi recharger — configs, méta-sets, Objectifs de sous-stats, reste de Vente finale, note épinglée, état du panneau de filtres et même les importations du Testeur de règles.
 - Copier le dossier RSL Helper : le bandeau de l’aperçu expose un bouton presse-papiers qui copie `%APPDATA%\\RslHelper\\Config` pour coller le chemin dans l’Explorateur avant de faire glisser la `.db` dans Sellfile Creator.
 

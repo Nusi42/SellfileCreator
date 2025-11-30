@@ -11,7 +11,7 @@ Erstelle, prüfe und exportiere Verkaufsregeln für RSL Helper mit einer übersi
 - Metasets: Benenne Set-Gruppen (z. B. Speed + Wahrnehmung) und nutze sie in mehreren Regeln.
 - Export mit einem Klick: Exportiere eine HSF-Datei (die RSL Helper Sellfile), die sofort in RSL Helper geladen werden kann.
 - Regel Tester-Vorschau + Dialog „Ausrüstung...”: Erstelle Beispielausrüstung, füge Zeilen ein oder ziehe deine RSL-Helper-Ausrüstungsdatenbank (meist `%APPDATA%\\RslHelper\\Config`) in den Dialog. Lass den Dialog geschlossen und nutze den Vorschau-Umschalter, um diese Ausrüstung sichtbar zu halten, während du sie mit deinen Regeln vergleichst.
-- Tab „Unikate behalten“: Definiere Kombinationen, die du nie verlieren willst. Sobald deine Konfigs plus finaler Verkauf jedes Exemplar löschen würden, generiert der Scanner automatisch passende Behalte-Regeln.
+- Tab „Unikate behalten“: Definiere Kombinationen, die du nie verlieren willst. Sobald deine Konfigs plus deine aktuell aktiven Verkaufsregeln jedes Exemplar dieser Kombination löschen würden, generiert der Scanner automatisch passende Behalte-Regeln.
 - Autosave-Wiederherstellungsdialog: Sobald eine Autosave gefunden wird, kannst du exakt auswählen, was geladen wird – Konfigs, Metasets, Substat-Richtwerte, Final-Sell-Rest, angepinnte Notiz, Filterleiste (Zustand, Chips, eingeklappte Bereiche) und sogar Regel Tester-Importe.
 - RSL-Helper-DB-Ordner kopieren: Der Vorschau-Header enthält eine Zwischenablage-Schaltfläche, die `%APPDATA%\\RslHelper\\Config` kopiert, damit du den Ordnerpfad direkt in den Explorer einfügen kannst, bevor du die `.db` in Sellfile Creator ziehst.
 
