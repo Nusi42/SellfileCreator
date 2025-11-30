@@ -998,17 +998,17 @@ function KeepUniqueSummaryCard({
         border: '1px solid',
         borderColor: 'divider',
         px: 1,
-        pt: 0.5,
+        pt: 0.35,
         pb: 1,
         bgcolor: 'background.paper',
         height: '100%',
       }}
     >
-      <Stack spacing={0.5} sx={{ width: 1 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 0.75, alignItems: 'center', flexWrap: 'wrap', width: 1 }}>
+      <Stack spacing={0.35} sx={{ width: 1 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 0.5, alignItems: 'center', flexWrap: 'wrap', width: 1 }}>
           <Typography
             variant="subtitle2"
-            sx={{ fontWeight: 700, wordBreak: 'break-word', lineHeight: 1, fontSize: '0.9rem', flex: '1 1 auto', minWidth: 0 }}
+            sx={{ fontWeight: 700, wordBreak: 'break-word', lineHeight: 1, fontSize: '0.82rem', flex: '1 1 auto', minWidth: 0 }}
           >
             {titleLabel}
           </Typography>
@@ -1017,9 +1017,9 @@ function KeepUniqueSummaryCard({
               sx={{
                 display: 'inline-flex',
                 alignItems: 'center',
-                gap: 0.5,
-                px: 0.5,
-                py: 0.25,
+                gap: 0.35,
+                px: 0.4,
+                py: 0.2,
                 borderRadius: 1,
                 bgcolor: 'action.hover',
               }}
