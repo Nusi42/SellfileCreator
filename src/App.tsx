@@ -4145,8 +4145,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         onChange={(v) => applyFinalSellChange(v)}
         onClose={() => setFinalSellOpen(false)}
         onReset={() => applyFinalSellChange({
-          artifacts: true,
-          accessories: true,
+          artifacts: false,
+          accessories: false,
           levels: FINAL_SELL_DEFAULT_LEVELS.slice() as FinalSellLevel[],
           setsMode: FINAL_SELL_DEFAULT_SETS_MODE,
         }, { mode: 'reset' })}
