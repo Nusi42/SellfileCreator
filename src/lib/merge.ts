@@ -5,7 +5,6 @@
  * unchanged — App composes this inside a useMemo with identical inputs.
  */
 import type { HsfFile, HsfRule } from './hsfTypes'
-import { variantToMain, variantToSub } from './hsfTypes'
 import type { BuilderConfig, SubstatTargetTable } from './hsfBuilder'
 import { RULE_COUNT_LIMIT, TOTAL_RULE_COUNT_LIMIT, ACCESSORY_NO_SET_ID } from './constants'
 import { buildHsfRules, RuleLimitReachedError, resolveAutoRarityCode } from './hsfBuilder'
@@ -22,7 +21,6 @@ import {
   LEVEL_ANY_SENTINEL,
   type LevelMilestone,
   RarityCode,
-  StatVariant,
 } from './types'
 import {
   FINAL_SELL_DEFAULT_SETS_MODE,
@@ -409,24 +407,9 @@ const coverageLevelsForArtifact = (artifact: KeepUniqueDetectionEntry['artifacts
   return LEVEL_MILESTONES.slice()
 }
 
-const buildKeepUniqueSubstats = (substats: KeepUniqueDetectionEntry['artifacts'][number]['substats']): HsfRule['Substats'] => {
-  const cloned = cloneAnySubstats()
-  let idx = 0
-  for (const sub of substats) {
-    if (idx >= cloned.length) break
-    if (sub.variant === StatVariant.Any) continue
-    const { id, isFlat } = variantToSub(sub.variant)
-    if (id === StatId.Any) continue
-    cloned[idx] = {
-      ID: id,
-      Value: Math.max(0, Number(sub.value)),
-      IsFlat: isFlat ?? true,
-      Condition: '>=',
-      NotAvailable: false,
-    }
-    idx += 1
-  }
-  return cloned
+const buildKeepUniqueSubstats = (_substats: KeepUniqueDetectionEntry['artifacts'][number]['substats']): HsfRule['Substats'] => {
+  // Keep Unique injections should not constrain substats; use wildcards.
+  return cloneAnySubstats()
 }
 
 export const buildKeepUniqueRules = (
@@ -452,15 +435,15 @@ export const buildKeepUniqueRules = (
         const artifactKey = `${artifact.itemKey}:${level}`
         if (emitted.has(artifactKey)) continue
         emitted.add(artifactKey)
-        const mainTuple = variantToMain(artifact.mainStat)
+        // Keep Unique injections should never fail main-stat checks; force Any to guarantee matching.
         const keepRule: HsfRuleWithCfg = {
           Keep: true,
           IsRuleTypeAND: false,
           Use: rule.enabled,
           Rank: clampRankOrRarityValue(artifact.rank),
           Rarity: rarityValueToCode(artifact.rarity),
-          MainStatID: mainTuple.id,
-          MainStatF: mainTuple.f ?? 1,
+          MainStatID: StatId.Any,
+          MainStatF: 1,
           LVLForCheck: level ?? LEVEL_ANY_SENTINEL,
           Faction: artifact.faction ?? 0,
           ArtifactType: [Number(artifact.slot)],
@@ -515,33 +498,6 @@ export function prependKeepUniqueRules({
   }
   // Build injected keep rules from detection snapshot + resolved combinations.
   const candidateKeepRules = detection ? buildKeepUniqueRules(resolvedKeepUniqueRules, detection) : []
-  // Trace Keep Unique injections with a compact summary so we can debug quota coverage without dumping artifacts.
-  if (candidateKeepRules.length > 0) {
-    const kuByRule = new Map<string, { count: number; itemKeys: Set<number>; required: number | undefined; deficit: number | undefined }>()
-    for (const rule of candidateKeepRules) {
-      if (rule.__source !== RULE_SOURCE_KEEP_UNIQUES) continue
-      const id = rule.__keepUniqueRuleId ?? 'unknown'
-      const entry = kuByRule.get(id) ?? {
-        count: 0,
-        itemKeys: new Set<number>(),
-        required: rule.__keepUniqueRequired ?? undefined,
-        deficit: rule.__keepUniqueDeficit ?? undefined,
-      }
-      entry.count += 1
-      if (rule.__keepUniqueItemKey !== undefined) entry.itemKeys.add(rule.__keepUniqueItemKey)
-      if (entry.required === undefined) entry.required = rule.__keepUniqueRequired
-      if (entry.deficit === undefined) entry.deficit = rule.__keepUniqueDeficit
-      kuByRule.set(id, entry)
-    }
-    if (kuByRule.size > 0) {
-      const summaries: string[] = []
-      for (const [ruleId, info] of kuByRule.entries()) {
-        const keys = Array.from(info.itemKeys.values())
-        summaries.push(`rule=${ruleId} keeps=${info.count} uniqKeys=${keys.length} required=${info.required ?? 'na'} deficit=${info.deficit ?? 'na'} keys=[${keys.join(',')}]`)
-      }
-      console.log(`[keep-unique-merge] candidate=${candidateKeepRules.length} ${summaries.join(' ; ')}`)
-    }
-  }
   const filteredKeepRules: HsfRuleWithCfg[] = []
   // Track dedupe keys per injected Keep Unique rule so item-scoped keeps do not collapse.
   const injectedKeepKeys = new Set<string>()
@@ -549,15 +505,13 @@ export function prependKeepUniqueRules({
     const canonicalKey = canonicalRuleKey(rule)
     // Skip if a base/custom keep already covers this combination.
     if (baseCustomKeepKeys.has(canonicalKey)) continue
+    // Item+level dedupe ensures a distinct keep for each milestone of the same item.
     const dedupeKey = rule.__source === RULE_SOURCE_KEEP_UNIQUES
       ? `ku:item:${rule.__keepUniqueItemKey ?? 'na'}:lvl:${Number.isFinite(rule.LVLForCheck) ? Number(rule.LVLForCheck) : LEVEL_ANY_SENTINEL}`
       : canonicalKey
     if (injectedKeepKeys.has(dedupeKey)) continue
     injectedKeepKeys.add(dedupeKey)
     filteredKeepRules.push(rule)
-  }
-  if (candidateKeepRules.length > 0) {
-    console.log(`[keep-unique-merge] filtered=${filteredKeepRules.length} skippedBase=${baseCustomKeepKeys.size} deduped=${candidateKeepRules.length - filteredKeepRules.length}`)
   }
   // Keep-unique rules must precede base rules to override.
   const nextBaseRules = filteredKeepRules.concat(baseWithoutKeep)

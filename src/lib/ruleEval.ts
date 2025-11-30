@@ -10,7 +10,6 @@ import { rankMask, rarityMask } from './hsfTypes'
 import type { ArtifactSetId, ArtifactTypeId, FactionId, StatVariantLike } from './types'
 import { LEVEL_ANY_SENTINEL, StatId, StatVariant, mainToVariant, subToVariant, type LevelMilestone, type RankValue } from './types'
 import { RULE_SOURCE_KEEP_UNIQUES, type HsfRuleWithCfg } from './merge'
-import { ArtifactSet, ArtifactType, Faction } from './types'
 import type { SellfileExportMode } from './hsfBuilder'
 import { forEachRuleMatchCandidate, getRuleMatchIndex } from './ruleMatchIndex'
 import { getRuleConfigIndex } from './ruleConfigIndex'
@@ -244,16 +243,6 @@ export function evaluateMatchesByConfig(
     const keep = rule.Keep === true
     const match: EvalResult = { ruleIndex, keep, cfgIdx }
     const isKeepUnique = source === RULE_SOURCE_KEEP_UNIQUES
-    // Targeted debug: trace Keep Unique matches on Banner Lords Merciless rings to see ordering.
-    if (
-      isKeepUnique
-      && Number(item.slot) === ArtifactType.Ring
-      && Number(item.set) === ArtifactSet.Merciless
-      && Number((item as { faction?: number }).faction ?? 0) === Faction.BannerLords
-    ) {
-      const mainStatId = Number((item as { mainStatId?: number }).mainStatId ?? NaN)
-      console.log(`[keep-unique-eval-debug] idx=${ruleIndex} cfg=${cfgIdx ?? 'na'} level=${item.level} rarity=${item.rarity} main=${Number.isFinite(mainStatId) ? mainStatId : 'na'} keep=${keep} excluded=${isExcluded}`)
-    }
     if (isKeepUnique) {
       // Defer keep-unique so primary rules always win.
       if (!pendingKeepUnique && !isExcluded) pendingKeepUnique = match

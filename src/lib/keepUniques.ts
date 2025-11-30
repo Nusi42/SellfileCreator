@@ -13,7 +13,6 @@ import {
   ACCESSORY_SLOTS_COMPATIBLE_SET_IDS,
   ArtifactSet,
   ArtifactType,
-  Faction,
   StatVariant as StatVariantEnum,
 } from './types'
 import type { SellfileExportMode } from './hsfBuilder'
@@ -626,25 +625,6 @@ export function computeKeepUniqueProtection(params: KeepUniqueDetectionParams): 
     const combination = rule.combination
     const countMode = sanitizeCountMode(rule.countMode)
     const perRuleMode = countMode.perRule
-    // Dump only the Banner Lords Merciless rings so we can see why groups diverge without spamming the full dataset.
-    if (rule.name === ACCESSORY_KEEP_UNIQUE_DEFAULT_NAME) {
-      for (const candidate of candidates) {
-        const artifact = candidate.artifact
-        if (artifact.slot !== ArtifactType.Ring) continue
-        if (Number(artifact.set) !== ArtifactSet.Merciless) continue
-        if (Number(artifact.faction ?? 0) !== Faction.BannerLords) continue
-        // Keys expose how we bucket accessories for quota math and dedupe.
-        const groupKey = getKeepUniqueGroupKey(artifact)
-        const countKey = getKeepUniqueCountKey(artifact, countMode)
-        const mainStat = artifact.mainStat?.variant ?? StatVariantEnum.Any
-        // Track ascension in case rarity bumps or rolls alter the grouping.
-        const ascStat = artifact.ascension?.variant ?? null
-        const ascRolls = artifact.ascension?.rolls ?? null
-        console.log(
-          `[keep-unique-debug] merciless-bannerlords-ring itemKey=${candidate.itemKey} sold=${candidate.isSold ? 1 : 0} group=${groupKey} count=${countKey} rarity=${artifact.rarity} rank=${artifact.rank} lvl=${artifact.level} exact=${artifact.exactLevel ?? 'na'} main=${mainStat} ascStat=${ascStat ?? 'none'} ascRolls=${ascRolls ?? 0}`,
-        )
-      }
-    }
     // Current matches split into “kept” vs “sold” so deficits consider what is already safe.
     const matching = candidates.filter((candidate) => artifactMatchesKeepUniqueRule(candidate.artifact, combination))
     const requiredPerGroup = Math.max(1, Math.floor(rule.requiredCount))

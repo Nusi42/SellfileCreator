@@ -11,7 +11,6 @@ import type { KeepUniqueDetectionSnapshot } from '../lib/keepUniques'
 import type { NormalizedGearArtifact } from '../lib/importers/gearDbNormalizer'
 import type { HsfRuleWithCfg } from '../lib/merge'
 import type { BuilderConfig, SellfileExportMode } from '../lib/hsfBuilder'
-import { ArtifactSet, ArtifactType, Faction } from '../lib/types'
 import type { TesterMatchWorkerItemResult } from './testerMatchWorkerTypes'
 import type { TesterPreviewMatch } from '../types/testerPreview'
 import type { RuleCacheWorkerRequest, RuleCacheWorkerResponse } from './ruleCacheWorkerTypes'
@@ -162,7 +161,6 @@ const buildPipelineMatches = (
   completedRef: { value: number },
   id: number,
   emitProgress: boolean,
-  opts?: { logKeepUniqueSources?: boolean },
 ): TesterMatchWorkerItemResult[] => {
   if (!artifactEntries.length) return []
   const results: TesterMatchWorkerItemResult[] = []
@@ -175,23 +173,6 @@ const buildPipelineMatches = (
     const fullEval = evaluateMatchesByConfig(mergedRules, artifact.testerItem, fullOptions)
     const baseEval = baseMatchMap?.get(itemId)
       ?? evaluateMatchesByConfig(mergedRules, artifact.testerItem, baseOptions)
-    if (opts?.logKeepUniqueSources) {
-      const firstSrc = typeof fullEval.firstMatch?.ruleIndex === 'number'
-        ? mergedRules[fullEval.firstMatch.ruleIndex]?.__source
-        : null
-      const baseSrc = typeof baseEval?.firstMatch?.ruleIndex === 'number'
-        ? mergedRules[baseEval.firstMatch.ruleIndex]?.__source
-        : null
-      if (
-        Number(artifact.slot) === ArtifactType.Ring
-        && Number(artifact.set) === ArtifactSet.Merciless
-        && Number(artifact.faction ?? 0) === Faction.BannerLords
-      ) {
-        console.log(
-          `[keep-unique-tester-debug] item=${itemId} lvl=${artifact.level}/${artifact.exactLevel ?? 'na'} main=${artifact.mainStat?.variant ?? 'na'} first=${firstSrc ?? 'none'} baseFirst=${baseSrc ?? 'none'} matchCfgs=${fullEval.matchingConfigIndices.join(',')}`,
-        )
-      }
-    }
     results.push({
       itemId,
       firstMatch: fullEval.firstMatch,
@@ -373,7 +354,6 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
         { value: completed },
         id,
         true,
-        { logKeepUniqueSources: true },
       )
       : []
 
