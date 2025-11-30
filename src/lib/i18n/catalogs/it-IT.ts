@@ -66,6 +66,8 @@ const overrides: Catalog = {
   testerDeleteSourceConfirmBody: 'Questo rimuove tutto l’equipaggiamento "{source}" dall’anteprima del Tester regole.',
   noSetAccessories: 'Nessuno – Solo accessori',
   testerTableEmpty: 'Importa equipaggiamento o aggiungi righe personalizzate per vedere i risultati qui.',
+  testerTableEmptyKeepUniquesDisabled: '«Keep Uniques» è disattivato; attivalo per scansionare la tua attrezzatura.',
+  testerTableEmptyKeepUniquesNoMatches: 'Nessun equipaggiamento del tester corrisponde ai filtri Keep Uniques correnti.',
   testerTableEmptyFilter: 'Nessuna riga del tester corrisponde ai filtri attuali.',
   testerGridScrollHint: '{group} • {detail}',
   testerGridCompactGroup: 'Compatta il gruppo corrente',

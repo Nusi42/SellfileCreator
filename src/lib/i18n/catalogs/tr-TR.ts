@@ -66,6 +66,8 @@ const overrides: Catalog = {
   testerDeleteSourceConfirmBody: 'Bu işlem Kural Testi önizlemesinden tüm "{source}" ekipmanını kaldırır.',
   noSetAccessories: 'Yok — yalnızca aksesuarlar',
   testerTableEmpty: 'Eşleşmeleri görmek için ekipman içe aktarın veya kendi kayıtlarınızı ekleyin.',
+  testerTableEmptyKeepUniquesDisabled: '“Keep Uniques” kapalı; ekipmanınızı taramak için açın.',
+  testerTableEmptyKeepUniquesNoMatches: 'Mevcut Keep Uniques filtreleriyle eşleşen tester ekipmanı yok.',
   testerTableEmptyFilter: 'Hiçbir tester kaydı geçerli filtrelere uymuyor.',
   testerGridScrollHint: '{group} • {detail}',
   testerGridCompactGroup: 'Geçerli grubu sıkıştır',

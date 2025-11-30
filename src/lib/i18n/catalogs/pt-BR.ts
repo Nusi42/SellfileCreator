@@ -66,6 +66,8 @@ const catalog: Catalog = {
   testerDeleteSourceConfirmBody: 'Isso remove todo o equipamento "{source}" da prévia do Teste de Regras.',
   noSetAccessories: 'Nenhum – apenas acessórios',
   testerTableEmpty: 'Importe equipamentos ou adicione entradas personalizadas para ver correspondências aqui.',
+  testerTableEmptyKeepUniquesDisabled: 'Manter únicos está desativado; ative-o para escanear seu equipamento.',
+  testerTableEmptyKeepUniquesNoMatches: 'Nenhum equipamento do tester corresponde aos filtros atuais de Manter únicos.',
   testerTableEmptyFilter: 'Nenhuma entrada do tester corresponde aos filtros atuais.',
   testerGridScrollHint: '{group} • {detail}',
   testerGridCompactGroup: 'Compactar grupo atual',

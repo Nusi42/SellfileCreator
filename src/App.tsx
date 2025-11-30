@@ -65,6 +65,7 @@ import {
 import { buildRuleMatchIndexData, primeRuleMatchIndex } from './lib/ruleMatchIndex'
 import { cloneRuleWithConfigIndex, getRuleConfigIndex } from './lib/ruleConfigIndex'
 import {
+  buildDefaultKeepUniqueRules,
   type KeepUniqueDetectionSnapshot,
   type KeepUniqueRule,
   resolveKeepUniqueRulesWithMetasets,
@@ -2434,8 +2435,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const handleRulesTableClearBase = useCallback(() => { setHsf(null) }, [setHsf])
   const handleRulesTableConfigureFinalSell = useCallback(() => { setFinalSellOpen(true) }, [setFinalSellOpen])
   const handleResetKeepUniques = useCallback(() => {
-    // Clear keep rules and disable the feature so the user starts from a clean slate.
-    setKeepUniqueRules([])
+    // Reset keep rules to the seeded defaults and disable the feature so the user starts from a known baseline.
+    setKeepUniqueRules(buildDefaultKeepUniqueRules())
     setKeepUniquesEnabled(false)
   }, [setKeepUniqueRules, setKeepUniquesEnabled])
 

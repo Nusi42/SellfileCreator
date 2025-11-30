@@ -66,6 +66,8 @@ const overrides: Catalog = {
   testerDeleteSourceConfirmBody: 'Это удалит всю экипировку «{source}» из предварительного просмотра тестера.',
   noSetAccessories: 'Нет — только аксессуары',
   testerTableEmpty: 'Импортируйте снаряжение или добавьте собственные записи, чтобы увидеть совпадения здесь.',
+  testerTableEmptyKeepUniquesDisabled: '«Keep Uniques» выключен; включите его, чтобы просканировать экипировку.',
+  testerTableEmptyKeepUniquesNoMatches: 'Ни одно снаряжение тестера не соответствует текущим фильтрам Keep Uniques.',
   testerTableEmptyFilter: 'Нет записей, подходящих текущим фильтрам тестера.',
   testerGridScrollHint: '{group} • {detail}',
   testerGridCompactGroup: 'Сжать текущую группу',

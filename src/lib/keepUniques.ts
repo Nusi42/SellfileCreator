@@ -9,7 +9,12 @@ import type {
   RankValue,
   StatVariant,
 } from './types'
-import { StatVariant as StatVariantEnum } from './types'
+import {
+  ACCESSORY_SLOTS_COMPATIBLE_SET_IDS,
+  ArtifactSet,
+  ArtifactType,
+  StatVariant as StatVariantEnum,
+} from './types'
 import type { SellfileExportMode } from './hsfBuilder'
 import type { HsfRuleWithCfg } from './merge'
 import type { NormalizedGearArtifact } from './importers/gearDbNormalizer'
@@ -113,6 +118,90 @@ export type KeepUniqueRule = {
   requiredCount: number
   enabled: boolean
   countMode: KeepUniqueRuleCountMode
+}
+
+const ACCESSORY_KEEP_UNIQUE_SLOTS: readonly ArtifactType[] = [
+  ArtifactType.Ring,
+  ArtifactType.Amulet,
+  ArtifactType.Banner,
+] as const
+
+const ACCESSORY_KEEP_UNIQUE_STAR_VALUES: readonly RankValue[] = [5, 6]
+
+const ACCESSORY_KEEP_UNIQUE_COUNT_MODE: KeepUniqueRuleCountMode = {
+  perRule: false,
+  perSet: true,
+  perFaction: true,
+  perMainStat: true,
+  perSlot: true,
+}
+
+/** Default rule keeps every 5★/6★ ring/amulet/banner per slot/set/main/faction. */
+function createDefaultAccessoryKeepUniqueRule(): KeepUniqueRule {
+  return {
+    id: createKeepUniqueRuleId(),
+    combination: {
+      slots: [...ACCESSORY_KEEP_UNIQUE_SLOTS],
+      sets: [...ACCESSORY_SLOTS_COMPATIBLE_SET_IDS],
+      metaSetIds: [],
+      ranks: [...ACCESSORY_KEEP_UNIQUE_STAR_VALUES],
+      rarities: [...ACCESSORY_KEEP_UNIQUE_STAR_VALUES],
+      mainStats: [],
+      factions: [],
+    },
+    requiredCount: 1,
+    enabled: true,
+    countMode: { ...ACCESSORY_KEEP_UNIQUE_COUNT_MODE },
+  }
+}
+
+const ARMOR_KEEP_UNIQUE_SLOTS: readonly ArtifactType[] = [
+  ArtifactType.Weapon,
+  ArtifactType.Helmet,
+  ArtifactType.Shield,
+  ArtifactType.Gauntlets,
+  ArtifactType.Chestplate,
+  ArtifactType.Boots,
+] as const
+
+const ARMOR_KEEP_UNIQUE_SET_IDS: readonly ArtifactSetId[] = [
+  ArtifactSet.Stun,
+  ArtifactSet.Toxic,
+  ArtifactSet.Daze,
+  ArtifactSet.Cursed,
+  ArtifactSet.Provoke,
+  ArtifactSet.Destroy,
+] as const
+
+const ARMOR_KEEP_UNIQUE_COUNT_MODE: KeepUniqueRuleCountMode = {
+  perRule: false,
+  perSet: true,
+  perFaction: false,
+  perMainStat: false,
+  perSlot: true,
+}
+
+function createDefaultArmorKeepUniqueRule(): KeepUniqueRule {
+  return {
+    id: createKeepUniqueRuleId(),
+    combination: {
+      slots: [...ARMOR_KEEP_UNIQUE_SLOTS],
+      sets: [...ARMOR_KEEP_UNIQUE_SET_IDS],
+      metaSetIds: [],
+      ranks: [...ACCESSORY_KEEP_UNIQUE_STAR_VALUES],
+      rarities: [...ACCESSORY_KEEP_UNIQUE_STAR_VALUES],
+      mainStats: [],
+      factions: [],
+    },
+    requiredCount: 1,
+    enabled: false,
+    countMode: { ...ARMOR_KEEP_UNIQUE_COUNT_MODE },
+  }
+}
+
+/** Build the seeded Keep Unique rule list for new sessions. */
+export function buildDefaultKeepUniqueRules(): KeepUniqueRule[] {
+  return [createDefaultAccessoryKeepUniqueRule(), createDefaultArmorKeepUniqueRule()]
 }
 
 export type KeepUniqueDetectionArtifact = {

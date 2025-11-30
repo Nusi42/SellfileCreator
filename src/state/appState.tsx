@@ -8,6 +8,7 @@
  */
 import React, { createContext, useContext, useMemo, useReducer } from 'react'
 import { FINAL_SELL_DEFAULT_LEVELS } from '../lib/constants'
+import { buildDefaultKeepUniqueRules } from '../lib/keepUniques'
 import {
   FINAL_SELL_DEFAULT_SETS_MODE,
   FINAL_SELL_DIALOG_TAB_FINAL_SELL,
@@ -155,7 +156,7 @@ export function makeInitialAppState(params: Partial<AppState> & Pick<AppState, '
     // Final Sell defaults: ON with safe ranges (0–15). Old HSFC without this flag is treated as OFF when loaded.
     finalSellRemainder: { artifacts: true, accessories: true, levels: FINAL_SELL_DEFAULT_LEVELS.slice() as LevelMilestone[], setsMode: FINAL_SELL_DEFAULT_SETS_MODE },
     finalSellDialogTab: FINAL_SELL_DIALOG_TAB_FINAL_SELL, // Start new sessions on the classic Final Sell tab for continuity.
-    keepUniqueRules: [],
+    keepUniqueRules: buildDefaultKeepUniqueRules(),
     keepUniquesEnabled: false,
     selectedCfgIdx: null,
     hsfcNote: null,
