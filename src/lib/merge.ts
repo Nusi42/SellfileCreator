@@ -62,6 +62,7 @@ export type HsfRuleWithCfg = HsfRule & {
   __keepUniqueScanMs?: number
   __keepUniqueProjected?: number
   __keepUniqueDeficit?: number
+  __keepUniqueItemKey?: number
 }
 
 const BRANCH_ORDER = Symbol('branchOrder')
@@ -467,6 +468,7 @@ export const buildKeepUniqueRules = (
           Substats: buildKeepUniqueSubstats(artifact.substats),
           __source: RULE_SOURCE_KEEP_UNIQUES,
           __keepUniqueRuleId: rule.id,
+          __keepUniqueItemKey: artifact.itemKey,
           __keepUniqueHash: hashKeepUniqueCombination(rule.combination),
           __keepUniqueRequired: entry.requiredCount,
           __keepUniqueProjected: entry.projectedCount,
@@ -504,21 +506,58 @@ export function prependKeepUniqueRules({
   // Strip any prior keep-unique injections to avoid double-prepending.
   const baseWithoutKeep = baseRules.filter((rule) => rule.__source !== RULE_SOURCE_KEEP_UNIQUES)
   // Collect keys of existing keep rules so we skip duplicates.
-  const keepRuleKeys = new Set<string>()
+  const baseCustomKeepKeys = new Set<string>()
   for (const rule of baseWithoutKeep) {
-    if (rule.Keep === true) keepRuleKeys.add(canonicalRuleKey(rule))
+    if (rule.Keep === true) baseCustomKeepKeys.add(canonicalRuleKey(rule))
   }
   for (const rule of customRules) {
-    if (rule.Keep === true) keepRuleKeys.add(canonicalRuleKey(rule))
+    if (rule.Keep === true) baseCustomKeepKeys.add(canonicalRuleKey(rule))
   }
   // Build injected keep rules from detection snapshot + resolved combinations.
   const candidateKeepRules = detection ? buildKeepUniqueRules(resolvedKeepUniqueRules, detection) : []
+  // Trace Keep Unique injections with a compact summary so we can debug quota coverage without dumping artifacts.
+  if (candidateKeepRules.length > 0) {
+    const kuByRule = new Map<string, { count: number; itemKeys: Set<number>; required: number | undefined; deficit: number | undefined }>()
+    for (const rule of candidateKeepRules) {
+      if (rule.__source !== RULE_SOURCE_KEEP_UNIQUES) continue
+      const id = rule.__keepUniqueRuleId ?? 'unknown'
+      const entry = kuByRule.get(id) ?? {
+        count: 0,
+        itemKeys: new Set<number>(),
+        required: rule.__keepUniqueRequired ?? undefined,
+        deficit: rule.__keepUniqueDeficit ?? undefined,
+      }
+      entry.count += 1
+      if (rule.__keepUniqueItemKey !== undefined) entry.itemKeys.add(rule.__keepUniqueItemKey)
+      if (entry.required === undefined) entry.required = rule.__keepUniqueRequired
+      if (entry.deficit === undefined) entry.deficit = rule.__keepUniqueDeficit
+      kuByRule.set(id, entry)
+    }
+    if (kuByRule.size > 0) {
+      const summaries: string[] = []
+      for (const [ruleId, info] of kuByRule.entries()) {
+        const keys = Array.from(info.itemKeys.values())
+        summaries.push(`rule=${ruleId} keeps=${info.count} uniqKeys=${keys.length} required=${info.required ?? 'na'} deficit=${info.deficit ?? 'na'} keys=[${keys.join(',')}]`)
+      }
+      console.log(`[keep-unique-merge] candidate=${candidateKeepRules.length} ${summaries.join(' ; ')}`)
+    }
+  }
   const filteredKeepRules: HsfRuleWithCfg[] = []
+  // Track dedupe keys per injected Keep Unique rule so item-scoped keeps do not collapse.
+  const injectedKeepKeys = new Set<string>()
   for (const rule of candidateKeepRules) {
-    const key = canonicalRuleKey(rule)
-    if (keepRuleKeys.has(key)) continue
-    keepRuleKeys.add(key)
+    const canonicalKey = canonicalRuleKey(rule)
+    // Skip if a base/custom keep already covers this combination.
+    if (baseCustomKeepKeys.has(canonicalKey)) continue
+    const dedupeKey = rule.__source === RULE_SOURCE_KEEP_UNIQUES
+      ? `ku:item:${rule.__keepUniqueItemKey ?? 'na'}:lvl:${Number.isFinite(rule.LVLForCheck) ? Number(rule.LVLForCheck) : LEVEL_ANY_SENTINEL}`
+      : canonicalKey
+    if (injectedKeepKeys.has(dedupeKey)) continue
+    injectedKeepKeys.add(dedupeKey)
     filteredKeepRules.push(rule)
+  }
+  if (candidateKeepRules.length > 0) {
+    console.log(`[keep-unique-merge] filtered=${filteredKeepRules.length} skippedBase=${baseCustomKeepKeys.size} deduped=${candidateKeepRules.length - filteredKeepRules.length}`)
   }
   // Keep-unique rules must precede base rules to override.
   const nextBaseRules = filteredKeepRules.concat(baseWithoutKeep)
