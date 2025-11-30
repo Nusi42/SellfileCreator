@@ -795,7 +795,7 @@ function KeepUniqueSummaryCard({
     if (scopeParts.length === 0) scopeParts.push(t('keepUniquesCountModePerRule'))
   }
   const scopeLabel = scopeParts.join(' × ')
-  const scopeLegendLabel = t('keepUniquesCountModeToggleLabel')
+  const scopeLegendLabel = t('noteKeepUniqueScopeLabel')
   // Scope chips mirror the dialog toggles so markdown exports stay aligned.
   const scopeFlags = [
     { key: 'perRule', label: t('keepUniquesCountModePerRule'), active: countMode.perRule },
@@ -807,7 +807,6 @@ function KeepUniqueSummaryCard({
   // Surface explicit names when present so ordered exports stay recognizable.
   const ruleName = typeof rule.name === 'string' ? rule.name.trim() : ''
   const titleLabel = ruleName || t('noteKeepUniqueRuleTitle', { index: id })
-  const subtitleLabel = ruleName ? t('noteKeepUniqueRuleTitle', { index: id }) : ''
   const formatList = (values: string[]): string => values.join(', ')
 
   const slotLabels = (() => {
@@ -898,7 +897,28 @@ function KeepUniqueSummaryCard({
     filters.push({ label: t('noteKeepUniqueRaritiesLabel'), value: formatList(rarityLabels) })
   }
 
-  // Layout keeps the quota pill anchored while letting cards wrap into two columns.
+  const renderRow = (
+    label: string,
+    value: React.ReactNode,
+    options: { valueAlign?: 'center' | 'flex-start' } = {},
+  ) => (
+    <Box
+      key={`ku-row-${label}`}
+      sx={{
+        display: 'grid',
+        gridTemplateColumns: '120px minmax(0, 1fr)',
+        columnGap: 1,
+        alignItems: options.valueAlign === 'center' ? 'center' : 'flex-start',
+      }}
+    >
+      <Typography variant="caption" sx={{ fontWeight: 800, textAlign: 'right', lineHeight: 1.4 }}>
+        {label}
+      </Typography>
+      <Box sx={{ minWidth: 0 }}>{value}</Box>
+    </Box>
+  )
+
+  // Layout keeps the quota line anchored while letting cards wrap into two columns.
   return (
     <Box
       sx={{
@@ -916,104 +936,77 @@ function KeepUniqueSummaryCard({
             <Typography variant="subtitle2" sx={{ fontWeight: 700, wordBreak: 'break-word' }}>
               {titleLabel}
             </Typography>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
-              <Typography variant="caption" color="text.secondary">
-                {subtitleLabel || t('noteKeepUniqueRuleTitle', { index: id })}
+            {!rule.enabled ? (
+              <Box
+                sx={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 0.5,
+                  px: 0.5,
+                  py: 0.25,
+                  borderRadius: 1,
+                  bgcolor: 'action.hover',
+                }}
+              >
+                <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: 'text.disabled' }} />
+                <Typography component="span" variant="caption" color="text.disabled" sx={{ fontWeight: 700 }}>
+                  {t('noteKeepUniqueRuleDisabled')}
+                </Typography>
+              </Box>
+            ) : null}
+          </Box>
+        </Box>
+        <Stack spacing={0.6}>
+          {renderRow(
+            t('noteKeepUniqueQuotaLabel'),
+            <Typography variant="body2" sx={{ fontWeight: 800, lineHeight: 1.2 }}>
+              {t('noteKeepUniqueQuotaValue', { count: rule.requiredCount })}{' '}
+              <Typography component="span" variant="caption" color="text.secondary">
+                ({scopeLabel})
               </Typography>
-              {!rule.enabled ? (
+            </Typography>,
+            { valueAlign: 'center' },
+          )}
+          {renderRow(
+            scopeLegendLabel,
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
+              {scopeFlags.map((flag) => (
                 <Box
+                  key={`ku-scope-${flag.key}`}
                   sx={{
                     display: 'inline-flex',
                     alignItems: 'center',
                     gap: 0.5,
-                    px: 0.5,
-                    py: 0.25,
+                    px: 0.75,
+                    py: 0.35,
                     borderRadius: 1,
-                    bgcolor: 'action.hover',
+                    border: '1px solid',
+                    borderColor: flag.active ? alpha(theme.palette.primary.main, 0.6) : 'divider',
+                    bgcolor: flag.active ? alpha(theme.palette.primary.main, theme.palette.mode === 'dark' ? 0.2 : 0.12) : 'transparent',
+                    color: flag.active ? theme.palette.primary.main : 'text.secondary',
                   }}
                 >
-                  <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: 'text.disabled' }} />
-                  <Typography component="span" variant="caption" color="text.disabled" sx={{ fontWeight: 700 }}>
-                    {t('noteKeepUniqueRuleDisabled')}
+                  <Box
+                    sx={{
+                      width: 8,
+                      height: 8,
+                      borderRadius: '50%',
+                      bgcolor: flag.active ? theme.palette.primary.main : 'divider',
+                      boxShadow: flag.active ? `0 0 0 2px ${alpha(theme.palette.primary.main, 0.16)}` : 'none',
+                    }}
+                  />
+                  <Typography variant="caption" sx={{ fontWeight: 700, lineHeight: 1.2 }}>
+                    {flag.label}
                   </Typography>
                 </Box>
-              ) : null}
-            </Box>
-          </Box>
-          <Box
-            sx={{
-              display: 'inline-flex',
-              flexDirection: 'column',
-              alignItems: 'flex-start',
-              gap: 0.25,
-              px: 1,
-              py: 0.75,
-              borderRadius: 1,
-              bgcolor: 'action.hover',
-              border: '1px solid',
-              borderColor: 'divider',
-              minWidth: 180,
-            }}
-          >
-            <Typography variant="caption" sx={{ fontWeight: 700, letterSpacing: 0.2, textTransform: 'uppercase' }}>
-              {t('noteKeepUniqueQuotaLabel')}
-            </Typography>
-            <Typography variant="body2" sx={{ fontWeight: 700, lineHeight: 1.2 }}>
-              {t('noteKeepUniqueQuotaValue', { count: rule.requiredCount })}
-            </Typography>
-            <Typography variant="caption" color="text.secondary">
-              {scopeLabel}
-            </Typography>
-          </Box>
-        </Box>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
-          <Typography variant="caption" sx={{ fontWeight: 700 }}>
-            {scopeLegendLabel}:
-          </Typography>
-          {scopeFlags.map((flag) => (
-            <Box
-              key={`ku-scope-${flag.key}`}
-              sx={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 0.5,
-                px: 0.75,
-                py: 0.35,
-                borderRadius: 1,
-                border: '1px solid',
-                borderColor: flag.active ? alpha(theme.palette.primary.main, 0.6) : 'divider',
-                bgcolor: flag.active ? alpha(theme.palette.primary.main, theme.palette.mode === 'dark' ? 0.2 : 0.12) : 'transparent',
-                color: flag.active ? theme.palette.primary.main : 'text.secondary',
-              }}
-            >
-              <Box
-                sx={{
-                  width: 8,
-                  height: 8,
-                  borderRadius: '50%',
-                  bgcolor: flag.active ? theme.palette.primary.main : 'divider',
-                  boxShadow: flag.active ? `0 0 0 2px ${alpha(theme.palette.primary.main, 0.16)}` : 'none',
-                }}
-              />
-              <Typography variant="caption" sx={{ fontWeight: 700, lineHeight: 1.2 }}>
-                {flag.label}
-              </Typography>
-            </Box>
-          ))}
-        </Box>
-        <Stack spacing={0.3}>
-          {filters.map((item) => (
-            <Typography
-              key={`ku-filter-${item.label}`}
-              variant="caption"
-              color="text.secondary"
-              sx={{ display: 'block' }}
-            >
-              <Box component="span" sx={{ fontWeight: 600 }}>
-                {item.label}:
-              </Box>{' '}
+              ))}
+            </Box>,
+          )}
+          {filters.map((item) => renderRow(
+            item.label,
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', wordBreak: 'break-word' }}>
               {item.value}
-            </Typography>
+            </Typography>,
           ))}
         </Stack>
       </Stack>

@@ -997,6 +997,7 @@ const catalog: Catalog = {
   noteKeepUniqueQuota: 'Cota: ≥{count} — {scope}',
   noteKeepUniqueQuotaLabel: 'Cota',
   noteKeepUniqueQuotaValue: '≥{count}',
+  noteKeepUniqueScopeLabel: 'Escopo',
   noteKeepUniqueSlotsLabel: 'Slots',
   noteKeepUniqueSetsLabel: 'Sets',
   noteKeepUniqueMainLabel: 'Stats principais',

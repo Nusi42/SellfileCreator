@@ -997,6 +997,7 @@ const overrides: Catalog = {
   noteKeepUniqueQuota: 'Quota: ≥{count} — {scope}',
   noteKeepUniqueQuotaLabel: 'Quota',
   noteKeepUniqueQuotaValue: '≥{count}',
+  noteKeepUniqueScopeLabel: 'Ambito',
   noteKeepUniqueSlotsLabel: 'Slot',
   noteKeepUniqueSetsLabel: 'Set',
   noteKeepUniqueMainLabel: 'Statistiche principali',
