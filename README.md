@@ -106,7 +106,7 @@ Build, preview, and export sell rules for RSL Helper with a simple UI.
 - Open the Final Sell dialog and switch to the `Keep Uniques` tab to mark the gear combinations you never want to lose. Turn on `Enable Keep Uniques` to start editing.
 - Each keep rule lets you pick the slot, sets or metasets, ranks, rarities, main stats, and (for accessories) factions you care about. Leaving a picker empty means “any”.
 - `≥ Required Count` is the promise you want the app to keep. Scope chips directly under each picker (everything except `Rank` and `Rarity`) decide how that quota is split: `Per slot`, `Per set`, `Per faction`, and `Per main stat` can be combined freely. Turning every chip off automatically falls back to the shared `Per rule` pool.
-- The `Have {have} / Keep {keep} (Projected {projected})` counter shows exactly what the tooltip explains: **Have** counts tester gear already protected by configs, Final Sell, or existing Keep rules; **Keep** is the quota from `≥ Required Count`; **Projected** previews how many additional keep rules will be exported if the scanner still sees a deficit. Only tester rows that match the rule contribute to these numbers.
+- The `Have {have} / Keep {keep}` counter shows exactly what the tooltip explains: **Have** counts tester gear already protected by configs, Final Sell, or existing Keep rules; **Keep** is the quota from `≥ Required Count`. Only tester rows that match the rule contribute to these numbers.
 - The scanner only adds extra keep rows when every item that matches a rule would otherwise be sold. If your normal configs already save enough pieces, the rule shows “Covered elsewhere” and nothing new is exported.
 
 #### Quota scopes at a glance

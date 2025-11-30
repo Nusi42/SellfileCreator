@@ -646,18 +646,44 @@ export default function KeepUniquesTab({
             </Box>
             {ruleDetection ? (
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <Typography
-                  variant="caption"
-                  color={ruleDetection.deficit > 0 ? 'error.main' : 'text.secondary'}
-                  sx={{ flex: 1 }}
-                >
-                  {t('keepUniquesRuleCounts', {
-                    have: ruleDetection.currentCount,
-                    keep: ruleDetection.requiredCount,
-                    projected: ruleDetection.projectedCount,
-                  })}
-                  {detectionScopeSuffix}
-                </Typography>
+                <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.5, flex: 1 }}>
+                  <Box sx={{ flex: 1 }}>
+                    <Typography
+                      variant="caption"
+                      color={ruleDetection.deficit > 0 ? 'error.main' : 'text.secondary'}
+                      sx={{ display: 'block' }}
+                    >
+                      {t('keepUniquesRuleCounts', {
+                        have: ruleDetection.currentCount,
+                        keep: ruleDetection.requiredCount,
+                      })}
+                    </Typography>
+                    {detectionScopeSuffix ? (
+                      <Typography
+                        variant="caption"
+                        color="text.secondary"
+                        sx={{ mt: 0.25, display: 'block' }}
+                      >
+                        {detectionScopeSuffix}
+                      </Typography>
+                    ) : null}
+                  </Box>
+                  <MarkdownTooltip markdown={t('keepUniquesRuleCountsHint')}>
+                    <IconButton
+                      size="small"
+                      color="inherit"
+                      aria-label={t('keepUniquesRuleCountsHintLabel')}
+                      sx={{
+                        p: 0.25,
+                        fontSize: 16,
+                        '&:hover': { color: 'text.primary' },
+                        '&:focus-visible': { color: 'text.primary' },
+                      }}
+                    >
+                      <InfoOutlinedIcon fontSize="inherit" />
+                    </IconButton>
+                  </MarkdownTooltip>
+                </Box>
                 {actionButtons}
               </Box>
             ) : (

@@ -101,7 +101,7 @@ Erstelle, prüfe und exportiere Verkaufsregeln für RSL Helper mit einer übersi
 ### Unikate behalten
 - Öffne den Dialog „Finaler Verkauf“ und wechsle zur Registerkarte „Unikate behalten“, um Kombinationen zu markieren, die du nie verlieren willst. Aktiviere „Unikate behalten“, um mit dem Bearbeiten zu beginnen.
 - Jede Regel lässt dich Slot, Sets oder Metasets, Ränge, Seltenheiten, Mainstats und (bei Zubehör) Fraktionen wählen. Leer bedeutet „egal“.
-- `≥ Benötigte Anzahl` sitzt neben einem kleinen Button-Cluster. „Pro Regel“ hält eine gemeinsame Quote, während du „Pro Set“, „Pro Fraktion“ und „Pro Hauptstat“ beliebig kombinieren kannst, um die Quote für jede passende Mischung zu vervielfachen (sind alle drei aus, fällt die Regel automatisch auf „Pro Regel“ zurück).
+- `≥ Benötigte Anzahl` sitzt neben einem kleinen Button-Cluster. „Pro Regel“ hält eine gemeinsame Quote, während du „Pro Slot“, „Pro Set“, „Pro Fraktion“ und „Pro Hauptstat“ beliebig kombinieren kannst, um die Quote für jede passende Mischung zu vervielfachen (sind alle vier aus, fällt die Regel automatisch auf „Pro Regel“ zurück).
 - Der Scanner fügt nur zusätzliche Behalte-Zeilen ein, wenn jedes Item, das zur Regel passt, sonst verkauft würde. Wenn deine normalen Konfigs bereits genug Gear sichern, zeigt die Regel „Anderswo abgedeckt“ und es wird nichts exportiert.
 
 #### Praxisbeispiele

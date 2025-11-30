@@ -101,7 +101,7 @@ Crie, reveja e exporte regras de venda para o RSL Helper com uma interface simpl
 ### Manter únicos
 - Abre o diálogo Venda final e muda para a aba «Manter únicos» para marcar as combinações que nunca queres vender. Ativa «Manter únicos» para começar a editá-las.
 - Cada regra deixa-te escolher slot, sets ou meta-sets, ranks, raridades, mainstats e, no caso dos acessórios, facções. Seletores vazios significam «qualquer um».
-- `≥ Quantidade necessária` fica ao lado de um pequeno grupo de botões. «Por regra» mantém uma única quota; combina «Por conjunto», «Por facção» e «Por atributo principal» para multiplicar a quota por cada combinação relevante (se os três estiverem desligados, o modo volta automaticamente para «Por regra»).
+- `≥ Quantidade necessária` fica ao lado de um pequeno grupo de botões. «Por regra» mantém uma única quota; combina «Por slot», «Por conjunto», «Por facção» e «Por atributo principal» para multiplicar a quota por cada combinação relevante (se os quatro estiverem desligados, o modo volta automaticamente para «Por regra»).
 - O scanner só acrescenta linhas extra quando todos os itens que correspondem à regra acabariam vendidos. Se as configs normais já salvam o suficiente, a regra mostra «Coberta noutro local» e nada novo é exportado.
 
 #### Exemplos

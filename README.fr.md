@@ -101,7 +101,7 @@ Construisez, prévisualisez et exportez des règles de vente pour RSL Helper via
 ### Conserver les uniques
 - Ouvrez le dialogue Vente finale et passez sur l’onglet « Conserver les uniques » pour marquer les combinaisons que vous refusez de vendre. Activez « Conserver les uniques » pour commencer à les éditer.
 - Chaque règle vous permet de choisir slot, sets ou méta-sets, rangs, raretés, stats principales et, pour les accessoires, factions. Laisser un sélecteur vide signifie « n’importe lequel ».
-- `≥ Quantité requise` se trouve juste à côté d'un petit groupe de boutons. « Par règle » garde une seule quote-part, et les boutons « Par ensemble », « Par faction » et « Par stat principale » peuvent être combinés pour multiplier la quote-part selon chaque mélange concerné (les désactiver tous ramène automatiquement le mode « Par règle »).
+- `≥ Quantité requise` se trouve juste à côté d'un petit groupe de boutons. « Par règle » garde une seule quote-part, et les boutons « Par emplacement », « Par ensemble », « Par faction » et « Par stat principale » peuvent être combinés pour multiplier la quote-part selon chaque mélange concerné (les désactiver tous les quatre ramène automatiquement le mode « Par règle »).
 - L’analyse n’ajoute des lignes supplémentaires que lorsque chaque objet correspondant serait vendu autrement. Si vos configs habituelles sauvent déjà assez de pièces, la règle affiche « Couvert ailleurs » et rien n’est ajouté à l’export.
 
 #### Exemples concrets
