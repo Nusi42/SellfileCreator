@@ -163,7 +163,6 @@ Tip: Import your `.db` or paste gear into the Rule Tester before opening the tab
 
 ### Rule Tester preview
 - Click “Gear...” in the Sellfile Preview header to open the Rule Tester dialog. Create example gear or paste items (JSON/text). Items sync to the preview immediately, so closing the dialog does not clear your tester grid.
-- Use the `+` button beside any manual entry to duplicate it before making tweaks so you can branch variations without re-entering stats.
 - Import your RSL Helper gear database by dropping `.db` files onto the app or by using the “Load RSL Helper Sellfile” button (same behavior). Those imports queue thousands of artifacts plus inbox items, switch the preview to the tester table, and keep the builder/export state untouched.
 - Each card shows slot, set, level, main stat, substats (with glyphs and rolls), the source (inventory vs inbox), and chips for Keep/Sell + the first matching config/rule. Disabled rules never match, so “No match” cards represent gear the Sellfile would leave alone.
 - The header counts update to show Matched vs No Match totals plus Keep/Sell breakdowns. Combine these totals with the tester filters (Keep/Sell outcome + Matched/No Match + Config `First-Match`/`Any-Match`) to focus on edge cases before exporting.
