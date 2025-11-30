@@ -981,7 +981,9 @@ function KeepUniqueSummaryCard({
         borderRadius: 1,
         border: '1px solid',
         borderColor: 'divider',
-        p: 1.25,
+        px: 1.25,
+        pt: 0.75,
+        pb: 1.25,
         bgcolor: 'background.paper',
         height: '100%',
       }}
