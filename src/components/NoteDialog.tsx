@@ -1005,7 +1005,15 @@ function KeepUniqueSummaryCard({
         <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 0.35, alignItems: 'flex-start', flexWrap: 'wrap', width: 1 }}>
           <Typography
             variant="subtitle2"
-            sx={{ fontWeight: 700, wordBreak: 'break-word', lineHeight: 1, fontSize: '0.82rem', flex: '1 1 auto', minWidth: 0 }}
+            sx={{
+              fontWeight: 700,
+              wordBreak: 'break-word',
+              lineHeight: 1,
+              fontSize: '0.82rem',
+              flex: '1 1 auto',
+              minWidth: 0,
+              m: 0,
+            }}
           >
             {titleLabel}
           </Typography>
