@@ -101,7 +101,7 @@ Crea, revisa y exporta reglas de venta para RSL Helper con una interfaz sencilla
 ### Conservar únicos
 - Abre el diálogo de Venta final y cambia a la pestaña «Conservar únicos» para marcar las combinaciones que no quieres vender jamás. Activa «Conservar únicos» para empezar a editarlas.
 - Cada regla te deja elegir ranura, sets o metasets, rangos, rarezas, atributos principales y (en accesorios) facciones. Sin selección significa «cualquiera».
-- `≥ Cantidad necesaria` vive junto a un pequeño grupo de botones. «Por regla» mantiene una cuota única; combina los botones «Por conjunto», «Por facción» y «Por atributo principal» para multiplicar la cuota por cada mezcla pertinente (si los tres están apagados, el modo vuelve automáticamente a «Por regla»).
+- `≥ Cantidad necesaria` vive junto a un pequeño grupo de botones. «Por regla» mantiene una cuota única; combina los botones «Por ranura», «Por conjunto», «Por facción» y «Por atributo principal» para multiplicar la cuota por cada mezcla pertinente (si los cuatro están apagados, el modo vuelve automáticamente a «Por regla»).
 - El escáner solo añade filas extra cuando todos los objetos que encajan con la regla acabarían vendidos. Si tus configs normales ya salvan suficientes piezas, verás «Cubierto en otro lugar» y no se exporta nada nuevo.
 
 #### Ejemplos reales

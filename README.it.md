@@ -89,7 +89,7 @@ Crea, visualizza in anteprima ed esporta regole di vendita per RSL Helper tramit
 ### Mantieni unici
 - Apri il dialogo Vendita finale e passa alla scheda «Mantieni unici» per segnare le combinazioni che non vuoi vendere mai. Attiva «Mantieni unici» per iniziare a modificarle.
 - Ogni regola ti permette di scegliere slot, set o Metaset, ranghi, rarità, statistiche principali e (per gli accessori) fazioni. Lasciare un selettore vuoto significa «qualsiasi».
-- `≥ Quantità richiesta` vive accanto a un piccolo gruppo di pulsanti. «Per regola» mantiene una quota unica; combina «Per set», «Per fazione» e «Per statistica principale» per moltiplicare la quota per ogni combinazione rilevante (se tutti e tre sono disattivati si torna automaticamente a «Per regola»).
+- `≥ Quantità richiesta` vive accanto a un piccolo gruppo di pulsanti. «Per regola» mantiene una quota unica; combina «Per slot», «Per set», «Per fazione» e «Per statistica principale» per moltiplicare la quota per ogni combinazione rilevante (se tutti e quattro sono disattivati si torna automaticamente a «Per regola»).
 - Lo scanner aggiunge nuove righe Mantieni solo quando tutti gli oggetti che corrispondono alla regola verrebbero altrimenti venduti. Se le configurazioni standard salvano già abbastanza pezzi, la regola mostra «Coperta altrove» e non viene esportato nulla di nuovo.
 
 #### Esempi concreti

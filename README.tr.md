@@ -135,7 +135,7 @@ RSL Helper için satış kurallarını basit bir arayüzle oluşturun, önizleyi
 ### Benzersizleri Koru
 - Nihai satış iletişim kutusunu açıp «Benzersizleri Koru» sekmesine geçin; kaybetmek istemediğiniz kombinasyonları burada işaretleyin. Anahtarını açtığınızda düzenlemeye başlayabilirsiniz.
 - Her kuralda slot, set ya da metaset, rank, nadirlik, ana stat ve (aksesuarlar için) faksiyon seçebilirsiniz. Seçimi boş bırakmak «farketmez» anlamına gelir.
-- `≥ Gerekli adet` uygulamanın tutmasını istediğiniz sayıdır. Hemen yanındaki küçük düğme grubu «Kural başına» seçeneğiyle birlikte «Set başına», «Fraksiyon başına» ve «Ana stat başına» anahtarlarını içerir. «Kural başına» tek bir kotayı korur; bu üç düğmeden istediğinizi açarak kotayı her uygun karışım için çarpabilirsiniz (üçü de kapalıyken mod otomatik olarak «Kural başına» döner).
+- `≥ Gerekli adet` uygulamanın tutmasını istediğiniz sayıdır. Hemen yanındaki küçük düğme grubu «Kural başına» seçeneğiyle birlikte «Slot başına», «Set başına», «Fraksiyon başına» ve «Ana stat başına» anahtarlarını içerir. «Kural başına» tek bir kotayı korur; bu dört düğmeden istediğinizi açarak kotayı her uygun karışım için çarpabilirsiniz (dörtü de kapalıyken mod otomatik olarak «Kural başına» döner).
 - Tarayıcı yalnızca eşleşen tüm eşyalar aksi hâlde satılacaksa ekstra Koru satırları ekler. Normal konfigleriniz zaten yeterince eşya tutuyorsa kartta «Başka yerde korunuyor» yazar ve yeni satır çıkmaz.
 
 #### Gerçek örnekler
