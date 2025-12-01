@@ -731,6 +731,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       || configNamesForPreview.some((name, idx) => name !== configNames[idx])
     )
     const configNamesForBuild = previewNamesStale ? configNames : configNamesForPreview
+    // Config modes gate disabled/separator configs during matcher eval, so keep the snapshot aligned with the builder payload.
+    const previewModesStale = (
+      configModesForPreview.length !== configModes.length
+      || configModesForPreview.some((mode, idx) => mode !== configModes[idx])
+    )
+    const configModesForBuild = previewModesStale ? configModes : configModesForPreview
     // Artifact signature drives match reuse; keep it alongside the fingerprint so duplicate builds can bail quickly.
     const pipelineArtifactSignature = testerArtifactsSignature
     // Mirror metasets and substat targets to the same snapshot to avoid stale warm fingerprints.
@@ -981,7 +987,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       hsf,
       ...(finalSellRemainder ? { finalSellRemainder } : {}),
       keepUniques: keepUniquesPayload,
-      configModes: configModesForPreview,
+      configModes: configModesForBuild,
       artifacts: [],
       artifactPatch,
       artifactSignature: testerArtifactsSignature,
@@ -1186,6 +1192,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     finalSellRemainder,
     keepUniquesEnabled,
     resolvedKeepUniqueRules,
+    configModes,
     configModesForPreview,
     testerPreviewArtifacts,
     testerArtifactsSignature,
