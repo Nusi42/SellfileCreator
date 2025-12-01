@@ -1208,6 +1208,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     finalSellRemainder,
     keepUniquesEnabled,
     resolvedKeepUniqueRules,
+    fingerprintKeepUniqueRuleList,
     configModes,
     configModesForPreview,
     testerPreviewArtifacts,

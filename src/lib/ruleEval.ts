@@ -87,6 +87,13 @@ const ensureRarityMask = (rule: HsfRuleWithCfg): number => {
 export function matchRule(rule: HsfRule, item: TestItem): boolean {
   // Disabled rules never match
   if ((rule as HsfRule).Use === false) return false
+  // Keep-unique injections are tied to a specific item; reject when the item key diverges.
+  const requiredItemKey = (rule as HsfRuleWithCfg).__keepUniqueItemKey
+  if (typeof requiredItemKey === 'number' && Number.isFinite(requiredItemKey) && requiredItemKey !== 0) {
+    const itemKey = (item as { itemId?: number }).itemId
+      ?? Number((item.previewExtras?.id ?? NaN))
+    if (itemKey !== requiredItemKey) return false
+  }
 
   // Slot (ArtifactType)
   if (Array.isArray(rule.ArtifactType) && rule.ArtifactType.length > 0) {
