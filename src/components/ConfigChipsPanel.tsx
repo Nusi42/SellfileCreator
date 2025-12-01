@@ -716,7 +716,8 @@ function ConfigChipsPanel(props: {
             const isSeparator = mode === 'separator'
             const duplicateIdx = duplicateOf[idx]
             const ghostedWhileDragging = hasActiveDrag && dragGhostSet.has(idx)
-            const dragEnabled = dragAllowed && !isSeparator
+            // Keep separators draggable so multi-select moves always have an anchor, even when the first selected config is a divider.
+            const dragEnabled = dragAllowed
             const pointerHandlers: { onPointerDown: (event: React.PointerEvent<HTMLDivElement>) => void } | null = dragEnabled
               ? {
                   onPointerDown: (event: React.PointerEvent<HTMLDivElement>) => handleChipPointerDown(event, idx),
