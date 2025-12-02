@@ -84,6 +84,8 @@ export function TesterRuleReferenceChip({
     if (trimmed.length > 0) return trimmed
     return cfgIdx != null ? `#${cfgIdx + 1}` : ''
   })()
+  // Number segment is intentionally lightweight: config index + line number sans labels,
+  // joined with a mid-dot so the trailing config name stays readable on narrow cards.
   const configNumberSegment = (showConfigIndex && cfgIdx != null)
     ? `#${cfgIdx + 1}`
     : ''
