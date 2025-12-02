@@ -1,5 +1,12 @@
 import { useCallback } from 'react'
-import { TESTER_GRID_COLUMNS_KEY, TESTER_GRID_SHOW_CHAMP_ICONS_KEY, TESTER_GRID_SHOW_FIRST_MATCH_KEY, TESTER_GRID_SHOW_OTHER_MATCHES_KEY } from '../lib/constants'
+import {
+  TESTER_GRID_COLUMNS_KEY,
+  TESTER_GRID_SHOW_CHAMP_ICONS_KEY,
+  TESTER_GRID_SHOW_FIRST_MATCH_KEY,
+  TESTER_GRID_SHOW_MATCH_CONFIG_INDEX_KEY,
+  TESTER_GRID_SHOW_MATCH_LINE_KEY,
+  TESTER_GRID_SHOW_OTHER_MATCHES_KEY,
+} from '../lib/constants'
 import { createLocalStorageStore } from './localStorageStore'
 
 export type TesterGridColumnMode = 4 | 5
@@ -22,6 +29,20 @@ const testerGridShowFirstStore = createLocalStorageStore<boolean>({
   serialize: (value) => (value ? 'true' : 'false'),
 })
 
+const testerGridShowMatchConfigStore = createLocalStorageStore<boolean>({
+  key: TESTER_GRID_SHOW_MATCH_CONFIG_INDEX_KEY,
+  fallback: true,
+  parse: (raw) => raw === 'false' ? false : true,
+  serialize: (value) => (value ? 'true' : 'false'),
+})
+
+const testerGridShowMatchLineStore = createLocalStorageStore<boolean>({
+  key: TESTER_GRID_SHOW_MATCH_LINE_KEY,
+  fallback: false,
+  parse: (raw) => raw === 'true',
+  serialize: (value) => (value ? 'true' : 'false'),
+})
+
 const testerGridShowOtherStore = createLocalStorageStore<boolean>({
   key: TESTER_GRID_SHOW_OTHER_MATCHES_KEY,
   fallback: true,
@@ -39,6 +60,8 @@ const testerGridShowChampIconsStore = createLocalStorageStore<boolean>({
 export function useTesterGridPreferences() {
   const columns = testerGridColumnsStore.useValue()
   const showFirstMatch = testerGridShowFirstStore.useValue()
+  const showMatchConfigIndex = testerGridShowMatchConfigStore.useValue()
+  const showMatchLine = testerGridShowMatchLineStore.useValue()
   const showOtherMatches = testerGridShowOtherStore.useValue()
   const showChampionIcons = testerGridShowChampIconsStore.useValue()
 
@@ -48,6 +71,14 @@ export function useTesterGridPreferences() {
 
   const setShowFirstMatch = useCallback((next: boolean) => {
     testerGridShowFirstStore.set(Boolean(next))
+  }, [])
+
+  const setShowMatchConfigIndex = useCallback((next: boolean) => {
+    testerGridShowMatchConfigStore.set(Boolean(next))
+  }, [])
+
+  const setShowMatchLine = useCallback((next: boolean) => {
+    testerGridShowMatchLineStore.set(Boolean(next))
   }, [])
 
   const setShowOtherMatches = useCallback((next: boolean) => {
@@ -61,10 +92,14 @@ export function useTesterGridPreferences() {
   return {
     columns,
     showFirstMatch,
+    showMatchConfigIndex,
+    showMatchLine,
     showOtherMatches,
     showChampionIcons,
     setColumns,
     setShowFirstMatch,
+    setShowMatchConfigIndex,
+    setShowMatchLine,
     setShowOtherMatches,
     setShowChampionIcons,
   }

@@ -49,6 +49,7 @@ import {
   formatSubstats,
   getItemSourceDescriptor,
 } from '../lib/testerPreviewFormatting'
+import { parseConfigNameDirectives } from '../lib/configNameDirectives'
 import { isAccessorySlot } from '../lib/testerDomain'
 import type { TesterSourceFilter } from '../lib/rulesFilter'
 import { TesterSummaryLabel } from './TesterSummaryLabel'
@@ -216,6 +217,7 @@ type TesterGroup = {
 type MatchingConfigEntry = {
   cfgIdx: number
   label: string
+  textColor: string | null
 }
 
 export function TesterItemsGrid(props: TesterItemsGridProps) {
@@ -253,10 +255,14 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
   const {
     columns: gridColumnPreference,
     showFirstMatch,
+    showMatchConfigIndex,
+    showMatchLine: showMatchLineNumber,
     showOtherMatches,
     showChampionIcons,
     setColumns,
     setShowFirstMatch,
+    setShowMatchConfigIndex,
+    setShowMatchLine,
     setShowOtherMatches,
     setShowChampionIcons,
   } = useTesterGridPreferences()
@@ -966,6 +972,8 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
                   suppressMatchDetails={matchDetailsFrozen}
                   showFirstMatchRow={showFirstMatch}
                   showOtherMatchesRow={showOtherMatches}
+                  showMatchConfigIndex={showMatchConfigIndex}
+                  showMatchLineNumber={showMatchLineNumber}
                   showChampionIcons={showChampionIcons}
                   cardHeightPx={cardHeightPx}
                   gridColumnCount={gridColumnCount}
@@ -1223,6 +1231,54 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
             {showFirstMatch ? t('commonOn') : t('commonOff')}
           </Button>
         </MenuItem>
+        <MenuItem
+          sx={{ gap: 1, alignItems: 'center' }}
+          disabled={!showFirstMatch}
+          onClick={() => {
+            if (!showFirstMatch) return
+            setShowMatchConfigIndex(!showMatchConfigIndex)
+          }}
+        >
+          <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>{t('rulesMenuShowMatchConfigIndex')}</Typography>
+          <Button
+            size="small"
+            variant={showMatchConfigIndex ? 'contained' : 'outlined'}
+            color="success"
+            disabled={!showFirstMatch}
+            sx={{ minWidth: MENU_CONTROL_MIN_WIDTH_PX, height: MENU_CONTROL_HEIGHT_PX, minHeight: MENU_CONTROL_HEIGHT_PX, lineHeight: 1, py: 0 }}
+            onClick={(event) => {
+              event.stopPropagation()
+              if (!showFirstMatch) return
+              setShowMatchConfigIndex(!showMatchConfigIndex)
+            }}
+          >
+            {showMatchConfigIndex ? t('commonOn') : t('commonOff')}
+          </Button>
+        </MenuItem>
+        <MenuItem
+          sx={{ gap: 1, alignItems: 'center' }}
+          disabled={!showFirstMatch}
+          onClick={() => {
+            if (!showFirstMatch) return
+            setShowMatchLine(!showMatchLineNumber)
+          }}
+        >
+          <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>{t('rulesMenuShowMatchLine')}</Typography>
+          <Button
+            size="small"
+            variant={showMatchLineNumber ? 'contained' : 'outlined'}
+            color="success"
+            disabled={!showFirstMatch}
+            sx={{ minWidth: MENU_CONTROL_MIN_WIDTH_PX, height: MENU_CONTROL_HEIGHT_PX, minHeight: MENU_CONTROL_HEIGHT_PX, lineHeight: 1, py: 0 }}
+            onClick={(event) => {
+              event.stopPropagation()
+              if (!showFirstMatch) return
+              setShowMatchLine(!showMatchLineNumber)
+            }}
+          >
+            {showMatchLineNumber ? t('commonOn') : t('commonOff')}
+          </Button>
+        </MenuItem>
         <MenuItem sx={{ gap: 1, alignItems: 'center' }} onClick={() => setShowOtherMatches(!showOtherMatches)}>
           <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>{t('rulesMenuShowOtherMatches')}</Typography>
           <Button
@@ -1438,6 +1494,8 @@ const TesterGridCard = React.memo(function TesterGridCard({
   suppressMatchDetails,
   showFirstMatchRow,
   showOtherMatchesRow,
+  showMatchConfigIndex,
+  showMatchLineNumber,
   showChampionIcons,
   cardHeightPx,
   gridColumnCount,
@@ -1453,6 +1511,8 @@ const TesterGridCard = React.memo(function TesterGridCard({
   suppressMatchDetails: boolean
   showFirstMatchRow: boolean
   showOtherMatchesRow: boolean
+  showMatchConfigIndex: boolean
+  showMatchLineNumber: boolean
   showChampionIcons: boolean
   cardHeightPx: number
   gridColumnCount: number
@@ -1471,6 +1531,7 @@ const TesterGridCard = React.memo(function TesterGridCard({
   const matchDetailsOpacity = matchDetailsFrozen ? 0.45 : 1
   const { t } = useI18n()
   const theme = useTheme()
+  const configTextFallbackColor = theme.palette.primary.main
   const artifact = row.artifact
   const priorityBase = Number(cardPriority?.base) || 0
   const priorityOrder = Number(cardPriority?.order) || 0
@@ -1518,24 +1579,24 @@ const TesterGridCard = React.memo(function TesterGridCard({
       const numericIdx = Number(rawIdx)
       if (!Number.isFinite(numericIdx) || seen.has(numericIdx)) continue
       seen.add(numericIdx)
+      const decoration = parseConfigNameDirectives(
+        configNames[numericIdx] ?? undefined,
+        configTextFallbackColor,
+      )
+      const cleanedLabel = decoration.displayName.trim()
       entries.push({
         cfgIdx: numericIdx,
-        label: formatConfigLabel(numericIdx as number, configNames, t),
+        label: cleanedLabel.length > 0
+          ? cleanedLabel
+          : `#${numericIdx + 1}`,
+        textColor: decoration.hasExplicitColor ? decoration.resolvedColor : null,
       })
     }
     return entries
-  }, [cardContentReady, row.matchingCfgIndices, configNames, t])
+  }, [cardContentReady, row.matchingCfgIndices, configNames, configTextFallbackColor, t])
   const shouldShowPrimaryMatchRow = basePrimaryMatchRowVisible
-  const hasMatchingConfigs = matchingEntries.length > 0
   const otherMatchingEntries = matchingEntries.slice(1)
   const shouldShowOtherMatchesRow = showOtherMatchesRow && otherMatchingEntries.length > 0
-  type PrimaryMatchRowState = 'hidden' | 'match' | 'pending' | 'no-match'
-  const primaryMatchRowState: PrimaryMatchRowState = (() => {
-    if (!shouldShowPrimaryMatchRow) return 'hidden'
-    if (match) return 'match'
-    return hasMatchingConfigs ? 'pending' : 'no-match'
-  })()
-  const shouldRenderNoMatchChip = primaryMatchRowState === 'no-match'
   const totalOtherMatches = otherMatchingEntries.length
   const otherMatchingEntriesSignature = useMemo(
     () => otherMatchingEntries.map((entry) => `${entry.cfgIdx}:${entry.label}`).join('|'),
@@ -1656,15 +1717,17 @@ const TesterGridCard = React.memo(function TesterGridCard({
   ): React.ReactNode => {
     const key = `matching-chip-${entry.cfgIdx}`
     const clickable = allowPrimaryMatchJump
+    const textColor = entry.textColor ?? null
     const sharedChipProps = {
       label: entry.label,
       size: 'small' as const,
       variant: 'outlined' as const,
       title: entry.label,
-      sx: {
-        ...MATCHING_CONFIG_CHIP_SX,
-        cursor: clickable ? 'pointer' : 'default',
-      },
+      sx: [
+        MATCHING_CONFIG_CHIP_SX,
+        { cursor: clickable ? 'pointer' : 'default' },
+        ...(textColor ? [{ color: textColor, '& .MuiChip-label': { color: textColor } }] : []),
+      ],
     }
     const chipNode = (
       <Chip
@@ -2202,10 +2265,10 @@ const TesterGridCard = React.memo(function TesterGridCard({
             <TesterRuleReferenceChip
               match={match}
               {...(!matchDetailsFrozen && onJumpToRule ? { onJump: onJumpToRule } : {})}
+              showConfigIndex={showMatchConfigIndex}
+              showLineNumber={showMatchLineNumber}
               sx={{ width: '100%' }}
             />
-          ) : shouldRenderNoMatchChip ? (
-            <Chip size="small" color="success" variant="filled" label={t('testerNoMatch')} />
           ) : null}
         </Box>
       ) : null}
@@ -2722,14 +2785,6 @@ function getTesterCardHeight(
     }
   }
   return height
-}
-
-function formatConfigLabel(idx: number, configNames: Array<string | null>, translate: TranslateFn): string {
-  const name = configNames[idx]
-  if (typeof name === 'string' && name.trim().length > 0) {
-    return name.trim()
-  }
-  return translate('testerConfigChip', { index: idx + 1 })
 }
 
 type GridCardColumnHeights = {

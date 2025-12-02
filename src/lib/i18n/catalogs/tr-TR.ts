@@ -85,7 +85,6 @@ const overrides: Catalog = {
   testerMatchSell: 'Sat',
   testerMatchNoRule: 'Eşleşme yok',
   testerConfigMatches: 'Eşleşen konfigler',
-  testerConfigChip: 'Konfig #{index}',
   testerFinalSellChip: 'Son Satış',
 
   testerKeepUniqueChip: 'Benzersizleri Koru',
@@ -490,6 +489,8 @@ const overrides: Catalog = {
   rulesMenuGridColumns: 'Izgara sütunları',
   rulesMenuGridColumnsValue: '{count}',
   rulesMenuShowFirstMatch: 'İlk eşleşmeyi göster',
+  rulesMenuShowMatchConfigIndex: 'Yapılandırma indeksini göster',
+  rulesMenuShowMatchLine: 'Satır noyu göster',
   rulesMenuShowOtherMatches: 'Diğer eşleşmeleri göster',
   rulesMenuShowChampionIcons: 'Şampiyon simgelerini göster',
   commonOn: 'Açık',
