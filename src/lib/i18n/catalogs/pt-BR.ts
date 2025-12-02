@@ -85,8 +85,6 @@ const catalog: Catalog = {
   testerMatchSell: 'Vender',
   testerMatchNoRule: 'Sem correspondência',
   testerConfigMatches: 'Configs correspondentes',
-  testerConfigChip: 'Config #{index}',
-  testerLineNumber: 'Linha #{line}',
   testerFinalSellChip: 'Venda final',
 
   testerKeepUniqueChip: 'Manter únicos',

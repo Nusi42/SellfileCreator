@@ -85,8 +85,6 @@ const overrides: Catalog = {
   testerMatchSell: 'Verkaufen',
   testerMatchNoRule: 'Kein Treffer',
   testerConfigMatches: 'Passende Konfigs',
-  testerConfigChip: 'Konfig #{index}',
-  testerLineNumber: 'Zeile #{line}',
   testerFinalSellChip: 'Finaler Verkauf',
 
   testerKeepUniqueChip: 'Unikate behalten',

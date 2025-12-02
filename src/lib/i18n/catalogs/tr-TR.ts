@@ -85,8 +85,6 @@ const overrides: Catalog = {
   testerMatchSell: 'Sat',
   testerMatchNoRule: 'Eşleşme yok',
   testerConfigMatches: 'Eşleşen konfigler',
-  testerConfigChip: 'Konfig #{index}',
-  testerLineNumber: 'Satır #{line}',
   testerFinalSellChip: 'Son Satış',
 
   testerKeepUniqueChip: 'Benzersizleri Koru',

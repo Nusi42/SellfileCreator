@@ -1588,7 +1588,7 @@ const TesterGridCard = React.memo(function TesterGridCard({
         cfgIdx: numericIdx,
         label: cleanedLabel.length > 0
           ? cleanedLabel
-          : t('testerConfigChip', { index: numericIdx + 1 }),
+          : `#${numericIdx + 1}`,
         textColor: decoration.hasExplicitColor ? decoration.resolvedColor : null,
       })
     }

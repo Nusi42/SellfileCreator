@@ -82,13 +82,13 @@ export function TesterRuleReferenceChip({
   const formattedConfigName = (() => {
     const trimmed = configDecoration.displayName.trim()
     if (trimmed.length > 0) return trimmed
-    return cfgIdx != null ? t('testerConfigChip', { index: cfgIdx + 1 }) : ''
+    return cfgIdx != null ? `#${cfgIdx + 1}` : ''
   })()
   const configNumberSegment = (showConfigIndex && cfgIdx != null)
-    ? t('testerConfigChip', { index: cfgIdx + 1 })
+    ? `#${cfgIdx + 1}`
     : ''
   const ruleLineSegment = (showLineNumber && ruleIndex != null)
-    ? t('testerLineNumber', { line: ruleIndex + 1 })
+    ? `#${ruleIndex + 1}`
     : ''
   const numberSegment = [configNumberSegment, ruleLineSegment].filter((part) => part && part.length > 0).join(' • ')
   const label = numberSegment
