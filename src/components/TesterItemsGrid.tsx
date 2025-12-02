@@ -1940,6 +1940,9 @@ const TesterGridCard = React.memo(function TesterGridCard({
         inactive: matchDetailsFrozen,
       }
     : undefined
+  // Surface stable match metadata for automation without forcing DOM text scraping.
+  const cardMatchOutcome = match ? (match.keep === false ? 'sell' : 'keep') : 'none'
+  const cardMatchConfigIdx = match?.cfgIdx != null ? String(match.cfgIdx) : 'none'
   const mainSummaryLabel = (
     <>
       <Box component="span" sx={{ color: mainColor ?? 'inherit' }}>
@@ -1957,6 +1960,8 @@ const TesterGridCard = React.memo(function TesterGridCard({
     <Box
       data-tester-grid-card="true"
       data-row-id={artifact.id}
+      data-match-outcome={cardMatchOutcome}
+      data-match-config-index={cardMatchConfigIdx}
       sx={(theme) => ({
         display: 'grid',
         gridTemplateColumns: GRID_CARD_TEMPLATE,

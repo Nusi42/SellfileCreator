@@ -5,6 +5,7 @@
  * unchanged — App composes this inside a useMemo with identical inputs.
  */
 import type { HsfFile, HsfRule } from './hsfTypes'
+import { variantToMain, variantToSub } from './hsfTypes'
 import type { BuilderConfig, SubstatTargetTable } from './hsfBuilder'
 import { RULE_COUNT_LIMIT, TOTAL_RULE_COUNT_LIMIT, ACCESSORY_NO_SET_ID } from './constants'
 import { buildHsfRules, RuleLimitReachedError, resolveAutoRarityCode } from './hsfBuilder'
@@ -17,6 +18,7 @@ import {
   compareArtifactSets,
   artifactSetNames,
   StatId,
+  StatVariant,
   LEVEL_MILESTONES,
   LEVEL_ANY_SENTINEL,
   type LevelMilestone,
@@ -407,9 +409,26 @@ const coverageLevelsForArtifact = (artifact: KeepUniqueDetectionEntry['artifacts
   return LEVEL_MILESTONES.slice()
 }
 
-const buildKeepUniqueSubstats = (_substats: KeepUniqueDetectionEntry['artifacts'][number]['substats']): HsfRule['Substats'] => {
-  // Keep Unique injections should not constrain substats; use wildcards.
-  return cloneAnySubstats()
+const buildKeepUniqueSubstats = (substats: KeepUniqueDetectionEntry['artifacts'][number]['substats']): HsfRule['Substats'] => {
+  // Start from the Any template so padding stays consistent with HSF expectations.
+  const cloned = cloneAnySubstats()
+  if (!Array.isArray(substats) || substats.length === 0) return cloned
+  let idx = 0
+  for (const sub of substats) {
+    if (idx >= cloned.length) break
+    if (sub.variant === StatVariant.Any) continue
+    const { id, isFlat } = variantToSub(sub.variant)
+    if (id === StatId.Any) continue
+    cloned[idx] = {
+      ID: id,
+      Value: Math.max(0, Number(sub.value)),
+      IsFlat: isFlat ?? true,
+      Condition: '>=',
+      NotAvailable: false,
+    }
+    idx += 1
+  }
+  return cloned
 }
 
 export const buildKeepUniqueRules = (
@@ -435,15 +454,15 @@ export const buildKeepUniqueRules = (
         const artifactKey = `${artifact.itemKey}:${level}`
         if (emitted.has(artifactKey)) continue
         emitted.add(artifactKey)
-        // Keep Unique injections should never fail main-stat checks; force Any to guarantee matching.
+        const mainTuple = variantToMain(artifact.mainStat)
         const keepRule: HsfRuleWithCfg = {
           Keep: true,
           IsRuleTypeAND: false,
           Use: rule.enabled,
           Rank: clampRankOrRarityValue(artifact.rank),
           Rarity: rarityValueToCode(artifact.rarity),
-          MainStatID: StatId.Any,
-          MainStatF: 1,
+          MainStatID: mainTuple.id,
+          MainStatF: Number.isFinite(mainTuple.f) ? Number(mainTuple.f) : 1,
           LVLForCheck: level ?? LEVEL_ANY_SENTINEL,
           Faction: artifact.faction ?? 0,
           ArtifactType: [Number(artifact.slot)],

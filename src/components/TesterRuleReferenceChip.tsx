@@ -52,6 +52,8 @@ export function TesterRuleReferenceChip({
         size={size}
         label={t('testerFinalSellChip')}
         color="warning"
+        // Data hook keeps Playwright checks stable while match chips stay minimal.
+        data-match-source="final-sell"
         sx={simpleMatchChipSx(sx)}
       />
     )
@@ -62,6 +64,7 @@ export function TesterRuleReferenceChip({
         size={size}
         label={t('testerKeepUniqueChip')}
         color="success"
+        data-match-source="keep-unique"
         sx={simpleMatchChipSx(sx)}
       />
     )
