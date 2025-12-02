@@ -73,6 +73,7 @@ test('keep-unique detection aligns with tester matches for ATK% Stun boots', asy
       match: null,
       baseMatch: toPreviewMatch(baseEval.firstNonExcludedMatch ?? baseEval.firstMatch ?? null),
       matchingCfgIndices: baseEval.matchingConfigIndices,
+      matchingConfigDecisions: baseEval.matchingConfigDecisions,
     }
   })
 
