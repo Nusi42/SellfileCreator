@@ -86,6 +86,7 @@ const enUS: Catalog = {
   testerMatchNoRule: 'No Match',
   testerConfigMatches: 'Matching Configs',
   testerConfigChip: 'Config #{index}',
+  testerLineNumber: 'Line #{line}',
   testerFinalSellChip: 'Final Sell',
 
   testerKeepUniqueChip: 'Keep Uniques',
@@ -489,6 +490,8 @@ const enUS: Catalog = {
   rulesMenuGridColumns: 'Grid Columns',
   rulesMenuGridColumnsValue: '{count}',
   rulesMenuShowFirstMatch: 'Show First Match',
+  rulesMenuShowMatchConfigIndex: 'Show Config Index',
+  rulesMenuShowMatchLine: 'Show Line Number',
   rulesMenuShowOtherMatches: 'Show Other Matches',
   rulesMenuShowChampionIcons: 'Show Champion Icons',
   commonOn: 'On',

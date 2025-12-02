@@ -86,6 +86,7 @@ const overrides: Catalog = {
   testerMatchNoRule: 'Sin coincidencia',
   testerConfigMatches: 'Configs coincidentes',
   testerConfigChip: 'Config #{index}',
+  testerLineNumber: 'Línea #{line}',
   testerFinalSellChip: 'Venta final',
 
   testerKeepUniqueChip: 'Conservar únicos',
@@ -490,6 +491,8 @@ const overrides: Catalog = {
   rulesMenuGridColumns: 'Columnas de cuadrícula',
   rulesMenuGridColumnsValue: '{count}',
   rulesMenuShowFirstMatch: 'Mostrar primer emparejamiento',
+  rulesMenuShowMatchConfigIndex: 'Mostrar índice de config',
+  rulesMenuShowMatchLine: 'Mostrar nº de línea',
   rulesMenuShowOtherMatches: 'Mostrar otros emparejamientos',
   rulesMenuShowChampionIcons: 'Mostrar iconos de campeones',
   commonOn: 'Activado',

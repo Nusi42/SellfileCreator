@@ -18,6 +18,8 @@ type TesterRuleReferenceChipProps = {
   sx?: SxProps<Theme>
   showFinalSellLabel?: boolean
   icon?: ChipProps['icon']
+  showConfigIndex?: boolean
+  showLineNumber?: boolean
 }
 
 const simpleMatchChipSx = (sx?: SxProps<Theme>): SxProps<Theme> => {
@@ -43,6 +45,8 @@ export function TesterRuleReferenceChip({
   sx,
   showFinalSellLabel = true,
   icon,
+  showConfigIndex = true,
+  showLineNumber = false,
 }: TesterRuleReferenceChipProps) {
   const { t } = useI18n()
   const theme = useTheme()
@@ -72,24 +76,24 @@ export function TesterRuleReferenceChip({
     )
   }
   const ruleIndex = typeof match.ruleIndex === 'number' ? match.ruleIndex : null
-  const formattedRule = match.ruleLabel
-    ? match.ruleLabel
-    : (ruleIndex != null ? `#${ruleIndex + 1}` : '')
   const cfgIdx = typeof match.cfgIdx === 'number' ? match.cfgIdx : null
   const configDecoration = parseConfigNameDirectives(match.cfgName ?? undefined, theme.palette.primary.main)
   const textColor = configDecoration.hasExplicitColor ? configDecoration.resolvedColor : null
-  const formattedConfigNumber = cfgIdx != null ? `#${cfgIdx + 1}` : ''
   const formattedConfigName = (() => {
     const trimmed = configDecoration.displayName.trim()
     if (trimmed.length > 0) return trimmed
     return cfgIdx != null ? t('testerConfigChip', { index: cfgIdx + 1 }) : ''
   })()
-  const numberSegment = (() => {
-    if (formattedConfigNumber && formattedRule) return `${formattedConfigNumber} • ${formattedRule}`
-    return formattedConfigNumber || formattedRule
-  })()
-  const labelParts = [numberSegment, formattedConfigName].filter((part) => part && part.length > 0)
-  const label = labelParts.length > 1 ? `${labelParts[0]} | ${labelParts[1]}` : (labelParts[0] ?? '')
+  const configNumberSegment = (showConfigIndex && cfgIdx != null)
+    ? t('testerConfigChip', { index: cfgIdx + 1 })
+    : ''
+  const ruleLineSegment = (showLineNumber && ruleIndex != null)
+    ? t('testerLineNumber', { line: ruleIndex + 1 })
+    : ''
+  const numberSegment = [configNumberSegment, ruleLineSegment].filter((part) => part && part.length > 0).join(' • ')
+  const label = numberSegment
+    ? `${numberSegment} | ${formattedConfigName}`
+    : formattedConfigName
   const clickable = typeof onJump === 'function' && ruleIndex != null
   if (!label) return null
   return (

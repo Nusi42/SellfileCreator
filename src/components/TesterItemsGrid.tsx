@@ -255,10 +255,14 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
   const {
     columns: gridColumnPreference,
     showFirstMatch,
+    showMatchConfigIndex,
+    showMatchLine: showMatchLineNumber,
     showOtherMatches,
     showChampionIcons,
     setColumns,
     setShowFirstMatch,
+    setShowMatchConfigIndex,
+    setShowMatchLine,
     setShowOtherMatches,
     setShowChampionIcons,
   } = useTesterGridPreferences()
@@ -968,6 +972,8 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
                   suppressMatchDetails={matchDetailsFrozen}
                   showFirstMatchRow={showFirstMatch}
                   showOtherMatchesRow={showOtherMatches}
+                  showMatchConfigIndex={showMatchConfigIndex}
+                  showMatchLineNumber={showMatchLineNumber}
                   showChampionIcons={showChampionIcons}
                   cardHeightPx={cardHeightPx}
                   gridColumnCount={gridColumnCount}
@@ -1225,6 +1231,54 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
             {showFirstMatch ? t('commonOn') : t('commonOff')}
           </Button>
         </MenuItem>
+        <MenuItem
+          sx={{ gap: 1, alignItems: 'center' }}
+          disabled={!showFirstMatch}
+          onClick={() => {
+            if (!showFirstMatch) return
+            setShowMatchConfigIndex(!showMatchConfigIndex)
+          }}
+        >
+          <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>{t('rulesMenuShowMatchConfigIndex')}</Typography>
+          <Button
+            size="small"
+            variant={showMatchConfigIndex ? 'contained' : 'outlined'}
+            color="success"
+            disabled={!showFirstMatch}
+            sx={{ minWidth: MENU_CONTROL_MIN_WIDTH_PX, height: MENU_CONTROL_HEIGHT_PX, minHeight: MENU_CONTROL_HEIGHT_PX, lineHeight: 1, py: 0 }}
+            onClick={(event) => {
+              event.stopPropagation()
+              if (!showFirstMatch) return
+              setShowMatchConfigIndex(!showMatchConfigIndex)
+            }}
+          >
+            {showMatchConfigIndex ? t('commonOn') : t('commonOff')}
+          </Button>
+        </MenuItem>
+        <MenuItem
+          sx={{ gap: 1, alignItems: 'center' }}
+          disabled={!showFirstMatch}
+          onClick={() => {
+            if (!showFirstMatch) return
+            setShowMatchLine(!showMatchLineNumber)
+          }}
+        >
+          <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>{t('rulesMenuShowMatchLine')}</Typography>
+          <Button
+            size="small"
+            variant={showMatchLineNumber ? 'contained' : 'outlined'}
+            color="success"
+            disabled={!showFirstMatch}
+            sx={{ minWidth: MENU_CONTROL_MIN_WIDTH_PX, height: MENU_CONTROL_HEIGHT_PX, minHeight: MENU_CONTROL_HEIGHT_PX, lineHeight: 1, py: 0 }}
+            onClick={(event) => {
+              event.stopPropagation()
+              if (!showFirstMatch) return
+              setShowMatchLine(!showMatchLineNumber)
+            }}
+          >
+            {showMatchLineNumber ? t('commonOn') : t('commonOff')}
+          </Button>
+        </MenuItem>
         <MenuItem sx={{ gap: 1, alignItems: 'center' }} onClick={() => setShowOtherMatches(!showOtherMatches)}>
           <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>{t('rulesMenuShowOtherMatches')}</Typography>
           <Button
@@ -1440,6 +1494,8 @@ const TesterGridCard = React.memo(function TesterGridCard({
   suppressMatchDetails,
   showFirstMatchRow,
   showOtherMatchesRow,
+  showMatchConfigIndex,
+  showMatchLineNumber,
   showChampionIcons,
   cardHeightPx,
   gridColumnCount,
@@ -1455,6 +1511,8 @@ const TesterGridCard = React.memo(function TesterGridCard({
   suppressMatchDetails: boolean
   showFirstMatchRow: boolean
   showOtherMatchesRow: boolean
+  showMatchConfigIndex: boolean
+  showMatchLineNumber: boolean
   showChampionIcons: boolean
   cardHeightPx: number
   gridColumnCount: number
@@ -2207,6 +2265,8 @@ const TesterGridCard = React.memo(function TesterGridCard({
             <TesterRuleReferenceChip
               match={match}
               {...(!matchDetailsFrozen && onJumpToRule ? { onJump: onJumpToRule } : {})}
+              showConfigIndex={showMatchConfigIndex}
+              showLineNumber={showMatchLineNumber}
               sx={{ width: '100%' }}
             />
           ) : null}

@@ -86,6 +86,7 @@ const overrides: Catalog = {
   testerMatchNoRule: 'Aucune correspondance',
   testerConfigMatches: 'Configs correspondantes',
   testerConfigChip: 'Config #{index}',
+  testerLineNumber: 'Ligne #{line}',
   testerFinalSellChip: 'Vente finale',
 
   testerKeepUniqueChip: 'Conserver les uniques',
@@ -490,6 +491,8 @@ const overrides: Catalog = {
   rulesMenuGridColumns: 'Colonnes de grille',
   rulesMenuGridColumnsValue: '{count}',
   rulesMenuShowFirstMatch: 'Afficher la première correspondance',
+  rulesMenuShowMatchConfigIndex: 'Afficher l’index de config',
+  rulesMenuShowMatchLine: 'Afficher le n° de ligne',
   rulesMenuShowOtherMatches: 'Afficher les autres correspondances',
   rulesMenuShowChampionIcons: 'Afficher les icônes de champions',
   commonOn: 'Activé',

@@ -86,6 +86,7 @@ const overrides: Catalog = {
   testerMatchNoRule: 'Немає збігів',
   testerConfigMatches: 'Відповідні конфіги',
   testerConfigChip: 'Конфіг #{index}',
+  testerLineNumber: 'Рядок #{line}',
   testerFinalSellChip: 'Фінальний продаж',
 
   testerKeepUniqueChip: 'Зберегти унікальні',
@@ -490,6 +491,8 @@ const overrides: Catalog = {
   rulesMenuGridColumns: 'Стовпці сітки',
   rulesMenuGridColumnsValue: '{count}',
   rulesMenuShowFirstMatch: 'Показати перший збіг',
+  rulesMenuShowMatchConfigIndex: 'Показати індекс конфіг.',
+  rulesMenuShowMatchLine: 'Показати № рядка',
   rulesMenuShowOtherMatches: 'Показати інші збіги',
   rulesMenuShowChampionIcons: 'Показувати іконки чемпіонів',
   commonOn: 'Увімк.',
