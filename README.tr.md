@@ -229,7 +229,7 @@ Erken vs Geç
 
 Değerli katkıları için **[STBL] Nasgor**’a,  
 Sellfile’ları için **[SP] Panda**’ya,  
-ekipman temizliği videoları için **[IPЯ] KruYseN**’e,  
+ekipman temizliği videoları için **KruYseN**’e,  
 ve elbette RSL Helper için **Farbstoff**’a teşekkürler!
 
 ## Yazar

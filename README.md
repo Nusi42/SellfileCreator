@@ -207,7 +207,7 @@ Examples below assume 6★ Substat Target Values (per roll unit): SPD=5, CR%=5, 
 
 Many thanks to **[STBL] Nasgor** for his invaluable contributions,  
 to **[SP] Panda** for his sellfiles,  
-to **[IPЯ] KruYseN** for his gear cleanse videos,  
+to **KruYseN** for his gear cleanse videos,  
 and of course thanks to **Farbstoff** for RSL Helper!
 
 ## Author

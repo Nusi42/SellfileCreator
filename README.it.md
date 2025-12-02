@@ -217,7 +217,7 @@ Esempio: somma dei roll con jolly (2 sotto-stat)
 
 Molte grazie a **[STBL] Nasgor** per i suoi contributi inestimabili,  
 a **[SP] Panda** per i suoi Sellfile,  
-a **[IPЯ] KruYseN** per i suoi video di pulizia dell'equipaggiamento,  
+a **KruYseN** per i suoi video di pulizia dell'equipaggiamento,  
 e naturalmente a **Farbstoff** per RSL Helper!
 
 ## Autore

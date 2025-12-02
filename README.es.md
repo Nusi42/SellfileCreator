@@ -230,7 +230,7 @@ Ejemplo: Suma de tiradas con comodines (2 substats)
 
 Muchas gracias a **[STBL] Nasgor** por sus aportes invaluables,  
 a **[SP] Panda** por sus Sellfiles,  
-a **[IPЯ] KruYseN** por sus vídeos de limpieza de equipo,  
+a **KruYseN** por sus vídeos de limpieza de equipo,  
 y por supuesto a **Farbstoff** por RSL Helper.
 
 ## Autoría
