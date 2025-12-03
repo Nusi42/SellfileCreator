@@ -7,17 +7,48 @@
 import { useEffect, useRef } from 'react'
 import { saveAutosave } from '../lib/autosave'
 
-export function useAutosave(opts: { key: string; payload: unknown; enabled: boolean }) {
-  const { key, payload, enabled } = opts
-  const lastRef = useRef<unknown>(null)
+type UseAutosaveOptions = {
+  key: string
+  payload: unknown
+  enabled: boolean
+  debounceMs?: number
+}
 
-  // Write on enable and on subsequent payload changes (post-render)
+export function useAutosave(opts: UseAutosaveOptions) {
+  const { key, payload, enabled, debounceMs = 0 } = opts
+  const lastRef = useRef<unknown>(null)
+  const debounceRef = useRef<number | null>(null)
+
+  // Persist immediately when enabled flips true so first-time sessions still get a snapshot right away.
   useEffect(() => {
     if (!enabled) return
-    // When autosave becomes enabled, write one snapshot immediately so sessions
-    // without prior autosave still persist even before any edits.
-    try { lastRef.current = payload; saveAutosave(key, payload) } catch {}
+    try {
+      lastRef.current = payload
+      saveAutosave(key, payload)
+    } catch {}
   }, [enabled, key, payload])
+
+  // Write on subsequent payload changes (post-render), honoring debounce to reduce churn.
+  useEffect(() => {
+    if (!enabled) return undefined
+    if (debounceRef.current !== null) {
+      window.clearTimeout(debounceRef.current)
+    }
+    const schedule = window.setTimeout(() => {
+      debounceRef.current = null
+      try {
+        lastRef.current = payload
+        saveAutosave(key, payload)
+      } catch {}
+    }, debounceMs)
+    debounceRef.current = schedule
+    return () => {
+      if (debounceRef.current !== null) {
+        window.clearTimeout(debounceRef.current)
+        debounceRef.current = null
+      }
+    }
+  }, [debounceMs, enabled, key, payload])
 
   // Flush on unload / when tab becomes hidden
   useEffect(() => {
@@ -25,6 +56,10 @@ export function useAutosave(opts: { key: string; payload: unknown; enabled: bool
     // On unload/when tab gets hidden, persist the latest known payload.
     // Fall back to the current payload prop if we never wrote yet.
     const flush = () => {
+      if (debounceRef.current !== null) {
+        window.clearTimeout(debounceRef.current)
+        debounceRef.current = null
+      }
       try {
         const cur = lastRef.current ?? payload
         if (cur) saveAutosave(key, cur)

@@ -2578,7 +2578,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       ...(filtersPayload ? { Filters: filtersPayload } : {}),
     }
   }, [metasets, substatTargets, customCfgs, finalSellRemainder, hsfcNote, autosaveFiltersState, keepUniqueRules, keepUniquesEnabled, finalSellDialogTab])
-  useAutosave({ key: AUTOSAVE_KEY, payload: autosavePayload, enabled: autosaveEnabled && !tutorial.tutorialOpen && !autosaveSilencedByClear })
+  useAutosave({
+    key: AUTOSAVE_KEY,
+    payload: autosavePayload,
+    enabled: autosaveEnabled && !tutorial.tutorialOpen && !autosaveSilencedByClear,
+    debounceMs: 1000,
+  })
   const testerAutosavePayload = useMemo(() => buildRuleTesterAutosavePayload(testerItems), [testerItems])
   const testerAutosavePayloadSignature = `${testerAutosavePayload.ItemsCompressed ?? ''}#${testerAutosavePayload.ItemCount ?? 0}`
   if (testerAutosaveBaselineRef.current === null) {
