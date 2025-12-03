@@ -11,6 +11,7 @@ import type {
   TesterMatchWorkerResponse,
   TesterMatchWorkerItemResult,
 } from './testerMatchWorkerTypes'
+import { createProgressThrottler } from '../types/progress'
 
 declare const self: DedicatedWorkerGlobalScope
 
@@ -34,9 +35,10 @@ const evaluateRows = (
 ): TesterMatchWorkerItemResult[] => {
   if (!Array.isArray(items) || items.length === 0) return []
   const total = items.length
+  const forwardProgress = createProgressThrottler((snapshot) => onProgress?.(snapshot.completed, snapshot.total))
   if (currentRules.length === 0) {
     const emptyResults = items.map((entry, idx) => {
-      if (onProgress) onProgress(idx + 1, total)
+      forwardProgress({ completed: idx + 1, total })
       return {
         itemId: entry.itemId,
         firstMatch: null,
@@ -64,7 +66,7 @@ const evaluateRows = (
       matchingConfigIndices: full.matchingConfigIndices,
     })
     // Emit determinate progress so the UI overlay can update mid-batch.
-    if (onProgress) onProgress(idx + 1, total)
+    forwardProgress({ completed: idx + 1, total })
   }
   return results
 }

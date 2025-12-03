@@ -16,6 +16,7 @@ import type { NormalizedGearArtifact } from '../lib/importers/gearDbNormalizer'
 import { evaluateMatchesByConfig } from '../lib/ruleEval'
 import type { TesterMatchWorkerItemResult } from '../workers/testerMatchWorkerTypes'
 import type { ProgressSnapshot } from '../types/progress'
+import { createProgressThrottler } from '../types/progress'
 import type { TesterPreviewMatch } from '../types/testerPreview'
 
 type WarmCacheParams = {
@@ -93,8 +94,6 @@ type UseRuleCacheWorkerResult = {
 }
 
 const supportsWorkerEnv = typeof window !== 'undefined' && typeof Worker !== 'undefined'
-// Track last forwarded progress timestamp per pipeline to throttle updates to roughly once per second.
-const pipelineProgressAtRef: { current: Map<number, number> } = { current: new Map() }
 
 export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
   const workerRef = useRef<Worker | null>(null)
@@ -109,6 +108,18 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
     configsForRules: BuilderConfig[]
     fingerprint: string | null
   } | null>(null)
+  // Keep pipelines latest-wins: abort older runs so we never resolve stale work after a new request arrives.
+  const abortPipelineRequest = useCallback((id: number) => {
+    const pending = pendingPipelineRef.current.get(id)
+    abortedIdsRef.current.add(id)
+    pendingPipelineRef.current.delete(id)
+    pending?.reject(new DOMException('Aborted', 'AbortError'))
+  }, [])
+  const abortActivePipelines = useCallback(() => {
+    for (const pendingId of pendingPipelineRef.current.keys()) {
+      abortPipelineRequest(pendingId)
+    }
+  }, [abortPipelineRequest])
 
   const runWarmLocally = useCallback((params: WarmCacheParams, options?: { onProgress?: (progress: ProgressSnapshot) => void }): WarmCacheResult => {
     const configsForRules = configsForRuleBuild(params.configs)
@@ -388,16 +399,9 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
       }
       // Throttle pipeline progress forwarding to roughly once per second (always forward completion).
       if (data.kind === 'pipeline:progress') {
+        if (abortedIdsRef.current.has(data.id)) return
         const pending = pipelineMap.get(data.id)
-        if (pending?.onProgress) {
-          const now = typeof performance !== 'undefined' ? performance.now() : Date.now()
-          const lastAt = pipelineProgressAtRef.current.get(data.id) ?? 0
-          const shouldForward = data.payload.completed >= (data.payload.total ?? 0) || (now - lastAt) >= 1000
-          if (shouldForward) {
-            pending.onProgress(data.payload)
-            pipelineProgressAtRef.current.set(data.id, now)
-          }
-        }
+        pending?.onProgress?.(data.payload)
         return
       }
       if (data.kind === 'warm:done') {
@@ -422,11 +426,10 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
         return
       }
       if (data.kind === 'pipeline:done') {
-        pipelineProgressAtRef.current.delete(data.id)
+        const aborted = abortedSet.delete(data.id)
         const pending = pipelineMap.get(data.id)
         if (!pending) return
         pipelineMap.delete(data.id)
-        const aborted = abortedSet.delete(data.id)
         if (aborted) return
         const state: RuleCacheStateSnapshot = {
           rulesByConfig: new Map<number, HsfRuleWithCfg[]>(data.payload.rulesByConfigEntries),
@@ -596,13 +599,19 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
 
   const runPipeline = useCallback<UseRuleCacheWorkerResult['runPipeline']>((params, options) => {
     const signal = options?.signal ?? null
-    const localProgressOptions = options?.onProgress ? { onProgress: options.onProgress } : undefined
+    const localProgressOptions = options?.onProgress
+      ? { onProgress: createProgressThrottler(options.onProgress) }
+      : undefined
     if (!supportsWorkerEnv || !workerRef.current) {
       return Promise.resolve(runPipelineLocally(params, localProgressOptions))
     }
 
     if (signal?.aborted) {
       return Promise.reject(new DOMException('Aborted', 'AbortError'))
+    }
+    // Ensure only the newest pipeline runs so UI stays aligned with the latest inputs.
+    if (pendingPipelineRef.current.size > 0) {
+      abortActivePipelines()
     }
 
     const worker = workerRef.current
@@ -621,8 +630,12 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
       rejectFn = reject
     })
 
-    const pendingEntry: PendingPipelineRequest = { resolve: resolveFn, reject: rejectFn, promise }
-    if (options?.onProgress) pendingEntry.onProgress = options.onProgress
+    const pendingEntry: PendingPipelineRequest = {
+      resolve: resolveFn,
+      reject: rejectFn,
+      promise,
+      ...(options?.onProgress ? { onProgress: createProgressThrottler(options.onProgress) } : {}),
+    }
     pendingPipelineRef.current.set(id, pendingEntry)
     const cleanupAbort = signal
       ? (() => {
