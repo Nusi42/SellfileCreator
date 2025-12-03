@@ -324,6 +324,7 @@ export default function KeepUniquesTab({
   }, [])
 
   const renderRuleCard = (rule: KeepUniqueRule) => {
+    const ruleDisabled = !rule.enabled
     const combination = rule.combination
     const ruleDetection = detectionByRuleId.get(rule.id) ?? null
     const slotSelection = combination.slots
@@ -389,6 +390,7 @@ export default function KeepUniquesTab({
       perMainStat: !countMode.perRule && countMode.perMainStat,
     }
     const handleScopeChipToggle = (scope: KeepUniqueScopeKey) => {
+      if (ruleDisabled) return
       updateRule(rule.id, (prev) => {
         const prevMode = sanitizeKeepUniqueCountMode(prev.countMode ?? KEEP_UNIQUE_DEFAULT_COUNT_MODE)
         const nextValue = !prevMode[scope]
@@ -419,6 +421,7 @@ export default function KeepUniquesTab({
         size="small"
         variant="filled"
         clickable
+        disabled={ruleDisabled}
         onClick={(event) => { event.stopPropagation(); handleScopeChipToggle(scope) }}
         aria-pressed={active}
         label={label}
@@ -520,6 +523,7 @@ export default function KeepUniquesTab({
             size="small"
             label={t('keepUniquesRuleNameLabel')}
             value={pendingNameById.get(rule.id) ?? rule.name}
+            disabled={ruleDisabled}
             onClick={(event) => event.stopPropagation()}
             onChange={(event) => {
               const raw = event.target.value ?? ''
@@ -544,7 +548,9 @@ export default function KeepUniquesTab({
                 <RuleSelectAffordances
                   selectionCount={slotSelection.length}
                   clearLabel={clearLabel}
+                  disabled={ruleDisabled}
                   onClear={() => {
+                    if (ruleDisabled) return
                     setRuleCombination(rule.id, (prev) => ({ ...prev, slots: [] }))
                   }}
                 >
@@ -552,6 +558,7 @@ export default function KeepUniquesTab({
                     multiple
                     value={slotSelection}
                     onChange={(nextSlots) => {
+                      if (ruleDisabled) return
                       setRuleCombination(rule.id, (prev) => sanitizeCombinationForSlots(nextSlots, prev, metasets))
                     }}
                     size="small"
@@ -561,13 +568,16 @@ export default function KeepUniquesTab({
               </RuleFieldWithScopeChip>
               <RuleFieldWithScopeChip chip={renderScopeChip('perSet', perSetLabel, scopeActive.perSet)}>
                 <GearSetsSelect
+                  disabled={ruleDisabled}
                   value={setSelection}
                   onChange={(nextSets) => {
+                    if (ruleDisabled) return
                     setRuleCombination(rule.id, (prev) => ({ ...prev, sets: dedupeNumericArray(nextSets) }))
                   }}
                   metasets={metasets}
                   selectedMetasetIds={combination.metaSetIds}
                   onChangeMetasetIds={(nextMetaIds) => {
+                    if (ruleDisabled) return
                     setRuleCombination(rule.id, (prev) => ({ ...prev, metaSetIds: dedupeStringArray(nextMetaIds) }))
                   }}
                   allowedSetIds={allowedSetPool}
@@ -580,7 +590,9 @@ export default function KeepUniquesTab({
                 <RuleSelectAffordances
                   selectionCount={rankSelection.length}
                   clearLabel={clearLabel}
+                  disabled={ruleDisabled}
                   onClear={() => {
+                    if (ruleDisabled) return
                     setRuleCombination(rule.id, (prev) => ({ ...prev, ranks: [] }))
                   }}
                 >
@@ -589,6 +601,7 @@ export default function KeepUniquesTab({
                     allowAny
                     value={rankSelection}
                     onChange={(nextRanks) => {
+                      if (ruleDisabled) return
                       setRuleCombination(rule.id, (prev) => ({ ...prev, ranks: nextRanks }))
                     }}
                     size="small"
@@ -600,7 +613,9 @@ export default function KeepUniquesTab({
                 <RuleSelectAffordances
                   selectionCount={raritySelection.length}
                   clearLabel={clearLabel}
+                  disabled={ruleDisabled}
                   onClear={() => {
+                    if (ruleDisabled) return
                     setRuleCombination(rule.id, (prev) => ({ ...prev, rarities: [] }))
                   }}
                 >
@@ -609,6 +624,7 @@ export default function KeepUniquesTab({
                     allowAny
                     value={raritySelection}
                     onChange={(nextRarities) => {
+                      if (ruleDisabled) return
                       setRuleCombination(rule.id, (prev) => ({ ...prev, rarities: nextRarities }))
                     }}
                     size="small"
@@ -622,7 +638,9 @@ export default function KeepUniquesTab({
                 <RuleSelectAffordances
                   selectionCount={mainStatSelection.length}
                   clearLabel={clearLabel}
+                  disabled={ruleDisabled}
                   onClear={() => {
+                    if (ruleDisabled) return
                     setRuleCombination(rule.id, (prev) => ({ ...prev, mainStats: [] }))
                   }}
                 >
@@ -632,6 +650,7 @@ export default function KeepUniquesTab({
                     options={mainStatOptions}
                     anyValue={StatVariantEnum.Any as StatVariant}
                     onChange={(nextMain) => {
+                      if (ruleDisabled) return
                       setRuleCombination(rule.id, (prev) => ({ ...prev, mainStats: dedupeNumericArray(nextMain) }))
                     }}
                     colorOverrides={substatColors}
@@ -646,15 +665,18 @@ export default function KeepUniquesTab({
                 <RuleSelectAffordances
                   selectionCount={factionSelection.length}
                   clearLabel={clearLabel}
+                  disabled={ruleDisabled}
                   onClear={() => {
+                    if (ruleDisabled) return
                     setRuleCombination(rule.id, (prev) => ({ ...prev, factions: [] }))
                   }}
                 >
                   <GearFactionSelect
                     multiple
-                    disabled={!hasAccessorySlot}
+                    disabled={ruleDisabled || !hasAccessorySlot}
                     value={factionSelection}
                     onChange={(nextFactions) => {
+                      if (ruleDisabled) return
                       setRuleCombination(rule.id, (prev) => ({ ...prev, factions: dedupeNumericArray(nextFactions) }))
                     }}
                     size="small"
@@ -672,6 +694,7 @@ export default function KeepUniquesTab({
                   type="number"
                   label={t('keepUniquesRequiredCount')}
                   value={rule.requiredCount}
+                  disabled={ruleDisabled}
                   onChange={(event) => {
                     const raw = Math.min(9999, Math.max(1, Math.floor(Number(event.target.value) || 1)))
                     updateRule(rule.id, (prev) => ({ ...prev, requiredCount: raw }))
@@ -682,6 +705,7 @@ export default function KeepUniquesTab({
                       <NumberSpinnerAdornment
                         ariaLabel={t('keepUniquesRequiredCount')}
                         onStep={(delta) => {
+                          if (ruleDisabled) return
                           updateRule(rule.id, (prev) => {
                             const next = Math.max(1, Math.min(9999, Math.floor((prev.requiredCount ?? 1) + delta)))
                             return { ...prev, requiredCount: next }
@@ -1042,6 +1066,7 @@ type RuleSelectAffordancesProps = {
   clearLabel: string
   onClear: () => void
   children: ReactNode
+  disabled?: boolean
 }
 
 function RuleSelectAffordances({
@@ -1049,14 +1074,23 @@ function RuleSelectAffordances({
   clearLabel,
   onClear,
   children,
+  disabled = false,
 }: RuleSelectAffordancesProps) {
   const extraCount = Math.max(0, selectionCount - 1)
   return (
-    <Box sx={{ position: 'relative', width: '100%', minWidth: 0 }}>
+    <Box
+      sx={{
+        position: 'relative',
+        width: '100%',
+        minWidth: 0,
+        ...(disabled ? { pointerEvents: 'none', opacity: 0.6 } : {}),
+      }}
+      aria-disabled={disabled}
+    >
       {children}
       <InlineSelectExtraBadge count={extraCount} />
       <InlineSelectClearButton
-        disabled={selectionCount === 0}
+        disabled={disabled || selectionCount === 0}
         label={clearLabel}
         onClear={onClear}
       />

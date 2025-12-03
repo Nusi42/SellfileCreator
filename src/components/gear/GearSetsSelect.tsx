@@ -35,6 +35,7 @@ type GearSetsSelectProps = {
   dataTourId?: string
   showMetasets?: boolean
   menuWidthPx?: number
+  disabled?: boolean
 }
 
 export default function GearSetsSelect({
@@ -48,6 +49,7 @@ export default function GearSetsSelect({
   dataTourId,
   showMetasets = true,
   menuWidthPx = SETS_MENU_WIDTH_PX,
+  disabled = false,
 }: GearSetsSelectProps) {
   const { t } = useI18n()
   const [setsOrder, setSetsOrder] = useSetsOrderPreference()
@@ -188,7 +190,7 @@ export default function GearSetsSelect({
   }, [allowMetasets, onChange, onChangeMetasetIds])
 
   return (
-    <Box ref={selectContainerRef} sx={{ position: 'relative' }}>
+    <Box ref={selectContainerRef} sx={{ position: 'relative', ...(disabled ? { pointerEvents: 'none', opacity: 0.6 } : {}) }}>
       <Select
         multiple
         size={size}
@@ -197,6 +199,7 @@ export default function GearSetsSelect({
         renderValue={renderValue}
         data-tour-id={dataTourId}
         displayEmpty
+        disabled={disabled}
         onOpen={(event) => {
           setMenuOpen(true)
           scrollSetsMenuToSelected(setsOrder, { force: true })
