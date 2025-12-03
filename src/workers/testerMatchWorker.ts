@@ -42,6 +42,7 @@ const evaluateRows = (
         firstMatch: null,
         firstNonExcludedMatch: null,
         matchingConfigIndices: [],
+        matchingConfigDecisions: [],
       }
     })
     return emptyResults
@@ -62,6 +63,7 @@ const evaluateRows = (
       firstMatch: full.firstMatch,
       firstNonExcludedMatch: base.firstMatch,
       matchingConfigIndices: full.matchingConfigIndices,
+      matchingConfigDecisions: full.matchingConfigDecisions,
     })
     // Emit determinate progress so the UI overlay can update mid-batch.
     if (onProgress) onProgress(idx + 1, total)

@@ -178,6 +178,7 @@ const buildPipelineMatches = (
       firstMatch: fullEval.firstMatch,
       firstNonExcludedMatch: baseEval?.firstNonExcludedMatch ?? baseEval?.firstMatch ?? null,
       matchingConfigIndices: fullEval.matchingConfigIndices,
+      matchingConfigDecisions: fullEval.matchingConfigDecisions,
     })
     if (!emitProgress) continue
     completedRef.value += 1
@@ -320,6 +321,7 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
           match: null,
           baseMatch: toPreviewMatch(match?.firstNonExcludedMatch ?? match?.firstMatch ?? null, mergedRulesBaseline),
           matchingCfgIndices: match?.matchingConfigIndices ?? [],
+          matchingConfigDecisions: match?.matchingConfigDecisions ?? [],
         }
       })
       const candidates = collectKeepUniqueCandidates({

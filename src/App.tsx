@@ -121,7 +121,7 @@ import { useAppActions, useAppState } from './state/appState'
 import { useI18n } from './lib/i18n'
 import { computeDuplicateIndices } from './lib/configDuplicates'
 import { configsForRuleBuild } from './lib/ruleCacheHelpers'
-import { type TestItem } from './lib/ruleEval'
+import { type MatchingConfigDecision, type TestItem } from './lib/ruleEval'
 import { importGearDatabaseFromFile } from './lib/importers/gearDbImporter'
 import type { NormalizedGearArtifact } from './lib/importers/gearDbNormalizer'
 import { TesterItemsGrid } from './components/TesterItemsGrid'
@@ -907,6 +907,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             const nextIdx = inverse.get(cfgIdx)
             return typeof nextIdx === 'number' ? nextIdx : null
           }
+          const remapDecision = (decision: MatchingConfigDecision): MatchingConfigDecision => {
+            const nextIdx = remapCfgIdx(decision.cfgIdx)
+            const cfgIdx = typeof nextIdx === 'number' ? nextIdx : decision.cfgIdx
+            return { ...decision, cfgIdx }
+          }
           const remappedRows = prevMatches.map((row) => ({
             ...row,
             match: (() => {
@@ -925,6 +930,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
               const nextIdx = inverse.get(idx)
               return typeof nextIdx === 'number' ? nextIdx : idx
             }),
+            matchingConfigDecisions: (row.matchingConfigDecisions ?? []).map(remapDecision),
           }))
           setTesterPreviewRows(sortTesterRows(remappedRows))
         }
@@ -1059,6 +1065,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             match,
             baseMatch,
             matchingCfgIndices: matchEntry?.matchingConfigIndices ?? [],
+            matchingConfigDecisions: matchEntry?.matchingConfigDecisions ?? [],
           })
         }
         setTesterPreviewRows(sortTesterRows(rows))
@@ -1146,6 +1153,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                   match,
                   baseMatch,
                   matchingCfgIndices: matchEntry?.matchingConfigIndices ?? [],
+                  matchingConfigDecisions: matchEntry?.matchingConfigDecisions ?? [],
                 })
               }
               setTesterPreviewRows(sortTesterRows(retryRows))

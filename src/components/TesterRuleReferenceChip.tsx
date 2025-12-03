@@ -10,6 +10,7 @@ import type { TesterPreviewMatch } from '../types/testerPreview'
 import MarkdownTooltip from './MarkdownTooltip'
 import EllipsisTooltip, { hasEllipsisOverflow } from './EllipsisTooltip'
 import { parseConfigNameDirectives } from '../lib/configNameDirectives'
+import { getTesterMatchBorderColor } from './testerMatchStyles'
 
 type TesterRuleReferenceChipProps = {
   match: TesterPreviewMatch | null
@@ -110,6 +111,7 @@ export function TesterRuleReferenceChip({
       textColor={textColor}
       {...(sx ? { sx } : {})}
       {...(icon ? { icon } : {})}
+      borderColor={getTesterMatchBorderColor(theme, Boolean(match.keep))}
       {...(onJump ? { onJump } : {})}
     />
   )
@@ -127,6 +129,7 @@ type TesterRuleReferenceChipBodyProps = {
   icon?: ChipProps['icon']
   jumpTooltip: string
   textColor?: string | null
+  borderColor?: string
 }
 
 function TesterRuleReferenceChipBody({
@@ -141,6 +144,7 @@ function TesterRuleReferenceChipBody({
   icon,
   jumpTooltip,
   textColor,
+  borderColor,
 }: TesterRuleReferenceChipBodyProps) {
   const chipWrapperRef = useRef<HTMLSpanElement | null>(null)
   const [nativeEllipsisTitle, setNativeEllipsisTitle] = useState<string | undefined>(undefined)
@@ -167,7 +171,8 @@ function TesterRuleReferenceChipBody({
     flexShrink: 1,
     overflow: 'hidden',
     '&:hover': clickable ? { bgcolor: 'action.hover' } : undefined,
-    borderColor: 'primary.main',
+    // Keep/sell state drives the outline so users can read the result at a glance.
+    borderColor: borderColor ?? 'primary.main',
     borderWidth: '1px',
     borderStyle: 'solid',
     '& .MuiChip-label': {

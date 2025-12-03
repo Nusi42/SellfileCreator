@@ -56,11 +56,17 @@ const evaluateRowsFallback = (
         firstMatch: null,
         firstNonExcludedMatch: null,
         matchingConfigIndices: [],
+        matchingConfigDecisions: [],
       }
     })
   }
   return items.map((entry, idx) => {
-    const { firstMatch, firstNonExcludedMatch, matchingConfigIndices } = evaluateMatchesByConfig(
+    const {
+      firstMatch,
+      firstNonExcludedMatch,
+      matchingConfigIndices,
+      matchingConfigDecisions,
+    } = evaluateMatchesByConfig(
       rules,
       entry.item,
       { configModes, excludeSources: [RULE_SOURCE_KEEP_UNIQUES] },
@@ -72,6 +78,7 @@ const evaluateRowsFallback = (
       firstMatch,
       firstNonExcludedMatch,
       matchingConfigIndices,
+      matchingConfigDecisions,
     }
   })
 }

@@ -193,10 +193,13 @@ export type EvalMatchesByConfigOptions = {
   excludeSources?: readonly string[]
 }
 
+export type MatchingConfigDecision = { cfgIdx: number; keep: boolean }
+
 export type EvalMatchesByConfigResult = {
   firstMatch: EvalResult | null
   firstNonExcludedMatch: EvalResult | null
   matchingConfigIndices: number[]
+  matchingConfigDecisions: MatchingConfigDecision[]
 }
 
 /** Full scan that returns the first match plus the set of configs that match anywhere in the rules list. */
@@ -223,6 +226,8 @@ export function evaluateMatchesByConfig(
   let fallbackKeepUnique: EvalResult | null = null
   let anyKeepUniqueMatch: EvalResult | null = null
   const matchingConfigs = new Set<number>()
+  // Preserve the first seen keep/sell flag per config so UI chips can mirror the outcome without rerunning rules.
+  const matchingConfigDecisions = new Map<number, MatchingConfigDecision>()
   const slotIndex = getRuleMatchIndex(rules)
   const slot = Number(item.slot)
   const setId = Number(item.set)
@@ -263,6 +268,9 @@ export function evaluateMatchesByConfig(
       if (!isExcluded && !firstNonExcludedMatch) firstNonExcludedMatch = match
     }
     if (cfgIdx !== null) {
+      if (!matchingConfigDecisions.has(cfgIdx)) {
+        matchingConfigDecisions.set(cfgIdx, { cfgIdx, keep })
+      }
       matchingConfigs.add(cfgIdx)
     }
     return true
@@ -277,11 +285,19 @@ export function evaluateMatchesByConfig(
       if (!firstNonExcludedMatch) firstNonExcludedMatch = keepCandidate
     }
   }
+  const matchingConfigIndices = matchingConfigs.size > 0
+    ? Array.from(matchingConfigs).sort((a, b) => a - b)
+    : []
+  const matchingConfigDecisionsList = matchingConfigIndices.map((cfgIdx) => {
+    const decision = matchingConfigDecisions.get(cfgIdx)
+    if (decision) return decision
+    // Safety fallback keeps the UI stable if a cfg sneaks into the set without a captured decision.
+    return { cfgIdx, keep: false }
+  })
   return {
     firstMatch,
     firstNonExcludedMatch: firstNonExcludedMatch ?? firstMatch,
-    matchingConfigIndices: matchingConfigs.size > 0
-      ? Array.from(matchingConfigs).sort((a, b) => a - b)
-      : [],
+    matchingConfigIndices,
+    matchingConfigDecisions: matchingConfigDecisionsList,
   }
 }

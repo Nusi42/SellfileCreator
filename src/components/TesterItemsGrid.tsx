@@ -54,6 +54,7 @@ import { isAccessorySlot } from '../lib/testerDomain'
 import type { TesterSourceFilter } from '../lib/rulesFilter'
 import { TesterSummaryLabel } from './TesterSummaryLabel'
 import { TesterRuleReferenceChip } from './TesterRuleReferenceChip'
+import { getTesterMatchBorderColor } from './testerMatchStyles'
 // MarkdownTooltip unifies the tester’s tooltip behavior (source glyphs, manage colors, etc.) with the rest of the UI.
 import MarkdownTooltip from './MarkdownTooltip'
 import { WithSetTooltip } from './SetTooltip'
@@ -218,6 +219,7 @@ type MatchingConfigEntry = {
   cfgIdx: number
   label: string
   textColor: string | null
+  keep: boolean | null
 }
 
 export function TesterItemsGrid(props: TesterItemsGridProps) {
@@ -1569,6 +1571,17 @@ const TesterGridCard = React.memo(function TesterGridCard({
     if (!allowPrimaryMatchJump || primaryRuleIndex == null) return
     onJumpToRule?.(primaryRuleIndex, primaryCfgIndex ?? null)
   }
+  // Map caches the first keep/sell decision per config so overflow chips reuse the same tint.
+  const matchingConfigKeepMap = useMemo(() => {
+    const map = new Map<number, boolean>()
+    if (!Array.isArray(row.matchingConfigDecisions)) return map
+    for (const decision of row.matchingConfigDecisions) {
+      const cfgIdx = Number(decision?.cfgIdx)
+      if (!Number.isFinite(cfgIdx) || map.has(cfgIdx)) continue
+      map.set(cfgIdx, Boolean(decision.keep))
+    }
+    return map
+  }, [row.matchingConfigDecisions])
   // Matching chips hydrate lazily so skeleton rows can avoid heavy string work until revealed.
   const matchingEntries: MatchingConfigEntry[] = useMemo(() => {
     if (!cardContentReady) return []
@@ -1590,10 +1603,11 @@ const TesterGridCard = React.memo(function TesterGridCard({
           ? cleanedLabel
           : `#${numericIdx + 1}`,
         textColor: decoration.hasExplicitColor ? decoration.resolvedColor : null,
+        keep: matchingConfigKeepMap.get(numericIdx) ?? null,
       })
     }
     return entries
-  }, [cardContentReady, row.matchingCfgIndices, configNames, configTextFallbackColor, t])
+  }, [cardContentReady, row.matchingCfgIndices, matchingConfigKeepMap, configNames, configTextFallbackColor])
   const shouldShowPrimaryMatchRow = basePrimaryMatchRowVisible
   const otherMatchingEntries = matchingEntries.slice(1)
   const shouldShowOtherMatchesRow = showOtherMatchesRow && otherMatchingEntries.length > 0
@@ -1718,6 +1732,10 @@ const TesterGridCard = React.memo(function TesterGridCard({
     const key = `matching-chip-${entry.cfgIdx}`
     const clickable = allowPrimaryMatchJump
     const textColor = entry.textColor ?? null
+    // Dimmed outline mirrors the keep/sell outcome without overpowering the primary chip.
+    const borderColor = typeof entry.keep === 'boolean'
+      ? getTesterMatchBorderColor(theme, entry.keep, { dimmed: true })
+      : null
     const sharedChipProps = {
       label: entry.label,
       size: 'small' as const,
@@ -1727,6 +1745,7 @@ const TesterGridCard = React.memo(function TesterGridCard({
         MATCHING_CONFIG_CHIP_SX,
         { cursor: clickable ? 'pointer' : 'default' },
         ...(textColor ? [{ color: textColor, '& .MuiChip-label': { color: textColor } }] : []),
+        ...(borderColor ? [{ borderColor }] : []),
       ],
     }
     const chipNode = (
