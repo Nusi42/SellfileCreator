@@ -268,6 +268,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const ruleConfigsForPreview = useDeferredValue(ruleConfigs)
   const configModesForPreview = useDeferredValue(configModes)
   const configNamesForPreview = useDeferredValue(configNames)
+  // Keep tester math reusable so seeding hooks share the same normalization as the dialog.
+  const testerMath = useMemo(() => createRuleTesterMath(substatTargets), [substatTargets])
   const lastConfigNamesRef = useRef<string[]>(configNamesForPreview)
   // Track the last dispatched pipeline so deferred snapshots cannot retrigger identical worker runs.
   const lastPipelineSignatureRef = useRef<{ fingerprint: string | null; artifactSig: string | null } | null>(null)
@@ -349,8 +351,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     savedAt: string | null
     count: number
   } | null>(() => {
-    const math = createRuleTesterMath(substatTargets)
-    const draft = loadRuleTesterAutosaveDraft({ math, allocItemId: allocTesterItemId })
+    const draft = loadRuleTesterAutosaveDraft({ math: testerMath, allocItemId: allocTesterItemId })
     if (!draft) return null
     return { items: draft.items, savedAt: draft.savedAt, count: draft.itemCount }
   })
@@ -713,8 +714,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     }
   }, [workloadBusy, workloadDeterminateRatio])
   const rulesBuildingTokenRef = useRef<number | null>(null)
+  // Track the active pipeline abort controller so we can cancel if needed.
+  const pipelineAbortRef = useRef<AbortController | null>(null)
   useEffect(() => {
     const abortController = new AbortController()
+    pipelineAbortRef.current = abortController
     const prevState = configRulesStateRef.current
     const prevMatches = testerPreviewRowsRef.current
     const prevConfigNames = lastConfigNamesRef.current
@@ -784,6 +788,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     ) {
       return () => {
         abortController.abort()
+        if (pipelineAbortRef.current === abortController) pipelineAbortRef.current = null
       }
     }
     const buildIndexMapping = (previousKeys: string[], nextKeys: string[]): number[] | null => {
@@ -808,6 +813,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       ? buildIndexMapping(prevState.keys, nextConfigKeys)
       : null
     const hasArtifacts = testerPreviewArtifacts.length > 0
+
     if (!artifactsChanged && canSkipWarm && configNamesChanged && prevMatches.length > 0) {
       // Names changed but rule fingerprints are stable; update cached rows without rebuilding.
       const updatedRows = prevMatches.map((row) => {
@@ -825,6 +831,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       lastConfigNamesRef.current = configNamesForBuild
       return () => {
         abortController.abort()
+        if (pipelineAbortRef.current === abortController) pipelineAbortRef.current = null
       }
     }
 
@@ -917,6 +924,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       lastConfigNamesRef.current = configNamesForBuild
       return () => {
         abortController.abort()
+        if (pipelineAbortRef.current === abortController) pipelineAbortRef.current = null
       }
     }
 
@@ -1064,6 +1072,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         pendingKeepUniqueDetectionSigRef.current = null
         lastPipelineSignatureRef.current = { fingerprint: nextFingerprint, artifactSig: pipelineArtifactSignature }
         lastConfigNamesRef.current = configNamesForBuild
+        if (pipelineAbortRef.current === abortController) pipelineAbortRef.current = null
         const totalCustomRules = Array.from(state.countsByConfig.values()).reduce((acc, val) => (
           acc + (Number.isFinite(val) ? Number(val) : 0)
         ), 0)
@@ -1172,6 +1181,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
 
     return () => {
       abortController.abort()
+      if (pipelineAbortRef.current === abortController) pipelineAbortRef.current = null
     }
   }, [
     runPipeline,

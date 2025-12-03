@@ -86,9 +86,17 @@ export function useTesterMatchWorker(): UseTesterMatchWorkerResult {
   const fallbackConfigModesRef = useRef<SellfileExportMode[]>([])
 
   useEffect(() => {
-    if (!supportsWorkerEnv) return
-    const worker = new TesterMatchWorker()
-    workerRef.current = worker
+    if (!supportsWorkerEnv) {
+      return
+    }
+    let worker: Worker | null = null
+    try {
+      worker = new TesterMatchWorker()
+      workerRef.current = worker
+    } catch (error) {
+      workerRef.current = null
+      return
+    }
     const configureMap = pendingConfigureRef.current
     const evaluateMap = pendingEvaluateRef.current
 

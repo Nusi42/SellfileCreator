@@ -282,6 +282,7 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
     })
 
     const baselineMatchMap = new Map<number, TesterMatchWorkerItemResult>()
+    // Baseline match pass for keep-unique detection (if enabled).
     if (needsDetection) {
       const baseMatchResults = buildPipelineMatches(
         mergedRulesBaseline,

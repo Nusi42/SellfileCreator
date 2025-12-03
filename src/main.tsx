@@ -3,7 +3,7 @@
  *
  * React entrypoint: bootstraps ThemeProvider and renders the App.
  */
-import React from 'react'
+import React, { useMemo } from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App'
 import { makeTheme } from './theme'
@@ -13,14 +13,12 @@ import { DisplayPreferencesProvider } from './state/preferencesState'
 import { defaultSubstatTargets } from './lib/hsfBuilder'
 import { defaultMetasets } from './lib/metasets'
 import './styles.css'
-import { useMemo } from 'react'
 import { I18nProvider } from './lib/i18n'
 import { useColorBlindPreference } from './state/colorBlindPreference'
 
 function AppShell() {
   const [cbMode, setCbMode] = useColorBlindPreference()
   const theme = useMemo(() => makeTheme(cbMode), [cbMode])
-
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />

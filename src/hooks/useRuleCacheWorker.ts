@@ -93,6 +93,8 @@ type UseRuleCacheWorkerResult = {
 }
 
 const supportsWorkerEnv = typeof window !== 'undefined' && typeof Worker !== 'undefined'
+// Track last forwarded progress timestamp per pipeline to throttle updates to roughly once per second.
+const pipelineProgressAtRef: { current: Map<number, number> } = { current: new Map() }
 
 export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
   const workerRef = useRef<Worker | null>(null)
@@ -371,7 +373,6 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
     if (!supportsWorkerEnv) return
     const worker = new RuleCacheWorker()
     workerRef.current = worker
-    // Stash the mutable maps so the cleanup closure observes the same instances.
     const warmMap = pendingWarmRef.current
     const pipelineMap = pendingPipelineRef.current
     const countMap = pendingCountRef.current
@@ -385,9 +386,18 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
         pending?.onProgress?.(data.payload)
         return
       }
+      // Throttle pipeline progress forwarding to roughly once per second (always forward completion).
       if (data.kind === 'pipeline:progress') {
         const pending = pipelineMap.get(data.id)
-        pending?.onProgress?.(data.payload)
+        if (pending?.onProgress) {
+          const now = typeof performance !== 'undefined' ? performance.now() : Date.now()
+          const lastAt = pipelineProgressAtRef.current.get(data.id) ?? 0
+          const shouldForward = data.payload.completed >= (data.payload.total ?? 0) || (now - lastAt) >= 1000
+          if (shouldForward) {
+            pending.onProgress(data.payload)
+            pipelineProgressAtRef.current.set(data.id, now)
+          }
+        }
         return
       }
       if (data.kind === 'warm:done') {
@@ -412,6 +422,7 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
         return
       }
       if (data.kind === 'pipeline:done') {
+        pipelineProgressAtRef.current.delete(data.id)
         const pending = pipelineMap.get(data.id)
         if (!pending) return
         pipelineMap.delete(data.id)
@@ -518,12 +529,9 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
     const worker = workerRef.current
     const id = ++requestIdRef.current
 
-    const runFallback = (error: unknown): Promise<WarmCacheResult> => {
+    const runFallback = (_error: unknown): Promise<WarmCacheResult> => {
       if (signal?.aborted) {
         return Promise.reject(new DOMException('Aborted', 'AbortError'))
-      }
-      if ((import.meta as { env?: { DEV?: boolean } }).env?.DEV) {
-        console.warn('rule cache worker failed; falling back to local merge', error)
       }
       return Promise.resolve(runWarmLocally(params, localProgressOptions))
     }
@@ -567,10 +575,10 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
 
     try {
       worker.postMessage(message)
-    } catch (error) {
+    } catch (_error) {
       pendingWarmRef.current.delete(id)
       cleanupAbort?.()
-      return runFallback(error)
+      return runFallback(_error)
     }
 
     return promise
@@ -599,13 +607,9 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
 
     const worker = workerRef.current
     const id = ++requestIdRef.current
-
-    const runFallback = (error: unknown): Promise<PipelineResult> => {
+    const runFallback = (_error: unknown): Promise<PipelineResult> => {
       if (signal?.aborted) {
         return Promise.reject(new DOMException('Aborted', 'AbortError'))
-      }
-      if ((import.meta as { env?: { DEV?: boolean } }).env?.DEV) {
-        console.warn('rule cache pipeline worker failed; falling back to local merge', error)
       }
       return Promise.resolve(runPipelineLocally(params, localProgressOptions))
     }
@@ -620,7 +624,6 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
     const pendingEntry: PendingPipelineRequest = { resolve: resolveFn, reject: rejectFn, promise }
     if (options?.onProgress) pendingEntry.onProgress = options.onProgress
     pendingPipelineRef.current.set(id, pendingEntry)
-
     const cleanupAbort = signal
       ? (() => {
           const abortHandler = () => {
@@ -658,10 +661,10 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
 
     try {
       worker.postMessage(message)
-    } catch (error) {
+    } catch (_error) {
       pendingPipelineRef.current.delete(id)
       cleanupAbort?.()
-      return runFallback(error)
+      return runFallback(_error)
     }
 
     return promise
