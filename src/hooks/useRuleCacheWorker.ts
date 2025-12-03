@@ -691,7 +691,7 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
       .finally(() => {
         cleanupAbort?.()
       })
-  }, [runPipelineLocally])
+  }, [abortActivePipelines, runPipelineLocally])
 
   const countRules = useCallback<UseRuleCacheWorkerResult['countRules']>((params, options) => {
     const signal = options?.signal ?? null

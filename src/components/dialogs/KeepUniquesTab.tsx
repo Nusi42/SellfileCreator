@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type MouseEvent as ReactMouseEvent, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent, type ReactNode } from 'react'
 import {
   Box,
   Button,
@@ -290,6 +290,28 @@ export default function KeepUniquesTab({
     },
     [mutateRules],
   )
+  // Keep display-only name edits from waking the worker; buffer locally and commit on blur/Enter.
+  const [pendingNameById, setPendingNameById] = useState<Map<string, string>>(() => new Map())
+  const nameCommitTimerRef = useRef<number | null>(null)
+  const flushPendingName = useCallback((ruleId: string) => {
+    const nextName = pendingNameById.get(ruleId)
+    if (nextName === undefined) return
+    updateRule(ruleId, (prev) => (prev.name === nextName ? prev : { ...prev, name: nextName }), true)
+  }, [pendingNameById, updateRule])
+  const cancelNameCommitTimer = useCallback(() => {
+    if (nameCommitTimerRef.current !== null) {
+      window.clearTimeout(nameCommitTimerRef.current)
+      nameCommitTimerRef.current = null
+    }
+  }, [])
+  const scheduleNameCommit = useCallback((ruleId: string) => {
+    cancelNameCommitTimer()
+    nameCommitTimerRef.current = window.setTimeout(() => {
+      nameCommitTimerRef.current = null
+      flushPendingName(ruleId)
+    }, 500)
+  }, [cancelNameCommitTimer, flushPendingName])
+  useEffect(() => () => cancelNameCommitTimer(), [cancelNameCommitTimer])
 
   const setRuleCombination = useCallback((
     ruleId: string,
@@ -497,11 +519,23 @@ export default function KeepUniquesTab({
             fullWidth
             size="small"
             label={t('keepUniquesRuleNameLabel')}
-            value={rule.name}
+            value={pendingNameById.get(rule.id) ?? rule.name}
             onClick={(event) => event.stopPropagation()}
             onChange={(event) => {
               const raw = event.target.value ?? ''
-              updateRule(rule.id, (prev) => ({ ...prev, name: raw }))
+              setPendingNameById((prev) => {
+                const next = new Map(prev)
+                next.set(rule.id, raw)
+                return next
+              })
+              scheduleNameCommit(rule.id)
+            }}
+            onBlur={() => flushPendingName(rule.id)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') {
+                event.preventDefault()
+                flushPendingName(rule.id)
+              }
             }}
           />
           <Stack spacing={1}>
