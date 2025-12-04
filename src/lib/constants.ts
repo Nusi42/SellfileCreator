@@ -190,6 +190,8 @@ export const FILTER_HEADER_CONTAINER_MAX_WIDTH_PX = 540
 // Compact max width for color chip buttons inside the Manage Colors dialog. Keeps the swatch +
 // label on one line without letting long translations (e.g., German “Hintergrund”) stretch the row.
 export const COLOR_FIELD_BUTTON_MAX_WIDTH_PX = 144
+// Tester config chips (matches + overflow) stay tap-friendly by enforcing a shared minimum width.
+export const MATCHING_CONFIG_CHIP_MIN_WIDTH_PX = 50
 // Reusable ellipsis style for inline text elements (typically button labels) that need to clamp to a
 // single line while remaining accessible via title/tooltips.
 export const ELLIPSIS_TEXT_SX = {
