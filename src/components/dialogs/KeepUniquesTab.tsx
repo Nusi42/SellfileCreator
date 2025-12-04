@@ -61,6 +61,7 @@ import { alpha, useTheme } from '@mui/material/styles'
 import type { SxProps, Theme } from '@mui/material/styles'
 import type { SystemStyleObject } from '@mui/system'
 import { createBuilderStatusChipSx } from '../builderStatusChipStyles'
+import { reserveScrollbarGutterSpace } from '../../lib/scrollbar'
 
 const SCOPE_CHIP_HOVER_ALPHA = { light: 0.12, dark: 0.24 } as const
 
@@ -823,7 +824,16 @@ export default function KeepUniquesTab({
                 />
               </Stack>
             </Box>
-            <Box sx={{ flex: 1, minHeight: 0, overflowY: 'auto', pt: 2, pr: 1 }}>
+            <Box
+              sx={(theme) => ({
+                flex: 1,
+                minHeight: 0,
+                overflowY: 'auto',
+                pt: 2,
+                pr: 1,
+                ...reserveScrollbarGutterSpace({ reserveStart: false, basePaddingInlineEnd: theme.spacing(1) }),
+              })}
+            >
               {rules.length === 0 ? (
                 <Typography variant="body2" color="text.secondary">{t('keepUniquesNoRules')}</Typography>
               ) : null}

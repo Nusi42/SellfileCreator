@@ -22,6 +22,7 @@ import KeepUniquesTab from './KeepUniquesTab'
 // MarkdownTooltip keeps the level-hint copy behavior aligned with the rest of the app.
 import MarkdownTooltip from '../MarkdownTooltip'
 import type { Metaset } from '../../lib/metasets'
+import { reserveScrollbarGutterSpace } from '../../lib/scrollbar'
 
 type FinalSellDialogProps = {
   open: boolean
@@ -165,7 +166,16 @@ export default function FinalSellDialog(props: FinalSellDialogProps) {
       </DialogTitle>
       <DialogContent sx={{ p: 0, display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
         {showFinalSellTab ? (
-          <Box data-tour-id="finalsell.dialog" sx={{ flex: 1, minHeight: 0, overflowY: 'auto', p: 3 }}>
+          <Box
+            data-tour-id="finalsell.dialog"
+            sx={(theme) => ({
+              flex: 1,
+              minHeight: 0,
+              overflowY: 'auto',
+              p: 3,
+              ...reserveScrollbarGutterSpace({ reserveStart: false, basePaddingInlineEnd: theme.spacing(3) }),
+            })}
+          >
             <Stack spacing={2} sx={{ mt: 0.5 }}>
           <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: 'pre-line' }}>{t('msgFinalSellExplainer')}</Typography>
           <Box data-tour-id="finalsell.dialog.sets" sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>

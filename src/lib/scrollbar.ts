@@ -7,9 +7,9 @@ import type { SystemStyleObject } from '@mui/system'
  */
 const formatPadding = (value: number | string): string => (typeof value === 'number' ? `${value}px` : value)
 
-// Match Chromium's custom scrollbar width (10px) so Firefox receives the same
-// effective gutter size. Keep overridable for future tweaks.
-export const FIREFOX_SCROLLBAR_GUTTER_PX = 10
+// Match Firefox's native scrollbar width (≈16px) so hover states never overlay
+// content. Keep overridable for future tweaks.
+export const FIREFOX_SCROLLBAR_GUTTER_PX = 16
 
 export interface ScrollbarGutterOptions {
   reserveStart?: boolean
@@ -32,6 +32,7 @@ export const reserveScrollbarGutterSpace = (options?: ScrollbarGutterOptions): S
   return {
     scrollbarGutter: reserveStart ? 'stable both-edges' : 'stable',
     '@media all and (min--moz-device-pixel-ratio:0)': {
+      scrollbarGutter: 'auto',
       ...(reserveStart ? { paddingInlineStart: startPad, paddingLeft: startPad } : {}),
       paddingInlineEnd: endPad,
       paddingRight: endPad,
