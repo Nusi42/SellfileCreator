@@ -62,6 +62,7 @@ const makeTesterRow = (overrides: Partial<NormalizedGearArtifact> = {}, keep = f
     match,
     baseMatch: match,
     matchingCfgIndices: keep ? [0] : [],
+    matchingConfigDecisions: keep ? [{ cfgIdx: 0, keep: true }] : [],
   }
 }
 

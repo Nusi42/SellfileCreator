@@ -621,7 +621,9 @@ const toDetectionSubstats = (artifact: NormalizedGearArtifact): KeepUniqueDetect
   artifact.substats.map((stat) => ({
     variant: stat.variant,
     isFlat: stat.isFlat,
-    value: Number((stat.totalValue + stat.glyphValue).toFixed(3)),
+    // Keep-unique rules must mirror the tester’s subValues payload, which omits glyph bonuses.
+    // Using `totalValue` keeps the injected rule self-matching so glyph-heavy items are not skipped.
+    value: Number((stat.totalValue ?? 0).toFixed(3)),
   }))
 )
 

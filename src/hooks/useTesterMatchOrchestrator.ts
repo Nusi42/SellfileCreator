@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, type MutableRefObject } from 'react'
 import { RULE_SOURCE_KEEP_UNIQUES, canonicalRuleKey, type HsfRuleWithCfg } from '../lib/merge'
-import { evaluateMatchesByConfig, type EvalResult } from '../lib/ruleEval'
+import { evaluateMatchesByConfig, type EvalResult, type MatchingConfigDecision } from '../lib/ruleEval'
 import type { SellfileExportMode } from '../lib/hsfBuilder'
 import {
   collectKeepUniqueCandidates,
@@ -323,6 +323,7 @@ export function useTesterMatchOrchestrator(params: UseTesterMatchOrchestratorPar
           match: null,
           baseMatch: null,
           matchingCfgIndices: [],
+          matchingConfigDecisions: [],
         })
       })
       testerPreviewRowMapRef.current = nextRowMap
@@ -373,6 +374,7 @@ export function useTesterMatchOrchestrator(params: UseTesterMatchOrchestratorPar
     firstMatch: EvalResult | null,
     baseMatch: EvalResult | null,
     matchingConfigIndices: number[],
+    matchingConfigDecisions: MatchingConfigDecision[],
   ): TesterPreviewRow => {
     // Compute the displayed match (includes keep-unique rules).
     let match = toTesterPreviewMatch(firstMatch)
@@ -392,6 +394,7 @@ export function useTesterMatchOrchestrator(params: UseTesterMatchOrchestratorPar
       match,
       baseMatch: toTesterPreviewMatch(baseMatch),
       matchingCfgIndices: matchingConfigIndices,
+      matchingConfigDecisions,
     }
   }
 
@@ -429,6 +432,7 @@ export function useTesterMatchOrchestrator(params: UseTesterMatchOrchestratorPar
               result.firstMatch,
               result.firstNonExcludedMatch,
               result.matchingConfigIndices,
+              result.matchingConfigDecisions,
             ))
           })
           testerPreviewRowMapRef.current = nextRowMap
@@ -484,7 +488,14 @@ export function useTesterMatchOrchestrator(params: UseTesterMatchOrchestratorPar
         artifact.testerItem,
         { configModes, excludeSources: [RULE_SOURCE_KEEP_UNIQUES] },
       )
-      return toPreviewRow(itemId, artifact, fullEval.firstMatch, baseEval.firstMatch, fullEval.matchingConfigIndices)
+      return toPreviewRow(
+        itemId,
+        artifact,
+        fullEval.firstMatch,
+        baseEval.firstMatch,
+        fullEval.matchingConfigIndices,
+        fullEval.matchingConfigDecisions,
+      )
     }
 
     // Process all dirty entries synchronously for now (no chunked timeouts).

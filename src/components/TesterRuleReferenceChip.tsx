@@ -1,7 +1,7 @@
 import { useCallback, useRef, useState } from 'react'
 import { Box, Chip } from '@mui/material'
 import type { ChipProps } from '@mui/material'
-import type { SxProps, Theme } from '@mui/material/styles'
+import { useTheme, type SxProps, type Theme } from '@mui/material/styles'
 import type { SystemStyleObject } from '@mui/system'
 import { RULE_SOURCE_FINAL_SELL, RULE_SOURCE_KEEP_UNIQUES } from '../lib/merge'
 import { useI18n } from '../lib/i18n'
@@ -9,6 +9,8 @@ import type { TesterPreviewMatch } from '../types/testerPreview'
 // MarkdownTooltip keeps the “jump to config” hint aligned with the rest of the tooltip rollout.
 import MarkdownTooltip from './MarkdownTooltip'
 import EllipsisTooltip, { hasEllipsisOverflow } from './EllipsisTooltip'
+import { parseConfigNameDirectives } from '../lib/configNameDirectives'
+import { getTesterMatchBorderColor } from './testerMatchStyles'
 
 type TesterRuleReferenceChipProps = {
   match: TesterPreviewMatch | null
@@ -17,6 +19,8 @@ type TesterRuleReferenceChipProps = {
   sx?: SxProps<Theme>
   showFinalSellLabel?: boolean
   icon?: ChipProps['icon']
+  showConfigIndex?: boolean
+  showLineNumber?: boolean
 }
 
 const simpleMatchChipSx = (sx?: SxProps<Theme>): SxProps<Theme> => {
@@ -42,8 +46,11 @@ export function TesterRuleReferenceChip({
   sx,
   showFinalSellLabel = true,
   icon,
+  showConfigIndex = true,
+  showLineNumber = false,
 }: TesterRuleReferenceChipProps) {
   const { t } = useI18n()
+  const theme = useTheme()
   if (!match) return null
   if (match.ruleSource === RULE_SOURCE_FINAL_SELL) {
     if (!showFinalSellLabel) return null
@@ -52,6 +59,8 @@ export function TesterRuleReferenceChip({
         size={size}
         label={t('testerFinalSellChip')}
         color="warning"
+        // Data hook keeps Playwright checks stable while match chips stay minimal.
+        data-match-source="final-sell"
         sx={simpleMatchChipSx(sx)}
       />
     )
@@ -62,37 +71,47 @@ export function TesterRuleReferenceChip({
         size={size}
         label={t('testerKeepUniqueChip')}
         color="success"
+        data-match-source="keep-unique"
         sx={simpleMatchChipSx(sx)}
       />
     )
   }
   const ruleIndex = typeof match.ruleIndex === 'number' ? match.ruleIndex : null
-  const formattedRule = match.ruleLabel
-    ? match.ruleLabel
-    : (ruleIndex != null ? `#${ruleIndex + 1}` : '')
   const cfgIdx = typeof match.cfgIdx === 'number' ? match.cfgIdx : null
-  const formattedConfigNumber = cfgIdx != null ? `#${cfgIdx + 1}` : ''
-  const formattedConfigName = match.cfgName && match.cfgName.trim().length > 0
-    ? match.cfgName.trim()
-    : (cfgIdx != null ? t('testerConfigChip', { index: cfgIdx + 1 }) : '')
-  const numberSegment = (() => {
-    if (formattedConfigNumber && formattedRule) return `${formattedConfigNumber} • ${formattedRule}`
-    return formattedConfigNumber || formattedRule
+  const configDecoration = parseConfigNameDirectives(match.cfgName ?? undefined, theme.palette.primary.main)
+  const textColor = configDecoration.hasExplicitColor ? configDecoration.resolvedColor : null
+  const formattedConfigName = (() => {
+    const trimmed = configDecoration.displayName.trim()
+    if (trimmed.length > 0) return trimmed
+    return cfgIdx != null ? `#${cfgIdx + 1}` : ''
   })()
-  const labelParts = [numberSegment, formattedConfigName].filter((part) => part && part.length > 0)
-  const label = labelParts.length > 1 ? `${labelParts[0]} | ${labelParts[1]}` : (labelParts[0] ?? '')
+  // Number segment is intentionally lightweight: config index + line number sans labels,
+  // joined with a mid-dot so the trailing config name stays readable on narrow cards.
+  const configNumberSegment = (showConfigIndex && cfgIdx != null)
+    ? `#${cfgIdx + 1}`
+    : ''
+  const ruleLineSegment = (showLineNumber && ruleIndex != null)
+    ? `#${ruleIndex + 1}`
+    : ''
+  const numberSegment = [configNumberSegment, ruleLineSegment].filter((part) => part && part.length > 0).join(' • ')
+  const label = numberSegment
+    ? `${numberSegment} | ${formattedConfigName}`
+    : formattedConfigName
   const clickable = typeof onJump === 'function' && ruleIndex != null
   if (!label) return null
   return (
     <TesterRuleReferenceChipBody
       label={label}
+      variant="outlined"
       clickable={clickable}
       ruleIndex={ruleIndex}
       cfgIdx={typeof match.cfgIdx === 'number' ? match.cfgIdx : null}
       size={size}
       jumpTooltip={t('testerJumpToConfig')}
+      textColor={textColor}
       {...(sx ? { sx } : {})}
       {...(icon ? { icon } : {})}
+      borderColor={getTesterMatchBorderColor(theme, Boolean(match.keep))}
       {...(onJump ? { onJump } : {})}
     />
   )
@@ -100,6 +119,7 @@ export function TesterRuleReferenceChip({
 
 type TesterRuleReferenceChipBodyProps = {
   label: string
+  variant?: ChipProps['variant']
   clickable: boolean
   ruleIndex: number | null
   cfgIdx: number | null
@@ -108,10 +128,13 @@ type TesterRuleReferenceChipBodyProps = {
   sx?: SxProps<Theme>
   icon?: ChipProps['icon']
   jumpTooltip: string
+  textColor?: string | null
+  borderColor?: string
 }
 
 function TesterRuleReferenceChipBody({
   label,
+  variant = 'outlined',
   clickable,
   ruleIndex,
   cfgIdx,
@@ -120,6 +143,8 @@ function TesterRuleReferenceChipBody({
   sx,
   icon,
   jumpTooltip,
+  textColor,
+  borderColor,
 }: TesterRuleReferenceChipBodyProps) {
   const chipWrapperRef = useRef<HTMLSpanElement | null>(null)
   const [nativeEllipsisTitle, setNativeEllipsisTitle] = useState<string | undefined>(undefined)
@@ -139,13 +164,17 @@ function TesterRuleReferenceChipBody({
   }, [clickable])
   const baseSx: SxProps<Theme> = {
     cursor: clickable ? 'pointer' : 'default',
-    bgcolor: 'primary.main',
-    color: 'common.black',
+    bgcolor: 'background.paper',
+    color: textColor ?? 'text.primary',
     borderRadius: '8px',
     maxWidth: '100%',
     flexShrink: 1,
     overflow: 'hidden',
-    '&:hover': clickable ? { bgcolor: 'primary.light' } : undefined,
+    '&:hover': clickable ? { bgcolor: 'action.hover' } : undefined,
+    // Keep/sell state drives the outline so users can read the result at a glance.
+    borderColor: borderColor ?? 'primary.main',
+    borderWidth: '1px',
+    borderStyle: 'solid',
     '& .MuiChip-label': {
       px: 0.75,
       display: 'block',
@@ -153,6 +182,7 @@ function TesterRuleReferenceChipBody({
       overflow: 'hidden',
       textOverflow: 'ellipsis',
       whiteSpace: 'nowrap',
+      ...(textColor ? { color: textColor } : {}),
     },
   }
   const combinedSx: SxProps<Theme> = sx
@@ -166,6 +196,7 @@ function TesterRuleReferenceChipBody({
   const baseChip = (
     <Chip
       size={size}
+      variant={variant}
       {...iconProps}
       label={label}
       {...interactiveProps}

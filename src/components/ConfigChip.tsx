@@ -27,6 +27,7 @@ import { isLockedAggregateScopeActive, isMilestoneThresholdsActive } from '../li
 import { artifactTypeIconFor } from './artifactTypeIcons'
 import { useContextMenuCloseOnOutsideRightClick } from '../hooks/useContextMenuCloseOnOutsideRightClick'
 import { useI18n } from '../lib/i18n'
+import { parseConfigNameDirectives } from '../lib/configNameDirectives'
 import { FactionIcon } from './FactionIcon'
 import { useDisplayPreferences } from '../state/preferencesState'
 import { SetIcon } from './SetIcon'
@@ -51,8 +52,6 @@ const SEPARATOR_HASHED_LINE_ALPHA_BASE = 0.75
 const SEPARATOR_HASHED_LINE_ALPHA_STEP = 0.15
 const SEPARATOR_HASHED_LINE_ALPHA_MIN = 0.3
 
-const NAME_COLOR_DIRECTIVE_PATTERN = /^\s*(#\s*)?\[\s*#?([0-9a-fA-F]{3}|[0-9a-fA-F]{6})\s*\]/
-
 const clampAggregateRollDisplayValue = (value: unknown): number => {
   if (typeof value !== 'number' || !Number.isFinite(value)) return 0
   const rounded = Math.round(value)
@@ -60,22 +59,6 @@ const clampAggregateRollDisplayValue = (value: unknown): number => {
 }
 
 const isDevBuild: boolean = Boolean((import.meta as unknown as { env?: { DEV?: boolean } }).env?.DEV)
-
-type NameColorDirective = {
-  displayName: string
-  resolvedColor: string
-  hasExplicitColor: boolean
-}
-
-function parseNameColorDirectives(rawName: string | undefined, fallbackColor: string): NameColorDirective {
-  const source = rawName ?? ''
-  const match = source.match(NAME_COLOR_DIRECTIVE_PATTERN)
-  if (!match || !match[2]) {
-    return { displayName: source, resolvedColor: fallbackColor, hasExplicitColor: false }
-  }
-  const displayName = source.slice(match[0].length).trimStart()
-  return { displayName, resolvedColor: `#${match[2].toUpperCase()}`, hasExplicitColor: true }
-}
 
 type SeparatorDividerDecoration = {
   displayName: string
@@ -95,7 +78,7 @@ function deriveSeparatorDividerDecoration(rawName: string | undefined, baseColor
   const hashCount = hashPrefix.length
 
   const rest = trimmed.slice(hashPrefix.length).trimStart()
-  const { displayName, resolvedColor } = parseNameColorDirectives(rest, baseColor)
+  const { displayName, resolvedColor } = parseConfigNameDirectives(rest, baseColor)
   const hasLabel = displayName.length > 0
 
   if (hashCount === 0) {
@@ -207,7 +190,7 @@ function ConfigChip({
   const theme = useTheme()
   const primaryColor = theme.palette.primary.main
   const nameDecoration = useMemo(
-    () => parseNameColorDirectives(cfg.name, primaryColor),
+    () => parseConfigNameDirectives(cfg.name, primaryColor),
     [cfg.name, primaryColor],
   )
   // Dev builds expose extra clipboard utilities via the chip context menu.

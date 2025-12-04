@@ -389,6 +389,8 @@ export const RULES_TABLE_SHOW_FACTION_ICONS_KEY = 'sellfileCreator.rulesTable.fa
 export const TESTER_PREVIEW_LAYOUT_KEY = 'sellfileCreator.tester.previewLayout.v1'
 export const TESTER_GRID_COLUMNS_KEY = 'sellfileCreator.tester.grid.columns.v1'
 export const TESTER_GRID_SHOW_FIRST_MATCH_KEY = 'sellfileCreator.tester.grid.showFirstMatch.v1'
+export const TESTER_GRID_SHOW_MATCH_CONFIG_INDEX_KEY = 'sellfileCreator.tester.grid.showMatchConfigIndex.v1'
+export const TESTER_GRID_SHOW_MATCH_LINE_KEY = 'sellfileCreator.tester.grid.showMatchLine.v1'
 export const TESTER_GRID_SHOW_OTHER_MATCHES_KEY = 'sellfileCreator.tester.grid.showOtherMatches.v1'
 export const TESTER_GRID_SHOW_CHAMP_ICONS_KEY = 'sellfileCreator.tester.grid.showChampIcons.v1'
 

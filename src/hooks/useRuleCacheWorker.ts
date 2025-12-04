@@ -274,6 +274,7 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
           firstMatch: baseEval.firstMatch,
           firstNonExcludedMatch: baseEval.firstNonExcludedMatch ?? baseEval.firstMatch,
           matchingConfigIndices: baseEval.matchingConfigIndices,
+          matchingConfigDecisions: baseEval.matchingConfigDecisions,
         })
       }
       completed += artifactList.length
@@ -304,6 +305,7 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
           match: null,
           baseMatch: toPreviewMatch(match?.firstNonExcludedMatch ?? match?.firstMatch ?? null, mergedRulesBaseline),
           matchingCfgIndices: match?.matchingConfigIndices ?? [],
+          matchingConfigDecisions: match?.matchingConfigDecisions ?? [],
         }
       })
       const candidates = collectKeepUniqueCandidates({
@@ -348,6 +350,7 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
           firstMatch: fullEval.firstMatch,
           firstNonExcludedMatch: baseEval.firstMatch,
           matchingConfigIndices: fullEval.matchingConfigIndices,
+          matchingConfigDecisions: fullEval.matchingConfigDecisions,
         })
         completed += 1
         if (total > 0 && options?.onProgress) emitProgress()

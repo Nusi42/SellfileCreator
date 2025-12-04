@@ -229,7 +229,7 @@ Exemplo: Soma de rolagens com curingas (2 substats)
 
 Muito obrigado a **[STBL] Nasgor** pelos contributos inestimáveis,  
 a **[SP] Panda** pelos seus Sellfiles,  
-a **[IPЯ] KruYseN** pelos vídeos de limpeza de equipamento,  
+a **KruYseN** pelos vídeos de limpeza de equipamento,  
 e claro a **Farbstoff** pelo RSL Helper!
 
 ## Autor

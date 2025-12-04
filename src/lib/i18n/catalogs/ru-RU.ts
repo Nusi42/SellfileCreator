@@ -85,7 +85,6 @@ const overrides: Catalog = {
   testerMatchSell: 'Продать',
   testerMatchNoRule: 'Совпадение отсутствует',
   testerConfigMatches: 'Совпадающие конфиги',
-  testerConfigChip: 'Конфиг #{index}',
   testerFinalSellChip: 'Финпродажа',
 
   testerKeepUniqueChip: 'Сохранение уникальных',
@@ -490,6 +489,8 @@ const overrides: Catalog = {
   rulesMenuGridColumns: 'Столбцы сетки',
   rulesMenuGridColumnsValue: '{count}',
   rulesMenuShowFirstMatch: 'Показать первое совпадение',
+  rulesMenuShowMatchConfigIndex: 'Показать индекс конфигурации',
+  rulesMenuShowMatchLine: 'Показать № строки',
   rulesMenuShowOtherMatches: 'Показать другие совпадения',
   rulesMenuShowChampionIcons: 'Показывать иконки чемпионов',
   commonOn: 'Вкл.',

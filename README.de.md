@@ -229,7 +229,7 @@ Beispiel: Rollen-Summe mit Wildcards (2 Substats)
 
 Vielen Dank an **[STBL] Nasgor** für seine unschätzbaren Beiträge,  
 an **[SP] Panda** für seine Sellfiles,  
-an **[IPЯ] KruYseN** für seine Gear-Cleanse-Videos,  
+an **KruYseN** für seine Gear-Cleanse-Videos,  
 und natürlich an **Farbstoff** für RSL Helper!
 
 ## Autor

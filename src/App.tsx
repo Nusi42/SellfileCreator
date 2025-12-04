@@ -121,7 +121,7 @@ import { useAppActions, useAppState } from './state/appState'
 import { useI18n } from './lib/i18n'
 import { computeDuplicateIndices } from './lib/configDuplicates'
 import { configsForRuleBuild } from './lib/ruleCacheHelpers'
-import { type TestItem } from './lib/ruleEval'
+import { type MatchingConfigDecision, type TestItem } from './lib/ruleEval'
 import { importGearDatabaseFromFile } from './lib/importers/gearDbImporter'
 import type { NormalizedGearArtifact } from './lib/importers/gearDbNormalizer'
 import { TesterItemsGrid } from './components/TesterItemsGrid'
@@ -499,6 +499,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   useEffect(() => { testerRowsCommittedBuildIdRef.current = testerRowsCommittedBuildId }, [testerRowsCommittedBuildId])
   const testerMatchResetRef = useRef<{ reason: TesterMatchResetReason; targetBuildId: number; startedAt: number } | null>(null)
   const [testerMatchResetReason, setTesterMatchResetReason] = useState<TesterMatchResetReason | null>(null)
+  // Track the last keep-unique structural signature so cosmetic edits do not retrigger the pipeline.
+  const keepUniqueStructureSigRef = useRef<string | null>(null)
   const beginTesterMatchReset = useCallback((reason: TesterMatchResetReason) => {
     resetKeepUniqueDetectionState()
     const targetBuildId = testerRowsActiveBuildId > testerRowsCommittedBuildId
@@ -738,6 +740,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       || configNamesForPreview.some((name, idx) => name !== configNames[idx])
     )
     const configNamesForBuild = previewNamesStale ? configNames : configNamesForPreview
+    // Config modes gate disabled/separator configs during matcher eval, so keep the snapshot aligned with the builder payload.
+    const previewModesStale = (
+      configModesForPreview.length !== configModes.length
+      || configModesForPreview.some((mode, idx) => mode !== configModes[idx])
+    )
+    const configModesForBuild = previewModesStale ? configModes : configModesForPreview
     // Artifact signature drives match reuse; keep it alongside the fingerprint so duplicate builds can bail quickly.
     const pipelineArtifactSignature = testerArtifactsSignature
     // Mirror metasets and substat targets to the same snapshot to avoid stale warm fingerprints.
@@ -752,6 +760,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     // Use the build-aligned snapshot for key comparisons so reorders are detected even if deferred previews lag.
     const nextSubstatTargetsKey = fingerprintSubstatTargets(substatTargetsForBuild)
     const nextConfigKeys = configsForBuild.map((cfg) => fingerprintConfigForRules(cfg, nextSubstatTargetsKey))
+    const keepUniqueStructureSig = fingerprintKeepUniqueRuleList(resolvedKeepUniqueRules)
     const nextFingerprint = buildRulesFingerprint({
       substatTargetsKey: nextSubstatTargetsKey,
       configKeys: nextConfigKeys,
@@ -789,6 +798,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       && lastPipelineSignatureRef.current.artifactSig === pipelineArtifactSignature
       && !workerNeedsReset
     ) {
+      keepUniqueStructureSigRef.current = keepUniqueStructureSig
       return () => {
         abortController.abort()
         if (pipelineAbortRef.current === abortController) pipelineAbortRef.current = null
@@ -903,6 +913,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           const nextIdx = inverse.get(cfgIdx)
           return typeof nextIdx === 'number' ? nextIdx : null
         }
+        const remapDecision = (decision: MatchingConfigDecision): MatchingConfigDecision => {
+          const nextIdx = remapCfgIdx(decision.cfgIdx)
+          const cfgIdx = typeof nextIdx === 'number' ? nextIdx : decision.cfgIdx
+          return { ...decision, cfgIdx }
+        }
         const remappedRows = prevMatches.map((row) => ({
           ...row,
           match: (() => {
@@ -921,6 +936,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             const nextIdx = inverse.get(idx)
             return typeof nextIdx === 'number' ? nextIdx : idx
           }),
+          matchingConfigDecisions: (row.matchingConfigDecisions ?? []).map(remapDecision),
         }))
         setTesterPreviewRows(sortTesterRows(remappedRows))
       }
@@ -993,7 +1009,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         hsf,
         ...(finalSellRemainder ? { finalSellRemainder } : {}),
         keepUniques: keepUniquesPayload,
-        configModes: configModesForPreview,
+        configModes: configModesForBuild,
         artifacts: [],
         artifactPatch,
         artifactSignature: testerArtifactsSignature,
@@ -1037,6 +1053,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             rulesByConfig: state.rulesByConfig,
             finalSellRules,
           }
+          keepUniqueStructureSigRef.current = keepUniqueStructureSig
           const matchMap = new Map<number, TesterMatchWorkerItemResult>()
           for (const entry of matches) {
             if (!entry) continue
@@ -1058,6 +1075,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
               match,
               baseMatch,
               matchingCfgIndices: matchEntry?.matchingConfigIndices ?? [],
+              matchingConfigDecisions: matchEntry?.matchingConfigDecisions ?? [],
             })
           }
           setTesterPreviewRows(sortTesterRows(rows))
@@ -1146,6 +1164,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                     match,
                     baseMatch,
                     matchingCfgIndices: matchEntry?.matchingConfigIndices ?? [],
+                    matchingConfigDecisions: matchEntry?.matchingConfigDecisions ?? [],
                   })
                 }
                 setTesterPreviewRows(sortTesterRows(retryRows))
@@ -1212,12 +1231,14 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     finalSellRemainder,
     keepUniquesEnabled,
     resolvedKeepUniqueRules,
+    configModes,
     configModesForPreview,
     testerPreviewArtifacts,
     testerArtifactsSignature,
     configNamesForPreview,
     getArtifactItemId,
     buildRulesFingerprint,
+    fingerprintKeepUniqueRuleList,
   ])
 
   const awaitRuleCounts = useCallback((): { token: number; promise: Promise<Map<number, number>> } | null => null, [])
