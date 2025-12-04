@@ -6,6 +6,7 @@ import type { SystemStyleObject } from '@mui/system'
 import { RULE_SOURCE_FINAL_SELL, RULE_SOURCE_KEEP_UNIQUES } from '../lib/merge'
 import { useI18n } from '../lib/i18n'
 import type { TesterPreviewMatch } from '../types/testerPreview'
+import { MATCHING_CONFIG_CHIP_MIN_WIDTH_PX } from '../lib/constants'
 // MarkdownTooltip keeps the “jump to config” hint aligned with the rest of the tooltip rollout.
 import MarkdownTooltip from './MarkdownTooltip'
 import EllipsisTooltip, { hasEllipsisOverflow } from './EllipsisTooltip'
@@ -28,6 +29,8 @@ const simpleMatchChipSx = (sx?: SxProps<Theme>): SxProps<Theme> => {
     width: 'auto',
     maxWidth: '100%',
     flexShrink: 0,
+    // Keep parity with tester overflow chips so the first match stays tap-friendly.
+    minWidth: MATCHING_CONFIG_CHIP_MIN_WIDTH_PX,
     '& .MuiChip-label': {
       display: 'inline-flex',
       px: 0.75,
@@ -167,6 +170,7 @@ function TesterRuleReferenceChipBody({
     bgcolor: 'background.paper',
     color: textColor ?? 'text.primary',
     borderRadius: '8px',
+    minWidth: MATCHING_CONFIG_CHIP_MIN_WIDTH_PX,
     maxWidth: '100%',
     flexShrink: 1,
     overflow: 'hidden',
