@@ -183,6 +183,7 @@ const evaluateArtifacts = (
       firstMatch,
       firstNonExcludedMatch,
       matchingConfigIndices: cfgMatches,
+      matchingConfigDecisions,
     } = evaluateMatchesByConfig(
       rules as HsfRuleWithCfg[],
       artifact.testerItem,
@@ -194,7 +195,13 @@ const evaluateArtifacts = (
     const match = toTesterMatch(firstMatch)
     const baseMatch = toTesterMatch(firstNonExcludedMatch)
     if (match?.keep) kept += 1
-    rows.push({ artifact, match, baseMatch, matchingCfgIndices: cfgMatches })
+    rows.push({
+      artifact,
+      match,
+      baseMatch,
+      matchingCfgIndices: cfgMatches,
+      matchingConfigDecisions,
+    })
   }
   const durationMs = performance.now() - startedAt
   return { rows, durationMs, kept, sold: artifacts.length - kept }
