@@ -128,7 +128,7 @@ If tooltips need rich formatting (colored badges, inline icons), pass JSX via `r
   - Playful mode (~20%): occasionally produces light, kid-friendly combinations (e.g., “Snack Squad”) while keeping content PG.
   - Implementation: dependency-free LCG for randomness; compact lists; no user toggle.
   - Visual feedback: A playful name triggers a brief golden glow + sparkles on the TextField. The effect is clipped to the input and respects the floating label.
-  - Scrollbar stability: The metasets list uses `scrollbar-gutter: stable both-edges` to prevent dialog width shifts when the vertical scrollbar appears.
+- Scrollbar stability: The metasets list uses `scrollbar-gutter: stable both-edges` to prevent dialog width shifts when the vertical scrollbar appears, and `reserveScrollbarGutterSpace()` injects Firefox-only padding so Chromium browsers keep their native gutter while Firefox still looks aligned.
   - Deletion performance: Deleting an unused metaset skips remapping `customCfgs` and updates only the builder if needed.
   - IDs and IO:
     - Built-ins: stable slugs (e.g., `meta_nuker`).

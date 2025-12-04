@@ -3714,6 +3714,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           scrollbarWidth: 'thin',
           scrollbarColor: `${theme.palette.divider} transparent`,
         },
+        // Firefox does not render overlay scrollbars; keep the default width there
+        '@media all and (min--moz-device-pixel-ratio:0)': {
+          '*, *::before, *::after': {
+            scrollbarWidth: 'auto',
+          },
+        },
         // Hide MUI tooltips while scrolling to avoid viewport scrollbar flicker
         '.scrolling .MuiTooltip-popper': {
           display: 'none !important',

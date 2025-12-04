@@ -8,6 +8,7 @@ import {
   SCROLLING_TOOLTIP_HIDE_MS,
   BUILDER_CONFIG_CHIPS_EMPTY_MIN_HEIGHT_PX,
 } from '../lib/constants'
+import { reserveScrollbarGutterSpace } from '../lib/scrollbar'
 import ConfigChip from './ConfigChip'
 import type { BuilderConfig } from '../lib/hsfBuilder'
 import type { Metaset } from '../lib/metasets'
@@ -583,31 +584,35 @@ function ConfigChipsPanel(props: {
     <>
       <Box
         ref={containerRef}
-        sx={(theme) => ({
-          mt: 2,
-          display: 'flex',
-          width: '100%',
-          flexGrow: 1,
-          flexBasis: 0,
-          gap: 0.75,
-          flexWrap: 'wrap',
-          maxHeight: maxHeightPx,
-          overflowY: 'auto',
-          overflowX: 'hidden',
-          scrollbarGutter: 'stable',
-          pr: 1,
-          minHeight: minHeightPx,
-          alignContent: 'flex-start',
-          alignItems: 'flex-start',
-          position: 'relative',
-          transition: UI_BG_HOVER_DANGER_TRANSITION,
-          backgroundColor: highlightDelete
-            ? (theme.palette.mode === 'dark' ? DANGER_TINT_BG.dark : DANGER_TINT_BG.light)
-            : 'transparent',
-          borderRadius: 1,
-          outline: 'none',
-          boxShadow: showFocusRing ? `0 0 0 2px ${theme.palette.primary.main}` : 'none',
-        })}
+        sx={(theme) => {
+          const gutterPadding = theme.spacing(1)
+          return {
+            mt: 2,
+            display: 'flex',
+            width: '100%',
+            flexGrow: 1,
+            flexBasis: 0,
+            gap: 0.75,
+            flexWrap: 'wrap',
+            maxHeight: maxHeightPx,
+            overflowY: 'auto',
+            overflowX: 'hidden',
+            pr: gutterPadding,
+            minHeight: minHeightPx,
+            alignContent: 'flex-start',
+            alignItems: 'flex-start',
+            position: 'relative',
+            transition: UI_BG_HOVER_DANGER_TRANSITION,
+            backgroundColor: highlightDelete
+              ? (theme.palette.mode === 'dark' ? DANGER_TINT_BG.dark : DANGER_TINT_BG.light)
+              : 'transparent',
+            borderRadius: 1,
+            outline: 'none',
+            boxShadow: showFocusRing ? `0 0 0 2px ${theme.palette.primary.main}` : 'none',
+            // Firefox needs explicit padding to mimic Chrome's stable scrollbar gutter without touching other browsers.
+            ...reserveScrollbarGutterSpace({ reserveStart: false, basePaddingInlineEnd: gutterPadding }),
+          }
+        }}
         onScroll={() => {
           markScrolling()
           if (dragStateRef.current) {

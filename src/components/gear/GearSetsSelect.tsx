@@ -22,6 +22,7 @@ import {
   SETS_MENU_WIDTH_PX,
   SETS_SELECT_INLINE_GUTTER_COLLAPSED_PX,
 } from '../../lib/constants'
+import { reserveScrollbarGutterSpace } from '../../lib/scrollbar'
 import { computeInlineSelectPadding } from '../../lib/inlineSelectAffordances'
 
 type GearSetsSelectProps = {
@@ -302,7 +303,7 @@ export default function GearSetsSelect({
                 maxHeight: MENU_MAX_HEIGHT_METASETS_PX,
                 overflowY: 'auto',
                 pr: `${MENU_SCROLL_GUTTER_PX}px`,
-                scrollbarGutter: 'stable both-edges',
+                ...reserveScrollbarGutterSpace({ basePaddingInlineEnd: `${MENU_SCROLL_GUTTER_PX}px` }),
               }}
               data-tour-id="menu.metasets.section"
             >
@@ -396,7 +397,7 @@ export default function GearSetsSelect({
                 ? { maxHeight: 'none', height: 'auto', overflowY: 'visible' }
                 : { maxHeight: MENU_MAX_HEIGHT_SETS_LIST_PX, height: MENU_MAX_HEIGHT_SETS_LIST_PX, overflowY: 'auto' }),
               pr: `${MENU_SCROLL_GUTTER_PX}px`,
-              scrollbarGutter: 'stable both-edges' as const,
+              ...reserveScrollbarGutterSpace({ basePaddingInlineEnd: `${MENU_SCROLL_GUTTER_PX}px` }),
             }}
           >
             <SetMenuSection

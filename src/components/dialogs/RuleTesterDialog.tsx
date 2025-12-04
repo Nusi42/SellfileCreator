@@ -33,6 +33,7 @@ import { FactionIcon } from '../FactionIcon'
 import SetsOrderControls from '../SetsOrderControls'
 import { NumberSpinnerAdornment } from '../NumberSpinnerAdornment'
 import { SETS_MENU_WIDTH_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_MAX_HEIGHT_EXTRA_BUFFER, MENU_SCROLL_GUTTER_PX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, LIST_SUBHEADER_SX, TESTER_SUBSTAT_EDITOR_WIDTH_PX, TESTER_ROW_CONTROLS_WIDTH_PX, ACCESSORY_NO_SET_ID, TESTER_ANY_SLOT_ID, TESTER_MAINSTAT_SELECT_MIN_WIDTH_PX, TESTER_SUBSTAT_SELECT_MIN_WIDTH_PX, TESTER_SLOT_SELECT_WIDTH_PX, TESTER_SET_SELECT_WIDTH_PX, TESTER_FACTION_SELECT_WIDTH_PX, TESTER_RANK_SELECT_WIDTH_PX, TESTER_RARITY_SELECT_WIDTH_PX, TESTER_LEVEL_SELECT_WIDTH_PX, TESTER_SELECT_HEIGHT_PX, TESTER_RESULT_ROW_MIN_HEIGHT_PX, TESTER_CONFIG_CHIP_MAX_WIDTH_PX, TESTER_DIALOG_WIDTH_PX, TESTER_DIALOG_HEIGHT_PX, TESTER_VIRTUAL_OVERSCAN_PX, TESTER_ROW_ESTIMATE_COMPACT_PX, TESTER_ROW_ESTIMATE_EXPANDED_PX, TESTER_COMPACT_ICON_SIZE_PX, RSL_HELPER_CONFIG_PATH } from '../../lib/constants'
+import { reserveScrollbarGutterSpace } from '../../lib/scrollbar'
 import { useDisplayPreferences } from '../../state/preferencesState'
 import type { Theme } from '@mui/material/styles'
 import type { SystemStyleObject } from '@mui/system'
@@ -1231,7 +1232,7 @@ export default function RuleTesterDialog({
                               overflowY: 'auto',
                             }),
                         pr: `${MENU_SCROLL_GUTTER_PX}px`,
-                        scrollbarGutter: 'stable' as const,
+                        ...reserveScrollbarGutterSpace({ reserveStart: false, basePaddingInlineEnd: `${MENU_SCROLL_GUTTER_PX}px` }),
                       }}
                     >
                       <SetMenuSection
