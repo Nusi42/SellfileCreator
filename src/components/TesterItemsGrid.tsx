@@ -27,6 +27,7 @@ import { useI18n } from '../lib/i18n'
 import type { TesterPreviewRow } from '../types/testerPreview'
 import { SetIcon } from './SetIcon'
 import { FactionIcon } from './FactionIcon'
+import { reserveScrollbarGutterSpace } from '../lib/scrollbar'
 import {
   artifactSetNames,
   artifactTypeI18nKey,
@@ -1008,7 +1009,13 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
         onMouseLeave={handleGridHintPointerLeave}
         onContextMenu={handleGridContextMenu}
         data-tester-grid-container="true"
-        sx={{ flex: 1, minHeight: 0, overflowY: 'auto', pr: 0.5 }}
+        sx={(theme) => ({
+          flex: 1,
+          minHeight: 0,
+          overflowY: 'auto',
+          pr: 0.5,
+          ...reserveScrollbarGutterSpace({ reserveStart: false, basePaddingInlineEnd: theme.spacing(0.5) }),
+        })}
       >
         <Box
           sx={{

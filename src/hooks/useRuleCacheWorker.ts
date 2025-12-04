@@ -16,6 +16,7 @@ import type { NormalizedGearArtifact } from '../lib/importers/gearDbNormalizer'
 import { evaluateMatchesByConfig } from '../lib/ruleEval'
 import type { TesterMatchWorkerItemResult } from '../workers/testerMatchWorkerTypes'
 import type { ProgressSnapshot } from '../types/progress'
+import { createProgressThrottler } from '../types/progress'
 import type { TesterPreviewMatch } from '../types/testerPreview'
 
 type WarmCacheParams = {
@@ -107,6 +108,18 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
     configsForRules: BuilderConfig[]
     fingerprint: string | null
   } | null>(null)
+  // Keep pipelines latest-wins: abort older runs so we never resolve stale work after a new request arrives.
+  const abortPipelineRequest = useCallback((id: number) => {
+    const pending = pendingPipelineRef.current.get(id)
+    abortedIdsRef.current.add(id)
+    pendingPipelineRef.current.delete(id)
+    pending?.reject(new DOMException('Aborted', 'AbortError'))
+  }, [])
+  const abortActivePipelines = useCallback(() => {
+    for (const pendingId of pendingPipelineRef.current.keys()) {
+      abortPipelineRequest(pendingId)
+    }
+  }, [abortPipelineRequest])
 
   const runWarmLocally = useCallback((params: WarmCacheParams, options?: { onProgress?: (progress: ProgressSnapshot) => void }): WarmCacheResult => {
     const configsForRules = configsForRuleBuild(params.configs)
@@ -374,7 +387,6 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
     if (!supportsWorkerEnv) return
     const worker = new RuleCacheWorker()
     workerRef.current = worker
-    // Stash the mutable maps so the cleanup closure observes the same instances.
     const warmMap = pendingWarmRef.current
     const pipelineMap = pendingPipelineRef.current
     const countMap = pendingCountRef.current
@@ -388,7 +400,9 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
         pending?.onProgress?.(data.payload)
         return
       }
+      // Throttle pipeline progress forwarding to roughly once per second (always forward completion).
       if (data.kind === 'pipeline:progress') {
+        if (abortedIdsRef.current.has(data.id)) return
         const pending = pipelineMap.get(data.id)
         pending?.onProgress?.(data.payload)
         return
@@ -415,10 +429,10 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
         return
       }
       if (data.kind === 'pipeline:done') {
+        const aborted = abortedSet.delete(data.id)
         const pending = pipelineMap.get(data.id)
         if (!pending) return
         pipelineMap.delete(data.id)
-        const aborted = abortedSet.delete(data.id)
         if (aborted) return
         const state: RuleCacheStateSnapshot = {
           rulesByConfig: new Map<number, HsfRuleWithCfg[]>(data.payload.rulesByConfigEntries),
@@ -521,12 +535,9 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
     const worker = workerRef.current
     const id = ++requestIdRef.current
 
-    const runFallback = (error: unknown): Promise<WarmCacheResult> => {
+    const runFallback = (_error: unknown): Promise<WarmCacheResult> => {
       if (signal?.aborted) {
         return Promise.reject(new DOMException('Aborted', 'AbortError'))
-      }
-      if ((import.meta as { env?: { DEV?: boolean } }).env?.DEV) {
-        console.warn('rule cache worker failed; falling back to local merge', error)
       }
       return Promise.resolve(runWarmLocally(params, localProgressOptions))
     }
@@ -570,10 +581,10 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
 
     try {
       worker.postMessage(message)
-    } catch (error) {
+    } catch (_error) {
       pendingWarmRef.current.delete(id)
       cleanupAbort?.()
-      return runFallback(error)
+      return runFallback(_error)
     }
 
     return promise
@@ -591,7 +602,9 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
 
   const runPipeline = useCallback<UseRuleCacheWorkerResult['runPipeline']>((params, options) => {
     const signal = options?.signal ?? null
-    const localProgressOptions = options?.onProgress ? { onProgress: options.onProgress } : undefined
+    const localProgressOptions = options?.onProgress
+      ? { onProgress: createProgressThrottler(options.onProgress) }
+      : undefined
     if (!supportsWorkerEnv || !workerRef.current) {
       return Promise.resolve(runPipelineLocally(params, localProgressOptions))
     }
@@ -599,16 +612,16 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
     if (signal?.aborted) {
       return Promise.reject(new DOMException('Aborted', 'AbortError'))
     }
+    // Ensure only the newest pipeline runs so UI stays aligned with the latest inputs.
+    if (pendingPipelineRef.current.size > 0) {
+      abortActivePipelines()
+    }
 
     const worker = workerRef.current
     const id = ++requestIdRef.current
-
-    const runFallback = (error: unknown): Promise<PipelineResult> => {
+    const runFallback = (_error: unknown): Promise<PipelineResult> => {
       if (signal?.aborted) {
         return Promise.reject(new DOMException('Aborted', 'AbortError'))
-      }
-      if ((import.meta as { env?: { DEV?: boolean } }).env?.DEV) {
-        console.warn('rule cache pipeline worker failed; falling back to local merge', error)
       }
       return Promise.resolve(runPipelineLocally(params, localProgressOptions))
     }
@@ -620,10 +633,13 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
       rejectFn = reject
     })
 
-    const pendingEntry: PendingPipelineRequest = { resolve: resolveFn, reject: rejectFn, promise }
-    if (options?.onProgress) pendingEntry.onProgress = options.onProgress
+    const pendingEntry: PendingPipelineRequest = {
+      resolve: resolveFn,
+      reject: rejectFn,
+      promise,
+      ...(options?.onProgress ? { onProgress: createProgressThrottler(options.onProgress) } : {}),
+    }
     pendingPipelineRef.current.set(id, pendingEntry)
-
     const cleanupAbort = signal
       ? (() => {
           const abortHandler = () => {
@@ -661,10 +677,10 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
 
     try {
       worker.postMessage(message)
-    } catch (error) {
+    } catch (_error) {
       pendingPipelineRef.current.delete(id)
       cleanupAbort?.()
-      return runFallback(error)
+      return runFallback(_error)
     }
 
     return promise
@@ -678,7 +694,7 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
       .finally(() => {
         cleanupAbort?.()
       })
-  }, [runPipelineLocally])
+  }, [abortActivePipelines, runPipelineLocally])
 
   const countRules = useCallback<UseRuleCacheWorkerResult['countRules']>((params, options) => {
     const signal = options?.signal ?? null

@@ -40,6 +40,7 @@ import { useAnimatedEllipsis } from '../hooks/useAnimatedEllipsis'
 import { HEADER_MENU_LABEL_SX } from './tableHeaderMenuStyles'
 import { EmptyStateMessage } from './EmptyStateMessage'
 import { getRuleConfigIndex } from '../lib/ruleConfigIndex'
+import { reserveScrollbarGutterSpace } from '../lib/scrollbar'
 
 // Preview rows stay at their fixed height (≈30px). Keep the inline faction icon
 // slightly smaller than the default select size so the row metrics remain
@@ -1052,7 +1053,8 @@ export function HsfRulesTable({ rules, building = false, setHoveredCfgIdx, selec
             // Prevent scroll chaining to the page and stabilize scrollbar space
             overscrollBehaviorY: 'contain',
             overscrollBehaviorX: 'contain',
-            scrollbarGutter: 'stable both-edges',
+            // Firefox ignores scrollbar-gutter, so add inline padding there while Chrome keeps its native gutter.
+            ...reserveScrollbarGutterSpace(),
             // Isolate layout/paint of the scroller to avoid causing app-level scrollbars during rapid scroll
             contain: 'layout paint',
             // CSS-only hover highlight class for hovered config rows (added imperatively)

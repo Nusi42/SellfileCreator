@@ -12,6 +12,7 @@ import type {
   TesterMatchWorkerItemResult,
 } from '../workers/testerMatchWorkerTypes'
 import type { ProgressSnapshot } from '../types/progress'
+import { createProgressThrottler } from '../types/progress'
 
 type ConfigureParams = {
   rules: HsfRuleWithCfg[]
@@ -48,9 +49,10 @@ const evaluateRowsFallback = (
 ): TesterMatchWorkerItemResult[] => {
   if (!Array.isArray(items) || items.length === 0) return []
   const total = items.length
+  const forwardProgress = createProgressThrottler(onProgress)
   if (!rules.length) {
     return items.map((entry, idx) => {
-      onProgress?.({ completed: idx + 1, total })
+      forwardProgress({ completed: idx + 1, total })
       return {
         itemId: entry.itemId,
         firstMatch: null,
@@ -72,7 +74,7 @@ const evaluateRowsFallback = (
       { configModes, excludeSources: [RULE_SOURCE_KEEP_UNIQUES] },
     )
     // Mirror worker behavior so determinate UI continues to move in fallback mode.
-    onProgress?.({ completed: idx + 1, total })
+    forwardProgress({ completed: idx + 1, total })
     return {
       itemId: entry.itemId,
       firstMatch,
@@ -93,9 +95,17 @@ export function useTesterMatchWorker(): UseTesterMatchWorkerResult {
   const fallbackConfigModesRef = useRef<SellfileExportMode[]>([])
 
   useEffect(() => {
-    if (!supportsWorkerEnv) return
-    const worker = new TesterMatchWorker()
-    workerRef.current = worker
+    if (!supportsWorkerEnv) {
+      return
+    }
+    let worker: Worker | null = null
+    try {
+      worker = new TesterMatchWorker()
+      workerRef.current = worker
+    } catch (_error) {
+      workerRef.current = null
+      return
+    }
     const configureMap = pendingConfigureRef.current
     const evaluateMap = pendingEvaluateRef.current
 
@@ -200,8 +210,12 @@ export function useTesterMatchWorker(): UseTesterMatchWorkerResult {
     const sendEvaluate = () => {
       const id = ++requestIdRef.current
       const promise = new Promise<TesterMatchWorkerItemResult[]>((resolve, reject) => {
-        const pendingEntry: PendingEvaluateRequest = { resolve, reject }
-        if (params.onProgress) pendingEntry.onProgress = params.onProgress
+        const pendingEntry: PendingEvaluateRequest = {
+          resolve,
+          reject,
+          // Throttle worker progress emissions so large batches cannot flood the UI.
+          ...(params.onProgress ? { onProgress: createProgressThrottler(params.onProgress) } : {}),
+        }
         pendingEvaluateRef.current.set(id, pendingEntry)
       })
       const payload: TesterMatchWorkerEvaluatePayload = {

@@ -22,6 +22,7 @@ import {
   SETS_MENU_WIDTH_PX,
   SETS_SELECT_INLINE_GUTTER_COLLAPSED_PX,
 } from '../../lib/constants'
+import { reserveScrollbarGutterSpace } from '../../lib/scrollbar'
 import { computeInlineSelectPadding } from '../../lib/inlineSelectAffordances'
 
 type GearSetsSelectProps = {
@@ -35,6 +36,7 @@ type GearSetsSelectProps = {
   dataTourId?: string
   showMetasets?: boolean
   menuWidthPx?: number
+  disabled?: boolean
 }
 
 export default function GearSetsSelect({
@@ -48,6 +50,7 @@ export default function GearSetsSelect({
   dataTourId,
   showMetasets = true,
   menuWidthPx = SETS_MENU_WIDTH_PX,
+  disabled = false,
 }: GearSetsSelectProps) {
   const { t } = useI18n()
   const [setsOrder, setSetsOrder] = useSetsOrderPreference()
@@ -188,7 +191,7 @@ export default function GearSetsSelect({
   }, [allowMetasets, onChange, onChangeMetasetIds])
 
   return (
-    <Box ref={selectContainerRef} sx={{ position: 'relative' }}>
+    <Box ref={selectContainerRef} sx={{ position: 'relative', ...(disabled ? { pointerEvents: 'none', opacity: 0.6 } : {}) }}>
       <Select
         multiple
         size={size}
@@ -197,6 +200,7 @@ export default function GearSetsSelect({
         renderValue={renderValue}
         data-tour-id={dataTourId}
         displayEmpty
+        disabled={disabled}
         onOpen={(event) => {
           setMenuOpen(true)
           scrollSetsMenuToSelected(setsOrder, { force: true })
@@ -299,7 +303,7 @@ export default function GearSetsSelect({
                 maxHeight: MENU_MAX_HEIGHT_METASETS_PX,
                 overflowY: 'auto',
                 pr: `${MENU_SCROLL_GUTTER_PX}px`,
-                scrollbarGutter: 'stable both-edges',
+                ...reserveScrollbarGutterSpace({ basePaddingInlineEnd: `${MENU_SCROLL_GUTTER_PX}px` }),
               }}
               data-tour-id="menu.metasets.section"
             >
@@ -393,7 +397,7 @@ export default function GearSetsSelect({
                 ? { maxHeight: 'none', height: 'auto', overflowY: 'visible' }
                 : { maxHeight: MENU_MAX_HEIGHT_SETS_LIST_PX, height: MENU_MAX_HEIGHT_SETS_LIST_PX, overflowY: 'auto' }),
               pr: `${MENU_SCROLL_GUTTER_PX}px`,
-              scrollbarGutter: 'stable both-edges' as const,
+              ...reserveScrollbarGutterSpace({ basePaddingInlineEnd: `${MENU_SCROLL_GUTTER_PX}px` }),
             }}
           >
             <SetMenuSection

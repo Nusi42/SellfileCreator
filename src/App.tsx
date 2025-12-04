@@ -108,8 +108,8 @@ const TESTER_MATCH_RESET_TIMEOUT_MS = 1500
 const WORKLOAD_PENDING_MIN_RATIO = 0.02 as const
 // Hold the spinner a touch longer so sequential builders do not flicker off between phases.
 const WORKLOAD_SPINNER_HANG_MS = 450 as const
-// Small debounce keeps rapid config edits (add/dup/reorder) from spawning back-to-back pipeline runs.
-const TESTER_PIPELINE_DEBOUNCE_MS = 75 as const
+// Coalesce rapid edits so we do not restart the pipeline for every keystroke/reorder.
+const PIPELINE_DEBOUNCE_MS = 200 as const
 import { sellfileFilename, hsfcFilename, buildTimestamp } from './lib/filenames'
 import { README_SEEN_VERSION_KEY, RULE_COUNT_LIMIT } from './lib/constants'
 import { DEFAULT_METASET_ICON_ID } from './lib/metasetIcons'
@@ -270,6 +270,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const ruleConfigsForPreview = useDeferredValue(ruleConfigs)
   const configModesForPreview = useDeferredValue(configModes)
   const configNamesForPreview = useDeferredValue(configNames)
+  // Keep tester math reusable so seeding hooks share the same normalization as the dialog.
+  const testerMath = useMemo(() => createRuleTesterMath(substatTargets), [substatTargets])
   const lastConfigNamesRef = useRef<string[]>(configNamesForPreview)
   // Track the last dispatched pipeline so deferred snapshots cannot retrigger identical worker runs.
   const lastPipelineSignatureRef = useRef<{ fingerprint: string | null; artifactSig: string | null } | null>(null)
@@ -351,8 +353,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     savedAt: string | null
     count: number
   } | null>(() => {
-    const math = createRuleTesterMath(substatTargets)
-    const draft = loadRuleTesterAutosaveDraft({ math, allocItemId: allocTesterItemId })
+    const draft = loadRuleTesterAutosaveDraft({ math: testerMath, allocItemId: allocTesterItemId })
     if (!draft) return null
     return { items: draft.items, savedAt: draft.savedAt, count: draft.itemCount }
   })
@@ -498,12 +499,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   useEffect(() => { testerRowsCommittedBuildIdRef.current = testerRowsCommittedBuildId }, [testerRowsCommittedBuildId])
   const testerMatchResetRef = useRef<{ reason: TesterMatchResetReason; targetBuildId: number; startedAt: number } | null>(null)
   const [testerMatchResetReason, setTesterMatchResetReason] = useState<TesterMatchResetReason | null>(null)
-  // Track the last keep-unique structural signature so cosmetic edits (e.g., renames) do not trigger a fresh pipeline.
+  // Track the last keep-unique structural signature so cosmetic edits do not retrigger the pipeline.
   const keepUniqueStructureSigRef = useRef<string | null>(null)
-  // Debounce handle prevents back-to-back pipeline runs when config edits come in quick succession.
-  const testerPipelineDebounceRef = useRef<number | null>(null)
-  // Abort handle so cleanups can cancel an in-flight debounced run.
-  const testerPipelineAbortRef = useRef<AbortController | null>(null)
   const beginTesterMatchReset = useCallback((reason: TesterMatchResetReason) => {
     resetKeepUniqueDetectionState()
     const targetBuildId = testerRowsActiveBuildId > testerRowsCommittedBuildId
@@ -721,223 +718,236 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     }
   }, [workloadBusy, workloadDeterminateRatio])
   const rulesBuildingTokenRef = useRef<number | null>(null)
+  // Track the active pipeline abort controller so we can cancel if needed.
+  const pipelineAbortRef = useRef<AbortController | null>(null)
+  const pipelineDebounceRef = useRef<number | null>(null)
   useEffect(() => {
-    const executePipeline = () => {
-      const abortController = new AbortController()
-      testerPipelineAbortRef.current = abortController
-      const prevState = configRulesStateRef.current
-      const prevMatches = testerPreviewRowsRef.current
-      const prevConfigNames = lastConfigNamesRef.current
-      // Prefer live snapshots whenever deferred previews lag so fingerprints match the payload we send to the worker.
-      const previewConfigsStale = (
-        ruleConfigsForPreview.length !== ruleConfigs.length
-        || ruleConfigsForPreview.some((cfg, idx) => cfg !== ruleConfigs[idx])
-      )
-      const configsForBuild = previewConfigsStale ? ruleConfigs : ruleConfigsForPreview
-      // Align config-name snapshots with the config payload so match chips stay in sync.
-      // Align config-name snapshot with the config payload so cfgIdx remaps stay deterministic.
-      const previewNamesStale = (
-        configNamesForPreview.length !== configNames.length
-        || configNamesForPreview.some((name, idx) => name !== configNames[idx])
-      )
-      const configNamesForBuild = previewNamesStale ? configNames : configNamesForPreview
-      // Config modes gate disabled/separator configs during matcher eval, so keep the snapshot aligned with the builder payload.
-      const previewModesStale = (
-        configModesForPreview.length !== configModes.length
-        || configModesForPreview.some((mode, idx) => mode !== configModes[idx])
-      )
-      const configModesForBuild = previewModesStale ? configModes : configModesForPreview
-      // Artifact signature drives match reuse; keep it alongside the fingerprint so duplicate builds can bail quickly.
-      const pipelineArtifactSignature = testerArtifactsSignature
-      // Mirror metasets and substat targets to the same snapshot to avoid stale warm fingerprints.
-      const previewMetasetsStale = (
-        metasetsForPreview.length !== metasets.length
-        || metasetsForPreview.some((meta, idx) => meta !== metasets[idx])
-      )
-      const metasetsForBuild = previewMetasetsStale ? metasets : metasetsForPreview
-      const substatTargetsForBuild = substatTargetsForPreview === substatTargets
-        ? substatTargets
-        : (substatTargetsForPreview ?? substatTargets)
-      // Use the build-aligned snapshot for key comparisons so reorders are detected even if deferred previews lag.
-      const nextSubstatTargetsKey = fingerprintSubstatTargets(substatTargetsForBuild)
-      const nextConfigKeys = configsForBuild.map((cfg) => fingerprintConfigForRules(cfg, nextSubstatTargetsKey))
-      const keepUniqueStructureSig = fingerprintKeepUniqueRuleList(resolvedKeepUniqueRules)
-      const nextFingerprint = buildRulesFingerprint({
-        substatTargetsKey: nextSubstatTargetsKey,
-        configKeys: nextConfigKeys,
-        metasets: metasetsForBuild,
-        hsf,
-        keepUniqueRules: resolvedKeepUniqueRules,
-        keepUniquesEnabled,
-        finalSell: finalSellRemainder,
+    const abortController = new AbortController()
+    pipelineAbortRef.current = abortController
+    const prevState = configRulesStateRef.current
+    const prevMatches = testerPreviewRowsRef.current
+    const prevConfigNames = lastConfigNamesRef.current
+    // Prefer live snapshots whenever deferred previews lag so fingerprints match the payload we send to the worker.
+    const previewConfigsStale = (
+      ruleConfigsForPreview.length !== ruleConfigs.length
+      || ruleConfigsForPreview.some((cfg, idx) => cfg !== ruleConfigs[idx])
+    )
+    const configsForBuild = previewConfigsStale ? ruleConfigs : ruleConfigsForPreview
+    // Align config-name snapshots with the config payload so match chips stay in sync.
+    // Align config-name snapshot with the config payload so cfgIdx remaps stay deterministic.
+    const previewNamesStale = (
+      configNamesForPreview.length !== configNames.length
+      || configNamesForPreview.some((name, idx) => name !== configNames[idx])
+    )
+    const configNamesForBuild = previewNamesStale ? configNames : configNamesForPreview
+    // Config modes gate disabled/separator configs during matcher eval, so keep the snapshot aligned with the builder payload.
+    const previewModesStale = (
+      configModesForPreview.length !== configModes.length
+      || configModesForPreview.some((mode, idx) => mode !== configModes[idx])
+    )
+    const configModesForBuild = previewModesStale ? configModes : configModesForPreview
+    // Artifact signature drives match reuse; keep it alongside the fingerprint so duplicate builds can bail quickly.
+    const pipelineArtifactSignature = testerArtifactsSignature
+    // Mirror metasets and substat targets to the same snapshot to avoid stale warm fingerprints.
+    const previewMetasetsStale = (
+      metasetsForPreview.length !== metasets.length
+      || metasetsForPreview.some((meta, idx) => meta !== metasets[idx])
+    )
+    const metasetsForBuild = previewMetasetsStale ? metasets : metasetsForPreview
+    const substatTargetsForBuild = substatTargetsForPreview === substatTargets
+      ? substatTargets
+      : (substatTargetsForPreview ?? substatTargets)
+    // Use the build-aligned snapshot for key comparisons so reorders are detected even if deferred previews lag.
+    const nextSubstatTargetsKey = fingerprintSubstatTargets(substatTargetsForBuild)
+    const nextConfigKeys = configsForBuild.map((cfg) => fingerprintConfigForRules(cfg, nextSubstatTargetsKey))
+    const keepUniqueStructureSig = fingerprintKeepUniqueRuleList(resolvedKeepUniqueRules)
+    const nextFingerprint = buildRulesFingerprint({
+      substatTargetsKey: nextSubstatTargetsKey,
+      configKeys: nextConfigKeys,
+      metasets: metasetsForBuild,
+      hsf,
+      keepUniqueRules: resolvedKeepUniqueRules,
+      keepUniquesEnabled,
+      finalSell: finalSellRemainder,
+    })
+    // If the warmed state already covers this fingerprint, skip the worker warm pass and avoid toggling spinners.
+    const canSkipWarm = lastWarmFingerprintRef.current === nextFingerprint
+    // Name-only edits should not wake the worker; detect them explicitly.
+    const configNamesChanged = (() => {
+      if (prevConfigNames.length !== configNamesForBuild.length) return true
+      for (let i = 0; i < configNamesForBuild.length; i += 1) {
+        if (configNamesForBuild[i] !== prevConfigNames[i]) return true
+      }
+      return false
+    })()
+    // Artifact signature drift signals that the tester payload meaningfully changed.
+    const artifactsChanged = !lastPipelineSignatureRef.current
+      || lastPipelineSignatureRef.current.artifactSig !== pipelineArtifactSignature
+    // When the preview empties out we need to purge the worker's artifact cache explicitly;
+    // otherwise, stale cached artifacts would keep producing keep-unique rows.
+    const workerNeedsReset = testerPreviewArtifacts.length === 0
+      && lastPipelineSignatureRef.current?.artifactSig !== pipelineArtifactSignature
+      && lastPipelineSignatureRef.current?.artifactSig !== undefined
+      && lastPipelineSignatureRef.current?.artifactSig !== null
+    // Skip redundant pipelines when deferred snapshots catch up without changing the rule or artifact signatures.
+    if (
+      canSkipWarm
+      && !configNamesChanged
+      && lastPipelineSignatureRef.current
+      && lastPipelineSignatureRef.current.fingerprint === nextFingerprint
+      && lastPipelineSignatureRef.current.artifactSig === pipelineArtifactSignature
+      && !workerNeedsReset
+    ) {
+      keepUniqueStructureSigRef.current = keepUniqueStructureSig
+      return () => {
+        abortController.abort()
+        if (pipelineAbortRef.current === abortController) pipelineAbortRef.current = null
+      }
+    }
+    const buildIndexMapping = (previousKeys: string[], nextKeys: string[]): number[] | null => {
+      if (previousKeys.length !== nextKeys.length) return null
+      const buckets = new Map<string, number[]>()
+      previousKeys.forEach((key, idx) => {
+        const list = buckets.get(key) ?? []
+        list.push(idx)
+        buckets.set(key, list)
       })
-      // If the warmed state already covers this fingerprint, skip the worker warm pass and avoid toggling spinners.
-      const canSkipWarm = lastWarmFingerprintRef.current === nextFingerprint
-      // Name-only edits should not wake the worker; detect them explicitly.
-      const configNamesChanged = (() => {
-        if (prevConfigNames.length !== configNamesForBuild.length) return true
-        for (let i = 0; i < configNamesForBuild.length; i += 1) {
-          if (configNamesForBuild[i] !== prevConfigNames[i]) return true
-        }
-        return false
-      })()
-      // Artifact signature drift signals that the tester payload meaningfully changed.
-      const artifactsChanged = !lastPipelineSignatureRef.current
-        || lastPipelineSignatureRef.current.artifactSig !== pipelineArtifactSignature
-      // When the preview empties out we need to purge the worker's artifact cache explicitly;
-      // otherwise, stale cached artifacts would keep producing keep-unique rows.
-      const workerNeedsReset = testerPreviewArtifacts.length === 0
-        && lastPipelineSignatureRef.current?.artifactSig !== pipelineArtifactSignature
-        && lastPipelineSignatureRef.current?.artifactSig !== undefined
-        && lastPipelineSignatureRef.current?.artifactSig !== null
-      // Skip redundant pipelines when deferred snapshots catch up without changing the rule or artifact signatures.
-      if (
-        canSkipWarm
-        && !configNamesChanged
-        && lastPipelineSignatureRef.current
-        && lastPipelineSignatureRef.current.fingerprint === nextFingerprint
-        && lastPipelineSignatureRef.current.artifactSig === pipelineArtifactSignature
-        && !workerNeedsReset
-      ) {
-        keepUniqueStructureSigRef.current = keepUniqueStructureSig
-        return
+      const mapping: number[] = []
+      for (const key of nextKeys) {
+        const list = buckets.get(key)
+        if (!list || list.length === 0) return null
+        const sourceIdx = list.shift()!
+        mapping.push(sourceIdx)
       }
-      const buildIndexMapping = (previousKeys: string[], nextKeys: string[]): number[] | null => {
-        if (previousKeys.length !== nextKeys.length) return null
-        const buckets = new Map<string, number[]>()
-        previousKeys.forEach((key, idx) => {
-          const list = buckets.get(key) ?? []
-          list.push(idx)
-          buckets.set(key, list)
-        })
-        const mapping: number[] = []
-        for (const key of nextKeys) {
-          const list = buckets.get(key)
-          if (!list || list.length === 0) return null
-          const sourceIdx = list.shift()!
-          mapping.push(sourceIdx)
-        }
-        return mapping
-      }
-      const mapping = prevState
-        && prevState.substatTargetsKey === nextSubstatTargetsKey
-        ? buildIndexMapping(prevState.keys, nextConfigKeys)
-        : null
-      const hasArtifacts = testerPreviewArtifacts.length > 0
-      if (!artifactsChanged && canSkipWarm && configNamesChanged && prevMatches.length > 0) {
-        // Names changed but rule fingerprints are stable; update cached rows without rebuilding.
-        const updatedRows = prevMatches.map((row) => {
-          const remapName = (cfgIdx: number | null): string | null => {
-            if (cfgIdx == null) return null
-            return configNamesForBuild[cfgIdx] ?? null
-          }
-          return {
-            ...row,
-            match: row.match ? { ...row.match, cfgName: remapName(row.match.cfgIdx) } : null,
-            baseMatch: row.baseMatch ? { ...row.baseMatch, cfgName: remapName(row.baseMatch.cfgIdx) } : null,
-          }
-        })
-        setTesterPreviewRows(sortTesterRows(updatedRows))
-        lastConfigNamesRef.current = configNamesForBuild
-        return
-      }
+      return mapping
+    }
+    const mapping = prevState
+      && prevState.substatTargetsKey === nextSubstatTargetsKey
+      ? buildIndexMapping(prevState.keys, nextConfigKeys)
+      : null
+    const hasArtifacts = testerPreviewArtifacts.length > 0
 
-      if (
-        !artifactsChanged
-        && !restoringAutosaveRef.current
-        && mapping
-        && mapping.some((idx, newIdx) => idx !== newIdx)
-        && !hasArtifacts
-      ) {
-        // Fast path: reorder-only changes can remap cached rules without waking the worker.
-        const inverse = new Map<number, number>()
-        mapping.forEach((prevIdx, newIdx) => { inverse.set(prevIdx, newIdx) })
-        const remapRulesForIndex = (rules: readonly HsfRuleWithCfg[], newIdx: number): HsfRuleWithCfg[] => (
-          rules.map((rule) => cloneRuleWithConfigIndex(rule, newIdx))
-        )
-        const newRulesByConfig = new Map<number, HsfRuleWithCfg[]>()
-        const newCountsByConfig = new Map<number, number>()
-        const newTruncated: number[] = []
-        const newExcluded: number[] = []
-        const prevTruncated = new Set(prevState.truncatedConfigIndices)
-        const prevExcluded = new Set(prevState.excludedByTotalLimitIndices)
-        const customSegments: HsfRuleWithCfg[][] = []
-        for (let newIdx = 0; newIdx < mapping.length; newIdx += 1) {
-          const prevIdx = mapping[newIdx]!
-          const prevRules = prevState.rulesByConfig.get(prevIdx) ?? []
-          const remapped = remapRulesForIndex(prevRules, newIdx)
-          newRulesByConfig.set(newIdx, remapped)
-          customSegments.push(remapped)
-          const prevCount = prevState.countsByConfig.get(prevIdx)
-          if (prevTruncated.has(prevIdx)) {
-            newCountsByConfig.set(newIdx, Number.POSITIVE_INFINITY)
-            newTruncated.push(newIdx)
-          } else {
-            newCountsByConfig.set(newIdx, typeof prevCount === 'number' ? prevCount : remapped.length)
-          }
-          if (prevExcluded.has(prevIdx)) newExcluded.push(newIdx)
+    if (!artifactsChanged && canSkipWarm && configNamesChanged && prevMatches.length > 0) {
+      // Names changed but rule fingerprints are stable; update cached rows without rebuilding.
+      const updatedRows = prevMatches.map((row) => {
+        const remapName = (cfgIdx: number | null): string | null => {
+          if (cfgIdx == null) return null
+          return configNamesForBuild[cfgIdx] ?? null
         }
-        const mergedRules = prevState.baseRules.concat(...customSegments, prevState.finalSellRules)
-        const ruleMatchIndex = buildRuleMatchIndexData(mergedRules)
-        primeRuleMatchIndex(mergedRules, ruleMatchIndex)
-        setConfigRulesState({
-          ...prevState,
-          rulesByConfig: newRulesByConfig,
-          countsByConfig: newCountsByConfig,
-          keys: nextConfigKeys,
-          substatTargetsKey: nextSubstatTargetsKey,
-          mergedRules,
-          truncatedConfigIndices: newTruncated,
-          excludedByTotalLimitIndices: newExcluded,
-        })
-        keepUniqueAppliedStateRef.current = {
-          baseRules: prevState.baseRules,
-          rulesByConfig: newRulesByConfig,
-          finalSellRules: prevState.finalSellRules,
+        return {
+          ...row,
+          match: row.match ? { ...row.match, cfgName: remapName(row.match.cfgIdx) } : null,
+          baseMatch: row.baseMatch ? { ...row.baseMatch, cfgName: remapName(row.baseMatch.cfgIdx) } : null,
         }
-        lastWarmFingerprintRef.current = nextFingerprint
-        // Avoid flashing the preview spinner when we served this entirely from the cache.
-        setRulesBuilding(false)
-        setTesterRowsBuilding(false)
-        setRulesBuildProgress(null)
-        setTesterRowsProgress(null)
-        if (prevMatches && prevMatches.length > 0) {
-          const remapCfgIdx = (cfgIdx: number | null): number | null => {
-            if (cfgIdx == null) return null
-            const nextIdx = inverse.get(cfgIdx)
-            return typeof nextIdx === 'number' ? nextIdx : null
-          }
-          const remapDecision = (decision: MatchingConfigDecision): MatchingConfigDecision => {
-            const nextIdx = remapCfgIdx(decision.cfgIdx)
-            const cfgIdx = typeof nextIdx === 'number' ? nextIdx : decision.cfgIdx
-            return { ...decision, cfgIdx }
-          }
-          const remappedRows = prevMatches.map((row) => ({
-            ...row,
-            match: (() => {
-              if (!row.match) return null
-              const nextIdx = remapCfgIdx(row.match.cfgIdx)
-              const nextName = nextIdx != null ? configNamesForBuild[nextIdx] ?? null : null
-              return { ...row.match, cfgIdx: nextIdx, cfgName: nextName }
-            })(),
-            baseMatch: (() => {
-              if (!row.baseMatch) return null
-              const nextIdx = remapCfgIdx(row.baseMatch.cfgIdx)
-              const nextName = nextIdx != null ? configNamesForBuild[nextIdx] ?? null : null
-              return { ...row.baseMatch, cfgIdx: nextIdx, cfgName: nextName }
-            })(),
-            matchingCfgIndices: row.matchingCfgIndices.map((idx) => {
-              const nextIdx = inverse.get(idx)
-              return typeof nextIdx === 'number' ? nextIdx : idx
-            }),
-            matchingConfigDecisions: (row.matchingConfigDecisions ?? []).map(remapDecision),
-          }))
-          setTesterPreviewRows(sortTesterRows(remappedRows))
-        }
-        lastConfigNamesRef.current = configNamesForBuild
-        return
+      })
+      setTesterPreviewRows(sortTesterRows(updatedRows))
+      lastConfigNamesRef.current = configNamesForBuild
+      return () => {
+        abortController.abort()
+        if (pipelineAbortRef.current === abortController) pipelineAbortRef.current = null
       }
+    }
 
+    if (
+      !artifactsChanged
+      && !restoringAutosaveRef.current
+      && mapping
+      && mapping.some((idx, newIdx) => idx !== newIdx)
+      && !hasArtifacts
+    ) {
+      // Fast path: reorder-only changes can remap cached rules without waking the worker.
+      const inverse = new Map<number, number>()
+      mapping.forEach((prevIdx, newIdx) => { inverse.set(prevIdx, newIdx) })
+      const remapRulesForIndex = (rules: readonly HsfRuleWithCfg[], newIdx: number): HsfRuleWithCfg[] => (
+        rules.map((rule) => cloneRuleWithConfigIndex(rule, newIdx))
+      )
+      const newRulesByConfig = new Map<number, HsfRuleWithCfg[]>()
+      const newCountsByConfig = new Map<number, number>()
+      const newTruncated: number[] = []
+      const newExcluded: number[] = []
+      const prevTruncated = new Set(prevState.truncatedConfigIndices)
+      const prevExcluded = new Set(prevState.excludedByTotalLimitIndices)
+      const customSegments: HsfRuleWithCfg[][] = []
+      for (let newIdx = 0; newIdx < mapping.length; newIdx += 1) {
+        const prevIdx = mapping[newIdx]!
+        const prevRules = prevState.rulesByConfig.get(prevIdx) ?? []
+        const remapped = remapRulesForIndex(prevRules, newIdx)
+        newRulesByConfig.set(newIdx, remapped)
+        customSegments.push(remapped)
+        const prevCount = prevState.countsByConfig.get(prevIdx)
+        if (prevTruncated.has(prevIdx)) {
+          newCountsByConfig.set(newIdx, Number.POSITIVE_INFINITY)
+          newTruncated.push(newIdx)
+        } else {
+          newCountsByConfig.set(newIdx, typeof prevCount === 'number' ? prevCount : remapped.length)
+        }
+        if (prevExcluded.has(prevIdx)) newExcluded.push(newIdx)
+      }
+      const mergedRules = prevState.baseRules.concat(...customSegments, prevState.finalSellRules)
+      const ruleMatchIndex = buildRuleMatchIndexData(mergedRules)
+      primeRuleMatchIndex(mergedRules, ruleMatchIndex)
+      setConfigRulesState({
+        ...prevState,
+        rulesByConfig: newRulesByConfig,
+        countsByConfig: newCountsByConfig,
+        keys: nextConfigKeys,
+        substatTargetsKey: nextSubstatTargetsKey,
+        mergedRules,
+        truncatedConfigIndices: newTruncated,
+        excludedByTotalLimitIndices: newExcluded,
+      })
+      keepUniqueAppliedStateRef.current = {
+        baseRules: prevState.baseRules,
+        rulesByConfig: newRulesByConfig,
+        finalSellRules: prevState.finalSellRules,
+      }
+      lastWarmFingerprintRef.current = nextFingerprint
+      // Avoid flashing the preview spinner when we served this entirely from the cache.
+      setRulesBuilding(false)
+      setTesterRowsBuilding(false)
+      setRulesBuildProgress(null)
+      setTesterRowsProgress(null)
+      if (prevMatches && prevMatches.length > 0) {
+        const remapCfgIdx = (cfgIdx: number | null): number | null => {
+          if (cfgIdx == null) return null
+          const nextIdx = inverse.get(cfgIdx)
+          return typeof nextIdx === 'number' ? nextIdx : null
+        }
+        const remapDecision = (decision: MatchingConfigDecision): MatchingConfigDecision => {
+          const nextIdx = remapCfgIdx(decision.cfgIdx)
+          const cfgIdx = typeof nextIdx === 'number' ? nextIdx : decision.cfgIdx
+          return { ...decision, cfgIdx }
+        }
+        const remappedRows = prevMatches.map((row) => ({
+          ...row,
+          match: (() => {
+            if (!row.match) return null
+            const nextIdx = remapCfgIdx(row.match.cfgIdx)
+            const nextName = nextIdx != null ? configNamesForBuild[nextIdx] ?? null : null
+            return { ...row.match, cfgIdx: nextIdx, cfgName: nextName }
+          })(),
+          baseMatch: (() => {
+            if (!row.baseMatch) return null
+            const nextIdx = remapCfgIdx(row.baseMatch.cfgIdx)
+            const nextName = nextIdx != null ? configNamesForBuild[nextIdx] ?? null : null
+            return { ...row.baseMatch, cfgIdx: nextIdx, cfgName: nextName }
+          })(),
+          matchingCfgIndices: row.matchingCfgIndices.map((idx) => {
+            const nextIdx = inverse.get(idx)
+            return typeof nextIdx === 'number' ? nextIdx : idx
+          }),
+          matchingConfigDecisions: (row.matchingConfigDecisions ?? []).map(remapDecision),
+        }))
+        setTesterPreviewRows(sortTesterRows(remappedRows))
+      }
+      lastConfigNamesRef.current = configNamesForBuild
+      return () => {
+        abortController.abort()
+        if (pipelineAbortRef.current === abortController) pipelineAbortRef.current = null
+      }
+    }
+
+    const launchPipeline = () => {
       const requestToken = (rulesBuildingTokenRef.current ?? 0) + 1
       rulesBuildingTokenRef.current = requestToken
       setTesterRowsActiveBuildId(requestToken)
@@ -970,238 +980,243 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         return { changed, removed, signature: testerArtifactsSignature }
       })()
 
-    const toPreviewMatch = (
-      result: TesterMatchWorkerItemResult['firstMatch'],
-      rules: readonly HsfRuleWithCfg[],
-    ): TesterPreviewMatch | null => {
-      if (!result) return null
-      const rule = rules[result.ruleIndex]
-      const cfgIdx = result.cfgIdx ?? null
-      return {
-        ruleIndex: result.ruleIndex,
-        keep: result.keep,
-        cfgIdx,
-        cfgName: cfgIdx != null ? (configNamesForBuild[cfgIdx] ?? null) : null,
-        ruleLabel: null,
-        ruleSource: rule?.__source ?? null,
+      const toPreviewMatch = (
+        result: TesterMatchWorkerItemResult['firstMatch'],
+        rules: readonly HsfRuleWithCfg[],
+      ): TesterPreviewMatch | null => {
+        if (!result) return null
+        const rule = rules[result.ruleIndex]
+        const cfgIdx = result.cfgIdx ?? null
+        return {
+          ruleIndex: result.ruleIndex,
+          keep: result.keep,
+          cfgIdx,
+          cfgName: cfgIdx != null ? (configNamesForBuild[cfgIdx] ?? null) : null,
+          ruleLabel: null,
+          ruleSource: rule?.__source ?? null,
+        }
       }
-    }
 
-    // Guard against empty deferred snapshots on first load by falling back to immediate state.
-    // Avoid empty payloads on first render by falling back to immediate snapshots when deferred values lag.
-    const configsForPipeline = configsForBuild
-    const metasetsForPipeline = metasetsForBuild
-    const substatTargetsForPipeline = substatTargetsForBuild
-    const pipelinePayload: Parameters<typeof runPipeline>[0] = {
-      configs: configsForPipeline,
-      metasets: metasetsForPipeline,
-      substatTargets: substatTargetsForPipeline,
-      hsf,
-      ...(finalSellRemainder ? { finalSellRemainder } : {}),
-      keepUniques: keepUniquesPayload,
-      configModes: configModesForBuild,
-      artifacts: [],
-      artifactPatch,
-      artifactSignature: testerArtifactsSignature,
-      fingerprint: nextFingerprint,
-      skipWarm: canSkipWarm,
-      skipMatches: false,
-      skipDetection: false,
-      resetArtifacts: workerNeedsReset,
-    }
+      // Guard against empty deferred snapshots on first load by falling back to immediate state.
+      // Avoid empty payloads on first render by falling back to immediate snapshots when deferred values lag.
+      const configsForPipeline = configsForBuild
+      const metasetsForPipeline = metasetsForBuild
+      const substatTargetsForPipeline = substatTargetsForBuild
+      const pipelinePayload: Parameters<typeof runPipeline>[0] = {
+        configs: configsForPipeline,
+        metasets: metasetsForPipeline,
+        substatTargets: substatTargetsForPipeline,
+        hsf,
+        ...(finalSellRemainder ? { finalSellRemainder } : {}),
+        keepUniques: keepUniquesPayload,
+        configModes: configModesForBuild,
+        artifacts: [],
+        artifactPatch,
+        artifactSignature: testerArtifactsSignature,
+        fingerprint: nextFingerprint,
+        skipWarm: canSkipWarm,
+        skipMatches: false,
+        skipDetection: false,
+        resetArtifacts: workerNeedsReset,
+      }
 
-    lastPipelineSignatureRef.current = { fingerprint: nextFingerprint, artifactSig: pipelineArtifactSignature }
-    // One pipeline invocation per update after early fast paths.
-    runPipeline(pipelinePayload, {
-      signal: abortController.signal,
-      onProgress: (progress) => {
-        if (requestToken !== rulesBuildingTokenRef.current) return
-        setRulesBuildProgress(progress)
-        setTesterRowsProgress(progress)
-      },
-    })
-      .then((result) => {
-        const { state, matches, detection } = result
-        if (abortController.signal.aborted || requestToken !== rulesBuildingTokenRef.current) return
-        lastWarmFingerprintRef.current = nextFingerprint
-        const { baseRules, finalSellRules } = splitMergedRules(state.mergedRules)
-        const snapshot: ConfigRulesStateSnapshot = {
-          baseRules,
-          finalSellRules,
-          rulesByConfig: state.rulesByConfig,
-          countsByConfig: state.countsByConfig,
-          keys: state.keys,
-          substatTargetsKey: state.substatTargetsKey,
-          mergedRules: state.mergedRules,
-          truncatedConfigIndices: state.truncatedConfigIndices,
-          totalLimitHit: state.totalLimitHit,
-          excludedByTotalLimitIndices: state.excludedByTotalLimitIndices,
-        }
-        setConfigRulesState(snapshot)
-        keepUniqueAppliedStateRef.current = {
-          baseRules,
-          rulesByConfig: state.rulesByConfig,
-          finalSellRules,
-        }
-        keepUniqueStructureSigRef.current = keepUniqueStructureSig
-        const matchMap = new Map<number, TesterMatchWorkerItemResult>()
-        for (const entry of matches) {
-          if (!entry) continue
-          matchMap.set(entry.itemId, entry)
-        }
-        const rows: TesterPreviewRow[] = []
-        const artifactEntries = artifactPatch.changed.length > 0
-          ? artifactPatch.changed
-          : testerPreviewArtifacts.map((artifact, idx) => [getArtifactItemId(artifact, idx), artifact] as [number | null, NormalizedGearArtifact])
-        for (const [itemIdMaybe, artifact] of artifactEntries) {
-          if (!artifact) continue
-          const itemId = Number(itemIdMaybe ?? NaN)
-          if (!Number.isFinite(itemId)) continue
-          const matchEntry = matchMap.get(itemId)
-          const match = toPreviewMatch(matchEntry?.firstMatch ?? null, state.mergedRules)
-          const baseMatch = toPreviewMatch(matchEntry?.firstNonExcludedMatch ?? null, state.mergedRules)
-          rows.push({
-            artifact,
-            match,
-            baseMatch,
-            matchingCfgIndices: matchEntry?.matchingConfigIndices ?? [],
-            matchingConfigDecisions: matchEntry?.matchingConfigDecisions ?? [],
-          })
-        }
-        setTesterPreviewRows(sortTesterRows(rows))
-        setTesterRowsCommittedBuildId(requestToken)
-        setTesterRowsActiveBuildId(requestToken)
-        const uniqueKeys = new Set<number>()
-        if (detection?.entries) {
-          for (const entry of detection.entries) {
-            if (!entry) continue
-            for (const key of entry.itemKeys) uniqueKeys.add(key)
+      lastPipelineSignatureRef.current = { fingerprint: nextFingerprint, artifactSig: pipelineArtifactSignature }
+      // One pipeline invocation per update after early fast paths.
+      runPipeline(pipelinePayload, {
+        signal: abortController.signal,
+        onProgress: (progress) => {
+          if (requestToken !== rulesBuildingTokenRef.current) return
+          setRulesBuildProgress(progress)
+          setTesterRowsProgress(progress)
+        },
+      })
+        .then((result) => {
+          const { state, matches, detection } = result
+          if (abortController.signal.aborted || requestToken !== rulesBuildingTokenRef.current) return
+          lastWarmFingerprintRef.current = nextFingerprint
+          const { baseRules, finalSellRules } = splitMergedRules(state.mergedRules)
+          const snapshot: ConfigRulesStateSnapshot = {
+            baseRules,
+            finalSellRules,
+            rulesByConfig: state.rulesByConfig,
+            countsByConfig: state.countsByConfig,
+            keys: state.keys,
+            substatTargetsKey: state.substatTargetsKey,
+            mergedRules: state.mergedRules,
+            truncatedConfigIndices: state.truncatedConfigIndices,
+            totalLimitHit: state.totalLimitHit,
+            excludedByTotalLimitIndices: state.excludedByTotalLimitIndices,
           }
-        }
-        setKeepUniqueDetection(detection ?? null)
-        setKeepUniqueGroupItemKeys(uniqueKeys)
-        keepUniqueScanAppliedRef.current = detection ? fingerprintKeepUniqueDetection(detection) : null
-        pendingKeepUniqueDetectionSigRef.current = null
-        lastPipelineSignatureRef.current = { fingerprint: nextFingerprint, artifactSig: pipelineArtifactSignature }
-        lastConfigNamesRef.current = configNamesForBuild
-        const totalCustomRules = Array.from(state.countsByConfig.values()).reduce((acc, val) => (
-          acc + (Number.isFinite(val) ? Number(val) : 0)
-        ), 0)
-        // Rare restore edge: if nothing built but configs exist, force a fresh warm+match once.
-        const shouldRetryWarm = baseRules.length === 0
-          && totalCustomRules === 0
-          && configsForPipeline.length > 0
-          && !recoverMissingRulesRef.current
-        if (shouldRetryWarm) {
-          recoverMissingRulesRef.current = true
-          // Force a full warm/match pass so restored configs cannot get stuck empty.
-          runPipeline(
-            {
-              ...pipelinePayload,
-              artifacts: [],
-              skipWarm: false,
-              fingerprint: null,
-            },
-            {
-              signal: abortController.signal,
-              onProgress: (progress) => {
-                if (requestToken !== rulesBuildingTokenRef.current) return
-                setRulesBuildProgress(progress)
-                setTesterRowsProgress(progress)
+          setConfigRulesState(snapshot)
+          keepUniqueAppliedStateRef.current = {
+            baseRules,
+            rulesByConfig: state.rulesByConfig,
+            finalSellRules,
+          }
+          keepUniqueStructureSigRef.current = keepUniqueStructureSig
+          const matchMap = new Map<number, TesterMatchWorkerItemResult>()
+          for (const entry of matches) {
+            if (!entry) continue
+            matchMap.set(entry.itemId, entry)
+          }
+          const rows: TesterPreviewRow[] = []
+          const artifactEntries = artifactPatch.changed.length > 0
+            ? artifactPatch.changed
+            : testerPreviewArtifacts.map((artifact, idx) => [getArtifactItemId(artifact, idx), artifact] as [number | null, NormalizedGearArtifact])
+          for (const [itemIdMaybe, artifact] of artifactEntries) {
+            if (!artifact) continue
+            const itemId = Number(itemIdMaybe ?? NaN)
+            if (!Number.isFinite(itemId)) continue
+            const matchEntry = matchMap.get(itemId)
+            const match = toPreviewMatch(matchEntry?.firstMatch ?? null, state.mergedRules)
+            const baseMatch = toPreviewMatch(matchEntry?.firstNonExcludedMatch ?? null, state.mergedRules)
+            rows.push({
+              artifact,
+              match,
+              baseMatch,
+              matchingCfgIndices: matchEntry?.matchingConfigIndices ?? [],
+              matchingConfigDecisions: matchEntry?.matchingConfigDecisions ?? [],
+            })
+          }
+          setTesterPreviewRows(sortTesterRows(rows))
+          setTesterRowsCommittedBuildId(requestToken)
+          setTesterRowsActiveBuildId(requestToken)
+          const uniqueKeys = new Set<number>()
+          if (detection?.entries) {
+            for (const entry of detection.entries) {
+              if (!entry) continue
+              for (const key of entry.itemKeys) uniqueKeys.add(key)
+            }
+          }
+          setKeepUniqueDetection(detection ?? null)
+          setKeepUniqueGroupItemKeys(uniqueKeys)
+          keepUniqueScanAppliedRef.current = detection ? fingerprintKeepUniqueDetection(detection) : null
+          pendingKeepUniqueDetectionSigRef.current = null
+          lastPipelineSignatureRef.current = { fingerprint: nextFingerprint, artifactSig: pipelineArtifactSignature }
+          lastConfigNamesRef.current = configNamesForBuild
+          if (pipelineAbortRef.current === abortController) pipelineAbortRef.current = null
+          const totalCustomRules = Array.from(state.countsByConfig.values()).reduce((acc, val) => (
+            acc + (Number.isFinite(val) ? Number(val) : 0)
+          ), 0)
+          // Rare restore edge: if nothing built but configs exist, force a fresh warm+match once.
+          const shouldRetryWarm = baseRules.length === 0
+            && totalCustomRules === 0
+            && configsForPipeline.length > 0
+            && !recoverMissingRulesRef.current
+          if (shouldRetryWarm) {
+            recoverMissingRulesRef.current = true
+            // Force a full warm/match pass so restored configs cannot get stuck empty.
+            runPipeline(
+              {
+                ...pipelinePayload,
+                artifacts: [],
+                skipWarm: false,
+                fingerprint: null,
               },
-            },
-          )
-            .then((retryResult) => {
-              if (abortController.signal.aborted || requestToken !== rulesBuildingTokenRef.current) return
-              recoverMissingRulesRef.current = false
-              lastWarmFingerprintRef.current = retryResult.fingerprint ?? null
-              // Re-run the success handler with the retried payload.
-              const { state: retryState, matches: retryMatches, detection: retryDetection } = retryResult
-              const splitRetry = splitMergedRules(retryState.mergedRules)
-              setConfigRulesState({
-                baseRules: splitRetry.baseRules,
-                finalSellRules: splitRetry.finalSellRules,
-                rulesByConfig: retryState.rulesByConfig,
-                countsByConfig: retryState.countsByConfig,
-                keys: retryState.keys,
-                substatTargetsKey: retryState.substatTargetsKey,
-                mergedRules: retryState.mergedRules,
-                truncatedConfigIndices: retryState.truncatedConfigIndices,
-                totalLimitHit: retryState.totalLimitHit,
-                excludedByTotalLimitIndices: retryState.excludedByTotalLimitIndices,
-              })
-              keepUniqueAppliedStateRef.current = {
-                baseRules: splitRetry.baseRules,
-                rulesByConfig: retryState.rulesByConfig,
-                finalSellRules: splitRetry.finalSellRules,
-              }
-              const retryMap = new Map<number, TesterMatchWorkerItemResult>()
-              for (const entry of retryMatches) retryMap.set(entry.itemId, entry)
-              const retryRows: TesterPreviewRow[] = []
-              const entries = artifactPatch.changed.length > 0
-                ? artifactPatch.changed
-                : testerPreviewArtifacts.map((artifact, idx) => [getArtifactItemId(artifact, idx), artifact] as [number | null, NormalizedGearArtifact])
-              for (const [itemIdMaybe, artifact] of entries) {
-                if (!artifact) continue
-                const itemId = Number(itemIdMaybe ?? NaN)
-                if (!Number.isFinite(itemId)) continue
-                const matchEntry = retryMap.get(itemId)
-                const match = toPreviewMatch(matchEntry?.firstMatch ?? null, retryState.mergedRules)
-                const baseMatch = toPreviewMatch(matchEntry?.firstNonExcludedMatch ?? null, retryState.mergedRules)
-                retryRows.push({
-                  artifact,
-                  match,
-                  baseMatch,
-                  matchingCfgIndices: matchEntry?.matchingConfigIndices ?? [],
-                  matchingConfigDecisions: matchEntry?.matchingConfigDecisions ?? [],
+              {
+                signal: abortController.signal,
+                onProgress: (progress) => {
+                  if (requestToken !== rulesBuildingTokenRef.current) return
+                  setRulesBuildProgress(progress)
+                  setTesterRowsProgress(progress)
+                },
+              },
+            )
+              .then((retryResult) => {
+                if (abortController.signal.aborted || requestToken !== rulesBuildingTokenRef.current) return
+                recoverMissingRulesRef.current = false
+                lastWarmFingerprintRef.current = retryResult.fingerprint ?? null
+                // Re-run the success handler with the retried payload.
+                const { state: retryState, matches: retryMatches, detection: retryDetection } = retryResult
+                const splitRetry = splitMergedRules(retryState.mergedRules)
+                setConfigRulesState({
+                  baseRules: splitRetry.baseRules,
+                  finalSellRules: splitRetry.finalSellRules,
+                  rulesByConfig: retryState.rulesByConfig,
+                  countsByConfig: retryState.countsByConfig,
+                  keys: retryState.keys,
+                  substatTargetsKey: retryState.substatTargetsKey,
+                  mergedRules: retryState.mergedRules,
+                  truncatedConfigIndices: retryState.truncatedConfigIndices,
+                  totalLimitHit: retryState.totalLimitHit,
+                  excludedByTotalLimitIndices: retryState.excludedByTotalLimitIndices,
                 })
-              }
-              setTesterPreviewRows(sortTesterRows(retryRows))
-              setTesterRowsCommittedBuildId(requestToken)
-              setTesterRowsActiveBuildId(requestToken)
-              const retryUniqueKeys = new Set<number>()
-              if (retryDetection?.entries) {
-                for (const entry of retryDetection.entries) {
-                  if (!entry) continue
-                  for (const key of entry.itemKeys) retryUniqueKeys.add(key)
+                keepUniqueAppliedStateRef.current = {
+                  baseRules: splitRetry.baseRules,
+                  rulesByConfig: retryState.rulesByConfig,
+                  finalSellRules: splitRetry.finalSellRules,
                 }
-              }
-              setKeepUniqueDetection(retryDetection ?? null)
-              setKeepUniqueGroupItemKeys(retryUniqueKeys)
-              keepUniqueScanAppliedRef.current = retryDetection ? fingerprintKeepUniqueDetection(retryDetection) : null
-              pendingKeepUniqueDetectionSigRef.current = null
-              lastPipelineSignatureRef.current = { fingerprint: nextFingerprint, artifactSig: pipelineArtifactSignature }
-              lastConfigNamesRef.current = configNamesForBuild
-            })
-            .catch(() => {
-              if (abortController.signal.aborted) return
-            })
-          return
-        }
-        recoverMissingRulesRef.current = false
-      })
+                const retryMap = new Map<number, TesterMatchWorkerItemResult>()
+                for (const entry of retryMatches) retryMap.set(entry.itemId, entry)
+                const retryRows: TesterPreviewRow[] = []
+                const entries = artifactPatch.changed.length > 0
+                  ? artifactPatch.changed
+                  : testerPreviewArtifacts.map((artifact, idx) => [getArtifactItemId(artifact, idx), artifact] as [number | null, NormalizedGearArtifact])
+                for (const [itemIdMaybe, artifact] of entries) {
+                  if (!artifact) continue
+                  const itemId = Number(itemIdMaybe ?? NaN)
+                  if (!Number.isFinite(itemId)) continue
+                  const matchEntry = retryMap.get(itemId)
+                  const match = toPreviewMatch(matchEntry?.firstMatch ?? null, retryState.mergedRules)
+                  const baseMatch = toPreviewMatch(matchEntry?.firstNonExcludedMatch ?? null, retryState.mergedRules)
+                  retryRows.push({
+                    artifact,
+                    match,
+                    baseMatch,
+                    matchingCfgIndices: matchEntry?.matchingConfigIndices ?? [],
+                    matchingConfigDecisions: matchEntry?.matchingConfigDecisions ?? [],
+                  })
+                }
+                setTesterPreviewRows(sortTesterRows(retryRows))
+                setTesterRowsCommittedBuildId(requestToken)
+                setTesterRowsActiveBuildId(requestToken)
+                const retryUniqueKeys = new Set<number>()
+                if (retryDetection?.entries) {
+                  for (const entry of retryDetection.entries) {
+                    if (!entry) continue
+                    for (const key of entry.itemKeys) retryUniqueKeys.add(key)
+                  }
+                }
+                setKeepUniqueDetection(retryDetection ?? null)
+                setKeepUniqueGroupItemKeys(retryUniqueKeys)
+                keepUniqueScanAppliedRef.current = retryDetection ? fingerprintKeepUniqueDetection(retryDetection) : null
+                pendingKeepUniqueDetectionSigRef.current = null
+                lastPipelineSignatureRef.current = { fingerprint: nextFingerprint, artifactSig: pipelineArtifactSignature }
+                lastConfigNamesRef.current = configNamesForBuild
+              })
+              .catch(() => {
+                if (abortController.signal.aborted) return
+              })
+            return
+          }
+          recoverMissingRulesRef.current = false
+        })
         .catch(() => {
-        if (abortController.signal.aborted) return
-      })
+          if (abortController.signal.aborted) return
+        })
         .finally(() => {
-        if (requestToken !== rulesBuildingTokenRef.current) return
-        setRulesBuilding(false)
-        setTesterRowsBuilding(false)
-        setRulesBuildProgress(null)
-        setTesterRowsProgress(null)
-      })
+          if (requestToken !== rulesBuildingTokenRef.current) return
+          setRulesBuilding(false)
+          setTesterRowsBuilding(false)
+          setRulesBuildProgress(null)
+          setTesterRowsProgress(null)
+        })
     }
 
-    if (testerPipelineDebounceRef.current !== null) {
-      window.clearTimeout(testerPipelineDebounceRef.current)
-    }
-    testerPipelineDebounceRef.current = window.setTimeout(executePipeline, TESTER_PIPELINE_DEBOUNCE_MS)
+    // Debounce pipeline launches to avoid restarting on every keystroke/config tweak.
+    if (pipelineDebounceRef.current !== null) window.clearTimeout(pipelineDebounceRef.current)
+    pipelineDebounceRef.current = window.setTimeout(() => {
+      pipelineDebounceRef.current = null
+      launchPipeline()
+    }, PIPELINE_DEBOUNCE_MS)
+
     return () => {
-      if (testerPipelineDebounceRef.current !== null) {
-        window.clearTimeout(testerPipelineDebounceRef.current)
-        testerPipelineDebounceRef.current = null
+      if (pipelineDebounceRef.current !== null) {
+        window.clearTimeout(pipelineDebounceRef.current)
+        pipelineDebounceRef.current = null
       }
-      testerPipelineAbortRef.current?.abort?.()
+      abortController.abort()
+      if (pipelineAbortRef.current === abortController) pipelineAbortRef.current = null
     }
   }, [
     runPipeline,
@@ -1216,7 +1231,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     finalSellRemainder,
     keepUniquesEnabled,
     resolvedKeepUniqueRules,
-    fingerprintKeepUniqueRuleList,
     configModes,
     configModesForPreview,
     testerPreviewArtifacts,
@@ -1224,6 +1238,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     configNamesForPreview,
     getArtifactItemId,
     buildRulesFingerprint,
+    fingerprintKeepUniqueRuleList,
   ])
 
   const awaitRuleCounts = useCallback((): { token: number; promise: Promise<Map<number, number>> } | null => null, [])
@@ -2584,7 +2599,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       ...(filtersPayload ? { Filters: filtersPayload } : {}),
     }
   }, [metasets, substatTargets, customCfgs, finalSellRemainder, hsfcNote, autosaveFiltersState, keepUniqueRules, keepUniquesEnabled, finalSellDialogTab])
-  useAutosave({ key: AUTOSAVE_KEY, payload: autosavePayload, enabled: autosaveEnabled && !tutorial.tutorialOpen && !autosaveSilencedByClear })
+  useAutosave({
+    key: AUTOSAVE_KEY,
+    payload: autosavePayload,
+    enabled: autosaveEnabled && !tutorial.tutorialOpen && !autosaveSilencedByClear,
+    debounceMs: 1000,
+  })
   const testerAutosavePayload = useMemo(() => buildRuleTesterAutosavePayload(testerItems), [testerItems])
   const testerAutosavePayloadSignature = `${testerAutosavePayload.ItemsCompressed ?? ''}#${testerAutosavePayload.ItemCount ?? 0}`
   if (testerAutosaveBaselineRef.current === null) {
@@ -3714,6 +3734,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         '*, *::before, *::after': {
           scrollbarWidth: 'thin',
           scrollbarColor: `${theme.palette.divider} transparent`,
+        },
+        // Firefox does not render overlay scrollbars; keep the default width there
+        '@media all and (min--moz-device-pixel-ratio:0)': {
+          '*, *::before, *::after': {
+            scrollbarWidth: 'auto',
+          },
         },
         // Hide MUI tooltips while scrolling to avoid viewport scrollbar flicker
         '.scrolling .MuiTooltip-popper': {
