@@ -89,6 +89,7 @@ type
     function WaitForCommands: Boolean;
     procedure SignalWaiters;
     class function SanitizeSegment(const Segment: string): string; static;
+    class function EncodeFileAsBase64(const FilePath: string): string; static;
   public
     constructor Create(APort: Integer; const AOutputDirectory: string;
       APollTimeoutMs: Cardinal = 30000);
@@ -98,6 +99,13 @@ type
     procedure QueueSelectRule(const RowNumber: Integer);
     procedure QueueTesterItems(const Items: TJSONArray; const OpenTester: Boolean);
     procedure QueueRawCommand(const Payload: TJSONObject);
+    procedure QueueGearDbFileFromPath(const DbPath, DisplayName: string;
+      const DownloadUrl: string = '');
+    class function NewTesterArtifact(const Slot, SetName: string; Rank, Rarity, Level: Integer;
+      const MainStatId: Integer; const MainStatIsFlat: Boolean; const Substats: TJSONArray = nil;
+      const Name: string = ''): TJSONObject; static;
+    class function NewTesterSubstat(const StatId: Integer; const IsFlat: Boolean;
+      const Value: Double): TJSONObject; static;
   end;
 
 implementation
@@ -320,6 +328,14 @@ begin
   Result := TPath.Combine(FOutputDir, Segment); // Final absolute path for the upload.
 end;
 
+class function TSellfileProtocolServer.EncodeFileAsBase64(const FilePath: string): string;
+var
+  Bytes: TBytes;
+begin
+  Bytes := TFile.ReadAllBytes(FilePath); // Load the DB/Sellfile bytes into memory.
+  Result := TNetEncoding.Base64.EncodeBytesToString(Bytes); // Export as base64 for JSON transport.
+end;
+
 function TSellfileProtocolServer.DrainCommandQueue: TJSONArray;
 var
   Snapshot: TJSONArray;
@@ -359,6 +375,32 @@ begin
   end;
 end;
 
+procedure TSellfileProtocolServer.QueueGearDbFileFromPath(const DbPath, DisplayName: string;
+  const DownloadUrl: string);
+var
+  Payload: TJSONObject;
+  Base64Data: string;
+begin
+  if not TFile.Exists(DbPath) then
+    raise Exception.CreateFmt('Gear DB path "%s" was not found.', [DbPath]);
+
+  Payload := TJSONObject.Create; // Mirrors { type:"gearDbFile", name, base64|downloadPath }.
+  try
+    Payload.AddPair('type', 'gearDbFile');
+    Payload.AddPair('name', DisplayName);
+    if DownloadUrl <> '' then
+      Payload.AddPair('downloadPath', DownloadUrl) // Helper will host bytes elsewhere.
+    else
+    begin
+      Base64Data := EncodeFileAsBase64(DbPath); // Inline the DB bytes for convenience.
+      Payload.AddPair('base64', Base64Data);
+    end;
+    QueueRawCommand(Payload); // Sends the event on the next GET /commands response.
+  finally
+    Payload.Free;
+  end;
+end;
+
 procedure TSellfileProtocolServer.QueueTesterItems(const Items: TJSONArray; const OpenTester: Boolean);
 var
   Payload: TJSONObject;
@@ -372,6 +414,51 @@ begin
   finally
     Payload.Free;
   end;
+end;
+
+{
+  Example usage for QueueTesterItems:
+    var substats := TJSONArray.Create;
+    substats.AddElement(TSellfileProtocolServer.NewTesterSubstat(5, False, 12.0)); // Crit Rate %
+    var artifact := TSellfileProtocolServer.NewTesterArtifact('Weapon', 'Speed', 6, 6, 16, 8, False, substats, 'Sample Spear');
+    var items := TJSONArray.Create;
+    items.AddElement(artifact);
+    Server.QueueTesterItems(items, True);
+    items.Free; // QueueTesterItems clones the entries so callers can free inputs immediately.
+}
+
+class function TSellfileProtocolServer.NewTesterArtifact(const Slot, SetName: string; Rank, Rarity,
+  Level: Integer; const MainStatId: Integer; const MainStatIsFlat: Boolean; const Substats: TJSONArray;
+  const Name: string): TJSONObject;
+var
+  Main: TJSONObject;
+begin
+  Result := TJSONObject.Create; // Caller owns the returned object and must free/clone as needed.
+  Result.AddPair('slot', Slot);
+  Result.AddPair('set', SetName);
+  Result.AddPair('rank', TJSONNumber.Create(Rank));
+  Result.AddPair('rarity', TJSONNumber.Create(Rarity));
+  Result.AddPair('level', TJSONNumber.Create(Level));
+
+  Main := TJSONObject.Create;
+  Main.AddPair('id', TJSONNumber.Create(MainStatId));
+  Main.AddPair('isFlat', TJSONBool.Create(MainStatIsFlat));
+  Result.AddPair('main', Main); // Encodes the Rule Tester main stat tuple.
+
+  if Assigned(Substats) then
+    Result.AddPair('substats', Substats.Clone as TJSONArray); // Clone so builders can reuse templates.
+
+  if Name <> '' then
+    Result.AddPair('name', Name);
+end;
+
+class function TSellfileProtocolServer.NewTesterSubstat(const StatId: Integer; const IsFlat: Boolean;
+  const Value: Double): TJSONObject;
+begin
+  Result := TJSONObject.Create;
+  Result.AddPair('id', TJSONNumber.Create(StatId));
+  Result.AddPair('isFlat', TJSONBool.Create(IsFlat));
+  Result.AddPair('value', TJSONNumber.Create(Value));
 end;
 
 procedure TSellfileProtocolServer.QueueRawCommand(const Payload: TJSONObject);
