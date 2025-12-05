@@ -23,7 +23,7 @@ import { allowedTesterSetIds, isAccessorySlot, normalizeTesterSetForSlot } from 
 import { formatTesterSetLabel } from '../../lib/testerFormatters'
 import { variantToSub, variantToMain } from '../../lib/hsfTypes'
 import { artifactTypeIconList } from '../artifactTypeIcons'
-import type { TestItem, TesterItemPreviewExtras } from '../../lib/ruleEval'
+import type { TesterItemPreviewExtras } from '../../lib/ruleEval'
 import type { NormalizedStat } from '../../lib/importers/gearDbNormalizer'
 import { useI18n } from '../../lib/i18n'
 import { useAppState } from '../../state/appState'
@@ -40,7 +40,6 @@ import type { SystemStyleObject } from '@mui/system'
 import {
   createRuleTesterMath,
   entriesInOrder,
-  fingerprintRuleTesterItem,
   isManualTesterItem,
   mainOptionsForSlot,
   testerSourceCategoryForItem,
@@ -83,7 +82,6 @@ const TESTER_SELECT_VALUE_BASE_SX: SystemStyleObject<Theme> = {
 const TESTER_COOKIE_TOGGLE_THRESHOLD = 10
 const TESTER_COOKIE_WINDOW_MS = 10_000
 const TESTER_COOKIE_ANIMATION_MS = 4_500
-const TESTER_IMPORT_CHUNK_SIZE = 250
 
 const TESTER_COOKIE_HALO_DIAMETER_PX = 96
 
@@ -185,8 +183,6 @@ export default function RuleTesterDialog({
   setTesterItems,
   allocTesterItemId,
   testerMatches,
-  pendingExternalItems = [],
-  onConsumeExternalItems,
 }: {
   open: boolean
   onClose: () => void
@@ -197,8 +193,6 @@ export default function RuleTesterDialog({
   setTesterItems: Dispatch<SetStateAction<RuleTesterItem[]>>
   allocTesterItemId: () => number
   testerMatches: ReadonlyMap<number, TesterPreviewMatch | null>
-  pendingExternalItems?: TestItem[]
-  onConsumeExternalItems?: () => void
 }) {
   const { t } = useI18n()
   const { substatTargets, metasets } = useAppState()
@@ -1483,73 +1477,6 @@ export default function RuleTesterDialog({
       </Box>
     )
   }
-
-  // Append externally injected gear entries once per payload, skipping duplicates and scrolling to the newest row when items arrive.
-  useEffect(() => {
-    if (!pendingExternalItems || pendingExternalItems.length === 0) return
-    let cancelled = false
-    let timeoutId: ReturnType<typeof setTimeout> | null = null
-    const incoming = pendingExternalItems.slice()
-    const existing = new Set(itemsRef.current.map((it) => fingerprintRuleTesterItem(it)))
-    let index = 0
-    let appended = false
-    const bufferedAdditions: TesterItem[] = []
-
-    const flushScroll = () => {
-      if (typeof window === 'undefined') return
-      try {
-        const node = scrollContainerRef.current
-        if (!node) return
-        window.requestAnimationFrame(() => { node.scrollTop = node.scrollHeight })
-      } catch {}
-    }
-
-    const scheduleNext = () => {
-      if (cancelled) return
-      timeoutId = setTimeout(processChunk, 0)
-    }
-
-    const processChunk = () => {
-      if (cancelled) return
-      const end = Math.min(index + TESTER_IMPORT_CHUNK_SIZE, incoming.length)
-      const chunk = incoming.slice(index, end)
-      index = end
-      if (chunk.length > 0) {
-        for (const incomingItem of chunk) {
-          const base = adjustSubValuesFor({ ...(incomingItem as TestItem), itemId: allocTesterItemId() } as TesterItem)
-          const key = fingerprintRuleTesterItem(base)
-          if (existing.has(key)) continue
-          existing.add(key)
-          bufferedAdditions.push(base)
-        }
-      }
-      if (index < incoming.length) {
-        scheduleNext()
-        return
-      }
-      if (!cancelled && bufferedAdditions.length > 0) {
-        appended = true
-        setItems((prev) => {
-          const next = [...prev, ...bufferedAdditions]
-          pruneEasterEggStateForItems(next)
-          return next
-        })
-        bufferedAdditions.length = 0
-      }
-      if (appended) flushScroll()
-      if (!cancelled && onConsumeExternalItems) onConsumeExternalItems()
-    }
-
-    processChunk()
-    return () => {
-      cancelled = true
-      if (timeoutId != null) {
-        clearTimeout(timeoutId)
-      }
-    }
-  // adjustSubValuesFor is recreated per render; pendingExternalItems change is the trigger we care about.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pendingExternalItems, allocTesterItemId, pruneEasterEggStateForItems, onConsumeExternalItems])
 
   // No Import/Export buttons; autosave restores when dialog opens.
 

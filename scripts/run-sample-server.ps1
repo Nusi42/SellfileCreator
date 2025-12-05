@@ -163,8 +163,7 @@ $script:SellfileCreatorWebProtocolReference = [ordered]@{
             Method        = 'GET'
             Path          = '/commands'
             Events        = @(
-                'selectRule → { type: "selectRule", rowNumber }',
-                'testerItems → { type: "testerItems", items: ArtifactSummary[], openTester }'
+                'selectRule → { type: "selectRule", rowNumber }'
             )
             Notes         = 'Each GET drains the queue; no cursor parameter is needed.'
         }
@@ -258,171 +257,14 @@ $script:SellfileCreatorProtocolState = [ordered]@{
 #endregion
 
 #region === Demo harness state (optional) ===
-# Demo helpers supply keyboard shortcuts and sample payloads. None of this is
-# required for a production integration. Sample payloads now load from the JSON
-# snapshot we already ship alongside the script so we do not keep large blobs of
-# inline data in the PowerShell file itself. The catalog is required; the script
-# exits when it cannot be loaded so shortcuts never run with stale data.
-
-function Copy-Hashtable {
-    <#
-        Creates a shallow copy of an incoming dictionary so demo helpers can
-        mutate entries without touching the source catalog.
-    #>
-    param([System.Collections.IDictionary]$Source)
-
-    if (-not $Source) { return @{} }
-
-    $copy = @{}
-    foreach ($key in $Source.Keys) { $copy[$key] = $Source[$key] }
-    return $copy
-}
-
-function Get-DemoSampleCatalog {
-    <#
-        .SYNOPSIS
-        Loads canned tester/select events from sample-commands-response.json.
-
-        .DESCRIPTION
-        This keeps the script light while still providing repeatable demo
-        payloads for keyboard shortcuts and the demo-only POST helpers. The
-        catalog is required; missing or malformed files are treated as fatal
-        so shortcuts never run with stale fallback data.
-    #>
-    param([string]$CommandsPath)
-
-    if (-not $CommandsPath -or -not (Test-Path -LiteralPath $CommandsPath)) {
-        throw "Demo samples file '$CommandsPath' was not found."
-    }
-
-    try {
-        $raw = Get-Content -LiteralPath $CommandsPath -Raw -ErrorAction Stop
-        $payload = $raw | ConvertFrom-Json -Depth 20 -AsHashtable
-    }
-    catch {
-        throw "Failed to read demo samples from '$CommandsPath': $_"
-    }
-
-    if (-not $payload -or -not ($payload.ContainsKey('events'))) {
-        throw "Demo samples file '$CommandsPath' is missing an 'events' array."
-    }
-
-    $events = @($payload['events'])
-    if ($events.Count -eq 0) {
-        throw "Demo samples file '$CommandsPath' does not define any events."
-    }
-
-    $testerSamples = @()
-    $selectSamples = @()
-    $testerItemPool = @()
-    $testerCounter = 0
-    $selectCounter = 0
-
-    foreach ($evt in $events) {
-        if (-not ($evt -is [System.Collections.IDictionary])) {
-            throw 'Demo samples events must be JSON objects.'
-        }
-
-        $evtType = [string]$evt['type']
-        switch ($evtType) {
-            'testerItems' {
-                $testerCounter++
-                $sampleIndex = $testerCounter
-
-                if (-not $evt.ContainsKey('items')) {
-                    throw "Tester sample #$sampleIndex is missing items."
-                }
-
-                $itemsValue = @($evt['items'])
-                if ($itemsValue.Count -eq 0) {
-                    throw "Tester sample #$sampleIndex is missing items."
-                }
-
-                $normalizedItems = @()
-                $itemNumber = 0
-                foreach ($item in $itemsValue) {
-                    $itemNumber++
-                    if (-not ($item -is [System.Collections.IDictionary])) {
-                        throw "Tester sample #$sampleIndex item #$itemNumber is not an object."
-                    }
-
-                    $itemCopy = Copy-Hashtable -Source $item
-
-                    $normalizedItems += ,$itemCopy
-                    $testerItemPool += [pscustomobject]@{
-                        Item        = $itemCopy
-                        SampleIndex = $sampleIndex
-                        ItemNumber  = $itemNumber
-                    }
-                }
-
-                $testerSamples += [pscustomobject]@{
-                    SampleIndex = $sampleIndex
-                    Items       = $normalizedItems
-                }
-            }
-            'selectRule' {
-                $selectCounter++
-                $sampleIndex = $selectCounter
-                $rowNumberValue = $null
-
-                foreach ($key in @('rowNumber', 'row')) {
-                    if (-not $evt.ContainsKey($key)) { continue }
-                    $candidate = $evt[$key]
-                    if ($candidate -is [int]) { $rowNumberValue = $candidate; break }
-                    if ($candidate -is [long]) { $rowNumberValue = [int]$candidate; break }
-                    $candidateText = [string]$candidate
-                    $parsed = 0
-                    if ([int]::TryParse($candidateText, [ref]$parsed)) {
-                        $rowNumberValue = $parsed
-                        break
-                    }
-                }
-
-                if ($null -eq $rowNumberValue) {
-                    throw "Select sample #$sampleIndex is missing rowNumber."
-                }
-
-                $rowNumber = [Math]::Max(1, [int]$rowNumberValue)
-
-                $selectSamples += [pscustomobject]@{
-                    SampleIndex = $sampleIndex
-                    RowNumber   = $rowNumber
-                }
-            }
-            default { continue }
-        }
-    }
-
-    if ($selectSamples.Count -eq 0) {
-        throw "Demo samples file '$CommandsPath' does not define any selectRule events."
-    }
-
-    if ($testerItemPool.Count -eq 0) {
-        throw "Demo samples file '$CommandsPath' does not define any testerItems artifacts."
-    }
-
-    return [pscustomobject]@{
-        TesterSamples   = $testerSamples
-        SelectSamples   = $selectSamples
-        TesterItemPool  = $testerItemPool
-    }
-}
-
-$sampleCommandsPath = Join-Path $PSScriptRoot 'sample-commands-response.json'
-try {
-    $demoSamples = Get-DemoSampleCatalog -CommandsPath $sampleCommandsPath
-}
-catch {
-    Write-Error $_
-    exit 1
-}
+# Demo helpers keep a few canned selectRule rows handy so keyboard shortcuts
+# always have something to enqueue even when callers skip explicit payloads.
+# Production integrations can ignore this entire region; the defaults only power
+# `/mock/select` and the `[R]` shortcut below.
 
 $script:DemoState = [ordered]@{
-    TesterSamples      = $demoSamples.TesterSamples
-    SelectSamples      = $demoSamples.SelectSamples
-    TesterItemPool     = $demoSamples.TesterItemPool
-    Random             = [System.Random]::new()
+    SelectSamples = @(5, 10, 15, 20, 25, 30, 35, 40)
+    Random        = [System.Random]::new()
 }
 #endregion
 
@@ -1440,7 +1282,6 @@ function Invoke-GetCommands {
         Handles GET /commands — Sellfile Creator polls for queued events here.
         Requests park on the server until an event is available (or the poll
         times out) so the UI does not hammer the endpoint unnecessarily.
-        See sample-commands-response.json for shape.
     #>
     param(
         [System.Net.HttpListenerContext]$Context
@@ -1496,12 +1337,6 @@ function Write-ProtocolQuickReference {
             @{ Text = '      Events:'; Color = [ConsoleColor]::Gray }
             @{ Text = ' selectRule '; Color = [ConsoleColor]::Magenta }
             @{ Text = '→ focus preview row (rowNumber)'; Color = [ConsoleColor]::Gray }
-        ))
-
-    Write-ConsoleHeader -Message (New-ConsoleSegmentLine -Segments @(
-            @{ Text = '             '; Color = [ConsoleColor]::Gray }
-            @{ Text = ' testerItems '; Color = [ConsoleColor]::Magenta }
-            @{ Text = '→ open Rule Tester with provided artifacts (optional openTester flag)'; Color = [ConsoleColor]::Gray }
         ))
 
     Write-ConsoleHeader -Message (New-ConsoleSegmentLine -Segments @(
@@ -1627,73 +1462,6 @@ function Handle-DemoRequest {
         }
         return $true
     }
-    if ($request.HttpMethod -eq 'POST' -and $pathLower -eq '/mock/tester-items') {
-        $bodyData = Read-JsonBody -Request $request
-        $bodyDictionary = $bodyData -as [System.Collections.IDictionary]
-
-        $items = @()
-        if ($bodyDictionary -and $bodyDictionary.Contains('items')) {
-            foreach ($artifact in @($bodyDictionary['items'])) {
-                if (-not ($artifact -is [System.Collections.IDictionary])) {
-                    throw 'testerItems payload items must be objects.'
-                }
-
-                $items += ,(Copy-Hashtable -Source $artifact)
-            }
-        } elseif ($bodyData -and ($bodyData -is [System.Collections.IEnumerable]) -and -not ($bodyData -is [string])) {
-            foreach ($artifact in @($bodyData)) {
-                if (-not ($artifact -is [System.Collections.IDictionary])) { continue }
-                $items += ,(Copy-Hashtable -Source $artifact)
-            }
-        }
-
-        $randomSelection = $null
-        if ($items.Count -eq 0) {
-            $randomSelection = Get-RandomTesterItemsSelection
-            $items = $randomSelection.Items
-        }
-
-        $resolveBool = {
-            param($candidate, [bool]$fallback)
-            if ($candidate -is [bool]) { return $candidate }
-            if ($candidate -is [int]) { return ($candidate -ne 0) }
-            if ($candidate -is [long]) { return ([int]$candidate -ne 0) }
-            if ($null -eq $candidate) { return $fallback }
-            $text = ([string]$candidate).Trim().ToLowerInvariant()
-            if ($text.Length -eq 0) { return $fallback }
-            if ('1','true','yes','on' -contains $text) { return $true }
-            if ('0','false','no','off' -contains $text) { return $false }
-            return $fallback
-        }
-
-        $openTester = & $resolveBool $request.QueryString['openTester'] $true
-        if ($bodyDictionary -and $bodyDictionary.Contains('openTester')) {
-            $openTester = & $resolveBool $bodyDictionary['openTester'] $openTester
-        }
-
-        $payloadTable = [ordered]@{
-            items      = $items
-            openTester = [bool]$openTester
-        }
-
-        [void](Add-ProtocolCommandEvent -Type 'testerItems' -Data $payloadTable)
-        $itemCount = $items.Count
-        $responsePayload = @{ status = 'queued'; items = $itemCount }
-        if ($randomSelection) {
-            $responsePayload['sample'] = @{
-                count         = $randomSelection.Count
-                sampleIndices = $randomSelection.SampleIndices
-            }
-        }
-        Send-JsonResponse -Response $response -StatusCode 202 -Payload $responsePayload
-        if ($randomSelection) {
-            Write-ConsoleLog -Message ("Queued mock testerItems event count={0} (random selection from {1})" -f $itemCount, $randomSelection.SampleSummary) -Color DarkGray
-        } else {
-            Write-ConsoleLog -Message "Queued mock testerItems event count=$itemCount" -Color DarkGray
-        }
-        return $true
-    }
-
     return $false
 }
 #endregion
@@ -1710,80 +1478,15 @@ function Get-RandomSelectSample {
 
     $idx = $random.Next(0, $samples.Count)
     $definition = $samples[$idx]
+    $rowNumber = if ($definition -is [System.Collections.IDictionary]) {
+        [int]$definition.RowNumber
+    } else {
+        [int]$definition
+    }
     return [pscustomobject]@{
         Index     = $idx + 1
-        RowNumber = [int]$definition.RowNumber
+        RowNumber = [Math]::Max(1, $rowNumber)
     }
-}
-
-function Get-RandomTesterItemsSelection {
-    $state = $script:DemoState
-    $pool = $state.TesterItemPool
-    if (-not $pool -or $pool.Count -eq 0) {
-        throw 'Gear samples are not available.'
-    }
-
-    $random = $state.Random
-
-    $selectionCount = $random.Next(1, $pool.Count + 1)
-    $shuffled = $pool | Sort-Object { $random.Next() }
-    $chosen = $shuffled | Select-Object -First $selectionCount
-
-    $items = @(
-        foreach ($entry in $chosen) {
-            $sourceItem = $entry.Item -as [System.Collections.IDictionary]
-            if ($sourceItem) {
-                # Preserve the randomised selection as a standalone object for queued events.
-                Copy-Hashtable -Source $sourceItem
-                continue
-            }
-
-            $entry.Item
-        }
-    )
-
-    $sampleIndices = @(
-        (
-            @(
-                foreach ($entry in $chosen) {
-                    $raw = $entry.SampleIndex
-                    if ($null -eq $raw) { continue }
-                    if ($raw -is [int]) { $raw }
-                    elseif ($raw -is [long]) { [int]$raw }
-                    else {
-                        $candidate = [string]$raw
-                        $parsed = 0
-                        if ([int]::TryParse($candidate, [ref]$parsed)) { $parsed }
-                    }
-                }
-            ) | Sort-Object -Unique
-        )
-    )
-
-    $summary = if ($sampleIndices.Length -gt 0) {
-        $formatted = $sampleIndices | ForEach-Object { '#{0}' -f $_ }
-        [string]::Join(', ', $formatted)
-    } else {
-        'samples'
-    }
-
-    return [pscustomobject]@{
-        Items         = $items
-        Count         = $items.Count
-        SampleIndices = $sampleIndices
-        SampleSummary = $summary
-    }
-}
-
-function Queue-SampleTesterItems {
-    $selection = Get-RandomTesterItemsSelection
-    $payload = @{
-        items      = $selection.Items
-        openTester = $true
-    }
-    $event = Add-ProtocolCommandEvent -Type 'testerItems' -Data $payload
-    Write-ConsoleLog -Message ("Shortcut queued testerItems selection → {0} item(s) from {1}" -f $selection.Count, $selection.SampleSummary) -Color DarkGray
-    return $event
 }
 
 function Queue-SampleSelectRule {
@@ -1842,11 +1545,6 @@ function Poll-ShortcutInput {
             }
             ([System.ConsoleKey]::End) {
                 Scroll-LogToEnd
-                continue
-            }
-            ([System.ConsoleKey]::T) {
-                Write-ConsoleLog -Message 'Shortcut detected: T' -Color DarkGray
-                [void](Queue-SampleTesterItems)
                 continue
             }
             ([System.ConsoleKey]::R) {
