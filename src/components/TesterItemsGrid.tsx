@@ -1974,6 +1974,8 @@ const TesterGridCard = React.memo(function TesterGridCard({
   const championIconSize = championIconMode === 'large'
     ? CHAMPION_ICON_LARGE_SIZE
     : CHAMPION_ICON_BASE_SIZE
+  // Champion avatars reuse the rarity palette so imported pieces surface their quality immediately.
+  const championBorderColor = resolveRarityAccentColor(artifact.equippedChampionRarity) ?? theme.palette.divider
   const rerollLabel = artifact.rerollCount > 0 ? '⟳' : ''
   const rerollTooltip = artifact.rerollCount > 0 ? t('testerRerollLabel') : ''
   // Tooltip copy surfaces the localized last-used timestamp whenever the DB provided one.
@@ -2124,8 +2126,8 @@ const TesterGridCard = React.memo(function TesterGridCard({
                   height: championIconSize.height,
                   borderRadius: `${CHAMPION_ICON_BORDER_RADIUS_PX}px`,
                   overflow: 'hidden',
-                  border: '1px solid',
-                  borderColor: 'divider',
+                  border: '2px solid',
+                  borderColor: championBorderColor,
                   boxShadow: 1,
                   display: 'inline-flex',
                   alignItems: 'center',

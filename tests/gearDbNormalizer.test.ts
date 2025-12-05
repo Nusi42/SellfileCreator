@@ -13,6 +13,7 @@ import {
 import {
   normalizeGearDbArtifact,
   type GearDbArtifactRow,
+  type ChampionLookupRecord,
 } from '../src/lib/importers/gearDbNormalizer.js'
 
 const weaponRow: GearDbArtifactRow = {
@@ -196,6 +197,23 @@ test('normalizeGearDbArtifact carries Mythical pre-roll bonus into totals', () =
   assert.equal(crStat?.totalValue, 18)
   const subValues = normalized.testerItem.subValues ?? {}
   assert.equal(subValues[StatVariant.CR], 18)
+})
+
+test('normalizeGearDbArtifact captures equipped champion rarity metadata', () => {
+  const championId = Number(weaponRow.cID)
+  const lookup = new Map<number, ChampionLookupRecord>([
+    [championId, {
+      id: championId,
+      name: 'Test Champ',
+      vault: false,
+      reserveVault: false,
+      baseHeroId: 1234,
+      rarity: 5,
+    }],
+  ])
+  const normalized = normalizeGearDbArtifact(weaponRow, { championLookup: lookup })
+  assert.equal(normalized.equippedChampionRarity, 5)
+  assert.equal(normalized.testerItem.previewExtras?.equippedChampionRarity, 5)
 })
 
 test('normalizeGearDbArtifact records last-use timestamps from options', () => {

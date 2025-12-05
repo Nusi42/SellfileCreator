@@ -154,6 +154,7 @@ export type GearDbChampionRow = {
   Vault?: number | null
   RVault?: number | null
   BaseHeroID?: number | null
+  Rarity?: number | null
 }
 
 export type StatSource = 'main' | 'substat' | 'ascension'
@@ -166,6 +167,7 @@ export type ChampionLookupRecord = {
   vault: boolean
   reserveVault: boolean
   baseHeroId: number | null
+  rarity: RankValue | null
 }
 
 export type NormalizedStat = {
@@ -197,6 +199,7 @@ export type NormalizedGearArtifact = {
   rerollCount: number
   equippedToChampionId: number | null
   equippedChampionBaseId: number | null
+  equippedChampionRarity: RankValue | null
   source: 'artifacts' | 'inbox' | 'tester'
   equippedChampionName: string | null
   equippedChampionLocation: ChampionLocation | null
@@ -429,6 +432,7 @@ export function normalizeGearDbArtifact(row: GearDbArtifactRow, options: Normali
     ? (championRecord.reserveVault ? 'reserveVault' : (championRecord.vault ? 'vault' : 'collection'))
     : null
   const equippedChampionBaseId = championRecord?.baseHeroId ?? null
+  const equippedChampionRarity = championRecord?.rarity ?? null
   const source = options.source ?? 'artifacts'
   const lastUseLocalTimestamp = sanitizeLastUseTimestamp(options.lastUseLocalTimestamp)
 
@@ -450,6 +454,7 @@ export function normalizeGearDbArtifact(row: GearDbArtifactRow, options: Normali
       rerollCount,
       equippedToChampionId,
       equippedChampionBaseId,
+      equippedChampionRarity,
       equippedChampionName,
       equippedChampionLocation,
       mainStat,
@@ -476,6 +481,7 @@ export function normalizeGearDbArtifact(row: GearDbArtifactRow, options: Normali
     rerollCount,
     equippedToChampionId,
     equippedChampionBaseId,
+    equippedChampionRarity,
     source,
     equippedChampionName,
     equippedChampionLocation,
