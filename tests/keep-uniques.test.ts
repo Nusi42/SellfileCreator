@@ -47,6 +47,7 @@ const makeArtifact = (overrides: Partial<NormalizedGearArtifact> = {}, variant: 
     rerollCount: overrides.rerollCount ?? 0,
     equippedToChampionId: overrides.equippedToChampionId ?? null,
     equippedChampionBaseId: overrides.equippedChampionBaseId ?? null,
+    equippedChampionRarity: overrides.equippedChampionRarity ?? null,
     source: overrides.source ?? 'tester',
     equippedChampionName: overrides.equippedChampionName ?? null,
     equippedChampionLocation: overrides.equippedChampionLocation ?? null,

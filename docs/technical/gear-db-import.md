@@ -108,6 +108,10 @@ Accessories carry a `accset` code that does **not** match our `Faction` enum dir
 
 No entries used the canonical `4` (Barbarians) code; importer logic should remap as shown and clamp unknown values to `0`.
 
+### Champion Metadata
+
+- `Champs` rows expose the owning hero’s `Rarity` alongside `BaseHeroID`. The importer captures this as `NormalizedGearArtifact.equippedChampionRarity` (also included in tester preview extras) so UI surfaces can align avatar chrome with each champion’s in-game tier.
+
 ### Normalization Helper
 
 - `src/lib/importers/gearDbNormalizer.ts` converts raw rows into a `NormalizedGearArtifact` structure plus a ready-to-use `TestItem`. The helper centralises:

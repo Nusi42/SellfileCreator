@@ -7,6 +7,7 @@ import {
   type ChampionLookupRecord,
   UnsupportedGearDbRowError,
 } from './gearDbNormalizer'
+import { coerceTesterRarity } from '../testerDomain'
 
 const ARTIFACT_COLUMN_KEYS: readonly (keyof GearDbArtifactRow)[] = [
   'ID',
@@ -71,6 +72,7 @@ const CHAMPION_COLUMN_KEYS: readonly (keyof GearDbChampionRow)[] = [
   'Vault',
   'RVault',
   'BaseHeroID',
+  'Rarity',
 ] as const
 
 type ChampionLookup = Map<number, ChampionLookupRecord>
@@ -222,7 +224,7 @@ function tableExists(db: Database, name: string): boolean {
 function readChampions(db: Database): ChampionLookup {
   const map: ChampionLookup = new Map()
   if (!tableExists(db, 'Champs')) return map
-  const stmt = db.prepare('SELECT ID, Name, Vault, RVault, BaseHeroID FROM Champs')
+  const stmt = db.prepare('SELECT ID, Name, Vault, RVault, BaseHeroID, Rarity FROM Champs')
   try {
     while (stmt.step()) {
       const row = stmt.getAsObject() as Record<string, unknown>
@@ -232,12 +234,17 @@ function readChampions(db: Database): ChampionLookup {
       const name = typeof converted.Name === 'string' ? converted.Name.trim() : null
       const baseHeroIdRaw = converted.BaseHeroID == null ? null : Number(converted.BaseHeroID)
       const baseHeroId = (baseHeroIdRaw != null && Number.isFinite(baseHeroIdRaw) && baseHeroIdRaw > 0) ? baseHeroIdRaw : null
+      const rarityRaw = converted.Rarity == null ? null : Number(converted.Rarity)
+      const rarity = (rarityRaw != null && Number.isFinite(rarityRaw))
+        ? coerceTesterRarity(rarityRaw, 6)
+        : null
       map.set(id, {
         id,
         name: name && name.length > 0 ? name : null,
         vault: Boolean(Number(converted.Vault ?? 0)),
         reserveVault: Boolean(Number(converted.RVault ?? 0)),
         baseHeroId,
+        rarity,
       })
     }
   } finally {

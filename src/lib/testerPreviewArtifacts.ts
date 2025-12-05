@@ -1,7 +1,7 @@
 import { variantToMain, variantToSub } from './hsfTypes'
 import type { NormalizedGearArtifact, NormalizedStat } from './importers/gearDbNormalizer'
 import type { TestItem } from './ruleEval'
-import { StatVariant } from './types'
+import { StatVariant, type RankValue } from './types'
 
 type BuildOptions = {
   fallbackId?: number | undefined
@@ -84,6 +84,7 @@ export function buildPreviewArtifactFromTesterItem(
   const rerollCount = extras?.rerollCount ?? 0
   const equippedToChampionId = extras?.equippedToChampionId ?? null
   const equippedChampionBaseId = extras?.equippedChampionBaseId ?? null
+  const equippedChampionRarity = (extras?.equippedChampionRarity ?? null) as RankValue | null
   const equippedChampionName = extras?.equippedChampionName ?? null
   const equippedChampionLocation = extras?.equippedChampionLocation ?? null
   const mainStat = extras?.mainStat ? cloneStat(extras.mainStat) : buildManualMainStat(item.main)
@@ -113,6 +114,7 @@ export function buildPreviewArtifactFromTesterItem(
     rerollCount,
     equippedToChampionId,
     equippedChampionBaseId,
+    equippedChampionRarity,
     source,
     equippedChampionName,
     equippedChampionLocation,

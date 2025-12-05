@@ -21,6 +21,7 @@ export type TesterItemPreviewExtras = {
   rerollCount?: number
   equippedToChampionId?: number | null
   equippedChampionBaseId?: number | null
+  equippedChampionRarity?: number | null
   equippedChampionName?: string | null
   equippedChampionLocation?: ChampionLocation | null
   mainStat?: NormalizedStat | null
