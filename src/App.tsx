@@ -92,7 +92,7 @@ import PreviewHeaderActions from './components/PreviewHeaderActions'
 import RuleTesterDialog from './components/dialogs/RuleTesterDialog'
 import RulesFilterPanel, { type RulesFilterPanelHandle } from './components/RulesFilterPanel'
 import type { TesterConfigFilterMode } from './types/testerConfigFilterMode'
-import type { ArtifactSetId } from './lib/types'
+import type { ArtifactSetId, RankValue } from './lib/types'
 import { filterHsfRules, filterTesterItems, isRulesFilterActive, normalizeRulesFilterForTester, type FilterHsfRulesResult, type RulesFilterState } from './lib/rulesFilter'
 import {
   useAutosaveRestore,
@@ -361,7 +361,15 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const pendingTesterItemsRef = useRef(pendingTesterItems)
   useEffect(() => { pendingTesterItemsRef.current = pendingTesterItems }, [pendingTesterItems])
   type TesterArtifactCacheEntry = { fingerprint: string; artifact: NormalizedGearArtifact }
-  type TesterChampionOption = { id: number; name: string | null; location: ChampionLocation | null; count: number }
+  // Rule tester champion filters reuse the same metadata as the tester grid to keep icons/borders in sync.
+  type TesterChampionOption = {
+    id: number
+    baseId: number | null
+    rarity: RankValue | null
+    name: string | null
+    location: ChampionLocation | null
+    count: number
+  }
   const testerArtifactCacheRef = useRef<Map<number, TesterArtifactCacheEntry>>(new Map())
   const testerAutosaveBaselineRef = useRef<string | null>(null)
   const testerPreviewArtifacts = useMemo<NormalizedGearArtifact[]>(() => {
@@ -2641,20 +2649,33 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   ), [testerPreviewRows, testerRulesFilter, metasets, configNames])
   const testerRowsAfterRulesFilter = testerFilterResult.items
   const testerChampionOptions = useMemo<TesterChampionOption[]>(() => {
+    // Cache champion metadata per id so the dropdown can render icons without rescanning rows.
     const map = new Map<number, TesterChampionOption>()
     for (const row of testerPreviewRows) {
       const championId = Number(row.artifact.equippedToChampionId ?? NaN)
       if (!Number.isFinite(championId) || championId <= 0) continue
       const trimmedName = row.artifact.equippedChampionName?.trim() || null
       const location = row.artifact.equippedChampionLocation ?? null
+      // Base hero id + rarity keep dropdown avatars aligned with tester cards.
+      const baseCandidate = row.artifact.equippedChampionBaseId
+      const baseId = typeof baseCandidate === 'number' && Number.isFinite(baseCandidate) && baseCandidate > 0 ? baseCandidate : null
+      const rarityCandidate = row.artifact.equippedChampionRarity
+      const rarity = typeof rarityCandidate === 'number' && Number.isFinite(rarityCandidate) && rarityCandidate > 0
+        ? (rarityCandidate as RankValue)
+        : null
       const entry = map.get(championId)
       if (entry) {
         entry.count += 1
+        // Keep the first non-empty metadata we encounter so duplicated champs stay stable.
         if (!entry.name && trimmedName) entry.name = trimmedName
         if (!entry.location && location) entry.location = location
+        if (!entry.baseId && baseId) entry.baseId = baseId
+        if (!entry.rarity && rarity) entry.rarity = rarity
       } else {
         map.set(championId, {
           id: championId,
+          baseId,
+          rarity,
           name: trimmedName,
           location,
           count: 1,

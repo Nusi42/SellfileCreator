@@ -33,7 +33,7 @@ import {
   STAT_VARIANTS_PRIORITY_ROW2,
   DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT,
 } from '../lib/types'
-import { LIST_SUBHEADER_SX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, SETS_MENU_WIDTH_PX, FILTER_FACTION_SELECT_WIDTH_PX, FILTER_SETS_SELECT_WIDTH_PX, FILTER_CHIP_TOP_MARGIN, ELLIPSIS_TEXT_SX, FILTER_TOGGLE_BUTTON_WIDTH_PX, SMALL_BUTTON_HEIGHT_PX, BUILDER_STATUS_CHIP_HEIGHT_PX, UI_BG_HOVER_DANGER_TRANSITION, DANGER_TINT_BG, SETS_SELECT_INLINE_GUTTER_COLLAPSED_PX, SETS_SELECT_INLINE_GUTTER_PX, STATUS_CHIP_BORDER_RADIUS_PX, FONT_SIZE_BASE_PX, CLEAR_ICON_BUTTON_SIZE_PX, GLYPH_TOGGLE_ON, GLYPH_TOGGLE_OFF, GLYPH_GLYPHS_SELECTED, ROLL_BADGE_SIZE_PX, ROLL_BADGE_SCALE, ROLL_BADGE_HOVER_GUTTER_PX } from '../lib/constants'
+import { LIST_SUBHEADER_SX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, SETS_MENU_WIDTH_PX, FILTER_FACTION_SELECT_WIDTH_PX, FILTER_SETS_SELECT_WIDTH_PX, FILTER_CHIP_TOP_MARGIN, ELLIPSIS_TEXT_SX, FILTER_TOGGLE_BUTTON_WIDTH_PX, SMALL_BUTTON_HEIGHT_PX, BUILDER_STATUS_CHIP_HEIGHT_PX, UI_BG_HOVER_DANGER_TRANSITION, DANGER_TINT_BG, SETS_SELECT_INLINE_GUTTER_COLLAPSED_PX, SETS_SELECT_INLINE_GUTTER_PX, STATUS_CHIP_BORDER_RADIUS_PX, FONT_SIZE_BASE_PX, CLEAR_ICON_BUTTON_SIZE_PX, GLYPH_TOGGLE_ON, GLYPH_TOGGLE_OFF, GLYPH_GLYPHS_SELECTED, ROLL_BADGE_SIZE_PX, ROLL_BADGE_SCALE, ROLL_BADGE_HOVER_GUTTER_PX, CHAMPION_ICON_BASE_SIZE, CHAMPION_ICON_BORDER_RADIUS_PX } from '../lib/constants'
 import { reserveScrollbarGutterSpace } from '../lib/scrollbar'
 import { metasetGlyph, orderMetasetIds, type Metaset } from '../lib/metasets'
 import React from 'react'
@@ -85,9 +85,14 @@ import { TESTER_CONFIG_FILTER_MODE_DEFAULT, type TesterConfigFilterMode } from '
 import type { ChampionLocation } from '../lib/importers/gearDbNormalizer'
 import type { SubstatColorMap } from '../lib/renderColoredStatText'
 import { computeInlineSelectContentMaxWidth, computeInlineSelectPadding } from '../lib/inlineSelectAffordances'
+import { championIconUrl } from '../lib/iconMaps/championIconMap'
+import { resolveRarityAccentColor } from '../lib/rarityColors'
 
+// Filter options bundle metadata for consistent champion icons + rarity borders.
 type TesterChampionOption = {
   id: number
+  baseId: number | null
+  rarity: RankValue | null
   name: string | null
   location: ChampionLocation | null
   count: number
@@ -2060,17 +2065,60 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                       </ListSubheader>
                       {filteredChampionOptions.map((option) => {
                         const locationLabel = formatChampionLocation(option)
+                        const championLabel = formatChampionName(option)
+                        // Prefer base hero ids for icons so duplicate champion copies share the same avatar.
+                        const championIconSrc = championIconUrl(option.baseId ?? option.id)
+                        // Mirror the tester grid rarity border so the dropdown signals overall quality at a glance.
+                        const championBorderColor = resolveRarityAccentColor(option.rarity) ?? theme.palette.divider
+                        const championFallbackInitial = (() => {
+                          const trimmed = championLabel.trim()
+                          return trimmed.length > 0 ? trimmed.charAt(0).toUpperCase() : '?'
+                        })()
                         return (
                           <MenuItem key={option.id} value={String(option.id)}>
-                            <Stack spacing={0.25}>
-                              <Typography variant="body2" sx={{ minWidth: 0 }}>
-                                {formatChampionName(option)}
-                              </Typography>
-                              <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                                {locationLabel ? `${locationLabel} · ` : ''}
-                                ×{option.count}
-                              </Typography>
-                            </Stack>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%' }}>
+                              <Box
+                                sx={{
+                                  width: CHAMPION_ICON_BASE_SIZE.width,
+                                  height: CHAMPION_ICON_BASE_SIZE.height,
+                                  borderRadius: `${CHAMPION_ICON_BORDER_RADIUS_PX}px`,
+                                  border: '2px solid',
+                                  borderColor: championBorderColor,
+                                  overflow: 'hidden',
+                                  flexShrink: 0,
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  bgcolor: championIconSrc ? 'transparent' : alpha(theme.palette.text.primary, 0.08),
+                                  color: theme.palette.text.secondary,
+                                  fontWeight: 700,
+                                  fontSize: theme.typography.pxToRem(13),
+                                  textTransform: 'uppercase',
+                                }}
+                              >
+                                {championIconSrc ? (
+                                  <Box
+                                    component="img"
+                                    src={championIconSrc}
+                                    alt={championLabel}
+                                    draggable={false}
+                                    onDragStart={(event) => { event.preventDefault(); event.stopPropagation() }}
+                                    sx={{ width: '100%', height: '100%', display: 'block', objectFit: 'cover' }}
+                                  />
+                                ) : (
+                                  championFallbackInitial
+                                )}
+                              </Box>
+                              <Stack spacing={0.25} sx={{ minWidth: 0 }}>
+                                <Typography variant="body2" sx={{ minWidth: 0 }}>
+                                  {championLabel}
+                                </Typography>
+                                <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                                  {locationLabel ? `${locationLabel} · ` : ''}
+                                  ×{option.count}
+                                </Typography>
+                              </Stack>
+                            </Box>
                           </MenuItem>
                         )
                       })}

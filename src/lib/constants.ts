@@ -547,3 +547,9 @@ export const TESTER_COMPACT_ICON_SIZE_PX = 16
 // Extra padding applied to compact chips that render icons; tuned high right now
 // while validating spacing. Reduce once the desired inset is confirmed visually.
 export const TESTER_COMPACT_ICON_LEFT_PADDING_PX = 5
+
+// Champion avatars share sizing across the tester grid and filters so rarity borders stay consistent.
+export const CHAMPION_ICON_BASE_SIZE = Object.freeze({ width: 26, height: 26 })
+export const CHAMPION_ICON_LARGE_SIZE = Object.freeze({ width: 38, height: 38 })
+export const CHAMPION_ICON_LARGE_THRESHOLD = 5
+export const CHAMPION_ICON_BORDER_RADIUS_PX = 8
