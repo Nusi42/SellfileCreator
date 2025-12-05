@@ -177,7 +177,7 @@ $script:SellfileCreatorWebProtocolReference = [ordered]@{
 
 # Shared constants keep the protocol paths in one place so the demo helpers do
 # not diverge from the documented contract.
-Set-Variable -Name 'SellfileCreatorWebProtocolUploadPath' -Option Constant -Value '/'
+Set-Variable -Name 'SellfileCreatorWebProtocolUploadPath' -Option Constant -Value '/hsf'
 Set-Variable -Name 'SellfileCreatorWebProtocolCommandsPath' -Option Constant -Value '/commands'
 #endregion
 
@@ -1142,30 +1142,31 @@ function Get-NormalizedPath {
 
 function Is-UploadPath {
     <#
-        Recognizes PUT upload endpoints. Accepts `/` for backward compatibility
-        plus an optional single trailing segment (e.g., `/speed-set`).
+        Recognizes PUT upload endpoints. Accepts `/hsf` (root) plus any nested
+        segments such as `/hsf/foo/bar`.
     #>
     param([string]$NormalizedPath)
 
-    if ([string]::IsNullOrWhiteSpace($NormalizedPath)) { return $true }
+    if ([string]::IsNullOrWhiteSpace($NormalizedPath)) {
+        return $SellfileCreatorWebProtocolUploadPath -eq '/'
+    }
 
     if ($NormalizedPath -eq $SellfileCreatorWebProtocolUploadPath) { return $true }
 
-    if ($SellfileCreatorWebProtocolUploadPath -eq '/') {
-        if ($NormalizedPath.StartsWith('/')) {
-            $nextSlash = $NormalizedPath.IndexOf('/', 1)
-            if ($nextSlash -eq -1) { return $true }
-        }
+    $prefixWithSlash = $SellfileCreatorWebProtocolUploadPath
+    if (-not $prefixWithSlash.EndsWith('/')) {
+        $prefixWithSlash = $prefixWithSlash + '/'
     }
 
-    return $false
+    return $NormalizedPath.StartsWith($prefixWithSlash, [System.StringComparison]::OrdinalIgnoreCase)
 }
 
 function Resolve-UploadTargetPath {
     <#
         Derives the file path that should receive the uploaded payload based on
-        the request path. `/` maps to the configured OutputPath, while `/foo`
-        resolves to `<OutputDir>/foo.hsf` (sanitized to safe characters).
+        the request path. `/` maps to the configured OutputPath, while nested
+        paths like `/hsf/foo/bar` resolve to `<OutputDir>/hsf/foo/bar.hsf`
+        (segments are sanitized to safe characters).
     #>
     param(
         [string]$RequestPath,
@@ -1186,27 +1187,32 @@ function Resolve-UploadTargetPath {
         $pathWithoutQuery = $pathWithoutQuery.Substring(1)
     }
 
-    if ([string]::IsNullOrWhiteSpace($pathWithoutQuery)) { return $OutputPath }
-
-    $firstSegmentEnd = $pathWithoutQuery.IndexOf('/')
-    if ($firstSegmentEnd -gt -1) {
-        $pathWithoutQuery = $pathWithoutQuery.Substring(0, $firstSegmentEnd)
+    if ($pathWithoutQuery.EndsWith('/')) {
+        $pathWithoutQuery = $pathWithoutQuery.Substring(0, $pathWithoutQuery.Length - 1)
     }
 
-    $candidate = $pathWithoutQuery.Trim()
-    if ([string]::IsNullOrWhiteSpace($candidate)) { return $OutputPath }
+    if ([string]::IsNullOrWhiteSpace($pathWithoutQuery)) { return $OutputPath }
 
-    $safeName = [System.Text.RegularExpressions.Regex]::Replace(
-        $candidate,
-        '[^a-z0-9_.-]',
-        '-',
-        [System.Text.RegularExpressions.RegexOptions]::IgnoreCase
-    )
+    $rawSegments = $pathWithoutQuery.Split('/', [System.StringSplitOptions]::RemoveEmptyEntries)
+    $segments = @()
+    foreach ($segment in $rawSegments) {
+        $trimmed = $segment.Trim()
+        if ([string]::IsNullOrWhiteSpace($trimmed)) { continue }
+        $safeSegment = [System.Text.RegularExpressions.Regex]::Replace(
+            $trimmed,
+            '[^a-z0-9_.-]',
+            '-',
+            [System.Text.RegularExpressions.RegexOptions]::IgnoreCase
+        )
+        if ([string]::IsNullOrWhiteSpace($safeSegment)) { continue }
+        $segments += $safeSegment
+    }
 
-    if ([string]::IsNullOrWhiteSpace($safeName)) { $safeName = 'upload' }
+    if ($segments.Count -eq 0) { return $OutputPath }
 
-    if (-not $safeName.EndsWith('.hsf', [System.StringComparison]::OrdinalIgnoreCase)) {
-        $safeName = $safeName + '.hsf'
+    $fileName = $segments[-1]
+    if (-not $fileName.EndsWith('.hsf', [System.StringComparison]::OrdinalIgnoreCase)) {
+        $fileName = $fileName + '.hsf'
     }
 
     $baseDirectory = Split-Path -Parent $OutputPath
@@ -1214,7 +1220,14 @@ function Resolve-UploadTargetPath {
         $baseDirectory = (Get-Location).ProviderPath
     }
 
-    return (Join-Path $baseDirectory $safeName)
+    $targetDirectory = $baseDirectory
+    if ($segments.Count -gt 1) {
+        for ($i = 0; $i -lt ($segments.Count - 1); $i++) {
+            $targetDirectory = Join-Path $targetDirectory $segments[$i]
+        }
+    }
+
+    return (Join-Path $targetDirectory $fileName)
 }
 
 function New-HandleResult {
@@ -1228,7 +1241,7 @@ function New-HandleResult {
 
 function Invoke-UploadSellfile {
     <#
-        Handles PUT / — the primary contract documented by this sample.
+        Handles PUT /hsf/{name} — the primary contract documented by this sample.
         Saves the raw `.hsf` JSON document that Sellfile Creator pushes.
         Example body: sample-upload-body.json
     #>

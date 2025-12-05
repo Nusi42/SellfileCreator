@@ -1,7 +1,7 @@
 unit SellfileCreatorDelphiListener;
 {
   Minimal Indy-based HTTP bridge for the Sellfile Creator Web Protocol.
-  - Accepts PUT uploads at /{optionalName} and saves the raw .hsf payload.
+  - Accepts PUT uploads at /hsf/{optionalName} and saves the raw .hsf payload.
   - Answers GET /commands with a draining event queue ({ events: [...] }).
   - Keeps GET requests parked (long-poll) via TEvent waiters until data arrives.
   - Replies to OPTIONS/* with permissive CORS headers so file:// launches work.
@@ -17,7 +17,7 @@ unit SellfileCreatorDelphiListener;
          │      (Origin: null, preflight)  ───────────────▶  204 + CORS     │
          │                                                                  │
   export/sync action:                                                       │
-         │      PUT /Sellfile_YYYYMMDD_HHMM.hsf (body=.hsf JSON) ─────────▶ │
+         │      PUT /hsf/Sellfile_YYYYMMDD_HHMM.hsf (body=.hsf JSON) ─────▶ │
          │                                                                  │
          │◀─────────────── 204 No Content + CORS (payload persisted)        │
          │                                                                  │
@@ -212,7 +212,7 @@ begin
 
   AResponseInfo.ResponseNo := 405; // Any other method/path falls through to 405.
   AResponseInfo.ContentType := 'text/plain';
-  AResponseInfo.ContentText := 'Only PUT /{name} and GET /commands are supported.';
+  AResponseInfo.ContentText := 'Only PUT /hsf/{name} and GET /commands are supported.';
   ApplyCors(AResponseInfo); // CORS headers keep the browser error readable.
 end;
 
@@ -303,23 +303,53 @@ end;
 
 function TSellfileProtocolServer.ResolveTargetPath(const Document: string): string;
 var
-  Segment: string;
-  SlashPos: Integer;
+  TrimmedPath: string;
+  Parts: TArray<string>;
+  CleanParts: TArray<string>;
+  Part: string;
+  Sanitized: string;
+  Count: Integer;
+  I: Integer;
+  TargetDir: string;
+  FileName: string;
 begin
-  Segment := Document; // Document is already absolute (e.g., '/Sellfile_20240214_1545.hsf').
-  if Segment = '' then
-    Segment := '/';
-  if Segment.StartsWith('/') then
-    Segment := Segment.Substring(1); // Trim leading slash before inspecting the name.
-  SlashPos := Segment.IndexOf('/');
-  if SlashPos >= 0 then
-    Segment := Segment.Substring(0, SlashPos); // Only honor the first path segment.
-  if Segment = '' then
-    Segment := 'export.hsf'; // Mirror script default when no name was supplied by the browser.
-  Segment := SanitizeSegment(Segment); // Drops characters outside [a-z0-9_.-].
-  if not EndsText('.hsf', Segment) then
-    Segment := Segment + '.hsf'; // Forces canonical extension so helper apps detect it.
-  Result := TPath.Combine(FOutputDir, Segment); // Final absolute path for the upload.
+  TrimmedPath := Document; // Example: '/hsf/Sellfile_20240214_1545.hsf'.
+  if TrimmedPath = '' then
+    TrimmedPath := '/';
+  if TrimmedPath.StartsWith('/') then
+    TrimmedPath := TrimmedPath.Substring(1); // Remove the leading slash before splitting.
+  if TrimmedPath.EndsWith('/') then
+    TrimmedPath := TrimmedPath.Substring(0, TrimmedPath.Length - 1); // Drop trailing slash noise.
+  if TrimmedPath = '' then
+    Exit(TPath.Combine(FOutputDir, 'export.hsf')); // Default when no name was provided.
+
+  Parts := TrimmedPath.Split(['/']); // Preserve every path segment so `/hsf/foo/bar` stays nested.
+  SetLength(CleanParts, 0);
+  for Part in Parts do
+  begin
+    if Part.Trim = '' then
+      Continue;
+    Sanitized := SanitizeSegment(Part); // Keep filesystem-safe names only.
+    if Sanitized = '' then
+      Continue;
+    Count := Length(CleanParts);
+    SetLength(CleanParts, Count + 1);
+    CleanParts[Count] := Sanitized;
+  end;
+  if Length(CleanParts) = 0 then
+    Exit(TPath.Combine(FOutputDir, 'export.hsf'));
+
+  FileName := CleanParts[High(CleanParts)];
+  if not EndsText('.hsf', FileName) then
+    FileName := FileName + '.hsf'; // Enforce canonical Sellfile extension.
+
+  TargetDir := FOutputDir;
+  if Length(CleanParts) > 1 then
+  begin
+    for I := 0 to High(CleanParts) - 1 do
+      TargetDir := TPath.Combine(TargetDir, CleanParts[I]); // Rebuild nested directories.
+  end;
+  Result := TPath.Combine(TargetDir, FileName); // Absolute path for the upload.
 end;
 
 class function TSellfileProtocolServer.EncodeFileAsBase64(const FilePath: string): string;

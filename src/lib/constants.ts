@@ -372,6 +372,9 @@ export const SELLFILE_DEDUP_DEFAULT_KEY = 'sellfileCreator.sellfile.dedupDefault
 // Sellfile export: when enabled, omit rules with Use === false from export/push
 // outputs. Stored separately so skipping disabled rules persists across sessions.
 export const SELLFILE_OMIT_DISABLED_KEY = 'sellfileCreator.sellfile.omitDisabled.v1'
+// Sellfile export: pushes now route through `/hsf/` so receivers can distinguish
+// payload classes (future uploads can use their own prefixes without guessing).
+export const SELLFILE_PUSH_PATH_SEGMENT = 'hsf'
 // Debounce window (ms) before auto-apply saves changes to the selected config.
 // Matches the builder's pacing so rapid edits don't spam apply calls while
 // still feeling responsive.

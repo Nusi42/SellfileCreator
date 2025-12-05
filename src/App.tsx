@@ -110,8 +110,40 @@ const WORKLOAD_PENDING_MIN_RATIO = 0.02 as const
 const WORKLOAD_SPINNER_HANG_MS = 450 as const
 // Coalesce rapid edits so we do not restart the pipeline for every keystroke/reorder.
 const PIPELINE_DEBOUNCE_MS = 200 as const
+
+// Export pushes always land under `/hsf/` so receivers can route different
+// payload types (HSF vs future uploads) without inspecting request bodies.
+function buildSellfilePushUrl(endpoint: string, filename: string): string {
+  // Drop leading slashes so filename always becomes the final segment.
+  const normalizedFilename = filename.replace(/^\/+/, '')
+  try {
+    const url = new URL(endpoint)
+    const segments = url.pathname.split('/').filter(Boolean)
+    const lastSegment = segments[segments.length - 1]
+    if (lastSegment !== SELLFILE_PUSH_PATH_SEGMENT) {
+      segments.push(SELLFILE_PUSH_PATH_SEGMENT)
+    }
+    segments.push(normalizedFilename)
+    url.pathname = `/${segments.join('/')}`
+    return url.toString()
+  } catch {
+    // Fallback for endpoints that are not URL-compatible (e.g., custom schemes).
+    const separatorIndex = Math.min(
+      ...['?', '#'].map((marker) => {
+        const idx = endpoint.indexOf(marker)
+        return idx === -1 ? Number.POSITIVE_INFINITY : idx
+      })
+    )
+    const suffix = Number.isFinite(separatorIndex) ? endpoint.slice(separatorIndex) : ''
+    const base = Number.isFinite(separatorIndex) ? endpoint.slice(0, separatorIndex) : endpoint
+    const baseWithSlash = base.endsWith('/') ? base : `${base}/`
+    const needsSegment = !baseWithSlash.toLowerCase().endsWith(`/${SELLFILE_PUSH_PATH_SEGMENT}/`)
+    const baseWithSegment = needsSegment ? `${baseWithSlash}${SELLFILE_PUSH_PATH_SEGMENT}/` : baseWithSlash
+    return `${baseWithSegment}${normalizedFilename}${suffix}`
+  }
+}
 import { sellfileFilename, hsfcFilename, buildTimestamp } from './lib/filenames'
-import { README_SEEN_VERSION_KEY, RULE_COUNT_LIMIT } from './lib/constants'
+import { README_SEEN_VERSION_KEY, RULE_COUNT_LIMIT, SELLFILE_PUSH_PATH_SEGMENT } from './lib/constants'
 import { DEFAULT_METASET_ICON_ID } from './lib/metasetIcons'
 import { defaultMetasets, type Metaset } from './lib/metasets'
 import { generateMetasetNameWithFlag } from './lib/namegen'
@@ -3964,27 +3996,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           const filename = sellfileFilename()
           const target = pushExportEndpoint
           if (target) {
-            let targetUrl = target
-            try {
-              const parsed = new URL(target)
-              const basePath = parsed.pathname?.length ? parsed.pathname : '/'
-              // Append the generated filename as a final path segment so pushes keep distinct `.hsf` outputs.
-              parsed.pathname = basePath.endsWith('/') ? `${basePath}${filename}` : `${basePath}/${filename}`
-              targetUrl = parsed.toString()
-            } catch {
-              // Fallback for malformed URLs: preserve query/hash fragments while appending the filename.
-              const separatorIndex = Math.min(
-                ...['?', '#']
-                  .map((marker) => {
-                    const idx = target.indexOf(marker)
-                    return idx === -1 ? Number.POSITIVE_INFINITY : idx
-                  })
-              )
-              const suffix = Number.isFinite(separatorIndex) ? target.slice(separatorIndex) : ''
-              const base = Number.isFinite(separatorIndex) ? target.slice(0, separatorIndex) : target
-              const normalizedBase = base.endsWith('/') ? base : `${base}/`
-              targetUrl = `${normalizedBase}${filename}${suffix}`
-            }
+            const targetUrl = buildSellfilePushUrl(target, filename)
 
             let pushToast: 'success' | 'failure' | null = null
             try {
