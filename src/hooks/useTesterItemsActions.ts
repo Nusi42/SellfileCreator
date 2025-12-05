@@ -17,8 +17,6 @@ type UseTesterItemsActionsOptions = {
   allocTesterItemId: () => number
   setTesterItems: React.Dispatch<React.SetStateAction<RuleTesterItem[]>>
   testerItemsRef: React.MutableRefObject<RuleTesterItem[]>
-  pendingTesterItemsRef: React.MutableRefObject<TestItem[]>
-  setPendingTesterItems: React.Dispatch<React.SetStateAction<TestItem[]>>
 }
 
 /**
@@ -36,7 +34,7 @@ type GearDbDiffSummary = {
  */
 type TesterItemsActions = {
   appendTesterRuleItems: (items: TestItem[]) => void
-  applyGearDbDiff: (desiredTesterItems: TestItem[], mode: 'manual' | 'command') => GearDbDiffSummary
+  applyGearDbDiff: (desiredTesterItems: TestItem[]) => GearDbDiffSummary
 }
 
 /**
@@ -49,8 +47,6 @@ export function useTesterItemsActions(options: UseTesterItemsActionsOptions): Te
     allocTesterItemId,
     setTesterItems,
     testerItemsRef,
-    pendingTesterItemsRef,
-    setPendingTesterItems,
   } = options
 
   /**
@@ -78,14 +74,12 @@ export function useTesterItemsActions(options: UseTesterItemsActionsOptions): Te
    * Diff the gear queue after a Gear DB import or an automation command.
    * Returns a summary so the caller can toast how many artifacts changed.
    */
-  const applyGearDbDiff = useCallback((desiredTesterItems: TestItem[], mode: 'manual' | 'command'): GearDbDiffSummary => {
-    // Manual imports ignore the pending queue so users see instant changes.
-    const pendingQueueInput = mode === 'manual' ? [] : pendingTesterItemsRef.current
+  const applyGearDbDiff = useCallback((desiredTesterItems: TestItem[]): GearDbDiffSummary => {
     // Compute which tester rows should leave or join the preview grid.
-    const { removalItemIds, nextPendingQueue, additions } = diffRuleTesterItems(
+    const { removalItemIds, additions } = diffRuleTesterItems(
       testerItemsRef.current,
       desiredTesterItems,
-      pendingQueueInput,
+      [],
       { retainManualItems: true },
     )
     const removedCount = removalItemIds.length
@@ -94,18 +88,10 @@ export function useTesterItemsActions(options: UseTesterItemsActionsOptions): Te
       const removalSet = new Set(removalItemIds)
       setTesterItems((prev) => prev.filter((item) => !removalSet.has(item.itemId)))
     }
-    if (mode === 'manual') {
-      // Manual drops flush pending entries because we import the entire queue.
-      setPendingTesterItems([])
-      appendTesterRuleItems(additions)
-      return { removedCount, addedCount: additions.length }
-    }
-    // Command imports reuse the pending queue so the async diff stays stable.
-    if (nextPendingQueue !== pendingTesterItemsRef.current) {
-      setPendingTesterItems(nextPendingQueue)
-    }
+    // Always append the desired additions so Gear DB updates mirror manual imports.
+    appendTesterRuleItems(additions)
     return { removedCount, addedCount: additions.length }
-  }, [appendTesterRuleItems, pendingTesterItemsRef, setPendingTesterItems, setTesterItems, testerItemsRef])
+  }, [appendTesterRuleItems, setTesterItems, testerItemsRef])
 
   // Return both helpers so callers can hook into whichever entry point they need.
   return { appendTesterRuleItems, applyGearDbDiff }

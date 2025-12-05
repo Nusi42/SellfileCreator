@@ -201,7 +201,7 @@ try {
   }
 
   $scriptsDir = Join-Path $RepoRoot 'scripts'
-  $sampleJsonFiles = @('sample-commands-response.json', 'sample-upload-body.json')
+  $sampleJsonFiles = @('sample-upload-body.json')
   foreach ($fileName in $sampleJsonFiles) {
     $sampleJsonSrc = Join-Path $scriptsDir $fileName
     if (Test-Path $sampleJsonSrc) {

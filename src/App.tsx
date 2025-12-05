@@ -11,7 +11,7 @@ import React, { useCallback, useDeferredValue, useEffect, useLayoutEffect, useMe
 import { APP_VERSION } from './version'
 import { readHsfFile, buildHsfFileFromMerged, buildDedupedHsfFileFromMerged, hsfToBlob } from './lib/hsfIO'
 import { getPushEndpoint } from './lib/runtimeConfig'
-import { externalArtifactToTestItem, type ExternalCommand } from './lib/externalCommands'
+import type { ExternalCommand } from './lib/externalCommands'
 import type { HsfFile, HsfRule } from './lib/hsfTypes'
 import { type BuilderConfig, type SubstatTargetTable, type SellfileExportMode } from './lib/hsfBuilder'
 import { parseConfigsFromText, buildReadableConfig, readHsfcFile, buildHsfcPayload, hsfcToBlob } from './lib/hsfcIO'
@@ -121,7 +121,7 @@ import { useAppActions, useAppState } from './state/appState'
 import { useI18n } from './lib/i18n'
 import { computeDuplicateIndices } from './lib/configDuplicates'
 import { configsForRuleBuild } from './lib/ruleCacheHelpers'
-import { type MatchingConfigDecision, type TestItem } from './lib/ruleEval'
+import type { MatchingConfigDecision } from './lib/ruleEval'
 import { importGearDatabaseFromFile } from './lib/importers/gearDbImporter'
 import type { NormalizedGearArtifact } from './lib/importers/gearDbNormalizer'
 import { TesterItemsGrid } from './components/TesterItemsGrid'
@@ -357,9 +357,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     if (!draft) return null
     return { items: draft.items, savedAt: draft.savedAt, count: draft.itemCount }
   })
-  const [pendingTesterItems, setPendingTesterItems] = useState<TestItem[]>([])
-  const pendingTesterItemsRef = useRef(pendingTesterItems)
-  useEffect(() => { pendingTesterItemsRef.current = pendingTesterItems }, [pendingTesterItems])
   type TesterArtifactCacheEntry = { fingerprint: string; artifact: NormalizedGearArtifact }
   // Rule tester champion filters reuse the same metadata as the tester grid to keep icons/borders in sync.
   type TesterChampionOption = {
@@ -2270,8 +2267,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     allocTesterItemId,
     setTesterItems,
     testerItemsRef,
-    pendingTesterItemsRef,
-    setPendingTesterItems,
   })
 
   const handleGearDbImport = useCallback(async (file: File, options?: { source?: 'manual' | 'command' }) => {
@@ -2311,7 +2306,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         setPreviewMode('tester')
       }
       const desiredTesterItems = combined.map((artifact) => artifact.testerItem)
-      const { removedCount, addedCount } = applyGearDbDiff(desiredTesterItems, source)
+      const { removedCount, addedCount } = applyGearDbDiff(desiredTesterItems)
       if (removedCount > 0 || addedCount > 0) {
         beginTesterMatchReset('gearDb')
       }
@@ -2964,17 +2959,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       return
     }
 
-    if (cmd.kind === 'testerItems') {
-      if (cmd.openTester) setTesterOpen(true)
-      const converted: TestItem[] = []
-      for (const artifact of cmd.items) {
-        const mapped = externalArtifactToTestItem(artifact)
-        if (mapped) converted.push(mapped)
-      }
-      if (converted.length > 0) {
-        setPendingTesterItems((prev) => [...prev, ...converted])
-      }
-    }
     if (cmd.kind === 'gearDbFile') {
       const queueImport = (file: File | null) => {
         if (!file) {
@@ -3027,7 +3011,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       const file = createGearDbFileFromBase64(cmd.name, cmd.base64)
       queueImport(file)
     }
-  }, [focusRuleByIndex, setTesterOpen, handleGearDbImport, pushEndpoint])
+  }, [focusRuleByIndex, handleGearDbImport, pushEndpoint])
 
   useExternalCommands({
     pushEndpoint,
@@ -4423,8 +4407,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         setTesterItems={setTesterItems}
         allocTesterItemId={allocTesterItemId}
         testerMatches={testerMatchesByItemId}
-        pendingExternalItems={pendingTesterItems}
-        onConsumeExternalItems={() => setPendingTesterItems([])}
         onView={handleTesterRuleView}
       />
       {/* Tutorial overlay */}
