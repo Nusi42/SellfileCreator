@@ -65,7 +65,7 @@ const overrides: Catalog = {
   testerDeleteSourceConfirmTitle: 'Eliminare l’equipaggiamento "{source}"?',
   testerDeleteSourceConfirmBody: 'Questo rimuove tutto l’equipaggiamento "{source}" dall’anteprima del Tester regole.',
   noSetAccessories: 'Nessuno – Solo accessori',
-  testerTableEmpty: 'Importa equipaggiamento o aggiungi righe personalizzate per vedere i risultati qui.',
+  testerTableEmpty: 'Aggiungi equipaggiamento personalizzato per vedere le voci qui.',
   testerTableEmptyKeepUniquesDisabled: '«Mantieni unici» è disattivato; attivalo per scansionare la tua attrezzatura.',
   testerTableEmptyKeepUniquesNoMatches: 'Nessun equipaggiamento del tester corrisponde ai filtri Mantieni unici correnti.',
   testerTableEmptyFilter: 'Nessuna riga del tester corrisponde ai filtri attuali.',

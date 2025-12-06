@@ -65,7 +65,7 @@ const overrides: Catalog = {
   testerDeleteSourceConfirmTitle: 'Видалити спорядження «{source}»?',
   testerDeleteSourceConfirmBody: 'Це вилучить усе спорядження «{source}» із превʼю тестера.',
   noSetAccessories: 'Немає — лише аксесуари',
-  testerTableEmpty: 'Імпортуйте спорядження або додайте власні записи, щоб побачити збіги.',
+  testerTableEmpty: 'Додайте власне спорядження, щоб побачити тут записи.',
   testerTableEmptyKeepUniquesDisabled: '«Збереження унікальних комбінацій» вимкнено; увімкніть його, щоб повторно просканувати спорядження.',
   testerTableEmptyKeepUniquesNoMatches: 'Жодне спорядження тестера не відповідає поточним фільтрам «Збереження унікальних комбінацій».',
   testerTableEmptyFilter: 'Жоден запис тестера не відповідає поточним фільтрам.',

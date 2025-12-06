@@ -65,7 +65,7 @@ const overrides: Catalog = {
   testerDeleteSourceConfirmTitle: '¿Eliminar el equipo de "{source}"?',
   testerDeleteSourceConfirmBody: 'Esto quita todo el equipo de "{source}" de la vista previa del Probador.',
   noSetAccessories: 'Ninguno – solo accesorios',
-  testerTableEmpty: 'Importa equipo o añade entradas personalizadas para ver coincidencias aquí.',
+  testerTableEmpty: 'Añade equipo personalizado para ver entradas aquí.',
   testerTableEmptyKeepUniquesDisabled: '«Conservar únicos» está desactivado; actívalo para escanear tu equipo.',
   testerTableEmptyKeepUniquesNoMatches: 'Ningún equipo del tester coincide con los filtros actuales de Conservar únicos.',
   testerTableEmptyFilter: 'Ningún elemento del tester coincide con los filtros actuales.',
