@@ -180,7 +180,7 @@ This document captures runtime behavior, builder interactions, and user-facing w
 ## Save/Load Guarantees
 
 - Saver writes `{ Version, Metasets, Minima, Configs, FinalSellRemainder, SelectedConfigIndex? }` (via `buildHsfcPayload`) and downloads `*.hsfc`. When no config is explicitly selected, the last config index is saved by convention so loaders can preserve intent.
-- Loader (`readHsfcFile`) accepts the readable HSFC schema and preserves `substatRollBounds.any`, `min`, and `max` (clamped to valid ranges; `min` 0..5, `max` 0..4). Legacy HSFC shapes are not supported.
+- Loader (`readHsfcFile`) accepts the readable HSFC schema and preserves each merged `substats` entry (`{ stat, fixed?, rollBounds? }`). `substatRollBounds.min`/`max` stay clamped to valid ranges (`min` 0..5, `max` 0..4) and wildcard flags remain intact. Legacy payloads that still provide `fixedSubstats`/`substatRollBounds` are converted inside `hsfcIO` so the rest of the app only deals with the new shape.
 - Copy All mirrors the saver payload (including `SelectedConfigIndex`) to enable full round-trip via copy/paste.
 - Sellfile export context menu: right-click `Export RSL Helper Sellfile` to open advanced options. `Export deduped RSL Helper Sellfile` runs a one-off dedupe pass that merges identical keep rules and removes dominated variants. `Export deduped by default` persists the behavior (key `sellfileCreator.sellfile.dedupDefault.v1`); when enabled, both downloads and push exports write the deduped payload. `Omit disabled rules when exporting` drops rules whose `Use` flag is `false` from downloads and push exports, and persists via `sellfileCreator.sellfile.omitDisabled.v1`.
 

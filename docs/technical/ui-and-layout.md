@@ -298,7 +298,7 @@ If tooltips need rich formatting (colored badges, inline icons), pass JSX via `r
 - Sets (UI): modes for Game order, A–Z, and Icons. Choice persists via `sellfileCreator.setsOrder.v1`; search is transient.
 - Sets (export): numeric ID ascending (`compareArtifactSets`).
 - Formatting helpers (`formatArtifactTypes`, `formatArtifactSets`) sort before rendering; Config chips mirror the order.
-- HSFC export sorts `artifactTypeNames`, `artifactSetNames`, `mainStats`, `substats`, `fixedSubstats`, and metaset `setNames` for stability.
+- HSFC export sorts `artifactTypeNames`, `artifactSetNames`, `mainStats`, merged `substats` entries (by stat label), and metaset `setNames` for stability.
 - Per-substat overrides emit under `substatRollTargets` (label-keyed). Normalization rehydrates variant-keyed `substatRollTargetsV`.
 - HSF export sorts `ArtifactType`/`ArtifactSet` arrays and applies `[minLevel..maxLevel]` filtering with feasibility gating and pre-16 combo sizing.
 - Builder canonicalization uses `compareVariants` so generated rule order is deterministic regardless of click order. Merge sorting preserves `(level milestone → branch index → branch sequence)` so preview chips, flex branches, and exports share the same ordering.
