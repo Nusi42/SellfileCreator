@@ -31,6 +31,7 @@ import { FactionIcon } from './FactionIcon'
 import { useI18n } from '../lib/i18n'
 import RuleSubstatChips from './RuleSubstatChips'
 import { formatRuleSubstatSummary, formatRuleSubstatPlain, normalizeRuleSubstats, type RuleSubstatDetail } from '../lib/substatDisplay'
+import { resolveKeepUniqueRuleLabel } from '../lib/keepUniques'
 import { useContextMenuCloseOnOutsideRightClick } from '../hooks/useContextMenuCloseOnOutsideRightClick'
 import { useContextMenuHint } from '../hooks/useContextMenuHint'
 import { ContextMenuHintOverlay } from './ContextMenuHintOverlay'
@@ -1324,13 +1325,14 @@ export function HsfRulesTable({ rules, building = false, setHoveredCfgIdx, selec
                           if (cfgIdxNumber !== null) {
                             value = String(cfgIdxNumber + 1)
                           } else if (isKeepUniqueSource) {
-                            // Keep-unique injections display a hollow star and surface a tooltip so users can distinguish them from builder configs at a glance.
+                            // Keep-unique injections display a hollow star and surface the originating rule name for quick attribution.
+                            const keepUniqueLabel = resolveKeepUniqueRuleLabel(rule) ?? t('keepUniquesTabLabel')
                             cfgSpecialContent = (
-                              <MarkdownTooltip markdown={t('keepUniquesTabLabel')}>
+                              <MarkdownTooltip markdown={keepUniqueLabel}>
                                 <Box
                                   component="span"
                                   sx={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '100%' }}
-                                  aria-label={t('keepUniquesTabLabel')}
+                                  aria-label={keepUniqueLabel}
                                 >
                                   <StarBorderIcon fontSize="inherit" />
                                 </Box>

@@ -58,6 +58,7 @@ export type HsfRuleWithCfg = HsfRule & {
   __rankMask?: number
   __rarityMask?: number
   __keepUniqueRuleId?: string
+  __keepUniqueRuleOrdinal?: number
   __keepUniqueHash?: string
   __keepUniqueRequired?: number
   __keepUniqueScanMs?: number
@@ -446,7 +447,9 @@ export const buildKeepUniqueRules = (
   const keepRules: HsfRuleWithCfg[] = []
   const emitted = new Set<string>()
   let keepUniqueRuleOffset = 0
+  let keepUniqueRuleOrdinal = 0
   for (const rule of rules) {
+    keepUniqueRuleOrdinal += 1
     if (!rule.enabled) continue
     const entry = rule.id ? detectionMap.get(rule.id) : null
     const artifacts = entry?.artifacts ?? []
@@ -478,6 +481,7 @@ export const buildKeepUniqueRules = (
           Substats: buildKeepUniqueSubstats(artifact.substats),
           __source: RULE_SOURCE_KEEP_UNIQUES,
           __keepUniqueRuleId: rule.id,
+          __keepUniqueRuleOrdinal: keepUniqueRuleOrdinal,
           __keepUniqueItemKey: artifact.itemKey,
           __keepUniqueHash: hashKeepUniqueCombination(rule.combination),
           __keepUniqueRequired: entry.requiredCount,

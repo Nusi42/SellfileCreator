@@ -8,6 +8,7 @@ import {
   type KeepUniqueDetectionSnapshot,
   type KeepUniqueRule,
   computeKeepUniqueProtection,
+  resolveKeepUniqueRuleLabel,
   sanitizeKeepUniqueCountMode,
 } from '../lib/keepUniques'
 import type { TesterPreviewRow } from '../types/testerPreview'
@@ -341,12 +342,16 @@ export function useTesterMatchOrchestrator(params: UseTesterMatchOrchestratorPar
       const rule = mergedRules[result.ruleIndex]
       const cfgIdx = result.cfgIdx
       const cfgName = resolveMatchConfigName(cfgIdx, configNames, rule)
+      const keepUniqueLabel = rule?.__source === RULE_SOURCE_KEEP_UNIQUES
+        ? resolveKeepUniqueRuleLabel(rule)
+        : null
+      const effectiveCfgName = cfgName && cfgName.length > 0 ? cfgName : keepUniqueLabel
       return {
         keep: result.keep,
         cfgIdx: cfgIdx ?? null,
-        cfgName: cfgName && cfgName.length > 0 ? cfgName : null,
+        cfgName: effectiveCfgName && effectiveCfgName.length > 0 ? effectiveCfgName : null,
         ruleIndex: result.ruleIndex,
-        ruleLabel: null,
+        ruleLabel: keepUniqueLabel ?? null,
         ruleSource: rule?.__source ?? null,
       }
     }

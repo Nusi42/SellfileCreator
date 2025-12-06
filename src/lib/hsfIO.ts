@@ -21,6 +21,7 @@ const EXPORT_RULE_METADATA_FIELDS: Array<keyof HsfRuleWithCfg> = [
   '__rankMask',
   '__rarityMask',
   '__keepUniqueRuleId',
+  '__keepUniqueRuleOrdinal',
   '__keepUniqueHash',
   '__keepUniqueRequired',
   '__keepUniqueScanMs',

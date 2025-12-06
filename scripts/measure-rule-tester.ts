@@ -22,6 +22,7 @@ import {
 import {
   collectKeepUniqueCandidates,
   computeKeepUniqueProtection,
+  resolveKeepUniqueRuleLabel,
   resolveKeepUniqueRulesWithMetasets,
   type KeepUniqueRule,
   type KeepUniqueDetectionSnapshot,
@@ -169,12 +170,15 @@ const evaluateArtifacts = (
   const toTesterMatch = (result: EvalResult | null): TesterPreviewMatch | null => {
     if (!result) return null
     const rule = rules[result.ruleIndex] ?? null
+    const keepUniqueLabel = rule?.__source === RULE_SOURCE_KEEP_UNIQUES
+      ? resolveKeepUniqueRuleLabel(rule)
+      : null
     return {
       keep: result.keep,
       cfgIdx: result.cfgIdx ?? null,
-      cfgName: null,
+      cfgName: keepUniqueLabel ?? null,
       ruleIndex: result.ruleIndex ?? null,
-      ruleLabel: null,
+      ruleLabel: keepUniqueLabel ?? null,
       ruleSource: rule?.__source ?? null,
     }
   }

@@ -91,12 +91,16 @@ export function TesterRuleReferenceChip({
   const ruleIndex = typeof match.ruleIndex === 'number' ? match.ruleIndex : null
   const cfgIdx = typeof match.cfgIdx === 'number' ? match.cfgIdx : null
   const configDecoration = parseConfigNameDirectives(match.cfgName ?? undefined, theme.palette.primary.main)
-  const textColor = configDecoration.hasExplicitColor ? configDecoration.resolvedColor : null
-  const formattedConfigName = (() => {
-    const trimmed = configDecoration.displayName.trim()
-    if (trimmed.length > 0) return trimmed
-    return cfgIdx != null ? `#${cfgIdx + 1}` : ''
-  })()
+  const trimmedDecoratedName = configDecoration.displayName.trim()
+  const fallbackRuleLabel = match.ruleLabel ? match.ruleLabel.trim() : ''
+  const formattedConfigName = trimmedDecoratedName.length > 0
+    ? trimmedDecoratedName
+    : (fallbackRuleLabel.length > 0
+      ? fallbackRuleLabel
+      : (cfgIdx != null ? `#${cfgIdx + 1}` : ''))
+  const textColor = configDecoration.hasExplicitColor && trimmedDecoratedName.length > 0
+    ? configDecoration.resolvedColor
+    : null
   // Number segment is intentionally lightweight: config index + line number sans labels,
   // joined with a mid-dot so the trailing config name stays readable on narrow cards.
   const configNumberSegment = (showConfigIndex && cfgIdx != null)

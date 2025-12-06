@@ -70,6 +70,7 @@ import {
   type KeepUniqueRule,
   resolveKeepUniqueRulesWithMetasets,
   hashKeepUniqueCombination,
+  resolveKeepUniqueRuleLabel,
 } from './lib/keepUniques'
 import { fingerprintConfigForRules, fingerprintSubstatTargets, updateConfigRulesCache } from './lib/ruleCache'
 import { hasConfigMeaningfulDifferences } from './lib/configDiff'
@@ -1025,12 +1026,16 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         const rule = rules[result.ruleIndex]
         const cfgIdx = result.cfgIdx ?? null
         const cfgName = resolveMatchConfigName(cfgIdx, configNamesForBuild, rule)
+        const keepUniqueLabel = rule?.__source === RULE_SOURCE_KEEP_UNIQUES
+          ? resolveKeepUniqueRuleLabel(rule)
+          : null
+        const effectiveCfgName = cfgName && cfgName.length > 0 ? cfgName : keepUniqueLabel
         return {
           ruleIndex: result.ruleIndex,
           keep: result.keep,
           cfgIdx,
-          cfgName,
-          ruleLabel: null,
+          cfgName: effectiveCfgName && effectiveCfgName.length > 0 ? effectiveCfgName : null,
+          ruleLabel: keepUniqueLabel ?? null,
           ruleSource: rule?.__source ?? null,
         }
       }
