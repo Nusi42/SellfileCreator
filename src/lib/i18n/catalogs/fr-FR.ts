@@ -65,7 +65,7 @@ const overrides: Catalog = {
   testerDeleteSourceConfirmTitle: 'Supprimer l’équipement « {source} » ?',
   testerDeleteSourceConfirmBody: 'Cela retire tout l’équipement « {source} » de l’aperçu du Testeur de règles.',
   noSetAccessories: 'Aucun – accessoires uniquement',
-  testerTableEmpty: 'Importez de l’équipement ou ajoutez vos propres entrées pour voir des correspondances ici.',
+  testerTableEmpty: 'Ajoutez de l’équipement personnalisé pour voir des entrées ici.',
   testerTableEmptyKeepUniquesDisabled: '« Conserver les uniques » est désactivé ; activez-le pour analyser votre équipement.',
   testerTableEmptyKeepUniquesNoMatches: 'Aucun équipement du testeur ne correspond aux filtres « Conserver les uniques » actuels.',
   testerTableEmptyFilter: 'Aucune entrée du testeur ne correspond aux filtres actuels.',

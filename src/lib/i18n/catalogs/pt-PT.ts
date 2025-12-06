@@ -65,7 +65,7 @@ const overrides: Catalog = {
   testerDeleteSourceConfirmTitle: 'Eliminar o equipamento "{source}"?',
   testerDeleteSourceConfirmBody: 'Isto remove todo o equipamento "{source}" da prévia do Teste de Regras.',
   noSetAccessories: 'Nenhum – apenas acessórios',
-  testerTableEmpty: 'Importe equipamento ou adicione entradas personalizadas para ver correspondências aqui.',
+  testerTableEmpty: 'Adicione equipamento personalizado para ver entradas aqui.',
   testerTableEmptyKeepUniquesDisabled: 'Manter únicos está desativado; ativa-o para escanear o teu equipamento.',
   testerTableEmptyKeepUniquesNoMatches: 'Nenhum equipamento do tester corresponde aos filtros atuais de Manter únicos.',
   testerTableEmptyFilter: 'Nenhuma entrada do tester corresponde aos filtros atuais.',
