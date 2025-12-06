@@ -577,7 +577,7 @@ export function useTesterMatchOrchestrator(params: UseTesterMatchOrchestratorPar
         }
         if (
           nextEntry.ruleId !== prevEntry.ruleId
-          || nextEntry.ruleEnabled !== prevEntry.ruleEnabled
+          || nextEntry.ruleActivation !== prevEntry.ruleActivation
           || nextEntry.requiredCount !== prevEntry.requiredCount
           || nextEntry.currentCount !== prevEntry.currentCount
           || nextEntry.projectedCount !== prevEntry.projectedCount
@@ -585,6 +585,7 @@ export function useTesterMatchOrchestrator(params: UseTesterMatchOrchestratorPar
           || nextEntry.coveredByExisting !== prevEntry.coveredByExisting
           || nextEntry.itemKeys.length !== prevEntry.itemKeys.length
           || nextEntry.artifacts.length !== prevEntry.artifacts.length
+          || nextEntry.placeholders.length !== prevEntry.placeholders.length
         ) {
           pendingKeepUniqueDetectionSigRef.current = snapshotSignature
           return snapshot

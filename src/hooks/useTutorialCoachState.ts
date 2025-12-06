@@ -19,7 +19,7 @@ import { ArtifactSet, ArtifactType, Faction, StatVariant, RankCode, RarityCode, 
 import { DEFAULT_RULES_FILTER_STATE, type RulesFilterState } from '../lib/rulesFilter'
 import type { TutorialStep } from '../components/tutorial/TutorialCoach'
 import type { useI18n } from '../lib/i18n'
-import { KEEP_UNIQUE_DEFAULT_COUNT_MODE, type KeepUniqueRule } from '../lib/keepUniques'
+import { KEEP_UNIQUE_DEFAULT_COUNT_MODE, type KeepUniqueRule, KeepUniqueRuleActivation } from '../lib/keepUniques'
 import type { RuleTesterItem } from '../lib/ruleTesterSession'
 
 type Translate = ReturnType<typeof useI18n>['t']
@@ -78,7 +78,7 @@ const buildTutorialKeepUniqueRules = (): KeepUniqueRule[] => [{
     factions: [Faction.BannerLords],
   },
   requiredCount: 1,
-  enabled: true,
+  activation: KeepUniqueRuleActivation.ProtectExisting,
   // Tutorial snapshot mirrors the scope chip defaults by cloning the
   // sanitized count mode so demos highlight the same state as the UI.
   countMode: { ...KEEP_UNIQUE_DEFAULT_COUNT_MODE },
@@ -102,6 +102,7 @@ const cloneKeepUniqueRule = (rule: KeepUniqueRule): KeepUniqueRule => ({
     mainStats: [...rule.combination.mainStats],
     factions: [...rule.combination.factions],
   },
+  activation: rule.activation,
   countMode: {
     perRule: rule.countMode.perRule,
     perSet: rule.countMode.perSet,

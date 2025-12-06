@@ -9,7 +9,7 @@ import { buildHsfFileFromMerged } from '../src/lib/hsfIO.js'
 import { ArtifactSet, ArtifactType, Faction, StatVariant } from '../src/lib/types.js'
 import { updateConfigRulesCache } from '../src/lib/ruleCache.js'
 import { KEEP_UNIQUE_CONFIG_ID_BASE } from '../src/lib/constants.js'
-import type { KeepUniqueRule, KeepUniqueDetectionSnapshot } from '../src/lib/keepUniques.js'
+import { KeepUniqueRuleActivation, type KeepUniqueRule, type KeepUniqueDetectionSnapshot } from '../src/lib/keepUniques.js'
 
 const baseConfig = (overrides: Partial<BuilderConfig> = {}): BuilderConfig => ({
   name: '  Metadata Demo  ',
@@ -134,12 +134,12 @@ test('keep-unique exports include sentinel ConfigID/ConfigName', () => {
       rarities: [],
       mainStats: [],
       factions: [Faction.BannerLords],
-    },
-    requiredCount: 1,
-    enabled: true,
-    countMode: {
-      perRule: false,
-      perSet: true,
+  },
+  requiredCount: 1,
+  activation: KeepUniqueRuleActivation.ProtectExisting,
+  countMode: {
+    perRule: false,
+    perSet: true,
       perFaction: true,
       perMainStat: false,
       perSlot: true,
@@ -151,7 +151,7 @@ test('keep-unique exports include sentinel ConfigID/ConfigName', () => {
       hash: 'demo',
       combination: keepRule.combination,
       ruleId: keepRule.id,
-      ruleEnabled: true,
+      ruleActivation: KeepUniqueRuleActivation.ProtectExisting,
       countMode: keepRule.countMode,
       perGroupRequiredCount: 1,
       groupsTracked: 1,
@@ -177,6 +177,7 @@ test('keep-unique exports include sentinel ConfigID/ConfigName', () => {
           value: 12,
         }],
       }],
+      placeholders: [],
     }],
   }
   const keepRules = buildKeepUniqueRules([keepRule], detection)

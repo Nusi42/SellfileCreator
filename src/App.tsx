@@ -72,6 +72,7 @@ import {
   hashKeepUniqueCombination,
   resolveKeepUniqueRuleLabel,
   sanitizeKeepUniqueCountMode,
+  KeepUniqueRuleActivation,
 } from './lib/keepUniques'
 import { fingerprintConfigForRules, fingerprintSubstatTargets, updateConfigRulesCache } from './lib/ruleCache'
 import { hasConfigMeaningfulDifferences } from './lib/configDiff'
@@ -343,7 +344,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     if (!rules.length) return ''
     return rules.map((rule) => {
       const comboHash = hashKeepUniqueCombination(rule.combination)
-      const enabled = rule.enabled ? 1 : 0
+      const activation = rule.activation ?? KeepUniqueRuleActivation.ProtectExisting
       const required = Number.isFinite(rule.requiredCount) ? Number(rule.requiredCount) : 0
       const mode = sanitizeKeepUniqueCountMode(rule.countMode)
       const modeKey = [
@@ -353,7 +354,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         mode.perFaction ? 1 : 0,
         mode.perMainStat ? 1 : 0,
       ].join('')
-      return `${rule.id ?? comboHash}:${enabled}:${required}:${modeKey}:${comboHash}`
+      return `${rule.id ?? comboHash}:${activation}:${required}:${modeKey}:${comboHash}`
     }).join('|')
   }, [])
   // Combined fingerprint captures every input that affects the warmed rule cache while ignoring display-only fields.

@@ -14,6 +14,7 @@ import type { Metaset } from './metasets'
 import { resolveMetasetIds } from './metasets'
 import {
   ArtifactType,
+  type ArtifactSetId,
   compareArtifactTypes,
   compareArtifactSets,
   artifactSetNames,
@@ -23,6 +24,8 @@ import {
   LEVEL_ANY_SENTINEL,
   type LevelMilestone,
   RarityCode,
+  RankCode,
+  type RankValue,
 } from './types'
 import {
   FINAL_SELL_DEFAULT_SETS_MODE,
@@ -37,6 +40,8 @@ import {
   type KeepUniqueRule,
   type KeepUniqueDetectionSnapshot,
   type KeepUniqueDetectionEntry,
+  KeepUniqueRuleActivation,
+  cloneKeepUniqueCombination,
 } from './keepUniques'
 import { normalizeConfigName } from './ruleConfigIndex'
 
@@ -65,6 +70,8 @@ export type HsfRuleWithCfg = HsfRule & {
   __keepUniqueProjected?: number
   __keepUniqueDeficit?: number
   __keepUniqueItemKey?: number
+  __keepUniquePlaceholder?: boolean
+  __keepUniquePlaceholderMissing?: number
 }
 
 const BRANCH_ORDER = Symbol('branchOrder')
@@ -433,6 +440,118 @@ const buildKeepUniqueSubstats = (substats: KeepUniqueDetectionEntry['artifacts']
   return cloned
 }
 
+const dedupeSortedNumbers = (values: readonly number[]): number[] => {
+  if (!values.length) return []
+  const seen = new Set<number>()
+  for (const value of values) {
+    const numeric = Number(value)
+    if (!Number.isFinite(numeric)) continue
+    seen.add(numeric)
+  }
+  return Array.from(seen).sort((a, b) => a - b)
+}
+
+const dedupeStatVariants = (values: readonly number[]): StatVariant[] => {
+  if (!values.length) return []
+  const seen = new Set<number>()
+  const result: StatVariant[] = []
+  for (const value of values) {
+    const numeric = Number(value)
+    if (seen.has(numeric)) continue
+    seen.add(numeric)
+    result.push(numeric as StatVariant)
+  }
+  result.sort((a, b) => a - b)
+  return result
+}
+
+const normalizeRankSelection = (values: readonly number[]): (RankValue | null)[] => {
+  if (!values.length) return [null]
+  const unique = dedupeSortedNumbers(values)
+  if (!unique.length) return [null]
+  return unique.map((value) => Math.max(1, Math.min(6, Number(value))) as RankValue)
+}
+
+const normalizeRaritySelection = (values: readonly number[]): (RankValue | null)[] => normalizeRankSelection(values)
+
+type KeepUniquePlaceholderRuleParams = {
+  rule: KeepUniqueRule
+  entry: KeepUniqueDetectionEntry
+  configId: number
+  normalizedName: string | null | undefined
+  keepUniqueRuleOrdinal: number
+  detection: KeepUniqueDetectionSnapshot | null
+}
+
+// Placeholder keep rules mirror the combination filters so Anticipate mode can protect future drops.
+const buildKeepUniquePlaceholderRules = ({
+  rule,
+  entry,
+  configId,
+  normalizedName,
+  keepUniqueRuleOrdinal,
+  detection,
+}: KeepUniquePlaceholderRuleParams): HsfRuleWithCfg[] => {
+  const placeholders = entry.placeholders ?? []
+  if (!placeholders.length) return []
+  const rules: HsfRuleWithCfg[] = []
+  const seen = new Set<string>()
+  for (const placeholder of placeholders) {
+    if (!placeholder || placeholder.missing <= 0) continue
+    const combination = placeholder.combination ? cloneKeepUniqueCombination(placeholder.combination) : cloneKeepUniqueCombination(rule.combination)
+    const slotValues = dedupeSortedNumbers(combination.slots)
+    const setValues = dedupeSortedNumbers(combination.sets)
+    const factionValues = dedupeSortedNumbers(combination.factions)
+    const rankOptions = normalizeRankSelection(combination.ranks)
+    const rarityOptions = normalizeRaritySelection(combination.rarities)
+    const mainOptions = dedupeStatVariants(combination.mainStats)
+    const factionOptions = factionValues.length > 0 ? factionValues : [0]
+    const mainVariants = mainOptions.length > 0 ? mainOptions : [StatVariant.Any]
+    const rankVariants = rankOptions.length > 0 ? rankOptions : [null]
+    const rarityVariants = rarityOptions.length > 0 ? rarityOptions : [null]
+    for (const rankVariant of rankVariants) {
+      for (const rarityVariant of rarityVariants) {
+        for (const faction of factionOptions) {
+          for (const mainVariant of mainVariants) {
+            const mainTuple = variantToMain(mainVariant ?? StatVariant.Any)
+            const keepRule: HsfRuleWithCfg = {
+              Keep: true,
+              IsRuleTypeAND: false,
+              Use: true,
+              ConfigID: configId,
+              ...(normalizedName ? { ConfigName: normalizedName } : {}),
+              Rank: rankVariant == null ? RankCode.Any : clampRankOrRarityValue(rankVariant),
+              Rarity: rarityVariant == null ? RarityCode.Any : rarityValueToCode(rarityVariant),
+              MainStatID: mainTuple.id,
+              MainStatF: Number.isFinite(mainTuple.f) ? Number(mainTuple.f) : 1,
+              LVLForCheck: LEVEL_ANY_SENTINEL,
+              Faction: faction,
+              ...(slotValues.length ? { ArtifactType: slotValues.map(Number) } : {}),
+              ...(setValues.length ? { ArtifactSet: setValues.map(Number).sort((a, b) => compareArtifactSets(a as ArtifactSetId, b as ArtifactSetId)) } : {}),
+              Substats: buildKeepUniqueSubstats([]),
+              __source: RULE_SOURCE_KEEP_UNIQUES,
+              __keepUniqueRuleId: rule.id,
+              __keepUniqueRuleOrdinal: keepUniqueRuleOrdinal,
+              __keepUniqueHash: hashKeepUniqueCombination(combination),
+              __keepUniqueRequired: entry.requiredCount,
+              __keepUniqueProjected: entry.projectedCount,
+              __keepUniqueDeficit: entry.deficit,
+              __keepUniquePlaceholder: true,
+              __keepUniquePlaceholderMissing: placeholder.missing,
+            }
+            if (detection) keepRule.__keepUniqueScanMs = detection.scannedAt
+            const canonical = canonicalRuleKey(keepRule)
+            if (seen.has(canonical)) continue
+            seen.add(canonical)
+            rules.push(keepRule)
+          }
+        }
+      }
+    }
+  }
+  return rules
+}
+
 export const buildKeepUniqueRules = (
   rules: readonly KeepUniqueRule[],
   detection: KeepUniqueDetectionSnapshot | null,
@@ -446,50 +565,74 @@ export const buildKeepUniqueRules = (
     : new Map()
   const keepRules: HsfRuleWithCfg[] = []
   const emitted = new Set<string>()
+  const placeholderKeys = new Set<string>()
   let keepUniqueRuleOffset = 0
   let keepUniqueRuleOrdinal = 0
   for (const rule of rules) {
     keepUniqueRuleOrdinal += 1
-    if (!rule.enabled) continue
+    const activation = rule.activation ?? KeepUniqueRuleActivation.ProtectExisting
+    if (activation === KeepUniqueRuleActivation.Off) continue
     const entry = rule.id ? detectionMap.get(rule.id) : null
-    const artifacts = entry?.artifacts ?? []
-    if (!entry || artifacts.length === 0) continue
+    if (!entry) continue
+    const artifacts = entry.artifacts ?? []
+    const placeholders = entry.placeholders ?? []
+    const shouldEmitArtifacts = artifacts.length > 0
+    const shouldEmitPlaceholders = activation === KeepUniqueRuleActivation.AnticipateGaps && placeholders.length > 0
+    if (!shouldEmitArtifacts && !shouldEmitPlaceholders) continue
     const normalizedName = normalizeConfigName(rule.name)
     const configId = KEEP_UNIQUE_CONFIG_ID_BASE - keepUniqueRuleOffset
     keepUniqueRuleOffset += 1
-    for (const artifact of artifacts) {
-      const levels = coverageLevelsForArtifact(artifact)
-      for (const level of levels) {
-        const artifactKey = `${artifact.itemKey}:${level}`
-        if (emitted.has(artifactKey)) continue
-        emitted.add(artifactKey)
-        const mainTuple = variantToMain(artifact.mainStat)
-        const keepRule: HsfRuleWithCfg = {
-          Keep: true,
-          IsRuleTypeAND: false,
-          Use: rule.enabled,
-          ConfigID: configId,
-          ...(normalizedName ? { ConfigName: normalizedName } : {}),
-          Rank: clampRankOrRarityValue(artifact.rank),
-          Rarity: rarityValueToCode(artifact.rarity),
-          MainStatID: mainTuple.id,
-          MainStatF: Number.isFinite(mainTuple.f) ? Number(mainTuple.f) : 1,
-          LVLForCheck: level ?? LEVEL_ANY_SENTINEL,
-          Faction: artifact.faction ?? 0,
-          ArtifactType: [Number(artifact.slot)],
-          ArtifactSet: [Number(artifact.set)],
-          Substats: buildKeepUniqueSubstats(artifact.substats),
-          __source: RULE_SOURCE_KEEP_UNIQUES,
-          __keepUniqueRuleId: rule.id,
-          __keepUniqueRuleOrdinal: keepUniqueRuleOrdinal,
-          __keepUniqueItemKey: artifact.itemKey,
-          __keepUniqueHash: hashKeepUniqueCombination(rule.combination),
-          __keepUniqueRequired: entry.requiredCount,
-          __keepUniqueProjected: entry.projectedCount,
-          __keepUniqueDeficit: entry.deficit,
+    if (shouldEmitArtifacts) {
+      for (const artifact of artifacts) {
+        const levels = coverageLevelsForArtifact(artifact)
+        for (const level of levels) {
+          const artifactKey = `${artifact.itemKey}:${level}`
+          if (emitted.has(artifactKey)) continue
+          emitted.add(artifactKey)
+          const mainTuple = variantToMain(artifact.mainStat)
+          const keepRule: HsfRuleWithCfg = {
+            Keep: true,
+            IsRuleTypeAND: false,
+            Use: true,
+            ConfigID: configId,
+            ...(normalizedName ? { ConfigName: normalizedName } : {}),
+            Rank: clampRankOrRarityValue(artifact.rank),
+            Rarity: rarityValueToCode(artifact.rarity),
+            MainStatID: mainTuple.id,
+            MainStatF: Number.isFinite(mainTuple.f) ? Number(mainTuple.f) : 1,
+            LVLForCheck: level ?? LEVEL_ANY_SENTINEL,
+            Faction: artifact.faction ?? 0,
+            ArtifactType: [Number(artifact.slot)],
+            ArtifactSet: [Number(artifact.set)],
+            Substats: buildKeepUniqueSubstats(artifact.substats),
+            __source: RULE_SOURCE_KEEP_UNIQUES,
+            __keepUniqueRuleId: rule.id,
+            __keepUniqueRuleOrdinal: keepUniqueRuleOrdinal,
+            __keepUniqueItemKey: artifact.itemKey,
+            __keepUniqueHash: hashKeepUniqueCombination(rule.combination),
+            __keepUniqueRequired: entry.requiredCount,
+            __keepUniqueProjected: entry.projectedCount,
+            __keepUniqueDeficit: entry.deficit,
+          }
+          if (detection) keepRule.__keepUniqueScanMs = detection.scannedAt
+          keepRules.push(keepRule)
         }
-        if (detection) keepRule.__keepUniqueScanMs = detection.scannedAt
-        keepRules.push(keepRule)
+      }
+    }
+    if (shouldEmitPlaceholders) {
+      const placeholderRules = buildKeepUniquePlaceholderRules({
+        rule,
+        entry,
+        configId,
+        normalizedName,
+        keepUniqueRuleOrdinal,
+        detection,
+      })
+      for (const placeholderRule of placeholderRules) {
+        const canonical = canonicalRuleKey(placeholderRule)
+        if (placeholderKeys.has(canonical)) continue
+        placeholderKeys.add(canonical)
+        keepRules.push(placeholderRule)
       }
     }
   }
@@ -538,7 +681,9 @@ export function prependKeepUniqueRules({
     if (baseCustomKeepKeys.has(canonicalKey)) continue
     // Item+level dedupe ensures a distinct keep for each milestone of the same item.
     const dedupeKey = rule.__source === RULE_SOURCE_KEEP_UNIQUES
-      ? `ku:item:${rule.__keepUniqueItemKey ?? 'na'}:lvl:${Number.isFinite(rule.LVLForCheck) ? Number(rule.LVLForCheck) : LEVEL_ANY_SENTINEL}`
+      ? (rule.__keepUniquePlaceholder
+        ? `ku:placeholder:${canonicalKey}`
+        : `ku:item:${rule.__keepUniqueItemKey ?? 'na'}:lvl:${Number.isFinite(rule.LVLForCheck) ? Number(rule.LVLForCheck) : LEVEL_ANY_SENTINEL}`)
       : canonicalKey
     if (injectedKeepKeys.has(dedupeKey)) continue
     injectedKeepKeys.add(dedupeKey)

@@ -59,6 +59,54 @@ export const KEEP_UNIQUE_DEFAULT_COUNT_MODE: KeepUniqueRuleCountMode = {
 
 const coerceBoolean = (value: unknown): boolean => value === true
 
+export const KeepUniqueRuleActivation = {
+  Off: 'off',
+  ProtectExisting: 'protectExisting',
+  AnticipateGaps: 'anticipateGaps',
+} as const
+
+// eslint-disable-next-line no-redeclare -- allow constant/type pair
+export type KeepUniqueRuleActivation =
+  (typeof KeepUniqueRuleActivation)[keyof typeof KeepUniqueRuleActivation]
+
+const KEEP_UNIQUE_RULE_ACTIVATION_VALUES = new Set<KeepUniqueRuleActivation>([
+  KeepUniqueRuleActivation.Off,
+  KeepUniqueRuleActivation.ProtectExisting,
+  KeepUniqueRuleActivation.AnticipateGaps,
+])
+
+const normalizeKeepUniqueActivation = (
+  value: unknown,
+  legacyEnabled?: unknown,
+): KeepUniqueRuleActivation => {
+  if (typeof value === 'string') {
+    const lowered = value.trim().toLowerCase()
+    if (lowered.length > 0) {
+      if (lowered === KeepUniqueRuleActivation.Off || lowered === 'disabled') {
+        return KeepUniqueRuleActivation.Off
+      }
+      if (
+        lowered === KeepUniqueRuleActivation.AnticipateGaps
+        || lowered === 'anticipate'
+        || lowered === 'anticipategaps'
+        || lowered === 'placeholder'
+      ) {
+        return KeepUniqueRuleActivation.AnticipateGaps
+      }
+      if (KEEP_UNIQUE_RULE_ACTIVATION_VALUES.has(lowered as KeepUniqueRuleActivation)) {
+        return lowered as KeepUniqueRuleActivation
+      }
+    }
+  }
+  if (legacyEnabled === false) return KeepUniqueRuleActivation.Off
+  if (legacyEnabled === true) return KeepUniqueRuleActivation.ProtectExisting
+  return KeepUniqueRuleActivation.ProtectExisting
+}
+
+export const isKeepUniqueRuleActive = (rule: KeepUniqueRule): boolean => (
+  rule.activation !== KeepUniqueRuleActivation.Off
+)
+
 const sanitizeCountMode = (raw: Partial<KeepUniqueRuleCountMode> | null | undefined): KeepUniqueRuleCountMode => {
   const perRule = coerceBoolean(raw?.perRule)
   const perSet = coerceBoolean(raw?.perSet)
@@ -118,12 +166,22 @@ const normalizeCountMode = (value: unknown): KeepUniqueRuleCountMode => {
 export const isPerRuleCountMode = (mode: KeepUniqueRuleCountMode): boolean => mode.perRule
 export const sanitizeKeepUniqueCountMode = (mode: KeepUniqueRuleCountMode): KeepUniqueRuleCountMode => sanitizeCountMode(mode)
 
+export const cloneKeepUniqueCombination = (combination: KeepUniqueCombination): KeepUniqueCombination => ({
+  slots: [...combination.slots],
+  sets: [...combination.sets],
+  metaSetIds: [...(combination.metaSetIds ?? [])],
+  ranks: [...combination.ranks],
+  rarities: [...combination.rarities],
+  mainStats: [...(combination.mainStats ?? [])],
+  factions: [...(combination.factions ?? [])],
+})
+
 export type KeepUniqueRule = {
   id: string
   name: string
   combination: KeepUniqueCombination
   requiredCount: number
-  enabled: boolean
+  activation: KeepUniqueRuleActivation
   countMode: KeepUniqueRuleCountMode
 }
 
@@ -162,7 +220,7 @@ function createDefaultAccessoryKeepUniqueRule(): KeepUniqueRule {
     },
     name: ACCESSORY_KEEP_UNIQUE_DEFAULT_NAME,
     requiredCount: 1,
-    enabled: true,
+    activation: KeepUniqueRuleActivation.ProtectExisting,
     countMode: { ...ACCESSORY_KEEP_UNIQUE_COUNT_MODE },
   }
 }
@@ -212,7 +270,7 @@ function createDefaultArmorKeepUniqueRule(): KeepUniqueRule {
     },
     name: ARMOR_KEEP_UNIQUE_DEFAULT_NAME,
     requiredCount: 1,
-    enabled: false,
+    activation: KeepUniqueRuleActivation.Off,
     countMode: { ...ARMOR_KEEP_UNIQUE_COUNT_MODE },
   }
 }
@@ -245,7 +303,7 @@ export type KeepUniqueDetectionEntry = {
   hash: string
   combination: KeepUniqueCombination
   ruleId: string | null
-  ruleEnabled: boolean
+  ruleActivation: KeepUniqueRuleActivation
   // Carry the scope metadata so the UI can explain how totals were derived.
   countMode: KeepUniqueRuleCountMode
   perGroupRequiredCount: number
@@ -257,11 +315,18 @@ export type KeepUniqueDetectionEntry = {
   coveredByExisting: boolean
   itemKeys: number[]
   artifacts: KeepUniqueDetectionArtifact[]
+  placeholders: KeepUniquePlaceholderRequest[]
 }
 
 export type KeepUniqueDetectionSnapshot = {
   scannedAt: number
   entries: KeepUniqueDetectionEntry[]
+}
+
+export type KeepUniquePlaceholderRequest = {
+  combination: KeepUniqueCombination
+  missing: number
+  reason: 'global' | 'group'
 }
 
 export type KeepUniqueCandidate = {
@@ -290,7 +355,7 @@ export type KeepUniquesMergeInput = {
 export const hasActiveKeepUniqueRules = (input: KeepUniquesMergeInput | null | undefined): boolean => {
   if (!input || input.enabled !== true) return false
   if (!Array.isArray(input.rules) || input.rules.length === 0) return false
-  return input.rules.some((rule) => rule?.enabled === true)
+  return input.rules.some((rule) => rule && isKeepUniqueRuleActive(rule))
 }
 
 export type KeepUniqueDetectionParams = {
@@ -529,7 +594,7 @@ export function normalizeKeepUniqueRule(value: unknown): KeepUniqueRule | null {
   const rawId = typeof rec.id === 'string' && rec.id.trim().length > 0 ? rec.id.trim() : createKeepUniqueRuleId()
   const rawRequired = Number(rec.requiredCount)
   const requiredCount = Number.isFinite(rawRequired) && rawRequired >= 1 ? Math.floor(rawRequired) : 1
-  const enabled = rec.enabled !== false
+  const activation = normalizeKeepUniqueActivation(rec.activation, rec.enabled)
   const countMode = (() => {
     if ('countMode' in rec) return normalizeCountMode(rec.countMode)
     if (rec.requirePerCombination === true) return { ...KEEP_UNIQUE_DEFAULT_COUNT_MODE }
@@ -539,7 +604,7 @@ export function normalizeKeepUniqueRule(value: unknown): KeepUniqueRule | null {
     id: rawId,
     combination,
     requiredCount,
-    enabled,
+    activation,
     countMode,
     name,
   }
@@ -589,6 +654,30 @@ const getKeepUniqueCountKey = (artifact: NormalizedGearArtifact, mode: KeepUniqu
 const matchesSelection = (selection: readonly number[], candidate: number): boolean => {
   if (!selection.length) return true
   return selection.some((value) => Number(value) === Number(candidate))
+}
+
+// Placeholder combos inherit the base filters but narrow whichever dimensions affect the group key.
+const buildPlaceholderCombinationForGroup = (params: {
+  base: KeepUniqueCombination
+  mode: KeepUniqueRuleCountMode
+  sample: NormalizedGearArtifact | null
+}): KeepUniqueCombination => {
+  const { base, mode, sample } = params
+  if (!sample) return cloneKeepUniqueCombination(base)
+  const clone = cloneKeepUniqueCombination(base)
+  if (mode.perSlot) clone.slots = [Number(sample.slot) as ArtifactTypeId]
+  if (mode.perSet) clone.sets = [Number(sample.set) as ArtifactSetId]
+  if (mode.perMainStat) {
+    const variant = sample.mainStat?.variant
+    clone.mainStats = variant == null || variant === StatVariantEnum.Any
+      ? []
+      : [variant]
+  }
+  if (mode.perFaction) {
+    const faction = isAccessorySlot(Number(sample.slot)) ? Number(sample.faction ?? 0) : 0
+    clone.factions = faction > 0 ? [faction as FactionId] : []
+  }
+  return clone
 }
 
 /** Determine whether an artifact satisfies a Keep Unique combination filter. */
@@ -686,10 +775,12 @@ export function computeKeepUniqueProtection(params: KeepUniqueDetectionParams): 
     const combination = rule.combination
     const countMode = sanitizeCountMode(rule.countMode)
     const perRuleMode = countMode.perRule
+    const activation = rule.activation ?? KeepUniqueRuleActivation.ProtectExisting
+    const ruleActive = enabled && activation !== KeepUniqueRuleActivation.Off
     // Current matches split into “kept” vs “sold” so deficits consider what is already safe.
     const matching = candidates.filter((candidate) => artifactMatchesKeepUniqueRule(candidate.artifact, combination))
     const requiredPerGroup = Math.max(1, Math.floor(rule.requiredCount))
-    const ruleActive = enabled && rule.enabled
+    const placeholders: KeepUniquePlaceholderRequest[] = []
 
     if (perRuleMode) {
       let keptCount = 0
@@ -698,9 +789,16 @@ export function computeKeepUniqueProtection(params: KeepUniqueDetectionParams): 
         if (candidate.isSold) soldCount += 1
         else keptCount += 1
       }
-      const requiredTotal = matching.length > 0 ? requiredPerGroup : 0
+      const requiredTotal = requiredPerGroup
       const projected = keptCount + (ruleActive ? soldCount : 0)
       const deficit = Math.max(0, requiredTotal - (keptCount + soldCount))
+      if (deficit > 0) {
+        placeholders.push({
+          combination: cloneKeepUniqueCombination(combination),
+          missing: deficit,
+          reason: 'global',
+        })
+      }
       // When short, emit only the sold artifacts; already-kept items do not need injected rules.
       const atRisk = keptCount < requiredPerGroup
         ? matching.filter((candidate) => candidate.isSold)
@@ -711,7 +809,7 @@ export function computeKeepUniqueProtection(params: KeepUniqueDetectionParams): 
         hash: hashKeepUniqueCombination(combination),
         combination,
         ruleId: rule.id,
-        ruleEnabled: rule.enabled,
+        ruleActivation: activation,
         countMode,
         perGroupRequiredCount: requiredPerGroup,
         groupsTracked: matching.length > 0 ? 1 : 0,
@@ -723,11 +821,13 @@ export function computeKeepUniqueProtection(params: KeepUniqueDetectionParams): 
         coveredByExisting: keptCount >= requiredTotal,
         itemKeys,
         artifacts,
+        placeholders,
       })
       continue
     }
 
-    const groupCounts = new Map<KeepUniqueCountKey, { kept: KeepUniqueCandidate[]; sold: KeepUniqueCandidate[] }>()
+    type KeepUniqueGroupBucket = { kept: KeepUniqueCandidate[]; sold: KeepUniqueCandidate[]; sample: KeepUniqueCandidate | null }
+    const groupCounts = new Map<KeepUniqueCountKey, KeepUniqueGroupBucket>()
     for (const candidate of matching) {
       const key = getKeepUniqueCountKey(candidate.artifact, countMode)
       const entry = groupCounts.get(key)
@@ -737,16 +837,19 @@ export function computeKeepUniqueProtection(params: KeepUniqueDetectionParams): 
         } else {
           entry.kept.push(candidate)
         }
+        if (!entry.sample) entry.sample = candidate
       } else {
         groupCounts.set(key, {
           kept: candidate.isSold ? [] : [candidate],
           sold: candidate.isSold ? [candidate] : [],
+          sample: candidate,
         })
       }
     }
 
     const groupsTracked = groupCounts.size
-    const requiredTotal = groupsTracked > 0 ? requiredPerGroup * groupsTracked : 0
+    const effectiveGroupCount = groupsTracked > 0 ? groupsTracked : 1
+    const requiredTotal = requiredPerGroup * effectiveGroupCount
     let deficit = 0
     let keptTotal = 0
     let soldTotal = 0
@@ -759,8 +862,26 @@ export function computeKeepUniqueProtection(params: KeepUniqueDetectionParams): 
       if (group.kept.length < requiredPerGroup) {
         // Only sold artifacts need injected keep rules; already-kept artifacts are safe.
         atRisk.push(...group.sold)
+        const sampleArtifact = group.sample?.artifact ?? null
+        placeholders.push({
+          combination: buildPlaceholderCombinationForGroup({
+            base: combination,
+            mode: countMode,
+            sample: sampleArtifact,
+          }),
+          missing: deficitGroup,
+          reason: 'group',
+        })
       }
       deficit += deficitGroup
+    }
+    if (groupsTracked === 0 && requiredPerGroup > 0) {
+      placeholders.push({
+        combination: cloneKeepUniqueCombination(combination),
+        missing: requiredPerGroup,
+        reason: 'global',
+      })
+      deficit = requiredPerGroup
     }
 
     const projected = keptTotal + (ruleActive ? soldTotal : 0)
@@ -770,7 +891,7 @@ export function computeKeepUniqueProtection(params: KeepUniqueDetectionParams): 
       hash: hashKeepUniqueCombination(combination),
       combination,
       ruleId: rule.id,
-      ruleEnabled: rule.enabled,
+      ruleActivation: activation,
       countMode,
       perGroupRequiredCount: requiredPerGroup,
       groupsTracked,
@@ -781,6 +902,7 @@ export function computeKeepUniqueProtection(params: KeepUniqueDetectionParams): 
       coveredByExisting: keptTotal >= requiredTotal,
       itemKeys,
       artifacts,
+      placeholders,
     })
   }
 
