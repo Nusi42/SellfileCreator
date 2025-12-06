@@ -66,7 +66,7 @@ type UseTesterMatchOrchestratorParams = {
   artifacts: NormalizedGearArtifact[]
   // Effective merged rules, including keep-unique injections.
   mergedRules: HsfRuleWithCfg[]
-  // Config names to show in tester rows + match chips.
+  // Config names to show in gear entries + match chips.
   configNames: (string | null)[]
   // Export modes aligned to configs for worker + fallback eval.
   configModes: SellfileExportMode[]
@@ -94,17 +94,17 @@ type UseTesterMatchOrchestratorParams = {
   pendingKeepUniqueDetectionSigRef: MutableRefObject<string | null>
   rulesBuilding: boolean
   // Row-building flag used to coordinate with external status chips.
-  testerRowsBuilding: boolean
+  gearEntriesBuilding: boolean
   // Setter to toggle row-building flag from inside the orchestrator.
-  setTesterRowsBuilding: (value: boolean | ((prev: boolean) => boolean)) => void
-  // Last committed build id for tester rows.
-  testerRowsCommittedBuildId: number
+  setGearEntriesBuilding: (value: boolean | ((prev: boolean) => boolean)) => void
+  // Last committed build id for gear entries.
+  gearEntriesCommittedBuildId: number
   // Setter for committed build id so consumers remain source of truth.
-  setTesterRowsCommittedBuildId: (value: number | ((prev: number) => number)) => void
+  setGearEntriesCommittedBuildId: (value: number | ((prev: number) => number)) => void
   // Setter for active build id exposed for external consumers.
-  setTesterRowsActiveBuildId: (value: number | ((prev: number) => number)) => void
+  setGearEntriesActiveBuildId: (value: number | ((prev: number) => number)) => void
   // Setter tracking progress for status chips.
-  setTesterRowsProgress: (value: ProgressSnapshot | null) => void
+  setGearEntriesProgress: (value: ProgressSnapshot | null) => void
 }
 
 type UseTesterMatchOrchestratorResult = {
@@ -137,13 +137,13 @@ export function useTesterMatchOrchestrator(params: UseTesterMatchOrchestratorPar
     pendingKeepUniqueDetectionSigRef,
     rulesBuilding,
     testerMatchWorkerSupported: rawTesterMatchWorkerSupported,
-    testerRowsBuilding,
-    setTesterRowsBuilding,
-    testerRowsCommittedBuildId,
-    setTesterRowsCommittedBuildId,
-    setTesterRowsActiveBuildId,
+    gearEntriesBuilding,
+    setGearEntriesBuilding,
+    gearEntriesCommittedBuildId,
+    setGearEntriesCommittedBuildId,
+    setGearEntriesActiveBuildId,
     // App-supplied setter that feeds the determinate overlay on preview chips.
-    setTesterRowsProgress,
+    setGearEntriesProgress,
   } = params
   // Keep-unique detection is enabled again.
   const keepUniqueDetectionDisabled = false
@@ -155,22 +155,22 @@ export function useTesterMatchOrchestrator(params: UseTesterMatchOrchestratorPar
   // Remember prior dependencies to determine whether to rebuild.
   const testerPreviewMatchDepsRef = useRef<PreviewMatchDeps>({ rulesSignature: null, namesSignature: null })
   // Build id reference lets us cancel outdated async work.
-  const testerRowsBuildIdRef = useRef(0)
+  const gearEntriesBuildIdRef = useRef(0)
   // Track artifacts for the in-flight build to avoid redundant restarts.
   const inFlightArtifactsRef = useRef<NormalizedGearArtifact[] | null>(null)
   // Remember last settled artifact list to short-circuit redundant rebuilds.
   const lastSettledArtifactsRef = useRef<NormalizedGearArtifact[] | null>(null)
   // Mirror building state to avoid stale closure checks.
-  const testerRowsBuildingRef = useRef(testerRowsBuilding)
+  const gearEntriesBuildingRef = useRef(gearEntriesBuilding)
   // Mirror committed build id for downstream guards.
-  const testerRowsCommittedBuildIdRef = useRef(testerRowsCommittedBuildId)
+  const gearEntriesCommittedBuildIdRef = useRef(gearEntriesCommittedBuildId)
   // Track which rule signature has actually been rendered so we can detect pending rebuilds when signatures change.
-  const testerRowsCommittedRulesSignatureRef = useRef<string | null>(null)
+  const gearEntriesCommittedRulesSignatureRef = useRef<string | null>(null)
 
   // Keep building ref aligned with external state for correctness.
-  useEffect(() => { testerRowsBuildingRef.current = testerRowsBuilding }, [testerRowsBuilding])
+  useEffect(() => { gearEntriesBuildingRef.current = gearEntriesBuilding }, [gearEntriesBuilding])
   // Keep committed build id ref aligned with latest commit.
-  useEffect(() => { testerRowsCommittedBuildIdRef.current = testerRowsCommittedBuildId }, [testerRowsCommittedBuildId])
+  useEffect(() => { gearEntriesCommittedBuildIdRef.current = gearEntriesCommittedBuildId }, [gearEntriesCommittedBuildId])
 
   const mergedRulesSignature = useMemo(() => fingerprintMergedRules(mergedRules), [mergedRules])
 
@@ -179,15 +179,15 @@ export function useTesterMatchOrchestrator(params: UseTesterMatchOrchestratorPar
     // Defer rebuilding while upstream rules are still warming to avoid thrash.
     if (rulesBuilding) {
       inFlightArtifactsRef.current = null
-      setTesterRowsProgress(null)
+      setGearEntriesProgress(null)
       return
     }
     // Build a simple signature for config names to detect label changes.
     const namesSignature = configNames.map((name) => name ?? '').join('\u0001')
     // Previous deps determine whether a rebuild is necessary.
     const prevMatchDeps = testerPreviewMatchDepsRef.current
-    const rulesChangedSinceCommit = testerRowsCommittedRulesSignatureRef.current !== mergedRulesSignature
-    const rowsSettled = !testerRowsBuildingRef.current && testerRowsCommittedBuildIdRef.current === testerRowsBuildIdRef.current
+    const rulesChangedSinceCommit = gearEntriesCommittedRulesSignatureRef.current !== mergedRulesSignature
+    const rowsSettled = !gearEntriesBuildingRef.current && gearEntriesCommittedBuildIdRef.current === gearEntriesBuildIdRef.current
     if (
       rowsSettled
       && prevMatchDeps.rulesSignature === mergedRulesSignature
@@ -199,11 +199,11 @@ export function useTesterMatchOrchestrator(params: UseTesterMatchOrchestratorPar
       return
     }
     // Avoid restarting a build when the same inputs are already being processed.
-    const inFlightBuildId = testerRowsBuildIdRef.current
-    const hasUncommittedBuild = testerRowsCommittedBuildIdRef.current < inFlightBuildId
+    const inFlightBuildId = gearEntriesBuildIdRef.current
+    const hasUncommittedBuild = gearEntriesCommittedBuildIdRef.current < inFlightBuildId
     if (
       hasUncommittedBuild
-      && testerRowsBuildingRef.current
+      && gearEntriesBuildingRef.current
       && inFlightArtifactsRef.current === artifacts
       && prevMatchDeps.rulesSignature === mergedRulesSignature
       && prevMatchDeps.namesSignature === namesSignature
@@ -251,33 +251,33 @@ export function useTesterMatchOrchestrator(params: UseTesterMatchOrchestratorPar
       })
     }
     const noOpBuild = dirtyEntries.length === 0 && nextRowMap.size === prevRowMap.size
-    const nextBuildId = testerRowsBuildIdRef.current + 1
+    const nextBuildId = gearEntriesBuildIdRef.current + 1
     if (noOpBuild) {
       testerPreviewMatchDepsRef.current = { rulesSignature: mergedRulesSignature, namesSignature }
-      testerRowsBuildIdRef.current = nextBuildId
-      setTesterRowsActiveBuildId(nextBuildId)
-      setTesterRowsCommittedBuildId(nextBuildId)
+      gearEntriesBuildIdRef.current = nextBuildId
+      setGearEntriesActiveBuildId(nextBuildId)
+      setGearEntriesCommittedBuildId(nextBuildId)
       lastSettledArtifactsRef.current = artifacts
-      setTesterRowsBuilding(false)
-      setTesterRowsProgress(null)
+      setGearEntriesBuilding(false)
+      setGearEntriesProgress(null)
       return
     }
 
     // Update dep snapshot immediately so concurrent triggers stay consistent.
     testerPreviewMatchDepsRef.current = { rulesSignature: mergedRulesSignature, namesSignature }
-    testerRowsBuildIdRef.current = nextBuildId
+    gearEntriesBuildIdRef.current = nextBuildId
     // Surface the active build id in shared state.
-    setTesterRowsActiveBuildId(nextBuildId)
+    setGearEntriesActiveBuildId(nextBuildId)
     const buildId = nextBuildId
     // If there are no dirty entries we can commit immediately.
     if (dirtyEntries.length === 0) {
       testerPreviewRowMapRef.current = nextRowMap
       setTesterPreviewRows(sortTesterRows(Array.from(nextRowMap.values())))
-      setTesterRowsCommittedBuildId(buildId)
-      testerRowsCommittedRulesSignatureRef.current = mergedRulesSignature
+      setGearEntriesCommittedBuildId(buildId)
+      gearEntriesCommittedRulesSignatureRef.current = mergedRulesSignature
       lastSettledArtifactsRef.current = artifacts
-      setTesterRowsBuilding(false)
-      setTesterRowsProgress(null)
+      setGearEntriesBuilding(false)
+      setGearEntriesProgress(null)
       return
     }
 
@@ -295,10 +295,10 @@ export function useTesterMatchOrchestrator(params: UseTesterMatchOrchestratorPar
       })
       testerPreviewRowMapRef.current = nextRowMap
       setTesterPreviewRows(sortTesterRows(Array.from(nextRowMap.values())))
-      setTesterRowsCommittedBuildId(buildId)
+      setGearEntriesCommittedBuildId(buildId)
       lastSettledArtifactsRef.current = artifacts
-      setTesterRowsBuilding(false)
-      setTesterRowsProgress(null)
+      setGearEntriesBuilding(false)
+      setGearEntriesProgress(null)
       return
     }
 
@@ -372,12 +372,12 @@ export function useTesterMatchOrchestrator(params: UseTesterMatchOrchestratorPar
     // Start a worker-based build when supported.
     if (effectiveWorkerSupported) {
       inFlightArtifactsRef.current = artifacts
-      setTesterRowsBuilding(true)
+      setGearEntriesBuilding(true)
       if (dirtyEntries.length > 0) {
         // Worker mode: reset progress before handing items to the worker.
-        setTesterRowsProgress({ completed: 0, total: dirtyEntries.length })
+        setGearEntriesProgress({ completed: 0, total: dirtyEntries.length })
       } else {
-        setTesterRowsProgress(null)
+        setGearEntriesProgress(null)
       }
       const artifactByItemId = new Map<number, NormalizedGearArtifact>()
       const itemsPayload = dirtyEntries.map(({ artifact, itemId }) => {
@@ -388,12 +388,12 @@ export function useTesterMatchOrchestrator(params: UseTesterMatchOrchestratorPar
       evaluateTesterMatchItems({
         items: itemsPayload,
         onProgress: (snapshot) => {
-          if (testerRowsBuildIdRef.current !== buildId) return
-          setTesterRowsProgress(snapshot)
+          if (gearEntriesBuildIdRef.current !== buildId) return
+          setGearEntriesProgress(snapshot)
         },
       })
         .then((results) => {
-          if (cancelled || testerRowsBuildIdRef.current !== buildId) return
+          if (cancelled || gearEntriesBuildIdRef.current !== buildId) return
           results.forEach((result) => {
             const artifact = artifactByItemId.get(result.itemId)
             if (!artifact) return
@@ -409,43 +409,43 @@ export function useTesterMatchOrchestrator(params: UseTesterMatchOrchestratorPar
           testerPreviewRowMapRef.current = nextRowMap
           const sortedRows = sortTesterRows(Array.from(nextRowMap.values()))
           setTesterPreviewRows(sortedRows)
-          setTesterRowsCommittedBuildId(buildId)
-          testerRowsCommittedRulesSignatureRef.current = mergedRulesSignature
+          setGearEntriesCommittedBuildId(buildId)
+          gearEntriesCommittedRulesSignatureRef.current = mergedRulesSignature
           lastSettledArtifactsRef.current = artifacts
           inFlightArtifactsRef.current = null
           // Release building flag even when keep-unique hold is active so the UI does not spin forever.
-          if (testerRowsBuildIdRef.current === buildId) {
-            setTesterRowsBuilding(false)
-            setTesterRowsProgress(null)
+          if (gearEntriesBuildIdRef.current === buildId) {
+            setGearEntriesBuilding(false)
+            setGearEntriesProgress(null)
           }
         })
         .catch(() => {
           if (cancelled) return
           inFlightArtifactsRef.current = null
-          if (testerRowsBuildIdRef.current === buildId) {
-            setTesterRowsBuilding(false)
-            setTesterRowsProgress(null)
+          if (gearEntriesBuildIdRef.current === buildId) {
+            setGearEntriesBuilding(false)
+            setGearEntriesProgress(null)
           }
         })
       return () => {
         cancelled = true
         inFlightArtifactsRef.current = null
         // Ensure the building flag releases if this run is aborted.
-        if (testerRowsBuildIdRef.current === buildId) {
-          setTesterRowsBuilding(false)
-          setTesterRowsProgress(null)
+        if (gearEntriesBuildIdRef.current === buildId) {
+          setGearEntriesBuilding(false)
+          setGearEntriesProgress(null)
         }
       }
     }
 
     // Fallback path chunked to keep UI responsive.
     inFlightArtifactsRef.current = artifacts
-    setTesterRowsBuilding(true)
+    setGearEntriesBuilding(true)
     if (dirtyEntries.length > 0) {
       // Manual evaluation still reports determinate progress so the UI stays consistent.
-      setTesterRowsProgress({ completed: 0, total: dirtyEntries.length })
+      setGearEntriesProgress({ completed: 0, total: dirtyEntries.length })
     } else {
-      setTesterRowsProgress(null)
+      setGearEntriesProgress(null)
     }
     let cancelled = false
 
@@ -471,31 +471,31 @@ export function useTesterMatchOrchestrator(params: UseTesterMatchOrchestratorPar
 
     // Process all dirty entries synchronously for now (no chunked timeouts).
     for (let cursor = 0; cursor < dirtyEntries.length; cursor += 1) {
-      if (cancelled || testerRowsBuildIdRef.current !== buildId) break
+      if (cancelled || gearEntriesBuildIdRef.current !== buildId) break
       const entry = dirtyEntries[cursor]
       if (!entry) continue
       nextRowMap.set(entry.itemId, buildRow(entry.artifact, entry.itemId))
-      setTesterRowsProgress({ completed: cursor + 1, total: dirtyEntries.length })
+      setGearEntriesProgress({ completed: cursor + 1, total: dirtyEntries.length })
     }
-    if (!cancelled && testerRowsBuildIdRef.current === buildId) {
+    if (!cancelled && gearEntriesBuildIdRef.current === buildId) {
       testerPreviewRowMapRef.current = nextRowMap
       const sortedRows = sortTesterRows(Array.from(nextRowMap.values()))
       setTesterPreviewRows(sortedRows)
-      setTesterRowsCommittedBuildId(buildId)
-      testerRowsCommittedRulesSignatureRef.current = mergedRulesSignature
+      setGearEntriesCommittedBuildId(buildId)
+      gearEntriesCommittedRulesSignatureRef.current = mergedRulesSignature
       lastSettledArtifactsRef.current = artifacts
       inFlightArtifactsRef.current = null
-      if (testerRowsBuildIdRef.current === buildId) {
-        setTesterRowsBuilding(false)
-        setTesterRowsProgress(null)
+      if (gearEntriesBuildIdRef.current === buildId) {
+        setGearEntriesBuilding(false)
+        setGearEntriesProgress(null)
       }
     }
     return () => {
       cancelled = true
       inFlightArtifactsRef.current = null
-      if (testerRowsBuildIdRef.current === buildId) {
-        setTesterRowsBuilding(false)
-        setTesterRowsProgress(null)
+      if (gearEntriesBuildIdRef.current === buildId) {
+        setGearEntriesBuilding(false)
+        setGearEntriesProgress(null)
       }
     }
   }, [
@@ -510,13 +510,13 @@ export function useTesterMatchOrchestrator(params: UseTesterMatchOrchestratorPar
     keepUniqueScanAppliedRef,
     pendingKeepUniqueDetectionSigRef,
     setTesterPreviewRows,
-    setTesterRowsBuilding,
-    setTesterRowsCommittedBuildId,
-    setTesterRowsActiveBuildId,
-    setTesterRowsProgress,
+    setGearEntriesBuilding,
+    setGearEntriesCommittedBuildId,
+    setGearEntriesActiveBuildId,
+    setGearEntriesProgress,
     effectiveWorkerSupported,
     keepUniqueDetectionDisabled,
-    testerRowsBuilding,
+    gearEntriesBuilding,
     rulesBuilding,
   ])
 
@@ -533,7 +533,7 @@ export function useTesterMatchOrchestrator(params: UseTesterMatchOrchestratorPar
   // Keep-unique detection refresh runs when candidates or rules change.
   useEffect(() => {
     // Only run detection when rows are settled.
-    const rowsUpToDate = testerRowsCommittedBuildId >= testerRowsBuildIdRef.current && !testerRowsBuilding
+    const rowsUpToDate = gearEntriesCommittedBuildId >= gearEntriesBuildIdRef.current && !gearEntriesBuilding
     // When disabled, clear any cached detection + pending signatures.
     if (!keepUniquesActive) {
       keepUniqueScanAppliedRef.current = null
@@ -542,7 +542,7 @@ export function useTesterMatchOrchestrator(params: UseTesterMatchOrchestratorPar
       return
     }
     // Defer until rows catch up to the latest build.
-    if (testerRowsBuilding || !rowsUpToDate) return
+    if (gearEntriesBuilding || !rowsUpToDate) return
     if (testerPreviewRows.length === 0 || keepUniqueCandidates.candidates.length === 0) {
       keepUniqueScanAppliedRef.current = null
       pendingKeepUniqueDetectionSigRef.current = null
@@ -598,8 +598,8 @@ export function useTesterMatchOrchestrator(params: UseTesterMatchOrchestratorPar
     keepUniqueCandidates,
     keepUniqueDetectionSignature,
     testerPreviewRows.length,
-    testerRowsBuilding,
-    testerRowsCommittedBuildId,
+    gearEntriesBuilding,
+    gearEntriesCommittedBuildId,
     setKeepUniqueDetection,
     keepUniqueScanAppliedRef,
     pendingKeepUniqueDetectionSigRef,

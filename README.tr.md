@@ -139,7 +139,7 @@ Ayrıca kapalı gelen yardımcı bir kural vardır: Silah + zırh parçalarını
 
 `≥ Gerekli adet` uygulamanın size verdiği sözdür. Rank ve Nadirlik dışındaki her seçicinin altındaki kapsam çipleri (`Kural başına`, `Slot başına`, `Set başına`, `Fraksiyon başına`, `Ana stat başına`) bu kotanın nasıl paylaşıldığını belirler; çipleri istediğiniz gibi katmanlayabilirsiniz ve hepsini kapattığınızda otomatik olarak paylaşılan `Kural başına` havuzuna geri dönülür.
 
-`Have {have} / Keep {keep}` sayacı tooltip’te anlatılanı aynen gösterir: **Have** tester’da bu kuralı tutturup konfigler, Final satış veya var olan Benzersizleri Koru satırları tarafından şimdiden korunmakta olan eşyaları sayar; **Keep** ise `≥ Gerekli adet` ile talep ettiğiniz kotadır. Sadece tester’da listelenen ve kuralı karşılayan eşyalar bu sayılara girer.
+`Have {have} / Keep {keep}` sayacı tooltip’te anlatılanı aynen gösterir: **Have** bu kuralı yakalayıp konfigler, Final satış veya var olan Benzersizleri Koru satırları tarafından şimdiden korunmakta olan eşyaları sayar; **Keep** ise `≥ Gerekli adet` ile talep ettiğiniz kotadır. Sadece listede yer alıp kuralı karşılayan eşyalar bu sayılara girer.
 
 Tarayıcı, yalnızca bir kuralı karşılayan bütün eşyalar aksi hâlde satılacaksa ekstra Koru satırları ekler. Normal konfigleriniz kotayı dolduruyorsa kart «Başka yerde korunuyor» mesajını gösterir ve yeni satır oluşturulmaz.
 

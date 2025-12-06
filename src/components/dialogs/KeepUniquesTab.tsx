@@ -72,7 +72,7 @@ type KeepUniquesTabProps = {
   onRulesChange: (next: SetStateAction<KeepUniqueRule[]>) => void
   onToggleEnabled: (next: SetStateAction<boolean>) => void
   detection: KeepUniqueDetectionSnapshot | null
-  testerRows: TesterPreviewRow[]
+  gearEntries: TesterPreviewRow[]
   uniqueItemKeys: ReadonlySet<number>
   substatColors: Record<number, { fg: string; bg: string }>
   useStatButtonColors: boolean
@@ -98,7 +98,7 @@ export default function KeepUniquesTab({
   onRulesChange,
   onToggleEnabled,
   detection,
-  testerRows,
+  gearEntries,
   uniqueItemKeys,
   substatColors,
   useStatButtonColors,
@@ -182,10 +182,10 @@ export default function KeepUniquesTab({
   const uniqueItemKeySet = uniqueItemKeys
   const uniqueRows = useMemo(() => {
     if (uniqueItemKeySet.size === 0) return []
-    if (uniqueItemKeySet.size === testerRows.length) return testerRows
-    return testerRows.filter((row) => uniqueItemKeySet.has(getKeepUniqueItemKey(row.artifact)))
-  }, [testerRows, uniqueItemKeySet])
-  const uniqueFilterActive = testerRows.length > uniqueRows.length
+    if (uniqueItemKeySet.size === gearEntries.length) return gearEntries
+    return gearEntries.filter((row) => uniqueItemKeySet.has(getKeepUniqueItemKey(row.artifact)))
+  }, [gearEntries, uniqueItemKeySet])
+  const uniqueFilterActive = gearEntries.length > uniqueRows.length
   // Highlight callback lets the tester grid fade non-matching cards instead of mutating the dataset.
   const highlightRowPredicate = useMemo(() => {
     if (!selectedEntry || selectedItemKeys.size === 0) return null
@@ -207,16 +207,16 @@ export default function KeepUniquesTab({
   }, [selectedEntry, uniqueItemKeySet])
   const highlightFilterActive = highlightActive && !selectionFilterApplied && uniqueRows.length > selectedVisibleRowCount
   const gridFiltered = uniqueFilterActive || highlightFilterActive || selectionFilterApplied
-  const hasTesterGear = testerRows.length > 0
+  const hasPreviewGear = gearEntries.length > 0
   const selectionChipLabel = useMemo(() => {
     if (selectedEntry) {
       // Keep the detail chip focused on the highlighted combination whenever a rule is active.
       return t('keepUniquesGridSelectedCount', { count: selectedVisibleRowCount })
     }
-    if (testerRows.length === 0 && uniqueRows.length === 0) return null
+    if (gearEntries.length === 0 && uniqueRows.length === 0) return null
     // Surface the aggregate unique count so the toolbar never collapses when no rule is selected.
     return t('keepUniquesGridUniqueCount', { count: uniqueRows.length })
-  }, [selectedEntry, selectedVisibleRowCount, testerRows.length, t, uniqueRows.length])
+  }, [selectedEntry, selectedVisibleRowCount, gearEntries.length, t, uniqueRows.length])
 
   const handleAddRule = useCallback(() => {
     const combination = makeDefaultKeepUniqueCombination()
@@ -926,8 +926,8 @@ export default function KeepUniquesTab({
                 dimUnhighlightedRows={highlightActive}
                 suppressMatchDetails={suppressMatchDetails}
                 keepUniquesEnabled={enabled}
-                hasTesterData={hasTesterGear}
-                emptyStateOptions={!hasTesterGear ? {
+                hasTesterData={hasPreviewGear}
+                emptyStateOptions={!hasPreviewGear ? {
                   borderVariant: 'dashed',
                   minHeight: '100%',
                   sx: { height: '100%', px: 3 },

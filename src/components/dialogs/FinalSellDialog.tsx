@@ -37,7 +37,7 @@ type FinalSellDialogProps = {
   keepUniquesEnabled: boolean
   onKeepUniquesEnabledChange: (next: SetStateAction<boolean>) => void
   keepUniqueDetection: KeepUniqueDetectionSnapshot | null
-  testerRows: TesterPreviewRow[]
+  gearEntries: TesterPreviewRow[]
   keepUniqueItemKeys: ReadonlySet<number>
   substatColors: Record<number, { fg: string; bg: string }>
   useStatButtonColors: boolean
@@ -68,7 +68,7 @@ export default function FinalSellDialog(props: FinalSellDialogProps) {
     keepUniquesEnabled,
     onKeepUniquesEnabledChange,
     keepUniqueDetection,
-    testerRows,
+    gearEntries,
     keepUniqueItemKeys,
     substatColors,
     useStatButtonColors,
@@ -408,7 +408,7 @@ export default function FinalSellDialog(props: FinalSellDialogProps) {
             onRulesChange={onKeepUniqueRulesChange}
             onToggleEnabled={onKeepUniquesEnabledChange}
             detection={keepUniqueDetection}
-            testerRows={testerRows}
+            gearEntries={gearEntries}
             uniqueItemKeys={keepUniqueItemKeys}
             substatColors={substatColors}
             useStatButtonColors={useStatButtonColors}
