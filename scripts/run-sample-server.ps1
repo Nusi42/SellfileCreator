@@ -245,6 +245,164 @@ $script:GearDbDownloadStore = [ordered]@{
 
 Set-Variable -Name 'GearDbDownloadPathRoot' -Option Constant -Value '/gear-db'
 
+#region === gearDb JSON stream reference ===
+# Example payloads for the raw snapshot/delta events described in
+# docs/technical/SellfileCreatorDelphiListener.pas. Copy/paste the here-strings
+# below when wiring Helper-side integrations that skip SQLite streaming.
+$script:GearDbRawSnapshotExample = @'
+{
+  "type": "gearDbRawSnapshot",
+  "payloadVersion": 1,
+  "snapshotId": "demo-raw-db",
+  "artifacts": [
+    {
+      "ID": 4010203,
+      "price": 0,
+      "rank": 6,
+      "type": 5,
+      "lvl": 16,
+      "mid": 2,
+      "mfl": 1,
+      "mlvl": 12,
+      "mlvlid": 75161927680,
+      "mgv": 0,
+      "s1id": 4,
+      "s1lvl": 2,
+      "s1fl": 1,
+      "s1lvlid": 16492674420,
+      "s1gv": 0,
+      "s1mlvlid": 0,
+      "s2id": 7,
+      "s2lvl": 1,
+      "s2fl": 0,
+      "s2lvlid": 5153960760,
+      "s2gv": 1288490188,
+      "s2mlvlid": 0,
+      "s3id": 8,
+      "s3lvl": 2,
+      "s3fl": 0,
+      "s3lvlid": 9448928050,
+      "s3gv": 0,
+      "s3mlvlid": 0,
+      "s4id": 0,
+      "s4lvl": 0,
+      "s4fl": 0,
+      "s4lvlid": 0,
+      "s4gv": 0,
+      "s4mlvlid": 0,
+      "rarity": 6,
+      "aset": 8,
+      "accset": 0,
+      "ss": 0,
+      "cID": 0,
+      "sumHP": 0,
+      "sumATK": 0,
+      "sumDEF": 0,
+      "sumSPD": 0,
+      "sumCQuote": 0,
+      "sumCDMG": 0,
+      "sumRES": 0,
+      "sumACC": 0,
+      "ASCID": 0,
+      "ASCLVL": 0,
+      "ASCFL": 0,
+      "ASCLVLID": 0,
+      "ASCGV": 0,
+      "ASCLEVEL": 0,
+      "REROLLCOUNT": 0
+    }
+  ],
+  "inboxArtifacts": [],
+  "champions": [
+    { "ID": 777001, "Name": "Arbiter", "Vault": 0, "RVault": 0, "BaseHeroID": 99001, "Rarity": 5 }
+  ],
+  "lastUsed": [
+    { "id": 4010203, "lastUse": "2024-05-08 14:33:27.123" }
+  ]
+}
+'@
+
+$script:GearDbRawDeltaExample = @'
+{
+  "type": "gearDbRawDelta",
+  "payloadVersion": 1,
+  "snapshotId": "demo-raw-db",
+  "ops": [
+    {
+      "op": "upsert",
+      "table": "Artifacts",
+      "row": {
+        "ID": 4010203,
+        "price": 0,
+        "rank": 6,
+        "type": 5,
+        "lvl": 16,
+        "mid": 2,
+        "mfl": 1,
+        "mlvl": 12,
+        "mlvlid": 75161927680,
+        "mgv": 0,
+        "s1id": 4,
+        "s1lvl": 3,
+        "s1fl": 1,
+        "s1lvlid": 19327352832,
+        "s1gv": 0,
+        "s1mlvlid": 0,
+        "s2id": 7,
+        "s2lvl": 1,
+        "s2fl": 0,
+        "s2lvlid": 5153960760,
+        "s2gv": 1288490188,
+        "s2mlvlid": 0,
+        "s3id": 8,
+        "s3lvl": 2,
+        "s3fl": 0,
+        "s3lvlid": 9448928050,
+        "s3gv": 0,
+        "s3mlvlid": 0,
+        "s4id": 0,
+        "s4lvl": 0,
+        "s4fl": 0,
+        "s4lvlid": 0,
+        "s4gv": 0,
+        "s4mlvlid": 0,
+        "rarity": 6,
+        "aset": 8,
+        "accset": 0,
+        "ss": 0,
+        "cID": 0,
+        "sumHP": 0,
+        "sumATK": 0,
+        "sumDEF": 0,
+        "sumSPD": 0,
+        "sumCQuote": 0,
+        "sumCDMG": 0,
+        "sumRES": 0,
+        "sumACC": 0,
+        "ASCID": 0,
+        "ASCLVL": 0,
+        "ASCFL": 0,
+        "ASCLVLID": 0,
+        "ASCGV": 0,
+        "ASCLEVEL": 0,
+        "REROLLCOUNT": 0
+      }
+    },
+    {
+      "op": "remove",
+      "table": "Artifacts",
+      "id": 99881122
+    },
+    {
+      "op": "upsert",
+      "table": "LastUsed",
+      "row": { "id": 4010203, "lastUse": "2024-05-09 09:12:45.000" }
+    }
+  ]
+}
+'@
+#endregion
+
 #region === Protocol state (copy-worthy) ===
 # Everything in this region demonstrates the state the server keeps while
 # speaking the Sellfile Creator Web Protocol. The queue is intentionally tiny
@@ -1350,6 +1508,11 @@ function Write-ProtocolQuickReference {
             @{ Text = '      Events:'; Color = [ConsoleColor]::Gray }
             @{ Text = ' selectRule '; Color = [ConsoleColor]::Magenta }
             @{ Text = '→ focus preview row (rowNumber)'; Color = [ConsoleColor]::Gray }
+        ))
+    Write-ConsoleHeader -Message (New-ConsoleSegmentLine -Segments @(
+            @{ Text = '      JSON gear stream:'; Color = [ConsoleColor]::Gray }
+            @{ Text = ' gearDbRawSnapshot + gearDbRawDelta '; Color = [ConsoleColor]::Magenta }
+            @{ Text = '→ raw table rows w/ optional deltas (see examples below)'; Color = [ConsoleColor]::Gray }
         ))
 
     Write-ConsoleHeader -Message (New-ConsoleSegmentLine -Segments @(
