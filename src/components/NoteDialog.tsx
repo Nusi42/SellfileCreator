@@ -20,7 +20,7 @@ import { artifactSetI18nKey, artifactTypeI18nKey, artifactSetNames, artifactType
 import ConfigChip from './ConfigChip'
 // MarkdownTooltip ensures the color pickers + toolbar reuse the same hover delay/style across the app.
 import MarkdownTooltip from './MarkdownTooltip'
-import { KEEP_UNIQUE_DEFAULT_COUNT_MODE, sanitizeKeepUniqueCountMode, type KeepUniqueRule } from '../lib/keepUniques'
+import { KEEP_UNIQUE_DEFAULT_COUNT_MODE, sanitizeKeepUniqueCountMode, type KeepUniqueRule, KeepUniqueRuleActivation } from '../lib/keepUniques'
 import { resolveRarityLabel } from '../lib/testerPreviewFormatting'
 
 // Limited color palette for Note highlighting rendered from Markdown via
@@ -1025,7 +1025,7 @@ function KeepUniqueSummaryCard({
           >
             {titleLabel}
           </Typography>
-          {!rule.enabled ? (
+          {rule.activation === KeepUniqueRuleActivation.Off ? (
             <Box
               sx={{
                 display: 'inline-flex',

@@ -1,4 +1,4 @@
-import { sanitizeKeepUniqueCountMode, type KeepUniqueDetectionSnapshot } from './keepUniques'
+import { hashKeepUniqueCombination, sanitizeKeepUniqueCountMode, type KeepUniqueDetectionSnapshot } from './keepUniques'
 
 /**
  * Build a stable fingerprint for Keep Unique detection snapshots so callers in the
@@ -14,7 +14,7 @@ export const fingerprintKeepUniqueDetection = (
     const mode = sanitizeKeepUniqueCountMode(entry.countMode)
     parts.push([
       entry.ruleId ?? '',
-      entry.ruleEnabled ? 1 : 0,
+      entry.ruleActivation ?? '',
       mode.perRule ? 1 : 0,
       mode.perSet ? 1 : 0,
       mode.perFaction ? 1 : 0,
@@ -28,6 +28,8 @@ export const fingerprintKeepUniqueDetection = (
       entry.deficit,
       entry.coveredByExisting ? 1 : 0,
       entry.itemKeys.join(','),
+      entry.placeholders.length,
+      entry.placeholders.map((placeholder) => `${hashKeepUniqueCombination(placeholder.combination)}:${placeholder.missing}:${placeholder.reason}`).join(','),
     ].join(':'))
   }
   return parts.join(';')

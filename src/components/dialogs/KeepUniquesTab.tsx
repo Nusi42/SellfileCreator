@@ -13,6 +13,8 @@ import {
   InputAdornment,
   Stack,
   Switch,
+  ToggleButton,
+  ToggleButtonGroup,
   TextField,
   Typography,
 } from '@mui/material'
@@ -25,6 +27,7 @@ import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined'
 import WarningAmberRoundedIcon from '@mui/icons-material/WarningAmberRounded'
 import {
   KEEP_UNIQUE_DEFAULT_COUNT_MODE,
+  KeepUniqueRuleActivation,
   sanitizeKeepUniqueCountMode,
   type KeepUniqueDetectionEntry,
   type KeepUniqueDetectionSnapshot,
@@ -52,6 +55,7 @@ import { NumberSpinnerAdornment } from '../NumberSpinnerAdornment'
 import WorkloadProgressIndicator from '../WorkloadProgressIndicator'
 // MarkdownTooltip keeps the rule-count hints and info icons synchronized with the broader tooltip refactor.
 import MarkdownTooltip from '../MarkdownTooltip'
+import EllipsisTooltip from '../EllipsisTooltip'
 import type { SetStateAction } from 'react'
 import type { Metaset } from '../../lib/metasets'
 import InlineSelectClearButton from '../InlineSelectClearButton'
@@ -226,7 +230,7 @@ export default function KeepUniquesTab({
       combination,
       name: '',
       requiredCount: 1,
-      enabled: true,
+      activation: KeepUniqueRuleActivation.ProtectExisting,
       countMode: { ...KEEP_UNIQUE_DEFAULT_COUNT_MODE },
     }
     mutateRules((prev) => [...prev, newRule])
@@ -325,7 +329,7 @@ export default function KeepUniquesTab({
   }, [])
 
   const renderRuleCard = (rule: KeepUniqueRule) => {
-    const ruleDisabled = !rule.enabled
+    const ruleDisabled = rule.activation === KeepUniqueRuleActivation.Off
     const combination = rule.combination
     const ruleDetection = detectionByRuleId.get(rule.id) ?? null
     const slotSelection = combination.slots
@@ -484,30 +488,111 @@ export default function KeepUniquesTab({
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
-              flexWrap: 'wrap',
+              flexWrap: { xs: 'wrap', sm: 'nowrap' },
               gap: 1,
             }}
           >
-            <Box component="span" data-rule-card-interactive="true">
-              <FormControlLabel
-                control={(
-                  <Switch
-                    checked={rule.enabled}
-                    onChange={(_event, checked) => updateRule(rule.id, (prev) => ({ ...prev, enabled: checked }), checked)}
-                  />
-                )}
-                label={t('keepUniquesRuleEnabledToggle')}
-              />
-            </Box>
-            <Stack
-              direction="row"
-              spacing={0.5}
-              alignItems="center"
-              sx={{ color: 'text.secondary' }}
+            <Box
+              component="span"
+              data-rule-card-interactive="true"
+              sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, flex: '1 1 320px', minWidth: 0 }}
             >
-              <Typography variant="caption" component="span" color="inherit">
-                {t('keepUniquesCountModeToggleLabel')}
+              <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
+                {t('keepUniquesRuleModeLabel')}
               </Typography>
+              <ToggleButtonGroup
+                size="small"
+                exclusive
+                value={rule.activation}
+                onChange={(_event, next) => {
+                  if (!next) return
+                  updateRule(
+                    rule.id,
+                    (prev) => (prev.activation === next ? prev : { ...prev, activation: next }),
+                    next !== KeepUniqueRuleActivation.Off,
+                  )
+                }}
+                sx={{ display: 'flex', width: '100%' }}
+              >
+                <ToggleButton
+                  value={KeepUniqueRuleActivation.Off}
+                  aria-label={t('keepUniquesRuleModeOff')}
+                  sx={{ flex: 1, minWidth: 0, px: 1 }}
+                >
+                  <EllipsisTooltip title={t('keepUniquesRuleModeOff')}>
+                    <Box
+                      component="span"
+                      data-ellipsis-target
+                      sx={{
+                        display: '-webkit-box',
+                        WebkitBoxOrient: 'vertical',
+                        WebkitLineClamp: 2,
+                        overflow: 'hidden',
+                        wordBreak: 'break-word',
+                        lineHeight: 1.2,
+                      }}
+                    >
+                      {t('keepUniquesRuleModeOff')}
+                    </Box>
+                  </EllipsisTooltip>
+                </ToggleButton>
+                <ToggleButton
+                  value={KeepUniqueRuleActivation.ProtectExisting}
+                  aria-label={t('keepUniquesRuleModeProtect')}
+                  sx={{ flex: 1, minWidth: 0, px: 1 }}
+                >
+                  <EllipsisTooltip title={t('keepUniquesRuleModeProtect')}>
+                    <Box
+                      component="span"
+                      data-ellipsis-target
+                      sx={{
+                        display: '-webkit-box',
+                        WebkitBoxOrient: 'vertical',
+                        WebkitLineClamp: 2,
+                        overflow: 'hidden',
+                        wordBreak: 'break-word',
+                        lineHeight: 1.2,
+                      }}
+                    >
+                      {t('keepUniquesRuleModeProtect')}
+                    </Box>
+                  </EllipsisTooltip>
+                </ToggleButton>
+                <ToggleButton
+                  value={KeepUniqueRuleActivation.AnticipateGaps}
+                  aria-label={t('keepUniquesRuleModeAnticipate')}
+                  sx={{ flex: 1, minWidth: 0, px: 1 }}
+                >
+                  <EllipsisTooltip title={t('keepUniquesRuleModeAnticipate')}>
+                    <Box
+                      component="span"
+                      data-ellipsis-target
+                      sx={{
+                        display: '-webkit-box',
+                        WebkitBoxOrient: 'vertical',
+                        WebkitLineClamp: 2,
+                        overflow: 'hidden',
+                        wordBreak: 'break-word',
+                        lineHeight: 1.2,
+                      }}
+                    >
+                      {t('keepUniquesRuleModeAnticipate')}
+                    </Box>
+                  </EllipsisTooltip>
+                </ToggleButton>
+              </ToggleButtonGroup>
+            </Box>
+            <Box
+              sx={{
+                flex: '0 0 auto',
+                display: 'flex',
+                justifyContent: 'flex-end',
+                alignItems: 'center',
+                alignSelf: 'stretch',
+                color: 'text.secondary',
+                minWidth: 32,
+              }}
+            >
               <MarkdownTooltip markdown={t('keepUniquesCountModeHint')}>
                 <IconButton
                   size="small"
@@ -523,7 +608,7 @@ export default function KeepUniquesTab({
                   <InfoOutlinedIcon fontSize="inherit" />
                 </IconButton>
               </MarkdownTooltip>
-            </Stack>
+            </Box>
           </Box>
           <TextField
             fullWidth

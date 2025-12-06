@@ -43,7 +43,7 @@ import {
   type FinalSellRemainderConfig,
   type FinalSellSetsMode,
 } from './finalSell'
-import { normalizeKeepUniqueRule, sanitizeKeepUniqueCountMode, type KeepUniqueRule } from './keepUniques'
+import { normalizeKeepUniqueRule, sanitizeKeepUniqueCountMode, type KeepUniqueRule, KeepUniqueRuleActivation } from './keepUniques'
 
 type LockedMinValue = Exclude<BuilderConfig['lockedMinRequiredRolls'], undefined>
 type AggregateMinValue = Exclude<BuilderConfig['minRequiredRolls'], undefined>
@@ -894,7 +894,7 @@ export function buildHsfcPayload(args: {
     Minima: unknown
     Configs: unknown[]
     FinalSellRemainder: FinalSellRemainderConfig
-    KeepUniques: Array<{ id: string; name?: string; requiredCount: number; enabled: boolean; countMode: KeepUniqueRule['countMode']; tuple: ReadableKeepUniqueTuple }>
+    KeepUniques: Array<{ id: string; name?: string; requiredCount: number; activation: KeepUniqueRuleActivation; countMode: KeepUniqueRule['countMode']; tuple: ReadableKeepUniqueTuple }>
     KeepUniquesEnabled: boolean
     SelectedConfigIndex?: number
     Note?: string
@@ -966,7 +966,7 @@ export function buildHsfcPayload(args: {
         id: rule.id,
         ...(trimmedName ? { name: trimmedName } : {}),
         requiredCount: Math.max(1, Math.floor(rule.requiredCount)),
-        enabled: rule.enabled !== false,
+        activation: rule.activation ?? KeepUniqueRuleActivation.ProtectExisting,
         countMode: {
           perRule: mode.perRule,
           perSet: mode.perSet,

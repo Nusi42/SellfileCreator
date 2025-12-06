@@ -1,12 +1,13 @@
 /* eslint import/no-unused-modules: off */
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { KEEP_UNIQUE_DEFAULT_COUNT_MODE, collectKeepUniqueCandidates, computeKeepUniqueProtection, hashKeepUniqueCombination, normalizeKeepUniqueRule, resolveKeepUniqueRuleLabel, resolveKeepUniqueRulesWithMetasets, buildDefaultKeepUniqueRules } from '../src/lib/keepUniques.js'
-import { ACCESSORY_SLOTS_COMPATIBLE_SET_IDS, ArtifactSet, ArtifactType, StatVariant, type RankValue } from '../src/lib/types.js'
+import { KEEP_UNIQUE_DEFAULT_COUNT_MODE, KeepUniqueRuleActivation, collectKeepUniqueCandidates, computeKeepUniqueProtection, hashKeepUniqueCombination, normalizeKeepUniqueRule, resolveKeepUniqueRuleLabel, resolveKeepUniqueRulesWithMetasets, buildDefaultKeepUniqueRules } from '../src/lib/keepUniques.js'
+import { ACCESSORY_SLOTS_COMPATIBLE_SET_IDS, ArtifactSet, ArtifactType, Faction, StatVariant, LEVEL_ANY_SENTINEL, RarityCode, type RankValue } from '../src/lib/types.js'
 import type { TesterPreviewRow } from '../src/types/testerPreview.js'
 import type { NormalizedGearArtifact, NormalizedStat } from '../src/lib/importers/gearDbNormalizer.js'
 import type { KeepUniqueRule } from '../src/lib/keepUniques.js'
 import type { Metaset } from '../src/lib/metasets.js'
+import { buildKeepUniqueRules } from '../src/lib/merge.js'
 import type { HsfRuleWithCfg } from '../src/lib/merge.js'
 
 let nextArtifactId = 1
@@ -81,7 +82,7 @@ const makeRule = (overrides: Partial<KeepUniqueRule> = {}): KeepUniqueRule => {
       factions: [],
     },
     requiredCount: overrides.requiredCount ?? 1,
-    enabled: overrides.enabled ?? true,
+    activation: overrides.activation ?? KeepUniqueRuleActivation.ProtectExisting,
     countMode: overrides.countMode ?? KEEP_UNIQUE_DEFAULT_COUNT_MODE,
   })
   if (!rule) throw new Error('expected combination')
@@ -163,7 +164,8 @@ test('coveredByExisting flips when existing keep rules meet requirement', () => 
   const rows: TesterPreviewRow[] = []
   const candidates = collectKeepUniqueCandidates({ rows, baseRules: [], configModes: [] }).candidates
   const snapshot = computeKeepUniqueProtection({ candidates, rules, enabled: true })
-  assert.strictEqual(snapshot.entries[0]?.coveredByExisting, true, 'no sold artifacts means existing coverage is sufficient')
+  assert.strictEqual(snapshot.entries[0]?.coveredByExisting, false, 'no gear means the quota still needs coverage')
+  assert.strictEqual(snapshot.entries[0]?.deficit, 1, 'empty combos should report a deficit equal to the quota')
   assert.strictEqual(snapshot.entries[0]?.projectedCount, 0)
 })
 
@@ -295,7 +297,7 @@ test('default keep unique rules seed the accessory guard and optional armor sets
   const armorRule = rules[1]
   assert.ok(armorRule)
   assert.strictEqual(armorRule.name, 'Utility Sets (5-6★)')
-  assert.strictEqual(armorRule.enabled, false)
+  assert.strictEqual(armorRule.activation, KeepUniqueRuleActivation.Off)
   assert.deepStrictEqual(armorRule.combination.slots, [
     ArtifactType.Weapon,
     ArtifactType.Helmet,
@@ -315,6 +317,35 @@ test('default keep unique rules seed the accessory guard and optional armor sets
   assert.ok(armorCountMode.perSet)
   assert.strictEqual(armorCountMode.perFaction, false)
   assert.strictEqual(armorCountMode.perMainStat, false)
+})
+
+test('anticipate mode emits placeholder keeps when deficits remain', () => {
+  const anticipateRule = makeRule({
+    activation: KeepUniqueRuleActivation.AnticipateGaps,
+    combination: {
+      slots: [ArtifactType.Amulet],
+      sets: [ArtifactSet.Refresh],
+      metaSetIds: [],
+      ranks: [6],
+      rarities: [5],
+      mainStats: [StatVariant.CDMG],
+      factions: [Faction.BannerLords],
+    },
+  })
+  const detection = computeKeepUniqueProtection({ candidates: [], rules: [anticipateRule], enabled: true })
+  const entry = detection.entries[0]
+  assert.ok(entry, 'expected detection entry for anticipate rule')
+  assert.strictEqual(entry.placeholders.length, 1, 'placeholder should be recorded when quota is unmet')
+  const keepRules = buildKeepUniqueRules([anticipateRule], detection)
+  assert.strictEqual(keepRules.length, 1, 'placeholder should emit a keep rule even without gear')
+  const placeholderRule = keepRules[0]!
+  assert.ok(placeholderRule.__keepUniquePlaceholder, 'placeholder keep should be flagged')
+  assert.deepStrictEqual(placeholderRule.ArtifactType, [ArtifactType.Amulet])
+  assert.deepStrictEqual(placeholderRule.ArtifactSet, [ArtifactSet.Refresh])
+  assert.strictEqual(placeholderRule.Rank, 6)
+  assert.strictEqual(placeholderRule.Rarity, RarityCode.Legendary)
+  assert.strictEqual(placeholderRule.Faction, Faction.BannerLords)
+  assert.strictEqual(placeholderRule.LVLForCheck, LEVEL_ANY_SENTINEL)
 })
 
 test('resolveKeepUniqueRuleLabel prefers trimmed rule names', () => {
