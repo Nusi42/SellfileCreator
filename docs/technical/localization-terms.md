@@ -14,15 +14,15 @@ This document captures the current vocabulary for the Rule Tester / Keep Uniques
 - **Notes**: No conflicts yet; catalogs already match README for Rule Tester wording. Keep Uniques needs README coverage once the feature copy is written so the term can be referenced consistently. UI labels now follow a strict title-case style (menus, buttons, toggle labels, status chips) while tooltips and paragraph copy stay in sentence case—mirror this split when editing English strings or seeding new locales so button text doesn’t drift into sentence case over time.
 
 ## de-DE (`README.de.md`, `src/lib/i18n/catalogs/de-DE.ts`)
-- **README wording**: The preview copy now refers to the toggle and preview as “Regel Tester”/“Regel Tester-Vorschau” (`README.de.md` lines 9‑132) so the prose matches the UI label. The section also calls out glyphs (“Glyphen”) and the wildcard examples still say “Wildcard”. Keep Uniques is not described yet.
+- **README wording**: The Sellfile preview, dialog references, and filters all use “Regel Tester”/“Regel Tester-Vorschau” and keep the “Glyphen” + “Wildcard” vocabulary. The new `### Unikate behalten` section documents the Finaler Verkauf tab, the default + helper rules, the `Vorhanden / Behalten` counter, the “Fehlen {count}”/“Anderswo abgedeckt” cues, and the `Filter: Alle / Auswahl` switch so the prose matches the UI.
 - **Catalog values**:
   * `testerPreviewHeading`: “Regel Tester”.
-  * `tabKeepUniques` + helpers: “Unikate behalten”.
-  * `filterGlyphs` entries are localized (`Glyphen`, `Beliebig`, `An`, `Aus`, `Ausgewählt`, with a German tooltip), but `filterRolls` entries (helper, wildcard title, roll chips, validation text) remain in English.
+  * `tabKeepUniques` + helpers: “Unikate behalten” plus `keepUniquesRuleCounts = "Vorhanden {have} / Behalten {keep}"` and `keepUniquesGridFilterLabel = "Filter: {mode}"` with `keepUniquesGridFilterModeAll = "Alle"` / `keepUniquesGridFilterModeSelection = "Auswahl"`.
+  * `filterGlyphs` entries are localized (`Glyphen`, `Beliebig`, `An`, `Aus`, `Ausgewählt`, German tooltip). `filterRolls` keeps “Rolls” as a deliberate loanword while the helper text, wildcard title, and summaries stay German to match the README phrasing.
   * `tutSectionRuleTesterLabel`: “Regel Tester”.
 - **Glyph wording**: README explicitly calls out “Glyphen und Rollen”.
 - **Wildcard wording**: The examples keep using “Wildcard”, so future copy should confirm whether the English term is acceptable or should be replaced.
-- **Notes**: Translate the `filterRolls*` keys while keeping the updated “Regel Tester” text in sync with the README. Keep Uniques copy still needs to propagate into the README once the feature text is ready.
+- **Notes**: Keep Uniques copy now matches the catalog (“Unikate behalten”, `Vorhanden / Behalten`, `Filter: Alle / Auswahl`). “Rolls” remains a shared loanword between README + catalog, so no catalog changes are pending for this locale.
 
 ## es-ES (`README.es.md`, `src/lib/i18n/catalogs/es-ES.ts`)
 - **README wording**: “Probador” is used for the Rule Tester preview and dialog (see the Sellfile preview sections around lines 90‑140). Glyph references use “glifos” and the wildcard examples use “comodín”. Keep Uniques is not yet described.
