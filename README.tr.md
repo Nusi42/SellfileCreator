@@ -12,8 +12,6 @@ RSL Helper için satış kurallarını basit bir arayüzle oluşturun, önizleyi
 - Tek tıkla dışa aktarma: RSL Helper’da kullanılmaya hazır bir HSF dosyası üretin.
 - Kural testi önizlemesi + Gear iletişim kutusu (“Gear...”): Örnek ekipman oluşturun, satırları yapıştırın veya RSL Helper veritabanınızı (genellikle `%APPDATA%\RslHelper\Config`) iletişim kutusuna sürükleyip bırakın. Sonra iletişim kutusunu kapalı bırakıp önizleme anahtarıyla bu ekipmanı kurallarınızla karşılaştırırken görünürde tutun.
 - «Benzersizleri Koru» sekmesi: Kaybetmenize asla izin vermek istemediğiniz kombinasyonları tanımlayın. Konfigleriniz + şu anda aktif olan Satış kurallarınız tüm kopyaları siliyorsa tarayıcı otomatik olarak koruma kuralları üretir.
-- Autosave geri yükleme iletişim kutusu: Bir autosave bulunduğunda, hangi bölümlerin yükleneceğini tek tek seç — konfigler, metasetler, Alt stat hedef değerleri, Final satış bakiyesi, sabitlenmiş not, filtre paneli durumu ve hatta Kural testi kuyruğu.
-- RSL Helper DB klasörünü kopyala: Önizleme başlığındaki pano düğmesi `%APPDATA%\RslHelper\Config` yolunu kopyalar; böylece `.db` dosyasını Sellfile Creator’a sürüklemeden önce yolu Explorer’a/gezgine yapıştırabilirsin.
 
 ## Nasıl kullanılır
 
@@ -99,11 +97,11 @@ RSL Helper için satış kurallarını basit bir arayüzle oluşturun, önizleyi
 - Final satış açıkken üretilen Sat kuralları tüm bilinen setleri içerir. Önizleme «Tüm bilinen setler» der; dışa aktarılan dosya yine her seti tek tek listeler.
 
 ### Konfig yönetimi
-- Kaydedilen konfigler oluşturucunun altında etiket olarak görünür. Sol tık seçer; sağ tık kopyala, taşı, çoğalt veya sil işlemlerini açar.
-- «Tüm konfigleri sil» tüm konfigleri siler (onay istenir).
-- Hover bağlantısı: Bir etiketin üzerine gelmek, önizleme tablosundaki ilgili satırları vurgular ve tersi.
-- Tabloda satıra tıklamak satırın ait olduğu konfigi seçer (baz HSF satırları seçimi değiştirmez).
-- Panoya alternatif: Clipboard erişimi engellenirse, metni seçili şekilde gösteren bir iletişim kutusu açılır.
+- Kaydedilen konfig listesi: Her konfig oluşturucunun altında küçük bir etiket olarak görünür. Sol tık seçer, çoğaltmak/yeniden sıralamak/silmek için sağ tık menülerini kullanabilirsin; «Konfigleri sil» düğmesi tüm listeyi (onay isteyerek) kaldırır.
+- Hover bağlantısı: Bir etiketin üzerine gelmek Sellfile Önizleme tablosunda o konfigden gelen her satırı vurgular; tablodaki satırın üzerine gelmek de listede ilgili etiketi aydınlatır.
+- Tıklama bağlantısı: Sellfile tablosundaki satıra tıklamak onun bağlı olduğu konfigi seçer ve oluşturucuya yükler. Baz `.hsf` satırları seçimi değiştirmez.
+- Sağ tık menüleri: Her kaydedilmiş konfigte Duplicate/Move/Copy/Delete seçenekleri bulunur. Listenin boş alanındaki menü ise `Copy All` ve `Paste` kısayollarını paylaşır; böylece tüm konfigleri tek hamlede panoya alabilir ya da toplu yapıştırabilirsiniz.
+- Pano yedeği: Clipboard erişimi engellenirse içerik önceden seçili hâlde ayrı bir iletişim kutusunda açılır — `Ctrl/Cmd+C` ile kopyalayın veya `Paste` iletişim kutusuna yapıştırın.
 
 ### Sellfile önizlemesi (Rules & Kural testi)
 - Önizleme başlığı `Rules`/`Kural testi` anahtarını, “Gear...” düğmesini ve “Load RSL Helper Sellfile” düğmesini yan yana tutar; böylece tabloyu nereden değiştireceğinizi veya Kural testi iletişim kutusunu nereden açacağınızı her zaman bilirsiniz.
@@ -133,20 +131,40 @@ RSL Helper için satış kurallarını basit bir arayüzle oluşturun, önizleyi
 - Önizleme anahtarını kullanarak kurallar tablosu ile Kural testi tablosu arasında iletişim kutusunu yeniden açmadan gidip gelin; böylece üretilen satırları tetikleyen ekipmanla yan yana karşılaştırabilirsiniz.
 
 ### Benzersizleri Koru
-- Nihai satış iletişim kutusunu açıp «Benzersizleri Koru» sekmesine geçin; kaybetmek istemediğiniz kombinasyonları burada işaretleyin. Anahtarını açtığınızda düzenlemeye başlayabilirsiniz.
-- Her kuralda slot, set ya da metaset, rank, nadirlik, ana stat ve (aksesuarlar için) faksiyon seçebilirsiniz. Seçimi boş bırakmak «farketmez» anlamına gelir.
-- `≥ Gerekli adet` uygulamanın tutmasını istediğiniz sayıdır. Hemen yanındaki küçük düğme grubu «Kural başına» seçeneğiyle birlikte «Slot başına», «Set başına», «Fraksiyon başına» ve «Ana stat başına» anahtarlarını içerir. «Kural başına» tek bir kotayı korur; bu dört düğmeden istediğinizi açarak kotayı her uygun karışım için çarpabilirsiniz (dörtü de kapalıyken mod otomatik olarak «Kural başına» döner).
-- Tarayıcı yalnızca eşleşen tüm eşyalar aksi hâlde satılacaksa ekstra Koru satırları ekler. Normal konfigleriniz zaten yeterince eşya tutuyorsa kartta «Başka yerde korunuyor» yazar ve yeni satır çıkmaz.
+Final satış iletişim kutusunu açıp «Benzersizleri Koru» sekmesine geçin; kaybetmek istemediğiniz kombinasyonları burada işaretleyin. Anahtarı açtığınız anda düzenlemeye başlayabilirsiniz. Her kuralda slot, set veya metaset, rank, nadirlik, ana stat ve (aksesuarlar için) faksiyon seçebilirsiniz; alanı boş bırakmak “herhangi” anlamına gelir.
 
-#### Gerçek örnekler
-1. **SPD botlar tükeniyor:** Slot = Botlar, Ana stat = SPD, setler boş. `≥ Gerekli adet = 5`, mod «Kural başına». Böylece hangi setten gelirse gelsin en az beş SPD botu hep kalır.
-2. **Savage ve Lethal eldivenleri karıştırmak:** Slot = Eldiven, Set = Savage + Lethal, Ana stat = CDMG%. `≥ Gerekli adet = 3`, «Kural başına». CDMG% ana statlı üç hasar eldivenini karışım ne olursa olsun korursunuz.
-3. **Her faksiyona Merciless yüzük:** Slot = Yüzük, Set = Merciless, Faksiyon boş. `≥ Gerekli adet = 3`, «Fraksiyon başına» düğmesini açın. Her fraksiyon kendi üç yüzüğünü tutmak zorunda kalır.
-4. **Faksiyon başına HP% yüzük:** Slot = Yüzük, Ana stat = HP%, setler boş. `≥ Gerekli adet = 2`, «Fraksiyon başına» aktif. Uygulama her fraksiyonu ayrı izler ve ikişer HP% yüzüğü saklar.
-5. **Çekirdek aksesuarları korumak:** Üç kural ekleyin (Yüzük, Muska, Sancak). Set ve ana stat boş, `≥ Gerekli adet = 5`, «Fraksiyon başına» açık. Böylece her fraksiyon her aksesuar yuvasından beşer tane saklar.
-6. **Stoneskin/Protection setlerini paylaşmak:** Her aksesuar yuvası için Set = Stoneskin + Protection seçin, ana stati boş bırakın, `≥ Gerekli adet = 2`, hem «Set başına» hem «Fraksiyon başına» açık. Bu sayede bu setler düştüğünde her faksiyonda her yuva için iki parça kalır.
+Varsayılan olarak 5★/6★ yüzük, muska ve sancakları tüm 1–9 ve tek parça aksesuar setleri içinde tarayan bir kural zaten hazırdır ve `Slot başına`, `Set başına`, `Fraksiyon başına` ve `Ana stat başına` çipleri açık bırakılmıştır; böylece her kombinasyon için en az bir eşya korunur.
 
-İpucu: Sekmeyi açmadan önce `.db` yükleyin veya tester’a eşya ekleyin ki tarayıcı gerçek veriyi görsün. Bir kural «Eksik 2» yazdığında üzerine tıklayın; tester tablosu bu eşyaları vurgular ve hangi faksiyon/setin açıkta kaldığını görürsünüz.
+Ayrıca kapalı gelen yardımcı bir kural vardır: Silah + zırh parçalarını (silah, miğfer, kalkan, eldiven, göğüslük, bot) 5★/6★ aralığında hedefler, stun/toxic/daze/cursed/provoke/destroy ailelerindeki setleri kapsar ve `Slot başına` + `Set başına` kapsamlarını kullanır. Bu tarayıcıyı daha sonra nadir setleri korumak istediğinizde açabilirsiniz.
+
+`≥ Gerekli adet` uygulamanın size verdiği sözdür. Rank ve Nadirlik dışındaki her seçicinin altındaki kapsam çipleri (`Kural başına`, `Slot başına`, `Set başına`, `Fraksiyon başına`, `Ana stat başına`) bu kotanın nasıl paylaşıldığını belirler; çipleri istediğiniz gibi katmanlayabilirsiniz ve hepsini kapattığınızda otomatik olarak paylaşılan `Kural başına` havuzuna geri dönülür.
+
+`Have {have} / Keep {keep}` sayacı tooltip’te anlatılanı aynen gösterir: **Have** tester’da bu kuralı tutturup konfigler, Final satış veya var olan Benzersizleri Koru satırları tarafından şimdiden korunmakta olan eşyaları sayar; **Keep** ise `≥ Gerekli adet` ile talep ettiğiniz kotadır. Sadece tester’da listelenen ve kuralı karşılayan eşyalar bu sayılara girer.
+
+Tarayıcı, yalnızca bir kuralı karşılayan bütün eşyalar aksi hâlde satılacaksa ekstra Koru satırları ekler. Normal konfigleriniz kotayı dolduruyorsa kart «Başka yerde korunuyor» mesajını gösterir ve yeni satır oluşturulmaz.
+
+Kapsam çiplerini üst üste koymak kimin kendi kotasını alacağını değiştirir. Tek havuz için `Kural başına` açık bırakın; `Slot başına`, `Set başına`, `Fraksiyon başına` ve `Ana stat başına` düğmelerini katmanlayarak Slot × Set × Fraksiyon × Ana stat kombinasyonlarını ayrı ayrı izleyebilirsiniz.
+
+#### Kota kapsamları bir bakışta
+| Kapsam düğmesi | Kota davranışı | Ne zaman parlıyor |
+| --- | --- | --- |
+| `Kural başına` | Tüm kural tek bir havuza bağlı kalır. | Setten bağımsız olarak beş SPD botunu koruyun. |
+| `Slot başına` | Her slot için kotayı yeniden üretir. | Yüzük, muska ve sancağı ikişer tane ayrı ayrı saklayın. |
+| `Set başına` | Karttaki her set/metaset için havuzu kopyalar. | Stoneskin ve Protection düşüşlerini ayrı sayın. |
+| `Fraksiyon başına` | Her fraksiyon kendi kotasına sahip olur. | Her fraksiyon için üç Merciless yüzük bırakın. |
+| `Ana stat başına` | Seçili ana statların her biri kendi havuzuna sahip olur. | ACC ve RES sancakları farklı kotalarda takip edin. |
+
+#### Gerçek dünyadan örnekler
+| Senaryo | Filtreler | Kapsam düğmeleri | Tarayıcının garantisi |
+| --- | --- | --- | --- |
+| SPD botlar tükeniyor | Slot = Botlar, Ana stat = SPD, Setler boş, `≥ Gerekli adet = 5` | `Kural başına` | Hangi set olursa olsun en az beş SPD botu kalır. |
+| Savage + Lethal eldivenleri karıştırmak | Slot = Eldiven, Set = Savage + Lethal, Ana stat = CDMG%, `≥ Gerekli adet = 3` | `Kural başına` | Set karışımı değişse bile üç yüksek hasar eldiveni korunur. |
+| Fraksiyon başına Merciless yüzük | Slot = Yüzük, Set = Merciless, Fraksiyon boş, `≥ Gerekli adet = 3` | `Fraksiyon başına` | Her fraksiyon kendi üç Merciless yüzüğünü tutar. |
+| Fraksiyon başına HP% yüzük | Slot = Yüzük, Ana stat = HP%, Setler boş, `≥ Gerekli adet = 2` | `Fraksiyon başına` | Her fraksiyon ikişer HP% yüzük saklar. |
+| Çekirdek aksesuarlar fraksiyon başına | Üç kural (Yüzük, Muska, Sancak), Set/Ana stat boş, `≥ Gerekli adet = 5` | `Fraksiyon başına` | Her fraksiyon her aksesuar slotunda beşer parça bırakır. |
+| Stoneskin + Protection aksesuarları | Slot = Yüzük/Muska/Sancak, Set = Stoneskin + Protection, Ana stat boş, `≥ Gerekli adet = 2` | `Set başına` + `Fraksiyon başına` | Her fraksiyon her slot için iki Stoneskin ve iki Protection parça tutar. |
+
+İpucu: Sekmeyi açmadan önce `.db` içe aktarın veya tester’a eşya ekleyin ki tarayıcı gerçek veriyi görsün. Bir kural «Eksik 2» dediğinde üzerine tıklayın; tester tablosu ilgili eşyaları vurgular ve hangi setin veya fraksiyonun eksik kaldığını anlarsınız.
 
 ### Dışa aktarma
 - Baz dosya yüklüyse «Birleştirilmiş RSL Helper Sellfile’ı dışa aktar» görünür; aksi durumda «RSL Helper Sellfile’ı dışa aktar».
