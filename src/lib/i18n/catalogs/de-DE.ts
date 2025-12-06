@@ -219,7 +219,7 @@ const overrides: Catalog = {
   keepUniquesCountModeHintLabel: 'Kontingentbereich-Hilfe öffnen',
   keepUniquesNoRules: 'Noch keine Behalte-Regeln.',
   keepUniquesAddRule: 'Behalte-Regel hinzufügen',
-  keepUniquesGridSelectedCount: '{count} Gegenstände passen zu dieser Kombination',
+  keepUniquesGridSelectedCount: '{count} Gegenstände',
   keepUniquesGridUniqueCount: '{count} einzigartige Gegenstände',
   keepUniquesGridFilterLabel: 'Filter: {mode}',
   keepUniquesGridFilterModeAll: 'Alle',

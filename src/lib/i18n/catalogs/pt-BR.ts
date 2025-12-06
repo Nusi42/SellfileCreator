@@ -219,7 +219,7 @@ const catalog: Catalog = {
   keepUniquesCountModeHintLabel: 'Abrir ajuda do escopo da cota',
   keepUniquesNoRules: 'Ainda não há regras de manutenção.',
   keepUniquesAddRule: 'Adicionar regra de manutenção',
-  keepUniquesGridSelectedCount: '{count} itens correspondem a esta combinação',
+  keepUniquesGridSelectedCount: '{count} itens',
   keepUniquesGridUniqueCount: '{count} itens únicos',
   keepUniquesGridFilterLabel: 'Filtro: {mode}',
   keepUniquesGridFilterModeAll: 'Todos',

@@ -218,7 +218,7 @@ const enUS: Catalog = {
   keepUniquesCountModeHintLabel: 'Open quota scope help',
   keepUniquesNoRules: 'No keep rules yet.',
   keepUniquesAddRule: 'Add Keep Rule',
-  keepUniquesGridSelectedCount: '{count} items match this combination',
+  keepUniquesGridSelectedCount: '{count} items',
   keepUniquesGridUniqueCount: '{count} unique items',
   keepUniquesGridFilterLabel: 'Filter: {mode}',
   keepUniquesGridFilterModeAll: 'All',

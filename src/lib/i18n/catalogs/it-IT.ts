@@ -219,7 +219,7 @@ const overrides: Catalog = {
   keepUniquesCountModeHintLabel: 'Apri aiuto ambito della quota',
   keepUniquesNoRules: 'Nessuna regola di mantenimento.',
   keepUniquesAddRule: 'Aggiungi regola di mantenimento',
-  keepUniquesGridSelectedCount: '{count} oggetti corrispondono a questa combinazione',
+  keepUniquesGridSelectedCount: '{count} oggetti',
   keepUniquesGridUniqueCount: '{count} oggetti unici',
   keepUniquesGridFilterLabel: 'Filtro: {mode}',
   keepUniquesGridFilterModeAll: 'Tutti',

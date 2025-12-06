@@ -219,7 +219,7 @@ const overrides: Catalog = {
   keepUniquesCountModeHintLabel: 'Відкрити довідку діапазону квоти',
   keepUniquesNoRules: 'Правила збереження ще не додані.',
   keepUniquesAddRule: 'Додати правило збереження',
-  keepUniquesGridSelectedCount: '{count} предметів відповідає цій комбінації',
+  keepUniquesGridSelectedCount: '{count} предметів',
   keepUniquesGridUniqueCount: '{count} унікальних предметів',
   keepUniquesGridFilterLabel: 'Фільтр: {mode}',
   keepUniquesGridFilterModeAll: 'Усі',

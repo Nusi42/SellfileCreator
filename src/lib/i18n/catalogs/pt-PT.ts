@@ -219,7 +219,7 @@ const overrides: Catalog = {
   keepUniquesCountModeHintLabel: 'Abrir ajuda do âmbito da cota',
   keepUniquesNoRules: 'Ainda não existem regras de manutenção.',
   keepUniquesAddRule: 'Adicionar regra de manutenção',
-  keepUniquesGridSelectedCount: '{count} itens correspondem a esta combinação',
+  keepUniquesGridSelectedCount: '{count} itens',
   keepUniquesGridUniqueCount: '{count} itens únicos',
   keepUniquesGridFilterLabel: 'Filtro: {mode}',
   keepUniquesGridFilterModeAll: 'Todos',
