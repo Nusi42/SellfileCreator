@@ -491,8 +491,7 @@ export function normalizeKeepUniqueCombination(value: unknown): KeepUniqueCombin
     if (raw == null || raw === '') return null
     return clampRankOrRarity(raw)
   })
-  const mainSource = rec.mainStats ?? rec.mainStat
-  const mainStats = normalizeSelectionArray(mainSource, (raw) => {
+  const mainStats = normalizeSelectionArray(rec.mainStats, (raw) => {
     if (raw == null || raw === '') return null
     const variant = coerceStatVariant(raw)
     if (variant === StatVariantEnum.Any) return null

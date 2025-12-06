@@ -782,7 +782,6 @@ type ReadableKeepUniqueTuple = {
   ranks: string[]
   rarities: string[]
   mainStats: string[]
-  mainStat: string
   factions: string[]
 }
 
@@ -870,7 +869,6 @@ export function buildHsfcPayload(args: {
       const factionLabels = rule.combination.factions
         .map((faction) => factionNames[Number(faction)] ?? String(faction))
         .filter((label) => Boolean(label && label.trim()))
-      const mainStat = mainStatLabels.length > 0 ? (mainStatLabels[0] ?? '') : ''
       return {
         id: rule.id,
         ...(trimmedName ? { name: trimmedName } : {}),
@@ -890,7 +888,6 @@ export function buildHsfcPayload(args: {
           ranks: rankLabels,
           rarities: rarityLabels,
           mainStats: mainStatLabels,
-          mainStat,
           factions: factionLabels,
         },
       }
