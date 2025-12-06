@@ -420,9 +420,11 @@ $script:SellfileCreatorProtocolState = [ordered]@{
 # Production integrations can ignore this entire region; the defaults only power
 # `/mock/select` and the `[R]` shortcut below.
 
+# Demo harness keeps extra booleans so keyboard shortcuts can cycle snapshot/delta payloads.
 $script:DemoState = [ordered]@{
-    SelectSamples = @(5, 10, 15, 20, 25, 30, 35, 40)
-    Random        = [System.Random]::new()
+    SelectSamples      = @(5, 10, 15, 20, 25, 30, 35, 40)
+    Random             = [System.Random]::new()
+    RawSnapshotPrimed  = $false
 }
 #endregion
 
@@ -1677,6 +1679,58 @@ function Queue-SampleSelectRule {
     return $event
 }
 
+function Queue-SampleGearRawSnapshot {
+    <#
+        Pushes the canned gearDbRawSnapshot payload so the UI can hydrate from JSON
+        instantly. Re-parsing the JSON keeps the sample aligned with the doc text.
+    #>
+    try {
+        $payload = $script:GearDbRawSnapshotExample | ConvertFrom-Json -AsHashtable
+    } catch {
+        Write-ConsoleLog -Message ("Failed to parse gearDbRawSnapshot sample: {0}" -f $_) -Color DarkYellow
+        return $null
+    }
+    $event = Add-ProtocolCommandEvent -Type 'gearDbRawSnapshot' -Data $payload
+    Write-ConsoleLog -Message 'Shortcut queued gearDbRawSnapshot sample (demo-raw-db)' -Color Cyan
+    return $event
+}
+
+function Queue-SampleGearRawDelta {
+    <#
+        Sends the follow-up delta operations that tweak rolls/last-used rows.
+        The helper intentionally reuses ConvertFrom-Json so edits to the sample
+        blob automatically propagate to the shortcut.
+    #>
+    try {
+        $payload = $script:GearDbRawDeltaExample | ConvertFrom-Json -AsHashtable
+    } catch {
+        Write-ConsoleLog -Message ("Failed to parse gearDbRawDelta sample: {0}" -f $_) -Color DarkYellow
+        return $null
+    }
+    $event = Add-ProtocolCommandEvent -Type 'gearDbRawDelta' -Data $payload
+    Write-ConsoleLog -Message 'Shortcut queued gearDbRawDelta sample ops (demo-raw-db)' -Color Cyan
+    return $event
+}
+
+function Invoke-RawGearShortcut {
+    <#
+        Single orchestrator for the [T] shortcut: emit a full snapshot the first
+        time (or when Shift+T is held), then alternate deltas so testers can see
+        row mutations without reloading the DB.
+    #>
+    param([switch]$ForceSnapshot)
+
+    $state = $script:DemoState
+    $shouldSendSnapshot = $ForceSnapshot -or -not ($state.RawSnapshotPrimed)
+    if ($shouldSendSnapshot) {
+        if (Queue-SampleGearRawSnapshot) {
+            $state.RawSnapshotPrimed = $true
+        }
+        return
+    }
+    [void](Queue-SampleGearRawDelta)
+}
+
 function Poll-ShortcutInput {
     <#
         Allows the demo operator to enqueue sample events with the keyboard.
@@ -1726,6 +1780,13 @@ function Poll-ShortcutInput {
             ([System.ConsoleKey]::R) {
                 Write-ConsoleLog -Message 'Shortcut detected: R' -Color DarkGray
                 [void](Queue-SampleSelectRule)
+                continue
+            }
+            ([System.ConsoleKey]::T) {
+                $forceSnapshot = (($modifiers -band [System.ConsoleModifiers]::Shift) -ne 0)
+                $modeLabel = if ($forceSnapshot -or -not $script:DemoState.RawSnapshotPrimed) { 'snapshot' } else { 'delta' }
+                Write-ConsoleLog -Message ("Shortcut detected: T ({0})" -f $modeLabel) -Color DarkGray
+                Invoke-RawGearShortcut -ForceSnapshot:$forceSnapshot
                 continue
             }
             default { continue }
@@ -2233,7 +2294,7 @@ try {
         New-Item -ItemType Directory -Path $outputDir -Force | Out-Null
     }
 
-    Write-ConsoleHeader -Message 'Shortcuts: [T] queue sample gear, [R] queue sample selectRule. Press Ctrl+C to stop the listener.' -Color DarkGray
+    Write-ConsoleHeader -Message 'Shortcuts: [T] queue sample raw gear (Shift+T forces snapshot), [R] queue sample selectRule. Press Ctrl+C to stop the listener.' -Color DarkGray
 
     $pendingContext = $null
     $contextWaitHandle = $null

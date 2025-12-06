@@ -11,7 +11,7 @@ import React, { useCallback, useDeferredValue, useEffect, useLayoutEffect, useMe
 import { APP_VERSION } from './version'
 import { readHsfFile, buildHsfFileFromMerged, buildDedupedHsfFileFromMerged, hsfToBlob } from './lib/hsfIO'
 import { getPushEndpoint } from './lib/runtimeConfig'
-import type { ExternalCommand } from './lib/externalCommands'
+import type { ExternalCommand, GearDbRawDeltaCommand, GearDbRawSnapshotCommand } from './lib/externalCommands'
 import type { HsfFile, HsfRule } from './lib/hsfTypes'
 import { type BuilderConfig, type SubstatTargetTable, type SellfileExportMode } from './lib/hsfBuilder'
 import { parseConfigsFromText, buildReadableConfig, readHsfcFile, buildHsfcPayload, hsfcToBlob } from './lib/hsfcIO'
@@ -157,6 +157,11 @@ import { computeDuplicateIndices } from './lib/configDuplicates'
 import { configsForRuleBuild } from './lib/ruleCacheHelpers'
 import type { MatchingConfigDecision } from './lib/ruleEval'
 import { importGearDatabaseFromFile } from './lib/importers/gearDbImporter'
+import {
+  createDatasetFromSnapshot,
+  applyDeltaToDataset,
+  type GearDbRawDataset,
+} from './lib/importers/gearDbRawDataset'
 import type { NormalizedGearArtifact } from './lib/importers/gearDbNormalizer'
 import { TesterItemsGrid } from './components/TesterItemsGrid'
 import type { TesterPreviewMatch, TesterPreviewRow } from './types/testerPreview'
@@ -315,6 +320,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     testerItemIdRef.current += 1
     return id
   }, [])
+  // Raw JSON endpoints stream their own dataset; keep the normalized snapshot
+  // cached so deltas can mutate it without rebuilding from SQL blobs.
+  const gearDbRawDatasetRef = useRef<GearDbRawDataset | null>(null)
   const [testerItems, setTesterItems] = useState<RuleTesterItem[]>([])
   const testerItemsRef = useRef(testerItems)
   useEffect(() => { testerItemsRef.current = testerItems }, [testerItems])
@@ -1687,6 +1695,17 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     } catch {}
   }, [previewMode])
   const [gearImportBusy, setGearImportBusy] = useState(false)
+  const gearImportBusyCountRef = useRef(0)
+  const beginGearImport = useCallback(() => {
+    gearImportBusyCountRef.current += 1
+    setGearImportBusy(true)
+  }, [])
+  const endGearImport = useCallback(() => {
+    gearImportBusyCountRef.current = Math.max(0, gearImportBusyCountRef.current - 1)
+    if (gearImportBusyCountRef.current === 0) {
+      setGearImportBusy(false)
+    }
+  }, [])
   // Determine once whether to auto-open the README on this version.
   // Rule Tester dialog state
   const [testerOpen, setTesterOpen] = useState<boolean>(false)
@@ -2326,6 +2345,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const handleGearDbImport = useCallback(async (file: File, options?: { source?: 'manual' | 'command' }) => {
     const source = options?.source ?? 'manual'
     if (gearImportBusy) return
+    // Any manual import resets the JSON dataset so future deltas do not apply
+    // to stale rows pulled from a file.
+    gearDbRawDatasetRef.current = null
     if (tutorial.helpOpen) {
       tutorial.setHelpOpen(false)
       tutorial.setHelpFirstRunMode(false)
@@ -2340,7 +2362,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       // Clear the mini-toast so stale status never overlaps the next push.
       dismissGearDbCommandToast()
     }
-    setGearImportBusy(true)
+    beginGearImport()
     try {
       const { artifacts, inboxArtifacts } = await importGearDatabaseFromFile(file)
       const combined = [...artifacts, ...inboxArtifacts]
@@ -2392,7 +2414,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         showFileFormatError(file.name)
       }
     } finally {
-      setGearImportBusy(false)
+      endGearImport()
     }
   }, [
     gearImportBusy,
@@ -2413,6 +2435,112 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     beginTesterMatchReset,
     dismissGearDbCommandToast,
     showGearDbCommandToast,
+    beginGearImport,
+    endGearImport,
+  ])
+
+  // Accepts the raw snapshot payload pushed by the helper and rewires the tester queue.
+  const handleGearDbRawSnapshot = useCallback((command: GearDbRawSnapshotCommand) => {
+    beginGearImport()
+    setGearDbCommandError(null)
+    setGearDbCommandSuccess(null)
+    dismissGearDbCommandToast()
+    try {
+      // Normalize the raw rows into the canonical tester dataset before diffing.
+      const { dataset, testerItems, artifactCount, inboxCount } = createDatasetFromSnapshot(command)
+      gearDbRawDatasetRef.current = dataset
+      const { removedCount, addedCount } = applyGearDbDiff(testerItems)
+      if (removedCount > 0 || addedCount > 0) {
+        beginTesterMatchReset('gearDb')
+      }
+      const totalCount = artifactCount + inboxCount
+      if (totalCount === 0) {
+        const emptyMessage = t('toastGearDbImportEmpty')
+        setGearDbCommandError(emptyMessage)
+        setGearDbCommandSuccess(null)
+        showGearDbCommandToast(emptyMessage, 'error')
+        return
+      }
+      const diffSummary = t('toastGearDbDiffSummary', { added: addedCount, removed: removedCount })
+      const message = inboxCount > 0
+        ? `${t('toastGearDbImportedWithInbox', { count: totalCount, inboxCount })} ${diffSummary}`
+        : `${t('toastGearDbImported', { count: totalCount })} ${diffSummary}`
+      setGearDbCommandError(null)
+      setGearDbCommandSuccess(message)
+      showGearDbCommandToast(message, 'success')
+    } catch (err) {
+      if (import.meta.env.DEV) {
+        console.error('Failed to apply gear DB snapshot', err)
+      }
+      gearDbRawDatasetRef.current = null
+      const errorMessage = formatFileFormatErrorMessage('gearDbRawSnapshot.json')
+      setGearDbCommandError(errorMessage)
+      setGearDbCommandSuccess(null)
+      showGearDbCommandToast(errorMessage, 'error')
+    } finally {
+      endGearImport()
+    }
+  }, [
+    applyGearDbDiff,
+    beginGearImport,
+    beginTesterMatchReset,
+    dismissGearDbCommandToast,
+    endGearImport,
+    formatFileFormatErrorMessage,
+    setGearDbCommandError,
+    setGearDbCommandSuccess,
+    showGearDbCommandToast,
+    t,
+  ])
+
+  // Deltas mutate the existing dataset; fall back to a file-format style error when no snapshot is active.
+  const handleGearDbRawDelta = useCallback((command: GearDbRawDeltaCommand) => {
+    const dataset = gearDbRawDatasetRef.current
+    if (!dataset) {
+      const missingMessage = formatFileFormatErrorMessage('gearDbRawDelta.json')
+      setGearDbCommandError(missingMessage)
+      setGearDbCommandSuccess(null)
+      showGearDbCommandToast(missingMessage, 'error')
+      return
+    }
+    beginGearImport()
+    setGearDbCommandError(null)
+    setGearDbCommandSuccess(null)
+    dismissGearDbCommandToast()
+    try {
+      // Apply the mutation set to the cached dataset, then regenerate the tester payload.
+      const { testerItems } = applyDeltaToDataset(dataset, command)
+      const { removedCount, addedCount } = applyGearDbDiff(testerItems)
+      if (removedCount > 0 || addedCount > 0) {
+        beginTesterMatchReset('gearDb')
+      }
+      const diffSummary = t('toastGearDbDiffSummary', { added: addedCount, removed: removedCount })
+      setGearDbCommandError(null)
+      setGearDbCommandSuccess(diffSummary)
+      showGearDbCommandToast(diffSummary, 'success')
+    } catch (err) {
+      if (import.meta.env.DEV) {
+        console.error('Failed to apply gear DB delta', err)
+      }
+      gearDbRawDatasetRef.current = null
+      const errorMessage = formatFileFormatErrorMessage('gearDbRawDelta.json')
+      setGearDbCommandError(errorMessage)
+      setGearDbCommandSuccess(null)
+      showGearDbCommandToast(errorMessage, 'error')
+    } finally {
+      endGearImport()
+    }
+  }, [
+    applyGearDbDiff,
+    beginGearImport,
+    beginTesterMatchReset,
+    dismissGearDbCommandToast,
+    endGearImport,
+    formatFileFormatErrorMessage,
+    setGearDbCommandError,
+    setGearDbCommandSuccess,
+    showGearDbCommandToast,
+    t,
   ])
 
   // Global file-drag overlay and file routing handled by hook
@@ -3024,6 +3152,16 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       return
     }
 
+    if (cmd.kind === 'gearDbRawSnapshot') {
+      handleGearDbRawSnapshot(cmd)
+      return
+    }
+
+    if (cmd.kind === 'gearDbRawDelta') {
+      handleGearDbRawDelta(cmd)
+      return
+    }
+
     if (cmd.kind === 'gearDbFile') {
       const queueImport = (file: File | null) => {
         if (!file) {
@@ -3076,7 +3214,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       const file = createGearDbFileFromBase64(cmd.name, cmd.base64)
       queueImport(file)
     }
-  }, [focusRuleByIndex, handleGearDbImport, pushEndpoint])
+  }, [focusRuleByIndex, handleGearDbImport, handleGearDbRawDelta, handleGearDbRawSnapshot, pushEndpoint])
 
   useExternalCommands({
     pushEndpoint,
