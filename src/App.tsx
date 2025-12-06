@@ -91,6 +91,7 @@ import RestoreAutosaveDialog from './components/dialogs/RestoreAutosaveDialog'
 import MetasetConflictDialog from './components/dialogs/MetasetConflictDialog'
 import FileFormatErrorDialog from './components/dialogs/FileFormatErrorDialog'
 import { useAutosave } from './hooks/useAutosave'
+import { useDeferredHsfcPayload } from './hooks/useDeferredHsfcPayload'
 import PreviewHeaderActions from './components/PreviewHeaderActions'
 import RuleTesterDialog from './components/dialogs/RuleTesterDialog'
 import RulesFilterPanel, { type RulesFilterPanelHandle } from './components/RulesFilterPanel'
@@ -2784,26 +2785,28 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // Autosave should not be triggered by selection-only changes.
   // Pass selectedConfigIndex: null in autosave payload so selection changes
   // do not alter the payload. Explicit Save/Copy flows still include it.
+  const trimmedHsfcNote = typeof hsfcNote === 'string' ? hsfcNote.trim() : ''
+  const autosaveBuildParams = useMemo(() => ({
+    version: APP_VERSION,
+    metasets,
+    substatTargets,
+    configs: customCfgs,
+    finalSellRemainder,
+    selectedConfigIndex: null,
+    ...(trimmedHsfcNote ? { note: trimmedHsfcNote } : {}),
+    keepUniqueRules,
+    keepUniquesEnabled,
+  }), [customCfgs, finalSellRemainder, keepUniqueRules, keepUniquesEnabled, metasets, substatTargets, trimmedHsfcNote])
+  const { payload: autosaveBasePayload } = useDeferredHsfcPayload(autosaveBuildParams)
   const autosavePayload = useMemo(() => {
-    const base = buildHsfcPayload({
-      version: APP_VERSION,
-      metasets,
-      substatTargets,
-      configs: customCfgs,
-      finalSellRemainder,
-      selectedConfigIndex: null,
-      ...(hsfcNote && hsfcNote.trim() ? { note: hsfcNote } : {}),
-      keepUniqueRules,
-      keepUniquesEnabled,
-    })
     const filtersPayload = areAutosaveFiltersDefault(autosaveFiltersState) ? null : autosaveFiltersState
     return {
-      ...base,
+      ...autosaveBasePayload,
       FinalSellDialogTab: finalSellDialogTab, // Persist the active tab so the dialog re-opens where the user left off.
       AutosaveSavedAt: new Date().toISOString(),
       ...(filtersPayload ? { Filters: filtersPayload } : {}),
     }
-  }, [metasets, substatTargets, customCfgs, finalSellRemainder, hsfcNote, autosaveFiltersState, keepUniqueRules, keepUniquesEnabled, finalSellDialogTab])
+  }, [autosaveBasePayload, autosaveFiltersState, finalSellDialogTab])
   useAutosave({
     key: AUTOSAVE_KEY,
     payload: autosavePayload,

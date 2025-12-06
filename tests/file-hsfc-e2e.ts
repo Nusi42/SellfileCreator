@@ -20,6 +20,7 @@ import { normalizeConfig, buildReadableConfig, parseHsfcObject } from '../src/li
 import { computeMergedRules } from '../src/lib/merge.js'
 import { ACCESSORY_NO_SET_ID } from '../src/lib/constants.js'
 import { FINAL_SELL_DEFAULT_SETS_MODE } from '../src/lib/finalSell.js'
+import { cleanHsfForExport } from '../src/lib/hsfIO.js'
 
 declare const process: any
 declare const console: any
@@ -115,7 +116,9 @@ async function run(prep: FixturePrep = PREPARED_FIXTURES): Promise<void> {
         substatTargets: parsed.substatTargets,
         finalSellRemainder: parsed.finalSellRemainder,
       })
-      const built = stripRuleMetadata(merged)
+      // Mirror the export pipeline so comparisons include RowIdx + sanitized field ordering.
+      const exported = cleanHsfForExport(merged)
+      const built = stripRuleMetadata(exported.Rules)
 
       // Canonicalize both sides, then assert structural equality (no missing/extra members)
       const got = built

@@ -70,6 +70,7 @@ This document captures runtime behavior, builder interactions, and user-facing w
 - Filters: The dialog can now restore whether the panel was open, its chips, and collapsed sections; those values live alongside the HSFC payload in localStorage.
 - Gear autosave: the tester queue (`AUTOSAVE_TESTER_KEY`) is decoded up front and offered as another checkbox. The saved list only replaces the current tester state when the box is checked; otherwise it stays in storage until selected (or overwritten by a newer autosave).
 - Dismissal: Dismissing the dialog keeps the previous autosave in storage and delays builder autosave writes until the current session diverges, preventing accidental overwrites.
+- Builder autosave payloads are now serialized off the main thread via `useDeferredHsfcPayload`. The first snapshot still runs synchronously so new sessions have data immediately, but every later change schedules `buildHsfcPayload` inside `requestIdleCallback` (with a `setTimeout` fallback) before `useAutosave` writes to `localStorage`, eliminating the 300–700 ms stall that used to fire on every config/metaset edit.
 
 ## Tuple Decoders (HSF → StatVariant)
 
