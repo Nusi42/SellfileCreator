@@ -165,7 +165,7 @@ import { FINAL_SELL_DEFAULT_SETS_MODE, FINAL_SELL_DIALOG_TAB_FINAL_SELL, FINAL_S
 import type { FinalSellRemainderConfig, FinalSellLevel } from './lib/finalSell'
 import { useConfigSelection } from './hooks/useConfigSelection'
 import { useRuleCacheWorker } from './hooks/useRuleCacheWorker'
-import { fingerprintKeepUniqueDetection } from './hooks/useTesterMatchOrchestrator'
+import { fingerprintKeepUniqueDetection } from './lib/keepUniqueFingerprint'
 import { useTesterItemsActions } from './hooks/useTesterItemsActions'
 // Local tag for tester reset triggers; persists only in memory.
 type TesterMatchResetReason = 'restore' | 'hsfc' | 'gearDb'
@@ -410,6 +410,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     count: number
   }
   const testerArtifactCacheRef = useRef<Map<number, TesterArtifactCacheEntry>>(new Map())
+  // Record the fingerprints the worker most recently acknowledged so differential patches only
+  // send artifacts whose content actually changed (manual edits happen frequently).
+  const lastCommittedArtifactFingerprintsRef = useRef<Map<number, string>>(new Map())
   const testerAutosaveBaselineRef = useRef<string | null>(null)
   const testerPreviewArtifacts = useMemo<NormalizedGearArtifact[]>(() => {
     const cache = testerArtifactCacheRef.current
@@ -1008,23 +1011,38 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         rules: resolvedKeepUniqueRules,
         detection: null as KeepUniqueDetectionSnapshot | null,
       }
-      const artifactPatch = (() => {
+      const {
+        patch: artifactPatch,
+        fingerprints: nextArtifactFingerprints,
+      } = (() => {
         const cache = testerArtifactCacheRef.current
+        const prevFingerprints = lastCommittedArtifactFingerprintsRef.current
+        const nextFingerprints = new Map<number, string>()
         const changed: Array<[number, NormalizedGearArtifact]> = []
         const removed: number[] = []
-        const activeIds = new Set<number>()
+        // Only compute a diff when the worker previously accepted fingerprints and the cache
+        // isn't being flushed; the first warm still sends the full artifact list.
+        const diffOnly = prevFingerprints.size > 0 && !workerNeedsReset
         for (let idx = 0; idx < testerPreviewArtifacts.length; idx += 1) {
           const artifact = testerPreviewArtifacts[idx]
           if (!artifact) continue
           const itemId = getArtifactItemId(artifact, idx)
           if (!Number.isFinite(itemId)) continue
-          activeIds.add(itemId!)
-          changed.push([itemId!, artifact])
+          const cached = cache.get(itemId!)
+          const testerPayload = artifact.testerItem as RuleTesterItem | undefined
+          const fingerprint = cached?.fingerprint ?? (testerPayload ? fingerprintRuleTesterItem(testerPayload) : '')
+          nextFingerprints.set(itemId!, fingerprint ?? '')
+          if (!diffOnly || prevFingerprints.get(itemId!) !== fingerprint) {
+            changed.push([itemId!, artifact])
+          }
         }
-        for (const [itemId] of cache.entries()) {
-          if (!activeIds.has(itemId)) removed.push(itemId)
+        prevFingerprints.forEach((_, itemId) => {
+          if (!nextFingerprints.has(itemId)) removed.push(itemId)
+        })
+        return {
+          patch: { changed, removed, signature: testerArtifactsSignature },
+          fingerprints: nextFingerprints,
         }
-        return { changed, removed, signature: testerArtifactsSignature }
       })()
 
       const toPreviewMatch = (
@@ -1112,9 +1130,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             matchMap.set(entry.itemId, entry)
           }
           const rows: TesterPreviewRow[] = []
-          const artifactEntries = artifactPatch.changed.length > 0
-            ? artifactPatch.changed
-            : testerPreviewArtifacts.map((artifact, idx) => [getArtifactItemId(artifact, idx), artifact] as [number | null, NormalizedGearArtifact])
+          const artifactEntries = testerPreviewArtifacts.map((artifact, idx) => [getArtifactItemId(artifact, idx), artifact] as [number | null, NormalizedGearArtifact])
           for (const [itemIdMaybe, artifact] of artifactEntries) {
             if (!artifact) continue
             const itemId = Number(itemIdMaybe ?? NaN)
@@ -1142,6 +1158,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           }
           setKeepUniqueDetection(detection ?? null)
           setKeepUniqueGroupItemKeys(uniqueKeys)
+          // Persist the latest worker-acknowledged fingerprints so the next patch knows which
+          // artifacts can be skipped safely.
+          lastCommittedArtifactFingerprintsRef.current = nextArtifactFingerprints
           keepUniqueScanAppliedRef.current = detection ? fingerprintKeepUniqueDetection(detection) : null
           pendingKeepUniqueDetectionSigRef.current = null
           lastPipelineSignatureRef.current = { fingerprint: nextFingerprint, artifactSig: pipelineArtifactSignature }
@@ -1201,9 +1220,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                 const retryMap = new Map<number, TesterMatchWorkerItemResult>()
                 for (const entry of retryMatches) retryMap.set(entry.itemId, entry)
                 const retryRows: TesterPreviewRow[] = []
-                const entries = artifactPatch.changed.length > 0
-                  ? artifactPatch.changed
-                  : testerPreviewArtifacts.map((artifact, idx) => [getArtifactItemId(artifact, idx), artifact] as [number | null, NormalizedGearArtifact])
+                const entries = testerPreviewArtifacts.map((artifact, idx) => [getArtifactItemId(artifact, idx), artifact] as [number | null, NormalizedGearArtifact])
                 for (const [itemIdMaybe, artifact] of entries) {
                   if (!artifact) continue
                   const itemId = Number(itemIdMaybe ?? NaN)
@@ -1233,6 +1250,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                 setKeepUniqueGroupItemKeys(retryUniqueKeys)
                 keepUniqueScanAppliedRef.current = retryDetection ? fingerprintKeepUniqueDetection(retryDetection) : null
                 pendingKeepUniqueDetectionSigRef.current = null
+                // Retry path accepts the same snapshot, so propagate the pending fingerprints as well.
+                lastCommittedArtifactFingerprintsRef.current = nextArtifactFingerprints
                 lastPipelineSignatureRef.current = { fingerprint: nextFingerprint, artifactSig: pipelineArtifactSignature }
                 lastConfigNamesRef.current = configNamesForBuild
               })

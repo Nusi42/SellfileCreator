@@ -9,8 +9,8 @@ import {
   type KeepUniqueRule,
   computeKeepUniqueProtection,
   resolveKeepUniqueRuleLabel,
-  sanitizeKeepUniqueCountMode,
 } from '../lib/keepUniques'
+import { fingerprintKeepUniqueDetection } from '../lib/keepUniqueFingerprint'
 import type { TesterPreviewRow } from '../types/testerPreview'
 import type { TesterPreviewMatch } from '../types/testerPreview'
 import { sortTesterRows } from '../lib/testerSort'
@@ -34,40 +34,6 @@ const hashSignature = (value: string): number => {
     hash |= 0
   }
   return hash
-}
-
-export const fingerprintKeepUniqueDetection = (
-  snapshot: KeepUniqueDetectionSnapshot | null,
-): string | null => {
-  // Null snapshots render as null fingerprints for quick equality checks.
-  if (!snapshot) return null
-  // Flatten entries into a compact string to cheaply compare runs.
-  const parts: string[] = []
-  for (const entry of snapshot.entries) {
-    // Encode only primitives + joined arrays to avoid object churn.
-    // Encode the scope chips explicitly so flips in the Keep Uniques UI
-    // always mutate the fingerprint and force a fresh detection snapshot.
-    const mode = sanitizeKeepUniqueCountMode(entry.countMode)
-    parts.push([
-      entry.ruleId ?? '',
-      entry.ruleEnabled ? 1 : 0,
-      mode.perRule ? 1 : 0,
-      mode.perSet ? 1 : 0,
-      mode.perFaction ? 1 : 0,
-      mode.perMainStat ? 1 : 0,
-      mode.perSlot ? 1 : 0,
-      entry.groupsTracked,
-      entry.perGroupRequiredCount,
-      entry.requiredCount,
-      entry.currentCount,
-      entry.projectedCount,
-      entry.deficit,
-      entry.coveredByExisting ? 1 : 0,
-      entry.itemKeys.join(','),
-    ].join(':'))
-  }
-  // Join by semicolon to build deterministic signature.
-  return parts.join(';')
 }
 
 const fingerprintMergedRules = (rules: readonly HsfRuleWithCfg[]): string => {
