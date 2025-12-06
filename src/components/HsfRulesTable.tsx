@@ -37,7 +37,6 @@ import { useContextMenuHint } from '../hooks/useContextMenuHint'
 import { ContextMenuHintOverlay } from './ContextMenuHintOverlay'
 import { useRulesTableColumnsPreference, type StoredColumnConfig } from '../state/rulesTableColumnsPreference'
 import ContextMenuPaper from './ContextMenuPaper'
-import { useAnimatedEllipsis } from '../hooks/useAnimatedEllipsis'
 import { HEADER_MENU_LABEL_SX } from './tableHeaderMenuStyles'
 import { EmptyStateMessage } from './EmptyStateMessage'
 import { getRuleConfigIndex } from '../lib/ruleConfigIndex'
@@ -60,9 +59,8 @@ const resolveDisplayCfgIdx = (rule: HsfRuleWithCfg | null | undefined): number |
   return idx !== null && idx >= 0 ? idx : null
 }
 
-export function HsfRulesTable({ rules, building = false, setHoveredCfgIdx, selectedCfgIdx, multiselectActive, onSelectCfgIdx, onConfigAction, onClearBase, onConfigureFinalSell, onOpenManageColors, colorIconSrc, substatColors, colorBlindMode, onChangeColorBlindMode, emptyDueToFilter = false, limitExceeded = false, focusRuleIndex = null, onFocusRuleSettled }: {
+export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multiselectActive, onSelectCfgIdx, onConfigAction, onClearBase, onConfigureFinalSell, onOpenManageColors, colorIconSrc, substatColors, colorBlindMode, onChangeColorBlindMode, emptyDueToFilter = false, limitExceeded = false, focusRuleIndex = null, onFocusRuleSettled }: {
   rules: HsfRuleWithCfg[]
-  building?: boolean
   setHoveredCfgIdx: (idx: number | null) => void
   selectedCfgIdx: number | null
   multiselectActive: boolean
@@ -82,8 +80,6 @@ export function HsfRulesTable({ rules, building = false, setHoveredCfgIdx, selec
   onFocusRuleSettled?: () => void
 }) {
   const { t } = useI18n()
-  const buildingLabel = t('rulesBuilding')
-  const animatedBuildingLabel = useAnimatedEllipsis(buildingLabel, { active: building })
   const { showSlotIcons, showSetIcons, showFactionIcons, statButtonBorders } = useDisplayPreferences()
   const { setShowSlotIcons, setShowSetIcons, setShowFactionIcons, setStatButtonBorders } = useDisplayPreferenceActions()
   const applyNextColorBlindMode = React.useCallback(() => {
@@ -103,10 +99,12 @@ export function HsfRulesTable({ rules, building = false, setHoveredCfgIdx, selec
   const emptyLabel = useMemo(() => {
     if (rules.length > 0) return null
     const limitText = new Intl.NumberFormat(undefined).format(RULE_COUNT_LIMIT)
+    // Busy indicators now live in the preview header chips, so the preview table
+    // only distinguishes between true empties, filter empties, and limit hits.
     return limitExceeded
       ? t('rulesLimitExceeded', { limit: limitText })
-      : (building ? animatedBuildingLabel : (emptyDueToFilter ? t('rulesEmptyFiltered') : t('rulesEmpty')))
-  }, [rules.length, limitExceeded, t, building, animatedBuildingLabel, emptyDueToFilter])
+      : (emptyDueToFilter ? t('rulesEmptyFiltered') : t('rulesEmpty'))
+  }, [rules.length, limitExceeded, t, emptyDueToFilter])
   const showEmptyOverlay = rules.length === 0 && Boolean(emptyLabel)
   // Virtualization state and helpers
   const tableContainerRef = useRef<HTMLDivElement | null>(null)
