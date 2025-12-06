@@ -33,6 +33,8 @@ export const AUTOSAVE_TESTER_KEY = 'sellfileCreator.autosave.tester.v1'
 export const PREVIEW_MODE_STORAGE_KEY = 'sellfileCreator.previewMode.v1'
 // Persisted toggle for coloring stat texts (chips/preview)
 export const STAT_BUTTON_BORDERS_KEY = 'sellfileCreator.statButtonBorders.v1'
+// Persisted Keep Uniques grid filter toggle so reopening the dialog keeps the last scope
+export const KEEP_UNIQUES_GRID_FILTER_KEY = 'sellfileCreator.keepUniques.gridFilter.v1'
 
 // Persisted color-blind mode for success/warning/error palette
 // Values: 'normal' | 'colorblind' (extendable in the future without breaking storage)

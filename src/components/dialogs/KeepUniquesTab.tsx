@@ -66,6 +66,7 @@ import type { SxProps, Theme } from '@mui/material/styles'
 import type { SystemStyleObject } from '@mui/system'
 import { createBuilderStatusChipSx } from '../builderStatusChipStyles'
 import { reserveScrollbarGutterSpace } from '../../lib/scrollbar'
+import { useKeepUniquesGridFilterMode } from '../../state/keepUniquesPreferences'
 
 const SCOPE_CHIP_HOVER_ALPHA = { light: 0.12, dark: 0.24 } as const
 
@@ -151,7 +152,7 @@ ${t('keepUniquesCountModeHint')}`
   const [selectedRuleId, setSelectedRuleId] = useState<string | null>(() => rules[0]?.id ?? null)
   const [respectManualDeselect, setRespectManualDeselect] = useState(false)
   const [pendingDeleteRuleId, setPendingDeleteRuleId] = useState<string | null>(null)
-  const [gridFilterMode, setGridFilterMode] = useState<'all' | 'selection'>('all')
+  const [gridFilterMode, setGridFilterMode] = useKeepUniquesGridFilterMode()
   const ensureKeepUniquesEnabled = useCallback(() => {
     if (!enabled) onToggleEnabled(true)
   }, [enabled, onToggleEnabled])
@@ -331,7 +332,7 @@ ${t('keepUniquesCountModeHint')}`
   }, [updateRule])
   const handleToggleGridFilterMode = useCallback(() => {
     setGridFilterMode((prev) => (prev === 'all' ? 'selection' : 'all'))
-  }, [])
+  }, [setGridFilterMode])
 
   const renderRuleCard = (rule: KeepUniqueRule) => {
     const ruleDisabled = rule.activation === KeepUniqueRuleActivation.Off
