@@ -177,6 +177,9 @@ function makeRule(base: Omit<HsfRule, 'Substats'> & { Substats?: HsfRule['Substa
   // IsRuleTypeAND=false consistently. If RSL semantics change, this can be
   // revisited.
   const isAnd = false
+  // Preserve the legacy field cadence that RSL expects: faction first, then set/type.
+  const artifactSetPayload = base.ArtifactSet !== undefined ? { ArtifactSet: base.ArtifactSet } : {}
+  const artifactTypePayload = base.ArtifactType !== undefined ? { ArtifactType: base.ArtifactType } : {}
   return {
     // Config metadata comes first so JSON readers find it before the legacy flags.
     ...(base.ConfigID !== undefined ? { ConfigID: base.ConfigID } : {}),
@@ -185,14 +188,14 @@ function makeRule(base: Omit<HsfRule, 'Substats'> & { Substats?: HsfRule['Substa
     // Emit AND flag between Keep and Use for compatibility with some readers.
     IsRuleTypeAND: isAnd,
     ...(base.Use !== undefined ? { Use: base.Use } : {}),
-    ...(base.ArtifactSet ? { ArtifactSet: base.ArtifactSet } : {}),
-    ...(base.ArtifactType ? { ArtifactType: base.ArtifactType } : {}),
     ...(base.Rank !== undefined ? { Rank: base.Rank } : {}),
     ...(base.Rarity !== undefined ? { Rarity: base.Rarity } : {}),
     ...(base.MainStatID !== undefined ? { MainStatID: base.MainStatID } : {}),
     ...(base.MainStatF !== undefined ? { MainStatF: base.MainStatF } : {}),
     ...(base.LVLForCheck !== undefined ? { LVLForCheck: base.LVLForCheck } : {}),
     ...(base.Faction !== undefined ? { Faction: base.Faction } : {}),
+    ...artifactSetPayload,
+    ...artifactTypePayload,
     Substats: filled,
   }
 }

@@ -359,18 +359,19 @@ export function buildFinalSellRules(finalSellRemainder: FinalSellRemainderConfig
       const allSets = useExplicitSets
         ? Array.from(new Set<number>([ACCESSORY_NO_SET_ID, ...Object.keys(artifactSetNames).map(Number)])).sort(compareArtifactSets)
         : []
+      // Export helpers: emit faction first, then sets/types so downstream JSON stays readable.
       const mkRule = (types: number[], useFlag: boolean): HsfRule => ({
         Keep: false,
         IsRuleTypeAND: false,
         Use: useFlag,
-        ...(useExplicitSets ? { ArtifactSet: allSets } : {}),
-        ...(types.length ? { ArtifactType: types.slice().sort(compareArtifactTypes).map(Number) } : {}),
         Rank: 0,
         Rarity: 0,
         MainStatID: StatId.Any,
         MainStatF: 1,
         LVLForCheck: lvl,
         Faction: 0,
+        ...(useExplicitSets ? { ArtifactSet: allSets } : {}),
+        ...(types.length ? { ArtifactType: types.slice().sort(compareArtifactTypes).map(Number) } : {}),
         Substats: cloneAnySubstats(),
       })
       const useFlag = enabled && selected.has(lvl)
@@ -526,8 +527,9 @@ const buildKeepUniquePlaceholderRules = ({
               MainStatF: Number.isFinite(mainTuple.f) ? Number(mainTuple.f) : 1,
               LVLForCheck: LEVEL_ANY_SENTINEL,
               Faction: faction,
-              ...(slotValues.length ? { ArtifactType: slotValues.map(Number) } : {}),
+              // Ensures ArtifactSet/ArtifactType stay adjacent to Faction per HSF expectations.
               ...(setValues.length ? { ArtifactSet: setValues.map(Number).sort((a, b) => compareArtifactSets(a as ArtifactSetId, b as ArtifactSetId)) } : {}),
+              ...(slotValues.length ? { ArtifactType: slotValues.map(Number) } : {}),
               Substats: buildKeepUniqueSubstats([]),
               __source: RULE_SOURCE_KEEP_UNIQUES,
               __keepUniqueRuleId: rule.id,
@@ -602,8 +604,9 @@ export const buildKeepUniqueRules = (
             MainStatF: Number.isFinite(mainTuple.f) ? Number(mainTuple.f) : 1,
             LVLForCheck: level ?? LEVEL_ANY_SENTINEL,
             Faction: artifact.faction ?? 0,
-            ArtifactType: [Number(artifact.slot)],
+            // Keep rules also respect the faction→set→type ordering for stable diffs.
             ArtifactSet: [Number(artifact.set)],
+            ArtifactType: [Number(artifact.slot)],
             Substats: buildKeepUniqueSubstats(artifact.substats),
             __source: RULE_SOURCE_KEEP_UNIQUES,
             __keepUniqueRuleId: rule.id,

@@ -3,16 +3,16 @@
     "Keep": true,
     "IsRuleTypeAND": false,
     "Use": false,
-    "ArtifactType": [
-      2,
-      4
-    ],
     "Rank": 0,
     "Rarity": 16,
     "MainStatID": 5,
     "MainStatF": 1,
     "LVLForCheck": 16,
     "Faction": 0,
+    "ArtifactType": [
+      2,
+      4
+    ],
     "Substats": [
       {
         "ID": 4,
@@ -49,16 +49,16 @@
     "Keep": true,
     "IsRuleTypeAND": false,
     "Use": false,
-    "ArtifactType": [
-      2,
-      4
-    ],
     "Rank": 0,
     "Rarity": 16,
     "MainStatID": 5,
     "MainStatF": 1,
     "LVLForCheck": 16,
     "Faction": 0,
+    "ArtifactType": [
+      2,
+      4
+    ],
     "Substats": [
       {
         "ID": 4,
@@ -95,16 +95,16 @@
     "Keep": true,
     "IsRuleTypeAND": false,
     "Use": false,
-    "ArtifactType": [
-      2,
-      4
-    ],
     "Rank": 0,
     "Rarity": 16,
     "MainStatID": 5,
     "MainStatF": 1,
     "LVLForCheck": 16,
     "Faction": 0,
+    "ArtifactType": [
+      2,
+      4
+    ],
     "Substats": [
       {
         "ID": 4,
@@ -141,16 +141,16 @@
     "Keep": true,
     "IsRuleTypeAND": false,
     "Use": false,
-    "ArtifactType": [
-      2,
-      4
-    ],
     "Rank": 0,
     "Rarity": 16,
     "MainStatID": 5,
     "MainStatF": 1,
     "LVLForCheck": 16,
     "Faction": 0,
+    "ArtifactType": [
+      2,
+      4
+    ],
     "Substats": [
       {
         "ID": 4,
@@ -187,16 +187,16 @@
     "Keep": true,
     "IsRuleTypeAND": false,
     "Use": false,
-    "ArtifactType": [
-      2,
-      4
-    ],
     "Rank": 0,
     "Rarity": 16,
     "MainStatID": 5,
     "MainStatF": 1,
     "LVLForCheck": 16,
     "Faction": 0,
+    "ArtifactType": [
+      2,
+      4
+    ],
     "Substats": [
       {
         "ID": 4,
@@ -233,16 +233,16 @@
     "Keep": true,
     "IsRuleTypeAND": false,
     "Use": false,
-    "ArtifactType": [
-      2,
-      4
-    ],
     "Rank": 0,
     "Rarity": 16,
     "MainStatID": 5,
     "MainStatF": 1,
     "LVLForCheck": 16,
     "Faction": 0,
+    "ArtifactType": [
+      2,
+      4
+    ],
     "Substats": [
       {
         "ID": 4,
@@ -279,16 +279,16 @@
     "Keep": true,
     "IsRuleTypeAND": false,
     "Use": false,
-    "ArtifactType": [
-      2,
-      4
-    ],
     "Rank": 0,
     "Rarity": 16,
     "MainStatID": 5,
     "MainStatF": 1,
     "LVLForCheck": 16,
     "Faction": 0,
+    "ArtifactType": [
+      2,
+      4
+    ],
     "Substats": [
       {
         "ID": 4,
@@ -325,16 +325,16 @@
     "Keep": true,
     "IsRuleTypeAND": false,
     "Use": false,
-    "ArtifactType": [
-      2,
-      4
-    ],
     "Rank": 0,
     "Rarity": 16,
     "MainStatID": 5,
     "MainStatF": 1,
     "LVLForCheck": 16,
     "Faction": 0,
+    "ArtifactType": [
+      2,
+      4
+    ],
     "Substats": [
       {
         "ID": 4,
@@ -371,16 +371,16 @@
     "Keep": true,
     "IsRuleTypeAND": false,
     "Use": false,
-    "ArtifactType": [
-      2,
-      4
-    ],
     "Rank": 0,
     "Rarity": 16,
     "MainStatID": 5,
     "MainStatF": 1,
     "LVLForCheck": 16,
     "Faction": 0,
+    "ArtifactType": [
+      2,
+      4
+    ],
     "Substats": [
       {
         "ID": 4,
@@ -417,16 +417,16 @@
     "Keep": true,
     "IsRuleTypeAND": false,
     "Use": false,
-    "ArtifactType": [
-      2,
-      4
-    ],
     "Rank": 0,
     "Rarity": 16,
     "MainStatID": 5,
     "MainStatF": 1,
     "LVLForCheck": 16,
     "Faction": 0,
+    "ArtifactType": [
+      2,
+      4
+    ],
     "Substats": [
       {
         "ID": 4,
@@ -463,16 +463,16 @@
     "Keep": true,
     "IsRuleTypeAND": false,
     "Use": false,
-    "ArtifactType": [
-      2,
-      4
-    ],
     "Rank": 0,
     "Rarity": 16,
     "MainStatID": 5,
     "MainStatF": 1,
     "LVLForCheck": 16,
     "Faction": 0,
+    "ArtifactType": [
+      2,
+      4
+    ],
     "Substats": [
       {
         "ID": 4,
@@ -509,16 +509,16 @@
     "Keep": true,
     "IsRuleTypeAND": false,
     "Use": false,
-    "ArtifactType": [
-      2,
-      4
-    ],
     "Rank": 0,
     "Rarity": 16,
     "MainStatID": 5,
     "MainStatF": 1,
     "LVLForCheck": 16,
     "Faction": 0,
+    "ArtifactType": [
+      2,
+      4
+    ],
     "Substats": [
       {
         "ID": 4,
@@ -555,16 +555,16 @@
     "Keep": true,
     "IsRuleTypeAND": false,
     "Use": false,
-    "ArtifactType": [
-      2,
-      4
-    ],
     "Rank": 0,
     "Rarity": 16,
     "MainStatID": 5,
     "MainStatF": 1,
     "LVLForCheck": 16,
     "Faction": 0,
+    "ArtifactType": [
+      2,
+      4
+    ],
     "Substats": [
       {
         "ID": 4,
@@ -601,16 +601,16 @@
     "Keep": true,
     "IsRuleTypeAND": false,
     "Use": false,
-    "ArtifactType": [
-      2,
-      4
-    ],
     "Rank": 0,
     "Rarity": 16,
     "MainStatID": 5,
     "MainStatF": 1,
     "LVLForCheck": 16,
     "Faction": 0,
+    "ArtifactType": [
+      2,
+      4
+    ],
     "Substats": [
       {
         "ID": 4,
@@ -647,16 +647,16 @@
     "Keep": true,
     "IsRuleTypeAND": false,
     "Use": false,
-    "ArtifactType": [
-      2,
-      4
-    ],
     "Rank": 0,
     "Rarity": 16,
     "MainStatID": 5,
     "MainStatF": 1,
     "LVLForCheck": 16,
     "Faction": 0,
+    "ArtifactType": [
+      2,
+      4
+    ],
     "Substats": [
       {
         "ID": 4,
@@ -693,16 +693,16 @@
     "Keep": true,
     "IsRuleTypeAND": false,
     "Use": false,
-    "ArtifactType": [
-      2,
-      4
-    ],
     "Rank": 0,
     "Rarity": 16,
     "MainStatID": 5,
     "MainStatF": 1,
     "LVLForCheck": 16,
     "Faction": 0,
+    "ArtifactType": [
+      2,
+      4
+    ],
     "Substats": [
       {
         "ID": 4,
@@ -739,16 +739,16 @@
     "Keep": true,
     "IsRuleTypeAND": false,
     "Use": false,
-    "ArtifactType": [
-      2,
-      4
-    ],
     "Rank": 0,
     "Rarity": 16,
     "MainStatID": 5,
     "MainStatF": 1,
     "LVLForCheck": 16,
     "Faction": 0,
+    "ArtifactType": [
+      2,
+      4
+    ],
     "Substats": [
       {
         "ID": 4,
@@ -785,16 +785,16 @@
     "Keep": true,
     "IsRuleTypeAND": false,
     "Use": false,
-    "ArtifactType": [
-      2,
-      4
-    ],
     "Rank": 0,
     "Rarity": 16,
     "MainStatID": 5,
     "MainStatF": 1,
     "LVLForCheck": 16,
     "Faction": 0,
+    "ArtifactType": [
+      2,
+      4
+    ],
     "Substats": [
       {
         "ID": 4,
@@ -831,16 +831,16 @@
     "Keep": true,
     "IsRuleTypeAND": false,
     "Use": false,
-    "ArtifactType": [
-      2,
-      4
-    ],
     "Rank": 0,
     "Rarity": 16,
     "MainStatID": 5,
     "MainStatF": 1,
     "LVLForCheck": 16,
     "Faction": 0,
+    "ArtifactType": [
+      2,
+      4
+    ],
     "Substats": [
       {
         "ID": 4,
@@ -877,16 +877,16 @@
     "Keep": true,
     "IsRuleTypeAND": false,
     "Use": false,
-    "ArtifactType": [
-      2,
-      4
-    ],
     "Rank": 0,
     "Rarity": 16,
     "MainStatID": 5,
     "MainStatF": 1,
     "LVLForCheck": 16,
     "Faction": 0,
+    "ArtifactType": [
+      2,
+      4
+    ],
     "Substats": [
       {
         "ID": 4,
@@ -923,16 +923,16 @@
     "Keep": true,
     "IsRuleTypeAND": false,
     "Use": false,
-    "ArtifactType": [
-      2,
-      4
-    ],
     "Rank": 0,
     "Rarity": 16,
     "MainStatID": 5,
     "MainStatF": 1,
     "LVLForCheck": 16,
     "Faction": 0,
+    "ArtifactType": [
+      2,
+      4
+    ],
     "Substats": [
       {
         "ID": 4,
@@ -969,16 +969,16 @@
     "Keep": true,
     "IsRuleTypeAND": false,
     "Use": false,
-    "ArtifactType": [
-      2,
-      4
-    ],
     "Rank": 0,
     "Rarity": 16,
     "MainStatID": 5,
     "MainStatF": 1,
     "LVLForCheck": 16,
     "Faction": 0,
+    "ArtifactType": [
+      2,
+      4
+    ],
     "Substats": [
       {
         "ID": 4,
@@ -1015,16 +1015,16 @@
     "Keep": true,
     "IsRuleTypeAND": false,
     "Use": false,
-    "ArtifactType": [
-      2,
-      4
-    ],
     "Rank": 0,
     "Rarity": 16,
     "MainStatID": 5,
     "MainStatF": 1,
     "LVLForCheck": 16,
     "Faction": 0,
+    "ArtifactType": [
+      2,
+      4
+    ],
     "Substats": [
       {
         "ID": 4,
@@ -1061,16 +1061,16 @@
     "Keep": true,
     "IsRuleTypeAND": false,
     "Use": false,
-    "ArtifactType": [
-      2,
-      4
-    ],
     "Rank": 0,
     "Rarity": 16,
     "MainStatID": 5,
     "MainStatF": 1,
     "LVLForCheck": 16,
     "Faction": 0,
+    "ArtifactType": [
+      2,
+      4
+    ],
     "Substats": [
       {
         "ID": 4,
@@ -1107,16 +1107,16 @@
     "Keep": true,
     "IsRuleTypeAND": false,
     "Use": false,
-    "ArtifactType": [
-      2,
-      4
-    ],
     "Rank": 0,
     "Rarity": 16,
     "MainStatID": 5,
     "MainStatF": 1,
     "LVLForCheck": 16,
     "Faction": 0,
+    "ArtifactType": [
+      2,
+      4
+    ],
     "Substats": [
       {
         "ID": 4,
@@ -1153,16 +1153,16 @@
     "Keep": true,
     "IsRuleTypeAND": false,
     "Use": false,
-    "ArtifactType": [
-      2,
-      4
-    ],
     "Rank": 0,
     "Rarity": 16,
     "MainStatID": 5,
     "MainStatF": 1,
     "LVLForCheck": 16,
     "Faction": 0,
+    "ArtifactType": [
+      2,
+      4
+    ],
     "Substats": [
       {
         "ID": 4,
@@ -1199,16 +1199,16 @@
     "Keep": true,
     "IsRuleTypeAND": false,
     "Use": false,
-    "ArtifactType": [
-      2,
-      4
-    ],
     "Rank": 0,
     "Rarity": 16,
     "MainStatID": 5,
     "MainStatF": 1,
     "LVLForCheck": 16,
     "Faction": 0,
+    "ArtifactType": [
+      2,
+      4
+    ],
     "Substats": [
       {
         "ID": 4,
@@ -1245,16 +1245,16 @@
     "Keep": true,
     "IsRuleTypeAND": false,
     "Use": false,
-    "ArtifactType": [
-      2,
-      4
-    ],
     "Rank": 0,
     "Rarity": 16,
     "MainStatID": 5,
     "MainStatF": 1,
     "LVLForCheck": 16,
     "Faction": 0,
+    "ArtifactType": [
+      2,
+      4
+    ],
     "Substats": [
       {
         "ID": 4,
@@ -1291,16 +1291,16 @@
     "Keep": true,
     "IsRuleTypeAND": false,
     "Use": false,
-    "ArtifactType": [
-      2,
-      4
-    ],
     "Rank": 0,
     "Rarity": 16,
     "MainStatID": 5,
     "MainStatF": 1,
     "LVLForCheck": 16,
     "Faction": 0,
+    "ArtifactType": [
+      2,
+      4
+    ],
     "Substats": [
       {
         "ID": 4,
@@ -1337,16 +1337,16 @@
     "Keep": true,
     "IsRuleTypeAND": false,
     "Use": false,
-    "ArtifactType": [
-      2,
-      4
-    ],
     "Rank": 0,
     "Rarity": 16,
     "MainStatID": 5,
     "MainStatF": 1,
     "LVLForCheck": 16,
     "Faction": 0,
+    "ArtifactType": [
+      2,
+      4
+    ],
     "Substats": [
       {
         "ID": 4,
@@ -1383,16 +1383,16 @@
     "Keep": true,
     "IsRuleTypeAND": false,
     "Use": false,
-    "ArtifactType": [
-      2,
-      4
-    ],
     "Rank": 0,
     "Rarity": 16,
     "MainStatID": 5,
     "MainStatF": 1,
     "LVLForCheck": 16,
     "Faction": 0,
+    "ArtifactType": [
+      2,
+      4
+    ],
     "Substats": [
       {
         "ID": 4,
@@ -1429,16 +1429,16 @@
     "Keep": true,
     "IsRuleTypeAND": false,
     "Use": false,
-    "ArtifactType": [
-      2,
-      4
-    ],
     "Rank": 0,
     "Rarity": 16,
     "MainStatID": 5,
     "MainStatF": 1,
     "LVLForCheck": 16,
     "Faction": 0,
+    "ArtifactType": [
+      2,
+      4
+    ],
     "Substats": [
       {
         "ID": 4,
@@ -1475,16 +1475,16 @@
     "Keep": true,
     "IsRuleTypeAND": false,
     "Use": false,
-    "ArtifactType": [
-      2,
-      4
-    ],
     "Rank": 0,
     "Rarity": 16,
     "MainStatID": 5,
     "MainStatF": 1,
     "LVLForCheck": 16,
     "Faction": 0,
+    "ArtifactType": [
+      2,
+      4
+    ],
     "Substats": [
       {
         "ID": 4,
@@ -1521,16 +1521,16 @@
     "Keep": true,
     "IsRuleTypeAND": false,
     "Use": false,
-    "ArtifactType": [
-      2,
-      4
-    ],
     "Rank": 0,
     "Rarity": 16,
     "MainStatID": 5,
     "MainStatF": 1,
     "LVLForCheck": 16,
     "Faction": 0,
+    "ArtifactType": [
+      2,
+      4
+    ],
     "Substats": [
       {
         "ID": 4,
@@ -1567,16 +1567,16 @@
     "Keep": true,
     "IsRuleTypeAND": false,
     "Use": false,
-    "ArtifactType": [
-      2,
-      4
-    ],
     "Rank": 0,
     "Rarity": 16,
     "MainStatID": 5,
     "MainStatF": 1,
     "LVLForCheck": 16,
     "Faction": 0,
+    "ArtifactType": [
+      2,
+      4
+    ],
     "Substats": [
       {
         "ID": 4,
@@ -1613,16 +1613,16 @@
     "Keep": true,
     "IsRuleTypeAND": false,
     "Use": false,
-    "ArtifactType": [
-      2,
-      4
-    ],
     "Rank": 0,
     "Rarity": 16,
     "MainStatID": 5,
     "MainStatF": 1,
     "LVLForCheck": 16,
     "Faction": 0,
+    "ArtifactType": [
+      2,
+      4
+    ],
     "Substats": [
       {
         "ID": 4,
@@ -1659,16 +1659,16 @@
     "Keep": true,
     "IsRuleTypeAND": false,
     "Use": false,
-    "ArtifactType": [
-      2,
-      4
-    ],
     "Rank": 0,
     "Rarity": 16,
     "MainStatID": 5,
     "MainStatF": 1,
     "LVLForCheck": 16,
     "Faction": 0,
+    "ArtifactType": [
+      2,
+      4
+    ],
     "Substats": [
       {
         "ID": 4,
@@ -1705,16 +1705,16 @@
     "Keep": true,
     "IsRuleTypeAND": false,
     "Use": false,
-    "ArtifactType": [
-      2,
-      4
-    ],
     "Rank": 0,
     "Rarity": 16,
     "MainStatID": 5,
     "MainStatF": 1,
     "LVLForCheck": 16,
     "Faction": 0,
+    "ArtifactType": [
+      2,
+      4
+    ],
     "Substats": [
       {
         "ID": 4,
@@ -1751,16 +1751,16 @@
     "Keep": true,
     "IsRuleTypeAND": false,
     "Use": false,
-    "ArtifactType": [
-      2,
-      4
-    ],
     "Rank": 0,
     "Rarity": 16,
     "MainStatID": 5,
     "MainStatF": 1,
     "LVLForCheck": 16,
     "Faction": 0,
+    "ArtifactType": [
+      2,
+      4
+    ],
     "Substats": [
       {
         "ID": 4,
@@ -1797,16 +1797,16 @@
     "Keep": true,
     "IsRuleTypeAND": false,
     "Use": false,
-    "ArtifactType": [
-      2,
-      4
-    ],
     "Rank": 0,
     "Rarity": 16,
     "MainStatID": 5,
     "MainStatF": 1,
     "LVLForCheck": 16,
     "Faction": 0,
+    "ArtifactType": [
+      2,
+      4
+    ],
     "Substats": [
       {
         "ID": 4,
@@ -1843,16 +1843,16 @@
     "Keep": true,
     "IsRuleTypeAND": false,
     "Use": false,
-    "ArtifactType": [
-      2,
-      4
-    ],
     "Rank": 0,
     "Rarity": 16,
     "MainStatID": 5,
     "MainStatF": 1,
     "LVLForCheck": 16,
     "Faction": 0,
+    "ArtifactType": [
+      2,
+      4
+    ],
     "Substats": [
       {
         "ID": 4,
@@ -1889,16 +1889,16 @@
     "Keep": true,
     "IsRuleTypeAND": false,
     "Use": false,
-    "ArtifactType": [
-      2,
-      4
-    ],
     "Rank": 0,
     "Rarity": 16,
     "MainStatID": 5,
     "MainStatF": 1,
     "LVLForCheck": 16,
     "Faction": 0,
+    "ArtifactType": [
+      2,
+      4
+    ],
     "Substats": [
       {
         "ID": 4,
@@ -1935,16 +1935,16 @@
     "Keep": true,
     "IsRuleTypeAND": false,
     "Use": false,
-    "ArtifactType": [
-      2,
-      4
-    ],
     "Rank": 0,
     "Rarity": 16,
     "MainStatID": 5,
     "MainStatF": 1,
     "LVLForCheck": 16,
     "Faction": 0,
+    "ArtifactType": [
+      2,
+      4
+    ],
     "Substats": [
       {
         "ID": 4,
@@ -1981,16 +1981,16 @@
     "Keep": true,
     "IsRuleTypeAND": false,
     "Use": false,
-    "ArtifactType": [
-      2,
-      4
-    ],
     "Rank": 0,
     "Rarity": 16,
     "MainStatID": 5,
     "MainStatF": 1,
     "LVLForCheck": 16,
     "Faction": 0,
+    "ArtifactType": [
+      2,
+      4
+    ],
     "Substats": [
       {
         "ID": 4,
@@ -2027,16 +2027,16 @@
     "Keep": true,
     "IsRuleTypeAND": false,
     "Use": false,
-    "ArtifactType": [
-      2,
-      4
-    ],
     "Rank": 0,
     "Rarity": 16,
     "MainStatID": 5,
     "MainStatF": 1,
     "LVLForCheck": 16,
     "Faction": 0,
+    "ArtifactType": [
+      2,
+      4
+    ],
     "Substats": [
       {
         "ID": 4,
@@ -2073,16 +2073,16 @@
     "Keep": true,
     "IsRuleTypeAND": false,
     "Use": false,
-    "ArtifactType": [
-      2,
-      4
-    ],
     "Rank": 0,
     "Rarity": 16,
     "MainStatID": 5,
     "MainStatF": 1,
     "LVLForCheck": 16,
     "Faction": 0,
+    "ArtifactType": [
+      2,
+      4
+    ],
     "Substats": [
       {
         "ID": 4,
@@ -2119,16 +2119,16 @@
     "Keep": true,
     "IsRuleTypeAND": false,
     "Use": false,
-    "ArtifactType": [
-      2,
-      4
-    ],
     "Rank": 0,
     "Rarity": 16,
     "MainStatID": 5,
     "MainStatF": 1,
     "LVLForCheck": 16,
     "Faction": 0,
+    "ArtifactType": [
+      2,
+      4
+    ],
     "Substats": [
       {
         "ID": 4,
@@ -2165,16 +2165,16 @@
     "Keep": true,
     "IsRuleTypeAND": false,
     "Use": false,
-    "ArtifactType": [
-      2,
-      4
-    ],
     "Rank": 0,
     "Rarity": 16,
     "MainStatID": 5,
     "MainStatF": 1,
     "LVLForCheck": 16,
     "Faction": 0,
+    "ArtifactType": [
+      2,
+      4
+    ],
     "Substats": [
       {
         "ID": 4,
@@ -2211,16 +2211,16 @@
     "Keep": true,
     "IsRuleTypeAND": false,
     "Use": false,
-    "ArtifactType": [
-      2,
-      4
-    ],
     "Rank": 0,
     "Rarity": 16,
     "MainStatID": 5,
     "MainStatF": 1,
     "LVLForCheck": 16,
     "Faction": 0,
+    "ArtifactType": [
+      2,
+      4
+    ],
     "Substats": [
       {
         "ID": 4,
@@ -2257,16 +2257,16 @@
     "Keep": true,
     "IsRuleTypeAND": false,
     "Use": false,
-    "ArtifactType": [
-      2,
-      4
-    ],
     "Rank": 0,
     "Rarity": 16,
     "MainStatID": 5,
     "MainStatF": 1,
     "LVLForCheck": 16,
     "Faction": 0,
+    "ArtifactType": [
+      2,
+      4
+    ],
     "Substats": [
       {
         "ID": 4,
@@ -2303,16 +2303,16 @@
     "Keep": true,
     "IsRuleTypeAND": false,
     "Use": false,
-    "ArtifactType": [
-      2,
-      4
-    ],
     "Rank": 0,
     "Rarity": 16,
     "MainStatID": 5,
     "MainStatF": 1,
     "LVLForCheck": 16,
     "Faction": 0,
+    "ArtifactType": [
+      2,
+      4
+    ],
     "Substats": [
       {
         "ID": 4,
@@ -2349,16 +2349,16 @@
     "Keep": true,
     "IsRuleTypeAND": false,
     "Use": false,
-    "ArtifactType": [
-      2,
-      4
-    ],
     "Rank": 0,
     "Rarity": 16,
     "MainStatID": 5,
     "MainStatF": 1,
     "LVLForCheck": 16,
     "Faction": 0,
+    "ArtifactType": [
+      2,
+      4
+    ],
     "Substats": [
       {
         "ID": 4,
@@ -2395,16 +2395,16 @@
     "Keep": true,
     "IsRuleTypeAND": false,
     "Use": false,
-    "ArtifactType": [
-      2,
-      4
-    ],
     "Rank": 0,
     "Rarity": 16,
     "MainStatID": 5,
     "MainStatF": 1,
     "LVLForCheck": 16,
     "Faction": 0,
+    "ArtifactType": [
+      2,
+      4
+    ],
     "Substats": [
       {
         "ID": 4,
@@ -2441,16 +2441,16 @@
     "Keep": true,
     "IsRuleTypeAND": false,
     "Use": false,
-    "ArtifactType": [
-      2,
-      4
-    ],
     "Rank": 0,
     "Rarity": 16,
     "MainStatID": 5,
     "MainStatF": 1,
     "LVLForCheck": 16,
     "Faction": 0,
+    "ArtifactType": [
+      2,
+      4
+    ],
     "Substats": [
       {
         "ID": 4,
@@ -2487,16 +2487,16 @@
     "Keep": true,
     "IsRuleTypeAND": false,
     "Use": false,
-    "ArtifactType": [
-      2,
-      4
-    ],
     "Rank": 0,
     "Rarity": 16,
     "MainStatID": 5,
     "MainStatF": 1,
     "LVLForCheck": 16,
     "Faction": 0,
+    "ArtifactType": [
+      2,
+      4
+    ],
     "Substats": [
       {
         "ID": 4,
@@ -2533,16 +2533,16 @@
     "Keep": true,
     "IsRuleTypeAND": false,
     "Use": false,
-    "ArtifactType": [
-      2,
-      4
-    ],
     "Rank": 0,
     "Rarity": 16,
     "MainStatID": 5,
     "MainStatF": 1,
     "LVLForCheck": 16,
     "Faction": 0,
+    "ArtifactType": [
+      2,
+      4
+    ],
     "Substats": [
       {
         "ID": 4,
@@ -2579,16 +2579,16 @@
     "Keep": true,
     "IsRuleTypeAND": false,
     "Use": false,
-    "ArtifactType": [
-      2,
-      4
-    ],
     "Rank": 0,
     "Rarity": 16,
     "MainStatID": 5,
     "MainStatF": 1,
     "LVLForCheck": 16,
     "Faction": 0,
+    "ArtifactType": [
+      2,
+      4
+    ],
     "Substats": [
       {
         "ID": 4,
@@ -2625,16 +2625,16 @@
     "Keep": true,
     "IsRuleTypeAND": false,
     "Use": false,
-    "ArtifactType": [
-      2,
-      4
-    ],
     "Rank": 0,
     "Rarity": 16,
     "MainStatID": 5,
     "MainStatF": 1,
     "LVLForCheck": 16,
     "Faction": 0,
+    "ArtifactType": [
+      2,
+      4
+    ],
     "Substats": [
       {
         "ID": 4,
@@ -2671,16 +2671,16 @@
     "Keep": true,
     "IsRuleTypeAND": false,
     "Use": false,
-    "ArtifactType": [
-      2,
-      4
-    ],
     "Rank": 0,
     "Rarity": 16,
     "MainStatID": 5,
     "MainStatF": 1,
     "LVLForCheck": 16,
     "Faction": 0,
+    "ArtifactType": [
+      2,
+      4
+    ],
     "Substats": [
       {
         "ID": 4,
@@ -2717,16 +2717,16 @@
     "Keep": true,
     "IsRuleTypeAND": false,
     "Use": false,
-    "ArtifactType": [
-      2,
-      4
-    ],
     "Rank": 0,
     "Rarity": 16,
     "MainStatID": 5,
     "MainStatF": 1,
     "LVLForCheck": 16,
     "Faction": 0,
+    "ArtifactType": [
+      2,
+      4
+    ],
     "Substats": [
       {
         "ID": 4,
@@ -2763,16 +2763,16 @@
     "Keep": true,
     "IsRuleTypeAND": false,
     "Use": false,
-    "ArtifactType": [
-      2,
-      4
-    ],
     "Rank": 0,
     "Rarity": 16,
     "MainStatID": 5,
     "MainStatF": 1,
     "LVLForCheck": 16,
     "Faction": 0,
+    "ArtifactType": [
+      2,
+      4
+    ],
     "Substats": [
       {
         "ID": 4,
@@ -2809,16 +2809,16 @@
     "Keep": true,
     "IsRuleTypeAND": false,
     "Use": false,
-    "ArtifactType": [
-      2,
-      4
-    ],
     "Rank": 0,
     "Rarity": 16,
     "MainStatID": 5,
     "MainStatF": 1,
     "LVLForCheck": 16,
     "Faction": 0,
+    "ArtifactType": [
+      2,
+      4
+    ],
     "Substats": [
       {
         "ID": 4,
@@ -2855,16 +2855,16 @@
     "Keep": true,
     "IsRuleTypeAND": false,
     "Use": false,
-    "ArtifactType": [
-      2,
-      4
-    ],
     "Rank": 0,
     "Rarity": 16,
     "MainStatID": 5,
     "MainStatF": 1,
     "LVLForCheck": 16,
     "Faction": 0,
+    "ArtifactType": [
+      2,
+      4
+    ],
     "Substats": [
       {
         "ID": 4,
@@ -2901,16 +2901,16 @@
     "Keep": true,
     "IsRuleTypeAND": false,
     "Use": false,
-    "ArtifactType": [
-      2,
-      4
-    ],
     "Rank": 0,
     "Rarity": 16,
     "MainStatID": 5,
     "MainStatF": 1,
     "LVLForCheck": 16,
     "Faction": 0,
+    "ArtifactType": [
+      2,
+      4
+    ],
     "Substats": [
       {
         "ID": 4,
@@ -2947,16 +2947,16 @@
     "Keep": true,
     "IsRuleTypeAND": false,
     "Use": false,
-    "ArtifactType": [
-      2,
-      4
-    ],
     "Rank": 0,
     "Rarity": 16,
     "MainStatID": 5,
     "MainStatF": 1,
     "LVLForCheck": 16,
     "Faction": 0,
+    "ArtifactType": [
+      2,
+      4
+    ],
     "Substats": [
       {
         "ID": 4,
@@ -2993,16 +2993,16 @@
     "Keep": true,
     "IsRuleTypeAND": false,
     "Use": false,
-    "ArtifactType": [
-      2,
-      4
-    ],
     "Rank": 0,
     "Rarity": 16,
     "MainStatID": 5,
     "MainStatF": 1,
     "LVLForCheck": 16,
     "Faction": 0,
+    "ArtifactType": [
+      2,
+      4
+    ],
     "Substats": [
       {
         "ID": 4,
@@ -3039,16 +3039,16 @@
     "Keep": true,
     "IsRuleTypeAND": false,
     "Use": false,
-    "ArtifactType": [
-      2,
-      4
-    ],
     "Rank": 0,
     "Rarity": 16,
     "MainStatID": 5,
     "MainStatF": 1,
     "LVLForCheck": 16,
     "Faction": 0,
+    "ArtifactType": [
+      2,
+      4
+    ],
     "Substats": [
       {
         "ID": 4,
@@ -3085,16 +3085,16 @@
     "Keep": true,
     "IsRuleTypeAND": false,
     "Use": false,
-    "ArtifactType": [
-      2,
-      4
-    ],
     "Rank": 0,
     "Rarity": 16,
     "MainStatID": 5,
     "MainStatF": 1,
     "LVLForCheck": 16,
     "Faction": 0,
+    "ArtifactType": [
+      2,
+      4
+    ],
     "Substats": [
       {
         "ID": 4,
@@ -3131,16 +3131,16 @@
     "Keep": true,
     "IsRuleTypeAND": false,
     "Use": false,
-    "ArtifactType": [
-      2,
-      4
-    ],
     "Rank": 0,
     "Rarity": 16,
     "MainStatID": 5,
     "MainStatF": 1,
     "LVLForCheck": 16,
     "Faction": 0,
+    "ArtifactType": [
+      2,
+      4
+    ],
     "Substats": [
       {
         "ID": 4,
@@ -3177,16 +3177,16 @@
     "Keep": true,
     "IsRuleTypeAND": false,
     "Use": false,
-    "ArtifactType": [
-      2,
-      4
-    ],
     "Rank": 0,
     "Rarity": 16,
     "MainStatID": 5,
     "MainStatF": 1,
     "LVLForCheck": 16,
     "Faction": 0,
+    "ArtifactType": [
+      2,
+      4
+    ],
     "Substats": [
       {
         "ID": 4,
@@ -3223,16 +3223,16 @@
     "Keep": true,
     "IsRuleTypeAND": false,
     "Use": false,
-    "ArtifactType": [
-      2,
-      4
-    ],
     "Rank": 0,
     "Rarity": 16,
     "MainStatID": 5,
     "MainStatF": 1,
     "LVLForCheck": 16,
     "Faction": 0,
+    "ArtifactType": [
+      2,
+      4
+    ],
     "Substats": [
       {
         "ID": 4,
@@ -3269,16 +3269,16 @@
     "Keep": true,
     "IsRuleTypeAND": false,
     "Use": false,
-    "ArtifactType": [
-      2,
-      4
-    ],
     "Rank": 0,
     "Rarity": 16,
     "MainStatID": 5,
     "MainStatF": 1,
     "LVLForCheck": 16,
     "Faction": 0,
+    "ArtifactType": [
+      2,
+      4
+    ],
     "Substats": [
       {
         "ID": 4,
@@ -3315,16 +3315,16 @@
     "Keep": true,
     "IsRuleTypeAND": false,
     "Use": false,
-    "ArtifactType": [
-      2,
-      4
-    ],
     "Rank": 0,
     "Rarity": 16,
     "MainStatID": 5,
     "MainStatF": 1,
     "LVLForCheck": 16,
     "Faction": 0,
+    "ArtifactType": [
+      2,
+      4
+    ],
     "Substats": [
       {
         "ID": 4,
@@ -3361,16 +3361,16 @@
     "Keep": true,
     "IsRuleTypeAND": false,
     "Use": false,
-    "ArtifactType": [
-      2,
-      4
-    ],
     "Rank": 0,
     "Rarity": 16,
     "MainStatID": 5,
     "MainStatF": 1,
     "LVLForCheck": 16,
     "Faction": 0,
+    "ArtifactType": [
+      2,
+      4
+    ],
     "Substats": [
       {
         "ID": 4,
@@ -3407,16 +3407,16 @@
     "Keep": true,
     "IsRuleTypeAND": false,
     "Use": false,
-    "ArtifactType": [
-      2,
-      4
-    ],
     "Rank": 0,
     "Rarity": 16,
     "MainStatID": 5,
     "MainStatF": 1,
     "LVLForCheck": 16,
     "Faction": 0,
+    "ArtifactType": [
+      2,
+      4
+    ],
     "Substats": [
       {
         "ID": 4,
@@ -3453,16 +3453,16 @@
     "Keep": true,
     "IsRuleTypeAND": false,
     "Use": false,
-    "ArtifactType": [
-      2,
-      4
-    ],
     "Rank": 0,
     "Rarity": 16,
     "MainStatID": 5,
     "MainStatF": 1,
     "LVLForCheck": 16,
     "Faction": 0,
+    "ArtifactType": [
+      2,
+      4
+    ],
     "Substats": [
       {
         "ID": 4,
@@ -3499,16 +3499,16 @@
     "Keep": true,
     "IsRuleTypeAND": false,
     "Use": false,
-    "ArtifactType": [
-      2,
-      4
-    ],
     "Rank": 0,
     "Rarity": 16,
     "MainStatID": 5,
     "MainStatF": 1,
     "LVLForCheck": 16,
     "Faction": 0,
+    "ArtifactType": [
+      2,
+      4
+    ],
     "Substats": [
       {
         "ID": 4,
@@ -3545,16 +3545,16 @@
     "Keep": true,
     "IsRuleTypeAND": false,
     "Use": false,
-    "ArtifactType": [
-      2,
-      4
-    ],
     "Rank": 0,
     "Rarity": 16,
     "MainStatID": 5,
     "MainStatF": 1,
     "LVLForCheck": 16,
     "Faction": 0,
+    "ArtifactType": [
+      2,
+      4
+    ],
     "Substats": [
       {
         "ID": 4,
@@ -3591,16 +3591,16 @@
     "Keep": true,
     "IsRuleTypeAND": false,
     "Use": false,
-    "ArtifactType": [
-      2,
-      4
-    ],
     "Rank": 0,
     "Rarity": 16,
     "MainStatID": 5,
     "MainStatF": 1,
     "LVLForCheck": 16,
     "Faction": 0,
+    "ArtifactType": [
+      2,
+      4
+    ],
     "Substats": [
       {
         "ID": 4,
@@ -3637,16 +3637,16 @@
     "Keep": true,
     "IsRuleTypeAND": false,
     "Use": false,
-    "ArtifactType": [
-      2,
-      4
-    ],
     "Rank": 0,
     "Rarity": 16,
     "MainStatID": 5,
     "MainStatF": 1,
     "LVLForCheck": 16,
     "Faction": 0,
+    "ArtifactType": [
+      2,
+      4
+    ],
     "Substats": [
       {
         "ID": 4,
@@ -3683,16 +3683,16 @@
     "Keep": true,
     "IsRuleTypeAND": false,
     "Use": false,
-    "ArtifactType": [
-      2,
-      4
-    ],
     "Rank": 0,
     "Rarity": 16,
     "MainStatID": 5,
     "MainStatF": 1,
     "LVLForCheck": 16,
     "Faction": 0,
+    "ArtifactType": [
+      2,
+      4
+    ],
     "Substats": [
       {
         "ID": 4,
@@ -3729,16 +3729,16 @@
     "Keep": true,
     "IsRuleTypeAND": false,
     "Use": false,
-    "ArtifactType": [
-      2,
-      4
-    ],
     "Rank": 0,
     "Rarity": 16,
     "MainStatID": 5,
     "MainStatF": 1,
     "LVLForCheck": 16,
     "Faction": 0,
+    "ArtifactType": [
+      2,
+      4
+    ],
     "Substats": [
       {
         "ID": 4,
@@ -3775,16 +3775,16 @@
     "Keep": true,
     "IsRuleTypeAND": false,
     "Use": false,
-    "ArtifactType": [
-      2,
-      4
-    ],
     "Rank": 0,
     "Rarity": 16,
     "MainStatID": 5,
     "MainStatF": 1,
     "LVLForCheck": 16,
     "Faction": 0,
+    "ArtifactType": [
+      2,
+      4
+    ],
     "Substats": [
       {
         "ID": 4,
@@ -3821,16 +3821,16 @@
     "Keep": true,
     "IsRuleTypeAND": false,
     "Use": false,
-    "ArtifactType": [
-      2,
-      4
-    ],
     "Rank": 0,
     "Rarity": 16,
     "MainStatID": 5,
     "MainStatF": 1,
     "LVLForCheck": 16,
     "Faction": 0,
+    "ArtifactType": [
+      2,
+      4
+    ],
     "Substats": [
       {
         "ID": 4,
@@ -3867,16 +3867,16 @@
     "Keep": true,
     "IsRuleTypeAND": false,
     "Use": false,
-    "ArtifactType": [
-      2,
-      4
-    ],
     "Rank": 0,
     "Rarity": 16,
     "MainStatID": 5,
     "MainStatF": 1,
     "LVLForCheck": 16,
     "Faction": 0,
+    "ArtifactType": [
+      2,
+      4
+    ],
     "Substats": [
       {
         "ID": 4,
@@ -3913,16 +3913,16 @@
     "Keep": true,
     "IsRuleTypeAND": false,
     "Use": false,
-    "ArtifactType": [
-      2,
-      4
-    ],
     "Rank": 0,
     "Rarity": 16,
     "MainStatID": 5,
     "MainStatF": 1,
     "LVLForCheck": 16,
     "Faction": 0,
+    "ArtifactType": [
+      2,
+      4
+    ],
     "Substats": [
       {
         "ID": 4,
@@ -3959,16 +3959,16 @@
     "Keep": true,
     "IsRuleTypeAND": false,
     "Use": false,
-    "ArtifactType": [
-      2,
-      4
-    ],
     "Rank": 0,
     "Rarity": 16,
     "MainStatID": 5,
     "MainStatF": 1,
     "LVLForCheck": 16,
     "Faction": 0,
+    "ArtifactType": [
+      2,
+      4
+    ],
     "Substats": [
       {
         "ID": 4,
@@ -4005,16 +4005,16 @@
     "Keep": true,
     "IsRuleTypeAND": false,
     "Use": false,
-    "ArtifactType": [
-      2,
-      4
-    ],
     "Rank": 0,
     "Rarity": 16,
     "MainStatID": 5,
     "MainStatF": 1,
     "LVLForCheck": 16,
     "Faction": 0,
+    "ArtifactType": [
+      2,
+      4
+    ],
     "Substats": [
       {
         "ID": 4,
@@ -4051,16 +4051,16 @@
     "Keep": true,
     "IsRuleTypeAND": false,
     "Use": false,
-    "ArtifactType": [
-      2,
-      4
-    ],
     "Rank": 0,
     "Rarity": 16,
     "MainStatID": 5,
     "MainStatF": 1,
     "LVLForCheck": 16,
     "Faction": 0,
+    "ArtifactType": [
+      2,
+      4
+    ],
     "Substats": [
       {
         "ID": 4,
@@ -4097,16 +4097,16 @@
     "Keep": true,
     "IsRuleTypeAND": false,
     "Use": false,
-    "ArtifactType": [
-      2,
-      4
-    ],
     "Rank": 0,
     "Rarity": 16,
     "MainStatID": 5,
     "MainStatF": 1,
     "LVLForCheck": 16,
     "Faction": 0,
+    "ArtifactType": [
+      2,
+      4
+    ],
     "Substats": [
       {
         "ID": 4,
@@ -4143,16 +4143,16 @@
     "Keep": true,
     "IsRuleTypeAND": false,
     "Use": false,
-    "ArtifactType": [
-      2,
-      4
-    ],
     "Rank": 0,
     "Rarity": 16,
     "MainStatID": 5,
     "MainStatF": 1,
     "LVLForCheck": 16,
     "Faction": 0,
+    "ArtifactType": [
+      2,
+      4
+    ],
     "Substats": [
       {
         "ID": 4,
@@ -4189,16 +4189,16 @@
     "Keep": true,
     "IsRuleTypeAND": false,
     "Use": false,
-    "ArtifactType": [
-      2,
-      4
-    ],
     "Rank": 0,
     "Rarity": 16,
     "MainStatID": 5,
     "MainStatF": 1,
     "LVLForCheck": 16,
     "Faction": 0,
+    "ArtifactType": [
+      2,
+      4
+    ],
     "Substats": [
       {
         "ID": 4,
@@ -4235,16 +4235,16 @@
     "Keep": true,
     "IsRuleTypeAND": false,
     "Use": false,
-    "ArtifactType": [
-      2,
-      4
-    ],
     "Rank": 0,
     "Rarity": 16,
     "MainStatID": 5,
     "MainStatF": 1,
     "LVLForCheck": 16,
     "Faction": 0,
+    "ArtifactType": [
+      2,
+      4
+    ],
     "Substats": [
       {
         "ID": 4,
@@ -4281,16 +4281,16 @@
     "Keep": true,
     "IsRuleTypeAND": false,
     "Use": false,
-    "ArtifactType": [
-      2,
-      4
-    ],
     "Rank": 0,
     "Rarity": 16,
     "MainStatID": 5,
     "MainStatF": 1,
     "LVLForCheck": 16,
     "Faction": 0,
+    "ArtifactType": [
+      2,
+      4
+    ],
     "Substats": [
       {
         "ID": 4,
@@ -4327,16 +4327,16 @@
     "Keep": true,
     "IsRuleTypeAND": false,
     "Use": false,
-    "ArtifactType": [
-      2,
-      4
-    ],
     "Rank": 0,
     "Rarity": 16,
     "MainStatID": 5,
     "MainStatF": 1,
     "LVLForCheck": 16,
     "Faction": 0,
+    "ArtifactType": [
+      2,
+      4
+    ],
     "Substats": [
       {
         "ID": 4,
@@ -4373,16 +4373,16 @@
     "Keep": true,
     "IsRuleTypeAND": false,
     "Use": false,
-    "ArtifactType": [
-      2,
-      4
-    ],
     "Rank": 0,
     "Rarity": 16,
     "MainStatID": 5,
     "MainStatF": 1,
     "LVLForCheck": 16,
     "Faction": 0,
+    "ArtifactType": [
+      2,
+      4
+    ],
     "Substats": [
       {
         "ID": 4,
@@ -4419,16 +4419,16 @@
     "Keep": true,
     "IsRuleTypeAND": false,
     "Use": false,
-    "ArtifactType": [
-      2,
-      4
-    ],
     "Rank": 0,
     "Rarity": 16,
     "MainStatID": 5,
     "MainStatF": 1,
     "LVLForCheck": 16,
     "Faction": 0,
+    "ArtifactType": [
+      2,
+      4
+    ],
     "Substats": [
       {
         "ID": 4,
@@ -4465,16 +4465,16 @@
     "Keep": true,
     "IsRuleTypeAND": false,
     "Use": false,
-    "ArtifactType": [
-      2,
-      4
-    ],
     "Rank": 0,
     "Rarity": 16,
     "MainStatID": 5,
     "MainStatF": 1,
     "LVLForCheck": 16,
     "Faction": 0,
+    "ArtifactType": [
+      2,
+      4
+    ],
     "Substats": [
       {
         "ID": 4,
@@ -4511,16 +4511,16 @@
     "Keep": true,
     "IsRuleTypeAND": false,
     "Use": false,
-    "ArtifactType": [
-      2,
-      4
-    ],
     "Rank": 0,
     "Rarity": 16,
     "MainStatID": 5,
     "MainStatF": 1,
     "LVLForCheck": 16,
     "Faction": 0,
+    "ArtifactType": [
+      2,
+      4
+    ],
     "Substats": [
       {
         "ID": 4,
@@ -4557,16 +4557,16 @@
     "Keep": true,
     "IsRuleTypeAND": false,
     "Use": false,
-    "ArtifactType": [
-      2,
-      4
-    ],
     "Rank": 0,
     "Rarity": 16,
     "MainStatID": 5,
     "MainStatF": 1,
     "LVLForCheck": 16,
     "Faction": 0,
+    "ArtifactType": [
+      2,
+      4
+    ],
     "Substats": [
       {
         "ID": 4,
@@ -4603,16 +4603,16 @@
     "Keep": true,
     "IsRuleTypeAND": false,
     "Use": false,
-    "ArtifactType": [
-      2,
-      4
-    ],
     "Rank": 0,
     "Rarity": 16,
     "MainStatID": 5,
     "MainStatF": 1,
     "LVLForCheck": 16,
     "Faction": 0,
+    "ArtifactType": [
+      2,
+      4
+    ],
     "Substats": [
       {
         "ID": 4,
@@ -4649,16 +4649,16 @@
     "Keep": true,
     "IsRuleTypeAND": false,
     "Use": false,
-    "ArtifactType": [
-      2,
-      4
-    ],
     "Rank": 0,
     "Rarity": 16,
     "MainStatID": 5,
     "MainStatF": 1,
     "LVLForCheck": 16,
     "Faction": 0,
+    "ArtifactType": [
+      2,
+      4
+    ],
     "Substats": [
       {
         "ID": 4,
@@ -4695,16 +4695,16 @@
     "Keep": true,
     "IsRuleTypeAND": false,
     "Use": false,
-    "ArtifactType": [
-      2,
-      4
-    ],
     "Rank": 0,
     "Rarity": 16,
     "MainStatID": 5,
     "MainStatF": 1,
     "LVLForCheck": 16,
     "Faction": 0,
+    "ArtifactType": [
+      2,
+      4
+    ],
     "Substats": [
       {
         "ID": 4,
@@ -4741,16 +4741,16 @@
     "Keep": true,
     "IsRuleTypeAND": false,
     "Use": false,
-    "ArtifactType": [
-      2,
-      4
-    ],
     "Rank": 0,
     "Rarity": 16,
     "MainStatID": 5,
     "MainStatF": 1,
     "LVLForCheck": 16,
     "Faction": 0,
+    "ArtifactType": [
+      2,
+      4
+    ],
     "Substats": [
       {
         "ID": 4,
@@ -4787,16 +4787,16 @@
     "Keep": true,
     "IsRuleTypeAND": false,
     "Use": false,
-    "ArtifactType": [
-      2,
-      4
-    ],
     "Rank": 0,
     "Rarity": 16,
     "MainStatID": 5,
     "MainStatF": 1,
     "LVLForCheck": 16,
     "Faction": 0,
+    "ArtifactType": [
+      2,
+      4
+    ],
     "Substats": [
       {
         "ID": 4,
@@ -4833,16 +4833,16 @@
     "Keep": true,
     "IsRuleTypeAND": false,
     "Use": false,
-    "ArtifactType": [
-      2,
-      4
-    ],
     "Rank": 0,
     "Rarity": 16,
     "MainStatID": 5,
     "MainStatF": 1,
     "LVLForCheck": 16,
     "Faction": 0,
+    "ArtifactType": [
+      2,
+      4
+    ],
     "Substats": [
       {
         "ID": 4,

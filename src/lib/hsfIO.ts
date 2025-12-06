@@ -63,11 +63,13 @@ export function cleanHsfForExport(rules: ExportableRule[]): HsfFile {
   const cleaned: HsfRule[] = rules.map((r, exportIndex) => {
     const stripped = stripUiMetadata(r) as ExportableRule & { rowIdx?: number }
     // Preserve ConfigID/ConfigName ordering for readability while omitting diagnostics.
-    const { ConfigID, ConfigName, RowIdx: _prevRowIdx, rowIdx: _legacyRowIdx, ...others } = stripped
+    const { ConfigID, ConfigName, RowIdx: _prevRowIdx, rowIdx: _legacyRowIdx, ...rest } = stripped
+    // Builders already emit fields in the desired order; we simply reattach Config metadata.
+    const others = rest as HsfRule
     const ordered: HsfRule = {
       ...(ConfigID !== undefined ? { ConfigID } : {}),
       ...(ConfigName !== undefined ? { ConfigName } : {}),
-      ...(others as HsfRule),
+      ...others,
       // Stable 1-based row index lets host exports recover preview ordering even after merges/dedup.
       RowIdx: exportIndex + 1,
     }
