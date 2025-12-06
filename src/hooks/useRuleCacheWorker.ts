@@ -18,6 +18,7 @@ import type { TesterMatchWorkerItemResult } from '../workers/testerMatchWorkerTy
 import type { ProgressSnapshot } from '../types/progress'
 import { createProgressThrottler } from '../types/progress'
 import type { TesterPreviewMatch } from '../types/testerPreview'
+import { resolveMatchConfigName } from '../lib/ruleConfigIndex'
 
 type WarmCacheParams = {
   configs: BuilderConfig[]
@@ -285,11 +286,12 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
       if (!result) return null
       const rule = rules[result.ruleIndex]
       const cfgIdx = result.cfgIdx ?? null
+      const cfgName = resolveMatchConfigName(cfgIdx, null, rule)
       return {
         ruleIndex: result.ruleIndex,
         keep: result.keep,
         cfgIdx,
-        cfgName: null,
+        cfgName,
         ruleLabel: null,
         ruleSource: rule?.__source ?? null,
       }

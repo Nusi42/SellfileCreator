@@ -54,3 +54,30 @@ export function cloneRuleWithConfigIndex(rule: HsfRuleWithCfg, cfgIdx: number, c
   }
   return clone
 }
+
+type ConfigNameList = readonly (string | null | undefined)[] | null | undefined
+
+/**
+ * Resolve the label to show for tester matches.
+ * Keep-unique sentinel rules do not map to builder configs, so we fall back to the trimmed rule name.
+ */
+export function resolveMatchConfigName(
+  cfgIdx: number | null | undefined,
+  configNames: ConfigNameList,
+  rule: RuleWithConfigMetadata | null | undefined,
+): string | null {
+  if (
+    configNames
+    && cfgIdx != null
+    && cfgIdx >= 0
+    && cfgIdx < configNames.length
+  ) {
+    const candidate = configNames[cfgIdx]
+    if (typeof candidate === 'string') {
+      const trimmed = candidate.trim()
+      if (trimmed.length > 0) return trimmed
+    }
+  }
+  const fallback = normalizeConfigName(rule?.ConfigName ?? null)
+  return fallback ?? null
+}

@@ -63,7 +63,7 @@ import {
   type HsfRuleWithCfg,
 } from './lib/merge'
 import { buildRuleMatchIndexData, primeRuleMatchIndex } from './lib/ruleMatchIndex'
-import { cloneRuleWithConfigIndex, getRuleConfigIndex } from './lib/ruleConfigIndex'
+import { cloneRuleWithConfigIndex, getRuleConfigIndex, resolveMatchConfigName } from './lib/ruleConfigIndex'
 import {
   buildDefaultKeepUniqueRules,
   type KeepUniqueDetectionSnapshot,
@@ -1024,11 +1024,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         if (!result) return null
         const rule = rules[result.ruleIndex]
         const cfgIdx = result.cfgIdx ?? null
+        const cfgName = resolveMatchConfigName(cfgIdx, configNamesForBuild, rule)
         return {
           ruleIndex: result.ruleIndex,
           keep: result.keep,
           cfgIdx,
-          cfgName: cfgIdx != null ? (configNamesForBuild[cfgIdx] ?? null) : null,
+          cfgName,
           ruleLabel: null,
           ruleSource: rule?.__source ?? null,
         }

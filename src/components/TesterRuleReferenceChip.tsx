@@ -1,7 +1,7 @@
 import { useCallback, useRef, useState } from 'react'
 import { Box, Chip } from '@mui/material'
 import type { ChipProps } from '@mui/material'
-import { useTheme, type SxProps, type Theme } from '@mui/material/styles'
+import { alpha, useTheme, type SxProps, type Theme } from '@mui/material/styles'
 import type { SystemStyleObject } from '@mui/system'
 import { RULE_SOURCE_FINAL_SELL, RULE_SOURCE_KEEP_UNIQUES } from '../lib/merge'
 import { useI18n } from '../lib/i18n'
@@ -42,6 +42,16 @@ const simpleMatchChipSx = (sx?: SxProps<Theme>): SxProps<Theme> => {
   return [...asArray, base] as SxProps<Theme>
 }
 
+const buildChipSurfaceTint = (theme: Theme, tone: string): { surface: string; hover: string } => {
+  // Tinted matches lean on translucent fills so the label stays legible in both themes.
+  const surfaceAlpha = theme.palette.mode === 'dark' ? 0.35 : 0.12
+  const hoverAlpha = theme.palette.mode === 'dark' ? 0.45 : 0.18
+  return {
+    surface: alpha(tone, surfaceAlpha),
+    hover: alpha(tone, hoverAlpha),
+  }
+}
+
 export function TesterRuleReferenceChip({
   match,
   onJump,
@@ -55,27 +65,26 @@ export function TesterRuleReferenceChip({
   const { t } = useI18n()
   const theme = useTheme()
   if (!match) return null
-  if (match.ruleSource === RULE_SOURCE_FINAL_SELL) {
+  const isFinalSellSource = match.ruleSource === RULE_SOURCE_FINAL_SELL
+  const isKeepUniqueSource = match.ruleSource === RULE_SOURCE_KEEP_UNIQUES
+  if (isFinalSellSource) {
     if (!showFinalSellLabel) return null
+    const finalSellTint = buildChipSurfaceTint(theme, theme.palette.error.main)
     return (
-      <Chip
-        size={size}
+      <TesterRuleReferenceChipBody
         label={t('testerFinalSellChip')}
-        color="warning"
-        // Data hook keeps Playwright checks stable while match chips stay minimal.
-        data-match-source="final-sell"
-        sx={simpleMatchChipSx(sx)}
-      />
-    )
-  }
-  if (match.ruleSource === RULE_SOURCE_KEEP_UNIQUES) {
-    return (
-      <Chip
+        variant="outlined"
+        clickable={false}
+        ruleIndex={null}
+        cfgIdx={null}
         size={size}
-        label={t('testerKeepUniqueChip')}
-        color="success"
-        data-match-source="keep-unique"
+        jumpTooltip={t('testerJumpToConfig')}
         sx={simpleMatchChipSx(sx)}
+        borderColor={getTesterMatchBorderColor(theme, false)}
+        backgroundColor={finalSellTint.surface}
+        hoverBackgroundColor={finalSellTint.hover}
+        dataMatchSource="final-sell"
+        {...(icon ? { icon } : {})}
       />
     )
   }
@@ -102,6 +111,7 @@ export function TesterRuleReferenceChip({
     : formattedConfigName
   const clickable = typeof onJump === 'function' && ruleIndex != null
   if (!label) return null
+  const keepUniqueTint = isKeepUniqueSource ? buildChipSurfaceTint(theme, theme.palette.success.main) : null
   return (
     <TesterRuleReferenceChipBody
       label={label}
@@ -115,6 +125,9 @@ export function TesterRuleReferenceChip({
       {...(sx ? { sx } : {})}
       {...(icon ? { icon } : {})}
       borderColor={getTesterMatchBorderColor(theme, Boolean(match.keep))}
+      {...(keepUniqueTint ? { backgroundColor: keepUniqueTint.surface } : {})}
+      {...(keepUniqueTint ? { hoverBackgroundColor: keepUniqueTint.hover } : {})}
+      {...(isKeepUniqueSource ? { dataMatchSource: 'keep-unique' } : {})}
       {...(onJump ? { onJump } : {})}
     />
   )
@@ -133,6 +146,9 @@ type TesterRuleReferenceChipBodyProps = {
   jumpTooltip: string
   textColor?: string | null
   borderColor?: string
+  backgroundColor?: string
+  hoverBackgroundColor?: string
+  dataMatchSource?: string
 }
 
 function TesterRuleReferenceChipBody({
@@ -148,6 +164,9 @@ function TesterRuleReferenceChipBody({
   jumpTooltip,
   textColor,
   borderColor,
+  backgroundColor,
+  hoverBackgroundColor,
+  dataMatchSource,
 }: TesterRuleReferenceChipBodyProps) {
   const chipWrapperRef = useRef<HTMLSpanElement | null>(null)
   const [nativeEllipsisTitle, setNativeEllipsisTitle] = useState<string | undefined>(undefined)
@@ -165,16 +184,20 @@ function TesterRuleReferenceChipBody({
     if (!clickable) return
     setNativeEllipsisTitle(undefined)
   }, [clickable])
+  const resolvedBackgroundColor = backgroundColor ?? 'background.paper'
+  const resolvedHoverColor = clickable
+    ? hoverBackgroundColor ?? 'action.hover'
+    : undefined
   const baseSx: SxProps<Theme> = {
     cursor: clickable ? 'pointer' : 'default',
-    bgcolor: 'background.paper',
+    bgcolor: resolvedBackgroundColor,
     color: textColor ?? 'text.primary',
     borderRadius: '8px',
     minWidth: MATCHING_CONFIG_CHIP_MIN_WIDTH_PX,
     maxWidth: '100%',
     flexShrink: 1,
     overflow: 'hidden',
-    '&:hover': clickable ? { bgcolor: 'action.hover' } : undefined,
+    '&:hover': resolvedHoverColor ? { bgcolor: resolvedHoverColor } : undefined,
     // Keep/sell state drives the outline so users can read the result at a glance.
     borderColor: borderColor ?? 'primary.main',
     borderWidth: '1px',
@@ -197,11 +220,13 @@ function TesterRuleReferenceChipBody({
     ? { component: 'button' as const, onClick: () => onJump(ruleIndex, cfgIdx) }
     : {}
   const iconProps = icon ? { icon } : {}
+  const dataMatchSourceProps = dataMatchSource ? { 'data-match-source': dataMatchSource } : {}
   const baseChip = (
     <Chip
       size={size}
       variant={variant}
       {...iconProps}
+      {...dataMatchSourceProps}
       label={label}
       {...interactiveProps}
       sx={combinedSx}

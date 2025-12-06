@@ -16,7 +16,7 @@ import { sortTesterRows } from '../lib/testerSort'
 import type { NormalizedGearArtifact } from '../lib/importers/gearDbNormalizer'
 import type { TesterMatchWorkerEvaluateItem, TesterMatchWorkerItemResult } from '../workers/testerMatchWorkerTypes'
 import type { ProgressSnapshot } from '../types/progress'
-import { getRuleConfigIndex } from '../lib/ruleConfigIndex'
+import { getRuleConfigIndex, resolveMatchConfigName } from '../lib/ruleConfigIndex'
 
 export const TESTER_PREVIEW_CHUNK_SIZE = 250
 
@@ -340,7 +340,7 @@ export function useTesterMatchOrchestrator(params: UseTesterMatchOrchestratorPar
       if (!result) return null
       const rule = mergedRules[result.ruleIndex]
       const cfgIdx = result.cfgIdx
-      const cfgName = (cfgIdx != null && cfgIdx >= 0) ? (configNames[cfgIdx] ?? null) : null
+      const cfgName = resolveMatchConfigName(cfgIdx, configNames, rule)
       return {
         keep: result.keep,
         cfgIdx: cfgIdx ?? null,

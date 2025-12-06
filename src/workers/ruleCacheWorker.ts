@@ -14,6 +14,7 @@ import type { BuilderConfig, SellfileExportMode } from '../lib/hsfBuilder'
 import type { TesterMatchWorkerItemResult } from './testerMatchWorkerTypes'
 import type { TesterPreviewMatch } from '../types/testerPreview'
 import type { RuleCacheWorkerRequest, RuleCacheWorkerResponse } from './ruleCacheWorkerTypes'
+import { resolveMatchConfigName } from '../lib/ruleConfigIndex'
 
 declare const self: DedicatedWorkerGlobalScope
 
@@ -303,11 +304,12 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
       if (!result) return null
       const rule = rules[result.ruleIndex]
       const cfgIdx = result.cfgIdx ?? null
+      const cfgName = resolveMatchConfigName(cfgIdx, null, rule)
       return {
         ruleIndex: result.ruleIndex,
         keep: result.keep,
         cfgIdx,
-        cfgName: null,
+        cfgName,
         ruleLabel: null,
         ruleSource: rule?.__source ?? null,
       }
