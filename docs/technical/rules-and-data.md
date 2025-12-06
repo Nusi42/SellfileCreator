@@ -10,6 +10,7 @@ This document covers file schemas, builder semantics, and compatibility notes.
 - Parsing: `src/lib/hsfIO.ts#parseHsfFile`.
 - Build & write: `buildHsfFileFromMerged`, `hsfToBlob`.
 - Builder-generated rules always prepend `ConfigID` (1-based config index) ahead of `Keep`/`IsRuleTypeAND`. `ConfigName` is injected during export (using the latest trimmed label) so Sellfiles can reference the source config without forcing the preview table to rebuild on every rename.
+- `cleanHsfForExport` strips every UI-only metadata field (anything prefixed with `__`, e.g., `__rankMask`, `__keepUniqueRuleId`, `__keepUniqueHash`, diagnostics from Keep Unique detection) before serializing. Push uploads reuse the same sanitized payload so endpoints never see transient fields.
 
 ### HSFC (this app)
 - JSON container: `{ "Version": string, "Metasets": Metaset[], "Minima": SubstatTargetTable, "Configs": ReadableConfig[], "FinalSellRemainder": { artifacts: boolean; accessories: boolean; levels: LevelMilestone[]; setsMode: 'any' | 'explicit' }, "SelectedConfigIndex"?: number }`. `Minima` stores the Substat Target Values table; the legacy name is preserved for compatibility. Also accepts a raw array `ReadableConfig[]` for convenience.

@@ -3,7 +3,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 
-import { buildRulesForConfig } from '../src/lib/merge.js'
+import { buildRulesForConfig, RULE_SOURCE_HSFC } from '../src/lib/merge.js'
 import { defaultSubstatTargets, type BuilderConfig } from '../src/lib/hsfBuilder.js'
 import { buildHsfFileFromMerged } from '../src/lib/hsfIO.js'
 import { StatVariant } from '../src/lib/types.js'
@@ -89,4 +89,33 @@ test('renaming configs updates ConfigName without rebuilding cached rules', () =
   const first = exported.Rules[0]
   assert(first, 'expected exported rules to exist after rename')
   assert.equal(first!.ConfigName, 'Cached Builder (Renamed)', 'exported HSF should carry the latest ConfigName')
+})
+
+test('HSF export strips every UI-only metadata field', () => {
+  const cfg = baseConfig()
+  const rules = buildRulesForConfig({ config: cfg, metasets: [], substatTargets: defaultSubstatTargets(), cfgIdx: 0 })
+  // Decorate the rules with every UI-only field so the export clean up has something to remove.
+  const decorated = rules.map((rule, idx) => ({
+    ...rule,
+    __lineIdx: idx,
+    __allKnownSets: true,
+    __source: RULE_SOURCE_HSFC,
+    __rankMask: 0b1010,
+    __rarityMask: 0b1001,
+    __keepUniqueRuleId: `ku_${idx}`,
+    __keepUniqueHash: `hash_${idx}`,
+    __keepUniqueRequired: 2,
+    __keepUniqueScanMs: 17,
+    __keepUniqueProjected: 4,
+    __keepUniqueDeficit: 1,
+    __keepUniqueItemKey: idx,
+  }))
+  // Run the export helper so the sanitizer strips the fake diagnostics.
+  const exported = buildHsfFileFromMerged(decorated, { configNames: [cfg.name ?? ''] })
+  for (const rule of exported.Rules) {
+    assert(rule, 'expected sanitized HSF rule to exist')
+    // HSF schema never tolerates double-underscore metadata, so each key should be clean.
+    const hasUiKey = Object.keys(rule!).some((key) => key.startsWith('__'))
+    assert.equal(hasUiKey, false, 'HSF payload should exclude UI-only metadata keys')
+  }
 })
