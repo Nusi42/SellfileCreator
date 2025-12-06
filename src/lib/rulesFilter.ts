@@ -25,7 +25,7 @@ import type { HsfRuleWithCfg } from './merge'
 import type { NormalizedGearArtifact } from './importers/gearDbNormalizer'
 import { isAccessorySlot } from './testerDomain'
 import { ACCESSORY_NO_SET_ID } from './constants'
-import { getRuleConfigIndex } from './ruleConfigIndex'
+import { getRuleConfigIndex, resolveMatchConfigName } from './ruleConfigIndex'
 import { getDaysSince } from './dateDisplay'
 
 // Tri-state for handling explicit "Any" fields in rules.
@@ -55,6 +55,8 @@ export type TesterLastUseFilter = {
   presets: TesterLastUsePreset[]
   custom: TesterLastUseCustomFilter
 }
+
+export type RuleSourceLabelMap = Record<string, readonly string[]>
 
 export const TESTER_ROLL_COUNT_VALUES = [0, 1, 2, 3, 4, 5] as const
 export type TesterRollCountValue = typeof TESTER_ROLL_COUNT_VALUES[number]
@@ -234,7 +236,11 @@ export function filterHsfRules<T extends HsfRule>(
   rules: T[],
   f: RulesFilterState,
   metasets?: Metaset[],
-  options?: { configNames?: Array<string | null | undefined>; configModes?: SellfileExportMode[] },
+  options?: {
+    configNames?: Array<string | null | undefined>
+    configModes?: SellfileExportMode[]
+    specialRuleLabels?: RuleSourceLabelMap
+  },
 ): FilterHsfRulesResult<T> {
   const selectedSets = new Set((f.sets?.selected ?? []).map(Number))
   // Unroll metaset selections into explicit set IDs for filtering
@@ -312,10 +318,18 @@ export function filterHsfRules<T extends HsfRule>(
 
     if (configNameFilterActive) {
       if (!configNameRegexValid) return false
-      if (cfgIdx == null || !Number.isFinite(cfgIdx)) return false
-      const rawName = options?.configNames?.[cfgIdx] ?? ''
-      const candidate = typeof rawName === 'string' ? rawName : ''
-      if (!configNameRegex!.test(candidate)) return false
+      const resolvedName = resolveMatchConfigName(cfgIdx ?? null, options?.configNames ?? null, withCfg)
+      const ruleSource = (withCfg as Partial<HsfRuleWithCfg> | null | undefined)?.__source ?? null
+      const sourceAliases = ruleSource
+        ? options?.specialRuleLabels?.[ruleSource] ?? []
+        : []
+      const candidateNames: string[] = []
+      if (resolvedName) candidateNames.push(resolvedName)
+      for (const alias of sourceAliases) {
+        if (alias && alias.length > 0) candidateNames.push(alias)
+      }
+      if (candidateNames.length === 0) return false
+      if (!candidateNames.some((name) => configNameRegex!.test(name))) return false
     }
 
     // Slots
@@ -461,14 +475,22 @@ export function filterHsfRules<T extends HsfRule>(
   return { rules: filtered, matchingConfigIndices, configRuleCounts }
 }
 
+export type TesterFilterRowMatch = {
+  keep: boolean
+  cfgIdx: number | null
+  cfgName?: string | null
+  ruleSource?: string | null
+}
+
 export type TesterFilterRow = {
   artifact: NormalizedGearArtifact
-  match: { keep: boolean; cfgIdx: number | null } | null
+  match: TesterFilterRowMatch | null
   matchingCfgIndices?: number[]
 }
 
 export interface FilterTesterItemsOptions {
   configNames?: Array<string | null | undefined>
+  specialRuleLabels?: RuleSourceLabelMap
 }
 
 export interface FilterTesterItemsResult<T extends TesterFilterRow> {
@@ -556,11 +578,23 @@ export function filterTesterItems<T extends TesterFilterRow>(
 
     if (configNameFilterActive) {
       if (!configNameRegexValid) continue
+      const candidateNames: string[] = []
       const cfgIdx = match?.cfgIdx
-      if (cfgIdx == null || cfgIdx < 0) continue
-      const rawName = options?.configNames?.[cfgIdx]
-      const candidate = typeof rawName === 'string' ? rawName : ''
-      if (!configNameRegex!.test(candidate)) continue
+      if (cfgIdx != null && cfgIdx >= 0 && Array.isArray(options?.configNames)) {
+        const rawName = options.configNames[cfgIdx]
+        const trimmedName = typeof rawName === 'string' ? rawName.trim() : ''
+        if (trimmedName.length > 0) candidateNames.push(trimmedName)
+      }
+      const explicitMatchName = typeof match?.cfgName === 'string' ? match.cfgName.trim() : ''
+      if (explicitMatchName.length > 0) candidateNames.push(explicitMatchName)
+      const ruleSource = match?.ruleSource ?? null
+      if (ruleSource && options?.specialRuleLabels?.[ruleSource]) {
+        for (const alias of options.specialRuleLabels[ruleSource]!) {
+          if (alias && alias.length > 0) candidateNames.push(alias)
+        }
+      }
+      if (candidateNames.length === 0) continue
+      if (!candidateNames.some((name) => configNameRegex!.test(name))) continue
     }
 
     const slotId = Number(artifact.slot)
