@@ -25,79 +25,73 @@ This document captures the current vocabulary for the Rule Tester / Keep Uniques
 - **Notes**: Keep Uniques copy now matches the catalog (“Unikate behalten”, `Vorhanden / Behalten`, `Filter: Alle / Auswahl`). “Rolls” remains a shared loanword between README + catalog, so no catalog changes are pending for this locale.
 
 ## es-ES (`README.es.md`, `src/lib/i18n/catalogs/es-ES.ts`)
-- **README wording**: “Probador” is used for the Rule Tester preview and dialog (see the Sellfile preview sections around lines 90‑140). Glyph references use “glifos” and the wildcard examples use “comodín”. Keep Uniques is not yet described.
+- **README wording**: “Probador” cubre la vista previa, el diálogo y las referencias al Rule Tester; “glifos” y “comodín” describen los filtros de glyph/roll igual que en la UI. La sección `### Conservar únicos` ahora replica toda la estructura inglesa: explica la pestaña, la regla predeterminada de accesorios, la regla de ayuda para arma/armadura, los chips `Por ranura`/`Por conjunto`/`Por facción`/`Por stat principal`, el contador `Hay / Conservar`, el `Filtro: Todos / Selección` y las tablas de ámbitos y escenarios reales.
 - **Catalog values**:
-  * `testerPreviewHeading`: “Probador”.
-  * `keepUniques*` keys: “Conservar únicos”.
-  * `keepUniquesGridFilterLabel`: now reads “Filtro: {mode}” with the modes “Todos”/“Selección” and an explanation of the behavior in Spanish.
-  * `filterGlyphs` entries now use Spanish labels (`Glifos`, `Cualquiera`, `Con glifos`, `Sin glifos`, `Seleccionados`) with a matching tooltip about glyph states.
-  * `filterRolls` strings are translated (e.g., `Tiradas`, `Exige ciertos recuentos de tiradas…`, `Requisito de comodín`, `Recuento de tiradas`, `Filtros de tiradas: {summary}`, and the summary lines).
-  * `tutSectionRuleTesterLabel`: “Probador”.
-- **Glyph wording**: README says “Substats (con glifos y recuentos de tiradas)”.
-- **Wildcard wording**: README examples use “comodín”.
-- **Notes**: Keep Uniques copy still missing in the README; once that prose lands, keep the Probador vocabulary in sync between catalog and docs.
+  * `testerPreviewHeading` y `tutSectionRuleTesterLabel`: “Probador”.
+  * `keepUniques*`: “Conservar únicos” en el tab, `Hay {have} / Conservar {keep}` en los contadores, chips `Por ranura`/`Por conjunto`/`Por facción`/`Por stat principal`, y las etiquetas del filtro `Filtro: {mode}` con `Todos`/`Selección`.
+  * `filterGlyphs`: `Glifos`, `Cualquiera`, `Con glifos`, `Sin glifos`, `Seleccionados`, tooltip en español.
+  * `filterRolls`: `Tiradas`, `Requisito de comodín`, `Recuento de tiradas`, sumarios y ayudas en español.
+- **Glyph wording**: README dice “Substats (con glifos y recuentos de tiradas)” y la IU usa la misma terminología.
+- **Wildcard wording**: README e IU usan “comodín”.
+- **Notes**: README, catálogo y glosario comparten “Conservar únicos” + `Hay / Conservar` + `Filtro: Todos / Selección`; no hay pendientes para este locale salvo mantener esta sincronización.
 
 ## fr-FR (`README.fr.md`, `src/lib/i18n/catalogs/fr-FR.ts`)
-- **README wording**: The preview headers, menu, and dedicated section refer to “Testeur de règles” (lines 9‑132). Glyphs are “glyphes” and the wildcard examples use “joker”. There is no Keep Uniques mention yet.
+- **README wording**: La copie parle de « Testeur de règles » (aperçu, dialogue et section dédiée) et décrit les glyphes comme « glyphes » tandis que les jokers restent « joker ». La section `### Conserver les uniques` documente désormais les règles par défaut + d’aide, le compteur « Existants / Conserver », les puces `Par règle/slot/ensemble/faction/stat principale`, la table des portées et le toggle `Filtrer : Tous / Sélection`.
 - **Catalog values**:
-  * `testerPreviewHeading`: “Testeur de règles”.
-  * `keepUniques*` keys: “Conserver les uniques”.
-  * `filterGlyphs` entries are still English (Glyphs/Any/On/Off/Selected + tooltip template).
-  * `filterRolls` strings remain English.
-  * `tutSectionRuleTesterLabel`: still “Rule Tester” instead of French; this key should be brought in line with “Testeur de règles”.
-- **Glyph wording**: README uses “glyphes”.
-- **Wildcard wording**: README writes “joker”.
-- **Notes**: Localize the tooltip/labels under `filterGlyphs` and `filterRolls` and translate `tutSectionRuleTesterLabel`. Keep Uniques needs README coverage as soon as the feature documentation is written.
+  * `testerPreviewHeading` et `tutSectionRuleTesterLabel`: « Testeur de règles ».
+  * `keepUniques*`: tout emploie « Conserver les uniques », `keepUniquesRuleCounts = "{have} existants / Conserver {keep}"`, les puces de portée `Par règle/slot/ensemble/faction/stat principale`, et `keepUniquesGridFilterLabel = "Filtrer : {mode}"` avec `Tous` / `Sélection`.
+  * `filterGlyphs`: `Glyphes`, `Toutes`, `Avec glyphes`, `Sans glyphes`, `Glyphes sélectionnés` + l’infobulle française qui reprend la logique du README.
+  * `filterRolls`: `Lancers`, `Condition de joker`, `Nombre de lancers`, puces et résumés français.
+- **Glyph wording**: README/catalogue disent « glyphes ».
+- **Wildcard wording**: README/catalogue restent sur « joker ».
+- **Notes**: La terminologie `Conserver les uniques` + « Existants / Conserver » + « Filtrer : Tous / Sélection » doit rester synchronisée entre README, catalogue et UI ; aucun blocage ouvert.
 
 ## it-IT (`README.it.md`, `src/lib/i18n/catalogs/it-IT.ts`)
-- **README wording**: The preview keeps the `Rules`/`Tester regole` toggle in the header, references `glifi e roll` plus `jolly` in the filter descriptions, and now includes a `### Mantieni unici` section that explains the second tab in the Vendita finale dialog, the combination scanning, the `Ne mancano / Coperta altrove / Soddisfatta` chips, and the `Filtro: Tutti / Selezione` switch.
+- **README wording**: The preview keeps the `Rules`/`Tester regole` toggle in the header, references `glifi e roll` plus `jolly` in the filter descriptions, and now includes a `### Mantieni unici` section that walks through the default 5★/6★ accessory rule, the helper rule for rare armor sets, the scope chips (`Per regola`/`Per slot`/`Per set`/`Per fazione`/`Per statistica principale`), the `Presenti / Conservare` counter, the `Filtro: Tutti / Selezione` toggle, and the `Ne mancano / Coperta altrove / Soddisfatta` states with matching tables.
 - **Catalog values**:
   * `testerPreviewHeading`: “Tester regole”.
-  * `keepUniques*`: “Mantieni unici”.
-  * `keepUniquesGridFilterLabel`/`keepUniquesGridFilterMode*`/`keepUniquesGridFilterTooltip`: “Filtro: {mode}”, “Tutti”, “Selezione”, and the Italian tooltip that mirrors the README copy.
+  * `keepUniques*`: “Mantieni unici” for the tab/intro strings, `keepUniquesRuleCounts = "Presenti {have} / Conservare {keep}"`, and the scope chips (`Per regola`/`Per slot`/`Per set`/`Per fazione`/`Per statistica principale`).
+  * `keepUniquesGridFilterLabel`/`keepUniquesGridFilterMode*`/`keepUniquesGridFilterTooltip`: “Filtro: {mode}”, “Tutti”, “Selezione”, and the tooltip that matches the README wording.
   * `filterGlyphs` entries: “Glifi”, “Qualsiasi”, “Con glifi”, “Senza glifi”, “Selezionati” with the Italian tooltip.
   * `filterRolls` entries: “Roll”, the Italian helper text, `Richiesta jolly`, the roll-count terminology, and Italian summaries that repeat `roll`.
   * `tutSectionRuleTesterLabel`: “Tester regole”.
 - **Glyph wording**: README calls them “glifi”.
 - **Wildcard wording**: README calls them “jolly”.
-- **Notes**: Keep the Italian `Mantieni unici` prose, filter labels, and tutorial section label aligned between README and the catalog. Future tweaks should maintain the same `glifi`/`roll` vocabulary so the UI copy stays consistent with the documented guidance.
+- **Notes**: Keep the Italian `Mantieni unici`, `Presenti / Conservare`, scope chips, and `Filtro: Tutti / Selezione` phrasing aligned between README, catalog, and UI. Maintain the same `glifi`/`roll` vocabulary so the UI copy stays consistent with the documented guidance.
 
 ## pt-PT (`README.pt.md`, `src/lib/i18n/catalogs/pt-PT.ts`)
-- **README wording**: “Teste de Regras” is used throughout the preview, dialog, and filters (lines 10‑140). Glyph text says “glifos e rolagens”, and wildcard examples use “curinga”. Keep Uniques still lacks documentation in this README.
+- **README wording**: “Teste de Regras” cobre a prévia, o diálogo e o painel de filtros; o texto descreve “glifos e rolagens” e os exemplos de wildcard continuam a usar “curinga”. A secção `### Manter únicos` agora replica toda a estrutura em inglês (regra predefinida para acessórios, regra auxiliar para armas/armaduras, quotas `Por slot`/`Por conjunto`/`Por facção`/`Por atributo principal`, contador `Existem / Manter`, tabela de âmbitos e grelha de cenários) e referencia o toggle `Filtro: Todos / Seleção`.
 - **Catalog values**:
-  * `testerPreviewHeading`: “Teste de Regras”.
-  * `keepUniques*`: “Manter únicos”.
-  * `filterGlyphs` + `filterRolls` keys remain English.
-  * `tutSectionRuleTesterLabel`: “Teste de Regras” (already aligned).
-- **Glyph wording**: README uses “glifos”.
-- **Wildcard wording**: README uses “curinga”.
-- **Notes**: Provide Portuguese translations for `filterGlyphs`/`filterRolls` entries when localizing those helpers (they are still English). Keep Uniques text is still pending in the README.
+  * `testerPreviewHeading` e `tutSectionRuleTesterLabel`: “Teste de Regras”.
+  * `keepUniques*`: “Manter únicos” em todas as cópias, `keepUniquesRuleCounts = "Existem {have} / Manter {keep}"`, chips `Por slot`/`Por conjunto`/`Por facção`/`Por atributo principal`, e `keepUniquesGridFilterLabel = "Filtro: {mode}"` com `Todos` / `Seleção`.
+  * `filterGlyphs` e `filterRolls` continuam em inglês.
+- **Glyph wording**: README e UI dizem “glifos”.
+- **Wildcard wording**: README e UI dizem “curinga”.
+- **Notes**: README, catálogo e glossário agora partilham “Manter únicos” + `Existem / Manter` + `Filtro: Todos / Seleção`; continua pendente localizar as famílias `filterGlyphs`/`filterRolls`.
 
 ## pt-BR (`README.pt-BR.md`, `src/lib/i18n/catalogs/pt-BR.ts`)
-- **README wording**: Very similar to pt-PT: “Teste de Regras” is everywhere, glyphs are “glifos e rolagens”, and wildcard sections use “curinga”.
+- **README wording**: “Teste de Regras” ancora a prévia/diálogo, os filtros falam em “glifos e rolagens” e os curingas permanecem “curinga”. A secção `### Manter únicos` agora copia toda a estrutura inglesa: descreve a regra padrão para acessórios, a regra auxiliar desativada para armas/armaduras, explica os chips `Por regra`/`Por slot`/`Por conjunto`/`Por facção`/`Por atributo principal`, detalha o contador `Existem / Manter`, chama o seletor `Filtro: Todos / Seleção`, inclui a tabela de escopos e a grelha de cenários reais.
 - **Catalog values**:
-  * `testerPreviewHeading`: “Teste de Regras”.
-  * `keepUniques*`: “Manter únicos”.
-  * Filter-related keys (`filterGlyphs`, `filterRolls`) remain English.
-  * `tutSectionRuleTesterLabel`: “Teste de Regras”.
-- **Glyph wording**: README uses “glifos”.
-- **Wildcard wording**: README uses “curinga”.
-- **Notes**: Same as pt-PT—localize the filter strings when possible and document Keep Uniques after the feature copy is ready.
+  * `testerPreviewHeading` e `tutSectionRuleTesterLabel`: “Teste de Regras”.
+  * `keepUniques*`: “Manter únicos” em todas as chaves, `keepUniquesRuleCounts = "Existem {have} / Manter {keep}"`, chips `Por slot`/`Por conjunto`/`Por facção`/`Por atributo principal`, e `keepUniquesGridFilterLabel = "Filtro: {mode}"` com `Todos` / `Seleção`.
+  * `filterGlyphs`/`filterRolls` seguem em inglês (só o tooltip de glifos foi traduzido); ainda precisam de versão pt-BR.
+- **Glyph wording**: README usa “glifos”.
+- **Wildcard wording**: README usa “curinga”.
+- **Notes**: README, catálogo e glossário agora compartilham “Manter únicos” + `Existem / Manter` + `Filtro: Todos / Seleção`; o próximo passo é localizar `filterGlyphs`/`filterRolls`.
 
 ## ru-RU (`README.ru.md`, `src/lib/i18n/catalogs/ru-RU.ts`)
-- **README wording**: The preview and tester sections use “Тестер” for the Rule Tester (lines 9‑132), “глифами” for glyphs, and the wildcard examples borrow “джокер”. The new `### Сохранение уникальных` section now documents the Keep Uniques tab, the filter states (`Не хватает {count}`, `Покрыто в другом месте`, `Требование выполнено`), and the `Фильтр: Все / Выбор` toggle.
+- **README wording**: The preview and tester sections stick with “Тестер” plus “глифами”/“джокер” for glyphs and wildcards. The `### Сохранение уникальных комбинаций` section mirrors the English layout (seeded/helper rules, scope chips `По правилу/слоту/набору/фракции/осн. стату`, counter `Есть / Сохранить`, quota table, real-world grid, and the `Фильтр: Все / Выбор` toggle) using the exact catalog phrasing.
 - **Catalog values**:
-  * `testerPreviewHeading`: “Тестер”.
-  * `keepUniques*`: now read `tabKeepUniques = “Уникальные комбинации”`, `keepUniquesTabLabel = “Сохранение уникальных комбинаций”`, `keepUniquesRuleDeficit = “Не хватает {count}”`, `keepUniquesRuleCovered = “Покрыто в другом месте”`, `keepUniquesRuleSatisfied = “Требование выполнено”`, and `keepUniquesGridFilterLabel`/`keepUniquesGridFilterMode*` produce `Фильтр: {mode}` with `Все`/`Выбор`.
-  * `filterGlyphs`: values such as `Глифы`, `Любые`, `С глифами`, `Без глифов`, `Выбранные` plus the existing tooltip now match the README language.
-  * `filterRolls`: values like `Роллы`, `Требовать определённые количества роллов…`, `Требование джокера`, `Количество роллов`, `Требования по стату`, `Добавить требование`, `Фильтры роллов: {summary}`, and the Russian summaries/backers.
-  * `tutSectionRuleTesterLabel`: “Тестер”.
+  * `testerPreviewHeading` / `tutSectionRuleTesterLabel`: “Тестер”.
+  * `keepUniques*`: both `tabKeepUniques` and `keepUniquesTabLabel` read “Сохранение уникальных комбинаций”; the statuses stay `Не хватает {count}` / `Покрыто в другом месте` / `Требование выполнено`, `keepUniquesRuleCounts = "Есть {have} / Сохранить {keep}"`, the scope chips (`По правилу/слоту/набору/фракции/осн. стату`) and grid filter (`Фильтр: {mode}` with `Все`/`Выбор`) match the README copy.
+  * `filterGlyphs`: `Глифы`, `Любые`, `С глифами`, `Без глифов`, `Выбранные`, plus the localized tooltip.
+  * `filterRolls`: `Роллы`, `Требование джокера`, `Количество роллов`, `Требования по стату`, `Добавить требование`, and the localized summaries/backers.
 - **Glyph wording**: README uses “глифами”.
 - **Wildcard wording**: README uses “джокер”.
-- **Notes**: Catalog and documentation now share the same Keep Uniques vocabulary and filter labels; keep them synchronized if either the UI or README copy changes.
+- **Notes**: ru-RU now locks onto “Сохранение уникальных комбинаций” + `Есть / Сохранить` everywhere (README, catalog, tutorial copy); keep these synced if new strings land.
 
 ## tr-TR (`README.tr.md`, `src/lib/i18n/catalogs/tr-TR.ts`)
-- **README wording**: “Kural testi” describes the Rule Tester preview/dialog and the guidance already talks about `glifler` and `Joker`; the new `### Benzersizleri Koru` section explains how the dialog’s `Benzersizleri Koru` sekmesi, `Eksik {count}` / `Başka yerde korunuyor` / `Gereksinim karşılandı` statüleri ve `Filtre: Hepsi / Seçim` anahtarı çalışır.
+- **README wording**: “Kural testi” describes the Rule Tester preview/dialog and the guidance already talks about `glifler` and `Joker`; the new `### Benzersizleri Koru` section walks through the tab layout, the `Var {have} / Koru {keep}` sayaç, the `Eksik {count}` / `Başka yerde korunuyor` / `Gereksinim karşılandı` status chips, and the `Filtre: Hepsi / Seçim` toggle.
 - **Catalog values**:
   * `testerPreviewHeading`: “Kural Testi”.
   * `keepUniques*`: tab and labels now read “Benzersizleri Koru”/“Benzersizleri Koru’yu etkinleştir”, the statuses are `Eksik {count}` / `Başka yerde korunuyor` / `Gereksinim karşılandı`, the tooltip now references how many öğeler Benzersizleri Koru dışa aktarıyor, and the filter modes show `Filtre: Hepsi / Seçim`.
@@ -109,16 +103,15 @@ This document captures the current vocabulary for the Rule Tester / Keep Uniques
 - **Notes**: Keep the `Benzersizleri Koru` vocabulary (tab name, statuses, filter labels) aligned between the UI and README; the new Turkish descriptions mirror the `Filtre: Hepsi / Seçim` toggle and the status chips so future translators can reuse the same terms.
 
 ## uk-UA (`README.uk.md`, `src/lib/i18n/catalogs/uk-UA.ts`)
-- **README wording**: The preview copy keeps calling the tester “Тестер”, references glyphs as “гліфами”, and uses “джокером” for wildcards; a new `### Збереження унікальних комбінацій` section now mirrors the catalog vocabulary and points translators toward the two-column layout in the Final Sell dialog.
+- **README wording**: `README.uk.md` зберігає “Тестер” для попереднього перегляду, описує гліфи як “гліфами” й wildcards як “джокером”, а розділ `### Збереження унікальних комбінацій` відповідає макету англійської версії: розписує типове й допоміжне правила, чипи `На правило/слот/сет/фракцію/основну стату`, лічильник `Є / Зберегти`, `Фільтр: Усі / Вибір`, таблицю діапазонів і приклади зі сценаріями.
 - **Catalog values**:
-  * `testerPreviewHeading`: “Тестер”.
-  * `keepUniques*`: Tab/labels describe “Збереження унікальних комбінацій”, rule status badges reference “Не вистачає”, “Покрито в іншому місці”, “Вимога виконана”, and the grid filter reads “Фільтр: {mode}` with `Усі`/`Вибір`.
-  * `filterGlyphs*`: The glyph filter now uses “Гліфи”, “Усі”, “Увімкнено”, “Вимкнено”, “Обрані” and a tooltip that mirrors the README description.
-  * `filterRolls*`: All roll labels are Ukrainian (`Ролі`, `Кількість ролів`, `Вимога джокера`, `Вимоги до кожного стату`, etc.), and the summary lines describe active roll constraints in Ukrainian.
-  * `tutSectionRuleTesterLabel`: “Тестер”.
-- **Glyph wording**: README uses “гліфами”.
-- **Wildcard wording**: README uses “джокером”.
-- **Notes**: No outstanding catalog gaps remain in uk-UA — the README and catalog now share the same vocabulary for Keep Uniques, glyph filters, and roll filters.
+  * `testerPreviewHeading` і `tutSectionRuleTesterLabel`: “Тестер”.
+  * `keepUniques*`: Весь текст використовує «Збереження унікальних комбінацій», `keepUniquesRuleCounts = "Є {have} / Зберегти {keep}"`, статуси `Не вистачає` / `Покрито в іншому місці` / `Вимога виконана`, чипи діапазону `На правило/слот/сет/фракцію/осн. стат`, і `keepUniquesGridFilterLabel = "Фільтр: {mode}"` з `Усі`/`Вибір`.
+  * `filterGlyphs*`: «Гліфи», «Усі», «Увімкнено», «Вимкнено», «Обрані» плюс тултіп, що повторює README.
+  * `filterRolls*`: «Ролі», «Кількість ролів», «Вимога джокера», пер-статні вимоги та резюме українською.
+- **Glyph wording**: README використовує «гліфами».
+- **Wildcard wording**: README використовує «джокером».
+- **Notes**: README, каталог і цей глосарій тепер синхронізовані на «Збереження унікальних комбінацій» + `Є / Зберегти` + `Фільтр: Усі / Вибір`; відкритих блокерів немає.
 
 ## Common catalog gaps
 - The `filterGlyphs` (`Glyphs`, `Any`, `On`, `Off`, `Selected`, tooltip) and `filterRolls` strings are still English in many catalogs; translators should replace these entries with localized text that mirrors the glyph/wildcard language used in their README (e.g., `glifos`, `glyphes`, `glifi`, `glifler`, `гліфами`).

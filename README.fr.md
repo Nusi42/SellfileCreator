@@ -101,16 +101,34 @@ Construisez, prévisualisez et exportez des règles de vente pour RSL Helper via
 ### Conserver les uniques
 - Ouvrez le dialogue Vente finale et passez sur l’onglet « Conserver les uniques » pour marquer les combinaisons que vous refusez de vendre. Activez « Conserver les uniques » pour commencer à les éditer.
 - Chaque règle vous permet de choisir slot, sets ou méta-sets, rangs, raretés, stats principales et, pour les accessoires, factions. Laisser un sélecteur vide signifie « n’importe lequel ».
+- Une règle par défaut est déjà fournie pour les anneaux, amulettes et bannières 5★/6★ couvrant tous les sets accessoires 1–9 et les sets pièce unique, avec `Par emplacement`, `Par ensemble`, `Par faction` et `Par stat principale` activés pour conserver au moins une pièce de chaque combinaison.
+- Une règle d’aide (désactivée) couvre les pièces d’arme/armure (arme, casque, bouclier, gants, plastron, bottes) des familles stun/toxic/daze/cursed/provoke/destroy en 5★/6★. Elle active `Par emplacement` et `Par ensemble` pour garder la logique prête si ces sets rares requièrent une protection supplémentaire.
 - `≥ Quantité requise` se trouve juste à côté d'un petit groupe de boutons. « Par règle » garde une seule quote-part, et les boutons « Par emplacement », « Par ensemble », « Par faction » et « Par stat principale » peuvent être combinés pour multiplier la quote-part selon chaque mélange concerné (les désactiver tous les quatre ramène automatiquement le mode « Par règle »).
+- Le compteur « `{have} existants / Conserver {keep}` » reflète exactement ce que détaille l’infobulle : **Existants** compte les pièces déjà protégées par les configs, la Vente finale ou les règles Conserver les uniques actives ; **Conserver** reprend le quota défini via `≥ Quantité requise`. Seuls les objets correspondant à la règle alimentent ces totaux.
+- Le sélecteur « `Filtrer : {mode}` » (au-dessus de la grille) propose `Tous` et `Sélection`. `Sélection` affiche uniquement les entrées associées à la règle Conserver les uniques actuellement surlignée ; tant qu’aucune règle n’est choisie, le mode reste aligné sur `Tous`.
 - L’analyse n’ajoute des lignes supplémentaires que lorsque chaque objet correspondant serait vendu autrement. Si vos configs habituelles sauvent déjà assez de pièces, la règle affiche « Couvert ailleurs » et rien n’est ajouté à l’export.
 
+#### Portées de quota en un coup d’œil
+Empiler les puces de portée change qui obtient sa propre quote-part. Laissez « Par règle » actif pour partager un seul pool, puis activez `Par emplacement`, `Par ensemble`, `Par faction` et `Par stat principale` pour suivre chaque mélange Slot × Set × Faction × Stat principale séparément.
+
+| Bouton de portée | Comportement du quota | Quand l’utiliser |
+| --- | --- | --- |
+| `Par règle` | Un pool commun pour toute la règle. | Conserver cinq bottes SPD quels que soient les sets. |
+| `Par emplacement` | Duplique la quote-part pour chaque slot. | Protéger deux anneaux, deux amulettes et deux bannières indépendamment. |
+| `Par ensemble` | Duplique la quote-part pour chaque set/méta-set. | Suivre deux drops Stoneskin et deux Protection séparément. |
+| `Par faction` | Duplique la quote-part pour chaque faction. | Garantir trois anneaux Merciless pour chaque faction. |
+| `Par stat principale` | Duplique la quote-part pour chaque stat principale. | Séparer les réserves d’étendards ACC vs RES. |
+
 #### Exemples concrets
-1. **Les bottes SPD disparaissent :** Slot = Bottes, Stat principale = SPD, Sets vides. Réglez `≥ Quantité requise = 5` en mode « Par règle ». Au moins cinq paires de bottes SPD survivent, quel que soit le set.
-2. **Mélanger gants Savage et Lethal :** Slot = Gants, Sets = Savage + Lethal, Stat principale = DCC%. Réglez `≥ Quantité requise = 3`, « Par règle ». Vous conservez ainsi trois gants DCC%, peu importe la répartition entre les deux sets.
-3. **Anneaux Merciless par faction :** Slot = Anneau, Set = Merciless, Faction non filtrée. Fixez `≥ Quantité requise = 3` et activez « Par faction ». Chaque faction doit désormais disposer de trois anneaux Merciless avant que la règle ne soit considérée comme satisfaite.
-4. **Anneaux PV% par faction :** Slot = Anneau, Stat principale = PV%, Sets vides. `≥ Quantité requise = 2` avec le bouton « Par faction ». L’application suit chaque faction séparément et protège deux anneaux PV% pour chacune.
-5. **Accessoires essentiels par faction :** Créez trois règles (Anneau, Amulette, Bannière). Laissez Sets et Stat principale vides, réglez `≥ Quantité requise = 5` et activez « Par faction ». Chaque faction garde cinq pièces de chaque type d’accessoire.
-6. **Séries Stoneskin/Protection par faction :** Pour chaque accessoire, choisissez Sets = Stoneskin + Protection, laissez la Stat principale vide, mettez `≥ Quantité requise = 2` et activez à la fois « Par ensemble » et « Par faction ». Ainsi, chaque faction conserve deux exemplaires par slot lorsque ces sets tombent.
+
+| Scénario | Filtres | Puces de portée | Ce que garantit l’analyse |
+| --- | --- | --- | --- |
+| Les bottes SPD disparaissent | Slot = Bottes, Stat principale = SPD, Sets vides | `Par règle` | Au moins cinq bottes SPD survivent, peu importe le set. |
+| Mélanger gants Savage et Lethal | Slot = Gants, Sets = Savage + Lethal, Stat principale = DCC% | `Par règle` | Trois gants DCC% restent, quel que soit le mix des deux sets. |
+| Anneaux Merciless par faction | Slot = Anneau, Set = Merciless, Faction vide | `Par faction` | Chaque faction conserve trois de ses anneaux Merciless. |
+| Anneaux PV% par faction | Slot = Anneau, Stat principale = PV%, Sets vides | `Par faction` | Deux anneaux PV% par faction restent en inventaire. |
+| Accessoires essentiels par faction | Trois règles (Anneau, Amulette, Bannière), Sets/Stat principale vides, `≥ Quantité requise = 5` | `Par faction` | Cinq anneaux, amulettes et bannières survivent pour chaque faction. |
+| Séries Stoneskin/Protection par faction | Slot = Anneau/Amulette/Bannière, Sets = Stoneskin + Protection, Stat principale vide | `Par ensemble` + `Par faction` | Chaque faction garde deux Stoneskin et deux Protection par slot d’accessoire. |
 
 Astuce : Importez votre `.db` ou collez des objets dans le Testeur de règles avant d’ouvrir l’onglet pour fournir de vrais items à l’analyse. Si une règle affiche « Il manque 2 », cliquez dessus : le Testeur de règles met en évidence ces objets et révèle quelles factions ou quels sets ont encore besoin d’aide.
 
@@ -215,6 +233,19 @@ Exemple : Somme des jets avec jokers (2 sous-stats)
   - +4/+8/+12/+16 : deux lignes — SPD ≥ 10, PRÉ ≥ 9 et SPD ≥ 5, PRÉ ≥ 18 (divisions minimales ; liste stable).
 - Tard :
   - +0/+4/+8/+12 : seulement les lignes de base (rien d’exigé en plus) ; +16 : les deux lignes ci-dessus. Avec un minimum plus élevé, Tard impose les divisions nécessaires aux paliers adéquats (ex. minimum 2 → +12 montre les divisions à un jet, +16 celles à deux jets).
+
+#### Scénarios du builder en un coup d’œil
+
+| Scénario | Paramétrage | Ce que le builder émet |
+| --- | --- | --- |
+| Tôt (2 sous-stats) | SPD min = 2, TRC min = 1, Niveaux +0..+16 | `+0 :` SPD ≥ 5, TRC ≥ 5<br>`+4 :` [10,5] et [5,10]<br>`+8 :` [15,5], [10,10], [5,15]<br>`+12/+16 :` [15,10] |
+| Tard (2 sous-stats) | Identique ci-dessus | `+0/+4 :` [5,5]<br>`+8 :` [10,5] ou [5,10]<br>`+12 :` [15,5] ou [10,10]<br>`+16 :` [15,10] |
+| Tôt (3 sous-stats) | SPD min = 2, TRC min = 1, DCC sélectionné, Obligatoires = 3 | `+0 :` [SPD, TRC, DCC] ≥ [5,5,5]<br>`+4 :` permutations à un jet (10/5/5, 5/10/5, 5/5/10)<br>`+8 :` permutations à deux jets (limites supérieures respectées)<br>`+12/+16 :` [15,10,5] |
+| Tard (3 sous-stats) | Même stats que ci-dessus | `+0/+4 :` [5,5,5]<br>`+8 :` [10,5,5] ou [5,10,5]<br>`+12 :` [15,5,5] ou [10,10,5]<br>`+16 :` [15,10,5] |
+| Verrouiller un stat, en exiger deux | Sous-stats SPD/PV/ATQ ; SPD verrouillé (🔒) ; Sous-stats requis = 2 | Le builder émet SPD+PV et SPD+ATQ ; PV+ATQ est exclu car SPD verrouillé doit apparaître. |
+| Concentrer les jets sur 3 stats et figer le slot flexible | Sous-stats SPD/TRC/DCC/PV%/ATQ%/DEF% ; Sous-stats requis = 4 ; SPD/TRC/DCC Min jet = 1 ; PV%/ATQ%/DEF% Limite sup = 0 | SPD/TRC/DCC reçoivent toujours les jets tandis que le 4ᵉ stat (PV%/ATQ%/DEF%) reste à la valeur de base. |
+| Tôt avec un joker | Sous-stats SPD (Min = 2) et PRÉ (★ joker) ; Sous-stats requis = Auto ; Niveaux +0..+16 | Les jalons Tôt mettent en évidence toute pièce qui peut encore atteindre SPD(2) à +16 ; dès que deux jets SPD sont possibles, la ligne SPD ≥ apparaît. |
+| Somme des jets avec jokers | Sous-stats SPD et PRÉ sur ★ ; Sous-stats requis = 2 ; Jets minimum = 1 | **Tôt :** +4/+8/+12/+16 montrent les deux répartitions minimales (SPD ≥ 10 & PRÉ ≥ 9, ou SPD ≥ 5 & PRÉ ≥ 18).<br>**Tard :** +0/+4/+8/+12 restent sur les lignes de base ; +16 affiche ces deux répartitions. Des cibles plus élevées obligent Tard à réclamer ces répartitions plus tôt. |
 
 ## Notes pour les contributeurs
 

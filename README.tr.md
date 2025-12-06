@@ -96,6 +96,40 @@ RSL Helper için satış kurallarını basit bir arayüzle oluşturun, önizleyi
 - Final satış kapalıysa, hiçbir kurala uymayan eşyalar otomatik olarak korunur. Satış yalnızca açık bir Sat kuralı eşleştiğinde olur.
 - Final satış açıkken üretilen Sat kuralları tüm bilinen setleri içerir. Önizleme «Tüm bilinen setler» der; dışa aktarılan dosya yine her seti tek tek listeler.
 
+### Benzersizleri Koru
+- Final satış iletişim kutusunu açıp `Benzersizleri Koru` sekmesine geçin; kaybetmek istemediğiniz kombinasyonları burada işaretleyin. `Benzersizleri Koru'yu etkinleştir` anahtarını açtığınız anda düzenlemeye başlayabilirsiniz.
+- Her kural slot, set veya metaset, rank, nadirlik, ana stat ve (aksesuarlar için) fraksiyon seçmenize izin verir. Boş bırakmak “herhangi” anlamına gelir.
+- Varsayılan olarak 5★/6★ yüzük, muska ve sancakları tüm 1–9 ve tek parça aksesuar setleri içinde tarayan bir kural hazırdır; `Slot başına`, `Set başına`, `Fraksiyon başına` ve `Ana stat başına` çipleri açık gelir, böylece her kombinasyon en az bir öğeyi korur.
+- Ayrıca kapalı gelen yardımcı bir kural vardır: Silah + zırh parçalarını (silah, miğfer, kalkan, eldiven, göğüslük, bot) 5★/6★ aralığında hedefler, stun/toxic/daze/cursed/provoke/destroy setlerini kapsar ve `Slot başına` + `Set başına` kapsamlarını kullanır. Nadir setleri daha sonra korumak istediğinizde sadece anahtarı açın.
+- `≥ Gerekli adet` uygulamanın size verdiği sözdür. Rank ve Nadirlik dışındaki her seçicinin altındaki kapsam çipleri (`Kural başına`, `Slot başına`, `Set başına`, `Fraksiyon başına`, `Ana stat başına`) bu kotanın nasıl paylaşıldığını belirler; hepsini kapatırsanız paylaşım otomatik olarak `Kural başına` havuzuna döner.
+- `Var {have} / Koru {keep}` sayacı tooltip’te anlatılanı aynen gösterir: **Var**, konfigler, Final satış veya mevcut Benzersizleri Koru satırları sayesinde zaten korunan öğeleri sayar; **Koru**, `≥ Gerekli adet` ile talep ettiğiniz kotadır. Yalnızca kuralı karşılayan öğeler bu sayılara girer.
+- Kartın statü rozetleri `Eksik {count}`, `Başka yerde korunuyor` ve `Gereksinim karşılandı` mesajlarını kullanır; eksik değeri kurtarmak için karta tıkladığınızda ilgili tester ekipmanı vurgulanır.
+- Gridin üzerindeki `Filtre: Hepsi / Seçim` anahtarı, tüm benzersiz öğeleri göstermek ile seçili koruma kuralıyla eşleşen öğeleri göstermek arasında geçiş yapar. Kural seçilmezse `Seçim` modu `Hepsi` gibi davranır.
+- Tarayıcı, yalnızca bir kuralı karşılayan bütün eşyalar aksi hâlde satılacaksa ekstra Koru satırları ekler. Normal konfigleriniz kotayı dolduruyorsa kart “Başka yerde korunuyor” olarak kalır ve yeni satır oluşturulmaz.
+
+Kapsam çiplerini üst üste koymak kimin kendi kotasını alacağını değiştirir. Tek havuz için `Kural başına` açık bırakın; `Slot başına`, `Set başına`, `Fraksiyon başına` ve `Ana stat başına` düğmelerini katmanlayarak Slot × Set × Fraksiyon × Ana stat kombinasyonlarını ayrı ayrı izleyebilirsiniz.
+
+#### Kota kapsamları bir bakışta
+| Kapsam düğmesi | Kota davranışı | Ne zaman parlıyor |
+| --- | --- | --- |
+| `Kural başına` | Tüm kural tek bir havuza bağlı kalır. | Setten bağımsız olarak beş SPD botunu koruyun. |
+| `Slot başına` | Her slot için kotayı yeniden üretir. | Yüzük, muska ve sancağı ikişer tane ayrı ayrı saklayın. |
+| `Set başına` | Karttaki her set/metaset için havuzu kopyalar. | Stoneskin ve Protection düşüşlerini ayrı sayın. |
+| `Fraksiyon başına` | Her fraksiyon kendi kotasına sahip olur. | Her fraksiyon için üç Merciless yüzük bırakın. |
+| `Ana stat başına` | Seçili ana statların her biri kendi havuzuna sahip olur. | ACC ve RES sancakları farklı kotalarda takip edin. |
+
+#### Gerçek dünyadan örnekler
+| Senaryo | Filtreler | Kapsam düğmeleri | Tarayıcının garantisi |
+| --- | --- | --- | --- |
+| SPD botlar tükeniyor | Slot = Botlar, Ana stat = SPD, Setler boş, `≥ Gerekli adet = 5` | `Kural başına` | Hangi set olursa olsun en az beş SPD botu kalır. |
+| Savage + Lethal eldivenleri karıştırmak | Slot = Eldiven, Set = Savage + Lethal, Ana stat = CDMG%, `≥ Gerekli adet = 3` | `Kural başına` | Set karışımı değişse bile üç yüksek hasar eldiveni korunur. |
+| Fraksiyon başına Merciless yüzük | Slot = Yüzük, Set = Merciless, Fraksiyon boş, `≥ Gerekli adet = 3` | `Fraksiyon başına` | Her fraksiyon kendi üç Merciless yüzüğünü tutar. |
+| Fraksiyon başına HP% yüzük | Slot = Yüzük, Ana stat = HP%, Setler boş, `≥ Gerekli adet = 2` | `Fraksiyon başına` | Her fraksiyon ikişer HP% yüzük saklar. |
+| Çekirdek aksesuarlar fraksiyon başına | Üç kural (Yüzük, Muska, Sancak), Set/Ana stat boş, `≥ Gerekli adet = 5` | `Fraksiyon başına` | Her fraksiyon her aksesuar slotunda beşer parça bırakır. |
+| Stoneskin + Protection aksesuarları | Slot = Yüzük/Muska/Sancak, Set = Stoneskin + Protection, Ana stat boş, `≥ Gerekli adet = 2` | `Set başına` + `Fraksiyon başına` | Her fraksiyon her slot için iki Stoneskin ve iki Protection parça tutar. |
+
+İpucu: Sekmeyi açmadan önce `.db` içe aktarın veya tester’a eşya ekleyin ki tarayıcı gerçek veriyi görsün. Bir kural «Eksik 2» dediğinde üzerine tıklayın; tester tablosu ilgili eşyaları vurgular ve hangi setin veya fraksiyonun eksik kaldığını anlarsınız.
+
 ### Konfig yönetimi
 - Kaydedilen konfig listesi: Her konfig oluşturucunun altında küçük bir etiket olarak görünür. Sol tık seçer, çoğaltmak/yeniden sıralamak/silmek için sağ tık menülerini kullanabilirsin; «Konfigleri sil» düğmesi tüm listeyi (onay isteyerek) kaldırır.
 - Hover bağlantısı: Bir etiketin üzerine gelmek Sellfile Önizleme tablosunda o konfigden gelen her satırı vurgular; tablodaki satırın üzerine gelmek de listede ilgili etiketi aydınlatır.
@@ -130,42 +164,6 @@ RSL Helper için satış kurallarını basit bir arayüzle oluşturun, önizleyi
 - Başlıktaki sayaçlar Matched vs No Match toplamlarının yanı sıra Keep/Sell dağılımlarını da gösterir. Kural testi filtrelerini (Keep/Sell sonucu + Matched/No Match + `Tester konfigleri` `Off`/`İlk`/`Herhangi`) kullanarak dışa aktarmadan önce edge case’lere odaklanın.
 - Önizleme anahtarını kullanarak kurallar tablosu ile Kural testi tablosu arasında iletişim kutusunu yeniden açmadan gidip gelin; böylece üretilen satırları tetikleyen ekipmanla yan yana karşılaştırabilirsiniz.
 
-### Benzersizleri Koru
-Final satış iletişim kutusunu açıp «Benzersizleri Koru» sekmesine geçin; kaybetmek istemediğiniz kombinasyonları burada işaretleyin. Anahtarı açtığınız anda düzenlemeye başlayabilirsiniz. Her kuralda slot, set veya metaset, rank, nadirlik, ana stat ve (aksesuarlar için) faksiyon seçebilirsiniz; alanı boş bırakmak “herhangi” anlamına gelir.
-
-Varsayılan olarak 5★/6★ yüzük, muska ve sancakları tüm 1–9 ve tek parça aksesuar setleri içinde tarayan bir kural zaten hazırdır ve `Slot başına`, `Set başına`, `Fraksiyon başına` ve `Ana stat başına` çipleri açık bırakılmıştır; böylece her kombinasyon için en az bir eşya korunur.
-
-Ayrıca kapalı gelen yardımcı bir kural vardır: Silah + zırh parçalarını (silah, miğfer, kalkan, eldiven, göğüslük, bot) 5★/6★ aralığında hedefler, stun/toxic/daze/cursed/provoke/destroy ailelerindeki setleri kapsar ve `Slot başına` + `Set başına` kapsamlarını kullanır. Bu tarayıcıyı daha sonra nadir setleri korumak istediğinizde açabilirsiniz.
-
-`≥ Gerekli adet` uygulamanın size verdiği sözdür. Rank ve Nadirlik dışındaki her seçicinin altındaki kapsam çipleri (`Kural başına`, `Slot başına`, `Set başına`, `Fraksiyon başına`, `Ana stat başına`) bu kotanın nasıl paylaşıldığını belirler; çipleri istediğiniz gibi katmanlayabilirsiniz ve hepsini kapattığınızda otomatik olarak paylaşılan `Kural başına` havuzuna geri dönülür.
-
-`Have {have} / Keep {keep}` sayacı tooltip’te anlatılanı aynen gösterir: **Have** bu kuralı yakalayıp konfigler, Final satış veya var olan Benzersizleri Koru satırları tarafından şimdiden korunmakta olan eşyaları sayar; **Keep** ise `≥ Gerekli adet` ile talep ettiğiniz kotadır. Sadece listede yer alıp kuralı karşılayan eşyalar bu sayılara girer.
-
-Tarayıcı, yalnızca bir kuralı karşılayan bütün eşyalar aksi hâlde satılacaksa ekstra Koru satırları ekler. Normal konfigleriniz kotayı dolduruyorsa kart «Başka yerde korunuyor» mesajını gösterir ve yeni satır oluşturulmaz.
-
-Kapsam çiplerini üst üste koymak kimin kendi kotasını alacağını değiştirir. Tek havuz için `Kural başına` açık bırakın; `Slot başına`, `Set başına`, `Fraksiyon başına` ve `Ana stat başına` düğmelerini katmanlayarak Slot × Set × Fraksiyon × Ana stat kombinasyonlarını ayrı ayrı izleyebilirsiniz.
-
-#### Kota kapsamları bir bakışta
-| Kapsam düğmesi | Kota davranışı | Ne zaman parlıyor |
-| --- | --- | --- |
-| `Kural başına` | Tüm kural tek bir havuza bağlı kalır. | Setten bağımsız olarak beş SPD botunu koruyun. |
-| `Slot başına` | Her slot için kotayı yeniden üretir. | Yüzük, muska ve sancağı ikişer tane ayrı ayrı saklayın. |
-| `Set başına` | Karttaki her set/metaset için havuzu kopyalar. | Stoneskin ve Protection düşüşlerini ayrı sayın. |
-| `Fraksiyon başına` | Her fraksiyon kendi kotasına sahip olur. | Her fraksiyon için üç Merciless yüzük bırakın. |
-| `Ana stat başına` | Seçili ana statların her biri kendi havuzuna sahip olur. | ACC ve RES sancakları farklı kotalarda takip edin. |
-
-#### Gerçek dünyadan örnekler
-| Senaryo | Filtreler | Kapsam düğmeleri | Tarayıcının garantisi |
-| --- | --- | --- | --- |
-| SPD botlar tükeniyor | Slot = Botlar, Ana stat = SPD, Setler boş, `≥ Gerekli adet = 5` | `Kural başına` | Hangi set olursa olsun en az beş SPD botu kalır. |
-| Savage + Lethal eldivenleri karıştırmak | Slot = Eldiven, Set = Savage + Lethal, Ana stat = CDMG%, `≥ Gerekli adet = 3` | `Kural başına` | Set karışımı değişse bile üç yüksek hasar eldiveni korunur. |
-| Fraksiyon başına Merciless yüzük | Slot = Yüzük, Set = Merciless, Fraksiyon boş, `≥ Gerekli adet = 3` | `Fraksiyon başına` | Her fraksiyon kendi üç Merciless yüzüğünü tutar. |
-| Fraksiyon başına HP% yüzük | Slot = Yüzük, Ana stat = HP%, Setler boş, `≥ Gerekli adet = 2` | `Fraksiyon başına` | Her fraksiyon ikişer HP% yüzük saklar. |
-| Çekirdek aksesuarlar fraksiyon başına | Üç kural (Yüzük, Muska, Sancak), Set/Ana stat boş, `≥ Gerekli adet = 5` | `Fraksiyon başına` | Her fraksiyon her aksesuar slotunda beşer parça bırakır. |
-| Stoneskin + Protection aksesuarları | Slot = Yüzük/Muska/Sancak, Set = Stoneskin + Protection, Ana stat boş, `≥ Gerekli adet = 2` | `Set başına` + `Fraksiyon başına` | Her fraksiyon her slot için iki Stoneskin ve iki Protection parça tutar. |
-
-İpucu: Sekmeyi açmadan önce `.db` içe aktarın veya tester’a eşya ekleyin ki tarayıcı gerçek veriyi görsün. Bir kural «Eksik 2» dediğinde üzerine tıklayın; tester tablosu ilgili eşyaları vurgular ve hangi setin veya fraksiyonun eksik kaldığını anlarsınız.
-
 ### Dışa aktarma
 - Baz dosya yüklüyse «Birleştirilmiş RSL Helper Sellfile’ı dışa aktar» görünür; aksi durumda «RSL Helper Sellfile’ı dışa aktar».
 - Çalışmanızı korumak için oluşturucu alanındaki «Konfigleri kaydet»/«Konfigleri yükle» seçeneklerini kullanın.
@@ -175,64 +173,22 @@ Kapsam çiplerini üst üste koymak kimin kendi kotasını alacağını değişt
 
 Tüm örneklerde rulo başına 6★ alt stat hedefleri: SPD=5, CR%=5, CDMG%=5.
 
-Erken vs Geç
-- Erken: Eşikler o ana kadar kazanılan ruloları yansıtır. ★ + toplam hedef kombinasyonlarında sadece her seviyedeki minimal bölünmeler gösterilir (liste sabit kalır). Diğer durumlarda hedef mümkün olana dek seçilen statlardaki ilerlemeyi listeler, ardından Alt stat hedeflerine sabitlenir (global Σ daha fazlasını gerektirmedikçe).
-- Geç: +16 hedefinin ulaşılabilir kalması için şu anda bulunması gereken ruloları ister. ★ + toplam hedef ile, aynı minimal bölünmeleri erken seviyelerde ve tekrar +16’da listeler. Stat bazlı hedeflerde her seviye için gerekli alt sınırlar verilir.
+**Erken vs Geç eşikleri**
+- **Erken**: Eşikler o ana kadar kazanılan ruloları yansıtır. ★ + toplam hedef kombinasyonlarında sadece her seviyedeki minimal bölünmeler gösterilir (liste sabit kalır). Diğer durumlarda hedef mümkün olana dek seçilen statlardaki ilerlemeyi listeler, ardından Alt stat hedeflerine sabitlenir (global Σ daha fazlasını gerektirmedikçe).
+- **Geç**: +16 hedefinin ulaşılabilir kalması için şu anda bulunması gereken ruloları ister. ★ + toplam hedef ile, aynı minimal bölünmeleri erken seviyelerde ve tekrar +16’da listeler. Stat bazlı hedeflerde her seviye için gerekli alt sınırlar verilir.
 
-Örnek: Erken (2 alt stat) — SPD min=2, CR% min=1 (0..16)
-- +0: SPD ≥ 5, CR ≥ 5
-- +4: [10,5] ve [5,10]
-- +8: [15,5], [10,10], [5,15]
-- +12/+16: [15,10]
+#### Oluşturucu senaryoları bir bakışta
 
-Örnek: Geç (2 alt stat) — SPD min=2, CR% min=1 (0..16)
-- +0/+4: [5,5]
-- +8: [10,5] veya [5,10]
-- +12: [15,5] veya [10,10]
-- +16: [15,10]
-
-Örnek: Erken (3 alt stat) — SPD min=2, CR% min=1, CDMG% serbest, Gerekli=3
-- +0: [SPD, CR, CDMG] ≥ [5,5,5]
-- +4: tek rulo dağılımları: [10,5,5], [5,10,5], [5,5,10]
-- +8: iki rulo dağılımları (üst sınırlara uyar)
-- +12/+16: [15,10,5]
-
-Örnek: Geç (3 alt stat) — SPD min=2, CR% min=1, CDMG% serbest, Gerekli=3
-- +0/+4: [5,5,5]
-- +8: [10,5,5] veya [5,10,5]
-- +12: [15,5,5] veya [10,10,5]
-- +16: [15,10,5]
-
-İpucu: Bir statta ruloları yasaklamak için üst sınır kullanın. ★ durumunda sağ tıklayıp üst sınırı açın ve 0 yapın; böylece CDMG% temel değerde kalır, SPD/CR ruloları alır.
-
-Örnek: Bir alt statı kilitle, ikisini iste
-- Alt statlar: SPD, HP, ATK. SPD’ye basın ve kilit simgesini (🔒) açarak sabitleyin.
-- Gerekli alt stat = 2.
-- Sonuç: SPD+HP ve SPD+ATK satırları oluşur; SPD’siz HP+ATK gelmez (kilitlenen statlar hep dahil).
-
-Örnek: 3 statta ruloları topla, 4.’yü kapat
-- Hedef: SPD, CR%, CDMG% ve HP%/ATK%/DEF%’ten biri olsun, ama bu dördüncü statta rulo olmasın.
-- Alt statlar: SPD, CR%, CDMG%, HP%, ATK%, DEF%.
-- Gerekli alt stat = 4.
-- Göstergeler:
-  - ★ → sol tık (minimum): SPD/CR%/CDMG% için hedef minimumları ayarlayın (ör. 1).
-  - ★ → sağ tık (üst sınır): HP%/ATK%/DEF% için üst sınırı 0 yapın.
-- Sonuç: Dördüncü stat üçlü arasında döner ama rulo almaz; SPD/CR%/CDMG% ruloları paylaşır.
-
-Örnek: Jokerli Erken (yalnızca seçilenler)
-- Alt statlar: SPD ve ACC.
-- Göstergeler: SPD min = 2; ACC = ★.
-- Gerekli alt stat: Oto (2).
-- Seviyeler: +0 ila +16.
-- Etki: Erken, SPD(2)’ye +16’da ulaşabilecek eşyaları gösterir (SPD veya ACC rulo aldığında). SPD’de iki rulo mümkün olduğunda SPD minimum satırı görünür.
-
-Örnek: Jokerlerle toplam rulo (2 alt stat)
-- Alt statlar: SPD ve ACC, ikisi de ★.
-- Gerekli alt stat: 2. Minimum rulo: 1.
-- Erken:
-  - +4/+8/+12/+16: iki satır — SPD ≥ 10, ACC ≥ 9 ve SPD ≥ 5, ACC ≥ 18 (minimal dağılımlar; kararlı).
-- Geç:
-  - +0/+4/+8/+12: yalnızca temel satırlar; +16: yukarıdaki iki satır. Minimum daha yüksekse Geç uygun seviyelerde gerekli bölünmeleri zorunlu kılar (örneğin min 2 → +12’de tek rulo dağılımı, +16’da çift rulo dağılımı).
+| Senaryo | Kurulum | Oluşturucunun çıkışı |
+| --- | --- | --- |
+| Erken (2 alt stat) | SPD min = 2, CR% min = 1, Seviyeler +0..+16 | `+0:` SPD ≥ 5, CR ≥ 5<br>`+4:` [10,5] ve [5,10]<br>`+8:` [15,5], [10,10], [5,15]<br>`+12/+16:` [15,10] |
+| Geç (2 alt stat) | Yukarıdakiyle aynı | `+0/+4:` [5,5]<br>`+8:` [10,5] veya [5,10]<br>`+12:` [15,5] veya [10,10]<br>`+16:` [15,10] |
+| Erken (3 alt stat) | SPD min = 2, CR% min = 1, CDMG% serbest, Gerekli = 3 | `+0:` [SPD, CR, CDMG] ≥ [5,5,5]<br>`+4:` tek rulo dağılımları (10/5/5 permütasyonları)<br>`+8:` çift rulo dağılımları (üst sınırlara uyar)<br>`+12/+16:` [15,10,5] |
+| Geç (3 alt stat) | Önceki ile aynı | `+0/+4:` [5,5,5]<br>`+8:` [10,5,5] veya [5,10,5]<br>`+12:` [15,5,5] veya [10,10,5]<br>`+16:` [15,10,5] |
+| Birini kilitle, iki stat iste | Alt statlar SPD/HP/ATK; SPD’yi kilitle (🔒); Gerekli alt stat = 2 | Oluşturucu SPD+HP ve SPD+ATK satırları üretir; SPD’siz HP+ATK satırları oluşmaz. |
+| 3 statta ruloları topla, flex slotu dondur | Alt statlar SPD/CR%/CDMG%/HP%/ATK%/DEF%; Gerekli = 4; SPD/CR%/CDMG% için Min = 1; HP%/ATK%/DEF% için rulo üst sınırı = 0 | SPD/CR%/CDMG% ruloları paylaşır, dördüncü stat permütasyonlarda döner ama rulo almaz; üst sınırlar (★ üzerinde sağ tık) ekstra ruloları engeller. |
+| Jokerli Erken (yalnızca seçilenler) | Alt statlar SPD ve ACC; SPD min = 2; ACC = ★; Gerekli = Oto (2); Seviyeler +0..+16 | Erken, SPD(2)’ye +16’da ulaşabilecek tüm öğeleri listeler. SPD’de iki rulo mümkün olduğunda SPD ≥ satırı görünür. |
+| Jokerlerle toplam rulo (2 alt stat) | Alt statlar SPD ve ACC (ikisinde de ★); Gerekli = 2; Minimum rulo = 1 | **Erken:** +4/+8/+12/+16’da iki satır — SPD ≥ 10, ACC ≥ 9 ve SPD ≥ 5, ACC ≥ 18.<br>**Geç:** +0/+4/+8/+12 temel satırları gösterir ve +16’da aynı iki satırı tekrarlar; daha yüksek hedeflerde Geç gerekli bölünmeleri daha erken ister. |
 
 ## Katkıda bulunmak isteyenler için notlar
 
