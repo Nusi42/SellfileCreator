@@ -4148,7 +4148,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             ) : (
               <HsfRulesTableMemo
                 rules={hsfRulesForTable}
-                building={rulesBuilding}
                 setHoveredCfgIdx={setHoveredCfgIdx}
                 selectedCfgIdx={previewSelectedCfgIdx}
                 multiselectActive={multiselectActive}
