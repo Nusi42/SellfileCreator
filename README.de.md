@@ -12,8 +12,6 @@ Erstelle, prüfe und exportiere Verkaufsregeln für RSL Helper mit einer übersi
 - Export mit einem Klick: Exportiere eine HSF-Datei (die RSL Helper Sellfile), die sofort in RSL Helper geladen werden kann.
 - Regel Tester-Vorschau + Dialog „Ausrüstung...”: Erstelle Beispielausrüstung, füge Zeilen ein oder ziehe deine RSL-Helper-Ausrüstungsdatenbank (meist `%APPDATA%\\RslHelper\\Config`) in den Dialog. Lass den Dialog geschlossen und nutze den Vorschau-Umschalter, um diese Ausrüstung sichtbar zu halten, während du sie mit deinen Regeln vergleichst.
 - Tab „Unikate behalten“: Definiere Kombinationen, die du nie verlieren willst. Sobald deine Konfigs plus deine aktuell aktiven Verkaufsregeln jedes Exemplar dieser Kombination löschen würden, generiert der Scanner automatisch passende Behalte-Regeln.
-- Autosave-Wiederherstellungsdialog: Sobald eine Autosave gefunden wird, kannst du exakt auswählen, was geladen wird – Konfigs, Metasets, Substat-Richtwerte, Final-Sell-Rest, angepinnte Notiz, Filterleiste (Zustand, Chips, eingeklappte Bereiche) und sogar Regel Tester-Importe.
-- RSL-Helper-DB-Ordner kopieren: Der Vorschau-Header enthält eine Zwischenablage-Schaltfläche, die `%APPDATA%\\RslHelper\\Config` kopiert, damit du den Ordnerpfad direkt in den Explorer einfügen kannst, bevor du die `.db` in Sellfile Creator ziehst.
 
 ## Nutzung
 
@@ -99,24 +97,40 @@ Erstelle, prüfe und exportiere Verkaufsregeln für RSL Helper mit einer übersi
 - Bei aktivem finalem Verkauf umfassen die erzeugten Sell-Regeln alle bekannten Sets. In der Vorschau steht „Alle bekannten Sets“, der Export listet trotzdem jedes Set einzeln.
 
 ### Unikate behalten
-- Öffne den Dialog „Finaler Verkauf“ und wechsle zur Registerkarte „Unikate behalten“, um Kombinationen zu markieren, die du nie verlieren willst. Aktiviere „Unikate behalten“, um mit dem Bearbeiten zu beginnen.
-- Jede Regel lässt dich Slot, Sets oder Metasets, Ränge, Seltenheiten, Mainstats und (bei Zubehör) Fraktionen wählen. Leer bedeutet „egal“.
-- `≥ Benötigte Anzahl` sitzt neben einem kleinen Button-Cluster. „Pro Regel“ hält eine gemeinsame Quote, während du „Pro Slot“, „Pro Set“, „Pro Fraktion“ und „Pro Hauptstat“ beliebig kombinieren kannst, um die Quote für jede passende Mischung zu vervielfachen (sind alle vier aus, fällt die Regel automatisch auf „Pro Regel“ zurück).
-- Der Scanner fügt nur zusätzliche Behalte-Zeilen ein, wenn jedes Item, das zur Regel passt, sonst verkauft würde. Wenn deine normalen Konfigs bereits genug Gear sichern, zeigt die Regel „Anderswo abgedeckt“ und es wird nichts exportiert.
+- Öffne den Dialog „Finaler Verkauf“ und wechsle zur Registerkarte `Unikate behalten`, um Kombinationen zu markieren, die niemals verloren gehen sollen. Aktiviere `Unikate behalten`, damit du Regeln bearbeiten kannst.
+- Jede Behalte-Regel lässt dich Slot, Sets oder Metasets, Ränge, Seltenheiten, Mainstats und (bei Zubehör) Fraktionen festlegen. Leer bedeutet „egal“.
+- Eine Standardregel deckt bereits 5★/6★-Ringe, -Amulette und -Banner über alle 1–9er- sowie Einzelstück-Zubehörsets ab und hat `Pro Slot`, `Pro Set`, `Pro Fraktion` und `Pro Hauptstat` aktiv, damit jede Kombination mindestens ein Stück behält.
+- Zusätzlich existiert eine deaktivierte Hilfsregel für Waffen/Rüstung (Waffe, Helm, Schild, Handschuhe, Brust, Stiefel) der Sets Betäubung, Gift, Benommenheit, Verfluchung, Provozieren und Zerstörung bei 5★/6★. `Pro Slot` und `Pro Set` sind dort vorbereitet, falls du diese seltenen Drops später schützen willst.
+- `≥ Benötigte Anzahl` definiert das Versprechen, das die App halten soll. Direkt darunter entscheiden Chips für `Pro Slot`, `Pro Set`, `Pro Fraktion` und `Pro Hauptstat`, wie das Kontingent aufgeteilt wird. Sind alle Chips aus, gilt automatisch `Pro Regel` (ein gemeinsamer Pool).
+- Der Zähler `Vorhanden {have} / Behalten {keep}` zeigt exakt das an, was der Tooltip beschreibt: **Vorhanden** zählt Gear, das bereits über Konfigs, Finalen Verkauf oder andere Behalte-Regeln geschützt ist; **Behalten** ist das Kontingent aus `≥ Benötigte Anzahl`. Gezählt wird nur Ausrüstung, die zur Regel passt.
+- Der Scanner fügt nur zusätzliche Behalte-Zeilen ein, wenn sonst jedes Item der Regel verkauft würde. Decken deine normalen Konfigs das bereits ab, erscheint „Anderswo abgedeckt“ und es wird keine neue Regel exportiert.
+
+#### Kontingentbereiche auf einen Blick
+Mehrere Bereichs-Chips stapeln die Kontingente. Lass `Pro Regel` aktiv, um einen gemeinsamen Pool zu behalten, und kombiniere `Pro Slot`, `Pro Set`, `Pro Fraktion` und `Pro Hauptstat`, wenn Slot × Set × Fraktion × Hauptstat getrennte Quoten erhalten sollen.
+
+| Bereichs-Schalter | Kontingent-Verhalten | Geeignet für |
+| --- | --- | --- |
+| `Pro Regel` | Ein gemeinsamer Pool für die komplette Regel. | Mindestens fünf SPD-Stiefel unabhängig vom Set sichern. |
+| `Pro Slot` | Dupliziert das Kontingent für jeden Slot. | Je zwei Ringe, Amulette und Banner getrennt behalten. |
+| `Pro Set` | Erstellt ein eigenes Kontingent pro Set/Metaset. | Zwei Stoneskin- und zwei Protection-Drops separat verfolgen. |
+| `Pro Fraktion` | Gibt jeder Fraktion ihr eigenes Budget. | Drei Merciless-Ringe pro Fraktion garantieren. |
+| `Pro Hauptstat` | Splittet das Kontingent pro Hauptstat. | ACC- und RES-Banner unabhängig voreinander halten. |
 
 #### Praxisbeispiele
-1. **SPD-Stiefel gehen aus:** Slot = Stiefel, Mainstat = SPD, Sets leer. Setze `≥ Benötigte Anzahl = 5`, Modus „Pro Regel“. So überleben immer mindestens fünf SPD-Stiefel, egal aus welchem Set sie stammen.
-2. **Savage- und Lethal-Handschuhe mischen:** Slot = Handschuhe, Sets = Savage + Lethal, Mainstat = CDMG%. Setze `≥ Benötigte Anzahl = 3`, „Pro Regel“. Damit behältst du drei Handschuhe mit CDMG%-Mainstat, selbst wenn die Mischung aus beiden Sets variiert.
-3. **Gnadenlos-Ringe pro Fraktion sichern:** Slot = Ring, Set = Merciless, Fraktion leer. Setze `≥ Benötigte Anzahl = 3` und aktiviere „Pro Fraktion“. Jede Fraktion braucht jetzt drei ihrer eigenen Merciless-Ringe, bevor die Regel als erfüllt gilt.
-4. **HP%-Ringe pro Fraktion behalten:** Slot = Ring, Mainstat = HP%, Sets leer. Setze `≥ Benötigte Anzahl = 2` und wähle „Pro Fraktion“. Die App beobachtet jede Fraktion einzeln und schützt jeweils zwei HP%-Ringe.
-5. **Kernzubehör pro Fraktion schützen:** Erstelle drei Regeln (Ring, Amulett, Banner). Lass Sets und Mainstat leer, setze `≥ Benötigte Anzahl = 5` und aktiviere „Pro Fraktion“. Jede Fraktion behält damit fünf Stück pro Zubehör-Slot.
-6. **Stoneskin/Protection pro Fraktion halten:** Für jeden Zubehör-Slot Sets = Stoneskin + Protection wählen, Mainstat leer lassen, `≥ Benötigte Anzahl = 2`, und sowohl „Pro Set“ als auch „Pro Fraktion“ aktivieren. So bleiben pro Fraktion zwei Teile je Slot, sobald diese Sets bei dir landen.
 
-Tipp: Importiere deine `.db` oder füge Items im Regel Tester ein, bevor du die Registerkarte öffnest. Dann hat der Scanner echte Ausrüstung zum Prüfen. Wenn eine Regel „Fehlen 2“ meldet, klicke sie an: Die passenden Regel Tester-Einträge werden hervorgehoben und zeigen, welche Fraktion oder welches Set noch fehlt.
+| Szenario | Filter | Bereiche | Was der Scanner garantiert |
+| --- | --- | --- | --- |
+| SPD-Stiefel gehen aus | Slot = Stiefel, Mainstat = SPD, Sets leer | `Pro Regel` | Mindestens fünf SPD-Stiefel bleiben übrig, egal welches Set. |
+| Savage + Lethal mischen | Slot = Handschuhe, Sets = Savage + Lethal, Mainstat = CDMG% | `Pro Regel` | Drei High-Damage-Handschuhe überleben auch bei wechselnder Set-Mischung. |
+| Merciless-Ringe pro Fraktion | Slot = Ring, Set = Merciless, Fraktion leer | `Pro Fraktion` | Jede Fraktion behält drei eigene Merciless-Ringe. |
+| HP%-Ringe pro Fraktion | Slot = Ring, Mainstat = HP%, Sets leer | `Pro Fraktion` | Zwei HP%-Ringe pro Fraktion bleiben im Inventar. |
+| Kernzubehör pro Fraktion | Drei Regeln (Ring, Amulett, Banner), Sets/Main leer, `≥ Benötigte Anzahl = 5` | `Pro Fraktion` | Fünf Ringe, Amulette und Banner bestehen pro Fraktion. |
+| Stoneskin + Protection pro Fraktion | Slot = Ring/Amulett/Banner, Sets = Stoneskin + Protection, Mainstat leer | `Pro Set` + `Pro Fraktion` | Jede Fraktion behält zwei Stoneskin- und zwei Protection-Drops pro Zubehör-Slot. |
+
+Tipp: Importiere deine `.db` oder füge Items im Regel Tester ein, bevor du die Registerkarte öffnest, damit der Scanner echte Ausrüstung bewertet. Wenn eine Karte „Fehlen 2“ meldet, klicke sie an: Die entsprechenden Regel Tester-Einträge werden hervorgehoben und zeigen, welcher Slot, welches Set oder welche Fraktion die Lücke verursacht.
 
 ### Konfigs verwalten
-- Gespeicherte Konfigs erscheinen als Chips unter dem Builder. Linksklick wählt sie zum Bearbeiten, Rechtsklick öffnet das Kontextmenü (Duplizieren, Verschieben, Kopieren, Löschen).
-- „Delete Konfigs“ entfernt alle Konfigs (mit Sicherheitsabfrage).
+- Gespeicherte Konfigs erscheinen als Chips unter dem Builder. Linksklick wählt sie zum Bearbeiten, Rechtsklick öffnet das Kontextmenü (Duplizieren, Verschieben, Kopieren, Löschen). „Delete Konfigs“ entfernt alle Konfigs (mit Sicherheitsabfrage).
 - Hover-Verknüpfung: Über einer Konfig schweben markiert alle zugehörigen Zeilen in der Sellfile-Vorschau und umgekehrt.
 - Klick-Verknüpfung: Klick auf eine Tabellenzeile wählt automatisch die Konfig aus, von der sie stammt (Basis-HSF-Zeilen bleiben unberührt).
 - Zwischenablagen-Fallback: Wenn das Kopieren per API blockiert ist, öffnet ein Dialog mit vorausgewähltem Text zum manuellen Kopieren.
@@ -124,14 +138,14 @@ Tipp: Importiere deine `.db` oder füge Items im Regel Tester ein, bevor du die 
 ### Sellfile-Vorschau (Regeln & Regel Tester)
 - Der Header bündelt den `Regeln`/`Regel Tester`-Schalter, den Button „Ausrüstung...” und „RSL Helper Sellfile laden“, damit du sofort siehst, wo du die Tabelle wechselst oder den Regel Tester-Dialog öffnest.
 - Ansicht `Regeln` (Standard): zeigt alle exportierten Regeln inklusive optionaler Basis-`.hsf`-Zeilen. Die Header-Zähler bleiben bei Behalten vs. Verkaufen, die Filterleiste behält die Beliebig/Nur-Chips (`Any/Only`) für Slot/Rang/Seltenheit/Level und beide Konfig-Buttons sind immer sichtbar: „Vorschau-Konfigs“ blendet Chips aus, deren Regeln den aktuellen Filter nicht bestehen, und der „Konfig-Filter“ ist hier ein einfacher An/Aus-Schalter, der Sellfile-Zeilen außerhalb deiner ausgewählten Konfig-Chips versteckt (und dabei den Filterzustand für den Tester vormerkt).
-- Ansicht `Regel Tester`: schaltet auf die Liste der importierten Ausrüstung, sodass du externe oder manuell erstellte Items prüfen kannst, ohne den Dialog erneut zu öffnen. Zähler wechseln zu „Treffer“ vs. „Kein Treffer“ (plus Behalten/Verkaufen nach der Regel „erste passende Konfig gewinnt“), und die Filterleiste zeigt weiterhin beide Konfig-Buttons nebeneinander: „Vorschau-Konfigs“ für die Chip-Sichtbarkeit sowie den „Konfig-Filter“, der hier als Tri-State (`Off` → `First-Match-Auswertung` → `Beliebig`) arbeitet, um die Ausrüstungszeilen zwischen Ersttreffern und beliebigen Treffern zu trennen, während beim Zurückwechseln weiterhin nur die Regeln deiner Auswahl sichtbar bleiben. Zusätzlich kommt der Regel Tester-spezifische Ergebnisfilter (Keep/Sell vs. Treffer/Kein Treffer) hinzu, sodass du Items isolierst, bei denen deine Auswahl zuerst (oder irgendwo) getroffen hat, ohne die Chips zu verstecken. `.db`-Importe springen automatisch in diese Ansicht; zurück zu `Regeln` kannst du jederzeit.
+- Ansicht `Regel Tester`: schaltet auf die Liste der importierten Ausrüstung, sodass du externe oder manuell erstellte Items prüfen kannst, ohne den Dialog erneut zu öffnen. Zähler wechseln zu „Treffer“ vs. „Kein Treffer“ (plus Behalten/Verkaufen nach der Regel „erste passende Konfig gewinnt“), und die Filterleiste zeigt weiterhin beide Konfig-Buttons nebeneinander: „Vorschau-Konfigs“ für die Chip-Sichtbarkeit sowie den „Konfig-Filter“, der hier als Tri-State (`Off` → `First-Match-Auswertung` → `Beliebig`) arbeitet, um die Ausrüstungszeilen zwischen Ersttreffern und beliebigen Treffern zu trennen, während beim Zurückwechseln weiterhin nur die Regeln deiner Auswahl sichtbar bleiben. `.db`-Importe springen automatisch in diese Ansicht; zurück zu `Regeln` kannst du jederzeit.
 - Der Button „RSL Helper Sellfile laden“ macht genau dasselbe wie Drag & Drop: `.hsfc` ersetzt den Builder-Zustand, `.hsf` ergänzt eine optionale Basis-Sellfile, `.db` schieben Ausrüstung direkt in die Regel Tester-Vorschau (ohne deine Konfigs zu ändern). „Leeren“ trennt die optionale Basis-`.hsf`.
 - Das Paletten-Icon öffnet „Farben verwalten“, um Text- und Hintergrundfarben für Substats anzupassen.
 - In `Regeln` bleiben die Spalten „Idx“ und „Konf“ erhalten (Basisdatei-Zeilen haben einen leeren Konf-Wert). In `Regel Tester` zeigen dieselben Flächen Slot/Set, Item-Stats und das Badge der zuerst passenden Konfig, damit du direkt im Preview siehst, was mit jedem Artefakt passieren würde.
 
 ### Sellfile-Vorschau: Steuerelemente
 - Farben verwalten: Über das Paletten-Icon Farben anpassen; „Auf Standard zurücksetzen“ stellt die empfohlenen Werte wieder her.
-- Filter: Drücke `Ctrl+F` (`Cmd+F` auf macOS), um das Panel zu öffnen und sofort die Konfig-Suche zu fokussieren. Rechtsklick auf eine Abschnittsüberschrift (oder `Ctrl`/`Cmd` + Klick auf den Chevron) klappt alle Bereiche gemeinsam ein oder aus. „Vorschau-Konfigs“ blendet Chips aus, die nicht zum aktiven Filter passen, damit die Tabelle übersichtlich bleibt. „Konfig-Filter“ entscheidet, welche Konfigs in der Tabelle erlaubt sind: In `Regeln` ist er ein einfacher An/Aus-Schalter, im `Regel Tester`-Modus rotiert er durch `Off` → `First-Match` → `Beliebig` (`Any-Match`), sodass die Ausrüstungszeilen zwischen Ersttreffern und beliebigen Treffern wechseln. Der Regel Tester-spezifische Level-Schieberegler und das Roll-Glyphen-Popover bleiben Teil desselben Panels, damit du Filter-Spannen und Roll-Symbole direkt nach dem Shortcut anpassen kannst. „Filter zurücksetzen“ aktiviert alle Chips und setzt den Konfig-Filter zurück auf `Off`.
+- Filter: Drücke `Ctrl+F` (`Cmd+F` auf macOS), um das Panel zu öffnen und sofort die Konfig-Suche zu fokussieren. Rechtsklick auf eine Abschnittsüberschrift (oder `Ctrl`/`Cmd` + Klick auf den Chevron) klappt alle Bereiche gemeinsam ein oder aus. „Vorschau-Konfigs“ blendet Chips aus, die nicht zum aktiven Filter passen, damit die Tabelle übersichtlich bleibt. „Konfig-Filter“ entscheidet, welche Konfigs in der Tabelle erlaubt sind: In `Regeln` ist er ein An/Aus-Schalter, im `Regel Tester`-Modus rotiert er durch `Off` → `First-Match` → `Beliebig` (`Any-Match`).
 - Spaltenmenü (Rechtsklick auf Kopfzeile):
   - Spalten zurücksetzen: Standardspalten und -breiten wiederherstellen.
   - Spaltenbreiten anpassen: Breiten automatisch an die Ansicht anpassen.
@@ -157,64 +171,22 @@ Tipp: Importiere deine `.db` oder füge Items im Regel Tester ein, bevor du die 
 
 Alle Beispiele verwenden 6★-Mindestwerte pro Roll-Einheit: SPD=5, CR%=5, CDMG%=5.
 
-Früh vs. Spät
-- Früh: Schwellen spiegeln die bereits erreichten Rollen wider. Mit ★ + Mindest-Summe zeigt Früh nur minimale Aufteilungen je Meilenstein (stabile Liste). Andernfalls listet Früh zuerst ausgewählte Substats, bis das Ziel erreichbar ist, und reduziert dann auf die Mindestwerte (es sei denn, eine globale Σ-Vorgabe verlangt mehr).
-- Spät: Fordert nur das, was jetzt vorhanden sein muss, damit das Ziel bei +16 erreichbar bleibt. Mit ★ + Mindest-Summe zeigt Spät dieselben minimalen Aufteilungen an frühen Meilensteinen und wieder bei +16. Mit per-Stat-Richtwerten erzeugt Spät pro Level die minimalen Untergrenzen.
+**Früh- vs. Spät-Schwellen**
+- **Früh**: Schwellen spiegeln die bereits erreichten Rollen wider. Bei Wildcards + Mindest-Summe listet Früh an jedem Meilenstein die minimalen Aufteilungen (bleibt also stabil). Andernfalls zeigt Früh nur die ausgewählten Substats, bis das +16-Ziel erreichbar ist, und reduziert dann auf deine Substat-Richtwerte (außer eine globale Σ-Vorgabe verlangt mehr).
+- **Spät**: Fordert nur das, was jetzt vorhanden sein muss, damit das Ziel bei +16 erreichbar bleibt. Mit Wildcards + Mindest-Summe wiederholt Spät dieselben minimalen Aufteilungen bei den frühen Meilensteinen und erneut bei +16. Für per-Stat-Ziele erzeugt Spät pro Level die minimalen Untergrenzen.
 
-Beispiel: Früh (2 Substats) — SPD Min=2, CR% Min=1 (Level 0..16)
-- +0: SPD ≥ 5, CR ≥ 5
-- +4: [10,5] und [5,10]
-- +8: [15,5], [10,10], [5,15]
-- +12/+16: [15,10]
+#### Builder-Szenarien auf einen Blick
 
-Beispiel: Spät (2 Substats) — SPD Min=2, CR% Min=1 (Level 0..16)
-- +0/+4: [5,5]
-- +8: [10,5] oder [5,10]
-- +12: [15,5] oder [10,10]
-- +16: [15,10]
-
-Beispiel: Früh (3 Substats) — SPD Min=2, CR% Min=1, CDMG% beliebig, Erforderlich=3
-- +0: [SPD, CR, CDMG] ≥ [5,5,5]
-- +4: Ein-Roll-Aufteilungen: [10,5,5], [5,10,5], [5,5,10]
-- +8: Zwei-Roll-Aufteilungen (Obergrenzen berücksichtigt)
-- +12/+16: [15,10,5]
-
-Beispiel: Spät (3 Substats) — SPD Min=2, CR% Min=1, CDMG% beliebig, Erforderlich=3
-- +0/+4: [5,5,5]
-- +8: [10,5,5] oder [5,10,5]
-- +12: [15,5,5] oder [10,10,5]
-- +16: [15,10,5]
-
-Tipp: Nutze Roll-Obergrenzen, um Rollen auf einem Stat zu verbieten. Vom ★-Zustand Rechtsklick → Roll-Obergrenze und auf 0 setzen. So bleibt CDMG% auf Basiswert, während SPD/CR die Rollen erhalten.
-
-Beispiel: Einen Substat sperren, zwei verlangen
-- Wähle Substats: SPD, HP, ATK. Klicke SPD und aktiviere das Schloss-Badge (🔒), um es zu sperren.
-- Setze Erforderliche Substats = 2.
-- Ergebnis: Regeln enthalten SPD+HP und SPD+ATK. HP+ATK ohne SPD kommt nicht vor (gesperrte Substats sind immer enthalten).
-
-Beispiel: Rollen auf 3 Stats fokussieren, den 4. sperren
-- Ziel: Items mit SPD, CR%, CDMG% sowie einem von HP%/ATK%/DEF% behalten, ohne dass das vierte Stat Rollen bekommt.
-- Wähle Substats: SPD, CR%, CDMG%, HP%, ATK%, DEF%.
-- Erforderliche Substats = 4.
-- Roll-Anzeigen:
-  - Vom ★-Zustand Linksklick (Mindestrollen): Setze SPD, CR%, CDMG% auf die gewünschten Werte (z. B. je 1).
-  - Vom ★-Zustand Rechtsklick (Roll-Obergrenze): Setze HP%, ATK%, DEF% auf Roll-Obergrenze = 0.
-- Ergebnis: Das vierte Substat ist immer eines der drei, erhält aber keine Rollen; SPD/CR%/CDMG% bekommen die Rollen.
-
-Beispiel: Früh mit Wildcard (nur ausgewählte Substats)
-- Wähle Substats: SPD und ACC.
-- Rollen: SPD Min = 2; ACC = ★.
-- Erforderliche Substats: Auto (2).
-- Level: Min +0, Max +16.
-- Effekt: Früh zeigt Items, die SPD(2) bis +16 erreichen können (Zeilen, in denen SPD oder ACC gerollt hat). Sobald zwei SPD-Rollen möglich sind, erscheint die Zeile mit SPD-Minimum.
-
-Beispiel: Rollen-Summe mit Wildcards (2 Substats)
-- Wähle Substats: SPD und ACC. Setze beide auf ★.
-- Erforderliche Substats: 2. Mindest-Rollen: 1.
-- Früh:
-  - +4/+8/+12/+16: zwei Zeilen — SPD ≥ 10, ACC ≥ 9 sowie SPD ≥ 5, ACC ≥ 18 (minimale Aufteilungen; stabil über alle Meilensteine).
-- Spät:
-  - +0/+4/+8/+12: nur Basiszeilen (noch keine zusätzliche Forderung); +16: dieselben beiden Zeilen. Bei höheren Mindestwerten erzwingt Spät an passenden Meilensteinen die nötigen Summen (z. B. zeigt +12 die Ein-Roll-Aufteilungen, +16 die Zwei-Roll-Aufteilungen).
+| Szenario | Setup | Ausgabe des Builders |
+| --- | --- | --- |
+| Früh (2 Substats) | SPD Min = 2, CR% Min = 1, Level +0..+16 | `+0:` SPD ≥ 5, CR ≥ 5<br>`+4:` [10,5] und [5,10]<br>`+8:` [15,5], [10,10], [5,15]<br>`+12/+16:` [15,10] |
+| Spät (2 Substats) | Wie oben | `+0/+4:` [5,5]<br>`+8:` [10,5] oder [5,10]<br>`+12:` [15,5] oder [10,10]<br>`+16:` [15,10] |
+| Früh (3 Substats) | SPD Min = 2, CR% Min = 1, CDMG% ausgewählt, Erforderlich = 3 | `+0:` [SPD,CR,CDMG] ≥ [5,5,5]<br>`+4:` Ein-Roll-Aufteilungen<br>`+8:` Alle Zwei-Roll-Permutationen (inkl. Obergrenzen)<br>`+12/+16:` [15,10,5] |
+| Spät (3 Substats) | Gleiche Stats wie oben | `+0/+4:` [5,5,5]<br>`+8:` [10,5,5] oder [5,10,5]<br>`+12:` [15,5,5] oder [10,10,5]<br>`+16:` [15,10,5] |
+| Einen Stat sperren, zwei verlangen | Substats SPD/HP/ATK, SPD gesperrt (🔒), Erforderliche Substats = 2 | Builder erzeugt SPD+HP und SPD+ATK. HP+ATK entfällt, weil der gesperrte Stat immer enthalten sein muss. |
+| Rollen auf 3 Stats fokussieren | Substats SPD/CR%/CDMG%/HP%/ATK%/DEF%, Erforderliche Substats = 4, SPD/CR%/CDMG% Min Roll = 1, HP%/ATK%/DEF% Roll-Obergrenze = 0 | SPD, CR% und CDMG% erhalten die Rollen; das vierte Stat (HP%/ATK%/DEF%) bleibt auf dem Basiswert. Roll-Obergrenzen (Rechtsklick ab ★) verhindern zusätzliche Rollen. |
+| Früh mit Wildcard | Substats SPD (Min = 2) und ACC (★), Erforderliche Substats = Auto, Level +0..+16 | Früh markiert Items, die SPD(2) bis +16 schaffen (Zeilen, in denen SPD oder ACC rollt). Sobald zwei SPD-Rollen möglich sind, erscheint die SPD-Minimum-Zeile. |
+| Rollen-Summe mit Wildcards | Substats SPD und ACC beide auf ★, Erforderliche Substats = 2, Mindest-Rollen = 1 | **Früh:** +4/+8/+12/+16 zeigen die beiden minimalen Aufteilungen (SPD ≥ 10 & ACC ≥ 9 sowie SPD ≥ 5 & ACC ≥ 18).<br>**Spät:** +0/+4/+8/+12 zeigen Basiszeilen, +16 wiederholt die gleichen beiden Aufteilungen. Höhere Mindestwerte zwingen Spät dazu, die Summen früher einzufordern (z. B. zeigt +12 bereits die Ein-Roll-Aufteilungen, +16 die Zwei-Roll-Aufteilungen). |
 
 ## Hinweise für Mitwirkende
 
