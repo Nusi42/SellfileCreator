@@ -15,6 +15,9 @@ import type { TesterMatchWorkerItemResult } from './testerMatchWorkerTypes'
 import type { TesterPreviewMatch } from '../types/testerPreview'
 import type { RuleCacheWorkerRequest, RuleCacheWorkerResponse } from './ruleCacheWorkerTypes'
 import { resolveMatchConfigName } from '../lib/ruleConfigIndex'
+import { fingerprintRuleTesterItem } from '../lib/ruleTesterSession'
+import type { RuleTesterItem } from '../lib/ruleTesterSession'
+import { fingerprintKeepUniqueDetection } from '../lib/keepUniqueFingerprint'
 
 declare const self: DedicatedWorkerGlobalScope
 
@@ -33,8 +36,18 @@ type WarmState = {
 
 let cache = createConfigRulesCache()
 let lastWarmState: WarmState | null = null
+
+// Local cache entry tracks both the artifact fingerprint and its cached matcher results.
+type CachedArtifactEntry = {
+  artifact: NormalizedGearArtifact
+  fingerprint: string
+  baseMatch: TesterMatchWorkerItemResult | null
+  finalMatch: TesterMatchWorkerItemResult | null
+  finalMatchSignature: string | null
+}
+
 // Cache tester artifacts across pipeline runs so patches can be applied incrementally.
-const artifactCache = new Map<number, NormalizedGearArtifact>()
+const artifactCache = new Map<number, CachedArtifactEntry>()
 
 const postError = (id: number, error: unknown): void => {
   const response: RuleCacheWorkerResponse = {
@@ -153,6 +166,41 @@ const resolveItemId = (artifact: NormalizedGearArtifact, fallbackIdx?: number): 
   return -1
 }
 
+const fingerprintArtifact = (artifact: NormalizedGearArtifact): string => {
+  try {
+    const testerPayload = artifact.testerItem as RuleTesterItem | undefined
+    // Manual gear always surfaces a tester payload, but keep the function defensive so
+    // corrupted payloads simply drop out of the cache.
+    return testerPayload ? fingerprintRuleTesterItem(testerPayload) : ''
+  } catch {
+    return ''
+  }
+}
+
+// Merge the new artifact into the cache while reusing cached matcher answers whenever
+// the fingerprint proves the payload is identical to the last run.
+const upsertArtifactCacheEntry = (itemId: number, artifact: NormalizedGearArtifact): void => {
+  const nextFingerprint = fingerprintArtifact(artifact)
+  const previous = artifactCache.get(itemId)
+  const canReuseMatches = Boolean(previous && previous.fingerprint === nextFingerprint)
+  artifactCache.set(itemId, {
+    artifact,
+    fingerprint: nextFingerprint,
+    baseMatch: canReuseMatches ? previous!.baseMatch : null,
+    finalMatch: canReuseMatches ? previous!.finalMatch : null,
+    finalMatchSignature: canReuseMatches ? previous!.finalMatchSignature : null,
+  })
+}
+
+// Convert the cache map to the tuple shape the rest of the pipeline expects.
+const artifactEntriesFromCache = (): Array<[number, NormalizedGearArtifact]> => {
+  const entries: Array<[number, NormalizedGearArtifact]> = []
+  artifactCache.forEach((entry, itemId) => {
+    entries.push([itemId, entry.artifact])
+  })
+  return entries
+}
+
 const buildPipelineMatches = (
   mergedRules: HsfRuleWithCfg[],
   artifactEntries: ReadonlyArray<[number, NormalizedGearArtifact]>,
@@ -244,25 +292,30 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
     const warmTotal = reused ? 0 : payload.configs.length
     const needsMatches = payload.skipMatches !== true
 
+    // Track which item ids truly changed so baseline/final matcher caches can stay valid.
+    const changedItemIds = new Set<number>()
     if (payload.artifactPatch) {
       for (const [itemId, artifact] of payload.artifactPatch.changed) {
-        artifactCache.set(itemId, artifact)
+        changedItemIds.add(itemId)
+        upsertArtifactCacheEntry(itemId, artifact)
       }
       for (const removed of payload.artifactPatch.removed) {
+        changedItemIds.add(removed)
         artifactCache.delete(removed)
       }
     } else if (payload.artifacts && payload.artifacts.length > 0) {
       artifactCache.clear()
       payload.artifacts.forEach((artifact, idx) => {
         const itemId = resolveItemId(artifact, idx)
-        artifactCache.set(itemId, artifact)
+        changedItemIds.add(itemId)
+        upsertArtifactCacheEntry(itemId, artifact)
       })
     }
     const artifactEntries: Array<[number, NormalizedGearArtifact]> = (() => {
       if (payload.artifacts && payload.artifacts.length > 0) {
         return payload.artifacts.map((artifact, idx) => [resolveItemId(artifact, idx), artifact] as [number, NormalizedGearArtifact])
       }
-      return Array.from(artifactCache.entries())
+      return artifactEntriesFromCache()
     })()
     const needsDetection = needsMatches
       && payload.skipDetection !== true
@@ -283,21 +336,44 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
       keepUniques: baseKeepUniques,
     })
 
+    // Seed the baseline map with anything we already evaluated so the detection pass only
+    // recomputes the rows the patch touched.
     const baselineMatchMap = new Map<number, TesterMatchWorkerItemResult>()
-    // Baseline match pass for keep-unique detection (if enabled).
+    artifactCache.forEach((entry, itemId) => {
+      if (entry.baseMatch) baselineMatchMap.set(itemId, entry.baseMatch)
+    })
     if (needsDetection) {
-      const baseMatchResults = buildPipelineMatches(
-        mergedRulesBaseline,
-        artifactEntries,
-        payload.configModes,
-        null,
-        total,
-        { value: completed },
-        id,
-        true,
-      )
-      for (const result of baseMatchResults) baselineMatchMap.set(result.itemId, result)
-      completed = warmTotal + artifactEntries.length
+      // Only dispatch match jobs for artifacts whose baseline is missing or stale.
+      const missingEntries = artifactEntries.filter(([itemId]) => !baselineMatchMap.has(itemId))
+      const cachedCount = artifactEntries.length - missingEntries.length
+      if (cachedCount > 0 && total > 0) {
+        const cachedCompleted = warmTotal + cachedCount
+        completed = cachedCompleted
+        postPipelineProgress(id, { completed: cachedCompleted, total })
+      }
+      if (missingEntries.length > 0) {
+        const baseProgressRef = { value: warmTotal + cachedCount }
+        const baseMatchResults = buildPipelineMatches(
+          mergedRulesBaseline,
+          missingEntries,
+          payload.configModes,
+          null,
+          total,
+          baseProgressRef,
+          id,
+          true,
+        )
+        for (const result of baseMatchResults) {
+          baselineMatchMap.set(result.itemId, result)
+          const cached = artifactCache.get(result.itemId)
+          if (cached) cached.baseMatch = result
+        }
+        completed = baseProgressRef.value
+      } else {
+        completed = warmTotal + cachedCount
+      }
+    } else {
+      completed = warmTotal
     }
 
     const toPreviewMatch = (result: EvalResult | null, rules: HsfRuleWithCfg[]): TesterPreviewMatch | null => {
@@ -357,18 +433,58 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
         }
         : payload.keepUniques,
     })
-    const matches = needsMatches
-      ? buildPipelineMatches(
-        mergedRulesFinal,
-        artifactEntries,
-        payload.configModes,
-        baselineMatchMap.size > 0 ? baselineMatchMap : null,
-        total,
-        { value: completed },
-        id,
-        true,
-      )
-      : []
+    // Final-match cache needs to know both the rule fingerprint and the detection outcome;
+    // when either changes we fall back to recomputing the affected entries.
+    const detectionSignature = fingerprintKeepUniqueDetection(detectionSnapshot)
+    const finalMatchSignature = `${payload.fingerprint ?? 'null'}|${detectionSignature ?? 'none'}`
+    const matches: TesterMatchWorkerItemResult[] = []
+    if (needsMatches) {
+      const pendingEntries: Array<[number, NormalizedGearArtifact]> = []
+      for (const [itemId, artifact] of artifactEntries) {
+        const cached = artifactCache.get(itemId)
+        const reusable = Boolean(
+          cached
+          && cached.finalMatch
+          && cached.finalMatchSignature === finalMatchSignature
+          && !changedItemIds.has(itemId),
+        )
+        if (reusable) {
+          matches.push(cached!.finalMatch!)
+          continue
+        }
+        pendingEntries.push([itemId, artifact])
+      }
+      if (pendingEntries.length > 0) {
+        const pendingProgressRef = { value: completed }
+        const pendingMatches = buildPipelineMatches(
+          mergedRulesFinal,
+          pendingEntries,
+          payload.configModes,
+          (needsDetection && baselineMatchMap.size > 0) ? baselineMatchMap : null,
+          total,
+          pendingProgressRef,
+          id,
+          true,
+        )
+        for (const match of pendingMatches) {
+          matches.push(match)
+          const cached = artifactCache.get(match.itemId)
+          if (cached) {
+            cached.finalMatch = match
+            cached.finalMatchSignature = finalMatchSignature
+          }
+        }
+        completed = pendingProgressRef.value
+      } else if (total > 0 && completed < total) {
+        completed = total
+        postPipelineProgress(id, { completed, total })
+      }
+    } else {
+      artifactCache.forEach((entry) => {
+        entry.finalMatch = null
+        entry.finalMatchSignature = null
+      })
+    }
 
     const response: RuleCacheWorkerResponse = {
       id,

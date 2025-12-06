@@ -1,3 +1,4 @@
+/* eslint import/no-unused-modules: "off" */
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { resolveExportModeField, normalizeExportModeFields, type SellfileExportMode } from '../src/lib/hsfBuilder.js'
@@ -33,4 +34,5 @@ test('normalizeExportModeFields honors sellfileMode when visibility is absent', 
   assert.equal(normalized.exportMode, 'separator')
 })
 
-export const __legacyExportModeTestMarker = true
+// Keep the module boundary explicit so lint rules that check for exports do not warn.
+export {}

@@ -343,7 +343,13 @@ export default function KeepUniquesTab({
     const factionSelection = hasAccessorySlot ? dedupeNumericArray(combination.factions ?? []) : []
     const selected = effectiveSelectedRuleId === rule.id
     const handleRuleCardClick = (event: ReactMouseEvent<HTMLDivElement>) => {
-      const target = event.target as HTMLElement | null
+      const targetNode = event.target as Node | null
+      if (targetNode instanceof Node && !event.currentTarget.contains(targetNode)) {
+        // Dropdown menus render in React portals, so dismissal clicks bubble through React even
+        // though their DOM nodes sit outside the card. Ignore those so selection stays stable.
+        return
+      }
+      const target = targetNode instanceof Element ? targetNode : null
       const interactiveElements = target?.closest('button, input, select, textarea, [contenteditable="true"], [role="button"], [role="option"], [role="menuitem"], [role="combobox"], [data-rule-card-interactive="true"]')
       if (interactiveElements) return
       if (selected) {
@@ -422,6 +428,7 @@ export default function KeepUniquesTab({
         size="small"
         variant="filled"
         clickable
+        data-rule-card-interactive="true"
         disabled={ruleDisabled}
         onClick={(event) => { event.stopPropagation(); handleScopeChipToggle(scope) }}
         aria-pressed={active}
@@ -497,7 +504,6 @@ export default function KeepUniquesTab({
               spacing={0.5}
               alignItems="center"
               sx={{ color: 'text.secondary' }}
-              data-rule-card-interactive="true"
             >
               <Typography variant="caption" component="span" color="inherit">
                 {t('keepUniquesCountModeToggleLabel')}
@@ -1118,7 +1124,7 @@ function RuleFieldWithScopeChip({ chip, children }: RuleFieldWithScopeChipProps)
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
       {children}
       {chip ? (
-        <Box component="span" data-rule-card-interactive="true" sx={{ display: 'inline-flex' }}>
+        <Box component="span" sx={{ display: 'inline-flex' }}>
           {chip}
         </Box>
       ) : null}

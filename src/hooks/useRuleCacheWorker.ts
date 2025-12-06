@@ -104,6 +104,8 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
   const pendingCountRef = useRef<Map<number, PendingCountRequest>>(new Map())
   const abortedIdsRef = useRef<Set<number>>(new Set())
   const fallbackCacheRef = useRef<ConfigRulesCache | null>(supportsWorkerEnv ? null : createConfigRulesCache())
+  // Local test runs skip Web Workers, so keep our own artifact map to mimic the patch behavior.
+  const fallbackArtifactsRef = useRef<Map<number, NormalizedGearArtifact>>(new Map())
   const fallbackWarmStateRef = useRef<{
     snapshot: RuleCacheStateSnapshot
     configsForRules: BuilderConfig[]
@@ -177,18 +179,26 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
   const runPipelineLocally = useCallback((params: PipelineParams, options?: { onProgress?: (progress: ProgressSnapshot) => void }): PipelineResult => {
     const warmTotal = params.skipWarm ? 0 : params.configs.length
     const needsMatches = params.skipMatches !== true
-    const artifactList = (() => {
-      if (params.resetArtifacts) return []
-      if (params.artifactPatch) {
-        // Local fallback does not cache patches; apply patch to a local map per run.
-        const map = new Map<number, NormalizedGearArtifact>()
-        for (const [itemId, artifact] of params.artifactPatch.changed) {
-          map.set(itemId, artifact)
-        }
-        return Array.from(map.values())
-      }
-      return params.artifacts
-    })()
+    const fallbackArtifactMap = fallbackArtifactsRef.current
+    if (params.resetArtifacts) fallbackArtifactMap.clear()
+    if (params.artifactPatch) {
+      // Mirror the worker: apply changed rows into the fallback cache so the matcher
+      // only sees the artifacts that actually changed.
+      for (const [itemId, artifact] of params.artifactPatch.changed) fallbackArtifactMap.set(itemId, artifact)
+      for (const removed of params.artifactPatch.removed) fallbackArtifactMap.delete(removed)
+    } else if (params.artifacts && params.artifacts.length > 0) {
+      // Full reload path still nukes the cache to avoid mixing mixed id spaces (manual vs imports).
+      fallbackArtifactMap.clear()
+      params.artifacts.forEach((artifact, idx) => {
+        const testerId = Number((artifact.testerItem as { itemId?: number } | undefined)?.itemId ?? NaN)
+        const artifactId = Number((artifact as { id?: number } | undefined)?.id ?? NaN)
+        const key = Number.isFinite(testerId) ? testerId : (Number.isFinite(artifactId) ? artifactId : idx)
+        fallbackArtifactMap.set(key, artifact)
+      })
+    }
+    // Local matcher falls back to evaluating the full map because the fallback cache does not
+    // track per-artifact fingerprints; the worker handles the finer-grained reuse.
+    const artifactList = Array.from(fallbackArtifactMap.values())
     // Do not spend detection/match passes when keep-unique is effectively disabled.
     const hasActiveKeepUniques = hasActiveKeepUniqueRules(params.keepUniques)
     const needsDetection = needsMatches
