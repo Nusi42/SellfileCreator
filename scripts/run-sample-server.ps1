@@ -245,6 +245,164 @@ $script:GearDbDownloadStore = [ordered]@{
 
 Set-Variable -Name 'GearDbDownloadPathRoot' -Option Constant -Value '/gear-db'
 
+#region === gearDb JSON stream reference ===
+# Example payloads for the raw snapshot/delta events described in
+# docs/technical/SellfileCreatorDelphiListener.pas. Copy/paste the here-strings
+# below when wiring Helper-side integrations that skip SQLite streaming.
+$script:GearDbRawSnapshotExample = @'
+{
+  "type": "gearDbRawSnapshot",
+  "payloadVersion": 1,
+  "snapshotId": "demo-raw-db",
+  "artifacts": [
+    {
+      "ID": 4010203,
+      "price": 0,
+      "rank": 6,
+      "type": 5,
+      "lvl": 16,
+      "mid": 2,
+      "mfl": 1,
+      "mlvl": 12,
+      "mlvlid": 75161927680,
+      "mgv": 0,
+      "s1id": 4,
+      "s1lvl": 2,
+      "s1fl": 1,
+      "s1lvlid": 16492674420,
+      "s1gv": 0,
+      "s1mlvlid": 0,
+      "s2id": 7,
+      "s2lvl": 1,
+      "s2fl": 0,
+      "s2lvlid": 5153960760,
+      "s2gv": 1288490188,
+      "s2mlvlid": 0,
+      "s3id": 8,
+      "s3lvl": 2,
+      "s3fl": 0,
+      "s3lvlid": 9448928050,
+      "s3gv": 0,
+      "s3mlvlid": 0,
+      "s4id": 0,
+      "s4lvl": 0,
+      "s4fl": 0,
+      "s4lvlid": 0,
+      "s4gv": 0,
+      "s4mlvlid": 0,
+      "rarity": 6,
+      "aset": 8,
+      "accset": 0,
+      "ss": 0,
+      "cID": 0,
+      "sumHP": 0,
+      "sumATK": 0,
+      "sumDEF": 0,
+      "sumSPD": 0,
+      "sumCQuote": 0,
+      "sumCDMG": 0,
+      "sumRES": 0,
+      "sumACC": 0,
+      "ASCID": 0,
+      "ASCLVL": 0,
+      "ASCFL": 0,
+      "ASCLVLID": 0,
+      "ASCGV": 0,
+      "ASCLEVEL": 0,
+      "REROLLCOUNT": 0
+    }
+  ],
+  "inboxArtifacts": [],
+  "champions": [
+    { "ID": 777001, "Name": "Arbiter", "Vault": 0, "RVault": 0, "BaseHeroID": 99001, "Rarity": 5 }
+  ],
+  "lastUsed": [
+    { "id": 4010203, "lastUse": "2024-05-08 14:33:27.123" }
+  ]
+}
+'@
+
+$script:GearDbRawDeltaExample = @'
+{
+  "type": "gearDbRawDelta",
+  "payloadVersion": 1,
+  "snapshotId": "demo-raw-db",
+  "ops": [
+    {
+      "op": "upsert",
+      "table": "Artifacts",
+      "row": {
+        "ID": 4010203,
+        "price": 0,
+        "rank": 6,
+        "type": 5,
+        "lvl": 16,
+        "mid": 2,
+        "mfl": 1,
+        "mlvl": 12,
+        "mlvlid": 75161927680,
+        "mgv": 0,
+        "s1id": 4,
+        "s1lvl": 3,
+        "s1fl": 1,
+        "s1lvlid": 19327352832,
+        "s1gv": 0,
+        "s1mlvlid": 0,
+        "s2id": 7,
+        "s2lvl": 1,
+        "s2fl": 0,
+        "s2lvlid": 5153960760,
+        "s2gv": 1288490188,
+        "s2mlvlid": 0,
+        "s3id": 8,
+        "s3lvl": 2,
+        "s3fl": 0,
+        "s3lvlid": 9448928050,
+        "s3gv": 0,
+        "s3mlvlid": 0,
+        "s4id": 0,
+        "s4lvl": 0,
+        "s4fl": 0,
+        "s4lvlid": 0,
+        "s4gv": 0,
+        "s4mlvlid": 0,
+        "rarity": 6,
+        "aset": 8,
+        "accset": 0,
+        "ss": 0,
+        "cID": 0,
+        "sumHP": 0,
+        "sumATK": 0,
+        "sumDEF": 0,
+        "sumSPD": 0,
+        "sumCQuote": 0,
+        "sumCDMG": 0,
+        "sumRES": 0,
+        "sumACC": 0,
+        "ASCID": 0,
+        "ASCLVL": 0,
+        "ASCFL": 0,
+        "ASCLVLID": 0,
+        "ASCGV": 0,
+        "ASCLEVEL": 0,
+        "REROLLCOUNT": 0
+      }
+    },
+    {
+      "op": "remove",
+      "table": "Artifacts",
+      "id": 99881122
+    },
+    {
+      "op": "upsert",
+      "table": "LastUsed",
+      "row": { "id": 4010203, "lastUse": "2024-05-09 09:12:45.000" }
+    }
+  ]
+}
+'@
+#endregion
+
 #region === Protocol state (copy-worthy) ===
 # Everything in this region demonstrates the state the server keeps while
 # speaking the Sellfile Creator Web Protocol. The queue is intentionally tiny
@@ -262,9 +420,11 @@ $script:SellfileCreatorProtocolState = [ordered]@{
 # Production integrations can ignore this entire region; the defaults only power
 # `/mock/select` and the `[R]` shortcut below.
 
+# Demo harness keeps extra booleans so keyboard shortcuts can cycle snapshot/delta payloads.
 $script:DemoState = [ordered]@{
-    SelectSamples = @(5, 10, 15, 20, 25, 30, 35, 40)
-    Random        = [System.Random]::new()
+    SelectSamples      = @(5, 10, 15, 20, 25, 30, 35, 40)
+    Random             = [System.Random]::new()
+    RawSnapshotPrimed  = $false
 }
 #endregion
 
@@ -1351,6 +1511,11 @@ function Write-ProtocolQuickReference {
             @{ Text = ' selectRule '; Color = [ConsoleColor]::Magenta }
             @{ Text = '→ focus preview row (rowNumber)'; Color = [ConsoleColor]::Gray }
         ))
+    Write-ConsoleHeader -Message (New-ConsoleSegmentLine -Segments @(
+            @{ Text = '      JSON gear stream:'; Color = [ConsoleColor]::Gray }
+            @{ Text = ' gearDbRawSnapshot + gearDbRawDelta '; Color = [ConsoleColor]::Magenta }
+            @{ Text = '→ raw table rows w/ optional deltas (see examples below)'; Color = [ConsoleColor]::Gray }
+        ))
 
     Write-ConsoleHeader -Message (New-ConsoleSegmentLine -Segments @(
             @{ Text = $optionsLabel; Color = [ConsoleColor]::Cyan }
@@ -1514,6 +1679,58 @@ function Queue-SampleSelectRule {
     return $event
 }
 
+function Queue-SampleGearRawSnapshot {
+    <#
+        Pushes the canned gearDbRawSnapshot payload so the UI can hydrate from JSON
+        instantly. Re-parsing the JSON keeps the sample aligned with the doc text.
+    #>
+    try {
+        $payload = $script:GearDbRawSnapshotExample | ConvertFrom-Json -AsHashtable
+    } catch {
+        Write-ConsoleLog -Message ("Failed to parse gearDbRawSnapshot sample: {0}" -f $_) -Color DarkYellow
+        return $null
+    }
+    $event = Add-ProtocolCommandEvent -Type 'gearDbRawSnapshot' -Data $payload
+    Write-ConsoleLog -Message 'Shortcut queued gearDbRawSnapshot sample (demo-raw-db)' -Color Cyan
+    return $event
+}
+
+function Queue-SampleGearRawDelta {
+    <#
+        Sends the follow-up delta operations that tweak rolls/last-used rows.
+        The helper intentionally reuses ConvertFrom-Json so edits to the sample
+        blob automatically propagate to the shortcut.
+    #>
+    try {
+        $payload = $script:GearDbRawDeltaExample | ConvertFrom-Json -AsHashtable
+    } catch {
+        Write-ConsoleLog -Message ("Failed to parse gearDbRawDelta sample: {0}" -f $_) -Color DarkYellow
+        return $null
+    }
+    $event = Add-ProtocolCommandEvent -Type 'gearDbRawDelta' -Data $payload
+    Write-ConsoleLog -Message 'Shortcut queued gearDbRawDelta sample ops (demo-raw-db)' -Color Cyan
+    return $event
+}
+
+function Invoke-RawGearShortcut {
+    <#
+        Single orchestrator for the [T] shortcut: emit a full snapshot the first
+        time (or when Shift+T is held), then alternate deltas so testers can see
+        row mutations without reloading the DB.
+    #>
+    param([switch]$ForceSnapshot)
+
+    $state = $script:DemoState
+    $shouldSendSnapshot = $ForceSnapshot -or -not ($state.RawSnapshotPrimed)
+    if ($shouldSendSnapshot) {
+        if (Queue-SampleGearRawSnapshot) {
+            $state.RawSnapshotPrimed = $true
+        }
+        return
+    }
+    [void](Queue-SampleGearRawDelta)
+}
+
 function Poll-ShortcutInput {
     <#
         Allows the demo operator to enqueue sample events with the keyboard.
@@ -1563,6 +1780,13 @@ function Poll-ShortcutInput {
             ([System.ConsoleKey]::R) {
                 Write-ConsoleLog -Message 'Shortcut detected: R' -Color DarkGray
                 [void](Queue-SampleSelectRule)
+                continue
+            }
+            ([System.ConsoleKey]::T) {
+                $forceSnapshot = (($modifiers -band [System.ConsoleModifiers]::Shift) -ne 0)
+                $modeLabel = if ($forceSnapshot -or -not $script:DemoState.RawSnapshotPrimed) { 'snapshot' } else { 'delta' }
+                Write-ConsoleLog -Message ("Shortcut detected: T ({0})" -f $modeLabel) -Color DarkGray
+                Invoke-RawGearShortcut -ForceSnapshot:$forceSnapshot
                 continue
             }
             default { continue }
@@ -2070,7 +2294,7 @@ try {
         New-Item -ItemType Directory -Path $outputDir -Force | Out-Null
     }
 
-    Write-ConsoleHeader -Message 'Shortcuts: [T] queue sample gear, [R] queue sample selectRule. Press Ctrl+C to stop the listener.' -Color DarkGray
+    Write-ConsoleHeader -Message 'Shortcuts: [T] queue sample raw gear (Shift+T forces snapshot), [R] queue sample selectRule. Press Ctrl+C to stop the listener.' -Color DarkGray
 
     $pendingContext = $null
     $contextWaitHandle = $null

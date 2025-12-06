@@ -157,6 +157,14 @@ export type GearDbChampionRow = {
   Rarity?: number | null
 }
 
+export type GearDbLastUsedRow = {
+  id: number // `LastUsedArtifacts.id` (artifact FK)
+  lastUse?: string | number | null // Stored as text or Julian-day REAL
+  ID?: number | null // Helper occasionally capitalizes the column name.
+  // JSON snapshots can reuse the uppercase column (to match SQL dumps), so we
+  // keep both spellings for round trip safety.
+}
+
 export type StatSource = 'main' | 'substat' | 'ascension'
 
 export type ChampionLocation = 'collection' | 'vault' | 'reserveVault'

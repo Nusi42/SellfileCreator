@@ -3,80 +3,20 @@ import {
   normalizeGearDbArtifact,
   type GearDbArtifactRow,
   type GearDbChampionRow,
+  type GearDbLastUsedRow,
   type NormalizedGearArtifact,
-  type ChampionLookupRecord,
   UnsupportedGearDbRowError,
 } from './gearDbNormalizer'
-import { coerceTesterRarity } from '../testerDomain'
-
-const ARTIFACT_COLUMN_KEYS: readonly (keyof GearDbArtifactRow)[] = [
-  'ID',
-  'price',
-  'rank',
-  'type',
-  'lvl',
-  'mid',
-  'mlvl',
-  'mfl',
-  'mlvlid',
-  'mgv',
-  's1id',
-  's1lvl',
-  's1fl',
-  's1lvlid',
-  's1gv',
-  's2id',
-  's2lvl',
-  's2fl',
-  's2lvlid',
-  's2gv',
-  's3id',
-  's3lvl',
-  's3fl',
-  's3lvlid',
-  's3gv',
-  's4id',
-  's4lvl',
-  's4fl',
-  's4lvlid',
-  's4gv',
-  'rarity',
-  'aset',
-  'accset',
-  'ss',
-  'cID',
-  's1mlvlid',
-  's2mlvlid',
-  's3mlvlid',
-  's4mlvlid',
-  'sumHP',
-  'sumATK',
-  'sumDEF',
-  'sumSPD',
-  'sumCQuote',
-  'sumCDMG',
-  'sumRES',
-  'sumACC',
-  'ASCID',
-  'ASCLVL',
-  'ASCFL',
-  'ASCLVLID',
-  'ASCGV',
-  'ASCLEVEL',
-  'REROLLCOUNT',
-] as const
-
-const CHAMPION_COLUMN_KEYS: readonly (keyof GearDbChampionRow)[] = [
-  'ID',
-  'Name',
-  'Vault',
-  'RVault',
-  'BaseHeroID',
-  'Rarity',
-] as const
-
-type ChampionLookup = Map<number, ChampionLookupRecord>
-type LastUsedLookup = Map<number, string>
+import {
+  CHAMPION_COLUMN_KEYS,
+  ARTIFACT_COLUMN_KEYS,
+} from './gearDbSchema'
+import {
+  createChampionLookup,
+  createLastUsedLookup,
+  type ChampionLookup,
+  type LastUsedLookup,
+} from './gearDbLookups'
 
 type SqlJsInstance = SqlJsStatic
 
@@ -191,12 +131,9 @@ export async function importGearDatabaseFromArrayBuffer(buffer: ArrayBufferLike,
   let db: Database | null = null
   try {
     db = new SQL.Database(bytes)
-    const champions = tableExists(db, 'Champs')
-      ? readChampions(db)
-      : new Map<number, ChampionLookupRecord>()
-    const lastUsed = tableExists(db, 'LastUsedArtifacts')
-      ? readLastUsedArtifacts(db)
-      : new Map<number, string>()
+    // Eagerly mirror both lookup tables so snapshot/delta JSON shares the same path.
+    const champions = readChampions(db)
+    const lastUsed = readLastUsedArtifacts(db)
     const artifacts = await readTable(db, 'Artifacts', 'artifacts', champions, lastUsed, options)
     const inboxArtifacts = tableExists(db, 'InboxArtifacts')
       ? await readTable(db, 'InboxArtifacts', 'inbox', champions, lastUsed, options)
@@ -222,35 +159,18 @@ function tableExists(db: Database, name: string): boolean {
 }
 
 function readChampions(db: Database): ChampionLookup {
-  const map: ChampionLookup = new Map()
-  if (!tableExists(db, 'Champs')) return map
+  if (!tableExists(db, 'Champs')) return createChampionLookup([])
+  const rows: GearDbChampionRow[] = []
   const stmt = db.prepare('SELECT ID, Name, Vault, RVault, BaseHeroID, Rarity FROM Champs')
   try {
     while (stmt.step()) {
       const row = stmt.getAsObject() as Record<string, unknown>
-      const converted = convertChampionRow(row)
-      const id = Number(converted.ID)
-      if (!Number.isFinite(id) || id <= 0) continue
-      const name = typeof converted.Name === 'string' ? converted.Name.trim() : null
-      const baseHeroIdRaw = converted.BaseHeroID == null ? null : Number(converted.BaseHeroID)
-      const baseHeroId = (baseHeroIdRaw != null && Number.isFinite(baseHeroIdRaw) && baseHeroIdRaw > 0) ? baseHeroIdRaw : null
-      const rarityRaw = converted.Rarity == null ? null : Number(converted.Rarity)
-      const rarity = (rarityRaw != null && Number.isFinite(rarityRaw))
-        ? coerceTesterRarity(rarityRaw, 6)
-        : null
-      map.set(id, {
-        id,
-        name: name && name.length > 0 ? name : null,
-        vault: Boolean(Number(converted.Vault ?? 0)),
-        reserveVault: Boolean(Number(converted.RVault ?? 0)),
-        baseHeroId,
-        rarity,
-      })
+      rows.push(convertChampionRow(row))
     }
   } finally {
     stmt.free()
   }
-  return map
+  return createChampionLookup(rows)
 }
 
 const getRowValueIgnoreCase = (row: Record<string, unknown>, target: string): unknown => {
@@ -261,58 +181,11 @@ const getRowValueIgnoreCase = (row: Record<string, unknown>, target: string): un
   return undefined
 }
 
-// SQL.js mirrors SQLite's typing rules, so REAL date columns surface as Julian
-// day floats when Helper stores timestamps as REAL.
-const SQLITE_JULIAN_UNIX_EPOCH = 2440587.5
-const MS_PER_DAY = 24 * 60 * 60 * 1000
-const JULIAN_MIN = 1_700_000
-const JULIAN_MAX = 3_000_000
-
-const padNumber = (value: number, size: number): string => {
-  // Preserve leading zeros for calendar fields (hours, minutes, etc.).
-  return `${Math.abs(value)}`.padStart(size, '0')
-}
-
-const formatDateAsLocalTimestamp = (date: Date): string | null => {
-  // Format the JS Date into the `YYYY-MM-DD HH:MM:SS.mmm` string our UI/tooltips
-  // already expect so downstream logic stays string-based.
-  if (Number.isNaN(date.getTime())) return null
-  const year = date.getFullYear()
-  const month = padNumber(date.getMonth() + 1, 2)
-  const day = padNumber(date.getDate(), 2)
-  const hours = padNumber(date.getHours(), 2)
-  const minutes = padNumber(date.getMinutes(), 2)
-  const seconds = padNumber(date.getSeconds(), 2)
-  const millis = padNumber(date.getMilliseconds(), 3)
-  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}.${millis}`
-}
-
-const fromJulianDay = (value: number): string | null => {
-  // SQL.js exposes raw REAL payloads (Julian days) for DATE/TIME columns when
-  // tables store floats instead of strings. Convert those numbers back to local
-  // timestamps so downstream filters still get the human-readable payload.
-  if (value < JULIAN_MIN || value > JULIAN_MAX) return null
-  const msSinceEpoch = (value - SQLITE_JULIAN_UNIX_EPOCH) * MS_PER_DAY
-  if (!Number.isFinite(msSinceEpoch)) return null
-  return formatDateAsLocalTimestamp(new Date(msSinceEpoch))
-}
-
-const coerceLastUseValue = (value: unknown): string | null => {
-  // Accept textual timestamps or Julian-day REAL payloads.
-  if (typeof value === 'string') {
-    const trimmed = value.trim()
-    return trimmed.length > 0 ? trimmed : null
-  }
-  const numeric = typeof value === 'bigint' ? Number(value) : value
-  if (typeof numeric !== 'number' || !Number.isFinite(numeric)) return null
-  return fromJulianDay(numeric)
-}
-
 // LastUsedArtifacts stores `{ id, lastUse }` rows with local timestamps so we
 // can annotate tester entries with “last equipped” metadata.
 function readLastUsedArtifacts(db: Database): LastUsedLookup {
-  const map: LastUsedLookup = new Map()
-  if (!tableExists(db, 'LastUsedArtifacts')) return map
+  if (!tableExists(db, 'LastUsedArtifacts')) return createLastUsedLookup([])
+  const rows: GearDbLastUsedRow[] = []
   const stmt = db.prepare('SELECT id, lastUse FROM LastUsedArtifacts')
   try {
     while (stmt.step()) {
@@ -321,14 +194,20 @@ function readLastUsedArtifacts(db: Database): LastUsedLookup {
       const tsValue = getRowValueIgnoreCase(row, 'lastUse')
       const idNumber = typeof idValue === 'number' ? idValue : Number(idValue)
       if (!Number.isFinite(idNumber) || idNumber <= 0) continue
-      const timestamp = coerceLastUseValue(tsValue)
-      if (!timestamp) continue
-      map.set(idNumber, timestamp)
+      const normalizedTimestamp = (() => {
+        if (typeof tsValue === 'string') return tsValue
+        if (typeof tsValue === 'number') return tsValue
+        if (typeof tsValue === 'bigint') return Number(tsValue)
+        return null
+      })()
+      // Store a trimmed union shape; conversion into tester timestamps happens
+      // inside `gearDbTime` so both SQL + JSON flows share the same formatting.
+      rows.push({ id: idNumber, lastUse: normalizedTimestamp })
     }
   } finally {
     stmt.free()
   }
-  return map
+  return createLastUsedLookup(rows)
 }
 
 function isDataUrl(value: string): boolean {
