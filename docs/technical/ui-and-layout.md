@@ -33,6 +33,14 @@ This document outlines contributors' responsibilities for UI behavior, layout, a
   - Submit updates by editing `src/lib/i18n/catalogs/<lang>.ts` (overrides only) or attach `.l10n.json` files.
   - Before handoff: quick in-app test (language switch), then `npm run typecheck && npm run lint && npm run build`.
 
+### Localization alignment workflow
+
+- README translations (`README.<lang>.md`) and their catalogs (`src/lib/i18n/catalogs/<lang>.ts`) form a single source of truth for terminology. When a feature’s copy changes (Rule Tester preview, Keep Uniques defaults/helper rules, quota scopes, clipboard workflows, glyph/roll filters, config management tips), update the English README first, then mirror the structure and wording in every translated README while updating the matching catalog keys in the same commit.
+- Use heading outlines to compare structures instead of noisy line-by-line diffs: `rg '^##' README.md` / `rg '^##' README.<lang>.md` (and `^###` for subsections) keeps the focus on missing sections, tables, and grids. Open both files side by side while applying the English layout to the localized version so tables, scenario grids, and config-management paragraphs stay parallel.
+- README.md and all README translations (`README.<lang>.md`) are end-user facing documentation. Keep the wording simple, avoid technical terms, explain straight up on point and dont try to sell a feature. Using terminology from the game Raid Shadow Legends is fine though.
+- All `Config`-building, `Filter`, `Gear-Sets`, and `Keep Uniques` terminology must stay synchronized between README copy, catalog strings, and UI labels. That includes the tab/section title, default/helper rule descriptions, badge labels, scope chips, and any other user facting button not explicitly mentioned here. If a locale intentionally keeps a loanword (e.g., “Rolls” in de-DE), mention the reasoning as a comment in their catalogs (`src/lib/i18n/catalogs/<lang>.ts`) so future translators do not “fix” it.
+- Locale-specific notes should live as a comment in their catalogs (`src/lib/i18n/catalogs/<lang>.ts`).
+
 ## Tooltips and Context Hints
 
 - Two components cover every tooltip surface:
