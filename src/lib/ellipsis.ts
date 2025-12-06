@@ -20,7 +20,6 @@ export const pickEllipsisTarget = (root: HTMLElement, selector?: string): HTMLEl
 }
 
 const CSS_WIDTH_TOLERANCE_PX = 2
-const CSS_HEIGHT_TOLERANCE_PX = 2
 
 const measureCssWidth = (target: HTMLElement): number => {
   // Offset/client widths remain in CSS pixels even when zoom/scale transforms shrink the viewport.
@@ -36,29 +35,6 @@ export const hasEllipsisOverflow = (rootEl?: HTMLElement | null, selector?: stri
     if (!root) return false
     const target = pickEllipsisTarget(root, selector)
     const cs = getComputedStyle(target)
-    const webkitLineClamp = (cs as unknown as Record<string, string | undefined>).webkitLineClamp
-    const isLineClamp = (
-      cs.display === '-webkit-box'
-      && (cs as unknown as Record<string, string | undefined>).webkitBoxOrient === 'vertical'
-      && Boolean(webkitLineClamp && webkitLineClamp !== 'none')
-    )
-    if (isLineClamp) {
-      const visibleHeight = Math.max(target.clientHeight || 0, Math.floor(target.getBoundingClientRect().height || 0))
-      if (visibleHeight <= 0) return false
-      // Temporarily remove the clamp to measure the natural block height.
-      const style = target.style as CSSStyleDeclaration & { webkitLineClamp?: string }
-      const prevClamp = style.webkitLineClamp ?? ''
-      const prevOverflow = style.overflow
-      try {
-        style.webkitLineClamp = 'unset'
-        style.overflow = 'visible'
-        const unclampedHeight = Math.max(target.scrollHeight || 0, Math.floor(target.getBoundingClientRect().height || 0))
-        return unclampedHeight > visibleHeight + CSS_HEIGHT_TOLERANCE_PX
-      } finally {
-        style.webkitLineClamp = prevClamp
-        style.overflow = prevOverflow
-      }
-    }
     const isEllipsisStyle = (
       (cs.overflow === 'hidden' || cs.overflowX === 'hidden')
       && cs.textOverflow === 'ellipsis'

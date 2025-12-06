@@ -141,6 +141,11 @@ export default function KeepUniquesTab({
     )
   }, [theme])
   const clearLabel = t('clear')
+  const ruleModeScopeTooltip = useMemo(() => (
+    `${t('keepUniquesRuleModeHint')}
+
+${t('keepUniquesCountModeHint')}`
+  ), [t])
   // Warn when Keep Uniques runs without Final Sell covering 0–16 so users revisit the baseline sweep.
   const keepUniquesFinalSellWarning = enabled && finalSellCoverageWarningActive
   const [selectedRuleId, setSelectedRuleId] = useState<string | null>(() => rules[0]?.id ?? null)
@@ -492,11 +497,7 @@ export default function KeepUniquesTab({
               gap: 1,
             }}
           >
-            <Box
-              component="span"
-              data-rule-card-interactive="true"
-              sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, flex: '1 1 320px', minWidth: 0 }}
-            >
+            <Box component="span" sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, flex: '1 1 320px', minWidth: 0 }}>
               <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
                 {t('keepUniquesRuleModeLabel')}
               </Typography>
@@ -512,6 +513,7 @@ export default function KeepUniquesTab({
                     next !== KeepUniqueRuleActivation.Off,
                   )
                 }}
+                data-rule-card-interactive="true"
                 sx={{ display: 'flex', width: '100%' }}
               >
                 <ToggleButton
@@ -524,15 +526,14 @@ export default function KeepUniquesTab({
                       component="span"
                       data-ellipsis-target
                       sx={{
-                        display: '-webkit-box',
-                        WebkitBoxOrient: 'vertical',
-                        WebkitLineClamp: 2,
+                        display: 'block',
+                        width: '100%',
                         overflow: 'hidden',
-                        wordBreak: 'break-word',
-                        lineHeight: 1.2,
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
                       }}
                     >
-                      {t('keepUniquesRuleModeOff')}
+                      {t('keepUniquesRuleModeOffShort')}
                     </Box>
                   </EllipsisTooltip>
                 </ToggleButton>
@@ -546,15 +547,14 @@ export default function KeepUniquesTab({
                       component="span"
                       data-ellipsis-target
                       sx={{
-                        display: '-webkit-box',
-                        WebkitBoxOrient: 'vertical',
-                        WebkitLineClamp: 2,
+                        display: 'block',
+                        width: '100%',
                         overflow: 'hidden',
-                        wordBreak: 'break-word',
-                        lineHeight: 1.2,
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
                       }}
                     >
-                      {t('keepUniquesRuleModeProtect')}
+                      {t('keepUniquesRuleModeProtectShort')}
                     </Box>
                   </EllipsisTooltip>
                 </ToggleButton>
@@ -568,15 +568,14 @@ export default function KeepUniquesTab({
                       component="span"
                       data-ellipsis-target
                       sx={{
-                        display: '-webkit-box',
-                        WebkitBoxOrient: 'vertical',
-                        WebkitLineClamp: 2,
+                        display: 'block',
+                        width: '100%',
                         overflow: 'hidden',
-                        wordBreak: 'break-word',
-                        lineHeight: 1.2,
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
                       }}
                     >
-                      {t('keepUniquesRuleModeAnticipate')}
+                      {t('keepUniquesRuleModeAnticipateShort')}
                     </Box>
                   </EllipsisTooltip>
                 </ToggleButton>
@@ -593,11 +592,11 @@ export default function KeepUniquesTab({
                 minWidth: 32,
               }}
             >
-              <MarkdownTooltip markdown={t('keepUniquesCountModeHint')}>
+              <MarkdownTooltip markdown={ruleModeScopeTooltip}>
                 <IconButton
                   size="small"
                   color="inherit"
-                  aria-label={t('keepUniquesCountModeHintLabel')}
+                  aria-label={t('keepUniquesRuleModeHintLabel')}
                   sx={{
                     p: 0.25,
                     fontSize: 16,
