@@ -48,6 +48,20 @@ import { normalizeKeepUniqueRule, sanitizeKeepUniqueCountMode, type KeepUniqueRu
 type LockedMinValue = Exclude<BuilderConfig['lockedMinRequiredRolls'], undefined>
 type AggregateMinValue = Exclude<BuilderConfig['minRequiredRolls'], undefined>
 
+// Readable HSFC substat payload that merges selection, fixed, and roll bounds.
+type ReadableSubstatBounds = {
+  min?: number
+  max?: number
+  any?: boolean
+}
+
+// Each array element mirrors one selected substat with optional flags/bounds.
+type ReadableSubstatEntry = {
+  stat: string
+  fixed?: true
+  rollBounds?: ReadableSubstatBounds
+}
+
 const parseAggregateScopeToken = (value: unknown): 'locked' | 'selected' | null => {
   if (typeof value !== 'string') return null
   const v = value.trim().toLowerCase()
@@ -107,6 +121,72 @@ function parseReadableRollTargetsMap(value: unknown): SubstatRollTargets | undef
     out[variant] = normalized
   }
   return Object.keys(out).length > 0 ? out : undefined
+}
+
+function parseReadableSubstatBounds(value: unknown): ReadableSubstatBounds | undefined {
+  if (!value || typeof value !== 'object') return undefined
+  const rec = value as Record<string, unknown>
+  const bounds: ReadableSubstatBounds = {}
+  const minRaw = rec.min
+  const maxRaw = rec.max
+  const anyRaw = rec.any
+  if (typeof minRaw === 'number' && Number.isFinite(minRaw)) bounds.min = Math.max(0, Math.min(5, Math.floor(minRaw)))
+  if (typeof maxRaw === 'number' && Number.isFinite(maxRaw)) bounds.max = Math.max(0, Math.min(4, Math.floor(maxRaw)))
+  if (anyRaw) bounds.any = true
+  return (bounds.min !== undefined || bounds.max !== undefined || bounds.any) ? bounds : undefined
+}
+
+function parseReadableSubstatEntries(source: unknown): {
+  substats: number[]
+  fixed: number[]
+  bounds: Record<number, ReadableSubstatBounds>
+} {
+  const selected: number[] = []
+  const fixed: number[] = []
+  const bounds: Record<number, ReadableSubstatBounds> = {}
+  if (!Array.isArray(source)) return { substats: selected, fixed, bounds }
+  const seen = new Set<number>()
+  for (const entry of source as unknown[]) {
+    let variant: number | undefined
+    let fixedFlag = false
+    let entryBounds: ReadableSubstatBounds | undefined
+    if (typeof entry === 'string') {
+      variant = parseSubstatLike(entry)
+    } else if (isRecord(entry)) {
+      const rec = entry as Record<string, unknown>
+      const statLabel = rec.stat ?? rec.label ?? rec.name ?? rec.value
+      if (typeof statLabel === 'string') variant = parseSubstatLike(statLabel)
+      fixedFlag = rec.fixed === true
+      const rollBoundsSource = isRecord(rec.rollBounds) ? rec.rollBounds : {
+        min: rec.min,
+        max: rec.max,
+        any: rec.any,
+      }
+      entryBounds = parseReadableSubstatBounds(rollBoundsSource)
+    }
+    if (typeof variant !== 'number') continue
+    if (!seen.has(variant)) {
+      selected.push(variant)
+      seen.add(variant)
+    }
+    if (fixedFlag && !fixed.includes(variant)) fixed.push(variant)
+    if (entryBounds) bounds[variant] = entryBounds
+  }
+  return { substats: selected, fixed, bounds }
+}
+
+function parseLegacySubstatRollBounds(source: unknown): Record<number, ReadableSubstatBounds> | undefined {
+  if (!source || typeof source !== 'object') return undefined
+  const entries = source as Record<string, unknown>
+  const out: Record<number, ReadableSubstatBounds> = {}
+  for (const [label, raw] of Object.entries(entries)) {
+    const variant = variantFromLabel(label)
+    if (variant === null) continue
+    const bounds = parseReadableSubstatBounds(raw)
+    if (!bounds) continue
+    out[variant] = bounds
+  }
+  return Object.keys(out).length ? out : undefined
 }
 
 function rollTargetsToReadable(
@@ -171,6 +251,29 @@ export function normalizeConfig(input: unknown): BuilderConfig {
   }
   const typeIdByName = new Map<string, number>(Object.entries(artifactTypeNames).map(([k, v]) => [v, Number(k)]))
   const setIdByName = new Map<string, number>(Object.entries(artifactSetNames).map(([k, v]) => [v, Number(k)]))
+  const parsedReadableSubstats = parseReadableSubstatEntries(rec['substats'])
+  const legacyFixedSubstats = Array.isArray(rec['fixedSubstats'])
+    ? ((rec['fixedSubstats'] as unknown[]).map((x) => parseSubstatLike(x)).filter((x): x is number => typeof x === 'number'))
+    : []
+  const mergedFixedSubstats = (() => {
+    if (!legacyFixedSubstats.length) return parsedReadableSubstats.fixed
+    const merged = new Set<number>(parsedReadableSubstats.fixed)
+    for (const variant of legacyFixedSubstats) merged.add(variant)
+    return Array.from(merged)
+  })()
+  const legacyBounds = parseLegacySubstatRollBounds(rec['substatRollBounds'])
+  const mergedReadableBounds: Record<number, ReadableSubstatBounds> | undefined = (() => {
+    const merged: Record<number, ReadableSubstatBounds> = {}
+    if (legacyBounds) {
+      for (const [vk, entry] of Object.entries(legacyBounds)) {
+        merged[Number(vk)] = entry
+      }
+    }
+    for (const [vk, entry] of Object.entries(parsedReadableSubstats.bounds)) {
+      merged[Number(vk)] = entry
+    }
+    return Object.keys(merged).length ? merged : undefined
+  })()
 
   let rankCode: RankCode = isRankCode(rec['rankCode']) ? (rec['rankCode'] as RankCode) : RankCode.Any
   if (typeof rec['Rank'] === 'string') {
@@ -256,8 +359,8 @@ export function normalizeConfig(input: unknown): BuilderConfig {
       if (m === 'late' || m === 'reachable') return 'late'
       return 'early'
     })(),
-    substatsV: (Array.isArray(rec['substats']) ? ((rec['substats'] as unknown[]).map((x) => parseSubstatLike(x)).filter((x): x is number => typeof x === 'number')) : []) as number[],
-    fixedSubstatsV: (Array.isArray(rec['fixedSubstats']) ? ((rec['fixedSubstats'] as unknown[]).map((x) => parseSubstatLike(x)).filter((x): x is number => typeof x === 'number')) : []) as number[],
+    substatsV: parsedReadableSubstats.substats as number[],
+    fixedSubstatsV: mergedFixedSubstats as number[],
     minCount: (() => { const m = rec['minCount']; return (typeof m === 'number' && [0, 1, 2, 3, 4].includes(m)) ? (m as 0 | 1 | 2 | 3 | 4) : 0 })(),
     autoMinCount: Boolean((rec['autoMinCount'] ?? false) as boolean),
     autoSubstatFlex: rec['autoSubstatFlex'] === true,
@@ -266,26 +369,7 @@ export function normalizeConfig(input: unknown): BuilderConfig {
     lockedMinRequiredRolls: (() => { const r = rec['lockedMinRequiredRolls']; return (typeof r === 'number' && [0,1,2,3,4,5].includes(r)) ? (r as 0|1|2|3|4|5) : 0 })(),
   }
 
-  const __srbV = (() => {
-    const src = rec['substatRollBounds'] as unknown
-    if (!src || typeof src !== 'object') return undefined
-    const out: Record<number, { min?: number; max?: number; any?: boolean }> = {}
-    for (const [k, v] of Object.entries(src as Record<string, unknown>)) {
-      if (!v || typeof v !== 'object') continue
-      const vk = variantFromLabel(String(k))
-      if (vk === null) continue
-      const min = (v as Record<string, unknown>)['min']
-      const max = (v as Record<string, unknown>)['max']
-      const any = Boolean((v as Record<string, unknown>)['any'])
-      const mv: { min?: number; max?: number; any?: boolean } = {}
-      if (typeof min === 'number' && min >= 0) mv.min = Math.min(5, Math.floor(min))
-      // Cap per-substat max at 4; 5 is redundant and omitted
-      if (typeof max === 'number' && max >= 0) mv.max = Math.min(4, Math.floor(max))
-      if (any) mv.any = true
-      if (mv.min !== undefined || mv.max !== undefined || mv.any) out[vk as number] = mv
-    }
-    return Object.keys(out).length ? out : undefined
-  })()
+  const __srbV = mergedReadableBounds
   const __sreV = parseReadableRollTargetsMap(rec['substatRollTargets'])
 
   const opt: Partial<BuilderConfig> = {}
@@ -478,8 +562,27 @@ export function buildReadableConfig(cfg: BuilderConfig, metasets: Metaset[]) {
   const fixedV = (cfg as (BuilderConfig & { fixedSubstatsV?: number[] })).fixedSubstatsV ?? []
   // Canonicalize label order for HSFC: use preferred stat order via compareVariants.
   const mainLabels = mainV.slice().sort(compareVariants).map(labelOfVariant)
-  const subLabels = subV.slice().sort(compareVariants).map((v) => labelOfVariant(v))
-  const fixedLabels = fixedV.slice().sort(compareVariants).map((v) => labelOfVariant(v))
+  const substatEntries: ReadonlyArray<ReadableSubstatEntry> = (() => {
+    const entries: ReadableSubstatEntry[] = []
+    if (!subV.length) return entries
+    const sortedVariants = subV.slice().sort(compareVariants)
+    const fixedSet = new Set<number>(fixedV)
+    const boundsMap = (cfg as (BuilderConfig & { substatRollBoundsV?: Record<number, { min?: number; max?: number; any?: boolean }> })).substatRollBoundsV ?? {}
+    for (const variant of sortedVariants) {
+      const entry: ReadableSubstatEntry = { stat: labelOfVariant(variant) }
+      if (fixedSet.has(variant)) entry.fixed = true
+      const maybeBounds = boundsMap[variant]
+      if (maybeBounds) {
+        const normalized: ReadableSubstatBounds = {}
+        if (typeof maybeBounds.min === 'number' && Number.isFinite(maybeBounds.min)) normalized.min = maybeBounds.min
+        if (typeof maybeBounds.max === 'number' && Number.isFinite(maybeBounds.max)) normalized.max = maybeBounds.max
+        if (maybeBounds.any) normalized.any = true
+        if (normalized.min !== undefined || normalized.max !== undefined || normalized.any) entry.rollBounds = normalized
+      }
+      entries.push(entry)
+    }
+    return entries
+  })()
   const exportMode: SellfileExportMode = cfg.exportMode
   const exportModeLabel = exportMode === 'separator'
     ? 'Separator'
@@ -500,21 +603,11 @@ export function buildReadableConfig(cfg: BuilderConfig, metasets: Metaset[]) {
     minLevel: ((cfg as BuilderConfig).minLevel ?? LEVEL_MILESTONES[0]!),
     maxLevel: ((cfg as BuilderConfig).maxLevel ?? LEVEL_MILESTONES[LEVEL_MILESTONES.length - 1]!),
     ...(cfg.earlyKeepMode === 'late' ? { earlyKeepMode: 'late' as const } : {}),
-    substats: subLabels,
-    fixedSubstats: fixedLabels,
+    substats: substatEntries,
     // Include only when applicable: Rarity=Auto and thresholds active in Late mode
     ...((cfg.rarityMode === 'auto' && cfg.earlyKeepMode === 'late' && isMilestoneThresholdsActive(cfg))
       ? { autoRarityThreshold: (cfg.autoRaritySupplementsThreshold ?? 'rare') }
       : {}),
-    substatRollBounds: (() => {
-      const srcV = (cfg as (BuilderConfig & { substatRollBoundsV?: Record<number, { min?: number; max?: number; any?: boolean }> })).substatRollBoundsV ?? {}
-      const out: Record<string, { min?: number; max?: number; any?: boolean }> = {}
-      for (const [vk, v] of Object.entries(srcV)) {
-        const label = labelOfVariant(Number(vk))
-        out[label] = v as { min?: number; max?: number; any?: boolean }
-      }
-      return Object.keys(out).length ? out : undefined
-    })(),
     ...(readableTargets ? { substatRollTargets: readableTargets } : {}),
     minCount: cfg.minCount,
     autoMinCount: cfg.autoMinCount,

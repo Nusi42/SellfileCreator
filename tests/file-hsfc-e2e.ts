@@ -153,6 +153,10 @@ async function run(prep: FixturePrep = PREPARED_FIXTURES): Promise<void> {
       artifactTypes: [], artifactSets: [], artifactMetaSets: [],
     }
     const out = buildReadableConfig(cfg as any, []) as any
+    assert(Array.isArray(out.substats) && out.substats.length === 1, 'IO A: writer should emit structured substat entries')
+    assert(out.substats?.[0]?.rollBounds?.min === 1, 'IO A: writer should store roll bounds on each entry')
+    assert(!('fixedSubstats' in out), 'IO A: writer should omit legacy fixedSubstats field')
+    assert(!('substatRollBounds' in out), 'IO A: writer should omit legacy roll bounds map')
     assert(out.autoRarityThreshold === 'epic', 'IO A: writer should include autoRarityThreshold when Auto+Late+active')
     const round = normalizeConfig({ ...out, Rarity: 'Auto' }) as any
     assert(round.autoRaritySupplementsThreshold === 'epic', 'IO A: reader should parse autoRarityThreshold when applicable')
@@ -174,7 +178,7 @@ async function run(prep: FixturePrep = PREPARED_FIXTURES): Promise<void> {
     }
     const out = buildReadableConfig(cfg as any, []) as any
     assert(!('autoRarityThreshold' in out), 'IO B: writer should omit autoRarityThreshold when Early')
-    const round = normalizeConfig({ ...out, Rarity: 'Auto', autoRarityThreshold: 'uncommon', earlyKeepMode: 'early', substats: ['ACC'], substatRollBounds: { ACC: { min: 1 } } }) as any
+    const round = normalizeConfig({ ...out, Rarity: 'Auto', autoRarityThreshold: 'uncommon', earlyKeepMode: 'early' }) as any
     assert(!('autoRaritySupplementsThreshold' in round), 'IO B: reader should drop autoRaritySupplementsThreshold when Early')
   }
   // Scenario C: Code mode -> writer omits; reader drops
@@ -194,7 +198,7 @@ async function run(prep: FixturePrep = PREPARED_FIXTURES): Promise<void> {
     }
     const out = buildReadableConfig(cfg as any, []) as any
     assert(!('autoRarityThreshold' in out), 'IO C: writer should omit autoRarityThreshold when rarityMode is code')
-    const round = normalizeConfig({ ...out, Rarity: 'Rare', autoRarityThreshold: 'rare', substats: ['ACC'], substatRollBounds: { ACC: { min: 1 } }, earlyKeepMode: 'late' }) as any
+    const round = normalizeConfig({ ...out, Rarity: 'Rare', autoRarityThreshold: 'rare', earlyKeepMode: 'late' }) as any
     assert(!('autoRaritySupplementsThreshold' in round), 'IO C: reader should drop autoRaritySupplementsThreshold when rarityMode is code')
   }
   // Scenario D: Auto + Late but thresholds inactive -> writer omits; reader drops
@@ -216,6 +220,31 @@ async function run(prep: FixturePrep = PREPARED_FIXTURES): Promise<void> {
     assert(!('autoRarityThreshold' in out), 'IO D: writer should omit autoRarityThreshold when thresholds are inactive')
     const round = normalizeConfig({ ...out, Rarity: 'Auto', autoRarityThreshold: 'rare' }) as any
     assert(!('autoRaritySupplementsThreshold' in round), 'IO D: reader should drop autoRaritySupplementsThreshold when thresholds are inactive')
+  }
+  // Scenario Legacy: reader upgrades legacy substats/fixed/bounds fields
+  {
+    const legacyReadable = {
+      name: 'Legacy',
+      keep: true,
+      SellfileVisibility: 'Active',
+      Rank: 'Any',
+      Rarity: 'Any',
+      Faction: 'Any',
+      minLevel: 0,
+      maxLevel: 16,
+      minCount: 0,
+      substats: ['ACC', 'SPD'],
+      fixedSubstats: ['ACC'],
+      substatRollBounds: {
+        ACC: { min: 2 },
+        SPD: { any: true },
+      },
+    }
+    const round = normalizeConfig(legacyReadable) as BuilderConfig
+    assert(round.substatsV?.length === 2, 'Legacy IO: reader should retain all selected substats')
+    assert(round.fixedSubstatsV?.length === 1 && round.fixedSubstatsV[0] === StatVariant.ACC, 'Legacy IO: fixed substats should round-trip')
+    assert(round.substatRollBoundsV?.[StatVariant.ACC]?.min === 2, 'Legacy IO: numeric bounds are preserved')
+    assert(round.substatRollBoundsV?.[StatVariant.SPD]?.any === true, 'Legacy IO: wildcard bounds are preserved')
   }
   // Scenario E: Substat roll expectations serialize/deserialize
   {

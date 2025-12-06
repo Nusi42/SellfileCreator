@@ -23,9 +23,8 @@ This document covers file schemas, builder semantics, and compatibility notes.
   - `Rank`: string label (e.g., `"≥ 5★"`); `Rarity`: string label or `"Auto"`; `Faction`: faction name string.
   - `mainStats`: string[] (labels).
   - `minLevel`, `maxLevel`: explicit level milestones (`LevelMilestone`). `earlyKeepMode?`: `'late'` when Late thresholds are active.
-  - `substats`: string[] (labels); `fixedSubstats`: string[] (subset of `substats`).
+  - `substats`: array of `{ stat: string; fixed?: boolean; rollBounds?: { min?: number; max?: number; any?: boolean } }`. Each entry represents one selected substat, whether it is fixed, and its per-stat roll bounds. (The writer no longer emits separate `fixedSubstats`/`substatRollBounds` fields; the loader still accepts those legacy split shapes and converts them inside `hsfcIO`.)
   - `autoRarityThreshold?`: `'uncommon' | 'rare' | 'epic'` — emitted only when Milestone Thresholds are Late+Auto and active (defaults to `'rare'`).
-  - `substatRollBounds?`: label-keyed map `{ [label: string]: { min?: number; max?: number; any?: boolean } }`.
   - `minCount`, `autoMinCount`, `autoSubstatFlex?` (true only when flex actually applies).
 - `minRequiredRolls`, `autoMinRequiredRolls`, `lockedMinRequiredRolls`. When `lockedMinRequiredRolls` is present and at least one substat is fixed, the builder treats the aggregate floor as “locked only” automatically — there is no separate scope flag anymore. Older HSFC files may include `minRollsTarget: 'Locked'` or `substatMinTarget`; the importer converts those scope hints into `lockedMinRequiredRolls` (and clears the manual global floor when locked substats exist) so HSFC exports no longer need the extra field while pure locked-scope configs stay locked-only.
   - `artifactTypeNames?`: string[]; `artifactSetNames?`: string[]; `artifactMetaSetIds?`: string[] (IDs referencing the payload’s `Metasets` entries).
