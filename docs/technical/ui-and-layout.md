@@ -33,6 +33,14 @@ This document outlines contributors' responsibilities for UI behavior, layout, a
   - Submit updates by editing `src/lib/i18n/catalogs/<lang>.ts` (overrides only) or attach `.l10n.json` files.
   - Before handoff: quick in-app test (language switch), then `npm run typecheck && npm run lint && npm run build`.
 
+### Localization alignment workflow
+
+- README translations (`README.<lang>.md`) and their catalogs (`src/lib/i18n/catalogs/<lang>.ts`) form a single source of truth for terminology. When a feature’s copy changes (Rule Tester preview, Keep Uniques defaults/helper rules, quota scopes, clipboard workflows, glyph/roll filters, config management tips), update the English README first, then mirror the structure and wording in every translated README while updating the matching catalog keys in the same commit.
+- Use heading outlines to compare structures instead of noisy line-by-line diffs: `rg '^##' README.md` / `rg '^##' README.<lang>.md` (and `^###` for subsections) keeps the focus on missing sections, tables, and grids. Open both files side by side while applying the English layout to the localized version so tables, scenario grids, and config-management paragraphs stay parallel.
+- Keep Uniques terminology must stay synchronized between README copy, catalog strings, and UI labels. That includes the tab/section title, default/helper rule descriptions, badge labels (`Have / Keep`, `Missing n`, `Covered elsewhere`, `Requirement satisfied`), scope chips (`Per rule`, `Per slot`, `Per set`, `Per faction`, `Per main stat`), and the `Filter: All / Selection` toggle. If a locale intentionally keeps a loanword (e.g., “Rolls” in de-DE), mention the reasoning in the README so future translators do not “fix” it.
+- Glyph and wildcard filters follow the same rule: translate `filterGlyphs*`/`filterRolls*` to match the README vocabulary (loanwords are acceptable when documented). When a locale uses the same word as English, note it next to the filter description in the README to explain the decision.
+- Locale-specific notes now live inside each README’s Keep Uniques, Rule Tester, and config-management sections rather than in a standalone glossary. When you import a new locale or tweak wording, add the explanations directly to the relevant README so contributors always read the current guidance in the file that matters most to players.
+
 ## Tooltips and Context Hints
 
 - Two components cover every tooltip surface:
