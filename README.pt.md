@@ -99,20 +99,36 @@ Crie, reveja e exporte regras de venda para o RSL Helper com uma interface simpl
 - Com venda final ativa, as regras geradas incluem todos os sets conhecidos. Na prévia surge «Todos os sets conhecidos» para reduzir ruído; o ficheiro exportado lista os sets um a um.
 
 ### Manter únicos
-- Abre o diálogo Venda final e muda para a aba «Manter únicos» para marcar as combinações que nunca queres vender. Ativa «Manter únicos» para começar a editá-las.
-- Cada regra deixa-te escolher slot, sets ou meta-sets, ranks, raridades, mainstats e, no caso dos acessórios, facções. Seletores vazios significam «qualquer um».
-- `≥ Quantidade necessária` fica ao lado de um pequeno grupo de botões. «Por regra» mantém uma única quota; combina «Por slot», «Por conjunto», «Por facção» e «Por atributo principal» para multiplicar a quota por cada combinação relevante (se os quatro estiverem desligados, o modo volta automaticamente para «Por regra»).
+- Abre o diálogo Venda final e muda para a aba `Manter únicos` para marcar as combinações que nunca queres perder. Ativa `Ativar Manter únicos` para começar a editá-las.
+- Cada regra deixa-te escolher slot, sets ou meta-sets, ranks, raridades, atributos principais e, no caso dos acessórios, facções. Seletores vazios significam «qualquer um».
+- Já existe uma regra predefinida para anéis, amuletos e estandartes 5★/6★ em todos os sets 1–9 e de peça única, com `Por slot`, `Por conjunto`, `Por facção` e `Por atributo principal` ligados para que cada combinação mantenha pelo menos uma peça.
+- Há também uma regra auxiliar desativada que cobre armas/armaduras (arma, elmo, escudo, manoplas, peitoral, botas) dos sets stun/toxic/daze/cursed/provoke/destroy a 5★/6★, com `Por slot` e `Por conjunto` prontos para ligar se esses sets raros precisarem de proteção adicional.
+- `≥ Quantidade necessária` é a promessa que queres que a app cumpra. Os chips logo abaixo de cada seletor (tudo exceto `Rank` e `Raridade`) decidem como a quota é dividida: `Por slot`, `Por conjunto`, `Por facção` e `Por atributo principal` podem ser combinados livremente e, se os desligares todos, a regra volta automaticamente ao pool partilhado `Por regra`.
+- O contador `Existem {have} / Manter {keep}` mostra exatamente o que explica a ajuda: **Existem** soma peças já protegidas pelas configs, Venda final ou regras de Manter únicos anteriores; **Manter** é a quota definida em `≥ Quantidade necessária`. Só contam os itens que coincidem com a regra.
 - O scanner só acrescenta linhas extra quando todos os itens que correspondem à regra acabariam vendidos. Se as configs normais já salvam o suficiente, a regra mostra «Coberta noutro local» e nada novo é exportado.
 
-#### Exemplos
-1. **Faltam botas SPD:** Slot = Botas, Mainstat = SPD, Sets vazios. Define `≥ Quantidade necessária = 5`, modo «Por regra». Assim sobrevivem sempre cinco botas SPD, independentemente do set.
-2. **Misturar luvas Savage e Lethal:** Slot = Luvas, Sets = Savage + Lethal, Mainstat = CDMG%. Define `≥ Quantidade necessária = 3`, «Por regra». Continuas a guardar três luvas de dano mesmo quando a mistura dos sets muda.
-3. **Anéis Merciless por facção:** Slot = Anel, Set = Merciless, Facção sem filtro. Define `≥ Quantidade necessária = 3` e ativa «Por facção». Cada facção passa a exigir três anéis próprios antes de a regra ficar satisfeita.
-4. **Anéis de HP% por facção:** Slot = Anel, Mainstat = HP%, Sets vazios. `≥ Quantidade necessária = 2` com «Por facção». A aplicação acompanha cada facção em separado e protege dois anéis de HP% para cada uma.
-5. **Acessórios básicos por facção:** Cria três regras (Anel, Amuleto, Estandarte). Deixa Sets e Mainstat vazios, define `≥ Quantidade necessária = 5` e ativa «Por facção». Cada facção guarda cinco peças por slot.
-6. **Stoneskin/Protection por facção:** Para cada slot de acessório escolhe Sets = Stoneskin + Protection, deixa o Mainstat vazio e usa `≥ Quantidade necessária = 2` com «Por conjunto» e «Por facção» ligados. Isso garante dois itens de cada slot por facção sempre que esses sets caem.
+#### Âmbitos de quota num relance
+Empilhar os chips de âmbito altera quem recebe quota própria. Mantém `Por regra` ligado para partilhar um único pool e ativa `Por slot`, `Por conjunto`, `Por facção` e `Por atributo principal` para impor quotas independentes por Slot × Set × Fação × Atributo principal.
 
-Dica: importa a tua `.db` ou cola itens no Teste de Regras antes de abrir a aba para que o scanner veja equipamento real. Quando uma regra indicar «Faltam 2», clica nela: o Teste de Regras destaca esses itens e verás qual facção ou set ainda precisa de cobertura.
+| Botão de âmbito | Comportamento da quota | Quando usar |
+| --- | --- | --- |
+| `Por regra` | Um único pool para toda a regra. | Mantém cinco botas SPD independentemente do set. |
+| `Por slot` | Duplica a quota para cada slot. | Protege dois anéis, dois amuletos e dois estandartes em separado. |
+| `Por conjunto` | Duplica a quota para cada set/metaset da carta. | Acompanha duas quedas de Stoneskin e duas de Protection individualmente. |
+| `Por facção` | Duplica a quota para cada facção. | Garante três anéis Merciless para cada facção. |
+| `Por atributo principal` | Duplica a quota para cada atributo principal selecionado. | Mantém pools separados para estandartes ACC vs. RES. |
+
+#### Exemplos reais
+| Cenário | Filtros | Botões de âmbito | O que o scanner garante |
+| --- | --- | --- | --- |
+| Faltam botas SPD | Slot = Botas, Mainstat = SPD, Sets vazios | `Por regra` | Pelo menos cinco botas SPD sobrevivem, independentemente do set. |
+| Misturar luvas Savage e Lethal | Slot = Luvas, Sets = Savage + Lethal, Mainstat = CDMG% | `Por regra` | Três luvas de dano continuam seguras mesmo quando a mistura de sets muda. |
+| Anéis Merciless por facção | Slot = Anel, Set = Merciless, Facção em branco | `Por facção` | Cada facção guarda três anéis Merciless próprios. |
+| Anéis de HP% por facção | Slot = Anel, Mainstat = HP%, Sets vazios | `Por facção` | Permanecem dois anéis de HP% por facção. |
+| Acessórios básicos por facção | Três regras (Anel, Amuleto, Estandarte), Sets/Mainstat vazios, `≥ Quantidade necessária = 5` | `Por facção` | Cada facção conserva cinco anéis, amuletos e estandartes. |
+| Stoneskin + Protection por facção | Slot = Anel/Amuleto/Estandarte, Sets = Stoneskin + Protection, Mainstat vazio | `Por conjunto` + `Por facção` | Cada facção guarda duas peças Stoneskin e duas Protection em cada slot de acessório. |
+
+Dica: importa a tua `.db` ou cola itens no Teste de Regras antes de abrir a aba para que o scanner veja equipamento real. Quando uma regra indicar «Faltam 2», clica nela para destacar esse equipamento no Teste de Regras e ver qual facção ou set precisa de atenção.
 
 ### Gestão de configs
 - As configs guardadas aparecem como etiquetas sob o builder. Clique para selecionar; clique direito para duplicar, mover, copiar ou eliminar.
@@ -157,64 +173,22 @@ Dica: importa a tua `.db` ou cola itens no Teste de Regras antes de abrir a aba 
 
 Todos os exemplos usam alvos de substats de 6★ por unidade de rolagem: SPD=5, CR%=5, CDMG%=5.
 
-Cedo vs. Tarde
-- Cedo: os limiares refletem as rolagens já obtidas. Com ★ + soma mínima, apresenta apenas divisões mínimas por marco (lista estável). Caso contrário enumera o progresso possível até a condição ficar viável e depois fixa-se nos teus alvos por stat (a menos que uma soma global exija mais).
-- Tarde: só exige o que tem de existir agora para que a meta de +16 continue possível. Com ★ + soma mínima repete essas divisões nos primeiros marcos e em +16. Com alvos por stat fornece os limites inferiores exigidos em cada nível.
+**Cedo vs. Tarde**
+- **Cedo**: os limiares refletem as rolagens já obtidas. Com ★ + soma mínima, apresenta apenas divisões mínimas por marco (lista estável). Caso contrário enumera o progresso dos stats selecionados até a meta de +16 ficar viável e depois fixa-se nos teus alvos por stat (a menos que uma soma global exija mais).
+- **Tarde**: exige apenas o que precisa existir agora para que a meta de +16 continue possível. Com ★ + soma mínima repete essas divisões nos primeiros marcos e novamente em +16. Com alvos por stat fornece os limites inferiores obrigatórios em cada nível.
 
-Exemplo: Cedo (2 substats) — SPD min=2, CR% min=1 (níveis 0..16)
-- +0: SPD ≥ 5, CR ≥ 5
-- +4: [10,5] e [5,10]
-- +8: [15,5], [10,10], [5,15]
-- +12/+16: [15,10]
+#### Cenários do builder num relance
 
-Exemplo: Tarde (2 substats) — SPD min=2, CR% min=1 (níveis 0..16)
-- +0/+4: [5,5]
-- +8: [10,5] ou [5,10]
-- +12: [15,5] ou [10,10]
-- +16: [15,10]
-
-Exemplo: Cedo (3 substats) — SPD min=2, CR% min=1, CDMG% livre, Obrigatórios=3
-- +0: [SPD, CR, CDMG] ≥ [5,5,5]
-- +4: divisões de uma rolagem: [10,5,5], [5,10,5], [5,5,10]
-- +8: divisões de duas rolagens (respeitando limites superiores)
-- +12/+16: [15,10,5]
-
-Exemplo: Tarde (3 substats) — SPD min=2, CR% min=1, CDMG% livre, Obrigatórios=3
-- +0/+4: [5,5,5]
-- +8: [10,5,5] ou [5,10,5]
-- +12: [15,5,5] ou [10,10,5]
-- +16: [15,10,5]
-
-Dica: Use limites superiores de rolagem para proibir melhorias num stat. A partir de ★, clique direito → limite superior e defina 0. Assim CDMG% mantém o valor base enquanto SPD/CR recebem as rolagens.
-
-Exemplo: Bloquear um e exigir dois
-- Substats: SPD, HP, ATK. Clique em SPD e depois no cadeado (🔒) para o bloquear.
-- Substats obrigatórios = 2.
-- Resultado: surgem SPD+HP e SPD+ATK. HP+ATK sem SPD nunca é gerado (o bloqueado conta sempre).
-
-Exemplo: Focar rolagens em 3 stats e bloquear o 4.º
-- Objetivo: Manter itens com SPD, CR%, CDMG% e um de HP%/ATK%/DEF%, mas sem rolagens nesse quarto stat.
-- Substats: SPD, CR%, CDMG%, HP%, ATK%, DEF%.
-- Substats obrigatórios = 4.
-- Indicadores:
-  - De ★, clique esquerdo (mínimos): defina SPD/CR%/CDMG% nos mínimos desejados (ex. 1 cada).
-  - De ★, clique direito (limite superior): defina HP%/ATK%/DEF% com limite superior 0.
-- Resultado: o quarto substat roda entre os três, mas não recebe rolagens; SPD/CR%/CDMG% ficam com as melhorias.
-
-Exemplo: Cedo com curinga (apenas selecionados)
-- Substats: SPD e ACC.
-- Indicadores: SPD min = 2; ACC = ★.
-- Substats obrigatórios: Auto (2).
-- Níveis: +0 a +16.
-- Efeito: Cedo mostra itens que conseguem atingir SPD(2) até +16 (linhas onde SPD ou ACC ganhou rolagem). Assim que duas rolagens em SPD são possíveis, a linha mínima aparece.
-
-Exemplo: Soma de rolagens com curingas (2 substats)
-- Substats: SPD e ACC, ambos em ★.
-- Substats obrigatórios: 2. Rolagens mínimas: 1.
-- Cedo:
-  - +4/+8/+12/+16: duas linhas — SPD ≥ 10, ACC ≥ 9 e SPD ≥ 5, ACC ≥ 18 (divisões mínimas; lista estável).
-- Tarde:
-  - +0/+4/+8/+12: apenas linhas base (ainda sem exigência extra); +16: as duas linhas acima. Com mínimos maiores, Tarde aplica as divisões necessárias nos marcos adequados (p. ex., mínimo 2 → +12 mostra divisões de uma rolagem, +16 as de duas).
+| Cenário | Configuração | O que o builder emite |
+| --- | --- | --- |
+| Cedo (2 substats) | SPD mín = 2, CR% mín = 1, Níveis +0..+16 | `+0:` SPD ≥ 5, CR ≥ 5<br>`+4:` [10,5] e [5,10]<br>`+8:` [15,5], [10,10], [5,15]<br>`+12/+16:` [15,10] |
+| Tarde (2 substats) | Mesmo cenário acima | `+0/+4:` [5,5]<br>`+8:` [10,5] ou [5,10]<br>`+12:` [15,5] ou [10,10]<br>`+16:` [15,10] |
+| Cedo (3 substats) | SPD mín = 2, CR% mín = 1, CDMG% selecionado, Obrigatórios = 3 | `+0:` [SPD, CR, CDMG] ≥ [5,5,5]<br>`+4:` divisões de uma rolagem (10/5/5)<br>`+8:` todas as permutações de duas rolagens (respeitando limites superiores)<br>`+12/+16:` [15,10,5] |
+| Tarde (3 substats) | Mesmos stats do cenário anterior | `+0/+4:` [5,5,5]<br>`+8:` [10,5,5] ou [5,10,5]<br>`+12:` [15,5,5] ou [10,10,5]<br>`+16:` [15,10,5] |
+| Bloquear um e exigir dois | Substats SPD/HP/ATK; bloqueia SPD (🔒); Substats obrigatórios = 2 | Só surgem linhas SPD+HP e SPD+ATK; HP+ATK é excluído porque o SPD bloqueado tem de aparecer em todas. |
+| Focar rolagens em 3 stats e congelar o slot flex | Substats SPD/CR%/CDMG%/HP%/ATK%/DEF%; Substats obrigatórios = 4; SPD/CR%/CDMG% com Rolagens mín = 1; HP%/ATK%/DEF% com limite superior = 0 | SPD/CR%/CDMG% recebem sempre as rolagens enquanto o quarto stat (qualquer um de HP%/ATK%/DEF%) fica no valor base. Usa limites superiores (clique direito a partir de ★) quando um stat não pode ganhar rolagens. |
+| Cedo com curinga | Substats SPD (mín = 2) e ACC (★ curinga); Substats obrigatórios = Auto; Níveis +0..+16 | Os marcos iniciais destacam qualquer item que ainda possa atingir SPD(2) em +16 (linhas onde SPD ou ACC receberam rolagem). Assim que duas rolagens em SPD forem possíveis, surge a linha SPD ≥. |
+| Soma de rolagens com curingas | Substats SPD e ACC ambos em ★; Substats obrigatórios = 2; Rolagens mínimas = 1 | **Cedo:** em +4/+8/+12/+16 a grelha mostra as duas divisões mínimas (SPD ≥ 10 & ACC ≥ 9 e SPD ≥ 5 & ACC ≥ 18).<br>**Tarde:** +0/+4/+8/+12 mostram linhas base e +16 repete essas duas divisões. Com metas maiores, Tarde exige a soma necessária mais cedo (p. ex., com mínimo 2, +12 mostra divisões de uma rolagem e +16 as de duas). |
 
 ## Notas para contribuidores
 

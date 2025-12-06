@@ -12,8 +12,6 @@ Crea, revisa y exporta reglas de venta para RSL Helper con una interfaz sencilla
 - Exportación con un clic: genera un archivo HSF (Sellfile de RSL Helper) listo para cargar en RSL Helper.
 - Vista del Probador + diálogo «Equipo...»: crea equipo de ejemplo, pega filas o arrastra tu base de datos de RSL Helper (normalmente `%APPDATA%\\RslHelper\\Config`) al diálogo. Después, deja el diálogo cerrado y usa el interruptor de vista previa para mantener ese equipo visible mientras lo comparas con tus reglas.
 - Pestaña «Conservar únicos»: define las combinaciones que nunca quieres perder. El escáner genera reglas de conservación automáticamente cuando tus configs más tus reglas de venta actualmente activas eliminarían todas las copias.
-- Diálogo de restauración de Autosave: cuando se encuentra un autoguardado, eliges qué cargar — configs, metasets, Objetivos de substats, resto de Venta final, nota fijada, estado del panel de filtros e incluso importaciones del Probador.
-- Copiar la carpeta de la base de datos de RSL Helper: el encabezado de la vista previa incluye un botón que copia `%APPDATA%\\RslHelper\\Config` al portapapeles para que pegues la ruta en el Explorador antes de arrastrar la `.db` a Sellfile Creator.
 
 ## Cómo usarlo
 
@@ -99,20 +97,36 @@ Crea, revisa y exporta reglas de venta para RSL Helper con una interfaz sencilla
 - Con venta final activa, las reglas generadas incluyen todos los sets conocidos. En la vista previa se muestra «Todos los sets conocidos» para reducir ruido, pero el archivo exportado enumera cada set.
 
 ### Conservar únicos
-- Abre el diálogo de Venta final y cambia a la pestaña «Conservar únicos» para marcar las combinaciones que no quieres vender jamás. Activa «Conservar únicos» para empezar a editarlas.
-- Cada regla te deja elegir ranura, sets o metasets, rangos, rarezas, atributos principales y (en accesorios) facciones. Sin selección significa «cualquiera».
-- `≥ Cantidad necesaria` vive junto a un pequeño grupo de botones. «Por regla» mantiene una cuota única; combina los botones «Por ranura», «Por conjunto», «Por facción» y «Por atributo principal» para multiplicar la cuota por cada mezcla pertinente (si los cuatro están apagados, el modo vuelve automáticamente a «Por regla»).
-- El escáner solo añade filas extra cuando todos los objetos que encajan con la regla acabarían vendidos. Si tus configs normales ya salvan suficientes piezas, verás «Cubierto en otro lugar» y no se exporta nada nuevo.
+- Abre el diálogo de Venta final y cambia a la pestaña `Conservar únicos` para marcar las combinaciones que nunca quieres perder. Activa `Activar Conservar únicos` para empezar a editar.
+- Cada regla de conservación te deja elegir ranura, sets o metasets, rangos, rarezas, stats principales y (en accesorios) facciones. Sin selección significa «cualquiera».
+- Encontrarás una regla predeterminada para anillos, amuletos y estandartes de 5★/6★ en todos los sets 1–9 y de accesorio individual, con `Por ranura`, `Por conjunto`, `Por facción` y `Por stat principal` activados para que cada mezcla conserve al menos una pieza.
+- También hay una regla de ayuda desactivada que cubre armas/piezas de armadura (arma, casco, escudo, guantes, peto, botas) en los sets stun/toxic/daze/cursed/provoke/destroy a 5★/6★, con `Por ranura` y `Por conjunto` preparados para habilitarla cuando estos sets raros necesiten blindaje adicional.
+- `≥ Cantidad necesaria` es la promesa que quieres cumplir. Los chips justo debajo de cada selector (todo salvo Rango y Rareza) comparten o duplican la cuota: `Por ranura`, `Por conjunto`, `Por facción` y `Por stat principal` se pueden combinar libremente, y al apagarlos todos la regla vuelve automáticamente a `Por regla`.
+- El contador `Hay {have} / Conservar {keep}` refleja lo mismo que explica la ayuda: **Hay** cuenta piezas ya protegidas por configs, Venta final o reglas existentes, mientras que **Conservar** es la cuota que fijaste en `≥ Cantidad necesaria`. Solo se tienen en cuenta los objetos que coinciden con la regla.
+- El escáner solo añade filas de conservación cuando cada objeto coincidente acabaría vendido. Si tus configs normales ya salvan suficientes piezas, verás «Cubierto en otro lugar» y no se exporta nada nuevo.
+
+#### Alcances de cuota de un vistazo
+
+| Botón de ámbito | Comportamiento de la cuota | Cuándo destaca |
+| --- | --- | --- |
+| `Por regla` | Un único cupo para toda la regla. | Conserva cinco botas SPD sin importar el set. |
+| `Por ranura` | Duplica la cuota por cada ranura. | Mantiene dos anillos, dos amuletos y dos estandartes por separado. |
+| `Por conjunto` | Duplica la cuota por cada set/metaset de la tarjeta. | Sigue por separado dos caídas de Stoneskin y dos de Protection. |
+| `Por facción` | Duplica la cuota por facción. | Garantiza tres anillos Merciless por facción. |
+| `Por stat principal` | Duplica la cuota por cada stat principal seleccionado. | Divide los pools para estandartes de ACC y RES. |
 
 #### Ejemplos reales
-1. **Se acaban las botas de SPD:** Ranura = Botas, Atributo principal = SPD, Sets vacíos. Ajusta `≥ Cantidad necesaria = 5`, modo «Por regla». Siempre sobrevivirán al menos cinco botas de SPD, sin importar el set.
-2. **Mezclar guantes Savage y Lethal:** Ranura = Guantes, Sets = Savage + Lethal, Atributo principal = CDMG%. Pon `≥ Cantidad necesaria = 3`, «Por regla». Así conservas tres guantes con CDMG% aunque cambie la mezcla de sets.
-3. **Anillos Merciless por facción:** Ranura = Anillo, Set = Merciless, Facción sin filtrar. Fija `≥ Cantidad necesaria = 3` y activa «Por facción». Cada facción debe tener tres anillos propios antes de que la regla se marque como cumplida.
-4. **Anillos de HP% por facción:** Ranura = Anillo, Atributo principal = HP%, Sets vacíos. `≥ Cantidad necesaria = 2` con «Por facción». La app vigila cada facción por separado y protege dos anillos de HP% para cada una.
-5. **Accesorios básicos por facción:** Crea tres reglas (Anillo, Amuleto, Estandarte). Deja Sets y Atributo principal vacíos, pon `≥ Cantidad necesaria = 5` y activa «Por facción». Cada facción conservará cinco piezas por ranura.
-6. **Stoneskin/Protection por facción:** Para cada ranura de accesorio elige Sets = Stoneskin + Protection, deja el Atributo principal vacío y usa `≥ Cantidad necesaria = 2` con «Por conjunto» y «Por facción» activos. Así cada facción guardará dos piezas de esas series en cada ranura.
 
-Consejo: Importa tu `.db` o pega equipo en el Probador antes de abrir la pestaña para que el escáner tenga objetos reales. Cuando una regla muestre «Faltan 2», haz clic en ella: el Probador resaltará ese equipo y verás qué facción o set necesita ayuda.
+| Escenario | Filtros | Chips de ámbito | Lo que garantiza el escáner |
+| --- | --- | --- | --- |
+| Se acaban las botas de SPD | Ranura = Botas, Stat principal = SPD, Sets en blanco | `Por regla` | Sobreviven al menos cinco botas SPD, sin importar el set. |
+| Mezclar guantes Savage y Lethal | Ranura = Guantes, Sets = Savage + Lethal, Stat principal = CDMG% | `Por regla` | Conserva tres guantes de daño aunque cambie la mezcla de sets. |
+| Anillos Merciless por facción | Ranura = Anillo, Set = Merciless, Facción sin filtrar | `Por facción` | Cada facción guarda tres anillos propios antes de que la regla se dé por cumplida. |
+| Anillos de HP% por facción | Ranura = Anillo, Stat principal = HP%, Sets en blanco | `Por facción` | Se aseguran dos anillos de HP% por facción. |
+| Accesorios básicos por facción | Tres reglas (Anillo, Amuleto, Estandarte), Sets y Stat principal en blanco | `Por facción` | Cada facción conserva cinco piezas por ranura. |
+| Stoneskin + Protection por facción | Ranura = Anillo/Amuleto/Estandarte, Sets = Stoneskin + Protection, Stat principal en blanco | `Por conjunto` + `Por facción` | Cada facción guarda dos piezas Stoneskin y dos Protection en cada ranura. |
+
+Consejo: Importa tu `.db` o pega equipo en el Probador antes de abrir la pestaña para que el escáner tenga objetos reales. Cuando una regla muestre «Faltan 2», haz clic para resaltar ese equipo en el Probador y ver qué facción o set necesita ayuda.
 
 ### Gestión de configs
 - Las configs guardadas aparecen como chips debajo del constructor. Haz clic para seleccionarlas, o clic derecho para duplicar, mover, copiar o borrar.
@@ -158,64 +172,22 @@ Consejo: Importa tu `.db` o pega equipo en el Probador antes de abrir la pestañ
 
 Todos los ejemplos usan objetivos de substats de 6★ por unidad de tirada: SPD=5, CR%=5, CDMG%=5.
 
-Temprano vs. Tardío
-- Temprano: los umbrales reflejan las tiradas que ya llevas. Con ★ + suma mínima, solo muestra las divisiones mínimas en cada hito (lista estable). En otros casos enumera el progreso posible hasta que la condición se vuelve viable y luego se queda en tus objetivos por stat (a menos que una suma global exija más).
-- Tardío: solo exige lo que debe existir ahora para que la meta de +16 siga posible. Con ★ + suma mínima repite esas divisiones en los primeros hitos y otra vez en +16. Con objetivos por stat emite los límites inferiores necesarios en cada nivel.
+**Temprano vs. Tardío**
+- **Temprano**: los umbrales reflejan las tiradas que ya llevas. Con ★ + suma mínima, solo muestra las divisiones mínimas en cada hito (lista estable). En otros casos enumera el progreso de los stats seleccionados hasta que la meta de +16 se vuelve viable y luego se queda en tus objetivos por stat (a menos que una suma global exija más).
+- **Tardío**: solo exige lo que debe existir ahora para que la meta de +16 siga posible. Con ★ + suma mínima repite esas divisiones en los primeros hitos y otra vez en +16. Con objetivos por stat emite los límites inferiores necesarios en cada nivel.
 
-Ejemplo: Temprano (2 substats) — SPD mín=2, CR% mín=1 (niveles 0..16)
-- +0: SPD ≥ 5, CR ≥ 5
-- +4: [10,5] y [5,10]
-- +8: [15,5], [10,10], [5,15]
-- +12/+16: [15,10]
+#### Escenarios del constructor de un vistazo
 
-Ejemplo: Tardío (2 substats) — SPD mín=2, CR% mín=1 (niveles 0..16)
-- +0/+4: [5,5]
-- +8: [10,5] o [5,10]
-- +12: [15,5] o [10,10]
-- +16: [15,10]
-
-Ejemplo: Temprano (3 substats) — SPD mín=2, CR% mín=1, CDMG% libre, Requeridos=3
-- +0: [SPD, CR, CDMG] ≥ [5,5,5]
-- +4: divisiones de una tirada: [10,5,5], [5,10,5], [5,5,10]
-- +8: divisiones de dos tiradas (respetando límites superiores)
-- +12/+16: [15,10,5]
-
-Ejemplo: Tardío (3 substats) — SPD mín=2, CR% mín=1, CDMG% libre, Requeridos=3
-- +0/+4: [5,5,5]
-- +8: [10,5,5] o [5,10,5]
-- +12: [15,5,5] o [10,10,5]
-- +16: [15,10,5]
-
-Consejo: Usa límites superiores de tiradas para prohibir mejoras en un stat. Desde ★ haz clic derecho, elige límite superior y ponlo en 0. Así CDMG% se queda base mientras SPD/CR reciben las tiradas.
-
-Ejemplo: Bloquear uno y exigir dos
-- Substats: SPD, HP, ATK. Pulsa SPD y luego el candado (🔒) para bloquearlo.
-- Substats requeridos = 2.
-- Resultado: aparecen SPD+HP y SPD+ATK. HP+ATK sin SPD nunca se genera (lo bloqueado siempre cuenta).
-
-Ejemplo: Focalizar tiradas en 3 stats y bloquear el 4.º
-- Objetivo: Conservar piezas con SPD, CR%, CDMG% y uno de HP%/ATK%/DEF%, pero sin tiradas en ese cuarto stat.
-- Substats seleccionados: SPD, CR%, CDMG%, HP%, ATK%, DEF%.
-- Substats requeridos = 4.
-- Indicadores:
-  - Desde ★, clic izquierdo (mínimos): pon SPD/CR%/CDMG% en los mínimos deseados (p. ej. 1 cada uno).
-  - Desde ★, clic derecho (límite superior): fija HP%/ATK%/DEF% en límite superior 0.
-- Resultado: el cuarto substat rota entre los tres, pero no recibe tiradas; SPD/CR%/CDMG% acumulan las mejoras.
-
-Ejemplo: Temprano con comodín (solo seleccionados)
-- Substats: SPD y ACC.
-- Indicadores: SPD mín = 2; ACC = ★.
-- Substats requeridos: Auto (2).
-- Niveles: +0 a +16.
-- Efecto: Temprano muestra piezas que pueden llegar a SPD(2) en +16 (filas donde SPD o ACC ha recibido tirada). En cuanto son posibles dos tiradas en SPD, aparece la fila mínima.
-
-Ejemplo: Suma de tiradas con comodines (2 substats)
-- Substats: SPD y ACC, ambos en ★.
-- Substats requeridos: 2. Tiradas mínimas: 1.
-- Temprano:
-  - +4/+8/+12/+16: dos filas — SPD ≥ 10, ACC ≥ 9 y SPD ≥ 5, ACC ≥ 18 (repartos mínimos; lista estable).
-- Tardío:
-  - +0/+4/+8/+12: filas base (no se pide extra todavía); +16: las dos filas anteriores. Con mínimos más altos, Tardío fuerza las divisiones necesarias en los hitos adecuados (por ejemplo, con mínimo 2, +12 muestra divisiones de una tirada y +16 las de dos).
+| Escenario | Configuración | Lo que emite el constructor |
+| --- | --- | --- |
+| Temprano (2 substats) | SPD mín = 2, CR% mín = 1, Niveles +0..+16 | `+0:` SPD ≥ 5, CR ≥ 5<br>`+4:` [10,5] y [5,10]<br>`+8:` [15,5], [10,10], [5,15]<br>`+12/+16:` [15,10] |
+| Tardío (2 substats) | Igual que arriba | `+0/+4:` [5,5]<br>`+8:` [10,5] o [5,10]<br>`+12:` [15,5] o [10,10]<br>`+16:` [15,10] |
+| Temprano (3 substats) | SPD mín = 2, CR% mín = 1, CDMG% seleccionado, Requeridos = 3 | `+0:` [SPD,CR,CDMG] ≥ [5,5,5]<br>`+4:` divisiones de una tirada (permutaciones 10/5/5)<br>`+8:` todas las permutaciones de dos tiradas (respetando límites superiores)<br>`+12/+16:` [15,10,5] |
+| Tardío (3 substats) | Mismos stats que arriba | `+0/+4:` [5,5,5]<br>`+8:` [10,5,5] o [5,10,5]<br>`+12:` [15,5,5] o [10,10,5]<br>`+16:` [15,10,5] |
+| Bloquear uno, exigir dos | Substats SPD/HP/ATK; bloquea SPD (🔒); Substats requeridos = 2 | Se generan filas SPD+HP y SPD+ATK; HP+ATK queda fuera porque SPD bloqueado debe aparecer en todas. |
+| Tiradas en 3 stats y slot flexible congelado | Substats SPD/CR%/CDMG%/HP%/ATK%/DEF%; Substats requeridos = 4; SPD/CR%/CDMG% con Tiradas mín = 1; HP%/ATK%/DEF% con límite superior de tiradas = 0 | SPD/CR%/CDMG% reciben siempre las tiradas y el cuarto stat (cualquiera de HP%/ATK%/DEF%) se queda en base. Usa límites superiores (clic derecho desde ★) cuando un stat no debe mejorar. |
+| Temprano con comodín | Substats SPD (mín = 2) y ACC (comodín ★); Substats requeridos = Auto; Niveles +0..+16 | Los hitos tempranos resaltan piezas que aún pueden alcanzar SPD(2) en +16 (filas donde SPD o ACC reciben tirada). Cuando ya son posibles dos tiradas en SPD, aparece la fila SPD ≥. |
+| Suma de tiradas con comodines | Substats SPD y ACC como comodines ★; Substats requeridos = 2; Tiradas mínimas = 1 | **Temprano:** en +4/+8/+12/+16 muestra las dos divisiones mínimas (SPD ≥ 10 y ACC ≥ 9, además de SPD ≥ 5 y ACC ≥ 18).<br>**Tardío:** +0/+4/+8/+12 muestran filas base y +16 repite esas dos divisiones. Con objetivos mayores, Tardío exige antes la suma necesaria (p. ej. con mínimo = 2, +12 muestra divisiones de una tirada y +16 las de dos). |
 
 ## Notas para colaboradores
 
