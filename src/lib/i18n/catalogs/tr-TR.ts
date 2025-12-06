@@ -219,7 +219,7 @@ const overrides: Catalog = {
   keepUniquesCountModeHintLabel: 'Kota kapsamı yardımını aç',
   keepUniquesNoRules: 'Henüz koruma kuralı yok.',
   keepUniquesAddRule: 'Koruma kuralı ekle',
-  keepUniquesGridSelectedCount: '{count} eşya bu kombinasyonla eşleşiyor',
+  keepUniquesGridSelectedCount: '{count} eşya',
   keepUniquesGridUniqueCount: '{count} benzersiz eşya',
   keepUniquesGridFilterLabel: 'Filtre: {mode}',
   keepUniquesGridFilterModeAll: 'Hepsi',

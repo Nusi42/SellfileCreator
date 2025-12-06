@@ -219,7 +219,7 @@ const overrides: Catalog = {
   keepUniquesCountModeHintLabel: 'Открыть помощь по области квоты',
   keepUniquesNoRules: 'Правила сохранения ещё не добавлены.',
   keepUniquesAddRule: 'Добавить правило сохранения',
-  keepUniquesGridSelectedCount: '{count} предметов соответствует этой комбинации',
+  keepUniquesGridSelectedCount: '{count} предметов',
   keepUniquesGridUniqueCount: '{count} уникальных предметов',
   keepUniquesGridFilterLabel: 'Фильтр: {mode}',
   keepUniquesGridFilterModeAll: 'Все',
