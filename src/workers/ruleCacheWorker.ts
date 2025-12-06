@@ -6,7 +6,7 @@ import { RULE_SOURCE_KEEP_UNIQUES, computeMergedRules } from '../lib/merge'
 import { configsForRuleBuild, countRulesForConfigs } from '../lib/ruleCacheHelpers'
 import { buildRuleMatchIndexData } from '../lib/ruleMatchIndex'
 import { evaluateMatchesByConfig, type EvalResult } from '../lib/ruleEval'
-import { collectKeepUniqueCandidates, computeKeepUniqueProtection, hasActiveKeepUniqueRules } from '../lib/keepUniques'
+import { collectKeepUniqueCandidates, computeKeepUniqueProtection, hasActiveKeepUniqueRules, resolveKeepUniqueRuleLabel } from '../lib/keepUniques'
 import type { KeepUniqueDetectionSnapshot } from '../lib/keepUniques'
 import type { NormalizedGearArtifact } from '../lib/importers/gearDbNormalizer'
 import type { HsfRuleWithCfg } from '../lib/merge'
@@ -14,6 +14,7 @@ import type { BuilderConfig, SellfileExportMode } from '../lib/hsfBuilder'
 import type { TesterMatchWorkerItemResult } from './testerMatchWorkerTypes'
 import type { TesterPreviewMatch } from '../types/testerPreview'
 import type { RuleCacheWorkerRequest, RuleCacheWorkerResponse } from './ruleCacheWorkerTypes'
+import { resolveMatchConfigName } from '../lib/ruleConfigIndex'
 
 declare const self: DedicatedWorkerGlobalScope
 
@@ -303,12 +304,17 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
       if (!result) return null
       const rule = rules[result.ruleIndex]
       const cfgIdx = result.cfgIdx ?? null
+      const cfgName = resolveMatchConfigName(cfgIdx, null, rule)
+      const keepUniqueLabel = rule?.__source === RULE_SOURCE_KEEP_UNIQUES
+        ? resolveKeepUniqueRuleLabel(rule)
+        : null
+      const effectiveCfgName = cfgName && cfgName.length > 0 ? cfgName : keepUniqueLabel
       return {
         ruleIndex: result.ruleIndex,
         keep: result.keep,
         cfgIdx,
-        cfgName: null,
-        ruleLabel: null,
+        cfgName: effectiveCfgName && effectiveCfgName.length > 0 ? effectiveCfgName : null,
+        ruleLabel: keepUniqueLabel ?? null,
         ruleSource: rule?.__source ?? null,
       }
     }

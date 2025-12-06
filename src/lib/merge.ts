@@ -7,7 +7,7 @@
 import type { HsfFile, HsfRule } from './hsfTypes'
 import { variantToMain, variantToSub } from './hsfTypes'
 import type { BuilderConfig, SubstatTargetTable } from './hsfBuilder'
-import { RULE_COUNT_LIMIT, TOTAL_RULE_COUNT_LIMIT, ACCESSORY_NO_SET_ID } from './constants'
+import { RULE_COUNT_LIMIT, TOTAL_RULE_COUNT_LIMIT, ACCESSORY_NO_SET_ID, KEEP_UNIQUE_CONFIG_ID_BASE } from './constants'
 import { buildHsfRules, RuleLimitReachedError, resolveAutoRarityCode } from './hsfBuilder'
 import { findObsoleteRules } from './hsfObsolete'
 import type { Metaset } from './metasets'
@@ -38,6 +38,7 @@ import {
   type KeepUniqueDetectionSnapshot,
   type KeepUniqueDetectionEntry,
 } from './keepUniques'
+import { normalizeConfigName } from './ruleConfigIndex'
 
 export const RULE_SOURCE_HSF = 'hsf' as const
 export const RULE_SOURCE_HSFC = 'hsfc' as const
@@ -57,6 +58,7 @@ export type HsfRuleWithCfg = HsfRule & {
   __rankMask?: number
   __rarityMask?: number
   __keepUniqueRuleId?: string
+  __keepUniqueRuleOrdinal?: number
   __keepUniqueHash?: string
   __keepUniqueRequired?: number
   __keepUniqueScanMs?: number
@@ -444,11 +446,18 @@ export const buildKeepUniqueRules = (
     : new Map()
   const keepRules: HsfRuleWithCfg[] = []
   const emitted = new Set<string>()
+  let keepUniqueRuleOffset = 0
+  let keepUniqueRuleOrdinal = 0
   for (const rule of rules) {
+    keepUniqueRuleOrdinal += 1
     if (!rule.enabled) continue
     const entry = rule.id ? detectionMap.get(rule.id) : null
-    if (!entry || !entry.artifacts || entry.artifacts.length === 0) continue
-    for (const artifact of entry.artifacts) {
+    const artifacts = entry?.artifacts ?? []
+    if (!entry || artifacts.length === 0) continue
+    const normalizedName = normalizeConfigName(rule.name)
+    const configId = KEEP_UNIQUE_CONFIG_ID_BASE - keepUniqueRuleOffset
+    keepUniqueRuleOffset += 1
+    for (const artifact of artifacts) {
       const levels = coverageLevelsForArtifact(artifact)
       for (const level of levels) {
         const artifactKey = `${artifact.itemKey}:${level}`
@@ -459,6 +468,8 @@ export const buildKeepUniqueRules = (
           Keep: true,
           IsRuleTypeAND: false,
           Use: rule.enabled,
+          ConfigID: configId,
+          ...(normalizedName ? { ConfigName: normalizedName } : {}),
           Rank: clampRankOrRarityValue(artifact.rank),
           Rarity: rarityValueToCode(artifact.rarity),
           MainStatID: mainTuple.id,
@@ -470,6 +481,7 @@ export const buildKeepUniqueRules = (
           Substats: buildKeepUniqueSubstats(artifact.substats),
           __source: RULE_SOURCE_KEEP_UNIQUES,
           __keepUniqueRuleId: rule.id,
+          __keepUniqueRuleOrdinal: keepUniqueRuleOrdinal,
           __keepUniqueItemKey: artifact.itemKey,
           __keepUniqueHash: hashKeepUniqueCombination(rule.combination),
           __keepUniqueRequired: entry.requiredCount,

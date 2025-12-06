@@ -24,6 +24,7 @@ import type { SellfileExportMode } from './hsfBuilder'
 import type { HsfRuleWithCfg } from './merge'
 import type { NormalizedGearArtifact } from './importers/gearDbNormalizer'
 import type { Metaset } from './metasets'
+import { normalizeConfigName } from './ruleConfigIndex'
 
 const RANK_MIN = 1
 const RANK_MAX = 6
@@ -490,8 +491,7 @@ export function normalizeKeepUniqueCombination(value: unknown): KeepUniqueCombin
     if (raw == null || raw === '') return null
     return clampRankOrRarity(raw)
   })
-  const mainSource = rec.mainStats ?? rec.mainStat
-  const mainStats = normalizeSelectionArray(mainSource, (raw) => {
+  const mainStats = normalizeSelectionArray(rec.mainStats, (raw) => {
     if (raw == null || raw === '') return null
     const variant = coerceStatVariant(raw)
     if (variant === StatVariantEnum.Any) return null
@@ -823,4 +823,32 @@ export function resolveKeepUniqueRulesWithMetasets(
     }
   })
   return mutated ? resolved : rules as KeepUniqueRule[]
+}
+
+type KeepUniqueLabelSource = KeepUniqueRule | HsfRuleWithCfg | null | undefined
+
+/**
+ * Resolve the label to display for a Keep Unique rule or injected row.
+ * Prefers trimmed rule names, then falls back to a `#id` sentinel when blank.
+ */
+export function resolveKeepUniqueRuleLabel(source: KeepUniqueLabelSource): string | null {
+  if (!source) return null
+  const rawName = 'name' in source ? source.name : source.ConfigName
+  const normalizedName = normalizeConfigName(rawName ?? null)
+  if (normalizedName) return normalizedName
+  const ordinal = ((): number | null => {
+    if (typeof source !== 'object' || source === null) return null
+    if ('__keepUniqueRuleOrdinal' in source) {
+      const value = Number((source as { __keepUniqueRuleOrdinal?: number }).__keepUniqueRuleOrdinal)
+      if (Number.isFinite(value) && value > 0) return value
+    }
+    return null
+  })()
+  if (ordinal) return `#${ordinal}`
+  const fallbackId = 'name' in source ? source.id : source.__keepUniqueRuleId
+  if (typeof fallbackId === 'string') {
+    const trimmed = fallbackId.trim()
+    if (trimmed.length > 0) return `#${trimmed}`
+  }
+  return null
 }

@@ -3,11 +3,13 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 
-import { buildRulesForConfig } from '../src/lib/merge.js'
+import { buildKeepUniqueRules, buildRulesForConfig, RULE_SOURCE_HSFC } from '../src/lib/merge.js'
 import { defaultSubstatTargets, type BuilderConfig } from '../src/lib/hsfBuilder.js'
 import { buildHsfFileFromMerged } from '../src/lib/hsfIO.js'
-import { StatVariant } from '../src/lib/types.js'
+import { ArtifactSet, ArtifactType, Faction, StatVariant } from '../src/lib/types.js'
 import { updateConfigRulesCache } from '../src/lib/ruleCache.js'
+import { KEEP_UNIQUE_CONFIG_ID_BASE } from '../src/lib/constants.js'
+import type { KeepUniqueRule, KeepUniqueDetectionSnapshot } from '../src/lib/keepUniques.js'
 
 const baseConfig = (overrides: Partial<BuilderConfig> = {}): BuilderConfig => ({
   name: '  Metadata Demo  ',
@@ -89,4 +91,105 @@ test('renaming configs updates ConfigName without rebuilding cached rules', () =
   const first = exported.Rules[0]
   assert(first, 'expected exported rules to exist after rename')
   assert.equal(first!.ConfigName, 'Cached Builder (Renamed)', 'exported HSF should carry the latest ConfigName')
+})
+
+test('HSF export strips every UI-only metadata field', () => {
+  const cfg = baseConfig()
+  const rules = buildRulesForConfig({ config: cfg, metasets: [], substatTargets: defaultSubstatTargets(), cfgIdx: 0 })
+  // Decorate the rules with every UI-only field so the export clean up has something to remove.
+  const decorated = rules.map((rule, idx) => ({
+    ...rule,
+    __lineIdx: idx,
+    __allKnownSets: true,
+    __source: RULE_SOURCE_HSFC,
+    __rankMask: 0b1010,
+    __rarityMask: 0b1001,
+    __keepUniqueRuleId: `ku_${idx}`,
+    __keepUniqueHash: `hash_${idx}`,
+    __keepUniqueRequired: 2,
+    __keepUniqueScanMs: 17,
+    __keepUniqueProjected: 4,
+    __keepUniqueDeficit: 1,
+    __keepUniqueItemKey: idx,
+  }))
+  // Run the export helper so the sanitizer strips the fake diagnostics.
+  const exported = buildHsfFileFromMerged(decorated, { configNames: [cfg.name ?? ''] })
+  for (const rule of exported.Rules) {
+    assert(rule, 'expected sanitized HSF rule to exist')
+    // HSF schema never tolerates double-underscore metadata, so each key should be clean.
+    const hasUiKey = Object.keys(rule!).some((key) => key.startsWith('__'))
+    assert.equal(hasUiKey, false, 'HSF payload should exclude UI-only metadata keys')
+  }
+})
+
+test('keep-unique exports include sentinel ConfigID/ConfigName', () => {
+  const keepRule: KeepUniqueRule = {
+    id: 'ku_demo',
+    name: '  Keep Unique Demo  ',
+    combination: {
+      slots: [ArtifactType.Ring],
+      sets: [ArtifactSet.Refresh],
+      metaSetIds: [],
+      ranks: [],
+      rarities: [],
+      mainStats: [],
+      factions: [Faction.BannerLords],
+    },
+    requiredCount: 1,
+    enabled: true,
+    countMode: {
+      perRule: false,
+      perSet: true,
+      perFaction: true,
+      perMainStat: false,
+      perSlot: true,
+    },
+  }
+  const detection: KeepUniqueDetectionSnapshot = {
+    scannedAt: 1,
+    entries: [{
+      hash: 'demo',
+      combination: keepRule.combination,
+      ruleId: keepRule.id,
+      ruleEnabled: true,
+      countMode: keepRule.countMode,
+      perGroupRequiredCount: 1,
+      groupsTracked: 1,
+      requiredCount: 1,
+      currentCount: 0,
+      projectedCount: 1,
+      deficit: 1,
+      coveredByExisting: false,
+      itemKeys: [777],
+      artifacts: [{
+        itemKey: 777,
+        slot: ArtifactType.Ring,
+        set: ArtifactSet.Refresh,
+        rank: 6,
+        rarity: 6,
+        level: 0,
+        exactLevel: 0,
+        faction: Faction.BannerLords,
+        mainStat: StatVariant.HP,
+        substats: [{
+          variant: StatVariant.DEF,
+          isFlat: false,
+          value: 12,
+        }],
+      }],
+    }],
+  }
+  const keepRules = buildKeepUniqueRules([keepRule], detection)
+  assert(keepRules.length > 0, 'expected keep unique rules to be emitted')
+  const first = keepRules[0]
+  assert(first, 'expected first keep unique rule to exist')
+  assert(first.ConfigID !== undefined, 'keep unique rule should include ConfigID')
+  assert(first.ConfigID! <= KEEP_UNIQUE_CONFIG_ID_BASE, 'keep unique ConfigID should use sentinel range')
+  assert.equal(first.ConfigName, 'Keep Unique Demo', 'keep unique ConfigName should be trimmed and preserved')
+  assert(keepRules.every((rule) => rule.ConfigID === first.ConfigID), 'all rows from the same keep unique rule should share the sentinel ConfigID')
+  const exported = buildHsfFileFromMerged(keepRules)
+  const exportedFirst = exported.Rules[0]
+  assert(exportedFirst, 'expected exported keep unique rule to exist')
+  assert.equal(exportedFirst!.ConfigID, first.ConfigID, 'HSF export should retain sentinel ConfigID')
+  assert.equal(exportedFirst!.ConfigName, first.ConfigName, 'HSF export should retain keep unique ConfigName')
 })

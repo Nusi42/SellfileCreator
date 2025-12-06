@@ -1,12 +1,13 @@
 /* eslint import/no-unused-modules: off */
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { KEEP_UNIQUE_DEFAULT_COUNT_MODE, collectKeepUniqueCandidates, computeKeepUniqueProtection, hashKeepUniqueCombination, normalizeKeepUniqueRule, resolveKeepUniqueRulesWithMetasets, buildDefaultKeepUniqueRules } from '../src/lib/keepUniques.js'
+import { KEEP_UNIQUE_DEFAULT_COUNT_MODE, collectKeepUniqueCandidates, computeKeepUniqueProtection, hashKeepUniqueCombination, normalizeKeepUniqueRule, resolveKeepUniqueRuleLabel, resolveKeepUniqueRulesWithMetasets, buildDefaultKeepUniqueRules } from '../src/lib/keepUniques.js'
 import { ACCESSORY_SLOTS_COMPATIBLE_SET_IDS, ArtifactSet, ArtifactType, StatVariant, type RankValue } from '../src/lib/types.js'
 import type { TesterPreviewRow } from '../src/types/testerPreview.js'
 import type { NormalizedGearArtifact, NormalizedStat } from '../src/lib/importers/gearDbNormalizer.js'
 import type { KeepUniqueRule } from '../src/lib/keepUniques.js'
 import type { Metaset } from '../src/lib/metasets.js'
+import type { HsfRuleWithCfg } from '../src/lib/merge.js'
 
 let nextArtifactId = 1
 
@@ -314,4 +315,39 @@ test('default keep unique rules seed the accessory guard and optional armor sets
   assert.ok(armorCountMode.perSet)
   assert.strictEqual(armorCountMode.perFaction, false)
   assert.strictEqual(armorCountMode.perMainStat, false)
+})
+
+test('resolveKeepUniqueRuleLabel prefers trimmed rule names', () => {
+  const rule = makeRule()
+  const label = resolveKeepUniqueRuleLabel({ ...rule, name: '  Demo Rule  ' })
+  assert.strictEqual(label, 'Demo Rule')
+})
+
+test('resolveKeepUniqueRuleLabel falls back to ordinal when metadata is present', () => {
+  const keepRule = makeRule({ id: 'ku_demo' })
+  const injectedRule: HsfRuleWithCfg = {
+    Keep: true,
+    Use: true,
+    IsRuleTypeAND: false,
+    Substats: [],
+    ConfigName: '   ',
+    __keepUniqueRuleId: keepRule.id,
+    __keepUniqueRuleOrdinal: 3,
+  }
+  const label = resolveKeepUniqueRuleLabel(injectedRule)
+  assert.strictEqual(label, '#3')
+})
+
+test('resolveKeepUniqueRuleLabel falls back to rule id when ordinal is missing', () => {
+  const keepRule = makeRule({ id: 'ku_demo' })
+  const injectedRule: HsfRuleWithCfg = {
+    Keep: true,
+    Use: true,
+    IsRuleTypeAND: false,
+    Substats: [],
+    ConfigName: '   ',
+    __keepUniqueRuleId: keepRule.id,
+  }
+  const label = resolveKeepUniqueRuleLabel(injectedRule)
+  assert.strictEqual(label, `#${keepRule.id}`)
 })

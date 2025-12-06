@@ -8,6 +8,7 @@ import {
   type KeepUniqueDetectionSnapshot,
   type KeepUniqueRule,
   computeKeepUniqueProtection,
+  resolveKeepUniqueRuleLabel,
   sanitizeKeepUniqueCountMode,
 } from '../lib/keepUniques'
 import type { TesterPreviewRow } from '../types/testerPreview'
@@ -16,7 +17,7 @@ import { sortTesterRows } from '../lib/testerSort'
 import type { NormalizedGearArtifact } from '../lib/importers/gearDbNormalizer'
 import type { TesterMatchWorkerEvaluateItem, TesterMatchWorkerItemResult } from '../workers/testerMatchWorkerTypes'
 import type { ProgressSnapshot } from '../types/progress'
-import { getRuleConfigIndex } from '../lib/ruleConfigIndex'
+import { getRuleConfigIndex, resolveMatchConfigName } from '../lib/ruleConfigIndex'
 
 export const TESTER_PREVIEW_CHUNK_SIZE = 250
 
@@ -340,13 +341,17 @@ export function useTesterMatchOrchestrator(params: UseTesterMatchOrchestratorPar
       if (!result) return null
       const rule = mergedRules[result.ruleIndex]
       const cfgIdx = result.cfgIdx
-      const cfgName = (cfgIdx != null && cfgIdx >= 0) ? (configNames[cfgIdx] ?? null) : null
+      const cfgName = resolveMatchConfigName(cfgIdx, configNames, rule)
+      const keepUniqueLabel = rule?.__source === RULE_SOURCE_KEEP_UNIQUES
+        ? resolveKeepUniqueRuleLabel(rule)
+        : null
+      const effectiveCfgName = cfgName && cfgName.length > 0 ? cfgName : keepUniqueLabel
       return {
         keep: result.keep,
         cfgIdx: cfgIdx ?? null,
-        cfgName: cfgName && cfgName.length > 0 ? cfgName : null,
+        cfgName: effectiveCfgName && effectiveCfgName.length > 0 ? effectiveCfgName : null,
         ruleIndex: result.ruleIndex,
-        ruleLabel: null,
+        ruleLabel: keepUniqueLabel ?? null,
         ruleSource: rule?.__source ?? null,
       }
     }

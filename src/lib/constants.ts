@@ -84,6 +84,10 @@ export const RULE_COUNT_LIMIT = 35_000
 // Final Sell remainder rows are exempt so the toggle always reflects user intent.
 export const TOTAL_RULE_COUNT_LIMIT = 150_000
 
+// Keep Unique rule metadata: assign ConfigID values at or below this sentinel so they never collide
+// with builder-generated configs (which map to positive IDs).
+export const KEEP_UNIQUE_CONFIG_ID_BASE = -1 as const
+
 // Config chips (builder) height caps
 // Why: Keep the stack layout compact in single-column mode while letting the
 // chips section stretch toward the viewport bottom whenever the wide

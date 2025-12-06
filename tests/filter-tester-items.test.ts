@@ -4,6 +4,7 @@ import assert from 'node:assert/strict'
 import { filterTesterItems, DEFAULT_RULES_FILTER_STATE, type TesterFilterRow, type RulesFilterState, type TesterRollFilterState } from '../src/lib/rulesFilter.js'
 import { ArtifactSet, ArtifactType, StatId, StatVariant } from '../src/lib/types.js'
 import type { NormalizedGearArtifact, NormalizedStat } from '../src/lib/importers/gearDbNormalizer.js'
+import { RULE_SOURCE_FINAL_SELL } from '../src/lib/merge.js'
 
 const makeStat = (variant: StatVariant, value: number, options?: Partial<NormalizedStat>): NormalizedStat => {
   const baseValue = options?.baseValue ?? value
@@ -150,6 +151,42 @@ test('filterTesterItems filters by config name', () => {
   assert.equal(result.items[0]?.match?.cfgIdx, 1)
   assert.equal(result.matchingConfigIndices.has(1), true)
   assert.equal(result.matchingConfigIndices.has(0), false)
+})
+
+test('filterTesterItems matches keep-unique names without config indices', () => {
+  const rows: TesterFilterRow[] = [
+    { artifact: makeArtifact(), match: { keep: true, cfgIdx: null, cfgName: 'Keep Unique Demo' } },
+    { artifact: makeArtifact({ set: ArtifactSet.Immortal }), match: null },
+  ]
+  const state: RulesFilterState = {
+    ...DEFAULT_RULES_FILTER_STATE,
+    configName: { query: 'unique' },
+  }
+  const result = filterTesterItems(rows, state, undefined, { configNames: [] })
+  assert.equal(result.items.length, 1)
+  assert.equal(result.items[0]?.match?.cfgIdx, null)
+})
+
+test('filterTesterItems matches special rule labels like Final Sell chips', () => {
+  const rows: TesterFilterRow[] = [
+    {
+      artifact: makeArtifact(),
+      match: { keep: false, cfgIdx: null, ruleSource: RULE_SOURCE_FINAL_SELL },
+    },
+    { artifact: makeArtifact({ set: ArtifactSet.Immortal }), match: null },
+  ]
+  const state: RulesFilterState = {
+    ...DEFAULT_RULES_FILTER_STATE,
+    configName: { query: 'Final' },
+  }
+  const result = filterTesterItems(
+    rows,
+    state,
+    undefined,
+    { specialRuleLabels: { [RULE_SOURCE_FINAL_SELL]: ['Final Sell'] } },
+  )
+  assert.equal(result.items.length, 1)
+  assert.equal(result.items[0]?.match?.ruleSource, RULE_SOURCE_FINAL_SELL)
 })
 
 test('filterTesterItems filters by tester Keep/Sell result', () => {

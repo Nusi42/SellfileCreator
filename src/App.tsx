@@ -63,13 +63,14 @@ import {
   type HsfRuleWithCfg,
 } from './lib/merge'
 import { buildRuleMatchIndexData, primeRuleMatchIndex } from './lib/ruleMatchIndex'
-import { cloneRuleWithConfigIndex, getRuleConfigIndex } from './lib/ruleConfigIndex'
+import { cloneRuleWithConfigIndex, getRuleConfigIndex, resolveMatchConfigName } from './lib/ruleConfigIndex'
 import {
   buildDefaultKeepUniqueRules,
   type KeepUniqueDetectionSnapshot,
   type KeepUniqueRule,
   resolveKeepUniqueRulesWithMetasets,
   hashKeepUniqueCombination,
+  resolveKeepUniqueRuleLabel,
 } from './lib/keepUniques'
 import { fingerprintConfigForRules, fingerprintSubstatTargets, updateConfigRulesCache } from './lib/ruleCache'
 import { hasConfigMeaningfulDifferences } from './lib/configDiff'
@@ -1024,12 +1025,17 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         if (!result) return null
         const rule = rules[result.ruleIndex]
         const cfgIdx = result.cfgIdx ?? null
+        const cfgName = resolveMatchConfigName(cfgIdx, configNamesForBuild, rule)
+        const keepUniqueLabel = rule?.__source === RULE_SOURCE_KEEP_UNIQUES
+          ? resolveKeepUniqueRuleLabel(rule)
+          : null
+        const effectiveCfgName = cfgName && cfgName.length > 0 ? cfgName : keepUniqueLabel
         return {
           ruleIndex: result.ruleIndex,
           keep: result.keep,
           cfgIdx,
-          cfgName: cfgIdx != null ? (configNamesForBuild[cfgIdx] ?? null) : null,
-          ruleLabel: null,
+          cfgName: effectiveCfgName && effectiveCfgName.length > 0 ? effectiveCfgName : null,
+          ruleLabel: keepUniqueLabel ?? null,
           ruleSource: rule?.__source ?? null,
         }
       }
@@ -1309,6 +1315,13 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     })
   }, [])
   const { t, registerRuntimeCatalog } = useI18n()
+  const testerFinalSellLabel = t('testerFinalSellChip')
+  const specialRuleSourceLabels = useMemo(() => {
+    const trimmed = testerFinalSellLabel.trim()
+    return trimmed.length > 0
+      ? { [RULE_SOURCE_FINAL_SELL]: [trimmed] }
+      : {}
+  }, [testerFinalSellLabel])
   let requestDeleteSingleForSelection: (idx: number) => void = () => {}
   let requestDeleteMultiForSelection: (targets: number[]) => void = () => {}
   const requestDeleteSingleRef = useRef<(idx: number) => void>(() => {})
@@ -2668,12 +2681,19 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
 
   // Manage Colors icon (bitmap), generated once at runtime
   const filterResult = useMemo<FilterHsfRulesResult<HsfRuleWithCfg>>(() => (
-    filterHsfRules(mergedRules, rulesFilter, metasets, { configNames, configModes })
-  ), [mergedRules, rulesFilter, metasets, configNames, configModes])
+    filterHsfRules(mergedRules, rulesFilter, metasets, {
+      configNames,
+      configModes,
+      specialRuleLabels: specialRuleSourceLabels,
+    })
+  ), [mergedRules, rulesFilter, metasets, configNames, configModes, specialRuleSourceLabels])
   const filteredRules = filterResult.rules
   const testerFilterResult = useMemo(() => (
-    filterTesterItems(testerPreviewRows, testerRulesFilter, metasets, { configNames })
-  ), [testerPreviewRows, testerRulesFilter, metasets, configNames])
+    filterTesterItems(testerPreviewRows, testerRulesFilter, metasets, {
+      configNames,
+      specialRuleLabels: specialRuleSourceLabels,
+    })
+  ), [testerPreviewRows, testerRulesFilter, metasets, configNames, specialRuleSourceLabels])
   const testerRowsAfterRulesFilter = testerFilterResult.items
   const testerChampionOptions = useMemo<TesterChampionOption[]>(() => {
     // Cache champion metadata per id so the dropdown can render icons without rescanning rows.
@@ -2943,12 +2963,16 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         )
         if (limitHit) return true
       }
-      const result = filterHsfRules(rulesForConfig, rulesFilter, metasets, { configNames: names, configModes: modes })
+      const result = filterHsfRules(rulesForConfig, rulesFilter, metasets, {
+        configNames: names,
+        configModes: modes,
+        specialRuleLabels: specialRuleSourceLabels,
+      })
       return result.matchingConfigIndices.has(targetIndex)
     } catch {
       return true
     }
-  }, [metasets, substatTargets, rulesByConfig, rulesFilter, configRuleCounts])
+  }, [metasets, substatTargets, rulesByConfig, rulesFilter, configRuleCounts, specialRuleSourceLabels])
 
   const prospectiveInsertIndex = useMemo(() => (
     selectedCfgIdx !== null && selectedCfgIdx >= 0 && selectedCfgIdx < customCfgs.length

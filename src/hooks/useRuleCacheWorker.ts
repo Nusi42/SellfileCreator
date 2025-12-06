@@ -11,13 +11,14 @@ import type { HsfFile } from '../lib/hsfTypes'
 import type { FinalSellRemainderConfig } from '../lib/finalSell'
 import { buildRuleMatchIndexData, primeRuleMatchIndex } from '../lib/ruleMatchIndex'
 import type { RuleMatchIndexData } from '../lib/ruleMatchIndex'
-import { collectKeepUniqueCandidates, computeKeepUniqueProtection, hasActiveKeepUniqueRules, type KeepUniqueDetectionSnapshot, type KeepUniquesMergeInput } from '../lib/keepUniques'
+import { collectKeepUniqueCandidates, computeKeepUniqueProtection, hasActiveKeepUniqueRules, resolveKeepUniqueRuleLabel, type KeepUniqueDetectionSnapshot, type KeepUniquesMergeInput } from '../lib/keepUniques'
 import type { NormalizedGearArtifact } from '../lib/importers/gearDbNormalizer'
 import { evaluateMatchesByConfig } from '../lib/ruleEval'
 import type { TesterMatchWorkerItemResult } from '../workers/testerMatchWorkerTypes'
 import type { ProgressSnapshot } from '../types/progress'
 import { createProgressThrottler } from '../types/progress'
 import type { TesterPreviewMatch } from '../types/testerPreview'
+import { resolveMatchConfigName } from '../lib/ruleConfigIndex'
 
 type WarmCacheParams = {
   configs: BuilderConfig[]
@@ -285,12 +286,17 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
       if (!result) return null
       const rule = rules[result.ruleIndex]
       const cfgIdx = result.cfgIdx ?? null
+      const cfgName = resolveMatchConfigName(cfgIdx, null, rule)
+      const keepUniqueLabel = rule?.__source === RULE_SOURCE_KEEP_UNIQUES
+        ? resolveKeepUniqueRuleLabel(rule)
+        : null
+      const effectiveCfgName = cfgName && cfgName.length > 0 ? cfgName : keepUniqueLabel
       return {
         ruleIndex: result.ruleIndex,
         keep: result.keep,
         cfgIdx,
-        cfgName: null,
-        ruleLabel: null,
+        cfgName: effectiveCfgName && effectiveCfgName.length > 0 ? effectiveCfgName : null,
+        ruleLabel: keepUniqueLabel ?? null,
         ruleSource: rule?.__source ?? null,
       }
     }

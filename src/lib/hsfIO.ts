@@ -13,6 +13,23 @@ import type { HsfRuleWithCfg } from './merge'
 import { dedupeHsfRulesForExport } from './hsfDeduplicate'
 import { getRuleConfigIndex, normalizeConfigName } from './ruleConfigIndex'
 
+// Single source of truth listing every UI-only field attached to merged rules.
+const EXPORT_RULE_METADATA_FIELDS: Array<keyof HsfRuleWithCfg> = [
+  '__lineIdx',
+  '__allKnownSets',
+  '__source',
+  '__rankMask',
+  '__rarityMask',
+  '__keepUniqueRuleId',
+  '__keepUniqueRuleOrdinal',
+  '__keepUniqueHash',
+  '__keepUniqueRequired',
+  '__keepUniqueScanMs',
+  '__keepUniqueProjected',
+  '__keepUniqueDeficit',
+  '__keepUniqueItemKey',
+]
+
 /** Strip UTF‑8 BOM and parse `.hsf` JSON. Ensures a `Rules` array exists. */
 export function parseHsfFile(text: string): HsfFile {
   const clean = text.replace(/^\uFEFF/, '')
@@ -30,11 +47,23 @@ export function parseHsfFile(text: string): HsfFile {
 type ExportableRule = HsfRuleWithCfg
 type ConfigNameList = Array<string | null | undefined>
 
+function stripUiMetadata(rule: ExportableRule): ExportableRule {
+  const cloned = { ...rule }
+  // Drop every UI-only diagnostics field so exports only carry the HSF schema.
+  for (const key of EXPORT_RULE_METADATA_FIELDS) {
+    if (key in cloned) {
+      delete (cloned as Record<string, unknown>)[key as string]
+    }
+  }
+  return cloned
+}
+
 /** Remove UI-only fields (e.g., `__lineIdx`) and wrap in HSF container. */
 export function cleanHsfForExport(rules: ExportableRule[]): HsfFile {
   const cleaned: HsfRule[] = rules.map((r) => {
-    const { __lineIdx, __allKnownSets, __source, ...rest } = r
-    const { ConfigID, ConfigName, ...others } = rest
+    const stripped = stripUiMetadata(r)
+    // Preserve ConfigID/ConfigName ordering for readability while omitting diagnostics.
+    const { ConfigID, ConfigName, ...others } = stripped
     const ordered: HsfRule = {
       ...(ConfigID !== undefined ? { ConfigID } : {}),
       ...(ConfigName !== undefined ? { ConfigName } : {}),
