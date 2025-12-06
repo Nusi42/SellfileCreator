@@ -6,7 +6,7 @@
  * Every block is documented heavily per the orchestration guidelines.
  */
 import { useCallback } from 'react'
-import { diffRuleTesterItems, type RuleTesterItem } from '../lib/ruleTesterSession'
+import { diffRuleTesterItems, isManualTesterItem, type RuleTesterItem } from '../lib/ruleTesterSession'
 import type { TestItem } from '../lib/ruleEval'
 
 /**
@@ -86,7 +86,14 @@ export function useTesterItemsActions(options: UseTesterItemsActionsOptions): Te
     // When items disappeared from the import payload, drop them immediately.
     if (removalItemIds.length > 0) {
       const removalSet = new Set(removalItemIds)
-      setTesterItems((prev) => prev.filter((item) => !removalSet.has(item.itemId)))
+      setTesterItems((prev) => {
+        // Endpoint pushes can race the diff and flag the current manual rows for removal.
+        // Always keep custom gear rows so remote DB refreshes never wipe tester edits.
+        return prev.filter((item) => (
+          isManualTesterItem(item)
+          || !removalSet.has(item.itemId)
+        ))
+      })
     }
     // Always append the desired additions so Gear DB updates mirror manual imports.
     appendTesterRuleItems(additions)
