@@ -546,31 +546,31 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     resolveKeepUniqueRulesWithMetasets(keepUniqueRules, metasets)
   ), [keepUniqueRules, metasets])
   const keepUniquesActive = keepUniquesEnabled && resolvedKeepUniqueRules.length > 0
-  const [testerRowsBuilding, setTesterRowsBuilding] = useState(false)
-  const [testerRowsCommittedBuildId, setTesterRowsCommittedBuildId] = useState(0)
-  const [testerRowsActiveBuildId, setTesterRowsActiveBuildId] = useState(0)
+  const [gearEntriesBuilding, setGearEntriesBuilding] = useState(false)
+  const [gearEntriesCommittedBuildId, setGearEntriesCommittedBuildId] = useState(0)
+  const [gearEntriesActiveBuildId, setGearEntriesActiveBuildId] = useState(0)
   // Track tester-row progress separately so the preview chips can show determinate progress.
-  const [testerRowsProgress, setTesterRowsProgress] = useState<ProgressSnapshot | null>(null)
-  const testerRowsBuildingRef = useRef(testerRowsBuilding)
-  useEffect(() => { testerRowsBuildingRef.current = testerRowsBuilding }, [testerRowsBuilding])
-  const testerRowsCommittedBuildIdRef = useRef(testerRowsCommittedBuildId)
-  useEffect(() => { testerRowsCommittedBuildIdRef.current = testerRowsCommittedBuildId }, [testerRowsCommittedBuildId])
+  const [gearEntriesProgress, setGearEntriesProgress] = useState<ProgressSnapshot | null>(null)
+  const gearEntriesBuildingRef = useRef(gearEntriesBuilding)
+  useEffect(() => { gearEntriesBuildingRef.current = gearEntriesBuilding }, [gearEntriesBuilding])
+  const gearEntriesCommittedBuildIdRef = useRef(gearEntriesCommittedBuildId)
+  useEffect(() => { gearEntriesCommittedBuildIdRef.current = gearEntriesCommittedBuildId }, [gearEntriesCommittedBuildId])
   const testerMatchResetRef = useRef<{ reason: TesterMatchResetReason; targetBuildId: number; startedAt: number } | null>(null)
   const [testerMatchResetReason, setTesterMatchResetReason] = useState<TesterMatchResetReason | null>(null)
   // Track the last keep-unique structural signature so cosmetic edits do not retrigger the pipeline.
   const keepUniqueStructureSigRef = useRef<string | null>(null)
   const beginTesterMatchReset = useCallback((reason: TesterMatchResetReason) => {
     resetKeepUniqueDetectionState()
-    const targetBuildId = testerRowsActiveBuildId > testerRowsCommittedBuildId
-      ? testerRowsActiveBuildId
-      : testerRowsCommittedBuildId + 1
+    const targetBuildId = gearEntriesActiveBuildId > gearEntriesCommittedBuildId
+      ? gearEntriesActiveBuildId
+      : gearEntriesCommittedBuildId + 1
     testerMatchResetRef.current = {
       reason,
       targetBuildId,
       startedAt: Date.now(),
     }
     setTesterMatchResetReason(reason)
-  }, [resetKeepUniqueDetectionState, testerRowsActiveBuildId, testerRowsCommittedBuildId])
+  }, [resetKeepUniqueDetectionState, gearEntriesActiveBuildId, gearEntriesCommittedBuildId])
   const testerMatchDetailsFrozen = Boolean(testerMatchResetReason)
   useEffect(() => {
     if (!testerMatchResetReason) return
@@ -579,14 +579,14 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       if (!pending) setTesterMatchResetReason(null)
       return
     }
-    if (testerRowsActiveBuildId > pending.targetBuildId) {
+    if (gearEntriesActiveBuildId > pending.targetBuildId) {
       pending = {
         ...pending,
-        targetBuildId: testerRowsActiveBuildId,
+        targetBuildId: gearEntriesActiveBuildId,
       }
       testerMatchResetRef.current = pending
     }
-    if (!testerRowsBuilding && testerRowsCommittedBuildId >= pending.targetBuildId) {
+    if (!gearEntriesBuilding && gearEntriesCommittedBuildId >= pending.targetBuildId) {
       testerMatchResetRef.current = null
       setTesterMatchResetReason(null)
       return
@@ -595,11 +595,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     const handleResetCheck = () => {
       const current = testerMatchResetRef.current
       if (!current || current.reason !== testerMatchResetReason) return
-      if (testerRowsBuildingRef.current) {
+      if (gearEntriesBuildingRef.current) {
         timeoutId = setTimeout(handleResetCheck, TESTER_MATCH_RESET_TIMEOUT_MS)
         return
       }
-      const committed = testerRowsCommittedBuildIdRef.current
+      const committed = gearEntriesCommittedBuildIdRef.current
       if (committed >= current.targetBuildId) {
         testerMatchResetRef.current = null
         setTesterMatchResetReason(null)
@@ -612,7 +612,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     return () => {
       if (timeoutId !== null) clearTimeout(timeoutId)
     }
-  }, [testerMatchResetReason, testerRowsCommittedBuildId, testerRowsBuilding, testerRowsActiveBuildId])
+  }, [testerMatchResetReason, gearEntriesCommittedBuildId, gearEntriesBuilding, gearEntriesActiveBuildId])
   const exportBaselineResetRef = useRef(false)
   const { forceSideBySide: forceSideBySideLayout } = useAutoSideBySideZoom()
   const {
@@ -736,13 +736,13 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const [workloadProgressRatio, setWorkloadProgressRatio] = useState(0)
   const workloadSpinnerHangTimeoutRef = useRef<number | null>(null)
   const rulesWorkloadRatio = rulesBuilding ? clampProgressRatio(rulesBuildProgress) : 0
-  const testerWorkloadRatio = testerRowsBuilding ? clampProgressRatio(testerRowsProgress) : 0
+  const testerWorkloadRatio = gearEntriesBuilding ? clampProgressRatio(gearEntriesProgress) : 0
   const workloadDeterminateRatio = Math.max(rulesWorkloadRatio, testerWorkloadRatio)
-  const workloadBusy = rulesBuilding || testerRowsBuilding
+  const workloadBusy = rulesBuilding || gearEntriesBuilding
   // Freeze config names to the last committed snapshot while rows build so displayed indices do not shift mid-run.
   const configNamesForGrid = useMemo(
-    () => ((rulesBuilding || testerRowsBuilding) ? lastConfigNamesRef.current : configNamesForPreview),
-    [rulesBuilding, testerRowsBuilding, configNamesForPreview],
+    () => ((rulesBuilding || gearEntriesBuilding) ? lastConfigNamesRef.current : configNamesForPreview),
+    [rulesBuilding, gearEntriesBuilding, configNamesForPreview],
   )
   // Keep tester chip labels in sync with the frozen config-name snapshot so chips never display mid-build indices.
   const testerConfigNamesForGrid = useMemo(() => configNamesForGrid.map((name) => {
@@ -962,9 +962,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       lastWarmFingerprintRef.current = nextFingerprint
       // Avoid flashing the preview spinner when we served this entirely from the cache.
       setRulesBuilding(false)
-      setTesterRowsBuilding(false)
+      setGearEntriesBuilding(false)
       setRulesBuildProgress(null)
-      setTesterRowsProgress(null)
+      setGearEntriesProgress(null)
       if (prevMatches && prevMatches.length > 0) {
         const remapCfgIdx = (cfgIdx: number | null): number | null => {
           if (cfgIdx == null) return null
@@ -1008,11 +1008,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     const launchPipeline = () => {
       const requestToken = (rulesBuildingTokenRef.current ?? 0) + 1
       rulesBuildingTokenRef.current = requestToken
-      setTesterRowsActiveBuildId(requestToken)
+      setGearEntriesActiveBuildId(requestToken)
       setRulesBuilding(true)
-      setTesterRowsBuilding(true)
+      setGearEntriesBuilding(true)
       setRulesBuildProgress(null)
-      setTesterRowsProgress(null)
+      setGearEntriesProgress(null)
 
       const keepUniquesPayload = {
         enabled: keepUniquesEnabled && resolvedKeepUniqueRules.length > 0,
@@ -1105,7 +1105,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         onProgress: (progress) => {
           if (requestToken !== rulesBuildingTokenRef.current) return
           setRulesBuildProgress(progress)
-          setTesterRowsProgress(progress)
+          setGearEntriesProgress(progress)
         },
       })
         .then((result) => {
@@ -1155,8 +1155,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             })
           }
           setTesterPreviewRows(sortTesterRows(rows))
-          setTesterRowsCommittedBuildId(requestToken)
-          setTesterRowsActiveBuildId(requestToken)
+          setGearEntriesCommittedBuildId(requestToken)
+          setGearEntriesActiveBuildId(requestToken)
           const uniqueKeys = new Set<number>()
           if (detection?.entries) {
             for (const entry of detection.entries) {
@@ -1197,7 +1197,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                 onProgress: (progress) => {
                   if (requestToken !== rulesBuildingTokenRef.current) return
                   setRulesBuildProgress(progress)
-                  setTesterRowsProgress(progress)
+                  setGearEntriesProgress(progress)
                 },
               },
             )
@@ -1245,8 +1245,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                   })
                 }
                 setTesterPreviewRows(sortTesterRows(retryRows))
-                setTesterRowsCommittedBuildId(requestToken)
-                setTesterRowsActiveBuildId(requestToken)
+                setGearEntriesCommittedBuildId(requestToken)
+                setGearEntriesActiveBuildId(requestToken)
                 const retryUniqueKeys = new Set<number>()
                 if (retryDetection?.entries) {
                   for (const entry of retryDetection.entries) {
@@ -1276,9 +1276,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         .finally(() => {
           if (requestToken !== rulesBuildingTokenRef.current) return
           setRulesBuilding(false)
-          setTesterRowsBuilding(false)
+          setGearEntriesBuilding(false)
           setRulesBuildProgress(null)
-          setTesterRowsProgress(null)
+          setGearEntriesProgress(null)
         })
     }
 
@@ -2850,7 +2850,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       specialRuleLabels: specialRuleSourceLabels,
     })
   ), [testerPreviewRows, testerRulesFilter, metasets, configNames, specialRuleSourceLabels])
-  const testerRowsAfterRulesFilter = testerFilterResult.items
+  const gearEntriesAfterRulesFilter = testerFilterResult.items
   const testerChampionOptions = useMemo<TesterChampionOption[]>(() => {
     // Cache champion metadata per id so the dropdown can render icons without rescanning rows.
     const map = new Map<number, TesterChampionOption>()
@@ -2902,16 +2902,16 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     if (!selectedCfgIndices.length) return null
     return new Set(selectedCfgIndices)
   }, [testerConfigFilterActive, selectedCfgIndices])
-  const testerRowsForTable = useMemo(() => {
-    let rows: TesterPreviewRow[] = testerRowsAfterRulesFilter
+  const gearEntriesForTable = useMemo(() => {
+    let rows: TesterPreviewRow[] = gearEntriesAfterRulesFilter
     if (testerConfigFilterSelectedSet && testerConfigFilterSelectedSet.size > 0) {
       if (testerConfigFilterMode === 'first') {
-        rows = testerRowsAfterRulesFilter.filter((row) => {
+        rows = gearEntriesAfterRulesFilter.filter((row) => {
           const cfgIdx = row.match?.cfgIdx
           return cfgIdx != null && testerConfigFilterSelectedSet.has(cfgIdx)
         })
       } else {
-        rows = testerRowsAfterRulesFilter.filter((row) => {
+        rows = gearEntriesAfterRulesFilter.filter((row) => {
           const matches = row.matchingCfgIndices ?? []
           for (const cfgIdx of matches) {
             if (testerConfigFilterSelectedSet.has(cfgIdx)) return true
@@ -2921,13 +2921,13 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       }
     }
     return sortTesterRows(rows)
-  }, [testerConfigFilterMode, testerConfigFilterSelectedSet, testerRowsAfterRulesFilter])
+  }, [testerConfigFilterMode, testerConfigFilterSelectedSet, gearEntriesAfterRulesFilter])
   const hasManualTesterRows = useMemo(() => (
     testerPreviewRows.some((row) => row.artifact.source === 'tester')
   ), [testerPreviewRows])
   const suppressTesterMatchDetails = testerMatchDetailsFrozen
-    || testerRowsBuilding
-  const testerBuilding = testerRowsBuilding || rulesBuilding
+    || gearEntriesBuilding
+  const testerBuilding = gearEntriesBuilding || rulesBuilding
   const matchingConfigIndices = filterResult.matchingConfigIndices
   const testerMatchingConfigIndices = testerFilterResult.matchingConfigIndices
   const chipMatchingConfigIndices = previewMode === 'tester'
@@ -4259,7 +4259,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         filtersSynced={filtersSynced}
         onToggleFiltersSynced={handleToggleFiltersSynced}
         testerCount={testerItems.length}
-        testerFilteredCount={testerRowsForTable.length}
+        testerFilteredCount={gearEntriesForTable.length}
         gearDbCommandError={gearDbCommandError}
         onClearGearDbCommandError={clearGearDbCommandError}
         gearDbCommandSuccess={gearDbCommandSuccess}
@@ -4297,7 +4297,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                   sx={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: '50%', pointerEvents: 'none' }}
                 />
                 <TesterItemsGrid
-                  rows={testerRowsForTable}
+                  rows={gearEntriesForTable}
                   filterActive={testerFilterActive || testerConfigFilterActive}
                   substatColors={substatColors}
                   useStatButtonColors={statButtonBorders}
@@ -4582,7 +4582,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         keepUniquesEnabled={keepUniquesEnabled}
         onKeepUniquesEnabledChange={setKeepUniquesEnabled}
         keepUniqueDetection={keepUniqueDetection}
-        testerRows={testerPreviewRows}
+        gearEntries={testerPreviewRows}
         keepUniqueItemKeys={keepUniqueGroupItemKeys}
         substatColors={substatColors}
         useStatButtonColors={statButtonBorders}

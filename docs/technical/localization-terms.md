@@ -9,7 +9,7 @@ This document captures the current vocabulary for the Rule Tester / Keep Uniques
   * `tabKeepUniques` / `keepUniquesTabLabel`: “Keep Uniques” (tab, hint, intro, toggle, counts, etc.).
   * `filterGlyphs` group (`filterGlyphs`, `filterGlyphsAny`, `On`, `Off`, `Selected`, tooltip) and `filterRollsWildcardTitle`: all English.
   * `tutSectionRuleTesterLabel`: “Rule Tester” alongside the other tutorial section labels (Basics, Advanced, Metasets, Config Chips, Final Sell, Save & Export, Auto + Late).
-- **Glyph wording**: README describes tester rows as “Substats (with glyphs and rolls)” and the filter tooltip references glyph states.
+- **Glyph wording**: README describes the gear entries as “Substats (with glyphs and rolls)” and the filter tooltip references glyph states.
 - **Wildcard wording**: The “Wildcards with Min Required” examples and the “Wildcard requirement” helper text are written in English, matching the catalog key.
 - **Notes**: No conflicts yet; catalogs already match README for Rule Tester wording. Keep Uniques needs README coverage once the feature copy is written so the term can be referenced consistently. UI labels now follow a strict title-case style (menus, buttons, toggle labels, status chips) while tooltips and paragraph copy stay in sentence case—mirror this split when editing English strings or seeding new locales so button text doesn’t drift into sentence case over time.
 

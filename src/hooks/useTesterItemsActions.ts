@@ -75,7 +75,7 @@ export function useTesterItemsActions(options: UseTesterItemsActionsOptions): Te
    * Returns a summary so the caller can toast how many artifacts changed.
    */
   const applyGearDbDiff = useCallback((desiredTesterItems: TestItem[]): GearDbDiffSummary => {
-    // Compute which tester rows should leave or join the preview grid.
+    // Compute which gear entries should leave or join the preview grid.
     const { removalItemIds, additions } = diffRuleTesterItems(
       testerItemsRef.current,
       desiredTesterItems,
