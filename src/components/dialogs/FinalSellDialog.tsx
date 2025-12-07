@@ -218,7 +218,7 @@ export default function FinalSellDialog(props: FinalSellDialogProps) {
             indicatorColor="primary"
           >
             <Tab value={FINAL_SELL_DIALOG_TAB_FINAL_SELL} label={t('testerFinalSell')} />
-            <Tab value={FINAL_SELL_DIALOG_TAB_GEAR} label={t('testerTitle')} />
+            <Tab value={FINAL_SELL_DIALOG_TAB_GEAR} label={t('tabFinalSellGear')} />
             <Tab
               value={FINAL_SELL_DIALOG_TAB_KEEP_UNIQUES}
               label={t('tabKeepUniques')}
