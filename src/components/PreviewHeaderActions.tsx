@@ -5,7 +5,6 @@ import {
   ELLIPSIS_TEXT_SX,
   FINAL_SELL_BUTTON_MIN_WIDTH_PX,
   FINAL_SELL_BUTTON_WIDTH_PX,
-  LONG_LABEL_BUTTON_MAX_WIDTH_PX,
   SMALL_BUTTON_HEIGHT_PX,
   CLEAR_ICON_BUTTON_SIZE_PX,
   FILTER_HEADER_LABEL_MAX_WIDTH_PX,
@@ -702,10 +701,11 @@ export default function PreviewHeaderActions(props: {
               <MarkdownTooltip markdown={exportTooltip}>
               <DirtyBadge
                 active={hsfDirty}
-                sx={{ display: 'inline-flex', flexShrink: 0, ml: 1 }}
+                sx={{ display: 'flex', flexShrink: 1, minWidth: 0, ml: 1 }}
               >
                 <Box
                   component="span"
+                  sx={{ display: 'flex', flex: 1, minWidth: 0 }}
                   onMouseEnter={(event) => {
                     if (!exportMenuEnabled || !showExportHint) return
                     setExportHintPos({ x: event.clientX, y: event.clientY })
@@ -730,13 +730,26 @@ export default function PreviewHeaderActions(props: {
                 >
                   <Button
                     startIcon={<SaveIcon />}
-                    sx={{ whiteSpace: 'nowrap', px: 1.25, maxWidth: LONG_LABEL_BUTTON_MAX_WIDTH_PX, overflow: 'hidden' }}
+                    sx={{
+                      whiteSpace: 'nowrap',
+                      px: 1.25,
+                      minWidth: 0,
+                      maxWidth: 320,
+                      overflow: 'hidden',
+                      flex: 1,
+                      display: 'flex',
+                      justifyContent: 'center',
+                    }}
                     onClick={onExport}
                     disabled={exportDisabled}
                     data-tour-id="hsf.export"
                     aria-label={exportLabel}
                   >
-                    <Typography component="span" noWrap sx={ELLIPSIS_TEXT_SX}>{exportLabel}</Typography>
+                    <EllipsisTooltip title={exportLabel}>
+                      <Typography component="span" noWrap sx={ELLIPSIS_TEXT_SX}>
+                        {exportLabel}
+                      </Typography>
+                    </EllipsisTooltip>
                   </Button>
                 </Box>
               </DirtyBadge>
@@ -745,10 +758,11 @@ export default function PreviewHeaderActions(props: {
           ) : (
             <DirtyBadge
               active={hsfDirty}
-              sx={{ display: 'inline-flex', flexShrink: 0, ml: 1 }}
+              sx={{ display: 'flex', flexShrink: 1, ml: 1, minWidth: 0 }}
             >
               <Box
                 component="span"
+                sx={{ display: 'flex', flex: 1, minWidth: 0 }}
                 onMouseEnter={(event) => {
                   if (!exportMenuEnabled || !showExportHint) return
                   setExportHintPos({ x: event.clientX, y: event.clientY })
@@ -773,13 +787,26 @@ export default function PreviewHeaderActions(props: {
               >
                 <Button
                   startIcon={<SaveIcon />}
-                  sx={{ whiteSpace: 'nowrap', px: 1.25, maxWidth: LONG_LABEL_BUTTON_MAX_WIDTH_PX, overflow: 'hidden' }}
+                  sx={{
+                    whiteSpace: 'nowrap',
+                    px: 1.25,
+                    minWidth: 0,
+                    maxWidth: 320,
+                    overflow: 'hidden',
+                    flex: 1,
+                    display: 'flex',
+                    justifyContent: 'center',
+                  }}
                   onClick={onExport}
                   disabled={exportDisabled}
                   data-tour-id="hsf.export"
                   aria-label={exportLabel}
                 >
-                  <Typography component="span" noWrap sx={ELLIPSIS_TEXT_SX}>{exportLabel}</Typography>
+                  <EllipsisTooltip title={exportLabel}>
+                    <Typography component="span" noWrap sx={ELLIPSIS_TEXT_SX}>
+                      {exportLabel}
+                    </Typography>
+                  </EllipsisTooltip>
                 </Button>
               </Box>
             </DirtyBadge>
