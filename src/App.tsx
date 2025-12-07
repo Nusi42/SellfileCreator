@@ -288,6 +288,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const [hsf, setHsf] = useState<HsfFile | null>(null)
   // Shared app state via context — reduces prop drilling and keeps behavior consistent.
   const { customCfgs, selectedCfgIdx, metasets, substatTargets, finalSellRemainder, finalSellDialogTab, hsfcNote, keepUniqueRules, keepUniquesEnabled } = useAppState()
+  const customCfgsRef = useRef(customCfgs)
+  useEffect(() => { customCfgsRef.current = customCfgs }, [customCfgs])
   const {
     setCustomCfgs,
     setSelectedCfgIdx: setSelectedCfgIdxRaw,
@@ -2086,6 +2088,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const rulesByConfig = configRulesState.rulesByConfig
   const configRuleCounts = configRulesState.countsByConfig
   const mergedRules = configRulesState.mergedRules
+  const mergedRulesRef = useRef(mergedRules)
+  useEffect(() => { mergedRulesRef.current = mergedRules }, [mergedRules])
   const truncatedConfigIndices = configRulesState.truncatedConfigIndices
   const totalLimitHit = configRulesState.totalLimitHit
   const limitExceeded = totalLimitHit || truncatedConfigIndices.length > 0
@@ -2211,25 +2215,24 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     () => (omitDisabledForExport ? mergedRules.filter((rule) => rule?.Use !== false) : mergedRules),
     [mergedRules, omitDisabledForExport],
   )
+  const exportRulesCountRef = useRef(exportRules.length)
+  useEffect(() => { exportRulesCountRef.current = exportRules.length }, [exportRules.length])
   const hsfExportPayload = useMemo(
     () => buildHsfFileFromMerged(exportRules, { configNames }),
     [exportRules, configNames],
   )
-  const hsfExportPayloadDeduped = useMemo(
-    () => buildDedupedHsfFileFromMerged(exportRules, { configNames }),
-    [exportRules, configNames],
-  )
-  const activeExportPayload = useMemo(
-    () => (dedupeDefault ? hsfExportPayloadDeduped : hsfExportPayload),
-    [dedupeDefault, hsfExportPayload, hsfExportPayloadDeduped],
-  )
+  const buildDedupedExportPayload = useCallback(() => (
+    buildDedupedHsfFileFromMerged(exportRules, { configNames })
+  ), [configNames, exportRules])
   const hsfExportSig = useMemo(() => {
     try {
-      return JSON.stringify(activeExportPayload)
+      return JSON.stringify(hsfExportPayload)
     } catch {
       return ''
     }
-  }, [activeExportPayload])
+  }, [hsfExportPayload])
+  const hsfExportSigRef = useRef(hsfExportSig)
+  useEffect(() => { hsfExportSigRef.current = hsfExportSig }, [hsfExportSig])
   const [lastExportSig, setLastExportSig] = useState<string | null>(null)
   // Establish the export signature baseline after resets or first render to track unsaved changes.
   useEffect(() => {
@@ -2240,9 +2243,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   }, [hsfExportSig, lastExportSig])
   const hsfDirty = useMemo(() => lastExportSig !== null && hsfExportSig !== lastExportSig, [hsfExportSig, lastExportSig])
   const handleExportDeduped = useCallback(() => {
-    if (!exportRules.length) return
+    if (!exportRulesCountRef.current) return
     try {
-      const blob = hsfToBlob(hsfExportPayloadDeduped)
+      const blob = hsfToBlob(buildDedupedExportPayload())
       const filename = `Sellfile_deduped_${buildTimestamp()}.hsf`
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
@@ -2250,14 +2253,14 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       a.download = filename
       a.click()
       URL.revokeObjectURL(url)
-      setLastExportSig(hsfExportSig)
+      setLastExportSig(hsfExportSigRef.current)
       showToast(t('toastSellfileSaved'))
     } catch (err) {
       if (import.meta.env.DEV) {
         console.error('Failed to export deduped sellfile', err)
       }
     }
-  }, [exportRules.length, hsfExportPayloadDeduped, hsfExportSig, setLastExportSig, showToast, t])
+  }, [buildDedupedExportPayload, setLastExportSig, showToast, t])
   const handleSetDedupeDefault = useCallback((next: boolean) => {
     setDedupeDefault(Boolean(next))
   }, [setDedupeDefault])
@@ -2954,21 +2957,24 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       return cfgIdx !== null && testerConfigFilterSelectedSet.has(cfgIdx)
     })
   }, [filterActive, filteredRules, mergedRules, testerConfigFilterSelectedSet])
+  const hsfRulesForTableRef = useRef(hsfRulesForTable)
+  useEffect(() => { hsfRulesForTableRef.current = hsfRulesForTable }, [hsfRulesForTable])
   const hsfTableEmptyDueToFilters = (filterActive || testerConfigFilterActive) && mergedRules.length > 0 && hsfRulesForTable.length === 0
   const handleTesterRuleView = useCallback((ruleIndex: number, cfgIdx: number | null) => {
     setTesterOpen(false)
-    const hasValidConfig = cfgIdx != null && cfgIdx >= 0 && cfgIdx < customCfgs.length
+    const cfgSnapshot = customCfgsRef.current
+    const hasValidConfig = cfgIdx != null && cfgIdx >= 0 && cfgIdx < cfgSnapshot.length
     if (hasValidConfig) {
       const targetCfgIdx = Number(cfgIdx)
       syncSelectedCfgIdx(targetCfgIdx, { forceSync: true })
-      const cfg = customCfgs[targetCfgIdx]
+      const cfg = cfgSnapshot[targetCfgIdx]
       if (cfg) setBuilder(cfg)
     } else {
       setPreviewMode('rules')
     }
     try {
-      const targetRule = mergedRules[ruleIndex]
-      const effectiveRules = hsfRulesForTable
+      const targetRule = mergedRulesRef.current[ruleIndex]
+      const effectiveRules = hsfRulesForTableRef.current
       const idxInEffective = targetRule ? effectiveRules.indexOf(targetRule) : -1
       if (idxInEffective >= 0) {
         setFocusRuleIndex(idxInEffective)
@@ -2978,7 +2984,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     } catch {
       setFocusRuleIndex(null)
     }
-  }, [customCfgs, hsfRulesForTable, mergedRules, setBuilder, setFocusRuleIndex, setPreviewMode, setTesterOpen, syncSelectedCfgIdx])
+  }, [setBuilder, setFocusRuleIndex, setPreviewMode, setTesterOpen, syncSelectedCfgIdx])
   const visibleConfigIndices = useMemo<Set<number> | null>(() => {
     if (!limitConfigsToFiltered) return null
     const indices = new Set(chipMatchingConfigIndices)
@@ -4189,7 +4195,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         onToggleOmitDisabled={handleSetOmitDisabled}
         onExportDeduped={handleExportDeduped}
         onExport={async () => {
-          const payload = activeExportPayload
+          const payload = dedupeDefault ? buildDedupedExportPayload() : hsfExportPayload
           const blob = hsfToBlob(payload)
           const filename = sellfileFilename()
           const target = pushExportEndpoint
