@@ -10,11 +10,15 @@ import { createLocalStorageStateHook, createLocalStorageStore } from './localSto
 
 export type KeepUniquesGridFilterMode = 'all' | 'selection'
 
+export const sanitizeKeepUniquesGridFilterMode = (raw: unknown): KeepUniquesGridFilterMode => (
+  raw === 'selection' ? 'selection' : 'all'
+)
+
 const keepUniquesGridFilterStore = createLocalStorageStore<KeepUniquesGridFilterMode>({
   key: KEEP_UNIQUES_GRID_FILTER_KEY,
   fallback: 'all',
-  parse: (raw) => (raw === 'selection' ? 'selection' : 'all'),
-  serialize: (value) => (value === 'selection' ? 'selection' : 'all'),
+  parse: (raw) => sanitizeKeepUniquesGridFilterMode(raw ?? null),
+  serialize: (value) => sanitizeKeepUniquesGridFilterMode(value),
 })
 
 export const useKeepUniquesGridFilterMode = createLocalStorageStateHook(keepUniquesGridFilterStore)

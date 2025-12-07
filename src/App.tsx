@@ -198,6 +198,7 @@ import {
   cloneDefaultRulesFilterCollapsed,
   type CollapsedSections,
 } from './state/rulesFilterPersistence'
+import { useKeepUniquesGridFilterMode, sanitizeKeepUniquesGridFilterMode } from './state/keepUniquesPreferences'
 import { useSellfileDedupPreference, useSellfileOmitDisabledPreference } from './state/exportPreferences'
 import { useHsfcDialogs } from './hooks/useHsfcDialogs'
 import { useHsfcHistoryController } from './hooks/useHsfcHistoryController'
@@ -297,6 +298,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setKeepUniqueRules,
     setKeepUniquesEnabled,
   } = useAppActions()
+  const [keepUniquesGridFilterMode, setKeepUniquesGridFilterMode] = useKeepUniquesGridFilterMode()
   const { runPipeline, flush: flushRuleCache, countRules } = useRuleCacheWorker()
   const { statButtonBorders } = useDisplayPreferences()
   const [autoApplySelectedConfig] = useAutoApplySelectedConfigPreference()
@@ -2331,6 +2333,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     keepUniqueRules,
     keepUniquesEnabled,
     finalSellDialogTab,
+    keepUniquesGridFilterMode,
   })
   const currentMetasetSignature = useMemo(() => metasetsSignature(metasets), [metasets])
   const currentTargetsSignature = useMemo(() => substatTargetsSignature(substatTargets), [substatTargets])
@@ -2800,10 +2803,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     return {
       ...base,
       FinalSellDialogTab: finalSellDialogTab, // Persist the active tab so the dialog re-opens where the user left off.
+      KeepUniquesGridFilterMode: keepUniquesGridFilterMode,
       AutosaveSavedAt: new Date().toISOString(),
       ...(filtersPayload ? { Filters: filtersPayload } : {}),
     }
-  }, [metasets, substatTargets, customCfgs, finalSellRemainder, hsfcNote, autosaveFiltersState, keepUniqueRules, keepUniquesEnabled, finalSellDialogTab])
+  }, [metasets, substatTargets, customCfgs, finalSellRemainder, hsfcNote, autosaveFiltersState, keepUniqueRules, keepUniquesEnabled, finalSellDialogTab, keepUniquesGridFilterMode])
   useAutosave({
     key: AUTOSAVE_KEY,
     payload: autosavePayload,
@@ -4538,6 +4542,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
               ? savedAutosaveTab
               : FINAL_SELL_DIALOG_TAB_FINAL_SELL
             setFinalSellDialogTab(normalizedTab)
+          }
+          if (draft?.KeepUniquesGridFilterMode) {
+            setKeepUniquesGridFilterMode(sanitizeKeepUniquesGridFilterMode(draft.KeepUniquesGridFilterMode))
           }
           if (selection.configs) {
             if (Array.isArray(draft?.KeepUniques)) setKeepUniqueRules(draft.KeepUniques)
