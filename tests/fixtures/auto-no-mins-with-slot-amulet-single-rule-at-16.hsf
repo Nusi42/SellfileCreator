@@ -3,15 +3,15 @@
     "Keep": true,
     "IsRuleTypeAND": false,
     "Use": true,
+    "ArtifactType": [
+      8
+    ],
     "Rank": 0,
     "Rarity": 0,
     "MainStatID": -1,
     "MainStatF": 1,
     "LVLForCheck": 16,
     "Faction": 0,
-    "ArtifactType": [
-      8
-    ],
     "Substats": [
       {
         "ID": -1,

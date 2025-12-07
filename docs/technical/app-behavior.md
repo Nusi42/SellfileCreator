@@ -16,7 +16,7 @@ This document captures runtime behavior, builder interactions, and user-facing w
 - Builder outputs (HSF):
   - Always include `Rank`, `Rarity`, and `Faction` (0 = Any).
   - Always include `ArtifactSet` and `ArtifactType` (emit `[]` when unfiltered).
-  - Export order keeps `ArtifactSet`/`ArtifactType` immediately after `Faction` and before `Substats` (mirrors shipping `.hsf` samples for readability).
+  - Export order emits `ArtifactSet` (before `ArtifactType`) directly ahead of `Rank` so the legacy `.hsf` diffs stay stable; substat tuples always declare `NotAvailable` before `Condition`.
   - Emits rules only for milestone levels within an explicit window `[minLevel..maxLevel]` (inclusive). Levels are 0/4/8/12/16.
   - Levels where the selected `minCount` substats cannot physically exist for the item’s rarity (e.g., Epic has only 3 substats before +16) are skipped.
   - `Substats` always contains 4 entries (selected + padded).
