@@ -120,7 +120,7 @@ This document captures runtime behavior, builder interactions, and user-facing w
 ### Final Sell dialog integration
 
 - `FinalSellDialog` is now tabbed: `Final Sell` retains the legacy layout, while `Keep Uniques` renders the gear-combination editor plus mirrored tester grid inside the same shell dimensions (`min(960px, 100vw - 32px)` × `min(800px, 100vh - 48px)`).
-- The active tab is tracked via `finalSellDialogTab` so autosave, clipboard, and undo/redo restore whichever side the user left open; new sessions default to `Final Sell`.
+- The active tab is tracked via `finalSellDialogTab` so autosave, clipboard, and undo/redo restore whichever section (Final Sell, Gear, or Keep Uniques) the user left open; new sessions still default to `Final Sell`.
 - Factory defaults seed two named rules: **Rare+ Accessories (5–6★)** is enabled and covers Rings/Amulets/Banners across every accessory-compatible set; **Utility Sets (5–6★)** is disabled and scopes to 6★ Legendary/Mythical Stun/Toxic/Cursed/Provoke/Destroy armor pieces.
 - Factory default: a new session (or reset) preselects the standard 0/4/8/12 ranges but turns both Artifacts and Accessories off so nothing sells until the user opts in. The quick toggle flips both gear types on (and keeps the ranges) the first time Final Sell is enabled without manual selections.
 - Keep Uniques exposes its own Reset button. It clears the combination list and disables the feature without touching Final Sell settings, so the two tabs never stomp each other’s defaults.

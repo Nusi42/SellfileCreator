@@ -15,12 +15,15 @@ export const FINAL_SELL_SETS_MODE_EXPLICIT: FinalSellSetsMode = 'explicit'
 export const FINAL_SELL_DEFAULT_SETS_MODE: FinalSellSetsMode = FINAL_SELL_SETS_MODE_ANY
 
 // Dialog tabs stay canonical so autosave/history handlers can share the same tokens.
-export type FinalSellDialogTab = 'finalSell' | 'keepUniques'
+export type FinalSellDialogTab = 'finalSell' | 'gear' | 'keepUniques'
 export const FINAL_SELL_DIALOG_TAB_FINAL_SELL: FinalSellDialogTab = 'finalSell'
+// Gear tab id lives here ahead of embedding the gear editor content.
+export const FINAL_SELL_DIALOG_TAB_GEAR: FinalSellDialogTab = 'gear'
 export const FINAL_SELL_DIALOG_TAB_KEEP_UNIQUES: FinalSellDialogTab = 'keepUniques'
 // Stable ordering helps consumers clamp restored values to a supported tab id.
 export const FINAL_SELL_DIALOG_TABS: readonly FinalSellDialogTab[] = [
   FINAL_SELL_DIALOG_TAB_FINAL_SELL,
+  FINAL_SELL_DIALOG_TAB_GEAR,
   FINAL_SELL_DIALOG_TAB_KEEP_UNIQUES,
 ] as const
 
