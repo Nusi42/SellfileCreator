@@ -970,7 +970,7 @@ export const Faction = {
   BannerLords: 1,
   HighElves: 2,
   SacredOrder: 3,
-  Barbarians: 4,
+  Barbarians: 13,
   OgrynTribes: 5,
   Lizardmen: 6,
   Skinwalkers: 7,
@@ -979,9 +979,9 @@ export const Faction = {
   UndeadHordes: 10,
   DarkElves: 11,
   KnightRevenant: 12,
-  Dwarves: 13,
-  Shadowkin: 14,
-  SylvanWatchers: 15,
+  Dwarves: 16,
+  Shadowkin: 15,
+  SylvanWatchers: 14,
 } as const
 
 // eslint-disable-next-line no-redeclare -- expose the Faction identifier in both namespaces

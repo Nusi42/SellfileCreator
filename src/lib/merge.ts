@@ -359,6 +359,7 @@ export function buildFinalSellRules(finalSellRemainder: FinalSellRemainderConfig
       const allSets = useExplicitSets
         ? Array.from(new Set<number>([ACCESSORY_NO_SET_ID, ...Object.keys(artifactSetNames).map(Number)])).sort(compareArtifactSets)
         : []
+      // Export helpers: emit sets/types immediately before the rank payload for readability.
       const mkRule = (types: number[], useFlag: boolean): HsfRule => ({
         Keep: false,
         IsRuleTypeAND: false,
@@ -432,8 +433,8 @@ const buildKeepUniqueSubstats = (substats: KeepUniqueDetectionEntry['artifacts']
       ID: id,
       Value: Math.max(0, Number(sub.value)),
       IsFlat: isFlat ?? true,
-      Condition: '>=',
       NotAvailable: false,
+      Condition: '>=',
     }
     idx += 1
   }
@@ -514,20 +515,24 @@ const buildKeepUniquePlaceholderRules = ({
         for (const faction of factionOptions) {
           for (const mainVariant of mainVariants) {
             const mainTuple = variantToMain(mainVariant ?? StatVariant.Any)
+            const artifactSetPayload = setValues.length
+              ? { ArtifactSet: setValues.map(Number).sort((a, b) => compareArtifactSets(a as ArtifactSetId, b as ArtifactSetId)) }
+              : {}
+            const artifactTypePayload = slotValues.length ? { ArtifactType: slotValues.map(Number) } : {}
             const keepRule: HsfRuleWithCfg = {
               Keep: true,
               IsRuleTypeAND: false,
               Use: true,
               ConfigID: configId,
               ...(normalizedName ? { ConfigName: normalizedName } : {}),
+              ...artifactSetPayload,
+              ...artifactTypePayload,
               Rank: rankVariant == null ? RankCode.Any : clampRankOrRarityValue(rankVariant),
               Rarity: rarityVariant == null ? RarityCode.Any : rarityValueToCode(rarityVariant),
               MainStatID: mainTuple.id,
               MainStatF: Number.isFinite(mainTuple.f) ? Number(mainTuple.f) : 1,
               LVLForCheck: LEVEL_ANY_SENTINEL,
               Faction: faction,
-              ...(slotValues.length ? { ArtifactType: slotValues.map(Number) } : {}),
-              ...(setValues.length ? { ArtifactSet: setValues.map(Number).sort((a, b) => compareArtifactSets(a as ArtifactSetId, b as ArtifactSetId)) } : {}),
               Substats: buildKeepUniqueSubstats([]),
               __source: RULE_SOURCE_KEEP_UNIQUES,
               __keepUniqueRuleId: rule.id,
@@ -590,20 +595,22 @@ export const buildKeepUniqueRules = (
           if (emitted.has(artifactKey)) continue
           emitted.add(artifactKey)
           const mainTuple = variantToMain(artifact.mainStat)
+          const artifactSetPayload = { ArtifactSet: [Number(artifact.set)] }
+          const artifactTypePayload = { ArtifactType: [Number(artifact.slot)] }
           const keepRule: HsfRuleWithCfg = {
             Keep: true,
             IsRuleTypeAND: false,
             Use: true,
             ConfigID: configId,
             ...(normalizedName ? { ConfigName: normalizedName } : {}),
+            ...artifactSetPayload,
+            ...artifactTypePayload,
             Rank: clampRankOrRarityValue(artifact.rank),
             Rarity: rarityValueToCode(artifact.rarity),
             MainStatID: mainTuple.id,
             MainStatF: Number.isFinite(mainTuple.f) ? Number(mainTuple.f) : 1,
             LVLForCheck: level ?? LEVEL_ANY_SENTINEL,
             Faction: artifact.faction ?? 0,
-            ArtifactType: [Number(artifact.slot)],
-            ArtifactSet: [Number(artifact.set)],
             Substats: buildKeepUniqueSubstats(artifact.substats),
             __source: RULE_SOURCE_KEEP_UNIQUES,
             __keepUniqueRuleId: rule.id,

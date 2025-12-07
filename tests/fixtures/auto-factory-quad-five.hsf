@@ -41,7 +41,8 @@
         "NotAvailable": false,
         "Condition": ">="
       }
-    ]
+    ],
+    "RowIdx": 1
   },
   {
     "Keep": true,
@@ -85,7 +86,8 @@
         "NotAvailable": false,
         "Condition": ">="
       }
-    ]
+    ],
+    "RowIdx": 2
   },
   {
     "Keep": true,
@@ -129,7 +131,8 @@
         "NotAvailable": false,
         "Condition": ">="
       }
-    ]
+    ],
+    "RowIdx": 3
   },
   {
     "Keep": true,
@@ -173,7 +176,8 @@
         "NotAvailable": false,
         "Condition": ">="
       }
-    ]
+    ],
+    "RowIdx": 4
   },
   {
     "Keep": true,
@@ -217,6 +221,7 @@
         "NotAvailable": false,
         "Condition": ">="
       }
-    ]
+    ],
+    "RowIdx": 5
   }
 ]

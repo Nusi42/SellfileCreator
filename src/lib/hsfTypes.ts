@@ -17,6 +17,8 @@ export interface HsfRule {
   ConfigID?: number
   /** Optional builder config name (trimmed) so exported HSF stays human-readable. */
   ConfigName?: string
+  /** Final 1-based order of this row in the exported Rules array for downstream tracing. */
+  RowIdx?: number
   Keep?: boolean
   Use?: boolean
   IsRuleTypeAND?: boolean
