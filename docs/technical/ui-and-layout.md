@@ -245,7 +245,7 @@ If tooltips need rich formatting (colored badges, inline icons), pass JSX via `r
 - Empty state: when no rules exist the column shows descriptive text plus a contained “Add rule” button. The same button lives in the footer alongside “Restore defaults” (which clears + disables Keep Uniques only).
 - Tester grid: the right column renders `TesterItemsGrid` with `variant="keepUniques"`. The variant forces two columns, disables the column-toggle action, and passes `highlightedRowPredicate`/`dimUnhighlightedRows` so non-matching cards fade instead of being removed. Source glyphs, color-blind toggles, and Manage Colors wiring mirror the Rule Tester.
 - Selection: clicking a rule highlights it, scrolls it into view, and pushes its detection items into the tester grid highlight set. Chips above the grid show how many gear entries are currently highlighted.
-- Accessibility: all selectors remain keyboard navigable because they reuse the Gear dialog components. The dense layouts rely on `MENU_CONTROL_HEIGHT_PX` so buttons remain reachable with consistent hit targets.
+- Accessibility: all selectors remain keyboard navigable because they reuse the Gear tab components inside the Final Sell dialog. The dense layouts rely on `MENU_CONTROL_HEIGHT_PX` so buttons remain reachable with consistent hit targets.
 
 ## Hooks and Shared Components
 
