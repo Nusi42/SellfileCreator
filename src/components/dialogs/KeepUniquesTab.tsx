@@ -18,7 +18,6 @@ import {
   TextField,
   Typography,
 } from '@mui/material'
-import AddIcon from '@mui/icons-material/Add'
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline'
 import ContentCopyIcon from '@mui/icons-material/ContentCopy'
 import FilterListIcon from '@mui/icons-material/FilterList'
@@ -931,8 +930,8 @@ ${t('keepUniquesCountModeHint')}`
               {rules.map(renderRuleCard)}
             </Box>
             <Divider sx={{ my: 1 }} />
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, pb: 1 }}>
-              <Button startIcon={<AddIcon />} variant="contained" onClick={handleAddRule} sx={{ minHeight: MENU_CONTROL_HEIGHT_PX }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Button variant="contained" onClick={handleAddRule} sx={{ minHeight: MENU_CONTROL_HEIGHT_PX }}>
                 {t('keepUniquesAddRule')}
               </Button>
             </Box>
