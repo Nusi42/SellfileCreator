@@ -11,6 +11,7 @@ import { DEFAULT_METASET_ICON_ID } from '../lib/metasetIcons'
 import {
   FINAL_SELL_DEFAULT_SETS_MODE,
   FINAL_SELL_DIALOG_TAB_FINAL_SELL,
+  FINAL_SELL_DIALOG_TAB_GEAR,
   FINAL_SELL_DIALOG_TAB_KEEP_UNIQUES,
   type FinalSellDialogTab,
   type FinalSellRemainderConfig,
@@ -40,7 +41,7 @@ type TutorialSnapshot = {
   rulesFilter: RulesFilterState
   testerItems: RuleTesterItem[]
   previewMode: 'rules' | 'tester'
-  testerOpen: boolean
+  finalSellOpen: boolean
   finalSellDialogTab: FinalSellDialogTab
 }
 
@@ -133,8 +134,6 @@ export type UseTutorialCoachStateParams = {
   setKeepUniquesEnabled: Dispatch<SetStateAction<boolean>>
   testerItems: RuleTesterItem[]
   setTesterItems: Dispatch<SetStateAction<RuleTesterItem[]>>
-  testerOpen: boolean
-  setTesterOpen: Dispatch<SetStateAction<boolean>>
   previewMode: 'rules' | 'tester'
   setPreviewMode: Dispatch<SetStateAction<'rules' | 'tester'>>
   hsfcNote: string | null
@@ -145,6 +144,7 @@ export type UseTutorialCoachStateParams = {
   setFilterOpen: Dispatch<SetStateAction<boolean>>
   rulesFilter: RulesFilterState
   setRulesFilter: Dispatch<SetStateAction<RulesFilterState>>
+  finalSellOpen: boolean
   setFinalSellOpen: Dispatch<SetStateAction<boolean>>
   t: Translate
 }
@@ -193,8 +193,6 @@ export function useTutorialCoachState({
   setKeepUniquesEnabled,
   testerItems,
   setTesterItems,
-  testerOpen,
-  setTesterOpen,
   previewMode,
   setPreviewMode,
   hsfcNote,
@@ -205,6 +203,7 @@ export function useTutorialCoachState({
   setFilterOpen,
   rulesFilter,
   setRulesFilter,
+  finalSellOpen,
   setFinalSellOpen,
   t,
 }: UseTutorialCoachStateParams): UseTutorialCoachStateResult {
@@ -262,8 +261,8 @@ export function useTutorialCoachState({
   useEffect(() => { testerItemsRef.current = testerItems }, [testerItems])
   const previewModeRef = useRef<'rules' | 'tester'>(previewMode)
   useEffect(() => { previewModeRef.current = previewMode }, [previewMode])
-  const testerOpenRef = useRef<boolean>(testerOpen)
-  useEffect(() => { testerOpenRef.current = testerOpen }, [testerOpen])
+  const finalSellOpenRef = useRef<boolean>(finalSellOpen)
+  useEffect(() => { finalSellOpenRef.current = finalSellOpen }, [finalSellOpen])
   const finalSellDialogTabRef = useRef<FinalSellDialogTab>(finalSellDialogTab)
   useEffect(() => { finalSellDialogTabRef.current = finalSellDialogTab }, [finalSellDialogTab])
 
@@ -372,9 +371,6 @@ export function useTutorialCoachState({
     } catch {}
     try { ensurePreviewHighlight(null) } catch {}
     try {
-      setTesterOpen(false)
-    } catch {}
-    try {
       setFinalSellOpen(false)
     } catch {}
     try {
@@ -413,7 +409,7 @@ export function useTutorialCoachState({
         } catch {}
       }, 60)
     } catch {}
-  }, [ensurePreviewHighlight, setFinalSellOpen, setTesterOpen])
+  }, [ensurePreviewHighlight, setFinalSellOpen])
 
   const restoreFromTutorialSnapshot = useCallback(() => {
     const snap = tutorialSnapshot
@@ -434,7 +430,7 @@ export function useTutorialCoachState({
         setRulesFilter(JSON.parse(JSON.stringify(snap.rulesFilter)) as RulesFilterState)
         setTesterItems(snap.testerItems)
         setPreviewMode(snap.previewMode)
-        setTesterOpen(snap.testerOpen)
+        setFinalSellOpen(snap.finalSellOpen)
         setFinalSellDialogTab(snap.finalSellDialogTab)
       })
     } catch {}
@@ -453,7 +449,7 @@ export function useTutorialCoachState({
     setKeepUniquesEnabled,
     setTesterItems,
     setPreviewMode,
-    setTesterOpen,
+    setFinalSellOpen,
     setFinalSellDialogTab,
     tutorialSnapshot,
   ])
@@ -475,7 +471,12 @@ export function useTutorialCoachState({
 
     const ensureRuleTesterDialog = (open: boolean) => {
       try {
-        setTesterOpen(open)
+        if (open) {
+          setFinalSellDialogTab(FINAL_SELL_DIALOG_TAB_GEAR)
+          setFinalSellOpen(true)
+        } else {
+          setFinalSellOpen(false)
+        }
       } catch {}
     }
 
@@ -652,7 +653,7 @@ export function useTutorialCoachState({
         rulesFilter: cloneRulesFilter,
         testerItems: testerItemsRef.current.map((item) => cloneTesterItem(item)),
         previewMode: previewModeRef.current,
-        testerOpen: testerOpenRef.current,
+        finalSellOpen: finalSellOpenRef.current,
         finalSellDialogTab: finalSellDialogTabRef.current,
       })
     } catch {}
@@ -689,7 +690,7 @@ export function useTutorialCoachState({
       setFilterOpen(false)
       setRulesFilter(JSON.parse(JSON.stringify(DEFAULT_RULES_FILTER_STATE)) as RulesFilterState)
       setTesterItems([])
-      setTesterOpen(false)
+      setFinalSellOpen(false)
       setPreviewMode('rules')
       setKeepUniqueRules([])
       setKeepUniquesEnabled(false)
@@ -1051,7 +1052,7 @@ export function useTutorialCoachState({
         targetIds: ['preview.mode-toggle', 'preview.tester-grid-top'],
         before: () => {
           ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensureFinalSellDialog(false); ensurePreviewHighlight(null)
-          setTesterOpen(false)
+          setFinalSellOpen(false)
           setPreviewMode('tester')
         },
       },
@@ -1181,7 +1182,6 @@ export function useTutorialCoachState({
     setRulesFilter,
     setSelectedCfgIdx,
     setTesterItems,
-    setTesterOpen,
     setPreviewMode,
     setFinalSellDialogTab,
     setKeepUniqueRules,
@@ -1217,7 +1217,7 @@ export function useTutorialCoachState({
       }
       let nextTesterItems: RuleTesterItem[] = []
       let nextPreviewMode: 'rules' | 'tester' = 'rules'
-      let nextTesterOpen = false
+      let nextFinalSellOpen = false
       let nextKeepUniqueRules: KeepUniqueRule[] = []
       let nextKeepUniquesEnabled = false
       let nextFinalSellDialogTab: FinalSellDialogTab = FINAL_SELL_DIALOG_TAB_FINAL_SELL
@@ -1358,24 +1358,27 @@ export function useTutorialCoachState({
             break
           }
           case 'tester-open': {
-            nextTesterOpen = false
+            nextFinalSellOpen = false
+            nextFinalSellDialogTab = FINAL_SELL_DIALOG_TAB_GEAR
             nextPreviewMode = 'rules'
             break
           }
           case 'tester-dialog': {
-            nextTesterOpen = true
+            nextFinalSellOpen = true
+            nextFinalSellDialogTab = FINAL_SELL_DIALOG_TAB_GEAR
             nextPreviewMode = 'rules'
             break
           }
           case 'tester-add-manual': {
-            nextTesterOpen = true
+            nextFinalSellOpen = true
+            nextFinalSellDialogTab = FINAL_SELL_DIALOG_TAB_GEAR
             nextPreviewMode = 'rules'
             nextTesterItems = buildTutorialTesterItems()
             break
           }
           case 'tester-preview': {
             if (nextTesterItems.length === 0) nextTesterItems = buildTutorialTesterItems()
-            nextTesterOpen = false
+            nextFinalSellOpen = false
             nextPreviewMode = 'tester'
             break
           }
@@ -1411,7 +1414,7 @@ export function useTutorialCoachState({
       setKeepUniquesEnabled(nextKeepUniquesEnabled)
       setTesterItems(nextTesterItems)
       setPreviewMode(nextPreviewMode)
-      setTesterOpen(nextTesterOpen)
+      setFinalSellOpen(nextFinalSellOpen)
       setFinalSellDialogTab(nextFinalSellDialogTab)
       setHsfcNote(nextNote)
       setBuilder(nextBuilder)
@@ -1433,7 +1436,7 @@ export function useTutorialCoachState({
     setKeepUniquesEnabled,
     setTesterItems,
     setPreviewMode,
-    setTesterOpen,
+    setFinalSellOpen,
     setFinalSellDialogTab,
     tutorialSteps,
   ])

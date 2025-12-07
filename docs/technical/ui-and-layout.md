@@ -277,7 +277,7 @@ If tooltips need rich formatting (colored badges, inline icons), pass JSX via `r
 - Audited categories:
   - Global event bridges: `useFileDragDrop`, `useTooltipScrollGuard`, `useContextMenuCloseOnOutsideRightClick` mount/unmount window listeners cleanly.
   - Autosave & external IO: `useAutosave`, `useAutosaveRestore`, `useExternalCommands`, and the copy/push listeners in `App` manage persistence and long-polling with abort-aware cleanups.
-  - Layout/virtualization observers: `useBuilderPreviewLayout`, `HsfRulesTable`, `RuleTesterDialog`, `MetasetsDialog` coordinate ResizeObservers and scroll alignment.
+  - Layout/virtualization observers: `useBuilderPreviewLayout`, `HsfRulesTable`, `GearTesterTabContent`, `MetasetsDialog` coordinate ResizeObservers and scroll alignment.
   - Attention/timer loops: `HelpDialog`, `PreviewHeaderActions`, `ConfigChipsPanel`, `attentionEffects` throttle requestAnimationFrame/timeouts behind explicit open/visibility checks.
   - Tutorial/history refs: `useTutorialCoachState`, `useHsfcHistoryController`, and `App` maintain refs for undo/history flows when render-only derivation is insufficient.
   - Dialog focus management: `NoteDialog`, `ManageColorsDialog`, and `RulesFilterPanel` keep focus traps, autosave overlays, or preference synchronization confined to dialog scope.

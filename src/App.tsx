@@ -93,7 +93,6 @@ import FileFormatErrorDialog from './components/dialogs/FileFormatErrorDialog'
 import { useAutosave } from './hooks/useAutosave'
 import { useDeferredHsfcPayload } from './hooks/useDeferredHsfcPayload'
 import PreviewHeaderActions from './components/PreviewHeaderActions'
-import RuleTesterDialog from './components/dialogs/RuleTesterDialog'
 import RulesFilterPanel, { type RulesFilterPanelHandle } from './components/RulesFilterPanel'
 import type { TesterConfigFilterMode } from './types/testerConfigFilterMode'
 import type { ArtifactSetId, RankValue } from './lib/types'
@@ -168,7 +167,12 @@ import type { NormalizedGearArtifact } from './lib/importers/gearDbNormalizer'
 import { TesterItemsGrid } from './components/TesterItemsGrid'
 import type { TesterPreviewMatch, TesterPreviewRow } from './types/testerPreview'
 import type { TesterMatchWorkerItemResult } from './workers/testerMatchWorkerTypes'
-import { FINAL_SELL_DEFAULT_SETS_MODE, FINAL_SELL_DIALOG_TAB_FINAL_SELL, FINAL_SELL_DIALOG_TABS } from './lib/finalSell'
+import {
+  FINAL_SELL_DEFAULT_SETS_MODE,
+  FINAL_SELL_DIALOG_TAB_FINAL_SELL,
+  FINAL_SELL_DIALOG_TAB_GEAR,
+  FINAL_SELL_DIALOG_TABS,
+} from './lib/finalSell'
 import type { FinalSellRemainderConfig, FinalSellLevel } from './lib/finalSell'
 import { useConfigSelection } from './hooks/useConfigSelection'
 import { useRuleCacheWorker } from './hooks/useRuleCacheWorker'
@@ -1732,8 +1736,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     }
   }, [])
   // Determine once whether to auto-open the README on this version.
-  // Rule Tester dialog state
-  const [testerOpen, setTesterOpen] = useState<boolean>(false)
   // External focus target for preview table (exact rule index in the effective rules array)
   const [focusRuleIndex, setFocusRuleIndex] = useState<number | null>(null)
   const [finalSellOpen, setFinalSellOpen] = useState<boolean>(false)
@@ -2064,8 +2066,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setKeepUniquesEnabled,
     testerItems,
     setTesterItems,
-    testerOpen,
-    setTesterOpen,
     previewMode,
     setPreviewMode,
     hsfcNote,
@@ -2076,6 +2076,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setFilterOpen,
     rulesFilter,
     setRulesFilter,
+    finalSellOpen,
     setFinalSellOpen,
     t,
   })
@@ -2829,7 +2830,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   if (testerAutosaveBaselineRef.current === null) {
     testerAutosaveBaselineRef.current = testerAutosavePayloadSignature
   }
-  const testerAutosaveEnabled = testerOpen || testerAutosaveBaselineRef.current !== testerAutosavePayloadSignature
+  const testerGearTabActive = finalSellOpen && finalSellDialogTab === FINAL_SELL_DIALOG_TAB_GEAR
+  const testerAutosaveEnabled = testerGearTabActive || testerAutosaveBaselineRef.current !== testerAutosavePayloadSignature
   useAutosave({
     key: AUTOSAVE_TESTER_KEY,
     payload: testerAutosavePayload,
@@ -2965,7 +2967,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   useEffect(() => { hsfRulesForTableRef.current = hsfRulesForTable }, [hsfRulesForTable])
   const hsfTableEmptyDueToFilters = (filterActive || testerConfigFilterActive) && mergedRules.length > 0 && hsfRulesForTable.length === 0
   const handleTesterRuleView = useCallback((ruleIndex: number, cfgIdx: number | null) => {
-    setTesterOpen(false)
+    setFinalSellOpen(false)
     const cfgSnapshot = customCfgsRef.current
     const hasValidConfig = cfgIdx != null && cfgIdx >= 0 && cfgIdx < cfgSnapshot.length
     if (hasValidConfig) {
@@ -2988,7 +2990,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     } catch {
       setFocusRuleIndex(null)
     }
-  }, [setBuilder, setFocusRuleIndex, setPreviewMode, setTesterOpen, syncSelectedCfgIdx])
+  }, [setBuilder, setFocusRuleIndex, setPreviewMode, setFinalSellOpen, syncSelectedCfgIdx])
   const visibleConfigIndices = useMemo<Set<number> | null>(() => {
     if (!limitConfigsToFiltered) return null
     const indices = new Set(chipMatchingConfigIndices)
@@ -4271,7 +4273,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           }, { mode: 'quickToggle' })
         }}
         onOpenFinalSellDialog={() => setFinalSellOpen(true)}
-        onOpenRuleTester={() => setTesterOpen(true)}
+        onOpenRuleTester={() => {
+          setFinalSellDialogTab(FINAL_SELL_DIALOG_TAB_GEAR)
+          setFinalSellOpen(true)
+        }}
         previewMode={previewMode}
         onChangePreviewMode={setPreviewMode}
         filtersSynced={filtersSynced}
@@ -4624,18 +4629,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         allocTesterItemId={allocTesterItemId}
         testerMatches={testerMatchesByItemId}
         onResetGearTester={handleResetGearTesterItems}
-      />
-      {/* Rule Tester dialog */}
-      <RuleTesterDialog
-        open={testerOpen}
-        onClose={() => setTesterOpen(false)}
-        customCfgs={customCfgs}
-        substatColors={substatColors}
-        testerItems={testerItems}
-        setTesterItems={setTesterItems}
-        allocTesterItemId={allocTesterItemId}
-        testerMatches={testerMatchesByItemId}
-        onView={handleTesterRuleView}
       />
       {/* Tutorial overlay */}
       <TutorialCoach

@@ -190,7 +190,7 @@ Localization status
 - `src/hooks/useAutosave.ts`: Hook to write autosave payloads and flush on exit/visibility.
 - `src/components/CopyDialog.tsx`: Fallback manual copy dialog (shown when clipboard writes are blocked).
 - `src/components/PasteDialog.tsx`: Manual paste dialog for HSFC content (single config, array, or full HSFC object).
-- `src/components/dialogs/RuleTesterDialog.tsx`: Multi-item test UI to check which rule/config matches first. Items are autosaved to `localStorage` under a dedicated key; disabled rules never match.
+- `src/components/dialogs/GearTesterTabContent.tsx`: Multi-item test UI (rendered inside the Final Sell dialog’s Gear tab) to check which rule/config matches first. Items are autosaved to `localStorage` under a dedicated key; disabled rules never match.
 - `src/components/dialogs/ManageColorsDialog.tsx`: Substat colors management dialog (variant-keyed map).
 - `src/components/dialogs/RestoreAutosaveDialog.tsx`: Restore autosave confirmation dialog.
 - `src/components/ConfigChipsPanel.tsx`: Config chips list and context menu.
