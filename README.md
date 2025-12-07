@@ -10,7 +10,7 @@ Build, preview, and export sell rules for RSL Helper with a simple UI.
 - Drag & drop or Load button: drop `.hsfc`, `.hsf`, or `.db` anywhere (overlay confirms) or click “Load RSL Helper Sellfile”. Both options behave the same — `.hsfc` replaces your builder, `.hsf` layers on the optional base sellfile, and `.db` dumps go straight into the Rule Tester queue without touching the builder.
 - Metasets: name groups of gear sets (e.g., Speed + Perception) and reuse them across rules.
 - One-click Export: export an HSF file (the RSL Helper Sellfile) ready for RSL Helper.
-- Rule Tester preview + Gear tab (“Gear...”): click the preview header button to open the Final Sell dialog directly on its Gear tab, then create example gear, paste items, or drag-and-drop your RSL Helper DB (usually `%APPDATA%\RslHelper\Config`). Close the dialog afterward and keep the preview toggle on whichever table you need; the tester queue stays visible without reopening the tab.
+- Rule Tester preview + Logic Hub button (“Logic Hub”): click the `Logic Hub` button in the preview header to open the dialog directly on its Gear tab, then create example gear, paste items, or drag-and-drop your RSL Helper DB (usually `%APPDATA%\RslHelper\Config`). Close the dialog afterward and keep the preview toggle on whichever table you need; the tester queue stays visible without reopening the tab.
 - Keep Uniques tab: define combinations you never want to lose, and the scanner injects keep rules automatically whenever your configs plus your current active Sell rules would sell every piece in that combination.
 
 ## How To Use
@@ -26,7 +26,7 @@ Build, preview, and export sell rules for RSL Helper with a simple UI.
 - Load/Save: Use “Load Configs” and “Save Configs” to reuse your custom rules. These actions save everything needed to rebuild what you see in the preview into a Configs file.
 - Reset/Insert/Apply menus: Right-click Reset, Insert as config, or Apply as config to open the shared options menu. Save your current builder state as the default template, jump back to the factory defaults, enable Auto reset after Insert (clear the builder immediately after inserting a config), or enable Auto apply to selected config (push edits into the highlighted config automatically after ~400 ms of inactivity). Auto reset and Auto apply cannot be on at the same time—turning one on turns the other off—and both preferences persist between sessions.
 - Note: Click “Add Note…” (or “Edit Note…”) to attach a note to your Configs file. The note is shown automatically after loading a Configs file that contains one. Use `<!-- configs:1,0 -->` to drop chips for specific configs (0 continues to the next one). Use `<!-- configs-re:"speed" -->` to show every config whose name matches the case-insensitive pattern.
-- Autosave restore: On launch, the dialog lists every autosaved section with its own checkbox. Restore only what you need — configs (including the selected chip), metasets, Substat Target Values, Final Sell remainder, the pinned note, the filter panel (open state, chips, collapsed sections), and any Rule Tester imports. Leave a box unchecked to keep your current work untouched. Autosave also remembers which Final Sell toggles (Artifacts, Accessories, and level ranges) were enabled, so reopening the dialog mirrors exactly what you exported last time.
+- Autosave restore: On launch, the dialog lists every autosaved section with its own checkbox. Restore only what you need — configs (including the selected chip), metasets, Substat Target Values, Final Sell remainder, the pinned note, the filter panel (open state, chips, collapsed sections), and any Rule Tester imports. Leave a box unchecked to keep your current work untouched. Autosave also remembers which Final Sell toggles (Artifacts, Accessories, and level ranges) were enabled, so reopening Logic Hub mirrors exactly what you exported last time.
 
 ### Builder layout (top → bottom)
 - Action & Enable: Tell the Sellfile what should happen when an item matches the config.
@@ -95,13 +95,13 @@ Build, preview, and export sell rules for RSL Helper with a simple UI.
   - Replace references with another metaset.
 
 ### Final Sell
-- Toggle near Export to add final Sell rules for items not matched by your Keep rules. Final Sell is on by default.
+- Use the `Final Sell` toggle near Export to add catch-all Sell rules for items not matched by your Keep rules. The label never changes; an amber fill means it is active, and the neutral outline means it is off.
 - Configure which gear (Artifacts and/or Accessories) and which level ranges (0–3, 4–7, 8–11, 12–15, 16). The default targets 0–15 to avoid selling fully leveled gear.
 - Without Final Sell, items that do not match any rule are automatically kept by RSL Helper. Selling only happens when a Sell rule matches.
-- When Final Sell is on, the generated Sell rules explicitly include all currently known sets. In the preview, the Sets column shows “All Currently Known” for these rules to reduce clutter; the exported file still lists every set explicitly.
+- When `Final Sell` is active, the generated Sell rules explicitly include all currently known sets. In the preview, the Sets column shows “All Currently Known” for these rules to reduce clutter; the exported file still lists every set explicitly.
 
 ### Keep Uniques
-- Open the Final Sell dialog and switch to the `Keep Uniques` tab to mark the gear combinations you never want to lose. Turn on `Enable Keep Uniques` to start editing.
+- Open the Logic Hub dialog and switch to the `Keep Uniques` tab to mark the gear combinations you never want to lose. Turn on `Enable Keep Uniques` to start editing.
 - Each keep rule lets you pick the slot, sets or metasets, ranks, rarities, main stats, and (for accessories) factions you care about. Leaving a picker empty means “any”.
 - A default rule is already seeded for 5★/6★ rings, amulets, and banners across every 1–9 and single-piece accessory set, with `Per slot`, `Per set`, `Per faction`, and `Per main stat` enabled so each combination keeps at least one piece.
 - There is also a disabled helper rule that targets weapons/armor pieces (weapon, helmet, shield, gauntlets, chestplate, boots) from the stun/toxic/daze/cursed/provoke/destroy families at 5★/6★, with `Per slot` and `Per set` scopes so the scanner can be turned on later if those rare sets need extra protection.
@@ -140,9 +140,9 @@ Tip: Import your `.db` or paste gear into the Gear tab before opening Keep Uniqu
 - Clipboard fallback: If clipboard access is blocked, a dialog opens with the content pre‑selected — press Ctrl/Cmd+C to copy, or paste into the Paste dialog.
 
 ### Sellfile Preview (Rules & Rule Tester)
-- The preview header keeps the `Rules`/`Rule Tester` toggle, the “Gear...” button, and the “Load RSL Helper Sellfile” button together so you always know where to switch tables or open the Final Sell dialog on the Gear tab.
+- The preview header keeps the `Rules`/`Rule Tester` toggle, the “Logic Hub” button, and the “Load RSL Helper Sellfile” button together so you always know where to switch tables or open the Logic Hub dialog on the Gear tab.
 - `Rules` view (default): shows every rule that will be exported, including any optional base `.hsf` rows. The header counts stay on Keep vs Sell, the filter row keeps the Any/Only chips for Slot/Rank/Rarity/Level, and both Config buttons remain: Preview Configs controls chip visibility, while the Config Filter button is a simple On/Off toggle that hides Sellfile rows outside your selected config chips (and keeps that filter staged for when you switch modes).
-- `Rule Tester` view: flips the table to the imported gear list so you can scan imported or hand-built items without reopening the Final Sell dialog. Counts/outcome chips switch to Matched vs No Match (and Keep vs Sell) based on first-match results, and the filter row keeps both Config buttons side by side: Preview Configs still controls chip visibility, and the Config Filter button expands to a tri-state selector (`Off` → `First-Match` → `Any-Match`) so you can decide how those items respond while continuing to gate Sellfile rows when you jump back. Importing a `.db` automatically switches to this view, but you can jump back to Rules whenever you want.
+- `Rule Tester` view: flips the table to the imported gear list so you can scan imported or hand-built items without reopening Logic Hub. Counts/outcome chips switch to Matched vs No Match (and Keep vs Sell) based on first-match results, and the filter row keeps both Config buttons side by side: Preview Configs still controls chip visibility, and the Config Filter button expands to a tri-state selector (`Off` → `First-Match` → `Any-Match`) so you can decide how those items respond while continuing to gate Sellfile rows when you jump back. Importing a `.db` automatically switches to this view, but you can jump back to Rules whenever you want.
 - The “Load RSL Helper Sellfile” button behaves exactly like drag & drop: `.hsfc` replaces the builder state, `.hsf` layers on the optional base Sellfile, and `.db` queue items into the Rule Tester preview (without touching configs). The “Clear” button detaches the optional base `.hsf`.
 - Use the palette icon to open Manage Colors for substat labels.
 - In Rules view the table columns still include “Idx” and “Cfg” (empty for base file rows). In Rule Tester view the same space lists slot/set, item stats, and the first matching config badge so you can see what would happen to each artifact directly inside the preview.
@@ -160,11 +160,11 @@ Tip: Import your `.db` or paste gear into the Gear tab before opening Keep Uniqu
 - Click behavior: Clicking a table row selects the related saved config (no auto-scroll). Clicking a saved config scrolls the table to the first matching row.
 
 ### Rule Tester preview
-- Click “Gear...” in the Sellfile Preview header to open the Final Sell dialog on the Gear tab. Create example gear or paste items (JSON/text). Items sync to the preview immediately, so closing the dialog does not clear your tester grid.
+- Click “Logic Hub” in the Sellfile Preview header to open the Logic Hub dialog on the Gear tab. Create example gear or paste items (JSON/text). Items sync to the preview immediately, so closing the dialog does not clear your tester grid.
 - Import your RSL Helper gear database by dropping `.db` files onto the app or by using the “Load RSL Helper Sellfile” button (same behavior). Those imports queue thousands of artifacts plus inbox items, switch the preview to the tester table, and keep the builder/export state untouched.
 - Each card shows slot, set, level, main stat, substats (with glyphs and rolls), the source (inventory vs inbox), and chips for Keep/Sell + the first matching config/rule. Disabled rules never match, so “No match” cards represent gear the Sellfile would leave alone.
 - The header counts update to show Matched vs No Match totals plus Keep/Sell breakdowns. Combine these totals with the tester filters (Keep/Sell outcome + Matched/No Match + Config `First-Match`/`Any-Match`) to focus on edge cases before exporting.
-- Use the preview toggle to move between Rules and Rule Tester tables without reopening the Final Sell dialog—great for comparing the generated rule rows against the gear that triggered them.
+- Use the preview toggle to move between Rules and Rule Tester tables without reopening Logic Hub — great for comparing the generated rule rows against the gear that triggered them.
 
 ### Export
 - Click “Export merged RSL Helper Sellfile” (or “Export RSL Helper Sellfile” when no base file is loaded).

@@ -4,15 +4,15 @@ import { useI18n } from '../../lib/i18n'
 import { MENU_CONTROL_HEIGHT_PX, type ColorBlindMode } from '../../lib/constants'
 import {
   FINAL_SELL_DEFAULT_SETS_MODE,
-  FINAL_SELL_DIALOG_TAB_FINAL_SELL,
-  FINAL_SELL_DIALOG_TAB_GEAR,
-  FINAL_SELL_DIALOG_TAB_KEEP_UNIQUES,
-  FINAL_SELL_DIALOG_TABS,
   FINAL_SELL_SETS_MODE_ANY,
   FINAL_SELL_SETS_MODE_EXPLICIT,
   FINAL_SELL_LEVEL_CHOICES,
+  LOGIC_HUB_DIALOG_TAB_FINAL_SELL,
+  LOGIC_HUB_DIALOG_TAB_GEAR,
+  LOGIC_HUB_DIALOG_TAB_KEEP_UNIQUES,
+  LOGIC_HUB_DIALOG_TABS,
   finalSellCoversFullLevelRange,
-  type FinalSellDialogTab,
+  type LogicHubDialogTab,
   type FinalSellLevel,
   type FinalSellRemainderConfig,
   type FinalSellSetsMode,
@@ -28,14 +28,14 @@ import MarkdownTooltip from '../MarkdownTooltip'
 import type { Metaset } from '../../lib/metasets'
 import { reserveScrollbarGutterSpace } from '../../lib/scrollbar'
 
-type FinalSellDialogProps = {
+type LogicHubDialogProps = {
   open: boolean
   value: FinalSellRemainderConfig
   onChange: (next: FinalSellRemainderConfig) => void
   onClose: () => void
   onReset?: () => void
-  activeTab: FinalSellDialogTab
-  onChangeTab: (next: FinalSellDialogTab) => void
+  activeTab: LogicHubDialogTab
+  onChangeTab: (next: LogicHubDialogTab) => void
   keepUniqueRules: KeepUniqueRule[]
   onKeepUniqueRulesChange: (next: SetStateAction<KeepUniqueRule[]>) => void
   keepUniquesEnabled: boolean
@@ -64,7 +64,7 @@ type FinalSellDialogProps = {
   onResetGearTester?: () => void
 }
 
-export default function FinalSellDialog(props: FinalSellDialogProps) {
+export default function LogicHubDialog(props: LogicHubDialogProps) {
   const {
     open,
     value,
@@ -108,8 +108,8 @@ export default function FinalSellDialog(props: FinalSellDialogProps) {
   // Fallback keeps the tester grid handler stable even when no jump target is supplied.
   const noopTesterRuleJump = useCallback(() => {}, [])
   const gearTabOnView = onJumpToRule ?? noopTesterRuleJump
-  // Clamp unknown tab ids back to the Final Sell default so autosave/restore can't wedge the dialog.
-  const normalizedTab = FINAL_SELL_DIALOG_TABS.includes(activeTab) ? activeTab : FINAL_SELL_DIALOG_TAB_FINAL_SELL
+  // Clamp unknown tab ids back to the Logic Hub default so autosave/restore can't wedge the dialog.
+  const normalizedTab = LOGIC_HUB_DIALOG_TABS.includes(activeTab) ? activeTab : LOGIC_HUB_DIALOG_TAB_FINAL_SELL
   const hasGear = value.artifacts || value.accessories
   const hasLevelRanges = value.levels.length > 0
   const finalSellActive = hasGear && hasLevelRanges
@@ -120,9 +120,9 @@ export default function FinalSellDialog(props: FinalSellDialogProps) {
   const statusDetailKey = finalSellActive ? 'hintFinalSellStatusOnDetail' : 'hintFinalSellStatusOffDetail'
   const setsMode: FinalSellSetsMode = value.setsMode ?? FINAL_SELL_DEFAULT_SETS_MODE
   const handleTabChange = (_event: React.SyntheticEvent, nextValue: string) => {
-    const nextTab = FINAL_SELL_DIALOG_TABS.includes(nextValue as FinalSellDialogTab)
-      ? nextValue as FinalSellDialogTab
-      : FINAL_SELL_DIALOG_TAB_FINAL_SELL
+    const nextTab = LOGIC_HUB_DIALOG_TABS.includes(nextValue as LogicHubDialogTab)
+      ? nextValue as LogicHubDialogTab
+      : LOGIC_HUB_DIALOG_TAB_FINAL_SELL
     if (nextTab === normalizedTab) return
     onChangeTab(nextTab)
   }
@@ -135,9 +135,9 @@ export default function FinalSellDialog(props: FinalSellDialogProps) {
     if (next.has(lvl)) next.delete(lvl); else next.add(lvl)
     onChange({ ...value, levels: Array.from(next.values()).sort((a,b)=>a-b) as FinalSellLevel[] })
   }
-  const showFinalSellTab = normalizedTab === FINAL_SELL_DIALOG_TAB_FINAL_SELL
-  const showGearTab = normalizedTab === FINAL_SELL_DIALOG_TAB_GEAR
-  const showKeepUniquesTab = normalizedTab === FINAL_SELL_DIALOG_TAB_KEEP_UNIQUES
+  const showFinalSellTab = normalizedTab === LOGIC_HUB_DIALOG_TAB_FINAL_SELL
+  const showGearTab = normalizedTab === LOGIC_HUB_DIALOG_TAB_GEAR
+  const showKeepUniquesTab = normalizedTab === LOGIC_HUB_DIALOG_TAB_KEEP_UNIQUES
   // The reset affordance still sits in the Dialog actions, but Keep Uniques routes through a confirm prompt.
   const showResetButton = showFinalSellTab
     ? Boolean(onReset)
@@ -209,7 +209,7 @@ export default function FinalSellDialog(props: FinalSellDialogProps) {
     >
       <DialogTitle sx={{ pb: 0 }}>
         <Stack spacing={1}>
-          <Typography variant="h6">{t('titleFinalSellRules')}</Typography>
+          <Typography variant="h6">{t('titleLogicHub')}</Typography>
           <Tabs
             value={normalizedTab}
             onChange={handleTabChange}
@@ -217,10 +217,10 @@ export default function FinalSellDialog(props: FinalSellDialogProps) {
             textColor="primary"
             indicatorColor="primary"
           >
-            <Tab value={FINAL_SELL_DIALOG_TAB_FINAL_SELL} label={t('testerFinalSell')} />
-            <Tab value={FINAL_SELL_DIALOG_TAB_GEAR} label={t('tabFinalSellGear')} />
+            <Tab value={LOGIC_HUB_DIALOG_TAB_FINAL_SELL} label={t('testerFinalSell')} />
+            <Tab value={LOGIC_HUB_DIALOG_TAB_GEAR} label={t('tabFinalSellGear')} />
             <Tab
-              value={FINAL_SELL_DIALOG_TAB_KEEP_UNIQUES}
+              value={LOGIC_HUB_DIALOG_TAB_KEEP_UNIQUES}
               label={t('tabKeepUniques')}
               data-tour-id="keepuniques.tab"
             />

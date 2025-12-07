@@ -1,37 +1,41 @@
-import { useState, type MouseEvent, type SetStateAction } from 'react'
+import { useCallback, useState, type Dispatch, type MouseEvent, type SetStateAction } from 'react'
 import { Alert, Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Stack, Tab, Tabs, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material'
 import { useI18n } from '../../lib/i18n'
 import { MENU_CONTROL_HEIGHT_PX, type ColorBlindMode } from '../../lib/constants'
 import {
   FINAL_SELL_DEFAULT_SETS_MODE,
-  FINAL_SELL_DIALOG_TAB_FINAL_SELL,
-  FINAL_SELL_DIALOG_TAB_KEEP_UNIQUES,
-  FINAL_SELL_DIALOG_TABS,
   FINAL_SELL_SETS_MODE_ANY,
   FINAL_SELL_SETS_MODE_EXPLICIT,
   FINAL_SELL_LEVEL_CHOICES,
+  LOGIC_HUB_DIALOG_TAB_FINAL_SELL,
+  LOGIC_HUB_DIALOG_TAB_GEAR,
+  LOGIC_HUB_DIALOG_TAB_KEEP_UNIQUES,
+  LOGIC_HUB_DIALOG_TABS,
   finalSellCoversFullLevelRange,
-  type FinalSellDialogTab,
+  type LogicHubDialogTab,
   type FinalSellLevel,
   type FinalSellRemainderConfig,
   type FinalSellSetsMode,
 } from '../../lib/finalSell'
 import type { KeepUniqueDetectionSnapshot, KeepUniqueRule } from '../../lib/keepUniques'
-import type { TesterPreviewRow } from '../../types/testerPreview'
+import type { BuilderConfig } from '../../lib/hsfBuilder'
+import type { RuleTesterItem } from '../../lib/ruleTesterSession'
+import type { TesterPreviewMatch, TesterPreviewRow } from '../../types/testerPreview'
+import { GearTesterTabContent, type GearTesterTabLayoutSlots } from './GearTesterTabContent'
 import KeepUniquesTab from './KeepUniquesTab'
 // MarkdownTooltip keeps the level-hint copy behavior aligned with the rest of the app.
 import MarkdownTooltip from '../MarkdownTooltip'
 import type { Metaset } from '../../lib/metasets'
 import { reserveScrollbarGutterSpace } from '../../lib/scrollbar'
 
-type FinalSellDialogProps = {
+type LogicHubDialogProps = {
   open: boolean
   value: FinalSellRemainderConfig
   onChange: (next: FinalSellRemainderConfig) => void
   onClose: () => void
   onReset?: () => void
-  activeTab: FinalSellDialogTab
-  onChangeTab: (next: FinalSellDialogTab) => void
+  activeTab: LogicHubDialogTab
+  onChangeTab: (next: LogicHubDialogTab) => void
   keepUniqueRules: KeepUniqueRule[]
   onKeepUniqueRulesChange: (next: SetStateAction<KeepUniqueRule[]>) => void
   keepUniquesEnabled: boolean
@@ -52,9 +56,15 @@ type FinalSellDialogProps = {
   onResetKeepUniques?: () => void
   onJumpToRule?: (ruleIndex: number, cfgIdx: number | null) => void
   workloadProgressRatio: number
+  customCfgs: BuilderConfig[]
+  testerItems: RuleTesterItem[]
+  setTesterItems: Dispatch<SetStateAction<RuleTesterItem[]>>
+  allocTesterItemId: () => number
+  testerMatches: ReadonlyMap<number, TesterPreviewMatch | null>
+  onResetGearTester?: () => void
 }
 
-export default function FinalSellDialog(props: FinalSellDialogProps) {
+export default function LogicHubDialog(props: LogicHubDialogProps) {
   const {
     open,
     value,
@@ -74,21 +84,32 @@ export default function FinalSellDialog(props: FinalSellDialogProps) {
     useStatButtonColors,
     onToggleStatColors,
     onOpenManageColors,
-  colorBlindMode,
-  onChangeColorBlindMode,
-  colorIconSrc,
-  configNames,
-  metasets,
-  suppressMatchDetails = false,
-  onResetKeepUniques,
-  onJumpToRule,
-  workloadProgressRatio,
-} = props
+    colorBlindMode,
+    onChangeColorBlindMode,
+    colorIconSrc,
+    configNames,
+    metasets,
+    suppressMatchDetails = false,
+    onResetKeepUniques,
+    onJumpToRule,
+    workloadProgressRatio,
+    customCfgs,
+    testerItems,
+    setTesterItems,
+    allocTesterItemId,
+    testerMatches,
+    onResetGearTester,
+  } = props
   const { t } = useI18n()
   // Keep Uniques resets need their own confirmation flow so accidental clicks do not wipe custom rules.
   const [confirmResetKeepUniques, setConfirmResetKeepUniques] = useState(false)
-  // Clamp unknown tab ids back to the Final Sell default so autosave/restore can't wedge the dialog.
-  const normalizedTab = FINAL_SELL_DIALOG_TABS.includes(activeTab) ? activeTab : FINAL_SELL_DIALOG_TAB_FINAL_SELL
+  // Gear resets also confirm so a stray click does not clear imported databases or manual samples.
+  const [confirmResetGearTester, setConfirmResetGearTester] = useState(false)
+  // Fallback keeps the tester grid handler stable even when no jump target is supplied.
+  const noopTesterRuleJump = useCallback(() => {}, [])
+  const gearTabOnView = onJumpToRule ?? noopTesterRuleJump
+  // Clamp unknown tab ids back to the Logic Hub default so autosave/restore can't wedge the dialog.
+  const normalizedTab = LOGIC_HUB_DIALOG_TABS.includes(activeTab) ? activeTab : LOGIC_HUB_DIALOG_TAB_FINAL_SELL
   const hasGear = value.artifacts || value.accessories
   const hasLevelRanges = value.levels.length > 0
   const finalSellActive = hasGear && hasLevelRanges
@@ -99,9 +120,9 @@ export default function FinalSellDialog(props: FinalSellDialogProps) {
   const statusDetailKey = finalSellActive ? 'hintFinalSellStatusOnDetail' : 'hintFinalSellStatusOffDetail'
   const setsMode: FinalSellSetsMode = value.setsMode ?? FINAL_SELL_DEFAULT_SETS_MODE
   const handleTabChange = (_event: React.SyntheticEvent, nextValue: string) => {
-    const nextTab = FINAL_SELL_DIALOG_TABS.includes(nextValue as FinalSellDialogTab)
-      ? nextValue as FinalSellDialogTab
-      : FINAL_SELL_DIALOG_TAB_FINAL_SELL
+    const nextTab = LOGIC_HUB_DIALOG_TABS.includes(nextValue as LogicHubDialogTab)
+      ? nextValue as LogicHubDialogTab
+      : LOGIC_HUB_DIALOG_TAB_FINAL_SELL
     if (nextTab === normalizedTab) return
     onChangeTab(nextTab)
   }
@@ -114,15 +135,27 @@ export default function FinalSellDialog(props: FinalSellDialogProps) {
     if (next.has(lvl)) next.delete(lvl); else next.add(lvl)
     onChange({ ...value, levels: Array.from(next.values()).sort((a,b)=>a-b) as FinalSellLevel[] })
   }
-  const showFinalSellTab = normalizedTab === FINAL_SELL_DIALOG_TAB_FINAL_SELL
+  const showFinalSellTab = normalizedTab === LOGIC_HUB_DIALOG_TAB_FINAL_SELL
+  const showGearTab = normalizedTab === LOGIC_HUB_DIALOG_TAB_GEAR
+  const showKeepUniquesTab = normalizedTab === LOGIC_HUB_DIALOG_TAB_KEEP_UNIQUES
   // The reset affordance still sits in the Dialog actions, but Keep Uniques routes through a confirm prompt.
-  const showResetButton = showFinalSellTab ? Boolean(onReset) : Boolean(onResetKeepUniques)
+  const showResetButton = showFinalSellTab
+    ? Boolean(onReset)
+    : showGearTab
+      ? Boolean(onResetGearTester)
+      : showKeepUniquesTab
+      ? Boolean(onResetKeepUniques)
+      : false
   const handleResetButtonClick = () => {
     if (showFinalSellTab) {
       onReset?.()
       return
     }
-    if (onResetKeepUniques) setConfirmResetKeepUniques(true)
+    if (showGearTab && onResetGearTester) {
+      setConfirmResetGearTester(true)
+      return
+    }
+    if (showKeepUniquesTab && onResetKeepUniques) setConfirmResetKeepUniques(true)
   }
   // Once confirmed we immediately run the keep-unique reset so custom overrides do not linger in a half-reset state.
   const handleConfirmResetKeepUniques = () => {
@@ -130,12 +163,41 @@ export default function FinalSellDialog(props: FinalSellDialogProps) {
     setConfirmResetKeepUniques(false)
     onResetKeepUniques()
   }
+  // Clear the tester items in one shot so manual + imported gear disappear together.
+  const handleConfirmResetGearTester = () => {
+    if (!onResetGearTester) return
+    setConfirmResetGearTester(false)
+    onResetGearTester()
+  }
   // Dialog follows the spec'd min width/height so both tabs have enough breathing room.
   const paperSx = {
     width: 'min(960px, calc(100vw - 32px))',
     maxWidth: 'min(960px, calc(100vw - 32px))',
     height: 'min(800px, calc(100vh - 48px))',
   }
+  // Layout wrapper mirrors the placeholder padding and keeps the tester content/actions vertically stacked.
+  const renderGearTesterLayout = useCallback(({ content, actions }: GearTesterTabLayoutSlots) => (
+    <Box
+      data-tour-id="finalsell.dialog.gear"
+      sx={(theme) => ({
+        flex: 1,
+        minHeight: 0,
+        display: 'flex',
+        flexDirection: 'column',
+        p: 3,
+        ...reserveScrollbarGutterSpace({ reserveStart: false, basePaddingInlineEnd: theme.spacing(3) }),
+      })}
+    >
+      <Stack spacing={2} sx={{ flex: 1, minHeight: 0 }}>
+        <Box sx={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+          {content}
+        </Box>
+        <Stack spacing={1} sx={{ '& > :not(:first-of-type)': { marginLeft: 0 } }}>
+          {actions}
+        </Stack>
+      </Stack>
+    </Box>
+  ), [])
   return (
     <>
       <Dialog
@@ -147,7 +209,7 @@ export default function FinalSellDialog(props: FinalSellDialogProps) {
     >
       <DialogTitle sx={{ pb: 0 }}>
         <Stack spacing={1}>
-          <Typography variant="h6">{t('titleFinalSellRules')}</Typography>
+          <Typography variant="h6">{t('titleLogicHub')}</Typography>
           <Tabs
             value={normalizedTab}
             onChange={handleTabChange}
@@ -155,9 +217,10 @@ export default function FinalSellDialog(props: FinalSellDialogProps) {
             textColor="primary"
             indicatorColor="primary"
           >
-            <Tab value={FINAL_SELL_DIALOG_TAB_FINAL_SELL} label={t('testerFinalSell')} />
+            <Tab value={LOGIC_HUB_DIALOG_TAB_FINAL_SELL} label={t('testerFinalSell')} />
+            <Tab value={LOGIC_HUB_DIALOG_TAB_GEAR} label={t('tabFinalSellGear')} />
             <Tab
-              value={FINAL_SELL_DIALOG_TAB_KEEP_UNIQUES}
+              value={LOGIC_HUB_DIALOG_TAB_KEEP_UNIQUES}
               label={t('tabKeepUniques')}
               data-tour-id="keepuniques.tab"
             />
@@ -165,7 +228,7 @@ export default function FinalSellDialog(props: FinalSellDialogProps) {
         </Stack>
       </DialogTitle>
       <DialogContent sx={{ p: 0, display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
-        {showFinalSellTab ? (
+        {showFinalSellTab && (
           <Box
             data-tour-id="finalsell.dialog"
             sx={(theme) => ({
@@ -399,7 +462,22 @@ export default function FinalSellDialog(props: FinalSellDialogProps) {
           </Box>
         </Stack>
           </Box>
-        ) : (
+        )}
+        {showGearTab && (
+          // Gear tab reuses the tester tab content without duplicating dialog chrome.
+          <GearTesterTabContent
+            customCfgs={customCfgs}
+            onView={gearTabOnView}
+            substatColors={substatColors}
+            testerItems={testerItems}
+            setTesterItems={setTesterItems}
+            allocTesterItemId={allocTesterItemId}
+            testerMatches={testerMatches}
+            isActive={open && showGearTab}
+            renderLayout={renderGearTesterLayout}
+          />
+        )}
+        {showKeepUniquesTab && (
           // Keep Uniques tab reuses tester grid context; props land even while the UI is under construction.
           <KeepUniquesTab
             rules={keepUniqueRules}
@@ -440,6 +518,20 @@ export default function FinalSellDialog(props: FinalSellDialogProps) {
         <Button onClick={onClose} data-tour-id="finalsell.dialog.close">{t('close')}</Button>
       </DialogActions>
     </Dialog>
+      {/* Dedicated confirm dialog spells out the destructive Gear reset before wiping tester entries. */}
+      <Dialog
+        open={confirmResetGearTester}
+        onClose={() => setConfirmResetGearTester(false)}
+      >
+        <DialogTitle>{t('titleResetGearTester')}</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2">{t('msgResetGearTester')}</Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setConfirmResetGearTester(false)}>{t('cancel')}</Button>
+          <Button color="error" onClick={handleConfirmResetGearTester}>{t('reset')}</Button>
+        </DialogActions>
+      </Dialog>
       {/* Dedicated confirm dialog spells out the destructive Keep Uniques reset details before applying the change. */}
       <Dialog
         open={confirmResetKeepUniques}

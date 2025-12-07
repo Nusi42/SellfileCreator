@@ -83,7 +83,7 @@ import { BuilderColumn } from './components/AppLayout/BuilderColumn'
 import { useFileDragDrop } from './hooks/useFileDragDrop'
 import HeaderActions from './components/HeaderActions'
 import ManageColorsDialog from './components/dialogs/ManageColorsDialog'
-import FinalSellDialog from './components/dialogs/FinalSellDialog'
+import LogicHubDialog from './components/dialogs/LogicHubDialog'
 import HelpDialog from './components/HelpDialog'
 import MarkdownTooltip from './components/MarkdownTooltip'
 import { TutorialCoach } from './components/tutorial/TutorialCoach'
@@ -169,11 +169,11 @@ import type { TesterPreviewMatch, TesterPreviewRow } from './types/testerPreview
 import type { TesterMatchWorkerItemResult } from './workers/testerMatchWorkerTypes'
 import {
   FINAL_SELL_DEFAULT_SETS_MODE,
-  FINAL_SELL_DIALOG_TAB_FINAL_SELL,
-  FINAL_SELL_DIALOG_TAB_GEAR,
-  FINAL_SELL_DIALOG_TABS,
+  LOGIC_HUB_DIALOG_TAB_FINAL_SELL,
+  LOGIC_HUB_DIALOG_TAB_GEAR,
+  LOGIC_HUB_DIALOG_TABS,
 } from './lib/finalSell'
-import type { FinalSellRemainderConfig, FinalSellLevel } from './lib/finalSell'
+import type { FinalSellRemainderConfig, FinalSellLevel, LogicHubDialogTab } from './lib/finalSell'
 import { useConfigSelection } from './hooks/useConfigSelection'
 import { useRuleCacheWorker } from './hooks/useRuleCacheWorker'
 import { fingerprintKeepUniqueDetection } from './lib/keepUniqueFingerprint'
@@ -291,7 +291,7 @@ type ConfigRulesStateSnapshot = {
 export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindMode: ColorBlindMode; setColorBlindMode: (m: ColorBlindMode) => void }) {
   const [hsf, setHsf] = useState<HsfFile | null>(null)
   // Shared app state via context — reduces prop drilling and keeps behavior consistent.
-  const { customCfgs, selectedCfgIdx, metasets, substatTargets, finalSellRemainder, finalSellDialogTab, hsfcNote, keepUniqueRules, keepUniquesEnabled } = useAppState()
+  const { customCfgs, selectedCfgIdx, metasets, substatTargets, finalSellRemainder, logicHubDialogTab, hsfcNote, keepUniqueRules, keepUniquesEnabled } = useAppState()
   const customCfgsRef = useRef(customCfgs)
   useEffect(() => { customCfgsRef.current = customCfgs }, [customCfgs])
   const {
@@ -300,7 +300,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setMetasets,
     setSubstatTargets,
     setFinalSellRemainder,
-    setFinalSellDialogTab,
+    setLogicHubDialogTab,
     setHsfcNote,
     setKeepUniqueRules,
     setKeepUniquesEnabled,
@@ -1449,7 +1449,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const finalSellHistorySessionRef = useRef<'idle' | 'active'>('idle')
   const finalSellSessionBaselineRef = useRef<FinalSellRemainderConfig | null>(null)
   const finalSellSessionModeRef = useRef<FinalSellDescriptorMode | null>(null)
-  const finalSellOpenRef = useRef(false)
+  const logicHubOpenRef = useRef(false)
   const noteHistorySessionRef = useRef<'idle' | 'active'>('idle')
   const noteSessionBaselineRef = useRef<string | null>(null)
   const noteSessionModeRef = useRef<NoteDescriptorMode | null>(null)
@@ -1587,7 +1587,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       })
       : null
     if (!changed) {
-      if (!finalSellOpenRef.current) {
+      if (!logicHubOpenRef.current) {
         describeNextChange(null)
       }
       if (resolvedNextState !== prevState) {
@@ -1606,12 +1606,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     const aggregateMode = finalSellSessionModeRef.current ?? mode
     const aggregateDescriptor = describeFinalSellChange({ previous: baseline, next: resolvedNextState, mode: aggregateMode, t })
     if (!aggregateDescriptor) {
-      if (!finalSellOpenRef.current) {
+      if (!logicHubOpenRef.current) {
         describeNextChange(descriptor ?? null)
       }
       return descriptor ?? null
     }
-    if (finalSellOpenRef.current) {
+    if (logicHubOpenRef.current) {
       if (finalSellHistorySessionRef.current === 'idle') {
         finalSellHistorySessionRef.current = 'active'
         finalSellSessionBaselineRef.current = baseline
@@ -1738,15 +1738,15 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // Determine once whether to auto-open the README on this version.
   // External focus target for preview table (exact rule index in the effective rules array)
   const [focusRuleIndex, setFocusRuleIndex] = useState<number | null>(null)
-  const [finalSellOpen, setFinalSellOpen] = useState<boolean>(false)
+  const [logicHubOpen, setLogicHubOpen] = useState<boolean>(false)
   const flushTransientUi = useCallback(() => {
     try { document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })) } catch {}
     try { document.body.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true })) } catch {}
     try { document.body.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true })) } catch {}
     try { document.body.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true })) } catch {}
   }, [])
-  finalSellOpenRef.current = finalSellOpen
-  if (!finalSellOpen) {
+  logicHubOpenRef.current = logicHubOpen
+  if (!logicHubOpen) {
     finalSellHistorySessionRef.current = 'idle'
     finalSellSessionBaselineRef.current = null
     finalSellSessionModeRef.current = null
@@ -2058,8 +2058,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setSubstatTargets,
     finalSellRemainder,
     setFinalSellRemainder,
-    finalSellDialogTab,
-    setFinalSellDialogTab,
+    logicHubDialogTab,
+    setLogicHubDialogTab,
     keepUniqueRules,
     setKeepUniqueRules,
     keepUniquesEnabled,
@@ -2076,8 +2076,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setFilterOpen,
     rulesFilter,
     setRulesFilter,
-    finalSellOpen,
-    setFinalSellOpen,
+    logicHubOpen,
+    setLogicHubOpen,
     t,
   })
 
@@ -2337,7 +2337,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     filters: autosaveFiltersState,
     keepUniqueRules,
     keepUniquesEnabled,
-    finalSellDialogTab,
+    logicHubDialogTab,
     keepUniquesGridFilterMode,
   })
   const currentMetasetSignature = useMemo(() => metasetsSignature(metasets), [metasets])
@@ -2780,7 +2780,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   }, [customCfgs, insertIndexAfter, metasets, pasteAfterIndex, setCopyDlgOpen, setCopyText, setCustomCfgs, syncSelectedCfgIdx])
 
   const handleRulesTableClearBase = useCallback(() => { setHsf(null) }, [setHsf])
-  const handleRulesTableConfigureFinalSell = useCallback(() => { setFinalSellOpen(true) }, [setFinalSellOpen])
+  const handleRulesTableConfigureFinalSell = useCallback(() => { setLogicHubOpen(true) }, [setLogicHubOpen])
   const handleResetKeepUniques = useCallback(() => {
     // Reset keep rules to the seeded defaults and disable the feature so the user starts from a known baseline.
     setKeepUniqueRules(buildDefaultKeepUniqueRules())
@@ -2814,12 +2814,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     const filtersPayload = areAutosaveFiltersDefault(autosaveFiltersState) ? null : autosaveFiltersState
     return {
       ...autosaveBasePayload,
-      FinalSellDialogTab: finalSellDialogTab, // Persist the active tab so the dialog re-opens where the user left off.
+      LogicHubDialogTab: logicHubDialogTab, // Persist the active tab so the dialog re-opens where the user left off.
       KeepUniquesGridFilterMode: keepUniquesGridFilterMode,
       AutosaveSavedAt: new Date().toISOString(),
       ...(filtersPayload ? { Filters: filtersPayload } : {}),
     }
-  }, [autosaveBasePayload, autosaveFiltersState, finalSellDialogTab, keepUniquesGridFilterMode])
+  }, [autosaveBasePayload, autosaveFiltersState, logicHubDialogTab, keepUniquesGridFilterMode])
   useAutosave({
     key: AUTOSAVE_KEY,
     payload: autosavePayload,
@@ -2831,7 +2831,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   if (testerAutosaveBaselineRef.current === null) {
     testerAutosaveBaselineRef.current = testerAutosavePayloadSignature
   }
-  const testerGearTabActive = finalSellOpen && finalSellDialogTab === FINAL_SELL_DIALOG_TAB_GEAR
+  const testerGearTabActive = logicHubOpen && logicHubDialogTab === LOGIC_HUB_DIALOG_TAB_GEAR
   const testerAutosaveEnabled = testerGearTabActive || testerAutosaveBaselineRef.current !== testerAutosavePayloadSignature
   useAutosave({
     key: AUTOSAVE_TESTER_KEY,
@@ -2968,7 +2968,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   useEffect(() => { hsfRulesForTableRef.current = hsfRulesForTable }, [hsfRulesForTable])
   const hsfTableEmptyDueToFilters = (filterActive || testerConfigFilterActive) && mergedRules.length > 0 && hsfRulesForTable.length === 0
   const handleTesterRuleView = useCallback((ruleIndex: number, cfgIdx: number | null) => {
-    setFinalSellOpen(false)
+    setLogicHubOpen(false)
     const cfgSnapshot = customCfgsRef.current
     const hasValidConfig = cfgIdx != null && cfgIdx >= 0 && cfgIdx < cfgSnapshot.length
     if (hasValidConfig) {
@@ -2991,7 +2991,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     } catch {
       setFocusRuleIndex(null)
     }
-  }, [setBuilder, setFocusRuleIndex, setPreviewMode, setFinalSellOpen, syncSelectedCfgIdx])
+  }, [setBuilder, setFocusRuleIndex, setPreviewMode, setLogicHubOpen, syncSelectedCfgIdx])
   const visibleConfigIndices = useMemo<Set<number> | null>(() => {
     if (!limitConfigsToFiltered) return null
     const indices = new Set(chipMatchingConfigIndices)
@@ -4273,11 +4273,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             return { ...cur, artifacts: false, accessories: false }
           }, { mode: 'quickToggle' })
         }}
-        onOpenFinalSellDialog={() => setFinalSellOpen(true)}
-        onOpenRuleTester={() => {
-          setFinalSellDialogTab(FINAL_SELL_DIALOG_TAB_GEAR)
-          setFinalSellOpen(true)
-        }}
+        onOpenLogicHubDialog={() => setLogicHubOpen(true)}
+        keepUniquesEnabled={keepUniquesEnabled}
+        onToggleKeepUniques={(next) => setKeepUniquesEnabled(next)}
         previewMode={previewMode}
         onChangePreviewMode={setPreviewMode}
         filtersSynced={filtersSynced}
@@ -4554,13 +4552,13 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             ), 0)
             testerItemIdRef.current = Math.max(testerItemIdRef.current, (maxItemId || 0) + 1)
           }
-          const savedAutosaveTab = draft?.FinalSellDialogTab
+          const savedAutosaveTab = (draft?.LogicHubDialogTab ?? draft?.FinalSellDialogTab) as LogicHubDialogTab | undefined
           if (savedAutosaveTab) {
             // Clamp unknown values back to the default tab so corrupted autosave payloads stay recoverable.
-            const normalizedTab = FINAL_SELL_DIALOG_TABS.includes(savedAutosaveTab)
+            const normalizedTab = LOGIC_HUB_DIALOG_TABS.includes(savedAutosaveTab)
               ? savedAutosaveTab
-              : FINAL_SELL_DIALOG_TAB_FINAL_SELL
-            setFinalSellDialogTab(normalizedTab)
+              : LOGIC_HUB_DIALOG_TAB_FINAL_SELL
+            setLogicHubDialogTab(normalizedTab)
           }
           if (draft?.KeepUniquesGridFilterMode) {
             setKeepUniquesGridFilterMode(sanitizeKeepUniquesGridFilterMode(draft.KeepUniquesGridFilterMode))
@@ -4589,20 +4587,20 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         setSubstatColors={setSubstatColors}
         onReset={resetColors}
       />
-      {/* Final Sell configuration */}
-      <FinalSellDialog
-        open={finalSellOpen}
+      {/* Logic Hub configuration */}
+      <LogicHubDialog
+        open={logicHubOpen}
         value={finalSellRemainder}
         onChange={(v) => applyFinalSellChange(v)}
-        onClose={() => setFinalSellOpen(false)}
+        onClose={() => setLogicHubOpen(false)}
         onReset={() => applyFinalSellChange({
           artifacts: false,
           accessories: false,
           levels: FINAL_SELL_DEFAULT_LEVELS.slice() as FinalSellLevel[],
           setsMode: FINAL_SELL_DEFAULT_SETS_MODE,
         }, { mode: 'reset' })}
-        activeTab={finalSellDialogTab}
-        onChangeTab={setFinalSellDialogTab}
+        activeTab={logicHubDialogTab}
+        onChangeTab={setLogicHubDialogTab}
         // Pass preview grid state so the Keep Uniques tab can mirror the tester visuals without duplicating selectors.
         keepUniqueRules={keepUniqueRules}
         onKeepUniqueRulesChange={setKeepUniqueRules}

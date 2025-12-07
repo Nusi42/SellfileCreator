@@ -6,7 +6,7 @@ English:
 - Load your full RSL Helper gear database straight into the new Rule Tester view, then watch every config decide Keep or Sell before you export the Sellfile.
 - The Rule Tester grid groups items by set and faction, shows champion portraits, offers keep/sell chips that jump back to the builder, and gains context menus plus search hotkeys so scanning huge inventories stays friendly.
 - Unique or at-risk items are spotlighted: the grid collapses to the truly unique groups, adds a clear All/Selection toggle, and paints a green Keep Uniques chip so you instantly know why a piece is protected.
-- Keep Unique protection now lives inside a dedicated Keep-Unique tab in the Final Sell dialog, letting you define slot/set/rank/rarity/main/faction combos, see how many copies you own, highlight the matching tester cards, and merge the rules into exports with one switch.
+- Keep Unique protection now lives inside a dedicated Keep-Unique tab in the Logic Hub dialog, letting you define slot/set/rank/rarity/main/faction combos, see how many copies you own, highlight the matching tester cards, and merge the rules into exports with one switch.
 
 Deutsch:
 - Du kannst jetzt deine komplette RSL-Helper-Gear-Datenbank direkt im neuen Rule-Tester-View laden und sehen, welche Config jedes Item behalten oder verkaufen würde, bevor du das Sellfile exportierst.
@@ -40,7 +40,7 @@ Deutsch:
 - Config chips gained a Draft mode (produces no rules) so you can drop labeled separators; duplicates are flagged, chips can be limited to whatever the preview filter keeps, and the bundled sample HSFC/HSF were refreshed to use the new structure.
 - Notes can display config chips or metasets by adding `<!-- configs:... -->` / `<!-- configs-re:"..." -->`; the editor adds insert buttons so shared projects stay self-explanatory.
 - Builder clean-up: removed the `Any` buttons from Slots/Mainstats/Substats in favour of clear icons, matching how other pickers work; reset buttons now say `Reset Config`.
-- Final Sell dialog keeps the same controls but the wording and inline hints now explain what turning it on does and why all sets are listed explicitly; the preview badge highlights when the export hover suggests enabling it.
+- Logic Hub keeps the same controls but the wording and inline hints now explain what turning it on does and why all sets are listed explicitly; the preview badge highlights when the export hover suggests enabling it.
 - Visual pass: slot art now uses the RSL Helper icons, faction icons show up on chips, filters, and in the Rule Tester, and localisation strings were updated in every shipped language.
 - Rule Tester and filters: you can filter by config name, pull incoming gear in from the sample server, see faction icons alongside set icons, and the optional export push endpoint can send the `.hsf` straight to a receiver when configured.
 
