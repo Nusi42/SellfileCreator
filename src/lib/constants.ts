@@ -209,6 +209,10 @@ export const ELLIPSIS_TEXT_SX = {
   whiteSpace: 'nowrap',
 } as const
 
+// Standard dialog padding matches the Metasets/Substat dialogs (16px block, 24px inline).
+export const STANDARD_DIALOG_PADDING_INLINE_UNITS = 3
+export const STANDARD_DIALOG_PADDING_BLOCK_UNITS = 2
+
 // Labels next to inline controls lean on this helper so translations hit an ellipsis
 // instead of stretching the row or wrapping under the control.
 export const BUILDER_LABEL_INLINE_SX = {

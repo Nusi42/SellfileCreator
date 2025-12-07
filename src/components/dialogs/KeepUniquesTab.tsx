@@ -35,7 +35,12 @@ import {
 import { createKeepUniqueRuleId, getKeepUniqueItemKey } from '../../lib/keepUniques'
 import type { TesterPreviewRow } from '../../types/testerPreview'
 import type { ColorBlindMode } from '../../lib/constants'
-import { FONT_SIZE_BASE_PX, MENU_CONTROL_HEIGHT_PX } from '../../lib/constants'
+import {
+  FONT_SIZE_BASE_PX,
+  MENU_CONTROL_HEIGHT_PX,
+  STANDARD_DIALOG_PADDING_BLOCK_UNITS,
+  STANDARD_DIALOG_PADDING_INLINE_UNITS,
+} from '../../lib/constants'
 import type { ArtifactSetId, ArtifactTypeId, StatVariant } from '../../lib/types'
 import {
   ACCESSORY_SLOTS_COMPATIBLE_SET_IDS,
@@ -869,7 +874,16 @@ ${t('keepUniquesCountModeHint')}`
           <Button color="error" onClick={handleConfirmDeleteRule}>{t('delete')}</Button>
         </DialogActions>
       </Dialog>
-      <Box sx={{ flex: 1, minHeight: 0, height: '100%', p: 3, boxSizing: 'border-box' }}>
+      <Box
+        sx={{
+          flex: 1,
+          minHeight: 0,
+          height: '100%',
+          px: STANDARD_DIALOG_PADDING_INLINE_UNITS,
+          py: STANDARD_DIALOG_PADDING_BLOCK_UNITS,
+          boxSizing: 'border-box',
+        }}
+      >
         <Box
           sx={{
             display: { xs: 'block', md: 'grid' },
@@ -1014,7 +1028,7 @@ ${t('keepUniquesCountModeHint')}`
                 emptyStateOptions={!hasPreviewGear ? {
                   borderVariant: 'dashed',
                   minHeight: '100%',
-                  sx: { height: '100%', px: 3 },
+                  sx: { height: '100%', px: STANDARD_DIALOG_PADDING_INLINE_UNITS },
                 } : undefined}
               />
             </Box>
