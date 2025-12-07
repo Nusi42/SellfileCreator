@@ -11,6 +11,7 @@ import { alpha, useTheme } from '@mui/material/styles'
 import type { Theme } from '@mui/material/styles'
 import type { SystemStyleObject } from '@mui/system'
 import { useI18n } from '../lib/i18n'
+import { STANDARD_DIALOG_PADDING_BLOCK_UNITS, STANDARD_DIALOG_PADDING_INLINE_UNITS } from '../lib/constants'
 import type { SubstatTargetTable, Star } from '../lib/hsfBuilder'
 import { defaultSubstatTargets } from '../lib/hsfBuilder'
 import { StatVariant, DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT, statVariantI18nKey, STAT_VARIANTS_PRIORITY } from '../lib/types'
@@ -185,7 +186,7 @@ export default function SubstatTargetsDialog({ open, onClose, substatTargets, on
     <>
       <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
         <DialogTitle>{t('titleManageSubstatTargets')}</DialogTitle>
-        <DialogContent dividers>
+        <DialogContent dividers sx={{ px: STANDARD_DIALOG_PADDING_INLINE_UNITS, py: STANDARD_DIALOG_PADDING_BLOCK_UNITS }}>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mb: 1 }}>
             {substatTargetsHelpParagraphs.map((paragraph, idx) => (
               <Typography key={`help-${idx}`} variant="body2" color="text.secondary" sx={{ whiteSpace: 'pre-wrap' }}>
@@ -214,7 +215,7 @@ export default function SubstatTargetsDialog({ open, onClose, substatTargets, on
             })}
           </Box>
         </DialogContent>
-        <DialogActions>
+        <DialogActions sx={{ px: STANDARD_DIALOG_PADDING_INLINE_UNITS, py: STANDARD_DIALOG_PADDING_BLOCK_UNITS }}>
           <Button size="small" variant="outlined" color="error" onClick={() => setConfirmResetTargets(true)}>{t('resetToDefaults')}</Button>
           <Box sx={{ flex: 1 }} />
           <Button onClick={onClose}>{t('close')}</Button>

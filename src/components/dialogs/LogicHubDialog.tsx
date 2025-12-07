@@ -1,7 +1,12 @@
 import { useCallback, useState, type Dispatch, type MouseEvent, type SetStateAction } from 'react'
 import { Alert, Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Stack, Tab, Tabs, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material'
 import { useI18n } from '../../lib/i18n'
-import { MENU_CONTROL_HEIGHT_PX, type ColorBlindMode } from '../../lib/constants'
+import {
+  MENU_CONTROL_HEIGHT_PX,
+  STANDARD_DIALOG_PADDING_BLOCK_UNITS,
+  STANDARD_DIALOG_PADDING_INLINE_UNITS,
+  type ColorBlindMode,
+} from '../../lib/constants'
 import {
   FINAL_SELL_DEFAULT_SETS_MODE,
   FINAL_SELL_SETS_MODE_ANY,
@@ -27,6 +32,7 @@ import KeepUniquesTab from './KeepUniquesTab'
 import MarkdownTooltip from '../MarkdownTooltip'
 import type { Metaset } from '../../lib/metasets'
 import { reserveScrollbarGutterSpace } from '../../lib/scrollbar'
+
 
 type LogicHubDialogProps = {
   open: boolean
@@ -184,8 +190,12 @@ export default function LogicHubDialog(props: LogicHubDialogProps) {
         minHeight: 0,
         display: 'flex',
         flexDirection: 'column',
-        p: 3,
-        ...reserveScrollbarGutterSpace({ reserveStart: false, basePaddingInlineEnd: theme.spacing(3) }),
+        px: STANDARD_DIALOG_PADDING_INLINE_UNITS,
+        py: STANDARD_DIALOG_PADDING_BLOCK_UNITS,
+        ...reserveScrollbarGutterSpace({
+          reserveStart: false,
+          basePaddingInlineEnd: theme.spacing(STANDARD_DIALOG_PADDING_INLINE_UNITS),
+        }),
       })}
     >
       <Stack spacing={2} sx={{ flex: 1, minHeight: 0 }}>
@@ -207,27 +217,29 @@ export default function LogicHubDialog(props: LogicHubDialogProps) {
       maxWidth={false}
       PaperProps={{ sx: paperSx }}
     >
-      <DialogTitle sx={{ pb: 0 }}>
-        <Stack spacing={1}>
-          <Typography variant="h6">{t('titleLogicHub')}</Typography>
-          <Tabs
-            value={normalizedTab}
-            onChange={handleTabChange}
-            variant="fullWidth"
-            textColor="primary"
-            indicatorColor="primary"
-          >
-            <Tab value={LOGIC_HUB_DIALOG_TAB_FINAL_SELL} label={t('testerFinalSell')} />
-            <Tab value={LOGIC_HUB_DIALOG_TAB_GEAR} label={t('tabFinalSellGear')} />
-            <Tab
-              value={LOGIC_HUB_DIALOG_TAB_KEEP_UNIQUES}
-              label={t('tabKeepUniques')}
-              data-tour-id="keepuniques.tab"
-            />
-          </Tabs>
-        </Stack>
+      <DialogTitle sx={{ p: 0 }}>
+        <Box sx={{ px: STANDARD_DIALOG_PADDING_INLINE_UNITS, pt: STANDARD_DIALOG_PADDING_BLOCK_UNITS, pb: 0 }}>
+          <Stack spacing={1}>
+            <Typography variant="h6">{t('titleLogicHub')}</Typography>
+            <Tabs
+              value={normalizedTab}
+              onChange={handleTabChange}
+              variant="fullWidth"
+              textColor="primary"
+              indicatorColor="primary"
+            >
+              <Tab value={LOGIC_HUB_DIALOG_TAB_FINAL_SELL} label={t('testerFinalSell')} />
+              <Tab value={LOGIC_HUB_DIALOG_TAB_GEAR} label={t('tabFinalSellGear')} />
+              <Tab
+                value={LOGIC_HUB_DIALOG_TAB_KEEP_UNIQUES}
+                label={t('tabKeepUniques')}
+                data-tour-id="keepuniques.tab"
+              />
+            </Tabs>
+          </Stack>
+        </Box>
       </DialogTitle>
-      <DialogContent sx={{ p: 0, display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
+      <DialogContent dividers sx={{ p: 0, display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
         {showFinalSellTab && (
           <Box
             data-tour-id="finalsell.dialog"
@@ -235,8 +247,12 @@ export default function LogicHubDialog(props: LogicHubDialogProps) {
               flex: 1,
               minHeight: 0,
               overflowY: 'auto',
-              p: 3,
-              ...reserveScrollbarGutterSpace({ reserveStart: false, basePaddingInlineEnd: theme.spacing(3) }),
+              px: STANDARD_DIALOG_PADDING_INLINE_UNITS,
+              py: STANDARD_DIALOG_PADDING_BLOCK_UNITS,
+              ...reserveScrollbarGutterSpace({
+                reserveStart: false,
+                basePaddingInlineEnd: theme.spacing(STANDARD_DIALOG_PADDING_INLINE_UNITS),
+              }),
             })}
           >
             <Stack spacing={2} sx={{ mt: 0.5 }}>
@@ -503,7 +519,7 @@ export default function LogicHubDialog(props: LogicHubDialogProps) {
           />
         )}
       </DialogContent>
-      <DialogActions sx={{ px: 3, py: 2 }}>
+      <DialogActions sx={{ px: STANDARD_DIALOG_PADDING_INLINE_UNITS, py: STANDARD_DIALOG_PADDING_BLOCK_UNITS }}>
         {showResetButton && (
           <Button
             size="small"

@@ -20,7 +20,20 @@ import InlineSelectClearButton from './InlineSelectClearButton'
 import SelectDropdownActivator from './SelectDropdownActivator'
 // MarkdownTooltip keeps the move/visibility/usage hints aligned with the rest of the tooltip cleanup.
 import MarkdownTooltip from './MarkdownTooltip'
-import { MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, MENU_MAX_HEIGHT_EXTRA_BUFFER, SETS_MENU_WIDTH_PX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, BUILDER_TOGGLE_BUTTON_HEIGHT_PX, SETS_SELECT_INLINE_GUTTER_COLLAPSED_PX, SETS_SELECT_INLINE_GUTTER_PX, SMALL_BUTTON_HEIGHT_PX, METASETS_DIALOG_LIST_HEIGHT_PX } from '../lib/constants'
+import {
+  MENU_MAX_HEIGHT_SETS_LIST_PX,
+  MENU_SCROLL_GUTTER_PX,
+  MENU_MAX_HEIGHT_EXTRA_BUFFER,
+  SETS_MENU_WIDTH_PX,
+  MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX,
+  BUILDER_TOGGLE_BUTTON_HEIGHT_PX,
+  SETS_SELECT_INLINE_GUTTER_COLLAPSED_PX,
+  SETS_SELECT_INLINE_GUTTER_PX,
+  SMALL_BUTTON_HEIGHT_PX,
+  METASETS_DIALOG_LIST_HEIGHT_PX,
+  STANDARD_DIALOG_PADDING_BLOCK_UNITS,
+  STANDARD_DIALOG_PADDING_INLINE_UNITS,
+} from '../lib/constants'
 import { reserveScrollbarGutterSpace } from '../lib/scrollbar'
 import type { HistoryEntryDescriptor, DescribeNextChangeFn } from '../hooks/useHsfcHistory'
 import { describeMetasetAdded, describeMetasetDeleted, describeMetasetIconChanged, describeMetasetRenamed, describeMetasetSetsChanged, describeMetasetVisibilityChanged } from '../history/metasetDescriptors'
@@ -461,7 +474,7 @@ export default function MetasetsDialog({
         <DialogTitle>{t('titleManageMetasets')}</DialogTitle>
         <DialogContent dividers sx={{ p: 0, display: 'flex', flexDirection: 'column' }} data-tour-id="metasets.dialog">
           {/* Sticky header: description only */}
-          <Box sx={{ position: 'sticky', top: 0, zIndex: 1, px: 3, pt: 2, pb: 1 }}>
+          <Box sx={{ position: 'sticky', top: 0, zIndex: 1, px: STANDARD_DIALOG_PADDING_INLINE_UNITS, pt: STANDARD_DIALOG_PADDING_BLOCK_UNITS, pb: 1 }}>
             <Typography variant="body2" color="text.secondary">{t('metasetsHeaderBlurb')}</Typography>
             <Divider sx={{ mt: 1, opacity: 0.5 }} />
           </Box>
@@ -469,8 +482,8 @@ export default function MetasetsDialog({
           <Box
             ref={listRef}
             sx={{
-              px: 3,
-              py: 2,
+              px: STANDARD_DIALOG_PADDING_INLINE_UNITS,
+              py: STANDARD_DIALOG_PADDING_BLOCK_UNITS,
               overflowY: 'auto',
               height: metasetsListHeight,
               maxHeight: metasetsListHeight,
