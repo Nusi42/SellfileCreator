@@ -14,14 +14,17 @@ export const FINAL_SELL_SETS_MODE_EXPLICIT: FinalSellSetsMode = 'explicit'
 
 export const FINAL_SELL_DEFAULT_SETS_MODE: FinalSellSetsMode = FINAL_SELL_SETS_MODE_ANY
 
-// Dialog tabs stay canonical so autosave/history handlers can share the same tokens.
-export type FinalSellDialogTab = 'finalSell' | 'keepUniques'
-export const FINAL_SELL_DIALOG_TAB_FINAL_SELL: FinalSellDialogTab = 'finalSell'
-export const FINAL_SELL_DIALOG_TAB_KEEP_UNIQUES: FinalSellDialogTab = 'keepUniques'
+// Logic Hub dialog tabs stay canonical so autosave/history handlers can share the same tokens.
+export type LogicHubDialogTab = 'finalSell' | 'gear' | 'keepUniques'
+export const LOGIC_HUB_DIALOG_TAB_FINAL_SELL: LogicHubDialogTab = 'finalSell'
+// Gear tab id lives here ahead of embedding the gear editor content.
+export const LOGIC_HUB_DIALOG_TAB_GEAR: LogicHubDialogTab = 'gear'
+export const LOGIC_HUB_DIALOG_TAB_KEEP_UNIQUES: LogicHubDialogTab = 'keepUniques'
 // Stable ordering helps consumers clamp restored values to a supported tab id.
-export const FINAL_SELL_DIALOG_TABS: readonly FinalSellDialogTab[] = [
-  FINAL_SELL_DIALOG_TAB_FINAL_SELL,
-  FINAL_SELL_DIALOG_TAB_KEEP_UNIQUES,
+export const LOGIC_HUB_DIALOG_TABS: readonly LogicHubDialogTab[] = [
+  LOGIC_HUB_DIALOG_TAB_FINAL_SELL,
+  LOGIC_HUB_DIALOG_TAB_GEAR,
+  LOGIC_HUB_DIALOG_TAB_KEEP_UNIQUES,
 ] as const
 
 export const FINAL_SELL_LEVEL_CHOICES: ReadonlyArray<{ key: FinalSellLevel; label: string }> = [

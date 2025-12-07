@@ -1,11 +1,10 @@
 import React from 'react'
 import { Box, Button, Chip, Stack, ToggleButton, ToggleButtonGroup, Typography, Menu, MenuItem } from '@mui/material'
 import { alpha, type Theme } from '@mui/material/styles'
-import TuneIcon from '@mui/icons-material/Tune'
 import {
   ELLIPSIS_TEXT_SX,
+  FINAL_SELL_BUTTON_MIN_WIDTH_PX,
   FINAL_SELL_BUTTON_WIDTH_PX,
-  LONG_LABEL_BUTTON_MAX_WIDTH_PX,
   SMALL_BUTTON_HEIGHT_PX,
   CLEAR_ICON_BUTTON_SIZE_PX,
   FILTER_HEADER_LABEL_MAX_WIDTH_PX,
@@ -18,7 +17,6 @@ import UploadFileIcon from '@mui/icons-material/UploadFile'
 import SaveIcon from '@mui/icons-material/Save'
 import FilePickerButton from './FilePickerButton'
 import { useI18n, formatRulesCount } from '../lib/i18n'
-import { getHighlightEffectSx, pickHighlightEffect, HIGHLIGHT_EFFECT_DURATION_MS } from './highlightEffects'
 import ClearIconButton from './ClearIconButton'
 import DirtyBadge from './DirtyBadge'
 import type { FinalSellRemainderConfig } from '../lib/finalSell'
@@ -27,11 +25,10 @@ import { ContextMenuHintOverlay } from './ContextMenuHintOverlay'
 import { useContextMenuHint } from '../hooks/useContextMenuHint'
 import Checkbox from '@mui/material/Checkbox'
 // MarkdownTooltip keeps all preview tooltips (filter toggle, export warnings, etc.) aligned with the global styling/delay.
+import EllipsisTooltip from './EllipsisTooltip'
 import MarkdownTooltip from './MarkdownTooltip'
 import WorkloadProgressIndicator from './WorkloadProgressIndicator'
 
-const EXPORT_HOVER_DELAY_MS = 2000 as const
-const HIGHLIGHT_REPLAY_DELAY_MS = 500 as const
 
 type ProgressChipProps = {
   progressRatio: number
@@ -72,6 +69,8 @@ export default function PreviewHeaderActions(props: {
   onToggleOmitDisabled: (next: boolean) => void
   exportDisabled: boolean
   pushEndpoint?: string
+  keepUniquesEnabled: boolean
+  onToggleKeepUniques: (next: boolean) => void
   hsfDirty: boolean
   building?: boolean
   testerBuilding?: boolean
@@ -80,8 +79,7 @@ export default function PreviewHeaderActions(props: {
   // Final sell remainder controls
   finalSell: FinalSellRemainderConfig
   onToggleFinalSell: (enabled: boolean) => void
-  onOpenFinalSellDialog: () => void
-  onOpenRuleTester?: () => void
+  onOpenLogicHubDialog: () => void
   previewMode: 'rules' | 'tester'
   onChangePreviewMode: (mode: 'rules' | 'tester') => void
   testerCount?: number
@@ -111,9 +109,10 @@ export default function PreviewHeaderActions(props: {
     exportDisabled,
     pushEndpoint,
     finalSell,
+    keepUniquesEnabled,
+    onToggleKeepUniques,
     onToggleFinalSell,
-    onOpenFinalSellDialog,
-    onOpenRuleTester,
+    onOpenLogicHubDialog,
     hsfDirty,
     building = false,
     limitHit = false,
@@ -235,9 +234,24 @@ export default function PreviewHeaderActions(props: {
   const [filterHintPos, setFilterHintPos] = React.useState<{ x: number; y: number } | null>(null)
   const filterHintActive = showFilterHint && filterHintPos !== null && !filterMenuAnchor
   const filterLabel = filterActive ? t('filtersOn') : t('filtersOff')
-  const ruleTesterLabel = t('testerOpenLabel')
+  const keepUniquesToggleLabel = t('keepUniquesToggleLabel')
   const filterHeaderLabel = t('filterHeader')
-  const finalSellLabel = fsEnabled ? t('finalSellOn') : t('finalSellOff')
+  const finalSellLabel = t('finalSellToggleLabel')
+  const filterToggleLabel = t('filterToggleLabel')
+  const logicHubLabel = t('titleLogicHub')
+  const keepUniquesLabel = t('keepUniquesToggleLabel')
+  const longestWarningToggleWidth = React.useMemo(() => {
+    const labels = [finalSellLabel, keepUniquesLabel]
+    const ctx = document?.createElement?.('canvas')?.getContext?.('2d')
+    const font = typeof window !== 'undefined'
+      ? getComputedStyle(window.document.body).font || '500 14px Roboto'
+      : '500 14px Roboto'
+    if (!ctx) return FINAL_SELL_BUTTON_MIN_WIDTH_PX
+    ctx.font = font
+    const widths = labels.map((text) => ctx.measureText(text).width + 32)
+    const longest = Math.max(...widths, FINAL_SELL_BUTTON_MIN_WIDTH_PX)
+    return Math.min(longest, FINAL_SELL_BUTTON_WIDTH_PX)
+  }, [finalSellLabel, keepUniquesLabel])
   const pushActive = !!pushEndpoint
   const exportLabel = pushActive
     ? (baseRuleCount ? t('pushMergedSellfile') : t('pushSellfile'))
@@ -250,41 +264,6 @@ export default function PreviewHeaderActions(props: {
     exportTooltipParts.push(t('exportIgnoresFilters'))
   }
   const exportTooltip = exportTooltipParts.join('\n')
-  // Soft hint: when Final Sell is off, idling over Export briefly highlights the toggle.
-  const [finalSellHighlightIdx, setFinalSellHighlightIdx] = React.useState<number | null>(null)
-  const hoverTimeoutRef = React.useRef<number | null>(null)
-  const highlightClearTimeoutRef = React.useRef<number | null>(null)
-  const highlightLoopTimeoutRef = React.useRef<number | null>(null)
-  const previousHighlightRef = React.useRef<number | null>(null)
-  const hoverActiveRef = React.useRef(false)
-
-  const clearHoverTimeout = React.useCallback(() => {
-    if (hoverTimeoutRef.current != null) {
-      window.clearTimeout(hoverTimeoutRef.current)
-      hoverTimeoutRef.current = null
-    }
-  }, [])
-
-  const clearHighlightClearTimeout = React.useCallback(() => {
-    if (highlightClearTimeoutRef.current != null) {
-      window.clearTimeout(highlightClearTimeoutRef.current)
-      highlightClearTimeoutRef.current = null
-    }
-  }, [])
-
-  const clearHighlightLoopTimeout = React.useCallback(() => {
-    if (highlightLoopTimeoutRef.current != null) {
-      window.clearTimeout(highlightLoopTimeoutRef.current)
-      highlightLoopTimeoutRef.current = null
-    }
-  }, [])
-
-  const stopHighlighting = React.useCallback(() => {
-    clearHighlightClearTimeout()
-    clearHighlightLoopTimeout()
-    previousHighlightRef.current = null
-    setFinalSellHighlightIdx(null)
-  }, [clearHighlightClearTimeout, clearHighlightLoopTimeout])
 
   const statusBadgeSx = React.useCallback((paletteKey: 'warning' | 'success') => (theme: Theme) => ({
     position: 'absolute',
@@ -308,55 +287,6 @@ export default function PreviewHeaderActions(props: {
     padding: 0,
   }), [])
 
-  const playHighlightOnce = React.useCallback(() => {
-    if (fsEnabled || !hoverActiveRef.current) return
-    clearHighlightClearTimeout()
-    clearHighlightLoopTimeout()
-    const next = pickHighlightEffect(previousHighlightRef.current)
-    previousHighlightRef.current = next
-    setFinalSellHighlightIdx(next)
-    highlightClearTimeoutRef.current = window.setTimeout(() => {
-      setFinalSellHighlightIdx(null)
-      highlightClearTimeoutRef.current = null
-      if (fsEnabled || !hoverActiveRef.current) return
-      highlightLoopTimeoutRef.current = window.setTimeout(() => {
-        highlightLoopTimeoutRef.current = null
-        playHighlightOnce()
-      }, HIGHLIGHT_REPLAY_DELAY_MS)
-    }, HIGHLIGHT_EFFECT_DURATION_MS)
-  }, [clearHighlightClearTimeout, clearHighlightLoopTimeout, fsEnabled])
-
-  const triggerHighlight = React.useCallback(() => {
-    hoverTimeoutRef.current = null
-    if (fsEnabled || !hoverActiveRef.current) return
-    playHighlightOnce()
-  }, [fsEnabled, playHighlightOnce])
-
-  const handleExportHoverStart = React.useCallback(() => {
-    if (fsEnabled) return
-    hoverActiveRef.current = true
-    clearHoverTimeout()
-    hoverTimeoutRef.current = window.setTimeout(triggerHighlight, EXPORT_HOVER_DELAY_MS)
-  }, [clearHoverTimeout, fsEnabled, triggerHighlight])
-
-  const handleExportHoverEnd = React.useCallback(() => {
-    hoverActiveRef.current = false
-    clearHoverTimeout()
-    stopHighlighting()
-  }, [clearHoverTimeout, stopHighlighting])
-
-  React.useEffect(() => {
-    if (!fsEnabled) return
-    clearHoverTimeout()
-    hoverActiveRef.current = false
-    stopHighlighting()
-  }, [fsEnabled, clearHoverTimeout, stopHighlighting])
-
-  React.useEffect(() => () => {
-    clearHoverTimeout()
-    hoverActiveRef.current = false
-    stopHighlighting()
-  }, [clearHoverTimeout, stopHighlighting])
   React.useEffect(() => {
     if (!showExportHint) setExportHintPos(null)
   }, [showExportHint])
@@ -372,7 +302,7 @@ export default function PreviewHeaderActions(props: {
     <>
       <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
         <Typography variant="h6">{previewHeading}</Typography>
-        <Stack direction="row" spacing={1} alignItems="center" sx={{ flexShrink: 0 }}>
+        <Stack direction="row" spacing={1} alignItems="center" sx={{ flexShrink: 0, minWidth: 0 }}>
           {limitHit && !building && isRulesMode ? (
             <>
               {/* MarkdownTooltip ensures the limit warning uses the shared hover delay and Markdown formatting. */}
@@ -412,7 +342,17 @@ export default function PreviewHeaderActions(props: {
           </Typography>
         ) : null}
       </Stack>
-      <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1, flexWrap: 'wrap', rowGap: 1 }}>
+      <Stack
+        direction="row"
+        spacing={1}
+        alignItems="center"
+        sx={{
+          mb: 1,
+          flexWrap: 'nowrap',
+          minWidth: 0,
+          '& > *': { minWidth: 0, flexShrink: 0 },
+        }}
+      >
         <ToggleButtonGroup
           size="small"
           value={previewMode}
@@ -422,6 +362,8 @@ export default function PreviewHeaderActions(props: {
           data-tour-id="preview.mode-toggle"
           sx={{
             height: SMALL_BUTTON_HEIGHT_PX,
+            flexShrink: 0,
+            minWidth: 0,
             '& .MuiToggleButtonGroup-grouped:not(:first-of-type)': {
               marginLeft: 0,
               borderLeft: '1px solid transparent',
@@ -449,45 +391,66 @@ export default function PreviewHeaderActions(props: {
         </ToggleButtonGroup>
         {onToggleFilter && (
           <>
-            {/* Filter toggle tooltip can now express list-style hints thanks to MarkdownTooltip. */}
-            <MarkdownTooltip markdown={t('filterTooltip')}>
-              <Box
-                component="span"
-                onMouseEnter={(event) => {
-                  if (!filterMenuEnabled || !showFilterHint) return
-                  setFilterHintPos({ x: event.clientX, y: event.clientY })
-                }}
-                onMouseMove={(event) => {
-                  if (!filterMenuEnabled || !showFilterHint) return
-                  setFilterHintPos({ x: event.clientX, y: event.clientY })
-                }}
-                onMouseLeave={() => {
-                  setFilterHintPos(null)
-                }}
-                onContextMenu={(event) => {
-                  if (!filterMenuEnabled) return
-                  try {
-                    event.preventDefault()
-                    event.stopPropagation()
-                  } catch {}
-                  setFilterMenuAnchor(event.currentTarget as HTMLElement)
-                  markFilterHintSeen()
-                  setFilterHintPos(null)
-                }}
-              >
-                <Button
-                  size="small"
-                  variant="outlined"
-                  color={filterActive ? 'warning' : 'success'}
-                  onClick={onToggleFilter}
-                  endIcon={<TuneIcon fontSize="small" />}
-                  sx={{ whiteSpace: 'nowrap', px: 1.25, height: SMALL_BUTTON_HEIGHT_PX, minHeight: SMALL_BUTTON_HEIGHT_PX, flexShrink: 0, maxWidth: LONG_LABEL_BUTTON_MAX_WIDTH_PX, overflow: 'hidden' }}
-                  aria-label={filterLabel}
+            <Box sx={{ minWidth: 0, flexShrink: 1 }}>
+              {/* Filter toggle tooltip can now express list-style hints thanks to MarkdownTooltip. */}
+              <MarkdownTooltip markdown={t('filterTooltip')}>
+                <Box
+                  component="span"
+                  onMouseEnter={(event) => {
+                    if (!filterMenuEnabled || !showFilterHint) return
+                    setFilterHintPos({ x: event.clientX, y: event.clientY })
+                  }}
+                  onMouseMove={(event) => {
+                    if (!filterMenuEnabled || !showFilterHint) return
+                    setFilterHintPos({ x: event.clientX, y: event.clientY })
+                  }}
+                  onMouseLeave={() => {
+                    setFilterHintPos(null)
+                  }}
+                  onContextMenu={(event) => {
+                    if (!filterMenuEnabled) return
+                    try {
+                      event.preventDefault()
+                      event.stopPropagation()
+                    } catch {}
+                    setFilterMenuAnchor(event.currentTarget as HTMLElement)
+                    markFilterHintSeen()
+                    setFilterHintPos(null)
+                  }}
                 >
-                  <Typography component="span" noWrap sx={ELLIPSIS_TEXT_SX}>{filterLabel}</Typography>
-                </Button>
-              </Box>
-            </MarkdownTooltip>
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    color={filterActive ? 'warning' : 'success'}
+                    onClick={onToggleFilter}
+                    aria-pressed={filterActive}
+                    aria-label={filterLabel}
+                    sx={{
+                      whiteSpace: 'nowrap',
+                      px: 1.25,
+                      height: SMALL_BUTTON_HEIGHT_PX,
+                      minHeight: SMALL_BUTTON_HEIGHT_PX,
+                      flexShrink: 1,
+                      minWidth: 0,
+                      maxWidth: 220,
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      lineHeight: 1,
+                      py: 0,
+                    }}
+                  >
+                    <EllipsisTooltip title={filterLabel} selector='[data-ellipsis-target]' wrap="block">
+                      <Typography component="span" noWrap sx={{ ...ELLIPSIS_TEXT_SX, width: '100%' }} data-ellipsis-target>
+                        {filterToggleLabel}
+                      </Typography>
+                    </EllipsisTooltip>
+                  </Button>
+                </Box>
+              </MarkdownTooltip>
+            </Box>
             <ContextMenuHintOverlay text={t('contextMenuHint')} position={filterHintActive ? filterHintPos : null} />
             {filterMenuEnabled ? (
               <Menu
@@ -515,26 +478,13 @@ export default function PreviewHeaderActions(props: {
             ) : null}
           </>
         )}
-        {onOpenRuleTester && (
-          <MarkdownTooltip markdown={t('testerOpenTooltip')}>
-            <Button
-              size="small"
-              variant="outlined"
-              onClick={onOpenRuleTester}
-              sx={{ whiteSpace: 'nowrap', px: 1.25, height: SMALL_BUTTON_HEIGHT_PX, minHeight: SMALL_BUTTON_HEIGHT_PX, flexShrink: 0, maxWidth: LONG_LABEL_BUTTON_MAX_WIDTH_PX, overflow: 'hidden' }}
-              aria-label={ruleTesterLabel}
-              data-tour-id="preview.rule-tester-button"
-            >
-              <Typography component="span" noWrap sx={ELLIPSIS_TEXT_SX}>{ruleTesterLabel}</Typography>
-            </Button>
-          </MarkdownTooltip>
-        )}
-        <Stack direction="row" spacing={1} alignItems="center" sx={{ flexShrink: 0 }}>
+        <Stack direction="row" spacing={1} alignItems="center" sx={{ flexShrink: 0, minWidth: 0 }}>
           <ToggleButtonGroup
             size="small"
-            color="warning"
             sx={{
               height: SMALL_BUTTON_HEIGHT_PX,
+              flexShrink: 0,
+              minWidth: 0,
               '& .MuiToggleButtonGroup-grouped:not(:first-of-type)': {
                 marginLeft: 0,
                 borderLeft: '1px solid transparent',
@@ -546,12 +496,11 @@ export default function PreviewHeaderActions(props: {
             }}
           >
             <>
-              {/* Final Sell controls also use MarkdownTooltip so their multi-line copy stays legible. */}
-              <MarkdownTooltip markdown={t('addFinalSellTooltip')}>
-                <ToggleButton
-                  value="finalSellToggle"
-                  selected={fsEnabled}
-                  onClick={() => onToggleFinalSell(!fsEnabled)}
+              {/* Final Sell toggle retains the warning palette so it is still visually linked to the catch-all sweeps. */}
+              <ToggleButton
+                value="finalSellToggle"
+                selected={fsEnabled}
+                onClick={() => onToggleFinalSell(!fsEnabled)}
                 data-tour-id="finalsell.toggle"
                 aria-label={finalSellLabel}
                 aria-pressed={fsEnabled}
@@ -559,7 +508,10 @@ export default function PreviewHeaderActions(props: {
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  minWidth: FINAL_SELL_BUTTON_WIDTH_PX,
+                  flexShrink: 1,
+                  minWidth: longestWarningToggleWidth,
+                  width: longestWarningToggleWidth,
+                  maxWidth: FINAL_SELL_BUTTON_WIDTH_PX,
                   height: SMALL_BUTTON_HEIGHT_PX,
                   minHeight: SMALL_BUTTON_HEIGHT_PX,
                   lineHeight: 1,
@@ -578,53 +530,108 @@ export default function PreviewHeaderActions(props: {
                     borderColor: theme.palette.warning.dark,
                     backgroundColor: alpha(theme.palette.warning.main, 0.1),
                   },
-                  ...getHighlightEffectSx(finalSellHighlightIdx),
                 })}
-                >
+              >
+                <EllipsisTooltip title={finalSellLabel} selector='[data-ellipsis-target]' wrap="block">
                   <Box
                     component="span"
-                    className="highlight-target"
+                    data-ellipsis-target
                     sx={{
                       ...ELLIPSIS_TEXT_SX,
                       width: '100%',
                       typography: 'button',
                       textAlign: 'center',
                       lineHeight: 1,
+                      display: 'block',
                     }}
                   >
                     {finalSellLabel}
                   </Box>
-                </ToggleButton>
-              </MarkdownTooltip>
+                </EllipsisTooltip>
+              </ToggleButton>
             </>
-            <MarkdownTooltip markdown={t('configure')}>
+            <>
+              {/* Keep Uniques shares the inline toggle treatment so users can pause/resume protections without leaving the preview. */}
               <ToggleButton
-                value="finalSellConfig"
-                onClick={onOpenFinalSellDialog}
-                data-tour-id="finalsell.config"
-                aria-label={t('configureFinalSellAria')}
+                value="keepUniquesToggle"
+                selected={keepUniquesEnabled}
+                onClick={() => onToggleKeepUniques(!keepUniquesEnabled)}
+                data-tour-id="keepuniques.toggle"
+                aria-label={keepUniquesToggleLabel}
+                aria-pressed={keepUniquesEnabled}
                 sx={(theme) => ({
-                  minWidth: SMALL_BUTTON_HEIGHT_PX,
-                  width: SMALL_BUTTON_HEIGHT_PX,
-                  height: SMALL_BUTTON_HEIGHT_PX,
-                  minHeight: SMALL_BUTTON_HEIGHT_PX,
-                  lineHeight: 1,
-                  borderColor: theme.palette.warning.main,
-                  backgroundColor: theme.palette.warning.main,
-                  color: theme.palette.warning.contrastText,
-                  '&:hover': {
-                    borderColor: theme.palette.warning.dark,
-                    backgroundColor: theme.palette.warning.dark,
-                  },
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                  flexShrink: 1,
+                  minWidth: longestWarningToggleWidth,
+                  width: longestWarningToggleWidth,
+                  maxWidth: FINAL_SELL_BUTTON_WIDTH_PX,
+                height: SMALL_BUTTON_HEIGHT_PX,
+                minHeight: SMALL_BUTTON_HEIGHT_PX,
+                lineHeight: 1,
+                textTransform: 'none',
+                  px: 1.25,
+                  borderColor: theme.palette.success.main,
+                  color: theme.palette.success.main,
                   '&.Mui-selected': {
-                    backgroundColor: theme.palette.warning.dark,
+                    color: theme.palette.success.contrastText,
+                    backgroundColor: theme.palette.success.main,
+                    '&:hover': {
+                      backgroundColor: theme.palette.success.dark,
+                    },
+                  },
+                  '&:hover': {
+                    borderColor: theme.palette.success.dark,
+                    backgroundColor: alpha(theme.palette.success.main, 0.08),
                   },
                 })}
               >
-                <TuneIcon fontSize="small" />
+                <EllipsisTooltip title={keepUniquesToggleLabel} selector='[data-ellipsis-target]' wrap="block">
+                  <Typography
+                    component="span"
+                    noWrap
+                    data-ellipsis-target
+                    sx={{ ...ELLIPSIS_TEXT_SX, width: '100%', textAlign: 'center', lineHeight: 1, display: 'block' }}
+                  >
+                    {keepUniquesToggleLabel}
+                  </Typography>
+                </EllipsisTooltip>
               </ToggleButton>
-            </MarkdownTooltip>
+            </>
           </ToggleButtonGroup>
+          <Box sx={{ minWidth: 0, flexShrink: 0 }}>
+            <MarkdownTooltip markdown={t('testerOpenTooltip')}>
+              <Button
+                size="small"
+                variant="outlined"
+                onClick={onOpenLogicHubDialog}
+                data-tour-id="finalsell.config"
+                aria-label={t('openLogicHubAria')}
+                sx={{
+                  whiteSpace: 'nowrap',
+                  minWidth: 0,
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  px: 1.25,
+                  flexShrink: 0,
+                  height: SMALL_BUTTON_HEIGHT_PX,
+                  minHeight: SMALL_BUTTON_HEIGHT_PX,
+                  lineHeight: 1,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  py: 0,
+                }}
+              >
+                <EllipsisTooltip title={logicHubLabel} selector='[data-ellipsis-target]' wrap="block">
+                  <Typography component="span" noWrap sx={{ ...ELLIPSIS_TEXT_SX, width: '100%' }} data-ellipsis-target>
+                    {logicHubLabel}
+                  </Typography>
+                </EllipsisTooltip>
+              </Button>
+            </MarkdownTooltip>
+          </Box>
         </Stack>
         <Box sx={{ flex: 1, minWidth: 0 }} />
         <Stack direction="row" spacing={1} alignItems="center" sx={{ flexShrink: 0 }}>
@@ -694,12 +701,12 @@ export default function PreviewHeaderActions(props: {
               <MarkdownTooltip markdown={exportTooltip}>
               <DirtyBadge
                 active={hsfDirty}
-                sx={{ display: 'inline-flex', flexShrink: 0, ml: 1 }}
+                sx={{ display: 'flex', flexShrink: 1, minWidth: 0, ml: 1 }}
               >
                 <Box
                   component="span"
+                  sx={{ display: 'flex', flex: 1, minWidth: 0 }}
                   onMouseEnter={(event) => {
-                    handleExportHoverStart()
                     if (!exportMenuEnabled || !showExportHint) return
                     setExportHintPos({ x: event.clientX, y: event.clientY })
                   }}
@@ -708,7 +715,6 @@ export default function PreviewHeaderActions(props: {
                     setExportHintPos({ x: event.clientX, y: event.clientY })
                   }}
                   onMouseLeave={() => {
-                    handleExportHoverEnd()
                     setExportHintPos(null)
                   }}
                   onContextMenu={(event) => {
@@ -724,13 +730,26 @@ export default function PreviewHeaderActions(props: {
                 >
                   <Button
                     startIcon={<SaveIcon />}
-                    sx={{ whiteSpace: 'nowrap', px: 1.25, maxWidth: LONG_LABEL_BUTTON_MAX_WIDTH_PX, overflow: 'hidden' }}
+                    sx={{
+                      whiteSpace: 'nowrap',
+                      px: 1.25,
+                      minWidth: 0,
+                      maxWidth: 320,
+                      overflow: 'hidden',
+                      flex: 1,
+                      display: 'flex',
+                      justifyContent: 'center',
+                    }}
                     onClick={onExport}
                     disabled={exportDisabled}
                     data-tour-id="hsf.export"
                     aria-label={exportLabel}
                   >
-                    <Typography component="span" noWrap sx={ELLIPSIS_TEXT_SX}>{exportLabel}</Typography>
+                    <EllipsisTooltip title={exportLabel}>
+                      <Typography component="span" noWrap sx={ELLIPSIS_TEXT_SX}>
+                        {exportLabel}
+                      </Typography>
+                    </EllipsisTooltip>
                   </Button>
                 </Box>
               </DirtyBadge>
@@ -739,12 +758,12 @@ export default function PreviewHeaderActions(props: {
           ) : (
             <DirtyBadge
               active={hsfDirty}
-              sx={{ display: 'inline-flex', flexShrink: 0, ml: 1 }}
+              sx={{ display: 'flex', flexShrink: 1, ml: 1, minWidth: 0 }}
             >
               <Box
                 component="span"
+                sx={{ display: 'flex', flex: 1, minWidth: 0 }}
                 onMouseEnter={(event) => {
-                  handleExportHoverStart()
                   if (!exportMenuEnabled || !showExportHint) return
                   setExportHintPos({ x: event.clientX, y: event.clientY })
                 }}
@@ -753,7 +772,6 @@ export default function PreviewHeaderActions(props: {
                   setExportHintPos({ x: event.clientX, y: event.clientY })
                 }}
                 onMouseLeave={() => {
-                  handleExportHoverEnd()
                   setExportHintPos(null)
                 }}
                 onContextMenu={(event) => {
@@ -769,13 +787,26 @@ export default function PreviewHeaderActions(props: {
               >
                 <Button
                   startIcon={<SaveIcon />}
-                  sx={{ whiteSpace: 'nowrap', px: 1.25, maxWidth: LONG_LABEL_BUTTON_MAX_WIDTH_PX, overflow: 'hidden' }}
+                  sx={{
+                    whiteSpace: 'nowrap',
+                    px: 1.25,
+                    minWidth: 0,
+                    maxWidth: 320,
+                    overflow: 'hidden',
+                    flex: 1,
+                    display: 'flex',
+                    justifyContent: 'center',
+                  }}
                   onClick={onExport}
                   disabled={exportDisabled}
                   data-tour-id="hsf.export"
                   aria-label={exportLabel}
                 >
-                  <Typography component="span" noWrap sx={ELLIPSIS_TEXT_SX}>{exportLabel}</Typography>
+                  <EllipsisTooltip title={exportLabel}>
+                    <Typography component="span" noWrap sx={ELLIPSIS_TEXT_SX}>
+                      {exportLabel}
+                    </Typography>
+                  </EllipsisTooltip>
                 </Button>
               </Box>
             </DirtyBadge>

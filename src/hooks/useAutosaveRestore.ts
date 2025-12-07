@@ -12,8 +12,8 @@ import { parseHsfcObject } from '../lib/hsfcIO'
 import { normalizeMetasetIconId } from '../lib/metasetIcons'
 import type { SubstatTargetTable, BuilderConfig } from '../lib/hsfBuilder'
 import type { Metaset } from '../lib/metasets'
-import type { FinalSellDialogTab, FinalSellRemainderConfig } from '../lib/finalSell'
-import { FINAL_SELL_DIALOG_TAB_FINAL_SELL, FINAL_SELL_DIALOG_TABS } from '../lib/finalSell'
+import type { LogicHubDialogTab, FinalSellRemainderConfig } from '../lib/finalSell'
+import { LOGIC_HUB_DIALOG_TAB_FINAL_SELL, LOGIC_HUB_DIALOG_TABS } from '../lib/finalSell'
 import type { RulesFilterState } from '../lib/rulesFilter'
 import { canonicalize } from '../lib/canonicalize'
 import {
@@ -41,7 +41,8 @@ export type RestoreDraft = {
   Note?: string
   AutosaveSavedAt?: string
   Filters?: AutosaveFiltersState
-  FinalSellDialogTab?: FinalSellDialogTab
+  LogicHubDialogTab?: LogicHubDialogTab
+  FinalSellDialogTab?: LogicHubDialogTab
   KeepUniquesGridFilterMode?: KeepUniquesGridFilterMode
 }
 
@@ -293,16 +294,16 @@ function computeInitialAutosaveState(args: {
             ...(parsed.note ? { Note: parsed.note } : {}),
             ...(savedAtRaw ? { AutosaveSavedAt: savedAtRaw } : {}),
             ...(savedFilters ? { Filters: savedFilters } : {}),
-            ...(typeof payload['FinalSellDialogTab'] === 'string'
-              ? (() => {
-                const raw = payload['FinalSellDialogTab'] as string
-                // Clamp autosave payloads to the supported tab ids so stale values never break the dialog.
-                const normalized = FINAL_SELL_DIALOG_TABS.includes(raw as FinalSellDialogTab)
-                  ? raw as FinalSellDialogTab
-                  : FINAL_SELL_DIALOG_TAB_FINAL_SELL
-                return { FinalSellDialogTab: normalized }
-              })()
-              : {}),
+            ...(() => {
+              const rawLogicHubTab = typeof payload['LogicHubDialogTab'] === 'string'
+                ? payload['LogicHubDialogTab']
+                : (typeof payload['FinalSellDialogTab'] === 'string' ? payload['FinalSellDialogTab'] : null)
+              if (!rawLogicHubTab) return {}
+              const normalized = LOGIC_HUB_DIALOG_TABS.includes(rawLogicHubTab as LogicHubDialogTab)
+                ? rawLogicHubTab as LogicHubDialogTab
+                : LOGIC_HUB_DIALOG_TAB_FINAL_SELL
+              return { LogicHubDialogTab: normalized }
+            })(),
           },
           enabled: false,
         }
@@ -324,7 +325,7 @@ export function useAutosaveRestore(opts: {
   filters: AutosaveFiltersState
   keepUniqueRules: KeepUniqueRule[]
   keepUniquesEnabled: boolean
-  finalSellDialogTab: FinalSellDialogTab
+  logicHubDialogTab: LogicHubDialogTab
   keepUniquesGridFilterMode: KeepUniquesGridFilterMode
 }) {
   const {
@@ -339,7 +340,7 @@ export function useAutosaveRestore(opts: {
     filters,
     keepUniqueRules,
     keepUniquesEnabled,
-    finalSellDialogTab,
+    logicHubDialogTab,
     keepUniquesGridFilterMode,
   } = opts
 
@@ -377,13 +378,13 @@ export function useAutosaveRestore(opts: {
       FinalSellRemainder: finalSellRemainder,
       KeepUniques: keepUniqueRules,
       KeepUniquesEnabled: keepUniquesEnabled,
-      FinalSellDialogTab: finalSellDialogTab,
+      LogicHubDialogTab: logicHubDialogTab,
       KeepUniquesGridFilterMode: keepUniquesGridFilterMode,
       ...(note && note.trim() ? { Note: note } : {}),
       ...(filtersForSnapshot ? { Filters: filtersForSnapshot } : {}),
     }
     return JSON.stringify(base)
-  }, [version, metasets, substatTargets, configs, finalSellRemainder, note, filters, keepUniqueRules, keepUniquesEnabled, finalSellDialogTab, keepUniquesGridFilterMode])
+  }, [version, metasets, substatTargets, configs, finalSellRemainder, note, filters, keepUniqueRules, keepUniquesEnabled, logicHubDialogTab, keepUniquesGridFilterMode])
 
   // After dismissing, enable autosave only after divergence from baseline
   useEffect(() => {

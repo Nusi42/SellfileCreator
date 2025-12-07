@@ -11,8 +11,8 @@ import { FINAL_SELL_DEFAULT_LEVELS } from '../lib/constants'
 import { buildDefaultKeepUniqueRules } from '../lib/keepUniques'
 import {
   FINAL_SELL_DEFAULT_SETS_MODE,
-  FINAL_SELL_DIALOG_TAB_FINAL_SELL,
-  type FinalSellDialogTab,
+  LOGIC_HUB_DIALOG_TAB_FINAL_SELL,
+  type LogicHubDialogTab,
   type FinalSellRemainderConfig,
 } from '../lib/finalSell'
 import type { BuilderConfig, SubstatTargetTable } from '../lib/hsfBuilder'
@@ -28,7 +28,7 @@ type AppState = {
   // Final "sell others" rule configuration, saved with HSFC.
   // This adds catch-all Sell rules at selected level ranges for artifacts/accessories.
   finalSellRemainder: FinalSellRemainderConfig
-  finalSellDialogTab: FinalSellDialogTab
+  logicHubDialogTab: LogicHubDialogTab
   keepUniqueRules: KeepUniqueRule[]
   keepUniquesEnabled: boolean
   selectedCfgIdx: number | null
@@ -42,7 +42,7 @@ type Action =
   | { type: 'setMetasets'; value: Updater<Metaset[]> }
   | { type: 'setSubstatTargets'; value: Updater<SubstatTargetTable> }
   | { type: 'setFinalSellRemainder'; value: Updater<FinalSellRemainderConfig> }
-  | { type: 'setFinalSellDialogTab'; value: Updater<FinalSellDialogTab> }
+  | { type: 'setLogicHubDialogTab'; value: Updater<LogicHubDialogTab> }
   | { type: 'setKeepUniqueRules'; value: Updater<KeepUniqueRule[]> }
   | { type: 'setKeepUniquesEnabled'; value: Updater<boolean> }
   | { type: 'setSelectedCfgIdx'; value: Updater<number | null> }
@@ -68,12 +68,12 @@ function reducer(state: AppState, action: Action): AppState {
         : action.value
       return { ...state, finalSellRemainder: next }
     }
-    case 'setFinalSellDialogTab': {
+    case 'setLogicHubDialogTab': {
       // Store the dialog tab preference centrally so autosave + restore flows can keep it in sync.
       const next = typeof action.value === 'function'
-        ? (action.value as (p: FinalSellDialogTab) => FinalSellDialogTab)(state.finalSellDialogTab)
+        ? (action.value as (p: LogicHubDialogTab) => LogicHubDialogTab)(state.logicHubDialogTab)
         : action.value
-      return { ...state, finalSellDialogTab: next }
+      return { ...state, logicHubDialogTab: next }
     }
     case 'setKeepUniqueRules': {
       const next = typeof action.value === 'function'
@@ -104,7 +104,7 @@ type AppDispatchers = {
   setMetasets: (v: Updater<Metaset[]>) => void
   setSubstatTargets: (v: Updater<SubstatTargetTable>) => void
   setFinalSellRemainder: (v: Updater<FinalSellRemainderConfig>) => void
-  setFinalSellDialogTab: (v: Updater<FinalSellDialogTab>) => void
+  setLogicHubDialogTab: (v: Updater<LogicHubDialogTab>) => void
   setKeepUniqueRules: (v: Updater<KeepUniqueRule[]>) => void
   setKeepUniquesEnabled: (v: Updater<boolean>) => void
   setSelectedCfgIdx: (v: Updater<number | null>) => void
@@ -122,7 +122,7 @@ export function AppStateProvider({ initial, children }: { initial: AppState; chi
     setMetasets: (v) => dispatch({ type: 'setMetasets', value: v }),
     setSubstatTargets: (v) => dispatch({ type: 'setSubstatTargets', value: v }),
     setFinalSellRemainder: (v) => dispatch({ type: 'setFinalSellRemainder', value: v }),
-    setFinalSellDialogTab: (v) => dispatch({ type: 'setFinalSellDialogTab', value: v }),
+    setLogicHubDialogTab: (v) => dispatch({ type: 'setLogicHubDialogTab', value: v }),
     setKeepUniqueRules: (v) => dispatch({ type: 'setKeepUniqueRules', value: v }),
     setKeepUniquesEnabled: (v) => dispatch({ type: 'setKeepUniquesEnabled', value: v }),
     setSelectedCfgIdx: (v) => dispatch({ type: 'setSelectedCfgIdx', value: v }),
@@ -155,7 +155,7 @@ export function makeInitialAppState(params: Partial<AppState> & Pick<AppState, '
     customCfgs: [],
     // Final Sell defaults: leave the standard level ranges visible but keep both gear toggles off until the user opts in.
     finalSellRemainder: { artifacts: false, accessories: false, levels: FINAL_SELL_DEFAULT_LEVELS.slice() as LevelMilestone[], setsMode: FINAL_SELL_DEFAULT_SETS_MODE },
-    finalSellDialogTab: FINAL_SELL_DIALOG_TAB_FINAL_SELL, // Start new sessions on the classic Final Sell tab for continuity.
+    logicHubDialogTab: LOGIC_HUB_DIALOG_TAB_FINAL_SELL, // Start new sessions on the classic Logic Hub tab for continuity.
     keepUniqueRules: buildDefaultKeepUniqueRules(),
     keepUniquesEnabled: false,
     selectedCfgIdx: null,

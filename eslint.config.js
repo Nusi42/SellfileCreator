@@ -10,8 +10,8 @@ import importPlugin from 'eslint-plugin-import';
 import globals from 'globals';
 
 export default [
-  // Ignore generated/output folders
-  { ignores: ['dist/**', 'node_modules/**', 'src-tauri/**', 'scripts/.tmp/**'] },
+  // Ignore generated/output folders and archived references
+  { ignores: ['dist/**', 'node_modules/**', 'src-tauri/**', 'scripts/.tmp/**', 'docs/reference/**'] },
 
   // Base JS recommended
   js.configs.recommended,

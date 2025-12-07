@@ -10,7 +10,7 @@ RSL Helper için satış kurallarını basit bir arayüzle oluşturun, önizleyi
 - Sürükle-bırak veya Load düğmesi: `.hsfc`, `.hsf` ya da `.db` dosyalarını herhangi bir yere bırakın (katman doğrular) ya da “Load RSL Helper Sellfile” düğmesine tıklayın. İki yol da aynı yönlendirmeyi kullanır; `.hsfc` oluşturucuyu değiştirir, `.hsf` isteğe bağlı baz Sellfile olarak katmanlanır ve `.db` dökümleri Kural testi kuyruğuna aktarılır (oluşturucuya dokunmadan).
 - Metasetler: Ekipman setlerini (ör. Hız + Algı) gruplayın ve birçok kuralda tekrar kullanın.
 - Tek tıkla dışa aktarma: RSL Helper’da kullanılmaya hazır bir HSF dosyası üretin.
-- Kural testi önizlemesi + Gear iletişim kutusu (“Gear...”): Örnek ekipman oluşturun, satırları yapıştırın veya RSL Helper veritabanınızı (genellikle `%APPDATA%\RslHelper\Config`) iletişim kutusuna sürükleyip bırakın. Sonra iletişim kutusunu kapalı bırakıp önizleme anahtarıyla bu ekipmanı kurallarınızla karşılaştırırken görünürde tutun.
+- “Logic Hub” düğmesi: Önizleme başlığından bu düğmeye basarak `Nihai satış`, `Benzersizleri Koru` ve `Ekipman` sekmelerine tek noktadan ulaşın. Örnek ekipman oluşturun, satırları yapıştırın veya `%APPDATA%\\RslHelper\\Config` yolunu sürükleyin; ardından diyaloğu kapatıp önizleme anahtarını ihtiyacınız olan tabloda bırakın — tester kuyruğu yeniden açmadan görünür kalır.
 - «Benzersizleri Koru» sekmesi: Kaybetmenize asla izin vermek istemediğiniz kombinasyonları tanımlayın. Konfigleriniz + şu anda aktif olan Satış kurallarınız tüm kopyaları siliyorsa tarayıcı otomatik olarak koruma kuralları üretir.
 
 ## Nasıl kullanılır
@@ -26,7 +26,7 @@ RSL Helper için satış kurallarını basit bir arayüzle oluşturun, önizleyi
 - Yükle/Kaydet: «Konfigleri yükle» ve «Konfigleri kaydet» işlemleri önizlemeyi yeniden oluşturmak için gereken her şeyi saklar.
 - Reset/Insert/Apply menüleri: Reset, «Konfig olarak ekle» veya «Konfig olarak uygula» seçeneklerine sağ tıklayarak ortak menüyü aç. Mevcut oluşturucu durumunu varsayılan şablon olarak kaydet, fabrika varsayılanlarına geri dön, «Eklendikten sonra otomatik sıfırla» seçeneğini açarak ekledikten hemen sonra alanları temizle veya «Seçili konfige otomatik uygula»yı açarak ~400 ms hareketsizlikten sonra düzenlemeleri vurgulanan konfige işle. Auto reset ve Auto apply aynı anda açık kalamaz — biri açıldığında diğeri kapanır — ve tercihlerin her ikisi de oturumlar arasında saklanır.
 - Not: «Not ekle…» / «Not düzenle…» konfig dosyasına not ekler. Not içeren dosyayı yüklediğinizde otomatik gösterilir. `<!-- configs:1,0 -->` belirli konfig çiplerini ekler (0 bir sonrakini seçer). `<!-- configs-re:"speed" -->` adı desene uyan tüm konfigleri gösterir (büyük/küçük harf duyarsızdır).
-- Autosave geri yükleme: Uygulama açıldığında iletişim kutusu her autosave bölümünü kendi onay kutusuyla listeler. Yalnızca ihtiyacın olanı geri yükle — konfigler (seçili çip dahil), metasetler, Alt stat hedef değerleri, Final satış bakiyesi, sabitlenmiş not, filtre paneli (açık/kapalı durumu, çipler, daraltılmış bölümler) ve Kural testi kuyruğu. Kutuyu boş bırakırsan mevcut çalışman aynen kalır. Autosave ayrıca hangi Final satış anahtarlarının (Artefaktlar, Aksesuarlar ve seviye aralıkları) açık olduğunu hatırlar, bu yüzden iletişim kutusu tekrar açıldığında son dışa aktarmanın birebir kopyasını görürsün.
+- Autosave geri yükleme: Uygulama açıldığında iletişim kutusu her autosave bölümünü kendi onay kutusuyla listeler. Yalnızca ihtiyacın olanı geri yükle — konfigler (seçili çip dahil), metasetler, Alt stat hedef değerleri, Final satış bakiyesi, sabitlenmiş not, filtre paneli (açık/kapalı durumu, çipler, daraltılmış bölümler) ve Kural testi kuyruğu. Kutuyu boş bırakırsan mevcut çalışman aynen kalır. Autosave ayrıca hangi Final satış anahtarlarının (Artefaktlar, Aksesuarlar ve seviye aralıkları) açık olduğunu hatırlar, bu yüzden Logic Hub tekrar açıldığında son dışa aktarmanın birebir kopyasını görürsün.
 
 ### Oluşturucu düzeni (yukarıdan aşağıya)
 - Eylem ve Etkin: Bir eşya konfigle eşleştiğinde ne olacağını tanımlar.
@@ -91,13 +91,13 @@ RSL Helper için satış kurallarını basit bir arayüzle oluşturun, önizleyi
 - «Varsayılanlara döndür» kullanımdaki metasetler için güvenli seçenekler sunar (sil, açık setlerle değiştir, başka bir metasetle değiştir).
 
 ### Final satış
-- Dışa aktar düğmesinin yanındaki anahtar kalan eşyalar için satış kuralları ekler. Varsayılan olarak açık gelir.
-- Hangi ekipman türlerinin (Artefakt / Aksesuar) ve hangi seviye aralıklarının (0–3, 4–7, 8–11, 12–15, 16) etkilenacağını seçin. Varsayılan 0–15’tir; +16’daki parçalar satılmaz.
-- Final satış kapalıysa, hiçbir kurala uymayan eşyalar otomatik olarak korunur. Satış yalnızca açık bir Sat kuralı eşleştiğinde olur.
-- Final satış açıkken üretilen Sat kuralları tüm bilinen setleri içerir. Önizleme «Tüm bilinen setler» der; dışa aktarılan dosya yine her seti tek tek listeler.
+- Önizleme başlığındaki `Final satış` anahtarını kullanarak kalan eşyalar için satış kuralları ekleyin. Etiket değişmez; kehribar dolgulu durum aktif olduğunu, nötr kenarlık ise kapalı olduğunu gösterir.
+- Anahtarın yanındaki “Logic Hub” düğmesine tıklayarak `Final satış` sekmesini açın ve Artefakt/Aksesuar kapsamını ile hangi seviye aralıklarının (0–3, 4–7, 8–11, 12–15, 16) açık olacağını seçin. Varsayılan 0–15’tir; `+16` yalnızca sekmede açtığınızda satılır.
+- `Final satış` kapalıysa, hiçbir kurala uymayan eşyalar otomatik olarak korunur. Satış yalnızca açık bir Sat kuralı eşleştiğinde olur.
+- `Final satış` açıkken üretilen Sat kuralları tüm bilinen setleri içerir. Önizleme «Tüm bilinen setler» der; dışa aktarılan dosya yine her seti tek tek listeler.
 
 ### Benzersizleri Koru
-- Final satış iletişim kutusunu açıp `Benzersizleri Koru` sekmesine geçin; kaybetmek istemediğiniz kombinasyonları burada işaretleyin. `Benzersizleri Koru'yu etkinleştir` anahtarını açtığınız anda düzenlemeye başlayabilirsiniz.
+- Önizleme başlığındaki “Logic Hub” düğmesine tıklayıp `Benzersizleri Koru` sekmesine geçin; kaybetmek istemediğiniz kombinasyonları burada işaretleyin. `Benzersizleri Koru` anahtarını açtığınız anda düzenlemeye başlayabilirsiniz.
 - Her kural slot, set veya metaset, rank, nadirlik, ana stat ve (aksesuarlar için) fraksiyon seçmenize izin verir. Boş bırakmak “herhangi” anlamına gelir.
 - Varsayılan olarak 5★/6★ yüzük, muska ve sancakları tüm 1–9 ve tek parça aksesuar setleri içinde tarayan bir kural hazırdır; `Slot başına`, `Set başına`, `Fraksiyon başına` ve `Ana stat başına` çipleri açık gelir, böylece her kombinasyon en az bir öğeyi korur.
 - Ayrıca kapalı gelen yardımcı bir kural vardır: Silah + zırh parçalarını (silah, miğfer, kalkan, eldiven, göğüslük, bot) 5★/6★ aralığında hedefler, stun/toxic/daze/cursed/provoke/destroy setlerini kapsar ve `Slot başına` + `Set başına` kapsamlarını kullanır. Nadir setleri daha sonra korumak istediğinizde sadece anahtarı açın.
@@ -128,7 +128,7 @@ Kapsam çiplerini üst üste koymak kimin kendi kotasını alacağını değişt
 | Çekirdek aksesuarlar fraksiyon başına | Üç kural (Yüzük, Muska, Sancak), Set/Ana stat boş, `≥ Gerekli adet = 5` | `Fraksiyon başına` | Her fraksiyon her aksesuar slotunda beşer parça bırakır. |
 | Stoneskin + Protection aksesuarları | Slot = Yüzük/Muska/Sancak, Set = Stoneskin + Protection, Ana stat boş, `≥ Gerekli adet = 2` | `Set başına` + `Fraksiyon başına` | Her fraksiyon her slot için iki Stoneskin ve iki Protection parça tutar. |
 
-İpucu: Sekmeyi açmadan önce `.db` içe aktarın veya tester’a eşya ekleyin ki tarayıcı gerçek veriyi görsün. Bir kural «Eksik 2» dediğinde üzerine tıklayın; tester tablosu ilgili eşyaları vurgular ve hangi setin veya fraksiyonun eksik kaldığını anlarsınız.
+İpucu: Sekmeyi açmadan önce `.db` içe aktarın veya Gear sekmesinde (tester) eşya ekleyin ki tarayıcı gerçek veriyi görsün. Bir kural «Eksik 2» dediğinde üzerine tıklayın; tester tablosu ilgili eşyaları vurgular ve hangi setin veya fraksiyonun eksik kaldığını anlarsınız.
 
 ### Konfig yönetimi
 - Kaydedilen konfig listesi: Her konfig oluşturucunun altında küçük bir etiket olarak görünür. Sol tık seçer, çoğaltmak/yeniden sıralamak/silmek için sağ tık menülerini kullanabilirsin; «Konfigleri sil» düğmesi tüm listeyi (onay isteyerek) kaldırır.
@@ -138,9 +138,9 @@ Kapsam çiplerini üst üste koymak kimin kendi kotasını alacağını değişt
 - Pano yedeği: Clipboard erişimi engellenirse içerik önceden seçili hâlde ayrı bir iletişim kutusunda açılır — `Ctrl/Cmd+C` ile kopyalayın veya `Paste` iletişim kutusuna yapıştırın.
 
 ### Sellfile önizlemesi (Rules & Kural testi)
-- Önizleme başlığı `Rules`/`Kural testi` anahtarını, “Gear...” düğmesini ve “Load RSL Helper Sellfile” düğmesini yan yana tutar; böylece tabloyu nereden değiştireceğinizi veya Kural testi iletişim kutusunu nereden açacağınızı her zaman bilirsiniz.
+- Önizleme başlığı `Rules`/`Kural testi` anahtarını, “Logic Hub” düğmesini ve “Load RSL Helper Sellfile” düğmesini yan yana tutar; böylece tabloyu nereden değiştireceğinizi veya Logic Hub iletişim kutusundaki Gear sekmesini nereden açacağınızı her zaman bilirsiniz.
 - `Rules` görünümü (varsayılan): Dışa aktarılacak tüm kuralları, yüklediğiniz isteğe bağlı baz `.hsf` satırları dahil gösterir. Başlıktaki sayaçlar Keep vs Sell dağılımında kalır; filtre satırı Slot/Rütbe/Nadirlik/Seviye için Herhangi/Yalnızca (`Any/Only`) çiplerini ve iki Configs düğmesini birlikte gösterir: `Önizleme konfigleri` çip görünürlüğünü kontrol eder, `Konfig filtresi` ise seçtiğiniz çiplere göre Sellfile satırlarını gizleyen basit Açık/Kapalı düğmesi olarak çalışır ve tester’a geçmeden önce bile hazır kalır.
-- `Kural testi` görünümü: Tabloyu içeri aktardığınız veya oluşturduğunuz öğelerin listesine çevirir, böylece iletişim kutusunu yeniden açmadan inceleme yapabilirsiniz. Sayaçlar/rozetler Matched vs No Match (ve Keep vs Sell) kombinasyonuna, yani “ilk eşleşen konfig kazanır” kuralına göre geçer; filtre satırı ise `Önizleme konfigleri` ve `Konfig filtresi` düğmelerini korur ve bunlara Kural testi’ne özel Keep/Sell + Matched/No Match filtresini ekler. `Konfig filtresi` tri-state’i (`Off` → `İlk` → `Herhangi`) bu görünümde Kural testi satırlarının İlk/Herhangi davranışını ayırır ve `Rules`’a döndüğünüzde de Sellfile satırlarını seçtiğiniz konfiglerle sınırlamaya devam eder. `.db` içe aktarmaları otomatik olarak bu görünüme geçer; istediğiniz zaman `Rules`’a dönebilirsiniz.
+- `Kural testi` görünümü: Tabloyu içeri aktardığınız veya oluşturduğunuz öğelerin listesine çevirir, böylece Logic Hub iletişim kutusunu yeniden açmadan inceleme yapabilirsiniz. Sayaçlar/rozetler Matched vs No Match (ve Keep vs Sell) kombinasyonuna, yani “ilk eşleşen konfig kazanır” kuralına göre geçer; filtre satırı ise `Önizleme konfigleri` ve `Konfig filtresi` düğmelerini korur ve bunlara Kural testi’ne özel Keep/Sell + Matched/No Match filtresini ekler. `Konfig filtresi` tri-state’i (`Off` → `İlk` → `Herhangi`) bu görünümde Kural testi satırlarının İlk/Herhangi davranışını ayırır ve `Rules`’a döndüğünüzde de Sellfile satırlarını seçtiğiniz konfiglerle sınırlamaya devam eder. `.db` içe aktarmaları otomatik olarak bu görünüme geçer; istediğiniz zaman `Rules`’a dönebilirsiniz.
 - “Load RSL Helper Sellfile” sürükle-bırak ile aynı yönlendirmeyi paylaşır: `.hsfc` oluşturucuyu değiştirir, `.hsf` isteğe bağlı baz Sellfile olarak katmanlanır ve `.db` dosyaları Kural testi önizlemesine kuyruklanır (konfiglere dokunmadan). “Clear” düğmesi baz `.hsf` katmanını kaldırır.
 - Palet simgesini kullanarak alt stat etiketleri için metin/arka plan renklerini düzenleyin.
 - `Rules` görünümünde tablo sütunları hâlâ “Idx” ve “Konf” alanlarını içerir (baz dosyadan gelen satırlarda “Konf” boş kalır). `Kural testi` görünümünde aynı alanlar yuva/set, eşya istatistikleri ve ilk eşleşen konfig rozetini gösterir; böylece her artefakta ne olacağını doğrudan önizleme içinde görebilirsiniz.
@@ -158,11 +158,11 @@ Kapsam çiplerini üst üste koymak kimin kendi kotasını alacağını değişt
 - Tıklama davranışı: Tablo satırına tıklamak ilgili konfigi seçer (otomatik kaydırma yok). Bir konfig etiketine tıklamak tabloyu ilk eşleşen satıra kaydırır.
 
 ### Kural testi önizlemesi
-- Sellfile Önizlemesi başlığındaki “Gear...” düğmesine tıklayarak Kural testi iletişim kutusunu açın. Örnek ekipman oluşturun veya satırları (JSON/metin) yapıştırın; öğeler anında önizlemeye senkronize edilir, bu yüzden iletişim kutusunu kapatmak Kural testi tablosunu temizlemez.
+- Sellfile Önizlemesi başlığındaki “Logic Hub” düğmesine tıklayarak Logic Hub iletişim kutusundaki Gear sekmesini açın. Örnek ekipman oluşturun veya satırları (JSON/metin) yapıştırın; öğeler anında önizlemeye senkronize edilir, bu yüzden iletişim kutusunu kapatmak Kural testi tablosunu temizlemez.
 - `.db` dosyalarını uygulamaya bırakarak ya da “Load RSL Helper Sellfile” düğmesini kullanarak RSL Helper ekipman veritabanınızı içe aktarın (aynı yönlendirme). Bu içe aktarmalar binlerce envanter + gelen kutusu parçasını kuyruğa ekler, önizlemeyi Kural testi tablosuna geçirir ve oluşturucu/dışa aktarma durumunu bozmadan bırakır.
 - Her Kural testi satırı yuva, set, seviye, ana stat, alt statlar (glifler ve rulolar dahil), kaynağı (envanter vs gelen kutusu) ve Keep/Sell ile ilk eşleşen konfig etiketlerini gösterir. Devre dışı kurallar asla eşleşmez; “No Match” satırları Sellfile’ın dokunmayacağı öğeleri temsil eder.
 - Başlıktaki sayaçlar Matched vs No Match toplamlarının yanı sıra Keep/Sell dağılımlarını da gösterir. Kural testi filtrelerini (Keep/Sell sonucu + Matched/No Match + `Tester konfigleri` `Off`/`İlk`/`Herhangi`) kullanarak dışa aktarmadan önce edge case’lere odaklanın.
-- Önizleme anahtarını kullanarak kurallar tablosu ile Kural testi tablosu arasında iletişim kutusunu yeniden açmadan gidip gelin; böylece üretilen satırları tetikleyen ekipmanla yan yana karşılaştırabilirsiniz.
+- Önizleme anahtarını kullanarak kurallar tablosu ile Kural testi tablosu arasında Logic Hub iletişim kutusunu yeniden açmadan gidip gelin; böylece üretilen satırları tetikleyen ekipmanla yan yana karşılaştırabilirsiniz.
 
 ### Dışa aktarma
 - Baz dosya yüklüyse «Birleştirilmiş RSL Helper Sellfile’ı dışa aktar» görünür; aksi durumda «RSL Helper Sellfile’ı dışa aktar».

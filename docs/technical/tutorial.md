@@ -26,7 +26,7 @@
 
 - Intent: Section jumps reconstruct state as if the user walked through intermediate steps, rather than literally skipping.
 - Implementation: On jump, the app resets to a clean baseline and replays step effects up to the target index (slots, mainstat, sets, substats, required count, min rolls, config adds/selection, metaset creation/defaults, metaset selection, Final Sell defaults — Artifacts/Accessories off with the standard level ranges plus sets mode).
-- Include tester state in replay: when a jump lands on or past the Rule Tester section, hydrate the gear queue, preview mode (`'tester'`), and tester filter state before showing the step. Reuse the same helpers the live tutorial uses (`useTesterItemsActions`, `setPreviewMode('tester')`, `setTesterFilters`) so jumps never flash empty grids.
+- Include tester state in replay: when a jump lands on or past the Rule Tester section, hydrate the gear queue, preview mode (`'tester'`), and tester filter state before showing the step. Reuse the same helpers the live tutorial uses (`useTesterItemsActions`, `setPreviewMode('tester')`, `setTesterFilters`) so jumps never flash empty grids, and set `logicHubOpen`/`logicHubDialogTab = LOGIC_HUB_DIALOG_TAB_GEAR` any time a step expects the embedded tester tab.
 - Persist builder preference toggles: when a step toggles Auto reset or Auto apply, record the toggles in `nextPreferences` so replays and jumps keep the same defaults active.
 - Determinism: After hydration, the target step’s `before` still opens/closes any dialogs/menus to match the intended view.
 
@@ -34,7 +34,7 @@
 
 - Highlight hole: The overlay darkens everything except the current target rect (four masking panes). A brief fade-out “ghost” (180ms) smooths transitions when the target changes or vanishes (e.g., menus/dialogs closing).
 - Auto-scroll: The coach scrolls the target into view on every step, including rAF+timeout recomputes to handle MUI portal timing.
-- Step normalization: Each step can prepare UI state via `before` (e.g., ensure metasets dialog open/closed, open/close Sets menu, open/close chips context menu, open/close Preview header menu, open/close Final Sell dialog). This keeps navigation robust when moving back and forth.
+- Step normalization: Each step can prepare UI state via `before` (e.g., ensure metasets dialog open/closed, open/close Sets menu, open/close chips context menu, open/close Preview header menu, open/close Logic Hub). This keeps navigation robust when moving back and forth.
 - Targeted closers: To reliably close menus under the overlay, the coach dispatches `Escape` directly to portals (`ul[role=listbox]`, `[data-tour-id="chips.menu"]`, `[data-tour-id="chip.menu"]`, `[data-tour-id="preview.header.menu"]`) and then sends a synthetic outside click (on `document.body`). Sets menu closing also ESCs the listbox itself.
 - Text emphasis: Step bodies support backticks ``code`` (UI keywords render primary + bold) and double tildes `~~brand~~` for emphasis styling with a subtle heartbeat.
 
@@ -100,7 +100,7 @@
   title: 'Choose Action',
   body: 'Toggle between `Keep` and `Sell` to control outcomes.',
   targetIds: ['builder.action.keep', 'builder.action.sell'],
-  before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensureFinalSellDialog(false); },
+  before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensureLogicHubDialog(false); },
 }
 ```
 
@@ -111,8 +111,8 @@
 
 ### Rule Tester Coverage
 
-- The new Rule Tester section (inserted before Final Sell) mirrors the metaset walkthrough. The `tester-open` step highlights the `Gear…` button in the preview header, and the combined `tester-add-manual` (`Add a custom gear`) step keeps the dialog open while covering `.db` drag-and-drop, `%APPDATA%\RslHelper\Config` imports, `run-sample-server.ps1`, and the scripted 5★ Rare Refresh amulet from the Banner Lords. The follow-up `tester-preview` step closes the dialog, switches the preview mode to `Rule Tester`, and highlights the Sellfile Preview ⇄ Rule Tester toggle so the scripted item is the only row rendered.
+- The Rule Tester section (still inserted before Final Sell) now walks through the Gear tab that lives inside Logic Hub. The `tester-open` step highlights the `Gear…` button in the preview header and expects it to open `LogicHubDialog` directly on the Gear tab before narration continues. The combined `tester-add-manual` (`Add a custom gear`) step keeps the dialog open while covering `.db` drag-and-drop, `%APPDATA%\RslHelper\Config` imports, `run-sample-server.ps1`, and the scripted 5★ Rare Refresh amulet from the Banner Lords. The follow-up `tester-preview` step closes the Gear tab, switches the preview mode to `Rule Tester`, and highlights the Sellfile Preview ⇄ Rule Tester toggle so the scripted item is the only row rendered.
 
 ### Keep Uniques Coverage
 
-- Right after the classic Final Sell steps, `keep-uniques-intro` opens the dialog, switches the tab to Keep Uniques, and describes how the automatic protections work. `keep-uniques-rule` focuses the rule editor (`data-tour-id="keepuniques.rules"`) while the tutorial adds a predefined Refresh combo (Amulet slot, Refresh set, Banner Lords faction, CDMG main stat, 5★ Rare) so users see how to keep at least one Refresh accessory around before the Final Sell catch-alls run.
+- Right after the classic Final Sell steps, `keep-uniques-intro` opens Logic Hub, switches the tab to Keep Uniques, and describes how the automatic protections work. `keep-uniques-rule` focuses the rule editor (`data-tour-id="keepuniques.rules"`) while the tutorial adds a predefined Refresh combo (Amulet slot, Refresh set, Banner Lords faction, CDMG main stat, 5★ Rare) so users see how to keep at least one Refresh accessory around before the Final Sell catch-alls run.
