@@ -10,7 +10,7 @@ RSL Helper için satış kurallarını basit bir arayüzle oluşturun, önizleyi
 - Sürükle-bırak veya Load düğmesi: `.hsfc`, `.hsf` ya da `.db` dosyalarını herhangi bir yere bırakın (katman doğrular) ya da “Load RSL Helper Sellfile” düğmesine tıklayın. İki yol da aynı yönlendirmeyi kullanır; `.hsfc` oluşturucuyu değiştirir, `.hsf` isteğe bağlı baz Sellfile olarak katmanlanır ve `.db` dökümleri Kural testi kuyruğuna aktarılır (oluşturucuya dokunmadan).
 - Metasetler: Ekipman setlerini (ör. Hız + Algı) gruplayın ve birçok kuralda tekrar kullanın.
 - Tek tıkla dışa aktarma: RSL Helper’da kullanılmaya hazır bir HSF dosyası üretin.
-- Kural testi önizlemesi + Logic Hub düğmesi (“Logic Hub”): Başlıktaki “Logic Hub” düğmesine basarak Logic Hub iletişim kutusunu doğrudan Gear sekmesinde açın, örnek ekipman oluşturun, satırları yapıştırın veya RSL Helper veritabanınızı (genellikle `%APPDATA%\\RslHelper\\Config`) içeri alın. Ardından iletişim kutusunu kapatıp önizleme anahtarını kullanarak bu ekipmanı kurallarınızla karşılaştırırken görünürde tutun.
+- “Logic Hub” düğmesi: Önizleme başlığından bu düğmeye basarak `Nihai satış`, `Benzersizleri Koru` ve `Ekipman` sekmelerine tek noktadan ulaşın. Örnek ekipman oluşturun, satırları yapıştırın veya `%APPDATA%\\RslHelper\\Config` yolunu sürükleyin; ardından diyaloğu kapatıp önizleme anahtarını ihtiyacınız olan tabloda bırakın — tester kuyruğu yeniden açmadan görünür kalır.
 - «Benzersizleri Koru» sekmesi: Kaybetmenize asla izin vermek istemediğiniz kombinasyonları tanımlayın. Konfigleriniz + şu anda aktif olan Satış kurallarınız tüm kopyaları siliyorsa tarayıcı otomatik olarak koruma kuralları üretir.
 
 ## Nasıl kullanılır
@@ -91,13 +91,13 @@ RSL Helper için satış kurallarını basit bir arayüzle oluşturun, önizleyi
 - «Varsayılanlara döndür» kullanımdaki metasetler için güvenli seçenekler sunar (sil, açık setlerle değiştir, başka bir metasetle değiştir).
 
 ### Final satış
-- Dışa aktar düğmesinin yanındaki `Final satış` anahtarını kullanarak kalan eşyalar için satış kuralları ekleyin. Etiket değişmez; kehribar dolgulu durum aktif olduğunu, nötr kenarlık ise kapalı olduğunu gösterir.
-- Hangi ekipman türlerinin (Artefakt / Aksesuar) ve hangi seviye aralıklarının (0–3, 4–7, 8–11, 12–15, 16) etkilenacağını seçin. Varsayılan 0–15’tir; +16’daki parçalar satılmaz.
+- Önizleme başlığındaki `Final satış` anahtarını kullanarak kalan eşyalar için satış kuralları ekleyin. Etiket değişmez; kehribar dolgulu durum aktif olduğunu, nötr kenarlık ise kapalı olduğunu gösterir.
+- Anahtarın yanındaki “Logic Hub” düğmesine tıklayarak `Final satış` sekmesini açın ve Artefakt/Aksesuar kapsamını ile hangi seviye aralıklarının (0–3, 4–7, 8–11, 12–15, 16) açık olacağını seçin. Varsayılan 0–15’tir; `+16` yalnızca sekmede açtığınızda satılır.
 - `Final satış` kapalıysa, hiçbir kurala uymayan eşyalar otomatik olarak korunur. Satış yalnızca açık bir Sat kuralı eşleştiğinde olur.
 - `Final satış` açıkken üretilen Sat kuralları tüm bilinen setleri içerir. Önizleme «Tüm bilinen setler» der; dışa aktarılan dosya yine her seti tek tek listeler.
 
 ### Benzersizleri Koru
-- Logic Hub iletişim kutusunu açıp `Benzersizleri Koru` sekmesine geçin; kaybetmek istemediğiniz kombinasyonları burada işaretleyin. `Benzersizleri Koru'yu etkinleştir` anahtarını açtığınız anda düzenlemeye başlayabilirsiniz.
+- Önizleme başlığındaki “Logic Hub” düğmesine tıklayıp `Benzersizleri Koru` sekmesine geçin; kaybetmek istemediğiniz kombinasyonları burada işaretleyin. `Benzersizleri Koru` anahtarını açtığınız anda düzenlemeye başlayabilirsiniz.
 - Her kural slot, set veya metaset, rank, nadirlik, ana stat ve (aksesuarlar için) fraksiyon seçmenize izin verir. Boş bırakmak “herhangi” anlamına gelir.
 - Varsayılan olarak 5★/6★ yüzük, muska ve sancakları tüm 1–9 ve tek parça aksesuar setleri içinde tarayan bir kural hazırdır; `Slot başına`, `Set başına`, `Fraksiyon başına` ve `Ana stat başına` çipleri açık gelir, böylece her kombinasyon en az bir öğeyi korur.
 - Ayrıca kapalı gelen yardımcı bir kural vardır: Silah + zırh parçalarını (silah, miğfer, kalkan, eldiven, göğüslük, bot) 5★/6★ aralığında hedefler, stun/toxic/daze/cursed/provoke/destroy setlerini kapsar ve `Slot başına` + `Set başına` kapsamlarını kullanır. Nadir setleri daha sonra korumak istediğinizde sadece anahtarı açın.

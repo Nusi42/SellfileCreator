@@ -10,7 +10,7 @@ Erstelle, prüfe und exportiere Verkaufsregeln für RSL Helper mit einer übersi
 - Drag & Drop oder Laden-Button: Ziehe `.hsfc`, `.hsf` oder `.db` überall in die App (Overlay bestätigt) oder klicke auf „RSL Helper Sellfile laden“. Beide Wege verhalten sich identisch: `.hsfc` ersetzt den Builder, `.hsf` ergänzt eine optionale Basis-Sellfile, `.db` landet direkt in der Regel Tester-Warteschlange ohne deine Konfigs anzurühren.
 - Metasets: Benenne Set-Gruppen (z. B. Speed + Wahrnehmung) und nutze sie in mehreren Regeln.
 - Export mit einem Klick: Exportiere eine HSF-Datei (die RSL Helper Sellfile), die sofort in RSL Helper geladen werden kann.
-- Regel Tester-Vorschau + „Logic Hub“-Button: Klicke „Logic Hub“ im Header, um den Logic-Hub-Dialog direkt auf dem Tab „Ausrüstung” zu öffnen, erstelle Beispielausrüstung, füge Zeilen ein oder ziehe deine RSL-Helper-Ausrüstungsdatenbank (meist `%APPDATA%\\RslHelper\\Config`) hinein. Schließe den Dialog anschließend und nutze den Vorschau-Umschalter, um diese Ausrüstung sichtbar zu halten, während du sie mit deinen Regeln vergleichst.
+- „Logic Hub“-Button: Öffne den Dialog direkt aus dem Vorschau-Header, um `Finaler Verkauf`, `Unikate behalten` und den Tab „Ausrüstung“ gemeinsam zu erreichen. Erstelle Beispielgear, füge Zeilen ein oder ziehe `%APPDATA%\\RslHelper\\Config` herüber; danach kannst du den Dialog schließen und die Vorschau auf der gewünschten Tabelle lassen — die Tester-Warteschlange bleibt sichtbar.
 - Tab „Unikate behalten“: Definiere Kombinationen, die du nie verlieren willst. Sobald deine Konfigs plus deine aktuell aktiven Verkaufsregeln jedes Exemplar dieser Kombination löschen würden, generiert der Scanner automatisch passende Behalte-Regeln.
 
 ## Nutzung
@@ -91,13 +91,13 @@ Erstelle, prüfe und exportiere Verkaufsregeln für RSL Helper mit einer übersi
 - „Auf Standard zurücksetzen“ bietet sichere Optionen, wenn Metasets verwendet werden (löschen, mit expliziten Sets ersetzen oder durch anderes Metaset ersetzen).
 
 ### Finaler Verkauf
-- Nutze den Schalter `Finaler Verkauf` neben Export, um abschließende Verkaufsregeln für übrig gebliebene Items zu aktivieren. Die Beschriftung bleibt gleich: Ein orangefarbener Hintergrund bedeutet aktiv, die neutrale Umrandung bedeutet aus.
-- Bestimme, ob Artefakte und/oder Zubehör sowie welche Levelbereiche (0–3, 4–7, 8–11, 12–15, 16) betroffen sind. Standard: 0–15, damit voll gelevelte Items nicht verkauft werden.
+- Nutze den Schalter `Finaler Verkauf` im Vorschau-Header, um abschließende Verkaufsregeln für übrig gebliebene Items zu aktivieren. Die Beschriftung bleibt gleich: Ein orangefarbener Hintergrund bedeutet aktiv, die neutrale Umrandung bedeutet aus.
+- Klicke auf „Logic Hub“ neben dem Schalter, um den Tab `Finaler Verkauf` zu öffnen und festzulegen, ob Artefakte, Schmuckstücke und welche Stufenbereiche (0–3, 4–7, 8–11, 12–15, 16) gelten. Standardmäßig bleibt `+16` aus, damit voll gelevelte Teile geschützt bleiben.
 - Ohne `Finaler Verkauf` behält RSL Helper alle Items, die keine Regel treffen. Verkauft wird nur, wenn eine Sell-Regel greift.
 - Bei aktivem `Finaler Verkauf` umfassen die erzeugten Sell-Regeln alle bekannten Sets. In der Vorschau steht „Alle bekannten Sets“, der Export listet trotzdem jedes Set einzeln.
 
 ### Unikate behalten
-- Öffne den Logic-Hub-Dialog und wechsle zur Registerkarte `Unikate behalten`, um Kombinationen zu markieren, die niemals verloren gehen sollen. Aktiviere `Unikate behalten`, damit du Regeln bearbeiten kannst.
+- Klicke im Vorschau-Header auf „Logic Hub“ und wechsle zur Registerkarte `Unikate behalten`, um Kombinationen zu markieren, die niemals verloren gehen sollen. Aktiviere `Unikate behalten`, damit du Regeln bearbeiten kannst.
 - Jede Behalte-Regel lässt dich Slot, Sets oder Metasets, Ränge, Seltenheiten, Mainstats und (bei Zubehör) Fraktionen festlegen. Leer bedeutet „egal“.
 - Eine Standardregel deckt bereits 5★/6★-Ringe, -Amulette und -Banner über alle 1–9er- sowie Einzelstück-Zubehörsets ab und hat `Pro Slot`, `Pro Set`, `Pro Fraktion` und `Pro Hauptstat` aktiv, damit jede Kombination mindestens ein Stück behält.
 - Zusätzlich existiert eine deaktivierte Hilfsregel für Waffen/Rüstung (Waffe, Helm, Schild, Handschuhe, Brust, Stiefel) der Sets Betäubung, Gift, Benommenheit, Verfluchung, Provozieren und Zerstörung bei 5★/6★. `Pro Slot` und `Pro Set` sind dort vorbereitet, falls du diese seltenen Drops später schützen willst.

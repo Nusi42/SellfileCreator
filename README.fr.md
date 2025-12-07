@@ -10,7 +10,7 @@ Construisez, prévisualisez et exportez des règles de vente pour RSL Helper via
 - Glisser-déposer ou bouton Charger : déposez `.hsfc`, `.hsf` ou `.db` où vous voulez (l’overlay confirme) ou cliquez sur « Charger Sellfile RSL Helper ». Les deux options font exactement la même chose : `.hsfc` remplace votre builder, `.hsf` ajoute une Sellfile de base optionnelle et `.db` alimente directement la file du Testeur de règles sans toucher vos configs.
 - Méta-sets : nommez des groupes de sets (ex. Vitesse + Perception) et réutilisez-les dans plusieurs règles.
 - Export en un clic : exportez un fichier HSF (Sellfile RSL Helper) prêt à être chargé dans RSL Helper.
-- Aperçu Testeur de règles + bouton « Logic Hub » : cliquez sur « Logic Hub » dans l’en-tête pour ouvrir le dialogue directement sur l’onglet Équipement, créez un équipement d’exemple, collez des lignes ou glissez votre base de données RSL Helper (souvent `%APPDATA%\\RslHelper\\Config`). Fermez ensuite le dialogue et utilisez l’interrupteur d’aperçu pour garder cet équipement visible pendant que vous le comparez à vos règles.
+- Bouton « Logic Hub » : ouvrez le dialogue depuis l’en-tête pour accéder à `Vente finale`, `Conserver les uniques` et à l’onglet « Équipement » au même endroit. Créez un équipement d’exemple, collez des lignes ou glissez `%APPDATA%\\RslHelper\\Config`, puis refermez le dialogue et laissez l’interrupteur d’aperçu sur la table voulue — la file du testeur reste visible sans rouvrir l’onglet.
 - Onglet « Conserver les uniques » : définissez les combinaisons que vous ne voulez jamais perdre. Dès que vos configs plus vos règles de vente actuellement actives supprimeraient toutes les copies, l’analyse génère automatiquement des règles de conservation.
 - Dialogue de restauration Autosave : lorsqu’un Autosave est détecté, choisissez précisément quoi recharger — configs, méta-sets, Objectifs de sous-stats, reste de Vente finale, note épinglée, état du panneau de filtres et même les importations du Testeur de règles.
 - Copier le dossier RSL Helper : le bandeau de l’aperçu expose un bouton presse-papiers qui copie `%APPDATA%\\RslHelper\\Config` pour coller le chemin dans l’Explorateur avant de faire glisser la `.db` dans Sellfile Creator.
@@ -93,13 +93,13 @@ Construisez, prévisualisez et exportez des règles de vente pour RSL Helper via
   - « Réinitialiser » propose des options sûres lorsqu’un méta-set est en cours d’usage (supprimer, remplacer par des sets explicites ou par un autre méta-set).
 
 ### Vente finale
-- Utilisez l’interrupteur `Vente finale` à côté d’Export pour ajouter des règles de vente destinées aux objets restants. L’étiquette reste identique : un remplissage ambré signifie qu’elle est active et un simple contour neutre qu’elle est désactivée.
-- Choisissez si cela concerne Artefacts et/ou Accessoires et quels intervalles de niveau (0–3, 4–7, 8–11, 12–15, 16). Par défaut : 0–15 pour éviter la vente de pièces +16.
+- Utilisez l’interrupteur `Vente finale` dans l’en-tête de l’aperçu pour ajouter des règles de vente destinées aux objets restants. L’étiquette reste identique : un remplissage ambré signifie qu’elle est active et un simple contour neutre qu’elle est désactivée.
+- Cliquez sur « Logic Hub » à côté de l’interrupteur pour ouvrir l’onglet `Vente finale` et choisir si cela couvre Artefacts, Accessoires et quels intervalles de niveau (0–3, 4–7, 8–11, 12–15, 16). Par défaut la portée reste 0–15 pour éviter la vente de pièces déjà montées à +16.
 - Sans `Vente finale`, RSL Helper conserve tout ce qui ne correspond à aucune règle. Une vente n’a lieu que si une règle explicite le demande.
 - Avec `Vente finale` active, les règles générées incluent tous les sets connus. L’aperçu indique « Tous les sets connus » pour alléger la vue, mais le fichier exporté liste chacun d’eux.
 
 ### Conserver les uniques
-- Ouvrez le dialogue Logic Hub et passez sur l’onglet « Conserver les uniques » pour marquer les combinaisons que vous refusez de vendre. Activez « Conserver les uniques » pour commencer à les éditer.
+- Cliquez sur « Logic Hub » dans l’en-tête de l’aperçu et passez sur l’onglet `Conserver les uniques` pour marquer les combinaisons que vous refusez de vendre. Activez `Conserver les uniques` pour commencer à les éditer.
 - Chaque règle vous permet de choisir slot, sets ou méta-sets, rangs, raretés, stats principales et, pour les accessoires, factions. Laisser un sélecteur vide signifie « n’importe lequel ».
 - Une règle par défaut est déjà fournie pour les anneaux, amulettes et bannières 5★/6★ couvrant tous les sets accessoires 1–9 et les sets pièce unique, avec `Par emplacement`, `Par ensemble`, `Par faction` et `Par stat principale` activés pour conserver au moins une pièce de chaque combinaison.
 - Une règle d’aide (désactivée) couvre les pièces d’arme/armure (arme, casque, bouclier, gants, plastron, bottes) des familles stun/toxic/daze/cursed/provoke/destroy en 5★/6★. Elle active `Par emplacement` et `Par ensemble` pour garder la logique prête si ces sets rares requièrent une protection supplémentaire.

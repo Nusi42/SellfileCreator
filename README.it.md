@@ -10,7 +10,7 @@ Crea, visualizza in anteprima ed esporta regole di vendita per RSL Helper tramit
 - Drag & drop o pulsante Carica: rilascia `.hsfc`, `.hsf` o `.db` ovunque (l'overlay conferma) oppure clicca "Load RSL Helper Sellfile". Entrambe le opzioni si comportano allo stesso modo: `.hsfc` sostituisce il builder, `.hsf` si affianca come Sellfile base opzionale e i dump `.db` finiscono direttamente nella coda del Tester regole senza toccare il builder.
 - Metaset: assegna un nome a gruppi di set (es. Velocità + Percezione) e riutilizzali nelle regole.
 - Esporta con un clic: esporta un file HSF (il Sellfile di RSL Helper) pronto per RSL Helper.
-- Anteprima del Tester regole + pulsante "Logic Hub": clicca "Logic Hub" nell'intestazione per aprire il dialogo Logic Hub direttamente sulla scheda Equipaggiamento, crea equipaggiamento di esempio, incolla righe oppure trascina il database di RSL Helper (di solito `%APPDATA%\\RslHelper\\Config`). Poi chiudi il dialogo e usa l'interruttore dell'anteprima per tenere visibile quell’attrezzatura mentre confronti i risultati con le tue regole.
+- Pulsante "Logic Hub": apri il dialogo dall'intestazione per raggiungere `Vendita finale`, `Mantieni unici` e la scheda Equipaggiamento nello stesso punto. Crea equip di esempio, incolla righe oppure trascina `%APPDATA%\\RslHelper\\Config`, poi chiudi il dialogo e lascia l'interruttore dell'anteprima sulla tabella che ti serve: la coda del Tester resta visibile senza riaprire nulla.
 - Scheda "Mantieni unici": definisci le combinazioni che non vuoi perdere mai. Quando le tue configurazioni più le tue regole di vendita attualmente attive eliminerebbero tutte le copie, lo scanner genera automaticamente regole di mantenimento.
 - Dialogo di ripristino Autosave: quando troviamo un Autosave, scegli con precisione cosa ricaricare: configurazioni, Metaset, Valori obiettivo delle sotto-stat, resto di Vendita finale, nota fissata, stato del pannello filtri e perfino le importazioni del Tester regole.
 - Copia la cartella del DB di RSL Helper: l'intestazione dell'anteprima offre un pulsante negli appunti che copia `%APPDATA%\RslHelper\Config` così puoi incollare subito il percorso in Esplora risorse prima di trascinare dentro il `.db`.
@@ -81,13 +81,13 @@ Crea, visualizza in anteprima ed esporta regole di vendita per RSL Helper tramit
   - Sostituire i riferimenti con un altro Metaset.
 
 ### Vendita finale
-- Usa l’interruttore `Vendita finale` accanto al pulsante di esportazione per aggiungere regole Vendi finali per gli oggetti non coperti dalle regole Mantieni. L’etichetta non cambia mai: il riempimento color ambra indica che è attiva e il bordo neutro indica che è disattivata.
-- Configura quale equipaggiamento (Artefatti e/o Accessori) e quali intervalli di livello (0–3, 4–7, 8–11, 12–15, 16). L’impostazione predefinita prende di mira 0–15 per evitare di vendere oggetti a +16.
+- Usa l’interruttore `Vendita finale` nell’intestazione dell’anteprima per aggiungere regole Vendi finali per gli oggetti non coperti dalle regole Mantieni. L’etichetta non cambia mai: il riempimento color ambra indica che è attiva e il bordo neutro indica che è disattivata.
+- Clicca `Logic Hub` accanto all’interruttore per aprire la scheda `Vendita finale` e decidere se copre Artefatti, Accessori e quali intervalli di livello (0–3, 4–7, 8–11, 12–15, 16). L’impostazione predefinita prende di mira 0–15 così gli oggetti a +16 restano al sicuro finché non abiliti `+16`.
 - Senza `Vendita finale` gli oggetti che non corrispondono a nessuna regola vengono mantenuti automaticamente da RSL Helper. La vendita avviene solo quando una regola Vendi si attiva.
 - Quando `Vendita finale` è attiva, le regole Vendi generate includono esplicitamente tutti i set conosciuti. Nell’anteprima la colonna Set mostra "Tutti i set attualmente noti" per ridurre il rumore; il file esportato elenca comunque ogni set.
 
 ### Mantieni unici
-- Apri il dialogo Logic Hub e passa alla scheda «Mantieni unici» per segnare le combinazioni che non vuoi vendere mai. Attiva «Mantieni unici» per iniziare a modificarle.
+- Clicca `Logic Hub` nell’intestazione dell’anteprima e passa alla scheda `Mantieni unici` per segnare le combinazioni che non vuoi vendere mai. Attiva `Mantieni unici` per iniziare a modificarle.
 - Ogni regola ti permette di scegliere slot, set o Metaset, ranghi, rarità, statistiche principali e (per gli accessori) fazioni. Lasciare un selettore vuoto significa «qualsiasi».
 - Troverai una regola predefinita per anelli, amuleti e vessilli 5★/6★ in tutti i set 1–9 e nei set di accessori singoli, con `Per slot`, `Per set`, `Per fazione` e `Per statistica principale` già attivi così ogni combinazione conserva almeno un pezzo.
 - C’è anche una regola di supporto disattivata che copre armi e pezzi d’armatura (arma, elmo, scudo, guanti, corazza, stivali) nei set stun/toxic/daze/cursed/provoke/destroy a 5★/6★, con `Per slot` e `Per set` pronti per quando quei set rari hanno bisogno di una rete di sicurezza extra.

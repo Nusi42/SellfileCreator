@@ -10,7 +10,7 @@ Crea, revisa y exporta reglas de venta para RSL Helper con una interfaz sencilla
 - Arrastrar y soltar o botón «Cargar Sellfile de RSL Helper»: arrastra `.hsfc`, `.hsf` o `.db` a cualquier parte (la superposición lo confirma) o haz clic en el botón. Ambos caminos hacen lo mismo: `.hsfc` reemplaza el constructor, `.hsf` añade la Sellfile base opcional y las `.db` van directas a la cola del Probador sin tocar tus configs.
 - Metasets: agrupa conjuntos de equipo (por ejemplo, Velocidad + Percepción) y reutilízalos en varias reglas.
 - Exportación con un clic: genera un archivo HSF (Sellfile de RSL Helper) listo para cargar en RSL Helper.
-- Vista del Probador + botón «Logic Hub»: haz clic en «Logic Hub» en el encabezado para abrir el diálogo directamente en la pestaña Equipo, crea equipo de ejemplo, pega filas o arrastra tu base de datos de RSL Helper (normalmente `%APPDATA%\\RslHelper\\Config`). Después puedes cerrar el diálogo y usar el interruptor de vista previa para mantener ese equipo visible mientras lo comparas con tus reglas.
+- Botón «Logic Hub»: abre el diálogo desde el encabezado para entrar a `Venta final`, `Conservar únicos` y la pestaña «Equipo» desde el mismo lugar. Crea equipo de ejemplo, pega filas o arrastra `%APPDATA%\\RslHelper\\Config`; después cierra el diálogo y deja el interruptor de vista previa en la tabla que necesites: la cola del Probador sigue visible sin reabrir nada.
 - Pestaña «Conservar únicos»: define las combinaciones que nunca quieres perder. El escáner genera reglas de conservación automáticamente cuando tus configs más tus reglas de venta actualmente activas eliminarían todas las copias.
 
 ## Cómo usarlo
@@ -91,13 +91,13 @@ Crea, revisa y exporta reglas de venta para RSL Helper con una interfaz sencilla
 - «Restablecer valores predeterminados» ofrece opciones seguras cuando un metaset está en uso (eliminar, sustituir por sets explícitos o por otro metaset).
 
 ### Venta final
-- Usa el interruptor `Venta final` junto a Exportar para añadir reglas de venta para lo que no coincidió en otras configs. La etiqueta no cambia nunca; el relleno ámbar indica que está activa y el contorno neutro indica que está apagada.
-- Decide si afecta a Artefactos y/o Accesorios y qué rangos de nivel (0–3, 4–7, 8–11, 12–15, 16). El valor por defecto cubre 0–15 para no vender piezas ya subidas a +16.
+- Usa el interruptor `Venta final` en el encabezado de la vista previa para añadir reglas de venta para lo que no coincidió en otras configs. La etiqueta no cambia nunca; el relleno ámbar indica que está activa y el contorno neutro indica que está apagada.
+- Haz clic en «Logic Hub» junto al interruptor para abrir la pestaña `Venta final` y decidir si afecta a Artefactos y/o Accesorios y qué rangos de nivel (0–3, 4–7, 8–11, 12–15, 16). Los valores predeterminados cubren 0–15 para no vender piezas ya subidas a +16.
 - Sin `Venta final`, RSL Helper conserva todo lo que no coincide con una regla. Solo se vende si una regla explícita indica Vender.
 - Con `Venta final` activa, las reglas generadas incluyen todos los sets conocidos. En la vista previa se muestra «Todos los sets conocidos» para reducir ruido, pero el archivo exportado enumera cada set.
 
 ### Conservar únicos
-- Abre el diálogo Logic Hub y cambia a la pestaña `Conservar únicos` para marcar las combinaciones que nunca quieres perder. Activa `Activar Conservar únicos` para empezar a editar.
+- Haz clic en «Logic Hub» en el encabezado de la vista previa y cambia a la pestaña `Conservar únicos` para marcar las combinaciones que nunca quieres perder. Activa `Activar Conservar únicos` para empezar a editar.
 - Cada regla de conservación te deja elegir ranura, sets o metasets, rangos, rarezas, stats principales y (en accesorios) facciones. Sin selección significa «cualquiera».
 - Encontrarás una regla predeterminada para anillos, amuletos y estandartes de 5★/6★ en todos los sets 1–9 y de accesorio individual, con `Por ranura`, `Por conjunto`, `Por facción` y `Por stat principal` activados para que cada mezcla conserve al menos una pieza.
 - También hay una regla de ayuda desactivada que cubre armas/piezas de armadura (arma, casco, escudo, guantes, peto, botas) en los sets stun/toxic/daze/cursed/provoke/destroy a 5★/6★, con `Por ranura` y `Por conjunto` preparados para habilitarla cuando estos sets raros necesiten blindaje adicional.

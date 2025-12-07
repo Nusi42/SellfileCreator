@@ -10,7 +10,7 @@ Crie, reveja e exporte regras de venda para o RSL Helper com uma interface simpl
 - Arrastar e largar ou botão “Load RSL Helper Sellfile”: larga `.hsfc`, `.hsf` ou `.db` em qualquer ponto (a sobreposição confirma) ou clica no botão para carregar. Ambos os caminhos fazem exatamente o mesmo: `.hsfc` substitui o builder, `.hsf` acrescenta o Sellfile base opcional e `.db` entra diretamente na fila do Teste de Regras sem tocar no builder/export.
 - Meta-sets: agrupe conjuntos de equipamento (por exemplo, Velocidade + Perceção) e volte a usá-los em várias regras.
 - Exportação com um clique: gere um ficheiro HSF (Sellfile do RSL Helper) pronto a carregar no RSL Helper.
-- Prévia do Teste de Regras + botão «Logic Hub»: clica em «Logic Hub» no cabeçalho para abrir o diálogo Logic Hub diretamente na aba Equipamento, cria equipamento de exemplo, cola linhas ou arrasta a tua base de dados do RSL Helper (normalmente `%APPDATA%\\RslHelper\\Config`). Depois fecha o diálogo e usa o interruptor da prévia para manter esse equipamento visível enquanto comparas esses itens com as tuas regras.
+- Botão «Logic Hub»: abre o diálogo no cabeçalho para aceder a `Venda final`, `Conservar únicos` e ao separador Equipamento num só lugar. Cria equipamento de exemplo, cola linhas ou arrasta `%APPDATA%\\RslHelper\\Config`; depois fecha o diálogo e mantém o interruptor da pré-visualização na tabela que precisares — a fila do Teste de Regras continua visível sem reabrir.
 - Aba «Manter únicos»: define as combinações que não queres perder. Quando as tuas configs mais as tuas regras de venda atualmente ativas removerem todas as cópias, o scanner gera automaticamente regras de manutenção.
 - Diálogo de restauro do Autosave: quando existe um autosave, escolhe exatamente o que carregar — configs, meta-sets, Alvos de substats, resto da Venda final, nota fixada, estado do painel de filtros e até importações do Teste de Regras.
 - Copiar a pasta da base de dados do RSL Helper: o cabeçalho da prévia mostra um botão que copia `%APPDATA%\RslHelper\Config` para o porta‑papéis para que possas colar a rota no Explorador antes de arrastar a `.db` para o Sellfile Creator.
@@ -93,13 +93,13 @@ Crie, reveja e exporte regras de venda para o RSL Helper com uma interface simpl
 - «Repor predefinições» oferece opções seguras quando um meta-set está em uso (remover, substituir por sets explícitos ou por outro meta-set).
 
 ### Venda final
-- Use o interruptor `Venda final` junto de Exportar para ativar regras de venda para os itens restantes. A etiqueta não muda; o preenchimento âmbar indica que está ativa e o contorno neutro indica que está desligada.
-- Defina se deve abranger Artefactos e/ou Acessórios e quais os intervalos de nível (0–3, 4–7, 8–11, 12–15, 16). Por defeito é 0–15 para evitar vender peças +16.
+- Use o interruptor `Venda final` no cabeçalho da pré-visualização para ativar regras de venda para os itens restantes. A etiqueta não muda; o preenchimento âmbar indica que está ativa e o contorno neutro indica que está desligada.
+- Clique em «Logic Hub» ao lado do interruptor para abrir o separador `Venda final` e decidir se abrange Artefactos, Acessórios e quais os intervalos de nível (0–3, 4–7, 8–11, 12–15, 16). A predefinição cobre 0–15, por isso o `+16` só entra quando o ativares.
 - Sem `Venda final`, o RSL Helper mantém tudo o que não coincide com uma regra. Só vende quando uma regra explícita diz Vender.
 - Com `Venda final` ativa, as regras geradas incluem todos os sets conhecidos. Na prévia surge «Todos os sets conhecidos» para reduzir ruído; o ficheiro exportado lista os sets um a um.
 
 ### Manter únicos
-- Abre o diálogo Logic Hub e muda para a aba `Manter únicos` para marcar as combinações que nunca queres perder. Ativa `Ativar Manter únicos` para começar a editá-las.
+- Clica em «Logic Hub» no cabeçalho da pré-visualização e muda para o separador `Manter únicos` para marcar as combinações que nunca queres perder. Ativa `Manter únicos` para começar a editá-las.
 - Cada regra deixa-te escolher slot, sets ou meta-sets, ranks, raridades, atributos principais e, no caso dos acessórios, facções. Seletores vazios significam «qualquer um».
 - Já existe uma regra predefinida para anéis, amuletos e estandartes 5★/6★ em todos os sets 1–9 e de peça única, com `Por slot`, `Por conjunto`, `Por facção` e `Por atributo principal` ligados para que cada combinação mantenha pelo menos uma peça.
 - Há também uma regra auxiliar desativada que cobre armas/armaduras (arma, elmo, escudo, manoplas, peitoral, botas) dos sets stun/toxic/daze/cursed/provoke/destroy a 5★/6★, com `Por slot` e `Por conjunto` prontos para ligar se esses sets raros precisarem de proteção adicional.

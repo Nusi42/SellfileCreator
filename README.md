@@ -10,7 +10,7 @@ Build, preview, and export sell rules for RSL Helper with a simple UI.
 - Drag & drop or Load button: drop `.hsfc`, `.hsf`, or `.db` anywhere (overlay confirms) or click “Load RSL Helper Sellfile”. Both options behave the same — `.hsfc` replaces your builder, `.hsf` layers on the optional base sellfile, and `.db` dumps go straight into the Rule Tester queue without touching the builder.
 - Metasets: name groups of gear sets (e.g., Speed + Perception) and reuse them across rules.
 - One-click Export: export an HSF file (the RSL Helper Sellfile) ready for RSL Helper.
-- Rule Tester preview + Logic Hub button (“Logic Hub”): click the `Logic Hub` button in the preview header to open the dialog directly on its Gear tab, then create example gear, paste items, or drag-and-drop your RSL Helper DB (usually `%APPDATA%\RslHelper\Config`). Close the dialog afterward and keep the preview toggle on whichever table you need; the tester queue stays visible without reopening the tab.
+- Logic Hub button (`Logic Hub`): open the dialog from the preview header to reach `Final Sell`, `Keep Uniques`, and the Gear tester tab from the same place. Load example gear, paste drops, or drag `%APPDATA%\\RslHelper\\Config`, then close the dialog and leave the preview toggle on whichever table you need — the tester queue stays visible without reopening.
 - Keep Uniques tab: define combinations you never want to lose, and the scanner injects keep rules automatically whenever your configs plus your current active Sell rules would sell every piece in that combination.
 
 ## How To Use
@@ -95,13 +95,13 @@ Build, preview, and export sell rules for RSL Helper with a simple UI.
   - Replace references with another metaset.
 
 ### Final Sell
-- Use the `Final Sell` toggle near Export to add catch-all Sell rules for items not matched by your Keep rules. The label never changes; an amber fill means it is active, and the neutral outline means it is off.
-- Configure which gear (Artifacts and/or Accessories) and which level ranges (0–3, 4–7, 8–11, 12–15, 16). The default targets 0–15 to avoid selling fully leveled gear.
+- Use the `Final Sell` toggle in the preview header to add catch-all Sell rules for items not matched by your Keep rules. The label never changes; an amber fill means it is active, and the neutral outline means it is off.
+- Click the `Logic Hub` button next to the toggle to open the `Final Sell` tab and choose whether it covers Artifacts, Accessories, and which level ranges (0–3, 4–7, 8–11, 12–15, 16). The defaults cover 0–15 so fully leveled gear stays safe unless you turn `+16` on.
 - Without Final Sell, items that do not match any rule are automatically kept by RSL Helper. Selling only happens when a Sell rule matches.
 - When `Final Sell` is active, the generated Sell rules explicitly include all currently known sets. In the preview, the Sets column shows “All Currently Known” for these rules to reduce clutter; the exported file still lists every set explicitly.
 
 ### Keep Uniques
-- Open the Logic Hub dialog and switch to the `Keep Uniques` tab to mark the gear combinations you never want to lose. Turn on `Enable Keep Uniques` to start editing.
+- Click `Logic Hub` in the preview header and switch to the `Keep Uniques` tab to mark the gear combinations you never want to lose. Turn on `Enable Keep Uniques` to start editing.
 - Each keep rule lets you pick the slot, sets or metasets, ranks, rarities, main stats, and (for accessories) factions you care about. Leaving a picker empty means “any”.
 - A default rule is already seeded for 5★/6★ rings, amulets, and banners across every 1–9 and single-piece accessory set, with `Per slot`, `Per set`, `Per faction`, and `Per main stat` enabled so each combination keeps at least one piece.
 - There is also a disabled helper rule that targets weapons/armor pieces (weapon, helmet, shield, gauntlets, chestplate, boots) from the stun/toxic/daze/cursed/provoke/destroy families at 5★/6★, with `Per slot` and `Per set` scopes so the scanner can be turned on later if those rare sets need extra protection.
