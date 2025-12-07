@@ -17,8 +17,8 @@ THIRD_PARTY_NOTICES.txt
 Thumbs.db
 
 # Release archives
-SellfileCreator_v*.7z
-SellfileCreator_v*.zip
+SellfileCreator*.7z
+SellfileCreator*.zip
 /scripts/mock-export.hsf
 
 old_releases/*-dev.html
