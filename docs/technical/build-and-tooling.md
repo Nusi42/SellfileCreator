@@ -147,7 +147,7 @@ Coding patterns adopted during the refactor (required for PRs):
 
 - `src/App.tsx`: Main UI — orchestrates builder, configs, metasets, Substat Target Values (`substatTargets`), autosave, preview.
 - `src/components/HelpDialog.tsx`: In-app Help/README viewer. Bundles the top-level `README.md` (via Vite `?raw`) and renders it with the Markdown previewer used elsewhere (sanitized, read-only). The dialog paper pulls the favicon data URL from the `<link rel="icon">` tag (injected by `assetsPlugin`) to paint a richer but still translucent background that matches the app branding without duplicating the asset; the favicon layer scales to 80% of the dialog while preserving aspect ratio.
-- `src/state/appState.tsx`: Context + reducer for core app state. Exposes `AppStateProvider`, `useAppState`, `useAppActions`, and `makeInitialAppState`. Fields: `customCfgs`, `metasets`, `substatTargets` (Substat Target Values), `finalSellRemainder`, `selectedCfgIdx`, `hsfcNote`.
+- `src/state/appState.tsx`: Context + reducer for core app state. Exposes `AppStateProvider`, `useAppState`, `useAppActions`, and `makeInitialAppState`. Fields: `customCfgs`, `metasets`, `substatTargets` (Substat Target Values), `finalSellRemainder`, `finalSellDialogTab`, `keepUniqueRules`, `keepUniquesEnabled`, `selectedCfgIdx`, `hsfcNote`.
 - `src/theme.ts`: MUI dark theme configuration.
 - `src/main.tsx`: App bootstrap with `ThemeProvider` and `CssBaseline`.
   - Wraps `<App />` in `AppStateProvider`, seeding with `defaultSubstatTargets()` (Substat Target Values) and `defaultMetasets()`.

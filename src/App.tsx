@@ -2787,9 +2787,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setKeepUniquesEnabled(false)
   }, [setKeepUniqueRules, setKeepUniquesEnabled])
   const handleResetGearTesterItems = useCallback(() => {
-    // Drop every tester entry so the Final Sell dialog reset mirrors the standalone dialog behavior.
+    // Treat manual resets like a full gear-db refresh so matcher + keep-unique detection clear immediately.
+    beginTesterMatchReset('gearDb')
     setTesterItems([])
-  }, [setTesterItems])
+  }, [beginTesterMatchReset, setTesterItems])
 
 
   // Build autosave payload and write via useAutosave (enabled after restore choice)
