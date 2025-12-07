@@ -1,6 +1,19 @@
 ﻿Sellfile Creator Release History
 DISCLAIMER: These release notes are AI generated and might contain incorrect statements.
 
+## v0.9.9 — 2025-12-07
+English:
+- Load your full RSL Helper gear database straight into the new Rule Tester view, then watch every config decide Keep or Sell before you export the Sellfile.
+- The Rule Tester grid groups items by set and faction, shows champion portraits, offers keep/sell chips that jump back to the builder, and gains context menus plus search hotkeys so scanning huge inventories stays friendly.
+- Unique or at-risk items are spotlighted: the grid collapses to the truly unique groups, adds a clear All/Selection toggle, and paints a green Keep Uniques chip so you instantly know why a piece is protected.
+- Keep Unique protection now lives inside a dedicated Keep-Unique tab in the Final Sell dialog, letting you define slot/set/rank/rarity/main/faction combos, see how many copies you own, highlight the matching tester cards, and merge the rules into exports with one switch.
+
+Deutsch:
+- Du kannst jetzt deine komplette RSL-Helper-Gear-Datenbank direkt im neuen Rule-Tester-View laden und sehen, welche Config jedes Item behalten oder verkaufen würde, bevor du das Sellfile exportierst.
+- Das Rule-Tester-Grid gruppiert Items nach Set und Fraktion, zeigt Champion-Porträts, bringt Keep/Sell-Chips zurück in den Builder und liefert Kontextmenüs plus Such-Hotkeys, damit große Inventare übersichtlich bleiben.
+- Einzigartige oder gefährdete Items werden hervorgehoben: Das Grid klappt auf die wirklich einzigartigen Gruppen ein, hat einen klaren All/Selection-Schalter und zeigt einen grünen „Keep Uniques“-Chip, damit du sofort weißt, warum ein Teil geschützt ist.
+- Keep-Unique-Schutz lebt jetzt in einem eigenen Tab im Final-Sell-Dialog – hier definierst du Slot/Set/Rang/Seltenheit/Main/Fraktion-Kombos, siehst sofort, wie viele Kopien du besitzt, markierst die entsprechenden Tester-Karten und übernimmst die Regeln per Schalter in jeden Export.
+
 ## v0.9.8 — 2025-11-03
 English:
 - Multi-edit stays inline: select several configs to see mixed placeholders, total rule counts, and an `Apply to N configs` button; chip menus add Select All / Copy All options and the header counter shows how many configs are filtered or selected. Roll Target overrides now patch across every selected config, and the old Draft visibility is renamed to Export Mode → Separator so dividers are clearer.
