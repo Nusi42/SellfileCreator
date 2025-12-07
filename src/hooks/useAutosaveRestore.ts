@@ -27,6 +27,7 @@ import {
 } from '../state/rulesFilterPersistence'
 import { TESTER_CONFIG_FILTER_MODE_DEFAULT, type TesterConfigFilterMode } from '../types/testerConfigFilterMode'
 import type { KeepUniqueRule } from '../lib/keepUniques'
+import { sanitizeKeepUniquesGridFilterMode, type KeepUniquesGridFilterMode } from '../state/keepUniquesPreferences'
 
 export type RestoreDraft = {
   Version?: string
@@ -41,6 +42,7 @@ export type RestoreDraft = {
   AutosaveSavedAt?: string
   Filters?: AutosaveFiltersState
   FinalSellDialogTab?: FinalSellDialogTab
+  KeepUniquesGridFilterMode?: KeepUniquesGridFilterMode
 }
 
 export type AutosaveFilterView = {
@@ -232,6 +234,7 @@ function computeInitialAutosaveState(args: {
   filters: AutosaveFiltersState
   keepUniqueRules: KeepUniqueRule[]
   keepUniquesEnabled: boolean
+  keepUniquesGridFilterMode: KeepUniquesGridFilterMode
 }): InitialAutosaveState {
   try {
     const entry = loadAutosave<unknown>(args.key)
@@ -259,6 +262,12 @@ function computeInitialAutosaveState(args: {
         && args.keepUniqueRules.length === 0
         && !args.keepUniquesEnabled
       const notePresent = typeof parsed.note === 'string' && parsed.note.trim().length > 0
+      const savedGridFilterModeRaw = (entry.payload && typeof entry.payload === 'object' && typeof (entry.payload as Record<string, unknown>)['KeepUniquesGridFilterMode'] === 'string')
+        ? (entry.payload as Record<string, unknown>)['KeepUniquesGridFilterMode']
+        : null
+      const savedGridFilterMode = savedGridFilterModeRaw
+        ? sanitizeKeepUniquesGridFilterMode(savedGridFilterModeRaw)
+        : null
       const essentiallyDefault = cfgs.length === 0
         && metasetsMatchDefaults
         && substatTargetsMatchDefaults
@@ -279,10 +288,11 @@ function computeInitialAutosaveState(args: {
             ...(savedFinalSell ? { FinalSellRemainder: savedFinalSell } : {}),
             ...(savedKeepUniques.length ? { KeepUniques: savedKeepUniques } : {}),
             ...(savedKeepEnabled ? { KeepUniquesEnabled: savedKeepEnabled } : {}),
+            ...(savedGridFilterMode ? { KeepUniquesGridFilterMode: savedGridFilterMode } : {}),
             ...(parsed.selectedIndex != null ? { SelectedConfigIndex: parsed.selectedIndex } : {}),
             ...(parsed.note ? { Note: parsed.note } : {}),
             ...(savedAtRaw ? { AutosaveSavedAt: savedAtRaw } : {}),
-        ...(savedFilters ? { Filters: savedFilters } : {}),
+            ...(savedFilters ? { Filters: savedFilters } : {}),
             ...(typeof payload['FinalSellDialogTab'] === 'string'
               ? (() => {
                 const raw = payload['FinalSellDialogTab'] as string
@@ -315,6 +325,7 @@ export function useAutosaveRestore(opts: {
   keepUniqueRules: KeepUniqueRule[]
   keepUniquesEnabled: boolean
   finalSellDialogTab: FinalSellDialogTab
+  keepUniquesGridFilterMode: KeepUniquesGridFilterMode
 }) {
   const {
     key,
@@ -329,6 +340,7 @@ export function useAutosaveRestore(opts: {
     keepUniqueRules,
     keepUniquesEnabled,
     finalSellDialogTab,
+    keepUniquesGridFilterMode,
   } = opts
 
   const initialAutosaveStateRef = useRef<InitialAutosaveState | null>(null)
@@ -343,6 +355,7 @@ export function useAutosaveRestore(opts: {
       filters,
       keepUniqueRules,
       keepUniquesEnabled,
+      keepUniquesGridFilterMode,
     })
   }
   const { restoreDlgOpen: initialRestoreDlgOpen, restoreDraft: initialRestoreDraft, enabled: initialEnabled } = initialAutosaveStateRef.current
@@ -365,11 +378,12 @@ export function useAutosaveRestore(opts: {
       KeepUniques: keepUniqueRules,
       KeepUniquesEnabled: keepUniquesEnabled,
       FinalSellDialogTab: finalSellDialogTab,
+      KeepUniquesGridFilterMode: keepUniquesGridFilterMode,
       ...(note && note.trim() ? { Note: note } : {}),
       ...(filtersForSnapshot ? { Filters: filtersForSnapshot } : {}),
     }
     return JSON.stringify(base)
-  }, [version, metasets, substatTargets, configs, finalSellRemainder, note, filters, keepUniqueRules, keepUniquesEnabled, finalSellDialogTab])
+  }, [version, metasets, substatTargets, configs, finalSellRemainder, note, filters, keepUniqueRules, keepUniquesEnabled, finalSellDialogTab, keepUniquesGridFilterMode])
 
   // After dismissing, enable autosave only after divergence from baseline
   useEffect(() => {
