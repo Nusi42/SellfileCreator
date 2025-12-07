@@ -469,12 +469,15 @@ export function useTutorialCoachState({
       } catch {}
     }
 
-    const ensureRuleTesterDialog = (open: boolean) => {
+    const ensureFinalSellGearTab = (open: boolean) => {
       try {
+        // Always pivot to the Gear tab before toggling visibility so overlays never land on stale sections.
+        setFinalSellDialogTab(FINAL_SELL_DIALOG_TAB_GEAR)
         if (open) {
-          setFinalSellDialogTab(FINAL_SELL_DIALOG_TAB_GEAR)
+          // Showing the dialog exposes the integrated tester grid so the tutorial can highlight its controls.
           setFinalSellOpen(true)
         } else {
+          // Closing the dialog keeps earlier steps uncluttered once we leave the Gear walkthrough.
           setFinalSellOpen(false)
         }
       } catch {}
@@ -1030,7 +1033,7 @@ export function useTutorialCoachState({
         before: () => {
           ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensureFinalSellDialog(false); ensurePreviewHighlight(null)
           setPreviewMode('rules')
-          ensureRuleTesterDialog(false)
+          ensureFinalSellGearTab(false)
         },
       },
       {
@@ -1041,7 +1044,7 @@ export function useTutorialCoachState({
         before: () => {
           ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensureFinalSellDialog(false); ensurePreviewHighlight(null)
           setPreviewMode('rules')
-          ensureRuleTesterDialog(true)
+          ensureFinalSellGearTab(true)
           setTesterItems(buildTutorialTesterItems())
         },
       },
@@ -1052,7 +1055,8 @@ export function useTutorialCoachState({
         targetIds: ['preview.mode-toggle', 'preview.tester-grid-top'],
         before: () => {
           ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensureFinalSellDialog(false); ensurePreviewHighlight(null)
-          setFinalSellOpen(false)
+          // Close the integrated Gear tab before flipping the preview so the overlay only tracks the table.
+          ensureFinalSellGearTab(false)
           setPreviewMode('tester')
         },
       },
