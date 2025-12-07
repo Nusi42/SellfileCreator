@@ -189,7 +189,8 @@ const overrides: Catalog = {
   artifacts: 'Artefakte',
   accessories: 'Schmuckstücke',
   offByDefaultTooltip: 'Standardmäßig aus, um voll aufgewertete Ausrüstung nicht zu verkaufen. Aktivieren kann wertvolle +16‑Gegenstände verkaufen, wenn falsch verwendet.',
-  finalSellGearTabPlaceholder: 'Der Ausrüstungs-Editor zieht bald in diesen Dialog um. Verwende vorerst das separate Ausrüstungsfenster, bis dieser Tab fertig verdrahtet ist.',
+  titleResetGearTester: 'Ausrüstungs-Tester leeren?',
+  msgResetGearTester: 'Dadurch werden alle manuellen und importierten Ausrüstungs-Einträge aus dem Regel-Tester entfernt.',
 
   tabKeepUniques: 'Unikate behalten',
   keepUniquesTabLabel: 'Unikate behalten',

@@ -189,7 +189,8 @@ const overrides: Catalog = {
   artifacts: 'Artefactos',
   accessories: 'Accesorios',
   offByDefaultTooltip: 'Desactivado por defecto para evitar vender equipo al nivel máximo. Activarlo puede vender objetos +16 valiosos si se usa mal.',
-  finalSellGearTabPlaceholder: 'El editor de equipo se trasladará pronto a este cuadro de diálogo. Sigue usando la ventana independiente de Equipo hasta que esta pestaña esté lista.',
+  titleResetGearTester: '¿Limpiar el probador de equipo?',
+  msgResetGearTester: 'Esto elimina todas las entradas manuales e importadas del probador de reglas.',
 
   tabKeepUniques: 'Conservar únicos',
   keepUniquesTabLabel: 'Conservar únicos',

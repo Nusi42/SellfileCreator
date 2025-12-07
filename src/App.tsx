@@ -2785,6 +2785,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setKeepUniqueRules(buildDefaultKeepUniqueRules())
     setKeepUniquesEnabled(false)
   }, [setKeepUniqueRules, setKeepUniquesEnabled])
+  const handleResetGearTesterItems = useCallback(() => {
+    // Drop every tester entry so the Final Sell dialog reset mirrors the standalone dialog behavior.
+    setTesterItems([])
+  }, [setTesterItems])
 
 
   // Build autosave payload and write via useAutosave (enabled after restore choice)
@@ -4614,6 +4618,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         workloadProgressRatio={workloadProgressRatio}
         onResetKeepUniques={handleResetKeepUniques}
         onJumpToRule={handleTesterRuleView}
+        customCfgs={customCfgs}
+        testerItems={testerItems}
+        setTesterItems={setTesterItems}
+        allocTesterItemId={allocTesterItemId}
+        testerMatches={testerMatchesByItemId}
+        onResetGearTester={handleResetGearTesterItems}
       />
       {/* Rule Tester dialog */}
       <RuleTesterDialog

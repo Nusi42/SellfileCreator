@@ -189,7 +189,8 @@ const overrides: Catalog = {
   artifacts: 'Artefacts',
   accessories: 'Accessoires',
   offByDefaultTooltip: 'Désactivé par défaut pour éviter de vendre les objets au niveau max. L’activer peut vendre des objets +16 de valeur si mal utilisé.',
-  finalSellGearTabPlaceholder: 'L’éditeur d’équipement sera bientôt intégré à ce dialogue. Continuez d’utiliser la fenêtre Équipement autonome en attendant que cet onglet soit prêt.',
+  titleResetGearTester: 'Effacer le testeur d’équipement ?',
+  msgResetGearTester: 'Cela supprime toutes les entrées d’équipement manuelles et importées du testeur de règles.',
 
   tabKeepUniques: 'Conserver les uniques',
   keepUniquesTabLabel: 'Conserver les uniques',

@@ -189,7 +189,8 @@ const overrides: Catalog = {
   artifacts: 'Eserler',
   accessories: 'Aksesuarlar',
   offByDefaultTooltip: 'Tam gelişmiş ekipmanı satmamak için varsayılan olarak kapalıdır. Yanlış kullanımda değerli +16 öğeleri satabilir.',
-  finalSellGearTabPlaceholder: 'Ekipman düzenleyicisi yakında bu iletişim penceresine taşınacak. Bu sekme hazır olana kadar bağımsız Ekipman penceresini kullanmaya devam edin.',
+  titleResetGearTester: 'Ekipman testini temizle?',
+  msgResetGearTester: 'Bu işlem kurallar testinden tüm manuel ve içe aktarılan ekipman kayıtlarını kaldırır.',
 
   tabKeepUniques: 'Benzersizleri Koru',
   keepUniquesTabLabel: 'Benzersizleri Koru',
