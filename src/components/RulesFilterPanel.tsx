@@ -50,6 +50,7 @@ import {
   TESTER_LAST_USE_MAX_DAYS,
   TESTER_LAST_USE_MIN_DAYS,
   createDefaultTesterLastUseCustom,
+  createDefaultTesterLastUseFilter,
   createDefaultTesterRollsState,
   isRulesFilterActive,
   isTesterRollFilterActive,
@@ -275,17 +276,17 @@ const sectionHeaderBaseSx = {
 const sectionHeaderLabelSx = {
   m: 0,
   minWidth: 0,
-  flex: '1 1 auto',
+  flex: '0 1 auto',
   display: 'block',
-  width: '100%',
   overflow: 'hidden',
   textOverflow: 'ellipsis',
   whiteSpace: 'nowrap',
+  maxWidth: '100%',
 } as const
 
 const sectionHeaderLabelTextSx = {
   display: 'block',
-  width: '100%',
+  maxWidth: '100%',
   overflow: 'hidden',
   textOverflow: 'ellipsis',
   whiteSpace: 'nowrap',
@@ -686,8 +687,22 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
         }}
       >
         <SectionToggle id={id} />
-        <SectionHeaderLabel label={label} />
-        {actions}
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 0.25,
+            minWidth: 0,
+            flex: '0 1 auto',
+          }}
+        >
+          <SectionHeaderLabel label={label} />
+          {actions ? (
+            <Box sx={{ flexShrink: 0, display: 'inline-flex', alignItems: 'center' }}>
+              {actions}
+            </Box>
+          ) : null}
+        </Box>
       </Box>
     )
   }
@@ -1194,6 +1209,206 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
     onTesterConfigFilterModeChange(next)
   }
 
+  // Section labels feed both the header copy and the clear-button tooltips so we only translate once per render.
+  const ruleSectionLabel = t(isTesterMode ? 'filterTesterResult' : 'filterRule')
+  const setsSectionLabel = t('filterSets')
+  const sourcesSectionLabel = t('filterSource')
+  const championsSectionLabel = t('testerChampionFilterLabel')
+  const lastUseSectionLabel = t('testerLastUsedFilterLabel')
+  const mainSectionLabel = t('filterMainstat')
+  const subSectionLabel = t('filterSubstats')
+  const levelSectionLabel = t('filterLevel')
+  const factionSectionLabel = t('filterFaction')
+  const slotsSectionLabel = t('filterSlots')
+  const rankSectionLabel = t('filterRank')
+  const raritySectionLabel = t('filterRarity')
+  const ascensionSectionLabel = t('filterAscension')
+
+  // Keep the aria-label/tooltip descriptive so screen readers and hover affordances both share the same phrasing.
+  const formatSectionClearLabel = React.useCallback((sectionLabel: string) => {
+    const clearText = t('clear')
+    if (typeof sectionLabel !== 'string') return clearText
+    const trimmed = sectionLabel.trim()
+    return trimmed.length > 0 ? `${clearText} · ${trimmed}` : clearText
+  }, [t])
+
+  // Every header reserves the clear-button footprint so labels never shift when filters flip between default/dirty.
+  const renderSectionClearButton = (dirty: boolean, label: string, onClear: () => void) => (
+    dirty
+      ? (
+        <ClearIconButton
+          size="small"
+          aria-label={label}
+          tooltip={label}
+          onClick={onClear}
+        />
+      )
+      : (
+        <Box sx={{ ...CLEAR_BUTTON_PLACEHOLDER_SX, pointerEvents: 'none' }} aria-hidden="true" />
+      )
+  )
+
+  // Each clear helper targets the fields surfaced inside that section so partial resets never clobber other filters.
+  const clearRuleSection = () => {
+    if (isTesterMode) {
+      onChange({ ...state, testerResult: { ...(DEFAULT_RULES_FILTER_STATE.testerResult ?? { keep: 'any', matched: 'any' }) } })
+      return
+    }
+    onChange({ ...state, rule: { ...(DEFAULT_RULES_FILTER_STATE.rule ?? { keep: 'any', use: 'any' }) } })
+  }
+  const clearSetsSection = () => {
+    setHoveredSetMetaId(null)
+    onChange({
+      ...state,
+      sets: {
+        ...(DEFAULT_RULES_FILTER_STATE.sets ?? { selected: [], anyMode: 'include', match: 'any' }),
+        metaSelected: [],
+      },
+    })
+  }
+  const clearSourcesSection = () => {
+    onChange({
+      ...state,
+      testerSources: { ...(DEFAULT_RULES_FILTER_STATE.testerSources ?? { selected: [] }) },
+    })
+  }
+  const clearChampionsSection = () => {
+    onChange({
+      ...state,
+      testerChampions: { ...(DEFAULT_RULES_FILTER_STATE.testerChampions ?? { selected: [] }) },
+    })
+  }
+  const clearLastUseSection = () => {
+    onChange({
+      ...state,
+      testerLastUse: createDefaultTesterLastUseFilter(),
+    })
+  }
+  const clearMainSection = () => {
+    const next: RulesFilterState = {
+      ...state,
+      main: { ...(DEFAULT_RULES_FILTER_STATE.main ?? { selected: [], anyMode: 'include' }) },
+    }
+    if (isTesterMode) {
+      next.testerChaos = { ...(DEFAULT_RULES_FILTER_STATE.testerChaos ?? { mode: 'any' }) }
+    }
+    onChange(next)
+  }
+  const clearSubSection = () => {
+    const next: RulesFilterState = {
+      ...state,
+      sub: { ...(DEFAULT_RULES_FILTER_STATE.sub ?? { selected: [], mode: 'all', wildcardMode: 'include' }) },
+    }
+    if (isTesterMode) {
+      next.testerGlyphs = { ...(DEFAULT_RULES_FILTER_STATE.testerGlyphs ?? { mode: 'any' }) }
+      next.testerRolls = createDefaultTesterRollsState()
+    }
+    onChange(next)
+  }
+  const clearLevelSection = () => {
+    const defaultLevel = DEFAULT_RULES_FILTER_STATE.level ?? { selected: [], anyMode: 'include', testerRange: undefined }
+    const defaultRange = resolveTesterLevelRange(defaultLevel)
+    onChange({
+      ...state,
+      level: {
+        ...defaultLevel,
+        testerRange: { ...defaultRange },
+      },
+    })
+  }
+  const clearFactionSection = () => {
+    onChange({
+      ...state,
+      faction: { ...(DEFAULT_RULES_FILTER_STATE.faction ?? { selected: [], anyMode: 'include' }) },
+    })
+  }
+  const clearSlotsSection = () => {
+    onChange({
+      ...state,
+      slots: { ...(DEFAULT_RULES_FILTER_STATE.slots ?? { selected: [], anyMode: 'include' }) },
+    })
+  }
+  const clearRankSection = () => {
+    onChange({
+      ...state,
+      rank: { ...(DEFAULT_RULES_FILTER_STATE.rank ?? { selected: [], anyMode: 'include' }) },
+    })
+  }
+  const clearRaritySection = () => {
+    onChange({
+      ...state,
+      rarity: { ...(DEFAULT_RULES_FILTER_STATE.rarity ?? { selected: [], anyMode: 'include' }) },
+    })
+  }
+  const clearAscensionSection = () => {
+    onChange({
+      ...state,
+      testerAscension: { ...(DEFAULT_RULES_FILTER_STATE.testerAscension ?? { stars: [], stats: [] }) },
+    })
+  }
+
+  // Dirty-state probes ensure the clear affordance only lights up when this section diverged from factory defaults.
+  const defaultRuleFilter = DEFAULT_RULES_FILTER_STATE.rule ?? { keep: 'any', use: 'any' }
+  const defaultTesterResult = DEFAULT_RULES_FILTER_STATE.testerResult ?? { keep: 'any', matched: 'any' }
+  const ruleSectionDirty = isTesterMode
+    ? ((state.testerResult?.keep ?? defaultTesterResult.keep) !== defaultTesterResult.keep
+      || (state.testerResult?.matched ?? defaultTesterResult.matched) !== defaultTesterResult.matched)
+    : ((state.rule?.keep ?? defaultRuleFilter.keep) !== defaultRuleFilter.keep
+      || (state.rule?.use ?? defaultRuleFilter.use) !== defaultRuleFilter.use)
+  const setsSectionDirty = (
+    (state.sets.selected.length > 0)
+    || ((state.sets.metaSelected?.length ?? 0) > 0)
+    || ((state.sets.anyMode ?? DEFAULT_RULES_FILTER_STATE.sets.anyMode) !== DEFAULT_RULES_FILTER_STATE.sets.anyMode)
+    || ((state.sets.match ?? DEFAULT_RULES_FILTER_STATE.sets.match) !== DEFAULT_RULES_FILTER_STATE.sets.match)
+  )
+  const sourcesSectionDirty = isTesterMode && (testerSourceSelectionRaw.length > 0)
+  const championsSectionDirty = isTesterMode && (championSelection.length > 0)
+  const lastUseSectionDirty = isTesterMode && (
+    lastUsePresetSelection.length > 0
+    || lastUseCustom.enabled
+    || lastUseCustom.minDays > TESTER_LAST_USE_MIN_DAYS
+    || lastUseCustom.maxDays < TESTER_LAST_USE_MAX_DAYS
+  )
+  const mainSectionDirty = (
+    (state.main.selected.length > 0)
+    || (!isTesterMode && ((state.main.anyMode ?? DEFAULT_RULES_FILTER_STATE.main.anyMode) !== DEFAULT_RULES_FILTER_STATE.main.anyMode))
+    || (isTesterMode && (testerChaosMode !== (DEFAULT_RULES_FILTER_STATE.testerChaos?.mode ?? 'any')))
+  )
+  const subSectionDirty = (
+    (state.sub.selected.length > 0)
+    || (state.sub.mode !== DEFAULT_RULES_FILTER_STATE.sub.mode)
+    || (isTesterMode && testerGlyphMode !== (DEFAULT_RULES_FILTER_STATE.testerGlyphs?.mode ?? 'any'))
+    || (isTesterMode && testerRollsActive)
+  )
+  const levelSectionDirty = (
+    (state.level.selected.length > 0)
+    || (!isTesterMode && ((state.level.anyMode ?? DEFAULT_RULES_FILTER_STATE.level.anyMode) !== DEFAULT_RULES_FILTER_STATE.level.anyMode))
+    || (isTesterMode && (
+      testerLevelRange.min > TESTER_LEVEL_MIN
+      || testerLevelRange.max < TESTER_LEVEL_MAX
+    ))
+  )
+  const factionSectionDirty = (
+    (state.faction.selected.length > 0)
+    || ((state.faction.anyMode ?? DEFAULT_RULES_FILTER_STATE.faction.anyMode) !== DEFAULT_RULES_FILTER_STATE.faction.anyMode)
+  )
+  const slotsSectionDirty = (
+    (selectedSlots.size > 0)
+    || (!isTesterMode && ((state.slots.anyMode ?? DEFAULT_RULES_FILTER_STATE.slots.anyMode) !== DEFAULT_RULES_FILTER_STATE.slots.anyMode))
+  )
+  const rankSectionDirty = (
+    (rankSelected.size > 0)
+    || (!isTesterMode && ((state.rank.anyMode ?? DEFAULT_RULES_FILTER_STATE.rank.anyMode) !== DEFAULT_RULES_FILTER_STATE.rank.anyMode))
+  )
+  const raritySectionDirty = (
+    (raritySelected.size > 0)
+    || (!isTesterMode && ((state.rarity.anyMode ?? DEFAULT_RULES_FILTER_STATE.rarity.anyMode) !== DEFAULT_RULES_FILTER_STATE.rarity.anyMode))
+  )
+  const ascensionSectionDirty = isTesterMode && (
+    (testerAscStars.length > 0)
+    || (testerAscStats.length > 0)
+  )
+
   return (
     <Box sx={{ display: 'contents' }}>
       <Box
@@ -1387,7 +1602,15 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
           {/* Top row: Rule/Result (left) and Sets (right) inside a nested grid */}
           <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'auto minmax(0, 1fr)' }, columnGap: 1, rowGap: 0.75 }}>
           <FormControl fullWidth sx={{ mb: 0.75 }}>
-            <SectionHeader id="rule" label={t(isTesterMode ? 'filterTesterResult' : 'filterRule')} />
+            <SectionHeader
+              id="rule"
+              label={ruleSectionLabel}
+              actions={renderSectionClearButton(
+                ruleSectionDirty,
+                formatSectionClearLabel(ruleSectionLabel),
+                clearRuleSection,
+              )}
+            />
             <Collapse in={!collapsed.rule} timeout="auto" unmountOnExit>
             {isTesterMode ? (
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75 }}>
@@ -1573,14 +1796,22 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
               maxWidth: FILTER_SETS_SELECT_WIDTH_PX,
             }}
           >
-            <SectionHeader id="sets" label={t('filterSets')} />
+            <SectionHeader
+              id="sets"
+              label={setsSectionLabel}
+              actions={renderSectionClearButton(
+                setsSectionDirty,
+                formatSectionClearLabel(setsSectionLabel),
+                clearSetsSection,
+              )}
+            />
             <Collapse in={!collapsed.sets} timeout="auto" unmountOnExit>
             {(() => {
               const sorted = filterAndSortSetEntries(setsSearch, setsOrder, { translate: t })
               const metasetsMenu = visibleMetasets
               const hasAnySelection = selectedSetTokens.length > 0
               const inlinePaddingPx = hasAnySelection ? SETS_SELECT_INLINE_GUTTER_PX : SETS_SELECT_INLINE_GUTTER_COLLAPSED_PX
-              const handleClearSets = () => {
+              const handleClearSetSelection = () => {
                 setHoveredSetMetaId(null)
                 onChange({ ...state, sets: { ...state.sets, selected: [], metaSelected: [] } })
               }
@@ -1823,7 +2054,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                 <InlineSelectClearButton
                   disabled={!hasAnySelection}
                   label={t('clear')}
-                  onClear={handleClearSets}
+                  onClear={handleClearSetSelection}
                 />
                 <SelectDropdownActivator
                   getDisplayNode={() => {
@@ -1872,7 +2103,16 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
               }}
             >
               <FormControl sx={{ ...collapsibleSectionSx }}>
-                <SectionHeader id="sources" label={t('filterSource')} fullWidth={false} />
+                <SectionHeader
+                  id="sources"
+                  label={sourcesSectionLabel}
+                  fullWidth={false}
+                  actions={renderSectionClearButton(
+                    sourcesSectionDirty,
+                    formatSectionClearLabel(sourcesSectionLabel),
+                    clearSourcesSection,
+                  )}
+                />
                 <Collapse in={!collapsed.sources} timeout="auto" unmountOnExit>
                   <Box
                     // Stack two button rows: base view shows 2x2, manual rows expand the second tier to three columns.
@@ -1926,7 +2166,15 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
               </FormControl>
               {showChampionFilter && (
                 <FormControl sx={{ ...collapsibleSectionSx }}>
-                  <SectionHeader id="champions" label={t('testerChampionFilterLabel')} />
+                  <SectionHeader
+                    id="champions"
+                    label={championsSectionLabel}
+                    actions={renderSectionClearButton(
+                      championsSectionDirty,
+                      formatSectionClearLabel(championsSectionLabel),
+                      clearChampionsSection,
+                    )}
+                  />
                   <Collapse in={!collapsed.champions} timeout="auto" unmountOnExit>
                     <Box
                       sx={{
@@ -2136,9 +2384,14 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
               <FormControl sx={{ ...collapsibleSectionSx }}>
                 <SectionHeader
                   id="lastUse"
-                  label={t('testerLastUsedFilterLabel')}
+                  label={lastUseSectionLabel}
                   fullWidth={false}
                   maxWidth={`${LAST_USE_SECTION_WIDTH_PX}px`}
+                  actions={renderSectionClearButton(
+                    lastUseSectionDirty,
+                    formatSectionClearLabel(lastUseSectionLabel),
+                    clearLastUseSection,
+                  )}
                 />
                 <Collapse in={!collapsed.lastUse} timeout="auto" unmountOnExit>
                   <Stack spacing={0.75}>
@@ -2216,7 +2469,15 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
           >
             {/* Mainstat (below Sets) */}
             <FormControl sx={collapsibleSectionSx}>
-              <SectionHeader id="main" label={t('filterMainstat')} />
+              <SectionHeader
+                id="main"
+                label={mainSectionLabel}
+                actions={renderSectionClearButton(
+                  mainSectionDirty,
+                  formatSectionClearLabel(mainSectionLabel),
+                  clearMainSection,
+                )}
+              />
               <Collapse in={!collapsed.main} timeout="auto" unmountOnExit>
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
                 <ToggleButtonGroup
@@ -2303,7 +2564,15 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
 
             {/* Substats (below Sets) */}
             <FormControl sx={collapsibleSectionSx}>
-              <SectionHeader id="sub" label={t('filterSubstats')} />
+              <SectionHeader
+                id="sub"
+                label={subSectionLabel}
+                actions={renderSectionClearButton(
+                  subSectionDirty,
+                  formatSectionClearLabel(subSectionLabel),
+                  clearSubSection,
+                )}
+              />
               <Collapse in={!collapsed.sub} timeout="auto" unmountOnExit>
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
                 <ToggleButtonGroup
@@ -2436,7 +2705,15 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
           <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: showFaction ? 'auto 1fr' : '1fr' }, columnGap: 1, rowGap: 1 }}>
             {/* Level */}
             <FormControl fullWidth sx={{ mb: 0.75 }}>
-              <SectionHeader id="level" label={t('filterLevel')} />
+              <SectionHeader
+                id="level"
+                label={levelSectionLabel}
+                actions={renderSectionClearButton(
+                  levelSectionDirty,
+                  formatSectionClearLabel(levelSectionLabel),
+                  clearLevelSection,
+                )}
+              />
               <Collapse in={!collapsed.level} timeout="auto" unmountOnExit>
                 {isTesterMode ? (
                   <Box sx={{
@@ -2503,7 +2780,15 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
             {/* Faction */}
             {showFaction && (
               <FormControl fullWidth sx={{ mb: 0.75 }}>
-                <SectionHeader id="faction" label={t('filterFaction')} />
+                <SectionHeader
+                  id="faction"
+                  label={factionSectionLabel}
+                  actions={renderSectionClearButton(
+                    factionSectionDirty,
+                    formatSectionClearLabel(factionSectionLabel),
+                    clearFactionSection,
+                  )}
+                />
                 <Collapse in={!collapsed.faction} timeout="auto" unmountOnExit>
                   <Box
                     sx={{
@@ -2662,7 +2947,15 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
         >
           {/* Slots */}
           <FormControl sx={collapsibleSectionSx}>
-            <SectionHeader id="slots" label={t('filterSlots')} />
+            <SectionHeader
+              id="slots"
+              label={slotsSectionLabel}
+              actions={renderSectionClearButton(
+                slotsSectionDirty,
+                formatSectionClearLabel(slotsSectionLabel),
+                clearSlotsSection,
+              )}
+            />
             <Collapse in={!collapsed.slots} timeout="auto" unmountOnExit>
               <ToggleButtonGroup
                 size="small"
@@ -2705,7 +2998,15 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
 
           {/* Rank */}
           <FormControl sx={collapsibleSectionSx}>
-            <SectionHeader id="rank" label={t('filterRank')} />
+            <SectionHeader
+              id="rank"
+              label={rankSectionLabel}
+              actions={renderSectionClearButton(
+                rankSectionDirty,
+                formatSectionClearLabel(rankSectionLabel),
+                clearRankSection,
+              )}
+            />
             <Collapse in={!collapsed.rank} timeout="auto" unmountOnExit>
                 <ToggleButtonGroup
                   size="small"
@@ -2741,7 +3042,15 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
 
           {/* Rarity */}
           <FormControl sx={collapsibleSectionSx}>
-            <SectionHeader id="rarity" label={t('filterRarity')} />
+            <SectionHeader
+              id="rarity"
+              label={raritySectionLabel}
+              actions={renderSectionClearButton(
+                raritySectionDirty,
+                formatSectionClearLabel(raritySectionLabel),
+                clearRaritySection,
+              )}
+            />
               <Collapse in={!collapsed.rarity} timeout="auto" unmountOnExit>
                 <ToggleButtonGroup
                   size="small"
@@ -2799,7 +3108,15 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
         </Box>
         {isTesterMode && (
           <FormControl sx={{ ...collapsibleSectionSx, mb: 0.75 }}>
-            <SectionHeader id="ascension" label={t('filterAscension')} />
+            <SectionHeader
+              id="ascension"
+              label={ascensionSectionLabel}
+              actions={renderSectionClearButton(
+                ascensionSectionDirty,
+                formatSectionClearLabel(ascensionSectionLabel),
+                clearAscensionSection,
+              )}
+            />
             <Collapse in={!collapsed.ascension} timeout="auto" unmountOnExit>
               <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
                 <Box sx={{ flex: { xs: '1 1 100%', md: '0 0 auto' }, minWidth: 0 }}>
