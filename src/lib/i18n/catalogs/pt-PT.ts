@@ -189,6 +189,7 @@ const overrides: Catalog = {
   artifacts: 'Artefatos',
   accessories: 'Acessórios',
   offByDefaultTooltip: 'Desativado por padrão para evitar vender equipamentos no nível máximo. Ativar pode vender itens +16 valiosos se mal utilizado.',
+  finalSellGearTabPlaceholder: 'O editor de equipamento passará em breve para este diálogo. Continue a usar a janela independente de Equipamento até que este separador esteja pronto.',
 
   tabKeepUniques: 'Manter únicos',
   keepUniquesTabLabel: 'Manter únicos',

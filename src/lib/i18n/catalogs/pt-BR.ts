@@ -189,6 +189,7 @@ const catalog: Catalog = {
   artifacts: 'Artefatos',
   accessories: 'Acessórios',
   offByDefaultTooltip: 'Desativado por padrão para evitar vender equipamentos no nível máximo. Ativar pode vender itens +16 valiosos se mal utilizado.',
+  finalSellGearTabPlaceholder: 'O editor de equipamento será movido em breve para este diálogo. Continue usando a janela independente de Equipamentos até esta aba ficar pronta.',
 
   tabKeepUniques: 'Manter únicos',
   keepUniquesTabLabel: 'Manter únicos',

@@ -189,6 +189,7 @@ const enUS: Catalog = {
   artifacts: 'Artifacts',
   accessories: 'Accessories',
   offByDefaultTooltip: 'Off by default to avoid selling fully leveled gear. Turning this on can sell valuable +16 items if misused in RSL Helper.',
+  finalSellGearTabPlaceholder: 'The Gear editor is moving into this dialog soon. Use the standalone Gear window for now while we finish wiring this tab.',
 
   tabKeepUniques: 'Keep Uniques',
   keepUniquesTabLabel: 'Keep Uniques',

@@ -5,6 +5,7 @@ import { MENU_CONTROL_HEIGHT_PX, type ColorBlindMode } from '../../lib/constants
 import {
   FINAL_SELL_DEFAULT_SETS_MODE,
   FINAL_SELL_DIALOG_TAB_FINAL_SELL,
+  FINAL_SELL_DIALOG_TAB_GEAR,
   FINAL_SELL_DIALOG_TAB_KEEP_UNIQUES,
   FINAL_SELL_DIALOG_TABS,
   FINAL_SELL_SETS_MODE_ANY,
@@ -74,15 +75,15 @@ export default function FinalSellDialog(props: FinalSellDialogProps) {
     useStatButtonColors,
     onToggleStatColors,
     onOpenManageColors,
-  colorBlindMode,
-  onChangeColorBlindMode,
-  colorIconSrc,
-  configNames,
-  metasets,
-  suppressMatchDetails = false,
-  onResetKeepUniques,
-  onJumpToRule,
-  workloadProgressRatio,
+    colorBlindMode,
+    onChangeColorBlindMode,
+    colorIconSrc,
+    configNames,
+    metasets,
+    suppressMatchDetails = false,
+    onResetKeepUniques,
+    onJumpToRule,
+    workloadProgressRatio,
 } = props
   const { t } = useI18n()
   // Keep Uniques resets need their own confirmation flow so accidental clicks do not wipe custom rules.
@@ -115,14 +116,20 @@ export default function FinalSellDialog(props: FinalSellDialogProps) {
     onChange({ ...value, levels: Array.from(next.values()).sort((a,b)=>a-b) as FinalSellLevel[] })
   }
   const showFinalSellTab = normalizedTab === FINAL_SELL_DIALOG_TAB_FINAL_SELL
+  const showGearTab = normalizedTab === FINAL_SELL_DIALOG_TAB_GEAR
+  const showKeepUniquesTab = normalizedTab === FINAL_SELL_DIALOG_TAB_KEEP_UNIQUES
   // The reset affordance still sits in the Dialog actions, but Keep Uniques routes through a confirm prompt.
-  const showResetButton = showFinalSellTab ? Boolean(onReset) : Boolean(onResetKeepUniques)
+  const showResetButton = showFinalSellTab
+    ? Boolean(onReset)
+    : showKeepUniquesTab
+      ? Boolean(onResetKeepUniques)
+      : false
   const handleResetButtonClick = () => {
     if (showFinalSellTab) {
       onReset?.()
       return
     }
-    if (onResetKeepUniques) setConfirmResetKeepUniques(true)
+    if (showKeepUniquesTab && onResetKeepUniques) setConfirmResetKeepUniques(true)
   }
   // Once confirmed we immediately run the keep-unique reset so custom overrides do not linger in a half-reset state.
   const handleConfirmResetKeepUniques = () => {
@@ -156,6 +163,7 @@ export default function FinalSellDialog(props: FinalSellDialogProps) {
             indicatorColor="primary"
           >
             <Tab value={FINAL_SELL_DIALOG_TAB_FINAL_SELL} label={t('testerFinalSell')} />
+            <Tab value={FINAL_SELL_DIALOG_TAB_GEAR} label={t('testerTitle')} />
             <Tab
               value={FINAL_SELL_DIALOG_TAB_KEEP_UNIQUES}
               label={t('tabKeepUniques')}
@@ -165,7 +173,7 @@ export default function FinalSellDialog(props: FinalSellDialogProps) {
         </Stack>
       </DialogTitle>
       <DialogContent sx={{ p: 0, display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
-        {showFinalSellTab ? (
+        {showFinalSellTab && (
           <Box
             data-tour-id="finalsell.dialog"
             sx={(theme) => ({
@@ -399,7 +407,27 @@ export default function FinalSellDialog(props: FinalSellDialogProps) {
           </Box>
         </Stack>
           </Box>
-        ) : (
+        )}
+        {showGearTab && (
+          <Box
+            data-tour-id="finalsell.dialog.gear"
+            sx={(theme) => ({
+              flex: 1,
+              minHeight: 0,
+              overflowY: 'auto',
+              p: 3,
+              ...reserveScrollbarGutterSpace({ reserveStart: false, basePaddingInlineEnd: theme.spacing(3) }),
+            })}
+          >
+            {/* Gear tab placeholder keeps spacing identical while the tester grid migrates into this dialog. */}
+            <Stack spacing={2} sx={{ mt: 0.5 }}>
+              <Alert severity="info" variant="outlined" color="info">
+                {t('finalSellGearTabPlaceholder')}
+              </Alert>
+            </Stack>
+          </Box>
+        )}
+        {showKeepUniquesTab && (
           // Keep Uniques tab reuses tester grid context; props land even while the UI is under construction.
           <KeepUniquesTab
             rules={keepUniqueRules}

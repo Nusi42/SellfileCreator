@@ -189,6 +189,7 @@ const overrides: Catalog = {
   artifacts: 'Artefatti',
   accessories: 'Accessori',
   offByDefaultTooltip: 'Disattivato per impostazione predefinita per evitare la vendita di oggetti a +16. Attivarlo può vendere pezzi di valore se usato male in RSL Helper.',
+  finalSellGearTabPlaceholder: 'L’editor di equipaggiamento verrà spostato a breve in questo dialogo. Continua a usare la finestra autonoma Equipaggiamento finché questa scheda non è pronta.',
 
   tabKeepUniques: 'Mantieni unici',
   keepUniquesTabLabel: 'Mantieni unici',
