@@ -297,11 +297,11 @@ export function GearTesterTabContent({
   const setsMenuPaperRef = useRef<HTMLDivElement | null>(null)
   const setsMenuListRefs = useRef<Record<number, HTMLUListElement | null>>({})
   const [pendingDeleteSource, setPendingDeleteSource] = useState<TesterSourceCategory | null>(null)
-  const testerIntroText = t('testerIntro')
-  const testerIntroPathIndex = testerIntroText.indexOf(RSL_HELPER_CONFIG_PATH)
-  const testerIntroHasPath = testerIntroPathIndex >= 0
-  const testerIntroPrefix = testerIntroHasPath ? testerIntroText.slice(0, testerIntroPathIndex) : testerIntroText
-  const testerIntroSuffix = testerIntroHasPath ? testerIntroText.slice(testerIntroPathIndex + RSL_HELPER_CONFIG_PATH.length) : ''
+  const gearDialogIntroText = t('gearDialogIntro')
+  const gearDialogIntroPathIndex = gearDialogIntroText.indexOf(RSL_HELPER_CONFIG_PATH)
+  const gearDialogIntroHasPath = gearDialogIntroPathIndex >= 0
+  const gearDialogIntroPrefix = gearDialogIntroHasPath ? gearDialogIntroText.slice(0, gearDialogIntroPathIndex) : gearDialogIntroText
+  const gearDialogIntroSuffix = gearDialogIntroHasPath ? gearDialogIntroText.slice(gearDialogIntroPathIndex + RSL_HELPER_CONFIG_PATH.length) : ''
   const copyGearDbPathLabel = t('rowMenuCopy')
   const handleCopyGearDbPath = useCallback(async () => {
     const ok = await writeTextSafe(RSL_HELPER_CONFIG_PATH)
@@ -720,7 +720,7 @@ export function GearTesterTabContent({
     const mainLabel = mainValue < 0 ? t('any') : t(statVariantI18nKey(mainValue))
     const mainColor = mainValue >= 0 ? (substatColors[mainValue]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[mainValue]) : undefined
     const levelChipLabel = levelLabel
-      ? (manualItem ? levelLabel : t('testerLevelLabel', { level: levelLabel }))
+      ? (manualItem ? levelLabel : t('gearDialogLevelLabel', { level: levelLabel }))
       : t('any')
     const mainSummaryColor = (statButtonBorders && mainColor) ? mainColor : undefined
     const factionChipLabel = factionLabel
@@ -814,8 +814,8 @@ export function GearTesterTabContent({
         >
           <Stack direction="row" spacing={0.25} alignItems="center" sx={{ width: '100%', justifyContent: 'center' }}>
             {/* Button tooltips now flow through MarkdownTooltip so the cookie-monster easter egg and normal hints share formatting. */}
-            <MarkdownTooltip markdown={t('testerDuplicateRowAction')}>
-              <IconButton size="small" onClick={() => duplicateItemAt(idx)} aria-label={t('testerDuplicateRowAction')} sx={{
+            <MarkdownTooltip markdown={t('gearDialogDuplicateRowAction')}>
+              <IconButton size="small" onClick={() => duplicateItemAt(idx)} aria-label={t('gearDialogDuplicateRowAction')} sx={{
                 p: 0.25,
                 ...(cookieMonsterActive ? {
                   '& svg': {
@@ -833,7 +833,7 @@ export function GearTesterTabContent({
                   size="small"
                   color="warning"
                   onClick={() => deleteItemAt(idx)}
-                  aria-label={t('testerRemoveRowAriaLabel')}
+                  aria-label={t('gearDialogRemoveRowAriaLabel')}
                   sx={{
                     p: 0.25,
                     ...(cookieMonsterActive ? {
@@ -1502,9 +1502,9 @@ export function GearTesterTabContent({
       }}
     >
       <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-        {testerIntroHasPath ? (
+        {gearDialogIntroHasPath ? (
           <>
-            {testerIntroPrefix}
+            {gearDialogIntroPrefix}
             <Box
               component="span"
               sx={{
@@ -1534,12 +1534,12 @@ export function GearTesterTabContent({
                 </IconButton>
               </MarkdownTooltip>
             </Box>
-            {testerIntroSuffix}
+            {gearDialogIntroSuffix}
           </>
-        ) : testerIntroText}
+        ) : gearDialogIntroText}
       </Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-        {t('testerManualOnlyNotice')}
+        {t('gearDialogManualOnlyNotice')}
       </Typography>
       <Box
         ref={scrollContainerRef}
@@ -1657,7 +1657,7 @@ export function GearTesterTabContent({
           gap: 1,
         }}
       >
-        <Button data-tour-id="tester.add-manual" onClick={handleAddManualGear}>{t('testerAddManualGear')}</Button>
+        <Button data-tour-id="tester.add-manual" onClick={handleAddManualGear}>{t('gearDialogAddManualGear')}</Button>
         <Box sx={{ flex: 1 }} />
         {onRequestClose ? <Button onClick={onRequestClose}>{t('close')}</Button> : null}
       </Box>
@@ -1671,10 +1671,10 @@ export function GearTesterTabContent({
         open={pendingDeleteSource != null}
         onClose={() => setPendingDeleteSource(null)}
       >
-        <DialogTitle>{t('testerDeleteSourceConfirmTitle', { source: pendingDeleteMeta?.label ?? '' })}</DialogTitle>
+        <DialogTitle>{t('gearDialogDeleteSourceConfirmTitle', { source: pendingDeleteMeta?.label ?? '' })}</DialogTitle>
         <DialogContent>
           <Typography variant="body2">
-            {t('testerDeleteSourceConfirmBody', { source: pendingDeleteMeta?.label ?? '' })}
+            {t('gearDialogDeleteSourceConfirmBody', { source: pendingDeleteMeta?.label ?? '' })}
           </Typography>
         </DialogContent>
         <DialogActions>
