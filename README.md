@@ -10,7 +10,7 @@ Build, preview, and export sell rules for RSL Helper with a simple UI.
 - Drag & drop or Load button: drop `.hsfc`, `.hsf`, or `.db` anywhere (overlay confirms) or click “Load RSL Helper Sellfile”. Both options behave the same — `.hsfc` replaces your builder, `.hsf` layers on the optional base sellfile, and `.db` dumps go straight into the Rule Tester queue without touching the builder.
 - Metasets: name groups of gear sets (e.g., Speed + Perception) and reuse them across rules.
 - One-click Export: export an HSF file (the RSL Helper Sellfile) ready for RSL Helper.
-- Logic Hub button (`Logic Hub`): open the dialog from the preview header to reach `Final Sell`, `Keep Uniques`, and the Gear tester tab from the same place. Load example gear, paste drops, or drag `%APPDATA%\\RslHelper\\Config`, then close the dialog and leave the preview toggle on whichever table you need — the tester queue stays visible without reopening.
+- Logic Hub button (`Logic Hub`): open the dialog from the preview header to reach `Final Sell`, `Keep Uniques`, and the Gear dialog (Logic Hub → Gear tab) from the same place. Load example gear, paste drops, or drag `%APPDATA%\\RslHelper\\Config`, then close the dialog and leave the preview toggle on whichever table you need — the tester queue stays visible without reopening.
 - Keep Uniques tab: define combinations you never want to lose, and the scanner injects keep rules automatically whenever your configs plus your current active Sell rules would sell every piece in that combination.
 
 ## How To Use
@@ -130,7 +130,7 @@ Stacking the scope chips changes who gets their own quota. Leave `Per rule` on t
 | Core accessories per faction | Three rules (Ring, Amulet, Banner), Sets/Main blank, `≥ Required Count = 5` | `Per faction` | Five Rings, Amulets, and Banners survive per faction. |
 | Stoneskin + Protection accessories | Slot = Ring/Amulet/Banner, Sets = Stoneskin + Protection, Main blank | `Per set` + `Per faction` | Each faction holds two Stoneskin and two Protection drops for every accessory slot. |
 
-Tip: Import your `.db` or paste gear into the Gear tab before opening Keep Uniques so the scanner sees real items. When a rule says “Missing 2”, click it to highlight that Rule Tester gear and see which faction or set needs attention.
+Tip: Import your `.db` or paste gear into the Gear dialog before opening Keep Uniques so the scanner sees real items. When a rule says “Missing 2”, click it to highlight that Rule Tester gear and see which faction or set needs attention.
 
 ### Managing Configs
 - Saved configs list: Each saved config appears as a small label below the builder. Use this list to select (left‑click), duplicate, reorder, or delete (deletions are confirmed). “Delete Configs” removes all (with confirmation).
@@ -140,7 +140,7 @@ Tip: Import your `.db` or paste gear into the Gear tab before opening Keep Uniqu
 - Clipboard fallback: If clipboard access is blocked, a dialog opens with the content pre‑selected — press Ctrl/Cmd+C to copy, or paste into the Paste dialog.
 
 ### Sellfile Preview (Rules & Rule Tester)
-- The preview header keeps the `Rules`/`Rule Tester` toggle, the “Logic Hub” button, and the “Load RSL Helper Sellfile” button together so you always know where to switch tables or open the Logic Hub dialog on the Gear tab.
+- The preview header keeps the `Rules`/`Rule Tester` toggle, the “Logic Hub” button, and the “Load RSL Helper Sellfile” button together so you always know where to switch tables or open the Gear dialog (Logic Hub → Gear tab).
 - `Rules` view (default): shows every rule that will be exported, including any optional base `.hsf` rows. The header counts stay on Keep vs Sell, the filter row keeps the Any/Only chips for Slot/Rank/Rarity/Level, and both Config buttons remain: Preview Configs controls chip visibility, while the Config Filter button is a simple On/Off toggle that hides Sellfile rows outside your selected config chips (and keeps that filter staged for when you switch modes).
 - `Rule Tester` view: flips the table to the imported gear list so you can scan imported or hand-built items without reopening Logic Hub. Counts/outcome chips switch to Matched vs No Match (and Keep vs Sell) based on first-match results, and the filter row keeps both Config buttons side by side: Preview Configs still controls chip visibility, and the Config Filter button expands to a tri-state selector (`Off` → `First-Match` → `Any-Match`) so you can decide how those items respond while continuing to gate Sellfile rows when you jump back. Importing a `.db` automatically switches to this view, but you can jump back to Rules whenever you want.
 - The “Load RSL Helper Sellfile” button behaves exactly like drag & drop: `.hsfc` replaces the builder state, `.hsf` layers on the optional base Sellfile, and `.db` queue items into the Rule Tester preview (without touching configs). The “Clear” button detaches the optional base `.hsf`.
@@ -160,7 +160,7 @@ Tip: Import your `.db` or paste gear into the Gear tab before opening Keep Uniqu
 - Click behavior: Clicking a table row selects the related saved config (no auto-scroll). Clicking a saved config scrolls the table to the first matching row.
 
 ### Rule Tester preview
-- Click “Logic Hub” in the Sellfile Preview header to open the Logic Hub dialog on the Gear tab. Create example gear or paste items (JSON/text). Items sync to the preview immediately, so closing the dialog does not clear your tester grid.
+- Click “Logic Hub” in the Sellfile Preview header to open the Gear dialog (Logic Hub → Gear tab). Create example gear or paste items (JSON/text). Items sync to the preview immediately, so closing the dialog does not clear your tester grid.
 - Import your RSL Helper gear database by dropping `.db` files onto the app or by using the “Load RSL Helper Sellfile” button (same behavior). Those imports queue thousands of artifacts plus inbox items, switch the preview to the tester table, and keep the builder/export state untouched.
 - Each card shows slot, set, level, main stat, substats (with glyphs and rolls), the source (inventory vs inbox), and chips for Keep/Sell + the first matching config/rule. Disabled rules never match, so “No match” cards represent gear the Sellfile would leave alone.
 - The header counts update to show Matched vs No Match totals plus Keep/Sell breakdowns. Combine these totals with the tester filters (Keep/Sell outcome + Matched/No Match + Config `First-Match`/`Any-Match`) to focus on edge cases before exporting.

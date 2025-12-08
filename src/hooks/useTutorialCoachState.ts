@@ -1027,8 +1027,8 @@ export function useTutorialCoachState({
       },
       {
         id: 'tester-open',
-        title: t('tutTesterOpenTitle'),
-        body: t('tutTesterOpenBody'),
+        title: t('tutGearDialogOpenTitle'),
+        body: t('tutGearDialogOpenBody'),
         targetId: 'preview.rule-tester-button',
         before: () => {
           ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensureLogicHubDialog(false); ensurePreviewHighlight(null)
@@ -1038,8 +1038,8 @@ export function useTutorialCoachState({
       },
       {
         id: 'tester-add-manual',
-        title: t('tutTesterAddTitle'),
-        body: t('tutTesterAddBody'),
+        title: t('tutGearDialogAddTitle'),
+        body: t('tutGearDialogAddBody'),
         targetId: 'tester.add-manual',
         before: () => {
           ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensureLogicHubDialog(false); ensurePreviewHighlight(null)
@@ -1050,8 +1050,8 @@ export function useTutorialCoachState({
       },
       {
         id: 'tester-preview',
-        title: t('tutTesterPreviewTitle'),
-        body: t('tutTesterPreviewBody'),
+        title: t('tutGearDialogPreviewTitle'),
+        body: t('tutGearDialogPreviewBody'),
         targetIds: ['preview.mode-toggle', 'preview.tester-grid-top'],
         before: () => {
           ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensureLogicHubDialog(false); ensurePreviewHighlight(null)
@@ -1165,7 +1165,7 @@ export function useTutorialCoachState({
       { label: t('tutSectionMetasetsLabel'), index: find('metasets-open') },
       { label: t('tutSectionConfigChipsLabel'), index: find('adv-add') },
       { label: t('tutSectionAutoLateLabel'), index: find('auto-late-slot') },
-      { label: t('tutSectionRuleTesterLabel'), index: find('tester-open') },
+      { label: t('tutSectionGearDialogLabel'), index: find('tester-open') },
       { label: t('tutSectionFinalSellLabel'), index: find('finalsell-intro') },
       { label: t('tutSectionSaveExportLabel'), index: find('note') },
     ].filter((section) => section.index >= 0)

@@ -27,7 +27,7 @@ export const STATUS_CHIP_BORDER_RADIUS_PX = 8
 
 // Autosave storage key for HSFC sessions
 export const AUTOSAVE_KEY = 'sellfileCreator.autosave.hsfc.v1'
-// Autosave storage key for the Rule Tester dialog
+// Autosave storage key for the Gear dialog queue (tester items)
 export const AUTOSAVE_TESTER_KEY = 'sellfileCreator.autosave.tester.v1'
 // Persisted Sellfile Preview / Rule Tester toggle selection
 export const PREVIEW_MODE_STORAGE_KEY = 'sellfileCreator.previewMode.v1'
@@ -498,15 +498,15 @@ export const EASTER_EGG_42_CHANCE = 0.042
 // Longer duration to better showcase the animation
 export const EASTER_EGG_42_DURATION_MS = 4200
 
-// Rule Tester layout sizing
+// Gear dialog layout sizing
 // Fixed width for a single substat editor (variant + steppers + value field).
 // Slightly narrower to reduce unused space after the + button while keeping
 // a stable two‑column grid across locales and label lengths.
 export const TESTER_SUBSTAT_EDITOR_WIDTH_PX = Math.round(320 * 0.84)
 // Reserved width for the per-row control column (add/remove buttons) in the
-// Rule Tester so substats/results align with the first selector (slot).
+// Gear dialog so substats/results align with the first selector (slot).
 export const TESTER_ROW_CONTROLS_WIDTH_PX = 56
-// Fixed min-widths for selects inside Rule Tester (slightly narrower for better fit)
+// Fixed min-widths for selects inside the Gear dialog (slightly narrower for better fit)
 // Keep these centralized to avoid magic numbers and ensure consistent sizing.
 // Reduced by ~15% for tighter layout
 // Reduced by another 3% for a tighter layout while keeping readability.
@@ -524,7 +524,7 @@ export const TESTER_RANK_SELECT_WIDTH_PX = 90
 // Rarity column mirrors faction width so the two rows stay aligned.
 export const TESTER_RARITY_SELECT_WIDTH_PX = TESTER_FACTION_SELECT_WIDTH_PX
 export const TESTER_LEVEL_SELECT_WIDTH_PX = 90
-// Uniform Select height for Rule Tester controls
+// Uniform Select height for Gear dialog controls
 export const TESTER_SELECT_HEIGHT_PX = 40
 
 // Sentinel for accessories that do not belong to any set (e.g., base banners/rings/amulets).
@@ -546,7 +546,7 @@ export const TESTER_RESULT_ROW_MIN_HEIGHT_PX = 36
 // Chosen to balance long names without forcing the row to wrap unexpectedly.
 export const TESTER_CONFIG_CHIP_MAX_WIDTH_PX = 520
 
-// Fixed dimensions for the Rule Tester dialog so its layout remains predictable.
+// Fixed dimensions for the Gear dialog so its layout remains predictable.
 // Width is trimmed below the previous 1120px cap for a tighter footprint; height
 // keeps the content scrollable without overwhelming shorter displays.
 export const TESTER_DIALOG_WIDTH_PX = 920
@@ -555,7 +555,7 @@ export const TESTER_DIALOG_HEIGHT_PX = 780
 export const TESTER_VIRTUAL_OVERSCAN_PX = 320
 export const TESTER_ROW_ESTIMATE_COMPACT_PX = 180
 export const TESTER_ROW_ESTIMATE_EXPANDED_PX = 420
-// Shared inline icon size for Rule Tester compact chips.
+// Shared inline icon size for Rule Tester compact chips (preview + keep uniques).
 // Keeps slot/set/faction icons from hitting the chip border while staying recognizable.
 export const TESTER_COMPACT_ICON_SIZE_PX = 16
 // Extra padding applied to compact chips that render icons; tuned high right now

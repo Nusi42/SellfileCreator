@@ -601,7 +601,7 @@ export default function PreviewHeaderActions(props: {
             </>
           </ToggleButtonGroup>
           <Box sx={{ minWidth: 0, flexShrink: 0 }}>
-            <MarkdownTooltip markdown={t('testerOpenTooltip')}>
+            <MarkdownTooltip markdown={t('gearDialogOpenTooltip')}>
               <Button
                 size="small"
                 variant="outlined"

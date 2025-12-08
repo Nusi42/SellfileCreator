@@ -1,9 +1,9 @@
 /**
  * GearTesterTabContent
  *
- * Virtualized rule tester with inline editors for every artifact slot. Shares
- * the Builder numeric spinners, metaset/set menus, and attention cues so the
- * tester mirrors the Builder UX while operating on ad-hoc “what if” items.
+ * Gear dialog body: virtualized editor for tester items that mirrors the Builder
+ * controls (spinners, metasets, attention cues) while producing the queue that
+ * feeds the Rule Tester preview grid on the main screen.
  */
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode, UIEvent, Dispatch, SetStateAction, MouseEvent } from 'react'
