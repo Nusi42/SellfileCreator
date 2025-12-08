@@ -1,7 +1,7 @@
 /**
- * RuleTesterDialog
+ * GearDialog
  *
- * Virtualized rule tester with inline editors for every artifact slot. Shares
+ * Virtualized gear dialog with inline editors for every artifact slot. Shares
  * the Builder numeric spinners, metaset/set menus, and attention cues so the
  * tester mirrors the Builder UX while operating on ad-hoc “what if” items.
  */
@@ -173,7 +173,7 @@ const pickRandomAccessoryFaction = (): FactionId => {
   return ACCESSORY_FACTION_POOL[Math.max(0, Math.min(idx, ACCESSORY_FACTION_POOL.length - 1))] ?? Faction.BannerLords
 }
 
-export default function RuleTesterDialog({
+export default function GearDialog({
   open,
   onClose,
   customCfgs,
@@ -1500,7 +1500,7 @@ export default function RuleTesterDialog({
       }}
     >
       <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-        <Box sx={{ flex: 1 }}>{t('testerTitle')}</Box>
+        <Box sx={{ flex: 1 }}>{t('gearDialogTitle')}</Box>
       </DialogTitle>
       <DialogContent
         data-tour-id="tester.dialog"

@@ -26,7 +26,7 @@
 
 - Intent: Section jumps reconstruct state as if the user walked through intermediate steps, rather than literally skipping.
 - Implementation: On jump, the app resets to a clean baseline and replays step effects up to the target index (slots, mainstat, sets, substats, required count, min rolls, config adds/selection, metaset creation/defaults, metaset selection, Final Sell defaults — Artifacts/Accessories off with the standard level ranges plus sets mode).
-- Include tester state in replay: when a jump lands on or past the Rule Tester section, hydrate the gear queue, preview mode (`'tester'`), and tester filter state before showing the step. Reuse the same helpers the live tutorial uses (`useTesterItemsActions`, `setPreviewMode('tester')`, `setTesterFilters`) so jumps never flash empty grids, and set `logicHubOpen`/`logicHubDialogTab = LOGIC_HUB_DIALOG_TAB_GEAR` any time a step expects the embedded tester tab.
+- Include tester state in replay: when a jump lands on or past the Gear dialog / Rule Tester steps, hydrate the gear queue, preview mode (`'tester'`), and tester filter state before showing the step. Reuse the same helpers the live tutorial uses (`useTesterItemsActions`, `setPreviewMode('tester')`, `setTesterFilters`) so jumps never flash empty grids, and set `logicHubOpen`/`logicHubDialogTab = LOGIC_HUB_DIALOG_TAB_GEAR` any time a step expects the embedded tester tab.
 - Persist builder preference toggles: when a step toggles Auto reset or Auto apply, record the toggles in `nextPreferences` so replays and jumps keep the same defaults active.
 - Determinism: After hydration, the target step’s `before` still opens/closes any dialogs/menus to match the intended view.
 
@@ -109,9 +109,9 @@
 - After adding a step: run the tutorial, navigate forward/back; ensure the highlighted target is scrolled into view, menus/dialogs are opened/closed as expected, and the overlay hole does not clip the target.
 - If a portal target occasionally opens late, trigger a short `setTimeout` retry inside the step’s `before` to reopen it once.
 
-### Rule Tester Coverage
+### Gear Dialog + Rule Tester Coverage
 
-- The Rule Tester section (still inserted before Final Sell) now walks through the Gear tab that lives inside Logic Hub. The `tester-open` step highlights the `Gear…` button in the preview header and expects it to open `LogicHubDialog` directly on the Gear tab before narration continues. The combined `tester-add-manual` (`Add a custom gear`) step keeps the dialog open while covering `.db` drag-and-drop, `%APPDATA%\RslHelper\Config` imports, `run-sample-server.ps1`, and the scripted 5★ Rare Refresh amulet from the Banner Lords. The follow-up `tester-preview` step closes the Gear tab, switches the preview mode to `Rule Tester`, and highlights the Sellfile Preview ⇄ Rule Tester toggle so the scripted item is the only row rendered.
+- The Gear dialog section (still inserted before Final Sell) now walks through the Logic Hub Gear tab. The `tester-open` step highlights the `Gear…` button in the preview header and expects it to open `LogicHubDialog` directly on the Gear tab before narration continues. The combined `tester-add-manual` (`Add a custom gear`) step keeps the dialog open while covering `.db` drag-and-drop, `%APPDATA%\RslHelper\Config` imports, `run-sample-server.ps1`, and the scripted 5★ Rare Refresh amulet from the Banner Lords. The follow-up `tester-preview` step closes the Gear tab, switches the preview mode to `Rule Tester`, and highlights the Sellfile Preview ⇄ Rule Tester toggle so the scripted item is the only row rendered.
 
 ### Keep Uniques Coverage
 
