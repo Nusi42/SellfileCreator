@@ -6087,39 +6087,43 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
       </Box>
 
         {/* Metasets dialog (separate component) */}
-        <MetasetsDialog
-          open={metaDlgOpen}
-          onClose={closeMetaDlg}
-          metasets={metasets}
-          onMetasetsChange={onMetasetsChange}
-          describeNextChange={describeNextChange}
-          onDeleteMetaset={onDeleteMetaset}
-          onResetMetasets={onResetMetasets}
-          setUsageCounts={setUsageCounts}
-          metasetUsageCounts={metasetUsageCounts}
-          keepUniqueMetasetUsageCounts={keepUniqueMetasetUsageCounts}
-          onSelectConfigsByMetaset={onSelectConfigsByMetaset}
-          setsSearch={setsSearch}
-          onSetsSearchChange={setSetsSearch}
-          setsOrder={setsOrder}
-          onSetsOrderChange={(v) => {
-            if (!v) return
-            setSetsOrder(v)
-            if (metaSetsMenuOpen) {
-              scrollSetsMenuToSelected(v, { force: true })
-            }
-          }}
-          metaSetsMenuOpen={metaSetsMenuOpen}
-          setMetaSetsMenuOpen={setMetaSetsMenuOpen}
-        />
+        {metaDlgOpen ? (
+          <MetasetsDialog
+            open={metaDlgOpen}
+            onClose={closeMetaDlg}
+            metasets={metasets}
+            onMetasetsChange={onMetasetsChange}
+            describeNextChange={describeNextChange}
+            onDeleteMetaset={onDeleteMetaset}
+            onResetMetasets={onResetMetasets}
+            setUsageCounts={setUsageCounts}
+            metasetUsageCounts={metasetUsageCounts}
+            keepUniqueMetasetUsageCounts={keepUniqueMetasetUsageCounts}
+            onSelectConfigsByMetaset={onSelectConfigsByMetaset}
+            setsSearch={setsSearch}
+            onSetsSearchChange={setSetsSearch}
+            setsOrder={setsOrder}
+            onSetsOrderChange={(v) => {
+              if (!v) return
+              setSetsOrder(v)
+              if (metaSetsMenuOpen) {
+                scrollSetsMenuToSelected(v, { force: true })
+              }
+            }}
+            metaSetsMenuOpen={metaSetsMenuOpen}
+            setMetaSetsMenuOpen={setMetaSetsMenuOpen}
+          />
+        ) : null}
 
-        <SubstatTargetsDialog
-          open={substatTargetsDialogOpen}
-          onClose={onCloseSubstatTargetsDialog}
-          substatTargets={substatTargets}
-          onSubstatTargetsChange={onSubstatTargetsChange}
-          substatColors={substatColors}
-        />
+        {substatTargetsDialogOpen ? (
+          <SubstatTargetsDialog
+            open={substatTargetsDialogOpen}
+            onClose={onCloseSubstatTargetsDialog}
+            substatTargets={substatTargets}
+            onSubstatTargetsChange={onSubstatTargetsChange}
+            substatColors={substatColors}
+          />
+        ) : null}
 
       {/* Small separator above action buttons (matching the one below) */}
       <Divider sx={{ my: 1, opacity: 0.5 }} />

@@ -3759,7 +3759,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   )
 
   // Resolves ID conflicts when importing configs that reuse metaset identifiers.
-  const metasetConflictDialogElement = (
+  const metasetConflictDialogElement = metasetConflictOpen ? (
     <MetasetConflictDialog
       open={metasetConflictOpen}
       count={conflictIds.length}
@@ -3920,10 +3920,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         }
       }}
     />
-  )
+  ) : null
 
   // Manual paste dialog for HSFC snippets.
-  const pasteDialogElement = (
+  const pasteDialogElement = pasteDlgOpen ? (
     <PasteDialog
       open={pasteDlgOpen}
       text={pasteText}
@@ -3957,10 +3957,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       }}
       confirmLabel={selectedCfgIdx !== null ? 'Insert after selected' : 'Add to end'}
     />
-  )
+  ) : null
 
   // Manual copy dialog when clipboard writes fail.
-  const copyDialogElement = (
+  const copyDialogElement = copyDlgOpen ? (
     <CopyDialog
       open={copyDlgOpen}
       text={copyText}
@@ -3968,7 +3968,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       onTextChange={setCopyText}
       onClose={() => setCopyDlgOpen(false)}
     />
-  )
+  ) : null
 
   return (
     <Container maxWidth="xl" sx={{ pt: 1.5, pb: 1.5 }}>
@@ -4361,37 +4361,42 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       </Stack>
 
       {/* Help / README dialog. Marks the version as seen when closed. */}
-      <HelpDialog
-        open={tutorial.helpOpen}
-        firstRunMode={tutorial.helpFirstRunMode}
-        onClose={() => {
-          tutorial.setHelpOpen(false)
-          // Close without auto-start; manual Help never auto-starts
-          tutorial.setHelpFirstRunMode(false)
-          try { localStorage.setItem(README_SEEN_VERSION_KEY, APP_VERSION) } catch {}
-        }}
-        onStartTutorial={() => {
-          try { localStorage.setItem(README_SEEN_VERSION_KEY, APP_VERSION) } catch {}
-          tutorial.setHelpOpen(false)
-          tutorial.setHelpFirstRunMode(false)
-          tutorial.startTutorial()
-        }}
-      />
-      <NoteDialog
-        open={noteOpen}
-        mode={noteMode}
-        note={hsfcNote ?? ''}
-        onChange={(value, options) => {
-          const mode: NoteDescriptorMode = options?.mode === 'clear' ? 'clear' : 'edit'
-          applyNoteChange(value, { mode })
-        }}
-        onClose={handleCloseNote}
-        configs={customCfgs}
-        metasets={metasets}
-        keepUniqueRules={keepUniqueRules}
-        useStatButtonColors={statButtonBorders}
-        substatColors={substatColors}
-      />
+      {tutorial.helpOpen ? (
+        <HelpDialog
+          open={tutorial.helpOpen}
+          firstRunMode={tutorial.helpFirstRunMode}
+          onClose={() => {
+            tutorial.setHelpOpen(false)
+            // Close without auto-start; manual Help never auto-starts
+            tutorial.setHelpFirstRunMode(false)
+            try { localStorage.setItem(README_SEEN_VERSION_KEY, APP_VERSION) } catch {}
+          }}
+          onStartTutorial={() => {
+            try { localStorage.setItem(README_SEEN_VERSION_KEY, APP_VERSION) } catch {}
+            tutorial.setHelpOpen(false)
+            tutorial.setHelpFirstRunMode(false)
+            tutorial.startTutorial()
+          }}
+        />
+      ) : null}
+      {/* Only mount the Note dialog when visible so config chip previews stay out of the tree. */}
+      {noteOpen ? (
+        <NoteDialog
+          open={noteOpen}
+          mode={noteMode}
+          note={hsfcNote ?? ''}
+          onChange={(value, options) => {
+            const mode: NoteDescriptorMode = options?.mode === 'clear' ? 'clear' : 'edit'
+            applyNoteChange(value, { mode })
+          }}
+          onClose={handleCloseNote}
+          configs={customCfgs}
+          metasets={metasets}
+          keepUniqueRules={keepUniqueRules}
+          useStatButtonColors={statButtonBorders}
+          substatColors={substatColors}
+        />
+      ) : null}
       <Snackbar
         open={toastOpen}
         autoHideDuration={3000}
@@ -4465,170 +4470,176 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         onConfirmClearHistory={handleConfirmClearHistory}
       />
       {/* Restore autosaved HSFC dialog */}
-      <RestoreAutosaveDialog
-        open={restoreDlgOpen}
-        draft={restoreDraft}
-        testerDraft={testerRestoreDraft ? { count: testerRestoreDraft.count, savedAt: testerRestoreDraft.savedAt } : null}
-        metasetsDiffer={restoreMetasetsDiffer}
-        targetsDiffer={restoreTargetsDiffer}
-        filtersDiffer={restoreFiltersDiffer}
-        onDismiss={() => {
-          dismissRestore()
-          setTesterRestoreDraft(null)
-        }}
-        onRestore={(selection) => {
-          flushTransientUi()
-          const draft = restoreDraft
-          const shouldResetTesterMatches = Boolean(
-            (selection.configs && Array.isArray(draft?.Configs))
-            || (selection.tester && testerRestoreDraft)
-          )
-          if (shouldResetTesterMatches) beginTesterMatchReset('restore')
-          const selectionKeys = Object.entries(selection).filter(([, value]) => value)
-          if (selectionKeys.length > 0) {
-            const autosaveDescriptor = describeAutosaveRestored({
-              version: typeof draft?.Version === 'string' ? draft.Version : null,
-              savedAt: typeof draft?.AutosaveSavedAt === 'string'
-                ? draft.AutosaveSavedAt
-                : (selection.tester && testerRestoreDraft?.savedAt ? testerRestoreDraft.savedAt : null),
-              t,
-            })
-            describeNextChange(autosaveDescriptor)
-          }
-          if (draft) {
-            if (selection.metasets && restoreMetasetsDiffer && Array.isArray(draft.Metasets)) setMetasets(draft.Metasets)
-            if (selection.targets && restoreTargetsDiffer && draft.substatTargets && typeof draft.substatTargets === 'object') setSubstatTargets(draft.substatTargets)
-            if (selection.note && typeof draft.Note === 'string') {
-              applyNoteChange(draft.Note, { mode: 'restore', publish: false })
-            }
-            if (selection.filters && restoreFiltersDiffer && draft.Filters) {
-              try {
-                const views = draft.Filters.views
-                if (views && typeof views === 'object') {
-                  // Replay the saved view for every mode so toggling between Sellfile preview and Rule Tester feels seamless.
-                  for (const mode of RULES_FILTER_PREVIEW_MODES) {
-                    const view = views[mode]
-                    if (!view) continue
-                    setRulesFilterOpenForMode(mode, Boolean(view.open))
-                    const clonedState = JSON.parse(JSON.stringify(view.state)) as RulesFilterState
-                    setRulesFilterStateForMode(mode, clonedState)
-                    const collapsed = view.collapsed ?? cloneDefaultRulesFilterCollapsed()
-                    setRulesFilterCollapsedForMode(mode, collapsed)
-                  }
-                }
-                setTesterConfigFilterMode(draft.Filters.testerConfigFilterMode ?? 'off')
-                if (draft.Filters.activeMode === 'rules' || draft.Filters.activeMode === 'tester') {
-                  setPreviewMode(draft.Filters.activeMode)
-                }
-              } catch {}
-            }
-            if (selection.configs && Array.isArray(draft.Configs)) {
-              if (draft.FinalSellRemainder && typeof draft.FinalSellRemainder === 'object') {
-                try {
-                  const fsr = draft.FinalSellRemainder as FinalSellRemainderConfig
-                  applyFinalSellChange(fsr, { publish: false })
-                } catch {}
-              }
-              setCustomCfgs(draft.Configs)
-              const len = draft.Configs.length
-              if (len > 0) {
-                const savedSel = typeof draft.SelectedConfigIndex === 'number' ? draft.SelectedConfigIndex : (len - 1)
-                const sel = savedSel >= 0 && savedSel < len ? savedSel : len - 1
-                syncSelectedCfgIdx(sel, { forceSync: true, suppressDraft: true })
-                try {
-                  const cfgs = draft.Configs || []
-                  if (cfgs[sel]) setBuilder(cfgs[sel]!)
-                } catch {}
-              } else {
-                syncSelectedCfgIdx(null, { forceSync: true, suppressDraft: true })
-              }
-          }
-        }
-          if (selection.tester && testerRestoreDraft) {
-            const restoredItems = testerRestoreDraft.items
-            setTesterItems(restoredItems)
-            const maxItemId = testerRestoreDraft.items.reduce((max, item) => (
-              Number.isFinite(item.itemId) && item.itemId > max ? item.itemId : max
-            ), 0)
-            testerItemIdRef.current = Math.max(testerItemIdRef.current, (maxItemId || 0) + 1)
-          }
-          const savedAutosaveTab = (draft?.LogicHubDialogTab ?? draft?.FinalSellDialogTab) as LogicHubDialogTab | undefined
-          if (savedAutosaveTab) {
-            // Clamp unknown values back to the default tab so corrupted autosave payloads stay recoverable.
-            const normalizedTab = LOGIC_HUB_DIALOG_TABS.includes(savedAutosaveTab)
-              ? savedAutosaveTab
-              : LOGIC_HUB_DIALOG_TAB_FINAL_SELL
-            setLogicHubDialogTab(normalizedTab)
-          }
-          if (draft?.KeepUniquesGridFilterMode) {
-            setKeepUniquesGridFilterMode(sanitizeKeepUniquesGridFilterMode(draft.KeepUniquesGridFilterMode))
-          }
-          if (selection.configs) {
-            if (Array.isArray(draft?.KeepUniques)) setKeepUniqueRules(draft.KeepUniques)
-            if (typeof draft?.KeepUniquesEnabled === 'boolean') {
-              setKeepUniquesEnabled(Boolean(draft.KeepUniquesEnabled))
-            }
-          }
-          // Coalesce downstream rebuilds into a single pass.
-          restoringAutosaveRef.current = true
-          acceptRestore()
-          setTesterRestoreDraft(null)
-          setTimeout(() => {
-            restoringAutosaveRef.current = false
+      {restoreDlgOpen ? (
+        <RestoreAutosaveDialog
+          open={restoreDlgOpen}
+          draft={restoreDraft}
+          testerDraft={testerRestoreDraft ? { count: testerRestoreDraft.count, savedAt: testerRestoreDraft.savedAt } : null}
+          metasetsDiffer={restoreMetasetsDiffer}
+          targetsDiffer={restoreTargetsDiffer}
+          filtersDiffer={restoreFiltersDiffer}
+          onDismiss={() => {
+            dismissRestore()
+            setTesterRestoreDraft(null)
+          }}
+          onRestore={(selection) => {
             flushTransientUi()
-          }, 0)
-        }}
-    />
+            const draft = restoreDraft
+            const shouldResetTesterMatches = Boolean(
+              (selection.configs && Array.isArray(draft?.Configs))
+              || (selection.tester && testerRestoreDraft)
+            )
+            if (shouldResetTesterMatches) beginTesterMatchReset('restore')
+            const selectionKeys = Object.entries(selection).filter(([, value]) => value)
+            if (selectionKeys.length > 0) {
+              const autosaveDescriptor = describeAutosaveRestored({
+                version: typeof draft?.Version === 'string' ? draft.Version : null,
+                savedAt: typeof draft?.AutosaveSavedAt === 'string'
+                  ? draft.AutosaveSavedAt
+                  : (selection.tester && testerRestoreDraft?.savedAt ? testerRestoreDraft.savedAt : null),
+                t,
+              })
+              describeNextChange(autosaveDescriptor)
+            }
+            if (draft) {
+              if (selection.metasets && restoreMetasetsDiffer && Array.isArray(draft.Metasets)) setMetasets(draft.Metasets)
+              if (selection.targets && restoreTargetsDiffer && draft.substatTargets && typeof draft.substatTargets === 'object') setSubstatTargets(draft.substatTargets)
+              if (selection.note && typeof draft.Note === 'string') {
+                applyNoteChange(draft.Note, { mode: 'restore', publish: false })
+              }
+              if (selection.filters && restoreFiltersDiffer && draft.Filters) {
+                try {
+                  const views = draft.Filters.views
+                  if (views && typeof views === 'object') {
+                    // Replay the saved view for every mode so toggling between Sellfile preview and Rule Tester feels seamless.
+                    for (const mode of RULES_FILTER_PREVIEW_MODES) {
+                      const view = views[mode]
+                      if (!view) continue
+                      setRulesFilterOpenForMode(mode, Boolean(view.open))
+                      const clonedState = JSON.parse(JSON.stringify(view.state)) as RulesFilterState
+                      setRulesFilterStateForMode(mode, clonedState)
+                      const collapsed = view.collapsed ?? cloneDefaultRulesFilterCollapsed()
+                      setRulesFilterCollapsedForMode(mode, collapsed)
+                    }
+                  }
+                  setTesterConfigFilterMode(draft.Filters.testerConfigFilterMode ?? 'off')
+                  if (draft.Filters.activeMode === 'rules' || draft.Filters.activeMode === 'tester') {
+                    setPreviewMode(draft.Filters.activeMode)
+                  }
+                } catch {}
+              }
+              if (selection.configs && Array.isArray(draft.Configs)) {
+                if (draft.FinalSellRemainder && typeof draft.FinalSellRemainder === 'object') {
+                  try {
+                    const fsr = draft.FinalSellRemainder as FinalSellRemainderConfig
+                    applyFinalSellChange(fsr, { publish: false })
+                  } catch {}
+                }
+                setCustomCfgs(draft.Configs)
+                const len = draft.Configs.length
+                if (len > 0) {
+                  const savedSel = typeof draft.SelectedConfigIndex === 'number' ? draft.SelectedConfigIndex : (len - 1)
+                  const sel = savedSel >= 0 && savedSel < len ? savedSel : len - 1
+                  syncSelectedCfgIdx(sel, { forceSync: true, suppressDraft: true })
+                  try {
+                    const cfgs = draft.Configs || []
+                    if (cfgs[sel]) setBuilder(cfgs[sel]!)
+                  } catch {}
+                } else {
+                  syncSelectedCfgIdx(null, { forceSync: true, suppressDraft: true })
+                }
+              }
+            }
+            if (selection.tester && testerRestoreDraft) {
+              const restoredItems = testerRestoreDraft.items
+              setTesterItems(restoredItems)
+              const maxItemId = testerRestoreDraft.items.reduce((max, item) => (
+                Number.isFinite(item.itemId) && item.itemId > max ? item.itemId : max
+              ), 0)
+              testerItemIdRef.current = Math.max(testerItemIdRef.current, (maxItemId || 0) + 1)
+            }
+            const savedAutosaveTab = (draft?.LogicHubDialogTab ?? draft?.FinalSellDialogTab) as LogicHubDialogTab | undefined
+            if (savedAutosaveTab) {
+              // Clamp unknown values back to the default tab so corrupted autosave payloads stay recoverable.
+              const normalizedTab = LOGIC_HUB_DIALOG_TABS.includes(savedAutosaveTab)
+                ? savedAutosaveTab
+                : LOGIC_HUB_DIALOG_TAB_FINAL_SELL
+              setLogicHubDialogTab(normalizedTab)
+            }
+            if (draft?.KeepUniquesGridFilterMode) {
+              setKeepUniquesGridFilterMode(sanitizeKeepUniquesGridFilterMode(draft.KeepUniquesGridFilterMode))
+            }
+            if (selection.configs) {
+              if (Array.isArray(draft?.KeepUniques)) setKeepUniqueRules(draft.KeepUniques)
+              if (typeof draft?.KeepUniquesEnabled === 'boolean') {
+                setKeepUniquesEnabled(Boolean(draft.KeepUniquesEnabled))
+              }
+            }
+            // Coalesce downstream rebuilds into a single pass.
+            restoringAutosaveRef.current = true
+            acceptRestore()
+            setTesterRestoreDraft(null)
+            setTimeout(() => {
+              restoringAutosaveRef.current = false
+              flushTransientUi()
+            }, 0)
+          }}
+        />
+      ) : null}
       {/* Manage Colors Dialog */}
-      <ManageColorsDialog
-        open={colorsDlgOpen}
-        onClose={closeColors}
-        substatColors={substatColors}
-        setSubstatColors={setSubstatColors}
-        onReset={resetColors}
-      />
+      {colorsDlgOpen ? (
+        <ManageColorsDialog
+          open={colorsDlgOpen}
+          onClose={closeColors}
+          substatColors={substatColors}
+          setSubstatColors={setSubstatColors}
+          onReset={resetColors}
+        />
+      ) : null}
       {/* Logic Hub configuration */}
-      <LogicHubDialog
-        open={logicHubOpen}
-        value={finalSellRemainder}
-        onChange={(v) => applyFinalSellChange(v)}
-        onClose={() => setLogicHubOpen(false)}
-        onReset={() => applyFinalSellChange({
-          artifacts: false,
-          accessories: false,
-          levels: FINAL_SELL_DEFAULT_LEVELS.slice() as FinalSellLevel[],
-          setsMode: FINAL_SELL_DEFAULT_SETS_MODE,
-        }, { mode: 'reset' })}
-        activeTab={logicHubDialogTab}
-        onChangeTab={setLogicHubDialogTab}
-        // Pass preview grid state so the Keep Uniques tab can mirror the tester visuals without duplicating selectors.
-        keepUniqueRules={keepUniqueRules}
-        onKeepUniqueRulesChange={setKeepUniqueRules}
-        keepUniquesEnabled={keepUniquesEnabled}
-        onKeepUniquesEnabledChange={setKeepUniquesEnabled}
-        keepUniqueDetection={keepUniqueDetection}
-        gearEntries={testerPreviewRows}
-        keepUniqueItemKeys={keepUniqueGroupItemKeys}
-        substatColors={substatColors}
-        useStatButtonColors={statButtonBorders}
-        onToggleStatColors={setStatButtonBorders}
-        onOpenManageColors={openColors}
-        colorBlindMode={colorBlindMode}
-        onChangeColorBlindMode={setColorBlindMode}
-        colorIconSrc={colorIconSrc}
-        configNames={testerConfigNamesForGrid}
-        metasets={metasets}
-        suppressMatchDetails={suppressTesterMatchDetails}
-        workloadProgressRatio={workloadProgressRatio}
-        onResetKeepUniques={handleResetKeepUniques}
-        onJumpToRule={handleTesterRuleView}
-        customCfgs={customCfgs}
-        testerItems={testerItems}
-        setTesterItems={setTesterItems}
-        allocTesterItemId={allocTesterItemId}
-        testerMatches={testerMatchesByItemId}
-        onResetGearTester={handleResetGearTesterItems}
-      />
+      {logicHubOpen ? (
+        <LogicHubDialog
+          open={logicHubOpen}
+          value={finalSellRemainder}
+          onChange={(v) => applyFinalSellChange(v)}
+          onClose={() => setLogicHubOpen(false)}
+          onReset={() => applyFinalSellChange({
+            artifacts: false,
+            accessories: false,
+            levels: FINAL_SELL_DEFAULT_LEVELS.slice() as FinalSellLevel[],
+            setsMode: FINAL_SELL_DEFAULT_SETS_MODE,
+          }, { mode: 'reset' })}
+          activeTab={logicHubDialogTab}
+          onChangeTab={setLogicHubDialogTab}
+          // Pass preview grid state so the Keep Uniques tab can mirror the tester visuals without duplicating selectors.
+          keepUniqueRules={keepUniqueRules}
+          onKeepUniqueRulesChange={setKeepUniqueRules}
+          keepUniquesEnabled={keepUniquesEnabled}
+          onKeepUniquesEnabledChange={setKeepUniquesEnabled}
+          keepUniqueDetection={keepUniqueDetection}
+          gearEntries={testerPreviewRows}
+          keepUniqueItemKeys={keepUniqueGroupItemKeys}
+          substatColors={substatColors}
+          useStatButtonColors={statButtonBorders}
+          onToggleStatColors={setStatButtonBorders}
+          onOpenManageColors={openColors}
+          colorBlindMode={colorBlindMode}
+          onChangeColorBlindMode={setColorBlindMode}
+          colorIconSrc={colorIconSrc}
+          configNames={testerConfigNamesForGrid}
+          metasets={metasets}
+          suppressMatchDetails={suppressTesterMatchDetails}
+          workloadProgressRatio={workloadProgressRatio}
+          onResetKeepUniques={handleResetKeepUniques}
+          onJumpToRule={handleTesterRuleView}
+          customCfgs={customCfgs}
+          testerItems={testerItems}
+          setTesterItems={setTesterItems}
+          allocTesterItemId={allocTesterItemId}
+          testerMatches={testerMatchesByItemId}
+          onResetGearTester={handleResetGearTesterItems}
+        />
+      ) : null}
       {/* Tutorial overlay */}
       <TutorialCoach
         open={tutorial.tutorialOpen}
@@ -4640,11 +4651,13 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         onPrev={tutorial.handleTutorialPrev}
         onNext={tutorial.handleTutorialNext}
       />
-      <FileFormatErrorDialog
-        open={Boolean(fileFormatError)}
-        fileName={fileFormatError?.fileName ?? null}
-        onClose={handleFileFormatErrorClose}
-      />
+      {fileFormatError ? (
+        <FileFormatErrorDialog
+          open={Boolean(fileFormatError)}
+          fileName={fileFormatError?.fileName ?? null}
+          onClose={handleFileFormatErrorClose}
+        />
+      ) : null}
     </Container>
   )
 }
