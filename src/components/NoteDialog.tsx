@@ -1115,8 +1115,9 @@ export default function NoteDialog({
   const { t } = useI18n()
   const editCommitRef = useRef<() => void>(() => onClose())
   const deferredNote = useDeferredValue(note)
-  const renderNote = mode === 'view' && !open ? deferredNote : note
-  const notePending = mode === 'view' && open && deferredNote !== note
+  // View-only renders lean on the deferred snapshot so toggling loads does not stutter the dialog content.
+  const renderNote = mode === 'view' ? deferredNote : note
+  const notePending = mode === 'view' && deferredNote !== note
   const markerResolutions = useMemo(() => buildConfigMarkerResolutions(renderNote ?? '', configs), [renderNote, configs])
   const keepUniqueMarkerResolutions = useMemo(
     () => buildKeepUniqueMarkerResolutions(renderNote ?? '', keepUniqueRules),

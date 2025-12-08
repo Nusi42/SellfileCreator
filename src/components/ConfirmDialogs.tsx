@@ -33,6 +33,7 @@ export default function ConfirmDialogs({
   const deleteMultiCount = deleteMultiTargets?.length ?? 0
   return (
     <>
+      {clearHistoryOpen ? (
       <Dialog open={clearHistoryOpen} onClose={() => setClearHistoryOpen(false)}>
         <DialogTitle>{t('titleClearHistory')}</DialogTitle>
         <DialogContent>
@@ -43,7 +44,9 @@ export default function ConfirmDialogs({
           <Button color="error" onClick={() => { setClearHistoryOpen(false); onConfirmClearHistory() }}>{t('builderHistoryClearAction')}</Button>
         </DialogActions>
       </Dialog>
+      ) : null}
 
+      {openClear ? (
       <Dialog open={openClear} onClose={() => setOpenClear(false)}>
         <DialogTitle>{t('titleDeleteAllConfigs')}</DialogTitle>
         <DialogContent>
@@ -54,7 +57,9 @@ export default function ConfirmDialogs({
           <Button color="error" onClick={() => { setOpenClear(false); onConfirmClear() }}>{t('deleteAll')}</Button>
         </DialogActions>
       </Dialog>
+      ) : null}
 
+      {deleteIdx !== null ? (
       <Dialog open={deleteIdx !== null} onClose={() => setDeleteIdx(null)}>
         <DialogTitle>{t('titleDeleteConfig')}</DialogTitle>
         <DialogContent>
@@ -65,7 +70,9 @@ export default function ConfirmDialogs({
           <Button color="error" onClick={() => { onConfirmDelete() }}>{t('delete')}</Button>
         </DialogActions>
       </Dialog>
+      ) : null}
 
+      {deleteMultiTargets !== null ? (
       <Dialog open={deleteMultiTargets !== null} onClose={() => setDeleteMultiTargets(null)}>
         <DialogTitle>{t('titleDeleteSelectedConfigs', { n: deleteMultiCount })}</DialogTitle>
         <DialogContent>
@@ -76,6 +83,7 @@ export default function ConfirmDialogs({
           <Button color="error" onClick={() => { onConfirmDeleteMulti() }}>{t('delete')}</Button>
         </DialogActions>
       </Dialog>
+      ) : null}
     </>
   )
 }
