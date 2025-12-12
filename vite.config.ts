@@ -73,6 +73,12 @@ export default defineConfig(async ({ command }): Promise<UserConfig> => ({
     },
     brotliSize: false,
   },
+  worker: {
+    // Vite 7 defaults inline workers to IIFE, which breaks when workers emit
+    // multiple chunks. ES format remains compatible with inline blob workers
+    // and avoids Rollup's IIFE multi-chunk restriction.
+    format: 'es',
+  },
   resolve: {
     alias: {
       'react/compiler-runtime': 'react-compiler-runtime',
