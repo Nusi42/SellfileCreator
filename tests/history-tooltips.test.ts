@@ -50,6 +50,7 @@ test('describeBuilderConfigUpdate summarizes changed fields', () => {
     next,
     index: 1,
     t: stubT,
+    lang: 'en-US',
     metasets,
   })
   assert.ok(descriptor, 'Expected descriptor output')
@@ -70,6 +71,7 @@ test('describeConfigAdded appends snapshot detail lines', () => {
     cfg,
     previous: [],
     t: stubT,
+    lang: 'en-US',
     metasets,
   })
   assert.ok(descriptor.detailLines, 'expected detail lines')
@@ -87,6 +89,7 @@ test('describeConfigsDeleted includes snapshot lines for single deletions', () =
   const descriptor = describeConfigsDeleted({
     removed: [{ index: 0, cfg }],
     t: stubT,
+    lang: 'en-US',
     metasets,
   })
   assert.ok(descriptor, 'expected descriptor output')
@@ -124,6 +127,25 @@ test('formatHistoryTooltipText includes descriptor lines without shortcut hint',
       '• Action:',
       '  Keep',
       '  → Sell',
+    ].join('\n'),
+  )
+})
+
+test('formatHistoryTooltipText keeps structured payloads bullet-free so icons can render', () => {
+  // BuilderTooltipContent parses single-line JSON blobs; preserving the raw text allows icon fallbacks to appear.
+  const structuredLine = '{"kind":"setListSnapshot","label":"Sets","values":[9001]}'
+  const text = formatHistoryTooltipText({
+    descriptor: {
+      title: 'Saved #7 - "Runtime"',
+      detailLines: [structuredLine],
+    },
+    fallbackText: 'Undo (Ctrl+Z)',
+  })
+  assert.equal(
+    text,
+    [
+      'Saved #7 - "Runtime"',
+      structuredLine,
     ].join('\n'),
   )
 })

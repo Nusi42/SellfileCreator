@@ -900,6 +900,8 @@ const overrides: Catalog = {
   restoreAutosaveFiltersHelper: 'Ripristina stato di apertura, chip e sezioni compresse.',
   restoreAutosaveTesterLabel: 'Importazioni del tester ({count})',
   restoreAutosaveTesterHelper: 'Carica l’equipaggiamento autosalvato.',
+  restoreAutosaveGearSetsLabel: 'Set personalizzati ({count})',
+  restoreAutosaveGearSetsHelper: 'Carica le patch dei set fornite dai collaboratori.',
   restoreAutosaveRestoreSelected: 'Ripristina selezione',
   yes: 'Sì',
   no: 'No',
@@ -976,6 +978,8 @@ const overrides: Catalog = {
   toastGearDbImportEmpty: 'Il database non contiene pezzi di equipaggiamento.',
   toastL10nLoaded: 'Localizzazione caricata: {lang}',
   toastL10nLoadFailed: 'Impossibile caricare il file di localizzazione',
+  toastGearSetsLoaded: 'Caricati {count} set personalizzati',
+  toastGearSetsLoadFailed: 'Impossibile caricare il file dei set',
 
   // Tutorial section labels
   tutSectionBasicsLabel: 'Nozioni base',

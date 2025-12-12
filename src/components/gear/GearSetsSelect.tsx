@@ -3,7 +3,7 @@ import { Box, ListSubheader, MenuItem, Select } from '@mui/material'
 import type { SelectChangeEvent, SelectProps } from '@mui/material/Select'
 import { useI18n } from '../../lib/i18n'
 import type { ArtifactSetId } from '../../lib/types'
-import { artifactSetI18nKey, artifactSetName, filterAndSortSetEntries } from '../../lib/types'
+import { artifactSetName, filterAndSortSetEntries, getLocalizedGearSetName } from '../../lib/types'
 import type { Metaset } from '../../lib/metasets'
 import { metasetGlyph, orderMetasetIds } from '../../lib/metasets'
 import { useSetsOrderPreference } from '../../state/setsOrderPreference'
@@ -24,6 +24,7 @@ import {
 } from '../../lib/constants'
 import { reserveScrollbarGutterSpace } from '../../lib/scrollbar'
 import { computeInlineSelectPadding } from '../../lib/inlineSelectAffordances'
+import { useGearSetCatalogVersion } from '../../hooks/useGearSetCatalogVersion'
 
 type GearSetsSelectProps = {
   value: ArtifactSetId[]
@@ -52,7 +53,8 @@ export default function GearSetsSelect({
   menuWidthPx = SETS_MENU_WIDTH_PX,
   disabled = false,
 }: GearSetsSelectProps) {
-  const { t } = useI18n()
+  const { t, lang } = useI18n()
+  const gearSetCatalogVersion = useGearSetCatalogVersion()
   const [setsOrder, setSetsOrder] = useSetsOrderPreference()
   const [setsSearch, setSetsSearch] = useState('')
   const [menuOpen, setMenuOpen] = useState(false)
@@ -81,6 +83,7 @@ export default function GearSetsSelect({
   ]), [orderedMetaSelected, value])
 
   const renderValue = useCallback((tokens: string[]) => {
+    void gearSetCatalogVersion
     if (tokens.length === 0) {
       return (
         <Box component="span" sx={{ display: 'block', textOverflow: 'ellipsis', whiteSpace: 'nowrap', overflow: 'hidden' }}>
@@ -103,7 +106,7 @@ export default function GearSetsSelect({
         }
       } else if (token.startsWith('s:')) {
         const id = Number(token.slice(2))
-        const localized = t(artifactSetI18nKey(id)) || artifactSetName(id)
+        const localized = getLocalizedGearSetName(id as ArtifactSetId, t, lang) || artifactSetName(id)
         names.push(localized)
       }
     }
@@ -119,7 +122,7 @@ export default function GearSetsSelect({
         </Box>
       </EllipsisTooltip>
     )
-  }, [metasets, t])
+  }, [gearSetCatalogVersion, lang, metasets, t])
 
   const handleTokensChange = useCallback((e: SelectChangeEvent<string[]>) => {
     const tokens = Array.isArray(e.target.value) ? e.target.value : []
@@ -133,6 +136,7 @@ export default function GearSetsSelect({
   }, [allowMetasets, onChange, onChangeMetasetIds, orderBasis])
 
   const scrollSetsMenuToSelected = useCallback((orderOverride?: 'game' | 'az' | 'icons', opts?: { force?: boolean }) => {
+    void gearSetCatalogVersion
     if (!opts?.force && !menuOpen) return
     const order = orderOverride ?? setsOrder
     if (order === 'icons') return
@@ -155,13 +159,14 @@ export default function GearSetsSelect({
       item?.scrollIntoView({ block: 'nearest' })
     }
     requestAnimationFrame(() => requestAnimationFrame(scroll))
-  }, [allowedSetFilter, menuOpen, setsOrder, setsSearch, t, value])
+  }, [allowedSetFilter, gearSetCatalogVersion, menuOpen, setsOrder, setsSearch, t, value])
 
   const sortedSets = useMemo(() => {
+    void gearSetCatalogVersion
     const base = filterAndSortSetEntries(setsSearch, setsOrder, { translate: t })
     if (!allowedSetFilter) return base
     return base.filter(([id]) => allowedSetFilter.has(Number(id)))
-  }, [allowedSetFilter, setsOrder, setsSearch, t])
+  }, [allowedSetFilter, gearSetCatalogVersion, setsOrder, setsSearch, t])
 
   const handleToggleSet = useCallback((setId: number) => {
     const numeric = Number(setId)
@@ -315,7 +320,7 @@ export default function GearSetsSelect({
                 const tooltipName = hasGlyph ? `${glyph}${needsGap ? ` ${meta.name}` : meta.name}` : meta.name
                 const displayGap = hasGlyph && needsGap ? 0.75 : 0.5
                 const selected = (selectedMetasetIds ?? []).includes(meta.id)
-                const setNames = meta.sets.map((id) => t(artifactSetI18nKey(id))).filter(Boolean)
+                const setNames = meta.sets.map((id) => getLocalizedGearSetName(id, t, lang)).filter(Boolean)
                 const joined = setNames.join(', ')
                 return (
                   <MenuItem

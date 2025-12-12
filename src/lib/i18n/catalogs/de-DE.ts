@@ -900,6 +900,8 @@ const overrides: Catalog = {
   restoreAutosaveFiltersHelper: 'Stellt Öffnungsstatus, Chips und eingeklappte Bereiche wieder her.',
   restoreAutosaveTesterLabel: 'Tester-Import ({count})',
   restoreAutosaveTesterHelper: 'Autosave-Ausrüstung laden.',
+  restoreAutosaveGearSetsLabel: 'Runtime-Gear-Sets ({count})',
+  restoreAutosaveGearSetsHelper: 'Lädt die bereitgestellten Gear-Set-Patches.',
   restoreAutosaveRestoreSelected: 'Auswahl wiederherstellen',
   yes: 'Ja',
   no: 'Nein',
@@ -976,6 +978,8 @@ const overrides: Catalog = {
   toastGearDbImportEmpty: 'Die Datenbank enthält keine Ausrüstungsgegenstände.',
   toastL10nLoaded: 'Lokalisierung geladen: {lang}',
   toastL10nLoadFailed: 'Lokalisierungsdatei konnte nicht geladen werden',
+  toastGearSetsLoaded: '{count} benutzerdefinierte Sets geladen',
+  toastGearSetsLoadFailed: 'Gear-Set-Datei konnte nicht geladen werden',
 
   // Tutorial section labels
   tutSectionBasicsLabel: 'Grundlagen',

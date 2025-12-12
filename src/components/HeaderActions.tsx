@@ -1,5 +1,5 @@
 import { Box, Button, Chip, Typography } from '@mui/material'
-import { ACCEPT_HSFC, ELLIPSIS_TEXT_SX, LONG_LABEL_BUTTON_MAX_WIDTH_PX } from '../lib/constants'
+import { ACCEPT_HSFC_FILE_DIALOG, ELLIPSIS_TEXT_SX, LONG_LABEL_BUTTON_MAX_WIDTH_PX } from '../lib/constants'
 import FilePickerButton from './FilePickerButton'
 import UploadFileIcon from '@mui/icons-material/UploadFile'
 import SaveIcon from '@mui/icons-material/Save'
@@ -10,7 +10,7 @@ import MarkdownTooltip from './MarkdownTooltip'
 
 export default function HeaderActions(props: {
   onAboutToOpenHsfc?: () => void
-  onSelectHsfc: (file: File) => void
+  onSelectFile: (file: File) => void
   onSaveHsfc: () => void
   onOpenNote: () => void
   notePresent: boolean
@@ -21,7 +21,7 @@ export default function HeaderActions(props: {
 }) {
   const {
     onAboutToOpenHsfc,
-    onSelectHsfc,
+    onSelectFile,
     onSaveHsfc,
     onOpenNote,
     notePresent,
@@ -105,9 +105,9 @@ export default function HeaderActions(props: {
           <FilePickerButton
             label={t('loadConfigs')}
             startIcon={<UploadFileIcon />}
-            accept={ACCEPT_HSFC}
+            accept={ACCEPT_HSFC_FILE_DIALOG}
             onBeforeOpen={() => { onAboutToOpenHsfc?.() }}
-            onSelect={onSelectHsfc}
+            onSelect={onSelectFile}
             data-tour-id="hsfc.load"
             labelMaxWidth={LONG_LABEL_BUTTON_MAX_WIDTH_PX}
             sx={{ flexShrink: 1, minWidth: 0, maxWidth: LONG_LABEL_BUTTON_MAX_WIDTH_PX, ml: 2 }}

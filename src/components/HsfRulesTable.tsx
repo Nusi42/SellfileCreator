@@ -7,7 +7,7 @@ import VisibilityOffIcon from '@mui/icons-material/VisibilityOff'
 import StarBorderIcon from '@mui/icons-material/StarBorder'
 import type { HsfRule } from '../lib/hsfTypes'
 import { RULE_SOURCE_FINAL_SELL, RULE_SOURCE_HSF, RULE_SOURCE_HSFC, RULE_SOURCE_KEEP_UNIQUES, type HsfRuleWithCfg, type RuleSource } from '../lib/merge'
-import { /* formatArtifactSets */ formatLevel, formatRank, /* labelOfVariant, */ mainToVariant, rarityCodeToName, artifactSetName, compareArtifactTypes, artifactTypeI18nKey, artifactSetI18nKey, statVariantI18nKey, compareArtifactSets, factionI18nKey, type FactionId } from '../lib/types'
+import { /* formatArtifactSets */ formatLevel, formatRank, /* labelOfVariant, */ mainToVariant, rarityCodeToName, artifactSetName, compareArtifactTypes, artifactTypeI18nKey, statVariantI18nKey, compareArtifactSets, factionI18nKey, type FactionId, getLocalizedGearSetName } from '../lib/types'
 import EllipsisTooltip from './EllipsisTooltip'
 import MarkdownTooltip from './MarkdownTooltip'
 import {
@@ -79,7 +79,7 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
   focusRuleIndex?: number | null
   onFocusRuleSettled?: () => void
 }) {
-  const { t } = useI18n()
+  const { t, lang } = useI18n()
   const { showSlotIcons, showSetIcons, showFactionIcons, statButtonBorders } = useDisplayPreferences()
   const { setShowSlotIcons, setShowSetIcons, setShowFactionIcons, setStatButtonBorders } = useDisplayPreferenceActions()
   const applyNextColorBlindMode = React.useCallback(() => {
@@ -259,11 +259,11 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
     let cached = artifactSetLabelCacheRef.current.get(rule)
     if (cached === undefined) {
       const ids = getSortedArtifactSets(rule)
-      cached = ids.map((id) => t(artifactSetI18nKey(id))).join(', ')
+      cached = ids.map((id) => getLocalizedGearSetName(id, t, lang)).join(', ')
       artifactSetLabelCacheRef.current.set(rule, cached)
     }
     return cached
-  }, [getSortedArtifactSets, t])
+  }, [getSortedArtifactSets, lang, t])
 
   const getRankRarityLabel = useCallback((rule: HsfRuleWithCfg): string => {
     let cached = rankRarityLabelCacheRef.current.get(rule)

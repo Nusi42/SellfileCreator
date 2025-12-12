@@ -29,7 +29,7 @@ import { SetIcon } from './SetIcon'
 import { FactionIcon } from './FactionIcon'
 import { reserveScrollbarGutterSpace } from '../lib/scrollbar'
 import {
-  artifactSetNames,
+  artifactSetName,
   artifactTypeI18nKey,
   artifactTypeName,
   factionI18nKey,
@@ -248,12 +248,12 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
   // Memoized predicates avoid re-render churn when Keep Uniques toggles highlighting.
   const highlightRowPredicate = typeof highlightedRowPredicate === 'function' ? highlightedRowPredicate : null
   const shouldDimUnhighlightedRows = Boolean(dimUnhighlightedRows && highlightRowPredicate)
-  const { t } = useI18n()
+  const { t, lang } = useI18n()
   const theme = useTheme()
   // Frozen match details stay rendered but dimmed so users remember the last result during rebuilds.
   const matchDetailsFrozen = Boolean(suppressMatchDetailsProp)
   // Group tree is recalculated only when the dataset or locale changes so TanStack can reuse measured rows.
-  const groups = useMemo(() => groupRowsBySet(rows, t), [rows, t])
+  const groups = useMemo(() => groupRowsBySet(rows, t, lang), [rows, t, lang])
   const numberFormatter = useMemo(() => new Intl.NumberFormat(undefined), [])
   const {
     columns: gridColumnPreference,
@@ -723,6 +723,7 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
       setId: artifact.set ?? null,
       slot: resolvedSlotId,
       translate: t,
+      lang,
     })
     const slotLabel = Number.isFinite(slotValue)
       ? t(artifactTypeI18nKey(resolvedSlotId))
@@ -738,7 +739,7 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
       rarityLabel: rarityLabel || fallback,
       rarityAccentColor: resolveRarityAccentColor(artifact.rarity) ?? undefined,
     }
-  }, [effectiveScrollHintRowId, rowLookup, t])
+  }, [effectiveScrollHintRowId, lang, rowLookup, t])
   const measureScrollHintWidth = useCallback(() => {
     const node = scrollHintRef.current
     if (!node) return
@@ -805,7 +806,7 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
         : t('testerItemsCountMany', { n: numberFormatter.format(group.rows.length) })
       const expanded = item.expanded
       const numericSetId = typeof group.setId === 'number' && group.setId > 0 ? group.setId : null
-      const groupSetTooltipName = numericSetId != null ? (artifactSetNames[numericSetId] ?? null) : null
+      const groupSetTooltipName = numericSetId != null ? artifactSetName(numericSetId as ArtifactSetId) : null
       const trimmedGroupLabel = group.label.trim()
       const groupDisplayName = trimmedGroupLabel.length > 0 ? trimmedGroupLabel : undefined
       const groupSetTooltipProps = groupDisplayName
@@ -1538,7 +1539,7 @@ const TesterGridCard = React.memo(function TesterGridCard({
   // Frozen match rows keep stale data visible but low-opacity until the rebuild commits.
   const matchDetailsFrozen = Boolean(suppressMatchDetails)
   const matchDetailsOpacity = matchDetailsFrozen ? 0.45 : 1
-  const { t } = useI18n()
+  const { t, lang } = useI18n()
   const theme = useTheme()
   const configTextFallbackColor = theme.palette.primary.main
   const artifact = row.artifact
@@ -1808,9 +1809,9 @@ const TesterGridCard = React.memo(function TesterGridCard({
     )
   }
   const setIdNumber = Number(artifact.set) || 0
-  const setLabelRaw = formatTesterSetLabel({ setId: setIdNumber, slot: artifact.slot as ArtifactTypeId, translate: t })
+  const setLabelRaw = formatTesterSetLabel({ setId: setIdNumber, slot: artifact.slot as ArtifactTypeId, translate: t, lang })
   const setLabel = setLabelRaw.trim().length > 0 ? setLabelRaw : undefined
-  const setTooltipName = Number.isFinite(setIdNumber) ? artifactSetNames[setIdNumber] ?? null : null
+  const setTooltipName = Number.isFinite(setIdNumber) ? artifactSetName(setIdNumber as ArtifactSetId) : null
   const levelBucketLabel = formatLevel(artifact.level)
   const hasExactLevel = typeof artifact.exactLevel === 'number' && Number.isFinite(artifact.exactLevel)
   const exactLevelLabel = hasExactLevel ? String(Math.max(0, Math.min(16, Math.round(Number(artifact.exactLevel))))) : null
@@ -2701,7 +2702,7 @@ type FactionGroupBuilder = {
   sets: Map<string, TesterGroup>
 }
 
-function groupRowsBySet(rows: readonly TesterPreviewRow[], translate: TranslateFn): TesterGroup[] {
+function groupRowsBySet(rows: readonly TesterPreviewRow[], translate: TranslateFn, lang: string): TesterGroup[] {
   // Artifact sets form flat accordions, while accessories nest faction->set accordions for readability.
   const artifactGroups = new Map<string, TesterGroup>()
   const factionGroups = new Map<string, FactionGroupBuilder>()
@@ -2715,7 +2716,7 @@ function groupRowsBySet(rows: readonly TesterPreviewRow[], translate: TranslateF
       const key = `art:${setId}`
       let group = artifactGroups.get(key)
       if (!group) {
-        const setLabel = formatTesterSetLabel({ setId, slot, translate })
+        const setLabel = formatTesterSetLabel({ setId, slot, translate, lang })
         group = {
           key,
           label: setLabel,
@@ -2765,7 +2766,7 @@ function groupRowsBySet(rows: readonly TesterPreviewRow[], translate: TranslateF
     let setGroup = factionGroup.sets.get(setKey)
     if (!setGroup) {
       const accessoryHasNoSet = setId === 0 || setId === ACCESSORY_NO_SET_ID
-      const setLabel = accessoryHasNoSet ? '' : formatTesterSetLabel({ setId, slot, translate })
+      const setLabel = accessoryHasNoSet ? '' : formatTesterSetLabel({ setId, slot, translate, lang })
       setGroup = {
         key: setKey,
         label: setLabel,

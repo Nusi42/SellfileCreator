@@ -16,10 +16,11 @@ import type { BuilderConfig } from '../lib/hsfBuilder'
 import type { Metaset } from '../lib/metasets'
 import { metasetGlyph } from '../lib/metasets'
 import { metasetIconOptionById, DEFAULT_METASET_ICON_ID, type MetasetIconId } from '../lib/metasetIcons'
-import { artifactSetI18nKey, artifactTypeI18nKey, artifactSetNames, artifactTypeNames, compareArtifactSets, compareArtifactTypes, factionI18nKey, statVariantI18nKey } from '../lib/types'
+import { artifactTypeI18nKey, artifactTypeNames, compareArtifactSets, compareArtifactTypes, factionI18nKey, statVariantI18nKey, getLocalizedGearSetName } from '../lib/types'
 import ConfigChip from './ConfigChip'
 // MarkdownTooltip ensures the color pickers + toolbar reuse the same hover delay/style across the app.
 import MarkdownTooltip from './MarkdownTooltip'
+import { useGearSetCatalogVersion } from '../hooks/useGearSetCatalogVersion'
 import { KEEP_UNIQUE_DEFAULT_COUNT_MODE, sanitizeKeepUniqueCountMode, type KeepUniqueRule, KeepUniqueRuleActivation } from '../lib/keepUniques'
 import { resolveRarityLabel } from '../lib/testerPreviewFormatting'
 
@@ -537,6 +538,7 @@ function computeBlockInsertion(
 function buildMetasetBulletList(
   metasets: Metaset[],
   t: ReturnType<typeof useI18n>['t'],
+  lang: string,
 ): string {
   if (!metasets.length) return ''
   const fallbackIconOption = metasetIconOptionById(DEFAULT_METASET_ICON_ID)
@@ -561,7 +563,7 @@ function buildMetasetBulletList(
       const setNames = (meta.sets ?? [])
         .slice()
         .sort((a, b) => compareArtifactSets(Number(a), Number(b)))
-        .map((id) => artifactSetNames[Number(id)] ?? String(id))
+        .map((id) => getLocalizedGearSetName(id, t, lang))
       const setsLabel = setNames.length > 0 ? setNames.join(', ') : t('noteMetasetNoSets')
       const iconPart = iconGlyph ? `${iconGlyph} ` : ''
       const name = meta.name && meta.name.trim() ? meta.name.trim() : t('menuMetasetsSection')
@@ -570,10 +572,37 @@ function buildMetasetBulletList(
     .join('\n')
 }
 
+function buildMetasetInsertCommand(params: {
+  metasets: Metaset[]
+  t: ReturnType<typeof useI18n>['t']
+  lang: string
+  setDraft: React.Dispatch<React.SetStateAction<string>>
+}): ICommand {
+  const { metasets, t, lang, setDraft } = params
+  return {
+    name: 'insert-metasets',
+    keyCommand: 'insert-metasets',
+    execute: (state, api) => {
+      if (metasets.length === 0) return
+      const block = buildMetasetBulletList(metasets, t, lang)
+      if (!block) return
+      const text = state.text ?? ''
+      const start = state.selection?.start ?? 0
+      const end = state.selection?.end ?? start
+      const { insert, cursorOffset } = computeBlockInsertion(text, start, end, block)
+      const nextState = api.replaceSelection(insert)
+      const nextPos = start + cursorOffset
+      api.setSelectionRange({ start: nextPos, end: nextPos })
+      setDraft(nextState.text)
+    },
+  }
+}
+
 type ConfigChipBlockProps = React.PropsWithChildren<{ node?: Element & { properties?: Record<string, unknown> } }>
 
 function ConfigChipBlock({ node }: ConfigChipBlockProps): JSX.Element | null {
   const { configs, metasets, substatColors, markerResolutions } = useNoteRenderContext()
+  const gearSetCatalogVersion = useGearSetCatalogVersion()
   const filterAttr = coerceFirstString(node?.properties?.[CONFIG_ELEMENT_FILTER_ATTR])
   const filterType = filterAttr === CONFIG_FILTER_REGEXP ? CONFIG_FILTER_REGEXP : CONFIG_FILTER_IDS
   let tokens: MarkerToken[] = []
@@ -657,6 +686,7 @@ function ConfigChipBlock({ node }: ConfigChipBlockProps): JSX.Element | null {
           <ConfigChip
             index={id - 1}
             cfg={cfg}
+            gearSetCatalogVersion={gearSetCatalogVersion}
             onDelete={noop}
             onDuplicate={noop}
             onMoveUp={noop}
@@ -684,7 +714,7 @@ function ConfigChipBlock({ node }: ConfigChipBlockProps): JSX.Element | null {
 type KeepUniqueBlockProps = React.PropsWithChildren<{ node?: Element & { properties?: Record<string, unknown> } }>
 
 function KeepUniqueBlock({ node }: KeepUniqueBlockProps): JSX.Element | null {
-  const { t } = useI18n()
+  const { t, lang } = useI18n()
   const { keepUniqueRules, keepUniqueMarkerResolutions, metasets, useStatButtonColors, substatColors } = useNoteRenderContext()
   // Keep Uniques mirror config markers: ids render positional cards, `keep-uniques-re` filters by rule name.
   const filterAttr = coerceFirstString(node?.properties?.[KEEP_UNIQUE_ELEMENT_FILTER_ATTR])
@@ -765,6 +795,7 @@ function KeepUniqueBlock({ node }: KeepUniqueBlockProps): JSX.Element | null {
             rule={rule}
             metasets={metasets}
             t={t}
+            lang={lang}
             useStatButtonColors={useStatButtonColors}
             substatColors={substatColors}
           />
@@ -779,6 +810,7 @@ function KeepUniqueSummaryCard({
   rule,
   metasets,
   t,
+  lang,
   useStatButtonColors,
   substatColors,
 }: {
@@ -786,6 +818,7 @@ function KeepUniqueSummaryCard({
   rule: KeepUniqueRule
   metasets: Metaset[]
   t: ReturnType<typeof useI18n>['t']
+  lang: string
   useStatButtonColors: boolean
   substatColors: Record<number, { fg: string; bg: string }>
 }): JSX.Element {
@@ -830,11 +863,7 @@ function KeepUniqueSummaryCard({
 
   const setLabels = (() => {
     const sorted = [...(rule.combination.sets ?? [])].sort(compareArtifactSets)
-    return sorted.map((setId) => {
-      const key = artifactSetI18nKey(setId)
-      const translated = t(key)
-      return translated || (artifactSetNames[Number(setId)] ?? String(setId))
-    })
+    return sorted.map((setId) => getLocalizedGearSetName(setId, t, lang))
   })()
 
   const metasetLabels = (() => {
@@ -1112,7 +1141,7 @@ export default function NoteDialog({
   useStatButtonColors: boolean
   substatColors: Record<number, { fg: string; bg: string }>
 }) {
-  const { t } = useI18n()
+  const { t, lang } = useI18n()
   const editCommitRef = useRef<() => void>(() => onClose())
   const deferredNote = useDeferredValue(note)
   // View-only renders lean on the deferred snapshot so toggling loads does not stutter the dialog content.
@@ -1292,6 +1321,7 @@ export default function NoteDialog({
           <NoteEditorContent
             note={note}
             t={t}
+            lang={lang}
             rehypePluginsSafe={rehypePluginsSafe}
             toolbarCommands={toolbarCommands}
             onChange={onChange}
@@ -1312,6 +1342,7 @@ export default function NoteDialog({
 function NoteEditorContent({
   note,
   t,
+  lang,
   rehypePluginsSafe,
   toolbarCommands,
   onChange,
@@ -1325,6 +1356,7 @@ function NoteEditorContent({
 }: {
   note: string
   t: ReturnType<typeof useI18n>['t']
+  lang: string
   rehypePluginsSafe: Pluggable[]
   toolbarCommands: ICommand[]
   onChange: (value: string, options?: { mode?: 'edit' | 'clear' }) => void
@@ -1407,23 +1439,9 @@ function NoteEditorContent({
     },
   }), [keepUniqueRules, setDraft])
 
-  const metasetCommand = useMemo<ICommand>(() => ({
-    name: 'insert-metasets',
-    keyCommand: 'insert-metasets',
-    execute: (state, api) => {
-      if (metasets.length === 0) return
-      const block = buildMetasetBulletList(metasets, t)
-      if (!block) return
-      const text = state.text ?? ''
-      const start = state.selection?.start ?? 0
-      const end = state.selection?.end ?? start
-      const { insert, cursorOffset } = computeBlockInsertion(text, start, end, block)
-      const nextState = api.replaceSelection(insert)
-      const nextPos = start + cursorOffset
-      api.setSelectionRange({ start: nextPos, end: nextPos })
-      setDraft(nextState.text)
-    },
-  }), [metasets, t, setDraft])
+  const metasetCommand = useMemo<ICommand>(() => (
+    buildMetasetInsertCommand({ metasets, t, lang, setDraft })
+  ), [lang, metasets, t, setDraft])
 
   // Track the latest draft/onChange so unload hooks flush once without resubscribing.
   const flushRef = useRef<() => void>(() => {

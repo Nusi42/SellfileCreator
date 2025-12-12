@@ -16,6 +16,13 @@ import type { HsfFile, HsfRule } from './lib/hsfTypes'
 import { type BuilderConfig, type SubstatTargetTable, type SellfileExportMode } from './lib/hsfBuilder'
 import { parseConfigsFromText, buildReadableConfig, readHsfcFile, buildHsfcPayload, hsfcToBlob } from './lib/hsfcIO'
 import { COPY_DIALOG_EVENT, writeTextSafe } from './lib/clipboard'
+import {
+  loadRuntimeGearSetsFromStorage,
+  clearRuntimeGearSets,
+  getPersistedRuntimeGearSetCount,
+  listRuntimeGearSets,
+  persistRuntimeGearSetsSnapshot,
+} from './lib/gearSets/runtimeStore'
 // Autosave restore logic lives in useAutosaveRestore.
 import {
   AUTOSAVE_KEY,
@@ -80,7 +87,7 @@ import { buildRuleTesterAutosavePayload, createRuleTesterMath, fingerprintRuleTe
 import { sortTesterRows } from './lib/testerSort'
 import FileDragOverlay from './components/FileDragOverlay'
 import { BuilderColumn } from './components/AppLayout/BuilderColumn'
-import { useFileDragDrop } from './hooks/useFileDragDrop'
+import { useFileDragDrop, routeFileByExtension } from './hooks/useFileDragDrop'
 import HeaderActions from './components/HeaderActions'
 import ManageColorsDialog from './components/dialogs/ManageColorsDialog'
 import LogicHubDialog from './components/dialogs/LogicHubDialog'
@@ -95,7 +102,7 @@ import { useDeferredHsfcPayload } from './hooks/useDeferredHsfcPayload'
 import PreviewHeaderActions from './components/PreviewHeaderActions'
 import RulesFilterPanel, { type RulesFilterPanelHandle } from './components/RulesFilterPanel'
 import type { TesterConfigFilterMode } from './types/testerConfigFilterMode'
-import type { ArtifactSetId, RankValue } from './lib/types'
+import { getAllKnownArtifactSetIds, type ArtifactSetId, type RankValue } from './lib/types'
 import { filterHsfRules, filterTesterItems, isRulesFilterActive, normalizeRulesFilterForTester, type FilterHsfRulesResult, type RulesFilterState } from './lib/rulesFilter'
 import {
   useAutosaveRestore,
@@ -189,6 +196,8 @@ import { useTutorialCoachState } from './hooks/useTutorialCoachState'
 import { useExternalCommands } from './hooks/useExternalCommands'
 import { useHsfcClipboard, type PendingImport } from './hooks/useHsfcClipboard'
 import { useRuntimeCatalogLoader } from './hooks/useRuntimeCatalogLoader'
+import { useRuntimeGearSetLoader } from './hooks/useRuntimeGearSetLoader'
+import { useGearSetCatalogVersion } from './hooks/useGearSetCatalogVersion'
 import {
   useRulesFilterCollapsedPreference,
   useRulesFilterOpenPreference,
@@ -1360,7 +1369,28 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       return resolved
     })
   }, [])
-  const { t, registerRuntimeCatalog } = useI18n()
+  const { t, lang, registerRuntimeCatalog } = useI18n()
+  // Subscribe to runtime gear-set catalog changes so any consumers refresh.
+  // Why: drag/drop patches must re-render chips/selects immediately.
+  const gearSetCatalogVersion = useGearSetCatalogVersion()
+  // Read the persisted runtime-set count once at boot.
+  // Why: restore dialog needs to know whether to offer the Gear Sets checkbox.
+  const initialRuntimeGearSetCount = useMemo(() => getPersistedRuntimeGearSetCount(), [])
+  // Track current persisted count (not in-memory) for dialog display.
+  // Why: runtime sets stay dormant until user opts in.
+  const [storedRuntimeGearSetCount, setStoredRuntimeGearSetCount] = useState(initialRuntimeGearSetCount)
+  useEffect(() => {
+    // Refresh the persisted count whenever the runtime catalog changes.
+    // Why: importing/clearing runtime sets rewrites localStorage snapshots.
+    setStoredRuntimeGearSetCount(getPersistedRuntimeGearSetCount())
+  }, [gearSetCatalogVersion])
+  const persistRuntimeGearSetsNow = useCallback(() => {
+    // Persist the *current in-memory* runtime registry to localStorage.
+    // Why: this is the only time we mutate storage after a restore decision.
+    persistRuntimeGearSetsSnapshot()
+    // Mirror the new persisted count so the next restore prompt stays accurate.
+    setStoredRuntimeGearSetCount(listRuntimeGearSets().length)
+  }, [])
   const testerFinalSellLabel = t('testerFinalSellChip')
   const specialRuleSourceLabels = useMemo(() => {
     const trimmed = testerFinalSellLabel.trim()
@@ -1859,6 +1889,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setToastMsg,
     t,
   })
+  const { handleRuntimeGearSets } = useRuntimeGearSetLoader({
+    setToastOpen,
+    setToastMsg,
+    t,
+  })
   const pushEndpoint = useMemo(() => getPushEndpoint(), [])
   const [pushEndpointReachable, setPushEndpointReachableState] = useState(() => Boolean(pushEndpoint))
   const setPushEndpointReachable = useCallback((next: boolean) => {
@@ -1882,6 +1917,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       const descriptor = describeConfigsDeleted({
         removed: [{ index: idx, cfg: prev[idx] }],
         t,
+        lang,
         metasets,
       })
       describeNextChange(descriptor)
@@ -1893,7 +1929,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       if (sel > idx) return sel - 1
       return sel
     }, { suppressDraft: true })
-  }, [describeNextChange, metasets, setCustomCfgs, syncSelectedCfgIdx, t])
+  }, [describeNextChange, lang, metasets, setCustomCfgs, syncSelectedCfgIdx, t])
   const handleDeleteMultiConfirmed = useCallback((targetsParam: number[] | null) => {
     // Use the snapshot captured when opening the dialog so confirmation matches the displayed list.
     const source = Array.isArray(targetsParam) && targetsParam.length > 0
@@ -1909,12 +1945,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         return prev
       }
       const removed = uniqueTargets.map((idx) => ({ index: idx, cfg: prev[idx] }))
-      const descriptor = describeConfigsDeleted({ removed, t, metasets })
+      const descriptor = describeConfigsDeleted({ removed, t, lang, metasets })
       describeNextChange(descriptor)
       return prev.filter((_, i) => !deleteSet.has(i))
     })
     syncSelectedCfgIdx(null, { forceSync: true, suppressDraft: true })
-  }, [describeNextChange, metasets, selectedCfgIndices, setCustomCfgs, syncSelectedCfgIdx, t])
+  }, [describeNextChange, lang, metasets, selectedCfgIndices, setCustomCfgs, syncSelectedCfgIdx, t])
   const hsfcDialogs = useHsfcDialogs({
     customCfgCount: customCfgs.length,
     onConfirmClearAll: handleConfirmClearAll,
@@ -2339,6 +2375,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     keepUniquesEnabled,
     logicHubDialogTab,
     keepUniquesGridFilterMode,
+    storedRuntimeGearSetCount,
   })
   const currentMetasetSignature = useMemo(() => metasetsSignature(metasets), [metasets])
   const currentTargetsSignature = useMemo(() => substatTargetsSignature(substatTargets), [substatTargets])
@@ -2571,51 +2608,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     t,
   ])
 
-  // Global file-drag overlay and file routing handled by hook
-  const { active: fileDragActive } = useFileDragDrop({
-    onDragStart: () => {
-      // Close context menus/popovers when a file drag starts so drop works cleanly
-      try { tutorial.closeAllTransientUi() } catch {}
-    },
-    onHsfc: async (file: File) => {
-      // Keep drag & drop focused on the new file: close intro dialogs first.
-      if (tutorial.helpOpen) {
-        tutorial.setHelpOpen(false)
-        tutorial.setHelpFirstRunMode(false)
-        try { localStorage.setItem(README_SEEN_VERSION_KEY, APP_VERSION) } catch {}
-      }
-      if (restoreDialogPending) dismissRestore()
-      // Ignore drops while confirmation dialogs are open
-      if (confirmClearOpen || confirmDeleteIdx !== null || confirmDeleteTargets !== null) return
-      await importHsfcFile(file)
-    },
-    onHsf: async (file: File) => {
-      flushTransientUi()
-      // Ignore drops while confirmation dialogs are open
-      if (confirmClearOpen || confirmDeleteIdx !== null || confirmDeleteTargets !== null) return
-      try {
-        const parsed = await readHsfFile(file)
-        setHsf(parsed)
-        exportBaselineResetRef.current = true
-      } catch (err) {
-        if (import.meta.env.DEV) {
-          console.error('Failed to parse .hsf file', err)
-        }
-        showFileFormatError(file.name)
-      } finally {
-        flushTransientUi()
-      }
-    },
-    onL10n: async (file: File) => {
-      // Allow testing of localization files by drag & drop
-      await handleRuntimeCatalog(file)
-    },
-    onGearDb: handleGearDbImport,
-    onUnknownFile: async (file: File) => {
-      showFileFormatError(file.name)
-    },
-  })
-
   // ---- HSFC import conflict state ----
   const [pendingImport, setPendingImport] = useState<PendingImport | null>(null)
   const [metasetConflictOpen, setMetasetConflictOpen] = useState(false)
@@ -2825,6 +2817,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     payload: autosavePayload,
     enabled: autosaveEnabled && !tutorial.tutorialOpen && !autosaveSilencedByClear,
     debounceMs: 1000,
+    beforeSave: persistRuntimeGearSetsNow,
   })
   const testerAutosavePayload = useMemo(() => buildRuleTesterAutosavePayload(testerItems), [testerItems])
   const testerAutosavePayloadSignature = `${testerAutosavePayload.ItemsCompressed ?? ''}#${testerAutosavePayload.ItemCount ?? 0}`
@@ -2837,6 +2830,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     key: AUTOSAVE_TESTER_KEY,
     payload: testerAutosavePayload,
     enabled: testerAutosaveEnabled,
+    beforeSave: persistRuntimeGearSetsNow,
   })
   // Listen for child chip open-copy-dialog to open manual copy UI
   useEffect(() => {
@@ -3387,6 +3381,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           cfg: insertedCfg,
           previous: customCfgs,
           t,
+          lang,
           metasets,
         })
         describeNextChange(descriptor)
@@ -3416,6 +3411,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             next: nextConfig,
             index: selectedCfgIdx,
             t,
+            lang,
             metasets,
           })
           describeNextChange(descriptor)
@@ -3441,7 +3437,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         }
         const deletionMode: 'delete' | 'replaceSets' | 'replaceMeta' = replaceWithSets ? 'replaceSets' : (replaceWithMetaId ? 'replaceMeta' : 'delete')
         const replacementName = replaceWithMetaId ? (metasets.find((m) => m.id === replaceWithMetaId)?.name ?? null) : null
-        const descriptor = describeMetasetDeleted({ metaset: metaToDelete, mode: deletionMode, replacementName, t })
+        const descriptor = describeMetasetDeleted({ metaset: metaToDelete, mode: deletionMode, replacementName, t, lang })
         describeNextChange(descriptor)
         setMetasets(prev => prev.filter(m => m.id !== id))
 
@@ -3720,14 +3716,95 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     showFileFormatError,
   ])
 
+  const handleHsfcFile = useCallback(async (file: File) => {
+    if (tutorial.helpOpen) {
+      tutorial.setHelpOpen(false)
+      tutorial.setHelpFirstRunMode(false)
+      try { localStorage.setItem(README_SEEN_VERSION_KEY, APP_VERSION) } catch {}
+    }
+    if (restoreDialogPending) dismissRestore()
+    if (confirmClearOpen || confirmDeleteIdx !== null || confirmDeleteTargets !== null) return
+    await importHsfcFile(file)
+  }, [
+    confirmClearOpen,
+    confirmDeleteIdx,
+    confirmDeleteTargets,
+    dismissRestore,
+    importHsfcFile,
+    restoreDialogPending,
+    tutorial,
+  ])
+
+  const handleHsfFile = useCallback(async (file: File) => {
+    flushTransientUi()
+    if (confirmClearOpen || confirmDeleteIdx !== null || confirmDeleteTargets !== null) return
+    try {
+      const parsed = await readHsfFile(file)
+      setHsf(parsed)
+      exportBaselineResetRef.current = true
+    } catch (err) {
+      if (import.meta.env.DEV) {
+        console.error('Failed to parse .hsf file', err)
+      }
+      setHsf(null)
+      showFileFormatError(file.name)
+    } finally {
+      flushTransientUi()
+    }
+  }, [
+    confirmClearOpen,
+    confirmDeleteIdx,
+    confirmDeleteTargets,
+    flushTransientUi,
+    setHsf,
+    showFileFormatError,
+  ])
+
+  const handleUnknownImportedFile = useCallback((file: File) => {
+    showFileFormatError(file.name)
+  }, [showFileFormatError])
+
+  const handleManualFileSelection = useCallback(async (file: File) => {
+    await routeFileByExtension(file, {
+      onHsfc: handleHsfcFile,
+      onHsf: handleHsfFile,
+      onL10n: handleRuntimeCatalog,
+      onGearDb: handleGearDbImport,
+      onGearSets: handleRuntimeGearSets,
+      onUnknownFile: handleUnknownImportedFile,
+    })
+  }, [
+    handleGearDbImport,
+    handleHsfcFile,
+    handleHsfFile,
+    handleRuntimeCatalog,
+    handleRuntimeGearSets,
+    handleUnknownImportedFile,
+  ])
+
+  // Global file-drag overlay and file routing handled by hook
+  const { active: fileDragActive } = useFileDragDrop({
+    onDragStart: () => {
+      // Close context menus/popovers when a file drag starts so drop works cleanly
+      try { tutorial.closeAllTransientUi() } catch {}
+    },
+    onHsfc: handleHsfcFile,
+    onHsf: handleHsfFile,
+    onL10n: handleRuntimeCatalog,
+    onGearDb: handleGearDbImport,
+    onGearSets: handleRuntimeGearSets,
+    onUnknownFile: handleUnknownImportedFile,
+  })
+
   // HSFC load/save/copy controls surfaced at the top of the builder column.
   const headerActionsElement = (
     <HeaderActions
       onAboutToOpenHsfc={() => {
         markSavedNow()
       }}
-      onSelectHsfc={importHsfcFile}
+      onSelectFile={handleManualFileSelection}
       onSaveHsfc={() => {
+        persistRuntimeGearSetsNow()
         const payload = buildHsfcPayload({
           version: APP_VERSION,
           metasets,
@@ -4175,23 +4252,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         workloadProgressRatio={workloadProgressRatio}
         limitHit={totalLimitHit}
         onToggleFilter={() => setFilterOpen((v) => !v)}
-        onSelectHsf={async (file) => {
-          flushTransientUi()
-          try {
-            const parsed = await readHsfFile(file)
-            setHsf(parsed)
-            exportBaselineResetRef.current = true
-          } catch (err) {
-            if (import.meta.env.DEV) {
-              console.error('Failed to parse .hsf file', err)
-            }
-            setHsf(null)
-            showFileFormatError(file.name)
-          } finally {
-            flushTransientUi()
-          }
-        }}
-        onSelectGearDb={handleGearDbImport}
+        onSelectFile={handleManualFileSelection}
         onClearBase={() => setHsf(null)}
         {...(hsf ? { baseRuleCount: hsf.Rules.length } : {})}
         {...(pushExportEndpoint ? { pushEndpoint: pushExportEndpoint } : {})}
@@ -4475,6 +4536,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           open={restoreDlgOpen}
           draft={restoreDraft}
           testerDraft={testerRestoreDraft ? { count: testerRestoreDraft.count, savedAt: testerRestoreDraft.savedAt } : null}
+          storedGearSetsCount={storedRuntimeGearSetCount}
           metasetsDiffer={restoreMetasetsDiffer}
           targetsDiffer={restoreTargetsDiffer}
           filtersDiffer={restoreFiltersDiffer}
@@ -4502,7 +4564,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
               describeNextChange(autosaveDescriptor)
             }
             if (draft) {
-              if (selection.metasets && restoreMetasetsDiffer && Array.isArray(draft.Metasets)) setMetasets(draft.Metasets)
+              // Restore/clear runtime gear sets first so baked-in catalog lookups
+              // remain stable while we sanitize incoming configs/metasets.
               if (selection.targets && restoreTargetsDiffer && draft.substatTargets && typeof draft.substatTargets === 'object') setSubstatTargets(draft.substatTargets)
               if (selection.note && typeof draft.Note === 'string') {
                 applyNoteChange(draft.Note, { mode: 'restore', publish: false })
@@ -4528,6 +4591,44 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                   }
                 } catch {}
               }
+              if (selection.gearSets) {
+                // User opted in: hydrate runtime sets from localStorage now.
+                // Why: configs restored below may rely on these IDs.
+                clearRuntimeGearSets({ persist: false })
+                loadRuntimeGearSetsFromStorage({ replace: true })
+              } else {
+                // User declined: clear in-memory only.
+                // Why: storage stays untouched until the next autosave/manual save.
+                clearRuntimeGearSets({ persist: false })
+              }
+              // If runtime gear sets were declined, strip any now-unknown runtime IDs
+              // from restored artifacts/metasets so chips/selects don't show phantom sets.
+              const bakedInSetIdSet = selection.gearSets
+                ? null
+                : new Set(getAllKnownArtifactSetIds().map((id) => Number(id)))
+              // Sanitize metasets by removing unknown set IDs.
+              // Why: metasets are expanded into config rules and chip labels.
+              const sanitizeMetasets = (incoming: Metaset[]): Metaset[] => (
+                bakedInSetIdSet
+                  ? incoming.map((meta) => ({
+                    ...meta,
+                    sets: (meta.sets ?? []).filter((id) => bakedInSetIdSet.has(Number(id))),
+                  }))
+                  : incoming
+              )
+              // Sanitize configs by removing unknown runtime IDs.
+              // Why: restored chips should not advertise dormant sets.
+              const sanitizeConfigs = (incoming: BuilderConfig[]): BuilderConfig[] => (
+                bakedInSetIdSet
+                  ? incoming.map((cfg) => ({
+                    ...cfg,
+                    artifactSets: (cfg.artifactSets ?? []).filter((id) => bakedInSetIdSet.has(Number(id))),
+                  }))
+                  : incoming
+              )
+              if (selection.metasets && restoreMetasetsDiffer && Array.isArray(draft.Metasets)) {
+                setMetasets(sanitizeMetasets(draft.Metasets))
+              }
               if (selection.configs && Array.isArray(draft.Configs)) {
                 if (draft.FinalSellRemainder && typeof draft.FinalSellRemainder === 'object') {
                   try {
@@ -4535,15 +4636,15 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                     applyFinalSellChange(fsr, { publish: false })
                   } catch {}
                 }
-                setCustomCfgs(draft.Configs)
+                const sanitizedCfgs = sanitizeConfigs(draft.Configs)
+                setCustomCfgs(sanitizedCfgs)
                 const len = draft.Configs.length
                 if (len > 0) {
                   const savedSel = typeof draft.SelectedConfigIndex === 'number' ? draft.SelectedConfigIndex : (len - 1)
                   const sel = savedSel >= 0 && savedSel < len ? savedSel : len - 1
                   syncSelectedCfgIdx(sel, { forceSync: true, suppressDraft: true })
                   try {
-                    const cfgs = draft.Configs || []
-                    if (cfgs[sel]) setBuilder(cfgs[sel]!)
+                    if (sanitizedCfgs[sel]) setBuilder(sanitizedCfgs[sel]!)
                   } catch {}
                 } else {
                   syncSelectedCfgIdx(null, { forceSync: true, suppressDraft: true })

@@ -9,6 +9,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { loadAutosave } from '../lib/autosave'
 import { parseHsfcObject } from '../lib/hsfcIO'
+import { getPersistedRuntimeGearSetNameMap } from '../lib/gearSets/runtimeStore'
 import { normalizeMetasetIconId } from '../lib/metasetIcons'
 import type { SubstatTargetTable, BuilderConfig } from '../lib/hsfBuilder'
 import type { Metaset } from '../lib/metasets'
@@ -236,11 +237,20 @@ function computeInitialAutosaveState(args: {
   keepUniqueRules: KeepUniqueRule[]
   keepUniquesEnabled: boolean
   keepUniquesGridFilterMode: KeepUniquesGridFilterMode
+  storedRuntimeGearSetCount: number
 }): InitialAutosaveState {
   try {
     const entry = loadAutosave<unknown>(args.key)
     if (entry && args.configs.length === 0) {
-      const parsed = parseHsfcObject(entry.payload as unknown, { metasets: args.metasets, substatTargets: args.substatTargets })
+      // Build a dormant runtime-name map from localStorage.
+      // Why: autosave drafts store readable set names even for runtime sets.
+      // We must resolve those names without auto-applying runtime gear sets.
+      const runtimeSetNameMap = getPersistedRuntimeGearSetNameMap()
+      const parsed = parseHsfcObject(
+        entry.payload as unknown,
+        { metasets: args.metasets, substatTargets: args.substatTargets },
+        { runtimeSetNameMap },
+      )
       const cfgs = parsed.cfgs
       const savedMetasets = parsed.metasets
       const savedSubstatTargets = parsed.substatTargets
@@ -269,6 +279,9 @@ function computeInitialAutosaveState(args: {
       const savedGridFilterMode = savedGridFilterModeRaw
         ? sanitizeKeepUniquesGridFilterMode(savedGridFilterModeRaw)
         : null
+      // Treat persisted runtime sets as restore-worthy even if configs are empty.
+      // Why: this is the only UX surface that can re-apply dormant sets.
+      const hasStoredRuntimeGearSets = args.storedRuntimeGearSetCount > 0
       const essentiallyDefault = cfgs.length === 0
         && metasetsMatchDefaults
         && substatTargetsMatchDefaults
@@ -276,6 +289,7 @@ function computeInitialAutosaveState(args: {
         && !notePresent
         && filtersMatchDefaults
         && keepUniquesMatchDefaults
+        && !hasStoredRuntimeGearSets
       if (!essentiallyDefault) {
         const payload = entry.payload as Record<string, unknown>
         const savedAtRaw = typeof payload['AutosaveSavedAt'] === 'string' ? payload['AutosaveSavedAt'] : null
@@ -327,6 +341,7 @@ export function useAutosaveRestore(opts: {
   keepUniquesEnabled: boolean
   logicHubDialogTab: LogicHubDialogTab
   keepUniquesGridFilterMode: KeepUniquesGridFilterMode
+  storedRuntimeGearSetCount: number
 }) {
   const {
     key,
@@ -342,6 +357,7 @@ export function useAutosaveRestore(opts: {
     keepUniquesEnabled,
     logicHubDialogTab,
     keepUniquesGridFilterMode,
+    storedRuntimeGearSetCount,
   } = opts
 
   const initialAutosaveStateRef = useRef<InitialAutosaveState | null>(null)
@@ -357,6 +373,7 @@ export function useAutosaveRestore(opts: {
       keepUniqueRules,
       keepUniquesEnabled,
       keepUniquesGridFilterMode,
+      storedRuntimeGearSetCount,
     })
   }
   const { restoreDlgOpen: initialRestoreDlgOpen, restoreDraft: initialRestoreDraft, enabled: initialEnabled } = initialAutosaveStateRef.current

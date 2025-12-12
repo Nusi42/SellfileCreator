@@ -900,6 +900,8 @@ const overrides: Catalog = {
   restoreAutosaveFiltersHelper: 'Repõe estado aberto, chips e secções recolhidas.',
   restoreAutosaveTesterLabel: 'Importações do Teste de Regras ({count})',
   restoreAutosaveTesterHelper: 'Carrega o equipamento auto‑guardado.',
+  restoreAutosaveGearSetsLabel: 'Conjuntos personalizados ({count})',
+  restoreAutosaveGearSetsHelper: 'Carrega os patches de conjuntos enviados pelos colaboradores.',
   restoreAutosaveRestoreSelected: 'Restaurar seleção',
   yes: 'Sim',
   no: 'Não',
@@ -976,6 +978,8 @@ const overrides: Catalog = {
   toastGearDbImportEmpty: 'A base de dados não contém peças de gear.',
   toastL10nLoaded: 'Localização carregada: {lang}',
   toastL10nLoadFailed: 'Falha ao carregar o ficheiro de localização',
+  toastGearSetsLoaded: '{count} conjuntos personalizados carregados',
+  toastGearSetsLoadFailed: 'Falha ao carregar o ficheiro de conjuntos',
 
   // Tutorial section labels
   tutSectionBasicsLabel: 'Noções básicas',

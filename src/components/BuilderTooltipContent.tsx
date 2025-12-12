@@ -8,7 +8,7 @@ import { useDisplayPreferences } from '../state/preferencesState'
 import { renderColoredStatText, type SubstatColorMap, type HighlightSpec } from '../lib/renderColoredStatText'
 import { artifactTypeIconList } from './artifactTypeIcons'
 import { SetIcon, gearSetIconSrc } from './SetIcon'
-import { artifactSetI18nKey, compareArtifactSets, compareVariants, type ArtifactSetId, type StatVariantLike, statVariantI18nKey } from '../lib/types'
+import { compareArtifactSets, compareVariants, type ArtifactSetId, type StatVariantLike, statVariantI18nKey, getLocalizedGearSetName } from '../lib/types'
 
 export interface BuilderTooltipContentProps {
   text: string
@@ -20,7 +20,7 @@ export interface BuilderTooltipContentProps {
 const TOOLTIP_MAX_WIDTH_PX = 720
 
 export function BuilderTooltipContent({ text, colorizeStats = false, substatColors }: BuilderTooltipContentProps) {
-  const { t } = useI18n()
+  const { t, lang } = useI18n()
   const { statButtonBorders: colorStatTexts, showSetIcons } = useDisplayPreferences()
   const shouldColorize = colorizeStats && colorStatTexts
   const colors = substatColors ?? {}
@@ -69,6 +69,7 @@ export function BuilderTooltipContent({ text, colorizeStats = false, substatColo
               colors,
               theme,
               translate: t,
+              lang,
               useSetIcons: showSetIcons,
             }),
           )
@@ -97,6 +98,7 @@ export function BuilderTooltipContent({ text, colorizeStats = false, substatColo
                   theme,
                   translate: t,
                   asBlock: true,
+                  lang,
                   useSetIcons: showSetIcons,
                 })}
               </Box>
@@ -263,16 +265,17 @@ type RenderStructuredLineParams = {
   theme: Theme
   translate: ReturnType<typeof useI18n>['t']
   asBlock?: boolean
+  lang: string
   useSetIcons: boolean
 }
 
 function renderPossibleStructuredLine(params: RenderStructuredLineParams): JSX.Element {
-  const { line, key, shouldColorize, colors, theme, translate: t, asBlock = false, useSetIcons } = params
+  const { line, key, shouldColorize, colors, theme, translate: t, asBlock = false, useSetIcons, lang } = params
   const structured = parseStructuredDiff(line)
   if (structured) {
     return (
       <Box key={key} sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-        {renderStructuredDiff({ payload: structured, shouldColorize, colors, theme, t, useSetIcons })}
+        {renderStructuredDiff({ payload: structured, shouldColorize, colors, theme, t, useSetIcons, lang })}
       </Box>
     )
   }
@@ -304,9 +307,10 @@ function renderStructuredDiff(params: {
   colors: SubstatColorMap
   theme: Theme
   t: ReturnType<typeof useI18n>['t']
+  lang: string
   useSetIcons: boolean
 }): React.ReactNode {
-  const { payload, shouldColorize, colors, theme, t, useSetIcons } = params
+  const { payload, shouldColorize, colors, theme, t, lang, useSetIcons } = params
   switch (payload.kind) {
     case 'slotsDiff':
       return renderDiffSection(payload.label, renderSlotsDiff(payload, theme, t))
@@ -340,6 +344,7 @@ function renderStructuredDiff(params: {
         payload,
         theme,
         t,
+        lang,
         useIcons: useSetIcons,
       }))
     case 'metasetDiff':
@@ -347,6 +352,7 @@ function renderStructuredDiff(params: {
         payload,
         theme,
         t,
+        lang,
       }))
     case 'slotsSnapshot':
       // Snapshot payloads reuse the same visual language but collapse to a single column.
@@ -372,10 +378,11 @@ function renderStructuredDiff(params: {
         payload,
         theme,
         t,
+        lang,
         useIcons: useSetIcons,
       }))
     case 'metasetSnapshot':
-      return renderDiffSection(payload.label, renderMetasetSnapshot({ payload, theme, t }))
+      return renderDiffSection(payload.label, renderMetasetSnapshot({ payload, theme, t, lang }))
     default:
       return null
   }
@@ -431,9 +438,10 @@ function renderSetListDiff(params: {
   payload: StructuredSetListDiff
   theme: Theme
   t: ReturnType<typeof useI18n>['t']
+  lang: string
   useIcons: boolean
 }): React.ReactNode {
-  const { payload, theme, t, useIcons } = params
+  const { payload, theme, t, lang, useIcons } = params
   const previousIds = normalizeIds(payload.previous)
   const nextIds = normalizeIds(payload.next)
   const union = buildSetUnion(previousIds, nextIds)
@@ -458,6 +466,7 @@ function renderSetListDiff(params: {
       useIcons,
       theme,
       t,
+      lang,
       ...(payload.previousText !== undefined ? { fallback: payload.previousText } : {}),
     }),
     right: renderSetDiffColumn({
@@ -468,6 +477,7 @@ function renderSetListDiff(params: {
       useIcons,
       theme,
       t,
+      lang,
       ...(payload.nextText !== undefined ? { fallback: payload.nextText } : {}),
     }),
     theme,
@@ -507,8 +517,9 @@ function renderSetDiffColumn(params: {
   useIcons: boolean
   theme: Theme
   t: ReturnType<typeof useI18n>['t']
+  lang: string
 }): React.ReactNode {
-  const { union, present, companion, highlightWhenMissing, fallback, useIcons, theme, t } = params
+  const { union, present, companion, highlightWhenMissing, fallback, useIcons, theme, t, lang } = params
   if (union.length === 0) {
     const text = (fallback ?? '').trim().length > 0 ? fallback! : t('any')
     return <Typography variant="body2" color="text.secondary">{text}</Typography>
@@ -518,7 +529,7 @@ function renderSetDiffColumn(params: {
       return renderSetPlaceholderCell({ key: `set-placeholder-${setId}`, useIcons })
     }
     const highlight: StatDiffHighlight = companion.has(setId) ? null : highlightWhenMissing
-    return renderSetDiffCell({ setId, highlight, useIcons, theme, t })
+    return renderSetDiffCell({ setId, highlight, useIcons, theme, t, lang })
   })
   if (useIcons) {
     const columns = Math.min(Math.max(cells.length, 1), SET_ICON_GRID_MAX_COLUMNS)
@@ -550,9 +561,10 @@ function renderSetDiffCell(params: {
   useIcons: boolean
   theme: Theme
   t: ReturnType<typeof useI18n>['t']
+  lang: string
 }): React.ReactNode {
-  const { setId, highlight, useIcons, theme, t } = params
-  const label = t(artifactSetI18nKey(setId as ArtifactSetId))
+  const { setId, highlight, useIcons, theme, t, lang } = params
+  const label = getLocalizedGearSetName(setId as ArtifactSetId, t, lang)
   const srLabel = highlight === null
     ? null
     : highlight === 'removed'
@@ -668,8 +680,9 @@ function renderMetasetDiff(params: {
   payload: StructuredMetasetDiff
   theme: Theme
   t: ReturnType<typeof useI18n>['t']
+  lang: string
 }): React.ReactNode {
-  const { payload, theme, t } = params
+  const { payload, theme, t, lang } = params
   const previousEntries = Array.isArray(payload.previous) ? payload.previous : []
   const nextEntries = Array.isArray(payload.next) ? payload.next : []
   const union = buildMetasetUnion(previousEntries, nextEntries)
@@ -693,6 +706,7 @@ function renderMetasetDiff(params: {
       highlightWhenMissing: 'removed',
       theme,
       t,
+      lang,
       ...(payload.previousFallback !== undefined ? { fallback: payload.previousFallback } : {}),
     }),
     right: renderMetasetColumn({
@@ -702,6 +716,7 @@ function renderMetasetDiff(params: {
       highlightWhenMissing: 'added',
       theme,
       t,
+      lang,
       ...(payload.nextFallback !== undefined ? { fallback: payload.nextFallback } : {}),
     }),
     theme,
@@ -714,8 +729,9 @@ function renderMetasetSnapshot(params: {
   payload: StructuredMetasetSnapshot
   theme: Theme
   t: ReturnType<typeof useI18n>['t']
+  lang: string
 }): React.ReactNode {
-  const { payload, theme, t } = params
+  const { payload, theme, t, lang } = params
   const entries = Array.isArray(payload.entries) ? payload.entries : []
   if (entries.length === 0) {
     const fallback = (payload.fallbackText ?? '').trim().length > 0 ? payload.fallbackText! : t('any')
@@ -723,7 +739,7 @@ function renderMetasetSnapshot(params: {
   }
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-      {entries.map((entry) => renderMetasetCell({ entry, highlight: null, theme, t }))}
+      {entries.map((entry) => renderMetasetCell({ entry, highlight: null, theme, t, lang }))}
     </Box>
   )
 }
@@ -736,8 +752,9 @@ function renderMetasetColumn(params: {
   fallback?: string
   theme: Theme
   t: ReturnType<typeof useI18n>['t']
+  lang: string
 }): React.ReactNode {
-  const { union, present, companion, highlightWhenMissing, fallback, theme, t } = params
+  const { union, present, companion, highlightWhenMissing, fallback, theme, t, lang } = params
   if (union.length === 0) {
     const text = (fallback ?? '').trim().length > 0 ? fallback! : t('any')
     return <Typography variant="body2" color="text.secondary">{text}</Typography>
@@ -748,7 +765,7 @@ function renderMetasetColumn(params: {
       return renderMetasetPlaceholder({ key: `metaset-placeholder-${id}`, theme })
     }
     const highlight: StatDiffHighlight = companion.has(id) ? null : highlightWhenMissing
-    return renderMetasetCell({ entry, highlight, theme, t })
+    return renderMetasetCell({ entry, highlight, theme, t, lang })
   })
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, alignItems: 'stretch' }}>
@@ -762,8 +779,10 @@ function renderMetasetCell(params: {
   highlight: StatDiffHighlight
   theme: Theme
   t: ReturnType<typeof useI18n>['t']
+  lang: string
 }): React.ReactNode {
-  const { entry, highlight, theme, t } = params
+  const { entry, highlight, theme, t, lang } = params
+  void lang
   const srLabel = highlight === null
     ? null
     : highlight === 'removed'
@@ -1113,9 +1132,10 @@ function renderSetListSnapshot(params: {
   payload: StructuredSetListSnapshot
   theme: Theme
   t: ReturnType<typeof useI18n>['t']
+  lang: string
   useIcons: boolean
 }): React.ReactNode {
-  const { payload, theme, t, useIcons } = params
+  const { payload, theme, t, lang, useIcons } = params
   const ids = normalizeIds(payload.values)
   if (ids.length === 0) {
     const fallback = (payload.fallbackText ?? '').trim().length > 0 ? payload.fallbackText! : t('any')
@@ -1134,13 +1154,13 @@ function renderSetListSnapshot(params: {
           alignItems: 'center',
         }}
       >
-        {ids.map((setId) => renderSetDiffCell({ setId, highlight: null, useIcons: true, theme, t }))}
+        {ids.map((setId) => renderSetDiffCell({ setId, highlight: null, useIcons: true, theme, t, lang }))}
       </Box>
     )
   }
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-      {ids.map((setId) => renderSetDiffCell({ setId, highlight: null, useIcons: false, theme, t }))}
+      {ids.map((setId) => renderSetDiffCell({ setId, highlight: null, useIcons: false, theme, t, lang }))}
     </Box>
   )
 }

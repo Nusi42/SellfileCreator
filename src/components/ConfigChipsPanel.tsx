@@ -16,6 +16,7 @@ import { useContextMenuCloseOnOutsideRightClick } from '../hooks/useContextMenuC
 import { useContextMenuHint } from '../hooks/useContextMenuHint'
 import { ContextMenuHintOverlay } from './ContextMenuHintOverlay'
 import { ConfigContextMenu } from './ConfigContextMenu'
+import { useGearSetCatalogVersion } from '../hooks/useGearSetCatalogVersion'
 
 const AUTO_SCROLL_EDGE_PX = 80
 const AUTO_SCROLL_MAX_SPEED_PX = 28
@@ -85,6 +86,7 @@ function ConfigChipsPanel(props: {
   onReorderConfigs: (movingIndices: number[], targetIndex: number, options?: { mode?: 'move' | 'copy' }) => void
 }) {
   const { t } = useI18n()
+  const gearSetCatalogVersion = useGearSetCatalogVersion()
   const {
     containerRef,
     configs,
@@ -733,6 +735,7 @@ function ConfigChipsPanel(props: {
                 key={idx}
                 index={idx}
                 cfg={c}
+                gearSetCatalogVersion={gearSetCatalogVersion}
                 metasets={metasets}
                 substatColors={substatColors}
                 selected={selectedSet.has(idx)}

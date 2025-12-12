@@ -4,7 +4,7 @@
  * Encapsulates autosave writes and flush-on-exit behavior. The caller
  * controls when autosave becomes enabled (e.g., after restore choice).
  */
-import { useEffect, useRef } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 import { saveAutosave } from '../lib/autosave'
 
 type UseAutosaveOptions = {
@@ -12,21 +12,27 @@ type UseAutosaveOptions = {
   payload: unknown
   enabled: boolean
   debounceMs?: number
+  beforeSave?: () => void
 }
 
 export function useAutosave(opts: UseAutosaveOptions) {
-  const { key, payload, enabled, debounceMs = 0 } = opts
+  const { key, payload, enabled, debounceMs = 0, beforeSave } = opts
   const lastRef = useRef<unknown>(null)
   const debounceRef = useRef<number | null>(null)
+
+  const writeSnapshot = useCallback(() => {
+    try {
+      beforeSave?.()
+    } catch {}
+    lastRef.current = payload
+    saveAutosave(key, payload)
+  }, [beforeSave, key, payload])
 
   // Persist immediately when enabled flips true so first-time sessions still get a snapshot right away.
   useEffect(() => {
     if (!enabled) return
-    try {
-      lastRef.current = payload
-      saveAutosave(key, payload)
-    } catch {}
-  }, [enabled, key, payload])
+    try { writeSnapshot() } catch {}
+  }, [enabled, writeSnapshot])
 
   // Write on subsequent payload changes (post-render), honoring debounce to reduce churn.
   useEffect(() => {
@@ -36,10 +42,7 @@ export function useAutosave(opts: UseAutosaveOptions) {
     }
     const schedule = window.setTimeout(() => {
       debounceRef.current = null
-      try {
-        lastRef.current = payload
-        saveAutosave(key, payload)
-      } catch {}
+      try { writeSnapshot() } catch {}
     }, debounceMs)
     debounceRef.current = schedule
     return () => {
@@ -48,7 +51,7 @@ export function useAutosave(opts: UseAutosaveOptions) {
         debounceRef.current = null
       }
     }
-  }, [debounceMs, enabled, key, payload])
+  }, [debounceMs, enabled, writeSnapshot])
 
   // Flush on unload / when tab becomes hidden
   useEffect(() => {

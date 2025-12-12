@@ -162,8 +162,24 @@ export const UI_SUBSTAT_WARNING_ROW_HEIGHT_PX = 14
 
 // File picker accept strings
 export const GEAR_DB_FILE_EXTENSIONS = ['.db', '.sqlite', '.sqlite3'] as const
-export const ACCEPT_HSF = ['.hsf', ...GEAR_DB_FILE_EXTENSIONS, 'application/json'].join(',')
-export const ACCEPT_HSFC = '.hsfc,application/json'
+const IMPORTABLE_FILE_EXTENSIONS = [
+  '.hsf',
+  '.hsfc',
+  '.gearsets',
+  '.gearsets.json',
+  '.l10n',
+  '.l10n.json',
+  '.i18n.json',
+  ...GEAR_DB_FILE_EXTENSIONS,
+  'application/json',
+] as const
+export const ACCEPT_HSF = IMPORTABLE_FILE_EXTENSIONS.join(',')
+export const ACCEPT_HSFC = ACCEPT_HSF
+export const ACCEPT_HSFC_FILE_DIALOG = '.hsfc'
+export const ACCEPT_HSF_OR_DB_FILE_DIALOG = [
+  '.hsf',
+  ...GEAR_DB_FILE_EXTENSIONS,
+].join(',')
 // Default RSL Helper config path on Windows (referenced in UI copy hints and scripts)
 export const RSL_HELPER_CONFIG_PATH = '%APPDATA%\\RslHelper\\Config'
 

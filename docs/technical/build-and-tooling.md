@@ -152,7 +152,7 @@ Coding patterns adopted during the refactor (required for PRs):
 - `src/main.tsx`: App bootstrap with `ThemeProvider` and `CssBaseline`.
   - Wraps `<App />` in `AppStateProvider`, seeding with `defaultSubstatTargets()` (Substat Target Values) and `defaultMetasets()`.
 - `src/lib/constants.ts`: Centralized app-wide constants (storage keys, layout widths, UI sizes).
-  - UI helpers include `UI_BG_TRANSITION` (shared background-color transition) and file accept strings `ACCEPT_HSF`/`ACCEPT_HSFC`.
+  - UI helpers include `UI_BG_TRANSITION` (shared background-color transition) and file accept strings `ACCEPT_HSF`/`ACCEPT_HSFC` plus the dialog-specific filters `ACCEPT_HSFC_FILE_DIALOG` and `ACCEPT_HSF_OR_DB_FILE_DIALOG`.
 - `src/lib/merge.ts`: Pure function to compute merged rules for preview (`computeMergedRules`).
 - `src/lib/hsfTypes.ts`: Shared HSF schema helpers (`variantToMain`, `variantToSub`, rank/rarity coverage, etc.) used across the builder, filters, and evaluator.
 - `src/lib/iconMaps/gearsetIconMap.ts`: Manually maintained map of artifact set IDs to icon asset imports. Update when Plarium adds or renames sets; do not rely on build-time regeneration.

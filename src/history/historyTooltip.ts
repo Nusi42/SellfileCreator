@@ -25,7 +25,10 @@ export function formatHistoryTooltipText(params: {
     for (const detail of detailLines) {
       const trimmed = detail.trim()
       if (trimmed.length > 0) {
-        lines.push(`• ${trimmed}`)
+        const isStructuredPayload = trimmed.startsWith('{') && trimmed.endsWith('}')
+        // Structured JSON blobs flow straight into BuilderTooltipContent so it can render icons;
+        // prefix only the plain-text blocks with bullets to preserve the legacy list layout.
+        lines.push(isStructuredPayload ? trimmed : `• ${trimmed}`)
       }
     }
   }

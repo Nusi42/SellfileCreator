@@ -139,9 +139,23 @@ export const GEARSET_ICON_MAP: Partial<Record<ArtifactSet, string>> = {
   [ArtifactSet.Revenge]: revengeIcon,
 };
 
+const runtimeIconMap = new Map<number, string>();
+
+export function setRuntimeGearSetIcon(id: ArtifactSetId, dataUrl?: string) {
+  const numeric = Number(id);
+  if (!Number.isFinite(numeric) || numeric <= 0) return;
+  if (!dataUrl) {
+    runtimeIconMap.delete(numeric);
+    return;
+  }
+  runtimeIconMap.set(numeric, dataUrl);
+}
+
 export function gearSetIconUrl(code?: ArtifactSetId): string | undefined {
   if (code === undefined || code === null) return undefined;
   const numeric = Number(code);
   if (!Number.isFinite(numeric) || numeric <= 0) return undefined;
+  const runtimeIcon = runtimeIconMap.get(numeric);
+  if (runtimeIcon) return runtimeIcon;
   return GEARSET_ICON_MAP[numeric as ArtifactSet];
 }

@@ -7,20 +7,60 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { GEAR_DB_FILE_EXTENSIONS } from '../lib/constants'
 
-export function useFileDragDrop(handlers: {
+export type FileRouteHandlers = {
   onHsfc: (file: File) => void | Promise<void>
   onHsf: (file: File) => void | Promise<void>
   onL10n?: (file: File) => void | Promise<void>
   onGearDb?: (file: File) => void | Promise<void>
+  onGearSets?: (file: File) => void | Promise<void>
   onUnknownFile?: (file: File) => void | Promise<void>
-  onDragStart?: () => void
-}) {
-  const { onHsfc, onHsf, onL10n, onGearDb, onUnknownFile, onDragStart } = handlers
+}
+
+export async function routeFileByExtension(file: File, handlers: FileRouteHandlers): Promise<void> {
+  // Central router shared by drag/drop and manual file pickers.
+  // Why: all supported file types should behave identically regardless of entry point.
+  const name = String(file.name || '').toLowerCase()
+  // `.hsfc` = app config bundle.
+  if (name.endsWith('.hsfc')) {
+    await handlers.onHsfc(file)
+    return
+  }
+  // `.hsf` = RSL Helper sellfile.
+  if (name.endsWith('.hsf')) {
+    await handlers.onHsf(file)
+    return
+  }
+  // Gear DB diffs/snapshots share multiple extensions.
+  if (handlers.onGearDb && GEAR_DB_FILE_EXTENSIONS.some((ext) => name.endsWith(ext))) {
+    await handlers.onGearDb(file)
+    return
+  }
+  // Runtime gear-set patch files (`.gearsets.json` / `.gearsets`).
+  if (handlers.onGearSets && (name.endsWith('.gearsets.json') || name.endsWith('.gearsets'))) {
+    await handlers.onGearSets(file)
+    return
+  }
+  // Runtime localization patches (`.l10n.json` / `.i18n.json` / `.l10n`).
+  if (
+    handlers.onL10n
+    && (name.endsWith('.l10n.json') || name.endsWith('.i18n.json') || name.endsWith('.l10n'))
+  ) {
+    await handlers.onL10n(file)
+    return
+  }
+  // Anything else is rejected with a toast/dialog.
+  if (handlers.onUnknownFile) {
+    await handlers.onUnknownFile(file)
+  }
+}
+
+export function useFileDragDrop(handlers: FileRouteHandlers & { onDragStart?: () => void }) {
+  const { onDragStart, ...routeHandlers } = handlers
   const [active, setActive] = useState(false)
   const counterRef = useRef(0)
 
-  const handlersRef = useRef({ onHsfc, onHsf, onL10n, onGearDb, onUnknownFile, onDragStart })
-  handlersRef.current = { onHsfc, onHsf, onL10n, onGearDb, onUnknownFile, onDragStart }
+  const handlersRef = useRef({ ...routeHandlers, onDragStart })
+  handlersRef.current = { ...routeHandlers, onDragStart }
 
   const activeRef = useRef(active)
   useEffect(() => { activeRef.current = active }, [active])
@@ -63,25 +103,7 @@ export function useFileDragDrop(handlers: {
   }, [hasFiles])
 
   const routeFile = useCallback(async (file: File) => {
-    // Route based on extension so dev/test fixtures behave exactly like full exports.
-    const name = String(file.name || '').toLowerCase()
-    if (name.endsWith('.hsfc')) {
-      await handlersRef.current.onHsfc(file)
-    } else if (name.endsWith('.hsf')) {
-      await handlersRef.current.onHsf(file)
-    } else if (
-      handlersRef.current.onGearDb
-      && GEAR_DB_FILE_EXTENSIONS.some((ext) => name.endsWith(ext))
-    ) {
-      await handlersRef.current.onGearDb(file)
-    } else if (
-      handlersRef.current.onL10n &&
-      (name.endsWith('.l10n.json') || name.endsWith('.i18n.json') || name.endsWith('.l10n'))
-    ) {
-      await handlersRef.current.onL10n(file)
-    } else if (handlersRef.current.onUnknownFile) {
-      await handlersRef.current.onUnknownFile(file)
-    }
+    await routeFileByExtension(file, handlersRef.current)
   }, [])
 
   const handleDrop = useCallback((e: DragEvent) => {
