@@ -876,7 +876,11 @@ export function useTutorialCoachState({
         before: () => {
           ensureMetasetsDialog(true); ensureSetsMenu(false); ensureChipsMenu(false)
           if (!tutorialAddedDefaultMetas) {
-            const wanted = new Set(['Nuker', 'Support - Debuffer', 'Support - Survivability'])
+            // Keep this list in sync with `defaultMetasets()` in `src/lib/metasets.ts`.
+            // Why: The tutorial “auto-add defaults” step filters by metaset *name* so it can
+            // demonstrate the UI even when a fresh workspace started empty.
+            // If default metaset names change, update this list (and the later mirror block).
+            const wanted = new Set(['Nuker', 'Debuffer', 'Survivability'])
             const defs = defaultMetasets().filter((meta) => wanted.has(meta.name))
             setMetasets((prev) => {
               const have = new Set(prev.map((meta) => meta.name))
@@ -1306,7 +1310,10 @@ export function useTutorialCoachState({
             break
           }
           case 'metasets-defaults': {
-            const wanted = new Set(['Nuker', 'Support - Debuffer', 'Support - Survivability'])
+            // Keep this list in sync with `defaultMetasets()` in `src/lib/metasets.ts`.
+            // Why: The tutorial “auto-add defaults” step filters by metaset *name* so it can
+            // demonstrate the UI even when a fresh workspace started empty.
+            const wanted = new Set(['Nuker', 'Debuffer', 'Survivability'])
             const defs = defaultMetasets().filter((meta) => wanted.has(meta.name))
             const have = new Set(nextMetas.map((meta) => meta.name))
             const add = defs.filter((meta) => !have.has(meta.name))

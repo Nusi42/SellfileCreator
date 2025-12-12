@@ -34,83 +34,97 @@ export function makeMetasetId(seed: number = Date.now()): string {
   return `m_${a.slice(-4)}${b.slice(0,6)}`
 }
 
-// Default metasets (curated). IDs are stable human-readable slugs.
+// Default metasets (curated).
+// Note: These defaults intentionally mirror `examples/example.hsfc` so a fresh run
+// starts with the same metaset list/order as that reference configuration.
+// Tutorial note: `useTutorialCoachState` adds a small subset of these by *name*;
+// update the tutorial’s "wanted" list if you rename any metasets here.
 
 export function defaultMetasets(): Metaset[] {
+  // Default metaset IDs must never collide with user-generated IDs.
+  // Why: User metasets use `makeMetasetId()` (prefix `m_`), so defaults reserve `dmeta_`.
+  const DEFAULT_ID_VERSION = 'v1'
+  const defaultMetasetId = (slug: string): string => `dmeta_${slug}_${DEFAULT_ID_VERSION}`
   const NO_ICON = DEFAULT_METASET_ICON_ID
   return [
     {
-      id: 'meta_nuker_limited',
-      "name": "Nuker - Limited Sets",
-      "sets": [
-        ArtifactSet.Merciless,
-        ArtifactSet.Stonecleaver,
-        ArtifactSet.Zeal,
-        ArtifactSet.Lethal,
-        ArtifactSet.Slayer
-      ],
-      "show": true,
-      iconId: NO_ICON,
-    },
-    {
-      id: 'meta_nuker',
-      "name": "Nuker",
-      "sets": [
-        ArtifactSet.Merciless,
-        ArtifactSet.Stonecleaver,
-        ArtifactSet.Zeal,
-        ArtifactSet.Lethal,
-        ArtifactSet.Slayer,
-        ArtifactSet.Savage,
-        ArtifactSet.Instinct,
+      id: defaultMetasetId('nuker_limited'),
+      name: 'Nuker - Limited Sets',
+      sets: [
         ArtifactSet.Cruel,
+        ArtifactSet.Lethal,
+        ArtifactSet.Instinct,
+        ArtifactSet.Zeal,
+        ArtifactSet.Merciless,
+        ArtifactSet.Slayer,
+        ArtifactSet.Stonecleaver,
+      ],
+      show: true,
+      iconId: NO_ICON,
+    },
+    {
+      id: defaultMetasetId('nuker'),
+      name: 'Nuker',
+      sets: [
+        ArtifactSet.CritDamage,
+        ArtifactSet.Savage,
+        ArtifactSet.Cruel,
+        ArtifactSet.Lethal,
+        ArtifactSet.Stoneskin,
         ArtifactSet.Killstroke,
-        ArtifactSet.Stoneskin
+        ArtifactSet.Instinct,
+        ArtifactSet.Zeal,
+        ArtifactSet.Merciless,
+        ArtifactSet.Slayer,
+        ArtifactSet.Stonecleaver,
+        ArtifactSet.Mercurial,
       ],
-      "show": true,
+      show: true,
       iconId: NO_ICON,
     },
     {
-      id: 'meta_support_limited',
-      "name": "Support - Limited Sets",
-      "sets": [
-        ArtifactSet.Supersonic,
-        ArtifactSet.Merciless,
-        ArtifactSet.Rebirth,
-        ArtifactSet.Chronophage,
-        ArtifactSet.Pinpoint,
-        ArtifactSet.Feral,
-        ArtifactSet.Impulse
-      ],
-      "show": true,
-      iconId: NO_ICON,
-    },
-    {
-      id: 'meta_need_4_speed',
-      "name": "Need 4 Speed",
-      "sets": [
-        ArtifactSet.Supersonic,
-        ArtifactSet.Merciless,
-        ArtifactSet.Rebirth,
-        ArtifactSet.Chronophage,
-        ArtifactSet.Pinpoint,
-        ArtifactSet.Feral,
+      id: defaultMetasetId('support_limited'),
+      name: 'Support - Limited Sets',
+      sets: [
+        ArtifactSet.Bolster,
         ArtifactSet.Impulse,
+        ArtifactSet.Supersonic,
+        ArtifactSet.Merciless,
+        ArtifactSet.Feral,
+        ArtifactSet.Pinpoint,
+        ArtifactSet.Rebirth,
+        ArtifactSet.Chronophage,
+      ],
+      show: true,
+      iconId: NO_ICON,
+    },
+    {
+      id: defaultMetasetId('need_4_speed'),
+      name: 'Need 4 Speed',
+      sets: [
         ArtifactSet.Speed,
         ArtifactSet.DivineSpeed,
         ArtifactSet.SwiftParry,
         ArtifactSet.Perception,
         ArtifactSet.Protection,
+        ArtifactSet.Stoneskin,
+        ArtifactSet.Impulse,
         ArtifactSet.Righteous,
-        ArtifactSet.Stoneskin
+        ArtifactSet.Supersonic,
+        ArtifactSet.Merciless,
+        ArtifactSet.Feral,
+        ArtifactSet.Pinpoint,
+        ArtifactSet.Rebirth,
+        ArtifactSet.Chronophage,
+        ArtifactSet.Mercurial,
       ],
-      "show": true,
+      show: true,
       iconId: NO_ICON,
     },
     {
-      id: 'meta_support_debuffer',
-      "name": "Support - Debuffer",
-      "sets": [
+      id: defaultMetasetId('debuffer'),
+      name: 'Debuffer',
+      sets: [
         ArtifactSet.Speed,
         ArtifactSet.Accuracy,
         ArtifactSet.DivineSpeed,
@@ -118,21 +132,21 @@ export function defaultMetasets(): Metaset[] {
         ArtifactSet.Protection,
         ArtifactSet.Stoneskin,
         ArtifactSet.Impulse,
-        ArtifactSet.Supersonic,
         ArtifactSet.Righteous,
+        ArtifactSet.Supersonic,
         ArtifactSet.Feral,
         ArtifactSet.Pinpoint,
         ArtifactSet.Rebirth,
-        ArtifactSet.Chronophage
+        ArtifactSet.Chronophage,
+        ArtifactSet.Mercurial,
       ],
-      "show": true,
+      show: true,
       iconId: NO_ICON,
     },
     {
-      id: 'meta_support_survivability',
-      "name": "Support - Survivability",
-      "sets": [
-        ArtifactSet.Speed,
+      id: defaultMetasetId('survivability'),
+      name: 'Survivability',
+      sets: [
         ArtifactSet.Regeneration,
         ArtifactSet.Immunity,
         ArtifactSet.Shield,
@@ -154,20 +168,84 @@ export function defaultMetasets(): Metaset[] {
         ArtifactSet.Feral,
         ArtifactSet.Pinpoint,
         ArtifactSet.Rebirth,
-        ArtifactSet.Chronophage
+        ArtifactSet.Chronophage,
+        ArtifactSet.Mercurial,
       ],
-      "show": true,
+      show: true,
       iconId: NO_ICON,
     },
     {
-      id: 'meta_extra_turn',
-      "name": "Extra Turn",
-      "sets": [
+      id: defaultMetasetId('extra_turn'),
+      name: 'Extra Turn',
+      sets: [
         ArtifactSet.Relentless,
+        ArtifactSet.Reflex,
         ArtifactSet.Merciless,
-        ArtifactSet.Reflex
       ],
-      "show": true,
+      show: true,
+      iconId: NO_ICON,
+    },
+    {
+      id: defaultMetasetId('utility'),
+      name: 'Utility',
+      sets: [
+        ArtifactSet.Lifesteal,
+        ArtifactSet.Daze,
+        ArtifactSet.Cursed,
+        ArtifactSet.Frost,
+        ArtifactSet.Destroy,
+        ArtifactSet.Stun,
+        ArtifactSet.Toxic,
+        ArtifactSet.Provoke,
+        ArtifactSet.Retaliation,
+        ArtifactSet.Affinitybreaker,
+        ArtifactSet.Frostbite,
+        ArtifactSet.Bloodthirst,
+      ],
+      show: true,
+      iconId: NO_ICON,
+    },
+    {
+      id: defaultMetasetId('accessory_specific'),
+      name: 'Accessory Specific',
+      sets: [
+        ArtifactSet.Protection,
+        ArtifactSet.Stoneskin,
+        ArtifactSet.Supersonic,
+        ArtifactSet.Merciless,
+        ArtifactSet.Slayer,
+        ArtifactSet.Feral,
+        ArtifactSet.Pinpoint,
+        ArtifactSet.Stonecleaver,
+        ArtifactSet.Rebirth,
+        ArtifactSet.Chronophage,
+        ArtifactSet.Mercurial,
+        ArtifactSet.Refresh,
+        ArtifactSet.Cleansing,
+        ArtifactSet.Bloodshield,
+        ArtifactSet.Reaction,
+        ArtifactSet.Revenge,
+      ],
+      show: true,
+      iconId: NO_ICON,
+    },
+    {
+      id: defaultMetasetId('debuffer_limited'),
+      name: 'Debuffer - Limited Sets',
+      sets: [
+        ArtifactSet.Stoneskin,
+        ArtifactSet.Impulse,
+        ArtifactSet.Righteous,
+        ArtifactSet.Supersonic,
+        ArtifactSet.Merciless,
+        ArtifactSet.Feral,
+        ArtifactSet.Pinpoint,
+        ArtifactSet.Chronophage,
+        ArtifactSet.Mercurial,
+        ArtifactSet.Refresh,
+        ArtifactSet.Reaction,
+      ],
+      show: true,
       iconId: NO_ICON,
     },
 

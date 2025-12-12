@@ -72,7 +72,11 @@ try {
 
   const compiledTests = collectCompiledTests()
   if (compiledTests.length > 0) {
-    const nodeArgs = ['--experimental-wasm-modules', '--test', ...compiledTests]
+    // Force single-file execution.
+    // Why: The gear DB importer tests exercise WASM + large ArrayBuffers and Node's default
+    // parallel file runner has shown intermittent internal stream crashes (SIGSEGV / undefined
+    // internal symbols) under CI-like resource constraints.
+    const nodeArgs = ['--experimental-wasm-modules', '--test', '--test-concurrency=1', ...compiledTests]
     run(process.execPath, nodeArgs)
   } else if (process.env.CI) {
     console.warn('Warning: no node:test specs found under tests/')
