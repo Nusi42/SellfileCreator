@@ -10,6 +10,7 @@ export const artifactSetDescriptions: Record<string, ArtifactSetDescription> = {
   "Bloodthirst": { pieces: 4, text: "C.RATE +12%\nheal by 30% of damage dealt" },
   "Bolster": { pieces: 4, text: "Protected {buff:Shield} for all allies equal to 30% of wearer MAX HP for 3 turns at start of round" },
   "Chronophage": { pieces: "1–9", text: "", byPieces: { 1: "+20 RES", 2: "+10% SPD", 3: "+20 RES", 4: "starts with 1 {buff:Immutable} stack", 5: "+10% SPD", 6: "starts with 2 {buff:Immutable} stacks", 7: "+20 RES", 8: "+12% SPD", 9: "starts with 3 {buff:Immutable} stacks" } },
+  "Mercurial": { pieces: "1–9", text: "", byPieces: { 1: "+20 RES", 2: "+15% HP", 3: "+8% SPD", 4: "Grants the wearer 1 {buff:Total Guard} stack at the start of the Round. Each stack blocks all incoming damage and any associated effects.", 5: "+12% SPD", 6: "Grants the wearer 2 {buff:Total Guard} stacks at the start of the Round. Each stack blocks all incoming damage and any associated effects.", 7: "+20 RES", 8: "+12% SPD", 9: "Grants the wearer 3 {buff:Total Guard} stacks at the start of the Round. Each stack blocks all incoming damage and any associated effects.\nAlso places a {buff:Total Guard} stack at the start of this Champion’s turn, if they have no {buff:Total Guard} stacks." } },
   "Cleansing": { pieces: 1, text: "per piece: 8% chance to remove 1 random debuff at start of wearer's turn; totals: 8/16/24% with 1/2/3 pieces" },
   "Critical Rate": { pieces: 2, text: "+12% C.RATE" },
   "Cruel": { pieces: 2, text: "ATK +15%\nignore 5% DEF" },
