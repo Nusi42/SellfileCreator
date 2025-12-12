@@ -3,7 +3,7 @@ import type { Metaset } from '../lib/metasets'
 import { NBSP } from '../lib/constants'
 import { DEFAULT_METASET_ICON_ID, metasetIconOptionById, normalizeMetasetIconId, type MetasetIconId } from '../lib/metasetIcons'
 import type { ArtifactSetId } from '../lib/types'
-import { artifactSetI18nKey } from '../lib/types'
+import { getLocalizedGearSetName } from '../lib/types'
 import type { TranslateFn } from './builderUpdateDescriptor'
 
 const MAX_SET_LABELS = 6
@@ -42,12 +42,11 @@ function haveSameSets(a: readonly ArtifactSetId[], b: readonly ArtifactSetId[]):
   return true
 }
 
-function formatSetsList(ids: readonly ArtifactSetId[], t: TranslateFn): string {
+function formatSetsList(ids: readonly ArtifactSetId[], t: TranslateFn, lang: string): string {
   if (!ids.length) return t('historyValueEmpty')
   const labels: string[] = []
   for (const id of ids) {
-    const key = artifactSetI18nKey(Number(id))
-    const label = t(key)
+    const label = getLocalizedGearSetName(id, t, lang)
     if (!labels.includes(label)) labels.push(label)
   }
   if (labels.length <= MAX_SET_LABELS) return labels.join(', ')
@@ -63,12 +62,12 @@ function formatIconValue(iconId: MetasetIconId, t: TranslateFn): string {
   return metasetIconOptionById(normalized).glyph
 }
 
-export function describeMetasetAdded(params: { metaset: Metaset; index: number; t: TranslateFn }): HistoryEntryDescriptor {
-  const { metaset, t } = params
+export function describeMetasetAdded(params: { metaset: Metaset; index: number; t: TranslateFn; lang: string }): HistoryEntryDescriptor {
+  const { metaset, t, lang } = params
   const title = t('historyMetasetAddedTitle', { name: sanitizeName(metaset.name, t) })
   const detailLines: string[] = []
   if (metaset.sets.length > 0) {
-    detailLines.push(t('historyMetasetSetsSummaryLine', { sets: formatSetsList(normalizeSets(metaset.sets), t) }))
+    detailLines.push(t('historyMetasetSetsSummaryLine', { sets: formatSetsList(normalizeSets(metaset.sets), t, lang) }))
   }
   return detailLines.length > 0 ? { title, detailLines } : { title }
 }
@@ -100,8 +99,8 @@ export function describeMetasetVisibilityChanged(params: { previous: Metaset; ne
   return { title, detailLines }
 }
 
-export function describeMetasetSetsChanged(params: { previous: Metaset; next: Metaset; t: TranslateFn }): HistoryEntryDescriptor | null {
-  const { previous, next, t } = params
+export function describeMetasetSetsChanged(params: { previous: Metaset; next: Metaset; t: TranslateFn; lang: string }): HistoryEntryDescriptor | null {
+  const { previous, next, t, lang } = params
   if (haveSameSets(previous.sets, next.sets)) return null
   const prevSets = normalizeSets(previous.sets)
   const nextSets = normalizeSets(next.sets)
@@ -118,8 +117,8 @@ export function describeMetasetSetsChanged(params: { previous: Metaset; next: Me
     label: t('historyMetasetSetsLabel'),
     previous: prevSets,
     next: nextSets,
-    previousText: formatSetsList(prevSets as ArtifactSetId[], t),
-    nextText: formatSetsList(nextSets as ArtifactSetId[], t),
+    previousText: formatSetsList(prevSets as ArtifactSetId[], t, lang),
+    nextText: formatSetsList(nextSets as ArtifactSetId[], t, lang),
   }))
   return { title, detailLines }
 }
@@ -139,8 +138,9 @@ export function describeMetasetDeleted(params: {
   mode: 'delete' | 'replaceSets' | 'replaceMeta'
   replacementName?: string | null
   t: TranslateFn
+  lang: string
 }): HistoryEntryDescriptor {
-  const { metaset, mode, replacementName, t } = params
+  const { metaset, mode, replacementName, t, lang } = params
   const title = t('historyMetasetDeletedTitle', { name: sanitizeName(metaset.name, t) })
   const detailLines: string[] = []
   if (mode === 'replaceSets') {
@@ -151,7 +151,7 @@ export function describeMetasetDeleted(params: {
     detailLines.push(t('historyMetasetDeletedReferencesClearedLine'))
   }
   if (metaset.sets.length > 0) {
-    detailLines.push(t('historyMetasetSetsSummaryLine', { sets: formatSetsList(normalizeSets(metaset.sets), t) }))
+    detailLines.push(t('historyMetasetSetsSummaryLine', { sets: formatSetsList(normalizeSets(metaset.sets), t, lang) }))
   }
   return detailLines.length > 0 ? { title, detailLines } : { title }
 }

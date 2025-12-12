@@ -10,15 +10,16 @@ import type {
   StatVariant,
 } from './types'
 import {
-  ACCESSORY_SLOTS_COMPATIBLE_SET_IDS,
   ArtifactSet,
   ArtifactType,
   StatVariant as StatVariantEnum,
   artifactSetNames,
   artifactTypeNames,
   factionNames,
+  getAccessorySlotsCompatibleSetIds,
   rarityNames,
   variantFromLabel,
+  findArtifactSetIdByName,
 } from './types'
 import type { SellfileExportMode } from './hsfBuilder'
 import type { HsfRuleWithCfg } from './merge'
@@ -211,7 +212,7 @@ function createDefaultAccessoryKeepUniqueRule(): KeepUniqueRule {
     id: createKeepUniqueRuleId(),
     combination: {
       slots: [...ACCESSORY_KEEP_UNIQUE_SLOTS],
-      sets: [...ACCESSORY_SLOTS_COMPATIBLE_SET_IDS],
+      sets: [...getAccessorySlotsCompatibleSetIds()],
       metaSetIds: [],
       ranks: [...ACCESSORY_KEEP_UNIQUE_STAR_VALUES],
       rarities: [...ACCESSORY_KEEP_UNIQUE_RARE_PLUS_RARITIES],
@@ -499,8 +500,11 @@ const coerceArtifactTypeId = (value: unknown): ArtifactTypeId | null => {
 const coerceArtifactSetId = (value: unknown): ArtifactSetId | null => {
   if (typeof value === 'string') {
     // Accept readable set names so exported HSFC stays human-friendly.
-    const found = artifactSetIdByName.get(value.trim().toLowerCase())
+    const trimmed = value.trim().toLowerCase()
+    const found = artifactSetIdByName.get(trimmed)
     if (found != null) return found
+    const runtime = findArtifactSetIdByName(value.trim())
+    if (runtime !== null) return runtime
   }
   const numeric = Number(value)
   if (!Number.isFinite(numeric)) return null

@@ -900,6 +900,8 @@ const overrides: Catalog = {
   restoreAutosaveFiltersHelper: 'Восстанавливает состояние открытия, чипы и свёрнутые секции.',
   restoreAutosaveTesterLabel: 'Очередь тестера ({count})',
   restoreAutosaveTesterHelper: 'Загрузить автосохранённое снаряжение.',
+  restoreAutosaveGearSetsLabel: 'Пользовательские сеты ({count})',
+  restoreAutosaveGearSetsHelper: 'Загрузить предоставленные патчи сетов.',
   restoreAutosaveRestoreSelected: 'Восстановить выбранное',
   yes: 'Да',
   no: 'Нет',
@@ -976,6 +978,8 @@ const overrides: Catalog = {
   toastGearDbImportEmpty: 'В базе данных нет предметов экипировки.',
   toastL10nLoaded: 'Загружена локализация: {lang}',
   toastL10nLoadFailed: 'Не удалось загрузить файл локализации',
+  toastGearSetsLoaded: 'Загружено {count} пользовательских наборов',
+  toastGearSetsLoadFailed: 'Не удалось загрузить файл наборов',
 
   // Tutorial section labels
   tutSectionBasicsLabel: 'Основы',

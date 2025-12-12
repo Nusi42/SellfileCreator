@@ -21,7 +21,7 @@ import { LIST_SUBHEADER_SX, MENU_SELECTED_BG_ALPHA, MENU_SELECTED_BG_HOVER_ALPHA
 import type { Metaset } from '../lib/metasets'
 import SetsOrderControls from './SetsOrderControls'
 import { useI18n } from '../lib/i18n'
-import { artifactSetI18nKey, ArtifactSetPieceGroup, getArtifactSetPieceGroup } from '../lib/types'
+import { ArtifactSetPieceGroup, getArtifactSetPieceGroup, getLocalizedGearSetName, type ArtifactSetId } from '../lib/types'
 
 // Icon grid sizing — tuned to fit 15 items within a ~520px menu width.
 const ICON_GRID_ITEM_PX = 32 as const
@@ -82,7 +82,7 @@ export default function SetMenuSection({
   singleSelect?: boolean
   triStateForSet?: (id: number) => 'none' | 'partial' | 'all'
 }) {
-  const { t } = useI18n()
+  const { t, lang } = useI18n()
   const hovered = hoveredMetasetId
   const selectedSets = new Set(selectedSetIds)
   const selectedMetaSet = new Set(_selectedMetasetIds)
@@ -139,7 +139,7 @@ export default function SetMenuSection({
             const armorVar19 = sorted.filter(([id]) => getArtifactSetPieceGroup(Number(id)) === ArtifactSetPieceGroup.ArmorVariable)
             const renderIconItem = ([id, name]: [string, string]) => {
               const idNum = Number(id)
-              const localizedName = t(artifactSetI18nKey(idNum))
+              const localizedName = getLocalizedGearSetName(idNum as ArtifactSetId, t, lang)
               const tooltipName = localizedName || name
               const inHovered = hoveredHighlightsAll || Boolean(hoveredMeta && hoveredMeta.sets.includes(idNum))
               const inSelectedMeta = selectedHighlightsAll || metasets.some(m => selectedMetaSet.has(m.id) && m.sets.includes(idNum))
@@ -271,7 +271,7 @@ export default function SetMenuSection({
           const setState = getTriStateForSet(idNum)
           const inSelectedSet = setState === 'all'
           const isPartialSet = setState === 'partial'
-          const localizedName = t(artifactSetI18nKey(idNum))
+          const localizedName = getLocalizedGearSetName(idNum as ArtifactSetId, t, lang)
           const tooltipName = localizedName || name
           return (
             <MenuItem

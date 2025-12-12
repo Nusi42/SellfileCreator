@@ -10,8 +10,7 @@ import {
   FILTER_HEADER_LABEL_MAX_WIDTH_PX,
   SELLFILE_BUTTON_HEIGHT_PX,
   TOTAL_RULE_COUNT_LIMIT,
-  ACCEPT_HSF,
-  GEAR_DB_FILE_EXTENSIONS,
+  ACCEPT_HSF_OR_DB_FILE_DIALOG,
 } from '../lib/constants'
 import UploadFileIcon from '@mui/icons-material/UploadFile'
 import SaveIcon from '@mui/icons-material/Save'
@@ -46,19 +45,12 @@ function ProgressChip({ progressRatio, ariaLabel, children }: ProgressChipProps)
   )
 }
 
-const isGearDbFilename = (filename?: string | null) => {
-  if (!filename) return false
-  const normalized = filename.toLowerCase()
-  return GEAR_DB_FILE_EXTENSIONS.some((ext) => normalized.endsWith(ext))
-}
-
 export default function PreviewHeaderActions(props: {
   mergedCount: number
   filteredCount?: number
   filterActive?: boolean
   onToggleFilter?: () => void
-  onSelectHsf: (file: File) => void | Promise<void>
-  onSelectGearDb?: (file: File) => void | Promise<void>
+  onSelectFile: (file: File) => void | Promise<void>
   onClearBase: () => void
   baseRuleCount?: number
   onExport: () => void
@@ -96,8 +88,7 @@ export default function PreviewHeaderActions(props: {
     filteredCount,
     filterActive,
     onToggleFilter,
-    onSelectHsf,
-    onSelectGearDb,
+    onSelectFile,
     onClearBase,
     baseRuleCount,
     onExport,
@@ -129,13 +120,6 @@ export default function PreviewHeaderActions(props: {
     filtersSynced = false,
     onToggleFiltersSynced,
   } = props
-  const handleSelectBaseFile = React.useCallback(async (file: File) => {
-    if (onSelectGearDb && isGearDbFilename(file.name)) {
-      await onSelectGearDb(file)
-      return
-    }
-    await onSelectHsf(file)
-  }, [onSelectGearDb, onSelectHsf])
   const isRulesMode = previewMode === 'rules'
   const fsEnabled = (finalSell.artifacts || finalSell.accessories) && (finalSell.levels?.length ?? 0) > 0
   const { t } = useI18n()
@@ -650,8 +634,8 @@ export default function PreviewHeaderActions(props: {
               <MarkdownTooltip markdown={`${t('loadSellfile')}\n\n${t('optionalLoadSellfile')}`}>
                 <FilePickerButton
                   label={t('loadSellfile')}
-                  accept={ACCEPT_HSF}
-                  onSelect={handleSelectBaseFile}
+                  accept={ACCEPT_HSF_OR_DB_FILE_DIALOG}
+                  onSelect={onSelectFile}
                   buttonProps={{
                     sx: {
                       minWidth: SELLFILE_BUTTON_HEIGHT_PX,

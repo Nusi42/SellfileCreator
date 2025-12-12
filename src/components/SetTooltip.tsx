@@ -2,7 +2,8 @@ import { Box, Typography, Divider } from '@mui/material'
 import type { ReactNode } from 'react'
 import { artifactSetDescriptions } from '../lib/setDescriptions'
 import { useI18n } from '../lib/i18n'
-import { artifactSetI18nKey, artifactSetNames } from '../lib/types'
+import { artifactSetI18nKey, artifactSetNames, findArtifactSetIdByName } from '../lib/types'
+import { getRuntimeGearSet } from '../lib/gearSets/runtimeStore'
 import MarkdownTooltip from './MarkdownTooltip'
 // no theme import needed; using palette keywords directly
 
@@ -89,8 +90,44 @@ function getSetDescKeyStem(name: string): string {
   return `setDesc_${labelKey}`
 }
 
-function localizeDescription(d: ArtifactSetDescriptions[string], name: string, t: (k: string, p?: Record<string, string | number>) => string): ReactNode {
-  const stem = getSetDescKeyStem(name)
+const normalizeByPieces = (source?: Record<string, string> | Record<number, string>) => {
+  if (!source) return undefined
+  const entries = Object.entries(source)
+  if (!entries.length) return undefined
+  return entries.reduce<Record<number, string>>((acc, [key, value]) => {
+    const numKey = Number(key)
+    if (!Number.isFinite(numKey)) return acc
+    acc[numKey] = value
+    return acc
+  }, {})
+}
+
+function resolveTooltipDescription(name: string): { description: ArtifactSetDescriptions[string]; runtime: boolean } | null {
+  const setId = findArtifactSetIdByName(name)
+  if (setId !== null) {
+    const runtime = getRuntimeGearSet(setId)
+    if (runtime) {
+      const runtimeByPieces = normalizeByPieces(runtime.description.byPieces)
+    const runtimeDescription: ArtifactSetDescriptions[string] = {
+      pieces: runtime.description.pieces,
+      text: runtime.description.text,
+    }
+      if (runtimeByPieces) runtimeDescription.byPieces = runtimeByPieces
+      return { description: runtimeDescription, runtime: true }
+    }
+  }
+  const base = artifactSetDescriptions[name]
+  if (!base) return null
+  return { description: base, runtime: false }
+}
+
+function localizeDescription(
+  d: ArtifactSetDescriptions[string],
+  name: string,
+  t: (k: string, p?: Record<string, string | number>) => string,
+  options?: { runtime?: boolean },
+): ReactNode {
+  const stem = options?.runtime ? '' : getSetDescKeyStem(name)
   const tDyn = (k: string) => (t as unknown as (k: string) => string)(k)
   const by = d.byPieces
   if (by) {
@@ -122,15 +159,19 @@ function localizeDescription(d: ArtifactSetDescriptions[string], name: string, t
   )
 }
 
-function getSetTooltipContent(name: string, t: (k: string, p?: Record<string, string | number>) => string): ReactNode | undefined {
-  const d = artifactSetDescriptions[name]
-  if (!d) return undefined
-  const header = pieceLabel(d.pieces, t)
+function getSetTooltipContent(
+  name: string,
+  t: (k: string, p?: Record<string, string | number>) => string,
+): ReactNode | undefined {
+  const resolved = resolveTooltipDescription(name)
+  if (!resolved) return undefined
+  const { description, runtime } = resolved
+  const header = pieceLabel(description.pieces, t)
   return (
     <Box sx={{ maxWidth: 420 }}>
       <Typography variant="body2" sx={{ opacity: TITLE_FG_OPACITY }}>{header}</Typography>
       <Divider light sx={{ my: 0.5, opacity: 0.45 }} />
-      {localizeDescription(d, name, t)}
+      {localizeDescription(description, name, t, { runtime })}
     </Box>
   )
 }
@@ -140,14 +181,15 @@ function getSetTooltipContentNamed(
   displayName: string,
   t: (k: string, p?: Record<string, string | number>) => string,
 ): ReactNode | undefined {
-  const d = artifactSetDescriptions[name]
-  if (!d) return undefined
-  const header = t('setTooltipNamed', { name: displayName, count: pieceLabel(d.pieces, t) })
+  const resolved = resolveTooltipDescription(name)
+  if (!resolved) return undefined
+  const { description, runtime } = resolved
+  const header = t('setTooltipNamed', { name: displayName, count: pieceLabel(description.pieces, t) })
   return (
     <Box sx={{ maxWidth: 420 }}>
       <Typography variant="body2" sx={{ opacity: TITLE_FG_OPACITY }}>{header}</Typography>
       <Divider light sx={{ my: 0.5, opacity: 0.45 }} />
-      {localizeDescription(d, name, t)}
+      {localizeDescription(description, name, t, { runtime })}
     </Box>
   )
 }

@@ -17,9 +17,9 @@ import {
   artifactTypeName,
   artifactTypeI18nKey,
   compareArtifactTypes,
-  artifactSetI18nKey,
   statVariantI18nKey,
   factionI18nKey,
+  getLocalizedGearSetName,
 } from '../lib/types'
 import { NBSP, CHIP_ROLL_BADGE_FONT_SIZE_PX, CHIP_ROLL_BADGE_SIZE_PX, HOVER_BG_ALPHA, SELECTED_HOVER_BG_ALPHA, CONFIG_CHIP_BORDER_RADIUS_PX, CONFIG_CHIP_CONTROL_BUTTON_SIZE_PX, CONFIG_CHIP_VERTICAL_PADDING_PX, SUBSTAT_TARGET_MAX_ROLLS } from '../lib/constants'
 import { normalizeLooseRollTargetEntry, resolveAutoRarityCode } from '../lib/hsfBuilder'
@@ -119,6 +119,7 @@ function deriveSeparatorDividerDecoration(rawName: string | undefined, baseColor
 interface ConfigChipProps {
   index: number
   cfg: BuilderConfig
+  gearSetCatalogVersion?: number
   visualVariant?: 'interactive' | 'static'
   dragEnabled?: boolean
   onPointerDown?: (event: React.PointerEvent<HTMLDivElement>) => void
@@ -154,6 +155,7 @@ interface ConfigChipProps {
 function ConfigChip({
   index,
   cfg,
+  gearSetCatalogVersion = 0,
   dragEnabled = false,
   onPointerDown,
   hideTooltip = false,
@@ -185,7 +187,7 @@ function ConfigChip({
   duplicateOfIndex,
   onContextMenuHintSeen,
 }: ConfigChipProps) {
-  const { t } = useI18n()
+  const { t, lang } = useI18n()
   const { showFactionIcons, statButtonBorders, showSetIcons, showSlotIcons } = useDisplayPreferences()
   const theme = useTheme()
   const primaryColor = theme.palette.primary.main
@@ -221,10 +223,12 @@ function ConfigChip({
       showSetIcons,
       showSlotIcons,
       t,
+      lang,
       cfgIndex: index,
       tooltipsDisabled: tooltipSuppressed,
+      catalogVersion: gearSetCatalogVersion,
     }),
-    [cfg, metasets, substatColors, statButtonBorders, showFactionIcons, showSetIcons, showSlotIcons, t, index, tooltipSuppressed],
+    [cfg, metasets, substatColors, statButtonBorders, showFactionIcons, showSetIcons, showSlotIcons, t, lang, index, tooltipSuppressed, gearSetCatalogVersion],
   )
   const keepColor = cfg.keep ? 'success.main' : 'error.main'
   const isDisabled = isHidden
@@ -598,6 +602,7 @@ function ConfigChip({
 function areConfigChipPropsEqual(prev: Readonly<ConfigChipProps>, next: Readonly<ConfigChipProps>): boolean {
   return prev.cfg === next.cfg
     && prev.index === next.index
+    && prev.gearSetCatalogVersion === next.gearSetCatalogVersion
     && prev.dragEnabled === next.dragEnabled
     && prev.onPointerDown === next.onPointerDown
     && prev.hideTooltip === next.hideTooltip
@@ -632,11 +637,14 @@ function summaryParts(
     showSetIcons: boolean
     showSlotIcons: boolean
     t?: (key: string, params?: Record<string, string | number>) => string
+    lang: string
     cfgIndex?: number
     tooltipsDisabled?: boolean
+    catalogVersion?: number
   }
 ): JSX.Element | null {
   const parts: Array<JSX.Element> = []
+  void opts.catalogVersion
   const milestoneThresholdsActive = isMilestoneThresholdsActive(cfg)
   const addText = (text: string) => { if (text) parts.push(<Box key={`t-${parts.length}`} component="span">{text}</Box>) }
   const addNode = (node: JSX.Element) => parts.push(<Box key={`n-${parts.length}`} component="span">{node}</Box>)
@@ -1035,7 +1043,7 @@ function summaryParts(
 
       setIdsSorted.forEach((id, idx) => {
         const canonicalName = artifactSetName(id)
-        const localizedName = withNbsp(opts.t ? opts.t(artifactSetI18nKey(id)) : canonicalName)
+        const localizedName = withNbsp(opts.t ? getLocalizedGearSetName(id, opts.t, opts.lang) : canonicalName)
         pushNode(
           `set-icon-${id}-${idx}`,
               <SetIcon
@@ -1063,7 +1071,7 @@ function summaryParts(
         )
       }
     } else {
-      const setNames = setIdsSorted.map(id => withNbsp(opts.t ? opts.t(artifactSetI18nKey(id)) : artifactSetName(id)))
+      const setNames = setIdsSorted.map(id => withNbsp(opts.t ? getLocalizedGearSetName(id, opts.t, opts.lang) : artifactSetName(id)))
       const setsJoined = [...metaEntries.map(entry => entry.name), ...setNames].join(', ')
       if (setsJoined) {
         addText(setsJoined)

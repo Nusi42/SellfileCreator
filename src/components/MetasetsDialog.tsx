@@ -7,7 +7,8 @@ import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward'
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward'
 import EllipsisTooltip from './EllipsisTooltip'
 import type { Metaset } from '../lib/metasets'
-import { filterAndSortSetEntries, artifactSetI18nKey } from '../lib/types'
+import { filterAndSortSetEntries, getLocalizedGearSetName, type ArtifactSetId } from '../lib/types'
+import { useGearSetCatalogVersion } from '../hooks/useGearSetCatalogVersion'
 import { defaultMetasets, makeMetasetId } from '../lib/metasets'
 import { DEFAULT_METASET_ICON_ID, METASET_ICON_OPTIONS, metasetIconOptionById, normalizeMetasetIconId, randomMetasetIconId } from '../lib/metasetIcons'
 import type { MetasetIconId } from '../lib/metasetIcons'
@@ -99,7 +100,7 @@ export default function MetasetsDialog({
   metaSetsMenuOpen: boolean
   setMetaSetsMenuOpen: (v: boolean) => void
 }) {
-  const { t } = useI18n()
+  const { t, lang } = useI18n()
   // Note: Ordering state is owned by the Builder and passed in via props to keep
   // behavior identical between Builder and Metasets editor. No persistence here.
   const [confirmResetMetasets, setConfirmResetMetasets] = useState(false)
@@ -134,6 +135,7 @@ export default function MetasetsDialog({
     }
   }
   const [pendingScrollMetaId, setPendingScrollMetaId] = useState<string>('')
+  const gearSetCatalogVersion = useGearSetCatalogVersion()
   // Ephemeral celebration for playful metaset names: highlight the new row's Select
   const [legendaryMetaId, setLegendaryMetaId] = useState<string>('')
 
@@ -143,6 +145,7 @@ export default function MetasetsDialog({
 
   // Shared set entries for the current search terms. Icons view reuses the in-game order.
   const sortedSetEntries = useMemo<Record<'game' | 'az' | 'icons', Array<[string, string]>>>(() => {
+    void gearSetCatalogVersion
     const baseOptions = { translate: t }
     const sortedGame = filterAndSortSetEntries(setsSearch, 'game', baseOptions)
     const sortedAz = filterAndSortSetEntries(setsSearch, 'az', baseOptions)
@@ -151,7 +154,7 @@ export default function MetasetsDialog({
       icons: sortedGame,
       az: sortedAz,
     }
-  }, [setsSearch, t])
+  }, [gearSetCatalogVersion, setsSearch, t])
 
   const historySessionRef = useRef<'idle' | 'active'>('idle')
   const metasetBaselineRef = useRef<Map<string, Metaset> | null>(null)
@@ -179,14 +182,14 @@ export default function MetasetsDialog({
     for (const [id, baseMeta] of baselineMap.entries()) {
       const nextMeta = currentMap.get(id)
       if (!nextMeta) {
-        descriptors.push(describeMetasetDeleted({ metaset: baseMeta, mode: 'delete', t }))
+        descriptors.push(describeMetasetDeleted({ metaset: baseMeta, mode: 'delete', t, lang }))
         continue
       }
       const rename = describeMetasetRenamed({ previous: baseMeta, next: nextMeta, t })
       if (rename) descriptors.push(rename)
       const visibility = describeMetasetVisibilityChanged({ previous: baseMeta, next: nextMeta, t })
       if (visibility) descriptors.push(visibility)
-      const setsChange = describeMetasetSetsChanged({ previous: baseMeta, next: nextMeta, t })
+      const setsChange = describeMetasetSetsChanged({ previous: baseMeta, next: nextMeta, t, lang })
       if (setsChange) {
         descriptors.push(setsChange)
       } else {
@@ -197,7 +200,7 @@ export default function MetasetsDialog({
 
     currentList.forEach((meta, index) => {
       if (!baselineMap.has(meta.id)) {
-        descriptors.push(describeMetasetAdded({ metaset: meta, index, t }))
+        descriptors.push(describeMetasetAdded({ metaset: meta, index, t, lang }))
       }
     })
 
@@ -217,7 +220,7 @@ export default function MetasetsDialog({
       title: t('historyMetasetsEditedTitle'),
       detailLines,
     }
-  }, [t])
+  }, [lang, t])
 
   useEffect(() => {
     historySessionRef.current = 'idle'
@@ -591,7 +594,7 @@ export default function MetasetsDialog({
                     }}
                   />
                   <EllipsisTooltip
-                    title={m.sets.map((id) => t(artifactSetI18nKey(id))).join(', ')}
+                    title={m.sets.map((id) => getLocalizedGearSetName(id, t, lang)).join(', ')}
                     selector=".MuiSelect-select"
                     disabled={metaSetsMenuOpen}
                     wrap="block"
@@ -614,12 +617,12 @@ export default function MetasetsDialog({
                           commitMetasetUpdate(
                             idx,
                             (prevMeta) => ({ ...prevMeta, sets: ids }),
-                            (previousMeta, nextMeta) => describeMetasetSetsChanged({ previous: previousMeta, next: nextMeta, t }),
+                            (previousMeta, nextMeta) => describeMetasetSetsChanged({ previous: previousMeta, next: nextMeta, t, lang }),
                           )
                         }}
                         renderValue={(selected) => (
                           (selected as string[])
-                            .map((s) => t(artifactSetI18nKey(Number(s))))
+                            .map((s) => getLocalizedGearSetName(Number(s) as ArtifactSetId, t, lang))
                             .join(', ')
                         )}
                         onOpen={(e) => {
@@ -770,7 +773,7 @@ export default function MetasetsDialog({
                                         const arr = Array.from(nextIds).sort((a, b) => a - b)
                                         return { ...prevMeta, sets: arr }
                                       },
-                                      (previousMeta, nextMeta) => describeMetasetSetsChanged({ previous: previousMeta, next: nextMeta, t }),
+                                      (previousMeta, nextMeta) => describeMetasetSetsChanged({ previous: previousMeta, next: nextMeta, t, lang }),
                                     )
                                   }}
                                 />
@@ -951,7 +954,7 @@ export default function MetasetsDialog({
             }
             const nextMeta = { id, name, sets: [], show: true, iconId }
             const nextMetasets = metasets.concat(nextMeta)
-            recordHistory(describeMetasetAdded({ metaset: nextMeta, index: metasets.length, t }), { mutated: true, nextMetasets })
+            recordHistory(describeMetasetAdded({ metaset: nextMeta, index: metasets.length, t, lang }), { mutated: true, nextMetasets })
             onMetasetsChange(nextMetasets)
           }}>{t('addMetaset')}</Button>
           
@@ -993,7 +996,7 @@ export default function MetasetsDialog({
               commitMetasetUpdate(
                 targetIdx,
                 (prevMeta) => ({ ...prevMeta, sets: [] }),
-                (previousMeta, nextMeta) => describeMetasetSetsChanged({ previous: previousMeta, next: nextMeta, t }),
+                (previousMeta, nextMeta) => describeMetasetSetsChanged({ previous: previousMeta, next: nextMeta, t, lang }),
               )
             }}
             sx={{ height: BUILDER_TOGGLE_BUTTON_HEIGHT_PX, minHeight: BUILDER_TOGGLE_BUTTON_HEIGHT_PX, whiteSpace: 'nowrap' }}

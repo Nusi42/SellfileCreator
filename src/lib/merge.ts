@@ -17,7 +17,7 @@ import {
   type ArtifactSetId,
   compareArtifactTypes,
   compareArtifactSets,
-  artifactSetNames,
+  getAllKnownArtifactSetIds,
   StatId,
   StatVariant,
   LEVEL_MILESTONES,
@@ -357,7 +357,7 @@ export function buildFinalSellRules(finalSellRemainder: FinalSellRemainderConfig
       const enabled = mode === setsMode
       const useExplicitSets = mode === FINAL_SELL_SETS_MODE_EXPLICIT
       const allSets = useExplicitSets
-        ? Array.from(new Set<number>([ACCESSORY_NO_SET_ID, ...Object.keys(artifactSetNames).map(Number)])).sort(compareArtifactSets)
+        ? Array.from(new Set<number>([ACCESSORY_NO_SET_ID, ...getAllKnownArtifactSetIds().map((id) => Number(id))])).sort(compareArtifactSets)
         : []
       // Export helpers: emit sets/types immediately before the rank payload for readability.
       const mkRule = (types: number[], useFlag: boolean): HsfRule => ({

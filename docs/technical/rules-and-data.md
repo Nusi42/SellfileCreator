@@ -144,3 +144,37 @@ This document covers file schemas, builder semantics, and compatibility notes.
 - ≥ ranges (conservative): `≥ Common..≥ Epic (6..9)` now use their lower-bound roll schedules, and no Mythical pre-roll is assumed for any `≥` range. If you depended on the old behavior (Legendary schedule + Mythical pre-roll), switch to exact `Legendary`/`Mythical`.
 - Per-config pruning: Obsolete pruning runs per config before merging, so preview table counts match the builder chip. Cross-config overlaps remain visible by design.
 - Back-compat: HSFC exports now require the explicit level window. When either `minLevel` or `maxLevel` is missing, the parser defaults to the full `[0..16]` window before the builder runs.
+
+### Runtime Gear Sets (`*.gearsets.json`)
+- Purpose: allow end users to hot-load brand-new gear-set definitions until an official release ships.
+- File shape (`version = 1`):
+  ```json
+  {
+    "version": 1,
+    "sets": [
+      {
+        "id": 999,
+        "name": "Celestial",
+        "pieceGroup": "armorFixed", // 'accessories' | 'armorFixed' | 'armorVariable'
+        "pieces": 2,               // number or string (e.g., "1–9")
+        "text": "SPD +15%",
+        "byPieces": { "4": "extra turn" },      // optional
+        "icon": "data:image/png;base64,..."
+      }
+    ]
+  }
+  ```
+- The app accepts drag‑and‑drop or manual file selection for `*.gearsets.json` files. All imagery must be embedded data URLs; no external fetches are allowed in the runtime sandbox.
+- `examples/custom.gearsets.json` includes four reference entries (2-piece armor, accessory-only single piece, 4-piece armor, and a 1–9 flexible set) with inline PNG data so contributors can copy known-good structures.
+- Validation:
+  - `id` must be a positive integer.
+  - `pieceGroup` must match the exported enum (`accessories`, `armorFixed`, `armorVariable`).
+  - `pieces` and `text` are required; `byPieces` uses numeric keys.
+  - `icon` is optional; when supplied it must be a `data:` URL (SVG, PNG, WebP, etc.). When omitted or invalid the UI falls back to a generated badge that displays the set ID.
+- Persistence: accepted sets are merged into the in-memory catalogs immediately and saved to `localStorage` (`sellfileCreator.runtimeGearSets.v1`). HSFC files do not embed runtime sets; contributors should share the `.gearsets.json` alongside any `.hsfc` they distribute. On startup, stored sets remain dormant until the user opts into the “Gear Sets” checkbox in the **Restore Last Saved Configs?** dialog; declining (or dismissing the dialog) keeps the stored snapshot untouched until the next HSFC autosave or Rule Tester autosave writes, at which point the runtime registry snapshot (empty or not) is persisted. This lets contributors reopen the dialog later to reapply previously stored sets without re-importing.
+- Behavior:
+  - Built-in catalogs stay untouched; runtime entries override lookups (names, tooltips, icons) for their numeric IDs.
+  - Selection menus, tooltips, builder chips, history entries, and exports all pull from the merged catalog.
+  - Accessory compatibility (`ACCESSORY_SLOTS_COMPATIBLE_SET_IDS`) and piece-group helpers now query the merged registry so runtime IDs respect slot/faction constraints automatically.
+  - All locales display the contributor-supplied `name`/`text` fields; there is no per-language override for hot-loaded sets.
+  - Manual import buttons (`Load Configs` in the builder and `Load Sellfile` in preview) now share the same router as drag-and-drop, so they silently accept `.hsf`, `.hsfc`, `.l10n`, `.gearsets.json`, and gear database delta files.

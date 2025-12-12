@@ -1,0 +1,56 @@
+{
+  "version": 1,
+  "sets": [
+    {
+      "id": 9001,
+      "name": "Harmonic Charge",
+      "pieceGroup": "armorFixed",
+      "pieces": 2,
+      "text": "ATK +15%\n20% chance to boost +10% Turn Meter when placing buffs",
+      "icon": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAIAAAD8GO2jAAAAKklEQVR42mOQ6n9MU8QwasGoBaMWjFowasGoBaMWjFowasGoBaMWDBULABq+MFuGA75zAAAAAElFTkSuQmCC"
+    },
+    {
+      "id": 201,
+      "name": "Sigil Trinkets",
+      "pieceGroup": "accessories",
+      "pieces": 1,
+      "text": "per piece: +5% SPD, +5% RES; totals: 5/10/15% each with 1/2/3 pieces",
+      "byPieces": {
+        "1": "+5% SPD, +5% RES",
+        "2": "+10% SPD, +10% RES",
+        "3": "+15% SPD, +15% RES"
+      }
+    },
+    {
+      "id": 9003,
+      "name": "Celestial Vanguard",
+      "pieceGroup": "armorFixed",
+      "pieces": 4,
+      "text": "+20% SPD, +25% DEF",
+      "byPieces": {
+        "2": "+20% SPD",
+        "4": "+25% DEF"
+      },
+      "icon": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAIAAAD8GO2jAAAAKklEQVR42u3NQQkAAAgEsKtpNnuYzxQ+hMH+S9ecikAgEAgEAoFAIPgSLH2EqFu+zj6cAAAAAElFTkSuQmCC"
+    },
+    {
+      "id": 9004,
+      "name": "Prismatic Storm",
+      "pieceGroup": "armorVariable",
+      "pieces": "1-9",
+      "text": "Flexible bonus ladder scaling with each equipped piece",
+      "byPieces": {
+        "1": "+20 RES",
+        "2": "+8% SPD",
+        "3": "+20 RES",
+        "4": "Gain 1 stack of Storm Guard",
+        "5": "+8% SPD",
+        "6": "50% chance to extend Storm Guard",
+        "7": "+20 RES",
+        "8": "+12% SPD",
+        "9": "Allies deal +5% damage while wearer has Storm Guard active"
+      },
+      "icon": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAIAAAD8GO2jAAAAKklEQVR42mPQO1NIU8QwasGoBaMWjFowasGoBaMWjFowasGoBaMWDBULAMPtrExDJ397AAAAAElFTkSuQmCC"
+    }
+  ]
+}

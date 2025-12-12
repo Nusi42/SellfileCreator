@@ -900,6 +900,8 @@ const overrides: Catalog = {
   restoreAutosaveFiltersHelper: 'Відновлює стан відкриття, чипи та згортання секцій.',
   restoreAutosaveTesterLabel: 'Черга тестера ({count})',
   restoreAutosaveTesterHelper: 'Завантажити автозбережене спорядження.',
+  restoreAutosaveGearSetsLabel: 'Користувацькі сети ({count})',
+  restoreAutosaveGearSetsHelper: 'Завантажити надані патчі сетів.',
   restoreAutosaveRestoreSelected: 'Відновити вибране',
   yes: 'Так',
   no: 'Ні',
@@ -976,6 +978,8 @@ const overrides: Catalog = {
   toastGearDbImportEmpty: 'У базі даних немає спорядження.',
   toastL10nLoaded: 'Локалізацію завантажено: {lang}',
   toastL10nLoadFailed: 'Не вдалося завантажити файл локалізації',
+  toastGearSetsLoaded: 'Завантажено {count} користувацьких сетів',
+  toastGearSetsLoadFailed: 'Не вдалося завантажити файл сетів',
 
   // Tutorial section labels
   tutSectionBasicsLabel: 'Основи',

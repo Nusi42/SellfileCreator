@@ -899,6 +899,8 @@ const enUS: Catalog = {
   restoreAutosaveFiltersHelper: 'Restores panel open state, chips, and collapsed sections.',
   restoreAutosaveTesterLabel: 'Rule Tester Imports ({count})',
   restoreAutosaveTesterHelper: 'Load autosaved gear.',
+  restoreAutosaveGearSetsLabel: 'Runtime Gear Sets ({count})',
+  restoreAutosaveGearSetsHelper: 'Load contributor gear-set patches.',
   restoreAutosaveRestoreSelected: 'Restore Selected',
   yes: 'Yes',
   no: 'No',
@@ -975,6 +977,8 @@ const enUS: Catalog = {
   toastGearDbImportEmpty: 'Database did not contain any gear items.',
   toastL10nLoaded: 'Loaded localization: {lang}',
   toastL10nLoadFailed: 'Failed to load localization file',
+  toastGearSetsLoaded: 'Loaded {count} custom gear sets',
+  toastGearSetsLoadFailed: 'Failed to load gear-set file',
 
   // Tutorial section labels
   tutSectionBasicsLabel: 'Basics',

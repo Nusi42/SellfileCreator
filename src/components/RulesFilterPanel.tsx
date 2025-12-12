@@ -21,9 +21,9 @@ import {
   labelOfVariant,
   Faction,
   type FactionId,
+  type ArtifactSetId,
   filterAndSortSetEntries,
   statVariantI18nKey,
-  artifactSetI18nKey,
   factionI18nKey,
   LEVEL_MILESTONES,
   type LevelMilestone,
@@ -32,6 +32,7 @@ import {
   STAT_VARIANTS_PRIORITY_ROW1,
   STAT_VARIANTS_PRIORITY_ROW2,
   DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT,
+  getLocalizedGearSetName,
 } from '../lib/types'
 import { LIST_SUBHEADER_SX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, SETS_MENU_WIDTH_PX, FILTER_FACTION_SELECT_WIDTH_PX, FILTER_SETS_SELECT_WIDTH_PX, FILTER_CHIP_TOP_MARGIN, ELLIPSIS_TEXT_SX, FILTER_TOGGLE_BUTTON_WIDTH_PX, SMALL_BUTTON_HEIGHT_PX, BUILDER_STATUS_CHIP_HEIGHT_PX, UI_BG_HOVER_DANGER_TRANSITION, DANGER_TINT_BG, SETS_SELECT_INLINE_GUTTER_COLLAPSED_PX, SETS_SELECT_INLINE_GUTTER_PX, STATUS_CHIP_BORDER_RADIUS_PX, FONT_SIZE_BASE_PX, CLEAR_ICON_BUTTON_SIZE_PX, GLYPH_TOGGLE_ON, GLYPH_TOGGLE_OFF, GLYPH_GLYPHS_SELECTED, ROLL_BADGE_SIZE_PX, ROLL_BADGE_SCALE, ROLL_BADGE_HOVER_GUTTER_PX, CHAMPION_ICON_BASE_SIZE, CHAMPION_ICON_BORDER_RADIUS_PX } from '../lib/constants'
 import { reserveScrollbarGutterSpace } from '../lib/scrollbar'
@@ -40,6 +41,7 @@ import React from 'react'
 import { alpha, useTheme } from '@mui/material/styles'
 import type { SxProps, Theme } from '@mui/material/styles'
 import { keyframes } from '@emotion/react'
+import { useGearSetCatalogVersion } from '../hooks/useGearSetCatalogVersion'
 import { RULES_FILTER_COLLAPSIBLE_SECTION_IDS } from '../state/rulesFilterPersistence'
 import type { CollapsedSections } from '../state/rulesFilterPersistence'
 import {
@@ -417,7 +419,8 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
   ref,
 ) {
   const isTesterMode = mode === 'tester'
-  const { t } = useI18n()
+  const { t, lang } = useI18n()
+  useGearSetCatalogVersion()
   const theme = useTheme()
   const testerRollsState: TesterRollFilterState = state.testerRolls ?? DEFAULT_RULES_FILTER_STATE.testerRolls ?? createDefaultTesterRollsState()
   const testerRollsActive = isTesterRollFilterActive(state.testerRolls)
@@ -849,7 +852,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
         }
       } else if (tkn.startsWith('s:')) {
         const id = Number(tkn.slice(2))
-        const localized = t(artifactSetI18nKey(id)) || artifactSetName(id)
+        const localized = getLocalizedGearSetName(id as ArtifactSetId, t, lang) || artifactSetName(id)
         names.push(localized)
       }
     }
@@ -1931,7 +1934,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                         const tooltipName = hasGlyph ? `${glyph}${needsGap ? ` ${m.name}` : m.name}` : m.name
                         const displayGap = hasGlyph && needsGap ? 0.75 : 0.5
                         const selected = (state.sets.metaSelected ?? []).includes(m.id)
-                        const setNames = m.sets.map(id => t(artifactSetI18nKey(id))).filter(Boolean)
+                        const setNames = m.sets.map(id => getLocalizedGearSetName(id, t, lang)).filter(Boolean)
                         const joined = setNames.join(', ')
                         return (
                           <MenuItem

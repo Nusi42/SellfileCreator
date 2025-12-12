@@ -2,7 +2,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { KEEP_UNIQUE_DEFAULT_COUNT_MODE, KeepUniqueRuleActivation, collectKeepUniqueCandidates, computeKeepUniqueProtection, hashKeepUniqueCombination, normalizeKeepUniqueRule, resolveKeepUniqueRuleLabel, resolveKeepUniqueRulesWithMetasets, buildDefaultKeepUniqueRules } from '../src/lib/keepUniques.js'
-import { ACCESSORY_SLOTS_COMPATIBLE_SET_IDS, ArtifactSet, ArtifactType, Faction, StatVariant, LEVEL_ANY_SENTINEL, RarityCode, type RankValue } from '../src/lib/types.js'
+import { ArtifactSet, ArtifactType, Faction, StatVariant, LEVEL_ANY_SENTINEL, RarityCode, type RankValue, getAccessorySlotsCompatibleSetIds } from '../src/lib/types.js'
 import type { TesterPreviewRow } from '../src/types/testerPreview.js'
 import type { NormalizedGearArtifact, NormalizedStat } from '../src/lib/importers/gearDbNormalizer.js'
 import type { KeepUniqueRule } from '../src/lib/keepUniques.js'
@@ -284,7 +284,7 @@ test('default keep unique rules seed the accessory guard and optional armor sets
   assert.ok(accessoryRule)
   assert.strictEqual(accessoryRule.name, 'Rare+ Accessories (5-6★)')
   assert.deepStrictEqual(accessoryRule.combination.slots, [ArtifactType.Ring, ArtifactType.Amulet, ArtifactType.Banner])
-  assert.deepStrictEqual(accessoryRule.combination.sets, ACCESSORY_SLOTS_COMPATIBLE_SET_IDS)
+  assert.deepStrictEqual(accessoryRule.combination.sets, getAccessorySlotsCompatibleSetIds())
   assert.deepStrictEqual(accessoryRule.combination.ranks, [5, 6])
   assert.deepStrictEqual(accessoryRule.combination.rarities, [3, 4, 5, 6])
   assert.strictEqual(accessoryRule.requiredCount, 1)

@@ -1,7 +1,10 @@
 // Shared domain catalogs && formatters (used by HSF viewer as well)
 import { NBSP } from './constants'
 import { artifactSetDescriptions } from './setDescriptions'
+import { ArtifactSetPieceGroup } from './gearSets/groups'
+import { getRuntimeGearSet, getRuntimeGearSetVersion, listRuntimeGearSets } from './gearSets/runtimeStore'
 export { NBSP } from './constants'
+export { ArtifactSetPieceGroup } from './gearSets/groups'
 
 // Artifact types (slots) as an enum for readability (values match HSF IDs)
 export const ArtifactType = {
@@ -209,18 +212,6 @@ export const artifactSetNames: Record<number, string> = {
   [ArtifactSet.Revenge]: 'Revenge',
 }
 
-// Canonical piece-count groupings keep set menus, seed catalogs, and Keep
-// Uniques in sync. We centralize the grouping metadata so UI components avoid
-// duplicating "1-piece accessory vs 2/4-piece armor vs 1–9 variable" logic.
-export const ArtifactSetPieceGroup = {
-  Accessories: 'accessories',
-  ArmorFixed: 'armorFixed',
-  ArmorVariable: 'armorVariable',
-} as const
-
-// eslint-disable-next-line no-redeclare -- share the identifier for runtime enum + type alias
-export type ArtifactSetPieceGroup = (typeof ArtifactSetPieceGroup)[keyof typeof ArtifactSetPieceGroup]
-
 type ArtifactSetPieceMeta = { id: number; group: ArtifactSetPieceGroup }
 
 const artifactSetPieceGroups: Record<number, ArtifactSetPieceGroup> = (() => {
@@ -248,6 +239,8 @@ const artifactSetPieceGroups: Record<number, ArtifactSetPieceGroup> = (() => {
 
 /** Resolve the normalized piece-count grouping for an artifact set ID. */
 export function getArtifactSetPieceGroup(id: ArtifactSetId): ArtifactSetPieceGroup {
+  const runtime = getRuntimeGearSet(id)
+  if (runtime) return runtime.pieceGroup
   return artifactSetPieceGroups[Number(id)] ?? ArtifactSetPieceGroup.ArmorFixed
 }
 
@@ -292,6 +285,127 @@ export const ALL_ARTIFACT_SET_IDS = Object.freeze(
     .map((id) => id as ArtifactSetId),
 )
 
+type RuntimeGearSetCache = {
+  version: number
+  entries: Array<[string, string]>
+  accessories: readonly ArtifactSetId[]
+  armorFixed: readonly ArtifactSetId[]
+  armorVariable: readonly ArtifactSetId[]
+  all: readonly ArtifactSetId[]
+}
+
+const runtimeGearSetCache: RuntimeGearSetCache = {
+  version: -1,
+  entries: Object.entries(artifactSetNames),
+  accessories: ACCESSORY_SET_IDS,
+  armorFixed: ARMOR_FIXED_SET_IDS,
+  armorVariable: ARMOR_VARIABLE_SET_IDS,
+  all: ALL_ARTIFACT_SET_IDS,
+}
+
+const mergeSetIds = (base: readonly ArtifactSetId[], extras: ArtifactSetId[]): readonly ArtifactSetId[] => {
+  if (!extras.length) return base
+  return Object.freeze(
+    Array.from(new Set<number>([
+      ...base,
+      ...extras,
+    ])).sort((a, b) => a - b)
+      .map((id) => id as ArtifactSetId),
+  )
+}
+
+function ensureRuntimeGearSetCache(): void {
+  const version = getRuntimeGearSetVersion()
+  if (version === runtimeGearSetCache.version) return
+  const runtimeSets = listRuntimeGearSets()
+  if (!runtimeSets.length) {
+    runtimeGearSetCache.entries = Object.entries(artifactSetNames)
+    runtimeGearSetCache.accessories = ACCESSORY_SET_IDS
+    runtimeGearSetCache.armorFixed = ARMOR_FIXED_SET_IDS
+    runtimeGearSetCache.armorVariable = ARMOR_VARIABLE_SET_IDS
+    runtimeGearSetCache.all = ALL_ARTIFACT_SET_IDS
+    runtimeGearSetCache.version = version
+    return
+  }
+  const entryMap = new Map<string, string>(Object.entries(artifactSetNames))
+  const accessories: ArtifactSetId[] = []
+  const armorFixed: ArtifactSetId[] = []
+  const armorVariable: ArtifactSetId[] = []
+  runtimeSets.forEach((set) => {
+    entryMap.set(String(set.id), set.canonicalName)
+    const id = set.id as ArtifactSetId
+    switch (set.pieceGroup) {
+      case ArtifactSetPieceGroup.Accessories:
+        accessories.push(id)
+        break
+      case ArtifactSetPieceGroup.ArmorFixed:
+        armorFixed.push(id)
+        break
+      case ArtifactSetPieceGroup.ArmorVariable:
+        armorVariable.push(id)
+        break
+      default:
+        armorFixed.push(id)
+    }
+  })
+  runtimeGearSetCache.entries = Array.from(entryMap.entries())
+  runtimeGearSetCache.accessories = mergeSetIds(ACCESSORY_SET_IDS, accessories)
+  runtimeGearSetCache.armorFixed = mergeSetIds(ARMOR_FIXED_SET_IDS, armorFixed)
+  runtimeGearSetCache.armorVariable = mergeSetIds(ARMOR_VARIABLE_SET_IDS, armorVariable)
+  runtimeGearSetCache.all = mergeSetIds(ALL_ARTIFACT_SET_IDS, [...accessories, ...armorFixed, ...armorVariable])
+  runtimeGearSetCache.version = version
+}
+
+const getArtifactSetEntries = (): Array<[string, string]> => {
+  ensureRuntimeGearSetCache()
+  return runtimeGearSetCache.entries
+}
+
+export function getAccessorySetIds(): readonly ArtifactSetId[] {
+  ensureRuntimeGearSetCache()
+  return runtimeGearSetCache.accessories
+}
+
+export function getArmorFixedSetIds(): readonly ArtifactSetId[] {
+  ensureRuntimeGearSetCache()
+  return runtimeGearSetCache.armorFixed
+}
+
+export function getArmorVariableSetIds(): readonly ArtifactSetId[] {
+  ensureRuntimeGearSetCache()
+  return runtimeGearSetCache.armorVariable
+}
+
+export function getAllKnownArtifactSetIds(): readonly ArtifactSetId[] {
+  ensureRuntimeGearSetCache()
+  return runtimeGearSetCache.all
+}
+
+const ACCESSORY_COMPAT_BASE = new Set<number>(ACCESSORY_SLOTS_COMPATIBLE_SET_IDS.map((id) => Number(id)))
+
+export function getAccessorySlotsCompatibleSetIds(): readonly ArtifactSetId[] {
+  const extras: ArtifactSetId[] = []
+  getAccessorySetIds().forEach((id) => {
+    const numeric = Number(id)
+    if (!ACCESSORY_COMPAT_BASE.has(numeric)) extras.push(id)
+  })
+  getArmorVariableSetIds().forEach((id) => {
+    const numeric = Number(id)
+    if (!ACCESSORY_COMPAT_BASE.has(numeric)) extras.push(id)
+  })
+  return mergeSetIds(ACCESSORY_SLOTS_COMPATIBLE_SET_IDS, extras)
+}
+
+export function findArtifactSetIdByName(name: string): ArtifactSetId | null {
+  ensureRuntimeGearSetCache()
+  for (const [id, label] of runtimeGearSetCache.entries) {
+    if (label === name) {
+      return Number(id) as ArtifactSetId
+    }
+  }
+  return null
+}
+
 /**
  * Filter and sort artifact sets for UI menus.
  * - When `order === 'az'`, sorts alphabetically by set name.
@@ -307,7 +421,7 @@ export function filterAndSortSetEntries(
   order: 'game' | 'az' | 'icons',
   opts?: ArtifactSetSearchOptions,
 ): Array<[string, string]> {
-  const entries = Object.entries(artifactSetNames) as Array<[string, string]>
+  const entries = getArtifactSetEntries()
   const normalizedSearch = search.trim().toLowerCase()
   const filtered = normalizedSearch
     ? entries.filter(([id, name]) => {
@@ -821,7 +935,22 @@ export function formatArtifactSets(sets?: ArtifactSetId[]): string {
 
 // Convenience: safe lookup that accepts either enum || number, with a readable fallback
 export function artifactSetName(id: ArtifactSetId): string {
+  const runtime = getRuntimeGearSet(id)
+  if (runtime) return runtime.canonicalName
   return artifactSetNames[Number(id)] ?? String(id)
+}
+
+export function getLocalizedGearSetName(
+  id: ArtifactSetId,
+  t: (key: ReturnType<typeof artifactSetI18nKey>) => string,
+  _lang?: string,
+): string {
+  const runtime = getRuntimeGearSet(id)
+  if (runtime) {
+    return (runtime.canonicalName ?? String(id)).trim()
+  }
+  const label = t(artifactSetI18nKey(id))
+  return label || artifactSetName(id)
 }
 
 // i18n key for artifact set label shown in UI. Use this with `t(...)` for localized set names.

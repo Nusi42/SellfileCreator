@@ -16,7 +16,7 @@ import CloseFullscreenIcon from '@mui/icons-material/CloseFullscreen'
 import DeleteIcon from '@mui/icons-material/Delete'
 import type { BuilderConfig } from '../../lib/hsfBuilder'
 import type { ArtifactSetId, ArtifactTypeId, FactionId, LevelMilestone } from '../../lib/types'
-import { ArtifactType, /* rarityCodeToName, */ formatLevel, slotSupportsSub, slotSupportsMain, ALLOWED_MAIN_BY_SLOT, Faction, factionI18nKey, filterAndSortSetEntries, artifactTypeI18nKey, artifactSetName, artifactSetI18nKey, DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT, statVariantI18nKey, StatId, LEVEL_MILESTONES, STAT_VARIANTS_PRIORITY } from '../../lib/types'
+import { ArtifactType, /* rarityCodeToName, */ formatLevel, slotSupportsSub, slotSupportsMain, ALLOWED_MAIN_BY_SLOT, Faction, factionI18nKey, filterAndSortSetEntries, artifactTypeI18nKey, artifactSetName, DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT, statVariantI18nKey, StatId, LEVEL_MILESTONES, STAT_VARIANTS_PRIORITY, getLocalizedGearSetName } from '../../lib/types'
 // MarkdownTooltip keeps all dialog hints (add/delete toggles, source glyphs, copy buttons) consistent with global styling.
 import MarkdownTooltip from '../MarkdownTooltip'
 import { allowedTesterSetIds, isAccessorySlot, normalizeTesterSetForSlot } from '../../lib/testerDomain'
@@ -26,6 +26,7 @@ import { artifactTypeIconList } from '../artifactTypeIcons'
 import type { TesterItemPreviewExtras } from '../../lib/ruleEval'
 import type { NormalizedStat } from '../../lib/importers/gearDbNormalizer'
 import { useI18n } from '../../lib/i18n'
+import { useGearSetCatalogVersion } from '../../hooks/useGearSetCatalogVersion'
 import { useAppState } from '../../state/appState'
 import SetMenuSection from '../SetMenuSection'
 import { SetIcon } from '../SetIcon'
@@ -203,7 +204,8 @@ export function GearTesterTabContent({
   onRequestClose,
   renderLayout,
 }: GearTesterTabContentProps) {
-  const { t } = useI18n()
+  const { t, lang } = useI18n()
+  useGearSetCatalogVersion()
   const { substatTargets, metasets } = useAppState()
   const { showFactionIcons, statButtonBorders } = useDisplayPreferences()
   const testerMath = useMemo(() => createRuleTesterMath(substatTargets), [substatTargets])
@@ -694,7 +696,7 @@ export function GearTesterTabContent({
     const setIdNumber = Number(normalizedSetId)
     const setNameCanonical = setIdNumber > 0 ? artifactSetName(setIdNumber) : ''
     const showSetChip = !(accessorySlot && setIdNumber === ACCESSORY_NO_SET_ID)
-    const setLabel = formatTesterSetLabel({ setId: setIdNumber, slot: it.slot, translate: t })
+    const setLabel = formatTesterSetLabel({ setId: setIdNumber, slot: it.slot, translate: t, lang })
     const setIconNode = setIdNumber > 0
       ? <SetIcon setId={setIdNumber} label={setNameCanonical} size={TESTER_COMPACT_ICON_SIZE_PX} sx={{ mr: 0 }} />
       : null
@@ -1087,7 +1089,7 @@ export function GearTesterTabContent({
               const sorted = filterAndSortSetEntries(setsSearch, setsOrder, { translate: t }).filter(([id]) => validIds.has(Number(id)))
               const setValue = (accessorySlot && setIdNumber === ACCESSORY_NO_SET_ID) ? '' : String(setIdNumber)
               const setOptionMissing = setValue !== '' && !sorted.some(([id]) => id === setValue)
-              const currentSetLabel = formatTesterSetLabel({ setId: setIdNumber, slot: it.slot, translate: t })
+              const currentSetLabel = formatTesterSetLabel({ setId: setIdNumber, slot: it.slot, translate: t, lang })
               return (
                 <Select
                   size="small"
@@ -1128,7 +1130,7 @@ export function GearTesterTabContent({
                   renderValue={(value) => {
                     if (value === '') return t('noSetAccessories')
                     const setNum = Number(value)
-                    const Label = t(artifactSetI18nKey(setNum)) || artifactSetName(setNum)
+                    const Label = getLocalizedGearSetName(setNum as ArtifactSetId, t, lang) || artifactSetName(setNum)
                     const setNameForIcon = artifactSetName(setNum)
                     const Icon = setNum > 0 ? <SetIcon setId={setNum} label={setNameForIcon} size={20} /> : null
                     return (

@@ -900,6 +900,8 @@ const catalog: Catalog = {
   restoreAutosaveFiltersHelper: 'Restaura estado aberto, chips e seções recolhidas.',
   restoreAutosaveTesterLabel: 'Importações do Teste de Regras ({count})',
   restoreAutosaveTesterHelper: 'Carrega o equipamento auto-salvo.',
+  restoreAutosaveGearSetsLabel: 'Conjuntos personalizados ({count})',
+  restoreAutosaveGearSetsHelper: 'Carrega os patches de conjuntos enviados pelos colaboradores.',
   restoreAutosaveRestoreSelected: 'Restaurar seleção',
   yes: 'Sim',
   no: 'Não',
@@ -976,6 +978,8 @@ const catalog: Catalog = {
   toastGearDbImportEmpty: 'O banco de dados não contém peças de gear.',
   toastL10nLoaded: 'Localização carregada: {lang}',
   toastL10nLoadFailed: 'Falha ao carregar o arquivo de localização',
+  toastGearSetsLoaded: '{count} conjuntos personalizados carregados',
+  toastGearSetsLoadFailed: 'Falha ao carregar o arquivo de conjuntos',
 
   // Tutorial section labels
   tutSectionBasicsLabel: 'Noções básicas',

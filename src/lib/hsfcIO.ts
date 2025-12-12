@@ -18,13 +18,14 @@ import {
   type LevelMilestone,
   RARITY_CODES,
   RarityCode,
-  artifactSetNames,
+  artifactSetName,
   artifactTypeNames,
   compareArtifactSets,
   compareArtifactTypes,
   compareVariants,
   factionCodeToName,
   factionNames,
+  findArtifactSetIdByName,
   formatRank,
   isLevelMilestone,
   isRarityCode,
@@ -34,6 +35,7 @@ import {
   variantFromLabel,
   RankCode,
   RANK_CODES,
+  type ArtifactSetId,
 } from './types'
 import { NBSP } from './constants'
 import {
@@ -85,6 +87,35 @@ function parseMainStatLike(v: unknown): number | undefined {
   if (typeof v === 'string') { const vk = variantFromLabel(v); if (vk !== null) return vk as number }
   // Objects like { id, f } are no longer accepted in HSFC; labels only
   return undefined
+}
+
+/**
+ * Resolve a readable set identifier to a numeric ArtifactSetId.
+ *
+ * Prefers baked-in catalog lookups; if not found, optionally falls back to a
+ * persisted-runtime name map supplied by autosave restore.
+ */
+const resolveSetId = (value: unknown, runtimeNameMap?: Map<string, number>): number | undefined => {
+  // Accept readable names first so HSFC stays human-friendly.
+  // Why: users don’t memorize numeric IDs.
+  if (typeof value === 'string') {
+    const trimmed = value.trim()
+    if (trimmed.length > 0) {
+      // Try baked-in (and active runtime, if loaded) catalog lookup.
+      const resolved = findArtifactSetIdByName(trimmed)
+      if (resolved !== null) return Number(resolved)
+      // If restore kept runtime sets dormant, fall back to persisted names.
+      // Why: autosave drafts store readable names, not raw IDs.
+      if (runtimeNameMap) {
+        const runtimeResolved = runtimeNameMap.get(trimmed.toLowerCase())
+        if (runtimeResolved !== undefined) return Number(runtimeResolved)
+      }
+    }
+  }
+  // Fall back to numeric parsing for legacy / advanced payloads.
+  const numeric = Number(value)
+  if (!Number.isFinite(numeric)) return undefined
+  return Math.floor(numeric)
 }
 
 function toFiniteNumberOrNull(value: unknown): number | null {
@@ -241,8 +272,13 @@ function mergeMetasetIds(base: BuilderConfig, metasets: Metaset[], extras: reado
 }
 
 // Normalize HSFC configs (readable schema) to current BuilderConfig
-/** Normalize a readable HSFC config to BuilderConfig with *V fields. */
-export function normalizeConfig(input: unknown): BuilderConfig {
+/**
+ * Normalize a readable HSFC config to BuilderConfig with *V fields.
+ *
+ * `runtimeNameMap` is only supplied by autosave restore to resolve dormant
+ * runtime set names without activating the runtime catalog.
+ */
+export function normalizeConfig(input: unknown, runtimeNameMap?: Map<string, number>): BuilderConfig {
   const rec: Record<string, unknown> = isRecord(input) ? input : {}
   const configs = rec['Configs']
   if (Array.isArray(configs) && configs.length > 0) {
@@ -250,7 +286,6 @@ export function normalizeConfig(input: unknown): BuilderConfig {
     if (isRecord(first)) return normalizeConfig(first)
   }
   const typeIdByName = new Map<string, number>(Object.entries(artifactTypeNames).map(([k, v]) => [v, Number(k)]))
-  const setIdByName = new Map<string, number>(Object.entries(artifactSetNames).map(([k, v]) => [v, Number(k)]))
   const parsedReadableSubstats = parseReadableSubstatEntries(rec['substats'])
   const legacyFixedSubstats = Array.isArray(rec['fixedSubstats'])
     ? ((rec['fixedSubstats'] as unknown[]).map((x) => parseSubstatLike(x)).filter((x): x is number => typeof x === 'number'))
@@ -415,7 +450,9 @@ export function normalizeConfig(input: unknown): BuilderConfig {
     ? ((rec['artifactTypeNames'] as unknown[]).map((n) => typeIdByName.get(String(n))).filter((x): x is number => typeof x === 'number'))
     : undefined
   const __artSets = Array.isArray(rec['artifactSetNames'])
-    ? ((rec['artifactSetNames'] as unknown[]).map((n) => setIdByName.get(String(n))).filter((x): x is number => typeof x === 'number'))
+    ? ((rec['artifactSetNames'] as unknown[])
+      .map((n) => resolveSetId(n, runtimeNameMap))
+      .filter((x): x is number => typeof x === 'number'))
     : undefined
   const __artMetaSets = asStringArray(rec['artifactMetaSets'])
   if (__artTypes !== undefined) opt.artifactTypes = __artTypes
@@ -616,7 +653,9 @@ export function buildReadableConfig(cfg: BuilderConfig, metasets: Metaset[]) {
     autoMinRequiredRolls: (cfg.autoMinRequiredRolls ?? true),
     lockedMinRequiredRolls: (cfg.lockedMinRequiredRolls ?? 0),
     artifactTypeNames: (cfg.artifactTypes ?? []).slice().sort(compareArtifactTypes).map(t => artifactTypeNames[Number(t)]).filter(Boolean),
-    artifactSetNames: (cfg.artifactSets ?? []).slice().sort(compareArtifactSets).map(s => artifactSetNames[Number(s)]).filter(Boolean),
+    artifactSetNames: (cfg.artifactSets ?? []).slice().sort(compareArtifactSets)
+      .map((s) => artifactSetName(Number(s) as ArtifactSetId))
+      .filter((x): x is string => Boolean(x && x.trim())),
     // Write compact metaset references by ID for smaller files. Names remain
     // available under Metasets[].name and are not duplicated here.
     artifactMetaSetIds: (cfg.artifactMetaSets ?? []).slice(),
@@ -671,12 +710,11 @@ export function parseConfigsFromText(text: string, metasetsForNames?: Metaset[])
     const metasFromObj = (obj: Record<string, unknown>): Metaset[] | null => {
       const raws = obj['Metasets']
       if (!Array.isArray(raws)) return null
-      const setIdByName = new Map<string, number>(Object.entries(artifactSetNames).map(([k, v]) => [v, Number(k)]))
       try {
         return (raws as unknown[]).map((m) => {
           const mRec = (m || {}) as Record<string, unknown>
           const names = Array.isArray(mRec['setNames']) ? (mRec['setNames'] as unknown[]) : []
-          const sets = names.map((n: unknown) => setIdByName.get(String(n))).filter((x: unknown): x is number => typeof x === 'number')
+          const sets = names.map((n: unknown) => resolveSetId(n)).filter((x: unknown): x is number => typeof x === 'number')
           return { id: String(mRec['id']), name: String(mRec['name']), sets, show: mRec['show'] !== false }
         })
       } catch { return null }
@@ -716,6 +754,7 @@ export function parseConfigsFromText(text: string, metasetsForNames?: Metaset[])
 export function parseHsfcText(
   text: string,
   prev: { metasets: Metaset[]; substatTargets: SubstatTargetTable },
+  options?: { runtimeSetNameMap?: Map<string, number> },
 ): {
   cfgs: BuilderConfig[]
   metasets: Metaset[]
@@ -727,13 +766,14 @@ export function parseHsfcText(
   keepUniquesEnabled: boolean
 } {
   const parsed = JSON.parse(text) as unknown
-  return parseHsfcObject(parsed, prev)
+  return parseHsfcObject(parsed, prev, options)
 }
 
 /** Parse an HSFC object (readable schema) into normalized slices. */
 export function parseHsfcObject(
   parsed: unknown,
   prev: { metasets: Metaset[]; substatTargets: SubstatTargetTable },
+  options?: { runtimeSetNameMap?: Map<string, number> },
 ): {
   cfgs: BuilderConfig[]
   metasets: Metaset[]
@@ -745,6 +785,7 @@ export function parseHsfcObject(
   keepUniquesEnabled: boolean
 } {
   const parsedRec = (typeof parsed === 'object' && parsed !== null ? (parsed as Record<string, unknown>) : {})
+  const runtimeSetNameMap = options?.runtimeSetNameMap
   let rawCfgs = Array.isArray(parsed) ? parsed : (Array.isArray(parsedRec['Configs']) ? (parsedRec['Configs'] as unknown[]) : [])
   // Convenience: accept a single readable-config object (tests/fixtures/*.hsfc use this simplified shape).
   // Why: Developers often drag these fixtures into the app while validating builder output. The shape
@@ -767,11 +808,12 @@ export function parseHsfcObject(
   const metasets: Metaset[] = (() => {
     const raws = parsedRec['Metasets']
     if (!Array.isArray(raws)) return prev.metasets
-    const setIdByName = new Map<string, number>(Object.entries(artifactSetNames).map(([k, v]) => [v, Number(k)]))
     return raws.map((m: unknown) => {
       const mRec = (m || {}) as Record<string, unknown>
       const names = Array.isArray(mRec['setNames']) ? (mRec['setNames'] as unknown[]) : []
-      const sets = names.map((n: unknown) => setIdByName.get(String(n))).filter((x: unknown): x is number => typeof x === 'number')
+      const sets = names
+        .map((n: unknown) => resolveSetId(n, runtimeSetNameMap))
+        .filter((x: unknown): x is number => typeof x === 'number')
       const iconId = normalizeMetasetIconId(mRec['iconId'])
       return { id: String(mRec['id']), name: String(mRec['name']), sets, show: mRec['show'] !== false, iconId }
     })
@@ -780,7 +822,8 @@ export function parseHsfcObject(
     ? normalizeSubstatTargets(parsedRec['Minima'])
     : prev.substatTargets
   const cfgs: BuilderConfig[] = rawCfgs.map((raw) => {
-    const base = normalizeConfig(raw)
+    // Only autosave restore provides `runtimeSetNameMap`.
+    const base = normalizeConfig(raw, runtimeSetNameMap)
     const rec = (raw && typeof raw === 'object') ? (raw as Record<string, unknown>) : {}
     // Prefer explicit IDs, fallback to names
     const ids = Array.isArray(rec['artifactMetaSetIds']) ? (rec['artifactMetaSetIds'] as unknown[]).map(String) : []
@@ -916,8 +959,8 @@ export function buildHsfcPayload(args: {
       id: m.id,
       name: m.name,
       setNames: m.sets.slice().sort(compareArtifactSets)
-        .map((id) => artifactSetNames[Number(id)])
-        .filter((x): x is string => Boolean(x)),
+        .map((id) => artifactSetName(Number(id) as ArtifactSetId))
+        .filter((x): x is string => Boolean(x && x.trim())),
       show: m.show !== false,
       ...(iconId !== DEFAULT_METASET_ICON_ID ? { iconId } : {}),
     }
@@ -949,7 +992,7 @@ export function buildHsfcPayload(args: {
       const slotLabels = rule.combination.slots
         .map((slot) => artifactTypeNames[Number(slot)] ?? String(slot))
       const setLabels = rule.combination.sets
-        .map((set) => artifactSetNames[Number(set)] ?? String(set))
+        .map((set) => artifactSetName(Number(set) as ArtifactSetId))
       const rankLabels = rule.combination.ranks
         .map((rank) => formatRank(rank as RankCode))
         .filter((label) => Boolean(label && label.trim()))

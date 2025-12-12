@@ -43,13 +43,13 @@ import {
 } from '../../lib/constants'
 import type { ArtifactSetId, ArtifactTypeId, StatVariant } from '../../lib/types'
 import {
-  ACCESSORY_SLOTS_COMPATIBLE_SET_IDS,
   ALLOWED_MAIN_BY_SLOT,
-  ARMOR_FIXED_SET_IDS,
-  ARMOR_VARIABLE_SET_IDS,
-  ALL_ARTIFACT_SET_IDS,
   ArtifactType,
   StatVariant as StatVariantEnum,
+  getAccessorySlotsCompatibleSetIds,
+  getArmorFixedSetIds,
+  getArmorVariableSetIds,
+  getAllKnownArtifactSetIds,
 } from '../../lib/types'
 import { isAccessorySlot } from '../../lib/testerDomain'
 import { useI18n } from '../../lib/i18n'
@@ -71,6 +71,7 @@ import type { SystemStyleObject } from '@mui/system'
 import { createBuilderStatusChipSx } from '../builderStatusChipStyles'
 import { reserveScrollbarGutterSpace } from '../../lib/scrollbar'
 import { useKeepUniquesGridFilterMode } from '../../state/keepUniquesPreferences'
+import { useGearSetCatalogVersion } from '../../hooks/useGearSetCatalogVersion'
 
 const SCOPE_CHIP_HOVER_ALPHA = { light: 0.12, dark: 0.24 } as const
 
@@ -99,7 +100,6 @@ type KeepUniquesTabProps = {
 
 type KeepUniqueScopeKey = 'perSlot' | 'perSet' | 'perFaction' | 'perMainStat'
 
-const ARTIFACT_SET_POOL: readonly ArtifactSetId[] = Object.freeze([...ARMOR_FIXED_SET_IDS, ...ARMOR_VARIABLE_SET_IDS])
 export default function KeepUniquesTab({
   rules,
   enabled,
@@ -123,6 +123,67 @@ export default function KeepUniquesTab({
   workloadProgressRatio,
 }: KeepUniquesTabProps) {
   const { t } = useI18n()
+  const gearSetCatalogVersion = useGearSetCatalogVersion()
+  const armorFixedSetIds = useMemo(() => {
+    void gearSetCatalogVersion
+    return getArmorFixedSetIds()
+  }, [gearSetCatalogVersion])
+  const armorVariableSetIds = useMemo(() => {
+    void gearSetCatalogVersion
+    return getArmorVariableSetIds()
+  }, [gearSetCatalogVersion])
+  const artifactSetPool = useMemo(
+    () => Object.freeze([...armorFixedSetIds, ...armorVariableSetIds]),
+    [armorFixedSetIds, armorVariableSetIds],
+  )
+  const accessoryCompatibleSetIds = useMemo(
+    () => {
+      void gearSetCatalogVersion
+      return getAccessorySlotsCompatibleSetIds()
+    },
+    [gearSetCatalogVersion],
+  )
+  const allArtifactSetIds = useMemo(
+    () => {
+      void gearSetCatalogVersion
+      return getAllKnownArtifactSetIds()
+    },
+    [gearSetCatalogVersion],
+  )
+  const resolveAllowedSetPool = useCallback((slots: ArtifactTypeId[]): readonly ArtifactSetId[] => {
+    const slotAny = slots.length === 0
+    const hasAccessory = slotAny || slots.some((slotId) => isAccessorySlot(slotId))
+    const hasArmor = slotAny || slots.some((slotId) => !isAccessorySlot(slotId))
+    if (hasAccessory && hasArmor) return allArtifactSetIds
+    return hasAccessory ? accessoryCompatibleSetIds : artifactSetPool
+  }, [accessoryCompatibleSetIds, allArtifactSetIds, artifactSetPool])
+  const sanitizeCombinationForSlots = useCallback((slots: ArtifactTypeId[], combination: KeepUniqueRule['combination']) => {
+    const normalizedSlots = dedupeNumericArray(slots)
+    const allowedSetPool = resolveAllowedSetPool(normalizedSlots)
+    const allowedSetIds = new Set(allowedSetPool.map(Number))
+    const filteredSets = combination.sets.filter((setId) => allowedSetIds.has(Number(setId)))
+    const filteredMetaIds = (combination.metaSetIds ?? []).filter((metaId) => {
+      const meta = metasets.find((item) => item.id === metaId)
+      if (!meta || !meta.sets.length) return false
+      return meta.sets.every((setId) => allowedSetIds.has(Number(setId)))
+    })
+    const mainOptions = getMainStatOptionsForSlots(normalizedSlots)
+    const hasAccessory = normalizedSlots.length === 0 || normalizedSlots.some((slotId) => isAccessorySlot(slotId))
+    const filteredMainStats = dedupeNumericArray((combination.mainStats ?? []).filter((variant) => mainOptions.includes(variant)))
+    const filteredFactions = hasAccessory ? dedupeNumericArray(combination.factions ?? []) : []
+    const hadExplicitSetSelection = combination.sets.length > 0 || (combination.metaSetIds?.length ?? 0) > 0
+    const resolvedSets = filteredSets.length > 0
+      ? filteredSets
+      : (hadExplicitSetSelection && allowedSetPool[0] ? [allowedSetPool[0]] : [])
+    return {
+      ...combination,
+      slots: normalizedSlots,
+      sets: resolvedSets,
+      metaSetIds: filteredMetaIds,
+      mainStats: filteredMainStats,
+      factions: filteredFactions,
+    }
+  }, [metasets, resolveAllowedSetPool])
   const theme = useTheme()
   const scopeChipSx = useMemo<((active: boolean) => SxProps<Theme>)>(() => {
     const builderChipSx = createBuilderStatusChipSx(theme)
@@ -347,8 +408,8 @@ ${t('keepUniquesCountModeHint')}`
     const hasAccessorySlot = slotAny || slotSelection.some((slotId) => isAccessorySlot(slotId))
     const hasArmorSlot = slotAny || slotSelection.some((slotId) => !isAccessorySlot(slotId))
     const allowedSetPool = hasAccessorySlot && hasArmorSlot
-      ? ALL_ARTIFACT_SET_IDS
-      : (hasAccessorySlot ? ACCESSORY_SLOTS_COMPATIBLE_SET_IDS : ARTIFACT_SET_POOL)
+      ? allArtifactSetIds
+      : (hasAccessorySlot ? accessoryCompatibleSetIds : artifactSetPool)
     const setSelection = combination.sets.filter((setId) => allowedSetPool.includes(setId))
     const rankSelection = combination.ranks
     const raritySelection = combination.rarities
@@ -655,7 +716,7 @@ ${t('keepUniquesCountModeHint')}`
                     value={slotSelection}
                     onChange={(nextSlots) => {
                       if (ruleDisabled) return
-                      setRuleCombination(rule.id, (prev) => sanitizeCombinationForSlots(nextSlots, prev, metasets))
+                    setRuleCombination(rule.id, (prev) => sanitizeCombinationForSlots(nextSlots, prev))
                     }}
                     size="small"
                     sx={getRuleSelectPaddingSx(slotSelection.length, INLINE_SELECT_FIXED_HEIGHT_PX)}
@@ -1051,34 +1112,6 @@ function makeDefaultKeepUniqueCombination(): KeepUniqueRule['combination'] {
   }
 }
 
-function sanitizeCombinationForSlots(slots: ArtifactTypeId[], combination: KeepUniqueRule['combination'], metasets: Metaset[]): KeepUniqueRule['combination'] {
-  const normalizedSlots = dedupeNumericArray(slots)
-  const allowedSetPool = resolveAllowedSetPool(normalizedSlots)
-  const allowedSetIds = new Set(allowedSetPool.map(Number))
-  const filteredSets = combination.sets.filter((setId) => allowedSetIds.has(Number(setId)))
-  const filteredMetaIds = (combination.metaSetIds ?? []).filter((metaId) => {
-    const meta = metasets.find((item) => item.id === metaId)
-    if (!meta || !meta.sets.length) return false
-    return meta.sets.every((setId) => allowedSetIds.has(Number(setId)))
-  })
-  const mainOptions = getMainStatOptionsForSlots(normalizedSlots)
-  const hasAccessory = normalizedSlots.length === 0 || normalizedSlots.some((slotId) => isAccessorySlot(slotId))
-  const filteredMainStats = dedupeNumericArray((combination.mainStats ?? []).filter((variant) => mainOptions.includes(variant)))
-  const filteredFactions = hasAccessory ? dedupeNumericArray(combination.factions ?? []) : []
-  const hadExplicitSetSelection = combination.sets.length > 0 || (combination.metaSetIds?.length ?? 0) > 0
-  const resolvedSets = filteredSets.length > 0
-    ? filteredSets
-    : (hadExplicitSetSelection && allowedSetPool[0] ? [allowedSetPool[0]] : [])
-  return {
-    ...combination,
-    slots: normalizedSlots,
-    sets: resolvedSets,
-    metaSetIds: filteredMetaIds,
-    mainStats: filteredMainStats,
-    factions: filteredFactions,
-  }
-}
-
 function cloneKeepUniqueCombination(combination: KeepUniqueRule['combination']): KeepUniqueRule['combination'] {
   return {
     slots: [...combination.slots],
@@ -1089,14 +1122,6 @@ function cloneKeepUniqueCombination(combination: KeepUniqueRule['combination']):
     mainStats: [...(combination.mainStats ?? [])],
     factions: [...(combination.factions ?? [])],
   }
-}
-
-function resolveAllowedSetPool(slots: ArtifactTypeId[]): readonly ArtifactSetId[] {
-  const slotAny = slots.length === 0
-  const hasAccessory = slotAny || slots.some((slotId) => isAccessorySlot(slotId))
-  const hasArmor = slotAny || slots.some((slotId) => !isAccessorySlot(slotId))
-  if (hasAccessory && hasArmor) return ALL_ARTIFACT_SET_IDS
-  return hasAccessory ? ACCESSORY_SLOTS_COMPATIBLE_SET_IDS : ARTIFACT_SET_POOL
 }
 
 function getMainStatOptionsForSlots(slots: ArtifactTypeId[]): StatVariant[] {

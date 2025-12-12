@@ -15,6 +15,7 @@ type RestoreAutosaveDialogProps = {
   open: boolean
   draft: RestoreDraft | null
   testerDraft: TesterRestoreDraftMeta | null
+  storedGearSetsCount: number
   metasetsDiffer: boolean
   targetsDiffer: boolean
   filtersDiffer: boolean
@@ -49,6 +50,7 @@ export default function RestoreAutosaveDialog({
   open,
   draft,
   testerDraft,
+  storedGearSetsCount,
   metasetsDiffer,
   targetsDiffer,
   filtersDiffer,
@@ -60,6 +62,9 @@ export default function RestoreAutosaveDialog({
   const [selection, setSelection] = useState<RestoreSelection>(RESTORE_SELECTION_DEFAULT)
   const configsCount = draft?.Configs?.length ?? 0
   const metasCount = draft?.Metasets?.length ?? 0
+  // Gear sets are not embedded in autosave/HSFC, so only storage matters here.
+  // Why: contributors share `.gearsets.json` separately.
+  const gearSetsCount = storedGearSetsCount ?? 0
   const hasTargets = Boolean(draft?.substatTargets)
   const hasNote = Boolean(draft?.Note && draft.Note.trim())
   const hasFilters = Boolean(draft?.Filters)
@@ -73,8 +78,9 @@ export default function RestoreAutosaveDialog({
     if (hasNote) next.note = true
     if (hasFilters && filtersDiffer) next.filters = true
     if (testerDraft) next.tester = true
+    if (gearSetsCount > 0) next.gearSets = true
     return next
-  }, [configsCount, hasFilters, hasNote, hasTargets, metasCount, metasetsDiffer, targetsDiffer, testerDraft, filtersDiffer])
+  }, [configsCount, gearSetsCount, hasFilters, hasNote, hasTargets, metasCount, metasetsDiffer, targetsDiffer, testerDraft, filtersDiffer])
 
   useEffect(() => {
     if (!open) return
@@ -126,8 +132,15 @@ export default function RestoreAutosaveDialog({
         helper: t('restoreAutosaveTesterHelper'),
       })
     }
+    if (gearSetsCount > 0) {
+      rows.push({
+        key: 'gearSets',
+        label: t('restoreAutosaveGearSetsLabel', { count: gearSetsCount }),
+        helper: t('restoreAutosaveGearSetsHelper'),
+      })
+    }
     return rows
-  }, [configsCount, hasFilters, hasNote, hasTargets, metasCount, metasetsDiffer, targetsDiffer, testerDraft, t, filtersDiffer])
+  }, [configsCount, gearSetsCount, hasFilters, hasNote, hasTargets, metasCount, metasetsDiffer, targetsDiffer, testerDraft, t, filtersDiffer])
 
   const hasOptions = options.length > 0
   // Autosave prompts must feel invisible when there's nothing actionable.

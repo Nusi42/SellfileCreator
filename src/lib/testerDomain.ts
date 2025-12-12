@@ -13,15 +13,11 @@ import {
   compareArtifactSets,
   LEVEL_MILESTONES,
   type LevelMilestone,
-  ALL_ARTIFACT_SET_IDS,
-  ARMOR_FIXED_SET_IDS,
-  ARMOR_VARIABLE_SET_IDS,
-  ACCESSORY_SLOTS_COMPATIBLE_SET_IDS,
+  getAllKnownArtifactSetIds,
+  getArmorFixedSetIds,
+  getArmorVariableSetIds,
+  getAccessorySlotsCompatibleSetIds,
 } from './types'
-const ARMOR_SET_IDS: readonly number[] = Array.from(new Set<number>([
-  ...ARMOR_FIXED_SET_IDS,
-  ...ARMOR_VARIABLE_SET_IDS,
-])).sort(compareArtifactSets)
 
 const RANK_VALUES: readonly [1, 2, 3, 4, 5, 6] = [1, 2, 3, 4, 5, 6]
 const RARITY_VALUES: readonly [1, 2, 3, 4, 5, 6] = [1, 2, 3, 4, 5, 6]
@@ -43,19 +39,23 @@ export function allowedTesterSetIds(slot: ArtifactTypeId): number[] {
   if (numeric === TESTER_ANY_SLOT_ID) {
     const merged = new Set<number>([
       ACCESSORY_NO_SET_ID,
-      ...ALL_ARTIFACT_SET_IDS,
-      ...ACCESSORY_SLOTS_COMPATIBLE_SET_IDS,
+      ...getAllKnownArtifactSetIds(),
+      ...getAccessorySlotsCompatibleSetIds(),
     ])
     return Array.from(merged).sort(compareArtifactSets)
   }
   if (isAccessorySlot(numeric)) {
     const merged = new Set<number>([
       ACCESSORY_NO_SET_ID,
-      ...ACCESSORY_SLOTS_COMPATIBLE_SET_IDS,
+      ...getAccessorySlotsCompatibleSetIds(),
     ])
     return Array.from(merged).sort(compareArtifactSets)
   }
-  return Array.from(ARMOR_SET_IDS)
+  const armorSets = new Set<number>([
+    ...getArmorFixedSetIds(),
+    ...getArmorVariableSetIds(),
+  ])
+  return Array.from(armorSets).sort(compareArtifactSets)
 }
 
 /**

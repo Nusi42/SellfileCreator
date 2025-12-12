@@ -900,6 +900,8 @@ const overrides: Catalog = {
   restoreAutosaveFiltersHelper: 'Açık durumu, çipleri ve daraltılmış bölümleri geri yükler.',
   restoreAutosaveTesterLabel: 'Rule Tester içeri aktarması ({count})',
   restoreAutosaveTesterHelper: 'Otomatik kaydedilen ekipmanı yükle.',
+  restoreAutosaveGearSetsLabel: 'Özel gear setleri ({count})',
+  restoreAutosaveGearSetsHelper: 'Katkıda bulunanlar tarafından sağlanan gear set yamalarını yükler.',
   restoreAutosaveRestoreSelected: 'Seçilenleri geri yükle',
   yes: 'Evet',
   no: 'Hayır',
@@ -976,6 +978,8 @@ const overrides: Catalog = {
   toastGearDbImportEmpty: 'Veritabanında ekipman bulunmuyor.',
   toastL10nLoaded: 'Yerelleştirme yüklendi: {lang}',
   toastL10nLoadFailed: 'Yerelleştirme dosyası yüklenemedi',
+  toastGearSetsLoaded: '{count} özel set yüklendi',
+  toastGearSetsLoadFailed: 'Set dosyası yüklenemedi',
 
   // Tutorial section labels
   tutSectionBasicsLabel: 'Temeller',

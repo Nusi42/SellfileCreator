@@ -5,13 +5,13 @@ import { NBSP } from '../lib/constants'
 import { isLockedAggregateScopeActive } from '../lib/configNormalization'
 import { DEFAULT_METASET_ICON_ID, metasetIconOptionById, normalizeMetasetIconId } from '../lib/metasetIcons'
 import {
-  artifactSetI18nKey,
   artifactTypeI18nKey,
   compareArtifactSets,
   compareArtifactTypes,
   compareVariants,
   factionI18nKey,
   statVariantI18nKey,
+  getLocalizedGearSetName,
   type ArtifactSetId,
   type ArtifactTypeId,
   type StatVariantLike,
@@ -29,6 +29,7 @@ type DescribeBuilderConfigUpdateParams = {
   next: BuilderConfig
   index: number
   t: TranslateFn
+  lang: string
   metasets: Metaset[]
 }
 
@@ -36,6 +37,7 @@ type SummarizeBuilderConfigDiffParams = {
   previous: BuilderConfig
   next: BuilderConfig
   t: TranslateFn
+  lang: string
   metasets: Metaset[]
 }
 
@@ -78,8 +80,8 @@ export function createHistoryBuilderBaseline(overrides: Partial<BuilderConfig> =
 }
 
 export function describeBuilderConfigUpdate(params: DescribeBuilderConfigUpdateParams): HistoryEntryDescriptor | null {
-  const { previous, next, index, t, metasets } = params
-  const { detailLines, changedKeys } = summarizeBuilderConfigDiff({ previous, next, t, metasets })
+  const { previous, next, index, t, lang, metasets } = params
+  const { detailLines, changedKeys } = summarizeBuilderConfigDiff({ previous, next, t, lang, metasets })
   if (changedKeys.size === 0) return null
 
   const label = buildConfigLabel(index, next, t)
@@ -97,7 +99,7 @@ export function describeBuilderConfigUpdate(params: DescribeBuilderConfigUpdateP
  * two configs. Shared by the history timeline and snapshot helpers.
  */
 export function summarizeBuilderConfigDiff(params: SummarizeBuilderConfigDiffParams): BuilderConfigDiffSummary {
-  const { previous, next, t, metasets } = params
+  const { previous, next, t, lang, metasets } = params
   const changed = collectChangedFields(previous, next)
   if (changed.size === 0) {
     return { detailLines: [], changedKeys: changed }
@@ -136,7 +138,7 @@ export function summarizeBuilderConfigDiff(params: SummarizeBuilderConfigDiffPar
     metasetDiffLine = makeMetasetsDiffLine(previous, next, metasets, t)
   }
   if (changed.has('artifactSets')) {
-    artifactSetsDiffLine = makeArtifactSetsDiffLine(previous, next, t)
+    artifactSetsDiffLine = makeArtifactSetsDiffLine(previous, next, t, lang)
   }
   if (changed.has('mainStatsV')) {
     detailLines.push(makeMainStatsDiffLine(previous, next, t))
@@ -173,14 +175,14 @@ export function summarizeBuilderConfigDiff(params: SummarizeBuilderConfigDiffPar
  * values so add/delete history entries can re-use the same UI components without
  * implying a change.
  */
-export function makeBuilderConfigSnapshotLines(params: { cfg: BuilderConfig; metasets: Metaset[]; t: TranslateFn }): string[] {
-  const { cfg, metasets, t } = params
+export function makeBuilderConfigSnapshotLines(params: { cfg: BuilderConfig; metasets: Metaset[]; t: TranslateFn; lang: string }): string[] {
+  const { cfg, metasets, t, lang } = params
   const lines: string[] = []
   const slots = makeSlotsSnapshotLine(cfg, t)
   if (slots) lines.push(slots)
   const metasetsLine = makeMetasetSnapshotLine(cfg, metasets, t)
   if (metasetsLine) lines.push(metasetsLine)
-  const setsLine = makeArtifactSetsSnapshotLine(cfg, t)
+  const setsLine = makeArtifactSetsSnapshotLine(cfg, t, lang)
   if (setsLine) lines.push(setsLine)
   const mainStats = makeMainStatsSnapshotLine(cfg, t)
   if (mainStats) lines.push(mainStats)
@@ -307,7 +309,7 @@ function makeSubstatsSnapshotLine(cfg: BuilderConfig, t: TranslateFn): string | 
   })
 }
 
-function makeArtifactSetsDiffLine(previous: BuilderConfig, next: BuilderConfig, t: TranslateFn): string {
+function makeArtifactSetsDiffLine(previous: BuilderConfig, next: BuilderConfig, t: TranslateFn, lang: string): string {
   const prevSets = normalizeNumberArray(previous.artifactSets).map(Number).sort(compareArtifactSets)
   const nextSets = normalizeNumberArray(next.artifactSets).map(Number).sort(compareArtifactSets)
   return JSON.stringify({
@@ -315,19 +317,19 @@ function makeArtifactSetsDiffLine(previous: BuilderConfig, next: BuilderConfig, 
     label: t('setsTitle'),
     previous: prevSets,
     next: nextSets,
-    previousText: formatArtifactSetListFallback(prevSets, t),
-    nextText: formatArtifactSetListFallback(nextSets, t),
+    previousText: formatArtifactSetListFallback(prevSets, t, lang),
+    nextText: formatArtifactSetListFallback(nextSets, t, lang),
   })
 }
 
 // Single-state artifact-set snapshot for add/delete history entries.
-function makeArtifactSetsSnapshotLine(cfg: BuilderConfig, t: TranslateFn): string | null {
+function makeArtifactSetsSnapshotLine(cfg: BuilderConfig, t: TranslateFn, lang: string): string | null {
   const sets = normalizeNumberArray(cfg.artifactSets).map(Number).sort(compareArtifactSets)
   return JSON.stringify({
     kind: 'setListSnapshot',
     label: t('setsTitle'),
     values: sets,
-    fallbackText: formatArtifactSetListFallback(sets, t),
+    fallbackText: formatArtifactSetListFallback(sets, t, lang),
   })
 }
 
@@ -378,10 +380,10 @@ function collectMetasetDiffEntries(cfg: BuilderConfig, metasets: Metaset[]): Met
   return out
 }
 
-function formatArtifactSetListFallback(ids: number[], t: TranslateFn): string {
+function formatArtifactSetListFallback(ids: number[], t: TranslateFn, lang: string): string {
   if (ids.length === 0) return t('any')
   const labels = ids
-    .map((setId) => t(artifactSetI18nKey(Number(setId) as ArtifactSetId)).trim())
+    .map((setId) => getLocalizedGearSetName(Number(setId) as ArtifactSetId, t, lang).trim())
     .filter((label) => label.length > 0)
   if (labels.length === 0) return t('any')
   return labels.join(', ')

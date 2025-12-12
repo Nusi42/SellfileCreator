@@ -16,6 +16,7 @@ type DescribeConfigAddedParams = {
   cfg: BuilderConfig
   previous: BuilderConfig[]
   t: TranslateFn
+  lang: string
   metasets: Metaset[]
 }
 
@@ -37,6 +38,7 @@ type DescribeConfigsMovedParams = {
 type DescribeConfigsDeletedParams = {
   removed: Array<{ index: number; cfg: BuilderConfig | undefined }>
   t: TranslateFn
+  lang: string
   metasets: Metaset[]
 }
 
@@ -60,13 +62,13 @@ type DescribeMultiEditAppliedParams = {
 }
 
 export function describeConfigAdded(params: DescribeConfigAddedParams): HistoryEntryDescriptor {
-  const { index, cfg, previous, t, metasets } = params
+  const { index, cfg, previous, t, lang, metasets } = params
   const label = buildConfigLabel(index, cfg, t)
   const location = makeInsertionDetailLine(index, previous, t)
   const detailLines = location ? [location] : []
   // Treat added configs as a single-state snapshot so tooltips show the actual values
   // that landed in the builder rather than a fabricated before/after diff.
-  const snapshotLines = makeBuilderConfigSnapshotLines({ cfg, metasets, t })
+  const snapshotLines = makeBuilderConfigSnapshotLines({ cfg, metasets, t, lang })
   if (snapshotLines.length > 0) {
     detailLines.push(...snapshotLines)
   }
@@ -120,7 +122,7 @@ export function describeConfigsMoved(params: DescribeConfigsMovedParams): Histor
 }
 
 export function describeConfigsDeleted(params: DescribeConfigsDeletedParams): HistoryEntryDescriptor | null {
-  const { removed, t, metasets } = params
+  const { removed, t, lang, metasets } = params
   if (!removed.length) return null
   const labels: string[] = []
   const seen = new Set<string>()
@@ -137,7 +139,7 @@ export function describeConfigsDeleted(params: DescribeConfigsDeletedParams): Hi
   if (labels.length === 1) {
     const cfg = removed.find((entry) => Boolean(entry.cfg))?.cfg ?? null
     // Likewise, deleted configs show their last-known state instead of a diff against defaults.
-    const snapshotLines = cfg ? makeBuilderConfigSnapshotLines({ cfg, metasets, t }) : []
+    const snapshotLines = cfg ? makeBuilderConfigSnapshotLines({ cfg, metasets, t, lang }) : []
     if (snapshotLines.length > 0) {
       return { title: t('historyConfigDeletedTitle', { label: labels[0]! }), detailLines: snapshotLines }
     }

@@ -13,7 +13,7 @@ import { makeMetasetId } from '../lib/metasets'
 import { DEFAULT_METASET_ICON_ID } from '../lib/metasetIcons'
 import { generateMetasetNameWithFlag } from '../lib/namegen'
 import type { FinalSellRemainderConfig } from '../lib/finalSell'
-import { artifactSetNames } from '../lib/types'
+import { artifactSetName, type ArtifactSetId } from '../lib/types'
 import { readTextSafe, writeTextSafe } from '../lib/clipboard'
 import { describeConfigsInserted } from '../history/configCollectionDescriptors'
 import { buildConfigLabel, type TranslateFn } from '../history/builderUpdateDescriptor'
@@ -338,12 +338,12 @@ export function useHsfcClipboard({
           metasets: nextMetas,
           substatTargets: nextSubstatTargets,
           finalSellRemainder: fsr,
-          keepUniqueRules: importedKeepRules,
-          keepUniquesEnabled: importedKeepEnabled,
-          selectedIndex,
-          ...(note ? { note } : {}),
-          mode: 'after',
-        })
+        keepUniqueRules: importedKeepRules,
+        keepUniquesEnabled: importedKeepEnabled,
+        selectedIndex,
+        ...(note ? { note } : {}),
+        mode: 'after',
+      })
         setConflictIds(prep.conflicts)
         setImportIdMap(prep.idMap)
         setMetasetConflictOpen(true)
@@ -656,7 +656,9 @@ export function useHsfcClipboard({
         .map(m => ({
           id: m.id,
           name: m.name,
-          setNames: m.sets.slice().sort((a, b) => a - b).map(idNum => artifactSetNames[Number(idNum)]).filter((x): x is string => Boolean(x)),
+          setNames: m.sets.slice().sort((a, b) => a - b)
+            .map(idNum => artifactSetName(Number(idNum) as ArtifactSetId))
+            .filter((x): x is string => Boolean(x && x.trim())),
           show: m.show !== false,
         }))
       const payload = { Version: APP_VERSION, Metasets: metasOut, Configs: readable }
@@ -676,7 +678,9 @@ export function useHsfcClipboard({
         .map(m => ({
           id: m.id,
           name: m.name,
-          setNames: m.sets.slice().sort((a, b) => a - b).map(idNum => artifactSetNames[Number(idNum)]).filter((x): x is string => Boolean(x)),
+          setNames: m.sets.slice().sort((a, b) => a - b)
+            .map(idNum => artifactSetName(Number(idNum) as ArtifactSetId))
+            .filter((x): x is string => Boolean(x && x.trim())),
           show: m.show !== false,
         }))
       const payload = { Version: APP_VERSION, Metasets: metasOut, Configs: [readable] }

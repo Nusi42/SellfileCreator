@@ -7,7 +7,7 @@
  */
 // React drives the builder UI; hooks keep state localized while config flows from App.
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { rarityCodeToName, StatVariant, RankCode, RarityCode, Faction, type FactionId, filterAndSortSetEntries, statVariantI18nKey, artifactSetI18nKey, LEVEL_MILESTONES, type LevelMilestone, STAT_VARIANTS_PRIORITY_ROW1, STAT_VARIANTS_PRIORITY_ROW2 } from '../lib/types'
+import { rarityCodeToName, StatVariant, RankCode, RarityCode, Faction, type FactionId, filterAndSortSetEntries, statVariantI18nKey, LEVEL_MILESTONES, type LevelMilestone, STAT_VARIANTS_PRIORITY_ROW1, STAT_VARIANTS_PRIORITY_ROW2, getLocalizedGearSetName } from '../lib/types'
 import { variantToSub } from '../lib/hsfTypes'
 import { NBSP, GLYPH_TOGGLE_ON, GLYPH_TOGGLE_OFF } from '../lib/constants'
 import { reserveScrollbarGutterSpace } from '../lib/scrollbar'
@@ -16,6 +16,7 @@ import MetasetsDialog from './MetasetsDialog'
 import { useMetasetsDialog } from '../hooks/useMetasetsDialog'
 import { useContextMenuCloseOnOutsideRightClick } from '../hooks/useContextMenuCloseOnOutsideRightClick'
 import { useContextMenuHint } from '../hooks/useContextMenuHint'
+import { useGearSetCatalogVersion } from '../hooks/useGearSetCatalogVersion'
 import type { HistoryPreview, DescribeNextChangeFn, HistoryTimelineEntry } from '../hooks/useHsfcHistory'
 import {
   LEVELS,
@@ -416,6 +417,7 @@ const resetSubstatMenuChipWidths = React.useCallback(() => {
   })
 }, [])
   const { t, lang } = useI18n()
+  useGearSetCatalogVersion()
   const numberFormatter = React.useMemo(() => new Intl.NumberFormat(lang), [lang])
 const substatMenuPaperRef = React.useRef<HTMLDivElement | null>(null)
 const {
@@ -5653,7 +5655,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                 for (const id of setDisplayIds) {
                   const state = getSetState(id)
                   if (state === 'none') continue
-                  const baseName = t(artifactSetI18nKey(id))
+                  const baseName = getLocalizedGearSetName(id, t, lang)
                   names.push(state === 'partial' ? `${baseName} – ${t('builderMultiMixedValue')}` : baseName)
                 }
                 const text = names.length > 0 ? names.join(', ') : t('any')
@@ -5694,7 +5696,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                     }
                   } else if (token.startsWith('s:')) {
                     const id = Number(token.slice(2))
-                    names.push(t(artifactSetI18nKey(id)))
+                    names.push(getLocalizedGearSetName(id, t, lang))
                   }
                 }
               }
@@ -5865,7 +5867,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                               const needsGap = iconId !== null && iconId !== 'empty'
                               const tooltipName = hasGlyph ? `${glyph}${needsGap ? ` ${m.name}` : m.name}` : m.name
                               const displayGap = hasGlyph && needsGap ? 0.75 : 0.5
-                              const setNames = m.sets.map((id) => t(artifactSetI18nKey(id))).filter(Boolean)
+                              const setNames = m.sets.map((id) => getLocalizedGearSetName(id, t, lang)).filter(Boolean)
                               const joined = setNames.join(', ')
                               const usedMeta = metasetUsageCounts[m.id] || 0
                               const metaState = multiEditActive ? getMetasetState(m.id) : (selectedMetaIds.includes(m.id) ? 'all' : 'none')
