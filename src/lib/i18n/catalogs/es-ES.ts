@@ -386,6 +386,17 @@ const overrides: Catalog = {
   setDesc_setMerciless_by_8: '[[stat:statCDMG|bare]] +15%',
   setDesc_setMerciless_by_9: '15% de probabilidad de obtener un turno adicional al golpear',
 
+  // Mercurial
+  setDesc_setMercurial_by_1: '+20 [[stat:statRES]]',
+  setDesc_setMercurial_by_2: '+15% [[stat:statHP]]',
+  setDesc_setMercurial_by_3: '+8% [[stat:statSPD]]',
+  setDesc_setMercurial_by_4: 'Grants the wearer 1 {buff:Total Guard} stack at the start of the Round. Each stack blocks all incoming damage and any associated effects.',
+  setDesc_setMercurial_by_5: '+12% [[stat:statSPD]]',
+  setDesc_setMercurial_by_6: 'Grants the wearer 2 {buff:Total Guard} stacks at the start of the Round. Each stack blocks all incoming damage and any associated effects.',
+  setDesc_setMercurial_by_7: '+20 [[stat:statRES]]',
+  setDesc_setMercurial_by_8: '+12% [[stat:statSPD]]',
+  setDesc_setMercurial_by_9: 'Grants the wearer 3 {buff:Total Guard} stacks at the start of the Round. Each stack blocks all incoming damage and any associated effects.\nAlso places a {buff:Total Guard} stack at the start of this Champion’s turn, if they have no {buff:Total Guard} stacks.',
+
   // Pinpoint
   setDesc_setPinpoint_by_1: '[[stat:statACC]] +20',
   setDesc_setPinpoint_by_2: '[[stat:statSPD]] +10%',
@@ -1207,6 +1218,7 @@ const overrides: Catalog = {
   setStonecleaver: 'Quebrantapiedras',
   setRebirth: 'Renacer',
   setChronophage: 'Cronófago',
+  setMercurial: 'Mercurial',
   setRefresh: 'Refrescar',
   setCleansing: 'Purificación',
   setBloodshield: 'Escudo de sangre',

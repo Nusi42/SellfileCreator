@@ -386,6 +386,17 @@ const overrides: Catalog = {
   setDesc_setMerciless_by_8: '+15% [[stat:statCDMG|bare]]',
   setDesc_setMerciless_by_9: '15% Chance auf einen Extrazug bei Treffer',
 
+  // Mercurial (Unstet)
+  setDesc_setMercurial_by_1: '+20 [[stat:statRES]]',
+  setDesc_setMercurial_by_2: '+15% [[stat:statHP]]',
+  setDesc_setMercurial_by_3: '+8% [[stat:statSPD]]',
+  setDesc_setMercurial_by_4: 'gewährt dem Träger zu Rundenbeginn 1 Stapel {buff:Total Guard}. Jeder Stapel blockiert sämtlichen eingehenden Schaden und alle damit verbundenen Effekte.',
+  setDesc_setMercurial_by_5: '+12% [[stat:statSPD]]',
+  setDesc_setMercurial_by_6: 'gewährt dem Träger zu Rundenbeginn 2 Stapel {buff:Total Guard}. Jeder Stapel blockiert sämtlichen eingehenden Schaden und alle damit verbundenen Effekte.',
+  setDesc_setMercurial_by_7: '+20 [[stat:statRES]]',
+  setDesc_setMercurial_by_8: '+12% [[stat:statSPD]]',
+  setDesc_setMercurial_by_9: 'gewährt dem Träger zu Rundenbeginn 3 Stapel {buff:Total Guard}. Jeder Stapel blockiert sämtlichen eingehenden Schaden und alle damit verbundenen Effekte.\nVerleiht außerdem 1 Stapel {buff:Total Guard} zu Beginn des Zugs dieses Champions, wenn er keine {buff:Total Guard}-Stapel hat.',
+
   // Pinpoint
   setDesc_setPinpoint_by_1: '+20 [[stat:statACC]]',
   setDesc_setPinpoint_by_2: '+10% [[stat:statSPD]]',
@@ -1207,6 +1218,7 @@ const overrides: Catalog = {
   setStonecleaver: 'Steinspalter',
   setRebirth: 'Wiedergeburt',
   setChronophage: 'Chronophagen',
+  setMercurial: 'Unstet',
   setRefresh: 'Erneuern',
   setCleansing: 'Reinigung',
   setBloodshield: 'Blutschild',

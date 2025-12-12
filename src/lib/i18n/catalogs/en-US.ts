@@ -385,6 +385,17 @@ const enUS: Catalog = {
   setDesc_setMerciless_by_8: '+15% [[stat:statCDMG|bare]]',
   setDesc_setMerciless_by_9: '15% chance to gain an Extra Turn on hit',
 
+  // Mercurial
+  setDesc_setMercurial_by_1: '+20 [[stat:statRES]]',
+  setDesc_setMercurial_by_2: '+15% [[stat:statHP]]',
+  setDesc_setMercurial_by_3: '+8% [[stat:statSPD]]',
+  setDesc_setMercurial_by_4: 'Grants the wearer 1 {buff:Total Guard} stack at the start of the Round. Each stack blocks all incoming damage and any associated effects.',
+  setDesc_setMercurial_by_5: '+12% [[stat:statSPD]]',
+  setDesc_setMercurial_by_6: 'Grants the wearer 2 {buff:Total Guard} stacks at the start of the Round. Each stack blocks all incoming damage and any associated effects.',
+  setDesc_setMercurial_by_7: '+20 [[stat:statRES]]',
+  setDesc_setMercurial_by_8: '+12% [[stat:statSPD]]',
+  setDesc_setMercurial_by_9: 'Grants the wearer 3 {buff:Total Guard} stacks at the start of the Round. Each stack blocks all incoming damage and any associated effects.\nAlso places a {buff:Total Guard} stack at the start of this Champion’s turn, if they have no {buff:Total Guard} stacks.',
+
   // Pinpoint
   setDesc_setPinpoint_by_1: '+20 [[stat:statACC]]',
   setDesc_setPinpoint_by_2: '+10% [[stat:statSPD]]',
@@ -1206,6 +1217,7 @@ const enUS: Catalog = {
   setStonecleaver: 'Stonecleaver',
   setRebirth: 'Rebirth',
   setChronophage: 'Chronophage',
+  setMercurial: 'Mercurial',
   setRefresh: 'Refresh',
   setCleansing: 'Cleansing',
   setBloodshield: 'Bloodshield',

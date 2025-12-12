@@ -127,6 +127,8 @@ export const ArtifactSet = {
   Stonecleaver: 63,
   Rebirth: 64,
   Chronophage: 65,
+  // Variable 1–9 piece sets
+  Mercurial: 66,
   // Accessories
   Refresh: 1000,
   Cleansing: 1001,
@@ -205,6 +207,7 @@ export const artifactSetNames: Record<number, string> = {
   [ArtifactSet.Stonecleaver]: 'Stonecleaver',
   [ArtifactSet.Rebirth]: 'Rebirth',
   [ArtifactSet.Chronophage]: 'Chronophage',
+  [ArtifactSet.Mercurial]: 'Mercurial',
   [ArtifactSet.Refresh]: 'Refresh',
   [ArtifactSet.Cleansing]: 'Cleansing',
   [ArtifactSet.Bloodshield]: 'Bloodshield',
@@ -962,6 +965,7 @@ export function artifactSetI18nKey(id: ArtifactSetId):
   | 'setDivineLife' | 'setDivineSpeed' | 'setSwiftParry' | 'setDeflection' | 'setResilience' | 'setPerception' | 'setAffinitybreaker' | 'setUntouchable'
   | 'setFatal' | 'setFrostbite' | 'setBloodthirst' | 'setGuardian' | 'setFortitude' | 'setLethal' | 'setProtection' | 'setStoneskin'
   | 'setKillstroke' | 'setInstinct' | 'setBolster' | 'setDefiant' | 'setImpulse' | 'setZeal' | 'setRighteous' | 'setSupersonic' | 'setMerciless' | 'setSlayer' | 'setFeral' | 'setPinpoint' | 'setStonecleaver' | 'setRebirth' | 'setChronophage'
+  | 'setMercurial'
   | 'setRefresh' | 'setCleansing' | 'setBloodshield' | 'setReaction' | 'setRevenge'
 {
   switch (Number(id) as ArtifactSet) {
@@ -1028,6 +1032,7 @@ export function artifactSetI18nKey(id: ArtifactSetId):
     case ArtifactSet.Stonecleaver: return 'setStonecleaver'
     case ArtifactSet.Rebirth: return 'setRebirth'
     case ArtifactSet.Chronophage: return 'setChronophage'
+    case ArtifactSet.Mercurial: return 'setMercurial'
     case ArtifactSet.Refresh: return 'setRefresh'
     case ArtifactSet.Cleansing: return 'setCleansing'
     case ArtifactSet.Bloodshield: return 'setBloodshield'
