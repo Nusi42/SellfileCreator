@@ -52,6 +52,13 @@ export function EllipsisTooltip({
     hoverTimerRef.current = null
   }
 
+  // Dismiss the tooltip immediately on pointer/key interactions.
+  // Why: Opening Select menus can cover the trigger without firing mouseleave, keeping the tooltip stuck.
+  const dismiss = () => {
+    clearHoverTimer()
+    setOpen(false)
+  }
+
   // Dispose timers when the component unmounts so we never fire stale state updates.
   useEffect(() => clearHoverTimer, [])
 
@@ -70,6 +77,8 @@ export function EllipsisTooltip({
         component={wrap === 'block' ? 'div' : 'span'}
         // Wrapper mimics the child’s display mode so we can attach hover listeners without layout shifts.
         sx={{ display: wrap === 'block' ? 'block' : 'inline-flex', minWidth: 0, width: wrap === 'block' ? '100%' : undefined }}
+        onPointerDownCapture={dismiss}
+        onKeyDownCapture={dismiss}
         onMouseEnter={(e: React.MouseEvent<HTMLElement>) => {
           if (disabled) return
           const root = e.currentTarget as HTMLElement
