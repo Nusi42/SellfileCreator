@@ -482,20 +482,15 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     const previewArtifactCount = testerPreviewArtifacts.length
     // Fast-path empty caches so the dependency on testerPreviewArtifacts is meaningful without changing existing behavior.
     if (previewArtifactCount === 0 && cache.size === 0) return '0'
+    // Build a stable signature based on the same SSOT fingerprint used by the artifact cache.
+    // Why: the pipeline uses this signature to decide whether tester rows are stale.
+    // Why: missing fields (e.g. faction, gear set) can otherwise skip rebuilds and leave stale UI.
     const entries = Array.from(cache.entries()).sort((a, b) => a[0] - b[0])
     let sig = `${entries.length}`
     for (const [itemId, entry] of entries) {
-      const artifact = entry.artifact
-      const level = artifact.level ?? -1
-      const exact = artifact.exactLevel ?? -1
-      const asc = artifact.ascension
-      const ascSegment = asc
-        ? `${asc.variant}:${asc.totalValue.toFixed(3)}:${asc.glyphValue.toFixed(3)}`
-        : 'na'
-      const subSegment = (artifact.substats ?? [])
-        .map((sub) => `${sub.variant}:${sub.totalValue.toFixed(3)}:${sub.glyphValue.toFixed(3)}`)
-        .join(',')
-      sig += `|${itemId}:${level}:${exact}:${ascSegment}:${subSegment}`
+      // Keep the item id in the signature so reorderings and insertions are detectable.
+      // Use the canonical per-item fingerprint so edits to faction/main/rank/etc invalidate rebuilds.
+      sig += `|${itemId}:${entry.fingerprint}`
     }
     return sig
   }, [testerPreviewArtifacts])
