@@ -117,7 +117,10 @@ const CLEAR_BUTTON_PLACEHOLDER_SX = {
   flexShrink: 0,
 } as const
 const PREVIEW_CONFIGS_DEFAULT = false
+// Keep the closed combobox width aligned with the rest of the filter row.
 const CHAMPION_SELECT_WIDTH_PX = Math.round(FILTER_FACTION_SELECT_WIDTH_PX * 0.8)
+// Champion names can run long; give the dropdown menu extra width without stretching the closed control.
+const CHAMPION_MENU_WIDTH_PX = Math.round(FILTER_FACTION_SELECT_WIDTH_PX * 1.35)
 const LAST_USE_TOGGLE_BUTTON_WIDTH_PX = FILTER_TOGGLE_BUTTON_WIDTH_PX / 2
 // Clamp the header width to the three-button grid so labels never exceed the controls.
 const LAST_USE_SECTION_WIDTH_PX = (LAST_USE_TOGGLE_BUTTON_WIDTH_PX * 3) + 8
@@ -1190,6 +1193,18 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
     if (option.name && option.name.trim().length > 0) return option.name.trim()
     return t('testerChampionUnknownName', { id: option.id })
   }, [t])
+  // Dev builds benefit from showing ids inline so missing icon assets are faster to diagnose.
+  // Keep prod labels clean by gating behind `import.meta.env.DEV`.
+  const formatChampionNameWithDebugId = React.useCallback((option?: TesterChampionOption | null): string => {
+    const base = formatChampionName(option)
+    if (!import.meta.env.DEV) return base
+    if (!option) return base
+    // Prefer showing base hero ids (asset key) and equipped champion ids (instance key) together.
+    // Some localized fallback strings already include the instance id; keep the suffix anyway so the base id is visible.
+    const baseHeroId = typeof option.baseId === 'number' && Number.isFinite(option.baseId) && option.baseId > 0 ? option.baseId : null
+    const baseHeroLabel = baseHeroId !== null ? String(baseHeroId) : '?'
+    return `${base} (${baseHeroLabel} / ${option.id})`
+  }, [formatChampionName])
   const formatChampionLocation = React.useCallback((option?: TesterChampionOption | null): string | null => {
     if (!option?.location) return null
     if (option.location === 'vault' || option.location === 'reserveVault') return t('testerSourceEquippedVault')
@@ -2198,11 +2213,11 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                           onChange({ ...state, testerChampions: { selected: parsed } })
                         }}
                         displayEmpty
-                        renderValue={(vals) => {
-                          const list = (vals as string[]).map((v) => Number(v)).filter((n) => Number.isFinite(n) && n > 0)
-                          if (!list.length) {
-                            return (
-                              <EllipsisTooltip title={t('any')} wrap="block">
+	                        renderValue={(vals) => {
+	                          const list = (vals as string[]).map((v) => Number(v)).filter((n) => Number.isFinite(n) && n > 0)
+	                          if (!list.length) {
+	                            return (
+	                              <EllipsisTooltip title={t('any')} wrap="block">
                                 <Typography
                                   variant="body2"
                                   data-ellipsis-target
@@ -2212,14 +2227,14 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                                 </Typography>
                               </EllipsisTooltip>
                             )
-                          }
-                          const firstId = list[0]!
-                          const firstOption = championOptionMap.get(firstId)
-                          const firstName = formatChampionName(firstOption)
-                          const locationLabel = formatChampionLocation(firstOption)
-                          const summaryTitle = locationLabel ? `${firstName} · ${locationLabel}` : firstName
-                        return (
-                          <EllipsisTooltip title={summaryTitle} wrap="block">
+	                          }
+	                          const firstId = list[0]!
+	                          const firstOption = championOptionMap.get(firstId)
+	                          const firstName = formatChampionNameWithDebugId(firstOption)
+	                          const locationLabel = formatChampionLocation(firstOption)
+	                          const summaryTitle = locationLabel ? `${firstName} · ${locationLabel}` : firstName
+	                        return (
+	                          <EllipsisTooltip title={summaryTitle} wrap="block">
                             <Box
                               component="span"
                               data-ellipsis-target
@@ -2249,8 +2264,8 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                           },
                           PaperProps: {
                             sx: {
-                              width: { xs: 'calc(100vw - 32px)', sm: CHAMPION_SELECT_WIDTH_PX },
-                              maxWidth: CHAMPION_SELECT_WIDTH_PX,
+                              width: { xs: 'calc(100vw - 32px)', sm: CHAMPION_MENU_WIDTH_PX },
+                              maxWidth: CHAMPION_MENU_WIDTH_PX,
                               maxHeight: 360,
                               '& .MuiList-root': {
                                 py: 0,
@@ -2314,13 +2329,13 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                           }}
                         />
                       </ListSubheader>
-                      {filteredChampionOptions.map((option) => {
-                        const locationLabel = formatChampionLocation(option)
-                        const championLabel = formatChampionName(option)
-                        // Prefer base hero ids for icons so duplicate champion copies share the same avatar.
-                        const championIconSrc = championIconUrl(option.baseId ?? option.id)
-                        // Mirror the tester grid rarity border so the dropdown signals overall quality at a glance.
-                        const championBorderColor = resolveRarityAccentColor(option.rarity) ?? theme.palette.divider
+	                      {filteredChampionOptions.map((option) => {
+	                        const locationLabel = formatChampionLocation(option)
+	                        const championLabel = formatChampionNameWithDebugId(option)
+	                        // Prefer base hero ids for icons so duplicate champion copies share the same avatar.
+	                        const championIconSrc = championIconUrl(option.baseId ?? option.id)
+	                        // Mirror the tester grid rarity border so the dropdown signals overall quality at a glance.
+	                        const championBorderColor = resolveRarityAccentColor(option.rarity) ?? theme.palette.divider
                         const championFallbackInitial = (() => {
                           const trimmed = championLabel.trim()
                           return trimmed.length > 0 ? trimmed.charAt(0).toUpperCase() : '?'

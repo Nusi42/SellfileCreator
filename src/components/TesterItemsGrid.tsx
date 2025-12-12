@@ -1947,28 +1947,36 @@ const TesterGridCard = React.memo(function TesterGridCard({
   })()
   const sourceDescriptor = getItemSourceDescriptor(artifact, t)
   const SourceIcon = sourceDescriptor ? SOURCE_ICON_MAP[sourceDescriptor.category] : null
-  const sourceTooltipTitle = sourceDescriptor ? (sourceDescriptor.tooltip ?? sourceDescriptor.label ?? '') : ''
-  const championIconSrc = championIconUrl(artifact.equippedChampionBaseId ?? artifact.equippedToChampionId)
-  // Collection/vault rows show champion avatars inline when there is enough grid width.
-  const championIconMode = (() => {
-    if (!showChampionIcons || !championIconSrc || !sourceDescriptor) return 'none' as const
-    if (sourceDescriptor.category !== 'collection' && sourceDescriptor.category !== 'vault') return 'none' as const
-    return gridColumnCount >= CHAMPION_ICON_LARGE_THRESHOLD ? 'large' : 'compact'
+  const sourceTooltipTitle = (() => {
+    const base = sourceDescriptor ? (sourceDescriptor.tooltip ?? sourceDescriptor.label ?? '') : ''
+    if (!import.meta.env.DEV) return base
+    const equippedToChampionId = artifact.equippedToChampionId
+    if (typeof equippedToChampionId !== 'number' || !Number.isFinite(equippedToChampionId) || equippedToChampionId <= 0) return base
+    const baseHeroId = artifact.equippedChampionBaseId
+    const baseHeroLabel = (typeof baseHeroId === 'number' && Number.isFinite(baseHeroId) && baseHeroId > 0) ? String(baseHeroId) : '?'
+    return `${base} (${baseHeroLabel} / ${equippedToChampionId})`
   })()
-  const shouldShowChampionIcon = championIconMode !== 'none'
+  const championIconSrc = championIconUrl(artifact.equippedChampionBaseId ?? artifact.equippedToChampionId)
+  // Champion avatars only render for collection/vault sources so the extra visuals stay meaningful.
+  const championIconEligible = Boolean(
+    showChampionIcons
+    && sourceDescriptor
+    && (sourceDescriptor.category === 'collection' || sourceDescriptor.category === 'vault'),
+  )
+  // Large avatars only appear when the grid has enough horizontal room to avoid crushing the stats column.
+  const championIconMode = championIconEligible
+    ? (gridColumnCount >= CHAMPION_ICON_LARGE_THRESHOLD ? 'large' : 'compact')
+    : 'none'
+  // Champion images render inside the avatar frame; missing images fall back to the dropdown-style initial.
+  const shouldShowChampionIcon = Boolean(championIconEligible && championIconSrc)
+  // Missing avatars still render the rarity border to make gaps obvious in dev builds.
+  const shouldShowMissingChampionIconFallback = Boolean(championIconEligible && !championIconSrc)
   const sourceCategory = sourceDescriptor?.category
   const isVaultSource = sourceCategory === 'vault'
-  const isCollectionSource = sourceCategory === 'collection'
-  const shouldShowVaultBadgeIcon = Boolean(shouldShowChampionIcon && isVaultSource && SourceIcon)
-  const shouldShowStandaloneSourceIcon = Boolean(
-    sourceDescriptor
-    && SourceIcon
-    && (
-      !shouldShowChampionIcon
-      || (!isCollectionSource && !isVaultSource)
-      || (isVaultSource && !shouldShowVaultBadgeIcon)
-    ),
-  )
+  // Vault avatars show a badge even when the champ image is missing so source stays visible.
+  const shouldShowVaultBadgeIcon = Boolean(championIconEligible && isVaultSource && SourceIcon)
+  // Standalone glyph badges are reserved for sources without an avatar slot (or when avatars are disabled).
+  const shouldShowStandaloneSourceIcon = Boolean(sourceDescriptor && SourceIcon && !championIconEligible)
   // Smaller badges fall back to a single glyph so collapsed accordions stay lightweight.
   const SourceGlyph = shouldShowStandaloneSourceIcon && SourceIcon ? SourceIcon : null
   const sourceIconLabel = sourceDescriptor?.label ?? ''
@@ -1976,7 +1984,17 @@ const TesterGridCard = React.memo(function TesterGridCard({
     ? CHAMPION_ICON_LARGE_SIZE
     : CHAMPION_ICON_BASE_SIZE
   // Champion avatars reuse the rarity palette so imported pieces surface their quality immediately.
-  const championBorderColor = resolveRarityAccentColor(artifact.equippedChampionRarity) ?? theme.palette.divider
+  const rarityAccentColor = resolveRarityAccentColor(artifact.equippedChampionRarity)
+  // Avatar frames fall back to the neutral divider so unknown rarities still look intentional.
+  const championBorderColor = rarityAccentColor ?? theme.palette.divider
+  // Glyph-only source icons use the accent when available so missing champ icons are easier to spot.
+  const championGlyphColor = rarityAccentColor ?? theme.palette.text.secondary
+  // Mirror the champion dropdown fallback: render the first initial when an avatar image is missing.
+  const missingChampionFallbackInitial = (() => {
+    const name = artifact.equippedChampionName?.trim() ?? ''
+    if (!name) return '?'
+    return name.charAt(0).toUpperCase()
+  })()
   const rerollLabel = artifact.rerollCount > 0 ? '⟳' : ''
   const rerollTooltip = artifact.rerollCount > 0 ? t('testerRerollLabel') : ''
   // Tooltip copy surfaces the localized last-used timestamp whenever the DB provided one.
@@ -2103,7 +2121,7 @@ const TesterGridCard = React.memo(function TesterGridCard({
           gearTooltip={lastUseTooltip}
           {...(cardOutcome ? { outcome: cardOutcome } : {})}
         />
-        {shouldShowChampionIcon ? (
+        {shouldShowChampionIcon || shouldShowMissingChampionIconFallback ? (
           <Box
             sx={{
               width: TESTER_GRID_ICON_BOX_SIZE_PX,
@@ -2133,23 +2151,45 @@ const TesterGridCard = React.memo(function TesterGridCard({
                   display: 'inline-flex',
                   alignItems: 'center',
                   justifyContent: 'center',
+                  // Missing champion images reuse the rarity border to keep the UI consistent.
+                  bgcolor: shouldShowChampionIcon ? 'transparent' : alpha(championBorderColor, 0.14),
                 }}
               >
-                <Box
-                  component="img"
-                  src={championIconSrc}
-                  alt={sourceTooltipTitle}
-                  draggable={false}
-                  onDragStart={(event) => { event.preventDefault(); event.stopPropagation() }}
-                  sx={{
-                    width: '100%',
-                    height: '100%',
-                    objectFit: 'cover',
-                    userSelect: 'none',
-                    WebkitUserDrag: 'none',
-                    display: 'block',
-                  }}
-                />
+                {shouldShowChampionIcon ? (
+                  <Box
+                    component="img"
+                    src={championIconSrc}
+                    alt={sourceTooltipTitle}
+                    draggable={false}
+                    onDragStart={(event) => { event.preventDefault(); event.stopPropagation() }}
+                    sx={{
+                      width: '100%',
+                      height: '100%',
+                      objectFit: 'cover',
+                      userSelect: 'none',
+                      WebkitUserDrag: 'none',
+                      display: 'block',
+                    }}
+                  />
+                ) : shouldShowMissingChampionIconFallback ? (
+                  <Box
+                    component="span"
+                    sx={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      width: '100%',
+                      height: '100%',
+                      // Keep contrast high but avoid looking like a "real" avatar image.
+                      color: theme.palette.text.secondary,
+                      fontWeight: 700,
+                      fontSize: theme.typography.pxToRem(13),
+                      textTransform: 'uppercase',
+                    }}
+                  >
+                    {missingChampionFallbackInitial}
+                  </Box>
+                ) : null}
               </Box>
             </MarkdownTooltip>
             {shouldShowVaultBadgeIcon && SourceIcon ? (
@@ -2181,19 +2221,35 @@ const TesterGridCard = React.memo(function TesterGridCard({
         {SourceGlyph ? (
           // The smaller glyph badges reuse MarkdownTooltip as well, so tooltip styling stays aligned.
           <MarkdownTooltip markdown={sourceTooltipTitle}>
+            {/*
+              When champion icons are disabled, collection/vault rows still benefit from matching the avatar footprint
+              so the source icon doesn't look "misaligned" compared to the layout users expect when avatars are on.
+            */}
             <Box
               component="span"
               role="img"
               aria-label={sourceIconLabel}
+              // Use the avatar size that *would* be rendered for collection/vault when icons are enabled.
+              // This keeps the source glyph readable without turning the full avatar feature back on.
                 sx={{
-                  width: 24,
-                  height: 24,
-                  borderRadius: 1,
+                  ...(sourceCategory === 'collection' || sourceCategory === 'vault'
+                    ? {
+                      width: gridColumnCount >= CHAMPION_ICON_LARGE_THRESHOLD ? CHAMPION_ICON_LARGE_SIZE.width : CHAMPION_ICON_BASE_SIZE.width,
+                      height: gridColumnCount >= CHAMPION_ICON_LARGE_THRESHOLD ? CHAMPION_ICON_LARGE_SIZE.height : CHAMPION_ICON_BASE_SIZE.height,
+                      borderRadius: `${CHAMPION_ICON_BORDER_RADIUS_PX}px`,
+                      fontSize: `${Math.max(16, Math.round((gridColumnCount >= CHAMPION_ICON_LARGE_THRESHOLD ? CHAMPION_ICON_LARGE_SIZE.height : CHAMPION_ICON_BASE_SIZE.height) * 0.78))}px`,
+                    }
+                    : {
+                      width: GRID_CARD_SOURCE_ICON_SIZE_PX,
+                      height: GRID_CARD_SOURCE_ICON_SIZE_PX,
+                      borderRadius: 1,
+                      fontSize: '1rem',
+                    }),
                   display: 'inline-flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  color: 'text.secondary',
-                  fontSize: '1rem',
+                  // When champion icons are toggled off, use the champion rarity accent for visibility.
+                  color: championGlyphColor,
                 }}
             >
               <SourceGlyph fontSize="inherit" />
