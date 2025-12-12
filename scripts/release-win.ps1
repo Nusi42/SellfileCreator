@@ -1,7 +1,7 @@
 <#
   Build-and-package script for Windows.
   - Builds the app via Vite.
-  - Stages artifacts with required names (no subdirs in archive).
+  - Stages artifacts with required names (root + dev/ subtree in archive).
   - Creates a versioned zip archive using native Windows tooling.
 
   Why: Ensures a reproducible, Windows-friendly release bundle matching the
@@ -55,6 +55,9 @@ Push-Location $RepoRoot
 $staging = $null
 try {
   # Using built-in Compress-Archive; no external dependencies.
+
+  # Single source of truth: keep the shipped sample base name consistent.
+  $ShippedSampleBaseName = 'Lategame'
 
   # Read version from package.json and normalize depending on mode
   $pkgPath = Join-Path $RepoRoot 'package.json'
@@ -177,8 +180,8 @@ try {
   }
 
   Write-Host ("Using samples: {0} and {1}" -f $sampleHsfc.Name, $sampleHsf.Name)
-  Copy-Item -LiteralPath $sampleHsfc.FullName -Destination (Join-Path $staging 'Example.hsfc') -Force
-  Copy-Item -LiteralPath $sampleHsf.FullName  -Destination (Join-Path $staging 'Example.hsf')  -Force
+  Copy-Item -LiteralPath $sampleHsfc.FullName -Destination (Join-Path $staging "$ShippedSampleBaseName.hsfc") -Force
+  Copy-Item -LiteralPath $sampleHsf.FullName  -Destination (Join-Path $staging "$ShippedSampleBaseName.hsf")  -Force
   # Ship the baseline Basic.hsfc so newcomers can inspect an intentionally minimal config.
   $basicHsfcPath = Join-Path $samplesDir 'Basic.hsfc'
   if (-not (Test-Path -LiteralPath $basicHsfcPath)) {
@@ -209,11 +212,19 @@ try {
     }
   }
 
+  # Ship the custom gearsets example under dev/ (keeps root uncluttered).
+  $customGearsetsSrc = Join-Path $RepoRoot 'examples\custom.gearsets.json'
+  if (-not (Test-Path -LiteralPath $customGearsetsSrc)) {
+    throw "Expected example not found: $customGearsetsSrc"
+  }
+  Copy-Item -LiteralPath $customGearsetsSrc -Destination (Join-Path $devDir 'custom.gearsets.json') -Force
+
 
   # Stage localization JSON templates for contributors
   $l10nDist = Join-Path $RepoRoot 'dist\l10n'
   if (Test-Path $l10nDist) {
-    $i18nDir = Join-Path $staging 'i18n'
+    # Keep localization templates alongside other contributor-only artifacts.
+    $i18nDir = Join-Path $devDir 'i18n'
     if (-not (Test-Path $i18nDir)) { New-Item -ItemType Directory -Path $i18nDir | Out-Null }
     Get-ChildItem -LiteralPath $l10nDist -Filter '*.l10n.json' -File | ForEach-Object {
       Copy-Item -LiteralPath $_.FullName -Destination (Join-Path $i18nDir $_.Name) -Force
@@ -235,9 +246,9 @@ exit /b
   Write-Host "Creating archive: $archivePath"
   Push-Location $staging
   try {
-    # Create ZIP containing only flat entries (no subdirectories)
+    # Create ZIP containing staged content (including dev/ subtree).
     if (Test-Path $archivePath) { Remove-Item -LiteralPath $archivePath -Force }
-    # Include all staged files (flat)
+    # Include all staged files (including any staged directories)
     Compress-Archive -Path (Get-ChildItem -Name) -DestinationPath $archivePath -CompressionLevel Optimal -Force
   } finally {
     Pop-Location
