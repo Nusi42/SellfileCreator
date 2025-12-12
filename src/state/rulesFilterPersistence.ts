@@ -11,7 +11,7 @@ import { canonicalize } from '../lib/canonicalize'
 import { createLocalStorageStateHook, createLocalStorageStore } from './localStorageStore'
 
 export const RULES_FILTER_OPEN_STORAGE_KEY = 'sellfileCreator.rulesFilter.open.v2'
-export const RULES_FILTER_STATE_STORAGE_KEY = 'sellfileCreator.rulesFilter.state.v2'
+export const RULES_FILTER_STATE_STORAGE_KEY = 'sellfileCreator.rulesFilter.state.v3'
 export const RULES_FILTER_COLLAPSED_STORAGE_KEY = 'sellfileCreator.rulesFilter.collapse.v3'
 const RULES_FILTER_SYNC_STORAGE_KEY = 'sellfileCreator.rulesFilter.sync.v1'
 

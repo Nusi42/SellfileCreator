@@ -32,6 +32,11 @@ This document captures runtime behavior, builder interactions, and user-facing w
 - Right-click the filter button to open the context menu (same hint overlay as the Export button). The menu includes a persistent “Sync filters between views” checkbox that forces both preview modes to share one filter state, plus a `Reset Filters` action that clears both modes back to factory defaults.
 - Shortcut: `Ctrl+F` (`Cmd+F` on macOS) opens the filter panel (when closed) and focuses the config-name input if it is present, mirroring the browser “Find” gesture without reusing the native overlay.
 - AnyMode chips: `Show` (state `include`) keeps rules that don't specify a field, `Hide` removes them, `Only` shows only those rules.
+- Substats support include + exclude in the same button grid:
+  - Left click (from Off) toggles “must have”.
+  - Right click (from Off) toggles “must not have” (rendered with a diagonal strike on the label).
+  - Clicking any active state (left or right) clears back to Off (no cycling between include/exclude).
+  - The persisted state stores exclusions in `filter.sub.notSelected` and filtering removes any rule/item that contains any excluded substat variant before evaluating the “must have” match policy.
 - Sets
   - Metasets unroll into explicit set IDs before matching.
   - Match mode `Any`/`All` combines selected sets.

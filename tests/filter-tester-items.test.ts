@@ -129,7 +129,7 @@ test('filterTesterItems filters by main stat and substats', () => {
   const state: RulesFilterState = {
     ...DEFAULT_RULES_FILTER_STATE,
     main: { selected: [StatVariant.SPD], anyMode: 'include' },
-    sub: { selected: [StatVariant.RES], mode: 'any', wildcardMode: 'include' },
+    sub: { selected: [StatVariant.RES], notSelected: [], mode: 'any', wildcardMode: 'include' },
   }
   const result = filterTesterItems(rows, state)
   assert.equal(result.items.length, 1)
@@ -343,7 +343,7 @@ test('filterTesterItems enforces glyphs on all selected substats when mode is se
   ]
   const state: RulesFilterState = {
     ...DEFAULT_RULES_FILTER_STATE,
-    sub: { selected: [StatVariant.CR, StatVariant.CDMG], mode: 'all', wildcardMode: 'include' },
+    sub: { selected: [StatVariant.CR, StatVariant.CDMG], notSelected: [], mode: 'all', wildcardMode: 'include' },
     testerGlyphs: { mode: 'selected' },
   }
   const result = filterTesterItems(rows, state)

@@ -200,6 +200,55 @@ function mergeRowSelection(
   })
 }
 
+function sortVariantsInUiOrder(variants: readonly StatVariant[]): StatVariant[] {
+  // Keep selection arrays stable so persisted filter state remains deterministic.
+  // The UI uses STAT_VARIANTS_PRIORITY ordering, so mirror that here.
+  return [...variants].sort((a, b) => {
+    const left = STAT_VARIANT_ORDER_LOOKUP.get(Number(a)) ?? 0
+    const right = STAT_VARIANT_ORDER_LOOKUP.get(Number(b)) ?? 0
+    return left - right
+  })
+}
+
+function toggleVariantOff(
+  selected: readonly StatVariant[] | null | undefined,
+  variant: StatVariant,
+): StatVariant[] {
+  // Removing is always safe; return a canonical ordering either way.
+  const base = Array.isArray(selected) ? selected : []
+  return sortVariantsInUiOrder(base.filter((v) => Number(v) !== Number(variant)))
+}
+
+function toggleVariantOn(
+  selected: readonly StatVariant[] | null | undefined,
+  variant: StatVariant,
+): StatVariant[] {
+  // Add only if missing so we never persist duplicates.
+  const base = Array.isArray(selected) ? selected : []
+  if (base.some((v) => Number(v) === Number(variant))) return sortVariantsInUiOrder(base)
+  return sortVariantsInUiOrder([...base, variant])
+}
+
+const SUBSTAT_NOT_LABEL_SX: SxProps<Theme> = {
+  // Draw a diagonal strike on the label to indicate "must not have".
+  position: 'relative',
+  display: 'inline-block',
+  // Rising diagonal (left-bottom -> right-top).
+  '&::after': {
+    content: '""',
+    position: 'absolute',
+    left: '-8%',
+    right: '-8%',
+    top: '60%',
+    height: '2px',
+    backgroundColor: 'currentColor',
+    opacity: 0.9,
+    transform: 'translateY(-50%) rotate(-20deg)',
+    transformOrigin: 'center',
+    pointerEvents: 'none',
+  },
+}
+
 const TOGGLE_BUTTON_BORDER_RADIUS = `${STATUS_CHIP_BORDER_RADIUS_PX}px`
 const toggleBorderColor = (theme: Theme) => theme.palette.divider
 // Grid-based toggle groups rely on real spacing, so restore each chip's outline.
@@ -1315,7 +1364,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
   const clearSubSection = () => {
     const next: RulesFilterState = {
       ...state,
-      sub: { ...(DEFAULT_RULES_FILTER_STATE.sub ?? { selected: [], mode: 'all', wildcardMode: 'include' }) },
+      sub: { ...(DEFAULT_RULES_FILTER_STATE.sub ?? { selected: [], notSelected: [], mode: 'all', wildcardMode: 'include' }) },
     }
     if (isTesterMode) {
       next.testerGlyphs = { ...(DEFAULT_RULES_FILTER_STATE.testerGlyphs ?? { mode: 'any' }) }
@@ -1394,6 +1443,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
   )
   const subSectionDirty = (
     (state.sub.selected.length > 0)
+    || (state.sub.notSelected.length > 0)
     || (state.sub.mode !== DEFAULT_RULES_FILTER_STATE.sub.mode)
     || (isTesterMode && testerGlyphMode !== (DEFAULT_RULES_FILTER_STATE.testerGlyphs?.mode ?? 'any'))
     || (isTesterMode && testerRollsActive)
@@ -2593,36 +2643,106 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
               />
               <Collapse in={!collapsed.sub} timeout="auto" unmountOnExit>
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-                <ToggleButtonGroup
-                  size="small"
-                  value={filterRowSelection(state.sub.selected, STAT_VARIANTS_PRIORITY_ROW1)}
-                  onChange={(_, vals: string[]) => {
-                    const next = mergeRowSelection(state.sub.selected, STAT_VARIANTS_PRIORITY_ROW1, vals)
-                    onChange({ ...state, sub: { ...state.sub, selected: next } })
-                  }}
-                  sx={buildToggleGridSx(STAT_VARIANTS_PRIORITY_ROW1.length)}
-                >
-                  {STAT_VARIANTS_PRIORITY_ROW1.map((variant) => (
-                    <ToggleButton key={variant} value={String(variant)} aria-label={labelOfVariant(variant)}>
-                      {t(statVariantI18nKey(variant))}
-                    </ToggleButton>
-                  ))}
-                </ToggleButtonGroup>
-                <ToggleButtonGroup
-                  size="small"
-                  value={filterRowSelection(state.sub.selected, STAT_VARIANTS_PRIORITY_ROW2)}
-                  onChange={(_, vals: string[]) => {
-                    const next = mergeRowSelection(state.sub.selected, STAT_VARIANTS_PRIORITY_ROW2, vals)
-                    onChange({ ...state, sub: { ...state.sub, selected: next } })
-                  }}
-                  sx={buildToggleGridSx(STAT_VARIANTS_PRIORITY_ROW2.length)}
-                >
-                  {STAT_VARIANTS_PRIORITY_ROW2.map((variant) => (
-                    <ToggleButton key={variant} value={String(variant)} aria-label={labelOfVariant(variant)}>
-                      {t(statVariantI18nKey(variant))}
-                    </ToggleButton>
-                  ))}
-                </ToggleButtonGroup>
+                {(() => {
+                  // Substat filter buttons are tri-state per stat:
+                  // - Off: no constraint.
+                  // - Left click: must have this substat.
+                  // - Right click: must not have this substat.
+                  const mustHave = state.sub.selected
+                  const mustNot = state.sub.notSelected
+
+                  // ToggleButtonGroup expects a single "selected values" list, so represent
+                  // include/exclude as one active union for presentation.
+                  const unionRaw: StatVariant[] = []
+                  const seen = new Set<number>()
+                  for (const variant of [...mustHave, ...mustNot]) {
+                    const key = Number(variant)
+                    if (seen.has(key)) continue
+                    seen.add(key)
+                    unionRaw.push(key as StatVariant)
+                  }
+                  const activeUnion = sortVariantsInUiOrder(unionRaw)
+
+                  const mustHaveSet = new Set(mustHave.map(Number))
+                  const mustNotSet = new Set(mustNot.map(Number))
+
+                  const setTriStateVariant = (variant: StatVariant, mode: 'include' | 'exclude' | 'off') => {
+                    // Always clear both lists first to avoid overlap (back-compat safety).
+                    const nextMustHaveBase = toggleVariantOff(mustHave, variant)
+                    const nextMustNotBase = toggleVariantOff(mustNot, variant)
+                    if (mode === 'off') {
+                      onChange({ ...state, sub: { ...state.sub, selected: nextMustHaveBase, notSelected: nextMustNotBase } })
+                      return
+                    }
+                    if (mode === 'include') {
+                      onChange({
+                        ...state,
+                        sub: {
+                          ...state.sub,
+                          selected: toggleVariantOn(nextMustHaveBase, variant),
+                          notSelected: nextMustNotBase,
+                        },
+                      })
+                      return
+                    }
+                    onChange({
+                      ...state,
+                      sub: {
+                        ...state.sub,
+                        selected: nextMustHaveBase,
+                        notSelected: toggleVariantOn(nextMustNotBase, variant),
+                      },
+                    })
+                  }
+
+                  const renderSubstatButton = (variant: StatVariant) => {
+                    const label = t(statVariantI18nKey(variant))
+                    const isMustNot = mustNotSet.has(Number(variant))
+                    const isActive = mustHaveSet.has(Number(variant)) || isMustNot
+                    return (
+                      <ToggleButton
+                        key={variant}
+                        value={String(variant)}
+                        aria-label={labelOfVariant(variant)}
+                        onClick={() => {
+                          // Left click: Off -> include, Active -> Off.
+                          setTriStateVariant(variant, isActive ? 'off' : 'include')
+                        }}
+                        onContextMenu={(e) => {
+                          // Right click: Off -> exclude, Active -> Off.
+                          e.preventDefault()
+                          setTriStateVariant(variant, isActive ? 'off' : 'exclude')
+                        }}
+                      >
+                        <Box
+                          component="span"
+                          {...(isMustNot ? { sx: SUBSTAT_NOT_LABEL_SX } : {})}
+                        >
+                          {label}
+                        </Box>
+                      </ToggleButton>
+                    )
+                  }
+
+                  return (
+                    <>
+                      <ToggleButtonGroup
+                        size="small"
+                        value={filterRowSelection(activeUnion, STAT_VARIANTS_PRIORITY_ROW1)}
+                        sx={buildToggleGridSx(STAT_VARIANTS_PRIORITY_ROW1.length)}
+                      >
+                        {STAT_VARIANTS_PRIORITY_ROW1.map((variant) => renderSubstatButton(variant))}
+                      </ToggleButtonGroup>
+                      <ToggleButtonGroup
+                        size="small"
+                        value={filterRowSelection(activeUnion, STAT_VARIANTS_PRIORITY_ROW2)}
+                        sx={buildToggleGridSx(STAT_VARIANTS_PRIORITY_ROW2.length)}
+                      >
+                        {STAT_VARIANTS_PRIORITY_ROW2.map((variant) => renderSubstatButton(variant))}
+                      </ToggleButtonGroup>
+                    </>
+                  )
+                })()}
               </Box>
               {/* Chips row below substats */}
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', mt: FILTER_CHIP_TOP_MARGIN }}>

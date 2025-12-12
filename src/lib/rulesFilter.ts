@@ -136,7 +136,16 @@ export interface RulesFilterState {
   rarity: { selected: RankValue[]; anyMode: AnyMode }
   level: { selected: LevelMilestone[]; anyMode: AnyMode; testerRange?: TesterLevelRange }
   main: { selected: StatVariant[]; anyMode: AnyMode }
-  sub: { selected: StatVariant[]; mode: SubstatMatchMode; wildcardMode: AnyMode }
+  sub: {
+    // "Must have": include rules/items that match these selected substats.
+    selected: StatVariant[]
+    // "Must not have": exclude rules/items that contain any of these substats.
+    notSelected: StatVariant[]
+    // When multiple "must have" substats are selected, choose whether to require all or any of them.
+    mode: SubstatMatchMode
+    // Treat wildcard ("Any") substats as include/hide/only.
+    wildcardMode: AnyMode
+  }
   faction: { selected: FactionId[]; anyMode: AnyMode }
   configName?: { query: string }
   testerSources?: { selected: TesterSourceFilter[] }
@@ -173,7 +182,7 @@ export const DEFAULT_RULES_FILTER_STATE: RulesFilterState = {
   rarity: { selected: [], anyMode: 'include' },
   level: { selected: [], anyMode: 'include', testerRange: { ...DEFAULT_TESTER_LEVEL_RANGE } },
   main: { selected: [], anyMode: 'include' },
-  sub: { selected: [], mode: 'all', wildcardMode: 'include' },
+  sub: { selected: [], notSelected: [], mode: 'all', wildcardMode: 'include' },
   faction: { selected: [], anyMode: 'include' },
   configName: { query: '' },
   testerSources: { selected: [] },
@@ -201,7 +210,10 @@ export function isRulesFilterActive(f: RulesFilterState, options?: { includeTest
   const d = ((f.rarity?.selected?.length ?? 0) > 0) || ((f.rarity?.anyMode) ?? 'include') !== 'include'
   const e = (f.level?.selected?.length ?? 0) > 0 || (f.level?.anyMode ?? 'include') !== 'include' || testerRangeActive
   const g = (f.main?.selected?.length ?? 0) > 0 || (f.main?.anyMode ?? 'include') !== 'include'
-  const h = (f.sub?.selected?.length ?? 0) > 0 || (f.sub?.wildcardMode ?? 'include') !== 'include' || (f.sub?.mode ?? 'all') !== 'all'
+  const h = f.sub.selected.length > 0
+    || f.sub.notSelected.length > 0
+    || f.sub.wildcardMode !== 'include'
+    || f.sub.mode !== 'all'
   const i = (f.faction?.selected?.length ?? 0) > 0 || (f.faction?.anyMode ?? 'include') !== 'include'
   const j = Boolean(f.configName && typeof f.configName.query === 'string' && f.configName.query.length > 0)
   const k = (f.testerSources?.selected?.length ?? 0) > 0
@@ -254,9 +266,10 @@ export function filterHsfRules<T extends HsfRule>(
   }
   const selectedSlots = new Set((f.slots?.selected ?? []).map(Number))
   const selectedLevels = new Set<LevelMilestone>(f.level?.selected ?? [])
-  const selectedMain = new Set((f.main?.selected ?? []).map(Number))
-  const selectedSub = new Set((f.sub?.selected ?? []).map(Number))
-  const selectedFactions = new Set((f.faction?.selected ?? []).map(Number))
+  const selectedMain = new Set(f.main.selected.map(Number))
+  const selectedSub = new Set(f.sub.selected.map(Number))
+  const excludedSub = new Set(f.sub.notSelected.map(Number))
+  const selectedFactions = new Set(f.faction.selected.map(Number))
 
   const selectedRanks = new Set(f.rank?.selected ?? [])
   const selectedRarities = new Set(f.rarity?.selected ?? [])
@@ -409,14 +422,21 @@ export function filterHsfRules<T extends HsfRule>(
     if (f.sub.wildcardMode === 'only') { if (!hasWildcard) return false }
     else if (f.sub.wildcardMode === 'off') { if (hasWildcard) return false }
 
-    if (selectedSub.size > 0) {
+    if (selectedSub.size > 0 || excludedSub.size > 0) {
+      // Substat presence evaluation is based on the variant-keyed rule substats.
+      // This keeps the filter behavior consistent with the UI's StatVariant toggles.
       const ruleSubs = new Set(subs.map(s => Number(subToVariant(s.ID, s.IsFlat))))
-      if (f.sub.mode === 'all') {
-        for (const v of selectedSub) { if (!ruleSubs.has(v)) return false }
-      } else {
-        let hit = false
-        for (const v of selectedSub) { if (ruleSubs.has(v)) { hit = true; break } }
-        if (!hit) return false
+      if (excludedSub.size > 0) {
+        for (const v of excludedSub) { if (ruleSubs.has(v)) return false }
+      }
+      if (selectedSub.size > 0) {
+        if (f.sub.mode === 'all') {
+          for (const v of selectedSub) { if (!ruleSubs.has(v)) return false }
+        } else {
+          let hit = false
+          for (const v of selectedSub) { if (ruleSubs.has(v)) { hit = true; break } }
+          if (!hit) return false
+        }
       }
     }
 
@@ -524,9 +544,10 @@ export function filterTesterItems<T extends TesterFilterRow>(
   const selectedRanks = new Set((f.rank?.selected ?? []).map(Number))
   const selectedRarities = new Set((f.rarity?.selected ?? []).map(Number))
   const selectedLevels = new Set<LevelMilestone>(f.level?.selected ?? [])
-  const selectedMainVariants = new Set((f.main?.selected ?? []).map(Number))
-  const selectedSubVariants = new Set((f.sub?.selected ?? []).map(Number))
-  const selectedFactions = new Set((f.faction?.selected ?? []).map(Number))
+  const selectedMainVariants = new Set(f.main.selected.map(Number))
+  const selectedSubVariants = new Set(f.sub.selected.map(Number))
+  const excludedSubVariants = new Set(f.sub.notSelected.map(Number))
+  const selectedFactions = new Set(f.faction.selected.map(Number))
   const selectedChampionIds = new Set((f.testerChampions?.selected ?? []).map(Number))
   const testerLevelRange = resolveTesterLevelRange(f.level)
   const testerExactLevelRangeActive =
@@ -694,19 +715,30 @@ export function filterTesterItems<T extends TesterFilterRow>(
     } else if (subWildcardMode === 'off') {
       if (!hasSubstats) continue
     }
-    if (selectedSubVariants.size > 0) {
-      if (subMode === 'all') {
-        let ok = true
-        for (const variant of selectedSubVariants) {
-          if (!subVariants.has(variant)) { ok = false; break }
+    if (selectedSubVariants.size > 0 || excludedSubVariants.size > 0) {
+      // "Must not have" is evaluated first: any overlap removes the row.
+      if (excludedSubVariants.size > 0) {
+        let hit = false
+        for (const variant of excludedSubVariants) {
+          if (subVariants.has(variant)) { hit = true; break }
         }
-        if (!ok) continue
-      } else {
-        let ok = false
-        for (const variant of selectedSubVariants) {
-          if (subVariants.has(variant)) { ok = true; break }
+        if (hit) continue
+      }
+      // "Must have" respects the existing match mode semantics.
+      if (selectedSubVariants.size > 0) {
+        if (subMode === 'all') {
+          let ok = true
+          for (const variant of selectedSubVariants) {
+            if (!subVariants.has(variant)) { ok = false; break }
+          }
+          if (!ok) continue
+        } else {
+          let ok = false
+          for (const variant of selectedSubVariants) {
+            if (subVariants.has(variant)) { ok = true; break }
+          }
+          if (!ok) continue
         }
-        if (!ok) continue
       }
     }
 
