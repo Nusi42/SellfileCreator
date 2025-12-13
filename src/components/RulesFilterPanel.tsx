@@ -502,8 +502,6 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
   const configNameQuery = state.configName?.query ?? ''
   // Keep the header layout stable: the Config Name filter always renders so the action buttons stay left-aligned,
   // even when there are zero configs (or configs without names) loaded yet.
-  const showConfigNameField = true
-  const headerActionJustify = 'flex-start'
   const hasConfigs = configCount > 0
   const configNameInputRef = React.useRef<HTMLInputElement | null>(null)
   const configNameRegexError = React.useMemo(() => {
@@ -520,7 +518,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
   }, [onChange, state])
   const topHeaderRef = React.useRef<HTMLDivElement | null>(null)
   const focusConfigNameInput = React.useCallback((options?: { selectText?: boolean }) => {
-    if (!showConfigNameField) return false
+    // Why: the config name field always renders now, so we only guard on the input being mounted and visible.
     const input = configNameInputRef.current
     if (!input) return false
     if (input.offsetParent === null) return false
@@ -542,7 +540,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
       run()
     }
     return true
-  }, [showConfigNameField])
+  }, [])
 
   React.useImperativeHandle(ref, () => ({
     focusConfigNameInput,
@@ -553,7 +551,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
     if (!el) return
     const height = el.offsetHeight
     setHeaderMaxHeight(prev => (height > prev ? height : prev || height))
-  }, [showConfigNameField, configNameQuery])
+  }, [configNameQuery])
   const setsSelectContainerRef = React.useRef<HTMLDivElement | null>(null)
   const setsMenuListRef = React.useRef<HTMLUListElement | null>(null)
   const metasetsMenuListRef = React.useRef<HTMLUListElement | null>(null)
@@ -1496,7 +1494,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
           sx={{
             gridColumn: '1',
             display: 'flex',
-            justifyContent: headerActionJustify,
+            justifyContent: 'flex-start',
             alignItems: 'center',
             minWidth: 0,
           }}
@@ -1505,7 +1503,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
             direction="row"
             spacing={1}
             alignItems="center"
-            sx={{ flexWrap: 'wrap', justifyContent: headerActionJustify }}
+            sx={{ flexWrap: 'wrap', justifyContent: 'flex-start' }}
           >
           {Boolean(onTesterConfigFilterModeChange) && (
             <MarkdownTooltip markdown={testerConfigFilterTooltip}>
