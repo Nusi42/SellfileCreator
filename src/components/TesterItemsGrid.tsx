@@ -919,8 +919,20 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
       return (
         <Box
           sx={(theme) => ({
-            height: '100%',
-            ml: item.variant === 'child' ? theme.spacing(1.5 * item.depth) : 0,
+            ...(item.variant === 'top'
+              ? {
+                height: '100%',
+                ml: 0,
+              }
+              : {
+                // Spacers sit between bordered slices; keep the left/right grid rails continuous.
+                ...sharedBodySx(theme),
+                ml: item.variant === 'child'
+                  ? theme.spacing(1.5 * item.depth)
+                  : item.depth > 0
+                    ? theme.spacing(1.5)
+                    : 0,
+              }),
           })}
         />
       )
@@ -945,6 +957,8 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     }
     if (item.kind === 'cardRow') {
       const isLastRow = item.rowIndex === item.rowCount - 1
+      // Bottom padding owns the rounded border so the last card row doesn't double-round the container edge.
+      const ownsBottomBorder = isLastRow && gridLeafPaddingPx <= 0
       const rowAbsoluteTopPx = virtualItem.start
       const rowAbsoluteBottomPx = rowAbsoluteTopPx + virtualItem.size
       const viewportStartPx = scrollTop
@@ -966,11 +980,11 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
         <Box
           sx={(theme) => ({
             ...sharedBodySx(theme),
-            borderBottom: isLastRow ? `1px solid ${theme.palette.divider}` : 'none',
-            borderBottomLeftRadius: isLastRow
+            borderBottom: ownsBottomBorder ? `1px solid ${theme.palette.divider}` : 'none',
+            borderBottomLeftRadius: ownsBottomBorder
               ? `${Math.max(ACCORDION_BORDER_RADIUS_PX - (nested ? 2 : 0), 2)}px`
               : 0,
-            borderBottomRightRadius: isLastRow
+            borderBottomRightRadius: ownsBottomBorder
               ? `${Math.max(ACCORDION_BORDER_RADIUS_PX - (nested ? 2 : 0), 2)}px`
               : 0,
             px: theme.spacing(GRID_CARD_CONTAINER_PADDING_UNITS),
