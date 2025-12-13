@@ -4760,6 +4760,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           storedGearSetsCount={storedRuntimeGearSetCount}
           metasetsDiffer={restoreMetasetsDiffer}
           targetsDiffer={restoreTargetsDiffer}
+          filtersDiffer={restoreFiltersDiffer}
           onDismiss={() => {
             dismissRestore()
             setTesterRestoreDraft(null)
@@ -4790,9 +4791,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
               if (selection.note && typeof draft.Note === 'string') {
                 applyNoteChange(draft.Note, { mode: 'restore', publish: false })
               }
-              if (restoreFiltersDiffer && draft.Filters) {
-                // Filters are intentionally not listed in the restore dialog, but restoring an autosave
-                // should still rehydrate the last view-only filter surface for a seamless session.
+              if (selection.filters && restoreFiltersDiffer && draft.Filters) {
                 try {
                   const views = draft.Filters.views
                   if (views && typeof views === 'object') {
