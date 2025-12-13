@@ -3200,7 +3200,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     }
   }, [customCfgs.length])
   const colorIconSrc = React.useMemo(() => makeManageColorsIcon(), [])
-  const hasNamedConfigs = useMemo(() => customCfgs.some(cfg => Boolean(cfg?.name && cfg.name.trim().length > 0)), [customCfgs])
   const visibleConfigCount = useMemo(() => {
     if (visibleConfigIndices) return visibleConfigIndices.size
     return customCfgs.length
@@ -4570,26 +4569,25 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         onClearGearDbCommandSuccess={clearGearDbCommandSuccess}
       />
           {filterOpen && (
-          <RulesFilterPanel
-            ref={rulesFilterPanelRef}
-            mode={previewMode}
-            state={rulesFilter}
-            onChange={setRulesFilter}
-            metasets={metasets}
-            showFaction={showFactionFilter}
-            hasNamedConfigs={hasNamedConfigs}
-            configChipFilterActive={limitConfigsToFiltered}
-            onConfigChipFilterChange={setLimitConfigsToFiltered}
-            testerConfigFilterMode={testerConfigFilterMode}
-            onTesterConfigFilterModeChange={setTesterConfigFilterMode}
-            configCount={customCfgs.length}
-            collapsed={filterCollapsed}
-            onCollapsedChange={setFilterCollapsed}
-            testerChampionOptions={testerChampionOptions}
-            substatColors={substatColors}
-            useStatButtonColors={statButtonBorders}
-            hasManualTesterItems={hasManualTesterRows}
-          />
+            <RulesFilterPanel
+              ref={rulesFilterPanelRef}
+              mode={previewMode}
+              state={rulesFilter}
+              onChange={setRulesFilter}
+              metasets={metasets}
+              showFaction={showFactionFilter}
+              configChipFilterActive={limitConfigsToFiltered}
+              onConfigChipFilterChange={setLimitConfigsToFiltered}
+              testerConfigFilterMode={testerConfigFilterMode}
+              onTesterConfigFilterModeChange={setTesterConfigFilterMode}
+              configCount={customCfgs.length}
+              collapsed={filterCollapsed}
+              onCollapsedChange={setFilterCollapsed}
+              testerChampionOptions={testerChampionOptions}
+              substatColors={substatColors}
+              useStatButtonColors={statButtonBorders}
+              hasManualTesterItems={hasManualTesterRows}
+            />
           )}
           <Box sx={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
             {previewMode === 'tester' ? (
