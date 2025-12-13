@@ -169,7 +169,7 @@ import {
 
 export { createFactoryBuilderDefaults } from './builderPanel/defaults'
 
-export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSelected, registerAutoApplyHandler, onApplyMultiEdit, onUndo, onRedo, canUndo, canRedo, undoPreview, redoPreview, historyTimeline, onJumpToHistoryIndex, onRequestClearHistory, metasets, onMetasetsChange, describeNextChange, onDeleteMetaset, onResetMetasets, substatTargets, onSubstatTargetsChange, setUsageCounts, metasetUsageCounts, keepUniqueMetasetUsageCounts, substatColors: _substatColors, configCount: _configCount, configRuleCounts, configRuleFingerprints, configsExcludedByTotalLimit, ruleSubstatTargetsKey, rulesBuilding, awaitRuleCounts, countRulesForConfigs, selectedIsDirty, configHiddenByFilters, onSelectConfigsByMetaset, substatTargetsDialogOpen, onCloseSubstatTargetsDialog, multiEdit: _multiEdit = null, multiSelectedConfigs = null, onBeforeMetasetsDialogClose }: {
+export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSelected, registerAutoApplyHandler, onApplyMultiEdit, onUndo, onRedo, canUndo, canRedo, undoPreview, redoPreview, historyTimeline, onJumpToHistoryIndex, onRequestClearHistory, metasets, onMetasetsChange, describeNextChange, onDeleteMetaset, onResetMetasets, substatTargets, onSubstatTargetsChange, setUsageCounts, metasetUsageCounts, keepUniqueMetasetUsageCounts, substatColors: _substatColors, configCount: _configCount, configRuleCounts, configRuleFingerprints, configsExcludedByTotalLimit, ruleSubstatTargetsKey, rulesBuilding, awaitRuleCounts, countRulesForConfigs, selectedIsDirty, insertHiddenByFilters, saveHiddenByFilters, onSelectConfigsByMetaset, substatTargetsDialogOpen, onCloseSubstatTargetsDialog, multiEdit: _multiEdit = null, multiSelectedConfigs = null, onBeforeMetasetsDialogClose }: {
   cfg: BuilderConfig,
   onChange: (c: BuilderConfig) => void
   onAddToCustom: () => void
@@ -206,7 +206,9 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
   awaitRuleCounts?: () => { token: number; promise: Promise<Map<number, number>> } | null
   countRulesForConfigs: (params: { configs: readonly BuilderConfig[]; substatTargets: SubstatTargetTable }, options?: { signal?: AbortSignal }) => Promise<number[]>
   selectedIsDirty: boolean
-  configHiddenByFilters: boolean
+  // Flag Insert/Apply actions that will not appear under "Preview configs".
+  insertHiddenByFilters: boolean
+  saveHiddenByFilters: boolean
   // Select all configs that reference a given metaset ID (used from Metasets dialog "Used" chip)
   onSelectConfigsByMetaset: (id: string) => void
   substatTargetsDialogOpen: boolean
@@ -1664,7 +1666,7 @@ const maxLevelValue = multiEditActive
   const saveDisabled = multiEditActive ? !multiDraftDirty : (editingIndex === null || !isDirty)
   // Controlled so the warning tooltip disappears when the button disables; scope key forces a remount on state changes.
   const [saveTooltipOpen, setSaveTooltipOpen] = useState(false)
-  const saveTooltipScope = `${configHiddenByFilters ? 'visible' : 'hidden'}:${saveDisabled ? 'disabled' : 'active'}`
+  const saveTooltipScope = `${saveHiddenByFilters ? 'visible' : 'hidden'}:${saveDisabled ? 'disabled' : 'active'}`
   const actionButtonWidthPx = useMemo(() => {
     const samples = [
       t('builderAddAsNew'),
@@ -6131,7 +6133,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
       <Divider sx={{ my: 1, opacity: 0.5 }} />
 
       <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', alignItems: 'center' }}>
-        <MarkdownTooltip markdown={t('builderInsertHiddenTooltip')} disableHoverListener={!configHiddenByFilters || !builderCanAdd}>
+        <MarkdownTooltip markdown={t('builderInsertHiddenTooltip')} disableHoverListener={!insertHiddenByFilters || !builderCanAdd}>
           <Box
             component="span"
             onContextMenu={handleInsertContextMenu}
@@ -6143,7 +6145,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
             <Badge
               overlap="rectangular"
               anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
-              invisible={!configHiddenByFilters || !builderCanAdd}
+              invisible={!insertHiddenByFilters || !builderCanAdd}
               sx={hiddenBadgeSx}
               badgeContent="!"
             >
@@ -6164,8 +6166,8 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
         <MarkdownTooltip
           key={saveTooltipScope}
           markdown={t('builderSaveHiddenTooltip')}
-          disableHoverListener={!configHiddenByFilters || saveDisabled}
-          open={saveTooltipOpen && configHiddenByFilters && !saveDisabled}
+          disableHoverListener={!saveHiddenByFilters || saveDisabled}
+          open={saveTooltipOpen && saveHiddenByFilters && !saveDisabled}
           onOpen={() => setSaveTooltipOpen(true)}
           onClose={() => setSaveTooltipOpen(false)}
         >
@@ -6180,7 +6182,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
             <Badge
               overlap="rectangular"
               anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
-              invisible={!configHiddenByFilters || saveDisabled}
+              invisible={!saveHiddenByFilters || saveDisabled}
               sx={hiddenBadgeSx}
               badgeContent="!"
             >

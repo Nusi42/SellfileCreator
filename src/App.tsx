@@ -164,7 +164,7 @@ import { useAppActions, useAppState } from './state/appState'
 import { useI18n } from './lib/i18n'
 import { computeDuplicateIndices } from './lib/configDuplicates'
 import { configsForRuleBuild } from './lib/ruleCacheHelpers'
-import type { MatchingConfigDecision } from './lib/ruleEval'
+import { evaluateFirst, type MatchingConfigDecision } from './lib/ruleEval'
 import { importGearDatabaseFromFile } from './lib/importers/gearDbImporter'
 import {
   createDatasetFromSnapshot,
@@ -3175,11 +3175,14 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       : customCfgs.length
   ), [selectedCfgIdx, customCfgs.length])
 
-  const builderInsertMatchesFilter = useMemo(() => {
+  const builderInsertMatchesRuleFilters = useMemo(() => {
+    // Rule preview mode: "Preview configs" only hides chips when a rules filter is active.
     if (!filterActive || !limitConfigsToFiltered) return true
+    // When the builder matches the selected config verbatim, reuse the current filter evaluation.
     if (editingConfigIndex !== null && !selectedIsDirty) {
       return matchingConfigIndices.has(editingConfigIndex)
     }
+    // Otherwise, predict whether the inserted config would survive the current rules filter.
     const names = configNames.slice()
     names.splice(prospectiveInsertIndex, 0, builder.name ?? '')
     const modes = configModes.slice()
@@ -3187,19 +3190,102 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     modes.splice(prospectiveInsertIndex, 0, builderExportMode)
     return evaluateConfigAgainstFilters(builder, prospectiveInsertIndex, names, modes)
   }, [
+    builder,
+    configModes,
+    configNames,
+    editingConfigIndex,
+    evaluateConfigAgainstFilters,
     filterActive,
     limitConfigsToFiltered,
-    configNames,
-    configModes,
-    prospectiveInsertIndex,
-    builder,
-    evaluateConfigAgainstFilters,
-    editingConfigIndex,
-    selectedIsDirty,
     matchingConfigIndices,
+    prospectiveInsertIndex,
+    selectedIsDirty,
   ])
 
-  const configHiddenByFilters = filterActive && limitConfigsToFiltered && !builderInsertMatchesFilter
+  const builderSaveMatchesRuleFilters = useMemo(() => {
+    // Rule preview mode: saving only hides chips when the rules filter is active and "Preview configs" is on.
+    if (!filterActive || !limitConfigsToFiltered) return true
+    // No save target => never show the Apply warning.
+    if (editingConfigIndex === null || editingConfigIndex < 0 || editingConfigIndex >= customCfgs.length) return true
+    // Predict whether the saved config at its current index would survive the active rules filter.
+    const names = configNames.slice()
+    names[editingConfigIndex] = builder.name ?? ''
+    const modes = configModes.slice()
+    const builderExportMode: SellfileExportMode = builder.exportMode
+    modes[editingConfigIndex] = builderExportMode
+    return evaluateConfigAgainstFilters(builder, editingConfigIndex, names, modes)
+  }, [
+    builder,
+    configModes,
+    configNames,
+    customCfgs.length,
+    editingConfigIndex,
+    evaluateConfigAgainstFilters,
+    filterActive,
+    limitConfigsToFiltered,
+  ])
+
+  const builderInsertBecomesTesterFirstMatch = useCallback((targetIndex: number): boolean => {
+    // Tester preview mode: the chip filter is driven by the set of configs that are the *first match*
+    // for at least one tester row that survives the tester-side filters.
+    if (!limitConfigsToFiltered) return true
+    if (builder.exportMode === 'disabled') return false
+    // In tester mode, separators are always shown when config filtering is off (anchor chips remain visible).
+    if (builder.exportMode === 'separator' && testerConfigFilterMode === 'off') return true
+    const rows = gearEntriesAfterRulesFilter
+    if (rows.length === 0) return false
+    let ruleLimitHit = false
+    const rulesForBuilder = buildRulesForConfig(
+      { config: builder, metasets, substatTargets, cfgIdx: targetIndex },
+      { limit: RULE_COUNT_LIMIT + 1, onLimit: () => { ruleLimitHit = true } },
+    )
+    // If the config generates more rules than we are willing to build in-render, assume it is visible.
+    if (ruleLimitHit) return true
+    if (rulesForBuilder.length === 0) return false
+    for (const row of rows) {
+      const currentMatchIdx = row.match?.cfgIdx ?? null
+      // If an earlier config already wins, inserting/saving cannot make this config the first match.
+      if (currentMatchIdx !== null && currentMatchIdx < targetIndex) continue
+      if (evaluateFirst(rulesForBuilder, row.artifact.testerItem)) return true
+    }
+    return false
+  }, [
+    builder,
+    limitConfigsToFiltered,
+    metasets,
+    substatTargets,
+    testerConfigFilterMode,
+    gearEntriesAfterRulesFilter,
+  ])
+
+  const insertHiddenByFilters = useMemo(() => {
+    if (!limitConfigsToFiltered) return false
+    if (previewMode === 'tester') {
+      return !builderInsertBecomesTesterFirstMatch(prospectiveInsertIndex)
+    }
+    return !builderInsertMatchesRuleFilters
+  }, [
+    builderInsertBecomesTesterFirstMatch,
+    builderInsertMatchesRuleFilters,
+    limitConfigsToFiltered,
+    previewMode,
+    prospectiveInsertIndex,
+  ])
+
+  const saveHiddenByFilters = useMemo(() => {
+    if (!limitConfigsToFiltered) return false
+    if (editingConfigIndex === null) return false
+    if (previewMode === 'tester') {
+      return !builderInsertBecomesTesterFirstMatch(editingConfigIndex)
+    }
+    return !builderSaveMatchesRuleFilters
+  }, [
+    builderInsertBecomesTesterFirstMatch,
+    builderSaveMatchesRuleFilters,
+    editingConfigIndex,
+    limitConfigsToFiltered,
+    previewMode,
+  ])
 
   const handleExternalCommand = useCallback((cmd: ExternalCommand) => {
     if (cmd.kind === 'selectRule') {
@@ -3565,7 +3651,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       substatColors={substatColors}
       configCount={customCfgs.length}
       selectedIsDirty={selectedIsDirty}
-      configHiddenByFilters={configHiddenByFilters}
+      insertHiddenByFilters={insertHiddenByFilters}
+      saveHiddenByFilters={saveHiddenByFilters}
       configRuleCounts={configRuleCounts}
       configRuleFingerprints={configRuleFingerprints}
       configsExcludedByTotalLimit={configsExcludedByTotalLimit}
