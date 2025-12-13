@@ -5,7 +5,7 @@
  * NumberSpinnerAdornment for consistency with Builder/Testers so pointer/touch
  * interaction stays identical everywhere numeric substatTargets appear.
  */
-import React, { useMemo, useState } from 'react'
+import React, { useMemo, useRef, useState } from 'react'
 import { Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, TextField, Typography } from '@mui/material'
 import { alpha, useTheme } from '@mui/material/styles'
 import type { Theme } from '@mui/material/styles'
@@ -15,6 +15,7 @@ import { STANDARD_DIALOG_PADDING_BLOCK_UNITS, STANDARD_DIALOG_PADDING_INLINE_UNI
 import type { SubstatTargetTable, Star } from '../lib/hsfBuilder'
 import { defaultSubstatTargets } from '../lib/hsfBuilder'
 import { StatVariant, DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT, statVariantI18nKey, STAT_VARIANTS_PRIORITY } from '../lib/types'
+import { focusCycleWithin } from '../lib/focusCycle'
 import { createBuilderStatusChipSx } from './builderStatusChipStyles'
 import { useDisplayPreferences } from '../state/preferencesState'
 import { NumberSpinnerAdornment } from './NumberSpinnerAdornment'
@@ -23,6 +24,12 @@ import MarkdownTooltip from './MarkdownTooltip'
 
 type SubstatColorMap = Record<number, { fg: string; bg: string }>
 type SubstatTargetStarKey = Exclude<keyof SubstatTargetTable, 'anyRankDefaultsTo'>
+// Use stable attributes so focus navigation can target only the value inputs,
+// independent of MUI internals or localized aria labels.
+const SUBSTAT_TARGET_INPUT_ATTR = 'data-substat-target-input' as const
+const SUBSTAT_TARGET_INPUT_STAR_ATTR = 'data-substat-target-star' as const
+const SUBSTAT_TARGET_INPUT_VARIANT_ATTR = 'data-substat-target-variant' as const
+const SUBSTAT_TARGET_INPUT_SELECTOR = `input[${SUBSTAT_TARGET_INPUT_ATTR}="true"]` as const
 
 export default function SubstatTargetsDialog({ open, onClose, substatTargets, onSubstatTargetsChange, substatColors }: {
   open: boolean
@@ -35,6 +42,9 @@ export default function SubstatTargetsDialog({ open, onClose, substatTargets, on
   const theme = useTheme()
   const { statButtonBorders: colorStatTexts } = useDisplayPreferences()
   const [confirmResetTargets, setConfirmResetTargets] = useState(false)
+  // Key intent: let Tab/Shift+Tab hop between the grid cells (value inputs)
+  // without stopping on the spinner adornment buttons in each TextField.
+  const substatTargetGridRef = useRef<HTMLDivElement | null>(null)
   const storedFallback = substatTargets.anyRankDefaultsTo
   const fallbackStar: Star = storedFallback ?? 6
   const fallbackChipSx = useMemo(() => createBuilderStatusChipSx(theme), [theme])
@@ -54,6 +64,27 @@ export default function SubstatTargetsDialog({ open, onClose, substatTargets, on
     const nextSlice = { ...slice, [variantKey]: nextValue }
     onSubstatTargetsChange({ ...substatTargets, [starKey]: nextSlice })
   }, [substatTargets, onSubstatTargetsChange])
+
+  const orderSubstatTargetInputs = React.useCallback((elements: readonly HTMLInputElement[]): readonly HTMLInputElement[] => {
+    // Desired Tab order is star-major: 6★ SPD -> 6★ CR% -> ... -> 1★ DEF% -> wrap.
+    // DOM order is row-major for grid rendering, so we reconstruct the intended order.
+    const byKey = new Map<string, HTMLInputElement>()
+    for (const el of elements) {
+      const star = el.getAttribute(SUBSTAT_TARGET_INPUT_STAR_ATTR)
+      const variant = el.getAttribute(SUBSTAT_TARGET_INPUT_VARIANT_ATTR)
+      if (!star || !variant) continue
+      byKey.set(`${star}:${variant}`, el)
+    }
+    const ordered: HTMLInputElement[] = []
+    for (const { key: starKey } of substatTargetsStarColumns) {
+      for (const variant of STAT_VARIANTS_PRIORITY) {
+        const match = byKey.get(`${starKey}:${Number(variant)}`)
+        if (match) ordered.push(match)
+      }
+    }
+    // If attributes are missing (unexpected), fall back to DOM order.
+    return ordered.length > 0 ? ordered : elements
+  }, [substatTargetsStarColumns])
 
   const renderSubstatTargetInput = (starKey: SubstatTargetStarKey, variantKey: number, statLabel: string, starLabel: string) => {
     // Inputs write straight through to the variant map so Builder/Rule Tester see
@@ -80,7 +111,28 @@ export default function SubstatTargetsDialog({ open, onClose, substatTargets, on
           inputMode: 'numeric',
           pattern: '[0-9]*',
           min: 0,
+          // Hint for Playwright + internal focus traversal (SSOT selector above).
+          [SUBSTAT_TARGET_INPUT_ATTR]: 'true',
+          // Provide stable keys so Tab order can be decoupled from DOM order.
+          [SUBSTAT_TARGET_INPUT_STAR_ATTR]: starKey,
+          [SUBSTAT_TARGET_INPUT_VARIANT_ATTR]: String(variantKey),
           'aria-label': ariaLabel,
+          onKeyDown: (event: React.KeyboardEvent<HTMLInputElement>) => {
+            // Match browser semantics: ignore modified Tab presses (e.g. Ctrl+Tab).
+            if (event.key !== 'Tab') return
+            if (event.altKey || event.ctrlKey || event.metaKey) return
+            const moved = focusCycleWithin({
+              container: substatTargetGridRef.current,
+              selector: SUBSTAT_TARGET_INPUT_SELECTOR,
+              current: event.currentTarget,
+              delta: event.shiftKey ? -1 : 1,
+              // Users expect to keep tabbing through the grid without escaping.
+              wrap: true,
+              order: orderSubstatTargetInputs,
+            })
+            if (!moved) return
+            event.preventDefault()
+          },
         }}
         sx={(themeInner) => ({
           '& input': {
@@ -194,7 +246,10 @@ export default function SubstatTargetsDialog({ open, onClose, substatTargets, on
               </Typography>
             ))}
           </Box>
-          <Box sx={{ display: 'grid', gridTemplateColumns: 'minmax(120px,1fr) repeat(6, 1fr)', gap: 1, alignItems: 'center' }}>
+          <Box
+            ref={substatTargetGridRef}
+            sx={{ display: 'grid', gridTemplateColumns: 'minmax(120px,1fr) repeat(6, 1fr)', gap: 1, alignItems: 'center' }}
+          >
             <Box />
             {substatTargetsStarColumns.map(({ key, label, star }) => (
               <React.Fragment key={`header-${key}`}>
