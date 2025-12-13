@@ -7,13 +7,10 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import ExpandLessIcon from '@mui/icons-material/ExpandLess'
 import VisibilityIcon from '@mui/icons-material/Visibility'
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff'
-import FilterAltIcon from '@mui/icons-material/FilterAlt'
-import FilterAltOffIcon from '@mui/icons-material/FilterAltOff'
-import FilterListIcon from '@mui/icons-material/FilterList'
-import FilterListOffIcon from '@mui/icons-material/FilterListOff'
 import SettingsIcon from '@mui/icons-material/Settings'
 import EllipsisTooltip from './EllipsisTooltip'
 import MarkdownTooltip from './MarkdownTooltip'
+import SplitLabelValueButton from './SplitLabelValueButton'
 import {
   artifactSetName,
   PREFERRED_ARTIFACT_TYPE_ORDER,
@@ -1106,6 +1103,11 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
       testerConfigLabelStrings.off.length,
     )
   ), [testerConfigLabelStrings])
+  // Keep the button width stable across Rules vs Rule Tester by reserving space for
+  // the widest translated value that can appear in either view.
+  const configFilterValueWidthCh = React.useMemo(() => (
+    Math.max(testerConfigLabelWidthCh, t('configFilterOn').length)
+  ), [t, testerConfigLabelWidthCh])
   const testerConfigFilterTooltip = t('filterLimitSelectedConfigsTooltip')
   const configFilterButtonActive = testerConfigFilterOn
   const configFilterButtonDisabled = !hasConfigs || !onTesterConfigFilterModeChange
@@ -1118,6 +1120,11 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
   const previewConfigButtonActive = configChipFilterActive
   const previewConfigButtonVariant: 'contained' | 'outlined' = previewConfigButtonActive ? 'contained' : 'outlined'
   const previewConfigButtonLabel = previewConfigButtonActive ? t('configFilterOn') : t('testerFilterConfigsOff')
+  // Match Config Filter's width stabilization pattern so the Preview Configs button
+  // doesn't "jump" as Off/On switches (or across localized strings).
+  const previewConfigsValueWidthCh = React.useMemo(() => (
+    Math.max(t('configFilterOn').length, testerConfigLabelStrings.off.length)
+  ), [t, testerConfigLabelStrings.off])
   const testerSourceOptions = React.useMemo(() => {
     const options = [
       { value: 'inventory', label: t('testerSourceInventory') },
@@ -1505,78 +1512,52 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
             alignItems="center"
             sx={{ flexWrap: 'wrap', justifyContent: 'flex-start' }}
           >
-          {Boolean(onTesterConfigFilterModeChange) && (
-            <MarkdownTooltip markdown={testerConfigFilterTooltip}>
-              <span>
-                <Button
-                  size="small"
-                  variant={configFilterButtonVariant}
-                  color="success"
-                  aria-label={t('filterLimitSelectedConfigs')}
-                  aria-pressed={configFilterButtonDisabled ? undefined : testerConfigFilterOn}
-                  disabled={configFilterButtonDisabled}
-                  onClick={handleTesterConfigFilterClick}
-                  startIcon={configFilterButtonActive ? <FilterAltIcon fontSize="small" /> : <FilterAltOffIcon fontSize="small" />}
-                  sx={{
-                    height: SMALL_BUTTON_HEIGHT_PX,
-                    minHeight: SMALL_BUTTON_HEIGHT_PX,
-                    px: 1.25,
-                    '& .MuiTypography-root': {
-                      fontWeight: 600,
-                    },
-                  }}
-                >
-                  {t('filterLimitSelectedConfigs')}
-                  <Typography
-                    component="span"
-                    color="inherit"
+              {Boolean(onTesterConfigFilterModeChange) && (
+                <MarkdownTooltip markdown={testerConfigFilterTooltip}>
+                  <span>
+                    <SplitLabelValueButton
+                      size="small"
+                      variant={configFilterButtonVariant}
+                      color="success"
+                      aria-label={t('filterLimitSelectedConfigs')}
+                      aria-pressed={configFilterButtonDisabled ? undefined : testerConfigFilterOn}
+                      disabled={configFilterButtonDisabled}
+                      onClick={handleTesterConfigFilterClick}
+                      sx={{
+                        height: SMALL_BUTTON_HEIGHT_PX,
+                        minHeight: SMALL_BUTTON_HEIGHT_PX,
+                        px: 1.25,
+                      }}
+                      label={t('filterLimitSelectedConfigs')}
+                      value={configFilterButtonLabel}
+                      valueWidthCh={configFilterValueWidthCh}
+                    />
+                  </span>
+                </MarkdownTooltip>
+              )}
+              <MarkdownTooltip markdown={t('filterLimitPreviewConfigsTooltip')}>
+                <span>
+                  <SplitLabelValueButton
+                    size="small"
+                    variant={previewConfigButtonVariant}
+                    color="success"
+                    aria-label={t('filterLimitPreviewConfigs')}
+                    aria-pressed={hasConfigs ? previewConfigButtonActive : undefined}
+                    onClick={() => onConfigChipFilterChange(!configChipFilterActive)}
+                    disabled={!hasConfigs}
                     sx={{
-                      ml: 0.75,
-                      display: 'inline-block',
-                      minWidth: isTesterMode ? `${testerConfigLabelWidthCh}ch` : undefined,
-                      textAlign: 'left',
-                      whiteSpace: 'nowrap',
+                      height: SMALL_BUTTON_HEIGHT_PX,
+                      minHeight: SMALL_BUTTON_HEIGHT_PX,
+                      px: 1.25,
                     }}
-                  >
-                    {configFilterButtonLabel}
-                  </Typography>
-                </Button>
-              </span>
-            </MarkdownTooltip>
-          )}
-          <MarkdownTooltip markdown={t('filterLimitPreviewConfigsTooltip')}>
-            <span>
-              <Button
-                size="small"
-                variant={previewConfigButtonVariant}
-                color="success"
-                aria-label={t('filterLimitPreviewConfigs')}
-                aria-pressed={hasConfigs ? previewConfigButtonActive : undefined}
-                onClick={() => onConfigChipFilterChange(!configChipFilterActive)}
-                disabled={!hasConfigs}
-                startIcon={previewConfigButtonActive ? <FilterListIcon fontSize="small" /> : <FilterListOffIcon fontSize="small" />}
-                sx={{
-                  height: SMALL_BUTTON_HEIGHT_PX,
-                  minHeight: SMALL_BUTTON_HEIGHT_PX,
-                  px: 1.25,
-                  '& .MuiTypography-root': {
-                    fontWeight: 600,
-                  },
-                }}
-              >
-                {t('filterLimitPreviewConfigs')}
-                <Typography
-                  component="span"
-                  color="inherit"
-                  sx={{ ml: 0.75, display: 'inline-block', whiteSpace: 'nowrap' }}
-                >
-                  {previewConfigButtonLabel}
-                </Typography>
-              </Button>
-            </span>
-          </MarkdownTooltip>
-          </Stack>
-        </Box>
+                    label={t('filterLimitPreviewConfigs')}
+                    value={previewConfigButtonLabel}
+                    valueWidthCh={previewConfigsValueWidthCh}
+                  />
+                </span>
+              </MarkdownTooltip>
+            </Stack>
+          </Box>
         <Box
           sx={{
             gridColumn: { xs: '1', md: '2' },
