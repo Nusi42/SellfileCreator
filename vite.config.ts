@@ -74,10 +74,20 @@ export default defineConfig(async ({ command }): Promise<UserConfig> => ({
     brotliSize: false,
   },
   worker: {
-    // Vite 7 defaults inline workers to IIFE, which breaks when workers emit
-    // multiple chunks. ES format remains compatible with inline blob workers
-    // and avoids Rollup's IIFE multi-chunk restriction.
-    format: 'es',
+    // Release runs commonly open `SellfileCreator.html` via `file:///...` in Chrome.
+    // Chrome is stricter for module workers (ESM) under opaque `file://` origins and
+    // can reject worker startup with errors like:
+    //   "Refused to cross-origin redirects of the top-level worker script."
+    //
+    // Use a classic/IIFE worker format for compatibility, but force the worker
+    // bundle into a single chunk so Rollup doesn’t hit the IIFE multi-chunk restriction.
+    format: 'iife',
+    rollupOptions: {
+      output: {
+        inlineDynamicImports: true,
+        manualChunks: undefined,
+      },
+    },
   },
   resolve: {
     alias: {
