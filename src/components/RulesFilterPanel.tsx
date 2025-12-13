@@ -58,6 +58,7 @@ import {
   normalizeTesterLastUseFilter,
   normalizeTesterRollCountSelection,
   resolveTesterLevelRange,
+  sanitizeRulesFilterState,
   type AnyMode,
   type Bool3,
   type RulesFilterState,
@@ -446,7 +447,7 @@ const rollSetCoversAllCounts = (counts: TesterRollCountSet): boolean => {
 const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPanelProps>(function RulesFilterPanel(
   {
     mode = 'rules',
-    state,
+    state: rawState,
     onChange,
     metasets,
     showFaction,
@@ -465,6 +466,9 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
   },
   ref,
 ) {
+  // Why: persisted filter state can be partially-written or come from older builds; sanitize once per render
+  // so the panel never crashes while computing `.length`/`.map` on required nested arrays.
+  const state = React.useMemo(() => sanitizeRulesFilterState(rawState as unknown), [rawState])
   const isTesterMode = mode === 'tester'
   const { t, lang } = useI18n()
   useGearSetCatalogVersion()

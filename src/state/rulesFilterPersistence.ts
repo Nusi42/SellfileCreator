@@ -250,7 +250,12 @@ export const useRulesFilterStatePreference = (mode: RulesFilterPreviewMode): Mod
     setMap((prev) => {
       const previous = prev ?? cloneDefaultRulesFilterStateByMode()
       const prevValue = previous[mode]
-      const nextValue = typeof next === 'function' ? (next as (value: RulesFilterState) => RulesFilterState)(prevValue) : next
+      // Why: localStorage sanitization happens at serialization time, but the store keeps
+      // an in-memory snapshot too; clamp updates now so the UI never reads partial shapes.
+      const nextValueRaw = typeof next === 'function'
+        ? (next as (value: RulesFilterState) => RulesFilterState)(prevValue)
+        : next
+      const nextValue = sanitizeRulesFilterState(nextValueRaw)
       if (prevValue === nextValue) return previous
       return { ...previous, [mode]: nextValue }
     })
@@ -288,10 +293,13 @@ export function setRulesFilterOpenForMode(mode: RulesFilterPreviewMode, value: b
 }
 
 export function setRulesFilterStateForMode(mode: RulesFilterPreviewMode, value: RulesFilterState) {
+  // Why: imperative callers (autosave restore, preset apply) can receive stale or partially-written
+  // payloads; sanitize before publishing to the shared store to keep consumers crash-free.
+  const sanitized = sanitizeRulesFilterState(value)
   filterStateStore.update((prev) => {
     const previous = prev ?? cloneDefaultRulesFilterStateByMode()
-    if (previous[mode] === value) return previous
-    return { ...previous, [mode]: value }
+    if (previous[mode] === sanitized) return previous
+    return { ...previous, [mode]: sanitized }
   })
 }
 

@@ -10,11 +10,23 @@ test('sanitizeRulesFilterState repairs missing required sub-objects', () => {
     main: undefined,
     sub: undefined,
     faction: null,
+    slots: undefined,
+    rank: undefined,
+    rarity: undefined,
+    level: null,
   }
 
   const state = sanitizeRulesFilterState(broken)
   assert.ok(state.sets)
   assert.ok(Array.isArray(state.sets.selected))
+  assert.ok(state.slots)
+  assert.ok(Array.isArray(state.slots.selected))
+  assert.ok(state.rank)
+  assert.ok(Array.isArray(state.rank.selected))
+  assert.ok(state.rarity)
+  assert.ok(Array.isArray(state.rarity.selected))
+  assert.ok(state.level)
+  assert.ok(Array.isArray(state.level.selected))
   assert.ok(state.main)
   assert.ok(Array.isArray(state.main.selected))
   assert.ok(state.sub)
