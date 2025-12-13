@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent, type ReactNode, type RefObject } from 'react'
 import {
   Box,
   Button,
+  ButtonBase,
   Chip,
   Dialog,
   DialogActions,
@@ -20,6 +21,10 @@ import {
 } from '@mui/material'
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline'
 import ContentCopyIcon from '@mui/icons-material/ContentCopy'
+import CheckIcon from '@mui/icons-material/Check'
+import CloseIcon from '@mui/icons-material/Close'
+import ExpandLessIcon from '@mui/icons-material/ExpandLess'
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import FilterListIcon from '@mui/icons-material/FilterList'
 import FilterListOffIcon from '@mui/icons-material/FilterListOff'
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined'
@@ -74,6 +79,8 @@ import { useKeepUniquesGridFilterMode } from '../../state/keepUniquesPreferences
 import { useGearSetCatalogVersion } from '../../hooks/useGearSetCatalogVersion'
 
 const SCOPE_CHIP_HOVER_ALPHA = { light: 0.12, dark: 0.24 } as const
+// Keep-unique headers should stay a consistent height even when names wrap to two lines.
+const KEEP_UNIQUES_RULE_HEADER_MIN_HEIGHT_PX = 56
 
 type KeepUniquesTabProps = {
   rules: KeepUniqueRule[]
@@ -216,8 +223,41 @@ ${t('keepUniquesCountModeHint')}`
   const keepUniquesFinalSellWarning = enabled && finalSellCoverageWarningActive
   const [selectedRuleId, setSelectedRuleId] = useState<string | null>(() => rules[0]?.id ?? null)
   const [respectManualDeselect, setRespectManualDeselect] = useState(false)
+  // Keep expansion state separate from the selection used to highlight tester rows; multiple cards can stay open.
+  const [expandedRuleIds, setExpandedRuleIds] = useState<ReadonlySet<string>>(() => {
+    const firstId = rules[0]?.id
+    // When opening the tab, only auto-expand if there is exactly one rule; otherwise start fully collapsed.
+    if (rules.length === 1 && firstId) return new Set([firstId])
+    return new Set()
+  })
   const [pendingDeleteRuleId, setPendingDeleteRuleId] = useState<string | null>(null)
   const [gridFilterMode, setGridFilterMode] = useKeepUniquesGridFilterMode()
+  const allRuleIds = useMemo(() => rules.map((rule) => rule.id), [rules])
+  const rulesScrollRootRef = useRef<HTMLDivElement | null>(null)
+  const scrollRafRef = useRef<number | null>(null)
+  const scheduleScrollToRule = useCallback((ruleId: string) => {
+    if (scrollRafRef.current !== null) {
+      window.cancelAnimationFrame(scrollRafRef.current)
+      scrollRafRef.current = null
+    }
+    // Adding/duplicating a rule updates state and triggers a render; retry for a few frames until the DOM node exists.
+    const maxAttempts = 8
+    const tryScroll = (attempt: number) => {
+      const scrollRoot = rulesScrollRootRef.current
+      const target = scrollRoot?.querySelector(`[data-keep-uniques-rule-id="${ruleId}"]`) as HTMLElement | null
+      if (target) {
+        target.scrollIntoView({ block: 'nearest' })
+        scrollRafRef.current = null
+        return
+      }
+      if (attempt >= maxAttempts) {
+        scrollRafRef.current = null
+        return
+      }
+      scrollRafRef.current = window.requestAnimationFrame(() => tryScroll(attempt + 1))
+    }
+    scrollRafRef.current = window.requestAnimationFrame(() => tryScroll(0))
+  }, [])
   const ensureKeepUniquesEnabled = useCallback(() => {
     if (!enabled) onToggleEnabled(true)
   }, [enabled, onToggleEnabled])
@@ -236,6 +276,14 @@ ${t('keepUniquesCountModeHint')}`
     }
     return rules.some((rule) => rule.id === selectedRuleId) ? selectedRuleId : (rules[0]?.id ?? null)
   }, [respectManualDeselect, rules, selectedRuleId])
+
+  const toggleAllExpandedRules = useCallback(() => {
+    setExpandedRuleIds((prev) => {
+      if (allRuleIds.length === 0) return prev
+      const allExpanded = allRuleIds.every((id) => prev.has(id))
+      return allExpanded ? new Set() : new Set(allRuleIds)
+    })
+  }, [allRuleIds])
   /* eslint-disable react-you-might-not-need-an-effect/no-event-handler -- Rules can disappear outside local handlers, so we realign selection when the autosave payload swaps in. */
   useEffect(() => {
     if (rules.length !== 0) return
@@ -307,7 +355,14 @@ ${t('keepUniquesCountModeHint')}`
     mutateRules((prev) => [...prev, newRule])
     setSelectedRuleId(newRule.id)
     setRespectManualDeselect(false)
-  }, [mutateRules, setRespectManualDeselect])
+    setExpandedRuleIds((prev) => {
+      const next = new Set(prev)
+      next.add(newRule.id)
+      return next
+    })
+    // Scroll only for explicit creation so normal edits never jump the list.
+    scheduleScrollToRule(newRule.id)
+  }, [mutateRules, scheduleScrollToRule, setRespectManualDeselect])
 
   const handleDeleteRule = useCallback((ruleId: string) => {
     let filtered: KeepUniqueRule[] = []
@@ -324,6 +379,12 @@ ${t('keepUniquesCountModeHint')}`
       setSelectedRuleId(filtered[0]?.id ?? null)
       setRespectManualDeselect(false)
     }
+    setExpandedRuleIds((prev) => {
+      if (!prev.has(ruleId)) return prev
+      const next = new Set(prev)
+      next.delete(ruleId)
+      return next
+    })
   }, [mutateRules, selectedRuleId, setRespectManualDeselect])
 
   const handleCancelDeleteRule = useCallback(() => {
@@ -355,8 +416,14 @@ ${t('keepUniquesCountModeHint')}`
       return next
     })
     if (newRuleId) {
+      const resolvedNewRuleId = newRuleId
       setSelectedRuleId(newRuleId)
       setRespectManualDeselect(false)
+      setExpandedRuleIds((prev) => {
+        const next = new Set(prev)
+        next.add(resolvedNewRuleId)
+        return next
+      })
     }
   }, [mutateRules, setRespectManualDeselect])
 
@@ -399,7 +466,7 @@ ${t('keepUniquesCountModeHint')}`
     setGridFilterMode((prev) => (prev === 'all' ? 'selection' : 'all'))
   }, [setGridFilterMode])
 
-  const renderRuleCard = (rule: KeepUniqueRule) => {
+  const renderRuleCard = (rule: KeepUniqueRule, ruleIndex: number) => {
     const ruleDisabled = rule.activation === KeepUniqueRuleActivation.Off
     const combination = rule.combination
     const ruleDetection = detectionByRuleId.get(rule.id) ?? null
@@ -417,23 +484,20 @@ ${t('keepUniquesCountModeHint')}`
     const mainStatSelection = dedupeNumericArray((combination.mainStats ?? []).filter((variant) => mainStatOptions.includes(variant)))
     const factionSelection = hasAccessorySlot ? dedupeNumericArray(combination.factions ?? []) : []
     const selected = effectiveSelectedRuleId === rule.id
-    const handleRuleCardClick = (event: ReactMouseEvent<HTMLDivElement>) => {
-      const targetNode = event.target as Node | null
-      if (targetNode instanceof Node && !event.currentTarget.contains(targetNode)) {
-        // Dropdown menus render in React portals, so dismissal clicks bubble through React even
-        // though their DOM nodes sit outside the card. Ignore those so selection stays stable.
-        return
-      }
-      const target = targetNode instanceof Element ? targetNode : null
-      const interactiveElements = target?.closest('button, input, select, textarea, [contenteditable="true"], [role="button"], [role="option"], [role="menuitem"], [role="combobox"], [data-rule-card-interactive="true"]')
-      if (interactiveElements) return
-      if (selected) {
-        setSelectedRuleId(null)
-        setRespectManualDeselect(true)
-      } else {
-        setSelectedRuleId(rule.id)
-        setRespectManualDeselect(false)
-      }
+    const expanded = expandedRuleIds.has(rule.id)
+    const handleRuleHeaderClick = (event: ReactMouseEvent<HTMLButtonElement>) => {
+      // Header click should only select the rule; expansion is controlled by the chevron so selection never changes layout.
+      event.preventDefault()
+      setSelectedRuleId(rule.id)
+      setRespectManualDeselect(false)
+    }
+    const toggleExpanded = () => {
+      setExpandedRuleIds((prev) => {
+        const next = new Set(prev)
+        if (next.has(rule.id)) next.delete(rule.id)
+        else next.add(rule.id)
+        return next
+      })
     }
     const deleteButton = (
       <IconButton
@@ -441,6 +505,7 @@ ${t('keepUniquesCountModeHint')}`
         onClick={(event) => { event.stopPropagation(); setPendingDeleteRuleId(rule.id) }}
         aria-label={t('keepUniquesDeleteRule')}
         color="error"
+        sx={{ p: 0.5 }}
       >
         <DeleteOutlineIcon fontSize="small" />
       </IconButton>
@@ -450,6 +515,7 @@ ${t('keepUniquesCountModeHint')}`
         size="small"
         onClick={(event) => { event.stopPropagation(); handleDuplicateRule(rule.id) }}
         aria-label={t('keepUniquesDuplicateRule')}
+        sx={{ p: 0.5 }}
       >
         <ContentCopyIcon fontSize="small" />
       </IconButton>
@@ -539,21 +605,133 @@ ${t('keepUniquesCountModeHint')}`
     const ruleCountsTooltip = detectionScopeSuffix
       ? `${ruleCountsLabel}\n${detectionScopeSuffix}`
       : ruleCountsLabel
+    // Summary title: name is optional, so fall back to a muted placeholder for fast scanning.
+    const rawName = (pendingNameById.get(rule.id) ?? rule.name ?? '').trim()
+    const summaryTitle = rawName || `${t('testerRule')} ${ruleIndex + 1}`
+    // Summary status keeps the header scannable: checkmark when active, X when Off.
+    const ruleActive = rule.activation !== KeepUniqueRuleActivation.Off
+    const activeRuleLabel = (
+      rule.activation === KeepUniqueRuleActivation.ProtectExisting
+        ? t('keepUniquesRuleModeProtect')
+        : t('keepUniquesRuleModeAnticipate')
+    )
+    const ruleStatus = ruleActive
+      ? { label: activeRuleLabel, icon: <CheckIcon fontSize="small" />, color: 'success.main' }
+      : { label: t('keepUniquesRuleModeOff'), icon: <CloseIcon fontSize="small" />, color: 'text.secondary' }
     return (
       <Box
         key={rule.id}
-        onClick={handleRuleCardClick}
         sx={{
           borderRadius: '8px',
           border: '1px solid',
           borderColor: selected ? 'primary.main' : 'divider', // Selected rules now rely on the dialog's blue accent.
-          p: 1.5,
-          mb: 1.5,
-          cursor: 'pointer',
           bgcolor: 'inherit', // Match the surrounding dialog background so cards don't float on a separate surface.
+          overflow: 'hidden', // Header/editor share an outline without double borders.
         }}
       >
-        <Stack spacing={1.5}>
+        <ButtonBase
+          onClick={handleRuleHeaderClick}
+          sx={{
+            width: '100%',
+            display: 'grid',
+            gridTemplateColumns: 'minmax(0, 1fr) auto',
+            gridTemplateRows: 'auto',
+            columnGap: 1,
+            alignItems: 'center',
+            // Reserve space for a two-line name so expand/collapse never shifts the header height.
+            minHeight: KEEP_UNIQUES_RULE_HEADER_MIN_HEIGHT_PX,
+            px: 1.25,
+            py: 0.875,
+            textAlign: 'left',
+            backgroundColor: selected ? alpha(theme.palette.primary.main, theme.palette.mode === 'dark' ? 0.12 : 0.08) : 'transparent',
+            borderBottom: expanded ? '1px solid' : 'none',
+            borderColor: 'divider',
+          }}
+        >
+          <EllipsisTooltip title={rawName || summaryTitle}>
+            <Box
+              sx={{
+                gridColumn: 1,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 0.75,
+                minWidth: 0,
+              }}
+            >
+              <Box
+                component="span"
+                aria-label={ruleStatus.label}
+                sx={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: 20,
+                  height: 20,
+                  flex: '0 0 auto',
+                  color: ruleStatus.color,
+                }}
+              >
+                {ruleStatus.icon}
+              </Box>
+              <Typography
+                variant="body2"
+                data-ellipsis-target
+                sx={{
+                  minWidth: 0,
+                  fontWeight: 400,
+                  fontStyle: rawName ? 'normal' : 'italic',
+                  color: rawName ? 'text.primary' : 'text.secondary',
+                  // Clamp to 2 lines (with ellipsis) without changing header height.
+                  display: '-webkit-box',
+                  WebkitBoxOrient: 'vertical',
+                  WebkitLineClamp: 2,
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                }}
+              >
+                {summaryTitle}
+              </Typography>
+            </Box>
+          </EllipsisTooltip>
+          <Box
+            sx={{
+              gridColumn: 2,
+              display: 'grid',
+              gridAutoFlow: 'column',
+              alignItems: 'center',
+              justifyContent: 'end',
+              gap: 0.75,
+              flexShrink: 0,
+            }}
+          >
+            {actionButtons}
+            <IconButton
+              size="small"
+              aria-label={expanded ? t('collapse') : t('expand')}
+              sx={{ p: 0.5, color: 'text.secondary' }}
+              onClick={(event) => {
+                event.preventDefault()
+                event.stopPropagation()
+                if (event.ctrlKey) {
+                  // Ctrl+click on the chevron toggles all cards without changing per-rule selection.
+                  toggleAllExpandedRules()
+                  return
+                }
+                toggleExpanded()
+              }}
+              onContextMenu={(event) => {
+                // Right-click on the chevron toggles all cards without showing the browser context menu.
+                event.preventDefault()
+                event.stopPropagation()
+                toggleAllExpandedRules()
+              }}
+            >
+              {expanded ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
+            </IconButton>
+          </Box>
+        </ButtonBase>
+        {expanded ? (
+          <Stack spacing={1.5} sx={{ p: 1.25 }}>
           <Box
             sx={{
               display: 'flex',
@@ -564,9 +742,6 @@ ${t('keepUniquesCountModeHint')}`
             }}
           >
             <Box component="span" sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, flex: '1 1 320px', minWidth: 0 }}>
-              <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
-                {t('keepUniquesRuleModeLabel')}
-              </Typography>
               <ToggleButtonGroup
                 size="small"
                 exclusive
@@ -580,7 +755,7 @@ ${t('keepUniquesCountModeHint')}`
                   )
                 }}
                 data-rule-card-interactive="true"
-                sx={{ display: 'flex', width: '100%' }}
+                sx={{ display: 'flex', width: '100%', borderRadius: '8px', overflow: 'hidden' }}
               >
                 <ToggleButton
                   value={KeepUniqueRuleActivation.Off}
@@ -913,10 +1088,10 @@ ${t('keepUniquesCountModeHint')}`
                   </MarkdownTooltip>
                 ) : null}
               </Box>
-              {actionButtons}
             </Box>
           </Stack>
-        </Stack>
+          </Stack>
+        ) : null}
       </Box>
     )
   }
@@ -989,21 +1164,7 @@ ${t('keepUniquesCountModeHint')}`
                 />
               </Stack>
             </Box>
-            <Box
-              sx={(theme) => ({
-                flex: 1,
-                minHeight: 0,
-                overflowY: 'auto',
-                pt: 2,
-                pr: 1,
-                ...reserveScrollbarGutterSpace({ reserveStart: false, basePaddingInlineEnd: theme.spacing(1) }),
-              })}
-            >
-              {rules.length === 0 ? (
-                <Typography variant="body2" color="text.secondary">{t('keepUniquesNoRules')}</Typography>
-              ) : null}
-              {rules.map(renderRuleCard)}
-            </Box>
+            <KeepUniquesRuleList rules={rules} renderRule={renderRuleCard} scrollRootRef={rulesScrollRootRef} />
             <Divider sx={{ my: 1 }} />
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <Button variant="contained" onClick={handleAddRule} sx={{ minHeight: MENU_CONTROL_HEIGHT_PX }}>
@@ -1097,6 +1258,50 @@ ${t('keepUniquesCountModeHint')}`
         </Box>
       </Box>
     </>
+  )
+}
+
+type KeepUniquesRuleListProps = {
+  rules: KeepUniqueRule[]
+  renderRule: (rule: KeepUniqueRule, ruleIndex: number) => ReactNode
+  scrollRootRef: RefObject<HTMLDivElement | null>
+}
+
+function KeepUniquesRuleList({ rules, renderRule, scrollRootRef }: KeepUniquesRuleListProps) {
+  const { t } = useI18n()
+
+  return (
+    <Box
+      ref={scrollRootRef}
+      sx={(theme) => ({
+        flex: 1,
+        minHeight: 0,
+        overflowY: 'auto',
+        // Virtual rows are absolutely positioned; disable scroll anchoring so expand/collapse never “moves” whitespace.
+        overflowAnchor: 'none',
+        pt: 2,
+        pr: 1,
+        ...reserveScrollbarGutterSpace({ reserveStart: false, basePaddingInlineEnd: theme.spacing(1) }),
+      })}
+    >
+      {rules.length === 0 ? (
+        <Typography variant="body2" color="text.secondary">{t('keepUniquesNoRules')}</Typography>
+      ) : (
+        // Render a normal stacked list so expand/collapse never depends on cached measurements.
+        // Use CSS gap directly (instead of Stack's spacing implementation) to keep spacing stable across toggles.
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, pb: 2 }}>
+          {rules.map((rule, index) => (
+            <Box
+              key={rule.id}
+              data-keep-uniques-rule-id={rule.id}
+              sx={{ overflowAnchor: 'none' }}
+            >
+              {renderRule(rule, index)}
+            </Box>
+          ))}
+        </Box>
+      )}
+    </Box>
   )
 }
 
