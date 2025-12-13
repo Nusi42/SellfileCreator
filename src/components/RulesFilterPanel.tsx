@@ -34,7 +34,7 @@ import {
   DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT,
   getLocalizedGearSetName,
 } from '../lib/types'
-import { LIST_SUBHEADER_SX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, SETS_MENU_WIDTH_PX, FILTER_FACTION_SELECT_WIDTH_PX, FILTER_SETS_SELECT_WIDTH_PX, FILTER_CHIP_TOP_MARGIN, ELLIPSIS_TEXT_SX, FILTER_TOGGLE_BUTTON_WIDTH_PX, SMALL_BUTTON_HEIGHT_PX, BUILDER_STATUS_CHIP_HEIGHT_PX, UI_BG_HOVER_DANGER_TRANSITION, DANGER_TINT_BG, SETS_SELECT_INLINE_GUTTER_COLLAPSED_PX, SETS_SELECT_INLINE_GUTTER_PX, STATUS_CHIP_BORDER_RADIUS_PX, FONT_SIZE_BASE_PX, CLEAR_ICON_BUTTON_SIZE_PX, GLYPH_TOGGLE_ON, GLYPH_TOGGLE_OFF, GLYPH_GLYPHS_SELECTED, ROLL_BADGE_SIZE_PX, ROLL_BADGE_SCALE, ROLL_BADGE_HOVER_GUTTER_PX, CHAMPION_ICON_BASE_SIZE, CHAMPION_ICON_BORDER_RADIUS_PX } from '../lib/constants'
+import { LIST_SUBHEADER_SX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, SETS_MENU_WIDTH_PX, FILTER_FACTION_SELECT_WIDTH_PX, FILTER_SETS_SELECT_WIDTH_PX, FILTER_CHIP_TOP_MARGIN, ELLIPSIS_TEXT_SX, FILTER_TOGGLE_BUTTON_WIDTH_PX, SMALL_BUTTON_HEIGHT_PX, BUILDER_STATUS_CHIP_HEIGHT_PX, SETS_SELECT_INLINE_GUTTER_COLLAPSED_PX, SETS_SELECT_INLINE_GUTTER_PX, STATUS_CHIP_BORDER_RADIUS_PX, FONT_SIZE_BASE_PX, CLEAR_ICON_BUTTON_SIZE_PX, GLYPH_TOGGLE_ON, GLYPH_TOGGLE_OFF, GLYPH_GLYPHS_SELECTED, ROLL_BADGE_SIZE_PX, ROLL_BADGE_SCALE, ROLL_BADGE_HOVER_GUTTER_PX, CHAMPION_ICON_BASE_SIZE, CHAMPION_ICON_BORDER_RADIUS_PX } from '../lib/constants'
 import { reserveScrollbarGutterSpace } from '../lib/scrollbar'
 import { metasetGlyph, orderMetasetIds, type Metaset } from '../lib/metasets'
 import React from 'react'
@@ -54,7 +54,6 @@ import {
   createDefaultTesterLastUseCustom,
   createDefaultTesterLastUseFilter,
   createDefaultTesterRollsState,
-  isRulesFilterActive,
   isTesterRollFilterActive,
   normalizeTesterLastUseFilter,
   normalizeTesterRollCountSelection,
@@ -81,6 +80,7 @@ import SelectDropdownActivator from './SelectDropdownActivator'
 import ClearIconButton from './ClearIconButton'
 import ClearIcon from '@mui/icons-material/Clear'
 import ContextMenuPaper from './ContextMenuPaper'
+import ContextMenuTitle from './ContextMenuTitle'
 import { useContextMenuCloseOnOutsideRightClick } from '../hooks/useContextMenuCloseOnOutsideRightClick'
 import type { PaperProps as MuiPaperProps } from '@mui/material/Paper'
 import { useSetsOrderPreference } from '../state/setsOrderPreference'
@@ -116,7 +116,6 @@ const CLEAR_BUTTON_PLACEHOLDER_SX = {
   height: CLEAR_ICON_BUTTON_SIZE_PX,
   flexShrink: 0,
 } as const
-const PREVIEW_CONFIGS_DEFAULT = false
 // Keep the closed combobox width aligned with the rest of the filter row.
 const CHAMPION_SELECT_WIDTH_PX = Math.round(FILTER_FACTION_SELECT_WIDTH_PX * 0.8)
 // Champion names can run long; give the dropdown menu extra width without stretching the closed control.
@@ -148,7 +147,6 @@ type RulesFilterPanelProps = {
   hasNamedConfigs: boolean
   configChipFilterActive: boolean
   onConfigChipFilterChange: (value: boolean) => void
-  onResetFilters?: () => void
   testerConfigFilterMode?: TesterConfigFilterMode
   onTesterConfigFilterModeChange?: (mode: TesterConfigFilterMode) => void
   configCount?: number
@@ -453,14 +451,13 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
     metasets,
     showFaction,
     hasNamedConfigs,
-    configChipFilterActive,
-    onConfigChipFilterChange,
-    onResetFilters,
-    testerConfigFilterMode = TESTER_CONFIG_FILTER_MODE_DEFAULT,
-    onTesterConfigFilterModeChange,
-    configCount = 0,
-    collapsed,
-    onCollapsedChange,
+  configChipFilterActive,
+  onConfigChipFilterChange,
+  testerConfigFilterMode = TESTER_CONFIG_FILTER_MODE_DEFAULT,
+  onTesterConfigFilterModeChange,
+  configCount = 0,
+  collapsed,
+  onCollapsedChange,
     testerChampionOptions = [],
     substatColors,
     useStatButtonColors = false,
@@ -497,7 +494,6 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
     menuRef: lastUsePopoverPaperRef,
   })
   const rollFilterStatOptions = React.useMemo(() => STAT_VARIANTS_PRIORITY.slice(), [])
-  const [hoverReset, setHoverReset] = React.useState(false)
   // Persisted Sets order + local search to mirror Builder UX
   const [setsOrder, setSetsOrder] = useSetsOrderPreference()
   const [setsSearch, setSetsSearch] = React.useState('')
@@ -558,7 +554,6 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
   const setsMenuListRef = React.useRef<HTMLUListElement | null>(null)
   const metasetsMenuListRef = React.useRef<HTMLUListElement | null>(null)
   const [setsMenuOpen, setSetsMenuOpen] = React.useState(false)
-  const filterActive = isRulesFilterActive(state, { includeTesterRange: isTesterMode })
   // Collapsible sections: persisted per user; default to collapsed to reduce scroll noise.
   // Per-section condensed toggles (persisted)
   // Rank/Rarity are always condensed now (More/Less removed)
@@ -1121,10 +1116,6 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
   const previewConfigButtonActive = configChipFilterActive
   const previewConfigButtonVariant: 'contained' | 'outlined' = previewConfigButtonActive ? 'contained' : 'outlined'
   const previewConfigButtonLabel = previewConfigButtonActive ? t('configFilterOn') : t('testerFilterConfigsOff')
-  const configFilterDirty = testerConfigFilterMode !== TESTER_CONFIG_FILTER_MODE_DEFAULT
-  const previewConfigDirty = configChipFilterActive !== PREVIEW_CONFIGS_DEFAULT
-  const filtersDirty = filterActive || configFilterDirty || previewConfigDirty
-
   const testerSourceOptions = React.useMemo(() => {
     const options = [
       { value: 'inventory', label: t('testerSourceInventory') },
@@ -1483,17 +1474,13 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
           p: 0.75,
           borderRadius: 1,
           mb: 1,
-          transition: UI_BG_HOVER_DANGER_TRANSITION,
-          backgroundColor: hoverReset
-            ? (theme.palette.mode === 'dark' ? DANGER_TINT_BG.dark : DANGER_TINT_BG.light)
-            : 'transparent',
         })}
       >
         <Box
           ref={topHeaderRef}
         sx={{
           display: 'grid',
-          gridTemplateColumns: { xs: '1fr', md: showConfigNameField ? 'minmax(0, 1fr) auto' : '1fr' },
+          gridTemplateColumns: { xs: '1fr', md: showConfigNameField ? 'auto minmax(0, 1fr)' : '1fr' },
           columnGap: 1,
           rowGap: 1,
           alignItems: 'center',
@@ -1503,48 +1490,11 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
       >
         <Box
           sx={{
-            display: showConfigNameField ? 'flex' : 'none',
-            alignItems: 'center',
-            gap: 1,
-            minWidth: 0,
-          }}
-        >
-          <TextField
-            value={configNameQuery}
-            onChange={(e) => handleConfigNameChange(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter') { (e.target as HTMLInputElement).blur() } }}
-            size="small"
-            inputRef={configNameInputRef}
-            placeholder={t('builderConfigName')}
-            error={configNameRegexError}
-            inputProps={{
-              'aria-label': t('builderConfigName'),
-              'aria-invalid': configNameRegexError ? 'true' : undefined,
-              title: configNameRegexError ? t('filterConfigNameInvalid') : undefined,
-            }}
-            InputProps={{
-              endAdornment: configNameQuery ? (
-                <InputAdornment position="end">
-                  <ClearIconButton
-                    size="small"
-                    edge="end"
-                    aria-label={t('builderClearConfigName')}
-                    tooltip={t('builderClearConfigName')}
-                    onClick={() => handleConfigNameChange('')}
-                  />
-                </InputAdornment>
-              ) : null,
-            }}
-            sx={{ flex: 1 }}
-          />
-        </Box>
-        <Box
-          sx={{
-            gridColumn: showConfigNameField ? '2' : '1',
+            gridColumn: '1',
             display: 'flex',
             justifyContent: headerActionJustify,
             alignItems: 'center',
-            width: '100%',
+            minWidth: 0,
           }}
         >
           <Stack
@@ -1623,26 +1573,45 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
               </Button>
             </span>
           </MarkdownTooltip>
-          <Button
-            size="small"
-            variant="contained"
-            color="warning"
-            disabled={!filtersDirty}
-            onMouseEnter={() => { if (filtersDirty) setHoverReset(true) }}
-            onMouseLeave={() => setHoverReset(false)}
-            onClick={() => {
-              setHoverReset(false)
-              const next = JSON.parse(JSON.stringify(DEFAULT_RULES_FILTER_STATE)) as RulesFilterState
-              onChange(next)
-              onConfigChipFilterChange(PREVIEW_CONFIGS_DEFAULT)
-              onTesterConfigFilterModeChange?.(TESTER_CONFIG_FILTER_MODE_DEFAULT)
-              onResetFilters?.()
-            }}
-            sx={{ whiteSpace: 'nowrap', px: 1.25, height: SMALL_BUTTON_HEIGHT_PX, minHeight: SMALL_BUTTON_HEIGHT_PX }}
-          >
-            {t('filterReset')}
-          </Button>
           </Stack>
+        </Box>
+        <Box
+          sx={{
+            gridColumn: showConfigNameField ? '2' : '1',
+            display: showConfigNameField ? 'flex' : 'none',
+            alignItems: 'center',
+            gap: 1,
+            minWidth: 0,
+          }}
+        >
+          <TextField
+            value={configNameQuery}
+            onChange={(e) => handleConfigNameChange(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') { (e.target as HTMLInputElement).blur() } }}
+            size="small"
+            inputRef={configNameInputRef}
+            placeholder={t('builderConfigName')}
+            error={configNameRegexError}
+            inputProps={{
+              'aria-label': t('builderConfigName'),
+              'aria-invalid': configNameRegexError ? 'true' : undefined,
+              title: configNameRegexError ? t('filterConfigNameInvalid') : undefined,
+            }}
+            InputProps={{
+              endAdornment: configNameQuery ? (
+                <InputAdornment position="end">
+                  <ClearIconButton
+                    size="small"
+                    edge="end"
+                    aria-label={t('builderClearConfigName')}
+                    tooltip={t('builderClearConfigName')}
+                    onClick={() => handleConfigNameChange('')}
+                  />
+                </InputAdornment>
+              ) : null,
+            }}
+            sx={{ flex: 1 }}
+          />
         </Box>
       </Box>
       <Divider sx={{ mb: 1, opacity: 0.5 }} />
@@ -3344,12 +3313,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
             }}
           >
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-                <Typography variant="subtitle2">{t('filterRolls')}</Typography>
-                <Typography variant="body2" color="text.secondary">
-                  {t('filterRollsHelper')}
-                </Typography>
-              </Box>
+              <ContextMenuTitle title={t('filterRolls')} description={t('filterRollsHelper')} />
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                 <Typography variant="caption" color="text.secondary">
                   {t('filterRollsWildcardTitle')}
@@ -3465,12 +3429,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
             }}
           >
             <Stack spacing={1.5}>
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-                <Typography variant="subtitle2">{t('testerLastUsedRangeTitle')}</Typography>
-                <Typography variant="body2" color="text.secondary">
-                  {t('testerLastUsedRangeDescription')}
-                </Typography>
-              </Box>
+              <ContextMenuTitle title={t('testerLastUsedRangeTitle')} description={t('testerLastUsedRangeDescription')} />
               <Box sx={{ display: 'flex', gap: 0.75, flexWrap: 'wrap' }}>
                 <TextField
                   type="number"

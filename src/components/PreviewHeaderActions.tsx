@@ -34,8 +34,9 @@ import ExpandLessIcon from '@mui/icons-material/ExpandLess'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import ContextMenuPaper from './ContextMenuPaper'
 import { type TesterSubstatSortDirection } from '../lib/testerSort'
-import { STAT_VARIANTS_PRIORITY, StatVariant, statVariantI18nKey } from '../lib/types'
+import { DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT, STAT_VARIANTS_PRIORITY, StatVariant, statVariantI18nKey } from '../lib/types'
 import type { TesterSubstatSortState } from '../state/testerSubstatSortPreferences'
+import type { SubstatColorMap } from '../lib/renderColoredStatText'
 
 
 type ProgressChipProps = {
@@ -59,6 +60,10 @@ export default function PreviewHeaderActions(props: {
   filteredCount?: number
   filterActive?: boolean
   onToggleFilter?: () => void
+  // True when any filter-related setting deviates from defaults (including config filters).
+  filtersDirty?: boolean
+  // Clears filter state back to defaults (mirrors the old Reset Filters button).
+  onClearFilters?: () => void
   onSelectFile: (file: File) => void | Promise<void>
   onClearBase: () => void
   baseRuleCount?: number
@@ -87,6 +92,10 @@ export default function PreviewHeaderActions(props: {
   testerCount?: number
   testerFilteredCount?: number
   testerSubstatSort: TesterSubstatSortState
+  // Mirrors the Rule Tester grid preference so the sort popover can match stat coloring.
+  useStatButtonColors: boolean
+  // Full color map so the sort popover can match the same per-stat colors as chips/toggles.
+  substatColors: SubstatColorMap
   onClearTesterSubstatSort: () => void
   onSetTesterSubstatSortDirection: (direction: TesterSubstatSortDirection) => void
   onToggleTesterSubstatSortKeepSections: () => void
@@ -104,6 +113,8 @@ export default function PreviewHeaderActions(props: {
     filteredCount,
     filterActive,
     onToggleFilter,
+    filtersDirty = false,
+    onClearFilters,
     onSelectFile,
     onClearBase,
     baseRuleCount,
@@ -129,6 +140,8 @@ export default function PreviewHeaderActions(props: {
     testerCount,
     testerFilteredCount,
     testerSubstatSort,
+    useStatButtonColors,
+    substatColors,
     onClearTesterSubstatSort,
     onSetTesterSubstatSortDirection,
     onToggleTesterSubstatSortKeepSections,
@@ -328,6 +341,10 @@ export default function PreviewHeaderActions(props: {
     direction: testerSubstatSort.direction,
     excludeGlyphs: testerSubstatSort.excludeGlyphs,
   }), [sortPriorities, testerSubstatSort.direction, testerSubstatSort.excludeGlyphs])
+  const sortStatFg = React.useCallback((variant: StatVariant) => {
+    if (!useStatButtonColors) return undefined
+    return substatColors?.[variant]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[variant]
+  }, [substatColors, useStatButtonColors])
 
   const [sortMenuAnchor, setSortMenuAnchor] = React.useState<HTMLElement | null>(null)
   const sortMenuOpen = Boolean(sortMenuAnchor)
@@ -344,6 +361,12 @@ export default function PreviewHeaderActions(props: {
   }, [closeSortMenu, isRulesMode, sortMenuOpen])
 
   const SORT_BUTTON_WIDTH_PX = 92
+  // Keep clear icons from shifting layout when they appear/disappear.
+  const HEADER_CLEAR_PLACEHOLDER_SX = {
+    width: CLEAR_ICON_BUTTON_SIZE_PX,
+    height: CLEAR_ICON_BUTTON_SIZE_PX,
+    flexShrink: 0,
+  } as const
 
   return (
     <>
@@ -437,7 +460,7 @@ export default function PreviewHeaderActions(props: {
       >
         {onToggleFilter && (
           <>
-            <Box sx={{ minWidth: 0, flexShrink: 1 }}>
+            <Box sx={{ minWidth: 0, flexShrink: 1, display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
               {/* Filter toggle tooltip can now express list-style hints thanks to MarkdownTooltip. */}
               <MarkdownTooltip markdown={t('filterTooltip')}>
                 <Box
@@ -506,8 +529,18 @@ export default function PreviewHeaderActions(props: {
                   </Button>
                 </Box>
               </MarkdownTooltip>
+              {filtersDirty && onClearFilters ? (
+                <ClearIconButton
+                  size="small"
+                  aria-label={t('filterReset')}
+                  tooltip={t('filterReset')}
+                  onClick={() => onClearFilters()}
+                />
+              ) : (
+                <Box sx={{ ...HEADER_CLEAR_PLACEHOLDER_SX, pointerEvents: 'none' }} />
+              )}
             </Box>
-            <Box sx={{ minWidth: 0, flexShrink: 0 }}>
+            <Box sx={{ minWidth: 0, flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: 0.5, ml: 1, mr: 1 }}>
               <MarkdownTooltip markdown={t('testerSortTooltip')}>
                 <span>
                   <Button
@@ -543,6 +576,16 @@ export default function PreviewHeaderActions(props: {
                   </Button>
                 </span>
               </MarkdownTooltip>
+              {!isRulesMode && sortPriorities.length > 0 ? (
+                <ClearIconButton
+                  size="small"
+                  aria-label={sortClearLabel}
+                  tooltip={sortClearLabel}
+                  onClick={() => onClearTesterSubstatSort()}
+                />
+              ) : (
+                <Box sx={{ ...HEADER_CLEAR_PLACEHOLDER_SX, pointerEvents: 'none' }} />
+              )}
             </Box>
             <ContextMenuHintOverlay text={t('contextMenuHint')} position={filterHintActive ? filterHintPos : null} />
             {filterMenuEnabled ? (
@@ -586,23 +629,6 @@ export default function PreviewHeaderActions(props: {
               }}
             >
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-                <Box sx={{ display: 'flex', justifyContent: 'center' }}>
-                  <Button
-                    size="small"
-                    variant="contained"
-                    color="primary"
-                    onClick={() => onClearTesterSubstatSort()}
-                    sx={{
-                      px: 1.25,
-                      minWidth: MENU_CONTROL_MIN_WIDTH_PX,
-                      height: SMALL_BUTTON_HEIGHT_PX,
-                      minHeight: SMALL_BUTTON_HEIGHT_PX,
-                    }}
-                  >
-                    {sortClearLabel}
-                  </Button>
-                </Box>
-                <Divider sx={{ my: 0.5 }} />
                 <MenuItem
                   sx={{ gap: 1, alignItems: 'center' }}
                   onClick={() => onSetTesterSubstatSortDirection(sortSpec.direction === 'desc' ? 'asc' : 'desc')}
@@ -652,21 +678,58 @@ export default function PreviewHeaderActions(props: {
                   </Button>
                 </MenuItem>
                 <Divider sx={{ my: 0.5 }} />
-                <Box sx={{ maxHeight: 360, overflow: 'auto' }}>
+                <Box sx={{ display: 'flex', flexDirection: 'column' }}>
                   {STAT_VARIANTS_PRIORITY.map((variant) => {
                     const idx = sortPriorities.findIndex((v) => Number(v) === Number(variant))
                     const label = t(statVariantI18nKey(variant))
+                    const fg = sortStatFg(variant)
+                    const active = idx >= 0
                     return (
                       <MenuItem
                         key={variant}
                         onClick={() => onToggleTesterSubstatSortPriority(variant)}
-                        sx={{ gap: 1, alignItems: 'center' }}
+                        sx={(theme) => ({
+                          gap: 1,
+                          alignItems: 'center',
+                          ...(active ? { backgroundColor: alpha(theme.palette.success.main, theme.palette.mode === 'dark' ? 0.12 : 0.08) } : {}),
+                          '&:hover': {
+                            backgroundColor: alpha(theme.palette.success.main, theme.palette.mode === 'dark' ? 0.2 : 0.12),
+                          },
+                        })}
                       >
-                        <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>{label}</Typography>
-                        {idx >= 0 ? (
-                          <Typography variant="caption" sx={{ color: 'text.secondary', flexShrink: 0 }}>
+                        <Typography
+                          variant="body2"
+                          sx={(theme) => ({
+                            flex: 1,
+                            minWidth: 0,
+                            ...(active ? { fontWeight: theme.typography.fontWeightMedium ?? 600 } : {}),
+                            ...(fg ? { color: fg } : {}),
+                          })}
+                        >
+                          {label}
+                        </Typography>
+                        {active ? (
+                          <Box
+                            component="span"
+                            sx={(theme) => ({
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              height: 18,
+                              minWidth: 20,
+                              px: 0.75,
+                              borderRadius: 999,
+                              fontSize: theme.typography.pxToRem(11),
+                              fontWeight: 700,
+                              letterSpacing: 0.1,
+                              border: `1px solid ${alpha(theme.palette.success.main, theme.palette.mode === 'dark' ? 0.7 : 0.55)}`,
+                              backgroundColor: alpha(theme.palette.success.main, theme.palette.mode === 'dark' ? 0.16 : 0.1),
+                              color: theme.palette.success.main,
+                              flexShrink: 0,
+                            })}
+                          >
                             [{idx + 1}]
-                          </Typography>
+                          </Box>
                         ) : null}
                       </MenuItem>
                     )
