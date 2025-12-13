@@ -59,7 +59,7 @@ const resolveDisplayCfgIdx = (rule: HsfRuleWithCfg | null | undefined): number |
   return idx !== null && idx >= 0 ? idx : null
 }
 
-export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multiselectActive, onSelectCfgIdx, onConfigAction, onClearBase, onConfigureFinalSell, onOpenManageColors, colorIconSrc, substatColors, colorBlindMode, onChangeColorBlindMode, emptyDueToFilter = false, limitExceeded = false, focusRuleIndex = null, onFocusRuleSettled }: {
+export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multiselectActive, onSelectCfgIdx, onConfigAction, onClearBase, onConfigureFinalSell, onOpenManageColors, colorIconSrc, substatColors, colorBlindMode, onChangeColorBlindMode, emptyStateVerticalAlign = 'center', emptyDueToFilter = false, limitExceeded = false, focusRuleIndex = null, onFocusRuleSettled }: {
   rules: HsfRuleWithCfg[]
   setHoveredCfgIdx: (idx: number | null) => void
   selectedCfgIdx: number | null
@@ -73,6 +73,8 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
   substatColors: Record<number, { fg: string; bg: string }>
   colorBlindMode: 'normal' | 'okabeIto' | 'tritan'
   onChangeColorBlindMode: (mode: 'normal' | 'okabeIto' | 'tritan') => void
+  // Empty overlays should anchor to the top in stacked layout, but remain centered side-by-side.
+  emptyStateVerticalAlign?: React.ComponentProps<typeof EmptyStateMessage>['verticalAlign']
   emptyDueToFilter?: boolean
   limitExceeded?: boolean
   // Optional external scroll target: rule index in the current rules array
@@ -1633,13 +1635,23 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
               top: emptyOverlayOffset,
               bottom: 0,
               display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
+              // Stacked layout keeps the message anchored to the top edge, so let it stretch to full width.
+              alignItems: emptyStateVerticalAlign === 'top' ? 'stretch' : 'center',
+              // Stacked layout benefits from seeing the message immediately at the top; side-by-side feels
+              // more balanced when we center within the taller preview pane.
+              justifyContent: emptyStateVerticalAlign === 'top' ? 'flex-start' : 'center',
               px: 2,
             }}
           >
-            <Box sx={{ pointerEvents: 'auto', width: '100%', maxWidth: 520 }}>
-              <EmptyStateMessage typographyVariant="body2" minHeight="100%">
+            <Box
+              sx={{
+                pointerEvents: 'auto',
+                width: '100%',
+                // Stacked layout has extra horizontal room; avoid a narrow centered box that looks "floating".
+                maxWidth: emptyStateVerticalAlign === 'top' ? '100%' : 520,
+              }}
+            >
+              <EmptyStateMessage typographyVariant="body2" minHeight="100%" verticalAlign={emptyStateVerticalAlign}>
                 {emptyLabel}
               </EmptyStateMessage>
             </Box>

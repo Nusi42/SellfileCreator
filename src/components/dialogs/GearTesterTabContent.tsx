@@ -56,7 +56,7 @@ import { triggerCopyDialog, writeTextSafe } from '../../lib/clipboard'
 import { useContextMenuHint } from '../../hooks/useContextMenuHint'
 import { ContextMenuHintOverlay } from '../ContextMenuHintOverlay'
 import { GearFactionSelect, GearMainStatSelect, GearRankSelect, GearRaritySelect, GearSlotSelect } from '../gear'
-import { EmptyStateMessage } from '../EmptyStateMessage'
+import { EmptyStateMessage, type EmptyStateMessageProps } from '../EmptyStateMessage'
 
 type TesterSourceCountMap = Record<TesterSourceCategory, number>
 
@@ -74,6 +74,9 @@ export type GearTesterTabContentProps = {
   allocTesterItemId: () => number
   testerMatches: ReadonlyMap<number, TesterPreviewMatch | null>
   isActive?: boolean
+  // Empty-state messaging should match the main preview pane: stacked layout anchors to the top edge,
+  // while side-by-side layout centers within the available space.
+  emptyStateVerticalAlign?: EmptyStateMessageProps['verticalAlign']
   onRequestClose?: () => void
   renderLayout?: (slots: GearTesterTabLayoutSlots) => ReactNode
 }
@@ -201,6 +204,7 @@ export function GearTesterTabContent({
   allocTesterItemId,
   testerMatches,
   isActive = true,
+  emptyStateVerticalAlign = 'center',
   onRequestClose,
   renderLayout,
 }: GearTesterTabContentProps) {
@@ -1566,11 +1570,11 @@ export function GearTesterTabContent({
             })}
             {bottomSpacerHeight > 0 ? <Box sx={{ height: bottomSpacerHeight }} /> : null}
           </Box>
-        ) : (
-          <EmptyStateMessage minHeight="100%">
-            {t('testerTableEmpty')}
-          </EmptyStateMessage>
-        )}
+	        ) : (
+	          <EmptyStateMessage minHeight="100%" verticalAlign={emptyStateVerticalAlign}>
+	            {t('testerTableEmpty')}
+	          </EmptyStateMessage>
+	        )}
       </Box>
     </Box>
   )

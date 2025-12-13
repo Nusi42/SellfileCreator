@@ -32,6 +32,7 @@ import KeepUniquesTab from './KeepUniquesTab'
 import MarkdownTooltip from '../MarkdownTooltip'
 import type { Metaset } from '../../lib/metasets'
 import { reserveScrollbarGutterSpace } from '../../lib/scrollbar'
+import type { EmptyStateMessageProps } from '../EmptyStateMessage'
 
 
 type LogicHubDialogProps = {
@@ -68,6 +69,8 @@ type LogicHubDialogProps = {
   allocTesterItemId: () => number
   testerMatches: ReadonlyMap<number, TesterPreviewMatch | null>
   onResetGearTester?: () => void
+  // Propagates the main app's layout choice so empty-state messaging stays consistent across panes.
+  emptyStateVerticalAlign?: EmptyStateMessageProps['verticalAlign']
 }
 
 export default function LogicHubDialog(props: LogicHubDialogProps) {
@@ -105,6 +108,7 @@ export default function LogicHubDialog(props: LogicHubDialogProps) {
     allocTesterItemId,
     testerMatches,
     onResetGearTester,
+    emptyStateVerticalAlign = 'center',
   } = props
   const { t } = useI18n()
   // Keep Uniques resets need their own confirmation flow so accidental clicks do not wipe custom rules.
@@ -490,6 +494,7 @@ export default function LogicHubDialog(props: LogicHubDialogProps) {
             allocTesterItemId={allocTesterItemId}
             testerMatches={testerMatches}
             isActive={open && showGearTab}
+            emptyStateVerticalAlign={emptyStateVerticalAlign}
             renderLayout={renderGearTesterLayout}
           />
         )}

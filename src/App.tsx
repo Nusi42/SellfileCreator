@@ -638,7 +638,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     chipsMaxHeight,
     previewPaperHeightStyle,
     sideBySideMinPaperHeightPx,
+    isSideBySide,
   } = useBuilderPreviewLayout({ forceSideBySide: forceSideBySideLayout })
+  // Empty-state messaging reads better when stacked (top-aligned) but looks balanced side-by-side (centered).
+  const emptyStateVerticalAlign = isSideBySide ? 'center' : 'top'
   useTooltipScrollGuard()
   useModalCleanup()
   // Manage Colors dialog state + persisted substat colors
@@ -4596,34 +4599,36 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                   data-tour-id="preview.tester-grid-top"
                   sx={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: '50%', pointerEvents: 'none' }}
                 />
-                <TesterItemsGrid
-                  rows={gearEntriesForTable}
-                  filterActive={testerFilterActive || testerConfigFilterActive}
-                  substatColors={substatColors}
-                  useStatButtonColors={statButtonBorders}
-                  onToggleStatColors={setStatButtonBorders}
-                  onOpenManageColors={openColors}
-                  colorBlindMode={colorBlindMode}
-                  onChangeColorBlindMode={setColorBlindMode}
-                  colorIconSrc={colorIconSrc}
-                  configNames={testerConfigNamesForGrid}
-                  onJumpToRule={handleTesterRuleView}
-                  suppressMatchDetails={suppressTesterMatchDetails}
-                  keepSections={testerSubstatSortSpec ? testerSubstatSortPrefs.state.keepSections : true}
-                  substatSort={testerSubstatSortSpec}
-                />
+	                <TesterItemsGrid
+	                  rows={gearEntriesForTable}
+	                  filterActive={testerFilterActive || testerConfigFilterActive}
+	                  substatColors={substatColors}
+	                  useStatButtonColors={statButtonBorders}
+	                  onToggleStatColors={setStatButtonBorders}
+	                  onOpenManageColors={openColors}
+	                  colorBlindMode={colorBlindMode}
+	                  onChangeColorBlindMode={setColorBlindMode}
+	                  colorIconSrc={colorIconSrc}
+	                  configNames={testerConfigNamesForGrid}
+	                  onJumpToRule={handleTesterRuleView}
+	                  suppressMatchDetails={suppressTesterMatchDetails}
+	                  keepSections={testerSubstatSortSpec ? testerSubstatSortPrefs.state.keepSections : true}
+	                  substatSort={testerSubstatSortSpec}
+	                  emptyStateVerticalAlign={emptyStateVerticalAlign}
+	                />
               </Box>
             ) : (
-              <HsfRulesTableMemo
-                rules={hsfRulesForTable}
-                setHoveredCfgIdx={setHoveredCfgIdx}
-                selectedCfgIdx={previewSelectedCfgIdx}
-                multiselectActive={multiselectActive}
-                focusRuleIndex={focusRuleIndex}
-                onFocusRuleSettled={() => setFocusRuleIndex(null)}
-                onSelectCfgIdx={handleRulesTableSelectCfgIdx}
-                emptyDueToFilter={hsfTableEmptyDueToFilters}
-                limitExceeded={limitExceeded}
+	              <HsfRulesTableMemo
+	                rules={hsfRulesForTable}
+	                setHoveredCfgIdx={setHoveredCfgIdx}
+	                selectedCfgIdx={previewSelectedCfgIdx}
+	                multiselectActive={multiselectActive}
+	                emptyStateVerticalAlign={emptyStateVerticalAlign}
+	                focusRuleIndex={focusRuleIndex}
+	                onFocusRuleSettled={() => setFocusRuleIndex(null)}
+	                onSelectCfgIdx={handleRulesTableSelectCfgIdx}
+	                emptyDueToFilter={hsfTableEmptyDueToFilters}
+	                limitExceeded={limitExceeded}
                 onConfigAction={handleRulesTableConfigAction}
                 onClearBase={handleRulesTableClearBase}
                 onConfigureFinalSell={handleRulesTableConfigureFinalSell}
@@ -4918,11 +4923,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       ) : null}
       {/* Logic Hub configuration */}
       {logicHubOpen ? (
-        <LogicHubDialog
-          open={logicHubOpen}
-          value={finalSellRemainder}
-          onChange={(v) => applyFinalSellChange(v)}
-          onClose={() => setLogicHubOpen(false)}
+	        <LogicHubDialog
+	          open={logicHubOpen}
+	          value={finalSellRemainder}
+	          onChange={(v) => applyFinalSellChange(v)}
+	          onClose={() => setLogicHubOpen(false)}
           onReset={() => applyFinalSellChange({
             artifacts: false,
             accessories: false,
@@ -4954,11 +4959,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           onJumpToRule={handleTesterRuleView}
           customCfgs={customCfgs}
           testerItems={testerItems}
-          setTesterItems={setTesterItems}
-          allocTesterItemId={allocTesterItemId}
-          testerMatches={testerMatchesByItemId}
-          onResetGearTester={handleResetGearTesterItems}
-        />
+	          setTesterItems={setTesterItems}
+	          allocTesterItemId={allocTesterItemId}
+	          testerMatches={testerMatchesByItemId}
+	          onResetGearTester={handleResetGearTesterItems}
+	          emptyStateVerticalAlign={emptyStateVerticalAlign}
+	        />
       ) : null}
       {/* Tutorial overlay */}
       <TutorialCoach
