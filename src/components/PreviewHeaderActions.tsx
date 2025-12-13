@@ -650,7 +650,7 @@ export default function PreviewHeaderActions(props: {
               <Box sx={{ px: 2.25, pt: 2.25, pb: 1 }}>
                 <ContextMenuTitle title={sortLabel} description={t('testerSortPopoverDescription')} />
               </Box>
-              {[TESTER_SORT_KEY_LAST_USAGE as TesterSortKey, ...STAT_VARIANTS_PRIORITY].map((key) => {
+              {[...STAT_VARIANTS_PRIORITY, TESTER_SORT_KEY_LAST_USAGE as TesterSortKey].map((key) => {
                 const idx = sortPriorities.findIndex((v) => Number(v) === Number(key))
                 const label = sortLabelForKey(key)
                 const fg = Number(key) === TESTER_SORT_KEY_LAST_USAGE ? undefined : sortStatFg(key as StatVariant)
@@ -729,7 +729,27 @@ export default function PreviewHeaderActions(props: {
                         >
                           {idx + 1}
                         </Box>
-                      ) : null}
+                      ) : (
+                        <Box
+                          component="span"
+                          aria-hidden
+                          // Show a subtle "ghost" priority badge so each row still reads as a selectable sort field,
+                          // even before the user picks it (requested for Last Used + all substats).
+                          sx={(theme) => ({
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            height: 22,
+                            minWidth: 34,
+                            px: 0.75,
+                            borderRadius: `${STATUS_CHIP_BORDER_RADIUS_PX}px`,
+                            boxSizing: 'border-box',
+                            border: `1px solid ${alpha(theme.palette.text.secondary, theme.palette.mode === 'dark' ? 0.22 : 0.14)}`,
+                            backgroundColor: 'transparent',
+                            cursor: 'pointer',
+                          })}
+                        />
+                      )}
                       {active ? (
                         <MarkdownTooltip markdown={perKeyFlipped ? sortGlyphFlippedDirectionLabel : sortGlyphInheritDirectionLabel}>
                           <Box
@@ -773,7 +793,26 @@ export default function PreviewHeaderActions(props: {
                             </Box>
                           </Box>
                         </MarkdownTooltip>
-                      ) : null}
+                      ) : (
+                        <Box
+                          component="span"
+                          aria-hidden
+                          // Render a second ghost badge slot (⇅/⇵ lives here when active) so the control column feels consistent.
+                          sx={(theme) => ({
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            height: 22,
+                            minWidth: 34,
+                            px: 0.75,
+                            borderRadius: `${STATUS_CHIP_BORDER_RADIUS_PX}px`,
+                            boxSizing: 'border-box',
+                            border: `1px solid ${alpha(theme.palette.text.secondary, theme.palette.mode === 'dark' ? 0.18 : 0.12)}`,
+                            backgroundColor: 'transparent',
+                            cursor: 'pointer',
+                          })}
+                        />
+                      )}
                     </Box>
                   </MenuItem>
                 )
