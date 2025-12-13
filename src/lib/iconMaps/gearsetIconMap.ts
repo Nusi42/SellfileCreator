@@ -1,4 +1,4 @@
-import { ArtifactSet, type ArtifactSetId } from '../types'
+import { ArtifactSet, type ArtifactSetId } from '../artifactSets'
 
 // Use URL-based asset references instead of importing `*.webp` directly.
 // This keeps Node-based test builds able to compile+execute without needing a bundler loader for images.
