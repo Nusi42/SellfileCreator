@@ -145,7 +145,6 @@ type RulesFilterPanelProps = {
   onChange: (next: RulesFilterState) => void
   metasets: Metaset[]
   showFaction: boolean
-  hasNamedConfigs: boolean
   configChipFilterActive: boolean
   onConfigChipFilterChange: (value: boolean) => void
   testerConfigFilterMode?: TesterConfigFilterMode
@@ -451,7 +450,6 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
     onChange,
     metasets,
     showFaction,
-    hasNamedConfigs,
   configChipFilterActive,
   onConfigChipFilterChange,
   testerConfigFilterMode = TESTER_CONFIG_FILTER_MODE_DEFAULT,
@@ -502,8 +500,10 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
   const [setsOrder, setSetsOrder] = useSetsOrderPreference()
   const [setsSearch, setSetsSearch] = React.useState('')
   const configNameQuery = state.configName?.query ?? ''
-  const showConfigNameField = hasNamedConfigs || configNameQuery.length > 0
-  const headerActionJustify = showConfigNameField ? 'flex-start' : 'flex-end'
+  // Keep the header layout stable: the Config Name filter always renders so the action buttons stay left-aligned,
+  // even when there are zero configs (or configs without names) loaded yet.
+  const showConfigNameField = true
+  const headerActionJustify = 'flex-start'
   const hasConfigs = configCount > 0
   const configNameInputRef = React.useRef<HTMLInputElement | null>(null)
   const configNameRegexError = React.useMemo(() => {
@@ -1484,7 +1484,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
           ref={topHeaderRef}
         sx={{
           display: 'grid',
-          gridTemplateColumns: { xs: '1fr', md: showConfigNameField ? 'auto minmax(0, 1fr)' : '1fr' },
+          gridTemplateColumns: { xs: '1fr', md: 'auto minmax(0, 1fr)' },
           columnGap: 1,
           rowGap: 1,
           alignItems: 'center',
@@ -1581,8 +1581,8 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
         </Box>
         <Box
           sx={{
-            gridColumn: showConfigNameField ? '2' : '1',
-            display: showConfigNameField ? 'flex' : 'none',
+            gridColumn: { xs: '1', md: '2' },
+            display: 'flex',
             alignItems: 'center',
             gap: 1,
             minWidth: 0,
