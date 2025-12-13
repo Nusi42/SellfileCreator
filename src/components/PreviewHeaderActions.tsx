@@ -1,17 +1,21 @@
 import React from 'react'
-import { Box, Button, Chip, Stack, ToggleButton, ToggleButtonGroup, Typography, Menu, MenuItem } from '@mui/material'
+import { Box, Button, Chip, Menu, MenuItem, Stack, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material'
+import type { PaperProps as MuiPaperProps } from '@mui/material/Paper'
 import { alpha, type Theme } from '@mui/material/styles'
 import {
   ELLIPSIS_TEXT_SX,
   FINAL_SELL_BUTTON_MIN_WIDTH_PX,
   FINAL_SELL_BUTTON_WIDTH_PX,
   SMALL_BUTTON_HEIGHT_PX,
-  CLEAR_ICON_BUTTON_SIZE_PX,
-  FILTER_HEADER_LABEL_MAX_WIDTH_PX,
-  SELLFILE_BUTTON_HEIGHT_PX,
-  TOTAL_RULE_COUNT_LIMIT,
-  ACCEPT_HSF_OR_DB_FILE_DIALOG,
-} from '../lib/constants'
+	  CLEAR_ICON_BUTTON_SIZE_PX,
+	  FILTER_HEADER_LABEL_MAX_WIDTH_PX,
+	  SELLFILE_BUTTON_HEIGHT_PX,
+	  TOTAL_RULE_COUNT_LIMIT,
+	  ACCEPT_HSF_OR_DB_FILE_DIALOG,
+	  MENU_CONTROL_HEIGHT_PX,
+	  MENU_CONTROL_MIN_WIDTH_PX,
+	  STATUS_CHIP_BORDER_RADIUS_PX,
+	} from '../lib/constants'
 import UploadFileIcon from '@mui/icons-material/UploadFile'
 import SaveIcon from '@mui/icons-material/Save'
 import FilePickerButton from './FilePickerButton'
@@ -27,6 +31,14 @@ import Checkbox from '@mui/material/Checkbox'
 import EllipsisTooltip from './EllipsisTooltip'
 import MarkdownTooltip from './MarkdownTooltip'
 import WorkloadProgressIndicator from './WorkloadProgressIndicator'
+import ExpandLessIcon from '@mui/icons-material/ExpandLess'
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
+import ContextMenuPaper from './ContextMenuPaper'
+import ContextMenuTitle from './ContextMenuTitle'
+import { TESTER_SORT_KEY_LAST_USAGE, type TesterSortKey, type TesterSubstatSortDirection } from '../lib/testerSort'
+import { DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT, STAT_VARIANTS_PRIORITY, StatVariant, statVariantI18nKey } from '../lib/types'
+import type { TesterSubstatSortState } from '../state/testerSubstatSortPreferences'
+import type { SubstatColorMap } from '../lib/renderColoredStatText'
 
 
 type ProgressChipProps = {
@@ -50,6 +62,10 @@ export default function PreviewHeaderActions(props: {
   filteredCount?: number
   filterActive?: boolean
   onToggleFilter?: () => void
+  // True when any filter-related setting deviates from defaults (including config filters).
+  filtersDirty?: boolean
+  // Clears filter state back to defaults (mirrors the old Reset Filters button).
+  onClearFilters?: () => void
   onSelectFile: (file: File) => void | Promise<void>
   onClearBase: () => void
   baseRuleCount?: number
@@ -74,12 +90,24 @@ export default function PreviewHeaderActions(props: {
   onOpenLogicHubDialog: () => void
   previewMode: 'rules' | 'tester'
   onChangePreviewMode: (mode: 'rules' | 'tester') => void
+  filterOpen: boolean
   testerCount?: number
   testerFilteredCount?: number
-  gearDbCommandError?: string | null
-  onClearGearDbCommandError?: () => void
-  gearDbCommandSuccess?: string | null
-  onClearGearDbCommandSuccess?: () => void
+  testerSubstatSort: TesterSubstatSortState
+  // Mirrors the Rule Tester grid preference so the sort popover can match stat coloring.
+  useStatButtonColors: boolean
+  // Full color map so the sort popover can match the same per-stat colors as chips/toggles.
+  substatColors: SubstatColorMap
+	  onClearTesterSubstatSort: () => void
+	  onSetTesterSubstatSortDirection: (direction: TesterSubstatSortDirection) => void
+	  onToggleTesterSubstatSortKeepSections: () => void
+	  onToggleTesterSubstatSortExcludeGlyphs: () => void
+	  onToggleTesterSubstatSortPriority: (key: TesterSortKey) => void
+	  onToggleTesterSubstatSortPriorityFlipped: (key: TesterSortKey) => void
+	  gearDbCommandError?: string | null
+	  onClearGearDbCommandError?: () => void
+	  gearDbCommandSuccess?: string | null
+	  onClearGearDbCommandSuccess?: () => void
   filtersSynced?: boolean
   onToggleFiltersSynced?: (next: boolean) => void
 }) {
@@ -88,6 +116,8 @@ export default function PreviewHeaderActions(props: {
     filteredCount,
     filterActive,
     onToggleFilter,
+    filtersDirty = false,
+    onClearFilters,
     onSelectFile,
     onClearBase,
     baseRuleCount,
@@ -109,12 +139,22 @@ export default function PreviewHeaderActions(props: {
     limitHit = false,
     previewMode,
     onChangePreviewMode,
+    filterOpen,
     testerCount,
     testerFilteredCount,
-    testerBuilding = false,
-    workloadProgressRatio,
-    gearDbCommandError,
-    onClearGearDbCommandError,
+    testerSubstatSort,
+    useStatButtonColors,
+    substatColors,
+    onClearTesterSubstatSort,
+	    onSetTesterSubstatSortDirection,
+	    onToggleTesterSubstatSortKeepSections,
+	    onToggleTesterSubstatSortExcludeGlyphs,
+	    onToggleTesterSubstatSortPriority,
+	    onToggleTesterSubstatSortPriorityFlipped,
+	    testerBuilding = false,
+	    workloadProgressRatio,
+	    gearDbCommandError,
+	    onClearGearDbCommandError,
     gearDbCommandSuccess,
     onClearGearDbCommandSuccess,
     filtersSynced = false,
@@ -178,9 +218,18 @@ export default function PreviewHeaderActions(props: {
     return t('rulesLimitExceeded', { limit: formattedLimit })
   }, [building, isRulesMode, limitHit, t])
 
-  const previewHeading = isRulesMode ? t('sellfilePreview') : t('testerPreviewHeading')
   const rulesModeLabel = t('previewModeRules')
   const testerModeLabel = t('previewModeTester')
+  const sortLabel = t('testerSortLabel')
+  const sortClearLabel = t('testerSortClear')
+  const sortDirectionLabel = t('testerSortDirection')
+  const sortKeepSectionsLabel = t('testerSortKeepSections')
+	  const sortExcludeGlyphsLabel = t('testerSortExcludeGlyphs')
+	  const sortHighToLowLabel = t('testerSortHighToLow')
+	  const sortLowToHighLabel = t('testerSortLowToHigh')
+	  const sortLastUsedLabel = t('testerLastUsedFilterLabel')
+	  const sortGlyphInheritDirectionLabel = t('testerSortPerKeyInheritDirection')
+	  const sortGlyphFlippedDirectionLabel = t('testerSortPerKeyFlippedDirection')
   const exportMenuEnabled = React.useMemo(
     () => typeof onExportDeduped === 'function' || typeof onToggleDedupeDefault === 'function' || typeof onToggleOmitDisabled === 'function',
     [onExportDeduped, onToggleDedupeDefault, onToggleOmitDisabled],
@@ -282,10 +331,98 @@ export default function PreviewHeaderActions(props: {
       setExportMenuAnchor(null)
     }
   }, [exportMenuAnchor, exportMenuEnabled])
+	  const sortPriorities = React.useMemo<readonly TesterSortKey[]>(() => {
+	    // Prefer the persisted ordering, but keep a stable empty array so hooks remain deterministic.
+	    return testerSubstatSort.priorities ?? []
+	  }, [testerSubstatSort.priorities])
+	  const sortFlipped = React.useMemo<readonly TesterSortKey[]>(() => {
+	    // "Flipped" is a UI convenience: it means "sort opposite of the global direction for this key."
+	    return testerSubstatSort.flipped ?? []
+	  }, [testerSubstatSort.flipped])
+	  const sortActive = !isRulesMode && sortPriorities.length > 0
+	  const sortLabelForKey = React.useCallback((key: TesterSortKey): string => {
+	    if (Number(key) === TESTER_SORT_KEY_LAST_USAGE) return sortLastUsedLabel
+	    return t(statVariantI18nKey(key as StatVariant))
+	  }, [sortLastUsedLabel, t])
+	  const sortButtonLabel = React.useMemo(() => {
+	    if (isRulesMode) return sortLabel
+	    const [first] = sortPriorities
+	    if (typeof first !== 'number') return sortLabel
+	    const head = sortLabelForKey(first)
+	    return sortPriorities.length > 1 ? `${head}...` : head
+	  }, [isRulesMode, sortLabel, sortLabelForKey, sortPriorities])
+	  const sortSpec = React.useMemo(() => ({
+	    priorities: sortPriorities,
+	    direction: testerSubstatSort.direction,
+	    flipped: sortFlipped,
+	    excludeGlyphs: testerSubstatSort.excludeGlyphs,
+	  }), [sortFlipped, sortPriorities, testerSubstatSort.direction, testerSubstatSort.excludeGlyphs])
+  const sortStatFg = React.useCallback((variant: StatVariant) => {
+    if (!useStatButtonColors) return undefined
+    return substatColors?.[variant]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[variant]
+  }, [substatColors, useStatButtonColors])
+
+  const [sortMenuAnchor, setSortMenuAnchor] = React.useState<HTMLElement | null>(null)
+  const sortMenuOpen = Boolean(sortMenuAnchor)
+  const closeSortMenu = React.useCallback(() => { setSortMenuAnchor(null) }, [])
+  const sortMenuPaperRef = React.useRef<HTMLDivElement | null>(null)
+  useContextMenuCloseOnOutsideRightClick({
+    open: sortMenuOpen,
+    onClose: closeSortMenu,
+    menuRef: sortMenuPaperRef,
+  })
+  React.useEffect(() => {
+    // Switching back to Sellfile preview disables sorting, so close the menu to avoid a stuck popover.
+    if (isRulesMode && sortMenuOpen) closeSortMenu()
+  }, [closeSortMenu, isRulesMode, sortMenuOpen])
+
+  const SORT_BUTTON_WIDTH_PX = 92
+  // Keep clear icons from shifting layout when they appear/disappear.
+  const HEADER_CLEAR_PLACEHOLDER_SX = {
+    width: CLEAR_ICON_BUTTON_SIZE_PX,
+    height: CLEAR_ICON_BUTTON_SIZE_PX,
+    flexShrink: 0,
+  } as const
+
   return (
     <>
       <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
-        <Typography variant="h6">{previewHeading}</Typography>
+        <ToggleButtonGroup
+          size="small"
+          value={previewMode}
+          exclusive
+          onChange={(_, next) => { if (next === 'rules' || next === 'tester') onChangePreviewMode(next) }}
+          aria-label={t('previewModeAria')}
+          data-tour-id="preview.mode-toggle"
+          sx={{
+            height: SMALL_BUTTON_HEIGHT_PX,
+            flexShrink: 0,
+            minWidth: 0,
+            '& .MuiToggleButtonGroup-grouped:not(:first-of-type)': {
+              marginLeft: 0,
+              borderLeft: '1px solid transparent',
+            },
+            '& .MuiToggleButtonGroup-grouped.Mui-selected + .MuiToggleButtonGroup-grouped.Mui-selected': {
+              marginLeft: 0,
+              borderLeft: '1px solid transparent',
+            },
+          }}
+        >
+          <ToggleButton
+            value="rules"
+            aria-label={rulesModeLabel}
+            sx={{ px: 1.25, minWidth: 0, height: SMALL_BUTTON_HEIGHT_PX, minHeight: SMALL_BUTTON_HEIGHT_PX, textTransform: 'none' }}
+          >
+            <Typography component="span" noWrap sx={ELLIPSIS_TEXT_SX}>{rulesModeLabel}</Typography>
+          </ToggleButton>
+          <ToggleButton
+            value="tester"
+            aria-label={testerModeLabel}
+            sx={{ px: 1.25, minWidth: 0, height: SMALL_BUTTON_HEIGHT_PX, minHeight: SMALL_BUTTON_HEIGHT_PX, textTransform: 'none' }}
+          >
+            <Typography component="span" noWrap sx={ELLIPSIS_TEXT_SX}>{testerModeLabel}</Typography>
+          </ToggleButton>
+        </ToggleButtonGroup>
         <Stack direction="row" spacing={1} alignItems="center" sx={{ flexShrink: 0, minWidth: 0 }}>
           {limitHit && !building && isRulesMode ? (
             <>
@@ -337,45 +474,9 @@ export default function PreviewHeaderActions(props: {
           '& > *': { minWidth: 0, flexShrink: 0 },
         }}
       >
-        <ToggleButtonGroup
-          size="small"
-          value={previewMode}
-          exclusive
-          onChange={(_, next) => { if (next === 'rules' || next === 'tester') onChangePreviewMode(next) }}
-          aria-label={t('previewModeAria')}
-          data-tour-id="preview.mode-toggle"
-          sx={{
-            height: SMALL_BUTTON_HEIGHT_PX,
-            flexShrink: 0,
-            minWidth: 0,
-            '& .MuiToggleButtonGroup-grouped:not(:first-of-type)': {
-              marginLeft: 0,
-              borderLeft: '1px solid transparent',
-            },
-            '& .MuiToggleButtonGroup-grouped.Mui-selected + .MuiToggleButtonGroup-grouped.Mui-selected': {
-              marginLeft: 0,
-              borderLeft: '1px solid transparent',
-            },
-          }}
-        >
-          <ToggleButton
-            value="rules"
-            aria-label={rulesModeLabel}
-            sx={{ px: 1.25, minWidth: 0, height: SMALL_BUTTON_HEIGHT_PX, minHeight: SMALL_BUTTON_HEIGHT_PX, textTransform: 'none' }}
-          >
-            <Typography component="span" noWrap sx={ELLIPSIS_TEXT_SX}>{rulesModeLabel}</Typography>
-          </ToggleButton>
-          <ToggleButton
-            value="tester"
-            aria-label={testerModeLabel}
-            sx={{ px: 1.25, minWidth: 0, height: SMALL_BUTTON_HEIGHT_PX, minHeight: SMALL_BUTTON_HEIGHT_PX, textTransform: 'none' }}
-          >
-            <Typography component="span" noWrap sx={ELLIPSIS_TEXT_SX}>{testerModeLabel}</Typography>
-          </ToggleButton>
-        </ToggleButtonGroup>
         {onToggleFilter && (
           <>
-            <Box sx={{ minWidth: 0, flexShrink: 1 }}>
+            <Box sx={{ minWidth: 0, flexShrink: 1, display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
               {/* Filter toggle tooltip can now express list-style hints thanks to MarkdownTooltip. */}
               <MarkdownTooltip markdown={t('filterTooltip')}>
                 <Box
@@ -427,13 +528,80 @@ export default function PreviewHeaderActions(props: {
                     }}
                   >
                     <EllipsisTooltip title={filterLabel} selector='[data-ellipsis-target]' wrap="block">
-                      <Typography component="span" noWrap sx={{ ...ELLIPSIS_TEXT_SX, width: '100%' }} data-ellipsis-target>
-                        {filterToggleLabel}
-                      </Typography>
+                      <Box
+                        component="span"
+                        sx={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 0.25, width: '100%', minWidth: 0 }}
+                      >
+                        <Typography component="span" noWrap sx={{ ...ELLIPSIS_TEXT_SX, minWidth: 0 }} data-ellipsis-target>
+                          {filterToggleLabel}
+                        </Typography>
+                        {filterOpen ? (
+                          <ExpandLessIcon fontSize="small" />
+                        ) : (
+                          <ExpandMoreIcon fontSize="small" />
+                        )}
+                      </Box>
                     </EllipsisTooltip>
                   </Button>
                 </Box>
               </MarkdownTooltip>
+              {filtersDirty && onClearFilters ? (
+                <ClearIconButton
+                  size="small"
+                  aria-label={t('filterReset')}
+                  tooltip={t('filterReset')}
+                  onClick={() => onClearFilters()}
+                />
+              ) : (
+                <Box sx={{ ...HEADER_CLEAR_PLACEHOLDER_SX, pointerEvents: 'none' }} />
+              )}
+            </Box>
+            <Box sx={{ minWidth: 0, flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: 0.5, ml: 1, mr: 1 }}>
+              <MarkdownTooltip markdown={t('testerSortTooltip')}>
+                <span>
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    color={sortActive ? 'warning' : 'success'}
+                    disabled={isRulesMode}
+                    onClick={(event) => {
+                      if (isRulesMode) return
+                      setSortMenuAnchor(event.currentTarget)
+                    }}
+                    aria-label={sortLabel}
+                    sx={{
+                      whiteSpace: 'nowrap',
+                      px: 1.25,
+                      height: SMALL_BUTTON_HEIGHT_PX,
+                      minHeight: SMALL_BUTTON_HEIGHT_PX,
+                      minWidth: SORT_BUTTON_WIDTH_PX,
+                      width: SORT_BUTTON_WIDTH_PX,
+                      maxWidth: SORT_BUTTON_WIDTH_PX,
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      lineHeight: 1,
+                      py: 0,
+                    }}
+                  >
+                    <Typography component="span" noWrap sx={{ ...ELLIPSIS_TEXT_SX, width: '100%' }} data-ellipsis-target>
+                      {sortButtonLabel}
+                    </Typography>
+                  </Button>
+                </span>
+              </MarkdownTooltip>
+              {!isRulesMode && sortPriorities.length > 0 ? (
+                <ClearIconButton
+                  size="small"
+                  aria-label={sortClearLabel}
+                  tooltip={sortClearLabel}
+                  onClick={() => onClearTesterSubstatSort()}
+                />
+              ) : (
+                <Box sx={{ ...HEADER_CLEAR_PLACEHOLDER_SX, pointerEvents: 'none' }} />
+              )}
             </Box>
             <ContextMenuHintOverlay text={t('contextMenuHint')} position={filterHintActive ? filterHintPos : null} />
             {filterMenuEnabled ? (
@@ -460,6 +628,244 @@ export default function PreviewHeaderActions(props: {
                 ) : null}
               </Menu>
             ) : null}
+            <Menu
+              open={sortMenuOpen}
+              anchorEl={sortMenuAnchor}
+              onClose={closeSortMenu}
+              // MenuList adds default padding (8px) which makes the title block sit lower than other popovers (e.g., Rolls).
+              MenuListProps={{ disablePadding: true }}
+              anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+              transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+              slotProps={{
+                paper: {
+                  component: ContextMenuPaper,
+                  onRequestClose: closeSortMenu,
+                  closeLabel: t('close'),
+                  ref: sortMenuPaperRef,
+                  sx: { width: 320, maxWidth: 'calc(100vw - 32px)', px: 0, py: 0 },
+                } as unknown as MuiPaperProps,
+              }}
+            >
+              {/* Title block mirrors the filter panel popouts so "Sort" feels like a first-class control. */}
+              <Box sx={{ px: 2.25, pt: 2.25, pb: 1 }}>
+                <ContextMenuTitle title={sortLabel} description={t('testerSortPopoverDescription')} />
+              </Box>
+              {[...STAT_VARIANTS_PRIORITY, TESTER_SORT_KEY_LAST_USAGE as TesterSortKey].map((key) => {
+                const idx = sortPriorities.findIndex((v) => Number(v) === Number(key))
+                const label = sortLabelForKey(key)
+                const fg = Number(key) === TESTER_SORT_KEY_LAST_USAGE ? undefined : sortStatFg(key as StatVariant)
+                const active = idx >= 0
+                const perKeyFlipped = sortFlipped.some((v) => Number(v) === Number(key))
+                return (
+                  <MenuItem
+                    key={key}
+                    onClick={() => onToggleTesterSubstatSortPriority(key)}
+                    sx={(theme) => ({
+                      gap: 1,
+                      alignItems: 'center',
+                      ...(active ? { backgroundColor: alpha(theme.palette.success.main, theme.palette.mode === 'dark' ? 0.12 : 0.08) } : {}),
+                      '&:hover': {
+                        backgroundColor: alpha(theme.palette.success.main, theme.palette.mode === 'dark' ? 0.2 : 0.12),
+                      },
+                    })}
+                  >
+                    <Typography
+                      variant="body2"
+                      // Prevent layout shifts when selecting rows: font weight + badges should never cause text wrapping.
+                      noWrap
+                      sx={(theme) => ({
+                        flex: 1,
+                        minWidth: 0,
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        ...(active ? { fontWeight: theme.typography.fontWeightMedium ?? 600 } : {}),
+                        ...(fg ? { color: fg } : {}),
+                      })}
+                    >
+                      {label}
+                    </Typography>
+                    {/* Match the control column width used by the rows below (Direction/flags) so badges align visually. */}
+                    <Box
+                      sx={{
+                        width: MENU_CONTROL_MIN_WIDTH_PX,
+                        minWidth: MENU_CONTROL_MIN_WIDTH_PX,
+                        // Keep the row height stable when the priority badges appear/disappear.
+                        height: MENU_CONTROL_HEIGHT_PX,
+                        minHeight: MENU_CONTROL_HEIGHT_PX,
+                        flexShrink: 0,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 0.75,
+                        justifyContent: 'center',
+                      }}
+                    >
+                      {active ? (
+                        <Box
+                          component="span"
+                          onClick={(event) => {
+                            // Badge clicks should never toggle the entire row; keep the behavior explicit and predictable.
+                            event.preventDefault()
+                            event.stopPropagation()
+                            onToggleTesterSubstatSortPriority(key)
+                          }}
+                          sx={(theme) => ({
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            height: 22,
+                            minWidth: 34,
+                            px: 0.75,
+                            // Priorities are interactive, so use the same rounded-rect radius as other clickable chips (e.g., Flex).
+                            borderRadius: `${STATUS_CHIP_BORDER_RADIUS_PX}px`,
+                            fontSize: theme.typography.pxToRem(15),
+                            fontWeight: 700,
+                            letterSpacing: 0.1,
+                            fontVariantNumeric: 'tabular-nums',
+                            border: `1px solid ${alpha(theme.palette.success.main, theme.palette.mode === 'dark' ? 0.7 : 0.55)}`,
+                            backgroundColor: alpha(theme.palette.success.main, theme.palette.mode === 'dark' ? 0.16 : 0.1),
+                            color: theme.palette.success.main,
+                            cursor: 'pointer',
+                          })}
+                        >
+                          {idx + 1}
+                        </Box>
+                      ) : (
+                        <Box
+                          component="span"
+                          aria-hidden
+                          // Show a subtle "ghost" priority badge so each row still reads as a selectable sort field,
+                          // even before the user picks it (requested for Last Used + all substats).
+                          sx={(theme) => ({
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            height: 22,
+                            minWidth: 34,
+                            px: 0.75,
+                            borderRadius: `${STATUS_CHIP_BORDER_RADIUS_PX}px`,
+                            boxSizing: 'border-box',
+                            border: `1px solid ${alpha(theme.palette.text.secondary, theme.palette.mode === 'dark' ? 0.22 : 0.14)}`,
+                            backgroundColor: 'transparent',
+                            cursor: 'pointer',
+                          })}
+                        />
+                      )}
+                      {active ? (
+                        <MarkdownTooltip markdown={perKeyFlipped ? sortGlyphFlippedDirectionLabel : sortGlyphInheritDirectionLabel}>
+                          <Box
+                            component="button"
+                            type="button"
+                            aria-label={perKeyFlipped ? sortGlyphFlippedDirectionLabel : sortGlyphInheritDirectionLabel}
+                            onClick={(event) => {
+                              // Per-key direction toggles should not affect the priority selection itself.
+                              event.preventDefault()
+                              event.stopPropagation()
+                              onToggleTesterSubstatSortPriorityFlipped(key)
+                            }}
+                            style={{
+                              border: 'none',
+                              background: 'transparent',
+                              padding: 0,
+                              margin: 0,
+                              cursor: 'pointer',
+                              font: 'inherit',
+                            }}
+                          >
+                            <Box
+                              component="span"
+                              sx={(theme) => ({
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                height: 22,
+                                minWidth: 34,
+                                px: 0.75,
+                                borderRadius: `${STATUS_CHIP_BORDER_RADIUS_PX}px`,
+                                fontSize: theme.typography.pxToRem(14),
+                                fontWeight: 700,
+                                letterSpacing: 0.1,
+                                border: `1px solid ${alpha(theme.palette.info.main, theme.palette.mode === 'dark' ? 0.65 : 0.5)}`,
+                                backgroundColor: alpha(theme.palette.info.main, theme.palette.mode === 'dark' ? 0.12 : 0.08),
+                                color: theme.palette.info.main,
+                              })}
+                            >
+                              {perKeyFlipped ? '⇵' : '⇅'}
+                            </Box>
+                          </Box>
+                        </MarkdownTooltip>
+                      ) : (
+                        <Box
+                          component="span"
+                          aria-hidden
+                          // Render a second ghost badge slot (⇅/⇵ lives here when active) so the control column feels consistent.
+                          sx={(theme) => ({
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            height: 22,
+                            minWidth: 34,
+                            px: 0.75,
+                            borderRadius: `${STATUS_CHIP_BORDER_RADIUS_PX}px`,
+                            boxSizing: 'border-box',
+                            border: `1px solid ${alpha(theme.palette.text.secondary, theme.palette.mode === 'dark' ? 0.18 : 0.12)}`,
+                            backgroundColor: 'transparent',
+                            cursor: 'pointer',
+                          })}
+                        />
+                      )}
+                    </Box>
+                  </MenuItem>
+                )
+              })}
+              <MenuItem
+                sx={{ gap: 1, alignItems: 'center' }}
+                onClick={() => onSetTesterSubstatSortDirection(sortSpec.direction === 'desc' ? 'asc' : 'desc')}
+              >
+                <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>{sortDirectionLabel}</Typography>
+                <Button
+                  size="small"
+                  variant="contained"
+                  color="success"
+                  sx={{ minWidth: MENU_CONTROL_MIN_WIDTH_PX, height: MENU_CONTROL_HEIGHT_PX, minHeight: MENU_CONTROL_HEIGHT_PX, lineHeight: 1, py: 0 }}
+                  onClick={(event) => {
+                    event.stopPropagation()
+                    onSetTesterSubstatSortDirection(sortSpec.direction === 'desc' ? 'asc' : 'desc')
+                  }}
+                >
+                  {sortSpec.direction === 'desc' ? sortHighToLowLabel : sortLowToHighLabel}
+                </Button>
+              </MenuItem>
+              <MenuItem sx={{ gap: 1, alignItems: 'center' }} onClick={() => onToggleTesterSubstatSortKeepSections()}>
+                <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>{sortKeepSectionsLabel}</Typography>
+                <Button
+                  size="small"
+                  variant={testerSubstatSort.keepSections ? 'contained' : 'outlined'}
+                  color="success"
+                  sx={{ minWidth: MENU_CONTROL_MIN_WIDTH_PX, height: MENU_CONTROL_HEIGHT_PX, minHeight: MENU_CONTROL_HEIGHT_PX, lineHeight: 1, py: 0 }}
+                  onClick={(event) => {
+                    event.stopPropagation()
+                    onToggleTesterSubstatSortKeepSections()
+                  }}
+                >
+                  {testerSubstatSort.keepSections ? t('commonOn') : t('commonOff')}
+                </Button>
+              </MenuItem>
+              <MenuItem sx={{ gap: 1, alignItems: 'center' }} onClick={() => onToggleTesterSubstatSortExcludeGlyphs()}>
+                <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>{sortExcludeGlyphsLabel}</Typography>
+                <Button
+                  size="small"
+                  variant={testerSubstatSort.excludeGlyphs ? 'contained' : 'outlined'}
+                  color="success"
+                  sx={{ minWidth: MENU_CONTROL_MIN_WIDTH_PX, height: MENU_CONTROL_HEIGHT_PX, minHeight: MENU_CONTROL_HEIGHT_PX, lineHeight: 1, py: 0 }}
+                  onClick={(event) => {
+                    event.stopPropagation()
+                    onToggleTesterSubstatSortExcludeGlyphs()
+                  }}
+                >
+                  {testerSubstatSort.excludeGlyphs ? t('commonOn') : t('commonOff')}
+                </Button>
+              </MenuItem>
+            </Menu>
           </>
         )}
         <Stack direction="row" spacing={1} alignItems="center" sx={{ flexShrink: 0, minWidth: 0 }}>

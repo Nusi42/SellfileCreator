@@ -1,7 +1,7 @@
 /* eslint import/no-unused-modules: off */
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { sortTesterRows } from '../src/lib/testerSort.js'
+import { TESTER_SORT_KEY_LAST_USAGE, sortTesterRows, sortTesterRowsBySubstats } from '../src/lib/testerSort.js'
 import {
   ArtifactSet,
   ArtifactType,
@@ -68,6 +68,47 @@ const makeAscensionStat = (tier: number): NormalizedStat => ({
   totalValue: tier,
   rolls: tier,
 })
+
+const makeSubstat = (variant: StatVariant, totalValue: number): NormalizedStat => {
+  const statId = (() => {
+    switch (variant) {
+      case StatVariant.HP:
+      case StatVariant.HP_FLAT:
+        return StatId.HP
+      case StatVariant.ATK:
+      case StatVariant.ATK_FLAT:
+        return StatId.ATK
+      case StatVariant.DEF:
+      case StatVariant.DEF_FLAT:
+        return StatId.DEF
+      case StatVariant.SPD:
+        return StatId.SPD
+      case StatVariant.RES:
+        return StatId.RES
+      case StatVariant.ACC:
+        return StatId.ACC
+      case StatVariant.CR:
+        return StatId.CR
+      case StatVariant.CDMG:
+        return StatId.CDMG
+      default:
+        return StatId.ATK
+    }
+  })()
+  const isFlat = variant === StatVariant.HP_FLAT
+    || variant === StatVariant.ATK_FLAT
+    || variant === StatVariant.DEF_FLAT
+  return {
+    source: 'substat',
+    statId,
+    isFlat,
+    variant,
+    baseValue: totalValue,
+    glyphValue: 0,
+    mythValue: 0,
+    totalValue,
+  }
+}
 
 const makeTesterRow = (overrides: Partial<NormalizedGearArtifact> = {}): TesterPreviewRow => {
   const slot = overrides.slot ?? ArtifactType.Weapon
@@ -229,6 +270,57 @@ test('sortTesterRows falls back to rank, rarity, ascension, then main stat prior
       { rank: 5, rarity: 6, asc: 10, main: StatVariant.HP },
     ],
   )
+})
+
+test('sortTesterRowsBySubstats sorts by last usage (most recent first)', () => {
+  const old = makeTesterRow({ id: 1, lastUseLocalTimestamp: '2020-01-01T00:00:00.000Z' })
+  const recent = makeTesterRow({ id: 2, lastUseLocalTimestamp: '2024-01-01T00:00:00.000Z' })
+  const never = makeTesterRow({ id: 3, lastUseLocalTimestamp: null })
+  const sorted = sortTesterRowsBySubstats([old, never, recent], {
+    priorities: [TESTER_SORT_KEY_LAST_USAGE],
+    direction: 'desc',
+    flipped: [],
+    excludeGlyphs: true,
+  })
+  assert.deepEqual(sorted.map((row) => row.artifact.id), [2, 1, 3])
+})
+
+test('sortTesterRowsBySubstats supports per-key flipped direction', () => {
+  const old = makeTesterRow({ id: 1, lastUseLocalTimestamp: '2020-01-01T00:00:00.000Z' })
+  const recent = makeTesterRow({ id: 2, lastUseLocalTimestamp: '2024-01-01T00:00:00.000Z' })
+  const never = makeTesterRow({ id: 3, lastUseLocalTimestamp: null })
+  const sorted = sortTesterRowsBySubstats([old, never, recent], {
+    priorities: [TESTER_SORT_KEY_LAST_USAGE],
+    direction: 'desc',
+    flipped: [TESTER_SORT_KEY_LAST_USAGE],
+    excludeGlyphs: true,
+  })
+  assert.deepEqual(sorted.map((row) => row.artifact.id), [1, 2, 3])
+})
+
+test('sortTesterRowsBySubstats composes last usage and substat priorities', () => {
+  const timestamp = '2024-01-01T00:00:00.000Z'
+  const spdHigh = makeTesterRow({ id: 1, lastUseLocalTimestamp: timestamp, substats: [makeSubstat(StatVariant.SPD, 20)] })
+  const spdLow = makeTesterRow({ id: 2, lastUseLocalTimestamp: timestamp, substats: [makeSubstat(StatVariant.SPD, 5)] })
+  const sorted = sortTesterRowsBySubstats([spdLow, spdHigh], {
+    priorities: [TESTER_SORT_KEY_LAST_USAGE, StatVariant.SPD],
+    direction: 'desc',
+    flipped: [],
+    excludeGlyphs: true,
+  })
+  assert.deepEqual(sorted.map((row) => row.artifact.id), [1, 2])
+})
+
+test('sortTesterRowsBySubstats can flip only one key while keeping global direction', () => {
+  const spdHigh = makeTesterRow({ id: 1, substats: [makeSubstat(StatVariant.SPD, 20)] })
+  const spdLow = makeTesterRow({ id: 2, substats: [makeSubstat(StatVariant.SPD, 5)] })
+  const sorted = sortTesterRowsBySubstats([spdLow, spdHigh], {
+    priorities: [StatVariant.SPD],
+    direction: 'desc',
+    flipped: [StatVariant.SPD],
+    excludeGlyphs: true,
+  })
+  assert.deepEqual(sorted.map((row) => row.artifact.id), [2, 1])
 })
 
 test('sortTesterRows preserves insertion order when all keys are equal', () => {

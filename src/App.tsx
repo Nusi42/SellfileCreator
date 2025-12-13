@@ -85,6 +85,7 @@ import { fingerprintConfigForRules, fingerprintSubstatTargets, updateConfigRules
 import { hasConfigMeaningfulDifferences } from './lib/configDiff'
 import { buildRuleTesterAutosavePayload, createRuleTesterMath, fingerprintRuleTesterItem, loadRuleTesterAutosaveDraft, type RuleTesterItem } from './lib/ruleTesterSession'
 import { sortTesterRows } from './lib/testerSort'
+import { useTesterSubstatSortPreferences } from './state/testerSubstatSortPreferences'
 import FileDragOverlay from './components/FileDragOverlay'
 import { BuilderColumn } from './components/AppLayout/BuilderColumn'
 import { useFileDragDrop, routeFileByExtension } from './hooks/useFileDragDrop'
@@ -101,9 +102,9 @@ import { useAutosave } from './hooks/useAutosave'
 import { useDeferredHsfcPayload } from './hooks/useDeferredHsfcPayload'
 import PreviewHeaderActions from './components/PreviewHeaderActions'
 import RulesFilterPanel, { type RulesFilterPanelHandle } from './components/RulesFilterPanel'
-import type { TesterConfigFilterMode } from './types/testerConfigFilterMode'
+import { TESTER_CONFIG_FILTER_MODE_DEFAULT, type TesterConfigFilterMode } from './types/testerConfigFilterMode'
 import { getAllKnownArtifactSetIds, type ArtifactSetId, type RankValue } from './lib/types'
-import { filterHsfRules, filterTesterItems, isRulesFilterActive, normalizeRulesFilterForTester, type FilterHsfRulesResult, type RulesFilterState } from './lib/rulesFilter'
+import { DEFAULT_RULES_FILTER_STATE, filterHsfRules, filterTesterItems, isRulesFilterActive, normalizeRulesFilterForTester, type FilterHsfRulesResult, type RulesFilterState } from './lib/rulesFilter'
 import {
   useAutosaveRestore,
   metasetsSignature,
@@ -1781,6 +1782,23 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const [rulesFilter, setRulesFilterRaw, rulesFilterByMode] = useRulesFilterStatePreference(previewMode)
   const [filterCollapsed, setFilterCollapsedRaw, filterCollapsedByMode] = useRulesFilterCollapsedPreference(previewMode)
   const [filtersSynced, setFiltersSyncedRaw] = useRulesFilterSyncPreference()
+  // Rule Tester substat sorting is view-only but should persist across sessions like filters.
+	  const testerSubstatSortPrefs = useTesterSubstatSortPreferences()
+	  const testerSubstatSortSpec = useMemo(() => {
+	    const priorities = testerSubstatSortPrefs.state.priorities
+	    if (!priorities.length) return null
+	    return {
+	      priorities,
+	      direction: testerSubstatSortPrefs.state.direction,
+	      flipped: testerSubstatSortPrefs.state.flipped,
+	      excludeGlyphs: testerSubstatSortPrefs.state.excludeGlyphs,
+	    }
+	  }, [
+	    testerSubstatSortPrefs.state.direction,
+	    testerSubstatSortPrefs.state.excludeGlyphs,
+	    testerSubstatSortPrefs.state.flipped,
+	    testerSubstatSortPrefs.state.priorities,
+	  ])
   const testerRulesFilter = useMemo(() => normalizeRulesFilterForTester(rulesFilter), [rulesFilter])
   const setFilterOpen = useCallback((next: boolean | ((prev: boolean) => boolean)) => {
     if (filtersSynced) {
@@ -1813,7 +1831,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     }
   }, [filtersSynced, filterCollapsed, setFilterCollapsedRaw])
   const [limitConfigsToFiltered, setLimitConfigsToFiltered] = useState<boolean>(false)
-  const [testerConfigFilterMode, setTesterConfigFilterMode] = useState<TesterConfigFilterMode>('off')
+  const [testerConfigFilterMode, setTesterConfigFilterMode] = useState<TesterConfigFilterMode>(TESTER_CONFIG_FILTER_MODE_DEFAULT)
   const handleToggleFiltersSynced = useCallback((next: boolean) => {
     setFiltersSyncedRaw(Boolean(next))
   }, [setFiltersSyncedRaw])
@@ -2945,6 +2963,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const previewFilterActive = previewMode === 'tester'
     ? (testerFilterActive || testerConfigFilterActive)
     : (filterActive || testerConfigFilterActive)
+  const filtersDirty = (previewMode === 'tester' ? testerFilterActive : filterActive)
+    || limitConfigsToFiltered
+    || testerConfigFilterMode !== TESTER_CONFIG_FILTER_MODE_DEFAULT
   const hsfRulesForTable = useMemo(() => {
     const baseRules = filterActive ? filteredRules : mergedRules
     if (!testerConfigFilterSelectedSet || testerConfigFilterSelectedSet.size === 0) return baseRules
@@ -3035,6 +3056,14 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   useEffect(() => {
     scrollSelectedConfigIntoView()
   }, [scrollSelectedConfigIntoView, customCfgs.length, filterActive, limitConfigsToFiltered])
+
+  const clearFilters = useCallback(() => {
+    const next = JSON.parse(JSON.stringify(DEFAULT_RULES_FILTER_STATE)) as RulesFilterState
+    setRulesFilter(next)
+    setLimitConfigsToFiltered(false)
+    setTesterConfigFilterMode(TESTER_CONFIG_FILTER_MODE_DEFAULT)
+    scrollSelectedConfigIntoView()
+  }, [scrollSelectedConfigIntoView, setLimitConfigsToFiltered, setRulesFilter, setTesterConfigFilterMode])
   const prevHoveredChipRef = React.useRef<number | null>(null)
   const hoverCountRef = React.useRef(customCfgs.length)
   hoverCountRef.current = customCfgs.length
@@ -4242,11 +4271,14 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         mergedCount={totalLimitHit ? Number.POSITIVE_INFINITY : mergedRules.length}
         {...(filterActive ? { filteredCount: totalLimitHit ? Number.POSITIVE_INFINITY : filteredRules.length } : {})}
         filterActive={previewFilterActive}
+        filtersDirty={filtersDirty}
+        filterOpen={filterOpen}
         building={rulesBuilding}
         testerBuilding={testerBuilding}
         workloadProgressRatio={workloadProgressRatio}
         limitHit={totalLimitHit}
         onToggleFilter={() => setFilterOpen((v) => !v)}
+        onClearFilters={clearFilters}
         onSelectFile={handleManualFileSelection}
         onClearBase={() => setHsf(null)}
         {...(hsf ? { baseRuleCount: hsf.Rules.length } : {})}
@@ -4334,10 +4366,19 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         onToggleKeepUniques={(next) => setKeepUniquesEnabled(next)}
         previewMode={previewMode}
         onChangePreviewMode={setPreviewMode}
-        filtersSynced={filtersSynced}
-        onToggleFiltersSynced={handleToggleFiltersSynced}
-        testerCount={testerItems.length}
-        testerFilteredCount={gearEntriesForTable.length}
+        testerSubstatSort={testerSubstatSortPrefs.state}
+        useStatButtonColors={statButtonBorders}
+        substatColors={substatColors}
+        onClearTesterSubstatSort={testerSubstatSortPrefs.clear}
+	        onSetTesterSubstatSortDirection={testerSubstatSortPrefs.setDirection}
+	        onToggleTesterSubstatSortKeepSections={testerSubstatSortPrefs.toggleKeepSections}
+	        onToggleTesterSubstatSortExcludeGlyphs={testerSubstatSortPrefs.toggleExcludeGlyphs}
+	        onToggleTesterSubstatSortPriority={testerSubstatSortPrefs.togglePriorityKey}
+	        onToggleTesterSubstatSortPriorityFlipped={testerSubstatSortPrefs.toggleFlipped}
+	        filtersSynced={filtersSynced}
+	        onToggleFiltersSynced={handleToggleFiltersSynced}
+	        testerCount={testerItems.length}
+	        testerFilteredCount={gearEntriesForTable.length}
         gearDbCommandError={gearDbCommandError}
         onClearGearDbCommandError={clearGearDbCommandError}
         gearDbCommandSuccess={gearDbCommandSuccess}
@@ -4350,12 +4391,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             state={rulesFilter}
             onChange={setRulesFilter}
             metasets={metasets}
-            onClose={() => setFilterOpen(false)}
             showFaction={showFactionFilter}
             hasNamedConfigs={hasNamedConfigs}
             configChipFilterActive={limitConfigsToFiltered}
             onConfigChipFilterChange={setLimitConfigsToFiltered}
-            onResetFilters={scrollSelectedConfigIntoView}
             testerConfigFilterMode={testerConfigFilterMode}
             onTesterConfigFilterModeChange={setTesterConfigFilterMode}
             configCount={customCfgs.length}
@@ -4387,6 +4426,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                   configNames={testerConfigNamesForGrid}
                   onJumpToRule={handleTesterRuleView}
                   suppressMatchDetails={suppressTesterMatchDetails}
+                  keepSections={testerSubstatSortSpec ? testerSubstatSortPrefs.state.keepSections : true}
+                  substatSort={testerSubstatSortSpec}
                 />
               </Box>
             ) : (

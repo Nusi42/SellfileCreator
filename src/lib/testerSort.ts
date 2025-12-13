@@ -97,3 +97,88 @@ export function sortTesterRows(rows: readonly TesterPreviewRow[]): TesterPreview
   annotated.sort((left, right) => compareTesterPreviewRows(left.row, right.row) || (left.index - right.index))
   return annotated.map((entry) => entry.row)
 }
+
+export type TesterSubstatSortDirection = 'desc' | 'asc'
+
+// Synthetic "priority keys" beyond the StatVariant enum.
+// Why: keep the sort menu extensible without forcing fake variants into the domain enum.
+export const TESTER_SORT_KEY_LAST_USAGE = -1 as const
+
+export type TesterSortKey = StatVariant | typeof TESTER_SORT_KEY_LAST_USAGE
+
+export type TesterSubstatSortSpec = {
+  // Ordered priority keys; earlier entries win.
+  priorities: readonly TesterSortKey[]
+  direction: TesterSubstatSortDirection
+  // Optional per-key override: listed keys sort opposite of the global direction.
+  flipped?: readonly TesterSortKey[]
+  // When true, sort by the pre-glyph (base + myth) values to avoid mixing glyph upgrades into ordering.
+  excludeGlyphs: boolean
+}
+
+const statValueForSubstatSort = (row: TesterPreviewRow, variant: StatVariant, excludeGlyphs: boolean): number => {
+  // Missing substats are treated as 0 so mixed-slot gear still sorts deterministically.
+  const entry = row.artifact.substats.find((stat) => Number(stat.variant) === Number(variant))
+  if (!entry) return 0
+  // `totalValue` is the pre-glyph value (base + myth) per gearDbNormalizer's contract.
+  // Glyph inclusion is opt-in so we never double-count glyph upgrades elsewhere.
+  const base = Number(entry.totalValue)
+  const glyph = Number(entry.glyphValue)
+  const safeBase = Number.isFinite(base) ? base : 0
+  const safeGlyph = Number.isFinite(glyph) ? glyph : 0
+  return excludeGlyphs ? safeBase : (safeBase + safeGlyph)
+}
+
+const lastUsageValueForSort = (row: TesterPreviewRow): number | null => {
+  // Null/invalid timestamps should always sort last; return null so the comparator can handle them explicitly.
+  const timestamp = row.artifact.lastUseLocalTimestamp
+  if (typeof timestamp !== 'string' || timestamp.length === 0) return null
+  const parsed = Date.parse(timestamp)
+  return Number.isFinite(parsed) ? parsed : null
+}
+
+export function compareTesterPreviewRowsBySubstats(
+  a: TesterPreviewRow,
+  b: TesterPreviewRow,
+  spec: TesterSubstatSortSpec,
+): number {
+  // Direction is normalized so UI callers can toggle without worrying about invalid strings.
+  const direction = spec.direction === 'asc' ? 'asc' : 'desc'
+  const globalMultiplier = direction === 'asc' ? 1 : -1
+  // Default to excluding glyphs so legacy callers that omit the flag behave predictably.
+  const excludeGlyphs = spec.excludeGlyphs !== false
+  const flipped = new Set<number>((spec.flipped ?? []).map((key) => Number(key)))
+  for (const variant of spec.priorities) {
+    const key = Number(variant)
+    const perKeyMultiplier = flipped.has(key) ? -globalMultiplier : globalMultiplier
+
+    if (key === TESTER_SORT_KEY_LAST_USAGE) {
+      const left = lastUsageValueForSort(a)
+      const right = lastUsageValueForSort(b)
+      if (left == null && right == null) continue
+      if (left == null) return 1
+      if (right == null) return -1
+      if (left === right) continue
+      return (left - right) * perKeyMultiplier
+    }
+
+    const left = statValueForSubstatSort(a, key as StatVariant, excludeGlyphs)
+    const right = statValueForSubstatSort(b, key as StatVariant, excludeGlyphs)
+    if (left === right) continue
+    return (left - right) * perKeyMultiplier
+  }
+  // Final tie-breaker intentionally uses the natural tester ordering so "Sort" feels additive, not destructive.
+  return compareTesterPreviewRows(a, b)
+}
+
+export function sortTesterRowsBySubstats(
+  rows: readonly TesterPreviewRow[],
+  spec: TesterSubstatSortSpec,
+): TesterPreviewRow[] {
+  if (rows.length <= 1) return rows.slice()
+  const annotated = rows.map((row, index) => ({ row, index }))
+  annotated.sort((left, right) => (
+    compareTesterPreviewRowsBySubstats(left.row, right.row, spec) || (left.index - right.index)
+  ))
+  return annotated.map((entry) => entry.row)
+}

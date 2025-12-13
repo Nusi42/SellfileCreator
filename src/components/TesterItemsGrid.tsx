@@ -81,6 +81,7 @@ import { useContextMenuCloseOnOutsideRightClick } from '../hooks/useContextMenuC
 import { useTesterGridPreferences } from '../state/testerGridPreferences'
 import { championIconUrl } from '../lib/iconMaps/championIconMap'
 import EmptyStateMessage, { type EmptyStateMessageProps } from './EmptyStateMessage'
+import { sortTesterRowsBySubstats, type TesterSubstatSortSpec } from '../lib/testerSort'
 
 type EmptyStateWrapperProps = Omit<EmptyStateMessageProps, 'children'>
 
@@ -199,6 +200,9 @@ type TesterItemsGridProps = {
   // Optional highlighter lets Keep Uniques fade non-matching cards without forking the grid.
   highlightedRowPredicate?: ((row: TesterPreviewRow) => boolean) | null
   dimUnhighlightedRows?: boolean
+  // Optional Rule Tester sort controls; view-only ordering that does not affect exports.
+  substatSort?: TesterSubstatSortSpec | null
+  keepSections?: boolean
 }
 
 type TesterGroupKind = 'artifactSet' | 'accessorySet' | 'accessoryFaction'
@@ -214,6 +218,11 @@ type TesterGroup = {
   kind: TesterGroupKind
   children?: TesterGroup[]
   parentKey?: string | null
+}
+
+type GroupRowsBySetOptions = {
+  keepSections: boolean
+  substatSort: TesterSubstatSortSpec | null
 }
 
 type MatchingConfigEntry = {
@@ -243,6 +252,8 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     suppressMatchDetails: suppressMatchDetailsProp = false,
     highlightedRowPredicate = null,
     dimUnhighlightedRows = false,
+    substatSort = null,
+    keepSections = true,
   } = props
   const keepUniquesVariant = variant === 'keepUniques'
   // Memoized predicates avoid re-render churn when Keep Uniques toggles highlighting.
@@ -252,8 +263,11 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
   const theme = useTheme()
   // Frozen match details stay rendered but dimmed so users remember the last result during rebuilds.
   const matchDetailsFrozen = Boolean(suppressMatchDetailsProp)
-  // Group tree is recalculated only when the dataset or locale changes so TanStack can reuse measured rows.
-  const groups = useMemo(() => groupRowsBySet(rows, t, lang), [rows, t, lang])
+  // Group tree is recalculated only when the dataset, locale, or sort mode changes so TanStack can reuse measured rows.
+  const groups = useMemo(
+    () => groupRowsBySet(rows, t, lang, { keepSections, substatSort }),
+    [rows, t, lang, keepSections, substatSort],
+  )
   const numberFormatter = useMemo(() => new Intl.NumberFormat(undefined), [])
   const {
     columns: gridColumnPreference,
@@ -2758,10 +2772,17 @@ type FactionGroupBuilder = {
   sets: Map<string, TesterGroup>
 }
 
-function groupRowsBySet(rows: readonly TesterPreviewRow[], translate: TranslateFn, lang: string): TesterGroup[] {
+function groupRowsBySet(
+  rows: readonly TesterPreviewRow[],
+  translate: TranslateFn,
+  lang: string,
+  options: GroupRowsBySetOptions,
+): TesterGroup[] {
   // Artifact sets form flat accordions, while accessories nest faction->set accordions for readability.
   const artifactGroups = new Map<string, TesterGroup>()
   const factionGroups = new Map<string, FactionGroupBuilder>()
+  const keepSections = options.keepSections !== false
+  const substatSort = options.substatSort
 
   rows.forEach((row, index) => {
     const artifact = row.artifact
@@ -2769,14 +2790,14 @@ function groupRowsBySet(rows: readonly TesterPreviewRow[], translate: TranslateF
     const rawSetId = Number(artifact.set)
     const setId = Number.isFinite(rawSetId) ? rawSetId : 0
     if (!isAccessorySlot(slot)) {
-      const key = `art:${setId}`
+      const key = keepSections ? `art:${setId}` : 'art:all'
       let group = artifactGroups.get(key)
       if (!group) {
-        const setLabel = formatTesterSetLabel({ setId, slot, translate, lang })
+        const setLabel = keepSections ? formatTesterSetLabel({ setId, slot, translate, lang }) : translate('artifacts')
         group = {
           key,
           label: setLabel,
-          setId,
+          setId: keepSections ? setId : null,
           slot,
           factionId: null,
           rows: [],
@@ -2818,39 +2839,56 @@ function groupRowsBySet(rows: readonly TesterPreviewRow[], translate: TranslateF
       factionGroup.group.order = index
     }
 
-    const setKey = `${factionKey}:set:${setId}`
-    let setGroup = factionGroup.sets.get(setKey)
-    if (!setGroup) {
-      const accessoryHasNoSet = setId === 0 || setId === ACCESSORY_NO_SET_ID
-      const setLabel = accessoryHasNoSet ? '' : formatTesterSetLabel({ setId, slot, translate, lang })
-      setGroup = {
-        key: setKey,
-        label: setLabel,
-        setId,
-        slot,
-        factionId: factionId > 0 ? factionId : null,
-        rows: [],
-        order: index,
-        kind: 'accessorySet',
-        parentKey: factionKey,
+    if (keepSections) {
+      const setKey = `${factionKey}:set:${setId}`
+      let setGroup = factionGroup.sets.get(setKey)
+      if (!setGroup) {
+        const accessoryHasNoSet = setId === 0 || setId === ACCESSORY_NO_SET_ID
+        const setLabel = accessoryHasNoSet ? '' : formatTesterSetLabel({ setId, slot, translate, lang })
+        setGroup = {
+          key: setKey,
+          label: setLabel,
+          setId,
+          slot,
+          factionId: factionId > 0 ? factionId : null,
+          rows: [],
+          order: index,
+          kind: 'accessorySet',
+          parentKey: factionKey,
+        }
+        factionGroup.sets.set(setKey, setGroup)
       }
-      factionGroup.sets.set(setKey, setGroup)
-    }
-    setGroup.rows.push(row)
-    if (index < setGroup.order) {
-      setGroup.order = index
+      setGroup.rows.push(row)
+      if (index < setGroup.order) {
+        setGroup.order = index
+      }
     }
   })
 
-  const resolvedFactionGroups: TesterGroup[] = Array.from(factionGroups.values()).map(({ group, sets }) => ({
-    ...group,
-    children: Array.from(sets.values()).sort((a, b) => a.order - b.order),
-  }))
+  const resolvedFactionGroups: TesterGroup[] = Array.from(factionGroups.values()).map(({ group, sets }) => {
+    if (!keepSections) {
+      return { ...group, children: [] }
+    }
+    return {
+      ...group,
+      children: Array.from(sets.values()).sort((a, b) => a.order - b.order),
+    }
+  })
 
-  return [
+  const grouped = [
     ...artifactGroups.values(),
     ...resolvedFactionGroups,
   ].sort((a, b) => a.order - b.order)
+
+  const applySort = (group: TesterGroup) => {
+    if (!substatSort || substatSort.priorities.length === 0) return
+    // Sort every group deterministically; leaf groups render cards while parents mainly provide counts.
+    group.rows = sortTesterRowsBySubstats(group.rows, substatSort)
+    group.children?.forEach(applySort)
+  }
+
+  grouped.forEach(applySort)
+  return grouped
 }
 
 function getTesterCardHeight(
