@@ -870,6 +870,13 @@ const enUS: Catalog = {
   testerChampionUnknownName: 'Unknown Champion #{id}',
   filterReset: 'Reset Filters',
   filterSyncViews: 'Sync filters between views',
+  filterPresetsSaveAs: 'Save as…',
+  filterPresetsEmpty: 'No saved filters yet.',
+  filterPresetsSaveDialogTitle: 'Save filter preset',
+  filterPresetsSaveDialogHelper: 'Stores the current filter panel state and tester sort settings in local storage.',
+  filterPresetsNameLabel: 'Name',
+  filterPresetsDeleteDialogTitle: 'Delete saved filter?',
+  filterPresetsDeleteDialogMessage: 'Delete “{name}”? This cannot be undone.',
   filterMatch: 'Match',
   filterAnyOf: 'Any Of',
   filterAllOf: 'All Of',
@@ -926,6 +933,7 @@ const enUS: Catalog = {
   restoreAutosaveRestoreSelected: 'Restore Selected',
   yes: 'Yes',
   no: 'No',
+  save: 'Save',
 
   // Help dialog
   helpAriaLabel: 'Help / README',

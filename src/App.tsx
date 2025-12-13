@@ -85,7 +85,8 @@ import { fingerprintConfigForRules, fingerprintSubstatTargets, updateConfigRules
 import { hasConfigMeaningfulDifferences } from './lib/configDiff'
 import { buildRuleTesterAutosavePayload, createRuleTesterMath, fingerprintRuleTesterItem, loadRuleTesterAutosaveDraft, type RuleTesterItem } from './lib/ruleTesterSession'
 import { sortTesterRows } from './lib/testerSort'
-import { useTesterSubstatSortPreferences } from './state/testerSubstatSortPreferences'
+import { setTesterSubstatSortState, useTesterSubstatSortPreferences } from './state/testerSubstatSortPreferences'
+import { FILTER_PRESETS_VERSION, useFilterPresetsPreference, type FilterPreset, type FilterPresetSnapshot } from './state/filterPresetsPreference'
 import FileDragOverlay from './components/FileDragOverlay'
 import { BuilderColumn } from './components/AppLayout/BuilderColumn'
 import { useFileDragDrop, routeFileByExtension } from './hooks/useFileDragDrop'
@@ -211,6 +212,7 @@ import {
   setRulesFilterCollapsedForMode,
   useRulesFilterSyncPreference,
   cloneDefaultRulesFilterCollapsed,
+  cloneDefaultRulesFilterState,
   type CollapsedSections,
 } from './state/rulesFilterPersistence'
 import { useKeepUniquesGridFilterMode, sanitizeKeepUniquesGridFilterMode } from './state/keepUniquesPreferences'
@@ -1832,6 +1834,98 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   }, [filtersSynced, filterCollapsed, setFilterCollapsedRaw])
   const [limitConfigsToFiltered, setLimitConfigsToFiltered] = useState<boolean>(false)
   const [testerConfigFilterMode, setTesterConfigFilterMode] = useState<TesterConfigFilterMode>(TESTER_CONFIG_FILTER_MODE_DEFAULT)
+  // Saved filter presets live outside autosave and must remain explicit user-controlled snapshots.
+  const [filterPresets, setFilterPresets] = useFilterPresetsPreference()
+
+  const createFilterPresetId = useCallback((): string => {
+    // Prefer UUIDs for low collision risk, but provide a stable fallback for older browsers.
+    try {
+      const uuid = crypto?.randomUUID?.()
+      if (uuid && typeof uuid === 'string') return uuid
+    } catch {}
+    return `preset_${Date.now()}_${Math.random().toString(16).slice(2)}`
+  }, [])
+
+  const buildFilterPresetSnapshot = useCallback((): FilterPresetSnapshot => {
+    // Presets capture both modes so toggling between Sellfile preview and Rule Tester stays coherent.
+    const views = {} as FilterPresetSnapshot['views']
+    for (const mode of RULES_FILTER_PREVIEW_MODES) {
+      const state = rulesFilterByMode[mode] ?? cloneDefaultRulesFilterState()
+      const collapsed = filterCollapsedByMode[mode] ?? cloneDefaultRulesFilterCollapsed()
+      const open = Boolean(filterOpenByMode[mode])
+      // Deep clone to ensure future UI edits do not mutate the stored snapshot by reference.
+      const clonedState = JSON.parse(JSON.stringify(state)) as RulesFilterState
+      const clonedCollapsed = JSON.parse(JSON.stringify(collapsed)) as CollapsedSections
+      views[mode] = { open, state: clonedState, collapsed: clonedCollapsed }
+    }
+    return {
+      version: FILTER_PRESETS_VERSION,
+      activeMode: previewMode,
+      filtersSynced: Boolean(filtersSynced),
+      limitConfigsToFiltered: Boolean(limitConfigsToFiltered),
+      testerConfigFilterMode,
+      testerSubstatSort: testerSubstatSortPrefs.state,
+      views,
+    }
+  }, [
+    filterCollapsedByMode,
+    filterOpenByMode,
+    filtersSynced,
+    limitConfigsToFiltered,
+    previewMode,
+    rulesFilterByMode,
+    testerConfigFilterMode,
+    testerSubstatSortPrefs.state,
+  ])
+
+  const handleSaveFilterPreset = useCallback((name: string) => {
+    // Presets allow duplicates; the internal ID is what disambiguates entries.
+    const trimmed = name.trim()
+    if (!trimmed) return
+    const preset: FilterPreset = {
+      id: createFilterPresetId(),
+      name: trimmed,
+      savedAt: new Date().toISOString(),
+      snapshot: buildFilterPresetSnapshot(),
+    }
+    setFilterPresets((prev) => [preset, ...(Array.isArray(prev) ? prev : [])])
+  }, [buildFilterPresetSnapshot, createFilterPresetId, setFilterPresets])
+
+  const handleApplyFilterPreset = useCallback((presetId: string) => {
+    // Apply by ID so duplicates by name remain safe and predictable.
+    const preset = (filterPresets ?? []).find((entry) => entry.id === presetId)
+    if (!preset) return
+    const snap = preset.snapshot
+    // Sync preference must apply before derived setters (filterOpen/rulesFilter) decide how to fan-out.
+    setFiltersSyncedRaw(Boolean(snap.filtersSynced))
+    setLimitConfigsToFiltered(Boolean(snap.limitConfigsToFiltered))
+    setTesterConfigFilterMode(snap.testerConfigFilterMode)
+    // Tester sorting uses its own localStorage store; update it directly for immediate table refresh.
+    setTesterSubstatSortState(snap.testerSubstatSort)
+    // Apply per-mode filter views so switching tabs keeps the snapshot intact.
+    for (const mode of RULES_FILTER_PREVIEW_MODES) {
+      const view = snap.views?.[mode]
+      if (!view) continue
+      setRulesFilterOpenForMode(mode, Boolean(view.open))
+      const clonedState = JSON.parse(JSON.stringify(view.state)) as RulesFilterState
+      const clonedCollapsed = JSON.parse(JSON.stringify(view.collapsed)) as CollapsedSections
+      setRulesFilterStateForMode(mode, clonedState)
+      setRulesFilterCollapsedForMode(mode, clonedCollapsed)
+    }
+    // Switch to the snapshot's active mode last so the UI reveals the applied state immediately.
+    setPreviewMode(snap.activeMode === 'tester' ? 'tester' : 'rules')
+  }, [
+    filterPresets,
+    setFiltersSyncedRaw,
+    setLimitConfigsToFiltered,
+    setTesterConfigFilterMode,
+    setPreviewMode,
+  ])
+
+  const handleDeleteFilterPreset = useCallback((presetId: string) => {
+    // Deleting is purely local: remove the entry and keep the rest stable.
+    setFilterPresets((prev) => (Array.isArray(prev) ? prev.filter((entry) => entry.id !== presetId) : []))
+  }, [setFilterPresets])
   const handleToggleFiltersSynced = useCallback((next: boolean) => {
     setFiltersSyncedRaw(Boolean(next))
   }, [setFiltersSyncedRaw])
@@ -4377,6 +4471,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
 	        onToggleTesterSubstatSortPriorityFlipped={testerSubstatSortPrefs.toggleFlipped}
 	        filtersSynced={filtersSynced}
 	        onToggleFiltersSynced={handleToggleFiltersSynced}
+          filterPresets={filterPresets}
+          onSaveFilterPreset={handleSaveFilterPreset}
+          onApplyFilterPreset={handleApplyFilterPreset}
+          onDeleteFilterPreset={handleDeleteFilterPreset}
 	        testerCount={testerItems.length}
 	        testerFilteredCount={gearEntriesForTable.length}
         gearDbCommandError={gearDbCommandError}
@@ -4575,7 +4673,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           storedGearSetsCount={storedRuntimeGearSetCount}
           metasetsDiffer={restoreMetasetsDiffer}
           targetsDiffer={restoreTargetsDiffer}
-          filtersDiffer={restoreFiltersDiffer}
           onDismiss={() => {
             dismissRestore()
             setTesterRestoreDraft(null)
@@ -4606,7 +4703,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
               if (selection.note && typeof draft.Note === 'string') {
                 applyNoteChange(draft.Note, { mode: 'restore', publish: false })
               }
-              if (selection.filters && restoreFiltersDiffer && draft.Filters) {
+              if (restoreFiltersDiffer && draft.Filters) {
+                // Filters are intentionally not listed in the restore dialog, but restoring an autosave
+                // should still rehydrate the last view-only filter surface for a seamless session.
                 try {
                   const views = draft.Filters.views
                   if (views && typeof views === 'object') {
