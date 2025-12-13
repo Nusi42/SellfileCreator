@@ -2,6 +2,7 @@ import { ArtifactSetPieceGroup } from './groups'
 import type { ArtifactSetPieceGroup as ArtifactSetPieceGroupValue } from './groups'
 import type { ArtifactSetDescription } from '../setDescriptions'
 import type { ArtifactSetId } from '../types'
+import { setRuntimeGearSetIcon } from '../iconMaps/gearsetIconMap'
 const STORAGE_KEY = 'sellfileCreator.runtimeGearSets.v1'
 const FILE_VERSION = 1
 const FALLBACK_ICON_SIZE = 64
@@ -47,9 +48,10 @@ type RuntimeIconSetter = (id: ArtifactSetId, dataUrl?: string) => void
 let setRuntimeGearSetIconImpl: RuntimeIconSetter = () => {}
 
 if (typeof window !== 'undefined') {
-  import('../iconMaps/gearsetIconMap').then((mod) => {
-    setRuntimeGearSetIconImpl = mod.setRuntimeGearSetIcon
-  }).catch(() => {})
+  // Avoid dynamic import here: the single-file release build inlines Rollup chunks, but Vite’s
+  // dynamic-import preload helper can be dropped during minification, leaving `__VITE_PRELOAD__`
+  // undefined in the shipped `SellfileCreator.html`.
+  setRuntimeGearSetIconImpl = setRuntimeGearSetIcon
 }
 
 const runtimeSets = new Map<number, RuntimeGearSet>()
