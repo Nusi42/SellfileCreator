@@ -11,6 +11,7 @@ import { rarityCodeToName, StatVariant, RankCode, RarityCode, Faction, type Fact
 import { variantToSub } from '../lib/hsfTypes'
 import { NBSP, GLYPH_TOGGLE_ON, GLYPH_TOGGLE_OFF } from '../lib/constants'
 import { reserveScrollbarGutterSpace } from '../lib/scrollbar'
+import { focusCycleWithin } from '../lib/focusCycle'
 import SetMenuSection from './SetMenuSection'
 import MetasetsDialog from './MetasetsDialog'
 import { useMetasetsDialog } from '../hooks/useMetasetsDialog'
@@ -418,10 +419,15 @@ const resetSubstatMenuChipWidths = React.useCallback(() => {
     return { min: 0, max: 0 }
   })
 }, [])
-  const { t, lang } = useI18n()
-  useGearSetCatalogVersion()
-  const numberFormatter = React.useMemo(() => new Intl.NumberFormat(lang), [lang])
+const { t, lang } = useI18n()
+useGearSetCatalogVersion()
+const numberFormatter = React.useMemo(() => new Intl.NumberFormat(lang), [lang])
 const substatMenuPaperRef = React.useRef<HTMLDivElement | null>(null)
+// Keep Tab/Shift+Tab within the Roll Targets value inputs and wrap at the ends
+// so keyboard editing stays in the grid instead of landing on spinner/clear controls.
+const substatMenuRollTargetsRef = React.useRef<HTMLDivElement | null>(null)
+const SUBSTAT_MENU_ROLL_TARGET_INPUT_ATTR = 'data-substat-roll-target-input' as const
+const SUBSTAT_MENU_ROLL_TARGET_INPUT_SELECTOR = `input[${SUBSTAT_MENU_ROLL_TARGET_INPUT_ATTR}="true"]` as const
 const {
   shouldShow: showSubstatHint,
   markSeen: markSubstatHintSeen,
@@ -4547,13 +4553,14 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                         >
                           <Box sx={{ display: 'flex', alignItems: 'flex-end', height: `${SUBSTAT_MENU_EXPECTATION_INPUT_HEIGHT_PX}px`, mb: 0.5 }}>
                             {renderMenuHeading(t('builderSubstatMenuRollTargets'), rollTargetsTooltipText)}
-                          </Box>
-                          <Box
-                            sx={(theme) => ({
-                              gridColumn: '2 / 3',
-                              display: 'grid',
-                              gridTemplateColumns: `repeat(6, minmax(${SUBSTAT_MENU_EXPECTATION_INPUT_WIDTH_PX}px, auto)) auto`,
-                              alignItems: 'flex-end',
+	                          </Box>
+	                          <Box
+	                            ref={substatMenuRollTargetsRef}
+	                            sx={(theme) => ({
+	                              gridColumn: '2 / 3',
+	                              display: 'grid',
+	                              gridTemplateColumns: `repeat(6, minmax(${SUBSTAT_MENU_EXPECTATION_INPUT_WIDTH_PX}px, auto)) auto`,
+	                              alignItems: 'flex-end',
                               justifyContent: 'flex-start',
                               columnGap: theme.spacing(1),
                               width: '100%',
@@ -4570,13 +4577,31 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                                 type="number"
                                 value={targetDraftBase ?? ''}
                                 onChange={handleTargetBaseChange}
-                                inputProps={{
-                                  inputMode: 'numeric',
-                                  pattern: '[0-9]*',
-                                  min: 0,
-                                  'aria-label': t('builderSubstatMenuRollTargetsBase'),
-                                  placeholder: formatTargetFallback(0),
-                                }}
+	                                inputProps={{
+	                                  inputMode: 'numeric',
+	                                  pattern: '[0-9]*',
+	                                  min: 0,
+	                                  // Focus-cycling hook: keep Tab within the Roll Targets inputs.
+	                                  [SUBSTAT_MENU_ROLL_TARGET_INPUT_ATTR]: 'true',
+	                                  'aria-label': t('builderSubstatMenuRollTargetsBase'),
+	                                  placeholder: formatTargetFallback(0),
+	                                  onKeyDown: (event: React.KeyboardEvent<HTMLInputElement>) => {
+	                                    // Match browser semantics: ignore modified Tab presses (e.g. Ctrl+Tab).
+	                                    if (event.key !== 'Tab') return
+	                                    if (event.altKey || event.ctrlKey || event.metaKey) return
+	                                    const moved = focusCycleWithin({
+	                                      container: substatMenuRollTargetsRef.current,
+	                                      selector: SUBSTAT_MENU_ROLL_TARGET_INPUT_SELECTOR,
+	                                      current: event.currentTarget,
+	                                      delta: event.shiftKey ? -1 : 1,
+	                                      wrap: true,
+	                                    })
+	                                    if (!moved) return
+	                                    event.preventDefault()
+	                                    // MUI MenuList listens for Tab to close the menu; stop bubbling so it stays open.
+	                                    event.stopPropagation()
+	                                  },
+	                                }}
                                 onClick={(event) => { event.stopPropagation() }}
                                 disabled={targetInputsDisabled}
                                 sx={(theme) => ({
@@ -4644,13 +4669,31 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                                     type="number"
                                     value={rollValue ?? ''}
                                     onChange={handleTargetRollChange(rollIndex - 1)}
-                                  inputProps={{
-                                    inputMode: 'numeric',
-                                    pattern: '[0-9]*',
-                                    min: 0,
-                                    'aria-label': label,
-                                    placeholder: formatTargetFallback(rollIndex),
-                                  }}
+	                                  inputProps={{
+	                                    inputMode: 'numeric',
+	                                    pattern: '[0-9]*',
+	                                    min: 0,
+	                                    // Focus-cycling hook: keep Tab within the Roll Targets inputs.
+	                                    [SUBSTAT_MENU_ROLL_TARGET_INPUT_ATTR]: 'true',
+	                                    'aria-label': label,
+	                                    placeholder: formatTargetFallback(rollIndex),
+	                                    onKeyDown: (event: React.KeyboardEvent<HTMLInputElement>) => {
+	                                      // Match browser semantics: ignore modified Tab presses (e.g. Ctrl+Tab).
+	                                      if (event.key !== 'Tab') return
+	                                      if (event.altKey || event.ctrlKey || event.metaKey) return
+	                                      const moved = focusCycleWithin({
+	                                        container: substatMenuRollTargetsRef.current,
+	                                        selector: SUBSTAT_MENU_ROLL_TARGET_INPUT_SELECTOR,
+	                                        current: event.currentTarget,
+	                                        delta: event.shiftKey ? -1 : 1,
+	                                        wrap: true,
+	                                      })
+	                                      if (!moved) return
+	                                      event.preventDefault()
+	                                      // MUI MenuList listens for Tab to close the menu; stop bubbling so it stays open.
+	                                      event.stopPropagation()
+	                                    },
+	                                  }}
                                     onClick={(event) => { event.stopPropagation() }}
                                     disabled={disabled}
                                     sx={(themeInner) => ({
