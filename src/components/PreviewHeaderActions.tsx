@@ -632,6 +632,8 @@ export default function PreviewHeaderActions(props: {
               open={sortMenuOpen}
               anchorEl={sortMenuAnchor}
               onClose={closeSortMenu}
+              // MenuList adds default padding (8px) which makes the title block sit lower than other popovers (e.g., Rolls).
+              MenuListProps={{ disablePadding: true }}
               anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
               transformOrigin={{ vertical: 'top', horizontal: 'left' }}
               slotProps={{
@@ -645,7 +647,7 @@ export default function PreviewHeaderActions(props: {
               }}
             >
               {/* Title block mirrors the filter panel popouts so "Sort" feels like a first-class control. */}
-              <Box sx={{ px: 2, pt: 2, pb: 1 }}>
+              <Box sx={{ px: 2.25, pt: 2.25, pb: 1 }}>
                 <ContextMenuTitle title={sortLabel} description={t('testerSortPopoverDescription')} />
               </Box>
               {[TESTER_SORT_KEY_LAST_USAGE as TesterSortKey, ...STAT_VARIANTS_PRIORITY].map((key) => {
