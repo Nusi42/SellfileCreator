@@ -1,5 +1,5 @@
 import React from 'react'
-import { Box, Button, Chip, Menu, MenuItem, Stack, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material'
+import { Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, Menu, MenuItem, Stack, TextField, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material'
 import type { PaperProps as MuiPaperProps } from '@mui/material/Paper'
 import { alpha, type Theme } from '@mui/material/styles'
 import {
@@ -35,10 +35,13 @@ import ExpandLessIcon from '@mui/icons-material/ExpandLess'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import ContextMenuPaper from './ContextMenuPaper'
 import ContextMenuTitle from './ContextMenuTitle'
+import DeleteIcon from '@mui/icons-material/Delete'
 import { TESTER_SORT_KEY_LAST_USAGE, type TesterSortKey, type TesterSubstatSortDirection } from '../lib/testerSort'
 import { DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT, STAT_VARIANTS_PRIORITY, StatVariant, statVariantI18nKey } from '../lib/types'
 import type { TesterSubstatSortState } from '../state/testerSubstatSortPreferences'
 import type { SubstatColorMap } from '../lib/renderColoredStatText'
+import type { FilterPreset } from '../state/filterPresetsPreference'
+import { formatLocalDateTime } from '../lib/dateDisplay'
 
 
 type ProgressChipProps = {
@@ -110,6 +113,10 @@ export default function PreviewHeaderActions(props: {
 	  onClearGearDbCommandSuccess?: () => void
   filtersSynced?: boolean
   onToggleFiltersSynced?: (next: boolean) => void
+  filterPresets?: readonly FilterPreset[]
+  onSaveFilterPreset?: (name: string) => void
+  onApplyFilterPreset?: (presetId: string) => void
+  onDeleteFilterPreset?: (presetId: string) => void
 }) {
   const {
     mergedCount,
@@ -159,6 +166,10 @@ export default function PreviewHeaderActions(props: {
     onClearGearDbCommandSuccess,
     filtersSynced = false,
     onToggleFiltersSynced,
+    filterPresets = [],
+    onSaveFilterPreset,
+    onApplyFilterPreset,
+    onDeleteFilterPreset,
   } = props
   const isRulesMode = previewMode === 'rules'
   const fsEnabled = (finalSell.artifacts || finalSell.accessories) && (finalSell.levels?.length ?? 0) > 0
@@ -248,11 +259,12 @@ export default function PreviewHeaderActions(props: {
   } = useContextMenuHint('previewExportMenu')
   const [exportHintPos, setExportHintPos] = React.useState<{ x: number; y: number } | null>(null)
   const exportHintActive = showExportHint && exportHintPos !== null && !exportMenuAnchor
-  const filterMenuEnabled = React.useMemo(
-    () => Boolean(onToggleFiltersSynced),
-    [onToggleFiltersSynced],
-  )
+  const filterMenuEnabled = React.useMemo(() => {
+    // The filter button menu is the entry point for presets + sync, so enable it when any are available.
+    return Boolean(onToggleFiltersSynced) || Boolean(onSaveFilterPreset) || (filterPresets?.length ?? 0) > 0
+  }, [filterPresets, onSaveFilterPreset, onToggleFiltersSynced])
   const [filterMenuAnchor, setFilterMenuAnchor] = React.useState<HTMLElement | null>(null)
+  // Keep the close path stable so menu items can reuse it without re-render churn.
   const closeFilterMenu = React.useCallback(() => { setFilterMenuAnchor(null) }, [])
   const filterMenuPaperRef = React.useRef<HTMLDivElement | null>(null)
   useContextMenuCloseOnOutsideRightClick({
@@ -266,6 +278,49 @@ export default function PreviewHeaderActions(props: {
   } = useContextMenuHint('previewFilterMenu')
   const [filterHintPos, setFilterHintPos] = React.useState<{ x: number; y: number } | null>(null)
   const filterHintActive = showFilterHint && filterHintPos !== null && !filterMenuAnchor
+
+  const formatPresetSavedAt = React.useCallback((value: string) => {
+    // Presets store ISO timestamps; local formatting keeps the menu scan-friendly.
+    return formatLocalDateTime(value) ?? value
+  }, [])
+
+  const [savePresetOpen, setSavePresetOpen] = React.useState(false)
+  const [savePresetName, setSavePresetName] = React.useState('')
+  // Delete confirmation stores the target ID + label so duplicates remain unambiguous.
+  const [deletePresetTarget, setDeletePresetTarget] = React.useState<{ id: string; name: string } | null>(null)
+
+  const openSavePresetDialog = React.useCallback(() => {
+    // Default to an empty field so repeated saves don't accidentally reuse prior input.
+    setSavePresetName('')
+    setSavePresetOpen(true)
+  }, [])
+
+  const closeSavePresetDialog = React.useCallback(() => {
+    setSavePresetOpen(false)
+  }, [])
+
+  const confirmSavePreset = React.useCallback(() => {
+    const name = savePresetName.trim()
+    // Skip empty names; the dialog keeps the user in-context until it's valid.
+    if (!name) return
+    onSaveFilterPreset?.(name)
+    setSavePresetOpen(false)
+  }, [onSaveFilterPreset, savePresetName])
+
+  const requestDeletePreset = React.useCallback((presetId: string, presetName: string) => {
+    // Store a snapshot so list reorders never change which entry is being deleted.
+    setDeletePresetTarget({ id: presetId, name: presetName })
+  }, [])
+
+  const cancelDeletePreset = React.useCallback(() => {
+    setDeletePresetTarget(null)
+  }, [])
+
+  const confirmDeletePreset = React.useCallback(() => {
+    if (!deletePresetTarget) return
+    onDeleteFilterPreset?.(deletePresetTarget.id)
+    setDeletePresetTarget(null)
+  }, [deletePresetTarget, onDeleteFilterPreset])
   const filterLabel = filterActive ? t('filtersOn') : t('filtersOff')
   const keepUniquesToggleLabel = t('keepUniquesToggleLabel')
   const filterHeaderLabel = t('filterHeader')
@@ -507,7 +562,8 @@ export default function PreviewHeaderActions(props: {
                     size="small"
                     variant="outlined"
                     color={filterActive ? 'warning' : 'success'}
-                    onClick={onToggleFilter}
+                    // Left click toggles the filter panel; the preset menu is context-menu only.
+                    onClick={() => onToggleFilter?.()}
                     aria-pressed={filterActive}
                     aria-label={filterLabel}
                     sx={{
@@ -613,9 +669,92 @@ export default function PreviewHeaderActions(props: {
                 anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
                 transformOrigin={{ vertical: 'top', horizontal: 'right' }}
               >
+                {/* Always show Save-as so users can start capturing filter presets immediately. */}
+                {onSaveFilterPreset ? (
+                  <MenuItem
+                    onClick={() => {
+                      closeFilterMenu()
+                      openSavePresetDialog()
+                    }}
+                  >
+                    {t('filterPresetsSaveAs')}
+                  </MenuItem>
+                ) : null}
+                {/* Saved presets are ordered newest-first and allow duplicate names. */}
+                {filterPresets.length > 0 ? (
+                  filterPresets.map((preset) => (
+                    <MenuItem
+                      key={preset.id}
+                      onClick={() => {
+                        onApplyFilterPreset?.(preset.id)
+                        closeFilterMenu()
+                      }}
+                      sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 1,
+                        // Slight extra vertical padding keeps the 2-line label visually centered.
+                        py: 0.75,
+                      }}
+                    >
+                      <Box
+                        sx={{
+                          flex: 1,
+                          minWidth: 0,
+                          display: 'flex',
+                          flexDirection: 'column',
+                          justifyContent: 'center',
+                          // Keep the text block vertically centered relative to the delete icon.
+                          lineHeight: 1,
+                        }}
+                      >
+                        <Typography
+                          variant="body2"
+                          noWrap
+                          sx={{ ...ELLIPSIS_TEXT_SX, lineHeight: 1.2 }}
+                        >
+                          {preset.name}
+                        </Typography>
+                        <Typography
+                          variant="caption"
+                          noWrap
+                          sx={{
+                            lineHeight: 1.1,
+                            // Slightly lighter than standard secondary text so the name remains the focal point.
+                            color: 'text.secondary',
+                            opacity: 0.78,
+                          }}
+                        >
+                          {formatPresetSavedAt(preset.savedAt)}
+                        </Typography>
+                      </Box>
+                      {onDeleteFilterPreset ? (
+                        <IconButton
+                          size="small"
+                          color="error"
+                          aria-label={t('delete')}
+                          onClick={(event) => {
+                            // Prevent the parent MenuItem from applying while we're requesting delete.
+                            try { event.stopPropagation() } catch {}
+                            closeFilterMenu()
+                            requestDeletePreset(preset.id, preset.name)
+                          }}
+                          sx={{ p: 0.5, alignSelf: 'center' }}
+                        >
+                          <DeleteIcon fontSize="inherit" />
+                        </IconButton>
+                      ) : null}
+                    </MenuItem>
+                  ))
+                ) : (
+                  <MenuItem disabled>
+                    {t('filterPresetsEmpty')}
+                  </MenuItem>
+                )}
                 {onToggleFiltersSynced ? (
                   <MenuItem
                     onClick={() => onToggleFiltersSynced(!filtersSynced)}
+                    sx={{ mt: 0.5 }}
                   >
                     <Checkbox
                       size="small"
@@ -628,6 +767,46 @@ export default function PreviewHeaderActions(props: {
                 ) : null}
               </Menu>
             ) : null}
+            <Dialog open={savePresetOpen} onClose={closeSavePresetDialog} maxWidth="xs" fullWidth>
+              <DialogTitle>{t('filterPresetsSaveDialogTitle')}</DialogTitle>
+              <DialogContent>
+                <Stack spacing={1.5} sx={{ mt: 0.5 }}>
+                  <Typography variant="body2" color="text.secondary">
+                    {t('filterPresetsSaveDialogHelper')}
+                  </Typography>
+                  <TextField
+                    autoFocus
+                    label={t('filterPresetsNameLabel')}
+                    value={savePresetName}
+                    onChange={(event) => setSavePresetName(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter') confirmSavePreset()
+                    }}
+                    inputProps={{ maxLength: 80 }}
+                  />
+                </Stack>
+              </DialogContent>
+              <DialogActions>
+                <Button onClick={closeSavePresetDialog}>{t('cancel')}</Button>
+                <Button variant="contained" onClick={confirmSavePreset} disabled={!savePresetName.trim()}>
+                  {t('save')}
+                </Button>
+              </DialogActions>
+            </Dialog>
+            <Dialog open={Boolean(deletePresetTarget)} onClose={cancelDeletePreset} maxWidth="xs" fullWidth>
+              <DialogTitle>{t('filterPresetsDeleteDialogTitle')}</DialogTitle>
+              <DialogContent>
+                <Typography variant="body2">
+                  {t('filterPresetsDeleteDialogMessage', { name: deletePresetTarget?.name ?? '' })}
+                </Typography>
+              </DialogContent>
+              <DialogActions>
+                <Button onClick={cancelDeletePreset}>{t('cancel')}</Button>
+                <Button color="error" variant="contained" onClick={confirmDeletePreset}>
+                  {t('delete')}
+                </Button>
+              </DialogActions>
+            </Dialog>
             <Menu
               open={sortMenuOpen}
               anchorEl={sortMenuAnchor}

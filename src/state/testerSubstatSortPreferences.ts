@@ -56,6 +56,20 @@ const normalizeSortKeys = (raw: unknown): TesterSortKey[] => {
   return normalized
 }
 
+export const normalizeTesterSubstatSortState = (raw: unknown): TesterSubstatSortState => {
+  // Snapshots may come from localStorage presets or the preference store itself; normalize both identically.
+  if (!raw || typeof raw !== 'object') return DEFAULT_TESTER_SUBSTAT_SORT_STATE
+  const obj = raw as Record<string, unknown>
+  // Defensive normalization keeps preferences stable across future format tweaks.
+  const direction: TesterSubstatSortDirection = obj.direction === 'asc' ? 'asc' : 'desc'
+  const keepSections = obj.keepSections === false ? false : true
+  const excludeGlyphs = obj.excludeGlyphs === false ? false : true
+  const priorities = normalizeSortKeys(obj.priorities)
+  // Flipped keys are only meaningful for keys that are currently selected as priorities.
+  const flipped = normalizeSortKeys(obj.flipped).filter((key) => priorities.some((v) => Number(v) === Number(key)))
+  return { priorities, direction, flipped, keepSections, excludeGlyphs }
+}
+
 const testerSubstatSortStore = createLocalStorageStore<TesterSubstatSortState>({
   key: TESTER_SUBSTAT_SORT_KEY,
   // Factory defaults keep sections, exclude glyphs, and apply a descending sort once priorities are chosen.
@@ -65,16 +79,7 @@ const testerSubstatSortStore = createLocalStorageStore<TesterSubstatSortState>({
     if (!raw) return DEFAULT_TESTER_SUBSTAT_SORT_STATE
     try {
       const parsed = JSON.parse(raw) as unknown
-      if (!parsed || typeof parsed !== 'object') return DEFAULT_TESTER_SUBSTAT_SORT_STATE
-      const obj = parsed as Record<string, unknown>
-      // Defensive normalization keeps preferences stable across future format tweaks.
-      const direction: TesterSubstatSortDirection = obj.direction === 'asc' ? 'asc' : 'desc'
-      const keepSections = obj.keepSections === false ? false : true
-      const excludeGlyphs = obj.excludeGlyphs === false ? false : true
-      const priorities = normalizeSortKeys(obj.priorities)
-      // Flipped keys are only meaningful for keys that are currently selected as priorities.
-      const flipped = normalizeSortKeys(obj.flipped).filter((key) => priorities.some((v) => Number(v) === Number(key)))
-      return { priorities, direction, flipped, keepSections, excludeGlyphs }
+      return normalizeTesterSubstatSortState(parsed)
     } catch {
       return DEFAULT_TESTER_SUBSTAT_SORT_STATE
     }
@@ -82,6 +87,11 @@ const testerSubstatSortStore = createLocalStorageStore<TesterSubstatSortState>({
   // JSON keeps the schema flexible while still being human-debuggable in devtools.
   serialize: (value) => JSON.stringify(value),
 })
+
+export function setTesterSubstatSortState(next: TesterSubstatSortState) {
+  // Preset application needs a direct setter so callers don't have to reimplement per-field updates.
+  testerSubstatSortStore.set(normalizeTesterSubstatSortState(next))
+}
 
 export function useTesterSubstatSortPreferences() {
   // Store read: subscribed so the preview header + grid stay in sync without extra effects.
