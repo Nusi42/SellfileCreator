@@ -853,6 +853,7 @@ const overrides: Catalog = {
   filterLimitSelectedConfigsTooltip: '**Превʼю Sellfile**\n- `Вимк.`: показує всі рядки.\n- `Увімк.`: приховує рядки конфігів, що не входять до вибраних чипів.\n**Rule Tester**\n- Крутіть `Вимк.` → `Перша` → `Будь-яка`, щоб записи тестера дотримувалися обраної політики.',
   testerSortLabel: 'Sort',
   testerSortTooltip: 'Sort the Rule Tester cards by substat priorities.',
+  testerSortPopoverDescription: 'Select substats to sort by.',
   testerSortClear: 'Clear',
   testerSortDirection: 'Direction',
   testerSortHighToLow: 'High → Low',

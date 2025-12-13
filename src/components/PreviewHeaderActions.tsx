@@ -1,5 +1,5 @@
 import React from 'react'
-import { Box, Button, Chip, Divider, Menu, MenuItem, Popover, Stack, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material'
+import { Box, Button, Chip, Menu, MenuItem, Stack, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material'
 import type { PaperProps as MuiPaperProps } from '@mui/material/Paper'
 import { alpha, type Theme } from '@mui/material/styles'
 import {
@@ -33,6 +33,7 @@ import WorkloadProgressIndicator from './WorkloadProgressIndicator'
 import ExpandLessIcon from '@mui/icons-material/ExpandLess'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import ContextMenuPaper from './ContextMenuPaper'
+import ContextMenuTitle from './ContextMenuTitle'
 import { type TesterSubstatSortDirection } from '../lib/testerSort'
 import { DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT, STAT_VARIANTS_PRIORITY, StatVariant, statVariantI18nKey } from '../lib/types'
 import type { TesterSubstatSortState } from '../state/testerSubstatSortPreferences'
@@ -612,7 +613,7 @@ export default function PreviewHeaderActions(props: {
                 ) : null}
               </Menu>
             ) : null}
-            <Popover
+            <Menu
               open={sortMenuOpen}
               anchorEl={sortMenuAnchor}
               onClose={closeSortMenu}
@@ -624,119 +625,129 @@ export default function PreviewHeaderActions(props: {
                   onRequestClose: closeSortMenu,
                   closeLabel: t('close'),
                   ref: sortMenuPaperRef,
-                  sx: { width: 320, maxWidth: 'calc(100vw - 32px)', p: 2.25 },
+                  sx: { width: 320, maxWidth: 'calc(100vw - 32px)', px: 0, py: 0 },
                 } as unknown as MuiPaperProps,
               }}
             >
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-                <MenuItem
-                  sx={{ gap: 1, alignItems: 'center' }}
-                  onClick={() => onSetTesterSubstatSortDirection(sortSpec.direction === 'desc' ? 'asc' : 'desc')}
-                >
-                  <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>{sortDirectionLabel}</Typography>
-                  <Button
-                    size="small"
-                    variant="contained"
-                    color="success"
-                    sx={{ minWidth: MENU_CONTROL_MIN_WIDTH_PX, height: MENU_CONTROL_HEIGHT_PX, minHeight: MENU_CONTROL_HEIGHT_PX, lineHeight: 1, py: 0 }}
-                    onClick={(event) => {
-                      event.stopPropagation()
-                      onSetTesterSubstatSortDirection(sortSpec.direction === 'desc' ? 'asc' : 'desc')
-                    }}
+              {/* Title block mirrors the filter panel popouts so "Sort" feels like a first-class control. */}
+              <Box sx={{ px: 2, pt: 2, pb: 1 }}>
+                <ContextMenuTitle title={sortLabel} description={t('testerSortPopoverDescription')} />
+              </Box>
+              {STAT_VARIANTS_PRIORITY.map((variant) => {
+                const idx = sortPriorities.findIndex((v) => Number(v) === Number(variant))
+                const label = t(statVariantI18nKey(variant))
+                const fg = sortStatFg(variant)
+                const active = idx >= 0
+                return (
+                  <MenuItem
+                    key={variant}
+                    onClick={() => onToggleTesterSubstatSortPriority(variant)}
+                    sx={(theme) => ({
+                      gap: 1,
+                      alignItems: 'center',
+                      ...(active ? { backgroundColor: alpha(theme.palette.success.main, theme.palette.mode === 'dark' ? 0.12 : 0.08) } : {}),
+                      '&:hover': {
+                        backgroundColor: alpha(theme.palette.success.main, theme.palette.mode === 'dark' ? 0.2 : 0.12),
+                      },
+                    })}
                   >
-                    {sortSpec.direction === 'desc' ? sortHighToLowLabel : sortLowToHighLabel}
-                  </Button>
-                </MenuItem>
-                <MenuItem sx={{ gap: 1, alignItems: 'center' }} onClick={() => onToggleTesterSubstatSortKeepSections()}>
-                  <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>{sortKeepSectionsLabel}</Typography>
-                  <Button
-                    size="small"
-                    variant={testerSubstatSort.keepSections ? 'contained' : 'outlined'}
-                    color="success"
-                    sx={{ minWidth: MENU_CONTROL_MIN_WIDTH_PX, height: MENU_CONTROL_HEIGHT_PX, minHeight: MENU_CONTROL_HEIGHT_PX, lineHeight: 1, py: 0 }}
-                    onClick={(event) => {
-                      event.stopPropagation()
-                      onToggleTesterSubstatSortKeepSections()
-                    }}
-                  >
-                    {testerSubstatSort.keepSections ? t('commonOn') : t('commonOff')}
-                  </Button>
-                </MenuItem>
-                <MenuItem sx={{ gap: 1, alignItems: 'center' }} onClick={() => onToggleTesterSubstatSortExcludeGlyphs()}>
-                  <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>{sortExcludeGlyphsLabel}</Typography>
-                  <Button
-                    size="small"
-                    variant={testerSubstatSort.excludeGlyphs ? 'contained' : 'outlined'}
-                    color="success"
-                    sx={{ minWidth: MENU_CONTROL_MIN_WIDTH_PX, height: MENU_CONTROL_HEIGHT_PX, minHeight: MENU_CONTROL_HEIGHT_PX, lineHeight: 1, py: 0 }}
-                    onClick={(event) => {
-                      event.stopPropagation()
-                      onToggleTesterSubstatSortExcludeGlyphs()
-                    }}
-                  >
-                    {testerSubstatSort.excludeGlyphs ? t('commonOn') : t('commonOff')}
-                  </Button>
-                </MenuItem>
-                <Divider sx={{ my: 0.5 }} />
-                <Box sx={{ display: 'flex', flexDirection: 'column' }}>
-                  {STAT_VARIANTS_PRIORITY.map((variant) => {
-                    const idx = sortPriorities.findIndex((v) => Number(v) === Number(variant))
-                    const label = t(statVariantI18nKey(variant))
-                    const fg = sortStatFg(variant)
-                    const active = idx >= 0
-                    return (
-                      <MenuItem
-                        key={variant}
-                        onClick={() => onToggleTesterSubstatSortPriority(variant)}
-                        sx={(theme) => ({
-                          gap: 1,
-                          alignItems: 'center',
-                          ...(active ? { backgroundColor: alpha(theme.palette.success.main, theme.palette.mode === 'dark' ? 0.12 : 0.08) } : {}),
-                          '&:hover': {
-                            backgroundColor: alpha(theme.palette.success.main, theme.palette.mode === 'dark' ? 0.2 : 0.12),
-                          },
-                        })}
-                      >
-                        <Typography
-                          variant="body2"
+                    <Typography
+                      variant="body2"
+                      sx={(theme) => ({
+                        flex: 1,
+                        minWidth: 0,
+                        ...(active ? { fontWeight: theme.typography.fontWeightMedium ?? 600 } : {}),
+                        ...(fg ? { color: fg } : {}),
+                      })}
+                    >
+                      {label}
+                    </Typography>
+                    {/* Match the control column width used by the rows below (Direction/flags) so badges align visually. */}
+                    <Box
+                      sx={{
+                        width: MENU_CONTROL_MIN_WIDTH_PX,
+                        minWidth: MENU_CONTROL_MIN_WIDTH_PX,
+                        flexShrink: 0,
+                        display: 'flex',
+                        justifyContent: 'center',
+                      }}
+                    >
+                      {active ? (
+                        <Box
+                          component="span"
                           sx={(theme) => ({
-                            flex: 1,
-                            minWidth: 0,
-                            ...(active ? { fontWeight: theme.typography.fontWeightMedium ?? 600 } : {}),
-                            ...(fg ? { color: fg } : {}),
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            height: 22,
+                            minWidth: 34,
+                            px: 0.75,
+                            borderRadius: 999,
+                            fontSize: theme.typography.pxToRem(15),
+                            fontWeight: 700,
+                            letterSpacing: 0.1,
+                            fontVariantNumeric: 'tabular-nums',
+                            border: `1px solid ${alpha(theme.palette.success.main, theme.palette.mode === 'dark' ? 0.7 : 0.55)}`,
+                            backgroundColor: alpha(theme.palette.success.main, theme.palette.mode === 'dark' ? 0.16 : 0.1),
+                            color: theme.palette.success.main,
                           })}
                         >
-                          {label}
-                        </Typography>
-                        {active ? (
-                          <Box
-                            component="span"
-                            sx={(theme) => ({
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              height: 18,
-                              minWidth: 20,
-                              px: 0.75,
-                              borderRadius: 999,
-                              fontSize: theme.typography.pxToRem(11),
-                              fontWeight: 700,
-                              letterSpacing: 0.1,
-                              border: `1px solid ${alpha(theme.palette.success.main, theme.palette.mode === 'dark' ? 0.7 : 0.55)}`,
-                              backgroundColor: alpha(theme.palette.success.main, theme.palette.mode === 'dark' ? 0.16 : 0.1),
-                              color: theme.palette.success.main,
-                              flexShrink: 0,
-                            })}
-                          >
-                            [{idx + 1}]
-                          </Box>
-                        ) : null}
-                      </MenuItem>
-                    )
-                  })}
-                </Box>
-              </Box>
-            </Popover>
+                          {idx + 1}
+                        </Box>
+                      ) : null}
+                    </Box>
+                  </MenuItem>
+                )
+              })}
+              <MenuItem
+                sx={{ gap: 1, alignItems: 'center' }}
+                onClick={() => onSetTesterSubstatSortDirection(sortSpec.direction === 'desc' ? 'asc' : 'desc')}
+              >
+                <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>{sortDirectionLabel}</Typography>
+                <Button
+                  size="small"
+                  variant="contained"
+                  color="success"
+                  sx={{ minWidth: MENU_CONTROL_MIN_WIDTH_PX, height: MENU_CONTROL_HEIGHT_PX, minHeight: MENU_CONTROL_HEIGHT_PX, lineHeight: 1, py: 0 }}
+                  onClick={(event) => {
+                    event.stopPropagation()
+                    onSetTesterSubstatSortDirection(sortSpec.direction === 'desc' ? 'asc' : 'desc')
+                  }}
+                >
+                  {sortSpec.direction === 'desc' ? sortHighToLowLabel : sortLowToHighLabel}
+                </Button>
+              </MenuItem>
+              <MenuItem sx={{ gap: 1, alignItems: 'center' }} onClick={() => onToggleTesterSubstatSortKeepSections()}>
+                <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>{sortKeepSectionsLabel}</Typography>
+                <Button
+                  size="small"
+                  variant={testerSubstatSort.keepSections ? 'contained' : 'outlined'}
+                  color="success"
+                  sx={{ minWidth: MENU_CONTROL_MIN_WIDTH_PX, height: MENU_CONTROL_HEIGHT_PX, minHeight: MENU_CONTROL_HEIGHT_PX, lineHeight: 1, py: 0 }}
+                  onClick={(event) => {
+                    event.stopPropagation()
+                    onToggleTesterSubstatSortKeepSections()
+                  }}
+                >
+                  {testerSubstatSort.keepSections ? t('commonOn') : t('commonOff')}
+                </Button>
+              </MenuItem>
+              <MenuItem sx={{ gap: 1, alignItems: 'center' }} onClick={() => onToggleTesterSubstatSortExcludeGlyphs()}>
+                <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>{sortExcludeGlyphsLabel}</Typography>
+                <Button
+                  size="small"
+                  variant={testerSubstatSort.excludeGlyphs ? 'contained' : 'outlined'}
+                  color="success"
+                  sx={{ minWidth: MENU_CONTROL_MIN_WIDTH_PX, height: MENU_CONTROL_HEIGHT_PX, minHeight: MENU_CONTROL_HEIGHT_PX, lineHeight: 1, py: 0 }}
+                  onClick={(event) => {
+                    event.stopPropagation()
+                    onToggleTesterSubstatSortExcludeGlyphs()
+                  }}
+                >
+                  {testerSubstatSort.excludeGlyphs ? t('commonOn') : t('commonOff')}
+                </Button>
+              </MenuItem>
+            </Menu>
           </>
         )}
         <Stack direction="row" spacing={1} alignItems="center" sx={{ flexShrink: 0, minWidth: 0 }}>

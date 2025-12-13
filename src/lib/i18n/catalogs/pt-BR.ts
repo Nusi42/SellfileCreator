@@ -853,6 +853,7 @@ const catalog: Catalog = {
   filterLimitSelectedConfigsTooltip: '**Prévia Sellfile**\n- `Desligado`: mostra todas as linhas.\n- `Ligado`: oculta as linhas cujas configs não estão na sua seleção.\n**Rule Tester**\n- Alterna `Desligado` → `Primeira` → `Qualquer` para que as entradas sigam a política de matching escolhida.',
   testerSortLabel: 'Sort',
   testerSortTooltip: 'Sort the Rule Tester cards by substat priorities.',
+  testerSortPopoverDescription: 'Select substats to sort by.',
   testerSortClear: 'Clear',
   testerSortDirection: 'Direction',
   testerSortHighToLow: 'High → Low',

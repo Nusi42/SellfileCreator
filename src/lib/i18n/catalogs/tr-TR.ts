@@ -853,6 +853,7 @@ const overrides: Catalog = {
   filterLimitSelectedConfigsTooltip: '**Sellfile önizlemesi**\n- `Kapalı`: tüm satırlar görünür.\n- `Açık`: seçiminizde olmayan konfiglerin satırlarını gizler.\n**Rule Tester**\n- `Kapalı` → `İlk` → `Herhangi` arasında geçiş yaparak tester kayıtlarının seçtiğiniz eşleşme politikasına uymasını sağlayın.',
   testerSortLabel: 'Sort',
   testerSortTooltip: 'Sort the Rule Tester cards by substat priorities.',
+  testerSortPopoverDescription: 'Select substats to sort by.',
   testerSortClear: 'Clear',
   testerSortDirection: 'Direction',
   testerSortHighToLow: 'High → Low',

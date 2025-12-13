@@ -853,6 +853,7 @@ const overrides: Catalog = {
   filterLimitSelectedConfigsTooltip: '**Sellfile-Vorschau**\n- `Aus`: zeigt alle Zeilen.\n- `An`: blendet Regeln oder Items aus, deren Konfig nicht in deiner Auswahl liegt.\n**Regel Tester**\n- Rotiert `Aus` → `Erste` → `Beliebig`, damit die Tester-Einträge der gewählten Matching-Policy folgen.',
   testerSortLabel: 'Sort',
   testerSortTooltip: 'Sort the Rule Tester cards by substat priorities.',
+  testerSortPopoverDescription: 'Select substats to sort by.',
   testerSortClear: 'Clear',
   testerSortDirection: 'Direction',
   testerSortHighToLow: 'High → Low',

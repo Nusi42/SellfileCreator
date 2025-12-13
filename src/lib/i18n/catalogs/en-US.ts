@@ -852,6 +852,7 @@ const enUS: Catalog = {
   filterLimitSelectedConfigsTooltip: '**Sellfile preview**\n- `Off`: show every row.\n- `On`: hide rules whose configs are outside your selection.\n**Rule Tester**\n- Cycles `Off` → `First-Match` → `Any-Match` so imported gear respects the matching config policy you choose.',
   testerSortLabel: 'Sort',
   testerSortTooltip: 'Sort the Rule Tester cards by substat priorities.',
+  testerSortPopoverDescription: 'Select substats to sort by.',
   testerSortClear: 'Clear',
   testerSortDirection: 'Direction',
   testerSortHighToLow: 'High → Low',

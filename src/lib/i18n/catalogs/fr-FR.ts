@@ -853,6 +853,7 @@ const overrides: Catalog = {
   filterLimitSelectedConfigsTooltip: '**Aperçu du Sellfile**\n- `Désactivé` : affiche toutes les lignes.\n- `Activé` : masque les règles ou items dont la config n’est pas dans votre sélection.\n**Rule Tester**\n- Bascule `Désactivé` → `Première` → `N’importe` afin que les entrées suivent la politique de matching choisie.',
   testerSortLabel: 'Sort',
   testerSortTooltip: 'Sort the Rule Tester cards by substat priorities.',
+  testerSortPopoverDescription: 'Select substats to sort by.',
   testerSortClear: 'Clear',
   testerSortDirection: 'Direction',
   testerSortHighToLow: 'High → Low',
