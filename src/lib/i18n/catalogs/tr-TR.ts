@@ -68,6 +68,7 @@ const overrides: Catalog = {
   gearDialogDeleteSourceConfirmBody: 'Bu işlem Kural Testi önizlemesinden tüm "{source}" ekipmanını kaldırır.',
   noSetAccessories: 'Yok — yalnızca aksesuarlar',
   testerTableEmpty: 'Burada kayıtları görmek için özel ekipman ekleyin.',
+  testerGridEmpty: 'Burada kayıtları görmek için özel ekipman ekleyin veya RSL Helper veritabanı yükleyin.',
   testerTableEmptyKeepUniquesDisabled: '“Benzersizleri Koru” kapalı; ekipmanınızı taramak için açın.',
   testerTableEmptyKeepUniquesNoMatches: 'Mevcut “Benzersizleri Koru” filtreleriyle eşleşen ekipman yok.',
   testerTableEmptyFilter: 'Hiçbir tester kaydı geçerli filtrelere uymuyor.',

@@ -68,6 +68,7 @@ const overrides: Catalog = {
   gearDialogDeleteSourceConfirmBody: 'Esto quita todo el equipo de "{source}" de la vista previa del Probador.',
   noSetAccessories: 'Ninguno – solo accesorios',
   testerTableEmpty: 'Añade equipo personalizado para ver entradas aquí.',
+  testerGridEmpty: 'Añade equipo personalizado o carga una base de datos de RSL Helper para ver entradas aquí.',
   testerTableEmptyKeepUniquesDisabled: '«Conservar únicos» está desactivado; actívalo para escanear tu equipo.',
   testerTableEmptyKeepUniquesNoMatches: 'Ningún equipo coincide con los filtros actuales de Conservar únicos.',
   testerTableEmptyFilter: 'Ningún elemento del tester coincide con los filtros actuales.',

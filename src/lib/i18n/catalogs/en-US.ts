@@ -68,6 +68,7 @@ const enUS: Catalog = {
   gearDialogDeleteSourceConfirmBody: 'This removes all "{source}" gear from the Rule Tester preview.',
   noSetAccessories: 'None - Only Accessories',
   testerTableEmpty: 'Add custom gear to see entries here.',
+  testerGridEmpty: 'Add custom gear or load RSL Helper DB to see entries here.',
   testerTableEmptyKeepUniquesDisabled: 'Keep Uniques is disabled; turn it on to scan your gear.',
   testerTableEmptyKeepUniquesNoMatches: 'No gear matches the current Keep Uniques filters.',
   testerTableEmptyFilter: 'No gear matches the current filters.',

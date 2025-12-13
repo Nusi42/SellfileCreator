@@ -68,6 +68,7 @@ const overrides: Catalog = {
   gearDialogDeleteSourceConfirmBody: 'Questo rimuove tutto l’equipaggiamento "{source}" dall’anteprima del Tester regole.',
   noSetAccessories: 'Nessuno – Solo accessori',
   testerTableEmpty: 'Aggiungi equipaggiamento personalizzato per vedere le voci qui.',
+  testerGridEmpty: 'Aggiungi equipaggiamento personalizzato o carica un database di RSL Helper per vedere le voci qui.',
   testerTableEmptyKeepUniquesDisabled: '«Mantieni unici» è disattivato; attivalo per scansionare la tua attrezzatura.',
   testerTableEmptyKeepUniquesNoMatches: 'Nessun equipaggiamento corrisponde ai filtri Mantieni unici correnti.',
   testerTableEmptyFilter: 'Nessuna riga del tester corrisponde ai filtri attuali.',

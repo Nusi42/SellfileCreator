@@ -68,6 +68,7 @@ const catalog: Catalog = {
   gearDialogDeleteSourceConfirmBody: 'Isso remove todo o equipamento "{source}" da prévia do Teste de Regras.',
   noSetAccessories: 'Nenhum – apenas acessórios',
   testerTableEmpty: 'Adicione equipamentos personalizados para ver entradas aqui.',
+  testerGridEmpty: 'Adicione equipamentos personalizados ou carregue um banco de dados do RSL Helper para ver entradas aqui.',
   testerTableEmptyKeepUniquesDisabled: 'Manter únicos está desativado; ative-o para escanear seu equipamento.',
   testerTableEmptyKeepUniquesNoMatches: 'Nenhum equipamento corresponde aos filtros atuais de Manter únicos.',
   testerTableEmptyFilter: 'Nenhuma entrada do tester corresponde aos filtros atuais.',
