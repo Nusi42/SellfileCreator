@@ -22,6 +22,9 @@ export type BuilderPreviewLayout = {
   leftPaperRef: React.MutableRefObject<HTMLDivElement | null>
   chipsContainerRef: React.MutableRefObject<HTMLDivElement | null>
   chipsMaxHeight: number
+  // Expose the resolved side-by-side state so other UI (e.g., empty states) can stay consistent
+  // without re-deriving the breakpoint + force logic in multiple components.
+  isSideBySide: boolean
   previewPaperHeightPx: number | null
   previewPaperHeightStyle: string | undefined
   sideBySideMinPaperHeightPx: string | undefined
@@ -265,6 +268,7 @@ export function useBuilderPreviewLayout({ forceSideBySide = false }: UseBuilderP
     leftPaperRef,
     chipsContainerRef,
     chipsMaxHeight,
+    isSideBySide,
     previewPaperHeightPx,
     previewPaperHeightStyle,
     sideBySideMinPaperHeightPx,

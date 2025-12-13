@@ -196,6 +196,9 @@ type TesterItemsGridProps = {
   keepUniquesEnabled?: boolean
   hasTesterData?: boolean
   emptyStateOptions?: Partial<EmptyStateMessageProps> | undefined
+  // Vertical anchoring for empty-state messaging: stacked layout reads better when top-aligned,
+  // side-by-side layout looks balanced when centered.
+  emptyStateVerticalAlign?: EmptyStateMessageProps['verticalAlign']
   suppressMatchDetails?: boolean
   // Optional highlighter lets Keep Uniques fade non-matching cards without forking the grid.
   highlightedRowPredicate?: ((row: TesterPreviewRow) => boolean) | null
@@ -249,6 +252,7 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     keepUniquesEnabled = true,
     hasTesterData = true,
     emptyStateOptions,
+    emptyStateVerticalAlign = 'center',
     suppressMatchDetails: suppressMatchDetailsProp = false,
     highlightedRowPredicate = null,
     dimUnhighlightedRows = false,
@@ -790,7 +794,9 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     })()
     const emptyStateProps: EmptyStateWrapperProps = {
       borderVariant: 'none',
-      minHeight: 'auto',
+      // Fill the available pane so the alignment choice is visible (vs collapsing to content height).
+      minHeight: '100%',
+      verticalAlign: emptyStateVerticalAlign,
       ...(emptyStateOptions ?? {}),
     }
     return (

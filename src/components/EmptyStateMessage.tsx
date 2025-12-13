@@ -8,6 +8,10 @@ export type EmptyStateMessageProps = {
   children: React.ReactNode
   icon?: React.ReactNode
   borderVariant?: 'none' | 'dashed'
+  // Some empty states should hug the top edge in stacked layouts (builder above preview),
+  // but remain centered when we render side-by-side. Keep the vocabulary tight so callers
+  // can reuse a single signal without duplicating layout logic.
+  verticalAlign?: 'center' | 'top'
   minHeight?: number | string
   typographyVariant?: TypographyProps['variant']
   sx?: SxProps<Theme>
@@ -21,6 +25,7 @@ export function EmptyStateMessage({
   children,
   icon,
   borderVariant = 'none',
+  verticalAlign = 'center',
   minHeight = 'auto',
   typographyVariant = 'body2',
   sx,
@@ -28,15 +33,20 @@ export function EmptyStateMessage({
   // Base flex styles ensure icons/text stack nicely and stay centered.
   const baseStyles = (theme: Theme) => ({
     width: '100%',
+    // When callers request a 100%-tall placeholder, also set height so flex parents/layout math
+    // can center/top-align reliably (especially in full-height preview panes).
+    ...(minHeight === '100%' ? { height: '100%' } : {}),
     minHeight,
     display: 'flex',
     flexDirection: 'column' as const,
     alignItems: 'center',
-    justifyContent: 'center',
+    // "Top" still centers horizontally; only the vertical anchoring changes.
+    justifyContent: verticalAlign === 'top' ? 'flex-start' : 'center',
     textAlign: 'center' as const,
     color: theme.palette.text.secondary,
     px: 2,
-    py: 3,
+    // Top-aligned empty states read better with slightly tighter vertical padding.
+    py: verticalAlign === 'top' ? 2 : 3,
     ...(borderVariant === 'dashed'
       ? {
           borderRadius: theme.shape.borderRadius,
