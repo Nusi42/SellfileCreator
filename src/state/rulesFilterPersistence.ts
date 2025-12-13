@@ -6,7 +6,12 @@
  * switching tabs never clobbers the other side’s state.
  */
 import { useCallback } from 'react'
-import { DEFAULT_RULES_FILTER_STATE, type RulesFilterState } from '../lib/rulesFilter'
+import {
+  DEFAULT_RULES_FILTER_STATE,
+  cloneDefaultRulesFilterState,
+  sanitizeRulesFilterState,
+  type RulesFilterState,
+} from '../lib/rulesFilter'
 import { canonicalize } from '../lib/canonicalize'
 import { createLocalStorageStateHook, createLocalStorageStore } from './localStorageStore'
 
@@ -56,8 +61,7 @@ const collapsedEquals = (a: CollapsedSections, b: CollapsedSections): boolean =>
 const cloneDefaultRulesFilterCollapsedByMode = (): ModeScoped<CollapsedSections> =>
   createModeScopedValue(cloneDefaultRulesFilterCollapsed)
 
-export const cloneDefaultRulesFilterState = (): RulesFilterState =>
-  JSON.parse(JSON.stringify(DEFAULT_RULES_FILTER_STATE)) as RulesFilterState
+export { cloneDefaultRulesFilterState }
 
 const DEFAULT_RULES_FILTER_STATE_SIGNATURE = JSON.stringify(canonicalize(DEFAULT_RULES_FILTER_STATE))
 const rulesFilterStateSignature = (value: RulesFilterState): string => JSON.stringify(canonicalize(value))
@@ -132,10 +136,7 @@ const parseRulesFilterStateMap = (raw: string | null): ModeScoped<RulesFilterSta
     if (!parsed || typeof parsed !== 'object') return cloneDefaultRulesFilterStateByMode()
     const next = cloneDefaultRulesFilterStateByMode()
     for (const mode of RULES_FILTER_PREVIEW_MODES) {
-      const candidate = parsed[mode]
-      if (candidate && typeof candidate === 'object') {
-        next[mode] = candidate as RulesFilterState
-      }
+      next[mode] = sanitizeRulesFilterState(parsed[mode])
     }
     return next
   } catch {
@@ -148,8 +149,7 @@ const serializeRulesFilterStateMap = (value: ModeScoped<RulesFilterState>): stri
     const normalized = cloneDefaultRulesFilterStateByMode()
     let dirty = false
     for (const mode of RULES_FILTER_PREVIEW_MODES) {
-      const candidate = value?.[mode]
-      normalized[mode] = candidate ?? cloneDefaultRulesFilterState()
+      normalized[mode] = sanitizeRulesFilterState(value?.[mode])
       if (!dirty && rulesFilterStateSignature(normalized[mode]) !== DEFAULT_RULES_FILTER_STATE_SIGNATURE) {
         dirty = true
       }

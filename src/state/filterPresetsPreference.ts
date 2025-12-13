@@ -14,7 +14,7 @@ import {
   type CollapsedSections,
 } from './rulesFilterPersistence'
 import { TESTER_CONFIG_FILTER_MODE_DEFAULT, type TesterConfigFilterMode } from '../types/testerConfigFilterMode'
-import type { RulesFilterState } from '../lib/rulesFilter'
+import { sanitizeRulesFilterState, type RulesFilterState } from '../lib/rulesFilter'
 import { createLocalStorageStateHook, createLocalStorageStore } from './localStorageStore'
 import {
   DEFAULT_TESTER_SUBSTAT_SORT_STATE,
@@ -115,8 +115,7 @@ const sanitizeView = (raw: unknown): FilterPresetView => {
   const fallback = cloneDefaultView()
   if (!raw || typeof raw !== 'object') return fallback
   const rec = raw as Record<string, unknown>
-  const stateRaw = rec['state']
-  const state = (stateRaw && typeof stateRaw === 'object') ? (stateRaw as RulesFilterState) : fallback.state
+  const state = sanitizeRulesFilterState(rec['state'])
   return {
     open: rec['open'] === true,
     state,

@@ -16,8 +16,10 @@ import {
   type FactionId,
   StatVariant,
   StatId,
+  LEVEL_MILESTONES,
   LEVEL_ANY_SENTINEL,
   type LevelMilestone,
+  RANK_VALUES,
   type RankValue,
 } from './types'
 import { rankCoverage, rarityCoverage } from './hsfTypes'
@@ -194,6 +196,240 @@ export const DEFAULT_RULES_FILTER_STATE: RulesFilterState = {
   testerLastUse: createDefaultTesterLastUseFilter(),
 }
 
+/**
+ * Deep clone of `DEFAULT_RULES_FILTER_STATE`.
+ *
+ * Why: the filter panel mutates nested arrays/objects; callers need a safe,
+ * independent copy so edits never leak through shared references.
+ */
+export const cloneDefaultRulesFilterState = (): RulesFilterState => (
+  JSON.parse(JSON.stringify(DEFAULT_RULES_FILTER_STATE)) as RulesFilterState
+)
+
+type UnknownRecord = Record<string, unknown>
+
+const isRecord = (value: unknown): value is UnknownRecord => (
+  Boolean(value) && typeof value === 'object'
+)
+
+const sanitizeStringEnum = <T extends string>(
+  raw: unknown,
+  allowed: readonly T[],
+  fallback: T,
+): T => (
+  (typeof raw === 'string' && allowed.includes(raw as T)) ? (raw as T) : fallback
+)
+
+const sanitizeUniqueStringArray = (raw: unknown): string[] => {
+  // Strings may come from older builds or manual edits; keep them trimmed + unique.
+  if (!Array.isArray(raw)) return []
+  const seen = new Set<string>()
+  const next: string[] = []
+  for (const value of raw) {
+    if (typeof value !== 'string') continue
+    const trimmed = value.trim()
+    if (!trimmed || seen.has(trimmed)) continue
+    seen.add(trimmed)
+    next.push(trimmed)
+  }
+  return next
+}
+
+const sanitizeUniqueNumberArray = (raw: unknown): number[] => {
+  // Storage may contain strings for numbers (e.g. `"12"`), so coerce cautiously.
+  if (!Array.isArray(raw)) return []
+  const seen = new Set<number>()
+  const next: number[] = []
+  for (const value of raw) {
+    if (typeof value !== 'number' && typeof value !== 'string') continue
+    const numeric = Number(value)
+    if (!Number.isFinite(numeric) || seen.has(numeric)) continue
+    seen.add(numeric)
+    next.push(numeric)
+  }
+  return next
+}
+
+const sanitizeUniqueNumberArrayFromSet = <T extends number>(
+  raw: unknown,
+  allowed: readonly T[],
+): T[] => {
+  // Keeps only numbers from an explicit whitelist (Rank, Level milestone, etc).
+  const set = new Set<number>(allowed)
+  const next: T[] = []
+  for (const value of sanitizeUniqueNumberArray(raw)) {
+    if (!set.has(value)) continue
+    next.push(value as T)
+  }
+  return next
+}
+
+const TESTER_SOURCE_FILTERS = Object.freeze(['inventory', 'collection', 'vault', 'inbox', 'manual'] as const)
+const TESTER_CHAOS_MODES = Object.freeze(['any', 'notRerolled', 'rerolled'] as const)
+const TESTER_GLYPH_MODES = Object.freeze(['any', 'on', 'off', 'selected'] as const)
+
+/**
+ * Sanitize arbitrary input back into a complete `RulesFilterState`.
+ *
+ * Why: localStorage values can be partially written, out of date, or manually
+ * edited. The filter logic assumes required sub-objects exist, so we clamp every
+ * field back to a safe default shape.
+ */
+export const sanitizeRulesFilterState = (raw: unknown): RulesFilterState => {
+  const fallback = cloneDefaultRulesFilterState()
+  if (!isRecord(raw)) return fallback
+
+  const next: RulesFilterState = fallback
+  const rec = raw as UnknownRecord
+
+  // Rule-level toggles are optional, but normalize them so UI logic can read freely.
+  {
+    const candidate = isRecord(rec['rule']) ? (rec['rule'] as UnknownRecord) : null
+    next.rule = {
+      keep: sanitizeStringEnum(candidate?.['keep'], ['any', 'yes', 'no'] as const, next.rule?.keep ?? 'any'),
+      use: sanitizeStringEnum(candidate?.['use'], ['any', 'yes', 'no'] as const, next.rule?.use ?? 'any'),
+    }
+  }
+  {
+    const candidate = isRecord(rec['testerResult']) ? (rec['testerResult'] as UnknownRecord) : null
+    next.testerResult = {
+      keep: sanitizeStringEnum(candidate?.['keep'], ['any', 'yes', 'no'] as const, next.testerResult?.keep ?? 'any'),
+      matched: sanitizeStringEnum(
+        candidate?.['matched'],
+        ['any', 'yes', 'no'] as const,
+        next.testerResult?.matched ?? 'any',
+      ),
+    }
+  }
+
+  // Core required sections: always rebuild them so `.map()` calls remain safe.
+  {
+    const candidate = isRecord(rec['sets']) ? (rec['sets'] as UnknownRecord) : null
+    const metaSelected = sanitizeUniqueStringArray(candidate?.['metaSelected'])
+    next.sets = {
+      selected: sanitizeUniqueNumberArray(candidate?.['selected']) as ArtifactSetId[],
+      ...(metaSelected.length > 0 ? { metaSelected } : {}),
+      anyMode: sanitizeStringEnum(candidate?.['anyMode'], ['off', 'include', 'only'] as const, next.sets.anyMode),
+      match: sanitizeStringEnum(candidate?.['match'], ['any', 'all'] as const, next.sets.match ?? 'any'),
+    }
+  }
+  {
+    const candidate = isRecord(rec['slots']) ? (rec['slots'] as UnknownRecord) : null
+    next.slots = {
+      selected: sanitizeUniqueNumberArray(candidate?.['selected']) as ArtifactTypeId[],
+      anyMode: sanitizeStringEnum(candidate?.['anyMode'], ['off', 'include', 'only'] as const, next.slots.anyMode),
+    }
+  }
+  {
+    const candidate = isRecord(rec['rank']) ? (rec['rank'] as UnknownRecord) : null
+    next.rank = {
+      selected: sanitizeUniqueNumberArrayFromSet(candidate?.['selected'], RANK_VALUES),
+      anyMode: sanitizeStringEnum(candidate?.['anyMode'], ['off', 'include', 'only'] as const, next.rank.anyMode),
+    }
+  }
+  {
+    const candidate = isRecord(rec['rarity']) ? (rec['rarity'] as UnknownRecord) : null
+    next.rarity = {
+      selected: sanitizeUniqueNumberArrayFromSet(candidate?.['selected'], RANK_VALUES),
+      anyMode: sanitizeStringEnum(candidate?.['anyMode'], ['off', 'include', 'only'] as const, next.rarity.anyMode),
+    }
+  }
+  {
+    const candidate = isRecord(rec['level']) ? (rec['level'] as UnknownRecord) : null
+    const testerRangeRaw = isRecord(candidate?.['testerRange']) ? (candidate?.['testerRange'] as UnknownRecord) : null
+    const baseRange = resolveTesterLevelRange({
+      selected: [],
+      anyMode: 'include',
+      testerRange: {
+        min: Number(testerRangeRaw?.['min'] ?? DEFAULT_TESTER_LEVEL_RANGE.min),
+        max: Number(testerRangeRaw?.['max'] ?? DEFAULT_TESTER_LEVEL_RANGE.max),
+      },
+    })
+    next.level = {
+      selected: sanitizeUniqueNumberArrayFromSet(candidate?.['selected'], LEVEL_MILESTONES),
+      anyMode: sanitizeStringEnum(candidate?.['anyMode'], ['off', 'include', 'only'] as const, next.level.anyMode),
+      testerRange: baseRange,
+    }
+  }
+  {
+    const candidate = isRecord(rec['main']) ? (rec['main'] as UnknownRecord) : null
+    next.main = {
+      selected: sanitizeUniqueNumberArray(candidate?.['selected']) as StatVariant[],
+      anyMode: sanitizeStringEnum(candidate?.['anyMode'], ['off', 'include', 'only'] as const, next.main.anyMode),
+    }
+  }
+  {
+    const candidate = isRecord(rec['sub']) ? (rec['sub'] as UnknownRecord) : null
+    next.sub = {
+      selected: sanitizeUniqueNumberArray(candidate?.['selected']) as StatVariant[],
+      notSelected: sanitizeUniqueNumberArray(candidate?.['notSelected']) as StatVariant[],
+      mode: sanitizeStringEnum(candidate?.['mode'], ['all', 'any'] as const, next.sub.mode),
+      wildcardMode: sanitizeStringEnum(
+        candidate?.['wildcardMode'],
+        ['off', 'include', 'only'] as const,
+        next.sub.wildcardMode,
+      ),
+    }
+  }
+  {
+    const candidate = isRecord(rec['faction']) ? (rec['faction'] as UnknownRecord) : null
+    next.faction = {
+      selected: sanitizeUniqueNumberArray(candidate?.['selected']) as FactionId[],
+      anyMode: sanitizeStringEnum(candidate?.['anyMode'], ['off', 'include', 'only'] as const, next.faction.anyMode),
+    }
+  }
+
+  // Optional sections: keep defaults when missing so consumers can assume shape.
+  {
+    const candidate = isRecord(rec['configName']) ? (rec['configName'] as UnknownRecord) : null
+    const query = typeof candidate?.['query'] === 'string' ? candidate['query'] : next.configName?.query ?? ''
+    next.configName = { query }
+  }
+  {
+    const candidate = isRecord(rec['testerSources']) ? (rec['testerSources'] as UnknownRecord) : null
+    next.testerSources = {
+      selected: sanitizeUniqueStringArray(candidate?.['selected']).filter(
+        (value): value is TesterSourceFilter => TESTER_SOURCE_FILTERS.includes(value as TesterSourceFilter),
+      ),
+    }
+  }
+  {
+    const candidate = isRecord(rec['testerChaos']) ? (rec['testerChaos'] as UnknownRecord) : null
+    next.testerChaos = {
+      mode: sanitizeStringEnum(candidate?.['mode'], TESTER_CHAOS_MODES, next.testerChaos?.mode ?? 'any'),
+    }
+  }
+  {
+    const candidate = isRecord(rec['testerGlyphs']) ? (rec['testerGlyphs'] as UnknownRecord) : null
+    next.testerGlyphs = {
+      mode: sanitizeStringEnum(candidate?.['mode'], TESTER_GLYPH_MODES, next.testerGlyphs?.mode ?? 'any'),
+    }
+  }
+  {
+    const candidate = isRecord(rec['testerAscension']) ? (rec['testerAscension'] as UnknownRecord) : null
+    const stars = sanitizeUniqueNumberArray(candidate?.['stars'])
+      .map((value) => Math.round(value))
+      .filter((value) => value >= 1 && value <= 6)
+    const uniqueStars = Array.from(new Set(stars)).sort((a, b) => a - b)
+    next.testerAscension = {
+      stars: uniqueStars,
+      stats: sanitizeUniqueNumberArray(candidate?.['stats']) as StatVariant[],
+    }
+  }
+  {
+    const candidate = isRecord(rec['testerChampions']) ? (rec['testerChampions'] as UnknownRecord) : null
+    next.testerChampions = {
+      selected: sanitizeUniqueNumberArray(candidate?.['selected']).map((value) => Math.round(value)),
+    }
+  }
+
+  // Legacy + partial shapes are handled by the existing normalizers.
+  next.testerRolls = normalizeTesterRollsState(isRecord(rec['testerRolls']) ? (rec['testerRolls'] as TesterRollFilterState) : undefined)
+  next.testerLastUse = normalizeTesterLastUseFilter(rec['testerLastUse'] as RulesFilterState['testerLastUse'])
+
+  return next
+}
+
 // Back-compat helpers: accept legacy range shapes (min/max) if present
 export function isRulesFilterActive(f: RulesFilterState, options?: { includeTesterRange?: boolean }): boolean {
   const includeTesterRange = options?.includeTesterRange ?? false
@@ -210,10 +446,10 @@ export function isRulesFilterActive(f: RulesFilterState, options?: { includeTest
   const d = ((f.rarity?.selected?.length ?? 0) > 0) || ((f.rarity?.anyMode) ?? 'include') !== 'include'
   const e = (f.level?.selected?.length ?? 0) > 0 || (f.level?.anyMode ?? 'include') !== 'include' || testerRangeActive
   const g = (f.main?.selected?.length ?? 0) > 0 || (f.main?.anyMode ?? 'include') !== 'include'
-  const h = f.sub.selected.length > 0
-    || f.sub.notSelected.length > 0
-    || f.sub.wildcardMode !== 'include'
-    || f.sub.mode !== 'all'
+  const h = (f.sub?.selected?.length ?? 0) > 0
+    || (f.sub?.notSelected?.length ?? 0) > 0
+    || (f.sub?.wildcardMode ?? 'include') !== 'include'
+    || (f.sub?.mode ?? 'all') !== 'all'
   const i = (f.faction?.selected?.length ?? 0) > 0 || (f.faction?.anyMode ?? 'include') !== 'include'
   const j = Boolean(f.configName && typeof f.configName.query === 'string' && f.configName.query.length > 0)
   const k = (f.testerSources?.selected?.length ?? 0) > 0
@@ -266,10 +502,10 @@ export function filterHsfRules<T extends HsfRule>(
   }
   const selectedSlots = new Set((f.slots?.selected ?? []).map(Number))
   const selectedLevels = new Set<LevelMilestone>(f.level?.selected ?? [])
-  const selectedMain = new Set(f.main.selected.map(Number))
-  const selectedSub = new Set(f.sub.selected.map(Number))
-  const excludedSub = new Set(f.sub.notSelected.map(Number))
-  const selectedFactions = new Set(f.faction.selected.map(Number))
+  const selectedMain = new Set((f.main?.selected ?? []).map(Number))
+  const selectedSub = new Set((f.sub?.selected ?? []).map(Number))
+  const excludedSub = new Set((f.sub?.notSelected ?? []).map(Number))
+  const selectedFactions = new Set((f.faction?.selected ?? []).map(Number))
 
   const selectedRanks = new Set(f.rank?.selected ?? [])
   const selectedRarities = new Set(f.rarity?.selected ?? [])
@@ -544,10 +780,10 @@ export function filterTesterItems<T extends TesterFilterRow>(
   const selectedRanks = new Set((f.rank?.selected ?? []).map(Number))
   const selectedRarities = new Set((f.rarity?.selected ?? []).map(Number))
   const selectedLevels = new Set<LevelMilestone>(f.level?.selected ?? [])
-  const selectedMainVariants = new Set(f.main.selected.map(Number))
-  const selectedSubVariants = new Set(f.sub.selected.map(Number))
-  const excludedSubVariants = new Set(f.sub.notSelected.map(Number))
-  const selectedFactions = new Set(f.faction.selected.map(Number))
+  const selectedMainVariants = new Set((f.main?.selected ?? []).map(Number))
+  const selectedSubVariants = new Set((f.sub?.selected ?? []).map(Number))
+  const excludedSubVariants = new Set((f.sub?.notSelected ?? []).map(Number))
+  const selectedFactions = new Set((f.faction?.selected ?? []).map(Number))
   const selectedChampionIds = new Set((f.testerChampions?.selected ?? []).map(Number))
   const testerLevelRange = resolveTesterLevelRange(f.level)
   const testerExactLevelRangeActive =
