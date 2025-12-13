@@ -1194,7 +1194,13 @@ export default function PreviewHeaderActions(props: {
                 }}
               >
                 <EllipsisTooltip title={logicHubLabel} selector='[data-ellipsis-target]' wrap="block">
-                  <Typography component="span" noWrap sx={{ ...ELLIPSIS_TEXT_SX, width: '100%' }} data-ellipsis-target>
+                  <Typography
+                    component="span"
+                    noWrap
+                    // Match the inline toggle label treatment so the Button's fixed height stays visually centered.
+                    sx={{ ...ELLIPSIS_TEXT_SX, width: '100%', textAlign: 'center', lineHeight: 1, display: 'block' }}
+                    data-ellipsis-target
+                  >
                     {logicHubLabel}
                   </Typography>
                 </EllipsisTooltip>
