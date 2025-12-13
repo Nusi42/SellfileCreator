@@ -810,7 +810,6 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     const nested = item.depth > 0
     // Inner slices reuse the same border + background logic so nested accordions still look layered.
     const sharedBodySx = (theme: Theme) => ({
-      ml: nested ? theme.spacing(1.5) : 0,
       borderLeft: `1px solid ${theme.palette.divider}`,
       borderRight: `1px solid ${theme.palette.divider}`,
       backgroundColor: nested ? theme.palette.background.default : theme.palette.background.paper,
@@ -847,7 +846,6 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
           data-tester-grid-header="true"
           data-header-key={group.key}
           sx={(theme) => ({
-            ml: nested ? theme.spacing(1.5) : 0,
             borderRadius: `${headerRadius}px`,
             border: `1px solid ${theme.palette.divider}`,
             borderBottomLeftRadius: expanded ? 0 : `${headerRadius}px`,
@@ -927,11 +925,7 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
               : {
                 // Spacers sit between bordered slices; keep the left/right grid rails continuous.
                 ...sharedBodySx(theme),
-                ml: item.variant === 'child'
-                  ? theme.spacing(1.5 * item.depth)
-                  : item.depth > 0
-                    ? theme.spacing(1.5)
-                    : 0,
+                ml: 0,
               }),
           })}
         />
