@@ -280,6 +280,24 @@ export function GearTesterTabContent({
   const [cookieMonsterExpiryByRow, setCookieMonsterExpiryByRow] = useState<Record<number, number>>({})
   const [compactByItemId, setCompactByRowId] = useState<Map<number, boolean>>(() => new Map())
 
+  // substatStepHoverKey tracks when a +/- button is hovered so we can mirror the input’s hover outline.
+  // Why: the +/- buttons otherwise feel visually detached from the numeric field they modify.
+  const [substatStepHoverKey, setSubstatStepHoverKey] = useState<string | null>(null)
+  // substatStepHoverClearTimeoutRef avoids flicker when moving between - and + quickly.
+  const substatStepHoverClearTimeoutRef = useRef<number | null>(null)
+  const cancelSubstatStepHoverClear = useCallback(() => {
+    if (substatStepHoverClearTimeoutRef.current == null) return
+    window.clearTimeout(substatStepHoverClearTimeoutRef.current)
+    substatStepHoverClearTimeoutRef.current = null
+  }, [])
+  const scheduleSubstatStepHoverClear = useCallback((key: string) => {
+    cancelSubstatStepHoverClear()
+    substatStepHoverClearTimeoutRef.current = window.setTimeout(() => {
+      setSubstatStepHoverKey((current) => (current === key ? null : current))
+      substatStepHoverClearTimeoutRef.current = null
+    }, 20)
+  }, [cancelSubstatStepHoverClear])
+
   const scrollContainerRef = useRef<HTMLDivElement | null>(null)
   const [scrollTop, setScrollTop] = useState(0)
   const [viewportHeight, setViewportHeight] = useState(0)
@@ -1337,8 +1355,22 @@ export function GearTesterTabContent({
                 const next = numericValue + (delta * step)
                 commitSubstatValue(clampTesterValue(next))
               }
+              // Per-row key keeps hover state stable across repeated stats/rows.
+              const hoverKey = `${Number(it.itemId)}:${Number(v)}`
+              const stepButtonHovered = substatStepHoverKey === hoverKey
               return (
-                <Stack key={v} direction="row" spacing={0.5} alignItems="center" sx={{ width: `${TESTER_SUBSTAT_EDITOR_WIDTH_PX}px`, borderRadius: 1, px: 0.75, py: 0.25 }}>
+                <Stack
+                  key={v}
+                  direction="row"
+                  spacing={0.5}
+                  alignItems="center"
+                  sx={{
+                    width: `${TESTER_SUBSTAT_EDITOR_WIDTH_PX}px`,
+                    borderRadius: 1,
+                    px: 0.75,
+                    py: 0.25,
+                  }}
+                >
                   <Select
                     size="small"
                     value={v}
@@ -1378,6 +1410,11 @@ export function GearTesterTabContent({
                       size="small"
                       aria-label="decrease"
                       onClick={() => applyStepDelta(-1)}
+                      onMouseEnter={() => {
+                        cancelSubstatStepHoverClear()
+                        setSubstatStepHoverKey(hoverKey)
+                      }}
+                      onMouseLeave={() => scheduleSubstatStepHoverClear(hoverKey)}
                       sx={{ p: 0.25 }}
                     >
                       <RemoveCircleOutlineIcon fontSize="small" />
@@ -1403,6 +1440,12 @@ export function GearTesterTabContent({
                           paddingRight: theme.spacing(1),
                           paddingLeft: theme.spacing(0.25),
                         },
+                        ...(stepButtonHovered ? {
+                          // Match MUI’s default outlined hover affordance so it feels native.
+                          '& .MuiOutlinedInput-notchedOutline': {
+                            borderColor: theme.palette.text.primary,
+                          },
+                        } : {}),
                         '& input::-webkit-outer-spin-button, & input::-webkit-inner-spin-button': {
                           WebkitAppearance: 'none',
                           margin: 0,
@@ -1428,6 +1471,11 @@ export function GearTesterTabContent({
                       size="small"
                       aria-label="increase"
                       onClick={() => applyStepDelta(1)}
+                      onMouseEnter={() => {
+                        cancelSubstatStepHoverClear()
+                        setSubstatStepHoverKey(hoverKey)
+                      }}
+                      onMouseLeave={() => scheduleSubstatStepHoverClear(hoverKey)}
                       sx={{ p: 0.25 }}
                     >
                       <AddCircleOutlineIcon fontSize="small" />
