@@ -85,6 +85,7 @@ import { fingerprintConfigForRules, fingerprintSubstatTargets, updateConfigRules
 import { hasConfigMeaningfulDifferences } from './lib/configDiff'
 import { buildRuleTesterAutosavePayload, createRuleTesterMath, fingerprintRuleTesterItem, loadRuleTesterAutosaveDraft, type RuleTesterItem } from './lib/ruleTesterSession'
 import { sortTesterRows } from './lib/testerSort'
+import { useTesterSubstatSortPreferences } from './state/testerSubstatSortPreferences'
 import FileDragOverlay from './components/FileDragOverlay'
 import { BuilderColumn } from './components/AppLayout/BuilderColumn'
 import { useFileDragDrop, routeFileByExtension } from './hooks/useFileDragDrop'
@@ -1781,6 +1782,21 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const [rulesFilter, setRulesFilterRaw, rulesFilterByMode] = useRulesFilterStatePreference(previewMode)
   const [filterCollapsed, setFilterCollapsedRaw, filterCollapsedByMode] = useRulesFilterCollapsedPreference(previewMode)
   const [filtersSynced, setFiltersSyncedRaw] = useRulesFilterSyncPreference()
+  // Rule Tester substat sorting is view-only but should persist across sessions like filters.
+  const testerSubstatSortPrefs = useTesterSubstatSortPreferences()
+  const testerSubstatSortSpec = useMemo(() => {
+    const priorities = testerSubstatSortPrefs.state.priorities
+    if (!priorities.length) return null
+    return {
+      priorities,
+      direction: testerSubstatSortPrefs.state.direction,
+      excludeGlyphs: testerSubstatSortPrefs.state.excludeGlyphs,
+    }
+  }, [
+    testerSubstatSortPrefs.state.direction,
+    testerSubstatSortPrefs.state.excludeGlyphs,
+    testerSubstatSortPrefs.state.priorities,
+  ])
   const testerRulesFilter = useMemo(() => normalizeRulesFilterForTester(rulesFilter), [rulesFilter])
   const setFilterOpen = useCallback((next: boolean | ((prev: boolean) => boolean)) => {
     if (filtersSynced) {
@@ -4242,6 +4258,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         mergedCount={totalLimitHit ? Number.POSITIVE_INFINITY : mergedRules.length}
         {...(filterActive ? { filteredCount: totalLimitHit ? Number.POSITIVE_INFINITY : filteredRules.length } : {})}
         filterActive={previewFilterActive}
+        filterOpen={filterOpen}
         building={rulesBuilding}
         testerBuilding={testerBuilding}
         workloadProgressRatio={workloadProgressRatio}
@@ -4334,6 +4351,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         onToggleKeepUniques={(next) => setKeepUniquesEnabled(next)}
         previewMode={previewMode}
         onChangePreviewMode={setPreviewMode}
+        testerSubstatSort={testerSubstatSortPrefs.state}
+        onClearTesterSubstatSort={testerSubstatSortPrefs.clear}
+        onSetTesterSubstatSortDirection={testerSubstatSortPrefs.setDirection}
+        onToggleTesterSubstatSortKeepSections={testerSubstatSortPrefs.toggleKeepSections}
+        onToggleTesterSubstatSortExcludeGlyphs={testerSubstatSortPrefs.toggleExcludeGlyphs}
+        onToggleTesterSubstatSortPriority={testerSubstatSortPrefs.togglePriority}
         filtersSynced={filtersSynced}
         onToggleFiltersSynced={handleToggleFiltersSynced}
         testerCount={testerItems.length}
@@ -4350,7 +4373,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             state={rulesFilter}
             onChange={setRulesFilter}
             metasets={metasets}
-            onClose={() => setFilterOpen(false)}
             showFaction={showFactionFilter}
             hasNamedConfigs={hasNamedConfigs}
             configChipFilterActive={limitConfigsToFiltered}
@@ -4387,6 +4409,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                   configNames={testerConfigNamesForGrid}
                   onJumpToRule={handleTesterRuleView}
                   suppressMatchDetails={suppressTesterMatchDetails}
+                  keepSections={testerSubstatSortSpec ? testerSubstatSortPrefs.state.keepSections : true}
+                  substatSort={testerSubstatSortSpec}
                 />
               </Box>
             ) : (

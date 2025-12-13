@@ -144,7 +144,6 @@ type RulesFilterPanelProps = {
   state: RulesFilterState
   onChange: (next: RulesFilterState) => void
   metasets: Metaset[]
-  onClose: () => void
   showFaction: boolean
   hasNamedConfigs: boolean
   configChipFilterActive: boolean
@@ -452,7 +451,6 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
     state,
     onChange,
     metasets,
-    onClose,
     showFaction,
     hasNamedConfigs,
     configChipFilterActive,
@@ -1643,15 +1641,6 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
             sx={{ whiteSpace: 'nowrap', px: 1.25, height: SMALL_BUTTON_HEIGHT_PX, minHeight: SMALL_BUTTON_HEIGHT_PX }}
           >
             {t('filterReset')}
-          </Button>
-          <Button
-            size="small"
-            variant="contained"
-            color="primary"
-            onClick={onClose}
-            sx={{ whiteSpace: 'nowrap', px: 1.25, height: SMALL_BUTTON_HEIGHT_PX, minHeight: SMALL_BUTTON_HEIGHT_PX }}
-          >
-            {t('close')}
           </Button>
           </Stack>
         </Box>

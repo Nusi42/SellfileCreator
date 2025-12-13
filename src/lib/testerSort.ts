@@ -97,3 +97,57 @@ export function sortTesterRows(rows: readonly TesterPreviewRow[]): TesterPreview
   annotated.sort((left, right) => compareTesterPreviewRows(left.row, right.row) || (left.index - right.index))
   return annotated.map((entry) => entry.row)
 }
+
+export type TesterSubstatSortDirection = 'desc' | 'asc'
+
+export type TesterSubstatSortSpec = {
+  priorities: readonly StatVariant[]
+  direction: TesterSubstatSortDirection
+  // When true, sort by the pre-glyph (base + myth) values to avoid mixing glyph upgrades into ordering.
+  excludeGlyphs: boolean
+}
+
+const statValueForSubstatSort = (row: TesterPreviewRow, variant: StatVariant, excludeGlyphs: boolean): number => {
+  // Missing substats are treated as 0 so mixed-slot gear still sorts deterministically.
+  const entry = row.artifact.substats.find((stat) => Number(stat.variant) === Number(variant))
+  if (!entry) return 0
+  // `totalValue` is the pre-glyph value (base + myth) per gearDbNormalizer's contract.
+  // Glyph inclusion is opt-in so we never double-count glyph upgrades elsewhere.
+  const base = Number(entry.totalValue)
+  const glyph = Number(entry.glyphValue)
+  const safeBase = Number.isFinite(base) ? base : 0
+  const safeGlyph = Number.isFinite(glyph) ? glyph : 0
+  return excludeGlyphs ? safeBase : (safeBase + safeGlyph)
+}
+
+export function compareTesterPreviewRowsBySubstats(
+  a: TesterPreviewRow,
+  b: TesterPreviewRow,
+  spec: TesterSubstatSortSpec,
+): number {
+  // Direction is normalized so UI callers can toggle without worrying about invalid strings.
+  const direction = spec.direction === 'asc' ? 'asc' : 'desc'
+  const multiplier = direction === 'asc' ? 1 : -1
+  // Default to excluding glyphs so legacy callers that omit the flag behave predictably.
+  const excludeGlyphs = spec.excludeGlyphs !== false
+  for (const variant of spec.priorities) {
+    const left = statValueForSubstatSort(a, variant, excludeGlyphs)
+    const right = statValueForSubstatSort(b, variant, excludeGlyphs)
+    if (left === right) continue
+    return (left - right) * multiplier
+  }
+  // Final tie-breaker intentionally uses the natural tester ordering so "Sort" feels additive, not destructive.
+  return compareTesterPreviewRows(a, b)
+}
+
+export function sortTesterRowsBySubstats(
+  rows: readonly TesterPreviewRow[],
+  spec: TesterSubstatSortSpec,
+): TesterPreviewRow[] {
+  if (rows.length <= 1) return rows.slice()
+  const annotated = rows.map((row, index) => ({ row, index }))
+  annotated.sort((left, right) => (
+    compareTesterPreviewRowsBySubstats(left.row, right.row, spec) || (left.index - right.index)
+  ))
+  return annotated.map((entry) => entry.row)
+}
