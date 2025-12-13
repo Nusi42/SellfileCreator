@@ -669,9 +669,13 @@ export default function PreviewHeaderActions(props: {
                   >
                     <Typography
                       variant="body2"
+                      // Prevent layout shifts when selecting rows: font weight + badges should never cause text wrapping.
+                      noWrap
                       sx={(theme) => ({
                         flex: 1,
                         minWidth: 0,
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
                         ...(active ? { fontWeight: theme.typography.fontWeightMedium ?? 600 } : {}),
                         ...(fg ? { color: fg } : {}),
                       })}
@@ -683,6 +687,9 @@ export default function PreviewHeaderActions(props: {
                       sx={{
                         width: MENU_CONTROL_MIN_WIDTH_PX,
                         minWidth: MENU_CONTROL_MIN_WIDTH_PX,
+                        // Keep the row height stable when the priority badges appear/disappear.
+                        height: MENU_CONTROL_HEIGHT_PX,
+                        minHeight: MENU_CONTROL_HEIGHT_PX,
                         flexShrink: 0,
                         display: 'flex',
                         alignItems: 'center',
