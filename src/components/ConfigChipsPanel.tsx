@@ -22,6 +22,10 @@ const AUTO_SCROLL_EDGE_PX = 80
 const AUTO_SCROLL_MAX_SPEED_PX = 28
 const DRAG_ACTIVATION_DISTANCE_PX = 4
 
+// Shared localStorage key suffix for the Config Chips context-menu hint.
+// Why: Right-clicking either the empty chips area or an individual chip should dismiss the hint for both.
+const CONFIG_CHIPS_CONTEXT_HINT_ID = 'builderConfigChips'
+
 type DropGuide = { top: number; left: number; width: number; height: number } | null
 
 type DragState = {
@@ -137,29 +141,18 @@ function ConfigChipsPanel(props: {
     menuRef: menuPaperRef,
   })
   const {
-    shouldShow: shouldShowContainerHint,
-    markSeen: markContainerHintSeen,
-  } = useContextMenuHint('configChipsArea')
-  const {
-    shouldShow: shouldShowChipHint,
-    markSeen: markChipHintSeen,
-  } = useContextMenuHint('configChipsMenu')
+    shouldShow: shouldShowContextHint,
+    markSeen: markContextHintSeen,
+  } = useContextMenuHint(CONFIG_CHIPS_CONTEXT_HINT_ID)
   const [hintPos, setHintPos] = React.useState<{ x: number; y: number } | null>(null)
-  const [activeHint, setActiveHint] = React.useState<'container' | 'chip' | null>(null)
-  const hintActive = hintPos !== null
-    && !menu?.open
-    && (
-      (activeHint === 'container' && shouldShowContainerHint)
-      || (activeHint === 'chip' && shouldShowChipHint)
-    )
+  const hintActive = hintPos !== null && !menu?.open && shouldShowContextHint
   const resetHint = React.useCallback(() => {
     setHintPos(null)
-    setActiveHint(null)
   }, [])
-  const handleChipContextMenuHint = React.useCallback(() => {
-    markChipHintSeen()
+  const handleConfigChipsContextMenuHint = React.useCallback(() => {
+    markContextHintSeen()
     resetHint()
-  }, [markChipHintSeen, resetHint])
+  }, [markContextHintSeen, resetHint])
   const hideTipsTimerRef = React.useRef<ReturnType<typeof window.setTimeout> | null>(null)
   React.useEffect(() => () => {
     if (hideTipsTimerRef.current) {
@@ -623,21 +616,9 @@ function ConfigChipsPanel(props: {
         }}
         onMouseMove={(e) => {
           if (hasActiveDrag || menu?.open) return
-          const target = e.target as HTMLElement | null
-          const inChip = Boolean(target?.closest('[data-config-chip="true"]'))
-          if (inChip) {
-            if (shouldShowChipHint) {
-              setActiveHint('chip')
-              setHintPos({ x: e.clientX, y: e.clientY })
-            } else if (activeHint) {
-              resetHint()
-            }
-            return
-          }
-          if (shouldShowContainerHint) {
-            setActiveHint('container')
+          if (shouldShowContextHint) {
             setHintPos({ x: e.clientX, y: e.clientY })
-          } else if (activeHint) {
+          } else if (hintPos) {
             resetHint()
           }
         }}
@@ -649,7 +630,7 @@ function ConfigChipsPanel(props: {
             e.preventDefault()
             e.stopPropagation()
           } catch {}
-          markContainerHintSeen()
+          markContextHintSeen()
           resetHint()
           setMenu({ open: true, x: e.clientX, y: e.clientY })
         }}
@@ -683,10 +664,9 @@ function ConfigChipsPanel(props: {
           } catch {
             setShowFocusRing(true)
           }
-          if (shouldShowContainerHint) {
+          if (shouldShowContextHint) {
             const rect = e.currentTarget.getBoundingClientRect()
             setHintPos({ x: rect.left + rect.width / 2, y: rect.top })
-            setActiveHint('container')
           }
         }}
         onBlur={() => setShowFocusRing(false)}
@@ -759,7 +739,7 @@ function ConfigChipsPanel(props: {
                 onMoveBottom={() => onMoveBottom(idx)}
                 isLast={idx === configs.length - 1}
                 onHover={(enter) => onHoverIdx(enter ? idx : null)}
-                onContextMenuHintSeen={handleChipContextMenuHint}
+                onContextMenuHintSeen={handleConfigChipsContextMenuHint}
                 onHighlightDelete={onHighlightDelete}
                 hideTooltip={hasActiveDrag}
                 dragEnabled={dragEnabled}
