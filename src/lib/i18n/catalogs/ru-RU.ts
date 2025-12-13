@@ -68,6 +68,7 @@ const overrides: Catalog = {
   gearDialogDeleteSourceConfirmBody: 'Это удалит всю экипировку «{source}» из предварительного просмотра тестера.',
   noSetAccessories: 'Нет — только аксессуары',
   testerTableEmpty: 'Добавьте пользовательское снаряжение, чтобы увидеть здесь записи.',
+  testerGridEmpty: 'Добавьте пользовательское снаряжение или загрузите базу RSL Helper, чтобы увидеть здесь записи.',
   testerTableEmptyKeepUniquesDisabled: '«Сохранение уникальных комбинаций» выключено; включите его, чтобы просканировать экипировку.',
   testerTableEmptyKeepUniquesNoMatches: 'Ни одно снаряжение не соответствует текущим фильтрам «Сохранение уникальных комбинаций».',
   testerTableEmptyFilter: 'Нет записей, подходящих текущим фильтрам тестера.',

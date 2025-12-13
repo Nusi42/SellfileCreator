@@ -68,6 +68,7 @@ const overrides: Catalog = {
   gearDialogDeleteSourceConfirmBody: 'Це вилучить усе спорядження «{source}» із превʼю тестера.',
   noSetAccessories: 'Немає — лише аксесуари',
   testerTableEmpty: 'Додайте власне спорядження, щоб побачити тут записи.',
+  testerGridEmpty: 'Додайте власне спорядження або завантажте базу RSL Helper, щоб побачити тут записи.',
   testerTableEmptyKeepUniquesDisabled: '«Збереження унікальних комбінацій» вимкнено; увімкніть його, щоб повторно просканувати спорядження.',
   testerTableEmptyKeepUniquesNoMatches: 'Жодне спорядження не відповідає поточним фільтрам «Збереження унікальних комбінацій».',
   testerTableEmptyFilter: 'Жоден запис тестера не відповідає поточним фільтрам.',

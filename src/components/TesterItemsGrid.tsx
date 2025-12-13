@@ -790,7 +790,7 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
         if (filterActive) return t('testerTableEmptyFilter')
         return t('testerTableEmptyKeepUniquesNoMatches')
       }
-      return filterActive ? t('testerTableEmptyFilter') : t('testerTableEmpty')
+      return filterActive ? t('testerTableEmptyFilter') : t('testerGridEmpty')
     })()
     const emptyStateProps: EmptyStateWrapperProps = {
       borderVariant: 'none',

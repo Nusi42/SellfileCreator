@@ -68,6 +68,7 @@ const overrides: Catalog = {
   gearDialogDeleteSourceConfirmBody: 'Cela retire tout l’équipement « {source} » de l’aperçu du Testeur de règles.',
   noSetAccessories: 'Aucun – accessoires uniquement',
   testerTableEmpty: 'Ajoutez de l’équipement personnalisé pour voir des entrées ici.',
+  testerGridEmpty: 'Ajoutez de l’équipement personnalisé ou chargez une base RSL Helper pour voir des entrées ici.',
   testerTableEmptyKeepUniquesDisabled: '« Conserver les uniques » est désactivé ; activez-le pour analyser votre équipement.',
   testerTableEmptyKeepUniquesNoMatches: 'Aucun équipement ne correspond aux filtres « Conserver les uniques » actuels.',
   testerTableEmptyFilter: 'Aucune entrée du testeur ne correspond aux filtres actuels.',

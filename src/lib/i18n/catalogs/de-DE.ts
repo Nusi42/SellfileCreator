@@ -68,6 +68,7 @@ const overrides: Catalog = {
   gearDialogDeleteSourceConfirmBody: 'Dadurch wird alle Ausrüstung aus „{source}“ aus der „Regel Tester“-Vorschau entfernt.',
   noSetAccessories: 'Keine – nur Schmuckstücke',
   testerTableEmpty: 'Füge benutzerdefinierte Ausrüstung hinzu, um hier Einträge zu sehen.',
+  testerGridEmpty: 'Füge benutzerdefinierte Ausrüstung hinzu oder lade eine RSL Helper-DB, um hier Einträge zu sehen.',
   testerTableEmptyKeepUniquesDisabled: '„Unikate behalten“ ist deaktiviert; aktiviere es, um deine Ausrüstung zu scannen.',
   testerTableEmptyKeepUniquesNoMatches: 'Keine Ausrüstung passt zu den aktuellen Keep-Uniques-Filtern.',
   testerTableEmptyFilter: 'Keine Einträge passen zu den aktuellen Test-Filtern.',
