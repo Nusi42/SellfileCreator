@@ -7,14 +7,15 @@ import {
   FINAL_SELL_BUTTON_MIN_WIDTH_PX,
   FINAL_SELL_BUTTON_WIDTH_PX,
   SMALL_BUTTON_HEIGHT_PX,
-  CLEAR_ICON_BUTTON_SIZE_PX,
-  FILTER_HEADER_LABEL_MAX_WIDTH_PX,
-  SELLFILE_BUTTON_HEIGHT_PX,
-  TOTAL_RULE_COUNT_LIMIT,
-  ACCEPT_HSF_OR_DB_FILE_DIALOG,
-  MENU_CONTROL_HEIGHT_PX,
-  MENU_CONTROL_MIN_WIDTH_PX,
-} from '../lib/constants'
+	  CLEAR_ICON_BUTTON_SIZE_PX,
+	  FILTER_HEADER_LABEL_MAX_WIDTH_PX,
+	  SELLFILE_BUTTON_HEIGHT_PX,
+	  TOTAL_RULE_COUNT_LIMIT,
+	  ACCEPT_HSF_OR_DB_FILE_DIALOG,
+	  MENU_CONTROL_HEIGHT_PX,
+	  MENU_CONTROL_MIN_WIDTH_PX,
+	  STATUS_CHIP_BORDER_RADIUS_PX,
+	} from '../lib/constants'
 import UploadFileIcon from '@mui/icons-material/UploadFile'
 import SaveIcon from '@mui/icons-material/Save'
 import FilePickerButton from './FilePickerButton'
@@ -34,7 +35,7 @@ import ExpandLessIcon from '@mui/icons-material/ExpandLess'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import ContextMenuPaper from './ContextMenuPaper'
 import ContextMenuTitle from './ContextMenuTitle'
-import { type TesterSubstatSortDirection } from '../lib/testerSort'
+import { TESTER_SORT_KEY_LAST_USAGE, type TesterSortKey, type TesterSubstatSortDirection } from '../lib/testerSort'
 import { DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT, STAT_VARIANTS_PRIORITY, StatVariant, statVariantI18nKey } from '../lib/types'
 import type { TesterSubstatSortState } from '../state/testerSubstatSortPreferences'
 import type { SubstatColorMap } from '../lib/renderColoredStatText'
@@ -97,15 +98,16 @@ export default function PreviewHeaderActions(props: {
   useStatButtonColors: boolean
   // Full color map so the sort popover can match the same per-stat colors as chips/toggles.
   substatColors: SubstatColorMap
-  onClearTesterSubstatSort: () => void
-  onSetTesterSubstatSortDirection: (direction: TesterSubstatSortDirection) => void
-  onToggleTesterSubstatSortKeepSections: () => void
-  onToggleTesterSubstatSortExcludeGlyphs: () => void
-  onToggleTesterSubstatSortPriority: (variant: StatVariant) => void
-  gearDbCommandError?: string | null
-  onClearGearDbCommandError?: () => void
-  gearDbCommandSuccess?: string | null
-  onClearGearDbCommandSuccess?: () => void
+	  onClearTesterSubstatSort: () => void
+	  onSetTesterSubstatSortDirection: (direction: TesterSubstatSortDirection) => void
+	  onToggleTesterSubstatSortKeepSections: () => void
+	  onToggleTesterSubstatSortExcludeGlyphs: () => void
+	  onToggleTesterSubstatSortPriority: (key: TesterSortKey) => void
+	  onToggleTesterSubstatSortPriorityFlipped: (key: TesterSortKey) => void
+	  gearDbCommandError?: string | null
+	  onClearGearDbCommandError?: () => void
+	  gearDbCommandSuccess?: string | null
+	  onClearGearDbCommandSuccess?: () => void
   filtersSynced?: boolean
   onToggleFiltersSynced?: (next: boolean) => void
 }) {
@@ -144,14 +146,15 @@ export default function PreviewHeaderActions(props: {
     useStatButtonColors,
     substatColors,
     onClearTesterSubstatSort,
-    onSetTesterSubstatSortDirection,
-    onToggleTesterSubstatSortKeepSections,
-    onToggleTesterSubstatSortExcludeGlyphs,
-    onToggleTesterSubstatSortPriority,
-    testerBuilding = false,
-    workloadProgressRatio,
-    gearDbCommandError,
-    onClearGearDbCommandError,
+	    onSetTesterSubstatSortDirection,
+	    onToggleTesterSubstatSortKeepSections,
+	    onToggleTesterSubstatSortExcludeGlyphs,
+	    onToggleTesterSubstatSortPriority,
+	    onToggleTesterSubstatSortPriorityFlipped,
+	    testerBuilding = false,
+	    workloadProgressRatio,
+	    gearDbCommandError,
+	    onClearGearDbCommandError,
     gearDbCommandSuccess,
     onClearGearDbCommandSuccess,
     filtersSynced = false,
@@ -221,9 +224,12 @@ export default function PreviewHeaderActions(props: {
   const sortClearLabel = t('testerSortClear')
   const sortDirectionLabel = t('testerSortDirection')
   const sortKeepSectionsLabel = t('testerSortKeepSections')
-  const sortExcludeGlyphsLabel = t('testerSortExcludeGlyphs')
-  const sortHighToLowLabel = t('testerSortHighToLow')
-  const sortLowToHighLabel = t('testerSortLowToHigh')
+	  const sortExcludeGlyphsLabel = t('testerSortExcludeGlyphs')
+	  const sortHighToLowLabel = t('testerSortHighToLow')
+	  const sortLowToHighLabel = t('testerSortLowToHigh')
+	  const sortLastUsedLabel = t('testerLastUsedFilterLabel')
+	  const sortGlyphInheritDirectionLabel = t('testerSortPerKeyInheritDirection')
+	  const sortGlyphFlippedDirectionLabel = t('testerSortPerKeyFlippedDirection')
   const exportMenuEnabled = React.useMemo(
     () => typeof onExportDeduped === 'function' || typeof onToggleDedupeDefault === 'function' || typeof onToggleOmitDisabled === 'function',
     [onExportDeduped, onToggleDedupeDefault, onToggleOmitDisabled],
@@ -325,23 +331,32 @@ export default function PreviewHeaderActions(props: {
       setExportMenuAnchor(null)
     }
   }, [exportMenuAnchor, exportMenuEnabled])
-  const sortPriorities = React.useMemo(() => {
-    // Prefer the persisted ordering, but keep a stable empty array so hooks remain deterministic.
-    return testerSubstatSort.priorities ?? []
-  }, [testerSubstatSort.priorities])
-  const sortActive = !isRulesMode && sortPriorities.length > 0
-  const sortButtonLabel = React.useMemo(() => {
-    if (isRulesMode) return sortLabel
-    const [first] = sortPriorities
-    if (typeof first !== 'number') return sortLabel
-    const head = t(statVariantI18nKey(first))
-    return sortPriorities.length > 1 ? `${head}...` : head
-  }, [isRulesMode, sortLabel, sortPriorities, t])
-  const sortSpec = React.useMemo(() => ({
-    priorities: sortPriorities,
-    direction: testerSubstatSort.direction,
-    excludeGlyphs: testerSubstatSort.excludeGlyphs,
-  }), [sortPriorities, testerSubstatSort.direction, testerSubstatSort.excludeGlyphs])
+	  const sortPriorities = React.useMemo<readonly TesterSortKey[]>(() => {
+	    // Prefer the persisted ordering, but keep a stable empty array so hooks remain deterministic.
+	    return testerSubstatSort.priorities ?? []
+	  }, [testerSubstatSort.priorities])
+	  const sortFlipped = React.useMemo<readonly TesterSortKey[]>(() => {
+	    // "Flipped" is a UI convenience: it means "sort opposite of the global direction for this key."
+	    return testerSubstatSort.flipped ?? []
+	  }, [testerSubstatSort.flipped])
+	  const sortActive = !isRulesMode && sortPriorities.length > 0
+	  const sortLabelForKey = React.useCallback((key: TesterSortKey): string => {
+	    if (Number(key) === TESTER_SORT_KEY_LAST_USAGE) return sortLastUsedLabel
+	    return t(statVariantI18nKey(key as StatVariant))
+	  }, [sortLastUsedLabel, t])
+	  const sortButtonLabel = React.useMemo(() => {
+	    if (isRulesMode) return sortLabel
+	    const [first] = sortPriorities
+	    if (typeof first !== 'number') return sortLabel
+	    const head = sortLabelForKey(first)
+	    return sortPriorities.length > 1 ? `${head}...` : head
+	  }, [isRulesMode, sortLabel, sortLabelForKey, sortPriorities])
+	  const sortSpec = React.useMemo(() => ({
+	    priorities: sortPriorities,
+	    direction: testerSubstatSort.direction,
+	    flipped: sortFlipped,
+	    excludeGlyphs: testerSubstatSort.excludeGlyphs,
+	  }), [sortFlipped, sortPriorities, testerSubstatSort.direction, testerSubstatSort.excludeGlyphs])
   const sortStatFg = React.useCallback((variant: StatVariant) => {
     if (!useStatButtonColors) return undefined
     return substatColors?.[variant]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[variant]
@@ -633,15 +648,16 @@ export default function PreviewHeaderActions(props: {
               <Box sx={{ px: 2, pt: 2, pb: 1 }}>
                 <ContextMenuTitle title={sortLabel} description={t('testerSortPopoverDescription')} />
               </Box>
-              {STAT_VARIANTS_PRIORITY.map((variant) => {
-                const idx = sortPriorities.findIndex((v) => Number(v) === Number(variant))
-                const label = t(statVariantI18nKey(variant))
-                const fg = sortStatFg(variant)
+              {[TESTER_SORT_KEY_LAST_USAGE as TesterSortKey, ...STAT_VARIANTS_PRIORITY].map((key) => {
+                const idx = sortPriorities.findIndex((v) => Number(v) === Number(key))
+                const label = sortLabelForKey(key)
+                const fg = Number(key) === TESTER_SORT_KEY_LAST_USAGE ? undefined : sortStatFg(key as StatVariant)
                 const active = idx >= 0
+                const perKeyFlipped = sortFlipped.some((v) => Number(v) === Number(key))
                 return (
                   <MenuItem
-                    key={variant}
-                    onClick={() => onToggleTesterSubstatSortPriority(variant)}
+                    key={key}
+                    onClick={() => onToggleTesterSubstatSortPriority(key)}
                     sx={(theme) => ({
                       gap: 1,
                       alignItems: 'center',
@@ -669,12 +685,20 @@ export default function PreviewHeaderActions(props: {
                         minWidth: MENU_CONTROL_MIN_WIDTH_PX,
                         flexShrink: 0,
                         display: 'flex',
+                        alignItems: 'center',
+                        gap: 0.75,
                         justifyContent: 'center',
                       }}
                     >
                       {active ? (
                         <Box
                           component="span"
+                          onClick={(event) => {
+                            // Badge clicks should never toggle the entire row; keep the behavior explicit and predictable.
+                            event.preventDefault()
+                            event.stopPropagation()
+                            onToggleTesterSubstatSortPriority(key)
+                          }}
                           sx={(theme) => ({
                             display: 'inline-flex',
                             alignItems: 'center',
@@ -682,7 +706,8 @@ export default function PreviewHeaderActions(props: {
                             height: 22,
                             minWidth: 34,
                             px: 0.75,
-                            borderRadius: 999,
+                            // Priorities are interactive, so use the same rounded-rect radius as other clickable chips (e.g., Flex).
+                            borderRadius: `${STATUS_CHIP_BORDER_RADIUS_PX}px`,
                             fontSize: theme.typography.pxToRem(15),
                             fontWeight: 700,
                             letterSpacing: 0.1,
@@ -690,10 +715,55 @@ export default function PreviewHeaderActions(props: {
                             border: `1px solid ${alpha(theme.palette.success.main, theme.palette.mode === 'dark' ? 0.7 : 0.55)}`,
                             backgroundColor: alpha(theme.palette.success.main, theme.palette.mode === 'dark' ? 0.16 : 0.1),
                             color: theme.palette.success.main,
+                            cursor: 'pointer',
                           })}
                         >
                           {idx + 1}
                         </Box>
+                      ) : null}
+                      {active ? (
+                        <MarkdownTooltip markdown={perKeyFlipped ? sortGlyphFlippedDirectionLabel : sortGlyphInheritDirectionLabel}>
+                          <Box
+                            component="button"
+                            type="button"
+                            aria-label={perKeyFlipped ? sortGlyphFlippedDirectionLabel : sortGlyphInheritDirectionLabel}
+                            onClick={(event) => {
+                              // Per-key direction toggles should not affect the priority selection itself.
+                              event.preventDefault()
+                              event.stopPropagation()
+                              onToggleTesterSubstatSortPriorityFlipped(key)
+                            }}
+                            style={{
+                              border: 'none',
+                              background: 'transparent',
+                              padding: 0,
+                              margin: 0,
+                              cursor: 'pointer',
+                              font: 'inherit',
+                            }}
+                          >
+                            <Box
+                              component="span"
+                              sx={(theme) => ({
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                height: 22,
+                                minWidth: 34,
+                                px: 0.75,
+                                borderRadius: `${STATUS_CHIP_BORDER_RADIUS_PX}px`,
+                                fontSize: theme.typography.pxToRem(14),
+                                fontWeight: 700,
+                                letterSpacing: 0.1,
+                                border: `1px solid ${alpha(theme.palette.info.main, theme.palette.mode === 'dark' ? 0.65 : 0.5)}`,
+                                backgroundColor: alpha(theme.palette.info.main, theme.palette.mode === 'dark' ? 0.12 : 0.08),
+                                color: theme.palette.info.main,
+                              })}
+                            >
+                              {perKeyFlipped ? '⇵' : '⇅'}
+                            </Box>
+                          </Box>
+                        </MarkdownTooltip>
                       ) : null}
                     </Box>
                   </MenuItem>

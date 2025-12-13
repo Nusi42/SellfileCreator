@@ -1783,20 +1783,22 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const [filterCollapsed, setFilterCollapsedRaw, filterCollapsedByMode] = useRulesFilterCollapsedPreference(previewMode)
   const [filtersSynced, setFiltersSyncedRaw] = useRulesFilterSyncPreference()
   // Rule Tester substat sorting is view-only but should persist across sessions like filters.
-  const testerSubstatSortPrefs = useTesterSubstatSortPreferences()
-  const testerSubstatSortSpec = useMemo(() => {
-    const priorities = testerSubstatSortPrefs.state.priorities
-    if (!priorities.length) return null
-    return {
-      priorities,
-      direction: testerSubstatSortPrefs.state.direction,
-      excludeGlyphs: testerSubstatSortPrefs.state.excludeGlyphs,
-    }
-  }, [
-    testerSubstatSortPrefs.state.direction,
-    testerSubstatSortPrefs.state.excludeGlyphs,
-    testerSubstatSortPrefs.state.priorities,
-  ])
+	  const testerSubstatSortPrefs = useTesterSubstatSortPreferences()
+	  const testerSubstatSortSpec = useMemo(() => {
+	    const priorities = testerSubstatSortPrefs.state.priorities
+	    if (!priorities.length) return null
+	    return {
+	      priorities,
+	      direction: testerSubstatSortPrefs.state.direction,
+	      flipped: testerSubstatSortPrefs.state.flipped,
+	      excludeGlyphs: testerSubstatSortPrefs.state.excludeGlyphs,
+	    }
+	  }, [
+	    testerSubstatSortPrefs.state.direction,
+	    testerSubstatSortPrefs.state.excludeGlyphs,
+	    testerSubstatSortPrefs.state.flipped,
+	    testerSubstatSortPrefs.state.priorities,
+	  ])
   const testerRulesFilter = useMemo(() => normalizeRulesFilterForTester(rulesFilter), [rulesFilter])
   const setFilterOpen = useCallback((next: boolean | ((prev: boolean) => boolean)) => {
     if (filtersSynced) {
@@ -4368,14 +4370,15 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         useStatButtonColors={statButtonBorders}
         substatColors={substatColors}
         onClearTesterSubstatSort={testerSubstatSortPrefs.clear}
-        onSetTesterSubstatSortDirection={testerSubstatSortPrefs.setDirection}
-        onToggleTesterSubstatSortKeepSections={testerSubstatSortPrefs.toggleKeepSections}
-        onToggleTesterSubstatSortExcludeGlyphs={testerSubstatSortPrefs.toggleExcludeGlyphs}
-        onToggleTesterSubstatSortPriority={testerSubstatSortPrefs.togglePriority}
-        filtersSynced={filtersSynced}
-        onToggleFiltersSynced={handleToggleFiltersSynced}
-        testerCount={testerItems.length}
-        testerFilteredCount={gearEntriesForTable.length}
+	        onSetTesterSubstatSortDirection={testerSubstatSortPrefs.setDirection}
+	        onToggleTesterSubstatSortKeepSections={testerSubstatSortPrefs.toggleKeepSections}
+	        onToggleTesterSubstatSortExcludeGlyphs={testerSubstatSortPrefs.toggleExcludeGlyphs}
+	        onToggleTesterSubstatSortPriority={testerSubstatSortPrefs.togglePriorityKey}
+	        onToggleTesterSubstatSortPriorityFlipped={testerSubstatSortPrefs.toggleFlipped}
+	        filtersSynced={filtersSynced}
+	        onToggleFiltersSynced={handleToggleFiltersSynced}
+	        testerCount={testerItems.length}
+	        testerFilteredCount={gearEntriesForTable.length}
         gearDbCommandError={gearDbCommandError}
         onClearGearDbCommandError={clearGearDbCommandError}
         gearDbCommandSuccess={gearDbCommandSuccess}
