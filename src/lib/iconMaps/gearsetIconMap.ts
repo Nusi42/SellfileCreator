@@ -63,6 +63,7 @@ const slayerIcon = new URL('../../../ico/sets/Slayer.webp', import.meta.url).hre
 const feralIcon = new URL('../../../ico/sets/Feral.webp', import.meta.url).href
 const pinpointIcon = new URL('../../../ico/sets/Pinpoint.webp', import.meta.url).href
 const stonecleaverIcon = new URL('../../../ico/sets/Stonecleaver.webp', import.meta.url).href
+const mercurialIcon = new URL('../../../ico/sets/Mercurial.webp', import.meta.url).href
 const rebirthIcon = new URL('../../../ico/sets/Rebirth.webp', import.meta.url).href
 const chronophageIcon = new URL('../../../ico/sets/Chronophage.webp', import.meta.url).href
 const refreshIcon = new URL('../../../ico/sets/Refresh.webp', import.meta.url).href
@@ -133,6 +134,7 @@ export const GEARSET_ICON_MAP: Partial<Record<ArtifactSet, string>> = {
   [ArtifactSet.Feral]: feralIcon,
   [ArtifactSet.Pinpoint]: pinpointIcon,
   [ArtifactSet.Stonecleaver]: stonecleaverIcon,
+  [ArtifactSet.Mercurial]: mercurialIcon,
   [ArtifactSet.Rebirth]: rebirthIcon,
   [ArtifactSet.Chronophage]: chronophageIcon,
   [ArtifactSet.Refresh]: refreshIcon,
