@@ -84,7 +84,7 @@ import {
 import { fingerprintConfigForRules, fingerprintSubstatTargets, updateConfigRulesCache } from './lib/ruleCache'
 import { hasConfigMeaningfulDifferences } from './lib/configDiff'
 import { buildRuleTesterAutosavePayload, createRuleTesterMath, fingerprintRuleTesterItem, loadRuleTesterAutosaveDraft, type RuleTesterItem } from './lib/ruleTesterSession'
-import { sortTesterRows } from './lib/testerSort'
+import { sortTesterRows, TESTER_SORT_KEY_LAST_USAGE } from './lib/testerSort'
 import { setTesterSubstatSortState, useTesterSubstatSortPreferences } from './state/testerSubstatSortPreferences'
 import { FILTER_PRESETS_VERSION, useFilterPresetsPreference, type FilterPreset, type FilterPresetSnapshot } from './state/filterPresetsPreference'
 import FileDragOverlay from './components/FileDragOverlay'
@@ -1792,17 +1792,21 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
 	  const testerSubstatSortSpec = useMemo(() => {
 	    const priorities = testerSubstatSortPrefs.state.priorities
 	    if (!priorities.length) return null
+	    const selectedSubstats = priorities.filter((key) => Number(key) !== TESTER_SORT_KEY_LAST_USAGE)
+	    const normalizedAllowed = selectedSubstats.length > 1
 	    return {
 	      priorities,
 	      direction: testerSubstatSortPrefs.state.direction,
 	      flipped: testerSubstatSortPrefs.state.flipped,
 	      excludeGlyphs: testerSubstatSortPrefs.state.excludeGlyphs,
+	      normalized: testerSubstatSortPrefs.state.normalized && normalizedAllowed,
 	    }
 	  }, [
 	    testerSubstatSortPrefs.state.direction,
 	    testerSubstatSortPrefs.state.excludeGlyphs,
 	    testerSubstatSortPrefs.state.flipped,
 	    testerSubstatSortPrefs.state.priorities,
+	    testerSubstatSortPrefs.state.normalized,
 	  ])
   const testerRulesFilter = useMemo(() => normalizeRulesFilterForTester(rulesFilter), [rulesFilter])
   const setFilterOpen = useCallback((next: boolean | ((prev: boolean) => boolean)) => {
@@ -4556,6 +4560,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
 	        onSetTesterSubstatSortDirection={testerSubstatSortPrefs.setDirection}
 	        onToggleTesterSubstatSortKeepSections={testerSubstatSortPrefs.toggleKeepSections}
 	        onToggleTesterSubstatSortExcludeGlyphs={testerSubstatSortPrefs.toggleExcludeGlyphs}
+	        onToggleTesterSubstatSortNormalized={testerSubstatSortPrefs.toggleNormalized}
 	        onToggleTesterSubstatSortPriority={testerSubstatSortPrefs.togglePriorityKey}
 	        onToggleTesterSubstatSortPriorityFlipped={testerSubstatSortPrefs.toggleFlipped}
 	        filtersSynced={filtersSynced}

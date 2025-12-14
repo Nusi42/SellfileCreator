@@ -579,31 +579,31 @@ function rollDistributions(m: number, t: number): number[][] {
 // Factory-default minima: these encode the lowest roll each substat can spawn with
 // in-game. Collapse guards rely on these staying in sync with RSL Helper samples.
 const BASE_MIN_6: Record<number, number> = {
-  [StatVariant.HP_FLAT]: 200, // HP - alternatively Math.floor((200 + 565)/2)
-  [StatVariant.HP]: 5,        // HP%
-  [StatVariant.ATK_FLAT]: 15, // ATK - alternatively Math.floor((15 + 30)/2)
-  [StatVariant.ATK]: 5,       // ATK%
-  [StatVariant.DEF_FLAT]: 15, // DEF - alternatively Math.floor((15 + 30)/2)
-  [StatVariant.DEF]: 5,       // DEF%
-  [StatVariant.SPD]: 5,       // SPD
-  [StatVariant.RES]: 9,       // RES
-  [StatVariant.ACC]: 9,       // ACC
-  [StatVariant.CR]: 5,        // CR%
-  [StatVariant.CDMG]: 5,      // CDMG%
+  [StatVariant.HP_FLAT]: 200, // HP:    200..565
+  [StatVariant.HP]: 5,        // HP%:   5..7
+  [StatVariant.ATK_FLAT]: 15, // ATK:   15..30
+  [StatVariant.ATK]: 5,       // ATK%:  5..7
+  [StatVariant.DEF_FLAT]: 15, // DEF:   15..30
+  [StatVariant.DEF]: 5,       // DEF%:  5..7
+  [StatVariant.SPD]: 5,       // SPD:   5..6
+  [StatVariant.RES]: 9,       // RES:   9..12
+  [StatVariant.ACC]: 9,       // ACC:   9..12
+  [StatVariant.CR]: 5,        // CR%:   5..7
+  [StatVariant.CDMG]: 5,      // CDMG%: 5..7
 }
 
 const BASE_MIN_5: Record<number, number> = {
-  [StatVariant.HP_FLAT]: 136, // HP - alternatively Math.floor((136 + 450)/2)
-  [StatVariant.HP]: 4,        // HP%
-  [StatVariant.ATK_FLAT]: 12, // ATK - alternatively Math.floor((12 + 23)/2)
-  [StatVariant.ATK]: 4,       // ATK%
-  [StatVariant.DEF_FLAT]: 12, // DEF - alternatively Math.floor((12 + 23)/2)
-  [StatVariant.DEF]: 4,       // DEF%
-  [StatVariant.SPD]: 4,       // SPD
-  [StatVariant.RES]: 8,       // RES
-  [StatVariant.ACC]: 8,       // ACC
-  [StatVariant.CR]: 4,        // CR%
-  [StatVariant.CDMG]: 4,      // CDMG%
+  [StatVariant.HP_FLAT]: 136, // HP:    136..450
+  [StatVariant.HP]: 4,        // HP%:   4..6
+  [StatVariant.ATK_FLAT]: 12, // ATK    12..23
+  [StatVariant.ATK]: 4,       // ATK%   4..6
+  [StatVariant.DEF_FLAT]: 12, // DEF:   12..23
+  [StatVariant.DEF]: 4,       // DEF%   4..6
+  [StatVariant.SPD]: 4,       // SPD    4..5
+  [StatVariant.RES]: 8,       // RES    8..11
+  [StatVariant.ACC]: 8,       // ACC    8..11
+  [StatVariant.CR]: 4,        // CR%    4..6
+  [StatVariant.CDMG]: 4,      // CDMG%  4..6
 }
 
 // Explicit literals for lower-star substatTargets (derived from 5-star by -1 per tier)

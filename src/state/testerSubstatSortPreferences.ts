@@ -16,6 +16,8 @@ export type TesterSubstatSortState = {
   direction: TesterSubstatSortDirection
   // Per-key override list: included keys sort opposite of the global direction.
   flipped: TesterSortKey[]
+  // When true, sort by the normalized sum of selected substats (priority order is ignored).
+  normalized: boolean
   // Keep the existing accordion sections; disabling merges artifact sets and accessory sets per faction.
   keepSections: boolean
   // Exclude glyph values by default so "base" rolls remain comparable.
@@ -26,6 +28,7 @@ export const DEFAULT_TESTER_SUBSTAT_SORT_STATE: TesterSubstatSortState = Object.
   priorities: [],
   direction: 'desc',
   flipped: [],
+  normalized: false,
   keepSections: true,
   excludeGlyphs: true,
 })
@@ -56,6 +59,16 @@ const normalizeSortKeys = (raw: unknown): TesterSortKey[] => {
   return normalized
 }
 
+const countSelectedSubstats = (priorities: readonly TesterSortKey[]): number => (
+  // "Substat" means the real StatVariant keys; synthetic keys do not participate in normalized sums.
+  priorities.filter((key) => Number(key) !== TESTER_SORT_KEY_LAST_USAGE).length
+)
+
+const stripSyntheticKeys = (keys: readonly TesterSortKey[]): TesterSortKey[] => (
+  // Normalized sorting is explicitly about substat values, so drop synthetic keys like "Last Used".
+  keys.filter((key) => Number(key) !== TESTER_SORT_KEY_LAST_USAGE)
+)
+
 export const normalizeTesterSubstatSortState = (raw: unknown): TesterSubstatSortState => {
   // Snapshots may come from localStorage presets or the preference store itself; normalize both identically.
   if (!raw || typeof raw !== 'object') return DEFAULT_TESTER_SUBSTAT_SORT_STATE
@@ -64,10 +77,14 @@ export const normalizeTesterSubstatSortState = (raw: unknown): TesterSubstatSort
   const direction: TesterSubstatSortDirection = obj.direction === 'asc' ? 'asc' : 'desc'
   const keepSections = obj.keepSections === false ? false : true
   const excludeGlyphs = obj.excludeGlyphs === false ? false : true
-  const priorities = normalizeSortKeys(obj.priorities)
+  const rawPriorities = normalizeSortKeys(obj.priorities)
+  // Persist the user's intent even when only one substat is selected; the UI/sort logic can disable it temporarily.
+  const normalized = obj.normalized === true
+  const priorities = normalized ? stripSyntheticKeys(rawPriorities) : rawPriorities
   // Flipped keys are only meaningful for keys that are currently selected as priorities.
-  const flipped = normalizeSortKeys(obj.flipped).filter((key) => priorities.some((v) => Number(v) === Number(key)))
-  return { priorities, direction, flipped, keepSections, excludeGlyphs }
+  const rawFlipped = normalizeSortKeys(obj.flipped).filter((key) => priorities.some((v) => Number(v) === Number(key)))
+  const flipped = normalized ? stripSyntheticKeys(rawFlipped) : rawFlipped
+  return { priorities, direction, flipped, normalized, keepSections, excludeGlyphs }
 }
 
 const testerSubstatSortStore = createLocalStorageStore<TesterSubstatSortState>({
@@ -117,6 +134,20 @@ export function useTesterSubstatSortPreferences() {
     testerSubstatSortStore.update((prev) => ({ ...prev, excludeGlyphs: !prev.excludeGlyphs }))
   }, [])
 
+  const toggleNormalized = useCallback(() => {
+    // Normalized sums only apply when multiple substats are selected; keep the toggle disabled in UI otherwise.
+    testerSubstatSortStore.update((prev) => {
+      const selectedSubstats = countSelectedSubstats(prev.priorities)
+      if (selectedSubstats <= 1) return prev
+      const enabling = !prev.normalized
+      if (!enabling) return { ...prev, normalized: false }
+      // Synthetic keys do not participate in normalized sums, so drop them proactively.
+      const priorities = stripSyntheticKeys(prev.priorities)
+      const flipped = stripSyntheticKeys(prev.flipped)
+      return { ...prev, normalized: true, priorities, flipped }
+    })
+  }, [])
+
   const togglePriorityKey = useCallback((key: TesterSortKey) => {
     // Generalized toggle used by the sort popover for both stat variants and synthetic keys.
     testerSubstatSortStore.update((prev) => {
@@ -124,6 +155,7 @@ export function useTesterSubstatSortPreferences() {
       if (!already) return { ...prev, priorities: [...prev.priorities, key] }
       const priorities = prev.priorities.filter((v) => Number(v) !== Number(key))
       const flipped = prev.flipped.filter((v) => Number(v) !== Number(key))
+      // Preserve the user's normalized intent; UI/sort logic will deactivate it when <=1 substat is selected.
       return { ...prev, priorities, flipped }
     })
   }, [])
@@ -145,6 +177,7 @@ export function useTesterSubstatSortPreferences() {
     setDirection,
     toggleKeepSections,
     toggleExcludeGlyphs,
+    toggleNormalized,
     togglePriorityKey,
     toggleFlipped,
   }
