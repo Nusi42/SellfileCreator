@@ -572,15 +572,18 @@ export default function PreviewHeaderActions(props: {
 	  })
 	  React.useEffect(() => {
 	    // Guardrail: "Active" mode cannot mirror an overlay that is itself [S] (it would be circular).
+	    // Important: do NOT unlink just because the overlay is temporarily "off" (no preset selected).
+	    // Why: the tester-grid context menu can clear presets briefly while switching combinations; Sort should
+	    // remain in "Active/Grid" mode and resume once the overlay has a valid selection again.
 	    if (!testerSubstatSort.normalizedUseActiveOverlay) return
-	    if (normalizedOverlayActiveAllowed) return
+	    if (!normalizedOverlayPrefs.state.useSortWeights) return
 	    onSetTesterSubstatSortState({
 	      ...testerSubstatSort,
 	      normalizedUseActiveOverlay: false,
 	      normalizedSourceIncludeCustom: (testerSubstatSort.normalizedSourcePresetIds?.length ?? 0) === 0,
 	    })
 	  }, [
-	    normalizedOverlayActiveAllowed,
+	    normalizedOverlayPrefs.state.useSortWeights,
 	    onSetTesterSubstatSortState,
 	    testerSubstatSort,
 	    testerSubstatSort.normalizedUseActiveOverlay,
