@@ -1789,25 +1789,30 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const [filtersSynced, setFiltersSyncedRaw] = useRulesFilterSyncPreference()
   // Rule Tester substat sorting is view-only but should persist across sessions like filters.
 	  const testerSubstatSortPrefs = useTesterSubstatSortPreferences()
-	  const testerSubstatSortSpec = useMemo(() => {
-	    const priorities = testerSubstatSortPrefs.state.priorities
-	    if (!priorities.length) return null
-	    const selectedSubstats = priorities.filter((key) => Number(key) !== TESTER_SORT_KEY_LAST_USAGE)
-	    const normalizedAllowed = selectedSubstats.length > 1
-	    return {
-	      priorities,
-	      direction: testerSubstatSortPrefs.state.direction,
-	      flipped: testerSubstatSortPrefs.state.flipped,
-	      excludeGlyphs: testerSubstatSortPrefs.state.excludeGlyphs,
-	      normalized: testerSubstatSortPrefs.state.normalized && normalizedAllowed,
-	    }
-	  }, [
-	    testerSubstatSortPrefs.state.direction,
-	    testerSubstatSortPrefs.state.excludeGlyphs,
-	    testerSubstatSortPrefs.state.flipped,
-	    testerSubstatSortPrefs.state.priorities,
-	    testerSubstatSortPrefs.state.normalized,
-	  ])
+		  const testerSubstatSortSpec = useMemo(() => {
+		    const priorities = testerSubstatSortPrefs.state.priorities
+		    if (!priorities.length) return null
+		    const selectedSubstats = priorities.filter((key) => Number(key) !== TESTER_SORT_KEY_LAST_USAGE)
+		    const normalizedAllowed = selectedSubstats.length > 1
+		    return {
+		      priorities,
+		      direction: testerSubstatSortPrefs.state.direction,
+		      flipped: testerSubstatSortPrefs.state.flipped,
+		      excludeGlyphs: testerSubstatSortPrefs.state.excludeGlyphs,
+		      normalized: testerSubstatSortPrefs.state.normalized && normalizedAllowed,
+		      // Weights are only meaningful when normalized sorting is effective; keep them out otherwise.
+		      ...(testerSubstatSortPrefs.state.normalized && normalizedAllowed
+		        ? { weights: testerSubstatSortPrefs.state.weights }
+		        : {}),
+		    }
+		  }, [
+		    testerSubstatSortPrefs.state.direction,
+		    testerSubstatSortPrefs.state.excludeGlyphs,
+		    testerSubstatSortPrefs.state.flipped,
+		    testerSubstatSortPrefs.state.priorities,
+		    testerSubstatSortPrefs.state.normalized,
+		    testerSubstatSortPrefs.state.weights,
+		  ])
   const testerRulesFilter = useMemo(() => normalizeRulesFilterForTester(rulesFilter), [rulesFilter])
   const setFilterOpen = useCallback((next: boolean | ((prev: boolean) => boolean)) => {
     if (filtersSynced) {
@@ -4553,20 +4558,22 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         onToggleKeepUniques={(next) => setKeepUniquesEnabled(next)}
         previewMode={previewMode}
         onChangePreviewMode={setPreviewMode}
-        testerSubstatSort={testerSubstatSortPrefs.state}
-        useStatButtonColors={statButtonBorders}
-        substatColors={substatColors}
-        onClearTesterSubstatSort={testerSubstatSortPrefs.clear}
-	        onSetTesterSubstatSortDirection={testerSubstatSortPrefs.setDirection}
-	        onToggleTesterSubstatSortKeepSections={testerSubstatSortPrefs.toggleKeepSections}
-	        onToggleTesterSubstatSortExcludeGlyphs={testerSubstatSortPrefs.toggleExcludeGlyphs}
-	        onToggleTesterSubstatSortNormalized={testerSubstatSortPrefs.toggleNormalized}
-	        onToggleTesterSubstatSortPriority={testerSubstatSortPrefs.togglePriorityKey}
-	        onToggleTesterSubstatSortPriorityFlipped={testerSubstatSortPrefs.toggleFlipped}
-	        filtersSynced={filtersSynced}
-	        onToggleFiltersSynced={handleToggleFiltersSynced}
-          filterPresets={filterPresets}
-          onSaveFilterPreset={handleSaveFilterPreset}
+	        testerSubstatSort={testerSubstatSortPrefs.state}
+	        useStatButtonColors={statButtonBorders}
+	        substatColors={substatColors}
+	        onClearTesterSubstatSort={testerSubstatSortPrefs.clear}
+		        onSetTesterSubstatSortDirection={testerSubstatSortPrefs.setDirection}
+		        onToggleTesterSubstatSortKeepSections={testerSubstatSortPrefs.toggleKeepSections}
+		        onToggleTesterSubstatSortExcludeGlyphs={testerSubstatSortPrefs.toggleExcludeGlyphs}
+		        onToggleTesterSubstatSortNormalized={testerSubstatSortPrefs.toggleNormalized}
+		        onToggleTesterSubstatSortPriority={testerSubstatSortPrefs.togglePriorityKey}
+		        onToggleTesterSubstatSortPriorityFlipped={testerSubstatSortPrefs.toggleFlipped}
+	        onSetTesterSubstatSortWeight={testerSubstatSortPrefs.setWeight}
+	        onBumpTesterSubstatSortWeight={testerSubstatSortPrefs.bumpWeight}
+		        filtersSynced={filtersSynced}
+		        onToggleFiltersSynced={handleToggleFiltersSynced}
+	          filterPresets={filterPresets}
+	          onSaveFilterPreset={handleSaveFilterPreset}
           onApplyFilterPreset={handleApplyFilterPreset}
           onDeleteFilterPreset={handleDeleteFilterPreset}
 	        testerCount={testerItems.length}

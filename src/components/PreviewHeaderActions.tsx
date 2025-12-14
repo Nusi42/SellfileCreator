@@ -36,7 +36,13 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import ContextMenuPaper from './ContextMenuPaper'
 import ContextMenuTitle from './ContextMenuTitle'
 import DeleteIcon from '@mui/icons-material/Delete'
-import { TESTER_SORT_KEY_LAST_USAGE, type TesterSortKey, type TesterSubstatSortDirection } from '../lib/testerSort'
+import {
+  TESTER_SORT_KEY_LAST_USAGE,
+  TESTER_SORT_WEIGHT_DEFAULT,
+  normalizeTesterSortWeight,
+  type TesterSortKey,
+  type TesterSubstatSortDirection,
+} from '../lib/testerSort'
 import { DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT, STAT_VARIANTS_PRIORITY, StatVariant, statVariantI18nKey } from '../lib/types'
 import type { TesterSubstatSortState } from '../state/testerSubstatSortPreferences'
 import type { SubstatColorMap } from '../lib/renderColoredStatText'
@@ -110,6 +116,8 @@ export default function PreviewHeaderActions(props: {
 	  onToggleTesterSubstatSortNormalized: () => void
 	  onToggleTesterSubstatSortPriority: (key: TesterSortKey) => void
 	  onToggleTesterSubstatSortPriorityFlipped: (key: TesterSortKey) => void
+	  onSetTesterSubstatSortWeight: (variant: StatVariant, next: number) => void
+	  onBumpTesterSubstatSortWeight: (variant: StatVariant, deltaSteps: number) => void
 	  gearDbCommandError?: string | null
 	  onClearGearDbCommandError?: () => void
 	  gearDbCommandSuccess?: string | null
@@ -159,14 +167,16 @@ export default function PreviewHeaderActions(props: {
 	    onSetTesterSubstatSortDirection,
 	    onToggleTesterSubstatSortKeepSections,
 	    onToggleTesterSubstatSortExcludeGlyphs,
-	    onToggleTesterSubstatSortNormalized,
-	    onToggleTesterSubstatSortPriority,
-	    onToggleTesterSubstatSortPriorityFlipped,
-	    testerBuilding = false,
-	    workloadProgressRatio,
-	    gearDbCommandError,
-	    onClearGearDbCommandError,
-    gearDbCommandSuccess,
+		    onToggleTesterSubstatSortNormalized,
+		    onToggleTesterSubstatSortPriority,
+		    onToggleTesterSubstatSortPriorityFlipped,
+		    onSetTesterSubstatSortWeight,
+		    onBumpTesterSubstatSortWeight,
+		    testerBuilding = false,
+		    workloadProgressRatio,
+		    gearDbCommandError,
+		    onClearGearDbCommandError,
+	    gearDbCommandSuccess,
     onClearGearDbCommandSuccess,
     filtersSynced = false,
     onToggleFiltersSynced,
@@ -244,6 +254,16 @@ export default function PreviewHeaderActions(props: {
 	  const sortGlyphsIncludeLabel = t('testerSortGlyphsInclude')
 	  const sortNormalizedLabel = t('testerSortNormalized')
 	  const sortNormalizedTooltip = t('testerSortNormalizedTooltip')
+	  const sortWeightLabel = t('testerSortWeight')
+	  const formatWeightIncreaseAria = React.useCallback((label: string) => (
+	    t('testerSortWeightIncreaseAria', { label })
+	  ), [t])
+	  const formatWeightDecreaseAria = React.useCallback((label: string) => (
+	    t('testerSortWeightDecreaseAria', { label })
+	  ), [t])
+	  const formatWeightResetAria = React.useCallback((label: string) => (
+	    t('testerSortWeightResetAria', { label })
+	  ), [t])
 	  const sortHighToLowLabel = t('testerSortHighToLow')
 	  const sortLowToHighLabel = t('testerSortLowToHigh')
 	  const sortLastUsedLabel = t('testerLastUsedFilterLabel')
@@ -435,10 +455,10 @@ export default function PreviewHeaderActions(props: {
     return substatColors?.[variant]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[variant]
   }, [substatColors, useStatButtonColors])
 
-  const [sortMenuAnchor, setSortMenuAnchor] = React.useState<HTMLElement | null>(null)
-  const sortMenuOpen = Boolean(sortMenuAnchor)
-  const closeSortMenu = React.useCallback(() => { setSortMenuAnchor(null) }, [])
-  const sortMenuPaperRef = React.useRef<HTMLDivElement | null>(null)
+	  const [sortMenuAnchor, setSortMenuAnchor] = React.useState<HTMLElement | null>(null)
+	  const sortMenuOpen = Boolean(sortMenuAnchor)
+	  const closeSortMenu = React.useCallback(() => { setSortMenuAnchor(null) }, [])
+	  const sortMenuPaperRef = React.useRef<HTMLDivElement | null>(null)
   useContextMenuCloseOnOutsideRightClick({
     open: sortMenuOpen,
     onClose: closeSortMenu,
@@ -456,12 +476,86 @@ export default function PreviewHeaderActions(props: {
     getPaperEl: () => sortMenuPaperRef.current,
     onTogglePriority: onToggleTesterSubstatSortPriority,
   })
-  // Keep clear icons from shifting layout when they appear/disappear.
-  const HEADER_CLEAR_PLACEHOLDER_SX = {
-    width: CLEAR_ICON_BUTTON_SIZE_PX,
-    height: CLEAR_ICON_BUTTON_SIZE_PX,
-    flexShrink: 0,
-  } as const
+	  // Keep clear icons from shifting layout when they appear/disappear.
+	  const HEADER_CLEAR_PLACEHOLDER_SX = {
+	    width: CLEAR_ICON_BUTTON_SIZE_PX,
+	    height: CLEAR_ICON_BUTTON_SIZE_PX,
+	    flexShrink: 0,
+	  } as const
+
+	  const formatWeight = React.useCallback((value: number): string => {
+	    // Weight values are normalized to 2 decimals (0.05 steps); keep formatting consistent across locales.
+	    const safe = Number.isFinite(value) ? value : TESTER_SORT_WEIGHT_DEFAULT
+	    return `×${safe.toFixed(2)}`
+	  }, [])
+
+	  const weightHoldRef = React.useRef<{
+	    timeoutId: number | null
+	    startedAtMs: number
+	    deltaSteps: number
+	    variant: StatVariant
+	    pointerId: number | null
+	  } | null>(null)
+
+	  const stopWeightHold = React.useCallback((releaseTarget?: HTMLElement | null) => {
+	    // Pointer-hold repeats must stop immediately on pointer up/leave to avoid accidental drift.
+	    const state = weightHoldRef.current
+	    if (!state) return
+	    if (state.timeoutId != null) {
+	      window.clearTimeout(state.timeoutId)
+	    }
+	    if (state.pointerId != null && releaseTarget) {
+	      try { releaseTarget.releasePointerCapture(state.pointerId) } catch {}
+	    }
+	    weightHoldRef.current = null
+	  }, [])
+
+	  React.useEffect(() => {
+	    // If the menu closes mid-hold (Escape / outside click), cancel repeats so weights stay predictable.
+	    if (!sortMenuOpen) stopWeightHold()
+	  }, [sortMenuOpen, stopWeightHold])
+
+	  const weightHoldDelayMs = React.useCallback((elapsedMs: number): number => {
+	    // Accelerate as the user keeps holding the button: smaller delay => faster bumping.
+	    if (elapsedMs < 450) return 180
+	    if (elapsedMs < 900) return 120
+	    if (elapsedMs < 1500) return 80
+	    if (elapsedMs < 2400) return 55
+	    return 40
+	  }, [])
+
+	  const beginWeightHold = React.useCallback((
+	    event: React.PointerEvent<HTMLElement>,
+	    variant: StatVariant,
+	    deltaSteps: number,
+	    enabled: boolean,
+	  ) => {
+	    // Holding +/- should never toggle the row itself; keep the interaction explicit.
+	    event.preventDefault()
+	    event.stopPropagation()
+	    if (!enabled) return
+	    stopWeightHold(event.currentTarget)
+
+	    // Apply the first bump immediately so a quick click behaves like a normal button press.
+	    onBumpTesterSubstatSortWeight(variant, deltaSteps)
+
+	    const pointerId = typeof event.pointerId === 'number' ? event.pointerId : null
+	    if (pointerId != null) {
+	      try { event.currentTarget.setPointerCapture(pointerId) } catch {}
+	    }
+	    const startedAtMs = performance.now()
+	    const schedule = () => {
+	      const next = weightHoldRef.current
+	      if (!next) return
+	      onBumpTesterSubstatSortWeight(next.variant, next.deltaSteps)
+	      const elapsed = performance.now() - next.startedAtMs
+	      const delayMs = weightHoldDelayMs(elapsed)
+	      next.timeoutId = window.setTimeout(schedule, delayMs)
+	    }
+	    // Small initial delay prevents accidental repeats during normal clicking.
+	    const timeoutId = window.setTimeout(schedule, 350)
+	    weightHoldRef.current = { timeoutId, startedAtMs, deltaSteps, variant, pointerId }
+	  }, [onBumpTesterSubstatSortWeight, stopWeightHold, weightHoldDelayMs])
 
   return (
     <>
@@ -860,21 +954,31 @@ export default function PreviewHeaderActions(props: {
               <Box sx={{ px: 2.25, pt: 2.25, pb: 1 }}>
                 <ContextMenuTitle title={sortLabel} description={t('testerSortPopoverDescription')} />
               </Box>
-              {[...STAT_VARIANTS_PRIORITY, TESTER_SORT_KEY_LAST_USAGE as TesterSortKey].map((key) => {
-                const idx = sortPriorities.findIndex((v) => Number(v) === Number(key))
-                const label = sortLabelForKey(key)
-                const fg = Number(key) === TESTER_SORT_KEY_LAST_USAGE ? undefined : sortStatFg(key as StatVariant)
-                const active = idx >= 0
-                const perKeyFlipped = sortFlipped.some((v) => Number(v) === Number(key))
-                const priorityDisabled = sortNormalizedEffective
-                const isSyntheticKey = Number(key) === TESTER_SORT_KEY_LAST_USAGE
-                const rowDisabled = priorityDisabled && isSyntheticKey
-                const showPriorityBadges = active && !sortNormalizedEffective
-                const showNormalizedCheckmark = active && sortNormalizedEffective
-	                return (
-	                  <MenuItem
-	                    key={key}
-	                    data-tester-sort-key={Number(key)}
+	              {[...STAT_VARIANTS_PRIORITY, TESTER_SORT_KEY_LAST_USAGE as TesterSortKey].map((key) => {
+	                const idx = sortPriorities.findIndex((v) => Number(v) === Number(key))
+	                const label = sortLabelForKey(key)
+	                const fg = Number(key) === TESTER_SORT_KEY_LAST_USAGE ? undefined : sortStatFg(key as StatVariant)
+	                const active = idx >= 0
+	                const perKeyFlipped = sortFlipped.some((v) => Number(v) === Number(key))
+	                const priorityDisabled = sortNormalizedEffective
+	                const isSyntheticKey = Number(key) === TESTER_SORT_KEY_LAST_USAGE
+	                const rowDisabled = priorityDisabled && isSyntheticKey
+	                const showPriorityBadges = active && !sortNormalizedEffective
+	                // Weight controls only replace the active badges. When the row is not selected, always show the two ghost badges
+	                // so the control column stays visually consistent in both Normalized and priority modes.
+	                const showWeightControls = sortNormalizedEffective && active && !isSyntheticKey
+	                const weightControlsEnabled = showWeightControls
+	                const rawWeight = showWeightControls
+	                  ? Number(testerSubstatSort.weights?.[key as StatVariant] ?? TESTER_SORT_WEIGHT_DEFAULT)
+	                  : TESTER_SORT_WEIGHT_DEFAULT
+	                const resolvedWeight = showWeightControls ? normalizeTesterSortWeight(rawWeight) : TESTER_SORT_WEIGHT_DEFAULT
+	                const weightLabel = showWeightControls ? formatWeight(resolvedWeight) : ''
+	                // Selection is already conveyed by the row highlight; the weight chip should stay focused on the numeric value.
+	                const weightChipLabel = showWeightControls ? weightLabel : ''
+		                return (
+		                  <MenuItem
+		                    key={key}
+		                    data-tester-sort-key={Number(key)}
 	                    disabled={rowDisabled}
 	                    onClick={(event) => {
 	                      if (rowDisabled) return
@@ -903,12 +1007,12 @@ export default function PreviewHeaderActions(props: {
                         ...(fg ? { color: fg } : {}),
                       })}
                       data-sort-popout-text
-                    >
-                      {label}
-                    </Typography>
-                    {/* Match the control column width used by the rows below (Direction/flags) so badges align visually. */}
-                    <Box
-                      sx={{
+	                    >
+	                      {label}
+	                    </Typography>
+	                    {/* Match the control column width used by the rows below (Direction/flags) so badges align visually. */}
+	                    <Box
+	                      sx={{
                         width: MENU_CONTROL_MIN_WIDTH_PX,
                         minWidth: MENU_CONTROL_MIN_WIDTH_PX,
                         // Keep the row height stable when the priority badges appear/disappear.
@@ -918,14 +1022,14 @@ export default function PreviewHeaderActions(props: {
                         display: 'flex',
                         alignItems: 'center',
                         gap: 0.75,
-                        justifyContent: 'center',
-                      }}
-                    >
-                      {showPriorityBadges ? (
-                        <Box
-                          component="span"
-                          onClick={priorityDisabled ? undefined : (event) => {
-                            // Badge clicks should never toggle the entire row; keep the behavior explicit and predictable.
+	                        justifyContent: 'center',
+	                      }}
+	                    >
+	                      {showPriorityBadges ? (
+	                        <Box
+	                          component="span"
+	                          onClick={priorityDisabled ? undefined : (event) => {
+	                            // Badge clicks should never toggle the entire row; keep the behavior explicit and predictable.
                             event.preventDefault()
                             event.stopPropagation()
                             sortPopoutEasterEgg.onPriorityToggle(key, event)
@@ -950,42 +1054,161 @@ export default function PreviewHeaderActions(props: {
                             opacity: priorityDisabled ? 0.35 : 1,
                           })}
                           data-sort-popout-badge
-                        >
-                          {idx + 1}
-                        </Box>
-	                      ) : showNormalizedCheckmark ? (
+	                        >
+	                          {idx + 1}
+	                        </Box>
+		                      ) : showWeightControls ? (
+		                        <>
+		                          <Box
+		                            component="button"
+		                            type="button"
+		                            aria-label={formatWeightDecreaseAria(label)}
+		                            aria-disabled={!weightControlsEnabled}
+		                            onPointerDown={(event) => beginWeightHold(event, key as StatVariant, -1, weightControlsEnabled)}
+		                            onPointerUp={(event) => stopWeightHold(event.currentTarget)}
+		                            onPointerLeave={(event) => stopWeightHold(event.currentTarget)}
+		                            onPointerCancel={(event) => stopWeightHold(event.currentTarget)}
+		                            onClick={(event) => { event.preventDefault(); event.stopPropagation() }}
+		                            onKeyDown={(event) => {
+		                              if (event.key !== 'Enter' && event.key !== ' ') return
+		                              event.preventDefault()
+		                              event.stopPropagation()
+		                              if (!weightControlsEnabled) return
+		                              onBumpTesterSubstatSortWeight(key as StatVariant, -1)
+		                            }}
+		                            style={{
+		                              border: 'none',
+		                              background: 'transparent',
+		                              padding: 0,
+		                              margin: 0,
+		                              cursor: weightControlsEnabled ? 'pointer' : 'default',
+		                              font: 'inherit',
+		                              opacity: weightControlsEnabled ? 1 : 0.35,
+		                            }}
+		                          >
+		                            <Box
+		                              component="span"
+		                              sx={(theme) => ({
+		                                display: 'inline-flex',
+		                                alignItems: 'center',
+		                                justifyContent: 'center',
+		                                height: 22,
+		                                minWidth: 26,
+		                                px: 0.5,
+		                                borderRadius: `${STATUS_CHIP_BORDER_RADIUS_PX}px`,
+		                                fontSize: theme.typography.pxToRem(14),
+		                                fontWeight: 800,
+		                                border: `1px solid ${alpha(theme.palette.text.secondary, theme.palette.mode === 'dark' ? 0.28 : 0.18)}`,
+		                                color: theme.palette.text.secondary,
+		                                userSelect: 'none',
+		                              })}
+		                            >
+		                              −
+		                            </Box>
+		                          </Box>
+		                          <Box
+		                            component="button"
+		                            type="button"
+		                            aria-label={formatWeightResetAria(label)}
+		                            aria-disabled={!weightControlsEnabled}
+		                            onClick={(event) => {
+		                              // Chip taps are weight-only; never toggle the row.
+		                              event.preventDefault()
+		                              event.stopPropagation()
+		                            }}
+		                            onDoubleClick={(event) => {
+		                              // Double-click reset provides a fast way back to neutral.
+		                              event.preventDefault()
+		                              event.stopPropagation()
+		                              if (!weightControlsEnabled) return
+		                              onSetTesterSubstatSortWeight(key as StatVariant, TESTER_SORT_WEIGHT_DEFAULT)
+		                            }}
+		                            style={{
+		                              border: 'none',
+		                              background: 'transparent',
+		                              padding: 0,
+		                              margin: 0,
+		                              cursor: weightControlsEnabled ? 'pointer' : 'default',
+		                              font: 'inherit',
+		                              opacity: weightControlsEnabled ? 1 : 0.35,
+		                            }}
+		                          >
+		                            <Box
+		                              component="span"
+		                              sx={(theme) => ({
+		                                display: 'inline-flex',
+		                                alignItems: 'center',
+		                                justifyContent: 'center',
+		                                height: 22,
+		                                minWidth: 56,
+		                                px: 0.75,
+		                                borderRadius: `${STATUS_CHIP_BORDER_RADIUS_PX}px`,
+		                                fontSize: theme.typography.pxToRem(13),
+		                                fontWeight: 800,
+		                                letterSpacing: 0.1,
+		                                fontVariantNumeric: 'tabular-nums',
+		                                border: `1px solid ${alpha(theme.palette.success.main, theme.palette.mode === 'dark' ? 0.7 : 0.55)}`,
+		                                backgroundColor: alpha(theme.palette.success.main, theme.palette.mode === 'dark' ? 0.16 : 0.1),
+		                                color: theme.palette.success.main,
+		                                userSelect: 'none',
+		                              })}
+		                              title={`${sortWeightLabel}: ${resolvedWeight.toFixed(2)}`}
+		                            >
+		                              {weightChipLabel}
+		                            </Box>
+		                          </Box>
+		                          <Box
+		                            component="button"
+		                            type="button"
+		                            aria-label={formatWeightIncreaseAria(label)}
+		                            aria-disabled={!weightControlsEnabled}
+		                            onPointerDown={(event) => beginWeightHold(event, key as StatVariant, 1, weightControlsEnabled)}
+		                            onPointerUp={(event) => stopWeightHold(event.currentTarget)}
+		                            onPointerLeave={(event) => stopWeightHold(event.currentTarget)}
+		                            onPointerCancel={(event) => stopWeightHold(event.currentTarget)}
+		                            onClick={(event) => { event.preventDefault(); event.stopPropagation() }}
+		                            onKeyDown={(event) => {
+		                              if (event.key !== 'Enter' && event.key !== ' ') return
+		                              event.preventDefault()
+		                              event.stopPropagation()
+		                              if (!weightControlsEnabled) return
+		                              onBumpTesterSubstatSortWeight(key as StatVariant, 1)
+		                            }}
+		                            style={{
+		                              border: 'none',
+		                              background: 'transparent',
+		                              padding: 0,
+		                              margin: 0,
+		                              cursor: weightControlsEnabled ? 'pointer' : 'default',
+		                              font: 'inherit',
+		                              opacity: weightControlsEnabled ? 1 : 0.35,
+		                            }}
+		                          >
+		                            <Box
+		                              component="span"
+		                              sx={(theme) => ({
+		                                display: 'inline-flex',
+		                                alignItems: 'center',
+		                                justifyContent: 'center',
+		                                height: 22,
+		                                minWidth: 26,
+		                                px: 0.5,
+		                                borderRadius: `${STATUS_CHIP_BORDER_RADIUS_PX}px`,
+		                                fontSize: theme.typography.pxToRem(14),
+		                                fontWeight: 800,
+		                                border: `1px solid ${alpha(theme.palette.text.secondary, theme.palette.mode === 'dark' ? 0.28 : 0.18)}`,
+		                                color: theme.palette.text.secondary,
+		                                userSelect: 'none',
+		                              })}
+		                            >
+		                              +
+		                            </Box>
+		                          </Box>
+		                        </>
+	                      ) : (
 	                        <Box
 	                          component="span"
-	                          onClick={(event) => {
-	                            // In normalized mode the badge is a selection checkmark; clicking it should mirror the row toggle.
-	                            event.preventDefault()
-	                            event.stopPropagation()
-	                            sortPopoutEasterEgg.onPriorityToggle(key, event)
-	                          }}
-	                          sx={(theme) => ({
-	                            display: 'inline-flex',
-	                            alignItems: 'center',
-                            justifyContent: 'center',
-                            height: 22,
-                            minWidth: 34,
-                            px: 0.75,
-                            borderRadius: `${STATUS_CHIP_BORDER_RADIUS_PX}px`,
-                            fontSize: theme.typography.pxToRem(14),
-                            fontWeight: 800,
-                            letterSpacing: 0.1,
-                            fontVariantNumeric: 'tabular-nums',
-                            border: `1px solid ${alpha(theme.palette.success.main, theme.palette.mode === 'dark' ? 0.7 : 0.55)}`,
-                            backgroundColor: alpha(theme.palette.success.main, theme.palette.mode === 'dark' ? 0.16 : 0.1),
-                            color: theme.palette.success.main,
-                            cursor: 'pointer',
-                          })}
-                        >
-                          ✓
-                        </Box>
-                      ) : (
-                        <Box
-                          component="span"
-                          aria-hidden
+	                          aria-hidden
                           // Show a subtle "ghost" priority badge so each row still reads as a selectable sort field,
                           // even before the user picks it (requested for Last Used + all substats).
                           sx={(theme) => ({
@@ -1001,14 +1224,14 @@ export default function PreviewHeaderActions(props: {
                             backgroundColor: 'transparent',
                             cursor: priorityDisabled ? 'default' : 'pointer',
                             opacity: priorityDisabled ? 0.35 : 1,
-                          })}
-                        />
-                      )}
-                      {showPriorityBadges ? (
-                        <MarkdownTooltip markdown={perKeyFlipped ? sortGlyphFlippedDirectionLabel : sortGlyphInheritDirectionLabel}>
-                          <Box
-                            component="button"
-                            type="button"
+	                          })}
+	                        />
+	                      )}
+		                      {showPriorityBadges ? (
+		                        <MarkdownTooltip markdown={perKeyFlipped ? sortGlyphFlippedDirectionLabel : sortGlyphInheritDirectionLabel}>
+		                          <Box
+		                            component="button"
+		                            type="button"
                             aria-label={perKeyFlipped ? sortGlyphFlippedDirectionLabel : sortGlyphInheritDirectionLabel}
                             onClick={priorityDisabled ? undefined : (event) => {
                               // Per-key direction toggles should not affect the priority selection itself.
@@ -1048,27 +1271,27 @@ export default function PreviewHeaderActions(props: {
                             </Box>
                           </Box>
                         </MarkdownTooltip>
-                      ) : (
-                        <Box
-                          component="span"
-                          aria-hidden
-                          // Render a second ghost badge slot (⇅/⇵ lives here when active) so the control column feels consistent.
-                          sx={(theme) => ({
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            height: 22,
-                            minWidth: 34,
-                            px: 0.75,
-                            borderRadius: `${STATUS_CHIP_BORDER_RADIUS_PX}px`,
-                            boxSizing: 'border-box',
-                            border: `1px solid ${alpha(theme.palette.text.secondary, theme.palette.mode === 'dark' ? 0.18 : 0.12)}`,
-                            backgroundColor: 'transparent',
-                            cursor: priorityDisabled ? 'default' : 'pointer',
-                            opacity: priorityDisabled ? 0.35 : 1,
-                          })}
-                        />
-                      )}
+	                      ) : showWeightControls ? null : (
+	                        <Box
+	                          component="span"
+	                          aria-hidden
+	                          // Render a second ghost badge slot (⇅/⇵ lives here in priority mode) so the control column feels consistent.
+	                          sx={(theme) => ({
+	                            display: 'inline-flex',
+	                            alignItems: 'center',
+	                            justifyContent: 'center',
+	                            height: 22,
+	                            minWidth: 34,
+	                            px: 0.75,
+	                            borderRadius: `${STATUS_CHIP_BORDER_RADIUS_PX}px`,
+	                            boxSizing: 'border-box',
+	                            border: `1px solid ${alpha(theme.palette.text.secondary, theme.palette.mode === 'dark' ? 0.18 : 0.12)}`,
+	                            backgroundColor: 'transparent',
+	                            cursor: priorityDisabled ? 'default' : 'pointer',
+	                            opacity: priorityDisabled ? 0.35 : 1,
+	                          })}
+	                        />
+	                      )}
                     </Box>
                   </MenuItem>
                 )
