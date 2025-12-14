@@ -107,6 +107,7 @@ export default function PreviewHeaderActions(props: {
 	  onSetTesterSubstatSortDirection: (direction: TesterSubstatSortDirection) => void
 	  onToggleTesterSubstatSortKeepSections: () => void
 	  onToggleTesterSubstatSortExcludeGlyphs: () => void
+	  onToggleTesterSubstatSortNormalized: () => void
 	  onToggleTesterSubstatSortPriority: (key: TesterSortKey) => void
 	  onToggleTesterSubstatSortPriorityFlipped: (key: TesterSortKey) => void
 	  gearDbCommandError?: string | null
@@ -158,6 +159,7 @@ export default function PreviewHeaderActions(props: {
 	    onSetTesterSubstatSortDirection,
 	    onToggleTesterSubstatSortKeepSections,
 	    onToggleTesterSubstatSortExcludeGlyphs,
+	    onToggleTesterSubstatSortNormalized,
 	    onToggleTesterSubstatSortPriority,
 	    onToggleTesterSubstatSortPriorityFlipped,
 	    testerBuilding = false,
@@ -237,7 +239,11 @@ export default function PreviewHeaderActions(props: {
   const sortClearLabel = t('testerSortClear')
   const sortDirectionLabel = t('testerSortDirection')
   const sortKeepSectionsLabel = t('testerSortKeepSections')
-	  const sortExcludeGlyphsLabel = t('testerSortExcludeGlyphs')
+	  const sortGlyphsLabel = t('testerSortGlyphsLabel')
+	  const sortGlyphsExcludeLabel = t('testerSortGlyphsExclude')
+	  const sortGlyphsIncludeLabel = t('testerSortGlyphsInclude')
+	  const sortNormalizedLabel = t('testerSortNormalized')
+	  const sortNormalizedTooltip = t('testerSortNormalizedTooltip')
 	  const sortHighToLowLabel = t('testerSortHighToLow')
 	  const sortLowToHighLabel = t('testerSortLowToHigh')
 	  const sortLastUsedLabel = t('testerLastUsedFilterLabel')
@@ -396,6 +402,14 @@ export default function PreviewHeaderActions(props: {
 	    // "Flipped" is a UI convenience: it means "sort opposite of the global direction for this key."
 	    return testerSubstatSort.flipped ?? []
 	  }, [testerSubstatSort.flipped])
+	  const sortSelectedSubstats = React.useMemo(
+	    () => sortPriorities.filter((key) => Number(key) !== TESTER_SORT_KEY_LAST_USAGE),
+	    [sortPriorities],
+	  )
+	  const sortControlsDisabled = sortPriorities.length === 0
+	  const sortNormalizedAllowed = sortSelectedSubstats.length > 1
+	  const sortNormalizedEnabled = Boolean(testerSubstatSort.normalized)
+	  const sortNormalizedEffective = sortNormalizedEnabled && sortNormalizedAllowed
 	  const sortActive = !isRulesMode && sortPriorities.length > 0
 	  const sortLabelForKey = React.useCallback((key: TesterSortKey): string => {
 	    if (Number(key) === TESTER_SORT_KEY_LAST_USAGE) return sortLastUsedLabel
@@ -403,17 +417,19 @@ export default function PreviewHeaderActions(props: {
 	  }, [sortLastUsedLabel, t])
 	  const sortButtonLabel = React.useMemo(() => {
 	    if (isRulesMode) return sortLabel
+	    if (sortNormalizedEffective) return sortNormalizedLabel
 	    const [first] = sortPriorities
 	    if (typeof first !== 'number') return sortLabel
 	    const head = sortLabelForKey(first)
 	    return sortPriorities.length > 1 ? `${head}...` : head
-	  }, [isRulesMode, sortLabel, sortLabelForKey, sortPriorities])
+	  }, [isRulesMode, sortLabel, sortLabelForKey, sortNormalizedEffective, sortNormalizedLabel, sortPriorities])
 	  const sortSpec = React.useMemo(() => ({
 	    priorities: sortPriorities,
 	    direction: testerSubstatSort.direction,
 	    flipped: sortFlipped,
 	    excludeGlyphs: testerSubstatSort.excludeGlyphs,
-	  }), [sortFlipped, sortPriorities, testerSubstatSort.direction, testerSubstatSort.excludeGlyphs])
+	    normalized: sortNormalizedEffective,
+	  }), [sortFlipped, sortNormalizedEffective, sortPriorities, testerSubstatSort.direction, testerSubstatSort.excludeGlyphs])
   const sortStatFg = React.useCallback((variant: StatVariant) => {
     if (!useStatButtonColors) return undefined
     return substatColors?.[variant]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[variant]
@@ -850,14 +866,24 @@ export default function PreviewHeaderActions(props: {
                 const fg = Number(key) === TESTER_SORT_KEY_LAST_USAGE ? undefined : sortStatFg(key as StatVariant)
                 const active = idx >= 0
                 const perKeyFlipped = sortFlipped.some((v) => Number(v) === Number(key))
-                return (
-                  <MenuItem
-                    key={key}
-                    data-tester-sort-key={Number(key)}
-                    onClick={(event) => { sortPopoutEasterEgg.onPriorityToggle(key, event) }}
-                    sx={(theme) => ({
-                      gap: 1,
-                      alignItems: 'center',
+                const priorityDisabled = sortNormalizedEffective
+                const isSyntheticKey = Number(key) === TESTER_SORT_KEY_LAST_USAGE
+                const rowDisabled = priorityDisabled && isSyntheticKey
+                const showPriorityBadges = active && !sortNormalizedEffective
+                const showNormalizedCheckmark = active && sortNormalizedEffective
+	                return (
+	                  <MenuItem
+	                    key={key}
+	                    data-tester-sort-key={Number(key)}
+	                    disabled={rowDisabled}
+	                    onClick={(event) => {
+	                      if (rowDisabled) return
+	                      sortPopoutEasterEgg.onPriorityToggle(key, event)
+	                    }}
+	                    sx={(theme) => ({
+	                      gap: 1,
+	                      alignItems: 'center',
+	                      ...(rowDisabled ? { opacity: theme.palette.action.disabledOpacity } : {}),
                       ...(active ? { backgroundColor: alpha(theme.palette.success.main, theme.palette.mode === 'dark' ? 0.12 : 0.08) } : {}),
                       '&:hover': {
                         backgroundColor: alpha(theme.palette.success.main, theme.palette.mode === 'dark' ? 0.2 : 0.12),
@@ -873,7 +899,7 @@ export default function PreviewHeaderActions(props: {
                         minWidth: 0,
                         overflow: 'hidden',
                         textOverflow: 'ellipsis',
-                        ...(active ? { fontWeight: theme.typography.fontWeightMedium ?? 600 } : {}),
+                        ...(showPriorityBadges ? { fontWeight: theme.typography.fontWeightMedium ?? 600 } : {}),
                         ...(fg ? { color: fg } : {}),
                       })}
                       data-sort-popout-text
@@ -895,10 +921,10 @@ export default function PreviewHeaderActions(props: {
                         justifyContent: 'center',
                       }}
                     >
-                      {active ? (
+                      {showPriorityBadges ? (
                         <Box
                           component="span"
-                          onClick={(event) => {
+                          onClick={priorityDisabled ? undefined : (event) => {
                             // Badge clicks should never toggle the entire row; keep the behavior explicit and predictable.
                             event.preventDefault()
                             event.stopPropagation()
@@ -920,11 +946,41 @@ export default function PreviewHeaderActions(props: {
                             border: `1px solid ${alpha(theme.palette.success.main, theme.palette.mode === 'dark' ? 0.7 : 0.55)}`,
                             backgroundColor: alpha(theme.palette.success.main, theme.palette.mode === 'dark' ? 0.16 : 0.1),
                             color: theme.palette.success.main,
-                            cursor: 'pointer',
+                            cursor: priorityDisabled ? 'default' : 'pointer',
+                            opacity: priorityDisabled ? 0.35 : 1,
                           })}
                           data-sort-popout-badge
                         >
                           {idx + 1}
+                        </Box>
+	                      ) : showNormalizedCheckmark ? (
+	                        <Box
+	                          component="span"
+	                          onClick={(event) => {
+	                            // In normalized mode the badge is a selection checkmark; clicking it should mirror the row toggle.
+	                            event.preventDefault()
+	                            event.stopPropagation()
+	                            sortPopoutEasterEgg.onPriorityToggle(key, event)
+	                          }}
+	                          sx={(theme) => ({
+	                            display: 'inline-flex',
+	                            alignItems: 'center',
+                            justifyContent: 'center',
+                            height: 22,
+                            minWidth: 34,
+                            px: 0.75,
+                            borderRadius: `${STATUS_CHIP_BORDER_RADIUS_PX}px`,
+                            fontSize: theme.typography.pxToRem(14),
+                            fontWeight: 800,
+                            letterSpacing: 0.1,
+                            fontVariantNumeric: 'tabular-nums',
+                            border: `1px solid ${alpha(theme.palette.success.main, theme.palette.mode === 'dark' ? 0.7 : 0.55)}`,
+                            backgroundColor: alpha(theme.palette.success.main, theme.palette.mode === 'dark' ? 0.16 : 0.1),
+                            color: theme.palette.success.main,
+                            cursor: 'pointer',
+                          })}
+                        >
+                          ✓
                         </Box>
                       ) : (
                         <Box
@@ -943,17 +999,18 @@ export default function PreviewHeaderActions(props: {
                             boxSizing: 'border-box',
                             border: `1px solid ${alpha(theme.palette.text.secondary, theme.palette.mode === 'dark' ? 0.22 : 0.14)}`,
                             backgroundColor: 'transparent',
-                            cursor: 'pointer',
+                            cursor: priorityDisabled ? 'default' : 'pointer',
+                            opacity: priorityDisabled ? 0.35 : 1,
                           })}
                         />
                       )}
-                      {active ? (
+                      {showPriorityBadges ? (
                         <MarkdownTooltip markdown={perKeyFlipped ? sortGlyphFlippedDirectionLabel : sortGlyphInheritDirectionLabel}>
                           <Box
                             component="button"
                             type="button"
                             aria-label={perKeyFlipped ? sortGlyphFlippedDirectionLabel : sortGlyphInheritDirectionLabel}
-                            onClick={(event) => {
+                            onClick={priorityDisabled ? undefined : (event) => {
                               // Per-key direction toggles should not affect the priority selection itself.
                               event.preventDefault()
                               event.stopPropagation()
@@ -964,8 +1021,9 @@ export default function PreviewHeaderActions(props: {
                               background: 'transparent',
                               padding: 0,
                               margin: 0,
-                              cursor: 'pointer',
+                              cursor: priorityDisabled ? 'default' : 'pointer',
                               font: 'inherit',
+                              opacity: priorityDisabled ? 0.35 : 1,
                             }}
                           >
                             <Box
@@ -1006,7 +1064,8 @@ export default function PreviewHeaderActions(props: {
                             boxSizing: 'border-box',
                             border: `1px solid ${alpha(theme.palette.text.secondary, theme.palette.mode === 'dark' ? 0.18 : 0.12)}`,
                             backgroundColor: 'transparent',
-                            cursor: 'pointer',
+                            cursor: priorityDisabled ? 'default' : 'pointer',
+                            opacity: priorityDisabled ? 0.35 : 1,
                           })}
                         />
                       )}
@@ -1016,6 +1075,7 @@ export default function PreviewHeaderActions(props: {
               })}
               <MenuItem
                 sx={{ gap: 1, alignItems: 'center' }}
+                disabled={sortControlsDisabled}
                 onClick={() => onSetTesterSubstatSortDirection(sortSpec.direction === 'desc' ? 'asc' : 'desc')}
               >
                 <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }} data-sort-popout-text>{sortDirectionLabel}</Typography>
@@ -1023,43 +1083,98 @@ export default function PreviewHeaderActions(props: {
                   size="small"
                   variant="contained"
                   color="success"
+                  disabled={sortControlsDisabled}
                   sx={{ minWidth: MENU_CONTROL_MIN_WIDTH_PX, height: MENU_CONTROL_HEIGHT_PX, minHeight: MENU_CONTROL_HEIGHT_PX, lineHeight: 1, py: 0 }}
                   onClick={(event) => {
                     event.stopPropagation()
                     onSetTesterSubstatSortDirection(sortSpec.direction === 'desc' ? 'asc' : 'desc')
                   }}
                 >
-                  {sortSpec.direction === 'desc' ? sortHighToLowLabel : sortLowToHighLabel}
-                </Button>
+	                  {sortSpec.direction === 'desc' ? sortHighToLowLabel : sortLowToHighLabel}
+	                </Button>
+	              </MenuItem>
+	              <MenuItem
+	                onClick={() => {
+	                  if (!sortNormalizedAllowed) return
+	                  onToggleTesterSubstatSortNormalized()
+                }}
+                aria-disabled={!sortNormalizedAllowed}
+                role="menuitem"
+                tabIndex={sortNormalizedAllowed ? 0 : -1}
+                onKeyDown={(event) => {
+                  if (event.key !== 'Enter' && event.key !== ' ') return
+                  if (!sortNormalizedAllowed) return
+                  event.preventDefault()
+                  onToggleTesterSubstatSortNormalized()
+                }}
+                sx={(theme) => ({
+                  gap: 1,
+                  alignItems: 'center',
+                  ...(sortNormalizedAllowed ? {} : {
+                    opacity: theme.palette.action.disabledOpacity,
+                    cursor: 'default',
+	                  }),
+	                })}
+	              >
+	                <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }} data-sort-popout-text>{sortNormalizedLabel}</Typography>
+	                <MarkdownTooltip markdown={sortNormalizedTooltip}>
+	                  <Box component="span">
+	                    <Button
+	                      size="small"
+                      variant={sortNormalizedEnabled ? 'contained' : 'outlined'}
+                      color="success"
+                      disabled={!sortNormalizedAllowed}
+                      sx={{ minWidth: MENU_CONTROL_MIN_WIDTH_PX, height: MENU_CONTROL_HEIGHT_PX, minHeight: MENU_CONTROL_HEIGHT_PX, lineHeight: 1, py: 0 }}
+                      onClick={(event) => {
+                        event.stopPropagation()
+                        if (!sortNormalizedAllowed) return
+                        onToggleTesterSubstatSortNormalized()
+                      }}
+                    >
+                      {sortNormalizedEnabled ? t('commonOn') : t('commonOff')}
+                    </Button>
+                  </Box>
+                </MarkdownTooltip>
               </MenuItem>
-              <MenuItem sx={{ gap: 1, alignItems: 'center' }} onClick={() => onToggleTesterSubstatSortKeepSections()}>
-                <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }} data-sort-popout-text>{sortKeepSectionsLabel}</Typography>
-                <Button
-                  size="small"
-                  variant={testerSubstatSort.keepSections ? 'contained' : 'outlined'}
-                  color="success"
+              <MenuItem
+                sx={{ gap: 1, alignItems: 'center' }}
+	                disabled={sortControlsDisabled}
+	                onClick={() => onToggleTesterSubstatSortKeepSections()}
+	              >
+	                <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }} data-sort-popout-text>{sortKeepSectionsLabel}</Typography>
+	                <Button
+	                  size="small"
+	                  variant={testerSubstatSort.keepSections ? 'contained' : 'outlined'}
+	                  color="success"
+                  disabled={sortControlsDisabled}
                   sx={{ minWidth: MENU_CONTROL_MIN_WIDTH_PX, height: MENU_CONTROL_HEIGHT_PX, minHeight: MENU_CONTROL_HEIGHT_PX, lineHeight: 1, py: 0 }}
                   onClick={(event) => {
                     event.stopPropagation()
                     onToggleTesterSubstatSortKeepSections()
                   }}
                 >
-                  {testerSubstatSort.keepSections ? t('commonOn') : t('commonOff')}
-                </Button>
-              </MenuItem>
-              <MenuItem sx={{ gap: 1, alignItems: 'center' }} onClick={() => onToggleTesterSubstatSortExcludeGlyphs()}>
-                <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }} data-sort-popout-text>{sortExcludeGlyphsLabel}</Typography>
-                <Button
-                  size="small"
-                  variant={testerSubstatSort.excludeGlyphs ? 'contained' : 'outlined'}
+	                  {testerSubstatSort.keepSections ? t('commonOn') : t('commonOff')}
+	                </Button>
+	              </MenuItem>
+	              <MenuItem
+	                sx={{ gap: 1, alignItems: 'center' }}
+	                disabled={sortControlsDisabled}
+	                onClick={() => onToggleTesterSubstatSortExcludeGlyphs()}
+	              >
+	                <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }} data-sort-popout-text>{sortGlyphsLabel}</Typography>
+	                <Button
+	                  size="small"
+	                  // Keep both states visually consistent; the label communicates exclude vs include.
+	                  variant="contained"
                   color="success"
+                  disabled={sortControlsDisabled}
                   sx={{ minWidth: MENU_CONTROL_MIN_WIDTH_PX, height: MENU_CONTROL_HEIGHT_PX, minHeight: MENU_CONTROL_HEIGHT_PX, lineHeight: 1, py: 0 }}
                   onClick={(event) => {
                     event.stopPropagation()
                     onToggleTesterSubstatSortExcludeGlyphs()
                   }}
                 >
-                  {testerSubstatSort.excludeGlyphs ? t('commonOn') : t('commonOff')}
+                  {testerSubstatSort.excludeGlyphs ? sortGlyphsExcludeLabel : sortGlyphsIncludeLabel}
                 </Button>
               </MenuItem>
             </Menu>
