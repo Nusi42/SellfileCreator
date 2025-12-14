@@ -8,6 +8,7 @@ import {
   type ArtifactTypeId,
 } from './types'
 import type { TesterPreviewRow } from '../types/testerPreview'
+import { normalizeSubstatByMax6 } from './substatRollNormalization'
 
 const generalSlotBucket = (slot: ArtifactTypeId): number => (isAccessorySlot(slot) ? 1 : 0)
 
@@ -114,6 +115,8 @@ export type TesterSubstatSortSpec = {
   flipped?: readonly TesterSortKey[]
   // When true, sort by the pre-glyph (base + myth) values to avoid mixing glyph upgrades into ordering.
   excludeGlyphs: boolean
+  // When true, ignore priority order and sort by the sum of normalized substat values.
+  normalized?: boolean
 }
 
 const statValueForSubstatSort = (row: TesterPreviewRow, variant: StatVariant, excludeGlyphs: boolean): number => {
@@ -147,6 +150,30 @@ export function compareTesterPreviewRowsBySubstats(
   const globalMultiplier = direction === 'asc' ? 1 : -1
   // Default to excluding glyphs so legacy callers that omit the flag behave predictably.
   const excludeGlyphs = spec.excludeGlyphs !== false
+  // Normalized sorting is a "sum score" mode: priority order and per-key flips are ignored.
+  const selectedSubstats = spec.priorities.filter((key) => Number(key) !== TESTER_SORT_KEY_LAST_USAGE)
+  const normalized = spec.normalized === true && selectedSubstats.length > 1
+
+  if (normalized) {
+    const sumScore = (row: TesterPreviewRow): number => {
+      // Sum all selected substats; missing ones are treated as 0 per statValueForSubstatSort's contract.
+      let total = 0
+      for (const variant of selectedSubstats) {
+        const key = Number(variant)
+        const raw = statValueForSubstatSort(row, key as StatVariant, excludeGlyphs)
+        total += normalizeSubstatByMax6(key as StatVariant, raw)
+      }
+      return total
+    }
+    const left = sumScore(a)
+    const right = sumScore(b)
+    if (left !== right) {
+      return (left - right) * globalMultiplier
+    }
+    // Tie-breaker intentionally uses the natural tester ordering so "Sort" stays additive.
+    return compareTesterPreviewRows(a, b)
+  }
+
   const flipped = new Set<number>((spec.flipped ?? []).map((key) => Number(key)))
   for (const variant of spec.priorities) {
     const key = Number(variant)

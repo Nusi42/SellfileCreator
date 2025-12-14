@@ -862,6 +862,7 @@ const enUS: Catalog = {
   testerSortLowToHigh: 'Low → High',
   testerSortKeepSections: 'Keep sections',
   testerSortExcludeGlyphs: 'Exclude glyphs',
+  testerSortNormalized: 'Normalized',
   configFilterOn: 'On',
   testerFilterConfigsOff: 'Off',
   testerFilterConfigsFirst: 'First',

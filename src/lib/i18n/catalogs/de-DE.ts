@@ -863,6 +863,7 @@ const overrides: Catalog = {
   testerSortLowToHigh: 'Niedrig → Hoch',
   testerSortKeepSections: 'Abschnitte beibehalten',
   testerSortExcludeGlyphs: 'Glyphen ausschließen',
+  testerSortNormalized: 'Normalized',
   configFilterOn: 'An',
   testerFilterConfigsOff: 'Aus',
   testerFilterConfigsFirst: 'Erste',

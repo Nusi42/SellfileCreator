@@ -863,6 +863,7 @@ const catalog: Catalog = {
   testerSortLowToHigh: 'Menor → Maior',
   testerSortKeepSections: 'Manter seções',
   testerSortExcludeGlyphs: 'Excluir glifos',
+  testerSortNormalized: 'Normalized',
   configFilterOn: 'Ligado',
   testerFilterConfigsOff: 'Desligado',
   testerFilterConfigsFirst: 'Primeira',
