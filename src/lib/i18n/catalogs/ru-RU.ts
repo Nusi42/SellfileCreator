@@ -74,6 +74,16 @@ const overrides: Catalog = {
   testerTableEmptyFilter: 'Нет записей, подходящих текущим фильтрам тестера.',
   testerGridScrollHint: '{group} • {detail}',
   testerGridCompactGroup: 'Сжать текущую группу',
+  testerGridNormalizedLabel: 'Показывать рейтинг подстатов',
+  testerGridNormalizedTooltip: '**Показывать рейтинг подстатов** накладывает тот же нормализованный счёт, что используется в сортировке **Normalized**:\n\n- **Счёт = взвешенная сумма** выбранных подстатов.\n- У каждого выбранного подстата есть **вес** (`0.1–3.0`, по умолчанию `1.0`).\n- Каждый выбранный подстат масштабируется по своему **6★-капу ролла**: `значение / кап`.\n- Если у предмета нет выбранного подстата, он даёт **0**.\n- Если выбрано несколько пресетов, рейтинг использует **лучший (max)** счёт среди них (не среднее).\n- **Учитываются только подстаты**. Сет, слот, ранг, редкость и главный стат игнорируются.\n\nЦвет оверлея относителен текущему виду: **красный = ниже**, **зелёный = выше**.',
+  testerGridNormalizedPresetTitle: 'Нормализованный пресет {n}',
+  testerGridNormalizedPresetHelp: 'Выберите подстаты; настройте веса, чтобы сместить нормализованную сумму.',
+  testerGridNormalizedPresetGlyphLabel: 'Иконка',
+  testerGridNormalizedPresetGlyphPickerAria: 'Выбрать иконку пресета',
+  testerGridNormalizedPresetReset: 'Сбросить пресет',
+  testerNormalizedPresetTooltipEmpty: 'Подстаты не выбраны.',
+  testerNormalizedPresetTooltipRightClickHint: '_Правый клик, чтобы отредактировать этот пресет._',
+  testerGridNormalizedSortSourceTooltip: '**Источник сортировки** использует текущий источник **Normalized** для оверлея.\n\n- Он **несовместим** с выбором пресетов здесь.\n- Если Normalized использует несколько источников, оверлей берёт **лучший (max)** счёт.',
   gearDialogLevelLabel: 'Ур. {level}',
   testerMainStatInline: '{stat} {value}',
   testerSubstatsNone: 'Без подстатов',
@@ -227,7 +237,7 @@ const overrides: Catalog = {
   keepUniquesCountModePerFaction: 'По фракции',
   keepUniquesCountModePerMain: 'По осн. стату',
   keepUniquesCountModePerRule: 'По правилу',
-  // Tooltip mirrors the README examples so users see the same scenarios we use to explain the chip layout.
+  // Tooltip mirrors the README examples so users see the same scenarios we use to explain the scope chips.
   keepUniquesCountModeHint: '**Чипы области**\n- `По правилу`: один общий пул (например, держим ≥5 [[stat:statSPD]]-ботинок вне зависимости от набора).\n- `По слоту`: отдельная квота на каждый слот (кольца/амулеты/знамена не конкурируют).\n- `По набору`: умножает квоту на каждый выбранный сет/метасет (Stoneskin vs Protection).\n- `По фракции`: умножает квоту на каждую фракцию (≥3 кольца Merciless на фракцию).\n- `По осн. стату`: умножает квоту на каждый основной стат (разделяем ACC и RES для баннеров).\nЧипы расположены под всеми селекторами, кроме Ранга и Редкости. Комбинируйте их свободно; отключите все — и правило вернётся в режим «По правилу» (один общий пул).',
   keepUniquesCountModeHintLabel: 'Открыть помощь по области квоты',
   keepUniquesNoRules: 'Правила сохранения ещё не добавлены.',
@@ -866,7 +876,13 @@ const overrides: Catalog = {
   testerSortGlyphsExclude: 'Исключить',
   testerSortGlyphsInclude: 'Включить',
   testerSortNormalized: 'Нормализовано',
-  testerSortNormalizedTooltip: '**Normalized** игнорирует порядок приоритетов и сортирует по единому счёту:\n\n- **Счёт = взвешенная сумма** выбранных подстатов.\n- У каждого выбранного подстата есть **вес** (`0.1–3.0`, по умолчанию `1.0`).\n- Каждый выбранный подстат масштабируется по своему **6★-капу ролла**: `значение / кап`.\n- Если у предмета нет выбранного подстата, он даёт **0**.\n- `Last Used` игнорируется, пока Normalized включён.\n\n**Пример (выбрано: [[stat:statSPD]] + [[stat:statCR]] + [[stat:statCDMG]])**\n`(n)` показывает **количество улучшений (upgrade rolls)** в этот подстат.\n\n- Item A: `[[stat:statSPD]] 11 (1)`, `[[stat:statCR]] 20 (3)`, `[[stat:statCDMG]] 7 (0)`\n  - У [[stat:statCR]] **плохой тройной ролл**: `5 + 3×5 = 20`\n  - Счёт = `11/6 + 20/7 + 7/7 = 1.83 + 2.86 + 1.00 = 5.69`\n- Item B: `[[stat:statSPD]] 10 (1)`, `[[stat:statCR]] 21 (2)`, `[[stat:statCDMG]] 12 (1)`\n  - У [[stat:statCR]] **хороший двойной ролл**: `7 + 2×7 = 21`\n  - Счёт = `10/6 + 21/7 + 12/7 = 1.67 + 3.00 + 1.71 = 6.38`\n\nДаже при меньшем числе роллов в [[stat:statCR]] предмет B может быть выше, потому что роллы качественнее — и счёт также учитывает другие выбранные статы.',
+  testerSortNormalizedTooltip: '**Normalized** игнорирует порядок приоритетов и сортирует по единому счёту:\n\n- **Счёт = взвешенная сумма** выбранных подстатов.\n- У каждого выбранного подстата есть **вес** (`0.1–3.0`, по умолчанию `1.0`).\n- Каждый выбранный подстат масштабируется по своему **6★-капу ролла**: `значение / кап`.\n- Если выбрано несколько пресетов, сортировка берёт **лучший (max)** счёт среди них (не среднее).\n- **Учитываются только подстаты**. Сет, слот, ранг, редкость и главный стат игнорируются.\n- Если у предмета нет выбранного подстата, он даёт **0**.\n- `Last Used` игнорируется, пока Normalized включён.\n\n**Пример (выбрано: [[stat:statSPD]] + [[stat:statCR]] + [[stat:statCDMG]])**\n`(n)` показывает **количество улучшений (upgrade rolls)** в этот подстат.\n\n- Item A: `[[stat:statSPD]] 11 (1)`, `[[stat:statCR]] 20 (3)`, `[[stat:statCDMG]] 7 (0)`\n  - У [[stat:statCR]] **плохой тройной ролл**: `5 + 3×5 = 20`\n  - Счёт = `11/6 + 20/7 + 7/7 = 1.83 + 2.86 + 1.00 = 5.69`\n- Item B: `[[stat:statSPD]] 10 (1)`, `[[stat:statCR]] 21 (2)`, `[[stat:statCDMG]] 12 (1)`\n  - У [[stat:statCR]] **хороший двойной ролл**: `7 + 2×7 = 21`\n  - Счёт = `10/6 + 21/7 + 12/7 = 1.67 + 3.00 + 1.71 = 6.38`\n\nДаже при меньшем числе роллов в [[stat:statCR]] предмет B может быть выше, потому что роллы качественнее — и счёт также учитывает другие выбранные статы.',
+  testerSortNormalizedUseActive: 'Активный',
+  testerSortNormalizedUseActiveTooltip: '**Активный** использует выбор пресетов в сетке тестера (**Показывать рейтинг подстатов**) как источник нормализованного счёта.\n\n- Если в сетке включено несколько пресетов, сортировка берёт **лучший (max)** счёт.\n- Отключено, когда оверлей сетки установлен на **Источник сортировки**, чтобы избежать циклического счёта.',
+  testerSortNormalizedSourcesLabel: 'Источники',
+  testerSortNormalizedSourceCustomLabel: 'Пользовательские веса',
+  testerSortNormalizedPresetActionsEdit: 'Редактировать пресет',
+  testerSortNormalizedPresetActionsOverwrite: 'Перезаписать из текущего',
   testerSortWeight: 'Вес',
   testerSortWeightIncreaseAria: 'Увеличить вес {label}',
   testerSortWeightDecreaseAria: 'Уменьшить вес {label}',
@@ -936,6 +952,8 @@ const overrides: Catalog = {
   restoreAutosaveNoteHelper: 'Загрузить автосохранённую копию.',
   restoreAutosaveFiltersLabel: 'Панель фильтров',
   restoreAutosaveFiltersHelper: 'Восстанавливает состояние открытия, чипы и свёрнутые секции.',
+  restoreAutosaveSortLabel: 'Сортировка тестера',
+  restoreAutosaveSortHelper: 'Восстанавливает приоритеты подстатов, режим Normalized, источники и веса.',
   restoreAutosaveTesterLabel: 'Очередь тестера ({count})',
   restoreAutosaveTesterHelper: 'Загрузить автосохранённое снаряжение.',
   restoreAutosaveGearSetsLabel: 'Пользовательские сеты ({count})',
@@ -943,6 +961,7 @@ const overrides: Catalog = {
   restoreAutosaveRestoreSelected: 'Восстановить выбранное',
   yes: 'Да',
   no: 'Нет',
+  save: 'Сохранить',
 
   // Help dialog
   helpAriaLabel: 'Помощь / README',
@@ -1254,3 +1273,4 @@ const overrides: Catalog = {
 }
 
 export default overrides
+

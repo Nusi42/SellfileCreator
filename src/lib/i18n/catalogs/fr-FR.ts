@@ -74,6 +74,16 @@ const overrides: Catalog = {
   testerTableEmptyFilter: 'Aucune entrée du testeur ne correspond aux filtres actuels.',
   testerGridScrollHint: '{group} • {detail}',
   testerGridCompactGroup: 'Compacter le groupe actuel',
+  testerGridNormalizedLabel: 'Afficher la note des sous-stats',
+  testerGridNormalizedTooltip: '**Afficher la note des sous-stats** superpose le même score normalisé utilisé par **Normalized** :\n\n- **Score = somme pondérée** des sous-stats sélectionnés.\n- Chaque sous-stat sélectionné a un **poids** (`0.1–3.0`, par défaut `1.0`).\n- Chaque sous-stat sélectionné est mis à l’échelle via son **cap de roll 6★** : `valeur / cap`.\n- Si un objet n’a pas une sous-stat sélectionnée, elle contribue **0**.\n- Si plusieurs préréglages sont sélectionnés, la note utilise le **meilleur (max)** score (pas une moyenne).\n- **Seules les sous-stats comptent**. Le set, l’emplacement, le rang, la rareté et la stat principale sont ignorés.\n\nLa couleur de l’overlay est relative à la vue actuelle : **rouge = plus faible**, **vert = plus élevé**.',
+  testerGridNormalizedPresetTitle: 'Préréglage normalisé {n}',
+  testerGridNormalizedPresetHelp: 'Sélectionnez les sous-stats à inclure ; ajustez les poids pour biaiser la somme normalisée.',
+  testerGridNormalizedPresetGlyphLabel: 'Icône',
+  testerGridNormalizedPresetGlyphPickerAria: 'Sélectionner l’icône du préréglage',
+  testerGridNormalizedPresetReset: 'Réinitialiser le préréglage',
+  testerNormalizedPresetTooltipEmpty: 'Aucune sous-stat sélectionnée.',
+  testerNormalizedPresetTooltipRightClickHint: '_Clic droit pour modifier ce préréglage._',
+  testerGridNormalizedSortSourceTooltip: '**Source de tri** utilise la source de tri **Normalized** actuelle pour l’overlay.\n\n- C’est **exclusif** avec la sélection de préréglages ici.\n- Si Normalized utilise plusieurs sources, l’overlay utilise le **meilleur (max)** score.',
   gearDialogLevelLabel: 'Niv {level}',
   testerMainStatInline: '{stat} {value}',
   testerSubstatsNone: 'Aucune sous-stat',
@@ -227,7 +237,7 @@ const overrides: Catalog = {
   keepUniquesCountModePerFaction: 'Par faction',
   keepUniquesCountModePerMain: 'Par stat principale',
   keepUniquesCountModePerRule: 'Par règle',
-  // Tooltip mirrors the README examples so users see the same scenarios we use to explain the chip layout.
+  // Tooltip mirrors the README examples so users see the same scenarios we use to explain the scope chips.
   keepUniquesCountModeHint: '**Puces de portée**\n- `Par règle` : un pool commun pour toute la carte (ex. Bottes [[stat:statSPD]] ≥5 quel que soit le set).\n- `Par emplacement` : duplique la quote-part par slot (Anneaux, Amulettes, Bannières séparées).\n- `Par ensemble` : duplique la quote-part par ensemble/méta-ensemble (Stoneskin vs Protection).\n- `Par faction` : duplique la quote-part par faction (≥3 Anneaux Merciless par faction).\n- `Par stat principale` : duplique la quote-part par stat principale (séparer [[stat:statACC]] et [[stat:statRES_percent]] pour les bannières).\nLes puces se trouvent juste sous tous les sélecteurs sauf Rang et Rareté. Combinez-les librement ; si vous les désactivez toutes, la règle revient à `Par règle` (pool partagé).',
   keepUniquesCountModeHintLabel: 'Ouvrir l’aide de la portée du quota',
   keepUniquesNoRules: 'Aucune règle de conservation pour le moment.',
@@ -866,7 +876,13 @@ const overrides: Catalog = {
   testerSortGlyphsExclude: 'Exclure',
   testerSortGlyphsInclude: 'Inclure',
   testerSortNormalized: 'Normalisé',
-  testerSortNormalizedTooltip: '**Normalized** ignore l’ordre des priorités et classe selon un score unique :\n\n- **Score = somme pondérée** des sous-stats sélectionnés.\n- Chaque sous-stat sélectionné a un **poids** (`0.1–3.0`, par défaut `1.0`).\n- Chaque sous-stat sélectionné est mis à l’échelle via son **cap de roll 6★** : `valeur / cap`.\n- Si un item n’a pas un sous-stat sélectionné, il contribue **0**.\n- `Last Used` est ignoré tant que Normalized est activé.\n\n**Exemple (sélection : [[stat:statSPD]] + [[stat:statCR]] + [[stat:statCDMG]])**\n`(n)` indique le **nombre de rolls d’amélioration** sur ce sous-stat.\n\n- Item A : `[[stat:statSPD]] 11 (1)`, `[[stat:statCR]] 20 (3)`, `[[stat:statCDMG]] 7 (0)`\n  - [[stat:statCR]] a un **triple mauvais** : `5 + 3×5 = 20`\n  - Score = `11/6 + 20/7 + 7/7 = 1.83 + 2.86 + 1.00 = 5.69`\n- Item B : `[[stat:statSPD]] 10 (1)`, `[[stat:statCR]] 21 (2)`, `[[stat:statCDMG]] 12 (1)`\n  - [[stat:statCR]] a un **double bon** : `7 + 2×7 = 21`\n  - Score = `10/6 + 21/7 + 12/7 = 1.67 + 3.00 + 1.71 = 6.38`\n\nMême avec moins de rolls en [[stat:statCR]], l’item B peut être mieux classé parce que les rolls sont de meilleure qualité — et le score tient aussi compte des autres stats sélectionnées.',
+  testerSortNormalizedTooltip: '**Normalized** ignore l’ordre des priorités et classe selon un score unique :\n\n- **Score = somme pondérée** des sous-stats sélectionnés.\n- Chaque sous-stat sélectionné a un **poids** (`0.1–3.0`, par défaut `1.0`).\n- Chaque sous-stat sélectionné est mis à l’échelle via son **cap de roll 6★** : `valeur / cap`.\n- Si plusieurs préréglages sont sélectionnés, le tri utilise le **meilleur (max)** score (pas une moyenne).\n- **Seules les sous-stats comptent**. Le set, l’emplacement, le rang, la rareté et la stat principale sont ignorés.\n- Si un item n’a pas un sous-stat sélectionné, il contribue **0**.\n- `Last Used` est ignoré tant que Normalized est activé.\n\n**Exemple (sélection : [[stat:statSPD]] + [[stat:statCR]] + [[stat:statCDMG]])**\n`(n)` indique le **nombre de rolls d’amélioration** sur ce sous-stat.\n\n- Item A : `[[stat:statSPD]] 11 (1)`, `[[stat:statCR]] 20 (3)`, `[[stat:statCDMG]] 7 (0)`\n  - [[stat:statCR]] a un **triple mauvais** : `5 + 3×5 = 20`\n  - Score = `11/6 + 20/7 + 7/7 = 1.83 + 2.86 + 1.00 = 5.69`\n- Item B : `[[stat:statSPD]] 10 (1)`, `[[stat:statCR]] 21 (2)`, `[[stat:statCDMG]] 12 (1)`\n  - [[stat:statCR]] a un **double bon** : `7 + 2×7 = 21`\n  - Score = `10/6 + 21/7 + 12/7 = 1.67 + 3.00 + 1.71 = 6.38`\n\nMême avec moins de rolls en [[stat:statCR]], l’item B peut être mieux classé parce que les rolls sont de meilleure qualité — et le score tient aussi compte des autres stats sélectionnées.',
+  testerSortNormalizedUseActive: 'Actif',
+  testerSortNormalizedUseActiveTooltip: '**Actif** utilise la sélection de préréglages de la grille du Testeur (**Afficher la note des sous-stats**) comme source de scoring normalisé.\n\n- Si plusieurs préréglages sont activés dans la grille, le tri utilise le **meilleur (max)** score.\n- Désactivé lorsque l’overlay de la grille est réglé sur **Source de tri** pour éviter une boucle de score.',
+  testerSortNormalizedSourcesLabel: 'Sources',
+  testerSortNormalizedSourceCustomLabel: 'Poids personnalisés',
+  testerSortNormalizedPresetActionsEdit: 'Modifier le préréglage',
+  testerSortNormalizedPresetActionsOverwrite: 'Écraser depuis l’actuel',
   testerSortWeight: 'Poids',
   testerSortWeightIncreaseAria: 'Augmenter le poids de {label}',
   testerSortWeightDecreaseAria: 'Diminuer le poids de {label}',
@@ -936,6 +952,8 @@ const overrides: Catalog = {
   restoreAutosaveNoteHelper: 'Charger la copie auto‑sauvegardée.',
   restoreAutosaveFiltersLabel: 'Panneau de filtres',
   restoreAutosaveFiltersHelper: 'Restaure l’état ouvert, les puces et les sections réduites.',
+  restoreAutosaveSortLabel: 'Tri du Testeur de règles',
+  restoreAutosaveSortHelper: 'Restaure les priorités de sous-stats, le mode Normalized, les sources et les poids.',
   restoreAutosaveTesterLabel: 'Importations du testeur ({count})',
   restoreAutosaveTesterHelper: 'Charger l’équipement auto‑sauvegardé.',
   restoreAutosaveGearSetsLabel: 'Sets personnalisés ({count})',
@@ -943,6 +961,7 @@ const overrides: Catalog = {
   restoreAutosaveRestoreSelected: 'Restaurer la sélection',
   yes: 'Oui',
   no: 'Non',
+  save: 'Enregistrer',
 
   // Help dialog
   helpAriaLabel: 'Aide / README',
@@ -1254,3 +1273,4 @@ const overrides: Catalog = {
 }
 
 export default overrides
+

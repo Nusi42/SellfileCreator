@@ -237,6 +237,7 @@ const enUS: Catalog = {
   keepUniquesCountModePerFaction: 'Per faction',
   keepUniquesCountModePerMain: 'Per main stat',
   keepUniquesCountModePerRule: 'Per rule',
+  // Tooltip mirrors the README examples so users see the same scenarios we use to explain the scope chips.
   keepUniquesCountModeHint: '**Scope chips**\n- `Per rule`: One shared pool for every drop that matches the card (e.g., keep ≥5 [[stat:statSPD]] boots regardless of set).\n- `Per slot`: Duplicate the quota per slot (rings vs amulets vs banners).\n- `Per set`: Break the pool out per set/metaset (track Stoneskin vs Protection drops independently).\n- `Per faction`: Break the pool out per faction (guarantee ≥3 Merciless rings for every faction).\n- `Per main stat`: Break the pool out per selected main stat (split quotas between [[stat:statACC]] and [[stat:statRES_percent]] banners).\nScope chips sit directly under every picker except Rank and Rarity. Mix any combination to split the quota; clearing all of them falls back to `Per rule` (one shared pool).',
   keepUniquesCountModeHintLabel: 'Open quota scope help',
   keepUniquesNoRules: 'No keep rules yet.',
