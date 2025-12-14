@@ -13,6 +13,7 @@ import MarkdownTooltip from './MarkdownTooltip'
 interface ContextMenuPaperProps extends PaperProps {
   onRequestClose: () => void
   closeLabel: string
+  overlay?: React.ReactNode
 }
 
 const basePaperSx: SxProps<Theme> = {
@@ -71,7 +72,7 @@ const closeButtonSx: SxProps<Theme> = (theme) => {
  * manage absolute positioning or spacing individually.
  */
 const ContextMenuPaper = React.forwardRef<HTMLDivElement, ContextMenuPaperProps>(function ContextMenuPaper(
-  { onRequestClose, closeLabel, children, sx, ...paperProps },
+  { onRequestClose, closeLabel, overlay, children, sx, ...paperProps },
   ref,
 ) {
   const mergedSx = React.useMemo<SxProps<Theme>>(() => {
@@ -103,6 +104,7 @@ const ContextMenuPaper = React.forwardRef<HTMLDivElement, ContextMenuPaperProps>
     <Paper {...paperProps} ref={ref} sx={mergedSx}>
       {/* Using MarkdownTooltip keeps the close button hover text consistent with every other tooltip upgrade. */}
       <MarkdownTooltip markdown={closeLabel}>{closeButton}</MarkdownTooltip>
+      {overlay}
       {children}
     </Paper>
   )

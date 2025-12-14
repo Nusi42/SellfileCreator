@@ -42,6 +42,8 @@ import type { TesterSubstatSortState } from '../state/testerSubstatSortPreferenc
 import type { SubstatColorMap } from '../lib/renderColoredStatText'
 import type { FilterPreset } from '../state/filterPresetsPreference'
 import { formatLocalDateTime } from '../lib/dateDisplay'
+import { useTesterSortPopoutEasterEgg } from '../hooks/useTesterSortPopoutEasterEgg'
+import TesterSortPopoutEasterEggOverlay from './TesterSortPopoutEasterEggOverlay'
 
 
 type ProgressChipProps = {
@@ -432,6 +434,12 @@ export default function PreviewHeaderActions(props: {
   }, [closeSortMenu, isRulesMode, sortMenuOpen])
 
   const SORT_BUTTON_WIDTH_PX = 92
+  const sortPopoutEasterEgg = useTesterSortPopoutEasterEgg({
+    // Keep the “punishment” scoped to the open Sort popout so we don’t animate hidden nodes.
+    enabled: sortMenuOpen,
+    getPaperEl: () => sortMenuPaperRef.current,
+    onTogglePriority: onToggleTesterSubstatSortPriority,
+  })
   // Keep clear icons from shifting layout when they appear/disappear.
   const HEADER_CLEAR_PLACEHOLDER_SX = {
     width: CLEAR_ICON_BUTTON_SIZE_PX,
@@ -820,6 +828,13 @@ export default function PreviewHeaderActions(props: {
                   component: ContextMenuPaper,
                   onRequestClose: closeSortMenu,
                   closeLabel: t('close'),
+                  overlay: (
+                    <TesterSortPopoutEasterEggOverlay
+                      state={sortPopoutEasterEgg.overlay}
+                      onMicroConfirmYep={sortPopoutEasterEgg.microConfirmToggle}
+                      onMicroConfirmStop={sortPopoutEasterEgg.forceExit}
+                    />
+                  ),
                   ref: sortMenuPaperRef,
                   sx: { width: 320, maxWidth: 'calc(100vw - 32px)', px: 0, py: 0 },
                 } as unknown as MuiPaperProps,
@@ -838,7 +853,8 @@ export default function PreviewHeaderActions(props: {
                 return (
                   <MenuItem
                     key={key}
-                    onClick={() => onToggleTesterSubstatSortPriority(key)}
+                    data-tester-sort-key={Number(key)}
+                    onClick={(event) => { sortPopoutEasterEgg.onPriorityToggle(key, event) }}
                     sx={(theme) => ({
                       gap: 1,
                       alignItems: 'center',
@@ -860,6 +876,7 @@ export default function PreviewHeaderActions(props: {
                         ...(active ? { fontWeight: theme.typography.fontWeightMedium ?? 600 } : {}),
                         ...(fg ? { color: fg } : {}),
                       })}
+                      data-sort-popout-text
                     >
                       {label}
                     </Typography>
@@ -885,7 +902,7 @@ export default function PreviewHeaderActions(props: {
                             // Badge clicks should never toggle the entire row; keep the behavior explicit and predictable.
                             event.preventDefault()
                             event.stopPropagation()
-                            onToggleTesterSubstatSortPriority(key)
+                            sortPopoutEasterEgg.onPriorityToggle(key, event)
                           }}
                           sx={(theme) => ({
                             display: 'inline-flex',
@@ -905,6 +922,7 @@ export default function PreviewHeaderActions(props: {
                             color: theme.palette.success.main,
                             cursor: 'pointer',
                           })}
+                          data-sort-popout-badge
                         >
                           {idx + 1}
                         </Box>
@@ -1000,7 +1018,7 @@ export default function PreviewHeaderActions(props: {
                 sx={{ gap: 1, alignItems: 'center' }}
                 onClick={() => onSetTesterSubstatSortDirection(sortSpec.direction === 'desc' ? 'asc' : 'desc')}
               >
-                <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>{sortDirectionLabel}</Typography>
+                <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }} data-sort-popout-text>{sortDirectionLabel}</Typography>
                 <Button
                   size="small"
                   variant="contained"
@@ -1015,7 +1033,7 @@ export default function PreviewHeaderActions(props: {
                 </Button>
               </MenuItem>
               <MenuItem sx={{ gap: 1, alignItems: 'center' }} onClick={() => onToggleTesterSubstatSortKeepSections()}>
-                <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>{sortKeepSectionsLabel}</Typography>
+                <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }} data-sort-popout-text>{sortKeepSectionsLabel}</Typography>
                 <Button
                   size="small"
                   variant={testerSubstatSort.keepSections ? 'contained' : 'outlined'}
@@ -1030,7 +1048,7 @@ export default function PreviewHeaderActions(props: {
                 </Button>
               </MenuItem>
               <MenuItem sx={{ gap: 1, alignItems: 'center' }} onClick={() => onToggleTesterSubstatSortExcludeGlyphs()}>
-                <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>{sortExcludeGlyphsLabel}</Typography>
+                <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }} data-sort-popout-text>{sortExcludeGlyphsLabel}</Typography>
                 <Button
                   size="small"
                   variant={testerSubstatSort.excludeGlyphs ? 'contained' : 'outlined'}
