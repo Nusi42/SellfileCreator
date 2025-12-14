@@ -23,6 +23,7 @@ import BuildOutlinedIcon from '@mui/icons-material/BuildOutlined'
 import Inventory2OutlinedIcon from '@mui/icons-material/Inventory2Outlined'
 import MailOutlineIcon from '@mui/icons-material/MailOutline'
 import PersonOutlineIcon from '@mui/icons-material/PersonOutline'
+import SortIcon from '@mui/icons-material/Sort'
 import { useI18n } from '../lib/i18n'
 import type { TesterPreviewRow } from '../types/testerPreview'
 import { SetIcon } from './SetIcon'
@@ -64,6 +65,7 @@ import ContextMenuPaper from './ContextMenuPaper'
 import { ContextMenuHintOverlay } from './ContextMenuHintOverlay'
 import { useContextMenuHint } from '../hooks/useContextMenuHint'
 import GridIconBox from './GridIconBox'
+import { buildTesterNormalizedPresetTooltipMarkdown, formatTesterNormalizedPresetButtonLabel } from '../lib/testerNormalizedPresets'
 import {
   ACCESSORY_NO_SET_ID,
   MENU_CONTROL_HEIGHT_PX,
@@ -81,7 +83,19 @@ import { useContextMenuCloseOnOutsideRightClick } from '../hooks/useContextMenuC
 import { useTesterGridPreferences } from '../state/testerGridPreferences'
 import { championIconUrl } from '../lib/iconMaps/championIconMap'
 import EmptyStateMessage, { type EmptyStateMessageProps } from './EmptyStateMessage'
-import { sortTesterRowsBySubstats, type TesterSubstatSortSpec } from '../lib/testerSort'
+import {
+  computeTesterNormalizedSubstatScore,
+  sortTesterRowsBySubstats,
+  TESTER_SORT_KEY_LAST_USAGE,
+  type TesterSubstatSortSpec,
+} from '../lib/testerSort'
+import { TESTER_NORMALIZED_PRESET_COUNT } from '../lib/testerNormalizedPresets'
+import type { TesterSubstatSortState } from '../state/testerSubstatSortPreferences'
+import {
+  type TesterGridNormalizedPresetId,
+  useTesterGridNormalizedOverlayPreferences,
+} from '../state/testerGridNormalizedOverlayPreferences'
+import { TesterNormalizedPresetEditorMenu } from './TesterNormalizedPresetEditorMenu'
 
 type EmptyStateWrapperProps = Omit<EmptyStateMessageProps, 'children'>
 
@@ -118,6 +132,69 @@ const ACCORDION_BORDER_RADIUS_PX = 8
 const GRID_GROUP_VIRTUAL_OVERSCAN_ROWS = 2
 // Penalize off-screen rows so the reveal queue prefers on-screen cards even while overscanning nested accordions.
 const GRID_CARD_OFFSCREEN_PRIORITY_PENALTY = 1_000_000
+
+type Rgb = { r: number; g: number; b: number }
+
+const clamp01 = (value: number): number => (
+  // Clamp ratios so invalid min/max inputs cannot generate invalid CSS colors.
+  Math.max(0, Math.min(1, value))
+)
+
+const parseHexChannel = (value: string): number => {
+  // Hex parsing is tolerant of invalid inputs; callers treat NaN as "parse failed".
+  const parsed = Number.parseInt(value, 16)
+  return Number.isFinite(parsed) ? parsed : Number.NaN
+}
+
+const parseCssColorToRgb = (color: string): Rgb | null => {
+  // Theme palette values are usually hex, but may be rgb()/rgba(); normalize both.
+  const raw = String(color).trim()
+  if (!raw) return null
+  if (raw.startsWith('#')) {
+    const hex = raw.slice(1)
+    if (hex.length === 3) {
+      // `charAt` returns '' for out-of-range, so we never build "undefinedundefined" strings.
+      const rNibble = hex.charAt(0)
+      const gNibble = hex.charAt(1)
+      const bNibble = hex.charAt(2)
+      const r = parseHexChannel(rNibble + rNibble)
+      const g = parseHexChannel(gNibble + gNibble)
+      const b = parseHexChannel(bNibble + bNibble)
+      if (!Number.isFinite(r) || !Number.isFinite(g) || !Number.isFinite(b)) return null
+      return { r, g, b }
+    }
+    if (hex.length === 6) {
+      const r = parseHexChannel(hex.slice(0, 2))
+      const g = parseHexChannel(hex.slice(2, 4))
+      const b = parseHexChannel(hex.slice(4, 6))
+      if (!Number.isFinite(r) || !Number.isFinite(g) || !Number.isFinite(b)) return null
+      return { r, g, b }
+    }
+    return null
+  }
+  const rgbMatch = raw.match(/^rgba?\(\s*([0-9.]+)\s*,\s*([0-9.]+)\s*,\s*([0-9.]+)(?:\s*,\s*([0-9.]+))?\s*\)$/i)
+  if (!rgbMatch) return null
+  const r = Number(rgbMatch[1])
+  const g = Number(rgbMatch[2])
+  const b = Number(rgbMatch[3])
+  if (!Number.isFinite(r) || !Number.isFinite(g) || !Number.isFinite(b)) return null
+  return { r: Math.max(0, Math.min(255, r)), g: Math.max(0, Math.min(255, g)), b: Math.max(0, Math.min(255, b)) }
+}
+
+const mixRgb = (low: Rgb, high: Rgb, ratio: number): Rgb => {
+  // Linear interpolation keeps the red→green gradient predictable and cheap to compute.
+  const t = clamp01(ratio)
+  const lerp = (a: number, b: number) => a + ((b - a) * t)
+  return { r: lerp(low.r, high.r), g: lerp(low.g, high.g), b: lerp(low.b, high.b) }
+}
+
+const rgbToCss = (rgb: Rgb): string => {
+  // Round to integers so the output stays stable between renders.
+  const r = Math.round(Math.max(0, Math.min(255, rgb.r)))
+  const g = Math.round(Math.max(0, Math.min(255, rgb.g)))
+  const b = Math.round(Math.max(0, Math.min(255, rgb.b)))
+  return `rgb(${r}, ${g}, ${b})`
+}
 // Keep the reveal queue short by pruning rows that are multiple viewports away; scrolling back to them re-enqueues a fresh task.
 const GRID_CARD_REVEAL_MAX_OFFSCREEN_DISTANCE_PX = 4_000
 const GRID_CARD_REVEAL_FAST_BATCH_THRESHOLD = 50
@@ -205,6 +282,8 @@ type TesterItemsGridProps = {
   dimUnhighlightedRows?: boolean
   // Optional Rule Tester sort controls; view-only ordering that does not affect exports.
   substatSort?: TesterSubstatSortSpec | null
+  // Full sort preference state so the grid can gate the [S] overlay option.
+  sortState?: TesterSubstatSortState | null
   keepSections?: boolean
 }
 
@@ -257,6 +336,7 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     highlightedRowPredicate = null,
     dimUnhighlightedRows = false,
     substatSort = null,
+    sortState = null,
     keepSections = true,
   } = props
   const keepUniquesVariant = variant === 'keepUniques'
@@ -265,6 +345,32 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
   const shouldDimUnhighlightedRows = Boolean(dimUnhighlightedRows && highlightRowPredicate)
   const { t, lang } = useI18n()
   const theme = useTheme()
+  const normalizedOverlayPrefs = useTesterGridNormalizedOverlayPreferences()
+  const normalizedOverlayUseSortWeights = normalizedOverlayPrefs.state.useSortWeights
+  const toggleNormalizedOverlayUseSortWeights = normalizedOverlayPrefs.toggleUseSortWeights
+  const normalizedOverlaySortSourceAllowed = Boolean(
+    // [S] is only meaningful when sort is actively using normalized scoring (and is not in "Active" mode).
+    substatSort?.normalized === true
+    && sortState?.normalizedUseActiveOverlay !== true,
+  )
+  // Enabled presets are a simple set lookup for button styling + per-row score computation.
+  const normalizedOverlayEnabledPresetSet = useMemo(
+    () => new Set<number>(normalizedOverlayPrefs.state.enabledPresetIds.map((id) => Number(id))),
+    [normalizedOverlayPrefs.state.enabledPresetIds],
+  )
+  // Overlay is enabled when either [S] or any numbered preset is enabled.
+  const normalizedOverlayEnabled = normalizedOverlayUseSortWeights
+    || normalizedOverlayPrefs.state.enabledPresetIds.length > 0
+  const [normalizedPresetEditor, setNormalizedPresetEditor] = useState<{
+    presetId: TesterGridNormalizedPresetId
+    position: { x: number; y: number }
+  } | null>(null)
+  useEffect(() => {
+    // If the user turns off Normalized sorting (or enters "Active" mode), auto-disable the [S] overlay so UI stays consistent.
+    if (!normalizedOverlayUseSortWeights) return
+    if (normalizedOverlaySortSourceAllowed) return
+    toggleNormalizedOverlayUseSortWeights()
+  }, [normalizedOverlaySortSourceAllowed, normalizedOverlayUseSortWeights, toggleNormalizedOverlayUseSortWeights])
   // Frozen match details stay rendered but dimmed so users remember the last result during rebuilds.
   const matchDetailsFrozen = Boolean(suppressMatchDetailsProp)
   // Group tree is recalculated only when the dataset, locale, or sort mode changes so TanStack can reuse measured rows.
@@ -273,6 +379,90 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     [rows, t, lang, keepSections, substatSort],
   )
   const numberFormatter = useMemo(() => new Intl.NumberFormat(undefined), [])
+  // Overlay score uses the same glyph inclusion policy as the Sort UI (default excludes glyphs).
+  const normalizedOverlayExcludeGlyphs = substatSort?.excludeGlyphs !== false
+  const normalizedOverlayByArtifactId = useMemo(() => {
+    // When nothing is enabled, keep the fast path obvious: no overlay map.
+    if (!normalizedOverlayEnabled) return new Map<number, { text: string; color?: string }>()
+    const useSortWeights = normalizedOverlayPrefs.state.useSortWeights === true
+    const enabledPresetIds = normalizedOverlayPrefs.state.enabledPresetIds
+    const presets = normalizedOverlayPrefs.state.presets
+    // [S] uses the Sort popout’s currently selected substats + weights.
+    const sortSelectedVariants = useSortWeights
+      ? (substatSort?.priorities ?? []).filter((key) => Number(key) !== Number(TESTER_SORT_KEY_LAST_USAGE)) as StatVariant[]
+      : []
+    const sortWeights = useSortWeights ? (substatSort?.weights ?? {}) : {}
+
+    // First pass computes per-row "best of enabled presets" and tracks the global min/max.
+    const scores = new Map<number, number>()
+    let min = Number.POSITIVE_INFINITY
+    let max = Number.NEGATIVE_INFINITY
+    for (let idx = 0; idx < rows.length; idx += 1) {
+      // Bounds check above guarantees this row exists; non-null assertion keeps strict indexing happy.
+      const row = rows[idx]!
+      const artifactId = Number(row?.artifact?.id)
+      if (!Number.isFinite(artifactId)) continue
+      const best = (() => {
+        // [S] is exclusive: score comes from the Sort popout state only.
+        if (useSortWeights) {
+          return computeTesterNormalizedSubstatScore(row, {
+            variants: sortSelectedVariants,
+            weights: sortWeights,
+            excludeGlyphs: normalizedOverlayExcludeGlyphs,
+          })
+        }
+        // Presets mode: use the best (max) score across enabled presets.
+        let bestPreset: number | null = null
+        for (let presetIdx = 0; presetIdx < enabledPresetIds.length; presetIdx += 1) {
+          // Bounds check above guarantees this id exists; non-null assertion keeps strict indexing happy.
+          const presetId = enabledPresetIds[presetIdx]!
+          const preset = presets[presetId]
+          if (!preset) continue
+          const score = computeTesterNormalizedSubstatScore(row, {
+            variants: preset.variants,
+            weights: preset.weights,
+            excludeGlyphs: normalizedOverlayExcludeGlyphs,
+          })
+          if (score == null) continue
+          if (bestPreset == null || score > bestPreset) bestPreset = score
+        }
+        return bestPreset
+      })()
+      if (best == null) continue
+      scores.set(artifactId, best)
+      min = Math.min(min, best)
+      max = Math.max(max, best)
+    }
+    if (scores.size === 0 || !Number.isFinite(min) || !Number.isFinite(max)) {
+      return new Map<number, { text: string; color?: string }>()
+    }
+
+    // Theme palette endpoints drive the red→green gradient; fall back to hardcoded RGB if parsing fails.
+    const lowRgb = parseCssColorToRgb(theme.palette.error.main) ?? { r: 220, g: 38, b: 38 }
+    const highRgb = parseCssColorToRgb(theme.palette.success.main) ?? { r: 22, g: 163, b: 74 }
+    const range = max - min
+
+    // Second pass converts scores into overlay text + range-mapped colors.
+    const overlays = new Map<number, { text: string; color?: string }>()
+    scores.forEach((score, artifactId) => {
+      // When the range collapses, treat every score as "highest" so users still get a strong signal.
+      const ratio = range > 0 ? (score - min) / range : 1
+      const color = rgbToCss(mixRgb(lowRgb, highRgb, ratio))
+      overlays.set(artifactId, { text: score.toFixed(2), color })
+    })
+    return overlays
+  }, [
+    normalizedOverlayEnabled,
+    normalizedOverlayExcludeGlyphs,
+    normalizedOverlayPrefs.state.useSortWeights,
+    normalizedOverlayPrefs.state.enabledPresetIds,
+    normalizedOverlayPrefs.state.presets,
+    rows,
+    substatSort?.priorities,
+    substatSort?.weights,
+    theme.palette.error.main,
+    theme.palette.success.main,
+  ])
   const {
     columns: gridColumnPreference,
     showFirstMatch,
@@ -642,6 +832,8 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
   const [gridMenuPosition, setGridMenuPosition] = useState<{ x: number; y: number } | null>(null)
   const gridMenuOpen = Boolean(gridMenuPosition)
   const gridMenuPaperRef = useRef<HTMLDivElement | null>(null)
+  // Nested preset editor menu should not close the parent grid menu when clicked.
+  const normalizedPresetEditorPaperRef = useRef<HTMLDivElement | null>(null)
   const gridContextHintActive = shouldShowGridContextHint && gridContextHintPos !== null && !gridMenuOpen
   const resolveGridContextGroupKey = useCallback((target: EventTarget | null): string | null => {
     // Headers expose their group key directly while cards rely on the artifact id to locate the owning group.
@@ -673,9 +865,20 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     handleGridHintSeen()
   }, [handleGridHintSeen, resolveGridContextGroupKey])
   const closeGridMenu = useCallback(() => {
+    // Closing the parent menu should never leave the nested preset editor orphaned.
+    setNormalizedPresetEditor(null)
     setGridMenuPosition(null)
     setGridMenuGroupKey(null)
   }, [])
+  const closeGridMenuOrPresetEditor = useCallback(() => {
+    // UX: when the preset editor is open, a dismiss click should close the editor first,
+    // but keep the parent context menu open so users can continue interacting with it.
+    if (normalizedPresetEditor) {
+      setNormalizedPresetEditor(null)
+      return
+    }
+    closeGridMenu()
+  }, [closeGridMenu, normalizedPresetEditor])
   // Column toggle is disabled for Keep Uniques because the variant forces two columns.
   const handleColumnToggle = useCallback(() => {
     if (keepUniquesVariant) return
@@ -694,8 +897,10 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
   }, [closeGridMenu, gridMenuGroupKey])
   useContextMenuCloseOnOutsideRightClick({
     open: gridMenuOpen,
-    onClose: closeGridMenu,
+    onClose: closeGridMenuOrPresetEditor,
     menuRef: gridMenuPaperRef,
+    // Treat the preset editor menu as "inside" so the parent menu remains open while editing.
+    ...(normalizedPresetEditor ? { insideRefs: [normalizedPresetEditorPaperRef] } : {}),
   })
   // Virtualizer data exposes row bounds immediately after scroll, so resolve the first visible card without waiting for DOM effects.
   const firstVisibleRowId = useMemo(() => {
@@ -995,10 +1200,16 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
           >
             {item.rowEntries.map((row, columnIdx) => {
               const cardPriorityOrder = positionOrder + (columnIdx * 0.01)
+              const artifactId = Number(row.artifact?.id)
+              // Overlay lookup is keyed by artifact id so scoring stays stable across regrouping/sorting.
+              const centerOverlay = Number.isFinite(artifactId)
+                ? (normalizedOverlayByArtifactId.get(artifactId) ?? null)
+                : null
               return (
                 <TesterGridCard
                   key={row.artifact.id}
                   row={row}
+                  centerOverlay={centerOverlay}
                   substatColors={substatColors}
                   useStatButtonColors={useStatButtonColors}
                   suppressMatchDetails={matchDetailsFrozen}
@@ -1122,9 +1333,9 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
         </Box>
       ) : null}
       <ContextMenuHintOverlay text={t('contextMenuHint')} position={gridContextHintActive ? gridContextHintPos : null} />
-      <Menu
+        <Menu
         open={gridMenuOpen}
-        onClose={closeGridMenu}
+        onClose={closeGridMenuOrPresetEditor}
         anchorReference="anchorPosition"
         {...(gridMenuPosition ? { anchorPosition: { top: gridMenuPosition.y, left: gridMenuPosition.x } } : {})}
         slotProps={{
@@ -1136,78 +1347,7 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
           } as unknown as MuiPaperProps,
         }}
       >
-        <MenuItem sx={{ gap: 1, alignItems: 'center' }} onClick={() => onToggleStatColors(!useStatButtonColors)}>
-          <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>{t('rulesMenuColorStatTexts')}</Typography>
-          <Box
-            sx={{
-              display: 'flex',
-              alignItems: 'stretch',
-              gap: 0.5,
-              width: MENU_CONTROL_MIN_WIDTH_PX,
-              height: MENU_CONTROL_HEIGHT_PX,
-              minHeight: MENU_CONTROL_HEIGHT_PX,
-            }}
-            onClick={(event) => { event.stopPropagation() }}
-          >
-            <Button
-              size="small"
-              variant={useStatButtonColors ? 'contained' : 'outlined'}
-              color="success"
-              sx={{ flex: '1 1 auto', minWidth: 0, height: '100%', lineHeight: 1, py: 0, px: 1 }}
-              onClick={(event) => { event.stopPropagation(); onToggleStatColors(!useStatButtonColors) }}
-            >
-              {useStatButtonColors ? t('commonOn') : t('commonOff')}
-            </Button>
-            {/* Manage colors button now uses MarkdownTooltip so its multi-line hint inherits the global delay. */}
-            <MarkdownTooltip markdown={t('manageColors')}>
-              <span>
-                <Button
-                  size="small"
-                  variant="outlined"
-                  color="info"
-                  disabled={!useStatButtonColors}
-                  sx={{ flex: '0 0 auto', minWidth: 28, width: 28, height: '100%', lineHeight: 1, py: 0, ml: 'auto', px: 0.25 }}
-                  onClick={(event) => {
-                    event.stopPropagation()
-                    if (!useStatButtonColors) return
-                    onOpenManageColors()
-                  }}
-                  aria-label={t('manageColorsAria')}
-                >
-                  <img src={colorIconSrc} width={16} height={16} alt={t('manageColors')} style={{ display: 'block' }} />
-                </Button>
-              </span>
-            </MarkdownTooltip>
-          </Box>
-        </MenuItem>
-        <MenuItem sx={{ gap: 1, alignItems: 'center' }} onClick={() => {
-          const nextMode = colorBlindMode === 'normal'
-            ? 'okabeIto'
-            : (colorBlindMode === 'okabeIto' ? 'tritan' : 'normal')
-          onChangeColorBlindMode(nextMode)
-        }}
-        >
-          <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>{t('rulesMenuColorBlindPalette')}</Typography>
-          <Button
-            size="small"
-            variant={colorBlindMode === 'normal' ? 'outlined' : 'contained'}
-            color="success"
-            sx={{ minWidth: MENU_CONTROL_MIN_WIDTH_PX, height: MENU_CONTROL_HEIGHT_PX, minHeight: MENU_CONTROL_HEIGHT_PX, lineHeight: 1, py: 0 }}
-            onClick={(event) => {
-              event.stopPropagation()
-              const nextMode = colorBlindMode === 'normal'
-                ? 'okabeIto'
-                : (colorBlindMode === 'okabeIto' ? 'tritan' : 'normal')
-              onChangeColorBlindMode(nextMode)
-            }}
-          >
-            {colorBlindMode === 'normal'
-              ? t('colorBlindNormal')
-              : (colorBlindMode === 'okabeIto' ? t('colorBlindOkabeIto') : t('colorBlindTritan'))}
-          </Button>
-        </MenuItem>
-        <Divider sx={{ my: 0.5 }} />
-        {/* Place the compact action directly above the Columns control with matching spacing. */}
+        {/* Place "Compact Current Group" first so it remains easily reachable (it is a frequent action). */}
         <MenuItem
           disableRipple
           disabled={!canCompactCurrentGroup}
@@ -1232,6 +1372,175 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
           >
             {t('testerGridCompactGroup')}
           </Button>
+        </MenuItem>
+        <Divider sx={{ my: 0.5 }} />
+        <MenuItem
+          disableRipple
+          sx={{ gap: 1, alignItems: 'center' }}
+        >
+          <MarkdownTooltip markdown={t('testerGridNormalizedTooltip')} placement="top-start">
+            <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>
+              {t('testerGridNormalizedLabel')}
+            </Typography>
+          </MarkdownTooltip>
+          <Box
+            // Button clicks should not trigger menu item selection; keep toggles local and explicit.
+            onClick={(event) => { event.stopPropagation() }}
+            sx={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 0.5,
+              minWidth: MENU_CONTROL_MIN_WIDTH_PX,
+              alignItems: 'flex-end',
+            }}
+          >
+            <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'flex-end' }}>
+              <MarkdownTooltip markdown={t('testerGridNormalizedSortSourceTooltip')} placement="top-start">
+                <Box component="span">
+                  <Button
+                    key="tester-grid-normalized-preset-s"
+                    size="small"
+                    variant={normalizedOverlayPrefs.state.useSortWeights ? 'contained' : 'outlined'}
+                    color="success"
+                    disabled={!normalizedOverlaySortSourceAllowed}
+                    sx={{
+                      minWidth: 28,
+                      width: 28,
+                      height: MENU_CONTROL_HEIGHT_PX,
+                      minHeight: MENU_CONTROL_HEIGHT_PX,
+                      lineHeight: 1,
+                      py: 0,
+                      px: 0,
+                    }}
+                    onClick={(event) => {
+                      event.stopPropagation()
+                      if (!normalizedOverlaySortSourceAllowed) return
+                      normalizedOverlayPrefs.toggleUseSortWeights()
+                    }}
+                    onContextMenu={(event) => {
+                      // Sort-source button has no editor; keep right-click from opening the browser menu.
+                      event.preventDefault()
+                      event.stopPropagation()
+                    }}
+                    aria-label={t('testerSortLabel')}
+                  >
+                    <SortIcon sx={{ fontSize: 18 }} />
+                  </Button>
+                </Box>
+              </MarkdownTooltip>
+              {Array.from({ length: 4 }).map((_, idx) => {
+                const presetId = idx as TesterGridNormalizedPresetId
+                const enabled = normalizedOverlayEnabledPresetSet.has(presetId)
+                const preset = normalizedOverlayPrefs.state.presets[presetId]
+                const label = preset
+                  ? formatTesterNormalizedPresetButtonLabel(presetId, preset.iconId)
+                  : String(presetId + 1)
+                const tooltipMarkdown = preset
+                  ? buildTesterNormalizedPresetTooltipMarkdown({
+                      title: t('testerGridNormalizedPresetTitle', { n: presetId + 1 }),
+                      preset,
+                      labelForVariant: (variant) => t(statVariantI18nKey(variant)),
+                      emptyLabel: t('testerNormalizedPresetTooltipEmpty'),
+                      rightClickHint: t('testerNormalizedPresetTooltipRightClickHint'),
+                    })
+                  : t('testerNormalizedPresetTooltipEmpty')
+                return (
+                  <MarkdownTooltip
+                    key={`tester-grid-normalized-preset-tooltip-${presetId}`}
+                    markdown={tooltipMarkdown}
+                    placement="top-start"
+                  >
+                    <Box component="span">
+                      <Button
+                        size="small"
+                        variant={enabled ? 'contained' : 'outlined'}
+                        color="success"
+                        sx={{
+                          minWidth: 28,
+                          width: 28,
+                          height: MENU_CONTROL_HEIGHT_PX,
+                          minHeight: MENU_CONTROL_HEIGHT_PX,
+                          lineHeight: 1,
+                          py: 0,
+                          px: 0,
+                          fontSize: 18,
+                        }}
+                        onClick={(event) => {
+                          event.stopPropagation()
+                          normalizedOverlayPrefs.togglePresetEnabled(presetId)
+                        }}
+                        onContextMenu={(event) => {
+                          // Right-click opens the editor for this preset (similar to Sort's weight controls).
+                          event.preventDefault()
+                          event.stopPropagation()
+                          setNormalizedPresetEditor({ presetId, position: { x: event.clientX, y: event.clientY } })
+                        }}
+                      >
+                        {label}
+                      </Button>
+                    </Box>
+                  </MarkdownTooltip>
+                )
+              })}
+            </Box>
+            <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'flex-end' }}>
+              {Array.from({ length: TESTER_NORMALIZED_PRESET_COUNT - 4 }).map((_, offset) => {
+                const idx = offset + 4
+                const presetId = idx as TesterGridNormalizedPresetId
+                const enabled = normalizedOverlayEnabledPresetSet.has(presetId)
+                const preset = normalizedOverlayPrefs.state.presets[presetId]
+                const label = preset
+                  ? formatTesterNormalizedPresetButtonLabel(presetId, preset.iconId)
+                  : String(presetId + 1)
+                const tooltipMarkdown = preset
+                  ? buildTesterNormalizedPresetTooltipMarkdown({
+                      title: t('testerGridNormalizedPresetTitle', { n: presetId + 1 }),
+                      preset,
+                      labelForVariant: (variant) => t(statVariantI18nKey(variant)),
+                      emptyLabel: t('testerNormalizedPresetTooltipEmpty'),
+                      rightClickHint: t('testerNormalizedPresetTooltipRightClickHint'),
+                    })
+                  : t('testerNormalizedPresetTooltipEmpty')
+                return (
+                  <MarkdownTooltip
+                    key={`tester-grid-normalized-preset-tooltip-${presetId}`}
+                    markdown={tooltipMarkdown}
+                    placement="top-start"
+                  >
+                    <Box component="span">
+                      <Button
+                        size="small"
+                        variant={enabled ? 'contained' : 'outlined'}
+                        color="success"
+                        sx={{
+                          minWidth: 28,
+                          width: 28,
+                          height: MENU_CONTROL_HEIGHT_PX,
+                          minHeight: MENU_CONTROL_HEIGHT_PX,
+                          lineHeight: 1,
+                          py: 0,
+                          px: 0,
+                          fontSize: 18,
+                        }}
+                        onClick={(event) => {
+                          event.stopPropagation()
+                          normalizedOverlayPrefs.togglePresetEnabled(presetId)
+                        }}
+                        onContextMenu={(event) => {
+                          // Right-click opens the editor for this preset (similar to Sort's weight controls).
+                          event.preventDefault()
+                          event.stopPropagation()
+                          setNormalizedPresetEditor({ presetId, position: { x: event.clientX, y: event.clientY } })
+                        }}
+                      >
+                        {label}
+                      </Button>
+                    </Box>
+                  </MarkdownTooltip>
+                )
+              })}
+            </Box>
+          </Box>
         </MenuItem>
         <Divider sx={{ my: 0.5 }} />
         <MenuItem
@@ -1347,7 +1656,96 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
             {showChampionIcons ? t('commonOn') : t('commonOff')}
           </Button>
         </MenuItem>
+        <Divider sx={{ my: 0.75 }} />
+        {/* Keep appearance controls grouped at the bottom so the grid actions stay front-loaded. */}
+        <MenuItem sx={{ gap: 1, alignItems: 'center' }} onClick={() => onToggleStatColors(!useStatButtonColors)}>
+          <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>{t('rulesMenuColorStatTexts')}</Typography>
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'stretch',
+              gap: 0.5,
+              width: MENU_CONTROL_MIN_WIDTH_PX,
+              height: MENU_CONTROL_HEIGHT_PX,
+              minHeight: MENU_CONTROL_HEIGHT_PX,
+            }}
+            onClick={(event) => { event.stopPropagation() }}
+          >
+            <Button
+              size="small"
+              variant={useStatButtonColors ? 'contained' : 'outlined'}
+              color="success"
+              sx={{ flex: '1 1 auto', minWidth: 0, height: '100%', lineHeight: 1, py: 0, px: 1 }}
+              onClick={(event) => { event.stopPropagation(); onToggleStatColors(!useStatButtonColors) }}
+            >
+              {useStatButtonColors ? t('commonOn') : t('commonOff')}
+            </Button>
+            {/* Manage colors button now uses MarkdownTooltip so its multi-line hint inherits the global delay. */}
+            <MarkdownTooltip markdown={t('manageColors')}>
+              <span>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  color="info"
+                  disabled={!useStatButtonColors}
+                  sx={{ flex: '0 0 auto', minWidth: 28, width: 28, height: '100%', lineHeight: 1, py: 0, ml: 'auto', px: 0.25 }}
+                  onClick={(event) => {
+                    event.stopPropagation()
+                    if (!useStatButtonColors) return
+                    onOpenManageColors()
+                  }}
+                  aria-label={t('manageColorsAria')}
+                >
+                  <img src={colorIconSrc} width={16} height={16} alt={t('manageColors')} style={{ display: 'block' }} />
+                </Button>
+              </span>
+            </MarkdownTooltip>
+          </Box>
+        </MenuItem>
+        <MenuItem sx={{ gap: 1, alignItems: 'center' }} onClick={() => {
+          const nextMode = colorBlindMode === 'normal'
+            ? 'okabeIto'
+            : (colorBlindMode === 'okabeIto' ? 'tritan' : 'normal')
+          onChangeColorBlindMode(nextMode)
+        }}
+        >
+          <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>{t('rulesMenuColorBlindPalette')}</Typography>
+          <Button
+            size="small"
+            variant={colorBlindMode === 'normal' ? 'outlined' : 'contained'}
+            color="success"
+            sx={{ minWidth: MENU_CONTROL_MIN_WIDTH_PX, height: MENU_CONTROL_HEIGHT_PX, minHeight: MENU_CONTROL_HEIGHT_PX, lineHeight: 1, py: 0 }}
+            onClick={(event) => {
+              event.stopPropagation()
+              const nextMode = colorBlindMode === 'normal'
+                ? 'okabeIto'
+                : (colorBlindMode === 'okabeIto' ? 'tritan' : 'normal')
+              onChangeColorBlindMode(nextMode)
+            }}
+          >
+            {colorBlindMode === 'normal'
+              ? t('colorBlindNormal')
+              : (colorBlindMode === 'okabeIto' ? t('colorBlindOkabeIto') : t('colorBlindTritan'))}
+          </Button>
+        </MenuItem>
       </Menu>
+      {normalizedPresetEditor ? (
+        <TesterNormalizedPresetEditorMenu
+          open
+          anchorPosition={normalizedPresetEditor.position}
+          presetId={normalizedPresetEditor.presetId}
+          preset={normalizedOverlayPrefs.state.presets[normalizedPresetEditor.presetId]!}
+          onClose={() => setNormalizedPresetEditor(null)}
+          onSetIconId={normalizedOverlayPrefs.setPresetIconId}
+          useStatButtonColors={useStatButtonColors}
+          substatColors={substatColors}
+          onToggleVariant={normalizedOverlayPrefs.toggleVariant}
+          onBumpWeight={normalizedOverlayPrefs.bumpWeight}
+          onSetWeight={normalizedOverlayPrefs.setWeight}
+          onResetPreset={normalizedOverlayPrefs.resetPreset}
+          paperRef={normalizedPresetEditorPaperRef}
+        />
+      ) : null}
     </Box>
   )
 }
@@ -1527,6 +1925,7 @@ function buildFlattenedGridItems({
 
 const TesterGridCard = React.memo(function TesterGridCard({
   row,
+  centerOverlay,
   substatColors,
   useStatButtonColors,
   suppressMatchDetails,
@@ -1544,6 +1943,7 @@ const TesterGridCard = React.memo(function TesterGridCard({
   cardPriority,
 }: {
   row: TesterPreviewRow
+  centerOverlay?: { text: string; color?: string } | null
   substatColors: Record<number, { fg: string; bg: string }>
   useStatButtonColors: boolean
   suppressMatchDetails: boolean
@@ -2147,6 +2547,8 @@ const TesterGridCard = React.memo(function TesterGridCard({
           levelLabel={levelChipLabel}
           size={TESTER_GRID_ICON_BOX_SIZE_PX}
           gearTooltip={lastUseTooltip}
+          // Center overlay is informational and is rendered click-through by GridIconBox.
+          {...(centerOverlay ? { centerOverlay } : {})}
           {...(cardOutcome ? { outcome: cardOutcome } : {})}
         />
         {shouldShowChampionIcon || shouldShowMissingChampionIconFallback ? (

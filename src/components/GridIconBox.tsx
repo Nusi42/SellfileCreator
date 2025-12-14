@@ -1,5 +1,5 @@
 import { Box } from '@mui/material'
-import { useTheme } from '@mui/material/styles'
+import { alpha, useTheme } from '@mui/material/styles'
 import StarRoundedIcon from '@mui/icons-material/StarRounded'
 import type { ReactNode } from 'react'
 import { artifactTypeIconFor } from './artifactTypeIcons'
@@ -51,6 +51,12 @@ type GridIconBoxProps = {
   size?: number
   showRankStarsBackground?: boolean
   gearTooltip?: string | null
+  centerOverlay?: {
+    // Overlay text rendered at the visual center of the icon (e.g., normalized scores).
+    text: string
+    // Accent color applied to the overlay text + border; callers supply a range-mapped color.
+    color?: string
+  } | null
 }
 
 export default function GridIconBox({
@@ -70,6 +76,7 @@ export default function GridIconBox({
   size = GRID_ICON_BOX_SIZE_PX,
   showRankStarsBackground = true,
   gearTooltip,
+  centerOverlay,
 }: GridIconBoxProps) {
   const theme = useTheme()
   const slotArtSrc = gearSetSlotIconUrl(
@@ -281,6 +288,38 @@ export default function GridIconBox({
     </MarkdownTooltip>
   ) : null
 
+  const centerOverlayNode = centerOverlay?.text ? (
+    <Box
+      // Overlay is informational; keep it click-through so existing icon tooltips/interactions win.
+      sx={(theme) => ({
+        // Keep the overlay legible even on smaller grid icons.
+        // The tester grid uses this to show a normalized substat rating.
+        position: 'absolute',
+        left: '50%',
+        top: '50%',
+        transform: 'translate(-50%, -50%)',
+        px: 0.85,
+        py: 0.35,
+        borderRadius: 6,
+        border: '1px solid',
+        borderColor: centerOverlay?.color ?? alpha(theme.palette.text.primary, 0.55),
+        backgroundColor: alpha(theme.palette.background.paper, 0.9),
+        color: centerOverlay?.color ?? theme.palette.text.primary,
+        fontWeight: 800,
+        fontVariantNumeric: 'tabular-nums',
+        fontSize: theme.typography.pxToRem(Math.min(16, Math.max(13, Math.round(size * 0.34)))),
+        lineHeight: 1.1,
+        letterSpacing: 0.2,
+        boxShadow: theme.shadows[2],
+        pointerEvents: 'none',
+        userSelect: 'none',
+        whiteSpace: 'nowrap',
+      })}
+    >
+      {centerOverlay.text}
+    </Box>
+  ) : null
+
   const iconNode = (
     <Box
       sx={{
@@ -331,6 +370,7 @@ export default function GridIconBox({
       {rerollNode}
       {levelNode}
       {outcomeNode}
+      {centerOverlayNode}
     </Box>
   )
   if (gearTooltip) {

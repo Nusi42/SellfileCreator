@@ -428,6 +428,9 @@ export const TESTER_GRID_SHOW_CHAMP_ICONS_KEY = 'sellfileCreator.tester.grid.sho
 // Tester preview: substat sorting controls for the rule tester grid.
 // Why: Sorting is view-only (like filters) but should persist across sessions.
 export const TESTER_SUBSTAT_SORT_KEY = 'sellfileCreator.tester.sort.substats.v1'
+// Tester grid: normalized overlay presets + selection.
+// Why: Overlay is view-only, but users need the presets to persist across sessions.
+export const TESTER_GRID_NORMALIZED_OVERLAY_KEY = 'sellfileCreator.tester.grid.normalizedOverlay.v1'
 
 // Fixed width for Faction Select in the Rules filter
 // Why: Keep the input width stable regardless of selected label lengths,

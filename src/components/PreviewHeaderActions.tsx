@@ -36,20 +36,31 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import ContextMenuPaper from './ContextMenuPaper'
 import ContextMenuTitle from './ContextMenuTitle'
 import DeleteIcon from '@mui/icons-material/Delete'
+import GridViewIcon from '@mui/icons-material/GridView'
 import {
   TESTER_SORT_KEY_LAST_USAGE,
   TESTER_SORT_WEIGHT_DEFAULT,
-  normalizeTesterSortWeight,
+  isNeutralTesterSortWeight,
   type TesterSortKey,
   type TesterSubstatSortDirection,
 } from '../lib/testerSort'
+import {
+  TESTER_NORMALIZED_PRESET_COUNT,
+  buildTesterNormalizedPresetTooltipMarkdown,
+  formatTesterNormalizedPresetButtonLabel,
+  type TesterNormalizedPresetId,
+} from '../lib/testerNormalizedPresets'
 import { DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT, STAT_VARIANTS_PRIORITY, StatVariant, statVariantI18nKey } from '../lib/types'
 import type { TesterSubstatSortState } from '../state/testerSubstatSortPreferences'
+import { useTesterGridNormalizedOverlayPreferences } from '../state/testerGridNormalizedOverlayPreferences'
 import type { SubstatColorMap } from '../lib/renderColoredStatText'
 import type { FilterPreset } from '../state/filterPresetsPreference'
 import { formatLocalDateTime } from '../lib/dateDisplay'
 import { useTesterSortPopoutEasterEgg } from '../hooks/useTesterSortPopoutEasterEgg'
 import TesterSortPopoutEasterEggOverlay from './TesterSortPopoutEasterEggOverlay'
+import { TesterSortWeightControls } from './TesterSortWeightControls'
+import { TesterNormalizedPresetEditorMenu } from './TesterNormalizedPresetEditorMenu'
+import { DEFAULT_METASET_ICON_ID } from '../lib/metasetIcons'
 
 
 type ProgressChipProps = {
@@ -110,10 +121,10 @@ export default function PreviewHeaderActions(props: {
   // Full color map so the sort popover can match the same per-stat colors as chips/toggles.
   substatColors: SubstatColorMap
 	  onClearTesterSubstatSort: () => void
+	  onSetTesterSubstatSortState: (next: TesterSubstatSortState) => void
 	  onSetTesterSubstatSortDirection: (direction: TesterSubstatSortDirection) => void
 	  onToggleTesterSubstatSortKeepSections: () => void
 	  onToggleTesterSubstatSortExcludeGlyphs: () => void
-	  onToggleTesterSubstatSortNormalized: () => void
 	  onToggleTesterSubstatSortPriority: (key: TesterSortKey) => void
 	  onToggleTesterSubstatSortPriorityFlipped: (key: TesterSortKey) => void
 	  onSetTesterSubstatSortWeight: (variant: StatVariant, next: number) => void
@@ -164,10 +175,10 @@ export default function PreviewHeaderActions(props: {
     useStatButtonColors,
     substatColors,
     onClearTesterSubstatSort,
+    onSetTesterSubstatSortState,
 	    onSetTesterSubstatSortDirection,
 	    onToggleTesterSubstatSortKeepSections,
 	    onToggleTesterSubstatSortExcludeGlyphs,
-		    onToggleTesterSubstatSortNormalized,
 		    onToggleTesterSubstatSortPriority,
 		    onToggleTesterSubstatSortPriorityFlipped,
 		    onSetTesterSubstatSortWeight,
@@ -254,16 +265,11 @@ export default function PreviewHeaderActions(props: {
 	  const sortGlyphsIncludeLabel = t('testerSortGlyphsInclude')
 	  const sortNormalizedLabel = t('testerSortNormalized')
 	  const sortNormalizedTooltip = t('testerSortNormalizedTooltip')
-	  const sortWeightLabel = t('testerSortWeight')
-	  const formatWeightIncreaseAria = React.useCallback((label: string) => (
-	    t('testerSortWeightIncreaseAria', { label })
-	  ), [t])
-	  const formatWeightDecreaseAria = React.useCallback((label: string) => (
-	    t('testerSortWeightDecreaseAria', { label })
-	  ), [t])
-	  const formatWeightResetAria = React.useCallback((label: string) => (
-	    t('testerSortWeightResetAria', { label })
-	  ), [t])
+  const sortNormalizedUseActiveLabel = t('testerSortNormalizedUseActive')
+  const sortNormalizedUseActiveTooltip = t('testerSortNormalizedUseActiveTooltip')
+  const normalizedPresetTooltipEmptyLabel = t('testerNormalizedPresetTooltipEmpty')
+  const normalizedPresetTooltipRightClickHint = t('testerNormalizedPresetTooltipRightClickHint')
+  const sortNormalizedPresetActionsOverwriteLabel = t('testerSortNormalizedPresetActionsOverwrite')
 	  const sortHighToLowLabel = t('testerSortHighToLow')
 	  const sortLowToHighLabel = t('testerSortLowToHigh')
 	  const sortLastUsedLabel = t('testerLastUsedFilterLabel')
@@ -398,7 +404,6 @@ export default function PreviewHeaderActions(props: {
     fontWeight: theme.typography.fontWeightBold ?? 600,
     fontSize: theme.typography.pxToRem ? theme.typography.pxToRem(12) : '0.75rem',
     lineHeight: 1,
-    cursor: 'help',
     zIndex: 1,
     padding: 0,
   }), [])
@@ -414,6 +419,11 @@ export default function PreviewHeaderActions(props: {
       setExportMenuAnchor(null)
     }
   }, [exportMenuAnchor, exportMenuEnabled])
+	  // Normalized presets live in the tester-grid preference store; Sort reuses them for source selection + overwrite.
+	  const normalizedOverlayPrefs = useTesterGridNormalizedOverlayPreferences()
+	  const normalizedOverlayActive = normalizedOverlayPrefs.state.useSortWeights
+	    || normalizedOverlayPrefs.state.enabledPresetIds.length > 0
+	  const normalizedOverlayActiveAllowed = normalizedOverlayActive && !normalizedOverlayPrefs.state.useSortWeights
 	  const sortPriorities = React.useMemo<readonly TesterSortKey[]>(() => {
 	    // Prefer the persisted ordering, but keep a stable empty array so hooks remain deterministic.
 	    return testerSubstatSort.priorities ?? []
@@ -426,11 +436,65 @@ export default function PreviewHeaderActions(props: {
 	    () => sortPriorities.filter((key) => Number(key) !== TESTER_SORT_KEY_LAST_USAGE),
 	    [sortPriorities],
 	  )
-	  const sortControlsDisabled = sortPriorities.length === 0
-	  const sortNormalizedAllowed = sortSelectedSubstats.length > 1
+	  const sortNormalizedPresetIdSet = React.useMemo(
+	    () => new Set<number>((testerSubstatSort.normalizedSourcePresetIds ?? []).map((id) => Number(id))),
+	    [testerSubstatSort.normalizedSourcePresetIds],
+	  )
+	  const sortNormalizedHasPresets = (testerSubstatSort.normalizedSourcePresetIds?.length ?? 0) > 0
+	  // Normalized is allowed when the current mode has at least one score source:
+	  // - Active: uses the tester-grid overlay selection (but never when the overlay is [S] to avoid circular scoring).
+	  // - Presets: best-of [1..9]
+	  // - Custom: current selection/weights above
+	  const sortNormalizedAllowed = testerSubstatSort.normalizedUseActiveOverlay
+	    ? normalizedOverlayActiveAllowed
+	    : (sortNormalizedHasPresets || sortSelectedSubstats.length > 0)
 	  const sortNormalizedEnabled = Boolean(testerSubstatSort.normalized)
 	  const sortNormalizedEffective = sortNormalizedEnabled && sortNormalizedAllowed
-	  const sortActive = !isRulesMode && sortPriorities.length > 0
+	  const sortNormalizedMultiPresetMode = sortNormalizedEffective
+	    && testerSubstatSort.normalizedUseActiveOverlay !== true
+	    && (testerSubstatSort.normalizedSourcePresetIds?.length ?? 0) > 1
+	  const sortNormalizedAmbiguousWeights = sortNormalizedEffective
+	    // In Active mode we may be sourcing from multiple overlay presets, so no single weight vector can be shown.
+	    && (testerSubstatSort.normalizedUseActiveOverlay === true || sortNormalizedMultiPresetMode)
+	  const sortNormalizedDisplayedVariantSet = React.useMemo(() => {
+	    // In Normalized mode, the "selected substats" row should reflect the *source* selection, not the transient
+	    // weights/ordering state (especially when multiple sources are selected and we cannot show a single weight).
+	    const set = new Set<number>()
+	    if (!sortNormalizedEffective) {
+	      sortSelectedSubstats.forEach((key) => set.add(Number(key)))
+	      return set
+	    }
+	    // Active overlay = union of the tester-grid enabled preset variants.
+	    if (testerSubstatSort.normalizedUseActiveOverlay) {
+	      normalizedOverlayPrefs.state.enabledPresetIds.forEach((presetId) => {
+	        const preset = normalizedOverlayPrefs.state.presets[presetId]
+	        preset?.variants?.forEach((variant) => set.add(Number(variant)))
+	      })
+	      return set
+	    }
+	    // Presets mode = union of enabled preset variants.
+	    const presetIds = testerSubstatSort.normalizedSourcePresetIds ?? []
+	    presetIds.forEach((presetId) => {
+	      const preset = normalizedOverlayPrefs.state.presets[presetId]
+	      preset?.variants?.forEach((variant) => set.add(Number(variant)))
+	    })
+	    // Custom weights can be included as an extra source; include its selected keys in the union as well.
+	    if (testerSubstatSort.normalizedSourceIncludeCustom) {
+	      sortSelectedSubstats.forEach((key) => set.add(Number(key)))
+	    }
+	    return set
+	  }, [
+	    normalizedOverlayPrefs.state.enabledPresetIds,
+	    normalizedOverlayPrefs.state.presets,
+	    sortNormalizedEffective,
+	    sortSelectedSubstats,
+	    testerSubstatSort.normalizedSourceIncludeCustom,
+	    testerSubstatSort.normalizedSourcePresetIds,
+	    testerSubstatSort.normalizedUseActiveOverlay,
+	  ])
+	  const sortActive = !isRulesMode && (sortPriorities.length > 0 || sortNormalizedEffective)
+	  // Disable non-normalized controls when they would do nothing (no priorities and normalized isn't effective).
+	  const sortControlsDisabled = !sortActive
 	  const sortLabelForKey = React.useCallback((key: TesterSortKey): string => {
 	    if (Number(key) === TESTER_SORT_KEY_LAST_USAGE) return sortLastUsedLabel
 	    return t(statVariantI18nKey(key as StatVariant))
@@ -459,10 +523,19 @@ export default function PreviewHeaderActions(props: {
 	  const sortMenuOpen = Boolean(sortMenuAnchor)
 	  const closeSortMenu = React.useCallback(() => { setSortMenuAnchor(null) }, [])
 	  const sortMenuPaperRef = React.useRef<HTMLDivElement | null>(null)
+	  const [sortNormalizedPresetEditor, setSortNormalizedPresetEditor] = React.useState<{
+	    presetId: TesterNormalizedPresetId
+	    position: { x: number; y: number }
+	  } | null>(null)
+	  const sortNormalizedPresetEditorPaperRef = React.useRef<HTMLDivElement | null>(null)
   useContextMenuCloseOnOutsideRightClick({
     open: sortMenuOpen,
     onClose: closeSortMenu,
     menuRef: sortMenuPaperRef,
+    // Treat nested preset menus as "inside" so editing/overwriting doesn't close the Sort popout.
+    ...(sortNormalizedPresetEditor
+      ? { insideRefs: [sortNormalizedPresetEditorPaperRef] }
+      : {}),
   })
   React.useEffect(() => {
     // Switching back to Sellfile preview disables sorting, so close the menu to avoid a stuck popover.
@@ -470,12 +543,69 @@ export default function PreviewHeaderActions(props: {
   }, [closeSortMenu, isRulesMode, sortMenuOpen])
 
   const SORT_BUTTON_WIDTH_PX = 92
+	  const breakNormalizedLinkToCustom = React.useCallback(() => {
+	    // When a preset/active source is selected, editing should "fork" into custom weights.
+	    const linked = testerSubstatSort.normalizedUseActiveOverlay
+	      || (testerSubstatSort.normalizedSourcePresetIds?.length ?? 0) > 0
+	    if (!linked) return
+	    onSetTesterSubstatSortState({
+	      ...testerSubstatSort,
+	      normalizedUseActiveOverlay: false,
+	      normalizedSourcePresetIds: [],
+	      normalizedSourceIncludeCustom: true,
+	    })
+	  }, [onSetTesterSubstatSortState, testerSubstatSort])
+	  const handleToggleFlippedKey = React.useCallback((key: TesterSortKey) => {
+	    breakNormalizedLinkToCustom()
+	    onToggleTesterSubstatSortPriorityFlipped(key)
+	  }, [breakNormalizedLinkToCustom, onToggleTesterSubstatSortPriorityFlipped])
+	  const handleBumpWeight = React.useCallback((variant: StatVariant, deltaSteps: number) => {
+	    breakNormalizedLinkToCustom()
+	    onBumpTesterSubstatSortWeight(variant, deltaSteps)
+	  }, [breakNormalizedLinkToCustom, onBumpTesterSubstatSortWeight])
+	  const handleSetWeight = React.useCallback((variant: StatVariant, next: number) => {
+	    breakNormalizedLinkToCustom()
+	    onSetTesterSubstatSortWeight(variant, next)
+	  }, [breakNormalizedLinkToCustom, onSetTesterSubstatSortWeight])
   const sortPopoutEasterEgg = useTesterSortPopoutEasterEgg({
     // Keep the “punishment” scoped to the open Sort popout so we don’t animate hidden nodes.
     enabled: sortMenuOpen,
     getPaperEl: () => sortMenuPaperRef.current,
-    onTogglePriority: onToggleTesterSubstatSortPriority,
-  })
+	    onTogglePriority: (key) => {
+	      breakNormalizedLinkToCustom()
+	      onToggleTesterSubstatSortPriority(key)
+	    },
+	  })
+	  React.useEffect(() => {
+	    // Guardrail: "Active" mode cannot mirror an overlay that is itself [S] (it would be circular).
+	    // Important: do NOT unlink just because the overlay is temporarily "off" (no preset selected).
+	    // Why: the tester-grid context menu can clear presets briefly while switching combinations; Sort should
+	    // remain in "Active/Grid" mode and resume once the overlay has a valid selection again.
+	    if (!testerSubstatSort.normalizedUseActiveOverlay) return
+	    if (!normalizedOverlayPrefs.state.useSortWeights) return
+	    onSetTesterSubstatSortState({
+	      ...testerSubstatSort,
+	      normalizedUseActiveOverlay: false,
+	      normalizedSourceIncludeCustom: (testerSubstatSort.normalizedSourcePresetIds?.length ?? 0) === 0,
+	    })
+	  }, [
+	    normalizedOverlayPrefs.state.useSortWeights,
+	    onSetTesterSubstatSortState,
+	    testerSubstatSort,
+	    testerSubstatSort.normalizedUseActiveOverlay,
+	  ])
+	  const buildCustomNormalizedPresetSnapshot = React.useCallback(() => {
+	    // Preset overwrite uses the current Sort selection+weights as the snapshot source.
+	    const variants = sortSelectedSubstats.map((key) => key as StatVariant)
+	    const weights: Partial<Record<StatVariant, number>> = {}
+	    variants.forEach((variant) => {
+	      const raw = Number(testerSubstatSort.weights?.[variant] ?? TESTER_SORT_WEIGHT_DEFAULT)
+	      // Neutral weights are omitted so preset storage stays compact and unambiguous.
+	      if (isNeutralTesterSortWeight(raw)) return
+	      weights[variant] = raw
+	    })
+	    return { variants, weights }
+	  }, [sortSelectedSubstats, testerSubstatSort.weights])
 	  // Keep clear icons from shifting layout when they appear/disappear.
 	  const HEADER_CLEAR_PLACEHOLDER_SX = {
 	    width: CLEAR_ICON_BUTTON_SIZE_PX,
@@ -483,79 +613,7 @@ export default function PreviewHeaderActions(props: {
 	    flexShrink: 0,
 	  } as const
 
-	  const formatWeight = React.useCallback((value: number): string => {
-	    // Weight values are normalized to 2 decimals (0.05 steps); keep formatting consistent across locales.
-	    const safe = Number.isFinite(value) ? value : TESTER_SORT_WEIGHT_DEFAULT
-	    return `×${safe.toFixed(2)}`
-	  }, [])
-
-	  const weightHoldRef = React.useRef<{
-	    timeoutId: number | null
-	    startedAtMs: number
-	    deltaSteps: number
-	    variant: StatVariant
-	    pointerId: number | null
-	  } | null>(null)
-
-	  const stopWeightHold = React.useCallback((releaseTarget?: HTMLElement | null) => {
-	    // Pointer-hold repeats must stop immediately on pointer up/leave to avoid accidental drift.
-	    const state = weightHoldRef.current
-	    if (!state) return
-	    if (state.timeoutId != null) {
-	      window.clearTimeout(state.timeoutId)
-	    }
-	    if (state.pointerId != null && releaseTarget) {
-	      try { releaseTarget.releasePointerCapture(state.pointerId) } catch {}
-	    }
-	    weightHoldRef.current = null
-	  }, [])
-
-	  React.useEffect(() => {
-	    // If the menu closes mid-hold (Escape / outside click), cancel repeats so weights stay predictable.
-	    if (!sortMenuOpen) stopWeightHold()
-	  }, [sortMenuOpen, stopWeightHold])
-
-	  const weightHoldDelayMs = React.useCallback((elapsedMs: number): number => {
-	    // Accelerate as the user keeps holding the button: smaller delay => faster bumping.
-	    if (elapsedMs < 450) return 180
-	    if (elapsedMs < 900) return 120
-	    if (elapsedMs < 1500) return 80
-	    if (elapsedMs < 2400) return 55
-	    return 40
-	  }, [])
-
-	  const beginWeightHold = React.useCallback((
-	    event: React.PointerEvent<HTMLElement>,
-	    variant: StatVariant,
-	    deltaSteps: number,
-	    enabled: boolean,
-	  ) => {
-	    // Holding +/- should never toggle the row itself; keep the interaction explicit.
-	    event.preventDefault()
-	    event.stopPropagation()
-	    if (!enabled) return
-	    stopWeightHold(event.currentTarget)
-
-	    // Apply the first bump immediately so a quick click behaves like a normal button press.
-	    onBumpTesterSubstatSortWeight(variant, deltaSteps)
-
-	    const pointerId = typeof event.pointerId === 'number' ? event.pointerId : null
-	    if (pointerId != null) {
-	      try { event.currentTarget.setPointerCapture(pointerId) } catch {}
-	    }
-	    const startedAtMs = performance.now()
-	    const schedule = () => {
-	      const next = weightHoldRef.current
-	      if (!next) return
-	      onBumpTesterSubstatSortWeight(next.variant, next.deltaSteps)
-	      const elapsed = performance.now() - next.startedAtMs
-	      const delayMs = weightHoldDelayMs(elapsed)
-	      next.timeoutId = window.setTimeout(schedule, delayMs)
-	    }
-	    // Small initial delay prevents accidental repeats during normal clicking.
-	    const timeoutId = window.setTimeout(schedule, 350)
-	    weightHoldRef.current = { timeoutId, startedAtMs, deltaSteps, variant, pointerId }
-	  }, [onBumpTesterSubstatSortWeight, stopWeightHold, weightHoldDelayMs])
+	  // Weight controls now live in `TesterSortWeightControls` so the Sort popout and tester-grid presets stay in sync.
 
   return (
     <>
@@ -766,7 +824,10 @@ export default function PreviewHeaderActions(props: {
                   </Button>
                 </span>
               </MarkdownTooltip>
-              {!isRulesMode && sortPriorities.length > 0 ? (
+              {!isRulesMode && (
+                sortPriorities.length > 0
+                || Boolean(testerSubstatSort.normalized)
+              ) ? (
                 <ClearIconButton
                   size="small"
                   aria-label={sortClearLabel}
@@ -958,7 +1019,9 @@ export default function PreviewHeaderActions(props: {
 	                const idx = sortPriorities.findIndex((v) => Number(v) === Number(key))
 	                const label = sortLabelForKey(key)
 	                const fg = Number(key) === TESTER_SORT_KEY_LAST_USAGE ? undefined : sortStatFg(key as StatVariant)
-	                const active = idx >= 0
+	                const active = sortNormalizedEffective
+	                  ? sortNormalizedDisplayedVariantSet.has(Number(key))
+	                  : idx >= 0
 	                const perKeyFlipped = sortFlipped.some((v) => Number(v) === Number(key))
 	                const priorityDisabled = sortNormalizedEffective
 	                const isSyntheticKey = Number(key) === TESTER_SORT_KEY_LAST_USAGE
@@ -966,15 +1029,12 @@ export default function PreviewHeaderActions(props: {
 	                const showPriorityBadges = active && !sortNormalizedEffective
 	                // Weight controls only replace the active badges. When the row is not selected, always show the two ghost badges
 	                // so the control column stays visually consistent in both Normalized and priority modes.
-	                const showWeightControls = sortNormalizedEffective && active && !isSyntheticKey
+	                const showNormalizedSelectedBadge = sortNormalizedAmbiguousWeights && active && !isSyntheticKey
+	                const showWeightControls = sortNormalizedEffective && active && !isSyntheticKey && !sortNormalizedAmbiguousWeights
 	                const weightControlsEnabled = showWeightControls
-	                const rawWeight = showWeightControls
-	                  ? Number(testerSubstatSort.weights?.[key as StatVariant] ?? TESTER_SORT_WEIGHT_DEFAULT)
-	                  : TESTER_SORT_WEIGHT_DEFAULT
-	                const resolvedWeight = showWeightControls ? normalizeTesterSortWeight(rawWeight) : TESTER_SORT_WEIGHT_DEFAULT
-	                const weightLabel = showWeightControls ? formatWeight(resolvedWeight) : ''
-	                // Selection is already conveyed by the row highlight; the weight chip should stay focused on the numeric value.
-	                const weightChipLabel = showWeightControls ? weightLabel : ''
+	                const rawWeight = isSyntheticKey
+	                  ? TESTER_SORT_WEIGHT_DEFAULT
+	                  : Number(testerSubstatSort.weights?.[key as StatVariant] ?? TESTER_SORT_WEIGHT_DEFAULT)
 		                return (
 		                  <MenuItem
 		                    key={key}
@@ -1057,154 +1117,38 @@ export default function PreviewHeaderActions(props: {
 	                        >
 	                          {idx + 1}
 	                        </Box>
-		                      ) : showWeightControls ? (
-		                        <>
-		                          <Box
-		                            component="button"
-		                            type="button"
-		                            aria-label={formatWeightDecreaseAria(label)}
-		                            aria-disabled={!weightControlsEnabled}
-		                            onPointerDown={(event) => beginWeightHold(event, key as StatVariant, -1, weightControlsEnabled)}
-		                            onPointerUp={(event) => stopWeightHold(event.currentTarget)}
-		                            onPointerLeave={(event) => stopWeightHold(event.currentTarget)}
-		                            onPointerCancel={(event) => stopWeightHold(event.currentTarget)}
-		                            onClick={(event) => { event.preventDefault(); event.stopPropagation() }}
-		                            onKeyDown={(event) => {
-		                              if (event.key !== 'Enter' && event.key !== ' ') return
-		                              event.preventDefault()
-		                              event.stopPropagation()
-		                              if (!weightControlsEnabled) return
-		                              onBumpTesterSubstatSortWeight(key as StatVariant, -1)
-		                            }}
-		                            style={{
-		                              border: 'none',
-		                              background: 'transparent',
-		                              padding: 0,
-		                              margin: 0,
-		                              cursor: weightControlsEnabled ? 'pointer' : 'default',
-		                              font: 'inherit',
-		                              opacity: weightControlsEnabled ? 1 : 0.35,
-		                            }}
-		                          >
-		                            <Box
-		                              component="span"
-		                              sx={(theme) => ({
-		                                display: 'inline-flex',
-		                                alignItems: 'center',
-		                                justifyContent: 'center',
-		                                height: 22,
-		                                minWidth: 26,
-		                                px: 0.5,
-		                                borderRadius: `${STATUS_CHIP_BORDER_RADIUS_PX}px`,
-		                                fontSize: theme.typography.pxToRem(14),
-		                                fontWeight: 800,
-		                                border: `1px solid ${alpha(theme.palette.text.secondary, theme.palette.mode === 'dark' ? 0.28 : 0.18)}`,
-		                                color: theme.palette.text.secondary,
-		                                userSelect: 'none',
-		                              })}
-		                            >
-		                              −
-		                            </Box>
-		                          </Box>
-		                          <Box
-		                            component="button"
-		                            type="button"
-		                            aria-label={formatWeightResetAria(label)}
-		                            aria-disabled={!weightControlsEnabled}
-		                            onClick={(event) => {
-		                              // Chip taps are weight-only; never toggle the row.
-		                              event.preventDefault()
-		                              event.stopPropagation()
-		                            }}
-		                            onDoubleClick={(event) => {
-		                              // Double-click reset provides a fast way back to neutral.
-		                              event.preventDefault()
-		                              event.stopPropagation()
-		                              if (!weightControlsEnabled) return
-		                              onSetTesterSubstatSortWeight(key as StatVariant, TESTER_SORT_WEIGHT_DEFAULT)
-		                            }}
-		                            style={{
-		                              border: 'none',
-		                              background: 'transparent',
-		                              padding: 0,
-		                              margin: 0,
-		                              cursor: weightControlsEnabled ? 'pointer' : 'default',
-		                              font: 'inherit',
-		                              opacity: weightControlsEnabled ? 1 : 0.35,
-		                            }}
-		                          >
-		                            <Box
-		                              component="span"
-		                              sx={(theme) => ({
-		                                display: 'inline-flex',
-		                                alignItems: 'center',
-		                                justifyContent: 'center',
-		                                height: 22,
-		                                minWidth: 56,
-		                                px: 0.75,
-		                                borderRadius: `${STATUS_CHIP_BORDER_RADIUS_PX}px`,
-		                                fontSize: theme.typography.pxToRem(13),
-		                                fontWeight: 800,
-		                                letterSpacing: 0.1,
-		                                fontVariantNumeric: 'tabular-nums',
-		                                border: `1px solid ${alpha(theme.palette.success.main, theme.palette.mode === 'dark' ? 0.7 : 0.55)}`,
-		                                backgroundColor: alpha(theme.palette.success.main, theme.palette.mode === 'dark' ? 0.16 : 0.1),
-		                                color: theme.palette.success.main,
-		                                userSelect: 'none',
-		                              })}
-		                              title={`${sortWeightLabel}: ${resolvedWeight.toFixed(2)}`}
-		                            >
-		                              {weightChipLabel}
-		                            </Box>
-		                          </Box>
-		                          <Box
-		                            component="button"
-		                            type="button"
-		                            aria-label={formatWeightIncreaseAria(label)}
-		                            aria-disabled={!weightControlsEnabled}
-		                            onPointerDown={(event) => beginWeightHold(event, key as StatVariant, 1, weightControlsEnabled)}
-		                            onPointerUp={(event) => stopWeightHold(event.currentTarget)}
-		                            onPointerLeave={(event) => stopWeightHold(event.currentTarget)}
-		                            onPointerCancel={(event) => stopWeightHold(event.currentTarget)}
-		                            onClick={(event) => { event.preventDefault(); event.stopPropagation() }}
-		                            onKeyDown={(event) => {
-		                              if (event.key !== 'Enter' && event.key !== ' ') return
-		                              event.preventDefault()
-		                              event.stopPropagation()
-		                              if (!weightControlsEnabled) return
-		                              onBumpTesterSubstatSortWeight(key as StatVariant, 1)
-		                            }}
-		                            style={{
-		                              border: 'none',
-		                              background: 'transparent',
-		                              padding: 0,
-		                              margin: 0,
-		                              cursor: weightControlsEnabled ? 'pointer' : 'default',
-		                              font: 'inherit',
-		                              opacity: weightControlsEnabled ? 1 : 0.35,
-		                            }}
-		                          >
-		                            <Box
-		                              component="span"
-		                              sx={(theme) => ({
-		                                display: 'inline-flex',
-		                                alignItems: 'center',
-		                                justifyContent: 'center',
-		                                height: 22,
-		                                minWidth: 26,
-		                                px: 0.5,
-		                                borderRadius: `${STATUS_CHIP_BORDER_RADIUS_PX}px`,
-		                                fontSize: theme.typography.pxToRem(14),
-		                                fontWeight: 800,
-		                                border: `1px solid ${alpha(theme.palette.text.secondary, theme.palette.mode === 'dark' ? 0.28 : 0.18)}`,
-		                                color: theme.palette.text.secondary,
-		                                userSelect: 'none',
-		                              })}
-		                            >
-		                              +
-		                            </Box>
-		                          </Box>
-		                        </>
+	                      ) : showWeightControls ? (
+		                        <TesterSortWeightControls
+		                          label={label}
+		                          enabled={weightControlsEnabled}
+		                          weight={rawWeight}
+		                          onBump={(deltaSteps) => handleBumpWeight(key as StatVariant, deltaSteps)}
+		                          onReset={() => handleSetWeight(key as StatVariant, TESTER_SORT_WEIGHT_DEFAULT)}
+		                        />
+	                      ) : showNormalizedSelectedBadge ? (
+	                        <Box
+	                          component="span"
+	                          aria-hidden
+	                          // In multi-preset mode, weights cannot be represented per-row; show a simple "selected" badge instead.
+	                          sx={(theme) => ({
+	                            display: 'inline-flex',
+	                            alignItems: 'center',
+	                            justifyContent: 'center',
+	                            height: 22,
+	                            minWidth: 34,
+	                            px: 0.75,
+	                            borderRadius: `${STATUS_CHIP_BORDER_RADIUS_PX}px`,
+	                            fontSize: theme.typography.pxToRem(14),
+	                            fontWeight: 800,
+	                            letterSpacing: 0.1,
+	                            border: `1px solid ${alpha(theme.palette.success.main, theme.palette.mode === 'dark' ? 0.7 : 0.55)}`,
+	                            backgroundColor: alpha(theme.palette.success.main, theme.palette.mode === 'dark' ? 0.16 : 0.1),
+	                            color: theme.palette.success.main,
+	                            userSelect: 'none',
+	                          })}
+	                        >
+	                          ✓
+	                        </Box>
 	                      ) : (
 	                        <Box
 	                          component="span"
@@ -1235,10 +1179,10 @@ export default function PreviewHeaderActions(props: {
                             aria-label={perKeyFlipped ? sortGlyphFlippedDirectionLabel : sortGlyphInheritDirectionLabel}
                             onClick={priorityDisabled ? undefined : (event) => {
                               // Per-key direction toggles should not affect the priority selection itself.
-                              event.preventDefault()
-                              event.stopPropagation()
-                              onToggleTesterSubstatSortPriorityFlipped(key)
-                            }}
+	                              event.preventDefault()
+	                              event.stopPropagation()
+	                              handleToggleFlippedKey(key)
+	                            }}
                             style={{
                               border: 'none',
                               background: 'transparent',
@@ -1270,8 +1214,8 @@ export default function PreviewHeaderActions(props: {
                               {perKeyFlipped ? '⇵' : '⇅'}
                             </Box>
                           </Box>
-                        </MarkdownTooltip>
-	                      ) : showWeightControls ? null : (
+	                        </MarkdownTooltip>
+	                      ) : (showWeightControls || sortNormalizedAmbiguousWeights) ? null : (
 	                        <Box
 	                          component="span"
 	                          aria-hidden
@@ -1317,48 +1261,286 @@ export default function PreviewHeaderActions(props: {
 	                </Button>
 	              </MenuItem>
 	              <MenuItem
-	                onClick={() => {
-	                  if (!sortNormalizedAllowed) return
-	                  onToggleTesterSubstatSortNormalized()
-                }}
-                aria-disabled={!sortNormalizedAllowed}
-                role="menuitem"
-                tabIndex={sortNormalizedAllowed ? 0 : -1}
-                onKeyDown={(event) => {
-                  if (event.key !== 'Enter' && event.key !== ' ') return
-                  if (!sortNormalizedAllowed) return
-                  event.preventDefault()
-                  onToggleTesterSubstatSortNormalized()
-                }}
-                sx={(theme) => ({
-                  gap: 1,
-                  alignItems: 'center',
-                  ...(sortNormalizedAllowed ? {} : {
-                    opacity: theme.palette.action.disabledOpacity,
-                    cursor: 'default',
-	                  }),
-	                })}
+	                disableRipple
+	                sx={{ gap: 1, alignItems: 'flex-start' }}
 	              >
-	                <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }} data-sort-popout-text>{sortNormalizedLabel}</Typography>
-	                <MarkdownTooltip markdown={sortNormalizedTooltip}>
-	                  <Box component="span">
-	                    <Button
-	                      size="small"
-                      variant={sortNormalizedEnabled ? 'contained' : 'outlined'}
-                      color="success"
-                      disabled={!sortNormalizedAllowed}
-                      sx={{ minWidth: MENU_CONTROL_MIN_WIDTH_PX, height: MENU_CONTROL_HEIGHT_PX, minHeight: MENU_CONTROL_HEIGHT_PX, lineHeight: 1, py: 0 }}
-                      onClick={(event) => {
-                        event.stopPropagation()
-                        if (!sortNormalizedAllowed) return
-                        onToggleTesterSubstatSortNormalized()
-                      }}
-                    >
-                      {sortNormalizedEnabled ? t('commonOn') : t('commonOff')}
-                    </Button>
-                  </Box>
-                </MarkdownTooltip>
-              </MenuItem>
+	                <MarkdownTooltip markdown={sortNormalizedTooltip} placement="top-start">
+	                  <Typography
+	                    variant="body2"
+	                    sx={{ flex: 1, minWidth: 0, pt: 0.25 }}
+	                    data-sort-popout-text
+	                  >
+	                    {sortNormalizedLabel}
+	                  </Typography>
+	                </MarkdownTooltip>
+	                <Box component="span">
+	                  <Stack direction="column" spacing={0.75} alignItems="flex-end">
+	                      <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+	                        <MarkdownTooltip markdown={sortNormalizedTooltip} placement="top-start">
+	                          <Box component="span">
+	                            <Button
+	                              size="small"
+	                              variant={sortNormalizedEnabled ? 'contained' : 'outlined'}
+	                              color="success"
+	                              disabled={!sortNormalizedAllowed && !sortNormalizedEnabled}
+	                              sx={{ minWidth: 54, height: MENU_CONTROL_HEIGHT_PX, minHeight: MENU_CONTROL_HEIGHT_PX, lineHeight: 1, py: 0 }}
+	                              onClick={(event) => {
+	                                event.stopPropagation()
+	                                if (!sortNormalizedAllowed && !sortNormalizedEnabled) return
+	                                // Turning Normalized off clears source selection so the UI is unambiguous.
+	                                if (sortNormalizedEnabled) {
+	                                  onSetTesterSubstatSortState({
+	                                    ...testerSubstatSort,
+	                                    normalized: false,
+	                                    normalizedUseActiveOverlay: false,
+	                                    normalizedSourcePresetIds: [],
+	                                    normalizedSourceIncludeCustom: true,
+	                                  })
+	                                  return
+	                                }
+	                                onSetTesterSubstatSortState({ ...testerSubstatSort, normalized: true })
+	                              }}
+	                            >
+	                              {t('commonOn')}
+	                            </Button>
+	                          </Box>
+	                        </MarkdownTooltip>
+	                      </Box>
+	                      <Stack direction="row" spacing={0.5} alignItems="center" justifyContent="flex-end">
+	                        <MarkdownTooltip markdown={sortNormalizedUseActiveTooltip} placement="top-start">
+	                          <Box component="span">
+	                            <Button
+	                              size="small"
+	                              variant={testerSubstatSort.normalizedUseActiveOverlay ? 'contained' : 'outlined'}
+	                              color="success"
+	                              disabled={!normalizedOverlayActiveAllowed}
+	                              sx={{
+	                                minWidth: 28,
+	                                width: 28,
+	                                height: MENU_CONTROL_HEIGHT_PX,
+	                                minHeight: MENU_CONTROL_HEIGHT_PX,
+	                                lineHeight: 1,
+	                                py: 0,
+	                                px: 0,
+	                              }}
+	                              onClick={(event) => {
+	                                event.stopPropagation()
+	                                if (!normalizedOverlayActiveAllowed) return
+	                                const enabling = !testerSubstatSort.normalizedUseActiveOverlay
+	                                if (enabling) {
+	                                  const overlayPresetId = normalizedOverlayPrefs.state.enabledPresetIds.length === 1
+	                                    ? normalizedOverlayPrefs.state.enabledPresetIds[0] ?? null
+	                                    : null
+	                                  const overlayPreset = overlayPresetId != null ? normalizedOverlayPrefs.state.presets[overlayPresetId] : null
+	                                  const overlayWeights: Partial<Record<StatVariant, number>> = {}
+	                                  if (overlayPreset?.weights) {
+	                                    for (const [variantRaw, weightRaw] of Object.entries(overlayPreset.weights)) {
+	                                      const variant = Number(variantRaw) as StatVariant
+	                                      const weight = Number(weightRaw)
+	                                      if (!Number.isFinite(weight)) continue
+	                                      if (isNeutralTesterSortWeight(weight)) continue
+	                                      overlayWeights[variant] = weight
+	                                    }
+	                                  }
+	                                  onSetTesterSubstatSortState({
+	                                    ...testerSubstatSort,
+	                                    normalized: true,
+	                                    normalizedUseActiveOverlay: true,
+	                                    normalizedSourcePresetIds: [],
+	                                    normalizedSourceIncludeCustom: false,
+	                                    ...(overlayPreset ? { priorities: overlayPreset.variants.slice(), flipped: [], weights: overlayWeights } : {}),
+	                                  })
+	                                  return
+	                                }
+	                                onSetTesterSubstatSortState({
+	                                  ...testerSubstatSort,
+	                                  normalizedUseActiveOverlay: false,
+	                                  normalizedSourceIncludeCustom: (testerSubstatSort.normalizedSourcePresetIds?.length ?? 0) === 0,
+	                                })
+	                              }}
+	                              aria-label={sortNormalizedUseActiveLabel}
+	                            >
+	                              <GridViewIcon sx={{ fontSize: 18 }} />
+	                            </Button>
+	                          </Box>
+	                        </MarkdownTooltip>
+	                        {Array.from({ length: 4 }).map((_, idx) => {
+	                          const presetId = idx as TesterNormalizedPresetId
+	                          const enabled = sortNormalizedPresetIdSet.has(presetId)
+	                          const preset = normalizedOverlayPrefs.state.presets[presetId]
+	                          const label = preset
+	                            ? formatTesterNormalizedPresetButtonLabel(presetId, preset.iconId)
+	                            : String(presetId + 1)
+	                          const tooltipMarkdown = preset
+	                            ? buildTesterNormalizedPresetTooltipMarkdown({
+	                                title: t('testerGridNormalizedPresetTitle', { n: presetId + 1 }),
+	                                preset,
+	                                labelForVariant: (variant) => t(statVariantI18nKey(variant)),
+	                                emptyLabel: normalizedPresetTooltipEmptyLabel,
+	                                rightClickHint: normalizedPresetTooltipRightClickHint,
+	                              })
+	                            : normalizedPresetTooltipEmptyLabel
+	                          return (
+	                            <MarkdownTooltip
+	                              key={`tester-sort-normalized-preset-tooltip-${presetId}`}
+	                              markdown={tooltipMarkdown}
+	                              placement="top-start"
+	                            >
+	                              <Box component="span">
+	                                <Button
+	                                  size="small"
+	                                  variant={enabled ? 'contained' : 'outlined'}
+	                                  color="success"
+	                                  sx={{
+	                                    minWidth: 28,
+	                                    width: 28,
+	                                    height: MENU_CONTROL_HEIGHT_PX,
+	                                    minHeight: MENU_CONTROL_HEIGHT_PX,
+	                                    lineHeight: 1,
+	                                    py: 0,
+	                                    px: 0,
+	                                    fontSize: 18,
+	                                  }}
+	                                  onClick={(event) => {
+	                                    event.stopPropagation()
+	                                    const nextPresetIds = (() => {
+	                                      // When Normalized is off, selecting a preset immediately enables Normalized and uses that preset.
+	                                      if (!sortNormalizedEnabled) return [presetId]
+	                                      const current = testerSubstatSort.normalizedSourcePresetIds ?? []
+	                                      const set = new Set<number>(current.map((id) => Number(id)))
+	                                      if (set.has(presetId)) {
+	                                        set.delete(presetId)
+	                                      } else {
+	                                        set.add(presetId)
+	                                      }
+	                                      return [...set].sort((a, b) => a - b).map((id) => id as TesterNormalizedPresetId)
+	                                    })()
+	                                    const singlePresetId = nextPresetIds.length === 1 ? nextPresetIds[0]! : null
+	                                    const singlePreset = singlePresetId != null ? normalizedOverlayPrefs.state.presets[singlePresetId] : null
+	                                    const presetWeights: Partial<Record<StatVariant, number>> = {}
+	                                    if (singlePreset?.weights) {
+	                                      for (const [variantRaw, weightRaw] of Object.entries(singlePreset.weights)) {
+	                                        const variant = Number(variantRaw) as StatVariant
+	                                        const weight = Number(weightRaw)
+	                                        if (!Number.isFinite(weight)) continue
+	                                        if (isNeutralTesterSortWeight(weight)) continue
+	                                        presetWeights[variant] = weight
+	                                      }
+	                                    }
+	                                    onSetTesterSubstatSortState({
+	                                      ...testerSubstatSort,
+	                                      ...(sortNormalizedEnabled ? {} : { normalized: true }),
+	                                      normalizedUseActiveOverlay: false,
+	                                      normalizedSourcePresetIds: nextPresetIds,
+	                                      normalizedSourceIncludeCustom: nextPresetIds.length === 0,
+	                                      ...(singlePreset ? { priorities: singlePreset.variants.slice(), flipped: [], weights: presetWeights } : {}),
+	                                    })
+	                                  }}
+	                                  onContextMenu={(event) => {
+	                                    event.preventDefault()
+	                                    event.stopPropagation()
+	                                    // Presets can still be edited/overwritten even when Normalized is off.
+	                                    setSortNormalizedPresetEditor({ presetId, position: { x: event.clientX, y: event.clientY } })
+	                                  }}
+	                                >
+	                                  {label}
+	                                </Button>
+	                              </Box>
+	                            </MarkdownTooltip>
+	                          )
+	                        })}
+	                      </Stack>
+	                      <Stack direction="row" spacing={0.5} alignItems="center" justifyContent="flex-end">
+	                        {Array.from({ length: TESTER_NORMALIZED_PRESET_COUNT - 4 }).map((_, offset) => {
+	                          const idx = offset + 4
+	                          const presetId = idx as TesterNormalizedPresetId
+	                          const enabled = sortNormalizedPresetIdSet.has(presetId)
+	                          const preset = normalizedOverlayPrefs.state.presets[presetId]
+	                          const label = preset
+	                            ? formatTesterNormalizedPresetButtonLabel(presetId, preset.iconId)
+	                            : String(presetId + 1)
+	                          const tooltipMarkdown = preset
+	                            ? buildTesterNormalizedPresetTooltipMarkdown({
+	                                title: t('testerGridNormalizedPresetTitle', { n: presetId + 1 }),
+	                                preset,
+	                                labelForVariant: (variant) => t(statVariantI18nKey(variant)),
+	                                emptyLabel: normalizedPresetTooltipEmptyLabel,
+	                                rightClickHint: normalizedPresetTooltipRightClickHint,
+	                              })
+	                            : normalizedPresetTooltipEmptyLabel
+	                          return (
+	                            <MarkdownTooltip
+	                              key={`tester-sort-normalized-preset-tooltip-${presetId}`}
+	                              markdown={tooltipMarkdown}
+	                              placement="top-start"
+	                            >
+	                              <Box component="span">
+	                                <Button
+	                                  size="small"
+	                                  variant={enabled ? 'contained' : 'outlined'}
+	                                  color="success"
+	                                  sx={{
+	                                    minWidth: 28,
+	                                    width: 28,
+	                                    height: MENU_CONTROL_HEIGHT_PX,
+	                                    minHeight: MENU_CONTROL_HEIGHT_PX,
+	                                    lineHeight: 1,
+	                                    py: 0,
+	                                    px: 0,
+	                                    fontSize: 18,
+	                                  }}
+	                                  onClick={(event) => {
+	                                    event.stopPropagation()
+	                                    const nextPresetIds = (() => {
+	                                      // When Normalized is off, selecting a preset immediately enables Normalized and uses that preset.
+	                                      if (!sortNormalizedEnabled) return [presetId]
+	                                      const current = testerSubstatSort.normalizedSourcePresetIds ?? []
+	                                      const set = new Set<number>(current.map((id) => Number(id)))
+	                                      if (set.has(presetId)) {
+	                                        set.delete(presetId)
+	                                      } else {
+	                                        set.add(presetId)
+	                                      }
+	                                      return [...set].sort((a, b) => a - b).map((id) => id as TesterNormalizedPresetId)
+	                                    })()
+	                                    const singlePresetId = nextPresetIds.length === 1 ? nextPresetIds[0]! : null
+	                                    const singlePreset = singlePresetId != null ? normalizedOverlayPrefs.state.presets[singlePresetId] : null
+	                                    const presetWeights: Partial<Record<StatVariant, number>> = {}
+	                                    if (singlePreset?.weights) {
+	                                      for (const [variantRaw, weightRaw] of Object.entries(singlePreset.weights)) {
+	                                        const variant = Number(variantRaw) as StatVariant
+	                                        const weight = Number(weightRaw)
+	                                        if (!Number.isFinite(weight)) continue
+	                                        if (isNeutralTesterSortWeight(weight)) continue
+	                                        presetWeights[variant] = weight
+	                                      }
+	                                    }
+	                                    onSetTesterSubstatSortState({
+	                                      ...testerSubstatSort,
+	                                      ...(sortNormalizedEnabled ? {} : { normalized: true }),
+	                                      normalizedUseActiveOverlay: false,
+	                                      normalizedSourcePresetIds: nextPresetIds,
+	                                      normalizedSourceIncludeCustom: nextPresetIds.length === 0,
+	                                      ...(singlePreset ? { priorities: singlePreset.variants.slice(), flipped: [], weights: presetWeights } : {}),
+	                                    })
+	                                  }}
+	                                  onContextMenu={(event) => {
+	                                    event.preventDefault()
+	                                    event.stopPropagation()
+	                                    // Presets can still be edited/overwritten even when Normalized is off.
+	                                    setSortNormalizedPresetEditor({ presetId, position: { x: event.clientX, y: event.clientY } })
+	                                  }}
+	                                >
+	                                  {label}
+	                                </Button>
+	                              </Box>
+	                            </MarkdownTooltip>
+	                          )
+	                        })}
+	                      </Stack>
+	                  </Stack>
+	                </Box>
+	              </MenuItem>
               <MenuItem
                 sx={{ gap: 1, alignItems: 'center' }}
 	                disabled={sortControlsDisabled}
@@ -1379,11 +1561,11 @@ export default function PreviewHeaderActions(props: {
 	                  {testerSubstatSort.keepSections ? t('commonOn') : t('commonOff')}
 	                </Button>
 	              </MenuItem>
-	              <MenuItem
-	                sx={{ gap: 1, alignItems: 'center' }}
-	                disabled={sortControlsDisabled}
-	                onClick={() => onToggleTesterSubstatSortExcludeGlyphs()}
-	              >
+              <MenuItem
+                sx={{ gap: 1, alignItems: 'center' }}
+                disabled={sortControlsDisabled}
+                onClick={() => onToggleTesterSubstatSortExcludeGlyphs()}
+              >
 	                <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }} data-sort-popout-text>{sortGlyphsLabel}</Typography>
 	                <Button
 	                  size="small"
@@ -1401,6 +1583,28 @@ export default function PreviewHeaderActions(props: {
                 </Button>
               </MenuItem>
             </Menu>
+	            <TesterNormalizedPresetEditorMenu
+	              open={Boolean(sortNormalizedPresetEditor)}
+	              anchorPosition={sortNormalizedPresetEditor?.position ?? null}
+	              presetId={(sortNormalizedPresetEditor?.presetId ?? 0) as TesterNormalizedPresetId}
+	              preset={normalizedOverlayPrefs.state.presets[(sortNormalizedPresetEditor?.presetId ?? 0) as TesterNormalizedPresetId] ?? { iconId: DEFAULT_METASET_ICON_ID, variants: [], weights: {} }}
+	              onClose={() => setSortNormalizedPresetEditor(null)}
+	              onSetIconId={normalizedOverlayPrefs.setPresetIconId}
+	              onOverwriteFromCurrent={(presetId) => {
+	                const snapshot = buildCustomNormalizedPresetSnapshot()
+	                if (snapshot.variants.length === 0) return
+	                normalizedOverlayPrefs.overwritePreset(presetId, snapshot)
+	              }}
+	              overwriteFromCurrentLabel={sortNormalizedPresetActionsOverwriteLabel}
+	              overwriteFromCurrentDisabled={sortSelectedSubstats.length === 0}
+	              useStatButtonColors={useStatButtonColors}
+	              substatColors={substatColors}
+	              onToggleVariant={(presetId, variant) => normalizedOverlayPrefs.toggleVariant(presetId, variant)}
+	              onBumpWeight={(presetId, variant, deltaSteps) => normalizedOverlayPrefs.bumpWeight(presetId, variant, deltaSteps)}
+	              onSetWeight={(presetId, variant, next) => normalizedOverlayPrefs.setWeight(presetId, variant, next)}
+	              onResetPreset={(presetId) => normalizedOverlayPrefs.resetPreset(presetId)}
+	              paperRef={sortNormalizedPresetEditorPaperRef}
+	            />
           </>
         )}
         <Stack direction="row" spacing={1} alignItems="center" sx={{ flexShrink: 0, minWidth: 0 }}>

@@ -74,6 +74,16 @@ const overrides: Catalog = {
   testerTableEmptyFilter: 'Ningún elemento del tester coincide con los filtros actuales.',
   testerGridScrollHint: '{group} • {detail}',
   testerGridCompactGroup: 'Comprimir grupo actual',
+  testerGridNormalizedLabel: 'Mostrar valoración de substats',
+  testerGridNormalizedTooltip: '**Mostrar valoración de substats** superpone la misma puntuación normalizada usada por **Normalized**:\n\n- **Puntuación = suma ponderada** de los substats seleccionados.\n- Cada substat seleccionado tiene un **peso** (`0.1–3.0`, predeterminado `1.0`).\n- Cada substat seleccionado se escala por su **tope de roll 6★**: `valor / tope`.\n- Si a un ítem le falta un substat seleccionado, aporta **0**.\n- Si se seleccionan varios preajustes, la valoración usa la **mejor (máx)** puntuación (no un promedio).\n- **Solo cuentan los substats**. Conjunto, ranura, rango, rareza y stat principal se ignoran.\n\nEl color del overlay es relativo a la vista actual: **rojo = más bajo**, **verde = más alto**.',
+  testerGridNormalizedPresetTitle: 'Preajuste normalizado {n}',
+  testerGridNormalizedPresetHelp: 'Selecciona substats para incluir; ajusta pesos para sesgar la suma normalizada.',
+  testerGridNormalizedPresetGlyphLabel: 'Icono',
+  testerGridNormalizedPresetGlyphPickerAria: 'Seleccionar icono del preajuste',
+  testerGridNormalizedPresetReset: 'Restablecer preajuste',
+  testerNormalizedPresetTooltipEmpty: 'No hay substats seleccionados.',
+  testerNormalizedPresetTooltipRightClickHint: '_Clic derecho para editar este preajuste._',
+  testerGridNormalizedSortSourceTooltip: '**Fuente de ordenación** usa la fuente de ordenación **Normalized** actual para el overlay.\n\n- Es **exclusiva** con seleccionar preajustes aquí.\n- Si Normalized usa varias fuentes, el overlay usa la **mejor (máx)** puntuación.',
   gearDialogLevelLabel: 'Nv {level}',
   testerMainStatInline: '{stat} {value}',
   testerSubstatsNone: 'Sin subestadísticas',
@@ -227,7 +237,7 @@ const overrides: Catalog = {
   keepUniquesCountModePerFaction: 'Por facción',
   keepUniquesCountModePerMain: 'Por stat principal',
   keepUniquesCountModePerRule: 'Por regla',
-  // Tooltip mirrors the README examples so users see the same scenarios we use to explain the chip layout.
+  // Tooltip mirrors the README examples so users see the same scenarios we use to explain the scope chips.
   keepUniquesCountModeHint: '**Chips de cuota**\n- `Por regla`: un único cupo para todo lo que coincide (ej.: Botas [[stat:statSPD]] ≥5 sin importar el set).\n- `Por ranura`: duplica la cuota por ranura (anillos, amuletos y estandartes tienen su propio pool).\n- `Por conjunto`: duplica la cuota por cada set/metaset seleccionado.\n- `Por facción`: duplica la cuota por facción.\n- `Por stat principal`: duplica la cuota por cada stat principal seleccionado.\nLos chips aparecen justo debajo de todos los selectores salvo Rango y Rareza. Mezcla cualquier combinación para dividir la cuota; al desactivarlos todos, la regla vuelve a `Por regla` (un único pool).',
   keepUniquesCountModeHintLabel: 'Abrir ayuda del ámbito de la cuota',
   keepUniquesNoRules: 'Aún no hay reglas de conservación.',
@@ -866,7 +876,13 @@ const overrides: Catalog = {
   testerSortGlyphsExclude: 'Excluir',
   testerSortGlyphsInclude: 'Incluir',
   testerSortNormalized: 'Normalizado',
-  testerSortNormalizedTooltip: '**Normalized** ignora el orden de prioridad y ordena por una única puntuación:\n\n- **Puntuación = suma ponderada** de los substats seleccionados.\n- Cada substat seleccionado tiene un **peso** (`0.1–3.0`, predeterminado `1.0`).\n- Cada substat seleccionado se escala por su **tope de roll 6★**: `valor / tope`.\n- Si un item no tiene un substat seleccionado, aporta **0**.\n- `Last Used` se ignora mientras Normalized esté activado.\n\n**Ejemplo (seleccionado: [[stat:statSPD]] + [[stat:statCR]] + [[stat:statCDMG]])**\n`(n)` muestra el **número de rolls de mejora** en ese substat.\n\n- Item A: `[[stat:statSPD]] 11 (1)`, `[[stat:statCR]] 20 (3)`, `[[stat:statCDMG]] 7 (0)`\n  - [[stat:statCR]] tiene un **triple malo**: `5 + 3×5 = 20`\n  - Puntuación = `11/6 + 20/7 + 7/7 = 1.83 + 2.86 + 1.00 = 5.69`\n- Item B: `[[stat:statSPD]] 10 (1)`, `[[stat:statCR]] 21 (2)`, `[[stat:statCDMG]] 12 (1)`\n  - [[stat:statCR]] tiene un **doble bueno**: `7 + 2×7 = 21`\n  - Puntuación = `10/6 + 21/7 + 12/7 = 1.67 + 3.00 + 1.71 = 6.38`\n\nAunque Item B tenga menos rolls de [[stat:statCR]], puede quedar más arriba porque los rolls son mejores, y la puntuación también tiene en cuenta los otros stats seleccionados.',
+  testerSortNormalizedTooltip: '**Normalized** ignora el orden de prioridad y ordena por una única puntuación:\n\n- **Puntuación = suma ponderada** de los substats seleccionados.\n- Cada substat seleccionado tiene un **peso** (`0.1–3.0`, predeterminado `1.0`).\n- Cada substat seleccionado se escala por su **tope de roll 6★**: `valor / tope`.\n- Si se seleccionan varios preajustes, la ordenación usa la **mejor (máx)** puntuación (no un promedio).\n- **Solo cuentan los substats**. Conjunto, ranura, rango, rareza y stat principal se ignoran.\n- Si un item no tiene un substat seleccionado, aporta **0**.\n- `Last Used` se ignora mientras Normalized esté activado.\n\n**Ejemplo (seleccionado: [[stat:statSPD]] + [[stat:statCR]] + [[stat:statCDMG]])**\n`(n)` muestra el **número de rolls de mejora** en ese substat.\n\n- Item A: `[[stat:statSPD]] 11 (1)`, `[[stat:statCR]] 20 (3)`, `[[stat:statCDMG]] 7 (0)`\n  - [[stat:statCR]] tiene un **triple malo**: `5 + 3×5 = 20`\n  - Puntuación = `11/6 + 20/7 + 7/7 = 1.83 + 2.86 + 1.00 = 5.69`\n- Item B: `[[stat:statSPD]] 10 (1)`, `[[stat:statCR]] 21 (2)`, `[[stat:statCDMG]] 12 (1)`\n  - [[stat:statCR]] tiene un **doble bueno**: `7 + 2×7 = 21`\n  - Puntuación = `10/6 + 21/7 + 12/7 = 1.67 + 3.00 + 1.71 = 6.38`\n\nAunque Item B tenga menos rolls de [[stat:statCR]], puede quedar más arriba porque los rolls son mejores, y la puntuación también tiene en cuenta los otros stats seleccionados.',
+  testerSortNormalizedUseActive: 'Activo',
+  testerSortNormalizedUseActiveTooltip: '**Activo** usa la selección de preajustes de la cuadrícula del Probador en **Mostrar valoración de substats** como fuente de puntuación Normalized.\n\n- Si hay varios preajustes activados en la cuadrícula, la ordenación usa la **mejor (máx)** puntuación.\n- Se desactiva cuando el overlay de la cuadrícula está en **Fuente de ordenación** para evitar puntuación circular.',
+  testerSortNormalizedSourcesLabel: 'Fuentes',
+  testerSortNormalizedSourceCustomLabel: 'Pesos personalizados',
+  testerSortNormalizedPresetActionsEdit: 'Editar preajuste',
+  testerSortNormalizedPresetActionsOverwrite: 'Sobrescribir desde el actual',
   testerSortWeight: 'Peso',
   testerSortWeightIncreaseAria: 'Aumentar el peso de {label}',
   testerSortWeightDecreaseAria: 'Disminuir el peso de {label}',
@@ -936,6 +952,8 @@ const overrides: Catalog = {
   restoreAutosaveNoteHelper: 'Carga la copia autoguardada.',
   restoreAutosaveFiltersLabel: 'Panel de filtros',
   restoreAutosaveFiltersHelper: 'Restaura el estado abierto, los chips y las secciones contraídas.',
+  restoreAutosaveSortLabel: 'Orden del Probador',
+  restoreAutosaveSortHelper: 'Restaura prioridades de substats, modo Normalized, fuentes y pesos.',
   restoreAutosaveTesterLabel: 'Importaciones del Probador ({count})',
   restoreAutosaveTesterHelper: 'Carga el equipo autoguardado.',
   restoreAutosaveGearSetsLabel: 'Conjuntos personalizados ({count})',
@@ -943,6 +961,7 @@ const overrides: Catalog = {
   restoreAutosaveRestoreSelected: 'Restaurar selección',
   yes: 'Sí',
   no: 'No',
+  save: 'Guardar',
 
   // Help dialog
   helpAriaLabel: 'Ayuda / README',
@@ -1254,3 +1273,4 @@ const overrides: Catalog = {
 }
 
 export default overrides
+

@@ -1,9 +1,12 @@
-import { useEffect, useRef } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 
 type Params = {
   open: boolean
   onClose: () => void
-  menuRef?: React.RefObject<HTMLElement | null>
+  menuRef?: { current: Element | null }
+  // Optional extra refs that count as "inside" for nested context menus.
+  // Why: Allows child menus to stay interactive without closing the parent menu on click.
+  insideRefs?: Array<{ current: Element | null }>
 }
 
 /**
@@ -11,33 +14,44 @@ type Params = {
  * dismiss the menu instead of leaving it stuck on screen. Native browser menus stay
  * suppressed until the custom menu fully closes.
  */
-export function useContextMenuCloseOnOutsideRightClick({ open, onClose, menuRef }: Params): void {
+export function useContextMenuCloseOnOutsideRightClick({ open, onClose, menuRef, insideRefs }: Params): void {
   const closeRef = useRef(onClose)
   useEffect(() => { closeRef.current = onClose }, [onClose])
+
+  const isTargetInsideAnyMenu = useCallback((target: Node | null): boolean => {
+    // Nested menus should not close their parents; treat all provided refs as "inside" zones.
+    if (!target) return false
+    const root = menuRef?.current ?? null
+    if (root && root.contains(target)) return true
+    const extras = insideRefs ?? []
+    for (let idx = 0; idx < extras.length; idx += 1) {
+      const extra = extras[idx]?.current ?? null
+      if (extra && extra.contains(target)) return true
+    }
+    return false
+  }, [insideRefs, menuRef])
 
   useEffect(() => {
     if (!open || !menuRef) return undefined
     const handlePointerDownCapture = (event: PointerEvent) => {
-      const menuEl = menuRef.current
-      if (!menuEl) return
       const target = event.target as Node | null
-      if (target && menuEl.contains(target)) return
+      if (isTargetInsideAnyMenu(target)) return
       closeRef.current()
     }
     window.addEventListener('pointerdown', handlePointerDownCapture, true)
     return () => {
       window.removeEventListener('pointerdown', handlePointerDownCapture, true)
     }
-  }, [menuRef, open])
+  }, [isTargetInsideAnyMenu, menuRef, open])
 
   useEffect(() => {
     if (!open) return undefined
     const handleContextMenuCapture = (event: MouseEvent) => {
       const target = event.target as Node | null
-      const menuEl = menuRef?.current ?? null
-      if (menuEl && target && menuEl.contains(target)) {
+      if (isTargetInsideAnyMenu(target)) {
+        // Suppress the native browser menu while keeping the event available to React handlers
+        // inside the custom menu (e.g., right-click actions on menu buttons).
         event.preventDefault()
-        event.stopPropagation()
         return
       }
       event.preventDefault()
@@ -48,5 +62,5 @@ export function useContextMenuCloseOnOutsideRightClick({ open, onClose, menuRef 
     return () => {
       window.removeEventListener('contextmenu', handleContextMenuCapture, true)
     }
-  }, [menuRef, open])
+  }, [isTargetInsideAnyMenu, menuRef, open])
 }

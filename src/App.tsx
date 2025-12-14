@@ -85,7 +85,8 @@ import { fingerprintConfigForRules, fingerprintSubstatTargets, updateConfigRules
 import { hasConfigMeaningfulDifferences } from './lib/configDiff'
 import { buildRuleTesterAutosavePayload, createRuleTesterMath, fingerprintRuleTesterItem, loadRuleTesterAutosaveDraft, type RuleTesterItem } from './lib/ruleTesterSession'
 import { sortTesterRows, TESTER_SORT_KEY_LAST_USAGE } from './lib/testerSort'
-import { setTesterSubstatSortState, useTesterSubstatSortPreferences } from './state/testerSubstatSortPreferences'
+import { isDefaultTesterSubstatSortState, setTesterSubstatSortState, useTesterSubstatSortPreferences } from './state/testerSubstatSortPreferences'
+import { useTesterGridNormalizedOverlayPreferences } from './state/testerGridNormalizedOverlayPreferences'
 import { FILTER_PRESETS_VERSION, useFilterPresetsPreference, type FilterPreset, type FilterPresetSnapshot } from './state/filterPresetsPreference'
 import FileDragOverlay from './components/FileDragOverlay'
 import { BuilderColumn } from './components/AppLayout/BuilderColumn'
@@ -104,7 +105,7 @@ import { useDeferredHsfcPayload } from './hooks/useDeferredHsfcPayload'
 import PreviewHeaderActions from './components/PreviewHeaderActions'
 import RulesFilterPanel, { type RulesFilterPanelHandle } from './components/RulesFilterPanel'
 import { TESTER_CONFIG_FILTER_MODE_DEFAULT, type TesterConfigFilterMode } from './types/testerConfigFilterMode'
-import { getAllKnownArtifactSetIds, type ArtifactSetId, type RankValue } from './lib/types'
+import { getAllKnownArtifactSetIds, type ArtifactSetId, type RankValue, type StatVariant } from './lib/types'
 import { DEFAULT_RULES_FILTER_STATE, filterHsfRules, filterTesterItems, isRulesFilterActive, normalizeRulesFilterForTester, type FilterHsfRulesResult, type RulesFilterState } from './lib/rulesFilter'
 import {
   useAutosaveRestore,
@@ -1789,30 +1790,97 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const [filtersSynced, setFiltersSyncedRaw] = useRulesFilterSyncPreference()
   // Rule Tester substat sorting is view-only but should persist across sessions like filters.
 	  const testerSubstatSortPrefs = useTesterSubstatSortPreferences()
-		  const testerSubstatSortSpec = useMemo(() => {
-		    const priorities = testerSubstatSortPrefs.state.priorities
-		    if (!priorities.length) return null
-		    const selectedSubstats = priorities.filter((key) => Number(key) !== TESTER_SORT_KEY_LAST_USAGE)
-		    const normalizedAllowed = selectedSubstats.length > 1
-		    return {
-		      priorities,
-		      direction: testerSubstatSortPrefs.state.direction,
-		      flipped: testerSubstatSortPrefs.state.flipped,
-		      excludeGlyphs: testerSubstatSortPrefs.state.excludeGlyphs,
-		      normalized: testerSubstatSortPrefs.state.normalized && normalizedAllowed,
-		      // Weights are only meaningful when normalized sorting is effective; keep them out otherwise.
-		      ...(testerSubstatSortPrefs.state.normalized && normalizedAllowed
-		        ? { weights: testerSubstatSortPrefs.state.weights }
-		        : {}),
-		    }
-		  }, [
-		    testerSubstatSortPrefs.state.direction,
-		    testerSubstatSortPrefs.state.excludeGlyphs,
-		    testerSubstatSortPrefs.state.flipped,
-		    testerSubstatSortPrefs.state.priorities,
-		    testerSubstatSortPrefs.state.normalized,
-		    testerSubstatSortPrefs.state.weights,
-		  ])
+	  const clearTesterSubstatSort = testerSubstatSortPrefs.clear
+	  // Normalized overlay presets are reused by the Sort popout (shared presets + overwrite behavior).
+	  const testerNormalizedOverlayPrefs = useTesterGridNormalizedOverlayPreferences()
+	  const testerSubstatSortSpec = useMemo(() => {
+	    const priorities = testerSubstatSortPrefs.state.priorities
+	    const excludeGlyphs = testerSubstatSortPrefs.state.excludeGlyphs
+	    const selectedSubstats = priorities.filter((key) => Number(key) !== TESTER_SORT_KEY_LAST_USAGE) as StatVariant[]
+	    // Custom scoring spec mirrors the Sort popout's current selection + weights.
+	    const customScoreSpec = selectedSubstats.length > 0
+	      ? {
+	          variants: selectedSubstats,
+	          excludeGlyphs,
+	          weights: testerSubstatSortPrefs.state.weights,
+	        }
+	      : null
+
+	    const presets = testerNormalizedOverlayPrefs.state.presets
+	    const presetScoreSpecs = testerSubstatSortPrefs.state.normalizedSourcePresetIds
+	      .map((presetId) => presets[presetId])
+	      .filter((preset): preset is NonNullable<typeof preset> => Boolean(preset))
+	      .map((preset) => ({
+	        variants: preset.variants,
+	        weights: preset.weights,
+	        excludeGlyphs,
+	      }))
+
+	    const overlayActive = testerNormalizedOverlayPrefs.state.useSortWeights
+	      || testerNormalizedOverlayPrefs.state.enabledPresetIds.length > 0
+
+	    const activeOverlayScoreSpecs = (() => {
+	      // "Use active" means normalized sort mirrors whatever the tester-grid overlay is currently showing.
+	      if (!testerSubstatSortPrefs.state.normalizedUseActiveOverlay) return []
+	      if (!overlayActive) return []
+	      if (testerNormalizedOverlayPrefs.state.useSortWeights) {
+	        // Overlay [S] uses the current Sort popout state (custom selection + weights).
+	        return customScoreSpec ? [customScoreSpec] : []
+	      }
+	      return testerNormalizedOverlayPrefs.state.enabledPresetIds
+	        .map((presetId) => presets[presetId])
+	        .filter((preset): preset is NonNullable<typeof preset> => Boolean(preset))
+	        .map((preset) => ({
+	          variants: preset.variants,
+	          weights: preset.weights,
+	          excludeGlyphs,
+	        }))
+	    })()
+
+	    const localScoreSpecs = (() => {
+	      // Local sources are controlled in the Sort popout ("[C]" + preset toggles).
+	      const out: Array<{ variants: StatVariant[]; weights: Partial<Record<StatVariant, number>>; excludeGlyphs: boolean }> = []
+	      if (testerSubstatSortPrefs.state.normalizedSourceIncludeCustom && customScoreSpec) {
+	        out.push(customScoreSpec)
+	      }
+	      presetScoreSpecs.forEach((spec) => out.push(spec))
+	      return out
+	    })()
+
+	    const normalizedScoreSpecs = testerSubstatSortPrefs.state.normalizedUseActiveOverlay
+	      ? activeOverlayScoreSpecs
+	      : localScoreSpecs
+	    const normalizedAllowed = normalizedScoreSpecs.length > 0
+	    const normalizedEffective = testerSubstatSortPrefs.state.normalized && normalizedAllowed
+
+	    // Sorting can be active via priorities (classic mode) or via normalized specs (preset-only mode).
+	    const hasAnySort = priorities.length > 0 || normalizedEffective
+	    if (!hasAnySort) return null
+
+	    return {
+	      priorities,
+	      direction: testerSubstatSortPrefs.state.direction,
+	      flipped: testerSubstatSortPrefs.state.flipped,
+	      excludeGlyphs,
+	      normalized: normalizedEffective,
+	      // Weights are included even when normalized is off so overlay [S] can still read them.
+	      weights: testerSubstatSortPrefs.state.weights,
+	      ...(normalizedEffective ? { normalizedScoreSpecs } : {}),
+	    }
+	  }, [
+	    testerNormalizedOverlayPrefs.state.enabledPresetIds,
+	    testerNormalizedOverlayPrefs.state.presets,
+	    testerNormalizedOverlayPrefs.state.useSortWeights,
+	    testerSubstatSortPrefs.state.direction,
+	    testerSubstatSortPrefs.state.excludeGlyphs,
+	    testerSubstatSortPrefs.state.flipped,
+	    testerSubstatSortPrefs.state.normalized,
+	    testerSubstatSortPrefs.state.normalizedSourceIncludeCustom,
+	    testerSubstatSortPrefs.state.normalizedSourcePresetIds,
+	    testerSubstatSortPrefs.state.normalizedUseActiveOverlay,
+	    testerSubstatSortPrefs.state.priorities,
+	    testerSubstatSortPrefs.state.weights,
+	  ])
   const testerRulesFilter = useMemo(() => normalizeRulesFilterForTester(rulesFilter), [rulesFilter])
   const setFilterOpen = useCallback((next: boolean | ((prev: boolean) => boolean)) => {
     if (filtersSynced) {
@@ -2490,6 +2558,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     selectedConfigIndex: selectedCfgIdx,
     note: hsfcNote,
     filters: autosaveFiltersState,
+    testerSort: testerSubstatSortPrefs.state,
     keepUniqueRules,
     keepUniquesEnabled,
     logicHubDialogTab,
@@ -2507,6 +2576,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     return substatTargetsSignature(restoreDraft.substatTargets) !== currentTargetsSignature
   }, [restoreDraft, currentTargetsSignature])
   const restoreFiltersDiffer = Boolean(restoreDraft?.Filters)
+  const restoreSortDiffer = Boolean(restoreDraft && Object.prototype.hasOwnProperty.call(restoreDraft, 'TesterSort'))
   const filtersResetRef = useRef(false)
   useLayoutEffect(() => {
     if (!restoreDialogPending || !restoreDraft?.Filters || !restoreFiltersDiffer) return
@@ -2515,8 +2585,19 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     resetRulesFilterPreferences()
     setTesterConfigFilterMode('off')
   }, [restoreDialogPending, restoreDraft, restoreFiltersDiffer, setTesterConfigFilterMode])
+  const sortResetRef = useRef(false)
+  useLayoutEffect(() => {
+    if (!restoreDialogPending || !restoreSortDiffer) return
+    if (sortResetRef.current) return
+    sortResetRef.current = true
+    // Match the filter restore UX: default to a known baseline unless the user explicitly restores.
+    clearTesterSubstatSort()
+  }, [clearTesterSubstatSort, restoreDialogPending, restoreSortDiffer])
   useEffect(() => {
     if (!restoreDialogPending) filtersResetRef.current = false
+  }, [restoreDialogPending])
+  useEffect(() => {
+    if (!restoreDialogPending) sortResetRef.current = false
   }, [restoreDialogPending])
   // Show the autosave restore prompt only after the README dialog is dismissed.
   const restoreDlgOpen = !tutorial.helpOpen && (restoreDialogPending || Boolean(testerRestoreDraft))
@@ -2923,14 +3004,18 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const { payload: autosaveBasePayload } = useDeferredHsfcPayload(autosaveBuildParams)
   const autosavePayload = useMemo(() => {
     const filtersPayload = areAutosaveFiltersDefault(autosaveFiltersState) ? null : autosaveFiltersState
+    const testerSortPayload = isDefaultTesterSubstatSortState(testerSubstatSortPrefs.state)
+      ? null
+      : testerSubstatSortPrefs.state
     return {
       ...autosaveBasePayload,
       LogicHubDialogTab: logicHubDialogTab, // Persist the active tab so the dialog re-opens where the user left off.
       KeepUniquesGridFilterMode: keepUniquesGridFilterMode,
       AutosaveSavedAt: new Date().toISOString(),
       ...(filtersPayload ? { Filters: filtersPayload } : {}),
+      ...(testerSortPayload ? { TesterSort: testerSortPayload } : {}),
     }
-  }, [autosaveBasePayload, autosaveFiltersState, logicHubDialogTab, keepUniquesGridFilterMode])
+  }, [autosaveBasePayload, autosaveFiltersState, logicHubDialogTab, keepUniquesGridFilterMode, testerSubstatSortPrefs.state])
   useAutosave({
     key: AUTOSAVE_KEY,
     payload: autosavePayload,
@@ -4459,7 +4544,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             overflow: 'hidden',
           }
         }} data-tour-id="preview.paper">
-      <PreviewHeaderActions
+        <PreviewHeaderActions
         mergedCount={totalLimitHit ? Number.POSITIVE_INFINITY : mergedRules.length}
         {...(filterActive ? { filteredCount: totalLimitHit ? Number.POSITIVE_INFINITY : filteredRules.length } : {})}
         filterActive={previewFilterActive}
@@ -4562,12 +4647,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
 	        useStatButtonColors={statButtonBorders}
 	        substatColors={substatColors}
 	        onClearTesterSubstatSort={testerSubstatSortPrefs.clear}
+	        onSetTesterSubstatSortState={setTesterSubstatSortState}
 		        onSetTesterSubstatSortDirection={testerSubstatSortPrefs.setDirection}
 		        onToggleTesterSubstatSortKeepSections={testerSubstatSortPrefs.toggleKeepSections}
 		        onToggleTesterSubstatSortExcludeGlyphs={testerSubstatSortPrefs.toggleExcludeGlyphs}
-		        onToggleTesterSubstatSortNormalized={testerSubstatSortPrefs.toggleNormalized}
-		        onToggleTesterSubstatSortPriority={testerSubstatSortPrefs.togglePriorityKey}
-		        onToggleTesterSubstatSortPriorityFlipped={testerSubstatSortPrefs.toggleFlipped}
+	        onToggleTesterSubstatSortPriority={testerSubstatSortPrefs.togglePriorityKey}
+	        onToggleTesterSubstatSortPriorityFlipped={testerSubstatSortPrefs.toggleFlipped}
 	        onSetTesterSubstatSortWeight={testerSubstatSortPrefs.setWeight}
 	        onBumpTesterSubstatSortWeight={testerSubstatSortPrefs.bumpWeight}
 		        filtersSynced={filtersSynced}
@@ -4626,6 +4711,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
 	                  suppressMatchDetails={suppressTesterMatchDetails}
 	                  keepSections={testerSubstatSortSpec ? testerSubstatSortPrefs.state.keepSections : true}
 	                  substatSort={testerSubstatSortSpec}
+	                  sortState={testerSubstatSortPrefs.state}
 	                  emptyStateVerticalAlign={emptyStateVerticalAlign}
 	                />
               </Box>
@@ -4776,6 +4862,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           metasetsDiffer={restoreMetasetsDiffer}
           targetsDiffer={restoreTargetsDiffer}
           filtersDiffer={restoreFiltersDiffer}
+          sortDiffer={restoreSortDiffer}
           onDismiss={() => {
             dismissRestore()
             setTesterRestoreDraft(null)
@@ -4826,6 +4913,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                     setPreviewMode(draft.Filters.activeMode)
                   }
                 } catch {}
+              }
+              if (selection.sort && restoreSortDiffer && draft.TesterSort) {
+                setTesterSubstatSortState(draft.TesterSort)
               }
               if (selection.gearSets) {
                 // User opted in: hydrate runtime sets from localStorage now.

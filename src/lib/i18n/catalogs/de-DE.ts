@@ -74,6 +74,16 @@ const overrides: Catalog = {
   testerTableEmptyFilter: 'Keine Einträge passen zu den aktuellen Test-Filtern.',
   testerGridScrollHint: '{group} • {detail}',
   testerGridCompactGroup: 'Aktuelle Gruppe komprimieren',
+  testerGridNormalizedLabel: 'Substat-Bewertung anzeigen',
+  testerGridNormalizedTooltip: '**Substat-Bewertung anzeigen** blendet die gleiche normalisierte Punktzahl ein, die auch **Normalisiert** verwendet:\n\n- **Punktzahl = gewichtete Summe** der ausgewählten Substats.\n- Jeder ausgewählte Substat hat ein **Gewicht** (`0.1–3.0`, Standard `1.0`).\n- Jeder ausgewählte Substat wird anhand seines **6★-Roll-Caps** skaliert: `Wert / Cap`.\n- Fehlt einem Item ein ausgewählter Substat, trägt er **0** bei.\n- Wenn mehrere Presets ausgewählt sind, verwendet die Bewertung die **beste (max)** Punktzahl über alle Presets (kein Durchschnitt).\n- **Nur Substats zählen**. Set, Slot, Rang, Seltenheit und Hauptstat werden ignoriert.\n\nDie Overlay-Farbe ist relativ zur aktuellen Ansicht: **rot = niedrigste**, **grün = höchste**.',
+  testerGridNormalizedPresetTitle: 'Normalisiertes Preset {n}',
+  testerGridNormalizedPresetHelp: 'Substats auswählen; Gewichte anpassen, um die normalisierte Summe zu beeinflussen.',
+  testerGridNormalizedPresetGlyphLabel: 'Symbol',
+  testerGridNormalizedPresetGlyphPickerAria: 'Preset-Symbol auswählen',
+  testerGridNormalizedPresetReset: 'Preset zurücksetzen',
+  testerNormalizedPresetTooltipEmpty: 'Keine Substats ausgewählt.',
+  testerNormalizedPresetTooltipRightClickHint: '_Rechtsklick, um dieses Preset zu bearbeiten._',
+  testerGridNormalizedSortSourceTooltip: '**Sortierquelle** verwendet die aktuelle **Normalisiert**-Quelle für das Overlay.\n\n- Es ist **nicht kombinierbar** mit der Preset-Auswahl hier.\n- Wenn Normalisiert mehrere Quellen nutzt, verwendet das Overlay die **beste (max)** Punktzahl.',
   gearDialogLevelLabel: 'Stufe {level}',
   testerMainStatInline: '{stat} {value}',
   testerSubstatsNone: 'Keine Substats',
@@ -227,7 +237,7 @@ const overrides: Catalog = {
   keepUniquesCountModePerFaction: 'Pro Fraktion',
   keepUniquesCountModePerMain: 'Pro Hauptstat',
   keepUniquesCountModePerRule: 'Pro Regel',
-  // Tooltip mirrors the README examples so users see the same scenarios we use to explain the chip layout.
+  // Tooltip mirrors the README examples so users see the same scenarios we use to explain the scope chips.
   keepUniquesCountModeHint: '**Bereichs-Chips**\n- `Pro Regel`: ein gemeinsamer Pool für alle Drops auf der Karte (z. B. ≥5 [[stat:statSPD]]-Stiefel unabhängig vom Set).\n- `Pro Slot`: eigener Pool pro Slot (Ringe, Amulette, Banner usw.).\n- `Pro Set`: dupliziert die Quote je Set/Metaset (Stoneskin vs. Protection getrennt).\n- `Pro Fraktion`: dupliziert die Quote je Fraktion (≥3 Merciless-Ringe pro Fraktion sichern).\n- `Pro Hauptstat`: dupliziert die Quote je Hauptstat (ACC vs. RES-Banner trennen).\nDie Chips sitzen direkt unter allen Auswahlfeldern außer Rang und Seltenheit. Kombiniere sie frei; wenn alle aus sind, fällt die Regel auf „Pro Regel“ (ein gemeinsamer Pool) zurück.',
   keepUniquesCountModeHintLabel: 'Kontingentbereich-Hilfe öffnen',
   keepUniquesNoRules: 'Noch keine Behalte-Regeln.',
@@ -387,7 +397,7 @@ const overrides: Catalog = {
   setDesc_setMerciless_by_8: '+15% [[stat:statCDMG|bare]]',
   setDesc_setMerciless_by_9: '15% Chance auf einen Extrazug bei Treffer',
 
-  // Mercurial (Unstet)
+  // Mercurial
   setDesc_setMercurial_by_1: '+20 [[stat:statRES]]',
   setDesc_setMercurial_by_2: '+15% [[stat:statHP]]',
   setDesc_setMercurial_by_3: '+8% [[stat:statSPD]]',
@@ -866,7 +876,13 @@ const overrides: Catalog = {
   testerSortGlyphsExclude: 'Ausschließen',
   testerSortGlyphsInclude: 'Einschließen',
   testerSortNormalized: 'Normalisiert',
-  testerSortNormalizedTooltip: '**Normalized** ignoriert die Prioritätsreihenfolge und sortiert nach einer einzigen Punktzahl:\n\n- **Punktzahl = gewichtete Summe** der ausgewählten Substats.\n- Jeder ausgewählte Substat hat ein **Gewicht** (`0.1–3.0`, Standard `1.0`).\n- Jeder ausgewählte Substat wird anhand seines **6★-Roll-Caps** skaliert: `Wert / Cap`.\n- Fehlt einem Item ein ausgewählter Substat, trägt er **0** bei.\n- `Last Used` wird ignoriert, solange Normalized aktiv ist.\n\n**Beispiel (ausgewählt: [[stat:statSPD]] + [[stat:statCR]] + [[stat:statCDMG]])**\n`(n)` zeigt die **Anzahl der Upgrade-Rolls** auf diesem Substat.\n\n- Item A: `[[stat:statSPD]] 11 (1)`, `[[stat:statCR]] 20 (3)`, `[[stat:statCDMG]] 7 (0)`\n  - [[stat:statCR]] hat einen **schlechten Dreier**: `5 + 3×5 = 20`\n  - Punktzahl = `11/6 + 20/7 + 7/7 = 1.83 + 2.86 + 1.00 = 5.69`\n- Item B: `[[stat:statSPD]] 10 (1)`, `[[stat:statCR]] 21 (2)`, `[[stat:statCDMG]] 12 (1)`\n  - [[stat:statCR]] hat einen **guten Zweier**: `7 + 2×7 = 21`\n  - Punktzahl = `10/6 + 21/7 + 12/7 = 1.67 + 3.00 + 1.71 = 6.38`\n\nObwohl Item B weniger [[stat:statCR]]-Rolls hat, kann es höher landen, weil die Rolls besser sind — und die Punktzahl berücksichtigt außerdem die anderen ausgewählten Stats.',
+  testerSortNormalizedTooltip: '**Normalized** ignoriert die Prioritätsreihenfolge und sortiert nach einer einzigen Punktzahl:\n\n- **Punktzahl = gewichtete Summe** der ausgewählten Substats.\n- Jeder ausgewählte Substat hat ein **Gewicht** (`0.1–3.0`, Standard `1.0`).\n- Jeder ausgewählte Substat wird anhand seines **6★-Roll-Caps** skaliert: `Wert / Cap`.\n- Wenn mehrere Presets ausgewählt sind, verwendet die Sortierung die **beste (max)** Punktzahl über alle Presets (kein Durchschnitt).\n- **Nur Substats zählen**. Set, Slot, Rang, Seltenheit und Hauptstat werden ignoriert.\n- Fehlt einem Item ein ausgewählter Substat, trägt er **0** bei.\n- `Last Used` wird ignoriert, solange Normalized aktiv ist.\n\n**Beispiel (ausgewählt: [[stat:statSPD]] + [[stat:statCR]] + [[stat:statCDMG]])**\n`(n)` zeigt die **Anzahl der Upgrade-Rolls** auf diesem Substat.\n\n- Item A: `[[stat:statSPD]] 11 (1)`, `[[stat:statCR]] 20 (3)`, `[[stat:statCDMG]] 7 (0)`\n  - [[stat:statCR]] hat einen **schlechten Dreier**: `5 + 3×5 = 20`\n  - Punktzahl = `11/6 + 20/7 + 7/7 = 1.83 + 2.86 + 1.00 = 5.69`\n- Item B: `[[stat:statSPD]] 10 (1)`, `[[stat:statCR]] 21 (2)`, `[[stat:statCDMG]] 12 (1)`\n  - [[stat:statCR]] hat einen **guten Zweier**: `7 + 2×7 = 21`\n  - Punktzahl = `10/6 + 21/7 + 12/7 = 1.67 + 3.00 + 1.71 = 6.38`\n\nObwohl Item B weniger [[stat:statCR]]-Rolls hat, kann es höher landen, weil die Rolls besser sind — und die Punktzahl berücksichtigt außerdem die anderen ausgewählten Stats.',
+  testerSortNormalizedUseActive: 'Aktiv',
+  testerSortNormalizedUseActiveTooltip: '**Aktiv** verwendet die Preset-Auswahl der Regel Tester-Grid-Option **Substat-Bewertung anzeigen** als Normalisiert-Scoring-Quelle.\n\n- Wenn mehrere Presets im Grid aktiviert sind, verwendet die Sortierung die **beste (max)** Punktzahl.\n- Deaktiviert, wenn das Grid-Overlay auf **Sortierquelle** steht, um zirkuläres Scoring zu vermeiden.',
+  testerSortNormalizedSourcesLabel: 'Quellen',
+  testerSortNormalizedSourceCustomLabel: 'Benutzerdefinierte Gewichte',
+  testerSortNormalizedPresetActionsEdit: 'Preset bearbeiten',
+  testerSortNormalizedPresetActionsOverwrite: 'Mit aktuellem überschreiben',
   testerSortWeight: 'Gewichtung',
   testerSortWeightIncreaseAria: 'Gewichtung für {label} erhöhen',
   testerSortWeightDecreaseAria: 'Gewichtung für {label} verringern',
@@ -936,6 +952,8 @@ const overrides: Catalog = {
   restoreAutosaveNoteHelper: 'Autosave-Version laden.',
   restoreAutosaveFiltersLabel: 'Filterpanel',
   restoreAutosaveFiltersHelper: 'Stellt Öffnungsstatus, Chips und eingeklappte Bereiche wieder her.',
+  restoreAutosaveSortLabel: 'Tester-Sortierung',
+  restoreAutosaveSortHelper: 'Stellt Substat-Prioritäten, Normalized-Modus, Quellen und Gewichte wieder her.',
   restoreAutosaveTesterLabel: 'Tester-Import ({count})',
   restoreAutosaveTesterHelper: 'Autosave-Ausrüstung laden.',
   restoreAutosaveGearSetsLabel: 'Runtime-Gear-Sets ({count})',
@@ -943,6 +961,7 @@ const overrides: Catalog = {
   restoreAutosaveRestoreSelected: 'Auswahl wiederherstellen',
   yes: 'Ja',
   no: 'Nein',
+  save: 'Speichern',
 
   // Help dialog
   helpAriaLabel: 'Hilfe / README',
@@ -1254,3 +1273,4 @@ const overrides: Catalog = {
 }
 
 export default overrides
+

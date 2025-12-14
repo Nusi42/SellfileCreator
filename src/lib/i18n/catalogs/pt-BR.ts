@@ -74,6 +74,16 @@ const catalog: Catalog = {
   testerTableEmptyFilter: 'Nenhuma entrada do tester corresponde aos filtros atuais.',
   testerGridScrollHint: '{group} • {detail}',
   testerGridCompactGroup: 'Compactar grupo atual',
+  testerGridNormalizedLabel: 'Mostrar nota de substats',
+  testerGridNormalizedTooltip: '**Mostrar nota de substats** sobrepõe a mesma pontuação normalizada usada pelo sort **Normalized**:\n\n- **Pontuação = soma ponderada** dos substats selecionados.\n- Cada substat selecionado tem um **peso** (`0.1–3.0`, padrão `1.0`).\n- Cada substat selecionado é escalado pelo seu **teto de roll 6★**: `valor / teto`.\n- Se um item não tiver um substat selecionado, ele contribui **0**.\n- Se várias predefinições estiverem selecionadas, a nota usa a **melhor (máx)** pontuação entre elas (não uma média).\n- **Apenas substats contam**. Set, slot, rank, raridade e stat principal são ignorados.\n\nA cor do overlay é relativa à visualização atual: **vermelho = mais baixo**, **verde = mais alto**.',
+  testerGridNormalizedPresetTitle: 'Predefinição normalizada {n}',
+  testerGridNormalizedPresetHelp: 'Selecione substats para incluir; ajuste pesos para enviesar a soma normalizada.',
+  testerGridNormalizedPresetGlyphLabel: 'Ícone',
+  testerGridNormalizedPresetGlyphPickerAria: 'Selecionar ícone da predefinição',
+  testerGridNormalizedPresetReset: 'Redefinir predefinição',
+  testerNormalizedPresetTooltipEmpty: 'Nenhum substat selecionado.',
+  testerNormalizedPresetTooltipRightClickHint: '_Clique com o botão direito para editar esta predefinição._',
+  testerGridNormalizedSortSourceTooltip: '**Fonte de ordenação** usa a fonte de ordenação **Normalized** atual para o overlay.\n\n- É **exclusiva** com selecionar predefinições aqui.\n- Se Normalized usar várias fontes, o overlay usa a **melhor (máx)** pontuação.',
   gearDialogLevelLabel: 'Nv {level}',
   testerMainStatInline: '{stat} {value}',
   testerSubstatsNone: 'Sem subatributos',
@@ -227,7 +237,7 @@ const catalog: Catalog = {
   keepUniquesCountModePerFaction: 'Por facção',
   keepUniquesCountModePerMain: 'Por atributo principal',
   keepUniquesCountModePerRule: 'Por regra',
-  // Tooltip mirrors the README examples so users see the same scenarios we use to explain the chip layout.
+  // Tooltip mirrors the README examples so users see the same scenarios we use to explain the scope chips.
   keepUniquesCountModeHint: '**Chips de cota**\n- `Por regra`: um único pool para tudo que bate com a carta (ex.: Botas [[stat:statSPD]] ≥5 independentemente do set).\n- `Por slot`: cota separada para cada slot (anéis, amuletos e bandeiras independentes).\n- `Por conjunto`: duplica a cota para cada conjunto/metaconjunto selecionado.\n- `Por facção`: duplica a cota por facção.\n- `Por atributo principal`: duplica a cota por cada stat principal selecionado.\nOs chips ficam logo abaixo de todos os seletores exceto Rank e Raridade. Misture qualquer combinação; ao desligar todos, a regra volta para `Por regra` (pool único).',
   keepUniquesCountModeHintLabel: 'Abrir ajuda do escopo da cota',
   keepUniquesNoRules: 'Ainda não há regras de manutenção.',
@@ -866,7 +876,13 @@ const catalog: Catalog = {
   testerSortGlyphsExclude: 'Excluir',
   testerSortGlyphsInclude: 'Incluir',
   testerSortNormalized: 'Normalizado',
-  testerSortNormalizedTooltip: '**Normalized** ignora a ordem de prioridade e ordena por uma única pontuação:\n\n- **Pontuação = soma ponderada** dos substats selecionados.\n- Cada substat selecionado tem um **peso** (`0.1–3.0`, padrão `1.0`).\n- Cada substat selecionado é escalado pelo seu **teto de roll 6★**: `valor / teto`.\n- Se um item não tiver um substat selecionado, ele contribui **0**.\n- `Last Used` é ignorado enquanto Normalized estiver ativado.\n\n**Exemplo (selecionado: [[stat:statSPD]] + [[stat:statCR]] + [[stat:statCDMG]])**\n`(n)` mostra a **quantidade de rolls de upgrade** naquele substat.\n\n- Item A: `[[stat:statSPD]] 11 (1)`, `[[stat:statCR]] 20 (3)`, `[[stat:statCDMG]] 7 (0)`\n  - [[stat:statCR]] tem um **triplo ruim**: `5 + 3×5 = 20`\n  - Pontuação = `11/6 + 20/7 + 7/7 = 1.83 + 2.86 + 1.00 = 5.69`\n- Item B: `[[stat:statSPD]] 10 (1)`, `[[stat:statCR]] 21 (2)`, `[[stat:statCDMG]] 12 (1)`\n  - [[stat:statCR]] tem um **duplo bom**: `7 + 2×7 = 21`\n  - Pontuação = `10/6 + 21/7 + 12/7 = 1.67 + 3.00 + 1.71 = 6.38`\n\nMesmo com menos rolls em [[stat:statCR]], o Item B pode ficar acima porque os rolls têm qualidade maior — e a pontuação também considera os outros stats selecionados.',
+  testerSortNormalizedTooltip: '**Normalized** ignora a ordem de prioridade e ordena por uma única pontuação:\n\n- **Pontuação = soma ponderada** dos substats selecionados.\n- Cada substat selecionado tem um **peso** (`0.1–3.0`, padrão `1.0`).\n- Cada substat selecionado é escalado pelo seu **teto de roll 6★**: `valor / teto`.\n- Se várias predefinições estiverem selecionadas, a ordenação usa a **melhor (máx)** pontuação entre elas (não uma média).\n- **Apenas substats contam**. Set, slot, rank, raridade e stat principal são ignorados.\n- Se um item não tiver um substat selecionado, ele contribui **0**.\n- `Last Used` é ignorado enquanto Normalized estiver ativado.\n\n**Exemplo (selecionado: [[stat:statSPD]] + [[stat:statCR]] + [[stat:statCDMG]])**\n`(n)` mostra a **quantidade de rolls de upgrade** naquele substat.\n\n- Item A: `[[stat:statSPD]] 11 (1)`, `[[stat:statCR]] 20 (3)`, `[[stat:statCDMG]] 7 (0)`\n  - [[stat:statCR]] tem um **triplo ruim**: `5 + 3×5 = 20`\n  - Pontuação = `11/6 + 20/7 + 7/7 = 1.83 + 2.86 + 1.00 = 5.69`\n- Item B: `[[stat:statSPD]] 10 (1)`, `[[stat:statCR]] 21 (2)`, `[[stat:statCDMG]] 12 (1)`\n  - [[stat:statCR]] tem um **duplo bom**: `7 + 2×7 = 21`\n  - Pontuação = `10/6 + 21/7 + 12/7 = 1.67 + 3.00 + 1.71 = 6.38`\n\nMesmo com menos rolls em [[stat:statCR]], o Item B pode ficar acima porque os rolls têm qualidade maior — e a pontuação também considera os outros stats selecionados.',
+  testerSortNormalizedUseActive: 'Ativo',
+  testerSortNormalizedUseActiveTooltip: '**Ativo** usa a seleção de predefinições da grade do Teste de Regras em **Mostrar nota de substats** como fonte de pontuação normalizada.\n\n- Se várias predefinições estiverem ativadas na grade, a ordenação usa a **melhor (máx)** pontuação.\n- Desativado quando o overlay da grade está em **Fonte de ordenação** para evitar pontuação circular.',
+  testerSortNormalizedSourcesLabel: 'Fontes',
+  testerSortNormalizedSourceCustomLabel: 'Pesos personalizados',
+  testerSortNormalizedPresetActionsEdit: 'Editar predefinição',
+  testerSortNormalizedPresetActionsOverwrite: 'Sobrescrever a partir do atual',
   testerSortWeight: 'Peso',
   testerSortWeightIncreaseAria: 'Aumentar o peso de {label}',
   testerSortWeightDecreaseAria: 'Diminuir o peso de {label}',
@@ -936,6 +952,8 @@ const catalog: Catalog = {
   restoreAutosaveNoteHelper: 'Carrega a cópia auto-salva.',
   restoreAutosaveFiltersLabel: 'Painel de filtros',
   restoreAutosaveFiltersHelper: 'Restaura estado aberto, chips e seções recolhidas.',
+  restoreAutosaveSortLabel: 'Ordenação do Teste de Regras',
+  restoreAutosaveSortHelper: 'Restaura prioridades de substats, modo Normalized, fontes e pesos.',
   restoreAutosaveTesterLabel: 'Importações do Teste de Regras ({count})',
   restoreAutosaveTesterHelper: 'Carrega o equipamento auto-salvo.',
   restoreAutosaveGearSetsLabel: 'Conjuntos personalizados ({count})',
@@ -943,6 +961,7 @@ const catalog: Catalog = {
   restoreAutosaveRestoreSelected: 'Restaurar seleção',
   yes: 'Sim',
   no: 'Não',
+  save: 'Salvar',
 
   // Help dialog
   helpAriaLabel: 'Ajuda / README',
@@ -1254,3 +1273,4 @@ const catalog: Catalog = {
 }
 
 export default catalog
+
