@@ -57,6 +57,23 @@ export const DEFAULT_TESTER_SUBSTAT_SORT_STATE: TesterSubstatSortState = Object.
   excludeGlyphs: true,
 })
 
+export const isDefaultTesterSubstatSortState = (state: TesterSubstatSortState | null | undefined): boolean => {
+  // Restore/autosave stores omit default values. Keep a single SSOT predicate so callers don’t
+  // re-encode “default” logic (and drift when defaults change).
+  if (!state) return true
+  const weights = state.weights ?? {}
+  return (state.priorities?.length ?? 0) === 0
+    && state.direction === DEFAULT_TESTER_SUBSTAT_SORT_STATE.direction
+    && (state.flipped?.length ?? 0) === 0
+    && state.normalized === DEFAULT_TESTER_SUBSTAT_SORT_STATE.normalized
+    && Object.keys(weights).length === 0
+    && state.normalizedUseActiveOverlay === DEFAULT_TESTER_SUBSTAT_SORT_STATE.normalizedUseActiveOverlay
+    && state.normalizedSourceIncludeCustom === DEFAULT_TESTER_SUBSTAT_SORT_STATE.normalizedSourceIncludeCustom
+    && (state.normalizedSourcePresetIds?.length ?? 0) === 0
+    && state.keepSections === DEFAULT_TESTER_SUBSTAT_SORT_STATE.keepSections
+    && state.excludeGlyphs === DEFAULT_TESTER_SUBSTAT_SORT_STATE.excludeGlyphs
+}
+
 // Guardrail: only allow known, UI-visible sort keys into the persisted lists.
 // Why: prevents old/invalid localStorage values from leaking into sorting logic.
 const SORT_KEY_SET = new Set<number>([

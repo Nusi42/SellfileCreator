@@ -19,6 +19,7 @@ type RestoreAutosaveDialogProps = {
   metasetsDiffer: boolean
   targetsDiffer: boolean
   filtersDiffer: boolean
+  sortDiffer: boolean
   onDismiss: () => void
   onRestore: (selection: RestoreSelection) => void
 }
@@ -54,6 +55,7 @@ export default function RestoreAutosaveDialog({
   metasetsDiffer,
   targetsDiffer,
   filtersDiffer,
+  sortDiffer,
   onDismiss,
   onRestore,
 }: RestoreAutosaveDialogProps) {
@@ -68,6 +70,7 @@ export default function RestoreAutosaveDialog({
   const hasTargets = Boolean(draft?.substatTargets)
   const hasNote = Boolean(draft?.Note && draft.Note.trim())
   const hasFilters = Boolean(draft?.Filters)
+  const hasSort = Boolean(draft && Object.prototype.hasOwnProperty.call(draft, 'TesterSort'))
   const builderSavedAt = formatSavedAt(draft?.AutosaveSavedAt ?? null)
   const testerSavedAt = formatSavedAt(testerDraft?.savedAt ?? null)
   const defaultSelection = useMemo<RestoreSelection>(() => {
@@ -77,10 +80,11 @@ export default function RestoreAutosaveDialog({
     if (hasTargets && targetsDiffer) next.targets = true
     if (hasNote) next.note = true
     if (hasFilters && filtersDiffer) next.filters = true
+    if (hasSort && sortDiffer) next.sort = true
     if (testerDraft) next.tester = true
     if (gearSetsCount > 0) next.gearSets = true
     return next
-  }, [configsCount, filtersDiffer, gearSetsCount, hasFilters, hasNote, hasTargets, metasCount, metasetsDiffer, targetsDiffer, testerDraft])
+  }, [configsCount, filtersDiffer, gearSetsCount, hasFilters, hasNote, hasSort, hasTargets, metasCount, metasetsDiffer, sortDiffer, targetsDiffer, testerDraft])
 
   useEffect(() => {
     if (!open) return
@@ -125,6 +129,13 @@ export default function RestoreAutosaveDialog({
         helper: t('restoreAutosaveFiltersHelper'),
       })
     }
+    if (hasSort && sortDiffer) {
+      rows.push({
+        key: 'sort',
+        label: t('restoreAutosaveSortLabel'),
+        helper: t('restoreAutosaveSortHelper'),
+      })
+    }
     if (testerDraft) {
       rows.push({
         key: 'tester',
@@ -140,7 +151,7 @@ export default function RestoreAutosaveDialog({
       })
     }
     return rows
-  }, [configsCount, filtersDiffer, gearSetsCount, hasFilters, hasNote, hasTargets, metasCount, metasetsDiffer, targetsDiffer, testerDraft, t])
+  }, [configsCount, filtersDiffer, gearSetsCount, hasFilters, hasNote, hasSort, hasTargets, metasCount, metasetsDiffer, sortDiffer, targetsDiffer, testerDraft, t])
 
   const hasOptions = options.length > 0
   // Autosave prompts must feel invisible when there's nothing actionable.

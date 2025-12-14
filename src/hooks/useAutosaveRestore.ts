@@ -29,6 +29,11 @@ import {
 import { TESTER_CONFIG_FILTER_MODE_DEFAULT, type TesterConfigFilterMode } from '../types/testerConfigFilterMode'
 import type { KeepUniqueRule } from '../lib/keepUniques'
 import { sanitizeKeepUniquesGridFilterMode, type KeepUniquesGridFilterMode } from '../state/keepUniquesPreferences'
+import {
+  isDefaultTesterSubstatSortState,
+  normalizeTesterSubstatSortState,
+  type TesterSubstatSortState,
+} from '../state/testerSubstatSortPreferences'
 
 export type RestoreDraft = {
   Version?: string
@@ -42,6 +47,7 @@ export type RestoreDraft = {
   Note?: string
   AutosaveSavedAt?: string
   Filters?: AutosaveFiltersState
+  TesterSort?: TesterSubstatSortState
   LogicHubDialogTab?: LogicHubDialogTab
   FinalSellDialogTab?: LogicHubDialogTab
   KeepUniquesGridFilterMode?: KeepUniquesGridFilterMode
@@ -234,6 +240,7 @@ function computeInitialAutosaveState(args: {
   finalSellRemainder: FinalSellRemainderConfig
   note: string | null
   filters: AutosaveFiltersState
+  testerSort: TesterSubstatSortState
   keepUniqueRules: KeepUniqueRule[]
   keepUniquesEnabled: boolean
   keepUniquesGridFilterMode: KeepUniquesGridFilterMode
@@ -268,6 +275,14 @@ function computeInitialAutosaveState(args: {
         : null
       const savedFilters = parseSavedFilters(savedFiltersRaw)
       const filtersMatchDefaults = areAutosaveFiltersDefault(savedFilters)
+      const savedTesterSortRaw = (entry.payload && typeof entry.payload === 'object')
+        ? (entry.payload as Record<string, unknown>)['TesterSort']
+        : null
+      const savedTesterSortNormalized = savedTesterSortRaw ? normalizeTesterSubstatSortState(savedTesterSortRaw) : null
+      const savedTesterSort = savedTesterSortNormalized && !isDefaultTesterSubstatSortState(savedTesterSortNormalized)
+        ? savedTesterSortNormalized
+        : null
+      const testerSortMatchDefaults = savedTesterSort === null
       const keepUniquesMatchDefaults = savedKeepUniques.length === 0
         && !savedKeepEnabled
         && args.keepUniqueRules.length === 0
@@ -288,6 +303,7 @@ function computeInitialAutosaveState(args: {
         && finalSellMatches
         && !notePresent
         && filtersMatchDefaults
+        && testerSortMatchDefaults
         && keepUniquesMatchDefaults
         && !hasStoredRuntimeGearSets
       if (!essentiallyDefault) {
@@ -308,6 +324,7 @@ function computeInitialAutosaveState(args: {
             ...(parsed.note ? { Note: parsed.note } : {}),
             ...(savedAtRaw ? { AutosaveSavedAt: savedAtRaw } : {}),
             ...(savedFilters ? { Filters: savedFilters } : {}),
+            ...(savedTesterSort ? { TesterSort: savedTesterSort } : {}),
             ...(() => {
               const rawLogicHubTab = typeof payload['LogicHubDialogTab'] === 'string'
                 ? payload['LogicHubDialogTab']
@@ -337,6 +354,7 @@ export function useAutosaveRestore(opts: {
   selectedConfigIndex: number | null
   note: string | null
   filters: AutosaveFiltersState
+  testerSort: TesterSubstatSortState
   keepUniqueRules: KeepUniqueRule[]
   keepUniquesEnabled: boolean
   logicHubDialogTab: LogicHubDialogTab
@@ -353,6 +371,7 @@ export function useAutosaveRestore(opts: {
     selectedConfigIndex: _selectedConfigIndex,
     note,
     filters,
+    testerSort,
     keepUniqueRules,
     keepUniquesEnabled,
     logicHubDialogTab,
@@ -370,6 +389,7 @@ export function useAutosaveRestore(opts: {
       finalSellRemainder,
       note,
       filters,
+      testerSort,
       keepUniqueRules,
       keepUniquesEnabled,
       keepUniquesGridFilterMode,
@@ -387,6 +407,9 @@ export function useAutosaveRestore(opts: {
     // Selection changes should not enable autosave by themselves.
     // Exclude SelectedConfigIndex from the divergence snapshot.
     const filtersForSnapshot = areAutosaveFiltersDefault(filters) ? null : normalizeAutosaveFilters(filters)
+    const testerSortForSnapshot = isDefaultTesterSubstatSortState(testerSort)
+      ? null
+      : normalizeTesterSubstatSortState(testerSort)
     const base = {
       Version: version,
       Metasets: metasets,
@@ -399,9 +422,10 @@ export function useAutosaveRestore(opts: {
       KeepUniquesGridFilterMode: keepUniquesGridFilterMode,
       ...(note && note.trim() ? { Note: note } : {}),
       ...(filtersForSnapshot ? { Filters: filtersForSnapshot } : {}),
+      ...(testerSortForSnapshot ? { TesterSort: testerSortForSnapshot } : {}),
     }
     return JSON.stringify(base)
-  }, [version, metasets, substatTargets, configs, finalSellRemainder, note, filters, keepUniqueRules, keepUniquesEnabled, logicHubDialogTab, keepUniquesGridFilterMode])
+  }, [version, metasets, substatTargets, configs, finalSellRemainder, note, filters, testerSort, keepUniqueRules, keepUniquesEnabled, logicHubDialogTab, keepUniquesGridFilterMode])
 
   // After dismissing, enable autosave only after divergence from baseline
   useEffect(() => {

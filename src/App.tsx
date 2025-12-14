@@ -85,7 +85,7 @@ import { fingerprintConfigForRules, fingerprintSubstatTargets, updateConfigRules
 import { hasConfigMeaningfulDifferences } from './lib/configDiff'
 import { buildRuleTesterAutosavePayload, createRuleTesterMath, fingerprintRuleTesterItem, loadRuleTesterAutosaveDraft, type RuleTesterItem } from './lib/ruleTesterSession'
 import { sortTesterRows, TESTER_SORT_KEY_LAST_USAGE } from './lib/testerSort'
-import { setTesterSubstatSortState, useTesterSubstatSortPreferences } from './state/testerSubstatSortPreferences'
+import { isDefaultTesterSubstatSortState, setTesterSubstatSortState, useTesterSubstatSortPreferences } from './state/testerSubstatSortPreferences'
 import { useTesterGridNormalizedOverlayPreferences } from './state/testerGridNormalizedOverlayPreferences'
 import { FILTER_PRESETS_VERSION, useFilterPresetsPreference, type FilterPreset, type FilterPresetSnapshot } from './state/filterPresetsPreference'
 import FileDragOverlay from './components/FileDragOverlay'
@@ -1790,6 +1790,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const [filtersSynced, setFiltersSyncedRaw] = useRulesFilterSyncPreference()
   // Rule Tester substat sorting is view-only but should persist across sessions like filters.
 	  const testerSubstatSortPrefs = useTesterSubstatSortPreferences()
+	  const clearTesterSubstatSort = testerSubstatSortPrefs.clear
 	  // Normalized overlay presets are reused by the Sort popout (shared presets + overwrite behavior).
 	  const testerNormalizedOverlayPrefs = useTesterGridNormalizedOverlayPreferences()
 	  const testerSubstatSortSpec = useMemo(() => {
@@ -2557,6 +2558,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     selectedConfigIndex: selectedCfgIdx,
     note: hsfcNote,
     filters: autosaveFiltersState,
+    testerSort: testerSubstatSortPrefs.state,
     keepUniqueRules,
     keepUniquesEnabled,
     logicHubDialogTab,
@@ -2574,6 +2576,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     return substatTargetsSignature(restoreDraft.substatTargets) !== currentTargetsSignature
   }, [restoreDraft, currentTargetsSignature])
   const restoreFiltersDiffer = Boolean(restoreDraft?.Filters)
+  const restoreSortDiffer = Boolean(restoreDraft && Object.prototype.hasOwnProperty.call(restoreDraft, 'TesterSort'))
   const filtersResetRef = useRef(false)
   useLayoutEffect(() => {
     if (!restoreDialogPending || !restoreDraft?.Filters || !restoreFiltersDiffer) return
@@ -2582,8 +2585,19 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     resetRulesFilterPreferences()
     setTesterConfigFilterMode('off')
   }, [restoreDialogPending, restoreDraft, restoreFiltersDiffer, setTesterConfigFilterMode])
+  const sortResetRef = useRef(false)
+  useLayoutEffect(() => {
+    if (!restoreDialogPending || !restoreSortDiffer) return
+    if (sortResetRef.current) return
+    sortResetRef.current = true
+    // Match the filter restore UX: default to a known baseline unless the user explicitly restores.
+    clearTesterSubstatSort()
+  }, [clearTesterSubstatSort, restoreDialogPending, restoreSortDiffer])
   useEffect(() => {
     if (!restoreDialogPending) filtersResetRef.current = false
+  }, [restoreDialogPending])
+  useEffect(() => {
+    if (!restoreDialogPending) sortResetRef.current = false
   }, [restoreDialogPending])
   // Show the autosave restore prompt only after the README dialog is dismissed.
   const restoreDlgOpen = !tutorial.helpOpen && (restoreDialogPending || Boolean(testerRestoreDraft))
@@ -2990,14 +3004,18 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const { payload: autosaveBasePayload } = useDeferredHsfcPayload(autosaveBuildParams)
   const autosavePayload = useMemo(() => {
     const filtersPayload = areAutosaveFiltersDefault(autosaveFiltersState) ? null : autosaveFiltersState
+    const testerSortPayload = isDefaultTesterSubstatSortState(testerSubstatSortPrefs.state)
+      ? null
+      : testerSubstatSortPrefs.state
     return {
       ...autosaveBasePayload,
       LogicHubDialogTab: logicHubDialogTab, // Persist the active tab so the dialog re-opens where the user left off.
       KeepUniquesGridFilterMode: keepUniquesGridFilterMode,
       AutosaveSavedAt: new Date().toISOString(),
       ...(filtersPayload ? { Filters: filtersPayload } : {}),
+      ...(testerSortPayload ? { TesterSort: testerSortPayload } : {}),
     }
-  }, [autosaveBasePayload, autosaveFiltersState, logicHubDialogTab, keepUniquesGridFilterMode])
+  }, [autosaveBasePayload, autosaveFiltersState, logicHubDialogTab, keepUniquesGridFilterMode, testerSubstatSortPrefs.state])
   useAutosave({
     key: AUTOSAVE_KEY,
     payload: autosavePayload,
@@ -4844,6 +4862,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           metasetsDiffer={restoreMetasetsDiffer}
           targetsDiffer={restoreTargetsDiffer}
           filtersDiffer={restoreFiltersDiffer}
+          sortDiffer={restoreSortDiffer}
           onDismiss={() => {
             dismissRestore()
             setTesterRestoreDraft(null)
@@ -4894,6 +4913,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                     setPreviewMode(draft.Filters.activeMode)
                   }
                 } catch {}
+              }
+              if (selection.sort && restoreSortDiffer && draft.TesterSort) {
+                setTesterSubstatSortState(draft.TesterSort)
               }
               if (selection.gearSets) {
                 // User opted in: hydrate runtime sets from localStorage now.

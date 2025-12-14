@@ -951,6 +951,8 @@ const enUS: Catalog = {
   restoreAutosaveNoteHelper: 'Load autosaved copy.',
   restoreAutosaveFiltersLabel: 'Filter Panel',
   restoreAutosaveFiltersHelper: 'Restores panel open state, chips, and collapsed sections.',
+  restoreAutosaveSortLabel: 'Rule Tester Sort',
+  restoreAutosaveSortHelper: 'Restores substat priorities, Normalized mode, sources, and weights.',
   restoreAutosaveTesterLabel: 'Rule Tester Imports ({count})',
   restoreAutosaveTesterHelper: 'Load autosaved gear.',
   restoreAutosaveGearSetsLabel: 'Runtime Gear Sets ({count})',
