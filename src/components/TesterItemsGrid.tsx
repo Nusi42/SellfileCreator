@@ -81,7 +81,13 @@ import { useContextMenuCloseOnOutsideRightClick } from '../hooks/useContextMenuC
 import { useTesterGridPreferences } from '../state/testerGridPreferences'
 import { championIconUrl } from '../lib/iconMaps/championIconMap'
 import EmptyStateMessage, { type EmptyStateMessageProps } from './EmptyStateMessage'
-import { sortTesterRowsBySubstats, type TesterSubstatSortSpec } from '../lib/testerSort'
+import { computeTesterNormalizedSubstatScore, sortTesterRowsBySubstats, type TesterSubstatSortSpec } from '../lib/testerSort'
+import {
+  TESTER_GRID_NORMALIZED_PRESET_COUNT,
+  type TesterGridNormalizedPresetId,
+  useTesterGridNormalizedOverlayPreferences,
+} from '../state/testerGridNormalizedOverlayPreferences'
+import { TesterNormalizedPresetEditorMenu } from './TesterNormalizedPresetEditorMenu'
 
 type EmptyStateWrapperProps = Omit<EmptyStateMessageProps, 'children'>
 
@@ -118,6 +124,69 @@ const ACCORDION_BORDER_RADIUS_PX = 8
 const GRID_GROUP_VIRTUAL_OVERSCAN_ROWS = 2
 // Penalize off-screen rows so the reveal queue prefers on-screen cards even while overscanning nested accordions.
 const GRID_CARD_OFFSCREEN_PRIORITY_PENALTY = 1_000_000
+
+type Rgb = { r: number; g: number; b: number }
+
+const clamp01 = (value: number): number => (
+  // Clamp ratios so invalid min/max inputs cannot generate invalid CSS colors.
+  Math.max(0, Math.min(1, value))
+)
+
+const parseHexChannel = (value: string): number => {
+  // Hex parsing is tolerant of invalid inputs; callers treat NaN as "parse failed".
+  const parsed = Number.parseInt(value, 16)
+  return Number.isFinite(parsed) ? parsed : Number.NaN
+}
+
+const parseCssColorToRgb = (color: string): Rgb | null => {
+  // Theme palette values are usually hex, but may be rgb()/rgba(); normalize both.
+  const raw = String(color).trim()
+  if (!raw) return null
+  if (raw.startsWith('#')) {
+    const hex = raw.slice(1)
+    if (hex.length === 3) {
+      // `charAt` returns '' for out-of-range, so we never build "undefinedundefined" strings.
+      const rNibble = hex.charAt(0)
+      const gNibble = hex.charAt(1)
+      const bNibble = hex.charAt(2)
+      const r = parseHexChannel(rNibble + rNibble)
+      const g = parseHexChannel(gNibble + gNibble)
+      const b = parseHexChannel(bNibble + bNibble)
+      if (!Number.isFinite(r) || !Number.isFinite(g) || !Number.isFinite(b)) return null
+      return { r, g, b }
+    }
+    if (hex.length === 6) {
+      const r = parseHexChannel(hex.slice(0, 2))
+      const g = parseHexChannel(hex.slice(2, 4))
+      const b = parseHexChannel(hex.slice(4, 6))
+      if (!Number.isFinite(r) || !Number.isFinite(g) || !Number.isFinite(b)) return null
+      return { r, g, b }
+    }
+    return null
+  }
+  const rgbMatch = raw.match(/^rgba?\(\s*([0-9.]+)\s*,\s*([0-9.]+)\s*,\s*([0-9.]+)(?:\s*,\s*([0-9.]+))?\s*\)$/i)
+  if (!rgbMatch) return null
+  const r = Number(rgbMatch[1])
+  const g = Number(rgbMatch[2])
+  const b = Number(rgbMatch[3])
+  if (!Number.isFinite(r) || !Number.isFinite(g) || !Number.isFinite(b)) return null
+  return { r: Math.max(0, Math.min(255, r)), g: Math.max(0, Math.min(255, g)), b: Math.max(0, Math.min(255, b)) }
+}
+
+const mixRgb = (low: Rgb, high: Rgb, ratio: number): Rgb => {
+  // Linear interpolation keeps the red→green gradient predictable and cheap to compute.
+  const t = clamp01(ratio)
+  const lerp = (a: number, b: number) => a + ((b - a) * t)
+  return { r: lerp(low.r, high.r), g: lerp(low.g, high.g), b: lerp(low.b, high.b) }
+}
+
+const rgbToCss = (rgb: Rgb): string => {
+  // Round to integers so the output stays stable between renders.
+  const r = Math.round(Math.max(0, Math.min(255, rgb.r)))
+  const g = Math.round(Math.max(0, Math.min(255, rgb.g)))
+  const b = Math.round(Math.max(0, Math.min(255, rgb.b)))
+  return `rgb(${r}, ${g}, ${b})`
+}
 // Keep the reveal queue short by pruning rows that are multiple viewports away; scrolling back to them re-enqueues a fresh task.
 const GRID_CARD_REVEAL_MAX_OFFSCREEN_DISTANCE_PX = 4_000
 const GRID_CARD_REVEAL_FAST_BATCH_THRESHOLD = 50
@@ -265,6 +334,18 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
   const shouldDimUnhighlightedRows = Boolean(dimUnhighlightedRows && highlightRowPredicate)
   const { t, lang } = useI18n()
   const theme = useTheme()
+  const normalizedOverlayPrefs = useTesterGridNormalizedOverlayPreferences()
+  // Enabled presets are a simple set lookup for button styling + per-row score computation.
+  const normalizedOverlayEnabledPresetSet = useMemo(
+    () => new Set<number>(normalizedOverlayPrefs.state.enabledPresetIds.map((id) => Number(id))),
+    [normalizedOverlayPrefs.state.enabledPresetIds],
+  )
+  // Preset selection is also the overlay's show/hide toggle: no presets => no score rendered.
+  const normalizedOverlayEnabled = normalizedOverlayPrefs.state.enabledPresetIds.length > 0
+  const [normalizedPresetEditor, setNormalizedPresetEditor] = useState<{
+    presetId: TesterGridNormalizedPresetId
+    position: { x: number; y: number }
+  } | null>(null)
   // Frozen match details stay rendered but dimmed so users remember the last result during rebuilds.
   const matchDetailsFrozen = Boolean(suppressMatchDetailsProp)
   // Group tree is recalculated only when the dataset, locale, or sort mode changes so TanStack can reuse measured rows.
@@ -273,6 +354,69 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     [rows, t, lang, keepSections, substatSort],
   )
   const numberFormatter = useMemo(() => new Intl.NumberFormat(undefined), [])
+  // Overlay score uses the same glyph inclusion policy as the Sort UI (default excludes glyphs).
+  const normalizedOverlayExcludeGlyphs = substatSort?.excludeGlyphs !== false
+  const normalizedOverlayByArtifactId = useMemo(() => {
+    // When no presets are enabled, keep the fast path obvious: no overlay map.
+    if (!normalizedOverlayEnabled) return new Map<number, { text: string; color?: string }>()
+    const enabledPresetIds = normalizedOverlayPrefs.state.enabledPresetIds
+    const presets = normalizedOverlayPrefs.state.presets
+
+    // First pass computes per-row "best of enabled presets" and tracks the global min/max.
+    const scores = new Map<number, number>()
+    let min = Number.POSITIVE_INFINITY
+    let max = Number.NEGATIVE_INFINITY
+    for (let idx = 0; idx < rows.length; idx += 1) {
+      // Bounds check above guarantees this row exists; non-null assertion keeps strict indexing happy.
+      const row = rows[idx]!
+      const artifactId = Number(row?.artifact?.id)
+      if (!Number.isFinite(artifactId)) continue
+      let best: number | null = null
+      for (let presetIdx = 0; presetIdx < enabledPresetIds.length; presetIdx += 1) {
+        // Bounds check above guarantees this id exists; non-null assertion keeps strict indexing happy.
+        const presetId = enabledPresetIds[presetIdx]!
+        const preset = presets[presetId]
+        if (!preset) continue
+        const score = computeTesterNormalizedSubstatScore(row, {
+          variants: preset.variants,
+          weights: preset.weights,
+          excludeGlyphs: normalizedOverlayExcludeGlyphs,
+        })
+        if (score == null) continue
+        if (best == null || score > best) best = score
+      }
+      if (best == null) continue
+      scores.set(artifactId, best)
+      min = Math.min(min, best)
+      max = Math.max(max, best)
+    }
+    if (scores.size === 0 || !Number.isFinite(min) || !Number.isFinite(max)) {
+      return new Map<number, { text: string; color?: string }>()
+    }
+
+    // Theme palette endpoints drive the red→green gradient; fall back to hardcoded RGB if parsing fails.
+    const lowRgb = parseCssColorToRgb(theme.palette.error.main) ?? { r: 220, g: 38, b: 38 }
+    const highRgb = parseCssColorToRgb(theme.palette.success.main) ?? { r: 22, g: 163, b: 74 }
+    const range = max - min
+
+    // Second pass converts scores into overlay text + range-mapped colors.
+    const overlays = new Map<number, { text: string; color?: string }>()
+    scores.forEach((score, artifactId) => {
+      // When the range collapses, treat every score as "highest" so users still get a strong signal.
+      const ratio = range > 0 ? (score - min) / range : 1
+      const color = rgbToCss(mixRgb(lowRgb, highRgb, ratio))
+      overlays.set(artifactId, { text: score.toFixed(2), color })
+    })
+    return overlays
+  }, [
+    normalizedOverlayEnabled,
+    normalizedOverlayExcludeGlyphs,
+    normalizedOverlayPrefs.state.enabledPresetIds,
+    normalizedOverlayPrefs.state.presets,
+    rows,
+    theme.palette.error.main,
+    theme.palette.success.main,
+  ])
   const {
     columns: gridColumnPreference,
     showFirstMatch,
@@ -642,6 +786,8 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
   const [gridMenuPosition, setGridMenuPosition] = useState<{ x: number; y: number } | null>(null)
   const gridMenuOpen = Boolean(gridMenuPosition)
   const gridMenuPaperRef = useRef<HTMLDivElement | null>(null)
+  // Nested preset editor menu should not close the parent grid menu when clicked.
+  const normalizedPresetEditorPaperRef = useRef<HTMLDivElement | null>(null)
   const gridContextHintActive = shouldShowGridContextHint && gridContextHintPos !== null && !gridMenuOpen
   const resolveGridContextGroupKey = useCallback((target: EventTarget | null): string | null => {
     // Headers expose their group key directly while cards rely on the artifact id to locate the owning group.
@@ -696,6 +842,8 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     open: gridMenuOpen,
     onClose: closeGridMenu,
     menuRef: gridMenuPaperRef,
+    // Treat the preset editor menu as "inside" so the parent menu remains open while editing.
+    ...(normalizedPresetEditor ? { insideRefs: [normalizedPresetEditorPaperRef] } : {}),
   })
   // Virtualizer data exposes row bounds immediately after scroll, so resolve the first visible card without waiting for DOM effects.
   const firstVisibleRowId = useMemo(() => {
@@ -995,10 +1143,16 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
           >
             {item.rowEntries.map((row, columnIdx) => {
               const cardPriorityOrder = positionOrder + (columnIdx * 0.01)
+              const artifactId = Number(row.artifact?.id)
+              // Overlay lookup is keyed by artifact id so scoring stays stable across regrouping/sorting.
+              const centerOverlay = Number.isFinite(artifactId)
+                ? (normalizedOverlayByArtifactId.get(artifactId) ?? null)
+                : null
               return (
                 <TesterGridCard
                   key={row.artifact.id}
                   row={row}
+                  centerOverlay={centerOverlay}
                   substatColors={substatColors}
                   useStatButtonColors={useStatButtonColors}
                   suppressMatchDetails={matchDetailsFrozen}
@@ -1122,7 +1276,7 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
         </Box>
       ) : null}
       <ContextMenuHintOverlay text={t('contextMenuHint')} position={gridContextHintActive ? gridContextHintPos : null} />
-      <Menu
+        <Menu
         open={gridMenuOpen}
         onClose={closeGridMenu}
         anchorReference="anchorPosition"
@@ -1205,6 +1359,61 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
               ? t('colorBlindNormal')
               : (colorBlindMode === 'okabeIto' ? t('colorBlindOkabeIto') : t('colorBlindTritan'))}
           </Button>
+        </MenuItem>
+        <MenuItem
+          disableRipple
+          sx={{ gap: 1, alignItems: 'center' }}
+        >
+          <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>
+            {t('testerGridNormalizedLabel')}
+            :
+          </Typography>
+          <Box
+            // Button clicks should not trigger menu item selection; keep toggles local and explicit.
+            onClick={(event) => { event.stopPropagation() }}
+            sx={{
+              display: 'flex',
+              gap: 0.5,
+              minWidth: MENU_CONTROL_MIN_WIDTH_PX,
+              justifyContent: 'flex-end',
+              flexWrap: 'wrap',
+            }}
+          >
+            {Array.from({ length: TESTER_GRID_NORMALIZED_PRESET_COUNT }).map((_, idx) => {
+              const presetId = idx as TesterGridNormalizedPresetId
+              const enabled = normalizedOverlayEnabledPresetSet.has(presetId)
+              return (
+                <Button
+                  key={`tester-grid-normalized-preset-${presetId}`}
+                  size="small"
+                  variant={enabled ? 'contained' : 'outlined'}
+                  color="success"
+                  sx={{
+                    minWidth: 28,
+                    width: 28,
+                    height: MENU_CONTROL_HEIGHT_PX,
+                    minHeight: MENU_CONTROL_HEIGHT_PX,
+                    lineHeight: 1,
+                    py: 0,
+                    px: 0,
+                    fontVariantNumeric: 'tabular-nums',
+                  }}
+                  onClick={(event) => {
+                    event.stopPropagation()
+                    normalizedOverlayPrefs.togglePresetEnabled(presetId)
+                  }}
+                  onContextMenu={(event) => {
+                    // Right-click opens the editor for this preset (similar to Sort's weight controls).
+                    event.preventDefault()
+                    event.stopPropagation()
+                    setNormalizedPresetEditor({ presetId, position: { x: event.clientX, y: event.clientY } })
+                  }}
+                >
+                  {idx + 1}
+                </Button>
+              )
+            })}
+          </Box>
         </MenuItem>
         <Divider sx={{ my: 0.5 }} />
         {/* Place the compact action directly above the Columns control with matching spacing. */}
@@ -1348,6 +1557,22 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
           </Button>
         </MenuItem>
       </Menu>
+      {normalizedPresetEditor ? (
+        <TesterNormalizedPresetEditorMenu
+          open
+          anchorPosition={normalizedPresetEditor.position}
+          presetId={normalizedPresetEditor.presetId}
+          preset={normalizedOverlayPrefs.state.presets[normalizedPresetEditor.presetId]!}
+          onClose={() => setNormalizedPresetEditor(null)}
+          useStatButtonColors={useStatButtonColors}
+          substatColors={substatColors}
+          onToggleVariant={normalizedOverlayPrefs.toggleVariant}
+          onBumpWeight={normalizedOverlayPrefs.bumpWeight}
+          onSetWeight={normalizedOverlayPrefs.setWeight}
+          onResetPreset={normalizedOverlayPrefs.resetPreset}
+          paperRef={normalizedPresetEditorPaperRef}
+        />
+      ) : null}
     </Box>
   )
 }
@@ -1527,6 +1752,7 @@ function buildFlattenedGridItems({
 
 const TesterGridCard = React.memo(function TesterGridCard({
   row,
+  centerOverlay,
   substatColors,
   useStatButtonColors,
   suppressMatchDetails,
@@ -1544,6 +1770,7 @@ const TesterGridCard = React.memo(function TesterGridCard({
   cardPriority,
 }: {
   row: TesterPreviewRow
+  centerOverlay?: { text: string; color?: string } | null
   substatColors: Record<number, { fg: string; bg: string }>
   useStatButtonColors: boolean
   suppressMatchDetails: boolean
@@ -2147,6 +2374,8 @@ const TesterGridCard = React.memo(function TesterGridCard({
           levelLabel={levelChipLabel}
           size={TESTER_GRID_ICON_BOX_SIZE_PX}
           gearTooltip={lastUseTooltip}
+          // Center overlay is informational and is rendered click-through by GridIconBox.
+          {...(centerOverlay ? { centerOverlay } : {})}
           {...(cardOutcome ? { outcome: cardOutcome } : {})}
         />
         {shouldShowChampionIcon || shouldShowMissingChampionIconFallback ? (

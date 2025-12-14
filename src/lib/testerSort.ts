@@ -173,6 +173,36 @@ const lastUsageValueForSort = (row: TesterPreviewRow): number | null => {
   return Number.isFinite(parsed) ? parsed : null
 }
 
+export type TesterNormalizedSubstatScoreSpec = {
+  // Selected substats to include in the normalized sum (synthetic keys are not allowed here).
+  variants: readonly StatVariant[]
+  // When true, ignore glyph values (base + myth only) to keep scores comparable.
+  excludeGlyphs: boolean
+  // Optional per-substat weights; missing weights are treated as neutral (1.0).
+  weights?: Partial<Record<StatVariant, number>>
+}
+
+export function computeTesterNormalizedSubstatScore(
+  row: TesterPreviewRow,
+  spec: TesterNormalizedSubstatScoreSpec,
+): number | null {
+  // Missing selection means "no score", allowing callers to hide overlays without inventing a 0.
+  if (!spec.variants || spec.variants.length === 0) return null
+  // Exclude-glyphs defaults to true in the rest of the sorter; keep the same bias here.
+  const excludeGlyphs = spec.excludeGlyphs !== false
+  // Sum all selected substats; missing ones are treated as 0 per statValueForSubstatSort's contract.
+  let total = 0
+  for (const variant of spec.variants) {
+    // Normalize every contribution by its 6★ roll cap so mixed stats become comparable.
+    const raw = statValueForSubstatSort(row, variant, excludeGlyphs)
+    // Weights bias each contribution; missing/invalid weights fall back to 1.0.
+    const weight = weightForNormalizedSum(spec.weights, variant)
+    total += weight * normalizeSubstatByMax6(variant, raw)
+  }
+  // Treat non-finite totals as "no score" so callers never render NaN/Infinity into UI.
+  return Number.isFinite(total) ? total : null
+}
+
 export function compareTesterPreviewRowsBySubstats(
   a: TesterPreviewRow,
   b: TesterPreviewRow,
@@ -188,20 +218,14 @@ export function compareTesterPreviewRowsBySubstats(
   const normalized = spec.normalized === true && selectedSubstats.length > 1
 
   if (normalized) {
-    const sumScore = (row: TesterPreviewRow): number => {
-      // Sum all selected substats; missing ones are treated as 0 per statValueForSubstatSort's contract.
-      let total = 0
-      for (const variant of selectedSubstats) {
-        const key = Number(variant)
-        const raw = statValueForSubstatSort(row, key as StatVariant, excludeGlyphs)
-        // Weights bias each normalized contribution; weights are neutral at 1.0.
-        const weight = weightForNormalizedSum(spec.weights, key as StatVariant)
-        total += weight * normalizeSubstatByMax6(key as StatVariant, raw)
-      }
-      return total
+    // Delegate score math to the shared helper so overlays and sorting stay in sync.
+    const scoreSpec: TesterNormalizedSubstatScoreSpec = {
+      variants: selectedSubstats as StatVariant[],
+      excludeGlyphs,
+      ...(spec.weights ? { weights: spec.weights } : {}),
     }
-    const left = sumScore(a)
-    const right = sumScore(b)
+    const left = computeTesterNormalizedSubstatScore(a, scoreSpec) ?? 0
+    const right = computeTesterNormalizedSubstatScore(b, scoreSpec) ?? 0
     if (left !== right) {
       return (left - right) * globalMultiplier
     }
