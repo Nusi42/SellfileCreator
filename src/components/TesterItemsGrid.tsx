@@ -23,6 +23,7 @@ import BuildOutlinedIcon from '@mui/icons-material/BuildOutlined'
 import Inventory2OutlinedIcon from '@mui/icons-material/Inventory2Outlined'
 import MailOutlineIcon from '@mui/icons-material/MailOutline'
 import PersonOutlineIcon from '@mui/icons-material/PersonOutline'
+import SortIcon from '@mui/icons-material/Sort'
 import { useI18n } from '../lib/i18n'
 import type { TesterPreviewRow } from '../types/testerPreview'
 import { SetIcon } from './SetIcon'
@@ -64,6 +65,7 @@ import ContextMenuPaper from './ContextMenuPaper'
 import { ContextMenuHintOverlay } from './ContextMenuHintOverlay'
 import { useContextMenuHint } from '../hooks/useContextMenuHint'
 import GridIconBox from './GridIconBox'
+import { formatTesterNormalizedPresetButtonLabel } from '../lib/testerNormalizedPresets'
 import {
   ACCESSORY_NO_SET_ID,
   MENU_CONTROL_HEIGHT_PX,
@@ -81,9 +83,15 @@ import { useContextMenuCloseOnOutsideRightClick } from '../hooks/useContextMenuC
 import { useTesterGridPreferences } from '../state/testerGridPreferences'
 import { championIconUrl } from '../lib/iconMaps/championIconMap'
 import EmptyStateMessage, { type EmptyStateMessageProps } from './EmptyStateMessage'
-import { computeTesterNormalizedSubstatScore, sortTesterRowsBySubstats, type TesterSubstatSortSpec } from '../lib/testerSort'
 import {
-  TESTER_GRID_NORMALIZED_PRESET_COUNT,
+  computeTesterNormalizedSubstatScore,
+  sortTesterRowsBySubstats,
+  TESTER_SORT_KEY_LAST_USAGE,
+  type TesterSubstatSortSpec,
+} from '../lib/testerSort'
+import { TESTER_NORMALIZED_PRESET_COUNT } from '../lib/testerNormalizedPresets'
+import type { TesterSubstatSortState } from '../state/testerSubstatSortPreferences'
+import {
   type TesterGridNormalizedPresetId,
   useTesterGridNormalizedOverlayPreferences,
 } from '../state/testerGridNormalizedOverlayPreferences'
@@ -274,6 +282,8 @@ type TesterItemsGridProps = {
   dimUnhighlightedRows?: boolean
   // Optional Rule Tester sort controls; view-only ordering that does not affect exports.
   substatSort?: TesterSubstatSortSpec | null
+  // Full sort preference state so the grid can gate the [S] overlay option.
+  sortState?: TesterSubstatSortState | null
   keepSections?: boolean
 }
 
@@ -326,6 +336,7 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     highlightedRowPredicate = null,
     dimUnhighlightedRows = false,
     substatSort = null,
+    sortState = null,
     keepSections = true,
   } = props
   const keepUniquesVariant = variant === 'keepUniques'
@@ -335,17 +346,31 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
   const { t, lang } = useI18n()
   const theme = useTheme()
   const normalizedOverlayPrefs = useTesterGridNormalizedOverlayPreferences()
+  const normalizedOverlayUseSortWeights = normalizedOverlayPrefs.state.useSortWeights
+  const toggleNormalizedOverlayUseSortWeights = normalizedOverlayPrefs.toggleUseSortWeights
+  const normalizedOverlaySortSourceAllowed = Boolean(
+    // [S] is only meaningful when sort is actively using normalized scoring (and is not in "Active" mode).
+    substatSort?.normalized === true
+    && sortState?.normalizedUseActiveOverlay !== true,
+  )
   // Enabled presets are a simple set lookup for button styling + per-row score computation.
   const normalizedOverlayEnabledPresetSet = useMemo(
     () => new Set<number>(normalizedOverlayPrefs.state.enabledPresetIds.map((id) => Number(id))),
     [normalizedOverlayPrefs.state.enabledPresetIds],
   )
-  // Preset selection is also the overlay's show/hide toggle: no presets => no score rendered.
-  const normalizedOverlayEnabled = normalizedOverlayPrefs.state.enabledPresetIds.length > 0
+  // Overlay is enabled when either [S] or any numbered preset is enabled.
+  const normalizedOverlayEnabled = normalizedOverlayUseSortWeights
+    || normalizedOverlayPrefs.state.enabledPresetIds.length > 0
   const [normalizedPresetEditor, setNormalizedPresetEditor] = useState<{
     presetId: TesterGridNormalizedPresetId
     position: { x: number; y: number }
   } | null>(null)
+  useEffect(() => {
+    // If the user turns off Normalized sorting (or enters "Active" mode), auto-disable the [S] overlay so UI stays consistent.
+    if (!normalizedOverlayUseSortWeights) return
+    if (normalizedOverlaySortSourceAllowed) return
+    toggleNormalizedOverlayUseSortWeights()
+  }, [normalizedOverlaySortSourceAllowed, normalizedOverlayUseSortWeights, toggleNormalizedOverlayUseSortWeights])
   // Frozen match details stay rendered but dimmed so users remember the last result during rebuilds.
   const matchDetailsFrozen = Boolean(suppressMatchDetailsProp)
   // Group tree is recalculated only when the dataset, locale, or sort mode changes so TanStack can reuse measured rows.
@@ -357,10 +382,16 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
   // Overlay score uses the same glyph inclusion policy as the Sort UI (default excludes glyphs).
   const normalizedOverlayExcludeGlyphs = substatSort?.excludeGlyphs !== false
   const normalizedOverlayByArtifactId = useMemo(() => {
-    // When no presets are enabled, keep the fast path obvious: no overlay map.
+    // When nothing is enabled, keep the fast path obvious: no overlay map.
     if (!normalizedOverlayEnabled) return new Map<number, { text: string; color?: string }>()
+    const useSortWeights = normalizedOverlayPrefs.state.useSortWeights === true
     const enabledPresetIds = normalizedOverlayPrefs.state.enabledPresetIds
     const presets = normalizedOverlayPrefs.state.presets
+    // [S] uses the Sort popout’s currently selected substats + weights.
+    const sortSelectedVariants = useSortWeights
+      ? (substatSort?.priorities ?? []).filter((key) => Number(key) !== Number(TESTER_SORT_KEY_LAST_USAGE)) as StatVariant[]
+      : []
+    const sortWeights = useSortWeights ? (substatSort?.weights ?? {}) : {}
 
     // First pass computes per-row "best of enabled presets" and tracks the global min/max.
     const scores = new Map<number, number>()
@@ -371,20 +402,32 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
       const row = rows[idx]!
       const artifactId = Number(row?.artifact?.id)
       if (!Number.isFinite(artifactId)) continue
-      let best: number | null = null
-      for (let presetIdx = 0; presetIdx < enabledPresetIds.length; presetIdx += 1) {
-        // Bounds check above guarantees this id exists; non-null assertion keeps strict indexing happy.
-        const presetId = enabledPresetIds[presetIdx]!
-        const preset = presets[presetId]
-        if (!preset) continue
-        const score = computeTesterNormalizedSubstatScore(row, {
-          variants: preset.variants,
-          weights: preset.weights,
-          excludeGlyphs: normalizedOverlayExcludeGlyphs,
-        })
-        if (score == null) continue
-        if (best == null || score > best) best = score
-      }
+      const best = (() => {
+        // [S] is exclusive: score comes from the Sort popout state only.
+        if (useSortWeights) {
+          return computeTesterNormalizedSubstatScore(row, {
+            variants: sortSelectedVariants,
+            weights: sortWeights,
+            excludeGlyphs: normalizedOverlayExcludeGlyphs,
+          })
+        }
+        // Presets mode: use the best (max) score across enabled presets.
+        let bestPreset: number | null = null
+        for (let presetIdx = 0; presetIdx < enabledPresetIds.length; presetIdx += 1) {
+          // Bounds check above guarantees this id exists; non-null assertion keeps strict indexing happy.
+          const presetId = enabledPresetIds[presetIdx]!
+          const preset = presets[presetId]
+          if (!preset) continue
+          const score = computeTesterNormalizedSubstatScore(row, {
+            variants: preset.variants,
+            weights: preset.weights,
+            excludeGlyphs: normalizedOverlayExcludeGlyphs,
+          })
+          if (score == null) continue
+          if (bestPreset == null || score > bestPreset) bestPreset = score
+        }
+        return bestPreset
+      })()
       if (best == null) continue
       scores.set(artifactId, best)
       min = Math.min(min, best)
@@ -411,9 +454,12 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
   }, [
     normalizedOverlayEnabled,
     normalizedOverlayExcludeGlyphs,
+    normalizedOverlayPrefs.state.useSortWeights,
     normalizedOverlayPrefs.state.enabledPresetIds,
     normalizedOverlayPrefs.state.presets,
     rows,
+    substatSort?.priorities,
+    substatSort?.weights,
     theme.palette.error.main,
     theme.palette.success.main,
   ])
@@ -819,9 +865,20 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     handleGridHintSeen()
   }, [handleGridHintSeen, resolveGridContextGroupKey])
   const closeGridMenu = useCallback(() => {
+    // Closing the parent menu should never leave the nested preset editor orphaned.
+    setNormalizedPresetEditor(null)
     setGridMenuPosition(null)
     setGridMenuGroupKey(null)
   }, [])
+  const closeGridMenuOrPresetEditor = useCallback(() => {
+    // UX: when the preset editor is open, a dismiss click should close the editor first,
+    // but keep the parent context menu open so users can continue interacting with it.
+    if (normalizedPresetEditor) {
+      setNormalizedPresetEditor(null)
+      return
+    }
+    closeGridMenu()
+  }, [closeGridMenu, normalizedPresetEditor])
   // Column toggle is disabled for Keep Uniques because the variant forces two columns.
   const handleColumnToggle = useCallback(() => {
     if (keepUniquesVariant) return
@@ -840,7 +897,7 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
   }, [closeGridMenu, gridMenuGroupKey])
   useContextMenuCloseOnOutsideRightClick({
     open: gridMenuOpen,
-    onClose: closeGridMenu,
+    onClose: closeGridMenuOrPresetEditor,
     menuRef: gridMenuPaperRef,
     // Treat the preset editor menu as "inside" so the parent menu remains open while editing.
     ...(normalizedPresetEditor ? { insideRefs: [normalizedPresetEditorPaperRef] } : {}),
@@ -1278,7 +1335,7 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
       <ContextMenuHintOverlay text={t('contextMenuHint')} position={gridContextHintActive ? gridContextHintPos : null} />
         <Menu
         open={gridMenuOpen}
-        onClose={closeGridMenu}
+        onClose={closeGridMenuOrPresetEditor}
         anchorReference="anchorPosition"
         {...(gridMenuPosition ? { anchorPosition: { top: gridMenuPosition.y, left: gridMenuPosition.x } } : {})}
         slotProps={{
@@ -1364,55 +1421,132 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
           disableRipple
           sx={{ gap: 1, alignItems: 'center' }}
         >
-          <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>
-            {t('testerGridNormalizedLabel')}
-            :
-          </Typography>
+          <MarkdownTooltip markdown={t('testerGridNormalizedTooltip')}>
+            <Typography variant="body2" sx={{ flex: 1, minWidth: 0, cursor: 'help' }}>
+              {t('testerGridNormalizedLabel')}
+            </Typography>
+          </MarkdownTooltip>
           <Box
             // Button clicks should not trigger menu item selection; keep toggles local and explicit.
             onClick={(event) => { event.stopPropagation() }}
             sx={{
               display: 'flex',
+              flexDirection: 'column',
               gap: 0.5,
               minWidth: MENU_CONTROL_MIN_WIDTH_PX,
-              justifyContent: 'flex-end',
-              flexWrap: 'wrap',
+              alignItems: 'flex-end',
             }}
           >
-            {Array.from({ length: TESTER_GRID_NORMALIZED_PRESET_COUNT }).map((_, idx) => {
-              const presetId = idx as TesterGridNormalizedPresetId
-              const enabled = normalizedOverlayEnabledPresetSet.has(presetId)
-              return (
-                <Button
-                  key={`tester-grid-normalized-preset-${presetId}`}
-                  size="small"
-                  variant={enabled ? 'contained' : 'outlined'}
-                  color="success"
-                  sx={{
-                    minWidth: 28,
-                    width: 28,
-                    height: MENU_CONTROL_HEIGHT_PX,
-                    minHeight: MENU_CONTROL_HEIGHT_PX,
-                    lineHeight: 1,
-                    py: 0,
-                    px: 0,
-                    fontVariantNumeric: 'tabular-nums',
-                  }}
-                  onClick={(event) => {
-                    event.stopPropagation()
-                    normalizedOverlayPrefs.togglePresetEnabled(presetId)
-                  }}
-                  onContextMenu={(event) => {
-                    // Right-click opens the editor for this preset (similar to Sort's weight controls).
-                    event.preventDefault()
-                    event.stopPropagation()
-                    setNormalizedPresetEditor({ presetId, position: { x: event.clientX, y: event.clientY } })
-                  }}
-                >
-                  {idx + 1}
-                </Button>
-              )
-            })}
+            <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'flex-end' }}>
+              <Button
+                key="tester-grid-normalized-preset-s"
+                size="small"
+                variant={normalizedOverlayPrefs.state.useSortWeights ? 'contained' : 'outlined'}
+                color="success"
+                disabled={!normalizedOverlaySortSourceAllowed}
+                sx={{
+                  minWidth: 28,
+                  width: 28,
+                  height: MENU_CONTROL_HEIGHT_PX,
+                  minHeight: MENU_CONTROL_HEIGHT_PX,
+                  lineHeight: 1,
+                  py: 0,
+                  px: 0,
+                }}
+                onClick={(event) => {
+                  event.stopPropagation()
+                  if (!normalizedOverlaySortSourceAllowed) return
+                  normalizedOverlayPrefs.toggleUseSortWeights()
+                }}
+                onContextMenu={(event) => {
+                  // Sort-source button has no editor; keep right-click from opening the browser menu.
+                  event.preventDefault()
+                  event.stopPropagation()
+                }}
+                aria-label={t('testerSortLabel')}
+              >
+                <SortIcon sx={{ fontSize: 18 }} />
+              </Button>
+              {Array.from({ length: 4 }).map((_, idx) => {
+                const presetId = idx as TesterGridNormalizedPresetId
+                const enabled = normalizedOverlayEnabledPresetSet.has(presetId)
+                const preset = normalizedOverlayPrefs.state.presets[presetId]
+                const label = preset
+                  ? formatTesterNormalizedPresetButtonLabel(presetId, preset.iconId)
+                  : String(presetId + 1)
+                return (
+                  <Button
+                    key={`tester-grid-normalized-preset-${presetId}`}
+                    size="small"
+                    variant={enabled ? 'contained' : 'outlined'}
+                    color="success"
+                    sx={{
+                      minWidth: 28,
+                      width: 28,
+                      height: MENU_CONTROL_HEIGHT_PX,
+                      minHeight: MENU_CONTROL_HEIGHT_PX,
+                      lineHeight: 1,
+                      py: 0,
+                      px: 0,
+                      fontSize: 18,
+                    }}
+                    onClick={(event) => {
+                      event.stopPropagation()
+                      normalizedOverlayPrefs.togglePresetEnabled(presetId)
+                    }}
+                    onContextMenu={(event) => {
+                      // Right-click opens the editor for this preset (similar to Sort's weight controls).
+                      event.preventDefault()
+                      event.stopPropagation()
+                      setNormalizedPresetEditor({ presetId, position: { x: event.clientX, y: event.clientY } })
+                    }}
+                  >
+                    {label}
+                  </Button>
+                )
+              })}
+            </Box>
+            <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'flex-end' }}>
+              {Array.from({ length: TESTER_NORMALIZED_PRESET_COUNT - 4 }).map((_, offset) => {
+                const idx = offset + 4
+                const presetId = idx as TesterGridNormalizedPresetId
+                const enabled = normalizedOverlayEnabledPresetSet.has(presetId)
+                const preset = normalizedOverlayPrefs.state.presets[presetId]
+                const label = preset
+                  ? formatTesterNormalizedPresetButtonLabel(presetId, preset.iconId)
+                  : String(presetId + 1)
+                return (
+                  <Button
+                    key={`tester-grid-normalized-preset-${presetId}`}
+                    size="small"
+                    variant={enabled ? 'contained' : 'outlined'}
+                    color="success"
+                    sx={{
+                      minWidth: 28,
+                      width: 28,
+                      height: MENU_CONTROL_HEIGHT_PX,
+                      minHeight: MENU_CONTROL_HEIGHT_PX,
+                      lineHeight: 1,
+                      py: 0,
+                      px: 0,
+                      fontSize: 18,
+                    }}
+                    onClick={(event) => {
+                      event.stopPropagation()
+                      normalizedOverlayPrefs.togglePresetEnabled(presetId)
+                    }}
+                    onContextMenu={(event) => {
+                      // Right-click opens the editor for this preset (similar to Sort's weight controls).
+                      event.preventDefault()
+                      event.stopPropagation()
+                      setNormalizedPresetEditor({ presetId, position: { x: event.clientX, y: event.clientY } })
+                    }}
+                  >
+                    {label}
+                  </Button>
+                )
+              })}
+            </Box>
           </Box>
         </MenuItem>
         <Divider sx={{ my: 0.5 }} />
@@ -1564,6 +1698,7 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
           presetId={normalizedPresetEditor.presetId}
           preset={normalizedOverlayPrefs.state.presets[normalizedPresetEditor.presetId]!}
           onClose={() => setNormalizedPresetEditor(null)}
+          onSetIconId={normalizedOverlayPrefs.setPresetIconId}
           useStatButtonColors={useStatButtonColors}
           substatColors={substatColors}
           onToggleVariant={normalizedOverlayPrefs.toggleVariant}

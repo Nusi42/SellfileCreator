@@ -94,7 +94,7 @@ const GLYPH_FALLBACKS: Record<string, string> = {
   pill: '⚗︎',
   stethoscope: '⚕',
   recycle: '♻',
-  wastebasket: '⌦',
+  wastebasket: '🗑︎',
   poop: '☣',
   bandage: '╂',
   support: '⋈',

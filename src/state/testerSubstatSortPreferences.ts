@@ -14,6 +14,7 @@ import {
   type TesterSortKey,
   type TesterSubstatSortDirection,
 } from '../lib/testerSort'
+import { TESTER_NORMALIZED_PRESET_COUNT, type TesterNormalizedPresetId } from '../lib/testerNormalizedPresets'
 import { StatVariant, STAT_VARIANTS_PRIORITY } from '../lib/types'
 import { TESTER_SUBSTAT_SORT_KEY } from '../lib/constants'
 import { createLocalStorageStore } from './localStorageStore'
@@ -31,6 +32,12 @@ export type TesterSubstatSortState = {
   // Optional per-substat weights used by normalized mode (default weight is 1.0).
   // Stored in preferences so users can keep a consistent scoring bias across sessions.
   weights: TesterSubstatWeightMap
+  // When true, the "Normalized" sort uses the current tester-grid overlay selection ("Use active").
+  normalizedUseActiveOverlay: boolean
+  // When true, include the current "custom" weights as one normalized scoring source (shown as [C]).
+  normalizedSourceIncludeCustom: boolean
+  // Enabled normalized preset sources (when multiple are enabled, sorting uses the best / max score).
+  normalizedSourcePresetIds: TesterNormalizedPresetId[]
   // Keep the existing accordion sections; disabling merges artifact sets and accessory sets per faction.
   keepSections: boolean
   // Exclude glyph values by default so "base" rolls remain comparable.
@@ -43,6 +50,9 @@ export const DEFAULT_TESTER_SUBSTAT_SORT_STATE: TesterSubstatSortState = Object.
   flipped: [],
   normalized: false,
   weights: Object.freeze({}),
+  normalizedUseActiveOverlay: false,
+  normalizedSourceIncludeCustom: true,
+  normalizedSourcePresetIds: [],
   keepSections: true,
   excludeGlyphs: true,
 })
@@ -88,6 +98,26 @@ const stripSyntheticKeys = (keys: readonly TesterSortKey[]): TesterSortKey[] => 
   keys.filter((key) => Number(key) !== TESTER_SORT_KEY_LAST_USAGE)
 )
 
+const normalizePresetIds = (raw: unknown): TesterNormalizedPresetId[] => {
+  // Preset ids are compact [0..8] integers; normalize defensively to survive stale localStorage.
+  if (!Array.isArray(raw)) return []
+  const seen = new Set<number>()
+  const out: TesterNormalizedPresetId[] = []
+  raw.forEach((entry) => {
+    const num = Number(entry)
+    if (!Number.isFinite(num)) return
+    const int = Math.floor(num)
+    if (int !== num) return
+    if (int < 0 || int >= TESTER_NORMALIZED_PRESET_COUNT) return
+    if (seen.has(int)) return
+    seen.add(int)
+    out.push(int as TesterNormalizedPresetId)
+  })
+  // Stable ordering keeps the toggle row deterministic.
+  out.sort((a, b) => a - b)
+  return out
+}
+
 const normalizeWeights = (raw: unknown): TesterSubstatWeightMap => {
   // Missing weight map is the common case; keep the empty object stable.
   if (!raw || typeof raw !== 'object') return {}
@@ -118,6 +148,11 @@ export const normalizeTesterSubstatSortState = (raw: unknown): TesterSubstatSort
   const priorities = normalized ? stripSyntheticKeys(rawPriorities) : rawPriorities
   // Weights are normalized independently; they only apply when normalized sorting is effective.
   const weights = normalizeWeights(obj.weights)
+  // Normalized "source" toggles are UI-only but intentionally persist even when Normalized is off.
+  // Why: users can pick a preset first to immediately enable Normalized sorting.
+  const normalizedUseActiveOverlay = obj.normalizedUseActiveOverlay === true
+  const normalizedSourceIncludeCustom = obj.normalizedSourceIncludeCustom !== false
+  const normalizedSourcePresetIds = normalizePresetIds(obj.normalizedSourcePresetIds)
   // Flipped keys are only meaningful for keys that are currently selected as priorities.
   const rawFlipped = normalizeSortKeys(obj.flipped).filter((key) => priorities.some((v) => Number(v) === Number(key)))
   const flipped = normalized ? stripSyntheticKeys(rawFlipped) : rawFlipped
@@ -129,7 +164,18 @@ export const normalizeTesterSubstatSortState = (raw: unknown): TesterSubstatSort
     if (!selectedKeySet.has(key)) continue
     prunedWeights[key as StatVariant] = weight
   }
-  return { priorities, direction, flipped, normalized, weights: prunedWeights, keepSections, excludeGlyphs }
+  return {
+    priorities,
+    direction,
+    flipped,
+    normalized,
+    weights: prunedWeights,
+    normalizedUseActiveOverlay,
+    normalizedSourceIncludeCustom,
+    normalizedSourcePresetIds,
+    keepSections,
+    excludeGlyphs,
+  }
 }
 
 const testerSubstatSortStore = createLocalStorageStore<TesterSubstatSortState>({
@@ -180,10 +226,14 @@ export function useTesterSubstatSortPreferences() {
   }, [])
 
   const toggleNormalized = useCallback(() => {
-    // Normalized sums only apply when multiple substats are selected; keep the toggle disabled in UI otherwise.
+    // Normalized mode can be driven by the current selection (custom) and/or enabled presets.
     testerSubstatSortStore.update((prev) => {
       const selectedSubstats = countSelectedSubstats(prev.priorities)
-      if (selectedSubstats <= 1) return prev
+      const hasPresetSources = (prev.normalizedSourcePresetIds?.length ?? 0) > 0
+      const hasCustomSource = prev.normalizedSourceIncludeCustom && selectedSubstats > 0
+      const hasAnySource = hasPresetSources || hasCustomSource || prev.normalizedUseActiveOverlay
+      // Do not enable a state that can never sort; users can configure sources first.
+      if (!prev.normalized && !hasAnySource) return prev
       const enabling = !prev.normalized
       if (!enabling) return { ...prev, normalized: false }
       // Synthetic keys do not participate in normalized sums, so drop them proactively.
@@ -252,6 +302,30 @@ export function useTesterSubstatSortPreferences() {
     })
   }, [])
 
+  const toggleNormalizedUseActiveOverlay = useCallback(() => {
+    // "Use active" routes normalized scoring through the tester-grid overlay selection.
+    testerSubstatSortStore.update((prev) => ({ ...prev, normalizedUseActiveOverlay: !prev.normalizedUseActiveOverlay }))
+  }, [])
+
+  const toggleNormalizedSourceIncludeCustom = useCallback(() => {
+    // [C] controls whether the current selection+weights participate as one scoring source.
+    testerSubstatSortStore.update((prev) => ({ ...prev, normalizedSourceIncludeCustom: !prev.normalizedSourceIncludeCustom }))
+  }, [])
+
+  const toggleNormalizedSourcePresetId = useCallback((presetId: TesterNormalizedPresetId) => {
+    // Preset toggles allow multi-select; normalized scoring uses the best (max) score across enabled sources.
+    testerSubstatSortStore.update((prev) => {
+      const enabled = new Set<number>((prev.normalizedSourcePresetIds ?? []).map((id) => Number(id)))
+      if (enabled.has(presetId)) {
+        enabled.delete(presetId)
+      } else {
+        enabled.add(presetId)
+      }
+      const normalizedSourcePresetIds = [...enabled].sort((a, b) => a - b).map((id) => id as TesterNormalizedPresetId)
+      return { ...prev, normalizedSourcePresetIds }
+    })
+  }, [])
+
   return {
     state,
     clear,
@@ -263,5 +337,8 @@ export function useTesterSubstatSortPreferences() {
     toggleFlipped,
     setWeight,
     bumpWeight,
+    toggleNormalizedUseActiveOverlay,
+    toggleNormalizedSourceIncludeCustom,
+    toggleNormalizedSourcePresetId,
   }
 }

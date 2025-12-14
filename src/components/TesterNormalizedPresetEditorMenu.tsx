@@ -6,12 +6,13 @@
  * feel consistent with the existing Sort popout (row selection + weight bump chips).
  */
 import React from 'react'
-import { Box, Button, Divider, Menu, MenuItem, Typography } from '@mui/material'
+import { Box, Button, Divider, Menu, MenuItem, Select, Typography } from '@mui/material'
 import type { PaperProps as MuiPaperProps } from '@mui/material/Paper'
-import { alpha, useTheme } from '@mui/material/styles'
+import { alpha } from '@mui/material/styles'
 import ContextMenuPaper from './ContextMenuPaper'
 import ContextMenuTitle from './ContextMenuTitle'
 import { useI18n } from '../lib/i18n'
+import { DEFAULT_METASET_ICON_ID, METASET_ICON_OPTIONS, metasetIconOptionById, type MetasetIconId } from '../lib/metasetIcons'
 import { DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT, STAT_VARIANTS_PRIORITY, type StatVariant, statVariantI18nKey } from '../lib/types'
 import {
   TESTER_SORT_WEIGHT_DEFAULT,
@@ -26,6 +27,12 @@ export type TesterNormalizedPresetEditorMenuProps = {
   presetId: TesterGridNormalizedPresetId
   preset: TesterGridNormalizedPreset
   onClose: () => void
+  // Optional "overwrite from current" action used by the Sort popout (not the tester grid context menu).
+  onOverwriteFromCurrent?: ((presetId: TesterGridNormalizedPresetId) => void) | undefined
+  overwriteFromCurrentLabel?: string | undefined
+  overwriteFromCurrentDisabled?: boolean | undefined
+  // Optional glyph override shown when the app is in "glyph label" mode.
+  onSetIconId: (presetId: TesterGridNormalizedPresetId, iconId: MetasetIconId) => void
   // Color-stats inputs mirror the main tester grid setting so labels stay consistent.
   useStatButtonColors: boolean
   substatColors: Record<number, { fg: string; bg: string }>
@@ -37,10 +44,10 @@ export type TesterNormalizedPresetEditorMenuProps = {
   paperRef?: React.RefObject<HTMLDivElement | null>
 }
 
-const formatWeight = (value: number): string => {
-  // Weight values are normalized to 2 decimals (0.05 steps); keep display stable.
-  const safe = Number.isFinite(value) ? value : TESTER_SORT_WEIGHT_DEFAULT
-  return `×${safe.toFixed(2)}`
+const formatInactiveWeight = (): string => {
+  // Unselected substats do not participate in scoring; show 0 explicitly so the inclusion semantics are obvious.
+  // Note: "x" (ASCII) copies more reliably than "×" when users paste into chat.
+  return 'x0.00'
 }
 
 export function TesterNormalizedPresetEditorMenu({
@@ -49,6 +56,10 @@ export function TesterNormalizedPresetEditorMenu({
   presetId,
   preset,
   onClose,
+  onOverwriteFromCurrent,
+  overwriteFromCurrentLabel,
+  overwriteFromCurrentDisabled = false,
+  onSetIconId,
   useStatButtonColors,
   substatColors,
   onToggleVariant,
@@ -58,7 +69,6 @@ export function TesterNormalizedPresetEditorMenu({
   paperRef: paperRefProp,
 }: TesterNormalizedPresetEditorMenuProps) {
   const { t } = useI18n()
-  const theme = useTheme()
   // Reuse a parent-provided ref when nesting under another context menu.
   const localPaperRef = React.useRef<HTMLDivElement | null>(null)
   const paperRef = paperRefProp ?? localPaperRef
@@ -95,6 +105,101 @@ export function TesterNormalizedPresetEditorMenu({
       <Box sx={{ px: 2.25, pt: 2.25, pb: 1 }}>
         <ContextMenuTitle title={title} description={t('testerGridNormalizedPresetHelp')} />
       </Box>
+      <MenuItem
+        disableRipple
+        // Prevent "click away" closures when the Select menu is open in a portal.
+        sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 2, py: 0.75 }}
+        onClick={(event) => { event.stopPropagation() }}
+      >
+        <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>
+          {t('testerGridNormalizedPresetGlyphLabel')}
+        </Typography>
+        <Box
+          // Match the substat rows: stable right-column width + centered content for easier scanning.
+          sx={{
+            width: 128,
+            minWidth: 128,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <Select
+            size="small"
+            value={preset.iconId ?? DEFAULT_METASET_ICON_ID}
+            aria-label={t('testerGridNormalizedPresetGlyphPickerAria')}
+            // Keep the glyph centered; the default dropdown chevron shifts short glyphs off-center.
+            IconComponent={() => null}
+            onChange={(event) => {
+              event.preventDefault()
+              event.stopPropagation()
+              const nextIconId = (event.target.value || DEFAULT_METASET_ICON_ID) as MetasetIconId
+              onSetIconId(presetId, nextIconId)
+            }}
+            renderValue={(value) => {
+              const iconId = (value || DEFAULT_METASET_ICON_ID) as MetasetIconId
+              const opt = metasetIconOptionById(iconId)
+              return (
+                <Box
+                  component="span"
+                  sx={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, lineHeight: 1, width: '100%' }}
+                  aria-hidden
+                >
+                  {opt.glyph}
+                </Box>
+              )
+            }}
+            MenuProps={{
+              // Keep the picker inside the preset editor so nested context menus do not treat it as "outside".
+              disablePortal: true,
+              PaperProps: {
+                sx: {
+                  maxHeight: 320,
+                  minWidth: 88,
+                  width: 'auto',
+                  '& .MuiList-root': {
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(6, 1fr)',
+                    gap: 0.5,
+                    py: 0.5,
+                  },
+                },
+              },
+            }}
+            sx={{
+              minWidth: 64,
+              width: 64,
+              height: 28,
+              '& .MuiInputBase-root': {
+                height: 28,
+                minHeight: 28,
+              },
+              '& .MuiSelect-select': {
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: 18,
+                lineHeight: 1,
+                textAlign: 'center',
+                px: 1,
+                py: 0,
+              },
+            }}
+          >
+            {METASET_ICON_OPTIONS.map((option) => (
+              <MenuItem
+                key={option.id}
+                value={option.id}
+                aria-label={option.id}
+                sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minWidth: 0, px: 0.5, width: 'auto' }}
+              >
+                <Box component="span" sx={{ fontSize: 20, width: 32, textAlign: 'center' }} aria-hidden>{option.glyph}</Box>
+              </MenuItem>
+            ))}
+          </Select>
+        </Box>
+      </MenuItem>
+      <Divider sx={{ my: 0.5 }} />
       {STAT_VARIANTS_PRIORITY.map((variant) => {
         // Selection is the SSOT: if the stat is not selected, it is not counted (no 0-weight sentinel).
         const selected = selectedSet.has(Number(variant))
@@ -126,14 +231,15 @@ export function TesterNormalizedPresetEditorMenu({
           >
             <Typography
               variant="body2"
-              sx={{
+              sx={(muiTheme) => ({
                 flex: 1,
                 minWidth: 0,
-                // Match Sort popout: rely on color/row highlight more than heavy font weight.
-                fontWeight: theme.typography.fontWeightMedium ?? 600,
-                color: fg ?? (selected ? theme.palette.success.main : theme.palette.text.primary),
+                // Match Sort popout: rely on color/row highlight instead of heavy font weight.
+                fontWeight: muiTheme.typography.fontWeightRegular ?? 400,
+                // When "Color stats" is enabled, always use the per-stat color (selected or not).
+                color: fg ?? muiTheme.palette.text.primary,
                 opacity: selected ? 1 : (useStatButtonColors ? 0.72 : 0.9),
-              }}
+              })}
             >
               {statLabel}
             </Typography>
@@ -159,6 +265,7 @@ export function TesterNormalizedPresetEditorMenu({
                     label={statLabel}
                     enabled={weightControlsEnabled}
                     weight={rawWeight}
+                    weightPrefix="x"
                     onBump={(deltaSteps) => onBumpWeight(presetId, variant, deltaSteps)}
                     onReset={() => onSetWeight(presetId, variant, TESTER_SORT_WEIGHT_DEFAULT)}
                   />
@@ -188,7 +295,7 @@ export function TesterNormalizedPresetEditorMenu({
                     opacity: 0.65,
                   })}
                 >
-                  {formatWeight(TESTER_SORT_WEIGHT_DEFAULT)}
+                  {formatInactiveWeight()}
                 </Box>
               )}
             </Box>
@@ -200,19 +307,38 @@ export function TesterNormalizedPresetEditorMenu({
         disableRipple
         sx={{ justifyContent: 'center', py: 0.75 }}
       >
-        <Button
-          size="small"
-          variant="contained"
-          color="warning"
-          onClick={(event) => {
-            event.preventDefault()
-            event.stopPropagation()
-            onResetPreset(presetId)
-          }}
-          sx={{ minWidth: 180, fontWeight: 700 }}
-        >
-          {t('testerGridNormalizedPresetReset')}
-        </Button>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75, width: '100%', alignItems: 'center' }}>
+          {onOverwriteFromCurrent && overwriteFromCurrentLabel ? (
+            <Button
+              size="small"
+              variant="contained"
+              color="success"
+              disabled={overwriteFromCurrentDisabled}
+              onClick={(event) => {
+                event.preventDefault()
+                event.stopPropagation()
+                if (overwriteFromCurrentDisabled) return
+                onOverwriteFromCurrent(presetId)
+              }}
+              sx={{ minWidth: 220, fontWeight: 500 }}
+            >
+              {overwriteFromCurrentLabel}
+            </Button>
+          ) : null}
+          <Button
+            size="small"
+            variant="contained"
+            color="warning"
+            onClick={(event) => {
+              event.preventDefault()
+              event.stopPropagation()
+              onResetPreset(presetId)
+            }}
+            sx={{ minWidth: 220, fontWeight: 500 }}
+          >
+            {t('testerGridNormalizedPresetReset')}
+          </Button>
+        </Box>
       </MenuItem>
     </Menu>
   )

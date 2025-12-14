@@ -21,22 +21,25 @@ export type TesterSortWeightControlsProps = {
   enabled: boolean
   // Current weight (raw); normalized internally to match persistence rules.
   weight: number
+  // Optional formatting prefix for the displayed weight (default is '×').
+  weightPrefix?: string
   // Bump by +/- step counts (step size is owned by the caller).
   onBump: (deltaSteps: number) => void
   // Reset back to the neutral default.
   onReset: () => void
 }
 
-const formatWeight = (value: number): string => {
+const formatWeight = (value: number, prefix: string): string => {
   // Weight values are normalized to 2 decimals (0.05 steps); keep display stable across locales.
   const safe = Number.isFinite(value) ? value : TESTER_SORT_WEIGHT_DEFAULT
-  return `×${safe.toFixed(2)}`
+  return `${prefix}${safe.toFixed(2)}`
 }
 
 export function TesterSortWeightControls({
   label,
   enabled,
   weight,
+  weightPrefix = '×',
   onBump,
   onReset,
 }: TesterSortWeightControlsProps) {
@@ -44,7 +47,7 @@ export function TesterSortWeightControls({
 
   // Normalize weight so the UI never shows floating point drift (0.05 steps).
   const resolvedWeight = normalizeTesterSortWeight(weight)
-  const weightLabel = formatWeight(resolvedWeight)
+  const weightLabel = formatWeight(resolvedWeight, weightPrefix)
 
   const holdRef = React.useRef<{
     timeoutId: number | null

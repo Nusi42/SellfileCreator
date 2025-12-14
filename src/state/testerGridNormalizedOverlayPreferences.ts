@@ -16,23 +16,33 @@ import {
   isNeutralTesterSortWeight,
   normalizeTesterSortWeight,
 } from '../lib/testerSort'
+import { defaultTesterNormalizedPreset, TESTER_NORMALIZED_PRESET_COUNT, type TesterNormalizedPresetId } from '../lib/testerNormalizedPresets'
+import { normalizeMetasetIconId, type MetasetIconId } from '../lib/metasetIcons'
 import { StatVariant, STAT_VARIANTS_PRIORITY } from '../lib/types'
 import { createLocalStorageStore } from './localStorageStore'
 
-// Presets are UI-facing as [1..9], but stored internally as [0..8] to keep arrays compact.
-export const TESTER_GRID_NORMALIZED_PRESET_COUNT = 9 as const
-
-export type TesterGridNormalizedPresetId =
-  | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8
+export type TesterGridNormalizedPresetId = TesterNormalizedPresetId
 
 export type TesterGridNormalizedPreset = {
+  // Optional glyph/icon shown for this preset; 'none' renders as the numeric preset id on the buttons.
+  iconId: MetasetIconId
   // Selected substats that participate in the normalized score sum.
   variants: StatVariant[]
   // Optional per-variant weight overrides; missing means 1.0.
   weights: Partial<Record<StatVariant, number>>
 }
 
+export type TesterGridNormalizedPresetOverwrite = {
+  // Optional: when omitted, the existing preset icon stays unchanged.
+  iconId?: MetasetIconId | undefined
+  variants: StatVariant[]
+  weights: Partial<Record<StatVariant, number>>
+}
+
 export type TesterGridNormalizedOverlayState = {
+  // When true, the overlay uses the current Sort-popout selection + weights (shown as [S]).
+  // Exclusive: enabling [S] clears preset selection, and enabling any preset clears [S].
+  useSortWeights: boolean
   // Enabled presets; when multiple are enabled we show the best (max) score.
   enabledPresetIds: TesterGridNormalizedPresetId[]
   // All presets (fixed-count array so UI indexes remain stable).
@@ -47,7 +57,7 @@ const normalizePresetId = (raw: unknown): TesterGridNormalizedPresetId | null =>
   if (!Number.isFinite(num)) return null
   const int = Math.floor(num)
   if (int !== num) return null
-  if (int < 0 || int >= TESTER_GRID_NORMALIZED_PRESET_COUNT) return null
+  if (int < 0 || int >= TESTER_NORMALIZED_PRESET_COUNT) return null
   return int as TesterGridNormalizedPresetId
 }
 
@@ -67,16 +77,16 @@ const normalizeVariants = (raw: unknown): StatVariant[] => {
   return out
 }
 
-const normalizeWeights = (raw: unknown, variants: readonly StatVariant[]): Partial<Record<StatVariant, number>> => {
-  // Weights are keyed by StatVariant numeric encoding; reject anything outside the selected variants.
+const normalizeWeights = (raw: unknown): Partial<Record<StatVariant, number>> => {
+  // Weights are keyed by StatVariant numeric encoding.
+  // Note: weights may exist for unselected variants so users can toggle a stat off/on without losing the last value.
   if (!raw || typeof raw !== 'object') return {}
-  const allowed = new Set<number>(variants.map((variant) => Number(variant)))
   const obj = raw as Record<string, unknown>
   const out: Partial<Record<StatVariant, number>> = {}
   for (const [keyRaw, valueRaw] of Object.entries(obj)) {
     const keyNum = Number(keyRaw)
     if (!Number.isFinite(keyNum)) continue
-    if (!allowed.has(keyNum)) continue
+    if (!VARIANT_SET.has(keyNum)) continue
     const weight = normalizeTesterSortWeight(Number(valueRaw))
     if (!Number.isFinite(weight)) continue
     // Neutral weights are omitted so the stored schema stays compact and unambiguous.
@@ -87,47 +97,21 @@ const normalizeWeights = (raw: unknown, variants: readonly StatVariant[]): Parti
 }
 
 const createDefaultPreset = (presetId: TesterGridNormalizedPresetId): TesterGridNormalizedPreset => {
-  // Defaults mirror the initial "sort normalized" weighting presets described by the project.
-  if (presetId === 0) {
-    return { variants: [StatVariant.SPD], weights: {} }
+  // Keep defaults SSOT in `testerNormalizedPresets.ts`, but clone here so state updates never mutate shared arrays.
+  const preset = defaultTesterNormalizedPreset(presetId)
+  return {
+    iconId: preset.iconId,
+    variants: preset.variants.slice(),
+    weights: { ...preset.weights },
   }
-  if (presetId === 1) {
-    return { variants: [StatVariant.SPD, StatVariant.ACC], weights: { [StatVariant.SPD]: 1.05 } }
-  }
-  if (presetId === 2) {
-    return { variants: [StatVariant.SPD, StatVariant.HP, StatVariant.DEF, StatVariant.RES], weights: { [StatVariant.SPD]: 1.05 } }
-  }
-  if (presetId === 3) {
-    return {
-      variants: [
-        StatVariant.SPD,
-        StatVariant.CR,
-        StatVariant.CDMG,
-        StatVariant.HP,
-        StatVariant.DEF,
-        StatVariant.ATK,
-        StatVariant.ACC,
-        StatVariant.RES,
-      ],
-      weights: {
-        [StatVariant.SPD]: 1.05,
-        [StatVariant.HP]: 0.95,
-        [StatVariant.DEF]: 0.95,
-        [StatVariant.ATK]: 0.95,
-        [StatVariant.ACC]: 0.9,
-        [StatVariant.RES]: 0.9,
-      },
-    }
-  }
-  // Remaining presets default to "all substats with neutral weights" until customized by the user.
-  return { variants: [...STAT_VARIANTS_PRIORITY], weights: {} }
 }
 
 const DEFAULT_STATE: TesterGridNormalizedOverlayState = {
   // Defaults keep overlay hidden until the user enables at least one preset.
+  useSortWeights: false,
   enabledPresetIds: [],
   // Presets are fixed-count so indexes remain stable; each entry is a self-contained snapshot.
-  presets: Array.from({ length: TESTER_GRID_NORMALIZED_PRESET_COUNT }).map((_, idx) => (
+  presets: Array.from({ length: TESTER_NORMALIZED_PRESET_COUNT }).map((_, idx) => (
     createDefaultPreset(idx as TesterGridNormalizedPresetId)
   )),
 }
@@ -136,6 +120,8 @@ export const normalizeTesterGridNormalizedOverlayState = (raw: unknown): TesterG
   // Stored JSON can be missing or partially valid; normalize field-by-field to keep hydration resilient.
   if (!raw || typeof raw !== 'object') return DEFAULT_STATE
   const obj = raw as Record<string, unknown>
+
+  const useSortWeights = obj.useSortWeights === true
 
   const enabledPresetIds: TesterGridNormalizedPresetId[] = (() => {
     // Enabled list is the user’s "show these scores" selection; ignore garbage values silently.
@@ -158,7 +144,7 @@ export const normalizeTesterGridNormalizedOverlayState = (raw: unknown): TesterG
     // Presets are fixed-count; missing entries fall back to the factory defaults for that slot.
     const rawPresets = Array.isArray(obj.presets) ? obj.presets : []
     const out: TesterGridNormalizedPreset[] = []
-    for (let idx = 0; idx < TESTER_GRID_NORMALIZED_PRESET_COUNT; idx += 1) {
+    for (let idx = 0; idx < TESTER_NORMALIZED_PRESET_COUNT; idx += 1) {
       const fallback = createDefaultPreset(idx as TesterGridNormalizedPresetId)
       const rawPreset = rawPresets[idx]
       if (!rawPreset || typeof rawPreset !== 'object') {
@@ -166,15 +152,19 @@ export const normalizeTesterGridNormalizedOverlayState = (raw: unknown): TesterG
         continue
       }
       const presetObj = rawPreset as Record<string, unknown>
+      const iconId = normalizeMetasetIconId(presetObj.iconId) as MetasetIconId
       const variants = normalizeVariants(presetObj.variants)
-      // Selection is the SSOT; weight overrides are only allowed for selected variants.
-      const weights = normalizeWeights(presetObj.weights, variants)
-      out.push({ variants, weights })
+      // Selection is the SSOT for scoring, but weights may be preserved across deselection for UX convenience.
+      const weights = normalizeWeights(presetObj.weights)
+      out.push({ iconId: iconId || fallback.iconId, variants, weights })
     }
     return out
   })()
 
-  return { enabledPresetIds, presets }
+  // Enforce exclusivity between [S] and [1..9] at hydration time so UI remains deterministic.
+  return useSortWeights
+    ? { useSortWeights: true, enabledPresetIds: [], presets }
+    : { useSortWeights: false, enabledPresetIds, presets }
 }
 
 const testerGridNormalizedOverlayStore = createLocalStorageStore<TesterGridNormalizedOverlayState>({
@@ -195,9 +185,21 @@ const testerGridNormalizedOverlayStore = createLocalStorageStore<TesterGridNorma
 export function useTesterGridNormalizedOverlayPreferences() {
   const state = testerGridNormalizedOverlayStore.useValue()
 
+  const toggleUseSortWeights = useCallback(() => {
+    // [S] is exclusive: enabling it clears presets; disabling it keeps presets cleared.
+    testerGridNormalizedOverlayStore.update((prev) => {
+      const enabling = !prev.useSortWeights
+      return enabling
+        ? { ...prev, useSortWeights: true, enabledPresetIds: [] }
+        : { ...prev, useSortWeights: false }
+    })
+  }, [])
+
   const togglePresetEnabled = useCallback((presetId: TesterGridNormalizedPresetId) => {
     // Toggling is the primary interaction: selection drives whether the overlay renders at all.
     testerGridNormalizedOverlayStore.update((prev) => {
+      // Enabling any preset implicitly disables [S] so selection stays exclusive.
+      const useSortWeights = false
       const enabled = new Set<number>(prev.enabledPresetIds.map((id) => Number(id)))
       if (enabled.has(presetId)) {
         enabled.delete(presetId)
@@ -205,7 +207,7 @@ export function useTesterGridNormalizedOverlayPreferences() {
         enabled.add(presetId)
       }
       const enabledPresetIds = [...enabled].sort((a, b) => a - b).map((id) => id as TesterGridNormalizedPresetId)
-      return { ...prev, enabledPresetIds }
+      return { ...prev, useSortWeights, enabledPresetIds }
     })
   }, [])
 
@@ -218,12 +220,19 @@ export function useTesterGridNormalizedOverlayPreferences() {
       const variants = existing
         ? preset.variants.filter((v) => Number(v) !== Number(variant))
         : [...preset.variants, variant]
-      const weights = { ...preset.weights }
-      // Removing a variant must also remove its weight override so "hidden state" doesn't linger.
-      if (existing) {
-        delete weights[variant]
-      }
-      presets[presetId] = { variants, weights }
+      // Keep stored weights even when a variant is deselected so toggling it back on restores the last value.
+      presets[presetId] = { ...preset, variants }
+      return { ...prev, presets }
+    })
+  }, [])
+
+  const setPresetIconId = useCallback((presetId: TesterGridNormalizedPresetId, iconIdRaw: MetasetIconId) => {
+    // Icon selection is purely cosmetic; normalize against the shared metaset icon catalog.
+    const iconId = normalizeMetasetIconId(iconIdRaw) as MetasetIconId
+    testerGridNormalizedOverlayStore.update((prev) => {
+      const presets = prev.presets.slice()
+      const preset = presets[presetId] ?? createDefaultPreset(presetId)
+      presets[presetId] = { ...preset, iconId }
       return { ...prev, presets }
     })
   }, [])
@@ -276,12 +285,29 @@ export function useTesterGridNormalizedOverlayPreferences() {
     })
   }, [])
 
+  const overwritePreset = useCallback((presetId: TesterGridNormalizedPresetId, next: TesterGridNormalizedPresetOverwrite) => {
+    // Overwrite is used by the Sort popout to snapshot current "custom" weights into a numbered preset.
+    testerGridNormalizedOverlayStore.update((prev) => {
+      const presets = prev.presets.slice()
+      const fallback = presets[presetId] ?? createDefaultPreset(presetId)
+      presets[presetId] = {
+        iconId: next.iconId ?? fallback.iconId,
+        variants: Array.isArray(next.variants) ? next.variants.slice() : [],
+        weights: next.weights ? { ...next.weights } : {},
+      }
+      return { ...prev, presets }
+    })
+  }, [])
+
   return {
     state,
+    toggleUseSortWeights,
     togglePresetEnabled,
     toggleVariant,
+    setPresetIconId,
     setWeight,
     bumpWeight,
     resetPreset,
+    overwritePreset,
   }
 }
