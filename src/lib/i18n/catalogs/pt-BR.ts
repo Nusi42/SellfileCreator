@@ -866,6 +866,7 @@ const catalog: Catalog = {
   testerSortGlyphsExclude: 'Excluir',
   testerSortGlyphsInclude: 'Incluir',
   testerSortNormalized: 'Normalized',
+  testerSortNormalizedTooltip: '**Normalized** ignora a ordem de prioridade e ordena por uma única pontuação:\n\n- **Pontuação = soma** dos substats selecionados.\n- Cada substat selecionado é escalado pelo seu **teto de roll 6★**: `valor / teto` (sem limite, vários rolls podem passar de `1.0`).\n- Se um item não tiver um substat selecionado, ele contribui **0**.\n- `Last Used` é ignorado enquanto Normalized estiver ativado.\n\n**Exemplo (selecionado: [[stat:statSPD]] + [[stat:statCR]] + [[stat:statCDMG]])**\n`(n)` mostra a **quantidade de rolls de upgrade** naquele substat.\n\n- Item A: `[[stat:statSPD]] 11 (1)`, `[[stat:statCR]] 20 (3)`, `[[stat:statCDMG]] 7 (0)`\n  - [[stat:statCR]] tem um **triplo ruim**: `5 + 3×5 = 20`\n  - Pontuação = `11/6 + 20/7 + 7/7 = 1.83 + 2.86 + 1.00 = 5.69`\n- Item B: `[[stat:statSPD]] 10 (1)`, `[[stat:statCR]] 21 (2)`, `[[stat:statCDMG]] 12 (1)`\n  - [[stat:statCR]] tem um **duplo bom**: `7 + 2×7 = 21`\n  - Pontuação = `10/6 + 21/7 + 12/7 = 1.67 + 3.00 + 1.71 = 6.38`\n\nMesmo com menos rolls em [[stat:statCR]], o Item B pode ficar acima porque os rolls têm qualidade maior — e a pontuação também considera os outros stats selecionados.',
   configFilterOn: 'Ligado',
   testerFilterConfigsOff: 'Desligado',
   testerFilterConfigsFirst: 'Primeira',

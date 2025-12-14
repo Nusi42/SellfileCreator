@@ -241,6 +241,7 @@ export default function PreviewHeaderActions(props: {
 	  const sortGlyphsExcludeLabel = t('testerSortGlyphsExclude')
 	  const sortGlyphsIncludeLabel = t('testerSortGlyphsInclude')
 	  const sortNormalizedLabel = t('testerSortNormalized')
+	  const sortNormalizedTooltip = t('testerSortNormalizedTooltip')
 	  const sortHighToLowLabel = t('testerSortHighToLow')
 	  const sortLowToHighLabel = t('testerSortLowToHigh')
 	  const sortLastUsedLabel = t('testerLastUsedFilterLabel')
@@ -1072,24 +1073,47 @@ export default function PreviewHeaderActions(props: {
                 </Button>
               </MenuItem>
               <MenuItem
-                sx={{ gap: 1, alignItems: 'center' }}
-                disabled={!sortNormalizedAllowed}
-                onClick={() => onToggleTesterSubstatSortNormalized()}
+                onClick={() => {
+                  if (!sortNormalizedAllowed) return
+                  onToggleTesterSubstatSortNormalized()
+                }}
+                aria-disabled={!sortNormalizedAllowed}
+                role="menuitem"
+                tabIndex={sortNormalizedAllowed ? 0 : -1}
+                onKeyDown={(event) => {
+                  if (event.key !== 'Enter' && event.key !== ' ') return
+                  if (!sortNormalizedAllowed) return
+                  event.preventDefault()
+                  onToggleTesterSubstatSortNormalized()
+                }}
+                sx={(theme) => ({
+                  gap: 1,
+                  alignItems: 'center',
+                  ...(sortNormalizedAllowed ? {} : {
+                    opacity: theme.palette.action.disabledOpacity,
+                    cursor: 'default',
+                  }),
+                })}
               >
                 <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>{sortNormalizedLabel}</Typography>
-                <Button
-                  size="small"
-                  variant={sortNormalizedEnabled ? 'contained' : 'outlined'}
-                  color="success"
-                  disabled={!sortNormalizedAllowed}
-                  sx={{ minWidth: MENU_CONTROL_MIN_WIDTH_PX, height: MENU_CONTROL_HEIGHT_PX, minHeight: MENU_CONTROL_HEIGHT_PX, lineHeight: 1, py: 0 }}
-                  onClick={(event) => {
-                    event.stopPropagation()
-                    onToggleTesterSubstatSortNormalized()
-                  }}
-                >
-                  {sortNormalizedEnabled ? t('commonOn') : t('commonOff')}
-                </Button>
+                <MarkdownTooltip markdown={sortNormalizedTooltip}>
+                  <Box component="span">
+                    <Button
+                      size="small"
+                      variant={sortNormalizedEnabled ? 'contained' : 'outlined'}
+                      color="success"
+                      disabled={!sortNormalizedAllowed}
+                      sx={{ minWidth: MENU_CONTROL_MIN_WIDTH_PX, height: MENU_CONTROL_HEIGHT_PX, minHeight: MENU_CONTROL_HEIGHT_PX, lineHeight: 1, py: 0 }}
+                      onClick={(event) => {
+                        event.stopPropagation()
+                        if (!sortNormalizedAllowed) return
+                        onToggleTesterSubstatSortNormalized()
+                      }}
+                    >
+                      {sortNormalizedEnabled ? t('commonOn') : t('commonOff')}
+                    </Button>
+                  </Box>
+                </MarkdownTooltip>
               </MenuItem>
               <MenuItem
                 sx={{ gap: 1, alignItems: 'center' }}

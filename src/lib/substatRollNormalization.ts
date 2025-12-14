@@ -29,7 +29,7 @@ export function normalizeSubstatByMax6(variant: StatVariant, rawValue: number): 
   if (typeof max !== 'number' || !Number.isFinite(max) || max <= 0) return 0
   const value = Number(rawValue)
   if (!Number.isFinite(value) || value <= 0) return 0
-  // Clamp to protect against glyph+base overflow or out-of-spec imports while keeping ordering monotonic.
-  return Math.max(0, Math.min(1, value / max))
+  // Normalized sorting compares totals, not single-roll quality, so allow values > 1 when the stat has multiple rolls.
+  // This keeps ordering faithful to "more (or better) rolls = higher score" while still using the same per-roll cap scale.
+  return Math.max(0, value / max)
 }
-

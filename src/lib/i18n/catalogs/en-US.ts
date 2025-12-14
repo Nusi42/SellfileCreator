@@ -865,6 +865,7 @@ const enUS: Catalog = {
   testerSortGlyphsExclude: 'Exclude',
   testerSortGlyphsInclude: 'Include',
   testerSortNormalized: 'Normalized',
+  testerSortNormalizedTooltip: '**Normalized** ignores priority order and ranks items by a single score:\n\n- **Score = sum** of the selected substats.\n- Each selected substat is scaled by its **6★ roll cap**: `value / cap` (unclamped, so multiple rolls can exceed `1.0`).\n- If an item is missing a selected substat, it contributes **0**.\n- `Last Used` is ignored while Normalized is on.\n\n**Example (selected: [[stat:statSPD]] + [[stat:statCR]] + [[stat:statCDMG]])**\n`(n)` shows the **upgrade roll count** into that substat.\n\n- Item A: `[[stat:statSPD]] 11 (1)`, `[[stat:statCR]] 20 (3)`, `[[stat:statCDMG]] 7 (0)`\n  - [[stat:statCR]] has a **bad triple**: `5 + 3×5 = 20`\n  - Score = `11/6 + 20/7 + 7/7 = 1.83 + 2.86 + 1.00 = 5.69`\n- Item B: `[[stat:statSPD]] 10 (1)`, `[[stat:statCR]] 21 (2)`, `[[stat:statCDMG]] 12 (1)`\n  - [[stat:statCR]] has a **good double**: `7 + 2×7 = 21`\n  - Score = `10/6 + 21/7 + 12/7 = 1.67 + 3.00 + 1.71 = 6.38`\n\nEven with fewer [[stat:statCR]] rolls, Item B can rank higher because the rolls are higher quality—and the score also accounts for the other selected stats.',
   configFilterOn: 'On',
   testerFilterConfigsOff: 'Off',
   testerFilterConfigsFirst: 'First',
