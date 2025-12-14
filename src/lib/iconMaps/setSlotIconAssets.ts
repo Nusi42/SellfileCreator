@@ -353,6 +353,12 @@ import icon65Gloves from '../../../ico/sets/slots/65_Gloves.webp';
 import icon65Helmet from '../../../ico/sets/slots/65_Helmet.webp';
 import icon65Shield from '../../../ico/sets/slots/65_Shield.webp';
 import icon65Weapon from '../../../ico/sets/slots/65_Weapon.webp';
+import icon66Boots from '../../../ico/sets/slots/66_Boots.webp';
+import icon66Chest from '../../../ico/sets/slots/66_Chest.webp';
+import icon66Gloves from '../../../ico/sets/slots/66_Gloves.webp';
+import icon66Helmet from '../../../ico/sets/slots/66_Helmet.webp';
+import icon66Shield from '../../../ico/sets/slots/66_Shield.webp';
+import icon66Weapon from '../../../ico/sets/slots/66_Weapon.webp';
 import icon6Boots from '../../../ico/sets/slots/6_Boots.webp';
 import icon6Chest from '../../../ico/sets/slots/6_Chest.webp';
 import icon6Gloves from '../../../ico/sets/slots/6_Gloves.webp';
@@ -419,6 +425,9 @@ import iconLizardmenRing from '../../../ico/sets/slots/Lizardmen_Ring.webp';
 import iconMercilessAmulet from '../../../ico/sets/slots/Merciless_Amulett.webp';
 import iconMercilessBanner from '../../../ico/sets/slots/Merciless_Banner.webp';
 import iconMercilessRing from '../../../ico/sets/slots/Merciless_Ring.webp';
+import iconMercurialAmulet from '../../../ico/sets/slots/Mercurial_Amulett.webp';
+import iconMercurialBanner from '../../../ico/sets/slots/Mercurial_Banner.webp';
+import iconMercurialRing from '../../../ico/sets/slots/Mercurial_Ring.webp';
 import iconNyresanElvesBanner from '../../../ico/sets/slots/Nyresan Elves_Banner.webp';
 import iconNyresanElvesRing from '../../../ico/sets/slots/Nyresan Elves_Ring.webp';
 import iconNyresanElvesAmulet from '../../../ico/sets/slots/Nyresan_Elves_Pendant.webp';
@@ -832,6 +841,12 @@ export const SET_SLOT_ASSETS = {
   '65_Helmet': icon65Helmet,
   '65_Shield': icon65Shield,
   '65_Weapon': icon65Weapon,
+  '66_Boots': icon66Boots,
+  '66_Chest': icon66Chest,
+  '66_Gloves': icon66Gloves,
+  '66_Helmet': icon66Helmet,
+  '66_Shield': icon66Shield,
+  '66_Weapon': icon66Weapon,
   '6_Boots': icon6Boots,
   '6_Chest': icon6Chest,
   '6_Gloves': icon6Gloves,
@@ -895,6 +910,9 @@ export const SET_SLOT_ASSETS = {
   'Merciless_Amulet': iconMercilessAmulet,
   'Merciless_Banner': iconMercilessBanner,
   'Merciless_Ring': iconMercilessRing,
+  'Mercurial_Amulet': iconMercurialAmulet,
+  'Mercurial_Banner': iconMercurialBanner,
+  'Mercurial_Ring': iconMercurialRing,
   'Nyresan Elves_Banner': iconNyresanElvesBanner,
   'Nyresan Elves_Ring': iconNyresanElvesRing,
   'Nyresan_Elves_Amulet': iconNyresanElvesAmulet,
