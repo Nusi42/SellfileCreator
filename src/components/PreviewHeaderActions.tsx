@@ -237,7 +237,9 @@ export default function PreviewHeaderActions(props: {
   const sortClearLabel = t('testerSortClear')
   const sortDirectionLabel = t('testerSortDirection')
   const sortKeepSectionsLabel = t('testerSortKeepSections')
-	  const sortExcludeGlyphsLabel = t('testerSortExcludeGlyphs')
+	  const sortGlyphsLabel = t('testerSortGlyphsLabel')
+	  const sortGlyphsExcludeLabel = t('testerSortGlyphsExclude')
+	  const sortGlyphsIncludeLabel = t('testerSortGlyphsInclude')
 	  const sortNormalizedLabel = t('testerSortNormalized')
 	  const sortHighToLowLabel = t('testerSortHighToLow')
 	  const sortLowToHighLabel = t('testerSortLowToHigh')
@@ -401,8 +403,10 @@ export default function PreviewHeaderActions(props: {
 	    () => sortPriorities.filter((key) => Number(key) !== TESTER_SORT_KEY_LAST_USAGE),
 	    [sortPriorities],
 	  )
+	  const sortControlsDisabled = sortPriorities.length === 0
 	  const sortNormalizedAllowed = sortSelectedSubstats.length > 1
-	  const sortNormalizedActive = Boolean(testerSubstatSort.normalized) && sortNormalizedAllowed
+	  const sortNormalizedEnabled = Boolean(testerSubstatSort.normalized)
+	  const sortNormalizedEffective = sortNormalizedEnabled && sortNormalizedAllowed
 	  const sortActive = !isRulesMode && sortPriorities.length > 0
 	  const sortLabelForKey = React.useCallback((key: TesterSortKey): string => {
 	    if (Number(key) === TESTER_SORT_KEY_LAST_USAGE) return sortLastUsedLabel
@@ -410,19 +414,19 @@ export default function PreviewHeaderActions(props: {
 	  }, [sortLastUsedLabel, t])
 	  const sortButtonLabel = React.useMemo(() => {
 	    if (isRulesMode) return sortLabel
-	    if (sortNormalizedActive) return sortNormalizedLabel
+	    if (sortNormalizedEffective) return sortNormalizedLabel
 	    const [first] = sortPriorities
 	    if (typeof first !== 'number') return sortLabel
 	    const head = sortLabelForKey(first)
 	    return sortPriorities.length > 1 ? `${head}...` : head
-	  }, [isRulesMode, sortLabel, sortLabelForKey, sortNormalizedActive, sortNormalizedLabel, sortPriorities])
+	  }, [isRulesMode, sortLabel, sortLabelForKey, sortNormalizedEffective, sortNormalizedLabel, sortPriorities])
 	  const sortSpec = React.useMemo(() => ({
 	    priorities: sortPriorities,
 	    direction: testerSubstatSort.direction,
 	    flipped: sortFlipped,
 	    excludeGlyphs: testerSubstatSort.excludeGlyphs,
-	    normalized: sortNormalizedActive,
-	  }), [sortFlipped, sortNormalizedActive, sortPriorities, testerSubstatSort.direction, testerSubstatSort.excludeGlyphs])
+	    normalized: sortNormalizedEffective,
+	  }), [sortFlipped, sortNormalizedEffective, sortPriorities, testerSubstatSort.direction, testerSubstatSort.excludeGlyphs])
   const sortStatFg = React.useCallback((variant: StatVariant) => {
     if (!useStatButtonColors) return undefined
     return substatColors?.[variant]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[variant]
@@ -846,11 +850,11 @@ export default function PreviewHeaderActions(props: {
                 const fg = Number(key) === TESTER_SORT_KEY_LAST_USAGE ? undefined : sortStatFg(key as StatVariant)
                 const active = idx >= 0
                 const perKeyFlipped = sortFlipped.some((v) => Number(v) === Number(key))
-                const priorityDisabled = sortNormalizedActive
+                const priorityDisabled = sortNormalizedEffective
                 const isSyntheticKey = Number(key) === TESTER_SORT_KEY_LAST_USAGE
                 const rowDisabled = priorityDisabled && isSyntheticKey
-                const showPriorityBadges = active && !sortNormalizedActive
-                const showNormalizedCheckmark = active && sortNormalizedActive
+                const showPriorityBadges = active && !sortNormalizedEffective
+                const showNormalizedCheckmark = active && sortNormalizedEffective
                 return (
                   <MenuItem
                     key={key}
@@ -1049,6 +1053,7 @@ export default function PreviewHeaderActions(props: {
               })}
               <MenuItem
                 sx={{ gap: 1, alignItems: 'center' }}
+                disabled={sortControlsDisabled}
                 onClick={() => onSetTesterSubstatSortDirection(sortSpec.direction === 'desc' ? 'asc' : 'desc')}
               >
                 <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>{sortDirectionLabel}</Typography>
@@ -1056,6 +1061,7 @@ export default function PreviewHeaderActions(props: {
                   size="small"
                   variant="contained"
                   color="success"
+                  disabled={sortControlsDisabled}
                   sx={{ minWidth: MENU_CONTROL_MIN_WIDTH_PX, height: MENU_CONTROL_HEIGHT_PX, minHeight: MENU_CONTROL_HEIGHT_PX, lineHeight: 1, py: 0 }}
                   onClick={(event) => {
                     event.stopPropagation()
@@ -1073,7 +1079,7 @@ export default function PreviewHeaderActions(props: {
                 <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>{sortNormalizedLabel}</Typography>
                 <Button
                   size="small"
-                  variant={sortNormalizedActive ? 'contained' : 'outlined'}
+                  variant={sortNormalizedEnabled ? 'contained' : 'outlined'}
                   color="success"
                   disabled={!sortNormalizedAllowed}
                   sx={{ minWidth: MENU_CONTROL_MIN_WIDTH_PX, height: MENU_CONTROL_HEIGHT_PX, minHeight: MENU_CONTROL_HEIGHT_PX, lineHeight: 1, py: 0 }}
@@ -1082,15 +1088,20 @@ export default function PreviewHeaderActions(props: {
                     onToggleTesterSubstatSortNormalized()
                   }}
                 >
-                  {sortNormalizedActive ? t('commonOn') : t('commonOff')}
+                  {sortNormalizedEnabled ? t('commonOn') : t('commonOff')}
                 </Button>
               </MenuItem>
-              <MenuItem sx={{ gap: 1, alignItems: 'center' }} onClick={() => onToggleTesterSubstatSortKeepSections()}>
+              <MenuItem
+                sx={{ gap: 1, alignItems: 'center' }}
+                disabled={sortControlsDisabled}
+                onClick={() => onToggleTesterSubstatSortKeepSections()}
+              >
                 <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>{sortKeepSectionsLabel}</Typography>
                 <Button
                   size="small"
                   variant={testerSubstatSort.keepSections ? 'contained' : 'outlined'}
                   color="success"
+                  disabled={sortControlsDisabled}
                   sx={{ minWidth: MENU_CONTROL_MIN_WIDTH_PX, height: MENU_CONTROL_HEIGHT_PX, minHeight: MENU_CONTROL_HEIGHT_PX, lineHeight: 1, py: 0 }}
                   onClick={(event) => {
                     event.stopPropagation()
@@ -1100,19 +1111,25 @@ export default function PreviewHeaderActions(props: {
                   {testerSubstatSort.keepSections ? t('commonOn') : t('commonOff')}
                 </Button>
               </MenuItem>
-              <MenuItem sx={{ gap: 1, alignItems: 'center' }} onClick={() => onToggleTesterSubstatSortExcludeGlyphs()}>
-                <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>{sortExcludeGlyphsLabel}</Typography>
+              <MenuItem
+                sx={{ gap: 1, alignItems: 'center' }}
+                disabled={sortControlsDisabled}
+                onClick={() => onToggleTesterSubstatSortExcludeGlyphs()}
+              >
+                <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>{sortGlyphsLabel}</Typography>
                 <Button
                   size="small"
-                  variant={testerSubstatSort.excludeGlyphs ? 'contained' : 'outlined'}
+                  // Keep both states visually consistent; the label communicates exclude vs include.
+                  variant="contained"
                   color="success"
+                  disabled={sortControlsDisabled}
                   sx={{ minWidth: MENU_CONTROL_MIN_WIDTH_PX, height: MENU_CONTROL_HEIGHT_PX, minHeight: MENU_CONTROL_HEIGHT_PX, lineHeight: 1, py: 0 }}
                   onClick={(event) => {
                     event.stopPropagation()
                     onToggleTesterSubstatSortExcludeGlyphs()
                   }}
                 >
-                  {testerSubstatSort.excludeGlyphs ? t('commonOn') : t('commonOff')}
+                  {testerSubstatSort.excludeGlyphs ? sortGlyphsExcludeLabel : sortGlyphsIncludeLabel}
                 </Button>
               </MenuItem>
             </Menu>
