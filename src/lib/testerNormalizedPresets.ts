@@ -92,3 +92,35 @@ export function formatTesterNormalizedPresetButtonLabel(
   if (iconId === 'none') return String(presetId + 1)
   return metasetIconOptionById(iconId).glyph
 }
+
+export function buildTesterNormalizedPresetTooltipMarkdown(args: {
+  title: string
+  preset: { variants: readonly StatVariant[]; weights?: Partial<Record<StatVariant, number>> | null | undefined }
+  labelForVariant: (variant: StatVariant) => string
+  emptyLabel: string
+  rightClickHint?: string | null | undefined
+}): string {
+  // Tooltip content is shared between the Sort popout and the tester-grid context menu so the user sees
+  // identical information for a given preset regardless of where it is toggled.
+  const { title, preset, labelForVariant, emptyLabel, rightClickHint } = args
+  const lines: string[] = [`**${title}**`]
+  // Keep ordering stable so users can compare presets quickly (matches the main substat ordering).
+  const variantSet = new Set<number>((preset.variants ?? []).map((variant) => Number(variant)))
+  const orderedVariants = STAT_VARIANTS_PRIORITY.filter((variant) => variantSet.has(Number(variant)))
+  if (orderedVariants.length === 0) {
+    // Empty presets are allowed while the user is editing; present a clear empty-state instead of a blank tooltip.
+    lines.push('', emptyLabel)
+  } else {
+    lines.push('')
+    orderedVariants.forEach((variant) => {
+      // Missing weight means "neutral" (1.0); keep the display explicit so presets are self-explanatory.
+      const raw = preset.weights?.[variant]
+      const weight = typeof raw === 'number' && Number.isFinite(raw) ? raw : 1
+      lines.push(`- ${labelForVariant(variant)} ×${weight.toFixed(2)}`)
+    })
+  }
+  if (typeof rightClickHint === 'string' && rightClickHint.trim().length > 0) {
+    lines.push('', rightClickHint)
+  }
+  return lines.join('\n')
+}

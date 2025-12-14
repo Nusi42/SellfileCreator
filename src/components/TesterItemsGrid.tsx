@@ -65,7 +65,7 @@ import ContextMenuPaper from './ContextMenuPaper'
 import { ContextMenuHintOverlay } from './ContextMenuHintOverlay'
 import { useContextMenuHint } from '../hooks/useContextMenuHint'
 import GridIconBox from './GridIconBox'
-import { formatTesterNormalizedPresetButtonLabel } from '../lib/testerNormalizedPresets'
+import { buildTesterNormalizedPresetTooltipMarkdown, formatTesterNormalizedPresetButtonLabel } from '../lib/testerNormalizedPresets'
 import {
   ACCESSORY_NO_SET_ID,
   MENU_CONTROL_HEIGHT_PX,
@@ -1347,210 +1347,7 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
           } as unknown as MuiPaperProps,
         }}
       >
-        <MenuItem sx={{ gap: 1, alignItems: 'center' }} onClick={() => onToggleStatColors(!useStatButtonColors)}>
-          <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>{t('rulesMenuColorStatTexts')}</Typography>
-          <Box
-            sx={{
-              display: 'flex',
-              alignItems: 'stretch',
-              gap: 0.5,
-              width: MENU_CONTROL_MIN_WIDTH_PX,
-              height: MENU_CONTROL_HEIGHT_PX,
-              minHeight: MENU_CONTROL_HEIGHT_PX,
-            }}
-            onClick={(event) => { event.stopPropagation() }}
-          >
-            <Button
-              size="small"
-              variant={useStatButtonColors ? 'contained' : 'outlined'}
-              color="success"
-              sx={{ flex: '1 1 auto', minWidth: 0, height: '100%', lineHeight: 1, py: 0, px: 1 }}
-              onClick={(event) => { event.stopPropagation(); onToggleStatColors(!useStatButtonColors) }}
-            >
-              {useStatButtonColors ? t('commonOn') : t('commonOff')}
-            </Button>
-            {/* Manage colors button now uses MarkdownTooltip so its multi-line hint inherits the global delay. */}
-            <MarkdownTooltip markdown={t('manageColors')}>
-              <span>
-                <Button
-                  size="small"
-                  variant="outlined"
-                  color="info"
-                  disabled={!useStatButtonColors}
-                  sx={{ flex: '0 0 auto', minWidth: 28, width: 28, height: '100%', lineHeight: 1, py: 0, ml: 'auto', px: 0.25 }}
-                  onClick={(event) => {
-                    event.stopPropagation()
-                    if (!useStatButtonColors) return
-                    onOpenManageColors()
-                  }}
-                  aria-label={t('manageColorsAria')}
-                >
-                  <img src={colorIconSrc} width={16} height={16} alt={t('manageColors')} style={{ display: 'block' }} />
-                </Button>
-              </span>
-            </MarkdownTooltip>
-          </Box>
-        </MenuItem>
-        <MenuItem sx={{ gap: 1, alignItems: 'center' }} onClick={() => {
-          const nextMode = colorBlindMode === 'normal'
-            ? 'okabeIto'
-            : (colorBlindMode === 'okabeIto' ? 'tritan' : 'normal')
-          onChangeColorBlindMode(nextMode)
-        }}
-        >
-          <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>{t('rulesMenuColorBlindPalette')}</Typography>
-          <Button
-            size="small"
-            variant={colorBlindMode === 'normal' ? 'outlined' : 'contained'}
-            color="success"
-            sx={{ minWidth: MENU_CONTROL_MIN_WIDTH_PX, height: MENU_CONTROL_HEIGHT_PX, minHeight: MENU_CONTROL_HEIGHT_PX, lineHeight: 1, py: 0 }}
-            onClick={(event) => {
-              event.stopPropagation()
-              const nextMode = colorBlindMode === 'normal'
-                ? 'okabeIto'
-                : (colorBlindMode === 'okabeIto' ? 'tritan' : 'normal')
-              onChangeColorBlindMode(nextMode)
-            }}
-          >
-            {colorBlindMode === 'normal'
-              ? t('colorBlindNormal')
-              : (colorBlindMode === 'okabeIto' ? t('colorBlindOkabeIto') : t('colorBlindTritan'))}
-          </Button>
-        </MenuItem>
-        <MenuItem
-          disableRipple
-          sx={{ gap: 1, alignItems: 'center' }}
-        >
-          <MarkdownTooltip markdown={t('testerGridNormalizedTooltip')}>
-            <Typography variant="body2" sx={{ flex: 1, minWidth: 0, cursor: 'help' }}>
-              {t('testerGridNormalizedLabel')}
-            </Typography>
-          </MarkdownTooltip>
-          <Box
-            // Button clicks should not trigger menu item selection; keep toggles local and explicit.
-            onClick={(event) => { event.stopPropagation() }}
-            sx={{
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 0.5,
-              minWidth: MENU_CONTROL_MIN_WIDTH_PX,
-              alignItems: 'flex-end',
-            }}
-          >
-            <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'flex-end' }}>
-              <Button
-                key="tester-grid-normalized-preset-s"
-                size="small"
-                variant={normalizedOverlayPrefs.state.useSortWeights ? 'contained' : 'outlined'}
-                color="success"
-                disabled={!normalizedOverlaySortSourceAllowed}
-                sx={{
-                  minWidth: 28,
-                  width: 28,
-                  height: MENU_CONTROL_HEIGHT_PX,
-                  minHeight: MENU_CONTROL_HEIGHT_PX,
-                  lineHeight: 1,
-                  py: 0,
-                  px: 0,
-                }}
-                onClick={(event) => {
-                  event.stopPropagation()
-                  if (!normalizedOverlaySortSourceAllowed) return
-                  normalizedOverlayPrefs.toggleUseSortWeights()
-                }}
-                onContextMenu={(event) => {
-                  // Sort-source button has no editor; keep right-click from opening the browser menu.
-                  event.preventDefault()
-                  event.stopPropagation()
-                }}
-                aria-label={t('testerSortLabel')}
-              >
-                <SortIcon sx={{ fontSize: 18 }} />
-              </Button>
-              {Array.from({ length: 4 }).map((_, idx) => {
-                const presetId = idx as TesterGridNormalizedPresetId
-                const enabled = normalizedOverlayEnabledPresetSet.has(presetId)
-                const preset = normalizedOverlayPrefs.state.presets[presetId]
-                const label = preset
-                  ? formatTesterNormalizedPresetButtonLabel(presetId, preset.iconId)
-                  : String(presetId + 1)
-                return (
-                  <Button
-                    key={`tester-grid-normalized-preset-${presetId}`}
-                    size="small"
-                    variant={enabled ? 'contained' : 'outlined'}
-                    color="success"
-                    sx={{
-                      minWidth: 28,
-                      width: 28,
-                      height: MENU_CONTROL_HEIGHT_PX,
-                      minHeight: MENU_CONTROL_HEIGHT_PX,
-                      lineHeight: 1,
-                      py: 0,
-                      px: 0,
-                      fontSize: 18,
-                    }}
-                    onClick={(event) => {
-                      event.stopPropagation()
-                      normalizedOverlayPrefs.togglePresetEnabled(presetId)
-                    }}
-                    onContextMenu={(event) => {
-                      // Right-click opens the editor for this preset (similar to Sort's weight controls).
-                      event.preventDefault()
-                      event.stopPropagation()
-                      setNormalizedPresetEditor({ presetId, position: { x: event.clientX, y: event.clientY } })
-                    }}
-                  >
-                    {label}
-                  </Button>
-                )
-              })}
-            </Box>
-            <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'flex-end' }}>
-              {Array.from({ length: TESTER_NORMALIZED_PRESET_COUNT - 4 }).map((_, offset) => {
-                const idx = offset + 4
-                const presetId = idx as TesterGridNormalizedPresetId
-                const enabled = normalizedOverlayEnabledPresetSet.has(presetId)
-                const preset = normalizedOverlayPrefs.state.presets[presetId]
-                const label = preset
-                  ? formatTesterNormalizedPresetButtonLabel(presetId, preset.iconId)
-                  : String(presetId + 1)
-                return (
-                  <Button
-                    key={`tester-grid-normalized-preset-${presetId}`}
-                    size="small"
-                    variant={enabled ? 'contained' : 'outlined'}
-                    color="success"
-                    sx={{
-                      minWidth: 28,
-                      width: 28,
-                      height: MENU_CONTROL_HEIGHT_PX,
-                      minHeight: MENU_CONTROL_HEIGHT_PX,
-                      lineHeight: 1,
-                      py: 0,
-                      px: 0,
-                      fontSize: 18,
-                    }}
-                    onClick={(event) => {
-                      event.stopPropagation()
-                      normalizedOverlayPrefs.togglePresetEnabled(presetId)
-                    }}
-                    onContextMenu={(event) => {
-                      // Right-click opens the editor for this preset (similar to Sort's weight controls).
-                      event.preventDefault()
-                      event.stopPropagation()
-                      setNormalizedPresetEditor({ presetId, position: { x: event.clientX, y: event.clientY } })
-                    }}
-                  >
-                    {label}
-                  </Button>
-                )
-              })}
-            </Box>
-          </Box>
-        </MenuItem>
-        <Divider sx={{ my: 0.5 }} />
-        {/* Place the compact action directly above the Columns control with matching spacing. */}
+        {/* Place "Compact Current Group" first so it remains easily reachable (it is a frequent action). */}
         <MenuItem
           disableRipple
           disabled={!canCompactCurrentGroup}
@@ -1575,6 +1372,175 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
           >
             {t('testerGridCompactGroup')}
           </Button>
+        </MenuItem>
+        <Divider sx={{ my: 0.5 }} />
+        <MenuItem
+          disableRipple
+          sx={{ gap: 1, alignItems: 'center' }}
+        >
+          <MarkdownTooltip markdown={t('testerGridNormalizedTooltip')} placement="top-start">
+            <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>
+              {t('testerGridNormalizedLabel')}
+            </Typography>
+          </MarkdownTooltip>
+          <Box
+            // Button clicks should not trigger menu item selection; keep toggles local and explicit.
+            onClick={(event) => { event.stopPropagation() }}
+            sx={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 0.5,
+              minWidth: MENU_CONTROL_MIN_WIDTH_PX,
+              alignItems: 'flex-end',
+            }}
+          >
+            <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'flex-end' }}>
+              <MarkdownTooltip markdown={t('testerGridNormalizedSortSourceTooltip')} placement="top-start">
+                <Box component="span">
+                  <Button
+                    key="tester-grid-normalized-preset-s"
+                    size="small"
+                    variant={normalizedOverlayPrefs.state.useSortWeights ? 'contained' : 'outlined'}
+                    color="success"
+                    disabled={!normalizedOverlaySortSourceAllowed}
+                    sx={{
+                      minWidth: 28,
+                      width: 28,
+                      height: MENU_CONTROL_HEIGHT_PX,
+                      minHeight: MENU_CONTROL_HEIGHT_PX,
+                      lineHeight: 1,
+                      py: 0,
+                      px: 0,
+                    }}
+                    onClick={(event) => {
+                      event.stopPropagation()
+                      if (!normalizedOverlaySortSourceAllowed) return
+                      normalizedOverlayPrefs.toggleUseSortWeights()
+                    }}
+                    onContextMenu={(event) => {
+                      // Sort-source button has no editor; keep right-click from opening the browser menu.
+                      event.preventDefault()
+                      event.stopPropagation()
+                    }}
+                    aria-label={t('testerSortLabel')}
+                  >
+                    <SortIcon sx={{ fontSize: 18 }} />
+                  </Button>
+                </Box>
+              </MarkdownTooltip>
+              {Array.from({ length: 4 }).map((_, idx) => {
+                const presetId = idx as TesterGridNormalizedPresetId
+                const enabled = normalizedOverlayEnabledPresetSet.has(presetId)
+                const preset = normalizedOverlayPrefs.state.presets[presetId]
+                const label = preset
+                  ? formatTesterNormalizedPresetButtonLabel(presetId, preset.iconId)
+                  : String(presetId + 1)
+                const tooltipMarkdown = preset
+                  ? buildTesterNormalizedPresetTooltipMarkdown({
+                      title: t('testerGridNormalizedPresetTitle', { n: presetId + 1 }),
+                      preset,
+                      labelForVariant: (variant) => t(statVariantI18nKey(variant)),
+                      emptyLabel: t('testerNormalizedPresetTooltipEmpty'),
+                      rightClickHint: t('testerNormalizedPresetTooltipRightClickHint'),
+                    })
+                  : t('testerNormalizedPresetTooltipEmpty')
+                return (
+                  <MarkdownTooltip
+                    key={`tester-grid-normalized-preset-tooltip-${presetId}`}
+                    markdown={tooltipMarkdown}
+                    placement="top-start"
+                  >
+                    <Box component="span">
+                      <Button
+                        size="small"
+                        variant={enabled ? 'contained' : 'outlined'}
+                        color="success"
+                        sx={{
+                          minWidth: 28,
+                          width: 28,
+                          height: MENU_CONTROL_HEIGHT_PX,
+                          minHeight: MENU_CONTROL_HEIGHT_PX,
+                          lineHeight: 1,
+                          py: 0,
+                          px: 0,
+                          fontSize: 18,
+                        }}
+                        onClick={(event) => {
+                          event.stopPropagation()
+                          normalizedOverlayPrefs.togglePresetEnabled(presetId)
+                        }}
+                        onContextMenu={(event) => {
+                          // Right-click opens the editor for this preset (similar to Sort's weight controls).
+                          event.preventDefault()
+                          event.stopPropagation()
+                          setNormalizedPresetEditor({ presetId, position: { x: event.clientX, y: event.clientY } })
+                        }}
+                      >
+                        {label}
+                      </Button>
+                    </Box>
+                  </MarkdownTooltip>
+                )
+              })}
+            </Box>
+            <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'flex-end' }}>
+              {Array.from({ length: TESTER_NORMALIZED_PRESET_COUNT - 4 }).map((_, offset) => {
+                const idx = offset + 4
+                const presetId = idx as TesterGridNormalizedPresetId
+                const enabled = normalizedOverlayEnabledPresetSet.has(presetId)
+                const preset = normalizedOverlayPrefs.state.presets[presetId]
+                const label = preset
+                  ? formatTesterNormalizedPresetButtonLabel(presetId, preset.iconId)
+                  : String(presetId + 1)
+                const tooltipMarkdown = preset
+                  ? buildTesterNormalizedPresetTooltipMarkdown({
+                      title: t('testerGridNormalizedPresetTitle', { n: presetId + 1 }),
+                      preset,
+                      labelForVariant: (variant) => t(statVariantI18nKey(variant)),
+                      emptyLabel: t('testerNormalizedPresetTooltipEmpty'),
+                      rightClickHint: t('testerNormalizedPresetTooltipRightClickHint'),
+                    })
+                  : t('testerNormalizedPresetTooltipEmpty')
+                return (
+                  <MarkdownTooltip
+                    key={`tester-grid-normalized-preset-tooltip-${presetId}`}
+                    markdown={tooltipMarkdown}
+                    placement="top-start"
+                  >
+                    <Box component="span">
+                      <Button
+                        size="small"
+                        variant={enabled ? 'contained' : 'outlined'}
+                        color="success"
+                        sx={{
+                          minWidth: 28,
+                          width: 28,
+                          height: MENU_CONTROL_HEIGHT_PX,
+                          minHeight: MENU_CONTROL_HEIGHT_PX,
+                          lineHeight: 1,
+                          py: 0,
+                          px: 0,
+                          fontSize: 18,
+                        }}
+                        onClick={(event) => {
+                          event.stopPropagation()
+                          normalizedOverlayPrefs.togglePresetEnabled(presetId)
+                        }}
+                        onContextMenu={(event) => {
+                          // Right-click opens the editor for this preset (similar to Sort's weight controls).
+                          event.preventDefault()
+                          event.stopPropagation()
+                          setNormalizedPresetEditor({ presetId, position: { x: event.clientX, y: event.clientY } })
+                        }}
+                      >
+                        {label}
+                      </Button>
+                    </Box>
+                  </MarkdownTooltip>
+                )
+              })}
+            </Box>
+          </Box>
         </MenuItem>
         <Divider sx={{ my: 0.5 }} />
         <MenuItem
@@ -1688,6 +1654,78 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
             }}
           >
             {showChampionIcons ? t('commonOn') : t('commonOff')}
+          </Button>
+        </MenuItem>
+        <Divider sx={{ my: 0.75 }} />
+        {/* Keep appearance controls grouped at the bottom so the grid actions stay front-loaded. */}
+        <MenuItem sx={{ gap: 1, alignItems: 'center' }} onClick={() => onToggleStatColors(!useStatButtonColors)}>
+          <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>{t('rulesMenuColorStatTexts')}</Typography>
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'stretch',
+              gap: 0.5,
+              width: MENU_CONTROL_MIN_WIDTH_PX,
+              height: MENU_CONTROL_HEIGHT_PX,
+              minHeight: MENU_CONTROL_HEIGHT_PX,
+            }}
+            onClick={(event) => { event.stopPropagation() }}
+          >
+            <Button
+              size="small"
+              variant={useStatButtonColors ? 'contained' : 'outlined'}
+              color="success"
+              sx={{ flex: '1 1 auto', minWidth: 0, height: '100%', lineHeight: 1, py: 0, px: 1 }}
+              onClick={(event) => { event.stopPropagation(); onToggleStatColors(!useStatButtonColors) }}
+            >
+              {useStatButtonColors ? t('commonOn') : t('commonOff')}
+            </Button>
+            {/* Manage colors button now uses MarkdownTooltip so its multi-line hint inherits the global delay. */}
+            <MarkdownTooltip markdown={t('manageColors')}>
+              <span>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  color="info"
+                  disabled={!useStatButtonColors}
+                  sx={{ flex: '0 0 auto', minWidth: 28, width: 28, height: '100%', lineHeight: 1, py: 0, ml: 'auto', px: 0.25 }}
+                  onClick={(event) => {
+                    event.stopPropagation()
+                    if (!useStatButtonColors) return
+                    onOpenManageColors()
+                  }}
+                  aria-label={t('manageColorsAria')}
+                >
+                  <img src={colorIconSrc} width={16} height={16} alt={t('manageColors')} style={{ display: 'block' }} />
+                </Button>
+              </span>
+            </MarkdownTooltip>
+          </Box>
+        </MenuItem>
+        <MenuItem sx={{ gap: 1, alignItems: 'center' }} onClick={() => {
+          const nextMode = colorBlindMode === 'normal'
+            ? 'okabeIto'
+            : (colorBlindMode === 'okabeIto' ? 'tritan' : 'normal')
+          onChangeColorBlindMode(nextMode)
+        }}
+        >
+          <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>{t('rulesMenuColorBlindPalette')}</Typography>
+          <Button
+            size="small"
+            variant={colorBlindMode === 'normal' ? 'outlined' : 'contained'}
+            color="success"
+            sx={{ minWidth: MENU_CONTROL_MIN_WIDTH_PX, height: MENU_CONTROL_HEIGHT_PX, minHeight: MENU_CONTROL_HEIGHT_PX, lineHeight: 1, py: 0 }}
+            onClick={(event) => {
+              event.stopPropagation()
+              const nextMode = colorBlindMode === 'normal'
+                ? 'okabeIto'
+                : (colorBlindMode === 'okabeIto' ? 'tritan' : 'normal')
+              onChangeColorBlindMode(nextMode)
+            }}
+          >
+            {colorBlindMode === 'normal'
+              ? t('colorBlindNormal')
+              : (colorBlindMode === 'okabeIto' ? t('colorBlindOkabeIto') : t('colorBlindTritan'))}
           </Button>
         </MenuItem>
       </Menu>
