@@ -117,6 +117,39 @@ export type TesterSubstatSortSpec = {
   excludeGlyphs: boolean
   // When true, ignore priority order and sort by the sum of normalized substat values.
   normalized?: boolean
+  // Optional per-StatVariant weights used by normalized mode (default weight is 1.0).
+  // Why: allow users to bias the normalized sum without needing to reorder priorities.
+  weights?: Partial<Record<StatVariant, number>>
+}
+
+// Weighting constants are exported so UI + persistence + sort logic share a single source of truth.
+export const TESTER_SORT_WEIGHT_STEP = 0.05 as const
+export const TESTER_SORT_WEIGHT_MIN = 0.1 as const
+export const TESTER_SORT_WEIGHT_MAX = 3.0 as const
+export const TESTER_SORT_WEIGHT_DEFAULT = 1.0 as const
+
+export const normalizeTesterSortWeight = (value: number): number => {
+  // Treat non-finite inputs as the neutral default; invalid persisted values should never leak into UI math.
+  if (!Number.isFinite(value)) return TESTER_SORT_WEIGHT_DEFAULT
+  // Clamp to the advertised range so UI controls remain predictable.
+  const clamped = Math.min(TESTER_SORT_WEIGHT_MAX, Math.max(TESTER_SORT_WEIGHT_MIN, value))
+  // Snap to the advertised step so +/- buttons always land on a stable decimal.
+  const stepped = Math.round(clamped / TESTER_SORT_WEIGHT_STEP) * TESTER_SORT_WEIGHT_STEP
+  // Normalize to 2 decimals so repeated math/persistence doesn't accumulate float noise with 0.05 steps.
+  return Math.round(stepped * 100) / 100
+}
+
+export const isNeutralTesterSortWeight = (value: number): boolean => (
+  // Equality checks on floats are safe here because normalizeTesterSortWeight keeps 1 decimal.
+  normalizeTesterSortWeight(value) === TESTER_SORT_WEIGHT_DEFAULT
+)
+
+const weightForNormalizedSum = (weights: TesterSubstatSortSpec['weights'], variant: StatVariant): number => {
+  // Weight values are user-controlled; sanitize aggressively and always fall back to neutral.
+  const raw = weights?.[variant]
+  if (raw === undefined || raw === null) return TESTER_SORT_WEIGHT_DEFAULT
+  const normalized = normalizeTesterSortWeight(Number(raw))
+  return Number.isFinite(normalized) ? normalized : TESTER_SORT_WEIGHT_DEFAULT
 }
 
 const statValueForSubstatSort = (row: TesterPreviewRow, variant: StatVariant, excludeGlyphs: boolean): number => {
@@ -161,7 +194,9 @@ export function compareTesterPreviewRowsBySubstats(
       for (const variant of selectedSubstats) {
         const key = Number(variant)
         const raw = statValueForSubstatSort(row, key as StatVariant, excludeGlyphs)
-        total += normalizeSubstatByMax6(key as StatVariant, raw)
+        // Weights bias each normalized contribution; weights are neutral at 1.0.
+        const weight = weightForNormalizedSum(spec.weights, key as StatVariant)
+        total += weight * normalizeSubstatByMax6(key as StatVariant, raw)
       }
       return total
     }
