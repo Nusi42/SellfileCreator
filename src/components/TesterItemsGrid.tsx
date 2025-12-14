@@ -91,6 +91,7 @@ import {
 } from '../lib/testerSort'
 import { TESTER_NORMALIZED_PRESET_COUNT } from '../lib/testerNormalizedPresets'
 import type { TesterSubstatSortState } from '../state/testerSubstatSortPreferences'
+import { useTesterSubstatSortPreferences } from '../state/testerSubstatSortPreferences'
 import {
   type TesterGridNormalizedPresetId,
   useTesterGridNormalizedOverlayPreferences,
@@ -345,12 +346,22 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
   const shouldDimUnhighlightedRows = Boolean(dimUnhighlightedRows && highlightRowPredicate)
   const { t, lang } = useI18n()
   const theme = useTheme()
+  // Sort prefs are the SSOT for glyph inclusion so the Sort popout and grid context menu stay in sync.
+  const testerSubstatSortPreferences = useTesterSubstatSortPreferences()
+  const effectiveSubstatSort = useMemo(
+    () => (
+      // Keep the parent-provided spec (priorities, direction, normalized sources) but force the shared glyph toggle.
+      // Why: the grid context menu edits the shared preference store directly.
+      substatSort ? { ...substatSort, excludeGlyphs: testerSubstatSortPreferences.state.excludeGlyphs } : substatSort
+    ),
+    [substatSort, testerSubstatSortPreferences.state.excludeGlyphs],
+  )
   const normalizedOverlayPrefs = useTesterGridNormalizedOverlayPreferences()
   const normalizedOverlayUseSortWeights = normalizedOverlayPrefs.state.useSortWeights
   const toggleNormalizedOverlayUseSortWeights = normalizedOverlayPrefs.toggleUseSortWeights
   const normalizedOverlaySortSourceAllowed = Boolean(
     // [S] is only meaningful when sort is actively using normalized scoring (and is not in "Active" mode).
-    substatSort?.normalized === true
+    effectiveSubstatSort?.normalized === true
     && sortState?.normalizedUseActiveOverlay !== true,
   )
   // Enabled presets are a simple set lookup for button styling + per-row score computation.
@@ -375,12 +386,13 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
   const matchDetailsFrozen = Boolean(suppressMatchDetailsProp)
   // Group tree is recalculated only when the dataset, locale, or sort mode changes so TanStack can reuse measured rows.
   const groups = useMemo(
-    () => groupRowsBySet(rows, t, lang, { keepSections, substatSort }),
-    [rows, t, lang, keepSections, substatSort],
+    () => groupRowsBySet(rows, t, lang, { keepSections, substatSort: effectiveSubstatSort }),
+    [rows, t, lang, keepSections, effectiveSubstatSort],
   )
   const numberFormatter = useMemo(() => new Intl.NumberFormat(undefined), [])
   // Overlay score uses the same glyph inclusion policy as the Sort UI (default excludes glyphs).
-  const normalizedOverlayExcludeGlyphs = substatSort?.excludeGlyphs !== false
+  // Why: avoids confusing users with two independent "glyph counting" toggles for the same scores.
+  const normalizedOverlayExcludeGlyphs = testerSubstatSortPreferences.state.excludeGlyphs !== false
   const normalizedOverlayByArtifactId = useMemo(() => {
     // When nothing is enabled, keep the fast path obvious: no overlay map.
     if (!normalizedOverlayEnabled) return new Map<number, { text: string; color?: string }>()
@@ -389,9 +401,9 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     const presets = normalizedOverlayPrefs.state.presets
     // [S] uses the Sort popout’s currently selected substats + weights.
     const sortSelectedVariants = useSortWeights
-      ? (substatSort?.priorities ?? []).filter((key) => Number(key) !== Number(TESTER_SORT_KEY_LAST_USAGE)) as StatVariant[]
+      ? (effectiveSubstatSort?.priorities ?? []).filter((key) => Number(key) !== Number(TESTER_SORT_KEY_LAST_USAGE)) as StatVariant[]
       : []
-    const sortWeights = useSortWeights ? (substatSort?.weights ?? {}) : {}
+    const sortWeights = useSortWeights ? (effectiveSubstatSort?.weights ?? {}) : {}
 
     // First pass computes per-row "best of enabled presets" and tracks the global min/max.
     const scores = new Map<number, number>()
@@ -458,8 +470,8 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     normalizedOverlayPrefs.state.enabledPresetIds,
     normalizedOverlayPrefs.state.presets,
     rows,
-    substatSort?.priorities,
-    substatSort?.weights,
+    effectiveSubstatSort?.priorities,
+    effectiveSubstatSort?.weights,
     theme.palette.error.main,
     theme.palette.success.main,
   ])
@@ -1541,6 +1553,34 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
               })}
             </Box>
           </Box>
+        </MenuItem>
+        <MenuItem
+          sx={{ gap: 1, alignItems: 'center' }}
+          // Glyph inclusion only matters when the overlay is actively showing a rating.
+          disabled={!normalizedOverlayEnabled}
+          onClick={() => {
+            if (!normalizedOverlayEnabled) return
+            testerSubstatSortPreferences.toggleExcludeGlyphs()
+          }}
+        >
+          <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>
+            {t('testerSortGlyphsLabel')}
+          </Typography>
+          <Button
+            size="small"
+            // Keep both states visually consistent; the label communicates exclude vs include.
+            variant="contained"
+            color="success"
+            disabled={!normalizedOverlayEnabled}
+            sx={{ minWidth: MENU_CONTROL_MIN_WIDTH_PX, height: MENU_CONTROL_HEIGHT_PX, minHeight: MENU_CONTROL_HEIGHT_PX, lineHeight: 1, py: 0 }}
+            onClick={(event) => {
+              event.stopPropagation()
+              if (!normalizedOverlayEnabled) return
+              testerSubstatSortPreferences.toggleExcludeGlyphs()
+            }}
+          >
+            {normalizedOverlayExcludeGlyphs ? t('testerSortGlyphsExclude') : t('testerSortGlyphsInclude')}
+          </Button>
         </MenuItem>
         <Divider sx={{ my: 0.5 }} />
         <MenuItem
