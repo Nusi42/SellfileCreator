@@ -1,6 +1,23 @@
 ﻿Sellfile Creator Release History
 DISCLAIMER: These release notes are AI generated and might contain incorrect statements.
 
+## v0.9.10 — 2025-12-15
+English:
+- The standalone Gear window is gone: use the header `Logic Hub` button and switch to the `Gear` tab to import your RSL Helper `.db`, add manual test items, and reset the Gear list without leaving the dialog.
+- Rule Tester sorting is much stronger: sort by Last Used and/or substat priorities, flip direction per key, and use Normalized mode (with weights) to compare mixed stats; the restore prompt can now bring back your saved sort setup.
+- Tester cards can show normalized “rating” overlays: enable overlay presets, reuse your sort weights, and toggle whether glyphs count so scores match what you expect.
+- Preview filters get new power tools: right-click a substat to mark “must NOT have”, use per-section Clear buttons to reset just one area, and save/load named filter presets; broken localStorage no longer crashes the filter panel.
+- New gear set coverage: the Mercurial set (1–9 pieces) is now recognized and also included in the **Lategame** sellfile.
+- Keep Uniques rules are easier to manage.
+
+Deutsch:
+- Das separate Ausrüstungsfenster ist weg: Nutze den Header-Button `Logic Hub` und den Tab `Ausrüstung`, um deine RSL-Helper-`.db` zu importieren, manuelle Test-Items anzulegen und die Ausrüstungsliste im Dialog zurückzusetzen.
+- Die Sortierung im Regel-Tester ist deutlich besser: Sortiere nach „Zuletzt benutzt“ und/oder Substat-Prioritäten, drehe die Richtung pro Schlüssel um und nutze den Normalized-Modus (mit Gewichten), um gemischte Stats fair zu vergleichen; im Restore-Dialog lässt sich die Sortierung jetzt mit wiederherstellen.
+- Tester-Karten können Normalized-„Ratings“ als Overlay anzeigen: Presets aktivieren, Sort-Gewichte wiederverwenden und umschalten, ob Glyphen zählen, damit die Scores zu deiner Erwartung passen.
+- Die Vorschau-Filter haben neue Werkzeuge: Rechtsklick auf einen Substat setzt „darf NICHT haben“, pro Abschnitt gibt es Clear-Buttons zum Teil-Reset, und du kannst Filter-Presets speichern/laden; kaputtes localStorage bringt das Filterpanel nicht mehr zum Absturz.
+- Neue Set-Abdeckung: Das Mercurial-Set (1–9 Teile) ist jetzt enthalten und natürlich auch im **Lategame** sellfile referenziert.
+- Keep-Uniques-Regeln sind leichter zu benutzen.
+
 ## v0.9.9 — 2025-12-07
 English:
 - Load your full RSL Helper gear database straight into the new Rule Tester view, then watch every config decide Keep or Sell before you export the Sellfile.
