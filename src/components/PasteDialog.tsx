@@ -36,7 +36,7 @@ export default function PasteDialog({
           fullWidth
           value={text}
           onChange={(e) => { onTextChange(e.target.value) }}
-          placeholder={t('placeholderPasteExample', { example: '{"keep":true, "rankCode":0, ...} or [{...}, {...}] or {"Configs": [...]}' })}
+          placeholder={t('placeholderPasteExample', { example: '{"keep":true, "rankCode":0, …} or [{…}, {…}] or {"Configs": […]}' })}
           error={Boolean(error)}
           helperText={error ?? ' '}
         />

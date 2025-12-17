@@ -33,7 +33,7 @@ This document covers file schemas, builder semantics, and compatibility notes.
 - Compatibility: HSFC loader targets the readable schema (labels + metaset IDs). For backward compatibility it still maps `artifactMetaSetNames` to IDs and tolerates legacy helpers like `rankCode`, but numeric stat IDs are no longer accepted.
 - Merged rules: metaset references are resolved to their member sets and unioned with explicit `artifactSets`, then `(base HSF Rules) + sum(Configs.map(buildHsfRules))`.
 - Final Sell (remainder) rules: when enabled (at least one gear type and at least one level selected), the merge appends Sell rules for every entry in `LEVEL_MILESTONES` (0/4/8/12/16). Milestones not selected in the UI are emitted as disabled (`Use: false`) instead of being omitted. In **Explicit** mode the rules list every currently known set in `ArtifactSet` so new game sets stay protected; in **Any** mode the `ArtifactSet` field is omitted so every present and future set matches. The alternate coverage mode (the option not selected in the dialog) is also emitted with `Use: false` so exports make the operator’s intent explicit.
-  - Preview rows use ellipsis tooltips so the shorthand remains accessible even when truncated inside the table cell.
+  - Preview rows use native ellipsis (`title`) tooltips so the shorthand remains accessible even when truncated inside the table cell.
 
 #### Keep Uniques payload
 

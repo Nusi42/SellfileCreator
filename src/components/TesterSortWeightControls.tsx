@@ -217,7 +217,6 @@ export function TesterSortWeightControls({
             color: theme.palette.success.main,
             userSelect: 'none',
           })}
-          title={weightLabel}
         >
           {weightLabel}
         </Box>

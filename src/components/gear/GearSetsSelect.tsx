@@ -342,7 +342,7 @@ export default function GearSetsSelect({
                     }}
                   >
                     <Box sx={{ display: 'flex', flexDirection: 'column', minWidth: 0, width: '100%' }}>
-                      <EllipsisTooltip title={tooltipName} wrap="block" disablePortal={false}>
+                      <EllipsisTooltip title={tooltipName} wrap="block">
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: displayGap, minWidth: 0 }}>
                           {hasGlyph ? (
                             <Box component="span" aria-hidden sx={{ fontSize: 18, width: 22, textAlign: 'center', lineHeight: 1 }}>
@@ -355,7 +355,7 @@ export default function GearSetsSelect({
                         </Box>
                       </EllipsisTooltip>
                       {setNames.length > 0 ? (
-                        <EllipsisTooltip title={joined} wrap="block" disablePortal={false}>
+                        <EllipsisTooltip title={joined} wrap="block">
                           <Box component="span" data-ellipsis-target sx={{ fontSize: 12, color: 'primary.main', opacity: 0.9, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block', width: '100%' }}>
                             {joined}
                           </Box>

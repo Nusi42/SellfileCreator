@@ -43,16 +43,17 @@ This document outlines contributors' responsibilities for UI behavior, layout, a
 
 ## Tooltips and Context Hints
 
+- Tooltips must add information beyond what the user can already see. The only exception is overflow expansion: when text is truncated with an ellipsis, expose the full text via a native OS tooltip (`title`).
 - Two components cover every tooltip surface:
   - `MarkdownTooltip` (`src/components/MarkdownTooltip.tsx`) wraps MUI Tooltip with standardized, intent-aware delays (500 ms for informational text, 1,000 ms for click targets), width caps, and a markdown renderer (paragraphs, bullet lists, `**bold**`, `_italic_`, inline code). Every explanatory tooltip uses this path. Pass `markdown="..."` for localized strings or `render={...}` when you need JSX (e.g., `BuilderTooltipContent`, colored chips). The component auto-detects left-click handlers anywhere in its child tree; set `hoverIntent="interactive"|"informational"` only when the handler lives outside the subtree you’re rendering (rare).
-- `EllipsisTooltip` (`src/components/EllipsisTooltip.tsx`) is the only allowed overflow helper. Wrap the element that can clip text, add `data-ellipsis-target` to the truncating node, and it automatically opens a MarkdownTooltip *only* when the content is visually ellipsized. The helper mirrors MarkdownTooltip’s hover-intent heuristics (detects primary-click handlers on the child and delays accordingly); set `hoverIntent="interactive"|"informational"` only when the click handler lives deeper than the direct child. Tooltips render through the shared portal by default so overflow helpers never expand their scroll parents; pass `disablePortal` only when a surface must stay clipped to its container.
+- `EllipsisTooltip` (`src/components/EllipsisTooltip.tsx`) is the only allowed overflow helper. Wrap the element that can clip text, add `data-ellipsis-target` to the truncating node, and it dynamically applies a native `title` *only* when the content is visually ellipsized. Do not use it for “help” copy.
 - `MarkdownTooltip` now accepts `ellipsisTitle` (and optional `ellipsisSelector`). When you pass a label, it automatically sets a transient native `title` on the ellipsized trigger so the OS tooltip exposes the full text without stacking a second popper. Tag the truncating element with `data-ellipsis-target` (or pass a selector) so the helper knows which node to probe.
 - All implementations (builder, rules filter, preview tables, dialog buttons, tester grids) import those helpers. Do **not** import `@mui/material/Tooltip` elsewhere; the shared wrapper already exposes `slotProps`, `placement`, etc.
 - When converting legacy JSX tooltips, keep the content declarative: reuse `BuilderTooltipContent`, avoid inline HTML entities, and keep translation strings in `en-US.ts`. Multi-line copy should be separated with blank lines or `- bullet` formatting to match the markdown renderer’s expectations.
 - Overflow-only surfaces (buttons with shrinking labels, select render-value spans, table cells that switch to icons) should:
   1. Wrap the surface in `<EllipsisTooltip title={label}>`.
   2. Ensure the truncated element has `data-ellipsis-target`.
-  3. Avoid additional hover listeners—EllipsisTooltip manages open/close and respects scroll containers.
+  3. Avoid additional hover listeners—EllipsisTooltip manages the transient native `title` for you.
 - Informational tooltips should:
   1. Wrap the control directly in `<MarkdownTooltip markdown={t('key')}>` or `<MarkdownTooltip render={<BuilderTooltipContent .../>}>`.
   2. Skip explicit `enterDelay`/`leaveDelay`; the wrapper centralizes timing and automatically picks the short vs. long delay.
@@ -72,13 +73,13 @@ This document outlines contributors' responsibilities for UI behavior, layout, a
 | Builder form labels (action/rank/rarity/faction/level/main/substats/slots/etc.) | `MarkdownTooltip` + `BuilderTooltipContent` | Helper text that lived in inline `<Tooltip>` nodes now routes through the markdown wrapper so bullet lists share the global delay/width. |
 | Builder action buttons (add/save, undo/redo, export modes, help) | `MarkdownTooltip` | Buttons that expose multi-line guidance (hidden configs reminder, undo history, help links) all share the markdown wrapper with capped width. |
 | Builder flex/min/threshold chips + lock toggles | `MarkdownTooltip` (`render`) | Contextual icons still render via JSX, but that JSX flows through the markdown wrapper so colored badges share timing. |
-| Builder ellipsis-only surfaces (note/save buttons, metaset button, select renderers) | `EllipsisTooltip` | Wrap the button/select and tag the text node with `data-ellipsis-target` so the tooltip appears only when the label overflows. |
+| Builder ellipsis-only surfaces (note/save buttons, metaset button, select renderers) | `EllipsisTooltip` | Wrap the button/select and tag the text node with `data-ellipsis-target` so the native `title` appears only when the label overflows. |
 | Rules filter chips/toggles | `MarkdownTooltip` for guidance, `EllipsisTooltip` for summaries | Glyph legend helpers return markdown strings (e.g., `≥ 0 = show any`). Icon/button labels use EllipsisTooltip so the tooltip only appears when text overflows. |
 | Preview/tester tables | `EllipsisTooltip` for overflow cells, `MarkdownTooltip` everywhere else | Slot/faction/set icons and column headers use MarkdownTooltip. Substat summaries wrap their chips with EllipsisTooltip whenever scroll containers clip the content. |
 | Context menus (builder history, rules table rows, config chips) | `MarkdownTooltip` | Inline helper text (builder context actions, chip menus, copy buttons) renders through the shared wrapper so keyboard users get consistent poppers. |
 | Set descriptions (`WithSetTooltip`) | `MarkdownTooltip` (`render`) | Structured descriptions still emit JSX (piece counts, colored buffs) but they flow through MarkdownTooltip so the timing knob lives in one place. |
 | Glyph/legend helpers (`renderGlyphTooltip`) | `MarkdownTooltip` (`markdown`) | Helper returns a markdown string so chips/buttons can simply call `<MarkdownTooltip markdown={renderGlyphTooltip(...)}/>` without bespoke JSX. |
-| Native titles | Targeted surfaces only | Most overflow still runs through EllipsisTooltip. Components that already host a MarkdownTooltip (builder labels, tester “Jump to Config” chips) should pass `ellipsisTitle` so the component auto-manages the transient `title`. When MarkdownTooltip isn’t present, call `hasEllipsisOverflow()` manually only if there’s no other option. |
+| Native titles | Targeted surfaces only | Native `title` is reserved for overflow expansion. Use `EllipsisTooltip`, or if a surface already owns a MarkdownTooltip popper, pass `ellipsisTitle` so MarkdownTooltip can manage the transient `title` without nesting. |
 
 ### Ellipsis inventory
 
@@ -89,7 +90,7 @@ Representative overflow-only surfaces:
 - Table cells that toggle between icons and text (HSF slot/faction columns, metaset menus, builder set menus).
 - Config/tester chips plus the tester grid’s matching-config badges.
 
-`EllipsisTooltip` keeps the popper inside the current scroll container, so callers rarely need `disablePortal`. When the same surface also needs a Markdown tooltip (tester Jump-to-Config chips, builder labels), pass `ellipsisTitle` to MarkdownTooltip so it handles the overflow probe and native `title` for you instead of nesting two markdown poppers.
+When the same surface needs a rich Markdown tooltip *and* an overflow-expansion title, pass `ellipsisTitle` to `MarkdownTooltip` so it handles the overflow probe and native `title` for you instead of nesting tooltip systems.
 
 ### Markdown inventory
 
@@ -107,7 +108,7 @@ If tooltips need rich formatting (colored badges, inline icons), pass JSX via `r
 ### Verification checklist
 
 - `rg '<Tooltip' src` should match only the definition in `MarkdownTooltip.tsx`.
-- `rg 'title=' src` should flag only deliberate usages (e.g., EllipsisTooltip props or the limited overflow cases noted above).
+- Native title mutations should be centralized: `rg \"setAttribute\\('title'\" src` should match only `MarkdownTooltip.tsx` and `EllipsisTooltip.tsx`.
 - `npm run typecheck`, `npm run lint`, `npm run build`, and `npm test` must pass after tooltip changes so regressions are caught before release.
 
 ## Metaset Management

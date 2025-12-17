@@ -54,7 +54,6 @@ const enUS: Catalog = {
   pushSellfileTooltip: 'Sends the Sellfile to {endpoint}',
   manageColorsAria: 'Manage Colors',
   // Rule Tester
-  gearDialogOpenLabel: 'Gear...',
   gearDialogOpenTooltip: 'Open the Logic Hub dialog on the Gear tab to load an RSL Helper database or craft sample gear without leaving the preview.',
   gearDialogTitle: 'Gear',
   gearDialogIntro: 'Use the Gear dialog (Logic Hub → Gear tab) to build sample gear and see which rule keeps or sells the item. Load or drag an RSL Helper DB (typically under %APPDATA%\\RslHelper\\Config) into the app so the Rule Tester view reflects real gear.',
