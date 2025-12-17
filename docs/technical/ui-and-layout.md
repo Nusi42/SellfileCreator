@@ -207,8 +207,9 @@ If tooltips need rich formatting (colored badges, inline icons), pass JSX via `r
 
 - Sticky header keeps the table caption visible while the container scrolls. Layout uses `tableLayout: fixed` to stabilize widths.
 - Virtualization:
-  - Single-line mode: fixed-height rows (~30px) with scroll-window math.
-  - Wrap mode: variable heights with cached measurements, prefix sums, binary-search windowing, and overscan.
+  - Implementation: `@tanstack/react-virtual` (same dependency as the tester grid), while still rendering a real `<Table>` by inserting top/bottom spacer rows.
+  - Single-line mode: fixed-height rows (~30px); avoids per-row measurement during scroll.
+  - Wrap mode: variable-height rows measured via the virtualizer; alignment retries account for sticky header chrome.
 - Header menu (context): reset columns, toggle wrap mode, toggle icon modes, adjust stat-border coloring, and manage per-column visibility (Faction supports `auto|show|hide`). Drag headers to reorder; resize via drag handles (min width 40px); widths persist.
 - Row interactions:
   - Hover highlights only while pointer stays inside the preview.
@@ -226,7 +227,7 @@ If tooltips need rich formatting (colored badges, inline icons), pass JSX via `r
   - Update the flattened builder (`buildFlattenedGridItems`) so the virtualizer stays authoritative.
   - Keep the chunked row helper (`chunkGroupRows`) in sync with the card grid layout; card height math still depends on the column count and match-row toggles.
   - Remember to update this section plus the inline comments in `TesterItemsGrid.tsx` whenever you tweak virtualization heuristics, skeleton batching (`useTesterGridCardContentReady`), or the scroll-hint sampling strategy.
-  - Selecting a chip auto-scrolls to its first rule row (smooth when close; jump when distant).
+  - Selecting a chip auto-scrolls to its first rule row (smooth in single-line mode; jump in wrap mode).
 - Row context menu matches chip actions (Duplicate, Move, Copy, Paste after, Delete). Base rows show Clear instead of Delete.
 - Cells:
   - Index column colors Keep/Sell status; disabled rules show a strikethrough.

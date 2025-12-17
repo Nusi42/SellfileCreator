@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useVirtualizer } from '@tanstack/react-virtual'
 import { Box, Button, Divider, Menu, MenuItem, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from '@mui/material'
 import { alpha } from '@mui/material/styles'
 import type { PaperProps as MuiPaperProps } from '@mui/material/Paper'
@@ -14,8 +15,6 @@ import {
   NBSP,
   MENU_CONTROL_HEIGHT_PX,
   MENU_CONTROL_MIN_WIDTH_PX,
-  RULES_TABLE_SMOOTH_SCROLL_NEARBY_VIEWPORTS,
-  RULES_TABLE_OVERSCAN_FAST,
   RULES_TABLE_OVERSCAN_IDLE,
   RULES_TABLE_HOVER_PROPAGATION_MS,
   RULES_TABLE_SCROLL_HINT_HIDE_MS,
@@ -90,14 +89,8 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
     onChangeColorBlindMode(nextMode)
   }, [colorBlindMode, onChangeColorBlindMode])
   // Default fixed row height for single-line mode.
-  // Why: Icons and typography can affect the actual rendered height; we measure
-  // at runtime and correct scroll alignment, but use this baseline for initial
-  // math before measurements settle.
+  // Why: The preview table intentionally clamps rows to a consistent height so scrolling stays predictable.
   const DEFAULT_FIXED_ROW_HEIGHT_PX: number = 30
-  // Virtualization kicks in once the rules list grows past this size.
-  // Why: Smaller lists render in full, but we still reuse the same scroll-range
-  // math so the position indicator reflects the actual viewport.
-  const VIRTUALIZE_AFTER_RULES = 200
   const emptyLabel = useMemo(() => {
     if (rules.length > 0) return null
     const limitText = new Intl.NumberFormat(undefined).format(RULE_COUNT_LIMIT)
@@ -108,37 +101,17 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
       : (emptyDueToFilter ? t('rulesEmptyFiltered') : t('rulesEmpty'))
   }, [rules.length, limitExceeded, t, emptyDueToFilter])
   const showEmptyOverlay = rules.length === 0 && Boolean(emptyLabel)
-  // Virtualization state and helpers
+  // Table container refs power both virtualization and DOM-based hover styling.
   const tableContainerRef = useRef<HTMLDivElement | null>(null)
   const headerRef = useRef<HTMLTableSectionElement | null>(null)
-  // Sticky header height used to offset scroll targets for better alignment.
-  // Why: In wrap (multi-line) mode, row heights are measured lazily. Using a
-  // measured header height (instead of a magic number) improves accuracy when
-  // re-scrolling to converge on the target row after measurements settle.
-  const headerHeightRef = useRef<number>(0)
-  // Small pixel correction applied when aligning scroll to account for sticky
-  // header borders and sub‑pixel rounding differences across browsers.
-  // Why: Without this, final alignment can be off by ~1–2px.
+  // Small pixel correction for sub-pixel borders/rounding so alignment does not "jitter".
   const HEADER_SCROLL_FUDGE_PX: number = 2
   const [containerW, setContainerW] = useState(0)
-  const [viewportH, setViewportH] = useState(0)
-  const viewportHRef = useRef(0)
-  const [scrollTop, setScrollTop] = useState(0)
-  // Track fast scrolling to adjust overscan dynamically.
-  const lastScrollTopRef = useRef(0)
-  const rafPendingRef = useRef(false)
-  const [fastScroll, setFastScroll] = useState(false)
-  const fastResetTimerRef = useRef<ReturnType<typeof window.setTimeout> | null>(null)
   const [showScrollRangeHint, setShowScrollRangeHint] = useState(false)
   const scrollRangeVisibleRef = useRef(false)
   const scrollRangeHideTimerRef = useRef<ReturnType<typeof window.setTimeout> | null>(null)
-  const rowHeightsRef = useRef<number[]>([])
-  const prefixHeightsRef = useRef<number[]>([])
-  const totalHeightRef = useRef<number>(0)
-  const prevRulesMetricsRef = useRef<{ length: number; totalHeight: number } | null>(null)
   const [emptyOverlayOffset, setEmptyOverlayOffset] = useState(0)
-  // Version to trigger prefix recompute and a stable re-render when row heights change.
-  const [heightsVersion, setHeightsVersion] = useState(0)
+  // Focus requests can arrive before the row is mounted/measured; keep a bounded retry budget.
   const pendingRuleFocusRef = useRef<{ index: number; attempts: number } | null>(null)
   // No custom scrolling animations: in multi-line we jump; in single-line we use native smooth.
   const WRAP_ROWS_KEY = 'sellfileCreator.rulesTableWrapRows.v1'
@@ -452,13 +425,6 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
     applyDomSelection(lastSelectedCfgRef.current ?? null)
   })
 
-  // Measured row height to match actual rendered size (accounts for borders/fonts/icons).
-  // Placed early so selection scrolling can consult an up-to-date value.
-  const [fixedRowH, setFixedRowH] = useState(DEFAULT_FIXED_ROW_HEIGHT_PX)
-  const fixedRowHRef = useRef(DEFAULT_FIXED_ROW_HEIGHT_PX)
-  // Mirror the latest measured height onto the ref so async scroll handlers read current values.
-  fixedRowHRef.current = fixedRowH
-
   // Context menus
   const [headerMenu, setHeaderMenu] = useState<null | { open: boolean; x: number; y: number }>(null)
   const [rowMenu, setRowMenu] = useState<null | { open: boolean; x: number; y: number; cfgIdx: number | null; source: RuleSource }>(null)
@@ -532,23 +498,53 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
     window.addEventListener('mouseup', onUp)
   }
 
-  // Smooth scroll a given rule index into view within the table container
-  const scrollRuleIndexIntoView = useCallback((ruleIndex: number, behavior: ScrollBehavior = 'smooth') => {
+  // Virtualizer keys must be stable across filter/sort toggles so scroll position stays anchored.
+  // Why: `__lineIdx` is assigned in `computeMergedRules`, and stays stable even when the view is filtered.
+  const getRuleVirtualKey = useCallback((index: number): string => {
+    const rule = rules[index]
+    const lineIdx = typeof rule?.__lineIdx === 'number' ? rule.__lineIdx : index
+    // Include wrap toggle in the key so TanStack does not reuse measured heights across modes.
+    // Why: fixed-height mode is intentionally clamped, while wrap mode can grow/shrink per column width.
+    return `${wrapRows ? 'wrap' : 'fixed'}:${lineIdx}`
+  }, [rules, wrapRows])
+  // Single TanStack virtualizer drives both fixed and wrap modes.
+  // Why: This replaces the bespoke prefix-sum windowing logic while preserving the `<Table>` structure.
+  const rowVirtualizer = useVirtualizer({
+    count: rules.length,
+    getScrollElement: () => tableContainerRef.current,
+    estimateSize: () => DEFAULT_FIXED_ROW_HEIGHT_PX,
+    overscan: RULES_TABLE_OVERSCAN_IDLE,
+    getItemKey: getRuleVirtualKey,
+  })
+  // Align a target row beneath the sticky header with bounded retries.
+  // Why: wrap mode rows are measured lazily, so we may need a couple of rAF ticks to converge.
+  const alignRowIndexUnderHeader = useCallback((rowIndex: number, attempts: number) => {
     const container = tableContainerRef.current
-    if (!container || ruleIndex < 0 || ruleIndex >= rules.length) return
-    let targetTop = 0
-    if (!wrapRows) {
-      targetTop = ruleIndex * fixedRowH
-    } else {
-      const pref = prefixHeightsRef.current
-      // prefixHeightsRef holds prefix sums; fall back to fixed heights if unknown
-      targetTop = pref[ruleIndex] ?? (ruleIndex * fixedRowH)
+    if (!container || rowIndex < 0 || rowIndex >= rules.length) return
+    const rowEl = container.querySelector(`[data-row-index="${rowIndex}"]`) as HTMLTableRowElement | null
+    if (!rowEl) {
+      if (attempts <= 0) return
+      requestAnimationFrame(() => alignRowIndexUnderHeader(rowIndex, attempts - 1))
+      return
     }
-    // Account for sticky header height for better alignment in the scroll container
-    const headerNudge = Math.max(0, headerHeightRef.current || 0)
-    const top = Math.max(0, Math.round(targetTop - headerNudge - HEADER_SCROLL_FUDGE_PX))
-    try { container.scrollTo({ top, behavior }) } catch { try { container.scrollTop = top } catch {} }
-  }, [fixedRowH, rules.length, wrapRows])
+    const containerRect = container.getBoundingClientRect()
+    const rowRect = rowEl.getBoundingClientRect()
+    // `<Table stickyHeader>` keeps the header in-flow, so the first body row naturally begins below it.
+    // Why: subtracting a measured header height would over-correct and reveal extra rows from the previous config.
+    const delta = (rowRect.top - containerRect.top) - HEADER_SCROLL_FUDGE_PX
+    if (Math.abs(delta) <= 0.5) return
+    const nextTop = Math.max(0, Math.round(container.scrollTop + delta))
+    try { container.scrollTo({ top: nextTop, behavior: 'auto' }) } catch { try { container.scrollTop = nextTop } catch {} }
+    if (attempts <= 0) return
+    requestAnimationFrame(() => alignRowIndexUnderHeader(rowIndex, attempts - 1))
+  }, [rules.length])
+  // Scroll an index into view and then align it under the sticky header.
+  // Why: `scrollToIndex` uses estimated/measured sizes; the alignment step accounts for sticky header chrome.
+  const scrollRuleIndexIntoView = useCallback((ruleIndex: number, behavior: 'auto' | 'smooth' = 'smooth') => {
+    if (ruleIndex < 0 || ruleIndex >= rules.length) return
+    rowVirtualizer.scrollToIndex(ruleIndex, { align: 'start', behavior })
+    requestAnimationFrame(() => alignRowIndexUnderHeader(ruleIndex, wrapRows ? 6 : 1))
+  }, [alignRowIndexUnderHeader, rowVirtualizer, rules.length, wrapRows])
 
   const clampRuleIndex = useCallback((index: number | null | undefined) => {
     if (typeof index !== 'number' || !Number.isFinite(index) || rules.length === 0) return null
@@ -597,219 +593,26 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
         onFocusRuleSettled?.()
       }
     })
-  }, [heightsVersion, wrapRows, onFocusRuleSettled, scrollRuleIndexIntoView])
+  }, [wrapRows, onFocusRuleSettled, scrollRuleIndexIntoView])
 
-  // When selection changes (e.g., user clicked a chip), scroll first matching rule into view
+  // When selection changes (e.g., user clicked a config chip), scroll the first rule into view.
+  // Why: Keeping the preview and chips in sync is more important than complex "full block fit" heuristics.
   const suppressNextScrollRef = useRef<boolean>(false)
-  // Helper: compute visibility state for a config block in single-line mode.
-  // Decides whether all rows for the config are fully visible, partially
-  // visible, or not visible, and whether the full block can fit in the
-  // current viewport. Also provides the top index to reveal the entire block.
-  const computeSingleLineVisibilityForConfig = React.useCallback((cfgIdx: number) => {
-    const span = getConfigSpan(cfgIdx)
-    if (!span) return null
-    const { first, last, count } = span
-    const container = tableContainerRef.current
-    if (!container) return { first, last, count, fullyVisible: false, partiallyVisible: false, canFitAll: false, topIndexForFullFit: first }
-    const header = Math.max(0, headerHeightRef.current || 0)
-    const vp = Math.max(0, (viewportHRef.current || 0) - header)
-    const rowH = fixedRowHRef.current || DEFAULT_FIXED_ROW_HEIGHT_PX
-    const visibleRows = Math.max(0, Math.floor(vp / rowH))
-    const top = container.scrollTop
-    const visTopRow = Math.floor((top + header) / rowH)
-    const visBottomRow = Math.floor(((top + (viewportHRef.current || 0)) - 1) / rowH)
-    const fullyVisible = first >= visTopRow && last <= visBottomRow
-    const partiallyVisible = !fullyVisible && !(last < visTopRow || first > visBottomRow)
-    const canFitAll = count <= Math.max(1, visibleRows)
-    let topIndexForFullFit = first
-    if (canFitAll) {
-      const maxTop = Math.max(0, last - Math.max(0, visibleRows - 1))
-      topIndexForFullFit = Math.min(first, maxTop)
-    }
-    return { first, last, count, fullyVisible, partiallyVisible, canFitAll, topIndexForFullFit }
-  }, [getConfigSpan])
-  // Retry-based scroll alignment for wrap (multi-line) mode.
-  // Why: Row heights are measured lazily; initial prefix sums assume fixed heights.
-  // Re-attempting the scroll after measurements settle reliably lands on the exact row.
-  // Pending scroll target stored by originating config idx so it survives
-  // list changes (rule counts per config vary). We resolve the current row
-  // index on each attempt for accuracy.
-  const pendingScrollRef = useRef<{ cfgIdx: number; attempts: number } | null>(null)
-  const attemptScrollAlign = React.useCallback(() => {
-    const pending = pendingScrollRef.current
-    if (!pending) return
-    const { cfgIdx } = pending
-    const container = tableContainerRef.current
-    if (!container) { pendingScrollRef.current = null; return }
-    const span = getConfigSpan(cfgIdx)
-    const index = span?.first ?? -1
-    if (index < 0 || index >= rules.length) { pendingScrollRef.current = null; return }
-    const rowEl = container.querySelector(`[data-row-index="${index}"]`) as HTMLTableRowElement | null
-    if (rowEl) {
-      // The row is mounted: align precisely using element geometry.
-      const cRect = container.getBoundingClientRect()
-      const rRect = rowEl.getBoundingClientRect()
-      const delta = rRect.top - cRect.top
-      const header = Math.max(0, headerHeightRef.current || 0)
-      const nextTop = Math.max(0, Math.round(container.scrollTop + delta - header - HEADER_SCROLL_FUDGE_PX))
-      // Final correction: use jump in wrap mode; smooth is reserved for single-line mode only.
-      try { container.scrollTo({ top: nextTop, behavior: wrapRows ? 'auto' : 'smooth' }) } catch { try { container.scrollTop = nextTop } catch {} }
-      pendingScrollRef.current = null
-      return
-    }
-    // Row not yet mounted in the virtual window: nudge towards estimated offset.
-    if (!wrapRows) {
-      // Single-line mode: compute exact offset from fixedRowH and index.
-      // This avoids large over/under-shoots when jumping across many rows.
-      scrollRuleIndexIntoView(index, 'auto')
-    } else {
-      // Wrap mode: prefix-based estimate is sufficient; heights will settle with retries.
-      scrollRuleIndexIntoView(index, 'auto')
-    }
-    // Decrement and schedule another attempt next frame if budget remains.
-    pending.attempts -= 1
-    if (pending.attempts <= 0) { pendingScrollRef.current = null; return }
-    // Use rAF to avoid starving layout/paint; converge quickly without jank.
-    requestAnimationFrame(() => attemptScrollAlign())
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [getConfigSpan, rules.length, wrapRows])
   useEffect(() => {
     if (selectedCfgIdx === null || selectedCfgIdx === undefined) return
     if (multiselectActive) return
-    // If selection came from a table row click, skip this one automatic scroll
+    // If selection came from a table row click, skip this one automatic scroll.
     if (suppressNextScrollRef.current) { suppressNextScrollRef.current = false; return }
     const span = getConfigSpan(selectedCfgIdx as number)
     const idx = span?.first ?? -1
-    if (idx >= 0) {
-      // Single-line mode: compute full-block visibility and align accordingly
-      if (!wrapRows) {
-        const vis = computeSingleLineVisibilityForConfig(selectedCfgIdx as number)
-        if (vis) {
-          if (vis.fullyVisible) { pendingScrollRef.current = null; return }
-          const targetIndex = vis.canFitAll ? vis.topIndexForFullFit : vis.first
-          if (fixedRowH === DEFAULT_FIXED_ROW_HEIGHT_PX) {
-            pendingScrollRef.current = { cfgIdx: selectedCfgIdx as number, attempts: 6 }
-            requestAnimationFrame(() => attemptScrollAlign())
-            return
-          }
-          pendingScrollRef.current = { cfgIdx: selectedCfgIdx as number, attempts: 16 }
-          const container = tableContainerRef.current
-          const vp = viewportHRef.current || 0
-          const targetTop = targetIndex * (fixedRowHRef.current || DEFAULT_FIXED_ROW_HEIGHT_PX)
-          const curTop = container ? container.scrollTop : 0
-          const maxSmooth = Math.max(0, vp * RULES_TABLE_SMOOTH_SCROLL_NEARBY_VIEWPORTS)
-          const distance = Math.abs(targetTop - curTop)
-          const behavior: ScrollBehavior = (maxSmooth > 0 && distance <= maxSmooth) ? 'smooth' : 'auto'
-          scrollRuleIndexIntoView(targetIndex, behavior)
-          requestAnimationFrame(() => attemptScrollAlign())
-          return
-        }
-      }
-      // If in single-line mode and we haven't measured the real row height yet,
-      // defer scrolling until after measurement to avoid under-scrolling by a
-      // large margin. The measurement happens on first row render and updates
-      // fixedRowH; our fixedRowH effect will then attempt alignment.
-      if (!wrapRows && fixedRowH === DEFAULT_FIXED_ROW_HEIGHT_PX) {
-        pendingScrollRef.current = { cfgIdx: selectedCfgIdx as number, attempts: 6 }
-        requestAnimationFrame(() => attemptScrollAlign())
-        return
-      }
-      // Kick off an initial scroll and schedule retries to converge.
-      // In single-line mode, allow more follow-ups so geometry-based nudges can converge
-      // even when starting far from the target due to baseline height mismatch.
-      pendingScrollRef.current = { cfgIdx: selectedCfgIdx as number, attempts: wrapRows ? 8 : 16 }
-      // Behavior:
-      // - Multi-line: jump (auto) — measurement retries will align precisely.
-      // - Single-line: smooth only if nearby; otherwise jump to avoid a long animation.
-      if (wrapRows) {
-        scrollRuleIndexIntoView(idx, 'auto')
-      } else {
-        const container = tableContainerRef.current
-        const vp = viewportHRef.current || 0
-        const targetTop = idx * (fixedRowHRef.current || DEFAULT_FIXED_ROW_HEIGHT_PX)
-        const curTop = container ? container.scrollTop : 0
-        const maxSmooth = Math.max(0, vp * RULES_TABLE_SMOOTH_SCROLL_NEARBY_VIEWPORTS)
-        const distance = Math.abs(targetTop - curTop)
-        const behavior: ScrollBehavior = (maxSmooth > 0 && distance <= maxSmooth) ? 'smooth' : 'auto'
-        scrollRuleIndexIntoView(idx, behavior)
-      }
-      // Fast-follow attempt to catch the row once it mounts.
-      requestAnimationFrame(() => attemptScrollAlign())
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedCfgIdx, wrapRows, multiselectActive, fixedRowH, computeSingleLineVisibilityForConfig, getConfigSpan, rules.length])
-
-  useEffect(() => {
-    const n = rules.length
-    if (rowHeightsRef.current.length !== n) {
-      const fixed = DEFAULT_FIXED_ROW_HEIGHT_PX
-      rowHeightsRef.current = Array.from({ length: n }, () => fixed)
-    }
-    const pref: number[] = new Array(n)
-    let acc = 0
-    for (let i = 0; i < n; i++) { pref[i] = acc; acc += rowHeightsRef.current[i] || 28 }
-    prefixHeightsRef.current = pref
-    totalHeightRef.current = acc
-  }, [heightsVersion, rules.length])
-
-  useEffect(() => {
-    const container = tableContainerRef.current
-    const nextMetrics = { length: rules.length, totalHeight: totalHeightRef.current }
-    const prev = prevRulesMetricsRef.current
-    prevRulesMetricsRef.current = nextMetrics
-    if (!container || !prev) return
-    const viewport = viewportHRef.current || container.clientHeight || 0
-    if (viewport <= 0) return
-    const currentTop = container.scrollTop
-    const maxTop = Math.max(0, nextMetrics.totalHeight - viewport)
-    const overscrolled = currentTop > maxTop + 1
-    const listShrunk = nextMetrics.length < prev.length
-    const heightShrunk = nextMetrics.totalHeight < prev.totalHeight - 1
-    let jumpToTop = nextMetrics.length === 0
-    if (!jumpToTop && !wrapRows && (listShrunk || heightShrunk)) {
-      const rowH = fixedRowHRef.current || DEFAULT_FIXED_ROW_HEIGHT_PX
-      if (rowH > 0) {
-        const approxTopIndex = Math.floor(currentTop / rowH)
-        if (approxTopIndex >= nextMetrics.length) jumpToTop = true
-      }
-    }
-    if (!overscrolled && !jumpToTop) return
-    const targetTop = jumpToTop ? 0 : Math.min(currentTop, maxTop)
-    if (container.scrollTop !== targetTop) {
-      try { container.scrollTo({ top: targetTop, behavior: 'auto' }) } catch { container.scrollTop = targetTop }
-    }
-    lastScrollTopRef.current = targetTop
-    setScrollTop(targetTop)
-  }, [rules.length, heightsVersion, wrapRows])
-
-  // Update a measured row height in wrap mode; only bump when the value changes
-  // enough to matter to layout to prevent oscillations from sub-pixel rounding.
-  const updateRowHeight = (rowIndex: number, measured: number) => {
-    if (!wrapRows) return
-    if (!Number.isFinite(measured) || measured <= 0) return
-    const prev = rowHeightsRef.current[rowIndex]
-    // Guard: only update when there is a real change (>= 1px) to avoid flicker.
-    if (prev && Math.abs(prev - measured) < 1) return
-    rowHeightsRef.current[rowIndex] = Math.floor(measured)
-    // Trigger recompute of prefix sums and a re-render of the visible window math.
-    setHeightsVersion(v => v + 1)
-  }
+    if (idx < 0 || idx >= rules.length) return
+    scrollRuleIndexIntoView(idx, wrapRows ? 'auto' : 'smooth')
+  }, [getConfigSpan, multiselectActive, rules.length, scrollRuleIndexIntoView, selectedCfgIdx, wrapRows])
 
   useEffect(() => {
     const el = tableContainerRef.current
     if (!el) return
     const onScroll = () => {
-      const next = el.scrollTop
-      const prev = lastScrollTopRef.current
-      lastScrollTopRef.current = next
-      // Coalesce updates to once per animation frame
-      if (!rafPendingRef.current) {
-        rafPendingRef.current = true
-        requestAnimationFrame(() => {
-          rafPendingRef.current = false
-          setScrollTop(lastScrollTopRef.current)
-        })
-      }
       if (!scrollRangeVisibleRef.current) {
         scrollRangeVisibleRef.current = true
         setShowScrollRangeHint(true)
@@ -823,22 +626,9 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
         setShowScrollRangeHint(false)
         scrollRangeHideTimerRef.current = null
       }, RULES_TABLE_SCROLL_HINT_HIDE_MS)
-      // Heuristic: mark as fast scroll on large deltas relative to row height or viewport
-      const delta = Math.abs(next - prev)
-      const threshold = Math.max(2 * (fixedRowHRef.current || DEFAULT_FIXED_ROW_HEIGHT_PX), (viewportHRef.current || 0) * 0.5)
-      const isFast = delta > threshold
-      if (isFast) {
-        setFastScroll(true)
-        if (fastResetTimerRef.current) { clearTimeout(fastResetTimerRef.current); fastResetTimerRef.current = null }
-        fastResetTimerRef.current = window.setTimeout(() => { setFastScroll(false); fastResetTimerRef.current = null }, 120)
-      }
     }
     const measure = () => {
-      setViewportH(el.clientHeight)
-      viewportHRef.current = el.clientHeight
       setContainerW(el.clientWidth)
-      // Refresh sticky header height for accurate scroll offsets
-      try { headerHeightRef.current = (el.querySelector('thead') as HTMLElement | null)?.offsetHeight || 0 } catch { headerHeightRef.current = 0 }
     }
     measure()
     el.addEventListener('scroll', onScroll, { passive: true })
@@ -852,16 +642,9 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
       el.removeEventListener('scroll', onScroll)
       window.removeEventListener('resize', measure)
       if (ro) ro.disconnect()
-      if (fastResetTimerRef.current) { clearTimeout(fastResetTimerRef.current); fastResetTimerRef.current = null }
       if (scrollRangeHideTimerRef.current) { clearTimeout(scrollRangeHideTimerRef.current); scrollRangeHideTimerRef.current = null }
     }
   }, [])
-
-  // When row heights are recomputed (wrap mode), re-attempt alignment if a scroll is pending.
-  useEffect(() => {
-    if (!wrapRows) return
-    if (pendingScrollRef.current) attemptScrollAlign()
-  }, [heightsVersion, wrapRows, attemptScrollAlign])
 
   // Row renderer (memoized) to avoid re-computing heavy cells on unrelated updates (e.g., hover elsewhere)
   // (Per-row React.memo was explored but replaced with a DOM-based highlight
@@ -977,14 +760,6 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
   }, [anyWithFaction])
 
   
-
-  // When the measured fixed row height changes in single-line mode, perform one
-  // alignment attempt if a scroll is pending. This corrects smooth scroll
-  // targets computed using the pre-measure baseline height.
-  useEffect(() => {
-    if (wrapRows) return
-    if (pendingScrollRef.current) attemptScrollAlign()
-  }, [fixedRowH, wrapRows, attemptScrollAlign])
 
   // Visible columns (memoized): used for header, width calc, and rows
   const visibleColsForContainer = useMemo(() => cols.filter(c => isColVisible(c)), [cols, isColVisible])
@@ -1149,83 +924,34 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
               scrollRangeOverlay = null
               const visibleCols = visibleColsForContainer
               const colSpan = Math.max(1, visibleCols.length)
-              // Smaller overscan during fast scroll to reduce render cost; increase when idle
-              const overscan = fastScroll ? RULES_TABLE_OVERSCAN_FAST : RULES_TABLE_OVERSCAN_IDLE
               // Empty overlay handles the messaging; no rows render when empty.
               if (rules.length === 0) return null
-              let start = 0, end = rules.length, padTop = 0, padBottom = 0
-              let visibleStartIdx = 0
-              let visibleEndIdxExclusive = rules.length
-              const shouldVirtualize = rules.length > VIRTUALIZE_AFTER_RULES
-              const resolveViewport = () => {
-                if (viewportH && viewportH > 0) return viewportH
-                if (viewportHRef.current && viewportHRef.current > 0) return viewportHRef.current
-                const container = tableContainerRef.current
-                return container ? container.clientHeight : 0
-              }
-              const upperBound = (arr: number[], x: number) => {
-                let lo = 0, hi = arr.length - 1, ans = arr.length
-                while (lo <= hi) {
-                  const mid = (lo + hi) >>> 1
-                  const v = arr[mid] ?? Number.POSITIVE_INFINITY
-                  if (v > x) { ans = mid; hi = mid - 1 } else { lo = mid + 1 }
-                }
-                return ans
-              }
-              if (shouldVirtualize) {
-                if (!wrapRows) {
-                  const rowH = fixedRowHRef.current || DEFAULT_FIXED_ROW_HEIGHT_PX
-                  const rawVisibleStart = Math.max(0, Math.floor(scrollTop / rowH))
-                  const estimatedVisible = Math.max(1, Math.ceil(resolveViewport() / rowH))
-                  visibleStartIdx = rawVisibleStart
-                  visibleEndIdxExclusive = Math.min(rules.length, rawVisibleStart + estimatedVisible)
-                  start = Math.max(0, rawVisibleStart - overscan)
-                  // Use floor to avoid +/-1 oscillations when viewport height is near a row multiple
-                  const visibleCount = Math.max(0, Math.floor(resolveViewport() / rowH)) + overscan * 2
-                  end = Math.min(rules.length, start + visibleCount)
-                  padTop = start * fixedRowH
-                  padBottom = (rules.length - end) * fixedRowH
-                } else {
-                  const pref = prefixHeightsRef.current
-                  const total = totalHeightRef.current
-                  const viewportPx = Math.max(1, resolveViewport())
-                  const viewBot = Math.min(total, scrollTop + viewportPx)
-                  const firstVisible = Math.max(0, upperBound(pref, scrollTop) - 1)
-                  const lastVisibleExclusive = upperBound(pref, viewBot)
-                  visibleStartIdx = firstVisible
-                  visibleEndIdxExclusive = Math.max(firstVisible, lastVisibleExclusive)
-                  start = Math.max(0, firstVisible - overscan)
-                  end = Math.min(rules.length, lastVisibleExclusive + overscan)
-                  padTop = pref[start] || 0
-                  const endOffset = pref[end] || total
-                  padBottom = Math.max(0, total - endOffset)
-                }
-              } else if (rules.length > 0) {
-                if (!wrapRows) {
-                  const rowH = fixedRowHRef.current || DEFAULT_FIXED_ROW_HEIGHT_PX
-                  if (rowH > 0) {
-                    const viewportPx = Math.max(rowH, resolveViewport())
-                    const approxStart = Math.max(0, Math.floor(scrollTop / rowH))
-                    const approxEnd = Math.max(approxStart + 1, Math.ceil((scrollTop + viewportPx) / rowH))
-                    visibleStartIdx = Math.min(rules.length - 1, approxStart)
-                    visibleEndIdxExclusive = Math.min(rules.length, approxEnd)
-                  }
-                } else {
-                  const pref = prefixHeightsRef.current
-                  const total = totalHeightRef.current
-                  const viewportPx = Math.max(1, resolveViewport())
-                  const viewBot = Math.min(total, scrollTop + viewportPx)
-                  const firstVisible = Math.max(0, upperBound(pref, scrollTop) - 1)
-                  const lastVisibleExclusive = Math.max(firstVisible + 1, upperBound(pref, viewBot))
-                  visibleStartIdx = Math.min(rules.length - 1, firstVisible)
-                  visibleEndIdxExclusive = Math.min(rules.length, lastVisibleExclusive)
-                }
-              }
-              const rows = shouldVirtualize ? rules.slice(start, end) : rules
-              const baseIndex = shouldVirtualize ? start : 0
               const spacerSx = { p: 0, border: 0, height: 0 }
-              let firstVisibleLineIdx: number | null = null
-              let lastVisibleLineIdx: number | null = null
+              const virtualItems = rowVirtualizer.getVirtualItems()
+              if (virtualItems.length === 0) return null
+              const totalHeight = Math.max(rowVirtualizer.getTotalSize(), 0)
+              const padTop = virtualItems[0]!.start
+              const padBottom = Math.max(0, totalHeight - virtualItems[virtualItems.length - 1]!.end)
+              const container = tableContainerRef.current
+              const viewportTopPx = container?.scrollTop ?? 0
+              const viewportBottomPx = viewportTopPx + (container?.clientHeight ?? 0)
+              // Compute the range hint based on "actually visible" rows, not overscan.
+              // Why: the overlay should reflect what the user can read, not what we pre-rendered.
+              let firstVisibleIndex = virtualItems[0]!.index
+              let lastVisibleIndex = virtualItems[virtualItems.length - 1]!.index
+              if (viewportBottomPx > viewportTopPx) {
+                let foundFirst: number | null = null
+                let foundLast: number | null = null
+                for (let i = 0; i < virtualItems.length; i += 1) {
+                  const item = virtualItems[i]!
+                  if (item.end <= viewportTopPx) continue
+                  if (item.start >= viewportBottomPx) break
+                  if (foundFirst === null) foundFirst = item.index
+                  foundLast = item.index
+                }
+                if (foundFirst !== null) firstVisibleIndex = foundFirst
+                if (foundLast !== null) lastVisibleIndex = foundLast
+              }
               return (
                 <>
                   {padTop > 0 && (
@@ -1233,16 +959,12 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
                       <TableCell colSpan={colSpan} sx={spacerSx} />
                     </TableRow>
                   )}
-                  {rows.map((r, i) => {
-                    const idx = baseIndex + i
-                    const rule = r as HsfRuleWithCfg
+                  {virtualItems.map((virtualItem) => {
+                    const idx = virtualItem.index
+                    const rule = rules[idx] as HsfRuleWithCfg | undefined
+                    if (!rule) return null
                     const cfgIdxNumber = resolveDisplayCfgIdx(rule as HsfRuleWithCfg)
                     const lineIdx = typeof rule.__lineIdx === 'number' ? rule.__lineIdx : idx
-                    if (idx >= visibleStartIdx && idx < visibleEndIdxExclusive) {
-                      const lineForRange = lineIdx
-                      if (firstVisibleLineIdx === null || lineForRange < firstVisibleLineIdx) firstVisibleLineIdx = lineForRange
-                      if (lastVisibleLineIdx === null || lineForRange > lastVisibleLineIdx) lastVisibleLineIdx = lineForRange
-                    }
                     const resolvedSource: RuleSource = (() => {
                       if (
                         rule.__source === RULE_SOURCE_HSF
@@ -1256,66 +978,61 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
                       return RULE_SOURCE_HSF
                     })()
                     const isKeepUniqueSource = resolvedSource === RULE_SOURCE_KEEP_UNIQUES
-                return (
-                <TableRow
-                  key={idx}
-                  hover
-                  data-row-index={idx}
-                  {...(cfgIdxNumber !== null ? { 'data-cfg-idx': String(cfgIdxNumber) } : {})}
-                  ref={(el) => {
-                    if (!el) return
-                    if (!wrapRows) {
-                      if (i === 0) {
-                        const h = el.offsetHeight
-                        if (h && Math.abs(h - fixedRowH) >= 1) setFixedRowH(h)
-                      }
-                    } else {
-                      // Measure per-row actual height for variable-height virtualization.
-                      updateRowHeight(idx, el.offsetHeight)
-                    }
-                  }}
-                  onMouseEnter={() => {
-                    if (!isHoveringArea) return
-                    const next = cfgIdxNumber
-                    scheduleLocalHover(next)
-                  }}
-                  // Do not clear on row leave; container onMouseLeave clears once.
-                  onClick={() => {
-                    if (cfgIdxNumber !== null) {
-                      // Keep-unique rows surface in the preview but do not map to chips, so only real configs trigger selection + auto-scroll.
-                      suppressNextScrollRef.current = true
-                      onSelectCfgIdx(cfgIdxNumber)
-                    }
-                  }}
-                  onContextMenu={(e) => {
-                    try {
-                      e.preventDefault()
-                      e.stopPropagation()
-                    } catch {}
-                    markRulesRowHintSeen()
-                    setRowHintPos(null)
-                    closeHeaderMenu()
-                    setRowMenu({
-                      open: true,
-                      x: e.clientX,
-                      y: e.clientY,
-                      cfgIdx: cfgIdxNumber,
-                      source: resolvedSource,
-                    })
-                  }}
-                  onMouseMove={(e) => {
-                    if (!showRulesRowHint || rowMenu?.open) return
-                    setHeaderHintPos(null)
-                    setRowHintPos({ x: e.clientX, y: e.clientY })
-                  }}
-                  sx={(theme) => ({
-                    height: !wrapRows ? fixedRowH : undefined,
-                    textDecoration: rule.Use === false ? 'line-through' : 'none',
-                    '&[data-selected-cfg="true"]': {
-                      backgroundColor: theme.palette.action.selected,
-                    },
-                  })}
-                >
+                    return (
+                      <TableRow
+                        key={virtualItem.key}
+                        hover
+                        data-row-index={idx}
+                        {...(cfgIdxNumber !== null ? { 'data-cfg-idx': String(cfgIdxNumber) } : {})}
+                        // Wrap mode needs measured heights so TanStack can compute the correct scroll range.
+                        // Fixed mode stays deterministic, so we avoid measuring to reduce layout churn.
+                        ref={(el) => {
+                          if (!el) return
+                          if (!wrapRows) return
+                          rowVirtualizer.measureElement(el)
+                        }}
+                        onMouseEnter={() => {
+                          if (!isHoveringArea) return
+                          const next = cfgIdxNumber
+                          scheduleLocalHover(next)
+                        }}
+                        // Do not clear on row leave; container onMouseLeave clears once.
+                        onClick={() => {
+                          if (cfgIdxNumber !== null) {
+                            // Keep-unique rows surface in the preview but do not map to chips, so only real configs trigger selection + auto-scroll.
+                            suppressNextScrollRef.current = true
+                            onSelectCfgIdx(cfgIdxNumber)
+                          }
+                        }}
+                        onContextMenu={(e) => {
+                          try {
+                            e.preventDefault()
+                            e.stopPropagation()
+                          } catch {}
+                          markRulesRowHintSeen()
+                          setRowHintPos(null)
+                          closeHeaderMenu()
+                          setRowMenu({
+                            open: true,
+                            x: e.clientX,
+                            y: e.clientY,
+                            cfgIdx: cfgIdxNumber,
+                            source: resolvedSource,
+                          })
+                        }}
+                        onMouseMove={(e) => {
+                          if (!showRulesRowHint || rowMenu?.open) return
+                          setHeaderHintPos(null)
+                          setRowHintPos({ x: e.clientX, y: e.clientY })
+                        }}
+                        sx={(theme) => ({
+                          height: wrapRows ? undefined : DEFAULT_FIXED_ROW_HEIGHT_PX,
+                          textDecoration: rule.Use === false ? 'line-through' : 'none',
+                          '&[data-selected-cfg="true"]': {
+                            backgroundColor: theme.palette.action.selected,
+                          },
+                        })}
+                      >
                       {visibleCols.map((c) => {
                         let value: string = ''
                         let factionLabel: string | null = null
@@ -1590,25 +1307,15 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
                           </TableCell>
                         )
                       })}
-                </TableRow>
+                      </TableRow>
                     )
                   })}
                   {(() => {
                     if (rules.length === 0) return null
-                    const fallbackFirstLine = (() => {
-                      if (rows.length === 0) return null
-                      const firstRule = rows[0] as HsfRuleWithCfg
-                      if (typeof firstRule.__lineIdx === 'number') return firstRule.__lineIdx
-                      return baseIndex
-                    })()
-                    const fallbackLastLine = (() => {
-                      if (rows.length === 0) return null
-                      const lastRule = rows[rows.length - 1] as HsfRuleWithCfg
-                      if (typeof lastRule.__lineIdx === 'number') return lastRule.__lineIdx
-                      return baseIndex + rows.length - 1
-                    })()
-                    const resolvedFirst = firstVisibleLineIdx ?? fallbackFirstLine
-                    const resolvedLast = lastVisibleLineIdx ?? fallbackLastLine
+                    const firstRule = rules[firstVisibleIndex] as HsfRuleWithCfg | undefined
+                    const lastRule = rules[lastVisibleIndex] as HsfRuleWithCfg | undefined
+                    const resolvedFirst = typeof firstRule?.__lineIdx === 'number' ? firstRule.__lineIdx : firstVisibleIndex
+                    const resolvedLast = typeof lastRule?.__lineIdx === 'number' ? lastRule.__lineIdx : lastVisibleIndex
                     if (resolvedFirst === null || resolvedLast === null) return null
                     const rangeStart = Math.min(resolvedFirst, resolvedLast) + 1
                     const rangeEnd = Math.max(resolvedFirst, resolvedLast) + 1
