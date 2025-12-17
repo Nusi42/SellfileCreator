@@ -982,7 +982,6 @@ function summaryParts(
       const metasetTextEntries = metaEntries.filter(entry => entry.iconId === DEFAULT_METASET_ICON_ID)
       const metasetIconEntries = metaEntries.filter(entry => entry.iconId !== DEFAULT_METASET_ICON_ID)
       const metasetTextParts = metasetTextEntries.map(entry => String(entry.name))
-      const metasetTextTitle = metasetTextParts.join(', ')
       const nodes: JSX.Element[] = []
       let isFirst = true
       const pushNode = (
@@ -1018,7 +1017,6 @@ function summaryParts(
           'metaset-text',
           metasetTextParts.join(', '),
           { display: 'inline', overflowWrap: 'anywhere' },
-          metasetTextTitle,
         )
       }
 

@@ -54,7 +54,6 @@ const overrides: Catalog = {
   pushSellfileTooltip: 'Envia o Sellfile para {endpoint}',
   manageColorsAria: 'Gerir cores',
   // Rule Tester
-  gearDialogOpenLabel: 'Equipamento...',
   gearDialogOpenTooltip: 'Abra o diálogo Logic Hub no separador “Equipamento” para carregar uma base de dados do RSL Helper ou criar peças de exemplo sem sair da pré-visualização.',
   gearDialogTitle: 'Equipamento',
   gearDialogIntro: 'Use o diálogo Equipamento (Logic Hub → separador Equipamento) para criar equipamento de amostra e ver qual regra o mantém ou vende. Carregue ou arraste uma BD do RSL Helper (normalmente em %APPDATA%\\RslHelper\\Config) para que a vista do Teste de Regras mostre equipamento real.',
@@ -1273,4 +1272,3 @@ const overrides: Catalog = {
 }
 
 export default overrides
-

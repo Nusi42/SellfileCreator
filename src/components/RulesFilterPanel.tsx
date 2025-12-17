@@ -340,7 +340,7 @@ const sectionHeaderLabelTextSx = {
   whiteSpace: 'nowrap',
 } as const
 
-const SectionHeaderLabel = ({ label }: { label: React.ReactNode }) => (
+const SectionHeaderLabel = ({ label }: { label: string }) => (
   <EllipsisTooltip title={label} wrap="block">
     <FormLabel sx={sectionHeaderLabelSx}>
       <Box component="span" data-ellipsis-target sx={sectionHeaderLabelTextSx}>
@@ -717,13 +717,13 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
     actions,
     fullWidth = true,
     maxWidth,
-  }: {
-    id: keyof typeof collapsed
-    label: React.ReactNode
-    actions?: React.ReactNode
-    fullWidth?: boolean
-    maxWidth?: number | string
-  }) => {
+	  }: {
+	    id: keyof typeof collapsed
+	    label: string
+	    actions?: React.ReactNode
+	    fullWidth?: boolean
+	    maxWidth?: number | string
+	  }) => {
     const resolvedMax = typeof maxWidth === 'number' ? `${maxWidth}px` : maxWidth
     return (
       <Box
@@ -1967,7 +1967,6 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                               <EllipsisTooltip
                                 title={tooltipName}
                                 wrap="block"
-                                disablePortal={false}
                               >
                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: displayGap, minWidth: 0 }}>
                                   {hasGlyph ? (
@@ -2431,24 +2430,27 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                           key={option.value}
                           value={option.value}
                           aria-label={option.tooltip}
-                          title={option.tooltip}
                           onClick={(event) => {
                             event.preventDefault()
                             event.stopPropagation()
                             handleLastUsePresetToggle(option.value as TesterLastUsePreset)
                           }}
                         >
-                          <EllipsisTooltip title={option.tooltip} wrap="block">
+                          <MarkdownTooltip
+                            markdown={option.tooltip}
+                            // Expose the full label via OS tooltip only when the button text is truncated.
+                            ellipsisTitle={option.label}
+                            hoverIntent="interactive"
+                          >
                             <Typography component="span" noWrap sx={toggleLabelSx} data-ellipsis-target>
                               {option.label}
                             </Typography>
-                          </EllipsisTooltip>
+                          </MarkdownTooltip>
                         </ToggleButton>
                       ))}
                       <ToggleButton
                         value="advanced"
                         aria-label={lastUseAdvancedLabel}
-                        title={lastUseAdvancedLabel}
                         selected={lastUseCustom.enabled}
                         onClick={(event) => {
                           event.preventDefault()
@@ -2456,9 +2458,9 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                           handleLastUsePopoverOpen(event)
                         }}
                       >
-                        <EllipsisTooltip title={lastUseAdvancedLabel} wrap="block">
-                          <SettingsIcon fontSize="small" data-ellipsis-target />
-                        </EllipsisTooltip>
+                        <MarkdownTooltip markdown={lastUseAdvancedLabel} hoverIntent="interactive">
+                          <SettingsIcon fontSize="small" />
+                        </MarkdownTooltip>
                       </ToggleButton>
                     </ToggleButtonGroup>
                   </Stack>

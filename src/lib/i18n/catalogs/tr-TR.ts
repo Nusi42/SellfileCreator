@@ -54,7 +54,6 @@ const overrides: Catalog = {
   pushSellfileTooltip: '{endpoint} adresine Sellfile gönderir',
   manageColorsAria: 'Renkleri yönet',
   // Rule Tester
-  gearDialogOpenLabel: 'Ekipman...',
   gearDialogOpenTooltip: 'Önizlemeden çıkmadan RSL Helper veritabanı yüklemek veya örnek eşyalar hazırlamak için Logic Hub iletişim kutusunu “Ekipman” sekmesinde açın.',
   gearDialogTitle: 'Ekipman',
   gearDialogIntro: 'Ekipman diyaloğunu (Logic Hub → Gear sekmesi) kullanarak örnek ekipman oluşturun ve hangi kuralın tutup satacağını görün. RSL Helper veritabanını (genellikle %APPDATA%\\RslHelper\\Config) uygulamaya yükleyin veya sürükleyin ki Kural Testi görünümü gerçek eşyaları göstersin.',

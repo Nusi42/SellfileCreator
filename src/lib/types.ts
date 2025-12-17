@@ -1155,7 +1155,7 @@ export const LEVEL_ANY_SENTINEL = 99 as const
 export function formatLevel(level?: number): string {
   if (level === undefined || level === null) return ''
   if (level === LEVEL_ANY_SENTINEL) return ''
-  // Display ranges for checkpoint levels: 0->"0-3", 4->"4-7", ... 12->"12-15", 16->"16"
+  // Display ranges for checkpoint levels: 0->"0-3", 4->"4-7", … 12->"12-15", 16->"16"
   if ([0, 4, 8, 12, 16].includes(level)) {
     const start = level
     const end = Math.min(level + 3, 16)

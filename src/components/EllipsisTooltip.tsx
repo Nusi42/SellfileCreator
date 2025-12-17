@@ -1,106 +1,82 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useRef } from 'react'
 import { Box } from '@mui/material'
-import { useScrollingFlag } from '../hooks/useScrollingFlag'
-import MarkdownTooltip, { hasPrimaryPointerHandler, type TooltipHoverIntent } from './MarkdownTooltip'
-import { MARKDOWN_TOOLTIP_INFO_ENTER_DELAY_MS, MARKDOWN_TOOLTIP_INTERACTIVE_ENTER_DELAY_MS } from '../lib/constants'
-import { hasEllipsisOverflow } from '../lib/ellipsis'
+import { hasEllipsisOverflow, pickEllipsisTarget } from '../lib/ellipsis'
 
 export { hasEllipsisOverflow, pickEllipsisTarget } from '../lib/ellipsis'
 
-// EllipsisTooltip wraps content that might truncate and only opens when text is visually clipped.
+// EllipsisTooltip applies a native OS tooltip (`title`) only when text is actually truncated.
+// Why: Native tooltips are only desired for "expand the ellipsis" behavior; everything else should use MarkdownTooltip.
 export function EllipsisTooltip({
   title,
   children,
   selector,
   disabled,
   wrap = 'inline',
-  // Default to the global tooltip portal so overflow helpers never enlarge their scroll parents.
-  disablePortal = false,
-  maxWidth,
-  hoverIntent = 'auto',
 }: {
-  title: React.ReactNode | string
+  // Native title can only be a string; keep the API strict so callers don’t expect Markdown formatting here.
+  title: string
   children: React.ReactNode
   selector?: string
   disabled?: boolean
   wrap?: 'inline' | 'block'
-  disablePortal?: boolean
-  maxWidth?: number | string
-  hoverIntent?: TooltipHoverIntent
 }) {
-  const ref = useRef<HTMLElement | null>(null)
-  const [open, setOpen] = useState(false)
-  // Mirror MarkdownTooltip’s hover delay so overflow tooltips don’t pop instantly.
-  const hoverTimerRef = useRef<number | null>(null)
-  const scrolling = useScrollingFlag()
-  const popperSlotProps = { disablePortal }
-  const tooltipSlotProps = maxWidth != null ? { sx: { maxWidth } } : null
-  const tooltipProps = typeof title === 'string'
-    ? { markdown: title }
-    : { render: title }
-  // Detect nested click targets so the overflow helper inherits the slower hover delay when wrapping buttons.
-  const childHasPrimaryPointerHandler = useMemo(() => hasPrimaryPointerHandler(children), [children])
-  const treatAsInteractive = hoverIntent === 'interactive' || (hoverIntent === 'auto' && childHasPrimaryPointerHandler)
-  const resolvedEnterDelay = treatAsInteractive
-    ? MARKDOWN_TOOLTIP_INTERACTIVE_ENTER_DELAY_MS
-    : MARKDOWN_TOOLTIP_INFO_ENTER_DELAY_MS
+  // Track the last element we touched so we can restore any pre-existing title attribute.
+  // Why: We should never permanently stomp an explicit title on nested children.
+  const titleTargetRef = useRef<HTMLElement | null>(null)
+  const originalTitleRef = useRef<string | null>(null)
 
-  // Shared helper ensures delayed openings cancel cleanly when the pointer exits early.
-  const clearHoverTimer = () => {
-    if (hoverTimerRef.current === null) return
-    window.clearTimeout(hoverTimerRef.current)
-    hoverTimerRef.current = null
-  }
+  // Restore the title attribute back to its original state (or remove it).
+  // Why: Native tooltips are stateful on the DOM; leaving stale titles causes confusing hover behavior.
+  const restoreTitle = useCallback(() => {
+    const target = titleTargetRef.current
+    if (!target) return
+    const original = originalTitleRef.current
+    if (original === null) {
+      target.removeAttribute('title')
+    } else {
+      target.setAttribute('title', original)
+    }
+    titleTargetRef.current = null
+    originalTitleRef.current = null
+  }, [])
 
-  // Dismiss the tooltip immediately on pointer/key interactions.
-  // Why: Opening Select menus can cover the trigger without firing mouseleave, keeping the tooltip stuck.
-  const dismiss = () => {
-    clearHoverTimer()
-    setOpen(false)
-  }
+  // Recompute the truncation measurement and only apply the native tooltip when needed.
+  // Why: We only want OS tooltips for overflow; normal tooltips should remain Popper-based.
+  const syncTitleForOverflow = useCallback((root?: HTMLElement | null) => {
+    restoreTitle()
+    if (disabled || !root) return
+    const target = pickEllipsisTarget(root, selector)
+    titleTargetRef.current = target
+    originalTitleRef.current = target.getAttribute('title')
+    if (!hasEllipsisOverflow(target)) {
+      restoreTitle()
+      return
+    }
+    target.setAttribute('title', title)
+  }, [disabled, restoreTitle, selector, title])
 
-  // Dispose timers when the component unmounts so we never fire stale state updates.
-  useEffect(() => clearHoverTimer, [])
+  // Ensure we never leave a native tooltip behind when unmounting or disabling the wrapper.
+  // Why: A removed node cannot receive `mouseleave`/`blur` events, so we must clean up proactively.
+  useEffect(() => restoreTitle, [restoreTitle])
+  useEffect(() => {
+    if (!disabled) return
+    restoreTitle()
+  }, [disabled, restoreTitle])
 
   return (
-    <MarkdownTooltip
-      {...tooltipProps}
-      followCursor={false}
-      disableHoverListener
-      hoverIntent={hoverIntent}
-      slotProps={tooltipSlotProps ? { popper: popperSlotProps, tooltip: tooltipSlotProps } : { popper: popperSlotProps }}
-      // Close while scrolling to avoid stale placement after scroll.
-      open={!disabled && open && !scrolling}
+    <Box
+      component={wrap === 'block' ? 'div' : 'span'}
+      // Wrapper mimics the child’s display mode so we can attach hover listeners without layout shifts.
+      sx={{ display: wrap === 'block' ? 'block' : 'inline-flex', minWidth: 0, width: wrap === 'block' ? '100%' : undefined }}
+      onPointerDownCapture={restoreTitle}
+      onKeyDownCapture={restoreTitle}
+      onMouseEnter={(e: React.MouseEvent<HTMLElement>) => syncTitleForOverflow(e.currentTarget)}
+      onMouseLeave={restoreTitle}
+      onFocus={(e: React.FocusEvent<HTMLElement>) => syncTitleForOverflow(e.currentTarget)}
+      onBlur={restoreTitle}
     >
-      <Box
-        ref={(el) => { ref.current = el as HTMLElement | null }}
-        component={wrap === 'block' ? 'div' : 'span'}
-        // Wrapper mimics the child’s display mode so we can attach hover listeners without layout shifts.
-        sx={{ display: wrap === 'block' ? 'block' : 'inline-flex', minWidth: 0, width: wrap === 'block' ? '100%' : undefined }}
-        onPointerDownCapture={dismiss}
-        onKeyDownCapture={dismiss}
-        onMouseEnter={(e: React.MouseEvent<HTMLElement>) => {
-          if (disabled) return
-          const root = e.currentTarget as HTMLElement
-          clearHoverTimer()
-          if (!hasEllipsisOverflow(root, selector)) {
-            setOpen(false)
-            return
-          }
-          hoverTimerRef.current = window.setTimeout(() => {
-            hoverTimerRef.current = null
-            // Re-measure after the delay so dynamic labels don't show stale tooltips.
-            setOpen(hasEllipsisOverflow(root, selector))
-          }, resolvedEnterDelay)
-        }}
-        onMouseLeave={() => {
-          clearHoverTimer()
-          setOpen(false)
-        }}
-      >
-        {children}
-      </Box>
-    </MarkdownTooltip>
+      {children}
+    </Box>
   )
 }
 

@@ -54,7 +54,6 @@ const catalog: Catalog = {
   pushSellfileTooltip: 'Envia o Sellfile para {endpoint}',
   manageColorsAria: 'Gerenciar cores',
   // Rule Tester
-  gearDialogOpenLabel: 'Equipamentos...',
   gearDialogOpenTooltip: 'Abra o diálogo Logic Hub na guia “Equipamentos” para carregar um banco de dados do RSL Helper ou montar itens de exemplo sem sair da prévia.',
   gearDialogTitle: 'Equipamentos',
   gearDialogIntro: 'Use o diálogo Equipamentos (Logic Hub → guia Equipamentos) para criar peças de exemplo e ver qual regra mantém ou vende o item. Carregue ou arraste um banco de dados do RSL Helper (geralmente em %APPDATA%\\RslHelper\\Config) para que a visualização do Teste de Regras reflita equipamentos reais.',
@@ -1273,4 +1272,3 @@ const catalog: Catalog = {
 }
 
 export default catalog
-

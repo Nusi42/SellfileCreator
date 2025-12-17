@@ -54,7 +54,6 @@ const overrides: Catalog = {
   pushSellfileTooltip: 'Отправляет Sellfile на {endpoint}',
   manageColorsAria: 'Управление цветами',
   // Rule Tester
-  gearDialogOpenLabel: 'Снаряжение...',
   gearDialogOpenTooltip: 'Откройте диалог Logic Hub на вкладке «Снаряжение», чтобы загрузить базу RSL Helper или собрать примерные предметы, не выходя из предпросмотра.',
   gearDialogTitle: 'Снаряжение',
   gearDialogIntro: 'Используйте диалог «Снаряжение» (Logic Hub → вкладка) чтобы создать примерные вещи и увидеть, какое правило их оставит или продаст. Загрузите или перетащите базу RSL Helper (обычно в %APPDATA%\\RslHelper\\Config), чтобы режим тестера показывал реальные предметы.',
@@ -1273,4 +1272,3 @@ const overrides: Catalog = {
 }
 
 export default overrides
-
