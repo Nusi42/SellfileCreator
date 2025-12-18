@@ -24,12 +24,32 @@ type PrepareAppOptions = {
 const README_KEY = 'sellfileCreator.readme.seen.version'
 const TUTORIAL_KEY = 'sellfileCreator.tutorial.seen.version'
 const AUTOSAVE_KEY = 'sellfileCreator.autosave.hsfc.v1'
+// The preview filter drawer (and its "limit configs" toggles) is persisted in localStorage.
+// Why: Playwright runs must start from a clean baseline so scroll/virtualization assertions match user repro steps.
+const RULES_FILTER_OPEN_KEY = 'sellfileCreator.rulesFilter.open.v2'
+const RULES_FILTER_STATE_KEY = 'sellfileCreator.rulesFilter.state.v3'
+const RULES_FILTER_COLLAPSED_KEY = 'sellfileCreator.rulesFilter.collapse.v3'
+const RULES_FILTER_SYNC_KEY = 'sellfileCreator.rulesFilter.sync.v1'
+// Saved presets can carry filter + tester config filter modes that drastically change which rows render.
+// Why: chip-scroll bugs are sensitive to row count/ordering, so avoid inheriting a previous developer preset.
+const FILTER_PRESETS_KEY = 'sellfileCreator.filterPresets.v1'
 
 export async function prepareApp(page: Page, options: PrepareAppOptions = {}): Promise<void> {
   const version = readAppVersion()
   const { stubClipboard = false } = options
   await page.addInitScript(
-    ({ readmeKey, tutorialKey, autosaveKey, versionValue, shouldStubClipboard }) => {
+    ({
+      readmeKey,
+      tutorialKey,
+      autosaveKey,
+      versionValue,
+      shouldStubClipboard,
+      rulesFilterOpenKey,
+      rulesFilterStateKey,
+      rulesFilterCollapsedKey,
+      rulesFilterSyncKey,
+      filterPresetsKey,
+    }) => {
       try {
         window.localStorage.setItem(readmeKey, versionValue)
       } catch {
@@ -44,6 +64,11 @@ export async function prepareApp(page: Page, options: PrepareAppOptions = {}): P
         window.localStorage.removeItem(autosaveKey)
       } catch {
         /* localStorage unavailable */
+      }
+      // Clear filter state so tests start unfiltered by default.
+      // Why: lingering filter/sync state changes the merged rules list and makes scroll tests flaky.
+      for (const key of [rulesFilterOpenKey, rulesFilterStateKey, rulesFilterCollapsedKey, rulesFilterSyncKey, filterPresetsKey]) {
+        try { window.localStorage.removeItem(key) } catch {}
       }
       try {
         Object.defineProperty(window, 'isSecureContext', {
@@ -77,6 +102,11 @@ export async function prepareApp(page: Page, options: PrepareAppOptions = {}): P
       autosaveKey: AUTOSAVE_KEY,
       versionValue: version,
       shouldStubClipboard: stubClipboard,
+      rulesFilterOpenKey: RULES_FILTER_OPEN_KEY,
+      rulesFilterStateKey: RULES_FILTER_STATE_KEY,
+      rulesFilterCollapsedKey: RULES_FILTER_COLLAPSED_KEY,
+      rulesFilterSyncKey: RULES_FILTER_SYNC_KEY,
+      filterPresetsKey: FILTER_PRESETS_KEY,
     },
   )
 }

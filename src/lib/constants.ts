@@ -461,12 +461,10 @@ export const FILTER_CHIP_OPACITY = 0.75
 export const RULES_TABLE_OVERSCAN_FAST = 4
 export const RULES_TABLE_OVERSCAN_IDLE = 20
 
-// Rules table scroll behavior
-// Nearby threshold for deciding when to use smooth scrolling in single-line mode.
-// Expressed as a multiple of the current viewport height to preserve intent
-// across different window sizes. When the target row is farther than this
-// threshold, we jump instantly to avoid long smooth animations.
-export const RULES_TABLE_SMOOTH_SCROLL_NEARBY_VIEWPORTS = 1.5
+// Rules table row height (single-line mode)
+// Why: In single-line mode, we intentionally keep every preview row a strict fixed height so TanStack virtualization
+// can compute exact offsets without DOM measurement, even for very large index jumps.
+export const RULES_TABLE_FIXED_ROW_HEIGHT_PX = 34
 
 // Throttle for propagating hover from the preview table to the chips panel
 // Why: Rapid hover updates across thousands of rows can cause frequent

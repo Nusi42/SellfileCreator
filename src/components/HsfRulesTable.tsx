@@ -11,15 +11,16 @@ import { RULE_SOURCE_FINAL_SELL, RULE_SOURCE_HSF, RULE_SOURCE_HSFC, RULE_SOURCE_
 import { /* formatArtifactSets */ formatLevel, formatRank, /* labelOfVariant, */ mainToVariant, rarityCodeToName, artifactSetName, compareArtifactTypes, artifactTypeI18nKey, statVariantI18nKey, compareArtifactSets, factionI18nKey, type FactionId, getLocalizedGearSetName } from '../lib/types'
 import EllipsisTooltip from './EllipsisTooltip'
 import MarkdownTooltip from './MarkdownTooltip'
-import {
-  NBSP,
-  MENU_CONTROL_HEIGHT_PX,
-  MENU_CONTROL_MIN_WIDTH_PX,
-  RULES_TABLE_OVERSCAN_IDLE,
-  RULES_TABLE_HOVER_PROPAGATION_MS,
-  RULES_TABLE_SCROLL_HINT_HIDE_MS,
-  FONT_SIZE_BASE_PX,
-  HOVER_BG_ALPHA,
+	import {
+	  NBSP,
+	  MENU_CONTROL_HEIGHT_PX,
+	  MENU_CONTROL_MIN_WIDTH_PX,
+	  RULES_TABLE_OVERSCAN_IDLE,
+	  RULES_TABLE_FIXED_ROW_HEIGHT_PX,
+	  RULES_TABLE_HOVER_PROPAGATION_MS,
+	  RULES_TABLE_SCROLL_HINT_HIDE_MS,
+	  FONT_SIZE_BASE_PX,
+	  HOVER_BG_ALPHA,
   SELECTED_HOVER_BG_ALPHA,
   RULE_COUNT_LIMIT,
 } from '../lib/constants'
@@ -50,7 +51,6 @@ const FACTION_ICON_PREVIEW_SCALE = 1.2 as const
 const FACTION_ICON_PREVIEW_OFFSET_PX = 0 as const
 // Single-line spans now stay centered with no vertical nudge; keep the constant for quick tuning across browsers.
 const SINGLE_LINE_PREVIEW_OFFSET_PX = 3 as const
-const FOCUS_SCROLL_MAX_ATTEMPTS = 6 as const
 // Builder configs map rows via ConfigID (1-based). Base rules, keep-unique injections, and other
 // config-less rows omit ConfigID, so they should not participate in config selection math.
 const resolveDisplayCfgIdx = (rule: HsfRuleWithCfg | null | undefined): number | null => {
@@ -88,9 +88,13 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
       colorBlindMode === 'normal' ? 'okabeIto' : (colorBlindMode === 'okabeIto' ? 'tritan' : 'normal')
     onChangeColorBlindMode(nextMode)
   }, [colorBlindMode, onChangeColorBlindMode])
-  // Default fixed row height for single-line mode.
-  // Why: The preview table intentionally clamps rows to a consistent height so scrolling stays predictable.
-  const DEFAULT_FIXED_ROW_HEIGHT_PX: number = 30
+  // Single-line mode is strict fixed-height (see `RULES_TABLE_FIXED_ROW_HEIGHT_PX`).
+  // Why: fixed-height makes `scrollToIndex` exact even for very large lists without DOM measurement.
+  // Wrap mode rows are variable-height; still provide a realistic estimate so `scrollToIndex` lands near the target.
+  // Why: the virtualizer must pick an initial offset before it has any measured rows to learn from.
+  // Keep the estimate a bit high.
+  // Why: under-estimates tend to land short (target still offscreen), while small over-estimates usually self-correct.
+  const DEFAULT_WRAP_ROW_ESTIMATE_PX: number = 96
   const emptyLabel = useMemo(() => {
     if (rules.length > 0) return null
     const limitText = new Intl.NumberFormat(undefined).format(RULE_COUNT_LIMIT)
@@ -104,16 +108,14 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
   // Table container refs power both virtualization and DOM-based hover styling.
   const tableContainerRef = useRef<HTMLDivElement | null>(null)
   const headerRef = useRef<HTMLTableSectionElement | null>(null)
-  // Small pixel correction for sub-pixel borders/rounding so alignment does not "jitter".
-  const HEADER_SCROLL_FUDGE_PX: number = 2
   const [containerW, setContainerW] = useState(0)
   const [showScrollRangeHint, setShowScrollRangeHint] = useState(false)
   const scrollRangeVisibleRef = useRef(false)
   const scrollRangeHideTimerRef = useRef<ReturnType<typeof window.setTimeout> | null>(null)
-  const [emptyOverlayOffset, setEmptyOverlayOffset] = useState(0)
-  // Focus requests can arrive before the row is mounted/measured; keep a bounded retry budget.
-  const pendingRuleFocusRef = useRef<{ index: number; attempts: number } | null>(null)
-  // No custom scrolling animations: in multi-line we jump; in single-line we use native smooth.
+  // Sticky header height participates in both empty overlays and the "actually visible" viewport math.
+  // Why: the table header consumes vertical space that should not count as visible row real estate.
+  const [headerHeightPx, setHeaderHeightPx] = useState(0)
+  // No custom scroll animations for now: always jump directly to the target.
   const WRAP_ROWS_KEY = 'sellfileCreator.rulesTableWrapRows.v1'
   const [wrapRows, setWrapRows] = useState<boolean>(() => {
     try {
@@ -510,41 +512,64 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
   // Single TanStack virtualizer drives both fixed and wrap modes.
   // Why: This replaces the bespoke prefix-sum windowing logic while preserving the `<Table>` structure.
   const rowVirtualizer = useVirtualizer({
+    // Virtualize the `rules[]` array directly.
+    // Why: all config span / selection math is expressed as indices into this array.
     count: rules.length,
+    // Use the preview `<TableContainer>` as the scroll element.
+    // Why: scroll must remain confined to the preview panel (not the window).
     getScrollElement: () => tableContainerRef.current,
-    estimateSize: () => DEFAULT_FIXED_ROW_HEIGHT_PX,
+    // Provide an initial height estimate per row.
+    // Why: TanStack needs something to compute offsets before any DOM rows are measured.
+    estimateSize: () => (wrapRows ? DEFAULT_WRAP_ROW_ESTIMATE_PX : RULES_TABLE_FIXED_ROW_HEIGHT_PX),
+    // Render extra rows above/below the viewport.
+    // Why: reduces visible pop-in during fast scroll without changing UX-visible range math.
     overscan: RULES_TABLE_OVERSCAN_IDLE,
+    // Keep keys stable across filter/sort (and between fixed vs wrap).
+    // Why: key stability prevents measurements from attaching to the wrong logical row.
     getItemKey: getRuleVirtualKey,
   })
-  // Align a target row beneath the sticky header with bounded retries.
-  // Why: wrap mode rows are measured lazily, so we may need a couple of rAF ticks to converge.
-  const alignRowIndexUnderHeader = useCallback((rowIndex: number, attempts: number) => {
+
+  // Resolve the "actually visible" row indices (excluding overscan) for UX decisions like chip auto-scroll.
+  // Why: overscan exists for perf, but UX should reflect what the user can read in the viewport.
+  const getActuallyVisibleIndexRange = useCallback((): { first: number; last: number } | null => {
+    // Virtualization + DOM refs both depend on the scroll container being mounted.
     const container = tableContainerRef.current
-    if (!container || rowIndex < 0 || rowIndex >= rules.length) return
-    const rowEl = container.querySelector(`[data-row-index="${rowIndex}"]`) as HTMLTableRowElement | null
-    if (!rowEl) {
-      if (attempts <= 0) return
-      requestAnimationFrame(() => alignRowIndexUnderHeader(rowIndex, attempts - 1))
-      return
+    if (!container) return null
+    if (rules.length === 0) return null
+    // Use TanStack's own offset→item lookup instead of scanning overscanned items.
+    // Why: it stays consistent with TanStack's internal measurements and alignment rules.
+    // The `<thead>` is sticky and visually occupies the top of the scroll container.
+    // Why: rows behind it are not readable and should not count as "visible" for the range overlay.
+    const scrollTopPx = container.scrollTop
+    // Model the readable top as the first pixel below the header.
+    // Why: in table layout, the body begins under the header, and as we scroll, rows move under the sticky header.
+    const viewportTopPx = Math.max(0, scrollTopPx)
+    // Model the readable bottom as the container bottom, minus the header's occupied height.
+    // Why: only the remaining vertical space is available for body rows.
+    const viewportBottomPx = Math.max(
+      viewportTopPx,
+      scrollTopPx + Math.max(0, container.clientHeight - headerHeightPx - 1),
+    )
+    const topItem = rowVirtualizer.getVirtualItemForOffset(viewportTopPx)
+    const bottomItem = rowVirtualizer.getVirtualItemForOffset(Math.max(viewportTopPx, viewportBottomPx))
+    if (topItem && bottomItem) {
+      const first = Math.min(topItem.index, bottomItem.index)
+      const last = Math.max(topItem.index, bottomItem.index)
+      return { first, last }
     }
-    const containerRect = container.getBoundingClientRect()
-    const rowRect = rowEl.getBoundingClientRect()
-    // `<Table stickyHeader>` keeps the header in-flow, so the first body row naturally begins below it.
-    // Why: subtracting a measured header height would over-correct and reveal extra rows from the previous config.
-    const delta = (rowRect.top - containerRect.top) - HEADER_SCROLL_FUDGE_PX
-    if (Math.abs(delta) <= 0.5) return
-    const nextTop = Math.max(0, Math.round(container.scrollTop + delta))
-    try { container.scrollTo({ top: nextTop, behavior: 'auto' }) } catch { try { container.scrollTop = nextTop } catch {} }
-    if (attempts <= 0) return
-    requestAnimationFrame(() => alignRowIndexUnderHeader(rowIndex, attempts - 1))
-  }, [rules.length])
-  // Scroll an index into view and then align it under the sticky header.
-  // Why: `scrollToIndex` uses estimated/measured sizes; the alignment step accounts for sticky header chrome.
-  const scrollRuleIndexIntoView = useCallback((ruleIndex: number, behavior: 'auto' | 'smooth' = 'smooth') => {
-    if (ruleIndex < 0 || ruleIndex >= rules.length) return
-    rowVirtualizer.scrollToIndex(ruleIndex, { align: 'start', behavior })
-    requestAnimationFrame(() => alignRowIndexUnderHeader(ruleIndex, wrapRows ? 6 : 1))
-  }, [alignRowIndexUnderHeader, rowVirtualizer, rules.length, wrapRows])
+    // Fallback: use the rendered window when offsets are not resolvable yet (e.g. before first measurement).
+    const virtualItems = rowVirtualizer.getVirtualItems()
+    if (virtualItems.length === 0) return null
+    return { first: virtualItems[0]!.index, last: virtualItems[virtualItems.length - 1]!.index }
+  }, [headerHeightPx, rowVirtualizer, rules.length])
+	  // Scroll an index into view (anchored to the top of the tbody rows).
+	  // Why: the sticky header is in-flow, so TanStack already lands body rows beneath it without extra alignment.
+	  const scrollRuleIndexToTop = useCallback((ruleIndex: number) => {
+	    if (ruleIndex < 0 || ruleIndex >= rules.length) return
+	    // Always use immediate jumps.
+	    // Why: smooth scrolling is intentionally disabled for now to avoid "missed target" behavior on dynamic-size lists.
+	    rowVirtualizer.scrollToIndex(ruleIndex, { align: 'start' })
+	  }, [rowVirtualizer, rules.length])
 
   const clampRuleIndex = useCallback((index: number | null | undefined) => {
     if (typeof index !== 'number' || !Number.isFinite(index) || rules.length === 0) return null
@@ -553,61 +578,40 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
 
   // External request to focus a specific rule
   useEffect(() => {
-    if (focusRuleIndex == null) {
-      pendingRuleFocusRef.current = null
-      return
-    }
+    if (focusRuleIndex == null) return
+    // Clamp in case callers pass stale indices after filtering.
+    // Why: focus requests come from other panels and should never crash scrolling.
     const clamped = clampRuleIndex(focusRuleIndex)
-    if (clamped == null) {
-      pendingRuleFocusRef.current = null
-      return
-    }
-    if (!wrapRows) {
-      requestAnimationFrame(() => {
-        scrollRuleIndexIntoView(clamped, 'smooth')
-        onFocusRuleSettled?.()
-      })
-      pendingRuleFocusRef.current = null
-      return
-    }
-    pendingRuleFocusRef.current = { index: clamped, attempts: FOCUS_SCROLL_MAX_ATTEMPTS }
-    requestAnimationFrame(() => scrollRuleIndexIntoView(clamped, 'smooth'))
-  }, [focusRuleIndex, clampRuleIndex, wrapRows, onFocusRuleSettled, rules.length, scrollRuleIndexIntoView])
-
-  useEffect(() => {
-    if (!wrapRows) return
-    const pending = pendingRuleFocusRef.current
-    if (!pending) return
-    if (pending.attempts <= 0) {
-      pendingRuleFocusRef.current = null
-      onFocusRuleSettled?.()
-      return
-    }
-    pending.attempts -= 1
-    const index = pending.index
+    if (clamped == null) return
     requestAnimationFrame(() => {
-      scrollRuleIndexIntoView(index, 'auto')
-      const active = pendingRuleFocusRef.current
-      if (active && active.attempts <= 0) {
-        pendingRuleFocusRef.current = null
-        onFocusRuleSettled?.()
-      }
+      // Defer to the next frame so the scroll container is mounted and measurable.
+      // Why: focus requests can arrive during transitions while React is still committing DOM.
+      scrollRuleIndexToTop(clamped)
+      onFocusRuleSettled?.()
     })
-  }, [wrapRows, onFocusRuleSettled, scrollRuleIndexIntoView])
+	  }, [focusRuleIndex, clampRuleIndex, onFocusRuleSettled, scrollRuleIndexToTop])
 
-  // When selection changes (e.g., user clicked a config chip), scroll the first rule into view.
-  // Why: Keeping the preview and chips in sync is more important than complex "full block fit" heuristics.
+  // When selection changes (e.g., user clicked a config chip), scroll to the start of that config’s preview block.
+  // Why: per request, rely on TanStack’s built-in scrolling rather than custom "fits/above" heuristics.
   const suppressNextScrollRef = useRef<boolean>(false)
   useEffect(() => {
     if (selectedCfgIdx === null || selectedCfgIdx === undefined) return
     if (multiselectActive) return
     // If selection came from a table row click, skip this one automatic scroll.
     if (suppressNextScrollRef.current) { suppressNextScrollRef.current = false; return }
+    // Map the selected config to its contiguous range of preview rows.
+    // Why: a config can generate multiple rules (or none), and the preview must jump to the correct block.
     const span = getConfigSpan(selectedCfgIdx as number)
-    const idx = span?.first ?? -1
-    if (idx < 0 || idx >= rules.length) return
-    scrollRuleIndexIntoView(idx, wrapRows ? 'auto' : 'smooth')
-  }, [getConfigSpan, multiselectActive, rules.length, scrollRuleIndexIntoView, selectedCfgIdx, wrapRows])
+    if (!span) return
+    // Always anchor to the first rule row.
+    // Why: this is deterministic and avoids any extra "correction" scrolling logic.
+    scrollRuleIndexToTop(span.first)
+	  }, [
+	    getConfigSpan,
+	    multiselectActive,
+	    scrollRuleIndexToTop,
+    selectedCfgIdx,
+  ])
 
   useEffect(() => {
     const el = tableContainerRef.current
@@ -767,11 +771,14 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
   useLayoutEffect(() => {
     const node = headerRef.current
     if (!node) {
-      setEmptyOverlayOffset(0)
+      setHeaderHeightPx(0)
       return
     }
     const measure = () => {
-      setEmptyOverlayOffset(node.getBoundingClientRect().height || 0)
+      // Prefer integer layout metrics to avoid 1px oscillations from fractional `getBoundingClientRect` heights.
+      // Why: the header height feeds TanStack scroll padding/margins, so subpixel drift creates visible jitter.
+      const next = Math.max(0, Math.round(node.offsetHeight || node.getBoundingClientRect().height || 0))
+      setHeaderHeightPx(prev => (prev === next ? prev : next))
     }
     measure()
     if (typeof ResizeObserver !== 'undefined') {
@@ -874,7 +881,29 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
           setRowHintPos(null)
         }}
       >
-        <Table size="small" stickyHeader sx={{ tableLayout: 'fixed', width: '100%' }}>
+        <Table
+          size="small"
+          stickyHeader
+          sx={{
+            tableLayout: 'fixed',
+            width: '100%',
+            // Force single-line mode to a strict fixed row height so TanStack offsets stay exact without measuring.
+            // Why: MUI's default cell padding can produce slight row-height variance unless we clamp it.
+            ...(wrapRows ? {} : {
+              '& tbody tr[data-row-index]': {
+                height: `${RULES_TABLE_FIXED_ROW_HEIGHT_PX}px`,
+                minHeight: `${RULES_TABLE_FIXED_ROW_HEIGHT_PX}px`,
+                maxHeight: `${RULES_TABLE_FIXED_ROW_HEIGHT_PX}px`,
+              },
+              '& tbody tr[data-row-index] > td': {
+                // 0.25 theme spacing ≈ 2px: enough breathing room without affecting the fixed height.
+                py: 0.25,
+                height: `${RULES_TABLE_FIXED_ROW_HEIGHT_PX}px`,
+                maxHeight: `${RULES_TABLE_FIXED_ROW_HEIGHT_PX}px`,
+              },
+            }),
+          }}
+        >
           <TableHead
             ref={headerRef}
             data-tour-id="preview.header"
@@ -920,38 +949,35 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
             </TableRow>
             </TableHead>
           <TableBody>
-            {(() => {
-              scrollRangeOverlay = null
-              const visibleCols = visibleColsForContainer
-              const colSpan = Math.max(1, visibleCols.length)
-              // Empty overlay handles the messaging; no rows render when empty.
-              if (rules.length === 0) return null
-              const spacerSx = { p: 0, border: 0, height: 0 }
-              const virtualItems = rowVirtualizer.getVirtualItems()
-              if (virtualItems.length === 0) return null
-              const totalHeight = Math.max(rowVirtualizer.getTotalSize(), 0)
-              const padTop = virtualItems[0]!.start
-              const padBottom = Math.max(0, totalHeight - virtualItems[virtualItems.length - 1]!.end)
-              const container = tableContainerRef.current
-              const viewportTopPx = container?.scrollTop ?? 0
-              const viewportBottomPx = viewportTopPx + (container?.clientHeight ?? 0)
+	            {(() => {
+	              scrollRangeOverlay = null
+	              const visibleCols = visibleColsForContainer
+	              const colSpan = Math.max(1, visibleCols.length)
+	              // Empty overlay handles the messaging; no rows render when empty.
+	              if (rules.length === 0) return null
+		              const spacerSx = { p: 0, border: 0, height: 0 }
+		              // Render only the virtual window plus spacer rows above/below.
+		              // Why: `<tbody>` must still add up to the full scroll height even though we only mount a subset of rows.
+		              const virtualItems = rowVirtualizer.getVirtualItems()
+		              // TanStack may return an empty list briefly during mount.
+		              // Why: the scroll element ref can be null for a render while React is committing.
+		              if (virtualItems.length === 0) return null
+		              // Total virtual height of all rows (measured + estimated).
+		              // Why: needed to compute the bottom spacer size.
+		              const totalHeight = Math.max(rowVirtualizer.getTotalSize(), 0)
+		              // The `<thead>` is in-flow and not part of the virtualized height math.
+		              // Why: TanStack offsets already model only the `<tbody>` row stack.
+		              // Spacer above the first mounted virtual item.
+		              // Why: keeps the first rendered row aligned to its real scroll offset.
+		              const padTop = Math.max(0, Math.round(virtualItems[0]!.start))
+		              // Spacer below the last mounted virtual item.
+		              // Why: keeps the scrollbar thumb size/position consistent.
+		              const padBottom = Math.max(0, Math.round(totalHeight - virtualItems[virtualItems.length - 1]!.end))
               // Compute the range hint based on "actually visible" rows, not overscan.
               // Why: the overlay should reflect what the user can read, not what we pre-rendered.
-              let firstVisibleIndex = virtualItems[0]!.index
-              let lastVisibleIndex = virtualItems[virtualItems.length - 1]!.index
-              if (viewportBottomPx > viewportTopPx) {
-                let foundFirst: number | null = null
-                let foundLast: number | null = null
-                for (let i = 0; i < virtualItems.length; i += 1) {
-                  const item = virtualItems[i]!
-                  if (item.end <= viewportTopPx) continue
-                  if (item.start >= viewportBottomPx) break
-                  if (foundFirst === null) foundFirst = item.index
-                  foundLast = item.index
-                }
-                if (foundFirst !== null) firstVisibleIndex = foundFirst
-                if (foundLast !== null) lastVisibleIndex = foundLast
-              }
+              const visibleRange = getActuallyVisibleIndexRange()
+              const firstVisibleIndex = visibleRange?.first ?? virtualItems[0]!.index
+              const lastVisibleIndex = visibleRange?.last ?? virtualItems[virtualItems.length - 1]!.index
               return (
                 <>
                   {padTop > 0 && (
@@ -959,10 +985,10 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
                       <TableCell colSpan={colSpan} sx={spacerSx} />
                     </TableRow>
                   )}
-                  {virtualItems.map((virtualItem) => {
-                    const idx = virtualItem.index
-                    const rule = rules[idx] as HsfRuleWithCfg | undefined
-                    if (!rule) return null
+	                  {virtualItems.map((virtualItem) => {
+	                    const idx = virtualItem.index
+	                    const rule = rules[idx] as HsfRuleWithCfg | undefined
+	                    if (!rule) return null
                     const cfgIdxNumber = resolveDisplayCfgIdx(rule as HsfRuleWithCfg)
                     const lineIdx = typeof rule.__lineIdx === 'number' ? rule.__lineIdx : idx
                     const resolvedSource: RuleSource = (() => {
@@ -979,18 +1005,21 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
                     })()
                     const isKeepUniqueSource = resolvedSource === RULE_SOURCE_KEEP_UNIQUES
                     return (
-                      <TableRow
-                        key={virtualItem.key}
-                        hover
-                        data-row-index={idx}
-                        {...(cfgIdxNumber !== null ? { 'data-cfg-idx': String(cfgIdxNumber) } : {})}
-                        // Wrap mode needs measured heights so TanStack can compute the correct scroll range.
-                        // Fixed mode stays deterministic, so we avoid measuring to reduce layout churn.
-                        ref={(el) => {
-                          if (!el) return
-                          if (!wrapRows) return
-                          rowVirtualizer.measureElement(el)
-                        }}
+		                      <TableRow
+		                        key={virtualItem.key}
+		                        hover
+		                        // TanStack's `measureElement` requires `data-index` so it can map DOM nodes back to items.
+		                        // Why: without it, measurements are ignored and scroll offsets drift.
+		                        data-index={idx}
+			                        data-row-index={idx}
+		                        {...(cfgIdxNumber !== null ? { 'data-cfg-idx': String(cfgIdxNumber) } : {})}
+		                        // Wrap mode needs measured heights so TanStack can compute correct scroll offsets.
+		                        // Why: single-line mode is strict fixed-height, so measuring would unnecessarily enable dynamic mode.
+		                        ref={(el) => {
+		                          if (!el) return
+		                          if (!wrapRows) return
+		                          rowVirtualizer.measureElement(el)
+		                        }}
                         onMouseEnter={() => {
                           if (!isHoveringArea) return
                           const next = cfgIdxNumber
@@ -1025,13 +1054,13 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
                           setHeaderHintPos(null)
                           setRowHintPos({ x: e.clientX, y: e.clientY })
                         }}
-                        sx={(theme) => ({
-                          height: wrapRows ? undefined : DEFAULT_FIXED_ROW_HEIGHT_PX,
-                          textDecoration: rule.Use === false ? 'line-through' : 'none',
-                          '&[data-selected-cfg="true"]': {
-                            backgroundColor: theme.palette.action.selected,
-                          },
-                        })}
+		                        sx={(theme) => ({
+		                          // Fixed-height styling is applied at the `<Table>` level so spacer rows can keep variable heights.
+		                          textDecoration: rule.Use === false ? 'line-through' : 'none',
+		                          '&[data-selected-cfg="true"]': {
+		                            backgroundColor: theme.palette.action.selected,
+		                          },
+		                        })}
                       >
                       {visibleCols.map((c) => {
                         let value: string = ''
@@ -1312,13 +1341,12 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
                   })}
                   {(() => {
                     if (rules.length === 0) return null
-                    const firstRule = rules[firstVisibleIndex] as HsfRuleWithCfg | undefined
-                    const lastRule = rules[lastVisibleIndex] as HsfRuleWithCfg | undefined
-                    const resolvedFirst = typeof firstRule?.__lineIdx === 'number' ? firstRule.__lineIdx : firstVisibleIndex
-                    const resolvedLast = typeof lastRule?.__lineIdx === 'number' ? lastRule.__lineIdx : lastVisibleIndex
-                    if (resolvedFirst === null || resolvedLast === null) return null
-                    const rangeStart = Math.min(resolvedFirst, resolvedLast) + 1
-                    const rangeEnd = Math.max(resolvedFirst, resolvedLast) + 1
+                    // Report the visible window in the current `rules[]` view order.
+                    // Why: `__lineIdx` is stable for virtualization keys, but the overlay should match what the user sees.
+                    const startIndex = Math.min(firstVisibleIndex, lastVisibleIndex)
+                    const endIndex = Math.max(firstVisibleIndex, lastVisibleIndex)
+                    const rangeStart = startIndex + 1
+                    const rangeEnd = endIndex + 1
                     scrollRangeOverlay = { start: rangeStart, end: rangeEnd, total: rules.length }
                     return null
                   })()}
@@ -1339,7 +1367,7 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
               position: 'absolute',
               left: 0,
               right: 0,
-              top: emptyOverlayOffset,
+              top: headerHeightPx,
               bottom: 0,
               display: 'flex',
               // Stacked layout keeps the message anchored to the top edge, so let it stretch to full width.

@@ -3235,14 +3235,16 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           target = chipBottom - container.clientHeight
         }
         if (target === null) return
-        const maxScrollTop = Math.max(0, container.scrollHeight - container.clientHeight)
-        const clampedTarget = Math.max(0, Math.min(target, maxScrollTop))
-        if (Math.abs(clampedTarget - viewTop) > 0.5) {
-          container.scrollTo({ top: clampedTarget, behavior: 'smooth' })
-        }
-      })
-    } catch {}
-  }, [chipsContainerRef, multiselectActive, selectedCfgIdx])
+	        const maxScrollTop = Math.max(0, container.scrollHeight - container.clientHeight)
+	        const clampedTarget = Math.max(0, Math.min(target, maxScrollTop))
+	        if (Math.abs(clampedTarget - viewTop) > 0.5) {
+	          // Keep chip auto-scroll smooth to preserve the "focus follows selection" feel.
+	          // Why: this is a small, bounded scroll within the chips container (not a massive virtualized jump).
+	          container.scrollTo({ top: clampedTarget, behavior: 'smooth' })
+	        }
+	      })
+	    } catch {}
+	  }, [chipsContainerRef, multiselectActive, selectedCfgIdx])
   // Keep the focused config chip in view as filters or list length change so keyboard navigation stays visible.
   useEffect(() => {
     scrollSelectedConfigIntoView()

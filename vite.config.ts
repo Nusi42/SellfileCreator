@@ -11,7 +11,15 @@ const withRootPath = (relativePath: string): string =>
   fileURLToPath(new URL(relativePath, import.meta.url));
 
 // https://vitejs.dev/config/
-export default defineConfig(async ({ command }): Promise<UserConfig> => ({
+export default defineConfig(async ({ command }): Promise<UserConfig> => {
+  // Playwright runs the dev server via the Playwright `webServer` hook.
+  // Why: `vite-plugin-checker` can be noisy/unstable in this harness, and the e2e runs already gate on `npm run typecheck`.
+  const isPlaywrightRun = (() => {
+    const raw = process.env.PLAYWRIGHT
+    return raw === '1' || raw === 'true'
+  })()
+
+  return {
   // Load vite-plugin-checker only during dev to avoid ESM/CJS loader issues in
   // certain environments when bundling the Vite config for production builds.
   plugins: [
@@ -22,7 +30,7 @@ export default defineConfig(async ({ command }): Promise<UserConfig> => ({
         plugins: ['babel-plugin-react-compiler'],
       },
     }),
-    ...(command === 'serve'
+    ...(command === 'serve' && !isPlaywrightRun
       ? [
           // Dynamic import keeps this ESM-only dependency out of build-time config loading
           // NOTE: ESLint 9 + flat config breaks vite-plugin-checker's ESLint integration
@@ -105,4 +113,5 @@ export default defineConfig(async ({ command }): Promise<UserConfig> => ({
     host: true,           // optional, helps with WSL2 networking
     strictPort: false     // false = search for next free port
   }
-}));
+  }
+})

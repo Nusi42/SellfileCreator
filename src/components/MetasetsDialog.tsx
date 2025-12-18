@@ -346,16 +346,16 @@ export default function MetasetsDialog({
     const raf = pendingScrollMetaId
       ? window.requestAnimationFrame(() => {
         try {
-          const root = listRef.current
-          const target = root ? root.querySelector(`[data-meta-id="${pendingScrollMetaId}"]`) as HTMLElement | null : null
-          if (target && 'scrollIntoView' in target) {
-            target.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
-          } else {
-            root && root.scrollTo({ top: root.scrollHeight, behavior: 'smooth' })
-          }
-        } finally {
-          setPendingScrollMetaId('')
-        }
+	          const root = listRef.current
+	          const target = root ? root.querySelector(`[data-meta-id="${pendingScrollMetaId}"]`) as HTMLElement | null : null
+	          if (target && 'scrollIntoView' in target) {
+	            target.scrollIntoView({ block: 'nearest' })
+	          } else {
+	            root && root.scrollTo({ top: root.scrollHeight })
+	          }
+	        } finally {
+	          setPendingScrollMetaId('')
+	        }
       })
       : null
     return () => { typeof raf === 'number' && window.cancelAnimationFrame(raf) }
