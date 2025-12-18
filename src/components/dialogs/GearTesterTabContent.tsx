@@ -590,7 +590,9 @@ export function GearTesterTabContent({
 	    requestAnimationFrame(() => {
 	      const node = scrollContainerRef.current
 	      if (node) {
-	        node.scrollTo({ top: node.scrollHeight })
+	        // Smoothly reveal the newly appended manual entry.
+	        // Why: this is a short scroll within a small list and improves perceived continuity.
+	        node.scrollTo({ top: node.scrollHeight, behavior: 'smooth' })
 	      }
 	    })
 	  }, [allocTesterItemId, makeDefaultItem, pruneEasterEggStateForItems, setItems])

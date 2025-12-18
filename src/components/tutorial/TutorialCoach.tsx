@@ -232,10 +232,11 @@ export function TutorialCoach({
     try { requestAnimationFrame(() => requestAnimationFrame(() => compute())) } catch {}
     // And a short timer to catch async popovers/menus
     const t = window.setTimeout(compute, 80)
-	    // Always try to bring the target into view
+	    // Always try to bring the target into view smoothly.
+	    // Why: tutorial targets often live inside scrollable panels, and a smooth scroll helps the user track context.
 	    try {
 	      const els = findEls()
-	      els[0]?.scrollIntoView({ block: 'center', inline: 'center' })
+	      els[0]?.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' })
 	    } catch {}
 	    const onResize = () => compute()
 	    const onScroll = () => compute()
