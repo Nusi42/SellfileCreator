@@ -165,7 +165,7 @@ export default function HelpDialog({ open, onClose, onStartTutorial, firstRunMod
     const t = Math.min(1, Math.max(0, dist / NEAR_RADIUS_PX))
     const nextClose = CLOSE_MIN_SCALE + (1 - CLOSE_MIN_SCALE) * t
     const nextStart = 1 + (START_MAX_SCALE - 1) * (1 - t)
-    // Defer state updates to rAF to keep it smooth during mousemove
+    // Defer state updates to rAF to keep it responsive during mousemove
     targetScalesRef.current = { c: nextClose, s: nextStart }
     if (rafRef.current == null) {
       rafRef.current = window.requestAnimationFrame(() => {

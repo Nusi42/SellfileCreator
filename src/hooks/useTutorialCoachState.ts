@@ -227,7 +227,7 @@ export function useTutorialCoachState({
   const [tutorialAddedAutoLate, setTutorialAddedAutoLate] = useState<boolean>(false)
   const [tutorialAddedDefaultMetas, setTutorialAddedDefaultMetas] = useState<boolean>(false)
 
-  const tutorialTimersRef = useRef<{ setsMenuRetryId: number | null; setsMenuCloseId: number | null; scrollAnimId: number | null }>({ setsMenuRetryId: null, setsMenuCloseId: null, scrollAnimId: null })
+  const tutorialTimersRef = useRef<{ setsMenuRetryId: number | null; setsMenuCloseId: number | null }>({ setsMenuRetryId: null, setsMenuCloseId: null })
 
   const previewHighlightOverlayRef = useRef<HTMLDivElement | null>(null)
   const previewHighlightCleanupRef = useRef<(() => void) | null>(null)
@@ -389,11 +389,10 @@ export function useTutorialCoachState({
       const previewHeaderUl = previewHeaderMenuEl?.querySelector('ul[role="menu"]') as HTMLElement | null
       previewHeaderUl?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
     } catch {}
-    try {
-      const timers = tutorialTimersRef.current
-      if (timers.setsMenuRetryId !== null) { clearTimeout(timers.setsMenuRetryId); timers.setsMenuRetryId = null }
-      if (timers.scrollAnimId !== null) { try { cancelAnimationFrame(timers.scrollAnimId) } catch {} ; timers.scrollAnimId = null }
-    } catch {}
+	    try {
+	      const timers = tutorialTimersRef.current
+	      if (timers.setsMenuRetryId !== null) { clearTimeout(timers.setsMenuRetryId); timers.setsMenuRetryId = null }
+	    } catch {}
     try {
       const btn = document.querySelector('[data-tour-id="metasets.close"]') as HTMLButtonElement | null
       btn?.click()
@@ -604,29 +603,15 @@ export function useTutorialCoachState({
       } catch {}
     }
 
-    const smoothScrollPreviewToEnd = () => {
-      try {
-        const container = document.querySelector('[data-tour-id="preview.table"]') as HTMLElement | null
-        if (!container) return
-        try { container.scrollTop = 0 } catch {}
-        const startTop = container.scrollTop
-        const endTop = Math.max(0, container.scrollHeight - container.clientHeight)
-        if (endTop <= startTop) return
-        const DURATION_MS = 2400
-        const startAt = performance.now()
-        const easeInOut = (time: number) => (time < 0.5 ? 2 * time * time : -1 + (4 - 2 * time) * time)
-        const timers = tutorialTimersRef.current
-        const step = (now: number) => {
-          const p = Math.min(1, (now - startAt) / DURATION_MS)
-          const eased = easeInOut(p)
-          const nextTop = Math.round(startTop + (endTop - startTop) * eased)
-          try { container.scrollTop = nextTop } catch {}
-          if (p < 1) { timers.scrollAnimId = requestAnimationFrame(step) } else { timers.scrollAnimId = null }
-        }
-        if (timers.scrollAnimId !== null) { try { cancelAnimationFrame(timers.scrollAnimId) } catch {} ; timers.scrollAnimId = null }
-        timers.scrollAnimId = requestAnimationFrame(step)
-      } catch {}
-    }
+	    const scrollPreviewToEnd = () => {
+	      try {
+	        const container = document.querySelector('[data-tour-id="preview.table"]') as HTMLElement | null
+	        if (!container) return
+	        try { container.scrollTop = 0 } catch {}
+	        const endTop = Math.max(0, container.scrollHeight - container.clientHeight)
+	        try { container.scrollTop = endTop } catch {}
+	      } catch {}
+	    }
 
     try {
       const cloneHsf = hsfRef.current ? (JSON.parse(JSON.stringify(hsfRef.current)) as HsfFile) : null
@@ -930,31 +915,31 @@ export function useTutorialCoachState({
         targetId: 'chips.container',
         before: () => { ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false) },
       },
-      {
-        id: 'adv-preview-early',
+	      {
+	        id: 'adv-preview-early',
         title: t('tutAdvPreviewEarlyTitle'),
         body: t('tutAdvPreviewEarlyBody'),
         targetId: 'preview.table',
-        before: () => {
-          ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensurePreviewHighlight(null)
-          setTimeout(() => { try { smoothScrollPreviewToEnd() } catch {} }, 120)
-        },
-      },
-      {
-        id: 'chips',
+	        before: () => {
+	          ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false); ensurePreviewHighlight(null)
+	          setTimeout(() => { try { scrollPreviewToEnd() } catch {} }, 120)
+	        },
+	      },
+	      {
+	        id: 'chips',
         title: t('tutConfigChipsTitle'),
         body: t('tutConfigChipsBody'),
         targetIds: ['chip.selected', 'chip.menu'],
         expand: 10,
-        before: () => {
-          ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false)
-          try {
-            const el = document.querySelector('[data-tour-id="chips.container"]') as HTMLElement | null
-            el?.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' })
-          } catch {}
-          try {
-            const chip = document.querySelector('[data-tour-id="chip.selected"]') as HTMLElement | null
-            if (chip) {
+	        before: () => {
+	          ensureMetasetsDialog(false); ensureSetsMenu(false); ensureChipsMenu(false)
+	          try {
+	            const el = document.querySelector('[data-tour-id="chips.container"]') as HTMLElement | null
+	            el?.scrollIntoView({ block: 'center', inline: 'center' })
+	          } catch {}
+	          try {
+	            const chip = document.querySelector('[data-tour-id="chip.selected"]') as HTMLElement | null
+	            if (chip) {
               const rect = chip.getBoundingClientRect()
               chip.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, view: window, clientX: rect.left + rect.width / 2, clientY: rect.top + rect.height / 2 }))
             }

@@ -202,7 +202,7 @@ export function TutorialCoach({
           }
         }
         // If the previous highlight vanishes or jumps significantly (or target changes),
-        // render a short-lived fading ghost to smooth the transition.
+        // render a short-lived fading ghost to soften the transition.
         const prevRect = prevRectRef.current
         const prevTarget = prevTargetIdRef.current
         const curTarget = (Array.isArray(step?.targetIds) && step?.targetIds?.length)
@@ -232,13 +232,13 @@ export function TutorialCoach({
     try { requestAnimationFrame(() => requestAnimationFrame(() => compute())) } catch {}
     // And a short timer to catch async popovers/menus
     const t = window.setTimeout(compute, 80)
-    // Always try to bring the target into view smoothly
-    try {
-      const els = findEls()
-      els[0]?.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' })
-    } catch {}
-    const onResize = () => compute()
-    const onScroll = () => compute()
+	    // Always try to bring the target into view
+	    try {
+	      const els = findEls()
+	      els[0]?.scrollIntoView({ block: 'center', inline: 'center' })
+	    } catch {}
+	    const onResize = () => compute()
+	    const onScroll = () => compute()
     window.addEventListener('resize', onResize)
     window.addEventListener('scroll', onScroll, { passive: true })
     const id = window.setInterval(compute, 250)
@@ -554,7 +554,7 @@ export function TutorialCoach({
           }}
         />
       )}
-      {/* Fading ghost of the previous highlight to smooth transitions */}
+      {/* Fading ghost of the previous highlight to soften transitions */}
       {(!rect && ghost) && (
         <Box
           sx={{

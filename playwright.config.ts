@@ -77,5 +77,10 @@ export default defineConfig({
     reuseExistingServer: !process.env.CI,
     stdout: 'pipe',
     stderr: 'pipe',
+    env: {
+      // Signal Vite config to disable dev-only checkers during Playwright runs.
+      // Why: e2e already runs `npm run typecheck` separately, and reducing background watchers stabilizes the harness.
+      PLAYWRIGHT: '1',
+    },
   },
 });

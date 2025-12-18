@@ -587,13 +587,13 @@ export function GearTesterTabContent({
       pruneEasterEggStateForItems(next)
       return next
     })
-    requestAnimationFrame(() => {
-      const node = scrollContainerRef.current
-      if (node) {
-        node.scrollTo({ top: node.scrollHeight, behavior: 'smooth' })
-      }
-    })
-  }, [allocTesterItemId, makeDefaultItem, pruneEasterEggStateForItems, setItems])
+	    requestAnimationFrame(() => {
+	      const node = scrollContainerRef.current
+	      if (node) {
+	        node.scrollTo({ top: node.scrollHeight })
+	      }
+	    })
+	  }, [allocTesterItemId, makeDefaultItem, pruneEasterEggStateForItems, setItems])
 
   const deletableSources = useMemo(() => ([
     { key: 'manual' as const, label: t('testerSourceManual') },

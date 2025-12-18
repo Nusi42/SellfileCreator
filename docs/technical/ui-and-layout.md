@@ -189,7 +189,8 @@ If tooltips need rich formatting (colored badges, inline icons), pass JSX via `r
 - Reset defaults restore the above and clear type/set/faction selections.
 - Config chips occupy a scrollable container (≈6 chips). Adding a new config selects it and scrolls it into view without moving the page.
 - Chips support drag-and-drop reordering: the dragged chips are dimmed but keep their spot (layout stays frozen), a blue guide line shows the drop slot (vertical between chips, horizontal between rows), auto-scroll kicks in near the container edges, tooltips/context hints are suppressed during the drag, and the actual reorder only happens on drop so previews do not churn mid-drag. Press `Esc` to cancel an in-flight drag without changing the list. Hold `Ctrl` (Cmd on macOS) while dragging to duplicate the selected chips into the highlighted slot instead of moving them; the new copies become the active selection after drop.
-- Preview auto-scrolls to the first rule row of the selected config. Scrolling stays confined to the table container.
+- Preview auto-scroll stays confined to the table container:
+  - Selecting a config chip jumps the preview table to the first rule row for that config (no smooth scrolling).
 
 ### Persistence & Autosave
 
@@ -209,7 +210,7 @@ If tooltips need rich formatting (colored badges, inline icons), pass JSX via `r
 - Virtualization:
   - Implementation: `@tanstack/react-virtual` (same dependency as the tester grid), while still rendering a real `<Table>` by inserting top/bottom spacer rows.
   - Single-line mode: fixed-height rows (~30px); avoids per-row measurement during scroll.
-  - Wrap mode: variable-height rows measured via the virtualizer; alignment retries account for sticky header chrome.
+  - Wrap mode: variable-height rows measured via the virtualizer; row heights re-measure when layout changes so scroll and range hints stay accurate.
 - Header menu (context): reset columns, toggle wrap mode, toggle icon modes, adjust stat-border coloring, and manage per-column visibility (Faction supports `auto|show|hide`). Drag headers to reorder; resize via drag handles (min width 40px); widths persist.
 - Row interactions:
   - Hover highlights only while pointer stays inside the preview.
