@@ -49,6 +49,7 @@ if (-not (Test-IsAdmin)) {
     else { "powershell.exe" }
 
   $argString = @(
+    "-WindowStyle Hidden"
     "-NoProfile"
     "-ExecutionPolicy Bypass"
     "-File $(Quote-Arg $PSCommandPath)"
