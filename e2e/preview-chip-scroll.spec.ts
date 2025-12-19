@@ -65,17 +65,23 @@ test.describe('preview chip scroll', () => {
     // Why: the flaky bug only reproduces when we perform a real jump, not when the config is already on screen.
     await expect.poll(async () => {
       return page.evaluate(({ cfgIdx }) => {
-        const row = document.querySelector(`tbody tr[data-cfg-idx="${cfgIdx}"]`) as HTMLElement | null
+        const rows = Array.from(document.querySelectorAll(`tbody tr[data-cfg-idx="${cfgIdx}"]`)) as HTMLElement[]
+        const row = rows[0]
         if (!row) return false
         const scroller = row.closest('.MuiTableContainer-root') as HTMLElement | null
         if (!scroller) return false
         const thead = scroller.querySelector('thead') as HTMLElement | null
         const headerH = thead ? Math.round(thead.getBoundingClientRect().height) : 0
         const scrollerRect = scroller.getBoundingClientRect()
-        const rowRect = row.getBoundingClientRect()
         const viewportTop = scrollerRect.top + headerH
         const viewportBottom = scrollerRect.bottom
-        return rowRect.bottom > viewportTop && rowRect.top < viewportBottom
+        // Only consider a row visible if it intersects the readable viewport (below the sticky header).
+        // Why: the first DOM match can be overscanned above the viewport, even when later rows for the config are visible.
+        for (const candidate of rows) {
+          const rect = candidate.getBoundingClientRect()
+          if (rect.bottom > viewportTop && rect.top < viewportBottom) return true
+        }
+        return false
       }, { cfgIdx: PRESELECT_CFG_IDX })
     }, { timeout: 10_000, intervals: [100, 250, 500] }).toBe(false)
 
@@ -88,17 +94,21 @@ test.describe('preview chip scroll', () => {
     await expect(preselectChip).toHaveAttribute('data-tour-id', 'chip.selected')
     await expect.poll(async () => {
       return page.evaluate(({ cfgIdx }) => {
-        const row = document.querySelector(`tbody tr[data-cfg-idx="${cfgIdx}"]`) as HTMLElement | null
+        const rows = Array.from(document.querySelectorAll(`tbody tr[data-cfg-idx="${cfgIdx}"]`)) as HTMLElement[]
+        const row = rows[0]
         if (!row) return false
         const scroller = row.closest('.MuiTableContainer-root') as HTMLElement | null
         if (!scroller) return false
         const thead = scroller.querySelector('thead') as HTMLElement | null
         const headerH = thead ? Math.round(thead.getBoundingClientRect().height) : 0
         const scrollerRect = scroller.getBoundingClientRect()
-        const rowRect = row.getBoundingClientRect()
         const viewportTop = scrollerRect.top + headerH
         const viewportBottom = scrollerRect.bottom
-        return rowRect.bottom > viewportTop && rowRect.top < viewportBottom
+        for (const candidate of rows) {
+          const rect = candidate.getBoundingClientRect()
+          if (rect.bottom > viewportTop && rect.top < viewportBottom) return true
+        }
+        return false
       }, { cfgIdx: PRESELECT_CFG_IDX })
     }, { timeout: 10_000, intervals: [100, 250, 500] }).toBe(true)
 
@@ -114,17 +124,21 @@ test.describe('preview chip scroll', () => {
     // Also ensure config #185 is not visible before the click so the click must trigger a scroll.
     await expect.poll(async () => {
       return page.evaluate(({ cfgIdx }) => {
-        const row = document.querySelector(`tbody tr[data-cfg-idx="${cfgIdx}"]`) as HTMLElement | null
+        const rows = Array.from(document.querySelectorAll(`tbody tr[data-cfg-idx="${cfgIdx}"]`)) as HTMLElement[]
+        const row = rows[0]
         if (!row) return false
         const scroller = row.closest('.MuiTableContainer-root') as HTMLElement | null
         if (!scroller) return false
         const thead = scroller.querySelector('thead') as HTMLElement | null
         const headerH = thead ? Math.round(thead.getBoundingClientRect().height) : 0
         const scrollerRect = scroller.getBoundingClientRect()
-        const rowRect = row.getBoundingClientRect()
         const viewportTop = scrollerRect.top + headerH
         const viewportBottom = scrollerRect.bottom
-        return rowRect.bottom > viewportTop && rowRect.top < viewportBottom
+        for (const candidate of rows) {
+          const rect = candidate.getBoundingClientRect()
+          if (rect.bottom > viewportTop && rect.top < viewportBottom) return true
+        }
+        return false
       }, { cfgIdx: TARGET_CFG_IDX })
     }, { timeout: 10_000, intervals: [100, 250, 500] }).toBe(false)
 
@@ -139,17 +153,21 @@ test.describe('preview chip scroll', () => {
     // Why: users consider the scroll successful once *any* row in the selected config block is readable.
     await expect.poll(async () => {
       return page.evaluate(({ cfgIdx }) => {
-        const row = document.querySelector(`tbody tr[data-cfg-idx="${cfgIdx}"]`) as HTMLElement | null
+        const rows = Array.from(document.querySelectorAll(`tbody tr[data-cfg-idx="${cfgIdx}"]`)) as HTMLElement[]
+        const row = rows[0]
         if (!row) return false
         const scroller = row.closest('.MuiTableContainer-root') as HTMLElement | null
         if (!scroller) return false
         const thead = scroller.querySelector('thead') as HTMLElement | null
         const headerH = thead ? Math.round(thead.getBoundingClientRect().height) : 0
         const scrollerRect = scroller.getBoundingClientRect()
-        const rowRect = row.getBoundingClientRect()
         const viewportTop = scrollerRect.top + headerH
         const viewportBottom = scrollerRect.bottom
-        return rowRect.bottom > viewportTop && rowRect.top < viewportBottom
+        for (const candidate of rows) {
+          const rect = candidate.getBoundingClientRect()
+          if (rect.bottom > viewportTop && rect.top < viewportBottom) return true
+        }
+        return false
       }, { cfgIdx: TARGET_CFG_IDX })
     }, { timeout: 10_000, intervals: [100, 250, 500] }).toBe(true)
   })

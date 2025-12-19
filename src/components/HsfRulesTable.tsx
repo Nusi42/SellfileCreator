@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { useVirtualizer } from '@tanstack/react-virtual'
+import { elementScroll, useVirtualizer } from '@tanstack/react-virtual'
+import type { VirtualizerOptions } from '@tanstack/react-virtual'
 import { Box, Button, Divider, Menu, MenuItem, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from '@mui/material'
 import { alpha } from '@mui/material/styles'
 import type { PaperProps as MuiPaperProps } from '@mui/material/Paper'
@@ -115,7 +116,8 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
   // Sticky header height participates in both empty overlays and the "actually visible" viewport math.
   // Why: the table header consumes vertical space that should not count as visible row real estate.
   const [headerHeightPx, setHeaderHeightPx] = useState(0)
-  // No custom scroll animations for now: always jump directly to the target.
+  // Smooth-scroll preview jumps via TanStack's `scrollToFn` hook.
+  // Why: calling `scrollToIndex({ behavior: 'smooth' })` alone is not reliable with dynamic-size rows.
   const WRAP_ROWS_KEY = 'sellfileCreator.rulesTableWrapRows.v1'
   const [wrapRows, setWrapRows] = useState<boolean>(() => {
     try {
@@ -509,9 +511,41 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
     // Why: fixed-height mode is intentionally clamped, while wrap mode can grow/shrink per column width.
     return `${wrapRows ? 'wrap' : 'fixed'}:${lineIdx}`
   }, [rules, wrapRows])
+
+  const scrollAnimTokenRef = useRef<number | null>(null)
+  const scrollToFn = useCallback<VirtualizerOptions<HTMLDivElement, HTMLTableRowElement>['scrollToFn']>((offset, options, instance) => {
+    // Custom smooth scroll implementation for TanStack navigation methods (`scrollToIndex`, `scrollToOffset`).
+    // Why: we want smooth chip-selection jumps without enabling TanStack's `behavior: 'smooth'` warnings/retries.
+    // Keep the duration below TanStack's `scrollToIndex` retry window (10 rAFs ≈ 160ms).
+    // Why: TanStack checks that the scroll offset reached its target and logs a warning if it doesn't converge fast enough.
+    const durationMs = 120
+    const start = (instance.scrollElement as unknown as HTMLElement | null)?.scrollTop ?? 0
+    const target = offset + (options.adjustments ?? 0)
+    const startTime = performance.now()
+    scrollAnimTokenRef.current = startTime
+
+    const easeInOutQuint = (t: number): number => {
+      if (t < 0.5) return 16 * t * t * t * t * t
+      const shifted = t - 1
+      return 1 + 16 * shifted * shifted * shifted * shifted * shifted
+    }
+
+    const tick = (now: number) => {
+      if (scrollAnimTokenRef.current !== startTime) return
+      const elapsed = now - startTime
+      const progress = Math.min(1, Math.max(0, elapsed / durationMs))
+      const eased = easeInOutQuint(progress)
+      const next = start + (target - start) * eased
+      elementScroll(next, { behavior: 'auto' }, instance)
+      if (progress < 1) requestAnimationFrame(tick)
+    }
+
+    void options.behavior
+    requestAnimationFrame(tick)
+  }, [])
   // Single TanStack virtualizer drives both fixed and wrap modes.
   // Why: This replaces the bespoke prefix-sum windowing logic while preserving the `<Table>` structure.
-  const rowVirtualizer = useVirtualizer({
+  const rowVirtualizer = useVirtualizer<HTMLDivElement, HTMLTableRowElement>({
     // Virtualize the `rules[]` array directly.
     // Why: all config span / selection math is expressed as indices into this array.
     count: rules.length,
@@ -527,6 +561,7 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
     // Keep keys stable across filter/sort (and between fixed vs wrap).
     // Why: key stability prevents measurements from attaching to the wrong logical row.
     getItemKey: getRuleVirtualKey,
+    scrollToFn,
   })
 
   // Resolve the "actually visible" row indices (excluding overscan) for UX decisions like chip auto-scroll.
@@ -566,9 +601,9 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
 	  // Why: the sticky header is in-flow, so TanStack already lands body rows beneath it without extra alignment.
 	  const scrollRuleIndexToTop = useCallback((ruleIndex: number) => {
 	    if (ruleIndex < 0 || ruleIndex >= rules.length) return
-	    // Always use immediate jumps.
-	    // Why: smooth scrolling is intentionally disabled for now to avoid "missed target" behavior on dynamic-size lists.
-	    rowVirtualizer.scrollToIndex(ruleIndex, { align: 'start' })
+	    // Use TanStack's own index-based scrolling, but render it smoothly via our `scrollToFn`.
+	    // Why: TanStack can recompute offsets as measurements arrive, which is critical for long jumps in wrap mode.
+	    rowVirtualizer.scrollToIndex(ruleIndex, { align: 'start', behavior: 'auto' })
 	  }, [rowVirtualizer, rules.length])
 
   const clampRuleIndex = useCallback((index: number | null | undefined) => {
