@@ -20,6 +20,8 @@ export type Star = RankValue
 export interface BuilderConfig {
   // Optional display name for this rule configuration (saved in HSFC)
   name?: string
+  // Optional questionnaire tags used to enable/disable configs via note prompts.
+  tags?: string[]
   keep: boolean
   // Sellfile export mode. Separator configs export only to HSFC (no Sellfile rules).
   // 'disabled' keeps the config in exports but forces `Use: false` so RSL Helper ignores it.

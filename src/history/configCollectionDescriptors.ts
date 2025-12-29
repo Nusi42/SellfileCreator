@@ -55,6 +55,14 @@ type DescribeConfigsInsertedParams = {
   t: TranslateFn
 }
 
+type DescribeQuestionnaireAppliedParams = {
+  changedIndices: number[]
+  configs: BuilderConfig[]
+  enableCount: number
+  disableCount: number
+  t: TranslateFn
+}
+
 type DescribeMultiEditAppliedParams = {
   entries: Array<{ index: number; previous: BuilderConfig; next: BuilderConfig }>
   dirtyKeys: BuilderFieldKey[]
@@ -169,6 +177,30 @@ export function describeConfigsInserted(params: DescribeConfigsInsertedParams): 
   const key = mode === 'import' ? 'historyConfigsImportedMultipleTitle' : 'historyConfigsPastedMultipleTitle'
   const title = t(key, { count: labels.length })
   return detailLines.length > 0 ? { title, detailLines } : { title }
+}
+
+export function describeQuestionnaireApplied(params: DescribeQuestionnaireAppliedParams): HistoryEntryDescriptor | null {
+  const { changedIndices, configs, enableCount, disableCount, t } = params
+  // Skip empty changes to avoid noisy history entries.
+  if (changedIndices.length === 0) return null
+  // Build unique labels for changed configs.
+  const labels: string[] = []
+  const seen = new Set<string>()
+  for (const idx of changedIndices) {
+    const cfg = configs[idx]
+    if (!cfg) continue
+    const label = buildConfigLabel(idx, cfg, t)
+    if (seen.has(label)) continue
+    seen.add(label)
+    labels.push(label)
+  }
+  // Summarize config labels to keep history concise.
+  const detailLines = summarizeLabels(labels, t)
+  // Prefix with a summary of enabled/disabled counts.
+  detailLines.unshift(t('historyQuestionnaireAppliedSummaryLine', { enabled: enableCount, disabled: disableCount }))
+  return detailLines.length > 0
+    ? { title: t('historyQuestionnaireAppliedTitle'), detailLines }
+    : { title: t('historyQuestionnaireAppliedTitle') }
 }
 
 export function describeMultiEditApplied(params: DescribeMultiEditAppliedParams): HistoryEntryDescriptor | null {

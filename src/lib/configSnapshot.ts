@@ -12,6 +12,7 @@ const IGNORED_KEYS = new Set([
   'artifactSetNames',
   'artifactMetaSetIds',
   'name',
+  'tags',
 ])
 
 const DEFAULT_MIN_LEVEL = LEVEL_MILESTONES[0]!

@@ -223,9 +223,17 @@ This document captures runtime behavior, builder interactions, and user-facing w
 ## HSFC Global Note
 
 - Schema: HSFC may include an optional root-level `Note: string` with Markdown content.
-- Load: When an HSFC with `Note` is loaded, a modal dialog opens automatically (view-only). The dialog can also be opened via the always-visible “Add/Edit Note” button in the HSFC controls row.
+- Load: When an HSFC with `Note` is loaded, a modal dialog opens automatically (view-only). The dialog can also be opened via the always-visible note button in the HSFC controls row: `Add Note…` when empty, `Note…` when populated (opens in view mode).
 - Close: The dialog schedules its dismissal on the next animation frame; if a new note opens immediately after a close request (common during HSFC imports), the pending close is cancelled so the modal overlay never lingers.
 - Edit: The dialog uses an embedded Markdown editor (`@uiw/react-md-editor`) with sanitized previews (`rehype-sanitize`). The editor lives in `src/components/NoteDialog.tsx`.
+- Questionnaire markers: HTML comments inside the note can render interactive question blocks in the read-only view. Markers can be inline or multi-line; whitespace is optional.
+  - Syntax (single): `<!-- q:single "Prompt" [* "Yes", tag1, tag2] ["No", -tag1] -->`.
+  - Syntax (multi): `<!-- q:multi "Prompt" [* "Option", tag1] ["Other", tag2] -->`.
+  - `*` before the label marks the default selection. `-tag` removes that tag from the active set. Whitespace is optional.
+  - Prompt references: Wrap option labels in backticks to render them as chips (e.g., ``Answering `Yes` will...``). Use numeric references like `` `\1` `` (1-based) to inject the Nth option label. Wrap emphasis text in `**double-asterisks**` to render it with the Quota/Scope label style; both markers work in prompts and option labels. Prompts accept literal newlines or `\n` escapes for line breaks.
+  - Questions are evaluated top-to-bottom; later answers can override tags from earlier ones.
+- Apply tags: The Note dialog exposes `Apply Questionnaire Tags`, which confirms and then enables/disables configs whose `Tags` intersect the active tag set. Untagged configs and separators are untouched.
+- Session-only answers: Questionnaire answers are stored in autosave/session state only; HSFC exports never include them.
 - Save/Copy: If a Note exists (non-empty), HSFC exports and “Copy all Configs” include it.
 - Paste semantics: Pasting HSFC content (via context menu or manual paste) only overwrites the current note if the current note is empty. Loading a file always overwrites the current note.
 - Metaset conflicts on paste (Copy/Paste only): identical value (same sets) keeps current ID and remaps pasted references. If the same ID has different sets, a single dialog offers: Keep current, Use pasted, or Keep both (new ID for pasted). Unknown pasted metaset IDs create hidden placeholders with generated names so chips never show raw IDs.

@@ -12,6 +12,7 @@ const overrides: Catalog = {
   configsHiddenSuffix: ' ({hidden} приховано)',
   editNote: 'Редагувати нотатку…',
   addNote: 'Додати нотатку…',
+  noteOpen: 'Нотатка…',
   saveAllConfigs: 'Зберегти всі конфіги (.hsfc)',
   saveAllConfigsTooltip: 'Збережіть усі конфіги, метасети, мінімуми та нотатки у файл Configs (.hsfc), який можна буде відкрити пізніше.',
   deleteConfigs: 'Видалити всі конфіги',

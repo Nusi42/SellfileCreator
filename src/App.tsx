@@ -227,6 +227,7 @@ import {
   describeConfigsCleared,
   describeConfigsDeleted,
   describeConfigsInserted,
+  describeQuestionnaireApplied,
 } from './history/configCollectionDescriptors'
 import { describeMetasetConflictResolved, describeMetasetDeleted, describeMetasetsReset } from './history/metasetDescriptors'
 import { describeSubstatTargetsChange, areSubstatTargetTablesEqual, isDefaultSubstatTargetTable, appendDescriptorDetails } from './history/substatTargetDescriptors'
@@ -234,6 +235,11 @@ import { describeFinalSellChange, areFinalSellConfigsEqual, type FinalSellDescri
 import { describeNoteChange, normalizeNoteValue, type NoteDescriptorMode } from './history/noteDescriptors'
 import { describeHsfcLoaded, describeAutosaveRestored, makeClipboardSourceDescriptor } from './history/bulkLoadDescriptors'
 import { useAutoSideBySideZoom } from './hooks/useAutoSideBySideZoom'
+import {
+  buildQuestionnaireConfigImpact,
+  pruneNoteQuestionnaireAnswers,
+  resolveQuestionnaireTags,
+} from './lib/noteQuestionnaire'
 
 // Components are organized under src/components
 
@@ -304,7 +310,18 @@ type ConfigRulesStateSnapshot = {
 export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindMode: ColorBlindMode; setColorBlindMode: (m: ColorBlindMode) => void }) {
   const [hsf, setHsf] = useState<HsfFile | null>(null)
   // Shared app state via context — reduces prop drilling and keeps behavior consistent.
-  const { customCfgs, selectedCfgIdx, metasets, substatTargets, finalSellRemainder, logicHubDialogTab, hsfcNote, keepUniqueRules, keepUniquesEnabled } = useAppState()
+  const {
+    customCfgs,
+    selectedCfgIdx,
+    metasets,
+    substatTargets,
+    finalSellRemainder,
+    logicHubDialogTab,
+    hsfcNote,
+    noteQuestionnaireAnswers,
+    keepUniqueRules,
+    keepUniquesEnabled,
+  } = useAppState()
   const customCfgsRef = useRef(customCfgs)
   useEffect(() => { customCfgsRef.current = customCfgs }, [customCfgs])
   const {
@@ -315,6 +332,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setFinalSellRemainder,
     setLogicHubDialogTab,
     setHsfcNote,
+    setNoteQuestionnaireAnswers,
     setKeepUniqueRules,
     setKeepUniquesEnabled,
   } = useAppActions()
@@ -2228,7 +2246,16 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       setHsfcNote(() => nextNormalized)
       return null
     }
+    // Persist the updated note content immediately.
     setHsfcNote(() => nextNormalized)
+    // Keep questionnaire answers aligned with the current note markers.
+    // Why: answers are session-only, so imports reset them while edits prune stale entries.
+    setNoteQuestionnaireAnswers((prev) => {
+      // Imports never carry answers, so clear them.
+      if (mode === 'import') return {}
+      // Prune or reset answers based on the new note content.
+      return nextNormalized ? pruneNoteQuestionnaireAnswers(nextNormalized, prev) : {}
+    })
     const descriptor = describeNoteChange({
       previous: prevNormalized,
       next: nextNormalized,
@@ -2266,7 +2293,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       describeNextChange(aggregateDescriptor ?? descriptor)
     }
     return aggregateDescriptor ?? descriptor
-  }, [describeNextChange, hsfcNote, noteMode, noteOpen, setHsfcNote, t])
+  }, [describeNextChange, hsfcNote, noteMode, noteOpen, setHsfcNote, setNoteQuestionnaireAnswers, t])
+
 
   const tutorial = useTutorialCoachState({
     hsf,
@@ -2396,6 +2424,44 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const builderUiDirty = multiselectActive && multiEditDraftState
     ? getDirtyBuilderFieldKeys(multiEditDraftState.fields).length > 0
     : selectedIsDirty
+
+  const applyQuestionnaireTags = useCallback(() => {
+    // Resolve tags based on the current note and answers.
+    const noteText = typeof hsfcNote === 'string' ? hsfcNote : ''
+    const { questions, activeTags } = resolveQuestionnaireTags(noteText, noteQuestionnaireAnswers)
+    // Skip when no questions exist.
+    if (questions.length === 0) return
+    // Compute which configs change export mode.
+    const impact = buildQuestionnaireConfigImpact(customCfgs, activeTags)
+    // Exit when nothing changes.
+    if (impact.changedCount === 0) return
+    // Record a history entry for the Apply action.
+    const descriptor = describeQuestionnaireApplied({
+      changedIndices: impact.changedIndices,
+      configs: impact.nextConfigs,
+      enableCount: impact.enableCount,
+      disableCount: impact.disableCount,
+      t,
+    })
+    if (descriptor) describeNextChange(descriptor)
+    // Apply the updated configs in one batch.
+    setCustomCfgs(impact.nextConfigs)
+    // Sync the builder if the selected config changed and is clean.
+    if (selectedCfgIdx !== null && impact.changedIndices.includes(selectedCfgIdx) && !selectedIsDirty) {
+      const nextCfg = impact.nextConfigs[selectedCfgIdx]
+      if (nextCfg) setBuilder(nextCfg)
+    }
+  }, [
+    customCfgs,
+    describeNextChange,
+    hsfcNote,
+    noteQuestionnaireAnswers,
+    selectedCfgIdx,
+    selectedIsDirty,
+    setBuilder,
+    setCustomCfgs,
+    t,
+  ])
 
   const computeDraftHistoryDescriptor = useCallback((): HistoryEntryDescriptor => {
     if (multiselectActive && selectedCfgIndices.length > 1) {
@@ -2557,6 +2623,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     finalSellRemainder,
     selectedConfigIndex: selectedCfgIdx,
     note: hsfcNote,
+    noteQuestionnaireAnswers,
     filters: autosaveFiltersState,
     testerSort: testerSubstatSortPrefs.state,
     keepUniqueRules,
@@ -3007,15 +3074,20 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     const testerSortPayload = isDefaultTesterSubstatSortState(testerSubstatSortPrefs.state)
       ? null
       : testerSubstatSortPrefs.state
+    // Persist questionnaire answers in autosave only when non-empty.
+    const questionnairePayload = Object.keys(noteQuestionnaireAnswers).length > 0
+      ? noteQuestionnaireAnswers
+      : null
     return {
       ...autosaveBasePayload,
       LogicHubDialogTab: logicHubDialogTab, // Persist the active tab so the dialog re-opens where the user left off.
       KeepUniquesGridFilterMode: keepUniquesGridFilterMode,
       AutosaveSavedAt: new Date().toISOString(),
+      ...(questionnairePayload ? { NoteQuestionnaireAnswers: questionnairePayload } : {}),
       ...(filtersPayload ? { Filters: filtersPayload } : {}),
       ...(testerSortPayload ? { TesterSort: testerSortPayload } : {}),
     }
-  }, [autosaveBasePayload, autosaveFiltersState, logicHubDialogTab, keepUniquesGridFilterMode, testerSubstatSortPrefs.state])
+  }, [autosaveBasePayload, autosaveFiltersState, logicHubDialogTab, keepUniquesGridFilterMode, noteQuestionnaireAnswers, testerSubstatSortPrefs.state])
   useAutosave({
     key: AUTOSAVE_KEY,
     payload: autosavePayload,
@@ -3946,6 +4018,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       applyNoteChange(null, { mode: 'import', publish: false })
       handleCloseNote()
     }
+    // HSFC files do not carry questionnaire answers, so reset to defaults.
+    setNoteQuestionnaireAnswers({})
 
     startTransition(() => {
       describeNextChange(loadDescriptor)
@@ -3993,6 +4067,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setCustomCfgs,
     setLastExportSig,
     setMetasets,
+    setNoteQuestionnaireAnswers,
     substatTargets,
     syncSelectedCfgIdx,
     t,
@@ -4099,6 +4174,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     onUnknownFile: handleUnknownImportedFile,
   })
 
+  // Track whether a note exists so we can open in view mode.
+  const notePresent = Boolean(hsfcNote && hsfcNote.trim())
   // HSFC load/save/copy controls surfaced at the top of the builder column.
   const headerActionsElement = (
     <HeaderActions
@@ -4129,8 +4206,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         showToast(t('toastConfigsSaved'))
         markSavedNow()
       }}
-      onOpenNote={() => { openNoteEditor() }}
-      notePresent={Boolean(hsfcNote && hsfcNote.trim())}
+      onOpenNote={() => { notePresent ? openNoteViewer() : openNoteEditor() }}
+      notePresent={notePresent}
       count={customCfgs.length}
       selectedCount={selectedCfgIndices.length}
       visibleCount={visibleConfigCount}
@@ -4775,6 +4852,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             applyNoteChange(value, { mode })
           }}
           onClose={handleCloseNote}
+          onRequestEdit={openNoteEditor}
+          questionnaireAnswers={noteQuestionnaireAnswers}
+          onQuestionnaireAnswersChange={setNoteQuestionnaireAnswers}
+          onApplyQuestionnaireTags={applyQuestionnaireTags}
           configs={customCfgs}
           metasets={metasets}
           keepUniqueRules={keepUniqueRules}
@@ -4892,8 +4973,15 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
               // Restore/clear runtime gear sets first so baked-in catalog lookups
               // remain stable while we sanitize incoming configs/metasets.
               if (selection.targets && restoreTargetsDiffer && draft.substatTargets && typeof draft.substatTargets === 'object') setSubstatTargets(draft.substatTargets)
-              if (selection.note && typeof draft.Note === 'string') {
-                applyNoteChange(draft.Note, { mode: 'restore', publish: false })
+              if (selection.note) {
+                const restoredNote = typeof draft.Note === 'string' ? draft.Note : ''
+                if (restoredNote) {
+                  applyNoteChange(restoredNote, { mode: 'restore', publish: false })
+                } else {
+                  applyNoteChange(null, { mode: 'restore', publish: false })
+                }
+                const restoredAnswers = draft.NoteQuestionnaireAnswers ?? {}
+                setNoteQuestionnaireAnswers(pruneNoteQuestionnaireAnswers(restoredNote, restoredAnswers))
               }
               if (selection.filters && restoreFiltersDiffer && draft.Filters) {
                 try {

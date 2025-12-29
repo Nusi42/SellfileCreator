@@ -12,6 +12,7 @@ const overrides: Catalog = {
   configsHiddenSuffix: ' ({hidden} ausgeblendet)',
   editNote: 'Notiz bearbeiten…',
   addNote: 'Notiz hinzufügen…',
+  noteOpen: 'Notiz…',
   saveAllConfigs: 'Alle Konfigs speichern (.hsfc)',
   saveAllConfigsTooltip: 'Speichere alle Konfigs, Metasets, Minima und Notizen als Configs-Schnappschuss (.hsfc), den du später erneut laden kannst.',
   deleteConfigs: 'Alle Konfigs löschen',

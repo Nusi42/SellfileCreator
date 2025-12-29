@@ -1,11 +1,15 @@
 import React, { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
-import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, LinearProgress, Stack, Typography } from '@mui/material'
-import { alpha, useTheme } from '@mui/material/styles'
+import { Box, Button, Checkbox, Dialog, DialogActions, DialogContent, DialogTitle, FormControl, FormControlLabel, FormGroup, LinearProgress, Radio, RadioGroup, Stack, Typography } from '@mui/material'
+import { alpha, useTheme, type Theme } from '@mui/material/styles'
+import LocalOfferIcon from '@mui/icons-material/LocalOffer'
+import StarsIcon from '@mui/icons-material/Stars'
+import ViewListIcon from '@mui/icons-material/ViewList'
+import QuizIcon from '@mui/icons-material/Quiz'
 import { useI18n } from '../lib/i18n'
 import { FONT_SIZE_MARKDOWN_PX, FONT_SIZE_SECONDARY_PX } from '../lib/constants'
 import MDEditor from '@uiw/react-md-editor'
 import type { ICommand, RefMDEditor } from '@uiw/react-md-editor'
-import { getCommands } from '@uiw/react-md-editor'
+import { commands, getCommands } from '@uiw/react-md-editor'
 import rehypeSanitize from 'rehype-sanitize'
 import { defaultSchema } from 'hast-util-sanitize'
 import type { Schema } from 'hast-util-sanitize'
@@ -23,6 +27,13 @@ import MarkdownTooltip from './MarkdownTooltip'
 import { useGearSetCatalogVersion } from '../hooks/useGearSetCatalogVersion'
 import { KEEP_UNIQUE_DEFAULT_COUNT_MODE, sanitizeKeepUniqueCountMode, type KeepUniqueRule, KeepUniqueRuleActivation } from '../lib/keepUniques'
 import { resolveRarityLabel } from '../lib/testerPreviewFormatting'
+import {
+  buildQuestionnaireConfigImpact,
+  resolveQuestionnaireTags,
+  type NoteQuestionDefinition,
+  type NoteQuestionnaireAnswers,
+  type QuestionnaireConfigImpact,
+} from '../lib/noteQuestionnaire'
 
 // Limited color palette for Note highlighting rendered from Markdown via
 //   <span data-color="{name}">…</span>
@@ -71,6 +82,23 @@ const KEEP_UNIQUE_ELEMENT_PATTERN_ATTR = 'data-ku-pattern'
 const KEEP_UNIQUE_ELEMENT_INDEX_ATTR = 'data-ku-marker-index'
 const KEEP_UNIQUE_FILTER_IDS = 'ids'
 const KEEP_UNIQUE_FILTER_REGEXP = 'regexp'
+const NOTE_CARD_GAP = 1.5
+const NOTE_CARD_WIDTHS: Record<NoteCardWidthPreset, { flexBasis: number; minWidth: number; maxWidth: number }> = {
+  note: { flexBasis: 242, minWidth: 209, maxWidth: 322 },
+}
+
+// Match HTML comment bodies that declare questionnaire markers.
+const QUESTION_COMMENT_REGEX = /^\s*q\s*:\s*(single|multi)\b/i
+// Match raw HTML comment markers in the Markdown stream.
+const QUESTION_MARKER_REGEX = /<!--\s*q\s*:\s*(single|multi)[\s\S]*?-->/i
+// Custom element tag used in sanitized Markdown output.
+const QUESTION_ELEMENT_TAG = 'note-questionnaire'
+// Wrapper tag used to group question markers into a single flex layout.
+const QUESTION_GROUP_ELEMENT_TAG = 'note-questionnaire-group'
+// Attribute used to map back to a parsed question definition.
+const QUESTION_ELEMENT_INDEX_ATTR = 'data-question-index'
+// Backtick references like `\1` map to option labels by 1-based index.
+const QUESTION_PROMPT_REF_REGEX = /^\\(\d+)$/
 
 // Defensive guard: reject control characters that would break markdown parsing or regex compilation.
 function containsControlCharacters(value: string): boolean {
@@ -106,6 +134,150 @@ type ConfigMarkerEntry = { id: number; cfg: BuilderConfig }
 type ConfigMarkerMap = Map<number, ConfigMarkerEntry[]>
 type KeepUniqueMarkerEntry = { id: number; rule: KeepUniqueRule }
 type KeepUniqueMarkerMap = Map<number, KeepUniqueMarkerEntry[]>
+type NoteCardWidthPreset = 'note'
+type QuestionPromptToken = { key: string; text: string; kind: 'text' | 'chip' | 'label' }
+
+// Backticks mark chip-style emphasis within prompts.
+const QUESTION_PROMPT_CHIP_MARKER = '`'
+// Double-asterisks mark label-style emphasis within prompts.
+const QUESTION_PROMPT_LABEL_MARKER = '**'
+
+// Shared label styling keeps note labels consistent across cards.
+const NOTE_CARD_LABEL_TEXT_SX = {
+  fontWeight: 800,
+  color: 'text.secondary',
+  lineHeight: 1.4,
+}
+const NOTE_QUESTION_OPTION_SX = {
+  // Match Keep Unique row density by trimming default control padding.
+  alignItems: 'center',
+  m: 0,
+  py: 0,
+  '& .MuiFormControlLabel-label': { lineHeight: NOTE_CARD_LABEL_TEXT_SX.lineHeight },
+  '& .MuiCheckbox-root, & .MuiRadio-root': { p: 0.25 },
+}
+
+function resolveQuestionPromptReference(raw: string, options: NoteQuestionDefinition['options']): string {
+  // Trim whitespace so numeric references are easy to parse.
+  const trimmed = raw.trim()
+  const match = QUESTION_PROMPT_REF_REGEX.exec(trimmed)
+  // Return the raw text when no numeric reference is present.
+  if (!match) return raw
+  // Convert 1-based references to array indices.
+  const index = Number.parseInt(match[1] ?? '', 10) - 1
+  // Ignore invalid indices so prompts remain readable.
+  if (!Number.isFinite(index) || index < 0) return raw
+  const option = options[index]
+  // Fall back to the original content when the option is missing.
+  return option ? option.label : raw
+}
+
+function buildQuestionPromptTokens(
+  prompt: string,
+  options: NoteQuestionDefinition['options'],
+  allowReferences: boolean,
+): QuestionPromptToken[] {
+  // Tokenize on both backticks and double-asterisks to support chips + label highlights.
+  const tokens: QuestionPromptToken[] = []
+  let cursor = 0
+  let partIndex = 0
+  while (cursor < prompt.length) {
+    // Locate the next marker so the earliest highlight wins.
+    const chipIndex = prompt.indexOf(QUESTION_PROMPT_CHIP_MARKER, cursor)
+    const labelIndex = prompt.indexOf(QUESTION_PROMPT_LABEL_MARKER, cursor)
+    // Resolve which marker appears first in the remaining string.
+    const nextMarker = (() => {
+      if (chipIndex < 0 && labelIndex < 0) return null
+      if (chipIndex < 0) return { index: labelIndex, marker: QUESTION_PROMPT_LABEL_MARKER, kind: 'label' as const }
+      if (labelIndex < 0) return { index: chipIndex, marker: QUESTION_PROMPT_CHIP_MARKER, kind: 'chip' as const }
+      return chipIndex <= labelIndex
+        ? { index: chipIndex, marker: QUESTION_PROMPT_CHIP_MARKER, kind: 'chip' as const }
+        : { index: labelIndex, marker: QUESTION_PROMPT_LABEL_MARKER, kind: 'label' as const }
+    })()
+    // Exit when no more markers remain.
+    if (!nextMarker) {
+      // Preserve the remaining text when no more markers exist.
+      const tail = prompt.slice(cursor)
+      if (tail) tokens.push({ key: `text-${partIndex}`, text: tail, kind: 'text' })
+      break
+    }
+    // Emit any leading text before the marker.
+    if (nextMarker.index > cursor) {
+      tokens.push({ key: `text-${partIndex}`, text: prompt.slice(cursor, nextMarker.index), kind: 'text' })
+      partIndex += 1
+    }
+    // Find the closing marker to capture the highlighted text.
+    const close = prompt.indexOf(nextMarker.marker, nextMarker.index + nextMarker.marker.length)
+    if (close < 0) {
+      // Unbalanced markers stay as literal text.
+      tokens.push({ key: `text-${partIndex}`, text: prompt.slice(nextMarker.index), kind: 'text' })
+      break
+    }
+    // Extract the raw content between markers.
+    const raw = prompt.slice(nextMarker.index + nextMarker.marker.length, close)
+    // Resolve `\1` references inside both label + chip markers when enabled.
+    const resolved = allowReferences
+      ? resolveQuestionPromptReference(raw, options)
+      : raw
+    // Push the highlighted token when content exists.
+    if (resolved) tokens.push({ key: `mark-${partIndex}`, text: resolved, kind: nextMarker.kind })
+    cursor = close + nextMarker.marker.length
+    partIndex += 1
+  }
+  return tokens
+}
+
+function renderQuestionTextTokens({
+  tokens,
+  chipSx,
+  labelSx,
+}: {
+  tokens: QuestionPromptToken[]
+  chipSx: Record<string, unknown>
+  labelSx: Record<string, unknown>
+}): React.ReactNode {
+  // Render each token with the intended visual emphasis.
+  return tokens.map((token) => (
+    token.kind === 'chip' ? (
+      // Chip tokens reuse the keep-unique scope chip treatment.
+      <Box key={token.key} component="span" sx={chipSx}>
+        <Typography variant="caption" sx={{ fontWeight: 700, lineHeight: 1.2 }}>
+          {token.text}
+        </Typography>
+      </Box>
+    ) : token.kind === 'label' ? (
+      // Label tokens mirror the Quota/Scope label typography.
+      <Typography key={token.key} component="span" variant="caption" sx={labelSx}>
+        {token.text}
+      </Typography>
+    ) : (
+      // Plain text inherits the surrounding Typography styles.
+      <Box key={token.key} component="span">
+        {token.text}
+      </Box>
+    )
+  ))
+}
+
+function renderQuestionOptionLabel(
+  label: string,
+  chipSx: Record<string, unknown>,
+  labelSx: Record<string, unknown>,
+): JSX.Element {
+  // Tokenize option labels so highlight markers mirror prompt behavior.
+  const tokens = buildQuestionPromptTokens(label, [], false)
+  // Preserve explicit line breaks for multi-line option labels.
+  return (
+    <Typography
+      component="span"
+      variant="caption"
+      color="text.secondary"
+      sx={{ whiteSpace: 'pre-line', lineHeight: NOTE_CARD_LABEL_TEXT_SX.lineHeight }}
+    >
+      {renderQuestionTextTokens({ tokens, chipSx, labelSx })}
+    </Typography>
+  )
+}
 
 type NoteRenderContextValue = {
   configs: BuilderConfig[]
@@ -115,6 +287,9 @@ type NoteRenderContextValue = {
   markerResolutions: ConfigMarkerMap
   keepUniqueRules: KeepUniqueRule[]
   keepUniqueMarkerResolutions: KeepUniqueMarkerMap
+  questionnaireResolutions: Map<number, NoteQuestionDefinition>
+  questionnaireEditable: boolean
+  onQuestionnaireAnswerChange: (question: NoteQuestionDefinition, nextAnswer: string[]) => void
 }
 
 const NoteRenderContext = React.createContext<NoteRenderContextValue | null>(null)
@@ -366,6 +541,115 @@ const rehypeKeepUniqueComments: Pluggable = () => {
   }
 }
 
+const rehypeQuestionComments: Pluggable = () => {
+  return (tree: Root) => {
+    // Track the marker index as we traverse the Markdown tree.
+    let markerIndex = 0
+    const transform = (node: Root | Element): void => {
+      // Normalize to the child array to keep the loop simple.
+      const nodeChildren = (node.children ?? []) as RootContent[]
+      for (let i = 0; i < nodeChildren.length; i++) {
+        const child = nodeChildren[i]
+        // Skip empty child slots defensively.
+        if (!child) continue
+        if (child.type === 'comment') {
+          const value = (child as { value: string }).value
+          // Ignore non-question comments.
+          if (!QUESTION_COMMENT_REGEX.test(value)) continue
+          // Replace with a custom element that the renderer can map.
+          const element: Element = {
+            type: 'element',
+            tagName: QUESTION_ELEMENT_TAG,
+            properties: {
+              [QUESTION_ELEMENT_INDEX_ATTR]: String(markerIndex),
+            },
+            children: [],
+          }
+          // Increment and replace the comment node.
+          markerIndex += 1
+          nodeChildren.splice(i, 1, element)
+          continue
+        }
+        if (child.type === 'raw') {
+          const value = (child as { value: string }).value
+          // Only treat raw HTML that matches the question marker syntax.
+          if (!QUESTION_MARKER_REGEX.test(value)) continue
+          // Swap the raw HTML for the same custom element tag.
+          const element: Element = {
+            type: 'element',
+            tagName: QUESTION_ELEMENT_TAG,
+            properties: {
+              [QUESTION_ELEMENT_INDEX_ATTR]: String(markerIndex),
+            },
+            children: [],
+          }
+          // Increment and replace the raw HTML node.
+          markerIndex += 1
+          nodeChildren.splice(i, 1, element)
+          continue
+        }
+        // Recurse into child elements to find nested markers.
+        if ((child as Element).type === 'element' && Array.isArray((child as Element).children)) {
+          transform(child as unknown as Element)
+        }
+      }
+    }
+    // Begin the recursive traversal at the root.
+    transform(tree)
+  }
+}
+
+const rehypeQuestionGroups: Pluggable = () => {
+  return (tree: Root) => {
+    const isQuestionElement = (node: RootContent): node is Element => {
+      return node.type === 'element' && (node as Element).tagName === QUESTION_ELEMENT_TAG
+    }
+    const isWhitespaceText = (node: RootContent): boolean => {
+      if (node.type !== 'text') return false
+      const value = (node as { value?: string }).value ?? ''
+      return value.trim().length === 0
+    }
+    const transform = (node: Root | Element): void => {
+      const nodeChildren = (node.children ?? []) as RootContent[]
+      for (const child of nodeChildren) {
+        if ((child as Element).type === 'element' && Array.isArray((child as Element).children)) {
+          transform(child as unknown as Element)
+        }
+      }
+      const nextChildren: RootContent[] = []
+      for (let i = 0; i < nodeChildren.length; i += 1) {
+        const child = nodeChildren[i]
+        if (!child) continue
+        if (!isQuestionElement(child)) {
+          nextChildren.push(child)
+          continue
+        }
+        const grouped: Element[] = [child]
+        let cursor = i + 1
+        for (; cursor < nodeChildren.length; cursor += 1) {
+          const candidate = nodeChildren[cursor]
+          if (!candidate) continue
+          if (isQuestionElement(candidate)) {
+            grouped.push(candidate)
+            continue
+          }
+          if (isWhitespaceText(candidate)) continue
+          break
+        }
+        nextChildren.push({
+          type: 'element',
+          tagName: QUESTION_GROUP_ELEMENT_TAG,
+          properties: {},
+          children: grouped,
+        })
+        i = cursor - 1
+      }
+      nodeChildren.splice(0, nodeChildren.length, ...nextChildren)
+    }
+    transform(tree)
+  }
+}
+
 function collectConfigIds(text: string, configs: BuilderConfig[]): Set<number> {
   const used = new Set<number>()
   const resolutions = buildConfigMarkerResolutions(text, configs)
@@ -438,8 +722,14 @@ function buildConfigMarkerResolutions(text: string, configs: BuilderConfig[]): C
   return result
 }
 
-function buildConfigMarker(ids: number[]): string {
-  return `<!-- configs:${ids.join(',')} -->`
+const CONFIG_MARKER_HINT = '<!--  Use `0` to reference the config after the last used. Alternatively, use `configs-re: "text"` for regexp matches. -->'
+
+function buildConfigMarkerBlock(ids: number[]): { block: string; cursorIndex: number } {
+  // Keep the marker and hint on separate lines to avoid breaking selection ranges.
+  const marker = `<!-- configs:${ids.join(',')} -->`
+  const block = `${marker}\n${CONFIG_MARKER_HINT}`
+  // Cursor returns to the end of the marker line for continued editing.
+  return { block, cursorIndex: marker.length + 1 }
 }
 
 function collectKeepUniqueIds(text: string, keepUniqueRules: KeepUniqueRule[]): Set<number> {
@@ -514,8 +804,29 @@ function buildKeepUniqueMarkerResolutions(text: string, keepUniqueRules: KeepUni
   return result
 }
 
-function buildKeepUniqueMarker(ids: number[]): string {
-  return `<!-- keep-uniques:${ids.join(',')} -->`
+const KEEP_UNIQUE_MARKER_HINT = '<!-- use `keep-uniques-re: "text"` for regexp matches. Use `0` only in numeric lists (keep-uniques:). -->'
+
+function buildKeepUniqueMarkerBlock(ids: number[]): { block: string; cursorIndex: number } {
+  // Match config marker ergonomics: leave the hint on the next line.
+  const marker = `<!-- keep-uniques:${ids.join(',')} -->`
+  const block = `${marker}\n${KEEP_UNIQUE_MARKER_HINT}`
+  // Place the caret after the marker for quick follow-up edits.
+  return { block, cursorIndex: marker.length + 1 }
+}
+
+function buildQuestionnaireMarkerResolutions(text: string, answers: NoteQuestionnaireAnswers): Map<number, NoteQuestionDefinition> {
+  // Map marker indices to parsed question definitions.
+  const result = new Map<number, NoteQuestionDefinition>()
+  // Short-circuit when no note text exists.
+  if (!text) return result
+  // Resolve questions with the current answers merged in.
+  const { questions } = resolveQuestionnaireTags(text, answers)
+  for (const question of questions) {
+    // Use the marker index so the Markdown renderer can map markers.
+    result.set(question.index, question)
+  }
+  // Return the completed index map.
+  return result
 }
 
 function computeBlockInsertion(
@@ -523,6 +834,7 @@ function computeBlockInsertion(
   start: number,
   end: number,
   block: string,
+  cursorIndex?: number,
 ): { insert: string; cursorOffset: number } {
   const before = text.slice(0, start)
   const after = text.slice(end)
@@ -531,7 +843,10 @@ function computeBlockInsertion(
   const leading = needsLeading ? (before.endsWith('\n\n') ? '' : '\n\n') : (start === 0 ? '' : '\n')
   const trailing = needsTrailing ? '\n\n' : (after.length === 0 ? '\n' : '')
   const insert = `${leading}${block}${trailing}`
-  const cursorOffset = insert.length - (trailing.length > 0 ? trailing.length : 0)
+  // Default cursor placement stays at the end of the inserted block.
+  const fallbackOffset = insert.length - (trailing.length > 0 ? trailing.length : 0)
+  // Optional cursorIndex anchors inside the inserted block (relative to block start).
+  const cursorOffset = typeof cursorIndex === 'number' ? leading.length + cursorIndex : fallbackOffset
   return { insert, cursorOffset }
 }
 
@@ -570,6 +885,22 @@ function buildMetasetBulletList(
       return `- ${iconPart}**${name}** - ${setsLabel}.`
     })
     .join('\n')
+}
+
+function buildQuestionnaireSampleBlock(): string {
+  // Provide a starter block that demonstrates single + multi format.
+  return [
+    '<!-- q:single "Single-select question with **Bold**, and `Marked` labels, using labels **\\1** or `\\2`."',
+    '  [* "Answer 1", tag1, -tag2]',
+    '  ["Answer 2", tag2]',
+    '-->',
+    '',
+    '<!-- q:multi "Another question with **Bold** and `Marked` labels."',
+    '  [* "Answer A", tag-a]',
+    '  ["Answer B"]',
+    '  ["Answer C", tag-c]',
+    '-->',
+  ].join('\n')
 }
 
 function buildMetasetInsertCommand(params: {
@@ -711,6 +1042,189 @@ function ConfigChipBlock({ node }: ConfigChipBlockProps): JSX.Element | null {
   )
 }
 
+type NoteQuestionBlockProps = React.PropsWithChildren<{ node?: Element & { properties?: Record<string, unknown> } }>
+
+function getNoteCardWidthStyles(preset: NoteCardWidthPreset) {
+  // Shared sizing keeps questionnaire and keep-unique cards aligned.
+  return NOTE_CARD_WIDTHS[preset]
+}
+
+function NoteCardWrap({ children }: React.PropsWithChildren): JSX.Element {
+  // Shared wrapper keeps spacing identical across note card types.
+  return (
+    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: NOTE_CARD_GAP, my: 1, alignItems: 'flex-start' }}>
+      {children}
+    </Box>
+  )
+}
+
+function buildNoteScopeChipSx(theme: Theme, active: boolean) {
+  // Reuse the Keep Unique scope chip styling for note highlights.
+  return {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 0.4,
+    px: 0.5,
+    py: 0.3,
+    borderRadius: 1,
+    border: '1px solid',
+    // Active styling uses the primary palette; inactive stays neutral.
+    borderColor: active ? alpha(theme.palette.primary.main, 0.6) : 'divider',
+    bgcolor: active
+      ? alpha(theme.palette.primary.main, theme.palette.mode === 'dark' ? 0.2 : 0.12)
+      : 'transparent',
+    color: active ? theme.palette.primary.main : 'text.secondary',
+  } satisfies Record<string, unknown>
+}
+
+function NoteQuestionBlock({ node }: NoteQuestionBlockProps): JSX.Element | null {
+  // Pull questionnaire wiring from context.
+  const { questionnaireResolutions, questionnaireEditable, onQuestionnaireAnswerChange } = useNoteRenderContext()
+  const theme = useTheme()
+  // Extract the marker index from the custom element.
+  const rawIndexAttr = coerceFirstString(node?.properties?.[QUESTION_ELEMENT_INDEX_ATTR])
+  let markerIndex: number | null = null
+  if (rawIndexAttr) {
+    const parsed = Number.parseInt(rawIndexAttr, 10)
+    if (Number.isFinite(parsed)) markerIndex = parsed
+  }
+  // Lookup the parsed question definition by marker index.
+  const question = markerIndex != null ? questionnaireResolutions.get(markerIndex) : undefined
+  // Tokenize the prompt so backtick references can be styled.
+  const promptTokens = useMemo(
+    () => (question ? buildQuestionPromptTokens(question.prompt, question.options, true) : []),
+    [question],
+  )
+  // Style chips to match Keep Unique scope chips for visual consistency.
+  const promptChipSx = useMemo(
+    () => buildNoteScopeChipSx(theme, true),
+    [theme],
+  )
+  // Emphasized text mirrors the Keep Unique label styling.
+  const promptLabelSx = useMemo(
+    () => ({
+      ...NOTE_CARD_LABEL_TEXT_SX,
+      display: 'inline-flex',
+      alignItems: 'center',
+    }),
+    [],
+  )
+  if (!question) return null
+  // Resolve the selected answers into a set for fast checks.
+  const selected = Array.isArray(question.answer) ? question.answer : []
+  const selectedSet = new Set<string>(selected)
+  // Wrap answer updates so callers can track changes.
+  const applyAnswer = (next: string[]) => {
+    onQuestionnaireAnswerChange(question, next)
+  }
+  // Shared sizing keeps question cards in lockstep with keep-unique cards.
+  const { flexBasis, minWidth, maxWidth } = getNoteCardWidthStyles('note')
+  return (
+    <Box
+      sx={{
+        // Match Keep Unique card styling for tighter, consistent layout.
+        // Width limits mirror Keep Unique cards so multiple can fit on a line.
+        flex: `1 1 ${flexBasis}px`,
+        minWidth,
+        maxWidth,
+        borderRadius: 1,
+        border: '1px solid',
+        borderColor: 'divider',
+        p: 1.25,
+        bgcolor: 'background.paper',
+      }}
+    >
+      {/* Stack keeps the heading and options tightly grouped. */}
+      <Stack spacing={0}>
+        {/* Prompt text mirrors the Keep Unique card title. */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.35, flexWrap: 'wrap' }}>
+          <Typography
+            variant="subtitle2"
+            component="p"
+            sx={{
+              // Match the Keep Unique title typography for questions.
+              fontWeight: 700,
+              wordBreak: 'break-word',
+              lineHeight: 1,
+              fontSize: '0.9rem',
+              flex: '1 1 auto',
+              minWidth: 0,
+              m: 0,
+              p: 0,
+              whiteSpace: 'pre-line',
+            }}
+          >
+            {/* Render prompt tokens so chips + labels stand out. */}
+            {renderQuestionTextTokens({ tokens: promptTokens, chipSx: promptChipSx, labelSx: promptLabelSx })}
+          </Typography>
+        </Box>
+        {/* Render either radios or checkboxes based on question type. */}
+        {question.type === 'single' ? (
+          <FormControl component="fieldset" variant="standard" sx={{ mt: 0.35 }}>
+            <RadioGroup
+              value={selected[0] ?? ''}
+              onChange={(_, value) => applyAnswer(value ? [value] : [])}
+              sx={{ gap: 0.25 }}
+            >
+              {question.options.map((option) => (
+                <FormControlLabel
+                  key={option.id}
+                  value={option.id}
+                  control={<Radio size="small" disabled={!questionnaireEditable} />}
+                  label={renderQuestionOptionLabel(option.label, promptChipSx, promptLabelSx)}
+                  disabled={!questionnaireEditable}
+                  sx={NOTE_QUESTION_OPTION_SX}
+                />
+              ))}
+            </RadioGroup>
+          </FormControl>
+        ) : (
+          <FormGroup sx={{ gap: 0.25, mt: 0.35 }}>
+            {question.options.map((option) => {
+              // Compute the checked state once per option.
+              const checked = selectedSet.has(option.id)
+              return (
+                <FormControlLabel
+                  key={option.id}
+                  control={(
+                    <Checkbox
+                      size="small"
+                      checked={checked}
+                      disabled={!questionnaireEditable}
+                      onChange={(event) => {
+                        // Ignore changes when the question is read-only.
+                        if (!questionnaireEditable) return
+                        // Toggle the option in a new Set instance.
+                        const next = new Set(selectedSet)
+                        if (event.target.checked) next.add(option.id)
+                        else next.delete(option.id)
+                        // Persist the new answer list.
+                        applyAnswer(Array.from(next))
+                      }}
+                    />
+                  )}
+                  label={renderQuestionOptionLabel(option.label, promptChipSx, promptLabelSx)}
+                  disabled={!questionnaireEditable}
+                  sx={NOTE_QUESTION_OPTION_SX}
+                />
+              )
+            })}
+          </FormGroup>
+        )}
+      </Stack>
+    </Box>
+  )
+}
+
+function NoteQuestionGroup({ children }: React.PropsWithChildren): JSX.Element {
+  // Groups adjacent question cards into the shared note-card layout.
+  return (
+    <NoteCardWrap>
+      {children}
+    </NoteCardWrap>
+  )
+}
+
 type KeepUniqueBlockProps = React.PropsWithChildren<{ node?: Element & { properties?: Record<string, unknown> } }>
 
 function KeepUniqueBlock({ node }: KeepUniqueBlockProps): JSX.Element | null {
@@ -786,10 +1300,11 @@ function KeepUniqueBlock({ node }: KeepUniqueBlockProps): JSX.Element | null {
   }
   const entries = resolvedEntries ?? []
   if (entries.length === 0) return null
+  const { flexBasis, minWidth, maxWidth } = getNoteCardWidthStyles('note')
   return (
-    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5, my: 1, alignItems: 'flex-start' }}>
+    <NoteCardWrap>
       {entries.map(({ id, rule }) => (
-        <Box key={`note-ku-${id}`} sx={{ flex: '1 1 300px', minWidth: 260, maxWidth: 400 }}>
+        <Box key={`note-ku-${id}`} sx={{ flex: `1 1 ${flexBasis}px`, minWidth, maxWidth }}>
           <KeepUniqueSummaryCard
             id={id}
             rule={rule}
@@ -801,7 +1316,7 @@ function KeepUniqueBlock({ node }: KeepUniqueBlockProps): JSX.Element | null {
           />
         </Box>
       ))}
-    </Box>
+    </NoteCardWrap>
   )
 }
 
@@ -825,17 +1340,6 @@ function KeepUniqueSummaryCard({
   const theme = useTheme()
   // Scope defaults mirror the dialog so notes stay in sync if count mode is missing.
   const countMode = sanitizeKeepUniqueCountMode(rule.countMode ?? KEEP_UNIQUE_DEFAULT_COUNT_MODE)
-  const scopeParts: string[] = []
-  if (countMode.perRule) {
-    scopeParts.push(t('keepUniquesCountModePerRule'))
-  } else {
-    if (countMode.perSlot) scopeParts.push(t('keepUniquesCountModePerSlot'))
-    if (countMode.perSet) scopeParts.push(t('keepUniquesCountModePerSet'))
-    if (countMode.perFaction) scopeParts.push(t('keepUniquesCountModePerFaction'))
-    if (countMode.perMainStat) scopeParts.push(t('keepUniquesCountModePerMain'))
-    if (scopeParts.length === 0) scopeParts.push(t('keepUniquesCountModePerRule'))
-  }
-  const scopeLabel = scopeParts.join(' × ')
   const scopeLegendLabel = t('noteKeepUniqueScopeLabel')
   // Scope chips mirror the dialog toggles so markdown exports stay aligned.
   const scopeFlags = [
@@ -1014,7 +1518,7 @@ function KeepUniqueSummaryCard({
         alignItems: options.valueAlign === 'center' ? 'center' : 'flex-start',
       }}
     >
-      <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 800, textAlign: 'right', lineHeight: 1.4 }}>
+      <Typography variant="caption" sx={{ ...NOTE_CARD_LABEL_TEXT_SX, textAlign: 'right' }}>
         {label}
       </Typography>
       <Box sx={{ minWidth: 0 }}>{value}</Box>
@@ -1032,9 +1536,9 @@ function KeepUniqueSummaryCard({
         bgcolor: 'background.paper',
       }}
     >
-      <Stack spacing={0.25} sx={{ width: 1 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 0.35, alignItems: 'center', flexWrap: 'wrap', width: 1 }}>
-          <Typography
+        <Stack spacing={0} sx={{ width: 1 }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 0.35, alignItems: 'center', flexWrap: 'wrap', width: 1 }}>
+            <Typography
             variant="subtitle2"
             component="p"
             sx={{
@@ -1073,12 +1577,12 @@ function KeepUniqueSummaryCard({
             </Box>
           ) : null}
         </Box>
-        <Stack spacing={0.6}>
+        <Stack spacing={0.35} sx={{ mt: 0.35 }}>
           {renderRow(
             t('noteKeepUniqueQuotaLabel'),
             <Typography variant="caption" color="text.secondary" sx={{ display: 'block', wordBreak: 'break-word' }}>
-              {t('noteKeepUniqueQuotaValue', { count: rule.requiredCount })}{' '}
-              <Box component="span">({scopeLabel})</Box>
+              {/* Scope details live in the Scope row to avoid repetition. */}
+              {t('noteKeepUniqueQuotaValue', { count: rule.requiredCount })}
             </Typography>,
             { valueAlign: 'center' },
           )}
@@ -1088,18 +1592,7 @@ function KeepUniqueSummaryCard({
               {activeScopeFlags.map((flag) => (
                 <Box
                   key={`ku-scope-${flag.key}`}
-                  sx={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: 0.4,
-                    px: 0.5,
-                    py: 0.3,
-                    borderRadius: 1,
-                    border: '1px solid',
-                    borderColor: flag.active ? alpha(theme.palette.primary.main, 0.6) : 'divider',
-                    bgcolor: flag.active ? alpha(theme.palette.primary.main, theme.palette.mode === 'dark' ? 0.2 : 0.12) : 'transparent',
-                    color: flag.active ? theme.palette.primary.main : 'text.secondary',
-                  }}
+                  sx={buildNoteScopeChipSx(theme, flag.active)}
                 >
                   <Typography variant="caption" sx={{ fontWeight: 700, lineHeight: 1.2 }}>
                     {flag.label}
@@ -1124,6 +1617,10 @@ export default function NoteDialog({
   note,
   onChange,
   onClose,
+  onRequestEdit,
+  questionnaireAnswers,
+  onQuestionnaireAnswersChange,
+  onApplyQuestionnaireTags,
   configs,
   metasets,
   keepUniqueRules,
@@ -1135,6 +1632,10 @@ export default function NoteDialog({
   note: string
   onChange: (value: string, options?: { mode?: 'edit' | 'clear' }) => void
   onClose: () => void
+  onRequestEdit: () => void
+  questionnaireAnswers: NoteQuestionnaireAnswers
+  onQuestionnaireAnswersChange: React.Dispatch<React.SetStateAction<NoteQuestionnaireAnswers>>
+  onApplyQuestionnaireTags: () => void
   configs: BuilderConfig[]
   metasets: Metaset[]
   keepUniqueRules: KeepUniqueRule[]
@@ -1143,22 +1644,89 @@ export default function NoteDialog({
 }) {
   const { t, lang } = useI18n()
   const editCommitRef = useRef<() => void>(() => onClose())
+  const [questionnaireConfirmOpen, setQuestionnaireConfirmOpen] = useState(false)
   const deferredNote = useDeferredValue(note)
   // View-only renders lean on the deferred snapshot so toggling loads does not stutter the dialog content.
   const renderNote = mode === 'view' ? deferredNote : note
   const notePending = mode === 'view' && deferredNote !== note
+  // Resolve config markers for embedded config chips.
   const markerResolutions = useMemo(() => buildConfigMarkerResolutions(renderNote ?? '', configs), [renderNote, configs])
+  // Resolve keep-unique markers for embedded rule summaries.
   const keepUniqueMarkerResolutions = useMemo(
     () => buildKeepUniqueMarkerResolutions(renderNote ?? '', keepUniqueRules),
     [renderNote, keepUniqueRules],
   )
+  // Resolve questions + tags to drive the apply flow.
+  const questionnaireResolution = useMemo(
+    () => resolveQuestionnaireTags(renderNote ?? '', questionnaireAnswers),
+    [renderNote, questionnaireAnswers],
+  )
+  // Map marker indices to question definitions for rendering.
+  const questionnaireResolutions = useMemo(
+    () => buildQuestionnaireMarkerResolutions(renderNote ?? '', questionnaireAnswers),
+    [renderNote, questionnaireAnswers],
+  )
+  // Compute the config impact for the confirmation dialog.
+  const questionnaireImpact = useMemo<QuestionnaireConfigImpact>(
+    () => buildQuestionnaireConfigImpact(configs, questionnaireResolution.activeTags),
+    [configs, questionnaireResolution.activeTags],
+  )
+  // Detect when there is at least one question to show.
+  const hasQuestionnaire = questionnaireResolution.questions.length > 0
+  const handleQuestionnaireAnswerChange = React.useCallback((
+    question: NoteQuestionDefinition,
+    nextSelection: string[],
+  ) => {
+    // Normalize to sets for default comparisons.
+    const defaultSet = new Set(question.defaultAnswer)
+    const nextSet = new Set(nextSelection)
+    const sameSize = defaultSet.size === nextSet.size
+    const matchesDefault = sameSize && Array.from(defaultSet).every((id) => nextSet.has(id))
+    // Keep answers ordered by option definition.
+    const orderedSelection = question.options
+      .filter((option) => nextSet.has(option.id))
+      .map((option) => option.id)
+    onQuestionnaireAnswersChange((prev) => {
+      const next = { ...prev }
+      // Default selections are omitted from storage.
+      if (matchesDefault) {
+        delete next[question.id]
+        return next
+      }
+      // Persist non-default answers.
+      next[question.id] = orderedSelection
+      return next
+    })
+  }, [onQuestionnaireAnswersChange])
   const contextValue = useMemo<NoteRenderContextValue>(
-    () => ({ configs, metasets, substatColors, useStatButtonColors, markerResolutions, keepUniqueRules, keepUniqueMarkerResolutions }),
-    [configs, metasets, substatColors, useStatButtonColors, markerResolutions, keepUniqueRules, keepUniqueMarkerResolutions],
+    () => ({
+      configs,
+      metasets,
+      substatColors,
+      useStatButtonColors,
+      markerResolutions,
+      keepUniqueRules,
+      keepUniqueMarkerResolutions,
+      questionnaireResolutions,
+      questionnaireEditable: mode === 'view',
+      onQuestionnaireAnswerChange: handleQuestionnaireAnswerChange,
+    }),
+    [
+      configs,
+      metasets,
+      substatColors,
+      useStatButtonColors,
+      markerResolutions,
+      keepUniqueRules,
+      keepUniqueMarkerResolutions,
+      questionnaireResolutions,
+      mode,
+      handleQuestionnaireAnswerChange,
+    ],
   )
   const allowMarkdownElement = React.useCallback<MarkdownAllowElement>((element) => {
     const tag = typeof element.tagName === 'string' ? element.tagName.toLowerCase() : ''
-    if (tag === CONFIG_ELEMENT_TAG || tag === KEEP_UNIQUE_ELEMENT_TAG) return true
+    if (tag === CONFIG_ELEMENT_TAG || tag === KEEP_UNIQUE_ELEMENT_TAG || tag === QUESTION_ELEMENT_TAG || tag === QUESTION_GROUP_ELEMENT_TAG) return true
     return DEFAULT_ALLOWED_TAG_REGEX.test(tag)
   }, [])
   // Memoized sanitize schema and plugins for performance during typing.
@@ -1169,6 +1737,7 @@ export default function NoteDialog({
     const spanAttrs: SanitizeProp[] = Array.isArray(baseAttrs.span) ? baseAttrs.span : []
     const configAttrs: SanitizeProp[] = Array.isArray(baseAttrs[CONFIG_ELEMENT_TAG]) ? baseAttrs[CONFIG_ELEMENT_TAG] : []
     const keepUniqueAttrs: SanitizeProp[] = Array.isArray(baseAttrs[KEEP_UNIQUE_ELEMENT_TAG]) ? baseAttrs[KEEP_UNIQUE_ELEMENT_TAG] : []
+    const questionAttrs: SanitizeProp[] = Array.isArray(baseAttrs[QUESTION_ELEMENT_TAG]) ? baseAttrs[QUESTION_ELEMENT_TAG] : []
     const mergedConfigAttrs = Array.from(new Set<SanitizeProp>([
       ...configAttrs,
       CONFIG_ELEMENT_ATTR,
@@ -1183,6 +1752,10 @@ export default function NoteDialog({
       KEEP_UNIQUE_ELEMENT_PATTERN_ATTR,
       KEEP_UNIQUE_ELEMENT_INDEX_ATTR,
     ]))
+    const mergedQuestionAttrs = Array.from(new Set<SanitizeProp>([
+      ...questionAttrs,
+      QUESTION_ELEMENT_INDEX_ATTR,
+    ]))
     return {
       ...defaultSchema,
       attributes: {
@@ -1190,72 +1763,26 @@ export default function NoteDialog({
         span: [...spanAttrs, 'data-color', 'dataColor'],
         [CONFIG_ELEMENT_TAG]: mergedConfigAttrs,
         [KEEP_UNIQUE_ELEMENT_TAG]: mergedKeepUniqueAttrs,
+        [QUESTION_ELEMENT_TAG]: mergedQuestionAttrs,
       },
-      tagNames: Array.from(new Set([...(defaultSchema.tagNames ?? []), 'span', CONFIG_ELEMENT_TAG, KEEP_UNIQUE_ELEMENT_TAG])),
+      tagNames: Array.from(new Set([...(defaultSchema.tagNames ?? []), 'span', CONFIG_ELEMENT_TAG, KEEP_UNIQUE_ELEMENT_TAG, QUESTION_ELEMENT_TAG, QUESTION_GROUP_ELEMENT_TAG])),
     }
   }, [])
   const rehypePluginsSafe = useMemo<Pluggable[]>(() => (
     [
       rehypeConfigComments,
       rehypeKeepUniqueComments,
+      rehypeQuestionComments,
+      rehypeQuestionGroups,
       [rehypeSanitize, sanitizeSchema] as unknown as Pluggable,
     ]
   ), [sanitizeSchema])
   const markdownComponents = useMemo<MarkdownComponentMap>(() => ({
     [CONFIG_ELEMENT_TAG]: ConfigChipBlock as unknown as React.ComponentType<Record<string, unknown>>,
     [KEEP_UNIQUE_ELEMENT_TAG]: KeepUniqueBlock as unknown as React.ComponentType<Record<string, unknown>>,
+    [QUESTION_ELEMENT_TAG]: NoteQuestionBlock as unknown as React.ComponentType<Record<string, unknown>>,
+    [QUESTION_GROUP_ELEMENT_TAG]: NoteQuestionGroup as unknown as React.ComponentType<Record<string, unknown>>,
   }), [])
-
-  // Color toolbar command and full commands list; injected before HR.
-  const colorCommand: ICommand = useMemo(() => ({
-    name: 'color',
-    keyCommand: 'group',
-    groupName: 'color',
-    buttonProps: { 'aria-label': t('mdColor') },
-    icon: (
-      <svg width="12" height="12" viewBox="0 0 12 12" role="img" aria-label="Color">
-        <circle cx="6" cy="6" r="5" fill="#42a5f5" stroke="currentColor" strokeWidth="1" />
-      </svg>
-    ),
-    children: (handle) => (
-      <div style={{ display: 'flex', gap: 6, padding: '6px 8px', maxWidth: 220, flexWrap: 'wrap' }}>
-        {(Object.keys(NOTE_COLOR_HEX) as Array<keyof typeof NOTE_COLOR_HEX>).map((c) => (
-          // Color swatches now share the same Markdown-friendly tooltip, which helps translators add inline formatting.
-          <MarkdownTooltip key={c} markdown={t('noteColorTooltip', { name: String(c) })} placement="bottom">
-            <button
-              type="button"
-              aria-label={`${t('mdColor')} ${String(c)}`}
-              onClick={() => {
-              const state = handle.getState?.()
-              const selected = state && state.selectedText ? state.selectedText : 'text'
-              const selStart = state && state.selection ? state.selection.start : 0
-              const open = `<span data-color="${String(c)}">`
-              const close = '</span>'
-              const api = handle.textApi
-              if (api) {
-                api.replaceSelection(open + selected + close)
-                // After wrapping, place selection inside the span (around original text)
-                api.setSelectionRange({ start: selStart + open.length, end: selStart + open.length + selected.length })
-              }
-              handle.close()
-              }}
-              style={{ width: 18, height: 18, borderRadius: 3, border: '1px solid rgba(255,255,255,0.2)', background: 'transparent', padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
-            >
-              <span style={{ display: 'inline-block', width: 12, height: 12, borderRadius: 2, backgroundColor: NOTE_COLOR_HEX[c] }} />
-            </button>
-          </MarkdownTooltip>
-        ))}
-      </div>
-    ),
-  }), [t])
-  const toolbarCommands = useMemo(() => {
-    const base = getCommands()
-    const idxHr = base.findIndex((c) => c.keyCommand === 'hr')
-    const insertAt = idxHr >= 0 ? idxHr : base.length
-    const arr = base.slice()
-    arr.splice(insertAt, 0, colorCommand)
-    return arr
-  }, [colorCommand])
 
   if (mode !== 'edit') {
     // Non-edit modes should always commit by closing immediately.
@@ -1313,7 +1840,23 @@ export default function NoteDialog({
               </Box>
             </DialogContent>
             <DialogActions>
-              <Button onClick={onClose}>{t('close')}</Button>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', width: '100%', justifyContent: 'space-between' }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  {/* Switch to edit mode without closing the dialog. */}
+                  <Button variant="outlined" onClick={onRequestEdit}>
+                    {t('editNote')}
+                  </Button>
+                  {hasQuestionnaire ? (
+                    <Button
+                      variant="contained"
+                      onClick={() => setQuestionnaireConfirmOpen(true)}
+                    >
+                      {t('noteQuestionnaireApply')}
+                    </Button>
+                  ) : null}
+                </Box>
+                <Button onClick={onClose}>{t('close')}</Button>
+              </Box>
             </DialogActions>
           </>
         )
@@ -1323,17 +1866,36 @@ export default function NoteDialog({
             t={t}
             lang={lang}
             rehypePluginsSafe={rehypePluginsSafe}
-            toolbarCommands={toolbarCommands}
             onChange={onChange}
             onClose={onClose}
             registerCommit={(fn) => { editCommitRef.current = fn }}
             configs={configs}
             metasets={metasets}
             keepUniqueRules={keepUniqueRules}
+            questionnaireAnswers={questionnaireAnswers}
             markdownComponents={markdownComponents}
             allowElement={allowMarkdownElement}
           />
         )}
+      </Dialog>
+      <Dialog open={questionnaireConfirmOpen} onClose={() => setQuestionnaireConfirmOpen(false)}>
+        <DialogTitle>{t('noteQuestionnaireApplyConfirmTitle')}</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2">
+            {t('noteQuestionnaireApplyConfirmBody', { enabled: questionnaireImpact.enableCount, disabled: questionnaireImpact.disableCount })}
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setQuestionnaireConfirmOpen(false)}>{t('cancel')}</Button>
+          <Button
+            onClick={() => {
+              setQuestionnaireConfirmOpen(false)
+              onApplyQuestionnaireTags()
+            }}
+          >
+            {t('noteQuestionnaireApply')}
+          </Button>
+        </DialogActions>
       </Dialog>
     </NoteRenderContext.Provider>
   )
@@ -1344,13 +1906,13 @@ function NoteEditorContent({
   t,
   lang,
   rehypePluginsSafe,
-  toolbarCommands,
   onChange,
   onClose,
   registerCommit,
   configs,
   metasets,
   keepUniqueRules,
+  questionnaireAnswers,
   markdownComponents,
   allowElement,
 }: {
@@ -1358,13 +1920,13 @@ function NoteEditorContent({
   t: ReturnType<typeof useI18n>['t']
   lang: string
   rehypePluginsSafe: Pluggable[]
-  toolbarCommands: ICommand[]
   onChange: (value: string, options?: { mode?: 'edit' | 'clear' }) => void
   onClose: () => void
   registerCommit: (fn: () => void) => void
   configs: BuilderConfig[]
   metasets: Metaset[]
   keepUniqueRules: KeepUniqueRule[]
+  questionnaireAnswers: NoteQuestionnaireAnswers
   markdownComponents: MarkdownComponentMap
   allowElement: MarkdownAllowElement
 }) {
@@ -1373,19 +1935,38 @@ function NoteEditorContent({
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [draft, setDraft] = useState<string>(note ?? '')
   const baseContext = useNoteRenderContext()
+  // Resolve config markers inside the editor preview.
   const editorMarkerResolutions = useMemo(() => buildConfigMarkerResolutions(draft ?? '', configs), [draft, configs])
+  // Resolve keep-unique markers inside the editor preview.
   const editorKeepUniqueMarkerResolutions = useMemo(
     () => buildKeepUniqueMarkerResolutions(draft ?? '', keepUniqueRules),
     [draft, keepUniqueRules],
   )
+  // Resolve questionnaire markers without making them interactive.
+  const editorQuestionnaireResolutions = useMemo(
+    () => buildQuestionnaireMarkerResolutions(draft ?? '', questionnaireAnswers),
+    [draft, questionnaireAnswers],
+  )
+  // Ignore answer updates in edit mode so markers stay read-only.
+  const ignoreQuestionnaireAnswerChange = React.useCallback(() => {}, [])
   const editorContextValue = useMemo<NoteRenderContextValue>(
     () => ({
       ...baseContext,
       markerResolutions: editorMarkerResolutions,
       keepUniqueMarkerResolutions: editorKeepUniqueMarkerResolutions,
       keepUniqueRules,
+      questionnaireResolutions: editorQuestionnaireResolutions,
+      questionnaireEditable: false,
+      onQuestionnaireAnswerChange: ignoreQuestionnaireAnswerChange,
     }),
-    [baseContext, editorMarkerResolutions, editorKeepUniqueMarkerResolutions, keepUniqueRules],
+    [
+      baseContext,
+      editorMarkerResolutions,
+      editorKeepUniqueMarkerResolutions,
+      editorQuestionnaireResolutions,
+      keepUniqueRules,
+      ignoreQuestionnaireAnswerChange,
+    ],
   )
 
   const commitAndClose = React.useCallback(() => {
@@ -1398,6 +1979,10 @@ function NoteEditorContent({
   const configCommand = useMemo<ICommand>(() => ({
     name: 'insert-configs',
     keyCommand: 'insert-configs',
+    groupName: 'note-inserts',
+    // Toolbar tooltips should surface the localized insert label.
+    buttonProps: { 'aria-label': t('noteInsertConfigs'), title: t('noteInsertConfigs') },
+    icon: <LocalOfferIcon fontSize="small" />,
     execute: (state, api) => {
       if (!configs.length) return
       const text = state.text ?? ''
@@ -1406,20 +1991,24 @@ function NoteEditorContent({
       const missing = allIds.filter((id) => !usedIds.has(id))
       const markerIds = missing.length ? missing : allIds
       if (!markerIds.length) return
-      const marker = buildConfigMarker(markerIds)
+      const { block, cursorIndex } = buildConfigMarkerBlock(markerIds)
       const start = state.selection?.start ?? 0
       const end = state.selection?.end ?? start
-      const { insert, cursorOffset } = computeBlockInsertion(text, start, end, marker)
+      const { insert, cursorOffset } = computeBlockInsertion(text, start, end, block, cursorIndex)
       const nextState = api.replaceSelection(insert)
       const nextPos = start + cursorOffset
       api.setSelectionRange({ start: nextPos, end: nextPos })
       setDraft(nextState.text)
     },
-  }), [configs, setDraft])
+  }), [configs, setDraft, t])
 
   const keepUniqueCommand = useMemo<ICommand>(() => ({
     name: 'insert-keep-uniques',
     keyCommand: 'insert-keep-uniques',
+    groupName: 'note-inserts',
+    // Keep-unique markers stay discoverable with a dedicated insert label.
+    buttonProps: { 'aria-label': t('noteInsertKeepUniques'), title: t('noteInsertKeepUniques') },
+    icon: <StarsIcon fontSize="small" />,
     execute: (state, api) => {
       if (!keepUniqueRules.length) return
       const text = state.text ?? ''
@@ -1428,19 +2017,46 @@ function NoteEditorContent({
       const missing = allIds.filter((id) => !usedIds.has(id))
       const markerIds = missing.length ? missing : allIds
       if (!markerIds.length) return
-      const marker = buildKeepUniqueMarker(markerIds)
+      const { block, cursorIndex } = buildKeepUniqueMarkerBlock(markerIds)
       const start = state.selection?.start ?? 0
       const end = state.selection?.end ?? start
-      const { insert, cursorOffset } = computeBlockInsertion(text, start, end, marker)
+      const { insert, cursorOffset } = computeBlockInsertion(text, start, end, block, cursorIndex)
       const nextState = api.replaceSelection(insert)
       const nextPos = start + cursorOffset
       api.setSelectionRange({ start: nextPos, end: nextPos })
       setDraft(nextState.text)
     },
-  }), [keepUniqueRules, setDraft])
+  }), [keepUniqueRules, setDraft, t])
+
+  const questionnaireSampleCommand = useMemo<ICommand>(() => ({
+    name: 'insert-questionnaire-sample',
+    keyCommand: 'insert-questionnaire-sample',
+    groupName: 'note-inserts',
+    // Questionnaire samples belong to the same insert block in the toolbar.
+    buttonProps: { 'aria-label': t('noteInsertQuestionnaireSample'), title: t('noteInsertQuestionnaireSample') },
+    icon: <QuizIcon fontSize="small" />,
+    execute: (state, api) => {
+      // Insert a sample block at the cursor for quick onboarding.
+      const text = state.text ?? ''
+      const start = state.selection?.start ?? 0
+      const end = state.selection?.end ?? start
+      const block = buildQuestionnaireSampleBlock()
+      const { insert, cursorOffset } = computeBlockInsertion(text, start, end, block)
+      const nextState = api.replaceSelection(insert)
+      const nextPos = start + cursorOffset
+      api.setSelectionRange({ start: nextPos, end: nextPos })
+      setDraft(nextState.text)
+    },
+  }), [setDraft, t])
 
   const metasetCommand = useMemo<ICommand>(() => (
-    buildMetasetInsertCommand({ metasets, t, lang, setDraft })
+    // Reuse the metaset insert builder but attach toolbar visuals locally.
+    ({
+      ...buildMetasetInsertCommand({ metasets, t, lang, setDraft }),
+      groupName: 'note-inserts',
+      buttonProps: { 'aria-label': t('noteInsertMetasets'), title: t('noteInsertMetasets') },
+      icon: <ViewListIcon fontSize="small" />,
+    })
   ), [lang, metasets, t, setDraft])
 
   // Track the latest draft/onChange so unload hooks flush once without resubscribing.
@@ -1472,27 +2088,87 @@ function NoteEditorContent({
     }
   }, [])
 
-  const executeCustomCommand = React.useCallback((command: ICommand) => {
-    const editor = editorRef.current
-    if (!editor?.commandOrchestrator) return
-    editor.commandOrchestrator.executeCommand(command, editor.dispatch, {
-      fullscreen: Boolean(editor.fullscreen),
-      preview: editor.preview ?? 'live',
-      highlightEnable: editor.highlightEnable ?? true,
-    })
-  }, [])
-
-  const handleInsertConfigChips = React.useCallback(() => {
-    executeCustomCommand(configCommand)
-  }, [executeCustomCommand, configCommand])
-
-  const handleInsertKeepUniqueSummary = React.useCallback(() => {
-    executeCustomCommand(keepUniqueCommand)
-  }, [executeCustomCommand, keepUniqueCommand])
-
-  const handleInsertMetasetsList = React.useCallback(() => {
-    executeCustomCommand(metasetCommand)
-  }, [executeCustomCommand, metasetCommand])
+  const colorCommand: ICommand = useMemo(() => ({
+    name: 'color',
+    keyCommand: 'group',
+    groupName: 'color',
+    buttonProps: { 'aria-label': t('mdColor') },
+    icon: (
+      <svg width="12" height="12" viewBox="0 0 12 12" role="img" aria-label="Color">
+        <circle cx="6" cy="6" r="5" fill="#42a5f5" stroke="currentColor" strokeWidth="1" />
+      </svg>
+    ),
+    children: (handle) => (
+      <div style={{ display: 'flex', gap: 6, padding: '6px 8px', maxWidth: 220, flexWrap: 'wrap' }}>
+        {(Object.keys(NOTE_COLOR_HEX) as Array<keyof typeof NOTE_COLOR_HEX>).map((c) => (
+          // Color swatches now share the same Markdown-friendly tooltip, which helps translators add inline formatting.
+          <MarkdownTooltip key={c} markdown={t('noteColorTooltip', { name: String(c) })} placement="bottom">
+            <button
+              type="button"
+              aria-label={`${t('mdColor')} ${String(c)}`}
+              onClick={() => {
+              const state = handle.getState?.()
+              const selected = state && state.selectedText ? state.selectedText : 'text'
+              const selStart = state && state.selection ? state.selection.start : 0
+              const open = `<span data-color="${String(c)}">`
+              const close = '</span>'
+              const api = handle.textApi
+              if (api) {
+                api.replaceSelection(open + selected + close)
+                // After wrapping, place selection inside the span (around original text)
+                api.setSelectionRange({ start: selStart + open.length, end: selStart + open.length + selected.length })
+              }
+              handle.close()
+              }}
+              style={{ width: 18, height: 18, borderRadius: 3, border: '1px solid rgba(255,255,255,0.2)', background: 'transparent', padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+            >
+              <span style={{ display: 'inline-block', width: 12, height: 12, borderRadius: 2, backgroundColor: NOTE_COLOR_HEX[c] }} />
+            </button>
+          </MarkdownTooltip>
+        ))}
+      </div>
+    ),
+  }), [t])
+  const toolbarCommands = useMemo(() => {
+    const base = getCommands()
+    // Insert the color palette just before the HR command.
+    const idxHr = base.findIndex((command) => command.keyCommand === 'hr')
+    const insertColorAt = idxHr >= 0 ? idxHr : base.length
+    const withColor = base.slice()
+    withColor.splice(insertColorAt, 0, colorCommand)
+    // Group note insert actions between the title dropdown and the link button.
+    const idxTitle = withColor.findIndex((command) => command.keyCommand === 'title')
+    const idxLink = withColor.findIndex((command) => command.keyCommand === 'link')
+    // When the default divider after title exists, we insert before it so it becomes the trailing separator.
+    const idxDividerAfterTitle = idxTitle >= 0
+      ? withColor.findIndex((command, idx) => idx > idxTitle && command.keyCommand === 'divider')
+      : -1
+    // Default to positioning right after the title dropdown; fall back to the link position.
+    const insertNoteAt = idxDividerAfterTitle >= 0
+      ? idxDividerAfterTitle
+      : (idxTitle >= 0 ? idxTitle + 1 : (idxLink >= 0 ? idxLink : withColor.length))
+    const withNoteInserts = withColor.slice()
+    // Leading divider ensures the insert block reads as its own toolbar section.
+    const noteInsertBlock = [
+      commands.divider,
+      configCommand,
+      keepUniqueCommand,
+      metasetCommand,
+      questionnaireSampleCommand,
+    ]
+    // If there is no divider after the title group, add a trailing divider manually.
+    if (idxDividerAfterTitle < 0 && idxLink >= 0) {
+      noteInsertBlock.push(commands.divider)
+    }
+    withNoteInserts.splice(insertNoteAt, 0, ...noteInsertBlock)
+    return withNoteInserts
+  }, [
+    colorCommand,
+    configCommand,
+    keepUniqueCommand,
+    metasetCommand,
+    questionnaireSampleCommand,
+  ])
 
   return (
     <>
@@ -1660,9 +2336,6 @@ function NoteEditorContent({
       </DialogContent>
       <DialogActions sx={{ justifyContent: 'space-between', gap: 1, flexWrap: 'wrap' }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-          <Button onClick={handleInsertConfigChips}>{t('noteInsertConfigs')}</Button>
-          <Button onClick={handleInsertKeepUniqueSummary}>{t('noteInsertKeepUniques')}</Button>
-          <Button onClick={handleInsertMetasetsList}>{t('noteInsertMetasets')}</Button>
           <Button
             size="small"
             variant="outlined"

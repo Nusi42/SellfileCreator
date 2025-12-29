@@ -12,6 +12,7 @@ const overrides: Catalog = {
   configsHiddenSuffix: ' ({hidden} gizli)',
   editNote: 'Notu düzenle…',
   addNote: 'Not ekle…',
+  noteOpen: 'Not…',
   saveAllConfigs: 'Tüm konfigleri kaydet (.hsfc)',
   saveAllConfigsTooltip: 'Tüm konfigleri, metasetleri, minimumları ve notları daha sonra tekrar yükleyebileceğiniz bir Configs (.hsfc) dosyasına kaydedin.',
   deleteConfigs: 'Tüm konfigleri sil',

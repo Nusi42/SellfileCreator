@@ -3,6 +3,7 @@ import type { BuilderConfig } from '../../lib/hsfBuilder'
 // Core builder defaults used for resets, user overrides, and fresh configs.
 export const createFactoryBuilderDefaults = (): BuilderConfig => ({
   name: '',
+  tags: [],
   keep: true,
   exportMode: 'active',
   rankCode: 0,
