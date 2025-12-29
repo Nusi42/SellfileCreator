@@ -105,6 +105,7 @@ import {
   applyMultiEditFieldsToConfig,
   getDirtyBuilderFieldKeys,
 } from '../lib/multiEditDraft'
+import { mergeTagList, normalizeTagValue } from '../lib/tagHelpers'
 import { useDisplayPreferences } from '../state/preferencesState'
 import { useSetsOrderPreference } from '../state/setsOrderPreference'
 import { useAutoApplySelectedConfigPreference, useAutoResetAfterInsertPreference } from '../state/builderPreferences'
@@ -232,6 +233,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
   const multiMinLevelField = multiFields?.minLevel ?? null
   const multiMaxLevelField = multiFields?.maxLevel ?? null
   const multiNameField = multiFields?.name ?? null
+  const multiTagsField = multiFields?.tags ?? null
   const multiMainStatsField = multiFields?.mainStatsV ?? null
   const multiSubstatsField = multiFields?.substatsV ?? null
   const multiFixedSubstatsField = multiFields?.fixedSubstatsV ?? null
@@ -1625,8 +1627,20 @@ const maxLevelValue = multiEditActive
   }
   const [nameDraft, setNameDraft] = useState<string>('')
   const [nameDraftKey, setNameDraftKey] = useState<number | 'builder' | null>(null)
+  // Popover anchor and draft state for tag editing.
+  const [tagsAnchor, setTagsAnchor] = useState<HTMLElement | null>(null)
+  const [tagsDraft, setTagsDraft] = useState<string>('')
   const currentDraftKey: number | 'builder' = editingIndex ?? 'builder'
   const nameDraftDirty = nameDraftKey === currentDraftKey
+  // Derived UI state for tags in single vs multi-edit.
+  const tagsPopoverOpen = Boolean(tagsAnchor)
+  const tagsMixed = multiEditActive && multiTagsField?.status === 'mixed' && !(multiTagsField?.dirty)
+  // Memoize tags so callbacks get stable dependencies.
+  const tagsValue = useMemo(() => (
+    multiEditActive
+      ? ((multiTagsField?.value as BuilderConfig['tags']) ?? [])
+      : (cfg.tags ?? [])
+  ), [cfg.tags, multiEditActive, multiTagsField?.value])
   const usingMultiName = multiEditActive && Boolean(multiEdit)
   const multiNameMixed = usingMultiName && multiNameField?.status === 'mixed' && !(multiNameField?.dirty)
   const multiNameDraftValue = usingMultiName
@@ -1657,6 +1671,49 @@ const maxLevelValue = multiEditActive
     if (!nameDraftDirty) return
     commitName(nameDraft)
   }, [commitName, multiEditActive, nameDraft, nameDraftDirty])
+  const commitTags = useCallback((rawTags: readonly string[]) => {
+    // Normalize and de-dupe tags before persisting.
+    const seen = new Set<string>()
+    const normalized: string[] = []
+    rawTags.forEach((tag) => {
+      const normalizedTag = normalizeTagValue(String(tag))
+      if (!normalizedTag) return
+      if (seen.has(normalizedTag)) return
+      seen.add(normalizedTag)
+      normalized.push(normalizedTag)
+    })
+    // Route updates through multi-edit when active.
+    if (multiEditActive) {
+      if (!multiEdit) return
+      multiEdit.updateField('tags', { value: normalized, status: 'common' })
+      return
+    }
+    // Persist tags onto the single builder config.
+    onChange({ ...cfg, tags: normalized })
+  }, [cfg, multiEdit, multiEditActive, onChange])
+  const commitTagsFromDraft = useCallback(() => {
+    // Split comma-separated input and normalize each tag.
+    const raw = tagsDraft.trim()
+    if (!raw) return
+    const parts = raw.split(',').map((part) => part.trim()).filter(Boolean)
+    const normalizedAdds: string[] = []
+    parts.forEach((part) => {
+      const normalizedTag = normalizeTagValue(part)
+      if (!normalizedTag) return
+      normalizedAdds.push(normalizedTag)
+    })
+    // Abort if no valid tags were found.
+    if (normalizedAdds.length === 0) return
+    // Merge additions into the current tag list.
+    const next = mergeTagList(tagsValue, normalizedAdds)
+    commitTags(next)
+    setTagsDraft('')
+  }, [commitTags, tagsDraft, tagsValue])
+  const removeTag = useCallback((tag: string) => {
+    // Remove a single tag and persist.
+    const filtered = tagsValue.filter((value) => value !== tag)
+    commitTags(filtered)
+  }, [commitTags, tagsValue])
   const singleBuilderDirty = selectedIsDirty || nameDraftDirty
   const isDirty = multiEditActive ? multiDraftDirty : singleBuilderDirty
   const insertButtonLabel = editingIndex !== null
@@ -2504,6 +2561,109 @@ const maxLevelValue = multiEditActive
                 </ToggleButton>
                 </ToggleButtonGroup>
               </Box>
+            </Box>
+            {/* Tags sit next to export mode to reinforce the enable/disable connection. */}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, ml: 1 }}>
+              <MarkdownTooltip
+                markdown={t('builderTagsLabel')}
+                placement="top"
+              >
+                <Button
+                  size="small"
+                  variant="outlined"
+                  onClick={(event) => setTagsAnchor(event.currentTarget)}
+                >
+                  {t('builderTagsLabel')}
+                </Button>
+              </MarkdownTooltip>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexWrap: 'wrap' }}>
+                {tagsMixed ? (
+                  <Chip
+                    size="small"
+                    label={t('builderMultiMixedValue')}
+                    sx={{ opacity: 0.7 }}
+                  />
+                ) : (
+                  <>
+                    {tagsValue.slice(0, 3).map((tag) => (
+                      <Chip
+                        key={tag}
+                        size="small"
+                        label={tag}
+                        sx={{ maxWidth: 120 }}
+                      />
+                    ))}
+                    {tagsValue.length > 3 ? (
+                      <Chip
+                        size="small"
+                        label={`+${tagsValue.length - 3}`}
+                        sx={{ opacity: 0.7 }}
+                      />
+                    ) : null}
+                  </>
+                )}
+              </Box>
+              {/* Reuse the ContextMenuPaper style so the tags popup matches substat context menus. */}
+              {/* Disable menu padding so the inner box owns spacing. */}
+              <Menu
+                open={tagsPopoverOpen}
+                anchorEl={tagsAnchor}
+                onClose={() => setTagsAnchor(null)}
+                anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+                transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+                MenuListProps={{ disablePadding: true }}
+                slotProps={{
+                  paper: {
+                    component: ContextMenuPaper,
+                    onRequestClose: () => setTagsAnchor(null),
+                    closeLabel: t('close'),
+                    sx: { minWidth: 260, maxWidth: 'calc(100vw - 32px)' },
+                  } as unknown as MuiPaperProps,
+                }}
+              >
+                {/* Content block keeps spacing predictable inside the menu shell. */}
+                <Box sx={{ p: 1.5 }}>
+                  <Stack spacing={1}>
+                    {/* Mixed multi-edit state mirrors other builder controls. */}
+                    {tagsMixed ? (
+                      <Typography variant="caption" color="text.secondary">
+                        {t('builderMultiMixedValue')}
+                      </Typography>
+                    ) : null}
+                    {/* Tag chips are removable; empty state stays compact. */}
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                      {tagsValue.length > 0 ? (
+                        tagsValue.map((tag) => (
+                          <Chip
+                            key={tag}
+                            size="small"
+                            label={tag}
+                            onDelete={() => removeTag(tag)}
+                          />
+                        ))
+                      ) : (
+                        <Typography variant="caption" color="text.secondary">
+                          {t('builderTagsEmpty')}
+                        </Typography>
+                      )}
+                    </Box>
+                    {/* Input accepts comma/enter to append multiple tags quickly. */}
+                    <TextField
+                      size="small"
+                      value={tagsDraft}
+                      placeholder={t('builderTagsPlaceholder')}
+                      onChange={(event) => setTagsDraft(event.target.value)}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter' || event.key === ',') {
+                          event.preventDefault()
+                          commitTagsFromDraft()
+                        }
+                      }}
+                      onBlur={() => commitTagsFromDraft()}
+                    />
+                  </Stack>
+                </Box>
+              </Menu>
             </Box>
             <Box
               sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 0.5 }}

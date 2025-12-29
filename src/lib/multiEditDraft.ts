@@ -10,6 +10,7 @@ import { normalizeKeepMode, canEnableSubstatFlex, normalizeAutoRaritySupplements
 
 export const BUILDER_FIELD_KEYS = [
   'name',
+  'tags',
   'keep',
   'exportMode',
   'rankCode',
@@ -65,6 +66,7 @@ export interface MultiEditTargetPatchEntry {
 export type MultiEditTargetPatch = Record<number, MultiEditTargetPatchEntry>
 
 type FieldPatchByKey = {
+  tags: MultiEditArrayPatch<string>
   mainStatsV: MultiEditArrayPatch<number>
   substatsV: MultiEditArrayPatch<number>
   fixedSubstatsV: MultiEditArrayPatch<number>
@@ -183,6 +185,8 @@ export function areBuilderFieldValuesEqual(key: BuilderFieldKey, left: unknown, 
   if (left === right) return true
   if ((left == null) || (right == null)) return left === right
   switch (key) {
+    case 'tags':
+      return arePrimitiveArraysEqual(left as readonly unknown[] | undefined, right as readonly unknown[] | undefined)
     case 'mainStatsV':
     case 'substatsV':
     case 'fixedSubstatsV':
@@ -210,6 +214,8 @@ export function areBuilderFieldValuesEqual(key: BuilderFieldKey, left: unknown, 
 export function cloneBuilderFieldValue(key: BuilderFieldKey, value: unknown): unknown {
   if (value == null) return value
   switch (key) {
+    case 'tags':
+      return Array.isArray(value) ? [...value] : value
     case 'mainStatsV':
     case 'substatsV':
     case 'fixedSubstatsV':
@@ -328,6 +334,7 @@ export function cloneFieldPatch<K extends BuilderFieldKey>(
 ): MultiEditFieldPatch<K> | null {
   if (!patch) return null
   switch (key) {
+    case 'tags':
     case 'mainStatsV':
     case 'substatsV':
     case 'fixedSubstatsV':
@@ -388,6 +395,7 @@ export function normalizeFieldPatch<K extends BuilderFieldKey>(
 ): MultiEditFieldPatch<K> | null {
   if (!patch) return null
   switch (key) {
+    case 'tags':
     case 'mainStatsV':
     case 'substatsV':
     case 'fixedSubstatsV':
@@ -412,6 +420,7 @@ export function areFieldPatchesEqual<K extends BuilderFieldKey>(
   if (left === right) return true
   if (!left || !right) return !left && !right
   switch (key) {
+    case 'tags':
     case 'mainStatsV':
     case 'substatsV':
     case 'fixedSubstatsV':
@@ -714,6 +723,8 @@ function applyPatchForKey<K extends BuilderFieldKey>(
   patch: MultiEditFieldPatch<K>,
 ): BuilderConfig {
   switch (key) {
+    case 'tags':
+      return applyTagsPatch(cfg, patch as MultiEditArrayPatch<string>)
     case 'mainStatsV':
       return applyMainStatsPatch(cfg, patch as MultiEditArrayPatch<number>)
     case 'substatsV':
@@ -943,6 +954,17 @@ function applyArtifactMetaSetsPatch(cfg: BuilderConfig, patch: MultiEditArrayPat
   const next = applyStringArrayPatch(current, patch)
   if (arraysEqualString(current, next)) return cfg
   return { ...cfg, artifactMetaSets: next }
+}
+
+function applyTagsPatch(cfg: BuilderConfig, patch: MultiEditArrayPatch<string>): BuilderConfig {
+  // Normalize tags to strings before patching.
+  const current = Array.isArray(cfg.tags) ? cfg.tags.map(String) : []
+  // Apply standard string array patch semantics.
+  const next = applyStringArrayPatch(current, patch)
+  // Avoid allocation when nothing changes.
+  if (arraysEqualString(current, next)) return cfg
+  // Persist the updated tag list.
+  return { ...cfg, tags: next }
 }
 
 interface NumberArrayPatchOptions {

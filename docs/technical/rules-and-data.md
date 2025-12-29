@@ -20,7 +20,7 @@ This document covers file schemas, builder semantics, and compatibility notes.
   - Loader convenience applies to all builds: in addition to full HSFC objects and `ReadableConfig[]`, a single readable config object is accepted (matching `tests/fixtures/*.hsfc`) so dragging fixtures into the app works everywhere.
 - `Metaset` write format: `{ id: string; name: string; setNames: string[]; show?: boolean; iconId?: string }` — named group of artifact set names with an optional icon identifier. Defaults are created if omitted.
 - `ReadableConfig` (write format for Save/Copy) emits human-readable labels plus metaset IDs:
-  - `name?`, `keep`, `visibility`: `'Active' | 'Disabled' | 'Separator'`.
+  - `name?`, `Tags?` (string[]), `keep`, `visibility`: `'Active' | 'Disabled' | 'Separator'`.
   - `Rank`: string label (e.g., `"≥ 5★"`); `Rarity`: string label or `"Auto"`; `Faction`: faction name string.
   - `mainStats`: string[] (labels).
   - `minLevel`, `maxLevel`: explicit level milestones (`LevelMilestone`). `earlyKeepMode?`: `'late'` when Late thresholds are active.
@@ -69,6 +69,7 @@ This document covers file schemas, builder semantics, and compatibility notes.
   - Dismiss: preserves the previous autosave and keeps autosave disabled. A baseline snapshot of the current state is captured; autosave only enables after the user makes a change (state diverges from this baseline). This avoids overwriting the previous session just by dismissing the dialog. The gear queue behaves the same way: the saved list stays in localStorage until the user restores it or future autosaves overwrite it.
 - Writes: `useAutosave({ key, payload, enabled })` writes one snapshot immediately when enabled and on subsequent payload changes, and flushes the latest snapshot on `beforeunload`/visibility hidden. Rule Tester autosave writes compressed payloads via `buildRuleTesterAutosavePayload` (with a timestamp) as soon as the queue diverges from the startup baseline (imports, restores, edits) and continues even if the Gear tab is closed; opening the Logic Hub dialog also primes autosave immediately.
 - file:// note: LocalStorage behavior varies for file origins and can be non-persistent or path-scoped. Prefer `npm run dev` or `npm run preview` for reliable autosave persistence.
+- Autosave-only fields: `NoteQuestionnaireAnswers` stores the note questionnaire answers in session storage; HSFC exports never include this field.
 
 ### App Delegation and Boundaries
 - `src/App.tsx` delegates all file IO to `hsfIO`/`hsfcIO` and clipboard actions to `clipboard.ts`. Autosave restore flow is delegated to `useAutosaveRestore`.

@@ -12,6 +12,7 @@ const catalog: Catalog = {
   configsHiddenSuffix: ' ({hidden} ocultas)',
   editNote: 'Editar nota…',
   addNote: 'Adicionar nota…',
+  noteOpen: 'Nota…',
   saveAllConfigs: 'Salvar todas as configs (.hsfc)',
   saveAllConfigsTooltip: 'Salve todas as configurações, metasets, mínimos e notas em um arquivo Configs (.hsfc) para recarregar depois.',
   deleteConfigs: 'Excluir todas as configs',

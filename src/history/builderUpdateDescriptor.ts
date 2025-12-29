@@ -51,6 +51,7 @@ type BuilderConfigDiffSummary = {
 export function createHistoryBuilderBaseline(overrides: Partial<BuilderConfig> = {}): BuilderConfig {
   return {
     name: '',
+    tags: [],
     keep: true,
     exportMode: 'active',
     rankCode: 0,
@@ -119,6 +120,9 @@ export function summarizeBuilderConfigDiff(params: SummarizeBuilderConfigDiffPar
   if (changed.has('exportMode')) {
     pushInlineDiff(detailLines, t, t('historyBuilderExportModeLabel'), formatExportModeValue(previous, t), formatExportModeValue(next, t))
   }
+  if (changed.has('tags')) {
+    pushInlineDiff(detailLines, t, t('builderTagsLabel'), formatTagsValue(previous, t), formatTagsValue(next, t))
+  }
   if (changed.has('rankCode')) {
     pushDiff(detailLines, t, t('builderRank'), formatRankValue(previous, t), formatRankValue(next, t))
   }
@@ -178,6 +182,8 @@ export function summarizeBuilderConfigDiff(params: SummarizeBuilderConfigDiffPar
 export function makeBuilderConfigSnapshotLines(params: { cfg: BuilderConfig; metasets: Metaset[]; t: TranslateFn; lang: string }): string[] {
   const { cfg, metasets, t, lang } = params
   const lines: string[] = []
+  const tagsLine = makeTagsSnapshotLine(cfg, t)
+  if (tagsLine) lines.push(tagsLine)
   const slots = makeSlotsSnapshotLine(cfg, t)
   if (slots) lines.push(slots)
   const metasetsLine = makeMetasetSnapshotLine(cfg, metasets, t)
@@ -354,6 +360,14 @@ function makeMetasetSnapshotLine(cfg: BuilderConfig, metasets: Metaset[], t: Tra
   })
 }
 
+// Snapshot line for tags so config summaries preserve questionnaire metadata.
+function makeTagsSnapshotLine(cfg: BuilderConfig, t: TranslateFn): string | null {
+  // Keep tag output stable and compact for history snapshots.
+  const tags = Array.isArray(cfg.tags) ? cfg.tags.map(String).filter(Boolean) : []
+  if (tags.length === 0) return null
+  return `${t('builderTagsLabel')}: ${tags.join(', ')}`
+}
+
 type MetasetDiffEntry = {
   id: string
   name: string
@@ -436,6 +450,12 @@ function formatExportModeValue(cfg: BuilderConfig, t: TranslateFn): string {
     case 'separator': return t('builderExportModeSeparator')
     default: return t('builderExportModeActive')
   }
+}
+
+function formatTagsValue(cfg: BuilderConfig, t: TranslateFn): string {
+  // Use the same normalization as snapshot output.
+  const tags = Array.isArray(cfg.tags) ? cfg.tags.map(String).filter(Boolean) : []
+  return tags.length > 0 ? tags.join(', ') : t('builderTagsEmpty')
 }
 
 function formatRankValue(cfg: BuilderConfig, t: TranslateFn): string {

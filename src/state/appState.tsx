@@ -20,6 +20,7 @@ import type { Metaset } from '../lib/metasets'
 import { normalizeMetasetIcons } from '../lib/metasets'
 import type { LevelMilestone } from '../lib/types'
 import type { KeepUniqueRule } from '../lib/keepUniques'
+import type { NoteQuestionnaireAnswers } from '../lib/noteQuestionnaire'
 
 type AppState = {
   customCfgs: BuilderConfig[]
@@ -33,6 +34,8 @@ type AppState = {
   keepUniquesEnabled: boolean
   selectedCfgIdx: number | null
   hsfcNote: string | null
+  // Session-only questionnaire answers keyed by question ID.
+  noteQuestionnaireAnswers: NoteQuestionnaireAnswers
 }
 
 type Updater<T> = T | ((prev: T) => T)
@@ -47,6 +50,7 @@ type Action =
   | { type: 'setKeepUniquesEnabled'; value: Updater<boolean> }
   | { type: 'setSelectedCfgIdx'; value: Updater<number | null> }
   | { type: 'setHsfcNote'; value: Updater<string | null> }
+  | { type: 'setNoteQuestionnaireAnswers'; value: Updater<NoteQuestionnaireAnswers> }
 
 function reducer(state: AppState, action: Action): AppState {
   switch (action.type) {
@@ -95,6 +99,12 @@ function reducer(state: AppState, action: Action): AppState {
       const next = typeof action.value === 'function' ? (action.value as (p: string | null) => string | null)(state.hsfcNote) : action.value
       return { ...state, hsfcNote: next }
     }
+    case 'setNoteQuestionnaireAnswers': {
+      const next = typeof action.value === 'function'
+        ? (action.value as (p: NoteQuestionnaireAnswers) => NoteQuestionnaireAnswers)(state.noteQuestionnaireAnswers)
+        : action.value
+      return { ...state, noteQuestionnaireAnswers: next }
+    }
     default: return state
   }
 }
@@ -109,6 +119,7 @@ type AppDispatchers = {
   setKeepUniquesEnabled: (v: Updater<boolean>) => void
   setSelectedCfgIdx: (v: Updater<number | null>) => void
   setHsfcNote: (v: Updater<string | null>) => void
+  setNoteQuestionnaireAnswers: (v: Updater<NoteQuestionnaireAnswers>) => void
 }
 
 const AppStateCtx = createContext<AppState | null>(null)
@@ -127,6 +138,7 @@ export function AppStateProvider({ initial, children }: { initial: AppState; chi
     setKeepUniquesEnabled: (v) => dispatch({ type: 'setKeepUniquesEnabled', value: v }),
     setSelectedCfgIdx: (v) => dispatch({ type: 'setSelectedCfgIdx', value: v }),
     setHsfcNote: (v) => dispatch({ type: 'setHsfcNote', value: v }),
+    setNoteQuestionnaireAnswers: (v) => dispatch({ type: 'setNoteQuestionnaireAnswers', value: v }),
   }), [])
 
   return (
@@ -160,6 +172,8 @@ export function makeInitialAppState(params: Partial<AppState> & Pick<AppState, '
     keepUniquesEnabled: false,
     selectedCfgIdx: null,
     hsfcNote: null,
+    // Questionnaire answers are stored only in autosave/session state.
+    noteQuestionnaireAnswers: {},
     ...rest,
     metasets: normalizeMetasetIcons(metasets),
   }

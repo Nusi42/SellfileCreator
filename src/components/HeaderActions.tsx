@@ -51,7 +51,7 @@ export default function HeaderActions(props: {
       }}
     >
       <Box sx={{ minWidth: 0, display: 'flex', justifyContent: 'flex-start' }}>
-        <EllipsisTooltip title={notePresent ? t('editNote') : t('addNote')}>
+        <EllipsisTooltip title={notePresent ? t('noteOpen') : t('addNote')}>
           <Button
             variant="outlined"
             size="small"
@@ -65,7 +65,7 @@ export default function HeaderActions(props: {
             data-tour-id="note.toggle"
           >
             <Typography component="span" noWrap sx={ELLIPSIS_TEXT_SX} data-ellipsis-target>
-              {notePresent ? t('editNote') : t('addNote')}
+              {notePresent ? t('noteOpen') : t('addNote')}
             </Typography>
           </Button>
         </EllipsisTooltip>

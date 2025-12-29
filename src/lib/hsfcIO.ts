@@ -46,6 +46,7 @@ import {
   type FinalSellSetsMode,
 } from './finalSell'
 import { normalizeKeepUniqueRule, sanitizeKeepUniqueCountMode, type KeepUniqueRule, KeepUniqueRuleActivation } from './keepUniques'
+import { normalizeTagList } from './tagHelpers'
 
 type LockedMinValue = Exclude<BuilderConfig['lockedMinRequiredRolls'], undefined>
 type AggregateMinValue = Exclude<BuilderConfig['minRequiredRolls'], undefined>
@@ -370,6 +371,8 @@ export function normalizeConfig(input: unknown, runtimeNameMap?: Map<string, num
 
   const baseCfg: BuilderConfig = {
     name: typeof rec['name'] === 'string' ? String(rec['name']) : '',
+    // Normalize tag metadata from either "Tags" or legacy "tags".
+    tags: normalizeTagList(rec['Tags'] ?? rec['tags']) ?? [],
     keep: Boolean((rec['keep'] ?? true) as boolean),
     exportMode,
     // Prefer explicit min/max window when present; validated below and assigned into opt
@@ -458,6 +461,9 @@ export function normalizeConfig(input: unknown, runtimeNameMap?: Map<string, num
   if (__artTypes !== undefined) opt.artifactTypes = __artTypes
   if (__artSets !== undefined) opt.artifactSets = __artSets
   if (__artMetaSets !== undefined) opt.artifactMetaSets = __artMetaSets
+  if (Array.isArray(baseCfg.tags) && baseCfg.tags.length === 0) {
+    delete (baseCfg as unknown as Record<string, unknown>)['tags']
+  }
   // Assemble normalized base
   let normalized: BuilderConfig = { ...baseCfg, ...opt }
 
@@ -627,8 +633,12 @@ export function buildReadableConfig(cfg: BuilderConfig, metasets: Metaset[]) {
       ? 'Disabled'
       : 'Active'
   const readableTargets = rollTargetsToReadable((cfg as BuilderConfig).substatRollTargetsV)
+  // Normalize tags into a string array for HSFC output.
+  const tags = Array.isArray(cfg.tags) ? cfg.tags.map(String).filter(Boolean) : []
   return {
     name: cfg.name,
+    // Emit tags only when non-empty to keep payloads clean.
+    ...(tags.length > 0 ? { Tags: tags } : {}),
     keep: cfg.keep,
     SellfileVisibility: exportModeLabel,
     // For readability in HSFC/clipboard, render Auto or explicit labels. "Any" when code is 0.

@@ -68,7 +68,10 @@ export default function RestoreAutosaveDialog({
   // Why: contributors share `.gearsets.json` separately.
   const gearSetsCount = storedGearSetsCount ?? 0
   const hasTargets = Boolean(draft?.substatTargets)
-  const hasNote = Boolean(draft?.Note && draft.Note.trim())
+  const hasNote = Boolean(
+    (draft?.Note && draft.Note.trim())
+    || (draft?.NoteQuestionnaireAnswers && Object.keys(draft.NoteQuestionnaireAnswers).length > 0)
+  )
   const hasFilters = Boolean(draft?.Filters)
   const hasSort = Boolean(draft && Object.prototype.hasOwnProperty.call(draft, 'TesterSort'))
   const builderSavedAt = formatSavedAt(draft?.AutosaveSavedAt ?? null)

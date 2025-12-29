@@ -14,6 +14,13 @@ export function hasConfigMeaningfulDifferences(
   const builderName = typeof builder?.name === 'string' ? builder.name : ''
   const targetName = typeof target?.name === 'string' ? target.name : ''
   if (builderName !== targetName) return true
+  // Tags are part of editable metadata and should mark the builder dirty.
+  const builderTags = Array.isArray(builder?.tags) ? builder.tags.map(String) : []
+  const targetTags = Array.isArray(target?.tags) ? target.tags.map(String) : []
+  if (builderTags.length !== targetTags.length) return true
+  for (let i = 0; i < builderTags.length; i += 1) {
+    if (builderTags[i] !== targetTags[i]) return true
+  }
 
   try {
     const builderFp = fingerprintConfigForRules(builder, substatTargetsKey)
