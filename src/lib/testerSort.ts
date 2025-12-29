@@ -101,6 +101,25 @@ export function sortTesterRows(rows: readonly TesterPreviewRow[]): TesterPreview
 
 export type TesterSubstatSortDirection = 'desc' | 'asc'
 
+// Grouping modes are persisted alongside sort preferences to keep UI + grid aligned.
+export const TESTER_GROUPING_MODE_DEFAULT = 'default' as const
+// Accessories stay grouped by faction; artifacts collapse into a single section.
+export const TESTER_GROUPING_MODE_FACTION_ACCESSORY = 'factionAccessories' as const
+// Split artifacts + accessories into two top-level sections without sub-groups.
+export const TESTER_GROUPING_MODE_SPLIT = 'split' as const
+// Fully flat list: no headers, no grouping, just sorted rows.
+export const TESTER_GROUPING_MODE_FLAT = 'flat' as const
+
+// Keep a single exported list so UI + normalization share a SSOT.
+export const TESTER_GROUPING_MODES = [
+  TESTER_GROUPING_MODE_DEFAULT,
+  TESTER_GROUPING_MODE_FACTION_ACCESSORY,
+  TESTER_GROUPING_MODE_SPLIT,
+  TESTER_GROUPING_MODE_FLAT,
+] as const
+
+export type TesterGroupingMode = typeof TESTER_GROUPING_MODES[number]
+
 // Synthetic "priority keys" beyond the StatVariant enum.
 // Why: keep the sort menu extensible without forcing fake variants into the domain enum.
 export const TESTER_SORT_KEY_LAST_USAGE = -1 as const

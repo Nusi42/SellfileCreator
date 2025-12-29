@@ -84,7 +84,7 @@ import {
 import { fingerprintConfigForRules, fingerprintSubstatTargets, updateConfigRulesCache } from './lib/ruleCache'
 import { hasConfigMeaningfulDifferences } from './lib/configDiff'
 import { buildRuleTesterAutosavePayload, createRuleTesterMath, fingerprintRuleTesterItem, loadRuleTesterAutosaveDraft, type RuleTesterItem } from './lib/ruleTesterSession'
-import { sortTesterRows, TESTER_SORT_KEY_LAST_USAGE } from './lib/testerSort'
+import { sortTesterRows, TESTER_GROUPING_MODE_DEFAULT, TESTER_SORT_KEY_LAST_USAGE } from './lib/testerSort'
 import { isDefaultTesterSubstatSortState, setTesterSubstatSortState, useTesterSubstatSortPreferences } from './state/testerSubstatSortPreferences'
 import { useTesterGridNormalizedOverlayPreferences } from './state/testerGridNormalizedOverlayPreferences'
 import { FILTER_PRESETS_VERSION, useFilterPresetsPreference, type FilterPreset, type FilterPresetSnapshot } from './state/filterPresetsPreference'
@@ -4651,7 +4651,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
 	        onClearTesterSubstatSort={testerSubstatSortPrefs.clear}
 	        onSetTesterSubstatSortState={setTesterSubstatSortState}
 		        onSetTesterSubstatSortDirection={testerSubstatSortPrefs.setDirection}
-		        onToggleTesterSubstatSortKeepSections={testerSubstatSortPrefs.toggleKeepSections}
+		        onSetTesterSubstatSortGrouping={testerSubstatSortPrefs.setGrouping}
 		        onToggleTesterSubstatSortExcludeGlyphs={testerSubstatSortPrefs.toggleExcludeGlyphs}
 	        onToggleTesterSubstatSortPriority={testerSubstatSortPrefs.togglePriorityKey}
 	        onToggleTesterSubstatSortPriorityFlipped={testerSubstatSortPrefs.toggleFlipped}
@@ -4711,7 +4711,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
 	                  configNames={testerConfigNamesForGrid}
 	                  onJumpToRule={handleTesterRuleView}
 	                  suppressMatchDetails={suppressTesterMatchDetails}
-	                  keepSections={testerSubstatSortSpec ? testerSubstatSortPrefs.state.keepSections : true}
+	                  grouping={testerSubstatSortSpec ? testerSubstatSortPrefs.state.grouping : TESTER_GROUPING_MODE_DEFAULT}
 	                  substatSort={testerSubstatSortSpec}
 	                  sortState={testerSubstatSortPrefs.state}
 	                  emptyStateVerticalAlign={emptyStateVerticalAlign}
