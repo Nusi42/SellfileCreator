@@ -215,9 +215,8 @@ function buildQuestionPromptTokens(
     }
     // Extract the raw content between markers.
     const raw = prompt.slice(nextMarker.index + nextMarker.marker.length, close)
-    // Resolve `\1` references inside chip markers only.
-    // Only resolve numeric references when the caller allows it.
-    const resolved = nextMarker.kind === 'label' && allowReferences
+    // Resolve `\1` references inside both label + chip markers when enabled.
+    const resolved = allowReferences
       ? resolveQuestionPromptReference(raw, options)
       : raw
     // Push the highlighted token when content exists.
@@ -891,16 +890,15 @@ function buildMetasetBulletList(
 function buildQuestionnaireSampleBlock(): string {
   // Provide a starter block that demonstrates single + multi format.
   return [
-    '<!-- q:single "Do you farm Spider 20?"',
-    '  [* "Yes", spider20, dungeons]',
-    '  ["No", -spider20]',
+    '<!-- q:single "Single-select question with **Bold**, and `Marked` labels, using labels **\\1** or `\\2`."',
+    '  [* "Answer 1", tag1, -tag2]',
+    '  ["Answer 2", tag2]',
     '-->',
     '',
-    '<!-- q:multi "Which factions did you finish?"',
-    '  [* "Telerian League", faction-telerian]',
-    '  ["Gaellen Pact", faction-gaellen]',
-    '  ["The Corrupted", faction-corrupted]',
-    '  ["Nyresan Union", faction-nyresan]',
+    '<!-- q:multi "Another question with **Bold** and `Marked` labels."',
+    '  [* "Answer A", tag-a]',
+    '  ["Answer B"]',
+    '  ["Answer C", tag-c]',
     '-->',
   ].join('\n')
 }
