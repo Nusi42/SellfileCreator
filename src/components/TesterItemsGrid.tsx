@@ -124,6 +124,20 @@ const CARD_TEXT_STACK_GAP_UNITS = 0.75
 const CARD_SUBSTAT_ROW_GAP_UNITS = 0.25
 const CARD_SUBSTAT_LINE_HEIGHT = 1.1
 const CARD_SUBSTAT_LINE_COUNT = 4
+// Shadow blur matches the requested glow size.
+const MYTHIC_SUBSTAT_SHADOW_BLUR_PX = 2
+// Shadow spread gives the glow a crisp edge without padding.
+const MYTHIC_SUBSTAT_SHADOW_SPREAD_PX = 1
+// Soft tint keeps mythic bonuses visible against any card tint.
+const MYTHIC_SUBSTAT_BG_ALPHA = 0.12
+// Halo blur radius keeps red-on-red combos legible without overriding text colors.
+const MYTHIC_SUBSTAT_TEXT_SHADOW_BLUR_PX = 2
+// Alpha keeps the halo subtle so the text color remains primary.
+const MYTHIC_SUBSTAT_TEXT_SHADOW_ALPHA = 0.6
+// Rounded corners stop the mythic highlight from feeling harsh.
+const MYTHIC_SUBSTAT_RADIUS_PX = 4
+// Shared padding keeps substat text readable against the mythic glow.
+const SUBSTAT_ROW_HORIZONTAL_PADDING_UNITS = 0.25
 const CARD_SUMMARY_FONT_SIZE_REM = 0.9375
 const CARD_SUMMARY_LINE_HEIGHT_REM = 1.25
 const CARD_ASC_LINE_HEIGHT = 1.1
@@ -1205,6 +1219,8 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
               ? `${Math.max(ACCORDION_BORDER_RADIUS_PX - (nested ? 2 : 0), 2)}px`
               : 0,
             px: theme.spacing(GRID_CARD_CONTAINER_PADDING_UNITS),
+            // Let card-level glows escape the row container without affecting layout.
+            overflow: 'visible',
           })}
         >
           <Box
@@ -1214,6 +1230,8 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
               columnGap: theme.spacing(GRID_GAP),
               rowGap: 0,
               width: '100%',
+              // Allow card shadows to render into the column gaps.
+              overflow: 'visible',
             })}
           >
             {item.rowEntries.map((row, columnIdx) => {
@@ -1271,6 +1289,8 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
           flex: 1,
           minHeight: 0,
           overflowY: 'auto',
+          // Preserve horizontal glow for mythic substats within the scroll container.
+          overflowX: 'visible',
           pr: 0.5,
           ...reserveScrollbarGutterSpace({ reserveStart: false, basePaddingInlineEnd: theme.spacing(0.5) }),
         })}
@@ -1297,6 +1317,8 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
                   width: '100%',
                   transform: `translateY(${virtualItem.start}px)`,
                   height: `${virtualItem.size}px`,
+                  // Let child glows render beyond the virtual row wrapper.
+                  overflow: 'visible',
                 }}
               >
                 {renderFlattenedItem(item, virtualItem)}
@@ -2561,7 +2583,10 @@ const TesterGridCard = React.memo(function TesterGridCard({
         height: cardHeightStyle,
         maxHeight: cardHeightStyle,
         boxSizing: 'border-box',
-        overflow: 'hidden',
+        // Allow mythic glow to render past the stat line without breaking vertical clipping.
+        overflowX: 'visible',
+        // Keep the fixed-height card from leaking extra rows.
+        overflowY: 'hidden',
         alignContent: 'start',
         boxShadow: cardHighlighted ? `0 0 0 1px ${alpha(theme.palette.info.main, 0.3)}` : 'none',
         opacity: cardDimmed ? 0.35 : 1,
@@ -2746,7 +2771,8 @@ const TesterGridCard = React.memo(function TesterGridCard({
           minHeight: rightColumnHeightPx,
           height: rightColumnHeightPx,
           maxHeight: rightColumnHeightPx,
-          overflow: 'hidden',
+          // Let the card container handle clipping so mythic glow can escape horizontally.
+          overflow: 'visible',
         }}
       >
         <TesterSummaryLabel label={mainSummaryLabel} wrap />
@@ -2759,52 +2785,82 @@ const TesterGridCard = React.memo(function TesterGridCard({
               gap: CARD_SUBSTAT_ROW_GAP_UNITS,
               width: '100%',
               flexGrow: 1,
+              // Keep mythic glow visible within the stats column.
+              overflowX: 'visible',
             }}
           >
-            {substatEntries.length > 0 ? substatEntries.map((entry) => (
-              <Box
-                key={`sub-${entry.variant}`}
-                sx={{
-                  position: 'relative',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  width: 'fit-content',
-                  maxWidth: '100%',
-                  alignSelf: 'flex-start',
-                  flexShrink: 1,
-                  minWidth: 0,
-                  '&::after': entry.isMythicBonus ? {
-                    content: '""',
-                    position: 'absolute',
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    height: '2px',
-                    borderRadius: '1px',
-                    backgroundColor: (theme) => theme.palette.error.dark,
-                  } : undefined,
-                }}
-              >
-                <Typography
-                  variant="body2"
-                  component="span"
-                  noWrap
-                  sx={{
-                    lineHeight: 1.1,
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    width: '100%',
-                    minWidth: 0,
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap',
-                    color: 'inherit',
-                  }}
-                >
-                  {entry.content}
-                </Typography>
-              </Box>
-            )) : (
+            {substatEntries.length > 0 ? (
+              substatEntries.map((entry) => {
+                // Use a bar + tint for mythic bonuses to avoid the underline cue.
+                const mythicAccentColor = theme.palette.error.main
+                // Alpha tint keeps the highlight readable without overpowering.
+                const mythicAccentBg = alpha(mythicAccentColor, MYTHIC_SUBSTAT_BG_ALPHA)
+                // Only apply the accent when the stat actually has a mythic bonus.
+                const mythicIndicatorSx = entry.isMythicBonus
+                  ? {
+                      // Outer glow keeps spacing identical while still calling attention.
+                      boxShadow: `0 0 ${MYTHIC_SUBSTAT_SHADOW_BLUR_PX}px ${MYTHIC_SUBSTAT_SHADOW_SPREAD_PX}px ${mythicAccentColor}`,
+                      // Soft fill keeps the text legible on tinted cards.
+                      backgroundColor: mythicAccentBg,
+                      // Rounded corners keep the indicator subtle.
+                      borderRadius: `${MYTHIC_SUBSTAT_RADIUS_PX}px`,
+                      // Raise the glow above adjacent grid cells so it isn't visually clipped.
+                      position: 'relative',
+                      zIndex: 1,
+                    }
+                  : undefined
+                // Neutral halo offsets red-tinted text without replacing user-configured colors.
+                const mythicTextShadow = entry.isMythicBonus
+                  ? `0 0 ${MYTHIC_SUBSTAT_TEXT_SHADOW_BLUR_PX}px ${alpha(theme.palette.background.paper, MYTHIC_SUBSTAT_TEXT_SHADOW_ALPHA)}`
+                  : undefined
+
+                // Return a single inline row so ellipsis behavior stays consistent.
+                return (
+                  <Box
+                    key={`sub-${entry.variant}`}
+                    sx={{
+                      // Inline flex keeps the stat label/value aligned with roll glyphs.
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      // Fit-content avoids stretching short stats across the column.
+                      width: 'fit-content',
+                      maxWidth: '100%',
+                      alignSelf: 'flex-start',
+                      // Preserve shrink behavior so long stats still ellipsize.
+                      flexShrink: 1,
+                      minWidth: 0,
+                      // Uniform padding keeps spacing consistent across mythic and non-mythic rows.
+                      px: SUBSTAT_ROW_HORIZONTAL_PADDING_UNITS,
+                      // Merge the mythic indicator only when the bonus is present.
+                      ...(mythicIndicatorSx ?? {}),
+                    }}
+                  >
+                      <Typography
+                        variant="body2"
+                        component="span"
+                        noWrap
+                        sx={{
+                          // Tight line-height keeps substats compact within the fixed card height.
+                          lineHeight: 1.1,
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          // Keep ellipsis stable when the stat text is long.
+                          width: '100%',
+                          minWidth: 0,
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                          color: 'inherit',
+                          // Subtle halo keeps tinted text legible over the mythic background.
+                          textShadow: mythicTextShadow,
+                        }}
+                      >
+                        {entry.content}
+                      </Typography>
+                  </Box>
+                )
+              })
+            ) : (
               <TesterSummaryLabel label="—" />
             )}
           </Box>
