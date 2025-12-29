@@ -1,6 +1,6 @@
 import React, { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
 import { Box, Button, Checkbox, Dialog, DialogActions, DialogContent, DialogTitle, FormControl, FormControlLabel, FormGroup, LinearProgress, Radio, RadioGroup, Stack, Typography } from '@mui/material'
-import { alpha, useTheme } from '@mui/material/styles'
+import { alpha, useTheme, type Theme } from '@mui/material/styles'
 import { useI18n } from '../lib/i18n'
 import { FONT_SIZE_MARKDOWN_PX, FONT_SIZE_SECONDARY_PX } from '../lib/constants'
 import MDEditor from '@uiw/react-md-editor'
@@ -131,7 +131,27 @@ type ConfigMarkerMap = Map<number, ConfigMarkerEntry[]>
 type KeepUniqueMarkerEntry = { id: number; rule: KeepUniqueRule }
 type KeepUniqueMarkerMap = Map<number, KeepUniqueMarkerEntry[]>
 type NoteCardWidthPreset = 'note'
-type QuestionPromptToken = { key: string; text: string; highlighted: boolean }
+type QuestionPromptToken = { key: string; text: string; kind: 'text' | 'chip' | 'label' }
+
+// Backticks mark chip-style emphasis within prompts.
+const QUESTION_PROMPT_CHIP_MARKER = '`'
+// Double-asterisks mark label-style emphasis within prompts.
+const QUESTION_PROMPT_LABEL_MARKER = '**'
+
+// Shared label styling keeps note labels consistent across cards.
+const NOTE_CARD_LABEL_TEXT_SX = {
+  fontWeight: 800,
+  color: 'text.secondary',
+  lineHeight: 1.4,
+}
+const NOTE_QUESTION_OPTION_SX = {
+  // Match Keep Unique row density by trimming default control padding.
+  alignItems: 'center',
+  m: 0,
+  py: 0,
+  '& .MuiFormControlLabel-label': { lineHeight: NOTE_CARD_LABEL_TEXT_SX.lineHeight },
+  '& .MuiCheckbox-root, & .MuiRadio-root': { p: 0.25 },
+}
 
 function resolveQuestionPromptReference(raw: string, options: NoteQuestionDefinition['options']): string {
   // Trim whitespace so numeric references are easy to parse.
@@ -148,48 +168,111 @@ function resolveQuestionPromptReference(raw: string, options: NoteQuestionDefini
   return option ? option.label : raw
 }
 
-function buildQuestionPromptTokens(prompt: string, options: NoteQuestionDefinition['options']): QuestionPromptToken[] {
-  // Tokenize on backticks so referenced labels can be highlighted.
+function buildQuestionPromptTokens(
+  prompt: string,
+  options: NoteQuestionDefinition['options'],
+  allowReferences: boolean,
+): QuestionPromptToken[] {
+  // Tokenize on both backticks and double-asterisks to support chips + label highlights.
   const tokens: QuestionPromptToken[] = []
   let cursor = 0
   let partIndex = 0
   while (cursor < prompt.length) {
-    // Find the next backtick to delimit a reference.
-    const open = prompt.indexOf('`', cursor)
-    if (open < 0) {
-      const tail = prompt.slice(cursor)
+    // Locate the next marker so the earliest highlight wins.
+    const chipIndex = prompt.indexOf(QUESTION_PROMPT_CHIP_MARKER, cursor)
+    const labelIndex = prompt.indexOf(QUESTION_PROMPT_LABEL_MARKER, cursor)
+    // Resolve which marker appears first in the remaining string.
+    const nextMarker = (() => {
+      if (chipIndex < 0 && labelIndex < 0) return null
+      if (chipIndex < 0) return { index: labelIndex, marker: QUESTION_PROMPT_LABEL_MARKER, kind: 'label' as const }
+      if (labelIndex < 0) return { index: chipIndex, marker: QUESTION_PROMPT_CHIP_MARKER, kind: 'chip' as const }
+      return chipIndex <= labelIndex
+        ? { index: chipIndex, marker: QUESTION_PROMPT_CHIP_MARKER, kind: 'chip' as const }
+        : { index: labelIndex, marker: QUESTION_PROMPT_LABEL_MARKER, kind: 'label' as const }
+    })()
+    // Exit when no more markers remain.
+    if (!nextMarker) {
       // Preserve the remaining text when no more markers exist.
-      if (tail) tokens.push({ key: `text-${partIndex}`, text: tail, highlighted: false })
+      const tail = prompt.slice(cursor)
+      if (tail) tokens.push({ key: `text-${partIndex}`, text: tail, kind: 'text' })
       break
     }
-    // Emit any leading text before the reference marker.
-    if (open > cursor) {
-      tokens.push({ key: `text-${partIndex}`, text: prompt.slice(cursor, open), highlighted: false })
+    // Emit any leading text before the marker.
+    if (nextMarker.index > cursor) {
+      tokens.push({ key: `text-${partIndex}`, text: prompt.slice(cursor, nextMarker.index), kind: 'text' })
       partIndex += 1
     }
-    // Find the closing backtick to capture the reference text.
-    const close = prompt.indexOf('`', open + 1)
+    // Find the closing marker to capture the highlighted text.
+    const close = prompt.indexOf(nextMarker.marker, nextMarker.index + nextMarker.marker.length)
     if (close < 0) {
       // Unbalanced markers stay as literal text.
-      tokens.push({ key: `text-${partIndex}`, text: prompt.slice(open), highlighted: false })
+      tokens.push({ key: `text-${partIndex}`, text: prompt.slice(nextMarker.index), kind: 'text' })
       break
     }
-    const raw = prompt.slice(open + 1, close)
-    const resolved = resolveQuestionPromptReference(raw, options)
-    // Highlight referenced labels so they stand out in the prompt.
-    if (resolved) tokens.push({ key: `ref-${partIndex}`, text: resolved, highlighted: true })
-    cursor = close + 1
+    // Extract the raw content between markers.
+    const raw = prompt.slice(nextMarker.index + nextMarker.marker.length, close)
+    // Resolve `\1` references inside chip markers only.
+    // Only resolve numeric references when the caller allows it.
+    const resolved = nextMarker.kind === 'label' && allowReferences
+      ? resolveQuestionPromptReference(raw, options)
+      : raw
+    // Push the highlighted token when content exists.
+    if (resolved) tokens.push({ key: `mark-${partIndex}`, text: resolved, kind: nextMarker.kind })
+    cursor = close + nextMarker.marker.length
     partIndex += 1
   }
   return tokens
 }
 
-function renderQuestionOptionLabel(label: string): JSX.Element {
+function renderQuestionTextTokens({
+  tokens,
+  chipSx,
+  labelSx,
+}: {
+  tokens: QuestionPromptToken[]
+  chipSx: Record<string, unknown>
+  labelSx: Record<string, unknown>
+}): React.ReactNode {
+  // Render each token with the intended visual emphasis.
+  return tokens.map((token) => (
+    token.kind === 'chip' ? (
+      // Chip tokens reuse the keep-unique scope chip treatment.
+      <Box key={token.key} component="span" sx={chipSx}>
+        <Typography variant="caption" sx={{ fontWeight: 700, lineHeight: 1.2 }}>
+          {token.text}
+        </Typography>
+      </Box>
+    ) : token.kind === 'label' ? (
+      // Label tokens mirror the Quota/Scope label typography.
+      <Typography key={token.key} component="span" variant="caption" sx={labelSx}>
+        {token.text}
+      </Typography>
+    ) : (
+      // Plain text inherits the surrounding Typography styles.
+      <Box key={token.key} component="span">
+        {token.text}
+      </Box>
+    )
+  ))
+}
+
+function renderQuestionOptionLabel(
+  label: string,
+  chipSx: Record<string, unknown>,
+  labelSx: Record<string, unknown>,
+): JSX.Element {
+  // Tokenize option labels so highlight markers mirror prompt behavior.
+  const tokens = buildQuestionPromptTokens(label, [], false)
   // Preserve explicit line breaks for multi-line option labels.
   return (
-    <Box component="span" sx={{ whiteSpace: 'pre-line', lineHeight: 1 }}>
-      {label}
-    </Box>
+    <Typography
+      component="span"
+      variant="caption"
+      color="text.secondary"
+      sx={{ whiteSpace: 'pre-line', lineHeight: NOTE_CARD_LABEL_TEXT_SX.lineHeight }}
+    >
+      {renderQuestionTextTokens({ tokens, chipSx, labelSx })}
+    </Typography>
   )
 }
 
@@ -957,6 +1040,25 @@ function NoteCardWrap({ children }: React.PropsWithChildren): JSX.Element {
   )
 }
 
+function buildNoteScopeChipSx(theme: Theme, active: boolean) {
+  // Reuse the Keep Unique scope chip styling for note highlights.
+  return {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 0.4,
+    px: 0.5,
+    py: 0.3,
+    borderRadius: 1,
+    border: '1px solid',
+    // Active styling uses the primary palette; inactive stays neutral.
+    borderColor: active ? alpha(theme.palette.primary.main, 0.6) : 'divider',
+    bgcolor: active
+      ? alpha(theme.palette.primary.main, theme.palette.mode === 'dark' ? 0.2 : 0.12)
+      : 'transparent',
+    color: active ? theme.palette.primary.main : 'text.secondary',
+  } satisfies Record<string, unknown>
+}
+
 function NoteQuestionBlock({ node }: NoteQuestionBlockProps): JSX.Element | null {
   // Pull questionnaire wiring from context.
   const { questionnaireResolutions, questionnaireEditable, onQuestionnaireAnswerChange } = useNoteRenderContext()
@@ -972,24 +1074,22 @@ function NoteQuestionBlock({ node }: NoteQuestionBlockProps): JSX.Element | null
   const question = markerIndex != null ? questionnaireResolutions.get(markerIndex) : undefined
   // Tokenize the prompt so backtick references can be styled.
   const promptTokens = useMemo(
-    () => (question ? buildQuestionPromptTokens(question.prompt, question.options) : []),
+    () => (question ? buildQuestionPromptTokens(question.prompt, question.options, true) : []),
     [question],
   )
-  // Styling mirrors the note highlight treatment while staying subtle.
-  const promptHighlightSx = useMemo(
+  // Style chips to match Keep Unique scope chips for visual consistency.
+  const promptChipSx = useMemo(
+    () => buildNoteScopeChipSx(theme, true),
+    [theme],
+  )
+  // Emphasized text mirrors the Keep Unique label styling.
+  const promptLabelSx = useMemo(
     () => ({
-      // Inline pill styling keeps references readable at a glance.
+      ...NOTE_CARD_LABEL_TEXT_SX,
       display: 'inline-flex',
       alignItems: 'center',
-      // Compact padding avoids inflating the line height.
-      px: 0.35,
-      borderRadius: 0.5,
-      // Use the info palette so the callout differs from body text.
-      bgcolor: alpha(theme.palette.info.main, 0.18),
-      color: theme.palette.info.main,
-      fontWeight: 600,
     }),
-    [theme],
+    [],
   )
   if (!question) return null
   // Resolve the selected answers into a set for fast checks.
@@ -1018,12 +1118,13 @@ function NoteQuestionBlock({ node }: NoteQuestionBlockProps): JSX.Element | null
     >
       {/* Stack keeps the heading and options tightly grouped. */}
       <Stack spacing={0}>
-        {/* Prompt heading mirrors the Keep Unique card title. */}
+        {/* Prompt text mirrors the Keep Unique card title. */}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.35, flexWrap: 'wrap' }}>
           <Typography
             variant="subtitle2"
             component="p"
             sx={{
+              // Match the Keep Unique title typography for questions.
               fontWeight: 700,
               wordBreak: 'break-word',
               lineHeight: 1,
@@ -1035,18 +1136,8 @@ function NoteQuestionBlock({ node }: NoteQuestionBlockProps): JSX.Element | null
               whiteSpace: 'pre-line',
             }}
           >
-            {/* Render prompt tokens so backtick references stand out. */}
-            {promptTokens.map((token) => (
-              token.highlighted ? (
-                <Box key={token.key} component="span" sx={promptHighlightSx}>
-                  {token.text}
-                </Box>
-              ) : (
-                <Box key={token.key} component="span">
-                  {token.text}
-                </Box>
-              )
-            ))}
+            {/* Render prompt tokens so chips + labels stand out. */}
+            {renderQuestionTextTokens({ tokens: promptTokens, chipSx: promptChipSx, labelSx: promptLabelSx })}
           </Typography>
         </Box>
         {/* Render either radios or checkboxes based on question type. */}
@@ -1062,13 +1153,9 @@ function NoteQuestionBlock({ node }: NoteQuestionBlockProps): JSX.Element | null
                   key={option.id}
                   value={option.id}
                   control={<Radio size="small" disabled={!questionnaireEditable} />}
-                  label={renderQuestionOptionLabel(option.label)}
+                  label={renderQuestionOptionLabel(option.label, promptChipSx, promptLabelSx)}
                   disabled={!questionnaireEditable}
-                  sx={{
-                    alignItems: 'center',
-                    m: 0,
-                    '& .MuiFormControlLabel-label': { lineHeight: 1 },
-                  }}
+                  sx={NOTE_QUESTION_OPTION_SX}
                 />
               ))}
             </RadioGroup>
@@ -1098,13 +1185,9 @@ function NoteQuestionBlock({ node }: NoteQuestionBlockProps): JSX.Element | null
                       }}
                     />
                   )}
-                  label={renderQuestionOptionLabel(option.label)}
+                  label={renderQuestionOptionLabel(option.label, promptChipSx, promptLabelSx)}
                   disabled={!questionnaireEditable}
-                  sx={{
-                    alignItems: 'center',
-                    m: 0,
-                    '& .MuiFormControlLabel-label': { lineHeight: 1 },
-                  }}
+                  sx={NOTE_QUESTION_OPTION_SX}
                 />
               )
             })}
@@ -1239,17 +1322,6 @@ function KeepUniqueSummaryCard({
   const theme = useTheme()
   // Scope defaults mirror the dialog so notes stay in sync if count mode is missing.
   const countMode = sanitizeKeepUniqueCountMode(rule.countMode ?? KEEP_UNIQUE_DEFAULT_COUNT_MODE)
-  const scopeParts: string[] = []
-  if (countMode.perRule) {
-    scopeParts.push(t('keepUniquesCountModePerRule'))
-  } else {
-    if (countMode.perSlot) scopeParts.push(t('keepUniquesCountModePerSlot'))
-    if (countMode.perSet) scopeParts.push(t('keepUniquesCountModePerSet'))
-    if (countMode.perFaction) scopeParts.push(t('keepUniquesCountModePerFaction'))
-    if (countMode.perMainStat) scopeParts.push(t('keepUniquesCountModePerMain'))
-    if (scopeParts.length === 0) scopeParts.push(t('keepUniquesCountModePerRule'))
-  }
-  const scopeLabel = scopeParts.join(' × ')
   const scopeLegendLabel = t('noteKeepUniqueScopeLabel')
   // Scope chips mirror the dialog toggles so markdown exports stay aligned.
   const scopeFlags = [
@@ -1428,7 +1500,7 @@ function KeepUniqueSummaryCard({
         alignItems: options.valueAlign === 'center' ? 'center' : 'flex-start',
       }}
     >
-      <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 800, textAlign: 'right', lineHeight: 1.4 }}>
+      <Typography variant="caption" sx={{ ...NOTE_CARD_LABEL_TEXT_SX, textAlign: 'right' }}>
         {label}
       </Typography>
       <Box sx={{ minWidth: 0 }}>{value}</Box>
@@ -1491,8 +1563,8 @@ function KeepUniqueSummaryCard({
           {renderRow(
             t('noteKeepUniqueQuotaLabel'),
             <Typography variant="caption" color="text.secondary" sx={{ display: 'block', wordBreak: 'break-word' }}>
-              {t('noteKeepUniqueQuotaValue', { count: rule.requiredCount })}{' '}
-              <Box component="span">({scopeLabel})</Box>
+              {/* Scope details live in the Scope row to avoid repetition. */}
+              {t('noteKeepUniqueQuotaValue', { count: rule.requiredCount })}
             </Typography>,
             { valueAlign: 'center' },
           )}
@@ -1502,18 +1574,7 @@ function KeepUniqueSummaryCard({
               {activeScopeFlags.map((flag) => (
                 <Box
                   key={`ku-scope-${flag.key}`}
-                  sx={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: 0.4,
-                    px: 0.5,
-                    py: 0.3,
-                    borderRadius: 1,
-                    border: '1px solid',
-                    borderColor: flag.active ? alpha(theme.palette.primary.main, 0.6) : 'divider',
-                    bgcolor: flag.active ? alpha(theme.palette.primary.main, theme.palette.mode === 'dark' ? 0.2 : 0.12) : 'transparent',
-                    color: flag.active ? theme.palette.primary.main : 'text.secondary',
-                  }}
+                  sx={buildNoteScopeChipSx(theme, flag.active)}
                 >
                   <Typography variant="caption" sx={{ fontWeight: 700, lineHeight: 1.2 }}>
                     {flag.label}

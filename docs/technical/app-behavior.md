@@ -230,7 +230,7 @@ This document captures runtime behavior, builder interactions, and user-facing w
   - Syntax (single): `<!-- q:single "Prompt" [* "Yes", tag1, tag2] ["No", -tag1] -->`.
   - Syntax (multi): `<!-- q:multi "Prompt" [* "Option", tag1] ["Other", tag2] -->`.
   - `*` before the label marks the default selection. `-tag` removes that tag from the active set. Whitespace is optional.
-  - Prompt references: Wrap option labels in backticks to render them highlighted (e.g., ``Answering `Yes` will...``). Use numeric references like `` `\1` `` (1-based) to inject the Nth option label. Prompts accept literal newlines or `\n` escapes for line breaks.
+  - Prompt references: Wrap option labels in backticks to render them as chips (e.g., ``Answering `Yes` will...``). Use numeric references like `` `\1` `` (1-based) to inject the Nth option label. Wrap emphasis text in `**double-asterisks**` to render it with the Quota/Scope label style; both markers work in prompts and option labels. Prompts accept literal newlines or `\n` escapes for line breaks.
   - Questions are evaluated top-to-bottom; later answers can override tags from earlier ones.
 - Apply tags: The Note dialog exposes `Apply Questionnaire Tags`, which confirms and then enables/disables configs whose `Tags` intersect the active tag set. Untagged configs and separators are untouched.
 - Session-only answers: Questionnaire answers are stored in autosave/session state only; HSFC exports never include them.
