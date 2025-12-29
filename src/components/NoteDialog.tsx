@@ -78,6 +78,10 @@ const KEEP_UNIQUE_ELEMENT_PATTERN_ATTR = 'data-ku-pattern'
 const KEEP_UNIQUE_ELEMENT_INDEX_ATTR = 'data-ku-marker-index'
 const KEEP_UNIQUE_FILTER_IDS = 'ids'
 const KEEP_UNIQUE_FILTER_REGEXP = 'regexp'
+const NOTE_CARD_GAP = 1.5
+const NOTE_CARD_WIDTHS: Record<NoteCardWidthPreset, { flexBasis: number; minWidth: number; maxWidth: number }> = {
+  note: { flexBasis: 242, minWidth: 209, maxWidth: 322 },
+}
 
 // Match HTML comment bodies that declare questionnaire markers.
 const QUESTION_COMMENT_REGEX = /^\s*q\s*:\s*(single|multi)\b/i
@@ -85,6 +89,8 @@ const QUESTION_COMMENT_REGEX = /^\s*q\s*:\s*(single|multi)\b/i
 const QUESTION_MARKER_REGEX = /<!--\s*q\s*:\s*(single|multi)[\s\S]*?-->/i
 // Custom element tag used in sanitized Markdown output.
 const QUESTION_ELEMENT_TAG = 'note-questionnaire'
+// Wrapper tag used to group question markers into a single flex layout.
+const QUESTION_GROUP_ELEMENT_TAG = 'note-questionnaire-group'
 // Attribute used to map back to a parsed question definition.
 const QUESTION_ELEMENT_INDEX_ATTR = 'data-question-index'
 
@@ -122,6 +128,7 @@ type ConfigMarkerEntry = { id: number; cfg: BuilderConfig }
 type ConfigMarkerMap = Map<number, ConfigMarkerEntry[]>
 type KeepUniqueMarkerEntry = { id: number; rule: KeepUniqueRule }
 type KeepUniqueMarkerMap = Map<number, KeepUniqueMarkerEntry[]>
+type NoteCardWidthPreset = 'note'
 
 type NoteRenderContextValue = {
   configs: BuilderConfig[]
@@ -439,6 +446,57 @@ const rehypeQuestionComments: Pluggable = () => {
       }
     }
     // Begin the recursive traversal at the root.
+    transform(tree)
+  }
+}
+
+const rehypeQuestionGroups: Pluggable = () => {
+  return (tree: Root) => {
+    const isQuestionElement = (node: RootContent): node is Element => {
+      return node.type === 'element' && (node as Element).tagName === QUESTION_ELEMENT_TAG
+    }
+    const isWhitespaceText = (node: RootContent): boolean => {
+      if (node.type !== 'text') return false
+      const value = (node as { value?: string }).value ?? ''
+      return value.trim().length === 0
+    }
+    const transform = (node: Root | Element): void => {
+      const nodeChildren = (node.children ?? []) as RootContent[]
+      for (const child of nodeChildren) {
+        if ((child as Element).type === 'element' && Array.isArray((child as Element).children)) {
+          transform(child as unknown as Element)
+        }
+      }
+      const nextChildren: RootContent[] = []
+      for (let i = 0; i < nodeChildren.length; i += 1) {
+        const child = nodeChildren[i]
+        if (!child) continue
+        if (!isQuestionElement(child)) {
+          nextChildren.push(child)
+          continue
+        }
+        const grouped: Element[] = [child]
+        let cursor = i + 1
+        for (; cursor < nodeChildren.length; cursor += 1) {
+          const candidate = nodeChildren[cursor]
+          if (!candidate) continue
+          if (isQuestionElement(candidate)) {
+            grouped.push(candidate)
+            continue
+          }
+          if (isWhitespaceText(candidate)) continue
+          break
+        }
+        nextChildren.push({
+          type: 'element',
+          tagName: QUESTION_GROUP_ELEMENT_TAG,
+          properties: {},
+          children: grouped,
+        })
+        i = cursor - 1
+      }
+      nodeChildren.splice(0, nodeChildren.length, ...nextChildren)
+    }
     transform(tree)
   }
 }
@@ -822,6 +880,20 @@ function ConfigChipBlock({ node }: ConfigChipBlockProps): JSX.Element | null {
 
 type NoteQuestionBlockProps = React.PropsWithChildren<{ node?: Element & { properties?: Record<string, unknown> } }>
 
+function getNoteCardWidthStyles(preset: NoteCardWidthPreset) {
+  // Shared sizing keeps questionnaire and keep-unique cards aligned.
+  return NOTE_CARD_WIDTHS[preset]
+}
+
+function NoteCardWrap({ children }: React.PropsWithChildren): JSX.Element {
+  // Shared wrapper keeps spacing identical across note card types.
+  return (
+    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: NOTE_CARD_GAP, my: 1, alignItems: 'flex-start' }}>
+      {children}
+    </Box>
+  )
+}
+
 function NoteQuestionBlock({ node }: NoteQuestionBlockProps): JSX.Element | null {
   // Pull questionnaire wiring from context.
   const { questionnaireResolutions, questionnaireEditable, onQuestionnaireAnswerChange } = useNoteRenderContext()
@@ -842,105 +914,116 @@ function NoteQuestionBlock({ node }: NoteQuestionBlockProps): JSX.Element | null
   const applyAnswer = (next: string[]) => {
     onQuestionnaireAnswerChange(question, next)
   }
+  // Shared sizing keeps question cards in lockstep with keep-unique cards.
+  const { flexBasis, minWidth, maxWidth } = getNoteCardWidthStyles('note')
   return (
-    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5, my: 1, alignItems: 'flex-start' }}>
-      <Box
-        sx={{
-          // Match Keep Unique card styling for tighter, consistent layout.
-          flex: '1 1 300px',
-          minWidth: 260,
-          maxWidth: 400,
-          borderRadius: 1,
-          border: '1px solid',
-          borderColor: 'divider',
-          p: 1.25,
-          bgcolor: 'background.paper',
-        }}
-      >
-        <Stack spacing={0.6}>
-          {/* Prompt heading mirrors the Keep Unique card title. */}
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.35, flexWrap: 'wrap' }}>
-            <Typography
-              variant="subtitle2"
-              component="p"
-              sx={{
-                fontWeight: 700,
-                wordBreak: 'break-word',
-                lineHeight: 1,
-                fontSize: '0.9rem',
-                flex: '1 1 auto',
-                minWidth: 0,
-                m: 0,
-                p: 0,
-              }}
+    <Box
+      sx={{
+        // Match Keep Unique card styling for tighter, consistent layout.
+        // Width limits mirror Keep Unique cards so multiple can fit on a line.
+        flex: `1 1 ${flexBasis}px`,
+        minWidth,
+        maxWidth,
+        borderRadius: 1,
+        border: '1px solid',
+        borderColor: 'divider',
+        p: 1.25,
+        bgcolor: 'background.paper',
+      }}
+    >
+      {/* Stack keeps the heading and options tightly grouped. */}
+      <Stack spacing={0}>
+        {/* Prompt heading mirrors the Keep Unique card title. */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.35, flexWrap: 'wrap' }}>
+          <Typography
+            variant="subtitle2"
+            component="p"
+            sx={{
+              fontWeight: 700,
+              wordBreak: 'break-word',
+              lineHeight: 1,
+              fontSize: '0.9rem',
+              flex: '1 1 auto',
+              minWidth: 0,
+              m: 0,
+              p: 0,
+            }}
+          >
+            {question.prompt}
+          </Typography>
+        </Box>
+        {/* Render either radios or checkboxes based on question type. */}
+        {question.type === 'single' ? (
+          <FormControl component="fieldset" variant="standard" sx={{ mt: 0.35 }}>
+            <RadioGroup
+              value={selected[0] ?? ''}
+              onChange={(_, value) => applyAnswer(value ? [value] : [])}
+              sx={{ gap: 0.25 }}
             >
-              {question.prompt}
-            </Typography>
-          </Box>
-          {/* Render either radios or checkboxes based on question type. */}
-          {question.type === 'single' ? (
-            <FormControl component="fieldset" variant="standard">
-              <RadioGroup
-                value={selected[0] ?? ''}
-                onChange={(_, value) => applyAnswer(value ? [value] : [])}
-                sx={{ gap: 0.25 }}
-              >
-                {question.options.map((option) => (
-                  <FormControlLabel
-                    key={option.id}
-                    value={option.id}
-                    control={<Radio size="small" disabled={!questionnaireEditable} />}
-                    label={option.label}
-                    disabled={!questionnaireEditable}
-                    sx={{
-                      alignItems: 'center',
-                      m: 0,
-                      '& .MuiFormControlLabel-label': { lineHeight: 1.3 },
-                    }}
-                  />
-                ))}
-              </RadioGroup>
-            </FormControl>
-          ) : (
-            <FormGroup sx={{ gap: 0.25 }}>
-              {question.options.map((option) => {
-                // Compute the checked state once per option.
-                const checked = selectedSet.has(option.id)
-                return (
-                  <FormControlLabel
-                    key={option.id}
-                    control={(
-                      <Checkbox
-                        size="small"
-                        checked={checked}
-                        disabled={!questionnaireEditable}
-                        onChange={(event) => {
-                          // Ignore changes when the question is read-only.
-                          if (!questionnaireEditable) return
-                          // Toggle the option in a new Set instance.
-                          const next = new Set(selectedSet)
-                          if (event.target.checked) next.add(option.id)
-                          else next.delete(option.id)
-                          // Persist the new answer list.
-                          applyAnswer(Array.from(next))
-                        }}
-                      />
-                    )}
-                    label={option.label}
-                    disabled={!questionnaireEditable}
-                    sx={{
-                      alignItems: 'center',
-                      m: 0,
-                      '& .MuiFormControlLabel-label': { lineHeight: 1.3 },
-                    }}
-                  />
-                )
-              })}
-            </FormGroup>
-          )}
-        </Stack>
-      </Box>
+              {question.options.map((option) => (
+                <FormControlLabel
+                  key={option.id}
+                  value={option.id}
+                  control={<Radio size="small" disabled={!questionnaireEditable} />}
+                  label={option.label}
+                  disabled={!questionnaireEditable}
+                  sx={{
+                    alignItems: 'center',
+                    m: 0,
+                    '& .MuiFormControlLabel-label': { lineHeight: 1 },
+                  }}
+                />
+              ))}
+            </RadioGroup>
+          </FormControl>
+        ) : (
+          <FormGroup sx={{ gap: 0.25, mt: 0.35 }}>
+            {question.options.map((option) => {
+              // Compute the checked state once per option.
+              const checked = selectedSet.has(option.id)
+              return (
+                <FormControlLabel
+                  key={option.id}
+                  control={(
+                    <Checkbox
+                      size="small"
+                      checked={checked}
+                      disabled={!questionnaireEditable}
+                      onChange={(event) => {
+                        // Ignore changes when the question is read-only.
+                        if (!questionnaireEditable) return
+                        // Toggle the option in a new Set instance.
+                        const next = new Set(selectedSet)
+                        if (event.target.checked) next.add(option.id)
+                        else next.delete(option.id)
+                        // Persist the new answer list.
+                        applyAnswer(Array.from(next))
+                      }}
+                    />
+                  )}
+                  label={option.label}
+                  disabled={!questionnaireEditable}
+                  sx={{
+                    alignItems: 'center',
+                    m: 0,
+                    '& .MuiFormControlLabel-label': { lineHeight: 1 },
+                  }}
+                />
+              )
+            })}
+          </FormGroup>
+        )}
+      </Stack>
     </Box>
+  )
+}
+
+function NoteQuestionGroup({ children }: React.PropsWithChildren): JSX.Element {
+  // Groups adjacent question cards into the shared note-card layout.
+  return (
+    <NoteCardWrap>
+      {children}
+    </NoteCardWrap>
   )
 }
 
@@ -1019,10 +1102,11 @@ function KeepUniqueBlock({ node }: KeepUniqueBlockProps): JSX.Element | null {
   }
   const entries = resolvedEntries ?? []
   if (entries.length === 0) return null
+  const { flexBasis, minWidth, maxWidth } = getNoteCardWidthStyles('note')
   return (
-    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5, my: 1, alignItems: 'flex-start' }}>
+    <NoteCardWrap>
       {entries.map(({ id, rule }) => (
-        <Box key={`note-ku-${id}`} sx={{ flex: '1 1 300px', minWidth: 260, maxWidth: 400 }}>
+        <Box key={`note-ku-${id}`} sx={{ flex: `1 1 ${flexBasis}px`, minWidth, maxWidth }}>
           <KeepUniqueSummaryCard
             id={id}
             rule={rule}
@@ -1034,7 +1118,7 @@ function KeepUniqueBlock({ node }: KeepUniqueBlockProps): JSX.Element | null {
           />
         </Box>
       ))}
-    </Box>
+    </NoteCardWrap>
   )
 }
 
@@ -1265,9 +1349,9 @@ function KeepUniqueSummaryCard({
         bgcolor: 'background.paper',
       }}
     >
-      <Stack spacing={0.25} sx={{ width: 1 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 0.35, alignItems: 'center', flexWrap: 'wrap', width: 1 }}>
-          <Typography
+        <Stack spacing={0} sx={{ width: 1 }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 0.35, alignItems: 'center', flexWrap: 'wrap', width: 1 }}>
+            <Typography
             variant="subtitle2"
             component="p"
             sx={{
@@ -1306,7 +1390,7 @@ function KeepUniqueSummaryCard({
             </Box>
           ) : null}
         </Box>
-        <Stack spacing={0.6}>
+        <Stack spacing={0.35} sx={{ mt: 0.35 }}>
           {renderRow(
             t('noteKeepUniqueQuotaLabel'),
             <Typography variant="caption" color="text.secondary" sx={{ display: 'block', wordBreak: 'break-word' }}>
@@ -1466,7 +1550,7 @@ export default function NoteDialog({
   )
   const allowMarkdownElement = React.useCallback<MarkdownAllowElement>((element) => {
     const tag = typeof element.tagName === 'string' ? element.tagName.toLowerCase() : ''
-    if (tag === CONFIG_ELEMENT_TAG || tag === KEEP_UNIQUE_ELEMENT_TAG || tag === QUESTION_ELEMENT_TAG) return true
+    if (tag === CONFIG_ELEMENT_TAG || tag === KEEP_UNIQUE_ELEMENT_TAG || tag === QUESTION_ELEMENT_TAG || tag === QUESTION_GROUP_ELEMENT_TAG) return true
     return DEFAULT_ALLOWED_TAG_REGEX.test(tag)
   }, [])
   // Memoized sanitize schema and plugins for performance during typing.
@@ -1505,7 +1589,7 @@ export default function NoteDialog({
         [KEEP_UNIQUE_ELEMENT_TAG]: mergedKeepUniqueAttrs,
         [QUESTION_ELEMENT_TAG]: mergedQuestionAttrs,
       },
-      tagNames: Array.from(new Set([...(defaultSchema.tagNames ?? []), 'span', CONFIG_ELEMENT_TAG, KEEP_UNIQUE_ELEMENT_TAG, QUESTION_ELEMENT_TAG])),
+      tagNames: Array.from(new Set([...(defaultSchema.tagNames ?? []), 'span', CONFIG_ELEMENT_TAG, KEEP_UNIQUE_ELEMENT_TAG, QUESTION_ELEMENT_TAG, QUESTION_GROUP_ELEMENT_TAG])),
     }
   }, [])
   const rehypePluginsSafe = useMemo<Pluggable[]>(() => (
@@ -1513,6 +1597,7 @@ export default function NoteDialog({
       rehypeConfigComments,
       rehypeKeepUniqueComments,
       rehypeQuestionComments,
+      rehypeQuestionGroups,
       [rehypeSanitize, sanitizeSchema] as unknown as Pluggable,
     ]
   ), [sanitizeSchema])
@@ -1520,6 +1605,7 @@ export default function NoteDialog({
     [CONFIG_ELEMENT_TAG]: ConfigChipBlock as unknown as React.ComponentType<Record<string, unknown>>,
     [KEEP_UNIQUE_ELEMENT_TAG]: KeepUniqueBlock as unknown as React.ComponentType<Record<string, unknown>>,
     [QUESTION_ELEMENT_TAG]: NoteQuestionBlock as unknown as React.ComponentType<Record<string, unknown>>,
+    [QUESTION_GROUP_ELEMENT_TAG]: NoteQuestionGroup as unknown as React.ComponentType<Record<string, unknown>>,
   }), [])
 
   // Color toolbar command and full commands list; injected before HR.
