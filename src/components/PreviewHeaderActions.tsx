@@ -271,8 +271,7 @@ export default function PreviewHeaderActions(props: {
   const sortLabel = t('testerSortLabel')
   const sortClearLabel = t('testerSortClear')
   const sortDirectionLabel = t('testerSortDirection')
-  // TODO: i18n - grouping labels are intentionally English-only for now.
-  const sortGroupingLabel = 'Grouping'
+  const sortGroupingLabel = t('testerSortGroupingLabel')
   const sortGlyphsLabel = t('testerSortGlyphsLabel')
 	  const sortGlyphsExcludeLabel = t('testerSortGlyphsExclude')
 	  const sortGlyphsIncludeLabel = t('testerSortGlyphsInclude')
@@ -288,30 +287,30 @@ export default function PreviewHeaderActions(props: {
 	  const sortLastUsedLabel = t('testerLastUsedFilterLabel')
 	  const sortGlyphInheritDirectionLabel = t('testerSortPerKeyInheritDirection')
 	  const sortGlyphFlippedDirectionLabel = t('testerSortPerKeyFlippedDirection')
-	  // Grouping options drive the icon toggle row in the sort popover.
+	  // Localized grouping options drive the icon toggle row in the sort popover.
 	  const groupingOptions = [
 	    {
 	      value: TESTER_GROUPING_MODE_DEFAULT,
-	      label: 'Set + Faction',
-	      tooltip: 'Group artifacts by set and accessories by faction + set.',
+	      label: t('testerSortGroupingDefaultLabel'),
+	      tooltip: t('testerSortGroupingDefaultTooltip'),
 	      icon: <AccountTreeIcon fontSize="small" />,
 	    },
 	    {
 	      value: TESTER_GROUPING_MODE_FACTION_ACCESSORY,
-	      label: 'Accessories by Faction',
-	      tooltip: 'Artifacts stay flat; accessories group by faction only.',
+	      label: t('testerSortGroupingAccessoryFactionLabel'),
+	      tooltip: t('testerSortGroupingAccessoryFactionTooltip'),
 	      icon: <GroupsIcon fontSize="small" />,
 	    },
 	    {
 	      value: TESTER_GROUPING_MODE_SPLIT,
-	      label: 'Split: Artifacts / Accessories',
-	      tooltip: 'Two top-level sections: Artifacts and Accessories.',
+	      label: t('testerSortGroupingSplitLabel'),
+	      tooltip: t('testerSortGroupingSplitTooltip'),
 	      icon: <CallSplitIcon fontSize="small" />,
 	    },
 	    {
 	      value: TESTER_GROUPING_MODE_FLAT,
-	      label: 'Fully Flat',
-	      tooltip: 'No headers; show one flat list.',
+	      label: t('testerSortGroupingFlatLabel'),
+	      tooltip: t('testerSortGroupingFlatTooltip'),
 	      icon: <ViewStreamIcon fontSize="small" />,
 	    },
 	  ] as const
