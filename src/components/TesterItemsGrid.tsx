@@ -86,7 +86,11 @@ import EmptyStateMessage, { type EmptyStateMessageProps } from './EmptyStateMess
 import {
   computeTesterNormalizedSubstatScore,
   sortTesterRowsBySubstats,
+  TESTER_GROUPING_MODE_DEFAULT,
+  TESTER_GROUPING_MODE_FACTION_ACCESSORY,
+  TESTER_GROUPING_MODE_FLAT,
   TESTER_SORT_KEY_LAST_USAGE,
+  type TesterGroupingMode,
   type TesterSubstatSortSpec,
 } from '../lib/testerSort'
 import { TESTER_NORMALIZED_PRESET_COUNT } from '../lib/testerNormalizedPresets'
@@ -285,7 +289,8 @@ type TesterItemsGridProps = {
   substatSort?: TesterSubstatSortSpec | null
   // Full sort preference state so the grid can gate the [S] overlay option.
   sortState?: TesterSubstatSortState | null
-  keepSections?: boolean
+  // Grouping mode for the tester grid when substat sorting is active.
+  grouping?: TesterGroupingMode
 }
 
 type TesterGroupKind = 'artifactSet' | 'accessorySet' | 'accessoryFaction'
@@ -299,12 +304,13 @@ type TesterGroup = {
   rows: TesterPreviewRow[]
   order: number
   kind: TesterGroupKind
+  showHeader?: boolean
   children?: TesterGroup[]
   parentKey?: string | null
 }
 
 type GroupRowsBySetOptions = {
-  keepSections: boolean
+  grouping: TesterGroupingMode
   substatSort: TesterSubstatSortSpec | null
 }
 
@@ -338,7 +344,7 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     dimUnhighlightedRows = false,
     substatSort = null,
     sortState = null,
-    keepSections = true,
+    grouping = TESTER_GROUPING_MODE_DEFAULT,
   } = props
   const keepUniquesVariant = variant === 'keepUniques'
   // Memoized predicates avoid re-render churn when Keep Uniques toggles highlighting.
@@ -386,8 +392,8 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
   const matchDetailsFrozen = Boolean(suppressMatchDetailsProp)
   // Group tree is recalculated only when the dataset, locale, or sort mode changes so TanStack can reuse measured rows.
   const groups = useMemo(
-    () => groupRowsBySet(rows, t, lang, { keepSections, substatSort: effectiveSubstatSort }),
-    [rows, t, lang, keepSections, effectiveSubstatSort],
+    () => groupRowsBySet(rows, t, lang, { grouping, substatSort: effectiveSubstatSort }),
+    [rows, t, lang, grouping, effectiveSubstatSort],
   )
   const numberFormatter = useMemo(() => new Intl.NumberFormat(undefined), [])
   // Overlay score uses the same glyph inclusion policy as the Sort UI (default excludes glyphs).
@@ -1873,16 +1879,19 @@ function buildFlattenedGridItems({
     return cached
   }
   const visit = (group: TesterGroup, depth: number) => {
-    // Headers always appear so users can toggle collapsed parents without forcing their children to mount.
-    const expanded = !collapsedGroups.has(group.key)
-    items.push({
-      kind: 'groupHeader',
-      key: `header:${group.key}`,
-      group,
-      depth,
-      expanded,
-      height: accordionSummaryHeightPx,
-    })
+    // Headerless groups render as a plain grid slice; they never collapse.
+    const hasHeader = group.showHeader !== false
+    const expanded = hasHeader ? !collapsedGroups.has(group.key) : true
+    if (hasHeader) {
+      items.push({
+        kind: 'groupHeader',
+        key: `header:${group.key}`,
+        group,
+        depth,
+        expanded,
+        height: accordionSummaryHeightPx,
+      })
+    }
     if (expanded) {
       if (group.children?.length) {
         group.children.forEach((child, idx) => {
@@ -3234,26 +3243,70 @@ function groupRowsBySet(
   lang: string,
   options: GroupRowsBySetOptions,
 ): TesterGroup[] {
-  // Artifact sets form flat accordions, while accessories nest faction->set accordions for readability.
-  const artifactGroups = new Map<string, TesterGroup>()
-  const factionGroups = new Map<string, FactionGroupBuilder>()
-  const keepSections = options.keepSections !== false
+  // Artifact sets form flat accordions, while accessories can nest faction->set accordions.
+  const grouping = options.grouping ?? TESTER_GROUPING_MODE_DEFAULT
   const substatSort = options.substatSort
+  // Sorting stays orthogonal to grouping; grouping only controls section boundaries.
+  const hasSubstatOrdering = Boolean(
+    substatSort && (substatSort.priorities.length > 0 || substatSort.normalized === true),
+  )
+  // Default mode keeps full set/faction grouping; other modes selectively collapse headers.
+  const useArtifactSets = grouping === TESTER_GROUPING_MODE_DEFAULT
+  const useAccessoryFactions = grouping === TESTER_GROUPING_MODE_DEFAULT
+    || grouping === TESTER_GROUPING_MODE_FACTION_ACCESSORY
+  // Accessory sets only exist in the full default grouping.
+  const useAccessorySets = grouping === TESTER_GROUPING_MODE_DEFAULT
+  // Flat mode removes headers entirely, so it short-circuits to one group.
+  const fullyFlat = grouping === TESTER_GROUPING_MODE_FLAT
+  // Non-default grouping uses a global sort order instead of per-section sorting.
+  const useGlobalSort = hasSubstatOrdering && grouping !== TESTER_GROUPING_MODE_DEFAULT
+  const sortedRows = useGlobalSort && substatSort
+    ? sortTesterRowsBySubstats(rows, substatSort)
+    : rows
 
-  rows.forEach((row, index) => {
+  if (fullyFlat) {
+    // Fully flat mode renders all rows in a single headerless group.
+    const group: TesterGroup = {
+      key: 'tester:all',
+      label: '',
+      setId: null,
+      slot: null,
+      factionId: null,
+      rows: sortedRows.slice(),
+      order: 0,
+      kind: 'artifactSet',
+      showHeader: false,
+      parentKey: null,
+    }
+    return [group]
+  }
+
+  // Maps keep group creation cheap during the row scan.
+  const artifactGroups = new Map<string, TesterGroup>()
+  // Faction groups only populate when accessory grouping is enabled.
+  const factionGroups = new Map<string, FactionGroupBuilder>()
+  // Split mode uses a single accessory group for all accessory slots.
+  let accessoryGroup: TesterGroup | null = null
+
+  sortedRows.forEach((row, index) => {
+    // Normalize set ids so invalid input always buckets into a predictable key.
     const artifact = row.artifact
     const slot = artifact.slot as ArtifactTypeId
     const rawSetId = Number(artifact.set)
     const setId = Number.isFinite(rawSetId) ? rawSetId : 0
     if (!isAccessorySlot(slot)) {
-      const key = keepSections ? `art:${setId}` : 'art:all'
+      // Artifacts either keep per-set grouping or collapse into a single section.
+      const key = useArtifactSets ? `art:${setId}` : 'art:all'
       let group = artifactGroups.get(key)
       if (!group) {
-        const setLabel = keepSections ? formatTesterSetLabel({ setId, slot, translate, lang }) : translate('artifacts')
+        // When grouping by set, reuse the shared formatter so labels stay consistent.
+        const setLabel = useArtifactSets
+          ? formatTesterSetLabel({ setId, slot, translate, lang })
+          : translate('artifacts')
         group = {
           key,
           label: setLabel,
-          setId: keepSections ? setId : null,
+          setId: useArtifactSets ? setId : null,
           slot,
           factionId: null,
           rows: [],
@@ -3267,11 +3320,36 @@ function groupRowsBySet(
       return
     }
 
+    if (!useAccessoryFactions) {
+      // Split mode groups all accessories into one top-level section.
+      const key = 'acc:all'
+      if (!accessoryGroup) {
+        accessoryGroup = {
+          key,
+          label: translate('accessories'),
+          setId: null,
+          slot: null,
+          factionId: null,
+          rows: [],
+          order: index,
+          kind: 'accessoryFaction',
+          parentKey: null,
+        }
+      }
+      accessoryGroup.rows.push(row)
+      if (index < accessoryGroup.order) {
+        accessoryGroup.order = index
+      }
+      return
+    }
+
+    // Accessory faction grouping mirrors the in-game faction split.
     const rawFactionId = Number(artifact.faction) || 0
     const factionId = (rawFactionId > 0 ? rawFactionId : 0) as FactionId
     const factionKey = `faction:${factionId}`
     let factionGroup = factionGroups.get(factionKey)
     if (!factionGroup) {
+      // Unknown factions still appear, but they use the shared "unknown" label.
       const factionLabel = factionId > 0 ? translate(factionI18nKey(factionId)) : translate('testerValueUnknown')
       factionGroup = {
         group: {
@@ -3295,10 +3373,12 @@ function groupRowsBySet(
       factionGroup.group.order = index
     }
 
-    if (keepSections) {
+    if (useAccessorySets) {
+      // Default grouping nests accessory sets under each faction header.
       const setKey = `${factionKey}:set:${setId}`
       let setGroup = factionGroup.sets.get(setKey)
       if (!setGroup) {
+        // "No set" accessories keep the header but omit the set label/icon.
         const accessoryHasNoSet = setId === 0 || setId === ACCESSORY_NO_SET_ID
         const setLabel = accessoryHasNoSet ? '' : formatTesterSetLabel({ setId, slot, translate, lang })
         setGroup = {
@@ -3321,23 +3401,26 @@ function groupRowsBySet(
     }
   })
 
-  const resolvedFactionGroups: TesterGroup[] = Array.from(factionGroups.values()).map(({ group, sets }) => {
-    if (!keepSections) {
-      return { ...group, children: [] }
-    }
-    return {
-      ...group,
-      children: Array.from(sets.values()).sort((a, b) => a.order - b.order),
-    }
-  })
+  // Resolve accessory faction groups into a sorted child list when set grouping is active.
+  const resolvedFactionGroups: TesterGroup[] = useAccessoryFactions
+    ? Array.from(factionGroups.values()).map(({ group, sets }) => (
+      useAccessorySets
+        ? { ...group, children: Array.from(sets.values()).sort((a, b) => a.order - b.order) }
+        : { ...group, children: [] }
+    ))
+    : []
 
+  // Top-level ordering is based on the first row each group claimed.
   const grouped = [
     ...artifactGroups.values(),
+    ...(accessoryGroup ? [accessoryGroup] : []),
     ...resolvedFactionGroups,
   ].sort((a, b) => a.order - b.order)
 
   const applySort = (group: TesterGroup) => {
-    if (!substatSort || substatSort.priorities.length === 0) return
+    // Substat sorting is per-group; we keep group order stable for predictability.
+    if (!hasSubstatOrdering || !substatSort) return
+    if (useGlobalSort) return
     // Sort every group deterministically; leaf groups render cards while parents mainly provide counts.
     group.rows = sortTesterRowsBySubstats(group.rows, substatSort)
     group.children?.forEach(applySort)

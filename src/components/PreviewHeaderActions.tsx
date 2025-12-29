@@ -37,10 +37,19 @@ import ContextMenuPaper from './ContextMenuPaper'
 import ContextMenuTitle from './ContextMenuTitle'
 import DeleteIcon from '@mui/icons-material/Delete'
 import GridViewIcon from '@mui/icons-material/GridView'
+import AccountTreeIcon from '@mui/icons-material/AccountTree'
+import CallSplitIcon from '@mui/icons-material/CallSplit'
+import ViewStreamIcon from '@mui/icons-material/ViewStream'
+import GroupsIcon from '@mui/icons-material/Groups'
 import {
+  TESTER_GROUPING_MODE_DEFAULT,
+  TESTER_GROUPING_MODE_FACTION_ACCESSORY,
+  TESTER_GROUPING_MODE_FLAT,
+  TESTER_GROUPING_MODE_SPLIT,
   TESTER_SORT_KEY_LAST_USAGE,
   TESTER_SORT_WEIGHT_DEFAULT,
   isNeutralTesterSortWeight,
+  type TesterGroupingMode,
   type TesterSortKey,
   type TesterSubstatSortDirection,
 } from '../lib/testerSort'
@@ -68,6 +77,9 @@ type ProgressChipProps = {
   ariaLabel?: string | undefined
   children: React.ReactElement
 }
+
+// Compact icon buttons need a fixed footprint to align with other popover controls.
+const GROUPING_ICON_BUTTON_SIZE_PX = 32
 
 function ProgressChip({ progressRatio, ariaLabel, children }: ProgressChipProps) {
   const clampedRatio = Math.max(0, Math.min(1, progressRatio))
@@ -123,7 +135,7 @@ export default function PreviewHeaderActions(props: {
 	  onClearTesterSubstatSort: () => void
 	  onSetTesterSubstatSortState: (next: TesterSubstatSortState) => void
 	  onSetTesterSubstatSortDirection: (direction: TesterSubstatSortDirection) => void
-	  onToggleTesterSubstatSortKeepSections: () => void
+	  onSetTesterSubstatSortGrouping: (next: TesterGroupingMode) => void
 	  onToggleTesterSubstatSortExcludeGlyphs: () => void
 	  onToggleTesterSubstatSortPriority: (key: TesterSortKey) => void
 	  onToggleTesterSubstatSortPriorityFlipped: (key: TesterSortKey) => void
@@ -177,7 +189,7 @@ export default function PreviewHeaderActions(props: {
     onClearTesterSubstatSort,
     onSetTesterSubstatSortState,
 	    onSetTesterSubstatSortDirection,
-	    onToggleTesterSubstatSortKeepSections,
+	    onSetTesterSubstatSortGrouping,
 	    onToggleTesterSubstatSortExcludeGlyphs,
 		    onToggleTesterSubstatSortPriority,
 		    onToggleTesterSubstatSortPriorityFlipped,
@@ -259,8 +271,9 @@ export default function PreviewHeaderActions(props: {
   const sortLabel = t('testerSortLabel')
   const sortClearLabel = t('testerSortClear')
   const sortDirectionLabel = t('testerSortDirection')
-  const sortKeepSectionsLabel = t('testerSortKeepSections')
-	  const sortGlyphsLabel = t('testerSortGlyphsLabel')
+  // TODO: i18n - grouping labels are intentionally English-only for now.
+  const sortGroupingLabel = 'Grouping'
+  const sortGlyphsLabel = t('testerSortGlyphsLabel')
 	  const sortGlyphsExcludeLabel = t('testerSortGlyphsExclude')
 	  const sortGlyphsIncludeLabel = t('testerSortGlyphsInclude')
 	  const sortNormalizedLabel = t('testerSortNormalized')
@@ -275,6 +288,33 @@ export default function PreviewHeaderActions(props: {
 	  const sortLastUsedLabel = t('testerLastUsedFilterLabel')
 	  const sortGlyphInheritDirectionLabel = t('testerSortPerKeyInheritDirection')
 	  const sortGlyphFlippedDirectionLabel = t('testerSortPerKeyFlippedDirection')
+	  // Grouping options drive the icon toggle row in the sort popover.
+	  const groupingOptions = [
+	    {
+	      value: TESTER_GROUPING_MODE_DEFAULT,
+	      label: 'Set + Faction',
+	      tooltip: 'Group artifacts by set and accessories by faction + set.',
+	      icon: <AccountTreeIcon fontSize="small" />,
+	    },
+	    {
+	      value: TESTER_GROUPING_MODE_FACTION_ACCESSORY,
+	      label: 'Accessories by Faction',
+	      tooltip: 'Artifacts stay flat; accessories group by faction only.',
+	      icon: <GroupsIcon fontSize="small" />,
+	    },
+	    {
+	      value: TESTER_GROUPING_MODE_SPLIT,
+	      label: 'Split: Artifacts / Accessories',
+	      tooltip: 'Two top-level sections: Artifacts and Accessories.',
+	      icon: <CallSplitIcon fontSize="small" />,
+	    },
+	    {
+	      value: TESTER_GROUPING_MODE_FLAT,
+	      label: 'Fully Flat',
+	      tooltip: 'No headers; show one flat list.',
+	      icon: <ViewStreamIcon fontSize="small" />,
+	    },
+	  ] as const
   const exportMenuEnabled = React.useMemo(
     () => typeof onExportDeduped === 'function' || typeof onToggleDedupeDefault === 'function' || typeof onToggleOmitDisabled === 'function',
     [onExportDeduped, onToggleDedupeDefault, onToggleOmitDisabled],
@@ -1543,24 +1583,49 @@ export default function PreviewHeaderActions(props: {
 	              </MenuItem>
               <MenuItem
                 sx={{ gap: 1, alignItems: 'center' }}
-	                disabled={sortControlsDisabled}
-	                onClick={() => onToggleTesterSubstatSortKeepSections()}
-	              >
-	                <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }} data-sort-popout-text>{sortKeepSectionsLabel}</Typography>
-	                <Button
-	                  size="small"
-	                  variant={testerSubstatSort.keepSections ? 'contained' : 'outlined'}
-	                  color="success"
-                  disabled={sortControlsDisabled}
-                  sx={{ minWidth: MENU_CONTROL_MIN_WIDTH_PX, height: MENU_CONTROL_HEIGHT_PX, minHeight: MENU_CONTROL_HEIGHT_PX, lineHeight: 1, py: 0 }}
-                  onClick={(event) => {
-                    event.stopPropagation()
-                    onToggleTesterSubstatSortKeepSections()
-                  }}
-                >
-	                  {testerSubstatSort.keepSections ? t('commonOn') : t('commonOff')}
-	                </Button>
-	              </MenuItem>
+                disabled={sortControlsDisabled}
+              >
+                <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }} data-sort-popout-text>{sortGroupingLabel}</Typography>
+                <Stack direction="row" spacing={0.75} alignItems="center">
+                  {groupingOptions.map((option) => {
+                    // Active grouping uses the shared sort preference store.
+                    const active = testerSubstatSort.grouping === option.value
+                    return (
+                      <MarkdownTooltip
+                        key={option.value}
+                        markdown={option.tooltip}
+                        placement="top-start"
+                      >
+                        <Box component="span">
+                          <Button
+                            size="small"
+                            variant={active ? 'contained' : 'outlined'}
+                            color="success"
+                            disabled={sortControlsDisabled}
+                            aria-label={option.label}
+                            sx={{
+                              minWidth: GROUPING_ICON_BUTTON_SIZE_PX,
+                              width: GROUPING_ICON_BUTTON_SIZE_PX,
+                              height: MENU_CONTROL_HEIGHT_PX,
+                              minHeight: MENU_CONTROL_HEIGHT_PX,
+                              lineHeight: 1,
+                              py: 0,
+                              px: 0,
+                              fontSize: 18,
+                            }}
+                            onClick={(event) => {
+                              event.stopPropagation()
+                              onSetTesterSubstatSortGrouping(option.value)
+                            }}
+                          >
+                            {option.icon}
+                          </Button>
+                        </Box>
+                      </MarkdownTooltip>
+                    )
+                  })}
+                </Stack>
+              </MenuItem>
               <MenuItem
                 sx={{ gap: 1, alignItems: 'center' }}
                 disabled={sortControlsDisabled}

@@ -6,6 +6,10 @@
  */
 import { useCallback } from 'react'
 import {
+  TESTER_GROUPING_MODES,
+  TESTER_GROUPING_MODE_DEFAULT,
+  TESTER_GROUPING_MODE_FACTION_ACCESSORY,
+  type TesterGroupingMode,
   TESTER_SORT_KEY_LAST_USAGE,
   TESTER_SORT_WEIGHT_DEFAULT,
   TESTER_SORT_WEIGHT_STEP,
@@ -38,8 +42,8 @@ export type TesterSubstatSortState = {
   normalizedSourceIncludeCustom: boolean
   // Enabled normalized preset sources (when multiple are enabled, sorting uses the best / max score).
   normalizedSourcePresetIds: TesterNormalizedPresetId[]
-  // Keep the existing accordion sections; disabling merges artifact sets and accessory sets per faction.
-  keepSections: boolean
+  // Control how the tester grid groups rows when substat sort is active.
+  grouping: TesterGroupingMode
   // Exclude glyph values by default so "base" rolls remain comparable.
   excludeGlyphs: boolean
 }
@@ -53,7 +57,7 @@ export const DEFAULT_TESTER_SUBSTAT_SORT_STATE: TesterSubstatSortState = Object.
   normalizedUseActiveOverlay: false,
   normalizedSourceIncludeCustom: true,
   normalizedSourcePresetIds: [],
-  keepSections: true,
+  grouping: TESTER_GROUPING_MODE_DEFAULT,
   excludeGlyphs: true,
 })
 
@@ -70,7 +74,7 @@ export const isDefaultTesterSubstatSortState = (state: TesterSubstatSortState | 
     && state.normalizedUseActiveOverlay === DEFAULT_TESTER_SUBSTAT_SORT_STATE.normalizedUseActiveOverlay
     && state.normalizedSourceIncludeCustom === DEFAULT_TESTER_SUBSTAT_SORT_STATE.normalizedSourceIncludeCustom
     && (state.normalizedSourcePresetIds?.length ?? 0) === 0
-    && state.keepSections === DEFAULT_TESTER_SUBSTAT_SORT_STATE.keepSections
+    && state.grouping === DEFAULT_TESTER_SUBSTAT_SORT_STATE.grouping
     && state.excludeGlyphs === DEFAULT_TESTER_SUBSTAT_SORT_STATE.excludeGlyphs
 }
 
@@ -135,6 +139,25 @@ const normalizePresetIds = (raw: unknown): TesterNormalizedPresetId[] => {
   return out
 }
 
+const normalizeGroupingMode = (raw: unknown): TesterGroupingMode => {
+  // New schema stores a string mode; validate against the known list to avoid drift.
+  if (TESTER_GROUPING_MODES.some((mode) => mode === raw)) {
+    return raw as TesterGroupingMode
+  }
+  // Legacy schema stored a boolean keepSections; map it to the closest new mode.
+  if (raw === false) return TESTER_GROUPING_MODE_FACTION_ACCESSORY
+  if (raw === true) return TESTER_GROUPING_MODE_DEFAULT
+  // Default fallback keeps the original grouped-by-set behavior.
+  return TESTER_GROUPING_MODE_DEFAULT
+}
+
+const normalizeGroupingModeFromLegacy = (raw: unknown): TesterGroupingMode => {
+  // Legacy keepSections was a boolean; treat false as the faction-only accessory grouping.
+  if (raw === false) return TESTER_GROUPING_MODE_FACTION_ACCESSORY
+  // Anything else should behave like the grouped-by-set default.
+  return TESTER_GROUPING_MODE_DEFAULT
+}
+
 const normalizeWeights = (raw: unknown): TesterSubstatWeightMap => {
   // Missing weight map is the common case; keep the empty object stable.
   if (!raw || typeof raw !== 'object') return {}
@@ -157,7 +180,12 @@ export const normalizeTesterSubstatSortState = (raw: unknown): TesterSubstatSort
   const obj = raw as Record<string, unknown>
   // Defensive normalization keeps preferences stable across future format tweaks.
   const direction: TesterSubstatSortDirection = obj.direction === 'asc' ? 'asc' : 'desc'
-  const keepSections = obj.keepSections === false ? false : true
+  // Grouping supports both legacy and modern schema keys; prefer the modern key when present.
+  const grouping = (
+    Object.prototype.hasOwnProperty.call(obj, 'grouping')
+      ? normalizeGroupingMode(obj.grouping)
+      : normalizeGroupingModeFromLegacy(obj.keepSections)
+  )
   const excludeGlyphs = obj.excludeGlyphs === false ? false : true
   const rawPriorities = normalizeSortKeys(obj.priorities)
   // Persist the user's intent even when only one substat is selected; the UI/sort logic can disable it temporarily.
@@ -190,7 +218,7 @@ export const normalizeTesterSubstatSortState = (raw: unknown): TesterSubstatSort
     normalizedUseActiveOverlay,
     normalizedSourceIncludeCustom,
     normalizedSourcePresetIds,
-    keepSections,
+    grouping,
     excludeGlyphs,
   }
 }
@@ -232,9 +260,9 @@ export function useTesterSubstatSortPreferences() {
     testerSubstatSortStore.update((prev) => ({ ...prev, direction: direction === 'asc' ? 'asc' : 'desc' }))
   }, [])
 
-  const toggleKeepSections = useCallback(() => {
-    // Keep-sections controls grouping only; sorting logic remains the same.
-    testerSubstatSortStore.update((prev) => ({ ...prev, keepSections: !prev.keepSections }))
+  const setGrouping = useCallback((next: TesterGroupingMode) => {
+    // Grouping should always land on a known mode so grid + UI remain deterministic.
+    testerSubstatSortStore.update((prev) => ({ ...prev, grouping: normalizeGroupingMode(next) }))
   }, [])
 
   const toggleExcludeGlyphs = useCallback(() => {
@@ -347,7 +375,7 @@ export function useTesterSubstatSortPreferences() {
     state,
     clear,
     setDirection,
-    toggleKeepSections,
+    setGrouping,
     toggleExcludeGlyphs,
     toggleNormalized,
     togglePriorityKey,
