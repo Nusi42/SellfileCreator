@@ -1,11 +1,15 @@
 import React, { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
 import { Box, Button, Checkbox, Dialog, DialogActions, DialogContent, DialogTitle, FormControl, FormControlLabel, FormGroup, LinearProgress, Radio, RadioGroup, Stack, Typography } from '@mui/material'
 import { alpha, useTheme, type Theme } from '@mui/material/styles'
+import LocalOfferIcon from '@mui/icons-material/LocalOffer'
+import StarsIcon from '@mui/icons-material/Stars'
+import ViewListIcon from '@mui/icons-material/ViewList'
+import QuizIcon from '@mui/icons-material/Quiz'
 import { useI18n } from '../lib/i18n'
 import { FONT_SIZE_MARKDOWN_PX, FONT_SIZE_SECONDARY_PX } from '../lib/constants'
 import MDEditor from '@uiw/react-md-editor'
 import type { ICommand, RefMDEditor } from '@uiw/react-md-editor'
-import { getCommands } from '@uiw/react-md-editor'
+import { commands, getCommands } from '@uiw/react-md-editor'
 import rehypeSanitize from 'rehype-sanitize'
 import { defaultSchema } from 'hast-util-sanitize'
 import type { Schema } from 'hast-util-sanitize'
@@ -719,8 +723,14 @@ function buildConfigMarkerResolutions(text: string, configs: BuilderConfig[]): C
   return result
 }
 
-function buildConfigMarker(ids: number[]): string {
-  return `<!-- configs:${ids.join(',')} -->`
+const CONFIG_MARKER_HINT = '<!--  Use `0` to reference the config after the last used. Alternatively, use `configs-re: "text"` for regexp matches. -->'
+
+function buildConfigMarkerBlock(ids: number[]): { block: string; cursorIndex: number } {
+  // Keep the marker and hint on separate lines to avoid breaking selection ranges.
+  const marker = `<!-- configs:${ids.join(',')} -->`
+  const block = `${marker}\n${CONFIG_MARKER_HINT}`
+  // Cursor returns to the end of the marker line for continued editing.
+  return { block, cursorIndex: marker.length + 1 }
 }
 
 function collectKeepUniqueIds(text: string, keepUniqueRules: KeepUniqueRule[]): Set<number> {
@@ -795,8 +805,14 @@ function buildKeepUniqueMarkerResolutions(text: string, keepUniqueRules: KeepUni
   return result
 }
 
-function buildKeepUniqueMarker(ids: number[]): string {
-  return `<!-- keep-uniques:${ids.join(',')} -->`
+const KEEP_UNIQUE_MARKER_HINT = '<!-- use `keep-uniques-re: "text"` for regexp matches. Use `0` only in numeric lists (keep-uniques:). -->'
+
+function buildKeepUniqueMarkerBlock(ids: number[]): { block: string; cursorIndex: number } {
+  // Match config marker ergonomics: leave the hint on the next line.
+  const marker = `<!-- keep-uniques:${ids.join(',')} -->`
+  const block = `${marker}\n${KEEP_UNIQUE_MARKER_HINT}`
+  // Place the caret after the marker for quick follow-up edits.
+  return { block, cursorIndex: marker.length + 1 }
 }
 
 function buildQuestionnaireMarkerResolutions(text: string, answers: NoteQuestionnaireAnswers): Map<number, NoteQuestionDefinition> {
@@ -819,6 +835,7 @@ function computeBlockInsertion(
   start: number,
   end: number,
   block: string,
+  cursorIndex?: number,
 ): { insert: string; cursorOffset: number } {
   const before = text.slice(0, start)
   const after = text.slice(end)
@@ -827,7 +844,10 @@ function computeBlockInsertion(
   const leading = needsLeading ? (before.endsWith('\n\n') ? '' : '\n\n') : (start === 0 ? '' : '\n')
   const trailing = needsTrailing ? '\n\n' : (after.length === 0 ? '\n' : '')
   const insert = `${leading}${block}${trailing}`
-  const cursorOffset = insert.length - (trailing.length > 0 ? trailing.length : 0)
+  // Default cursor placement stays at the end of the inserted block.
+  const fallbackOffset = insert.length - (trailing.length > 0 ? trailing.length : 0)
+  // Optional cursorIndex anchors inside the inserted block (relative to block start).
+  const cursorOffset = typeof cursorIndex === 'number' ? leading.length + cursorIndex : fallbackOffset
   return { insert, cursorOffset }
 }
 
@@ -1766,57 +1786,6 @@ export default function NoteDialog({
     [QUESTION_GROUP_ELEMENT_TAG]: NoteQuestionGroup as unknown as React.ComponentType<Record<string, unknown>>,
   }), [])
 
-  // Color toolbar command and full commands list; injected before HR.
-  const colorCommand: ICommand = useMemo(() => ({
-    name: 'color',
-    keyCommand: 'group',
-    groupName: 'color',
-    buttonProps: { 'aria-label': t('mdColor') },
-    icon: (
-      <svg width="12" height="12" viewBox="0 0 12 12" role="img" aria-label="Color">
-        <circle cx="6" cy="6" r="5" fill="#42a5f5" stroke="currentColor" strokeWidth="1" />
-      </svg>
-    ),
-    children: (handle) => (
-      <div style={{ display: 'flex', gap: 6, padding: '6px 8px', maxWidth: 220, flexWrap: 'wrap' }}>
-        {(Object.keys(NOTE_COLOR_HEX) as Array<keyof typeof NOTE_COLOR_HEX>).map((c) => (
-          // Color swatches now share the same Markdown-friendly tooltip, which helps translators add inline formatting.
-          <MarkdownTooltip key={c} markdown={t('noteColorTooltip', { name: String(c) })} placement="bottom">
-            <button
-              type="button"
-              aria-label={`${t('mdColor')} ${String(c)}`}
-              onClick={() => {
-              const state = handle.getState?.()
-              const selected = state && state.selectedText ? state.selectedText : 'text'
-              const selStart = state && state.selection ? state.selection.start : 0
-              const open = `<span data-color="${String(c)}">`
-              const close = '</span>'
-              const api = handle.textApi
-              if (api) {
-                api.replaceSelection(open + selected + close)
-                // After wrapping, place selection inside the span (around original text)
-                api.setSelectionRange({ start: selStart + open.length, end: selStart + open.length + selected.length })
-              }
-              handle.close()
-              }}
-              style={{ width: 18, height: 18, borderRadius: 3, border: '1px solid rgba(255,255,255,0.2)', background: 'transparent', padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
-            >
-              <span style={{ display: 'inline-block', width: 12, height: 12, borderRadius: 2, backgroundColor: NOTE_COLOR_HEX[c] }} />
-            </button>
-          </MarkdownTooltip>
-        ))}
-      </div>
-    ),
-  }), [t])
-  const toolbarCommands = useMemo(() => {
-    const base = getCommands()
-    const idxHr = base.findIndex((c) => c.keyCommand === 'hr')
-    const insertAt = idxHr >= 0 ? idxHr : base.length
-    const arr = base.slice()
-    arr.splice(insertAt, 0, colorCommand)
-    return arr
-  }, [colorCommand])
-
   if (mode !== 'edit') {
     // Non-edit modes should always commit by closing immediately.
     editCommitRef.current = onClose
@@ -1899,7 +1868,6 @@ export default function NoteDialog({
             t={t}
             lang={lang}
             rehypePluginsSafe={rehypePluginsSafe}
-            toolbarCommands={toolbarCommands}
             onChange={onChange}
             onClose={onClose}
             registerCommit={(fn) => { editCommitRef.current = fn }}
@@ -1940,7 +1908,6 @@ function NoteEditorContent({
   t,
   lang,
   rehypePluginsSafe,
-  toolbarCommands,
   onChange,
   onClose,
   registerCommit,
@@ -1955,7 +1922,6 @@ function NoteEditorContent({
   t: ReturnType<typeof useI18n>['t']
   lang: string
   rehypePluginsSafe: Pluggable[]
-  toolbarCommands: ICommand[]
   onChange: (value: string, options?: { mode?: 'edit' | 'clear' }) => void
   onClose: () => void
   registerCommit: (fn: () => void) => void
@@ -2015,6 +1981,10 @@ function NoteEditorContent({
   const configCommand = useMemo<ICommand>(() => ({
     name: 'insert-configs',
     keyCommand: 'insert-configs',
+    groupName: 'note-inserts',
+    // Toolbar tooltips should surface the localized insert label.
+    buttonProps: { 'aria-label': t('noteInsertConfigs'), title: t('noteInsertConfigs') },
+    icon: <LocalOfferIcon fontSize="small" />,
     execute: (state, api) => {
       if (!configs.length) return
       const text = state.text ?? ''
@@ -2023,20 +1993,24 @@ function NoteEditorContent({
       const missing = allIds.filter((id) => !usedIds.has(id))
       const markerIds = missing.length ? missing : allIds
       if (!markerIds.length) return
-      const marker = buildConfigMarker(markerIds)
+      const { block, cursorIndex } = buildConfigMarkerBlock(markerIds)
       const start = state.selection?.start ?? 0
       const end = state.selection?.end ?? start
-      const { insert, cursorOffset } = computeBlockInsertion(text, start, end, marker)
+      const { insert, cursorOffset } = computeBlockInsertion(text, start, end, block, cursorIndex)
       const nextState = api.replaceSelection(insert)
       const nextPos = start + cursorOffset
       api.setSelectionRange({ start: nextPos, end: nextPos })
       setDraft(nextState.text)
     },
-  }), [configs, setDraft])
+  }), [configs, setDraft, t])
 
   const keepUniqueCommand = useMemo<ICommand>(() => ({
     name: 'insert-keep-uniques',
     keyCommand: 'insert-keep-uniques',
+    groupName: 'note-inserts',
+    // Keep-unique markers stay discoverable with a dedicated insert label.
+    buttonProps: { 'aria-label': t('noteInsertKeepUniques'), title: t('noteInsertKeepUniques') },
+    icon: <StarsIcon fontSize="small" />,
     execute: (state, api) => {
       if (!keepUniqueRules.length) return
       const text = state.text ?? ''
@@ -2045,20 +2019,24 @@ function NoteEditorContent({
       const missing = allIds.filter((id) => !usedIds.has(id))
       const markerIds = missing.length ? missing : allIds
       if (!markerIds.length) return
-      const marker = buildKeepUniqueMarker(markerIds)
+      const { block, cursorIndex } = buildKeepUniqueMarkerBlock(markerIds)
       const start = state.selection?.start ?? 0
       const end = state.selection?.end ?? start
-      const { insert, cursorOffset } = computeBlockInsertion(text, start, end, marker)
+      const { insert, cursorOffset } = computeBlockInsertion(text, start, end, block, cursorIndex)
       const nextState = api.replaceSelection(insert)
       const nextPos = start + cursorOffset
       api.setSelectionRange({ start: nextPos, end: nextPos })
       setDraft(nextState.text)
     },
-  }), [keepUniqueRules, setDraft])
+  }), [keepUniqueRules, setDraft, t])
 
   const questionnaireSampleCommand = useMemo<ICommand>(() => ({
     name: 'insert-questionnaire-sample',
     keyCommand: 'insert-questionnaire-sample',
+    groupName: 'note-inserts',
+    // Questionnaire samples belong to the same insert block in the toolbar.
+    buttonProps: { 'aria-label': t('noteInsertQuestionnaireSample'), title: t('noteInsertQuestionnaireSample') },
+    icon: <QuizIcon fontSize="small" />,
     execute: (state, api) => {
       // Insert a sample block at the cursor for quick onboarding.
       const text = state.text ?? ''
@@ -2071,10 +2049,16 @@ function NoteEditorContent({
       api.setSelectionRange({ start: nextPos, end: nextPos })
       setDraft(nextState.text)
     },
-  }), [setDraft])
+  }), [setDraft, t])
 
   const metasetCommand = useMemo<ICommand>(() => (
-    buildMetasetInsertCommand({ metasets, t, lang, setDraft })
+    // Reuse the metaset insert builder but attach toolbar visuals locally.
+    ({
+      ...buildMetasetInsertCommand({ metasets, t, lang, setDraft }),
+      groupName: 'note-inserts',
+      buttonProps: { 'aria-label': t('noteInsertMetasets'), title: t('noteInsertMetasets') },
+      icon: <ViewListIcon fontSize="small" />,
+    })
   ), [lang, metasets, t, setDraft])
 
   // Track the latest draft/onChange so unload hooks flush once without resubscribing.
@@ -2106,31 +2090,87 @@ function NoteEditorContent({
     }
   }, [])
 
-  const executeCustomCommand = React.useCallback((command: ICommand) => {
-    const editor = editorRef.current
-    if (!editor?.commandOrchestrator) return
-    editor.commandOrchestrator.executeCommand(command, editor.dispatch, {
-      fullscreen: Boolean(editor.fullscreen),
-      preview: editor.preview ?? 'live',
-      highlightEnable: editor.highlightEnable ?? true,
-    })
-  }, [])
-
-  const handleInsertConfigChips = React.useCallback(() => {
-    executeCustomCommand(configCommand)
-  }, [executeCustomCommand, configCommand])
-
-  const handleInsertKeepUniqueSummary = React.useCallback(() => {
-    executeCustomCommand(keepUniqueCommand)
-  }, [executeCustomCommand, keepUniqueCommand])
-
-  const handleInsertMetasetsList = React.useCallback(() => {
-    executeCustomCommand(metasetCommand)
-  }, [executeCustomCommand, metasetCommand])
-
-  const handleInsertQuestionnaireSample = React.useCallback(() => {
-    executeCustomCommand(questionnaireSampleCommand)
-  }, [executeCustomCommand, questionnaireSampleCommand])
+  const colorCommand: ICommand = useMemo(() => ({
+    name: 'color',
+    keyCommand: 'group',
+    groupName: 'color',
+    buttonProps: { 'aria-label': t('mdColor') },
+    icon: (
+      <svg width="12" height="12" viewBox="0 0 12 12" role="img" aria-label="Color">
+        <circle cx="6" cy="6" r="5" fill="#42a5f5" stroke="currentColor" strokeWidth="1" />
+      </svg>
+    ),
+    children: (handle) => (
+      <div style={{ display: 'flex', gap: 6, padding: '6px 8px', maxWidth: 220, flexWrap: 'wrap' }}>
+        {(Object.keys(NOTE_COLOR_HEX) as Array<keyof typeof NOTE_COLOR_HEX>).map((c) => (
+          // Color swatches now share the same Markdown-friendly tooltip, which helps translators add inline formatting.
+          <MarkdownTooltip key={c} markdown={t('noteColorTooltip', { name: String(c) })} placement="bottom">
+            <button
+              type="button"
+              aria-label={`${t('mdColor')} ${String(c)}`}
+              onClick={() => {
+              const state = handle.getState?.()
+              const selected = state && state.selectedText ? state.selectedText : 'text'
+              const selStart = state && state.selection ? state.selection.start : 0
+              const open = `<span data-color="${String(c)}">`
+              const close = '</span>'
+              const api = handle.textApi
+              if (api) {
+                api.replaceSelection(open + selected + close)
+                // After wrapping, place selection inside the span (around original text)
+                api.setSelectionRange({ start: selStart + open.length, end: selStart + open.length + selected.length })
+              }
+              handle.close()
+              }}
+              style={{ width: 18, height: 18, borderRadius: 3, border: '1px solid rgba(255,255,255,0.2)', background: 'transparent', padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+            >
+              <span style={{ display: 'inline-block', width: 12, height: 12, borderRadius: 2, backgroundColor: NOTE_COLOR_HEX[c] }} />
+            </button>
+          </MarkdownTooltip>
+        ))}
+      </div>
+    ),
+  }), [t])
+  const toolbarCommands = useMemo(() => {
+    const base = getCommands()
+    // Insert the color palette just before the HR command.
+    const idxHr = base.findIndex((command) => command.keyCommand === 'hr')
+    const insertColorAt = idxHr >= 0 ? idxHr : base.length
+    const withColor = base.slice()
+    withColor.splice(insertColorAt, 0, colorCommand)
+    // Group note insert actions between the title dropdown and the link button.
+    const idxTitle = withColor.findIndex((command) => command.keyCommand === 'title')
+    const idxLink = withColor.findIndex((command) => command.keyCommand === 'link')
+    // When the default divider after title exists, we insert before it so it becomes the trailing separator.
+    const idxDividerAfterTitle = idxTitle >= 0
+      ? withColor.findIndex((command, idx) => idx > idxTitle && command.keyCommand === 'divider')
+      : -1
+    // Default to positioning right after the title dropdown; fall back to the link position.
+    const insertNoteAt = idxDividerAfterTitle >= 0
+      ? idxDividerAfterTitle
+      : (idxTitle >= 0 ? idxTitle + 1 : (idxLink >= 0 ? idxLink : withColor.length))
+    const withNoteInserts = withColor.slice()
+    // Leading divider ensures the insert block reads as its own toolbar section.
+    const noteInsertBlock = [
+      commands.divider,
+      configCommand,
+      keepUniqueCommand,
+      metasetCommand,
+      questionnaireSampleCommand,
+    ]
+    // If there is no divider after the title group, add a trailing divider manually.
+    if (idxDividerAfterTitle < 0 && idxLink >= 0) {
+      noteInsertBlock.push(commands.divider)
+    }
+    withNoteInserts.splice(insertNoteAt, 0, ...noteInsertBlock)
+    return withNoteInserts
+  }, [
+    colorCommand,
+    configCommand,
+    keepUniqueCommand,
+    metasetCommand,
+    questionnaireSampleCommand,
+  ])
 
   return (
     <>
@@ -2298,10 +2338,6 @@ function NoteEditorContent({
       </DialogContent>
       <DialogActions sx={{ justifyContent: 'space-between', gap: 1, flexWrap: 'wrap' }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-          <Button onClick={handleInsertConfigChips}>{t('noteInsertConfigs')}</Button>
-          <Button onClick={handleInsertKeepUniqueSummary}>{t('noteInsertKeepUniques')}</Button>
-          <Button onClick={handleInsertMetasetsList}>{t('noteInsertMetasets')}</Button>
-          <Button onClick={handleInsertQuestionnaireSample}>{t('noteInsertQuestionnaireSample')}</Button>
           <Button
             size="small"
             variant="outlined"
