@@ -93,6 +93,8 @@ const QUESTION_ELEMENT_TAG = 'note-questionnaire'
 const QUESTION_GROUP_ELEMENT_TAG = 'note-questionnaire-group'
 // Attribute used to map back to a parsed question definition.
 const QUESTION_ELEMENT_INDEX_ATTR = 'data-question-index'
+// Backtick references like `\1` map to option labels by 1-based index.
+const QUESTION_PROMPT_REF_REGEX = /^\\(\d+)$/
 
 // Defensive guard: reject control characters that would break markdown parsing or regex compilation.
 function containsControlCharacters(value: string): boolean {
@@ -129,6 +131,67 @@ type ConfigMarkerMap = Map<number, ConfigMarkerEntry[]>
 type KeepUniqueMarkerEntry = { id: number; rule: KeepUniqueRule }
 type KeepUniqueMarkerMap = Map<number, KeepUniqueMarkerEntry[]>
 type NoteCardWidthPreset = 'note'
+type QuestionPromptToken = { key: string; text: string; highlighted: boolean }
+
+function resolveQuestionPromptReference(raw: string, options: NoteQuestionDefinition['options']): string {
+  // Trim whitespace so numeric references are easy to parse.
+  const trimmed = raw.trim()
+  const match = QUESTION_PROMPT_REF_REGEX.exec(trimmed)
+  // Return the raw text when no numeric reference is present.
+  if (!match) return raw
+  // Convert 1-based references to array indices.
+  const index = Number.parseInt(match[1] ?? '', 10) - 1
+  // Ignore invalid indices so prompts remain readable.
+  if (!Number.isFinite(index) || index < 0) return raw
+  const option = options[index]
+  // Fall back to the original content when the option is missing.
+  return option ? option.label : raw
+}
+
+function buildQuestionPromptTokens(prompt: string, options: NoteQuestionDefinition['options']): QuestionPromptToken[] {
+  // Tokenize on backticks so referenced labels can be highlighted.
+  const tokens: QuestionPromptToken[] = []
+  let cursor = 0
+  let partIndex = 0
+  while (cursor < prompt.length) {
+    // Find the next backtick to delimit a reference.
+    const open = prompt.indexOf('`', cursor)
+    if (open < 0) {
+      const tail = prompt.slice(cursor)
+      // Preserve the remaining text when no more markers exist.
+      if (tail) tokens.push({ key: `text-${partIndex}`, text: tail, highlighted: false })
+      break
+    }
+    // Emit any leading text before the reference marker.
+    if (open > cursor) {
+      tokens.push({ key: `text-${partIndex}`, text: prompt.slice(cursor, open), highlighted: false })
+      partIndex += 1
+    }
+    // Find the closing backtick to capture the reference text.
+    const close = prompt.indexOf('`', open + 1)
+    if (close < 0) {
+      // Unbalanced markers stay as literal text.
+      tokens.push({ key: `text-${partIndex}`, text: prompt.slice(open), highlighted: false })
+      break
+    }
+    const raw = prompt.slice(open + 1, close)
+    const resolved = resolveQuestionPromptReference(raw, options)
+    // Highlight referenced labels so they stand out in the prompt.
+    if (resolved) tokens.push({ key: `ref-${partIndex}`, text: resolved, highlighted: true })
+    cursor = close + 1
+    partIndex += 1
+  }
+  return tokens
+}
+
+function renderQuestionOptionLabel(label: string): JSX.Element {
+  // Preserve explicit line breaks for multi-line option labels.
+  return (
+    <Box component="span" sx={{ whiteSpace: 'pre-line', lineHeight: 1 }}>
+      {label}
+    </Box>
+  )
+}
 
 type NoteRenderContextValue = {
   configs: BuilderConfig[]
@@ -897,6 +960,7 @@ function NoteCardWrap({ children }: React.PropsWithChildren): JSX.Element {
 function NoteQuestionBlock({ node }: NoteQuestionBlockProps): JSX.Element | null {
   // Pull questionnaire wiring from context.
   const { questionnaireResolutions, questionnaireEditable, onQuestionnaireAnswerChange } = useNoteRenderContext()
+  const theme = useTheme()
   // Extract the marker index from the custom element.
   const rawIndexAttr = coerceFirstString(node?.properties?.[QUESTION_ELEMENT_INDEX_ATTR])
   let markerIndex: number | null = null
@@ -906,6 +970,27 @@ function NoteQuestionBlock({ node }: NoteQuestionBlockProps): JSX.Element | null
   }
   // Lookup the parsed question definition by marker index.
   const question = markerIndex != null ? questionnaireResolutions.get(markerIndex) : undefined
+  // Tokenize the prompt so backtick references can be styled.
+  const promptTokens = useMemo(
+    () => (question ? buildQuestionPromptTokens(question.prompt, question.options) : []),
+    [question],
+  )
+  // Styling mirrors the note highlight treatment while staying subtle.
+  const promptHighlightSx = useMemo(
+    () => ({
+      // Inline pill styling keeps references readable at a glance.
+      display: 'inline-flex',
+      alignItems: 'center',
+      // Compact padding avoids inflating the line height.
+      px: 0.35,
+      borderRadius: 0.5,
+      // Use the info palette so the callout differs from body text.
+      bgcolor: alpha(theme.palette.info.main, 0.18),
+      color: theme.palette.info.main,
+      fontWeight: 600,
+    }),
+    [theme],
+  )
   if (!question) return null
   // Resolve the selected answers into a set for fast checks.
   const selected = Array.isArray(question.answer) ? question.answer : []
@@ -947,9 +1032,21 @@ function NoteQuestionBlock({ node }: NoteQuestionBlockProps): JSX.Element | null
               minWidth: 0,
               m: 0,
               p: 0,
+              whiteSpace: 'pre-line',
             }}
           >
-            {question.prompt}
+            {/* Render prompt tokens so backtick references stand out. */}
+            {promptTokens.map((token) => (
+              token.highlighted ? (
+                <Box key={token.key} component="span" sx={promptHighlightSx}>
+                  {token.text}
+                </Box>
+              ) : (
+                <Box key={token.key} component="span">
+                  {token.text}
+                </Box>
+              )
+            ))}
           </Typography>
         </Box>
         {/* Render either radios or checkboxes based on question type. */}
@@ -965,7 +1062,7 @@ function NoteQuestionBlock({ node }: NoteQuestionBlockProps): JSX.Element | null
                   key={option.id}
                   value={option.id}
                   control={<Radio size="small" disabled={!questionnaireEditable} />}
-                  label={option.label}
+                  label={renderQuestionOptionLabel(option.label)}
                   disabled={!questionnaireEditable}
                   sx={{
                     alignItems: 'center',
@@ -1001,7 +1098,7 @@ function NoteQuestionBlock({ node }: NoteQuestionBlockProps): JSX.Element | null
                       }}
                     />
                   )}
-                  label={option.label}
+                  label={renderQuestionOptionLabel(option.label)}
                   disabled={!questionnaireEditable}
                   sx={{
                     alignItems: 'center',

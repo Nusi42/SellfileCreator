@@ -14,7 +14,7 @@ The technical reference is now split across focused documents. Start here, then 
 - Rule cache worker progress events are throttled to roughly once per second to prevent Firefox from backlogging main-thread message delivery on large datasets; avoid reintroducing verbose per-item logging or unthrottled progress forwarding.
 
 - [Build and Tooling](technical/build-and-tooling.md) — stack, scripts, packaging, project structure, and the Tauri wrapper.
-- [Application Behavior](technical/app-behavior.md) — builder guardrails, preview filters (including substat include/exclude), rule cache fast paths, clipboard/save flows, file import, and the rule tester (including grouping + sort behavior).
+- [Application Behavior](technical/app-behavior.md) — builder guardrails, preview filters (including substat include/exclude), rule cache fast paths, clipboard/save flows, file import, questionnaire prompt formatting, and the rule tester (including grouping + sort behavior).
 - [Tutorial and Onboarding](technical/tutorial.md) — help dialog, tutorial coach behavior, and guidance for extending scripted steps.
 - [Rules and Data](technical/rules-and-data.md) — HSFC/HSF schemas, builder roll semantics, autosave plumbing, and migration notes.
 - [Keep Uniques](technical/app-behavior.md#keep-uniques) — Final Sell tab layout, gear-combination detection, tester-grid linking, and reset behaviors.
