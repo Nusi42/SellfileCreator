@@ -2191,10 +2191,7 @@ function NoteEditorContent({
             flex: 1,
             minHeight: 0,
             '& .w-md-editor': {
-              display: 'flex',
-              flexDirection: 'column',
-              // Override default 200px inline height so the editor can stretch.
-              height: '100% !important',
+              // Keep layout defaults from the editor so text overlay math stays correct.
               fontSize: `${FONT_SIZE_MARKDOWN_PX}px`,
               backgroundColor: `${NOTE_EDITOR_BG_COLOR} !important`,
               color: (theme) => `${theme.palette.text.primary} !important`,
@@ -2202,45 +2199,32 @@ function NoteEditorContent({
             '& .w-md-editor .w-md-editor-text': {
               fontSize: `${FONT_SIZE_MARKDOWN_PX}px !important`,
               lineHeight: '1.7 !important',
-              height: '100%',
-              display: 'flex',
-              flexDirection: 'column',
-              flex: 1,
-              minHeight: 0,
               backgroundColor: `${NOTE_EDITOR_BG_COLOR} !important`,
               color: (theme) => `${theme.palette.text.primary} !important`,
             },
             '& .w-md-editor .w-md-editor-text-pre': {
+              // Match the textarea font sizing so highlights overlay 1:1.
               fontSize: `${FONT_SIZE_MARKDOWN_PX}px !important`,
               lineHeight: '1.7 !important',
-              flex: 1,
-              minHeight: 0,
               backgroundColor: `${NOTE_EDITOR_BG_COLOR} !important`,
               color: (theme) => `${theme.palette.text.primary} !important`,
             },
             '& .w-md-editor .w-md-editor-text-pre code': { fontSize: `${FONT_SIZE_MARKDOWN_PX}px !important`, lineHeight: '1.7 !important' },
             '& .w-md-editor .w-md-editor-text-input': {
+              // Keep the input sizing consistent with the pre tag.
               fontSize: `${FONT_SIZE_MARKDOWN_PX}px`,
               lineHeight: 1.7,
-              flex: 1,
-              minHeight: 0,
               backgroundColor: 'transparent',
               color: 'inherit',
               borderColor: (theme) => theme.palette.divider,
               caretColor: (theme) => theme.palette.text.primary,
             },
             '& .w-md-editor .w-md-editor-content': {
-              // Stretch the editor content to fill the available space under the toolbar.
-              flex: 1,
-              minHeight: 0,
-              display: 'flex',
-              height: '100% !important',
+              // Keep sizing controlled by the editor height prop to avoid desync.
               backgroundColor: `${NOTE_EDITOR_BG_COLOR} !important`,
             },
             '& .w-md-editor .w-md-editor-preview': {
-              // Keep preview mode pinned to the bottom edge.
-              flex: 1,
-              minHeight: 0,
+              // Preserve default preview layout so overlays align with selections.
               backgroundColor: `${NOTE_EDITOR_BG_COLOR} !important`,
               color: (theme) => `${theme.palette.text.primary} !important`,
             },
@@ -2309,6 +2293,11 @@ function NoteEditorContent({
                 ref={editorRef}
                 value={draft}
                 onChange={(v) => setDraft(v ?? '')}
+                // Force the editor to fill the dialog body, avoiding the 200px default.
+                height="100%"
+                // Disable the dragbar so the fixed dialog height remains authoritative.
+                visibleDragbar={false}
+                // Still set style height as a safety net for inline layout.
                 style={{ height: '100%' }}
                 previewOptions={{
                   rehypePlugins: rehypePluginsSafe,
