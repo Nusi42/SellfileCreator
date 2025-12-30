@@ -367,15 +367,22 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // Use a deferred snapshot so bursty substatTargets updates (e.g., Restore Defaults) coalesce before recomputing merged rules.
   const ruleConfigs = useMemo(() => configsForRuleBuild(questionnaireConfigsForRules), [questionnaireConfigsForRules])
   const configNames = useMemo(() => customCfgs.map((cfg) => (typeof cfg?.name === 'string' ? cfg.name : '')), [customCfgs])
+  // Normalize tags once so every filter path uses the same tag tokens.
+  const normalizeConfigTags = useCallback((cfg: BuilderConfig | null | undefined): string[] => {
+    // Coerce tags into strings so config filters can consume them safely.
+    const rawTags = Array.isArray(cfg?.tags) ? cfg.tags : []
+    // Trim and drop empty values to keep filter matching predictable.
+    const normalized: string[] = []
+    for (const tag of rawTags) {
+      const trimmed = (typeof tag === 'string' ? tag : String(tag)).trim()
+      if (trimmed.length > 0) normalized.push(trimmed)
+    }
+    return normalized
+  }, [])
   // Keep tags in a parallel list so config filters can match either name or tag tokens.
   const configTags = useMemo(
-    () => customCfgs.map((cfg) => {
-      const rawTags = Array.isArray(cfg?.tags) ? cfg.tags : []
-      return rawTags
-        .map((tag) => (typeof tag === 'string' ? tag.trim() : String(tag).trim()))
-        .filter((tag) => tag.length > 0)
-    }),
-    [customCfgs],
+    () => customCfgs.map((cfg) => normalizeConfigTags(cfg)),
+    [customCfgs, normalizeConfigTags],
   )
   const configModes = useMemo(() => questionnaireExportModes.modes, [questionnaireExportModes])
   const substatTargetsForPreview = useDeferredValue(substatTargets)
@@ -3526,7 +3533,14 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     try { return mergedRules.some(r => r.Faction !== undefined) } catch { return false }
   }, [mergedRules])
 
-  const evaluateConfigAgainstFilters = useCallback((config: BuilderConfig, targetIndex: number, names: string[], modes: SellfileExportMode[]): boolean => {
+  // Mirror preview filter matching so insert/apply warnings stay accurate.
+  const evaluateConfigAgainstFilters = useCallback((
+    config: BuilderConfig,
+    targetIndex: number,
+    names: string[],
+    tags: string[][],
+    modes: SellfileExportMode[],
+  ): boolean => {
     try {
       const cached = rulesByConfig.get(targetIndex)
       let rulesForConfig: HsfRuleWithCfg[]
@@ -3546,8 +3560,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         )
         if (limitHit) return true
       }
+      // Include config tags so the name filter matches the same tokens as the table.
       const result = filterHsfRules(rulesForConfig, rulesFilter, metasets, {
         configNames: names,
+        configTags: tags,
         configModes: modes,
         specialRuleLabels: specialRuleSourceLabels,
       })
@@ -3573,6 +3589,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     // Otherwise, predict whether the inserted config would survive the current rules filter.
     const names = configNames.slice()
     names.splice(prospectiveInsertIndex, 0, builder.name ?? '')
+    // Keep tag filters aligned with the name list for the insert prediction.
+    const tags = configTags.slice()
+    // Normalize builder tags so preview name filters see the same tokens.
+    tags.splice(prospectiveInsertIndex, 0, normalizeConfigTags(builder))
     const modes = configModes.slice()
     // Resolve questionnaire overrides for the builder export mode.
     const builderExportMode: SellfileExportMode = resolveQuestionnaireExportMode(builder, questionnaireActiveTags)
@@ -3587,15 +3607,17 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           clone.exportMode = builderExportMode
           return clone
         })()
-    return evaluateConfigAgainstFilters(builderForRules, prospectiveInsertIndex, names, modes)
+    return evaluateConfigAgainstFilters(builderForRules, prospectiveInsertIndex, names, tags, modes)
   }, [
     builder,
     configModes,
     configNames,
+    configTags,
     editingConfigIndex,
     evaluateConfigAgainstFilters,
     filterActive,
     limitConfigsToFiltered,
+    normalizeConfigTags,
     matchingConfigIndices,
     prospectiveInsertIndex,
     selectedIsDirty,
@@ -3610,6 +3632,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     // Predict whether the saved config at its current index would survive the active rules filter.
     const names = configNames.slice()
     names[editingConfigIndex] = builder.name ?? ''
+    // Keep tag filters aligned with the name list for the save prediction.
+    const tags = configTags.slice()
+    // Normalize builder tags so preview name filters see the same tokens.
+    tags[editingConfigIndex] = normalizeConfigTags(builder)
     const modes = configModes.slice()
     // Resolve questionnaire overrides for the builder export mode.
     const builderExportMode: SellfileExportMode = resolveQuestionnaireExportMode(builder, questionnaireActiveTags)
@@ -3624,16 +3650,18 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           clone.exportMode = builderExportMode
           return clone
         })()
-    return evaluateConfigAgainstFilters(builderForRules, editingConfigIndex, names, modes)
+    return evaluateConfigAgainstFilters(builderForRules, editingConfigIndex, names, tags, modes)
   }, [
     builder,
     configModes,
     configNames,
+    configTags,
     customCfgs.length,
     editingConfigIndex,
     evaluateConfigAgainstFilters,
     filterActive,
     limitConfigsToFiltered,
+    normalizeConfigTags,
     questionnaireActiveTags,
   ])
 
