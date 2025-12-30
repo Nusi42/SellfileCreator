@@ -486,6 +486,7 @@ export function filterHsfRules<T extends HsfRule>(
   metasets?: Metaset[],
   options?: {
     configNames?: Array<string | null | undefined>
+    configTags?: Array<string[] | null | undefined>
     configModes?: SellfileExportMode[]
     specialRuleLabels?: RuleSourceLabelMap
   },
@@ -574,6 +575,16 @@ export function filterHsfRules<T extends HsfRule>(
         : []
       const candidateNames: string[] = []
       if (resolvedName) candidateNames.push(resolvedName)
+      // Also allow config tags to satisfy the name filter.
+      if (cfgIdx != null && cfgIdx >= 0 && Array.isArray(options?.configTags)) {
+        const tagList = options.configTags[cfgIdx]
+        if (Array.isArray(tagList)) {
+          for (const tag of tagList) {
+            const trimmed = typeof tag === 'string' ? tag.trim() : ''
+            if (trimmed.length > 0) candidateNames.push(trimmed)
+          }
+        }
+      }
       for (const alias of sourceAliases) {
         if (alias && alias.length > 0) candidateNames.push(alias)
       }
@@ -711,20 +722,35 @@ export function filterHsfRules<T extends HsfRule>(
     const total = Math.max(
       options?.configModes?.length ?? 0,
       options?.configNames?.length ?? 0,
+      options?.configTags?.length ?? 0,
     )
     if (total > 0) {
       ensureConfigEntries(Array.from({ length: total }, (_, i) => i))
     }
   }
 
-  if (configNameFilterActive && configNameRegexValid && Array.isArray(options?.configNames)) {
-    const limit = options.configNames.length
+  if (configNameFilterActive && configNameRegexValid) {
+    const nameLimit = Array.isArray(options?.configNames) ? options.configNames.length : 0
+    const tagLimit = Array.isArray(options?.configTags) ? options.configTags.length : 0
+    const limit = Math.max(nameLimit, tagLimit)
     for (let idx = 0; idx < limit; idx += 1) {
-      const name = options.configNames[idx] ?? ''
-      if (configNameRegex!.test(typeof name === 'string' ? name : '')) {
-        if (!matchingConfigIndices.has(idx)) matchingConfigIndices.add(idx)
-        if (!configRuleCounts.has(idx)) configRuleCounts.set(idx, 0)
+      const candidateNames: string[] = []
+      if (Array.isArray(options?.configNames)) {
+        const name = options.configNames[idx] ?? ''
+        if (typeof name === 'string' && name.trim().length > 0) candidateNames.push(name)
       }
+      if (Array.isArray(options?.configTags)) {
+        const tagList = options.configTags[idx]
+        if (Array.isArray(tagList)) {
+          for (const tag of tagList) {
+            const trimmed = typeof tag === 'string' ? tag.trim() : ''
+            if (trimmed.length > 0) candidateNames.push(trimmed)
+          }
+        }
+      }
+      if (!candidateNames.some((name) => configNameRegex!.test(name))) continue
+      if (!matchingConfigIndices.has(idx)) matchingConfigIndices.add(idx)
+      if (!configRuleCounts.has(idx)) configRuleCounts.set(idx, 0)
     }
   }
 
@@ -746,6 +772,7 @@ export type TesterFilterRow = {
 
 export interface FilterTesterItemsOptions {
   configNames?: Array<string | null | undefined>
+  configTags?: Array<string[] | null | undefined>
   specialRuleLabels?: RuleSourceLabelMap
 }
 
@@ -841,6 +868,15 @@ export function filterTesterItems<T extends TesterFilterRow>(
         const rawName = options.configNames[cfgIdx]
         const trimmedName = typeof rawName === 'string' ? rawName.trim() : ''
         if (trimmedName.length > 0) candidateNames.push(trimmedName)
+      }
+      if (cfgIdx != null && cfgIdx >= 0 && Array.isArray(options?.configTags)) {
+        const tagList = options.configTags[cfgIdx]
+        if (Array.isArray(tagList)) {
+          for (const tag of tagList) {
+            const trimmed = typeof tag === 'string' ? tag.trim() : ''
+            if (trimmed.length > 0) candidateNames.push(trimmed)
+          }
+        }
       }
       const explicitMatchName = typeof match?.cfgName === 'string' ? match.cfgName.trim() : ''
       if (explicitMatchName.length > 0) candidateNames.push(explicitMatchName)

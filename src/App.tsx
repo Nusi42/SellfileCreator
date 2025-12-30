@@ -368,6 +368,23 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // Use a deferred snapshot so bursty substatTargets updates (e.g., Restore Defaults) coalesce before recomputing merged rules.
   const ruleConfigs = useMemo(() => configsForRuleBuild(configOptionsConfigsForRules), [configOptionsConfigsForRules])
   const configNames = useMemo(() => customCfgs.map((cfg) => (typeof cfg?.name === 'string' ? cfg.name : '')), [customCfgs])
+  // Normalize tags once so every filter path uses the same tag tokens.
+  const normalizeConfigTags = useCallback((cfg: BuilderConfig | null | undefined): string[] => {
+    // Coerce tags into strings so config filters can consume them safely.
+    const rawTags = Array.isArray(cfg?.tags) ? cfg.tags : []
+    // Trim and drop empty values to keep filter matching predictable.
+    const normalized: string[] = []
+    for (const tag of rawTags) {
+      const trimmed = (typeof tag === 'string' ? tag : String(tag)).trim()
+      if (trimmed.length > 0) normalized.push(trimmed)
+    }
+    return normalized
+  }, [])
+  // Keep tags in a parallel list so config filters can match either name or tag tokens.
+  const configTags = useMemo(
+    () => customCfgs.map((cfg) => normalizeConfigTags(cfg)),
+    [customCfgs, normalizeConfigTags],
+  )
   const configModes = useMemo(() => configOptionsExportModes.modes, [configOptionsExportModes])
   const substatTargetsForPreview = useDeferredValue(substatTargets)
   const metasetsForPreview = useDeferredValue(metasets)
@@ -3240,17 +3257,19 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const filterResult = useMemo<FilterHsfRulesResult<HsfRuleWithCfg>>(() => (
     filterHsfRules(mergedRules, rulesFilter, metasets, {
       configNames,
+      configTags,
       configModes,
       specialRuleLabels: specialRuleSourceLabels,
     })
-  ), [mergedRules, rulesFilter, metasets, configNames, configModes, specialRuleSourceLabels])
+  ), [mergedRules, rulesFilter, metasets, configNames, configTags, configModes, specialRuleSourceLabels])
   const filteredRules = filterResult.rules
   const testerFilterResult = useMemo(() => (
     filterTesterItems(testerPreviewRows, testerRulesFilter, metasets, {
       configNames,
+      configTags,
       specialRuleLabels: specialRuleSourceLabels,
     })
-  ), [testerPreviewRows, testerRulesFilter, metasets, configNames, specialRuleSourceLabels])
+  ), [testerPreviewRows, testerRulesFilter, metasets, configNames, configTags, specialRuleSourceLabels])
   const gearEntriesAfterRulesFilter = testerFilterResult.items
   const testerChampionOptions = useMemo<TesterChampionOption[]>(() => {
     // Cache champion metadata per id so the dropdown can render icons without rescanning rows.
@@ -3515,7 +3534,14 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     try { return mergedRules.some(r => r.Faction !== undefined) } catch { return false }
   }, [mergedRules])
 
-  const evaluateConfigAgainstFilters = useCallback((config: BuilderConfig, targetIndex: number, names: string[], modes: SellfileExportMode[]): boolean => {
+  // Mirror preview filter matching so insert/apply warnings stay accurate.
+  const evaluateConfigAgainstFilters = useCallback((
+    config: BuilderConfig,
+    targetIndex: number,
+    names: string[],
+    tags: string[][],
+    modes: SellfileExportMode[],
+  ): boolean => {
     try {
       const cached = rulesByConfig.get(targetIndex)
       let rulesForConfig: HsfRuleWithCfg[]
@@ -3535,8 +3561,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         )
         if (limitHit) return true
       }
+      // Include config tags so the name filter matches the same tokens as the table.
       const result = filterHsfRules(rulesForConfig, rulesFilter, metasets, {
         configNames: names,
+        configTags: tags,
         configModes: modes,
         specialRuleLabels: specialRuleSourceLabels,
       })
@@ -3562,6 +3590,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     // Otherwise, predict whether the inserted config would survive the current rules filter.
     const names = configNames.slice()
     names.splice(prospectiveInsertIndex, 0, builder.name ?? '')
+    // Keep tag filters aligned with the name list for the insert prediction.
+    const tags = configTags.slice()
+    // Normalize builder tags so preview name filters see the same tokens.
+    tags.splice(prospectiveInsertIndex, 0, normalizeConfigTags(builder))
     const modes = configModes.slice()
     // Resolve config options overrides for the builder export mode.
     const builderExportMode: SellfileExportMode = resolveConfigOptionsExportMode(builder, configOptionsActiveTags)
@@ -3576,15 +3608,17 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           clone.exportMode = builderExportMode
           return clone
         })()
-    return evaluateConfigAgainstFilters(builderForRules, prospectiveInsertIndex, names, modes)
+    return evaluateConfigAgainstFilters(builderForRules, prospectiveInsertIndex, names, tags, modes)
   }, [
     builder,
     configModes,
     configNames,
+    configTags,
     editingConfigIndex,
     evaluateConfigAgainstFilters,
     filterActive,
     limitConfigsToFiltered,
+    normalizeConfigTags,
     matchingConfigIndices,
     prospectiveInsertIndex,
     selectedIsDirty,
@@ -3599,6 +3633,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     // Predict whether the saved config at its current index would survive the active rules filter.
     const names = configNames.slice()
     names[editingConfigIndex] = builder.name ?? ''
+    // Keep tag filters aligned with the name list for the save prediction.
+    const tags = configTags.slice()
+    // Normalize builder tags so preview name filters see the same tokens.
+    tags[editingConfigIndex] = normalizeConfigTags(builder)
     const modes = configModes.slice()
     // Resolve config options overrides for the builder export mode.
     const builderExportMode: SellfileExportMode = resolveConfigOptionsExportMode(builder, configOptionsActiveTags)
@@ -3613,17 +3651,19 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           clone.exportMode = builderExportMode
           return clone
         })()
-    return evaluateConfigAgainstFilters(builderForRules, editingConfigIndex, names, modes)
+    return evaluateConfigAgainstFilters(builderForRules, editingConfigIndex, names, tags, modes)
   }, [
     builder,
     configModes,
     configNames,
+    configTags,
     customCfgs.length,
     editingConfigIndex,
     evaluateConfigAgainstFilters,
     filterActive,
     limitConfigsToFiltered,
     configOptionsActiveTags,
+    normalizeConfigTags,
   ])
 
   const builderInsertBecomesTesterFirstMatch = useCallback((targetIndex: number): boolean => {

@@ -21,6 +21,35 @@ export const FONT_SIZE_BADGE_PX = 10
 export const FONT_SIZE_MARKDOWN_PX = 16
 
 export const SMALL_BUTTON_HEIGHT_PX = 28
+// Shared width for compact header action buttons so labels align across panels.
+export const COMPACT_HEADER_ACTION_BUTTON_WIDTH_PX = 92
+// Shared baseline sizing for compact header actions (with or without chevrons).
+export const COMPACT_HEADER_ACTION_BUTTON_BASE_SX = {
+  // Compact horizontal padding keeps labels readable without widening the button.
+  px: 1.25,
+  // Fixed height aligns with other small controls across the UI.
+  height: SMALL_BUTTON_HEIGHT_PX,
+  minHeight: SMALL_BUTTON_HEIGHT_PX,
+  // Clamp long labels while keeping the button center-aligned.
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  lineHeight: 1,
+  // Remove vertical padding so the height remains exact.
+  py: 0,
+  // Prevent wrapping in narrow layouts.
+  whiteSpace: 'nowrap',
+} as const
+// Shared button sizing for compact outlined actions (Sort/Tags) to keep shapes consistent.
+export const COMPACT_HEADER_ACTION_BUTTON_SX = {
+  ...COMPACT_HEADER_ACTION_BUTTON_BASE_SX,
+  // Fixed width prevents layout shift as labels change.
+  minWidth: COMPACT_HEADER_ACTION_BUTTON_WIDTH_PX,
+  width: COMPACT_HEADER_ACTION_BUTTON_WIDTH_PX,
+  maxWidth: COMPACT_HEADER_ACTION_BUTTON_WIDTH_PX,
+} as const
 export const SELLFILE_BUTTON_HEIGHT_PX = SMALL_BUTTON_HEIGHT_PX + 8
 export const BUILDER_STATUS_CHIP_HEIGHT_PX = 22
 export const STATUS_CHIP_BORDER_RADIUS_PX = 8
