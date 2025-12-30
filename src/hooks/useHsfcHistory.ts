@@ -35,6 +35,7 @@ export type DescribeNextChangeOptions = {
 }
 
 export type DescribeNextChangeFn = (descriptor: HistoryEntryDescriptor | null, options?: DescribeNextChangeOptions) => void
+export type SuppressNextSnapshotFn = () => void
 
 export type HistoryPreview = {
   descriptor: HistoryEntryDescriptor | null
@@ -343,6 +344,20 @@ export function useHsfcHistory(params: {
     }
     pendingDescriptorRef.current = { title: descriptor.title }
   }, [])
+  const suppressNextSnapshot = useCallback(() => {
+    // Treat the next payload change as external so no history entry is recorded.
+    skipRecordRef.current = true
+    // Clear any queued descriptor so suppressed changes stay unlabeled.
+    pendingDescriptorRef.current = null
+    // Reset descriptor state so follow-up edits can register normally.
+    pendingDescriptorStateRef.current = 'idle'
+    // Reset write mode so suppression never overrides the next valid entry.
+    pendingWriteModeRef.current = 'append'
+    // Drop any forced append so we skip cleanly.
+    forceAppendRef.current = false
+    // Cancel saved markers so suppressed changes do not re-anchor dirty state.
+    markNextAsSavedRef.current = false
+  }, [])
 
   const resetHistory = useCallback((nextPayload: string, nextSignature: string, options: ResetOptions) => {
     const crc = computeCrc32(nextSignature)
@@ -450,6 +465,7 @@ export function useHsfcHistory(params: {
     markSavedNow,
     markNextSnapshotAsSaved,
     describeNextChange,
+    suppressNextSnapshot,
     resetHistory,
     captureSnapshotNow,
     undoPreview,

@@ -3,7 +3,7 @@ import type { BuilderConfig } from '../lib/hsfBuilder'
 import type { Metaset } from '../lib/metasets'
 import { NBSP } from '../lib/constants'
 import { isLockedAggregateScopeActive } from '../lib/configNormalization'
-import { DEFAULT_METASET_ICON_ID, metasetIconOptionById, normalizeMetasetIconId } from '../lib/metasetIcons'
+import { collectMetasetSnapshotEntries, normalizeNumberArray, type MetasetSnapshotEntry } from './historyDescriptorUtils'
 import {
   artifactTypeI18nKey,
   compareArtifactSets,
@@ -368,30 +368,9 @@ function makeTagsSnapshotLine(cfg: BuilderConfig, t: TranslateFn): string | null
   return `${t('builderTagsLabel')}: ${tags.join(', ')}`
 }
 
-type MetasetDiffEntry = {
-  id: string
-  name: string
-  icon?: string | null
-}
-
-function collectMetasetDiffEntries(cfg: BuilderConfig, metasets: Metaset[]): MetasetDiffEntry[] {
-  const ids = Array.isArray(cfg.artifactMetaSets) ? cfg.artifactMetaSets.filter(Boolean) : []
-  if (ids.length === 0) return []
-  const out: MetasetDiffEntry[] = []
-  for (const rawId of ids) {
-    const id = String(rawId)
-    const meta = metasets.find((entry) => entry.id === id) ?? null
-    const rawName = (meta?.name ?? '').trim()
-    const name = rawName.length > 0 ? rawName : id
-    const iconId = normalizeMetasetIconId(meta?.iconId ?? DEFAULT_METASET_ICON_ID)
-    const iconGlyph = iconId === 'none' || iconId === 'empty' ? null : metasetIconOptionById(iconId).glyph
-    out.push({
-      id,
-      name,
-      ...(iconGlyph ? { icon: iconGlyph } : {}),
-    })
-  }
-  return out
+function collectMetasetDiffEntries(cfg: BuilderConfig, metasets: Metaset[]): MetasetSnapshotEntry[] {
+  // Reuse the shared snapshot collector so config and keep-unique paths stay aligned.
+  return collectMetasetSnapshotEntries(cfg.artifactMetaSets ?? [], metasets)
 }
 
 function formatArtifactSetListFallback(ids: number[], t: TranslateFn, lang: string): string {
@@ -600,12 +579,4 @@ function formatMilestoneModeValue(cfg: BuilderConfig, t: TranslateFn): string {
   return mode === 'late' ? t('builderLateLabel') : t('builderEarlyLabel')
 }
 
-function normalizeNumberArray(value: unknown): number[] {
-  if (!Array.isArray(value)) return []
-  const result: number[] = []
-  for (const entry of value) {
-    const num = Number(entry)
-    if (Number.isFinite(num)) result.push(num)
-  }
-  return result
-}
+// normalizeNumberArray lives in the shared history descriptor utils.
