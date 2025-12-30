@@ -224,9 +224,11 @@ import type { HistoryEntryDescriptor, DescribeNextChangeFn } from './hooks/useHs
 import { describeBuilderConfigUpdate, buildConfigLabel } from './history/builderUpdateDescriptor'
 import {
   describeConfigAdded,
+  describeConfigsDuplicated,
   describeConfigsCleared,
   describeConfigsDeleted,
   describeConfigsInserted,
+  describeConfigsMoved,
   describeQuestionnaireApplied,
 } from './history/configCollectionDescriptors'
 import { describeMetasetConflictResolved, describeMetasetDeleted, describeMetasetsReset } from './history/metasetDescriptors'
@@ -234,6 +236,7 @@ import { describeSubstatTargetsChange, areSubstatTargetTablesEqual, isDefaultSub
 import { describeFinalSellChange, areFinalSellConfigsEqual, type FinalSellDescriptorMode } from './history/finalSellDescriptors'
 import { describeNoteChange, normalizeNoteValue, type NoteDescriptorMode } from './history/noteDescriptors'
 import { describeHsfcLoaded, describeAutosaveRestored, makeClipboardSourceDescriptor } from './history/bulkLoadDescriptors'
+import { describeKeepUniquesEnabledChange, describeKeepUniquesRulesChange } from './history/keepUniquesDescriptors'
 import { useAutoSideBySideZoom } from './hooks/useAutoSideBySideZoom'
 import {
   buildQuestionnaireConfigImpact,
@@ -1523,6 +1526,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     markSavedNow,
     markNextSnapshotAsSaved,
     describeNextChange,
+    suppressNextSnapshot,
     captureSnapshotNow,
     undoPreview,
     redoPreview,
@@ -1678,6 +1682,55 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     }
     return descriptor ?? null
   }, [describeNextChange, setFinalSellRemainder, t])
+  const applyKeepUniquesEnabledChange = useCallback((
+    value: React.SetStateAction<boolean>,
+    options?: { publish?: boolean },
+  ): void => {
+    // Keep the toggle change labeled so history never falls back to unnamed snapshots.
+    setKeepUniquesEnabled((prev) => {
+      // Resolve the next value so we can compare and label the transition.
+      const next = typeof value === 'function' ? (value as (p: boolean) => boolean)(prev) : value
+      // Skip no-op toggles so history stays clean.
+      if (prev === next) return prev
+      // Build the history descriptor before mutating state.
+      const descriptor = describeKeepUniquesEnabledChange({
+        previousEnabled: prev,
+        nextEnabled: next,
+        rules: keepUniqueRules,
+        t,
+      })
+      // Allow callers to suppress history when needed.
+      if (options?.publish === false) return next
+      // Emit the descriptor so the toggle action is labeled.
+      describeNextChange(descriptor ?? null)
+      return next
+    })
+  }, [describeNextChange, keepUniqueRules, setKeepUniquesEnabled, t])
+  const applyKeepUniqueRulesChange = useCallback((
+    value: React.SetStateAction<KeepUniqueRule[]>,
+    options?: { mode?: 'edit' | 'reset'; publish?: boolean },
+  ): void => {
+    // Snapshot keep-unique rules with structured tooltip lines for history.
+    setKeepUniqueRules((prev) => {
+      // Resolve the next rules list so we can diff against the previous state.
+      const next = typeof value === 'function' ? (value as (p: KeepUniqueRule[]) => KeepUniqueRule[])(prev) : value
+      // Describe the rule changes so history stays informative.
+      const descriptor = describeKeepUniquesRulesChange({
+        previous: prev,
+        next,
+        metasets,
+        t,
+        mode: options?.mode ?? 'edit',
+      })
+      // Skip no-op updates so we do not add empty history entries.
+      if (!descriptor) return prev
+      // Allow callers to suppress history when needed.
+      if (options?.publish === false) return next
+      // Emit the descriptor so the rule edit is labeled in history.
+      describeNextChange(descriptor)
+      return next
+    })
+  }, [describeNextChange, metasets, setKeepUniqueRules, t])
   // Warn on close/tab navigation if there are unsaved changes
   useEffect(() => {
     const onBeforeUnload = (e: BeforeUnloadEvent) => {
@@ -2329,6 +2382,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setRulesFilter,
     logicHubOpen,
     setLogicHubOpen,
+    suppressHistorySnapshot: suppressNextSnapshot,
     t,
   })
 
@@ -2949,18 +3003,43 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     if (action === 'duplicate') {
       setCustomCfgs(prev => {
         const base = prev[idx]
-        if (!base) return prev
+        if (!base) {
+          // Avoid noisy history entries when the target row is missing.
+          describeNextChange(null)
+          return prev
+        }
         // Duplicate via clone so downstream selection sees a unique object.
         const copy: BuilderConfig = cloneBuilderConfig(base)
+        // Build the next list so the descriptor can compute insertion details.
         const arr = [...prev]
+        // Compute the insertion index before mutating order.
         const insertIdx = insertIndexAfter(arr, idx)
+        // Insert the clone into the list.
         arr.splice(insertIdx, 0, copy)
+        // Label the duplicate using the same descriptor logic as config chips.
+        const labels = [buildConfigLabel(insertIdx, copy, t)]
+        // Describe the duplicate action for history/undo.
+        const descriptor = describeConfigsDuplicated({
+          insertIndex: insertIdx,
+          labels,
+          previous: prev,
+          t,
+        })
+        // Publish the descriptor so history matches the config list behavior.
+        describeNextChange(descriptor)
         return arr
       })
       return
     }
     if (action === 'delete') {
-      setCustomCfgs(prev => prev.filter((_, i) => i !== idx))
+      setCustomCfgs(prev => {
+        const removed = [{ index: idx, cfg: prev[idx] }]
+        // Describe the delete action to keep history aligned with chip menus.
+        const descriptor = describeConfigsDeleted({ removed, t, lang, metasets })
+        // Publish the descriptor so undo/redo shows the deleted config.
+        describeNextChange(descriptor)
+        return prev.filter((_, i) => i !== idx)
+      })
       syncSelectedCfgIdx((sel) => {
         if (sel === null) return sel
         if (sel === idx) return null
@@ -2992,6 +3071,16 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         if (!current) return prev
         arr.splice(idx, 1)
         arr.unshift(current)
+        // Describe the move using the shared config move descriptor.
+        const descriptor = describeConfigsMoved({
+          prev,
+          next: arr,
+          selection: [idx],
+          direction: 'top',
+          t,
+        })
+        // Publish the descriptor so history matches chip actions.
+        describeNextChange(descriptor)
         syncSelectedCfgIdx((sel) => sel === null ? sel : (sel === idx ? 0 : (sel < idx ? sel : sel)), { suppressDraft: true })
         return arr
       })
@@ -3005,6 +3094,16 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         if (!current) return prev
         arr.splice(idx, 1)
         arr.push(current)
+        // Describe the move using the shared config move descriptor.
+        const descriptor = describeConfigsMoved({
+          prev,
+          next: arr,
+          selection: [idx],
+          direction: 'bottom',
+          t,
+        })
+        // Publish the descriptor so history matches chip actions.
+        describeNextChange(descriptor)
         syncSelectedCfgIdx((sel) => sel === null ? sel : (sel === idx ? arr.length - 1 : (sel > idx ? sel : sel)), { suppressDraft: true })
         return arr
       })
@@ -3018,6 +3117,16 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         const tmp = arr[idx - 1]!
         arr[idx - 1] = arr[idx]!
         arr[idx] = tmp
+        // Describe the move using the shared config move descriptor.
+        const descriptor = describeConfigsMoved({
+          prev,
+          next: arr,
+          selection: [idx],
+          direction: 'up',
+          t,
+        })
+        // Publish the descriptor so history matches chip actions.
+        describeNextChange(descriptor)
         syncSelectedCfgIdx((sel) => sel === null ? sel : sel === idx ? idx - 1 : sel === idx - 1 ? idx : sel, { suppressDraft: true })
         return arr
       })
@@ -3031,20 +3140,39 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         const tmp = arr[idx + 1]!
         arr[idx + 1] = arr[idx]!
         arr[idx] = tmp
+        // Describe the move using the shared config move descriptor.
+        const descriptor = describeConfigsMoved({
+          prev,
+          next: arr,
+          selection: [idx],
+          direction: 'down',
+          t,
+        })
+        // Publish the descriptor so history matches chip actions.
+        describeNextChange(descriptor)
         syncSelectedCfgIdx((sel) => sel === null ? sel : sel === idx ? idx + 1 : sel === idx + 1 ? idx : sel, { suppressDraft: true })
         return arr
       })
       return
     }
-  }, [customCfgs, insertIndexAfter, metasets, pasteAfterIndex, setCopyDlgOpen, setCopyText, setCustomCfgs, syncSelectedCfgIdx])
+  }, [customCfgs, describeNextChange, insertIndexAfter, lang, metasets, pasteAfterIndex, setCopyDlgOpen, setCopyText, setCustomCfgs, syncSelectedCfgIdx, t])
 
   const handleRulesTableClearBase = useCallback(() => { setHsf(null) }, [setHsf])
   const handleRulesTableConfigureFinalSell = useCallback(() => { setLogicHubOpen(true) }, [setLogicHubOpen])
   const handleResetKeepUniques = useCallback(() => {
-    // Reset keep rules to the seeded defaults and disable the feature so the user starts from a known baseline.
-    setKeepUniqueRules(buildDefaultKeepUniqueRules())
+    // Reset keep rules to defaults and log a single history snapshot for the action.
+    const nextRules = buildDefaultKeepUniqueRules()
+    const descriptor = describeKeepUniquesRulesChange({
+      previous: keepUniqueRules,
+      next: nextRules,
+      metasets,
+      t,
+      mode: 'reset',
+    })
+    describeNextChange(descriptor ?? null)
+    setKeepUniqueRules(nextRules)
     setKeepUniquesEnabled(false)
-  }, [setKeepUniqueRules, setKeepUniquesEnabled])
+  }, [describeNextChange, keepUniqueRules, metasets, setKeepUniqueRules, setKeepUniquesEnabled, t])
   const handleResetGearTesterItems = useCallback(() => {
     // Treat manual resets like a full gear-db refresh so matcher + keep-unique detection clear immediately.
     beginTesterMatchReset('gearDb')
@@ -4719,7 +4847,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         }}
         onOpenLogicHubDialog={() => setLogicHubOpen(true)}
         keepUniquesEnabled={keepUniquesEnabled}
-        onToggleKeepUniques={(next) => setKeepUniquesEnabled(next)}
+        onToggleKeepUniques={(next) => applyKeepUniquesEnabledChange(next)}
         previewMode={previewMode}
         onChangePreviewMode={setPreviewMode}
 	        testerSubstatSort={testerSubstatSortPrefs.state}
@@ -5130,9 +5258,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           onChangeTab={setLogicHubDialogTab}
           // Pass preview grid state so the Keep Uniques tab can mirror the tester visuals without duplicating selectors.
           keepUniqueRules={keepUniqueRules}
-          onKeepUniqueRulesChange={setKeepUniqueRules}
+          onKeepUniqueRulesChange={applyKeepUniqueRulesChange}
           keepUniquesEnabled={keepUniquesEnabled}
-          onKeepUniquesEnabledChange={setKeepUniquesEnabled}
+          onKeepUniquesEnabledChange={applyKeepUniquesEnabledChange}
           keepUniqueDetection={keepUniqueDetection}
           gearEntries={testerPreviewRows}
           keepUniqueItemKeys={keepUniqueGroupItemKeys}

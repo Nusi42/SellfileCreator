@@ -9,6 +9,7 @@ import {
   type HistoryEntryDescriptor,
   type HistoryPreview,
   type DescribeNextChangeFn,
+  type SuppressNextSnapshotFn,
   type HistoryTimelineEntry,
 } from './useHsfcHistory'
 import type { KeepUniqueRule } from '../lib/keepUniques'
@@ -56,6 +57,7 @@ type ControllerResult = {
   markNextSnapshotAsSaved: () => void
   resetHistory: (payload: string, signature: string, opts: { markSaved: boolean; descriptor?: HistoryEntryDescriptor | null }) => void
   describeNextChange: DescribeNextChangeFn
+  suppressNextSnapshot: SuppressNextSnapshotFn
   captureSnapshotNow: (descriptor: HistoryEntryDescriptor | null, options?: { markSaved?: boolean }) => void
   undoPreview: HistoryPreview
   redoPreview: HistoryPreview
@@ -243,6 +245,7 @@ export function useHsfcHistoryController(params: Params): ControllerResult {
     markNextSnapshotAsSaved,
     resetHistory,
     describeNextChange,
+    suppressNextSnapshot,
     captureSnapshotNow,
     undoPreview,
     redoPreview,
@@ -315,6 +318,7 @@ export function useHsfcHistoryController(params: Params): ControllerResult {
     markNextSnapshotAsSaved,
     resetHistory,
     describeNextChange,
+    suppressNextSnapshot,
     captureSnapshotNow,
     undoPreview,
     redoPreview,

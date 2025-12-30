@@ -146,6 +146,8 @@ export type UseTutorialCoachStateParams = {
   setRulesFilter: Dispatch<SetStateAction<RulesFilterState>>
   logicHubOpen: boolean
   setLogicHubOpen: Dispatch<SetStateAction<boolean>>
+  // Suppress history snapshots during tutorial-driven resets and restores.
+  suppressHistorySnapshot: () => void
   t: Translate
 }
 
@@ -205,6 +207,7 @@ export function useTutorialCoachState({
   setRulesFilter,
   logicHubOpen,
   setLogicHubOpen,
+  suppressHistorySnapshot,
   t,
 }: UseTutorialCoachStateParams): UseTutorialCoachStateResult {
   const initialHelpFirstRun = useMemo(() => {
@@ -419,6 +422,8 @@ export function useTutorialCoachState({
     const snap = tutorialSnapshot
     if (!snap) return
     try {
+      // Suppress history so tutorial restores do not create undo/redo entries.
+      suppressHistorySnapshot()
       flushSync(() => {
         setHsf(snap.hsf)
         setCustomCfgs(snap.cfgs)
@@ -455,6 +460,7 @@ export function useTutorialCoachState({
     setPreviewMode,
     setLogicHubOpen,
     setLogicHubDialogTab,
+    suppressHistorySnapshot,
     tutorialSnapshot,
   ])
 
@@ -670,6 +676,8 @@ export function useTutorialCoachState({
     } catch {}
 
     try {
+      // Suppress history so the tutorial reset doesn't pollute undo/redo stacks.
+      suppressHistorySnapshot()
       setHsf(null)
       setCustomCfgs([])
       setSelectedCfgIdx(null)
@@ -1214,6 +1222,7 @@ export function useTutorialCoachState({
     setTutorialSections,
     setTutorialSnapshot,
     setTutorialSteps,
+    suppressHistorySnapshot,
     t,
     tutorialAddedDefaultMetas,
   ])
@@ -1425,6 +1434,8 @@ export function useTutorialCoachState({
             break
         }
       }
+      // Suppress history so tutorial skips never create undo/redo entries.
+      suppressHistorySnapshot()
       setHsf(nextHsf)
       setCustomCfgs(nextCfgs)
       setSelectedCfgIdx(nextSel)
@@ -1459,6 +1470,7 @@ export function useTutorialCoachState({
     setPreviewMode,
     setLogicHubOpen,
     setLogicHubDialogTab,
+    suppressHistorySnapshot,
     tutorialSteps,
   ])
 
@@ -1504,6 +1516,8 @@ export function useTutorialCoachState({
       const cur = tutorialSteps[tutorialIdx]
       if (cur?.id === 'add' && !tutorialAddedBasic) {
         setTutorialAddedBasic(true)
+        // Suppress history so tutorial inserts do not add undo/redo entries.
+        suppressHistorySnapshot()
         const snap = builderRef.current
         setCustomCfgs((prev) => {
           const insertIdx = (selectedCfgIdx !== null && selectedCfgIdx >= 0 && selectedCfgIdx < prev.length)
@@ -1515,6 +1529,8 @@ export function useTutorialCoachState({
         })
       } else if (cur?.id === 'adv-add' && !tutorialAddedAdvanced) {
         setTutorialAddedAdvanced(true)
+        // Suppress history so tutorial inserts do not add undo/redo entries.
+        suppressHistorySnapshot()
         const snap = builderRef.current
         setCustomCfgs((prev) => {
           const insertIdx = (selectedCfgIdx !== null && selectedCfgIdx >= 0 && selectedCfgIdx < prev.length)
@@ -1526,6 +1542,8 @@ export function useTutorialCoachState({
         })
       } else if (cur?.id === 'metasets-add' && !tutorialAddedSlowDD) {
         setTutorialAddedSlowDD(true)
+        // Suppress history so tutorial metaset inserts do not add undo/redo entries.
+        suppressHistorySnapshot()
         setMetasets((prev) => {
           if (prev.some((meta) => meta.name.trim().toLowerCase() === 'slow dd')) return prev
           const id = makeMetasetId()
@@ -1543,6 +1561,8 @@ export function useTutorialCoachState({
                 match?.click()
               }
             } catch {}
+            // Suppress history so tutorial builder updates do not add undo/redo entries.
+            suppressHistorySnapshot()
             setBuilder((prev) => ({
               ...prev,
               artifactMetaSets: [slow.id],
@@ -1567,6 +1587,8 @@ export function useTutorialCoachState({
         } catch {}
       } else if (cur?.id === 'auto-late-add' && !tutorialAddedAutoLate) {
         setTutorialAddedAutoLate(true)
+        // Suppress history so tutorial inserts do not add undo/redo entries.
+        suppressHistorySnapshot()
         const snap = builderRef.current
         setCustomCfgs((prev) => {
           const insertIdx = (selectedCfgIdx !== null && selectedCfgIdx >= 0 && selectedCfgIdx < prev.length)
@@ -1600,6 +1622,7 @@ export function useTutorialCoachState({
     setCustomCfgs,
     setMetasets,
     setSelectedCfgIdx,
+    suppressHistorySnapshot,
     setTutorialAddedAdvanced,
     setTutorialAddedAutoLate,
     setTutorialAddedBasic,

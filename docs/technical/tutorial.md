@@ -43,6 +43,7 @@
 - Snapshot/restore: On tutorial start, the app snapshots the full HSFC state in memory (configs, selection, metasets, substatTargets, final-sell, note, builder) and resets to a clean default so the walkthrough is deterministic. On exit or finish, the snapshot is restored exactly.
 - Exit hygiene: On exit/finish, the app first closes all transient UI (menus, dialogs, context menus), then restores the snapshot, then closes the coach. Autosave resumes after the original state is back in place.
 - Autosave: Paused while the tutorial runs to avoid overwriting the user’s real session. Resumes after exit/finish.
+- History: Tutorial-driven resets, jumps, and snapshot restores suppress undo/redo history entries so the timeline only reflects user edits.
 
 ## Extending the Tutorial
 
