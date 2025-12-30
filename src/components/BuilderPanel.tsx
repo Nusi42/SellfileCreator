@@ -105,7 +105,7 @@ import {
   applyMultiEditFieldsToConfig,
   getDirtyBuilderFieldKeys,
 } from '../lib/multiEditDraft'
-import { mergeTagList, normalizeTagValue } from '../lib/tagHelpers'
+import { mergeTagList, normalizeTagValue, summarizeTagPresence } from '../lib/tagHelpers'
 import { useDisplayPreferences } from '../state/preferencesState'
 import { useSetsOrderPreference } from '../state/setsOrderPreference'
 import { useAutoApplySelectedConfigPreference, useAutoResetAfterInsertPreference } from '../state/builderPreferences'
@@ -118,6 +118,7 @@ import {
   computeNumberPatchToggle,
   computeStringPatchToggle,
   deriveBaseTriState,
+  type TriStateBase,
   mergeRollPatchForVariant,
   mergeTargetPatchForVariant,
   toTriStateBase,
@@ -1634,13 +1635,36 @@ const maxLevelValue = multiEditActive
   const nameDraftDirty = nameDraftKey === currentDraftKey
   // Derived UI state for tags in single vs multi-edit.
   const tagsPopoverOpen = Boolean(tagsAnchor)
-  const tagsMixed = multiEditActive && multiTagsField?.status === 'mixed' && !(multiTagsField?.dirty)
-  // Memoize tags so callbacks get stable dependencies.
-  const tagsValue = useMemo(() => (
-    multiEditActive
-      ? ((multiTagsField?.value as BuilderConfig['tags']) ?? [])
-      : (cfg.tags ?? [])
-  ), [cfg.tags, multiEditActive, multiTagsField?.value])
+  // Memoize single-config tags so callbacks get stable dependencies.
+  const tagsValue = useMemo(() => (cfg.tags ?? []), [cfg.tags])
+  // Summarize tag presence for multi-edit so mixed tags are styled separately.
+  const tagPresence = useMemo(() => {
+    if (!multiEditActive) return null
+    // Prefer projected configs so staged patches are reflected in the tag chips.
+    const source = (multiProjectedConfigs && multiProjectedConfigs.length > 0)
+      ? multiProjectedConfigs
+      : (multiSourceConfigs ?? [])
+    // Convert each config’s tag list into a stable string array.
+    const lists = source.map((config) => (
+      Array.isArray(config.tags) ? config.tags.map(String) : []
+    ))
+    return summarizeTagPresence(lists)
+  }, [multiEditActive, multiProjectedConfigs, multiSourceConfigs])
+  // Expose the displayed tags based on single vs multi-edit state.
+  const tagDisplay = useMemo(
+    () => (multiEditActive ? (tagPresence?.all ?? []) : tagsValue),
+    [multiEditActive, tagPresence, tagsValue],
+  )
+  // Precompute mixed tag membership so chips can share the mixed styling.
+  const mixedTagSet = useMemo(() => (
+    new Set(tagPresence?.mixed ?? [])
+  ), [tagPresence])
+  // Shared mixed chip style mirrors other multi-edit mixed states.
+  const mixedTagChipSx = useMemo(() => ({
+    border: `1px dashed ${mixedBorderColor}`,
+    color: mixedTextColor,
+    backgroundImage: `linear-gradient(135deg, ${mixedPatternColor} 50%, transparent 50%)`,
+  }), [mixedBorderColor, mixedPatternColor, mixedTextColor])
   const usingMultiName = multiEditActive && Boolean(multiEdit)
   const multiNameMixed = usingMultiName && multiNameField?.status === 'mixed' && !(multiNameField?.dirty)
   const multiNameDraftValue = usingMultiName
@@ -1671,6 +1695,31 @@ const maxLevelValue = multiEditActive
     if (!nameDraftDirty) return
     commitName(nameDraft)
   }, [commitName, multiEditActive, nameDraft, nameDraftDirty])
+  const getTagBaseState = useCallback((tag: string): TriStateBase => {
+    // Default to "none" when multi-edit has no aggregate tag data yet.
+    if (!tagPresence) return 'none'
+    // Look up the number of configs currently containing the tag.
+    const count = tagPresence.counts[tag] ?? 0
+    // Convert the count into all/mixed/none for patch toggling.
+    return deriveBaseTriState(count, tagPresence.total)
+  }, [tagPresence])
+  const stageTagPatch = useCallback((tokens: readonly string[], target: 'all' | 'none') => {
+    // Only multi-edit uses tag patches; single edit still replaces the array.
+    if (!multiEditActive || !multiEdit || !tagPresence) return
+    // Start from any existing patch so multiple edits compose together.
+    let nextPatch = (multiTagsField?.patch as MultiEditArrayPatch<string> | null | undefined) ?? null
+    tokens.forEach((tag) => {
+      // Use the current base state so toggles reflect the mixed/common baseline.
+      const baseState = getTagBaseState(tag)
+      nextPatch = computeStringPatchToggle(nextPatch, tag, baseState, target)
+    })
+    // Persist the patch without clobbering the underlying tag values.
+    multiEdit.updateField('tags', {
+      value: (multiTagsField?.value as BuilderConfig['tags']) ?? [],
+      status: multiTagsField?.status ?? 'mixed',
+      patch: nextPatch ?? null,
+    })
+  }, [getTagBaseState, multiEdit, multiEditActive, multiTagsField, tagPresence])
   const commitTags = useCallback((rawTags: readonly string[]) => {
     // Normalize and de-dupe tags before persisting.
     const seen = new Set<string>()
@@ -1682,15 +1731,14 @@ const maxLevelValue = multiEditActive
       seen.add(normalizedTag)
       normalized.push(normalizedTag)
     })
-    // Route updates through multi-edit when active.
+    // Route updates through multi-edit patches when active.
     if (multiEditActive) {
-      if (!multiEdit) return
-      multiEdit.updateField('tags', { value: normalized, status: 'common' })
+      stageTagPatch(normalized, 'all')
       return
     }
     // Persist tags onto the single builder config.
     onChange({ ...cfg, tags: normalized })
-  }, [cfg, multiEdit, multiEditActive, onChange])
+  }, [cfg, multiEditActive, onChange, stageTagPatch])
   const commitTagsFromDraft = useCallback(() => {
     // Split comma-separated input and normalize each tag.
     const raw = tagsDraft.trim()
@@ -1704,16 +1752,26 @@ const maxLevelValue = multiEditActive
     })
     // Abort if no valid tags were found.
     if (normalizedAdds.length === 0) return
-    // Merge additions into the current tag list.
-    const next = mergeTagList(tagsValue, normalizedAdds)
-    commitTags(next)
+    // Apply multi-edit patches or merge into the single-config list.
+    if (multiEditActive) {
+      stageTagPatch(normalizedAdds, 'all')
+    } else {
+      // Merge additions into the current tag list.
+      const next = mergeTagList(tagsValue, normalizedAdds)
+      commitTags(next)
+    }
     setTagsDraft('')
-  }, [commitTags, tagsDraft, tagsValue])
+  }, [commitTags, multiEditActive, stageTagPatch, tagsDraft, tagsValue])
   const removeTag = useCallback((tag: string) => {
-    // Remove a single tag and persist.
+    // Multi-edit removes tags via patch so it does not overwrite other tags.
+    if (multiEditActive) {
+      stageTagPatch([tag], 'none')
+      return
+    }
+    // Remove a single tag and persist in single-edit mode.
     const filtered = tagsValue.filter((value) => value !== tag)
     commitTags(filtered)
-  }, [commitTags, tagsValue])
+  }, [commitTags, multiEditActive, stageTagPatch, tagsValue])
   const singleBuilderDirty = selectedIsDirty || nameDraftDirty
   const isDirty = multiEditActive ? multiDraftDirty : singleBuilderDirty
   const insertButtonLabel = editingIndex !== null
@@ -2577,31 +2635,24 @@ const maxLevelValue = multiEditActive
                 </Button>
               </MarkdownTooltip>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexWrap: 'wrap' }}>
-                {tagsMixed ? (
+                {tagDisplay.slice(0, 3).map((tag) => (
+                  <Chip
+                    key={tag}
+                    size="small"
+                    label={tag}
+                    sx={{
+                      maxWidth: 120,
+                      ...(multiEditActive && mixedTagSet.has(tag) ? mixedTagChipSx : null),
+                    }}
+                  />
+                ))}
+                {tagDisplay.length > 3 ? (
                   <Chip
                     size="small"
-                    label={t('builderMultiMixedValue')}
+                    label={`+${tagDisplay.length - 3}`}
                     sx={{ opacity: 0.7 }}
                   />
-                ) : (
-                  <>
-                    {tagsValue.slice(0, 3).map((tag) => (
-                      <Chip
-                        key={tag}
-                        size="small"
-                        label={tag}
-                        sx={{ maxWidth: 120 }}
-                      />
-                    ))}
-                    {tagsValue.length > 3 ? (
-                      <Chip
-                        size="small"
-                        label={`+${tagsValue.length - 3}`}
-                        sx={{ opacity: 0.7 }}
-                      />
-                    ) : null}
-                  </>
-                )}
+                ) : null}
               </Box>
               {/* Reuse the ContextMenuPaper style so the tags popup matches substat context menus. */}
               {/* Disable menu padding so the inner box owns spacing. */}
@@ -2624,21 +2675,16 @@ const maxLevelValue = multiEditActive
                 {/* Content block keeps spacing predictable inside the menu shell. */}
                 <Box sx={{ p: 1.5 }}>
                   <Stack spacing={1}>
-                    {/* Mixed multi-edit state mirrors other builder controls. */}
-                    {tagsMixed ? (
-                      <Typography variant="caption" color="text.secondary">
-                        {t('builderMultiMixedValue')}
-                      </Typography>
-                    ) : null}
                     {/* Tag chips are removable; empty state stays compact. */}
                     <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                      {tagsValue.length > 0 ? (
-                        tagsValue.map((tag) => (
+                      {tagDisplay.length > 0 ? (
+                        tagDisplay.map((tag) => (
                           <Chip
                             key={tag}
                             size="small"
                             label={tag}
                             onDelete={() => removeTag(tag)}
+                            {...(multiEditActive && mixedTagSet.has(tag) ? { sx: mixedTagChipSx } : {})}
                           />
                         ))
                       ) : (

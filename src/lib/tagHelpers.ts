@@ -73,3 +73,46 @@ export function mergeTagList(base: readonly string[], additions: readonly string
   // Return the merged array for immediate use.
   return next
 }
+
+export interface TagPresenceSummary {
+  total: number
+  all: string[]
+  common: string[]
+  mixed: string[]
+  counts: Record<string, number>
+}
+
+// Summarize tag presence across multiple configs so multi-edit can flag mixed tags.
+export function summarizeTagPresence(
+  tagLists: readonly (readonly string[] | null | undefined)[],
+): TagPresenceSummary {
+  // Track the total number of lists for common/mixed math.
+  const total = tagLists.length
+  // Preserve first-seen order so chips stay predictable.
+  const ordered: string[] = []
+  // Count how many lists include each tag.
+  const counts: Record<string, number> = Object.create(null) as Record<string, number>
+  tagLists.forEach((tags) => {
+    // De-dupe within each list so counts stay accurate.
+    const unique = new Set<string>((tags ?? []).map(String))
+    unique.forEach((tag) => {
+      // Seed ordering the first time we see a tag.
+      if (counts[tag] == null) ordered.push(tag)
+      counts[tag] = (counts[tag] ?? 0) + 1
+    })
+  })
+  // Tags present in every list are common.
+  const common = ordered.filter((tag) => counts[tag] === total && total > 0)
+  // Tags present in some, but not all, lists are mixed.
+  const mixed = ordered.filter((tag) => {
+    const count = counts[tag] ?? 0
+    return count > 0 && count < total
+  })
+  return {
+    total,
+    all: ordered,
+    common,
+    mixed,
+    counts,
+  }
+}
