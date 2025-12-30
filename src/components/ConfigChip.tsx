@@ -25,7 +25,7 @@ import { NBSP, CHIP_ROLL_BADGE_FONT_SIZE_PX, CHIP_ROLL_BADGE_SIZE_PX, HOVER_BG_A
 import { normalizeLooseRollTargetEntry, resolveAutoRarityCode } from '../lib/hsfBuilder'
 import { isLockedAggregateScopeActive, isMilestoneThresholdsActive } from '../lib/configNormalization'
 import { artifactTypeIconFor } from './artifactTypeIcons'
-import { useContextMenuCloseOnOutsideRightClick } from '../hooks/useContextMenuCloseOnOutsideRightClick'
+import { useContextMenuPaperGuard } from '../hooks/useContextMenuPaperGuard'
 import { useI18n } from '../lib/i18n'
 import { parseConfigNameDirectives } from '../lib/configNameDirectives'
 import { FactionIcon } from './FactionIcon'
@@ -119,6 +119,7 @@ function deriveSeparatorDividerDecoration(rawName: string | undefined, baseColor
 interface ConfigChipProps {
   index: number
   cfg: BuilderConfig
+  exportModeOverride?: SellfileExportMode
   gearSetCatalogVersion?: number
   visualVariant?: 'interactive' | 'static'
   dragEnabled?: boolean
@@ -155,6 +156,7 @@ interface ConfigChipProps {
 function ConfigChip({
   index,
   cfg,
+  exportModeOverride,
   gearSetCatalogVersion = 0,
   dragEnabled = false,
   onPointerDown,
@@ -197,7 +199,8 @@ function ConfigChip({
   )
   // Dev builds expose extra clipboard utilities via the chip context menu.
   const isDev: boolean = isDevBuild
-  const exportMode: SellfileExportMode = cfg.exportMode
+  // Allow callers to override the export mode for questionnaire previews.
+  const exportMode: SellfileExportMode = exportModeOverride ?? cfg.exportMode
   const isSeparator = exportMode === 'separator'
   const isHidden = exportMode === 'disabled'
   const separatorDecoration = useMemo(
@@ -239,7 +242,8 @@ function ConfigChip({
     setMenu(null)
     onHighlightDelete?.(false)
   }, [onHighlightDelete])
-  useContextMenuCloseOnOutsideRightClick({
+  // Guard the menu so outside clicks cannot leave a stuck overlay.
+  const { contextMenuGuard } = useContextMenuPaperGuard({
     open: Boolean(menu?.open),
     onClose: closeMenu,
     menuRef: menuPaperRef,
@@ -552,6 +556,7 @@ function ConfigChip({
         paperRef={menuPaperRef}
         paperDataTourId="chip.menu"
         onPaperContextMenu={handleMenuContextMenu}
+        contextMenuGuard={contextMenuGuard}
         actions={{
           duplicate: onDuplicate,
           moveTop: { handler: onMoveTop, disabled: index === 0 },
@@ -601,6 +606,7 @@ function ConfigChip({
 
 function areConfigChipPropsEqual(prev: Readonly<ConfigChipProps>, next: Readonly<ConfigChipProps>): boolean {
   return prev.cfg === next.cfg
+    && prev.exportModeOverride === next.exportModeOverride
     && prev.index === next.index
     && prev.gearSetCatalogVersion === next.gearSetCatalogVersion
     && prev.dragEnabled === next.dragEnabled

@@ -376,12 +376,14 @@ export function useHsfcHistory(params: {
     })
   }, [])
 
-  const captureSnapshotNow = useCallback((descriptor: HistoryEntryDescriptor | null, options?: { markSaved?: boolean }) => {
+  const captureSnapshotNow = useCallback((descriptor: HistoryEntryDescriptor | null, options?: { markSaved?: boolean; forceAppend?: boolean }) => {
     const crc = computeCrc32(signature)
     const entry = makeEntry(payload, crc, signature.length, descriptor ?? null)
     pendingDescriptorRef.current = null
     pendingDescriptorStateRef.current = 'idle'
-    forceAppendRef.current = false
+    // Optionally force the *next* payload update to append instead of replacing this snapshot.
+    // Why: selection changes after a draft snapshot should not overwrite the draft entry.
+    forceAppendRef.current = options?.forceAppend === true
     skipRecordRef.current = false
     markNextAsSavedRef.current = false
     setHistory((prev) => {

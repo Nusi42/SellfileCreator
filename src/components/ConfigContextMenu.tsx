@@ -1,8 +1,7 @@
 import React from 'react'
 import { Divider, Menu, MenuItem } from '@mui/material'
-import type { PaperProps as MuiPaperProps } from '@mui/material/Paper'
 import { useI18n } from '../lib/i18n'
-import ContextMenuPaper from './ContextMenuPaper'
+import ContextMenuPaper, { buildContextMenuPaperSlotProps, type ContextMenuPaperGuardToken } from './ContextMenuPaper'
 
 type MenuClickHandler = () => void
 
@@ -47,6 +46,7 @@ interface ConfigContextMenuProps {
   paperDataTourId: string
   onPaperContextMenu: (event: React.MouseEvent) => void
   actions: ConfigContextMenuActions
+  contextMenuGuard: ContextMenuPaperGuardToken
 }
 
 function wrapClick(onClose: () => void, handler?: MenuClickHandler) {
@@ -66,6 +66,7 @@ export function ConfigContextMenu({
   paperDataTourId,
   onPaperContextMenu,
   actions,
+  contextMenuGuard,
 }: ConfigContextMenuProps) {
   const { t } = useI18n()
 
@@ -215,14 +216,15 @@ export function ConfigContextMenu({
       anchorReference="anchorPosition"
       {...(anchorPosition ? { anchorPosition } : {})}
       slotProps={{
-        paper: {
+        paper: buildContextMenuPaperSlotProps({
           component: ContextMenuPaper,
+          contextMenuGuard,
           onRequestClose: onClose,
           closeLabel: t('close'),
           ref: paperRef,
           'data-tour-id': paperDataTourId,
           onContextMenu: onPaperContextMenu,
-        } as unknown as MuiPaperProps,
+        }),
       }}
     >
       {primaryItems}

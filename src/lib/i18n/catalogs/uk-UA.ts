@@ -11,6 +11,7 @@ const overrides: Catalog = {
   configsTotalCount: '{count} {word}',
   configsHiddenSuffix: ' ({hidden} приховано)',
   editNote: 'Редагувати нотатку…',
+  viewNote: 'Переглянути нотатку…',
   addNote: 'Додати нотатку…',
   noteOpen: 'Нотатка…',
   saveAllConfigs: 'Зберегти всі конфіги (.hsfc)',

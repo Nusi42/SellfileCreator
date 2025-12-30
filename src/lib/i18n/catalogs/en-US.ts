@@ -11,6 +11,7 @@ const enUS: Catalog = {
   configsTotalCount: '{count} {word}',
   configsHiddenSuffix: ' ({hidden} Hidden)',
   editNote: 'Edit Note…',
+  viewNote: 'View Note…',
   addNote: 'Add Note…',
   noteOpen: 'Note…',
   saveAllConfigs: 'Save All Configs (.hsfc)',

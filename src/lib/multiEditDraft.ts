@@ -156,7 +156,10 @@ export function syncMultiEditDraft(previous: MultiEditDraftState | null, base: M
       fields[key] = baseField
       continue
     }
-    const matchesBase = prevField.status === baseField.initialStatus
+    // Only collapse to the base draft when there is no patch staged.
+    // Why: tag edits often keep the same value/status but rely on patch diffs.
+    const matchesBase = prevField.patch == null
+      && prevField.status === baseField.initialStatus
       && areBuilderFieldValuesEqual(key, prevField.value, baseField.initialValue)
     fields[key] = matchesBase
       ? baseField

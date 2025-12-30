@@ -1,6 +1,5 @@
 import React from 'react'
 import { Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, Menu, MenuItem, Stack, TextField, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material'
-import type { PaperProps as MuiPaperProps } from '@mui/material/Paper'
 import { alpha, type Theme } from '@mui/material/styles'
 import {
   ELLIPSIS_TEXT_SX,
@@ -24,6 +23,7 @@ import ClearIconButton from './ClearIconButton'
 import DirtyBadge from './DirtyBadge'
 import type { FinalSellRemainderConfig } from '../lib/finalSell'
 import { useContextMenuCloseOnOutsideRightClick } from '../hooks/useContextMenuCloseOnOutsideRightClick'
+import { useContextMenuPaperGuard } from '../hooks/useContextMenuPaperGuard'
 import { ContextMenuHintOverlay } from './ContextMenuHintOverlay'
 import { useContextMenuHint } from '../hooks/useContextMenuHint'
 import Checkbox from '@mui/material/Checkbox'
@@ -33,7 +33,7 @@ import MarkdownTooltip from './MarkdownTooltip'
 import WorkloadProgressIndicator from './WorkloadProgressIndicator'
 import ExpandLessIcon from '@mui/icons-material/ExpandLess'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
-import ContextMenuPaper from './ContextMenuPaper'
+import ContextMenuPaper, { buildContextMenuPaperSlotProps } from './ContextMenuPaper'
 import ContextMenuTitle from './ContextMenuTitle'
 import DeleteIcon from '@mui/icons-material/Delete'
 import GridViewIcon from '@mui/icons-material/GridView'
@@ -567,7 +567,8 @@ export default function PreviewHeaderActions(props: {
 	    position: { x: number; y: number }
 	  } | null>(null)
 	  const sortNormalizedPresetEditorPaperRef = React.useRef<HTMLDivElement | null>(null)
-  useContextMenuCloseOnOutsideRightClick({
+  // Guard the sort menu so outside clicks cannot leave a stuck overlay.
+  const { contextMenuGuard: sortMenuGuard } = useContextMenuPaperGuard({
     open: sortMenuOpen,
     onClose: closeSortMenu,
     menuRef: sortMenuPaperRef,
@@ -1034,8 +1035,9 @@ export default function PreviewHeaderActions(props: {
               anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
               transformOrigin={{ vertical: 'top', horizontal: 'left' }}
               slotProps={{
-                paper: {
+                paper: buildContextMenuPaperSlotProps({
                   component: ContextMenuPaper,
+                  contextMenuGuard: sortMenuGuard,
                   onRequestClose: closeSortMenu,
                   closeLabel: t('close'),
                   overlay: (
@@ -1047,7 +1049,7 @@ export default function PreviewHeaderActions(props: {
                   ),
                   ref: sortMenuPaperRef,
                   sx: { width: 320, maxWidth: 'calc(100vw - 32px)', px: 0, py: 0 },
-                } as unknown as MuiPaperProps,
+                }),
               }}
             >
               {/* Title block mirrors the filter panel popouts so "Sort" feels like a first-class control. */}

@@ -58,7 +58,7 @@ type ControllerResult = {
   resetHistory: (payload: string, signature: string, opts: { markSaved: boolean; descriptor?: HistoryEntryDescriptor | null }) => void
   describeNextChange: DescribeNextChangeFn
   suppressNextSnapshot: SuppressNextSnapshotFn
-  captureSnapshotNow: (descriptor: HistoryEntryDescriptor | null, options?: { markSaved?: boolean }) => void
+  captureSnapshotNow: (descriptor: HistoryEntryDescriptor | null, options?: { markSaved?: boolean; forceAppend?: boolean }) => void
   undoPreview: HistoryPreview
   redoPreview: HistoryPreview
   historyTimeline: HistoryTimelineEntry[]

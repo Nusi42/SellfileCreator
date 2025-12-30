@@ -14,7 +14,6 @@ import {
   Typography,
   useMediaQuery,
 } from '@mui/material'
-import type { PaperProps as MuiPaperProps } from '@mui/material/Paper'
 import ExpandLessIcon from '@mui/icons-material/ExpandLess'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import SellIcon from '@mui/icons-material/Sell'
@@ -61,7 +60,7 @@ import { getTesterMatchBorderColor } from './testerMatchStyles'
 import MarkdownTooltip from './MarkdownTooltip'
 import { WithSetTooltip } from './SetTooltip'
 import { formatLocalDateTime } from '../lib/dateDisplay'
-import ContextMenuPaper from './ContextMenuPaper'
+import ContextMenuPaper, { buildContextMenuPaperSlotProps } from './ContextMenuPaper'
 import { ContextMenuHintOverlay } from './ContextMenuHintOverlay'
 import { useContextMenuHint } from '../hooks/useContextMenuHint'
 import GridIconBox from './GridIconBox'
@@ -79,7 +78,7 @@ import {
   CHAMPION_ICON_BORDER_RADIUS_PX,
   type ColorBlindMode,
 } from '../lib/constants'
-import { useContextMenuCloseOnOutsideRightClick } from '../hooks/useContextMenuCloseOnOutsideRightClick'
+import { useContextMenuPaperGuard } from '../hooks/useContextMenuPaperGuard'
 import { useTesterGridPreferences } from '../state/testerGridPreferences'
 import { championIconUrl } from '../lib/iconMaps/championIconMap'
 import EmptyStateMessage, { type EmptyStateMessageProps } from './EmptyStateMessage'
@@ -927,7 +926,8 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     })
     closeGridMenu()
   }, [closeGridMenu, gridMenuGroupKey])
-  useContextMenuCloseOnOutsideRightClick({
+  // Guard the grid context menu so outside clicks cannot leave a stuck overlay.
+  const { contextMenuGuard: gridMenuGuard } = useContextMenuPaperGuard({
     open: gridMenuOpen,
     onClose: closeGridMenuOrPresetEditor,
     menuRef: gridMenuPaperRef,
@@ -1379,12 +1379,13 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
         anchorReference="anchorPosition"
         {...(gridMenuPosition ? { anchorPosition: { top: gridMenuPosition.y, left: gridMenuPosition.x } } : {})}
         slotProps={{
-          paper: {
+          paper: buildContextMenuPaperSlotProps({
             component: ContextMenuPaper,
+            contextMenuGuard: gridMenuGuard,
             onRequestClose: closeGridMenu,
             closeLabel: t('close'),
             ref: gridMenuPaperRef,
-          } as unknown as MuiPaperProps,
+          }),
         }}
       >
         {/* Place "Compact Current Group" first so it remains easily reachable (it is a frequent action). */}
@@ -2219,9 +2220,17 @@ const TesterGridCard = React.memo(function TesterGridCard({
   ])
   const [matchingPopoverAnchor, setMatchingPopoverAnchor] = useState<HTMLElement | null>(null)
   const matchingPopoverOpen = Boolean(matchingPopoverAnchor) && hiddenOtherMatching.length > 0
+  // Keep a ref for the popover so outside clicks can close cleanly.
+  const matchingPopoverPaperRef = useRef<HTMLDivElement | null>(null)
   const handleMatchingPopoverClose = useCallback(() => {
     setMatchingPopoverAnchor(null)
   }, [])
+  // Guard the matching popover so outside clicks cannot leave a stuck overlay.
+  const { contextMenuGuard: matchingPopoverGuard } = useContextMenuPaperGuard({
+    open: matchingPopoverOpen,
+    onClose: handleMatchingPopoverClose,
+    menuRef: matchingPopoverPaperRef,
+  })
   // Overflow chip defers the popover until the user explicitly taps it to keep VT tree shallow.
   const handleMatchingMoreClick = (event: React.MouseEvent<HTMLElement>) => {
     if (hiddenOtherMatching.length === 0) return
@@ -2973,15 +2982,17 @@ const TesterGridCard = React.memo(function TesterGridCard({
                   transformOrigin={{ vertical: 'top', horizontal: 'left' }}
                   disableRestoreFocus
                   slotProps={{
-                    paper: {
+                    paper: buildContextMenuPaperSlotProps({
                       component: ContextMenuPaper,
+                      contextMenuGuard: matchingPopoverGuard,
                       onRequestClose: handleMatchingPopoverClose,
                       closeLabel: t('close'),
+                      ref: matchingPopoverPaperRef,
                       sx: {
                         maxWidth: MATCHING_POPOVER_MAX_WIDTH_PX,
                         width: `min(80vw, ${MATCHING_POPOVER_MAX_WIDTH_PX}px)`,
                       },
-                    } as MuiPaperProps,
+                    }),
                   }}
                 >
                   <Box

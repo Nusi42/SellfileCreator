@@ -15,7 +15,7 @@ import { focusCycleWithin } from '../lib/focusCycle'
 import SetMenuSection from './SetMenuSection'
 import MetasetsDialog from './MetasetsDialog'
 import { useMetasetsDialog } from '../hooks/useMetasetsDialog'
-import { useContextMenuCloseOnOutsideRightClick } from '../hooks/useContextMenuCloseOnOutsideRightClick'
+import { useContextMenuPaperGuard } from '../hooks/useContextMenuPaperGuard'
 import { useContextMenuHint } from '../hooks/useContextMenuHint'
 import { useGearSetCatalogVersion } from '../hooks/useGearSetCatalogVersion'
 import type { HistoryPreview, DescribeNextChangeFn, HistoryTimelineEntry } from '../hooks/useHsfcHistory'
@@ -60,7 +60,6 @@ import { type Metaset, metasetGlyph, orderMetasetIds } from '../lib/metasets'
 //
 
 import { Box, Button, Divider, Stack, Typography, TextField, Chip, FormControl, FormLabel, Select, MenuItem, ListSubheader, InputAdornment, Menu, Badge } from '@mui/material'
-import type { PaperProps as MuiPaperProps } from '@mui/material/Paper'
 import SetsOrderControls from './SetsOrderControls'
 import SubstatTargetsDialog from './SubstatTargetsDialog'
 import type { SelectChangeEvent } from '@mui/material/Select'
@@ -74,7 +73,7 @@ import WorkloadProgressIndicator from './WorkloadProgressIndicator'
 import InlineSelectClearButton from './InlineSelectClearButton'
 import SelectDropdownActivator from './SelectDropdownActivator'
 import BuilderCheatSheetPopover from './BuilderCheatSheetPopover'
-import ContextMenuPaper from './ContextMenuPaper'
+import ContextMenuPaper, { buildContextMenuPaperSlotProps } from './ContextMenuPaper'
 import { SubstatToggleDisplay, substatToggleGroupSx } from './SubstatToggleDisplay'
 import { resolveSubstatChipPalette, SUBSTAT_CHIP_BORDER_RADIUS_PX } from './RuleSubstatChips'
 import LockIcon from '@mui/icons-material/Lock'
@@ -87,6 +86,7 @@ import ClearIconButton from './ClearIconButton'
 import { UI_BG_HOVER_DANGER_TRANSITION, DANGER_TINT_BG, LIST_SUBHEADER_SX, MENU_SELECTED_BG_ALPHA, MENU_SELECTED_BG_HOVER_ALPHA, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, MENU_MAX_HEIGHT_EXTRA_BUFFER, SETS_MENU_WIDTH_PX, UI_SUBSTAT_WARNING_ROW_HEIGHT_PX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, BUILDER_USER_DEFAULTS_KEY, BUILDER_DEFAULT_SAVE_TARGET, BUILDER_DIRTY_NUDGE_IDLE_MS, BUILDER_DIRTY_ATTENTION_INTERVAL_MS, FONT_SIZE_BASE_PX, ELLIPSIS_TEXT_SX, BUILDER_SLOT_LABEL_WIDTH_BUFFER_PX, BUILDER_TOGGLE_BUTTON_HEIGHT_PX, BUILDER_TOGGLE_BUTTON_MIN_WIDTH_PX, SMALL_BUTTON_HEIGHT_PX, SETS_SELECT_INLINE_GUTTER_COLLAPSED_PX, SETS_SELECT_INLINE_GUTTER_PX, CLEAR_ICON_BUTTON_SIZE_PX, MULTI_EDIT_MIXED_BG_ALPHA, MULTI_EDIT_MIXED_BORDER_ALPHA, MULTI_EDIT_MIXED_TEXT_ALPHA, MENU_LABEL_WIDTH_PX, MENU_CONTROL_HEIGHT_PX, SUBSTAT_TARGET_MAX_ROLLS, HISTORY_TOOLTIP_MAX_WIDTH_PX, BUILDER_AUTO_APPLY_DEBOUNCE_MS, BUILDER_LABEL_INLINE_SX, BUILDER_LABEL_TEXT_SX, BUILDER_MIN_ROLLS_COLUMN_WIDTH_PX, BUILDER_REQUIRED_SUBSTATS_COLUMN_WIDTH_PX, BUILDER_MILESTONE_THRESHOLDS_COLUMN_WIDTH_PX, BUILDER_AUTO_TOGGLE_WIDTH_PX } from '../lib/constants'
 import Checkbox from '@mui/material/Checkbox'
 import { useAttentionEffectStyles, useFortyTwoLegendaryOverlay } from '../lib/attentionEffects'
+import { warningBadgeSx } from '../lib/badgeStyles'
 import { alpha, useTheme } from '@mui/material/styles'
 import type { SxProps, Theme } from '@mui/material/styles'
 import type { SystemStyleObject } from '@mui/system'
@@ -95,6 +95,7 @@ import { substatSupportsColor } from '../lib/substatDisplay'
 import { createBuilderStatusChipSx } from './builderStatusChipStyles'
 import { FactionOptionLabel } from './FactionIcon'
 import { ContextMenuHintOverlay } from './ContextMenuHintOverlay'
+import { resolveQuestionnaireExportMode } from '../lib/noteQuestionnaire'
 import {
   type MultiEditDraftHandle,
   type MultiEditFieldState,
@@ -172,7 +173,7 @@ import {
 
 export { createFactoryBuilderDefaults } from './builderPanel/defaults'
 
-export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSelected, registerAutoApplyHandler, onApplyMultiEdit, onUndo, onRedo, canUndo, canRedo, undoPreview, redoPreview, historyTimeline, onJumpToHistoryIndex, onRequestClearHistory, metasets, onMetasetsChange, describeNextChange, onDeleteMetaset, onResetMetasets, substatTargets, onSubstatTargetsChange, setUsageCounts, metasetUsageCounts, keepUniqueMetasetUsageCounts, substatColors: _substatColors, configCount: _configCount, configRuleCounts, configRuleFingerprints, configsExcludedByTotalLimit, ruleSubstatTargetsKey, rulesBuilding, awaitRuleCounts, countRulesForConfigs, selectedIsDirty, insertHiddenByFilters, saveHiddenByFilters, onSelectConfigsByMetaset, substatTargetsDialogOpen, onCloseSubstatTargetsDialog, multiEdit: _multiEdit = null, multiSelectedConfigs = null, onBeforeMetasetsDialogClose }: {
+export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSelected, registerAutoApplyHandler, onApplyMultiEdit, onUndo, onRedo, canUndo, canRedo, undoPreview, redoPreview, historyTimeline, onJumpToHistoryIndex, onRequestClearHistory, metasets, onMetasetsChange, describeNextChange, onDeleteMetaset, onResetMetasets, substatTargets, onSubstatTargetsChange, setUsageCounts, metasetUsageCounts, keepUniqueMetasetUsageCounts, substatColors: _substatColors, configCount: _configCount, configRuleCounts, configRuleFingerprints, configsExcludedByTotalLimit, ruleSubstatTargetsKey, rulesBuilding, awaitRuleCounts, countRulesForConfigs, selectedIsDirty, insertHiddenByFilters, saveHiddenByFilters, onSelectConfigsByMetaset, substatTargetsDialogOpen, onCloseSubstatTargetsDialog, questionnaireActiveTags, multiEdit: _multiEdit = null, multiSelectedConfigs = null, onBeforeMetasetsDialogClose }: {
   cfg: BuilderConfig,
   onChange: (c: BuilderConfig) => void
   onAddToCustom: () => void
@@ -216,6 +217,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
   onSelectConfigsByMetaset: (id: string) => void
   substatTargetsDialogOpen: boolean
   onCloseSubstatTargetsDialog: () => void
+  questionnaireActiveTags: readonly string[]
   multiEdit?: MultiEditDraftHandle | null
   multiSelectedConfigs?: readonly BuilderConfig[] | null
   onBeforeMetasetsDialogClose?: () => Promise<void> | void
@@ -906,7 +908,8 @@ const resolveSubstatTargetEntry = React.useCallback((variant: StatVariant): Subs
     if (typeof entry === 'number' && Number.isFinite(entry)) return entry
     return resolveTargetFallbackValue(rollIndex)
   }, [targetDraftBase, targetDraftRolls, resolveTargetFallbackValue])
-  useContextMenuCloseOnOutsideRightClick({
+  // Close the substat menu on outside clicks to prevent stuck overlays.
+  const { contextMenuGuard: substatMenuGuard } = useContextMenuPaperGuard({
     open: menuOpen,
     onClose: handleSubstatMenuClose,
     menuRef: substatMenuPaperRef,
@@ -1163,9 +1166,15 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
     ? (keepMixed ? null : ((multiKeepField?.value as boolean | undefined) ? 'keep' : 'sell'))
     : (cfg.keep ? 'keep' : 'sell')
   const exportModeMixed = multiEditActive && (multiExportModeField?.status === 'mixed')
+  // Resolve questionnaire overrides for the active config.
+  const effectiveExportMode = useMemo(
+    () => resolveQuestionnaireExportMode(cfg, questionnaireActiveTags),
+    [cfg, questionnaireActiveTags],
+  )
+  // Show questionnaire-effective export mode unless multi-edit is active.
   const exportModeValue: SellfileExportMode | null = multiEditActive
     ? (exportModeMixed ? null : (multiExportModeField?.value as SellfileExportMode | undefined ?? 'active'))
-    : cfg.exportMode
+    : effectiveExportMode
   const rankMixed = multiEditActive && (multiRankField?.status === 'mixed')
   const rankValue = multiEditActive
     ? (rankMixed ? '' : String((multiRankField?.value as number | undefined) ?? cfg.rankCode))
@@ -1389,6 +1398,7 @@ const maxLevelValue = multiEditActive
     historyMenuOpen,
     historyMenuAnchor,
     historyMenuPaperRef,
+    historyMenuGuard,
     closeHistoryMenu,
     handleHistoryContextMenu,
     handleHistoryMouseMove,
@@ -1672,7 +1682,7 @@ const maxLevelValue = multiEditActive
     backgroundImage: `linear-gradient(135deg, ${mixedPatternColor} 50%, transparent 50%)`,
   }), [mixedBorderColor, mixedPatternColor, mixedTextColor])
   // Close the tag popover on outside interactions to avoid stuck overlays.
-  useContextMenuCloseOnOutsideRightClick({
+  const { contextMenuGuard: tagsMenuGuard } = useContextMenuPaperGuard({
     open: tagsPopoverOpen,
     onClose: closeTagsPopover,
     menuRef: tagsMenuPaperRef,
@@ -1861,25 +1871,6 @@ const maxLevelValue = multiEditActive
       marginRight: 0,
     },
   }), [actionButtonWidthPx])
-  const hiddenBadgeSx = useMemo(() => ({
-    '& .MuiBadge-badge': {
-      minWidth: 18,
-      height: 18,
-      borderRadius: '50%',
-      top: 4,
-      right: 4,
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      boxShadow: theme.shadows[2],
-      backgroundColor: theme.palette.warning.main,
-      color: theme.palette.getContrastText(theme.palette.warning.main),
-      border: `2px solid ${theme.palette.background.paper}`,
-      fontWeight: theme.typography.fontWeightBold ?? 600,
-      fontSize: theme.typography.pxToRem ? theme.typography.pxToRem(12) : '0.75rem',
-      lineHeight: 1,
-    },
-  }), [theme])
   const targetWarningBadgeSx = useMemo(() => ({
     display: 'inline-flex',
     alignItems: 'center',
@@ -2676,13 +2667,14 @@ const maxLevelValue = multiEditActive
                 transformOrigin={{ vertical: 'top', horizontal: 'left' }}
                 MenuListProps={{ disablePadding: true }}
                 slotProps={{
-                  paper: {
+                  paper: buildContextMenuPaperSlotProps({
                     component: ContextMenuPaper,
+                    contextMenuGuard: tagsMenuGuard,
                     onRequestClose: closeTagsPopover,
                     closeLabel: t('close'),
                     ref: tagsMenuPaperRef,
                     sx: { minWidth: 260, maxWidth: 'calc(100vw - 32px)' },
-                  } as unknown as MuiPaperProps,
+                  }),
                 }}
               >
                 {/* Content block keeps spacing predictable inside the menu shell. */}
@@ -2713,6 +2705,9 @@ const maxLevelValue = multiEditActive
                       placeholder={t('builderTagsPlaceholder')}
                       onChange={(event) => setTagsDraft(event.target.value)}
                       onKeyDown={(event) => {
+                        if (event.key !== 'Escape') {
+                          event.stopPropagation()
+                        }
                         if (event.key === 'Enter' || event.key === ',') {
                           event.preventDefault()
                           commitTagsFromDraft()
@@ -2781,6 +2776,7 @@ const maxLevelValue = multiEditActive
               onClose={closeHistoryMenu}
               paperRef={historyMenuPaperRef}
               onPaperContextMenu={handleHistoryMenuContextMenu}
+              contextMenuGuard={historyMenuGuard}
               entries={historyTimeline}
               t={t}
               onSelectEntry={handleHistoryEntrySelect}
@@ -4622,13 +4618,14 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                     {...(menuOpen ? { anchorPosition: { top: menuAnchor.y, left: menuAnchor.x } } : {})}
                     keepMounted
                     slotProps={{
-                      paper: {
+                      paper: buildContextMenuPaperSlotProps({
                         component: ContextMenuPaper,
+                        contextMenuGuard: substatMenuGuard,
                         onRequestClose: handleSubstatMenuClose,
                         closeLabel: t('close'),
                         ref: substatMenuPaperRef,
                         sx: { minWidth: SUBSTAT_MENU_WIDTH_PX },
-                      } as unknown as MuiPaperProps,
+                      }),
                     }}
                     MenuListProps={{ dense: true, disablePadding: true, sx: { py: 0 } }}
                   >
@@ -6404,7 +6401,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
               overlap="rectangular"
               anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
               invisible={!insertHiddenByFilters || !builderCanAdd}
-              sx={hiddenBadgeSx}
+              sx={warningBadgeSx}
               badgeContent="!"
             >
               <Button
@@ -6441,7 +6438,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
               overlap="rectangular"
               anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
               invisible={!saveHiddenByFilters || saveDisabled}
-              sx={hiddenBadgeSx}
+              sx={warningBadgeSx}
               badgeContent="!"
             >
               <Button

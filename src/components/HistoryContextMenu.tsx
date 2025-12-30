@@ -1,12 +1,11 @@
 import React from 'react'
 import { Box, ListSubheader, Menu, MenuItem, Typography } from '@mui/material'
-import type { PaperProps as MuiPaperProps } from '@mui/material/Paper'
 import type { PopoverPosition } from '@mui/material/Popover'
 import type { Theme } from '@mui/material/styles'
 import type { HistoryTimelineEntry } from '../hooks/useHsfcHistory'
 import ArrowRightAltIcon from '@mui/icons-material/ArrowRightAlt'
 import BookmarkAddedIcon from '@mui/icons-material/BookmarkAdded'
-import ContextMenuPaper from './ContextMenuPaper'
+import ContextMenuPaper, { buildContextMenuPaperSlotProps, type ContextMenuPaperGuardToken } from './ContextMenuPaper'
 import { BuilderTooltipContent } from './BuilderTooltipContent'
 import { HISTORY_MENU_MAX_HEIGHT_PX, HISTORY_TOOLTIP_MAX_WIDTH_PX, LIST_SUBHEADER_SX } from '../lib/constants'
 import { formatHistoryTooltipText } from '../history/historyTooltip'
@@ -33,6 +32,7 @@ export function HistoryContextMenu({
   onSelectEntry,
   onRequestClearHistory,
   substatColors,
+  contextMenuGuard,
 }: {
   open: boolean
   anchorPosition: AnchorPosition
@@ -44,6 +44,7 @@ export function HistoryContextMenu({
   onSelectEntry: (index: number) => void
   onRequestClearHistory: () => void
   substatColors: SubstatColorMap
+  contextMenuGuard: ContextMenuPaperGuardToken
 }) {
   const hasMultipleEntries = entries.length > 1
   const reversed = React.useMemo(() => {
@@ -59,8 +60,9 @@ export function HistoryContextMenu({
       {...(resolvedAnchorPosition ? { anchorPosition: resolvedAnchorPosition } : {})}
       transformOrigin={{ vertical: 'top', horizontal: 'left' }}
       slotProps={{
-        paper: {
+        paper: buildContextMenuPaperSlotProps({
           component: ContextMenuPaper,
+          contextMenuGuard,
           onRequestClose: onClose,
           closeLabel: t('close'),
           ref: paperRef,
@@ -73,7 +75,7 @@ export function HistoryContextMenu({
             py: 0,
             boxShadow: theme.shadows[8],
           }),
-        } as unknown as MuiPaperProps,
+        }),
       }}
       MenuListProps={{
         dense: true,
