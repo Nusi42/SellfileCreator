@@ -2715,6 +2715,9 @@ const maxLevelValue = multiEditActive
                       placeholder={t('builderTagsPlaceholder')}
                       onChange={(event) => setTagsDraft(event.target.value)}
                       onKeyDown={(event) => {
+                        if (event.key !== 'Escape') {
+                          event.stopPropagation()
+                        }
                         if (event.key === 'Enter' || event.key === ',') {
                           event.preventDefault()
                           commitTagsFromDraft()
