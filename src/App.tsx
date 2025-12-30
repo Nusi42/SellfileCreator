@@ -229,7 +229,6 @@ import {
   describeConfigsDeleted,
   describeConfigsInserted,
   describeConfigsMoved,
-  describeQuestionnaireApplied,
 } from './history/configCollectionDescriptors'
 import { describeMetasetConflictResolved, describeMetasetDeleted, describeMetasetsReset } from './history/metasetDescriptors'
 import { describeSubstatTargetsChange, areSubstatTargetTablesEqual, isDefaultSubstatTargetTable, appendDescriptorDetails } from './history/substatTargetDescriptors'
