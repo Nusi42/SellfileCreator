@@ -5,6 +5,8 @@ import {
   ELLIPSIS_TEXT_SX,
   FINAL_SELL_BUTTON_MIN_WIDTH_PX,
   FINAL_SELL_BUTTON_WIDTH_PX,
+  COMPACT_HEADER_ACTION_BUTTON_BASE_SX,
+  COMPACT_HEADER_ACTION_BUTTON_SX,
   SMALL_BUTTON_HEIGHT_PX,
 	  CLEAR_ICON_BUTTON_SIZE_PX,
 	  FILTER_HEADER_LABEL_MAX_WIDTH_PX,
@@ -582,7 +584,6 @@ export default function PreviewHeaderActions(props: {
     if (isRulesMode && sortMenuOpen) closeSortMenu()
   }, [closeSortMenu, isRulesMode, sortMenuOpen])
 
-  const SORT_BUTTON_WIDTH_PX = 92
 	  const breakNormalizedLinkToCustom = React.useCallback(() => {
 	    // When a preset/active source is selected, editing should "fork" into custom weights.
 	    const linked = testerSubstatSort.normalizedUseActiveOverlay
@@ -782,21 +783,12 @@ export default function PreviewHeaderActions(props: {
                     onClick={() => onToggleFilter?.()}
                     aria-pressed={filterActive}
                     aria-label={filterLabel}
+                    // Share the compact sizing while keeping the chevron room flexible.
                     sx={{
-                      whiteSpace: 'nowrap',
-                      px: 1.25,
-                      height: SMALL_BUTTON_HEIGHT_PX,
-                      minHeight: SMALL_BUTTON_HEIGHT_PX,
+                      ...COMPACT_HEADER_ACTION_BUTTON_BASE_SX,
                       flexShrink: 1,
                       minWidth: 0,
                       maxWidth: 220,
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      lineHeight: 1,
-                      py: 0,
                     }}
                   >
                     <EllipsisTooltip title={filterLabel} selector='[data-ellipsis-target]' wrap="block">
@@ -841,22 +833,8 @@ export default function PreviewHeaderActions(props: {
                       setSortMenuAnchor(event.currentTarget)
                     }}
                     aria-label={sortLabel}
-                    sx={{
-                      whiteSpace: 'nowrap',
-                      px: 1.25,
-                      height: SMALL_BUTTON_HEIGHT_PX,
-                      minHeight: SMALL_BUTTON_HEIGHT_PX,
-                      minWidth: SORT_BUTTON_WIDTH_PX,
-                      width: SORT_BUTTON_WIDTH_PX,
-                      maxWidth: SORT_BUTTON_WIDTH_PX,
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      lineHeight: 1,
-                      py: 0,
-                    }}
+                    // Shared sizing keeps Sort aligned with other compact header buttons.
+                    sx={COMPACT_HEADER_ACTION_BUTTON_SX}
                   >
                     <Typography component="span" noWrap sx={{ ...ELLIPSIS_TEXT_SX, width: '100%' }} data-ellipsis-target>
                       {sortButtonLabel}
