@@ -367,6 +367,16 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // Use a deferred snapshot so bursty substatTargets updates (e.g., Restore Defaults) coalesce before recomputing merged rules.
   const ruleConfigs = useMemo(() => configsForRuleBuild(questionnaireConfigsForRules), [questionnaireConfigsForRules])
   const configNames = useMemo(() => customCfgs.map((cfg) => (typeof cfg?.name === 'string' ? cfg.name : '')), [customCfgs])
+  // Keep tags in a parallel list so config filters can match either name or tag tokens.
+  const configTags = useMemo(
+    () => customCfgs.map((cfg) => {
+      const rawTags = Array.isArray(cfg?.tags) ? cfg.tags : []
+      return rawTags
+        .map((tag) => (typeof tag === 'string' ? tag.trim() : String(tag).trim()))
+        .filter((tag) => tag.length > 0)
+    }),
+    [customCfgs],
+  )
   const configModes = useMemo(() => questionnaireExportModes.modes, [questionnaireExportModes])
   const substatTargetsForPreview = useDeferredValue(substatTargets)
   const metasetsForPreview = useDeferredValue(metasets)
@@ -3239,17 +3249,19 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const filterResult = useMemo<FilterHsfRulesResult<HsfRuleWithCfg>>(() => (
     filterHsfRules(mergedRules, rulesFilter, metasets, {
       configNames,
+      configTags,
       configModes,
       specialRuleLabels: specialRuleSourceLabels,
     })
-  ), [mergedRules, rulesFilter, metasets, configNames, configModes, specialRuleSourceLabels])
+  ), [mergedRules, rulesFilter, metasets, configNames, configTags, configModes, specialRuleSourceLabels])
   const filteredRules = filterResult.rules
   const testerFilterResult = useMemo(() => (
     filterTesterItems(testerPreviewRows, testerRulesFilter, metasets, {
       configNames,
+      configTags,
       specialRuleLabels: specialRuleSourceLabels,
     })
-  ), [testerPreviewRows, testerRulesFilter, metasets, configNames, specialRuleSourceLabels])
+  ), [testerPreviewRows, testerRulesFilter, metasets, configNames, configTags, specialRuleSourceLabels])
   const gearEntriesAfterRulesFilter = testerFilterResult.items
   const testerChampionOptions = useMemo<TesterChampionOption[]>(() => {
     // Cache champion metadata per id so the dropdown can render icons without rescanning rows.
