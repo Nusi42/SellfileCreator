@@ -95,7 +95,7 @@ import { substatSupportsColor } from '../lib/substatDisplay'
 import { createBuilderStatusChipSx } from './builderStatusChipStyles'
 import { FactionOptionLabel } from './FactionIcon'
 import { ContextMenuHintOverlay } from './ContextMenuHintOverlay'
-import { resolveConfigOptionsExportMode } from '../lib/noteConfigOptions'
+import { resolveConfigOptionsExportMode, type ConfigOptionsTagInstructions } from '../lib/noteConfigOptions'
 import {
   type MultiEditDraftHandle,
   type MultiEditFieldState,
@@ -173,7 +173,7 @@ import {
 
 export { createFactoryBuilderDefaults } from './builderPanel/defaults'
 
-export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSelected, registerAutoApplyHandler, onApplyMultiEdit, onUndo, onRedo, canUndo, canRedo, undoPreview, redoPreview, historyTimeline, onJumpToHistoryIndex, onRequestClearHistory, metasets, onMetasetsChange, describeNextChange, onDeleteMetaset, onResetMetasets, substatTargets, onSubstatTargetsChange, setUsageCounts, metasetUsageCounts, keepUniqueMetasetUsageCounts, substatColors: _substatColors, configCount: _configCount, configRuleCounts, configRuleFingerprints, configsExcludedByTotalLimit, ruleSubstatTargetsKey, rulesBuilding, awaitRuleCounts, countRulesForConfigs, selectedIsDirty, insertHiddenByFilters, saveHiddenByFilters, onSelectConfigsByMetaset, substatTargetsDialogOpen, onCloseSubstatTargetsDialog, configOptionsActiveTags, multiEdit: _multiEdit = null, multiSelectedConfigs = null, onBeforeMetasetsDialogClose }: {
+export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSelected, registerAutoApplyHandler, onApplyMultiEdit, onUndo, onRedo, canUndo, canRedo, undoPreview, redoPreview, historyTimeline, onJumpToHistoryIndex, onRequestClearHistory, metasets, onMetasetsChange, describeNextChange, onDeleteMetaset, onResetMetasets, substatTargets, onSubstatTargetsChange, setUsageCounts, metasetUsageCounts, keepUniqueMetasetUsageCounts, substatColors: _substatColors, configCount: _configCount, configRuleCounts, configRuleFingerprints, configsExcludedByTotalLimit, ruleSubstatTargetsKey, rulesBuilding, awaitRuleCounts, countRulesForConfigs, selectedIsDirty, insertHiddenByFilters, saveHiddenByFilters, onSelectConfigsByMetaset, substatTargetsDialogOpen, onCloseSubstatTargetsDialog, configOptionsTagInstructions, multiEdit: _multiEdit = null, multiSelectedConfigs = null, onBeforeMetasetsDialogClose }: {
   cfg: BuilderConfig,
   onChange: (c: BuilderConfig) => void
   onAddToCustom: () => void
@@ -217,7 +217,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
   onSelectConfigsByMetaset: (id: string) => void
   substatTargetsDialogOpen: boolean
   onCloseSubstatTargetsDialog: () => void
-  configOptionsActiveTags: readonly string[]
+  configOptionsTagInstructions: ConfigOptionsTagInstructions
   multiEdit?: MultiEditDraftHandle | null
   multiSelectedConfigs?: readonly BuilderConfig[] | null
   onBeforeMetasetsDialogClose?: () => Promise<void> | void
@@ -1168,8 +1168,8 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
   const exportModeMixed = multiEditActive && (multiExportModeField?.status === 'mixed')
   // Resolve config options overrides for the active config.
   const effectiveExportMode = useMemo(
-    () => resolveConfigOptionsExportMode(cfg, configOptionsActiveTags),
-    [cfg, configOptionsActiveTags],
+    () => resolveConfigOptionsExportMode(cfg, configOptionsTagInstructions),
+    [cfg, configOptionsTagInstructions],
   )
   // Only mark an override when the config options flip the stored selection.
   const exportModeOverrideActive = !multiEditActive && effectiveExportMode !== cfg.exportMode

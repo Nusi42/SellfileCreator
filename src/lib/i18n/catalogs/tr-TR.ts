@@ -1091,7 +1091,7 @@ const overrides: Catalog = {
   noteInsertMetasets: 'Metaset listesini ekle',
   noteInsertConfigOptionsSample: 'Örnek anket ekle',
   noteConfigOptionsChangedTooltip: 'Anket işaretleyicileri bu düzenlemede değişti. Soruları gözden geçirmek için «Notu görüntüle»ye geçin.',
-  noteConfigOptionsSampleBlock: '<!-- q:single "Tek seçimli soru, **Kalın** ve `İşaretli` etiketlerle, **\\1** veya `\\2` referanslarını kullanır."\n  [* "Yanıt 1", tag1, -tag2]\n  ["Yanıt 2", tag2]\n-->\n\n<!-- q:multi "**Kalın** ve `İşaretli` etiketlerle başka bir soru."\n  [* "Yanıt A", tag-a]\n  ["Yanıt B"]\n  ["Yanıt C", tag-c]\n-->',
+  noteConfigOptionsSampleBlock: '<!-- q:single "Tek seçimli soru, **Kalın** ve `İşaretli` etiketlerle, **\\1** veya `\\2` referanslarını kullanır."\n  [* "Yanıt 1", +tag1, tag2]\n  ["Yanıt 2", -tag2]\n-->\n\n<!-- q:multi "**Kalın** ve `İşaretli` etiketlerle başka bir soru."\n  [* "Yanıt A", tag-a]\n  ["Yanıt B"]\n  ["Yanıt C", +tag-c]\n-->',
   noteConfigOptionsApply: 'Anket etiketlerini uygula',
   noteConfigOptionsApplyConfirmTitle: 'Anket etiketleri uygulansın mı?',
   noteConfigOptionsApplyConfirmBody: '{enabled} konfigi etkinleştir, {disabled} konfigi devre dışı bırak. Etiketsiz konfigler değişmeden kalır.',

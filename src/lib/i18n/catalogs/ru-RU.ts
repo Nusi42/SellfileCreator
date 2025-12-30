@@ -1091,7 +1091,7 @@ const overrides: Catalog = {
   noteInsertMetasets: 'Вставить список метасетов',
   noteInsertConfigOptionsSample: 'Вставить пример опросника',
   noteConfigOptionsChangedTooltip: 'Маркеры опросника изменились в этом редактировании. Переключитесь на «Просмотреть заметку», чтобы проверить вопросы.',
-  noteConfigOptionsSampleBlock: '<!-- q:single "Вопрос с одиночным выбором с метками **Жирный** и `Отмеченный`, с подстановками **\\1** или `\\2`."\n  [* "Ответ 1", tag1, -tag2]\n  ["Ответ 2", tag2]\n-->\n\n<!-- q:multi "Еще один вопрос с метками **Жирный** и `Отмеченный`."\n  [* "Ответ A", tag-a]\n  ["Ответ B"]\n  ["Ответ C", tag-c]\n-->',
+  noteConfigOptionsSampleBlock: '<!-- q:single "Вопрос с одиночным выбором с метками **Жирный** и `Отмеченный`, с подстановками **\\1** или `\\2`."\n  [* "Ответ 1", +tag1, tag2]\n  ["Ответ 2", -tag2]\n-->\n\n<!-- q:multi "Еще один вопрос с метками **Жирный** и `Отмеченный`."\n  [* "Ответ A", tag-a]\n  ["Ответ B"]\n  ["Ответ C", +tag-c]\n-->',
   noteConfigOptionsApply: 'Применить теги опросника',
   noteConfigOptionsApplyConfirmTitle: 'Применить теги опросника?',
   noteConfigOptionsApplyConfirmBody: 'Включить {enabled} конфигов, отключить {disabled} конфигов. Конфиги без тегов не изменяются.',

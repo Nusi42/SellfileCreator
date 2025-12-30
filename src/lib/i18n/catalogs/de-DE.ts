@@ -1091,7 +1091,7 @@ const overrides: Catalog = {
   noteInsertMetasets: 'Metaset-Liste einfügen',
   noteInsertConfigOptionsSample: 'Beispiel-Fragebogen einfügen',
   noteConfigOptionsChangedTooltip: 'Config-Optionen-Markierungen wurden in dieser Bearbeitung geändert. Wechsle zu „Notiz ansehen“, um die Fragen zu prüfen.',
-  noteConfigOptionsSampleBlock: '<!-- q:single "Einzelauswahlfrage mit **Fett** und `Markiert`-Labels, mit Referenzen **\\1** oder `\\2`."\n  [* "Antwort 1", tag1, -tag2]\n  ["Antwort 2", tag2]\n-->\n\n<!-- q:multi "Weitere Frage mit **Fett** und `Markiert`-Labels."\n  [* "Antwort A", tag-a]\n  ["Antwort B"]\n  ["Antwort C", tag-c]\n-->',
+  noteConfigOptionsSampleBlock: '<!-- q:single "Einzelauswahlfrage mit **Fett** und `Markiert`-Labels, mit Referenzen **\\1** oder `\\2`."\n  [* "Antwort 1", +tag1, tag2]\n  ["Antwort 2", -tag2]\n-->\n\n<!-- q:multi "Weitere Frage mit **Fett** und `Markiert`-Labels."\n  [* "Antwort A", tag-a]\n  ["Antwort B"]\n  ["Antwort C", +tag-c]\n-->',
   noteConfigOptionsApply: 'Fragebogen-Tags anwenden',
   noteConfigOptionsApplyConfirmTitle: 'Fragebogen-Tags anwenden?',
   noteConfigOptionsApplyConfirmBody: '{enabled} Konfigs aktivieren, {disabled} Konfigs deaktivieren. Nicht getaggte Konfigs bleiben unverändert.',

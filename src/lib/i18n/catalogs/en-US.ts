@@ -1091,7 +1091,7 @@ const enUS: Catalog = {
   noteInsertMetasets: 'Insert Metaset List',
   noteInsertConfigOptionsSample: 'Insert sample config options',
   noteConfigOptionsChangedTooltip: 'Config options markers changed in this edit session. Switch to View Note to review the questions.',
-  noteConfigOptionsSampleBlock: '<!-- q:single "Single-select question with **Bold**, and `Marked` labels, using labels **\\1** or `\\2`."\n  [* "Answer 1", tag1, -tag2]\n  ["Answer 2", tag2]\n-->\n\n<!-- q:multi "Another question with **Bold** and `Marked` labels."\n  [* "Answer A", tag-a]\n  ["Answer B"]\n  ["Answer C", tag-c]\n-->',
+  noteConfigOptionsSampleBlock: '<!-- q:single "Single-select question with **Bold**, and `Marked` labels, using labels **\\1** or `\\2`."\n  [* "Answer 1", +tag1, tag2]\n  ["Answer 2", -tag2]\n-->\n\n<!-- q:multi "Another question with **Bold** and `Marked` labels."\n  [* "Answer A", tag-a]\n  ["Answer B"]\n  ["Answer C", +tag-c]\n-->',
   noteConfigOptionsApply: 'Apply config options tags',
   noteConfigOptionsApplyConfirmTitle: 'Apply config options tags?',
   noteConfigOptionsApplyConfirmBody: 'Enable {enabled} configs, disable {disabled} configs. Untagged configs are unchanged.',

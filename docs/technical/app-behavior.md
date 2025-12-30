@@ -231,12 +231,12 @@ This document captures runtime behavior, builder interactions, and user-facing w
 - Edit: The dialog uses an embedded Markdown editor (`@uiw/react-md-editor`) with sanitized previews (`rehype-sanitize`). The editor lives in `src/components/NoteDialog.tsx`.
 - Edit/View switch: The edit dialog now includes a `View Note…` button (outlined, bottom-left) that switches back to view mode. If config options markers changed versus the original note, the button shows a warning badge.
 - Config options markers: HTML comments inside the note can render interactive question blocks in the read-only view. Markers can be inline or multi-line; whitespace is optional.
-  - Syntax (single): `<!-- q:single "Prompt" [* "Yes", tag1, tag2] ["No", -tag1] -->`.
-  - Syntax (multi): `<!-- q:multi "Prompt" [* "Option", tag1] ["Other", tag2] -->`.
-  - `*` before the label marks the default selection. `-tag` removes that tag from the active set. Whitespace is optional.
+  - Syntax (single): `<!-- q:single "Prompt" [* "Yes", +tag1, tag2] ["No", -tag1] -->`.
+  - Syntax (multi): `<!-- q:multi "Prompt" [* "Option", tag-a] ["Other", +tag-b] -->`.
+  - `*` before the label marks the default selection. `+tag` forces enable, `-tag` forces disable, and a bare `tag` toggles the stored export mode. Whitespace is optional.
   - Prompt references: Wrap option labels in backticks to render them as chips (e.g., ``Answering `Yes` will...``). Use numeric references like `` `\1` `` (1-based) to inject the Nth option label. Wrap emphasis text in `**double-asterisks**` to render it with the Quota/Scope label style; both markers work in prompts and option labels. Prompts accept literal newlines or `\n` escapes for line breaks.
-  - Questions are evaluated top-to-bottom; later answers can override tags from earlier ones.
-- Config options effects: Answers never mutate HSFC configs. Instead, config options tags compute an effective export mode at runtime (for preview + HSF export) while configs stay unchanged in storage. Tagged configs only override when at least one tag matches the active set; otherwise the stored export mode is preserved.
+  - Questions are evaluated top-to-bottom; tag actions for a config apply in the order of that config’s tag list so toggles resolve deterministically.
+- Config options effects: Answers never mutate HSFC configs. Instead, config options tag actions compute an effective export mode at runtime (for preview + HSF export) while configs stay unchanged in storage. Tagged configs override only when at least one tag action matches their tag list; otherwise the stored export mode is preserved.
 - Session-only answers: Config options answers are stored in autosave/session state only; HSFC exports never include them.
 - Save/Copy: If a Note exists (non-empty), HSFC exports and “Copy all Configs” include it.
 - Paste semantics: Pasting HSFC content (via context menu or manual paste) only overwrites the current note if the current note is empty. Loading a file always overwrites the current note.
