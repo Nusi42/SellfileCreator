@@ -10,10 +10,10 @@ const enUS: Catalog = {
   configsSelectedCount: '{selected} of {total} {word}',
   configsTotalCount: '{count} {word}',
   configsHiddenSuffix: ' ({hidden} Hidden)',
-  editNote: 'Edit Note…',
-  viewNote: 'View Note…',
-  addNote: 'Add Note…',
-  noteOpen: 'Note…',
+  editNote: 'Edit Note & Config Options…',
+  viewNote: 'View Note & Config Options…',
+  addNote: 'Add Note & Config Options…',
+  noteOpen: 'Note & Config Options…',
   saveAllConfigs: 'Save All Configs (.hsfc)',
   saveAllConfigsTooltip: 'Save every config, metaset, minima, and note into a Configs (.hsfc) snapshot you can reload later.',
   deleteConfigs: 'Delete All Configs',
@@ -956,7 +956,7 @@ const enUS: Catalog = {
   slotBanner: 'Banner',
 
   // Note dialog
-  noteTitle: 'Note',
+  noteTitle: 'Note & Config Options',
   titleClearNote: 'Clear Note?',
   msgClearNote: 'This will remove the current note from HSFC. This action cannot be undone.',
 

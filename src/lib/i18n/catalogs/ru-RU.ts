@@ -10,10 +10,10 @@ const overrides: Catalog = {
   configsSelectedCount: '{selected} из {total} {word}',
   configsTotalCount: '{count} {word}',
   configsHiddenSuffix: ' ({hidden} скрыто)',
-  editNote: 'Редактировать заметку…',
-  viewNote: 'Просмотреть заметку…',
-  addNote: 'Добавить заметку…',
-  noteOpen: 'Заметка…',
+  editNote: 'Редактировать заметку и параметры конфигурации…',
+  viewNote: 'Просмотреть заметку и параметры конфигурации…',
+  addNote: 'Добавить заметку и параметры конфигурации…',
+  noteOpen: 'Заметка и параметры конфигурации…',
   saveAllConfigs: 'Сохранить все конфиги (.hsfc)',
   saveAllConfigsTooltip: 'Сохраните все конфиги, метасеты, минимумы и заметки в файл Configs (.hsfc), который можно будет снова загрузить позже.',
   deleteConfigs: 'Удалить все конфиги',
@@ -956,7 +956,7 @@ const overrides: Catalog = {
   slotBanner: 'Знамя',
 
   // Note dialog
-  noteTitle: 'Заметка',
+  noteTitle: 'Заметка и параметры конфигурации',
   titleClearNote: 'Очистить заметку?',
   msgClearNote: 'Это удалит текущую заметку из HSFC. Действие нельзя отменить.',
 

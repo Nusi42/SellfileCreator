@@ -10,10 +10,10 @@ const overrides: Catalog = {
   configsSelectedCount: '{total} {word} içinden {selected}',
   configsTotalCount: '{count} {word}',
   configsHiddenSuffix: ' ({hidden} gizli)',
-  editNote: 'Notu düzenle…',
-  viewNote: 'Notu görüntüle…',
-  addNote: 'Not ekle…',
-  noteOpen: 'Not…',
+  editNote: 'Not ve yapılandırma seçeneklerini düzenle…',
+  viewNote: 'Not ve yapılandırma seçeneklerini görüntüle…',
+  addNote: 'Not ve yapılandırma seçenekleri ekle…',
+  noteOpen: 'Not ve yapılandırma seçenekleri…',
   saveAllConfigs: 'Tüm konfigleri kaydet (.hsfc)',
   saveAllConfigsTooltip: 'Tüm konfigleri, metasetleri, minimumları ve notları daha sonra tekrar yükleyebileceğiniz bir Configs (.hsfc) dosyasına kaydedin.',
   deleteConfigs: 'Tüm konfigleri sil',
@@ -956,7 +956,7 @@ const overrides: Catalog = {
   slotBanner: 'Sancak',
 
   // Note dialog
-  noteTitle: 'Not',
+  noteTitle: 'Not ve yapılandırma seçenekleri',
   titleClearNote: 'Not silinsin mi?',
   msgClearNote: 'Bu işlem mevcut notu HSFC’dan kaldırır. Geri alınamaz.',
 

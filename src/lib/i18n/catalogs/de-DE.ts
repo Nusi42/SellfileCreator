@@ -10,10 +10,10 @@ const overrides: Catalog = {
   configsSelectedCount: '{selected} von {total} {word}',
   configsTotalCount: '{count} {word}',
   configsHiddenSuffix: ' ({hidden} ausgeblendet)',
-  editNote: 'Notiz bearbeiten…',
-  viewNote: 'Notiz ansehen…',
-  addNote: 'Notiz hinzufügen…',
-  noteOpen: 'Notiz…',
+  editNote: 'Notiz & Konfigurationsoptionen bearbeiten…',
+  viewNote: 'Notiz & Konfigurationsoptionen ansehen…',
+  addNote: 'Notiz & Konfigurationsoptionen hinzufügen…',
+  noteOpen: 'Notiz & Konfigurationsoptionen…',
   saveAllConfigs: 'Alle Konfigs speichern (.hsfc)',
   saveAllConfigsTooltip: 'Speichere alle Konfigs, Metasets, Minima und Notizen als Configs-Schnappschuss (.hsfc), den du später erneut laden kannst.',
   deleteConfigs: 'Alle Konfigs löschen',
@@ -956,7 +956,7 @@ const overrides: Catalog = {
   slotBanner: 'Banner',
 
   // Note dialog
-  noteTitle: 'Notiz',
+  noteTitle: 'Notiz & Konfigurationsoptionen',
   titleClearNote: 'Notiz löschen?',
   msgClearNote: 'Dies entfernt die aktuelle Notiz aus HSFC. Dieser Vorgang kann nicht rückgängig gemacht werden.',
 

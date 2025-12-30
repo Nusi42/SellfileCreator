@@ -10,10 +10,10 @@ const overrides: Catalog = {
   configsSelectedCount: '{selected} de {total} {word}',
   configsTotalCount: '{count} {word}',
   configsHiddenSuffix: ' ({hidden} ocultas)',
-  editNote: 'Editar nota…',
-  viewNote: 'Ver nota…',
-  addNote: 'Adicionar nota…',
-  noteOpen: 'Nota…',
+  editNote: 'Editar nota e opções de configuração…',
+  viewNote: 'Ver nota e opções de configuração…',
+  addNote: 'Adicionar nota e opções de configuração…',
+  noteOpen: 'Nota e opções de configuração…',
   saveAllConfigs: 'Guardar todas as configs (.hsfc)',
   saveAllConfigsTooltip: 'Guarde todas as configurações, metasets, mínimos e notas num ficheiro Configs (.hsfc) para o carregar novamente mais tarde.',
   deleteConfigs: 'Eliminar todas as configs',
@@ -956,7 +956,7 @@ const overrides: Catalog = {
   slotBanner: 'Estandarte',
 
   // Note dialog
-  noteTitle: 'Nota',
+  noteTitle: 'Nota e opções de configuração',
   titleClearNote: 'Limpar nota?',
   msgClearNote: 'Isso removerá a nota atual do HSFC. Esta ação não pode ser desfeita.',
 

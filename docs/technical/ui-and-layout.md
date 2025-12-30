@@ -106,6 +106,11 @@ Anything that is not overflow-triggered runs through `MarkdownTooltip`. Represen
 
 If tooltips need rich formatting (colored badges, inline icons), pass JSX via `render={<BuilderTooltipContent .../>}`. Everything else should use `markdown=` strings so translations stay readable and formatting stays consistent.
 
+### Note Dialog Sizing
+
+- The Note dialog uses a fixed height (`84vh`) so sparse content does not shrink the shell.
+- View and edit modes share the same width and height constraints for a consistent toggle experience.
+
 ### Verification checklist
 
 - `rg '<Tooltip' src` should match only the definition in `MarkdownTooltip.tsx`.

@@ -10,10 +10,10 @@ const overrides: Catalog = {
   configsSelectedCount: '{selected} з {total} {word}',
   configsTotalCount: '{count} {word}',
   configsHiddenSuffix: ' ({hidden} приховано)',
-  editNote: 'Редагувати нотатку…',
-  viewNote: 'Переглянути нотатку…',
-  addNote: 'Додати нотатку…',
-  noteOpen: 'Нотатка…',
+  editNote: 'Редагувати нотатку й параметри конфігурації…',
+  viewNote: 'Переглянути нотатку й параметри конфігурації…',
+  addNote: 'Додати нотатку й параметри конфігурації…',
+  noteOpen: 'Нотатка й параметри конфігурації…',
   saveAllConfigs: 'Зберегти всі конфіги (.hsfc)',
   saveAllConfigsTooltip: 'Збережіть усі конфіги, метасети, мінімуми та нотатки у файл Configs (.hsfc), який можна буде відкрити пізніше.',
   deleteConfigs: 'Видалити всі конфіги',
@@ -956,7 +956,7 @@ const overrides: Catalog = {
   slotBanner: 'Прапор',
 
   // Note dialog
-  noteTitle: 'Нотатка',
+  noteTitle: 'Нотатка й параметри конфігурації',
   titleClearNote: 'Очистити нотатку?',
   msgClearNote: 'Це видалить поточну нотатку з HSFC. Дію не можна скасувати.',
 

@@ -10,10 +10,10 @@ const overrides: Catalog = {
   configsSelectedCount: '{selected} di {total} {word}',
   configsTotalCount: '{count} {word}',
   configsHiddenSuffix: ' ({hidden} nascoste)',
-  editNote: 'Modifica nota…',
-  viewNote: 'Visualizza nota…',
-  addNote: 'Aggiungi nota…',
-  noteOpen: 'Nota…',
+  editNote: 'Modifica nota e opzioni di configurazione…',
+  viewNote: 'Visualizza nota e opzioni di configurazione…',
+  addNote: 'Aggiungi nota e opzioni di configurazione…',
+  noteOpen: 'Nota e opzioni di configurazione…',
   saveAllConfigs: 'Salva tutte le configurazioni (.hsfc)',
   saveAllConfigsTooltip: 'Salva tutte le configurazioni, metaset, minimi e note in un file Configs (.hsfc) che potrai ricaricare in seguito.',
   deleteConfigs: 'Elimina tutte le configurazioni',
@@ -956,7 +956,7 @@ const overrides: Catalog = {
   slotBanner: 'Vessillo',
 
   // Note dialog
-  noteTitle: 'Nota',
+  noteTitle: 'Nota e opzioni di configurazione',
   titleClearNote: 'Svuotare la nota?',
   msgClearNote: 'Questo rimuove la nota corrente dall’HSFC. L’azione è irreversibile.',
 
