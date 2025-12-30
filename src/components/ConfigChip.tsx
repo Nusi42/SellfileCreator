@@ -25,7 +25,7 @@ import { NBSP, CHIP_ROLL_BADGE_FONT_SIZE_PX, CHIP_ROLL_BADGE_SIZE_PX, HOVER_BG_A
 import { normalizeLooseRollTargetEntry, resolveAutoRarityCode } from '../lib/hsfBuilder'
 import { isLockedAggregateScopeActive, isMilestoneThresholdsActive } from '../lib/configNormalization'
 import { artifactTypeIconFor } from './artifactTypeIcons'
-import { useContextMenuCloseOnOutsideRightClick } from '../hooks/useContextMenuCloseOnOutsideRightClick'
+import { useContextMenuPaperGuard } from '../hooks/useContextMenuPaperGuard'
 import { useI18n } from '../lib/i18n'
 import { parseConfigNameDirectives } from '../lib/configNameDirectives'
 import { FactionIcon } from './FactionIcon'
@@ -239,7 +239,8 @@ function ConfigChip({
     setMenu(null)
     onHighlightDelete?.(false)
   }, [onHighlightDelete])
-  useContextMenuCloseOnOutsideRightClick({
+  // Guard the menu so outside clicks cannot leave a stuck overlay.
+  const { contextMenuGuard } = useContextMenuPaperGuard({
     open: Boolean(menu?.open),
     onClose: closeMenu,
     menuRef: menuPaperRef,
@@ -552,6 +553,7 @@ function ConfigChip({
         paperRef={menuPaperRef}
         paperDataTourId="chip.menu"
         onPaperContextMenu={handleMenuContextMenu}
+        contextMenuGuard={contextMenuGuard}
         actions={{
           duplicate: onDuplicate,
           moveTop: { handler: onMoveTop, disabled: index === 0 },

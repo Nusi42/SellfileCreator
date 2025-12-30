@@ -15,7 +15,7 @@ import { focusCycleWithin } from '../lib/focusCycle'
 import SetMenuSection from './SetMenuSection'
 import MetasetsDialog from './MetasetsDialog'
 import { useMetasetsDialog } from '../hooks/useMetasetsDialog'
-import { useContextMenuCloseOnOutsideRightClick } from '../hooks/useContextMenuCloseOnOutsideRightClick'
+import { useContextMenuPaperGuard } from '../hooks/useContextMenuPaperGuard'
 import { useContextMenuHint } from '../hooks/useContextMenuHint'
 import { useGearSetCatalogVersion } from '../hooks/useGearSetCatalogVersion'
 import type { HistoryPreview, DescribeNextChangeFn, HistoryTimelineEntry } from '../hooks/useHsfcHistory'
@@ -60,7 +60,6 @@ import { type Metaset, metasetGlyph, orderMetasetIds } from '../lib/metasets'
 //
 
 import { Box, Button, Divider, Stack, Typography, TextField, Chip, FormControl, FormLabel, Select, MenuItem, ListSubheader, InputAdornment, Menu, Badge } from '@mui/material'
-import type { PaperProps as MuiPaperProps } from '@mui/material/Paper'
 import SetsOrderControls from './SetsOrderControls'
 import SubstatTargetsDialog from './SubstatTargetsDialog'
 import type { SelectChangeEvent } from '@mui/material/Select'
@@ -74,7 +73,7 @@ import WorkloadProgressIndicator from './WorkloadProgressIndicator'
 import InlineSelectClearButton from './InlineSelectClearButton'
 import SelectDropdownActivator from './SelectDropdownActivator'
 import BuilderCheatSheetPopover from './BuilderCheatSheetPopover'
-import ContextMenuPaper from './ContextMenuPaper'
+import ContextMenuPaper, { buildContextMenuPaperSlotProps } from './ContextMenuPaper'
 import { SubstatToggleDisplay, substatToggleGroupSx } from './SubstatToggleDisplay'
 import { resolveSubstatChipPalette, SUBSTAT_CHIP_BORDER_RADIUS_PX } from './RuleSubstatChips'
 import LockIcon from '@mui/icons-material/Lock'
@@ -906,7 +905,8 @@ const resolveSubstatTargetEntry = React.useCallback((variant: StatVariant): Subs
     if (typeof entry === 'number' && Number.isFinite(entry)) return entry
     return resolveTargetFallbackValue(rollIndex)
   }, [targetDraftBase, targetDraftRolls, resolveTargetFallbackValue])
-  useContextMenuCloseOnOutsideRightClick({
+  // Close the substat menu on outside clicks to prevent stuck overlays.
+  const { contextMenuGuard: substatMenuGuard } = useContextMenuPaperGuard({
     open: menuOpen,
     onClose: handleSubstatMenuClose,
     menuRef: substatMenuPaperRef,
@@ -1389,6 +1389,7 @@ const maxLevelValue = multiEditActive
     historyMenuOpen,
     historyMenuAnchor,
     historyMenuPaperRef,
+    historyMenuGuard,
     closeHistoryMenu,
     handleHistoryContextMenu,
     handleHistoryMouseMove,
@@ -1672,7 +1673,7 @@ const maxLevelValue = multiEditActive
     backgroundImage: `linear-gradient(135deg, ${mixedPatternColor} 50%, transparent 50%)`,
   }), [mixedBorderColor, mixedPatternColor, mixedTextColor])
   // Close the tag popover on outside interactions to avoid stuck overlays.
-  useContextMenuCloseOnOutsideRightClick({
+  const { contextMenuGuard: tagsMenuGuard } = useContextMenuPaperGuard({
     open: tagsPopoverOpen,
     onClose: closeTagsPopover,
     menuRef: tagsMenuPaperRef,
@@ -2676,13 +2677,14 @@ const maxLevelValue = multiEditActive
                 transformOrigin={{ vertical: 'top', horizontal: 'left' }}
                 MenuListProps={{ disablePadding: true }}
                 slotProps={{
-                  paper: {
+                  paper: buildContextMenuPaperSlotProps({
                     component: ContextMenuPaper,
+                    contextMenuGuard: tagsMenuGuard,
                     onRequestClose: closeTagsPopover,
                     closeLabel: t('close'),
                     ref: tagsMenuPaperRef,
                     sx: { minWidth: 260, maxWidth: 'calc(100vw - 32px)' },
-                  } as unknown as MuiPaperProps,
+                  }),
                 }}
               >
                 {/* Content block keeps spacing predictable inside the menu shell. */}
@@ -2781,6 +2783,7 @@ const maxLevelValue = multiEditActive
               onClose={closeHistoryMenu}
               paperRef={historyMenuPaperRef}
               onPaperContextMenu={handleHistoryMenuContextMenu}
+              contextMenuGuard={historyMenuGuard}
               entries={historyTimeline}
               t={t}
               onSelectEntry={handleHistoryEntrySelect}
@@ -4622,13 +4625,14 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                     {...(menuOpen ? { anchorPosition: { top: menuAnchor.y, left: menuAnchor.x } } : {})}
                     keepMounted
                     slotProps={{
-                      paper: {
+                      paper: buildContextMenuPaperSlotProps({
                         component: ContextMenuPaper,
+                        contextMenuGuard: substatMenuGuard,
                         onRequestClose: handleSubstatMenuClose,
                         closeLabel: t('close'),
                         ref: substatMenuPaperRef,
                         sx: { minWidth: SUBSTAT_MENU_WIDTH_PX },
-                      } as unknown as MuiPaperProps,
+                      }),
                     }}
                     MenuListProps={{ dense: true, disablePadding: true, sx: { py: 0 } }}
                   >

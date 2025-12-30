@@ -8,7 +8,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type MutableRefObject } from 'react'
 import type { HistoryPreview } from '../../hooks/useHsfcHistory'
 import { formatHistoryTooltipText } from '../../history/historyTooltip'
-import { useContextMenuCloseOnOutsideRightClick } from '../../hooks/useContextMenuCloseOnOutsideRightClick'
+import { useContextMenuPaperGuard } from '../../hooks/useContextMenuPaperGuard'
+import type { ContextMenuPaperGuardToken } from '../ContextMenuPaper'
 import { useContextMenuHint } from '../../hooks/useContextMenuHint'
 import type { I18nContextValue } from '../../lib/i18n'
 
@@ -28,6 +29,7 @@ export interface BuilderHistoryMenuResult {
   historyMenuOpen: boolean
   historyMenuAnchor: { top: number; left: number } | null
   historyMenuPaperRef: MutableRefObject<HTMLDivElement | null>
+  historyMenuGuard: ContextMenuPaperGuardToken
   closeHistoryMenu: () => void
   handleHistoryContextMenu: (event: React.MouseEvent) => void
   handleHistoryMouseMove: (event: React.MouseEvent) => void
@@ -76,7 +78,7 @@ export function useBuilderHistoryMenu({ undoPreview, redoPreview, t, onRequestCl
   const closeHistoryMenu = useCallback(() => { setHistoryMenuState(null) }, [])
 
   // Shared hook keeps the menu closed when users click outside via either mouse button.
-  useContextMenuCloseOnOutsideRightClick({
+  const { contextMenuGuard: historyMenuGuard } = useContextMenuPaperGuard({
     open: historyMenuOpen,
     onClose: closeHistoryMenu,
     menuRef: historyMenuPaperRef,
@@ -136,6 +138,7 @@ export function useBuilderHistoryMenu({ undoPreview, redoPreview, t, onRequestCl
     historyMenuOpen,
     historyMenuAnchor,
     historyMenuPaperRef,
+    historyMenuGuard,
     closeHistoryMenu,
     handleHistoryContextMenu,
     handleHistoryMouseMove,

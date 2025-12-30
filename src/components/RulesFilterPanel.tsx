@@ -77,10 +77,9 @@ import InlineSelectExtraBadge from './InlineSelectExtraBadge'
 import SelectDropdownActivator from './SelectDropdownActivator'
 import ClearIconButton from './ClearIconButton'
 import ClearIcon from '@mui/icons-material/Clear'
-import ContextMenuPaper from './ContextMenuPaper'
+import ContextMenuPaper, { buildContextMenuPaperSlotProps } from './ContextMenuPaper'
 import ContextMenuTitle from './ContextMenuTitle'
-import { useContextMenuCloseOnOutsideRightClick } from '../hooks/useContextMenuCloseOnOutsideRightClick'
-import type { PaperProps as MuiPaperProps } from '@mui/material/Paper'
+import { useContextMenuPaperGuard } from '../hooks/useContextMenuPaperGuard'
 import { useSetsOrderPreference } from '../state/setsOrderPreference'
 import { TESTER_CONFIG_FILTER_MODE_DEFAULT, type TesterConfigFilterMode } from '../types/testerConfigFilterMode'
 import type { ChampionLocation } from '../lib/importers/gearDbNormalizer'
@@ -476,7 +475,8 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
   const handleTesterRollsClose = React.useCallback(() => {
     setTesterRollsAnchorEl(null)
   }, [])
-  useContextMenuCloseOnOutsideRightClick({
+  // Guard the tester rolls popover so outside clicks cannot leave a stuck overlay.
+  const { contextMenuGuard: testerRollsGuard } = useContextMenuPaperGuard({
     open: testerRollsOpen,
     onClose: handleTesterRollsClose,
     menuRef: testerRollsPaperRef,
@@ -487,7 +487,8 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
   const handleLastUsePopoverClose = React.useCallback(() => {
     setLastUseAnchorEl(null)
   }, [])
-  useContextMenuCloseOnOutsideRightClick({
+  // Guard the last-used popover so outside clicks cannot leave a stuck overlay.
+  const { contextMenuGuard: lastUsePopoverGuard } = useContextMenuPaperGuard({
     open: lastUsePopoverOpen,
     onClose: handleLastUsePopoverClose,
     menuRef: lastUsePopoverPaperRef,
@@ -3288,13 +3289,14 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
             anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
             transformOrigin={{ vertical: 'top', horizontal: 'left' }}
             slotProps={{
-              paper: {
+              paper: buildContextMenuPaperSlotProps({
                 component: ContextMenuPaper,
+                contextMenuGuard: testerRollsGuard,
                 onRequestClose: handleTesterRollsClose,
                 closeLabel: t('close'),
                 ref: testerRollsPaperRef,
                 sx: { width: 310, maxWidth: 'calc(100vw - 32px)', p: 2.25 },
-              } as unknown as MuiPaperProps,
+              }),
             }}
           >
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
@@ -3404,13 +3406,14 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
             anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
             transformOrigin={{ vertical: 'top', horizontal: 'left' }}
             slotProps={{
-              paper: {
+              paper: buildContextMenuPaperSlotProps({
                 component: ContextMenuPaper,
+                contextMenuGuard: lastUsePopoverGuard,
                 onRequestClose: handleLastUsePopoverClose,
                 closeLabel: t('close'),
                 ref: lastUsePopoverPaperRef,
                 sx: { width: 320, maxWidth: 'calc(100vw - 32px)', p: 2.25 },
-              } as unknown as MuiPaperProps,
+              }),
             }}
           >
             <Stack spacing={1.5}>
