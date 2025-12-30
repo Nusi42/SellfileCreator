@@ -236,7 +236,7 @@ This document captures runtime behavior, builder interactions, and user-facing w
   - `*` before the label marks the default selection. `-tag` removes that tag from the active set. Whitespace is optional.
   - Prompt references: Wrap option labels in backticks to render them as chips (e.g., ``Answering `Yes` will...``). Use numeric references like `` `\1` `` (1-based) to inject the Nth option label. Wrap emphasis text in `**double-asterisks**` to render it with the Quota/Scope label style; both markers work in prompts and option labels. Prompts accept literal newlines or `\n` escapes for line breaks.
   - Questions are evaluated top-to-bottom; later answers can override tags from earlier ones.
-- Config options effects: Answers never mutate HSFC configs. Instead, config options tags compute an effective export mode at runtime (for preview + HSF export) while configs stay unchanged in storage.
+- Config options effects: Answers never mutate HSFC configs. Instead, config options tags compute an effective export mode at runtime (for preview + HSF export) while configs stay unchanged in storage. Tagged configs only override when at least one tag matches the active set; otherwise the stored export mode is preserved.
 - Session-only answers: Config options answers are stored in autosave/session state only; HSFC exports never include them.
 - Save/Copy: If a Note exists (non-empty), HSFC exports and “Copy all Configs” include it.
 - Paste semantics: Pasting HSFC content (via context menu or manual paste) only overwrites the current note if the current note is empty. Loading a file always overwrites the current note.

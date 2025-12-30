@@ -426,9 +426,10 @@ const resolveConfigOptionsExportModeWithSet = (
   // Untagged configs keep their explicit mode.
   const tags = Array.isArray(cfg.tags) ? cfg.tags : []
   if (tags.length === 0) return cfg.exportMode
-  // Enable when any config tag is present in the active set.
+  // Neutral-by-default: only override when a tag matches.
   const shouldEnable = tags.some((tag) => active.has(String(tag)))
-  return shouldEnable ? 'active' : 'disabled'
+  // Leave the stored mode untouched when no tags are active.
+  return shouldEnable ? 'active' : cfg.exportMode
 }
 
 // Resolve a config's export mode with a raw tag list.
