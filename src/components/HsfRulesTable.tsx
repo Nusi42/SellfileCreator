@@ -3,7 +3,6 @@ import { elementScroll, useVirtualizer } from '@tanstack/react-virtual'
 import type { VirtualizerOptions } from '@tanstack/react-virtual'
 import { Box, Button, Divider, Menu, MenuItem, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from '@mui/material'
 import { alpha } from '@mui/material/styles'
-import type { PaperProps as MuiPaperProps } from '@mui/material/Paper'
 import VisibilityIcon from '@mui/icons-material/Visibility'
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff'
 import StarBorderIcon from '@mui/icons-material/StarBorder'
@@ -33,11 +32,11 @@ import { useI18n } from '../lib/i18n'
 import RuleSubstatChips from './RuleSubstatChips'
 import { formatRuleSubstatSummary, formatRuleSubstatPlain, normalizeRuleSubstats, type RuleSubstatDetail } from '../lib/substatDisplay'
 import { resolveKeepUniqueRuleLabel } from '../lib/keepUniques'
-import { useContextMenuCloseOnOutsideRightClick } from '../hooks/useContextMenuCloseOnOutsideRightClick'
+import { useContextMenuPaperGuard } from '../hooks/useContextMenuPaperGuard'
 import { useContextMenuHint } from '../hooks/useContextMenuHint'
 import { ContextMenuHintOverlay } from './ContextMenuHintOverlay'
 import { useRulesTableColumnsPreference, type StoredColumnConfig } from '../state/rulesTableColumnsPreference'
-import ContextMenuPaper from './ContextMenuPaper'
+import ContextMenuPaper, { buildContextMenuPaperSlotProps } from './ContextMenuPaper'
 import { HEADER_MENU_LABEL_SX } from './tableHeaderMenuStyles'
 import { EmptyStateMessage } from './EmptyStateMessage'
 import { getRuleConfigIndex } from '../lib/ruleConfigIndex'
@@ -436,12 +435,14 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
   const rowMenuPaperRef = useRef<HTMLDivElement | null>(null)
   const closeHeaderMenu = useCallback(() => { setHeaderMenu(null) }, [setHeaderMenu])
   const closeRowMenu = useCallback(() => { setRowMenu(null) }, [setRowMenu])
-  useContextMenuCloseOnOutsideRightClick({
+  // Guard the header menu so outside clicks cannot leave a stuck overlay.
+  const { contextMenuGuard: headerMenuGuard } = useContextMenuPaperGuard({
     open: Boolean(headerMenu?.open),
     onClose: closeHeaderMenu,
     menuRef: headerMenuPaperRef,
   })
-  useContextMenuCloseOnOutsideRightClick({
+  // Guard the row menu so outside clicks cannot leave a stuck overlay.
+  const { contextMenuGuard: rowMenuGuard } = useContextMenuPaperGuard({
     open: Boolean(rowMenu?.open),
     onClose: closeRowMenu,
     menuRef: rowMenuPaperRef,
@@ -1473,13 +1474,14 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
         anchorReference="anchorPosition"
         {...(headerMenu?.open ? { anchorPosition: { top: headerMenu.y, left: headerMenu.x } } : {})}
         slotProps={{
-          paper: {
+          paper: buildContextMenuPaperSlotProps({
             component: ContextMenuPaper,
+            contextMenuGuard: headerMenuGuard,
             onRequestClose: closeHeaderMenu,
             closeLabel: t('close'),
             ref: headerMenuPaperRef,
             'data-tour-id': 'preview.header.menu',
-          } as unknown as MuiPaperProps,
+          }),
         }}
       >
         <MenuItem sx={{ gap: 1, alignItems: 'center' }} onClick={() => setWrapRows(!wrapRows)}>
@@ -1654,12 +1656,13 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
         anchorReference="anchorPosition"
         {...(rowMenu?.open ? { anchorPosition: { top: rowMenu.y, left: rowMenu.x } } : {})}
         slotProps={{
-          paper: {
+          paper: buildContextMenuPaperSlotProps({
             component: ContextMenuPaper,
+            contextMenuGuard: rowMenuGuard,
             onRequestClose: closeRowMenu,
             closeLabel: t('close'),
             ref: rowMenuPaperRef,
-          } as unknown as MuiPaperProps,
+          }),
         }}
       >
         {rowMenu?.source === RULE_SOURCE_HSF ? (

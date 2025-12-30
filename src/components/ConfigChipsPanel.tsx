@@ -12,7 +12,7 @@ import { reserveScrollbarGutterSpace } from '../lib/scrollbar'
 import ConfigChip from './ConfigChip'
 import type { BuilderConfig } from '../lib/hsfBuilder'
 import type { Metaset } from '../lib/metasets'
-import { useContextMenuCloseOnOutsideRightClick } from '../hooks/useContextMenuCloseOnOutsideRightClick'
+import { useContextMenuPaperGuard } from '../hooks/useContextMenuPaperGuard'
 import { useContextMenuHint } from '../hooks/useContextMenuHint'
 import { ContextMenuHintOverlay } from './ContextMenuHintOverlay'
 import { ConfigContextMenu } from './ConfigContextMenu'
@@ -135,7 +135,8 @@ function ConfigChipsPanel(props: {
     event.preventDefault()
     event.stopPropagation()
   }, [])
-  useContextMenuCloseOnOutsideRightClick({
+  // Guard the menu so outside clicks cannot leave a stuck overlay.
+  const { contextMenuGuard } = useContextMenuPaperGuard({
     open: Boolean(menu?.open),
     onClose: closeMenu,
     menuRef: menuPaperRef,
@@ -758,6 +759,7 @@ function ConfigChipsPanel(props: {
         paperRef={menuPaperRef}
         paperDataTourId="chips.menu"
         onPaperContextMenu={handleMenuContextMenu}
+        contextMenuGuard={contextMenuGuard}
         actions={{
           pasteAtEnd: onPasteAtEnd,
           selectAll: { handler: onSelectAll, disabled: visibleCount === 0, labelKey: selectAllLabelKey },

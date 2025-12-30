@@ -10,10 +10,18 @@ import {
 // Close button tooltip now uses MarkdownTooltip so every context menu inherits the same hover feel.
 import MarkdownTooltip from './MarkdownTooltip'
 
-interface ContextMenuPaperProps extends PaperProps {
+export type ContextMenuPaperGuardToken = {
+  readonly __contextMenuPaperGuardToken: 'ContextMenuPaperGuardToken'
+}
+
+export interface ContextMenuPaperProps extends PaperProps {
   onRequestClose: () => void
   closeLabel: string
   overlay?: React.ReactNode
+  // Required guard token forces callers to wire the outside-click cleanup.
+  contextMenuGuard: ContextMenuPaperGuardToken
+  // Allow data-tour-id for guided overlays without extra casting.
+  'data-tour-id'?: string
 }
 
 const basePaperSx: SxProps<Theme> = {
@@ -72,7 +80,7 @@ const closeButtonSx: SxProps<Theme> = (theme) => {
  * manage absolute positioning or spacing individually.
  */
 const ContextMenuPaper = React.forwardRef<HTMLDivElement, ContextMenuPaperProps>(function ContextMenuPaper(
-  { onRequestClose, closeLabel, overlay, children, sx, ...paperProps },
+  { contextMenuGuard: _contextMenuGuard, onRequestClose, closeLabel, overlay, children, sx, ...paperProps },
   ref,
 ) {
   const mergedSx = React.useMemo<SxProps<Theme>>(() => {
@@ -109,5 +117,10 @@ const ContextMenuPaper = React.forwardRef<HTMLDivElement, ContextMenuPaperProps>
     </Paper>
   )
 })
+
+// Helper for slotProps.paper so ContextMenuPaper requirements are type-checked.
+export function buildContextMenuPaperSlotProps(props: ContextMenuPaperProps): PaperProps {
+  return props
+}
 
 export default ContextMenuPaper

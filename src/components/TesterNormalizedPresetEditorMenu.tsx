@@ -7,9 +7,8 @@
  */
 import React from 'react'
 import { Box, Button, Divider, Menu, MenuItem, Select, Typography } from '@mui/material'
-import type { PaperProps as MuiPaperProps } from '@mui/material/Paper'
 import { alpha } from '@mui/material/styles'
-import ContextMenuPaper from './ContextMenuPaper'
+import ContextMenuPaper, { buildContextMenuPaperSlotProps } from './ContextMenuPaper'
 import ContextMenuTitle from './ContextMenuTitle'
 import { useI18n } from '../lib/i18n'
 import { DEFAULT_METASET_ICON_ID, METASET_ICON_OPTIONS, metasetIconOptionById, type MetasetIconId } from '../lib/metasetIcons'
@@ -17,7 +16,7 @@ import { DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT, STAT_VARIANTS_PRIORITY, type Stat
 import {
   TESTER_SORT_WEIGHT_DEFAULT,
 } from '../lib/testerSort'
-import { useContextMenuCloseOnOutsideRightClick } from '../hooks/useContextMenuCloseOnOutsideRightClick'
+import { useContextMenuPaperGuard } from '../hooks/useContextMenuPaperGuard'
 import type { TesterGridNormalizedPreset, TesterGridNormalizedPresetId } from '../state/testerGridNormalizedOverlayPreferences'
 import { TesterSortWeightControls } from './TesterSortWeightControls'
 
@@ -41,7 +40,7 @@ export type TesterNormalizedPresetEditorMenuProps = {
   onSetWeight: (presetId: TesterGridNormalizedPresetId, variant: StatVariant, next: number) => void
   onResetPreset: (presetId: TesterGridNormalizedPresetId) => void
   // Optional paper ref allows parent menus to treat this menu as "inside" for outside-click logic.
-  paperRef?: React.RefObject<HTMLDivElement | null>
+  paperRef?: React.RefObject<HTMLDivElement>
 }
 
 const formatInactiveWeight = (): string => {
@@ -74,7 +73,7 @@ export function TesterNormalizedPresetEditorMenu({
   const paperRef = paperRefProp ?? localPaperRef
 
   // Close-on-outside-right-click keeps the custom menu stack consistent with the rest of the app.
-  useContextMenuCloseOnOutsideRightClick({
+  const { contextMenuGuard } = useContextMenuPaperGuard({
     open,
     onClose,
     menuRef: paperRef,
@@ -93,13 +92,14 @@ export function TesterNormalizedPresetEditorMenu({
       {...(anchorPosition ? { anchorPosition: { top: anchorPosition.y, left: anchorPosition.x } } : {})}
       MenuListProps={{ disablePadding: true }}
       slotProps={{
-        paper: {
+        paper: buildContextMenuPaperSlotProps({
           component: ContextMenuPaper,
+          contextMenuGuard,
           onRequestClose: onClose,
           closeLabel: t('close'),
           ref: paperRef,
           sx: { width: 340, maxWidth: 'calc(100vw - 32px)', px: 0, py: 0 },
-        } as unknown as MuiPaperProps,
+        }),
       }}
     >
       <Box sx={{ px: 2.25, pt: 2.25, pb: 1 }}>

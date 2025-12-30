@@ -2495,7 +2495,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     if (selectionDraftSuppressionDepthRef.current > 0) return
     if (captureSnapshotNow) {
       const descriptor = computeDraftHistoryDescriptor()
-      captureSnapshotNow(descriptor)
+      // Force the next payload change to append so the draft snapshot stays in history.
+      captureSnapshotNow(descriptor, { forceAppend: true })
     }
   }
 
