@@ -1171,10 +1171,16 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
     () => resolveQuestionnaireExportMode(cfg, questionnaireActiveTags),
     [cfg, questionnaireActiveTags],
   )
-  // Show questionnaire-effective export mode unless multi-edit is active.
+  // Only mark an override when the single-config export mode would be different at export time.
+  const exportModeOverrideActive = !multiEditActive && effectiveExportMode !== cfg.exportMode
+  // Keep the toggle showing the stored mode so manual clicks are visible immediately.
   const exportModeValue: SellfileExportMode | null = multiEditActive
     ? (exportModeMixed ? null : (multiExportModeField?.value as SellfileExportMode | undefined ?? 'active'))
-    : effectiveExportMode
+    : cfg.exportMode
+  // Only decorate Active/Disabled when questionnaire tags flip the effective mode.
+  const exportModeOverrideTarget = exportModeOverrideActive && effectiveExportMode !== 'separator'
+    ? effectiveExportMode
+    : null
   const rankMixed = multiEditActive && (multiRankField?.status === 'mixed')
   const rankValue = multiEditActive
     ? (rankMixed ? '' : String((multiRankField?.value as number | undefined) ?? cfg.rankCode))
@@ -2572,6 +2578,20 @@ const maxLevelValue = multiEditActive
                   value="active"
                   sx={(theme) => ({
                     px: 1.5,
+                    ...(exportModeOverrideTarget === 'active' ? {
+                      '&::before': {
+                        content: '""',
+                        position: 'absolute',
+                        top: -6,
+                        left: '50%',
+                        transform: 'translateX(-50%)',
+                        width: 0,
+                        height: 0,
+                        borderLeft: '5px solid transparent',
+                        borderRight: '5px solid transparent',
+                        borderBottom: `6px solid ${alpha(theme.palette.text.primary, 0.45)}`,
+                      },
+                    } : {}),
                     '&.Mui-selected': {
                       bgcolor: theme.palette.success.main,
                       color: theme.palette.common.black,
@@ -2593,6 +2613,20 @@ const maxLevelValue = multiEditActive
                   value="disabled"
                   sx={(theme) => ({
                     px: 1.5,
+                    ...(exportModeOverrideTarget === 'disabled' ? {
+                      '&::before': {
+                        content: '""',
+                        position: 'absolute',
+                        top: -6,
+                        left: '50%',
+                        transform: 'translateX(-50%)',
+                        width: 0,
+                        height: 0,
+                        borderLeft: '5px solid transparent',
+                        borderRight: '5px solid transparent',
+                        borderBottom: `6px solid ${alpha(theme.palette.text.primary, 0.45)}`,
+                      },
+                    } : {}),
                     '&.Mui-selected': {
                       color: theme.palette.success.main,
                       bgcolor: 'transparent',
