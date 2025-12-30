@@ -1631,10 +1631,16 @@ const maxLevelValue = multiEditActive
   // Popover anchor and draft state for tag editing.
   const [tagsAnchor, setTagsAnchor] = useState<HTMLElement | null>(null)
   const [tagsDraft, setTagsDraft] = useState<string>('')
+  // Keep a ref to the tags menu so outside clicks can dismiss stuck backdrops.
+  const tagsMenuPaperRef = useRef<HTMLDivElement | null>(null)
   const currentDraftKey: number | 'builder' = editingIndex ?? 'builder'
   const nameDraftDirty = nameDraftKey === currentDraftKey
   // Derived UI state for tags in single vs multi-edit.
   const tagsPopoverOpen = Boolean(tagsAnchor)
+  // Centralize the close handler so onClose + outside-click cleanup stay aligned.
+  const closeTagsPopover = useCallback(() => {
+    setTagsAnchor(null)
+  }, [])
   // Memoize single-config tags so callbacks get stable dependencies.
   const tagsValue = useMemo(() => (cfg.tags ?? []), [cfg.tags])
   // Summarize tag presence for multi-edit so mixed tags are styled separately.
@@ -1665,6 +1671,12 @@ const maxLevelValue = multiEditActive
     color: mixedTextColor,
     backgroundImage: `linear-gradient(135deg, ${mixedPatternColor} 50%, transparent 50%)`,
   }), [mixedBorderColor, mixedPatternColor, mixedTextColor])
+  // Close the tag popover on outside interactions to avoid stuck overlays.
+  useContextMenuCloseOnOutsideRightClick({
+    open: tagsPopoverOpen,
+    onClose: closeTagsPopover,
+    menuRef: tagsMenuPaperRef,
+  })
   const usingMultiName = multiEditActive && Boolean(multiEdit)
   const multiNameMixed = usingMultiName && multiNameField?.status === 'mixed' && !(multiNameField?.dirty)
   const multiNameDraftValue = usingMultiName
@@ -2659,15 +2671,16 @@ const maxLevelValue = multiEditActive
               <Menu
                 open={tagsPopoverOpen}
                 anchorEl={tagsAnchor}
-                onClose={() => setTagsAnchor(null)}
+                onClose={closeTagsPopover}
                 anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
                 transformOrigin={{ vertical: 'top', horizontal: 'left' }}
                 MenuListProps={{ disablePadding: true }}
                 slotProps={{
                   paper: {
                     component: ContextMenuPaper,
-                    onRequestClose: () => setTagsAnchor(null),
+                    onRequestClose: closeTagsPopover,
                     closeLabel: t('close'),
+                    ref: tagsMenuPaperRef,
                     sx: { minWidth: 260, maxWidth: 'calc(100vw - 32px)' },
                   } as unknown as MuiPaperProps,
                 }}
