@@ -1070,6 +1070,9 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
                           }
                         }}
                         onContextMenu={(e) => {
+                          // Keep-unique preview rows are informational only (no builder actions).
+                          // Avoid opening a menu at all so we do not surface an empty context menu.
+                          if (isKeepUniqueSource) return
                           try {
                             e.preventDefault()
                             e.stopPropagation()
@@ -1086,6 +1089,8 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
                           })
                         }}
                         onMouseMove={(e) => {
+                          // Keep-unique rows do not expose a context menu, so skip the hint affordance.
+                          if (isKeepUniqueSource) return
                           if (!showRulesRowHint || rowMenu?.open) return
                           setHeaderHintPos(null)
                           setRowHintPos({ x: e.clientX, y: e.clientY })

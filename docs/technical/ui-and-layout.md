@@ -237,7 +237,7 @@ If tooltips need rich formatting (colored badges, inline icons), pass JSX via `r
   - Keep the chunked row helper (`chunkGroupRows`) in sync with the card grid layout; card height math still depends on the column count and match-row toggles.
   - Remember to update this section plus the inline comments in `TesterItemsGrid.tsx` whenever you tweak virtualization heuristics, skeleton batching (`useTesterGridCardContentReady`), or the scroll-hint sampling strategy.
   - Selecting a chip auto-scrolls to its first rule row (smooth in single-line mode; jump in wrap mode).
-- Row context menu matches chip actions (Duplicate, Move, Copy, Paste after, Delete). Base rows show Clear instead of Delete.
+- Row context menu matches chip actions (Duplicate, Move, Copy, Paste after, Delete). Base rows show Clear instead of Delete. Keep Unique rows do not show a row context menu.
 - Cells:
   - Index column colors Keep/Sell status; disabled rules show a strikethrough.
   - Indices stay aligned with merged order; filters never renumber.
