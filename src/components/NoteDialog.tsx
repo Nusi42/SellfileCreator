@@ -1,5 +1,5 @@
 import React, { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
-import { Box, Button, Checkbox, Dialog, DialogActions, DialogContent, DialogTitle, FormControl, FormControlLabel, FormGroup, LinearProgress, Radio, RadioGroup, Stack, Typography } from '@mui/material'
+import { Badge, Box, Button, Checkbox, Dialog, DialogActions, DialogContent, DialogTitle, FormControl, FormControlLabel, FormGroup, LinearProgress, Radio, RadioGroup, Stack, Typography } from '@mui/material'
 import { alpha, useTheme, type Theme } from '@mui/material/styles'
 import LocalOfferIcon from '@mui/icons-material/LocalOffer'
 import StarsIcon from '@mui/icons-material/Stars'
@@ -27,12 +27,12 @@ import MarkdownTooltip from './MarkdownTooltip'
 import { useGearSetCatalogVersion } from '../hooks/useGearSetCatalogVersion'
 import { KEEP_UNIQUE_DEFAULT_COUNT_MODE, sanitizeKeepUniqueCountMode, type KeepUniqueRule, KeepUniqueRuleActivation } from '../lib/keepUniques'
 import { resolveRarityLabel } from '../lib/testerPreviewFormatting'
+import { warningBadgeSx } from '../lib/badgeStyles'
 import {
-  buildQuestionnaireConfigImpact,
+  buildNoteQuestionnaireSignature,
   resolveQuestionnaireTags,
   type NoteQuestionDefinition,
   type NoteQuestionnaireAnswers,
-  type QuestionnaireConfigImpact,
 } from '../lib/noteQuestionnaire'
 
 // Limited color palette for Note highlighting rendered from Markdown via
@@ -1609,9 +1609,9 @@ export default function NoteDialog({
   onChange,
   onClose,
   onRequestEdit,
+  onRequestView,
   questionnaireAnswers,
   onQuestionnaireAnswersChange,
-  onApplyQuestionnaireTags,
   configs,
   metasets,
   keepUniqueRules,
@@ -1624,9 +1624,9 @@ export default function NoteDialog({
   onChange: (value: string, options?: { mode?: 'edit' | 'clear' }) => void
   onClose: () => void
   onRequestEdit: () => void
+  onRequestView: () => void
   questionnaireAnswers: NoteQuestionnaireAnswers
   onQuestionnaireAnswersChange: React.Dispatch<React.SetStateAction<NoteQuestionnaireAnswers>>
-  onApplyQuestionnaireTags: () => void
   configs: BuilderConfig[]
   metasets: Metaset[]
   keepUniqueRules: KeepUniqueRule[]
@@ -1635,7 +1635,6 @@ export default function NoteDialog({
 }) {
   const { t, lang } = useI18n()
   const editCommitRef = useRef<() => void>(() => onClose())
-  const [questionnaireConfirmOpen, setQuestionnaireConfirmOpen] = useState(false)
   const deferredNote = useDeferredValue(note)
   // View-only renders lean on the deferred snapshot so toggling loads does not stutter the dialog content.
   const renderNote = mode === 'view' ? deferredNote : note
@@ -1647,23 +1646,11 @@ export default function NoteDialog({
     () => buildKeepUniqueMarkerResolutions(renderNote ?? '', keepUniqueRules),
     [renderNote, keepUniqueRules],
   )
-  // Resolve questions + tags to drive the apply flow.
-  const questionnaireResolution = useMemo(
-    () => resolveQuestionnaireTags(renderNote ?? '', questionnaireAnswers),
-    [renderNote, questionnaireAnswers],
-  )
   // Map marker indices to question definitions for rendering.
   const questionnaireResolutions = useMemo(
     () => buildQuestionnaireMarkerResolutions(renderNote ?? '', questionnaireAnswers),
     [renderNote, questionnaireAnswers],
   )
-  // Compute the config impact for the confirmation dialog.
-  const questionnaireImpact = useMemo<QuestionnaireConfigImpact>(
-    () => buildQuestionnaireConfigImpact(configs, questionnaireResolution.activeTags),
-    [configs, questionnaireResolution.activeTags],
-  )
-  // Detect when there is at least one question to show.
-  const hasQuestionnaire = questionnaireResolution.questions.length > 0
   const handleQuestionnaireAnswerChange = React.useCallback((
     question: NoteQuestionDefinition,
     nextSelection: string[],
@@ -1837,14 +1824,6 @@ export default function NoteDialog({
                   <Button variant="outlined" onClick={onRequestEdit}>
                     {t('editNote')}
                   </Button>
-                  {hasQuestionnaire ? (
-                    <Button
-                      variant="contained"
-                      onClick={() => setQuestionnaireConfirmOpen(true)}
-                    >
-                      {t('noteQuestionnaireApply')}
-                    </Button>
-                  ) : null}
                 </Box>
                 <Button onClick={onClose}>{t('close')}</Button>
               </Box>
@@ -1860,6 +1839,7 @@ export default function NoteDialog({
             onChange={onChange}
             onClose={onClose}
             registerCommit={(fn) => { editCommitRef.current = fn }}
+            onRequestView={onRequestView}
             configs={configs}
             metasets={metasets}
             keepUniqueRules={keepUniqueRules}
@@ -1868,25 +1848,6 @@ export default function NoteDialog({
             allowElement={allowMarkdownElement}
           />
         )}
-      </Dialog>
-      <Dialog open={questionnaireConfirmOpen} onClose={() => setQuestionnaireConfirmOpen(false)}>
-        <DialogTitle>{t('noteQuestionnaireApplyConfirmTitle')}</DialogTitle>
-        <DialogContent>
-          <Typography variant="body2">
-            {t('noteQuestionnaireApplyConfirmBody', { enabled: questionnaireImpact.enableCount, disabled: questionnaireImpact.disableCount })}
-          </Typography>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setQuestionnaireConfirmOpen(false)}>{t('cancel')}</Button>
-          <Button
-            onClick={() => {
-              setQuestionnaireConfirmOpen(false)
-              onApplyQuestionnaireTags()
-            }}
-          >
-            {t('noteQuestionnaireApply')}
-          </Button>
-        </DialogActions>
       </Dialog>
     </NoteRenderContext.Provider>
   )
@@ -1900,6 +1861,7 @@ function NoteEditorContent({
   onChange,
   onClose,
   registerCommit,
+  onRequestView,
   configs,
   metasets,
   keepUniqueRules,
@@ -1914,6 +1876,7 @@ function NoteEditorContent({
   onChange: (value: string, options?: { mode?: 'edit' | 'clear' }) => void
   onClose: () => void
   registerCommit: (fn: () => void) => void
+  onRequestView: () => void
   configs: BuilderConfig[]
   metasets: Metaset[]
   keepUniqueRules: KeepUniqueRule[]
@@ -1925,6 +1888,17 @@ function NoteEditorContent({
   const editorRef = useRef<RefMDEditor | null>(null)
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [draft, setDraft] = useState<string>(note ?? '')
+  // Track questionnaire changes so the view-mode button can signal edits.
+  const baseQuestionnaireSignature = useMemo(
+    () => buildNoteQuestionnaireSignature(note ?? ''),
+    [note],
+  )
+  const draftQuestionnaireSignature = useMemo(
+    () => buildNoteQuestionnaireSignature(draft ?? ''),
+    [draft],
+  )
+  // Flag when questions were added/removed/changed in the draft.
+  const questionnaireChanged = baseQuestionnaireSignature !== draftQuestionnaireSignature
   const baseContext = useNoteRenderContext()
   // Resolve config markers inside the editor preview.
   const editorMarkerResolutions = useMemo(() => buildConfigMarkerResolutions(draft ?? '', configs), [draft, configs])
@@ -1964,6 +1938,12 @@ function NoteEditorContent({
     try { onChange(draft, { mode: 'edit' }) } catch {}
     onClose()
   }, [draft, onChange, onClose])
+  const commitAndView = React.useCallback(() => {
+    // Persist the draft before switching to view mode.
+    try { onChange(draft, { mode: 'edit' }) } catch {}
+    // Keep the dialog open while toggling to view mode.
+    onRequestView()
+  }, [draft, onChange, onRequestView])
 
   registerCommit(commitAndClose)
 
@@ -2327,6 +2307,22 @@ function NoteEditorContent({
       </DialogContent>
       <DialogActions sx={{ justifyContent: 'space-between', gap: 1, flexWrap: 'wrap' }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+          {/* Warn when questionnaire markers changed during this edit session. */}
+          <Badge
+            overlap="rectangular"
+            anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+            invisible={!questionnaireChanged}
+            sx={warningBadgeSx}
+            badgeContent="!"
+          >
+            {/* Match the view-mode edit button styling for symmetry. */}
+            <Button
+              variant="outlined"
+              onClick={commitAndView}
+            >
+              {t('viewNote')}
+            </Button>
+          </Badge>
           <Button
             size="small"
             variant="outlined"

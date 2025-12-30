@@ -119,6 +119,7 @@ function deriveSeparatorDividerDecoration(rawName: string | undefined, baseColor
 interface ConfigChipProps {
   index: number
   cfg: BuilderConfig
+  exportModeOverride?: SellfileExportMode
   gearSetCatalogVersion?: number
   visualVariant?: 'interactive' | 'static'
   dragEnabled?: boolean
@@ -155,6 +156,7 @@ interface ConfigChipProps {
 function ConfigChip({
   index,
   cfg,
+  exportModeOverride,
   gearSetCatalogVersion = 0,
   dragEnabled = false,
   onPointerDown,
@@ -197,7 +199,8 @@ function ConfigChip({
   )
   // Dev builds expose extra clipboard utilities via the chip context menu.
   const isDev: boolean = isDevBuild
-  const exportMode: SellfileExportMode = cfg.exportMode
+  // Allow callers to override the export mode for questionnaire previews.
+  const exportMode: SellfileExportMode = exportModeOverride ?? cfg.exportMode
   const isSeparator = exportMode === 'separator'
   const isHidden = exportMode === 'disabled'
   const separatorDecoration = useMemo(
@@ -603,6 +606,7 @@ function ConfigChip({
 
 function areConfigChipPropsEqual(prev: Readonly<ConfigChipProps>, next: Readonly<ConfigChipProps>): boolean {
   return prev.cfg === next.cfg
+    && prev.exportModeOverride === next.exportModeOverride
     && prev.index === next.index
     && prev.gearSetCatalogVersion === next.gearSetCatalogVersion
     && prev.dragEnabled === next.dragEnabled

@@ -227,7 +227,6 @@ import {
   describeConfigsCleared,
   describeConfigsDeleted,
   describeConfigsInserted,
-  describeQuestionnaireApplied,
 } from './history/configCollectionDescriptors'
 import { describeMetasetConflictResolved, describeMetasetDeleted, describeMetasetsReset } from './history/metasetDescriptors'
 import { describeSubstatTargetsChange, areSubstatTargetTablesEqual, isDefaultSubstatTargetTable, appendDescriptorDetails } from './history/substatTargetDescriptors'
@@ -236,8 +235,10 @@ import { describeNoteChange, normalizeNoteValue, type NoteDescriptorMode } from 
 import { describeHsfcLoaded, describeAutosaveRestored, makeClipboardSourceDescriptor } from './history/bulkLoadDescriptors'
 import { useAutoSideBySideZoom } from './hooks/useAutoSideBySideZoom'
 import {
-  buildQuestionnaireConfigImpact,
+  applyQuestionnaireExportModeOverrides,
+  buildQuestionnaireExportModeResolution,
   pruneNoteQuestionnaireAnswers,
+  resolveQuestionnaireExportMode,
   resolveQuestionnaireTags,
 } from './lib/noteQuestionnaire'
 
@@ -341,10 +342,29 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const { statButtonBorders } = useDisplayPreferences()
   const [autoApplySelectedConfig] = useAutoApplySelectedConfigPreference()
   const { setStatButtonBorders } = useDisplayPreferenceActions()
+  // Normalize the note text so questionnaire parsing never sees null.
+  const questionnaireNoteText = typeof hsfcNote === 'string' ? hsfcNote : ''
+  // Resolve questionnaire tags based on the current note + answers.
+  const questionnaireTagResolution = useMemo(
+    () => resolveQuestionnaireTags(questionnaireNoteText, noteQuestionnaireAnswers),
+    [questionnaireNoteText, noteQuestionnaireAnswers],
+  )
+  // Keep a stable array for downstream UI and filter logic.
+  const questionnaireActiveTags = questionnaireTagResolution.activeTags
+  // Resolve questionnaire-driven export modes for every config.
+  const questionnaireExportModes = useMemo(
+    () => buildQuestionnaireExportModeResolution(customCfgs, questionnaireActiveTags),
+    [customCfgs, questionnaireActiveTags],
+  )
+  // Apply the export-mode overrides for rule generation without mutating HSFC configs.
+  const questionnaireConfigsForRules = useMemo(
+    () => applyQuestionnaireExportModeOverrides(customCfgs, questionnaireExportModes.modes),
+    [customCfgs, questionnaireExportModes.modes],
+  )
   // Use a deferred snapshot so bursty substatTargets updates (e.g., Restore Defaults) coalesce before recomputing merged rules.
-  const ruleConfigs = useMemo(() => configsForRuleBuild(customCfgs), [customCfgs])
+  const ruleConfigs = useMemo(() => configsForRuleBuild(questionnaireConfigsForRules), [questionnaireConfigsForRules])
   const configNames = useMemo(() => customCfgs.map((cfg) => (typeof cfg?.name === 'string' ? cfg.name : '')), [customCfgs])
-  const configModes = useMemo(() => customCfgs.map((cfg) => cfg.exportMode), [customCfgs])
+  const configModes = useMemo(() => questionnaireExportModes.modes, [questionnaireExportModes])
   const substatTargetsForPreview = useDeferredValue(substatTargets)
   const metasetsForPreview = useDeferredValue(metasets)
   const ruleConfigsForPreview = useDeferredValue(ruleConfigs)
@@ -722,7 +742,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // values without waiting for React to flush state updates.
   const builderRef = React.useRef(builder)
   const [configRulesState, setConfigRulesState] = useState<ConfigRulesStateSnapshot>(() => {
-    const configsForRules = configsForRuleBuild(customCfgs)
+    // Seed the cache using questionnaire-effective export modes.
+    const configsForRules = configsForRuleBuild(questionnaireConfigsForRules)
     const baseRuleCount = Array.isArray(hsf?.Rules) ? (hsf?.Rules.length ?? 0) : 0
     const initial = updateConfigRulesCache({
       configs: configsForRules,
@@ -2425,44 +2446,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     ? getDirtyBuilderFieldKeys(multiEditDraftState.fields).length > 0
     : selectedIsDirty
 
-  const applyQuestionnaireTags = useCallback(() => {
-    // Resolve tags based on the current note and answers.
-    const noteText = typeof hsfcNote === 'string' ? hsfcNote : ''
-    const { questions, activeTags } = resolveQuestionnaireTags(noteText, noteQuestionnaireAnswers)
-    // Skip when no questions exist.
-    if (questions.length === 0) return
-    // Compute which configs change export mode.
-    const impact = buildQuestionnaireConfigImpact(customCfgs, activeTags)
-    // Exit when nothing changes.
-    if (impact.changedCount === 0) return
-    // Record a history entry for the Apply action.
-    const descriptor = describeQuestionnaireApplied({
-      changedIndices: impact.changedIndices,
-      configs: impact.nextConfigs,
-      enableCount: impact.enableCount,
-      disableCount: impact.disableCount,
-      t,
-    })
-    if (descriptor) describeNextChange(descriptor)
-    // Apply the updated configs in one batch.
-    setCustomCfgs(impact.nextConfigs)
-    // Sync the builder if the selected config changed and is clean.
-    if (selectedCfgIdx !== null && impact.changedIndices.includes(selectedCfgIdx) && !selectedIsDirty) {
-      const nextCfg = impact.nextConfigs[selectedCfgIdx]
-      if (nextCfg) setBuilder(nextCfg)
-    }
-  }, [
-    customCfgs,
-    describeNextChange,
-    hsfcNote,
-    noteQuestionnaireAnswers,
-    selectedCfgIdx,
-    selectedIsDirty,
-    setBuilder,
-    setCustomCfgs,
-    t,
-  ])
-
   const computeDraftHistoryDescriptor = useCallback((): HistoryEntryDescriptor => {
     if (multiselectActive && selectedCfgIndices.length > 1) {
       const labels = selectedCfgIndices
@@ -3451,9 +3434,20 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     const names = configNames.slice()
     names.splice(prospectiveInsertIndex, 0, builder.name ?? '')
     const modes = configModes.slice()
-    const builderExportMode: SellfileExportMode = builder.exportMode
+    // Resolve questionnaire overrides for the builder export mode.
+    const builderExportMode: SellfileExportMode = resolveQuestionnaireExportMode(builder, questionnaireActiveTags)
     modes.splice(prospectiveInsertIndex, 0, builderExportMode)
-    return evaluateConfigAgainstFilters(builder, prospectiveInsertIndex, names, modes)
+    // Ensure rule generation sees the same effective export mode as the filter list.
+    // Clone only when the effective export mode diverges from the stored value.
+    const builderForRules = builderExportMode === builder.exportMode
+      ? builder
+      : (() => {
+          // Avoid mutating the live builder snapshot while we test filters.
+          const clone = cloneBuilderConfig(builder)
+          clone.exportMode = builderExportMode
+          return clone
+        })()
+    return evaluateConfigAgainstFilters(builderForRules, prospectiveInsertIndex, names, modes)
   }, [
     builder,
     configModes,
@@ -3465,6 +3459,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     matchingConfigIndices,
     prospectiveInsertIndex,
     selectedIsDirty,
+    questionnaireActiveTags,
   ])
 
   const builderSaveMatchesRuleFilters = useMemo(() => {
@@ -3476,9 +3471,20 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     const names = configNames.slice()
     names[editingConfigIndex] = builder.name ?? ''
     const modes = configModes.slice()
-    const builderExportMode: SellfileExportMode = builder.exportMode
+    // Resolve questionnaire overrides for the builder export mode.
+    const builderExportMode: SellfileExportMode = resolveQuestionnaireExportMode(builder, questionnaireActiveTags)
     modes[editingConfigIndex] = builderExportMode
-    return evaluateConfigAgainstFilters(builder, editingConfigIndex, names, modes)
+    // Ensure rule generation sees the same effective export mode as the filter list.
+    // Clone only when the effective export mode diverges from the stored value.
+    const builderForRules = builderExportMode === builder.exportMode
+      ? builder
+      : (() => {
+          // Avoid mutating the live builder snapshot while we test filters.
+          const clone = cloneBuilderConfig(builder)
+          clone.exportMode = builderExportMode
+          return clone
+        })()
+    return evaluateConfigAgainstFilters(builderForRules, editingConfigIndex, names, modes)
   }, [
     builder,
     configModes,
@@ -3488,20 +3494,33 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     evaluateConfigAgainstFilters,
     filterActive,
     limitConfigsToFiltered,
+    questionnaireActiveTags,
   ])
 
   const builderInsertBecomesTesterFirstMatch = useCallback((targetIndex: number): boolean => {
     // Tester preview mode: the chip filter is driven by the set of configs that are the *first match*
     // for at least one tester row that survives the tester-side filters.
     if (!limitConfigsToFiltered) return true
-    if (builder.exportMode === 'disabled') return false
+    // Apply questionnaire overrides before testing the export mode.
+    const builderExportMode = resolveQuestionnaireExportMode(builder, questionnaireActiveTags)
+    if (builderExportMode === 'disabled') return false
     // In tester mode, separators are always shown when config filtering is off (anchor chips remain visible).
-    if (builder.exportMode === 'separator' && testerConfigFilterMode === 'off') return true
+    if (builderExportMode === 'separator' && testerConfigFilterMode === 'off') return true
     const rows = gearEntriesAfterRulesFilter
     if (rows.length === 0) return false
     let ruleLimitHit = false
+    // Ensure the rules we build reflect the questionnaire export mode.
+    // Clone only when the effective export mode diverges from the stored value.
+    const builderForRules = builderExportMode === builder.exportMode
+      ? builder
+      : (() => {
+          // Avoid mutating the live builder snapshot while we test matches.
+          const clone = cloneBuilderConfig(builder)
+          clone.exportMode = builderExportMode
+          return clone
+        })()
     const rulesForBuilder = buildRulesForConfig(
-      { config: builder, metasets, substatTargets, cfgIdx: targetIndex },
+      { config: builderForRules, metasets, substatTargets, cfgIdx: targetIndex },
       { limit: RULE_COUNT_LIMIT + 1, onLimit: () => { ruleLimitHit = true } },
     )
     // If the config generates more rules than we are willing to build in-render, assume it is visible.
@@ -3516,6 +3535,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     return false
   }, [
     builder,
+    questionnaireActiveTags,
     limitConfigsToFiltered,
     metasets,
     substatTargets,
@@ -3910,6 +3930,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       onSubstatTargetsChange={(next, opts) => { applySubstatTargetsChange(next, opts) }}
       substatTargetsDialogOpen={substatTargetsDialogOpen}
       onCloseSubstatTargetsDialog={closeSubstatTargetsDialog}
+      questionnaireActiveTags={questionnaireActiveTags}
       setUsageCounts={setUsageCounts}
       metasetUsageCounts={metasetUsageCounts}
       keepUniqueMetasetUsageCounts={keepUniqueMetasetUsageCounts}
@@ -3948,6 +3969,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     <ConfigChipsPanel
       containerRef={chipsContainerRef}
       configs={customCfgs}
+      exportModeOverrides={questionnaireExportModes.modes}
       maxHeightPx={chipsMaxHeight}
       selectedIndices={selectedCfgIndices}
       metasets={metasets}
@@ -4854,9 +4876,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           }}
           onClose={handleCloseNote}
           onRequestEdit={openNoteEditor}
+          onRequestView={openNoteViewer}
           questionnaireAnswers={noteQuestionnaireAnswers}
           onQuestionnaireAnswersChange={setNoteQuestionnaireAnswers}
-          onApplyQuestionnaireTags={applyQuestionnaireTags}
           configs={customCfgs}
           metasets={metasets}
           keepUniqueRules={keepUniqueRules}

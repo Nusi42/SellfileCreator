@@ -10,7 +10,7 @@ import {
 } from '../lib/constants'
 import { reserveScrollbarGutterSpace } from '../lib/scrollbar'
 import ConfigChip from './ConfigChip'
-import type { BuilderConfig } from '../lib/hsfBuilder'
+import type { BuilderConfig, SellfileExportMode } from '../lib/hsfBuilder'
 import type { Metaset } from '../lib/metasets'
 import { useContextMenuPaperGuard } from '../hooks/useContextMenuPaperGuard'
 import { useContextMenuHint } from '../hooks/useContextMenuHint'
@@ -59,6 +59,7 @@ type PointerDragSession = {
 function ConfigChipsPanel(props: {
   containerRef: React.MutableRefObject<HTMLDivElement | null>
   configs: BuilderConfig[]
+  exportModeOverrides?: SellfileExportMode[]
   maxHeightPx: number
   selectedIndices: number[]
   metasets: Metaset[]
@@ -94,6 +95,7 @@ function ConfigChipsPanel(props: {
   const {
     containerRef,
     configs,
+    exportModeOverrides,
     maxHeightPx,
     selectedIndices,
     metasets,
@@ -673,7 +675,7 @@ function ConfigChipsPanel(props: {
         onBlur={() => setShowFocusRing(false)}
         onMouseDown={() => setShowFocusRing(false)}
       >
-        {dropGuide ? (
+      {dropGuide ? (
           <Box
             sx={(theme) => ({
               position: 'absolute',
@@ -700,7 +702,9 @@ function ConfigChipsPanel(props: {
         ) : (
           configs.map((c, idx) => {
             if (visibleSet && !visibleSet.has(idx)) return null
-            const mode = c.exportMode
+            // Respect questionnaire overrides when provided by the parent.
+            const overrideMode = exportModeOverrides?.[idx]
+            const mode = overrideMode ?? c.exportMode
             const isSeparator = mode === 'separator'
             const duplicateIdx = duplicateOf[idx]
             const ghostedWhileDragging = hasActiveDrag && dragGhostSet.has(idx)
@@ -716,6 +720,7 @@ function ConfigChipsPanel(props: {
                 key={idx}
                 index={idx}
                 cfg={c}
+                {...(overrideMode ? { exportModeOverride: overrideMode } : {})}
                 gearSetCatalogVersion={gearSetCatalogVersion}
                 metasets={metasets}
                 substatColors={substatColors}
