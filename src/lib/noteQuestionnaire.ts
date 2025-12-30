@@ -4,7 +4,7 @@
  * Parses in-note questionnaire markers and resolves the active tag set that
  * drives config enable/disable behavior.
  */
-import type { BuilderConfig } from './hsfBuilder'
+import type { BuilderConfig, SellfileExportMode } from './hsfBuilder'
 import { normalizeTagValue } from './tagHelpers'
 import { cloneBuilderConfig } from './multiEditDraft'
 
@@ -46,14 +46,10 @@ export type QuestionnaireTagResolution = {
 }
 
 // Config impact summary for Apply Tags flow.
-export type QuestionnaireConfigImpact = {
+export type QuestionnaireExportModeResolution = {
   activeTags: string[]
-  taggedCount: number
-  enableCount: number
-  disableCount: number
-  changedCount: number
-  changedIndices: number[]
-  nextConfigs: BuilderConfig[]
+  modes: SellfileExportMode[]
+  overriddenIndices: number[]
 }
 
 // Match question markers in note comments (allowing spaces around the colon).
@@ -329,6 +325,16 @@ export const parseNoteQuestionnaire = (
   return result
 }
 
+// Build a stable signature for the questionnaire section of a note.
+export const buildNoteQuestionnaireSignature = (note: string): string => {
+  // Parse the questions using the same parser as the UI.
+  const questions = parseNoteQuestionnaire(note)
+  // Preserve marker order so reordering questions counts as a change.
+  const ids = questions.map((question) => question.id)
+  // Serialize the ids so comparisons are cheap and stable.
+  return JSON.stringify(ids)
+}
+
 // Remove answers that no longer match the current note content.
 export const pruneNoteQuestionnaireAnswers = (
   note: string,
@@ -405,54 +411,72 @@ export const resolveQuestionnaireTags = (
   return { questions, activeTags: Array.from(active) }
 }
 
-// Apply the active tag set to config export modes.
-export const buildQuestionnaireConfigImpact = (
+// Resolve a config's export mode based on questionnaire tags.
+const resolveQuestionnaireExportModeWithSet = (
+  cfg: BuilderConfig,
+  active: Set<string>,
+): SellfileExportMode => {
+  // Separators should never be overridden by tags.
+  if (cfg.exportMode === 'separator') return 'separator'
+  // Untagged configs keep their explicit mode.
+  const tags = Array.isArray(cfg.tags) ? cfg.tags : []
+  if (tags.length === 0) return cfg.exportMode
+  // Enable when any config tag is present in the active set.
+  const shouldEnable = tags.some((tag) => active.has(String(tag)))
+  return shouldEnable ? 'active' : 'disabled'
+}
+
+// Resolve a config's export mode with a raw tag list.
+export const resolveQuestionnaireExportMode = (
+  cfg: BuilderConfig,
+  activeTags: readonly string[],
+): SellfileExportMode => {
+  // Normalize active tags once so lookups are stable.
+  const active = new Set(activeTags.map(String))
+  return resolveQuestionnaireExportModeWithSet(cfg, active)
+}
+
+// Build a per-config export-mode snapshot for questionnaire overrides.
+export const buildQuestionnaireExportModeResolution = (
   configs: readonly BuilderConfig[],
   activeTags: readonly string[],
-): QuestionnaireConfigImpact => {
-  // Normalize active tags to strings for matching.
+): QuestionnaireExportModeResolution => {
+  // Normalize tags once for the full config list.
   const active = new Set(activeTags.map(String))
-  // Accumulate updated configs and metrics.
-  const nextConfigs: BuilderConfig[] = []
-  const changedIndices: number[] = []
-  let taggedCount = 0
-  let enableCount = 0
-  let disableCount = 0
-  let changedCount = 0
+  // Track effective modes and which configs are overridden.
+  const modes: SellfileExportMode[] = []
+  const overriddenIndices: number[] = []
   configs.forEach((cfg, idx) => {
-    // Skip separators and configs without tags.
-    const tags = Array.isArray(cfg.tags) ? cfg.tags : []
-    if (tags.length === 0 || cfg.exportMode === 'separator') {
-      nextConfigs.push(cfg)
-      return
+    // Resolve the effective export mode for this config.
+    const nextMode = resolveQuestionnaireExportModeWithSet(cfg, active)
+    modes.push(nextMode)
+    // Record overrides for UI indicators.
+    if (nextMode !== cfg.exportMode) {
+      overriddenIndices.push(idx)
     }
-    // Track configs that participate in tagging.
-    taggedCount += 1
-    // Enable when any config tag matches.
-    const shouldEnable = tags.some((tag) => active.has(String(tag)))
-    const nextMode = shouldEnable ? 'active' : 'disabled'
-    // Skip cloning when the mode is already correct.
-    if (cfg.exportMode === nextMode) {
-      nextConfigs.push(cfg)
-      return
-    }
-    // Clone to avoid mutating the existing config.
+  })
+  // Return the active tag list plus the computed modes.
+  return { activeTags: Array.from(active), modes, overriddenIndices }
+}
+
+// Apply questionnaire overrides by cloning only the configs that change mode.
+export const applyQuestionnaireExportModeOverrides = (
+  configs: readonly BuilderConfig[],
+  modes: readonly SellfileExportMode[],
+): BuilderConfig[] => {
+  // Track whether any override actually changed the list.
+  let mutated = false
+  const next = configs.map((cfg, idx) => {
+    // Fall back to the config's mode if a slot is missing.
+    const nextMode = modes[idx] ?? cfg.exportMode
+    // Reuse the config reference when no override applies.
+    if (nextMode === cfg.exportMode) return cfg
+    // Clone to avoid mutating the stored config array.
     const clone = cloneBuilderConfig(cfg)
     clone.exportMode = nextMode
-    nextConfigs.push(clone)
-    changedIndices.push(idx)
-    changedCount += 1
-    if (shouldEnable) enableCount += 1
-    else disableCount += 1
+    mutated = true
+    return clone
   })
-  // Return the updated config array and counters.
-  return {
-    activeTags: Array.from(active),
-    taggedCount,
-    enableCount,
-    disableCount,
-    changedCount,
-    changedIndices,
-    nextConfigs,
-  }
+  // Return the original array if nothing changed.
+  return mutated ? next : configs.slice()
 }

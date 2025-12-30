@@ -86,6 +86,7 @@ import ClearIconButton from './ClearIconButton'
 import { UI_BG_HOVER_DANGER_TRANSITION, DANGER_TINT_BG, LIST_SUBHEADER_SX, MENU_SELECTED_BG_ALPHA, MENU_SELECTED_BG_HOVER_ALPHA, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, MENU_MAX_HEIGHT_EXTRA_BUFFER, SETS_MENU_WIDTH_PX, UI_SUBSTAT_WARNING_ROW_HEIGHT_PX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, BUILDER_USER_DEFAULTS_KEY, BUILDER_DEFAULT_SAVE_TARGET, BUILDER_DIRTY_NUDGE_IDLE_MS, BUILDER_DIRTY_ATTENTION_INTERVAL_MS, FONT_SIZE_BASE_PX, ELLIPSIS_TEXT_SX, BUILDER_SLOT_LABEL_WIDTH_BUFFER_PX, BUILDER_TOGGLE_BUTTON_HEIGHT_PX, BUILDER_TOGGLE_BUTTON_MIN_WIDTH_PX, SMALL_BUTTON_HEIGHT_PX, SETS_SELECT_INLINE_GUTTER_COLLAPSED_PX, SETS_SELECT_INLINE_GUTTER_PX, CLEAR_ICON_BUTTON_SIZE_PX, MULTI_EDIT_MIXED_BG_ALPHA, MULTI_EDIT_MIXED_BORDER_ALPHA, MULTI_EDIT_MIXED_TEXT_ALPHA, MENU_LABEL_WIDTH_PX, MENU_CONTROL_HEIGHT_PX, SUBSTAT_TARGET_MAX_ROLLS, HISTORY_TOOLTIP_MAX_WIDTH_PX, BUILDER_AUTO_APPLY_DEBOUNCE_MS, BUILDER_LABEL_INLINE_SX, BUILDER_LABEL_TEXT_SX, BUILDER_MIN_ROLLS_COLUMN_WIDTH_PX, BUILDER_REQUIRED_SUBSTATS_COLUMN_WIDTH_PX, BUILDER_MILESTONE_THRESHOLDS_COLUMN_WIDTH_PX, BUILDER_AUTO_TOGGLE_WIDTH_PX } from '../lib/constants'
 import Checkbox from '@mui/material/Checkbox'
 import { useAttentionEffectStyles, useFortyTwoLegendaryOverlay } from '../lib/attentionEffects'
+import { warningBadgeSx } from '../lib/badgeStyles'
 import { alpha, useTheme } from '@mui/material/styles'
 import type { SxProps, Theme } from '@mui/material/styles'
 import type { SystemStyleObject } from '@mui/system'
@@ -94,6 +95,7 @@ import { substatSupportsColor } from '../lib/substatDisplay'
 import { createBuilderStatusChipSx } from './builderStatusChipStyles'
 import { FactionOptionLabel } from './FactionIcon'
 import { ContextMenuHintOverlay } from './ContextMenuHintOverlay'
+import { resolveQuestionnaireExportMode } from '../lib/noteQuestionnaire'
 import {
   type MultiEditDraftHandle,
   type MultiEditFieldState,
@@ -171,7 +173,7 @@ import {
 
 export { createFactoryBuilderDefaults } from './builderPanel/defaults'
 
-export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSelected, registerAutoApplyHandler, onApplyMultiEdit, onUndo, onRedo, canUndo, canRedo, undoPreview, redoPreview, historyTimeline, onJumpToHistoryIndex, onRequestClearHistory, metasets, onMetasetsChange, describeNextChange, onDeleteMetaset, onResetMetasets, substatTargets, onSubstatTargetsChange, setUsageCounts, metasetUsageCounts, keepUniqueMetasetUsageCounts, substatColors: _substatColors, configCount: _configCount, configRuleCounts, configRuleFingerprints, configsExcludedByTotalLimit, ruleSubstatTargetsKey, rulesBuilding, awaitRuleCounts, countRulesForConfigs, selectedIsDirty, insertHiddenByFilters, saveHiddenByFilters, onSelectConfigsByMetaset, substatTargetsDialogOpen, onCloseSubstatTargetsDialog, multiEdit: _multiEdit = null, multiSelectedConfigs = null, onBeforeMetasetsDialogClose }: {
+export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSelected, registerAutoApplyHandler, onApplyMultiEdit, onUndo, onRedo, canUndo, canRedo, undoPreview, redoPreview, historyTimeline, onJumpToHistoryIndex, onRequestClearHistory, metasets, onMetasetsChange, describeNextChange, onDeleteMetaset, onResetMetasets, substatTargets, onSubstatTargetsChange, setUsageCounts, metasetUsageCounts, keepUniqueMetasetUsageCounts, substatColors: _substatColors, configCount: _configCount, configRuleCounts, configRuleFingerprints, configsExcludedByTotalLimit, ruleSubstatTargetsKey, rulesBuilding, awaitRuleCounts, countRulesForConfigs, selectedIsDirty, insertHiddenByFilters, saveHiddenByFilters, onSelectConfigsByMetaset, substatTargetsDialogOpen, onCloseSubstatTargetsDialog, questionnaireActiveTags, multiEdit: _multiEdit = null, multiSelectedConfigs = null, onBeforeMetasetsDialogClose }: {
   cfg: BuilderConfig,
   onChange: (c: BuilderConfig) => void
   onAddToCustom: () => void
@@ -215,6 +217,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
   onSelectConfigsByMetaset: (id: string) => void
   substatTargetsDialogOpen: boolean
   onCloseSubstatTargetsDialog: () => void
+  questionnaireActiveTags: readonly string[]
   multiEdit?: MultiEditDraftHandle | null
   multiSelectedConfigs?: readonly BuilderConfig[] | null
   onBeforeMetasetsDialogClose?: () => Promise<void> | void
@@ -1163,9 +1166,15 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
     ? (keepMixed ? null : ((multiKeepField?.value as boolean | undefined) ? 'keep' : 'sell'))
     : (cfg.keep ? 'keep' : 'sell')
   const exportModeMixed = multiEditActive && (multiExportModeField?.status === 'mixed')
+  // Resolve questionnaire overrides for the active config.
+  const effectiveExportMode = useMemo(
+    () => resolveQuestionnaireExportMode(cfg, questionnaireActiveTags),
+    [cfg, questionnaireActiveTags],
+  )
+  // Show questionnaire-effective export mode unless multi-edit is active.
   const exportModeValue: SellfileExportMode | null = multiEditActive
     ? (exportModeMixed ? null : (multiExportModeField?.value as SellfileExportMode | undefined ?? 'active'))
-    : cfg.exportMode
+    : effectiveExportMode
   const rankMixed = multiEditActive && (multiRankField?.status === 'mixed')
   const rankValue = multiEditActive
     ? (rankMixed ? '' : String((multiRankField?.value as number | undefined) ?? cfg.rankCode))
@@ -1862,25 +1871,6 @@ const maxLevelValue = multiEditActive
       marginRight: 0,
     },
   }), [actionButtonWidthPx])
-  const hiddenBadgeSx = useMemo(() => ({
-    '& .MuiBadge-badge': {
-      minWidth: 18,
-      height: 18,
-      borderRadius: '50%',
-      top: 4,
-      right: 4,
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      boxShadow: theme.shadows[2],
-      backgroundColor: theme.palette.warning.main,
-      color: theme.palette.getContrastText(theme.palette.warning.main),
-      border: `2px solid ${theme.palette.background.paper}`,
-      fontWeight: theme.typography.fontWeightBold ?? 600,
-      fontSize: theme.typography.pxToRem ? theme.typography.pxToRem(12) : '0.75rem',
-      lineHeight: 1,
-    },
-  }), [theme])
   const targetWarningBadgeSx = useMemo(() => ({
     display: 'inline-flex',
     alignItems: 'center',
@@ -6411,7 +6401,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
               overlap="rectangular"
               anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
               invisible={!insertHiddenByFilters || !builderCanAdd}
-              sx={hiddenBadgeSx}
+              sx={warningBadgeSx}
               badgeContent="!"
             >
               <Button
@@ -6448,7 +6438,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
               overlap="rectangular"
               anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
               invisible={!saveHiddenByFilters || saveDisabled}
-              sx={hiddenBadgeSx}
+              sx={warningBadgeSx}
               badgeContent="!"
             >
               <Button
