@@ -86,7 +86,7 @@ import ClearIconButton from './ClearIconButton'
 import { UI_BG_HOVER_DANGER_TRANSITION, DANGER_TINT_BG, LIST_SUBHEADER_SX, MENU_SELECTED_BG_ALPHA, MENU_SELECTED_BG_HOVER_ALPHA, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, MENU_MAX_HEIGHT_EXTRA_BUFFER, SETS_MENU_WIDTH_PX, UI_SUBSTAT_WARNING_ROW_HEIGHT_PX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, BUILDER_USER_DEFAULTS_KEY, BUILDER_DEFAULT_SAVE_TARGET, BUILDER_DIRTY_NUDGE_IDLE_MS, BUILDER_DIRTY_ATTENTION_INTERVAL_MS, FONT_SIZE_BASE_PX, ELLIPSIS_TEXT_SX, COMPACT_HEADER_ACTION_BUTTON_SX, BUILDER_SLOT_LABEL_WIDTH_BUFFER_PX, BUILDER_TOGGLE_BUTTON_HEIGHT_PX, BUILDER_TOGGLE_BUTTON_MIN_WIDTH_PX, SMALL_BUTTON_HEIGHT_PX, SETS_SELECT_INLINE_GUTTER_COLLAPSED_PX, SETS_SELECT_INLINE_GUTTER_PX, CLEAR_ICON_BUTTON_SIZE_PX, MULTI_EDIT_MIXED_BG_ALPHA, MULTI_EDIT_MIXED_BORDER_ALPHA, MULTI_EDIT_MIXED_TEXT_ALPHA, MENU_LABEL_WIDTH_PX, MENU_CONTROL_HEIGHT_PX, SUBSTAT_TARGET_MAX_ROLLS, HISTORY_TOOLTIP_MAX_WIDTH_PX, BUILDER_AUTO_APPLY_DEBOUNCE_MS, BUILDER_LABEL_INLINE_SX, BUILDER_LABEL_TEXT_SX, BUILDER_MIN_ROLLS_COLUMN_WIDTH_PX, BUILDER_REQUIRED_SUBSTATS_COLUMN_WIDTH_PX, BUILDER_MILESTONE_THRESHOLDS_COLUMN_WIDTH_PX, BUILDER_AUTO_TOGGLE_WIDTH_PX } from '../lib/constants'
 import Checkbox from '@mui/material/Checkbox'
 import { useAttentionEffectStyles, useFortyTwoLegendaryOverlay } from '../lib/attentionEffects'
-import { warningBadgeSx } from '../lib/badgeStyles'
+import { buildWarningBadgeIndicatorSx, warningBadgeSx } from '../lib/badgeStyles'
 import { alpha, useTheme } from '@mui/material/styles'
 import type { SxProps, Theme } from '@mui/material/styles'
 import type { SystemStyleObject } from '@mui/system'
@@ -95,7 +95,7 @@ import { substatSupportsColor } from '../lib/substatDisplay'
 import { createBuilderStatusChipSx } from './builderStatusChipStyles'
 import { FactionOptionLabel } from './FactionIcon'
 import { ContextMenuHintOverlay } from './ContextMenuHintOverlay'
-import { resolveQuestionnaireExportMode } from '../lib/noteQuestionnaire'
+import { resolveConfigOptionsExportMode } from '../lib/noteConfigOptions'
 import {
   type MultiEditDraftHandle,
   type MultiEditFieldState,
@@ -173,7 +173,7 @@ import {
 
 export { createFactoryBuilderDefaults } from './builderPanel/defaults'
 
-export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSelected, registerAutoApplyHandler, onApplyMultiEdit, onUndo, onRedo, canUndo, canRedo, undoPreview, redoPreview, historyTimeline, onJumpToHistoryIndex, onRequestClearHistory, metasets, onMetasetsChange, describeNextChange, onDeleteMetaset, onResetMetasets, substatTargets, onSubstatTargetsChange, setUsageCounts, metasetUsageCounts, keepUniqueMetasetUsageCounts, substatColors: _substatColors, configCount: _configCount, configRuleCounts, configRuleFingerprints, configsExcludedByTotalLimit, ruleSubstatTargetsKey, rulesBuilding, awaitRuleCounts, countRulesForConfigs, selectedIsDirty, insertHiddenByFilters, saveHiddenByFilters, onSelectConfigsByMetaset, substatTargetsDialogOpen, onCloseSubstatTargetsDialog, questionnaireActiveTags, multiEdit: _multiEdit = null, multiSelectedConfigs = null, onBeforeMetasetsDialogClose }: {
+export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSelected, registerAutoApplyHandler, onApplyMultiEdit, onUndo, onRedo, canUndo, canRedo, undoPreview, redoPreview, historyTimeline, onJumpToHistoryIndex, onRequestClearHistory, metasets, onMetasetsChange, describeNextChange, onDeleteMetaset, onResetMetasets, substatTargets, onSubstatTargetsChange, setUsageCounts, metasetUsageCounts, keepUniqueMetasetUsageCounts, substatColors: _substatColors, configCount: _configCount, configRuleCounts, configRuleFingerprints, configsExcludedByTotalLimit, ruleSubstatTargetsKey, rulesBuilding, awaitRuleCounts, countRulesForConfigs, selectedIsDirty, insertHiddenByFilters, saveHiddenByFilters, onSelectConfigsByMetaset, substatTargetsDialogOpen, onCloseSubstatTargetsDialog, configOptionsActiveTags, multiEdit: _multiEdit = null, multiSelectedConfigs = null, onBeforeMetasetsDialogClose }: {
   cfg: BuilderConfig,
   onChange: (c: BuilderConfig) => void
   onAddToCustom: () => void
@@ -217,7 +217,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
   onSelectConfigsByMetaset: (id: string) => void
   substatTargetsDialogOpen: boolean
   onCloseSubstatTargetsDialog: () => void
-  questionnaireActiveTags: readonly string[]
+  configOptionsActiveTags: readonly string[]
   multiEdit?: MultiEditDraftHandle | null
   multiSelectedConfigs?: readonly BuilderConfig[] | null
   onBeforeMetasetsDialogClose?: () => Promise<void> | void
@@ -1166,21 +1166,42 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
     ? (keepMixed ? null : ((multiKeepField?.value as boolean | undefined) ? 'keep' : 'sell'))
     : (cfg.keep ? 'keep' : 'sell')
   const exportModeMixed = multiEditActive && (multiExportModeField?.status === 'mixed')
-  // Resolve questionnaire overrides for the active config.
+  // Resolve config options overrides for the active config.
   const effectiveExportMode = useMemo(
-    () => resolveQuestionnaireExportMode(cfg, questionnaireActiveTags),
-    [cfg, questionnaireActiveTags],
+    () => resolveConfigOptionsExportMode(cfg, configOptionsActiveTags),
+    [cfg, configOptionsActiveTags],
   )
-  // Only mark an override when the single-config export mode would be different at export time.
+  // Only mark an override when the config options flip the stored selection.
   const exportModeOverrideActive = !multiEditActive && effectiveExportMode !== cfg.exportMode
-  // Keep the toggle showing the stored mode so manual clicks are visible immediately.
+  // Prefer the config options-resolved mode for the single-config display.
   const exportModeValue: SellfileExportMode | null = multiEditActive
     ? (exportModeMixed ? null : (multiExportModeField?.value as SellfileExportMode | undefined ?? 'active'))
-    : cfg.exportMode
-  // Only decorate Active/Disabled when questionnaire tags flip the effective mode.
-  const exportModeOverrideTarget = exportModeOverrideActive && effectiveExportMode !== 'separator'
-    ? effectiveExportMode
+    : effectiveExportMode
+  // Surface the stored selection when config options tags override the effective mode.
+  const exportModeOverrideTarget = exportModeOverrideActive && cfg.exportMode !== 'separator'
+    ? cfg.exportMode
     : null
+  // Map export modes to their localized labels for tooltip messaging.
+  const exportModeLabel = React.useCallback((mode: SellfileExportMode): string => {
+    // Keep the labels in sync with the toggle button text.
+    if (mode === 'active') return t('builderExportModeActive')
+    if (mode === 'disabled') return t('builderExportModeDisabled')
+    return t('builderExportModeSeparator')
+  }, [t])
+  // Extend the tooltip when config options tags override the stored selection.
+  const buildExportModeTooltip = React.useCallback((base: string, mode: SellfileExportMode): string => {
+    // Default to the base tooltip when there is no override for this button.
+    if (!exportModeOverrideActive || exportModeOverrideTarget !== mode) return base
+    // Explain the override using the stored and effective labels.
+    const storedLabel = exportModeLabel(mode)
+    const effectiveLabel = exportModeLabel(effectiveExportMode)
+    const overrideLine = t('builderExportModeConfigOptionsOverrideTooltip', {
+      stored: storedLabel,
+      effective: effectiveLabel,
+    })
+    // Add the override message after the base meaning text.
+    return `${base}\n\n${overrideLine}`
+  }, [exportModeLabel, exportModeOverrideActive, exportModeOverrideTarget, effectiveExportMode, t])
   const rankMixed = multiEditActive && (multiRankField?.status === 'mixed')
   const rankValue = multiEditActive
     ? (rankMixed ? '' : String((multiRankField?.value as number | undefined) ?? cfg.rankCode))
@@ -1639,9 +1660,15 @@ const maxLevelValue = multiEditActive
     cursor: 'pointer',
   } as const
   const update = <K extends keyof BuilderConfig>(k: K, v: BuilderConfig[K]) => onChange({ ...cfg, [k]: v })
-  const updateExportMode = (next: SellfileExportMode) => {
+  const updateExportMode = useCallback((next: SellfileExportMode) => {
     onChange({ ...cfg, exportMode: next })
-  }
+  }, [cfg, onChange])
+  const handleExportModeOverrideClick = React.useCallback((mode: SellfileExportMode) => {
+    if (multiEditActive) return
+    if (!exportModeOverrideActive) return
+    if (exportModeValue !== mode) return
+    updateExportMode(mode)
+  }, [exportModeOverrideActive, exportModeValue, multiEditActive, updateExportMode])
   const [nameDraft, setNameDraft] = useState<string>('')
   const [nameDraftKey, setNameDraftKey] = useState<number | 'builder' | null>(null)
   // Popover anchor and draft state for tag editing.
@@ -2580,20 +2607,13 @@ const maxLevelValue = multiEditActive
                 >
                 <ToggleButton
                   value="active"
+                  onClick={() => handleExportModeOverrideClick('active')}
                   sx={(theme) => ({
                     px: 1.5,
                     ...(exportModeOverrideTarget === 'active' ? {
                       '&::before': {
-                        content: '""',
-                        position: 'absolute',
-                        top: -6,
-                        left: '50%',
-                        transform: 'translateX(-50%)',
-                        width: 0,
-                        height: 0,
-                        borderLeft: '5px solid transparent',
-                        borderRight: '5px solid transparent',
-                        borderBottom: `6px solid ${alpha(theme.palette.text.primary, 0.45)}`,
+                        // Use the same warning bubble used by the View Note button.
+                        ...buildWarningBadgeIndicatorSx(theme),
                       },
                     } : {}),
                     '&.Mui-selected': {
@@ -2606,7 +2626,7 @@ const maxLevelValue = multiEditActive
                 >
                   <MarkdownTooltip
                     placement="top"
-                    render={<BuilderTooltipContent text={t('builderExportModeActiveTooltip')} />}
+                    render={<BuilderTooltipContent text={buildExportModeTooltip(t('builderExportModeActiveTooltip'), 'active')} />}
                   >
                     <Box component="span" sx={{ display: 'inline-flex', width: '100%', justifyContent: 'center' }}>
                       {t('builderExportModeActive')}
@@ -2615,20 +2635,13 @@ const maxLevelValue = multiEditActive
                 </ToggleButton>
                 <ToggleButton
                   value="disabled"
+                  onClick={() => handleExportModeOverrideClick('disabled')}
                   sx={(theme) => ({
                     px: 1.5,
                     ...(exportModeOverrideTarget === 'disabled' ? {
                       '&::before': {
-                        content: '""',
-                        position: 'absolute',
-                        top: -6,
-                        left: '50%',
-                        transform: 'translateX(-50%)',
-                        width: 0,
-                        height: 0,
-                        borderLeft: '5px solid transparent',
-                        borderRight: '5px solid transparent',
-                        borderBottom: `6px solid ${alpha(theme.palette.text.primary, 0.45)}`,
+                        // Use the same warning bubble used by the View Note button.
+                        ...buildWarningBadgeIndicatorSx(theme),
                       },
                     } : {}),
                     '&.Mui-selected': {
@@ -2641,7 +2654,7 @@ const maxLevelValue = multiEditActive
                 >
                   <MarkdownTooltip
                     placement="top"
-                    render={<BuilderTooltipContent text={t('builderExportModeDisabledTooltip')} />}
+                    render={<BuilderTooltipContent text={buildExportModeTooltip(t('builderExportModeDisabledTooltip'), 'disabled')} />}
                   >
                     <Box component="span" sx={{ display: 'inline-flex', width: '100%', justifyContent: 'center' }}>
                       {t('builderExportModeDisabled')}

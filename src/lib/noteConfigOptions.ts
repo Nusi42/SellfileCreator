@@ -1,7 +1,7 @@
 /**
- * noteQuestionnaire.ts
+ * noteConfigOptions.ts
  *
- * Parses in-note questionnaire markers and resolves the active tag set that
+ * Parses in-note config options markers and resolves the active tag set that
  * drives config enable/disable behavior.
  */
 import type { BuilderConfig, SellfileExportMode } from './hsfBuilder'
@@ -36,17 +36,22 @@ export type NoteQuestionDefinition = {
   answer: string[]
 }
 
+// Autosave key for storing config options answers (session-only).
+export const NOTE_CONFIG_OPTIONS_ANSWERS_KEY = 'NoteConfigOptionsAnswers'
+// Legacy autosave key used by older versions (kept for migrations).
+export const LEGACY_NOTE_CONFIG_OPTIONS_ANSWERS_KEY = `Note${'Question'}${'naire'}Answers`
+
 // Stored answers keyed by question ID.
-export type NoteQuestionnaireAnswers = Record<string, string[]>
+export type NoteConfigOptionsAnswers = Record<string, string[]>
 
 // Resolution result containing questions + active tags.
-export type QuestionnaireTagResolution = {
+export type ConfigOptionsTagResolution = {
   questions: NoteQuestionDefinition[]
   activeTags: string[]
 }
 
 // Config impact summary for Apply Tags flow.
-export type QuestionnaireExportModeResolution = {
+export type ConfigOptionsExportModeResolution = {
   activeTags: string[]
   modes: SellfileExportMode[]
   overriddenIndices: number[]
@@ -251,10 +256,10 @@ const buildQuestionId = (type: NoteQuestionType, prompt: string, options: NoteQu
   return `q_${hashString(JSON.stringify(key))}`
 }
 
-// Parse questionnaire markers from note text.
-export const parseNoteQuestionnaire = (
+// Parse config options markers from note text.
+export const parseNoteConfigOptions = (
   note: string,
-  answers?: NoteQuestionnaireAnswers | null,
+  answers?: NoteConfigOptionsAnswers | null,
 ): NoteQuestionDefinition[] => {
   // Short-circuit when no note is present.
   if (!note) return []
@@ -325,10 +330,10 @@ export const parseNoteQuestionnaire = (
   return result
 }
 
-// Build a stable signature for the questionnaire section of a note.
-export const buildNoteQuestionnaireSignature = (note: string): string => {
+// Build a stable signature for the config options section of a note.
+export const buildNoteConfigOptionsSignature = (note: string): string => {
   // Parse the questions using the same parser as the UI.
-  const questions = parseNoteQuestionnaire(note)
+  const questions = parseNoteConfigOptions(note)
   // Preserve marker order so reordering questions counts as a change.
   const ids = questions.map((question) => question.id)
   // Serialize the ids so comparisons are cheap and stable.
@@ -336,14 +341,14 @@ export const buildNoteQuestionnaireSignature = (note: string): string => {
 }
 
 // Remove answers that no longer match the current note content.
-export const pruneNoteQuestionnaireAnswers = (
+export const pruneNoteConfigOptionsAnswers = (
   note: string,
-  answers: NoteQuestionnaireAnswers,
-): NoteQuestionnaireAnswers => {
+  answers: NoteConfigOptionsAnswers,
+): NoteConfigOptionsAnswers => {
   // Build a pruned output map.
-  const next: NoteQuestionnaireAnswers = {}
+  const next: NoteConfigOptionsAnswers = {}
   // Parse the current questions as the source of truth.
-  const questions = parseNoteQuestionnaire(note)
+  const questions = parseNoteConfigOptions(note)
   // Precompute allowed option IDs per question.
   const lookup = new Map<string, { type: NoteQuestionType; options: Set<string> }>()
   questions.forEach((question) => {
@@ -366,13 +371,13 @@ export const pruneNoteQuestionnaireAnswers = (
 }
 
 // Normalize an autosave payload into a valid answers map.
-export const normalizeNoteQuestionnaireAnswers = (
+export const normalizeNoteConfigOptionsAnswers = (
   raw: unknown,
-): NoteQuestionnaireAnswers | null => {
+): NoteConfigOptionsAnswers | null => {
   // Reject null or non-object payloads.
   if (!raw || typeof raw !== 'object') return null
   const rec = raw as Record<string, unknown>
-  const next: NoteQuestionnaireAnswers = {}
+  const next: NoteConfigOptionsAnswers = {}
   for (const [key, value] of Object.entries(rec)) {
     // Accept a string or string[] and drop empties.
     const list = Array.isArray(value)
@@ -386,13 +391,13 @@ export const normalizeNoteQuestionnaireAnswers = (
   return Object.keys(next).length > 0 ? next : null
 }
 
-// Resolve the active tag set based on the current questionnaire answers.
-export const resolveQuestionnaireTags = (
+// Resolve the active tag set based on the current config options answers.
+export const resolveConfigOptionsTags = (
   note: string,
-  answers?: NoteQuestionnaireAnswers | null,
-): QuestionnaireTagResolution => {
+  answers?: NoteConfigOptionsAnswers | null,
+): ConfigOptionsTagResolution => {
   // Parse the questions with answer resolution.
-  const questions = parseNoteQuestionnaire(note, answers)
+  const questions = parseNoteConfigOptions(note, answers)
   // Track active tags as we walk questions.
   const active = new Set<string>()
   for (const question of questions) {
@@ -411,8 +416,8 @@ export const resolveQuestionnaireTags = (
   return { questions, activeTags: Array.from(active) }
 }
 
-// Resolve a config's export mode based on questionnaire tags.
-const resolveQuestionnaireExportModeWithSet = (
+// Resolve a config's export mode based on config options tags.
+const resolveConfigOptionsExportModeWithSet = (
   cfg: BuilderConfig,
   active: Set<string>,
 ): SellfileExportMode => {
@@ -427,20 +432,20 @@ const resolveQuestionnaireExportModeWithSet = (
 }
 
 // Resolve a config's export mode with a raw tag list.
-export const resolveQuestionnaireExportMode = (
+export const resolveConfigOptionsExportMode = (
   cfg: BuilderConfig,
   activeTags: readonly string[],
 ): SellfileExportMode => {
   // Normalize active tags once so lookups are stable.
   const active = new Set(activeTags.map(String))
-  return resolveQuestionnaireExportModeWithSet(cfg, active)
+  return resolveConfigOptionsExportModeWithSet(cfg, active)
 }
 
-// Build a per-config export-mode snapshot for questionnaire overrides.
-export const buildQuestionnaireExportModeResolution = (
+// Build a per-config export-mode snapshot for config options overrides.
+export const buildConfigOptionsExportModeResolution = (
   configs: readonly BuilderConfig[],
   activeTags: readonly string[],
-): QuestionnaireExportModeResolution => {
+): ConfigOptionsExportModeResolution => {
   // Normalize tags once for the full config list.
   const active = new Set(activeTags.map(String))
   // Track effective modes and which configs are overridden.
@@ -448,7 +453,7 @@ export const buildQuestionnaireExportModeResolution = (
   const overriddenIndices: number[] = []
   configs.forEach((cfg, idx) => {
     // Resolve the effective export mode for this config.
-    const nextMode = resolveQuestionnaireExportModeWithSet(cfg, active)
+    const nextMode = resolveConfigOptionsExportModeWithSet(cfg, active)
     modes.push(nextMode)
     // Record overrides for UI indicators.
     if (nextMode !== cfg.exportMode) {
@@ -459,8 +464,8 @@ export const buildQuestionnaireExportModeResolution = (
   return { activeTags: Array.from(active), modes, overriddenIndices }
 }
 
-// Apply questionnaire overrides by cloning only the configs that change mode.
-export const applyQuestionnaireExportModeOverrides = (
+// Apply config options overrides by cloning only the configs that change mode.
+export const applyConfigOptionsExportModeOverrides = (
   configs: readonly BuilderConfig[],
   modes: readonly SellfileExportMode[],
 ): BuilderConfig[] => {

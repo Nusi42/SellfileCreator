@@ -702,7 +702,7 @@ function ConfigChipsPanel(props: {
         ) : (
           configs.map((c, idx) => {
             if (visibleSet && !visibleSet.has(idx)) return null
-            // Respect questionnaire overrides when provided by the parent.
+            // Respect config options overrides when provided by the parent.
             const overrideMode = exportModeOverrides?.[idx]
             const mode = overrideMode ?? c.exportMode
             const isSeparator = mode === 'separator'
