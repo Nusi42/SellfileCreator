@@ -556,6 +556,7 @@ const enUS: Catalog = {
   builderConfigName: 'Config Name',
   builderClearConfigName: 'Clear Config Name',
   builderTagsLabel: 'Tags',
+  builderClearTags: 'Clear Tags',
   builderTagsPlaceholder: 'Add tag',
   builderTagsEmpty: 'None',
   builderAction: 'Action',

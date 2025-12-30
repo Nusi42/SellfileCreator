@@ -556,6 +556,7 @@ const overrides: Catalog = {
   builderConfigName: 'Nome configurazione',
   builderClearConfigName: 'Pulisci nome configurazione',
   builderTagsLabel: 'Tag',
+  builderClearTags: 'Pulisci tag',
   builderTagsPlaceholder: 'Aggiungi tag',
   builderTagsEmpty: 'Nessuno',
   builderAction: 'Azione',

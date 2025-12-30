@@ -556,6 +556,7 @@ const catalog: Catalog = {
   builderConfigName: 'Nome da config',
   builderClearConfigName: 'Limpar nome da config',
   builderTagsLabel: 'Tags',
+  builderClearTags: 'Limpar tags',
   builderTagsPlaceholder: 'Adicionar tag',
   builderTagsEmpty: 'Nenhuma',
   builderAction: 'Ação',

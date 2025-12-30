@@ -1708,6 +1708,12 @@ const maxLevelValue = multiEditActive
   const tagsButtonLabel = t('builderTagsLabel')
   // Treat any visible tags as an "active" state for the button color.
   const tagsButtonActive = tagDisplay.length > 0
+  // Reuse a dedicated label for the clear-tags affordance so tooltips stay consistent.
+  const tagsClearLabel = t('builderClearTags')
+  // Treat any visible tags (single or multi-edit) as eligible for the clear affordance.
+  const tagsClearable = multiEditActive ? tagDisplay.length > 0 : tagsValue.length > 0
+  // Only show the clear button when there is something to reset.
+  const showTagsClear = tagsClearable
   // Precompute mixed tag membership so chips can share the mixed styling.
   const mixedTagSet = useMemo(() => (
     new Set(tagPresence?.mixed ?? [])
@@ -1831,6 +1837,21 @@ const maxLevelValue = multiEditActive
     const filtered = tagsValue.filter((value) => value !== tag)
     commitTags(filtered)
   }, [commitTags, multiEditActive, stageTagPatch, tagsValue])
+  const clearTags = useCallback(() => {
+    // Bail if there is nothing to clear so we do not spam history.
+    if (!tagsClearable) return
+    // Multi-edit clears tags with a patch so every selected config resets together.
+    if (multiEditActive && multiEdit) {
+      multiEdit.updateField('tags', {
+        value: (multiTagsField?.value as BuilderConfig['tags']) ?? (cfg.tags ?? []),
+        status: 'common',
+        patch: { clear: true },
+      })
+      return
+    }
+    // Persist the empty tag list for the current config.
+    onChange({ ...cfg, tags: [] })
+  }, [cfg, multiEdit, multiEditActive, multiTagsField?.value, onChange, tagsClearable])
   const singleBuilderDirty = selectedIsDirty || nameDraftDirty
   const isDirty = multiEditActive ? multiDraftDirty : singleBuilderDirty
   const insertButtonLabel = editingIndex !== null
@@ -2694,6 +2715,15 @@ const maxLevelValue = multiEditActive
                   </Typography>
                 </Button>
               </MarkdownTooltip>
+              {/* Only show the clear affordance when tags exist for this config. */}
+              {showTagsClear ? (
+                <ClearIconButton
+                  size="small"
+                  aria-label={tagsClearLabel}
+                  tooltip={tagsClearLabel}
+                  onClick={clearTags}
+                />
+              ) : null}
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexWrap: 'wrap' }}>
                 {tagDisplay.slice(0, 3).map((tag) => (
                   <Chip

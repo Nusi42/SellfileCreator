@@ -556,6 +556,7 @@ const overrides: Catalog = {
   builderConfigName: 'Имя конфига',
   builderClearConfigName: 'Очистить имя конфига',
   builderTagsLabel: 'Теги',
+  builderClearTags: 'Очистить теги',
   builderTagsPlaceholder: 'Добавить тег',
   builderTagsEmpty: 'Нет',
   builderAction: 'Действие',

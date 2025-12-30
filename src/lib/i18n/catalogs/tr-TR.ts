@@ -556,6 +556,7 @@ const overrides: Catalog = {
   builderConfigName: 'Konfig adı',
   builderClearConfigName: 'Adı temizle',
   builderTagsLabel: 'Etiketler',
+  builderClearTags: 'Etiketleri temizle',
   builderTagsPlaceholder: 'Etiket ekle',
   builderTagsEmpty: 'Yok',
   builderAction: 'Eylem',

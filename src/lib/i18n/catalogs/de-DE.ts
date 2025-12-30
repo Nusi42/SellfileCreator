@@ -556,6 +556,7 @@ const overrides: Catalog = {
   builderConfigName: 'Konfig-Name',
   builderClearConfigName: 'Konfig-Name löschen',
   builderTagsLabel: 'Tags',
+  builderClearTags: 'Tags löschen',
   builderTagsPlaceholder: 'Tag hinzufügen',
   builderTagsEmpty: 'Keine',
   builderAction: 'Aktion',
