@@ -1090,6 +1090,7 @@ const overrides: Catalog = {
   noteInsertKeepUniques: 'Inserisci riepilogo Keep Uniques',
   noteInsertMetasets: 'Inserisci elenco Metaset',
   noteInsertConfigOptionsSample: 'Inserisci questionario di esempio',
+  noteConfigOptionsChangedTooltip: 'I marcatori delle opzioni di config sono cambiati in questa modifica. Passa a «Visualizza nota» per rivedere le domande.',
   noteConfigOptionsSampleBlock: '<!-- q:single "Domanda a scelta singola con etichette in **Grassetto** e `Marcate`, usando riferimenti **\\1** o `\\2`."\n  [* "Risposta 1", tag1, -tag2]\n  ["Risposta 2", tag2]\n-->\n\n<!-- q:multi "Un\'altra domanda con etichette in **Grassetto** e `Marcate`."\n  [* "Risposta A", tag-a]\n  ["Risposta B"]\n  ["Risposta C", tag-c]\n-->',
   noteConfigOptionsApply: 'Applica tag del questionario',
   noteConfigOptionsApplyConfirmTitle: 'Applicare i tag del questionario?',

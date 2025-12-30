@@ -1090,6 +1090,7 @@ const overrides: Catalog = {
   noteInsertKeepUniques: 'Insérer un résumé Keep Uniques',
   noteInsertMetasets: 'Insérer une liste de méta-sets',
   noteInsertConfigOptionsSample: 'Insérer un exemple d’options de config',
+  noteConfigOptionsChangedTooltip: 'Les marqueurs d’options de config ont changé pendant cette modification. Passez à « Voir la note » pour revoir les questions.',
   noteConfigOptionsSampleBlock: '<!-- q:single "Question à choix unique avec des libellés en **gras** et `Marqués`, en utilisant les références **\\1** ou `\\2`."\n  [* "Réponse 1", tag1, -tag2]\n  ["Réponse 2", tag2]\n-->\n\n<!-- q:multi "Autre question avec des libellés en **gras** et `Marqués`."\n  [* "Réponse A", tag-a]\n  ["Réponse B"]\n  ["Réponse C", tag-c]\n-->',
   noteConfigOptionsApply: 'Appliquer les tags des options de config',
   noteConfigOptionsApplyConfirmTitle: 'Appliquer les tags des options de config ?',

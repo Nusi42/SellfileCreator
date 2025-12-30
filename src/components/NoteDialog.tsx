@@ -2308,21 +2308,28 @@ function NoteEditorContent({
       <DialogActions sx={{ justifyContent: 'space-between', gap: 1, flexWrap: 'wrap' }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
           {/* Warn when config options markers changed during this edit session. */}
-          <Badge
-            overlap="rectangular"
-            anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
-            invisible={!configOptionsChanged}
-            sx={warningBadgeSx}
-            badgeContent="!"
+          <MarkdownTooltip
+            markdown={t('noteConfigOptionsChangedTooltip')}
+            disableHoverListener={!configOptionsChanged}
           >
-            {/* Match the view-mode edit button styling for symmetry. */}
-            <Button
-              variant="outlined"
-              onClick={commitAndView}
-            >
-              {t('viewNote')}
-            </Button>
-          </Badge>
+            <Box component="span" sx={{ display: 'inline-flex' }}>
+              <Badge
+                overlap="rectangular"
+                anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+                invisible={!configOptionsChanged}
+                sx={warningBadgeSx}
+                badgeContent="!"
+              >
+                {/* Match the view-mode edit button styling for symmetry. */}
+                <Button
+                  variant="outlined"
+                  onClick={commitAndView}
+                >
+                  {t('viewNote')}
+                </Button>
+              </Badge>
+            </Box>
+          </MarkdownTooltip>
           <Button
             size="small"
             variant="outlined"
