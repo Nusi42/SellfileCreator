@@ -29,11 +29,11 @@ import { KEEP_UNIQUE_DEFAULT_COUNT_MODE, sanitizeKeepUniqueCountMode, type KeepU
 import { resolveRarityLabel } from '../lib/testerPreviewFormatting'
 import { warningBadgeSx } from '../lib/badgeStyles'
 import {
-  buildNoteQuestionnaireSignature,
-  resolveQuestionnaireTags,
+  buildNoteConfigOptionsSignature,
+  resolveConfigOptionsTags,
   type NoteQuestionDefinition,
-  type NoteQuestionnaireAnswers,
-} from '../lib/noteQuestionnaire'
+  type NoteConfigOptionsAnswers,
+} from '../lib/noteConfigOptions'
 
 // Limited color palette for Note highlighting rendered from Markdown via
 //   <span data-color="{name}">…</span>
@@ -87,14 +87,14 @@ const NOTE_CARD_WIDTHS: Record<NoteCardWidthPreset, { flexBasis: number; minWidt
   note: { flexBasis: 242, minWidth: 209, maxWidth: 322 },
 }
 
-// Match HTML comment bodies that declare questionnaire markers.
+// Match HTML comment bodies that declare config options markers.
 const QUESTION_COMMENT_REGEX = /^\s*q\s*:\s*(single|multi)\b/i
 // Match raw HTML comment markers in the Markdown stream.
 const QUESTION_MARKER_REGEX = /<!--\s*q\s*:\s*(single|multi)[\s\S]*?-->/i
 // Custom element tag used in sanitized Markdown output.
-const QUESTION_ELEMENT_TAG = 'note-questionnaire'
+const QUESTION_ELEMENT_TAG = 'note-config-options'
 // Wrapper tag used to group question markers into a single flex layout.
-const QUESTION_GROUP_ELEMENT_TAG = 'note-questionnaire-group'
+const QUESTION_GROUP_ELEMENT_TAG = 'note-config-options-group'
 // Attribute used to map back to a parsed question definition.
 const QUESTION_ELEMENT_INDEX_ATTR = 'data-question-index'
 // Backtick references like `\1` map to option labels by 1-based index.
@@ -287,9 +287,9 @@ type NoteRenderContextValue = {
   markerResolutions: ConfigMarkerMap
   keepUniqueRules: KeepUniqueRule[]
   keepUniqueMarkerResolutions: KeepUniqueMarkerMap
-  questionnaireResolutions: Map<number, NoteQuestionDefinition>
-  questionnaireEditable: boolean
-  onQuestionnaireAnswerChange: (question: NoteQuestionDefinition, nextAnswer: string[]) => void
+  configOptionsResolutions: Map<number, NoteQuestionDefinition>
+  configOptionsEditable: boolean
+  onConfigOptionsAnswerChange: (question: NoteQuestionDefinition, nextAnswer: string[]) => void
 }
 
 const NoteRenderContext = React.createContext<NoteRenderContextValue | null>(null)
@@ -814,13 +814,13 @@ function buildKeepUniqueMarkerBlock(ids: number[]): { block: string; cursorIndex
   return { block, cursorIndex: marker.length + 1 }
 }
 
-function buildQuestionnaireMarkerResolutions(text: string, answers: NoteQuestionnaireAnswers): Map<number, NoteQuestionDefinition> {
+function buildConfigOptionsMarkerResolutions(text: string, answers: NoteConfigOptionsAnswers): Map<number, NoteQuestionDefinition> {
   // Map marker indices to parsed question definitions.
   const result = new Map<number, NoteQuestionDefinition>()
   // Short-circuit when no note text exists.
   if (!text) return result
   // Resolve questions with the current answers merged in.
-  const { questions } = resolveQuestionnaireTags(text, answers)
+  const { questions } = resolveConfigOptionsTags(text, answers)
   for (const question of questions) {
     // Use the marker index so the Markdown renderer can map markers.
     result.set(question.index, question)
@@ -887,9 +887,9 @@ function buildMetasetBulletList(
     .join('\n')
 }
 
-function buildQuestionnaireSampleBlock(t: ReturnType<typeof useI18n>['t']): string {
+function buildConfigOptionsSampleBlock(t: ReturnType<typeof useI18n>['t']): string {
   // Keep the sample block in the catalog so it localizes.
-  const sample = t('noteQuestionnaireSampleBlock')
+  const sample = t('noteConfigOptionsSampleBlock')
   // Return the catalog value directly for insertion.
   return sample
 }
@@ -1036,7 +1036,7 @@ function ConfigChipBlock({ node }: ConfigChipBlockProps): JSX.Element | null {
 type NoteQuestionBlockProps = React.PropsWithChildren<{ node?: Element & { properties?: Record<string, unknown> } }>
 
 function getNoteCardWidthStyles(preset: NoteCardWidthPreset) {
-  // Shared sizing keeps questionnaire and keep-unique cards aligned.
+  // Shared sizing keeps config options and keep-unique cards aligned.
   return NOTE_CARD_WIDTHS[preset]
 }
 
@@ -1069,8 +1069,8 @@ function buildNoteScopeChipSx(theme: Theme, active: boolean) {
 }
 
 function NoteQuestionBlock({ node }: NoteQuestionBlockProps): JSX.Element | null {
-  // Pull questionnaire wiring from context.
-  const { questionnaireResolutions, questionnaireEditable, onQuestionnaireAnswerChange } = useNoteRenderContext()
+  // Pull config options wiring from context.
+  const { configOptionsResolutions, configOptionsEditable, onConfigOptionsAnswerChange } = useNoteRenderContext()
   const theme = useTheme()
   // Extract the marker index from the custom element.
   const rawIndexAttr = coerceFirstString(node?.properties?.[QUESTION_ELEMENT_INDEX_ATTR])
@@ -1080,7 +1080,7 @@ function NoteQuestionBlock({ node }: NoteQuestionBlockProps): JSX.Element | null
     if (Number.isFinite(parsed)) markerIndex = parsed
   }
   // Lookup the parsed question definition by marker index.
-  const question = markerIndex != null ? questionnaireResolutions.get(markerIndex) : undefined
+  const question = markerIndex != null ? configOptionsResolutions.get(markerIndex) : undefined
   // Tokenize the prompt so backtick references can be styled.
   const promptTokens = useMemo(
     () => (question ? buildQuestionPromptTokens(question.prompt, question.options, true) : []),
@@ -1106,7 +1106,7 @@ function NoteQuestionBlock({ node }: NoteQuestionBlockProps): JSX.Element | null
   const selectedSet = new Set<string>(selected)
   // Wrap answer updates so callers can track changes.
   const applyAnswer = (next: string[]) => {
-    onQuestionnaireAnswerChange(question, next)
+    onConfigOptionsAnswerChange(question, next)
   }
   // Shared sizing keeps question cards in lockstep with keep-unique cards.
   const { flexBasis, minWidth, maxWidth } = getNoteCardWidthStyles('note')
@@ -1161,9 +1161,9 @@ function NoteQuestionBlock({ node }: NoteQuestionBlockProps): JSX.Element | null
                 <FormControlLabel
                   key={option.id}
                   value={option.id}
-                  control={<Radio size="small" disabled={!questionnaireEditable} />}
+                  control={<Radio size="small" disabled={!configOptionsEditable} />}
                   label={renderQuestionOptionLabel(option.label, promptChipSx, promptLabelSx)}
-                  disabled={!questionnaireEditable}
+                  disabled={!configOptionsEditable}
                   sx={NOTE_QUESTION_OPTION_SX}
                 />
               ))}
@@ -1181,10 +1181,10 @@ function NoteQuestionBlock({ node }: NoteQuestionBlockProps): JSX.Element | null
                     <Checkbox
                       size="small"
                       checked={checked}
-                      disabled={!questionnaireEditable}
+                      disabled={!configOptionsEditable}
                       onChange={(event) => {
                         // Ignore changes when the question is read-only.
-                        if (!questionnaireEditable) return
+                        if (!configOptionsEditable) return
                         // Toggle the option in a new Set instance.
                         const next = new Set(selectedSet)
                         if (event.target.checked) next.add(option.id)
@@ -1195,7 +1195,7 @@ function NoteQuestionBlock({ node }: NoteQuestionBlockProps): JSX.Element | null
                     />
                   )}
                   label={renderQuestionOptionLabel(option.label, promptChipSx, promptLabelSx)}
-                  disabled={!questionnaireEditable}
+                  disabled={!configOptionsEditable}
                   sx={NOTE_QUESTION_OPTION_SX}
                 />
               )
@@ -1610,8 +1610,8 @@ export default function NoteDialog({
   onClose,
   onRequestEdit,
   onRequestView,
-  questionnaireAnswers,
-  onQuestionnaireAnswersChange,
+  configOptionsAnswers,
+  onConfigOptionsAnswersChange,
   configs,
   metasets,
   keepUniqueRules,
@@ -1625,8 +1625,8 @@ export default function NoteDialog({
   onClose: () => void
   onRequestEdit: () => void
   onRequestView: () => void
-  questionnaireAnswers: NoteQuestionnaireAnswers
-  onQuestionnaireAnswersChange: React.Dispatch<React.SetStateAction<NoteQuestionnaireAnswers>>
+  configOptionsAnswers: NoteConfigOptionsAnswers
+  onConfigOptionsAnswersChange: React.Dispatch<React.SetStateAction<NoteConfigOptionsAnswers>>
   configs: BuilderConfig[]
   metasets: Metaset[]
   keepUniqueRules: KeepUniqueRule[]
@@ -1647,11 +1647,11 @@ export default function NoteDialog({
     [renderNote, keepUniqueRules],
   )
   // Map marker indices to question definitions for rendering.
-  const questionnaireResolutions = useMemo(
-    () => buildQuestionnaireMarkerResolutions(renderNote ?? '', questionnaireAnswers),
-    [renderNote, questionnaireAnswers],
+  const configOptionsResolutions = useMemo(
+    () => buildConfigOptionsMarkerResolutions(renderNote ?? '', configOptionsAnswers),
+    [renderNote, configOptionsAnswers],
   )
-  const handleQuestionnaireAnswerChange = React.useCallback((
+  const handleConfigOptionsAnswerChange = React.useCallback((
     question: NoteQuestionDefinition,
     nextSelection: string[],
   ) => {
@@ -1664,7 +1664,7 @@ export default function NoteDialog({
     const orderedSelection = question.options
       .filter((option) => nextSet.has(option.id))
       .map((option) => option.id)
-    onQuestionnaireAnswersChange((prev) => {
+    onConfigOptionsAnswersChange((prev) => {
       const next = { ...prev }
       // Default selections are omitted from storage.
       if (matchesDefault) {
@@ -1675,7 +1675,7 @@ export default function NoteDialog({
       next[question.id] = orderedSelection
       return next
     })
-  }, [onQuestionnaireAnswersChange])
+  }, [onConfigOptionsAnswersChange])
   const contextValue = useMemo<NoteRenderContextValue>(
     () => ({
       configs,
@@ -1685,9 +1685,9 @@ export default function NoteDialog({
       markerResolutions,
       keepUniqueRules,
       keepUniqueMarkerResolutions,
-      questionnaireResolutions,
-      questionnaireEditable: mode === 'view',
-      onQuestionnaireAnswerChange: handleQuestionnaireAnswerChange,
+      configOptionsResolutions,
+      configOptionsEditable: mode === 'view',
+      onConfigOptionsAnswerChange: handleConfigOptionsAnswerChange,
     }),
     [
       configs,
@@ -1697,9 +1697,9 @@ export default function NoteDialog({
       markerResolutions,
       keepUniqueRules,
       keepUniqueMarkerResolutions,
-      questionnaireResolutions,
+      configOptionsResolutions,
       mode,
-      handleQuestionnaireAnswerChange,
+      handleConfigOptionsAnswerChange,
     ],
   )
   const allowMarkdownElement = React.useCallback<MarkdownAllowElement>((element) => {
@@ -1843,7 +1843,7 @@ export default function NoteDialog({
             configs={configs}
             metasets={metasets}
             keepUniqueRules={keepUniqueRules}
-            questionnaireAnswers={questionnaireAnswers}
+            configOptionsAnswers={configOptionsAnswers}
             markdownComponents={markdownComponents}
             allowElement={allowMarkdownElement}
           />
@@ -1865,7 +1865,7 @@ function NoteEditorContent({
   configs,
   metasets,
   keepUniqueRules,
-  questionnaireAnswers,
+  configOptionsAnswers,
   markdownComponents,
   allowElement,
 }: {
@@ -1880,7 +1880,7 @@ function NoteEditorContent({
   configs: BuilderConfig[]
   metasets: Metaset[]
   keepUniqueRules: KeepUniqueRule[]
-  questionnaireAnswers: NoteQuestionnaireAnswers
+  configOptionsAnswers: NoteConfigOptionsAnswers
   markdownComponents: MarkdownComponentMap
   allowElement: MarkdownAllowElement
 }) {
@@ -1888,17 +1888,17 @@ function NoteEditorContent({
   const editorRef = useRef<RefMDEditor | null>(null)
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [draft, setDraft] = useState<string>(note ?? '')
-  // Track questionnaire changes so the view-mode button can signal edits.
-  const baseQuestionnaireSignature = useMemo(
-    () => buildNoteQuestionnaireSignature(note ?? ''),
+  // Track config options changes so the view-mode button can signal edits.
+  const baseConfigOptionsSignature = useMemo(
+    () => buildNoteConfigOptionsSignature(note ?? ''),
     [note],
   )
-  const draftQuestionnaireSignature = useMemo(
-    () => buildNoteQuestionnaireSignature(draft ?? ''),
+  const draftConfigOptionsSignature = useMemo(
+    () => buildNoteConfigOptionsSignature(draft ?? ''),
     [draft],
   )
   // Flag when questions were added/removed/changed in the draft.
-  const questionnaireChanged = baseQuestionnaireSignature !== draftQuestionnaireSignature
+  const configOptionsChanged = baseConfigOptionsSignature !== draftConfigOptionsSignature
   const baseContext = useNoteRenderContext()
   // Resolve config markers inside the editor preview.
   const editorMarkerResolutions = useMemo(() => buildConfigMarkerResolutions(draft ?? '', configs), [draft, configs])
@@ -1907,30 +1907,30 @@ function NoteEditorContent({
     () => buildKeepUniqueMarkerResolutions(draft ?? '', keepUniqueRules),
     [draft, keepUniqueRules],
   )
-  // Resolve questionnaire markers without making them interactive.
-  const editorQuestionnaireResolutions = useMemo(
-    () => buildQuestionnaireMarkerResolutions(draft ?? '', questionnaireAnswers),
-    [draft, questionnaireAnswers],
+  // Resolve config options markers without making them interactive.
+  const editorConfigOptionsResolutions = useMemo(
+    () => buildConfigOptionsMarkerResolutions(draft ?? '', configOptionsAnswers),
+    [draft, configOptionsAnswers],
   )
   // Ignore answer updates in edit mode so markers stay read-only.
-  const ignoreQuestionnaireAnswerChange = React.useCallback(() => {}, [])
+  const ignoreConfigOptionsAnswerChange = React.useCallback(() => {}, [])
   const editorContextValue = useMemo<NoteRenderContextValue>(
     () => ({
       ...baseContext,
       markerResolutions: editorMarkerResolutions,
       keepUniqueMarkerResolutions: editorKeepUniqueMarkerResolutions,
       keepUniqueRules,
-      questionnaireResolutions: editorQuestionnaireResolutions,
-      questionnaireEditable: false,
-      onQuestionnaireAnswerChange: ignoreQuestionnaireAnswerChange,
+      configOptionsResolutions: editorConfigOptionsResolutions,
+      configOptionsEditable: false,
+      onConfigOptionsAnswerChange: ignoreConfigOptionsAnswerChange,
     }),
     [
       baseContext,
       editorMarkerResolutions,
       editorKeepUniqueMarkerResolutions,
-      editorQuestionnaireResolutions,
+      editorConfigOptionsResolutions,
       keepUniqueRules,
-      ignoreQuestionnaireAnswerChange,
+      ignoreConfigOptionsAnswerChange,
     ],
   )
 
@@ -1999,19 +1999,19 @@ function NoteEditorContent({
     },
   }), [keepUniqueRules, setDraft, t])
 
-  const questionnaireSampleCommand = useMemo<ICommand>(() => ({
-    name: 'insert-questionnaire-sample',
-    keyCommand: 'insert-questionnaire-sample',
+  const configOptionsSampleCommand = useMemo<ICommand>(() => ({
+    name: 'insert-configOptions-sample',
+    keyCommand: 'insert-configOptions-sample',
     groupName: 'note-inserts',
-    // Questionnaire samples belong to the same insert block in the toolbar.
-    buttonProps: { 'aria-label': t('noteInsertQuestionnaireSample'), title: t('noteInsertQuestionnaireSample') },
+    // ConfigOptions samples belong to the same insert block in the toolbar.
+    buttonProps: { 'aria-label': t('noteInsertConfigOptionsSample'), title: t('noteInsertConfigOptionsSample') },
     icon: <QuizIcon fontSize="small" />,
     execute: (state, api) => {
       // Insert a sample block at the cursor for quick onboarding.
       const text = state.text ?? ''
       const start = state.selection?.start ?? 0
       const end = state.selection?.end ?? start
-      const block = buildQuestionnaireSampleBlock(t)
+      const block = buildConfigOptionsSampleBlock(t)
       const { insert, cursorOffset } = computeBlockInsertion(text, start, end, block)
       const nextState = api.replaceSelection(insert)
       const nextPos = start + cursorOffset
@@ -2125,7 +2125,7 @@ function NoteEditorContent({
       configCommand,
       keepUniqueCommand,
       metasetCommand,
-      questionnaireSampleCommand,
+      configOptionsSampleCommand,
     ]
     // If there is no divider after the title group, add a trailing divider manually.
     if (idxDividerAfterTitle < 0 && idxLink >= 0) {
@@ -2138,7 +2138,7 @@ function NoteEditorContent({
     configCommand,
     keepUniqueCommand,
     metasetCommand,
-    questionnaireSampleCommand,
+    configOptionsSampleCommand,
   ])
 
   return (
@@ -2307,11 +2307,11 @@ function NoteEditorContent({
       </DialogContent>
       <DialogActions sx={{ justifyContent: 'space-between', gap: 1, flexWrap: 'wrap' }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-          {/* Warn when questionnaire markers changed during this edit session. */}
+          {/* Warn when config options markers changed during this edit session. */}
           <Badge
             overlap="rectangular"
             anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
-            invisible={!questionnaireChanged}
+            invisible={!configOptionsChanged}
             sx={warningBadgeSx}
             badgeContent="!"
           >

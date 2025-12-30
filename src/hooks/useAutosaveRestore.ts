@@ -29,7 +29,12 @@ import {
 import { TESTER_CONFIG_FILTER_MODE_DEFAULT, type TesterConfigFilterMode } from '../types/testerConfigFilterMode'
 import type { KeepUniqueRule } from '../lib/keepUniques'
 import { sanitizeKeepUniquesGridFilterMode, type KeepUniquesGridFilterMode } from '../state/keepUniquesPreferences'
-import { normalizeNoteQuestionnaireAnswers, type NoteQuestionnaireAnswers } from '../lib/noteQuestionnaire'
+import {
+  LEGACY_NOTE_CONFIG_OPTIONS_ANSWERS_KEY,
+  NOTE_CONFIG_OPTIONS_ANSWERS_KEY,
+  normalizeNoteConfigOptionsAnswers,
+  type NoteConfigOptionsAnswers,
+} from '../lib/noteConfigOptions'
 import {
   isDefaultTesterSubstatSortState,
   normalizeTesterSubstatSortState,
@@ -46,7 +51,7 @@ export type RestoreDraft = {
   KeepUniquesEnabled?: boolean
   SelectedConfigIndex?: number
   Note?: string
-  NoteQuestionnaireAnswers?: NoteQuestionnaireAnswers
+  NoteConfigOptionsAnswers?: NoteConfigOptionsAnswers
   AutosaveSavedAt?: string
   Filters?: AutosaveFiltersState
   TesterSort?: TesterSubstatSortState
@@ -241,7 +246,7 @@ function computeInitialAutosaveState(args: {
   configs: BuilderConfig[]
   finalSellRemainder: FinalSellRemainderConfig
   note: string | null
-  noteQuestionnaireAnswers: NoteQuestionnaireAnswers
+  noteConfigOptionsAnswers: NoteConfigOptionsAnswers
   filters: AutosaveFiltersState
   testerSort: TesterSubstatSortState
   keepUniqueRules: KeepUniqueRule[]
@@ -290,15 +295,19 @@ function computeInitialAutosaveState(args: {
         && !savedKeepEnabled
         && args.keepUniqueRules.length === 0
         && !args.keepUniquesEnabled
-      // Read any questionnaire answers stored alongside the autosave payload.
-      const savedQuestionnaireAnswers = normalizeNoteQuestionnaireAnswers(
-        (entry.payload && typeof entry.payload === 'object')
-          ? (entry.payload as Record<string, unknown>)['NoteQuestionnaireAnswers']
+      // Read any config options answers stored alongside the autosave payload.
+      const payloadRecord = (entry.payload && typeof entry.payload === 'object')
+        ? (entry.payload as Record<string, unknown>)
+        : null
+      const savedConfigOptionsAnswers = normalizeNoteConfigOptionsAnswers(
+        payloadRecord
+          ? (payloadRecord[NOTE_CONFIG_OPTIONS_ANSWERS_KEY]
+            ?? payloadRecord[LEGACY_NOTE_CONFIG_OPTIONS_ANSWERS_KEY])
           : null,
       )
-      // Consider either the note or questionnaire answers as a reason to restore.
+      // Consider either the note or config options answers as a reason to restore.
       const notePresent = typeof parsed.note === 'string' && parsed.note.trim().length > 0
-        || (savedQuestionnaireAnswers && Object.keys(savedQuestionnaireAnswers).length > 0)
+        || (savedConfigOptionsAnswers && Object.keys(savedConfigOptionsAnswers).length > 0)
       const savedGridFilterModeRaw = (entry.payload && typeof entry.payload === 'object' && typeof (entry.payload as Record<string, unknown>)['KeepUniquesGridFilterMode'] === 'string')
         ? (entry.payload as Record<string, unknown>)['KeepUniquesGridFilterMode']
         : null
@@ -333,7 +342,7 @@ function computeInitialAutosaveState(args: {
             ...(savedGridFilterMode ? { KeepUniquesGridFilterMode: savedGridFilterMode } : {}),
             ...(parsed.selectedIndex != null ? { SelectedConfigIndex: parsed.selectedIndex } : {}),
             ...(parsed.note ? { Note: parsed.note } : {}),
-            ...(savedQuestionnaireAnswers ? { NoteQuestionnaireAnswers: savedQuestionnaireAnswers } : {}),
+            ...(savedConfigOptionsAnswers ? { [NOTE_CONFIG_OPTIONS_ANSWERS_KEY]: savedConfigOptionsAnswers } : {}),
             ...(savedAtRaw ? { AutosaveSavedAt: savedAtRaw } : {}),
             ...(savedFilters ? { Filters: savedFilters } : {}),
             ...(savedTesterSort ? { TesterSort: savedTesterSort } : {}),
@@ -365,7 +374,7 @@ export function useAutosaveRestore(opts: {
   finalSellRemainder: FinalSellRemainderConfig
   selectedConfigIndex: number | null
   note: string | null
-  noteQuestionnaireAnswers: NoteQuestionnaireAnswers
+  noteConfigOptionsAnswers: NoteConfigOptionsAnswers
   filters: AutosaveFiltersState
   testerSort: TesterSubstatSortState
   keepUniqueRules: KeepUniqueRule[]
@@ -383,7 +392,7 @@ export function useAutosaveRestore(opts: {
     finalSellRemainder,
     selectedConfigIndex: _selectedConfigIndex,
   note,
-  noteQuestionnaireAnswers,
+  noteConfigOptionsAnswers,
   filters,
     testerSort,
     keepUniqueRules,
@@ -402,7 +411,7 @@ export function useAutosaveRestore(opts: {
       configs,
       finalSellRemainder,
       note,
-      noteQuestionnaireAnswers,
+      noteConfigOptionsAnswers,
       filters,
       testerSort,
       keepUniqueRules,
@@ -435,9 +444,11 @@ export function useAutosaveRestore(opts: {
       KeepUniquesEnabled: keepUniquesEnabled,
       LogicHubDialogTab: logicHubDialogTab,
       KeepUniquesGridFilterMode: keepUniquesGridFilterMode,
-      // Persist note content and questionnaire answers only when present.
+      // Persist note content and config options answers only when present.
       ...(note && note.trim() ? { Note: note } : {}),
-      ...(Object.keys(noteQuestionnaireAnswers).length > 0 ? { NoteQuestionnaireAnswers: noteQuestionnaireAnswers } : {}),
+      ...(Object.keys(noteConfigOptionsAnswers).length > 0
+        ? { [NOTE_CONFIG_OPTIONS_ANSWERS_KEY]: noteConfigOptionsAnswers }
+        : {}),
       ...(filtersForSnapshot ? { Filters: filtersForSnapshot } : {}),
       ...(testerSortForSnapshot ? { TesterSort: testerSortForSnapshot } : {}),
     }
@@ -449,7 +460,7 @@ export function useAutosaveRestore(opts: {
     configs,
     finalSellRemainder,
     note,
-    noteQuestionnaireAnswers,
+    noteConfigOptionsAnswers,
     filters,
     testerSort,
     keepUniqueRules,

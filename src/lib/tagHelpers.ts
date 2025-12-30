@@ -2,7 +2,7 @@
  * tagHelpers.ts
  *
  * Central tag normalization helpers used by config metadata and Note
- * questionnaire parsing so matching stays consistent across the app.
+ * config options parsing so matching stays consistent across the app.
  */
 
 // Tag tokens stay compact so they travel well in filenames and HSFC notes.

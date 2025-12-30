@@ -238,12 +238,13 @@ import { describeHsfcLoaded, describeAutosaveRestored, makeClipboardSourceDescri
 import { describeKeepUniquesEnabledChange, describeKeepUniquesRulesChange } from './history/keepUniquesDescriptors'
 import { useAutoSideBySideZoom } from './hooks/useAutoSideBySideZoom'
 import {
-  applyQuestionnaireExportModeOverrides,
-  buildQuestionnaireExportModeResolution,
-  pruneNoteQuestionnaireAnswers,
-  resolveQuestionnaireExportMode,
-  resolveQuestionnaireTags,
-} from './lib/noteQuestionnaire'
+  applyConfigOptionsExportModeOverrides,
+  buildConfigOptionsExportModeResolution,
+  NOTE_CONFIG_OPTIONS_ANSWERS_KEY,
+  pruneNoteConfigOptionsAnswers,
+  resolveConfigOptionsExportMode,
+  resolveConfigOptionsTags,
+} from './lib/noteConfigOptions'
 
 // Components are organized under src/components
 
@@ -322,7 +323,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     finalSellRemainder,
     logicHubDialogTab,
     hsfcNote,
-    noteQuestionnaireAnswers,
+    noteConfigOptionsAnswers,
     keepUniqueRules,
     keepUniquesEnabled,
   } = useAppState()
@@ -336,7 +337,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setFinalSellRemainder,
     setLogicHubDialogTab,
     setHsfcNote,
-    setNoteQuestionnaireAnswers,
+    setNoteConfigOptionsAnswers,
     setKeepUniqueRules,
     setKeepUniquesEnabled,
   } = useAppActions()
@@ -345,29 +346,29 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const { statButtonBorders } = useDisplayPreferences()
   const [autoApplySelectedConfig] = useAutoApplySelectedConfigPreference()
   const { setStatButtonBorders } = useDisplayPreferenceActions()
-  // Normalize the note text so questionnaire parsing never sees null.
-  const questionnaireNoteText = typeof hsfcNote === 'string' ? hsfcNote : ''
-  // Resolve questionnaire tags based on the current note + answers.
-  const questionnaireTagResolution = useMemo(
-    () => resolveQuestionnaireTags(questionnaireNoteText, noteQuestionnaireAnswers),
-    [questionnaireNoteText, noteQuestionnaireAnswers],
+  // Normalize the note text so config options parsing never sees null.
+  const configOptionsNoteText = typeof hsfcNote === 'string' ? hsfcNote : ''
+  // Resolve config options tags based on the current note + answers.
+  const configOptionsTagResolution = useMemo(
+    () => resolveConfigOptionsTags(configOptionsNoteText, noteConfigOptionsAnswers),
+    [configOptionsNoteText, noteConfigOptionsAnswers],
   )
   // Keep a stable array for downstream UI and filter logic.
-  const questionnaireActiveTags = questionnaireTagResolution.activeTags
-  // Resolve questionnaire-driven export modes for every config.
-  const questionnaireExportModes = useMemo(
-    () => buildQuestionnaireExportModeResolution(customCfgs, questionnaireActiveTags),
-    [customCfgs, questionnaireActiveTags],
+  const configOptionsActiveTags = configOptionsTagResolution.activeTags
+  // Resolve config options-driven export modes for every config.
+  const configOptionsExportModes = useMemo(
+    () => buildConfigOptionsExportModeResolution(customCfgs, configOptionsActiveTags),
+    [customCfgs, configOptionsActiveTags],
   )
   // Apply the export-mode overrides for rule generation without mutating HSFC configs.
-  const questionnaireConfigsForRules = useMemo(
-    () => applyQuestionnaireExportModeOverrides(customCfgs, questionnaireExportModes.modes),
-    [customCfgs, questionnaireExportModes.modes],
+  const configOptionsConfigsForRules = useMemo(
+    () => applyConfigOptionsExportModeOverrides(customCfgs, configOptionsExportModes.modes),
+    [customCfgs, configOptionsExportModes.modes],
   )
   // Use a deferred snapshot so bursty substatTargets updates (e.g., Restore Defaults) coalesce before recomputing merged rules.
-  const ruleConfigs = useMemo(() => configsForRuleBuild(questionnaireConfigsForRules), [questionnaireConfigsForRules])
+  const ruleConfigs = useMemo(() => configsForRuleBuild(configOptionsConfigsForRules), [configOptionsConfigsForRules])
   const configNames = useMemo(() => customCfgs.map((cfg) => (typeof cfg?.name === 'string' ? cfg.name : '')), [customCfgs])
-  const configModes = useMemo(() => questionnaireExportModes.modes, [questionnaireExportModes])
+  const configModes = useMemo(() => configOptionsExportModes.modes, [configOptionsExportModes])
   const substatTargetsForPreview = useDeferredValue(substatTargets)
   const metasetsForPreview = useDeferredValue(metasets)
   const ruleConfigsForPreview = useDeferredValue(ruleConfigs)
@@ -745,8 +746,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // values without waiting for React to flush state updates.
   const builderRef = React.useRef(builder)
   const [configRulesState, setConfigRulesState] = useState<ConfigRulesStateSnapshot>(() => {
-    // Seed the cache using questionnaire-effective export modes.
-    const configsForRules = configsForRuleBuild(questionnaireConfigsForRules)
+    // Seed the cache using config options-effective export modes.
+    const configsForRules = configsForRuleBuild(configOptionsConfigsForRules)
     const baseRuleCount = Array.isArray(hsf?.Rules) ? (hsf?.Rules.length ?? 0) : 0
     const initial = updateConfigRulesCache({
       configs: configsForRules,
@@ -2322,13 +2323,13 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     }
     // Persist the updated note content immediately.
     setHsfcNote(() => nextNormalized)
-    // Keep questionnaire answers aligned with the current note markers.
+    // Keep config options answers aligned with the current note markers.
     // Why: answers are session-only, so imports reset them while edits prune stale entries.
-    setNoteQuestionnaireAnswers((prev) => {
+    setNoteConfigOptionsAnswers((prev) => {
       // Imports never carry answers, so clear them.
       if (mode === 'import') return {}
       // Prune or reset answers based on the new note content.
-      return nextNormalized ? pruneNoteQuestionnaireAnswers(nextNormalized, prev) : {}
+      return nextNormalized ? pruneNoteConfigOptionsAnswers(nextNormalized, prev) : {}
     })
     const descriptor = describeNoteChange({
       previous: prevNormalized,
@@ -2367,7 +2368,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       describeNextChange(aggregateDescriptor ?? descriptor)
     }
     return aggregateDescriptor ?? descriptor
-  }, [describeNextChange, hsfcNote, noteMode, noteOpen, setHsfcNote, setNoteQuestionnaireAnswers, t])
+  }, [describeNextChange, hsfcNote, noteMode, noteOpen, setHsfcNote, setNoteConfigOptionsAnswers, t])
 
 
   const tutorial = useTutorialCoachState({
@@ -2661,7 +2662,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     finalSellRemainder,
     selectedConfigIndex: selectedCfgIdx,
     note: hsfcNote,
-    noteQuestionnaireAnswers,
+    noteConfigOptionsAnswers,
     filters: autosaveFiltersState,
     testerSort: testerSubstatSortPrefs.state,
     keepUniqueRules,
@@ -3186,20 +3187,20 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     const testerSortPayload = isDefaultTesterSubstatSortState(testerSubstatSortPrefs.state)
       ? null
       : testerSubstatSortPrefs.state
-    // Persist questionnaire answers in autosave only when non-empty.
-    const questionnairePayload = Object.keys(noteQuestionnaireAnswers).length > 0
-      ? noteQuestionnaireAnswers
+    // Persist config options answers in autosave only when non-empty.
+    const configOptionsPayload = Object.keys(noteConfigOptionsAnswers).length > 0
+      ? noteConfigOptionsAnswers
       : null
     return {
       ...autosaveBasePayload,
       LogicHubDialogTab: logicHubDialogTab, // Persist the active tab so the dialog re-opens where the user left off.
       KeepUniquesGridFilterMode: keepUniquesGridFilterMode,
       AutosaveSavedAt: new Date().toISOString(),
-      ...(questionnairePayload ? { NoteQuestionnaireAnswers: questionnairePayload } : {}),
+      ...(configOptionsPayload ? { [NOTE_CONFIG_OPTIONS_ANSWERS_KEY]: configOptionsPayload } : {}),
       ...(filtersPayload ? { Filters: filtersPayload } : {}),
       ...(testerSortPayload ? { TesterSort: testerSortPayload } : {}),
     }
-  }, [autosaveBasePayload, autosaveFiltersState, logicHubDialogTab, keepUniquesGridFilterMode, noteQuestionnaireAnswers, testerSubstatSortPrefs.state])
+  }, [autosaveBasePayload, autosaveFiltersState, logicHubDialogTab, keepUniquesGridFilterMode, noteConfigOptionsAnswers, testerSubstatSortPrefs.state])
   useAutosave({
     key: AUTOSAVE_KEY,
     payload: autosavePayload,
@@ -3562,8 +3563,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     const names = configNames.slice()
     names.splice(prospectiveInsertIndex, 0, builder.name ?? '')
     const modes = configModes.slice()
-    // Resolve questionnaire overrides for the builder export mode.
-    const builderExportMode: SellfileExportMode = resolveQuestionnaireExportMode(builder, questionnaireActiveTags)
+    // Resolve config options overrides for the builder export mode.
+    const builderExportMode: SellfileExportMode = resolveConfigOptionsExportMode(builder, configOptionsActiveTags)
     modes.splice(prospectiveInsertIndex, 0, builderExportMode)
     // Ensure rule generation sees the same effective export mode as the filter list.
     // Clone only when the effective export mode diverges from the stored value.
@@ -3587,7 +3588,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     matchingConfigIndices,
     prospectiveInsertIndex,
     selectedIsDirty,
-    questionnaireActiveTags,
+    configOptionsActiveTags,
   ])
 
   const builderSaveMatchesRuleFilters = useMemo(() => {
@@ -3599,8 +3600,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     const names = configNames.slice()
     names[editingConfigIndex] = builder.name ?? ''
     const modes = configModes.slice()
-    // Resolve questionnaire overrides for the builder export mode.
-    const builderExportMode: SellfileExportMode = resolveQuestionnaireExportMode(builder, questionnaireActiveTags)
+    // Resolve config options overrides for the builder export mode.
+    const builderExportMode: SellfileExportMode = resolveConfigOptionsExportMode(builder, configOptionsActiveTags)
     modes[editingConfigIndex] = builderExportMode
     // Ensure rule generation sees the same effective export mode as the filter list.
     // Clone only when the effective export mode diverges from the stored value.
@@ -3622,22 +3623,22 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     evaluateConfigAgainstFilters,
     filterActive,
     limitConfigsToFiltered,
-    questionnaireActiveTags,
+    configOptionsActiveTags,
   ])
 
   const builderInsertBecomesTesterFirstMatch = useCallback((targetIndex: number): boolean => {
     // Tester preview mode: the chip filter is driven by the set of configs that are the *first match*
     // for at least one tester row that survives the tester-side filters.
     if (!limitConfigsToFiltered) return true
-    // Apply questionnaire overrides before testing the export mode.
-    const builderExportMode = resolveQuestionnaireExportMode(builder, questionnaireActiveTags)
+    // Apply config options overrides before testing the export mode.
+    const builderExportMode = resolveConfigOptionsExportMode(builder, configOptionsActiveTags)
     if (builderExportMode === 'disabled') return false
     // In tester mode, separators are always shown when config filtering is off (anchor chips remain visible).
     if (builderExportMode === 'separator' && testerConfigFilterMode === 'off') return true
     const rows = gearEntriesAfterRulesFilter
     if (rows.length === 0) return false
     let ruleLimitHit = false
-    // Ensure the rules we build reflect the questionnaire export mode.
+    // Ensure the rules we build reflect the config options export mode.
     // Clone only when the effective export mode diverges from the stored value.
     const builderForRules = builderExportMode === builder.exportMode
       ? builder
@@ -3663,7 +3664,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     return false
   }, [
     builder,
-    questionnaireActiveTags,
+    configOptionsActiveTags,
     limitConfigsToFiltered,
     metasets,
     substatTargets,
@@ -4058,7 +4059,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       onSubstatTargetsChange={(next, opts) => { applySubstatTargetsChange(next, opts) }}
       substatTargetsDialogOpen={substatTargetsDialogOpen}
       onCloseSubstatTargetsDialog={closeSubstatTargetsDialog}
-      questionnaireActiveTags={questionnaireActiveTags}
+      configOptionsActiveTags={configOptionsActiveTags}
       setUsageCounts={setUsageCounts}
       metasetUsageCounts={metasetUsageCounts}
       keepUniqueMetasetUsageCounts={keepUniqueMetasetUsageCounts}
@@ -4097,7 +4098,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     <ConfigChipsPanel
       containerRef={chipsContainerRef}
       configs={customCfgs}
-      exportModeOverrides={questionnaireExportModes.modes}
+      exportModeOverrides={configOptionsExportModes.modes}
       maxHeightPx={chipsMaxHeight}
       selectedIndices={selectedCfgIndices}
       metasets={metasets}
@@ -4169,8 +4170,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       applyNoteChange(null, { mode: 'import', publish: false })
       handleCloseNote()
     }
-    // HSFC files do not carry questionnaire answers, so reset to defaults.
-    setNoteQuestionnaireAnswers({})
+    // HSFC files do not carry config options answers, so reset to defaults.
+    setNoteConfigOptionsAnswers({})
 
     startTransition(() => {
       describeNextChange(loadDescriptor)
@@ -4218,7 +4219,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setCustomCfgs,
     setLastExportSig,
     setMetasets,
-    setNoteQuestionnaireAnswers,
+    setNoteConfigOptionsAnswers,
     substatTargets,
     syncSelectedCfgIdx,
     t,
@@ -5005,8 +5006,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           onClose={handleCloseNote}
           onRequestEdit={openNoteEditor}
           onRequestView={openNoteViewer}
-          questionnaireAnswers={noteQuestionnaireAnswers}
-          onQuestionnaireAnswersChange={setNoteQuestionnaireAnswers}
+          configOptionsAnswers={noteConfigOptionsAnswers}
+          onConfigOptionsAnswersChange={setNoteConfigOptionsAnswers}
           configs={customCfgs}
           metasets={metasets}
           keepUniqueRules={keepUniqueRules}
@@ -5131,8 +5132,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                 } else {
                   applyNoteChange(null, { mode: 'restore', publish: false })
                 }
-                const restoredAnswers = draft.NoteQuestionnaireAnswers ?? {}
-                setNoteQuestionnaireAnswers(pruneNoteQuestionnaireAnswers(restoredNote, restoredAnswers))
+                const restoredAnswers = draft.NoteConfigOptionsAnswers ?? {}
+                setNoteConfigOptionsAnswers(pruneNoteConfigOptionsAnswers(restoredNote, restoredAnswers))
               }
               if (selection.filters && restoreFiltersDiffer && draft.Filters) {
                 try {

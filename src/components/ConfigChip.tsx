@@ -199,7 +199,7 @@ function ConfigChip({
   )
   // Dev builds expose extra clipboard utilities via the chip context menu.
   const isDev: boolean = isDevBuild
-  // Allow callers to override the export mode for questionnaire previews.
+  // Allow callers to override the export mode for config options previews.
   const exportMode: SellfileExportMode = exportModeOverride ?? cfg.exportMode
   const isSeparator = exportMode === 'separator'
   const isHidden = exportMode === 'disabled'

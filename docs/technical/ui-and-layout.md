@@ -160,7 +160,7 @@ If tooltips need rich formatting (colored badges, inline icons), pass JSX via `r
 ## UI Notes (developer-facing)
 
 - Builder layout: Row 1 Action; Row 2 Rank/Rarity/Faction/Level window; Row 3 Mainstat/Substats; Row 4 Min selected substats controls; Row 5 Slots/Sets.
-  - Tags live on Row 1, directly beside Export Mode, to emphasize that questionnaire tags toggle enable/disable.
+  - Tags live on Row 1, directly beside Export Mode, to emphasize that config options tags toggle enable/disable.
   - Faction stays near Rarity. Only accessories care about faction; other gear ignores `Faction`.
 - Mainstat is multi-select with two rows of toggle buttons (HP/HP%/ATK/ATK%/DEF/DEF% and SPD/RES/ACC/CR%/CDMG%). Empty selection maps to Any; HSFC export converts selections to readable labels.
 - Substats reuse the two-row toggle grid. Empty selection represents Any. Toggle buttons manage selection while a separate lock badge handles fixed state (supports `aria-pressed="mixed"`).

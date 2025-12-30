@@ -360,7 +360,7 @@ function makeMetasetSnapshotLine(cfg: BuilderConfig, metasets: Metaset[], t: Tra
   })
 }
 
-// Snapshot line for tags so config summaries preserve questionnaire metadata.
+// Snapshot line for tags so config summaries preserve config options metadata.
 function makeTagsSnapshotLine(cfg: BuilderConfig, t: TranslateFn): string | null {
   // Keep tag output stable and compact for history snapshots.
   const tags = Array.isArray(cfg.tags) ? cfg.tags.map(String).filter(Boolean) : []

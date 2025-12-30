@@ -55,7 +55,7 @@ type DescribeConfigsInsertedParams = {
   t: TranslateFn
 }
 
-type DescribeQuestionnaireAppliedParams = {
+type DescribeConfigOptionsAppliedParams = {
   changedIndices: number[]
   configs: BuilderConfig[]
   enableCount: number
@@ -179,7 +179,7 @@ export function describeConfigsInserted(params: DescribeConfigsInsertedParams): 
   return detailLines.length > 0 ? { title, detailLines } : { title }
 }
 
-export function describeQuestionnaireApplied(params: DescribeQuestionnaireAppliedParams): HistoryEntryDescriptor | null {
+export function describeConfigOptionsApplied(params: DescribeConfigOptionsAppliedParams): HistoryEntryDescriptor | null {
   const { changedIndices, configs, enableCount, disableCount, t } = params
   // Skip empty changes to avoid noisy history entries.
   if (changedIndices.length === 0) return null
@@ -197,10 +197,10 @@ export function describeQuestionnaireApplied(params: DescribeQuestionnaireApplie
   // Summarize config labels to keep history concise.
   const detailLines = summarizeLabels(labels, t)
   // Prefix with a summary of enabled/disabled counts.
-  detailLines.unshift(t('historyQuestionnaireAppliedSummaryLine', { enabled: enableCount, disabled: disableCount }))
+  detailLines.unshift(t('historyConfigOptionsAppliedSummaryLine', { enabled: enableCount, disabled: disableCount }))
   return detailLines.length > 0
-    ? { title: t('historyQuestionnaireAppliedTitle'), detailLines }
-    : { title: t('historyQuestionnaireAppliedTitle') }
+    ? { title: t('historyConfigOptionsAppliedTitle'), detailLines }
+    : { title: t('historyConfigOptionsAppliedTitle') }
 }
 
 export function describeMultiEditApplied(params: DescribeMultiEditAppliedParams): HistoryEntryDescriptor | null {
