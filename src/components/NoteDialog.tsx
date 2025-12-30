@@ -887,20 +887,11 @@ function buildMetasetBulletList(
     .join('\n')
 }
 
-function buildQuestionnaireSampleBlock(): string {
-  // Provide a starter block that demonstrates single + multi format.
-  return [
-    '<!-- q:single "Single-select question with **Bold**, and `Marked` labels, using labels **\\1** or `\\2`."',
-    '  [* "Answer 1", tag1, -tag2]',
-    '  ["Answer 2", tag2]',
-    '-->',
-    '',
-    '<!-- q:multi "Another question with **Bold** and `Marked` labels."',
-    '  [* "Answer A", tag-a]',
-    '  ["Answer B"]',
-    '  ["Answer C", tag-c]',
-    '-->',
-  ].join('\n')
+function buildQuestionnaireSampleBlock(t: ReturnType<typeof useI18n>['t']): string {
+  // Keep the sample block in the catalog so it localizes.
+  const sample = t('noteQuestionnaireSampleBlock')
+  // Return the catalog value directly for insertion.
+  return sample
 }
 
 function buildMetasetInsertCommand(params: {
@@ -2040,7 +2031,7 @@ function NoteEditorContent({
       const text = state.text ?? ''
       const start = state.selection?.start ?? 0
       const end = state.selection?.end ?? start
-      const block = buildQuestionnaireSampleBlock()
+      const block = buildQuestionnaireSampleBlock(t)
       const { insert, cursorOffset } = computeBlockInsertion(text, start, end, block)
       const nextState = api.replaceSelection(insert)
       const nextPos = start + cursorOffset

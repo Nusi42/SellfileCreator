@@ -1080,6 +1080,7 @@ const enUS: Catalog = {
   noteInsertKeepUniques: 'Insert Keep Unique Summary',
   noteInsertMetasets: 'Insert Metaset List',
   noteInsertQuestionnaireSample: 'Insert Sample Questionnaire',
+  noteQuestionnaireSampleBlock: '<!-- q:single "Single-select question with **Bold**, and `Marked` labels, using labels **\\1** or `\\2`."\n  [* "Answer 1", tag1, -tag2]\n  ["Answer 2", tag2]\n-->\n\n<!-- q:multi "Another question with **Bold** and `Marked` labels."\n  [* "Answer A", tag-a]\n  ["Answer B"]\n  ["Answer C", tag-c]\n-->',
   noteQuestionnaireApply: 'Apply Questionnaire Tags',
   noteQuestionnaireApplyConfirmTitle: 'Apply Questionnaire Tags?',
   noteQuestionnaireApplyConfirmBody: 'Enable {enabled} configs, disable {disabled} configs. Untagged configs are unchanged.',
