@@ -317,9 +317,12 @@ ${t('keepUniquesCountModeHint')}`
     return (row: TesterPreviewRow) => selectedItemKeys.has(getKeepUniqueItemKey(row.artifact))
   }, [selectedEntry, selectedItemKeys])
   const highlightActive = Boolean(highlightRowPredicate)
-  const selectionFilterApplied = gridFilterMode === 'selection' && Boolean(highlightRowPredicate)
+  // Treat selection mode as active whenever a rule is selected, even with zero matches.
+  const selectionFilterApplied = gridFilterMode === 'selection' && Boolean(selectedEntry)
   const gridRows = useMemo(() => {
-    if (!selectionFilterApplied || !highlightRowPredicate) return uniqueRows
+    if (!selectionFilterApplied) return uniqueRows
+    // When a rule has zero matches, the selection filter should yield an empty grid.
+    if (!highlightRowPredicate) return []
     return uniqueRows.filter((row) => highlightRowPredicate(row))
   }, [highlightRowPredicate, selectionFilterApplied, uniqueRows])
   const selectedVisibleRowCount = useMemo(() => {
