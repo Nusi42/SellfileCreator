@@ -83,7 +83,8 @@ test('describeConfigAdded appends snapshot detail lines', () => {
 
 test('describeConfigsDeleted includes snapshot lines for single deletions', () => {
   const cfg = makeConfig({
-    artifactSets: [1, 2],
+    // Snapshot now expects set entries so exclusions can be encoded.
+    artifactSets: [{ id: 1 }, { id: 2 }],
     mainStatsV: [StatVariant.HP],
   })
   const descriptor = describeConfigsDeleted({

@@ -8,10 +8,11 @@
 import type { HsfRule } from './hsfTypes'
 import type { SellfileExportMode } from './hsfBuilder'
 import type { Metaset } from './metasets'
+import type { ArtifactSetSelectionEntry } from './gearSets/selection'
+import { normalizeArtifactSetSelections, splitArtifactSetSelections } from './gearSets/selection'
 import {
   mainToVariant,
   subToVariant,
-  type ArtifactSetId,
   type ArtifactTypeId,
   type FactionId,
   StatVariant,
@@ -130,7 +131,7 @@ export interface RulesFilterState {
   // Rule-level filters
   rule?: { keep: Bool3; use: Bool3 }
   testerResult?: { keep: Bool3; matched: Bool3 }
-  sets: { selected: ArtifactSetId[]; metaSelected?: string[]; anyMode: AnyMode; match?: 'any' | 'all' }
+  sets: { selected: ArtifactSetSelectionEntry[]; metaSelected?: string[]; anyMode: AnyMode; match?: 'any' | 'all' }
   slots: { selected: ArtifactTypeId[]; anyMode: AnyMode }
   // Rank: discrete buttons (1..6) instead of a contiguous range
   rank: { selected: RankValue[]; anyMode: AnyMode }
@@ -306,8 +307,10 @@ export const sanitizeRulesFilterState = (raw: unknown): RulesFilterState => {
   {
     const candidate = isRecord(rec['sets']) ? (rec['sets'] as UnknownRecord) : null
     const metaSelected = sanitizeUniqueStringArray(candidate?.['metaSelected'])
+    // Normalize set entries so legacy number arrays still load cleanly.
+    const selected = normalizeArtifactSetSelections(candidate?.['selected'])
     next.sets = {
-      selected: sanitizeUniqueNumberArray(candidate?.['selected']) as ArtifactSetId[],
+      selected,
       ...(metaSelected.length > 0 ? { metaSelected } : {}),
       anyMode: sanitizeStringEnum(candidate?.['anyMode'], ['off', 'include', 'only'] as const, next.sets.anyMode),
       match: sanitizeStringEnum(candidate?.['match'], ['any', 'all'] as const, next.sets.match ?? 'any'),
@@ -491,7 +494,10 @@ export function filterHsfRules<T extends HsfRule>(
     specialRuleLabels?: RuleSourceLabelMap
   },
 ): FilterHsfRulesResult<T> {
-  const selectedSets = new Set((f.sets?.selected ?? []).map(Number))
+  // Split include/exclude entries so rules can be filtered accordingly.
+  const setSelection = splitArtifactSetSelections(f.sets?.selected ?? [])
+  const selectedSets = new Set(setSelection.included.map(Number))
+  const excludedSets = new Set(setSelection.excluded.map(Number))
   // Unroll metaset selections into explicit set IDs for filtering
   if (metasets && (f.sets?.metaSelected?.length ?? 0) > 0) {
     const metaSet = new Set<string>(f.sets!.metaSelected!)
@@ -551,6 +557,10 @@ export function filterHsfRules<T extends HsfRule>(
       } else if (mode === 'off') {
         if (isAny) return false
         // specified sets: proceed to selection matching (if any selected)
+      }
+      if (!isAny && excludedSets.size > 0) {
+        const ruleSets = new Set((r.ArtifactSet || []).map(Number))
+        for (const s of excludedSets) { if (ruleSets.has(s)) return false }
       }
       if (!isAny && selectedSets.size > 0) {
         // Hide "All Currently Known" remainder rows when a specific Set filter is applied
@@ -794,7 +804,10 @@ export function filterTesterItems<T extends TesterFilterRow>(
 
   const testerKeepMode = f.testerResult?.keep ?? 'any'
   const testerMatchedMode = f.testerResult?.matched ?? 'any'
-  const selectedSets = new Set((f.sets?.selected ?? []).map(Number))
+  // Split include/exclude entries for tester filtering.
+  const setSelection = splitArtifactSetSelections(f.sets?.selected ?? [])
+  const selectedSets = new Set(setSelection.included.map(Number))
+  const excludedSets = new Set(setSelection.excluded.map(Number))
   if (metasets && (f.sets?.metaSelected?.length ?? 0) > 0) {
     const metaSet = new Set<string>(f.sets!.metaSelected!)
     for (const m of metasets) {
@@ -901,6 +914,7 @@ export function filterTesterItems<T extends TesterFilterRow>(
       const noSet = setId === 0 || (isAccessorySlot(slotId) && setId === ACCESSORY_NO_SET_ID)
       if (noSet) continue
     }
+    if (excludedSets.size > 0 && excludedSets.has(setId)) continue
     if (selectedSets.size > 0) {
       if (!selectedSets.has(setId)) continue
     }

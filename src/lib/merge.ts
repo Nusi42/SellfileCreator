@@ -11,7 +11,7 @@ import { RULE_COUNT_LIMIT, TOTAL_RULE_COUNT_LIMIT, ACCESSORY_NO_SET_ID, KEEP_UNI
 import { buildHsfRules, RuleLimitReachedError, resolveAutoRarityCode } from './hsfBuilder'
 import { findObsoleteRules } from './hsfObsolete'
 import type { Metaset } from './metasets'
-import { resolveMetasetIds } from './metasets'
+import { resolveArtifactSetSelections, splitArtifactSetSelections } from './gearSets/selection'
 import {
   ArtifactType,
   type ArtifactSetId,
@@ -261,10 +261,18 @@ export function buildRulesForConfig(params: {
   const configIdForExport = (typeof cfgIdx === 'number' && Number.isFinite(cfgIdx) && cfgIdx >= 0)
     ? (Math.floor(cfgIdx) + 1)
     : null
-  const fromMetas = resolveMetasetIds(config.artifactMetaSets, metasets)
-  const explicit = config.artifactSets ?? []
-  const union = Array.from(new Set<number>([...explicit, ...fromMetas].map(Number)))
-  const cfgWithSets: BuilderConfig = { ...config, artifactSets: union }
+  // Expand metasets and remove explicit exclusions before rule generation.
+  const resolvedSets = resolveArtifactSetSelections({
+    selections: config.artifactSets,
+    metasetIds: config.artifactMetaSets,
+    metasets,
+  })
+  // Build a config snapshot with the resolved set IDs only.
+  const cfgWithSets: BuilderConfig = {
+    ...config,
+    // Normalize to include-only entries so the builder sees final set ids.
+    artifactSets: resolvedSets.resolved.map((id) => ({ id })),
+  }
   try {
     const configsToBuild = expandAutoFlexRarityBranches(cfgWithSets)
     const branchRuleGroups = configsToBuild.map((branch, branchOrder) => {
@@ -501,7 +509,9 @@ const buildKeepUniquePlaceholderRules = ({
     if (!placeholder || placeholder.missing <= 0) continue
     const combination = placeholder.combination ? cloneKeepUniqueCombination(placeholder.combination) : cloneKeepUniqueCombination(rule.combination)
     const slotValues = dedupeSortedNumbers(combination.slots)
-    const setValues = dedupeSortedNumbers(combination.sets)
+    // Only use explicit includes; exclusions should not produce placeholder rules.
+    const setSelection = splitArtifactSetSelections(combination.sets)
+    const setValues = dedupeSortedNumbers(setSelection.included)
     const factionValues = dedupeSortedNumbers(combination.factions)
     const rankOptions = normalizeRankSelection(combination.ranks)
     const rarityOptions = normalizeRaritySelection(combination.rarities)

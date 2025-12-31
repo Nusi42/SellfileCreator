@@ -11,7 +11,7 @@ import { buildRulesForConfig, type HsfRuleWithCfg } from './merge'
 import { countRulesForConfig } from './ruleCacheHelpers'
 import type { BuilderConfig, SubstatTargetTable } from './hsfBuilder'
 import type { Metaset } from './metasets'
-import { resolveMetasetIds } from './metasets'
+import { resolveArtifactSetSelections } from './gearSets/selection'
 import { compareVariants } from './types'
 import { buildCanonicalConfigSnapshot } from './configSnapshot'
 import type { ProgressSnapshot } from '../types/progress'
@@ -314,26 +314,19 @@ function buildEntry(
  * rule generation see a single resolved list.
  */
 export function mergeArtifactSets(config: BuilderConfig, metasets: readonly Metaset[]): BuilderConfig {
-  const explicit = (config.artifactSets ?? []).map(Number)
-  const fromMetas = resolveMetasetIds(config.artifactMetaSets, metasets as Metaset[])
-  const seen = new Set<number>()
-  const union: number[] = []
-  for (const id of explicit) {
-    if (!Number.isFinite(id)) continue
-    if (seen.has(id)) continue
-    seen.add(id)
-    union.push(id)
+  // Resolve sets against metasets and explicit exclusions before caching.
+  const resolved = resolveArtifactSetSelections({
+    selections: config.artifactSets,
+    metasetIds: config.artifactMetaSets,
+    metasets,
+  })
+  // Only include the resolved set IDs in cached configs for fingerprints.
+  const normalized = resolved.resolved.map((id) => ({ id }))
+  if (normalized.length === (config.artifactSets ?? []).length) {
+    const same = normalized.every((entry, idx) => Number(entry.id) === Number((config.artifactSets ?? [])[idx]?.id))
+    if (same) return config
   }
-  for (const id of fromMetas) {
-    if (!Number.isFinite(id)) continue
-    if (seen.has(id)) continue
-    seen.add(id)
-    union.push(id)
-  }
-  if (union.length === explicit.length && union.every((id, idx) => id === explicit[idx])) {
-    return config
-  }
-  return { ...config, artifactSets: union }
+  return { ...config, artifactSets: normalized }
 }
 
 /**

@@ -46,7 +46,8 @@ test('custom chips or toggles mark filters as non-default', () => {
   })
   assert.equal(areAutosaveFiltersDefault(openPanel), false)
   const setsFilter = buildFilters()
-  setsFilter.views.rules.state.sets.selected = [1]
+  // Set selections now use entry objects so exclusions can be tracked.
+  setsFilter.views.rules.state.sets.selected = [{ id: 1 }]
   assert.equal(areAutosaveFiltersDefault(setsFilter), false)
 })
 

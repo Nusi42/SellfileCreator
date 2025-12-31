@@ -4,6 +4,7 @@ import type { Metaset } from '../lib/metasets'
 import { NBSP } from '../lib/constants'
 import { isLockedAggregateScopeActive } from '../lib/configNormalization'
 import { collectMetasetSnapshotEntries, normalizeNumberArray, type MetasetSnapshotEntry } from './historyDescriptorUtils'
+import { normalizeArtifactSetSelections, splitArtifactSetSelections } from '../lib/gearSets/selection'
 import {
   artifactTypeI18nKey,
   compareArtifactSets,
@@ -316,26 +317,29 @@ function makeSubstatsSnapshotLine(cfg: BuilderConfig, t: TranslateFn): string | 
 }
 
 function makeArtifactSetsDiffLine(previous: BuilderConfig, next: BuilderConfig, t: TranslateFn, lang: string): string {
-  const prevSets = normalizeNumberArray(previous.artifactSets).map(Number).sort(compareArtifactSets)
-  const nextSets = normalizeNumberArray(next.artifactSets).map(Number).sort(compareArtifactSets)
+  const prevSelection = normalizeSetSelectionEntries(previous.artifactSets)
+  const nextSelection = normalizeSetSelectionEntries(next.artifactSets)
   return JSON.stringify({
     kind: 'setListDiff',
     label: t('setsTitle'),
-    previous: prevSets,
-    next: nextSets,
-    previousText: formatArtifactSetListFallback(prevSets, t, lang),
-    nextText: formatArtifactSetListFallback(nextSets, t, lang),
+    previous: prevSelection.included,
+    next: nextSelection.included,
+    previousExcluded: prevSelection.excluded,
+    nextExcluded: nextSelection.excluded,
+    previousText: formatArtifactSetListFallback(prevSelection, t, lang),
+    nextText: formatArtifactSetListFallback(nextSelection, t, lang),
   })
 }
 
 // Single-state artifact-set snapshot for add/delete history entries.
 function makeArtifactSetsSnapshotLine(cfg: BuilderConfig, t: TranslateFn, lang: string): string | null {
-  const sets = normalizeNumberArray(cfg.artifactSets).map(Number).sort(compareArtifactSets)
+  const selection = normalizeSetSelectionEntries(cfg.artifactSets)
   return JSON.stringify({
     kind: 'setListSnapshot',
     label: t('setsTitle'),
-    values: sets,
-    fallbackText: formatArtifactSetListFallback(sets, t, lang),
+    values: selection.included,
+    excluded: selection.excluded,
+    fallbackText: formatArtifactSetListFallback(selection, t, lang),
   })
 }
 
@@ -373,11 +377,26 @@ function collectMetasetDiffEntries(cfg: BuilderConfig, metasets: Metaset[]): Met
   return collectMetasetSnapshotEntries(cfg.artifactMetaSets ?? [], metasets)
 }
 
-function formatArtifactSetListFallback(ids: number[], t: TranslateFn, lang: string): string {
-  if (ids.length === 0) return t('any')
-  const labels = ids
+type NormalizedSetSelection = { included: number[]; excluded: number[] }
+
+function normalizeSetSelectionEntries(value: BuilderConfig['artifactSets']): NormalizedSetSelection {
+  const normalized = normalizeArtifactSetSelections(value ?? [])
+  const split = splitArtifactSetSelections(normalized)
+  return {
+    included: split.included.map(Number).sort(compareArtifactSets),
+    excluded: split.excluded.map(Number).sort(compareArtifactSets),
+  }
+}
+
+function formatArtifactSetListFallback(selection: NormalizedSetSelection, t: TranslateFn, lang: string): string {
+  const includedLabels = selection.included
     .map((setId) => getLocalizedGearSetName(Number(setId) as ArtifactSetId, t, lang).trim())
     .filter((label) => label.length > 0)
+  const excludedLabels = selection.excluded
+    .map((setId) => getLocalizedGearSetName(Number(setId) as ArtifactSetId, t, lang).trim())
+    .filter((label) => label.length > 0)
+    .map((label) => `¬ ${label}`)
+  const labels = [...includedLabels, ...excludedLabels]
   if (labels.length === 0) return t('any')
   return labels.join(', ')
 }

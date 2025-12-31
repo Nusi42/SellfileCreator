@@ -33,7 +33,8 @@ import {
 } from '../lib/types'
 import { LIST_SUBHEADER_SX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, SETS_MENU_WIDTH_PX, FILTER_FACTION_SELECT_WIDTH_PX, FILTER_SETS_SELECT_WIDTH_PX, FILTER_CHIP_TOP_MARGIN, ELLIPSIS_TEXT_SX, FILTER_TOGGLE_BUTTON_WIDTH_PX, SMALL_BUTTON_HEIGHT_PX, BUILDER_STATUS_CHIP_HEIGHT_PX, SETS_SELECT_INLINE_GUTTER_COLLAPSED_PX, SETS_SELECT_INLINE_GUTTER_PX, STATUS_CHIP_BORDER_RADIUS_PX, FONT_SIZE_BASE_PX, CLEAR_ICON_BUTTON_SIZE_PX, GLYPH_TOGGLE_ON, GLYPH_TOGGLE_OFF, GLYPH_GLYPHS_SELECTED, ROLL_BADGE_SIZE_PX, ROLL_BADGE_SCALE, ROLL_BADGE_HOVER_GUTTER_PX, CHAMPION_ICON_BASE_SIZE, CHAMPION_ICON_BORDER_RADIUS_PX } from '../lib/constants'
 import { reserveScrollbarGutterSpace } from '../lib/scrollbar'
-import { metasetGlyph, orderMetasetIds, type Metaset } from '../lib/metasets'
+import { metasetGlyph, orderMetasetIds, resolveMetasetIds, type Metaset } from '../lib/metasets'
+import { normalizeArtifactSetSelections, splitArtifactSetSelections } from '../lib/gearSets/selection'
 import React from 'react'
 import { alpha, useTheme } from '@mui/material/styles'
 import type { SxProps, Theme } from '@mui/material/styles'
@@ -876,13 +877,20 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
   const visibleMetasets = metasets.filter(m => m.show !== false)
   const orderBasis = visibleMetasets.length ? visibleMetasets : metasets
   const orderedMetaSelected = orderMetasetIds(state.sets.metaSelected, orderBasis)
+  // Normalize filter selections so legacy payloads still resolve cleanly.
+  const normalizedSetSelections = normalizeArtifactSetSelections(state.sets.selected)
+  // Split includes/excludes so UI labels can reflect the right intent.
+  const splitSetSelections = splitArtifactSetSelections(normalizedSetSelections)
+  // Convert included sets + metasets into the Select token list.
   const selectedSetTokens: string[] = [
     ...orderedMetaSelected.map((id) => `m:${id}`),
-    ...state.sets.selected.map((id) => `s:${Number(id)}`),
+    ...splitSetSelections.included.map((id) => `s:${Number(id)}`),
   ]
   const setsRenderValue = (tokens: string[]) => {
+    // Collect labels in display order (metasets first, then sets, then exclusions).
     const names: string[] = []
     for (const tkn of tokens) {
+      // Metaset tokens keep their glyph/name display.
       if (tkn.startsWith('m:')) {
         const id = tkn.slice(2)
         const meta = metasets.find(x => x.id === id)
@@ -895,12 +903,19 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
             names.push(meta.name)
           }
         }
-      } else if (tkn.startsWith('s:')) {
-        const id = Number(tkn.slice(2))
-        const localized = getLocalizedGearSetName(id as ArtifactSetId, t, lang) || artifactSetName(id)
-        names.push(localized)
       }
     }
+    // Include selections render normally.
+    for (const id of splitSetSelections.included) {
+      const localized = getLocalizedGearSetName(id as ArtifactSetId, t, lang) || artifactSetName(id)
+      names.push(localized)
+    }
+    // Exclusions render with a "not" prefix to signal intent.
+    for (const id of splitSetSelections.excluded) {
+      const localized = getLocalizedGearSetName(id as ArtifactSetId, t, lang) || artifactSetName(id)
+      names.push(`not ${localized}`)
+    }
+    // Fallback to "Any" when nothing is selected.
     const text = (names.length === 0) ? t('any') : names.join(', ')
     return (
       <EllipsisTooltip title={text}>
@@ -961,11 +976,22 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
   const lastUseAdvancedLabel = lastUseCustomSummary ?? t('testerLastUsedAdvancedButton')
 
   const handleSetsChange = (e: SelectChangeEvent<string[]>) => {
+    // Token list contains metasets + explicit set ids.
     const tokens = e.target.value as string[]
+    // Keep explicit includes from the tokens.
     const setIds = tokens.filter(t => t.startsWith('s:')).map(t => Number(t.slice(2)))
+    // Preserve metaset ordering against the current basis.
     const metaIdsRaw = tokens.filter(t => t.startsWith('m:')).map(t => t.slice(2))
     const metaIds = orderMetasetIds(metaIdsRaw, orderBasis)
-    onChange({ ...state, sets: { ...state.sets, selected: setIds, metaSelected: metaIds } })
+    // Preserve existing exclusions unless the set was re-included explicitly.
+    const nextExcluded = splitSetSelections.excluded.filter((id) => !setIds.includes(id))
+    // Merge includes/excludes into the selection payload.
+    const nextSelections = normalizeArtifactSetSelections([
+      ...setIds.map((id) => ({ id })),
+      ...nextExcluded.map((id) => ({ id, excluded: true })),
+    ])
+    // Commit both the metaset selection and the combined set entries.
+    onChange({ ...state, sets: { ...state.sets, selected: nextSelections, metaSelected: metaIds } })
   }
   const resetLastUseCustom = React.useCallback(() => {
     onChange({
@@ -1034,7 +1060,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
     const list = setsMenuListRef.current
     if (!list) return
     const sortedForOrder = filterAndSortSetEntries(setsSearch, order, { translate: t })
-    const selectedIds = new Set(state.sets.selected.map(Number))
+    const selectedIds = new Set(splitSetSelections.included.map(Number))
     let target: number | null = null
     for (const [id] of sortedForOrder) {
       const idNum = Number(id)
@@ -1048,7 +1074,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
       const item = list.querySelector<HTMLElement>(`[data-set-id="${target}"]`)
       item?.scrollIntoView({ block: 'nearest' })
     })
-  }, [setsMenuOpen, setsMenuListRef, setsOrder, setsSearch, state.sets.selected, t])
+  }, [setsMenuOpen, setsMenuListRef, setsOrder, setsSearch, splitSetSelections.included, t])
 
   // Slots — compact toggle buttons with icons/text
   const slotButtons = PREFERRED_ARTIFACT_TYPE_ORDER.map((tt) => ({ id: Number(tt), name: ((): string => {
@@ -1817,12 +1843,37 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
             />
             <Collapse in={!collapsed.sets} timeout="auto" unmountOnExit>
             {(() => {
+              // Sorted entries drive icon/list ordering for this menu.
               const sorted = filterAndSortSetEntries(setsSearch, setsOrder, { translate: t })
+              // Use only visible metasets so the menu stays tidy.
               const metasetsMenu = visibleMetasets
-              const hasAnySelection = selectedSetTokens.length > 0
+              // Treat exclusions as a real selection so Clear/labels stay active.
+              const hasAnySelection = selectedSetTokens.length > 0 || splitSetSelections.excluded.length > 0
+              // Track metaset-driven sets so right-click only affects derived entries.
+              const metaDerivedSetIds = new Set(resolveMetasetIds(state.sets.metaSelected ?? [], metasets).map(Number))
+              const handleExcludeSet = (id: number) => {
+                // Ignore non-metaset-derived items.
+                if (!metaDerivedSetIds.has(id)) return
+                // Flip exclusion state for this set id.
+                const isExcluded = splitSetSelections.excluded.includes(id)
+                // Ensure explicit includes never coexist with excludes.
+                const nextIncluded = splitSetSelections.included.filter((entry) => Number(entry) !== id)
+                const nextExcluded = isExcluded
+                  ? splitSetSelections.excluded.filter((entry) => entry !== id)
+                  : [...splitSetSelections.excluded, id]
+                // Merge includes/excludes back into a single selection payload.
+                const nextSelections = normalizeArtifactSetSelections([
+                  ...nextIncluded.map((entry) => ({ id: entry })),
+                  ...nextExcluded.map((entry) => ({ id: entry, excluded: true })),
+                ])
+                onChange({ ...state, sets: { ...state.sets, selected: nextSelections } })
+              }
+              // Inline padding grows when any selections or exclusions are present.
               const inlinePaddingPx = hasAnySelection ? SETS_SELECT_INLINE_GUTTER_PX : SETS_SELECT_INLINE_GUTTER_COLLAPSED_PX
               const handleClearSetSelection = () => {
+                // Clear hover so membership highlights drop immediately.
                 setHoveredSetMetaId(null)
+                // Reset both set and metaset filters to Any.
                 onChange({ ...state, sets: { ...state.sets, selected: [], metaSelected: [] } })
               }
               return (
@@ -1952,15 +2003,25 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                               onMouseEnter={() => setHoveredSetMetaId(m.id)}
                               onMouseLeave={() => setHoveredSetMetaId(prev => prev === m.id ? null : prev)}
                               onClick={(e) => {
+                                // Toggle metaset tokens while keeping set exclusions intact.
                                 e.preventDefault()
                                 e.stopPropagation()
                                 const token = `m:${m.id}`
                                 const tokensSet = new Set<string>(selectedSetTokens)
                                 if (tokensSet.has(token)) tokensSet.delete(token); else tokensSet.add(token)
                                 const tokens = Array.from(tokensSet)
-                                const metaIds = tokens.filter(t => t.startsWith('m:')).map(t => t.slice(2))
+                                // Rebuild the metaset selection from the token list.
+                                const metaIdsRaw = tokens.filter(t => t.startsWith('m:')).map(t => t.slice(2))
+                                const metaIds = orderMetasetIds(metaIdsRaw, orderBasis)
+                                // Preserve explicit set includes.
                                 const setIds = tokens.filter(t => t.startsWith('s:')).map(t => Number(t.slice(2)))
-                                onChange({ ...state, sets: { ...state.sets, metaSelected: metaIds, selected: setIds } })
+                                // Drop exclusions only when the set is explicitly re-included.
+                                const nextExcluded = splitSetSelections.excluded.filter((id) => !setIds.includes(id))
+                                const nextSelections = normalizeArtifactSetSelections([
+                                  ...setIds.map((id) => ({ id })),
+                                  ...nextExcluded.map((id) => ({ id, excluded: true })),
+                                ])
+                                onChange({ ...state, sets: { ...state.sets, metaSelected: metaIds, selected: nextSelections } })
                               }}
                           >
                             <Box sx={{ display: 'flex', flexDirection: 'column', minWidth: 0, width: '100%' }}>
@@ -2046,16 +2107,25 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                         showUsageCounts={false}
                         valueForSet={(id) => `s:${id}`}
                         onToggleSet={(id) => {
+                          // Toggle only the explicit include list for this filter.
                           const idNum = Number(id)
-                          const prev = new Set(state.sets.selected.map(Number))
+                          const prev = new Set(splitSetSelections.included.map(Number))
                           if (prev.has(idNum)) prev.delete(idNum); else prev.add(idNum)
-                          const next = Array.from(prev).sort((a,b)=>a-b)
-                          onChange({ ...state, sets: { ...state.sets, selected: next } })
+                          const next = Array.from(prev).sort((a, b) => a - b)
+                          // Clear exclusions when a set is explicitly re-added.
+                          const nextExcluded = splitSetSelections.excluded.filter((entry) => entry !== idNum)
+                          const nextSelections = normalizeArtifactSetSelections([
+                            ...next.map((entry) => ({ id: entry })),
+                            ...nextExcluded.map((entry) => ({ id: entry, excluded: true })),
+                          ])
+                          onChange({ ...state, sets: { ...state.sets, selected: nextSelections } })
                         }}
+                        onContextMenuSet={(id) => handleExcludeSet(id)}
                         hideHeader
                         hoveredMetasetId={hoveredSetMetaId}
                         selectedMetasetIds={state.sets.metaSelected ?? []}
-                        selectedSetIds={state.sets.selected.map(Number)}
+                        selectedSetIds={splitSetSelections.included.map(Number)}
+                        excludedSetIds={splitSetSelections.excluded.map(Number)}
                       />
                     </Box>
                   </Box>

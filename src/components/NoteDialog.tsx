@@ -21,6 +21,7 @@ import type { Metaset } from '../lib/metasets'
 import { metasetGlyph } from '../lib/metasets'
 import { metasetIconOptionById, DEFAULT_METASET_ICON_ID, type MetasetIconId } from '../lib/metasetIcons'
 import { artifactTypeI18nKey, artifactTypeNames, compareArtifactSets, compareArtifactTypes, factionI18nKey, statVariantI18nKey, getLocalizedGearSetName } from '../lib/types'
+import { normalizeArtifactSetSelections, splitArtifactSetSelections } from '../lib/gearSets/selection'
 import ConfigChip from './ConfigChip'
 // MarkdownTooltip ensures the color pickers + toolbar reuse the same hover delay/style across the app.
 import MarkdownTooltip from './MarkdownTooltip'
@@ -1383,8 +1384,19 @@ function KeepUniqueSummaryCard({
   })()
 
   const setLabels = (() => {
-    const sorted = [...(rule.combination.sets ?? [])].sort(compareArtifactSets)
-    return sorted.map((setId) => getLocalizedGearSetName(setId, t, lang))
+    // Normalize include/exclude entries so labels stay deterministic.
+    const normalized = normalizeArtifactSetSelections(rule.combination.sets ?? [])
+    const split = splitArtifactSetSelections(normalized)
+    const included = split.included.slice().sort(compareArtifactSets)
+    const excluded = split.excluded.slice().sort(compareArtifactSets)
+    const labels: string[] = []
+    for (const setId of included) {
+      labels.push(getLocalizedGearSetName(setId, t, lang))
+    }
+    for (const setId of excluded) {
+      labels.push(`not ${getLocalizedGearSetName(setId, t, lang)}`)
+    }
+    return labels
   })()
 
   const metasetLabels = (() => {

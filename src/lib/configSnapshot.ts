@@ -5,6 +5,7 @@ import {
   compareArtifactTypes,
   compareVariants,
 } from './types'
+import { normalizeArtifactSetSelections } from './gearSets/selection'
 
 const IGNORED_KEYS = new Set([
   // Cosmetic metadata never alters the generated rules, so we exclude it from fingerprints.
@@ -153,7 +154,15 @@ export function buildCanonicalConfigSnapshot(cfg: BuilderConfig): BuilderConfigS
     push('substatRollTargetsV', normalizedTargets)
   }
   push('artifactTypes', sortNumbers(cfg.artifactTypes, compareArtifactTypes))
-  push('artifactSets', sortNumbers(cfg.artifactSets, compareArtifactSets))
+  // Normalize set selections so include/exclude entries serialize consistently.
+  const normalizedSets = normalizeArtifactSetSelections(cfg.artifactSets ?? [])
+  // Sort by set id for stable fingerprints across reorders.
+  const sortedSetEntries = normalizedSets
+    .slice()
+    .sort((a, b) => compareArtifactSets(Number(a.id), Number(b.id)))
+    .map((entry) => (entry.excluded ? { id: entry.id, excluded: true } : { id: entry.id }))
+  // Keep excluded flags in the snapshot so they affect the cache key.
+  push('artifactSets', sortedSetEntries)
   push('artifactMetaSets', sortStrings(cfg.artifactMetaSets))
   push('earlyKeepMode', cfg.earlyKeepMode === 'late' ? 'late' : 'early')
 

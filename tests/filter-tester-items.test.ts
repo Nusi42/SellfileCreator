@@ -78,7 +78,8 @@ test('filterTesterItems filters by set selection', () => {
   ]
   const state: RulesFilterState = {
     ...DEFAULT_RULES_FILTER_STATE,
-    sets: { ...DEFAULT_RULES_FILTER_STATE.sets, selected: [ArtifactSet.Speed] },
+    // Filters now store set selection entries instead of raw ids.
+    sets: { ...DEFAULT_RULES_FILTER_STATE.sets, selected: [{ id: ArtifactSet.Speed }] },
   }
   const result = filterTesterItems(rows, state)
   assert.equal(result.items.length, 1)

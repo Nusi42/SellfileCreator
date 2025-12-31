@@ -55,10 +55,9 @@ import {
   type AggregateRollAction,
   type AggregateRollState,
 } from '../lib/aggregateRollState'
-import { type Metaset, metasetGlyph, orderMetasetIds } from '../lib/metasets'
-
-
-//
+import { type Metaset, metasetGlyph, orderMetasetIds, resolveMetasetIds } from '../lib/metasets'
+import type { ArtifactSetSelectionEntry } from '../lib/gearSets/selection'
+import { normalizeArtifactSetSelections, splitArtifactSetSelections } from '../lib/gearSets/selection'
 
 import { Box, Button, Divider, Stack, Typography, TextField, Chip, FormControl, FormLabel, Select, MenuItem, ListSubheader, InputAdornment, Menu, Badge } from '@mui/material'
 import SetsOrderControls from './SetsOrderControls'
@@ -115,8 +114,10 @@ import { HistoryContextMenu } from './HistoryContextMenu'
 import { NumberSpinnerAdornment } from './NumberSpinnerAdornment'
 import { createFactoryBuilderDefaults } from './builderPanel/defaults'
 import {
+  applyArtifactSetPatchPreview,
   applyNumberPatchPreview,
   applyStringPatchPreview,
+  computeArtifactSetPatchToggle,
   computeNumberPatchToggle,
   computeStringPatchToggle,
   deriveBaseTriState,
@@ -463,6 +464,32 @@ const multiSummary = useMultiEditSummary(multiEditActive, multiSourceConfigs)
       next = 0
     }
     if (patch.add && patch.add.map(Number).includes(token)) {
+      next = multiSummary.total
+    }
+    return Math.max(0, Math.min(multiSummary.total, next))
+  }, [multiSummary])
+  const resolveSetPresence = React.useCallback((
+    token: number,
+    baseCount: number,
+    patch: MultiEditArrayPatch<ArtifactSetSelectionEntry> | null | undefined,
+  ): number => {
+    if (!multiSummary) return baseCount
+    if (!patch) return baseCount
+    if (patch.clear) return 0
+    if (patch.replace && patch.replace.length >= 0) {
+      const normalized = normalizeArtifactSetSelections(patch.replace)
+      const split = splitArtifactSetSelections(normalized)
+      return split.included.map(Number).includes(token) ? multiSummary.total : 0
+    }
+    let next = baseCount
+    const removeEntries = normalizeArtifactSetSelections(patch.remove ?? [])
+    const addEntries = normalizeArtifactSetSelections(patch.add ?? [])
+    const removeIds = new Set(removeEntries.filter((entry) => !entry.excluded).map((entry) => Number(entry.id)))
+    const addIds = new Set(addEntries.filter((entry) => !entry.excluded).map((entry) => Number(entry.id)))
+    if (removeIds.has(token)) {
+      next = 0
+    }
+    if (addIds.has(token)) {
       next = multiSummary.total
     }
     return Math.max(0, Math.min(multiSummary.total, next))
@@ -1096,19 +1123,19 @@ const resolveSubstatTargetEntry = React.useCallback((variant: StatVariant): Subs
       patch: nextPatch ?? undefined,
     })
   }, [cfg.artifactTypes, getSlotState, multiEdit, multiEditActive, multiSlotsField?.patch])
-  const setsPatch = (multiSetsField?.patch as MultiEditArrayPatch<number> | null | undefined) ?? null
+  const setsPatch = (multiSetsField?.patch as MultiEditArrayPatch<ArtifactSetSelectionEntry> | null | undefined) ?? null
   const metasetsPatch = (multiMetasetsField?.patch as MultiEditArrayPatch<string> | null | undefined) ?? null
   const getSetState = React.useCallback((id: number): 'none' | 'partial' | 'all' => {
     if (!multiEditActive || !multiSummary) {
-      const selected = Array.isArray(cfg.artifactSets) ? cfg.artifactSets.includes(id) : false
+      const selected = splitArtifactSetSelections(cfg.artifactSets).included.includes(id)
       return selected ? 'all' : 'none'
     }
     const base = multiSummary.setCounts.get(id) ?? 0
-    const final = resolveTokenPresence(id, base, setsPatch)
+    const final = resolveSetPresence(id, base, setsPatch)
     if (final === 0) return 'none'
     if (final === multiSummary.total) return 'all'
     return 'partial'
-  }, [cfg.artifactSets, multiEditActive, multiSummary, resolveTokenPresence, setsPatch])
+  }, [cfg.artifactSets, multiEditActive, multiSummary, resolveSetPresence, setsPatch])
 const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'all' => {
   if (!multiEditActive || !multiSummary) {
     const selected = Array.isArray(cfg.artifactMetaSets) ? cfg.artifactMetaSets.includes(id) : false
@@ -1122,21 +1149,21 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
 }, [cfg.artifactMetaSets, metasetsPatch, multiEditActive, multiSummary, resolveMetaPresence])
   const getSetStateForScroll = React.useCallback((id: number): 'none' | 'partial' | 'all' => {
     if (multiEditActive) return getSetState(id)
-    return (cfg.artifactSets ?? []).includes(id) ? 'all' : 'none'
+    return splitArtifactSetSelections(cfg.artifactSets).included.includes(id) ? 'all' : 'none'
   }, [cfg.artifactSets, getSetState, multiEditActive])
   const toggleSet = React.useCallback((id: number) => {
     if (!multiEditActive || !multiEdit) return
     const state = getSetState(id)
     const baseState = toTriStateBase(state)
     const target: 'all' | 'none' = state === 'all' ? 'none' : 'all'
-    const nextPatch = computeNumberPatchToggle(
-      (multiSetsField?.patch as MultiEditArrayPatch<number> | null | undefined) ?? null,
+    const nextPatch = computeArtifactSetPatchToggle(
+      (multiSetsField?.patch as MultiEditArrayPatch<ArtifactSetSelectionEntry> | null | undefined) ?? null,
       id,
       baseState,
       target,
     )
     const baseArray = Array.isArray(cfg.artifactSets) ? cfg.artifactSets : []
-    const preview = applyNumberPatchPreview(baseArray, nextPatch)
+    const preview = applyArtifactSetPatchPreview(baseArray, nextPatch)
     multiEdit.updateField('artifactSets', {
       value: preview as BuilderConfig['artifactSets'],
       status: 'common',
@@ -2229,7 +2256,7 @@ const maxLevelValue = multiEditActive
       Boolean((cfg as unknown as { autoMinRequiredRolls?: boolean }).autoMinRequiredRolls ?? true) === Boolean((target as unknown as { autoMinRequiredRolls?: boolean }).autoMinRequiredRolls ?? true) &&
       empty((cfg as unknown as { substatRollBoundsV?: Record<number, unknown> }).substatRollBoundsV ?? {}) === empty((target as unknown as { substatRollBoundsV?: Record<number, unknown> }).substatRollBoundsV ?? {}) &&
       JSON.stringify(asNumArr((cfg as unknown as { artifactTypes?: number[] }).artifactTypes).slice().sort()) === JSON.stringify(asNumArr((target as unknown as { artifactTypes?: number[] }).artifactTypes).slice().sort()) &&
-      JSON.stringify(asNumArr((cfg as unknown as { artifactSets?: number[] }).artifactSets).slice().sort()) === JSON.stringify(asNumArr((target as unknown as { artifactSets?: number[] }).artifactSets).slice().sort()) &&
+      JSON.stringify(normalizeArtifactSetSelections((cfg as unknown as { artifactSets?: ArtifactSetSelectionEntry[] }).artifactSets ?? [])) === JSON.stringify(normalizeArtifactSetSelections((target as unknown as { artifactSets?: ArtifactSetSelectionEntry[] }).artifactSets ?? [])) &&
       JSON.stringify(((cfg as unknown as { artifactMetaSets?: string[] }).artifactMetaSets ?? []).slice().sort()) === JSON.stringify(((target as unknown as { artifactMetaSets?: string[] }).artifactMetaSets ?? []).slice().sort())
     )
   }, [cfg, defaultsEpoch])
@@ -6029,12 +6056,20 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
             </MarkdownTooltip>
           </Box>
           {(() => {
+            // Token helpers keep metasets + sets in a single select control.
             const tokenOf = {
               meta: (id: string) => `m:${id}`,
               set: (id: number) => `s:${id}`,
             }
+            // Filter to visible metasets so hidden ones never show in the menu.
             const visibleMetasets = metasets.filter(m => m.show !== false)
+            // Keep order stable by preferring visible metasets when present.
             const orderBasis = visibleMetasets.length ? visibleMetasets : metasets
+            // Normalize set selections so excluded entries are retained.
+            const baseSetSelections = normalizeArtifactSetSelections(cfg.artifactSets ?? [])
+            // Split include/exclude lists so UI can render both states.
+            const baseSetSplit = splitArtifactSetSelections(baseSetSelections)
+            // Resolve metaset order for the base config (or multi-edit union).
             const baseMetaIds = orderMetasetIds(cfg.artifactMetaSets, orderBasis)
             const metaDisplayIds = multiEditActive && multiSummary
               ? orderMetasetIds(
@@ -6048,55 +6083,130 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                 )
               : baseMetaIds
             const setDisplayIds = (() => {
+              // In single-edit, show only the current include list.
               if (!multiEditActive || !multiSummary) {
-                return [...(cfg.artifactSets ?? [])].sort((a, b) => a - b)
+                return baseSetSplit.included.slice().sort((a, b) => a - b)
               }
+              // Multi-edit: union all included sets + staged patch entries.
               const union = new Set<number>()
               for (const key of multiSummary.setCounts.keys()) union.add(Number(key))
-              for (const id of cfg.artifactSets ?? []) union.add(id)
-              for (const id of setsPatch?.add ?? []) union.add(Number(id))
-              for (const id of setsPatch?.replace ?? []) union.add(Number(id))
+              for (const id of baseSetSplit.included) union.add(Number(id))
+              // Patch entries may include new includes; merge them into the display list.
+              const patchEntries = normalizeArtifactSetSelections([
+                ...((setsPatch?.add ?? []) as ArtifactSetSelectionEntry[]),
+                ...((setsPatch?.replace ?? []) as ArtifactSetSelectionEntry[]),
+              ])
+              const patchSplit = splitArtifactSetSelections(patchEntries)
+              for (const id of patchSplit.included) union.add(Number(id))
               return Array.from(union).sort((a, b) => a - b)
             })()
+            const excludedDisplayIds = (() => {
+              // Single-edit: use just the current exclusions.
+              if (!multiEditActive || !multiSelectedConfigs) {
+                return baseSetSplit.excluded.slice().sort((a, b) => a - b)
+              }
+              // Multi-edit: union all excluded sets + staged patch entries.
+              const union = new Set<number>()
+              for (const cfgEntry of multiSelectedConfigs) {
+                const split = splitArtifactSetSelections(cfgEntry.artifactSets)
+                for (const id of split.excluded) union.add(Number(id))
+              }
+              // Patch entries may add exclusions; merge them into the display list.
+              const patchEntries = normalizeArtifactSetSelections([
+                ...((setsPatch?.add ?? []) as ArtifactSetSelectionEntry[]),
+                ...((setsPatch?.replace ?? []) as ArtifactSetSelectionEntry[]),
+              ])
+              const patchSplit = splitArtifactSetSelections(patchEntries)
+              for (const id of patchSplit.excluded) union.add(Number(id))
+              return Array.from(union).sort((a, b) => a - b)
+            })()
+            // Collapse tri-state selections into the "all" set for display/tokens.
             const selectedMetaIds = multiEditActive && multiSummary
               ? metaDisplayIds.filter((id) => getMetasetState(id) === 'all')
               : baseMetaIds
             const selectedSetIds = multiEditActive && multiSummary
               ? setDisplayIds.filter((id) => getSetState(id) === 'all')
-              : [...(cfg.artifactSets ?? [])].sort((a, b) => a - b)
+              : baseSetSplit.included.slice().sort((a, b) => a - b)
+            // Keep excluded ids separate so the UI can render them with a red indicator.
+            const excludedSetIds = multiEditActive
+              ? excludedDisplayIds
+              : baseSetSplit.excluded.slice().sort((a, b) => a - b)
+            // Build the Select token list from explicit metasets + includes.
             const selectedTokens: string[] = [
               ...selectedMetaIds.map(tokenOf.meta),
               ...selectedSetIds.map(tokenOf.set),
             ]
+            // Track sets introduced by metasets so right-click exclusion is scoped.
+            const metaDerivedSetIds = new Set<number>(resolveMetasetIds(selectedMetaIds, metasets).map(Number))
+            const handleExcludeSet = (id: number) => {
+              // Multi-edit exclusion UI is intentionally disabled.
+              if (multiEditActive) return
+              // Ignore items not introduced by metasets.
+              if (!metaDerivedSetIds.has(id)) return
+              // Flip the exclude flag for this set id.
+              const isExcluded = excludedSetIds.includes(id)
+              // Exclusions should clear explicit includes for the same set.
+              const nextIncluded = selectedSetIds.filter((entry) => entry !== id)
+              const nextExcluded = isExcluded
+                ? excludedSetIds.filter((entry) => entry !== id)
+                : [...excludedSetIds, id]
+              const nextSelections = normalizeArtifactSetSelections([
+                ...nextIncluded.map((entry) => ({ id: entry })),
+                ...nextExcluded.map((entry) => ({ id: entry, excluded: true })),
+              ])
+              onChange({ ...cfg, artifactSets: nextSelections })
+            }
+            // Evaluate "Any" state based on metasets, sets, and exclusions.
             const projectedMetaActive = multiEditActive && multiSummary
               ? metaDisplayIds.some((id) => getMetasetState(id) !== 'none')
               : (cfg.artifactMetaSets?.length ?? 0) > 0
             const projectedSetActive = multiEditActive && multiSummary
               ? setDisplayIds.some((id) => getSetState(id) !== 'none')
-              : (cfg.artifactSets?.length ?? 0) > 0
-            const hasAnySelection = projectedMetaActive || projectedSetActive
+              : baseSetSelections.length > 0
+            const projectedExcludeActive = excludedSetIds.length > 0
+            const hasAnySelection = projectedMetaActive || projectedSetActive || projectedExcludeActive
+            // Inline padding grows when the clear button is visible.
             const inlinePaddingPx = hasAnySelection ? SETS_SELECT_INLINE_GUTTER_PX : SETS_SELECT_INLINE_GUTTER_COLLAPSED_PX
             const handleChange = (e: SelectChangeEvent<string[]>) => {
+              // Multi-edit handles tokens via patch controls instead.
               if (multiEditActive) return
               const tokens = e.target.value as string[]
+              // Resolve metaset IDs using the same ordering basis.
               const metaIdsRaw = tokens.filter(t => t.startsWith('m:')).map(t => t.slice(2))
               const metaIds = orderMetasetIds(metaIdsRaw, orderBasis)
+              // Capture explicit includes from set tokens.
               const setIds = tokens.filter(t => t.startsWith('s:')).map(t => Number(t.slice(2)))
-              onChange({ ...cfg, artifactMetaSets: metaIds, artifactSets: setIds })
+              // Keep exclusions unless the user explicitly selected the set.
+              const nextExcluded = excludedSetIds.filter((id) => !setIds.includes(id))
+              const nextSelections = normalizeArtifactSetSelections([
+                ...setIds.map((id) => ({ id })),
+                ...nextExcluded.map((id) => ({ id, excluded: true })),
+              ])
+              onChange({ ...cfg, artifactMetaSets: metaIds, artifactSets: nextSelections })
             }
             const handleToggleSet = (id: number) => {
+              // Multi-edit toggles are handled via patch helpers.
               if (multiEditActive && multiEdit) {
                 toggleSet(id)
                 return
               }
-              const prev = new Set<number>(cfg.artifactSets ?? [])
+              // Toggle only the explicit include list for single-config edits.
+              const prev = new Set<number>(baseSetSplit.included.map(Number))
               if (prev.has(id)) prev.delete(id); else prev.add(id)
               const nextSets = Array.from(prev).sort((a, b) => a - b)
-              onChange({ ...cfg, artifactSets: nextSets })
+              // Remove exclusions when a set is explicitly re-added.
+              const nextExcluded = baseSetSplit.excluded.filter((entry) => Number(entry) !== id)
+              const nextSelections = normalizeArtifactSetSelections([
+                ...nextSets.map((entry) => ({ id: entry })),
+                ...nextExcluded.map((entry) => ({ id: entry, excluded: true })),
+              ])
+              onChange({ ...cfg, artifactSets: nextSelections })
             }
             const getSetsSelectionDisplay = (tokens: readonly string[]) => {
+              // Multi-edit needs mixed-value labels for tri-state tokens.
               if (multiEditActive && multiSummary) {
                 const names: string[] = []
+                // Metaset labels reflect tri-state status.
                 for (const id of metaDisplayIds) {
                   const state = getMetasetState(id)
                   if (state === 'none') continue
@@ -6111,11 +6221,17 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                     names.push(state === 'partial' ? `${label} – ${t('builderMultiMixedValue')}` : label)
                   }
                 }
+                // Set labels reflect tri-state status as well.
                 for (const id of setDisplayIds) {
                   const state = getSetState(id)
                   if (state === 'none') continue
                   const baseName = getLocalizedGearSetName(id, t, lang)
                   names.push(state === 'partial' ? `${baseName} – ${t('builderMultiMixedValue')}` : baseName)
+                }
+                // Exclusions always show with a "not" prefix.
+                for (const id of excludedDisplayIds) {
+                  const baseName = getLocalizedGearSetName(id, t, lang)
+                  names.push(`not ${baseName}`)
                 }
                 const text = names.length > 0 ? names.join(', ') : t('any')
                 return {
@@ -6137,9 +6253,11 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                   text,
                 }
               }
-              const any = !tokens || tokens.length === 0
+              // Single-edit: render plain labels with exclusions appended.
+              const any = (!tokens || tokens.length === 0) && excludedSetIds.length === 0
               const names: string[] = []
               if (!any) {
+                // Metaset tokens reuse glyphs to match the menu.
                 for (const token of tokens) {
                   if (token.startsWith('m:')) {
                     const id = token.slice(2)
@@ -6157,6 +6275,10 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                     const id = Number(token.slice(2))
                     names.push(getLocalizedGearSetName(id, t, lang))
                   }
+                }
+                // Exclusions show as "not X" entries.
+                for (const id of excludedSetIds) {
+                  names.push(`not ${getLocalizedGearSetName(id, t, lang)}`)
                 }
               }
               const text = (any || names.length === 0) ? t('any') : names.join(', ')
@@ -6187,7 +6309,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
             const hasMetasetsSection = visibleMetasets.length > 0
             const metasetsMenu: Metaset[] = visibleMetasets
 
-              return (
+            return (
               <Box sx={{ width: '100%', maxWidth: '100%', minWidth: 0 }}>
                 <Box sx={{ width: '100%', maxWidth: '100%', minWidth: 0, minHeight: 32, overflow: 'hidden' }}>
                   {(() => {
@@ -6354,7 +6476,12 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                                     const metaIdsRaw = tokens.filter(t => t.startsWith('m:')).map(t => t.slice(2))
                                     const metaIds = orderMetasetIds(metaIdsRaw, orderBasis)
                                     const setIds = tokens.filter(t => t.startsWith('s:')).map(t => Number(t.slice(2)))
-                                    onChange({ ...cfg, artifactMetaSets: metaIds, artifactSets: setIds })
+                                    const nextExcluded = excludedSetIds.filter((id) => !setIds.includes(id))
+                                    const nextSelections = normalizeArtifactSetSelections([
+                                      ...setIds.map((id) => ({ id })),
+                                      ...nextExcluded.map((id) => ({ id, excluded: true })),
+                                    ])
+                                    onChange({ ...cfg, artifactMetaSets: metaIds, artifactSets: nextSelections })
                                   }}
                                   sx={(theme) => ({
                                     '&.Mui-selected': {
@@ -6476,7 +6603,9 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                           hoveredMetasetId={hoveredSetMetaId}
                           selectedMetasetIds={selectedMetaIds}
                           selectedSetIds={selectedSetIds}
+                          excludedSetIds={excludedSetIds}
                           onToggleSet={handleToggleSet}
+                          onContextMenuSet={(id) => handleExcludeSet(id)}
                           {...(multiEditActive ? { triStateForSet: getSetState } : {})}
                         />
                         </Box>

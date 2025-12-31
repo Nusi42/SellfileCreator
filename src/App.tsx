@@ -105,7 +105,7 @@ import { useDeferredHsfcPayload } from './hooks/useDeferredHsfcPayload'
 import PreviewHeaderActions from './components/PreviewHeaderActions'
 import RulesFilterPanel, { type RulesFilterPanelHandle } from './components/RulesFilterPanel'
 import { TESTER_CONFIG_FILTER_MODE_DEFAULT, type TesterConfigFilterMode } from './types/testerConfigFilterMode'
-import { getAllKnownArtifactSetIds, type ArtifactSetId, type RankValue, type StatVariant } from './lib/types'
+import { getAllKnownArtifactSetIds, type RankValue, type StatVariant } from './lib/types'
 import { DEFAULT_RULES_FILTER_STATE, filterHsfRules, filterTesterItems, isRulesFilterActive, normalizeRulesFilterForTester, type FilterHsfRulesResult, type RulesFilterState } from './lib/rulesFilter'
 import {
   useAutosaveRestore,
@@ -159,6 +159,7 @@ import { sellfileFilename, hsfcFilename, buildTimestamp } from './lib/filenames'
 import { README_SEEN_VERSION_KEY, RULE_COUNT_LIMIT, SELLFILE_PUSH_PATH_SEGMENT } from './lib/constants'
 import { DEFAULT_METASET_ICON_ID } from './lib/metasetIcons'
 import { defaultMetasets, type Metaset } from './lib/metasets'
+import { normalizeArtifactSetSelections, splitArtifactSetSelections, type ArtifactSetSelectionEntry } from './lib/gearSets/selection'
 import { generateMetasetNameWithFlag } from './lib/namegen'
 import { useDisplayPreferences, useDisplayPreferenceActions } from './state/preferencesState'
 import { useAutoApplySelectedConfigPreference } from './state/builderPreferences'
@@ -717,7 +718,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const setUsageCounts = useMemo(() => {
     const counts: Record<number, number> = {}
     for (const cfg of customCfgs) {
-      const sets = cfg.artifactSets ?? []
+      // Only count explicit inclusions so exclusions do not inflate usage stats.
+      const sets = splitArtifactSetSelections(cfg.artifactSets).included
       const seen = new Set<number>()
       for (const sid of sets) {
         if (seen.has(sid)) continue
@@ -3822,6 +3824,42 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // Dirty flag: builder differs from currently selected config
   const duplicateOfIndices = useMemo(() => computeDuplicateIndices(customCfgs), [customCfgs])
 
+  // Compare two selection arrays by id + excluded flag.
+  const areSetEntriesEqual = useCallback((left: BuilderConfig['artifactSets'], right: BuilderConfig['artifactSets']): boolean => {
+    const leftNorm = normalizeArtifactSetSelections(left ?? [])
+    const rightNorm = normalizeArtifactSetSelections(right ?? [])
+    if (leftNorm.length !== rightNorm.length) return false
+    for (let i = 0; i < leftNorm.length; i += 1) {
+      const l = leftNorm[i]!
+      const r = rightNorm[i]!
+      if (Number(l.id) !== Number(r.id)) return false
+      if (Boolean(l.excluded) !== Boolean(r.excluded)) return false
+    }
+    return true
+  }, [])
+
+  // Merge metaset-derived ids into explicit selections while preserving exclusions.
+  const mergeSelectionsWithMetasets = useCallback((
+    selections: BuilderConfig['artifactSets'],
+    metasToMerge: readonly Metaset[],
+  ): ArtifactSetSelectionEntry[] => {
+    const normalized = normalizeArtifactSetSelections(selections ?? [])
+    const split = splitArtifactSetSelections(normalized)
+    const excluded = new Set(split.excluded.map(Number))
+    const included = new Set(split.included.map(Number))
+    for (const meta of metasToMerge) {
+      for (const setId of meta.sets) {
+        const numeric = Number(setId)
+        if (excluded.has(numeric)) continue
+        included.add(numeric)
+      }
+    }
+    return normalizeArtifactSetSelections([
+      ...Array.from(excluded).map((id) => ({ id, excluded: true })),
+      ...Array.from(included).map((id) => ({ id })),
+    ])
+  }, [])
+
   const handleResetMetasets = useCallback((mode: 'delete' | 'replaceSets' | 'replaceMeta', replacementMetaId?: string) => {
     const defaults = defaultMetasets()
     const replacementId = mode === 'replaceMeta' ? (replacementMetaId || null) : null
@@ -3836,35 +3874,31 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       }
       return true
     }
-    const numberArraysEqual = (a: readonly number[], b: readonly number[]): boolean => {
-      if (a.length !== b.length) return false
-      for (let i = 0; i < a.length; i += 1) {
-        if (a[i] !== b[i]) return false
-      }
-      return true
-    }
     setBuilder((prev) => {
       const currentMetaIds = prev.artifactMetaSets ?? []
       if (currentMetaIds.length === 0) {
         return prev
       }
-      const mergedSets = new Set<number>(prev.artifactSets ?? [])
       if (mode === 'replaceSets') {
-        for (const metaId of currentMetaIds) {
-          const meta = metasById.get(metaId)
-          if (!meta) continue
-          for (const setId of meta.sets) mergedSets.add(setId)
+        const metasToMerge = currentMetaIds.map((metaId) => metasById.get(metaId)).filter((meta): meta is Metaset => Boolean(meta))
+        const nextSets: ArtifactSetSelectionEntry[] = mergeSelectionsWithMetasets(prev.artifactSets, metasToMerge)
+        const nextMeta: string[] = []
+        const metaChanged = !stringArraysEqual(currentMetaIds, nextMeta)
+        const setsChanged = !areSetEntriesEqual(prev.artifactSets, nextSets)
+        if (!metaChanged && !setsChanged) return prev
+        return {
+          ...prev,
+          artifactMetaSets: nextMeta,
+          artifactSets: nextSets,
         }
       }
       const nextMeta = (mode === 'replaceMeta' && replacementId) ? [replacementId] : []
-      const nextSets = mode === 'replaceSets' ? Array.from(mergedSets).sort((a, b) => a - b) : (prev.artifactSets ?? [])
       const metaChanged = !stringArraysEqual(currentMetaIds, nextMeta)
-      const setsChanged = mode === 'replaceSets' ? !numberArraysEqual(prev.artifactSets ?? [], nextSets) : false
-      if (!metaChanged && !setsChanged) return prev
+      if (!metaChanged) return prev
       return {
         ...prev,
         artifactMetaSets: nextMeta,
-        artifactSets: mode === 'replaceSets' ? nextSets : (prev.artifactSets ?? []),
+        artifactSets: prev.artifactSets ?? [],
       }
     })
     setKeepUniqueRules((prev) => {
@@ -3873,26 +3907,32 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         const metaIds = rule.combination.metaSetIds ?? []
         if (metaIds.length === 0) return rule
         // Mirror config/builder reset behavior so Keep Unique combinations stay in sync.
-        const mergedSets = new Set<number>(rule.combination.sets ?? [])
+        const nextMeta = (mode === 'replaceMeta' && replacementId) ? [replacementId] : []
         if (mode === 'replaceSets') {
-          for (const metaId of metaIds) {
-            const meta = metasById.get(metaId)
-            if (!meta) continue
-            for (const setId of meta.sets) mergedSets.add(setId)
+          const metasToMerge = metaIds.map((metaId) => metasById.get(metaId)).filter((meta): meta is Metaset => Boolean(meta))
+          const nextSets: ArtifactSetSelectionEntry[] = mergeSelectionsWithMetasets(rule.combination.sets, metasToMerge)
+          const metaChanged = !stringArraysEqual(metaIds, nextMeta)
+          const setsChanged = !areSetEntriesEqual(rule.combination.sets, nextSets)
+          if (!metaChanged && !setsChanged) return rule
+          mutated = true
+          return {
+            ...rule,
+            combination: {
+              ...rule.combination,
+              metaSetIds: nextMeta,
+              sets: nextSets,
+            },
           }
         }
-        const nextMeta = (mode === 'replaceMeta' && replacementId) ? [replacementId] : []
-        const nextSets = mode === 'replaceSets' ? Array.from(mergedSets).sort((a, b) => a - b) as ArtifactSetId[] : (rule.combination.sets ?? [])
         const metaChanged = !stringArraysEqual(metaIds, nextMeta)
-        const setsChanged = mode === 'replaceSets' ? !numberArraysEqual(rule.combination.sets ?? [], nextSets) : false
-        if (!metaChanged && !setsChanged) return rule
+        if (!metaChanged) return rule
         mutated = true
         return {
           ...rule,
           combination: {
             ...rule.combination,
             metaSetIds: nextMeta,
-            sets: nextSets,
+            sets: rule.combination.sets ?? [],
           },
         }
       })
@@ -3903,26 +3943,25 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       const next = prev.map((cfg) => {
         const currentMetaIds = cfg.artifactMetaSets ?? []
         if (currentMetaIds.length === 0) return cfg
-        const mergedSets = new Set<number>(cfg.artifactSets ?? [])
-        if (mode === 'replaceSets') {
-          for (const metaId of currentMetaIds) {
-            const meta = metasById.get(metaId)
-            if (!meta) continue
-            for (const setId of meta.sets) mergedSets.add(setId)
-          }
-        }
         const nextMeta = (mode === 'replaceMeta' && replacementId) ? [replacementId] : []
-        const nextSets = mode === 'replaceSets' ? Array.from(mergedSets).sort((a, b) => a - b) : (cfg.artifactSets ?? [])
+        if (mode === 'replaceSets') {
+          const metasToMerge = currentMetaIds.map((metaId) => metasById.get(metaId)).filter((meta): meta is Metaset => Boolean(meta))
+          const nextSets: ArtifactSetSelectionEntry[] = mergeSelectionsWithMetasets(cfg.artifactSets, metasToMerge)
+          const metaChanged = !stringArraysEqual(currentMetaIds, nextMeta)
+          const setsChanged = !areSetEntriesEqual(cfg.artifactSets, nextSets)
+          if (!metaChanged && !setsChanged) return cfg
+          anyChanged = true
+          return { ...cfg, artifactMetaSets: nextMeta, artifactSets: nextSets }
+        }
         const metaChanged = !stringArraysEqual(currentMetaIds, nextMeta)
-        const setsChanged = mode === 'replaceSets' ? !numberArraysEqual(cfg.artifactSets ?? [], nextSets) : false
-        if (!metaChanged && !setsChanged) return cfg
+        if (!metaChanged) return cfg
         anyChanged = true
-        return { ...cfg, artifactMetaSets: nextMeta, artifactSets: mode === 'replaceSets' ? nextSets : (cfg.artifactSets ?? []) }
+        return { ...cfg, artifactMetaSets: nextMeta, artifactSets: cfg.artifactSets ?? [] }
       })
       return anyChanged ? next : prev
     })
     setMetasets(defaults)
-  }, [describeNextChange, metasets, setBuilder, setCustomCfgs, setKeepUniqueRules, setMetasets, t])
+  }, [areSetEntriesEqual, describeNextChange, mergeSelectionsWithMetasets, metasets, setBuilder, setCustomCfgs, setKeepUniqueRules, setMetasets, t])
 
   const builderPanelElement = (
     <BuilderPanel
@@ -4014,9 +4053,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             let nextMeta = currentMeta.filter(x => x !== id)
             let nextSets = prev.artifactSets ?? []
             if (replaceWithSets && metaToDelete) {
-              const merged = new Set<number>(nextSets)
-              for (const s of metaToDelete.sets) merged.add(s)
-              nextSets = Array.from(merged)
+              nextSets = mergeSelectionsWithMetasets(nextSets, [metaToDelete])
             } else if (replaceWithMetaId) {
               if (!nextMeta.includes(replaceWithMetaId)) nextMeta = nextMeta.concat(replaceWithMetaId)
             }
@@ -4038,9 +4075,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
               let nextMeta = currentMeta.filter(x => x !== id)
               let nextSets = c.artifactSets ?? []
               if (replaceWithSets && metaToDelete) {
-                const merged = new Set<number>(nextSets)
-                for (const s of metaToDelete.sets) merged.add(s)
-                nextSets = Array.from(merged)
+                nextSets = mergeSelectionsWithMetasets(nextSets, [metaToDelete])
               } else if (replaceWithMetaId) {
                 if (!nextMeta.includes(replaceWithMetaId)) nextMeta = nextMeta.concat(replaceWithMetaId)
               }
@@ -4070,15 +4105,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
               }
               let nextSets = rule.combination.sets ?? []
               if (replaceWithSets && metaToDelete) {
-                const merged = new Set<number>(nextSets.map(Number))
-                for (const s of metaToDelete.sets) merged.add(Number(s))
-                nextSets = Array.from(merged).sort((a, b) => a - b) as ArtifactSetId[]
+                nextSets = mergeSelectionsWithMetasets(nextSets, [metaToDelete])
               }
               const metaChanged = metaIds.length !== nextMetaIds.length || metaIds.some((metaId, idx) => metaId !== nextMetaIds[idx])
               const currentSets = rule.combination.sets ?? []
-              const setsChanged = replaceWithSets
-                ? (currentSets.length !== nextSets.length || currentSets.some((setId, idx) => setId !== nextSets[idx]))
-                : false
+              const setsChanged = replaceWithSets ? !areSetEntriesEqual(currentSets, nextSets) : false
               if (!metaChanged && !setsChanged) return rule
               mutated = true
               return {
@@ -5230,7 +5261,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                 bakedInSetIdSet
                   ? incoming.map((cfg) => ({
                     ...cfg,
-                    artifactSets: (cfg.artifactSets ?? []).filter((id) => bakedInSetIdSet.has(Number(id))),
+                    artifactSets: normalizeArtifactSetSelections(cfg.artifactSets ?? [])
+                      .filter((entry) => bakedInSetIdSet.has(Number(entry.id)))
+                      .map((entry) => (entry.excluded ? { id: entry.id, excluded: true } : { id: entry.id })),
                   }))
                   : incoming
               )

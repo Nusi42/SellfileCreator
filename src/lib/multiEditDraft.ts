@@ -7,6 +7,8 @@
  */
 import type { BuilderConfig, SubstatRollTargetEntry } from './hsfBuilder'
 import { normalizeKeepMode, canEnableSubstatFlex, normalizeAutoRaritySupplements, normalizeLevelWindow, normalizeAutoSubstatFlex } from './configNormalization'
+import type { ArtifactSetSelectionEntry } from './gearSets/selection'
+import { normalizeArtifactSetSelections } from './gearSets/selection'
 
 export const BUILDER_FIELD_KEYS = [
   'name',
@@ -73,7 +75,7 @@ type FieldPatchByKey = {
   substatRollBoundsV: MultiEditRollPatch
   substatRollTargetsV: MultiEditTargetPatch
   artifactTypes: MultiEditArrayPatch<number>
-  artifactSets: MultiEditArrayPatch<number>
+  artifactSets: MultiEditArrayPatch<ArtifactSetSelectionEntry>
   artifactMetaSets: MultiEditArrayPatch<string>
 }
 
@@ -195,8 +197,9 @@ export function areBuilderFieldValuesEqual(key: BuilderFieldKey, left: unknown, 
     case 'fixedSubstatsV':
       return arePrimitiveArraysEqual(left as readonly unknown[] | undefined, right as readonly unknown[] | undefined)
     case 'artifactTypes':
-    case 'artifactSets':
       return arePrimitiveArraysEqual(left as readonly unknown[] | undefined, right as readonly unknown[] | undefined)
+    case 'artifactSets':
+      return areArtifactSetSelectionsEqual(left, right)
     case 'artifactMetaSets':
       return arePrimitiveArraysEqual(left as readonly unknown[] | undefined, right as readonly unknown[] | undefined)
     case 'substatRollBoundsV':
@@ -223,8 +226,9 @@ export function cloneBuilderFieldValue(key: BuilderFieldKey, value: unknown): un
     case 'substatsV':
     case 'fixedSubstatsV':
     case 'artifactTypes':
-    case 'artifactSets':
       return Array.isArray(value) ? [...value] : value
+    case 'artifactSets':
+      return cloneArtifactSetSelections(value)
     case 'artifactMetaSets':
       return Array.isArray(value) ? [...value] : value
     case 'substatRollBoundsV':
@@ -291,6 +295,35 @@ function arePrimitiveArraysEqual<T>(left: readonly T[] | undefined, right: reado
   return true
 }
 
+const normalizeArtifactSetSelectionEntries = (value: unknown): ArtifactSetSelectionEntry[] => (
+  // Normalize to canonical entry objects so comparisons stay stable.
+  // Only arrays can contain selection entries; everything else maps to empty.
+  normalizeArtifactSetSelections(Array.isArray(value) ? value : [])
+)
+
+const areArtifactSetSelectionsEqual = (left: unknown, right: unknown): boolean => {
+  // Normalize both sides so order and legacy formats compare correctly.
+  const leftNorm = normalizeArtifactSetSelectionEntries(left)
+  const rightNorm = normalizeArtifactSetSelectionEntries(right)
+  if (leftNorm.length !== rightNorm.length) return false
+  for (let i = 0; i < leftNorm.length; i += 1) {
+    const leftEntry = leftNorm[i]!
+    const rightEntry = rightNorm[i]!
+    if (Number(leftEntry.id) !== Number(rightEntry.id)) return false
+    if (Boolean(leftEntry.excluded) !== Boolean(rightEntry.excluded)) return false
+  }
+  return true
+}
+
+const cloneArtifactSetSelections = (value: unknown): ArtifactSetSelectionEntry[] => {
+  // Normalize first so every entry has a consistent shape.
+  const normalized = normalizeArtifactSetSelectionEntries(value)
+  // Clone entries so configs never share object references.
+  return normalized.map((entry) => (
+    entry.excluded ? { id: entry.id, excluded: true } : { id: entry.id }
+  ))
+}
+
 function areRollBoundsEqual(
   left: BuilderConfig['substatRollBoundsV'],
   right: BuilderConfig['substatRollBoundsV'],
@@ -342,9 +375,10 @@ export function cloneFieldPatch<K extends BuilderFieldKey>(
     case 'substatsV':
     case 'fixedSubstatsV':
     case 'artifactTypes':
-    case 'artifactSets':
     case 'artifactMetaSets':
       return cloneArrayPatch(patch as MultiEditArrayPatch<unknown>) as MultiEditFieldPatch<K>
+    case 'artifactSets':
+      return cloneArtifactSetPatch(patch as MultiEditArrayPatch<ArtifactSetSelectionEntry>) as MultiEditFieldPatch<K>
     case 'substatRollBoundsV':
       return cloneRollPatch(patch as MultiEditRollPatch) as MultiEditFieldPatch<K>
     case 'substatRollTargetsV':
@@ -359,6 +393,18 @@ function cloneArrayPatch<T>(patch: MultiEditArrayPatch<T>): MultiEditArrayPatch<
     add: patch.add ? [...patch.add] as readonly T[] : undefined,
     remove: patch.remove ? [...patch.remove] as readonly T[] : undefined,
     replace: patch.replace ? [...patch.replace] as readonly T[] : undefined,
+    clear: patch.clear === true ? true : undefined,
+  }
+}
+
+function cloneArtifactSetPatch(
+  patch: MultiEditArrayPatch<ArtifactSetSelectionEntry>,
+): MultiEditArrayPatch<ArtifactSetSelectionEntry> {
+  return {
+    // Clone each list so patches never share references.
+    add: patch.add ? cloneArtifactSetSelections(patch.add) : undefined,
+    remove: patch.remove ? cloneArtifactSetSelections(patch.remove) : undefined,
+    replace: patch.replace ? cloneArtifactSetSelections(patch.replace) : undefined,
     clear: patch.clear === true ? true : undefined,
   }
 }
@@ -428,9 +474,13 @@ export function areFieldPatchesEqual<K extends BuilderFieldKey>(
     case 'substatsV':
     case 'fixedSubstatsV':
     case 'artifactTypes':
-    case 'artifactSets':
     case 'artifactMetaSets':
       return areArrayPatchesEqual(left as MultiEditArrayPatch<unknown>, right as MultiEditArrayPatch<unknown>)
+    case 'artifactSets':
+      return areArtifactSetPatchesEqual(
+        left as MultiEditArrayPatch<ArtifactSetSelectionEntry>,
+        right as MultiEditArrayPatch<ArtifactSetSelectionEntry>,
+      )
     case 'substatRollBoundsV':
       return areRollPatchesEqual(left as MultiEditRollPatch, right as MultiEditRollPatch)
     case 'substatRollTargetsV':
@@ -445,6 +495,34 @@ function areArrayPatchesEqual<T>(left: MultiEditArrayPatch<T>, right: MultiEditA
   if (!arraysShallowEqual(left.replace, right.replace)) return false
   if (!arraysShallowEqual(left.add, right.add)) return false
   if (!arraysShallowEqual(left.remove, right.remove)) return false
+  return true
+}
+
+function areArtifactSetEntryArraysEqual(
+  left: readonly ArtifactSetSelectionEntry[] | undefined,
+  right: readonly ArtifactSetSelectionEntry[] | undefined,
+): boolean {
+  // Normalize both sides so legacy formats and ordering do not matter.
+  const leftNorm = normalizeArtifactSetSelectionEntries(left)
+  const rightNorm = normalizeArtifactSetSelectionEntries(right)
+  if (leftNorm.length !== rightNorm.length) return false
+  for (let i = 0; i < leftNorm.length; i += 1) {
+    const leftEntry = leftNorm[i]!
+    const rightEntry = rightNorm[i]!
+    if (Number(leftEntry.id) !== Number(rightEntry.id)) return false
+    if (Boolean(leftEntry.excluded) !== Boolean(rightEntry.excluded)) return false
+  }
+  return true
+}
+
+function areArtifactSetPatchesEqual(
+  left: MultiEditArrayPatch<ArtifactSetSelectionEntry>,
+  right: MultiEditArrayPatch<ArtifactSetSelectionEntry>,
+): boolean {
+  if (left.clear !== right.clear) return false
+  if (!areArtifactSetEntryArraysEqual(left.replace, right.replace)) return false
+  if (!areArtifactSetEntryArraysEqual(left.add, right.add)) return false
+  if (!areArtifactSetEntryArraysEqual(left.remove, right.remove)) return false
   return true
 }
 
@@ -741,7 +819,7 @@ function applyPatchForKey<K extends BuilderFieldKey>(
     case 'artifactTypes':
       return applyArtifactTypesPatch(cfg, patch as MultiEditArrayPatch<number>)
     case 'artifactSets':
-      return applyArtifactSetsPatch(cfg, patch as MultiEditArrayPatch<number>)
+      return applyArtifactSetsPatch(cfg, patch as MultiEditArrayPatch<ArtifactSetSelectionEntry>)
     case 'artifactMetaSets':
       return applyArtifactMetaSetsPatch(cfg, patch as MultiEditArrayPatch<string>)
     default:
@@ -945,11 +1023,38 @@ function applyArtifactTypesPatch(cfg: BuilderConfig, patch: MultiEditArrayPatch<
   return { ...cfg, artifactTypes: next }
 }
 
-function applyArtifactSetsPatch(cfg: BuilderConfig, patch: MultiEditArrayPatch<number>): BuilderConfig {
-  const current = Array.isArray(cfg.artifactSets) ? cfg.artifactSets.map(Number) : []
-  const next = applyNumberArrayPatch(current, patch, { sort: true })
-  if (arraysEqualNumber(current, next)) return cfg
+function applyArtifactSetsPatch(
+  cfg: BuilderConfig,
+  patch: MultiEditArrayPatch<ArtifactSetSelectionEntry>,
+): BuilderConfig {
+  // Normalize existing entries so we can apply add/remove safely.
+  const current = normalizeArtifactSetSelectionEntries(cfg.artifactSets)
+  // Apply the patch against canonical entries.
+  const next = applyArtifactSetSelectionPatch(current, patch)
+  // Skip cloning when the result matches the current selection.
+  if (areArtifactSetSelectionsEqual(current, next)) return cfg
   return { ...cfg, artifactSets: next }
+}
+
+function applyArtifactSetSelectionPatch(
+  current: readonly ArtifactSetSelectionEntry[],
+  patch: MultiEditArrayPatch<ArtifactSetSelectionEntry>,
+): ArtifactSetSelectionEntry[] {
+  // Clear always wins and returns a fresh empty list.
+  if (patch.clear) return []
+  // Replace uses the provided entries as the new baseline.
+  if (patch.replace && patch.replace.length > 0) {
+    return normalizeArtifactSetSelectionEntries(patch.replace)
+  }
+  // Normalize remove entries into canonical ids.
+  const removeEntries = normalizeArtifactSetSelectionEntries(patch.remove ?? [])
+  const removeIds = new Set(removeEntries.map((entry) => Number(entry.id)))
+  // Drop any entries whose IDs are in the remove list.
+  const filtered = current.filter((entry) => !removeIds.has(Number(entry.id)))
+  // Normalize add entries (includes + excludes).
+  const addEntries = normalizeArtifactSetSelectionEntries(patch.add ?? [])
+  // Merge adds with the filtered baseline (exclusions still take precedence).
+  return normalizeArtifactSetSelectionEntries([...filtered, ...addEntries])
 }
 
 function applyArtifactMetaSetsPatch(cfg: BuilderConfig, patch: MultiEditArrayPatch<string>): BuilderConfig {

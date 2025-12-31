@@ -5,7 +5,9 @@ import { useI18n } from '../../lib/i18n'
 import type { ArtifactSetId } from '../../lib/types'
 import { artifactSetName, filterAndSortSetEntries, getLocalizedGearSetName } from '../../lib/types'
 import type { Metaset } from '../../lib/metasets'
-import { metasetGlyph, orderMetasetIds } from '../../lib/metasets'
+import { metasetGlyph, orderMetasetIds, resolveMetasetIds } from '../../lib/metasets'
+import type { ArtifactSetSelectionEntry } from '../../lib/gearSets/selection'
+import { normalizeArtifactSetSelections, splitArtifactSetSelections } from '../../lib/gearSets/selection'
 import { useSetsOrderPreference } from '../../state/setsOrderPreference'
 import InlineSelectClearButton from '../InlineSelectClearButton'
 import InlineSelectExtraBadge from '../InlineSelectExtraBadge'
@@ -27,8 +29,8 @@ import { computeInlineSelectPadding } from '../../lib/inlineSelectAffordances'
 import { useGearSetCatalogVersion } from '../../hooks/useGearSetCatalogVersion'
 
 type GearSetsSelectProps = {
-  value: ArtifactSetId[]
-  onChange: (next: ArtifactSetId[]) => void
+  value: ArtifactSetSelectionEntry[]
+  onChange: (next: ArtifactSetSelectionEntry[]) => void
   metasets?: Metaset[]
   selectedMetasetIds?: string[]
   onChangeMetasetIds?: (next: string[]) => void
@@ -77,21 +79,35 @@ export default function GearSetsSelect({
     () => orderMetasetIds(allowMetasets ? selectedMetasetIds : [], orderBasis),
     [allowMetasets, orderBasis, selectedMetasetIds],
   )
+  // Normalize selections so legacy arrays merge cleanly with exclusion entries.
+  const normalizedSelections = useMemo(
+    () => normalizeArtifactSetSelections(value),
+    [value],
+  )
+  // Split include/exclude lists so UI logic can branch cleanly.
+  const splitSelections = useMemo(
+    () => splitArtifactSetSelections(normalizedSelections),
+    [normalizedSelections],
+  )
+  // Build the Select token list from metasets + explicit includes.
   const selectedTokens = useMemo(() => ([
     ...orderedMetaSelected.map((id) => `m:${id}`),
-    ...value.map((id) => `s:${Number(id)}`),
-  ]), [orderedMetaSelected, value])
+    ...splitSelections.included.map((id) => `s:${Number(id)}`),
+  ]), [orderedMetaSelected, splitSelections.included])
 
   const renderValue = useCallback((tokens: string[]) => {
     void gearSetCatalogVersion
-    if (tokens.length === 0) {
+    // Treat excluded-only selections as active so they render in the label.
+    if (tokens.length === 0 && splitSelections.excluded.length === 0) {
       return (
         <Box component="span" sx={{ display: 'block', textOverflow: 'ellipsis', whiteSpace: 'nowrap', overflow: 'hidden' }}>
           {t('any')}
         </Box>
       )
     }
+    // Collect labels in the same order as the display tokens.
     const names: string[] = []
+    // Metasets stay in the token list; rebuild names from active metasets.
     for (const token of tokens) {
       if (token.startsWith('m:')) {
         const id = token.slice(2)
@@ -104,12 +120,19 @@ export default function GearSetsSelect({
         } else {
           names.push(meta.name)
         }
-      } else if (token.startsWith('s:')) {
-        const id = Number(token.slice(2))
-        const localized = getLocalizedGearSetName(id as ArtifactSetId, t, lang) || artifactSetName(id)
-        names.push(localized)
       }
     }
+    // Explicit includes render as plain set names.
+    for (const id of splitSelections.included) {
+      const localized = getLocalizedGearSetName(id as ArtifactSetId, t, lang) || artifactSetName(id)
+      names.push(localized)
+    }
+    // Explicit excludes render with a "not" prefix for clarity.
+    for (const id of splitSelections.excluded) {
+      const localized = getLocalizedGearSetName(id as ArtifactSetId, t, lang) || artifactSetName(id)
+      names.push(`not ${localized}`)
+    }
+    // Collapse to "Any" when everything is cleared.
     const text = names.length === 0 ? t('any') : names.join(', ')
     return (
       <EllipsisTooltip title={text}>
@@ -122,18 +145,30 @@ export default function GearSetsSelect({
         </Box>
       </EllipsisTooltip>
     )
-  }, [gearSetCatalogVersion, lang, metasets, t])
+  }, [gearSetCatalogVersion, lang, metasets, splitSelections.excluded, splitSelections.included, t])
 
   const handleTokensChange = useCallback((e: SelectChangeEvent<string[]>) => {
+    // Normalize the token list so arrays never contain non-strings.
     const tokens = Array.isArray(e.target.value) ? e.target.value : []
+    // Extract explicit set ids from tokens.
     const setIds = tokens.filter((token) => token.startsWith('s:')).map((token) => Number(token.slice(2)) as ArtifactSetId)
+    // Resolve metaset ordering when enabled.
     const metaIds = allowMetasets ? orderMetasetIds(tokens.filter((token) => token.startsWith('m:')).map((token) => token.slice(2)), orderBasis) : []
+    // Deduplicate the explicit includes for stable output.
     const normalizedSets = Array.from(new Set(setIds.map((id) => Number(id)))).sort((a, b) => a - b).map((id) => id as ArtifactSetId)
-    onChange(normalizedSets)
+    // Preserve existing exclusions unless the user explicitly re-includes them.
+    const excluded = splitSelections.excluded.filter((id) => !normalizedSets.includes(id))
+    // Merge the included and excluded selections into a single entry list.
+    const nextSelections = normalizeArtifactSetSelections([
+      ...normalizedSets.map((id) => ({ id })),
+      ...excluded.map((id) => ({ id, excluded: true })),
+    ])
+    onChange(nextSelections)
+    // Update metasets alongside the selection when enabled.
     if (allowMetasets && onChangeMetasetIds) {
       onChangeMetasetIds(metaIds)
     }
-  }, [allowMetasets, onChange, onChangeMetasetIds, orderBasis])
+  }, [allowMetasets, onChange, onChangeMetasetIds, orderBasis, splitSelections.excluded])
 
   const scrollSetsMenuToSelected = useCallback((orderOverride?: 'game' | 'az' | 'icons', opts?: { force?: boolean }) => {
     void gearSetCatalogVersion
@@ -144,7 +179,8 @@ export default function GearSetsSelect({
     if (!list) return
     const sortedForOrder = filterAndSortSetEntries(setsSearch, order, { translate: t })
     const filtered = allowedSetFilter ? sortedForOrder.filter(([id]) => allowedSetFilter.has(Number(id))) : sortedForOrder
-    const selectedIds = new Set(value.map(Number))
+    // Scroll to the first explicitly included set to mirror builder behavior.
+    const selectedIds = new Set(splitSelections.included.map(Number))
     let target: number | null = null
     for (const [id] of filtered) {
       const idNum = Number(id)
@@ -159,7 +195,7 @@ export default function GearSetsSelect({
       item?.scrollIntoView({ block: 'nearest' })
     }
     requestAnimationFrame(() => requestAnimationFrame(scroll))
-  }, [allowedSetFilter, gearSetCatalogVersion, menuOpen, setsOrder, setsSearch, t, value])
+  }, [allowedSetFilter, gearSetCatalogVersion, menuOpen, setsOrder, setsSearch, splitSelections.included, t])
 
   const sortedSets = useMemo(() => {
     void gearSetCatalogVersion
@@ -170,24 +206,56 @@ export default function GearSetsSelect({
 
   const handleToggleSet = useCallback((setId: number) => {
     const numeric = Number(setId)
-    const next = new Set(value.map(Number))
+    // Toggling only affects explicit includes; exclusions remain unless cleared.
+    const next = new Set(splitSelections.included.map(Number))
     if (next.has(numeric)) {
       next.delete(numeric)
     } else {
       next.add(numeric)
     }
     const normalized = Array.from(next).sort((a, b) => a - b).map((id) => id as ArtifactSetId)
-    onChange(normalized)
-  }, [onChange, value])
+    // Drop exclusions when the set is explicitly re-added.
+    const excluded = splitSelections.excluded.filter((id) => !normalized.includes(id))
+    // Combine the updated include/exclude state into the selection payload.
+    const nextSelections = normalizeArtifactSetSelections([
+      ...normalized.map((id) => ({ id })),
+      ...excluded.map((id) => ({ id, excluded: true })),
+    ])
+    onChange(nextSelections)
+  }, [onChange, splitSelections.excluded, splitSelections.included])
 
   const metasetsMenu = useMemo(() => {
     if (!allowMetasets) return []
     if (!allowedSetFilter) return visibleMetasets
     return visibleMetasets.filter((meta) => meta.sets.every((setId) => allowedSetFilter.has(Number(setId))))
   }, [allowMetasets, allowedSetFilter, visibleMetasets])
-  const hasSelection = selectedTokens.length > 0
+  // Track which sets are implied by metasets so right-click only targets those.
+  const metaDerivedSetIds = useMemo(() => (
+    allowMetasets ? new Set(resolveMetasetIds(selectedMetasetIds ?? [], metasets)) : new Set<number>()
+  ), [allowMetasets, metasets, selectedMetasetIds])
+  const handleContextMenuSet = useCallback((id: number) => {
+    // Ignore context menu events when metasets are not active.
+    if (!allowMetasets) return
+    // Only allow exclusion for sets that come from metasets.
+    if (!metaDerivedSetIds.has(id)) return
+    // Toggle exclusion state for this set id.
+    const isExcluded = splitSelections.excluded.includes(id)
+    // Exclusions should clear explicit includes for the same set.
+    const nextIncluded = splitSelections.included.filter((entry) => entry !== id)
+    const nextExcluded = isExcluded
+      ? splitSelections.excluded.filter((entry) => entry !== id)
+      : [...splitSelections.excluded, id]
+    // Merge include/exclude entries into a normalized payload.
+    const nextSelections = normalizeArtifactSetSelections([
+      ...nextIncluded.map((entry) => ({ id: entry })),
+      ...nextExcluded.map((entry) => ({ id: entry, excluded: true })),
+    ])
+    onChange(nextSelections)
+  }, [allowMetasets, metaDerivedSetIds, onChange, splitSelections.excluded, splitSelections.included])
+  const selectionCount = selectedTokens.length + splitSelections.excluded.length
+  const hasSelection = selectionCount > 0
   // Mirror the tester filter behavior by showing how many sets/metasets extend beyond the inline label.
-  const extraSelectionCount = Math.max(0, selectedTokens.length - 1)
+  const extraSelectionCount = Math.max(0, selectionCount - 1)
   const inlinePaddingPx = computeInlineSelectPadding(hasSelection, extraSelectionCount > 0)
 
   const handleClear = useCallback(() => {
@@ -416,8 +484,10 @@ export default function GearSetsSelect({
               valueForSet={(id) => `s:${id}`}
               hoveredMetasetId={hoveredMetasetId}
               selectedMetasetIds={selectedMetasetIds}
-              selectedSetIds={value.map(Number)}
+              selectedSetIds={splitSelections.included.map(Number)}
+              excludedSetIds={splitSelections.excluded.map(Number)}
               onToggleSet={handleToggleSet}
+              onContextMenuSet={handleContextMenuSet}
             />
           </Box>
         </Box>
