@@ -22,6 +22,7 @@ import {
   normalizeAutoSubstatFlex,
   normalizeKeepMode,
   normalizeLevelWindow,
+  type AutoRaritySupplementsThreshold,
 } from './configNormalization'
 import { pickAutoRaritySupplementsThreshold } from './raritySupplements'
 
@@ -38,6 +39,8 @@ export type ConfigOptionsTagOverrides = {
   rarityMode?: 'auto' | 'code'
   minLevel?: LevelMilestone
   maxLevel?: LevelMilestone
+  earlyKeepMode?: 'early' | 'late'
+  autoRaritySupplementsThreshold?: AutoRaritySupplementsThreshold
 }
 
 // One resolved tag instruction (action + optional overrides).
@@ -431,6 +434,26 @@ const parseTagOverrides = (tokens: readonly string[]): ConfigOptionsTagOverrides
       if (!range) return
       overrides.minLevel = range.min
       overrides.maxLevel = range.max
+      hasOverride = true
+      return
+    }
+    if (parsed.key === 'keep') {
+      // Only accept direct assignments for keep mode.
+      if (overrides.earlyKeepMode != null) return
+      if (parsed.op !== 'eq') return
+      const raw = parsed.value.trim().toLowerCase()
+      if (raw !== 'early' && raw !== 'late') return
+      overrides.earlyKeepMode = raw as 'early' | 'late'
+      hasOverride = true
+      return
+    }
+    if (parsed.key === 'autolate') {
+      // Only accept direct assignments for auto-late tiers.
+      if (overrides.autoRaritySupplementsThreshold != null) return
+      if (parsed.op !== 'eq') return
+      const raw = parsed.value.trim().toLowerCase()
+      if (raw !== 'uncommon' && raw !== 'rare' && raw !== 'epic') return
+      overrides.autoRaritySupplementsThreshold = raw as AutoRaritySupplementsThreshold
       hasOverride = true
     }
   })
@@ -953,10 +976,14 @@ const resolveConfigOptionsEffectiveConfigWithInstructions = (
   let nextRarityCode: RarityCode = cfg.rarityCode
   let nextMinLevel: LevelMilestone | undefined = cfg.minLevel
   let nextMaxLevel: LevelMilestone | undefined = cfg.maxLevel
+  let nextKeepMode: 'early' | 'late' = (cfg.earlyKeepMode ?? 'early')
+  let nextAutoLate: AutoRaritySupplementsThreshold | undefined = cfg.autoRaritySupplementsThreshold
   // Track which override categories were explicitly provided.
   let appliedRank = false
   let appliedRarity = false
   let appliedLevel = false
+  let appliedKeep = false
+  let appliedAutoLate = false
   // Track whether any tag instructions matched at all.
   let hasInstruction = false
   for (const tag of tags) {
@@ -990,6 +1017,14 @@ const resolveConfigOptionsEffectiveConfigWithInstructions = (
         nextMaxLevel = overrides.maxLevel
         appliedLevel = true
       }
+      if (overrides.earlyKeepMode != null) {
+        nextKeepMode = overrides.earlyKeepMode
+        appliedKeep = true
+      }
+      if (overrides.autoRaritySupplementsThreshold != null) {
+        nextAutoLate = overrides.autoRaritySupplementsThreshold
+        appliedAutoLate = true
+      }
     }
   }
   // Determine whether any effective value changed.
@@ -1000,8 +1035,10 @@ const resolveConfigOptionsEffectiveConfigWithInstructions = (
   const rarityCodeChanged = appliedRarity && nextRarityMode === 'code' && nextRarityCode !== cfg.rarityCode
   const rarityChanged = rarityModeChanged || rarityCodeChanged
   const levelChanged = appliedLevel && (nextMinLevel !== cfg.minLevel || nextMaxLevel !== cfg.maxLevel)
+  const keepChanged = appliedKeep && nextKeepMode !== (cfg.earlyKeepMode ?? 'early')
+  const autoLateChanged = appliedAutoLate && nextAutoLate !== cfg.autoRaritySupplementsThreshold
   // Bail out when no overrides actually change anything.
-  if (!exportModeChanged && !rankChanged && !rarityChanged && !levelChanged) {
+  if (!exportModeChanged && !rankChanged && !rarityChanged && !levelChanged && !keepChanged && !autoLateChanged) {
     return cfg
   }
   // Clone so we never mutate stored configs.
@@ -1024,8 +1061,17 @@ const resolveConfigOptionsEffectiveConfigWithInstructions = (
     next.maxLevel = nextMaxLevel!
     next = normalizeLevelWindow(next)
   }
-  // Normalize auto rarity helpers when the override changes rarity behavior.
-  if (appliedRarity) {
+  // Apply keep mode overrides when provided.
+  if (appliedKeep) {
+    next.earlyKeepMode = nextKeepMode
+  }
+  // Apply auto-late overrides when provided.
+  if (appliedAutoLate) {
+    // appliedAutoLate only flips on when a valid tier is provided.
+    next.autoRaritySupplementsThreshold = nextAutoLate!
+  }
+  // Normalize auto rarity helpers when Auto/Late-related overrides are present.
+  if (appliedRarity || appliedKeep || appliedAutoLate) {
     const fallback = pickAutoRaritySupplementsThreshold(next)
     next = normalizeKeepMode(next)
     next = normalizeAggregateRollTargets(next)
