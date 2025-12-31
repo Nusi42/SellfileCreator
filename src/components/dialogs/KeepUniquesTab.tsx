@@ -491,10 +491,10 @@ ${t('keepUniquesCountModeHint')}`
     const factionSelection = hasAccessorySlot ? dedupeNumericArray(combination.factions ?? []) : []
     const selected = effectiveSelectedRuleId === rule.id
     const expanded = expandedRuleIds.has(rule.id)
-    const handleRuleHeaderClick = (event: ReactMouseEvent<HTMLButtonElement>) => {
-      // Header click should only select the rule; expansion is controlled by the chevron so selection never changes layout.
-      event.preventDefault()
+    const selectRule = () => {
+      // Keep selection synced to the most recent card interaction so the grid focus stays predictable.
       setSelectedRuleId(rule.id)
+      // Explicit selection should clear manual deselect so defaults reapply on new interactions.
       setRespectManualDeselect(false)
     }
     const toggleExpanded = () => {
@@ -504,6 +504,14 @@ ${t('keepUniquesCountModeHint')}`
         else next.add(rule.id)
         return next
       })
+    }
+    const handleRuleTitleClick = (event: ReactMouseEvent<HTMLButtonElement>) => {
+      // Title clicks should feel like the primary disclosure control for the rule.
+      event.preventDefault()
+      // Toggle expansion to open/close the rule detail.
+      toggleExpanded()
+      // Also keep selection aligned with the click target.
+      selectRule()
     }
     const deleteButton = (
       <IconButton
@@ -627,6 +635,10 @@ ${t('keepUniquesCountModeHint')}`
     return (
       <Box
         key={rule.id}
+        // Capture clicks so any background or control interaction selects the card.
+        onClickCapture={selectRule}
+        // Capture focus to support keyboard-driven activations selecting the card too.
+        onFocusCapture={selectRule}
         sx={{
           borderRadius: '8px',
           border: '1px solid',
@@ -635,8 +647,8 @@ ${t('keepUniquesCountModeHint')}`
           overflow: 'hidden', // Header/editor share an outline without double borders.
         }}
       >
-        <ButtonBase
-          onClick={handleRuleHeaderClick}
+        <Box
+          // Header wrapper keeps the highlight while deferring toggle behavior to the title button.
           sx={{
             width: '100%',
             display: 'grid',
@@ -654,14 +666,17 @@ ${t('keepUniquesCountModeHint')}`
             borderColor: 'divider',
           }}
         >
+          {/* Title-only button isolates expand/collapse from other header controls. */}
           <EllipsisTooltip title={rawName || summaryTitle}>
-            <Box
+            <ButtonBase
+              onClick={handleRuleTitleClick}
               sx={{
                 gridColumn: 1,
                 display: 'flex',
                 alignItems: 'center',
                 gap: 0.75,
                 minWidth: 0,
+                textAlign: 'left',
               }}
             >
               <Box
@@ -697,7 +712,7 @@ ${t('keepUniquesCountModeHint')}`
               >
                 {summaryTitle}
               </Typography>
-            </Box>
+            </ButtonBase>
           </EllipsisTooltip>
           <Box
             sx={{
@@ -735,7 +750,7 @@ ${t('keepUniquesCountModeHint')}`
               {expanded ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
             </IconButton>
           </Box>
-        </ButtonBase>
+        </Box>
         {expanded ? (
           <Stack spacing={1.5} sx={{ p: 1.25 }}>
           <Box
