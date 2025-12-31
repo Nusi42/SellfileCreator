@@ -1676,6 +1676,8 @@ const maxLevelValue = multiEditActive
   const [tagsDraft, setTagsDraft] = useState<string>('')
   // Keep a ref to the tags menu so outside clicks can dismiss stuck backdrops.
   const tagsMenuPaperRef = useRef<HTMLDivElement | null>(null)
+  // Track Escape-driven closes so blur does not auto-commit tags.
+  const tagsEscapeCloseRef = useRef(false)
   const currentDraftKey: number | 'builder' = editingIndex ?? 'builder'
   const nameDraftDirty = nameDraftKey === currentDraftKey
   // Derived UI state for tags in single vs multi-edit.
@@ -2705,7 +2707,11 @@ const maxLevelValue = multiEditActive
                   size="small"
                   variant="outlined"
                   color={tagsButtonActive ? 'warning' : 'success'}
-                  onClick={(event) => setTagsAnchor(event.currentTarget)}
+                  onClick={(event) => {
+                    // Reset any stale Escape marker before opening the popover.
+                    tagsEscapeCloseRef.current = false
+                    setTagsAnchor(event.currentTarget)
+                  }}
                   aria-label={tagsButtonLabel}
                   // Match the preview Sort button sizing so the controls feel aligned.
                   sx={COMPACT_HEADER_ACTION_BUTTON_SX}
@@ -2792,15 +2798,32 @@ const maxLevelValue = multiEditActive
                       placeholder={t('builderTagsPlaceholder')}
                       onChange={(event) => setTagsDraft(event.target.value)}
                       onKeyDown={(event) => {
-                        if (event.key !== 'Escape') {
+                        const key = event.key
+                        // Escape should always close the popover so the modal backdrop clears.
+                        if (key === 'Escape') {
+                          event.preventDefault()
                           event.stopPropagation()
+                          // Mark this close so blur does not apply draft tags.
+                          tagsEscapeCloseRef.current = true
+                          closeTagsPopover()
+                          return
                         }
-                        if (event.key === 'Enter' || event.key === ',') {
+                        // Keep listbox shortcuts from hijacking typing/navigation.
+                        event.stopPropagation()
+                        // Enter or comma commits the draft tags in-place.
+                        if (key === 'Enter' || key === ',') {
                           event.preventDefault()
                           commitTagsFromDraft()
                         }
                       }}
-                      onBlur={() => commitTagsFromDraft()}
+                      onBlur={() => {
+                        // Ignore blur that was triggered by an Escape close.
+                        if (tagsEscapeCloseRef.current) {
+                          tagsEscapeCloseRef.current = false
+                          return
+                        }
+                        commitTagsFromDraft()
+                      }}
                     />
                   </Stack>
                 </Box>
