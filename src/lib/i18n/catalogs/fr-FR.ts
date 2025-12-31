@@ -143,6 +143,7 @@ const overrides: Catalog = {
   builderResetButton: 'Réinitialiser la config',
   builderMenuAutoResetAfterInsert: 'Réinitialiser automatiquement après insertion',
   builderMenuAutoApplySelected: 'Appliquer automatiquement à la config sélectionnée',
+  builderMenuShowTags: 'Afficher les tags',
   builderMenuSaveUserDefaults: 'Enregistrer les paramètres locaux comme valeurs par défaut utilisateur',
   builderMenuResetFactoryDefaults: 'Réinitialiser aux paramètres d\'usine',
   contextMenuHint: 'Clic droit pour afficher les actions',

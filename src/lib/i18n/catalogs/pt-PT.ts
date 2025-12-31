@@ -143,6 +143,7 @@ const overrides: Catalog = {
   builderResetButton: 'Repor a config',
   builderMenuAutoResetAfterInsert: 'Repor automaticamente após inserir',
   builderMenuAutoApplySelected: 'Aplicar automaticamente à config selecionada',
+  builderMenuShowTags: 'Mostrar tags',
   builderMenuSaveUserDefaults: 'Guardar as definições locais como predefinidas do utilizador',
   builderMenuResetFactoryDefaults: 'Repor as definições de fábrica',
   contextMenuHint: 'Clique com o botão direito para ver as ações',

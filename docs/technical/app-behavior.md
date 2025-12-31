@@ -235,6 +235,7 @@ This document captures runtime behavior, builder interactions, and user-facing w
   - Syntax (multi): `<!-- q:multi "Prompt" [* "Option", tag-a] ["Other", +tag-b] -->`.
   - `*` before the label marks the default selection. `+tag` forces enable, `-tag` forces disable, and a bare `tag` toggles the stored export mode. Whitespace is optional.
   - Prompt references: Wrap option labels in backticks to render them as chips (e.g., ``Answering `Yes` will...``). Use numeric references like `` `\1` `` (1-based) to inject the Nth option label. Wrap emphasis text in `**double-asterisks**` to render it with the Quota/Scope label style; both markers work in prompts and option labels. Prompts accept literal newlines or `\n` escapes for line breaks.
+  - Multi-select questions can be cleared to zero answers; an explicit empty selection bypasses defaults until the user reselects options.
   - Questions are evaluated top-to-bottom; tag actions for a config apply in the order of that config’s tag list so toggles resolve deterministically.
 - Config options effects: Answers never mutate HSFC configs. Instead, config options tag actions compute an effective export mode at runtime (for preview + HSF export) while configs stay unchanged in storage. Tagged configs override only when at least one tag action matches their tag list; otherwise the stored export mode is preserved.
 - Session-only answers: Config options answers are stored in autosave/session state only; HSFC exports never include them.

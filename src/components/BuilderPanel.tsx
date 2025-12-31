@@ -16,6 +16,7 @@ import SetMenuSection from './SetMenuSection'
 import MetasetsDialog from './MetasetsDialog'
 import { useMetasetsDialog } from '../hooks/useMetasetsDialog'
 import { useContextMenuPaperGuard } from '../hooks/useContextMenuPaperGuard'
+import { useContextMenuCloseOnOutsideRightClick } from '../hooks/useContextMenuCloseOnOutsideRightClick'
 import { useContextMenuHint } from '../hooks/useContextMenuHint'
 import { useGearSetCatalogVersion } from '../hooks/useGearSetCatalogVersion'
 import type { HistoryPreview, DescribeNextChangeFn, HistoryTimelineEntry } from '../hooks/useHsfcHistory'
@@ -109,7 +110,7 @@ import {
 import { mergeTagList, normalizeTagValue, summarizeTagPresence } from '../lib/tagHelpers'
 import { useDisplayPreferences } from '../state/preferencesState'
 import { useSetsOrderPreference } from '../state/setsOrderPreference'
-import { useAutoApplySelectedConfigPreference, useAutoResetAfterInsertPreference } from '../state/builderPreferences'
+import { useAutoApplySelectedConfigPreference, useAutoResetAfterInsertPreference, useShowTagsChipsPreference } from '../state/builderPreferences'
 import { HistoryContextMenu } from './HistoryContextMenu'
 import { NumberSpinnerAdornment } from './NumberSpinnerAdornment'
 import { createFactoryBuilderDefaults } from './builderPanel/defaults'
@@ -1676,14 +1677,71 @@ const maxLevelValue = multiEditActive
   const [tagsDraft, setTagsDraft] = useState<string>('')
   // Keep a ref to the tags menu so outside clicks can dismiss stuck backdrops.
   const tagsMenuPaperRef = useRef<HTMLDivElement | null>(null)
+  // Track Escape-driven closes so blur does not auto-commit tags.
+  const tagsEscapeCloseRef = useRef(false)
+  // Context menu anchor for the Tags button preferences.
+  const [tagsContextAnchor, setTagsContextAnchor] = useState<HTMLElement | null>(null)
+  // Store a ref so outside clicks close the Tags context menu reliably.
+  const tagsContextPaperRef = useRef<HTMLDivElement | null>(null)
+  // Context menu hint wiring for the Tags button.
+  const {
+    shouldShow: showTagsHint,
+    markSeen: markTagsHintSeen,
+  } = useContextMenuHint('builderTagsMenu')
+  // Pointer-driven hint position for the Tags context menu overlay.
+  const [tagsHintPos, setTagsHintPos] = useState<{ x: number; y: number } | null>(null)
   const currentDraftKey: number | 'builder' = editingIndex ?? 'builder'
   const nameDraftDirty = nameDraftKey === currentDraftKey
   // Derived UI state for tags in single vs multi-edit.
   const tagsPopoverOpen = Boolean(tagsAnchor)
+  // Show the hint only when the menu is closed and the popover is idle.
+  const tagsHintActive = showTagsHint && tagsHintPos !== null && !tagsContextAnchor && !tagsPopoverOpen
   // Centralize the close handler so onClose + outside-click cleanup stay aligned.
   const closeTagsPopover = useCallback(() => {
     setTagsAnchor(null)
   }, [])
+  // Centralize the Tags context menu close to keep hint state in sync.
+  const closeTagsContextMenu = useCallback(() => {
+    setTagsContextAnchor(null)
+  }, [])
+  // Close the tags context menu on outside interactions so backdrops do not linger.
+  useContextMenuCloseOnOutsideRightClick({
+    open: Boolean(tagsContextAnchor),
+    onClose: closeTagsContextMenu,
+    menuRef: tagsContextPaperRef,
+  })
+  // Reset the hint position when the user has already seen the prompt.
+  useEffect(() => {
+    if (!showTagsHint) setTagsHintPos(null)
+  }, [showTagsHint])
+  // Track pointer entry to show the tags context menu hint.
+  const handleTagsHintMouseEnter = useCallback((event: React.MouseEvent<HTMLElement>) => {
+    if (!showTagsHint) return
+    if (tagsContextAnchor) return
+    if (tagsPopoverOpen) return
+    setTagsHintPos({ x: event.clientX, y: event.clientY })
+  }, [showTagsHint, tagsContextAnchor, tagsPopoverOpen])
+  // Keep the hint anchored to the pointer as it moves.
+  const handleTagsHintMouseMove = useCallback((event: React.MouseEvent<HTMLElement>) => {
+    if (!showTagsHint) return
+    if (tagsContextAnchor) return
+    if (tagsPopoverOpen) return
+    setTagsHintPos({ x: event.clientX, y: event.clientY })
+  }, [showTagsHint, tagsContextAnchor, tagsPopoverOpen])
+  // Clear the hint when the pointer leaves the Tags button area.
+  const handleTagsHintMouseLeave = useCallback(() => {
+    setTagsHintPos(null)
+  }, [])
+  // Open the Tags context menu on right-click and mark the hint as seen.
+  const handleTagsContextMenu = useCallback((event: React.MouseEvent<HTMLElement>) => {
+    try {
+      event.preventDefault()
+      event.stopPropagation()
+    } catch {}
+    markTagsHintSeen()
+    setTagsHintPos(null)
+    setTagsContextAnchor(event.currentTarget as HTMLElement)
+  }, [markTagsHintSeen])
   // Memoize single-config tags so callbacks get stable dependencies.
   const tagsValue = useMemo(() => (cfg.tags ?? []), [cfg.tags])
   // Summarize tag presence for multi-edit so mixed tags are styled separately.
@@ -2254,6 +2312,8 @@ const maxLevelValue = multiEditActive
   const [autoResetAfterInsert, setAutoResetAfterInsert] = useAutoResetAfterInsertPreference()
   // Persisted toggle: auto apply edits to the selected config after a short debounce.
   const [autoApplySelectedConfig, setAutoApplySelectedConfig] = useAutoApplySelectedConfigPreference()
+  // Persisted toggle: show tag chips next to the Tags button.
+  const [showTagsChips, setShowTagsChips] = useShowTagsChipsPreference()
   const autoApplyTimeoutRef = useRef<number | null>(null)
   const clearAutoApplyTimeout = useCallback(() => {
     const handle = autoApplyTimeoutRef.current
@@ -2697,24 +2757,37 @@ const maxLevelValue = multiEditActive
             </Box>
             {/* Tags sit next to export mode to reinforce the enable/disable connection. */}
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, ml: 1 }}>
-              <MarkdownTooltip
-                markdown={tagsButtonLabel}
-                placement="top"
+              <Box
+                component="span"
+                onContextMenu={handleTagsContextMenu}
+                onMouseEnter={handleTagsHintMouseEnter}
+                onMouseMove={handleTagsHintMouseMove}
+                onMouseLeave={handleTagsHintMouseLeave}
+                sx={{ display: 'inline-flex' }}
               >
-                <Button
-                  size="small"
-                  variant="outlined"
-                  color={tagsButtonActive ? 'warning' : 'success'}
-                  onClick={(event) => setTagsAnchor(event.currentTarget)}
-                  aria-label={tagsButtonLabel}
-                  // Match the preview Sort button sizing so the controls feel aligned.
-                  sx={COMPACT_HEADER_ACTION_BUTTON_SX}
+                <MarkdownTooltip
+                  markdown={tagsButtonLabel}
+                  placement="top"
                 >
-                  <Typography component="span" noWrap sx={{ ...ELLIPSIS_TEXT_SX, width: '100%' }} data-ellipsis-target>
-                    {tagsButtonLabel}
-                  </Typography>
-                </Button>
-              </MarkdownTooltip>
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    color={tagsButtonActive ? 'warning' : 'success'}
+                    onClick={(event) => {
+                      // Reset any stale Escape marker before opening the popover.
+                      tagsEscapeCloseRef.current = false
+                      setTagsAnchor(event.currentTarget)
+                    }}
+                    aria-label={tagsButtonLabel}
+                    // Match the preview Sort button sizing so the controls feel aligned.
+                    sx={COMPACT_HEADER_ACTION_BUTTON_SX}
+                  >
+                    <Typography component="span" noWrap sx={{ ...ELLIPSIS_TEXT_SX, width: '100%' }} data-ellipsis-target>
+                      {tagsButtonLabel}
+                    </Typography>
+                  </Button>
+                </MarkdownTooltip>
+              </Box>
               {/* Only show the clear affordance when tags exist for this config. */}
               {showTagsClear ? (
                 <ClearIconButton
@@ -2724,26 +2797,28 @@ const maxLevelValue = multiEditActive
                   onClick={clearTags}
                 />
               ) : null}
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexWrap: 'wrap' }}>
-                {tagDisplay.slice(0, 3).map((tag) => (
-                  <Chip
-                    key={tag}
-                    size="small"
-                    label={tag}
-                    sx={{
-                      maxWidth: 120,
-                      ...(multiEditActive && mixedTagSet.has(tag) ? mixedTagChipSx : null),
-                    }}
-                  />
-                ))}
-                {tagDisplay.length > 3 ? (
-                  <Chip
-                    size="small"
-                    label={`+${tagDisplay.length - 3}`}
-                    sx={{ opacity: 0.7 }}
-                  />
-                ) : null}
-              </Box>
+              {showTagsChips ? (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexWrap: 'wrap' }}>
+                  {tagDisplay.slice(0, 3).map((tag) => (
+                    <Chip
+                      key={tag}
+                      size="small"
+                      label={tag}
+                      sx={{
+                        maxWidth: 120,
+                        ...(multiEditActive && mixedTagSet.has(tag) ? mixedTagChipSx : null),
+                      }}
+                    />
+                  ))}
+                  {tagDisplay.length > 3 ? (
+                    <Chip
+                      size="small"
+                      label={`+${tagDisplay.length - 3}`}
+                      sx={{ opacity: 0.7 }}
+                    />
+                  ) : null}
+                </Box>
+              ) : null}
               {/* Reuse the ContextMenuPaper style so the tags popup matches substat context menus. */}
               {/* Disable menu padding so the inner box owns spacing. */}
               <Menu
@@ -2792,19 +2867,55 @@ const maxLevelValue = multiEditActive
                       placeholder={t('builderTagsPlaceholder')}
                       onChange={(event) => setTagsDraft(event.target.value)}
                       onKeyDown={(event) => {
-                        if (event.key !== 'Escape') {
+                        const key = event.key
+                        // Escape should always close the popover so the modal backdrop clears.
+                        if (key === 'Escape') {
+                          event.preventDefault()
                           event.stopPropagation()
+                          // Mark this close so blur does not apply draft tags.
+                          tagsEscapeCloseRef.current = true
+                          closeTagsPopover()
+                          return
                         }
-                        if (event.key === 'Enter' || event.key === ',') {
+                        // Keep listbox shortcuts from hijacking typing/navigation.
+                        event.stopPropagation()
+                        // Enter or comma commits the draft tags in-place.
+                        if (key === 'Enter' || key === ',') {
                           event.preventDefault()
                           commitTagsFromDraft()
                         }
                       }}
-                      onBlur={() => commitTagsFromDraft()}
+                      onBlur={() => {
+                        // Ignore blur that was triggered by an Escape close.
+                        if (tagsEscapeCloseRef.current) {
+                          tagsEscapeCloseRef.current = false
+                          return
+                        }
+                        commitTagsFromDraft()
+                      }}
                     />
                   </Stack>
                 </Box>
               </Menu>
+              {/* Tags context menu: toggle whether tag chips render inline. */}
+              <Menu
+                anchorEl={tagsContextAnchor}
+                open={Boolean(tagsContextAnchor)}
+                onClose={closeTagsContextMenu}
+                PaperProps={{ ref: tagsContextPaperRef }}
+              >
+                <MenuItem onClick={() => setShowTagsChips(!showTagsChips)}>
+                  <Checkbox
+                    size="small"
+                    checked={showTagsChips}
+                    onChange={(event) => setShowTagsChips(Boolean(event.target.checked))}
+                    sx={{ mr: 1, p: 0.5 }}
+                  />
+                  {t('builderMenuShowTags')}
+                </MenuItem>
+              </Menu>
+              {/* Context menu hint overlay matches the rest of the builder controls. */}
+              <ContextMenuHintOverlay text={t('contextMenuHint')} position={tagsHintActive ? tagsHintPos : null} />
             </Box>
             <Box
               sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 0.5 }}

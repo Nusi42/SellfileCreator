@@ -237,7 +237,10 @@ const resolveQuestionAnswer = (
 ): string[] => {
   // Only allow answers that still exist in the question definition.
   const allowed = new Set(question.options.map((opt) => opt.id))
-  const filtered = Array.isArray(stored)
+  // Track whether the caller stored an explicit answer payload.
+  const hasStored = Array.isArray(stored)
+  // Filter to valid option IDs while preserving stored order.
+  const filtered = hasStored
     ? stored.filter((id) => allowed.has(id))
     : []
   // Single-select always collapses to one answer.
@@ -245,8 +248,10 @@ const resolveQuestionAnswer = (
     if (filtered.length > 0) return [filtered[0]!]
     return question.defaultAnswer.length > 0 ? [question.defaultAnswer[0]!] : []
   }
-  // Multi-select returns all valid answers or defaults.
+  // Multi-select keeps explicit empty selections instead of falling back to defaults.
   if (filtered.length > 0) return filtered
+  // An empty stored array means the user cleared all answers.
+  if (hasStored && stored.length === 0) return []
   return question.defaultAnswer.slice()
 }
 
@@ -367,8 +372,17 @@ export const pruneNoteConfigOptionsAnswers = (
   for (const [questionId, selected] of Object.entries(answers)) {
     const entry = lookup.get(questionId)
     if (!entry) continue
-    const filtered = (selected ?? []).filter((id) => entry.options.has(id))
-    if (filtered.length === 0) continue
+    // Normalize stored answers to an array to avoid nulls.
+    const rawSelected = Array.isArray(selected) ? selected : []
+    // Drop answers that no longer map to valid options.
+    const filtered = rawSelected.filter((id) => entry.options.has(id))
+    if (filtered.length === 0) {
+      // Preserve explicit empty selections for multi-select questions only.
+      if (entry.type === 'multi' && rawSelected.length === 0) {
+        next[questionId] = []
+      }
+      continue
+    }
     // Single-select keeps only one answer.
     next[questionId] = entry.type === 'single' ? [filtered[0]!] : filtered
   }
@@ -386,10 +400,14 @@ export const normalizeNoteConfigOptionsAnswers = (
   const next: NoteConfigOptionsAnswers = {}
   for (const [key, value] of Object.entries(rec)) {
     // Accept a string or string[] and drop empties.
-    const list = Array.isArray(value)
+    const isArrayValue = Array.isArray(value)
+    // Filter empty entries but keep order for valid selections.
+    const list = isArrayValue
       ? value.map(String).filter((entry) => entry.trim().length > 0)
       : (typeof value === 'string' && value.trim().length > 0 ? [value.trim()] : [])
-    if (list.length === 0) continue
+    // Preserve empty arrays so explicit "no answers" survives restore.
+    const keepEmptyArray = isArrayValue && value.length === 0
+    if (list.length === 0 && !keepEmptyArray) continue
     // Preserve the raw question ID key.
     next[key] = list
   }

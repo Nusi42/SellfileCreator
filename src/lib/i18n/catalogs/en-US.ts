@@ -143,6 +143,7 @@ const enUS: Catalog = {
   builderResetButton: 'Reset Config',
   builderMenuAutoResetAfterInsert: 'Auto Reset After Insert',
   builderMenuAutoApplySelected: 'Auto Apply to Selected Config',
+  builderMenuShowTags: 'Show Tags',
   builderMenuSaveUserDefaults: 'Save Local Settings as User Defaults',
   builderMenuResetFactoryDefaults: 'Reset to Factory Defaults',
   contextMenuHint: 'Right-Click for Actions',

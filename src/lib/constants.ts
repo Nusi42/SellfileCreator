@@ -422,6 +422,9 @@ export const BUILDER_AUTO_RESET_AFTER_INSERT_KEY = 'sellfileCreator.builder.auto
 // selected config after a short debounce. Default Off; stored separately so
 // users can keep the behavior between sessions.
 export const BUILDER_AUTO_APPLY_SELECTED_CONFIG_KEY = 'sellfileCreator.builder.autoApplySelectedConfig.v1'
+// Builder: controls whether tag chips render next to the Tags button.
+// Default Off so the chip row stays hidden until explicitly enabled.
+export const BUILDER_SHOW_TAG_CHIPS_KEY = 'sellfileCreator.builder.showTagsChips.v1'
 // Sellfile export: when enabled, dedupe merged rules before exporting/pushing
 // the .hsf. Stored so users can persist their preference.
 export const SELLFILE_DEDUP_DEFAULT_KEY = 'sellfileCreator.sellfile.dedupDefault.v1'

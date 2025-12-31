@@ -167,6 +167,7 @@ If tooltips need rich formatting (colored badges, inline icons), pass JSX via `r
 - Builder layout: Row 1 Action; Row 2 Rank/Rarity/Faction/Level window; Row 3 Mainstat/Substats; Row 4 Min selected substats controls; Row 5 Slots/Sets.
   - Tags live on Row 1, directly beside Export Mode, to emphasize that config options tags can override export mode when answers match.
   - When tags are present (single or multi-edit), a compact clear (x) button appears next to the Tags button to reset the tag list quickly.
+  - The Tags button has a right-click context menu with a `Show Tags` toggle (persisted). When off, the inline tag chips next to the button stay hidden.
   - Faction stays near Rarity. Only accessories care about faction; other gear ignores `Faction`.
 - Mainstat is multi-select with two rows of toggle buttons (HP/HP%/ATK/ATK%/DEF/DEF% and SPD/RES/ACC/CR%/CDMG%). Empty selection maps to Any; HSFC export converts selections to readable labels.
 - Substats reuse the two-row toggle grid. Empty selection represents Any. Toggle buttons manage selection while a separate lock badge handles fixed state (supports `aria-pressed="mixed"`).
