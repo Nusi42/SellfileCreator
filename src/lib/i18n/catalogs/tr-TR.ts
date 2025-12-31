@@ -143,6 +143,7 @@ const overrides: Catalog = {
   builderResetButton: 'Konfigi sıfırla',
   builderMenuAutoResetAfterInsert: 'Eklemeden sonra otomatik sıfırla',
   builderMenuAutoApplySelected: 'Seçili konfige otomatik uygula',
+  builderMenuShowTags: 'Show Tags',
   builderMenuSaveUserDefaults: 'Yerel ayarları kullanıcı varsayılanı olarak kaydet',
   builderMenuResetFactoryDefaults: 'Fabrika varsayılanlarına sıfırla',
   contextMenuHint: 'Eylemler için sağ tıklayın',

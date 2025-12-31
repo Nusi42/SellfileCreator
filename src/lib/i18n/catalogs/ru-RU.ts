@@ -143,6 +143,7 @@ const overrides: Catalog = {
   builderResetButton: 'Сбросить конфиг',
   builderMenuAutoResetAfterInsert: 'Автосброс после вставки',
   builderMenuAutoApplySelected: 'Автоприменение к выбранному конфигу',
+  builderMenuShowTags: 'Show Tags',
   builderMenuSaveUserDefaults: 'Сохранить локальные настройки как пользовательские по умолчанию',
   builderMenuResetFactoryDefaults: 'Сбросить к заводским настройкам',
   contextMenuHint: 'Щёлкните правой кнопкой для действий',
