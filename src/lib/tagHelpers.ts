@@ -6,8 +6,9 @@
  */
 
 // Tag tokens stay compact so they travel well in filenames and HSFC notes.
-// We intentionally avoid spaces and punctuation beyond "-" / "_".
-export const TAG_TOKEN_REGEX = /^[A-Za-z0-9][A-Za-z0-9_-]*$/
+// Reserve punctuation for future syntax; allow unicode letters/numbers plus underscores.
+// Tags must start with a letter, combining mark, or underscore.
+export const TAG_TOKEN_REGEX = /^[\p{L}\p{M}_][\p{L}\p{N}\p{M}_]*$/u
 
 // Normalize a user-provided tag into a stable, matchable token.
 export function normalizeTagValue(raw: string): string | null {
@@ -17,14 +18,14 @@ export function normalizeTagValue(raw: string): string | null {
   const trimmed = raw.trim()
   // Empty tags are ignored everywhere.
   if (!trimmed) return null
-  // Collapse whitespace so tags stay one token in note markers and the UI.
-  const collapsed = trimmed.replace(/\s+/g, '-').toLowerCase()
-  // Guard again in case whitespace was the entire value.
-  if (!collapsed) return null
+  // Reject whitespace so tags remain a single token.
+  if (/\s/u.test(trimmed)) return null
+  // Normalize case so matching is deterministic.
+  const normalized = trimmed.toLowerCase()
   // Reject tokens that do not match the shared tag grammar.
-  if (!TAG_TOKEN_REGEX.test(collapsed)) return null
+  if (!TAG_TOKEN_REGEX.test(normalized)) return null
   // Return a single canonical string for matching and storage.
-  return collapsed
+  return normalized
 }
 
 // Normalize an unknown list into a stable, de-duped tag array.

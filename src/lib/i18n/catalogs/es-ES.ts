@@ -1093,7 +1093,7 @@ const overrides: Catalog = {
   noteInsertMetasets: 'Insertar lista de meta-sets',
   noteInsertConfigOptionsSample: 'Insertar cuestionario de ejemplo',
   noteConfigOptionsChangedTooltip: 'Los marcadores de opciones de config cambiaron en esta edición. Cambia a «Ver nota» para revisar las preguntas.',
-  noteConfigOptionsSampleBlock: '<!-- q:single "Pregunta de selección única con etiquetas en **Negrita** y `Marcadas`, usando referencias **\\1** o `\\2`."\n  [* "Respuesta 1", +tag1, tag2]\n  ["Respuesta 2", -tag2]\n-->\n\n<!-- q:multi "Otra pregunta con etiquetas en **Negrita** y `Marcadas`."\n  [* "Respuesta A", tag-a]\n  ["Respuesta B"]\n  ["Respuesta C", +tag-c]\n-->',
+  noteConfigOptionsSampleBlock: '<!-- q "Pregunta de selección única con etiquetas en **Negrita** y `Marcadas`, usando referencias **\\1** o `\\2`."\n  (* "Respuesta 1", +tag1, tag2)\n  ("Respuesta 2", -tag2)\n-->\n\n<!-- question "Otra pregunta con etiquetas en **Negrita** y `Marcadas`."\n  [* "Respuesta A", tagA]\n  ["Respuesta B"]\n  ["Respuesta C", +tagC]\n-->',
   noteConfigOptionsApply: 'Aplicar etiquetas del cuestionario',
   noteConfigOptionsApplyConfirmTitle: '¿Aplicar etiquetas del cuestionario?',
   noteConfigOptionsApplyConfirmBody: 'Habilitar {enabled} configs, deshabilitar {disabled} configs. Las configs sin etiqueta no cambian.',
