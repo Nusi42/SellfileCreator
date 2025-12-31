@@ -26,13 +26,15 @@ import type { HsfRuleWithCfg } from './merge'
 import type { NormalizedGearArtifact } from './importers/gearDbNormalizer'
 import type { Metaset } from './metasets'
 import { normalizeConfigName } from './ruleConfigIndex'
+import type { ArtifactSetSelectionEntry } from './gearSets/selection'
+import { normalizeArtifactSetSelections, splitArtifactSetSelections } from './gearSets/selection'
 
 const RANK_MIN = 1
 const RANK_MAX = 6
 
 export type KeepUniqueCombination = {
   slots: ArtifactTypeId[]
-  sets: ArtifactSetId[]
+  sets: ArtifactSetSelectionEntry[]
   metaSetIds: string[]
   ranks: RankValue[]
   rarities: RankValue[]
@@ -169,7 +171,8 @@ export const sanitizeKeepUniqueCountMode = (mode: KeepUniqueRuleCountMode): Keep
 
 export const cloneKeepUniqueCombination = (combination: KeepUniqueCombination): KeepUniqueCombination => ({
   slots: [...combination.slots],
-  sets: [...combination.sets],
+  // Clone entries so excluded flags survive but references do not.
+  sets: combination.sets.map((entry) => (entry.excluded ? { id: entry.id, excluded: true } : { id: entry.id })),
   metaSetIds: [...(combination.metaSetIds ?? [])],
   ranks: [...combination.ranks],
   rarities: [...combination.rarities],
@@ -212,7 +215,7 @@ function createDefaultAccessoryKeepUniqueRule(): KeepUniqueRule {
     id: createKeepUniqueRuleId(),
     combination: {
       slots: [...ACCESSORY_KEEP_UNIQUE_SLOTS],
-      sets: [...getAccessorySlotsCompatibleSetIds()],
+      sets: getAccessorySlotsCompatibleSetIds().map((id) => ({ id })),
       metaSetIds: [],
       ranks: [...ACCESSORY_KEEP_UNIQUE_STAR_VALUES],
       rarities: [...ACCESSORY_KEEP_UNIQUE_RARE_PLUS_RARITIES],
@@ -262,7 +265,7 @@ function createDefaultArmorKeepUniqueRule(): KeepUniqueRule {
     id: createKeepUniqueRuleId(),
     combination: {
       slots: [...ARMOR_KEEP_UNIQUE_SLOTS],
-      sets: [...ARMOR_KEEP_UNIQUE_SET_IDS],
+      sets: ARMOR_KEEP_UNIQUE_SET_IDS.map((id) => ({ id })),
       metaSetIds: [],
       ranks: [...ARMOR_KEEP_UNIQUE_STAR_VALUES],
       rarities: [...ARMOR_KEEP_UNIQUE_LEGENDARY_PLUS_RARITIES],
@@ -381,6 +384,17 @@ const canonicalizeList = (values: readonly number[]): string => {
   return numeric.join(',')
 }
 
+const canonicalizeSetEntries = (values: readonly ArtifactSetSelectionEntry[]): string => {
+  if (!values.length) return '*'
+  // Normalize first so exclusion precedence and ordering are stable.
+  const normalized = normalizeArtifactSetSelections(values)
+  if (!normalized.length) return '*'
+  const tokens = normalized.map((entry) => (
+    entry.excluded ? `!${Number(entry.id)}` : `${Number(entry.id)}`
+  ))
+  return tokens.join(',')
+}
+
 const canonicalizeStringList = (values: readonly string[]): string => {
   if (!values.length) return '*'
   const cleaned = values
@@ -394,7 +408,7 @@ const canonicalizeStringList = (values: readonly string[]): string => {
 export function hashKeepUniqueCombination(combination: KeepUniqueCombination): string {
   return [
     canonicalizeList(combination.slots),
-    canonicalizeList(combination.sets),
+    canonicalizeSetEntries(combination.sets),
     canonicalizeStringList(combination.metaSetIds),
     canonicalizeList(combination.ranks),
     canonicalizeList(combination.rarities),
@@ -546,12 +560,41 @@ const normalizeStringSelectionArray = (value: unknown): string[] => {
   return result
 }
 
+const normalizeKeepUniqueSetSelections = (value: unknown): ArtifactSetSelectionEntry[] => {
+  // Accept either a list or a single value (legacy tuple formats).
+  if (!value) return []
+  const list = Array.isArray(value) ? value : [value]
+  // Collect entries before normalization to preserve exclusion precedence.
+  const entries: ArtifactSetSelectionEntry[] = []
+  for (const raw of list) {
+    if (Array.isArray(raw)) {
+      // Flatten nested arrays so legacy tuple shapes still parse.
+      entries.push(...normalizeKeepUniqueSetSelections(raw))
+      continue
+    }
+    if (raw && typeof raw === 'object') {
+      const rec = raw as Record<string, unknown>
+      const candidate = rec.id ?? rec.setId ?? rec.name ?? rec.label
+      const resolved = coerceArtifactSetId(candidate)
+      if (resolved == null) continue
+      // Respect excluded flags for meta-derived set removals.
+      const excluded = rec.excluded === true
+      entries.push(excluded ? { id: resolved, excluded: true } : { id: resolved })
+      continue
+    }
+    const resolved = coerceArtifactSetId(raw)
+    if (resolved != null) entries.push({ id: resolved })
+  }
+  // Normalize to dedupe and enforce exclusion precedence.
+  return normalizeArtifactSetSelections(entries)
+}
+
 /** Normalize combination payloads loaded from HSFC/autosave. */
 export function normalizeKeepUniqueCombination(value: unknown): KeepUniqueCombination | null {
   if (!value || typeof value !== 'object') return null
   const rec = value as Record<string, unknown>
   const slotValues = normalizeSelectionArray(rec.slots, coerceArtifactTypeId)
-  const setValues = normalizeSelectionArray(rec.sets, coerceArtifactSetId)
+  const setValues = normalizeKeepUniqueSetSelections(rec.sets)
   const rankValues = normalizeSelectionArray(rec.ranks, (raw) => {
     if (raw == null || raw === '') return null
     return clampRankOrRarity(raw)
@@ -670,7 +713,7 @@ const buildPlaceholderCombinationForGroup = (params: {
   if (!sample) return cloneKeepUniqueCombination(base)
   const clone = cloneKeepUniqueCombination(base)
   if (mode.perSlot) clone.slots = [Number(sample.slot) as ArtifactTypeId]
-  if (mode.perSet) clone.sets = [Number(sample.set) as ArtifactSetId]
+  if (mode.perSet) clone.sets = [{ id: Number(sample.set) as ArtifactSetId }]
   if (mode.perMainStat) {
     const variant = sample.mainStat?.variant
     clone.mainStats = variant == null || variant === StatVariantEnum.Any
@@ -690,7 +733,12 @@ export function artifactMatchesKeepUniqueRule(artifact: NormalizedGearArtifact, 
   if (!matchesSelection(combination.slots, slot)) return false
 
   const setId = Number(artifact.set)
-  if (!matchesSelection(combination.sets, setId)) return false
+  // Split includes/excludes so exclusions can short-circuit.
+  const setSelection = splitArtifactSetSelections(combination.sets)
+  // Explicit excludes always block a set match.
+  if (setSelection.excluded.some((id) => Number(id) === setId)) return false
+  // Explicit includes restrict the set pool when present.
+  if (setSelection.included.length > 0 && !setSelection.included.some((id) => Number(id) === setId)) return false
 
   const rankValue = Number(artifact.rank)
   if (!matchesSelection(combination.ranks, rankValue)) return false
@@ -918,28 +966,40 @@ export function resolveKeepUniqueRulesWithMetasets(
   rules: readonly KeepUniqueRule[],
   metasets: readonly Metaset[],
 ): KeepUniqueRule[] {
+  // No rules or metasets -> no expansion needed.
   if (!rules.length) return rules as KeepUniqueRule[]
   if (!metasets.length) return rules as KeepUniqueRule[]
+  // Build a fast lookup for metaset id -> definition.
   const metaMap = new Map(metasets.map((meta) => [meta.id, meta]))
   let mutated = false
   const resolved = rules.map((rule) => {
     const metaIds = rule.combination.metaSetIds ?? []
     if (!metaIds.length) return rule
-    const expanded = new Set<number>(rule.combination.sets.map((setId) => Number(setId)))
+    // Normalize selections so exclusion entries are preserved during expansion.
+    const expanded = normalizeArtifactSetSelections(rule.combination.sets)
+    // Track explicit excludes and includes separately.
+    const excludedIds = new Set(expanded.filter((entry) => entry.excluded).map((entry) => Number(entry.id)))
+    const includedIds = new Set(expanded.filter((entry) => !entry.excluded).map((entry) => Number(entry.id)))
     let combinationChanged = false
     for (const metaId of metaIds) {
       const meta = metaMap.get(metaId)
       if (!meta || !Array.isArray(meta.sets)) continue
       for (const setId of meta.sets) {
         const numeric = Number(setId)
-        if (expanded.has(numeric)) continue
-        expanded.add(numeric)
+        // Exclusions always win, even for metaset-derived ids.
+        if (excludedIds.has(numeric)) continue
+        if (includedIds.has(numeric)) continue
+        includedIds.add(numeric)
         combinationChanged = true
       }
     }
     if (!combinationChanged) return rule
     mutated = true
-    const sortedSets = Array.from(expanded).sort((a, b) => a - b) as ArtifactSetId[]
+    const mergedEntries: ArtifactSetSelectionEntry[] = []
+    // Merge exclusions first so precedence is preserved when normalizing.
+    for (const id of excludedIds) mergedEntries.push({ id: id as ArtifactSetId, excluded: true })
+    for (const id of includedIds) mergedEntries.push({ id: id as ArtifactSetId })
+    const sortedSets = normalizeArtifactSetSelections(mergedEntries)
     return {
       ...rule,
       combination: {

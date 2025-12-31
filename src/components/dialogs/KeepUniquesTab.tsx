@@ -77,6 +77,7 @@ import { createBuilderStatusChipSx } from '../builderStatusChipStyles'
 import { reserveScrollbarGutterSpace } from '../../lib/scrollbar'
 import { useKeepUniquesGridFilterMode } from '../../state/keepUniquesPreferences'
 import { useGearSetCatalogVersion } from '../../hooks/useGearSetCatalogVersion'
+import { normalizeArtifactSetSelections } from '../../lib/gearSets/selection'
 
 const SCOPE_CHIP_HOVER_ALPHA = { light: 0.12, dark: 0.24 } as const
 // Keep-unique headers should stay a consistent height even when names wrap to two lines.
@@ -168,7 +169,8 @@ export default function KeepUniquesTab({
     const normalizedSlots = dedupeNumericArray(slots)
     const allowedSetPool = resolveAllowedSetPool(normalizedSlots)
     const allowedSetIds = new Set(allowedSetPool.map(Number))
-    const filteredSets = combination.sets.filter((setId) => allowedSetIds.has(Number(setId)))
+    const filteredSets = normalizeArtifactSetSelections(combination.sets)
+      .filter((entry) => allowedSetIds.has(Number(entry.id)))
     const filteredMetaIds = (combination.metaSetIds ?? []).filter((metaId) => {
       const meta = metasets.find((item) => item.id === metaId)
       if (!meta || !meta.sets.length) return false
@@ -181,7 +183,7 @@ export default function KeepUniquesTab({
     const hadExplicitSetSelection = combination.sets.length > 0 || (combination.metaSetIds?.length ?? 0) > 0
     const resolvedSets = filteredSets.length > 0
       ? filteredSets
-      : (hadExplicitSetSelection && allowedSetPool[0] ? [allowedSetPool[0]] : [])
+      : (hadExplicitSetSelection && allowedSetPool[0] ? [{ id: allowedSetPool[0] }] : [])
     return {
       ...combination,
       slots: normalizedSlots,
@@ -477,7 +479,8 @@ ${t('keepUniquesCountModeHint')}`
     const allowedSetPool = hasAccessorySlot && hasArmorSlot
       ? allArtifactSetIds
       : (hasAccessorySlot ? accessoryCompatibleSetIds : artifactSetPool)
-    const setSelection = combination.sets.filter((setId) => allowedSetPool.includes(setId))
+    const setSelection = normalizeArtifactSetSelections(combination.sets)
+      .filter((entry) => allowedSetPool.includes(Number(entry.id)))
     const rankSelection = combination.ranks
     const raritySelection = combination.rarities
     const mainStatOptions = getMainStatOptionsForSlots(slotSelection)
@@ -904,7 +907,7 @@ ${t('keepUniquesCountModeHint')}`
                   value={setSelection}
                   onChange={(nextSets) => {
                     if (ruleDisabled) return
-                    setRuleCombination(rule.id, (prev) => ({ ...prev, sets: dedupeNumericArray(nextSets) }))
+                    setRuleCombination(rule.id, (prev) => ({ ...prev, sets: normalizeArtifactSetSelections(nextSets) }))
                   }}
                   metasets={metasets}
                   selectedMetasetIds={combination.metaSetIds}
@@ -1320,7 +1323,7 @@ function makeDefaultKeepUniqueCombination(): KeepUniqueRule['combination'] {
 function cloneKeepUniqueCombination(combination: KeepUniqueRule['combination']): KeepUniqueRule['combination'] {
   return {
     slots: [...combination.slots],
-    sets: [...combination.sets],
+    sets: combination.sets.map((entry) => (entry.excluded ? { id: entry.id, excluded: true } : { id: entry.id })),
     metaSetIds: [...(combination.metaSetIds ?? [])],
     ranks: [...combination.ranks],
     rarities: [...combination.rarities],

@@ -47,6 +47,8 @@ import {
 } from './finalSell'
 import { normalizeKeepUniqueRule, sanitizeKeepUniqueCountMode, type KeepUniqueRule, KeepUniqueRuleActivation } from './keepUniques'
 import { normalizeTagList } from './tagHelpers'
+import type { ArtifactSetSelectionEntry } from './gearSets/selection'
+import { normalizeArtifactSetSelections } from './gearSets/selection'
 
 type LockedMinValue = Exclude<BuilderConfig['lockedMinRequiredRolls'], undefined>
 type AggregateMinValue = Exclude<BuilderConfig['minRequiredRolls'], undefined>
@@ -117,6 +119,48 @@ const resolveSetId = (value: unknown, runtimeNameMap?: Map<string, number>): num
   const numeric = Number(value)
   if (!Number.isFinite(numeric)) return undefined
   return Math.floor(numeric)
+}
+
+type ReadableArtifactSetEntry = {
+  name?: unknown
+  id?: unknown
+  setId?: unknown
+  excluded?: unknown
+}
+
+const parseReadableArtifactSetEntries = (
+  value: unknown,
+  runtimeNameMap?: Map<string, number>,
+): ArtifactSetSelectionEntry[] => {
+  // Accept only arrays; non-arrays map to empty selections.
+  if (!Array.isArray(value)) return []
+  // Collect entries before normalization so exclusions can override duplicates.
+  const entries: ArtifactSetSelectionEntry[] = []
+  for (const entry of value) {
+    // Legacy arrays of names or numbers are still accepted.
+    if (typeof entry === 'string' || typeof entry === 'number') {
+      const resolved = resolveSetId(entry, runtimeNameMap)
+      if (typeof resolved === 'number') {
+        entries.push({ id: resolved as ArtifactSetId })
+      }
+      continue
+    }
+    // Skip non-objects after handling primitives.
+    if (!entry || typeof entry !== 'object') continue
+    const rec = entry as ReadableArtifactSetEntry
+    const rawId = rec.id ?? rec.setId
+    const idNumeric = rawId != null ? Number(rawId) : Number.NaN
+    // Prefer numeric ids; fall back to name resolution for readable payloads.
+    const resolvedId = Number.isFinite(idNumeric)
+      ? idNumeric
+      : resolveSetId(rec.name, runtimeNameMap)
+    if (typeof resolvedId !== 'number') continue
+    // Only a literal true marks the entry as excluded.
+    const excluded = rec.excluded === true
+    entries.push(excluded ? { id: resolvedId as ArtifactSetId, excluded: true } : { id: resolvedId as ArtifactSetId })
+  }
+  // Normalize to enforce deterministic order and exclusion precedence.
+  return normalizeArtifactSetSelections(entries)
 }
 
 function toFiniteNumberOrNull(value: unknown): number | null {
@@ -453,9 +497,7 @@ export function normalizeConfig(input: unknown, runtimeNameMap?: Map<string, num
     ? ((rec['artifactTypeNames'] as unknown[]).map((n) => typeIdByName.get(String(n))).filter((x): x is number => typeof x === 'number'))
     : undefined
   const __artSets = Array.isArray(rec['artifactSetNames'])
-    ? ((rec['artifactSetNames'] as unknown[])
-      .map((n) => resolveSetId(n, runtimeNameMap))
-      .filter((x): x is number => typeof x === 'number'))
+    ? parseReadableArtifactSetEntries(rec['artifactSetNames'], runtimeNameMap)
     : undefined
   const __artMetaSets = asStringArray(rec['artifactMetaSets'])
   if (__artTypes !== undefined) opt.artifactTypes = __artTypes
@@ -663,9 +705,19 @@ export function buildReadableConfig(cfg: BuilderConfig, metasets: Metaset[]) {
     autoMinRequiredRolls: (cfg.autoMinRequiredRolls ?? true),
     lockedMinRequiredRolls: (cfg.lockedMinRequiredRolls ?? 0),
     artifactTypeNames: (cfg.artifactTypes ?? []).slice().sort(compareArtifactTypes).map(t => artifactTypeNames[Number(t)]).filter(Boolean),
-    artifactSetNames: (cfg.artifactSets ?? []).slice().sort(compareArtifactSets)
-      .map((s) => artifactSetName(Number(s) as ArtifactSetId))
-      .filter((x): x is string => Boolean(x && x.trim())),
+    // Artifact sets now serialize as objects so exclusions can be preserved.
+    artifactSetNames: normalizeArtifactSetSelections(cfg.artifactSets ?? [])
+      .slice()
+      // Keep set ordering stable for diffs and deterministic exports.
+      .sort((a, b) => compareArtifactSets(Number(a.id), Number(b.id)))
+      .map((entry) => {
+        // Export readable names so configs remain human-friendly.
+        const name = artifactSetName(Number(entry.id) as ArtifactSetId)
+        if (!name || !name.trim()) return null
+        // Only attach excluded when the entry explicitly opts out.
+        return entry.excluded ? { name, excluded: true } : { name }
+      })
+      .filter((x): x is { name: string; excluded?: true } => Boolean(x)),
     // Write compact metaset references by ID for smaller files. Names remain
     // available under Metasets[].name and are not duplicated here.
     artifactMetaSetIds: (cfg.artifactMetaSets ?? []).slice(),

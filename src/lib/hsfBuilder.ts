@@ -48,6 +48,7 @@ import {
   LEVEL_MILESTONES,
   statIsAny,
 } from './types'
+import { splitArtifactSetSelections } from './gearSets/selection'
 import { canEnableSubstatFlex, deriveRollBaselineMode, isLockedAggregateScopeActive, isMilestoneThresholdsActive } from './configNormalization'
 import { variantToSub, variantToMain } from './hsfTypes'
 
@@ -794,14 +795,16 @@ export function buildHsfRules(
   // Use the shared resolver to keep UI and builder behavior identical.
   const rarityCode = (cfg.rarityMode === 'auto') ? resolveAutoRarityCode(cfg) : cfg.rarityCode
 
+  // Resolve set selections into numeric IDs for HSF export.
+  const resolvedSets = splitArtifactSetSelections(cfg.artifactSets)
   const baseCoreGlobal = {
     ...(configId !== null ? { ConfigID: configId } : {}),
     ...(cfg.keep !== undefined ? { Keep: cfg.keep } : {}),
     ...(exportMode === 'disabled' ? { Use: false }
       : exportMode === 'active' ? { Use: true } : {}),
-    // Only include set/type arrays when non-empty to match HSF samples
-    ...(((cfg.artifactSets ?? []).length > 0)
-      ? { ArtifactSet: (cfg.artifactSets ?? []).slice().sort(compareArtifactSets).map(Number) }
+    // Only include set/type arrays when non-empty to match HSF samples.
+    ...((resolvedSets.included.length > 0)
+      ? { ArtifactSet: resolvedSets.included.slice().sort(compareArtifactSets).map(Number) }
       : {}),
     ...(((cfg.artifactTypes ?? []).length > 0)
       ? { ArtifactType: (cfg.artifactTypes ?? []).slice().sort(compareArtifactTypes).map(Number) }

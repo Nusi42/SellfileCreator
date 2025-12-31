@@ -34,6 +34,7 @@ import { SetIcon } from './SetIcon'
 import { DEFAULT_METASET_ICON_ID, metasetIconOptionById } from '../lib/metasetIcons'
 import type { MetasetIconId } from '../lib/metasetIcons'
 import type { SellfileExportMode } from '../lib/hsfBuilder'
+import { splitArtifactSetSelections } from '../lib/gearSets/selection'
 import { ConfigContextMenu } from './ConfigContextMenu'
 import { BuilderTooltipContent } from './BuilderTooltipContent'
 import MarkdownTooltip from './MarkdownTooltip'
@@ -977,7 +978,12 @@ function summaryParts(
 
   // Sets (icons when enabled) — render metasets as text and artifacts with icons respecting the preference toggle
   {
-    const setIdsSorted = (cfg.artifactSets ?? []).slice().sort((a, b) => Number(a) - Number(b))
+    // Split include/exclude entries so we can render exclusions distinctly.
+    const setSelection = splitArtifactSetSelections(cfg.artifactSets)
+    // Keep included sets sorted for stable chip output.
+    const setIdsSorted = setSelection.included.slice().sort((a, b) => Number(a) - Number(b))
+    // Keep excluded sets sorted so the strike-through list is stable.
+    const excludedSetIds = setSelection.excluded.slice().sort((a, b) => Number(a) - Number(b))
     const metaEntries = (cfg.artifactMetaSets ?? []).map((metaId, idx) => {
       const meta = metasets.find(m => m.id === metaId)
       const iconId = (meta?.iconId ?? DEFAULT_METASET_ICON_ID) as MetasetIconId
@@ -996,6 +1002,7 @@ function summaryParts(
         sx: Record<string, unknown>,
         title?: string,
       ) => {
+        // Add spacing only after the first entry so the chip stays compact.
         const sharedSx = {
           ...(!isFirst ? { ml: 0.35 } : {}),
           ...sx,
@@ -1019,6 +1026,7 @@ function summaryParts(
       }
 
       if (metasetTextParts.length > 0) {
+        // Metasets without icons render as plain text for readability.
         pushNode(
           'metaset-text',
           metasetTextParts.join(', '),
@@ -1028,6 +1036,7 @@ function summaryParts(
 
       metasetIconEntries.forEach((entry, idx) => {
         const option = metasetIconOptionById(entry.iconId)
+        // Icon-only metasets reuse the glyph to conserve space.
         pushNode(
           `meta-set-${entry.key}-icon-${idx}`,
           option.glyph,
@@ -1048,6 +1057,7 @@ function summaryParts(
       setIdsSorted.forEach((id, idx) => {
         const canonicalName = artifactSetName(id)
         const localizedName = withNbsp(opts.t ? getLocalizedGearSetName(id, opts.t, opts.lang) : canonicalName)
+        // Included sets stay as icons to align with the preference toggle.
         pushNode(
           `set-icon-${id}-${idx}`,
               <SetIcon
@@ -1067,6 +1077,20 @@ function summaryParts(
             )
           })
 
+      excludedSetIds.forEach((id, idx) => {
+        const canonicalName = artifactSetName(id)
+        const localizedName = withNbsp(opts.t ? getLocalizedGearSetName(id, opts.t, opts.lang) : canonicalName)
+        // Excluded sets use strike-through text so they are still readable.
+        pushNode(
+          `set-excluded-${id}-${idx}`,
+          <Box component="span" sx={{ textDecoration: 'line-through' }}>
+            {localizedName}
+          </Box>,
+          { display: 'inline-flex', alignItems: 'center' },
+          localizedName,
+        )
+      })
+
       if (nodes.length > 0) {
         addNode(
           <Box component="span" sx={{ display: 'inline', whiteSpace: 'normal' }}>
@@ -1075,10 +1099,36 @@ function summaryParts(
         )
       }
     } else {
-      const setNames = setIdsSorted.map(id => withNbsp(opts.t ? getLocalizedGearSetName(id, opts.t, opts.lang) : artifactSetName(id)))
-      const setsJoined = [...metaEntries.map(entry => entry.name), ...setNames].join(', ')
-      if (setsJoined) {
-        addText(setsJoined)
+      const metaNames = metaEntries.map(entry => String(entry.name))
+      const includedNames = setIdsSorted.map(id => withNbsp(opts.t ? getLocalizedGearSetName(id, opts.t, opts.lang) : artifactSetName(id)))
+      const excludedNames = excludedSetIds.map(id => withNbsp(opts.t ? getLocalizedGearSetName(id, opts.t, opts.lang) : artifactSetName(id)))
+      const nodes: JSX.Element[] = []
+      const pushTextNode = (key: string, child: React.ReactNode, strike?: boolean) => {
+        if (nodes.length > 0) nodes.push(<Box key={`${key}-sep`} component="span">, </Box>)
+        nodes.push(
+          <Box
+            key={key}
+            component="span"
+            {...(strike ? { sx: { textDecoration: 'line-through' } } : {})}
+          >
+            {child}
+          </Box>,
+        )
+      }
+      metaNames.forEach((name, idx) => {
+        // Metasets always render as regular text in non-icon mode.
+        pushTextNode(`meta-${idx}`, name)
+      })
+      includedNames.forEach((name, idx) => {
+        // Included sets render normally.
+        pushTextNode(`set-${idx}`, name)
+      })
+      excludedNames.forEach((name, idx) => {
+        // Excluded sets render with strike-through for quick scanning.
+        pushTextNode(`set-excluded-${idx}`, name, true)
+      })
+      if (nodes.length > 0) {
+        addNode(<Box component="span">{nodes}</Box>)
       }
     }
   }

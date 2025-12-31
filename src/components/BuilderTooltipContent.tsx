@@ -163,6 +163,8 @@ type StructuredSetListDiff = {
   label: string
   previous: number[]
   next: number[]
+  previousExcluded?: number[]
+  nextExcluded?: number[]
   previousText?: string
   nextText?: string
 }
@@ -210,6 +212,7 @@ type StructuredSetListSnapshot = {
   kind: 'setListSnapshot'
   label: string
   values: number[]
+  excluded?: number[]
   fallbackText?: string
 }
 
@@ -444,10 +447,25 @@ function renderSetListDiff(params: {
   const { payload, theme, t, lang, useIcons } = params
   const previousIds = normalizeIds(payload.previous)
   const nextIds = normalizeIds(payload.next)
+  const previousExcluded = normalizeIds(payload.previousExcluded ?? [])
+  const nextExcluded = normalizeIds(payload.nextExcluded ?? [])
   const union = buildSetUnion(previousIds, nextIds)
+  const hasExcluded = previousExcluded.length > 0 || nextExcluded.length > 0
   if (union.length === 0) {
     const previousFallback = (payload.previousText ?? '').trim().length > 0 ? payload.previousText! : t('any')
     const nextFallback = (payload.nextText ?? '').trim().length > 0 ? payload.nextText! : t('any')
+    if (hasExcluded) {
+      return renderDiffGrid({
+        left: renderExcludedSetLabels({ ids: previousExcluded, theme, t, lang }) ?? (
+          <Typography variant="body2" color="text.secondary">{previousFallback}</Typography>
+        ),
+        right: renderExcludedSetLabels({ ids: nextExcluded, theme, t, lang }) ?? (
+          <Typography variant="body2" color="text.secondary">{nextFallback}</Typography>
+        ),
+        theme,
+        layout: 'compact',
+      })
+    }
     return renderDiffGrid({
       left: <Typography variant="body2" color="text.secondary">{previousFallback}</Typography>,
       right: <Typography variant="body2" color="text.secondary">{nextFallback}</Typography>,
@@ -457,29 +475,41 @@ function renderSetListDiff(params: {
   }
   const previousSet = new Set(previousIds)
   const nextSet = new Set(nextIds)
+  const leftExcluded = renderExcludedSetLabels({ ids: previousExcluded, theme, t, lang })
+  const rightExcluded = renderExcludedSetLabels({ ids: nextExcluded, theme, t, lang })
   return renderDiffGrid({
-    left: renderSetDiffColumn({
-      union,
-      present: previousSet,
-      companion: nextSet,
-      highlightWhenMissing: 'removed',
-      useIcons,
-      theme,
-      t,
-      lang,
-      ...(payload.previousText !== undefined ? { fallback: payload.previousText } : {}),
-    }),
-    right: renderSetDiffColumn({
-      union,
-      present: nextSet,
-      companion: previousSet,
-      highlightWhenMissing: 'added',
-      useIcons,
-      theme,
-      t,
-      lang,
-      ...(payload.nextText !== undefined ? { fallback: payload.nextText } : {}),
-    }),
+    left: (
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+        {renderSetDiffColumn({
+          union,
+          present: previousSet,
+          companion: nextSet,
+          highlightWhenMissing: 'removed',
+          useIcons,
+          theme,
+          t,
+          lang,
+          ...(payload.previousText !== undefined ? { fallback: payload.previousText } : {}),
+        })}
+        {leftExcluded}
+      </Box>
+    ),
+    right: (
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+        {renderSetDiffColumn({
+          union,
+          present: nextSet,
+          companion: previousSet,
+          highlightWhenMissing: 'added',
+          useIcons,
+          theme,
+          t,
+          lang,
+          ...(payload.nextText !== undefined ? { fallback: payload.nextText } : {}),
+        })}
+        {rightExcluded}
+      </Box>
+    ),
     theme,
     layout: 'compact',
   })
@@ -1137,13 +1167,15 @@ function renderSetListSnapshot(params: {
 }): React.ReactNode {
   const { payload, theme, t, lang, useIcons } = params
   const ids = normalizeIds(payload.values)
-  if (ids.length === 0) {
+  const excludedIds = normalizeIds(payload.excluded ?? [])
+  if (ids.length === 0 && excludedIds.length === 0) {
     const fallback = (payload.fallbackText ?? '').trim().length > 0 ? payload.fallbackText! : t('any')
     return <Typography variant="body2" color="text.secondary">{fallback}</Typography>
   }
+  const excludedNode = renderExcludedSetLabels({ ids: excludedIds, theme, t, lang })
   if (useIcons) {
     const columns = Math.min(Math.max(ids.length, 1), SET_ICON_GRID_MAX_COLUMNS)
-    return (
+    const gridNode = (
       <Box
         sx={{
           display: 'grid',
@@ -1157,11 +1189,46 @@ function renderSetListSnapshot(params: {
         {ids.map((setId) => renderSetDiffCell({ setId, highlight: null, useIcons: true, theme, t, lang }))}
       </Box>
     )
+    return excludedNode ? (
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+        {gridNode}
+        {excludedNode}
+      </Box>
+    ) : gridNode
   }
-  return (
+  const listNode = (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
       {ids.map((setId) => renderSetDiffCell({ setId, highlight: null, useIcons: false, theme, t, lang }))}
     </Box>
+  )
+  return excludedNode ? (
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+      {listNode}
+      {excludedNode}
+    </Box>
+  ) : listNode
+}
+
+function renderExcludedSetLabels(params: {
+  ids: number[]
+  theme: Theme
+  t: ReturnType<typeof useI18n>['t']
+  lang: string
+}): React.ReactNode {
+  const { ids, theme, t, lang } = params
+  if (ids.length === 0) return null
+  const labels = ids
+    .map((setId) => getLocalizedGearSetName(setId as ArtifactSetId, t, lang).trim())
+    .filter((label) => label.length > 0)
+    .map((label) => `¬ ${label}`)
+  if (labels.length === 0) return null
+  return (
+    <Typography
+      variant="caption"
+      sx={{ color: theme.palette.text.secondary, textDecoration: 'line-through' }}
+    >
+      {labels.join(', ')}
+    </Typography>
   )
 }
 

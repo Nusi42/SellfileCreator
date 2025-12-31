@@ -71,7 +71,7 @@ const buildTutorialKeepUniqueRules = (): KeepUniqueRule[] => [{
   name: 'Refresh Bannerlords Amulet',
   combination: {
     slots: [ArtifactType.Amulet],
-    sets: [ArtifactSet.Refresh],
+    sets: [{ id: ArtifactSet.Refresh }],
     metaSetIds: [],
     ranks: [5],
     rarities: [3],
@@ -96,7 +96,7 @@ const cloneKeepUniqueRule = (rule: KeepUniqueRule): KeepUniqueRule => ({
   ...rule,
   combination: {
     slots: [...rule.combination.slots],
-    sets: [...rule.combination.sets],
+    sets: rule.combination.sets.map((entry) => (entry.excluded ? { id: entry.id, excluded: true } : { id: entry.id })),
     metaSetIds: [...(rule.combination.metaSetIds ?? [])],
     ranks: [...rule.combination.ranks],
     rarities: [...rule.combination.rarities],
@@ -775,7 +775,7 @@ export function useTutorialCoachState({
         targetId: 'builder.sets',
         before: () => {
           ensureMetasetsDialog(false); ensureChipsMenu(false); ensureSetsMenu(false)
-          setBuilder((prev) => ({ ...prev, artifactSets: [ArtifactSet.Speed] }))
+          setBuilder((prev) => ({ ...prev, artifactSets: [{ id: ArtifactSet.Speed }] }))
         },
       },
       {
@@ -1288,7 +1288,7 @@ export function useTutorialCoachState({
             break
           }
           case 'sets': {
-            nextBuilder = { ...nextBuilder, artifactSets: [ArtifactSet.Speed] }
+            nextBuilder = { ...nextBuilder, artifactSets: [{ id: ArtifactSet.Speed }] }
             break
           }
           case 'add': {

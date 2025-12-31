@@ -128,7 +128,8 @@ test('keep-unique exports include sentinel ConfigID/ConfigName', () => {
     name: '  Keep Unique Demo  ',
     combination: {
       slots: [ArtifactType.Ring],
-      sets: [ArtifactSet.Refresh],
+      // Keep-unique sets now use entry objects to allow exclusions.
+      sets: [{ id: ArtifactSet.Refresh }],
       metaSetIds: [],
       ranks: [],
       rarities: [],

@@ -5,6 +5,8 @@ import type {
   MultiEditTargetPatch,
 } from '../../lib/multiEditDraft'
 import type { SubstatRollTargetEntry } from '../../lib/hsfBuilder'
+import type { ArtifactSetSelectionEntry } from '../../lib/gearSets/selection'
+import { normalizeArtifactSetSelections } from '../../lib/gearSets/selection'
 
 // Multi-edit tri-state helpers keep toggles deterministic when several configs
 // are patched at once; the UI needs a canonical "all/mixed/none" baseline.
@@ -83,6 +85,58 @@ export const computeNumberPatchToggle = (
   const nextPatch: MultiEditArrayPatch<number> = {}
   if (addSet.size > 0) nextPatch.add = Array.from(addSet)
   if (removeSet.size > 0) nextPatch.remove = Array.from(removeSet)
+  return (nextPatch.add || nextPatch.remove) ? nextPatch : null
+}
+
+// Set selection toggles operate on entry objects to preserve exclusion metadata.
+export const computeArtifactSetPatchToggle = (
+  patch: MultiEditArrayPatch<ArtifactSetSelectionEntry> | null | undefined,
+  setId: number,
+  baseState: TriStateBase,
+  target: 'all' | 'none',
+): MultiEditArrayPatch<ArtifactSetSelectionEntry> | null => {
+  // Keep mutations local so callers never edit the incoming patch in place.
+  const draft = patch ?? null
+  if (draft?.clear) {
+    // Clear overrides everything; only restore the set when toggling on.
+    if (target === 'all') {
+      return { replace: [{ id: setId }] }
+    }
+    return { clear: true }
+  }
+  if (draft?.replace) {
+    // Replace arrays override the baseline; merge new toggle into that list.
+    const normalized = normalizeArtifactSetSelections(draft.replace)
+    const filtered = normalized.filter((entry) => Number(entry.id) !== setId)
+    if (target === 'all') {
+      filtered.push({ id: setId })
+    }
+    const next = normalizeArtifactSetSelections(filtered)
+    if (next.length === 0) {
+      return { clear: true }
+    }
+    return { replace: next }
+  }
+  // Add/remove arrays operate on explicit includes only.
+  const addEntries = normalizeArtifactSetSelections(draft?.add ?? [])
+  const removeEntries = normalizeArtifactSetSelections(draft?.remove ?? [])
+  const nextAdd = addEntries.filter((entry) => Number(entry.id) !== setId)
+  const nextRemove = removeEntries.filter((entry) => Number(entry.id) !== setId)
+  if (target === 'all') {
+    // Only add when the base state is not already "all".
+    if (baseState !== 'all') {
+      nextAdd.push({ id: setId })
+    }
+  } else {
+    // Only remove when the base state is not already "none".
+    if (baseState !== 'none') {
+      nextRemove.push({ id: setId })
+    }
+  }
+  const nextPatch: MultiEditArrayPatch<ArtifactSetSelectionEntry> = {}
+  // Commit only the deltas we actually touched.
+  if (nextAdd.length > 0) nextPatch.add = nextAdd
+  if (nextRemove.length > 0) nextPatch.remove = nextRemove
   return (nextPatch.add || nextPatch.remove) ? nextPatch : null
 }
 
@@ -263,6 +317,30 @@ export const applyNumberPatchPreview = (
     for (const value of patch.add) set.add(Number(value))
   }
   return Array.from(set).sort((a, b) => a - b)
+}
+
+export const applyArtifactSetPatchPreview = (
+  source: readonly ArtifactSetSelectionEntry[],
+  patch: MultiEditArrayPatch<ArtifactSetSelectionEntry> | null | undefined,
+): ArtifactSetSelectionEntry[] => {
+  // Normalize first so preview output always uses canonical entries.
+  const normalizedSource = normalizeArtifactSetSelections(source)
+  // No patch -> just return the normalized source.
+  if (!patch || (!patch.clear && !patch.replace && !patch.add && !patch.remove)) {
+    return normalizeArtifactSetSelections(normalizedSource)
+  }
+  // Clear wipes all selections immediately.
+  if (patch.clear) return []
+  if (patch.replace) {
+    // Replace snapshots override everything else.
+    return normalizeArtifactSetSelections(patch.replace)
+  }
+  // Apply removals before additions so toggles behave predictably.
+  const removeIds = new Set(normalizeArtifactSetSelections(patch.remove ?? []).map((entry) => Number(entry.id)))
+  const filtered = normalizedSource.filter((entry) => !removeIds.has(Number(entry.id)))
+  // Merge any add entries onto the filtered baseline.
+  const addEntries = normalizeArtifactSetSelections(patch.add ?? [])
+  return normalizeArtifactSetSelections([...filtered, ...addEntries])
 }
 
 export const applyStringPatchPreview = (

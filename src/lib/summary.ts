@@ -8,6 +8,7 @@ import type { BuilderConfig } from './hsfBuilder'
 import { formatRank, rarityCodeToName, factionCodeToName, labelOfVariant, artifactSetName } from './types'
 import { RARITY_AUTO_LABEL } from './constants'
 import type { Metaset } from './metasets'
+import { splitArtifactSetSelections } from './gearSets/selection'
 
 export function summaryOf(cfg: BuilderConfig, metasets: Metaset[]): string {
   const parts: string[] = []
@@ -67,9 +68,16 @@ export function summaryOf(cfg: BuilderConfig, metasets: Metaset[]): string {
   }
 
   // Sets and Metasets
-  const setNames = (cfg.artifactSets ?? []).map(artifactSetName)
+  // Render includes normally and exclusions with a simple "not" prefix.
+  const setSelection = splitArtifactSetSelections(cfg.artifactSets)
+  // Explicit includes map to readable names.
+  const setNames = setSelection.included.map(artifactSetName)
+  // Explicit excludes are prefixed so intent is obvious.
+  const excludedNames = setSelection.excluded.map((id) => `not ${artifactSetName(id)}`)
+  // Metaset labels are resolved against the active metaset list.
   const metaNames = (cfg.artifactMetaSets ?? []).map(id => metasets.find(m => m.id === id)?.name || id)
-  const setsJoined = [...metaNames, ...setNames].join(',')
+  // Build a single comma-separated list for compact chips.
+  const setsJoined = [...metaNames, ...setNames, ...excludedNames].join(',')
   if (setsJoined) push('Sets', setsJoined)
 
   return parts.join(' | ')

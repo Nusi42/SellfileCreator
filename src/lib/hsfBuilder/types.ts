@@ -1,5 +1,4 @@
 import type {
-  ArtifactSetId,
   ArtifactTypeId,
   FactionId,
   LevelMilestone,
@@ -8,6 +7,7 @@ import type {
   RarityCode,
   StatVariant,
 } from '../types'
+import type { ArtifactSetSelectionEntry } from '../gearSets/selection'
 
 export type SellfileExportMode = 'active' | 'disabled' | 'separator'
 /** @deprecated Use SellfileExportMode instead. */
@@ -71,7 +71,8 @@ export interface BuilderConfig {
   lockedMinRequiredRolls?: 0 | 1 | 2 | 3 | 4 | 5
   // Optional slot and set filters (HSF numeric IDs or enums); omit for Any
   artifactTypes?: ArtifactTypeId[]
-  artifactSets?: ArtifactSetId[]
+  // Set filters include exclude flags so metaset-driven entries can be removed explicitly.
+  artifactSets?: ArtifactSetSelectionEntry[]
   // Optional metaset references (IDs defined in HSFC Metasets)
   artifactMetaSets?: string[]
   // Early/Late keep mode:

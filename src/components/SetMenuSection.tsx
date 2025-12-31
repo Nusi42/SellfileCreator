@@ -12,6 +12,7 @@
  * via props (e.g., item value shape and excluding a metaset from membership
  * hints).
  */
+import type { MouseEvent } from 'react'
 import { Box, ListSubheader, MenuItem, Typography } from '@mui/material'
 import { alpha } from '@mui/material/styles'
 import EllipsisTooltip from './EllipsisTooltip'
@@ -44,7 +45,9 @@ export default function SetMenuSection({
   hoveredMetasetId = null,
   selectedMetasetIds: _selectedMetasetIds = [],
   selectedSetIds = [],
+  excludedSetIds = [],
   onToggleSet,
+  onContextMenuSet,
   hideHeader = false,
   showUsageCounts = true,
   singleSelect = false,
@@ -68,11 +71,15 @@ export default function SetMenuSection({
   selectedMetasetIds?: string[]
   // Optional: sets explicitly selected in the multi-select (Builder)
   selectedSetIds?: number[]
+  // Optional: sets explicitly excluded (red indicator styling).
+  excludedSetIds?: number[]
   // Optional: explicit click handler for icon grid items. When provided, we
   // call this on click instead of relying on MUI's internal Select handling.
   // Why: MUI Select can miss clicks on custom compact MenuItem layouts; this
   // ensures clicks always toggle selection without closing the menu.
   onToggleSet?: (id: number) => void
+  // Optional: context menu handler for right-click exclude actions.
+  onContextMenuSet?: (id: number, event: MouseEvent<HTMLElement>) => void
   // When true, do not render the ListSubheader (parent renders its own header
   // outside the scrollable list to keep layout width stable across modes).
   hideHeader?: boolean
@@ -83,14 +90,22 @@ export default function SetMenuSection({
   triStateForSet?: (id: number) => 'none' | 'partial' | 'all'
 }) {
   const { t, lang } = useI18n()
+  // Preserve the hovered metaset id for per-item highlighting.
   const hovered = hoveredMetasetId
+  // Selected sets render as explicit (filled) selections.
   const selectedSets = new Set(selectedSetIds)
+  // Selected metasets mark derived set membership.
   const selectedMetaSet = new Set(_selectedMetasetIds)
+  // Excluded sets render with a red indicator.
+  const excludedSet = new Set(excludedSetIds)
+  // Resolve hovered metaset metadata when it is not the "all explicit" sentinel.
   const hoveredMeta = hovered && hovered !== allExplicitMetaId
     ? metasets.find(m => m.id === hovered) || null
     : null
+  // Some callers define an "all explicit" metaset sentinel; highlight everything when hovered/selected.
   const hoveredHighlightsAll = Boolean(hovered && hovered === allExplicitMetaId)
   const selectedHighlightsAll = Boolean(allExplicitMetaId && selectedMetaSet.has(allExplicitMetaId))
+  // Default tri-state resolver uses explicit selections when no helper is provided.
   const getTriStateForSet = triStateForSet ?? ((id: number) => (selectedSets.has(id) ? 'all' : 'none'))
 
   return (
@@ -134,6 +149,7 @@ export default function SetMenuSection({
           (() => {
             // Centralized grouping keeps the menu categories aligned with the Keep
             // Uniques defaults and any other callers importing the same helper.
+            // Grouping by piece type keeps icon rows aligned to armor/accessory tiers.
             const accessories = sorted.filter(([id]) => getArtifactSetPieceGroup(Number(id)) === ArtifactSetPieceGroup.Accessories)
             const armorFixed = sorted.filter(([id]) => getArtifactSetPieceGroup(Number(id)) === ArtifactSetPieceGroup.ArmorFixed)
             const armorVar19 = sorted.filter(([id]) => getArtifactSetPieceGroup(Number(id)) === ArtifactSetPieceGroup.ArmorVariable)
@@ -141,12 +157,17 @@ export default function SetMenuSection({
               const idNum = Number(id)
               const localizedName = getLocalizedGearSetName(idNum as ArtifactSetId, t, lang)
               const tooltipName = localizedName || name
+              // Hover highlights only apply when the hovered metaset contains this set.
               const inHovered = hoveredHighlightsAll || Boolean(hoveredMeta && hoveredMeta.sets.includes(idNum))
+              // Selected metasets outline sets that are not explicitly selected.
               const inSelectedMeta = selectedHighlightsAll || metasets.some(m => selectedMetaSet.has(m.id) && m.sets.includes(idNum))
+              // Tri-state: all/partial/none for multi-edit.
               const setState = getTriStateForSet(idNum)
               const inSelectedSet = setState === 'all'
               const isPartialSet = setState === 'partial'
-              // Name line rendered by WithSetTooltip (showName), so no local piece text needed
+              // Excluded sets show a red ring and should not be treated as explicit selections.
+              const isExcluded = excludedSet.has(idNum)
+              // Name line rendered by WithSetTooltip (showName), so no local piece text needed.
               return (
                 <MenuItem
                   key={id}
@@ -163,6 +184,12 @@ export default function SetMenuSection({
                       }
                       try { onToggleSet(idNum) } catch {}
                     }
+                  }}
+                  onContextMenu={(event) => {
+                    if (!onContextMenuSet) return
+                    event.preventDefault()
+                    event.stopPropagation()
+                    onContextMenuSet(idNum, event)
                   }}
                   onDragStart={(e) => { e.preventDefault(); e.stopPropagation() }}
                   sx={(theme) => ({
@@ -186,8 +213,8 @@ export default function SetMenuSection({
                       '&:hover': { backgroundColor: alpha(theme.palette.primary.main, MENU_SELECTED_BG_HOVER_ALPHA) },
                     },
                     // Use default MUI selected background to match metasets.
-                    // Thin blue outline (inner ring) for membership via selected metaset(s).
-                    '&::after': (inSelectedMeta) ? {
+                    // Inner ring: dashed blue for metaset membership, solid red for exclusions.
+                    '&::after': (isExcluded || inSelectedMeta) ? {
                       content: '""',
                       position: 'absolute',
                       // Make the inner ring smaller so it doesn't visually
@@ -195,8 +222,8 @@ export default function SetMenuSection({
                       inset: 2,
                       borderRadius: 5,
                       borderWidth: 1,
-                      borderStyle: 'dashed',
-                      borderColor: theme.palette.primary.main,
+                      borderStyle: isExcluded ? 'solid' : 'dashed',
+                      borderColor: isExcluded ? theme.palette.error.main : theme.palette.primary.main,
                       pointerEvents: 'none',
                     } : undefined,
                     '&::before': inHovered ? {
@@ -261,16 +288,22 @@ export default function SetMenuSection({
       ) : (
         sorted.map(([id, name]) => {
           const idNum = Number(id)
+          // Usage counts + metaset membership are rendered only in list modes.
           const used = setUsageCounts[idNum] || 0
           const metaNames = metasets
             .filter(m => m.sets.includes(idNum) && m.id !== allExplicitMetaId && m.id !== excludeMetasetId && m.show !== false)
             .map(m => m.name)
           const joined = metaNames.join(', ')
+          // Hover shows dotted edge for metaset preview.
           const inHovered = hoveredHighlightsAll || Boolean(hoveredMeta && hoveredMeta.sets.includes(idNum))
+          // Selected metaset membership renders a blue left bar.
           const inSelectedMeta = selectedHighlightsAll || metasets.some(m => selectedMetaSet.has(m.id) && m.sets.includes(idNum))
+          // Tri-state values handle multi-edit mixing.
           const setState = getTriStateForSet(idNum)
           const inSelectedSet = setState === 'all'
           const isPartialSet = setState === 'partial'
+          // Exclusions render a red left bar.
+          const isExcluded = excludedSet.has(idNum)
           const localizedName = getLocalizedGearSetName(idNum as ArtifactSetId, t, lang)
           const tooltipName = localizedName || name
           return (
@@ -288,6 +321,12 @@ export default function SetMenuSection({
                   try { onToggleSet(idNum) } catch {}
                 }
               }}
+              onContextMenu={(event) => {
+                if (!onContextMenuSet) return
+                event.preventDefault()
+                event.stopPropagation()
+                onContextMenuSet(idNum, event)
+              }}
               sx={(theme) => ({
                 position: 'relative',
                 '&.Mui-selected': {
@@ -295,16 +334,15 @@ export default function SetMenuSection({
                   '&:hover': { backgroundColor: alpha(theme.palette.primary.main, MENU_SELECTED_BG_HOVER_ALPHA) },
                 },
                 // Use default MUI selected background to match metasets.
-                // Remove selection/meta borders; keep a subtle dashed marker only while hovering a metaset
-                // Add a thin blue indicator on the left when the set belongs to a selected metaset (but is not explicitly selected)
-                '&::before': (inSelectedMeta) ? {
+                // Left bar: blue for metaset membership, red for explicit exclusion.
+                '&::before': (isExcluded || inSelectedMeta) ? {
                   content: '""',
                   position: 'absolute',
                   left: 0,
                   top: 0,
                   bottom: 0,
                   width: '3px',
-                  background: theme.palette.primary.main,
+                  background: isExcluded ? theme.palette.error.main : theme.palette.primary.main,
                 } : undefined,
                 '&::after': inHovered ? {
                   content: '""',

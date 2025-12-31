@@ -2,6 +2,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { KEEP_UNIQUE_DEFAULT_COUNT_MODE, KeepUniqueRuleActivation, collectKeepUniqueCandidates, computeKeepUniqueProtection, hashKeepUniqueCombination, normalizeKeepUniqueRule, resolveKeepUniqueRuleLabel, resolveKeepUniqueRulesWithMetasets, buildDefaultKeepUniqueRules } from '../src/lib/keepUniques.js'
+import { normalizeArtifactSetSelections } from '../src/lib/gearSets/selection.js'
 import { ArtifactSet, ArtifactType, Faction, StatVariant, LEVEL_ANY_SENTINEL, RarityCode, type RankValue, getAccessorySlotsCompatibleSetIds } from '../src/lib/types.js'
 import type { TesterPreviewRow } from '../src/types/testerPreview.js'
 import type { NormalizedGearArtifact, NormalizedStat } from '../src/lib/importers/gearDbNormalizer.js'
@@ -74,7 +75,8 @@ const makeRule = (overrides: Partial<KeepUniqueRule> = {}): KeepUniqueRule => {
     id: overrides.id ?? `rule-${Math.random().toString(16).slice(2)}`,
     combination: overrides.combination ?? {
       slots: [ArtifactType.Weapon],
-      sets: [ArtifactSet.Speed],
+      // Default to a single entry object to match selection shape.
+      sets: normalizeArtifactSetSelections([ArtifactSet.Speed]),
       metaSetIds: [],
       ranks: [6],
       rarities: [6],
@@ -92,7 +94,7 @@ const makeRule = (overrides: Partial<KeepUniqueRule> = {}): KeepUniqueRule => {
 test('hashKeepUniqueCombination differentiates accessory factions', () => {
   const base = {
     slots: [ArtifactType.Ring],
-    sets: [ArtifactSet.Refresh],
+    sets: normalizeArtifactSetSelections([ArtifactSet.Refresh]),
     metaSetIds: [],
     ranks: [6 as RankValue],
     rarities: [6 as RankValue],
@@ -110,7 +112,7 @@ test('computeKeepUniqueProtection aggregates combination counts', () => {
       id: 'speed',
       combination: {
         slots: [ArtifactType.Weapon],
-        sets: [ArtifactSet.Speed],
+        sets: normalizeArtifactSetSelections([ArtifactSet.Speed]),
         metaSetIds: [],
         ranks: [6 as RankValue],
         rarities: [6 as RankValue],
@@ -139,7 +141,7 @@ test('projected count mirrors existing keep state when disabled', () => {
     requiredCount: 2,
     combination: {
       slots: [ArtifactType.Ring],
-      sets: [ArtifactSet.Refresh],
+      sets: normalizeArtifactSetSelections([ArtifactSet.Refresh]),
       metaSetIds: [],
       ranks: [5 as RankValue],
       rarities: [5 as RankValue],
@@ -174,7 +176,7 @@ test('per combination mode multiplies targets and deficits', () => {
     requiredCount: 2,
     combination: {
       slots: [ArtifactType.Weapon],
-      sets: [ArtifactSet.Speed, ArtifactSet.Accuracy],
+      sets: normalizeArtifactSetSelections([ArtifactSet.Speed, ArtifactSet.Accuracy]),
       metaSetIds: [],
       ranks: [6 as RankValue],
       rarities: [6 as RankValue],
@@ -230,7 +232,7 @@ test('custom grouping honors the selected dimensions only', () => {
     requiredCount: 1,
     combination: {
       slots: [ArtifactType.Weapon],
-      sets: [ArtifactSet.Speed, ArtifactSet.Accuracy],
+      sets: normalizeArtifactSetSelections([ArtifactSet.Speed, ArtifactSet.Accuracy]),
       metaSetIds: [],
       ranks: [],
       rarities: [],
@@ -274,7 +276,9 @@ test('resolveKeepUniqueRulesWithMetasets expands set lists', () => {
   }]
   const resolved = resolveKeepUniqueRulesWithMetasets(rules, metasets)
   const combinationSets = resolved[0]?.combination.sets ?? []
-  assert.deepStrictEqual(combinationSets.sort((a, b) => a - b), [ArtifactSet.Speed, ArtifactSet.DivineSpeed])
+  // Compare by numeric ids because the selection list now stores entry objects.
+  const combinationSetIds = combinationSets.map((entry) => Number(entry.id)).sort((a, b) => a - b)
+  assert.deepStrictEqual(combinationSetIds, [ArtifactSet.Speed, ArtifactSet.DivineSpeed])
 })
 
 test('default keep unique rules seed the accessory guard and optional armor sets', () => {
@@ -284,7 +288,7 @@ test('default keep unique rules seed the accessory guard and optional armor sets
   assert.ok(accessoryRule)
   assert.strictEqual(accessoryRule.name, 'Rare+ Accessories (5-6★)')
   assert.deepStrictEqual(accessoryRule.combination.slots, [ArtifactType.Ring, ArtifactType.Amulet, ArtifactType.Banner])
-  assert.deepStrictEqual(accessoryRule.combination.sets, getAccessorySlotsCompatibleSetIds())
+  assert.deepStrictEqual(accessoryRule.combination.sets, getAccessorySlotsCompatibleSetIds().map((id) => ({ id })))
   assert.deepStrictEqual(accessoryRule.combination.ranks, [5, 6])
   assert.deepStrictEqual(accessoryRule.combination.rarities, [3, 4, 5, 6])
   assert.strictEqual(accessoryRule.requiredCount, 1)
@@ -307,7 +311,7 @@ test('default keep unique rules seed the accessory guard and optional armor sets
     ArtifactType.Boots,
   ])
   assert.deepStrictEqual(armorRule.combination.sets,
-    [ArtifactSet.Stun, ArtifactSet.Toxic, ArtifactSet.Cursed, ArtifactSet.Provoke, ArtifactSet.Destroy],
+    [ArtifactSet.Stun, ArtifactSet.Toxic, ArtifactSet.Cursed, ArtifactSet.Provoke, ArtifactSet.Destroy].map((id) => ({ id })),
   )
   assert.deepStrictEqual(armorRule.combination.ranks, [6])
   assert.deepStrictEqual(armorRule.combination.rarities, [5, 6])
@@ -324,7 +328,7 @@ test('anticipate mode emits placeholder keeps when deficits remain', () => {
     activation: KeepUniqueRuleActivation.AnticipateGaps,
     combination: {
       slots: [ArtifactType.Amulet],
-      sets: [ArtifactSet.Refresh],
+      sets: normalizeArtifactSetSelections([ArtifactSet.Refresh]),
       metaSetIds: [],
       ranks: [6],
       rarities: [5],

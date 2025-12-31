@@ -38,10 +38,11 @@ This document captures runtime behavior, builder interactions, and user-facing w
   - Clicking any active state (left or right) clears back to Off (no cycling between include/exclude).
   - The persisted state stores exclusions in `filter.sub.notSelected` and filtering removes any rule/item that contains any excluded substat variant before evaluating the “must have” match policy.
 - Sets
-  - Metasets unroll into explicit set IDs before matching.
-  - Match mode `Any`/`All` combines selected sets.
-  - Final-sell remainder rows (marked internally) are excluded when any set is selected so results aren’t dominated by “All Currently Known”.
-  - The Sets selector reuses `SetMenuSection` (icons/list) with metaset hover highlights and anchored placement consistent with the Builder.
+- Metasets unroll into explicit set IDs before matching.
+- Match mode `Any`/`All` combines selected sets.
+- Final-sell remainder rows (marked internally) are excluded when any set is selected so results aren’t dominated by “All Currently Known”.
+- The Sets selector reuses `SetMenuSection` (icons/list) with metaset hover highlights and anchored placement consistent with the Builder.
+- Right-click a metaset-derived set entry in any Sets dropdown (Builder, Filters, Keep Uniques) to mark it excluded; the exclusion clears any explicit include for that set, renders a red indicator in the menu, and chips show excluded set names with strike-through.
 - Config name regex: the optional field only appears when at least one config has a name or the user typed a query. Patterns reuse the builder's styling and accept case-insensitive regex; matching checks config names and tag tokens, and invalid input highlights the field but leaves other filters intact.
 - Config buttons: the filter header always shows two controls. `Preview Configs` (the visibility toggle next to the config-name field) hides chips whose rules fail the active filters; it now defaults to off and `Reset filters` returns it to off. `Config Filter` gates the preview to the selected config chips: in Sellfile mode it’s a simple On/Off toggle, while Rule Tester mode expands it into a tri-state (`Off` → `First-Match` → `Any-Match`) so users can decide whether the imported gear requires the first matching config or any matching config. When no chips are selected the button still cycles but effectively behaves like `Off`, and `Reset filters` always returns it to `Off`.
 - Collapsible sections keep a builder-style Clear icon next to their collapse toggle. The icon only appears when that section diverges from its defaults (including tester-only controls such as glyph chips or the level slider) and clicking it resets just that subset without touching the rest of the filters.

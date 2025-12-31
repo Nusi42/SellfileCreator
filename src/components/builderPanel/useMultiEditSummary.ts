@@ -7,6 +7,7 @@
  */
 import { useMemo } from 'react'
 import type { BuilderConfig } from '../../lib/hsfBuilder'
+import { splitArtifactSetSelections } from '../../lib/gearSets/selection'
 
 export interface MultiEditSummary {
   total: number
@@ -68,9 +69,10 @@ export const useMultiEditSummary = (
     for (const slot of slots) {
       slotCounts.set(slot, (slotCounts.get(slot) ?? 0) + 1)
     }
-    const sets = Array.isArray(config.artifactSets) ? config.artifactSets : []
+    // Only count explicit inclusions so exclusions don't register as selected.
+    const sets = splitArtifactSetSelections(config.artifactSets).included
     for (const set of sets) {
-      setCounts.set(set, (setCounts.get(set) ?? 0) + 1)
+      setCounts.set(Number(set), (setCounts.get(Number(set)) ?? 0) + 1)
     }
     const metas = Array.isArray(config.artifactMetaSets) ? config.artifactMetaSets : []
     for (const meta of metas) {

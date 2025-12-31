@@ -10,6 +10,7 @@ import type { Metaset } from '../lib/metasets'
 import { compareArtifactSets, compareArtifactTypes, compareVariants, factionI18nKey } from '../lib/types'
 import type { TranslateFn } from './builderUpdateDescriptor'
 import { collectMetasetSnapshotEntries, normalizeNumberArray } from './historyDescriptorUtils'
+import { normalizeArtifactSetSelections, splitArtifactSetSelections } from '../lib/gearSets/selection'
 
 export type KeepUniquesRulesDescriptorMode = 'edit' | 'reset'
 
@@ -123,8 +124,9 @@ function buildKeepUniqueRuleSignature(rule: KeepUniqueRule): string {
   const combo = rule.combination
   // Normalize slots so set ordering differences do not count as edits.
   const slots = normalizeNumberArray(combo.slots).slice().sort(compareArtifactTypes)
-  // Normalize sets so the signature is stable across UI reorder.
-  const sets = normalizeNumberArray(combo.sets).slice().sort(compareArtifactSets)
+  // Normalize set entries so exclusions are captured in the signature.
+  const sets = normalizeArtifactSetSelections(combo.sets ?? [])
+    .map((entry) => (entry.excluded ? `!${Number(entry.id)}` : `${Number(entry.id)}`))
   // Normalize metaset IDs so their order does not affect comparisons.
   const meta = Array.isArray(combo.metaSetIds) ? combo.metaSetIds.map(String).sort() : []
   // Normalize ranks so signatures match regardless of selection order.
@@ -236,9 +238,12 @@ function buildKeepUniqueRuleDiffLines(
     detailLines.push(makeSlotsDiffLine(prevSlots, nextSlots, t))
   }
   // Compare sets via structured payloads so the history tooltip can render set icons.
-  const prevSets = normalizeSortedNumberList(previous.combination.sets, compareArtifactSets)
-  const nextSets = normalizeSortedNumberList(next.combination.sets, compareArtifactSets)
-  if (!areNumberListsEqual(prevSets, nextSets)) {
+  const prevSets = normalizeSetSelectionEntries(previous.combination.sets)
+  const nextSets = normalizeSetSelectionEntries(next.combination.sets)
+  if (
+    !areNumberListsEqual(prevSets.included, nextSets.included)
+    || !areNumberListsEqual(prevSets.excluded, nextSets.excluded)
+  ) {
     detailLines.push(makeSetListDiffLine(prevSets, nextSets, t))
   }
   // Compare metasets via structured payloads to keep the diff readable.
@@ -331,13 +336,26 @@ function makeSlotsDiffLine(previous: number[], next: number[], t: TranslateFn): 
   })
 }
 
-function makeSetListDiffLine(previous: number[], next: number[], t: TranslateFn): string {
+type NormalizedSetSelection = { included: number[]; excluded: number[] }
+
+function normalizeSetSelectionEntries(entries: KeepUniqueRule['combination']['sets'] | undefined): NormalizedSetSelection {
+  const normalized = normalizeArtifactSetSelections(entries ?? [])
+  const split = splitArtifactSetSelections(normalized)
+  return {
+    included: split.included.map(Number).sort(compareArtifactSets),
+    excluded: split.excluded.map(Number).sort(compareArtifactSets),
+  }
+}
+
+function makeSetListDiffLine(previous: NormalizedSetSelection, next: NormalizedSetSelection, t: TranslateFn): string {
   // Emit the structured payload so history tooltips render set icons.
   return JSON.stringify({
     kind: 'setListDiff',
     label: t('setsTitle'),
-    previous,
-    next,
+    previous: previous.included,
+    next: next.included,
+    previousExcluded: previous.excluded,
+    nextExcluded: next.excluded,
   })
 }
 
@@ -444,12 +462,13 @@ function makeSlotsSnapshotLine(rule: KeepUniqueRule, t: TranslateFn): string {
 
 function makeSetListSnapshotLine(rule: KeepUniqueRule, t: TranslateFn): string {
   // Serialize the set list so tooltip icons match the preview table.
-  const sets = normalizeNumberArray(rule.combination.sets).slice().sort(compareArtifactSets)
+  const selection = normalizeSetSelectionEntries(rule.combination.sets)
   // Emit the structured payload as JSON so the tooltip renderer can parse it.
   return JSON.stringify({
     kind: 'setListSnapshot',
     label: t('setsTitle'),
-    values: sets,
+    values: selection.included,
+    excluded: selection.excluded,
     fallbackText: t('any'),
   })
 }
