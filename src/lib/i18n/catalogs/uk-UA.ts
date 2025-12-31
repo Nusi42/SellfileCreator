@@ -1093,7 +1093,7 @@ const overrides: Catalog = {
   noteInsertMetasets: 'Вставити список метасетів',
   noteInsertConfigOptionsSample: 'Вставити зразок опитувальника',
   noteConfigOptionsChangedTooltip: 'Маркери опитувальника змінилися в цьому редагуванні. Перейдіть до «Переглянути нотатку», щоб переглянути питання.',
-  noteConfigOptionsSampleBlock: '<!-- q "Питання з одним вибором із мітками **Жирний** і `Позначений`, з підстановками **\\1** або `\\2`."\n  (* "Відповідь 1", +tag1, tag2)\n  ("Відповідь 2", -tag2)\n-->\n\n<!-- question "Інше питання з мітками **Жирний** і `Позначений`."\n  [* "Відповідь A", tagA]\n  ["Відповідь B"]\n  ["Відповідь C", +tagC]\n-->',
+  noteConfigOptionsSampleBlock: '<!-- q "Питання з одним вибором із мітками **Жирний** і `Позначений`, з підстановками **\\1** або `\\2`."\n  (* "Відповідь 1", +tag1, tag2)\n  ("Відповідь 2", -tag2)\n-->\n\n<!-- question "Інше питання з мітками **Жирний** і `Позначений`."\n  [* "Відповідь A", tagA]\n  ["Відповідь B"]\n  ["Відповідь C", +tagC]\n-->\n\n<!-- question "Options with ids + exclusions"\n  [* "Alpha", id=alpha, !beta]\n  ["Beta", id=beta, !alpha]\n  ["Gamma", !1]\n-->',
   noteConfigOptionsApply: 'Застосувати теги опитувальника',
   noteConfigOptionsApplyConfirmTitle: 'Застосувати теги опитувальника?',
   noteConfigOptionsApplyConfirmBody: 'Увімкнути {enabled} конфігів, вимкнути {disabled} конфігів. Конфіги без тегів не змінюються.',
