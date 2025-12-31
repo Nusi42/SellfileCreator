@@ -251,13 +251,13 @@ const normalizeQuestionToken = (raw: string): string | null => {
   const trimmed = raw.trim()
   // Ignore empty tokens.
   if (!trimmed) return null
-  // Reject tokens containing disallowed characters.
-  if (!QUESTION_TOKEN_REGEX.test(trimmed)) return null
-  // Normalize digit tokens to avoid leading zeros.
+  // Accept numeric tokens for implicit indices regardless of tag grammar.
   if (/^\d+$/.test(trimmed)) {
     const value = Number.parseInt(trimmed, 10)
     return Number.isFinite(value) ? String(value) : null
   }
+  // Reject tokens containing disallowed characters.
+  if (!QUESTION_TOKEN_REGEX.test(trimmed)) return null
   // Normalize case to keep matching stable.
   return trimmed.toLowerCase()
 }
