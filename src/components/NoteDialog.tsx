@@ -55,6 +55,17 @@ const NOTE_COLOR_SX_SELECTORS: Record<string, { color: string }> = Object.fromEn
   ]),
 )
 const NOTE_EDITOR_BG_COLOR = '#0d1117'
+// Keep the note dialog size constant so view/edit stays aligned.
+const NOTE_DIALOG_HEIGHT = '84vh'
+// Apply a fixed height and flex column so the content can stretch fully.
+const NOTE_DIALOG_PAPER_SX = {
+  height: NOTE_DIALOG_HEIGHT,
+  minHeight: NOTE_DIALOG_HEIGHT,
+  maxHeight: NOTE_DIALOG_HEIGHT,
+  // Make the paper a column layout so content/actions can flex.
+  display: 'flex',
+  flexDirection: 'column',
+}
 
 const CONFIG_COMMENT_REGEX = /^\s*configs\s*:\s*([0-9,\s]+)\s*$/i
 const CONFIG_MARKER_REGEX = /<!--\s*configs\s*:\s*([0-9,\s]+)\s*-->/i
@@ -1778,13 +1789,23 @@ export default function NoteDialog({
         onClose={handleDialogClose}
         maxWidth="lg"
         fullWidth
-        PaperProps={{ sx: { maxHeight: '84vh' } }}
+        PaperProps={{ sx: NOTE_DIALOG_PAPER_SX }}
       >
       <DialogTitle>{t('noteTitle')}</DialogTitle>
       {mode === 'view'
         ? (
           <>
-            <DialogContent dividers sx={{ position: 'relative' }}>
+            <DialogContent
+              dividers
+              sx={{
+                position: 'relative',
+                // Let the content expand to fill the fixed dialog height.
+                display: 'flex',
+                flexDirection: 'column',
+                flex: 1,
+                minHeight: 0,
+              }}
+            >
               {notePending ? (
                 <LinearProgress
                   sx={{
@@ -1800,11 +1821,15 @@ export default function NoteDialog({
                 data-allow-context={1 as const}
                 data-color-mode={('dark' as const)}
                 sx={{
+                  // Stretch the preview to fill the dialog body.
+                  flex: 1,
+                  minHeight: 0,
                   bgcolor: NOTE_EDITOR_BG_COLOR,
                   '& .wmde-markdown img': { backgroundColor: 'transparent' },
                   borderRadius: 1,
                   px: 2,
                   py: 2,
+                  overflow: 'auto',
                   '& .wmde-markdown': { bgcolor: 'transparent', fontSize: FONT_SIZE_MARKDOWN_PX, lineHeight: 1.7 },
                   ...NOTE_COLOR_SX_SELECTORS,
                 }}
@@ -1899,6 +1924,8 @@ function NoteEditorContent({
   )
   // Flag when questions were added/removed/changed in the draft.
   const configOptionsChanged = baseConfigOptionsSignature !== draftConfigOptionsSignature
+  // Disable view mode when the draft is empty.
+  const draftIsEmpty = !draft.trim()
   const baseContext = useNoteRenderContext()
   // Resolve config markers inside the editor preview.
   const editorMarkerResolutions = useMemo(() => buildConfigMarkerResolutions(draft ?? '', configs), [draft, configs])
@@ -2143,7 +2170,16 @@ function NoteEditorContent({
 
   return (
     <>
-      <DialogContent dividers>
+      <DialogContent
+        dividers
+        sx={{
+          // Let the editor fill the fixed dialog height.
+          display: 'flex',
+          flexDirection: 'column',
+          flex: 1,
+          minHeight: 0,
+        }}
+      >
         {/* Match the markdown editor chrome to the dark preview so text stays legible in edit mode. */}
         <Box
           ref={editWrapRef}
@@ -2151,7 +2187,11 @@ function NoteEditorContent({
           data-allow-context={1 as const}
           data-color-mode={('dark' as const)}
           sx={{
+            // Stretch the editor shell to fill the dialog body.
+            flex: 1,
+            minHeight: 0,
             '& .w-md-editor': {
+              // Keep layout defaults from the editor so text overlay math stays correct.
               fontSize: `${FONT_SIZE_MARKDOWN_PX}px`,
               backgroundColor: `${NOTE_EDITOR_BG_COLOR} !important`,
               color: (theme) => `${theme.palette.text.primary} !important`,
@@ -2163,6 +2203,7 @@ function NoteEditorContent({
               color: (theme) => `${theme.palette.text.primary} !important`,
             },
             '& .w-md-editor .w-md-editor-text-pre': {
+              // Match the textarea font sizing so highlights overlay 1:1.
               fontSize: `${FONT_SIZE_MARKDOWN_PX}px !important`,
               lineHeight: '1.7 !important',
               backgroundColor: `${NOTE_EDITOR_BG_COLOR} !important`,
@@ -2170,6 +2211,7 @@ function NoteEditorContent({
             },
             '& .w-md-editor .w-md-editor-text-pre code': { fontSize: `${FONT_SIZE_MARKDOWN_PX}px !important`, lineHeight: '1.7 !important' },
             '& .w-md-editor .w-md-editor-text-input': {
+              // Keep the input sizing consistent with the pre tag.
               fontSize: `${FONT_SIZE_MARKDOWN_PX}px`,
               lineHeight: 1.7,
               backgroundColor: 'transparent',
@@ -2177,8 +2219,12 @@ function NoteEditorContent({
               borderColor: (theme) => theme.palette.divider,
               caretColor: (theme) => theme.palette.text.primary,
             },
-            '& .w-md-editor .w-md-editor-content': { backgroundColor: `${NOTE_EDITOR_BG_COLOR} !important` },
+            '& .w-md-editor .w-md-editor-content': {
+              // Keep sizing controlled by the editor height prop to avoid desync.
+              backgroundColor: `${NOTE_EDITOR_BG_COLOR} !important`,
+            },
             '& .w-md-editor .w-md-editor-preview': {
+              // Preserve default preview layout so overlays align with selections.
               backgroundColor: `${NOTE_EDITOR_BG_COLOR} !important`,
               color: (theme) => `${theme.palette.text.primary} !important`,
             },
@@ -2247,6 +2293,12 @@ function NoteEditorContent({
                 ref={editorRef}
                 value={draft}
                 onChange={(v) => setDraft(v ?? '')}
+                // Force the editor to fill the dialog body, avoiding the 200px default.
+                height="100%"
+                // Disable the dragbar so the fixed dialog height remains authoritative.
+                visibleDragbar={false}
+                // Still set style height as a safety net for inline layout.
+                style={{ height: '100%' }}
                 previewOptions={{
                   rehypePlugins: rehypePluginsSafe,
                   components: markdownComponents as unknown as Components,
@@ -2299,7 +2351,6 @@ function NoteEditorContent({
                     }
                   },
                 }}
-                height={560}
               />
             </NoteRenderContext.Provider>
           ))()}
@@ -2324,6 +2375,7 @@ function NoteEditorContent({
                 <Button
                   variant="outlined"
                   onClick={commitAndView}
+                  disabled={draftIsEmpty}
                 >
                   {t('viewNote')}
                 </Button>

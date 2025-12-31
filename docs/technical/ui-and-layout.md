@@ -106,6 +106,11 @@ Anything that is not overflow-triggered runs through `MarkdownTooltip`. Represen
 
 If tooltips need rich formatting (colored badges, inline icons), pass JSX via `render={<BuilderTooltipContent .../>}`. Everything else should use `markdown=` strings so translations stay readable and formatting stays consistent.
 
+### Note Dialog Sizing
+
+- The Note dialog uses a fixed height (`84vh`) so sparse content does not shrink the shell.
+- View and edit modes share the same width and height constraints for a consistent toggle experience.
+
 ### Verification checklist
 
 - `rg '<Tooltip' src` should match only the definition in `MarkdownTooltip.tsx`.
@@ -161,6 +166,7 @@ If tooltips need rich formatting (colored badges, inline icons), pass JSX via `r
 
 - Builder layout: Row 1 Action; Row 2 Rank/Rarity/Faction/Level window; Row 3 Mainstat/Substats; Row 4 Min selected substats controls; Row 5 Slots/Sets.
   - Tags live on Row 1, directly beside Export Mode, to emphasize that config options tags can override export mode when answers match.
+  - When tags are present (single or multi-edit), a compact clear (x) button appears next to the Tags button to reset the tag list quickly.
   - Faction stays near Rarity. Only accessories care about faction; other gear ignores `Faction`.
 - Mainstat is multi-select with two rows of toggle buttons (HP/HP%/ATK/ATK%/DEF/DEF% and SPD/RES/ACC/CR%/CDMG%). Empty selection maps to Any; HSFC export converts selections to readable labels.
 - Substats reuse the two-row toggle grid. Empty selection represents Any. Toggle buttons manage selection while a separate lock badge handles fixed state (supports `aria-pressed="mixed"`).
@@ -231,7 +237,7 @@ If tooltips need rich formatting (colored badges, inline icons), pass JSX via `r
   - Keep the chunked row helper (`chunkGroupRows`) in sync with the card grid layout; card height math still depends on the column count and match-row toggles.
   - Remember to update this section plus the inline comments in `TesterItemsGrid.tsx` whenever you tweak virtualization heuristics, skeleton batching (`useTesterGridCardContentReady`), or the scroll-hint sampling strategy.
   - Selecting a chip auto-scrolls to its first rule row (smooth in single-line mode; jump in wrap mode).
-- Row context menu matches chip actions (Duplicate, Move, Copy, Paste after, Delete). Base rows show Clear instead of Delete.
+- Row context menu matches chip actions (Duplicate, Move, Copy, Paste after, Delete). Base rows show Clear instead of Delete. Keep Unique rows do not show a row context menu.
 - Cells:
   - Index column colors Keep/Sell status; disabled rules show a strikethrough.
   - Indices stay aligned with merged order; filters never renumber.

@@ -95,7 +95,7 @@ import { substatSupportsColor } from '../lib/substatDisplay'
 import { createBuilderStatusChipSx } from './builderStatusChipStyles'
 import { FactionOptionLabel } from './FactionIcon'
 import { ContextMenuHintOverlay } from './ContextMenuHintOverlay'
-import { resolveConfigOptionsExportMode } from '../lib/noteConfigOptions'
+import { resolveConfigOptionsExportMode, type ConfigOptionsTagInstructions } from '../lib/noteConfigOptions'
 import {
   type MultiEditDraftHandle,
   type MultiEditFieldState,
@@ -173,7 +173,7 @@ import {
 
 export { createFactoryBuilderDefaults } from './builderPanel/defaults'
 
-export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSelected, registerAutoApplyHandler, onApplyMultiEdit, onUndo, onRedo, canUndo, canRedo, undoPreview, redoPreview, historyTimeline, onJumpToHistoryIndex, onRequestClearHistory, metasets, onMetasetsChange, describeNextChange, onDeleteMetaset, onResetMetasets, substatTargets, onSubstatTargetsChange, setUsageCounts, metasetUsageCounts, keepUniqueMetasetUsageCounts, substatColors: _substatColors, configCount: _configCount, configRuleCounts, configRuleFingerprints, configsExcludedByTotalLimit, ruleSubstatTargetsKey, rulesBuilding, awaitRuleCounts, countRulesForConfigs, selectedIsDirty, insertHiddenByFilters, saveHiddenByFilters, onSelectConfigsByMetaset, substatTargetsDialogOpen, onCloseSubstatTargetsDialog, configOptionsActiveTags, multiEdit: _multiEdit = null, multiSelectedConfigs = null, onBeforeMetasetsDialogClose }: {
+export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSelected, registerAutoApplyHandler, onApplyMultiEdit, onUndo, onRedo, canUndo, canRedo, undoPreview, redoPreview, historyTimeline, onJumpToHistoryIndex, onRequestClearHistory, metasets, onMetasetsChange, describeNextChange, onDeleteMetaset, onResetMetasets, substatTargets, onSubstatTargetsChange, setUsageCounts, metasetUsageCounts, keepUniqueMetasetUsageCounts, substatColors: _substatColors, configCount: _configCount, configRuleCounts, configRuleFingerprints, configsExcludedByTotalLimit, ruleSubstatTargetsKey, rulesBuilding, awaitRuleCounts, countRulesForConfigs, selectedIsDirty, insertHiddenByFilters, saveHiddenByFilters, onSelectConfigsByMetaset, substatTargetsDialogOpen, onCloseSubstatTargetsDialog, configOptionsTagInstructions, multiEdit: _multiEdit = null, multiSelectedConfigs = null, onBeforeMetasetsDialogClose }: {
   cfg: BuilderConfig,
   onChange: (c: BuilderConfig) => void
   onAddToCustom: () => void
@@ -217,7 +217,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
   onSelectConfigsByMetaset: (id: string) => void
   substatTargetsDialogOpen: boolean
   onCloseSubstatTargetsDialog: () => void
-  configOptionsActiveTags: readonly string[]
+  configOptionsTagInstructions: ConfigOptionsTagInstructions
   multiEdit?: MultiEditDraftHandle | null
   multiSelectedConfigs?: readonly BuilderConfig[] | null
   onBeforeMetasetsDialogClose?: () => Promise<void> | void
@@ -1168,8 +1168,8 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
   const exportModeMixed = multiEditActive && (multiExportModeField?.status === 'mixed')
   // Resolve config options overrides for the active config.
   const effectiveExportMode = useMemo(
-    () => resolveConfigOptionsExportMode(cfg, configOptionsActiveTags),
-    [cfg, configOptionsActiveTags],
+    () => resolveConfigOptionsExportMode(cfg, configOptionsTagInstructions),
+    [cfg, configOptionsTagInstructions],
   )
   // Only mark an override when the config options flip the stored selection.
   const exportModeOverrideActive = !multiEditActive && effectiveExportMode !== cfg.exportMode
@@ -1708,6 +1708,12 @@ const maxLevelValue = multiEditActive
   const tagsButtonLabel = t('builderTagsLabel')
   // Treat any visible tags as an "active" state for the button color.
   const tagsButtonActive = tagDisplay.length > 0
+  // Reuse a dedicated label for the clear-tags affordance so tooltips stay consistent.
+  const tagsClearLabel = t('builderClearTags')
+  // Treat any visible tags (single or multi-edit) as eligible for the clear affordance.
+  const tagsClearable = multiEditActive ? tagDisplay.length > 0 : tagsValue.length > 0
+  // Only show the clear button when there is something to reset.
+  const showTagsClear = tagsClearable
   // Precompute mixed tag membership so chips can share the mixed styling.
   const mixedTagSet = useMemo(() => (
     new Set(tagPresence?.mixed ?? [])
@@ -1831,6 +1837,21 @@ const maxLevelValue = multiEditActive
     const filtered = tagsValue.filter((value) => value !== tag)
     commitTags(filtered)
   }, [commitTags, multiEditActive, stageTagPatch, tagsValue])
+  const clearTags = useCallback(() => {
+    // Bail if there is nothing to clear so we do not spam history.
+    if (!tagsClearable) return
+    // Multi-edit clears tags with a patch so every selected config resets together.
+    if (multiEditActive && multiEdit) {
+      multiEdit.updateField('tags', {
+        value: (multiTagsField?.value as BuilderConfig['tags']) ?? (cfg.tags ?? []),
+        status: 'common',
+        patch: { clear: true },
+      })
+      return
+    }
+    // Persist the empty tag list for the current config.
+    onChange({ ...cfg, tags: [] })
+  }, [cfg, multiEdit, multiEditActive, multiTagsField?.value, onChange, tagsClearable])
   const singleBuilderDirty = selectedIsDirty || nameDraftDirty
   const isDirty = multiEditActive ? multiDraftDirty : singleBuilderDirty
   const insertButtonLabel = editingIndex !== null
@@ -2694,6 +2715,15 @@ const maxLevelValue = multiEditActive
                   </Typography>
                 </Button>
               </MarkdownTooltip>
+              {/* Only show the clear affordance when tags exist for this config. */}
+              {showTagsClear ? (
+                <ClearIconButton
+                  size="small"
+                  aria-label={tagsClearLabel}
+                  tooltip={tagsClearLabel}
+                  onClick={clearTags}
+                />
+              ) : null}
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexWrap: 'wrap' }}>
                 {tagDisplay.slice(0, 3).map((tag) => (
                   <Chip

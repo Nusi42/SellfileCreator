@@ -1,8 +1,8 @@
 /**
  * noteConfigOptions.ts
  *
- * Parses in-note config options markers and resolves the active tag set that
- * drives config enable/disable behavior.
+ * Parses in-note config options markers and resolves tag actions that drive
+ * config export-mode overrides.
  */
 import type { BuilderConfig, SellfileExportMode } from './hsfBuilder'
 import { normalizeTagValue } from './tagHelpers'
@@ -11,10 +11,12 @@ import { cloneBuilderConfig } from './multiEditDraft'
 // Supported question types in the note markers.
 export type NoteQuestionType = 'single' | 'multi'
 
-// Tags are normalized and may indicate removal.
+// Tags are normalized and describe how they affect config export modes.
+export type ConfigOptionsTagAction = 'enable' | 'disable' | 'toggle'
+
 export type NoteQuestionTag = {
   value: string
-  remove: boolean
+  action: ConfigOptionsTagAction
 }
 
 // A single answer option for a question.
@@ -44,15 +46,17 @@ export const LEGACY_NOTE_CONFIG_OPTIONS_ANSWERS_KEY = `Note${'Question'}${'naire
 // Stored answers keyed by question ID.
 export type NoteConfigOptionsAnswers = Record<string, string[]>
 
-// Resolution result containing questions + active tags.
+// Resolution result containing questions + tag instructions.
+export type ConfigOptionsTagInstructions = Record<string, ConfigOptionsTagAction[]>
+
 export type ConfigOptionsTagResolution = {
   questions: NoteQuestionDefinition[]
-  activeTags: string[]
+  tagInstructions: ConfigOptionsTagInstructions
 }
 
 // Config impact summary for Apply Tags flow.
 export type ConfigOptionsExportModeResolution = {
-  activeTags: string[]
+  tagInstructions: ConfigOptionsTagInstructions
   modes: SellfileExportMode[]
   overriddenIndices: number[]
 }
@@ -189,7 +193,7 @@ const parseOptionBlock = (raw: string, optionIndex: number): NoteQuestionOption 
   if (!labelParsed) return null
   idx = labelParsed.nextIndex
   const label = labelParsed.value
-  // Parse any remaining tokens as tags.
+  // Parse any remaining tokens as tag actions.
   const tagTokens: NoteQuestionTag[] = []
   while (idx < raw.length) {
     const ch = raw.charAt(idx)
@@ -206,12 +210,14 @@ const parseOptionBlock = (raw: string, optionIndex: number): NoteQuestionOption 
     const token = raw.slice(idx, end).trim()
     idx = end
     if (!token) continue
-    // Leading '-' removes tags from previous answers.
-    const remove = token.startsWith('-')
-    const rawValue = remove ? token.slice(1) : token
+    // Prefix-based tokens mark enable/disable; bare tokens toggle.
+    const action: ConfigOptionsTagAction = token.startsWith('+')
+      ? 'enable'
+      : (token.startsWith('-') ? 'disable' : 'toggle')
+    const rawValue = (action === 'toggle') ? token : token.slice(1)
     const normalized = normalizeTagValue(rawValue)
     if (!normalized) continue
-    tagTokens.push({ value: normalized, remove })
+    tagTokens.push({ value: normalized, action })
   }
   // Build a stable ID for the option.
   const baseLabel = normalizeQuestionText(label).toLowerCase()
@@ -391,78 +397,90 @@ export const normalizeNoteConfigOptionsAnswers = (
   return Object.keys(next).length > 0 ? next : null
 }
 
-// Resolve the active tag set based on the current config options answers.
+// Resolve tag instructions based on the current config options answers.
 export const resolveConfigOptionsTags = (
   note: string,
   answers?: NoteConfigOptionsAnswers | null,
 ): ConfigOptionsTagResolution => {
   // Parse the questions with answer resolution.
   const questions = parseNoteConfigOptions(note, answers)
-  // Track active tags as we walk questions.
-  const active = new Set<string>()
+  // Track tag instructions in the order answers are encountered.
+  const tagInstructions: ConfigOptionsTagInstructions = Object.create(null) as ConfigOptionsTagInstructions
   for (const question of questions) {
     // Only apply tags for selected options.
     const selected = new Set(question.answer)
     for (const option of question.options) {
       if (!selected.has(option.id)) continue
       for (const tag of option.tags) {
-        // Support removal tags for override behavior.
-        if (tag.remove) active.delete(tag.value)
-        else active.add(tag.value)
+        // Append the tag action so config-order evaluation stays deterministic.
+        const bucket = tagInstructions[tag.value] ?? []
+        bucket.push(tag.action)
+        tagInstructions[tag.value] = bucket
       }
     }
   }
   // Return the resolved tags and question list.
-  return { questions, activeTags: Array.from(active) }
+  return { questions, tagInstructions }
 }
 
-// Resolve a config's export mode based on config options tags.
-const resolveConfigOptionsExportModeWithSet = (
+// Resolve a config's export mode based on config options tag instructions.
+const resolveConfigOptionsExportModeWithInstructions = (
   cfg: BuilderConfig,
-  active: Set<string>,
+  tagInstructions: ConfigOptionsTagInstructions,
 ): SellfileExportMode => {
   // Separators should never be overridden by tags.
   if (cfg.exportMode === 'separator') return 'separator'
   // Untagged configs keep their explicit mode.
   const tags = Array.isArray(cfg.tags) ? cfg.tags : []
   if (tags.length === 0) return cfg.exportMode
-  // Neutral-by-default: only override when a tag matches.
-  const shouldEnable = tags.some((tag) => active.has(String(tag)))
-  // Leave the stored mode untouched when no tags are active.
-  return shouldEnable ? 'active' : cfg.exportMode
+  // Start from the stored export mode before applying tag actions.
+  let nextMode: SellfileExportMode = cfg.exportMode
+  let hasInstruction = false
+  for (const tag of tags) {
+    // Normalize the config tags to the same tokens used in answers.
+    const normalized = normalizeTagValue(String(tag))
+    if (!normalized) continue
+    const actions = tagInstructions[normalized]
+    if (!actions || actions.length === 0) continue
+    hasInstruction = true
+    for (const action of actions) {
+      // Apply each action in config tag order for deterministic overrides.
+      if (action === 'enable') nextMode = 'active'
+      else if (action === 'disable') nextMode = 'disabled'
+      else nextMode = nextMode === 'active' ? 'disabled' : 'active'
+    }
+  }
+  // Leave the stored mode untouched when no tag actions apply.
+  return hasInstruction ? nextMode : cfg.exportMode
 }
 
 // Resolve a config's export mode with a raw tag list.
 export const resolveConfigOptionsExportMode = (
   cfg: BuilderConfig,
-  activeTags: readonly string[],
+  tagInstructions: ConfigOptionsTagInstructions,
 ): SellfileExportMode => {
-  // Normalize active tags once so lookups are stable.
-  const active = new Set(activeTags.map(String))
-  return resolveConfigOptionsExportModeWithSet(cfg, active)
+  return resolveConfigOptionsExportModeWithInstructions(cfg, tagInstructions)
 }
 
 // Build a per-config export-mode snapshot for config options overrides.
 export const buildConfigOptionsExportModeResolution = (
   configs: readonly BuilderConfig[],
-  activeTags: readonly string[],
+  tagInstructions: ConfigOptionsTagInstructions,
 ): ConfigOptionsExportModeResolution => {
-  // Normalize tags once for the full config list.
-  const active = new Set(activeTags.map(String))
   // Track effective modes and which configs are overridden.
   const modes: SellfileExportMode[] = []
   const overriddenIndices: number[] = []
   configs.forEach((cfg, idx) => {
     // Resolve the effective export mode for this config.
-    const nextMode = resolveConfigOptionsExportModeWithSet(cfg, active)
+    const nextMode = resolveConfigOptionsExportModeWithInstructions(cfg, tagInstructions)
     modes.push(nextMode)
     // Record overrides for UI indicators.
     if (nextMode !== cfg.exportMode) {
       overriddenIndices.push(idx)
     }
   })
-  // Return the active tag list plus the computed modes.
-  return { activeTags: Array.from(active), modes, overriddenIndices }
+  // Return the tag instructions plus the computed modes.
+  return { tagInstructions, modes, overriddenIndices }
 }
 
 // Apply config options overrides by cloning only the configs that change mode.
