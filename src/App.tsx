@@ -239,7 +239,7 @@ import { describeHsfcLoaded, describeAutosaveRestored, makeClipboardSourceDescri
 import { describeKeepUniquesEnabledChange, describeKeepUniquesRulesChange } from './history/keepUniquesDescriptors'
 import { useAutoSideBySideZoom } from './hooks/useAutoSideBySideZoom'
 import {
-  applyConfigOptionsExportModeOverrides,
+  applyConfigOptionsOverrides,
   buildConfigOptionsExportModeResolution,
   NOTE_CONFIG_OPTIONS_ANSWERS_KEY,
   pruneNoteConfigOptionsAnswers,
@@ -363,8 +363,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   )
   // Apply the export-mode overrides for rule generation without mutating HSFC configs.
   const configOptionsConfigsForRules = useMemo(
-    () => applyConfigOptionsExportModeOverrides(customCfgs, configOptionsExportModes.modes),
-    [customCfgs, configOptionsExportModes.modes],
+    () => applyConfigOptionsOverrides(customCfgs, configOptionsTagInstructions),
+    [customCfgs, configOptionsTagInstructions],
   )
   // Use a deferred snapshot so bursty substatTargets updates (e.g., Restore Defaults) coalesce before recomputing merged rules.
   const ruleConfigs = useMemo(() => configsForRuleBuild(configOptionsConfigsForRules), [configOptionsConfigsForRules])
