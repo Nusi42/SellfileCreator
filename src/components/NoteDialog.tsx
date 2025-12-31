@@ -34,6 +34,7 @@ import {
   type NoteQuestionDefinition,
   type NoteConfigOptionsAnswers,
 } from '../lib/noteConfigOptions'
+import { normalizeTagValue } from '../lib/tagHelpers'
 
 // Limited color palette for Note highlighting rendered from Markdown via
 //   <span data-color="{name}">…</span>
@@ -672,6 +673,24 @@ function collectConfigIds(text: string, configs: BuilderConfig[]): Set<number> {
   return used
 }
 
+function configMatchesNotePattern(cfg: BuilderConfig, pattern: RegExp): boolean {
+  // Match the config name first to preserve the existing regex behavior.
+  const name = typeof cfg?.name === 'string' ? cfg.name : ''
+  if (name) {
+    pattern.lastIndex = 0
+    if (pattern.test(name)) return true
+  }
+  // Check normalized tags so configs-re can target tag metadata.
+  const tags = Array.isArray(cfg?.tags) ? cfg.tags : []
+  for (const tag of tags) {
+    const normalized = normalizeTagValue(String(tag))
+    if (!normalized) continue
+    pattern.lastIndex = 0
+    if (pattern.test(normalized)) return true
+  }
+  return false
+}
+
 function buildConfigMarkerResolutions(text: string, configs: BuilderConfig[]): ConfigMarkerMap {
   const result: ConfigMarkerMap = new Map()
   if (!text) return result
@@ -694,9 +713,7 @@ function buildConfigMarkerResolutions(text: string, configs: BuilderConfig[]): C
         entries = configs
           .map((cfg, idx) => ({ cfg, idx }))
           .filter(({ cfg }) => {
-            const name = typeof cfg?.name === 'string' ? cfg.name : ''
-            safeCompiled.lastIndex = 0
-            return safeCompiled.test(name)
+            return configMatchesNotePattern(cfg, safeCompiled)
           })
           .map(({ cfg, idx }) => ({ id: idx + 1, cfg }))
       }
@@ -965,9 +982,7 @@ function ConfigChipBlock({ node }: ConfigChipBlockProps): JSX.Element | null {
         resolvedEntries = configs
           .map((cfg, idx) => ({ cfg, idx }))
           .filter(({ cfg }) => {
-            const name = typeof cfg?.name === 'string' ? cfg.name : ''
-            safeCompiled.lastIndex = 0
-            return safeCompiled.test(name)
+            return configMatchesNotePattern(cfg, safeCompiled)
           })
           .map(({ cfg, idx }) => ({ id: idx + 1, cfg }))
       } else {
