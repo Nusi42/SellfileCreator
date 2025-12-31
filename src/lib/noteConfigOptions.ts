@@ -63,6 +63,11 @@ export type NoteQuestionOption = {
   groupType: NoteQuestionGroupType
 }
 
+// Tag actions that apply when no options are selected.
+export type NoteQuestionFallback = {
+  tags: NoteQuestionTag[]
+}
+
 // Group metadata for a single question.
 export type NoteQuestionGroup = {
   id: string
@@ -77,6 +82,7 @@ export type NoteQuestionDefinition = {
   prompt: string
   groups: NoteQuestionGroup[]
   options: NoteQuestionOption[]
+  fallback: NoteQuestionFallback | null
   defaultAnswer: string[]
   answer: string[]
 }
@@ -441,12 +447,22 @@ type ParsedQuestionOption = {
   groupType: NoteQuestionGroupType
 }
 
+type ParsedQuestionFallback = {
+  kind: 'fallback'
+  tags: NoteQuestionTag[]
+}
+
+type ParsedQuestionOptionResult = (
+  | { kind: 'option'; option: ParsedQuestionOption }
+  | ParsedQuestionFallback
+)
+
 // Parse a single option block into label + tags.
 const parseOptionBlock = (
   raw: string,
   optionIndex: number,
   groupType: NoteQuestionGroupType,
-): ParsedQuestionOption | null => {
+): ParsedQuestionOptionResult | null => {
   // Skip leading whitespace inside the brackets.
   let idx = 0
   while (idx < raw.length && /\s/.test(raw.charAt(idx))) idx += 1
@@ -461,6 +477,8 @@ const parseOptionBlock = (
   if (!labelParsed) return null
   idx = labelParsed.nextIndex
   const label = labelParsed.value
+  // Track whether this option is the fallback entry (empty label).
+  const isFallback = label.trim().length === 0
   // Track the first explicit id token and exclusion tokens.
   let explicitToken: string | null = null
   const excludedTokens: string[] = []
@@ -483,7 +501,7 @@ const parseOptionBlock = (
     if (!token) continue
     // Handle explicit id tokens (id=token).
     const lower = token.toLowerCase()
-    if (lower.startsWith('id=')) {
+    if (!isFallback && lower.startsWith('id=')) {
       if (explicitToken) continue
       const candidate = normalizeQuestionToken(token.slice(3))
       if (!candidate) continue
@@ -491,7 +509,7 @@ const parseOptionBlock = (
       continue
     }
     // Handle exclusion tokens (!token).
-    if (token.startsWith('!')) {
+    if (!isFallback && token.startsWith('!')) {
       const candidate = normalizeQuestionToken(token.slice(1))
       if (!candidate) continue
       excludedTokens.push(candidate)
@@ -514,17 +532,26 @@ const parseOptionBlock = (
     if (overrides) nextTag.overrides = overrides
     tagTokens.push(nextTag)
   }
+  // Route empty-label entries to the fallback payload.
+  if (isFallback) {
+    // Ignore fallback entries that carry no tags.
+    if (tagTokens.length === 0) return null
+    return { kind: 'fallback', tags: tagTokens }
+  }
   // Build a stable ID for the option.
   const baseLabel = normalizeQuestionText(label).toLowerCase()
   const id = baseLabel ? `${baseLabel}#${optionIndex}` : `option-${optionIndex}`
   return {
-    id,
-    label,
-    tags: tagTokens,
-    isDefault,
-    explicitToken,
-    excludedTokens,
-    groupType,
+    kind: 'option',
+    option: {
+      id,
+      label,
+      tags: tagTokens,
+      isDefault,
+      explicitToken,
+      excludedTokens,
+      groupType,
+    },
   }
 }
 
@@ -655,9 +682,16 @@ export const parseNoteConfigOptions = (
     // Parse option blocks that follow the prompt.
     const blocks = extractOptionBlocks(inner, promptParsed.nextIndex)
     const parsedOptions: ParsedQuestionOption[] = []
+    const fallbackTags: NoteQuestionTag[] = []
     blocks.forEach((block) => {
       const parsed = parseOptionBlock(block.raw, parsedOptions.length, block.type)
-      if (parsed) parsedOptions.push(parsed)
+      if (!parsed) return
+      if (parsed.kind === 'fallback') {
+        // Preserve fallback tags in source order.
+        fallbackTags.push(...parsed.tags)
+        return
+      }
+      parsedOptions.push(parsed.option)
     })
     // Skip malformed questions that lack options.
     if (parsedOptions.length === 0) {
@@ -729,6 +763,7 @@ export const parseNoteConfigOptions = (
       prompt,
       groups: groupOrder,
       options,
+      fallback: fallbackTags.length > 0 ? { tags: fallbackTags } : null,
       defaultAnswer,
       answer,
     })
@@ -835,6 +870,17 @@ export const resolveConfigOptionsTags = (
   for (const question of questions) {
     // Only apply tags for selected options.
     const selected = new Set(question.answer)
+    if (selected.size === 0 && question.fallback) {
+      // Apply fallback tags when nothing is selected.
+      for (const tag of question.fallback.tags) {
+        const bucket = tagInstructions[tag.value] ?? []
+        const instruction: ConfigOptionsTagInstruction = { action: tag.action }
+        if (tag.overrides) instruction.overrides = tag.overrides
+        bucket.push(instruction)
+        tagInstructions[tag.value] = bucket
+      }
+      continue
+    }
     for (const option of question.options) {
       if (!selected.has(option.id)) continue
       for (const tag of option.tags) {
