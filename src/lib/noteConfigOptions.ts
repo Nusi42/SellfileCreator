@@ -384,10 +384,17 @@ const parseRarityOverride = (
   }
 }
 
-// Parse a level range in the format "min-max".
+// Parse a level range in the format "min-max" (or a single value).
 const parseLevelRange = (value: string): { min: LevelMilestone; max: LevelMilestone } | null => {
   // Split on the range separator.
-  const parts = value.split('-').map((entry) => entry.trim())
+  const parts = value.split('-').map((entry) => entry.trim()).filter((entry) => entry.length > 0)
+  if (parts.length === 1) {
+    // Single milestones map to a min=max range.
+    const only = Number(parts[0])
+    if (!Number.isFinite(only)) return null
+    if (!isLevelMilestone(only)) return null
+    return { min: only, max: only }
+  }
   if (parts.length !== 2) return null
   // Convert both endpoints to numbers.
   const minRaw = Number(parts[0])
