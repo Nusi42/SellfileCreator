@@ -232,11 +232,13 @@ This document captures runtime behavior, builder interactions, and user-facing w
 - Edit: The dialog uses an embedded Markdown editor (`@uiw/react-md-editor`) with sanitized previews (`rehype-sanitize`). The editor lives in `src/components/NoteDialog.tsx`.
 - Edit/View switch: The edit dialog now includes a `View Note…` button (outlined, bottom-left) that switches back to view mode. If config options markers changed versus the original note, the button shows a warning badge.
 - Config options markers: HTML comments inside the note can render interactive question blocks in the read-only view. Markers can be inline or multi-line; whitespace is optional.
-  - Syntax (single): `<!-- q:single "Prompt" [* "Yes", +tag1, tag2] ["No", -tag1] -->`.
-  - Syntax (multi): `<!-- q:multi "Prompt" [* "Option", tag-a] ["Other", +tag-b] -->`.
-  - `*` before the label marks the default selection. `+tag` forces enable, `-tag` forces disable, and a bare `tag` toggles the stored export mode. Whitespace is optional.
+  - Syntax (single group): `<!-- q "Prompt" (* "Yes", +tag1, tag2) ("No", -tag1) -->`.
+  - Syntax (multi group): `<!-- question "Prompt" [* "Option", tag1] ["Other", +tag2] -->`.
+  - Mixed groups: `()` renders a radio group, `[]` renders a checkbox group. A marker can include both; exclusions apply across the entire marker.
+  - Tokens: `*` marks defaults; `+tag` enables, `-tag` disables, and bare `tag` toggles. Tags allow unicode letters/numbers plus underscores (must not start with a number); whitespace and punctuation are reserved for future syntax.
+  - IDs + exclusions: `id=TOKEN` assigns a stable token to an option, and `!TOKEN` excludes another option. If no `id=` is present, the option’s 1-based index across the entire marker is its token.
   - Prompt references: Wrap option labels in backticks to render them as chips (e.g., ``Answering `Yes` will...``). Use numeric references like `` `\1` `` (1-based) to inject the Nth option label. Wrap emphasis text in `**double-asterisks**` to render it with the Quota/Scope label style; both markers work in prompts and option labels. Prompts accept literal newlines or `\n` escapes for line breaks.
-  - Multi-select questions can be cleared to zero answers; an explicit empty selection bypasses defaults until the user reselects options.
+  - Multi-select groups can be cleared to zero answers; an explicit empty selection bypasses defaults until the user reselects options.
   - Questions are evaluated top-to-bottom; tag actions for a config apply in the order of that config’s tag list so toggles resolve deterministically.
 - Config options effects: Answers never mutate HSFC configs. Instead, config options tag actions compute an effective export mode at runtime (for preview + HSF export) while configs stay unchanged in storage. Tagged configs override only when at least one tag action matches their tag list; otherwise the stored export mode is preserved.
 - Session-only answers: Config options answers are stored in autosave/session state only; HSFC exports never include them.

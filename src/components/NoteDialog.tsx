@@ -31,6 +31,7 @@ import { resolveRarityLabel } from '../lib/testerPreviewFormatting'
 import { warningBadgeSx } from '../lib/badgeStyles'
 import {
   buildNoteConfigOptionsSignature,
+  applyQuestionExclusions,
   resolveConfigOptionsTags,
   type NoteQuestionDefinition,
   type NoteConfigOptionsAnswers,
@@ -101,9 +102,9 @@ const NOTE_CARD_WIDTHS: Record<NoteCardWidthPreset, { flexBasis: number; minWidt
 }
 
 // Match HTML comment bodies that declare config options markers.
-const QUESTION_COMMENT_REGEX = /^\s*q\s*:\s*(single|multi)\b/i
+const QUESTION_COMMENT_REGEX = /^\s*(?:q|question)\b/i
 // Match raw HTML comment markers in the Markdown stream.
-const QUESTION_MARKER_REGEX = /<!--\s*q\s*:\s*(single|multi)[\s\S]*?-->/i
+const QUESTION_MARKER_REGEX = /<!--\s*(?:q|question)\b[\s\S]*?-->/i
 // Custom element tag used in sanitized Markdown output.
 const QUESTION_ELEMENT_TAG = 'note-config-options'
 // Wrapper tag used to group question markers into a single flex layout.
@@ -1176,59 +1177,80 @@ function NoteQuestionBlock({ node }: NoteQuestionBlockProps): JSX.Element | null
             {renderQuestionTextTokens({ tokens: promptTokens, chipSx: promptChipSx, labelSx: promptLabelSx })}
           </Typography>
         </Box>
-        {/* Render either radios or checkboxes based on question type. */}
-        {question.type === 'single' ? (
-          <FormControl component="fieldset" variant="standard" sx={{ mt: 0.35 }}>
-            <RadioGroup
-              value={selected[0] ?? ''}
-              onChange={(_, value) => applyAnswer(value ? [value] : [])}
-              sx={{ gap: 0.25 }}
-            >
-              {question.options.map((option) => (
-                <FormControlLabel
-                  key={option.id}
-                  value={option.id}
-                  control={<Radio size="small" disabled={!configOptionsEditable} />}
-                  label={renderQuestionOptionLabel(option.label, promptChipSx, promptLabelSx)}
-                  disabled={!configOptionsEditable}
-                  sx={NOTE_QUESTION_OPTION_SX}
-                />
-              ))}
-            </RadioGroup>
-          </FormControl>
-        ) : (
-          <FormGroup sx={{ gap: 0.25, mt: 0.35 }}>
-            {question.options.map((option) => {
-              // Compute the checked state once per option.
-              const checked = selectedSet.has(option.id)
+        {/* Render each option group with its matching control type. */}
+        <Stack spacing={0.35} sx={{ mt: 0.35 }}>
+          {question.groups.map((group) => {
+            // Lookup the selected option in this group.
+            const selectedOption = group.options.find((option) => selectedSet.has(option.id))
+            if (group.type === 'single') {
               return (
-                <FormControlLabel
-                  key={option.id}
-                  control={(
-                    <Checkbox
-                      size="small"
-                      checked={checked}
-                      disabled={!configOptionsEditable}
-                      onChange={(event) => {
-                        // Ignore changes when the question is read-only.
-                        if (!configOptionsEditable) return
-                        // Toggle the option in a new Set instance.
-                        const next = new Set(selectedSet)
-                        if (event.target.checked) next.add(option.id)
-                        else next.delete(option.id)
-                        // Persist the new answer list.
-                        applyAnswer(Array.from(next))
-                      }}
-                    />
-                  )}
-                  label={renderQuestionOptionLabel(option.label, promptChipSx, promptLabelSx)}
-                  disabled={!configOptionsEditable}
-                  sx={NOTE_QUESTION_OPTION_SX}
-                />
+                <FormControl key={group.id} component="fieldset" variant="standard">
+                  <RadioGroup
+                    value={selectedOption?.id ?? ''}
+                    onChange={(_, value) => {
+                      // Ignore changes when the question is read-only.
+                      if (!configOptionsEditable) return
+                      // Reset the group's selection while preserving other groups.
+                      const next = new Set(selectedSet)
+                      group.options.forEach((option) => next.delete(option.id))
+                      if (value) next.add(value)
+                      // Apply exclusions so mutual rules stay enforced.
+                      const ordered = applyQuestionExclusions(Array.from(next), question.options, value || undefined)
+                      applyAnswer(ordered)
+                    }}
+                    sx={{ gap: 0.25 }}
+                  >
+                    {group.options.map((option) => (
+                      <FormControlLabel
+                        key={option.id}
+                        value={option.id}
+                        control={<Radio size="small" disabled={!configOptionsEditable} />}
+                        label={renderQuestionOptionLabel(option.label, promptChipSx, promptLabelSx)}
+                        disabled={!configOptionsEditable}
+                        sx={NOTE_QUESTION_OPTION_SX}
+                      />
+                    ))}
+                  </RadioGroup>
+                </FormControl>
               )
-            })}
-          </FormGroup>
-        )}
+            }
+            return (
+              <FormGroup key={group.id} sx={{ gap: 0.25 }}>
+                {group.options.map((option) => {
+                  // Compute the checked state once per option.
+                  const checked = selectedSet.has(option.id)
+                  return (
+                    <FormControlLabel
+                      key={option.id}
+                      control={(
+                        <Checkbox
+                          size="small"
+                          checked={checked}
+                          disabled={!configOptionsEditable}
+                          onChange={(event) => {
+                            // Ignore changes when the question is read-only.
+                            if (!configOptionsEditable) return
+                            // Toggle the option in a new Set instance.
+                            const next = new Set(selectedSet)
+                            if (event.target.checked) next.add(option.id)
+                            else next.delete(option.id)
+                            // Apply exclusions so mutual rules stay enforced.
+                            const preferred = event.target.checked ? option.id : undefined
+                            const ordered = applyQuestionExclusions(Array.from(next), question.options, preferred)
+                            applyAnswer(ordered)
+                          }}
+                        />
+                      )}
+                      label={renderQuestionOptionLabel(option.label, promptChipSx, promptLabelSx)}
+                      disabled={!configOptionsEditable}
+                      sx={NOTE_QUESTION_OPTION_SX}
+                    />
+                  )
+                })}
+              </FormGroup>
+            )
+          })}
+        </Stack>
       </Stack>
     </Box>
   )
