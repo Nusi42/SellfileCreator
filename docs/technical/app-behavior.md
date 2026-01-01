@@ -229,6 +229,7 @@ This document captures runtime behavior, builder interactions, and user-facing w
 
 - Schema: HSFC may include an optional root-level `Note: string` with Markdown content.
 - Load: When an HSFC with `Note` is loaded, a modal dialog opens automatically (view-only). The dialog can also be opened via the always-visible note button in the HSFC controls row: `Add Note…` when empty, `Note…` when populated (opens in view mode).
+- Auto-open UI: The auto-opened dialog hides the `Edit Note & Config Options…` action so editing only happens after the user reopens the note manually.
 - Close: The dialog schedules its dismissal on the next animation frame; if a new note opens immediately after a close request (common during HSFC imports), the pending close is cancelled so the modal overlay never lingers.
 - Edit: The dialog uses an embedded Markdown editor (`@uiw/react-md-editor`) with sanitized previews (`rehype-sanitize`). The editor lives in `src/components/NoteDialog.tsx`.
 - Edit/View switch: The edit dialog now includes a `View Note…` button (outlined, bottom-left) that switches back to view mode. If config options markers changed versus the original note, the button shows a warning badge.

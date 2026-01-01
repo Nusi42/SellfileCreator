@@ -2291,6 +2291,19 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setCopyText,
     copyInputRef,
   } = hsfcDialogs
+  // Track when the note dialog opened automatically from an HSFC import.
+  // Why: auto-opened notes should hide the "Edit Note & Config Options…" button.
+  const [noteAutoOpenedFromHsfc, setNoteAutoOpenedFromHsfc] = useState(false)
+  // Manual openers reset the auto-open flag so the edit entry point returns.
+  const openNoteEditorManual = useCallback(() => {
+    setNoteAutoOpenedFromHsfc(false)
+    openNoteEditor()
+  }, [openNoteEditor, setNoteAutoOpenedFromHsfc])
+  // Manual view opens should also clear auto-open gating.
+  const openNoteViewerManual = useCallback(() => {
+    setNoteAutoOpenedFromHsfc(false)
+    openNoteViewer()
+  }, [openNoteViewer, setNoteAutoOpenedFromHsfc])
   requestDeleteSingleForSelection = requestDeleteSingle
   requestDeleteMultiForSelection = requestDeleteMulti
   requestDeleteSingleRef.current = requestDeleteSingle
@@ -2310,8 +2323,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     noteHistorySessionRef.current = 'idle'
     noteSessionBaselineRef.current = null
     noteSessionModeRef.current = null
+    // Closing ends the auto-open session so later opens behave normally.
+    setNoteAutoOpenedFromHsfc(false)
     closeNote()
-  }, [closeNote])
+  }, [closeNote, setNoteAutoOpenedFromHsfc])
 
   const applyNoteChange = useCallback((
     value: React.SetStateAction<string | null>,
@@ -4235,6 +4250,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     beginTesterMatchReset('hsfc')
 
     if (importedNote !== null) {
+      // Mark this as an auto-open so the view dialog hides the edit button.
+      setNoteAutoOpenedFromHsfc(true)
       applyNoteChange(importedNote, { mode: 'import', publish: false })
       openNoteViewer()
     } else {
@@ -4284,6 +4301,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     markSavedNow,
     metasets,
     openNoteViewer,
+    setNoteAutoOpenedFromHsfc,
     setKeepUniqueRules,
     setKeepUniquesEnabled,
     setBuilder,
@@ -4429,7 +4447,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         showToast(t('toastConfigsSaved'))
         markSavedNow()
       }}
-      onOpenNote={() => { notePresent ? openNoteViewer() : openNoteEditor() }}
+      onOpenNote={() => { notePresent ? openNoteViewerManual() : openNoteEditorManual() }}
       notePresent={notePresent}
       count={customCfgs.length}
       selectedCount={selectedCfgIndices.length}
@@ -5075,8 +5093,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             applyNoteChange(value, { mode })
           }}
           onClose={handleCloseNote}
-          onRequestEdit={openNoteEditor}
-          onRequestView={openNoteViewer}
+          onRequestEdit={openNoteEditorManual}
+          onRequestView={openNoteViewerManual}
           configOptionsAnswers={noteConfigOptionsAnswers}
           onConfigOptionsAnswersChange={setNoteConfigOptionsAnswers}
           configs={customCfgs}
@@ -5084,6 +5102,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           keepUniqueRules={keepUniqueRules}
           useStatButtonColors={statButtonBorders}
           substatColors={substatColors}
+          hideEditButton={noteAutoOpenedFromHsfc}
         />
       ) : null}
       <Snackbar

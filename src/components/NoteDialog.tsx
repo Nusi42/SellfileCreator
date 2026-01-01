@@ -29,8 +29,7 @@ import {
   statVariantI18nKey,
   getLocalizedGearSetName,
   labelOfVariant,
-  STAT_VARIANTS_PRIORITY,
-  StatVariant,
+  STAT_VARIANTS_PRIORITY
 } from '../lib/types'
 import { normalizeArtifactSetSelections, splitArtifactSetSelections } from '../lib/gearSets/selection'
 import ConfigChip from './ConfigChip'
@@ -1792,6 +1791,7 @@ export default function NoteDialog({
   keepUniqueRules,
   useStatButtonColors,
   substatColors,
+  hideEditButton,
 }: {
   open: boolean
   mode: 'view' | 'edit'
@@ -1807,6 +1807,8 @@ export default function NoteDialog({
   keepUniqueRules: KeepUniqueRule[]
   useStatButtonColors: boolean
   substatColors: Record<number, { fg: string; bg: string }>
+  // Hide the edit entry point when the dialog auto-opens after HSFC load.
+  hideEditButton: boolean
 }) {
   const { t, lang } = useI18n()
   const editCommitRef = useRef<() => void>(() => onClose())
@@ -2009,10 +2011,12 @@ export default function NoteDialog({
             <DialogActions>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', width: '100%', justifyContent: 'space-between' }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  {/* Switch to edit mode without closing the dialog. */}
-                  <Button variant="outlined" onClick={onRequestEdit}>
-                    {t('editNote')}
-                  </Button>
+                  {!hideEditButton ? (
+                    // Switch to edit mode without closing the dialog.
+                    <Button variant="outlined" onClick={onRequestEdit}>
+                      {t('editNote')}
+                    </Button>
+                  ) : null}
                 </Box>
                 <Button onClick={onClose}>{t('close')}</Button>
               </Box>
