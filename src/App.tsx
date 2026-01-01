@@ -240,10 +240,12 @@ import { describeKeepUniquesEnabledChange, describeKeepUniquesRulesChange } from
 import { useAutoSideBySideZoom } from './hooks/useAutoSideBySideZoom'
 import {
   applyConfigOptionsOverrides,
+  applyConfigOptionsSubstatTargetsOverrides,
   buildConfigOptionsExportModeResolution,
   NOTE_CONFIG_OPTIONS_ANSWERS_KEY,
   pruneNoteConfigOptionsAnswers,
   resolveConfigOptionsExportMode,
+  resolveConfigOptionsEffectiveConfig,
   resolveConfigOptionsTags,
 } from './lib/noteConfigOptions'
 
@@ -366,6 +368,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     () => applyConfigOptionsOverrides(customCfgs, configOptionsInstructions),
     [customCfgs, configOptionsInstructions],
   )
+  const configOptionsSubstatTargetsResolution = useMemo(
+    () => applyConfigOptionsSubstatTargetsOverrides(substatTargets, customCfgs, configOptionsInstructions),
+    [substatTargets, customCfgs, configOptionsInstructions],
+  )
+  const effectiveSubstatTargets = configOptionsSubstatTargetsResolution.substatTargets
+  const substatTargetsOverridesActive = configOptionsSubstatTargetsResolution.overridesActive
   // Use a deferred snapshot so bursty substatTargets updates (e.g., Restore Defaults) coalesce before recomputing merged rules.
   const ruleConfigs = useMemo(() => configsForRuleBuild(configOptionsConfigsForRules), [configOptionsConfigsForRules])
   const configNames = useMemo(() => customCfgs.map((cfg) => (typeof cfg?.name === 'string' ? cfg.name : '')), [customCfgs])
@@ -387,13 +395,13 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     [customCfgs, normalizeConfigTags],
   )
   const configModes = useMemo(() => configOptionsExportModes.modes, [configOptionsExportModes])
-  const substatTargetsForPreview = useDeferredValue(substatTargets)
+  const substatTargetsForPreview = useDeferredValue(effectiveSubstatTargets)
   const metasetsForPreview = useDeferredValue(metasets)
   const ruleConfigsForPreview = useDeferredValue(ruleConfigs)
   const configModesForPreview = useDeferredValue(configModes)
   const configNamesForPreview = useDeferredValue(configNames)
   // Keep tester math reusable so seeding hooks share the same normalization as the dialog.
-  const testerMath = useMemo(() => createRuleTesterMath(substatTargets), [substatTargets])
+  const testerMath = useMemo(() => createRuleTesterMath(effectiveSubstatTargets), [effectiveSubstatTargets])
   const lastConfigNamesRef = useRef<string[]>(configNamesForPreview)
   // Track the last dispatched pipeline so deferred snapshots cannot retrigger identical worker runs.
   const lastPipelineSignatureRef = useRef<{ fingerprint: string | null; artifactSig: string | null } | null>(null)
@@ -771,14 +779,14 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     const initial = updateConfigRulesCache({
       configs: configsForRules,
       metasets,
-      substatTargets,
+      substatTargets: effectiveSubstatTargets,
       baseRuleCount,
     })
     const mergedRules = computeMergedRules({
       hsf,
       customCfgs: configsForRules,
       metasets,
-      substatTargets,
+      substatTargets: effectiveSubstatTargets,
       ...(finalSellRemainder ? { finalSellRemainder } : {}),
       prebuiltCustomRules: initial.rulesByConfig,
       keepUniques: {
@@ -895,9 +903,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       || metasetsForPreview.some((meta, idx) => meta !== metasets[idx])
     )
     const metasetsForBuild = previewMetasetsStale ? metasets : metasetsForPreview
-    const substatTargetsForBuild = substatTargetsForPreview === substatTargets
-      ? substatTargets
-      : (substatTargetsForPreview ?? substatTargets)
+    const substatTargetsForBuild = substatTargetsForPreview === effectiveSubstatTargets
+      ? effectiveSubstatTargets
+      : (substatTargetsForPreview ?? effectiveSubstatTargets)
     // Use the build-aligned snapshot for key comparisons so reorders are detected even if deferred previews lag.
     const nextSubstatTargetsKey = fingerprintSubstatTargets(substatTargetsForBuild)
     const nextConfigKeys = configsForBuild.map((cfg) => fingerprintConfigForRules(cfg, nextSubstatTargetsKey))
@@ -1387,7 +1395,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     configNames,
     metasets,
     metasetsForPreview,
-    substatTargets,
+    effectiveSubstatTargets,
     substatTargetsForPreview,
     hsf,
     finalSellRemainder,
@@ -3569,8 +3577,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         }
       } else {
         let limitHit = false
+        const effectiveConfig = resolveConfigOptionsEffectiveConfig(config, configOptionsInstructions)
         rulesForConfig = buildRulesForConfig(
-          { config, metasets, substatTargets, cfgIdx: targetIndex },
+          { config: effectiveConfig, metasets, substatTargets: effectiveSubstatTargets, cfgIdx: targetIndex },
           {
             limit: RULE_COUNT_LIMIT + 1,
             onLimit: () => { limitHit = true },
@@ -3589,7 +3598,15 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     } catch {
       return true
     }
-  }, [metasets, substatTargets, rulesByConfig, rulesFilter, configRuleCounts, specialRuleSourceLabels])
+  }, [
+    configOptionsInstructions,
+    effectiveSubstatTargets,
+    metasets,
+    rulesByConfig,
+    rulesFilter,
+    configRuleCounts,
+    specialRuleSourceLabels,
+  ])
 
   const prospectiveInsertIndex = useMemo(() => (
     selectedCfgIdx !== null && selectedCfgIdx >= 0 && selectedCfgIdx < customCfgs.length
@@ -3688,7 +3705,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     // for at least one tester row that survives the tester-side filters.
     if (!limitConfigsToFiltered) return true
     // Apply config options overrides before testing the export mode.
-    const builderExportMode = resolveConfigOptionsExportMode(builder, configOptionsInstructions)
+    const builderEffective = resolveConfigOptionsEffectiveConfig(builder, configOptionsInstructions)
+    const builderExportMode = builderEffective.exportMode
     if (builderExportMode === 'disabled') return false
     // In tester mode, separators are always shown when config filtering is off (anchor chips remain visible).
     if (builderExportMode === 'separator' && testerConfigFilterMode === 'off') return true
@@ -3697,16 +3715,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     let ruleLimitHit = false
     // Ensure the rules we build reflect the config options export mode.
     // Clone only when the effective export mode diverges from the stored value.
-    const builderForRules = builderExportMode === builder.exportMode
-      ? builder
-      : (() => {
-          // Avoid mutating the live builder snapshot while we test matches.
-          const clone = cloneBuilderConfig(builder)
-          clone.exportMode = builderExportMode
-          return clone
-        })()
+    const builderForRules = builderEffective
     const rulesForBuilder = buildRulesForConfig(
-      { config: builderForRules, metasets, substatTargets, cfgIdx: targetIndex },
+      { config: builderForRules, metasets, substatTargets: effectiveSubstatTargets, cfgIdx: targetIndex },
       { limit: RULE_COUNT_LIMIT + 1, onLimit: () => { ruleLimitHit = true } },
     )
     // If the config generates more rules than we are willing to build in-render, assume it is visible.
@@ -3722,9 +3733,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   }, [
     builder,
     configOptionsInstructions,
+    effectiveSubstatTargets,
     limitConfigsToFiltered,
     metasets,
-    substatTargets,
     testerConfigFilterMode,
     gearEntriesAfterRulesFilter,
   ])
@@ -4141,6 +4152,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         }
       }}
       substatTargets={substatTargets}
+      substatTargetsOverridesActive={substatTargetsOverridesActive}
       onResetMetasets={handleResetMetasets}
       onSubstatTargetsChange={(next, opts) => { applySubstatTargetsChange(next, opts) }}
       substatTargetsDialogOpen={substatTargetsDialogOpen}
