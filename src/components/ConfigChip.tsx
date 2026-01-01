@@ -305,10 +305,13 @@ function ConfigChip({
         const baseBorderColor = selected
           ? theme.palette.primary.main
           : (showDuplicateFrame ? theme.palette.error.main : theme.palette.divider)
+        // Full-width column layout: avoid percentage-based flex so chips don't stretch vertically.
         const flexSizing = isSeparator
-          ? '0 0 100%'
-          : (isStatic ? '0 1 auto' : '1 1 auto')
-        // Interactive chips flex-grow so a single chip spans the row while static embeds keep their natural width.
+          ? '0 0 auto'
+          : (isStatic ? '0 1 auto' : '0 0 auto')
+        // Interactive chips should fill the row; static chips keep their natural width.
+        const rowWidth = isSeparator || !isStatic ? '100%' : 'auto'
+        // Keep the border radius stable across themes.
         const borderRadius = `${CONFIG_CHIP_BORDER_RADIUS_PX}px`
         const pointerCursor = isStatic ? 'default' : (dragEnabled ? 'grab' : 'pointer')
         return {
@@ -316,7 +319,10 @@ function ConfigChip({
           display: 'inline-flex',
           alignItems: 'center',
           gap: isSeparator ? (separatorDecoration.hasLabel ? 1.5 : 0) : 0.5,
+          // Cap width so chips never push outside the scroller.
           maxWidth: '100%',
+          // Fill the row in the builder column layout.
+          width: rowWidth,
           overflow: isStatic ? 'visible' : 'hidden',
           border: '1px solid',
           borderColor: baseBorderColor,
