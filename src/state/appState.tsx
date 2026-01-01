@@ -36,6 +36,8 @@ type AppState = {
   hsfcNote: string | null
   // Session-only configOptions answers keyed by question ID.
   noteConfigOptionsAnswers: NoteConfigOptionsAnswers
+  // Session-only flag to ignore config options prompts.
+  noteConfigOptionsDisabled: boolean
 }
 
 type Updater<T> = T | ((prev: T) => T)
@@ -51,6 +53,7 @@ type Action =
   | { type: 'setSelectedCfgIdx'; value: Updater<number | null> }
   | { type: 'setHsfcNote'; value: Updater<string | null> }
   | { type: 'setNoteConfigOptionsAnswers'; value: Updater<NoteConfigOptionsAnswers> }
+  | { type: 'setNoteConfigOptionsDisabled'; value: Updater<boolean> }
 
 function reducer(state: AppState, action: Action): AppState {
   switch (action.type) {
@@ -105,6 +108,12 @@ function reducer(state: AppState, action: Action): AppState {
         : action.value
       return { ...state, noteConfigOptionsAnswers: next }
     }
+    case 'setNoteConfigOptionsDisabled': {
+      const next = typeof action.value === 'function'
+        ? (action.value as (p: boolean) => boolean)(state.noteConfigOptionsDisabled)
+        : Boolean(action.value)
+      return { ...state, noteConfigOptionsDisabled: next }
+    }
     default: return state
   }
 }
@@ -120,6 +129,7 @@ type AppDispatchers = {
   setSelectedCfgIdx: (v: Updater<number | null>) => void
   setHsfcNote: (v: Updater<string | null>) => void
   setNoteConfigOptionsAnswers: (v: Updater<NoteConfigOptionsAnswers>) => void
+  setNoteConfigOptionsDisabled: (v: Updater<boolean>) => void
 }
 
 const AppStateCtx = createContext<AppState | null>(null)
@@ -139,6 +149,7 @@ export function AppStateProvider({ initial, children }: { initial: AppState; chi
     setSelectedCfgIdx: (v) => dispatch({ type: 'setSelectedCfgIdx', value: v }),
     setHsfcNote: (v) => dispatch({ type: 'setHsfcNote', value: v }),
     setNoteConfigOptionsAnswers: (v) => dispatch({ type: 'setNoteConfigOptionsAnswers', value: v }),
+    setNoteConfigOptionsDisabled: (v) => dispatch({ type: 'setNoteConfigOptionsDisabled', value: v }),
   }), [])
 
   return (
@@ -172,8 +183,10 @@ export function makeInitialAppState(params: Partial<AppState> & Pick<AppState, '
     keepUniquesEnabled: false,
     selectedCfgIdx: null,
     hsfcNote: null,
-  // Config options answers are stored only in autosave/session state.
+    // Config options answers are stored only in autosave/session state.
     noteConfigOptionsAnswers: {},
+    // Config options are enabled by default when a note includes markers.
+    noteConfigOptionsDisabled: false,
     ...rest,
     metasets: normalizeMetasetIcons(metasets),
   }

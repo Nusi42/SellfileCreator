@@ -1,12 +1,13 @@
 import React, { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
-import { Badge, Box, Button, Checkbox, Dialog, DialogActions, DialogContent, DialogTitle, FormControl, FormControlLabel, FormGroup, LinearProgress, Radio, RadioGroup, Stack, Typography } from '@mui/material'
+import { Badge, Box, Button, Checkbox, Dialog, DialogActions, DialogContent, DialogTitle, Divider, FormControl, FormControlLabel, FormGroup, LinearProgress, Menu, MenuItem, Radio, RadioGroup, Stack, Typography } from '@mui/material'
 import { alpha, useTheme, type Theme } from '@mui/material/styles'
 import LocalOfferIcon from '@mui/icons-material/LocalOffer'
 import StarsIcon from '@mui/icons-material/Stars'
 import ViewListIcon from '@mui/icons-material/ViewList'
 import QuizIcon from '@mui/icons-material/Quiz'
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import { useI18n } from '../lib/i18n'
-import { FONT_SIZE_MARKDOWN_PX, FONT_SIZE_SECONDARY_PX } from '../lib/constants'
+import { FONT_SIZE_MARKDOWN_PX, FONT_SIZE_SECONDARY_PX, SMALL_BUTTON_HEIGHT_PX } from '../lib/constants'
 import MDEditor from '@uiw/react-md-editor'
 import type { ICommand, RefMDEditor } from '@uiw/react-md-editor'
 import { commands, getCommands } from '@uiw/react-md-editor'
@@ -43,6 +44,7 @@ import {
   buildNoteConfigOptionsSignature,
   applyQuestionExclusions,
   resolveConfigOptionsTags,
+  type ConfigOptionsInstructions,
   type NoteQuestionDefinition,
   type NoteConfigOptionsAnswers,
 } from '../lib/noteConfigOptions'
@@ -332,6 +334,7 @@ type NoteRenderContextValue = {
   keepUniqueMarkerResolutions: KeepUniqueMarkerMap
   configOptionsResolutions: Map<number, NoteQuestionDefinition>
   configOptionsEditable: boolean
+  configOptionsDisabled: boolean
   onConfigOptionsAnswerChange: (question: NoteQuestionDefinition, nextAnswer: string[]) => void
 }
 
@@ -1194,7 +1197,7 @@ function buildNoteScopeChipSx(theme: Theme, active: boolean) {
 
 function NoteQuestionBlock({ node }: NoteQuestionBlockProps): JSX.Element | null {
   // Pull config options wiring from context.
-  const { configOptionsResolutions, configOptionsEditable, onConfigOptionsAnswerChange } = useNoteRenderContext()
+  const { configOptionsResolutions, configOptionsEditable, configOptionsDisabled, onConfigOptionsAnswerChange } = useNoteRenderContext()
   const theme = useTheme()
   // Extract the marker index from the custom element.
   const rawIndexAttr = coerceFirstString(node?.properties?.[QUESTION_ELEMENT_INDEX_ATTR])
@@ -1246,6 +1249,7 @@ function NoteQuestionBlock({ node }: NoteQuestionBlockProps): JSX.Element | null
   }
   // Shared sizing keeps question cards in lockstep with keep-unique cards.
   const { flexBasis, minWidth, maxWidth } = getNoteCardWidthStyles('note')
+  const cardOpacity = configOptionsDisabled ? 0.55 : 1
   return (
     <Box
       sx={{
@@ -1259,6 +1263,7 @@ function NoteQuestionBlock({ node }: NoteQuestionBlockProps): JSX.Element | null
         borderColor: 'divider',
         p: 1.25,
         bgcolor: 'background.paper',
+        opacity: cardOpacity,
       }}
     >
       {/* Stack keeps the heading and options tightly grouped. */}
@@ -1785,6 +1790,11 @@ function KeepUniqueSummaryCard({
   )
 }
 
+// Capture the note text for the disable-confirm dialog.
+type DisableConfigOptionsContext = {
+  noteText: string
+}
+
 export default function NoteDialog({
   open,
   mode,
@@ -1795,6 +1805,9 @@ export default function NoteDialog({
   onRequestView,
   configOptionsAnswers,
   onConfigOptionsAnswersChange,
+  configOptionsDisabled,
+  onConfigOptionsDisabledChange,
+  onApplyConfigOptionsOverrides,
   configs,
   metasets,
   keepUniqueRules,
@@ -1811,6 +1824,10 @@ export default function NoteDialog({
   onRequestView: () => void
   configOptionsAnswers: NoteConfigOptionsAnswers
   onConfigOptionsAnswersChange: React.Dispatch<React.SetStateAction<NoteConfigOptionsAnswers>>
+  configOptionsDisabled: boolean
+  onConfigOptionsDisabledChange: React.Dispatch<React.SetStateAction<boolean>>
+  // Optional callback for applying the current config options to stored configs.
+  onApplyConfigOptionsOverrides: (instructions: ConfigOptionsInstructions) => void
   configs: BuilderConfig[]
   metasets: Metaset[]
   keepUniqueRules: KeepUniqueRule[]
@@ -1833,10 +1850,67 @@ export default function NoteDialog({
     [renderNote, keepUniqueRules],
   )
   // Map marker indices to question definitions for rendering.
+  const configOptionsSignature = useMemo(
+    () => buildNoteConfigOptionsSignature(renderNote ?? ''),
+    [renderNote],
+  )
+  // Flag whether the current note includes config options markers.
+  const hasConfigOptionsMarkers = configOptionsSignature !== '[]'
+  // Resolve config options markers so disabled state can still render dimmed cards.
   const configOptionsResolutions = useMemo(
     () => buildConfigOptionsMarkerResolutions(renderNote ?? '', configOptionsAnswers),
-    [renderNote, configOptionsAnswers],
+    [configOptionsAnswers, renderNote],
   )
+  // Reset answers by clearing stored overrides back to defaults and re-enabling parsing.
+  const handleResetConfigOptionsAnswers = React.useCallback(() => {
+    onConfigOptionsDisabledChange(false)
+    onConfigOptionsAnswersChange(() => ({}))
+  }, [onConfigOptionsAnswersChange, onConfigOptionsDisabledChange])
+  const handleEnableConfigOptions = React.useCallback(() => {
+    onConfigOptionsDisabledChange(false)
+  }, [onConfigOptionsDisabledChange])
+  // Anchor the config options action menu in view mode.
+  const [viewConfigOptionsMenuAnchor, setViewConfigOptionsMenuAnchor] = useState<HTMLElement | null>(null)
+  // Flag whether the view-mode config options menu is open.
+  const viewConfigOptionsMenuOpen = Boolean(viewConfigOptionsMenuAnchor)
+  // Open the view-mode config options menu from the button anchor.
+  const openViewConfigOptionsMenu = React.useCallback((event: React.MouseEvent<HTMLElement>) => {
+    setViewConfigOptionsMenuAnchor(event.currentTarget)
+  }, [])
+  // Close the view-mode config options menu without applying changes.
+  const closeViewConfigOptionsMenu = React.useCallback(() => {
+    setViewConfigOptionsMenuAnchor(null)
+  }, [])
+  // Hold the disable dialog context so view + edit can share one confirm flow.
+  const [disableConfigOptionsContext, setDisableConfigOptionsContext] = useState<DisableConfigOptionsContext | null>(null)
+  // Open the disable confirm dialog with the latest note snapshot.
+  const openDisableConfigOptionsDialog = React.useCallback((noteText: string) => {
+    setDisableConfigOptionsContext({ noteText })
+  }, [])
+  // Close the confirm dialog without mutating note/config state.
+  const closeDisableConfigOptionsDialog = React.useCallback(() => {
+    setDisableConfigOptionsContext(null)
+  }, [])
+  // Apply or discard config options before disabling them in the session.
+  const handleDisableConfigOptionsConfirm = React.useCallback((applyToConfigs: boolean) => {
+    const context = disableConfigOptionsContext
+    if (!context) return
+    // Resolve instructions from the requested note snapshot + stored answers.
+    const resolution = resolveConfigOptionsTags(context.noteText ?? '', configOptionsAnswers)
+    // Apply the overrides to stored configs when requested.
+    if (applyToConfigs) {
+      onApplyConfigOptionsOverrides(resolution.instructions)
+    }
+    // Disable config options parsing so markers are ignored.
+    onConfigOptionsDisabledChange(true)
+    // Close the confirm dialog after applying changes.
+    setDisableConfigOptionsContext(null)
+  }, [
+    configOptionsAnswers,
+    disableConfigOptionsContext,
+    onApplyConfigOptionsOverrides,
+    onConfigOptionsDisabledChange,
+  ])
   const handleConfigOptionsAnswerChange = React.useCallback((
     question: NoteQuestionDefinition,
     nextSelection: string[],
@@ -1872,7 +1946,8 @@ export default function NoteDialog({
       keepUniqueRules,
       keepUniqueMarkerResolutions,
       configOptionsResolutions,
-      configOptionsEditable: mode === 'view',
+      configOptionsEditable: mode === 'view' && !configOptionsDisabled,
+      configOptionsDisabled,
       onConfigOptionsAnswerChange: handleConfigOptionsAnswerChange,
     }),
     [
@@ -1884,6 +1959,7 @@ export default function NoteDialog({
       keepUniqueRules,
       keepUniqueMarkerResolutions,
       configOptionsResolutions,
+      configOptionsDisabled,
       mode,
       handleConfigOptionsAnswerChange,
     ],
@@ -2019,12 +2095,62 @@ export default function NoteDialog({
             </DialogContent>
             <DialogActions>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', width: '100%', justifyContent: 'space-between' }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
                   {!hideEditButton ? (
                     // Switch to edit mode without closing the dialog.
-                    <Button variant="outlined" onClick={onRequestEdit}>
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      onClick={onRequestEdit}
+                      sx={{ height: SMALL_BUTTON_HEIGHT_PX, minHeight: SMALL_BUTTON_HEIGHT_PX }}
+                    >
                       {t('editNote')}
                     </Button>
+                  ) : null}
+                  {hasConfigOptionsMarkers ? (
+                    <>
+                      {/* Group config options actions under a compact menu. */}
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        endIcon={<ExpandMoreIcon fontSize="small" />}
+                        onClick={openViewConfigOptionsMenu}
+                        sx={{ whiteSpace: 'nowrap', px: 1.25, height: SMALL_BUTTON_HEIGHT_PX, minHeight: SMALL_BUTTON_HEIGHT_PX }}
+                        aria-haspopup="true"
+                        aria-controls={viewConfigOptionsMenuOpen ? 'note-config-options-menu-view' : undefined}
+                        aria-expanded={viewConfigOptionsMenuOpen ? 'true' : undefined}
+                      >
+                        {t('noteConfigOptionsMenu')}
+                      </Button>
+                      <Menu
+                        id="note-config-options-menu-view"
+                        anchorEl={viewConfigOptionsMenuAnchor}
+                        open={viewConfigOptionsMenuOpen}
+                        onClose={closeViewConfigOptionsMenu}
+                        MenuListProps={{ dense: true }}
+                      >
+                        <MenuItem
+                          onClick={() => {
+                            closeViewConfigOptionsMenu()
+                            handleResetConfigOptionsAnswers()
+                          }}
+                        >
+                          {t('noteConfigOptionsResetDefaults')}
+                        </MenuItem>
+                        <MenuItem
+                          onClick={() => {
+                            closeViewConfigOptionsMenu()
+                            if (configOptionsDisabled) {
+                              handleEnableConfigOptions()
+                            } else {
+                              openDisableConfigOptionsDialog(note ?? '')
+                            }
+                          }}
+                        >
+                          {configOptionsDisabled ? t('noteConfigOptionsEnable') : t('noteConfigOptionsDisable')}
+                        </MenuItem>
+                      </Menu>
+                    </>
                   ) : null}
                 </Box>
                 <Button onClick={onClose}>{t('close')}</Button>
@@ -2042,6 +2168,10 @@ export default function NoteDialog({
             onClose={onClose}
             registerCommit={(fn) => { editCommitRef.current = fn }}
             onRequestView={onRequestView}
+            onResetConfigOptionsAnswers={handleResetConfigOptionsAnswers}
+            onOpenDisableConfigOptionsDialog={openDisableConfigOptionsDialog}
+            configOptionsDisabled={configOptionsDisabled}
+            onConfigOptionsDisabledChange={onConfigOptionsDisabledChange}
             configs={configs}
             metasets={metasets}
             keepUniqueRules={keepUniqueRules}
@@ -2050,6 +2180,21 @@ export default function NoteDialog({
             allowElement={allowMarkdownElement}
           />
         )}
+      </Dialog>
+      <Dialog open={Boolean(disableConfigOptionsContext)} onClose={closeDisableConfigOptionsDialog}>
+        <DialogTitle>{t('noteConfigOptionsDisableConfirmTitle')}</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2">{t('noteConfigOptionsDisableConfirmBody')}</Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={closeDisableConfigOptionsDialog}>{t('cancel')}</Button>
+          <Button variant="outlined" onClick={() => handleDisableConfigOptionsConfirm(false)}>
+            {t('noteConfigOptionsDisableConfirmDisable')}
+          </Button>
+          <Button variant="contained" onClick={() => handleDisableConfigOptionsConfirm(true)}>
+            {t('noteConfigOptionsDisableConfirmApply')}
+          </Button>
+        </DialogActions>
       </Dialog>
     </NoteRenderContext.Provider>
   )
@@ -2064,6 +2209,10 @@ function NoteEditorContent({
   onClose,
   registerCommit,
   onRequestView,
+  onResetConfigOptionsAnswers,
+  onOpenDisableConfigOptionsDialog,
+  configOptionsDisabled,
+  onConfigOptionsDisabledChange,
   configs,
   metasets,
   keepUniqueRules,
@@ -2079,6 +2228,13 @@ function NoteEditorContent({
   onClose: () => void
   registerCommit: (fn: () => void) => void
   onRequestView: () => void
+  // Reset config options answers back to defaults.
+  onResetConfigOptionsAnswers: () => void
+  // Open the disable-confirm dialog with a draft update hook.
+  onOpenDisableConfigOptionsDialog: (noteText: string) => void
+  // Disable config options parsing without editing the note text.
+  configOptionsDisabled: boolean
+  onConfigOptionsDisabledChange: (next: boolean) => void
   configs: BuilderConfig[]
   metasets: Metaset[]
   keepUniqueRules: KeepUniqueRule[]
@@ -2089,6 +2245,18 @@ function NoteEditorContent({
   const editWrapRef = useRef<HTMLDivElement | null>(null)
   const editorRef = useRef<RefMDEditor | null>(null)
   const [confirmOpen, setConfirmOpen] = useState(false)
+  // Anchor the config options menu for edit-mode actions.
+  const [editConfigOptionsMenuAnchor, setEditConfigOptionsMenuAnchor] = useState<HTMLElement | null>(null)
+  // Track whether the edit-mode config options menu is open.
+  const editConfigOptionsMenuOpen = Boolean(editConfigOptionsMenuAnchor)
+  // Open the edit-mode config options menu at the clicked button.
+  const openEditConfigOptionsMenu = React.useCallback((event: React.MouseEvent<HTMLElement>) => {
+    setEditConfigOptionsMenuAnchor(event.currentTarget)
+  }, [])
+  // Close the edit-mode config options menu without taking action.
+  const closeEditConfigOptionsMenu = React.useCallback(() => {
+    setEditConfigOptionsMenuAnchor(null)
+  }, [])
   const [draft, setDraft] = useState<string>(note ?? '')
   // Track config options changes so the view-mode button can signal edits.
   const baseConfigOptionsSignature = useMemo(
@@ -2114,8 +2282,26 @@ function NoteEditorContent({
   // Resolve config options markers without making them interactive.
   const editorConfigOptionsResolutions = useMemo(
     () => buildConfigOptionsMarkerResolutions(draft ?? '', configOptionsAnswers),
-    [draft, configOptionsAnswers],
+    [configOptionsAnswers, draft],
   )
+  // Track whether the draft still contains config options markers.
+  const configOptionsSignature = useMemo(
+    () => buildNoteConfigOptionsSignature(draft ?? ''),
+    [draft],
+  )
+  const hasConfigOptionsMarkers = configOptionsSignature !== '[]'
+  // Reset answers without mutating the draft text.
+  const handleResetConfigOptions = React.useCallback(() => {
+    onConfigOptionsDisabledChange(false)
+    onResetConfigOptionsAnswers()
+  }, [onConfigOptionsDisabledChange, onResetConfigOptionsAnswers])
+  // Open the disable-confirm dialog and hand it the latest draft snapshot.
+  const handleDisableConfigOptions = React.useCallback(() => {
+    onOpenDisableConfigOptionsDialog(draft ?? '')
+  }, [draft, onOpenDisableConfigOptionsDialog])
+  const handleEnableConfigOptions = React.useCallback(() => {
+    onConfigOptionsDisabledChange(false)
+  }, [onConfigOptionsDisabledChange])
   // Ignore answer updates in edit mode so markers stay read-only.
   const ignoreConfigOptionsAnswerChange = React.useCallback(() => {}, [])
   const editorContextValue = useMemo<NoteRenderContextValue>(
@@ -2559,13 +2745,60 @@ function NoteEditorContent({
               </Badge>
             </Box>
           </MarkdownTooltip>
+          {hasConfigOptionsMarkers ? (
+            <>
+              {/* Keep config options actions behind a single menu button. */}
+              <Button
+                size="small"
+                variant="outlined"
+                endIcon={<ExpandMoreIcon fontSize="small" />}
+                onClick={openEditConfigOptionsMenu}
+                sx={{ whiteSpace: 'nowrap', px: 1.25, height: SMALL_BUTTON_HEIGHT_PX, minHeight: SMALL_BUTTON_HEIGHT_PX }}
+                aria-haspopup="true"
+                aria-controls={editConfigOptionsMenuOpen ? 'note-config-options-menu-edit' : undefined}
+                aria-expanded={editConfigOptionsMenuOpen ? 'true' : undefined}
+              >
+                {t('noteConfigOptionsMenu')}
+              </Button>
+              <Menu
+                id="note-config-options-menu-edit"
+                anchorEl={editConfigOptionsMenuAnchor}
+                open={editConfigOptionsMenuOpen}
+                onClose={closeEditConfigOptionsMenu}
+                MenuListProps={{ dense: true }}
+              >
+                <MenuItem
+                  onClick={() => {
+                    closeEditConfigOptionsMenu()
+                    handleResetConfigOptions()
+                  }}
+                >
+                  {t('noteConfigOptionsResetDefaults')}
+                </MenuItem>
+                <MenuItem
+                  onClick={() => {
+                    closeEditConfigOptionsMenu()
+                    if (configOptionsDisabled) {
+                      handleEnableConfigOptions()
+                    } else {
+                      handleDisableConfigOptions()
+                    }
+                  }}
+                >
+                  {configOptionsDisabled ? t('noteConfigOptionsEnable') : t('noteConfigOptionsDisable')}
+                </MenuItem>
+              </Menu>
+            </>
+          ) : null}
+          {/* Visually separate clear-note from the config actions. */}
+          <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
           <Button
             size="small"
             variant="outlined"
             color="error"
             onClick={() => setConfirmOpen(true)}
           >
-            {t('reset')}
+            {t('noteClear')}
           </Button>
         </Box>
         <Box sx={{ display: 'flex', gap: 1 }}>
@@ -2579,7 +2812,7 @@ function NoteEditorContent({
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setConfirmOpen(false)}>{t('cancel')}</Button>
-          <Button color="error" onClick={() => { setConfirmOpen(false); setDraft(''); onChange('', { mode: 'clear' }) }}>{t('reset')}</Button>
+          <Button color="error" onClick={() => { setConfirmOpen(false); setDraft(''); onChange('', { mode: 'clear' }) }}>{t('noteClear')}</Button>
         </DialogActions>
       </Dialog>
     </>

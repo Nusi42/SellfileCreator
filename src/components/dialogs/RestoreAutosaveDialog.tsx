@@ -71,6 +71,7 @@ export default function RestoreAutosaveDialog({
   const hasNote = Boolean(
     (draft?.Note && draft.Note.trim())
     || (draft?.NoteConfigOptionsAnswers && Object.keys(draft.NoteConfigOptionsAnswers).length > 0)
+    || draft?.NoteConfigOptionsDisabled
   )
   const hasFilters = Boolean(draft?.Filters)
   const hasSort = Boolean(draft && Object.prototype.hasOwnProperty.call(draft, 'TesterSort'))

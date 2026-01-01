@@ -103,6 +103,8 @@ export type NoteQuestionDefinition = {
 
 // Autosave key for storing config options answers (session-only).
 export const NOTE_CONFIG_OPTIONS_ANSWERS_KEY = 'NoteConfigOptionsAnswers'
+// Autosave key for disabling config options parsing (session-only).
+export const NOTE_CONFIG_OPTIONS_DISABLED_KEY = 'NoteConfigOptionsDisabled'
 // Legacy autosave key used by older versions (kept for migrations).
 export const LEGACY_NOTE_CONFIG_OPTIONS_ANSWERS_KEY = `Note${'Question'}${'naire'}Answers`
 
