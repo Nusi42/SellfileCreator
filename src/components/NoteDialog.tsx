@@ -150,6 +150,7 @@ type KeepUniqueMarkerEntry = { id: number; rule: KeepUniqueRule }
 type KeepUniqueMarkerMap = Map<number, KeepUniqueMarkerEntry[]>
 type NoteCardWidthPreset = 'note'
 type QuestionPromptToken = { key: string; text: string; kind: 'text' | 'chip' | 'label' }
+type QuestionPromptParts = { title: string; subtext: string | null }
 
 // Backticks mark chip-style emphasis within prompts.
 const QUESTION_PROMPT_CHIP_MARKER = '`'
@@ -169,6 +170,24 @@ const NOTE_QUESTION_OPTION_SX = {
   py: 0,
   '& .MuiFormControlLabel-label': { lineHeight: NOTE_CARD_LABEL_TEXT_SX.lineHeight },
   '& .MuiCheckbox-root, & .MuiRadio-root': { p: 0.25 },
+}
+const NOTE_QUESTION_SUBTEXT_SX = {
+  // Keep subtext smaller and lighter to separate it from the title.
+  color: 'text.secondary',
+  lineHeight: 1.2,
+}
+
+function splitQuestionPrompt(prompt: string): QuestionPromptParts {
+  // Locate the first newline to split title/subtext.
+  const splitIndex = prompt.indexOf('\n')
+  // Treat single-line prompts as title-only.
+  if (splitIndex < 0) return { title: prompt, subtext: null }
+  // Preserve the leading line as the title.
+  const title = prompt.slice(0, splitIndex).trimEnd()
+  // Capture the remainder as optional subtext.
+  const remainder = prompt.slice(splitIndex + 1).trim()
+  // Drop empty subtext so layout stays compact.
+  return { title, subtext: remainder ? remainder : null }
 }
 
 function resolveQuestionPromptReference(raw: string, options: NoteQuestionDefinition['options']): string {
@@ -1109,10 +1128,22 @@ function NoteQuestionBlock({ node }: NoteQuestionBlockProps): JSX.Element | null
   }
   // Lookup the parsed question definition by marker index.
   const question = markerIndex != null ? configOptionsResolutions.get(markerIndex) : undefined
-  // Tokenize the prompt so backtick references can be styled.
-  const promptTokens = useMemo(
-    () => (question ? buildQuestionPromptTokens(question.prompt, question.options, true) : []),
+  // Split prompt text so the first line becomes the title.
+  const promptParts = useMemo(
+    () => (question ? splitQuestionPrompt(question.prompt) : { title: '', subtext: null }),
     [question],
+  )
+  // Tokenize the title so backtick references can be styled.
+  const promptTokens = useMemo(
+    () => (question ? buildQuestionPromptTokens(promptParts.title, question.options, true) : []),
+    [question, promptParts.title],
+  )
+  // Tokenize the subtext so emphasis markers stay consistent.
+  const promptSubtextTokens = useMemo(
+    () => (question && promptParts.subtext
+      ? buildQuestionPromptTokens(promptParts.subtext, question.options, true)
+      : []),
+    [question, promptParts.subtext],
   )
   // Style chips to match Keep Unique scope chips for visual consistency.
   const promptChipSx = useMemo(
@@ -1156,27 +1187,42 @@ function NoteQuestionBlock({ node }: NoteQuestionBlockProps): JSX.Element | null
       {/* Stack keeps the heading and options tightly grouped. */}
       <Stack spacing={0}>
         {/* Prompt text mirrors the Keep Unique card title. */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.35, flexWrap: 'wrap' }}>
+        <Typography
+          variant="subtitle2"
+          component="div"
+          sx={{
+            // Match the Keep Unique title typography for questions.
+            fontWeight: 700,
+            wordBreak: 'break-word',
+            // Keep the title compact without forcing extra flex height.
+            lineHeight: 1.1,
+            fontSize: '0.9rem',
+            display: 'block',
+            m: 0,
+            p: 0,
+            whiteSpace: 'pre-line',
+          }}
+        >
+          {/* Render prompt tokens so chips + labels stand out. */}
+          {renderQuestionTextTokens({ tokens: promptTokens, chipSx: promptChipSx, labelSx: promptLabelSx })}
+        </Typography>
+        {promptParts.subtext ? (
+          // Render optional subtext as a lighter secondary line.
           <Typography
-            variant="subtitle2"
-            component="p"
+            variant="caption"
+            component="div"
             sx={{
-              // Match the Keep Unique title typography for questions.
-              fontWeight: 700,
-              wordBreak: 'break-word',
-              lineHeight: 1,
-              fontSize: '0.9rem',
-              flex: '1 1 auto',
-              minWidth: 0,
-              m: 0,
-              p: 0,
+              ...NOTE_QUESTION_SUBTEXT_SX,
               whiteSpace: 'pre-line',
+              // Keep the title/subtext gap tight for compact cards.
+              mt: 0,
+              mb: 0,
+              display: 'block',
             }}
           >
-            {/* Render prompt tokens so chips + labels stand out. */}
-            {renderQuestionTextTokens({ tokens: promptTokens, chipSx: promptChipSx, labelSx: promptLabelSx })}
+            {renderQuestionTextTokens({ tokens: promptSubtextTokens, chipSx: promptChipSx, labelSx: promptLabelSx })}
           </Typography>
-        </Box>
+        ) : null}
         {/* Render each option group with its matching control type. */}
         <Stack spacing={0.35} sx={{ mt: 0.35 }}>
           {question.groups.map((group) => {
