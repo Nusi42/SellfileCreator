@@ -44,8 +44,8 @@ import {
   normalizeAutoSubstatFlex,
   normalizeKeepMode,
   normalizeLevelWindow,
-  type AutoRaritySupplementsThreshold,
 } from '../lib/configNormalization'
+import { pickAutoRaritySupplementsThreshold } from '../lib/raritySupplements'
 import {
   aggregateRollStateFromConfig,
   aggregateRollStateToConfig,
@@ -95,7 +95,7 @@ import { substatSupportsColor } from '../lib/substatDisplay'
 import { createBuilderStatusChipSx } from './builderStatusChipStyles'
 import { FactionOptionLabel } from './FactionIcon'
 import { ContextMenuHintOverlay } from './ContextMenuHintOverlay'
-import { resolveConfigOptionsExportMode, type ConfigOptionsTagInstructions } from '../lib/noteConfigOptions'
+import { resolveConfigOptionsEffectiveConfig, type ConfigOptionsTagInstructions } from '../lib/noteConfigOptions'
 import {
   type MultiEditDraftHandle,
   type MultiEditFieldState,
@@ -299,23 +299,20 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
       return Array.isArray(locked) && locked.length > 0
     })
   ), [aggregateRollConfigs])
-  const pickAutoRarityFallback = React.useCallback((target: BuilderConfig): AutoRaritySupplementsThreshold => {
-    const code = resolveAutoRarityCode(target)
-    return (code >= 9) ? 'epic' : 'rare'
-  }, [])
   const normalizeKeepWithAuto = React.useCallback((next: BuilderConfig): BuilderConfig => {
+    // Normalize keep mode and aggregate rolls first.
     const withKeep = normalizeKeepMode(next)
     const withAggregate = normalizeAggregateRollTargets(withKeep)
-    const shouldApplyAuto = (withAggregate.rarityMode === 'auto')
-      && ((withAggregate.earlyKeepMode ?? 'early') === 'late')
-      && isMilestoneThresholdsActive(withAggregate)
-    const fallback = shouldApplyAuto ? pickAutoRarityFallback(withAggregate) : undefined
+    // Pick the default Auto rarity supplements threshold from the resolved rarity.
+    const fallback = pickAutoRaritySupplementsThreshold(withAggregate)
+    // Ensure Auto rarity supplements stay aligned with the current config.
     const withAuto = normalizeAutoRaritySupplements(
       withAggregate,
-      fallback ? { defaultThreshold: fallback } : undefined,
+      { defaultThreshold: fallback },
     )
+    // Clamp auto substat flex after all rarity/keep normalization.
     return normalizeAutoSubstatFlex(withAuto)
-  }, [pickAutoRarityFallback])
+  }, [])
   const commitRollState = React.useCallback((nextState: AggregateRollState) => {
     onChange(normalizeKeepWithAuto({
       ...cfg,
@@ -1195,12 +1192,33 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
     : (cfg.keep ? 'keep' : 'sell')
   const exportModeMixed = multiEditActive && (multiExportModeField?.status === 'mixed')
   // Resolve config options overrides for the active config.
-  const effectiveExportMode = useMemo(
-    () => resolveConfigOptionsExportMode(cfg, configOptionsTagInstructions),
+  const effectiveConfig = useMemo(
+    () => resolveConfigOptionsEffectiveConfig(cfg, configOptionsTagInstructions),
     [cfg, configOptionsTagInstructions],
   )
+  // Read the effective export mode from the resolved config.
+  const effectiveExportMode = effectiveConfig.exportMode
   // Only mark an override when the config options flip the stored selection.
   const exportModeOverrideActive = !multiEditActive && effectiveExportMode !== cfg.exportMode
+  // Track rank, rarity, and level overrides for UI indicators.
+  const storedRarityMode: 'auto' | 'code' = (cfg.rarityMode ?? 'code')
+  const effectiveRarityMode: 'auto' | 'code' = (effectiveConfig.rarityMode ?? 'code')
+  const rankOverrideActive = !multiEditActive && effectiveConfig.rankCode !== cfg.rankCode
+  const rarityOverrideActive = !multiEditActive && (
+    effectiveRarityMode !== storedRarityMode
+    || (effectiveRarityMode === 'code' && effectiveConfig.rarityCode !== cfg.rarityCode)
+  )
+  const storedMinLevel = ((cfg as BuilderConfig).minLevel ?? LEVEL_MILESTONES[0]!) as LevelMilestone
+  const storedMaxLevel = ((cfg as BuilderConfig).maxLevel ?? LEVEL_MILESTONES[LEVEL_MILESTONES.length - 1]!) as LevelMilestone
+  const effectiveMinLevel = ((effectiveConfig as BuilderConfig).minLevel ?? LEVEL_MILESTONES[0]!) as LevelMilestone
+  const effectiveMaxLevel = ((effectiveConfig as BuilderConfig).maxLevel ?? LEVEL_MILESTONES[LEVEL_MILESTONES.length - 1]!) as LevelMilestone
+  const levelOverrideActive = !multiEditActive && (
+    effectiveMinLevel !== storedMinLevel || effectiveMaxLevel !== storedMaxLevel
+  )
+  const keepOverrideActive = !multiEditActive && effectiveConfig.earlyKeepMode !== cfg.earlyKeepMode
+  const autoLateOverrideActive = !multiEditActive && (
+    effectiveConfig.autoRaritySupplementsThreshold !== cfg.autoRaritySupplementsThreshold
+  )
   // Prefer the config options-resolved mode for the single-config display.
   const exportModeValue: SellfileExportMode | null = multiEditActive
     ? (exportModeMixed ? null : (multiExportModeField?.value as SellfileExportMode | undefined ?? 'active'))
@@ -1230,10 +1248,22 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
     // Add the override message after the base meaning text.
     return `${base}\n\n${overrideLine}`
   }, [exportModeLabel, exportModeOverrideActive, exportModeOverrideTarget, effectiveExportMode, t])
+  // Extend generic tooltips with config options override messaging.
+  const buildOverrideTooltip = React.useCallback(
+    (base: string, stored: string, effective: string, active: boolean): string => {
+      // Return the base tooltip when no override is active.
+      if (!active) return base
+      // Explain the stored vs effective values.
+      const overrideLine = t('builderExportModeConfigOptionsOverrideTooltip', { stored, effective })
+      // Append the override line to the base text.
+      return `${base}\n\n${overrideLine}`
+    },
+    [t],
+  )
   const rankMixed = multiEditActive && (multiRankField?.status === 'mixed')
   const rankValue = multiEditActive
     ? (rankMixed ? '' : String((multiRankField?.value as number | undefined) ?? cfg.rankCode))
-    : String(cfg.rankCode)
+    : String(effectiveConfig.rankCode)
   const rarityMixed = multiEditActive && (
     (multiRarityModeField?.status === 'mixed')
     || (multiRarityCodeField?.status === 'mixed')
@@ -1244,13 +1274,13 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
       : ((multiRarityModeField?.value as BuilderConfig['rarityMode'] | undefined) === 'auto'
         ? 'auto'
         : String((multiRarityCodeField?.value as number | undefined) ?? cfg.rarityCode)))
-    : (cfg.rarityMode === 'auto' ? 'auto' : String(cfg.rarityCode))
+    : (effectiveRarityMode === 'auto' ? 'auto' : String(effectiveConfig.rarityCode))
   const factionMixed = multiEditActive && (multiFactionField?.status === 'mixed')
   const factionValue = multiEditActive
     ? (factionMixed ? '' : String((multiFactionField?.value as number | undefined) ?? cfg.factionCode ?? 0))
     : String(cfg.factionCode ?? 0)
-  const singleMinLevel = ((cfg as BuilderConfig).minLevel ?? LEVEL_MILESTONES[0]!) as LevelMilestone
-  const singleMaxLevel = ((cfg as BuilderConfig).maxLevel ?? LEVEL_MILESTONES[LEVEL_MILESTONES.length - 1]!) as LevelMilestone
+  const singleMinLevel = (multiEditActive ? storedMinLevel : effectiveMinLevel)
+  const singleMaxLevel = (multiEditActive ? storedMaxLevel : effectiveMaxLevel)
   const aggregatedMinLevel = multiEditActive
     ? (() => {
         if (!multiMinLevelField) return singleMinLevel
@@ -1383,7 +1413,7 @@ const maxLevelValue = multiEditActive
   }, [cfg, computeTriState, multiAutoMinCountField, multiEditActive, multiMinCountField, multiSourceConfigs])
   const getKeepModeTriState = React.useCallback((target: 'early' | 'late'): 'on' | 'mixed' | 'off' => {
     if (!multiEditActive || !multiSourceConfigs) {
-      const mode = ((cfg as BuilderConfig).earlyKeepMode ?? 'early') as 'early' | 'late'
+      const mode = ((effectiveConfig as BuilderConfig).earlyKeepMode ?? 'early') as 'early' | 'late'
       return mode === target ? 'on' : 'off'
     }
     const staged = multiEarlyKeepModeField
@@ -1403,14 +1433,14 @@ const maxLevelValue = multiEditActive
       if (mode === target) matches += 1
     }
     return computeTriState(matches, total)
-  }, [cfg, computeTriState, multiEditActive, multiEarlyKeepModeField, multiSourceConfigs])
+  }, [computeTriState, effectiveConfig, multiEditActive, multiEarlyKeepModeField, multiSourceConfigs])
   const getAutoRarityTriState = React.useCallback((): 'on' | 'mixed' | 'off' | 'disabled' => {
     if (!multiEditActive || !multiSourceConfigs) {
-      const active = milestoneThresholdsActive &&
-        (cfg.rarityMode === 'auto') &&
-        (((cfg as BuilderConfig).earlyKeepMode ?? 'early') === 'late')
+      const active = isMilestoneThresholdsActive(effectiveConfig) &&
+        ((effectiveConfig as BuilderConfig).rarityMode === 'auto') &&
+        (((effectiveConfig as BuilderConfig).earlyKeepMode ?? 'early') === 'late')
       if (!active) return 'disabled'
-      return cfg.autoRaritySupplementsThreshold ? 'on' : 'off'
+      return (effectiveConfig as BuilderConfig).autoRaritySupplementsThreshold ? 'on' : 'off'
     }
     let eligible = 0
     let enabled = 0
@@ -1431,7 +1461,7 @@ const maxLevelValue = multiEditActive
       }
     }
     return computeTriState(enabled, eligible)
-  }, [cfg, computeTriState, milestoneThresholdsActive, multiAutoRaritySupplementsField, multiEditActive, multiSourceConfigs])
+  }, [computeTriState, effectiveConfig, multiAutoRaritySupplementsField, multiEditActive, multiSourceConfigs])
   const getLevelTriState = (field: MultiEditFieldState | null, fallback: number, level: number): 'on' | 'mixed' | 'off' => {
     if (!multiEditActive || !field) {
       return fallback === level ? 'on' : 'off'
@@ -1506,7 +1536,7 @@ const maxLevelValue = multiEditActive
         return manualMatch != null ? String(manualMatch) : MULTI_VALUE_SENTINEL
       })()
     : singleRequiredCountValue
-  const singleKeepModeValue = ((cfg as BuilderConfig).earlyKeepMode ?? 'early') as 'early' | 'late'
+  const singleKeepModeValue = ((effectiveConfig as BuilderConfig).earlyKeepMode ?? 'early') as 'early' | 'late'
   const keepModeValue = multiEditActive
     ? (() => {
         if (getKeepModeTriState('late') === 'on') return 'late'
@@ -1516,7 +1546,7 @@ const maxLevelValue = multiEditActive
     : singleKeepModeValue
   const thresholdsActiveAny = multiEditActive && multiSourceConfigs
     ? multiSourceConfigs.some((config) => isMilestoneThresholdsActive(config))
-    : milestoneThresholdsActive
+    : isMilestoneThresholdsActive(effectiveConfig)
   const autoRarityChipState = getAutoRarityTriState()
   // Localized label for rank/star options in the Rank select.
   // Uses i18n star keys so locales can customize the star text.
@@ -1539,6 +1569,42 @@ const maxLevelValue = multiEditActive
     if (n >= 7 && n <= 11) return `≥${NBSP}${t(starKey(n - 6))}`
     if (n >= 12 && n <= 16) return `≤${NBSP}${t(starKey(n - 10))}`
     return String(n)
+  }
+  // Localized label for rarity options (including ≥/≤ prefixes and Auto).
+  const rarityOptionLabel = (mode: 'auto' | 'code', code: number): string => {
+    // Auto uses the shared label so it mirrors the select menu.
+    if (mode === 'auto') return t('headerMenuAuto')
+    // Map exact rarity values to localized names.
+    if (code === RarityCode.Common) return t('rarityCommon')
+    if (code === RarityCode.Uncommon) return t('rarityUncommon')
+    if (code === RarityCode.Rare) return t('rarityRare')
+    if (code === RarityCode.Epic) return t('rarityEpic')
+    if (code === RarityCode.Legendary) return t('rarityLegendary')
+    if (code === RarityCode.Mythical) return t('rarityMythical')
+    // Map ≥ rarity values to localized names.
+    if (code === RarityCode.GTE_Common) return `≥${NBSP}${t('rarityCommon')}`
+    if (code === RarityCode.GTE_Uncommon) return `≥${NBSP}${t('rarityUncommon')}`
+    if (code === RarityCode.GTE_Rare) return `≥${NBSP}${t('rarityRare')}`
+    if (code === RarityCode.GTE_Epic) return `≥${NBSP}${t('rarityEpic')}`
+    if (code === RarityCode.GTE_Legendary) return `≥${NBSP}${t('rarityLegendary')}`
+    // Map ≤ rarity values to localized names.
+    if (code === RarityCode.LTE_Uncommon) return `≤${NBSP}${t('rarityUncommon')}`
+    if (code === RarityCode.LTE_Rare) return `≤${NBSP}${t('rarityRare')}`
+    if (code === RarityCode.LTE_Epic) return `≤${NBSP}${t('rarityEpic')}`
+    if (code === RarityCode.LTE_Legendary) return `≤${NBSP}${t('rarityLegendary')}`
+    if (code === RarityCode.LTE_Mythical) return `≤${NBSP}${t('rarityMythical')}`
+    // Fall back to the Any label when a code is unknown or empty.
+    return t('any')
+  }
+  // Format a level milestone value for tooltips.
+  const levelLabel = (level: LevelMilestone): string => `+${level}`
+  const keepModeLabel = (mode: 'early' | 'late'): string => (
+    mode === 'late' ? t('builderLateLabel') : t('builderEarlyLabel')
+  )
+  const autoLateLabel = (value?: 'uncommon' | 'rare' | 'epic'): string => {
+    if (value === 'uncommon') return t('rarityUncommon')
+    if (value === 'epic') return t('rarityEpic')
+    return t('rarityRare')
   }
   const slotLabel = React.useCallback((id: number): string => {
     switch (Number(id)) {
@@ -1691,6 +1757,26 @@ const maxLevelValue = multiEditActive
   const updateExportMode = useCallback((next: SellfileExportMode) => {
     onChange({ ...cfg, exportMode: next })
   }, [cfg, onChange])
+  const updateLevelWindow = useCallback((min: LevelMilestone, max: LevelMilestone) => {
+    // Keep level window updates normalized so min/max stay consistent.
+    onChange(normalizeLevelWindow({ ...cfg, minLevel: min, maxLevel: max }))
+  }, [cfg, onChange])
+  const updateKeepMode = useCallback((mode: 'early' | 'late') => {
+    // Normalize keep mode so Auto+Late and roll targets stay aligned.
+    onChange(normalizeKeepWithAuto({ ...cfg, earlyKeepMode: mode }))
+  }, [cfg, onChange, normalizeKeepWithAuto])
+  const updateAutoLateThreshold = useCallback((nextTier: 'uncommon' | 'rare' | 'epic') => {
+    // Normalize after setting the Auto+Late tier so related flags stay in sync.
+    onChange(normalizeKeepWithAuto({ ...cfg, autoRaritySupplementsThreshold: nextTier }))
+  }, [cfg, onChange, normalizeKeepWithAuto])
+  const updateRaritySelection = useCallback((mode: 'auto' | 'code', code?: number) => {
+    // Normalize to keep Auto+Late behavior consistent with the selection.
+    if (mode === 'auto') {
+      onChange(normalizeKeepWithAuto({ ...cfg, rarityMode: 'auto' }))
+      return
+    }
+    onChange(normalizeKeepWithAuto({ ...cfg, rarityMode: 'code', rarityCode: Number(code ?? 0) }))
+  }, [cfg, onChange, normalizeKeepWithAuto])
   const handleExportModeOverrideClick = React.useCallback((mode: SellfileExportMode) => {
     if (multiEditActive) return
     if (!exportModeOverrideActive) return
@@ -3030,10 +3116,15 @@ const maxLevelValue = multiEditActive
               ellipsisTitle={t('builderRank')}
               render={(
                 <BuilderTooltipContent
-                  text={[
-                    t('builderRankHelp'),
-                    t('builderMultiMixedTooltipSuffix'),
-                  ].join('\n')}
+                  text={buildOverrideTooltip(
+                    [
+                      t('builderRankHelp'),
+                      t('builderMultiMixedTooltipSuffix'),
+                    ].join('\n'),
+                    rankOptionLabel(cfg.rankCode),
+                    rankOptionLabel(effectiveConfig.rankCode),
+                    rankOverrideActive,
+                  )}
                 />
               )}
             >
@@ -3058,8 +3149,9 @@ const maxLevelValue = multiEditActive
               }}
               MenuProps={{ PaperProps: { sx: { maxHeight: 340 } } }}
               data-tour-id="builder.rank"
-              sx={{
+              sx={(theme) => ({
                 flex: 1,
+                position: 'relative',
                 ...selectBoxHeightSx,
                 '& .MuiSelect-select': selectContentHeightSx,
                 ...(multiEditActive && rankMixed ? {
@@ -3067,7 +3159,12 @@ const maxLevelValue = multiEditActive
                     borderStyle: 'dashed',
                   },
                 } : {}),
-              }}
+                ...(rankOverrideActive ? {
+                  '&::after': {
+                    ...buildWarningBadgeIndicatorSx(theme),
+                  },
+                } : {}),
+              })}
               renderValue={(selected) => {
                 if (multiEditActive && selected === '') {
                   return (
@@ -3083,15 +3180,51 @@ const maxLevelValue = multiEditActive
               <MenuItem value={String(0)}>{t('any')}</MenuItem>
               <ListSubheader sx={LIST_SUBHEADER_SX}>{t('builderRarityExact')}</ListSubheader>
               {[RankCode.One,RankCode.Two,RankCode.Three,RankCode.Four,RankCode.Five,RankCode.Six].map((code) => (
-                <MenuItem key={code} value={String(code)}>{rankOptionLabel(Number(code))}</MenuItem>
+                <MenuItem
+                  key={code}
+                  value={String(code)}
+                  onClick={() => {
+                    // When an override is active, allow clicking the effective value to accept it.
+                    if (multiEditActive || !rankOverrideActive) return
+                    if (cfg.rankCode === effectiveConfig.rankCode) return
+                    if (Number(code) !== effectiveConfig.rankCode) return
+                    update('rankCode', effectiveConfig.rankCode)
+                  }}
+                >
+                  {rankOptionLabel(Number(code))}
+                </MenuItem>
               ))}
               <ListSubheader sx={LIST_SUBHEADER_SX}>{t('builderRarityGte')}</ListSubheader>
               {[RankCode.GTE_One,RankCode.GTE_Two,RankCode.GTE_Three,RankCode.GTE_Four,RankCode.GTE_Five].map((code) => (
-                <MenuItem key={code} value={String(code)}>{rankOptionLabel(Number(code))}</MenuItem>
+                <MenuItem
+                  key={code}
+                  value={String(code)}
+                  onClick={() => {
+                    // When an override is active, allow clicking the effective value to accept it.
+                    if (multiEditActive || !rankOverrideActive) return
+                    if (cfg.rankCode === effectiveConfig.rankCode) return
+                    if (Number(code) !== effectiveConfig.rankCode) return
+                    update('rankCode', effectiveConfig.rankCode)
+                  }}
+                >
+                  {rankOptionLabel(Number(code))}
+                </MenuItem>
               ))}
               <ListSubheader sx={LIST_SUBHEADER_SX}>{t('builderRarityLte')}</ListSubheader>
               {[RankCode.LTE_Two,RankCode.LTE_Three,RankCode.LTE_Four,RankCode.LTE_Five,RankCode.LTE_Six].map((code) => (
-                <MenuItem key={code} value={String(code)}>{rankOptionLabel(Number(code))}</MenuItem>
+                <MenuItem
+                  key={code}
+                  value={String(code)}
+                  onClick={() => {
+                    // When an override is active, allow clicking the effective value to accept it.
+                    if (multiEditActive || !rankOverrideActive) return
+                    if (cfg.rankCode === effectiveConfig.rankCode) return
+                    if (Number(code) !== effectiveConfig.rankCode) return
+                    update('rankCode', effectiveConfig.rankCode)
+                  }}
+                >
+                  {rankOptionLabel(Number(code))}
+                </MenuItem>
               ))}
             </Select>
           </Box>
@@ -3104,14 +3237,19 @@ const maxLevelValue = multiEditActive
               ellipsisTitle={t('filterRarity')}
               render={(
                 <BuilderTooltipContent
-                  text={[
-                    t('builderRarityHelpIntro'),
-                    `• ${t('builderRarityHelpNoMinRolls')}`,
-                    `• ${t('builderRarityHelpStartSubs')}`,
-                    `• ${t('builderRarityHelpMinTotalRolls')}`,
-                    `• ${t('builderAutoPlusLateHelp')}`,
-                    t('builderMultiMixedTooltipSuffix'),
-                  ].join('\n')}
+                  text={buildOverrideTooltip(
+                    [
+                      t('builderRarityHelpIntro'),
+                      `• ${t('builderRarityHelpNoMinRolls')}`,
+                      `• ${t('builderRarityHelpStartSubs')}`,
+                      `• ${t('builderRarityHelpMinTotalRolls')}`,
+                      `• ${t('builderAutoPlusLateHelp')}`,
+                      t('builderMultiMixedTooltipSuffix'),
+                    ].join('\n'),
+                    rarityOptionLabel(storedRarityMode, cfg.rarityCode),
+                    rarityOptionLabel(effectiveRarityMode, effectiveConfig.rarityCode),
+                    rarityOverrideActive,
+                  )}
                 />
               )}
             >
@@ -3138,16 +3276,17 @@ const maxLevelValue = multiEditActive
                   }
                 } else {
                   if (v === 'auto') {
-                    onChange(normalizeKeepWithAuto({ ...cfg, rarityMode: 'auto' }))
+                    updateRaritySelection('auto')
                   } else {
-                    onChange(normalizeKeepWithAuto({ ...cfg, rarityMode: 'code', rarityCode: Number(v) }))
+                    updateRaritySelection('code', Number(v))
                   }
                 }
               }}
               MenuProps={{ PaperProps: { sx: { maxHeight: 340 } } }}
               data-tour-id="builder.rarity"
-              sx={{
+              sx={(theme) => ({
                 flex: 1,
+                position: 'relative',
                 ...selectBoxHeightSx,
                 '& .MuiSelect-select': selectContentHeightSx,
                 ...(multiEditActive && rarityMixed ? {
@@ -3155,7 +3294,12 @@ const maxLevelValue = multiEditActive
                     borderStyle: 'dashed',
                   },
                 } : {}),
-              }}
+                ...(rarityOverrideActive ? {
+                  '&::after': {
+                    ...buildWarningBadgeIndicatorSx(theme),
+                  },
+                } : {}),
+              })}
               renderValue={(selected) => {
                 if (multiEditActive && selected === '') {
                   return (
@@ -3171,38 +3315,94 @@ const maxLevelValue = multiEditActive
                 return rarityCodeToName(numeric) || t('any')
               }}
             >
-              <MenuItem value={'auto'}>{t('headerMenuAuto')}</MenuItem>
-              <MenuItem value={String(0)}>{rarityCodeToName(0) || t('any')}</MenuItem>
+              <MenuItem
+                value={'auto'}
+                onClick={() => {
+                  // When an override is active, allow clicking the effective value to accept it.
+                  if (multiEditActive || !rarityOverrideActive) return
+                  if (cfg.rarityMode === effectiveRarityMode && cfg.rarityCode === effectiveConfig.rarityCode) return
+                  if (effectiveRarityMode !== 'auto') return
+                  updateRaritySelection('auto')
+                }}
+              >
+                {t('headerMenuAuto')}
+              </MenuItem>
+              <MenuItem
+                value={String(0)}
+                onClick={() => {
+                  // When an override is active, allow clicking the effective value to accept it.
+                  if (multiEditActive || !rarityOverrideActive) return
+                  if (cfg.rarityMode === effectiveRarityMode && cfg.rarityCode === effectiveConfig.rarityCode) return
+                  if (effectiveRarityMode !== 'code') return
+                  if (effectiveConfig.rarityCode !== 0) return
+                  updateRaritySelection('code', 0)
+                }}
+              >
+                {rarityCodeToName(0) || t('any')}
+              </MenuItem>
               <ListSubheader sx={LIST_SUBHEADER_SX}>{t('builderRarityExact')}</ListSubheader>
               {[RarityCode.Common,RarityCode.Uncommon,RarityCode.Rare,RarityCode.Epic,RarityCode.Legendary,RarityCode.Mythical].map((code) => (
-                <MenuItem key={code} value={String(code)}>{
-                  code === RarityCode.Common ? t('rarityCommon') :
-                  code === RarityCode.Uncommon ? t('rarityUncommon') :
-                  code === RarityCode.Rare ? t('rarityRare') :
-                  code === RarityCode.Epic ? t('rarityEpic') :
-                  code === RarityCode.Legendary ? t('rarityLegendary') :
-                  code === RarityCode.Mythical ? t('rarityMythical') : rarityCodeToName(code)
-                }</MenuItem>
+                <MenuItem
+                  key={code}
+                  value={String(code)}
+                  onClick={() => {
+                    // When an override is active, allow clicking the effective value to accept it.
+                    if (multiEditActive || !rarityOverrideActive) return
+                    if (cfg.rarityMode === effectiveRarityMode && cfg.rarityCode === effectiveConfig.rarityCode) return
+                    if (effectiveRarityMode !== 'code') return
+                    if (effectiveConfig.rarityCode !== Number(code)) return
+                    updateRaritySelection('code', Number(code))
+                  }}
+                >
+                  {code === RarityCode.Common ? t('rarityCommon') :
+                    code === RarityCode.Uncommon ? t('rarityUncommon') :
+                    code === RarityCode.Rare ? t('rarityRare') :
+                    code === RarityCode.Epic ? t('rarityEpic') :
+                    code === RarityCode.Legendary ? t('rarityLegendary') :
+                    code === RarityCode.Mythical ? t('rarityMythical') : rarityCodeToName(code)}
+                </MenuItem>
               ))}
               <ListSubheader sx={LIST_SUBHEADER_SX}>{t('builderRarityGte')}</ListSubheader>
               {[RarityCode.GTE_Common,RarityCode.GTE_Uncommon,RarityCode.GTE_Rare,RarityCode.GTE_Epic,RarityCode.GTE_Legendary].map((code) => (
-                <MenuItem key={code} value={String(code)}>{
-                  code === RarityCode.GTE_Common ? `≥${NBSP}${t('rarityCommon')}` :
-                  code === RarityCode.GTE_Uncommon ? `≥${NBSP}${t('rarityUncommon')}` :
-                  code === RarityCode.GTE_Rare ? `≥${NBSP}${t('rarityRare')}` :
-                  code === RarityCode.GTE_Epic ? `≥${NBSP}${t('rarityEpic')}` :
-                  code === RarityCode.GTE_Legendary ? `≥${NBSP}${t('rarityLegendary')}` : rarityCodeToName(code)
-                }</MenuItem>
+                <MenuItem
+                  key={code}
+                  value={String(code)}
+                  onClick={() => {
+                    // When an override is active, allow clicking the effective value to accept it.
+                    if (multiEditActive || !rarityOverrideActive) return
+                    if (cfg.rarityMode === effectiveRarityMode && cfg.rarityCode === effectiveConfig.rarityCode) return
+                    if (effectiveRarityMode !== 'code') return
+                    if (effectiveConfig.rarityCode !== Number(code)) return
+                    updateRaritySelection('code', Number(code))
+                  }}
+                >
+                  {code === RarityCode.GTE_Common ? `≥${NBSP}${t('rarityCommon')}` :
+                    code === RarityCode.GTE_Uncommon ? `≥${NBSP}${t('rarityUncommon')}` :
+                    code === RarityCode.GTE_Rare ? `≥${NBSP}${t('rarityRare')}` :
+                    code === RarityCode.GTE_Epic ? `≥${NBSP}${t('rarityEpic')}` :
+                    code === RarityCode.GTE_Legendary ? `≥${NBSP}${t('rarityLegendary')}` : rarityCodeToName(code)}
+                </MenuItem>
               ))}
               <ListSubheader sx={LIST_SUBHEADER_SX}>{t('builderRarityLte')}</ListSubheader>
               {[RarityCode.LTE_Uncommon,RarityCode.LTE_Rare,RarityCode.LTE_Epic,RarityCode.LTE_Legendary,RarityCode.LTE_Mythical].map((code) => (
-                <MenuItem key={code} value={String(code)}>{
-                  code === RarityCode.LTE_Uncommon ? `≤${NBSP}${t('rarityUncommon')}` :
-                  code === RarityCode.LTE_Rare ? `≤${NBSP}${t('rarityRare')}` :
-                  code === RarityCode.LTE_Epic ? `≤${NBSP}${t('rarityEpic')}` :
-                  code === RarityCode.LTE_Legendary ? `≤${NBSP}${t('rarityLegendary')}` :
-                  code === RarityCode.LTE_Mythical ? `≤${NBSP}${t('rarityMythical')}` : rarityCodeToName(code)
-                }</MenuItem>
+                <MenuItem
+                  key={code}
+                  value={String(code)}
+                  onClick={() => {
+                    // When an override is active, allow clicking the effective value to accept it.
+                    if (multiEditActive || !rarityOverrideActive) return
+                    if (cfg.rarityMode === effectiveRarityMode && cfg.rarityCode === effectiveConfig.rarityCode) return
+                    if (effectiveRarityMode !== 'code') return
+                    if (effectiveConfig.rarityCode !== Number(code)) return
+                    updateRaritySelection('code', Number(code))
+                  }}
+                >
+                  {code === RarityCode.LTE_Uncommon ? `≤${NBSP}${t('rarityUncommon')}` :
+                    code === RarityCode.LTE_Rare ? `≤${NBSP}${t('rarityRare')}` :
+                    code === RarityCode.LTE_Epic ? `≤${NBSP}${t('rarityEpic')}` :
+                    code === RarityCode.LTE_Legendary ? `≤${NBSP}${t('rarityLegendary')}` :
+                    code === RarityCode.LTE_Mythical ? `≤${NBSP}${t('rarityMythical')}` : rarityCodeToName(code)}
+                </MenuItem>
               ))}
             </Select>
           </Box>
@@ -3321,10 +3521,15 @@ const maxLevelValue = multiEditActive
               ellipsisTitle={t('builderMinLevel')}
               render={(
                 <BuilderTooltipContent
-                  text={[
-                    t('builderMinLevelHelp'),
-                    t('builderMultiMixedTooltipSuffix'),
-                  ].join('\n')}
+                  text={buildOverrideTooltip(
+                    [
+                      t('builderMinLevelHelp'),
+                      t('builderMultiMixedTooltipSuffix'),
+                    ].join('\n'),
+                    levelLabel(storedMinLevel),
+                    levelLabel(effectiveMinLevel),
+                    levelOverrideActive,
+                  )}
                 />
               )}
             >
@@ -3350,16 +3555,22 @@ const maxLevelValue = multiEditActive
                 } else {
                   const currentMax = ((cfg as BuilderConfig).maxLevel ?? LEVEL_MILESTONES[LEVEL_MILESTONES.length - 1]!) as LevelMilestone
                   const nextMax = (nextMin > currentMax ? nextMin : currentMax) as LevelMilestone
-                  onChange(normalizeLevelWindow({ ...cfg, minLevel: nextMin, maxLevel: nextMax }))
+                  updateLevelWindow(nextMin, nextMax)
                 }
               }}
-              sx={{
+              sx={(theme) => ({
                 height: TOGGLE_BUTTON_HEIGHT_PX,
+                position: 'relative',
                 '& .MuiToggleButton-root': {
                   height: TOGGLE_BUTTON_HEIGHT_PX,
                   justifyContent: 'center',
                 },
-              }}
+                ...(levelOverrideActive ? {
+                  '&::after': {
+                    ...buildWarningBadgeIndicatorSx(theme),
+                  },
+                } : {}),
+              })}
             >
               {LEVELS.map((l) => {
                 const state = getLevelTriState(multiMinLevelField, singleMinLevel, l)
@@ -3377,6 +3588,13 @@ const maxLevelValue = multiEditActive
                         backgroundImage: `linear-gradient(135deg, ${mixedPatternColor} 50%, transparent 50%)`,
                       } : {}),
                     })}
+                    onClick={() => {
+                      // When an override is active, allow clicking the effective value to accept it.
+                      if (multiEditActive || !levelOverrideActive) return
+                      if (storedMinLevel === effectiveMinLevel && storedMaxLevel === effectiveMaxLevel) return
+                      if (effectiveMinLevel !== l) return
+                      updateLevelWindow(effectiveMinLevel, effectiveMaxLevel)
+                    }}
                   >
                     +{l}
                   </ToggleButton>
@@ -3393,10 +3611,15 @@ const maxLevelValue = multiEditActive
               ellipsisTitle={t('builderMaxLevel')}
               render={(
                 <BuilderTooltipContent
-                  text={[
-                    t('builderMaxLevelHelp'),
-                    t('builderMultiMixedTooltipSuffix'),
-                  ].join('\n')}
+                  text={buildOverrideTooltip(
+                    [
+                      t('builderMaxLevelHelp'),
+                      t('builderMultiMixedTooltipSuffix'),
+                    ].join('\n'),
+                    levelLabel(storedMaxLevel),
+                    levelLabel(effectiveMaxLevel),
+                    levelOverrideActive,
+                  )}
                 />
               )}
             >
@@ -3422,16 +3645,22 @@ const maxLevelValue = multiEditActive
                 } else {
                   const currentMin = ((cfg as BuilderConfig).minLevel ?? LEVEL_MILESTONES[0]!) as LevelMilestone
                   const nextMin = (nextMax < currentMin ? nextMax : currentMin) as LevelMilestone
-                  onChange(normalizeLevelWindow({ ...cfg, minLevel: nextMin, maxLevel: nextMax }))
+                  updateLevelWindow(nextMin, nextMax)
                 }
               }}
-              sx={{
+              sx={(theme) => ({
                 height: TOGGLE_BUTTON_HEIGHT_PX,
+                position: 'relative',
                 '& .MuiToggleButton-root': {
                   height: TOGGLE_BUTTON_HEIGHT_PX,
                   justifyContent: 'center',
                 },
-              }}
+                ...(levelOverrideActive ? {
+                  '&::after': {
+                    ...buildWarningBadgeIndicatorSx(theme),
+                  },
+                } : {}),
+              })}
             >
               {LEVELS.map((l) => {
                 const state = getLevelTriState(multiMaxLevelField, singleMaxLevel, l)
@@ -3449,6 +3678,13 @@ const maxLevelValue = multiEditActive
                         backgroundImage: `linear-gradient(135deg, ${mixedPatternColor} 50%, transparent 50%)`,
                       } : {}),
                     })}
+                    onClick={() => {
+                      // When an override is active, allow clicking the effective value to accept it.
+                      if (multiEditActive || !levelOverrideActive) return
+                      if (storedMinLevel === effectiveMinLevel && storedMaxLevel === effectiveMaxLevel) return
+                      if (effectiveMaxLevel !== l) return
+                      updateLevelWindow(effectiveMinLevel, effectiveMaxLevel)
+                    }}
                   >
                     +{l}
                   </ToggleButton>
@@ -5784,7 +6020,8 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                     }
                   }
                 }
-                const raw = cfg.autoRaritySupplementsThreshold ?? pickAutoRarityFallback(cfg)
+                const raw = (multiEditActive ? cfg : effectiveConfig).autoRaritySupplementsThreshold
+                  ?? pickAutoRaritySupplementsThreshold(multiEditActive ? cfg : effectiveConfig)
                 return (raw === 'uncommon' || raw === 'epic') ? raw : 'rare'
               })()
               const tierLabel = tierForLabel === 'uncommon'
@@ -5816,13 +6053,22 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                   if (multiEditActive && multiEdit) {
                     const next = autoRarityChipState === 'on'
                       ? cycleThreshold(tierForLabel, true)
-                      : pickAutoRarityFallback(cfg)
+                      : pickAutoRaritySupplementsThreshold(cfg)
                     multiEdit.updateField('autoRaritySupplementsThreshold', { value: next, status: 'common' })
                     return
                   }
-                  const curr = (cfg.autoRaritySupplementsThreshold ?? pickAutoRarityFallback(cfg)) as 'uncommon' | 'rare' | 'epic'
+                  // When an override is active, allow clicking the effective value to accept it.
+                  if (autoLateOverrideActive) {
+                    const stored = cfg.autoRaritySupplementsThreshold
+                    const effective = effectiveConfig.autoRaritySupplementsThreshold
+                    if (stored !== effective && effective) {
+                      updateAutoLateThreshold(effective)
+                      return
+                    }
+                  }
+                  const curr = (cfg.autoRaritySupplementsThreshold ?? pickAutoRaritySupplementsThreshold(cfg)) as 'uncommon' | 'rare' | 'epic'
                   const next = cycleThreshold(curr, true)
-                  onChange(normalizeKeepWithAuto({ ...cfg, autoRaritySupplementsThreshold: next }))
+                  updateAutoLateThreshold(next)
                 }
               const autoChipLabel = autoRarityChipState === 'on'
                 ? t('builderAutoGeLabel', { tier: tierLabel })
@@ -5842,10 +6088,15 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                       ellipsisTitle={t('builderMilestoneThresholds')}
                       render={(
                         <BuilderTooltipContent
-                          text={[
-                            t('builderMilestoneThresholdsHelp'),
-                            t('builderMultiMixedTooltipSuffix'),
-                          ].join('\n')}
+                          text={buildOverrideTooltip(
+                            [
+                              t('builderMilestoneThresholdsHelp'),
+                              t('builderMultiMixedTooltipSuffix'),
+                            ].join('\n'),
+                            keepModeLabel((cfg.earlyKeepMode ?? 'early') as 'early' | 'late'),
+                            keepModeLabel((effectiveConfig.earlyKeepMode ?? 'early') as 'early' | 'late'),
+                            keepOverrideActive,
+                          )}
                         />
                       )}
                     >
@@ -5865,16 +6116,22 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                           return
                         }
                         userKeepModeRef.current = mode
-                        onChange(normalizeKeepWithAuto({ ...cfg, earlyKeepMode: mode }))
+                        updateKeepMode(mode)
                       }}
                       disabled={!thresholdsActiveAny}
                       data-tour-id="builder.thresholds"
-                      sx={{
+                      sx={(theme) => ({
+                        position: 'relative',
                         '& .MuiToggleButton-root': {
                           height: TOGGLE_BUTTON_HEIGHT_PX,
                           minHeight: TOGGLE_BUTTON_HEIGHT_PX,
                         },
-                      }}
+                        ...(keepOverrideActive ? {
+                          '&::after': {
+                            ...buildWarningBadgeIndicatorSx(theme),
+                          },
+                        } : {}),
+                      })}
                     >
                       {(['early', 'late'] as const).map((mode) => {
                         const state = getKeepModeTriState(mode)
@@ -5892,6 +6149,13 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                                 backgroundImage: `linear-gradient(135deg, ${mixedPatternColor} 50%, transparent 50%)`,
                               } : {}),
                             })}
+                            onClick={() => {
+                              // When an override is active, allow clicking the effective value to accept it.
+                              if (multiEditActive || !keepOverrideActive) return
+                              if ((cfg.earlyKeepMode ?? 'early') === (effectiveConfig.earlyKeepMode ?? 'early')) return
+                              if (mode !== (effectiveConfig.earlyKeepMode ?? 'early')) return
+                              updateKeepMode(mode)
+                            }}
                           >
                             {mode === 'early' ? t('builderEarlyLabel') : t('builderLateLabel')}
                           </ToggleButton>
@@ -5900,8 +6164,19 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                     </ToggleButtonGroup>
                   </Box>
                   <Box sx={{ mt: 0.5, display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                    <MarkdownTooltip render={<BuilderTooltipContent text={tooltipLines.join('\n')} />}>
-                      <Box component="span" sx={{ display: 'inline-flex' }}>
+                    <MarkdownTooltip
+                      render={(
+                        <BuilderTooltipContent
+                          text={buildOverrideTooltip(
+                            tooltipLines.join('\n'),
+                            autoLateLabel(cfg.autoRaritySupplementsThreshold),
+                            autoLateLabel(effectiveConfig.autoRaritySupplementsThreshold),
+                            autoLateOverrideActive,
+                          )}
+                        />
+                      )}
+                    >
+                      <Box component="span" sx={{ display: 'inline-flex', position: 'relative' }}>
                         <Chip
                           size="small"
                           variant="filled"
@@ -5917,6 +6192,14 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                                   color: mixedTextColor,
                                   backgroundImage: `linear-gradient(135deg, ${mixedPatternColor} 50%, transparent 50%)`,
                                 } as SystemStyleObject<Theme>
+                              : {}),
+                            ...(autoLateOverrideActive
+                              ? (theme) => ({
+                                  position: 'relative',
+                                  '&::after': {
+                                    ...buildWarningBadgeIndicatorSx(theme),
+                                  },
+                                })
                               : {}),
                           }}
                           data-tour-id="builder.thresholds.auto-chip"

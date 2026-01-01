@@ -293,6 +293,25 @@ function rollTargetsToReadable(
   return sorted
 }
 
+const buildReadableArtifactSetEntries = (
+  selections: readonly ArtifactSetSelectionEntry[],
+): ReadableArtifactSetExportEntry[] => {
+  // Normalize first so ordering/exclusion precedence is stable.
+  const normalized = normalizeArtifactSetSelections(selections ?? [])
+  // Sort deterministically so HSFC diffs stay clean.
+  const sorted = normalized
+    .slice()
+    .sort((a, b) => compareArtifactSets(Number(a.id), Number(b.id)))
+  const entries: ReadableArtifactSetExportEntry[] = []
+  for (const entry of sorted) {
+    const name = artifactSetName(Number(entry.id) as ArtifactSetId)
+    // Skip missing labels to avoid NaN/empty exports.
+    if (!name || !name.trim()) continue
+    entries.push(entry.excluded ? { name, excluded: true } : { name })
+  }
+  return entries
+}
+
 // Keep Unique rarities store the 1..6 bucket; map those rank-like values to readable rarity names.
 const KEEP_UNIQUE_RARITY_LABEL: Record<number, string> = {
   1: 'Common',
@@ -706,18 +725,7 @@ export function buildReadableConfig(cfg: BuilderConfig, metasets: Metaset[]) {
     lockedMinRequiredRolls: (cfg.lockedMinRequiredRolls ?? 0),
     artifactTypeNames: (cfg.artifactTypes ?? []).slice().sort(compareArtifactTypes).map(t => artifactTypeNames[Number(t)]).filter(Boolean),
     // Artifact sets now serialize as objects so exclusions can be preserved.
-    artifactSetNames: normalizeArtifactSetSelections(cfg.artifactSets ?? [])
-      .slice()
-      // Keep set ordering stable for diffs and deterministic exports.
-      .sort((a, b) => compareArtifactSets(Number(a.id), Number(b.id)))
-      .map((entry) => {
-        // Export readable names so configs remain human-friendly.
-        const name = artifactSetName(Number(entry.id) as ArtifactSetId)
-        if (!name || !name.trim()) return null
-        // Only attach excluded when the entry explicitly opts out.
-        return entry.excluded ? { name, excluded: true } : { name }
-      })
-      .filter((x): x is { name: string; excluded?: true } => Boolean(x)),
+    artifactSetNames: buildReadableArtifactSetEntries(cfg.artifactSets ?? []),
     // Write compact metaset references by ID for smaller files. Names remain
     // available under Metasets[].name and are not duplicated here.
     artifactMetaSetIds: (cfg.artifactMetaSets ?? []).slice(),
@@ -973,9 +981,17 @@ export async function readHsfcFile(
  */
 // Keep Unique entries in HSFC should stay human-readable; this tuple mirrors the
 // in-memory shape but with labels instead of numeric IDs so saved files are self-explanatory.
+type ReadableArtifactSetExportEntry = {
+  // Human-readable set label for HSFC exports.
+  name: string
+  // Optional exclusion marker so keep-unique exports preserve "not" selections.
+  excluded?: true
+}
+
 type ReadableKeepUniqueTuple = {
   slots: string[]
-  sets: string[]
+  // Keep sets readable but preserve exclusions with structured entries.
+  sets: ReadableArtifactSetExportEntry[]
   metaSetIds: string[]
   ranks: string[]
   rarities: string[]
@@ -1053,8 +1069,8 @@ export function buildHsfcPayload(args: {
       // Emit readable tuple fields so HSFC is inspectable without a catalog.
       const slotLabels = rule.combination.slots
         .map((slot) => artifactTypeNames[Number(slot)] ?? String(slot))
-      const setLabels = rule.combination.sets
-        .map((set) => artifactSetName(Number(set) as ArtifactSetId))
+      // Preserve exclude flags while keeping readable set labels.
+      const setLabels = buildReadableArtifactSetEntries(rule.combination.sets ?? [])
       const rankLabels = rule.combination.ranks
         .map((rank) => formatRank(rank as RankCode))
         .filter((label) => Boolean(label && label.trim()))

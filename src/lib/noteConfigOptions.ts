@@ -5,8 +5,26 @@
  * config export-mode overrides.
  */
 import type { BuilderConfig, SellfileExportMode } from './hsfBuilder'
+import { RARITY_AUTO_LABEL } from './constants'
 import { TAG_TOKEN_REGEX, normalizeTagValue } from './tagHelpers'
 import { cloneBuilderConfig } from './multiEditDraft'
+import {
+  type LevelMilestone,
+  type RankCode,
+  RankCode as RankCodeEnum,
+  type RarityCode,
+  RarityCode as RarityCodeEnum,
+  isLevelMilestone,
+} from './types'
+import {
+  normalizeAggregateRollTargets,
+  normalizeAutoRaritySupplements,
+  normalizeAutoSubstatFlex,
+  normalizeKeepMode,
+  normalizeLevelWindow,
+  type AutoRaritySupplementsThreshold,
+} from './configNormalization'
+import { pickAutoRaritySupplementsThreshold } from './raritySupplements'
 
 // Supported group types in the note markers.
 export type NoteQuestionGroupType = 'single' | 'multi'
@@ -14,9 +32,27 @@ export type NoteQuestionGroupType = 'single' | 'multi'
 // Tags are normalized and describe how they affect config export modes.
 export type ConfigOptionsTagAction = 'enable' | 'disable' | 'toggle'
 
+// Optional per-tag overrides applied when a config options tag matches.
+export type ConfigOptionsTagOverrides = {
+  rankCode?: RankCode
+  rarityCode?: RarityCode
+  rarityMode?: 'auto' | 'code'
+  minLevel?: LevelMilestone
+  maxLevel?: LevelMilestone
+  earlyKeepMode?: 'early' | 'late'
+  autoRaritySupplementsThreshold?: AutoRaritySupplementsThreshold
+}
+
+// One resolved tag instruction (action + optional overrides).
+export type ConfigOptionsTagInstruction = {
+  action: ConfigOptionsTagAction
+  overrides?: ConfigOptionsTagOverrides
+}
+
 export type NoteQuestionTag = {
   value: string
   action: ConfigOptionsTagAction
+  overrides?: ConfigOptionsTagOverrides
 }
 
 // A single answer option for a question.
@@ -28,6 +64,11 @@ export type NoteQuestionOption = {
   token: string
   excludedOptionIds: string[]
   groupType: NoteQuestionGroupType
+}
+
+// Tag actions that apply when no options are selected.
+export type NoteQuestionFallback = {
+  tags: NoteQuestionTag[]
 }
 
 // Group metadata for a single question.
@@ -44,6 +85,7 @@ export type NoteQuestionDefinition = {
   prompt: string
   groups: NoteQuestionGroup[]
   options: NoteQuestionOption[]
+  fallback: NoteQuestionFallback | null
   defaultAnswer: string[]
   answer: string[]
 }
@@ -57,7 +99,7 @@ export const LEGACY_NOTE_CONFIG_OPTIONS_ANSWERS_KEY = `Note${'Question'}${'naire
 export type NoteConfigOptionsAnswers = Record<string, string[]>
 
 // Resolution result containing questions + tag instructions.
-export type ConfigOptionsTagInstructions = Record<string, ConfigOptionsTagAction[]>
+export type ConfigOptionsTagInstructions = Record<string, ConfigOptionsTagInstruction[]>
 
 export type ConfigOptionsTagResolution = {
   questions: NoteQuestionDefinition[]
@@ -209,15 +251,220 @@ const normalizeQuestionToken = (raw: string): string | null => {
   const trimmed = raw.trim()
   // Ignore empty tokens.
   if (!trimmed) return null
-  // Reject tokens containing disallowed characters.
-  if (!QUESTION_TOKEN_REGEX.test(trimmed)) return null
-  // Normalize digit tokens to avoid leading zeros.
+  // Accept numeric tokens for implicit indices regardless of tag grammar.
   if (/^\d+$/.test(trimmed)) {
     const value = Number.parseInt(trimmed, 10)
     return Number.isFinite(value) ? String(value) : null
   }
+  // Reject tokens containing disallowed characters.
+  if (!QUESTION_TOKEN_REGEX.test(trimmed)) return null
   // Normalize case to keep matching stable.
   return trimmed.toLowerCase()
+}
+
+type TagOverrideOp = 'eq' | 'gte' | 'lte'
+
+type ParsedOverrideToken = {
+  key: string
+  op: TagOverrideOp
+  value: string
+}
+
+// Normalize an override operator into a shared token.
+const normalizeOverrideOp = (raw: string): TagOverrideOp | null => {
+  // Trim spacing so we only compare the operator itself.
+  const trimmed = raw.trim()
+  // Accept ASCII operators.
+  if (trimmed === '>=') return 'gte'
+  if (trimmed === '<=') return 'lte'
+  if (trimmed === '=') return 'eq'
+  // Accept unicode comparison glyphs.
+  if (trimmed === '≥') return 'gte'
+  if (trimmed === '≤') return 'lte'
+  // Reject unknown operators.
+  return null
+}
+
+// Extract key/operator/value from a tag override token.
+const parseOverrideToken = (raw: string): ParsedOverrideToken | null => {
+  // Guard against empty or whitespace-only entries.
+  const trimmed = raw.trim()
+  if (!trimmed) return null
+  // Split key/operator/value in one pass.
+  const match = /^([a-zA-Z]+)\s*(>=|<=|=|≥|≤)\s*(.+)$/.exec(trimmed)
+  if (!match) return null
+  // Normalize key casing so comparisons stay stable.
+  const key = match[1]!.toLowerCase()
+  // Normalize the comparison operator.
+  const op = normalizeOverrideOp(match[2] ?? '')
+  if (!op) return null
+  // Preserve the value as-is for downstream parsing.
+  const value = (match[3] ?? '').trim()
+  if (!value) return null
+  return { key, op, value }
+}
+
+// Parse a rank override value into a RankCode.
+const parseRankOverride = (value: string, op: TagOverrideOp): RankCode | null => {
+  // Normalize casing and strip star glyphs.
+  const cleaned = value.trim().toLowerCase().replace(/[★*]/g, '')
+  // Handle the "any" token only for exact matches.
+  if (cleaned === 'any') {
+    return op === 'eq' ? RankCodeEnum.Any : null
+  }
+  // Parse the rank number from the token.
+  const parsed = Number.parseInt(cleaned, 10)
+  if (!Number.isFinite(parsed)) return null
+  if (parsed < 1 || parsed > 6) return null
+  // Resolve comparison operators to the correct HSF rank code.
+  if (op === 'eq') return parsed as RankCode
+  if (op === 'gte') {
+    if (parsed === 1) return RankCodeEnum.GTE_One
+    if (parsed === 2) return RankCodeEnum.GTE_Two
+    if (parsed === 3) return RankCodeEnum.GTE_Three
+    if (parsed === 4) return RankCodeEnum.GTE_Four
+    if (parsed === 5) return RankCodeEnum.GTE_Five
+    return RankCodeEnum.Six
+  }
+  if (parsed === 1) return RankCodeEnum.One
+  if (parsed === 2) return RankCodeEnum.LTE_Two
+  if (parsed === 3) return RankCodeEnum.LTE_Three
+  if (parsed === 4) return RankCodeEnum.LTE_Four
+  if (parsed === 5) return RankCodeEnum.LTE_Five
+  return RankCodeEnum.LTE_Six
+}
+
+// Lookup table for rarity names to HSF rarity codes.
+const RARITY_NAME_CODES = new Map<string, RarityCode>([
+  ['any', RarityCodeEnum.Any],
+  ['common', RarityCodeEnum.Common],
+  ['uncommon', RarityCodeEnum.Uncommon],
+  ['rare', RarityCodeEnum.Rare],
+  ['epic', RarityCodeEnum.Epic],
+  ['legendary', RarityCodeEnum.Legendary],
+  ['mythical', RarityCodeEnum.Mythical],
+])
+
+// Parse a rarity override value into a rarity mode + code.
+const parseRarityOverride = (
+  value: string,
+  op: TagOverrideOp,
+): { mode: 'auto' | 'code'; code?: RarityCode } | null => {
+  // Normalize and collapse spacing.
+  const cleaned = value.trim().toLowerCase()
+  // Allow the Auto token as an explicit mode switch.
+  if (cleaned === RARITY_AUTO_LABEL.toLowerCase()) {
+    return op === 'eq' ? { mode: 'auto' } : null
+  }
+  // Map the rarity name to a base code.
+  const base = RARITY_NAME_CODES.get(cleaned)
+  if (base == null) return null
+  // Exact match uses the base code verbatim.
+  if (op === 'eq') return { mode: 'code', code: base }
+  // Any with a comparator is not meaningful.
+  if (base === RarityCodeEnum.Any) return null
+  // Convert comparison operators into the nearest HSF rarity code.
+  if (op === 'gte') {
+    switch (base) {
+      case RarityCodeEnum.Common: return { mode: 'code', code: RarityCodeEnum.GTE_Common }
+      case RarityCodeEnum.Uncommon: return { mode: 'code', code: RarityCodeEnum.GTE_Uncommon }
+      case RarityCodeEnum.Rare: return { mode: 'code', code: RarityCodeEnum.GTE_Rare }
+      case RarityCodeEnum.Epic: return { mode: 'code', code: RarityCodeEnum.GTE_Epic }
+      case RarityCodeEnum.Legendary: return { mode: 'code', code: RarityCodeEnum.GTE_Legendary }
+      default: return { mode: 'code', code: RarityCodeEnum.Mythical }
+    }
+  }
+  switch (base) {
+    case RarityCodeEnum.Common: return { mode: 'code', code: RarityCodeEnum.Common }
+    case RarityCodeEnum.Uncommon: return { mode: 'code', code: RarityCodeEnum.LTE_Uncommon }
+    case RarityCodeEnum.Rare: return { mode: 'code', code: RarityCodeEnum.LTE_Rare }
+    case RarityCodeEnum.Epic: return { mode: 'code', code: RarityCodeEnum.LTE_Epic }
+    case RarityCodeEnum.Legendary: return { mode: 'code', code: RarityCodeEnum.LTE_Legendary }
+    default: return { mode: 'code', code: RarityCodeEnum.LTE_Mythical }
+  }
+}
+
+// Parse a level range in the format "min-max" (or a single value).
+const parseLevelRange = (value: string): { min: LevelMilestone; max: LevelMilestone } | null => {
+  // Split on the range separator.
+  const parts = value.split('-').map((entry) => entry.trim()).filter((entry) => entry.length > 0)
+  if (parts.length === 1) {
+    // Single milestones map to a min=max range.
+    const only = Number(parts[0])
+    if (!Number.isFinite(only)) return null
+    if (!isLevelMilestone(only)) return null
+    return { min: only, max: only }
+  }
+  if (parts.length !== 2) return null
+  // Convert both endpoints to numbers.
+  const minRaw = Number(parts[0])
+  const maxRaw = Number(parts[1])
+  if (!Number.isFinite(minRaw) || !Number.isFinite(maxRaw)) return null
+  // Enforce allowed milestone values.
+  if (!isLevelMilestone(minRaw) || !isLevelMilestone(maxRaw)) return null
+  // Reject reversed windows so outputs stay deterministic.
+  if (minRaw > maxRaw) return null
+  return { min: minRaw, max: maxRaw }
+}
+
+// Parse modifier tokens into a shared overrides payload.
+const parseTagOverrides = (tokens: readonly string[]): ConfigOptionsTagOverrides | null => {
+  // Track overrides only when at least one modifier parses.
+  let hasOverride = false
+  const overrides: ConfigOptionsTagOverrides = {}
+  tokens.forEach((token) => {
+    // Parse key/operator/value for each modifier.
+    const parsed = parseOverrideToken(token)
+    if (!parsed) return
+    // Route the override by key and ignore duplicates.
+    if (parsed.key === 'rank') {
+      if (overrides.rankCode != null) return
+      const rankCode = parseRankOverride(parsed.value, parsed.op)
+      if (rankCode == null) return
+      overrides.rankCode = rankCode
+      hasOverride = true
+      return
+    }
+    if (parsed.key === 'rarity') {
+      if (overrides.rarityMode != null || overrides.rarityCode != null) return
+      const rarity = parseRarityOverride(parsed.value, parsed.op)
+      if (!rarity) return
+      overrides.rarityMode = rarity.mode
+      if (rarity.code != null) overrides.rarityCode = rarity.code
+      hasOverride = true
+      return
+    }
+    if (parsed.key === 'lvl') {
+      if (overrides.minLevel != null || overrides.maxLevel != null) return
+      if (parsed.op !== 'eq') return
+      const range = parseLevelRange(parsed.value)
+      if (!range) return
+      overrides.minLevel = range.min
+      overrides.maxLevel = range.max
+      hasOverride = true
+      return
+    }
+    if (parsed.key === 'keep') {
+      // Only accept direct assignments for keep mode.
+      if (overrides.earlyKeepMode != null) return
+      if (parsed.op !== 'eq') return
+      const raw = parsed.value.trim().toLowerCase()
+      if (raw !== 'early' && raw !== 'late') return
+      overrides.earlyKeepMode = raw as 'early' | 'late'
+      hasOverride = true
+      return
+    }
+    if (parsed.key === 'autolate') {
+      // Only accept direct assignments for auto-late tiers.
+      if (overrides.autoRaritySupplementsThreshold != null) return
+      if (parsed.op !== 'eq') return
+      const raw = parsed.value.trim().toLowerCase()
+      if (raw !== 'uncommon' && raw !== 'rare' && raw !== 'epic') return
+      overrides.autoRaritySupplementsThreshold = raw as AutoRaritySupplementsThreshold
+      hasOverride = true
+    }
+  })
+  return hasOverride ? overrides : null
 }
 
 type ParsedQuestionOption = {
@@ -230,12 +477,22 @@ type ParsedQuestionOption = {
   groupType: NoteQuestionGroupType
 }
 
+type ParsedQuestionFallback = {
+  kind: 'fallback'
+  tags: NoteQuestionTag[]
+}
+
+type ParsedQuestionOptionResult = (
+  | { kind: 'option'; option: ParsedQuestionOption }
+  | ParsedQuestionFallback
+)
+
 // Parse a single option block into label + tags.
 const parseOptionBlock = (
   raw: string,
   optionIndex: number,
   groupType: NoteQuestionGroupType,
-): ParsedQuestionOption | null => {
+): ParsedQuestionOptionResult | null => {
   // Skip leading whitespace inside the brackets.
   let idx = 0
   while (idx < raw.length && /\s/.test(raw.charAt(idx))) idx += 1
@@ -250,6 +507,8 @@ const parseOptionBlock = (
   if (!labelParsed) return null
   idx = labelParsed.nextIndex
   const label = labelParsed.value
+  // Track whether this option is the fallback entry (empty label).
+  const isFallback = label.trim().length === 0
   // Track the first explicit id token and exclusion tokens.
   let explicitToken: string | null = null
   const excludedTokens: string[] = []
@@ -272,7 +531,7 @@ const parseOptionBlock = (
     if (!token) continue
     // Handle explicit id tokens (id=token).
     const lower = token.toLowerCase()
-    if (lower.startsWith('id=')) {
+    if (!isFallback && lower.startsWith('id=')) {
       if (explicitToken) continue
       const candidate = normalizeQuestionToken(token.slice(3))
       if (!candidate) continue
@@ -280,7 +539,7 @@ const parseOptionBlock = (
       continue
     }
     // Handle exclusion tokens (!token).
-    if (token.startsWith('!')) {
+    if (!isFallback && token.startsWith('!')) {
       const candidate = normalizeQuestionToken(token.slice(1))
       if (!candidate) continue
       excludedTokens.push(candidate)
@@ -291,23 +550,38 @@ const parseOptionBlock = (
       ? 'enable'
       : (token.startsWith('-') ? 'disable' : 'toggle')
     const rawValue = (action === 'toggle') ? token : token.slice(1)
-    // Reject tags that contain disallowed characters.
-    if (!QUESTION_TOKEN_REGEX.test(rawValue)) continue
-    const normalized = normalizeTagValue(rawValue)
+    // Split the base tag from any modifier segments.
+    const segments = rawValue.split(':').map((entry) => entry.trim()).filter(Boolean)
+    if (segments.length === 0) continue
+    // Normalize the base tag token using shared tag rules.
+    const normalized = normalizeTagValue(segments[0] ?? '')
     if (!normalized) continue
-    tagTokens.push({ value: normalized, action })
+    // Parse any override modifiers that follow the base tag.
+    const overrides = parseTagOverrides(segments.slice(1))
+    const nextTag: NoteQuestionTag = { value: normalized, action }
+    if (overrides) nextTag.overrides = overrides
+    tagTokens.push(nextTag)
+  }
+  // Route empty-label entries to the fallback payload.
+  if (isFallback) {
+    // Ignore fallback entries that carry no tags.
+    if (tagTokens.length === 0) return null
+    return { kind: 'fallback', tags: tagTokens }
   }
   // Build a stable ID for the option.
   const baseLabel = normalizeQuestionText(label).toLowerCase()
   const id = baseLabel ? `${baseLabel}#${optionIndex}` : `option-${optionIndex}`
   return {
-    id,
-    label,
-    tags: tagTokens,
-    isDefault,
-    explicitToken,
-    excludedTokens,
-    groupType,
+    kind: 'option',
+    option: {
+      id,
+      label,
+      tags: tagTokens,
+      isDefault,
+      explicitToken,
+      excludedTokens,
+      groupType,
+    },
   }
 }
 
@@ -438,9 +712,16 @@ export const parseNoteConfigOptions = (
     // Parse option blocks that follow the prompt.
     const blocks = extractOptionBlocks(inner, promptParsed.nextIndex)
     const parsedOptions: ParsedQuestionOption[] = []
+    const fallbackTags: NoteQuestionTag[] = []
     blocks.forEach((block) => {
       const parsed = parseOptionBlock(block.raw, parsedOptions.length, block.type)
-      if (parsed) parsedOptions.push(parsed)
+      if (!parsed) return
+      if (parsed.kind === 'fallback') {
+        // Preserve fallback tags in source order.
+        fallbackTags.push(...parsed.tags)
+        return
+      }
+      parsedOptions.push(parsed.option)
     })
     // Skip malformed questions that lack options.
     if (parsedOptions.length === 0) {
@@ -512,6 +793,7 @@ export const parseNoteConfigOptions = (
       prompt,
       groups: groupOrder,
       options,
+      fallback: fallbackTags.length > 0 ? { tags: fallbackTags } : null,
       defaultAnswer,
       answer,
     })
@@ -618,12 +900,25 @@ export const resolveConfigOptionsTags = (
   for (const question of questions) {
     // Only apply tags for selected options.
     const selected = new Set(question.answer)
+    if (selected.size === 0 && question.fallback) {
+      // Apply fallback tags when nothing is selected.
+      for (const tag of question.fallback.tags) {
+        const bucket = tagInstructions[tag.value] ?? []
+        const instruction: ConfigOptionsTagInstruction = { action: tag.action }
+        if (tag.overrides) instruction.overrides = tag.overrides
+        bucket.push(instruction)
+        tagInstructions[tag.value] = bucket
+      }
+      continue
+    }
     for (const option of question.options) {
       if (!selected.has(option.id)) continue
       for (const tag of option.tags) {
         // Append the tag action so config-order evaluation stays deterministic.
         const bucket = tagInstructions[tag.value] ?? []
-        bucket.push(tag.action)
+        const instruction: ConfigOptionsTagInstruction = { action: tag.action }
+        if (tag.overrides) instruction.overrides = tag.overrides
+        bucket.push(instruction)
         tagInstructions[tag.value] = bucket
       }
     }
@@ -652,10 +947,10 @@ const resolveConfigOptionsExportModeWithInstructions = (
     const actions = tagInstructions[normalized]
     if (!actions || actions.length === 0) continue
     hasInstruction = true
-    for (const action of actions) {
+    for (const entry of actions) {
       // Apply each action in config tag order for deterministic overrides.
-      if (action === 'enable') nextMode = 'active'
-      else if (action === 'disable') nextMode = 'disabled'
+      if (entry.action === 'enable') nextMode = 'active'
+      else if (entry.action === 'disable') nextMode = 'disabled'
       else nextMode = nextMode === 'active' ? 'disabled' : 'active'
     }
   }
@@ -670,6 +965,136 @@ export const resolveConfigOptionsExportMode = (
 ): SellfileExportMode => {
   return resolveConfigOptionsExportModeWithInstructions(cfg, tagInstructions)
 }
+
+// Resolve a config with all config options overrides applied.
+const resolveConfigOptionsEffectiveConfigWithInstructions = (
+  cfg: BuilderConfig,
+  tagInstructions: ConfigOptionsTagInstructions,
+): BuilderConfig => {
+  // Separators stay isolated from config options logic.
+  if (cfg.exportMode === 'separator') return cfg
+  // Skip work when no tags exist.
+  const tags = Array.isArray(cfg.tags) ? cfg.tags : []
+  if (tags.length === 0) return cfg
+  // Track effective values in local variables.
+  let nextMode: SellfileExportMode = cfg.exportMode
+  let nextRank: RankCode = cfg.rankCode
+  let nextRarityMode: 'auto' | 'code' = (cfg.rarityMode ?? 'code')
+  let nextRarityCode: RarityCode = cfg.rarityCode
+  let nextMinLevel: LevelMilestone | undefined = cfg.minLevel
+  let nextMaxLevel: LevelMilestone | undefined = cfg.maxLevel
+  let nextKeepMode: 'early' | 'late' = (cfg.earlyKeepMode ?? 'early')
+  let nextAutoLate: AutoRaritySupplementsThreshold | undefined = cfg.autoRaritySupplementsThreshold
+  // Track which override categories were explicitly provided.
+  let appliedRank = false
+  let appliedRarity = false
+  let appliedLevel = false
+  let appliedKeep = false
+  let appliedAutoLate = false
+  // Track whether any tag instructions matched at all.
+  let hasInstruction = false
+  for (const tag of tags) {
+    // Normalize tags to the same tokens used in the note prompts.
+    const normalized = normalizeTagValue(String(tag))
+    if (!normalized) continue
+    const actions = tagInstructions[normalized]
+    if (!actions || actions.length === 0) continue
+    hasInstruction = true
+    for (const entry of actions) {
+      // Apply export mode actions first for deterministic ordering.
+      if (entry.action === 'enable') nextMode = 'active'
+      else if (entry.action === 'disable') nextMode = 'disabled'
+      else nextMode = nextMode === 'active' ? 'disabled' : 'active'
+      // Apply any value overrides after the export mode action.
+      const overrides = entry.overrides
+      if (!overrides) continue
+      if (overrides.rankCode != null) {
+        nextRank = overrides.rankCode
+        appliedRank = true
+      }
+      if (overrides.rarityMode != null || overrides.rarityCode != null) {
+        nextRarityMode = overrides.rarityMode ?? 'code'
+        if (overrides.rarityCode != null) {
+          nextRarityCode = overrides.rarityCode
+        }
+        appliedRarity = true
+      }
+      if (overrides.minLevel != null && overrides.maxLevel != null) {
+        nextMinLevel = overrides.minLevel
+        nextMaxLevel = overrides.maxLevel
+        appliedLevel = true
+      }
+      if (overrides.earlyKeepMode != null) {
+        nextKeepMode = overrides.earlyKeepMode
+        appliedKeep = true
+      }
+      if (overrides.autoRaritySupplementsThreshold != null) {
+        nextAutoLate = overrides.autoRaritySupplementsThreshold
+        appliedAutoLate = true
+      }
+    }
+  }
+  // Determine whether any effective value changed.
+  const exportModeChanged = hasInstruction && nextMode !== cfg.exportMode
+  const rankChanged = appliedRank && nextRank !== cfg.rankCode
+  const storedRarityMode: 'auto' | 'code' = (cfg.rarityMode ?? 'code')
+  const rarityModeChanged = appliedRarity && nextRarityMode !== storedRarityMode
+  const rarityCodeChanged = appliedRarity && nextRarityMode === 'code' && nextRarityCode !== cfg.rarityCode
+  const rarityChanged = rarityModeChanged || rarityCodeChanged
+  const levelChanged = appliedLevel && (nextMinLevel !== cfg.minLevel || nextMaxLevel !== cfg.maxLevel)
+  const keepChanged = appliedKeep && nextKeepMode !== (cfg.earlyKeepMode ?? 'early')
+  const autoLateChanged = appliedAutoLate && nextAutoLate !== cfg.autoRaritySupplementsThreshold
+  // Bail out when no overrides actually change anything.
+  if (!exportModeChanged && !rankChanged && !rarityChanged && !levelChanged && !keepChanged && !autoLateChanged) {
+    return cfg
+  }
+  // Clone so we never mutate stored configs.
+  let next = cloneBuilderConfig(cfg)
+  // Apply export mode overrides when they differ.
+  if (exportModeChanged) next.exportMode = nextMode
+  // Apply rank overrides when provided.
+  if (appliedRank) next.rankCode = nextRank
+  // Apply rarity overrides when provided.
+  if (appliedRarity) {
+    next.rarityMode = nextRarityMode
+    if (nextRarityMode === 'code') {
+      next.rarityCode = nextRarityCode
+    }
+  }
+  // Apply level overrides and normalize the window.
+  if (appliedLevel) {
+    // appliedLevel only flips on when both bounds are provided.
+    next.minLevel = nextMinLevel!
+    next.maxLevel = nextMaxLevel!
+    next = normalizeLevelWindow(next)
+  }
+  // Apply keep mode overrides when provided.
+  if (appliedKeep) {
+    next.earlyKeepMode = nextKeepMode
+  }
+  // Apply auto-late overrides when provided.
+  if (appliedAutoLate) {
+    // appliedAutoLate only flips on when a valid tier is provided.
+    next.autoRaritySupplementsThreshold = nextAutoLate!
+  }
+  // Normalize auto rarity helpers when Auto/Late-related overrides are present.
+  if (appliedRarity || appliedKeep || appliedAutoLate) {
+    const fallback = pickAutoRaritySupplementsThreshold(next)
+    next = normalizeKeepMode(next)
+    next = normalizeAggregateRollTargets(next)
+    next = normalizeAutoRaritySupplements(next, { defaultThreshold: fallback })
+    next = normalizeAutoSubstatFlex(next)
+  }
+  return next
+}
+
+// Resolve a config with config options overrides applied (exported for UI).
+export const resolveConfigOptionsEffectiveConfig = (
+  cfg: BuilderConfig,
+  tagInstructions: ConfigOptionsTagInstructions,
+): BuilderConfig => (
+  resolveConfigOptionsEffectiveConfigWithInstructions(cfg, tagInstructions)
+)
 
 // Build a per-config export-mode snapshot for config options overrides.
 export const buildConfigOptionsExportModeResolution = (
@@ -711,5 +1136,22 @@ export const applyConfigOptionsExportModeOverrides = (
     return clone
   })
   // Return the original array if nothing changed.
+  return mutated ? next : configs.slice()
+}
+
+// Apply config options overrides across a config list.
+export const applyConfigOptionsOverrides = (
+  configs: readonly BuilderConfig[],
+  tagInstructions: ConfigOptionsTagInstructions,
+): BuilderConfig[] => {
+  // Track whether any overrides produced a new config instance.
+  let mutated = false
+  const next = configs.map((cfg) => {
+    // Resolve the config with any runtime overrides applied.
+    const resolved = resolveConfigOptionsEffectiveConfigWithInstructions(cfg, tagInstructions)
+    if (resolved !== cfg) mutated = true
+    return resolved
+  })
+  // Preserve the original array if no overrides were applied.
   return mutated ? next : configs.slice()
 }
