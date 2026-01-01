@@ -1822,6 +1822,42 @@ function KeepUniqueSummaryCard({
 type DisableConfigOptionsContext = {
   noteText: string
 }
+// Queueable menu actions so we can defer config mutations until menus fully close.
+type ConfigOptionsMenuAction =
+  // Reset answers back to defaults.
+  | { kind: 'reset' }
+  // Re-enable parsing without touching answers.
+  | { kind: 'enable' }
+  // Disable parsing with a snapshot for the confirm dialog.
+  | { kind: 'disable'; noteText: string }
+// Run a queued action after the menu exit transition, keeping view/edit consistent.
+const runConfigOptionsMenuAction = (
+  action: ConfigOptionsMenuAction | null,
+  handlers: {
+    onReset: () => void
+    onEnable: () => void
+    onDisable: (noteText: string) => void
+  },
+  clearAction: () => void,
+) => {
+  if (!action) return
+  // Clear first so rerenders never replay the action.
+  clearAction()
+  // Route the action after the menu closes to avoid stuck modals.
+  if (action.kind === 'reset') {
+    // Reset answers back to defaults.
+    handlers.onReset()
+    return
+  }
+  // Keep enable/disable paths explicit for clarity.
+  if (action.kind === 'enable') {
+    // Re-enable parsing without touching answers.
+    handlers.onEnable()
+    return
+  }
+  // Open the disable confirmation with the captured note snapshot.
+  handlers.onDisable(action.noteText)
+}
 
 export default function NoteDialog({
   open,
@@ -1901,6 +1937,8 @@ export default function NoteDialog({
   const [viewConfigOptionsMenuAnchor, setViewConfigOptionsMenuAnchor] = useState<HTMLElement | null>(null)
   // Flag whether the view-mode config options menu is open.
   const viewConfigOptionsMenuOpen = Boolean(viewConfigOptionsMenuAnchor)
+  // Queue the view-mode action so we can apply it after the menu closes.
+  const [viewConfigOptionsMenuAction, setViewConfigOptionsMenuAction] = useState<ConfigOptionsMenuAction | null>(null)
   // Open the view-mode config options menu from the button anchor.
   const openViewConfigOptionsMenu = React.useCallback((event: React.MouseEvent<HTMLElement>) => {
     setViewConfigOptionsMenuAnchor(event.currentTarget)
@@ -1909,6 +1947,13 @@ export default function NoteDialog({
   const closeViewConfigOptionsMenu = React.useCallback(() => {
     setViewConfigOptionsMenuAnchor(null)
   }, [])
+  // Queue a view-mode action, then close the menu to trigger exit cleanup.
+  const queueViewConfigOptionsMenuAction = React.useCallback((action: ConfigOptionsMenuAction) => {
+    // Store the action before closing so exit cleanup can replay it.
+    setViewConfigOptionsMenuAction(action)
+    // Closing the menu first prevents stuck backdrops.
+    closeViewConfigOptionsMenu()
+  }, [closeViewConfigOptionsMenu])
   // Hold the disable dialog context so view + edit can share one confirm flow.
   const [disableConfigOptionsContext, setDisableConfigOptionsContext] = useState<DisableConfigOptionsContext | null>(null)
   // Open the disable confirm dialog with the latest note snapshot.
@@ -1919,6 +1964,24 @@ export default function NoteDialog({
   const closeDisableConfigOptionsDialog = React.useCallback(() => {
     setDisableConfigOptionsContext(null)
   }, [])
+  // Apply the queued view-mode action after the menu finishes closing.
+  const handleViewConfigOptionsMenuExited = React.useCallback(() => {
+    // Run the action only once when the menu has fully unmounted.
+    runConfigOptionsMenuAction(
+      viewConfigOptionsMenuAction,
+      {
+        onReset: handleResetConfigOptionsAnswers,
+        onEnable: handleEnableConfigOptions,
+        onDisable: openDisableConfigOptionsDialog,
+      },
+      () => setViewConfigOptionsMenuAction(null),
+    )
+  }, [
+    handleEnableConfigOptions,
+    handleResetConfigOptionsAnswers,
+    openDisableConfigOptionsDialog,
+    viewConfigOptionsMenuAction,
+  ])
   // Apply or discard config options before disabling them in the session.
   const handleDisableConfigOptionsConfirm = React.useCallback((applyToConfigs: boolean) => {
     const context = disableConfigOptionsContext
@@ -2156,23 +2219,22 @@ export default function NoteDialog({
                         open={viewConfigOptionsMenuOpen}
                         onClose={closeViewConfigOptionsMenu}
                         MenuListProps={{ dense: true }}
+                        TransitionProps={{ onExited: handleViewConfigOptionsMenuExited }}
                       >
                         <MenuItem
                           onClick={() => {
-                            closeViewConfigOptionsMenu()
-                            handleResetConfigOptionsAnswers()
+                            queueViewConfigOptionsMenuAction({ kind: 'reset' })
                           }}
                         >
                           {t('noteConfigOptionsResetDefaults')}
                         </MenuItem>
                         <MenuItem
                           onClick={() => {
-                            closeViewConfigOptionsMenu()
-                            if (configOptionsDisabled) {
-                              handleEnableConfigOptions()
-                            } else {
-                              openDisableConfigOptionsDialog(note ?? '')
-                            }
+                            queueViewConfigOptionsMenuAction(
+                              configOptionsDisabled
+                                ? { kind: 'enable' }
+                                : { kind: 'disable', noteText: note ?? '' },
+                            )
                           }}
                         >
                           {configOptionsDisabled ? t('noteConfigOptionsEnable') : t('noteConfigOptionsDisable')}
@@ -2277,6 +2339,8 @@ function NoteEditorContent({
   const [editConfigOptionsMenuAnchor, setEditConfigOptionsMenuAnchor] = useState<HTMLElement | null>(null)
   // Track whether the edit-mode config options menu is open.
   const editConfigOptionsMenuOpen = Boolean(editConfigOptionsMenuAnchor)
+  // Queue the edit-mode action so we can apply it after the menu closes.
+  const [editConfigOptionsMenuAction, setEditConfigOptionsMenuAction] = useState<ConfigOptionsMenuAction | null>(null)
   // Open the edit-mode config options menu at the clicked button.
   const openEditConfigOptionsMenu = React.useCallback((event: React.MouseEvent<HTMLElement>) => {
     setEditConfigOptionsMenuAnchor(event.currentTarget)
@@ -2285,6 +2349,13 @@ function NoteEditorContent({
   const closeEditConfigOptionsMenu = React.useCallback(() => {
     setEditConfigOptionsMenuAnchor(null)
   }, [])
+  // Queue an edit-mode action, then close the menu to trigger exit cleanup.
+  const queueEditConfigOptionsMenuAction = React.useCallback((action: ConfigOptionsMenuAction) => {
+    // Store the action before closing so exit cleanup can replay it.
+    setEditConfigOptionsMenuAction(action)
+    // Closing the menu first prevents stuck backdrops.
+    closeEditConfigOptionsMenu()
+  }, [closeEditConfigOptionsMenu])
   const [draft, setDraft] = useState<string>(note ?? '')
   // Track config options changes so the view-mode button can signal edits.
   const baseConfigOptionsSignature = useMemo(
@@ -2323,13 +2394,27 @@ function NoteEditorContent({
     onConfigOptionsDisabledChange(false)
     onResetConfigOptionsAnswers()
   }, [onConfigOptionsDisabledChange, onResetConfigOptionsAnswers])
-  // Open the disable-confirm dialog and hand it the latest draft snapshot.
-  const handleDisableConfigOptions = React.useCallback(() => {
-    onOpenDisableConfigOptionsDialog(draft ?? '')
-  }, [draft, onOpenDisableConfigOptionsDialog])
   const handleEnableConfigOptions = React.useCallback(() => {
     onConfigOptionsDisabledChange(false)
   }, [onConfigOptionsDisabledChange])
+  // Apply the queued edit-mode action after the menu finishes closing.
+  const handleEditConfigOptionsMenuExited = React.useCallback(() => {
+    // Run the action only once when the menu has fully unmounted.
+    runConfigOptionsMenuAction(
+      editConfigOptionsMenuAction,
+      {
+        onReset: handleResetConfigOptions,
+        onEnable: handleEnableConfigOptions,
+        onDisable: onOpenDisableConfigOptionsDialog,
+      },
+      () => setEditConfigOptionsMenuAction(null),
+    )
+  }, [
+    editConfigOptionsMenuAction,
+    handleEnableConfigOptions,
+    handleResetConfigOptions,
+    onOpenDisableConfigOptionsDialog,
+  ])
   // Ignore answer updates in edit mode so markers stay read-only.
   const ignoreConfigOptionsAnswerChange = React.useCallback(() => {}, [])
   const editorContextValue = useMemo<NoteRenderContextValue>(
@@ -2794,23 +2879,22 @@ function NoteEditorContent({
                 open={editConfigOptionsMenuOpen}
                 onClose={closeEditConfigOptionsMenu}
                 MenuListProps={{ dense: true }}
+                TransitionProps={{ onExited: handleEditConfigOptionsMenuExited }}
               >
                 <MenuItem
                   onClick={() => {
-                    closeEditConfigOptionsMenu()
-                    handleResetConfigOptions()
+                    queueEditConfigOptionsMenuAction({ kind: 'reset' })
                   }}
                 >
                   {t('noteConfigOptionsResetDefaults')}
                 </MenuItem>
                 <MenuItem
                   onClick={() => {
-                    closeEditConfigOptionsMenu()
-                    if (configOptionsDisabled) {
-                      handleEnableConfigOptions()
-                    } else {
-                      handleDisableConfigOptions()
-                    }
+                    queueEditConfigOptionsMenuAction(
+                      configOptionsDisabled
+                        ? { kind: 'enable' }
+                        : { kind: 'disable', noteText: draft ?? '' },
+                    )
                   }}
                 >
                   {configOptionsDisabled ? t('noteConfigOptionsEnable') : t('noteConfigOptionsDisable')}
