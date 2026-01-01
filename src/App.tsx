@@ -361,7 +361,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     () => buildConfigOptionsExportModeResolution(customCfgs, configOptionsInstructions),
     [customCfgs, configOptionsInstructions],
   )
-  // Apply the export-mode overrides for rule generation without mutating HSFC configs.
+  // Apply config options overrides for preview consumers (rules + note chips) without mutating HSFC configs.
   const configOptionsConfigsForRules = useMemo(
     () => applyConfigOptionsOverrides(customCfgs, configOptionsInstructions),
     [customCfgs, configOptionsInstructions],
@@ -5097,7 +5097,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           onRequestView={openNoteViewerManual}
           configOptionsAnswers={noteConfigOptionsAnswers}
           onConfigOptionsAnswersChange={setNoteConfigOptionsAnswers}
-          configs={customCfgs}
+          // Use config-options-resolved configs so note chips mirror current answers.
+          configs={configOptionsConfigsForRules}
           metasets={metasets}
           keepUniqueRules={keepUniqueRules}
           useStatButtonColors={statButtonBorders}
