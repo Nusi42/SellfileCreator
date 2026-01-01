@@ -39,8 +39,6 @@ type ChipLayoutEntry = {
   index: number
   rect: DOMRect
   offsetTop: number
-  offsetLeft: number
-  width: number
   height: number
 }
 
@@ -217,56 +215,43 @@ function ConfigChipsPanel(props: {
       layoutDirtyRef.current = false
       return
     }
+    // Pull chip DOM nodes so drag math stays synced with layout.
     const nodes = container.querySelectorAll<HTMLElement>('[data-config-chip-index]')
     const entries: ChipLayoutEntry[] = []
     nodes.forEach((node) => {
+      // Skip nodes missing the index attribute.
       const attr = node.getAttribute('data-config-chip-index')
       if (!attr) return
+      // Ignore malformed indices to keep drag logic stable.
       const index = Number(attr)
       if (!Number.isFinite(index)) return
+      // Cache the rect + offsets for pointer math.
       entries.push({
         index,
         rect: node.getBoundingClientRect(),
         offsetTop: node.offsetTop,
-        offsetLeft: node.offsetLeft,
-        width: node.offsetWidth,
         height: node.offsetHeight,
       })
     })
+    // Keep the list sorted so callers can rely on order.
     chipRectsRef.current = entries.sort((a, b) => a.index - b.index)
     layoutDirtyRef.current = false
   }, [containerRef])
 
-  const resolveDropTargetFromPoint = React.useCallback((clientX: number, clientY: number) => {
+  const resolveDropTargetFromPoint = React.useCallback((_clientX: number, clientY: number) => {
+    // Resolve against the live container bounds.
     const container = containerRef.current
     if (!container) return null
+    // Read the cached chip rects from the last measurement.
     const entries = chipRectsRef.current
     if (entries.length === 0) return null
+    // Inset the guide so it stays inside the scroll padding.
     const horizontalInset = 4
+    // Ensure the guide never collapses to zero width.
     const horizontalWidth = Math.max(4, container.clientWidth - horizontalInset * 2)
 
-    const verticalGuideForEntry = (entry: ChipLayoutEntry, placeAfter: boolean): DropGuide => {
-      const baseLeft = placeAfter ? entry.offsetLeft + entry.width : entry.offsetLeft
-      const left = Math.max(0, baseLeft - 2)
-      const top = Math.max(0, entry.offsetTop + 4)
-      const height = Math.max(16, entry.height - 8)
-      return { top, left, width: 4, height }
-    }
-
-    const verticalGapGuideBetween = (leftEntry: ChipLayoutEntry, rightEntry: ChipLayoutEntry): DropGuide => {
-      const leftEdge = leftEntry.offsetLeft + leftEntry.width
-      const rightEdge = rightEntry.offsetLeft
-      const midpoint = (leftEdge + rightEdge) / 2
-      const top = Math.min(leftEntry.offsetTop, rightEntry.offsetTop) + 4
-      const height = Math.max(leftEntry.height, rightEntry.height) - 8
-      return {
-        top: Math.max(0, top),
-        left: Math.max(0, midpoint - 2),
-        width: 4,
-        height: Math.max(16, height),
-      }
-    }
-
+    // Single-column list: drop guide is always a horizontal rule across the row.
+    // Horizontal guide spans the full chip lane.
     const horizontalGuideAt = (top: number): DropGuide => ({
       top: Math.max(0, top),
       left: horizontalInset,
@@ -274,64 +259,26 @@ function ConfigChipsPanel(props: {
       height: 4,
     })
 
-    const rowEntries = entries.filter((entry) => clientY >= entry.rect.top && clientY <= entry.rect.bottom)
-    if (rowEntries.length > 0) {
-      const sorted = [...rowEntries].sort((a, b) => a.rect.left - b.rect.left)
-      const dropSlots: Array<{ position: number; insertIndex: number; guide: DropGuide }> = []
-      const firstEntry = sorted[0]!
-      dropSlots.push({
-        position: firstEntry.rect.left,
-        insertIndex: firstEntry.index,
-        guide: verticalGuideForEntry(firstEntry, false),
-      })
-      for (let idx = 0; idx < sorted.length - 1; idx += 1) {
-        const leftEntry = sorted[idx]!
-        const rightEntry = sorted[idx + 1]!
-        dropSlots.push({
-          position: (leftEntry.rect.right + rightEntry.rect.left) / 2,
-          insertIndex: rightEntry.index,
-          guide: verticalGapGuideBetween(leftEntry, rightEntry),
-        })
-      }
-      const lastEntry = sorted[sorted.length - 1]!
-      dropSlots.push({
-        position: lastEntry.rect.right,
-        insertIndex: lastEntry.index + 1,
-        guide: verticalGuideForEntry(lastEntry, true),
-      })
-      for (let idx = 0; idx < dropSlots.length - 1; idx += 1) {
-        const current = dropSlots[idx]!
-        const next = dropSlots[idx + 1]!
-        const boundary = (current.position + next.position) / 2
-        if (clientX < boundary) {
-          return { insertIndex: current.insertIndex, guide: current.guide }
-        }
-      }
-      const fallback = dropSlots[dropSlots.length - 1]!
-      return { insertIndex: fallback.insertIndex, guide: fallback.guide }
-    }
-
-    const first = entries[0]!
+    // Sort by vertical position so insert math stays consistent while dragging.
+    const sorted = [...entries].sort((a, b) => a.rect.top - b.rect.top)
+    // If the pointer is above the first chip, insert at the start.
+    const first = sorted[0]!
     if (clientY < first.rect.top) {
       const top = first.offsetTop - 2
-      return { insertIndex: 0, guide: horizontalGuideAt(top) }
+      return { insertIndex: first.index, guide: horizontalGuideAt(top) }
     }
-    const last = entries[entries.length - 1]!
-    if (clientY > last.rect.bottom) {
-      const top = last.offsetTop + last.height - 2
-      return { insertIndex: last.index + 1, guide: horizontalGuideAt(top) }
-    }
-    for (let i = 0; i < entries.length - 1; i += 1) {
-      const current = entries[i]!
-      const next = entries[i + 1]!
-      if (clientY > current.rect.bottom && clientY < next.rect.top) {
-        const currentBottomOffset = current.offsetTop + current.height
-        const nextTopOffset = next.offsetTop
-        const top = ((currentBottomOffset + nextTopOffset) / 2) - 2
-        return { insertIndex: next.index, guide: horizontalGuideAt(top) }
+    // Walk each chip midpoint to choose before/after insertion.
+    for (const entry of sorted) {
+      const midpoint = entry.rect.top + (entry.rect.height / 2)
+      if (clientY < midpoint) {
+        const top = entry.offsetTop - 2
+        return { insertIndex: entry.index, guide: horizontalGuideAt(top) }
       }
     }
-    return null
+    // Pointer below the last chip always inserts after the final entry.
+    const last = sorted[sorted.length - 1]!
+    const top = last.offsetTop + last.height - 2
+    return { insertIndex: last.index + 1, guide: horizontalGuideAt(top) }
   }, [containerRef])
 
   const updateDropTarget = React.useCallback((clientX: number, clientY: number) => {
@@ -587,18 +534,21 @@ function ConfigChipsPanel(props: {
           return {
             mt: 2,
             display: 'flex',
+            // Stack full-width chips vertically; no wrap logic needed.
+            flexDirection: 'column',
             width: '100%',
             flexGrow: 1,
             flexBasis: 0,
+            // Preserve the original chip spacing.
             gap: 0.75,
-            flexWrap: 'wrap',
             maxHeight: maxHeightPx,
+            // Only vertical scrolling is needed for the single-column list.
             overflowY: 'auto',
             overflowX: 'hidden',
             pr: gutterPadding,
             minHeight: minHeightPx,
-            alignContent: 'flex-start',
-            alignItems: 'flex-start',
+            // Stretch children so chips fill the row.
+            alignItems: 'stretch',
             position: 'relative',
             transition: UI_BG_HOVER_DANGER_TRANSITION,
             backgroundColor: highlightDelete

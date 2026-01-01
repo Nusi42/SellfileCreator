@@ -197,7 +197,8 @@ If tooltips need rich formatting (colored badges, inline icons), pass JSX via `r
 - Defaults: `keep=true`, `rankCode=0`, `rarityCode=0`, `mainStatsV=[]`, `minLevel=0`, `maxLevel=16`, `minCount=0`, `autoMinCount=true`, `substatsV=[]`, `artifactTypes=[]`, `artifactSets=[]`.
 - Reset defaults restore the above and clear type/set/faction selections.
 - Config chips occupy a scrollable container (≈6 chips). Adding a new config selects it and scrolls it into view without moving the page.
-- Chips support drag-and-drop reordering: the dragged chips are dimmed but keep their spot (layout stays frozen), a blue guide line shows the drop slot (vertical between chips, horizontal between rows), auto-scroll kicks in near the container edges, tooltips/context hints are suppressed during the drag, and the actual reorder only happens on drop so previews do not churn mid-drag. Press `Esc` to cancel an in-flight drag without changing the list. Hold `Ctrl` (Cmd on macOS) while dragging to duplicate the selected chips into the highlighted slot instead of moving them; the new copies become the active selection after drop.
+- Config chips render as a single column in the builder list: each chip spans the full row so configs never pack side-by-side.
+- Chips support drag-and-drop reordering: the dragged chips are dimmed but keep their spot (layout stays frozen), a blue guide line shows the drop slot between rows, auto-scroll kicks in near the container edges, tooltips/context hints are suppressed during the drag, and the actual reorder only happens on drop so previews do not churn mid-drag. Press `Esc` to cancel an in-flight drag without changing the list. Hold `Ctrl` (Cmd on macOS) while dragging to duplicate the selected chips into the highlighted slot instead of moving them; the new copies become the active selection after drop.
 - Preview auto-scroll stays confined to the table container:
   - Selecting a config chip jumps the preview table to the first rule row for that config (no smooth scrolling).
 
@@ -240,7 +241,7 @@ If tooltips need rich formatting (colored badges, inline icons), pass JSX via `r
   - Selecting a chip auto-scrolls to its first rule row (smooth in single-line mode; jump in wrap mode).
 - Row context menu matches chip actions (Duplicate, Move, Copy, Paste after, Delete). Base rows show Clear instead of Delete. Keep Unique rows do not show a row context menu.
 - Cells:
-  - Index column colors Keep/Sell status; disabled rules show a strikethrough.
+  - Index column colors Keep/Sell status; disabled rules render dimmed text.
   - Indices stay aligned with merged order; filters never renumber.
 - Implementation notes:
   - Component: `src/components/HsfRulesTable.tsx`.

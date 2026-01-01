@@ -38,6 +38,7 @@ import { splitArtifactSetSelections } from '../lib/gearSets/selection'
 import { ConfigContextMenu } from './ConfigContextMenu'
 import { BuilderTooltipContent } from './BuilderTooltipContent'
 import MarkdownTooltip from './MarkdownTooltip'
+import { resolveDisabledOpacity } from './disabledOpacity'
 
 // Separate baseline nudges keep bitmap faction icons and font slot icons visually centered.
 const CONFIG_CHIP_FACTION_ICON_OFFSET_EM = -0.45
@@ -194,6 +195,8 @@ function ConfigChip({
   const { showFactionIcons, statButtonBorders, showSetIcons, showSlotIcons } = useDisplayPreferences()
   const theme = useTheme()
   const primaryColor = theme.palette.primary.main
+  // Keep disabled chip dimming aligned with other disabled UI elements.
+  const disabledOpacity = resolveDisabledOpacity(theme)
   const nameDecoration = useMemo(
     () => parseConfigNameDirectives(cfg.name, primaryColor),
     [cfg.name, primaryColor],
@@ -236,6 +239,8 @@ function ConfigChip({
   )
   const keepColor = cfg.keep ? 'success.main' : 'error.main'
   const isDisabled = isHidden
+  // Dim the summary text when configs export with Use = false.
+  const summaryOpacity = isDisabled ? disabledOpacity : 1
   const showDuplicateFrame = !isSeparator && isDuplicate
   const [menu, setMenu] = useState<null | { open: boolean; x: number; y: number }>(null)
   const menuPaperRef = useRef<HTMLDivElement | null>(null)
@@ -300,10 +305,13 @@ function ConfigChip({
         const baseBorderColor = selected
           ? theme.palette.primary.main
           : (showDuplicateFrame ? theme.palette.error.main : theme.palette.divider)
+        // Full-width column layout: avoid percentage-based flex so chips don't stretch vertically.
         const flexSizing = isSeparator
-          ? '0 0 100%'
-          : (isStatic ? '0 1 auto' : '1 1 auto')
-        // Interactive chips flex-grow so a single chip spans the row while static embeds keep their natural width.
+          ? '0 0 auto'
+          : (isStatic ? '0 1 auto' : '0 0 auto')
+        // Interactive chips should fill the row; static chips keep their natural width.
+        const rowWidth = isSeparator || !isStatic ? '100%' : 'auto'
+        // Keep the border radius stable across themes.
         const borderRadius = `${CONFIG_CHIP_BORDER_RADIUS_PX}px`
         const pointerCursor = isStatic ? 'default' : (dragEnabled ? 'grab' : 'pointer')
         return {
@@ -311,7 +319,10 @@ function ConfigChip({
           display: 'inline-flex',
           alignItems: 'center',
           gap: isSeparator ? (separatorDecoration.hasLabel ? 1.5 : 0) : 0.5,
+          // Cap width so chips never push outside the scroller.
           maxWidth: '100%',
+          // Fill the row in the builder column layout.
+          width: rowWidth,
           overflow: isStatic ? 'visible' : 'hidden',
           border: '1px solid',
           borderColor: baseBorderColor,
@@ -418,15 +429,16 @@ function ConfigChip({
             overflowWrap: 'anywhere',
           }}
         >
-          <Box component="span" sx={{ display: 'inline' }}>
+          <Box
+            component="span"
+            sx={{
+              display: 'inline',
+              // Apply the dimmed opacity to the full summary line.
+              opacity: summaryOpacity,
+            }}
+          >
             {`${index + 1}. `}
-            {isDisabled ? (
-              <Box component="span" sx={{ color: 'common.white', textDecoration: 'line-through' }}>
-                <Box component="span" sx={{ color: keepColor, fontWeight: 600 }}>{actText}</Box>
-              </Box>
-            ) : (
-              <Box component="span" sx={{ color: keepColor, fontWeight: 600 }}>{actText}</Box>
-            )}
+            <Box component="span" sx={{ color: keepColor, fontWeight: 600 }}>{actText}</Box>
             {nameDecoration.displayName ? (
               <Box
                 component="span"
