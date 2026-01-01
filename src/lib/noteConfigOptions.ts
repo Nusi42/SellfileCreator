@@ -404,14 +404,17 @@ const tokenizeConfigOptions = (input: string): Token[] => {
     if (ch === '"') {
       let cursor = idx + 1
       let value = ''
+      let closed = false
       while (cursor < input.length) {
         const next = input.charAt(cursor)
         if (next === '"') {
+          closed = true
           tokens.push({ kind: 'string', value, index: idx })
           idx = cursor + 1
           value = ''
           break
         }
+        // Support escaped newlines/tabs so prompt text stays readable.
         if (next === '\\\\') {
           const esc = input.charAt(cursor + 1)
           if (esc === 'n') value += '\n'
@@ -421,11 +424,14 @@ const tokenizeConfigOptions = (input: string): Token[] => {
           cursor += 2
           continue
         }
+        // Accumulate raw characters until we hit the closing quote.
         value += next
         cursor += 1
       }
-      if (idx === cursor) {
-        idx = cursor + 1
+      // Guard against unterminated strings: consume the rest so we never loop forever.
+      if (!closed) {
+        tokens.push({ kind: 'string', value, index: idx })
+        idx = input.length
       }
       continue
     }
@@ -844,7 +850,11 @@ const parseSelectorBlocks = (cursor: TokenCursor): ConfigOptionsSelectorBlock[] 
       selectorTokens.push(next)
       cursor.next()
     }
-    if (!cursor.consumeSymbol('{')) continue
+    if (!cursor.consumeSymbol('{')) {
+      // Guard: malformed selector blocks should never trap the cursor.
+      cursor.next()
+      continue
+    }
     const selector = parseSelectorTokens(selectorTokens)
     const operations = parseOperations(cursor, '}')
     if (!selector || operations.length === 0) continue
@@ -1008,7 +1018,11 @@ const parseQuestionMarker = (inner: string): Omit<NoteQuestionDefinition, 'index
     }
     cursor.next()
     const parsed = parseOptionBlock(cursor, parsedOptions.length, groupType)
-    if (!parsed) continue
+    if (!parsed) {
+      // Guard: skip a token when the option block is malformed.
+      if (cursor.peek()) cursor.next()
+      continue
+    }
     parsedOptions.push(parsed)
   }
   if (parsedOptions.length === 0) return null
