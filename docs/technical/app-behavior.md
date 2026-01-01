@@ -229,21 +229,22 @@ This document captures runtime behavior, builder interactions, and user-facing w
 
 - Schema: HSFC may include an optional root-level `Note: string` with Markdown content.
 - Load: When an HSFC with `Note` is loaded, a modal dialog opens automatically (view-only). The dialog can also be opened via the always-visible note button in the HSFC controls row: `Add Note…` when empty, `Note…` when populated (opens in view mode).
+- Auto-open UI: The auto-opened dialog hides the `Edit Note & Config Options…` action so editing only happens after the user reopens the note manually.
 - Close: The dialog schedules its dismissal on the next animation frame; if a new note opens immediately after a close request (common during HSFC imports), the pending close is cancelled so the modal overlay never lingers.
 - Edit: The dialog uses an embedded Markdown editor (`@uiw/react-md-editor`) with sanitized previews (`rehype-sanitize`). The editor lives in `src/components/NoteDialog.tsx`.
 - Edit/View switch: The edit dialog now includes a `View Note…` button (outlined, bottom-left) that switches back to view mode. If config options markers changed versus the original note, the button shows a warning badge.
 - Config options markers: HTML comments inside the note can render interactive question blocks in the read-only view. Markers can be inline or multi-line; whitespace is optional.
-  - Syntax (single group): `<!-- q "Prompt" (* "Yes", +tag1, tag2) ("No", -tag1) -->`.
-  - Syntax (multi group): `<!-- question "Prompt" [* "Option", tag1] ["Other", +tag2] -->`.
-  - Mixed groups: `()` renders a radio group, `[]` renders a checkbox group. A marker can include both; exclusions apply across the entire marker.
-  - Tokens: `*` marks defaults; `+tag` enables, `-tag` disables, and bare `tag` toggles. Tags allow unicode letters/numbers plus underscores (must not start with a number); whitespace and punctuation are reserved for future syntax.
-  - Tag modifiers: append `:key=value` segments to set config fields on tagged configs, e.g. `speed:lvl=8-12:rank>=5:rarity>=rare`. Supported keys: `lvl` (range or single milestone), `rank` (1..6 with `=`, `>=`, `<=`), `rarity` (common/uncommon/rare/epic/legendary/mythical or `auto`), `keep` (`early`/`late`), and `autoLate` (`uncommon`/`rare`/`epic`).
-  - Fallback option: use an empty label (`""`) with tags to apply when nothing is selected in the question, e.g. `("" , -tag1)` or `["", +tag2]`.
-  - IDs + exclusions: `id=TOKEN` assigns a stable token to an option, and `!TOKEN` excludes another option. If no `id=` is present, the option’s 1-based index across the entire marker is its token.
+  - Marker: `<!-- config-options ... -->` with exactly one question per comment.
+  - Question header: `q`/`question` plus a quoted prompt: `q "Prompt"`.
+  - Groups: `radio`/`rb`/`single` (single-select) and `check`/`cb`/`multi` (multi-select). Each group is `group "Label" [id=TOKEN] [*|default] { @selector { assignments } ... }`.
+  - Selectors: required `@` blocks. Supported selectors include `@all`, `@tagged`, `@untagged`, `@tag=token`, `@tag in [a,b]`, `@rank>=5`, `@rarity>=epic`, `@minrolls>=2`, `@minsubstats=2`, `@flex=on`, and `and`/`or` expressions.
+  - Assignments: `set`/`=` followed by field/value pairs. Supported fields: `export` (active/disabled/toggle), `rank`, `rarity` (including `auto`), `lvl` (range or single milestone), `keep` (early/late), `autolate` (uncommon/rare/epic), `minrolls`, `lockedminrolls`, `minsubstats`, `flex`, `substatmin`, and `substatmin.<stat>`.
+  - Fallback: `fallback { ... }` or `else { ... }` applies when no group has selections.
+  - IDs + exclusions: `id=TOKEN` assigns a stable option token. Use `!TOKEN`, `excl TOKEN`, or `only TOKEN` to enforce mutual exclusions. If no `id=` is present, the option’s 1-based index is its token.
   - Prompt references: Wrap option labels in backticks to render them as chips (e.g., ``Answering `Yes` will...``). Use numeric references like `` `\1` `` (1-based) to inject the Nth option label. Wrap emphasis text in `**double-asterisks**` to render it with the Quota/Scope label style; both markers work in prompts and option labels. Prompts accept literal newlines or `\n` escapes; the first line renders as the title and any remaining lines render as subtext with the same emphasis markers.
   - Multi-select groups can be cleared to zero answers; an explicit empty selection bypasses defaults until the user reselects options.
-  - Questions are evaluated top-to-bottom; tag actions for a config apply in the order of that config’s tag list so toggles resolve deterministically.
-- Config options effects: Answers never mutate HSFC configs. Instead, config options tag actions compute effective runtime overrides (export mode, rank, rarity, level window) for previews + exports while configs stay unchanged in storage. Tagged configs override only when at least one tag action matches their tag list; otherwise stored values are preserved.
+  - Questions are evaluated top-to-bottom; selector blocks apply in the order they appear so overrides resolve deterministically.
+- Config options effects: Answers never mutate HSFC configs. Instead, selector blocks compute effective runtime overrides (export mode, rank, rarity, level window, min rolls/substats, flex, substat mins) for previews + exports while configs stay unchanged in storage. Overrides apply only when the selector matches a config; otherwise stored values are preserved.
 - Session-only answers: Config options answers are stored in autosave/session state only; HSFC exports never include them.
 - Save/Copy: If a Note exists (non-empty), HSFC exports and “Copy all Configs” include it.
 - Paste semantics: Pasting HSFC content (via context menu or manual paste) only overwrites the current note if the current note is empty. Loading a file always overwrites the current note.

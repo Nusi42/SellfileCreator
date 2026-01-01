@@ -350,21 +350,21 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // Normalize the note text so config options parsing never sees null.
   const configOptionsNoteText = typeof hsfcNote === 'string' ? hsfcNote : ''
   // Resolve config options tag actions based on the current note + answers.
-  const configOptionsTagResolution = useMemo(
+  const configOptionsResolution = useMemo(
     () => resolveConfigOptionsTags(configOptionsNoteText, noteConfigOptionsAnswers),
     [configOptionsNoteText, noteConfigOptionsAnswers],
   )
   // Keep a stable instruction map for downstream UI and filter logic.
-  const configOptionsTagInstructions = configOptionsTagResolution.tagInstructions
+  const configOptionsInstructions = configOptionsResolution.instructions
   // Resolve config options-driven export modes for every config.
   const configOptionsExportModes = useMemo(
-    () => buildConfigOptionsExportModeResolution(customCfgs, configOptionsTagInstructions),
-    [customCfgs, configOptionsTagInstructions],
+    () => buildConfigOptionsExportModeResolution(customCfgs, configOptionsInstructions),
+    [customCfgs, configOptionsInstructions],
   )
   // Apply the export-mode overrides for rule generation without mutating HSFC configs.
   const configOptionsConfigsForRules = useMemo(
-    () => applyConfigOptionsOverrides(customCfgs, configOptionsTagInstructions),
-    [customCfgs, configOptionsTagInstructions],
+    () => applyConfigOptionsOverrides(customCfgs, configOptionsInstructions),
+    [customCfgs, configOptionsInstructions],
   )
   // Use a deferred snapshot so bursty substatTargets updates (e.g., Restore Defaults) coalesce before recomputing merged rules.
   const ruleConfigs = useMemo(() => configsForRuleBuild(configOptionsConfigsForRules), [configOptionsConfigsForRules])
@@ -2291,6 +2291,19 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setCopyText,
     copyInputRef,
   } = hsfcDialogs
+  // Track when the note dialog opened automatically from an HSFC import.
+  // Why: auto-opened notes should hide the "Edit Note & Config Options…" button.
+  const [noteAutoOpenedFromHsfc, setNoteAutoOpenedFromHsfc] = useState(false)
+  // Manual openers reset the auto-open flag so the edit entry point returns.
+  const openNoteEditorManual = useCallback(() => {
+    setNoteAutoOpenedFromHsfc(false)
+    openNoteEditor()
+  }, [openNoteEditor, setNoteAutoOpenedFromHsfc])
+  // Manual view opens should also clear auto-open gating.
+  const openNoteViewerManual = useCallback(() => {
+    setNoteAutoOpenedFromHsfc(false)
+    openNoteViewer()
+  }, [openNoteViewer, setNoteAutoOpenedFromHsfc])
   requestDeleteSingleForSelection = requestDeleteSingle
   requestDeleteMultiForSelection = requestDeleteMulti
   requestDeleteSingleRef.current = requestDeleteSingle
@@ -2310,8 +2323,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     noteHistorySessionRef.current = 'idle'
     noteSessionBaselineRef.current = null
     noteSessionModeRef.current = null
+    // Closing ends the auto-open session so later opens behave normally.
+    setNoteAutoOpenedFromHsfc(false)
     closeNote()
-  }, [closeNote])
+  }, [closeNote, setNoteAutoOpenedFromHsfc])
 
   const applyNoteChange = useCallback((
     value: React.SetStateAction<string | null>,
@@ -3598,7 +3613,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     tags.splice(prospectiveInsertIndex, 0, normalizeConfigTags(builder))
     const modes = configModes.slice()
     // Resolve config options overrides for the builder export mode.
-    const builderExportMode: SellfileExportMode = resolveConfigOptionsExportMode(builder, configOptionsTagInstructions)
+    const builderExportMode: SellfileExportMode = resolveConfigOptionsExportMode(builder, configOptionsInstructions)
     modes.splice(prospectiveInsertIndex, 0, builderExportMode)
     // Ensure rule generation sees the same effective export mode as the filter list.
     // Clone only when the effective export mode diverges from the stored value.
@@ -3624,7 +3639,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     matchingConfigIndices,
     prospectiveInsertIndex,
     selectedIsDirty,
-    configOptionsTagInstructions,
+    configOptionsInstructions,
   ])
 
   const builderSaveMatchesRuleFilters = useMemo(() => {
@@ -3641,7 +3656,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     tags[editingConfigIndex] = normalizeConfigTags(builder)
     const modes = configModes.slice()
     // Resolve config options overrides for the builder export mode.
-    const builderExportMode: SellfileExportMode = resolveConfigOptionsExportMode(builder, configOptionsTagInstructions)
+    const builderExportMode: SellfileExportMode = resolveConfigOptionsExportMode(builder, configOptionsInstructions)
     modes[editingConfigIndex] = builderExportMode
     // Ensure rule generation sees the same effective export mode as the filter list.
     // Clone only when the effective export mode diverges from the stored value.
@@ -3664,7 +3679,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     evaluateConfigAgainstFilters,
     filterActive,
     limitConfigsToFiltered,
-    configOptionsTagInstructions,
+    configOptionsInstructions,
     normalizeConfigTags,
   ])
 
@@ -3673,7 +3688,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     // for at least one tester row that survives the tester-side filters.
     if (!limitConfigsToFiltered) return true
     // Apply config options overrides before testing the export mode.
-    const builderExportMode = resolveConfigOptionsExportMode(builder, configOptionsTagInstructions)
+    const builderExportMode = resolveConfigOptionsExportMode(builder, configOptionsInstructions)
     if (builderExportMode === 'disabled') return false
     // In tester mode, separators are always shown when config filtering is off (anchor chips remain visible).
     if (builderExportMode === 'separator' && testerConfigFilterMode === 'off') return true
@@ -3706,7 +3721,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     return false
   }, [
     builder,
-    configOptionsTagInstructions,
+    configOptionsInstructions,
     limitConfigsToFiltered,
     metasets,
     substatTargets,
@@ -4130,7 +4145,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       onSubstatTargetsChange={(next, opts) => { applySubstatTargetsChange(next, opts) }}
       substatTargetsDialogOpen={substatTargetsDialogOpen}
       onCloseSubstatTargetsDialog={closeSubstatTargetsDialog}
-      configOptionsTagInstructions={configOptionsTagInstructions}
+      configOptionsInstructions={configOptionsInstructions}
       setUsageCounts={setUsageCounts}
       metasetUsageCounts={metasetUsageCounts}
       keepUniqueMetasetUsageCounts={keepUniqueMetasetUsageCounts}
@@ -4235,6 +4250,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     beginTesterMatchReset('hsfc')
 
     if (importedNote !== null) {
+      // Mark this as an auto-open so the view dialog hides the edit button.
+      setNoteAutoOpenedFromHsfc(true)
       applyNoteChange(importedNote, { mode: 'import', publish: false })
       openNoteViewer()
     } else {
@@ -4284,6 +4301,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     markSavedNow,
     metasets,
     openNoteViewer,
+    setNoteAutoOpenedFromHsfc,
     setKeepUniqueRules,
     setKeepUniquesEnabled,
     setBuilder,
@@ -4429,7 +4447,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         showToast(t('toastConfigsSaved'))
         markSavedNow()
       }}
-      onOpenNote={() => { notePresent ? openNoteViewer() : openNoteEditor() }}
+      onOpenNote={() => { notePresent ? openNoteViewerManual() : openNoteEditorManual() }}
       notePresent={notePresent}
       count={customCfgs.length}
       selectedCount={selectedCfgIndices.length}
@@ -5075,8 +5093,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             applyNoteChange(value, { mode })
           }}
           onClose={handleCloseNote}
-          onRequestEdit={openNoteEditor}
-          onRequestView={openNoteViewer}
+          onRequestEdit={openNoteEditorManual}
+          onRequestView={openNoteViewerManual}
           configOptionsAnswers={noteConfigOptionsAnswers}
           onConfigOptionsAnswersChange={setNoteConfigOptionsAnswers}
           configs={customCfgs}
@@ -5084,6 +5102,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           keepUniqueRules={keepUniqueRules}
           useStatButtonColors={statButtonBorders}
           substatColors={substatColors}
+          hideEditButton={noteAutoOpenedFromHsfc}
         />
       ) : null}
       <Snackbar
