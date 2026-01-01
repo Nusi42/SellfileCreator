@@ -21,6 +21,7 @@ import { useDisplayPreferences } from '../state/preferencesState'
 import { NumberSpinnerAdornment } from './NumberSpinnerAdornment'
 // Use the Markdown-aware tooltip so this dialog inherits the global delay/style and translators can keep plain strings.
 import MarkdownTooltip from './MarkdownTooltip'
+import { buildWarningBadgeBase } from '../lib/badgeStyles'
 
 type SubstatColorMap = Record<number, { fg: string; bg: string }>
 type SubstatTargetStarKey = Exclude<keyof SubstatTargetTable, 'anyRankDefaultsTo'>
@@ -35,6 +36,7 @@ export default function SubstatTargetsDialog({
   open,
   onClose,
   substatTargets,
+  effectiveSubstatTargets,
   onSubstatTargetsChange,
   substatColors,
   configOptionsOverridesActive,
@@ -42,6 +44,7 @@ export default function SubstatTargetsDialog({
   open: boolean
   onClose: () => void
   substatTargets: SubstatTargetTable
+  effectiveSubstatTargets: SubstatTargetTable
   onSubstatTargetsChange: (m: SubstatTargetTable, opts?: { mode?: 'edit' | 'reset' | 'import' }) => void
   substatColors: SubstatColorMap
   configOptionsOverridesActive: boolean
@@ -58,11 +61,11 @@ export default function SubstatTargetsDialog({
   const fallbackChipSx = useMemo(() => createBuilderStatusChipSx(theme), [theme])
   const substatTargetsHelp = t('msgSubstatTargetsHelp')
   const configOptionsOverrideHint = t('substatTargetsConfigOptionsOverrideHint')
-  const substatTargetsHelpParagraphs = useMemo(() => {
-    const base = substatTargetsHelp.split('\n\n')
-    if (!configOptionsOverridesActive) return base
-    return base.concat(configOptionsOverrideHint)
-  }, [configOptionsOverrideHint, configOptionsOverridesActive, substatTargetsHelp])
+  const substatTargetsHelpParagraphs = useMemo(() => substatTargetsHelp.split('\n\n'), [substatTargetsHelp])
+  const resolvedEffectiveSubstatTargets = configOptionsOverridesActive ? effectiveSubstatTargets : substatTargets
+  const storedFallbackValue = (substatTargets.anyRankDefaultsTo ?? 6) as Star
+  const effectiveFallbackValue = (resolvedEffectiveSubstatTargets.anyRankDefaultsTo ?? 6) as Star
+  const anyRankOverrideActive = configOptionsOverridesActive && storedFallbackValue !== effectiveFallbackValue
   const substatTargetsStarColumns = useMemo(() => ([
     { key: 'six' as SubstatTargetStarKey, label: t('star6'), star: 6 as Star },
     { key: 'five' as SubstatTargetStarKey, label: t('star5'), star: 5 as Star },
@@ -71,6 +74,26 @@ export default function SubstatTargetsDialog({
     { key: 'two' as SubstatTargetStarKey, label: t('star2'), star: 2 as Star },
     { key: 'one' as SubstatTargetStarKey, label: t('star1'), star: 1 as Star },
   ]), [t])
+  const buildAnyRankTooltip = React.useCallback((rankLabel: string): string => {
+    const base = t('substatTargetsUseForAnyTooltip', { rank: rankLabel })
+    if (!configOptionsOverridesActive) return base
+    return `${base}\n\n${configOptionsOverrideHint}`
+  }, [configOptionsOverrideHint, configOptionsOverridesActive, t])
+  const renderOverrideBadge = React.useCallback((tooltip: string, ariaLabel: string) => (
+    <MarkdownTooltip markdown={tooltip}>
+      <Box
+        component="span"
+        aria-label={ariaLabel}
+        sx={(themeInner) => ({
+          ...buildWarningBadgeBase(themeInner),
+          cursor: 'default',
+          textTransform: 'lowercase',
+        })}
+      >
+        i
+      </Box>
+    </MarkdownTooltip>
+  ), [])
 
   const updateSubstatTargetValue = React.useCallback((starKey: SubstatTargetStarKey, variantKey: number, nextValue: number) => {
     const slice = substatTargets[starKey]
@@ -104,6 +127,8 @@ export default function SubstatTargetsDialog({
     // every keystroke; we still clamp to non-negative integers to match HSF/HSFC
     // expectations and keep keyboard/spinner edits in sync.
     const currentValue = Number(substatTargets[starKey]?.[variantKey] ?? 0)
+    const effectiveValue = Number(resolvedEffectiveSubstatTargets[starKey]?.[variantKey] ?? 0)
+    const valueOverrideActive = configOptionsOverridesActive && effectiveValue !== currentValue
     const ariaLabel = `${statLabel} ${starLabel}`
     const clampValue = (raw: number): number => {
       if (!Number.isFinite(raw)) return 0
@@ -163,12 +188,17 @@ export default function SubstatTargetsDialog({
         })}
         InputProps={{
           endAdornment: (
-            <NumberSpinnerAdornment
-              ariaLabel={ariaLabel}
-              onStep={(delta) => {
-                commitValue(clampValue(currentValue + delta))
-              }}
-            />
+            <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
+              {valueOverrideActive
+                ? renderOverrideBadge(configOptionsOverrideHint, configOptionsOverrideHint)
+                : null}
+              <NumberSpinnerAdornment
+                ariaLabel={ariaLabel}
+                onStep={(delta) => {
+                  commitValue(clampValue(currentValue + delta))
+                }}
+              />
+            </Box>
           ),
           sx: { '& > *': { alignItems: 'center' } },
         }}
@@ -231,19 +261,24 @@ export default function SubstatTargetsDialog({
       },
     }
     return (
-      // Keep the “use as Any” hint aligned with other Markdown tooltips so translations can add bullet lists.
-      <MarkdownTooltip markdown={t('substatTargetsUseForAnyTooltip', { rank: label })}>
-        <Chip
-          label={label}
-          size="small"
-          variant="filled"
-          clickable
-          onClick={() => { if (storedFallback !== star) onSubstatTargetsChange({ ...substatTargets, anyRankDefaultsTo: star }) }}
-          aria-pressed={isSelected}
-          aria-label={t('substatTargetsUseForAnyAria', { rank: label })}
-          sx={isSelected ? baseSx : plainSx}
-        />
-      </MarkdownTooltip>
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5 }}>
+        {/* Keep the “use as Any” hint aligned with other Markdown tooltips so translations can add bullet lists. */}
+        <MarkdownTooltip markdown={buildAnyRankTooltip(label)}>
+          <Chip
+            label={label}
+            size="small"
+            variant="filled"
+            clickable
+            onClick={() => { if (storedFallback !== star) onSubstatTargetsChange({ ...substatTargets, anyRankDefaultsTo: star }) }}
+            aria-pressed={isSelected}
+            aria-label={t('substatTargetsUseForAnyAria', { rank: label })}
+            sx={isSelected ? baseSx : plainSx}
+          />
+        </MarkdownTooltip>
+        {isSelected && anyRankOverrideActive
+          ? renderOverrideBadge(buildAnyRankTooltip(label), t('substatTargetsUseForAnyAria', { rank: label }))
+          : null}
+      </Box>
     )
   }
 

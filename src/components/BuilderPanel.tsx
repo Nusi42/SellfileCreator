@@ -175,7 +175,7 @@ import {
 
 export { createFactoryBuilderDefaults } from './builderPanel/defaults'
 
-export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSelected, registerAutoApplyHandler, onApplyMultiEdit, onUndo, onRedo, canUndo, canRedo, undoPreview, redoPreview, historyTimeline, onJumpToHistoryIndex, onRequestClearHistory, metasets, onMetasetsChange, describeNextChange, onDeleteMetaset, onResetMetasets, substatTargets, onSubstatTargetsChange, setUsageCounts, metasetUsageCounts, keepUniqueMetasetUsageCounts, substatColors: _substatColors, configCount: _configCount, configRuleCounts, configRuleFingerprints, configsExcludedByTotalLimit, ruleSubstatTargetsKey, rulesBuilding, awaitRuleCounts, countRulesForConfigs, selectedIsDirty, insertHiddenByFilters, saveHiddenByFilters, onSelectConfigsByMetaset, substatTargetsDialogOpen, onCloseSubstatTargetsDialog, configOptionsInstructions, substatTargetsOverridesActive, multiEdit: _multiEdit = null, multiSelectedConfigs = null, onBeforeMetasetsDialogClose }: {
+export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingIndex, onUpdateSelected, registerAutoApplyHandler, onApplyMultiEdit, onUndo, onRedo, canUndo, canRedo, undoPreview, redoPreview, historyTimeline, onJumpToHistoryIndex, onRequestClearHistory, metasets, onMetasetsChange, describeNextChange, onDeleteMetaset, onResetMetasets, substatTargets, effectiveSubstatTargets, onSubstatTargetsChange, setUsageCounts, metasetUsageCounts, keepUniqueMetasetUsageCounts, substatColors: _substatColors, configCount: _configCount, configRuleCounts, configRuleFingerprints, configsExcludedByTotalLimit, ruleSubstatTargetsKey, rulesBuilding, awaitRuleCounts, countRulesForConfigs, selectedIsDirty, insertHiddenByFilters, saveHiddenByFilters, onSelectConfigsByMetaset, substatTargetsDialogOpen, onCloseSubstatTargetsDialog, configOptionsInstructions, substatTargetsOverridesActive, multiEdit: _multiEdit = null, multiSelectedConfigs = null, onBeforeMetasetsDialogClose }: {
   cfg: BuilderConfig,
   onChange: (c: BuilderConfig) => void
   onAddToCustom: () => void
@@ -198,6 +198,7 @@ export default function BuilderPanel({ cfg, onChange, onAddToCustom, editingInde
   onDeleteMetaset: (id: string, opts?: { replaceWithSets?: boolean; replaceWithMetaId?: string }) => void
   onResetMetasets: (mode: 'delete' | 'replaceSets' | 'replaceMeta', replacementMetaId?: string) => void
   substatTargets: SubstatTargetTable
+  effectiveSubstatTargets: SubstatTargetTable
   onSubstatTargetsChange: (m: SubstatTargetTable, opts?: { mode?: 'edit' | 'reset' | 'import' }) => void
   substatTargetsOverridesActive: boolean
   setUsageCounts: Record<number, number>
@@ -6990,6 +6991,7 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
             open={substatTargetsDialogOpen}
             onClose={onCloseSubstatTargetsDialog}
             substatTargets={substatTargets}
+            effectiveSubstatTargets={effectiveSubstatTargets}
             onSubstatTargetsChange={onSubstatTargetsChange}
             configOptionsOverridesActive={substatTargetsOverridesActive}
             substatColors={substatColors}
