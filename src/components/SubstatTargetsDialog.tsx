@@ -31,12 +31,20 @@ const SUBSTAT_TARGET_INPUT_STAR_ATTR = 'data-substat-target-star' as const
 const SUBSTAT_TARGET_INPUT_VARIANT_ATTR = 'data-substat-target-variant' as const
 const SUBSTAT_TARGET_INPUT_SELECTOR = `input[${SUBSTAT_TARGET_INPUT_ATTR}="true"]` as const
 
-export default function SubstatTargetsDialog({ open, onClose, substatTargets, onSubstatTargetsChange, substatColors }: {
+export default function SubstatTargetsDialog({
+  open,
+  onClose,
+  substatTargets,
+  onSubstatTargetsChange,
+  substatColors,
+  configOptionsOverridesActive,
+}: {
   open: boolean
   onClose: () => void
   substatTargets: SubstatTargetTable
   onSubstatTargetsChange: (m: SubstatTargetTable, opts?: { mode?: 'edit' | 'reset' | 'import' }) => void
   substatColors: SubstatColorMap
+  configOptionsOverridesActive: boolean
 }) {
   const { t } = useI18n()
   const theme = useTheme()
@@ -49,7 +57,12 @@ export default function SubstatTargetsDialog({ open, onClose, substatTargets, on
   const fallbackStar: Star = storedFallback ?? 6
   const fallbackChipSx = useMemo(() => createBuilderStatusChipSx(theme), [theme])
   const substatTargetsHelp = t('msgSubstatTargetsHelp')
-  const substatTargetsHelpParagraphs = useMemo(() => substatTargetsHelp.split('\n\n'), [substatTargetsHelp])
+  const configOptionsOverrideHint = t('substatTargetsConfigOptionsOverrideHint')
+  const substatTargetsHelpParagraphs = useMemo(() => {
+    const base = substatTargetsHelp.split('\n\n')
+    if (!configOptionsOverridesActive) return base
+    return base.concat(configOptionsOverrideHint)
+  }, [configOptionsOverrideHint, configOptionsOverridesActive, substatTargetsHelp])
   const substatTargetsStarColumns = useMemo(() => ([
     { key: 'six' as SubstatTargetStarKey, label: t('star6'), star: 6 as Star },
     { key: 'five' as SubstatTargetStarKey, label: t('star5'), star: 5 as Star },

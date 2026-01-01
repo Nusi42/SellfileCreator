@@ -4,7 +4,7 @@
  * Parses in-note config options markers and resolves selector-based overrides
  * that drive config export-mode overrides.
  */
-import type { BuilderConfig, SellfileExportMode } from './hsfBuilder'
+import type { BuilderConfig, SellfileExportMode, Star, SubstatTargetTable } from './hsfBuilder'
 import { clampAggregateRollValue } from './aggregateRollState'
 import { RARITY_AUTO_LABEL } from './constants'
 import { TAG_TOKEN_REGEX, normalizeTagValue } from './tagHelpers'
@@ -58,6 +58,8 @@ export type ConfigOptionsOperation =
   | { kind: 'flex'; value: boolean }
   | { kind: 'substatMinAll'; value: number }
   | { kind: 'substatMinVariant'; variant: StatVariant; value: number }
+  | { kind: 'minimaAnyRank'; value: Star }
+  | { kind: 'minimaTarget'; star: Star; variant: StatVariant; value: number }
 
 export type ConfigOptionsSelectorBlock = {
   selector: ConfigOptionsSelector
@@ -320,6 +322,72 @@ const clampMinSubstats = (value: number): 0 | 1 | 2 | 3 | 4 => {
 const clampSubstatMin = (value: number): 0 | 1 | 2 | 3 | 4 | 5 => (
   clampAggregateRollValue(value)
 )
+
+const clampMinimaValue = (value: number): number => {
+  if (!Number.isFinite(value)) return 0
+  return Math.max(0, Math.round(value))
+}
+
+const resolveSelectedSubstatCount = (cfg: Pick<BuilderConfig, 'substatsV'>): number => (
+  Array.isArray(cfg.substatsV) ? cfg.substatsV.length : 0
+)
+
+const resolveLockedSubstatCount = (cfg: Pick<BuilderConfig, 'fixedSubstatsV'>): number => (
+  Array.isArray(cfg.fixedSubstatsV) ? cfg.fixedSubstatsV.length : 0
+)
+
+const resolveEffectiveMinCount = (cfg: Pick<BuilderConfig, 'autoMinCount' | 'minCount' | 'substatsV' | 'fixedSubstatsV'>): number => {
+  const selected = resolveSelectedSubstatCount(cfg)
+  const locked = resolveLockedSubstatCount(cfg)
+  if (cfg.autoMinCount) {
+    return Math.min(4, Math.max(0, selected))
+  }
+  const clamped = clampMinSubstats(Number(cfg.minCount ?? 0))
+  return Math.min(4, Math.max(clamped, locked))
+}
+
+const resolveMinCountOverride = (
+  cfg: Pick<BuilderConfig, 'substatsV' | 'fixedSubstatsV'>,
+  value: number,
+): 0 | 1 | 2 | 3 | 4 => {
+  const selected = resolveSelectedSubstatCount(cfg)
+  const locked = resolveLockedSubstatCount(cfg)
+  const clamped = clampMinSubstats(value)
+  if (selected <= 0) return 0
+  const withLocked = Math.max(clamped, locked)
+  const capped = Math.min(withLocked, Math.min(4, selected))
+  return clampMinSubstats(capped)
+}
+
+type MinimaFieldParse = { kind: 'any' } | { kind: 'stat'; star: Star; statKey: string }
+
+const MINIMA_STAR_LOOKUP: Record<string, Star> = {
+  '1': 1,
+  one: 1,
+  '2': 2,
+  two: 2,
+  '3': 3,
+  three: 3,
+  '4': 4,
+  four: 4,
+  '5': 5,
+  five: 5,
+  '6': 6,
+  six: 6,
+}
+
+const parseMinimaField = (field: string): MinimaFieldParse | null => {
+  if (!field.startsWith('minima.')) return null
+  const parts = field.split('.').filter(Boolean)
+  if (parts.length < 2) return null
+  const tag = parts[1] ?? ''
+  if (tag === 'any' && parts.length === 2) return { kind: 'any' }
+  const star = MINIMA_STAR_LOOKUP[tag]
+  if (!star) return null
+  const statKey = parts.slice(2).join('.')
+  if (!statKey) return null
+  return { kind: 'stat', star, statKey }
+}
 
 // Tokenize config options blocks for the parser.
 const tokenizeConfigOptions = (input: string): Token[] => {
@@ -601,32 +669,44 @@ const parseOperations = (cursor: TokenCursor, endSymbol: string): ConfigOptionsO
   while (true) {
     const token = cursor.peek()
     if (!token) break
+    // Stop when the selector block closes.
     if (token.kind === 'symbol' && token.value === endSymbol) {
       cursor.next()
       break
     }
+    // Accept commas as optional separators between assignments.
     if (token.kind === 'symbol' && token.value === ',') {
       cursor.next()
       continue
     }
-    cursor.consumeWord('set')
-    cursor.consumeSymbol('=')
-    const fieldToken = cursor.consumeWordValue()
-    if (!fieldToken) {
+    if (token.kind !== 'word') {
+      // Skip unknown tokens to keep the parser from stalling.
       cursor.next()
       continue
     }
-    const field = fieldToken.toLowerCase()
+    // Fields lead assignments in the stable syntax.
+    const field = token.value.toLowerCase()
+    cursor.next()
     const opToken = cursor.peek()
-    if (!opToken || opToken.kind !== 'symbol') continue
+    // Require a comparison operator after the field.
+    if (!opToken || opToken.kind !== 'symbol') {
+      cursor.next()
+      continue
+    }
+    // Normalize supported operator glyphs into override modes.
     const op = normalizeOverrideOp(opToken.value)
     if (!op) {
+      // Skip invalid operators so later assignments still parse.
       cursor.next()
       continue
     }
     cursor.next()
     const valueToken = cursor.peek()
-    if (!valueToken || (valueToken.kind !== 'word' && valueToken.kind !== 'string')) continue
+    // Values must be a token or quoted string.
+    if (!valueToken || (valueToken.kind !== 'word' && valueToken.kind !== 'string')) {
+      if (valueToken) cursor.next()
+      continue
+    }
     cursor.next()
     const valueRaw = valueToken.value
     if (field === 'export') {
@@ -699,6 +779,27 @@ const parseOperations = (cursor: TokenCursor, endSymbol: string): ConfigOptionsO
       const parsed = parseBooleanValue(valueRaw)
       if (parsed == null) continue
       operations.push({ kind: 'flex', value: parsed })
+      continue
+    }
+    const minimaField = parseMinimaField(field)
+    if (minimaField) {
+      if (op !== 'eq') continue
+      const numeric = parseIntegerValue(valueRaw)
+      if (numeric == null) continue
+      if (minimaField.kind === 'any') {
+        const star = MINIMA_STAR_LOOKUP[String(numeric)]
+        if (!star) continue
+        operations.push({ kind: 'minimaAnyRank', value: star })
+      } else {
+        const variant = variantFromLabel(minimaField.statKey)
+        if (variant == null) continue
+        operations.push({
+          kind: 'minimaTarget',
+          star: minimaField.star,
+          variant,
+          value: numeric,
+        })
+      }
       continue
     }
     if (field.startsWith('substatmin.')) {
@@ -776,25 +877,37 @@ const parseOptionBlock = (
   let explicitToken: string | null = null
   const excludedTokens: string[] = []
   const onlyTokens: string[] = []
+  // Track header parsing order so constraints stay before the selector block.
+  let headerPhase: 'id' | 'default' | 'constraints' = 'id'
   while (true) {
     const token = cursor.peek()
     if (!token) return null
+    // A selector block always starts with the opening brace.
     if (token.kind === 'symbol' && token.value === '{') {
       cursor.next()
       break
     }
-    if (token.kind === 'symbol' && token.value === QUESTION_OPTION_DEFAULT_MARKER) {
-      isDefault = true
-      cursor.next()
-      continue
+    // Default markers are only valid before constraints.
+    if (headerPhase !== 'constraints') {
+      // "*" toggles the default option for this group.
+      if (token.kind === 'symbol' && token.value === QUESTION_OPTION_DEFAULT_MARKER) {
+        isDefault = true
+        headerPhase = 'default'
+        cursor.next()
+        continue
+      }
+      // "default" is a word alias for the same intent.
+      if (token.kind === 'word' && token.value.toLowerCase() === 'default') {
+        isDefault = true
+        headerPhase = 'default'
+        cursor.next()
+        continue
+      }
     }
-    if (token.kind === 'word' && token.value.toLowerCase() === 'default') {
-      isDefault = true
+    // IDs must appear before defaults/constraints.
+    if (headerPhase === 'id' && token.kind === 'word' && token.value.toLowerCase() === 'id') {
       cursor.next()
-      continue
-    }
-    if (token.kind === 'word' && token.value.toLowerCase() === 'id') {
-      cursor.next()
+      // Require an explicit token for stable option references.
       if (!cursor.consumeSymbol('=')) continue
       const valueToken = cursor.peek()
       if (!valueToken || (valueToken.kind !== 'word' && valueToken.kind !== 'string')) continue
@@ -804,31 +917,32 @@ const parseOptionBlock = (
       explicitToken = candidate
       continue
     }
-    cursor.next()
-  }
-  const blocks = parseSelectorBlocks(cursor)
-  while (true) {
-    const token = cursor.peek()
-    if (!token) break
-    if (isQuestionKeyword(token) || isFallbackKeyword(token)) break
-    if (token.kind === 'word' && parseGroupType(token.value)) break
+    // Constraints must live in the header, after default markers.
     if (token.kind === 'symbol' && token.value === '!') {
+      headerPhase = 'constraints'
       cursor.next()
+      // "!" excludes listed tokens from being selected together.
       readTokenList(cursor, excludedTokens)
       continue
     }
     if (token.kind === 'word' && token.value.toLowerCase() === 'excl') {
+      headerPhase = 'constraints'
       cursor.next()
+      // "excl" is an exclusion alias for option tokens.
       readTokenList(cursor, excludedTokens)
       continue
     }
     if (token.kind === 'word' && token.value.toLowerCase() === 'only') {
+      headerPhase = 'constraints'
       cursor.next()
+      // "only" limits selection to the listed tokens.
       readTokenList(cursor, onlyTokens)
       continue
     }
-    break
+    // Skip any other header tokens to avoid infinite loops.
+    cursor.next()
   }
+  const blocks = parseSelectorBlocks(cursor)
   const baseLabel = normalizeQuestionText(label).toLowerCase()
   const id = baseLabel ? `${baseLabel}#${optionIndex}` : `option-${optionIndex}`
   return {
@@ -1249,7 +1363,7 @@ const matchesSelector = (selector: ConfigOptionsSelector, cfg: BuilderConfig): b
       return compareNumeric(manual, selector.op, selector.value)
     }
     case 'minSubstats':
-      return compareNumeric(cfg.minCount, selector.op, selector.value)
+      return compareNumeric(resolveEffectiveMinCount(cfg), selector.op, selector.value)
     case 'flex':
       return Boolean(cfg.autoSubstatFlex) === selector.value
     case 'and':
@@ -1450,7 +1564,7 @@ const resolveConfigOptionsEffectiveConfigWithInstructions = (
         return
       }
       if (op.kind === 'minSubstats') {
-        nextMinCount = clampMinSubstats(op.value)
+        nextMinCount = resolveMinCountOverride(cfg, op.value)
         appliedMinCount = true
         return
       }
@@ -1528,7 +1642,7 @@ const resolveConfigOptionsEffectiveConfigWithInstructions = (
   if (appliedSubstatMin) {
     next = applySubstatMinOverrides(next, substatMinAll, substatMinByVariant)
   }
-  if (appliedRarity || appliedKeep || appliedAutoLate) {
+  if (appliedRarity || appliedKeep || appliedAutoLate || appliedSubstatMin) {
     const fallback = pickAutoRaritySupplementsThreshold(next)
     next = normalizeKeepMode(next)
     next = normalizeAggregateRollTargets(next)
@@ -1598,4 +1712,72 @@ export const applyConfigOptionsOverrides = (
     return resolved
   })
   return mutated ? next : configs.slice()
+}
+
+type ConfigOptionsSubstatTargetsResolution = {
+  substatTargets: SubstatTargetTable
+  overridesActive: boolean
+}
+
+type SubstatTargetStarKey = Exclude<keyof SubstatTargetTable, 'anyRankDefaultsTo'>
+
+const starKeyForSubstatTargets = (star: Star): SubstatTargetStarKey => {
+  switch (star) {
+    case 1: return 'one'
+    case 2: return 'two'
+    case 3: return 'three'
+    case 4: return 'four'
+    case 5: return 'five'
+    case 6: return 'six'
+    default: return 'six'
+  }
+}
+
+const cloneSubstatTargets = (targets: SubstatTargetTable): SubstatTargetTable => ({
+  one: { ...(targets.one ?? {}) },
+  two: { ...(targets.two ?? {}) },
+  three: { ...(targets.three ?? {}) },
+  four: { ...(targets.four ?? {}) },
+  five: { ...(targets.five ?? {}) },
+  six: { ...(targets.six ?? {}) },
+  anyRankDefaultsTo: targets.anyRankDefaultsTo ?? 6,
+})
+
+const instructionAppliesToAnyConfig = (
+  instruction: ConfigOptionsSelectorBlock,
+  configs: readonly BuilderConfig[],
+): boolean => {
+  if (configs.length === 0) return instruction.selector.kind === 'all'
+  return configs.some((cfg) => matchesSelector(instruction.selector, cfg))
+}
+
+export const applyConfigOptionsSubstatTargetsOverrides = (
+  substatTargets: SubstatTargetTable,
+  configs: readonly BuilderConfig[],
+  instructions: ConfigOptionsInstructions,
+): ConfigOptionsSubstatTargetsResolution => {
+  let next = substatTargets
+  let overridesActive = false
+  for (const instruction of instructions) {
+    if (!instructionAppliesToAnyConfig(instruction, configs)) continue
+    for (const op of instruction.operations) {
+      if (op.kind !== 'minimaAnyRank' && op.kind !== 'minimaTarget') continue
+      overridesActive = true
+      if (op.kind === 'minimaAnyRank') {
+        if (next.anyRankDefaultsTo !== op.value) {
+          if (next === substatTargets) next = cloneSubstatTargets(substatTargets)
+          next.anyRankDefaultsTo = op.value
+        }
+        continue
+      }
+      const starKey = starKeyForSubstatTargets(op.star)
+      const nextValue = clampMinimaValue(op.value)
+      const currentSlice = next[starKey] ?? {}
+      const currentValue = currentSlice[op.variant]
+      if (currentValue === nextValue) continue
+      if (next === substatTargets) next = cloneSubstatTargets(substatTargets)
+      next[starKey] = { ...(next[starKey] ?? {}), [op.variant]: nextValue }
+    }
+  }
+  return { substatTargets: next, overridesActive }
 }

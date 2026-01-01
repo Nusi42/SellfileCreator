@@ -678,6 +678,7 @@ const enUS: Catalog = {
   any: 'Any',
   builderSubstatTargets: 'Substat Targets…',
   builderSubstatTargetsTooltip: 'Review or tweak the per-rank minimum roll targets that drive the substat indicators and Sellfile rows. Changes apply to every config.',
+  substatTargetsConfigOptionsOverrideHint: 'Config options overrides are active. Preview and exports use the overridden minima until those options are cleared.',
   builderMain: 'Mainstat',
   builderMainHelp: 'Require particular main stats on the item so only the builds you care about match.\n• Select multiple stats to accept any of them.\n• Leave empty to accept any main stat.',
   builderClearMainStats: 'Clear Main Stat Selection',
