@@ -1,10 +1,11 @@
 /**
  * noteConfigOptions.ts
  *
- * Parses in-note config options markers and resolves tag actions that drive
- * config export-mode overrides.
+ * Parses in-note config options markers and resolves selector-based overrides
+ * that drive config export-mode overrides.
  */
 import type { BuilderConfig, SellfileExportMode } from './hsfBuilder'
+import { clampAggregateRollValue } from './aggregateRollState'
 import { RARITY_AUTO_LABEL } from './constants'
 import { TAG_TOKEN_REGEX, normalizeTagValue } from './tagHelpers'
 import { cloneBuilderConfig } from './multiEditDraft'
@@ -14,7 +15,9 @@ import {
   RankCode as RankCodeEnum,
   type RarityCode,
   RarityCode as RarityCodeEnum,
+  type StatVariant,
   isLevelMilestone,
+  variantFromLabel,
 } from './types'
 import {
   normalizeAggregateRollTargets,
@@ -29,46 +32,52 @@ import { pickAutoRaritySupplementsThreshold } from './raritySupplements'
 // Supported group types in the note markers.
 export type NoteQuestionGroupType = 'single' | 'multi'
 
-// Tags are normalized and describe how they affect config export modes.
-export type ConfigOptionsTagAction = 'enable' | 'disable' | 'toggle'
+export type ConfigOptionsSelector =
+  | { kind: 'all' }
+  | { kind: 'tagged' }
+  | { kind: 'untagged' }
+  | { kind: 'tag'; mode: 'eq' | 'in' | 'any' | 'none'; values?: string[] }
+  | { kind: 'rank'; op: TagOverrideOp; value: RankCode }
+  | { kind: 'rarity'; op: TagOverrideOp; mode: 'auto' | 'code'; code?: RarityCode }
+  | { kind: 'minRolls'; op: TagOverrideOp; value: number }
+  | { kind: 'minSubstats'; op: TagOverrideOp; value: number }
+  | { kind: 'flex'; value: boolean }
+  | { kind: 'and'; left: ConfigOptionsSelector; right: ConfigOptionsSelector }
+  | { kind: 'or'; left: ConfigOptionsSelector; right: ConfigOptionsSelector }
 
-// Optional per-tag overrides applied when a config options tag matches.
-export type ConfigOptionsTagOverrides = {
-  rankCode?: RankCode
-  rarityCode?: RarityCode
-  rarityMode?: 'auto' | 'code'
-  minLevel?: LevelMilestone
-  maxLevel?: LevelMilestone
-  earlyKeepMode?: 'early' | 'late'
-  autoRaritySupplementsThreshold?: AutoRaritySupplementsThreshold
-}
+export type ConfigOptionsOperation =
+  | { kind: 'exportMode'; action: 'active' | 'disabled' | 'toggle' }
+  | { kind: 'rank'; value: RankCode }
+  | { kind: 'rarity'; mode: 'auto' | 'code'; code?: RarityCode }
+  | { kind: 'level'; min: LevelMilestone; max: LevelMilestone }
+  | { kind: 'keep'; mode: 'early' | 'late' }
+  | { kind: 'autoLate'; threshold: AutoRaritySupplementsThreshold }
+  | { kind: 'minRequiredRolls'; value: number }
+  | { kind: 'lockedMinRequiredRolls'; value: number }
+  | { kind: 'minSubstats'; value: number }
+  | { kind: 'flex'; value: boolean }
+  | { kind: 'substatMinAll'; value: number }
+  | { kind: 'substatMinVariant'; variant: StatVariant; value: number }
 
-// One resolved tag instruction (action + optional overrides).
-export type ConfigOptionsTagInstruction = {
-  action: ConfigOptionsTagAction
-  overrides?: ConfigOptionsTagOverrides
-}
-
-export type NoteQuestionTag = {
-  value: string
-  action: ConfigOptionsTagAction
-  overrides?: ConfigOptionsTagOverrides
+export type ConfigOptionsSelectorBlock = {
+  selector: ConfigOptionsSelector
+  operations: ConfigOptionsOperation[]
 }
 
 // A single answer option for a question.
 export type NoteQuestionOption = {
   id: string
   label: string
-  tags: NoteQuestionTag[]
+  blocks: ConfigOptionsSelectorBlock[]
   isDefault: boolean
   token: string
   excludedOptionIds: string[]
   groupType: NoteQuestionGroupType
 }
 
-// Tag actions that apply when no options are selected.
+// Selector blocks that apply when no options are selected.
 export type NoteQuestionFallback = {
-  tags: NoteQuestionTag[]
+  blocks: ConfigOptionsSelectorBlock[]
 }
 
 // Group metadata for a single question.
@@ -98,29 +107,36 @@ export const LEGACY_NOTE_CONFIG_OPTIONS_ANSWERS_KEY = `Note${'Question'}${'naire
 // Stored answers keyed by question ID.
 export type NoteConfigOptionsAnswers = Record<string, string[]>
 
-// Resolution result containing questions + tag instructions.
-export type ConfigOptionsTagInstructions = Record<string, ConfigOptionsTagInstruction[]>
+// Selector blocks applied in source order.
+export type ConfigOptionsInstructions = ConfigOptionsSelectorBlock[]
 
-export type ConfigOptionsTagResolution = {
+export type ConfigOptionsResolution = {
   questions: NoteQuestionDefinition[]
-  tagInstructions: ConfigOptionsTagInstructions
+  instructions: ConfigOptionsInstructions
 }
 
 // Config impact summary for Apply Tags flow.
 export type ConfigOptionsExportModeResolution = {
-  tagInstructions: ConfigOptionsTagInstructions
+  instructions: ConfigOptionsInstructions
   modes: SellfileExportMode[]
   overriddenIndices: number[]
 }
 
-// Match question markers in note comments.
-const QUESTION_MARKER_REGEX = /<!--\s*(?:q|question)\b[\s\S]*?-->/gi
-// Identify the leading "q" or "question" header (space tolerant).
-const QUESTION_HEADER_REGEX = /^\s*(?:q|question)\b/i
-// Leading asterisk marks default answers.
-const QUESTION_OPTION_DEFAULT_MARKER = '*'
+// Match config-options markers in note comments.
+const QUESTION_MARKER_REGEX = /<!--\s*config-options\b[\s\S]*?-->/gi
+
 // Token grammar matches config tag tokens so ids/exclusions stay aligned.
 const QUESTION_TOKEN_REGEX = TAG_TOKEN_REGEX
+// Leading asterisk marks default answers.
+const QUESTION_OPTION_DEFAULT_MARKER = '*'
+
+type TokenKind = 'word' | 'string' | 'symbol'
+
+type Token = {
+  kind: TokenKind
+  value: string
+  index: number
+}
 
 // Extract the inner text from an HTML comment.
 const stripCommentWrapper = (raw: string): string => (
@@ -146,105 +162,6 @@ const hashString = (value: string): string => {
   return Math.abs(hash).toString(36)
 }
 
-// Parse a quoted string with basic escape support (\", \\n, \\t, \\r).
-const readQuotedString = (input: string, startIndex: number): { value: string; nextIndex: number } | null => {
-  // Skip leading whitespace to find the opening quote.
-  let idx = startIndex
-  while (idx < input.length && /\s/.test(input.charAt(idx))) idx += 1
-  // Require a quote to start parsing.
-  if (input.charAt(idx) !== '"') return null
-  idx += 1
-  // Accumulate the decoded label content.
-  let result = ''
-  while (idx < input.length) {
-    const ch = input.charAt(idx)
-    // Closing quote ends the label.
-    if (ch === '"') {
-      return { value: result, nextIndex: idx + 1 }
-    }
-    // Map basic escape sequences to their literal value.
-    if (ch === '\\\\') {
-      const next = input.charAt(idx + 1)
-      if (next === 'n') result += '\n'
-      else if (next === 't') result += '\t'
-      else if (next === 'r') result += '\r'
-      else if (next) result += next
-      idx += 2
-      continue
-    }
-    // Add literal characters as-is.
-    result += ch
-    idx += 1
-  }
-  // Unterminated strings are treated as invalid.
-  return null
-}
-
-// Extract option blocks (single/multi) while respecting quoted labels.
-const extractOptionBlocks = (
-  input: string,
-  startIndex: number,
-): Array<{ raw: string; type: NoteQuestionGroupType }> => {
-  // Collect raw option contents in source order.
-  const blocks: Array<{ raw: string; type: NoteQuestionGroupType }> = []
-  let idx = startIndex
-  while (idx < input.length) {
-    // Find the next opening bracket or paren.
-    const openSquare = input.indexOf('[', idx)
-    const openParen = input.indexOf('(', idx)
-    // Resolve the earliest opening marker.
-    const open = (() => {
-      if (openSquare < 0 && openParen < 0) return null
-      if (openSquare < 0) return { index: openParen, type: 'single' as const, close: ')' }
-      if (openParen < 0) return { index: openSquare, type: 'multi' as const, close: ']' }
-      return openSquare < openParen
-        ? { index: openSquare, type: 'multi' as const, close: ']' }
-        : { index: openParen, type: 'single' as const, close: ')' }
-    })()
-    // Stop when no more option markers exist.
-    if (!open) break
-    // Track nesting and quoted regions.
-    let depth = 0
-    let inQuote = false
-    let escaped = false
-    for (let cursor = open.index; cursor < input.length; cursor += 1) {
-      const ch = input.charAt(cursor)
-      // Consume escaped characters inside quotes.
-      if (escaped) {
-        escaped = false
-        continue
-      }
-      // Toggle escape state for the next character.
-      if (ch === '\\\\') {
-        escaped = true
-        continue
-      }
-      // Track quotes so brackets inside labels are ignored.
-      if (ch === '"') {
-        inQuote = !inQuote
-        continue
-      }
-      // Ignore marker bookkeeping while quoted.
-      if (inQuote) continue
-      // Increment/decrement depth for the matching marker type.
-      if (ch === (open.type === 'multi' ? '[' : '(')) depth += 1
-      if (ch === open.close) depth -= 1
-      if (depth === 0) {
-        // Capture the block without the outer markers.
-        blocks.push({ raw: input.slice(open.index + 1, cursor), type: open.type })
-        idx = cursor + 1
-        break
-      }
-    }
-    // Abort the scan if the markers were unbalanced.
-    if (depth !== 0) {
-      idx = input.length
-    }
-  }
-  // Return the raw option blocks for parsing.
-  return blocks
-}
-
 // Normalize tag-style tokens for id/exclusion usage.
 const normalizeQuestionToken = (raw: string): string | null => {
   // Trim whitespace before validation.
@@ -262,14 +179,6 @@ const normalizeQuestionToken = (raw: string): string | null => {
   return trimmed.toLowerCase()
 }
 
-type TagOverrideOp = 'eq' | 'gte' | 'lte'
-
-type ParsedOverrideToken = {
-  key: string
-  op: TagOverrideOp
-  value: string
-}
-
 // Normalize an override operator into a shared token.
 const normalizeOverrideOp = (raw: string): TagOverrideOp | null => {
   // Trim spacing so we only compare the operator itself.
@@ -285,24 +194,7 @@ const normalizeOverrideOp = (raw: string): TagOverrideOp | null => {
   return null
 }
 
-// Extract key/operator/value from a tag override token.
-const parseOverrideToken = (raw: string): ParsedOverrideToken | null => {
-  // Guard against empty or whitespace-only entries.
-  const trimmed = raw.trim()
-  if (!trimmed) return null
-  // Split key/operator/value in one pass.
-  const match = /^([a-zA-Z]+)\s*(>=|<=|=|≥|≤)\s*(.+)$/.exec(trimmed)
-  if (!match) return null
-  // Normalize key casing so comparisons stay stable.
-  const key = match[1]!.toLowerCase()
-  // Normalize the comparison operator.
-  const op = normalizeOverrideOp(match[2] ?? '')
-  if (!op) return null
-  // Preserve the value as-is for downstream parsing.
-  const value = (match[3] ?? '').trim()
-  if (!value) return null
-  return { key, op, value }
-}
+type TagOverrideOp = 'eq' | 'gte' | 'lte'
 
 // Parse a rank override value into a RankCode.
 const parseRankOverride = (value: string, op: TagOverrideOp): RankCode | null => {
@@ -407,181 +299,668 @@ const parseLevelRange = (value: string): { min: LevelMilestone; max: LevelMilest
   return { min: minRaw, max: maxRaw }
 }
 
-// Parse modifier tokens into a shared overrides payload.
-const parseTagOverrides = (tokens: readonly string[]): ConfigOptionsTagOverrides | null => {
-  // Track overrides only when at least one modifier parses.
-  let hasOverride = false
-  const overrides: ConfigOptionsTagOverrides = {}
-  tokens.forEach((token) => {
-    // Parse key/operator/value for each modifier.
-    const parsed = parseOverrideToken(token)
-    if (!parsed) return
-    // Route the override by key and ignore duplicates.
-    if (parsed.key === 'rank') {
-      if (overrides.rankCode != null) return
-      const rankCode = parseRankOverride(parsed.value, parsed.op)
-      if (rankCode == null) return
-      overrides.rankCode = rankCode
-      hasOverride = true
-      return
+const parseBooleanValue = (value: string): boolean | null => {
+  const cleaned = value.trim().toLowerCase()
+  if (cleaned === 'true' || cleaned === 'on') return true
+  if (cleaned === 'false' || cleaned === 'off') return false
+  return null
+}
+
+const parseIntegerValue = (value: string): number | null => {
+  const parsed = Number.parseInt(value.trim(), 10)
+  return Number.isFinite(parsed) ? parsed : null
+}
+
+const clampMinSubstats = (value: number): 0 | 1 | 2 | 3 | 4 => {
+  if (value <= 0) return 0
+  if (value >= 4) return 4
+  return value as 0 | 1 | 2 | 3 | 4
+}
+
+const clampSubstatMin = (value: number): 0 | 1 | 2 | 3 | 4 | 5 => (
+  clampAggregateRollValue(value)
+)
+
+// Tokenize config options blocks for the parser.
+const tokenizeConfigOptions = (input: string): Token[] => {
+  const tokens: Token[] = []
+  let idx = 0
+  while (idx < input.length) {
+    const ch = input.charAt(idx)
+    // Skip whitespace.
+    if (/\s/.test(ch)) {
+      idx += 1
+      continue
     }
-    if (parsed.key === 'rarity') {
-      if (overrides.rarityMode != null || overrides.rarityCode != null) return
-      const rarity = parseRarityOverride(parsed.value, parsed.op)
-      if (!rarity) return
-      overrides.rarityMode = rarity.mode
-      if (rarity.code != null) overrides.rarityCode = rarity.code
-      hasOverride = true
-      return
+    // Parse quoted strings.
+    if (ch === '"') {
+      let cursor = idx + 1
+      let value = ''
+      while (cursor < input.length) {
+        const next = input.charAt(cursor)
+        if (next === '"') {
+          tokens.push({ kind: 'string', value, index: idx })
+          idx = cursor + 1
+          value = ''
+          break
+        }
+        if (next === '\\\\') {
+          const esc = input.charAt(cursor + 1)
+          if (esc === 'n') value += '\n'
+          else if (esc === 't') value += '\t'
+          else if (esc === 'r') value += '\r'
+          else if (esc) value += esc
+          cursor += 2
+          continue
+        }
+        value += next
+        cursor += 1
+      }
+      if (idx === cursor) {
+        idx = cursor + 1
+      }
+      continue
     }
-    if (parsed.key === 'lvl') {
-      if (overrides.minLevel != null || overrides.maxLevel != null) return
-      if (parsed.op !== 'eq') return
-      const range = parseLevelRange(parsed.value)
-      if (!range) return
-      overrides.minLevel = range.min
-      overrides.maxLevel = range.max
-      hasOverride = true
-      return
+    // Parse multi-character operators.
+    const nextTwo = input.slice(idx, idx + 2)
+    if (nextTwo === '>=' || nextTwo === '<=' || nextTwo === '&&' || nextTwo === '||') {
+      tokens.push({ kind: 'symbol', value: nextTwo, index: idx })
+      idx += 2
+      continue
     }
-    if (parsed.key === 'keep') {
-      // Only accept direct assignments for keep mode.
-      if (overrides.earlyKeepMode != null) return
-      if (parsed.op !== 'eq') return
-      const raw = parsed.value.trim().toLowerCase()
-      if (raw !== 'early' && raw !== 'late') return
-      overrides.earlyKeepMode = raw as 'early' | 'late'
-      hasOverride = true
-      return
+    // Parse single-character symbols.
+    if ('{}[](),*@=<>!:'.includes(ch)) {
+      tokens.push({ kind: 'symbol', value: ch, index: idx })
+      idx += 1
+      continue
     }
-    if (parsed.key === 'autolate') {
-      // Only accept direct assignments for auto-late tiers.
-      if (overrides.autoRaritySupplementsThreshold != null) return
-      if (parsed.op !== 'eq') return
-      const raw = parsed.value.trim().toLowerCase()
-      if (raw !== 'uncommon' && raw !== 'rare' && raw !== 'epic') return
-      overrides.autoRaritySupplementsThreshold = raw as AutoRaritySupplementsThreshold
-      hasOverride = true
+    // Parse word tokens up to the next separator.
+    let end = idx + 1
+    while (end < input.length) {
+      const next = input.charAt(end)
+      if (/\s/.test(next)) break
+      if ('{}[](),*@=<>!:'.includes(next)) break
+      if (next === '&' || next === '|') break
+      end += 1
     }
-  })
-  return hasOverride ? overrides : null
+    const value = input.slice(idx, end)
+    tokens.push({ kind: 'word', value, index: idx })
+    idx = end
+  }
+  return tokens
+}
+
+class TokenCursor {
+  private index = 0
+  constructor(private tokens: Token[]) {}
+
+  peek(offset = 0): Token | null {
+    return this.tokens[this.index + offset] ?? null
+  }
+
+  next(): Token | null {
+    const token = this.tokens[this.index]
+    this.index += 1
+    return token ?? null
+  }
+
+  consumeSymbol(value: string): boolean {
+    const token = this.peek()
+    if (!token || token.kind !== 'symbol' || token.value !== value) return false
+    this.index += 1
+    return true
+  }
+
+  consumeWord(...values: string[]): Token | null {
+    const token = this.peek()
+    if (!token || token.kind !== 'word') return null
+    const match = values.some((entry) => entry.toLowerCase() === token.value.toLowerCase())
+    if (!match) return null
+    this.index += 1
+    return token
+  }
+
+  consumeString(): Token | null {
+    const token = this.peek()
+    if (!token || token.kind !== 'string') return null
+    this.index += 1
+    return token
+  }
+
+  consumeWordValue(): string | null {
+    const token = this.peek()
+    if (!token || token.kind !== 'word') return null
+    this.index += 1
+    return token.value
+  }
+}
+
+const isQuestionKeyword = (token: Token | null): boolean => (
+  Boolean(token && token.kind === 'word' && ['q', 'question'].includes(token.value.toLowerCase()))
+)
+
+const isFallbackKeyword = (token: Token | null): boolean => (
+  Boolean(token && token.kind === 'word' && ['fallback', 'else'].includes(token.value.toLowerCase()))
+)
+
+const parseGroupType = (raw: string): NoteQuestionGroupType | null => {
+  const value = raw.toLowerCase()
+  if (['single', 's', 'rb', 'radiobutton', 'radio'].includes(value)) return 'single'
+  if (['multi', 'm', 'cb', 'checkbox', 'check'].includes(value)) return 'multi'
+  return null
+}
+
+const parseSelectorTokens = (tokens: Token[]): ConfigOptionsSelector | null => {
+  const cursor = new TokenCursor(tokens)
+  const parseTerm = (): ConfigOptionsSelector | null => {
+    const token = cursor.peek()
+    if (!token || token.kind !== 'word') return null
+    const keyword = token.value.toLowerCase()
+    if (keyword === 'all') {
+      cursor.next()
+      return { kind: 'all' }
+    }
+    if (keyword === 'tagged') {
+      cursor.next()
+      return { kind: 'tagged' }
+    }
+    if (keyword === 'untagged') {
+      cursor.next()
+      return { kind: 'untagged' }
+    }
+    if (keyword === 'tag') {
+      cursor.next()
+      const next = cursor.peek()
+      if (!next) return null
+      if (next.kind === 'word') {
+        const value = next.value.toLowerCase()
+        if (value === 'any' || value === 'none') {
+          cursor.next()
+          return { kind: 'tag', mode: value as 'any' | 'none' }
+        }
+        if (value === 'in') {
+          cursor.next()
+          if (!cursor.consumeSymbol('[')) return null
+          const values: string[] = []
+          while (true) {
+            const entry = cursor.peek()
+            if (!entry) return null
+            if (entry.kind === 'symbol' && entry.value === ']') {
+              cursor.next()
+              break
+            }
+            if (entry.kind === 'symbol' && entry.value === ',') {
+              cursor.next()
+              continue
+            }
+            if (entry.kind !== 'word' && entry.kind !== 'string') return null
+            const normalized = normalizeTagValue(entry.value)
+            cursor.next()
+            if (normalized) values.push(normalized)
+          }
+          return { kind: 'tag', mode: 'in', values }
+        }
+      }
+      const opToken = cursor.peek()
+      if (!opToken || opToken.kind !== 'symbol' || (opToken.value !== '=' && opToken.value !== ':')) return null
+      cursor.next()
+      const valueToken = cursor.peek()
+      if (!valueToken || (valueToken.kind !== 'word' && valueToken.kind !== 'string')) return null
+      cursor.next()
+      const normalized = normalizeTagValue(valueToken.value)
+      if (!normalized) return null
+      return { kind: 'tag', mode: 'eq', values: [normalized] }
+    }
+    if (keyword === 'rank' || keyword === 'rarity' || keyword === 'minrolls' || keyword === 'minsubstats') {
+      cursor.next()
+      const opToken = cursor.peek()
+      if (!opToken || opToken.kind !== 'symbol') return null
+      const op = normalizeOverrideOp(opToken.value)
+      if (!op) return null
+      cursor.next()
+      const valueToken = cursor.peek()
+      if (!valueToken || (valueToken.kind !== 'word' && valueToken.kind !== 'string')) return null
+      cursor.next()
+      if (keyword === 'rank') {
+        const rankValue = parseRankOverride(valueToken.value, op)
+        if (rankValue == null) return null
+        return { kind: 'rank', op, value: rankValue }
+      }
+      if (keyword === 'rarity') {
+        const rarity = parseRarityOverride(valueToken.value, op)
+        if (!rarity) return null
+        return rarity.code != null
+          ? { kind: 'rarity', op, mode: rarity.mode, code: rarity.code }
+          : { kind: 'rarity', op, mode: rarity.mode }
+      }
+      if (keyword === 'minrolls') {
+        const numeric = parseIntegerValue(valueToken.value)
+        if (numeric == null) return null
+        return { kind: 'minRolls', op, value: numeric }
+      }
+      if (keyword === 'minsubstats') {
+        const numeric = parseIntegerValue(valueToken.value)
+        if (numeric == null) return null
+        return { kind: 'minSubstats', op, value: numeric }
+      }
+    }
+    if (keyword === 'flex') {
+      cursor.next()
+      const opToken = cursor.peek()
+      if (!opToken || opToken.kind !== 'symbol' || (opToken.value !== '=' && opToken.value !== ':')) return null
+      cursor.next()
+      const valueToken = cursor.peek()
+      if (!valueToken || (valueToken.kind !== 'word' && valueToken.kind !== 'string')) return null
+      cursor.next()
+      const parsed = parseBooleanValue(valueToken.value)
+      if (parsed == null) return null
+      return { kind: 'flex', value: parsed }
+    }
+    return null
+  }
+
+  const parseAnd = (): ConfigOptionsSelector | null => {
+    let left = parseTerm()
+    if (!left) return null
+    while (true) {
+      const token = cursor.peek()
+      if (!token) break
+      const word = token.kind === 'word' ? token.value.toLowerCase() : token.value
+      if (word !== 'and' && word !== '&&') break
+      cursor.next()
+      const right = parseTerm()
+      if (!right) return null
+      left = { kind: 'and', left, right }
+    }
+    return left
+  }
+
+  const parseOr = (): ConfigOptionsSelector | null => {
+    let left = parseAnd()
+    if (!left) return null
+    while (true) {
+      const token = cursor.peek()
+      if (!token) break
+      const word = token.kind === 'word' ? token.value.toLowerCase() : token.value
+      if (word !== 'or' && word !== '||') break
+      cursor.next()
+      const right = parseAnd()
+      if (!right) return null
+      left = { kind: 'or', left, right }
+    }
+    return left
+  }
+
+  const parsed = parseOr()
+  if (!parsed) return null
+  return parsed
+}
+
+const parseOperations = (cursor: TokenCursor, endSymbol: string): ConfigOptionsOperation[] => {
+  const operations: ConfigOptionsOperation[] = []
+  while (true) {
+    const token = cursor.peek()
+    if (!token) break
+    if (token.kind === 'symbol' && token.value === endSymbol) {
+      cursor.next()
+      break
+    }
+    if (token.kind === 'symbol' && token.value === ',') {
+      cursor.next()
+      continue
+    }
+    cursor.consumeWord('set')
+    cursor.consumeSymbol('=')
+    const fieldToken = cursor.consumeWordValue()
+    if (!fieldToken) {
+      cursor.next()
+      continue
+    }
+    const field = fieldToken.toLowerCase()
+    const opToken = cursor.peek()
+    if (!opToken || opToken.kind !== 'symbol') continue
+    const op = normalizeOverrideOp(opToken.value)
+    if (!op) {
+      cursor.next()
+      continue
+    }
+    cursor.next()
+    const valueToken = cursor.peek()
+    if (!valueToken || (valueToken.kind !== 'word' && valueToken.kind !== 'string')) continue
+    cursor.next()
+    const valueRaw = valueToken.value
+    if (field === 'export') {
+      if (op !== 'eq') continue
+      const mode = valueRaw.trim().toLowerCase()
+      if (mode === 'active' || mode === 'disabled' || mode === 'toggle') {
+        operations.push({ kind: 'exportMode', action: mode as 'active' | 'disabled' | 'toggle' })
+      }
+      continue
+    }
+    if (field === 'rank') {
+      const value = parseRankOverride(valueRaw, op)
+      if (value != null) operations.push({ kind: 'rank', value })
+      continue
+    }
+    if (field === 'rarity') {
+      const parsed = parseRarityOverride(valueRaw, op)
+      if (parsed) {
+        const operation: ConfigOptionsOperation = parsed.code != null
+          ? { kind: 'rarity', mode: parsed.mode, code: parsed.code }
+          : { kind: 'rarity', mode: parsed.mode }
+        operations.push(operation)
+      }
+      continue
+    }
+    if (field === 'lvl') {
+      if (op !== 'eq') continue
+      const range = parseLevelRange(valueRaw)
+      if (!range) continue
+      operations.push({ kind: 'level', min: range.min, max: range.max })
+      continue
+    }
+    if (field === 'keep') {
+      if (op !== 'eq') continue
+      const mode = valueRaw.trim().toLowerCase()
+      if (mode !== 'early' && mode !== 'late') continue
+      operations.push({ kind: 'keep', mode: mode as 'early' | 'late' })
+      continue
+    }
+    if (field === 'autolate') {
+      if (op !== 'eq') continue
+      const raw = valueRaw.trim().toLowerCase()
+      if (raw !== 'uncommon' && raw !== 'rare' && raw !== 'epic') continue
+      operations.push({ kind: 'autoLate', threshold: raw as AutoRaritySupplementsThreshold })
+      continue
+    }
+    if (field === 'minrolls') {
+      if (op !== 'eq') continue
+      const numeric = parseIntegerValue(valueRaw)
+      if (numeric == null) continue
+      operations.push({ kind: 'minRequiredRolls', value: numeric })
+      continue
+    }
+    if (field === 'lockedminrolls') {
+      if (op !== 'eq') continue
+      const numeric = parseIntegerValue(valueRaw)
+      if (numeric == null) continue
+      operations.push({ kind: 'lockedMinRequiredRolls', value: numeric })
+      continue
+    }
+    if (field === 'minsubstats') {
+      if (op !== 'eq') continue
+      const numeric = parseIntegerValue(valueRaw)
+      if (numeric == null) continue
+      operations.push({ kind: 'minSubstats', value: numeric })
+      continue
+    }
+    if (field === 'flex') {
+      if (op !== 'eq') continue
+      const parsed = parseBooleanValue(valueRaw)
+      if (parsed == null) continue
+      operations.push({ kind: 'flex', value: parsed })
+      continue
+    }
+    if (field.startsWith('substatmin.')) {
+      if (op !== 'eq') continue
+      const statKey = field.slice('substatmin.'.length).trim()
+      if (!statKey) continue
+      const variant = variantFromLabel(statKey)
+      if (variant == null) continue
+      const numeric = parseIntegerValue(valueRaw)
+      if (numeric == null) continue
+      operations.push({ kind: 'substatMinVariant', variant, value: numeric })
+      continue
+    }
+    if (field === 'substatmin') {
+      if (op !== 'eq') continue
+      const numeric = parseIntegerValue(valueRaw)
+      if (numeric == null) continue
+      operations.push({ kind: 'substatMinAll', value: numeric })
+    }
+  }
+  return operations
+}
+
+const parseSelectorBlocks = (cursor: TokenCursor): ConfigOptionsSelectorBlock[] => {
+  const blocks: ConfigOptionsSelectorBlock[] = []
+  while (true) {
+    const token = cursor.peek()
+    if (!token) break
+    if (token.kind === 'symbol' && token.value === '}') {
+      cursor.next()
+      break
+    }
+    if (!cursor.consumeSymbol('@')) {
+      cursor.next()
+      continue
+    }
+    const selectorTokens: Token[] = []
+    while (true) {
+      const next = cursor.peek()
+      if (!next) return blocks
+      if (next.kind === 'symbol' && next.value === '{') break
+      selectorTokens.push(next)
+      cursor.next()
+    }
+    if (!cursor.consumeSymbol('{')) continue
+    const selector = parseSelectorTokens(selectorTokens)
+    const operations = parseOperations(cursor, '}')
+    if (!selector || operations.length === 0) continue
+    blocks.push({ selector, operations })
+  }
+  return blocks
 }
 
 type ParsedQuestionOption = {
   id: string
   label: string
-  tags: NoteQuestionTag[]
+  blocks: ConfigOptionsSelectorBlock[]
   isDefault: boolean
   explicitToken: string | null
   excludedTokens: string[]
+  onlyTokens: string[]
   groupType: NoteQuestionGroupType
 }
 
-type ParsedQuestionFallback = {
-  kind: 'fallback'
-  tags: NoteQuestionTag[]
-}
-
-type ParsedQuestionOptionResult = (
-  | { kind: 'option'; option: ParsedQuestionOption }
-  | ParsedQuestionFallback
-)
-
-// Parse a single option block into label + tags.
+// Parse a single option block into label + selector blocks.
 const parseOptionBlock = (
-  raw: string,
+  cursor: TokenCursor,
   optionIndex: number,
   groupType: NoteQuestionGroupType,
-): ParsedQuestionOptionResult | null => {
-  // Skip leading whitespace inside the brackets.
-  let idx = 0
-  while (idx < raw.length && /\s/.test(raw.charAt(idx))) idx += 1
-  // Detect optional default marker.
+): ParsedQuestionOption | null => {
+  const labelToken = cursor.consumeString()
+  if (!labelToken) return null
+  const label = labelToken.value
   let isDefault = false
-  if (raw.charAt(idx) === QUESTION_OPTION_DEFAULT_MARKER) {
-    isDefault = true
-    idx += 1
-  }
-  // Parse the required quoted label.
-  const labelParsed = readQuotedString(raw, idx)
-  if (!labelParsed) return null
-  idx = labelParsed.nextIndex
-  const label = labelParsed.value
-  // Track whether this option is the fallback entry (empty label).
-  const isFallback = label.trim().length === 0
-  // Track the first explicit id token and exclusion tokens.
   let explicitToken: string | null = null
   const excludedTokens: string[] = []
-  // Parse any remaining tokens as tag actions or metadata.
-  const tagTokens: NoteQuestionTag[] = []
-  while (idx < raw.length) {
-    const ch = raw.charAt(idx)
-    if (ch === ',') {
-      idx += 1
+  const onlyTokens: string[] = []
+  while (true) {
+    const token = cursor.peek()
+    if (!token) return null
+    if (token.kind === 'symbol' && token.value === '{') {
+      cursor.next()
+      break
+    }
+    if (token.kind === 'symbol' && token.value === QUESTION_OPTION_DEFAULT_MARKER) {
+      isDefault = true
+      cursor.next()
       continue
     }
-    if (/\s/.test(ch)) {
-      idx += 1
+    if (token.kind === 'word' && token.value.toLowerCase() === 'default') {
+      isDefault = true
+      cursor.next()
       continue
     }
-    let end = idx
-    while (end < raw.length && raw.charAt(end) !== ',') end += 1
-    const token = raw.slice(idx, end).trim()
-    idx = end
-    if (!token) continue
-    // Handle explicit id tokens (id=token).
-    const lower = token.toLowerCase()
-    if (!isFallback && lower.startsWith('id=')) {
-      if (explicitToken) continue
-      const candidate = normalizeQuestionToken(token.slice(3))
+    if (token.kind === 'word' && token.value.toLowerCase() === 'id') {
+      cursor.next()
+      if (!cursor.consumeSymbol('=')) continue
+      const valueToken = cursor.peek()
+      if (!valueToken || (valueToken.kind !== 'word' && valueToken.kind !== 'string')) continue
+      cursor.next()
+      const candidate = normalizeQuestionToken(valueToken.value)
       if (!candidate) continue
       explicitToken = candidate
       continue
     }
-    // Handle exclusion tokens (!token).
-    if (!isFallback && token.startsWith('!')) {
-      const candidate = normalizeQuestionToken(token.slice(1))
-      if (!candidate) continue
-      excludedTokens.push(candidate)
+    cursor.next()
+  }
+  const blocks = parseSelectorBlocks(cursor)
+  while (true) {
+    const token = cursor.peek()
+    if (!token) break
+    if (isQuestionKeyword(token) || isFallbackKeyword(token)) break
+    if (token.kind === 'word' && parseGroupType(token.value)) break
+    if (token.kind === 'symbol' && token.value === '!') {
+      cursor.next()
+      readTokenList(cursor, excludedTokens)
       continue
     }
-    // Prefix-based tokens mark enable/disable; bare tokens toggle.
-    const action: ConfigOptionsTagAction = token.startsWith('+')
-      ? 'enable'
-      : (token.startsWith('-') ? 'disable' : 'toggle')
-    const rawValue = (action === 'toggle') ? token : token.slice(1)
-    // Split the base tag from any modifier segments.
-    const segments = rawValue.split(':').map((entry) => entry.trim()).filter(Boolean)
-    if (segments.length === 0) continue
-    // Normalize the base tag token using shared tag rules.
-    const normalized = normalizeTagValue(segments[0] ?? '')
-    if (!normalized) continue
-    // Parse any override modifiers that follow the base tag.
-    const overrides = parseTagOverrides(segments.slice(1))
-    const nextTag: NoteQuestionTag = { value: normalized, action }
-    if (overrides) nextTag.overrides = overrides
-    tagTokens.push(nextTag)
+    if (token.kind === 'word' && token.value.toLowerCase() === 'excl') {
+      cursor.next()
+      readTokenList(cursor, excludedTokens)
+      continue
+    }
+    if (token.kind === 'word' && token.value.toLowerCase() === 'only') {
+      cursor.next()
+      readTokenList(cursor, onlyTokens)
+      continue
+    }
+    break
   }
-  // Route empty-label entries to the fallback payload.
-  if (isFallback) {
-    // Ignore fallback entries that carry no tags.
-    if (tagTokens.length === 0) return null
-    return { kind: 'fallback', tags: tagTokens }
-  }
-  // Build a stable ID for the option.
   const baseLabel = normalizeQuestionText(label).toLowerCase()
   const id = baseLabel ? `${baseLabel}#${optionIndex}` : `option-${optionIndex}`
   return {
-    kind: 'option',
-    option: {
-      id,
-      label,
-      tags: tagTokens,
-      isDefault,
-      explicitToken,
-      excludedTokens,
-      groupType,
-    },
+    id,
+    label,
+    blocks,
+    isDefault,
+    explicitToken,
+    excludedTokens,
+    onlyTokens,
+    groupType,
+  }
+}
+
+const readTokenList = (cursor: TokenCursor, sink: string[]): void => {
+  while (true) {
+    const token = cursor.peek()
+    if (!token) break
+    if (token.kind === 'symbol' && token.value === ',') {
+      cursor.next()
+      continue
+    }
+    if (token.kind === 'word' && (isQuestionKeyword(token) || isFallbackKeyword(token))) break
+    if (token.kind === 'word' && parseGroupType(token.value)) break
+    if (token.kind === 'symbol' && token.value === '{') break
+    if (token.kind !== 'word' && token.kind !== 'string') break
+    cursor.next()
+    const normalized = normalizeQuestionToken(token.value)
+    if (normalized) sink.push(normalized)
+  }
+}
+
+const parseQuestionMarker = (inner: string): Omit<NoteQuestionDefinition, 'index' | 'answer'> | null => {
+  const tokens = tokenizeConfigOptions(inner)
+  const cursor = new TokenCursor(tokens)
+  if (!cursor.consumeWord('config-options')) return null
+  const questionToken = cursor.consumeWord('q', 'question')
+  if (!questionToken) return null
+  const promptToken = cursor.consumeString()
+  if (!promptToken) return null
+  const prompt = promptToken.value
+  const parsedOptions: ParsedQuestionOption[] = []
+  let fallbackBlocks: ConfigOptionsSelectorBlock[] | null = null
+  while (true) {
+    const token = cursor.peek()
+    if (!token) break
+    if (token.kind !== 'word') {
+      cursor.next()
+      continue
+    }
+    if (isQuestionKeyword(token)) break
+    if (isFallbackKeyword(token)) {
+      cursor.next()
+      if (!cursor.consumeSymbol('{')) continue
+      const blocks = parseSelectorBlocks(cursor)
+      fallbackBlocks = blocks.length > 0 ? blocks : null
+      continue
+    }
+    const groupType = parseGroupType(token.value)
+    if (!groupType) {
+      cursor.next()
+      continue
+    }
+    cursor.next()
+    const parsed = parseOptionBlock(cursor, parsedOptions.length, groupType)
+    if (!parsed) continue
+    parsedOptions.push(parsed)
+  }
+  if (parsedOptions.length === 0) return null
+  const tokenToId = new Map<string, string>()
+  parsedOptions.forEach((option, idx) => {
+    const implicitToken = normalizeQuestionToken(String(idx + 1))
+    const token = option.explicitToken ?? implicitToken ?? ''
+    if (!token) return
+    if (!tokenToId.has(token)) tokenToId.set(token, option.id)
+  })
+  const options: NoteQuestionOption[] = []
+  const groupMap = new Map<NoteQuestionGroupType, NoteQuestionGroup>()
+  const groupOrder: NoteQuestionGroup[] = []
+  parsedOptions.forEach((option, idx) => {
+    const implicitToken = normalizeQuestionToken(String(idx + 1))
+    const token = option.explicitToken ?? implicitToken ?? ''
+    const onlyTokens = option.onlyTokens
+    const excludedTokens = option.excludedTokens.slice()
+    if (onlyTokens.length > 0) {
+      parsedOptions.forEach((candidate, candidateIdx) => {
+        const candidateToken = candidate.explicitToken ?? normalizeQuestionToken(String(candidateIdx + 1)) ?? ''
+        if (!candidateToken) return
+        if (onlyTokens.includes(candidateToken)) return
+        excludedTokens.push(candidateToken)
+      })
+    }
+    const excludedOptionIds = excludedTokens
+      .map((tokenValue) => tokenToId.get(tokenValue))
+      .filter((id): id is string => Boolean(id))
+    const resolved: NoteQuestionOption = {
+      id: option.id,
+      label: option.label,
+      blocks: option.blocks,
+      isDefault: option.isDefault,
+      token,
+      excludedOptionIds,
+      groupType: option.groupType,
+    }
+    options.push(resolved)
+    let group = groupMap.get(option.groupType)
+    if (!group) {
+      group = { id: option.groupType, type: option.groupType, options: [] }
+      groupMap.set(option.groupType, group)
+      groupOrder.push(group)
+    }
+    group.options.push(resolved)
+  })
+  const defaultAnswer: string[] = []
+  groupOrder.forEach((group) => {
+    if (group.type === 'single') {
+      const firstDefault = group.options.find((opt) => opt.isDefault)
+      if (firstDefault) defaultAnswer.push(firstDefault.id)
+      return
+    }
+    group.options.forEach((opt) => {
+      if (opt.isDefault) defaultAnswer.push(opt.id)
+    })
+  })
+  const id = buildQuestionId(prompt, options)
+  return {
+    id,
+    prompt,
+    groups: groupOrder,
+    options,
+    fallback: fallbackBlocks ? { blocks: fallbackBlocks } : null,
+    defaultAnswer,
   }
 }
 
@@ -696,105 +1075,17 @@ export const parseNoteConfigOptions = (
     }
     // Strip the HTML comment wrapper to parse the payload.
     const inner = stripCommentWrapper(raw)
-    const headerMatch = QUESTION_HEADER_REGEX.exec(inner)
-    if (!headerMatch) {
+    const parsed = parseQuestionMarker(inner)
+    if (!parsed) {
       markerIndex += 1
       continue
     }
-    // Parse the prompt that follows the header.
-    const promptStart = inner.indexOf(headerMatch[0]) + headerMatch[0].length
-    const promptParsed = readQuotedString(inner, promptStart)
-    if (!promptParsed) {
-      markerIndex += 1
-      continue
-    }
-    const prompt = promptParsed.value
-    // Parse option blocks that follow the prompt.
-    const blocks = extractOptionBlocks(inner, promptParsed.nextIndex)
-    const parsedOptions: ParsedQuestionOption[] = []
-    const fallbackTags: NoteQuestionTag[] = []
-    blocks.forEach((block) => {
-      const parsed = parseOptionBlock(block.raw, parsedOptions.length, block.type)
-      if (!parsed) return
-      if (parsed.kind === 'fallback') {
-        // Preserve fallback tags in source order.
-        fallbackTags.push(...parsed.tags)
-        return
-      }
-      parsedOptions.push(parsed.option)
-    })
-    // Skip malformed questions that lack options.
-    if (parsedOptions.length === 0) {
-      markerIndex += 1
-      continue
-    }
-    // Resolve tokens for exclusions across the full question.
-    const tokenToId = new Map<string, string>()
-    parsedOptions.forEach((option, idx) => {
-      // Resolve the token to either the explicit id or the option index.
-      const implicitToken = normalizeQuestionToken(String(idx + 1))
-      const token = option.explicitToken ?? implicitToken ?? ''
-      if (!token) return
-      // Preserve the first occurrence of each token.
-      if (!tokenToId.has(token)) tokenToId.set(token, option.id)
-    })
-    // Materialize the options with resolved tokens and exclusions.
-    const options: NoteQuestionOption[] = []
-    const groupMap = new Map<NoteQuestionGroupType, NoteQuestionGroup>()
-    const groupOrder: NoteQuestionGroup[] = []
-    parsedOptions.forEach((option, idx) => {
-      // Resolve the final token for this option.
-      const implicitToken = normalizeQuestionToken(String(idx + 1))
-      const token = option.explicitToken ?? implicitToken ?? ''
-      // Map exclusion tokens to option ids.
-      const excludedOptionIds = option.excludedTokens
-        .map((tokenValue) => tokenToId.get(tokenValue))
-        .filter((id): id is string => Boolean(id))
-      const resolved: NoteQuestionOption = {
-        id: option.id,
-        label: option.label,
-        tags: option.tags,
-        isDefault: option.isDefault,
-        token,
-        excludedOptionIds,
-        groupType: option.groupType,
-      }
-      options.push(resolved)
-      // Create or extend the group bucket in first-seen order.
-      let group = groupMap.get(option.groupType)
-      if (!group) {
-        group = { id: option.groupType, type: option.groupType, options: [] }
-        groupMap.set(option.groupType, group)
-        groupOrder.push(group)
-      }
-      group.options.push(resolved)
-    })
-    // Resolve default selections from asterisks per group.
-    const defaultAnswer: string[] = []
-    groupOrder.forEach((group) => {
-      if (group.type === 'single') {
-        const firstDefault = group.options.find((opt) => opt.isDefault)
-        if (firstDefault) defaultAnswer.push(firstDefault.id)
-        return
-      }
-      group.options.forEach((opt) => {
-        if (opt.isDefault) defaultAnswer.push(opt.id)
-      })
-    })
-    // Create a stable ID for answer storage.
-    const id = buildQuestionId(prompt, options)
     // Apply stored answers when available.
-    const storedAnswer = answers ? answers[id] : undefined
-    const answer = resolveQuestionAnswer({ groups: groupOrder, options, defaultAnswer }, storedAnswer)
-    // Emit the parsed definition.
+    const storedAnswer = answers ? answers[parsed.id] : undefined
+    const answer = resolveQuestionAnswer(parsed, storedAnswer)
     result.push({
-      id,
+      ...parsed,
       index: markerIndex,
-      prompt,
-      groups: groupOrder,
-      options,
-      fallback: fallbackTags.length > 0 ? { tags: fallbackTags } : null,
-      defaultAnswer,
       answer,
     })
     markerIndex += 1
@@ -888,95 +1179,198 @@ export const normalizeNoteConfigOptionsAnswers = (
   return Object.keys(next).length > 0 ? next : null
 }
 
-// Resolve tag instructions based on the current config options answers.
+// Resolve selector blocks based on the current config options answers.
 export const resolveConfigOptionsTags = (
   note: string,
   answers?: NoteConfigOptionsAnswers | null,
-): ConfigOptionsTagResolution => {
-  // Parse the questions with answer resolution.
+): ConfigOptionsResolution => {
   const questions = parseNoteConfigOptions(note, answers)
-  // Track tag instructions in the order answers are encountered.
-  const tagInstructions: ConfigOptionsTagInstructions = Object.create(null) as ConfigOptionsTagInstructions
+  const instructions: ConfigOptionsInstructions = []
   for (const question of questions) {
-    // Only apply tags for selected options.
     const selected = new Set(question.answer)
     if (selected.size === 0 && question.fallback) {
-      // Apply fallback tags when nothing is selected.
-      for (const tag of question.fallback.tags) {
-        const bucket = tagInstructions[tag.value] ?? []
-        const instruction: ConfigOptionsTagInstruction = { action: tag.action }
-        if (tag.overrides) instruction.overrides = tag.overrides
-        bucket.push(instruction)
-        tagInstructions[tag.value] = bucket
-      }
+      question.fallback.blocks.forEach((block) => instructions.push(block))
       continue
     }
-    for (const option of question.options) {
-      if (!selected.has(option.id)) continue
-      for (const tag of option.tags) {
-        // Append the tag action so config-order evaluation stays deterministic.
-        const bucket = tagInstructions[tag.value] ?? []
-        const instruction: ConfigOptionsTagInstruction = { action: tag.action }
-        if (tag.overrides) instruction.overrides = tag.overrides
-        bucket.push(instruction)
-        tagInstructions[tag.value] = bucket
-      }
-    }
+    question.options.forEach((option) => {
+      if (!selected.has(option.id)) return
+      option.blocks.forEach((block) => instructions.push(block))
+    })
   }
-  // Return the resolved tags and question list.
-  return { questions, tagInstructions }
+  return { questions, instructions }
 }
 
-// Resolve a config's export mode based on config options tag instructions.
+const matchesRankSelector = (cfg: BuilderConfig, selector: ConfigOptionsSelector & { kind: 'rank' }): boolean => {
+  const { op, value } = selector
+  const rank = cfg.rankCode
+  const range = rankCodeToRange(rank)
+  if (op === 'eq') return range.min === range.max && range.min === value
+  if (op === 'gte') return range.min >= rankRangeValue(value).min
+  return range.max <= rankRangeValue(value).max
+}
+
+const matchesRaritySelector = (cfg: BuilderConfig, selector: ConfigOptionsSelector & { kind: 'rarity' }): boolean => {
+  const { op, mode, code } = selector
+  const cfgMode: 'auto' | 'code' = (cfg.rarityMode ?? 'code')
+  if (mode === 'auto') {
+    return op === 'eq' && cfgMode === 'auto'
+  }
+  if (cfgMode !== 'code') return false
+  const range = rarityCodeToRange(cfg.rarityCode)
+  if (op === 'eq') return range.min === range.max && range.min === rarityRangeValue(code ?? RarityCodeEnum.Any).min
+  if (op === 'gte') return range.min >= rarityRangeValue(code ?? RarityCodeEnum.Any).min
+  return range.max <= rarityRangeValue(code ?? RarityCodeEnum.Any).max
+}
+
+const matchesSelector = (selector: ConfigOptionsSelector, cfg: BuilderConfig): boolean => {
+  switch (selector.kind) {
+    case 'all':
+      return true
+    case 'tagged':
+      return Array.isArray(cfg.tags) && cfg.tags.length > 0
+    case 'untagged':
+      return !Array.isArray(cfg.tags) || cfg.tags.length === 0
+    case 'tag': {
+      const tags = Array.isArray(cfg.tags) ? cfg.tags : []
+      if (selector.mode === 'any') return tags.length > 0
+      if (selector.mode === 'none') return tags.length === 0
+      const normalized = tags.map((tag) => normalizeTagValue(String(tag))).filter((tag): tag is string => Boolean(tag))
+      if (selector.mode === 'eq') {
+        return normalized.some((tag) => tag === selector.values?.[0])
+      }
+      return normalized.some((tag) => selector.values?.includes(tag))
+    }
+    case 'rank':
+      return matchesRankSelector(cfg, selector)
+    case 'rarity':
+      return matchesRaritySelector(cfg, selector)
+    case 'minRolls': {
+      const manual = (cfg.autoMinRequiredRolls === false) ? (cfg.minRequiredRolls ?? 0) : 0
+      return compareNumeric(manual, selector.op, selector.value)
+    }
+    case 'minSubstats':
+      return compareNumeric(cfg.minCount, selector.op, selector.value)
+    case 'flex':
+      return Boolean(cfg.autoSubstatFlex) === selector.value
+    case 'and':
+      return matchesSelector(selector.left, cfg) && matchesSelector(selector.right, cfg)
+    case 'or':
+      return matchesSelector(selector.left, cfg) || matchesSelector(selector.right, cfg)
+    default:
+      return false
+  }
+}
+
+const compareNumeric = (value: number, op: TagOverrideOp, target: number): boolean => {
+  if (op === 'eq') return value === target
+  if (op === 'gte') return value >= target
+  return value <= target
+}
+
+const rankRangeValue = (value: RankCode): { min: number; max: number } => (
+  rankCodeToRange(value)
+)
+
+const rankCodeToRange = (rank: RankCode): { min: number; max: number } => {
+  if (rank === RankCodeEnum.Any) return { min: 1, max: 6 }
+  if (rank >= RankCodeEnum.One && rank <= RankCodeEnum.Six) {
+    const val = rank as number
+    return { min: val, max: val }
+  }
+  if (rank >= RankCodeEnum.GTE_One && rank <= RankCodeEnum.GTE_Five) {
+    const offset = rank - RankCodeEnum.GTE_One + 1
+    return { min: offset, max: 6 }
+  }
+  if (rank === RankCodeEnum.GTE_Five) return { min: 5, max: 6 }
+  if (rank === RankCodeEnum.Six) return { min: 6, max: 6 }
+  if (rank >= RankCodeEnum.LTE_Two && rank <= RankCodeEnum.LTE_Six) {
+    const offset = rank - RankCodeEnum.LTE_Two + 2
+    return { min: 1, max: offset }
+  }
+  return { min: 1, max: 6 }
+}
+
+const rarityRangeValue = (value: RarityCode): { min: number; max: number } => (
+  rarityCodeToRange(value)
+)
+
+const rarityCodeToRange = (rarity: RarityCode): { min: number; max: number } => {
+  if (rarity === RarityCodeEnum.Any) return { min: 1, max: 6 }
+  if (rarity >= RarityCodeEnum.Common && rarity <= RarityCodeEnum.Mythical) {
+    const val = rarity as number
+    return { min: val, max: val }
+  }
+  if (rarity >= RarityCodeEnum.GTE_Common && rarity <= RarityCodeEnum.GTE_Legendary) {
+    const offset = rarity - RarityCodeEnum.GTE_Common + 1
+    return { min: offset, max: 6 }
+  }
+  if (rarity >= RarityCodeEnum.LTE_Uncommon && rarity <= RarityCodeEnum.LTE_Mythical) {
+    const offset = rarity - RarityCodeEnum.LTE_Uncommon + 2
+    return { min: 1, max: offset }
+  }
+  return { min: 1, max: 6 }
+}
+
+// Resolve a config's export mode based on config options selector blocks.
 const resolveConfigOptionsExportModeWithInstructions = (
   cfg: BuilderConfig,
-  tagInstructions: ConfigOptionsTagInstructions,
+  instructions: ConfigOptionsInstructions,
 ): SellfileExportMode => {
-  // Separators should never be overridden by tags.
+  // Separators should never be overridden by options.
   if (cfg.exportMode === 'separator') return 'separator'
-  // Untagged configs keep their explicit mode.
-  const tags = Array.isArray(cfg.tags) ? cfg.tags : []
-  if (tags.length === 0) return cfg.exportMode
-  // Start from the stored export mode before applying tag actions.
+  // Start from the stored export mode before applying selector blocks.
   let nextMode: SellfileExportMode = cfg.exportMode
   let hasInstruction = false
-  for (const tag of tags) {
-    // Normalize the config tags to the same tokens used in answers.
-    const normalized = normalizeTagValue(String(tag))
-    if (!normalized) continue
-    const actions = tagInstructions[normalized]
-    if (!actions || actions.length === 0) continue
+  for (const instruction of instructions) {
+    if (!matchesSelector(instruction.selector, cfg)) continue
     hasInstruction = true
-    for (const entry of actions) {
-      // Apply each action in config tag order for deterministic overrides.
-      if (entry.action === 'enable') nextMode = 'active'
-      else if (entry.action === 'disable') nextMode = 'disabled'
-      else nextMode = nextMode === 'active' ? 'disabled' : 'active'
-    }
+    instruction.operations.forEach((op) => {
+      if (op.kind !== 'exportMode') return
+      if (op.action === 'toggle') {
+        nextMode = nextMode === 'active' ? 'disabled' : 'active'
+        return
+      }
+      nextMode = op.action
+    })
   }
-  // Leave the stored mode untouched when no tag actions apply.
   return hasInstruction ? nextMode : cfg.exportMode
 }
 
-// Resolve a config's export mode with a raw tag list.
+// Resolve a config's export mode with selector blocks.
 export const resolveConfigOptionsExportMode = (
   cfg: BuilderConfig,
-  tagInstructions: ConfigOptionsTagInstructions,
+  instructions: ConfigOptionsInstructions,
 ): SellfileExportMode => {
-  return resolveConfigOptionsExportModeWithInstructions(cfg, tagInstructions)
+  return resolveConfigOptionsExportModeWithInstructions(cfg, instructions)
+}
+
+const applySubstatMinOverrides = (
+  cfg: BuilderConfig,
+  substatMinAll: number | null,
+  substatMinByVariant: Map<number, number>,
+): BuilderConfig => {
+  if (substatMinAll == null && substatMinByVariant.size === 0) return cfg
+  const selection = new Set<number>()
+  ;(cfg.substatsV ?? []).forEach((variant) => selection.add(Number(variant)))
+  ;(cfg.fixedSubstatsV ?? []).forEach((variant) => selection.add(Number(variant)))
+  if (selection.size === 0) return cfg
+  const bounds = { ...(cfg.substatRollBoundsV ?? {}) }
+  selection.forEach((variant) => {
+    const nextMin = substatMinByVariant.get(variant) ?? substatMinAll
+    if (nextMin == null) return
+    const existing = bounds[variant] ?? {}
+    bounds[variant] = { ...existing, min: clampSubstatMin(nextMin) }
+  })
+  return { ...cfg, substatRollBoundsV: bounds }
 }
 
 // Resolve a config with all config options overrides applied.
 const resolveConfigOptionsEffectiveConfigWithInstructions = (
   cfg: BuilderConfig,
-  tagInstructions: ConfigOptionsTagInstructions,
+  instructions: ConfigOptionsInstructions,
 ): BuilderConfig => {
   // Separators stay isolated from config options logic.
   if (cfg.exportMode === 'separator') return cfg
-  // Skip work when no tags exist.
-  const tags = Array.isArray(cfg.tags) ? cfg.tags : []
-  if (tags.length === 0) return cfg
-  // Track effective values in local variables.
   let nextMode: SellfileExportMode = cfg.exportMode
   let nextRank: RankCode = cfg.rankCode
   let nextRarityMode: 'auto' | 'code' = (cfg.rarityMode ?? 'code')
@@ -985,104 +1379,166 @@ const resolveConfigOptionsEffectiveConfigWithInstructions = (
   let nextMaxLevel: LevelMilestone | undefined = cfg.maxLevel
   let nextKeepMode: 'early' | 'late' = (cfg.earlyKeepMode ?? 'early')
   let nextAutoLate: AutoRaritySupplementsThreshold | undefined = cfg.autoRaritySupplementsThreshold
-  // Track which override categories were explicitly provided.
+  let nextMinRequiredRolls: number | undefined = cfg.minRequiredRolls
+  let nextLockedMinRequiredRolls: number | undefined = cfg.lockedMinRequiredRolls
+  let nextMinCount = cfg.minCount
+  let nextFlex = cfg.autoSubstatFlex
+  const substatMinByVariant = new Map<number, number>()
+  let substatMinAll: number | null = null
+  let appliedMode = false
   let appliedRank = false
   let appliedRarity = false
   let appliedLevel = false
   let appliedKeep = false
   let appliedAutoLate = false
-  // Track whether any tag instructions matched at all.
+  let appliedMinRequired = false
+  let appliedLockedMin = false
+  let appliedMinCount = false
+  let appliedFlex = false
+  let appliedSubstatMin = false
   let hasInstruction = false
-  for (const tag of tags) {
-    // Normalize tags to the same tokens used in the note prompts.
-    const normalized = normalizeTagValue(String(tag))
-    if (!normalized) continue
-    const actions = tagInstructions[normalized]
-    if (!actions || actions.length === 0) continue
+  for (const instruction of instructions) {
+    if (!matchesSelector(instruction.selector, cfg)) continue
     hasInstruction = true
-    for (const entry of actions) {
-      // Apply export mode actions first for deterministic ordering.
-      if (entry.action === 'enable') nextMode = 'active'
-      else if (entry.action === 'disable') nextMode = 'disabled'
-      else nextMode = nextMode === 'active' ? 'disabled' : 'active'
-      // Apply any value overrides after the export mode action.
-      const overrides = entry.overrides
-      if (!overrides) continue
-      if (overrides.rankCode != null) {
-        nextRank = overrides.rankCode
-        appliedRank = true
+    instruction.operations.forEach((op) => {
+      if (op.kind === 'exportMode') {
+        appliedMode = true
+        if (op.action === 'toggle') {
+          nextMode = nextMode === 'active' ? 'disabled' : 'active'
+        } else {
+          nextMode = op.action
+        }
+        return
       }
-      if (overrides.rarityMode != null || overrides.rarityCode != null) {
-        nextRarityMode = overrides.rarityMode ?? 'code'
-        if (overrides.rarityCode != null) {
-          nextRarityCode = overrides.rarityCode
+      if (op.kind === 'rank') {
+        nextRank = op.value
+        appliedRank = true
+        return
+      }
+      if (op.kind === 'rarity') {
+        nextRarityMode = op.mode
+        if (op.mode === 'code' && op.code != null) {
+          nextRarityCode = op.code
         }
         appliedRarity = true
+        return
       }
-      if (overrides.minLevel != null && overrides.maxLevel != null) {
-        nextMinLevel = overrides.minLevel
-        nextMaxLevel = overrides.maxLevel
+      if (op.kind === 'level') {
+        nextMinLevel = op.min
+        nextMaxLevel = op.max
         appliedLevel = true
+        return
       }
-      if (overrides.earlyKeepMode != null) {
-        nextKeepMode = overrides.earlyKeepMode
+      if (op.kind === 'keep') {
+        nextKeepMode = op.mode
         appliedKeep = true
+        return
       }
-      if (overrides.autoRaritySupplementsThreshold != null) {
-        nextAutoLate = overrides.autoRaritySupplementsThreshold
+      if (op.kind === 'autoLate') {
+        nextAutoLate = op.threshold
         appliedAutoLate = true
+        return
       }
-    }
+      if (op.kind === 'minRequiredRolls') {
+        nextMinRequiredRolls = clampAggregateRollValue(op.value)
+        appliedMinRequired = true
+        return
+      }
+      if (op.kind === 'lockedMinRequiredRolls') {
+        nextLockedMinRequiredRolls = clampAggregateRollValue(op.value)
+        appliedLockedMin = true
+        return
+      }
+      if (op.kind === 'minSubstats') {
+        nextMinCount = clampMinSubstats(op.value)
+        appliedMinCount = true
+        return
+      }
+      if (op.kind === 'flex') {
+        nextFlex = op.value
+        appliedFlex = true
+        return
+      }
+      if (op.kind === 'substatMinAll') {
+        substatMinAll = op.value
+        appliedSubstatMin = true
+        return
+      }
+      if (op.kind === 'substatMinVariant') {
+        substatMinByVariant.set(op.variant, op.value)
+        appliedSubstatMin = true
+      }
+    })
   }
-  // Determine whether any effective value changed.
-  const exportModeChanged = hasInstruction && nextMode !== cfg.exportMode
-  const rankChanged = appliedRank && nextRank !== cfg.rankCode
+  if (!hasInstruction) return cfg
   const storedRarityMode: 'auto' | 'code' = (cfg.rarityMode ?? 'code')
+  const exportModeChanged = appliedMode && nextMode !== cfg.exportMode
+  const rankChanged = appliedRank && nextRank !== cfg.rankCode
   const rarityModeChanged = appliedRarity && nextRarityMode !== storedRarityMode
   const rarityCodeChanged = appliedRarity && nextRarityMode === 'code' && nextRarityCode !== cfg.rarityCode
   const rarityChanged = rarityModeChanged || rarityCodeChanged
   const levelChanged = appliedLevel && (nextMinLevel !== cfg.minLevel || nextMaxLevel !== cfg.maxLevel)
   const keepChanged = appliedKeep && nextKeepMode !== (cfg.earlyKeepMode ?? 'early')
   const autoLateChanged = appliedAutoLate && nextAutoLate !== cfg.autoRaritySupplementsThreshold
-  // Bail out when no overrides actually change anything.
-  if (!exportModeChanged && !rankChanged && !rarityChanged && !levelChanged && !keepChanged && !autoLateChanged) {
+  const minRequiredChanged = appliedMinRequired && nextMinRequiredRolls !== cfg.minRequiredRolls
+  const lockedMinChanged = appliedLockedMin && nextLockedMinRequiredRolls !== cfg.lockedMinRequiredRolls
+  const minCountChanged = appliedMinCount && nextMinCount !== cfg.minCount
+  const flexChanged = appliedFlex && nextFlex !== cfg.autoSubstatFlex
+  if (!exportModeChanged
+    && !rankChanged
+    && !rarityChanged
+    && !levelChanged
+    && !keepChanged
+    && !autoLateChanged
+    && !minRequiredChanged
+    && !lockedMinChanged
+    && !minCountChanged
+    && !flexChanged
+    && !appliedSubstatMin) {
     return cfg
   }
-  // Clone so we never mutate stored configs.
   let next = cloneBuilderConfig(cfg)
-  // Apply export mode overrides when they differ.
   if (exportModeChanged) next.exportMode = nextMode
-  // Apply rank overrides when provided.
   if (appliedRank) next.rankCode = nextRank
-  // Apply rarity overrides when provided.
   if (appliedRarity) {
     next.rarityMode = nextRarityMode
     if (nextRarityMode === 'code') {
       next.rarityCode = nextRarityCode
     }
   }
-  // Apply level overrides and normalize the window.
   if (appliedLevel) {
-    // appliedLevel only flips on when both bounds are provided.
     next.minLevel = nextMinLevel!
     next.maxLevel = nextMaxLevel!
     next = normalizeLevelWindow(next)
   }
-  // Apply keep mode overrides when provided.
-  if (appliedKeep) {
-    next.earlyKeepMode = nextKeepMode
+  if (appliedKeep) next.earlyKeepMode = nextKeepMode
+  if (appliedAutoLate) next.autoRaritySupplementsThreshold = nextAutoLate!
+  if (appliedMinRequired) {
+    next.minRequiredRolls = clampAggregateRollValue(nextMinRequiredRolls ?? 0)
+    next.autoMinRequiredRolls = false
   }
-  // Apply auto-late overrides when provided.
-  if (appliedAutoLate) {
-    // appliedAutoLate only flips on when a valid tier is provided.
-    next.autoRaritySupplementsThreshold = nextAutoLate!
+  if (appliedLockedMin) {
+    next.lockedMinRequiredRolls = clampAggregateRollValue(nextLockedMinRequiredRolls ?? 0)
   }
-  // Normalize auto rarity helpers when Auto/Late-related overrides are present.
+  if (appliedMinCount) {
+    next.minCount = nextMinCount
+    next.autoMinCount = false
+  }
+  if (appliedFlex) next.autoSubstatFlex = nextFlex
+  if (appliedSubstatMin) {
+    next = applySubstatMinOverrides(next, substatMinAll, substatMinByVariant)
+  }
   if (appliedRarity || appliedKeep || appliedAutoLate) {
     const fallback = pickAutoRaritySupplementsThreshold(next)
     next = normalizeKeepMode(next)
     next = normalizeAggregateRollTargets(next)
     next = normalizeAutoRaritySupplements(next, { defaultThreshold: fallback })
+    next = normalizeAutoSubstatFlex(next)
+  }
+  if (appliedMinRequired || appliedLockedMin) {
+    next = normalizeAggregateRollTargets(next)
+  }
+  if (appliedMinCount || appliedFlex) {
     next = normalizeAutoSubstatFlex(next)
   }
   return next
@@ -1091,30 +1547,26 @@ const resolveConfigOptionsEffectiveConfigWithInstructions = (
 // Resolve a config with config options overrides applied (exported for UI).
 export const resolveConfigOptionsEffectiveConfig = (
   cfg: BuilderConfig,
-  tagInstructions: ConfigOptionsTagInstructions,
+  instructions: ConfigOptionsInstructions,
 ): BuilderConfig => (
-  resolveConfigOptionsEffectiveConfigWithInstructions(cfg, tagInstructions)
+  resolveConfigOptionsEffectiveConfigWithInstructions(cfg, instructions)
 )
 
 // Build a per-config export-mode snapshot for config options overrides.
 export const buildConfigOptionsExportModeResolution = (
   configs: readonly BuilderConfig[],
-  tagInstructions: ConfigOptionsTagInstructions,
+  instructions: ConfigOptionsInstructions,
 ): ConfigOptionsExportModeResolution => {
-  // Track effective modes and which configs are overridden.
   const modes: SellfileExportMode[] = []
   const overriddenIndices: number[] = []
   configs.forEach((cfg, idx) => {
-    // Resolve the effective export mode for this config.
-    const nextMode = resolveConfigOptionsExportModeWithInstructions(cfg, tagInstructions)
+    const nextMode = resolveConfigOptionsExportModeWithInstructions(cfg, instructions)
     modes.push(nextMode)
-    // Record overrides for UI indicators.
     if (nextMode !== cfg.exportMode) {
       overriddenIndices.push(idx)
     }
   })
-  // Return the tag instructions plus the computed modes.
-  return { tagInstructions, modes, overriddenIndices }
+  return { instructions, modes, overriddenIndices }
 }
 
 // Apply config options overrides by cloning only the configs that change mode.
@@ -1122,36 +1574,28 @@ export const applyConfigOptionsExportModeOverrides = (
   configs: readonly BuilderConfig[],
   modes: readonly SellfileExportMode[],
 ): BuilderConfig[] => {
-  // Track whether any override actually changed the list.
   let mutated = false
   const next = configs.map((cfg, idx) => {
-    // Fall back to the config's mode if a slot is missing.
     const nextMode = modes[idx] ?? cfg.exportMode
-    // Reuse the config reference when no override applies.
     if (nextMode === cfg.exportMode) return cfg
-    // Clone to avoid mutating the stored config array.
     const clone = cloneBuilderConfig(cfg)
     clone.exportMode = nextMode
     mutated = true
     return clone
   })
-  // Return the original array if nothing changed.
   return mutated ? next : configs.slice()
 }
 
 // Apply config options overrides across a config list.
 export const applyConfigOptionsOverrides = (
   configs: readonly BuilderConfig[],
-  tagInstructions: ConfigOptionsTagInstructions,
+  instructions: ConfigOptionsInstructions,
 ): BuilderConfig[] => {
-  // Track whether any overrides produced a new config instance.
   let mutated = false
   const next = configs.map((cfg) => {
-    // Resolve the config with any runtime overrides applied.
-    const resolved = resolveConfigOptionsEffectiveConfigWithInstructions(cfg, tagInstructions)
+    const resolved = resolveConfigOptionsEffectiveConfigWithInstructions(cfg, instructions)
     if (resolved !== cfg) mutated = true
     return resolved
   })
-  // Preserve the original array if no overrides were applied.
   return mutated ? next : configs.slice()
 }

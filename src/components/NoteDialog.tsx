@@ -20,7 +20,18 @@ import type { BuilderConfig } from '../lib/hsfBuilder'
 import type { Metaset } from '../lib/metasets'
 import { metasetGlyph } from '../lib/metasets'
 import { metasetIconOptionById, DEFAULT_METASET_ICON_ID, type MetasetIconId } from '../lib/metasetIcons'
-import { artifactTypeI18nKey, artifactTypeNames, compareArtifactSets, compareArtifactTypes, factionI18nKey, statVariantI18nKey, getLocalizedGearSetName } from '../lib/types'
+import {
+  artifactTypeI18nKey,
+  artifactTypeNames,
+  compareArtifactSets,
+  compareArtifactTypes,
+  factionI18nKey,
+  statVariantI18nKey,
+  getLocalizedGearSetName,
+  labelOfVariant,
+  STAT_VARIANTS_PRIORITY,
+  StatVariant,
+} from '../lib/types'
 import { normalizeArtifactSetSelections, splitArtifactSetSelections } from '../lib/gearSets/selection'
 import ConfigChip from './ConfigChip'
 // MarkdownTooltip ensures the color pickers + toolbar reuse the same hover delay/style across the app.
@@ -102,9 +113,9 @@ const NOTE_CARD_WIDTHS: Record<NoteCardWidthPreset, { flexBasis: number; minWidt
 }
 
 // Match HTML comment bodies that declare config options markers.
-const QUESTION_COMMENT_REGEX = /^\s*(?:q|question)\b/i
+const QUESTION_COMMENT_REGEX = /^\s*config-options\b/i
 // Match raw HTML comment markers in the Markdown stream.
-const QUESTION_MARKER_REGEX = /<!--\s*(?:q|question)\b[\s\S]*?-->/i
+const QUESTION_MARKER_REGEX = /<!--\s*config-options\b[\s\S]*?-->/i
 // Custom element tag used in sanitized Markdown output.
 const QUESTION_ELEMENT_TAG = 'note-config-options'
 // Wrapper tag used to group question markers into a single flex layout.
@@ -936,11 +947,69 @@ function buildMetasetBulletList(
     .join('\n')
 }
 
-function buildConfigOptionsSampleBlock(t: ReturnType<typeof useI18n>['t']): string {
-  // Keep the sample block in the catalog so it localizes.
-  const sample = t('noteConfigOptionsSampleBlock')
-  // Return the catalog value directly for insertion.
-  return sample
+const CONFIG_OPTIONS_SAMPLE_LINES = [
+  'Config options syntax (EBNF):',
+  '```text',
+  'marker        := "<!--" "config-options" question "-->"',
+  'question      := ("q" | "question") string group+ [fallback]',
+  'group         := ("single" | "s" | "rb" | "radiobutton" | "radio" | "multi" | "m" | "cb" | "checkbox" | "check")',
+  '                string ["id" "=" token] ["*" | "default"] "{" selectorBlock+ "}" [constraints]',
+  'selectorBlock := "@" selector "{" assignment+ "}"',
+  'selector      := "all" | "tagged" | "untagged" | expr',
+  'expr          := term (("and" | "or" | "&&" | "||") term)*',
+  'term          := "tag" ("=" token | "in" "[" tokenList "]" | "any" | "none")',
+  '             | "rank" ("=" | ">=" | "<=") number',
+  '             | "rarity" ("=" | ">=" | "<=") rarityName',
+  '             | "minrolls" ("=" | ">=" | "<=") number',
+  '             | "minsubstats" ("=" | ">=" | "<=") number',
+  '             | "flex" ("=" | ":") ("on" | "off" | "true" | "false")',
+  'assignment    := ("set" | "=") field ("=" | ">=" | "<=") value',
+  'fallback      := ("fallback" | "else") "{" selectorBlock+ "}"',
+  'constraints   := "!" tokenList | "excl" tokenList | "only" tokenList',
+  'tokenList     := token ("," token)*',
+  'field         := "export" | "rank" | "rarity" | "lvl" | "keep" | "autolate" | "minrolls"',
+  '             | "lockedminrolls" | "minsubstats" | "flex" | "substatmin" | "substatmin." statKey',
+  'value         := string | number | token',
+  'token         := /[\\p{L}\\p{M}_][\\p{L}\\p{N}\\p{M}_]*/ (unicode letters/marks, underscore)',
+  'rarityName    := "common" | "uncommon" | "rare" | "epic" | "legendary" | "mythical" | "auto"',
+  '```',
+  '',
+  'Example:',
+  '```md',
+  '<!-- config-options',
+  'q "Keep fast gear?"',
+  'radio "Yes" id=keep_fast * { @tag=speed { = export=active = minsubstats=2 } }',
+  'radio "No" id=sell_fast { @tag=speed { = export=disabled } }',
+  '-->',
+  '```',
+]
+
+function buildConfigOptionsSampleBlock(): string {
+  // Enumerate supported stat keys from the runtime variant catalog.
+  const variants = [...STAT_VARIANTS_PRIORITY]
+  // Convert variants to labels while skipping empty entries.
+  const statLabels = variants
+    .map((variant) => labelOfVariant(variant))
+    .filter((label) => Boolean(label && label.trim().length > 0))
+  // De-dupe labels but preserve ordering for stable output.
+  const seen = new Set<string>()
+  const statKeys: string[] = []
+  statLabels.forEach((label) => {
+    if (seen.has(label)) return
+    seen.add(label)
+    statKeys.push(label)
+  })
+  // Quote each key so the EBNF literal list is explicit.
+  const statKeyLine = `statKey       := ${statKeys.map((label) => `"${label.replace(/"/g, '\\"')}"`).join(' | ')}`
+  // Insert the runtime-derived list before the EBNF closes.
+  const lines = [...CONFIG_OPTIONS_SAMPLE_LINES]
+  const fenceIndex = lines.indexOf('```')
+  if (fenceIndex >= 0) {
+    lines.splice(fenceIndex, 0, statKeyLine)
+  } else {
+    lines.push(statKeyLine)
+  }
+  return lines.join('\n')
 }
 
 function buildMetasetInsertCommand(params: {
@@ -2133,7 +2202,7 @@ function NoteEditorContent({
       const text = state.text ?? ''
       const start = state.selection?.start ?? 0
       const end = state.selection?.end ?? start
-      const block = buildConfigOptionsSampleBlock(t)
+      const block = buildConfigOptionsSampleBlock()
       const { insert, cursorOffset } = computeBlockInsertion(text, start, end, block)
       const nextState = api.replaceSelection(insert)
       const nextPos = start + cursorOffset

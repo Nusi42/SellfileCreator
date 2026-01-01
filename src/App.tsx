@@ -350,21 +350,21 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // Normalize the note text so config options parsing never sees null.
   const configOptionsNoteText = typeof hsfcNote === 'string' ? hsfcNote : ''
   // Resolve config options tag actions based on the current note + answers.
-  const configOptionsTagResolution = useMemo(
+  const configOptionsResolution = useMemo(
     () => resolveConfigOptionsTags(configOptionsNoteText, noteConfigOptionsAnswers),
     [configOptionsNoteText, noteConfigOptionsAnswers],
   )
   // Keep a stable instruction map for downstream UI and filter logic.
-  const configOptionsTagInstructions = configOptionsTagResolution.tagInstructions
+  const configOptionsInstructions = configOptionsResolution.instructions
   // Resolve config options-driven export modes for every config.
   const configOptionsExportModes = useMemo(
-    () => buildConfigOptionsExportModeResolution(customCfgs, configOptionsTagInstructions),
-    [customCfgs, configOptionsTagInstructions],
+    () => buildConfigOptionsExportModeResolution(customCfgs, configOptionsInstructions),
+    [customCfgs, configOptionsInstructions],
   )
   // Apply the export-mode overrides for rule generation without mutating HSFC configs.
   const configOptionsConfigsForRules = useMemo(
-    () => applyConfigOptionsOverrides(customCfgs, configOptionsTagInstructions),
-    [customCfgs, configOptionsTagInstructions],
+    () => applyConfigOptionsOverrides(customCfgs, configOptionsInstructions),
+    [customCfgs, configOptionsInstructions],
   )
   // Use a deferred snapshot so bursty substatTargets updates (e.g., Restore Defaults) coalesce before recomputing merged rules.
   const ruleConfigs = useMemo(() => configsForRuleBuild(configOptionsConfigsForRules), [configOptionsConfigsForRules])
@@ -3598,7 +3598,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     tags.splice(prospectiveInsertIndex, 0, normalizeConfigTags(builder))
     const modes = configModes.slice()
     // Resolve config options overrides for the builder export mode.
-    const builderExportMode: SellfileExportMode = resolveConfigOptionsExportMode(builder, configOptionsTagInstructions)
+    const builderExportMode: SellfileExportMode = resolveConfigOptionsExportMode(builder, configOptionsInstructions)
     modes.splice(prospectiveInsertIndex, 0, builderExportMode)
     // Ensure rule generation sees the same effective export mode as the filter list.
     // Clone only when the effective export mode diverges from the stored value.
@@ -3624,7 +3624,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     matchingConfigIndices,
     prospectiveInsertIndex,
     selectedIsDirty,
-    configOptionsTagInstructions,
+    configOptionsInstructions,
   ])
 
   const builderSaveMatchesRuleFilters = useMemo(() => {
@@ -3641,7 +3641,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     tags[editingConfigIndex] = normalizeConfigTags(builder)
     const modes = configModes.slice()
     // Resolve config options overrides for the builder export mode.
-    const builderExportMode: SellfileExportMode = resolveConfigOptionsExportMode(builder, configOptionsTagInstructions)
+    const builderExportMode: SellfileExportMode = resolveConfigOptionsExportMode(builder, configOptionsInstructions)
     modes[editingConfigIndex] = builderExportMode
     // Ensure rule generation sees the same effective export mode as the filter list.
     // Clone only when the effective export mode diverges from the stored value.
@@ -3664,7 +3664,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     evaluateConfigAgainstFilters,
     filterActive,
     limitConfigsToFiltered,
-    configOptionsTagInstructions,
+    configOptionsInstructions,
     normalizeConfigTags,
   ])
 
@@ -3673,7 +3673,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     // for at least one tester row that survives the tester-side filters.
     if (!limitConfigsToFiltered) return true
     // Apply config options overrides before testing the export mode.
-    const builderExportMode = resolveConfigOptionsExportMode(builder, configOptionsTagInstructions)
+    const builderExportMode = resolveConfigOptionsExportMode(builder, configOptionsInstructions)
     if (builderExportMode === 'disabled') return false
     // In tester mode, separators are always shown when config filtering is off (anchor chips remain visible).
     if (builderExportMode === 'separator' && testerConfigFilterMode === 'off') return true
@@ -3706,7 +3706,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     return false
   }, [
     builder,
-    configOptionsTagInstructions,
+    configOptionsInstructions,
     limitConfigsToFiltered,
     metasets,
     substatTargets,
@@ -4130,7 +4130,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       onSubstatTargetsChange={(next, opts) => { applySubstatTargetsChange(next, opts) }}
       substatTargetsDialogOpen={substatTargetsDialogOpen}
       onCloseSubstatTargetsDialog={closeSubstatTargetsDialog}
-      configOptionsTagInstructions={configOptionsTagInstructions}
+      configOptionsInstructions={configOptionsInstructions}
       setUsageCounts={setUsageCounts}
       metasetUsageCounts={metasetUsageCounts}
       keepUniqueMetasetUsageCounts={keepUniqueMetasetUsageCounts}
