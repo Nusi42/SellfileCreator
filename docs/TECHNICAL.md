@@ -21,7 +21,7 @@ The technical reference is now split across focused documents. Start here, then 
 - [Keep Uniques](technical/app-behavior.md#keep-uniques) — Final Sell tab layout, gear-combination detection, tester-grid linking, and reset behaviors.
 - [Locked roll constraints](technical/app-behavior.md#builder-outputs-and-normalization) — how `lockedMinRequiredRolls` impacts aggregate targets so locked selections can demand their own roll floors alongside the global sum.
 - [Gear Database Import](technical/gear-db-import.md) — reverse-engineering the RSL Helper SQLite dump and mapping it into the Rule Tester.
-- [UI and Layout](technical/ui-and-layout.md) — localization, metasets, preview UX, shared hooks, effect guidelines, and responsive layout constraints.
+- [UI and Layout](technical/ui-and-layout.md) — localization, metasets, preview UX (including dimmed disabled configs), shared hooks, effect guidelines, and responsive layout constraints.
 - [Tooltip & Context Hints](technical/ui-and-layout.md#tooltips-and-context-hints) — canonical guidance for Markdown/Ellipsis tooltips, context-menu hints, and overflow handling.
 - [Release Notes Prompt](CREATE-RELEASE-NOTES.md) — Codex orchestration instructions for maintaining `docs/HISTORY.txt`.
 - [Artifact Rules](#artifact-rules) — slot catalogs, rarity/rank expectations, stat restrictions, and roll behavior.

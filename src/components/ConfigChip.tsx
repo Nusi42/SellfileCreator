@@ -38,6 +38,7 @@ import { splitArtifactSetSelections } from '../lib/gearSets/selection'
 import { ConfigContextMenu } from './ConfigContextMenu'
 import { BuilderTooltipContent } from './BuilderTooltipContent'
 import MarkdownTooltip from './MarkdownTooltip'
+import { resolveDisabledOpacity } from './disabledOpacity'
 
 // Separate baseline nudges keep bitmap faction icons and font slot icons visually centered.
 const CONFIG_CHIP_FACTION_ICON_OFFSET_EM = -0.45
@@ -194,6 +195,8 @@ function ConfigChip({
   const { showFactionIcons, statButtonBorders, showSetIcons, showSlotIcons } = useDisplayPreferences()
   const theme = useTheme()
   const primaryColor = theme.palette.primary.main
+  // Keep disabled chip dimming aligned with other disabled UI elements.
+  const disabledOpacity = resolveDisabledOpacity(theme)
   const nameDecoration = useMemo(
     () => parseConfigNameDirectives(cfg.name, primaryColor),
     [cfg.name, primaryColor],
@@ -236,6 +239,8 @@ function ConfigChip({
   )
   const keepColor = cfg.keep ? 'success.main' : 'error.main'
   const isDisabled = isHidden
+  // Dim the summary text when configs export with Use = false.
+  const summaryOpacity = isDisabled ? disabledOpacity : 1
   const showDuplicateFrame = !isSeparator && isDuplicate
   const [menu, setMenu] = useState<null | { open: boolean; x: number; y: number }>(null)
   const menuPaperRef = useRef<HTMLDivElement | null>(null)
@@ -418,15 +423,16 @@ function ConfigChip({
             overflowWrap: 'anywhere',
           }}
         >
-          <Box component="span" sx={{ display: 'inline' }}>
+          <Box
+            component="span"
+            sx={{
+              display: 'inline',
+              // Apply the dimmed opacity to the full summary line.
+              opacity: summaryOpacity,
+            }}
+          >
             {`${index + 1}. `}
-            {isDisabled ? (
-              <Box component="span" sx={{ color: 'common.white', textDecoration: 'line-through' }}>
-                <Box component="span" sx={{ color: keepColor, fontWeight: 600 }}>{actText}</Box>
-              </Box>
-            ) : (
-              <Box component="span" sx={{ color: keepColor, fontWeight: 600 }}>{actText}</Box>
-            )}
+            <Box component="span" sx={{ color: keepColor, fontWeight: 600 }}>{actText}</Box>
             {nameDecoration.displayName ? (
               <Box
                 component="span"

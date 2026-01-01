@@ -240,7 +240,7 @@ If tooltips need rich formatting (colored badges, inline icons), pass JSX via `r
   - Selecting a chip auto-scrolls to its first rule row (smooth in single-line mode; jump in wrap mode).
 - Row context menu matches chip actions (Duplicate, Move, Copy, Paste after, Delete). Base rows show Clear instead of Delete. Keep Unique rows do not show a row context menu.
 - Cells:
-  - Index column colors Keep/Sell status; disabled rules show a strikethrough.
+  - Index column colors Keep/Sell status; disabled rules render dimmed text.
   - Indices stay aligned with merged order; filters never renumber.
 - Implementation notes:
   - Component: `src/components/HsfRulesTable.tsx`.

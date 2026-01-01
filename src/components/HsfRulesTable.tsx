@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useSta
 import { elementScroll, useVirtualizer } from '@tanstack/react-virtual'
 import type { VirtualizerOptions } from '@tanstack/react-virtual'
 import { Box, Button, Divider, Menu, MenuItem, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from '@mui/material'
-import { alpha } from '@mui/material/styles'
+import { alpha, useTheme } from '@mui/material/styles'
 import VisibilityIcon from '@mui/icons-material/Visibility'
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff'
 import StarBorderIcon from '@mui/icons-material/StarBorder'
@@ -41,6 +41,7 @@ import { HEADER_MENU_LABEL_SX } from './tableHeaderMenuStyles'
 import { EmptyStateMessage } from './EmptyStateMessage'
 import { getRuleConfigIndex } from '../lib/ruleConfigIndex'
 import { reserveScrollbarGutterSpace } from '../lib/scrollbar'
+import { resolveDisabledOpacity } from './disabledOpacity'
 
 // Preview rows stay at their fixed height (≈30px). Keep the inline faction icon
 // slightly smaller than the default select size so the row metrics remain
@@ -81,6 +82,9 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
   onFocusRuleSettled?: () => void
 }) {
   const { t, lang } = useI18n()
+  const theme = useTheme()
+  // Reuse the shared disabled opacity so rows dim consistently with chips.
+  const disabledOpacity = resolveDisabledOpacity(theme)
   const { showSlotIcons, showSetIcons, showFactionIcons, statButtonBorders } = useDisplayPreferences()
   const { setShowSlotIcons, setShowSetIcons, setShowFactionIcons, setStatButtonBorders } = useDisplayPreferenceActions()
   const applyNextColorBlindMode = React.useCallback(() => {
@@ -1097,7 +1101,6 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
                         }}
 		                        sx={(theme) => ({
 		                          // Fixed-height styling is applied at the `<Table>` level so spacer rows can keep variable heights.
-		                          textDecoration: rule.Use === false ? 'line-through' : 'none',
 		                          '&[data-selected-cfg="true"]': {
 		                            backgroundColor: theme.palette.action.selected,
 		                          },
@@ -1157,7 +1160,10 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
                         const isSub = c.key === 'SubstatsSummary'
                         const isIdx = c.key === 'Idx'
                         const keep = Boolean(rule.Keep)
-                        const strike = rule.Use === false
+                        // Dim disabled rules instead of applying a strikethrough.
+                        const isRuleDisabled = rule.Use === false
+                        // Convert the disabled flag into a per-row opacity for reuse.
+                        const rowOpacity = isRuleDisabled ? disabledOpacity : 1
                         let content: React.ReactNode = isSub
                           ? (
                             <RuleSubstatChips
@@ -1267,7 +1273,6 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
                                     overflow: 'hidden',
                                     textOverflow: wrapRows ? 'clip' : 'ellipsis',
                                     whiteSpace: wrapRows ? 'normal' : 'nowrap',
-                                    textDecoration: strike ? 'line-through' : 'none',
                                     transform: `translateY(${SINGLE_LINE_PREVIEW_OFFSET_PX}px)`,
                                   }}
                                 >
@@ -1313,7 +1318,7 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
                         if (isSub) {
                           const substatTooltip = getSubstatTooltipSummary(rule)
                           const substatSpan = (
-                            <span style={{ display: 'inline-block', width: '100%', overflow: 'hidden', textOverflow: wrapRows ? 'clip' : 'ellipsis', whiteSpace: wrapRows ? 'normal' : 'nowrap', textDecoration: strike ? 'line-through' : 'none' }}>
+                            <span style={{ display: 'inline-block', width: '100%', overflow: 'hidden', textOverflow: wrapRows ? 'clip' : 'ellipsis', whiteSpace: wrapRows ? 'normal' : 'nowrap' }}>
                               {content}
                             </span>
                           )
@@ -1335,7 +1340,6 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
                                   overflow: 'hidden',
                                   textOverflow: 'ellipsis',
                                   whiteSpace: 'nowrap',
-                                  textDecoration: strike ? 'line-through' : 'none',
                                   transform: `translateY(${SINGLE_LINE_PREVIEW_OFFSET_PX}px)`,
                                 }}
                               >{content}</span>
@@ -1353,8 +1357,9 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
                               fontFamily: isSub ? 'inherit' : 'ui-monospace, monospace',
                               fontSize: FONT_SIZE_BASE_PX,
                               width: c.width,
+                              // Apply per-row opacity so disabled rules dim without striking text.
+                              opacity: rowOpacity,
                               color: isIdx ? (keep ? 'success.main' : 'error.main') : undefined,
-                              textDecoration: strike ? 'line-through' : 'none',
                               overflow: wrapRows || factionIconOverflow ? 'visible' : 'hidden',
                               textOverflow: wrapRows || factionIconOverflow ? 'clip' : 'ellipsis',
                               whiteSpace: wrapRows ? 'normal' : 'nowrap',

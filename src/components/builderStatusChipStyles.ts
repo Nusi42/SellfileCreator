@@ -1,6 +1,7 @@
 import { alpha } from '@mui/material/styles'
 import type { SxProps, Theme } from '@mui/material/styles'
 import { BUILDER_STATUS_CHIP_HEIGHT_PX, STATUS_CHIP_BORDER_RADIUS_PX } from '../lib/constants'
+import { resolveDisabledOpacity } from './disabledOpacity'
 
 interface BuilderStatusChipOptions {
   dimDisabled?: boolean
@@ -13,7 +14,8 @@ export function createBuilderStatusChipSx(theme: Theme) {
   const chipActiveColor = theme.palette.mode === 'dark' ? theme.palette.success.light : theme.palette.success.dark
   const chipDisabledBg = theme.palette.action.disabledBackground ?? alpha(theme.palette.text.disabled, 0.12)
   const chipDisabledColor = theme.palette.text.disabled
-  const baseDisabledOpacity = theme.palette.action.disabledOpacity ?? 0.38
+  // Keep the base opacity aligned with shared disabled UI dimming.
+  const baseDisabledOpacity = resolveDisabledOpacity(theme)
 
   return (enabled: boolean, opts?: BuilderStatusChipOptions): SxProps<Theme> => {
     const shouldDimDisabled = Boolean(opts?.dimDisabled)
