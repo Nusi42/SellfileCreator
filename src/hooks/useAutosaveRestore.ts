@@ -32,6 +32,7 @@ import { sanitizeKeepUniquesGridFilterMode, type KeepUniquesGridFilterMode } fro
 import {
   LEGACY_NOTE_CONFIG_OPTIONS_ANSWERS_KEY,
   NOTE_CONFIG_OPTIONS_ANSWERS_KEY,
+  NOTE_CONFIG_OPTIONS_DISABLED_KEY,
   normalizeNoteConfigOptionsAnswers,
   type NoteConfigOptionsAnswers,
 } from '../lib/noteConfigOptions'
@@ -52,6 +53,7 @@ export type RestoreDraft = {
   SelectedConfigIndex?: number
   Note?: string
   NoteConfigOptionsAnswers?: NoteConfigOptionsAnswers
+  NoteConfigOptionsDisabled?: boolean
   AutosaveSavedAt?: string
   Filters?: AutosaveFiltersState
   TesterSort?: TesterSubstatSortState
@@ -305,9 +307,13 @@ function computeInitialAutosaveState(args: {
             ?? payloadRecord[LEGACY_NOTE_CONFIG_OPTIONS_ANSWERS_KEY])
           : null,
       )
+      const savedConfigOptionsDisabled = payloadRecord
+        ? payloadRecord[NOTE_CONFIG_OPTIONS_DISABLED_KEY] === true
+        : false
       // Consider either the note or config options answers as a reason to restore.
       const notePresent = typeof parsed.note === 'string' && parsed.note.trim().length > 0
         || (savedConfigOptionsAnswers && Object.keys(savedConfigOptionsAnswers).length > 0)
+        || savedConfigOptionsDisabled
       const savedGridFilterModeRaw = (entry.payload && typeof entry.payload === 'object' && typeof (entry.payload as Record<string, unknown>)['KeepUniquesGridFilterMode'] === 'string')
         ? (entry.payload as Record<string, unknown>)['KeepUniquesGridFilterMode']
         : null
@@ -343,6 +349,7 @@ function computeInitialAutosaveState(args: {
             ...(parsed.selectedIndex != null ? { SelectedConfigIndex: parsed.selectedIndex } : {}),
             ...(parsed.note ? { Note: parsed.note } : {}),
             ...(savedConfigOptionsAnswers ? { [NOTE_CONFIG_OPTIONS_ANSWERS_KEY]: savedConfigOptionsAnswers } : {}),
+            ...(savedConfigOptionsDisabled ? { [NOTE_CONFIG_OPTIONS_DISABLED_KEY]: true } : {}),
             ...(savedAtRaw ? { AutosaveSavedAt: savedAtRaw } : {}),
             ...(savedFilters ? { Filters: savedFilters } : {}),
             ...(savedTesterSort ? { TesterSort: savedTesterSort } : {}),
@@ -375,6 +382,7 @@ export function useAutosaveRestore(opts: {
   selectedConfigIndex: number | null
   note: string | null
   noteConfigOptionsAnswers: NoteConfigOptionsAnswers
+  noteConfigOptionsDisabled: boolean
   filters: AutosaveFiltersState
   testerSort: TesterSubstatSortState
   keepUniqueRules: KeepUniqueRule[]
@@ -393,6 +401,7 @@ export function useAutosaveRestore(opts: {
     selectedConfigIndex: _selectedConfigIndex,
   note,
   noteConfigOptionsAnswers,
+  noteConfigOptionsDisabled,
   filters,
     testerSort,
     keepUniqueRules,
@@ -449,6 +458,7 @@ export function useAutosaveRestore(opts: {
       ...(Object.keys(noteConfigOptionsAnswers).length > 0
         ? { [NOTE_CONFIG_OPTIONS_ANSWERS_KEY]: noteConfigOptionsAnswers }
         : {}),
+      ...(noteConfigOptionsDisabled ? { [NOTE_CONFIG_OPTIONS_DISABLED_KEY]: true } : {}),
       ...(filtersForSnapshot ? { Filters: filtersForSnapshot } : {}),
       ...(testerSortForSnapshot ? { TesterSort: testerSortForSnapshot } : {}),
     }
@@ -461,6 +471,7 @@ export function useAutosaveRestore(opts: {
     finalSellRemainder,
     note,
     noteConfigOptionsAnswers,
+    noteConfigOptionsDisabled,
     filters,
     testerSort,
     keepUniqueRules,

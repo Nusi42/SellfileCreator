@@ -233,6 +233,7 @@ This document captures runtime behavior, builder interactions, and user-facing w
 - Close: The dialog schedules its dismissal on the next animation frame; if a new note opens immediately after a close request (common during HSFC imports), the pending close is cancelled so the modal overlay never lingers.
 - Edit: The dialog uses an embedded Markdown editor (`@uiw/react-md-editor`) with sanitized previews (`rehype-sanitize`). The editor lives in `src/components/NoteDialog.tsx`.
 - Edit/View switch: The edit dialog now includes a `View Note…` button (outlined, bottom-left) that switches back to view mode. If config options markers changed versus the original note, the button shows a warning badge.
+- Config options actions: When the note contains config options markers, the dialog footer adds `Reset Options to Defaults` (clears answers) plus a toggle that reads `Disable Config Options...` (with confirmation) or `Enable Config Options`. Disabled state dims the question cards and ignores their answers without removing the markers.
 - Config options markers: HTML comments inside the note can render interactive question blocks in the read-only view. Markers can be inline or multi-line; whitespace is optional.
   - Marker: `<!-- config-options ... -->` with exactly one question per comment.
   - Question header: `q`/`question` plus a quoted prompt: `q "Prompt"`.

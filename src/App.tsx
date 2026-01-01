@@ -225,6 +225,7 @@ import type { HistoryEntryDescriptor, DescribeNextChangeFn } from './hooks/useHs
 import { describeBuilderConfigUpdate, buildConfigLabel } from './history/builderUpdateDescriptor'
 import {
   describeConfigAdded,
+  describeConfigOptionsApplied,
   describeConfigsDuplicated,
   describeConfigsCleared,
   describeConfigsDeleted,
@@ -243,10 +244,12 @@ import {
   applyConfigOptionsSubstatTargetsOverrides,
   buildConfigOptionsExportModeResolution,
   NOTE_CONFIG_OPTIONS_ANSWERS_KEY,
+  NOTE_CONFIG_OPTIONS_DISABLED_KEY,
   pruneNoteConfigOptionsAnswers,
   resolveConfigOptionsExportMode,
   resolveConfigOptionsEffectiveConfig,
   resolveConfigOptionsTags,
+  type ConfigOptionsInstructions,
 } from './lib/noteConfigOptions'
 
 // Components are organized under src/components
@@ -327,6 +330,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     logicHubDialogTab,
     hsfcNote,
     noteConfigOptionsAnswers,
+    noteConfigOptionsDisabled,
     keepUniqueRules,
     keepUniquesEnabled,
   } = useAppState()
@@ -341,6 +345,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setLogicHubDialogTab,
     setHsfcNote,
     setNoteConfigOptionsAnswers,
+    setNoteConfigOptionsDisabled,
     setKeepUniqueRules,
     setKeepUniquesEnabled,
   } = useAppActions()
@@ -350,7 +355,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const [autoApplySelectedConfig] = useAutoApplySelectedConfigPreference()
   const { setStatButtonBorders } = useDisplayPreferenceActions()
   // Normalize the note text so config options parsing never sees null.
-  const configOptionsNoteText = typeof hsfcNote === 'string' ? hsfcNote : ''
+  const configOptionsNoteText = (!noteConfigOptionsDisabled && typeof hsfcNote === 'string') ? hsfcNote : ''
   // Resolve config options tag actions based on the current note + answers.
   const configOptionsResolution = useMemo(
     () => resolveConfigOptionsTags(configOptionsNoteText, noteConfigOptionsAnswers),
@@ -1615,6 +1620,49 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     autoApplySelectedConfig,
   })
   describeNextChangeRef.current = describeNextChange
+  const applyConfigOptionsOverridesToConfigs = useCallback((instructions: ConfigOptionsInstructions) => {
+    // Compute the updated configs once so list + builder sync with one payload.
+    const prev = customCfgsRef.current
+    // Apply the runtime config options instructions to the stored configs.
+    const next = applyConfigOptionsOverrides(prev, instructions)
+    // Track which configs changed and how many export modes flipped.
+    const changedIndices: number[] = []
+    let enableCount = 0
+    let disableCount = 0
+    next.forEach((cfg, idx) => {
+      const prevCfg = prev[idx]
+      if (!prevCfg || cfg === prevCfg) return
+      changedIndices.push(idx)
+      if (prevCfg.exportMode !== cfg.exportMode) {
+        if (cfg.exportMode === 'active') enableCount += 1
+        if (cfg.exportMode === 'disabled') disableCount += 1
+      }
+    })
+    // Skip state updates when nothing changed.
+    if (changedIndices.length === 0) {
+      describeNextChange(null)
+      return
+    }
+    // Persist the updated list so future edits start from the applied values.
+    setCustomCfgs(next)
+    // Sync the builder when the selected config changed under the overrides.
+    if (selectedCfgIdx !== null) {
+      const nextSelected = next[selectedCfgIdx]
+      const prevSelected = prev[selectedCfgIdx]
+      if (nextSelected && nextSelected !== prevSelected) {
+        setBuilder(nextSelected)
+      }
+    }
+    // Record the config options apply in history for undo/redo.
+    const descriptor = describeConfigOptionsApplied({
+      changedIndices,
+      configs: next,
+      enableCount,
+      disableCount,
+      t,
+    })
+    describeNextChange(descriptor)
+  }, [describeNextChange, selectedCfgIdx, setBuilder, setCustomCfgs, t])
 
   // Builder and dialog both call through here so history/undo sees a single
   // cohesive change. While the dialog is open we aggregate edits until the
@@ -2705,6 +2753,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     selectedConfigIndex: selectedCfgIdx,
     note: hsfcNote,
     noteConfigOptionsAnswers,
+    noteConfigOptionsDisabled,
     filters: autosaveFiltersState,
     testerSort: testerSubstatSortPrefs.state,
     keepUniqueRules,
@@ -3233,16 +3282,19 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     const configOptionsPayload = Object.keys(noteConfigOptionsAnswers).length > 0
       ? noteConfigOptionsAnswers
       : null
+    // Persist config options disabled flag only when turned off.
+    const configOptionsDisabledPayload = noteConfigOptionsDisabled ? true : null
     return {
       ...autosaveBasePayload,
       LogicHubDialogTab: logicHubDialogTab, // Persist the active tab so the dialog re-opens where the user left off.
       KeepUniquesGridFilterMode: keepUniquesGridFilterMode,
       AutosaveSavedAt: new Date().toISOString(),
       ...(configOptionsPayload ? { [NOTE_CONFIG_OPTIONS_ANSWERS_KEY]: configOptionsPayload } : {}),
+      ...(configOptionsDisabledPayload ? { [NOTE_CONFIG_OPTIONS_DISABLED_KEY]: true } : {}),
       ...(filtersPayload ? { Filters: filtersPayload } : {}),
       ...(testerSortPayload ? { TesterSort: testerSortPayload } : {}),
     }
-  }, [autosaveBasePayload, autosaveFiltersState, logicHubDialogTab, keepUniquesGridFilterMode, noteConfigOptionsAnswers, testerSubstatSortPrefs.state])
+  }, [autosaveBasePayload, autosaveFiltersState, logicHubDialogTab, keepUniquesGridFilterMode, noteConfigOptionsAnswers, noteConfigOptionsDisabled, testerSubstatSortPrefs.state])
   useAutosave({
     key: AUTOSAVE_KEY,
     payload: autosavePayload,
@@ -4273,6 +4325,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     }
     // HSFC files do not carry config options answers, so reset to defaults.
     setNoteConfigOptionsAnswers({})
+    // HSFC files never store the disabled flag, so re-enable parsing.
+    setNoteConfigOptionsDisabled(false)
 
     startTransition(() => {
       describeNextChange(loadDescriptor)
@@ -4322,6 +4376,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setLastExportSig,
     setMetasets,
     setNoteConfigOptionsAnswers,
+    setNoteConfigOptionsDisabled,
     substatTargets,
     syncSelectedCfgIdx,
     t,
@@ -5110,6 +5165,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           onRequestView={openNoteViewerManual}
           configOptionsAnswers={noteConfigOptionsAnswers}
           onConfigOptionsAnswersChange={setNoteConfigOptionsAnswers}
+          configOptionsDisabled={noteConfigOptionsDisabled}
+          onConfigOptionsDisabledChange={setNoteConfigOptionsDisabled}
+          // Apply config options instructions to stored configs when requested by the note dialog.
+          onApplyConfigOptionsOverrides={applyConfigOptionsOverridesToConfigs}
           // Use config-options-resolved configs so note chips mirror current answers.
           configs={configOptionsConfigsForRules}
           metasets={metasets}
@@ -5238,6 +5297,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                 }
                 const restoredAnswers = draft.NoteConfigOptionsAnswers ?? {}
                 setNoteConfigOptionsAnswers(pruneNoteConfigOptionsAnswers(restoredNote, restoredAnswers))
+                setNoteConfigOptionsDisabled(Boolean(draft.NoteConfigOptionsDisabled))
               }
               if (selection.filters && restoreFiltersDiffer && draft.Filters) {
                 try {
