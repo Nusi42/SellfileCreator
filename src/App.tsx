@@ -4152,6 +4152,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         }
       }}
       substatTargets={substatTargets}
+      effectiveSubstatTargets={effectiveSubstatTargets}
       substatTargetsOverridesActive={substatTargetsOverridesActive}
       onResetMetasets={handleResetMetasets}
       onSubstatTargetsChange={(next, opts) => { applySubstatTargetsChange(next, opts) }}

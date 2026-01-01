@@ -2,7 +2,7 @@ import type { SxProps, Theme } from '@mui/material/styles'
 
 // Shared warning badge styling for small attention markers.
 // Use this for top-right button badges (hidden-by-filter, note changes, etc.).
-const buildWarningBadgeBase = (theme: Theme) => ({
+export const buildWarningBadgeBase = (theme: Theme) => ({
   // Keep the badge compact and circular.
   minWidth: 18,
   height: 18,
