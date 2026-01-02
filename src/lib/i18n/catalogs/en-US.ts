@@ -568,7 +568,7 @@ const enUS: Catalog = {
   builderExportModeDisabledTooltip: 'Sellfile rules are generated with Use = false, so RSL Helper keeps them inactive. Turn on "Omit disabled rules when exporting" to leave them out entirely.',
   builderExportModeSeparator: 'Separator',
   builderExportModeSeparatorTooltip: 'Separator configs only export to HSFC.\nThey generate no Sellfile rules and can include # headings or [rrggbb] color tags.',
-  builderExportModeConfigOptionsOverrideTooltip: 'Config options tags override the stored selection. Without the config options it would be {stored}, but now it is {effective}.',
+  builderConfigOptionsOverrideBadgeTooltip: 'Config options override this setting (stored: {stored}, effective: {effective}).',
   historyBuilderExportModeLabel: 'Sellfile Export Mode',
   historyBuilderSavedTitle: 'Saved {label}',
   historyConfigLabel: '#{n}',
@@ -1005,6 +1005,7 @@ const enUS: Catalog = {
   rollIndicatorTip2: 'Starting from ★, Left switches to a Min requirement (0..5 rolls) and Right switches to a Roll Upper Limit (0..4).',
   rollIndicatorTip3: 'On a Roll Upper Limit, Left lowers the limit (1→0→★) and Right raises it (0→1→…→4→★).',
   rollIndicatorTip4: 'Green numbers show minimum rolls you insist on; red numbers enforce the upper limit above that value.',
+  builderSubstatMinConfigOptionsOverrideTooltip: 'Config options override: substat min rolls are applied for this stat.',
 
   // Filter helpers
   filterShow: 'Show',

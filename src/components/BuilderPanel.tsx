@@ -86,7 +86,7 @@ import ClearIconButton from './ClearIconButton'
 import { UI_BG_HOVER_DANGER_TRANSITION, DANGER_TINT_BG, LIST_SUBHEADER_SX, MENU_SELECTED_BG_ALPHA, MENU_SELECTED_BG_HOVER_ALPHA, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, MENU_MAX_HEIGHT_EXTRA_BUFFER, SETS_MENU_WIDTH_PX, UI_SUBSTAT_WARNING_ROW_HEIGHT_PX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, BUILDER_USER_DEFAULTS_KEY, BUILDER_DEFAULT_SAVE_TARGET, BUILDER_DIRTY_NUDGE_IDLE_MS, BUILDER_DIRTY_ATTENTION_INTERVAL_MS, FONT_SIZE_BASE_PX, ELLIPSIS_TEXT_SX, COMPACT_HEADER_ACTION_BUTTON_SX, BUILDER_SLOT_LABEL_WIDTH_BUFFER_PX, BUILDER_TOGGLE_BUTTON_HEIGHT_PX, BUILDER_TOGGLE_BUTTON_MIN_WIDTH_PX, SMALL_BUTTON_HEIGHT_PX, SETS_SELECT_INLINE_GUTTER_COLLAPSED_PX, SETS_SELECT_INLINE_GUTTER_PX, CLEAR_ICON_BUTTON_SIZE_PX, MULTI_EDIT_MIXED_BG_ALPHA, MULTI_EDIT_MIXED_BORDER_ALPHA, MULTI_EDIT_MIXED_TEXT_ALPHA, MENU_LABEL_WIDTH_PX, MENU_CONTROL_HEIGHT_PX, SUBSTAT_TARGET_MAX_ROLLS, HISTORY_TOOLTIP_MAX_WIDTH_PX, BUILDER_AUTO_APPLY_DEBOUNCE_MS, BUILDER_LABEL_INLINE_SX, BUILDER_LABEL_TEXT_SX, BUILDER_MIN_ROLLS_COLUMN_WIDTH_PX, BUILDER_REQUIRED_SUBSTATS_COLUMN_WIDTH_PX, BUILDER_MILESTONE_THRESHOLDS_COLUMN_WIDTH_PX, BUILDER_AUTO_TOGGLE_WIDTH_PX } from '../lib/constants'
 import Checkbox from '@mui/material/Checkbox'
 import { useAttentionEffectStyles, useFortyTwoLegendaryOverlay } from '../lib/attentionEffects'
-import { buildWarningBadgeIndicatorSx, warningBadgeSx } from '../lib/badgeStyles'
+import { buildWarningBadgeBase, warningBadgeSx } from '../lib/badgeStyles'
 import { alpha, useTheme } from '@mui/material/styles'
 import type { SxProps, Theme } from '@mui/material/styles'
 import type { SystemStyleObject } from '@mui/system'
@@ -1236,32 +1236,36 @@ const getMetasetState = React.useCallback((id: string): 'none' | 'partial' | 'al
     if (mode === 'disabled') return t('builderExportModeDisabled')
     return t('builderExportModeSeparator')
   }, [t])
-  // Extend the tooltip when config options tags override the stored selection.
-  const buildExportModeTooltip = React.useCallback((base: string, mode: SellfileExportMode): string => {
-    // Default to the base tooltip when there is no override for this button.
-    if (!exportModeOverrideActive || exportModeOverrideTarget !== mode) return base
-    // Explain the override using the stored and effective labels.
-    const storedLabel = exportModeLabel(mode)
-    const effectiveLabel = exportModeLabel(effectiveExportMode)
-    const overrideLine = t('builderExportModeConfigOptionsOverrideTooltip', {
-      stored: storedLabel,
-      effective: effectiveLabel,
-    })
-    // Add the override message after the base meaning text.
-    return `${base}\n\n${overrideLine}`
-  }, [exportModeLabel, exportModeOverrideActive, exportModeOverrideTarget, effectiveExportMode, t])
-  // Extend generic tooltips with config options override messaging.
+  // Keep primary tooltips focused on control behavior; override details live on badges.
+  const buildExportModeTooltip = React.useCallback((base: string): string => base, [])
   const buildOverrideTooltip = React.useCallback(
-    (base: string, stored: string, effective: string, active: boolean): string => {
-      // Return the base tooltip when no override is active.
-      if (!active) return base
-      // Explain the stored vs effective values.
-      const overrideLine = t('builderExportModeConfigOptionsOverrideTooltip', { stored, effective })
-      // Append the override line to the base text.
-      return `${base}\n\n${overrideLine}`
-    },
+    (base: string): string => base,
+    [],
+  )
+  // Keep badge tooltips short so the warning callouts stay readable.
+  const buildConfigOptionsBadgeTooltip = React.useCallback(
+    (stored: string, effective: string): string => (
+      t('builderConfigOptionsOverrideBadgeTooltip', { stored, effective })
+    ),
     [t],
   )
+  // Render a warning badge anchored to a relative parent, with its own tooltip.
+  const renderWarningBadgeOverlay = React.useCallback((tooltip: string) => (
+    <MarkdownTooltip markdown={tooltip}>
+      <Box
+        component="span"
+        sx={(theme) => ({
+          position: 'absolute',
+          top: -6,
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
+          ...buildWarningBadgeBase(theme),
+        })}
+      >
+        !
+      </Box>
+    </MarkdownTooltip>
+  ), [])
   const rankMixed = multiEditActive && (multiRankField?.status === 'mixed')
   const rankValue = multiEditActive
     ? (rankMixed ? '' : String((multiRankField?.value as number | undefined) ?? cfg.rankCode))
@@ -2038,9 +2042,37 @@ const maxLevelValue = multiEditActive
       : t('builderSaveAsConfig', { n: defaultSaveTarget }))
   const builderCanAdd = !multiEditActive
   const saveDisabled = multiEditActive ? !multiDraftDirty : (editingIndex === null || !isDirty)
-  // Controlled so the warning tooltip disappears when the button disables; scope key forces a remount on state changes.
+  // Controlled so the warning tooltip disappears when the button disables.
   const [saveTooltipOpen, setSaveTooltipOpen] = useState(false)
-  const saveTooltipScope = `${saveHiddenByFilters ? 'visible' : 'hidden'}:${saveDisabled ? 'disabled' : 'active'}`
+  // Keep badge tooltips attached to the warning bubble, not the whole button.
+  const renderWarningBadgeContent = React.useCallback((params: {
+    tooltip: string
+    disabled?: boolean
+    open?: boolean
+    onOpen?: () => void
+    onClose?: () => void
+  }) => (
+    <MarkdownTooltip
+      markdown={params.tooltip}
+      {...(typeof params.disabled === 'boolean' ? { disableHoverListener: params.disabled } : {})}
+      {...(typeof params.open === 'boolean' ? { open: params.open } : {})}
+      {...(params.onOpen ? { onOpen: params.onOpen } : {})}
+      {...(params.onClose ? { onClose: params.onClose } : {})}
+    >
+      <Box
+        component="span"
+        sx={{
+          display: 'inline-flex',
+          width: '100%',
+          height: '100%',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        !
+      </Box>
+    </MarkdownTooltip>
+  ), [])
   const actionButtonWidthPx = useMemo(() => {
     const samples = [
       t('builderAddAsNew'),
@@ -2806,12 +2838,7 @@ const maxLevelValue = multiEditActive
                   onClick={() => handleExportModeOverrideClick('active')}
                   sx={(theme) => ({
                     px: 1.5,
-                    ...(exportModeOverrideTarget === 'active' ? {
-                      '&::before': {
-                        // Use the same warning bubble used by the View Note button.
-                        ...buildWarningBadgeIndicatorSx(theme),
-                      },
-                    } : {}),
+                    position: 'relative',
                     '&.Mui-selected': {
                       bgcolor: theme.palette.success.main,
                       color: theme.palette.common.black,
@@ -2822,24 +2849,25 @@ const maxLevelValue = multiEditActive
                 >
                   <MarkdownTooltip
                     placement="top"
-                    render={<BuilderTooltipContent text={buildExportModeTooltip(t('builderExportModeActiveTooltip'), 'active')} />}
+                    render={<BuilderTooltipContent text={buildExportModeTooltip(t('builderExportModeActiveTooltip'))} />}
                   >
                     <Box component="span" sx={{ display: 'inline-flex', width: '100%', justifyContent: 'center' }}>
                       {t('builderExportModeActive')}
                     </Box>
                   </MarkdownTooltip>
+                  {exportModeOverrideTarget === 'active'
+                    ? renderWarningBadgeOverlay(buildConfigOptionsBadgeTooltip(
+                        exportModeLabel('active'),
+                        exportModeLabel(effectiveExportMode),
+                      ))
+                    : null}
                 </ToggleButton>
                 <ToggleButton
                   value="disabled"
                   onClick={() => handleExportModeOverrideClick('disabled')}
                   sx={(theme) => ({
                     px: 1.5,
-                    ...(exportModeOverrideTarget === 'disabled' ? {
-                      '&::before': {
-                        // Use the same warning bubble used by the View Note button.
-                        ...buildWarningBadgeIndicatorSx(theme),
-                      },
-                    } : {}),
+                    position: 'relative',
                     '&.Mui-selected': {
                       color: theme.palette.success.main,
                       bgcolor: 'transparent',
@@ -2850,12 +2878,18 @@ const maxLevelValue = multiEditActive
                 >
                   <MarkdownTooltip
                     placement="top"
-                    render={<BuilderTooltipContent text={buildExportModeTooltip(t('builderExportModeDisabledTooltip'), 'disabled')} />}
+                    render={<BuilderTooltipContent text={buildExportModeTooltip(t('builderExportModeDisabledTooltip'))} />}
                   >
                     <Box component="span" sx={{ display: 'inline-flex', width: '100%', justifyContent: 'center' }}>
                       {t('builderExportModeDisabled')}
                     </Box>
                   </MarkdownTooltip>
+                  {exportModeOverrideTarget === 'disabled'
+                    ? renderWarningBadgeOverlay(buildConfigOptionsBadgeTooltip(
+                        exportModeLabel('disabled'),
+                        exportModeLabel(effectiveExportMode),
+                      ))
+                    : null}
                 </ToggleButton>
                 <ToggleButton value="separator" sx={{ px: 1.5 }}>
                   <MarkdownTooltip
@@ -3123,9 +3157,6 @@ const maxLevelValue = multiEditActive
                       t('builderRankHelp'),
                       t('builderMultiMixedTooltipSuffix'),
                     ].join('\n'),
-                    rankOptionLabel(cfg.rankCode),
-                    rankOptionLabel(effectiveConfig.rankCode),
-                    rankOverrideActive,
                   )}
                 />
               )}
@@ -3134,51 +3165,47 @@ const maxLevelValue = multiEditActive
             </MarkdownTooltip>
           </FormLabel>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-            <Select
-              size="small"
-              value={rankValue}
-              displayEmpty
-              onChange={(e: SelectChangeEvent<string>) => {
-                const raw = e.target.value
-                if (multiEditActive) {
-                  if (raw === '') return
-                  const next = Number(raw)
-                  if (!Number.isFinite(next)) return
-                  multiEdit?.updateField('rankCode', { value: next as BuilderConfig['rankCode'], status: 'common' })
-                } else {
-                  update('rankCode', Number(raw))
-                }
-              }}
-              MenuProps={{ PaperProps: { sx: { maxHeight: 340 } } }}
-              data-tour-id="builder.rank"
-              sx={(theme) => ({
-                flex: 1,
-                position: 'relative',
-                ...selectBoxHeightSx,
-                '& .MuiSelect-select': selectContentHeightSx,
-                ...(multiEditActive && rankMixed ? {
-                  '& .MuiOutlinedInput-notchedOutline': {
-                    borderStyle: 'dashed',
-                  },
-                } : {}),
-                ...(rankOverrideActive ? {
-                  '&::after': {
-                    ...buildWarningBadgeIndicatorSx(theme),
-                  },
-                } : {}),
-              })}
-              renderValue={(selected) => {
-                if (multiEditActive && selected === '') {
-                  return (
-                    <Box component="span" sx={{ color: 'text.disabled', fontStyle: 'italic' }}>
-                      {t('builderMultiMixedValue')}
-                    </Box>
-                  )
-                }
-                const numeric = Number(selected)
-                return rankOptionLabel(Number.isNaN(numeric) ? 0 : numeric)
-              }}
-            >
+            <Box sx={{ flex: 1, position: 'relative', display: 'flex' }}>
+              <Select
+                size="small"
+                value={rankValue}
+                displayEmpty
+                onChange={(e: SelectChangeEvent<string>) => {
+                  const raw = e.target.value
+                  if (multiEditActive) {
+                    if (raw === '') return
+                    const next = Number(raw)
+                    if (!Number.isFinite(next)) return
+                    multiEdit?.updateField('rankCode', { value: next as BuilderConfig['rankCode'], status: 'common' })
+                  } else {
+                    update('rankCode', Number(raw))
+                  }
+                }}
+                MenuProps={{ PaperProps: { sx: { maxHeight: 340 } } }}
+                data-tour-id="builder.rank"
+                sx={{
+                  flex: 1,
+                  position: 'relative',
+                  ...selectBoxHeightSx,
+                  '& .MuiSelect-select': selectContentHeightSx,
+                  ...(multiEditActive && rankMixed ? {
+                    '& .MuiOutlinedInput-notchedOutline': {
+                      borderStyle: 'dashed',
+                    },
+                  } : {}),
+                }}
+                renderValue={(selected) => {
+                  if (multiEditActive && selected === '') {
+                    return (
+                      <Box component="span" sx={{ color: 'text.disabled', fontStyle: 'italic' }}>
+                        {t('builderMultiMixedValue')}
+                      </Box>
+                    )
+                  }
+                  const numeric = Number(selected)
+                  return rankOptionLabel(Number.isNaN(numeric) ? 0 : numeric)
+                }}
+              >
               <MenuItem value={String(0)}>{t('any')}</MenuItem>
               <ListSubheader sx={LIST_SUBHEADER_SX}>{t('builderRarityExact')}</ListSubheader>
               {[RankCode.One,RankCode.Two,RankCode.Three,RankCode.Four,RankCode.Five,RankCode.Six].map((code) => (
@@ -3228,7 +3255,14 @@ const maxLevelValue = multiEditActive
                   {rankOptionLabel(Number(code))}
                 </MenuItem>
               ))}
-            </Select>
+              </Select>
+              {rankOverrideActive
+                ? renderWarningBadgeOverlay(buildConfigOptionsBadgeTooltip(
+                    rankOptionLabel(cfg.rankCode),
+                    rankOptionLabel(effectiveConfig.rankCode),
+                  ))
+                : null}
+            </Box>
           </Box>
         </FormControl>
 
@@ -3248,9 +3282,6 @@ const maxLevelValue = multiEditActive
                       `• ${t('builderAutoPlusLateHelp')}`,
                       t('builderMultiMixedTooltipSuffix'),
                     ].join('\n'),
-                    rarityOptionLabel(storedRarityMode, cfg.rarityCode),
-                    rarityOptionLabel(effectiveRarityMode, effectiveConfig.rarityCode),
-                    rarityOverrideActive,
                   )}
                 />
               )}
@@ -3259,64 +3290,60 @@ const maxLevelValue = multiEditActive
             </MarkdownTooltip>
           </FormLabel>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-            <Select
-              size="small"
-              value={rarityValue}
-              displayEmpty
-              onChange={(e: SelectChangeEvent<string>) => {
-                const v = e.target.value
-                if (multiEditActive) {
-                  if (v === '') return
-                  if (v === 'auto') {
-                    multiEdit?.updateField('rarityMode', { value: 'auto', status: 'common' })
-                    multiEdit?.resetField('rarityCode')
+            <Box sx={{ flex: 1, position: 'relative', display: 'flex' }}>
+              <Select
+                size="small"
+                value={rarityValue}
+                displayEmpty
+                onChange={(e: SelectChangeEvent<string>) => {
+                  const v = e.target.value
+                  if (multiEditActive) {
+                    if (v === '') return
+                    if (v === 'auto') {
+                      multiEdit?.updateField('rarityMode', { value: 'auto', status: 'common' })
+                      multiEdit?.resetField('rarityCode')
+                    } else {
+                      const numeric = Number(v)
+                      if (!Number.isFinite(numeric)) return
+                      multiEdit?.updateField('rarityMode', { value: 'code', status: 'common' })
+                      multiEdit?.updateField('rarityCode', { value: numeric as BuilderConfig['rarityCode'], status: 'common' })
+                    }
                   } else {
-                    const numeric = Number(v)
-                    if (!Number.isFinite(numeric)) return
-                    multiEdit?.updateField('rarityMode', { value: 'code', status: 'common' })
-                    multiEdit?.updateField('rarityCode', { value: numeric as BuilderConfig['rarityCode'], status: 'common' })
+                    if (v === 'auto') {
+                      updateRaritySelection('auto')
+                    } else {
+                      updateRaritySelection('code', Number(v))
+                    }
                   }
-                } else {
-                  if (v === 'auto') {
-                    updateRaritySelection('auto')
-                  } else {
-                    updateRaritySelection('code', Number(v))
+                }}
+                MenuProps={{ PaperProps: { sx: { maxHeight: 340 } } }}
+                data-tour-id="builder.rarity"
+                sx={{
+                  flex: 1,
+                  position: 'relative',
+                  ...selectBoxHeightSx,
+                  '& .MuiSelect-select': selectContentHeightSx,
+                  ...(multiEditActive && rarityMixed ? {
+                    '& .MuiOutlinedInput-notchedOutline': {
+                      borderStyle: 'dashed',
+                    },
+                  } : {}),
+                }}
+                renderValue={(selected) => {
+                  if (multiEditActive && selected === '') {
+                    return (
+                      <Box component="span" sx={{ color: 'text.disabled', fontStyle: 'italic' }}>
+                        {t('builderMultiMixedValue')}
+                      </Box>
+                    )
                   }
-                }
-              }}
-              MenuProps={{ PaperProps: { sx: { maxHeight: 340 } } }}
-              data-tour-id="builder.rarity"
-              sx={(theme) => ({
-                flex: 1,
-                position: 'relative',
-                ...selectBoxHeightSx,
-                '& .MuiSelect-select': selectContentHeightSx,
-                ...(multiEditActive && rarityMixed ? {
-                  '& .MuiOutlinedInput-notchedOutline': {
-                    borderStyle: 'dashed',
-                  },
-                } : {}),
-                ...(rarityOverrideActive ? {
-                  '&::after': {
-                    ...buildWarningBadgeIndicatorSx(theme),
-                  },
-                } : {}),
-              })}
-              renderValue={(selected) => {
-                if (multiEditActive && selected === '') {
-                  return (
-                    <Box component="span" sx={{ color: 'text.disabled', fontStyle: 'italic' }}>
-                      {t('builderMultiMixedValue')}
-                    </Box>
-                  )
-                }
-                if (selected === 'auto') {
-                  return t('headerMenuAuto')
-                }
-                const numeric = Number(selected)
-                return rarityCodeToName(numeric) || t('any')
-              }}
-            >
+                  if (selected === 'auto') {
+                    return t('headerMenuAuto')
+                  }
+                  const numeric = Number(selected)
+                  return rarityCodeToName(numeric) || t('any')
+                }}
+              >
               <MenuItem
                 value={'auto'}
                 onClick={() => {
@@ -3406,7 +3433,14 @@ const maxLevelValue = multiEditActive
                     code === RarityCode.LTE_Mythical ? `≤${NBSP}${t('rarityMythical')}` : rarityCodeToName(code)}
                 </MenuItem>
               ))}
-            </Select>
+              </Select>
+              {rarityOverrideActive
+                ? renderWarningBadgeOverlay(buildConfigOptionsBadgeTooltip(
+                    rarityOptionLabel(storedRarityMode, cfg.rarityCode),
+                    rarityOptionLabel(effectiveRarityMode, effectiveConfig.rarityCode),
+                  ))
+                : null}
+            </Box>
           </Box>
         </FormControl>
 
@@ -3528,9 +3562,6 @@ const maxLevelValue = multiEditActive
                       t('builderMinLevelHelp'),
                       t('builderMultiMixedTooltipSuffix'),
                     ].join('\n'),
-                    levelLabel(storedMinLevel),
-                    levelLabel(effectiveMinLevel),
-                    levelOverrideActive,
                   )}
                 />
               )}
@@ -3539,70 +3570,73 @@ const maxLevelValue = multiEditActive
             </MarkdownTooltip>
           </FormLabel>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-            <ToggleButtonGroup
-              exclusive
-              size="small"
-              value={minLevelValue}
-              onChange={(_, v) => {
-                if (!v) return
-                const num = Number(v)
-                if (!LEVEL_MILESTONES.includes(num as LevelMilestone)) return
-                const nextMin = num as LevelMilestone
-                if (multiEditActive) {
-                  multiEdit?.updateField('minLevel', { value: nextMin, status: 'common' })
-                  const currentMax = aggregatedMaxLevel
-                  if (currentMax < nextMin) {
-                    multiEdit?.updateField('maxLevel', { value: nextMin, status: 'common' })
+            <Box sx={{ position: 'relative', display: 'inline-flex' }}>
+              <ToggleButtonGroup
+                exclusive
+                size="small"
+                value={minLevelValue}
+                onChange={(_, v) => {
+                  if (!v) return
+                  const num = Number(v)
+                  if (!LEVEL_MILESTONES.includes(num as LevelMilestone)) return
+                  const nextMin = num as LevelMilestone
+                  if (multiEditActive) {
+                    multiEdit?.updateField('minLevel', { value: nextMin, status: 'common' })
+                    const currentMax = aggregatedMaxLevel
+                    if (currentMax < nextMin) {
+                      multiEdit?.updateField('maxLevel', { value: nextMin, status: 'common' })
+                    }
+                  } else {
+                    const currentMax = ((cfg as BuilderConfig).maxLevel ?? LEVEL_MILESTONES[LEVEL_MILESTONES.length - 1]!) as LevelMilestone
+                    const nextMax = (nextMin > currentMax ? nextMin : currentMax) as LevelMilestone
+                    updateLevelWindow(nextMin, nextMax)
                   }
-                } else {
-                  const currentMax = ((cfg as BuilderConfig).maxLevel ?? LEVEL_MILESTONES[LEVEL_MILESTONES.length - 1]!) as LevelMilestone
-                  const nextMax = (nextMin > currentMax ? nextMin : currentMax) as LevelMilestone
-                  updateLevelWindow(nextMin, nextMax)
-                }
-              }}
-              sx={(theme) => ({
-                height: TOGGLE_BUTTON_HEIGHT_PX,
-                position: 'relative',
-                '& .MuiToggleButton-root': {
+                }}
+                sx={{
                   height: TOGGLE_BUTTON_HEIGHT_PX,
-                  justifyContent: 'center',
-                },
-                ...(levelOverrideActive ? {
-                  '&::after': {
-                    ...buildWarningBadgeIndicatorSx(theme),
+                  position: 'relative',
+                  '& .MuiToggleButton-root': {
+                    height: TOGGLE_BUTTON_HEIGHT_PX,
+                    justifyContent: 'center',
                   },
-                } : {}),
-              })}
-            >
-              {LEVELS.map((l) => {
-                const state = getLevelTriState(multiMinLevelField, singleMinLevel, l)
-                return (
-                  <ToggleButton
-                    key={l}
-                    value={String(l)}
-                    selected={state === 'on'}
-                    sx={(theme) => ({
-                      ...(state === 'on' ? { fontWeight: theme.typography.fontWeightMedium ?? 500 } : {}),
-                      ...(state === 'mixed' ? {
-                        borderStyle: 'dashed',
-                        borderColor: mixedBorderColor,
-                        color: mixedTextColor,
-                        backgroundImage: `linear-gradient(135deg, ${mixedPatternColor} 50%, transparent 50%)`,
-                      } : {}),
-                    })}
-                    onClick={() => {
-                      // When an override is active, allow clicking the effective value to accept it.
-                      if (multiEditActive || !levelOverrideActive) return
-                      if (storedMinLevel === effectiveMinLevel && storedMaxLevel === effectiveMaxLevel) return
-                      if (effectiveMinLevel !== l) return
-                      updateLevelWindow(effectiveMinLevel, effectiveMaxLevel)
-                    }}
-                  >
-                    +{l}
-                  </ToggleButton>
-                )
-              })}
-            </ToggleButtonGroup>
+                }}
+              >
+                {LEVELS.map((l) => {
+                  const state = getLevelTriState(multiMinLevelField, singleMinLevel, l)
+                  return (
+                    <ToggleButton
+                      key={l}
+                      value={String(l)}
+                      selected={state === 'on'}
+                      sx={(theme) => ({
+                        ...(state === 'on' ? { fontWeight: theme.typography.fontWeightMedium ?? 500 } : {}),
+                        ...(state === 'mixed' ? {
+                          borderStyle: 'dashed',
+                          borderColor: mixedBorderColor,
+                          color: mixedTextColor,
+                          backgroundImage: `linear-gradient(135deg, ${mixedPatternColor} 50%, transparent 50%)`,
+                        } : {}),
+                      })}
+                      onClick={() => {
+                        // When an override is active, allow clicking the effective value to accept it.
+                        if (multiEditActive || !levelOverrideActive) return
+                        if (storedMinLevel === effectiveMinLevel && storedMaxLevel === effectiveMaxLevel) return
+                        if (effectiveMinLevel !== l) return
+                        updateLevelWindow(effectiveMinLevel, effectiveMaxLevel)
+                      }}
+                    >
+                      +{l}
+                    </ToggleButton>
+                  )
+                })}
+              </ToggleButtonGroup>
+              {levelOverrideActive
+                ? renderWarningBadgeOverlay(buildConfigOptionsBadgeTooltip(
+                    levelLabel(storedMinLevel),
+                    levelLabel(effectiveMinLevel),
+                  ))
+                : null}
+            </Box>
           </Box>
         </FormControl>
 
@@ -3618,9 +3652,6 @@ const maxLevelValue = multiEditActive
                       t('builderMaxLevelHelp'),
                       t('builderMultiMixedTooltipSuffix'),
                     ].join('\n'),
-                    levelLabel(storedMaxLevel),
-                    levelLabel(effectiveMaxLevel),
-                    levelOverrideActive,
                   )}
                 />
               )}
@@ -3629,70 +3660,73 @@ const maxLevelValue = multiEditActive
             </MarkdownTooltip>
           </FormLabel>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-            <ToggleButtonGroup
-              exclusive
-              size="small"
-              value={maxLevelValue}
-              onChange={(_, v) => {
-                if (!v) return
-                const num = Number(v)
-                if (!LEVEL_MILESTONES.includes(num as LevelMilestone)) return
-                const nextMax = num as LevelMilestone
-                if (multiEditActive) {
-                  multiEdit?.updateField('maxLevel', { value: nextMax, status: 'common' })
-                  const currentMin = aggregatedMinLevel
-                  if (nextMax < currentMin) {
-                    multiEdit?.updateField('minLevel', { value: nextMax, status: 'common' })
+            <Box sx={{ position: 'relative', display: 'inline-flex' }}>
+              <ToggleButtonGroup
+                exclusive
+                size="small"
+                value={maxLevelValue}
+                onChange={(_, v) => {
+                  if (!v) return
+                  const num = Number(v)
+                  if (!LEVEL_MILESTONES.includes(num as LevelMilestone)) return
+                  const nextMax = num as LevelMilestone
+                  if (multiEditActive) {
+                    multiEdit?.updateField('maxLevel', { value: nextMax, status: 'common' })
+                    const currentMin = aggregatedMinLevel
+                    if (nextMax < currentMin) {
+                      multiEdit?.updateField('minLevel', { value: nextMax, status: 'common' })
+                    }
+                  } else {
+                    const currentMin = ((cfg as BuilderConfig).minLevel ?? LEVEL_MILESTONES[0]!) as LevelMilestone
+                    const nextMin = (nextMax < currentMin ? nextMax : currentMin) as LevelMilestone
+                    updateLevelWindow(nextMin, nextMax)
                   }
-                } else {
-                  const currentMin = ((cfg as BuilderConfig).minLevel ?? LEVEL_MILESTONES[0]!) as LevelMilestone
-                  const nextMin = (nextMax < currentMin ? nextMax : currentMin) as LevelMilestone
-                  updateLevelWindow(nextMin, nextMax)
-                }
-              }}
-              sx={(theme) => ({
-                height: TOGGLE_BUTTON_HEIGHT_PX,
-                position: 'relative',
-                '& .MuiToggleButton-root': {
+                }}
+                sx={{
                   height: TOGGLE_BUTTON_HEIGHT_PX,
-                  justifyContent: 'center',
-                },
-                ...(levelOverrideActive ? {
-                  '&::after': {
-                    ...buildWarningBadgeIndicatorSx(theme),
+                  position: 'relative',
+                  '& .MuiToggleButton-root': {
+                    height: TOGGLE_BUTTON_HEIGHT_PX,
+                    justifyContent: 'center',
                   },
-                } : {}),
-              })}
-            >
-              {LEVELS.map((l) => {
-                const state = getLevelTriState(multiMaxLevelField, singleMaxLevel, l)
-                return (
-                  <ToggleButton
-                    key={l}
-                    value={String(l)}
-                    selected={state === 'on'}
-                    sx={(theme) => ({
-                      ...(state === 'on' ? { fontWeight: theme.typography.fontWeightMedium ?? 500 } : {}),
-                      ...(state === 'mixed' ? {
-                        borderStyle: 'dashed',
-                        borderColor: mixedBorderColor,
-                        color: mixedTextColor,
-                        backgroundImage: `linear-gradient(135deg, ${mixedPatternColor} 50%, transparent 50%)`,
-                      } : {}),
-                    })}
-                    onClick={() => {
-                      // When an override is active, allow clicking the effective value to accept it.
-                      if (multiEditActive || !levelOverrideActive) return
-                      if (storedMinLevel === effectiveMinLevel && storedMaxLevel === effectiveMaxLevel) return
-                      if (effectiveMaxLevel !== l) return
-                      updateLevelWindow(effectiveMinLevel, effectiveMaxLevel)
-                    }}
-                  >
-                    +{l}
-                  </ToggleButton>
-                )
-              })}
-            </ToggleButtonGroup>
+                }}
+              >
+                {LEVELS.map((l) => {
+                  const state = getLevelTriState(multiMaxLevelField, singleMaxLevel, l)
+                  return (
+                    <ToggleButton
+                      key={l}
+                      value={String(l)}
+                      selected={state === 'on'}
+                      sx={(theme) => ({
+                        ...(state === 'on' ? { fontWeight: theme.typography.fontWeightMedium ?? 500 } : {}),
+                        ...(state === 'mixed' ? {
+                          borderStyle: 'dashed',
+                          borderColor: mixedBorderColor,
+                          color: mixedTextColor,
+                          backgroundImage: `linear-gradient(135deg, ${mixedPatternColor} 50%, transparent 50%)`,
+                        } : {}),
+                      })}
+                      onClick={() => {
+                        // When an override is active, allow clicking the effective value to accept it.
+                        if (multiEditActive || !levelOverrideActive) return
+                        if (storedMinLevel === effectiveMinLevel && storedMaxLevel === effectiveMaxLevel) return
+                        if (effectiveMaxLevel !== l) return
+                        updateLevelWindow(effectiveMinLevel, effectiveMaxLevel)
+                      }}
+                    >
+                      +{l}
+                    </ToggleButton>
+                  )
+                })}
+              </ToggleButtonGroup>
+              {levelOverrideActive
+                ? renderWarningBadgeOverlay(buildConfigOptionsBadgeTooltip(
+                    levelLabel(storedMaxLevel),
+                    levelLabel(effectiveMaxLevel),
+                  ))
+                : null}
+            </Box>
           </Box>
         </FormControl>
         {/* Roll Strategy removed — level window controls replace it. */}
@@ -3978,17 +4012,41 @@ const maxLevelValue = multiEditActive
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
             {(() => {
               
-              const value: string[] = ((((cfg as unknown) as { substatsV?: number[] }).substatsV) ?? []).map(String)
+              // Prefer config-options overrides for display-only UI so roll badges match previews.
+              // Keep edits bound to the stored config so interactions stay deterministic.
+              const displayCfg = (!multiEditActive && effectiveConfig !== cfg) ? effectiveConfig : cfg
+              // Normalize roll bounds so override comparisons use stable, clamped values.
+              const normalizeBounds = (bounds?: { min?: number; max?: number; any?: boolean }) => ({
+                // Keep the wildcard flag explicit to avoid false positives.
+                any: Boolean(bounds?.any),
+                // Clamp min to the roll bounds the builder enforces.
+                min: (typeof bounds?.min === 'number' && Number.isFinite(bounds.min))
+                  ? Math.max(0, Math.min(5, Math.floor(bounds.min)))
+                  : undefined,
+                // Clamp max to the cap the builder exposes.
+                max: (typeof bounds?.max === 'number' && Number.isFinite(bounds.max))
+                  ? Math.max(0, Math.min(4, Math.floor(bounds.max)))
+                  : undefined,
+              })
+              // Compare normalized bounds to detect config-options overrides.
+              const boundsEqual = (
+                left: ReturnType<typeof normalizeBounds>,
+                right: ReturnType<typeof normalizeBounds>,
+              ) => left.any === right.any && left.min === right.min && left.max === right.max
+              const value: string[] = ((((displayCfg as unknown) as { substatsV?: number[] }).substatsV) ?? []).map(String)
               const isSelected = (v: number) => {
-                const subsV = ((cfg as unknown as { substatsV?: number[] }).substatsV) ?? []
+                const subsV = ((displayCfg as unknown as { substatsV?: number[] }).substatsV) ?? []
                 return subsV.includes(v)
               }
               const isFixed = (v: number) => {
-                const fixedV = ((cfg as unknown as { fixedSubstatsV?: number[] }).fixedSubstatsV) ?? []
+                const fixedV = ((displayCfg as unknown as { fixedSubstatsV?: number[] }).fixedSubstatsV) ?? []
                 return fixedV.includes(v)
               }
               const getBounds = (vKey: number) => {
                 return (cfg.substatRollBoundsV)?.[vKey]
+              }
+              const getDisplayBounds = (vKey: number) => {
+                return (displayCfg.substatRollBoundsV)?.[vKey]
               }
               const setBounds = (vKey: number, bounds?: { min?: number; max?: number; any?: boolean }) => {
                 applySingleSubstatBounds(vKey, () => {
@@ -4192,6 +4250,22 @@ const maxLevelValue = multiEditActive
                 const buttonSelected = multiEditActive ? (presenceState === 'all') : isSelected(variant)
                 const displaySelected = multiEditActive ? (presenceState !== 'none') : isSelected(variant)
                 const indicatorMixed = multiEditActive && (rollMode.kind === 'mixed' || presenceState === 'partial')
+                const displayBounds = multiEditActive ? getBounds(variant) : getDisplayBounds(variant)
+                const indicatorWarning = (() => {
+                  // Avoid mixing config-options overlays with multi-edit preview.
+                  if (multiEditActive) return false
+                  // Only show overrides when config options altered the display config.
+                  if (displayCfg === cfg) return false
+                  // Keep warnings off hidden indicators to reduce noise.
+                  if (!displaySelected) return false
+                  // Compare the stored vs effective bounds for this variant.
+                  const baseBounds = normalizeBounds(getBounds(variant))
+                  const overrideBounds = normalizeBounds(getDisplayBounds(variant))
+                  return !boundsEqual(baseBounds, overrideBounds)
+                })()
+                const indicatorWarningTooltip = indicatorWarning
+                  ? t('builderSubstatMinConfigOptionsOverrideTooltip')
+                  : ''
                 const indicator = (() => {
                   if (indicatorMixed) return undefined
                   if (multiEditActive) {
@@ -4216,11 +4290,11 @@ const maxLevelValue = multiEditActive
                     }
                     return undefined
                   }
-                  const hasMin = typeof singleBounds?.min === 'number'
-                  const minVal = hasMin ? Math.max(0, Math.min(5, Number(singleBounds?.min))) : undefined
-                  const hasMax = typeof singleBounds?.max === 'number' && isFinite(singleBounds.max ?? NaN)
-                  const maxVal = hasMax ? Math.max(0, Math.min(4, Number(singleBounds?.max))) : undefined
-                  const wildcard = Boolean(singleBounds?.any) || (!hasMin && !hasMax)
+                  const hasMin = typeof displayBounds?.min === 'number'
+                  const minVal = hasMin ? Math.max(0, Math.min(5, Number(displayBounds?.min))) : undefined
+                  const hasMax = typeof displayBounds?.max === 'number' && isFinite(displayBounds.max ?? NaN)
+                  const maxVal = hasMax ? Math.max(0, Math.min(4, Number(displayBounds?.max))) : undefined
+                  const wildcard = Boolean(displayBounds?.any) || (!hasMin && !hasMax)
                   return displaySelected
                     ? {
                         wildcard,
@@ -4377,6 +4451,8 @@ const maxLevelValue = multiEditActive
                       locked={lockState !== 'none'}
                       selected={displaySelected}
                       {...(indicator ? { indicator } : {})}
+                      indicatorWarning={indicatorWarning}
+                      {...(indicatorWarningTooltip ? { indicatorWarningTooltip } : {})}
                       indicatorMixed={indicatorMixed}
                       onIndicatorClick={handleIndicatorClick}
                       onIndicatorContextMenu={handleIndicatorContext}
@@ -6095,9 +6171,6 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                               t('builderMilestoneThresholdsHelp'),
                               t('builderMultiMixedTooltipSuffix'),
                             ].join('\n'),
-                            keepModeLabel((cfg.earlyKeepMode ?? 'early') as 'early' | 'late'),
-                            keepModeLabel((effectiveConfig.earlyKeepMode ?? 'early') as 'early' | 'late'),
-                            keepOverrideActive,
                           )}
                         />
                       )}
@@ -6106,79 +6179,79 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                     </MarkdownTooltip>
                   </FormLabel>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <ToggleButtonGroup
-                      exclusive
-                      size="small"
-                      value={keepModeValue}
-                      onChange={(_, v) => {
-                        if (!v) return
-                        const mode = (v === 'late' ? 'late' : 'early') as 'early' | 'late'
-                        if (multiEditActive && multiEdit) {
-                          multiEdit.updateField('earlyKeepMode', { value: mode, status: 'common' })
-                          return
-                        }
-                        userKeepModeRef.current = mode
-                        updateKeepMode(mode)
-                      }}
-                      disabled={!thresholdsActiveAny}
-                      data-tour-id="builder.thresholds"
-                      sx={(theme) => ({
-                        position: 'relative',
-                        '& .MuiToggleButton-root': {
-                          height: TOGGLE_BUTTON_HEIGHT_PX,
-                          minHeight: TOGGLE_BUTTON_HEIGHT_PX,
-                        },
-                        ...(keepOverrideActive ? {
-                          '&::after': {
-                            ...buildWarningBadgeIndicatorSx(theme),
+                    <Box sx={{ position: 'relative', display: 'inline-flex' }}>
+                      <ToggleButtonGroup
+                        exclusive
+                        size="small"
+                        value={keepModeValue}
+                        onChange={(_, v) => {
+                          if (!v) return
+                          const mode = (v === 'late' ? 'late' : 'early') as 'early' | 'late'
+                          if (multiEditActive && multiEdit) {
+                            multiEdit.updateField('earlyKeepMode', { value: mode, status: 'common' })
+                            return
+                          }
+                          userKeepModeRef.current = mode
+                          updateKeepMode(mode)
+                        }}
+                        disabled={!thresholdsActiveAny}
+                        data-tour-id="builder.thresholds"
+                        sx={{
+                          position: 'relative',
+                          '& .MuiToggleButton-root': {
+                            height: TOGGLE_BUTTON_HEIGHT_PX,
+                            minHeight: TOGGLE_BUTTON_HEIGHT_PX,
                           },
-                        } : {}),
-                      })}
-                    >
-                      {(['early', 'late'] as const).map((mode) => {
-                        const state = getKeepModeTriState(mode)
-                        return (
-                          <ToggleButton
-                            key={mode}
-                            value={mode}
-                            selected={state === 'on'}
-                            sx={(theme) => ({
-                              ...(state === 'on' ? { fontWeight: theme.typography.fontWeightMedium ?? 500 } : {}),
-                              ...(state === 'mixed' ? {
-                                borderStyle: 'dashed',
-                                borderColor: mixedBorderColor,
-                                color: mixedTextColor,
-                                backgroundImage: `linear-gradient(135deg, ${mixedPatternColor} 50%, transparent 50%)`,
-                              } : {}),
-                            })}
-                            onClick={() => {
-                              // When an override is active, allow clicking the effective value to accept it.
-                              if (multiEditActive || !keepOverrideActive) return
-                              if ((cfg.earlyKeepMode ?? 'early') === (effectiveConfig.earlyKeepMode ?? 'early')) return
-                              if (mode !== (effectiveConfig.earlyKeepMode ?? 'early')) return
-                              updateKeepMode(mode)
-                            }}
-                          >
-                            {mode === 'early' ? t('builderEarlyLabel') : t('builderLateLabel')}
-                          </ToggleButton>
-                        )
-                      })}
-                    </ToggleButtonGroup>
+                        }}
+                      >
+                        {(['early', 'late'] as const).map((mode) => {
+                          const state = getKeepModeTriState(mode)
+                          return (
+                            <ToggleButton
+                              key={mode}
+                              value={mode}
+                              selected={state === 'on'}
+                              sx={(theme) => ({
+                                ...(state === 'on' ? { fontWeight: theme.typography.fontWeightMedium ?? 500 } : {}),
+                                ...(state === 'mixed' ? {
+                                  borderStyle: 'dashed',
+                                  borderColor: mixedBorderColor,
+                                  color: mixedTextColor,
+                                  backgroundImage: `linear-gradient(135deg, ${mixedPatternColor} 50%, transparent 50%)`,
+                                } : {}),
+                              })}
+                              onClick={() => {
+                                // When an override is active, allow clicking the effective value to accept it.
+                                if (multiEditActive || !keepOverrideActive) return
+                                if ((cfg.earlyKeepMode ?? 'early') === (effectiveConfig.earlyKeepMode ?? 'early')) return
+                                if (mode !== (effectiveConfig.earlyKeepMode ?? 'early')) return
+                                updateKeepMode(mode)
+                              }}
+                            >
+                              {mode === 'early' ? t('builderEarlyLabel') : t('builderLateLabel')}
+                            </ToggleButton>
+                          )
+                        })}
+                      </ToggleButtonGroup>
+                      {keepOverrideActive
+                        ? renderWarningBadgeOverlay(buildConfigOptionsBadgeTooltip(
+                            keepModeLabel((cfg.earlyKeepMode ?? 'early') as 'early' | 'late'),
+                            keepModeLabel((effectiveConfig.earlyKeepMode ?? 'early') as 'early' | 'late'),
+                          ))
+                        : null}
+                    </Box>
                   </Box>
                   <Box sx={{ mt: 0.5, display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                    <MarkdownTooltip
-                      render={(
-                        <BuilderTooltipContent
-                          text={buildOverrideTooltip(
-                            tooltipLines.join('\n'),
-                            autoLateLabel(cfg.autoRaritySupplementsThreshold),
-                            autoLateLabel(effectiveConfig.autoRaritySupplementsThreshold),
-                            autoLateOverrideActive,
-                          )}
-                        />
-                      )}
-                    >
-                      <Box component="span" sx={{ display: 'inline-flex', position: 'relative' }}>
+                    <Box component="span" sx={{ display: 'inline-flex', position: 'relative' }}>
+                      <MarkdownTooltip
+                        render={(
+                          <BuilderTooltipContent
+                            text={buildOverrideTooltip(
+                              tooltipLines.join('\n'),
+                            )}
+                          />
+                        )}
+                      >
                         <Chip
                           size="small"
                           variant="filled"
@@ -6195,19 +6268,17 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                                   backgroundImage: `linear-gradient(135deg, ${mixedPatternColor} 50%, transparent 50%)`,
                                 } as SystemStyleObject<Theme>
                               : {}),
-                            ...(autoLateOverrideActive
-                              ? (theme) => ({
-                                  position: 'relative',
-                                  '&::after': {
-                                    ...buildWarningBadgeIndicatorSx(theme),
-                                  },
-                                })
-                              : {}),
                           }}
                           data-tour-id="builder.thresholds.auto-chip"
                         />
-                      </Box>
-                    </MarkdownTooltip>
+                      </MarkdownTooltip>
+                      {autoLateOverrideActive
+                        ? renderWarningBadgeOverlay(buildConfigOptionsBadgeTooltip(
+                            autoLateLabel(cfg.autoRaritySupplementsThreshold),
+                            autoLateLabel(effectiveConfig.autoRaritySupplementsThreshold),
+                          ))
+                        : null}
+                    </Box>
                   </Box>
                 </FormControl>
               )
@@ -7002,92 +7073,90 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
       <Divider sx={{ my: 1, opacity: 0.5 }} />
 
       <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', alignItems: 'center' }}>
-        <MarkdownTooltip markdown={t('builderInsertHiddenTooltip')} disableHoverListener={!insertHiddenByFilters || !builderCanAdd}>
-          <Box
-            component="span"
-            onContextMenu={handleInsertContextMenu}
-            onMouseEnter={handleInsertHintMouseEnter}
-            onMouseMove={handleInsertHintMouseMove}
-            onMouseLeave={handleInsertHintMouseLeave}
-            sx={{ display: 'inline-flex' }}
-          >
-            <Badge
-              overlap="rectangular"
-              anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
-              invisible={!insertHiddenByFilters || !builderCanAdd}
-              sx={warningBadgeSx}
-              badgeContent="!"
-            >
-              <Button
-                onClick={handleAddToCustom}
-                data-tour-id="builder.add-config"
-                startIcon={<PlaylistAddIcon fontSize="small" />}
-                sx={actionButtonSx}
-                disabled={!builderCanAdd}
-              >
-                <Typography component="span" sx={[ELLIPSIS_TEXT_SX, { fontSize: FONT_SIZE_BASE_PX }]}>
-                  {insertButtonLabel}
-                </Typography>
-              </Button>
-            </Badge>
-          </Box>
-        </MarkdownTooltip>
-        <MarkdownTooltip
-          key={saveTooltipScope}
-          markdown={t('builderSaveHiddenTooltip')}
-          disableHoverListener={!saveHiddenByFilters || saveDisabled}
-          open={saveTooltipOpen && saveHiddenByFilters && !saveDisabled}
-          onOpen={() => setSaveTooltipOpen(true)}
-          onClose={() => setSaveTooltipOpen(false)}
+        <Box
+          component="span"
+          onContextMenu={handleInsertContextMenu}
+          onMouseEnter={handleInsertHintMouseEnter}
+          onMouseMove={handleInsertHintMouseMove}
+          onMouseLeave={handleInsertHintMouseLeave}
+          sx={{ display: 'inline-flex' }}
         >
-          <Box
-            component="span"
-            onContextMenu={handleApplyContextMenu}
-            onMouseEnter={handleApplyHintMouseEnter}
-            onMouseMove={handleApplyHintMouseMove}
-            onMouseLeave={handleApplyHintMouseLeave}
-            sx={{ display: 'inline-flex' }}
+          <Badge
+            overlap="rectangular"
+            anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+            invisible={!insertHiddenByFilters || !builderCanAdd}
+            sx={warningBadgeSx}
+            badgeContent={renderWarningBadgeContent({
+              tooltip: t('builderInsertHiddenTooltip'),
+              disabled: !insertHiddenByFilters || !builderCanAdd,
+            })}
           >
-            <Badge
-              overlap="rectangular"
-              anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
-              invisible={!saveHiddenByFilters || saveDisabled}
-              sx={warningBadgeSx}
-              badgeContent="!"
+            <Button
+              onClick={handleAddToCustom}
+              data-tour-id="builder.add-config"
+              startIcon={<PlaylistAddIcon fontSize="small" />}
+              sx={actionButtonSx}
+              disabled={!builderCanAdd}
             >
-              <Button
-                onClick={() => {
-                  setSaveTooltipOpen(false)
-                  if (multiEditActive) {
-                    if (!multiDraftDirty) return
-                    onApplyMultiEdit?.()
-                    if (attentionPhase) {
-                      setAttentionState({ phase: false, burst: false })
-                      setInteractionNonce(n => n + 1)
-                    }
-                    return
-                  }
-                  if (editingIndex === null) return
-                  commitNameDraftIfNeeded()
-                  onUpdateSelected()
-                }}
-                disabled={saveDisabled}
-                startIcon={<PlaylistAddCheckIcon fontSize="small" />}
-                sx={saveButtonSx}
-                onMouseEnter={() => {
+              <Typography component="span" sx={[ELLIPSIS_TEXT_SX, { fontSize: FONT_SIZE_BASE_PX }]}>
+                {insertButtonLabel}
+              </Typography>
+            </Button>
+          </Badge>
+        </Box>
+        <Box
+          component="span"
+          onContextMenu={handleApplyContextMenu}
+          onMouseEnter={handleApplyHintMouseEnter}
+          onMouseMove={handleApplyHintMouseMove}
+          onMouseLeave={handleApplyHintMouseLeave}
+          sx={{ display: 'inline-flex' }}
+        >
+          <Badge
+            overlap="rectangular"
+            anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+            invisible={!saveHiddenByFilters || saveDisabled}
+            sx={warningBadgeSx}
+            badgeContent={renderWarningBadgeContent({
+              tooltip: t('builderSaveHiddenTooltip'),
+              disabled: !saveHiddenByFilters || saveDisabled,
+              open: saveTooltipOpen && saveHiddenByFilters && !saveDisabled,
+              onOpen: () => setSaveTooltipOpen(true),
+              onClose: () => setSaveTooltipOpen(false),
+            })}
+          >
+            <Button
+              onClick={() => {
+                setSaveTooltipOpen(false)
+                if (multiEditActive) {
+                  if (!multiDraftDirty) return
+                  onApplyMultiEdit?.()
                   if (attentionPhase) {
                     setAttentionState({ phase: false, burst: false })
                     setInteractionNonce(n => n + 1)
                   }
-                }}
-              >
+                  return
+                }
+                if (editingIndex === null) return
+                commitNameDraftIfNeeded()
+                onUpdateSelected()
+              }}
+              disabled={saveDisabled}
+              startIcon={<PlaylistAddCheckIcon fontSize="small" />}
+              sx={saveButtonSx}
+              onMouseEnter={() => {
+                if (attentionPhase) {
+                  setAttentionState({ phase: false, burst: false })
+                  setInteractionNonce(n => n + 1)
+                }
+              }}
+            >
                 <Typography component="span" className="attention-text" sx={[ELLIPSIS_TEXT_SX, { fontSize: FONT_SIZE_BASE_PX }]}>
                   {saveButtonLabel}
                 </Typography>
               </Button>
             </Badge>
-          </Box>
-        </MarkdownTooltip>
+        </Box>
         {(limitExceededWarning && limitWarningTooltip)
           ? (
             <MarkdownTooltip markdown={limitWarningTooltip}>

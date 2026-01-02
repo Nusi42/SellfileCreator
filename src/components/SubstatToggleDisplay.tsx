@@ -16,6 +16,7 @@ import {
   MULTI_EDIT_MIXED_BORDER_ALPHA,
   MULTI_EDIT_MIXED_TEXT_ALPHA,
 } from '../lib/constants'
+import { buildWarningBadgeBase } from '../lib/badgeStyles'
 // Use MarkdownTooltip for both the lock badge and roll indicator so builders see consistent multi-line copy.
 import MarkdownTooltip from './MarkdownTooltip'
 
@@ -35,6 +36,8 @@ export interface SubstatToggleDisplayProps {
   locked: boolean
   selected: boolean
   indicator?: SubstatToggleIndicatorState
+  indicatorWarning?: boolean
+  indicatorWarningTooltip?: string
   disableInteractions?: boolean
   onIndicatorClick?: (event: React.MouseEvent) => void
   onIndicatorContextMenu?: (event: React.MouseEvent) => void
@@ -55,6 +58,8 @@ export function SubstatToggleDisplay({
   locked,
   selected,
   indicator,
+  indicatorWarning = false,
+  indicatorWarningTooltip,
   disableInteractions = false,
   onIndicatorClick,
   onIndicatorContextMenu,
@@ -73,6 +78,9 @@ export function SubstatToggleDisplay({
   const hasMin = typeof min === 'number'
   const hasMax = typeof max === 'number'
   const tooltip = indicator?.tooltip ?? ''
+  const warningTooltip = indicatorWarningTooltip ?? ''
+  // Keep warning badges tied to visible indicators so empty rows stay clean.
+  const showIndicatorWarning = indicatorWarning && (selected || indicatorMixed)
   const indicatorLabel = (() => {
     if (indicatorMixed) return ''
     if (hasMax) return String(max)
@@ -321,6 +329,23 @@ export function SubstatToggleDisplay({
           {indicatorLabel}
         </Box>
       </MarkdownTooltip>
+      {showIndicatorWarning ? (
+        <MarkdownTooltip markdown={warningTooltip} disableHoverListener={!warningTooltip}>
+          <Box
+            component="span"
+            sx={(theme) => ({
+              position: 'absolute',
+              top: -6,
+              left: '50%',
+              transform: 'translate(-50%, -50%) scale(0.75)',
+              transformOrigin: 'center',
+              ...buildWarningBadgeBase(theme),
+            })}
+          >
+            !
+          </Box>
+        </MarkdownTooltip>
+      ) : null}
     </Box>
   )
 }

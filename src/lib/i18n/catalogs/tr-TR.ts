@@ -568,7 +568,7 @@ const overrides: Catalog = {
   builderExportModeDisabledTooltip: 'Sellfile kuralları Use = false ile oluşturulur, bu yüzden RSL Helper onları kapalı tutar. "Dışa aktarırken devre dışı kuralları atla" seçeneğini açarak tamamen hariç tutabilirsiniz.',
   builderExportModeSeparator: 'Ayırıcı',
   builderExportModeSeparatorTooltip: 'Ayırıcı yapılandırmalar yalnızca HSFC olarak dışa aktarılır.\nSellfile kuralları üretmezler ve # başlıkları veya [rrggbb] renk etiketlerini içerebilirler.',
-  builderExportModeConfigOptionsOverrideTooltip: 'Yapılandırma seçenekleri kaydedilmiş seçimi geçersiz kılar. Seçenekler olmadan {stored} olurdu, şimdi {effective}.',
+  builderConfigOptionsOverrideBadgeTooltip: 'Config options override this setting (stored: {stored}, effective: {effective}).',
   historyBuilderExportModeLabel: 'Sellfile dışa aktarma modu',
   historyBuilderSavedTitle: '{label} kaydedildi',
   historyConfigLabel: 'Konfig #{n}',
@@ -1004,6 +1004,7 @@ const overrides: Catalog = {
   rollIndicatorTip2: '★ durumundan sol tık minimum gereksinime (0..5 rulo), sağ tık da rulo üst sınırına (0..4) geçer.',
   rollIndicatorTip3: 'Rulo üst sınırındayken sol tık sınırı düşürür (1→0→★), sağ tık yükseltir (0→1→…→4→★).',
   rollIndicatorTip4: 'Yeşil sayılar istediğiniz minimum ruloları gösterir; kırmızılar bu üst sınırı uygular.',
+  builderSubstatMinConfigOptionsOverrideTooltip: 'Config options override: substat min rolls are applied for this stat.',
 
   // Filter helpers
   filterShow: 'Göster',

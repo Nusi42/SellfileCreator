@@ -568,7 +568,7 @@ const overrides: Catalog = {
   builderExportModeDisabledTooltip: 'Правила Sellfile создаются с Use = false, поэтому RSL Helper держит их отключёнными. Включите "Пропускать отключённые правила при экспорте", чтобы вовсе не выгружать их.',
   builderExportModeSeparator: 'Разделитель',
   builderExportModeSeparatorTooltip: 'Конфиги «Разделитель» экспортируются только в HSFC.\nОни не создают правил Sellfile и могут содержать заголовки с # или цветовые теги [rrggbb].',
-  builderExportModeConfigOptionsOverrideTooltip: 'Параметры конфига переопределяют сохранённый выбор. Без параметров конфига было бы {stored}, а сейчас — {effective}.',
+  builderConfigOptionsOverrideBadgeTooltip: 'Config options override this setting (stored: {stored}, effective: {effective}).',
   historyBuilderExportModeLabel: 'Режим экспорта Sellfile',
   historyBuilderSavedTitle: 'Сохранён {label}',
   historyConfigLabel: 'Конфиг №{n}',
@@ -1004,6 +1004,7 @@ const overrides: Catalog = {
   rollIndicatorTip2: 'Из состояния ★ левый клик переключает на минимум (0..5 ролей), правый — на верхний лимит ролей (0..4).',
   rollIndicatorTip3: 'На верхнем лимите ролей левый клик снижает предел (1→0→★), правый — повышает (0→1→…→4→★).',
   rollIndicatorTip4: 'Зелёные цифры показывают минимальные роли, которые вы требуете; красные удерживают роли в рамках верхнего лимита.',
+  builderSubstatMinConfigOptionsOverrideTooltip: 'Config options override: substat min rolls are applied for this stat.',
 
   // Filter helpers
   filterShow: 'Показать',

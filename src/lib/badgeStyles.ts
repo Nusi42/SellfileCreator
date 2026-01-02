@@ -30,6 +30,8 @@ export const warningBadgeSx: SxProps<Theme> = (theme) => ({
     // Nudge the badge inward to sit on the button corner.
     top: 4,
     right: 4,
+    // Allow tooltip hover targets on the badge itself.
+    pointerEvents: 'auto',
     // Reuse the base warning bubble styling.
     ...buildWarningBadgeBase(theme),
   },
