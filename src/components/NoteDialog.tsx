@@ -2269,6 +2269,23 @@ function NoteEditorContent({
   )
   // Flag when questions were added/removed/changed in the draft.
   const configOptionsChanged = baseConfigOptionsSignature !== draftConfigOptionsSignature
+  // Keep warning badge tooltips attached to the badge itself.
+  const renderWarningBadgeContent = React.useCallback((tooltip: string, disabled: boolean) => (
+    <MarkdownTooltip markdown={tooltip} disableHoverListener={disabled}>
+      <Box
+        component="span"
+        sx={{
+          display: 'inline-flex',
+          width: '100%',
+          height: '100%',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        !
+      </Box>
+    </MarkdownTooltip>
+  ), [])
   // Disable view mode when the draft is empty.
   const draftIsEmpty = !draft.trim()
   const baseContext = useNoteRenderContext()
@@ -2722,29 +2739,27 @@ function NoteEditorContent({
       <DialogActions sx={{ justifyContent: 'space-between', gap: 1, flexWrap: 'wrap' }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
           {/* Warn when config options markers changed during this edit session. */}
-          <MarkdownTooltip
-            markdown={t('noteConfigOptionsChangedTooltip')}
-            disableHoverListener={!configOptionsChanged}
-          >
-            <Box component="span" sx={{ display: 'inline-flex' }}>
-              <Badge
-                overlap="rectangular"
-                anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
-                invisible={!configOptionsChanged}
-                sx={warningBadgeSx}
-                badgeContent="!"
+          <Box component="span" sx={{ display: 'inline-flex' }}>
+            <Badge
+              overlap="rectangular"
+              anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+              invisible={!configOptionsChanged}
+              sx={warningBadgeSx}
+              badgeContent={renderWarningBadgeContent(
+                t('noteConfigOptionsChangedTooltip'),
+                !configOptionsChanged,
+              )}
+            >
+              {/* Match the view-mode edit button styling for symmetry. */}
+              <Button
+                variant="outlined"
+                onClick={commitAndView}
+                disabled={draftIsEmpty}
               >
-                {/* Match the view-mode edit button styling for symmetry. */}
-                <Button
-                  variant="outlined"
-                  onClick={commitAndView}
-                  disabled={draftIsEmpty}
-                >
-                  {t('viewNote')}
-                </Button>
-              </Badge>
-            </Box>
-          </MarkdownTooltip>
+                {t('viewNote')}
+              </Button>
+            </Badge>
+          </Box>
           {hasConfigOptionsMarkers ? (
             <>
               {/* Keep config options actions behind a single menu button. */}

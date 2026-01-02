@@ -4248,7 +4248,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const configChipsPanelElement = (
     <ConfigChipsPanel
       containerRef={chipsContainerRef}
-      configs={customCfgs}
+      configs={configOptionsConfigsForRules}
       exportModeOverrides={configOptionsExportModes.modes}
       maxHeightPx={chipsMaxHeight}
       selectedIndices={selectedCfgIndices}

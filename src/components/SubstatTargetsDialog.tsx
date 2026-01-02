@@ -75,10 +75,9 @@ export default function SubstatTargetsDialog({
     { key: 'one' as SubstatTargetStarKey, label: t('star1'), star: 1 as Star },
   ]), [t])
   const buildAnyRankTooltip = React.useCallback((rankLabel: string): string => {
-    const base = t('substatTargetsUseForAnyTooltip', { rank: rankLabel })
-    if (!configOptionsOverridesActive) return base
-    return `${base}\n\n${configOptionsOverrideHint}`
-  }, [configOptionsOverrideHint, configOptionsOverridesActive, t])
+    // Keep override details on the warning badge; this tooltip stays action-focused.
+    return t('substatTargetsUseForAnyTooltip', { rank: rankLabel })
+  }, [t])
   const renderOverrideBadge = React.useCallback((tooltip: string, ariaLabel: string) => (
     <MarkdownTooltip markdown={tooltip}>
       <Box
