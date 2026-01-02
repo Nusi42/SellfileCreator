@@ -7,7 +7,7 @@ import ViewListIcon from '@mui/icons-material/ViewList'
 import QuizIcon from '@mui/icons-material/Quiz'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import { useI18n } from '../lib/i18n'
-import { FONT_SIZE_MARKDOWN_PX, FONT_SIZE_SECONDARY_PX, SMALL_BUTTON_HEIGHT_PX } from '../lib/constants'
+import { FONT_SIZE_MARKDOWN_PX, FONT_SIZE_SECONDARY_PX } from '../lib/constants'
 import MDEditor from '@uiw/react-md-editor'
 import type { ICommand, RefMDEditor } from '@uiw/react-md-editor'
 import { commands, getCommands } from '@uiw/react-md-editor'
@@ -978,21 +978,42 @@ const CONFIG_OPTIONS_SAMPLE_LINES = [
   'starKey       := "1" | "2" | "3" | "4" | "5" | "6"',
   '```',
   '',
-  'Example:',
-  '```md',
+  // Example 1: merged example with constraints, defaults, and UI-friendly labels.
+  'Example 1:',
   '<!-- config-options',
-  'q "Sample question?',
-  'Subtext **bold** `with attitude`"',
-  'check "Toggle 1" id=m1 !3 {  @all { export=disabled } }',
-  'check "Toggle 2" id=m2 !3 {  @all { export=active } }',
-  'check "Toggle 3 - not allowed with Toggle 1 or 2 " !m2 !m1 {  @all { export=active } }',
-  'radio "activate all and set global min " * { @all { export=active substatmin=4 } }',
-  'radio "disable all"  {  @all { export=disabled } }',
-  'radio "activate all"  {  @all { export=active } }',
+  'q "Builder knobs (plain English)?',
+  'Line two with **Bold** and `highlight`."',
+  'radio "Default: Activate configs tagged mode" * { @tag=mode { export=active } }',
+  'radio "Disable configs tagged mode" { @tag=mode { export=disabled } }',
+  'check "Only affect configs tagged: fast" { @tag=fast { export=active } }',
+  'check "Only affect configs tagged: arena or dungeon" { @tag in [arena, dungeon] { export=active } }',
+  'check "Only affect tagged configs (any tag)" { @tag any { export=active } }',
+  'check "Only affect untagged configs" { @tag none { export=active } }',
+  'check "Only affect Rank 5+ configs" { @rank>=5 { export=active } }',
+  'check "Only affect Epic+ configs" { @rarity>=epic { export=active } }',
+  'check "Only affect configs with Min Required Rolls 3+" { @minrolls>=3 { export=active } }',
+  'check "Only affect configs with Required Substats 2+" { @minsubstats>=2 { export=active } }',
+  'check "Only affect configs with Flex turned on" { @flex=on { export=active } }',
+  'check "Toggle 1 (explicit id)" id=m1 !3 { @all { export=disabled } }',
+  'check "Toggle 2 (explicit id)" id=m2 !3 { @all { export=active } }',
+  'check "Toggle 3 (implicit #3, excludes 1+2)" !m2 !m1 { @all { export=active } }',
+  'check "Set Rank to 5" { @all { rank=5 } }',
+  'check "Set Rarity to Legendary" { @all { rarity=legendary } }',
+  'check "Set Level window to 12-16" { @all { lvl=12-16 } }',
+  'check "Set Keep mode to Late" { @all { keep=late } }',
+  'check "Auto-Late threshold: Rare+" { @all { autolate=rare } }',
+  'check "Set Min Required Rolls to 3" { @all { minrolls=3 } }',
+  'check "Set Locked Min Required Rolls to 2" { @all { lockedminrolls=2 } }',
+  'check "Set Required Substats to 2" { @all { minsubstats=2 } }',
+  'check "Turn Flex off" { @all { flex=off } }',
+  'check "Min Rolls (Per Stat): All = 1" { @all { substatmin=1 } }',
+  'check "Min Rolls (Per Stat): SPD = 2" { @all { substatmin.SPD=2 } }',
+  'check "Global minima: use Rank 5 targets for Any" { @all { minima.any=5 } }',
+  'check "Global minima: Rank 6 SPD = 6" { @all { minima.6.SPD=6 } }',
   '-->',
-  '```',
   '',
-  'Note: substatmin sets per-config roll minimums; use minima.any/minima.<star>.<stat> for global minima.',
+  // Notes for roll-related fields.
+  'Note: substatmin sets Min Rolls (Per Stat) per config; use minima.any/minima.<star>.<stat> for global minima.',
 ]
 
 function buildConfigOptionsSampleBlock(): string {
@@ -1794,6 +1815,42 @@ function KeepUniqueSummaryCard({
 type DisableConfigOptionsContext = {
   noteText: string
 }
+// Queueable menu actions so we can defer config mutations until menus fully close.
+type ConfigOptionsMenuAction =
+  // Reset answers back to defaults.
+  | { kind: 'reset' }
+  // Re-enable parsing without touching answers.
+  | { kind: 'enable' }
+  // Disable parsing with a snapshot for the confirm dialog.
+  | { kind: 'disable'; noteText: string }
+// Run a queued action after the menu exit transition, keeping view/edit consistent.
+const runConfigOptionsMenuAction = (
+  action: ConfigOptionsMenuAction | null,
+  handlers: {
+    onReset: () => void
+    onEnable: () => void
+    onDisable: (noteText: string) => void
+  },
+  clearAction: () => void,
+) => {
+  if (!action) return
+  // Clear first so rerenders never replay the action.
+  clearAction()
+  // Route the action after the menu closes to avoid stuck modals.
+  if (action.kind === 'reset') {
+    // Reset answers back to defaults.
+    handlers.onReset()
+    return
+  }
+  // Keep enable/disable paths explicit for clarity.
+  if (action.kind === 'enable') {
+    // Re-enable parsing without touching answers.
+    handlers.onEnable()
+    return
+  }
+  // Open the disable confirmation with the captured note snapshot.
+  handlers.onDisable(action.noteText)
+}
 
 export default function NoteDialog({
   open,
@@ -1837,6 +1894,26 @@ export default function NoteDialog({
   hideEditButton: boolean
 }) {
   const { t, lang } = useI18n()
+  // Cache view/edit labels so button widths can align across modes.
+  const editNoteLabel = t('editNote')
+  const viewNoteLabel = t('viewNote')
+  // Measure labels so the toggle button width matches the longer one.
+  const noteModeButtonMinWidth = useMemo(() => {
+    // Use a canvas measurement to avoid layout shifts when toggling modes.
+    const ctx = document?.createElement?.('canvas')?.getContext?.('2d')
+    // Fall back to natural width when we cannot measure text.
+    if (!ctx) return undefined
+    // Default to the body font so measurements match MUI button text.
+    const font = typeof window !== 'undefined'
+      ? getComputedStyle(window.document.body).font || '500 14px Roboto'
+      : '500 14px Roboto'
+    ctx.font = font
+    // Account for default button padding so text doesn't clip.
+    const paddingPx = 32
+    const widths = [editNoteLabel, viewNoteLabel].map((text) => ctx.measureText(text).width + paddingPx)
+    // Clamp to the widest label so both buttons render the same width.
+    return Math.ceil(Math.max(...widths))
+  }, [editNoteLabel, viewNoteLabel])
   const editCommitRef = useRef<() => void>(() => onClose())
   const deferredNote = useDeferredValue(note)
   // View-only renders lean on the deferred snapshot so toggling loads does not stutter the dialog content.
@@ -1873,6 +1950,8 @@ export default function NoteDialog({
   const [viewConfigOptionsMenuAnchor, setViewConfigOptionsMenuAnchor] = useState<HTMLElement | null>(null)
   // Flag whether the view-mode config options menu is open.
   const viewConfigOptionsMenuOpen = Boolean(viewConfigOptionsMenuAnchor)
+  // Queue the view-mode action so we can apply it after the menu closes.
+  const [viewConfigOptionsMenuAction, setViewConfigOptionsMenuAction] = useState<ConfigOptionsMenuAction | null>(null)
   // Open the view-mode config options menu from the button anchor.
   const openViewConfigOptionsMenu = React.useCallback((event: React.MouseEvent<HTMLElement>) => {
     setViewConfigOptionsMenuAnchor(event.currentTarget)
@@ -1881,6 +1960,13 @@ export default function NoteDialog({
   const closeViewConfigOptionsMenu = React.useCallback(() => {
     setViewConfigOptionsMenuAnchor(null)
   }, [])
+  // Queue a view-mode action, then close the menu to trigger exit cleanup.
+  const queueViewConfigOptionsMenuAction = React.useCallback((action: ConfigOptionsMenuAction) => {
+    // Store the action before closing so exit cleanup can replay it.
+    setViewConfigOptionsMenuAction(action)
+    // Closing the menu first prevents stuck backdrops.
+    closeViewConfigOptionsMenu()
+  }, [closeViewConfigOptionsMenu])
   // Hold the disable dialog context so view + edit can share one confirm flow.
   const [disableConfigOptionsContext, setDisableConfigOptionsContext] = useState<DisableConfigOptionsContext | null>(null)
   // Open the disable confirm dialog with the latest note snapshot.
@@ -1891,6 +1977,24 @@ export default function NoteDialog({
   const closeDisableConfigOptionsDialog = React.useCallback(() => {
     setDisableConfigOptionsContext(null)
   }, [])
+  // Apply the queued view-mode action after the menu finishes closing.
+  const handleViewConfigOptionsMenuExited = React.useCallback(() => {
+    // Run the action only once when the menu has fully unmounted.
+    runConfigOptionsMenuAction(
+      viewConfigOptionsMenuAction,
+      {
+        onReset: handleResetConfigOptionsAnswers,
+        onEnable: handleEnableConfigOptions,
+        onDisable: openDisableConfigOptionsDialog,
+      },
+      () => setViewConfigOptionsMenuAction(null),
+    )
+  }, [
+    handleEnableConfigOptions,
+    handleResetConfigOptionsAnswers,
+    openDisableConfigOptionsDialog,
+    viewConfigOptionsMenuAction,
+  ])
   // Apply or discard config options before disabling them in the session.
   const handleDisableConfigOptionsConfirm = React.useCallback((applyToConfigs: boolean) => {
     const context = disableConfigOptionsContext
@@ -2096,15 +2200,16 @@ export default function NoteDialog({
             <DialogActions>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', width: '100%', justifyContent: 'space-between' }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                  {/* Keep note action buttons aligned to the clear-note height. */}
                   {!hideEditButton ? (
                     // Switch to edit mode without closing the dialog.
                     <Button
                       size="small"
                       variant="outlined"
                       onClick={onRequestEdit}
-                      sx={{ height: SMALL_BUTTON_HEIGHT_PX, minHeight: SMALL_BUTTON_HEIGHT_PX }}
+                      sx={noteModeButtonMinWidth ? { minWidth: noteModeButtonMinWidth } : {}}
                     >
-                      {t('editNote')}
+                      {editNoteLabel}
                     </Button>
                   ) : null}
                   {hasConfigOptionsMarkers ? (
@@ -2115,7 +2220,7 @@ export default function NoteDialog({
                         variant="outlined"
                         endIcon={<ExpandMoreIcon fontSize="small" />}
                         onClick={openViewConfigOptionsMenu}
-                        sx={{ whiteSpace: 'nowrap', px: 1.25, height: SMALL_BUTTON_HEIGHT_PX, minHeight: SMALL_BUTTON_HEIGHT_PX }}
+                        sx={{ whiteSpace: 'nowrap', px: 1.25 }}
                         aria-haspopup="true"
                         aria-controls={viewConfigOptionsMenuOpen ? 'note-config-options-menu-view' : undefined}
                         aria-expanded={viewConfigOptionsMenuOpen ? 'true' : undefined}
@@ -2128,23 +2233,22 @@ export default function NoteDialog({
                         open={viewConfigOptionsMenuOpen}
                         onClose={closeViewConfigOptionsMenu}
                         MenuListProps={{ dense: true }}
+                        TransitionProps={{ onExited: handleViewConfigOptionsMenuExited }}
                       >
                         <MenuItem
                           onClick={() => {
-                            closeViewConfigOptionsMenu()
-                            handleResetConfigOptionsAnswers()
+                            queueViewConfigOptionsMenuAction({ kind: 'reset' })
                           }}
                         >
                           {t('noteConfigOptionsResetDefaults')}
                         </MenuItem>
                         <MenuItem
                           onClick={() => {
-                            closeViewConfigOptionsMenu()
-                            if (configOptionsDisabled) {
-                              handleEnableConfigOptions()
-                            } else {
-                              openDisableConfigOptionsDialog(note ?? '')
-                            }
+                            queueViewConfigOptionsMenuAction(
+                              configOptionsDisabled
+                                ? { kind: 'enable' }
+                                : { kind: 'disable', noteText: note ?? '' },
+                            )
                           }}
                         >
                           {configOptionsDisabled ? t('noteConfigOptionsEnable') : t('noteConfigOptionsDisable')}
@@ -2178,6 +2282,7 @@ export default function NoteDialog({
             configOptionsAnswers={configOptionsAnswers}
             markdownComponents={markdownComponents}
             allowElement={allowMarkdownElement}
+            noteModeButtonMinWidth={noteModeButtonMinWidth}
           />
         )}
       </Dialog>
@@ -2219,6 +2324,7 @@ function NoteEditorContent({
   configOptionsAnswers,
   markdownComponents,
   allowElement,
+  noteModeButtonMinWidth,
 }: {
   note: string
   t: ReturnType<typeof useI18n>['t']
@@ -2241,6 +2347,8 @@ function NoteEditorContent({
   configOptionsAnswers: NoteConfigOptionsAnswers
   markdownComponents: MarkdownComponentMap
   allowElement: MarkdownAllowElement
+  // Match the view/edit button widths to keep the action row stable.
+  noteModeButtonMinWidth: number | undefined
 }) {
   const editWrapRef = useRef<HTMLDivElement | null>(null)
   const editorRef = useRef<RefMDEditor | null>(null)
@@ -2249,6 +2357,8 @@ function NoteEditorContent({
   const [editConfigOptionsMenuAnchor, setEditConfigOptionsMenuAnchor] = useState<HTMLElement | null>(null)
   // Track whether the edit-mode config options menu is open.
   const editConfigOptionsMenuOpen = Boolean(editConfigOptionsMenuAnchor)
+  // Queue the edit-mode action so we can apply it after the menu closes.
+  const [editConfigOptionsMenuAction, setEditConfigOptionsMenuAction] = useState<ConfigOptionsMenuAction | null>(null)
   // Open the edit-mode config options menu at the clicked button.
   const openEditConfigOptionsMenu = React.useCallback((event: React.MouseEvent<HTMLElement>) => {
     setEditConfigOptionsMenuAnchor(event.currentTarget)
@@ -2257,6 +2367,13 @@ function NoteEditorContent({
   const closeEditConfigOptionsMenu = React.useCallback(() => {
     setEditConfigOptionsMenuAnchor(null)
   }, [])
+  // Queue an edit-mode action, then close the menu to trigger exit cleanup.
+  const queueEditConfigOptionsMenuAction = React.useCallback((action: ConfigOptionsMenuAction) => {
+    // Store the action before closing so exit cleanup can replay it.
+    setEditConfigOptionsMenuAction(action)
+    // Closing the menu first prevents stuck backdrops.
+    closeEditConfigOptionsMenu()
+  }, [closeEditConfigOptionsMenu])
   const [draft, setDraft] = useState<string>(note ?? '')
   // Track config options changes so the view-mode button can signal edits.
   const baseConfigOptionsSignature = useMemo(
@@ -2312,13 +2429,27 @@ function NoteEditorContent({
     onConfigOptionsDisabledChange(false)
     onResetConfigOptionsAnswers()
   }, [onConfigOptionsDisabledChange, onResetConfigOptionsAnswers])
-  // Open the disable-confirm dialog and hand it the latest draft snapshot.
-  const handleDisableConfigOptions = React.useCallback(() => {
-    onOpenDisableConfigOptionsDialog(draft ?? '')
-  }, [draft, onOpenDisableConfigOptionsDialog])
   const handleEnableConfigOptions = React.useCallback(() => {
     onConfigOptionsDisabledChange(false)
   }, [onConfigOptionsDisabledChange])
+  // Apply the queued edit-mode action after the menu finishes closing.
+  const handleEditConfigOptionsMenuExited = React.useCallback(() => {
+    // Run the action only once when the menu has fully unmounted.
+    runConfigOptionsMenuAction(
+      editConfigOptionsMenuAction,
+      {
+        onReset: handleResetConfigOptions,
+        onEnable: handleEnableConfigOptions,
+        onDisable: onOpenDisableConfigOptionsDialog,
+      },
+      () => setEditConfigOptionsMenuAction(null),
+    )
+  }, [
+    editConfigOptionsMenuAction,
+    handleEnableConfigOptions,
+    handleResetConfigOptions,
+    onOpenDisableConfigOptionsDialog,
+  ])
   // Ignore answer updates in edit mode so markers stay read-only.
   const ignoreConfigOptionsAnswerChange = React.useCallback(() => {}, [])
   const editorContextValue = useMemo<NoteRenderContextValue>(
@@ -2750,11 +2881,13 @@ function NoteEditorContent({
                 !configOptionsChanged,
               )}
             >
-              {/* Match the view-mode edit button styling for symmetry. */}
+              {/* Match the view-mode toggle width so swapping modes doesn't shift layout. */}
               <Button
+                size="small"
                 variant="outlined"
                 onClick={commitAndView}
                 disabled={draftIsEmpty}
+                sx={noteModeButtonMinWidth ? { minWidth: noteModeButtonMinWidth } : {}}
               >
                 {t('viewNote')}
               </Button>
@@ -2768,7 +2901,7 @@ function NoteEditorContent({
                 variant="outlined"
                 endIcon={<ExpandMoreIcon fontSize="small" />}
                 onClick={openEditConfigOptionsMenu}
-                sx={{ whiteSpace: 'nowrap', px: 1.25, height: SMALL_BUTTON_HEIGHT_PX, minHeight: SMALL_BUTTON_HEIGHT_PX }}
+                sx={{ whiteSpace: 'nowrap', px: 1.25 }}
                 aria-haspopup="true"
                 aria-controls={editConfigOptionsMenuOpen ? 'note-config-options-menu-edit' : undefined}
                 aria-expanded={editConfigOptionsMenuOpen ? 'true' : undefined}
@@ -2781,23 +2914,22 @@ function NoteEditorContent({
                 open={editConfigOptionsMenuOpen}
                 onClose={closeEditConfigOptionsMenu}
                 MenuListProps={{ dense: true }}
+                TransitionProps={{ onExited: handleEditConfigOptionsMenuExited }}
               >
                 <MenuItem
                   onClick={() => {
-                    closeEditConfigOptionsMenu()
-                    handleResetConfigOptions()
+                    queueEditConfigOptionsMenuAction({ kind: 'reset' })
                   }}
                 >
                   {t('noteConfigOptionsResetDefaults')}
                 </MenuItem>
                 <MenuItem
                   onClick={() => {
-                    closeEditConfigOptionsMenu()
-                    if (configOptionsDisabled) {
-                      handleEnableConfigOptions()
-                    } else {
-                      handleDisableConfigOptions()
-                    }
+                    queueEditConfigOptionsMenuAction(
+                      configOptionsDisabled
+                        ? { kind: 'enable' }
+                        : { kind: 'disable', noteText: draft ?? '' },
+                    )
                   }}
                 >
                   {configOptionsDisabled ? t('noteConfigOptionsEnable') : t('noteConfigOptionsDisable')}
