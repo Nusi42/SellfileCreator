@@ -238,6 +238,7 @@ This document captures runtime behavior, builder interactions, and user-facing w
   - Marker: `<!-- config-options ... -->` with exactly one question per comment.
   - Question header: `q`/`question` plus a quoted prompt: `q "Prompt"`.
   - Groups: `radio`/`rb`/`single` (single-select) and `check`/`cb`/`multi` (multi-select). Each group is `group "Label" [id=TOKEN] [*|default] [constraints] { @selector { assignments } ... }`.
+  - Group fallback: add `fallback { ... }` or `else { ... }` inside a group to apply when that group has no selections; multiple group fallbacks stack in source order.
   - Selectors: required `@` blocks. Supported selectors include `@all`, `@tagged`, `@untagged`, `@tag=token`, `@tag in [a,b]`, `@rank>=5`, `@rarity>=epic`, `@minrolls>=2`, `@minsubstats=2`, `@flex=on`, and `and`/`or` expressions.
   - Assignments: `field (=|>=|<=) value` pairs. Supported fields: `export` (active/disabled/toggle), `rank`, `rarity` (including `auto`), `lvl` (range or single milestone), `keep` (early/late), `autolate` (uncommon/rare/epic), `minrolls`, `lockedminrolls`, `minsubstats`, `flex`, `substatmin`, `substatmin.<stat>`, `minima.any`, and `minima.<star>.<stat>`.
   - Fallback: `fallback { ... }` or `else { ... }` applies when no group has selections.

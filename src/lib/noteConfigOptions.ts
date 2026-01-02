@@ -82,11 +82,17 @@ export type NoteQuestionFallback = {
   blocks: ConfigOptionsSelectorBlock[]
 }
 
+// Selector blocks that apply when a group has no selections.
+export type NoteQuestionGroupFallback = {
+  blocks: ConfigOptionsSelectorBlock[]
+}
+
 // Group metadata for a single question.
 export type NoteQuestionGroup = {
   id: string
   type: NoteQuestionGroupType
   options: NoteQuestionOption[]
+  fallback: NoteQuestionGroupFallback | null
 }
 
 // Parsed question metadata plus resolved answer.
@@ -831,49 +837,115 @@ const parseOperations = (cursor: TokenCursor, endSymbol: string): ConfigOptionsO
   return operations
 }
 
-const parseSelectorBlocks = (cursor: TokenCursor): ConfigOptionsSelectorBlock[] => {
-  const blocks: ConfigOptionsSelectorBlock[] = []
-  while (true) {
-    const token = cursor.peek()
-    if (!token) break
-    if (token.kind === 'symbol' && token.value === '}') {
-      cursor.next()
-      break
-    }
-    if (!cursor.consumeSymbol('@')) {
-      cursor.next()
-      continue
-    }
-    const selectorTokens: Token[] = []
-    while (true) {
-      const next = cursor.peek()
-      if (!next) return blocks
-      if (next.kind === 'symbol' && next.value === '{') break
-      selectorTokens.push(next)
-      cursor.next()
-    }
-    if (!cursor.consumeSymbol('{')) {
-      // Guard: malformed selector blocks should never trap the cursor.
-      cursor.next()
-      continue
-    }
-    const selector = parseSelectorTokens(selectorTokens)
-    const operations = parseOperations(cursor, '}')
-    if (!selector || operations.length === 0) continue
-    blocks.push({ selector, operations })
-  }
-  return blocks
-}
-
 type ParsedQuestionOption = {
   id: string
   label: string
   blocks: ConfigOptionsSelectorBlock[]
+  fallbackBlocks: ConfigOptionsSelectorBlock[]
   isDefault: boolean
   explicitToken: string | null
   excludedTokens: string[]
   onlyTokens: string[]
   groupType: NoteQuestionGroupType
+}
+
+// Parse a single selector block after a leading "@".
+function parseSelectorBlock(cursor: TokenCursor): ConfigOptionsSelectorBlock | null {
+  // Collect selector tokens until the selector block opens.
+  const selectorTokens: Token[] = []
+  while (true) {
+    const next = cursor.peek()
+    // Bail out when the stream ends unexpectedly.
+    if (!next) return null
+    // Stop once the selector block opens.
+    if (next.kind === 'symbol' && next.value === '{') break
+    // Store selector tokens verbatim for later parsing.
+    selectorTokens.push(next)
+    // Consume the token to advance the cursor.
+    cursor.next()
+  }
+  // Require the selector block to open before parsing operations.
+  if (!cursor.consumeSymbol('{')) {
+    // Guard: skip one token so we do not loop forever.
+    if (cursor.peek()) cursor.next()
+    return null
+  }
+  // Parse selector + operations for this block.
+  const selector = parseSelectorTokens(selectorTokens)
+  const operations = parseOperations(cursor, '}')
+  // Require both selector and operations to be valid.
+  if (!selector || operations.length === 0) return null
+  // Emit the parsed selector block once validated.
+  return { selector, operations }
+}
+
+type ParsedGroupBlocks = {
+  blocks: ConfigOptionsSelectorBlock[]
+  fallbackBlocks: ConfigOptionsSelectorBlock[]
+}
+
+// Parse a group's selector blocks plus optional group-level fallback blocks.
+function parseGroupBlocks(cursor: TokenCursor): ParsedGroupBlocks {
+  // Track selector blocks in source order.
+  const blocks: ConfigOptionsSelectorBlock[] = []
+  // Track group-level fallback blocks in source order.
+  const fallbackBlocks: ConfigOptionsSelectorBlock[] = []
+  while (true) {
+    const token = cursor.peek()
+    // Exit when the token stream ends unexpectedly.
+    if (!token) break
+    // Close the group when the brace ends.
+    if (token.kind === 'symbol' && token.value === '}') {
+      cursor.next()
+      break
+    }
+    // Parse group-level fallback blocks when encountered.
+    if (isFallbackKeyword(token)) {
+      cursor.next()
+      // Require an opening brace for fallback content.
+      if (!cursor.consumeSymbol('{')) continue
+      // Parse the selector blocks inside the fallback braces.
+      const parsedBlocks = parseSelectorBlocks(cursor)
+      // Append only non-empty fallback blocks.
+      if (parsedBlocks.length > 0) fallbackBlocks.push(...parsedBlocks)
+      continue
+    }
+    // Parse selector blocks that start with "@...".
+    if (token.kind === 'symbol' && token.value === '@') {
+      // Consume the "@", then parse the selector content.
+      cursor.next()
+      const block = parseSelectorBlock(cursor)
+      // Keep only valid selector blocks.
+      if (block) blocks.push(block)
+      continue
+    }
+    // Skip unknown tokens to keep the cursor moving.
+    cursor.next()
+  }
+  return { blocks, fallbackBlocks }
+}
+
+const parseSelectorBlocks = (cursor: TokenCursor): ConfigOptionsSelectorBlock[] => {
+  const blocks: ConfigOptionsSelectorBlock[] = []
+  while (true) {
+    const token = cursor.peek()
+    // Exit when the token stream ends unexpectedly.
+    if (!token) break
+    if (token.kind === 'symbol' && token.value === '}') {
+      cursor.next()
+      break
+    }
+    // Skip non-selector tokens so malformed blocks do not stall.
+    if (!cursor.consumeSymbol('@')) {
+      cursor.next()
+      continue
+    }
+    // Parse a single selector block into a structured instruction.
+    const block = parseSelectorBlock(cursor)
+    // Keep only valid selector blocks with operations.
+    if (block) blocks.push(block)
+  }
+  return blocks
 }
 
 // Parse a single option block into label + selector blocks.
@@ -954,13 +1026,15 @@ const parseOptionBlock = (
     // Skip any other header tokens to avoid infinite loops.
     cursor.next()
   }
-  const blocks = parseSelectorBlocks(cursor)
+  // Parse the selector blocks and optional group fallback blocks.
+  const { blocks, fallbackBlocks } = parseGroupBlocks(cursor)
   const baseLabel = normalizeQuestionText(label).toLowerCase()
   const id = baseLabel ? `${baseLabel}#${optionIndex}` : `option-${optionIndex}`
   return {
     id,
     label,
     blocks,
+    fallbackBlocks,
     isDefault,
     explicitToken,
     excludedTokens,
@@ -1066,9 +1140,19 @@ const parseQuestionMarker = (inner: string): Omit<NoteQuestionDefinition, 'index
     options.push(resolved)
     let group = groupMap.get(option.groupType)
     if (!group) {
-      group = { id: option.groupType, type: option.groupType, options: [] }
+      // Seed the group with a stable id and empty fallback.
+      group = { id: option.groupType, type: option.groupType, options: [], fallback: null }
       groupMap.set(option.groupType, group)
       groupOrder.push(group)
+    }
+    // Accumulate group-level fallback blocks in source order.
+    if (option.fallbackBlocks.length > 0) {
+      // Initialize fallback storage for this group if needed.
+      const fallback = group.fallback ?? { blocks: [] }
+      // Append the parsed group fallback blocks in source order.
+      fallback.blocks.push(...option.fallbackBlocks)
+      // Only keep the fallback when at least one block exists.
+      group.fallback = fallback.blocks.length > 0 ? fallback : null
     }
     group.options.push(resolved)
   })
@@ -1318,14 +1402,36 @@ export const resolveConfigOptionsTags = (
   const instructions: ConfigOptionsInstructions = []
   for (const question of questions) {
     const selected = new Set(question.answer)
-    if (selected.size === 0 && question.fallback) {
-      question.fallback.blocks.forEach((block) => instructions.push(block))
-      continue
-    }
+    // Track whether each group has at least one selected option.
+    const groupSelections = new Map<NoteQuestionGroupType, boolean>()
+    question.groups.forEach((group) => {
+      // Determine whether any option in the group is selected.
+      const hasSelection = group.options.some((option) => selected.has(option.id))
+      // Cache the result so we can reuse it per option.
+      groupSelections.set(group.type, hasSelection)
+    })
+    // Apply group-level fallback blocks when a group has no selections.
+    const appliedGroupFallback = new Set<NoteQuestionGroupType>()
     question.options.forEach((option) => {
+      const groupType = option.groupType
+      // Apply group-level fallback once, at the first option of the group.
+      if (!appliedGroupFallback.has(groupType) && !groupSelections.get(groupType)) {
+        appliedGroupFallback.add(groupType)
+        // Find the group so we can append its fallback blocks in order.
+        const group = question.groups.find((entry) => entry.type === groupType)
+        // Append the group fallback blocks when present.
+        group?.fallback?.blocks.forEach((block) => instructions.push(block))
+      }
+      // Skip unselected options once group fallback has been applied.
       if (!selected.has(option.id)) return
+      // Append selected option blocks in source order.
       option.blocks.forEach((block) => instructions.push(block))
     })
+    // Apply question-level fallback when no options are selected anywhere.
+    if (selected.size === 0 && question.fallback) {
+      // Append the question-level fallback at the end.
+      question.fallback.blocks.forEach((block) => instructions.push(block))
+    }
   }
   return { questions, instructions }
 }
