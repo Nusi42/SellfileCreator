@@ -7,7 +7,7 @@ import ViewListIcon from '@mui/icons-material/ViewList'
 import QuizIcon from '@mui/icons-material/Quiz'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import { useI18n } from '../lib/i18n'
-import { FONT_SIZE_MARKDOWN_PX, FONT_SIZE_SECONDARY_PX } from '../lib/constants'
+import { FONT_SIZE_MARKDOWN_PX, FONT_SIZE_SECONDARY_PX, MARKDOWN_TOOLTIP_MAX_WIDTH_PX } from '../lib/constants'
 import MDEditor from '@uiw/react-md-editor'
 import type { ICommand, RefMDEditor } from '@uiw/react-md-editor'
 import { commands, getCommands } from '@uiw/react-md-editor'
@@ -291,8 +291,8 @@ function renderQuestionTextTokens({
         </Typography>
       </Box>
     ) : token.kind === 'label' ? (
-      // Label tokens mirror the Quota/Scope label typography.
-      <Typography key={token.key} component="span" variant="caption" sx={labelSx}>
+      // Label tokens keep the Quota/Scope styling while inheriting the surrounding size.
+      <Typography key={token.key} component="span" variant="inherit" sx={labelSx}>
         {token.text}
       </Typography>
     ) : (
@@ -949,81 +949,146 @@ function buildMetasetBulletList(
     .join('\n')
 }
 
-const CONFIG_OPTIONS_SAMPLE_LINES = [
-  'Config options syntax (EBNF):',
-  '```text',
-  'marker        := "<!--" "config-options" question "-->"',
-  'question      := ("q" | "question") string group+ [fallbackBlock]',
-  'group         := ("single" | "s" | "rb" | "radiobutton" | "radio" | "multi" | "m" | "cb" | "checkbox" | "check")',
-  '                string ["id" "=" token] ["*" | "default"] [constraints] "{" selectorBlock+ [fallbackBlock] "}"',
-  'selectorBlock := "@" selector "{" assignment+ "}"',
-  'selector      := "all" | "tagged" | "untagged" | expr',
-  'expr          := term (("and" | "or" | "&&" | "||") term)*',
-  'term          := "tag" ("=" token | "in" "[" tokenList "]" | "any" | "none")',
-  '             | "rank" ("=" | ">=" | "<=") number',
-  '             | "rarity" ("=" | ">=" | "<=") rarityName',
-  '             | "minrolls" ("=" | ">=" | "<=") number',
-  '             | "minsubstats" ("=" | ">=" | "<=") number',
-  '             | "flex" ("=" | ":") ("on" | "off" | "true" | "false")',
-  'assignment    := field ("=" | ">=" | "<=") value',
-  'fallbackBlock := ("fallback" | "else") "{" selectorBlock+ "}"',
-  'constraints   := "!" tokenList | "excl" tokenList | "only" tokenList',
-  'tokenList     := token ("," token)*',
-  'field         := "export" | "rank" | "rarity" | "lvl" | "keep" | "autolate" | "minrolls"',
-  '             | "lockedminrolls" | "minsubstats" | "flex" | "substatmin" | "substatmin." statKey',
-  '             | "minima.any" | "minima." starKey "." statKey',
-  'value         := string | number | token',
-  'token         := /[\\p{L}\\p{M}_][\\p{L}\\p{N}\\p{M}_]*/ (unicode letters/marks, underscore)',
-  'rarityName    := "common" | "uncommon" | "rare" | "epic" | "legendary" | "mythical" | "auto"',
-  'starKey       := "1" | "2" | "3" | "4" | "5" | "6"',
-  '```',
-  '',
-  // Example 1: merged example with constraints, defaults, and UI-friendly labels.
-  'Example 1:',
+// Keep the config options EBNF header consistent across samples and tooltips.
+const CONFIG_OPTIONS_EBNF_HEADER = 'Config options syntax (EBNF):'
+// Reference line sets the maximum width for EBNF formatting.
+const CONFIG_OPTIONS_EBNF_REFERENCE_LINE = 'question      := ("q" | "question") string group+ [fallbackBlock]'
+const CONFIG_OPTIONS_EBNF_MAX_LINE_LENGTH = CONFIG_OPTIONS_EBNF_REFERENCE_LINE.length
+// Use fenced-code markers when inserting the EBNF into the note editor.
+const CONFIG_OPTIONS_EBNF_FENCE_START = '```text'
+const CONFIG_OPTIONS_EBNF_FENCE_END = '```'
+// Anchor the sample example header so insert content is stable.
+const CONFIG_OPTIONS_SAMPLE_EXAMPLE_HEADER = 'Example 1:'
+// Anchor the tooltip example header to keep copy consistent.
+const CONFIG_OPTIONS_TOOLTIP_EXAMPLE_HEADER = 'Example:'
+// Close marker for the sample comment block.
+const CONFIG_OPTIONS_SAMPLE_CLOSE = '-->'
+// Shared keyCommand for the toolbar insert button.
+const CONFIG_OPTIONS_SAMPLE_COMMAND_KEY = 'insert-configOptions-sample'
+
+// Static EBNF text; the statKey row is appended at runtime.
+const CONFIG_OPTIONS_EBNF_BASE =
+`marker        := "<!--" "config-options" question "-->"
+${CONFIG_OPTIONS_EBNF_REFERENCE_LINE}
+group         := ("single" | "s" | "rb" | "radiobutton"
+             | "radio" | "multi" | "m" | "cb"
+             | "checkbox" | "check")
+             string ["id" "=" token] ["*" | "default"]
+             [constraints] "{" selectorBlock+
+             [fallbackBlock] "}"
+selectorBlock := "@" selector "{" assignment+ "}"
+selector      := "all" | "tagged" | "untagged" | expr
+expr          := term (("and" | "or" | "&&" | "||") term)*
+term          := "tag" ("=" token
+             | "in" "[" tokenList "]" | "any" | "none")
+             | "rank" ("=" | ">=" | "<=") number
+             | "rarity" ("=" | ">=" | "<=") rarityName
+             | "minrolls" ("=" | ">=" | "<=") number
+             | "minsubstats" ("=" | ">=" | "<=") number
+             | "flex" ("=" | ":") ("on" | "off" | "true" | "false")
+assignment    := field ("=" | ">=" | "<=") value
+fallbackBlock := ("fallback" | "else") "{" selectorBlock+ "}"
+constraints   := "!" tokenList | "excl" tokenList
+             | "only" tokenList
+tokenList     := token ("," token)*
+field         := "export" | "rank" | "rarity" | "lvl" | "keep"
+             | "autolate" | "minrolls" | "lockedminrolls"
+             | "minsubstats" | "flex" | "substatmin"
+             | "substatmin." statKey | "minima.any"
+             | "minima." starKey "." statKey
+value         := string | number | token
+token         := /[\\p{L}\\p{M}_][\\p{L}\\p{N}\\p{M}_]*/
+                (unicode letters/marks, underscore)
+rarityName    := "common" | "uncommon" | "rare" | "epic"
+             | "legendary" | "mythical" | "auto"
+starKey       := "1" | "2" | "3" | "4" | "5" | "6"`
+
+// Full insertable example used in the markdown sample block.
+const CONFIG_OPTIONS_SAMPLE_EXAMPLE_TEXT = [
+  // Comment marker + prompt header.
   '<!-- config-options',
   'q "Builder knobs (plain English)?',
   'Line two with **Bold** and `highlight`."',
+  // Tag-specific enable/disable toggles.
   'radio "Default: Activate configs tagged mode" * { @tag=mode { export=active } }',
   'radio "Disable configs tagged mode" { @tag=mode { export=disabled } }',
   'check "Activate only affects configs tagged: fast" { @tag=fast { export=active } }',
   'check "Activate only affects configs tagged: arena or dungeon" { @tag in [arena, dungeon] { export=active } }',
   'check "Activate only affects tagged configs (any tag). Otherwise set Required Substats to 1 for tagged configs." { @tag any { export=active } else { @tag any { minsubstats=1 } } }',
   'check "Activate only affects untagged configs. Otherwise turn Flex off for untagged configs." { @tag none { export=active } else { @tag none { flex=off } } }',
+  // Attribute-based toggles for common filters.
   'check "Activate only affects Rank 5+ configs" { @rank>=5 { export=active } }',
   'check "Activate only affects Epic+ configs" { @rarity>=epic { export=active } }',
   'check "Activate only affects configs with Min Required Rolls 3+" { @minrolls>=3 { export=active } }',
   'check "Activate only affects configs with Required Substats 2+" { @minsubstats>=2 { export=active } }',
   'check "Activate only affects configs with Flex turned on" { @flex=on { export=active } }',
+  // Explicit id toggles + exclusions.
   'check "Toggle 1 (explicit id)" id=m1 !3 { @all { export=disabled } }',
   'check "Toggle 2 (explicit id)" id=m2 !3 { @all { export=active } }',
   'check "Toggle 3 (implicit #3, excludes 1+2)" !m2 !m1 { @all { export=active } }',
+  // Rule overrides for export inputs.
   'check "Set Rank to 5" { @all { rank=5 } }',
   'check "Set Rarity to Legendary" { @all { rarity=legendary } }',
   'check "Set Level window to 12-16" { @all { lvl=12-16 } }',
   'check "Set Keep mode to Late" { @all { keep=late } }',
   'check "Auto-Late threshold: Rare+" { @all { autolate=rare } }',
+  // Roll + substat constraints.
   'check "Set Min Required Rolls to 3" { @all { minrolls=3 } }',
   'check "Set Locked Min Required Rolls to 2" { @all { lockedminrolls=2 } }',
   'check "Set Required Substats to 2" { @all { minsubstats=2 } }',
   'check "Turn Flex off" { @all { flex=off } }',
+  // Per-stat minima overrides.
   'check "Min Rolls (Per Stat): All = 1" { @all { substatmin=1 } }',
   'check "Min Rolls (Per Stat): SPD = 2" { @all { substatmin.SPD=2 } }',
+  // Global minima overrides.
   'check "Global minima: use Rank 5 targets for Any" { @all { minima.any=5 } }',
   'check "Global minima: Rank 6 SPD = 6" { @all { minima.6.SPD=6 } }',
-  '-->',
-  '',
-  // Notes for roll-related fields.
-  'Note: substatmin sets Min Rolls (Per Stat) per config; use minima.any/minima.<star>.<stat> for global minima.',
-]
+  // Close the comment block.
+  CONFIG_OPTIONS_SAMPLE_CLOSE,
+].join('\n')
 
-function buildConfigOptionsSampleBlock(): string {
-  // Enumerate supported stat keys from the runtime variant catalog.
+// Compact tooltip example keeps the popper readable.
+const CONFIG_OPTIONS_TOOLTIP_EXAMPLE_TEXT = [
+  '<!-- config-options',
+  'q "Enable arena configs?"',
+  'radio "Yes" * { @tag=arena { export=active } }',
+  'radio "No" { @tag=arena { export=disabled } }',
+  CONFIG_OPTIONS_SAMPLE_CLOSE,
+].join('\n')
+
+// Notes for roll-related fields in the full sample block.
+const CONFIG_OPTIONS_SAMPLE_NOTE = (
+  'Note: substatmin sets Min Rolls (Per Stat) per config; use minima.any/minima.<star>.<stat> for global minima.'
+)
+const CONFIG_OPTIONS_TOOLTIP_WRAP_SX = {
+  // Keep tooltip content within the shared markdown tooltip width.
+  maxWidth: MARKDOWN_TOOLTIP_MAX_WIDTH_PX,
+  // Stack the EBNF and example blocks with consistent spacing.
+  display: 'flex',
+  flexDirection: 'column',
+  gap: 0.75,
+}
+const CONFIG_OPTIONS_TOOLTIP_CODE_SX = {
+  // Use the mono stack so grammar alignment stays readable.
+  fontFamily: 'var(--font-code, "JetBrains Mono", monospace)',
+  // Slightly smaller text keeps the tooltip compact.
+  fontSize: '0.78rem',
+  // Preserve newlines while still wrapping long lines.
+  whiteSpace: 'pre-wrap',
+  // Tight line height keeps long blocks readable.
+  lineHeight: 1.35,
+  // Reset default <pre> margins to avoid extra gaps.
+  m: 0,
+} satisfies Record<string, unknown>
+
+function buildConfigOptionsStatKeys(): string[] {
+  // Enumerate supported stat variants in their canonical order.
   const variants = [...STAT_VARIANTS_PRIORITY]
-  // Convert variants to labels while skipping empty entries.
+  // Convert variants to human labels while skipping empty entries.
   const statLabels = variants
     .map((variant) => labelOfVariant(variant))
     .filter((label) => Boolean(label && label.trim().length > 0))
-  // De-dupe labels but preserve ordering for stable output.
+  // De-dupe labels while preserving the original ordering.
   const seen = new Set<string>()
   const statKeys: string[] = []
   statLabels.forEach((label) => {
@@ -1031,16 +1096,61 @@ function buildConfigOptionsSampleBlock(): string {
     seen.add(label)
     statKeys.push(label)
   })
+  // Return the ordered labels for EBNF output.
+  return statKeys
+}
+
+function buildConfigOptionsStatKeyLine(statKeys: string[]): string {
   // Quote each key so the EBNF literal list is explicit.
-  const statKeyLine = `statKey       := ${statKeys.map((label) => `"${label.replace(/"/g, '\\"')}"`).join(' | ')}`
-  // Insert the runtime-derived list before the EBNF closes.
-  const lines = [...CONFIG_OPTIONS_SAMPLE_LINES]
-  const fenceIndex = lines.indexOf('```')
-  if (fenceIndex >= 0) {
-    lines.splice(fenceIndex, 0, statKeyLine)
-  } else {
-    lines.push(statKeyLine)
-  }
+  const quoted = statKeys.map((label) => `"${label.replace(/"/g, '\\"')}"`)
+  // Align the first line with the rest of the EBNF block.
+  const prefix = 'statKey       := '
+  const continuation = '             | '
+  const lines: string[] = []
+  let current = prefix
+  quoted.forEach((token) => {
+    if (current === prefix) {
+      current = `${current}${token}`
+      return
+    }
+    const candidate = `${current} | ${token}`
+    if (candidate.length > CONFIG_OPTIONS_EBNF_MAX_LINE_LENGTH) {
+      lines.push(current)
+      current = `${continuation}${token}`
+    } else {
+      current = candidate
+    }
+  })
+  // Push the last line if it has content.
+  if (current.trim()) lines.push(current)
+  return lines.join('\n')
+}
+
+function buildConfigOptionsEbnfText(): string {
+  // Build the runtime statKey list from current variant labels.
+  const statKeys = buildConfigOptionsStatKeys()
+  // Compose the statKey line for the EBNF block.
+  const statKeyLine = buildConfigOptionsStatKeyLine(statKeys)
+  // Concatenate the static EBNF base with the runtime statKey row.
+  return `${CONFIG_OPTIONS_EBNF_BASE}\n${statKeyLine}`
+}
+
+function buildConfigOptionsSampleBlock(): string {
+  // Build the EBNF block with the runtime statKey row injected.
+  const ebnfText = buildConfigOptionsEbnfText()
+  // Compose the full sample block without parsing or splitting.
+  const lines = [
+    CONFIG_OPTIONS_EBNF_HEADER,
+    CONFIG_OPTIONS_EBNF_FENCE_START,
+    ebnfText,
+    CONFIG_OPTIONS_EBNF_FENCE_END,
+    '',
+    CONFIG_OPTIONS_SAMPLE_EXAMPLE_HEADER,
+    CONFIG_OPTIONS_SAMPLE_EXAMPLE_TEXT,
+    '',
+    CONFIG_OPTIONS_SAMPLE_NOTE,
+  ]
+  // Join once so the editor insertion stays stable.
   return lines.join('\n')
 }
 
@@ -2537,9 +2647,29 @@ function NoteEditorContent({
     },
   }), [keepUniqueRules, setDraft, t])
 
+  const configOptionsSampleTooltipContent = useMemo(() => {
+    // Build the shared EBNF text for the tooltip.
+    const ebnfText = buildConfigOptionsEbnfText()
+    // Reuse the compact example for the tooltip body.
+    const exampleText = CONFIG_OPTIONS_TOOLTIP_EXAMPLE_TEXT
+    // Render the tooltip with headers and preformatted blocks.
+    return (
+      <Box sx={CONFIG_OPTIONS_TOOLTIP_WRAP_SX}>
+        <Typography variant="subtitle2" component="div" sx={{ fontWeight: 600 }}>
+          {CONFIG_OPTIONS_EBNF_HEADER}
+        </Typography>
+        <Box component="pre" sx={CONFIG_OPTIONS_TOOLTIP_CODE_SX}>{ebnfText}</Box>
+        <Typography variant="subtitle2" component="div" sx={{ fontWeight: 600 }}>
+          {CONFIG_OPTIONS_TOOLTIP_EXAMPLE_HEADER}
+        </Typography>
+        <Box component="pre" sx={CONFIG_OPTIONS_TOOLTIP_CODE_SX}>{exampleText}</Box>
+      </Box>
+    )
+  }, [])
+
   const configOptionsSampleCommand = useMemo<ICommand>(() => ({
-    name: 'insert-configOptions-sample',
-    keyCommand: 'insert-configOptions-sample',
+    name: CONFIG_OPTIONS_SAMPLE_COMMAND_KEY,
+    keyCommand: CONFIG_OPTIONS_SAMPLE_COMMAND_KEY,
     groupName: 'note-inserts',
     // ConfigOptions samples belong to the same insert block in the toolbar.
     buttonProps: { 'aria-label': t('noteInsertConfigOptionsSample'), title: t('noteInsertConfigOptionsSample') },
@@ -2840,9 +2970,15 @@ function NoteEditorContent({
                         l.includes('fullscreen') ? t('mdFullscreen') :
                         l.includes('color') ? t('mdColor') : raw
                       )
+                      // Override the insert-sample tooltip with the richer EBNF snippet.
+                      const isConfigOptionsSample = command?.keyCommand === CONFIG_OPTIONS_SAMPLE_COMMAND_KEY
+                      // Prefer custom render content for the sample tooltip.
+                      const tooltipProps = isConfigOptionsSample
+                        ? { render: configOptionsSampleTooltipContent }
+                        : { markdown: label }
                       return (
                         // MarkdownTooltip keeps every toolbar command consistent (some strings contain Markdown tokens already).
-                        <MarkdownTooltip markdown={label} placement="bottom">
+                        <MarkdownTooltip placement="bottom" {...tooltipProps}>
                           <button
                             type="button"
                             aria-label={label || undefined}
