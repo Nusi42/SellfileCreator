@@ -568,7 +568,7 @@ const overrides: Catalog = {
   builderExportModeDisabledTooltip: 'Las reglas del Sellfile se generan con Use = false, por lo que RSL Helper las deja inactivas. Activa "Omitir reglas desactivadas al exportar" para omitirlas por completo.',
   builderExportModeSeparator: 'Separador',
   builderExportModeSeparatorTooltip: 'Las configs Separador solo se exportan a HSFC.\nNo generan reglas del Sellfile y pueden incluir encabezados con # o etiquetas de color [rrggbb].',
-  builderConfigOptionsOverrideBadgeTooltip: 'Config options override this setting (stored: {stored}, effective: {effective}).',
+  builderConfigOptionsOverrideBadgeTooltip: 'Las opciones de config sustituyen este ajuste (guardado: {stored}, efectivo: {effective}).',
   historyBuilderExportModeLabel: 'Modo de exportación del Sellfile',
   historyBuilderSavedTitle: 'Se guardó {label}',
   historyConfigLabel: 'Config #{n}',
@@ -1005,7 +1005,7 @@ const overrides: Catalog = {
   rollIndicatorTip2: 'Desde ★, el clic izquierdo cambia a un requisito mínimo (0..5 tiradas) y el derecho a un límite superior (0..4).',
   rollIndicatorTip3: 'En un límite superior, el clic izquierdo baja el valor (1→0→★) y el derecho lo sube (0→1→…→4→★).',
   rollIndicatorTip4: 'Los números verdes muestran las tiradas mínimas que exiges; los rojos aplican el límite superior por encima de ese valor.',
-  builderSubstatMinConfigOptionsOverrideTooltip: 'Config options override: substat min rolls are applied for this stat.',
+  builderSubstatMinConfigOptionsOverrideTooltip: 'Anulación de opciones de config: se aplican los mínimos de tiradas de substats para este stat.',
 
   // Filter helpers
   filterShow: 'Mostrar',
