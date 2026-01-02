@@ -291,8 +291,8 @@ function renderQuestionTextTokens({
         </Typography>
       </Box>
     ) : token.kind === 'label' ? (
-      // Label tokens mirror the Quota/Scope label typography.
-      <Typography key={token.key} component="span" variant="caption" sx={labelSx}>
+      // Label tokens keep the Quota/Scope styling while inheriting the surrounding size.
+      <Typography key={token.key} component="span" variant="inherit" sx={labelSx}>
         {token.text}
       </Typography>
     ) : (
