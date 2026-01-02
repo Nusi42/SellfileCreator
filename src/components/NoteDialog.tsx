@@ -7,7 +7,7 @@ import ViewListIcon from '@mui/icons-material/ViewList'
 import QuizIcon from '@mui/icons-material/Quiz'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import { useI18n } from '../lib/i18n'
-import { FONT_SIZE_MARKDOWN_PX, FONT_SIZE_SECONDARY_PX, SMALL_BUTTON_HEIGHT_PX } from '../lib/constants'
+import { FONT_SIZE_MARKDOWN_PX, FONT_SIZE_SECONDARY_PX } from '../lib/constants'
 import MDEditor from '@uiw/react-md-editor'
 import type { ICommand, RefMDEditor } from '@uiw/react-md-editor'
 import { commands, getCommands } from '@uiw/react-md-editor'
@@ -1901,6 +1901,26 @@ export default function NoteDialog({
   hideEditButton: boolean
 }) {
   const { t, lang } = useI18n()
+  // Cache view/edit labels so button widths can align across modes.
+  const editNoteLabel = t('editNote')
+  const viewNoteLabel = t('viewNote')
+  // Measure labels so the toggle button width matches the longer one.
+  const noteModeButtonMinWidth = useMemo(() => {
+    // Use a canvas measurement to avoid layout shifts when toggling modes.
+    const ctx = document?.createElement?.('canvas')?.getContext?.('2d')
+    // Fall back to natural width when we cannot measure text.
+    if (!ctx) return undefined
+    // Default to the body font so measurements match MUI button text.
+    const font = typeof window !== 'undefined'
+      ? getComputedStyle(window.document.body).font || '500 14px Roboto'
+      : '500 14px Roboto'
+    ctx.font = font
+    // Account for default button padding so text doesn't clip.
+    const paddingPx = 32
+    const widths = [editNoteLabel, viewNoteLabel].map((text) => ctx.measureText(text).width + paddingPx)
+    // Clamp to the widest label so both buttons render the same width.
+    return Math.ceil(Math.max(...widths))
+  }, [editNoteLabel, viewNoteLabel])
   const editCommitRef = useRef<() => void>(() => onClose())
   const deferredNote = useDeferredValue(note)
   // View-only renders lean on the deferred snapshot so toggling loads does not stutter the dialog content.
@@ -2187,15 +2207,16 @@ export default function NoteDialog({
             <DialogActions>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', width: '100%', justifyContent: 'space-between' }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                  {/* Keep note action buttons aligned to the clear-note height. */}
                   {!hideEditButton ? (
                     // Switch to edit mode without closing the dialog.
                     <Button
                       size="small"
                       variant="outlined"
                       onClick={onRequestEdit}
-                      sx={{ height: SMALL_BUTTON_HEIGHT_PX, minHeight: SMALL_BUTTON_HEIGHT_PX }}
+                      sx={noteModeButtonMinWidth ? { minWidth: noteModeButtonMinWidth } : {}}
                     >
-                      {t('editNote')}
+                      {editNoteLabel}
                     </Button>
                   ) : null}
                   {hasConfigOptionsMarkers ? (
@@ -2206,7 +2227,7 @@ export default function NoteDialog({
                         variant="outlined"
                         endIcon={<ExpandMoreIcon fontSize="small" />}
                         onClick={openViewConfigOptionsMenu}
-                        sx={{ whiteSpace: 'nowrap', px: 1.25, height: SMALL_BUTTON_HEIGHT_PX, minHeight: SMALL_BUTTON_HEIGHT_PX }}
+                        sx={{ whiteSpace: 'nowrap', px: 1.25 }}
                         aria-haspopup="true"
                         aria-controls={viewConfigOptionsMenuOpen ? 'note-config-options-menu-view' : undefined}
                         aria-expanded={viewConfigOptionsMenuOpen ? 'true' : undefined}
@@ -2268,6 +2289,7 @@ export default function NoteDialog({
             configOptionsAnswers={configOptionsAnswers}
             markdownComponents={markdownComponents}
             allowElement={allowMarkdownElement}
+            noteModeButtonMinWidth={noteModeButtonMinWidth}
           />
         )}
       </Dialog>
@@ -2309,6 +2331,7 @@ function NoteEditorContent({
   configOptionsAnswers,
   markdownComponents,
   allowElement,
+  noteModeButtonMinWidth,
 }: {
   note: string
   t: ReturnType<typeof useI18n>['t']
@@ -2331,6 +2354,8 @@ function NoteEditorContent({
   configOptionsAnswers: NoteConfigOptionsAnswers
   markdownComponents: MarkdownComponentMap
   allowElement: MarkdownAllowElement
+  // Match the view/edit button widths to keep the action row stable.
+  noteModeButtonMinWidth: number | undefined
 }) {
   const editWrapRef = useRef<HTMLDivElement | null>(null)
   const editorRef = useRef<RefMDEditor | null>(null)
@@ -2847,11 +2872,13 @@ function NoteEditorContent({
                 sx={warningBadgeSx}
                 badgeContent="!"
               >
-                {/* Match the view-mode edit button styling for symmetry. */}
+                {/* Match the view-mode toggle width so swapping modes doesn't shift layout. */}
                 <Button
+                  size="small"
                   variant="outlined"
                   onClick={commitAndView}
                   disabled={draftIsEmpty}
+                  sx={noteModeButtonMinWidth ? { minWidth: noteModeButtonMinWidth } : {}}
                 >
                   {t('viewNote')}
                 </Button>
@@ -2866,7 +2893,7 @@ function NoteEditorContent({
                 variant="outlined"
                 endIcon={<ExpandMoreIcon fontSize="small" />}
                 onClick={openEditConfigOptionsMenu}
-                sx={{ whiteSpace: 'nowrap', px: 1.25, height: SMALL_BUTTON_HEIGHT_PX, minHeight: SMALL_BUTTON_HEIGHT_PX }}
+                sx={{ whiteSpace: 'nowrap', px: 1.25 }}
                 aria-haspopup="true"
                 aria-controls={editConfigOptionsMenuOpen ? 'note-config-options-menu-edit' : undefined}
                 aria-expanded={editConfigOptionsMenuOpen ? 'true' : undefined}
