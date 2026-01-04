@@ -1,6 +1,17 @@
 ﻿Sellfile Creator Release History
 DISCLAIMER: These release notes are AI generated and might contain incorrect statements.
 
+## v0.9.11 — 2026-01-04
+English:
+- Notes can now host Config Options questions that apply tag-driven overrides at runtime—toggle tagged configs and adjust rank/rarity/level windows — without editing the stored configs.
+- Config tags are now first-class in the builder: tags live beside Export Mode and the name filter also matches tag tokens.
+- Rule Tester sorting adds grouping modes (set+faction, accessories-by-faction, split artifacts/accessories, or flat) with a global substat sort when grouping is custom, and mythic bonus highlights are clearer.
+
+Deutsch:
+- Notizen koennen jetzt Config-Options-Fragen enthalten, die Tags zur Laufzeit auswerten: getaggte Configs werden ein/aus geschaltet und Rank/Rarity/Level werden temporaer ueberschrieben, ohne die gespeicherten Configs zu aendern.
+- Config-Tags sind jetzt fest im Builder verankert: Tags sitzen neben dem Exportmodus, und der Namensfilter findet auch Tag-Tokens.
+- Die Rule-Tester-Sortierung hat neue Gruppierungen (Set+Fraktion, Accessoires nach Fraktion, Split Artefakte/Accessoires oder flach) mit globaler Substat-Sortierung bei Sondergruppen, und Mythisch-Boni sind deutlicher hervorgehoben.
+
 ## v0.9.10 — 2025-12-15
 English:
 - The standalone Gear window is gone: use the header `Logic Hub` button and switch to the `Gear` tab to import your RSL Helper `.db`, add manual test items, and reset the Gear list without leaving the dialog.
