@@ -6,7 +6,7 @@ import { RULE_SOURCE_KEEP_UNIQUES, computeMergedRules } from '../lib/merge'
 import { configsForRuleBuild, countRulesForConfigs } from '../lib/ruleCacheHelpers'
 import { buildRuleMatchIndexData } from '../lib/ruleMatchIndex'
 import { evaluateMatchesByConfig, type EvalResult } from '../lib/ruleEval'
-import { collectKeepUniqueCandidates, computeKeepUniqueProtection, hasActiveKeepUniqueRules, resolveKeepUniqueRuleLabel } from '../lib/keepUniques'
+import { buildIgnoreKeepUniqueConfigIndices, collectKeepUniqueCandidates, computeKeepUniqueProtection, hasActiveKeepUniqueRules, resolveKeepUniqueRuleLabel } from '../lib/keepUniques'
 import type { KeepUniqueDetectionSnapshot } from '../lib/keepUniques'
 import type { NormalizedGearArtifact } from '../lib/importers/gearDbNormalizer'
 import type { HsfRuleWithCfg } from '../lib/merge'
@@ -206,6 +206,7 @@ const buildPipelineMatches = (
   artifactEntries: ReadonlyArray<[number, NormalizedGearArtifact]>,
   configModes: SellfileExportMode[] | undefined,
   baseMatchMap: Map<number, TesterMatchWorkerItemResult> | null,
+  ignoreKeepUniqueConfigIndices: ReadonlySet<number> | null,
   total: number,
   completedRef: { value: number },
   id: number,
@@ -215,7 +216,12 @@ const buildPipelineMatches = (
   const results: TesterMatchWorkerItemResult[] = []
   for (const [itemId, artifact] of artifactEntries) {
     if (!artifact) continue
-    const fullOptions = configModes ? { configModes } : undefined
+    const fullOptions = configModes
+      ? {
+        configModes,
+        ...(ignoreKeepUniqueConfigIndices ? { ignoreKeepUniqueConfigIndices } : {}),
+      }
+      : undefined
     const baseOptions = configModes
       ? { configModes, excludeSources: [RULE_SOURCE_KEEP_UNIQUES] as const }
       : { excludeSources: [RULE_SOURCE_KEEP_UNIQUES] as const }
@@ -358,6 +364,7 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
           missingEntries,
           payload.configModes,
           null,
+          null,
           total,
           baseProgressRef,
           id,
@@ -395,6 +402,8 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
       }
     }
 
+    // Precompute ignored configs so matcher precedence can reuse the set.
+    const ignoreKeepUniqueConfigIndices = buildIgnoreKeepUniqueConfigIndices(configsForRules)
     let detectionSnapshot: KeepUniqueDetectionSnapshot | null = null
     if (needsDetection) {
       const rows = artifactEntries.map(([itemId, artifact]) => {
@@ -411,6 +420,7 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
         rows,
         baseRules: mergedRulesBaseline,
         configModes: payload.configModes,
+        ignoreKeepUniqueConfigIndices,
       })
       detectionSnapshot = computeKeepUniqueProtection({
         candidates: candidates.candidates,
@@ -461,6 +471,7 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
           pendingEntries,
           payload.configModes,
           (needsDetection && baselineMatchMap.size > 0) ? baselineMatchMap : null,
+          ignoreKeepUniqueConfigIndices,
           total,
           pendingProgressRef,
           id,

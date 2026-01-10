@@ -56,6 +56,7 @@ import type { TesterSourceFilter } from '../lib/rulesFilter'
 import { TesterSummaryLabel } from './TesterSummaryLabel'
 import { TesterRuleReferenceChip } from './TesterRuleReferenceChip'
 import { getTesterMatchBorderColor } from './testerMatchStyles'
+import { RULE_SOURCE_KEEP_UNIQUES } from '../lib/merge'
 // MarkdownTooltip unifies the tester’s tooltip behavior (source glyphs, manage colors, etc.) with the rest of the UI.
 import MarkdownTooltip from './MarkdownTooltip'
 import { WithSetTooltip } from './SetTooltip'
@@ -2117,7 +2118,11 @@ const TesterGridCard = React.memo(function TesterGridCard({
     return entries
   }, [cardContentReady, row.matchingCfgIndices, matchingConfigKeepMap, configNames, configTextFallbackColor])
   const shouldShowPrimaryMatchRow = basePrimaryMatchRowVisible
-  const otherMatchingEntries = matchingEntries.slice(1)
+  // Keep-unique primary matches are not tied to a config, so keep all config matches visible.
+  const keepUniquePrimaryMatch = match?.ruleSource === RULE_SOURCE_KEEP_UNIQUES
+  const otherMatchingEntries = keepUniquePrimaryMatch
+    ? matchingEntries
+    : matchingEntries.slice(1)
   const shouldShowOtherMatchesRow = showOtherMatchesRow && otherMatchingEntries.length > 0
   const totalOtherMatches = otherMatchingEntries.length
   const otherMatchingEntriesSignature = useMemo(

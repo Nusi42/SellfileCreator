@@ -84,6 +84,8 @@ type UseTesterMatchOrchestratorParams = {
   keepUniqueBaseRules: HsfRuleWithCfg[]
   // Keep-unique rules resolved with metasets for detection.
   resolvedKeepUniqueRules: KeepUniqueRule[]
+  // Optional config indices to ignore when tallying keep-unique coverage.
+  ignoreKeepUniqueConfigIndices?: ReadonlySet<number>
   // Detection signature so we can guard against redundant rebuilds.
   keepUniqueDetectionSignature: string | null
   // Setter to publish detection updates.
@@ -130,6 +132,8 @@ export function useTesterMatchOrchestrator(params: UseTesterMatchOrchestratorPar
     evaluateTesterMatchItems,
     keepUniquesActive,
     keepUniqueBaseRules,
+    // Forward ignore-tag indices for keep-unique candidate evaluation.
+    ignoreKeepUniqueConfigIndices,
     resolvedKeepUniqueRules,
     keepUniqueDetectionSignature,
     setKeepUniqueDetection,
@@ -453,7 +457,14 @@ export function useTesterMatchOrchestrator(params: UseTesterMatchOrchestratorPar
     const buildRow = (artifact: NormalizedGearArtifact, itemId: number): TesterPreviewRow => {
       // Evaluate full rule set (including keep-unique injections) for the primary match,
       // and a keep-unique-excluded view for baseMatch so detection still sees the baseline.
-      const fullEval = evaluateMatchesByConfig(mergedRules, artifact.testerItem, { configModes })
+      const fullEval = evaluateMatchesByConfig(
+        mergedRules,
+        artifact.testerItem,
+        {
+          configModes,
+          ...(ignoreKeepUniqueConfigIndices ? { ignoreKeepUniqueConfigIndices } : {}),
+        },
+      )
       const baseEval = evaluateMatchesByConfig(
         mergedRules,
         artifact.testerItem,
@@ -506,6 +517,7 @@ export function useTesterMatchOrchestrator(params: UseTesterMatchOrchestratorPar
     configModes,
     evaluateTesterMatchItems,
     keepUniquesActive,
+    ignoreKeepUniqueConfigIndices,
     keepUniqueDetectionSignature,
     keepUniqueScanAppliedRef,
     pendingKeepUniqueDetectionSigRef,
@@ -527,8 +539,10 @@ export function useTesterMatchOrchestrator(params: UseTesterMatchOrchestratorPar
       rows: testerPreviewRows,
       baseRules: keepUniqueBaseRules,
       configModes,
+      // Skip configs tagged to ignore keep-unique coverage.
+      ...(ignoreKeepUniqueConfigIndices ? { ignoreKeepUniqueConfigIndices } : {}),
     })
-  }, [testerPreviewRows, keepUniqueBaseRules, configModes])
+  }, [testerPreviewRows, keepUniqueBaseRules, configModes, ignoreKeepUniqueConfigIndices])
 
   // Keep-unique detection refresh runs when candidates or rules change.
   useEffect(() => {
