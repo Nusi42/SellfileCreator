@@ -46,6 +46,8 @@ const FACTION_PREFIX_BY_ID: Partial<Record<Faction, readonly string[]>> = {
   [Faction.Dwarves]: ['Dwarfs'],
   [Faction.Shadowkin]: ['Shadowkin'],
   [Faction.SylvanWatchers]: ['Sylvan_Watchers'],
+  // Argonites accessory slot icons live under the faction prefix.
+  [Faction.Argonites]: ['Argonites'],
 }
 
 const SET_KEY_CACHE = new Map<number, readonly string[]>()

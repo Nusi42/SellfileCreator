@@ -14,6 +14,8 @@ import knightRevenantIcon from '../../../ico/faction/knight-revenant.webp';
 import dwarvesIcon from '../../../ico/faction/dwarves.webp';
 import shadowkinIcon from '../../../ico/faction/shadowkin.webp';
 import sylvanWatchersIcon from '../../../ico/faction/sylvan-watchers.webp';
+// Argonites faction crest for the new faction enum entry.
+import argonitesIcon from '../../../ico/faction/argonites.webp';
 
 export const FACTION_ICON_MAP: Partial<Record<Faction, string>> = {
   [Faction.BannerLords]: bannerLordsIcon,
@@ -31,6 +33,8 @@ export const FACTION_ICON_MAP: Partial<Record<Faction, string>> = {
   [Faction.Dwarves]: dwarvesIcon,
   [Faction.Shadowkin]: shadowkinIcon,
   [Faction.SylvanWatchers]: sylvanWatchersIcon,
+  // Keep the Argonites icon wired for faction filters and labels.
+  [Faction.Argonites]: argonitesIcon,
 };
 
 export function factionIconUrl(code?: FactionId): string | undefined {
