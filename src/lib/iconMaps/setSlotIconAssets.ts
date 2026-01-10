@@ -269,9 +269,6 @@ import iconMercurialHelmet from '../../../ico/sets/slots/Mercurial_Helmet.webp';
 import iconMercurialRing from '../../../ico/sets/slots/Mercurial_Ring.webp';
 import iconMercurialShield from '../../../ico/sets/slots/Mercurial_Shield.webp';
 import iconMercurialWeapon from '../../../ico/sets/slots/Mercurial_Weapon.webp';
-import iconNyresanElvesBanner from '../../../ico/sets/slots/Nyresan Elves_Banner.webp';
-import iconNyresanElvesRing from '../../../ico/sets/slots/Nyresan Elves_Ring.webp';
-import iconNyresanElvesAmulet from '../../../ico/sets/slots/Nyresan_Elves_Amulet.webp';
 import iconOffenseBoots from '../../../ico/sets/slots/Offense_Boots.webp';
 import iconOffenseChest from '../../../ico/sets/slots/Offense_Chest.webp';
 import iconOffenseGloves from '../../../ico/sets/slots/Offense_Gloves.webp';
@@ -751,9 +748,6 @@ export const SET_SLOT_ASSETS = {
   'Mercurial_Ring': iconMercurialRing,
   'Mercurial_Shield': iconMercurialShield,
   'Mercurial_Weapon': iconMercurialWeapon,
-  'Nyresan Elves_Banner': iconNyresanElvesBanner,
-  'Nyresan Elves_Ring': iconNyresanElvesRing,
-  'Nyresan_Elves_Amulet': iconNyresanElvesAmulet,
   'Offense_Boots': iconOffenseBoots,
   'Offense_Chest': iconOffenseChest,
   'Offense_Gloves': iconOffenseGloves,
