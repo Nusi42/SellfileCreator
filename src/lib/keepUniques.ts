@@ -28,30 +28,10 @@ import type { Metaset } from './metasets'
 import { normalizeConfigName } from './ruleConfigIndex'
 import type { ArtifactSetSelectionEntry } from './gearSets/selection'
 import { normalizeArtifactSetSelections, splitArtifactSetSelections } from './gearSets/selection'
-import { normalizeTagValue } from './tagHelpers'
+import { hasIgnoreKeepUniqueTag } from './tagHelpers'
 
 const RANK_MIN = 1
 const RANK_MAX = 6
-
-// Config tag that marks keep rules as ignorable for keep-unique coverage checks.
-export const KEEP_UNIQUE_IGNORE_TAG = 'ignore_keep_unique'
-
-// Normalize once so tag checks stay consistent with config-tag grammar.
-const KEEP_UNIQUE_IGNORE_TAG_TOKEN = normalizeTagValue(KEEP_UNIQUE_IGNORE_TAG) ?? KEEP_UNIQUE_IGNORE_TAG
-
-const hasIgnoreKeepUniqueTag = (tags: readonly string[] | null | undefined): boolean => {
-  // Skip empty or missing tag lists to keep hot paths tight.
-  if (!Array.isArray(tags) || tags.length === 0) return false
-  // Walk the tags so we can normalize any loose inputs.
-  for (const rawTag of tags) {
-    // Normalize to the same token grammar used elsewhere.
-    const normalized = normalizeTagValue(String(rawTag))
-    // Treat the special tag as a positive match when present.
-    if (normalized === KEEP_UNIQUE_IGNORE_TAG_TOKEN) return true
-  }
-  // No matching tag found in this list.
-  return false
-}
 
 export const buildIgnoreKeepUniqueConfigIndices = (configs: readonly BuilderConfig[]): ReadonlySet<number> => {
   // Track indices so we can skip only tagged configs during detection.
