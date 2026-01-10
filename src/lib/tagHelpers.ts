@@ -28,6 +28,26 @@ export function normalizeTagValue(raw: string): string | null {
   return normalized
 }
 
+// Config tag that marks keep rules as ignorable for keep-unique coverage checks.
+export const KEEP_UNIQUE_IGNORE_TAG = 'ignore_keep_unique'
+
+// Normalize once so tag checks stay consistent with config-tag grammar.
+const KEEP_UNIQUE_IGNORE_TAG_TOKEN = normalizeTagValue(KEEP_UNIQUE_IGNORE_TAG) ?? KEEP_UNIQUE_IGNORE_TAG
+
+export const hasIgnoreKeepUniqueTag = (tags: readonly string[] | null | undefined): boolean => {
+  // Skip empty or missing tag lists to keep hot paths tight.
+  if (!Array.isArray(tags) || tags.length === 0) return false
+  // Walk the tags so we can normalize any loose inputs.
+  for (const rawTag of tags) {
+    // Normalize to the same token grammar used elsewhere.
+    const normalized = normalizeTagValue(String(rawTag))
+    // Treat the special tag as a positive match when present.
+    if (normalized === KEEP_UNIQUE_IGNORE_TAG_TOKEN) return true
+  }
+  // No matching tag found in this list.
+  return false
+}
+
 // Normalize an unknown list into a stable, de-duped tag array.
 export function normalizeTagList(source: unknown): string[] | undefined {
   // Only arrays are considered valid inputs.

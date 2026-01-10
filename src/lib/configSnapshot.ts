@@ -6,6 +6,7 @@ import {
   compareVariants,
 } from './types'
 import { normalizeArtifactSetSelections } from './gearSets/selection'
+import { hasIgnoreKeepUniqueTag } from './tagHelpers'
 
 const IGNORED_KEYS = new Set([
   // Cosmetic metadata never alters the generated rules, so we exclude it from fingerprints.
@@ -165,6 +166,8 @@ export function buildCanonicalConfigSnapshot(cfg: BuilderConfig): BuilderConfigS
   push('artifactSets', sortedSetEntries)
   push('artifactMetaSets', sortStrings(cfg.artifactMetaSets))
   push('earlyKeepMode', cfg.earlyKeepMode === 'late' ? 'late' : 'early')
+  // Keep-unique ignore tags affect match ordering, so include them in fingerprints.
+  push('ignoreKeepUniqueTag', hasIgnoreKeepUniqueTag(cfg.tags))
 
   const knownKeys = new Set(entries.map(([key]) => key))
 
