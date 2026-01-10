@@ -2040,6 +2040,8 @@ export default function NoteDialog({
   // View-only renders lean on the deferred snapshot so toggling loads does not stutter the dialog content.
   const renderNote = mode === 'view' ? deferredNote : note
   const notePending = mode === 'view' && deferredNote !== note
+  // Keep disable-confirm actions visually equal to avoid implying a preferred choice.
+  const disableConfirmButtonProps = { color: 'primary', variant: 'contained' } as const
   // Resolve config markers for embedded config chips.
   const markerResolutions = useMemo(() => buildConfigMarkerResolutions(renderNote ?? '', configs), [renderNote, configs])
   // Resolve keep-unique markers for embedded rule summaries.
@@ -2431,11 +2433,12 @@ export default function NoteDialog({
           <Typography variant="body2">{t('noteConfigOptionsDisableConfirmBody')}</Typography>
         </DialogContent>
         <DialogActions>
-          <Button onClick={closeDisableConfigOptionsDialog}>{t('cancel')}</Button>
-          <Button variant="outlined" onClick={() => handleDisableConfigOptionsConfirm(false)}>
+          {/* Use uniform styling so color does not imply priority. */}
+          <Button {...disableConfirmButtonProps} onClick={closeDisableConfigOptionsDialog}>{t('cancel')}</Button>
+          <Button {...disableConfirmButtonProps} onClick={() => handleDisableConfigOptionsConfirm(false)}>
             {t('noteConfigOptionsDisableConfirmDisable')}
           </Button>
-          <Button variant="contained" onClick={() => handleDisableConfigOptionsConfirm(true)}>
+          <Button {...disableConfirmButtonProps} onClick={() => handleDisableConfigOptionsConfirm(true)}>
             {t('noteConfigOptionsDisableConfirmApply')}
           </Button>
         </DialogActions>
