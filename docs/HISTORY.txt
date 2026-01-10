@@ -1,6 +1,13 @@
 ﻿Sellfile Creator Release History
 DISCLAIMER: These release notes are AI generated and might contain incorrect statements.
 
+## v0.9.12 — 2026-01-10
+English:
+- The Argonites faction is now available in builder faction menus, filters, and gear database imports.
+
+Deutsch:
+- Die Fraktion der Argoniten ist jetzt in Builder-Menues, Filtern und Gear-DB-Importen verfuegbar.
+
 ## v0.9.11 — 2026-01-04
 English:
 - Notes can now host Config Options questions that apply tag-driven overrides at runtime—toggle tagged configs and adjust rank/rarity/level windows — without editing the stored configs.
