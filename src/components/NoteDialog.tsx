@@ -335,7 +335,11 @@ type NoteRenderContextValue = {
   configOptionsResolutions: Map<number, NoteQuestionDefinition>
   configOptionsEditable: boolean
   configOptionsDisabled: boolean
-  onConfigOptionsAnswerChange: (question: NoteQuestionDefinition, nextAnswer: string[]) => void
+  onConfigOptionsAnswerChange: (
+    question: NoteQuestionDefinition,
+    nextAnswer: string[],
+    preferredId?: string,
+  ) => void
 }
 
 const NoteRenderContext = React.createContext<NoteRenderContextValue | null>(null)
@@ -1023,8 +1027,8 @@ const CONFIG_OPTIONS_SAMPLE_EXAMPLE_TEXT = [
   'check "Activate only affects configs with Required Substats 2+" { @minsubstats>=2 { export=active } }',
   'check "Activate only affects configs with Flex turned on" { @flex=on { export=active } }',
   // Explicit id toggles + exclusions.
-  'check "Toggle 1 (explicit id)" id=m1 !3 { @all { export=disabled } }',
-  'check "Toggle 2 (explicit id)" id=m2 !3 { @all { export=active } }',
+  'check "Toggle 1 (explicit id)" id=m1 !14 { @all { export=disabled } }',
+  'check "Toggle 2 (explicit id)" id=m2 !14 { @all { export=active } }',
   'check "Toggle 3 (implicit #3, excludes 1+2)" !m2 !m1 { @all { export=active } }',
   // Rule overrides for export inputs.
   'check "Set Rank to 5" { @all { rank=5 } }',
@@ -1375,8 +1379,8 @@ function NoteQuestionBlock({ node }: NoteQuestionBlockProps): JSX.Element | null
   const selected = Array.isArray(question.answer) ? question.answer : []
   const selectedSet = new Set<string>(selected)
   // Wrap answer updates so callers can track changes.
-  const applyAnswer = (next: string[]) => {
-    onConfigOptionsAnswerChange(question, next)
+  const applyAnswer = (next: string[], preferredId?: string) => {
+    onConfigOptionsAnswerChange(question, next, preferredId)
   }
   // Shared sizing keeps question cards in lockstep with keep-unique cards.
   const { flexBasis, minWidth, maxWidth } = getNoteCardWidthStyles('note')
@@ -1455,7 +1459,7 @@ function NoteQuestionBlock({ node }: NoteQuestionBlockProps): JSX.Element | null
                       if (value) next.add(value)
                       // Apply exclusions so mutual rules stay enforced.
                       const ordered = applyQuestionExclusions(Array.from(next), question.options, value || undefined)
-                      applyAnswer(ordered)
+                      applyAnswer(ordered, value || undefined)
                     }}
                     sx={{ gap: 0.25 }}
                   >
@@ -1496,7 +1500,7 @@ function NoteQuestionBlock({ node }: NoteQuestionBlockProps): JSX.Element | null
                             // Apply exclusions so mutual rules stay enforced.
                             const preferred = event.target.checked ? option.id : undefined
                             const ordered = applyQuestionExclusions(Array.from(next), question.options, preferred)
-                            applyAnswer(ordered)
+                            applyAnswer(ordered, preferred)
                           }}
                         />
                       )}
@@ -2128,6 +2132,7 @@ export default function NoteDialog({
   const handleConfigOptionsAnswerChange = React.useCallback((
     question: NoteQuestionDefinition,
     nextSelection: string[],
+    preferredId?: string,
   ) => {
     // Normalize to sets for default comparisons.
     const defaultSet = new Set(question.defaultAnswer)
@@ -2143,13 +2148,30 @@ export default function NoteDialog({
       // Default selections are omitted from storage.
       if (matchesDefault) {
         delete next[question.id]
-        return next
+      } else {
+        // Persist non-default answers, including explicit empties.
+        next[question.id] = orderedSelection
       }
-      // Persist non-default answers.
-      next[question.id] = orderedSelection
-      return next
+      // Re-resolve to enforce global exclusions with the preferred option.
+      const { questions } = resolveConfigOptionsTags(renderNote ?? '', next, preferredId)
+      const normalized: NoteConfigOptionsAnswers = {}
+      questions.forEach((resolved) => {
+        // Compare resolved answers against defaults to keep storage lean.
+        const resolvedDefaultSet = new Set(resolved.defaultAnswer)
+        const resolvedSet = new Set(resolved.answer)
+        const resolvedSameSize = resolvedDefaultSet.size === resolvedSet.size
+        const resolvedMatchesDefault = resolvedSameSize
+          && Array.from(resolvedDefaultSet).every((id) => resolvedSet.has(id))
+        if (resolvedMatchesDefault) return
+        // Keep storage order aligned with the option definition.
+        const resolvedOrdered = resolved.options
+          .filter((option) => resolvedSet.has(option.id))
+          .map((option) => option.id)
+        normalized[resolved.id] = resolvedOrdered
+      })
+      return normalized
     })
-  }, [onConfigOptionsAnswersChange])
+  }, [onConfigOptionsAnswersChange, renderNote])
   const contextValue = useMemo<NoteRenderContextValue>(
     () => ({
       configs,
@@ -2561,7 +2583,11 @@ function NoteEditorContent({
     onOpenDisableConfigOptionsDialog,
   ])
   // Ignore answer updates in edit mode so markers stay read-only.
-  const ignoreConfigOptionsAnswerChange = React.useCallback(() => {}, [])
+  const ignoreConfigOptionsAnswerChange = React.useCallback((
+    _question: NoteQuestionDefinition,
+    _nextAnswer: string[],
+    _preferredId?: string,
+  ) => {}, [])
   const editorContextValue = useMemo<NoteRenderContextValue>(
     () => ({
       ...baseContext,

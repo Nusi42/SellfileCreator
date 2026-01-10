@@ -839,14 +839,24 @@ const parseOperations = (cursor: TokenCursor, endSymbol: string): ConfigOptionsO
 
 type ParsedQuestionOption = {
   id: string
+  legacyId: string
   label: string
   blocks: ConfigOptionsSelectorBlock[]
   fallbackBlocks: ConfigOptionsSelectorBlock[]
   isDefault: boolean
   explicitToken: string | null
+  implicitToken: string | null
   excludedTokens: string[]
   onlyTokens: string[]
   groupType: NoteQuestionGroupType
+}
+
+// Parsed question content before tokens/exclusions are resolved globally.
+type ParsedQuestionDefinition = {
+  prompt: string
+  questionId: string
+  options: ParsedQuestionOption[]
+  fallback: NoteQuestionFallback | null
 }
 
 // Parse a single selector block after a leading "@".
@@ -1030,17 +1040,38 @@ const parseOptionBlock = (
   const { blocks, fallbackBlocks } = parseGroupBlocks(cursor)
   const baseLabel = normalizeQuestionText(label).toLowerCase()
   const id = baseLabel ? `${baseLabel}#${optionIndex}` : `option-${optionIndex}`
+  // Build the implicit token so numeric references stay stable.
+  const implicitToken = normalizeQuestionToken(String(optionIndex + 1))
   return {
     id,
+    legacyId: id,
     label,
     blocks,
     fallbackBlocks,
     isDefault,
     explicitToken,
+    implicitToken,
     excludedTokens,
     onlyTokens,
     groupType,
   }
+}
+
+// Build a stable question id from prompt + option labels/group types.
+const buildQuestionKey = (
+  prompt: string,
+  options: Array<{ label: string; groupType: NoteQuestionGroupType }>,
+): string => {
+  // Normalize text so spacing tweaks keep IDs stable.
+  const key = {
+    prompt: normalizeQuestionText(prompt),
+    options: options.map((opt) => ({
+      label: normalizeQuestionText(opt.label),
+      group: opt.groupType,
+    })),
+  }
+  // Hash the normalized payload to keep IDs compact.
+  return `q_${hashString(JSON.stringify(key))}`
 }
 
 const readTokenList = (cursor: TokenCursor, sink: string[]): void => {
@@ -1061,7 +1092,7 @@ const readTokenList = (cursor: TokenCursor, sink: string[]): void => {
   }
 }
 
-const parseQuestionMarker = (inner: string): Omit<NoteQuestionDefinition, 'index' | 'answer'> | null => {
+const parseQuestionMarker = (inner: string): ParsedQuestionDefinition | null => {
   const tokens = tokenizeConfigOptions(inner)
   const cursor = new TokenCursor(tokens)
   if (!cursor.consumeWord('config-options')) return null
@@ -1102,33 +1133,171 @@ const parseQuestionMarker = (inner: string): Omit<NoteQuestionDefinition, 'index
     parsedOptions.push(parsed)
   }
   if (parsedOptions.length === 0) return null
+  // Compute a stable question id before scoping option ids.
+  const questionId = buildQuestionKey(
+    prompt,
+    parsedOptions.map((option) => ({ label: option.label, groupType: option.groupType })),
+  )
+  // Scope option ids to the question so cross-question exclusions stay unique.
+  parsedOptions.forEach((option, index) => {
+    // Normalize the label so ids remain predictable for answer restores.
+    const baseLabel = normalizeQuestionText(option.label).toLowerCase()
+    // Prefix the per-question token to prevent collisions across markers.
+    option.id = baseLabel ? `${questionId}:${baseLabel}#${index}` : `${questionId}:option-${index}`
+  })
+  // Expand "only" constraints into explicit exclusions for this question.
+  parsedOptions.forEach((option) => {
+    // Skip options that did not declare any "only" constraints.
+    if (option.onlyTokens.length === 0) return
+    // Track excluded tokens to avoid duplicates while preserving order.
+    const seen = new Set(option.excludedTokens)
+    // Compare against every option token in the same question.
+    parsedOptions.forEach((candidate) => {
+      const candidateToken = candidate.explicitToken ?? candidate.implicitToken ?? ''
+      // Ignore candidates without tokens to keep ordering stable.
+      if (!candidateToken) return
+      // Preserve explicit allow-list items without excluding them.
+      if (option.onlyTokens.includes(candidateToken)) return
+      // Skip tokens already marked for exclusion.
+      if (seen.has(candidateToken)) return
+      // Add the missing token so constraints stay question-scoped.
+      seen.add(candidateToken)
+      option.excludedTokens.push(candidateToken)
+    })
+  })
+  // Return the parsed question for global token resolution later.
+  return {
+    prompt,
+    questionId,
+    options: parsedOptions,
+    fallback: fallbackBlocks ? { blocks: fallbackBlocks } : null,
+  }
+}
+
+// Parsed marker + index pairing so global IDs can resolve consistently.
+type ParsedQuestionEntry = {
+  index: number
+  question: ParsedQuestionDefinition
+}
+
+// Build a global map of explicit tokens to option IDs (first mention wins).
+const buildGlobalExplicitTokenMap = (entries: ParsedQuestionEntry[]): Map<string, string> => {
+  // Preserve the first occurrence so duplicate IDs are deterministic.
   const tokenToId = new Map<string, string>()
-  parsedOptions.forEach((option, idx) => {
-    const implicitToken = normalizeQuestionToken(String(idx + 1))
-    const token = option.explicitToken ?? implicitToken ?? ''
+  entries.forEach((entry) => {
+    // Scan options in note order so resolution is stable.
+    entry.question.options.forEach((option) => {
+      const token = option.explicitToken
+      // Ignore options without explicit IDs.
+      if (!token) return
+      // Keep the earliest option for each token.
+      if (!tokenToId.has(token)) tokenToId.set(token, option.id)
+    })
+  })
+  return tokenToId
+}
+
+// Build a question-scoped map of implicit numeric tokens to option IDs.
+const buildQuestionImplicitTokenMap = (options: ParsedQuestionOption[]): Map<string, string> => {
+  // Preserve the first occurrence so local indices stay stable.
+  const tokenToId = new Map<string, string>()
+  options.forEach((option) => {
+    const token = option.implicitToken
+    // Skip options that did not produce a numeric token.
     if (!token) return
+    // Keep the earliest option for each token.
     if (!tokenToId.has(token)) tokenToId.set(token, option.id)
   })
-  const options: NoteQuestionOption[] = []
+  return tokenToId
+}
+
+// Resolve a constraint token using global explicit IDs first, then local numeric tokens.
+const resolveConstraintToken = (
+  token: string,
+  globalExplicitTokenMap: Map<string, string>,
+  implicitTokenMap: Map<string, string>,
+): string | null => (
+  globalExplicitTokenMap.get(token) ?? implicitTokenMap.get(token) ?? null
+)
+
+// Convert constraint tokens to option IDs with stable ordering and de-duping.
+const resolveExcludedOptionIds = (
+  tokens: string[],
+  globalExplicitTokenMap: Map<string, string>,
+  implicitTokenMap: Map<string, string>,
+): string[] => {
+  // Track seen IDs so the output list stays unique.
+  const seen = new Set<string>()
+  // Accumulate resolved IDs in token order for deterministic exclusions.
+  const resolved: string[] = []
+  tokens.forEach((token) => {
+    const resolvedId = resolveConstraintToken(token, globalExplicitTokenMap, implicitTokenMap)
+    // Skip tokens that do not resolve to any option.
+    if (!resolvedId) return
+    // Avoid inserting duplicate IDs to keep exclusion order stable.
+    if (seen.has(resolvedId)) return
+    // Capture the resolved ID and remember it.
+    seen.add(resolvedId)
+    resolved.push(resolvedId)
+  })
+  return resolved
+}
+
+// Build group metadata using resolved options plus parsed fallback blocks.
+const buildQuestionGroups = (
+  parsedOptions: ParsedQuestionOption[],
+  resolvedOptionsById: Map<string, NoteQuestionOption>,
+): NoteQuestionGroup[] => {
+  // Track groups by type so order stays consistent with the source.
   const groupMap = new Map<NoteQuestionGroupType, NoteQuestionGroup>()
+  // Preserve first-seen order so rendering stays stable.
   const groupOrder: NoteQuestionGroup[] = []
-  parsedOptions.forEach((option, idx) => {
-    const implicitToken = normalizeQuestionToken(String(idx + 1))
-    const token = option.explicitToken ?? implicitToken ?? ''
-    const onlyTokens = option.onlyTokens
-    const excludedTokens = option.excludedTokens.slice()
-    if (onlyTokens.length > 0) {
-      parsedOptions.forEach((candidate, candidateIdx) => {
-        const candidateToken = candidate.explicitToken ?? normalizeQuestionToken(String(candidateIdx + 1)) ?? ''
-        if (!candidateToken) return
-        if (onlyTokens.includes(candidateToken)) return
-        excludedTokens.push(candidateToken)
-      })
+  parsedOptions.forEach((parsedOption) => {
+    // Lookup the resolved option to attach to the group.
+    const resolved = resolvedOptionsById.get(parsedOption.id)
+    if (!resolved) return
+    // Lazily initialize the group entry when first encountered.
+    let group = groupMap.get(resolved.groupType)
+    if (!group) {
+      // Seed the group with a stable id and empty fallback.
+      group = { id: resolved.groupType, type: resolved.groupType, options: [], fallback: null }
+      groupMap.set(resolved.groupType, group)
+      groupOrder.push(group)
     }
-    const excludedOptionIds = excludedTokens
-      .map((tokenValue) => tokenToId.get(tokenValue))
-      .filter((id): id is string => Boolean(id))
-    const resolved: NoteQuestionOption = {
+    // Accumulate group-level fallback blocks in source order.
+    if (parsedOption.fallbackBlocks.length > 0) {
+      // Initialize fallback storage for this group if needed.
+      const fallback = group.fallback ?? { blocks: [] }
+      // Append the parsed group fallback blocks in source order.
+      fallback.blocks.push(...parsedOption.fallbackBlocks)
+      // Only keep the fallback when at least one block exists.
+      group.fallback = fallback.blocks.length > 0 ? fallback : null
+    }
+    group.options.push(resolved)
+  })
+  return groupOrder
+}
+
+// Resolve a parsed question into a fully-typed question definition.
+const buildResolvedQuestion = (
+  entry: ParsedQuestionEntry,
+  answers: NoteConfigOptionsAnswers | null | undefined,
+  globalExplicitTokenMap: Map<string, string>,
+): NoteQuestionDefinition => {
+  const { question, index } = entry
+  // Build the implicit numeric token map for this question.
+  const implicitTokenMap = buildQuestionImplicitTokenMap(question.options)
+  // Resolve the options with globally-scoped exclusions.
+  const options = question.options.map((option) => {
+    // Prefer explicit tokens for display, else fall back to the implicit index.
+    const token = option.explicitToken ?? option.implicitToken ?? ''
+    // Resolve exclusion tokens using global explicit IDs.
+    const excludedOptionIds = resolveExcludedOptionIds(
+      option.excludedTokens,
+      globalExplicitTokenMap,
+      implicitTokenMap,
+    )
+    return {
       id: option.id,
       label: option.label,
       blocks: option.blocks,
@@ -1137,27 +1306,14 @@ const parseQuestionMarker = (inner: string): Omit<NoteQuestionDefinition, 'index
       excludedOptionIds,
       groupType: option.groupType,
     }
-    options.push(resolved)
-    let group = groupMap.get(option.groupType)
-    if (!group) {
-      // Seed the group with a stable id and empty fallback.
-      group = { id: option.groupType, type: option.groupType, options: [], fallback: null }
-      groupMap.set(option.groupType, group)
-      groupOrder.push(group)
-    }
-    // Accumulate group-level fallback blocks in source order.
-    if (option.fallbackBlocks.length > 0) {
-      // Initialize fallback storage for this group if needed.
-      const fallback = group.fallback ?? { blocks: [] }
-      // Append the parsed group fallback blocks in source order.
-      fallback.blocks.push(...option.fallbackBlocks)
-      // Only keep the fallback when at least one block exists.
-      group.fallback = fallback.blocks.length > 0 ? fallback : null
-    }
-    group.options.push(resolved)
   })
+  // Index options by id for group assembly.
+  const resolvedOptionsById = new Map(options.map((option) => [option.id, option]))
+  // Build group ordering and fallback metadata.
+  const groups = buildQuestionGroups(question.options, resolvedOptionsById)
+  // Gather default selections for each group.
   const defaultAnswer: string[] = []
-  groupOrder.forEach((group) => {
+  groups.forEach((group) => {
     if (group.type === 'single') {
       const firstDefault = group.options.find((opt) => opt.isDefault)
       if (firstDefault) defaultAnswer.push(firstDefault.id)
@@ -1167,15 +1323,133 @@ const parseQuestionMarker = (inner: string): Omit<NoteQuestionDefinition, 'index
       if (opt.isDefault) defaultAnswer.push(opt.id)
     })
   })
-  const id = buildQuestionId(prompt, options)
+  // Build a stable ID per question from prompt + options.
+  const id = question.questionId
+  // Apply stored answers when available.
+  const storedAnswer = answers ? answers[id] : undefined
+  // Map legacy option ids to scoped ids so old answers survive.
+  const legacyMap = new Map<string, string>()
+  question.options.forEach((option) => {
+    // Skip options without a legacy id.
+    if (!option.legacyId) return
+    // Preserve the first mapping to keep migration deterministic.
+    if (!legacyMap.has(option.legacyId)) legacyMap.set(option.legacyId, option.id)
+  })
+  // Translate legacy ids before resolving the final selection.
+  const migratedAnswer = Array.isArray(storedAnswer)
+    ? storedAnswer.map((entry) => legacyMap.get(entry) ?? entry)
+    : storedAnswer
+  const answer = resolveQuestionAnswer({ groups, options, defaultAnswer }, migratedAnswer)
   return {
     id,
-    prompt,
-    groups: groupOrder,
+    index,
+    prompt: question.prompt,
+    groups,
     options,
-    fallback: fallbackBlocks ? { blocks: fallbackBlocks } : null,
+    fallback: question.fallback,
     defaultAnswer,
+    answer,
   }
+}
+
+// Build a lookup of option exclusions for quick compatibility checks.
+const buildOptionExclusionLookup = (
+  options: NoteQuestionOption[],
+): Map<string, Set<string>> => {
+  // Track exclusions by option id for stable resolution.
+  const exclusions = new Map<string, Set<string>>()
+  options.forEach((option) => {
+    // Copy the exclusion ids so callers cannot mutate source arrays.
+    exclusions.set(option.id, new Set(option.excludedOptionIds))
+  })
+  return exclusions
+}
+
+// Determine whether a candidate can join the current selection safely.
+const isOptionCompatibleWithSelection = (
+  candidateId: string,
+  selection: Set<string>,
+  exclusions: Map<string, Set<string>>,
+): boolean => {
+  // Read the candidate's exclusions once to avoid repeated lookups.
+  const candidateExclusions = exclusions.get(candidateId) ?? new Set()
+  for (const selectedId of selection) {
+    // Respect exclusions declared on existing selections.
+    const selectedExclusions = exclusions.get(selectedId) ?? new Set()
+    if (selectedExclusions.has(candidateId)) return false
+    // Respect exclusions declared on the candidate itself.
+    if (candidateExclusions.has(selectedId)) return false
+  }
+  return true
+}
+
+// Pick a fallback option for a single-select group when it is empty.
+const pickSingleGroupFallback = (
+  group: NoteQuestionGroup,
+  selection: Set<string>,
+  exclusions: Map<string, Set<string>>,
+): string | null => {
+  // Prefer the default option when it stays compatible.
+  const preferred = group.options.find((option) => option.isDefault) ?? null
+  const ordered = preferred
+    ? [preferred, ...group.options.filter((option) => option.id !== preferred.id)]
+    : group.options
+  for (const option of ordered) {
+    // Skip candidates that would violate exclusion constraints.
+    if (!isOptionCompatibleWithSelection(option.id, selection, exclusions)) continue
+    return option.id
+  }
+  return null
+}
+
+// Fill missing single-select answers without recursion or cascading removals.
+const applySingleGroupFallbackSelections = (
+  selection: string[],
+  groups: NoteQuestionGroup[],
+  options: NoteQuestionOption[],
+): string[] => {
+  // Reuse the shared exclusion lookup for compatibility checks.
+  const exclusions = buildOptionExclusionLookup(options)
+  // Use a working set so inserts are cheap.
+  const next = new Set(selection)
+  groups.forEach((group) => {
+    if (group.type !== 'single') return
+    // Skip groups that already have a selection.
+    const hasSelection = group.options.some((option) => next.has(option.id))
+    if (hasSelection) return
+    // Choose the first compatible fallback candidate.
+    const fallbackId = pickSingleGroupFallback(group, next, exclusions)
+    if (!fallbackId) return
+    next.add(fallbackId)
+  })
+  // Preserve the original option ordering in the output list.
+  return options.filter((option) => next.has(option.id)).map((option) => option.id)
+}
+
+// Apply exclusions across the full note to support global IDs.
+const applyGlobalOptionExclusions = (
+  questions: NoteQuestionDefinition[],
+  preferredId?: string,
+): NoteQuestionDefinition[] => {
+  // Flatten option ordering so conflicts resolve deterministically.
+  const allOptions = questions.flatMap((question) => question.options)
+  // Collect the currently selected option IDs.
+  const selected = questions.flatMap((question) => question.answer)
+  // Resolve exclusions using the global option ordering.
+  const resolved = applyQuestionExclusions(selected, allOptions, preferredId)
+  // Fill single-select gaps without introducing new conflicts.
+  const filled = questions.reduce((current, question) => (
+    applySingleGroupFallbackSelections(current, question.groups, allOptions)
+  ), resolved)
+  // Cache the resolved selection for cheap lookups.
+  const resolvedSet = new Set(filled)
+  // Update each question with the globally-resolved selection.
+  return questions.map((question) => ({
+    ...question,
+    answer: question.options
+      .filter((option) => resolvedSet.has(option.id))
+      .map((option) => option.id),
+  }))
 }
 
 // Apply exclusions so mutually exclusive options cannot co-exist.
@@ -1187,10 +1461,7 @@ export const applyQuestionExclusions = (
   // Use a working set so deletes are cheap.
   const next = new Set(selection)
   // Build a quick lookup for exclusion lists.
-  const exclusions = new Map<string, Set<string>>()
-  options.forEach((option) => {
-    exclusions.set(option.id, new Set(option.excludedOptionIds))
-  })
+  const exclusions = buildOptionExclusionLookup(options)
   // Ensure the preferred option wins over exclusions.
   if (preferredId && next.has(preferredId)) {
     const blocked = exclusions.get(preferredId) ?? new Set()
@@ -1250,33 +1521,22 @@ const resolveQuestionAnswer = (
       .filter((id) => group.options.some((opt) => opt.id === id))
       .forEach((id) => next.push(id))
   })
-  // Enforce any exclusion rules before returning.
-  return applyQuestionExclusions(next, question.options)
-}
-
-// Build a stable ID per question from its prompt and option labels.
-const buildQuestionId = (prompt: string, options: NoteQuestionOption[]): string => {
-  // Normalize text so spacing tweaks keep IDs stable.
-  const key = {
-    prompt: normalizeQuestionText(prompt),
-    options: options.map((opt) => ({
-      label: normalizeQuestionText(opt.label),
-      group: opt.groupType,
-    })),
-  }
-  // Hash the normalized payload to keep IDs compact.
-  return `q_${hashString(JSON.stringify(key))}`
+  // Enforce exclusion rules before repairing single-select gaps.
+  const resolved = applyQuestionExclusions(next, question.options)
+  // Ensure single-select groups stay populated when excluded.
+  return applySingleGroupFallbackSelections(resolved, question.groups, question.options)
 }
 
 // Parse config options markers from note text.
 export const parseNoteConfigOptions = (
   note: string,
   answers?: NoteConfigOptionsAnswers | null,
+  preferredId?: string,
 ): NoteQuestionDefinition[] => {
   // Short-circuit when no note is present.
   if (!note) return []
-  // Collect question definitions in order.
-  const result: NoteQuestionDefinition[] = []
+  // Collect parsed questions in note order for global resolution.
+  const parsedEntries: ParsedQuestionEntry[] = []
   // Reset regex state to avoid cross-call leakage.
   QUESTION_MARKER_REGEX.lastIndex = 0
   // Track the marker index for stable mapping.
@@ -1294,18 +1554,18 @@ export const parseNoteConfigOptions = (
       markerIndex += 1
       continue
     }
-    // Apply stored answers when available.
-    const storedAnswer = answers ? answers[parsed.id] : undefined
-    const answer = resolveQuestionAnswer(parsed, storedAnswer)
-    result.push({
-      ...parsed,
-      index: markerIndex,
-      answer,
-    })
+    // Preserve the parsed question alongside its marker index.
+    parsedEntries.push({ index: markerIndex, question: parsed })
     markerIndex += 1
   }
-  // Preserve marker order as parsed.
-  return result
+  // Build the global explicit-token map before resolving options.
+  const globalExplicitTokenMap = buildGlobalExplicitTokenMap(parsedEntries)
+  // Resolve each parsed question into a fully-typed definition.
+  const resolved = parsedEntries.map((entry) => (
+    buildResolvedQuestion(entry, answers, globalExplicitTokenMap)
+  ))
+  // Apply global exclusions so cross-question constraints take effect.
+  return applyGlobalOptionExclusions(resolved, preferredId)
 }
 
 // Build a stable signature for the config options section of a note.
@@ -1397,8 +1657,9 @@ export const normalizeNoteConfigOptionsAnswers = (
 export const resolveConfigOptionsTags = (
   note: string,
   answers?: NoteConfigOptionsAnswers | null,
+  preferredId?: string,
 ): ConfigOptionsResolution => {
-  const questions = parseNoteConfigOptions(note, answers)
+  const questions = parseNoteConfigOptions(note, answers, preferredId)
   const instructions: ConfigOptionsInstructions = []
   for (const question of questions) {
     const selected = new Set(question.answer)
