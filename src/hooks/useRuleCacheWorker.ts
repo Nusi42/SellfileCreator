@@ -11,7 +11,7 @@ import type { HsfFile } from '../lib/hsfTypes'
 import type { FinalSellRemainderConfig } from '../lib/finalSell'
 import { buildRuleMatchIndexData, primeRuleMatchIndex } from '../lib/ruleMatchIndex'
 import type { RuleMatchIndexData } from '../lib/ruleMatchIndex'
-import { collectKeepUniqueCandidates, computeKeepUniqueProtection, hasActiveKeepUniqueRules, resolveKeepUniqueRuleLabel, type KeepUniqueDetectionSnapshot, type KeepUniquesMergeInput } from '../lib/keepUniques'
+import { buildIgnoreKeepUniqueConfigIndices, collectKeepUniqueCandidates, computeKeepUniqueProtection, hasActiveKeepUniqueRules, resolveKeepUniqueRuleLabel, type KeepUniqueDetectionSnapshot, type KeepUniquesMergeInput } from '../lib/keepUniques'
 import type { NormalizedGearArtifact } from '../lib/importers/gearDbNormalizer'
 import { evaluateMatchesByConfig } from '../lib/ruleEval'
 import type { TesterMatchWorkerItemResult } from '../workers/testerMatchWorkerTypes'
@@ -259,6 +259,8 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
     const baseKeepUniques = hasActiveKeepUniques
       ? { ...params.keepUniques, detection: null }
       : params.keepUniques
+    // Precompute ignore-tag indices so matcher precedence can reuse them.
+    const ignoreKeepUniqueConfigIndices = buildIgnoreKeepUniqueConfigIndices(configsForRules)
     const mergedRulesBaseline = computeMergedRules({
       hsf: params.hsf,
       customCfgs: configsForRules,
@@ -328,6 +330,7 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
         rows,
         baseRules: mergedRulesBaseline,
         configModes: params.configModes,
+        ignoreKeepUniqueConfigIndices,
       })
       detectionSnapshot = computeKeepUniqueProtection({
         candidates: candidates.candidates,
@@ -354,7 +357,11 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
         if (!artifact) continue
         const itemId = Number((artifact.testerItem as { itemId?: number } | undefined)?.itemId ?? NaN)
         if (!Number.isFinite(itemId)) continue
-        const fullEval = evaluateMatchesByConfig(mergedRulesFinal, artifact.testerItem, { configModes: params.configModes })
+        const fullEval = evaluateMatchesByConfig(
+          mergedRulesFinal,
+          artifact.testerItem,
+          { configModes: params.configModes, ignoreKeepUniqueConfigIndices },
+        )
         const baseEval = baselineMatchMap.get(itemId)
           ?? evaluateMatchesByConfig(
             mergedRulesFinal,

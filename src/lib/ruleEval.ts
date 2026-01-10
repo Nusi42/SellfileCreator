@@ -192,6 +192,8 @@ export function evaluateFirst(rules: HsfRuleWithCfg[], item: TestItem): EvalResu
 export type EvalMatchesByConfigOptions = {
   configModes?: SellfileExportMode[]
   excludeSources?: readonly string[]
+  excludeConfigIndices?: ReadonlySet<number>
+  ignoreKeepUniqueConfigIndices?: ReadonlySet<number>
 }
 
 export type MatchingConfigDecision = { cfgIdx: number; keep: boolean }
@@ -211,11 +213,22 @@ export function evaluateMatchesByConfig(
 ): EvalMatchesByConfigResult {
   const configModes = options?.configModes
   const excludeSources = options?.excludeSources ?? null
+  // Optional config index blocklist for scoped rule evaluation.
+  const excludeConfigIndices = options?.excludeConfigIndices ?? null
+  // Optional config indices that should not block keep-unique precedence.
+  const ignoreKeepUniqueConfigIndices = options?.ignoreKeepUniqueConfigIndices ?? null
   const excludeSourceSet = excludeSources && excludeSources.length > 0
     ? new Set(excludeSources)
     : null
+  const isKeepUniqueIgnoredConfig = (cfgIdx: number | null): boolean => (
+    cfgIdx != null && ignoreKeepUniqueConfigIndices?.has(cfgIdx) === true
+  )
   const shouldIncludeConfig = (cfgIdx: number | null): boolean => {
+    // Skip configs that are explicitly excluded by index.
+    if (cfgIdx != null && excludeConfigIndices && excludeConfigIndices.has(cfgIdx)) return false
+    // Allow unknown configs when no export-mode filter exists.
     if (cfgIdx == null || !Array.isArray(configModes)) return true
+    // Enforce export-mode visibility for builder configs.
     const mode = configModes[cfgIdx]
     return mode !== 'disabled' && mode !== 'separator'
   }
@@ -262,8 +275,10 @@ export function evaluateMatchesByConfig(
       if (!fallbackKeepUnique && !isExcluded) fallbackKeepUnique = match
       if (!anyKeepUniqueMatch && !isExcluded) anyKeepUniqueMatch = match
     } else {
+      // Ignore keep-unique-ignored configs when deciding if keep-unique can win.
+      const isIgnoredForKeepUnique = isKeepUniqueIgnoredConfig(cfgIdx)
       // Track whether any non-keep-unique KEEP rule matched; keep-unique should not override those.
-      if (keep && !isExcluded) nonKeepUniqueKeepMatched = true
+      if (keep && !isExcluded && !isIgnoredForKeepUnique) nonKeepUniqueKeepMatched = true
       // Only record firstMatch when the source is not excluded.
       if (!firstMatch && !isExcluded) firstMatch = match
       if (!isExcluded && !firstNonExcludedMatch) firstNonExcludedMatch = match
@@ -277,7 +292,11 @@ export function evaluateMatchesByConfig(
     return true
   })
   // If nothing else matched, fall back to keep-unique (only when no other KEEP rule matched).
-  const firstMatchIsKeep = firstMatch != null && (firstMatch as NonNullable<EvalResult>).keep === true
+  const firstMatchIsKeep = Boolean(
+    firstMatch
+    && (firstMatch as NonNullable<EvalResult>).keep === true
+    && !isKeepUniqueIgnoredConfig((firstMatch as NonNullable<EvalResult>).cfgIdx ?? null),
+  )
   const allowKeepUnique = !nonKeepUniqueKeepMatched && !firstMatchIsKeep
   if (allowKeepUnique) {
     const keepCandidate = pendingKeepUnique ?? fallbackKeepUnique ?? anyKeepUniqueMatch ?? prekeepUnique
