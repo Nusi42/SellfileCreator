@@ -18,14 +18,27 @@ export function SetIcon({ setId, label, size = SET_ICON_PX, sx }: { setId: Artif
   const alt = label ?? artifactSetName(setId)
   const showFallback = !src || failedSrc === src
   const normalizedUserSx = Array.isArray(sx) ? sx : sx ? [sx] : []
+  // Keep a square layout footprint so menus stay aligned.
   const baseSx: SxProps = {
+    // Fixed square footprint keeps menu rows aligned across sizes.
     width: size,
     height: size,
+    // Align baseline with adjacent text in chips/menus.
     verticalAlign: 'middle',
+    // Preserve the established spacing contract between icon + label.
     mr: 0.75,
+    // Match the soft rounding used for other icon frames.
     borderRadius: 0.5,
+    // Prevent accidental text selection or drag in menus.
     userSelect: 'none',
     WebkitUserDrag: 'none',
+  }
+  // Preserve non-square icon proportions inside the square frame.
+  const imageSx: SxProps = {
+    // Contain keeps new rectangular assets from stretching.
+    objectFit: 'contain',
+    // Center the artwork when letterboxing is needed.
+    objectPosition: 'center',
   }
   if (showFallback) {
     const badgeLabel = String(setId ?? '')
@@ -66,7 +79,7 @@ export function SetIcon({ setId, label, size = SET_ICON_PX, sx }: { setId: Artif
       draggable={false}
       onDragStart={(event: React.DragEvent) => { event.preventDefault(); event.stopPropagation() }}
       onError={() => { setFailedSrc(src ?? null) }}
-      sx={[baseSx, { display: 'inline-block' }, ...normalizedUserSx]}
+      sx={[baseSx, imageSx, { display: 'inline-block' }, ...normalizedUserSx]}
     />
   )
 }
