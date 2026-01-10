@@ -314,9 +314,6 @@ import iconProvokeGloves from '../../../ico/sets/slots/Provoke_Gloves.webp';
 import iconProvokeHelmet from '../../../ico/sets/slots/Provoke_Helmet.webp';
 import iconProvokeShield from '../../../ico/sets/slots/Provoke_Shield.webp';
 import iconProvokeWeapon from '../../../ico/sets/slots/Provoke_Weapon.webp';
-import iconRathalosAmulet from '../../../ico/sets/slots/Rathalos_Amulet.webp';
-import iconRathalosBanner from '../../../ico/sets/slots/Rathalos_Banner.webp';
-import iconRathalosRing from '../../../ico/sets/slots/Rathalos_Ring.webp';
 import iconReactionAmulet from '../../../ico/sets/slots/Reaction_Amulet.webp';
 import iconReactionBanner from '../../../ico/sets/slots/Reaction_Banner.webp';
 import iconReactionRing from '../../../ico/sets/slots/Reaction_Ring.webp';
@@ -398,10 +395,13 @@ import iconShieldWeapon from '../../../ico/sets/slots/Shield_Weapon.webp';
 import iconSkinwalkersAmulet from '../../../ico/sets/slots/Skinwalkers_Amulet.webp';
 import iconSkinwalkersBanner from '../../../ico/sets/slots/Skinwalkers_Banner.webp';
 import iconSkinwalkersRing from '../../../ico/sets/slots/Skinwalkers_Ring.webp';
+import iconSlayerAmulet from '../../../ico/sets/slots/Slayer_Amulet.webp';
+import iconSlayerBanner from '../../../ico/sets/slots/Slayer_Banner.webp';
 import iconSlayerBoots from '../../../ico/sets/slots/Slayer_Boots.webp';
 import iconSlayerChest from '../../../ico/sets/slots/Slayer_Chest.webp';
 import iconSlayerGloves from '../../../ico/sets/slots/Slayer_Gloves.webp';
 import iconSlayerHelmet from '../../../ico/sets/slots/Slayer_Helmet.webp';
+import iconSlayerRing from '../../../ico/sets/slots/Slayer_Ring.webp';
 import iconSlayerShield from '../../../ico/sets/slots/Slayer_Shield.webp';
 import iconSlayerWeapon from '../../../ico/sets/slots/Slayer_Weapon.webp';
 import iconSpeedBoots from '../../../ico/sets/slots/Speed_Boots.webp';
@@ -796,9 +796,6 @@ export const SET_SLOT_ASSETS = {
   'Provoke_Helmet': iconProvokeHelmet,
   'Provoke_Shield': iconProvokeShield,
   'Provoke_Weapon': iconProvokeWeapon,
-  'Rathalos_Amulet': iconRathalosAmulet,
-  'Rathalos_Banner': iconRathalosBanner,
-  'Rathalos_Ring': iconRathalosRing,
   'Reaction_Amulet': iconReactionAmulet,
   'Reaction_Banner': iconReactionBanner,
   'Reaction_Ring': iconReactionRing,
@@ -880,10 +877,13 @@ export const SET_SLOT_ASSETS = {
   'Skinwalkers_Amulet': iconSkinwalkersAmulet,
   'Skinwalkers_Banner': iconSkinwalkersBanner,
   'Skinwalkers_Ring': iconSkinwalkersRing,
+  'Slayer_Amulet': iconSlayerAmulet,
+  'Slayer_Banner': iconSlayerBanner,
   'Slayer_Boots': iconSlayerBoots,
   'Slayer_Chest': iconSlayerChest,
   'Slayer_Gloves': iconSlayerGloves,
   'Slayer_Helmet': iconSlayerHelmet,
+  'Slayer_Ring': iconSlayerRing,
   'Slayer_Shield': iconSlayerShield,
   'Slayer_Weapon': iconSlayerWeapon,
   'Speed_Boots': iconSpeedBoots,
