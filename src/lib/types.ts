@@ -980,6 +980,7 @@ export function factionI18nKey(code: FactionId):
   | 'factionOgrynTribes' | 'factionLizardmen' | 'factionSkinwalkers' | 'factionOrcs'
   | 'factionDemonspawn' | 'factionUndeadHordes' | 'factionDarkElves' | 'factionKnightRevenant'
   | 'factionDwarves' | 'factionShadowkin' | 'factionSylvanWatchers'
+  | 'factionArgonites'
 {
   switch (Number(code) as Faction) {
     case Faction.BannerLords: return 'factionBannerLords'
@@ -997,6 +998,7 @@ export function factionI18nKey(code: FactionId):
     case Faction.Dwarves: return 'factionDwarves'
     case Faction.Shadowkin: return 'factionShadowkin'
     case Faction.SylvanWatchers: return 'factionSylvanWatchers'
+    case Faction.Argonites: return 'factionArgonites'
   }
   return 'factionBannerLords'
 }
@@ -1031,7 +1033,7 @@ export function statVariantI18nKey(v: StatVariantLike):
   return 'statHP'
 }
 
-// Faction IDs used in HSF files (1..15), 0 = Any
+// Faction IDs used in HSF files (1..17), 0 = Any
 export const Faction = {
   BannerLords: 1,
   HighElves: 2,
@@ -1048,6 +1050,8 @@ export const Faction = {
   Dwarves: 16,
   Shadowkin: 15,
   SylvanWatchers: 14,
+  // Argonites extend the Nyresan Union cohort with the next unused ID.
+  Argonites: 17,
 } as const
 
 // eslint-disable-next-line no-redeclare -- expose the Faction identifier in both namespaces
@@ -1071,6 +1075,8 @@ export const factionNames: Record<number, string> = {
   [Faction.Dwarves]: 'Dwarves',
   [Faction.Shadowkin]: 'Shadowkin',
   [Faction.SylvanWatchers]: 'Sylvan Watchers',
+  // Keep the UI label aligned with the exported enum entry.
+  [Faction.Argonites]: 'Argonites',
 }
 
 /** Human-readable faction name from Faction code (accepts enum or number). */

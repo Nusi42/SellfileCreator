@@ -1032,6 +1032,8 @@ const overrides: Catalog = {
   factionDwarves: 'Cüceler',
   factionShadowkin: 'Gölgekinler',
   factionSylvanWatchers: 'Sylvan Gözcüleri',
+  // Argonites özel isim olarak korunur.
+  factionArgonites: 'Argonites',
 
   // Stat labels (UI)
   statHP: 'HP',

@@ -1032,6 +1032,8 @@ const enUS: Catalog = {
   factionDwarves: 'Dwarves',
   factionShadowkin: 'Shadowkin',
   factionSylvanWatchers: 'Sylvan Watchers',
+  // Argonites is a newly supported faction; keep the proper name.
+  factionArgonites: 'Argonites',
 
   // Stat labels (UI)
   statHP: 'HP',

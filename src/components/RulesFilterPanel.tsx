@@ -3068,7 +3068,13 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                       </MenuItem>
                     ))}
                     <ListSubheader sx={LIST_SUBHEADER_SX}>{t('factionGroupNyresanUnion')}</ListSubheader>
-                    {[Faction.Dwarves, Faction.Shadowkin, Faction.SylvanWatchers].map((code) => (
+                    {[
+                      Faction.Dwarves,
+                      Faction.Shadowkin,
+                      Faction.SylvanWatchers,
+                      // Keep Argonites grouped with Nyresan Union for filter consistency.
+                      Faction.Argonites,
+                    ].map((code) => (
                       <MenuItem key={code} value={String(code)}>
                         <FactionOptionLabel faction={code} label={t(factionI18nKey(code))} />
                       </MenuItem>

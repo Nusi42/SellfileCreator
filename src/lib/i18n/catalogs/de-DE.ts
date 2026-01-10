@@ -1032,6 +1032,8 @@ const overrides: Catalog = {
   factionDwarves: 'Zwerge',
   factionShadowkin: 'Schattenwesen',
   factionSylvanWatchers: 'Waldwächter',
+  // Argoniten is the localized German name.
+  factionArgonites: 'Argoniten',
 
   // Stat labels (UI)
   statHP: 'HP',

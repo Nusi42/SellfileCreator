@@ -1032,6 +1032,8 @@ const catalog: Catalog = {
   factionDwarves: 'Anões',
   factionShadowkin: 'Clã das Sombras',
   factionSylvanWatchers: 'Vigilantes Silvanos',
+  // Argonites permanece como nome próprio.
+  factionArgonites: 'Argonites',
 
   // Stat labels (UI)
   statHP: 'HP',

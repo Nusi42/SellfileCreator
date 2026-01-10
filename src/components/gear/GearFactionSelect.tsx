@@ -14,7 +14,8 @@ const FACTION_GROUPS: Array<{ labelKey: string; ids: FactionId[] }> = [
   { labelKey: 'factionGroupTelerianLeague', ids: [Faction.BannerLords, Faction.HighElves, Faction.SacredOrder, Faction.Barbarians] },
   { labelKey: 'factionGroupGaellenPact', ids: [Faction.OgrynTribes, Faction.Lizardmen, Faction.Skinwalkers, Faction.Orcs] },
   { labelKey: 'factionGroupTheCorrupted', ids: [Faction.Demonspawn, Faction.UndeadHordes, Faction.DarkElves, Faction.KnightRevenant] },
-  { labelKey: 'factionGroupNyresanUnion', ids: [Faction.Dwarves, Faction.Shadowkin, Faction.SylvanWatchers] },
+  // Keep faction group membership aligned with the builder and filter menus.
+  { labelKey: 'factionGroupNyresanUnion', ids: [Faction.Dwarves, Faction.Shadowkin, Faction.SylvanWatchers, Faction.Argonites] },
 ]
 
 type FactionSelectBaseProps = {

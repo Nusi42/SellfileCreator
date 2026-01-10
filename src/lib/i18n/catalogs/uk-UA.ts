@@ -1032,6 +1032,8 @@ const overrides: Catalog = {
   factionDwarves: 'Гноми',
   factionShadowkin: 'Тінелюди',
   factionSylvanWatchers: 'Лісові вартові',
+  // Argonites лишається власною назвою.
+  factionArgonites: 'Argonites',
 
   // Stat labels (UI)
   statHP: 'HP',

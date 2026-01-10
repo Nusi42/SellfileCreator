@@ -1032,6 +1032,8 @@ const overrides: Catalog = {
   factionDwarves: 'Nains',
   factionShadowkin: 'Shadowkin',
   factionSylvanWatchers: 'Veilleurs sylvains',
+  // Argonites reste un nom propre non traduit.
+  factionArgonites: 'Argonites',
 
   // Stat labels (UI)
   statHP: 'HP',
