@@ -183,6 +183,12 @@ const NOTE_QUESTION_OPTION_SX = {
   '& .MuiFormControlLabel-label': { lineHeight: NOTE_CARD_LABEL_TEXT_SX.lineHeight },
   '& .MuiCheckbox-root, & .MuiRadio-root': { p: 0.25 },
 }
+// Add a touch of breathing room between question titles and subtext.
+const NOTE_QUESTION_TITLE_SUBTEXT_GAP = 0.35
+// Bump card padding slightly so options feel less cramped.
+const NOTE_QUESTION_CARD_PADDING = 1.5
+// Add breathing room between headings and options without a divider.
+const NOTE_QUESTION_HEADER_OPTIONS_GAP = 0.6
 const NOTE_QUESTION_SUBTEXT_SX = {
   // Keep subtext smaller and lighter to separate it from the title.
   color: 'text.secondary',
@@ -1396,7 +1402,8 @@ function NoteQuestionBlock({ node }: NoteQuestionBlockProps): JSX.Element | null
         borderRadius: 1,
         border: '1px solid',
         borderColor: 'divider',
-        p: 1.25,
+        // Lift padding slightly to improve scanability.
+        p: NOTE_QUESTION_CARD_PADDING,
         bgcolor: 'background.paper',
         opacity: cardOpacity,
       }}
@@ -1431,8 +1438,8 @@ function NoteQuestionBlock({ node }: NoteQuestionBlockProps): JSX.Element | null
             sx={{
               ...NOTE_QUESTION_SUBTEXT_SX,
               whiteSpace: 'pre-line',
-              // Keep the title/subtext gap tight for compact cards.
-              mt: 0,
+              // Keep the title/subtext gap subtle for compact cards.
+              mt: NOTE_QUESTION_TITLE_SUBTEXT_GAP,
               mb: 0,
               display: 'block',
             }}
@@ -1441,7 +1448,7 @@ function NoteQuestionBlock({ node }: NoteQuestionBlockProps): JSX.Element | null
           </Typography>
         ) : null}
         {/* Render each option group with its matching control type. */}
-        <Stack spacing={0.35} sx={{ mt: 0.35 }}>
+        <Stack spacing={0.35} sx={{ mt: NOTE_QUESTION_HEADER_OPTIONS_GAP }}>
           {question.groups.map((group) => {
             // Lookup the selected option in this group.
             const selectedOption = group.options.find((option) => selectedSet.has(option.id))
