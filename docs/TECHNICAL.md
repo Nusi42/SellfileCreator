@@ -73,7 +73,7 @@ Without the helper, the Playwright perf tests fall back to the built-in measurem
   - **Telerian League** — Banner Lords, High Elves, Sacred Order, Barbarians.
   - **Gaellen Pact** — Ogryn Tribes, Lizardmen, Skinwalkers, Orcs.
   - **The Corrupted** — Demonspawn, Undead Hordes, Dark Elves, Knight Revenant.
-  - **Nyresan Union** — Dwarves, Shadowkin, Sylvan Watchers.
+  - **Nyresan Union** — Dwarves, Shadowkin, Sylvan Watchers, Argonites.
 
 ### Rarity and Rank
 

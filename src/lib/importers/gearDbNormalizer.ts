@@ -62,6 +62,8 @@ const ACCESSORY_FACTION_MAP: Record<number, FactionId> = {
   14: Faction.SylvanWatchers,
   15: Faction.Shadowkin,
   16: Faction.Dwarves,
+  // Assume new accset code 17 maps to Argonites for forward compatibility.
+  17: Faction.Argonites,
 }
 
 const PERCENT_STATS = new Set<number>([

@@ -105,8 +105,10 @@ Accessories carry a `accset` code that does **not** match our `Faction` enum dir
 | 14 | Sylvan Watchers | `Faction.SylvanWatchers` |
 | 15 | Shadowkin | `Faction.Shadowkin` |
 | 16 | Dwarves | `Faction.Dwarves` |
+| 17 | Argonites | `Faction.Argonites` |
 
 No entries used the canonical `4` (Barbarians) code; importer logic should remap as shown and clamp unknown values to `0`.
+Argonites currently assume a new `accset = 17` mapping until a sample database confirms the official code.
 
 ### Champion Metadata
 

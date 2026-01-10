@@ -1734,6 +1734,8 @@ const maxLevelValue = multiEditActive
       case Faction.Dwarves: return t('factionDwarves')
       case Faction.Shadowkin: return t('factionShadowkin')
       case Faction.SylvanWatchers: return t('factionSylvanWatchers')
+      // Argonites are treated as a first-class faction label in the builder.
+      case Faction.Argonites: return t('factionArgonites')
       default: return String(code)
     }
   }
@@ -3530,7 +3532,13 @@ const maxLevelValue = multiEditActive
                 </MenuItem>
               ))}
               <ListSubheader sx={LIST_SUBHEADER_SX}>{t('factionGroupNyresanUnion')}</ListSubheader>
-              {[Faction.Dwarves,Faction.Shadowkin,Faction.SylvanWatchers].map((code) => (
+              {[
+                Faction.Dwarves,
+                Faction.Shadowkin,
+                Faction.SylvanWatchers,
+                // Keep Argonites visible alongside the rest of Nyresan Union.
+                Faction.Argonites,
+              ].map((code) => (
                 <MenuItem key={code} value={String(code)}>
                   <FactionOptionLabel faction={code} label={factionLabel(Number(code))} />
                 </MenuItem>
