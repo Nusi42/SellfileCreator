@@ -199,7 +199,7 @@ try {
     'run-db-watcher-core.ps1'
   )
   foreach ($scriptName in $sampleServerScripts) {
-    $scriptSrc = Join-Path $RepoRoot \"scripts\\$scriptName\"
+    $scriptSrc = Join-Path $RepoRoot "scripts\\$scriptName"
     if (Test-Path $scriptSrc) {
       Copy-Item -LiteralPath $scriptSrc -Destination (Join-Path $devDir $scriptName) -Force
     }
