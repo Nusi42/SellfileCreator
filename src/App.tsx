@@ -85,6 +85,7 @@ import { fingerprintConfigForRules, fingerprintSubstatTargets, updateConfigRules
 import { hasConfigMeaningfulDifferences } from './lib/configDiff'
 import { buildRuleTesterAutosavePayload, createRuleTesterMath, fingerprintRuleTesterItem, loadRuleTesterAutosaveDraft, type RuleTesterItem } from './lib/ruleTesterSession'
 import { sortTesterRows, TESTER_GROUPING_MODE_DEFAULT, TESTER_SORT_KEY_LAST_USAGE } from './lib/testerSort'
+import { buildTesterRuleTemplateConfig } from './lib/testerRuleTemplates'
 import { isDefaultTesterSubstatSortState, setTesterSubstatSortState, useTesterSubstatSortPreferences } from './state/testerSubstatSortPreferences'
 import { useTesterGridNormalizedOverlayPreferences } from './state/testerGridNormalizedOverlayPreferences'
 import { FILTER_PRESETS_VERSION, useFilterPresetsPreference, type FilterPreset, type FilterPresetSnapshot } from './state/filterPresetsPreference'
@@ -105,7 +106,8 @@ import { useDeferredHsfcPayload } from './hooks/useDeferredHsfcPayload'
 import PreviewHeaderActions from './components/PreviewHeaderActions'
 import RulesFilterPanel, { type RulesFilterPanelHandle } from './components/RulesFilterPanel'
 import { TESTER_CONFIG_FILTER_MODE_DEFAULT, type TesterConfigFilterMode } from './types/testerConfigFilterMode'
-import { getAllKnownArtifactSetIds, type RankValue, type StatVariant } from './lib/types'
+import { artifactTypeI18nKey, getAllKnownArtifactSetIds, type RankValue, type StatVariant } from './lib/types'
+import { formatTesterSetLabel } from './lib/testerFormatters'
 import { DEFAULT_RULES_FILTER_STATE, filterHsfRules, filterTesterItems, isRulesFilterActive, normalizeRulesFilterForTester, type FilterHsfRulesResult, type RulesFilterState } from './lib/rulesFilter'
 import {
   useAutosaveRestore,
@@ -3474,6 +3476,55 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       setFocusRuleIndex(null)
     }
   }, [setBuilder, setFocusRuleIndex, setPreviewMode, setLogicHubOpen, syncSelectedCfgIdx])
+  const handleTesterRuleTemplateCreate = useCallback((row: TesterPreviewRow, intent: 'keep' | 'sell') => {
+    const artifact = row.artifact
+    // Build the baseline template based on level, rolls, and the item’s current stats.
+    const baseConfig = buildTesterRuleTemplateConfig({ artifact, intent })
+    // Slot label is localized via the canonical i18n keys.
+    const slotLabel = t(artifactTypeI18nKey(artifact.slot))
+    // Pull the localized set name when available.
+    const setLabelRaw = formatTesterSetLabel({
+      setId: artifact.set,
+      slot: artifact.slot,
+      translate: t,
+      lang,
+    })
+    // Skip placeholder markers so unknown sets do not pollute the name.
+    const setLabel = setLabelRaw.trim()
+    const isSetKnown = setLabel.length > 0 && setLabel !== t('testerValueUnknown')
+    // Prefix the set name with a bullet to keep the label compact.
+    const setSuffix = isSetKnown ? t('testerRuleTemplateSetSuffix', { set: setLabel }) : ''
+    // Combine the labels into the final config name.
+    const name = t('testerRuleTemplateName', { slot: slotLabel, set: setSuffix }).trim()
+    // Clone to ensure the new config has unique references for history + multi-edit.
+    const nextConfig = cloneBuilderConfig({ ...baseConfig, name })
+    // Insert after the current selection when possible so creation feels local.
+    const previous = customCfgsRef.current
+    const insertIdx = (selectedCfgIdx !== null && selectedCfgIdx >= 0 && selectedCfgIdx < previous.length)
+      ? selectedCfgIdx + 1
+      : previous.length
+    // Assemble the next list to preserve order + insert position.
+    const nextCfgs = [
+      ...previous.slice(0, insertIdx),
+      nextConfig,
+      ...previous.slice(insertIdx),
+    ]
+    // History entries capture the inserted config details for undo + hover.
+    const descriptor = describeConfigAdded({
+      index: insertIdx,
+      cfg: nextConfig,
+      previous,
+      t,
+      lang,
+      metasets,
+    })
+    // Apply the mutation and focus the new chip in one gesture.
+    describeNextChange(descriptor)
+    setCustomCfgs(nextCfgs)
+    // Sync the builder panel with the newly inserted config immediately.
+    setBuilder(nextConfig)
+    syncSelectedCfgIdx(insertIdx, { forceSync: true, suppressDraft: true })
+  }, [describeNextChange, lang, metasets, selectedCfgIdx, setBuilder, setCustomCfgs, syncSelectedCfgIdx, t])
   const visibleConfigIndices = useMemo<Set<number> | null>(() => {
     if (!limitConfigsToFiltered) return null
     const indices = new Set(chipMatchingConfigIndices)
@@ -5096,6 +5147,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
 	                  colorIconSrc={colorIconSrc}
 	                  configNames={testerConfigNamesForGrid}
 	                  onJumpToRule={handleTesterRuleView}
+	                  onCreateRuleTemplate={handleTesterRuleTemplateCreate}
 	                  suppressMatchDetails={suppressTesterMatchDetails}
 	                  grouping={testerSubstatSortSpec ? testerSubstatSortPrefs.state.grouping : TESTER_GROUPING_MODE_DEFAULT}
 	                  substatSort={testerSubstatSortSpec}
