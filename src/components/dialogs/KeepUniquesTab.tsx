@@ -42,6 +42,7 @@ import type { TesterPreviewRow } from '../../types/testerPreview'
 import type { ColorBlindMode } from '../../lib/constants'
 import {
   FONT_SIZE_BASE_PX,
+  BUILDER_AUTO_APPLY_DEBOUNCE_MS,
   MENU_CONTROL_HEIGHT_PX,
   STANDARD_DIALOG_PADDING_BLOCK_UNITS,
   STANDARD_DIALOG_PADDING_INLINE_UNITS,
@@ -439,26 +440,34 @@ ${t('keepUniquesCountModeHint')}`
     [mutateRules],
   )
   // Keep display-only name edits from waking the worker; buffer locally and commit on blur/Enter.
+  // Use the shared debounce window so typing cadence matches other builder-side text inputs.
   const [pendingNameById, setPendingNameById] = useState<Map<string, string>>(() => new Map())
+  // Track the active timer so fast typing only commits the last value.
   const nameCommitTimerRef = useRef<number | null>(null)
   const flushPendingName = useCallback((ruleId: string) => {
+    // Read the staged value; if there is none, keep the persisted name untouched.
     const nextName = pendingNameById.get(ruleId)
     if (nextName === undefined) return
+    // Only touch the rule when the value actually changed.
     updateRule(ruleId, (prev) => (prev.name === nextName ? prev : { ...prev, name: nextName }), true)
   }, [pendingNameById, updateRule])
   const cancelNameCommitTimer = useCallback(() => {
+    // Cancel any pending commit so the next keypress replaces the draft schedule.
     if (nameCommitTimerRef.current !== null) {
       window.clearTimeout(nameCommitTimerRef.current)
       nameCommitTimerRef.current = null
     }
   }, [])
   const scheduleNameCommit = useCallback((ruleId: string) => {
+    // Reset the debounce window on each keypress so we only persist once typing settles.
     cancelNameCommitTimer()
     nameCommitTimerRef.current = window.setTimeout(() => {
       nameCommitTimerRef.current = null
+      // Flush the buffered name into the keep-unique rule state once the debounce elapses.
       flushPendingName(ruleId)
-    }, 500)
+    }, BUILDER_AUTO_APPLY_DEBOUNCE_MS)
   }, [cancelNameCommitTimer, flushPendingName])
+  // Clean up the pending timer when the dialog unmounts.
   useEffect(() => () => cancelNameCommitTimer(), [cancelNameCommitTimer])
 
   const setRuleCombination = useCallback((
