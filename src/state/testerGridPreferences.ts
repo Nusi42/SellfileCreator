@@ -6,6 +6,7 @@ import {
   TESTER_GRID_SHOW_MATCH_CONFIG_INDEX_KEY,
   TESTER_GRID_SHOW_MATCH_LINE_KEY,
   TESTER_GRID_SHOW_OTHER_MATCHES_KEY,
+  TESTER_GRID_SHOW_RULE_TEMPLATES_KEY,
 } from '../lib/constants'
 import { createLocalStorageStore } from './localStorageStore'
 
@@ -57,6 +58,14 @@ const testerGridShowChampIconsStore = createLocalStorageStore<boolean>({
   serialize: (value) => (value ? 'true' : 'false'),
 })
 
+const testerGridShowRuleTemplatesStore = createLocalStorageStore<boolean>({
+  key: TESTER_GRID_SHOW_RULE_TEMPLATES_KEY,
+  // Default off so the grid stays clean unless the user opts in.
+  fallback: false,
+  parse: (raw) => raw === 'true',
+  serialize: (value) => (value ? 'true' : 'false'),
+})
+
 export function useTesterGridPreferences() {
   const columns = testerGridColumnsStore.useValue()
   const showFirstMatch = testerGridShowFirstStore.useValue()
@@ -64,6 +73,7 @@ export function useTesterGridPreferences() {
   const showMatchLine = testerGridShowMatchLineStore.useValue()
   const showOtherMatches = testerGridShowOtherStore.useValue()
   const showChampionIcons = testerGridShowChampIconsStore.useValue()
+  const showRuleTemplates = testerGridShowRuleTemplatesStore.useValue()
 
   const setColumns = useCallback((next: TesterGridColumnMode) => {
     testerGridColumnsStore.set(next === 4 ? 4 : 5)
@@ -89,6 +99,10 @@ export function useTesterGridPreferences() {
     testerGridShowChampIconsStore.set(Boolean(next))
   }, [])
 
+  const setShowRuleTemplates = useCallback((next: boolean) => {
+    testerGridShowRuleTemplatesStore.set(Boolean(next))
+  }, [])
+
   return {
     columns,
     showFirstMatch,
@@ -96,11 +110,13 @@ export function useTesterGridPreferences() {
     showMatchLine,
     showOtherMatches,
     showChampionIcons,
+    showRuleTemplates,
     setColumns,
     setShowFirstMatch,
     setShowMatchConfigIndex,
     setShowMatchLine,
     setShowOtherMatches,
     setShowChampionIcons,
+    setShowRuleTemplates,
   }
 }

@@ -419,6 +419,20 @@ export const RARITY_CODES: readonly RarityCode[] = [
   RarityCode.GTE_Legendary,
 ] as const
 
+// Map discrete rarity values (1..6) to the exact HSF rarity codes.
+export function rarityCodeFromRankValue(rarity: RankValue): RarityCode {
+  // Keep the mapping explicit so future rarity additions are easy to audit.
+  const map: Record<RankValue, RarityCode> = {
+    1: RarityCode.Common,
+    2: RarityCode.Uncommon,
+    3: RarityCode.Rare,
+    4: RarityCode.Epic,
+    5: RarityCode.Legendary,
+    6: RarityCode.Mythical,
+  }
+  return map[rarity]
+}
+
 export function isRarityCode(value: unknown): value is RarityCode {
   return typeof value === 'number' && RARITY_CODES.includes(value as RarityCode)
 }

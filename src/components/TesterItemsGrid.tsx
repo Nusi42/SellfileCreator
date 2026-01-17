@@ -22,6 +22,7 @@ import BuildOutlinedIcon from '@mui/icons-material/BuildOutlined'
 import Inventory2OutlinedIcon from '@mui/icons-material/Inventory2Outlined'
 import MailOutlineIcon from '@mui/icons-material/MailOutline'
 import PersonOutlineIcon from '@mui/icons-material/PersonOutline'
+import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined'
 import SortIcon from '@mui/icons-material/Sort'
 import { useI18n } from '../lib/i18n'
 import type { TesterPreviewRow } from '../types/testerPreview'
@@ -101,6 +102,7 @@ import {
   useTesterGridNormalizedOverlayPreferences,
 } from '../state/testerGridNormalizedOverlayPreferences'
 import { TesterNormalizedPresetEditorMenu } from './TesterNormalizedPresetEditorMenu'
+import type { TesterRuleTemplateIntent } from '../lib/testerRuleTemplates'
 
 type EmptyStateWrapperProps = Omit<EmptyStateMessageProps, 'children'>
 
@@ -147,6 +149,9 @@ const CARD_COLUMN_HEIGHT_BUFFER_PX = 0
 const MAX_MATCHING_CHIPS = 6
 const ACCORDION_MARGIN_UNITS = 0.75
 const ACCORDION_BORDER_RADIUS_PX = 8
+// Keep the per-card gear action compact so the stats column stays readable.
+const CARD_ACTION_BUTTON_SIZE_PX = 28
+const CARD_ACTION_ICON_SIZE_PX = 18
 // Group-level virtualization uses light overscan because the heavy lifting happens at the card row level.
 const GRID_GROUP_VIRTUAL_OVERSCAN_ROWS = 2
 // Penalize off-screen rows so the reveal queue prefers on-screen cards even while overscanning nested accordions.
@@ -288,6 +293,7 @@ type TesterItemsGridProps = {
   colorIconSrc: string
   configNames: Array<string | null>
   onJumpToRule?: ((ruleIndex: number, cfgIdx: number | null) => void) | undefined
+  onCreateRuleTemplate?: ((row: TesterPreviewRow, intent: TesterRuleTemplateIntent) => void) | undefined
   variant?: TesterItemsGridVariant
   keepUniquesEnabled?: boolean
   hasTesterData?: boolean
@@ -348,6 +354,7 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     colorIconSrc,
     configNames,
     onJumpToRule,
+    onCreateRuleTemplate,
     variant = 'tester',
     keepUniquesEnabled = true,
     hasTesterData = true,
@@ -502,13 +509,19 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     showMatchLine: showMatchLineNumber,
     showOtherMatches,
     showChampionIcons,
+    showRuleTemplates,
     setColumns,
     setShowFirstMatch,
     setShowMatchConfigIndex,
     setShowMatchLine,
     setShowOtherMatches,
     setShowChampionIcons,
+    setShowRuleTemplates,
   } = useTesterGridPreferences()
+  // Gear actions only apply to the Rule Tester grid and must be explicitly enabled.
+  const canShowRuleTemplateActions = variant === 'tester'
+    && showRuleTemplates
+    && typeof onCreateRuleTemplate === 'function'
   // Preferences keep the old 4/5 column toggle alive even while Keep Uniques forces two columns.
   const storedColumnPreference = gridColumnPreference === 5 ? 5 : 4
   // Context-menu helper drives the "long press for menu" overlay when users have not seen it yet.
@@ -1259,6 +1272,7 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
                   gridColumnCount={gridColumnCount}
                   configNames={configNames}
                   onJumpToRule={onJumpToRule}
+                  onCreateRuleTemplate={canShowRuleTemplateActions ? onCreateRuleTemplate : undefined}
                   highlightedRowPredicate={highlightRowPredicate}
                   dimUnhighlightedRows={shouldDimUnhighlightedRows}
                   cardPriority={{ base: scrollVersion, order: cardPriorityOrder }}
@@ -1726,6 +1740,24 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
             {showChampionIcons ? t('commonOn') : t('commonOff')}
           </Button>
         </MenuItem>
+        {/* Rule template button is opt-in so we surface it only for the main tester grid. */}
+        {variant === 'tester' ? (
+          <MenuItem sx={{ gap: 1, alignItems: 'center' }} onClick={() => setShowRuleTemplates(!showRuleTemplates)}>
+            <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>{t('testerGridShowRuleTemplates')}</Typography>
+            <Button
+              size="small"
+              variant={showRuleTemplates ? 'contained' : 'outlined'}
+              color="success"
+              sx={{ minWidth: MENU_CONTROL_MIN_WIDTH_PX, height: MENU_CONTROL_HEIGHT_PX, minHeight: MENU_CONTROL_HEIGHT_PX, lineHeight: 1, py: 0 }}
+              onClick={(event) => {
+                event.stopPropagation()
+                setShowRuleTemplates(!showRuleTemplates)
+              }}
+            >
+              {showRuleTemplates ? t('commonOn') : t('commonOff')}
+            </Button>
+          </MenuItem>
+        ) : null}
         <Divider sx={{ my: 0.75 }} />
         {/* Keep appearance controls grouped at the bottom so the grid actions stay front-loaded. */}
         <MenuItem sx={{ gap: 1, alignItems: 'center' }} onClick={() => onToggleStatColors(!useStatButtonColors)}>
@@ -2011,6 +2043,7 @@ const TesterGridCard = React.memo(function TesterGridCard({
   gridColumnCount,
   configNames,
   onJumpToRule,
+  onCreateRuleTemplate,
   highlightedRowPredicate = null,
   dimUnhighlightedRows = false,
   cardPriority,
@@ -2029,6 +2062,7 @@ const TesterGridCard = React.memo(function TesterGridCard({
   gridColumnCount: number
   configNames: Array<string | null>
   onJumpToRule?: ((ruleIndex: number, cfgIdx: number | null) => void) | undefined
+  onCreateRuleTemplate?: ((row: TesterPreviewRow, intent: TesterRuleTemplateIntent) => void) | undefined
   highlightedRowPredicate?: ((row: TesterPreviewRow) => boolean) | null
   dimUnhighlightedRows?: boolean
   cardPriority: { base: number; order: number }
@@ -2079,6 +2113,34 @@ const TesterGridCard = React.memo(function TesterGridCard({
   const handlePrimaryMatchClick = () => {
     if (!allowPrimaryMatchJump || primaryRuleIndex == null) return
     onJumpToRule?.(primaryRuleIndex, primaryCfgIndex ?? null)
+  }
+  // Template actions only appear when the parent supplies a handler.
+  const canCreateRuleTemplate = typeof onCreateRuleTemplate === 'function'
+  // Anchor state keeps the menu positioned relative to the gear button.
+  const [ruleTemplateAnchor, setRuleTemplateAnchor] = useState<HTMLElement | null>(null)
+  // Menu is considered open when the gear button has an anchor.
+  const ruleTemplateMenuOpen = Boolean(ruleTemplateAnchor)
+  // Menu ref lets the guard detect outside clicks reliably.
+  const ruleTemplateMenuRef = useRef<HTMLDivElement | null>(null)
+  const handleRuleTemplateClose = useCallback(() => {
+    // Closing clears the anchor so the menu can unmount.
+    setRuleTemplateAnchor(null)
+  }, [])
+  // Guard the rule template menu so outside clicks cannot leave a stuck overlay.
+  const { contextMenuGuard: ruleTemplateMenuGuard } = useContextMenuPaperGuard({
+    open: ruleTemplateMenuOpen,
+    onClose: handleRuleTemplateClose,
+    menuRef: ruleTemplateMenuRef,
+  })
+  // The gear button opens the menu without affecting card focus.
+  const handleRuleTemplateOpen = (event: React.MouseEvent<HTMLElement>) => {
+    event.stopPropagation()
+    setRuleTemplateAnchor(event.currentTarget)
+  }
+  // Picking an action forwards the intent to the parent for config creation.
+  const handleRuleTemplateSelect = (intent: TesterRuleTemplateIntent) => {
+    onCreateRuleTemplate?.(row, intent)
+    handleRuleTemplateClose()
   }
   // Map caches the first keep/sell decision per config so overflow chips reuse the same tint.
   const matchingConfigKeepMap = useMemo(() => {
@@ -2574,6 +2636,82 @@ const TesterGridCard = React.memo(function TesterGridCard({
       {shouldInlineAscension ? ascSummaryInline : ascSummaryBlock}
     </>
   )
+  // Gear action button opens the keep/sell template menu.
+  const ruleTemplateButton = canCreateRuleTemplate ? (
+    // Tooltip clarifies the action without cluttering the card.
+    <MarkdownTooltip markdown={t('testerRuleTemplateTooltip')}>
+      <ButtonBase
+        onClick={handleRuleTemplateOpen}
+        aria-label={t('testerRuleTemplateButtonAria')}
+        aria-haspopup="menu"
+        sx={{
+          width: CARD_ACTION_BUTTON_SIZE_PX,
+          height: CARD_ACTION_BUTTON_SIZE_PX,
+          borderRadius: '50%',
+          border: `1px solid ${theme.palette.divider}`,
+          color: theme.palette.text.secondary,
+          // Overlay buttons do not participate in the text layout flow.
+          flexShrink: 0,
+        }}
+      >
+        <SettingsOutlinedIcon sx={{ fontSize: CARD_ACTION_ICON_SIZE_PX }} />
+      </ButtonBase>
+    </MarkdownTooltip>
+  ) : null
+  // Overlay keeps the action available without shrinking the main stat row.
+  const ruleTemplateOverlay = ruleTemplateButton ? (
+    <Box
+      sx={{
+        // Absolute positioning prevents the main stat line from getting squeezed.
+        position: 'absolute',
+        top: theme.spacing(0.5),
+        right: theme.spacing(0.5),
+        // Lift above card content so the button stays clickable.
+        zIndex: 2,
+      }}
+    >
+      {ruleTemplateButton}
+    </Box>
+  ) : null
+  // Menu presents the keep/sell actions and reuses the context menu styling.
+  const ruleTemplateMenu = canCreateRuleTemplate ? (
+    <Menu
+      open={ruleTemplateMenuOpen}
+      anchorEl={ruleTemplateAnchor}
+      onClose={handleRuleTemplateClose}
+      disableAutoFocusItem
+      slotProps={{
+        paper: buildContextMenuPaperSlotProps({
+          component: ContextMenuPaper,
+          contextMenuGuard: ruleTemplateMenuGuard,
+          onRequestClose: handleRuleTemplateClose,
+          closeLabel: t('close'),
+          ref: ruleTemplateMenuRef,
+        }),
+      }}
+    >
+      {/* Keep actions create a keep template tied to the current item. */}
+      <MenuItem onClick={() => handleRuleTemplateSelect('keep')}>
+        <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.5 }}>
+          <Typography variant="body2">{t('testerRuleTemplateAddPrefix')}</Typography>
+          <Typography variant="body2" sx={{ color: theme.palette.success.main, fontWeight: 700 }}>
+            {t('testerMatchKeep')}
+          </Typography>
+          <Typography variant="body2">{t('testerRuleTemplateConfigLabel')}</Typography>
+        </Box>
+      </MenuItem>
+      {/* Sell actions create a sell template tied to the current item. */}
+      <MenuItem onClick={() => handleRuleTemplateSelect('sell')}>
+        <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.5 }}>
+          <Typography variant="body2">{t('testerRuleTemplateAddPrefix')}</Typography>
+          <Typography variant="body2" sx={{ color: theme.palette.error.main, fontWeight: 700 }}>
+            {t('testerMatchSell')}
+          </Typography>
+          <Typography variant="body2">{t('testerRuleTemplateConfigLabel')}</Typography>
+        </Box>
+      </MenuItem>
+    </Menu>
+  ) : null
 
   const cardHeightStyle = `${cardHeightPx}px`
   const matchRowHeight = `${CARD_MATCH_ROW_HEIGHT_PX}px`
@@ -2593,6 +2731,8 @@ const TesterGridCard = React.memo(function TesterGridCard({
         borderRadius: `${CARD_BORDER_RADIUS_PX}px`,
         border: `1px solid ${cardHighlighted ? theme.palette.info.light : theme.palette.divider}`,
         bgcolor: theme.palette.background.paper,
+        // Relative positioning anchors the overlay button to the card frame.
+        position: 'relative',
         minHeight: cardHeightStyle,
         height: cardHeightStyle,
         maxHeight: cardHeightStyle,
@@ -2607,6 +2747,8 @@ const TesterGridCard = React.memo(function TesterGridCard({
         transition: 'opacity 120ms ease, border-color 120ms ease, box-shadow 120ms ease',
       })}
     >
+      {/* Overlay keeps the gear action out of the main stat row flow. */}
+      {ruleTemplateOverlay}
       <Box
         sx={{
           display: 'flex',
@@ -2880,6 +3022,7 @@ const TesterGridCard = React.memo(function TesterGridCard({
           </Box>
         </MarkdownTooltip>
       </Stack>
+      {ruleTemplateMenu}
       {shouldShowPrimaryMatchRow ? (
         <Box
           sx={{

@@ -22,6 +22,7 @@ import {
   areBuilderFieldValuesEqual,
   type BuilderFieldKey,
 } from '../lib/multiEditDraft'
+import { createFactoryBuilderDefaults } from '../lib/builderDefaults'
 
 export type TranslateFn = (key: string, params?: Record<string, string | number>) => string
 
@@ -50,35 +51,10 @@ type BuilderConfigDiffSummary = {
 // Produces a plain BuilderConfig with the same defaults the builder form uses so
 // history helpers can normalize snapshots independently of React state.
 export function createHistoryBuilderBaseline(overrides: Partial<BuilderConfig> = {}): BuilderConfig {
-  return {
-    name: '',
-    tags: [],
-    keep: true,
-    exportMode: 'active',
-    rankCode: 0,
-    rarityCode: 0,
-    rarityMode: 'auto',
-    autoRaritySupplementsThreshold: 'rare',
-    factionCode: 0,
-    mainStatsV: [],
-    minLevel: 0,
-    maxLevel: 16,
-    earlyKeepMode: 'early',
-  substatsV: [],
-  fixedSubstatsV: [],
-  minCount: 0,
-  autoMinCount: true,
-  autoSubstatFlex: false,
-  minRequiredRolls: 0,
-  autoMinRequiredRolls: true,
-  lockedMinRequiredRolls: 0,
-  substatRollBoundsV: {},
-  substatRollTargetsV: {},
-    artifactTypes: [],
-    artifactSets: [],
-    artifactMetaSets: [],
-    ...overrides,
-  }
+  // Use the shared defaults so history snapshots stay consistent with the builder UI.
+  const base = createFactoryBuilderDefaults()
+  // Overrides let callers tweak just the fields they need for comparison.
+  return { ...base, ...overrides }
 }
 
 export function describeBuilderConfigUpdate(params: DescribeBuilderConfigUpdateParams): HistoryEntryDescriptor | null {
