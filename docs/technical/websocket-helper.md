@@ -58,8 +58,8 @@ Creator when communicating with RSL Helper integrations.
 ### gearDbFile
 
 **Payload**
-- `name` (string)
-- `base64` (string, SQLite file contents encoded as base64)
+- `name` (string, optional): Defaults to `RslHelper.db` if omitted.
+- `base64` (string, required): SQLite file contents encoded as base64.
 
 **Example**
 ```json
@@ -69,12 +69,12 @@ Creator when communicating with RSL Helper integrations.
 ### gearDbRawSnapshot
 
 **Payload**
-- `snapshotId` (string or null)
-- `payloadVersion` (number)
+- `snapshotId` (string or null, optional)
+- `payloadVersion` (number, optional)
 - `artifacts` (array of raw artifact rows, see below)
-- `inboxArtifacts` (array of raw artifact rows, same schema as `artifacts`)
-- `champions` (array of raw champion rows, see below)
-- `lastUsed` (array of last-used rows, see below)
+- `inboxArtifacts` (array of raw artifact rows, same schema as `artifacts`, optional)
+- `champions` (array of raw champion rows, see below, optional)
+- `lastUsed` (array of last-used rows, see below, optional)
 
 **artifacts / inboxArtifacts entries** (raw RSL Helper rows)
 - Required keys (exact casing may vary, values are numeric): `ID`, `price`, `rank`, `type`, `lvl`, `mid`, `mfl`, `mlvl`, `mlvlid`, `mgv`, `s1id`, `s1lvl`, `s1fl`, `s1lvlid`, `s1gv`, `s1mlvlid`, `s2id`, `s2lvl`, `s2fl`, `s2lvlid`, `s2gv`, `s2mlvlid`, `s3id`, `s3lvl`, `s3fl`, `s3lvlid`, `s3gv`, `s3mlvlid`, `s4id`, `s4lvl`, `s4fl`, `s4lvlid`, `s4gv`, `s4mlvlid`, `rarity`, `aset`, `accset`, `ss`, `cID`, `sumHP`, `sumATK`, `sumDEF`, `sumSPD`, `sumCQuote`, `sumCDMG`, `sumRES`, `sumACC`, `ASCID`, `ASCLVL`, `ASCFL`, `ASCLVLID`, `ASCGV`, `ASCLEVEL`, `REROLLCOUNT`.
@@ -82,11 +82,12 @@ Creator when communicating with RSL Helper integrations.
 
 **champions entries** (raw RSL Helper rows)
 - Required keys: `ID`, `Name`, `Vault`, `RVault`, `BaseHeroID`, `Rarity`.
-- These rows attach champion metadata to equipped artifacts; omit the array if you do not need champion info.
+- These rows attach champion metadata to equipped artifacts when supplied.
 
 **lastUsed entries**
 - Required keys: `id`, `lastUse`.
 - `lastUse` accepts a local timestamp string (`YYYY-MM-DD HH:MM:SS.sss`) or a Julian-day number (same as the SQLite table).
+  Omit the array if you do not have last-used data.
 
 **Example (snapshot)**
 ```json
