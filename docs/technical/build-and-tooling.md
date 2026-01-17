@@ -46,7 +46,7 @@ Numbers that drive layout, sizing, timing, etc. must live in a single shared con
   - `export-catalogs.ts` — builds localized catalogs into `dist/l10n/*.l10n.json` (`npm run export:l10n`).
 - `release-win.ps1` — Windows packaging script (`-DevBuild` opt-in for dev bundles). `release-win-dev.ps1` forwards to it.
 - `run-db-watcher.ps1` — JSON-RPC 2.0 WebSocket db watcher. Launches the UI with a `ws://` endpoint, accepts `uploadSellfile` requests, emits `selectRule` + gear DB events, and watches `%APPDATA%\RslHelper\Config` for `.db` updates by default (disable via `-WatchGearDb:false` or override with `-GearDbPath`). Requires PowerShell 7 (`pwsh`) and will re-launch under `pwsh` if needed. Uses `[R]` to queue a sample selectRule, `[T]` to toggle the sample gear via raw deltas, and `[F]` to force a DB snapshot.
-- `run-db-watcher-rsl.ps1` — lightweight WebSocket db watcher (the `type/cmd/evt` protocol). Same behavior as `run-db-watcher.ps1`, but uses the compact envelope expected by RSL Helper integrations.
+- `run-db-watcher-helper.ps1` — lightweight WebSocket db watcher (the `type/cmd/evt` protocol). Same behavior as `run-db-watcher.ps1`, but uses the compact envelope expected by RSL Helper integrations.
 - `run-db-watcher-core.ps1` — shared implementation for the two WebSocket db watchers above; keep common behavior here so the two wrappers stay in sync.
 - `Stream-Helper-DB-to-Creator.bat` — double-click helper that locates PowerShell 7 (`pwsh`) first (falls back to Windows PowerShell when needed), injects `-GearDbPath "%APPDATA%\RslHelper\Config"` so the watcher boots with the default RSL Helper directory, and forwards any additional arguments so users can override settings.
 
@@ -74,7 +74,7 @@ Numbers that drive layout, sizing, timing, etc. must live in a single shared con
 - `SellfileCreator.html` (and the dev build at `dist/index.html`) reads the launch URL’s `endpoint` query parameter and exposes it via `window.__APP_CONFIG__`. Passing `?endpoint=ws://localhost:8765/` sets the WebSocket `pushEndpoint` for the entire session. The legacy `endpoint` hash (`#endpoint=`) and the older `push` query/hash names continue to work for backward compatibility as long as they point to a `ws://` or `wss://` URL.
 - When `pushEndpoint` is defined, “Export Sellfile” sends an `uploadSellfile` request over the active WebSocket. Without the parameter, the browser still downloads the file locally. The export button label switches to “Push …” and its tooltip references the active endpoint so users can confirm the target.
 - Incoming events are delivered over WebSocket notifications: `selectRule`, `gearDbFile`, `gearDbRawSnapshot`, and `gearDbRawDelta` (see the WebSocket protocol docs for exact payload shapes).
-- `run-db-watcher.ps1` and `run-db-watcher-rsl.ps1` demonstrate how an external tool can open the packaged app via `Start-Process`, append the encoded WebSocket endpoint automatically, and host a local WebSocket listener that persists incoming `uploadSellfile` payloads to disk (defaults to `exported-sellfile.hsf`, configurable via `-OutputPath`). The scripts target PowerShell 7 (`pwsh`), emit demo events via `[R]`/`[T]`, provide `[F]` to force a DB snapshot, and optionally watch `%APPDATA%\RslHelper\Config` for `.db` changes so the Rule Tester refreshes without manual drag-and-drop.
+- `run-db-watcher.ps1` and `run-db-watcher-helper.ps1` demonstrate how an external tool can open the packaged app via `Start-Process`, append the encoded WebSocket endpoint automatically, and host a local WebSocket listener that persists incoming `uploadSellfile` payloads to disk (defaults to `exported-sellfile.hsf`, configurable via `-OutputPath`). The scripts target PowerShell 7 (`pwsh`), emit demo events via `[R]`/`[T]`, provide `[F]` to force a DB snapshot, and optionally watch `%APPDATA%\RslHelper\Config` for `.db` changes so the Rule Tester refreshes without manual drag-and-drop.
 
 ### Single Source of Truth
 
@@ -128,7 +128,7 @@ Coding patterns adopted during the refactor (required for PRs):
 
 - Uses native Windows `Compress-Archive` to create ZIP files with predictable metadata (no PowerShell community modules).
 - Build via `npm run build`, export localization catalogs (`npm run export:l10n`), and stage README translations so the ZIP ships with ready-to-edit templates under `i18n/`.
-- Stage helper resources under a `dev/` subdirectory when present (`run-db-watcher.ps1`, `run-db-watcher-rsl.ps1`, `run-db-watcher-core.ps1`, `Stream-Helper-DB-to-Creator.bat`, `websocket-jsonrpc.md`, `websocket-rsl.md`).
+- Stage helper resources under a `dev/` subdirectory when present (`run-db-watcher.ps1`, `run-db-watcher-helper.ps1`, `run-db-watcher-core.ps1`, `Stream-Helper-DB-to-Creator.bat`, `websocket-jsonrpc.md`, `websocket-helper.md`).
 - Create a flat `release_staging` workspace, rename `dist/index.html` to `SellfileCreator.html`, generate UTF-8 BOM README `.txt` files with a `###### vX.Y.Z` badge, and add a `runme.bat` launcher.
 - Archive contents:
   - `SellfileCreator.html` — from `dist/index.html`

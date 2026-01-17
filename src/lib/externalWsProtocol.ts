@@ -3,7 +3,7 @@ import type { ExternalCommand } from './externalCommands'
 // Protocol identifiers map to WebSocket subprotocols so we can negotiate format
 // without changing URLs or adding extra query params.
 export const EXTERNAL_WS_SUBPROTOCOL_JSONRPC = 'jsonrpc'
-export const EXTERNAL_WS_SUBPROTOCOL_RSL = 'rws'
+export const EXTERNAL_WS_SUBPROTOCOL_HELPER = 'helper'
 
 // Keep a single default to avoid guessing when the server skips subprotocols.
 export const EXTERNAL_WS_PROTOCOL_DEFAULT = EXTERNAL_WS_SUBPROTOCOL_JSONRPC
@@ -69,7 +69,7 @@ export const resolveProtocolFromSubprotocol = (value: string | null): string | n
   // Return the exact token so callers can compare against constants.
   if (value === EXTERNAL_WS_SUBPROTOCOL_JSONRPC) return EXTERNAL_WS_SUBPROTOCOL_JSONRPC
   // Allow the lightweight protocol when the server opts into it.
-  if (value === EXTERNAL_WS_SUBPROTOCOL_RSL) return EXTERNAL_WS_SUBPROTOCOL_RSL
+  if (value === EXTERNAL_WS_SUBPROTOCOL_HELPER) return EXTERNAL_WS_SUBPROTOCOL_HELPER
   return null
 }
 
@@ -112,7 +112,7 @@ const parseJsonRpcMessage = (raw: unknown): ExternalWsInboundMessage | null => {
 }
 
 // Lightweight parsing: explicit message type differentiates events vs responses.
-const parseRslMessage = (raw: unknown): ExternalWsInboundMessage | null => {
+const parseHelperMessage = (raw: unknown): ExternalWsInboundMessage | null => {
   // Lightweight messages always include a lowercase-able type field.
   if (!isRecord(raw)) return null
   const typeValue = typeof raw.type === 'string' ? raw.type.toLowerCase() : null
@@ -144,7 +144,7 @@ const parseRslMessage = (raw: unknown): ExternalWsInboundMessage | null => {
 // Try both codecs to keep the client tolerant to either wire format.
 export const parseExternalWsMessage = (raw: unknown): ExternalWsInboundMessage | null => (
   // Try JSON-RPC first so explicit jsonrpc: "2.0" wins over fallback parsing.
-  parseJsonRpcMessage(raw) ?? parseRslMessage(raw)
+  parseJsonRpcMessage(raw) ?? parseHelperMessage(raw)
 )
 
 // Encode a request message in the chosen protocol format.
@@ -154,7 +154,7 @@ export const buildExternalWsRequest = (
   method: ExternalWsRequestMethod,
   payload: unknown,
 ): string => {
-  if (protocol === EXTERNAL_WS_SUBPROTOCOL_RSL) {
+  if (protocol === EXTERNAL_WS_SUBPROTOCOL_HELPER) {
     // Lightweight requests use cmd/payload under a req envelope.
     const envelope = { id, type: 'req', cmd: method, payload }
     return JSON.stringify(envelope)

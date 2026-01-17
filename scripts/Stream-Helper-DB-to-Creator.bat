@@ -4,12 +4,12 @@ setlocal ENABLEDELAYEDEXPANSION
 REM Stream the live RSL Helper DB into Sellfile Creator without typing commands.
 REM Double-click this file to start the db watcher with the defaults that
 REM most users expect: it finds PowerShell 7 (pwsh) when available, falls back to
-REM Windows PowerShell otherwise, and launches run-db-watcher-rsl.ps1 with the gear
+REM Windows PowerShell otherwise, and launches run-db-watcher-helper.ps1 with the gear
 REM DB watcher already pointing at %APPDATA%\RslHelper\Config. Extra arguments
 REM typed after the .bat name still flow through for advanced tinkering.
 
 set "SCRIPT_DIR=%~dp0"
-set "PS_SCRIPT=!SCRIPT_DIR!run-db-watcher-rsl.ps1"
+set "PS_SCRIPT=!SCRIPT_DIR!run-db-watcher-helper.ps1"
 
 REM Keep the PowerShell companion script next to this batch file.
 if not exist "!PS_SCRIPT!" (

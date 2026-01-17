@@ -94,7 +94,7 @@ These are pushed from the server to the browser.
 
 **lastUsed entries**
 - Required keys: `id`, `lastUse`.
-- `lastUse` accepts an ISO timestamp string or a Julian-day number (same as the SQLite table).
+- `lastUse` accepts a local timestamp string (`YYYY-MM-DD HH:MM:SS.sss`) or a Julian-day number (same as the SQLite table).
 
 **Example (snapshot)**
 ```json
@@ -110,26 +110,46 @@ These are pushed from the server to the browser.
     "rarity":6,"aset":8,"accset":0,"ss":0,"cID":0,"sumHP":0,"sumATK":0,"sumDEF":0,"sumSPD":0,
     "sumCQuote":0,"sumCDMG":0,"sumRES":0,"sumACC":0,"ASCID":0,"ASCLVL":0,"ASCFL":0,"ASCLVLID":0,
     "ASCGV":0,"ASCLEVEL":0,"REROLLCOUNT":0
+  },{
+    "ID":4010204,"price":0,"rank":6,"type":1,"lvl":12,"mid":1,"mfl":0,"mlvl":10,
+    "mlvlid":75161927681,"mgv":0,"s1id":5,"s1lvl":1,"s1fl":0,"s1lvlid":1288490188,
+    "s1gv":0,"s1mlvlid":0,"s2id":9,"s2lvl":2,"s2fl":0,"s2lvlid":3865470566,
+    "s2gv":0,"s2mlvlid":0,"s3id":10,"s3lvl":1,"s3fl":1,"s3lvlid":2147483648,
+    "s3gv":0,"s3mlvlid":0,"s4id":0,"s4lvl":0,"s4fl":0,"s4lvlid":0,"s4gv":0,"s4mlvlid":0,
+    "rarity":5,"aset":4,"accset":0,"ss":0,"cID":0,"sumHP":0,"sumATK":0,"sumDEF":0,"sumSPD":0,
+    "sumCQuote":0,"sumCDMG":0,"sumRES":0,"sumACC":0,"ASCID":0,"ASCLVL":0,"ASCFL":0,"ASCLVLID":0,
+    "ASCGV":0,"ASCLEVEL":0,"REROLLCOUNT":0
   }],
-  "inboxArtifacts":[],
-  "champions":[{"ID":777001,"Name":"Arbiter","Vault":0,"RVault":0,"BaseHeroID":99001,"Rarity":5}],
-  "lastUsed":[{"id":4010203,"lastUse":"2024-05-08 14:33:27.123"}]
+  "inboxArtifacts":[{
+    "ID":5010203,"price":0,"rank":5,"type":6,"lvl":8,"mid":3,"mfl":1,"mlvl":8,
+    "mlvlid":75161927682,"mgv":0,"s1id":6,"s1lvl":1,"s1fl":0,"s1lvlid":1288490189,
+    "s1gv":0,"s1mlvlid":0,"s2id":11,"s2lvl":1,"s2fl":0,"s2lvlid":3435973836,
+    "s2gv":0,"s2mlvlid":0,"s3id":12,"s3lvl":0,"s3fl":0,"s3lvlid":0,
+    "s3gv":0,"s3mlvlid":0,"s4id":0,"s4lvl":0,"s4fl":0,"s4lvlid":0,"s4gv":0,"s4mlvlid":0,
+    "rarity":4,"aset":2,"accset":0,"ss":0,"cID":0,"sumHP":0,"sumATK":0,"sumDEF":0,"sumSPD":0,
+    "sumCQuote":0,"sumCDMG":0,"sumRES":0,"sumACC":0,"ASCID":0,"ASCLVL":0,"ASCFL":0,"ASCLVLID":0,
+    "ASCGV":0,"ASCLEVEL":0,"REROLLCOUNT":0
+  },{
+    "ID":5010204,"price":0,"rank":5,"type":6,"lvl":8,"mid":3,"mfl":1,"mlvl":8,
+    "mlvlid":75161927683,"mgv":0,"s1id":6,"s1lvl":1,"s1fl":0,"s1lvlid":1288490190,
+    "s1gv":0,"s1mlvlid":0,"s2id":11,"s2lvl":1,"s2fl":0,"s2lvlid":3435973837,
+    "s2gv":0,"s2mlvlid":0,"s3id":12,"s3lvl":0,"s3fl":0,"s3lvlid":0,
+    "s3gv":0,"s3mlvlid":0,"s4id":0,"s4lvl":0,"s4fl":0,"s4lvlid":0,"s4gv":0,"s4mlvlid":0,
+    "rarity":4,"aset":2,"accset":0,"ss":0,"cID":0,"sumHP":0,"sumATK":0,"sumDEF":0,"sumSPD":0,
+    "sumCQuote":0,"sumCDMG":0,"sumRES":0,"sumACC":0,"ASCID":0,"ASCLVL":0,"ASCFL":0,"ASCLVLID":0,
+    "ASCGV":0,"ASCLEVEL":0,"REROLLCOUNT":0
+  }],
+  "champions":[
+    {"ID":777001,"Name":"Arbiter","Vault":0,"RVault":0,"BaseHeroID":99001,"Rarity":5},
+    {"ID":777002,"Name":"Kael","Vault":0,"RVault":0,"BaseHeroID":99002,"Rarity":3}
+  ],
+  "lastUsed":[
+    {"id":4010203,"lastUse":"2024-05-08 14:33:27.123"},
+    {"id":4010204,"lastUse":2460439.042424}
+  ]
 }}
 ```
 
-### gearDbRawDelta
-
-**Params**
-- `snapshotId` (string or null)
-- `payloadVersion` (number)
-- `ops` (array of delta operations, see below)
-
-**ops entries**
-- Each entry is an operation object with keys: `op` (`upsert` or `remove`), `table` (`Artifacts`, `InboxArtifacts`, `Champs`, or `LastUsed`), `row` (full row payload for `upsert`), and `id` (numeric row id for `remove`).
-- `upsert` rows must follow the same schemas as the snapshot payloads described above.
-
-**Example (delta)**
-```json
 {"jsonrpc":"2.0","method":"gearDbRawDelta","params":{
   "snapshotId":"demo-raw-db",
   "payloadVersion":1,

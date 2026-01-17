@@ -1,11 +1,10 @@
 import { useCallback, useEffect, useRef } from 'react'
 
 import {
-  buildExternalCommandEnvelope,
   buildExternalWsRequest,
   EXTERNAL_WS_PROTOCOL_DEFAULT,
   EXTERNAL_WS_SUBPROTOCOL_JSONRPC,
-  EXTERNAL_WS_SUBPROTOCOL_RSL,
+  EXTERNAL_WS_SUBPROTOCOL_HELPER,
   isRecord,
   parseExternalWsMessage,
   resolveProtocolFromSubprotocol,
@@ -13,7 +12,7 @@ import {
   type ExternalWsRequestMethod,
   type ExternalWsResponse,
 } from '../lib/externalWsProtocol'
-import { normalizeExternalCommand, type ExternalCommand } from '../lib/externalCommands'
+import { normalizeExternalEvent, type ExternalCommand } from '../lib/externalCommands'
 
 export type UseExternalCommandsOptions = {
   pushEndpoint: string | undefined
@@ -105,9 +104,8 @@ export function useExternalCommands({
     if (!parsed) return
 
     if (parsed.kind === 'event') {
-      // Rebuild the legacy command shape so we can reuse the parser.
-      const envelope = buildExternalCommandEnvelope(parsed.name, parsed.payload)
-      const normalized = normalizeExternalCommand(envelope)
+      // Normalize the event name + payload into a command the UI understands.
+      const normalized = normalizeExternalEvent(parsed.name, parsed.payload)
       if (!normalized) return
       try {
         // Forward the command into the app-level handler.
@@ -149,7 +147,7 @@ export function useExternalCommands({
         // Attempt to negotiate the protocol with the preferred order.
         const socket = new WebSocket(pushEndpoint, [
           EXTERNAL_WS_SUBPROTOCOL_JSONRPC,
-          EXTERNAL_WS_SUBPROTOCOL_RSL,
+          EXTERNAL_WS_SUBPROTOCOL_HELPER,
         ])
         socketRef.current = socket
 

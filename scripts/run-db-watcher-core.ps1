@@ -18,7 +18,7 @@ if ([string]::IsNullOrWhiteSpace($protocolMode)) {
 
 # Map the protocol mode to a WebSocket subprotocol token.
 $protocolMode = $protocolMode.Trim().ToLowerInvariant()
-$protocolSubprotocol = if ($protocolMode -eq 'rsl') { 'rws' } else { 'jsonrpc' }
+$protocolSubprotocol = if ($protocolMode -eq 'helper') { 'helper' } else { 'jsonrpc' }
 
 # Explorer's "Run with PowerShell" host fails on advanced `param` blocks. The
 # script still needs defaults and optional switches, so we emulate the binder.
@@ -891,7 +891,7 @@ function Build-ProtocolEventBody {
     )
 
     # Keep the envelope format centralized so events stay consistent.
-    if ($protocolMode -eq 'rsl') {
+        if ($protocolMode -eq 'helper') {
         return @{ type = 'evt'; name = $Name; payload = $Payload }
     }
     return @{ jsonrpc = '2.0'; method = $Name; params = $Payload }
@@ -1071,7 +1071,7 @@ function Handle-RslRequest {
         $savedAs = Save-SellfilePayload -PayloadText $data -FileName ([string]$name)
         $result = @{ savedAs = $savedAs }
         Send-RslResponse -Socket $Socket -Id $id -Ok $true -ErrorMessage $null -Payload $result
-        Write-LogOutbound -Message "res uploadSellfile ok (rsl)"
+        Write-LogOutbound -Message "res uploadSellfile ok (helper)"
         return
     }
 
@@ -1094,7 +1094,7 @@ function Handle-ClientMessage {
 
     if (-not ($parsed -is [System.Collections.IDictionary])) { return }
 
-    if ($protocolMode -eq 'rsl') {
+    if ($protocolMode -eq 'helper') {
         $typeValue = $parsed.type
         if ($typeValue -is [string] -and $typeValue.ToLowerInvariant() -eq 'req') {
             Write-LogInbound -Message "req $($parsed.cmd)"
@@ -1811,7 +1811,10 @@ function New-LaunchUrl {
     )
 
     $indexUri = New-Object System.Uri -ArgumentList $IndexPath
-    $encoded = [System.Uri]::EscapeDataString($Endpoint)
+    # Only encode when whitespace or quotes are present so the URL stays readable.
+    $needsEncoding = $Endpoint -match '[\s"'']'
+    # Preserve the raw endpoint for standard ws://host:port usage.
+    $encoded = if ($needsEncoding) { [System.Uri]::EscapeDataString($Endpoint) } else { $Endpoint }
     return ($indexUri.AbsoluteUri + "?endpoint=$encoded")
 }
 
