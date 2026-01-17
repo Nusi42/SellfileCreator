@@ -77,7 +77,7 @@ Deutsch:
 - Builder clean-up: removed the `Any` buttons from Slots/Mainstats/Substats in favour of clear icons, matching how other pickers work; reset buttons now say `Reset Config`.
 - Logic Hub keeps the same controls but the wording and inline hints now explain what turning it on does and why all sets are listed explicitly; the preview badge highlights when the export hover suggests enabling it.
 - Visual pass: slot art now uses the RSL Helper icons, faction icons show up on chips, filters, and in the Rule Tester, and localisation strings were updated in every shipped language.
-- Rule Tester and filters: you can filter by config name, pull incoming gear in from the sample server, see faction icons alongside set icons, and the optional export push endpoint can send the `.hsf` straight to a receiver when configured.
+- Rule Tester and filters: you can filter by config name, pull incoming gear in from the db watcher, see faction icons alongside set icons, and the optional export push endpoint can send the `.hsf` straight to a receiver when configured.
 
 ## Deutsch
 - Config-Chips haben jetzt einen Draft-Modus (erzeugt keine Regeln), damit sich beschriftete Trenner anlegen lassen; Duplikate werden markiert, Chips können auf die Regeln aus der Vorschau gefiltert werden, und die beigelegten Beispiel-HSFC/HSF sind entsprechend aktualisiert.

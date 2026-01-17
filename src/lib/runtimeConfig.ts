@@ -5,12 +5,15 @@ export type RuntimeConfig = {
 type AppWindow = Window & { __APP_CONFIG__?: unknown }
 
 function sanitizePushEndpoint(value: unknown): string | undefined {
+  // Only accept string inputs so we do not coerce unexpected objects.
   if (typeof value !== 'string') return undefined
+  // Trim whitespace to avoid subtle mismatches when params are copy-pasted.
   const trimmed = value.trim()
   if (!trimmed) return undefined
   try {
     const url = new URL(trimmed)
-    if (url.protocol === 'http:' || url.protocol === 'https:') {
+    // WebSocket endpoints are the only supported transport now.
+    if (url.protocol === 'ws:' || url.protocol === 'wss:') {
       return url.toString()
     }
   } catch {

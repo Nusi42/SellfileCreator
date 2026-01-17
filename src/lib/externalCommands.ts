@@ -84,19 +84,27 @@ const extractString = (value: unknown): string | null => {
   return null
 }
 
-export function normalizeExternalCommand(raw: unknown): ExternalCommand | null {
-  if (!isObject(raw)) return null
-  const lookup = createCaseInsensitiveLookup(raw as UnknownRecord)
-  const typeRaw = extractString(lookup.get('type', 'command', 'action'))
-  if (!typeRaw) return null
-  const type = typeRaw.trim().toLowerCase().replace(/[^a-z0-9]/g, '')
+export function normalizeExternalEvent(name: string, payload: unknown): ExternalCommand | null {
+  // Trim and normalize the event name so aliases stay consistent.
+  const normalized = name.trim().toLowerCase().replace(/[^a-z0-9]/g, '')
+  // Reject empty or non-alphanumeric event names immediately.
+  if (!normalized) return null
+  // Treat non-object payloads as empty to keep lookups safe.
+  const payloadRecord = isObject(payload) ? (payload as UnknownRecord) : {}
+  // Use a case-insensitive lookup so payload casing stays flexible.
+  const lookup = createCaseInsensitiveLookup(payloadRecord)
 
-  if (type === 'selectrule' || type === 'select' || type === 'selectconfig' || type === 'selectrow') {
+  // Handle rule selection aliases from Helper and test tooling.
+  if (normalized === 'selectrule' || normalized === 'select' || normalized === 'selectconfig' || normalized === 'selectrow') {
+    // Accept either `rowNumber` or shorter `row` fields for compatibility.
     const rowNumberValue = lookup.get('rownumber', 'row')
+    // Coerce the incoming value so we can validate bounds.
     const rowNumberNum = toNumber(rowNumberValue)
+    // Clamp row selection to 1-based integers when valid.
     const rowNumber = rowNumberNum != null && Number.isFinite(rowNumberNum)
       ? Math.max(1, Math.floor(rowNumberNum))
       : null
+    // Return a normalized command payload for the UI dispatcher.
     const command: { kind: 'selectRule'; rowNumber: number | null } = {
       kind: 'selectRule',
       rowNumber,
@@ -104,11 +112,17 @@ export function normalizeExternalCommand(raw: unknown): ExternalCommand | null {
     return command
   }
 
-  if (type === 'geardbfile' || type === 'geardbupdate' || type === 'geardbpayload') {
+  // Handle gear DB payloads shipped from Helper or a watcher.
+  if (normalized === 'geardbfile' || normalized === 'geardbupdate' || normalized === 'geardbpayload') {
+    // Prefer base64 blobs but allow paths/urls for local tools.
     const base64Value = extractString(lookup.get('base64', 'data', 'content', 'payload'))
+    // Accept download paths when base64 blobs are not shipped.
     const downloadPath = extractString(lookup.get('downloadpath', 'path', 'url', 'href'))
+    // Reject payloads that do not provide any usable DB source.
     if (!base64Value && !downloadPath) return null
+    // Use the explicit filename if supplied, otherwise a safe default.
     const nameValue = extractString(lookup.get('filename', 'name')) ?? 'RslHelper.db'
+    // Build a normalized command for downstream command handling.
     const command: { kind: 'gearDbFile'; name: string; base64?: string; downloadPath?: string } = {
       kind: 'gearDbFile',
       name: nameValue,
@@ -118,17 +132,39 @@ export function normalizeExternalCommand(raw: unknown): ExternalCommand | null {
     return command
   }
 
-  if (type === 'geardbrawsnapshot' || type === 'geardbrawdump' || type === 'geardbjsonsnapshot') {
-    const snapshot = normalizeGearDbRawSnapshot(raw)
+  // Handle full raw DB snapshots that ship table rows directly.
+  if (normalized === 'geardbrawsnapshot' || normalized === 'geardbrawdump' || normalized === 'geardbjsonsnapshot') {
+    // Snapshot parsing expects object-like payloads with named fields.
+    if (!isObject(payload)) return null
+    // Reuse the canonical snapshot normalizer for consistency.
+    const snapshot = normalizeGearDbRawSnapshot(payloadRecord)
     return snapshot
   }
 
-  if (type === 'geardbrawdelta' || type === 'geardbjsondelta') {
-    const delta = normalizeGearDbRawDelta(raw)
+  // Handle raw DB delta payloads that update an active snapshot.
+  if (normalized === 'geardbrawdelta' || normalized === 'geardbjsondelta') {
+    // Delta parsing expects object-like payloads with operations.
+    if (!isObject(payload)) return null
+    // Reuse the canonical delta normalizer for consistency.
+    const delta = normalizeGearDbRawDelta(payloadRecord)
     return delta
   }
 
+  // Unknown commands are ignored to keep the parser strict.
   return null
+}
+
+export function normalizeExternalCommand(raw: unknown): ExternalCommand | null {
+  // Legacy HTTP payloads ship the command name on the root object.
+  if (!isObject(raw)) return null
+  // Use a case-insensitive lookup to locate the command name.
+  const lookup = createCaseInsensitiveLookup(raw as UnknownRecord)
+  // Accept the historic field names used by earlier integrations.
+  const typeRaw = extractString(lookup.get('type', 'command', 'action'))
+  // Ignore payloads without a recognizable command name.
+  if (!typeRaw) return null
+  // Delegate to the shared event parser to keep behavior aligned.
+  return normalizeExternalEvent(typeRaw, raw)
 }
 
 // Snapshot helpers remain permissive (case-insensitive fields) so Helper can

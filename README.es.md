@@ -195,8 +195,7 @@ Todos los ejemplos usan objetivos de substats de 6★ por unidad de tirada: SPD=
 - Editar y probar: Abre la app y arrastra tu `*.l10n.json` editado para aplicarlo de inmediato en la sesión actual (no se necesita ni se puede instalar nada).
 - Enviar correcciones: Envía el JSON actualizado por mensaje de Discord. Mantén las claves sin cambios; las claves que falten volverán al inglés.
 - Idiomas integrados: Todos los idiomas incluidos se compilan en el único HTML, por lo que la app funciona completamente sin conexión. Tus correcciones se integrarán en la siguiente versión.
-- Vigila la base de datos de RSL Helper: ejecuta `scripts/run-sample-server.ps1 -WatchGearDb` (o pasa `-GearDbPath <archivo>`) para observar `%APPDATA%\\RslHelper\\Config`. Cada vez que la `.db` cambie, el servidor de ejemplo la envía al Probador que abrió y, si hay varias bases, te preguntará cuál seguir.
-- Lanzador rápido: `Stream-Helper-DB-to-Creator.bat` abre el servidor de ejemplo en PowerShell con `-WatchGearDb "%APPDATA%\\RslHelper\\Config"` para transmitir la base predeterminada de RSL Helper sin tocar la consola; añade banderas extra después del nombre del `.bat` si quieres personalizar la ejecución.
+- `Stream-Helper-DB-to-Creator.bat` inicia el DB watcher y transmite la base de datos predeterminada de RSL Helper a Sellfile Creator para comprobar configuraciones en vivo más fácilmente.
 
 ## Agradecimientos
 

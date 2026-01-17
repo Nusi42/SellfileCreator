@@ -189,13 +189,32 @@ try {
   }
   Copy-Item -LiteralPath $basicHsfcPath -Destination (Join-Path $staging 'Basic.hsfc') -Force
 
-  # Stage the sample server + Sellfile Creator Web Protocol payload examples under dev/
+  # Stage the WebSocket DB watchers under dev/ for helper integrations.
   $devDir = Join-Path $staging 'dev'
   if (-not (Test-Path $devDir)) { New-Item -ItemType Directory -Path $devDir | Out-Null }
 
-  $sampleServerSrc = Join-Path $RepoRoot 'scripts\run-sample-server.ps1'
-  if (Test-Path $sampleServerSrc) {
-    Copy-Item -LiteralPath $sampleServerSrc -Destination (Join-Path $devDir 'run-sample-server.ps1') -Force
+  $sampleServerScripts = @(
+    'run-db-watcher.ps1',
+    'run-db-watcher-helper.ps1',
+    'run-db-watcher-core.ps1'
+  )
+  foreach ($scriptName in $sampleServerScripts) {
+    $scriptSrc = Join-Path $RepoRoot \"scripts\\$scriptName\"
+    if (Test-Path $scriptSrc) {
+      Copy-Item -LiteralPath $scriptSrc -Destination (Join-Path $devDir $scriptName) -Force
+    }
+  }
+
+  $protocolDocs = @(
+    'docs\\technical\\websocket-jsonrpc.md',
+    'docs\\technical\\websocket-helper.md'
+  )
+  foreach ($docPath in $protocolDocs) {
+    $docSrc = Join-Path $RepoRoot $docPath
+    if (Test-Path $docSrc) {
+      $docName = Split-Path -Leaf $docSrc
+      Copy-Item -LiteralPath $docSrc -Destination (Join-Path $devDir $docName) -Force
+    }
   }
 
   $sampleServerBatSrc = Join-Path $RepoRoot 'scripts\Stream-Helper-DB-to-Creator.bat'
@@ -203,14 +222,7 @@ try {
     Copy-Item -LiteralPath $sampleServerBatSrc -Destination (Join-Path $devDir 'Stream-Helper-DB-to-Creator.bat') -Force
   }
 
-  $scriptsDir = Join-Path $RepoRoot 'scripts'
-  $sampleJsonFiles = @('sample-upload-body.json')
-  foreach ($fileName in $sampleJsonFiles) {
-    $sampleJsonSrc = Join-Path $scriptsDir $fileName
-    if (Test-Path $sampleJsonSrc) {
-      Copy-Item -LiteralPath $sampleJsonSrc -Destination (Join-Path $devDir $fileName) -Force
-    }
-  }
+  # Legacy HTTP sample payloads are no longer staged.
 
   # Ship the custom gearsets example under dev/ (keeps root uncluttered).
   $customGearsetsSrc = Join-Path $RepoRoot 'examples\custom.gearsets.json'
