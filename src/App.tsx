@@ -395,6 +395,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // Keep tester math reusable so seeding hooks share the same normalization as the dialog.
   const testerMath = useMemo(() => createRuleTesterMath(effectiveSubstatTargets), [effectiveSubstatTargets])
   const lastConfigNamesRef = useRef<string[]>(configNamesForPreview)
+  // Track the last keep-unique label signature so name-only edits can update chips without a rebuild.
+  const lastKeepUniqueLabelSignatureRef = useRef<string>('')
   // Track the last dispatched pipeline so deferred snapshots cannot retrigger identical worker runs.
   const lastPipelineSignatureRef = useRef<{ fingerprint: string | null; artifactSig: string | null } | null>(null)
   const testerItemIdRef = useRef(1)
@@ -887,6 +889,24 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       || configModesForPreview.some((mode, idx) => mode !== configModes[idx])
     )
     const configModesForBuild = previewModesStale ? configModes : configModesForPreview
+    // Keep a stable label map so keep-unique name edits can update tester chips without a rebuild.
+    const keepUniqueLabelMap = (() => {
+      // Build a lookup by rule id so injected rows can resolve live names.
+      const map = new Map<string, string>()
+      for (const rule of keepUniqueRules) {
+        if (!rule || typeof rule.id !== 'string') continue
+        const label = resolveKeepUniqueRuleLabel(rule)
+        if (!label) continue
+        map.set(rule.id, label)
+      }
+      return map
+    })()
+    // Hash the label map so we can detect name-only changes cheaply.
+    const keepUniqueLabelSignature = Array.from(keepUniqueLabelMap.entries())
+      .map(([id, label]) => `${id}:${label}`)
+      .join('|')
+    // Compare against the last applied signature so we can refresh chips without rebuilding rules.
+    const keepUniqueLabelsChanged = keepUniqueLabelSignature !== lastKeepUniqueLabelSignatureRef.current
     // Artifact signature drives match reuse; keep it alongside the fingerprint so duplicate builds can bail quickly.
     const pipelineArtifactSignature = testerArtifactsSignature
     // Mirror metasets and substat targets to the same snapshot to avoid stale warm fingerprints.
@@ -934,6 +954,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     if (
       canSkipWarm
       && !configNamesChanged
+      && !keepUniqueLabelsChanged
       && lastPipelineSignatureRef.current
       && lastPipelineSignatureRef.current.fingerprint === nextFingerprint
       && lastPipelineSignatureRef.current.artifactSig === pipelineArtifactSignature
@@ -968,21 +989,56 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       : null
     const hasArtifacts = testerPreviewArtifacts.length > 0
 
-    if (!artifactsChanged && canSkipWarm && configNamesChanged && prevMatches.length > 0) {
+    if (!artifactsChanged && canSkipWarm && (configNamesChanged || keepUniqueLabelsChanged) && prevMatches.length > 0) {
       // Names changed but rule fingerprints are stable; update cached rows without rebuilding.
-      const updatedRows = prevMatches.map((row) => {
-        const remapName = (cfgIdx: number | null): string | null => {
-          if (cfgIdx == null) return null
-          return configNamesForBuild[cfgIdx] ?? null
+      const resolveConfigName = (cfgIdx: number | null): string | null => {
+        // Builder config names still key off the config index snapshot.
+        if (cfgIdx == null) return null
+        return configNamesForBuild[cfgIdx] ?? null
+      }
+      const resolveKeepUniqueLabel = (ruleIndex: number | null): string | null => {
+        // Keep-unique labels are mapped by rule id so they can refresh without rebuilding rules.
+        if (ruleIndex == null || !prevState?.mergedRules) return null
+        const rule = prevState.mergedRules[ruleIndex]
+        if (!rule || rule.__source !== RULE_SOURCE_KEEP_UNIQUES) return null
+        const ruleId = rule.__keepUniqueRuleId
+        if (ruleId && keepUniqueLabelMap.has(ruleId)) {
+          return keepUniqueLabelMap.get(ruleId) ?? null
         }
-        return {
-          ...row,
-          match: row.match ? { ...row.match, cfgName: remapName(row.match.cfgIdx) } : null,
-          baseMatch: row.baseMatch ? { ...row.baseMatch, cfgName: remapName(row.baseMatch.cfgIdx) } : null,
-        }
-      })
+        return resolveKeepUniqueRuleLabel(rule)
+      }
+      const refreshMatch = (match: TesterPreviewMatch | null): TesterPreviewMatch | null => {
+        // Recompute config names, while keep-unique matches use the live rule label map.
+        if (!match) return null
+        const nextCfgName = resolveConfigName(match.cfgIdx)
+        const keepUniqueLabel = match.ruleSource === RULE_SOURCE_KEEP_UNIQUES
+          ? resolveKeepUniqueLabel(match.ruleIndex)
+          : null
+        const resolvedCfgName = match.ruleSource === RULE_SOURCE_KEEP_UNIQUES
+          ? (keepUniqueLabel ?? match.cfgName ?? null)
+          : nextCfgName
+        const resolvedRuleLabel = match.ruleSource === RULE_SOURCE_KEEP_UNIQUES
+          ? (keepUniqueLabel ?? match.ruleLabel ?? null)
+          : match.ruleLabel
+        return { ...match, cfgName: resolvedCfgName, ruleLabel: resolvedRuleLabel }
+      }
+      const updatedRows = prevMatches.map((row) => ({
+        ...row,
+        match: refreshMatch(row.match),
+        baseMatch: refreshMatch(row.baseMatch),
+      }))
       setTesterPreviewRows(sortTesterRows(updatedRows))
       lastConfigNamesRef.current = configNamesForBuild
+      lastKeepUniqueLabelSignatureRef.current = keepUniqueLabelSignature
+      return () => {
+        abortController.abort()
+        if (pipelineAbortRef.current === abortController) pipelineAbortRef.current = null
+      }
+    }
+    if (!artifactsChanged && canSkipWarm && keepUniqueLabelsChanged && prevMatches.length === 0 && !configNamesChanged) {
+      // No rows to refresh, but we still want to record the latest keep-unique labels.
+      lastConfigNamesRef.current = configNamesForBuild
+      lastKeepUniqueLabelSignatureRef.current = keepUniqueLabelSignature
       return () => {
         abortController.abort()
         if (pipelineAbortRef.current === abortController) pipelineAbortRef.current = null
@@ -1049,6 +1105,17 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       setRulesBuildProgress(null)
       setGearEntriesProgress(null)
       if (prevMatches && prevMatches.length > 0) {
+        // Keep-unique labels may have drifted; resolve them from the live rule list.
+        const resolveKeepUniqueLabel = (ruleIndex: number | null): string | null => {
+          if (ruleIndex == null) return null
+          const rule = prevState.mergedRules[ruleIndex]
+          if (!rule || rule.__source !== RULE_SOURCE_KEEP_UNIQUES) return null
+          const ruleId = rule.__keepUniqueRuleId
+          if (ruleId && keepUniqueLabelMap.has(ruleId)) {
+            return keepUniqueLabelMap.get(ruleId) ?? null
+          }
+          return resolveKeepUniqueRuleLabel(rule)
+        }
         const remapCfgIdx = (cfgIdx: number | null): number | null => {
           if (cfgIdx == null) return null
           const nextIdx = inverse.get(cfgIdx)
@@ -1065,13 +1132,31 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             if (!row.match) return null
             const nextIdx = remapCfgIdx(row.match.cfgIdx)
             const nextName = nextIdx != null ? configNamesForBuild[nextIdx] ?? null : null
-            return { ...row.match, cfgIdx: nextIdx, cfgName: nextName }
+            const keepUniqueLabel = row.match.ruleSource === RULE_SOURCE_KEEP_UNIQUES
+              ? resolveKeepUniqueLabel(row.match.ruleIndex)
+              : null
+            const cfgName = row.match.ruleSource === RULE_SOURCE_KEEP_UNIQUES
+              ? (keepUniqueLabel ?? row.match.cfgName ?? null)
+              : nextName
+            const ruleLabel = row.match.ruleSource === RULE_SOURCE_KEEP_UNIQUES
+              ? (keepUniqueLabel ?? row.match.ruleLabel ?? null)
+              : row.match.ruleLabel
+            return { ...row.match, cfgIdx: nextIdx, cfgName, ruleLabel }
           })(),
           baseMatch: (() => {
             if (!row.baseMatch) return null
             const nextIdx = remapCfgIdx(row.baseMatch.cfgIdx)
             const nextName = nextIdx != null ? configNamesForBuild[nextIdx] ?? null : null
-            return { ...row.baseMatch, cfgIdx: nextIdx, cfgName: nextName }
+            const keepUniqueLabel = row.baseMatch.ruleSource === RULE_SOURCE_KEEP_UNIQUES
+              ? resolveKeepUniqueLabel(row.baseMatch.ruleIndex)
+              : null
+            const cfgName = row.baseMatch.ruleSource === RULE_SOURCE_KEEP_UNIQUES
+              ? (keepUniqueLabel ?? row.baseMatch.cfgName ?? null)
+              : nextName
+            const ruleLabel = row.baseMatch.ruleSource === RULE_SOURCE_KEEP_UNIQUES
+              ? (keepUniqueLabel ?? row.baseMatch.ruleLabel ?? null)
+              : row.baseMatch.ruleLabel
+            return { ...row.baseMatch, cfgIdx: nextIdx, cfgName, ruleLabel }
           })(),
           matchingCfgIndices: row.matchingCfgIndices.map((idx) => {
             const nextIdx = inverse.get(idx)
@@ -1082,6 +1167,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         setTesterPreviewRows(sortTesterRows(remappedRows))
       }
       lastConfigNamesRef.current = configNamesForBuild
+      lastKeepUniqueLabelSignatureRef.current = keepUniqueLabelSignature
       return () => {
         abortController.abort()
         if (pipelineAbortRef.current === abortController) pipelineAbortRef.current = null
@@ -1256,6 +1342,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           pendingKeepUniqueDetectionSigRef.current = null
           lastPipelineSignatureRef.current = { fingerprint: nextFingerprint, artifactSig: pipelineArtifactSignature }
           lastConfigNamesRef.current = configNamesForBuild
+          lastKeepUniqueLabelSignatureRef.current = keepUniqueLabelSignature
           if (pipelineAbortRef.current === abortController) pipelineAbortRef.current = null
           const totalCustomRules = Array.from(state.countsByConfig.values()).reduce((acc, val) => (
             acc + (Number.isFinite(val) ? Number(val) : 0)
@@ -1345,6 +1432,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                 lastCommittedArtifactFingerprintsRef.current = nextArtifactFingerprints
                 lastPipelineSignatureRef.current = { fingerprint: nextFingerprint, artifactSig: pipelineArtifactSignature }
                 lastConfigNamesRef.current = configNamesForBuild
+                lastKeepUniqueLabelSignatureRef.current = keepUniqueLabelSignature
               })
               .catch(() => {
                 if (abortController.signal.aborted) return
@@ -1391,6 +1479,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     substatTargetsForPreview,
     hsf,
     finalSellRemainder,
+    keepUniqueRules,
     keepUniquesEnabled,
     resolvedKeepUniqueRules,
     configModes,
