@@ -194,8 +194,7 @@ Alle Beispiele verwenden 6★-Mindestwerte pro Roll-Einheit: SPD=5, CR%=5, CDMG%
 - Bearbeiten & Testen: Öffne die App und ziehe deine bearbeitete `*.l10n.json` darauf, um sie sofort für die aktuelle Sitzung zu verwenden (keine Installation nötig oder möglich).
 - Fixes einreichen: Sende die aktualisierte JSON per Discord-Nachricht. Lass die Keys unverändert; fehlende Keys fallen auf Englisch zurück.
 - Eingebaute Sprachen: Alle ausgelieferten Sprachen sind in die einzelne HTML-Datei eingebettet, damit die App offline funktioniert. Deine Anpassungen werden im nächsten Release übernommen.
-- RSL-Helper-DB überwachen: Starte `scripts/run-sample-server.ps1 -WatchGearDb` (oder `-GearDbPath <Datei>`), um `%APPDATA%\\RslHelper\\Config` zu beobachten. Jede Aktualisierung der `.db` schiebt der Sample-Server direkt in den vom Skript gestarteten Regel Tester und fragt nach, falls mehrere Datenbanken vorhanden sind.
-- Doppelklick-Helfer: `Stream-Helper-DB-to-Creator.bat` startet den Sample-Server unter PowerShell mit `-WatchGearDb "%APPDATA%\\RslHelper\\Config"` und streamt so die Standard-RSL-Helper-Datenbank ganz ohne Konsole; zusätzliche Schalter kannst du einfach hinter den `.bat`-Namen setzen.
+- `Stream-Helper-DB-to-Creator.bat` startet den DB-Watcher und streamt die Standarddatenbank von RSL Helper in Sellfile Creator, damit du Konfigs live einfacher prüfen kannst.
 
 ## Danksagungen
 

@@ -196,8 +196,7 @@ Tüm örneklerde rulo başına 6★ alt stat hedefleri: SPD=5, CR%=5, CDMG%=5.
 - Düzenle ve test et: Uygulamayı açıp düzenlediğin `*.l10n.json` dosyasını üzerine sürükleyerek anlık oturumda hemen uygula (herhangi bir kurulum gerekmez veya yapılamaz).
 - Düzeltme gönder: Güncellenmiş JSON’u Discord mesajı olarak gönder. Anahtarları değiştirme; eksik anahtarlar İngilizceye geri döner.
 - Yerleşik diller: Gönderilen tüm diller tek HTML dosyasına derlenir, bu yüzden uygulama tamamen çevrimdışı çalışır. Düzeltmelerin bir sonraki sürüme eklenir.
-- RSL Helper veritabanını izle: `%APPDATA%\\RslHelper\\Config` yolunu takip etmek için `scripts/run-sample-server.ps1 -WatchGearDb` (veya `-GearDbPath <dosya>`) kullan. `.db` her güncellendiğinde örnek sunucu onu doğrudan başlattığı Kural testine gönderir ve birden fazla dosya varsa hangisinin izleneceğini sorar.
-- Çift tıklama kısayolu: `Stream-Helper-DB-to-Creator.bat`, PowerShell’de `-WatchGearDb "%APPDATA%\\RslHelper\\Config"` parametreleriyle örnek sunucuyu başlatır; böylece varsayılan RSL Helper veritabanını konsola dokunmadan aktarabilir ve `.bat` adından sonra ek bayraklar yazarak davranışı özelleştirebilirsin.
+- `Stream-Helper-DB-to-Creator.bat` DB watcher’ı başlatır ve varsayılan RSL Helper veritabanını Sellfile Creator’a aktarır, böylece config’leri canlı kontrol etmek daha kolay olur.
 
 ## Teşekkürler
 

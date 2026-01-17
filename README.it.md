@@ -227,8 +227,7 @@ Esempio: somma dei roll con jolly (2 sotto-stat)
 - Modifica e test: apri l’app e trascina il tuo `*.l10n.json` modificato per applicarlo subito alla sessione corrente (nessuna installazione necessaria o possibile).
 - Invio correzioni: invia il JSON aggiornato tramite messaggio su Discord. Mantieni le chiavi invariate; quelle mancanti tornano all’inglese.
 - Lingue integrate: tutte le lingue distribuite sono compilate nell’unico HTML, quindi l’app funziona completamente offline. Le tue correzioni saranno incluse nel prossimo rilascio.
-- Monitora il DB di RSL Helper: esegui `scripts/run-sample-server.ps1 -WatchGearDb` (o specifica `-GearDbPath <file>`) per osservare `%APPDATA%\\RslHelper\\Config`. Ogni modifica della `.db` viene inviata al Tester regole avviato dallo script e, se sono presenti più database, il tool ti chiede quale seguire.
-- Avvio rapido: `Stream-Helper-DB-to-Creator.bat` lancia il server di esempio in PowerShell con `-WatchGearDb "%APPDATA%\\RslHelper\\Config"` così puoi trasmettere il database predefinito di RSL Helper senza usare la console; aggiungi eventuali flag dopo il nome del `.bat` per personalizzare l’esecuzione.
+- `Stream-Helper-DB-to-Creator.bat` avvia il DB watcher e trasmette il database predefinito di RSL Helper in Sellfile Creator per controllare le configurazioni in tempo reale più facilmente.
 
 ## Ringraziamenti
 

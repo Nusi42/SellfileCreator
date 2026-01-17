@@ -1214,7 +1214,7 @@ const enUS: Catalog = {
   tutGearDialogOpenTitle: 'Gear',
   tutGearDialogOpenBody: 'Use `Logic Hub` to open the dialog directly on the Gear tab so you can import an RSL Helper database or craft manual entries without leaving the preview.',
   tutGearDialogAddTitle: 'Add a Custom Gear',
-  tutGearDialogAddBody: 'With Logic Hub still open on `Gear`, drag an RSL Helper `.db` file into the app or click `Load` to import it from `%APPDATA%\\RslHelper\\Config`. Experts run `run-sample-server.ps1` to stream gear straight from that folder.\n\nManual created gear lives alongside gear from RSL Helper. We just added a 5★ Rare `Refresh` amulet from the Banner Lords so you can follow along. Use this button any time you want to model hypothetical drops, manual crafts, or rebalanced stats.',
+  tutGearDialogAddBody: 'With Logic Hub still open on `Gear`, drag an RSL Helper `.db` file into the app or click `Load` to import it from `%APPDATA%\\RslHelper\\Config`. You can also run `Stream-Helper-DB-to-Creator.bat` to stream gear from that folder.\n\nManual created gear lives alongside gear from RSL Helper. We just added a 5★ Rare `Refresh` amulet from the Banner Lords so you can follow along. Use this button any time you want to model hypothetical drops, manual crafts, or rebalanced stats.',
   tutGearDialogPreviewTitle: 'Preview the Tester Grid',
   tutGearDialogPreviewBody: 'Close Logic Hub, then flip the preview to `Rule Tester` mode to see just the tester queue. Our sample Refresh amulet is the only row for now, so the grid makes it obvious when configs, Final Sell, or Keep Uniques match it.',
   tutKeepUniquesIntroTitle: 'Keep Uniques Overview',

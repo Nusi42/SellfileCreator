@@ -11,6 +11,7 @@ import React, { useCallback, useDeferredValue, useEffect, useLayoutEffect, useMe
 import { APP_VERSION } from './version'
 import { readHsfFile, buildHsfFileFromMerged, buildDedupedHsfFileFromMerged, hsfToBlob } from './lib/hsfIO'
 import { getPushEndpoint } from './lib/runtimeConfig'
+import { EXTERNAL_WS_METHOD_UPLOAD_SELLFILE } from './lib/externalWsProtocol'
 import type { ExternalCommand, GearDbRawDeltaCommand, GearDbRawSnapshotCommand } from './lib/externalCommands'
 import type { HsfFile, HsfRule } from './lib/hsfTypes'
 import { type BuilderConfig, type SubstatTargetTable, type SellfileExportMode } from './lib/hsfBuilder'
@@ -124,39 +125,25 @@ const WORKLOAD_SPINNER_HANG_MS = 450 as const
 // Coalesce rapid edits so we do not restart the pipeline for every keystroke/reorder.
 const PIPELINE_DEBOUNCE_MS = 200 as const
 
-// Export pushes always land under `/hsf/` so receivers can route different
-// payload types (HSF vs future uploads) without inspecting request bodies.
-function buildSellfilePushUrl(endpoint: string, filename: string): string {
-  // Drop leading slashes so filename always becomes the final segment.
-  const normalizedFilename = filename.replace(/^\/+/, '')
+// WebSocket endpoints may still host HTTP downloads; map ws(s) -> http(s).
+function coerceWsEndpointToHttp(endpoint: string): string | null {
   try {
     const url = new URL(endpoint)
-    const segments = url.pathname.split('/').filter(Boolean)
-    const lastSegment = segments[segments.length - 1]
-    if (lastSegment !== SELLFILE_PUSH_PATH_SEGMENT) {
-      segments.push(SELLFILE_PUSH_PATH_SEGMENT)
+    if (url.protocol === 'ws:') {
+      url.protocol = 'http:'
+      return url.toString()
     }
-    segments.push(normalizedFilename)
-    url.pathname = `/${segments.join('/')}`
-    return url.toString()
+    if (url.protocol === 'wss:') {
+      url.protocol = 'https:'
+      return url.toString()
+    }
   } catch {
-    // Fallback for endpoints that are not URL-compatible (e.g., custom schemes).
-    const separatorIndex = Math.min(
-      ...['?', '#'].map((marker) => {
-        const idx = endpoint.indexOf(marker)
-        return idx === -1 ? Number.POSITIVE_INFINITY : idx
-      })
-    )
-    const suffix = Number.isFinite(separatorIndex) ? endpoint.slice(separatorIndex) : ''
-    const base = Number.isFinite(separatorIndex) ? endpoint.slice(0, separatorIndex) : endpoint
-    const baseWithSlash = base.endsWith('/') ? base : `${base}/`
-    const needsSegment = !baseWithSlash.toLowerCase().endsWith(`/${SELLFILE_PUSH_PATH_SEGMENT}/`)
-    const baseWithSegment = needsSegment ? `${baseWithSlash}${SELLFILE_PUSH_PATH_SEGMENT}/` : baseWithSlash
-    return `${baseWithSegment}${normalizedFilename}${suffix}`
+    // ignore invalid values
   }
+  return null
 }
 import { sellfileFilename, hsfcFilename, buildTimestamp } from './lib/filenames'
-import { README_SEEN_VERSION_KEY, RULE_COUNT_LIMIT, SELLFILE_PUSH_PATH_SEGMENT } from './lib/constants'
+import { README_SEEN_VERSION_KEY, RULE_COUNT_LIMIT } from './lib/constants'
 import { DEFAULT_METASET_ICON_ID } from './lib/metasetIcons'
 import { defaultMetasets, type Metaset } from './lib/metasets'
 import { normalizeArtifactSetSelections, splitArtifactSetSelections, type ArtifactSetSelectionEntry } from './lib/gearSets/selection'
@@ -2250,6 +2237,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     t,
   })
   const pushEndpoint = useMemo(() => getPushEndpoint(), [])
+  // Keep an HTTP-compatible base for optional download paths.
+  const pushEndpointHttpBase = useMemo(
+    () => (pushEndpoint ? coerceWsEndpointToHttp(pushEndpoint) : null),
+    [pushEndpoint],
+  )
   const [pushEndpointReachable, setPushEndpointReachableState] = useState(() => Boolean(pushEndpoint))
   const setPushEndpointReachable = useCallback((next: boolean) => {
     setPushEndpointReachableState((prev) => (prev === next ? prev : next))
@@ -3858,7 +3850,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             if (/^https?:\/\//i.test(downloadPath)) {
               return downloadPath
             }
-            const base = pushEndpoint ?? ''
+            const base = pushEndpointHttpBase ?? ''
             if (!base) return null
             const baseUrl = base.endsWith('/') ? base : `${base}/`
             const relative = downloadPath.startsWith('/') ? downloadPath.slice(1) : downloadPath
@@ -3892,9 +3884,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       const file = createGearDbFileFromBase64(cmd.name, cmd.base64)
       queueImport(file)
     }
-  }, [focusRuleByIndex, handleGearDbImport, handleGearDbRawDelta, handleGearDbRawSnapshot, pushEndpoint])
+  }, [focusRuleByIndex, handleGearDbImport, handleGearDbRawDelta, handleGearDbRawSnapshot, pushEndpointHttpBase])
 
-  useExternalCommands({
+  const { sendRequest: sendExternalRequest } = useExternalCommands({
     pushEndpoint,
     onCommand: handleExternalCommand,
     onReachabilityChange: setPushEndpointReachable,
@@ -4960,28 +4952,30 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           const filename = sellfileFilename()
           const target = pushExportEndpoint
           if (target) {
-            const targetUrl = buildSellfilePushUrl(target, filename)
-
             let pushToast: 'success' | 'failure' | null = null
             try {
-              const response = await fetch(targetUrl, {
-                method: 'PUT',
-                headers: { 'Content-Type': blob.type || 'application/json' },
-                body: blob,
+              // Serialize the sellfile payload so the WS server can persist it.
+              const payloadText = await blob.text()
+              // Send an upload request that matches both WS protocol flavors.
+              const response = await sendExternalRequest(EXTERNAL_WS_METHOD_UPLOAD_SELLFILE, {
+                name: filename,
+                contentType: blob.type || 'application/json',
+                data: payloadText,
               })
-              setPushEndpointReachable(true)
               if (response.ok) {
+                // Mark the endpoint as reachable once a request succeeds.
+                setPushEndpointReachable(true)
                 pushToast = 'success'
                 setLastExportSig(hsfExportSig)
               } else {
                 if (import.meta.env.DEV) {
-                  console.error(`Push endpoint responded with ${response.status} for ${targetUrl}`)
+                  console.error('Push endpoint responded with error', response.error)
                 }
                 pushToast = 'failure'
               }
             } catch (err) {
               if (import.meta.env.DEV) {
-                console.error(`Failed to export sellfile to ${targetUrl}`, err)
+                console.error('Failed to export sellfile over WebSocket', err)
               }
               setPushEndpointReachable(false)
               pushToast = 'failure'

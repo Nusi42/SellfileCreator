@@ -112,7 +112,7 @@
 
 ### Gear Dialog + Rule Tester Coverage
 
-- The Gear dialog section (still inserted before Final Sell) now walks through the Logic Hub Gear tab. The `tester-open` step highlights the `Gear…` button in the preview header and expects it to open `LogicHubDialog` directly on the Gear tab before narration continues. The combined `tester-add-manual` (`Add a custom gear`) step keeps the dialog open while covering `.db` drag-and-drop, `%APPDATA%\RslHelper\Config` imports, `run-sample-server.ps1`, and the scripted 5★ Rare Refresh amulet from the Banner Lords. The follow-up `tester-preview` step closes the Gear tab, switches the preview mode to `Rule Tester`, and highlights the Sellfile Preview ⇄ Rule Tester toggle so the scripted item is the only row rendered.
+- The Gear dialog section (still inserted before Final Sell) now walks through the Logic Hub Gear tab. The `tester-open` step highlights the `Gear…` button in the preview header and expects it to open `LogicHubDialog` directly on the Gear tab before narration continues. The combined `tester-add-manual` (`Add a custom gear`) step keeps the dialog open while covering `.db` drag-and-drop, `%APPDATA%\RslHelper\Config` imports, `run-db-watcher.ps1 / run-db-watcher-rsl.ps1`, and the scripted 5★ Rare Refresh amulet from the Banner Lords. The follow-up `tester-preview` step closes the Gear tab, switches the preview mode to `Rule Tester`, and highlights the Sellfile Preview ⇄ Rule Tester toggle so the scripted item is the only row rendered.
 
 ### Keep Uniques Coverage
 
