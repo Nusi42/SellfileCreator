@@ -1069,6 +1069,7 @@ const overrides: Catalog = {
   toastGearDbImportedWithInbox: 'Veritabanından {count} ekipman parçası içeri aktarıldı ({inboxCount} tanesi gelen kutusundan).',
   toastGearDbDiffSummary: 'Ekipman güncellendi: +{added} / -{removed}.',
   toastGearDbImportEmpty: 'Veritabanında ekipman bulunmuyor.',
+  toastGearDbReceivedAt: 'Alındı: {timestamp}.',
   toastL10nLoaded: 'Yerelleştirme yüklendi: {lang}',
   toastL10nLoadFailed: 'Yerelleştirme dosyası yüklenemedi',
   toastGearSetsLoaded: '{count} özel set yüklendi',

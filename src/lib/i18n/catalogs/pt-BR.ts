@@ -1069,6 +1069,7 @@ const catalog: Catalog = {
   toastGearDbImportedWithInbox: 'Foram importadas {count} peças de gear do banco de dados (incluindo {inboxCount} da caixa de entrada).',
   toastGearDbDiffSummary: 'Equipamentos atualizados: +{added} / -{removed}.',
   toastGearDbImportEmpty: 'O banco de dados não contém peças de gear.',
+  toastGearDbReceivedAt: 'Recebido: {timestamp}.',
   toastL10nLoaded: 'Localização carregada: {lang}',
   toastL10nLoadFailed: 'Falha ao carregar o arquivo de localização',
   toastGearSetsLoaded: '{count} conjuntos personalizados carregados',

@@ -1069,6 +1069,7 @@ const overrides: Catalog = {
   toastGearDbImportedWithInbox: 'Импортировано {count} предметов экипировки из базы (включая {inboxCount} из почты).',
   toastGearDbDiffSummary: 'Снаряжение обновлено: +{added} / -{removed}.',
   toastGearDbImportEmpty: 'В базе данных нет предметов экипировки.',
+  toastGearDbReceivedAt: 'Получено: {timestamp}.',
   toastL10nLoaded: 'Загружена локализация: {lang}',
   toastL10nLoadFailed: 'Не удалось загрузить файл локализации',
   toastGearSetsLoaded: 'Загружено {count} пользовательских наборов',

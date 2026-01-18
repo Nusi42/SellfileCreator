@@ -37,6 +37,7 @@ const createCaseInsensitiveLookup = (record: UnknownRecord): CaseInsensitiveLook
 export type ExternalCommand =
   | { kind: 'selectRule'; rowNumber: number | null }
   | { kind: 'gearDbFile'; name: string; base64?: string; downloadPath?: string }
+  | { kind: 'gearDbFileBinary'; name: string; bytes: Uint8Array; contentType?: string | null }
   | GearDbRawSnapshotCommand
   | GearDbRawDeltaCommand
 

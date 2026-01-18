@@ -109,6 +109,7 @@ import RulesFilterPanel, { type RulesFilterPanelHandle } from './components/Rule
 import { TESTER_CONFIG_FILTER_MODE_DEFAULT, type TesterConfigFilterMode } from './types/testerConfigFilterMode'
 import { artifactTypeI18nKey, getAllKnownArtifactSetIds, type RankValue, type StatVariant } from './lib/types'
 import { formatTesterSetLabel } from './lib/testerFormatters'
+import { formatLocalDateTime } from './lib/dateDisplay'
 import { DEFAULT_RULES_FILTER_STATE, filterHsfRules, filterTesterItems, isRulesFilterActive, normalizeRulesFilterForTester, type FilterHsfRulesResult, type RulesFilterState } from './lib/rulesFilter'
 import {
   useAutosaveRestore,
@@ -274,6 +275,20 @@ const createGearDbFileFromBase64 = (name: string, base64?: string | null): File 
   const fileName = name && name.trim().length > 0 ? name : DEFAULT_GEAR_DB_FILENAME
   try {
     return new File([bytes], fileName, { type: 'application/octet-stream' })
+  } catch {
+    return null
+  }
+}
+
+const createGearDbFileFromBytes = (name: string, bytes: Uint8Array, contentType?: string | null): File | null => {
+  if (!bytes || bytes.length === 0 || typeof File !== 'function') {
+    return null
+  }
+  const fileName = name && name.trim().length > 0 ? name : DEFAULT_GEAR_DB_FILENAME
+  try {
+    const buffer = new ArrayBuffer(bytes.byteLength)
+    new Uint8Array(buffer).set(bytes)
+    return new File([buffer], fileName, { type: contentType || 'application/octet-stream' })
   } catch {
     return null
   }
@@ -1986,6 +2001,20 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     const truncated = trimmed.length > 160 ? `${trimmed.slice(0, 157)}…` : trimmed
     return t('fileFormatErrorMessage', { fileName: `“${truncated}”` })
   }, [t])
+  const formatGearDbTimestampLine = useCallback(() => {
+    // Include seconds to make fast successive DB pushes distinguishable.
+    const timestamp = formatLocalDateTime(new Date(), { dateStyle: 'medium', timeStyle: 'medium' })
+    // Skip the line when formatting fails so we never show an empty label.
+    return timestamp ? t('toastGearDbReceivedAt', { timestamp }) : null
+  }, [t])
+  const buildGearDbCommandMessages = useCallback((lines: Array<string | null | undefined>) => {
+    // Trim and filter the message lines so we can reuse them in both outputs.
+    const cleaned = lines.map((line) => (line ?? '').trim()).filter((line) => line.length > 0)
+    // Keep the tooltip multi-line while keeping the toast compact.
+    const tooltipMessage = cleaned.join('\n\n')
+    const toastMessage = cleaned.join('\n')
+    return { tooltipMessage, toastMessage }
+  }, [])
   const [previewMode, setPreviewMode] = useState<'rules' | 'tester'>(() => {
     if (typeof window === 'undefined') return 'rules'
     try {
@@ -2934,15 +2963,21 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       const inboxCount = inboxArtifacts.length
       const totalCount = combined.length
       const diffSummary = t('toastGearDbDiffSummary', { added: addedCount, removed: removedCount })
-      const message = inboxCount > 0
-        ? `${t('toastGearDbImportedWithInbox', { count: totalCount, inboxCount })} ${diffSummary}`
-        : `${t('toastGearDbImported', { count: totalCount })} ${diffSummary}`
+      const importSummary = inboxCount > 0
+        ? t('toastGearDbImportedWithInbox', { count: totalCount, inboxCount })
+        : t('toastGearDbImported', { count: totalCount })
       if (source === 'command') {
+        const { tooltipMessage, toastMessage } = buildGearDbCommandMessages([
+          importSummary,
+          diffSummary,
+          formatGearDbTimestampLine(),
+        ])
         setGearDbCommandError(null)
-        setGearDbCommandSuccess(message)
+        setGearDbCommandSuccess(tooltipMessage)
         // Success toasts stay compact so they do not block the preview controls.
-        showGearDbCommandToast(message, 'success')
+        showGearDbCommandToast(toastMessage, 'success')
       } else {
+        const message = `${importSummary} ${diffSummary}`
         showToast(message, { icon: <StorageIcon fontSize="inherit" /> })
       }
     } catch (err) {
@@ -2973,7 +3008,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     showToast,
     showFileFormatError,
     t,
+    buildGearDbCommandMessages,
     formatFileFormatErrorMessage,
+    formatGearDbTimestampLine,
     setGearDbCommandError,
     setGearDbCommandSuccess,
     applyGearDbDiff,
@@ -3007,12 +3044,17 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         return
       }
       const diffSummary = t('toastGearDbDiffSummary', { added: addedCount, removed: removedCount })
-      const message = inboxCount > 0
-        ? `${t('toastGearDbImportedWithInbox', { count: totalCount, inboxCount })} ${diffSummary}`
-        : `${t('toastGearDbImported', { count: totalCount })} ${diffSummary}`
+      const importSummary = inboxCount > 0
+        ? t('toastGearDbImportedWithInbox', { count: totalCount, inboxCount })
+        : t('toastGearDbImported', { count: totalCount })
+      const { tooltipMessage, toastMessage } = buildGearDbCommandMessages([
+        importSummary,
+        diffSummary,
+        formatGearDbTimestampLine(),
+      ])
       setGearDbCommandError(null)
-      setGearDbCommandSuccess(message)
-      showGearDbCommandToast(message, 'success')
+      setGearDbCommandSuccess(tooltipMessage)
+      showGearDbCommandToast(toastMessage, 'success')
     } catch (err) {
       if (import.meta.env.DEV) {
         console.error('Failed to apply gear DB snapshot', err)
@@ -3029,8 +3071,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     applyGearDbDiff,
     beginGearImport,
     beginTesterMatchReset,
+    buildGearDbCommandMessages,
     dismissGearDbCommandToast,
     endGearImport,
+    formatGearDbTimestampLine,
     formatFileFormatErrorMessage,
     setGearDbCommandError,
     setGearDbCommandSuccess,
@@ -3061,8 +3105,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       }
       const diffSummary = t('toastGearDbDiffSummary', { added: addedCount, removed: removedCount })
       setGearDbCommandError(null)
-      setGearDbCommandSuccess(diffSummary)
-      showGearDbCommandToast(diffSummary, 'success')
+      const { tooltipMessage, toastMessage } = buildGearDbCommandMessages([
+        diffSummary,
+        formatGearDbTimestampLine(),
+      ])
+      setGearDbCommandSuccess(tooltipMessage)
+      showGearDbCommandToast(toastMessage, 'success')
     } catch (err) {
       if (import.meta.env.DEV) {
         console.error('Failed to apply gear DB delta', err)
@@ -3079,8 +3127,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     applyGearDbDiff,
     beginGearImport,
     beginTesterMatchReset,
+    buildGearDbCommandMessages,
     dismissGearDbCommandToast,
     endGearImport,
+    formatGearDbTimestampLine,
     formatFileFormatErrorMessage,
     setGearDbCommandError,
     setGearDbCommandSuccess,
@@ -4023,6 +4073,17 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
 
       const file = createGearDbFileFromBase64(cmd.name, cmd.base64)
       queueImport(file)
+    }
+
+    if (cmd.kind === 'gearDbFileBinary') {
+      const file = createGearDbFileFromBytes(cmd.name, cmd.bytes, cmd.contentType)
+      if (!file) {
+        if (import.meta.env.DEV) {
+          console.error('Failed to decode gear DB binary payload from external command.')
+        }
+        return
+      }
+      void handleGearDbImport(file, { source: 'command' })
     }
   }, [focusRuleByIndex, handleGearDbImport, handleGearDbRawDelta, handleGearDbRawSnapshot, pushEndpointHttpBase])
 
@@ -5362,9 +5423,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             sx={{
               alignItems: 'center',
               fontSize: Math.max(12, FONT_SIZE_BASE_PX - 2),
+              lineHeight: 1.35,
               px: 1.75,
               py: 1,
               minWidth: 240,
+              whiteSpace: 'pre-line',
             }}
           >
             {gearDbCommandToast.message}
