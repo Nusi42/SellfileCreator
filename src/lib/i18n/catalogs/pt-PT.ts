@@ -1069,6 +1069,7 @@ const overrides: Catalog = {
   toastGearDbImportedWithInbox: 'Foram importadas {count} peças de gear da base de dados (incluindo {inboxCount} da caixa de entrada).',
   toastGearDbDiffSummary: 'Equipamento atualizado: +{added} / -{removed}.',
   toastGearDbImportEmpty: 'A base de dados não contém peças de gear.',
+  toastGearDbReceivedAt: 'Recebido: {timestamp}.',
   toastL10nLoaded: 'Localização carregada: {lang}',
   toastL10nLoadFailed: 'Falha ao carregar o ficheiro de localização',
   toastGearSetsLoaded: '{count} conjuntos personalizados carregados',

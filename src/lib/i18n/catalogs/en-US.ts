@@ -1069,6 +1069,7 @@ const enUS: Catalog = {
   toastGearDbImportedWithInbox: 'Imported {count} gear items from database (including {inboxCount} from inbox).',
   toastGearDbDiffSummary: 'Gear updated: +{added} / -{removed}.',
   toastGearDbImportEmpty: 'Database did not contain any gear items.',
+  toastGearDbReceivedAt: 'Received {timestamp}.',
   toastL10nLoaded: 'Loaded localization: {lang}',
   toastL10nLoadFailed: 'Failed to load localization file',
   toastGearSetsLoaded: 'Loaded {count} custom gear sets',

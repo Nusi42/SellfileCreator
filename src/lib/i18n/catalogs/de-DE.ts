@@ -1069,6 +1069,7 @@ const overrides: Catalog = {
   toastGearDbImportedWithInbox: 'Insgesamt {count} Ausrüstungsgegenstände aus der Datenbank importiert (davon {inboxCount} aus dem Postfach).',
   toastGearDbDiffSummary: 'Ausrüstung aktualisiert: +{added} / -{removed}.',
   toastGearDbImportEmpty: 'Die Datenbank enthält keine Ausrüstungsgegenstände.',
+  toastGearDbReceivedAt: 'Empfangen: {timestamp}.',
   toastL10nLoaded: 'Lokalisierung geladen: {lang}',
   toastL10nLoadFailed: 'Lokalisierungsdatei konnte nicht geladen werden',
   toastGearSetsLoaded: '{count} benutzerdefinierte Sets geladen',
