@@ -882,6 +882,7 @@ const overrides: Catalog = {
   filterRollsSummaryNone: 'Фильтры роллов не активны',
   filterAscension: 'Ascension',
   filterConfigName: 'Имя конфига',
+  filterConfigNamePlaceholder: 'Введите имя конфига или тег (regex)',
   filterConfigNameInvalid: 'Некорректное регулярное выражение',
   filterLimitPreviewConfigs: 'Конфиги (обзор)',
   filterLimitPreviewConfigsTooltip: 'Показывать только конфиг-чипы, чьи правила проходят текущие фильтры превью.',
