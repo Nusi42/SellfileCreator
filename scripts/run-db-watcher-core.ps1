@@ -28,10 +28,6 @@ $defaultParameters = [ordered]@{
     OutputPath          = (Join-Path $PSScriptRoot 'exported-sellfile.hsf')
     WatchGearDb         = $true
     GearDbPath          = $null
-    LaunchOnly          = $false
-    OpenOnSave          = $false
-    PauseBeforeUiReset  = $false
-    SkipRelaunch        = $false
 }
 
 # Canonical names keep aliases in sync with the known parameter set.
@@ -41,14 +37,10 @@ $canonicalNames = @{
     'outputpath'         = 'OutputPath'
     'watchgeardb'        = 'WatchGearDb'
     'geardbpath'         = 'GearDbPath'
-    'launchonly'         = 'LaunchOnly'
-    'openonsave'         = 'OpenOnSave'
-    'pausebeforeuireset' = 'PauseBeforeUiReset'
-    'skiprelaunch'       = 'SkipRelaunch'
 }
 
 # Boolean parameters are treated as flags or explicit true/false values.
-$booleanParameters = @('LaunchOnly', 'OpenOnSave', 'PauseBeforeUiReset', 'SkipRelaunch', 'WatchGearDb')
+$booleanParameters = @('WatchGearDb')
 
 # Seed parameter values with defaults so missing args are predictable.
 $resolvedParameters = [ordered]@{}
@@ -156,43 +148,8 @@ foreach ($entry in $resolvedParameters.GetEnumerator()) {
 # Relaunch under PowerShell 7 because HttpListener + WebSocket APIs require it.
 $runningOnPwsh7 = ($PSVersionTable.PSVersion.Major -ge 7 -and $PSVersionTable.PSEdition -eq 'Core')
 if (-not $runningOnPwsh7) {
-    if ($SkipRelaunch) {
-        Write-Error 'PowerShell 7 (pwsh) is required to run this script. Download it from https://aka.ms/powershell and retry.'
-        exit 1
-    }
-
-    $pwshCommand = Get-Command -Name pwsh -ErrorAction SilentlyContinue
-    if (-not $pwshCommand) {
-        Write-Error 'PowerShell 7 (pwsh) was not found on PATH. Install it from https://aka.ms/powershell and rerun this script.'
-        exit 1
-    }
-
-    $argumentList = New-Object 'System.Collections.Generic.List[string]'
-    $null = $argumentList.Add('-NoProfile')
-    $null = $argumentList.Add('-File')
-    $null = $argumentList.Add($PSCommandPath)
-
-    foreach ($entry in $boundParameterLookup.GetEnumerator()) {
-        switch ($entry.Key) {
-            'SkipRelaunch' { continue }
-            'LaunchOnly'   { if ($entry.Value) { $null = $argumentList.Add('-LaunchOnly') } continue }
-            'OpenOnSave'   { if ($entry.Value) { $null = $argumentList.Add('-OpenOnSave') } continue }
-            'PauseBeforeUiReset' { if ($entry.Value) { $null = $argumentList.Add('-PauseBeforeUiReset') } continue }
-            'WatchGearDb' { if ($entry.Value) { $null = $argumentList.Add('-WatchGearDb') } continue }
-            'GearDbPath' {
-                if ($entry.Value) {
-                    $null = $argumentList.Add('-GearDbPath')
-                    $null = $argumentList.Add([string]$entry.Value)
-                }
-                continue
-            }
-            default        { $null = $argumentList.Add('-' + $entry.Key); $null = $argumentList.Add([string]$entry.Value) }
-        }
-    }
-
-    $null = $argumentList.Add('-SkipRelaunch')
-    $process = Start-Process -FilePath $pwshCommand.Path -ArgumentList $argumentList -Wait -PassThru
-    exit ($process.ExitCode)
+    Write-Error 'PowerShell 7 (pwsh) is required to run this script. Download it from https://aka.ms/powershell and retry.'
+    exit 1
 }
 #endregion
 
@@ -1055,15 +1012,6 @@ function Save-SellfilePayload {
     $fileInfo = [System.IO.FileInfo]::new($targetPath)
     $displayPath = Get-RelativePathDisplay -Path $fileInfo.FullName
     Write-Log -Message "Saved sellfile payload ($($fileInfo.Length) bytes) to $displayPath" -Color Green
-
-    if ($OpenOnSave) {
-        try {
-            Start-Process $fileInfo.FullName | Out-Null
-            Write-Log -Message "Opened $displayPath" -Color DarkGray
-        } catch {
-            Write-Log -Message ("Failed to open {0}: {1}" -f $displayPath, $_) -Color DarkYellow
-        }
-    }
 
     return $fileInfo.Name
 }
@@ -2083,11 +2031,6 @@ $indexPathResolved = Resolve-AppEntryPath -Root $AppRoot
 $wsEndpoint = "ws://localhost:$Port/"
 $launchUrl = New-LaunchUrl -IndexPath $indexPathResolved -Endpoint $wsEndpoint
 
-if ($PauseBeforeUiReset) {
-    Write-Warning 'Pausing before console reset; press Enter to continue once you have captured any startup errors.'
-    try { [void][System.Console]::ReadLine() } catch {}
-}
-
 Reset-ConsoleUi
 
 Write-ConsoleHeader -Message "Launching Sellfile Creator with endpoint $wsEndpoint" -Color Cyan
@@ -2112,10 +2055,6 @@ if ($WatchGearDb -or -not [string]::IsNullOrWhiteSpace($GearDbPath)) {
 
 if (-not (Open-LaunchUrl -Url $launchUrl)) {
     Write-Error "Failed to launch $launchUrl"
-}
-
-if ($LaunchOnly) {
-    return
 }
 
 $listener = New-Object System.Net.HttpListener
