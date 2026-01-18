@@ -18,7 +18,7 @@ if ([string]::IsNullOrWhiteSpace($protocolMode)) {
 
 # Map the protocol mode to a WebSocket subprotocol token.
 $protocolMode = $protocolMode.Trim().ToLowerInvariant()
-$protocolSubprotocol = if ($protocolMode -eq 'helper') { 'helper' } else { 'jsonrpc' }
+$protocolSubprotocol = if ($protocolMode -eq 'helper') { 'rws' } else { 'jsonrpc' }
 
 # Explorer's "Run with PowerShell" host fails on advanced `param` blocks. The
 # script still needs defaults and optional switches, so we emulate the binder.

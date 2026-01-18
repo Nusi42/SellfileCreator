@@ -6,13 +6,13 @@ Creator when communicating with RSL Helper integrations.
 ## Transport
 
 - WebSocket URL: `ws://<host>:<port>/`
-- Subprotocol: `helper`
+- Subprotocol: `rws`
 - Payloads: JSON text frames (binary frames allowed for `gearDbFile`, see below)
 
 ### Subprotocol negotiation
 
-- The browser offers `jsonrpc` and `helper` in the WebSocket handshake.
-- Helper-mode servers must select `helper` in `Sec-WebSocket-Protocol` and then
+- The browser offers `jsonrpc` and `rws` in the WebSocket handshake.
+- Helper-mode servers must select `rws` in `Sec-WebSocket-Protocol` and then
   accept only the helper envelope.
 - If the server omits subprotocol selection, Sellfile Creator infers the
   protocol from the first inbound message and otherwise defaults to JSON-RPC

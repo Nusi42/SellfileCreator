@@ -11,7 +11,7 @@ when communicating over WebSockets.
 
 ### Subprotocol negotiation
 
-- The browser offers `jsonrpc` and `helper` in the WebSocket handshake.
+- The browser offers `jsonrpc` and `rws` in the WebSocket handshake.
 - JSON-RPC servers must select `jsonrpc` in `Sec-WebSocket-Protocol` and then
   accept only JSON-RPC envelopes.
 - If the server omits subprotocol selection, Sellfile Creator infers the

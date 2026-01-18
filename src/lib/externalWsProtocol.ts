@@ -3,7 +3,7 @@ import type { ExternalCommand } from './externalCommands'
 // Protocol identifiers map to WebSocket subprotocols so we can negotiate format
 // without changing URLs or adding extra query params.
 export const EXTERNAL_WS_SUBPROTOCOL_JSONRPC = 'jsonrpc'
-export const EXTERNAL_WS_SUBPROTOCOL_HELPER = 'helper'
+export const EXTERNAL_WS_SUBPROTOCOL_HELPER = 'rws'
 
 // Keep a single default to avoid guessing when the server skips subprotocols.
 export const EXTERNAL_WS_PROTOCOL_DEFAULT = EXTERNAL_WS_SUBPROTOCOL_JSONRPC
