@@ -40,6 +40,6 @@ if not errorlevel 1 (
 )
 
 REM Launch the db watcher with watcher defaults and pass through extra args.
-"!POWERSHELL_EXE!" -NoProfile -ExecutionPolicy Bypass -File "!PS_SCRIPT!" -DebugLogPath "!SCRIPT_DIR!ws-debug.log" -DisableConsoleUi -SkipInitialGearSync -WatchGearDb -GearDbPath "!DEFAULT_DB!" %*
+"!POWERSHELL_EXE!" -NoProfile -ExecutionPolicy Bypass -File "!PS_SCRIPT!" -WatchGearDb -GearDbPath "!DEFAULT_DB!" %*
 set "EXIT_CODE=!ERRORLEVEL"
 endlocal & exit /b !EXIT_CODE!

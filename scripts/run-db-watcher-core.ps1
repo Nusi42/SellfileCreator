@@ -28,9 +28,6 @@ $defaultParameters = [ordered]@{
     OutputPath          = (Join-Path $PSScriptRoot 'exported-sellfile.hsf')
     WatchGearDb         = $true
     GearDbPath          = $null
-    SkipInitialGearSync = $false
-    DebugLogPath        = (Join-Path $PSScriptRoot 'ws-debug.log')
-    DisableConsoleUi    = $false
     LaunchOnly          = $false
     OpenOnSave          = $false
     PauseBeforeUiReset  = $false
@@ -44,9 +41,6 @@ $canonicalNames = @{
     'outputpath'         = 'OutputPath'
     'watchgeardb'        = 'WatchGearDb'
     'geardbpath'         = 'GearDbPath'
-    'skipinitialgearsync'= 'SkipInitialGearSync'
-    'debuglogpath'       = 'DebugLogPath'
-    'disableconsoleui'   = 'DisableConsoleUi'
     'launchonly'         = 'LaunchOnly'
     'openonsave'         = 'OpenOnSave'
     'pausebeforeuireset' = 'PauseBeforeUiReset'
@@ -54,7 +48,7 @@ $canonicalNames = @{
 }
 
 # Boolean parameters are treated as flags or explicit true/false values.
-$booleanParameters = @('LaunchOnly', 'OpenOnSave', 'PauseBeforeUiReset', 'SkipRelaunch', 'WatchGearDb', 'SkipInitialGearSync', 'DisableConsoleUi')
+$booleanParameters = @('LaunchOnly', 'OpenOnSave', 'PauseBeforeUiReset', 'SkipRelaunch', 'WatchGearDb')
 
 # Seed parameter values with defaults so missing args are predictable.
 $resolvedParameters = [ordered]@{}
@@ -185,18 +179,9 @@ if (-not $runningOnPwsh7) {
             'OpenOnSave'   { if ($entry.Value) { $null = $argumentList.Add('-OpenOnSave') } continue }
             'PauseBeforeUiReset' { if ($entry.Value) { $null = $argumentList.Add('-PauseBeforeUiReset') } continue }
             'WatchGearDb' { if ($entry.Value) { $null = $argumentList.Add('-WatchGearDb') } continue }
-            'SkipInitialGearSync' { if ($entry.Value) { $null = $argumentList.Add('-SkipInitialGearSync') } continue }
-            'DisableConsoleUi' { if ($entry.Value) { $null = $argumentList.Add('-DisableConsoleUi') } continue }
             'GearDbPath' {
                 if ($entry.Value) {
                     $null = $argumentList.Add('-GearDbPath')
-                    $null = $argumentList.Add([string]$entry.Value)
-                }
-                continue
-            }
-            'DebugLogPath' {
-                if ($entry.Value) {
-                    $null = $argumentList.Add('-DebugLogPath')
                     $null = $argumentList.Add([string]$entry.Value)
                 }
                 continue
@@ -222,19 +207,6 @@ try {
 Add-Type -AssemblyName System.Net.HttpListener -ErrorAction SilentlyContinue | Out-Null
 
 #region === Console output helpers ===
-$script:DebugLogPath = $DebugLogPath
-
-function Write-DebugLog {
-    param([Parameter(Mandatory = $true)][string]$Message)
-
-    if ([string]::IsNullOrWhiteSpace($script:DebugLogPath)) { return }
-    try {
-        $timestamp = (Get-Date).ToString('yyyy-MM-dd HH:mm:ss.fff')
-        $line = "[{0}] {1}" -f $timestamp, $Message
-        Add-Content -LiteralPath $script:DebugLogPath -Value $line -Encoding UTF8
-    } catch {}
-}
-
 $script:ConsoleUiState = [ordered]@{
     HeaderLines   = New-Object 'System.Collections.Generic.List[pscustomobject]'
     LogEntries    = New-Object 'System.Collections.Generic.List[pscustomobject]'
@@ -394,9 +366,6 @@ function Render-ConsoleLineSegments {
 
 function Render-ConsoleUi {
     param([switch]$SkipLock)
-    if ($DisableConsoleUi) {
-        return
-    }
     <#
         Redraws the pinned header plus the rolling log area in place. The view
         keeps the newest entries in sight unless the operator scrolls away.
@@ -668,14 +637,6 @@ function Write-ConsoleHeader {
         [ConsoleColor]$Color = [ConsoleColor]::Gray
     )
 
-    if ($DisableConsoleUi) {
-        foreach ($line in $Message) {
-            if ($null -eq $line) { continue }
-            Write-DebugLog -Message ("header: {0}" -f [string]$line)
-        }
-        return
-    }
-
     $state = $script:ConsoleUiState
     # Guard header mutations so background WS tasks cannot race renders.
     [System.Threading.Monitor]::Enter($state.RenderLock)
@@ -724,13 +685,6 @@ function Write-ConsoleLog {
         [Parameter(Mandatory = $true)][string[]]$Message,
         [ConsoleColor]$Color = [ConsoleColor]::Gray
     )
-
-    foreach ($line in $Message) {
-        Write-DebugLog -Message ("log: {0}" -f $line)
-    }
-    if ($DisableConsoleUi) {
-        return
-    }
 
     $state = $script:ConsoleUiState
     # Serialize log writes with rendering to avoid collection mutation races.
@@ -828,6 +782,10 @@ $script:WsReceiveDrainLimit = 25
 $script:WsJsonDepth = 100
 # Cache the most recent gear DB payload so late clients can sync immediately.
 $script:LastGearDbFilePayload = $null
+# Track when a connected client needs a post-connect DB sync.
+$script:NeedsGearDbSync = $false
+# Avoid hammering the DB on repeated sync retries.
+$script:NextGearDbSyncUtc = [DateTime]::MinValue
 
 function Get-WsClientsSnapshot {
     # Copy the client list under lock to avoid mutation during iteration.
@@ -853,6 +811,7 @@ function Add-WsClient {
         ReceiveTask    = $null
         ReceiveBytes   = 0
         ReceiveNextLog = 1048576
+        NeedsGearDbSync = $false
     }
     # Initialize the shared receive segment once per client.
     $entry.ReceiveSegment = [System.ArraySegment[byte]]::new($entry.ReceiveBuffer)
@@ -1240,8 +1199,6 @@ function Start-WebSocketReceiveLoop {
     )
 
     if (-not $Client) { return }
-    # Polling owns ReceiveAsync scheduling; this only marks the loop active.
-    Write-DebugLog -Message ("ws-loop ready (client={0})" -f $Client.Id)
 }
 #endregion
 
@@ -1255,23 +1212,19 @@ function Poll-WsClientReceive {
     if (-not $task) {
         # Schedule the first receive without blocking the main loop.
         if (-not $socket) {
-            Write-DebugLog -Message ("ws-loop missing socket (client={0})" -f $Client.Id)
             Remove-WsClient -Client $Client
             return
         }
         if ($socket.State -ne [System.Net.WebSockets.WebSocketState]::Open) {
-            Write-DebugLog -Message ("ws-loop not open when scheduling (client={0}, state={1})" -f $Client.Id, $socket.State)
             return
         }
         # Only one outstanding ReceiveAsync is allowed per socket.
         try {
             $Client.ReceiveTask = $socket.ReceiveAsync($Client.ReceiveSegment, [System.Threading.CancellationToken]::None)
         } catch {
-            Write-DebugLog -Message ("ws-loop schedule failed (client={0}): {1}" -f $Client.Id, $_)
             Remove-WsClient -Client $Client
             return
         }
-        Write-DebugLog -Message ("ws-loop scheduled receive (client={0})" -f $Client.Id)
         return
     }
 
@@ -1284,7 +1237,6 @@ function Poll-WsClientReceive {
         try {
             $result = $task.GetAwaiter().GetResult()
         } catch {
-            Write-DebugLog -Message ("ws-loop failed (client={0}): {1}" -f $Client.Id, $_)
             Remove-WsClient -Client $Client
             return
         }
@@ -1292,7 +1244,6 @@ function Poll-WsClientReceive {
         $Client.ReceiveTask = $null
 
         if ($result.MessageType -eq [System.Net.WebSockets.WebSocketMessageType]::Close) {
-            Write-DebugLog -Message ("ws-loop close (client={0}, status={1})" -f $Client.Id, $result.CloseStatus)
             Remove-WsClient -Client $Client
             return
         }
@@ -1303,7 +1254,6 @@ function Poll-WsClientReceive {
             # Track progress to diagnose large uploads.
             $Client.ReceiveBytes += $result.Count
             if ($Client.ReceiveBytes -ge $Client.ReceiveNextLog) {
-                Write-DebugLog -Message ("ws-loop progress (client={0}, bytes={1:N0})" -f $Client.Id, $Client.ReceiveBytes)
                 $Client.ReceiveNextLog += 1048576
             }
         }
@@ -1314,13 +1264,11 @@ function Poll-WsClientReceive {
             # Reset counters after each complete message.
             $Client.ReceiveBytes = 0
             $Client.ReceiveNextLog = 1048576
-            Write-DebugLog -Message ("ws-loop message (client={0}, chars={1:N0})" -f $Client.Id, $text.Length)
             Handle-ClientMessage -Socket $socket -Text $text
         }
 
         # Schedule the next receive without blocking.
         if (-not $socket) {
-            Write-DebugLog -Message ("ws-loop missing socket after message (client={0})" -f $Client.Id)
             Remove-WsClient -Client $Client
             return
         }
@@ -1331,18 +1279,15 @@ function Poll-WsClientReceive {
             try {
                 $Client.ReceiveTask = $socket.ReceiveAsync($Client.ReceiveSegment, [System.Threading.CancellationToken]::None)
             } catch {
-                Write-DebugLog -Message ("ws-loop reschedule failed (client={0}): {1}" -f $Client.Id, $_)
                 Remove-WsClient -Client $Client
                 return
             }
         } elseif ($state -eq [System.Net.WebSockets.WebSocketState]::Connecting) {
-            Write-DebugLog -Message ("ws-loop waiting for open (client={0})" -f $Client.Id)
             return
         } else {
             # Capture close details so abort reasons are visible in logs.
             $closeStatus = $socket.CloseStatus
             $closeDescription = $socket.CloseStatusDescription
-            Write-DebugLog -Message ("ws-loop closed socket (client={0}, state={1}, closeStatus={2}, closeDesc={3})" -f $Client.Id, $state, $closeStatus, $closeDescription)
             Remove-WsClient -Client $Client
             return
         }
@@ -1360,6 +1305,51 @@ function Poll-WsClientsReceive {
     foreach ($client in $clients) {
         Poll-WsClientReceive -Client $client
     }
+}
+
+function Sync-PendingGearDbSnapshots {
+    # Exit early when no sync is needed.
+    if (-not $script:NeedsGearDbSync) { return }
+
+    $clients = Get-WsClientsSnapshot
+    if (-not $clients -or $clients.Count -eq 0) { return }
+
+    $payload = $script:LastGearDbFilePayload
+    if ($payload) {
+        # Send the cached payload to any newly connected client.
+        foreach ($client in $clients) {
+            if (-not $client.NeedsGearDbSync) { continue }
+            $socket = $client.Socket
+            if (-not $socket -or $socket.State -ne [System.Net.WebSockets.WebSocketState]::Open) {
+                Remove-WsClient -Client $client
+                continue
+            }
+            if (Send-ProtocolEventToSocket -Socket $socket -Name 'gearDbFile' -Payload $payload) {
+                $client.NeedsGearDbSync = $false
+            }
+        }
+        # Clear the global flag when no clients need a sync anymore.
+        $pending = $false
+        foreach ($client in $clients) {
+            if ($client.NeedsGearDbSync) { $pending = $true; break }
+        }
+        if (-not $pending) { $script:NeedsGearDbSync = $false }
+        return
+    }
+
+    # If no payload is cached, force a read after a short cooldown.
+    if (-not $script:GearDbWatchState) { return }
+    $now = [DateTime]::UtcNow
+    if ($now -lt $script:NextGearDbSyncUtc) { return }
+    if (Invoke-ForcedGearDbSnapshot -State $script:GearDbWatchState) {
+        $script:NeedsGearDbSync = $false
+        foreach ($client in $clients) {
+            $client.NeedsGearDbSync = $false
+        }
+        $script:NextGearDbSyncUtc = [DateTime]::MinValue
+        return
+    }
+    $script:NextGearDbSyncUtc = $now.AddMilliseconds(1000)
 }
 #endregion
 
@@ -2176,6 +2166,8 @@ try {
 
         # Poll inbound WebSocket frames so uploads are processed without threads.
         Poll-WsClientsReceive
+        # Push queued gear DB snapshots to newly connected clients.
+        Sync-PendingGearDbSnapshots
 
         if ($script:GearDbWatchState) {
             Invoke-GearDbWatchTick -State $script:GearDbWatchState
@@ -2218,25 +2210,18 @@ try {
                 try {
                     $wsContext = $context.AcceptWebSocketAsync($selectedProtocol).GetAwaiter().GetResult()
                     $client = Add-WsClient -Socket $wsContext.WebSocket
-                    # Snapshot the socket status right after accept for diagnostics.
-                    $socketState = $client.Socket.State
-                    # Some closes report a status and description even this early.
-                    $closeStatus = $client.Socket.CloseStatus
-                    # Include the close description if the socket aborted immediately.
-                    $closeDescription = $client.Socket.CloseStatusDescription
-                    Write-DebugLog -Message ("accept: socket state={0} closeStatus={1} closeDesc={2}" -f $socketState, $closeStatus, $closeDescription)
-                    # Log the selected subprotocol for negotiation verification.
-                    Write-DebugLog -Message ("accept: subprotocol={0} requested={1}" -f ($selectedProtocol ?? 'none'), ($requestedProtocols ?? 'none'))
                     $requestedSummary = if ($requestedProtocols) { $requestedProtocols } else { 'none' }
                     Write-ConsoleLog -Message ("Client connected (protocol: {0}; requested: {1})" -f ($selectedProtocol ?? 'none'), $requestedSummary) -Color DarkGray
-                    Write-DebugLog -Message ("log: Client connected (protocol: {0}; requested: {1})" -f ($selectedProtocol ?? 'none'), $requestedSummary)
-                    Write-DebugLog -Message ("accept: starting receive loop (client={0})" -f $client.Id)
                     Start-WebSocketReceiveLoop -Client $client
-                    # Sync the latest gear DB payload without blocking the accept loop.
-                    if (-not $SkipInitialGearSync -and $script:LastGearDbFilePayload) {
-                        [System.Threading.Tasks.Task]::Run([Action] {
-                            Send-ProtocolEventToSocket -Socket $client.Socket -Name 'gearDbFile' -Payload $script:LastGearDbFilePayload | Out-Null
-                        }) | Out-Null
+                    # Send the cached DB payload immediately when available.
+                    $sentSnapshot = $false
+                    if ($script:LastGearDbFilePayload) {
+                        $sentSnapshot = Send-ProtocolEventToSocket -Socket $client.Socket -Name 'gearDbFile' -Payload $script:LastGearDbFilePayload
+                    }
+                    # If no payload was cached or send failed, queue a retry.
+                    if (-not $sentSnapshot) {
+                        $client.NeedsGearDbSync = $true
+                        $script:NeedsGearDbSync = $true
                     }
                 }
                 catch {

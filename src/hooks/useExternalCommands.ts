@@ -28,8 +28,6 @@ export type UseExternalCommandsApi = {
 const DEFAULT_RECONNECT_DELAY_MS = 2000
 const DEFAULT_REQUEST_TIMEOUT_MS = 15000
 const UPLOAD_REQUEST_TIMEOUT_MS = 60000
-const LARGE_MESSAGE_THRESHOLD = 1024 * 1024
-
 /**
  * useExternalCommands
  *
@@ -57,10 +55,6 @@ export function useExternalCommands({
   const reconnectTimerRef = useRef<number | null>(null)
   // Flag that stops reconnect loops during unmount.
   const closedRef = useRef(false)
-  // Queue large inbound payloads so responses can resolve first.
-  const largeQueueRef = useRef<string[]>([])
-  // Keep one drain timer so we do not spawn many idle tasks.
-  const largeQueueTimerRef = useRef<number | null>(null)
 
   useEffect(() => {
     // Keep the ref in sync with the latest callback.
@@ -146,34 +140,6 @@ export function useExternalCommands({
     pending.resolve(parsed.response)
   }, [])
 
-  // Drain queued large payloads when no responses are waiting.
-  const drainLargeQueue = useCallback(() => {
-    // Clear the timer so future calls can reschedule.
-    if (largeQueueTimerRef.current !== null) {
-      window.clearTimeout(largeQueueTimerRef.current)
-      largeQueueTimerRef.current = null
-    }
-    // Do not drain while pending responses are outstanding.
-    if (pendingRef.current.size > 0) {
-      return
-    }
-    const next = largeQueueRef.current.shift()
-    if (!next) return
-    try {
-      handleInboundMessage(JSON.parse(next))
-    } catch {}
-    // Continue draining asynchronously to keep the UI responsive.
-    if (largeQueueRef.current.length > 0) {
-      largeQueueTimerRef.current = window.setTimeout(drainLargeQueue, 0)
-    }
-  }, [handleInboundMessage])
-
-  // Schedule a drain pass with a small delay if needed.
-  const scheduleLargeQueueDrain = useCallback((delayMs: number) => {
-    if (largeQueueTimerRef.current !== null) return
-    largeQueueTimerRef.current = window.setTimeout(drainLargeQueue, delayMs)
-  }, [drainLargeQueue])
-
   // Establish (or re-establish) the WebSocket connection as needed.
   useEffect(() => {
     // Skip setup when running server-side or without a configured endpoint.
@@ -204,30 +170,15 @@ export function useExternalCommands({
           protocolRef.current = negotiated ?? EXTERNAL_WS_PROTOCOL_DEFAULT
           // Mark the endpoint as reachable once the socket opens.
           onReachabilityChange(true)
-          if (import.meta.env.DEV) {
-            console.log(`[ws-open] protocol=${socket.protocol || 'none'}`)
-          }
         }
 
         socket.onmessage = (event) => {
           // Normalize the payload into a JSON object before parsing.
           const raw = event.data
-          // Helper to defer heavy JSON parsing so responses are not blocked.
+          // Helper to parse inbound JSON safely.
           const parseJson = (text: string) => {
             // Avoid parsing after unmount to prevent stale handlers.
             if (closedRef.current) return
-            // Large payloads (DB snapshots) can block the main thread.
-            if (text.length > LARGE_MESSAGE_THRESHOLD) {
-              if (import.meta.env.DEV) {
-                console.log(`[ws-recv] deferring large message chars=${text.length}`)
-              }
-              // Queue the payload so responses can resolve before parsing.
-              largeQueueRef.current.push(text)
-              // Defer parsing while any request awaits a response.
-              const delay = pendingRef.current.size > 0 ? 200 : 0
-              scheduleLargeQueueDrain(delay)
-              return
-            }
             try {
               handleInboundMessage(JSON.parse(text))
             } catch {}
@@ -252,31 +203,19 @@ export function useExternalCommands({
           }
         }
 
-        socket.onclose = (event) => {
+        socket.onclose = (_event) => {
           // Mark the endpoint as unreachable after the socket closes.
           onReachabilityChange(false)
           // Resolve any pending requests with a consistent error message.
           clearPendingRequests('WebSocket closed')
-          // Drop queued payloads so stale events do not flood the next socket.
-          largeQueueRef.current = []
-          if (largeQueueTimerRef.current !== null) {
-            window.clearTimeout(largeQueueTimerRef.current)
-            largeQueueTimerRef.current = null
-          }
           // Reconnect unless the hook is being torn down.
           if (closedRef.current) return
           reconnectTimerRef.current = window.setTimeout(connect, DEFAULT_RECONNECT_DELAY_MS)
-          if (import.meta.env.DEV) {
-            console.log(`[ws-close] code=${event.code} reason=${event.reason} clean=${event.wasClean}`)
-          }
         }
 
         socket.onerror = () => {
           // Socket errors imply the endpoint is not currently reachable.
           onReachabilityChange(false)
-          if (import.meta.env.DEV) {
-            console.log('[ws-error] error event')
-          }
         }
       } catch {
         // Failures during construction should still trigger a reconnect.
@@ -293,7 +232,7 @@ export function useExternalCommands({
       // Tear down the socket and cancel outstanding requests.
       cleanupSocket('WebSocket closed by client')
     }
-  }, [clearPendingRequests, cleanupSocket, handleInboundMessage, onReachabilityChange, pushEndpoint, scheduleLargeQueueDrain])
+  }, [clearPendingRequests, cleanupSocket, handleInboundMessage, onReachabilityChange, pushEndpoint])
 
   // Send a request over the active socket and await the response.
   const sendRequest = useCallback(async (
@@ -316,11 +255,6 @@ export function useExternalCommands({
     const timeoutMs = method === EXTERNAL_WS_METHOD_UPLOAD_SELLFILE
       ? UPLOAD_REQUEST_TIMEOUT_MS
       : DEFAULT_REQUEST_TIMEOUT_MS
-
-    if (import.meta.env.DEV) {
-      // Log payload sizes so large uploads can be correlated with timeouts.
-      console.log(`[ws-send] method=${method} id=${id} bytes=${envelope.length}`)
-    }
 
     return new Promise((resolve, reject) => {
       // Set a timeout so hung requests do not block the UI.
