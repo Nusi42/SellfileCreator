@@ -7,7 +7,7 @@ Creator when communicating with RSL Helper integrations.
 
 - WebSocket URL: `ws://<host>:<port>/`
 - Subprotocol: `helper`
-- Payloads: JSON text frames
+- Payloads: JSON text frames (binary frames allowed for `gearDbFile`, see below)
 
 ### Subprotocol negotiation
 
@@ -74,6 +74,23 @@ Creator when communicating with RSL Helper integrations.
 ```json
 {"type":"evt","name":"gearDbFile","payload":{"name":"RslHelper.db","base64":"AAECAwQF..."}} 
 ```
+
+#### Binary frame option (recommended for large DBs)
+
+For large databases, servers may send the file as a WebSocket binary frame to
+avoid base64 overhead.
+
+**Step 1: metadata event**
+
+```json
+{"type":"evt","name":"gearDbFileBinary","payload":{"name":"RslHelper.db","byteLength":75223040,"contentType":"application/x-sqlite3"}}
+```
+
+**Step 2: binary frame**
+- The next WebSocket frame must be binary and contains the raw SQLite bytes.
+- The binary frame is associated with the most recent `gearDbFileBinary` event.
+- If a client does not support binary frames, the server should fall back to
+  the base64 `gearDbFile` event.
 
 ### gearDbRawSnapshot
 

@@ -829,6 +829,26 @@ function Send-WebSocketText {
     }
 }
 
+function Send-WebSocketBinary {
+    param(
+        [System.Net.WebSockets.WebSocket]$Socket,
+        [byte[]]$Bytes
+    )
+
+    if (-not $Socket -or $Socket.State -ne [System.Net.WebSockets.WebSocketState]::Open) { return $false }
+    if (-not $Bytes) { return $false }
+    $segment = [System.ArraySegment[byte]]::new($Bytes)
+    try {
+        $Socket.SendAsync($segment, [System.Net.WebSockets.WebSocketMessageType]::Binary, $true, [System.Threading.CancellationToken]::None).GetAwaiter().GetResult() | Out-Null
+        return $true
+    }
+    catch {
+        Write-Log -Message ("WebSocket binary send failed ({0} bytes): {1}" -f $Bytes.Length, $_) -Color DarkYellow
+        Write-ConsoleLog -Message ("WebSocket binary send failed ({0} bytes): {1}" -f $Bytes.Length, $_) -Color DarkYellow
+        return $false
+    }
+}
+
 function Send-JsonRpcResponse {
     param(
         [System.Net.WebSockets.WebSocket]$Socket,
@@ -1014,6 +1034,56 @@ function Save-SellfilePayload {
     Write-Log -Message "Saved sellfile payload ($($fileInfo.Length) bytes) to $displayPath" -Color Green
 
     return $fileInfo.Name
+}
+#endregion
+
+#region === Gear DB binary events ===
+function Build-GearDbBinaryMetadata {
+    param(
+        [string]$Name,
+        [int]$ByteLength
+    )
+
+    return [ordered]@{
+        name        = $Name
+        byteLength  = $ByteLength
+        contentType = 'application/x-sqlite3'
+    }
+}
+
+function Send-GearDbBinaryToSocket {
+    param(
+        [System.Net.WebSockets.WebSocket]$Socket,
+        [string]$Name,
+        [byte[]]$Bytes
+    )
+
+    if (-not $Socket -or $Socket.State -ne [System.Net.WebSockets.WebSocketState]::Open) { return $false }
+    if (-not $Bytes) { return $false }
+    $metadata = Build-GearDbBinaryMetadata -Name $Name -ByteLength $Bytes.Length
+    if (-not (Send-ProtocolEventToSocket -Socket $Socket -Name 'gearDbFileBinary' -Payload $metadata)) {
+        return $false
+    }
+    return (Send-WebSocketBinary -Socket $Socket -Bytes $Bytes)
+}
+
+function Send-GearDbBinaryEvent {
+    param(
+        [string]$Name,
+        [byte[]]$Bytes
+    )
+
+    $clients = Get-WsClientsSnapshot
+    foreach ($client in $clients) {
+        $socket = $client.Socket
+        if (-not $socket -or $socket.State -ne [System.Net.WebSockets.WebSocketState]::Open) {
+            Remove-WsClient -Client $client
+            continue
+        }
+        if (Send-GearDbBinaryToSocket -Socket $socket -Name $Name -Bytes $Bytes) {
+            Write-LogOutbound -Message 'evt gearDbFileBinary'
+        }
+    }
 }
 #endregion
 
@@ -1272,7 +1342,7 @@ function Sync-PendingGearDbSnapshots {
                 Remove-WsClient -Client $client
                 continue
             }
-            if (Send-ProtocolEventToSocket -Socket $socket -Name 'gearDbFile' -Payload $payload) {
+            if (Send-GearDbBinaryToSocket -Socket $socket -Name $payload.name -Bytes $payload.bytes) {
                 $client.NeedsGearDbSync = $false
             }
         }
@@ -1565,6 +1635,7 @@ function Write-ProtocolQuickReference {
     $reqLabel = 'req uploadSellfile'.PadRight(22)
     $evtLabel = 'evt selectRule'.PadRight(22)
     $gearLabel = 'evt gearDb*'.PadRight(22)
+    $binaryLabel = 'evt gearDbFileBinary'.PadRight(22)
 
     Write-ConsoleHeader -Message (New-ConsoleSegmentLine -Segments @(
             @{ Text = '--- Sellfile Creator WebSocket quick reference --- '; Color = [ConsoleColor]::DarkCyan }
@@ -1585,7 +1656,12 @@ function Write-ProtocolQuickReference {
 
     Write-ConsoleHeader -Message (New-ConsoleSegmentLine -Segments @(
             @{ Text = $gearLabel; Color = [ConsoleColor]::Magenta }
-            @{ Text = 'raw snapshot/delta + base64 DB payloads'; Color = [ConsoleColor]::Gray }
+            @{ Text = 'raw snapshot/delta + binary DB payloads'; Color = [ConsoleColor]::Gray }
+        ))
+
+    Write-ConsoleHeader -Message (New-ConsoleSegmentLine -Segments @(
+            @{ Text = $binaryLabel; Color = [ConsoleColor]::Magenta }
+            @{ Text = 'metadata + binary frame'; Color = [ConsoleColor]::Gray }
         ))
 }
 #endregion
@@ -1846,16 +1922,15 @@ function Invoke-GearDbWatchTick {
     }
     $State.InvalidHeaderLogged = $false
 
-    $base64 = [Convert]::ToBase64String($bytes)
     $payload = [ordered]@{
-        name   = $State.FileName
-        base64 = $base64
+        name  = $State.FileName
+        bytes = $bytes
     }
 
     # Store the payload so future clients receive the latest DB snapshot.
     $script:LastGearDbFilePayload = $payload
 
-    Send-ProtocolEvent -Name 'gearDbFile' -Payload $payload
+    Send-GearDbBinaryEvent -Name $State.FileName -Bytes $bytes
     $State.LastSignature = $signature
     Write-Log -Message ("Queued gear DB update from {0} ({1:N0} bytes)" -f $State.FileName, [long]$bytes.Length) -Color Cyan
 }
@@ -1907,17 +1982,16 @@ function Invoke-ForcedGearDbSnapshot {
         return $false
     }
 
-    $base64 = [Convert]::ToBase64String($bytes)
-    # Emit a gearDbFile event that mirrors the watcher payload.
+    # Emit a gearDbFileBinary event that mirrors the watcher payload.
     $payload = [ordered]@{
-        name   = $State.FileName
-        base64 = $base64
+        name  = $State.FileName
+        bytes = $bytes
     }
 
     # Keep the cached payload aligned with the forced snapshot.
     $script:LastGearDbFilePayload = $payload
 
-    Send-ProtocolEvent -Name 'gearDbFile' -Payload $payload
+    Send-GearDbBinaryEvent -Name $State.FileName -Bytes $bytes
     # Update the signature so the watcher does not immediately resend.
     $State.LastSignature = '{0}:{1}' -f ([long]$fileInfo.Length), $fileInfo.LastWriteTimeUtc.Ticks
     Write-Log -Message ("Forced gear DB snapshot from {0} ({1:N0} bytes)" -f $State.FileName, [long]$bytes.Length) -Color Cyan
@@ -2155,7 +2229,7 @@ try {
                     # Send the cached DB payload immediately when available.
                     $sentSnapshot = $false
                     if ($script:LastGearDbFilePayload) {
-                        $sentSnapshot = Send-ProtocolEventToSocket -Socket $client.Socket -Name 'gearDbFile' -Payload $script:LastGearDbFilePayload
+                        $sentSnapshot = Send-GearDbBinaryToSocket -Socket $client.Socket -Name $script:LastGearDbFilePayload.name -Bytes $script:LastGearDbFilePayload.bytes
                     }
                     # If no payload was cached or send failed, queue a retry.
                     if (-not $sentSnapshot) {

@@ -279,6 +279,20 @@ const createGearDbFileFromBase64 = (name: string, base64?: string | null): File 
   }
 }
 
+const createGearDbFileFromBytes = (name: string, bytes: Uint8Array, contentType?: string | null): File | null => {
+  if (!bytes || bytes.length === 0 || typeof File !== 'function') {
+    return null
+  }
+  const fileName = name && name.trim().length > 0 ? name : DEFAULT_GEAR_DB_FILENAME
+  try {
+    const buffer = new ArrayBuffer(bytes.byteLength)
+    new Uint8Array(buffer).set(bytes)
+    return new File([buffer], fileName, { type: contentType || 'application/octet-stream' })
+  } catch {
+    return null
+  }
+}
+
 function splitMergedRules(rules: readonly HsfRuleWithCfg[]): { baseRules: HsfRuleWithCfg[]; finalSellRules: HsfRuleWithCfg[] } {
   const baseRules: HsfRuleWithCfg[] = []
   const finalSellRules: HsfRuleWithCfg[] = []
@@ -4023,6 +4037,17 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
 
       const file = createGearDbFileFromBase64(cmd.name, cmd.base64)
       queueImport(file)
+    }
+
+    if (cmd.kind === 'gearDbFileBinary') {
+      const file = createGearDbFileFromBytes(cmd.name, cmd.bytes, cmd.contentType)
+      if (!file) {
+        if (import.meta.env.DEV) {
+          console.error('Failed to decode gear DB binary payload from external command.')
+        }
+        return
+      }
+      void handleGearDbImport(file, { source: 'command' })
     }
   }, [focusRuleByIndex, handleGearDbImport, handleGearDbRawDelta, handleGearDbRawSnapshot, pushEndpointHttpBase])
 

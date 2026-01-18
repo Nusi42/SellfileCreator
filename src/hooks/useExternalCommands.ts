@@ -5,6 +5,7 @@ import {
   EXTERNAL_WS_PROTOCOL_DEFAULT,
   EXTERNAL_WS_SUBPROTOCOL_JSONRPC,
   EXTERNAL_WS_SUBPROTOCOL_HELPER,
+  EXTERNAL_WS_EVENT_GEAR_DB_FILE_BINARY,
   EXTERNAL_WS_METHOD_UPLOAD_SELLFILE,
   isRecord,
   parseExternalWsMessage,
@@ -55,6 +56,8 @@ export function useExternalCommands({
   const reconnectTimerRef = useRef<number | null>(null)
   // Flag that stops reconnect loops during unmount.
   const closedRef = useRef(false)
+  // Stash metadata for the next binary DB payload.
+  const pendingBinaryMetaRef = useRef<{ name: string; contentType?: string | null } | null>(null)
 
   useEffect(() => {
     // Keep the ref in sync with the latest callback.
@@ -114,6 +117,15 @@ export function useExternalCommands({
     }
 
     if (parsed.kind === 'event') {
+      if (parsed.name === EXTERNAL_WS_EVENT_GEAR_DB_FILE_BINARY) {
+        const payload = isRecord(parsed.payload) ? parsed.payload : {}
+        const nameValue = typeof payload.name === 'string' ? payload.name : null
+        const contentTypeValue = typeof payload.contentType === 'string' ? payload.contentType : null
+        if (nameValue) {
+          pendingBinaryMetaRef.current = { name: nameValue, contentType: contentTypeValue }
+        }
+        return
+      }
       // Normalize the event name + payload into a command the UI understands.
       const normalized = normalizeExternalEvent(parsed.name, parsed.payload)
       if (!normalized) return
@@ -191,6 +203,21 @@ export function useExternalCommands({
 
           // Blob payloads can appear if the server sends binary frames.
           if (raw instanceof Blob) {
+            const meta = pendingBinaryMetaRef.current
+            if (meta) {
+              raw.arrayBuffer().then((buffer) => {
+                pendingBinaryMetaRef.current = null
+                if (closedRef.current) return
+                const bytes = new Uint8Array(buffer)
+                handlerRef.current({
+                  kind: 'gearDbFileBinary',
+                  name: meta.name,
+                  bytes,
+                  contentType: meta.contentType ?? null,
+                })
+              }).catch(() => {})
+              return
+            }
             raw.text().then((text) => {
               parseJson(text)
             }).catch(() => {})
@@ -208,6 +235,7 @@ export function useExternalCommands({
           onReachabilityChange(false)
           // Resolve any pending requests with a consistent error message.
           clearPendingRequests('WebSocket closed')
+          pendingBinaryMetaRef.current = null
           // Reconnect unless the hook is being torn down.
           if (closedRef.current) return
           reconnectTimerRef.current = window.setTimeout(connect, DEFAULT_RECONNECT_DELAY_MS)

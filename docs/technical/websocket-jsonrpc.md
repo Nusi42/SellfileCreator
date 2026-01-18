@@ -7,7 +7,7 @@ when communicating over WebSockets.
 
 - WebSocket URL: `ws://<host>:<port>/`
 - Subprotocol: `jsonrpc`
-- Payloads: JSON text frames
+- Payloads: JSON text frames (binary frames allowed for `gearDbFile`, see below)
 
 ### Subprotocol negotiation
 
@@ -82,6 +82,23 @@ These are pushed from the server to the browser.
 ```json
 {"jsonrpc":"2.0","method":"gearDbFile","params":{"name":"RslHelper.db","base64":"AAECAwQF..."}} 
 ```
+
+#### Binary frame option (recommended for large DBs)
+
+For large databases, servers may send the file as a WebSocket binary frame to
+avoid base64 overhead.
+
+**Step 1: metadata notification**
+
+```json
+{"jsonrpc":"2.0","method":"gearDbFileBinary","params":{"name":"RslHelper.db","byteLength":75223040,"contentType":"application/x-sqlite3"}}
+```
+
+**Step 2: binary frame**
+- The next WebSocket frame must be binary and contains the raw SQLite bytes.
+- The binary frame is associated with the most recent `gearDbFileBinary` notification.
+- If a client does not support binary frames, the server should fall back to
+  the base64 `gearDbFile` notification.
 
 ### gearDbRawSnapshot
 

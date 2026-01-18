@@ -14,6 +14,7 @@ export const EXTERNAL_WS_METHOD_UPLOAD_SELLFILE = 'uploadSellfile'
 // Event names reuse the existing external command identifiers.
 export const EXTERNAL_WS_EVENT_SELECT_RULE = 'selectRule'
 export const EXTERNAL_WS_EVENT_GEAR_DB_FILE = 'gearDbFile'
+export const EXTERNAL_WS_EVENT_GEAR_DB_FILE_BINARY = 'gearDbFileBinary'
 export const EXTERNAL_WS_EVENT_GEAR_DB_RAW_SNAPSHOT = 'gearDbRawSnapshot'
 export const EXTERNAL_WS_EVENT_GEAR_DB_RAW_DELTA = 'gearDbRawDelta'
 
@@ -22,6 +23,7 @@ export type ExternalWsRequestMethod = typeof EXTERNAL_WS_METHOD_UPLOAD_SELLFILE
 export type ExternalWsEventName =
   | typeof EXTERNAL_WS_EVENT_SELECT_RULE
   | typeof EXTERNAL_WS_EVENT_GEAR_DB_FILE
+  | typeof EXTERNAL_WS_EVENT_GEAR_DB_FILE_BINARY
   | typeof EXTERNAL_WS_EVENT_GEAR_DB_RAW_SNAPSHOT
   | typeof EXTERNAL_WS_EVENT_GEAR_DB_RAW_DELTA
 
