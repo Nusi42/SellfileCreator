@@ -9,6 +9,15 @@ when communicating over WebSockets.
 - Subprotocol: `jsonrpc`
 - Payloads: JSON text frames
 
+### Subprotocol negotiation
+
+- The browser offers `jsonrpc` and `helper` in the WebSocket handshake.
+- JSON-RPC servers must select `jsonrpc` in `Sec-WebSocket-Protocol` and then
+  accept only JSON-RPC envelopes.
+- If the server omits subprotocol selection, Sellfile Creator infers the
+  protocol from the first inbound message and otherwise defaults to JSON-RPC
+  for outbound requests.
+
 ## JSON-RPC Envelope
 
 Every message includes `"jsonrpc": "2.0"`.

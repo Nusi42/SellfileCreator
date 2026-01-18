@@ -28,6 +28,9 @@ $defaultParameters = [ordered]@{
     OutputPath          = (Join-Path $PSScriptRoot 'exported-sellfile.hsf')
     WatchGearDb         = $true
     GearDbPath          = $null
+    SkipInitialGearSync = $false
+    DebugLogPath        = (Join-Path $PSScriptRoot 'ws-debug.log')
+    DisableConsoleUi    = $false
     LaunchOnly          = $false
     OpenOnSave          = $false
     PauseBeforeUiReset  = $false
@@ -41,6 +44,9 @@ $canonicalNames = @{
     'outputpath'         = 'OutputPath'
     'watchgeardb'        = 'WatchGearDb'
     'geardbpath'         = 'GearDbPath'
+    'skipinitialgearsync'= 'SkipInitialGearSync'
+    'debuglogpath'       = 'DebugLogPath'
+    'disableconsoleui'   = 'DisableConsoleUi'
     'launchonly'         = 'LaunchOnly'
     'openonsave'         = 'OpenOnSave'
     'pausebeforeuireset' = 'PauseBeforeUiReset'
@@ -48,7 +54,7 @@ $canonicalNames = @{
 }
 
 # Boolean parameters are treated as flags or explicit true/false values.
-$booleanParameters = @('LaunchOnly', 'OpenOnSave', 'PauseBeforeUiReset', 'SkipRelaunch', 'WatchGearDb')
+$booleanParameters = @('LaunchOnly', 'OpenOnSave', 'PauseBeforeUiReset', 'SkipRelaunch', 'WatchGearDb', 'SkipInitialGearSync', 'DisableConsoleUi')
 
 # Seed parameter values with defaults so missing args are predictable.
 $resolvedParameters = [ordered]@{}
@@ -179,9 +185,18 @@ if (-not $runningOnPwsh7) {
             'OpenOnSave'   { if ($entry.Value) { $null = $argumentList.Add('-OpenOnSave') } continue }
             'PauseBeforeUiReset' { if ($entry.Value) { $null = $argumentList.Add('-PauseBeforeUiReset') } continue }
             'WatchGearDb' { if ($entry.Value) { $null = $argumentList.Add('-WatchGearDb') } continue }
+            'SkipInitialGearSync' { if ($entry.Value) { $null = $argumentList.Add('-SkipInitialGearSync') } continue }
+            'DisableConsoleUi' { if ($entry.Value) { $null = $argumentList.Add('-DisableConsoleUi') } continue }
             'GearDbPath' {
                 if ($entry.Value) {
                     $null = $argumentList.Add('-GearDbPath')
+                    $null = $argumentList.Add([string]$entry.Value)
+                }
+                continue
+            }
+            'DebugLogPath' {
+                if ($entry.Value) {
+                    $null = $argumentList.Add('-DebugLogPath')
                     $null = $argumentList.Add([string]$entry.Value)
                 }
                 continue
@@ -207,6 +222,19 @@ try {
 Add-Type -AssemblyName System.Net.HttpListener -ErrorAction SilentlyContinue | Out-Null
 
 #region === Console output helpers ===
+$script:DebugLogPath = $DebugLogPath
+
+function Write-DebugLog {
+    param([Parameter(Mandatory = $true)][string]$Message)
+
+    if ([string]::IsNullOrWhiteSpace($script:DebugLogPath)) { return }
+    try {
+        $timestamp = (Get-Date).ToString('yyyy-MM-dd HH:mm:ss.fff')
+        $line = "[{0}] {1}" -f $timestamp, $Message
+        Add-Content -LiteralPath $script:DebugLogPath -Value $line -Encoding UTF8
+    } catch {}
+}
+
 $script:ConsoleUiState = [ordered]@{
     HeaderLines   = New-Object 'System.Collections.Generic.List[pscustomobject]'
     LogEntries    = New-Object 'System.Collections.Generic.List[pscustomobject]'
@@ -365,11 +393,14 @@ function Render-ConsoleLineSegments {
 }
 
 function Render-ConsoleUi {
+    param([switch]$SkipLock)
+    if ($DisableConsoleUi) {
+        return
+    }
     <#
         Redraws the pinned header plus the rolling log area in place. The view
         keeps the newest entries in sight unless the operator scrolls away.
     #>
-    param([switch]$SkipLock)
 
     $state = $script:ConsoleUiState
 
@@ -637,6 +668,14 @@ function Write-ConsoleHeader {
         [ConsoleColor]$Color = [ConsoleColor]::Gray
     )
 
+    if ($DisableConsoleUi) {
+        foreach ($line in $Message) {
+            if ($null -eq $line) { continue }
+            Write-DebugLog -Message ("header: {0}" -f [string]$line)
+        }
+        return
+    }
+
     $state = $script:ConsoleUiState
     # Guard header mutations so background WS tasks cannot race renders.
     [System.Threading.Monitor]::Enter($state.RenderLock)
@@ -685,6 +724,13 @@ function Write-ConsoleLog {
         [Parameter(Mandatory = $true)][string[]]$Message,
         [ConsoleColor]$Color = [ConsoleColor]::Gray
     )
+
+    foreach ($line in $Message) {
+        Write-DebugLog -Message ("log: {0}" -f $line)
+    }
+    if ($DisableConsoleUi) {
+        return
+    }
 
     $state = $script:ConsoleUiState
     # Serialize log writes with rendering to avoid collection mutation races.
@@ -774,6 +820,12 @@ function Write-LogOutbound {
 # Maintain the set of active clients so we can broadcast events.
 $script:WsClients = New-Object 'System.Collections.Generic.List[Hashtable]'
 $script:WsClientLock = New-Object object
+# Larger frames reduce receive polling latency for big uploads.
+$script:WsReceiveBufferSize = 65536
+# Cap per-tick drain to keep UI/DB work responsive.
+$script:WsReceiveDrainLimit = 25
+# Keep JSON depth high enough for nested payloads to avoid truncation warnings.
+$script:WsJsonDepth = 100
 # Cache the most recent gear DB payload so late clients can sync immediately.
 $script:LastGearDbFilePayload = $null
 
@@ -794,7 +846,16 @@ function Add-WsClient {
     $entry = [ordered]@{
         Id     = [Guid]::NewGuid()
         Socket = $Socket
+        # Use a larger buffer to avoid long uploads timing out.
+        ReceiveBuffer  = New-Object byte[] $script:WsReceiveBufferSize
+        ReceiveSegment = $null
+        ReceiveBuilder = New-Object System.Text.StringBuilder
+        ReceiveTask    = $null
+        ReceiveBytes   = 0
+        ReceiveNextLog = 1048576
     }
+    # Initialize the shared receive segment once per client.
+    $entry.ReceiveSegment = [System.ArraySegment[byte]]::new($entry.ReceiveBuffer)
 
     [System.Threading.Monitor]::Enter($script:WsClientLock)
     try {
@@ -811,6 +872,13 @@ function Remove-WsClient {
     param([System.Collections.IDictionary]$Client)
 
     if (-not $Client) { return }
+    # Close sockets so pending receives stop cleanly.
+    $socket = $Client.Socket
+    if ($socket -and $socket.State -eq [System.Net.WebSockets.WebSocketState]::Open) {
+        try {
+            $socket.CloseAsync([System.Net.WebSockets.WebSocketCloseStatus]::NormalClosure, 'Closing', [System.Threading.CancellationToken]::None).GetAwaiter().GetResult() | Out-Null
+        } catch {}
+    }
     [System.Threading.Monitor]::Enter($script:WsClientLock)
     try {
         for ($idx = $script:WsClients.Count - 1; $idx -ge 0; $idx--) {
@@ -839,6 +907,8 @@ function Send-WebSocketText {
         return $true
     }
     catch {
+        Write-Log -Message ("WebSocket send failed ({0} bytes): {1}" -f $bytes.Length, $_) -Color DarkYellow
+        Write-ConsoleLog -Message ("WebSocket send failed ({0} bytes): {1}" -f $bytes.Length, $_) -Color DarkYellow
         return $false
     }
 }
@@ -852,14 +922,29 @@ function Send-JsonRpcResponse {
         $ResultPayload
     )
 
-    if (-not $Ok) {
-        $errorBody = @{ code = -32603; message = $ErrorMessage }
-        $payload = @{ jsonrpc = '2.0'; id = $Id; error = $errorBody }
-    } else {
-        $payload = @{ jsonrpc = '2.0'; id = $Id; result = $ResultPayload }
+    # Escape any string so we can safely inline it into JSON.
+    $escapeString = {
+        param([string]$Value)
+        if ($null -eq $Value) { return 'null' }
+        return ($Value | ConvertTo-Json -Depth 2 -Compress).Trim()
     }
 
-    $json = $payload | ConvertTo-Json -Depth 20
+    # Build explicit JSON so payload depth warnings never appear for responses.
+    if (-not $Ok) {
+        # JSON-RPC error responses include code + message.
+        $messageJson = & $escapeString $ErrorMessage
+        $json = "{`"jsonrpc`":`"2.0`",`"id`":$Id,`"error`":{`"code`":-32603,`"message`":$messageJson}}"
+    } else {
+        # JSON-RPC ok responses echo the saved file name.
+        $savedAs = $null
+        if ($ResultPayload -is [System.Collections.IDictionary]) {
+            $savedAs = $ResultPayload['savedAs']
+        }
+        $savedAsJson = & $escapeString ([string]$savedAs)
+        $json = "{`"jsonrpc`":`"2.0`",`"id`":$Id,`"result`":{`"ok`":true,`"savedAs`":$savedAsJson}}"
+    }
+
+    # Send the response as a text frame.
     Send-WebSocketText -Socket $Socket -Text $json | Out-Null
 }
 
@@ -872,15 +957,36 @@ function Send-RslResponse {
         $Payload
     )
 
-    $payload = @{ id = $Id; type = 'res'; ok = $Ok }
-    if ($Ok) {
-        $payload['payload'] = $Payload
-    } else {
-        $payload['error'] = $ErrorMessage
-        $payload['payload'] = $Payload
+    # Escape any string so we can safely inline it into JSON.
+    $escapeString = {
+        param([string]$Value)
+        if ($null -eq $Value) { return 'null' }
+        return ($Value | ConvertTo-Json -Depth 2 -Compress).Trim()
     }
 
-    $json = $payload | ConvertTo-Json -Depth 20
+    # Normalize booleans to JSON literals.
+    $okJson = if ($Ok) { 'true' } else { 'false' }
+    # Default payload to an empty object to keep the schema stable.
+    $payloadJson = '{}'
+    if ($Ok) {
+        # Ok responses only include the saved filename.
+        $savedAs = $null
+        if ($Payload -is [System.Collections.IDictionary]) {
+            $savedAs = $Payload['savedAs']
+        }
+        $savedAsJson = & $escapeString ([string]$savedAs)
+        $payloadJson = "{`"savedAs`":$savedAsJson}"
+    }
+
+    # Build the response envelope without ConvertTo-Json warnings.
+    if ($Ok) {
+        $json = "{`"id`":$Id,`"type`":`"res`",`"ok`":$okJson,`"payload`":$payloadJson}"
+    } else {
+        $errorJson = & $escapeString $ErrorMessage
+        $json = "{`"id`":$Id,`"type`":`"res`",`"ok`":$okJson,`"error`":$errorJson,`"payload`":$payloadJson}"
+    }
+
+    # Send the response as a text frame.
     Send-WebSocketText -Socket $Socket -Text $json | Out-Null
 }
 
@@ -911,7 +1017,8 @@ function Send-ProtocolEventToSocket {
 
     # Build the envelope once so logging and sending match the same payload.
     $body = Build-ProtocolEventBody -Name $Name -Payload $Payload
-    $json = $body | ConvertTo-Json -Depth 20
+    # Serialize with the shared depth to avoid truncated event payloads.
+    $json = $body | ConvertTo-Json -Depth $script:WsJsonDepth
 
     if (Send-WebSocketText -Socket $Socket -Text $json) {
         Write-LogOutbound -Message "evt $Name"
@@ -1031,7 +1138,13 @@ function Handle-JsonRpcRequest {
             return
         }
 
-        $savedAs = Save-SellfilePayload -PayloadText $data -FileName ([string]$name)
+        try {
+            $savedAs = Save-SellfilePayload -PayloadText $data -FileName ([string]$name)
+        }
+        catch {
+            Write-Log -Message ("uploadSellfile write failed (bytes={0}): {1}" -f $data.Length, $_) -Color DarkYellow
+            throw
+        }
         $result = @{ ok = $true; savedAs = $savedAs }
         Send-JsonRpcResponse -Socket $Socket -Id $id -Ok $true -ErrorMessage $null -ResultPayload $result
         Write-LogOutbound -Message "res uploadSellfile ok (jsonrpc)"
@@ -1068,7 +1181,13 @@ function Handle-RslRequest {
             return
         }
 
-        $savedAs = Save-SellfilePayload -PayloadText $data -FileName ([string]$name)
+        try {
+            $savedAs = Save-SellfilePayload -PayloadText $data -FileName ([string]$name)
+        }
+        catch {
+            Write-Log -Message ("uploadSellfile write failed (bytes={0}): {1}" -f $data.Length, $_) -Color DarkYellow
+            throw
+        }
         $result = @{ savedAs = $savedAs }
         Send-RslResponse -Socket $Socket -Id $id -Ok $true -ErrorMessage $null -Payload $result
         Write-LogOutbound -Message "res uploadSellfile ok (helper)"
@@ -1089,6 +1208,7 @@ function Handle-ClientMessage {
     try {
         $parsed = $Text | ConvertFrom-Json -Depth 20 -AsHashtable
     } catch {
+        Write-Log -Message ("Failed to parse WebSocket JSON ({0} chars): {1}" -f $Text.Length, $_) -Color DarkYellow
         return
     }
 
@@ -1106,7 +1226,10 @@ function Handle-ClientMessage {
     if ($parsed.jsonrpc -eq '2.0' -and $parsed.method) {
         Write-LogInbound -Message "req $($parsed.method)"
         Handle-JsonRpcRequest -Socket $Socket -Message $parsed
+        return
     }
+
+    Write-Log -Message ("Ignored WebSocket payload (protocolMode={0}; keys={1})" -f $protocolMode, (($parsed.Keys | Sort-Object) -join ',')) -Color DarkYellow
 }
 #endregion
 
@@ -1116,42 +1239,127 @@ function Start-WebSocketReceiveLoop {
         [System.Collections.IDictionary]$Client
     )
 
+    if (-not $Client) { return }
+    # Polling owns ReceiveAsync scheduling; this only marks the loop active.
+    Write-DebugLog -Message ("ws-loop ready (client={0})" -f $Client.Id)
+}
+#endregion
+
+#region === WebSocket receive polling ===
+function Poll-WsClientReceive {
+    param([System.Collections.IDictionary]$Client)
+
+    if (-not $Client) { return }
     $socket = $Client.Socket
-    if (-not $socket) { return }
-
-    [System.Threading.Tasks.Task]::Run([Action] {
-        $buffer = New-Object byte[] 8192
-        $segment = [System.ArraySegment[byte]]::new($buffer)
-        $builder = New-Object System.Text.StringBuilder
-
+    $task = $Client.ReceiveTask
+    if (-not $task) {
+        # Schedule the first receive without blocking the main loop.
+        if (-not $socket) {
+            Write-DebugLog -Message ("ws-loop missing socket (client={0})" -f $Client.Id)
+            Remove-WsClient -Client $Client
+            return
+        }
+        if ($socket.State -ne [System.Net.WebSockets.WebSocketState]::Open) {
+            Write-DebugLog -Message ("ws-loop not open when scheduling (client={0}, state={1})" -f $Client.Id, $socket.State)
+            return
+        }
+        # Only one outstanding ReceiveAsync is allowed per socket.
         try {
-            while ($socket.State -eq [System.Net.WebSockets.WebSocketState]::Open) {
-                $result = $socket.ReceiveAsync($segment, [System.Threading.CancellationToken]::None).GetAwaiter().GetResult()
-                if ($result.MessageType -eq [System.Net.WebSockets.WebSocketMessageType]::Close) {
-                    break
-                }
+            $Client.ReceiveTask = $socket.ReceiveAsync($Client.ReceiveSegment, [System.Threading.CancellationToken]::None)
+        } catch {
+            Write-DebugLog -Message ("ws-loop schedule failed (client={0}): {1}" -f $Client.Id, $_)
+            Remove-WsClient -Client $Client
+            return
+        }
+        Write-DebugLog -Message ("ws-loop scheduled receive (client={0})" -f $Client.Id)
+        return
+    }
 
-                if ($result.Count -gt 0) {
-                    $chunk = [System.Text.Encoding]::UTF8.GetString($buffer, 0, $result.Count)
-                    [void]$builder.Append($chunk)
-                }
+    if (-not $task.IsCompleted) { return }
 
-                if ($result.EndOfMessage) {
-                    $text = $builder.ToString()
-                    $builder.Clear() | Out-Null
-                    Handle-ClientMessage -Socket $socket -Text $text
-                }
+    # Drain multiple completed receives to keep large uploads within timeouts.
+    $drainCount = 0
+    while ($task -and $task.IsCompleted) {
+        $result = $null
+        try {
+            $result = $task.GetAwaiter().GetResult()
+        } catch {
+            Write-DebugLog -Message ("ws-loop failed (client={0}): {1}" -f $Client.Id, $_)
+            Remove-WsClient -Client $Client
+            return
+        }
+        # Clear only after completion so we never overlap ReceiveAsync.
+        $Client.ReceiveTask = $null
+
+        if ($result.MessageType -eq [System.Net.WebSockets.WebSocketMessageType]::Close) {
+            Write-DebugLog -Message ("ws-loop close (client={0}, status={1})" -f $Client.Id, $result.CloseStatus)
+            Remove-WsClient -Client $Client
+            return
+        }
+
+        if ($result.Count -gt 0) {
+            $chunk = [System.Text.Encoding]::UTF8.GetString($Client.ReceiveBuffer, 0, $result.Count)
+            [void]$Client.ReceiveBuilder.Append($chunk)
+            # Track progress to diagnose large uploads.
+            $Client.ReceiveBytes += $result.Count
+            if ($Client.ReceiveBytes -ge $Client.ReceiveNextLog) {
+                Write-DebugLog -Message ("ws-loop progress (client={0}, bytes={1:N0})" -f $Client.Id, $Client.ReceiveBytes)
+                $Client.ReceiveNextLog += 1048576
             }
         }
-        catch {
-            # Swallow socket errors during shutdown.
+
+        if ($result.EndOfMessage) {
+            $text = $Client.ReceiveBuilder.ToString()
+            $Client.ReceiveBuilder.Clear() | Out-Null
+            # Reset counters after each complete message.
+            $Client.ReceiveBytes = 0
+            $Client.ReceiveNextLog = 1048576
+            Write-DebugLog -Message ("ws-loop message (client={0}, chars={1:N0})" -f $Client.Id, $text.Length)
+            Handle-ClientMessage -Socket $socket -Text $text
         }
-        finally {
-            try { $socket.CloseAsync([System.Net.WebSockets.WebSocketCloseStatus]::NormalClosure, 'Closing', [System.Threading.CancellationToken]::None).GetAwaiter().GetResult() | Out-Null } catch {}
+
+        # Schedule the next receive without blocking.
+        if (-not $socket) {
+            Write-DebugLog -Message ("ws-loop missing socket after message (client={0})" -f $Client.Id)
             Remove-WsClient -Client $Client
-            Write-Log -Message 'Client disconnected.' -Color DarkGray
+            return
         }
-    }) | Out-Null
+
+        $state = $socket.State
+        if ($state -eq [System.Net.WebSockets.WebSocketState]::Open) {
+            # Start the next receive for this client.
+            try {
+                $Client.ReceiveTask = $socket.ReceiveAsync($Client.ReceiveSegment, [System.Threading.CancellationToken]::None)
+            } catch {
+                Write-DebugLog -Message ("ws-loop reschedule failed (client={0}): {1}" -f $Client.Id, $_)
+                Remove-WsClient -Client $Client
+                return
+            }
+        } elseif ($state -eq [System.Net.WebSockets.WebSocketState]::Connecting) {
+            Write-DebugLog -Message ("ws-loop waiting for open (client={0})" -f $Client.Id)
+            return
+        } else {
+            # Capture close details so abort reasons are visible in logs.
+            $closeStatus = $socket.CloseStatus
+            $closeDescription = $socket.CloseStatusDescription
+            Write-DebugLog -Message ("ws-loop closed socket (client={0}, state={1}, closeStatus={2}, closeDesc={3})" -f $Client.Id, $state, $closeStatus, $closeDescription)
+            Remove-WsClient -Client $Client
+            return
+        }
+
+        # Stop draining after a bounded number of chunks to stay responsive.
+        $task = $Client.ReceiveTask
+        $drainCount += 1
+        if ($drainCount -ge $script:WsReceiveDrainLimit) { break }
+        if (-not $task -or -not $task.IsCompleted) { break }
+    }
+}
+
+function Poll-WsClientsReceive {
+    $clients = Get-WsClientsSnapshot
+    foreach ($client in $clients) {
+        Poll-WsClientReceive -Client $client
+    }
 }
 #endregion
 
@@ -1966,6 +2174,9 @@ try {
         Poll-ShortcutInput -TokenSource $stopSource | Out-Null
         if ($stopSource.IsCancellationRequested) { break }
 
+        # Poll inbound WebSocket frames so uploads are processed without threads.
+        Poll-WsClientsReceive
+
         if ($script:GearDbWatchState) {
             Invoke-GearDbWatchTick -State $script:GearDbWatchState
         }
@@ -2007,12 +2218,26 @@ try {
                 try {
                     $wsContext = $context.AcceptWebSocketAsync($selectedProtocol).GetAwaiter().GetResult()
                     $client = Add-WsClient -Socket $wsContext.WebSocket
-                    Write-ConsoleLog -Message ("Client connected (protocol: {0})" -f ($selectedProtocol ?? 'none')) -Color DarkGray
-                    # Sync the latest gear DB payload so the UI starts populated.
-                    if ($script:LastGearDbFilePayload) {
-                        Send-ProtocolEventToSocket -Socket $client.Socket -Name 'gearDbFile' -Payload $script:LastGearDbFilePayload | Out-Null
-                    }
+                    # Snapshot the socket status right after accept for diagnostics.
+                    $socketState = $client.Socket.State
+                    # Some closes report a status and description even this early.
+                    $closeStatus = $client.Socket.CloseStatus
+                    # Include the close description if the socket aborted immediately.
+                    $closeDescription = $client.Socket.CloseStatusDescription
+                    Write-DebugLog -Message ("accept: socket state={0} closeStatus={1} closeDesc={2}" -f $socketState, $closeStatus, $closeDescription)
+                    # Log the selected subprotocol for negotiation verification.
+                    Write-DebugLog -Message ("accept: subprotocol={0} requested={1}" -f ($selectedProtocol ?? 'none'), ($requestedProtocols ?? 'none'))
+                    $requestedSummary = if ($requestedProtocols) { $requestedProtocols } else { 'none' }
+                    Write-ConsoleLog -Message ("Client connected (protocol: {0}; requested: {1})" -f ($selectedProtocol ?? 'none'), $requestedSummary) -Color DarkGray
+                    Write-DebugLog -Message ("log: Client connected (protocol: {0}; requested: {1})" -f ($selectedProtocol ?? 'none'), $requestedSummary)
+                    Write-DebugLog -Message ("accept: starting receive loop (client={0})" -f $client.Id)
                     Start-WebSocketReceiveLoop -Client $client
+                    # Sync the latest gear DB payload without blocking the accept loop.
+                    if (-not $SkipInitialGearSync -and $script:LastGearDbFilePayload) {
+                        [System.Threading.Tasks.Task]::Run([Action] {
+                            Send-ProtocolEventToSocket -Socket $client.Socket -Name 'gearDbFile' -Payload $script:LastGearDbFilePayload | Out-Null
+                        }) | Out-Null
+                    }
                 }
                 catch {
                     Write-ConsoleLog -Message ("Failed to accept WebSocket: {0}" -f $_) -Color DarkYellow

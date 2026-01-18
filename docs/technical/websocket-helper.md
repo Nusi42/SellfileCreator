@@ -9,6 +9,15 @@ Creator when communicating with RSL Helper integrations.
 - Subprotocol: `helper`
 - Payloads: JSON text frames
 
+### Subprotocol negotiation
+
+- The browser offers `jsonrpc` and `helper` in the WebSocket handshake.
+- Helper-mode servers must select `helper` in `Sec-WebSocket-Protocol` and then
+  accept only the helper envelope.
+- If the server omits subprotocol selection, Sellfile Creator infers the
+  protocol from the first inbound message and otherwise defaults to JSON-RPC
+  for outbound requests.
+
 ## Envelope Types
 
 ### Request (client -> server)

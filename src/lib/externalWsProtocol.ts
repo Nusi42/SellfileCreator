@@ -25,6 +25,11 @@ export type ExternalWsEventName =
   | typeof EXTERNAL_WS_EVENT_GEAR_DB_RAW_SNAPSHOT
   | typeof EXTERNAL_WS_EVENT_GEAR_DB_RAW_DELTA
 
+// Enumerate the supported wire protocols so inference stays explicit.
+export type ExternalWsProtocol =
+  | typeof EXTERNAL_WS_SUBPROTOCOL_JSONRPC
+  | typeof EXTERNAL_WS_SUBPROTOCOL_HELPER
+
 // Normalized response shape for both protocols.
 export type ExternalWsResponse = {
   ok: boolean
@@ -34,8 +39,8 @@ export type ExternalWsResponse = {
 
 // Normalized inbound messages so the hook can share parsing logic.
 export type ExternalWsInboundMessage =
-  | { kind: 'event'; name: ExternalWsEventName; payload: unknown }
-  | { kind: 'response'; id: number; response: ExternalWsResponse }
+  | { kind: 'event'; name: ExternalWsEventName; payload: unknown; protocol: ExternalWsProtocol }
+  | { kind: 'response'; id: number; response: ExternalWsResponse; protocol: ExternalWsProtocol }
 
 // Internal descriptor for a decoded external command event.
 export type ExternalWsDecodedEvent = {
@@ -87,7 +92,13 @@ const parseJsonRpcMessage = (raw: unknown): ExternalWsInboundMessage | null => {
   if ((idValue === null || idValue === undefined) && method) {
     // Params become the payload for existing command parsers.
     const params = raw.params
-    return { kind: 'event', name: method as ExternalWsEventName, payload: params ?? {} }
+    // Tag the inbound event with the protocol we matched.
+    return {
+      kind: 'event',
+      name: method as ExternalWsEventName,
+      payload: params ?? {},
+      protocol: EXTERNAL_WS_SUBPROTOCOL_JSONRPC,
+    }
   }
 
   // Responses must carry a numeric id; treat result vs error accordingly.
@@ -100,12 +111,24 @@ const parseJsonRpcMessage = (raw: unknown): ExternalWsInboundMessage | null => {
     const message = isRecord(errorValue) && typeof errorValue.message === 'string'
       ? errorValue.message
       : 'unknown error'
-    return { kind: 'response', id, response: { ok: false, error: message, payload: errorValue } }
+    // Carry the JSON-RPC protocol marker into the response.
+    return {
+      kind: 'response',
+      id,
+      response: { ok: false, error: message, payload: errorValue },
+      protocol: EXTERNAL_WS_SUBPROTOCOL_JSONRPC,
+    }
   }
 
   if ('result' in raw) {
     // Successful JSON-RPC responses carry a result payload.
-    return { kind: 'response', id, response: { ok: true, payload: raw.result } }
+    // Record the protocol so callers can infer the server shape.
+    return {
+      kind: 'response',
+      id,
+      response: { ok: true, payload: raw.result },
+      protocol: EXTERNAL_WS_SUBPROTOCOL_JSONRPC,
+    }
   }
 
   return null
@@ -121,7 +144,13 @@ const parseHelperMessage = (raw: unknown): ExternalWsInboundMessage | null => {
     // Events specify their name separately and carry a payload object.
     const nameValue = typeof raw.name === 'string' ? raw.name : null
     if (!nameValue) return null
-    return { kind: 'event', name: nameValue as ExternalWsEventName, payload: raw.payload ?? {} }
+    // Tag the lightweight event so callers can adapt their outbound format.
+    return {
+      kind: 'event',
+      name: nameValue as ExternalWsEventName,
+      payload: raw.payload ?? {},
+      protocol: EXTERNAL_WS_SUBPROTOCOL_HELPER,
+    }
   }
 
   if (typeValue === 'res') {
@@ -135,7 +164,8 @@ const parseHelperMessage = (raw: unknown): ExternalWsInboundMessage | null => {
       payload: raw.payload,
       ...(errorMessage ? { error: errorMessage } : {}),
     }
-    return { kind: 'response', id, response }
+    // Preserve the helper protocol for response handling.
+    return { kind: 'response', id, response, protocol: EXTERNAL_WS_SUBPROTOCOL_HELPER }
   }
 
   return null
