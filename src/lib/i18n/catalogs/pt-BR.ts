@@ -882,6 +882,7 @@ const catalog: Catalog = {
   filterRollsSummaryNone: 'Nenhum filtro de rolagem ativo',
   filterAscension: 'Ascension',
   filterConfigName: 'Nome da config',
+  filterConfigNamePlaceholder: 'Digite o nome da config ou a tag (regex)',
   filterConfigNameInvalid: 'Expressão regular inválida',
   filterLimitPreviewConfigs: 'Configs prévia',
   filterLimitPreviewConfigsTooltip: 'Ative para mostrar apenas os chips de config cujas regras passam pelos filtros atuais da prévia.',

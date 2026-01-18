@@ -882,6 +882,7 @@ const enUS: Catalog = {
   filterRollsSummaryNone: 'No Roll Filters Active',
   filterAscension: 'Ascension',
   filterConfigName: 'Config Name',
+  filterConfigNamePlaceholder: 'Enter Config Name or Tag (regex)',
   filterConfigNameInvalid: 'Invalid regular expression',
   filterLimitPreviewConfigs: 'Preview Configs',
   filterLimitPreviewConfigsTooltip: 'Toggle to show only config chips whose rules survive the current preview filters.',

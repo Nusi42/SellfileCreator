@@ -882,6 +882,7 @@ const overrides: Catalog = {
   filterRollsSummaryNone: 'Aktif rulo filtresi yok',
   filterAscension: 'Ascension',
   filterConfigName: 'Konfig adı',
+  filterConfigNamePlaceholder: 'Konfig adını veya etiketi girin (regex)',
   filterConfigNameInvalid: 'Geçersiz düzenli ifade',
   filterLimitPreviewConfigs: 'Önizleme konfigleri',
   filterLimitPreviewConfigsTooltip: 'Geçerli önizleme filtrelerini geçen konfig çiplerini göstermek için aç/kapat.',

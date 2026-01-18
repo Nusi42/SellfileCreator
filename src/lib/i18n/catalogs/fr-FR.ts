@@ -882,6 +882,7 @@ const overrides: Catalog = {
   filterRollsSummaryNone: 'Aucun filtre de lancers actif',
   filterAscension: 'Ascension',
   filterConfigName: 'Nom de la config',
+  filterConfigNamePlaceholder: 'Entrez le nom de la config ou un tag (regex)',
   filterConfigNameInvalid: 'Expression régulière invalide',
   filterLimitPreviewConfigs: 'Configs aperçu',
   filterLimitPreviewConfigsTooltip: 'Activez pour n’afficher que les puces de config dont les règles passent les filtres d’aperçu actuels.',

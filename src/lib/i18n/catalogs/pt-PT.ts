@@ -882,6 +882,7 @@ const overrides: Catalog = {
   filterRollsSummaryNone: 'Sem filtros de rolagens ativos',
   filterAscension: 'Ascension',
   filterConfigName: 'Nome da config',
+  filterConfigNamePlaceholder: 'Introduza o nome da config ou a tag (regex)',
   filterConfigNameInvalid: 'Expressão regular inválida',
   filterLimitPreviewConfigs: 'Configs prévia',
   filterLimitPreviewConfigsTooltip: 'Ativa para mostrar apenas os chips de config cujas regras passam pelos filtros atuais da pré-visualização.',

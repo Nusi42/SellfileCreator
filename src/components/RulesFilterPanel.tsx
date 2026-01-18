@@ -1600,10 +1600,10 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
             onKeyDown={(e) => { if (e.key === 'Enter') { (e.target as HTMLInputElement).blur() } }}
             size="small"
             inputRef={configNameInputRef}
-            placeholder={t('builderConfigName')}
+            placeholder={t('filterConfigNamePlaceholder')}
             error={configNameRegexError}
             inputProps={{
-              'aria-label': t('builderConfigName'),
+              'aria-label': t('filterConfigName'),
               'aria-invalid': configNameRegexError ? 'true' : undefined,
               title: configNameRegexError ? t('filterConfigNameInvalid') : undefined,
             }}
