@@ -153,6 +153,8 @@ Without the helper, the Playwright perf tests fall back to the built-in measurem
   - `npm run test:e2e:all` executes the full Playwright browser matrix.
   - `npm test` runs `test:all` (unit/integration + Chromium Playwright).
   - `npm run test:all:full` runs the full unit/integration + all Playwright browsers.
+- Install behavior:
+  - `npm install` triggers `npx playwright install` via `postinstall` to fetch the browser binaries pinned to the local `@playwright/test` version.
 - Sandbox specifics:
   - Playwright requires elevated permissions when binding Vite to `127.0.0.1:5182`; re-run the command with `with_escalated_permissions: true` if you hit `EPERM`.
   - The harness still logs `[Violation]` entries for slow handlers; ignore them unless a spec fails.

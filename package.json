@@ -8,6 +8,7 @@
                     "build":  "vite build",
                     "preview":  "vite preview",
                     "typecheck":  "tsc --noEmit",
+                    "postinstall":  "npx playwright install",
                     "generate:third-party-notices":  "node scripts/tooling/update-third-party-notices.mjs",
                     "export:l10n":  "tsc -p tsconfig.scripts.json \u0026\u0026 node scripts/tooling/patch-esm-specifiers.cjs \u0026\u0026 node tmp/tsc/scripts/scripts/tooling/export-catalogs.js",
                     "measure:rule-tester":  "tsc -p tsconfig.scripts.json \u0026\u0026 node scripts/tooling/patch-esm-specifiers.cjs \u0026\u0026 node tmp/tsc/scripts/scripts/tooling/measure-rule-tester.js",
