@@ -147,6 +147,8 @@ Without the helper, the Playwright perf tests fall back to the built-in measurem
 - Specs:
   - `e2e/smoke.spec.ts` is the canonical health-check (`npx playwright test e2e/smoke.spec.ts --project=chromium --reporter=list`).
   - `e2e/config-insert-order.spec.ts` guards the “paste after” ordering regression by loading `samples/Nusi_20251026_2036.hsfc`, performing copy/paste, and verifying row ordering.
+- Default test runs:
+  - `npm test` executes the node:test suite and a focused Playwright run (`e2e/smoke.spec.ts` + `e2e/keep-unique-disabled-clone-sell.spec.ts` on Chromium).
 - Sandbox specifics:
   - Playwright requires elevated permissions when binding Vite to `127.0.0.1:5182`; re-run the command with `with_escalated_permissions: true` if you hit `EPERM`.
   - The harness still logs `[Violation]` entries for slow handlers; ignore them unless a spec fails.

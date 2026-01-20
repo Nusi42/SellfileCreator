@@ -81,6 +81,17 @@ try {
   } else if (process.env.CI) {
     console.warn('Warning: no node:test specs found under tests/')
   }
+  // Run a focused Playwright subset as part of the default suite.
+  // Why: keep-unique regressions are UI-driven and need browser coverage.
+  // Limit to Chromium so we avoid cross-browser fixture gaps in local runs.
+  run('npx', [
+    'playwright',
+    'test',
+    'e2e/smoke.spec.ts',
+    'e2e/keep-unique-disabled-clone-sell.spec.ts',
+    '--project=chromium',
+    '--reporter=list',
+  ])
 } catch (error) {
   if (typeof error?.exitCode === 'number') {
     process.exit(error.exitCode)
