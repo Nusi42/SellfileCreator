@@ -42,6 +42,8 @@ type CachedArtifactEntry = {
   artifact: NormalizedGearArtifact
   fingerprint: string
   baseMatch: TesterMatchWorkerItemResult | null
+  // Signature ties baseMatch to the rule/config snapshot it was computed against.
+  baseMatchSignature: string | null
   finalMatch: TesterMatchWorkerItemResult | null
   finalMatchSignature: string | null
 }
@@ -74,6 +76,14 @@ const postPipelineProgress = (id: number, payload: { completed: number; total: n
     payload,
   }
   self.postMessage(response)
+}
+
+const buildBaseMatchSignature = (payload: Extract<RuleCacheWorkerRequest, { kind: 'pipeline' }>['payload']): string => {
+  // Fingerprint captures config order + keep-unique rules + final-sell inputs.
+  const fingerprint = payload.fingerprint ?? 'null'
+  // Config modes alter the matcher gate (disabled/separator), so include them too.
+  const modes = Array.isArray(payload.configModes) ? payload.configModes.join('|') : ''
+  return `${fingerprint}|modes:${modes}`
 }
 
 const buildWarmState = (
@@ -186,8 +196,13 @@ const upsertArtifactCacheEntry = (itemId: number, artifact: NormalizedGearArtifa
   artifactCache.set(itemId, {
     artifact,
     fingerprint: nextFingerprint,
+    // Preserve base matches only when the item payload fingerprint matches.
     baseMatch: canReuseMatches ? previous!.baseMatch : null,
+    // Keep the signature aligned with the preserved base match.
+    baseMatchSignature: canReuseMatches ? previous!.baseMatchSignature : null,
+    // Preserve final matches only when the item payload fingerprint matches.
     finalMatch: canReuseMatches ? previous!.finalMatch : null,
+    // Carry forward the final-match signature when its payload matches.
     finalMatchSignature: canReuseMatches ? previous!.finalMatchSignature : null,
   })
 }
@@ -295,9 +310,11 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
       ? { ...payload.keepUniques, detection: null }
       : payload.keepUniques
     const configsForRules = warmState.configsForRules
-    const warmTotal = reused ? 0 : payload.configs.length
-    const needsMatches = payload.skipMatches !== true
+  const warmTotal = reused ? 0 : payload.configs.length
+  const needsMatches = payload.skipMatches !== true
 
+    // Base-match results must be tied to the current rule/config fingerprint.
+    const baseMatchSignature = buildBaseMatchSignature(payload)
     // Track which item ids truly changed so baseline/final matcher caches can stay valid.
     const changedItemIds = new Set<number>()
     if (payload.artifactPatch) {
@@ -346,7 +363,11 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
     // recomputes the rows the patch touched.
     const baselineMatchMap = new Map<number, TesterMatchWorkerItemResult>()
     artifactCache.forEach((entry, itemId) => {
-      if (entry.baseMatch) baselineMatchMap.set(itemId, entry.baseMatch)
+      // Reuse cached base matches only when the signature still aligns.
+      if (!entry.baseMatch) return
+      // Skip stale base matches when configs/reordering changed.
+      if (entry.baseMatchSignature !== baseMatchSignature) return
+      baselineMatchMap.set(itemId, entry.baseMatch)
     })
     if (needsDetection) {
       // Only dispatch match jobs for artifacts whose baseline is missing or stale.
@@ -374,6 +395,7 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
           baselineMatchMap.set(result.itemId, result)
           const cached = artifactCache.get(result.itemId)
           if (cached) cached.baseMatch = result
+          if (cached) cached.baseMatchSignature = baseMatchSignature
         }
         completed = baseProgressRef.value
       } else {
