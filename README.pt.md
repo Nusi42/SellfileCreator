@@ -209,4 +209,4 @@ e claro a **Farbstoff** pelo RSL Helper!
 Criado por [STBL] Nusi㊷  
 Localização por Codex
 
-© Nusi㊷ - 2025
+© Nusi㊷ - 2026

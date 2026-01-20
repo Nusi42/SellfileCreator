@@ -1,6 +1,21 @@
 ﻿Sellfile Creator Release History
 DISCLAIMER: These release notes are AI generated and might contain incorrect statements.
 
+## v0.9.13 — 2026-01-20
+English:
+- Rule Tester cards can now show an optional "Add Config" action that builds Keep/Sell configs from the selected item and jumps you to the new config.
+- Keep Unique coverage is more reliable: configs tagged `ignore_keep_unique` no longer count toward uniqueness checks, and tester labels stay in sync after renaming rules.
+- Live RSL Helper DB streaming is more dependable and faster for big databases, plus the push status now includes a received timestamp.
+- Push endpoints now require `ws://` or `wss://` URLs.
+- The config-name filter hint now calls out tag and regex matching.
+
+Deutsch:
+- Rule-Tester-Karten koennen jetzt optional eine Aktion "Konfig hinzufuegen" anzeigen, die aus dem Item Keep/Sell-Konfigs baut und direkt zur neuen Konfig springt.
+- Keep Unique ist verlaesslicher: mit `ignore_keep_unique` getaggte Konfigs zaehlen nicht mehr fuer die Unique-Abdeckung, und Tester-Labels bleiben nach Umbenennungen aktuell.
+- Live-Streaming der RSL-Helper-Datenbank ist robuster und schneller bei grossen Datenbanken; der Push-Status zeigt jetzt den Empfangszeitpunkt.
+- Push-Endpunkte akzeptieren jetzt nur noch `ws://`- oder `wss://`-URLs.
+- Der Filter-Hinweis beim Konfig-Namen nennt jetzt Tag- und Regex-Suche.
+
 ## v0.9.12 — 2026-01-10
 English:
 - The Argonites faction is now available in builder faction menus, filters, and gear database imports.

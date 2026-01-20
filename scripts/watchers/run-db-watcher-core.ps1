@@ -2007,6 +2007,8 @@ function Resolve-AppEntryPath {
         (Join-Path $Root 'SellfileCreator.html'),
         (Join-Path $Root 'dist\SellfileCreator.html'),
         (Join-Path $Root 'dist\index.html'),
+        (Join-Path $Root '..\dist\SellfileCreator.html'),
+        (Join-Path $Root '..\dist\index.html'),
         (Join-Path $Root 'index.html')
     )
 

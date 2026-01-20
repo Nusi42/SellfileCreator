@@ -211,4 +211,4 @@ and of course thanks to **Farbstoff** for RSL Helper!
 Made by [STBL] Nusi㊷  
 Localization by [STBL] Nusi㊷
 
-© Nusi㊷ - 2025
+© Nusi㊷ - 2026

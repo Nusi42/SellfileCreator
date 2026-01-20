@@ -208,4 +208,4 @@ y por supuesto a **Farbstoff** por RSL Helper.
 Hecho por [STBL] Nusi㊷  
 Localización de Codex
 
-© Nusi㊷ - 2025
+© Nusi㊷ - 2026

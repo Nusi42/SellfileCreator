@@ -240,4 +240,4 @@ e naturalmente a **Farbstoff** per RSL Helper!
 Creato da [STBL] Nusi㊷  
 Localizzazione a cura di Codex
 
-© Nusi㊷ - 2025
+© Nusi㊷ - 2026
