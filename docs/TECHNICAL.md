@@ -141,14 +141,16 @@ Without the helper, the Playwright perf tests fall back to the built-in measurem
 
 ### Playwright Harness
 
-- Fixtures live under `e2e/`:
+- Fixtures live under `tests/playwright/`:
   - `fixtures.ts` wires console mirroring and page-error logging so specs surface browser output in the CLI.
   - `app-init.ts` primes localStorage, forces `isSecureContext`, and (optionally) stubs the clipboard API for deterministic tests.
 - Specs:
-  - `e2e/smoke.spec.ts` is the canonical health-check (`npx playwright test e2e/smoke.spec.ts --project=chromium --reporter=list`).
-  - `e2e/config-insert-order.spec.ts` guards the “paste after” ordering regression by loading `samples/Nusi_20251026_2036.hsfc`, performing copy/paste, and verifying row ordering.
+  - `tests/playwright/smoke.spec.ts` is the canonical health-check (`npx playwright test tests/playwright/smoke.spec.ts --project=chromium --reporter=list`).
+  - `tests/playwright/config-insert-order.spec.ts` guards the “paste after” ordering regression by loading `samples/Nusi_20251026_2036.hsfc`, performing copy/paste, and verifying row ordering.
 - Default test runs:
-  - `npm test` executes the node:test suite and a focused Playwright run (`e2e/smoke.spec.ts` + `e2e/keep-unique-disabled-clone-sell.spec.ts` on Chromium).
+  - `npm run test:unit` executes the node:test suite and HSFC fixture runner.
+  - `npm run test:e2e` executes the Playwright suite.
+  - `npm test` runs both (`test:all`) for release-ready coverage.
 - Sandbox specifics:
   - Playwright requires elevated permissions when binding Vite to `127.0.0.1:5182`; re-run the command with `with_escalated_permissions: true` if you hit `EPERM`.
   - The harness still logs `[Violation]` entries for slow handlers; ignore them unless a spec fails.

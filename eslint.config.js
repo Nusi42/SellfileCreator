@@ -11,7 +11,7 @@ import globals from 'globals';
 
 export default [
   // Ignore generated/output folders and archived references
-  { ignores: ['dist/**', 'node_modules/**', 'src-tauri/**', 'scripts/.tmp/**', 'docs/reference/**'] },
+  { ignores: ['dist/**', 'node_modules/**', 'src-tauri/**', 'tmp/tsc/**', 'scripts/.tmp/**', 'docs/reference/**'] },
 
   // Base JS recommended
   js.configs.recommended,
@@ -20,7 +20,7 @@ export default [
   {
     files: [
       'src/**/*.{ts,tsx,js,jsx}',
-      'e2e/**/*.{ts,tsx,js,jsx}',
+      'tests/playwright/**/*.{ts,tsx,js,jsx}',
       'tests/**/*.{ts,tsx,js,jsx}',
       'scripts/**/*.{ts,js,mjs,cjs}',
       'vite.config.ts'
@@ -74,8 +74,9 @@ export default [
     },
   },
   {
-    files: ['e2e/**/*.{ts,tsx,js,jsx}'],
+    files: ['tests/playwright/**/*.{ts,tsx,js,jsx}'],
     rules: {
+      'import/no-unused-modules': 'off',
       'react-hooks/rules-of-hooks': 'off',
       'react-hooks/exhaustive-deps': 'off',
     },

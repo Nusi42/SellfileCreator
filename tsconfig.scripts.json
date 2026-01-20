@@ -2,7 +2,7 @@
   "extends": "./tsconfig.json",
   "compilerOptions": {
     "noEmit": false,
-    "outDir": "scripts/.tmp",
+    "outDir": "tmp/tsc/scripts",
     "module": "ESNext",
     "moduleResolution": "Bundler",
     "target": "ES2020",
@@ -11,10 +11,10 @@
   },
   "include": [
     "src/lib/i18n/catalogs/*.ts",
-    "scripts/export-catalogs.ts",
-    "scripts/sync-catalog-comments.ts",
-    "scripts/audit-l10n-widths.ts",
-    "scripts/measure-rule-tester.ts",
+    "scripts/tooling/export-catalogs.ts",
+    "scripts/tooling/sync-catalog-comments.ts",
+    "scripts/tooling/audit-l10n-widths.ts",
+    "scripts/tooling/measure-rule-tester.ts",
     "src/types/globals.d.ts"
   ]
 }
