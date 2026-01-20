@@ -34,6 +34,15 @@ const RULES_FILTER_SYNC_KEY = 'sellfileCreator.rulesFilter.sync.v1'
 // Why: chip-scroll bugs are sensitive to row count/ordering, so avoid inheriting a previous developer preset.
 const FILTER_PRESETS_KEY = 'sellfileCreator.filterPresets.v1'
 
+// Share consistent navigation defaults across specs.
+// Why: Firefox sometimes stalls on full load under heavy parallelism.
+export const APP_GOTO_OPTIONS = {
+  // DOMContentLoaded is enough for UI readiness checks in the specs.
+  waitUntil: 'domcontentloaded',
+  // Allow extra time for Vite to settle during multi-worker runs.
+  timeout: 60_000,
+} as const
+
 export async function prepareApp(page: Page, options: PrepareAppOptions = {}): Promise<void> {
   const version = readAppVersion()
   const { stubClipboard = false } = options

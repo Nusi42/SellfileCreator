@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test'
 import path from 'node:path'
+import { APP_GOTO_OPTIONS } from './app-init'
 
 const LARGE_HSFC_PATH = path.resolve(process.cwd(), 'tests', 'data', 'sample.hsfc')
 
@@ -22,7 +23,8 @@ test.describe('HSFC load performance', () => {
       version: 'test-version',
     })
 
-    await page.goto('/', { waitUntil: 'domcontentloaded' })
+    // Load the shell without waiting for the full load event.
+    await page.goto('/', APP_GOTO_OPTIONS)
     await page.locator('[data-tour-id="preview.paper"]').waitFor()
 
     const restoreDismiss = page.locator('button:has-text("Dismiss")')

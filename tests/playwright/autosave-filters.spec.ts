@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test'
 import { computeCrc32 } from '../../src/lib/autosave'
 import { DEFAULT_RULES_FILTER_STATE, type RulesFilterState } from '../../src/lib/rulesFilter'
-import { APP_VERSION } from './app-init'
+import { APP_GOTO_OPTIONS, APP_VERSION } from './app-init'
 import { PREVIEW_MODE_STORAGE_KEY } from '../../src/lib/constants'
 import {
   RULES_FILTER_OPEN_STORAGE_KEY,
@@ -180,7 +180,8 @@ test.describe('autosave filter restore', () => {
       },
     )
 
-    await page.goto('/')
+    // Load the shell without waiting on the full load event.
+    await page.goto('/', APP_GOTO_OPTIONS)
 
     // Re-apply the seeded storage after load to avoid race conditions with app bootstrap.
     await page.evaluate(

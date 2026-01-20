@@ -1,7 +1,7 @@
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { test, expect } from './fixtures'
-import { prepareApp } from './app-init'
+import { APP_GOTO_OPTIONS, prepareApp } from './app-init'
 
 // Resolve file paths relative to this spec so fixtures match the user repro.
 const __filename = fileURLToPath(import.meta.url)
@@ -64,7 +64,8 @@ test('disable config options then duplicate disabled config changes sell counts'
     window.localStorage.setItem('sellfileCreator.lang.v1', 'en-US')
   })
   // Load the app shell so file inputs are ready.
-  await page.goto('/')
+  // Avoid waiting on the full load event during dev-server startup.
+  await page.goto('/', APP_GOTO_OPTIONS)
 
   // Import the HSFC snapshot that defines the configs and options.
   const hsfcInput = page.getByRole('button', { name: 'Load Configs (.hsfc)' }).locator('input[type="file"]')

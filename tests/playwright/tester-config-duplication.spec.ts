@@ -1,6 +1,6 @@
 import path from 'node:path'
 import { expect, test } from './fixtures'
-import { prepareApp } from './app-init'
+import { APP_GOTO_OPTIONS, prepareApp } from './app-init'
 import { PREVIEW_MODE_STORAGE_KEY } from '../../src/lib/constants'
 import {
   RULES_FILTER_OPEN_STORAGE_KEY,
@@ -134,7 +134,8 @@ test.describe('tester grid matches remain stable', () => {
     test.setTimeout(180_000)
     await prepareApp(page)
     await seedTesterFilters(page)
-    await page.goto('/')
+    // Load the shell without waiting for the full window load event.
+    await page.goto('/', APP_GOTO_OPTIONS)
     await dismissBlockingDialogs(page)
 
     // Load the HSFC + gear DB pair from the shared fixtures.

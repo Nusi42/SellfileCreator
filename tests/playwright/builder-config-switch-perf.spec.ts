@@ -1,7 +1,7 @@
 import { expect, test, type Locator, type Page } from '@playwright/test'
 import path from 'node:path'
 import { promises as fs } from 'node:fs'
-import { prepareApp } from './app-init'
+import { APP_GOTO_OPTIONS, prepareApp } from './app-init'
 
 // Use the test fixtures that ship with the repo.
 const BASE_HSFC_PATH = path.resolve(process.cwd(), 'tests', 'data', 'sample.hsfc')
@@ -79,7 +79,8 @@ test.describe('builder config switching performance', () => {
 
     const { hsfcPath, configNames } = await prepareHeavyHsfcFixture(testInfo.outputDir)
 
-    await page.goto('/', { waitUntil: 'domcontentloaded' })
+    // Load the shell without waiting for the full load event.
+    await page.goto('/', APP_GOTO_OPTIONS)
     await page.locator('[data-tour-id="preview.paper"]').waitFor({ timeout: 120_000 })
 
     await dismissAutosaveDialog(page)
