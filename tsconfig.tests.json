@@ -2,7 +2,7 @@
   "extends": "./tsconfig.json",
   "compilerOptions": {
     "noEmit": false,
-    "outDir": "scripts/.tmp",
+    "outDir": "tmp/tsc/tests",
     "module": "ESNext",
     "moduleResolution": "Bundler",
     "allowArbitraryExtensions": true,
@@ -19,7 +19,8 @@
     "src/lib/importers/gearDbImporter.ts",
     "src/lib/configDiff.ts",
     "src/types/**/*.d.ts",
-    "tests/**/*.ts",
+    "tests/unit/**/*.ts",
+    "tests/integration/**/*.ts",
     "tests/**/*.d.ts"
   ]
 }

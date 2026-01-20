@@ -24,7 +24,7 @@ This note tracks the reverse-engineering work required to ingest RSL Helper’s 
    - Up to `--sample` rows per table for quick per-column reconnaissance
 3. **Review the output** – annotate column purposes, flag unknown enums, and capture value ranges. Store the findings alongside this doc so future runs can diff for schema changes.
 
-## Schema Snapshot (tests/sample.db)
+## Schema Snapshot (tests/data/sample.db)
 
 | Table | Rows | Notes |
 | ----- | ---- | ----- |
@@ -36,7 +36,7 @@ This note tracks the reverse-engineering work required to ingest RSL Helper’s 
 | `CBLoot` | 146 | Clan Boss chest history. |
 | `ArtifactsBackup`, `LockedArtifacts`, `accessories`, `artifact_ids`, `accessory_ids`, `presets` | 0 | Present but empty in this dump. |
 
-The inspection output is stored at `tmp/gear-db-inspection/um109288203_RSLHelper.schema.json`. The raw fixture we ship for tests lives at `tests/sample.db` (renamed from `examples/um109288203_RSLHelper.1.db` so it sits beside the importer specs), and a deliberately corrupted copy sits at `tests/broken.db` for negative test coverage.
+Inspection output lives under `tmp/gear-db-inspection/` and is not committed. The raw fixture we ship for tests lives at `tests/data/sample.db` (renamed from `examples/um109288203_RSLHelper.1.db` so it sits beside the importer specs), and a deliberately corrupted copy sits at `tests/data/broken.db` for negative test coverage.
 
 ## Key Findings
 
@@ -123,7 +123,7 @@ Argonites currently assume a new `accset = 17` mapping until a sample database c
   - Ascension bonuses captured separately (`source = 'ascension'`) so the UI can display them, while rule comparisons ignore them (tester `subValues` aggregate only the pre-glyph substat amounts; glyph deltas ride along in `previewExtras.substats[].glyphValue`).
   - Level metadata: `level` keeps the nearest milestone (0/4/8/12/16) used during rule matching, and `exactLevel` stores the clamped raw upgrade level from the database (0–16). When `exactLevel` is present the UI displays that precise value; custom gear entries omit this field and fall back to the milestone label.
   - Accessory faction remapping via the table above, with non-accessory slots forced to `0`.
-- Guardrails live in `tests/gearDbNormalizer.test.ts`, using real rows from `tests/sample.db` to assert slot, set, faction, and stat decoding (including ascension glyphs).
+- Guardrails live in `tests/unit/gearDbNormalizer.test.ts`, using real rows from `tests/data/sample.db` to assert slot, set, faction, and stat decoding (including ascension glyphs).
 - Drag-and-drop integration (and the Sellfile Preview “Load RSL Helper Sellfile” button): both accept `.db` files. `src/lib/importers/gearDbImporter.ts` streams the file via `sql.js`, normalizes every row, and queues the resulting gear without forcing the Logic Hub dialog’s Gear tab open. Regardless of whether the payload arrived via manual drop or an external `gearDbFile` command, the app now diffs the incoming payload against whatever is already rendered: we fingerprint the full gear entry (slot, stats, preview extras, equipped metadata) to decide which rows already exist, remove entries whose fingerprints disappear, retain any pending chunks that are still needed, and only enqueue the delta. Because the UI sorting is deterministic the new items fall into place without thrashing the virtualization chunk size. Empty imports leave the current queue untouched and surface `toastGearDbImportEmpty`. Invalid databases fall back to the shared “file format” error dialog so users know we could not detect a supported payload. External pushes continue to light up the indicator badge on the Load button *and* now emit a compact toast in the top-right corner that auto-dismisses after roughly 3 seconds so the notification never hides the preview controls.
 
 ## Raw JSON WebSocket events

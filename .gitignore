@@ -7,9 +7,10 @@ package-lock.json
 dist/
 src-tauri/target/
 
-# Test artifacts
+# Build/test artifacts
+tmp/tsc/
+tmp/gear-db-inspection/
 scripts/.tmp/
-tests/.tmp/
 THIRD_PARTY_NOTICES.txt
 
 # OS files

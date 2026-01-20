@@ -23,38 +23,43 @@ Numbers that drive layout, sizing, timing, etc. must live in a single shared con
 - `npm run build` — production build to `dist`
 - `npm run preview` — preview the built app
 - `npm run typecheck` — run `tsc --noEmit`
+- `npm run test:unit` — compile + run node:test + HSFC fixture runner
+- `npm run test:e2e` — run Playwright against the Vite dev server in Chromium
+- `npm run test:e2e:all` — run Playwright against the Vite dev server in all browsers
+- `npm run test:all` — run unit/integration plus Chromium Playwright
+- `npm run test:all:full` — run unit/integration plus full Playwright coverage
 - `npm run release:win` — Windows: build and create a versioned zip archive in repo root
 - `npm run release:win-dev` — Windows: dev build/package; leaves package.json version unchanged and creates a `-dev` suffixed archive
 - `npm run release-notes:catchup` — back-fill `docs/HISTORY.txt` for past releases and refresh the entry for the in-progress version (default updates only the newest missing release; pass `-- --all` to replay the entire backlog; Codex writes the notes and no other files change). The script now auto-splits large commit windows into sequential Codex runs so context stays within limits—tune the chunk size with `RELEASE_NOTES_MAX_COMMITS_PER_CHUNK=120 npm run release-notes:catchup` when a different cadence works better for the backlog you are curating.
 
 ### Scripts Layout
 
-- Committed (source) scripts live under `scripts/` and should be checked in:
+- Committed (source) scripts live under `scripts/` and are grouped by purpose:
 - `scripts/vite/assetsPlugin.ts` — injects the favicon data URL into `index.html` from a fixed allowlist ahead of dev/build runs.
 - `scripts/vite/wasmInlinePlugin.ts` — resolves `sql.js/dist/sql-wasm.wasm`, encodes it once as a data URI, and injects a `__SQL_JS_WASM_INLINE__` define so static (`file://`) builds can still load gear DBs without a network fetch.
-  - `patch-esm-specifiers.cjs` — patches compiled test artifacts to add `.js` extensions for Node ESM.
-- `run-tests.mjs` — orchestrates the full `npm test` pipeline (cleans `scripts/.tmp`, runs `tsc -p tsconfig.tests.json`, patches ESM specifiers, executes the HSFC end-to-end harness, then runs all node:test specs emitted under `scripts/.tmp/tests/`).
-- `dump-tests-hsfc.mjs` — extracts HSFC‑readable configs from compiled tests (`npm run tests:extract`).
-- `dump-goldens-all.mjs` — writes golden snapshots for curated HSFC cases.
-- `gen-hsf-from-hsfc.mjs` — generates HSF from a readable HSFC file.
-- `build-hsf-from-config.mjs` — generates HSF from a single HSFC config object (stdin/stdout helper).
+- `scripts/tooling/patch-esm-specifiers.cjs` — patches compiled artifacts to add `.js` extensions for Node ESM.
+- `scripts/test/run-tests.mjs` — orchestrates `npm run test:unit` (cleans `tmp/tsc/tests`, runs `tsc -p tsconfig.tests.json`, patches ESM specifiers, executes the HSFC fixture runner, then runs all node:test specs emitted under `tmp/tsc/tests/tests/`).
+- `scripts/test/dump-tests-hsfc.mjs` — extracts HSFC‑readable configs from compiled tests (`npm run tests:extract`).
+- `scripts/test/dump-goldens-all.mjs` — writes golden snapshots for curated HSFC cases.
+- `scripts/test/gen-hsf-from-hsfc.mjs` — generates HSF from a readable HSFC file.
+- `scripts/test/build-hsf-from-config.mjs` — generates HSF from a single HSFC config object (stdin/stdout helper).
 - Fixture writers (`dump-tests-hsfc.mjs`, `dump-goldens-all.mjs`, `gen-hsf-from-hsfc.mjs`, `build-hsf-from-config.mjs`) reuse the builder output verbatim so JSON member order mirrors the RSL Helper export.
-- Fixture HSFs are kept in sync with the app pipeline: `tests/file-hsfc-e2e.ts` routes every HSFC through `parseHsfcObject` and `computeMergedRules` so metaset expansion and obsolete-rule pruning match the UI/export behavior, then compares the full rule payloads exactly as emitted (no key reordering, no field trimming).
+- Fixture HSFs are kept in sync with the app pipeline: `tests/integration/hsfc-fixtures.runner.ts` routes every HSFC through `parseHsfcObject` and `computeMergedRules` so metaset expansion and obsolete-rule pruning match the UI/export behavior, then compares the full rule payloads exactly as emitted (no key reordering, no field trimming).
 - Fixture organization and refresh workflow lives in `tests/FIXTURES.md` for quick reference when adding scenarios or re-generating targets.
-  - `audit-l10n-widths.ts` — estimates per-locale string width/line growth to flag UI elements that need fixed sizing.
+  - `scripts/tooling/audit-l10n-widths.ts` — estimates per-locale string width/line growth to flag UI elements that need fixed sizing.
   - (one-off/migration helpers are not kept here; see below)
-  - `export-catalogs.ts` — builds localized catalogs into `dist/l10n/*.l10n.json` (`npm run export:l10n`).
-- `release-win.ps1` — Windows packaging script (`-DevBuild` opt-in for dev bundles). `release-win-dev.ps1` forwards to it.
-- `run-db-watcher.ps1` — JSON-RPC 2.0 WebSocket db watcher. Launches the UI with a `ws://` endpoint, accepts `uploadSellfile` requests, emits `selectRule` + gear DB events, and watches `%APPDATA%\RslHelper\Config` for `.db` updates by default (disable via `-WatchGearDb:false` or override with `-GearDbPath`). Requires PowerShell 7 (`pwsh`) and will re-launch under `pwsh` if needed. Uses `[R]` to queue a sample selectRule, `[T]` to toggle the sample gear via raw deltas, and `[F]` to force a DB snapshot.
-- `run-db-watcher-helper.ps1` — lightweight WebSocket db watcher (the `type/cmd/evt` protocol). Same behavior as `run-db-watcher.ps1`, but uses the compact envelope expected by RSL Helper integrations.
-- `run-db-watcher-core.ps1` — shared implementation for the two WebSocket db watchers above; keep common behavior here so the two wrappers stay in sync.
-- `Stream-Helper-DB-to-Creator.bat` — double-click helper that locates PowerShell 7 (`pwsh`) first (falls back to Windows PowerShell when needed), injects `-GearDbPath "%APPDATA%\RslHelper\Config"` so the watcher boots with the default RSL Helper directory, and forwards any additional arguments so users can override settings.
+  - `scripts/tooling/export-catalogs.ts` — builds localized catalogs into `dist/l10n/*.l10n.json` (`npm run export:l10n`).
+- `scripts/release/release-win.ps1` — Windows packaging script (`-DevBuild` opt-in for dev bundles). `scripts/release/release-win-dev.ps1` forwards to it.
+- `scripts/watchers/run-db-watcher.ps1` — JSON-RPC 2.0 WebSocket db watcher. Launches the UI with a `ws://` endpoint, accepts `uploadSellfile` requests, emits `selectRule` + gear DB events, and watches `%APPDATA%\RslHelper\Config` for `.db` updates by default (disable via `-WatchGearDb:false` or override with `-GearDbPath`). Requires PowerShell 7 (`pwsh`) and will re-launch under `pwsh` if needed. Uses `[R]` to queue a sample selectRule, `[T]` to toggle the sample gear via raw deltas, and `[F]` to force a DB snapshot.
+- `scripts/watchers/run-db-watcher-helper.ps1` — lightweight WebSocket db watcher (the `type/cmd/evt` protocol). Same behavior as `run-db-watcher.ps1`, but uses the compact envelope expected by RSL Helper integrations.
+- `scripts/watchers/run-db-watcher-core.ps1` — shared implementation for the two WebSocket db watchers above; keep common behavior here so the two wrappers stay in sync.
+- `scripts/watchers/Stream-Helper-DB-to-Creator.bat` — double-click helper that locates PowerShell 7 (`pwsh`) first (falls back to Windows PowerShell when needed), injects `-GearDbPath "%APPDATA%\RslHelper\Config"` so the watcher boots with the default RSL Helper directory, and forwards any additional arguments so users can override settings.
 
-- Transient/compiled helpers live under `scripts/.tmp/**` and are ignored by git (see `.gitignore`). Example:
-  - `scripts/.tmp/scripts/export-catalogs.js` — compiled output of `scripts/export-catalogs.ts` used by `npm run export:l10n`.
-- `scripts/.tmp/tests/**`, `scripts/.tmp/src/**` — TypeScript‑compiled test/lib artifacts used by `npm test` and tooling.
+- Transient/compiled helpers live under `tmp/tsc/**` and are ignored by git (see `.gitignore`). Example:
+  - `tmp/tsc/scripts/scripts/tooling/export-catalogs.js` — compiled output of `scripts/tooling/export-catalogs.ts` used by `npm run export:l10n`.
+- `tmp/tsc/tests/tests/**`, `tmp/tsc/tests/src/**` — TypeScript‑compiled test/lib artifacts used by `npm run test:unit` and tooling.
 
-- Convention for non‑committed utility scripts: place them under `scripts/.tmp/scripts/` and call them from npm scripts if needed. Do not check these into git; they are treated as build/test artifacts, and any ad-hoc helpers should be generated temporarily and cleaned up after use (no long-lived utilities live here).
+- Convention for non‑committed utility scripts: place them under `tmp/tsc/scripts/scripts/` and call them from npm scripts if needed. Do not check these into git; they are treated as build/test artifacts, and any ad-hoc helpers should be generated temporarily and cleaned up after use (no long-lived utilities live here).
 
 ### Validation Before Handoff
 
@@ -63,9 +68,9 @@ Numbers that drive layout, sizing, timing, etc. must live in a single shared con
   - Includes edits to: HSFC normalize/parse/write, HSF parse/write, and any HSF rule generation behavior (e.g., permutations/minCount, thresholds Early/Late, rarity/roll schedules, level windows, wildcard and caps handling, pruning/feasibility filters).
   - These end-to-end tests validate readable HSFC → normalize → builder → HSF output and catch regressions in thresholds, rarity/rank schedules, and rule shapes.
   - If a test needs to be updated due to an intentional behavior change, adjust the test alongside the implementation so they remain in sync.
-- End-to-end coverage lives under `e2e/` (Playwright). Use `npx playwright test e2e/smoke.spec.ts --project=chromium --reporter=list` as a smoke check before running heavier specs.
+- End-to-end coverage lives under `tests/playwright/` (Playwright). Use `npx playwright test tests/playwright/smoke.spec.ts --project=chromium --reporter=list` as a smoke check before running heavier specs.
   - The dev server binds `127.0.0.1:5182`; when the Codex sandbox reports `EPERM`, rerun the Playwright command with `with_escalated_permissions: true` so Vite can listen on that port.
-  - All specs import `test`/`expect` from `e2e/fixtures.ts`; that fixture streams browser console output and page errors to the CLI so debugging works even without an interactive browser.
+  - All specs import `test`/`expect` from `tests/playwright/fixtures.ts`; that fixture streams browser console output and page errors to the CLI so debugging works even without an interactive browser.
 - Remove temporary debugging, scaffolding, or exploratory code once a change is validated so the repository only reflects the final implementation.
 - Production bundles must stay silent: wrap `console.*` calls in `if (import.meta.env.DEV)` or remove them so release builds never write to the browser console.
 
@@ -74,7 +79,7 @@ Numbers that drive layout, sizing, timing, etc. must live in a single shared con
 - `SellfileCreator.html` (and the dev build at `dist/index.html`) reads the launch URL’s `endpoint` query parameter and exposes it via `window.__APP_CONFIG__`. Passing `?endpoint=ws://localhost:8765/` sets the WebSocket `pushEndpoint` for the entire session. The legacy `endpoint` hash (`#endpoint=`) and the older `push` query/hash names continue to work for backward compatibility as long as they point to a `ws://` or `wss://` URL.
 - When `pushEndpoint` is defined, “Export Sellfile” sends an `uploadSellfile` request over the active WebSocket. Without the parameter, the browser still downloads the file locally. The export button label switches to “Push …” and its tooltip references the active endpoint so users can confirm the target.
 - Incoming events are delivered over WebSocket notifications: `selectRule`, `gearDbFile`, `gearDbRawSnapshot`, and `gearDbRawDelta` (see the WebSocket protocol docs for exact payload shapes).
-- `run-db-watcher.ps1` and `run-db-watcher-helper.ps1` demonstrate how an external tool can open the packaged app via `Start-Process`, append the encoded WebSocket endpoint automatically, and host a local WebSocket listener that persists incoming `uploadSellfile` payloads to disk (defaults to `exported-sellfile.hsf`, configurable via `-OutputPath`). The scripts target PowerShell 7 (`pwsh`), emit demo events via `[R]`/`[T]`, provide `[F]` to force a DB snapshot, and optionally watch `%APPDATA%\RslHelper\Config` for `.db` changes so the Rule Tester refreshes without manual drag-and-drop.
+- `scripts/watchers/run-db-watcher.ps1` and `scripts/watchers/run-db-watcher-helper.ps1` demonstrate how an external tool can open the packaged app via `Start-Process`, append the encoded WebSocket endpoint automatically, and host a local WebSocket listener that persists incoming `uploadSellfile` payloads to disk (defaults to `exported-sellfile.hsf`, configurable via `-OutputPath`). The scripts target PowerShell 7 (`pwsh`), emit demo events via `[R]`/`[T]`, provide `[F]` to force a DB snapshot, and optionally watch `%APPDATA%\RslHelper\Config` for `.db` changes so the Rule Tester refreshes without manual drag-and-drop.
 
 ### Single Source of Truth
 
@@ -128,7 +133,7 @@ Coding patterns adopted during the refactor (required for PRs):
 
 - Uses native Windows `Compress-Archive` to create ZIP files with predictable metadata (no PowerShell community modules).
 - Build via `npm run build`, export localization catalogs (`npm run export:l10n`), and stage README translations so the ZIP ships with ready-to-edit templates under `i18n/`.
-- Stage helper resources under a `dev/` subdirectory when present (`run-db-watcher.ps1`, `run-db-watcher-helper.ps1`, `run-db-watcher-core.ps1`, `Stream-Helper-DB-to-Creator.bat`, `websocket-jsonrpc.md`, `websocket-helper.md`).
+- Stage helper resources under a `dev/` subdirectory when present (`scripts/watchers/run-db-watcher.ps1`, `scripts/watchers/run-db-watcher-helper.ps1`, `scripts/watchers/run-db-watcher-core.ps1`, `scripts/watchers/Stream-Helper-DB-to-Creator.bat`, `websocket-jsonrpc.md`, `websocket-helper.md`).
 - Create a flat `release_staging` workspace, rename `dist/index.html` to `SellfileCreator.html`, generate UTF-8 BOM README `.txt` files with a `###### vX.Y.Z` badge, and add a `runme.bat` launcher.
 - Archive contents:
   - `SellfileCreator.html` — from `dist/index.html`
@@ -204,10 +209,10 @@ Localization status
     - Aggregate rolls: shows `Σr ≥ N` whenever a manual Global Min Required Rolls value is set. If a locked-only floor (`lockedMinRequiredRolls`) is active, the chip appends a separate `Σr ≥ L 🔒` badge (suppressed when both numbers match).
     - Sets: When “Sets as icons” is on, metasets with a non-`none` icon render the assigned glyph inline alongside explicit set icons; otherwise both metasets and sets render as text. `none` always shows the metaset name.
     - Separator dividers (`exportMode === 'separator'`) render as a full-width divider with an optional centered name, hide inline action icons, but remain selectable and expose the context menu for move/delete actions. Builder controls stay active so the config can double as a TODO note. Leading `#` characters tone down the divider (solid → dashed → dotted as the count grows) and `[RRGGBB]` tokens at the start recolor both the line and label (tokens are stripped from the rendered name, default color is the theme primary). The same color token, when used on a non-separator config name, recolors the inline name and context-menu icons.
-- `scripts/patch-esm-specifiers.cjs`: Post-compile helper that adds `.js` extensions to relative ESM imports in compiled test artifacts under `scripts/.tmp/src/` so Node can resolve them without a bundler. Runs as part of `npm test`.
+- `scripts/tooling/patch-esm-specifiers.cjs`: Post-compile helper that adds `.js` extensions to relative ESM imports in compiled artifacts under `tmp/tsc/tests/src/` so Node can resolve them without a bundler. Runs as part of `npm run test:unit`.
 - `npm run tests:extract`: Generates `examples/tests.extracted.hsfc` containing all HSFC-readable configs used by tests (useful to load/paste into the app).
-- `scripts/release-win.ps1`: Build-and-package script for Windows (runs tests first, builds, stages, archives). Pass `-DevBuild` to keep the current package.json version and suffix outputs with `-dev`.
-- `scripts/release-win-dev.ps1`: Thin wrapper that invokes `release-win.ps1 -DevBuild` so both entry points stay in sync.
+- `scripts/release/release-win.ps1`: Build-and-package script for Windows (runs tests first, builds, stages, archives). Pass `-DevBuild` to keep the current package.json version and suffix outputs with `-dev`.
+- `scripts/release/release-win-dev.ps1`: Thin wrapper that invokes `release-win.ps1 -DevBuild` so both entry points stay in sync.
 - `scripts/vite/assetsPlugin.ts`: Injects the favicon data URL during dev and build based on its explicit include list.
 
 ### Icon Assets Catalogs

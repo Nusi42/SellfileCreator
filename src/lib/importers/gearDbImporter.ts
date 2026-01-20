@@ -50,12 +50,18 @@ async function resolveSqlWasmLocation(): Promise<string> {
     if (typeof window !== 'undefined' && typeof document !== 'undefined') {
       wasmLocationPromise = resolveBrowserWasmUrl()
     } else {
-      const url = new URL(
-        /* @vite-ignore */ '../../../../../node_modules/sql.js/dist/sql-wasm.wasm',
-        import.meta.url,
-      )
-      const location = normalizeFileUrlPath(url)
-      wasmLocationPromise = Promise.resolve(location)
+      // Prefer cwd-based resolution so compiled tests still reach repo node_modules.
+      const cwdLocation = resolveNodeWasmFromCwd()
+      if (cwdLocation) {
+        wasmLocationPromise = Promise.resolve(cwdLocation)
+      } else {
+        const url = new URL(
+          /* @vite-ignore */ '../../../../../node_modules/sql.js/dist/sql-wasm.wasm',
+          import.meta.url,
+        )
+        const location = normalizeFileUrlPath(url)
+        wasmLocationPromise = Promise.resolve(location)
+      }
     }
   }
   return wasmLocationPromise
@@ -92,6 +98,18 @@ function normalizeFileUrlPath(url: URL): string {
     pathname = pathname.replace(/\//g, '\\')
   }
   return pathname
+}
+
+function resolveNodeWasmFromCwd(): string | null {
+  // Use globalThis to avoid Node-only type declarations in browser builds.
+  if (typeof globalThis === 'undefined' || !('process' in globalThis)) return null
+  const maybeProcess = (globalThis as { process?: { cwd?: () => string } }).process
+  const cwd = maybeProcess?.cwd?.()
+  if (!cwd) return null
+  // Build a file URL so Windows paths normalize via normalizeFileUrlPath.
+  const cwdUrl = new URL(`file://${cwd.replace(/\\/g, '/')}/`)
+  const wasmUrl = new URL('node_modules/sql.js/dist/sql-wasm.wasm', cwdUrl)
+  return normalizeFileUrlPath(wasmUrl)
 }
 
 async function loadSqlJs(): Promise<SqlJsInstance> {

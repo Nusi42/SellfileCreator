@@ -15,10 +15,10 @@ users can export from the app.
 
 ## Optional pinpoint checks
 - When behaviour needs targeted assertions beyond structural equality, add `<name>.assert.mjs` exporting `validate(rules: HsfRule[])`.
-- The e2e runner loads that helper dynamically after the fixture pair comparison.
+- The fixture runner loads that helper dynamically after the fixture pair comparison.
 - Prefer the helper file only for expectations that cannot live in the static `.hsf` snapshot (e.g. ensuring dedupe across rarity tiers).
-- To regenerate a pair after logic changes, normalize the `.hsfc` via the app pipeline and rewrite the `.hsf` using the helpers in `scripts/` (they re-use the builder output verbatim so key order matches the in-app export). The runner itself (`tests/file-hsfc-e2e.ts`) can be executed after edits to refresh the expected output.
-- When calling the helpers directly, run `tsc -p tsconfig.tests.json && node scripts/patch-esm-specifiers.cjs` first so `scripts/.tmp/**` holds the latest compiled modules.
+- To regenerate a pair after logic changes, normalize the `.hsfc` via the app pipeline and rewrite the `.hsf` using the helpers in `scripts/test/` (they re-use the builder output verbatim so key order matches the in-app export). The runner itself (`tests/integration/hsfc-fixtures.runner.ts`) can be executed after edits to refresh the expected output.
+- When calling the helpers directly, run `tsc -p tsconfig.tests.json && node scripts/tooling/patch-esm-specifiers.cjs` first so `tmp/tsc/**` holds the latest compiled modules.
 
 ## Naming conventions
 - Prefix the base name with the feature under test (`auto-…`, `legendary-…`, `ring-…`, etc.) so failures read clearly.
