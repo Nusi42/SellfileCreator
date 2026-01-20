@@ -3,6 +3,8 @@ import { APP_GOTO_OPTIONS, prepareApp } from './app-init'
 
 test.describe('substat targets dialog', () => {
   test('Tab/Shift+Tab hops between value inputs and wraps', async ({ page }) => {
+    // Firefox on Windows can take longer to warm the dev server before DOMContentLoaded.
+    test.setTimeout(60_000)
     // Ensure the builder shell is ready without tutorial/readme overlays.
     await prepareApp(page)
     // Load the app shell without waiting for full asset load.
