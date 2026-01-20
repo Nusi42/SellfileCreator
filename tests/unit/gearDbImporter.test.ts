@@ -13,7 +13,8 @@ const repoRoot = process.cwd()
 // Keep large DB fixtures under tests/data to separate them from specs.
 const sampleDbPath = join(repoRoot, 'tests', 'data', 'sample.db')
 const brokenDbPath = join(repoRoot, 'tests', 'data', 'broken.db')
-const helperRealLastUseDbPath = join(repoRoot, 'examples', '251129_181328.db')
+// Keep a fixture with REAL lastUse timestamps under versioned test data.
+const helperRealLastUseDbPath = join(repoRoot, 'tests', 'data', 'sample2.db')
 
 function bufferToArrayBuffer(buffer: Buffer): ArrayBuffer {
   const copy = Uint8Array.from(buffer)
@@ -109,19 +110,21 @@ test('gear DB importer threads last-used timestamps onto artifacts', async () =>
   assert.equal(julianSource?.testerItem.previewExtras?.lastUseLocalTimestamp, formattedJulian)
 })
 
-test('gear DB importer handles helper dump with REAL lastUse + sentinel row', async (t) => {
-  if (!existsSync(helperRealLastUseDbPath)) {
-    t.skip('helper example database not available')
-    return
-  }
+test('gear DB importer reads lastUse timestamps from sample2 fixture', async () => {
+  // Ensure the fixture is present so the test never skips in CI.
+  assert(existsSync(helperRealLastUseDbPath), `missing fixture: ${helperRealLastUseDbPath}`)
   const arrayBuffer = bufferToArrayBuffer(readFileSync(helperRealLastUseDbPath))
   const { artifacts, inboxArtifacts } = await importGearDatabaseFromArrayBuffer(arrayBuffer)
-  assert.equal(artifacts.length, 7007)
-  assert.equal(inboxArtifacts.length, 217)
+  // Snapshot counts come from tests/data/sample2.db.
+  assert.equal(artifacts.length, 7676)
+  // Inbox size anchors expectations for the importer output shape.
+  assert.equal(inboxArtifacts.length, 86)
   assert.equal(artifacts.some((item) => item.id <= 0), false, 'sentinel artifacts should be dropped')
-  const target = artifacts.find((item) => item.id === 25839)
-  assert(target, 'expected artifact 25839 in helper dump')
-  assert.equal(target?.lastUseLocalTimestamp, '2025-11-29 18:11:04.423')
+  // Use a stable artifact with known lastUse data.
+  const target = artifacts.find((item) => item.id === 2817)
+  assert(target, 'expected artifact 2817 in sample2 fixture')
+  assert.equal(target?.lastUseLocalTimestamp, '2025-12-12 18:36:09.656')
+  assert.equal(target?.testerItem.previewExtras?.lastUseLocalTimestamp, '2025-12-12 18:36:09.656')
 })
 
 export {}

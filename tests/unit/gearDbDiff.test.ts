@@ -10,8 +10,10 @@ import type { TestItem } from '../../src/lib/ruleEval.js'
 
 // Use cwd so compiled tests still resolve repo assets.
 const repoRoot = process.cwd()
-const dbOnePath = join(repoRoot, 'examples', 'um109288203_RSLHelper.db')
-const dbTwoPath = join(repoRoot, 'examples', 'um109288203_RSLHelper.2.db')
+// Prefer bundled fixtures so the test never skips in CI.
+const dbOnePath = join(repoRoot, 'tests', 'data', 'sample.db')
+// Use the second fixture as the "newer" snapshot for diffing.
+const dbTwoPath = join(repoRoot, 'tests', 'data', 'sample2.db')
 
 function bufferToArrayBuffer(buffer: Buffer): ArrayBuffer {
   const copy = Uint8Array.from(buffer)
@@ -31,12 +33,11 @@ const stripItemId = (items: RuleTesterItem[], removalItemIds: Set<number>): Rule
   items.filter((item) => !removalItemIds.has(item.itemId))
 )
 
-test('gear DB diff reuses entries across example backups', async (t) => {
-  if (!existsSync(dbOnePath) || !existsSync(dbTwoPath)) {
-    t.skip('example gear DBs missing')
-    return
-  }
-
+test('gear DB diff reuses entries across example backups', async () => {
+  // Guard against unexpected fixture removal so failures are explicit.
+  assert(existsSync(dbOnePath), `missing fixture: ${dbOnePath}`)
+  // Keep the intent clear by validating both snapshots exist.
+  assert(existsSync(dbTwoPath), `missing fixture: ${dbTwoPath}`)
   const readDb = async (path: string) => {
     const buffer = bufferToArrayBuffer(readFileSync(path))
     const { artifacts, inboxArtifacts } = await importGearDatabaseFromArrayBuffer(buffer)
