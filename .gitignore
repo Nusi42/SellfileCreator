@@ -9,6 +9,7 @@ src-tauri/target/
 
 # Build/test artifacts
 tmp/tsc/
+tmp/gear-db-inspection/
 scripts/.tmp/
 THIRD_PARTY_NOTICES.txt
 

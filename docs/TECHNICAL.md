@@ -149,8 +149,10 @@ Without the helper, the Playwright perf tests fall back to the built-in measurem
   - `tests/playwright/config-insert-order.spec.ts` guards the “paste after” ordering regression by loading `samples/Nusi_20251026_2036.hsfc`, performing copy/paste, and verifying row ordering.
 - Default test runs:
   - `npm run test:unit` executes the node:test suite and HSFC fixture runner.
-  - `npm run test:e2e` executes the Playwright suite.
-  - `npm test` runs both (`test:all`) for release-ready coverage.
+  - `npm run test:e2e` executes the Playwright suite in Chromium for fast local runs.
+  - `npm run test:e2e:all` executes the full Playwright browser matrix.
+  - `npm test` runs `test:all` (unit/integration + Chromium Playwright).
+  - `npm run test:all:full` runs the full unit/integration + all Playwright browsers.
 - Sandbox specifics:
   - Playwright requires elevated permissions when binding Vite to `127.0.0.1:5182`; re-run the command with `with_escalated_permissions: true` if you hit `EPERM`.
   - The harness still logs `[Violation]` entries for slow handlers; ignore them unless a spec fails.

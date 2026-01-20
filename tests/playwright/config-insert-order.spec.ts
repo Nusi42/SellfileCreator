@@ -28,6 +28,27 @@ function positionsAreOrdered(positions: readonly number[]): boolean {
   return true
 }
 
+async function openChipMenu(
+  page: import('@playwright/test').Page,
+  chip: import('@playwright/test').Locator,
+): Promise<void> {
+  // Use a coordinate-based right-click so the context menu has an anchor.
+  await chip.scrollIntoViewIfNeeded()
+  const menu = page.getByRole('menu').first()
+  // Compute a stable anchor inside the chip bounds.
+  const box = await chip.boundingBox()
+  const anchorX = box ? Math.round(box.x + box.width / 2) : 2
+  const anchorY = box ? Math.round(box.y + box.height / 2) : 2
+  // Attempt a physical right-click first to drive the same event path as a user.
+  await page.mouse.click(anchorX, anchorY, { button: 'right' })
+  if (await menu.isVisible().catch(() => false)) return
+  // Fall back to dispatching the event directly if the pointer path is blocked.
+  await chip.dispatchEvent('contextmenu', { clientX: anchorX, clientY: anchorY })
+  if (await menu.isVisible().catch(() => false)) return
+  await chip.click({ button: 'right', force: true })
+  await menu.waitFor({ state: 'visible', timeout: 5_000 })
+}
+
 test.describe('config insert ordering', () => {
   test('HSF preview rows stay aligned with config order after paste after', async ({ page, browserName }) => {
     // Skip Firefox while context-menu popovers intermittently intercept clicks.
@@ -87,7 +108,7 @@ test.describe('config insert ordering', () => {
 
     const sourceChip = page.locator('#cfg-chip-5').first()
     await sourceChip.waitFor({ timeout: 5_000 })
-    await sourceChip.click({ button: 'right' })
+    await openChipMenu(page, sourceChip)
 
     const copyItem = page.getByRole('menuitem', { name: 'Copy to Clipboard' })
     await expect(copyItem).toBeVisible()
@@ -104,11 +125,10 @@ test.describe('config insert ordering', () => {
 
     const targetChip = page.locator('#cfg-chip-1').first()
     await targetChip.waitFor({ timeout: 5_000 })
-    // Ensure no lingering menus intercept the right-click.
+    // Ensure no lingering menus intercept the next context menu.
     await page.keyboard.press('Escape')
-    // Click a neutral area to clear any stray popovers.
     await page.mouse.click(1, 1)
-    await targetChip.click({ button: 'right' })
+    await openChipMenu(page, targetChip)
 
     const pasteAfterItem = page.getByRole('menuitem', { name: 'Paste after' })
     await expect(pasteAfterItem).toBeVisible()
@@ -132,7 +152,11 @@ test.describe('config insert ordering', () => {
       /* settle even if label never appeared */
     }
 
-    await page.locator('[data-cfg-idx="2"]').first().waitFor({ timeout: 10_000 })
+    // Wait for preview rows to re-appear after the paste action rebuilds the list.
+    await page.waitForFunction(
+      () => document.querySelectorAll('[data-cfg-idx]').length > 0,
+      { timeout: 10_000 },
+    )
 
     const postInsertPositions = await getFirstRulePositions(page)
     expect(positionsAreOrdered(postInsertPositions)).toBe(true)

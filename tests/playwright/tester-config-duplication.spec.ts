@@ -52,6 +52,40 @@ const waitForTesterGrid = async (page: Parameters<typeof test>[0]['page']) => {
   )
 }
 
+const waitForStableOutcomes = async (page: Parameters<typeof test>[0]['page']) => {
+  // Ensure matcher results finish settling before we snapshot the grid.
+  const readOutcomes = () => Array.from(
+    document.querySelectorAll('[data-tester-grid-card="true"]'),
+  ).map((card) => card.getAttribute('data-match-outcome') ?? 'unknown')
+  for (let attempt = 0; attempt < 10; attempt += 1) {
+    const before = await page.evaluate(readOutcomes)
+    // Wait until at least one card has a computed keep/sell result.
+    if (!before.some((outcome) => outcome === 'keep' || outcome === 'sell')) {
+      await page.waitForTimeout(400)
+      continue
+    }
+    // Give the matcher a short window to update the outcomes in place.
+    await page.waitForTimeout(400)
+    const after = await page.evaluate(readOutcomes)
+    if (before.join('|') === after.join('|')) return
+  }
+}
+
+const dismissBlockingDialogs = async (page: Parameters<typeof test>[0]['page']) => {
+  // Close the note dialog so the tester grid can render unobstructed.
+  const noteDialog = page.getByRole('dialog', { name: 'Note & Config Options' })
+  if (await noteDialog.isVisible().catch(() => false)) {
+    await noteDialog.getByRole('button', { name: 'Close' }).click()
+  }
+  // Dismiss restore prompts before they steal focus from the tester view.
+  const restoreDialog = page.getByRole('dialog', { name: /restore/i })
+  if (await restoreDialog.isVisible().catch(() => false)) {
+    await restoreDialog.getByRole('button', { name: /Dismiss/i }).click()
+  }
+  // Send Escape as a final sweep to clear lingering overlays.
+  await page.keyboard.press('Escape').catch(() => {})
+}
+
 const readGridSnapshot = async (page: Parameters<typeof test>[0]['page']): Promise<GridSnapshot> => {
   // Snapshot the rendered grid state so we can diff outcomes across config mutations.
   const rows = await page.evaluate(() => (
@@ -101,12 +135,14 @@ test.describe('tester grid matches remain stable', () => {
     await prepareApp(page)
     await seedTesterFilters(page)
     await page.goto('/')
+    await dismissBlockingDialogs(page)
 
     // Load the HSFC + gear DB pair from the shared fixtures.
     const hsfcInput = page.locator('input[type="file"][accept*=".hsfc"]').first()
     await hsfcInput.setInputFiles(HSFC_PATH)
     const dbInput = page.locator('input[type="file"][accept*=".db"]').first()
     await dbInput.setInputFiles(DB_PATH)
+    await dismissBlockingDialogs(page)
 
     // Wait for the tester grid shell to mount before sampling cards.
     const gridContainer = page.locator('[data-tester-grid-container="true"]').first()
@@ -115,12 +151,14 @@ test.describe('tester grid matches remain stable', () => {
     await gridContainer.evaluate((node) => { node.scrollTo(0, 0) })
 
     await waitForTesterGrid(page)
+    await waitForStableOutcomes(page)
     const initialRows = await readGridSnapshot(page)
     // Ensure we actually have grid data before we mutate configs.
     expect(initialRows.length).toBeGreaterThan(0)
 
     await duplicateConfigChip(page, TARGET_CONFIG_INDEX)
     await waitForTesterGrid(page)
+    await waitForStableOutcomes(page)
     const postDuplicateRows = await readGridSnapshot(page)
     expect(postDuplicateRows.length).toBe(initialRows.length)
 

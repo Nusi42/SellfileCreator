@@ -24,8 +24,10 @@ Numbers that drive layout, sizing, timing, etc. must live in a single shared con
 - `npm run preview` — preview the built app
 - `npm run typecheck` — run `tsc --noEmit`
 - `npm run test:unit` — compile + run node:test + HSFC fixture runner
-- `npm run test:e2e` — run Playwright against the Vite dev server
-- `npm run test:all` — run both unit/integration and Playwright suites
+- `npm run test:e2e` — run Playwright against the Vite dev server in Chromium
+- `npm run test:e2e:all` — run Playwright against the Vite dev server in all browsers
+- `npm run test:all` — run unit/integration plus Chromium Playwright
+- `npm run test:all:full` — run unit/integration plus full Playwright coverage
 - `npm run release:win` — Windows: build and create a versioned zip archive in repo root
 - `npm run release:win-dev` — Windows: dev build/package; leaves package.json version unchanged and creates a `-dev` suffixed archive
 - `npm run release-notes:catchup` — back-fill `docs/HISTORY.txt` for past releases and refresh the entry for the in-progress version (default updates only the newest missing release; pass `-- --all` to replay the entire backlog; Codex writes the notes and no other files change). The script now auto-splits large commit windows into sequential Codex runs so context stays within limits—tune the chunk size with `RELEASE_NOTES_MAX_COMMITS_PER_CHUNK=120 npm run release-notes:catchup` when a different cadence works better for the backlog you are curating.

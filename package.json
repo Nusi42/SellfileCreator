@@ -19,8 +19,10 @@
                     "tauri:dev":  "tauri dev",
                     "tauri:build":  "tauri build",
                     "test:unit":  "node scripts/test/run-tests.mjs",
-                    "test:e2e":  "playwright test",
+                    "test:e2e":  "playwright test --project=chromium",
+                    "test:e2e:all":  "playwright test",
                     "test:all":  "npm run test:unit \u0026\u0026 npm run test:e2e",
+                    "test:all:full":  "npm run test:unit \u0026\u0026 npm run test:e2e:all",
                     "test":  "npm run test:all",
                     "tests:extract":  "tsc -p tsconfig.tests.json \u0026\u0026 node scripts/tooling/patch-esm-specifiers.cjs \u0026\u0026 node scripts/test/dump-tests-hsfc.mjs"
                 },
