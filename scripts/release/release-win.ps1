@@ -50,7 +50,8 @@ function Convert-ReadmeToTxt([string]$SourcePath, [string]$DestinationPath, [str
 
 # Resolve repo root (this script lives in ./scripts/release).
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-$RepoRoot = Resolve-Path (Join-Path $ScriptDir '..' '..')
+# Use a single ChildPath to avoid Windows PowerShell Join-Path positional arg issues.
+$RepoRoot = Resolve-Path (Join-Path -Path $ScriptDir -ChildPath '..\..')
 Push-Location $RepoRoot
 $staging = $null
 try {
