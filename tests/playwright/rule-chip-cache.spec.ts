@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test'
 import fs from 'node:fs'
 import path from 'node:path'
+import { APP_GOTO_OPTIONS } from './app-init'
 
 // Resolve package.json from repo root so the suite can relocate.
 const packageJsonPath = path.resolve(process.cwd(), 'package.json')
@@ -29,7 +30,8 @@ test.describe('builder rule count chip', () => {
       version: APP_VERSION,
     })
 
-    await page.goto('/')
+    // Load the shell without waiting on full resource load.
+    await page.goto('/', APP_GOTO_OPTIONS)
 
     const hsfcPath = path.resolve(process.cwd(), 'examples', 'example.hsfc')
     const loadConfigsButton = page.getByRole('button', { name: /Load Configs/i })

@@ -1,6 +1,6 @@
 import { test, expect } from './fixtures'
 import path from 'node:path'
-import { prepareApp } from './app-init'
+import { APP_GOTO_OPTIONS, prepareApp } from './app-init'
 
 // Use the shared HSFC fixture so the test stays aligned with the refactored test data layout.
 const HSFC_PATH = path.resolve(process.cwd(), 'tests', 'data', 'sample.hsfc')
@@ -84,7 +84,8 @@ test.describe('preview chip scroll', () => {
       setKey: 'sellfileCreator.rulesTable.setIcons.v2',
     })
 
-    await page.goto('/')
+    // Load the shell using DOMContentLoaded to avoid slow load waits.
+    await page.goto('/', APP_GOTO_OPTIONS)
 
     // Dismiss any first-run / restore overlays that would block clicks.
     // Why: these dialogs are environment-dependent (autosave, note dialogs, etc.).

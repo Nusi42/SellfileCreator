@@ -1,6 +1,6 @@
 import { test, expect } from './fixtures'
 import path from 'node:path'
-import { prepareApp } from './app-init'
+import { APP_GOTO_OPTIONS, prepareApp } from './app-init'
 
 async function getFirstRulePositions(page: import('@playwright/test').Page): Promise<number[]> {
   return page.evaluate(() => {
@@ -57,7 +57,8 @@ test.describe('config insert ordering', () => {
     test.setTimeout(120_000)
     await prepareApp(page, { stubClipboard: true })
 
-    await page.goto('/')
+    // Load the shell without waiting on full window load.
+    await page.goto('/', APP_GOTO_OPTIONS)
 
     try {
       await page.getByRole('button', { name: 'Close' }).first().click({ timeout: 1_000 })

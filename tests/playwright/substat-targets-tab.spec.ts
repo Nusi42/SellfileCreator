@@ -1,11 +1,12 @@
 import { test, expect } from './fixtures'
-import { prepareApp } from './app-init'
+import { APP_GOTO_OPTIONS, prepareApp } from './app-init'
 
 test.describe('substat targets dialog', () => {
   test('Tab/Shift+Tab hops between value inputs and wraps', async ({ page }) => {
     // Ensure the builder shell is ready without tutorial/readme overlays.
     await prepareApp(page)
-    await page.goto('/')
+    // Load the app shell without waiting for full asset load.
+    await page.goto('/', APP_GOTO_OPTIONS)
 
     // Open the "Substat Targets" modal (aka the Substat Values popout).
     await page.getByRole('button').filter({ hasText: 'Substat Targets' }).click()
@@ -51,4 +52,3 @@ test.describe('substat targets dialog', () => {
     expect(returnedKey).toBe(firstKey)
   })
 })
-

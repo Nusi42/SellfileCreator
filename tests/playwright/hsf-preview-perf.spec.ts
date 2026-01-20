@@ -1,5 +1,6 @@
 import { test } from '@playwright/test'
 import path from 'node:path'
+import { APP_GOTO_OPTIONS } from './app-init'
 
 // Reuse fixture assets so perf runs do not depend on external samples.
 const LARGE_DB_PATH = path.resolve(process.cwd(), 'tests', 'data', 'sample2.db')
@@ -33,7 +34,8 @@ test.describe('HSF preview performance', () => {
       version: 'test-version',
     })
 
-    await page.goto('/', { waitUntil: 'domcontentloaded' })
+    // Load the shell without waiting for full asset completion.
+    await page.goto('/', APP_GOTO_OPTIONS)
     await page.locator('[data-tour-id="preview.paper"]').waitFor()
 
     const hsfcInput = page.locator('input[type="file"][accept*=".hsfc"]').first()
@@ -45,10 +47,12 @@ test.describe('HSF preview performance', () => {
     await dbInput.setInputFiles(LARGE_DB_PATH)
 
     const firstRow = page.locator('table tbody tr[data-row-index="0"]')
-    await firstRow.waitFor({ timeout: 120_000 })
+    // Allow extra time for the large DB + HSFC pair on slower Windows runs.
+    await firstRow.waitFor({ timeout: 240_000 })
 
     const firstRowReady = page.locator('table tbody tr[data-row-index="0"] td')
-    await firstRowReady.first().waitFor({ timeout: 120_000 })
+    // Keep the cell wait aligned with the row timeout.
+    await firstRowReady.first().waitFor({ timeout: 240_000 })
     const firstRowEnd = await page.evaluate(() => performance.now())
 
     const elapsedMs = firstRowEnd - start
