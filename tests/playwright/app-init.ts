@@ -1,6 +1,8 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import type { Page } from '@playwright/test'
+import { LANG_KEY } from '../../src/lib/constants'
+import { DEFAULT_LANGUAGE } from '../../src/lib/i18n/types'
 
 // Resolve package.json from repo root so Playwright can move.
 const packageJsonPath = path.resolve(process.cwd(), 'package.json')
@@ -40,6 +42,8 @@ export async function prepareApp(page: Page, options: PrepareAppOptions = {}): P
       readmeKey,
       tutorialKey,
       autosaveKey,
+      langKey,
+      langValue,
       versionValue,
       shouldStubClipboard,
       rulesFilterOpenKey,
@@ -55,6 +59,12 @@ export async function prepareApp(page: Page, options: PrepareAppOptions = {}): P
       }
       try {
         window.localStorage.setItem(tutorialKey, versionValue)
+      } catch {
+        /* localStorage unavailable */
+      }
+      // Force a deterministic locale so text-based selectors stay stable across browsers.
+      try {
+        window.localStorage.setItem(langKey, langValue)
       } catch {
         /* localStorage unavailable */
       }
@@ -98,6 +108,10 @@ export async function prepareApp(page: Page, options: PrepareAppOptions = {}): P
       readmeKey: README_KEY,
       tutorialKey: TUTORIAL_KEY,
       autosaveKey: AUTOSAVE_KEY,
+      // Keep i18n storage key consistent with app constants.
+      langKey: LANG_KEY,
+      // Pin to the default production locale for test stability.
+      langValue: DEFAULT_LANGUAGE,
       versionValue: version,
       shouldStubClipboard: stubClipboard,
       rulesFilterOpenKey: RULES_FILTER_OPEN_KEY,
