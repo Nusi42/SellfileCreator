@@ -3273,6 +3273,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       return
     }
     if (action === 'move_top') {
+      // Capture selection changes outside the config list updater.
+      let nextSelected: number | null | undefined
       setCustomCfgs(prev => {
         if (idx === 0) return prev
         const arr = [...prev]
@@ -3290,12 +3292,19 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         })
         // Publish the descriptor so history matches chip actions.
         describeNextChange(descriptor)
-        syncSelectedCfgIdx((sel) => sel === null ? sel : (sel === idx ? 0 : (sel < idx ? sel : sel)), { suppressDraft: true })
+        // Only adjust selection when the moved config was selected.
+        nextSelected = selectedCfgIdx === null ? null : (selectedCfgIdx === idx ? 0 : selectedCfgIdx)
         return arr
       })
+      // Apply the selection update after the list reorder is scheduled.
+      if (nextSelected !== undefined) {
+        syncSelectedCfgIdx(nextSelected, { suppressDraft: true })
+      }
       return
     }
     if (action === 'move_bottom') {
+      // Track selection changes without mutating during the list update.
+      let nextSelected: number | null | undefined
       setCustomCfgs(prev => {
         if (idx === prev.length - 1) return prev
         const arr = [...prev]
@@ -3313,12 +3322,19 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         })
         // Publish the descriptor so history matches chip actions.
         describeNextChange(descriptor)
-        syncSelectedCfgIdx((sel) => sel === null ? sel : (sel === idx ? arr.length - 1 : (sel > idx ? sel : sel)), { suppressDraft: true })
+        // Only adjust selection when the moved config was selected.
+        nextSelected = selectedCfgIdx === null ? null : (selectedCfgIdx === idx ? arr.length - 1 : selectedCfgIdx)
         return arr
       })
+      // Sync selection once the reorder update is enqueued.
+      if (nextSelected !== undefined) {
+        syncSelectedCfgIdx(nextSelected, { suppressDraft: true })
+      }
       return
     }
     if (action === 'move_up') {
+      // Cache the selection result so we can update after the move is scheduled.
+      let nextSelected: number | null | undefined
       setCustomCfgs(prev => {
         if (idx === 0) return prev
         const arr = [...prev]
@@ -3336,12 +3352,27 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         })
         // Publish the descriptor so history matches chip actions.
         describeNextChange(descriptor)
-        syncSelectedCfgIdx((sel) => sel === null ? sel : sel === idx ? idx - 1 : sel === idx - 1 ? idx : sel, { suppressDraft: true })
+        // Swap the selection when it targets a moved row.
+        if (selectedCfgIdx === null) {
+          nextSelected = null
+        } else if (selectedCfgIdx === idx) {
+          nextSelected = idx - 1
+        } else if (selectedCfgIdx === idx - 1) {
+          nextSelected = idx
+        } else {
+          nextSelected = selectedCfgIdx
+        }
         return arr
       })
+      // Apply the selection update after the list mutation is enqueued.
+      if (nextSelected !== undefined) {
+        syncSelectedCfgIdx(nextSelected, { suppressDraft: true })
+      }
       return
     }
     if (action === 'move_down') {
+      // Compute the next selection outside the config list updater.
+      let nextSelected: number | null | undefined
       setCustomCfgs(prev => {
         if (idx === prev.length - 1) return prev
         const arr = [...prev]
@@ -3359,12 +3390,25 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         })
         // Publish the descriptor so history matches chip actions.
         describeNextChange(descriptor)
-        syncSelectedCfgIdx((sel) => sel === null ? sel : sel === idx ? idx + 1 : sel === idx + 1 ? idx : sel, { suppressDraft: true })
+        // Swap the selection when it targets a moved row.
+        if (selectedCfgIdx === null) {
+          nextSelected = null
+        } else if (selectedCfgIdx === idx) {
+          nextSelected = idx + 1
+        } else if (selectedCfgIdx === idx + 1) {
+          nextSelected = idx
+        } else {
+          nextSelected = selectedCfgIdx
+        }
         return arr
       })
+      // Sync selection after the reorder state update is queued.
+      if (nextSelected !== undefined) {
+        syncSelectedCfgIdx(nextSelected, { suppressDraft: true })
+      }
       return
     }
-  }, [customCfgs, describeNextChange, insertIndexAfter, lang, metasets, pasteAfterIndex, setCopyDlgOpen, setCopyText, setCustomCfgs, syncSelectedCfgIdx, t])
+  }, [customCfgs, describeNextChange, insertIndexAfter, lang, metasets, pasteAfterIndex, selectedCfgIdx, setCopyDlgOpen, setCopyText, setCustomCfgs, syncSelectedCfgIdx, t])
 
   const handleRulesTableClearBase = useCallback(() => { setHsf(null) }, [setHsf])
   const handleRulesTableConfigureFinalSell = useCallback(() => { setLogicHubOpen(true) }, [setLogicHubOpen])

@@ -148,6 +148,20 @@ export function useConfigSelection({
     setSelectionAnchorState(next)
   }, [])
 
+  // Apply selection updates outside of config list mutations to avoid render-phase state updates.
+  // Why: React warns when a state setter runs inside another state's updater function.
+  const syncSelectionAfterUpdate = useCallback((nextSelection: number[] | null) => {
+    // Normalize optional selection payloads into the internal list shape.
+    const normalized = Array.isArray(nextSelection) ? nextSelection : []
+    // Keep the list selection in sync first so refs update before global selection.
+    applySelection(normalized)
+    // Drive the global selected index from the last selected entry.
+    const last = normalized.length > 0 ? normalized[normalized.length - 1]! : null
+    setSelectedCfgIdx(last)
+    // Mirror the selection anchor for shift-select behavior.
+    setSelectionAnchor(last)
+  }, [applySelection, setSelectedCfgIdx, setSelectionAnchor])
+
   const updateMultiEditField = useCallback(<K extends BuilderFieldKey>(
     key: K,
     commit: MultiEditFieldCommit<BuilderConfig[K], K>,
@@ -453,6 +467,8 @@ export function useConfigSelection({
       const selected = selectedCfgIndices.includes(idx) && selectedCfgIndices.length > 1
         ? selectedCfgIndices.slice().sort((a, b) => a - b)
         : [idx]
+      // Capture the selection result so it can be applied after the config list update.
+      let nextSelection: number[] | null | undefined
       setCustomCfgs(prev => {
         const copies = selected
           .map(i => (i >= 0 && i < prev.length ? prev[i] : undefined))
@@ -481,19 +497,24 @@ export function useConfigSelection({
         describeNextChange(descriptor)
         const newIdxStart = insertIdx
         const newIdxs = copies.map((_, i) => newIdxStart + i)
-        applySelection(newIdxs)
-        setSelectedCfgIdx(newIdxs[newIdxs.length - 1] ?? null)
-        setSelectionAnchor(newIdxs[newIdxs.length - 1] ?? null)
+        // Defer selection updates so we stay outside the list updater execution.
+        nextSelection = newIdxs
         return next
       })
+      // Apply the selection update after the config list mutation completes.
+      if (nextSelection !== undefined) {
+        syncSelectionAfterUpdate(nextSelection)
+      }
     })
-  }, [applySelection, describeNextChange, selectedCfgIndices, setCustomCfgs, setSelectedCfgIdx, setSelectionAnchor, suppressSelectionDraft, t])
+  }, [describeNextChange, selectedCfgIndices, setCustomCfgs, suppressSelectionDraft, syncSelectionAfterUpdate, t])
 
   const handleConfigMoveUp = useCallback((idx: number) => {
     suppressSelectionDraft(() => {
       const selected = selectedCfgIndices.includes(idx) && selectedCfgIndices.length > 1
         ? selectedCfgIndices.slice().sort((a, b) => a - b)
         : [idx]
+      // Track the next selection so we can sync it after mutating the configs array.
+      let nextSelection: number[] | null | undefined
       setCustomCfgs(prev => {
         const arr = [...prev]
         let changed = false
@@ -521,19 +542,24 @@ export function useConfigSelection({
         const selSet = new Set(selItems)
         const newSel: number[] = []
         arr.forEach((item, i) => { if (selSet.has(item)) newSel.push(i) })
-        applySelection(newSel)
-        setSelectedCfgIdx(newSel[newSel.length - 1] ?? null)
-        setSelectionAnchor(newSel[newSel.length - 1] ?? null)
+        // Defer selection sync to avoid triggering React render-phase updates.
+        nextSelection = newSel
         return arr
       })
+      // Sync the selection after the config list reorder is scheduled.
+      if (nextSelection !== undefined) {
+        syncSelectionAfterUpdate(nextSelection)
+      }
     })
-  }, [applySelection, describeNextChange, selectedCfgIndices, setCustomCfgs, setSelectedCfgIdx, setSelectionAnchor, suppressSelectionDraft, t])
+  }, [describeNextChange, selectedCfgIndices, setCustomCfgs, suppressSelectionDraft, syncSelectionAfterUpdate, t])
 
   const handleConfigMoveDown = useCallback((idx: number) => {
     suppressSelectionDraft(() => {
       const selected = selectedCfgIndices.includes(idx) && selectedCfgIndices.length > 1
         ? selectedCfgIndices.slice().sort((a, b) => a - b)
         : [idx]
+      // Capture the post-move selection so we can apply it outside the updater.
+      let nextSelection: number[] | null | undefined
       setCustomCfgs(prev => {
         const arr = [...prev]
         let changed = false
@@ -562,19 +588,24 @@ export function useConfigSelection({
         const selSet = new Set(selItems)
         const newSel: number[] = []
         arr.forEach((item, i) => { if (selSet.has(item)) newSel.push(i) })
-        applySelection(newSel)
-        setSelectedCfgIdx(newSel[newSel.length - 1] ?? null)
-        setSelectionAnchor(newSel[newSel.length - 1] ?? null)
+        // Defer selection updates to keep the config list updater pure.
+        nextSelection = newSel
         return arr
       })
+      // Sync the selection once the reorder is enqueued.
+      if (nextSelection !== undefined) {
+        syncSelectionAfterUpdate(nextSelection)
+      }
     })
-  }, [applySelection, describeNextChange, selectedCfgIndices, setCustomCfgs, setSelectedCfgIdx, setSelectionAnchor, suppressSelectionDraft, t])
+  }, [describeNextChange, selectedCfgIndices, setCustomCfgs, suppressSelectionDraft, syncSelectionAfterUpdate, t])
 
   const handleConfigMoveTop = useCallback((idx: number) => {
     suppressSelectionDraft(() => {
       const selected = selectedCfgIndices.includes(idx) && selectedCfgIndices.length > 1
         ? selectedCfgIndices.slice().sort((a, b) => a - b)
         : [idx]
+      // Cache the selection so we can update after the list mutation runs.
+      let nextSelection: number[] | null | undefined
       setCustomCfgs(prev => {
         if (selected[0] === 0) {
           describeNextChange(null)
@@ -592,19 +623,24 @@ export function useConfigSelection({
         })
         describeNextChange(descriptor)
         const newSel = selected.map((_, i) => i)
-        applySelection(newSel)
-        setSelectedCfgIdx(newSel[newSel.length - 1] ?? null)
-        setSelectionAnchor(newSel[newSel.length - 1] ?? null)
+        // Defer selection updates to stay outside the updater call.
+        nextSelection = newSel
         return next
       })
+      // Apply the selection after the configs reorder is scheduled.
+      if (nextSelection !== undefined) {
+        syncSelectionAfterUpdate(nextSelection)
+      }
     })
-  }, [applySelection, describeNextChange, selectedCfgIndices, setCustomCfgs, setSelectedCfgIdx, setSelectionAnchor, suppressSelectionDraft, t])
+  }, [describeNextChange, selectedCfgIndices, setCustomCfgs, suppressSelectionDraft, syncSelectionAfterUpdate, t])
 
   const handleConfigMoveBottom = useCallback((idx: number) => {
     suppressSelectionDraft(() => {
       const selected = selectedCfgIndices.includes(idx) && selectedCfgIndices.length > 1
         ? selectedCfgIndices.slice().sort((a, b) => a - b)
         : [idx]
+      // Track the next selection to sync after the move completes.
+      let nextSelection: number[] | null | undefined
       setCustomCfgs(prev => {
         if (selected[selected.length - 1] === prev.length - 1) {
           describeNextChange(null)
@@ -623,17 +659,22 @@ export function useConfigSelection({
         describeNextChange(descriptor)
         const base = next.length - block.length
         const newSel = block.map((_, i) => base + i)
-        applySelection(newSel)
-        setSelectedCfgIdx(newSel[newSel.length - 1] ?? null)
-        setSelectionAnchor(newSel[newSel.length - 1] ?? null)
+        // Defer selection changes so the list updater stays side-effect free.
+        nextSelection = newSel
         return next
       })
+      // Sync selection after the config list update is enqueued.
+      if (nextSelection !== undefined) {
+        syncSelectionAfterUpdate(nextSelection)
+      }
     })
-  }, [applySelection, describeNextChange, selectedCfgIndices, setCustomCfgs, setSelectedCfgIdx, setSelectionAnchor, suppressSelectionDraft, t])
+  }, [describeNextChange, selectedCfgIndices, setCustomCfgs, suppressSelectionDraft, syncSelectionAfterUpdate, t])
 
   const handleConfigReorder = useCallback((movingIndices: number[], rawTargetIndex: number, options?: { mode?: 'move' | 'copy' }) => {
     if (!Array.isArray(movingIndices) || movingIndices.length === 0) return
     suppressSelectionDraft(() => {
+      // Hold the selection update so the config list updater stays pure.
+      let nextSelection: number[] | null | undefined
       setCustomCfgs(prev => {
         const mode = options?.mode === 'copy' ? 'copy' : 'move'
         if (mode === 'move' && prev.length <= 1) {
@@ -683,10 +724,8 @@ export function useConfigSelection({
           })
           describeNextChange(descriptor)
           const newSelection = copies.map((_, offset) => clampedTarget + offset)
-          applySelection(newSelection)
-          const last = newSelection[newSelection.length - 1] ?? null
-          setSelectedCfgIdx(last)
-          setSelectionAnchor(last)
+          // Defer selection updates until after the list mutation.
+          nextSelection = newSelection
           return next
         }
         const minSel = sanitized[0]!
@@ -729,14 +768,16 @@ export function useConfigSelection({
           t,
         })
         describeNextChange(descriptor)
-        applySelection(newSelection)
-        const last = newSelection[newSelection.length - 1] ?? null
-        setSelectedCfgIdx(last)
-        setSelectionAnchor(last)
+        // Defer selection updates so we avoid render-phase warnings.
+        nextSelection = newSelection
         return next
       })
+      // Sync selection after the config reorder state update is queued.
+      if (nextSelection !== undefined) {
+        syncSelectionAfterUpdate(nextSelection)
+      }
     })
-  }, [applySelection, describeNextChange, setCustomCfgs, setSelectedCfgIdx, setSelectionAnchor, suppressSelectionDraft, t])
+  }, [describeNextChange, setCustomCfgs, suppressSelectionDraft, syncSelectionAfterUpdate, t])
 
   const handleSelectAllConfigs = useCallback(() => {
     const visibleSet = visibleConfigIndicesRef?.current ?? null
