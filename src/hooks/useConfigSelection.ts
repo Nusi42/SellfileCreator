@@ -66,6 +66,38 @@ export type UseConfigSelectionResult = {
   setSelectionAnchor: Dispatch<SetStateAction<number | null>>
 }
 
+// Extra flags for selection updates that should skip auto-apply/draft capture.
+type ApplySelectionOptions = {
+  suppressWillChange?: boolean
+}
+
+const mapSelectionByIdentity = (
+  prev: BuilderConfig[],
+  next: BuilderConfig[],
+  selection: number[],
+): number[] => {
+  // Preserve selection by object identity so reorders stay stable.
+  if (!Array.isArray(selection) || selection.length === 0) return []
+  // Collect the selected configs from the previous list.
+  const selectedItems: BuilderConfig[] = []
+  for (const idx of selection) {
+    const cfg = prev[idx]
+    // Skip invalid indices or missing configs.
+    if (!cfg) continue
+    selectedItems.push(cfg)
+  }
+  // If no configs are matched, there is no selection to restore.
+  if (selectedItems.length === 0) return []
+  // Use a Set for quick identity checks.
+  const selectedSet = new Set(selectedItems)
+  const nextSelection: number[] = []
+  // Walk the next list in order to preserve selection ordering.
+  next.forEach((item, idx) => {
+    if (selectedSet.has(item)) nextSelection.push(idx)
+  })
+  return nextSelection
+}
+
 /**
  * Centralizes config selection and multi-edit draft state so App.tsx only wires the orchestration.
  * The hook keeps selection + anchor indices in sync with the global selected config index and
@@ -119,13 +151,17 @@ export function useConfigSelection({
     selectedIndicesRef.current = selectedCfgIndices
   }, [selectedCfgIndices])
 
-  const applySelection = useCallback((nextSelection: number[]) => {
+  const applySelection = useCallback((nextSelection: number[], options?: ApplySelectionOptions) => {
+    // Always clone so callers can reuse their array without surprises.
     const normalized = nextSelection.slice()
     const prevSelection = selectedIndicesRef.current
+    // Bail out early when nothing changes.
     if (arraysEqual(prevSelection, normalized)) return
-    if (onWillChangeSelection) {
+    // Allow callers (like reorders) to skip auto-apply/draft capture.
+    if (!options?.suppressWillChange && onWillChangeSelection) {
       onWillChangeSelection(prevSelection.slice(), normalized.slice())
     }
+    // Keep refs in sync before we trigger a re-render.
     selectedIndicesRef.current = normalized
     setSelectedCfgIndicesState(normalized)
   }, [onWillChangeSelection])
@@ -147,6 +183,15 @@ export function useConfigSelection({
     selectionAnchorRef.current = next
     setSelectionAnchorState(next)
   }, [])
+
+  const syncSelectionAfterReorder = useCallback((nextSelection: number[]) => {
+    // Reorders keep the same configs selected, so skip auto-apply/draft capture.
+    applySelection(nextSelection, { suppressWillChange: true })
+    // Anchor to the last selected index so keyboard navigation stays intuitive.
+    const last = nextSelection.length > 0 ? nextSelection[nextSelection.length - 1]! : null
+    setSelectedCfgIdx(last)
+    setSelectionAnchor(last)
+  }, [applySelection, setSelectedCfgIdx, setSelectionAnchor])
 
   const updateMultiEditField = useCallback(<K extends BuilderFieldKey>(
     key: K,
@@ -450,293 +495,306 @@ export function useConfigSelection({
   // Config mutations emit their own history descriptors; guard selection changes so they do not add extra draft entries.
   const handleConfigDuplicate = useCallback((idx: number) => {
     suppressSelectionDraft(() => {
+      // Duplicate the current selection or just the clicked index.
       const selected = selectedCfgIndices.includes(idx) && selectedCfgIndices.length > 1
         ? selectedCfgIndices.slice().sort((a, b) => a - b)
         : [idx]
-      setCustomCfgs(prev => {
-        const copies = selected
-          .map(i => (i >= 0 && i < prev.length ? prev[i] : undefined))
-          .filter((cfg): cfg is BuilderConfig => Boolean(cfg))
-          .map(cfg => cloneBuilderConfig(cfg)) // ensure duplicates never share references
+      // Snapshot the current config list for stable indexing.
+      const prev = customCfgs
+      // Clone the selected configs so duplicates stay identity-unique.
+      const copies = selected
+        .map(i => (i >= 0 && i < prev.length ? prev[i] : undefined))
+        .filter((cfg): cfg is BuilderConfig => Boolean(cfg))
+        .map(cfg => cloneBuilderConfig(cfg))
+      // If nothing can be duplicated, skip the update.
+      if (copies.length === 0) {
+        describeNextChange(null)
+        return
+      }
+      // Insert the copies right after the last selected index.
+      const insertAfter = Math.max(...selected)
+      const insertIdx = Math.min(prev.length, insertAfter + 1)
+      const next = [...prev.slice(0, insertIdx), ...copies, ...prev.slice(insertIdx)]
+      const labels: string[] = []
+      // Build labels for history entries using the post-insert indices.
+      for (let i = 0; i < copies.length; i += 1) {
+        const newIdx = insertIdx + i
+        const cfg = next[newIdx]
+        if (!cfg) continue
+        labels.push(buildConfigLabel(newIdx, cfg, t))
+      }
+      const descriptor = describeConfigsDuplicated({
+        insertIndex: insertIdx,
+        labels,
+        previous: prev,
+        t,
+      })
+      describeNextChange(descriptor)
+      // Commit the new configs before switching selection.
+      setCustomCfgs(next)
+      const newIdxs = copies.map((_, i) => insertIdx + i)
+      // Switching selection should still flush auto-apply when enabled.
+      applySelection(newIdxs)
+      const last = newIdxs[newIdxs.length - 1] ?? null
+      setSelectedCfgIdx(last)
+      setSelectionAnchor(last)
+    })
+  }, [applySelection, customCfgs, describeNextChange, selectedCfgIndices, setCustomCfgs, setSelectedCfgIdx, setSelectionAnchor, suppressSelectionDraft, t])
+
+  const handleConfigMoveUp = useCallback((idx: number) => {
+    suppressSelectionDraft(() => {
+      // Reorder the active selection when multi-select is on.
+      const selected = selectedCfgIndices.includes(idx) && selectedCfgIndices.length > 1
+        ? selectedCfgIndices.slice().sort((a, b) => a - b)
+        : [idx]
+      // Copy the array so we can swap in place safely.
+      const prev = customCfgs
+      const arr = [...prev]
+      let changed = false
+      // Move in ascending order so earlier swaps do not skip entries.
+      for (const i of selected) {
+        if (i <= 0) continue
+        if (!arr[i] || !arr[i - 1]) continue
+        changed = true
+        const tmp = arr[i - 1]!; arr[i - 1] = arr[i]!; arr[i] = tmp
+      }
+      // If nothing moved, avoid state churn and history noise.
+      if (!changed) {
+        describeNextChange(null)
+        return
+      }
+      const descriptor = describeConfigsMoved({
+        prev,
+        next: arr,
+        selection: selected,
+        direction: 'up',
+        t,
+      })
+      describeNextChange(descriptor)
+      // Commit the reordered list before syncing selection indices.
+      setCustomCfgs(arr)
+      const newSel = mapSelectionByIdentity(prev, arr, selected)
+      // Reorders should not trigger auto-apply or draft capture.
+      syncSelectionAfterReorder(newSel)
+    })
+  }, [customCfgs, describeNextChange, selectedCfgIndices, setCustomCfgs, suppressSelectionDraft, syncSelectionAfterReorder, t])
+
+  const handleConfigMoveDown = useCallback((idx: number) => {
+    suppressSelectionDraft(() => {
+      // Reorder the active selection when multi-select is on.
+      const selected = selectedCfgIndices.includes(idx) && selectedCfgIndices.length > 1
+        ? selectedCfgIndices.slice().sort((a, b) => a - b)
+        : [idx]
+      // Copy the array so we can swap in place safely.
+      const prev = customCfgs
+      const arr = [...prev]
+      let changed = false
+      // Move in descending order so later swaps do not skip entries.
+      for (let k = selected.length - 1; k >= 0; k -= 1) {
+        const i = selected[k]!
+        if (i >= arr.length - 1) continue
+        if (!arr[i] || !arr[i + 1]) continue
+        changed = true
+        const tmp = arr[i + 1]!; arr[i + 1] = arr[i]!; arr[i] = tmp
+      }
+      // If nothing moved, avoid state churn and history noise.
+      if (!changed) {
+        describeNextChange(null)
+        return
+      }
+      const descriptor = describeConfigsMoved({
+        prev,
+        next: arr,
+        selection: selected,
+        direction: 'down',
+        t,
+      })
+      describeNextChange(descriptor)
+      // Commit the reordered list before syncing selection indices.
+      setCustomCfgs(arr)
+      const newSel = mapSelectionByIdentity(prev, arr, selected)
+      // Reorders should not trigger auto-apply or draft capture.
+      syncSelectionAfterReorder(newSel)
+    })
+  }, [customCfgs, describeNextChange, selectedCfgIndices, setCustomCfgs, suppressSelectionDraft, syncSelectionAfterReorder, t])
+
+  const handleConfigMoveTop = useCallback((idx: number) => {
+    suppressSelectionDraft(() => {
+      // Reorder the active selection when multi-select is on.
+      const selected = selectedCfgIndices.includes(idx) && selectedCfgIndices.length > 1
+        ? selectedCfgIndices.slice().sort((a, b) => a - b)
+        : [idx]
+      // Work from the current config list for identity mapping.
+      const prev = customCfgs
+      if (selected[0] === 0) {
+        describeNextChange(null)
+        return
+      }
+      const remaining = prev.filter((_, i) => !selected.includes(i))
+      const block = selected.map(i => prev[i]!)
+      const next = [...block, ...remaining]
+      const descriptor = describeConfigsMoved({
+        prev,
+        next,
+        selection: selected,
+        direction: 'top',
+        t,
+      })
+      describeNextChange(descriptor)
+      // Commit the reordered list before syncing selection indices.
+      setCustomCfgs(next)
+      const newSel = mapSelectionByIdentity(prev, next, selected)
+      // Reorders should not trigger auto-apply or draft capture.
+      syncSelectionAfterReorder(newSel)
+    })
+  }, [customCfgs, describeNextChange, selectedCfgIndices, setCustomCfgs, suppressSelectionDraft, syncSelectionAfterReorder, t])
+
+  const handleConfigMoveBottom = useCallback((idx: number) => {
+    suppressSelectionDraft(() => {
+      // Reorder the active selection when multi-select is on.
+      const selected = selectedCfgIndices.includes(idx) && selectedCfgIndices.length > 1
+        ? selectedCfgIndices.slice().sort((a, b) => a - b)
+        : [idx]
+      // Work from the current config list for identity mapping.
+      const prev = customCfgs
+      if (selected[selected.length - 1] === prev.length - 1) {
+        describeNextChange(null)
+        return
+      }
+      const remaining = prev.filter((_, i) => !selected.includes(i))
+      const block = selected.map(i => prev[i]!)
+      const next = [...remaining, ...block]
+      const descriptor = describeConfigsMoved({
+        prev,
+        next,
+        selection: selected,
+        direction: 'bottom',
+        t,
+      })
+      describeNextChange(descriptor)
+      // Commit the reordered list before syncing selection indices.
+      setCustomCfgs(next)
+      const newSel = mapSelectionByIdentity(prev, next, selected)
+      // Reorders should not trigger auto-apply or draft capture.
+      syncSelectionAfterReorder(newSel)
+    })
+  }, [customCfgs, describeNextChange, selectedCfgIndices, setCustomCfgs, suppressSelectionDraft, syncSelectionAfterReorder, t])
+
+  const handleConfigReorder = useCallback((movingIndices: number[], rawTargetIndex: number, options?: { mode?: 'move' | 'copy' }) => {
+    if (!Array.isArray(movingIndices) || movingIndices.length === 0) return
+    suppressSelectionDraft(() => {
+      // Derive the reorder mode once so we can branch cleanly.
+      const mode = options?.mode === 'copy' ? 'copy' : 'move'
+      // Reorder moves need at least two configs to make sense.
+      if (mode === 'move' && customCfgs.length <= 1) {
+        describeNextChange(null)
+        return
+      }
+      // Sanitize the incoming indices against the current list length.
+      const sanitized = Array.from(new Set(
+        movingIndices
+          .map((idx) => (Number.isInteger(idx) ? Number(idx) : -1))
+          .filter((idx) => idx >= 0 && idx < customCfgs.length),
+      )).sort((a, b) => a - b)
+      if (sanitized.length === 0) {
+        describeNextChange(null)
+        return
+      }
+      // Resolve the moving configs by identity before mutating the list.
+      const prev = customCfgs
+      const movingItems = sanitized
+        .map((idx) => prev[idx])
+        .filter((cfg): cfg is BuilderConfig => Boolean(cfg))
+      if (movingItems.length === 0) {
+        describeNextChange(null)
+        return
+      }
+      // Clamp the insertion target into the current bounds.
+      const clampedTarget = Math.max(0, Math.min(prev.length, rawTargetIndex))
+      if (mode === 'copy') {
+        // Copy entries with fresh identity so selection mapping stays stable.
+        const copies = movingItems.map(cfg => cloneBuilderConfig(cfg))
         if (copies.length === 0) {
           describeNextChange(null)
-          return prev
+          return
         }
-        const insertAfter = Math.max(...selected)
-        const insertIdx = Math.min(prev.length, insertAfter + 1)
-        const next = [...prev.slice(0, insertIdx), ...copies, ...prev.slice(insertIdx)]
+        const next = [
+          ...prev.slice(0, clampedTarget),
+          ...copies,
+          ...prev.slice(clampedTarget),
+        ]
         const labels: string[] = []
+        // Build labels for history entries using the post-insert indices.
         for (let i = 0; i < copies.length; i += 1) {
-          const newIdx = insertIdx + i
+          const newIdx = clampedTarget + i
           const cfg = next[newIdx]
           if (!cfg) continue
           labels.push(buildConfigLabel(newIdx, cfg, t))
         }
         const descriptor = describeConfigsDuplicated({
-          insertIndex: insertIdx,
+          insertIndex: clampedTarget,
           labels,
           previous: prev,
           t,
         })
         describeNextChange(descriptor)
-        const newIdxStart = insertIdx
-        const newIdxs = copies.map((_, i) => newIdxStart + i)
-        applySelection(newIdxs)
-        setSelectedCfgIdx(newIdxs[newIdxs.length - 1] ?? null)
-        setSelectionAnchor(newIdxs[newIdxs.length - 1] ?? null)
-        return next
-      })
-    })
-  }, [applySelection, describeNextChange, selectedCfgIndices, setCustomCfgs, setSelectedCfgIdx, setSelectionAnchor, suppressSelectionDraft, t])
-
-  const handleConfigMoveUp = useCallback((idx: number) => {
-    suppressSelectionDraft(() => {
-      const selected = selectedCfgIndices.includes(idx) && selectedCfgIndices.length > 1
-        ? selectedCfgIndices.slice().sort((a, b) => a - b)
-        : [idx]
-      setCustomCfgs(prev => {
-        const arr = [...prev]
-        let changed = false
-        for (const i of selected) {
-          if (i <= 0) continue
-          if (!arr[i] || !arr[i - 1]) continue
-          changed = true
-          const tmp = arr[i - 1]!; arr[i - 1] = arr[i]!; arr[i] = tmp
-        }
-        if (!changed) {
-          describeNextChange(null)
-          return prev
-        }
-        const descriptor = describeConfigsMoved({
-          prev,
-          next: arr,
-          selection: selected,
-          direction: 'up',
-          t,
-        })
-        describeNextChange(descriptor)
-        const selItems = selected
-          .map(i => prev[i])
-          .filter((cfg): cfg is BuilderConfig => Boolean(cfg))
-        const selSet = new Set(selItems)
-        const newSel: number[] = []
-        arr.forEach((item, i) => { if (selSet.has(item)) newSel.push(i) })
-        applySelection(newSel)
-        setSelectedCfgIdx(newSel[newSel.length - 1] ?? null)
-        setSelectionAnchor(newSel[newSel.length - 1] ?? null)
-        return arr
-      })
-    })
-  }, [applySelection, describeNextChange, selectedCfgIndices, setCustomCfgs, setSelectedCfgIdx, setSelectionAnchor, suppressSelectionDraft, t])
-
-  const handleConfigMoveDown = useCallback((idx: number) => {
-    suppressSelectionDraft(() => {
-      const selected = selectedCfgIndices.includes(idx) && selectedCfgIndices.length > 1
-        ? selectedCfgIndices.slice().sort((a, b) => a - b)
-        : [idx]
-      setCustomCfgs(prev => {
-        const arr = [...prev]
-        let changed = false
-        for (let k = selected.length - 1; k >= 0; k -= 1) {
-          const i = selected[k]!
-          if (i >= arr.length - 1) continue
-          if (!arr[i] || !arr[i + 1]) continue
-          changed = true
-          const tmp = arr[i + 1]!; arr[i + 1] = arr[i]!; arr[i] = tmp
-        }
-        if (!changed) {
-          describeNextChange(null)
-          return prev
-        }
-        const descriptor = describeConfigsMoved({
-          prev,
-          next: arr,
-          selection: selected,
-          direction: 'down',
-          t,
-        })
-        describeNextChange(descriptor)
-        const selItems = selected
-          .map(i => prev[i])
-          .filter((cfg): cfg is BuilderConfig => Boolean(cfg))
-        const selSet = new Set(selItems)
-        const newSel: number[] = []
-        arr.forEach((item, i) => { if (selSet.has(item)) newSel.push(i) })
-        applySelection(newSel)
-        setSelectedCfgIdx(newSel[newSel.length - 1] ?? null)
-        setSelectionAnchor(newSel[newSel.length - 1] ?? null)
-        return arr
-      })
-    })
-  }, [applySelection, describeNextChange, selectedCfgIndices, setCustomCfgs, setSelectedCfgIdx, setSelectionAnchor, suppressSelectionDraft, t])
-
-  const handleConfigMoveTop = useCallback((idx: number) => {
-    suppressSelectionDraft(() => {
-      const selected = selectedCfgIndices.includes(idx) && selectedCfgIndices.length > 1
-        ? selectedCfgIndices.slice().sort((a, b) => a - b)
-        : [idx]
-      setCustomCfgs(prev => {
-        if (selected[0] === 0) {
-          describeNextChange(null)
-          return prev
-        }
-        const remaining = prev.filter((_, i) => !selected.includes(i))
-        const block = selected.map(i => prev[i]!)
-        const next = [...block, ...remaining]
-        const descriptor = describeConfigsMoved({
-          prev,
-          next,
-          selection: selected,
-          direction: 'top',
-          t,
-        })
-        describeNextChange(descriptor)
-        const newSel = selected.map((_, i) => i)
-        applySelection(newSel)
-        setSelectedCfgIdx(newSel[newSel.length - 1] ?? null)
-        setSelectionAnchor(newSel[newSel.length - 1] ?? null)
-        return next
-      })
-    })
-  }, [applySelection, describeNextChange, selectedCfgIndices, setCustomCfgs, setSelectedCfgIdx, setSelectionAnchor, suppressSelectionDraft, t])
-
-  const handleConfigMoveBottom = useCallback((idx: number) => {
-    suppressSelectionDraft(() => {
-      const selected = selectedCfgIndices.includes(idx) && selectedCfgIndices.length > 1
-        ? selectedCfgIndices.slice().sort((a, b) => a - b)
-        : [idx]
-      setCustomCfgs(prev => {
-        if (selected[selected.length - 1] === prev.length - 1) {
-          describeNextChange(null)
-          return prev
-        }
-        const remaining = prev.filter((_, i) => !selected.includes(i))
-        const block = selected.map(i => prev[i]!)
-        const next = [...remaining, ...block]
-        const descriptor = describeConfigsMoved({
-          prev,
-          next,
-          selection: selected,
-          direction: 'bottom',
-          t,
-        })
-        describeNextChange(descriptor)
-        const base = next.length - block.length
-        const newSel = block.map((_, i) => base + i)
-        applySelection(newSel)
-        setSelectedCfgIdx(newSel[newSel.length - 1] ?? null)
-        setSelectionAnchor(newSel[newSel.length - 1] ?? null)
-        return next
-      })
-    })
-  }, [applySelection, describeNextChange, selectedCfgIndices, setCustomCfgs, setSelectedCfgIdx, setSelectionAnchor, suppressSelectionDraft, t])
-
-  const handleConfigReorder = useCallback((movingIndices: number[], rawTargetIndex: number, options?: { mode?: 'move' | 'copy' }) => {
-    if (!Array.isArray(movingIndices) || movingIndices.length === 0) return
-    suppressSelectionDraft(() => {
-      setCustomCfgs(prev => {
-        const mode = options?.mode === 'copy' ? 'copy' : 'move'
-        if (mode === 'move' && prev.length <= 1) {
-          describeNextChange(null)
-          return prev
-        }
-        const sanitized = Array.from(new Set(
-          movingIndices
-            .map((idx) => (Number.isInteger(idx) ? Number(idx) : -1))
-            .filter((idx) => idx >= 0 && idx < prev.length),
-        )).sort((a, b) => a - b)
-        if (sanitized.length === 0) {
-          describeNextChange(null)
-          return prev
-        }
-        const movingItems = sanitized
-          .map((idx) => prev[idx])
-          .filter((cfg): cfg is BuilderConfig => Boolean(cfg))
-        if (movingItems.length === 0) {
-          describeNextChange(null)
-          return prev
-        }
-        const clampedTarget = Math.max(0, Math.min(prev.length, rawTargetIndex))
-        if (mode === 'copy') {
-          const copies = movingItems.map(cfg => cloneBuilderConfig(cfg)) // copy entries with fresh identity
-          if (copies.length === 0) {
-            describeNextChange(null)
-            return prev
-          }
-          const next = [
-            ...prev.slice(0, clampedTarget),
-            ...copies,
-            ...prev.slice(clampedTarget),
-          ]
-          const labels: string[] = []
-          for (let i = 0; i < copies.length; i += 1) {
-            const newIdx = clampedTarget + i
-            const cfg = next[newIdx]
-            if (!cfg) continue
-            labels.push(buildConfigLabel(newIdx, cfg, t))
-          }
-          const descriptor = describeConfigsDuplicated({
-            insertIndex: clampedTarget,
-            labels,
-            previous: prev,
-            t,
-          })
-          describeNextChange(descriptor)
-          const newSelection = copies.map((_, offset) => clampedTarget + offset)
-          applySelection(newSelection)
-          const last = newSelection[newSelection.length - 1] ?? null
-          setSelectedCfgIdx(last)
-          setSelectionAnchor(last)
-          return next
-        }
-        const minSel = sanitized[0]!
-        const maxSel = sanitized[sanitized.length - 1]!
-        if (clampedTarget >= minSel && clampedTarget <= maxSel + 1) {
-          describeNextChange(null)
-          return prev
-        }
-        const selectionSet = new Set(sanitized)
-        const remaining = prev.filter((_, idx) => !selectionSet.has(idx))
-        let insertIdx = clampedTarget
-        for (const idx of sanitized) {
-          if (idx < clampedTarget) insertIdx -= 1
-        }
-        insertIdx = Math.max(0, Math.min(remaining.length, insertIdx))
-        const next = [
-          ...remaining.slice(0, insertIdx),
-          ...movingItems,
-          ...remaining.slice(insertIdx),
-        ]
-        const newSelection = movingItems.map((_, offset) => insertIdx + offset)
-        const newMin = newSelection[0] ?? insertIdx
-        const atTop = insertIdx === 0
-        const atBottom = insertIdx === remaining.length
-        let direction: 'up' | 'down' | 'top' | 'bottom' = 'down'
-        if (atTop) {
-          direction = 'top'
-        } else if (atBottom) {
-          direction = 'bottom'
-        } else if (newMin < minSel) {
-          direction = 'up'
-        } else {
-          direction = 'down'
-        }
-        const descriptor = describeConfigsMoved({
-          prev,
-          next,
-          selection: sanitized,
-          direction,
-          t,
-        })
-        describeNextChange(descriptor)
+        // Commit the copied list before switching selection.
+        setCustomCfgs(next)
+        const newSelection = copies.map((_, offset) => clampedTarget + offset)
+        // Copy inserts should still trigger auto-apply before selection changes.
         applySelection(newSelection)
         const last = newSelection[newSelection.length - 1] ?? null
         setSelectedCfgIdx(last)
         setSelectionAnchor(last)
-        return next
+        return
+      }
+      const minSel = sanitized[0]!
+      const maxSel = sanitized[sanitized.length - 1]!
+      // Ignore drops that land inside the existing selection span.
+      if (clampedTarget >= minSel && clampedTarget <= maxSel + 1) {
+        describeNextChange(null)
+        return
+      }
+      const selectionSet = new Set(sanitized)
+      const remaining = prev.filter((_, idx) => !selectionSet.has(idx))
+      let insertIdx = clampedTarget
+      // Adjust for the items removed before the insertion point.
+      for (const idx of sanitized) {
+        if (idx < clampedTarget) insertIdx -= 1
+      }
+      insertIdx = Math.max(0, Math.min(remaining.length, insertIdx))
+      const next = [
+        ...remaining.slice(0, insertIdx),
+        ...movingItems,
+        ...remaining.slice(insertIdx),
+      ]
+      const atTop = insertIdx === 0
+      const atBottom = insertIdx === remaining.length
+      let direction: 'up' | 'down' | 'top' | 'bottom' = 'down'
+      if (atTop) {
+        direction = 'top'
+      } else if (atBottom) {
+        direction = 'bottom'
+      } else if (insertIdx < minSel) {
+        direction = 'up'
+      } else {
+        direction = 'down'
+      }
+      const descriptor = describeConfigsMoved({
+        prev,
+        next,
+        selection: sanitized,
+        direction,
+        t,
       })
+      describeNextChange(descriptor)
+      // Commit the reordered list before syncing selection indices.
+      setCustomCfgs(next)
+      const newSelection = mapSelectionByIdentity(prev, next, sanitized)
+      // Reorders should not trigger auto-apply or draft capture.
+      syncSelectionAfterReorder(newSelection)
     })
-  }, [applySelection, describeNextChange, setCustomCfgs, setSelectedCfgIdx, setSelectionAnchor, suppressSelectionDraft, t])
+  }, [applySelection, customCfgs, describeNextChange, setCustomCfgs, setSelectedCfgIdx, setSelectionAnchor, suppressSelectionDraft, syncSelectionAfterReorder, t])
 
   const handleSelectAllConfigs = useCallback(() => {
     const visibleSet = visibleConfigIndicesRef?.current ?? null

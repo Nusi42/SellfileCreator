@@ -4438,6 +4438,47 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     />
   )
 
+  // Flush pending auto-apply edits before any config order mutation.
+  const flushAutoApplyBeforeReorder = useCallback(() => {
+    // Use the shared auto-apply handler so disabled states short-circuit cleanly.
+    autoApplyNowRef.current()
+  }, [autoApplyNowRef])
+
+  const handleConfigMoveUpWithAutoApply = useCallback((idx: number) => {
+    // Commit debounced edits before indices shift so the moved config keeps them.
+    flushAutoApplyBeforeReorder()
+    // Delegate to the selection-aware move handler.
+    handleConfigMoveUp(idx)
+  }, [flushAutoApplyBeforeReorder, handleConfigMoveUp])
+
+  const handleConfigMoveDownWithAutoApply = useCallback((idx: number) => {
+    // Commit debounced edits before indices shift so the moved config keeps them.
+    flushAutoApplyBeforeReorder()
+    // Delegate to the selection-aware move handler.
+    handleConfigMoveDown(idx)
+  }, [flushAutoApplyBeforeReorder, handleConfigMoveDown])
+
+  const handleConfigMoveTopWithAutoApply = useCallback((idx: number) => {
+    // Commit debounced edits before indices shift so the moved config keeps them.
+    flushAutoApplyBeforeReorder()
+    // Delegate to the selection-aware move handler.
+    handleConfigMoveTop(idx)
+  }, [flushAutoApplyBeforeReorder, handleConfigMoveTop])
+
+  const handleConfigMoveBottomWithAutoApply = useCallback((idx: number) => {
+    // Commit debounced edits before indices shift so the moved config keeps them.
+    flushAutoApplyBeforeReorder()
+    // Delegate to the selection-aware move handler.
+    handleConfigMoveBottom(idx)
+  }, [flushAutoApplyBeforeReorder, handleConfigMoveBottom])
+
+  const handleConfigReorderWithAutoApply = useCallback((movingIndices: number[], targetIndex: number, options?: { mode?: 'move' | 'copy' }) => {
+    // Commit debounced edits before indices shift so the moved configs keep them.
+    flushAutoApplyBeforeReorder()
+    // Delegate to the selection-aware reorder handler.
+    handleConfigReorder(movingIndices, targetIndex, options)
+  }, [flushAutoApplyBeforeReorder, handleConfigReorder])
+
   const configChipsPanelElement = (
     <ConfigChipsPanel
       containerRef={chipsContainerRef}
@@ -4453,10 +4494,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       onDelete={handleConfigDelete}
       onDuplicate={handleConfigDuplicate}
       onPasteAfter={handleConfigPasteAfter}
-      onMoveUp={handleConfigMoveUp}
-      onMoveDown={handleConfigMoveDown}
-      onMoveTop={handleConfigMoveTop}
-      onMoveBottom={handleConfigMoveBottom}
+      onMoveUp={handleConfigMoveUpWithAutoApply}
+      onMoveDown={handleConfigMoveDownWithAutoApply}
+      onMoveTop={handleConfigMoveTopWithAutoApply}
+      onMoveBottom={handleConfigMoveBottomWithAutoApply}
       onCopyAllConfigs={handleCopyAllConfigs}
       onCopyConfig={handleCopyConfig}
       {...(isDevBuild ? { onCopyConfigDev: copyConfigWithRulesDev } : {})}
@@ -4471,7 +4512,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       deleteAllDisabled={deleteAllDisabled}
       onDeleteSelected={handleDeleteSelected}
       onPrepareDragSelection={prepareDragSelection}
-      onReorderConfigs={handleConfigReorder}
+      onReorderConfigs={handleConfigReorderWithAutoApply}
     />
   )
 
