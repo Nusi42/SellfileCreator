@@ -1304,8 +1304,8 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
           flex: 1,
           minHeight: 0,
           overflowY: 'auto',
-          // Preserve horizontal glow for mythic substats within the scroll container.
-          overflowX: 'visible',
+          // Prevent Firefox from surfacing a horizontal scrollbar due to box-shadow overflow.
+          overflowX: 'hidden',
           pr: 0.5,
           ...reserveScrollbarGutterSpace({ reserveStart: false, basePaddingInlineEnd: theme.spacing(0.5) }),
         })}
