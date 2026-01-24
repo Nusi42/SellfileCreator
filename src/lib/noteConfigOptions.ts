@@ -1033,6 +1033,13 @@ const parseOptionBlock = (
       readTokenList(cursor, onlyTokens)
       continue
     }
+    if (token.kind === 'symbol' && token.value === '+') {
+      headerPhase = 'constraints'
+      cursor.next()
+      // "+" is an alias for "only" in constraint headers.
+      readTokenList(cursor, onlyTokens)
+      continue
+    }
     // Skip any other header tokens to avoid infinite loops.
     cursor.next()
   }
