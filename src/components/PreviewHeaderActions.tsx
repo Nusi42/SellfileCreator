@@ -1802,7 +1802,15 @@ export default function PreviewHeaderActions(props: {
                     component="span"
                     noWrap
                     // Match the inline toggle label treatment so the Button's fixed height stays visually centered.
-                    sx={{ ...ELLIPSIS_TEXT_SX, width: '100%', textAlign: 'center', lineHeight: 1, display: 'block' }}
+                    sx={{
+                      ...ELLIPSIS_TEXT_SX,
+                      // Keep explicit width so ellipsis math matches the button body.
+                      width: '100%',
+                      // Center aligns the label with the small control cluster.
+                      textAlign: 'center',
+                      // Match Sort/Filter label handling by relying on the Typography default line height.
+                      display: 'block',
+                    }}
                     data-ellipsis-target
                   >
                     {logicHubLabel}
