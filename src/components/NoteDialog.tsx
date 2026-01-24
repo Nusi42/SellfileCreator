@@ -999,7 +999,7 @@ term          := "tag" ("=" token
 assignment    := field ("=" | ">=" | "<=") value
 fallbackBlock := ("fallback" | "else") "{" selectorBlock+ "}"
 constraints   := "!" tokenList | "excl" tokenList
-             | "only" tokenList
+             | "only" tokenList | "+" tokenList
 tokenList     := token ("," token)*
 field         := "export" | "rank" | "rarity" | "lvl" | "keep"
              | "autolate" | "minrolls" | "lockedminrolls"
