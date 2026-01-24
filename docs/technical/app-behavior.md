@@ -236,8 +236,9 @@ This document captures runtime behavior, builder interactions, and user-facing w
 - Edit toolbar: the `Insert sample config options` tooltip shows the config options EBNF plus a compact example so authors can reference syntax without leaving the dialog.
 - Edit/View switch: The edit dialog now includes a `View Note…` button (outlined, bottom-left) that switches back to view mode. If config options markers changed versus the original note, the button shows a warning badge.
 - Config options actions: When the note contains config options markers, the dialog footer adds `Reset Options to Defaults` (clears answers) plus a toggle that reads `Disable Config Options...` (with confirmation) or `Enable Config Options`. Disabled state dims the question cards and ignores their answers without removing the markers.
-- Config options markers: HTML comments inside the note can render interactive question blocks in the read-only view. Markers can be inline or multi-line; whitespace is optional.
+  - Config options markers: HTML comments inside the note can render interactive question blocks in the read-only view. Markers can be inline or multi-line; whitespace is optional.
   - Marker: `<!-- config-options ... -->` with exactly one question per comment.
+  - Marker options: add `[wholeline]` after `config-options` to render a full-width card with answer options laid out in a grid. Use `columns=N` (0 or omitted = auto-fit) to force a fixed column count, e.g. `<!-- config-options [wholeline columns=3] -->`.
   - Question header: `q`/`question` plus a quoted prompt: `q "Prompt"`.
   - Groups: `radio`/`rb`/`single` (single-select) and `check`/`cb`/`multi` (multi-select). Each group is `group "Label" [id=TOKEN] [*|default] [constraints] { @selector { assignments } ... }`.
   - Group fallback: add `fallback { ... }` or `else { ... }` inside a group to apply when that group has no selections; multiple group fallbacks stack in source order.
