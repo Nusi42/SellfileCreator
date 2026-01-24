@@ -32,6 +32,21 @@ import { pickAutoRaritySupplementsThreshold } from './raritySupplements'
 // Supported group types in the note markers.
 export type NoteQuestionGroupType = 'single' | 'multi'
 
+// Default layout for question cards when no marker option is supplied.
+export const NOTE_CONFIG_OPTIONS_LAYOUT_DEFAULT = 'default' as const
+// Marker option that expands a question card to span the full line.
+export const NOTE_CONFIG_OPTIONS_LAYOUT_WHOLELINE = 'wholeline' as const
+// Supported layout tokens parsed from config-options marker options.
+export const NOTE_CONFIG_OPTIONS_MARKER_LAYOUT_OPTIONS = [NOTE_CONFIG_OPTIONS_LAYOUT_WHOLELINE] as const
+// Marker option key used to override the answer grid column count.
+export const NOTE_CONFIG_OPTIONS_MARKER_COLUMNS_KEY = 'columns' as const
+// Default column count for wholeline option grids (0 = auto-fit).
+export const NOTE_CONFIG_OPTIONS_LAYOUT_COLUMNS_DEFAULT = 0
+// Layout choices exposed on parsed question definitions.
+export type NoteQuestionLayout =
+  | typeof NOTE_CONFIG_OPTIONS_LAYOUT_DEFAULT
+  | (typeof NOTE_CONFIG_OPTIONS_MARKER_LAYOUT_OPTIONS)[number]
+
 export type ConfigOptionsSelector =
   | { kind: 'all' }
   | { kind: 'tagged' }
@@ -100,6 +115,9 @@ export type NoteQuestionDefinition = {
   id: string
   index: number
   prompt: string
+  layout: NoteQuestionLayout
+  // Column override for wholeline option grids (0 = auto-fit).
+  layoutColumns: number
   groups: NoteQuestionGroup[]
   options: NoteQuestionOption[]
   fallback: NoteQuestionFallback | null
@@ -139,6 +157,8 @@ const QUESTION_MARKER_REGEX = /<!--\s*config-options\b[\s\S]*?-->/gi
 const QUESTION_TOKEN_REGEX = TAG_TOKEN_REGEX
 // Leading asterisk marks default answers.
 const QUESTION_OPTION_DEFAULT_MARKER = '*'
+// Known layout tokens extracted from marker options.
+const QUESTION_LAYOUT_TOKEN_SET = new Set<string>(NOTE_CONFIG_OPTIONS_MARKER_LAYOUT_OPTIONS)
 
 type TokenKind = 'word' | 'string' | 'symbol'
 
@@ -532,6 +552,88 @@ const parseGroupType = (raw: string): NoteQuestionGroupType | null => {
   return null
 }
 
+const normalizeQuestionLayoutToken = (raw: string): NoteQuestionLayout | null => {
+  // Normalize casing + spacing so marker options stay forgiving.
+  const trimmed = raw.trim().toLowerCase()
+  // Accept only the known marker layout tokens for now.
+  if (!QUESTION_LAYOUT_TOKEN_SET.has(trimmed)) return null
+  return trimmed as NoteQuestionLayout
+}
+
+const normalizeQuestionColumnsValue = (raw: string): number | null => {
+  // Parse an integer so marker options accept numeric literals.
+  const parsed = parseIntegerValue(raw)
+  // Reject non-numeric values so defaults remain stable.
+  if (parsed == null) return null
+  // Columns must be zero or positive to be meaningful.
+  if (parsed < 0) return null
+  return parsed
+}
+
+const parseQuestionMarkerOptions = (
+  cursor: TokenCursor,
+): { layout: NoteQuestionLayout; columns: number } => {
+  const token = cursor.peek()
+  // Default to the standard layout unless a marker option list appears.
+  if (!token || token.kind !== 'symbol' || token.value !== '[') {
+    return {
+      layout: NOTE_CONFIG_OPTIONS_LAYOUT_DEFAULT,
+      columns: NOTE_CONFIG_OPTIONS_LAYOUT_COLUMNS_DEFAULT,
+    }
+  }
+  // Consume the opening bracket before reading option tokens.
+  cursor.next()
+  let layout: NoteQuestionLayout = NOTE_CONFIG_OPTIONS_LAYOUT_DEFAULT
+  let columns = NOTE_CONFIG_OPTIONS_LAYOUT_COLUMNS_DEFAULT
+  while (true) {
+    const next = cursor.peek()
+    // Stop if we hit the end of the token stream.
+    if (!next) break
+    // Close the marker options when the bracket ends.
+    if (next.kind === 'symbol' && next.value === ']') {
+      cursor.next()
+      break
+    }
+    // Abort option parsing when the question keyword appears early.
+    if (isQuestionKeyword(next)) break
+    // Skip commas between option tokens.
+    if (next.kind === 'symbol' && next.value === ',') {
+      cursor.next()
+      continue
+    }
+    if (next.kind === 'word') {
+      const word = next.value
+      const normalizedLayout = normalizeQuestionLayoutToken(word)
+      // Apply known layout tokens while ignoring unknowns.
+      if (normalizedLayout) {
+        layout = normalizedLayout
+        cursor.next()
+        continue
+      }
+      // Parse column overrides when the marker option key is present.
+      if (word.toLowerCase() === NOTE_CONFIG_OPTIONS_MARKER_COLUMNS_KEY) {
+        cursor.next()
+        // Require an equals sign before the numeric value.
+        if (!cursor.consumeSymbol('=')) continue
+        const valueToken = cursor.peek()
+        // Only parse word/string tokens so malformed values do not crash parsing.
+        if (!valueToken || (valueToken.kind !== 'word' && valueToken.kind !== 'string')) continue
+        cursor.next()
+        const parsedColumns = normalizeQuestionColumnsValue(valueToken.value)
+        // Apply the override only when the value is valid.
+        if (parsedColumns != null) columns = parsedColumns
+        continue
+      }
+      // Skip unknown marker words so the parser keeps moving.
+      cursor.next()
+      continue
+    }
+    // Consume unknown tokens to avoid infinite loops.
+    cursor.next()
+  }
+  return { layout, columns }
+}
+
 const parseSelectorTokens = (tokens: Token[]): ConfigOptionsSelector | null => {
   const cursor = new TokenCursor(tokens)
   const parseTerm = (): ConfigOptionsSelector | null => {
@@ -854,6 +956,9 @@ type ParsedQuestionOption = {
 // Parsed question content before tokens/exclusions are resolved globally.
 type ParsedQuestionDefinition = {
   prompt: string
+  layout: NoteQuestionLayout
+  // Parsed column override for wholeline option grids (0 = auto-fit).
+  layoutColumns: number
   questionId: string
   options: ParsedQuestionOption[]
   fallback: NoteQuestionFallback | null
@@ -1103,6 +1208,8 @@ const parseQuestionMarker = (inner: string): ParsedQuestionDefinition | null => 
   const tokens = tokenizeConfigOptions(inner)
   const cursor = new TokenCursor(tokens)
   if (!cursor.consumeWord('config-options')) return null
+  // Capture marker-level layout hints before reading the question prompt.
+  const markerOptions = parseQuestionMarkerOptions(cursor)
   const questionToken = cursor.consumeWord('q', 'question')
   if (!questionToken) return null
   const promptToken = cursor.consumeString()
@@ -1175,6 +1282,8 @@ const parseQuestionMarker = (inner: string): ParsedQuestionDefinition | null => 
   // Return the parsed question for global token resolution later.
   return {
     prompt,
+    layout: markerOptions.layout,
+    layoutColumns: markerOptions.columns,
     questionId,
     options: parsedOptions,
     fallback: fallbackBlocks ? { blocks: fallbackBlocks } : null,
@@ -1351,6 +1460,8 @@ const buildResolvedQuestion = (
     id,
     index,
     prompt: question.prompt,
+    layout: question.layout,
+    layoutColumns: question.layoutColumns,
     groups,
     options,
     fallback: question.fallback,
@@ -1579,10 +1690,10 @@ export const parseNoteConfigOptions = (
 export const buildNoteConfigOptionsSignature = (note: string): string => {
   // Parse the questions using the same parser as the UI.
   const questions = parseNoteConfigOptions(note)
-  // Preserve marker order so reordering questions counts as a change.
-  const ids = questions.map((question) => question.id)
-  // Serialize the ids so comparisons are cheap and stable.
-  return JSON.stringify(ids)
+  // Preserve marker order plus layout metadata so formatting changes still register.
+  const signature = questions.map((question) => [question.id, question.layout, question.layoutColumns])
+  // Serialize the signature so comparisons are cheap and stable.
+  return JSON.stringify(signature)
 }
 
 // Remove answers that no longer match the current note content.

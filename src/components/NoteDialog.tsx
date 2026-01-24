@@ -44,6 +44,9 @@ import {
   buildNoteConfigOptionsSignature,
   applyQuestionExclusions,
   resolveConfigOptionsTags,
+  NOTE_CONFIG_OPTIONS_LAYOUT_WHOLELINE,
+  NOTE_CONFIG_OPTIONS_MARKER_COLUMNS_KEY,
+  NOTE_CONFIG_OPTIONS_MARKER_LAYOUT_OPTIONS,
   type ConfigOptionsInstructions,
   type NoteQuestionDefinition,
   type NoteConfigOptionsAnswers,
@@ -182,6 +185,32 @@ const NOTE_QUESTION_OPTION_SX = {
   py: 0,
   '& .MuiFormControlLabel-label': { lineHeight: NOTE_CARD_LABEL_TEXT_SX.lineHeight },
   '& .MuiCheckbox-root, & .MuiRadio-root': { p: 0.25 },
+}
+const NOTE_QUESTION_OPTION_GROUP_STACK_SX = {
+  // Keep the stacked option groups compact in the default layout.
+  gap: 0.25,
+}
+
+function buildNoteQuestionOptionGridSx(minColumnWidth: number, columns: number) {
+  // Determine whether a fixed column count was provided.
+  const hasFixedColumns = columns > 0
+  // Favor auto-fit with a min width derived from non-wholeline cards.
+  const autoFitColumns = `repeat(auto-fit, minmax(${minColumnWidth}px, 1fr))`
+  // Use a fixed repeat when the marker overrides column count explicitly.
+  const fixedColumns = `repeat(${columns}, minmax(0, 1fr))`
+  return {
+    // Grid layout prevents odd wrapping in full-width cards.
+    display: 'grid',
+    // Choose the grid template based on the marker option.
+    gridTemplateColumns: hasFixedColumns ? fixedColumns : autoFitColumns,
+    // Keep row/column spacing consistent with stacked cards.
+    rowGap: 0.35,
+    columnGap: 1.5,
+    // Align controls on a shared baseline for scanability.
+    alignItems: 'center',
+    // Let the grid stretch across the full card width.
+    width: '100%',
+  } satisfies Record<string, unknown>
 }
 // Add a touch of breathing room between question titles and subtext.
 const NOTE_QUESTION_TITLE_SUBTEXT_GAP = 0.35
@@ -964,6 +993,15 @@ const CONFIG_OPTIONS_EBNF_HEADER = 'Config options syntax (EBNF):'
 // Reference line sets the maximum width for EBNF formatting.
 const CONFIG_OPTIONS_EBNF_REFERENCE_LINE = 'question      := ("q" | "question") string group+ [fallbackBlock]'
 const CONFIG_OPTIONS_EBNF_MAX_LINE_LENGTH = CONFIG_OPTIONS_EBNF_REFERENCE_LINE.length
+// Marker options shown in the EBNF block.
+const CONFIG_OPTIONS_EBNF_MARKER_OPTION_TOKENS = [
+  ...NOTE_CONFIG_OPTIONS_MARKER_LAYOUT_OPTIONS.map((token) => `"${token}"`),
+  `"${NOTE_CONFIG_OPTIONS_MARKER_COLUMNS_KEY}" "=" number`,
+]
+// Render the marker option line from the shared token list.
+const CONFIG_OPTIONS_EBNF_MARKER_OPTION_LINE = (
+  `markerOption  := ${CONFIG_OPTIONS_EBNF_MARKER_OPTION_TOKENS.join(' | ')}`
+)
 // Use fenced-code markers when inserting the EBNF into the note editor.
 const CONFIG_OPTIONS_EBNF_FENCE_START = '```text'
 const CONFIG_OPTIONS_EBNF_FENCE_END = '```'
@@ -978,7 +1016,9 @@ const CONFIG_OPTIONS_SAMPLE_COMMAND_KEY = 'insert-configOptions-sample'
 
 // Static EBNF text; the statKey row is appended at runtime.
 const CONFIG_OPTIONS_EBNF_BASE =
-`marker        := "<!--" "config-options" question "-->"
+`marker        := "<!--" "config-options" [markerOptions] question "-->"
+markerOptions := "[" markerOption ("," markerOption)* "]"
+${CONFIG_OPTIONS_EBNF_MARKER_OPTION_LINE}
 ${CONFIG_OPTIONS_EBNF_REFERENCE_LINE}
 group         := ("single" | "s" | "rb" | "radiobutton"
              | "radio" | "multi" | "m" | "cb"
@@ -1381,6 +1421,8 @@ function NoteQuestionBlock({ node }: NoteQuestionBlockProps): JSX.Element | null
     [],
   )
   if (!question) return null
+  // Switch layout styling when the marker opts into full-width rendering.
+  const isWholeline = question.layout === NOTE_CONFIG_OPTIONS_LAYOUT_WHOLELINE
   // Resolve the selected answers into a set for fast checks.
   const selected = Array.isArray(question.answer) ? question.answer : []
   const selectedSet = new Set<string>(selected)
@@ -1390,15 +1432,23 @@ function NoteQuestionBlock({ node }: NoteQuestionBlockProps): JSX.Element | null
   }
   // Shared sizing keeps question cards in lockstep with keep-unique cards.
   const { flexBasis, minWidth, maxWidth } = getNoteCardWidthStyles('note')
+  // Reuse the non-wholeline min width as the grid's minimum column width.
+  const optionColumnMinWidth = minWidth
+  // Pick the option group layout based on the marker-level layout mode.
+  const optionGroupSx = isWholeline
+    ? buildNoteQuestionOptionGridSx(optionColumnMinWidth, question.layoutColumns)
+    : NOTE_QUESTION_OPTION_GROUP_STACK_SX
+  // Expand the card width when wholeline layout is enabled.
+  const cardWidthSx = isWholeline
+    ? { flex: '1 1 100%', minWidth: '100%', maxWidth: '100%', width: '100%' }
+    : { flex: `1 1 ${flexBasis}px`, minWidth, maxWidth }
   const cardOpacity = configOptionsDisabled ? 0.55 : 1
   return (
     <Box
       sx={{
         // Match Keep Unique card styling for tighter, consistent layout.
         // Width limits mirror Keep Unique cards so multiple can fit on a line.
-        flex: `1 1 ${flexBasis}px`,
-        minWidth,
-        maxWidth,
+        ...cardWidthSx,
         borderRadius: 1,
         border: '1px solid',
         borderColor: 'divider',
@@ -1468,7 +1518,7 @@ function NoteQuestionBlock({ node }: NoteQuestionBlockProps): JSX.Element | null
                       const ordered = applyQuestionExclusions(Array.from(next), question.options, value || undefined)
                       applyAnswer(ordered, value || undefined)
                     }}
-                    sx={{ gap: 0.25 }}
+                    sx={optionGroupSx}
                   >
                     {group.options.map((option) => (
                       <FormControlLabel
@@ -1485,7 +1535,7 @@ function NoteQuestionBlock({ node }: NoteQuestionBlockProps): JSX.Element | null
               )
             }
             return (
-              <FormGroup key={group.id} sx={{ gap: 0.25 }}>
+              <FormGroup key={group.id} sx={optionGroupSx}>
                 {group.options.map((option) => {
                   // Compute the checked state once per option.
                   const checked = selectedSet.has(option.id)

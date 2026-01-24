@@ -1,7 +1,11 @@
 /* eslint-disable import/no-unused-modules */ // node:test runner picks this up via scripts/run-tests, so the module isn't imported elsewhere.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { resolveConfigOptionsTags } from '../../src/lib/noteConfigOptions.js'
+import {
+  resolveConfigOptionsTags,
+  NOTE_CONFIG_OPTIONS_LAYOUT_WHOLELINE,
+  NOTE_CONFIG_OPTIONS_LAYOUT_COLUMNS_DEFAULT,
+} from '../../src/lib/noteConfigOptions.js'
 
 test('global explicit ids exclude options across questions', () => {
   // Build a note with two config-options markers.
@@ -184,6 +188,42 @@ test('preferred selections survive when labels repeat across questions', () => {
   assert.ok(resolvedSecond?.answer.includes(lategameId))
   // Ensure the late default is no longer selected.
   assert.equal(resolvedSecond?.answer.includes(lateDefaultId), false)
+})
+
+test('marker options can request wholeline layout and column overrides', () => {
+  // Build a note with marker options before the question header.
+  const note = [
+    '<!-- config-options [wholeline columns=3]',
+    'q "Wide Question"',
+    'radio "Yes" * { @all { export=active } }',
+    '-->',
+  ].join('\n')
+  // Parse the note so we can inspect the layout metadata.
+  const { questions } = resolveConfigOptionsTags(note)
+  const question = questions[0]
+  // Guard against missing parsed content.
+  assert.ok(question, 'expected the question to be parsed')
+  // Confirm the marker layout option was captured.
+  assert.equal(question?.layout, NOTE_CONFIG_OPTIONS_LAYOUT_WHOLELINE)
+  // Confirm the column override was captured.
+  assert.equal(question?.layoutColumns, 3)
+})
+
+test('marker options default columns to auto-fit', () => {
+  // Build a note without column overrides.
+  const note = [
+    '<!-- config-options [wholeline]',
+    'q "Wide Question"',
+    'radio "Yes" * { @all { export=active } }',
+    '-->',
+  ].join('\n')
+  // Parse the note so we can inspect defaults.
+  const { questions } = resolveConfigOptionsTags(note)
+  const question = questions[0]
+  // Guard against missing parsed content.
+  assert.ok(question, 'expected the question to be parsed')
+  // Confirm the default column count remains auto-fit.
+  assert.equal(question?.layoutColumns, NOTE_CONFIG_OPTIONS_LAYOUT_COLUMNS_DEFAULT)
 })
 
 export {}
