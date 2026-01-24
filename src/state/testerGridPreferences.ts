@@ -14,12 +14,16 @@ export type TesterGridColumnMode = 4 | 5
 
 const testerGridColumnsStore = createLocalStorageStore<TesterGridColumnMode>({
   key: TESTER_GRID_COLUMNS_KEY,
-  fallback: 5,
+  // Default to 4 columns so new sessions land on the denser tester-grid layout.
+  fallback: 4,
   parse: (raw) => {
+    // Treat missing or malformed values as the 4-column default.
     if (raw === '4') return 4
     if (raw === '5') return 5
-    return 5
+    // Keep the storage fallback aligned with the UI default.
+    return 4
   },
+  // Persist only the supported column modes so upgrades stay deterministic.
   serialize: (value) => (value === 4 ? '4' : '5'),
 })
 
