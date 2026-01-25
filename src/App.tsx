@@ -87,6 +87,7 @@ import { hasConfigMeaningfulDifferences } from './lib/configDiff'
 import { buildRuleTesterAutosavePayload, createRuleTesterMath, fingerprintRuleTesterItem, loadRuleTesterAutosaveDraft, type RuleTesterItem } from './lib/ruleTesterSession'
 import { sortTesterRows, TESTER_GROUPING_MODE_DEFAULT, TESTER_SORT_KEY_LAST_USAGE } from './lib/testerSort'
 import { buildTesterRuleTemplateConfig } from './lib/testerRuleTemplates'
+import { buildTesterOutcomeSummary } from './lib/testerOutcomeSummary'
 import { isDefaultTesterSubstatSortState, setTesterSubstatSortState, useTesterSubstatSortPreferences } from './state/testerSubstatSortPreferences'
 import { useTesterGridNormalizedOverlayPreferences } from './state/testerGridNormalizedOverlayPreferences'
 import { FILTER_PRESETS_VERSION, useFilterPresetsPreference, type FilterPreset, type FilterPresetSnapshot } from './state/filterPresetsPreference'
@@ -599,31 +600,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     }
     return map
   }, [testerPreviewRows])
-  // Summarize tester outcomes so the Note dialog can surface quick keep/sell context.
-  const noteDialogGearSummary = useMemo(() => {
-    // Hide the summary chip until at least one evaluated gear row exists.
-    if (testerPreviewRows.length === 0) return null
-    // Track sold results so we can derive kept and overall totals.
-    let soldCount = 0
-    // Track Keep Unique wins to highlight protections in the summary chip.
-    let keepUniqueKeepCount = 0
-    for (const row of testerPreviewRows) {
-      // Explicit sell matches are the only outcomes that leave the kept bucket.
-      if (row.match?.keep === false) soldCount += 1
-      // Keep Unique injections carry a dedicated rule source tag.
-      if (row.match?.ruleSource === RULE_SOURCE_KEEP_UNIQUES) keepUniqueKeepCount += 1
-    }
-    // Total rows define the gear population represented in the tester preview.
-    const total = testerPreviewRows.length
-    // Kept includes explicit Keep matches plus any item without a Sell rule.
-    const kept = total - soldCount
-    return {
-      total,
-      sold: soldCount,
-      kept,
-      keptByKeepUniques: keepUniqueKeepCount,
-    }
-  }, [testerPreviewRows])
+  // Summarize tester outcomes so the preview header + note dialog share one chip.
+  const testerOutcomeSummary = useMemo(
+    () => buildTesterOutcomeSummary(testerPreviewRows),
+    [testerPreviewRows],
+  )
   const [keepUniqueDetection, setKeepUniqueDetection] = useState<KeepUniqueDetectionSnapshot | null>(null)
   const [keepUniqueGroupItemKeys, setKeepUniqueGroupItemKeys] = useState<Set<number>>(new Set())
   const keepUniqueDetectionRef = useRef<KeepUniqueDetectionSnapshot | null>(keepUniqueDetection)
@@ -3577,6 +3558,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     }
     return sortTesterRows(rows)
   }, [testerConfigFilterMode, testerConfigFilterSelectedSet, gearEntriesAfterRulesFilter])
+  // Summarize the filtered tester rows so the preview chip mirrors the grid contents.
+  const testerOutcomeSummaryForPreview = useMemo(
+    () => buildTesterOutcomeSummary(gearEntriesForTable),
+    [gearEntriesForTable],
+  )
   const hasManualTesterRows = useMemo(() => (
     testerPreviewRows.some((row) => row.artifact.source === 'tester')
   ), [testerPreviewRows])
@@ -5201,6 +5187,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         testerBuilding={testerBuilding}
         workloadProgressRatio={workloadProgressRatio}
         limitHit={totalLimitHit}
+        testerOutcomeSummary={testerOutcomeSummaryForPreview}
+        testerOutcomeSummaryTotal={testerOutcomeSummary}
         onToggleFilter={() => setFilterOpen((v) => !v)}
         onClearFilters={clearFilters}
         onSelectFile={handleManualFileSelection}
@@ -5437,7 +5425,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           keepUniqueRules={keepUniqueRules}
           useStatButtonColors={statButtonBorders}
           substatColors={substatColors}
-          gearSummary={noteDialogGearSummary}
+          gearSummary={testerOutcomeSummary}
           summaryProgressRatio={workloadProgressRatio}
           hideEditButton={noteAutoOpenedFromHsfc}
         />
