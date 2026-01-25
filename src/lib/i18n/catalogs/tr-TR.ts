@@ -98,6 +98,7 @@ const overrides: Catalog = {
   testerSourceEquippedVault: 'Kasada',
   testerMatchKeep: 'Tut',
   testerMatchSell: 'Sat',
+  testerSummaryTotalLabel: 'Toplam',
   testerMatchNoRule: 'Eşleşme yok',
   testerRuleTemplateTooltip: 'Bu eşyaya göre tutma veya satma konfigi ekle.',
   testerRuleTemplateButtonAria: 'Bu eşyadan konfig ekle',

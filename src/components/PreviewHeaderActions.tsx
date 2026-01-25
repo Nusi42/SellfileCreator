@@ -33,6 +33,7 @@ import Checkbox from '@mui/material/Checkbox'
 import EllipsisTooltip from './EllipsisTooltip'
 import MarkdownTooltip from './MarkdownTooltip'
 import WorkloadProgressIndicator from './WorkloadProgressIndicator'
+import TesterOutcomeSummaryChip from './TesterOutcomeSummaryChip'
 import ExpandLessIcon from '@mui/icons-material/ExpandLess'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import ContextMenuPaper, { buildContextMenuPaperSlotProps } from './ContextMenuPaper'
@@ -72,6 +73,7 @@ import TesterSortPopoutEasterEggOverlay from './TesterSortPopoutEasterEggOverlay
 import { TesterSortWeightControls } from './TesterSortWeightControls'
 import { TesterNormalizedPresetEditorMenu } from './TesterNormalizedPresetEditorMenu'
 import { DEFAULT_METASET_ICON_ID } from '../lib/metasetIcons'
+import type { TesterOutcomeSummary } from '../types/testerPreview'
 
 
 type ProgressChipProps = {
@@ -129,6 +131,10 @@ export default function PreviewHeaderActions(props: {
   filterOpen: boolean
   testerCount?: number
   testerFilteredCount?: number
+  // Outcome summary for the tester header chip (filtered to current view).
+  testerOutcomeSummary: TesterOutcomeSummary
+  // Unfiltered outcome summary so filtered ratios can show total context.
+  testerOutcomeSummaryTotal: TesterOutcomeSummary
   testerSubstatSort: TesterSubstatSortState
   // Mirrors the Rule Tester grid preference so the sort popover can match stat coloring.
   useStatButtonColors: boolean
@@ -185,6 +191,8 @@ export default function PreviewHeaderActions(props: {
     filterOpen,
     testerCount,
     testerFilteredCount,
+    testerOutcomeSummary,
+    testerOutcomeSummaryTotal,
     testerSubstatSort,
     useStatButtonColors,
     substatColors,
@@ -267,6 +275,25 @@ export default function PreviewHeaderActions(props: {
     const formattedLimit = new Intl.NumberFormat(undefined).format(TOTAL_RULE_COUNT_LIMIT)
     return t('rulesLimitExceeded', { limit: formattedLimit })
   }, [building, isRulesMode, limitHit, t])
+  // Filtered totals only apply to the tester header chip.
+  const showTesterFilteredTotals = !isRulesMode && Boolean(filterActive)
+  // Build the rules-mode chip once so limit warnings can wrap it cleanly.
+  const rulesModeChip = (
+    <Chip label={rulesChipLabel} size="small" sx={rulesChipSx} aria-label={isBuilding ? buildingLabel : undefined} />
+  )
+  // Build the tester summary chip so the header mirrors the note dialog.
+  const testerModeChip = (
+    <TesterOutcomeSummaryChip
+      summary={testerOutcomeSummary}
+      totalSummary={testerOutcomeSummaryTotal}
+      dimmed={chipProgressRatio > 0}
+      showWhenEmpty
+      showFilteredTotals={showTesterFilteredTotals}
+      ariaLabel={isBuilding ? buildingLabel : undefined}
+    />
+  )
+  // Pick the chip that matches the active preview mode.
+  const previewModeChip = isRulesMode ? rulesModeChip : testerModeChip
 
   const rulesModeLabel = t('previewModeRules')
   const testerModeLabel = t('previewModeTester')
@@ -702,14 +729,14 @@ export default function PreviewHeaderActions(props: {
               <MarkdownTooltip markdown={limitTooltip}>
                 <Box component="span" sx={{ display: 'inline-flex' }}>
                   <ProgressChip progressRatio={chipProgressRatio} ariaLabel={spinnerAriaLabel}>
-                    <Chip label={rulesChipLabel} size="small" sx={rulesChipSx} aria-label={isBuilding ? buildingLabel : undefined} />
+                    {previewModeChip}
                   </ProgressChip>
                 </Box>
               </MarkdownTooltip>
             </>
           ) : (
             <ProgressChip progressRatio={chipProgressRatio} ariaLabel={spinnerAriaLabel}>
-              <Chip label={rulesChipLabel} size="small" sx={rulesChipSx} aria-label={isBuilding ? buildingLabel : undefined} />
+              {previewModeChip}
             </ProgressChip>
           )}
           {baseRulesLabel ? (

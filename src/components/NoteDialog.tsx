@@ -6,6 +6,7 @@ import StarsIcon from '@mui/icons-material/Stars'
 import ViewListIcon from '@mui/icons-material/ViewList'
 import QuizIcon from '@mui/icons-material/Quiz'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
+import WorkloadProgressIndicator from './WorkloadProgressIndicator'
 import { useI18n } from '../lib/i18n'
 import { FONT_SIZE_MARKDOWN_PX, FONT_SIZE_SECONDARY_PX, MARKDOWN_TOOLTIP_MAX_WIDTH_PX } from '../lib/constants'
 import MDEditor from '@uiw/react-md-editor'
@@ -40,6 +41,7 @@ import { useGearSetCatalogVersion } from '../hooks/useGearSetCatalogVersion'
 import { KEEP_UNIQUE_DEFAULT_COUNT_MODE, sanitizeKeepUniqueCountMode, type KeepUniqueRule, KeepUniqueRuleActivation } from '../lib/keepUniques'
 import { resolveRarityLabel } from '../lib/testerPreviewFormatting'
 import { warningBadgeSx } from '../lib/badgeStyles'
+import TesterOutcomeSummaryChip from './TesterOutcomeSummaryChip'
 import {
   buildNoteConfigOptionsSignature,
   applyQuestionExclusions,
@@ -52,6 +54,7 @@ import {
   type NoteConfigOptionsAnswers,
 } from '../lib/noteConfigOptions'
 import { normalizeTagValue } from '../lib/tagHelpers'
+import type { TesterOutcomeSummary } from '../types/testerPreview'
 
 // Limited color palette for Note highlighting rendered from Markdown via
 //   <span data-color="{name}">…</span>
@@ -84,7 +87,6 @@ const NOTE_DIALOG_PAPER_SX = {
   display: 'flex',
   flexDirection: 'column',
 }
-
 const CONFIG_COMMENT_REGEX = /^\s*configs\s*:\s*([0-9,\s]+)\s*$/i
 const CONFIG_MARKER_REGEX = /<!--\s*configs\s*:\s*([0-9,\s]+)\s*-->/i
 const CONFIG_REGEX_COMMENT_REGEX = /^\s*configs-re\s*:\s*"([^"\\]*(?:\\.[^"\\]*)*)"\s*$/i
@@ -172,10 +174,14 @@ const QUESTION_PROMPT_CHIP_MARKER = '`'
 // Double-asterisks mark label-style emphasis within prompts.
 const QUESTION_PROMPT_LABEL_MARKER = '**'
 
-// Shared label styling keeps note labels consistent across cards.
-const NOTE_CARD_LABEL_TEXT_SX = {
+// Base label styling keeps weight/color aligned across note cards.
+const NOTE_CARD_LABEL_TEXT_BASE_SX = {
   fontWeight: 800,
   color: 'text.secondary',
+}
+// Shared label styling adds the standard line height for most labels.
+const NOTE_CARD_LABEL_TEXT_SX = {
+  ...NOTE_CARD_LABEL_TEXT_BASE_SX,
   lineHeight: 1.4,
 }
 const NOTE_OPTION_LINE_HEIGHT_COLUMNS = 1.2
@@ -193,7 +199,7 @@ const NOTE_QUESTION_OPTION_TWO_COLUMN_SX = {
   m: 0,
   py: 0,
   // Let the label area stretch so the two columns can align.
-  '& .MuiFormControlLabel-label': { width: '100%' },
+  '& .MuiFormControlLabel-label': { width: '100%', lineHeight: NOTE_OPTION_LINE_HEIGHT_COLUMNS },
   '& .MuiCheckbox-root, & .MuiRadio-root': { p: 0.25 },
 }
 const NOTE_QUESTION_OPTION_GROUP_STACK_SX = {
@@ -365,7 +371,8 @@ function renderQuestionOptionLabel(
       color="text.secondary"
       sx={{
         whiteSpace: 'pre-line',
-        lineHeight: NOTE_CARD_LABEL_TEXT_SX.lineHeight,
+        // Inherit from the option row so columns can tune line height.
+        lineHeight: 'inherit',
         ...textSx,
       }}
     >
@@ -432,7 +439,6 @@ function renderTwoColumnOptionLabel({
   }
   // Keep the two-column layout predictable by fixing the label column width.
   const gridTemplateColumns = `${labelColumnCh}ch minmax(0, 1fr)`
-  const columnLineHeightSx = { lineHeight: NOTE_OPTION_LINE_HEIGHT_COLUMNS }
   return (
     <Box
       component="span"
@@ -441,6 +447,8 @@ function renderTwoColumnOptionLabel({
         gridTemplateColumns,
         columnGap: 1.25,
         alignItems: 'start',
+        // Match the tighter line height for two-column text/value labels.
+        lineHeight: NOTE_OPTION_LINE_HEIGHT_COLUMNS,
         width: '100%',
       }}
     >
@@ -450,12 +458,12 @@ function renderTwoColumnOptionLabel({
             labelText,
             chipSx,
             labelSx,
-            { ...NOTE_CARD_LABEL_TEXT_SX, ...columnLineHeightSx },
+            NOTE_CARD_LABEL_TEXT_BASE_SX,
           )
           : null}
       </Box>
       <Box component="span">
-        {renderQuestionOptionLabel(valueText, chipSx, labelSx, columnLineHeightSx)}
+        {renderQuestionOptionLabel(valueText, chipSx, labelSx)}
       </Box>
     </Box>
   )
@@ -2180,6 +2188,8 @@ export default function NoteDialog({
   keepUniqueRules,
   useStatButtonColors,
   substatColors,
+  gearSummary,
+  summaryProgressRatio,
   hideEditButton,
 }: {
   open: boolean
@@ -2200,6 +2210,8 @@ export default function NoteDialog({
   keepUniqueRules: KeepUniqueRule[]
   useStatButtonColors: boolean
   substatColors: Record<number, { fg: string; bg: string }>
+  gearSummary: TesterOutcomeSummary | null
+  summaryProgressRatio: number
   // Hide the edit entry point when the dialog auto-opens after HSFC load.
   hideEditButton: boolean
 }) {
@@ -2229,6 +2241,10 @@ export default function NoteDialog({
   // View-only renders lean on the deferred snapshot so toggling loads does not stutter the dialog content.
   const renderNote = mode === 'view' ? deferredNote : note
   const notePending = mode === 'view' && deferredNote !== note
+  // Consider any positive ratio as a sign the tester/rule workload is still rebuilding.
+  const noteSummaryInFlight = summaryProgressRatio > 0
+  // Only render the summary chip when at least one tester row exists.
+  const showNoteSummaryChip = Boolean(gearSummary && gearSummary.total > 0)
   // Keep disable-confirm actions visually equal to avoid implying a preferred choice.
   const disableConfirmButtonProps = { color: 'primary', variant: 'contained' } as const
   // Resolve config markers for embedded config chips.
@@ -2476,7 +2492,31 @@ export default function NoteDialog({
         fullWidth
         PaperProps={{ sx: NOTE_DIALOG_PAPER_SX }}
       >
-      <DialogTitle>{t('noteTitle')}</DialogTitle>
+      <DialogTitle
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 1,
+          flexWrap: 'wrap',
+        }}
+      >
+        <Box component="span">{t('noteTitle')}</Box>
+        {/* Summary chip stays in the title bar so results are visible in view + edit. */}
+        {showNoteSummaryChip ? (
+          <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75 }}>
+            {/* Progress ring sits left of the chip to mirror the preview header indicator. */}
+            <WorkloadProgressIndicator
+              progressRatio={summaryProgressRatio}
+              ariaLabel={noteSummaryInFlight ? t('rulesBuilding') : undefined}
+            />
+            <TesterOutcomeSummaryChip
+              summary={gearSummary}
+              dimmed={noteSummaryInFlight}
+            />
+          </Box>
+        ) : null}
+      </DialogTitle>
       {mode === 'view'
         ? (
           <>

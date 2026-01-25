@@ -16,3 +16,15 @@ export type TesterPreviewRow = TesterFilterRow & {
   matchingCfgIndices: number[]
   matchingConfigDecisions: MatchingConfigDecision[]
 }
+
+// Aggregate outcome totals for Rule Tester preview rows.
+export type TesterOutcomeSummary = {
+  // Total number of evaluated items in the summary set.
+  total: number
+  // Count of items explicitly sold by a matching rule.
+  sold: number
+  // Count of items kept (explicit keep or no sell match).
+  kept: number
+  // Count of kept items attributed to Keep Unique rules.
+  keptByKeepUniques: number
+}

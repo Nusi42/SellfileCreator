@@ -98,6 +98,7 @@ const overrides: Catalog = {
   testerSourceEquippedVault: 'Tresor',
   testerMatchKeep: 'Behalten',
   testerMatchSell: 'Verkaufen',
+  testerSummaryTotalLabel: 'Gesamt',
   testerMatchNoRule: 'Kein Treffer',
   testerRuleTemplateTooltip: 'Behalten- oder Verkaufen-Konfig basierend auf diesem Item hinzufügen.',
   testerRuleTemplateButtonAria: 'Konfig aus diesem Item hinzufügen',
