@@ -178,6 +178,7 @@ const NOTE_CARD_LABEL_TEXT_SX = {
   color: 'text.secondary',
   lineHeight: 1.4,
 }
+const NOTE_OPTION_LINE_HEIGHT_COLUMNS = 1.2
 const NOTE_QUESTION_OPTION_SX = {
   // Match Keep Unique row density by trimming default control padding.
   alignItems: 'center',
@@ -330,7 +331,7 @@ function renderQuestionTextTokens({
     token.kind === 'chip' ? (
       // Chip tokens reuse the keep-unique scope chip treatment.
       <Box key={token.key} component="span" sx={chipSx}>
-        <Typography variant="caption" sx={{ fontWeight: 700, lineHeight: 1.2 }}>
+        <Typography variant="caption" sx={{ fontWeight: 700, lineHeight: 'inherit' }}>
           {token.text}
         </Typography>
       </Box>
@@ -352,31 +353,11 @@ function renderQuestionOptionLabel(
   label: string,
   chipSx: Record<string, unknown>,
   labelSx: Record<string, unknown>,
+  textSx?: Record<string, unknown>,
 ): JSX.Element {
   // Tokenize option labels so highlight markers mirror prompt behavior.
   const tokens = buildQuestionPromptTokens(label, [], false)
   // Preserve explicit line breaks for multi-line option labels.
-  return (
-    <Typography
-      component="span"
-      variant="caption"
-      color="text.secondary"
-      sx={{ whiteSpace: 'pre-line', lineHeight: NOTE_CARD_LABEL_TEXT_SX.lineHeight }}
-    >
-      {renderQuestionTextTokens({ tokens, chipSx, labelSx })}
-    </Typography>
-  )
-}
-
-function renderQuestionOptionText(
-  text: string,
-  chipSx: Record<string, unknown>,
-  labelSx: Record<string, unknown>,
-  textSx?: Record<string, unknown>,
-): JSX.Element {
-  // Tokenize option text to preserve chip + label emphasis markers.
-  const tokens = buildQuestionPromptTokens(text, [], false)
-  // Keep the option text styling consistent across columns.
   return (
     <Typography
       component="span"
@@ -391,6 +372,18 @@ function renderQuestionOptionText(
       {renderQuestionTextTokens({ tokens, chipSx, labelSx })}
     </Typography>
   )
+}
+
+function measureOptionLabelLength(label: string): number {
+  // Split on newlines so we measure the widest visible line.
+  const lines = label.split('\n')
+  let maxLength = 0
+  lines.forEach((line) => {
+    // Strip emphasis markers so chip/label styling doesn't inflate widths.
+    const cleaned = line.replace(/\*\*/g, '').replace(/`/g, '')
+    if (cleaned.length > maxLength) maxLength = cleaned.length
+  })
+  return maxLength
 }
 
 function renderTwoColumnOptionLabel({
@@ -413,48 +406,57 @@ function renderTwoColumnOptionLabel({
   // Decide which text belongs to the first row when rows are active.
   const primaryText = option.detail ? option.label : option.label
   const secondaryText = option.detail ? option.detail : null
+  // Render a single text block in row layout to preserve line spacing.
+  if (layout === 'rows') {
+    // Tokenize label/value text so emphasis markers are preserved.
+    const labelTokens = buildQuestionPromptTokens(primaryText, [], false)
+    const valueTokens = secondaryText
+      ? buildQuestionPromptTokens(secondaryText, [], false)
+      : []
+    return (
+      <Typography
+        component="span"
+        variant="caption"
+        color="text.secondary"
+        sx={{ whiteSpace: 'pre-line', lineHeight: NOTE_CARD_LABEL_TEXT_SX.lineHeight }}
+      >
+        <Box component="span" sx={option.detail ? NOTE_CARD_LABEL_TEXT_SX : {}}>
+          {renderQuestionTextTokens({ tokens: labelTokens, chipSx, labelSx })}
+        </Box>
+        {secondaryText ? '\n' : null}
+        {secondaryText
+          ? renderQuestionTextTokens({ tokens: valueTokens, chipSx, labelSx })
+          : null}
+      </Typography>
+    )
+  }
   // Keep the two-column layout predictable by fixing the label column width.
   const gridTemplateColumns = `${labelColumnCh}ch minmax(0, 1fr)`
+  const columnLineHeightSx = { lineHeight: NOTE_OPTION_LINE_HEIGHT_COLUMNS }
   return (
     <Box
       component="span"
       sx={{
         display: 'grid',
-        ...(layout === 'columns'
-          ? { gridTemplateColumns, columnGap: 1.25 }
-          : { gridTemplateRows: 'auto auto', rowGap: 0.2 }),
+        gridTemplateColumns,
+        columnGap: 1.25,
         alignItems: 'start',
         width: '100%',
       }}
     >
-      {layout === 'columns' ? (
-        <>
-          <Box component="span">
-            {labelText
-              ? renderQuestionOptionText(labelText, chipSx, labelSx, NOTE_CARD_LABEL_TEXT_SX)
-              : null}
-          </Box>
-          <Box component="span">
-            {renderQuestionOptionText(valueText, chipSx, labelSx)}
-          </Box>
-        </>
-      ) : (
-        <>
-          <Box component="span">
-            {renderQuestionOptionText(
-              primaryText,
-              chipSx,
-              labelSx,
-              option.detail ? NOTE_CARD_LABEL_TEXT_SX : undefined,
-            )}
-          </Box>
-          {secondaryText ? (
-            <Box component="span">
-              {renderQuestionOptionText(secondaryText, chipSx, labelSx)}
-            </Box>
-          ) : null}
-        </>
-      )}
+      <Box component="span">
+        {labelText
+          ? renderQuestionOptionLabel(
+            labelText,
+            chipSx,
+            labelSx,
+            { ...NOTE_CARD_LABEL_TEXT_SX, ...columnLineHeightSx },
+          )
+          : null}
+      </Box>
+      <Box component="span">
+        {renderQuestionOptionLabel(valueText, chipSx, labelSx, columnLineHeightSx)}
+      </Box>
     </Box>
   )
 }
@@ -1533,7 +1535,7 @@ function NoteQuestionBlock({ node }: NoteQuestionBlockProps): JSX.Element | null
     // Measure only the explicit label column values for the two-column layout.
     const labelLengths = questionOptions
       .filter((option) => Boolean(option.detail))
-      .map((option) => option.label.length)
+      .map((option) => measureOptionLabelLength(option.label))
     // Default to a sensible minimum when no labels are available.
     const rawMax = labelLengths.length > 0 ? Math.max(...labelLengths) : 8
     // Allow a minimal label width so value text can dominate when desired.
