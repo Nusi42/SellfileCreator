@@ -71,6 +71,110 @@ test('implicit numeric tokens remain question-scoped', () => {
   assert.equal(excluded.includes(first.options[0]!.id), false)
 })
 
+test('only constraints keep the preferred option and prune explicit ids within referenced questions', () => {
+  // Build a note with a defaults question that references explicit tokens elsewhere.
+  const note = [
+    '<!-- config-options',
+    'q "Defaults"',
+    'radio "Lategame" id=lategame +q1 +q3 { @all { export=active } }',
+    'radio "Endgame" id=endgame { @all { export=active } }',
+    '-->',
+    '<!-- config-options',
+    'q "AAA"',
+    'radio "Option 1" id=q1 * { @all { export=active } }',
+    'radio "Option 2" id=q2 { @all { export=active } }',
+    '-->',
+    '<!-- config-options',
+    'q "BBB"',
+    'radio "Option 3" id=q3 * { @all { export=active } }',
+    'radio "Option 4" id=q4 { @all { export=active } }',
+    '-->',
+    '<!-- config-options',
+    'q "CCC"',
+    'check "Option 5" id=q5 * { @all { export=active } }',
+    'check "Option 6" id=q6 { @all { export=active } }',
+    '-->',
+  ].join('\n')
+  // Parse once so we can reuse the generated IDs.
+  const seed = resolveConfigOptionsTags(note)
+  const [defaults, first, second, third] = seed.questions
+  // Guard against missing parsed content.
+  assert.ok(defaults, 'expected a defaults question')
+  assert.ok(first, 'expected a first dependent question')
+  assert.ok(second, 'expected a second dependent question')
+  assert.ok(third, 'expected a third independent question')
+  const lategameId = defaults.options[0]!.id
+  const endgameId = defaults.options[1]!.id
+  const q1Id = first.options[0]!.id
+  const q2Id = first.options[1]!.id
+  const q3Id = second.options[0]!.id
+  const q4Id = second.options[1]!.id
+  const q5Id = third.options[0]!.id
+  // Select the non-allowlisted answers to see if they get cleared.
+  const answers = {
+    [defaults.id]: [lategameId],
+    [first.id]: [q2Id],
+    [second.id]: [q4Id],
+    [third.id]: [q5Id],
+  }
+  // Re-resolve answers so the "only" constraint can prune selections.
+  const resolved = resolveConfigOptionsTags(note, answers, lategameId).questions
+  const resolvedDefaults = resolved.find((entry) => entry.id === defaults.id)
+  const resolvedFirst = resolved.find((entry) => entry.id === first.id)
+  const resolvedSecond = resolved.find((entry) => entry.id === second.id)
+  const resolvedThird = resolved.find((entry) => entry.id === third.id)
+  // Ensure the preferred default remains selected.
+  assert.ok(resolvedDefaults?.answer.includes(lategameId))
+  // Confirm the sibling default stays excluded.
+  assert.equal(resolvedDefaults?.answer.includes(endgameId), false)
+  // The allow-listed defaults should remain.
+  assert.ok(resolvedFirst?.answer.includes(q1Id))
+  assert.ok(resolvedSecond?.answer.includes(q3Id))
+  // The non-allow-listed answers should be removed.
+  assert.equal(resolvedFirst?.answer.includes(q2Id), false)
+  assert.equal(resolvedSecond?.answer.includes(q4Id), false)
+  // Unrelated questions should remain untouched.
+  assert.ok(resolvedThird?.answer.includes(q5Id))
+})
+
+test('only numeric constraints stay scoped to the current question', () => {
+  // Build a note with a numeric-only constraint in the first question.
+  const note = [
+    '<!-- config-options',
+    'q "Local Only"',
+    'check "Local A" +1 { @all { export=active } }',
+    'check "Local B" { @all { export=active } }',
+    '-->',
+    '<!-- config-options',
+    'q "Global Explicit"',
+    'check "Global A" id=globalA { @all { export=active } }',
+    '-->',
+  ].join('\n')
+  // Parse once so we can reuse the generated IDs.
+  const seed = resolveConfigOptionsTags(note)
+  const [local, global] = seed.questions
+  // Guard against missing parsed content.
+  assert.ok(local, 'expected a local-only question')
+  assert.ok(global, 'expected a global question')
+  const localAId = local.options[0]!.id
+  const localBId = local.options[1]!.id
+  const globalAId = global.options[0]!.id
+  // Select both local options plus the global explicit option.
+  const answers = {
+    [local.id]: [localAId, localBId],
+    [global.id]: [globalAId],
+  }
+  // Re-resolve answers so the numeric-only constraint can prune selections.
+  const resolved = resolveConfigOptionsTags(note, answers, localAId).questions
+  const resolvedLocal = resolved.find((entry) => entry.id === local.id)
+  const resolvedGlobal = resolved.find((entry) => entry.id === global.id)
+  // The "only 1" constraint should remove the second local option.
+  assert.ok(resolvedLocal?.answer.includes(localAId))
+  assert.equal(resolvedLocal?.answer.includes(localBId), false)
+  // The explicit option in the other question should remain unaffected.
+  assert.ok(resolvedGlobal?.answer.includes(globalAId))
+})
+
 test('single-select groups pick a compatible fallback when excluded', () => {
   // Build a note where a second question excludes a radio option.
   const note = [

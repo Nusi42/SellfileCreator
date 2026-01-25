@@ -471,7 +471,7 @@ const tokenizeConfigOptions = (input: string): Token[] => {
       continue
     }
     // Parse single-character symbols.
-    if ('{}[](),*@=<>!:'.includes(ch)) {
+    if ('{}[](),*+@=<>!:'.includes(ch)) {
       tokens.push({ kind: 'symbol', value: ch, index: idx })
       idx += 1
       continue
@@ -1134,7 +1134,7 @@ const parseOptionBlock = (
     if (token.kind === 'word' && token.value.toLowerCase() === 'only') {
       headerPhase = 'constraints'
       cursor.next()
-      // "only" limits selection to the listed tokens.
+      // "only" defines an allow-list for mutual exclusions.
       readTokenList(cursor, onlyTokens)
       continue
     }
@@ -1259,26 +1259,7 @@ const parseQuestionMarker = (inner: string): ParsedQuestionDefinition | null => 
     // Prefix the per-question token to prevent collisions across markers.
     option.id = baseLabel ? `${questionId}:${baseLabel}#${index}` : `${questionId}:option-${index}`
   })
-  // Expand "only" constraints into explicit exclusions for this question.
-  parsedOptions.forEach((option) => {
-    // Skip options that did not declare any "only" constraints.
-    if (option.onlyTokens.length === 0) return
-    // Track excluded tokens to avoid duplicates while preserving order.
-    const seen = new Set(option.excludedTokens)
-    // Compare against every option token in the same question.
-    parsedOptions.forEach((candidate) => {
-      const candidateToken = candidate.explicitToken ?? candidate.implicitToken ?? ''
-      // Ignore candidates without tokens to keep ordering stable.
-      if (!candidateToken) return
-      // Preserve explicit allow-list items without excluding them.
-      if (option.onlyTokens.includes(candidateToken)) return
-      // Skip tokens already marked for exclusion.
-      if (seen.has(candidateToken)) return
-      // Add the missing token so constraints stay question-scoped.
-      seen.add(candidateToken)
-      option.excludedTokens.push(candidateToken)
-    })
-  })
+  // Defer "only" handling until global token maps are available.
   // Return the parsed question for global token resolution later.
   return {
     prompt,
@@ -1337,7 +1318,7 @@ const resolveConstraintToken = (
 )
 
 // Convert constraint tokens to option IDs with stable ordering and de-duping.
-const resolveExcludedOptionIds = (
+const resolveOptionIdsFromTokens = (
   tokens: string[],
   globalExplicitTokenMap: Map<string, string>,
   implicitTokenMap: Map<string, string>,
@@ -1357,6 +1338,105 @@ const resolveExcludedOptionIds = (
     resolved.push(resolvedId)
   })
   return resolved
+}
+
+// Merge multiple option-id lists while preserving the earliest ordering.
+const mergeOptionIdLists = (...lists: string[][]): string[] => {
+  // Track seen ids so duplicates stay out of the merged list.
+  const seen = new Set<string>()
+  // Preserve order by streaming each list in sequence.
+  const merged: string[] = []
+  lists.forEach((list) => {
+    list.forEach((id) => {
+      // Skip ids we already captured.
+      if (seen.has(id)) return
+      // Remember the id so later lists cannot re-add it.
+      seen.add(id)
+      merged.push(id)
+    })
+  })
+  return merged
+}
+
+// Build exclusion lists for "only" constraints using global token context.
+const buildOnlyExclusionMap = (
+  entries: ParsedQuestionEntry[],
+  globalExplicitTokenMap: Map<string, string>,
+): Map<string, string[]> => {
+  // Map every option id to its owning question so we can scope allow-lists.
+  const optionQuestionMap = new Map<string, string>()
+  // Capture question option ids so we can exclude within a question boundary.
+  const questionOptionIds = new Map<string, string[]>()
+  entries.forEach(({ question }) => {
+    // Snapshot the option ids so we can reuse them across constraints.
+    const optionIds = question.options.map((option) => option.id)
+    // Remember the question's option list for later exclusion checks.
+    questionOptionIds.set(question.questionId, optionIds)
+    // Record each option's question so we can bucket allow-lists.
+    optionIds.forEach((optionId) => optionQuestionMap.set(optionId, question.questionId))
+  })
+  // Accumulate per-option exclusions keyed by option id.
+  const onlyExclusions = new Map<string, string[]>()
+  // Append a unique exclusion entry while preserving insertion order.
+  const appendExclusion = (optionId: string, excludedId: string): void => {
+    const existing = onlyExclusions.get(optionId)
+    if (!existing) {
+      onlyExclusions.set(optionId, [excludedId])
+      return
+    }
+    if (!existing.includes(excludedId)) existing.push(excludedId)
+  }
+  entries.forEach(({ question }) => {
+    // Build a numeric token map for question-scoped references.
+    const implicitTokenMap = buildQuestionImplicitTokenMap(question.options)
+    question.options.forEach((option) => {
+      // Skip options without any "only" constraints.
+      if (option.onlyTokens.length === 0) return
+      // Resolve the allow-list ids from explicit/global + numeric/local tokens.
+      const allowlistIds = resolveOptionIdsFromTokens(
+        option.onlyTokens,
+        globalExplicitTokenMap,
+        implicitTokenMap,
+      )
+      // Bucket the allow-list by question so we only exclude inside those questions.
+      const allowlistByQuestion = new Map<string, string[]>()
+      allowlistIds.forEach((allowId) => {
+        // Find the question that owns the allow-list option.
+        const questionId = optionQuestionMap.get(allowId)
+        // Ignore allow-list ids we cannot map to a question.
+        if (!questionId) return
+        // Append the id while preserving order and uniqueness.
+        const existing = allowlistByQuestion.get(questionId)
+        if (!existing) {
+          allowlistByQuestion.set(questionId, [allowId])
+          return
+        }
+        if (!existing.includes(allowId)) existing.push(allowId)
+      })
+      // If nothing resolved, skip adding exclusions entirely.
+      if (allowlistByQuestion.size === 0) return
+      // Cache the owning question so we can keep the option itself allowed.
+      const optionQuestionId = optionQuestionMap.get(option.id)
+      allowlistByQuestion.forEach((allowedIds, questionId) => {
+        // Pull the candidate ids for this question to exclude within its scope.
+        const candidateIds = questionOptionIds.get(questionId)
+        // Skip invalid questions to avoid undefined lookups.
+        if (!candidateIds) return
+        // Always allow the option itself when it belongs to this question.
+        const allowed = new Set<string>(allowedIds)
+        if (optionQuestionId === questionId) allowed.add(option.id)
+        // Collect every candidate id that is not in the allow-list.
+        const excluded = candidateIds.filter((candidateId) => !allowed.has(candidateId))
+        // Skip storing empty lists to keep lookups compact.
+        if (excluded.length === 0) return
+        // Store direct exclusions for the "only" option.
+        excluded.forEach((candidateId) => appendExclusion(option.id, candidateId))
+        // Apply reciprocal exclusions so the allow-list stays mutually exclusive.
+        excluded.forEach((candidateId) => appendExclusion(candidateId, option.id))
+      })
+    })
+  })
+  return onlyExclusions
 }
 
 // Build group metadata using resolved options plus parsed fallback blocks.
@@ -1399,6 +1479,7 @@ const buildResolvedQuestion = (
   entry: ParsedQuestionEntry,
   answers: NoteConfigOptionsAnswers | null | undefined,
   globalExplicitTokenMap: Map<string, string>,
+  onlyExclusionsById: Map<string, string[]>,
 ): NoteQuestionDefinition => {
   const { question, index } = entry
   // Build the implicit numeric token map for this question.
@@ -1408,10 +1489,15 @@ const buildResolvedQuestion = (
     // Prefer explicit tokens for display, else fall back to the implicit index.
     const token = option.explicitToken ?? option.implicitToken ?? ''
     // Resolve exclusion tokens using global explicit IDs.
-    const excludedOptionIds = resolveExcludedOptionIds(
+    const explicitExclusions = resolveOptionIdsFromTokens(
       option.excludedTokens,
       globalExplicitTokenMap,
       implicitTokenMap,
+    )
+    // Merge explicit exclusions with the "only" allow-list exclusions.
+    const excludedOptionIds = mergeOptionIdLists(
+      explicitExclusions,
+      onlyExclusionsById.get(option.id) ?? [],
     )
     return {
       id: option.id,
@@ -1678,9 +1764,11 @@ export const parseNoteConfigOptions = (
   }
   // Build the global explicit-token map before resolving options.
   const globalExplicitTokenMap = buildGlobalExplicitTokenMap(parsedEntries)
+  // Resolve the "only" constraints now that global tokens are available.
+  const onlyExclusionsById = buildOnlyExclusionMap(parsedEntries, globalExplicitTokenMap)
   // Resolve each parsed question into a fully-typed definition.
   const resolved = parsedEntries.map((entry) => (
-    buildResolvedQuestion(entry, answers, globalExplicitTokenMap)
+    buildResolvedQuestion(entry, answers, globalExplicitTokenMap, onlyExclusionsById)
   ))
   // Apply global exclusions so cross-question constraints take effect.
   return applyGlobalOptionExclusions(resolved, preferredId)
