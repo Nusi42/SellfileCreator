@@ -13,37 +13,22 @@ const HSFC_PATH = path.resolve(__dirname, '..', 'data', 'sample.hsfc')
 const DB_PATH = path.resolve(__dirname, '..', 'data', 'sample2.db')
 
 const getTesterCountLabel = async (page: Parameters<typeof test.use>[0]['page']) => {
-  // Prefer the filtered-count label that includes a slash separator.
-  const filteredLabel = page.getByText(/Items\s*\/\s*\d[\d,]*\s*Items/i)
-  // Scan the filtered candidates to find the visible one with the highest count.
-  let bestLabel: string | null = null
-  let bestCount = -1
-  for (let idx = 0; idx < await filteredLabel.count(); idx += 1) {
-    const candidate = filteredLabel.nth(idx)
+  // Scope to the preview paper so we don't catch other aria labels.
+  const summaryLabel = page.locator('[data-tour-id="preview.paper"] [aria-label*="Total:"]')
+  // Scan the summary chip labels to find the first visible one.
+  for (let idx = 0; idx < await summaryLabel.count(); idx += 1) {
+    const candidate = summaryLabel.nth(idx)
     if (!(await candidate.isVisible())) continue
-    const label = await candidate.innerText()
-    const parsed = parseTesterCounts(label)
-    const filteredCount = parsed.filtered ?? -1
-    if (filteredCount > bestCount) {
-      bestCount = filteredCount
-      bestLabel = label
-    }
-  }
-  if (bestLabel) return bestLabel
-  // Fall back to any visible Items label when no filter is active yet.
-  const chipLabel = page.locator('.MuiChip-label', { hasText: /Items/ })
-  // Scan the chip labels so group headers do not win by DOM order.
-  for (let idx = 0; idx < await chipLabel.count(); idx += 1) {
-    const candidate = chipLabel.nth(idx)
-    if (await candidate.isVisible()) return candidate.innerText()
+    const label = await candidate.getAttribute('aria-label')
+    if (label) return label
   }
   // Return a placeholder if no label is visible yet.
-  return '0 Items / 0 Items'
+  return 'Total: 0 / 0'
 }
 
 const parseTesterCounts = (label: string) => {
-  // Expect either "X Items" or "X Items / Y Items".
-  const match = label.match(/([0-9,]+)\s+Items(?:\s*\/\s*([0-9,]+)\s+Items)?/i)
+  // Expect either "Total: X" or "Total: X / Y".
+  const match = label.match(/Total:\s*([0-9,]+)(?:\s*\/\s*([0-9,]+))?/i)
   // Strip thousands separators before numeric conversion.
   const parseCount = (value?: string) => (value ? Number(value.replace(/,/g, '')) : null)
   // Return both counts so we can compare filtered vs total.
@@ -119,7 +104,7 @@ test('disable config options then duplicate disabled config changes sell counts'
   // Switch the preview into Rule Tester mode.
   await page.getByRole('button', { name: 'Rule Tester' }).click()
   // Wait for the tester count chip to render.
-  await expect(page.locator('.MuiChip-label', { hasText: /Items/ }).first()).toBeVisible()
+  await expect(page.locator('[data-tour-id="preview.paper"] [aria-label*="Total:"]').first()).toBeVisible()
   // Wait until the DB import populates the total count.
   await expect.poll(async () => {
     const label = await getTesterCountLabel(page)

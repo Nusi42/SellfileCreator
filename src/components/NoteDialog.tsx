@@ -6,8 +6,6 @@ import StarsIcon from '@mui/icons-material/Stars'
 import ViewListIcon from '@mui/icons-material/ViewList'
 import QuizIcon from '@mui/icons-material/Quiz'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
-import SellIcon from '@mui/icons-material/Sell'
-import CheckCircleIcon from '@mui/icons-material/CheckCircle'
 import WorkloadProgressIndicator from './WorkloadProgressIndicator'
 import { useI18n } from '../lib/i18n'
 import { FONT_SIZE_MARKDOWN_PX, FONT_SIZE_SECONDARY_PX, MARKDOWN_TOOLTIP_MAX_WIDTH_PX } from '../lib/constants'
@@ -43,6 +41,7 @@ import { useGearSetCatalogVersion } from '../hooks/useGearSetCatalogVersion'
 import { KEEP_UNIQUE_DEFAULT_COUNT_MODE, sanitizeKeepUniqueCountMode, type KeepUniqueRule, KeepUniqueRuleActivation } from '../lib/keepUniques'
 import { resolveRarityLabel } from '../lib/testerPreviewFormatting'
 import { warningBadgeSx } from '../lib/badgeStyles'
+import TesterOutcomeSummaryChip from './TesterOutcomeSummaryChip'
 import {
   buildNoteConfigOptionsSignature,
   applyQuestionExclusions,
@@ -55,6 +54,7 @@ import {
   type NoteConfigOptionsAnswers,
 } from '../lib/noteConfigOptions'
 import { normalizeTagValue } from '../lib/tagHelpers'
+import type { TesterOutcomeSummary } from '../types/testerPreview'
 
 // Limited color palette for Note highlighting rendered from Markdown via
 //   <span data-color="{name}">…</span>
@@ -87,40 +87,6 @@ const NOTE_DIALOG_PAPER_SX = {
   display: 'flex',
   flexDirection: 'column',
 }
-// Keep the summary chip compact so it fits beside the dialog title.
-const NOTE_SUMMARY_CHIP_RADIUS_PX = 999
-// Match icon sizing to the compact chip typography.
-const NOTE_SUMMARY_ICON_FONT_SIZE_PX = 14
-// Dim the summary metrics while gear recalculation is in flight.
-const NOTE_SUMMARY_DIMMED_OPACITY = 0.55
-// Shared chip chrome for the note dialog gear summary.
-const NOTE_SUMMARY_CHIP_SX = (theme: Theme) => ({
-  // Inline flex keeps the chip aligned with the title baseline.
-  display: 'inline-flex',
-  alignItems: 'center',
-  // Padding keeps the pill readable without stealing space.
-  px: 1.25,
-  py: 0.5,
-  borderRadius: NOTE_SUMMARY_CHIP_RADIUS_PX,
-  // Use info tinting so the chip reads as guidance, not a warning.
-  backgroundColor: alpha(theme.palette.info.main, 0.12),
-  border: `1px solid ${alpha(theme.palette.info.main, 0.3)}`,
-  // Subtle elevation lifts the chip above the title bar.
-  boxShadow: theme.shadows[1],
-})
-// Divider styling keeps metric separators faint but legible.
-const NOTE_SUMMARY_DIVIDER_SX = (theme: Theme) => ({
-  borderColor: alpha(theme.palette.divider, 0.6),
-})
-// Shared metric layout for summary chip sections.
-const NOTE_SUMMARY_METRIC_BASE_SX = {
-  display: 'inline-flex',
-  alignItems: 'center',
-  gap: 0.45,
-  fontWeight: 700,
-  lineHeight: 1,
-}
-
 const CONFIG_COMMENT_REGEX = /^\s*configs\s*:\s*([0-9,\s]+)\s*$/i
 const CONFIG_MARKER_REGEX = /<!--\s*configs\s*:\s*([0-9,\s]+)\s*-->/i
 const CONFIG_REGEX_COMMENT_REGEX = /^\s*configs-re\s*:\s*"([^"\\]*(?:\\.[^"\\]*)*)"\s*$/i
@@ -202,15 +168,6 @@ type KeepUniqueMarkerMap = Map<number, KeepUniqueMarkerEntry[]>
 type NoteCardWidthPreset = 'note'
 type QuestionPromptToken = { key: string; text: string; kind: 'text' | 'chip' | 'label' }
 type QuestionPromptParts = { title: string; subtext: string | null }
-// Summary data for the note dialog gear results chip.
-type NoteDialogGearSummary = {
-  total: number
-  sold: number
-  kept: number
-  keptByKeepUniques: number
-}
-// Tone tokens keep summary metric colors consistent across the chip.
-type NoteDialogSummaryTone = 'total' | 'sell' | 'keep' | 'unique'
 
 // Backticks mark chip-style emphasis within prompts.
 const QUESTION_PROMPT_CHIP_MARKER = '`'
@@ -281,56 +238,6 @@ const NOTE_QUESTION_SUBTEXT_SX = {
   // Keep subtext smaller and lighter to separate it from the title.
   color: 'text.secondary',
   lineHeight: 1.2,
-}
-
-// Props for rendering one metric inside the summary chip.
-type NoteDialogSummaryMetricProps = {
-  icon: React.ReactNode
-  value: string
-  tone: NoteDialogSummaryTone
-  dimmed: boolean
-}
-
-function resolveNoteDialogSummaryToneColor(theme: Theme, tone: NoteDialogSummaryTone): string {
-  // Total uses a neutral tint so it reads as context, not status.
-  if (tone === 'total') return theme.palette.text.secondary
-  // Sell outcomes should mirror the error palette used elsewhere.
-  if (tone === 'sell') return theme.palette.error.main
-  // Keep outcomes mirror the success palette for immediate scanability.
-  if (tone === 'keep') return theme.palette.success.main
-  // Keep Unique reads best with the warning/gold palette.
-  return theme.palette.warning.main
-}
-
-function NoteDialogSummaryMetric({ icon, value, tone, dimmed }: NoteDialogSummaryMetricProps) {
-  return (
-    <Box
-      component="span"
-      sx={(theme) => ({
-        ...NOTE_SUMMARY_METRIC_BASE_SX,
-        // Apply tone colors so keep/sell reads at a glance.
-        color: resolveNoteDialogSummaryToneColor(theme, tone),
-        // Match the chip body scale for the numeric value.
-        fontSize: theme.typography.pxToRem(12),
-        // Fade the metric group while a recalculation spinner is active.
-        opacity: dimmed ? NOTE_SUMMARY_DIMMED_OPACITY : 1,
-      })}
-    >
-      <Box
-        component="span"
-        sx={{
-          display: 'inline-flex',
-          alignItems: 'center',
-          fontSize: NOTE_SUMMARY_ICON_FONT_SIZE_PX,
-        }}
-      >
-        {icon}
-      </Box>
-      <Typography component="span" variant="caption" sx={{ fontWeight: 700, lineHeight: 1 }}>
-        {value}
-      </Typography>
-    </Box>
-  )
 }
 
 function splitQuestionPrompt(prompt: string): QuestionPromptParts {
@@ -2303,7 +2210,7 @@ export default function NoteDialog({
   keepUniqueRules: KeepUniqueRule[]
   useStatButtonColors: boolean
   substatColors: Record<number, { fg: string; bg: string }>
-  gearSummary: NoteDialogGearSummary | null
+  gearSummary: TesterOutcomeSummary | null
   summaryProgressRatio: number
   // Hide the edit entry point when the dialog auto-opens after HSFC load.
   hideEditButton: boolean
@@ -2336,32 +2243,8 @@ export default function NoteDialog({
   const notePending = mode === 'view' && deferredNote !== note
   // Consider any positive ratio as a sign the tester/rule workload is still rebuilding.
   const noteSummaryInFlight = summaryProgressRatio > 0
-  // Pre-format the gear summary so the title chip can stay lean.
-  const noteDialogSummary = useMemo(() => {
-    // Skip rendering when no gear rows are available.
-    if (!gearSummary || gearSummary.total <= 0) return null
-    // Format counts with locale-aware separators.
-    const formatCount = (value: number) => value.toLocaleString(lang)
-    // Compute the formatted values once for reuse in tooltips and labels.
-    const total = formatCount(gearSummary.total)
-    const sold = formatCount(gearSummary.sold)
-    const kept = formatCount(gearSummary.kept)
-    const keepUniques = formatCount(gearSummary.keptByKeepUniques)
-    // Build a compact tooltip string so the chip stays text-light.
-    const tooltipParts = [
-      t('keepUniquesGridSelectedCount', { count: total }),
-      `${t('testerMatchSell')}: ${sold}`,
-      `${t('testerMatchKeep')}: ${kept}`,
-      `${t('keepUniquesToggleLabel')}: ${keepUniques}`,
-    ]
-    return {
-      total,
-      sold,
-      kept,
-      keepUniques,
-      tooltip: tooltipParts.join(' / '),
-    }
-  }, [gearSummary, lang, t])
+  // Only render the summary chip when at least one tester row exists.
+  const showNoteSummaryChip = Boolean(gearSummary && gearSummary.total > 0)
   // Keep disable-confirm actions visually equal to avoid implying a preferred choice.
   const disableConfirmButtonProps = { color: 'primary', variant: 'contained' } as const
   // Resolve config markers for embedded config chips.
@@ -2620,48 +2503,17 @@ export default function NoteDialog({
       >
         <Box component="span">{t('noteTitle')}</Box>
         {/* Summary chip stays in the title bar so results are visible in view + edit. */}
-        {noteDialogSummary ? (
+        {showNoteSummaryChip ? (
           <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75 }}>
             {/* Progress ring sits left of the chip to mirror the preview header indicator. */}
             <WorkloadProgressIndicator
               progressRatio={summaryProgressRatio}
               ariaLabel={noteSummaryInFlight ? t('rulesBuilding') : undefined}
             />
-            <MarkdownTooltip markdown={noteDialogSummary.tooltip}>
-              <Box sx={NOTE_SUMMARY_CHIP_SX} aria-label={noteDialogSummary.tooltip}>
-                <Stack
-                  direction="row"
-                  alignItems="center"
-                  spacing={0.75}
-                  divider={<Divider orientation="vertical" flexItem sx={NOTE_SUMMARY_DIVIDER_SX} />}
-                >
-                  <NoteDialogSummaryMetric
-                    icon={<ViewListIcon fontSize="inherit" />}
-                    value={noteDialogSummary.total}
-                    tone="total"
-                    dimmed={noteSummaryInFlight}
-                  />
-                  <NoteDialogSummaryMetric
-                    icon={<SellIcon fontSize="inherit" />}
-                    value={noteDialogSummary.sold}
-                    tone="sell"
-                    dimmed={noteSummaryInFlight}
-                  />
-                  <NoteDialogSummaryMetric
-                    icon={<CheckCircleIcon fontSize="inherit" />}
-                    value={noteDialogSummary.kept}
-                    tone="keep"
-                    dimmed={noteSummaryInFlight}
-                  />
-                  <NoteDialogSummaryMetric
-                    icon={<StarsIcon fontSize="inherit" />}
-                    value={noteDialogSummary.keepUniques}
-                    tone="unique"
-                    dimmed={noteSummaryInFlight}
-                  />
-                </Stack>
-              </Box>
-            </MarkdownTooltip>
+            <TesterOutcomeSummaryChip
+              summary={gearSummary}
+              dimmed={noteSummaryInFlight}
+            />
           </Box>
         ) : null}
       </DialogTitle>
