@@ -1113,8 +1113,8 @@ const parseOptionBlock = (
         continue
       }
     }
-    // IDs must appear before defaults/constraints.
-    if (headerPhase === 'id' && token.kind === 'word' && token.value.toLowerCase() === 'id') {
+    // IDs must appear before constraints, but can follow default markers.
+    if (headerPhase !== 'constraints' && token.kind === 'word' && token.value.toLowerCase() === 'id') {
       cursor.next()
       // Require an explicit token for stable option references.
       if (!cursor.consumeSymbol('=')) continue

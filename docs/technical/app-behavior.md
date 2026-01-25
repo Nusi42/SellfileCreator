@@ -240,7 +240,7 @@ This document captures runtime behavior, builder interactions, and user-facing w
   - Marker: `<!-- config-options ... -->` with exactly one question per comment.
   - Marker options: add `[wholeline]` after `config-options` to render a full-width card with answer options laid out in a grid. Use `columns=N` (0 or omitted = auto-fit) to force a fixed column count, e.g. `<!-- config-options [wholeline columns=3] -->`.
   - Question header: `q`/`question` plus a quoted prompt: `q "Prompt"`.
-  - Groups: `radio`/`rb`/`single` (single-select) and `check`/`cb`/`multi` (multi-select). Each group is `group "Label" ["Text"] [id=TOKEN] [*|default] [constraints] { @selector { assignments } ... }`.
+  - Groups: `radio`/`rb`/`single` (single-select) and `check`/`cb`/`multi` (multi-select). Each group is `group "Label" ["Text"] [id=TOKEN] [*|default] [constraints] { @selector { assignments } ... }` (the `id` and default markers can appear in any order before constraints).
   - Two-column option labels: when a group uses two strings (label + text), the config options card switches to a two-column layout; the first string renders as the label column and the second string renders as the value column for every option in that card. In `[wholeline]` layout, the label and text render as two stacked rows, and the checkbox/radio aligns to the first row.
   - Group fallback: add `fallback { ... }` or `else { ... }` inside a group to apply when that group has no selections; multiple group fallbacks stack in source order.
   - Selectors: required `@` blocks. Supported selectors include `@all`, `@tagged`, `@untagged`, `@tag=token`, `@tag in [a,b]`, `@rank>=5`, `@rarity>=epic`, `@minrolls>=2`, `@minsubstats=2`, `@flex=on`, and `and`/`or` expressions.

@@ -175,6 +175,61 @@ test('only numeric constraints stay scoped to the current question', () => {
   assert.ok(resolvedGlobal?.answer.includes(globalAId))
 })
 
+test('only constraints resolve when id appears after the default marker', () => {
+  // Build a note where ids are declared after the default marker.
+  const note = [
+    '<!-- config-options',
+    'q "Defaults"',
+    'cb "Lategame" * id=lategame +marius_open +fwh_no { @all { export=active } }',
+    'cb "Endgame" id=endgame +marius_finished +fwh_yes16 { @all { export=active } }',
+    '-->',
+    '<!-- config-options',
+    'q "Marius?"',
+    'rb "No" * id=marius_open { @all { export=active } }',
+    'rb "Yes" id=marius_finished { @all { export=active } }',
+    '-->',
+    '<!-- config-options',
+    'q "Faction Wars?"',
+    'rb "No" * id=fwh_no { @all { export=active } }',
+    'rb "Yes" id=fwh_yes16 { @all { export=active } }',
+    '-->',
+  ].join('\n')
+  // Parse once so we can reuse the generated IDs.
+  const seed = resolveConfigOptionsTags(note)
+  const [defaults, marius, fwh] = seed.questions
+  // Guard against missing parsed content.
+  assert.ok(defaults, 'expected defaults question')
+  assert.ok(marius, 'expected Marius question')
+  assert.ok(fwh, 'expected Faction Wars question')
+  // Capture the scoped ids for both defaults and dependent questions.
+  const lategameId = defaults.options[0]!.id
+  const endgameId = defaults.options[1]!.id
+  const mariusOpenId = marius.options[0]!.id
+  const mariusFinishedId = marius.options[1]!.id
+  const fwhNoId = fwh.options[0]!.id
+  const fwhYesId = fwh.options[1]!.id
+  // Start from Lategame in the defaults question with endgame-style answers elsewhere.
+  const answers = {
+    [defaults.id]: [lategameId],
+    [marius.id]: [mariusFinishedId],
+    [fwh.id]: [fwhYesId],
+  }
+  // Re-resolve with the Lategame preference so allow-lists can apply.
+  const resolved = resolveConfigOptionsTags(note, answers, lategameId).questions
+  const resolvedDefaults = resolved.find((entry) => entry.id === defaults.id)
+  const resolvedMarius = resolved.find((entry) => entry.id === marius.id)
+  const resolvedFwh = resolved.find((entry) => entry.id === fwh.id)
+  // Ensure the preferred default stays selected.
+  assert.ok(resolvedDefaults?.answer.includes(lategameId))
+  assert.equal(resolvedDefaults?.answer.includes(endgameId), false)
+  // Confirm the allow-listed Marius choice is selected.
+  assert.ok(resolvedMarius?.answer.includes(mariusOpenId))
+  assert.equal(resolvedMarius?.answer.includes(mariusFinishedId), false)
+  // Confirm the allow-listed Faction Wars choice is selected.
+  assert.ok(resolvedFwh?.answer.includes(fwhNoId))
+  assert.equal(resolvedFwh?.answer.includes(fwhYesId), false)
+})
+
 test('single-select groups pick a compatible fallback when excluded', () => {
   // Build a note where a second question excludes a radio option.
   const note = [
