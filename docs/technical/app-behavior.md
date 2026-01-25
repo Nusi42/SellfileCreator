@@ -240,7 +240,7 @@ This document captures runtime behavior, builder interactions, and user-facing w
   - Marker: `<!-- config-options ... -->` with exactly one question per comment.
   - Marker options: add `[wholeline]` after `config-options` to render a full-width card with answer options laid out in a grid. Use `columns=N` (0 or omitted = auto-fit) to force a fixed column count, e.g. `<!-- config-options [wholeline columns=3] -->`.
   - Question header: `q`/`question` plus a quoted prompt: `q "Prompt"`.
-  - Groups: `radio`/`rb`/`single` (single-select) and `check`/`cb`/`multi` (multi-select). Each group is `group "Label" [id=TOKEN] [*|default] [constraints] { @selector { assignments } ... }`.
+  - Groups: `radio`/`rb`/`single` (single-select) and `check`/`cb`/`multi` (multi-select). Each group is `group "Label" [id=TOKEN] [*|default] [constraints] { @selector { assignments } ... }` (the `id` and default marker can appear in any order before constraints).
   - Group fallback: add `fallback { ... }` or `else { ... }` inside a group to apply when that group has no selections; multiple group fallbacks stack in source order.
   - Selectors: required `@` blocks. Supported selectors include `@all`, `@tagged`, `@untagged`, `@tag=token`, `@tag in [a,b]`, `@rank>=5`, `@rarity>=epic`, `@minrolls>=2`, `@minsubstats=2`, `@flex=on`, and `and`/`or` expressions.
   - Assignments: `field (=|>=|<=) value` pairs. Supported fields: `export` (active/disabled/toggle), `rank`, `rarity` (including `auto`), `lvl` (range or single milestone), `keep` (early/late), `autolate` (uncommon/rare/epic), `minrolls`, `lockedminrolls`, `minsubstats`, `flex`, `substatmin`, `substatmin.<stat>`, `minima.any`, and `minima.<star>.<stat>`.

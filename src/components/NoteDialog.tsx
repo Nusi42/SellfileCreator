@@ -1023,9 +1023,10 @@ ${CONFIG_OPTIONS_EBNF_REFERENCE_LINE}
 group         := ("single" | "s" | "rb" | "radiobutton"
              | "radio" | "multi" | "m" | "cb"
              | "checkbox" | "check")
-             string ["id" "=" token] ["*" | "default"]
+             string [headerToken {headerToken}]
              [constraints] "{" selectorBlock+
              [fallbackBlock] "}"
+headerToken   := "id" "=" token | "*" | "default"
 selectorBlock := "@" selector "{" assignment+ "}"
 selector      := "all" | "tagged" | "untagged" | expr
 expr          := term (("and" | "or" | "&&" | "||") term)*
