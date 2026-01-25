@@ -98,6 +98,7 @@ const overrides: Catalog = {
   testerSourceEquippedVault: 'Bóveda',
   testerMatchKeep: 'Conservar',
   testerMatchSell: 'Vender',
+  testerSummaryTotalLabel: 'Total',
   testerMatchNoRule: 'Sin coincidencia',
   testerRuleTemplateTooltip: 'Añadir una config de conservar o vender basada en este objeto.',
   testerRuleTemplateButtonAria: 'Añadir config desde este objeto',

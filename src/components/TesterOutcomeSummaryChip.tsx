@@ -134,9 +134,9 @@ export default function TesterOutcomeSummaryChip({
     const sold = formatPair(summary.sold, totalSnapshot.sold)
     const kept = formatPair(summary.kept, totalSnapshot.kept)
     const keepUniques = formatPair(summary.keptByKeepUniques, totalSnapshot.keptByKeepUniques)
-    // Build a compact tooltip string so the chip stays text-light.
+    // Build a compact, symmetric tooltip string so the chip stays text-light.
     const tooltipParts = [
-      t('keepUniquesGridSelectedCount', { count: total }),
+      `${t('testerSummaryTotalLabel')}: ${total}`,
       `${t('testerMatchSell')}: ${sold}`,
       `${t('testerMatchKeep')}: ${kept}`,
       `${t('keepUniquesToggleLabel')}: ${keepUniques}`,

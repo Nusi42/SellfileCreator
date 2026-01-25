@@ -98,6 +98,7 @@ const enUS: Catalog = {
   testerSourceEquippedVault: 'Vault',
   testerMatchKeep: 'Keep',
   testerMatchSell: 'Sell',
+  testerSummaryTotalLabel: 'Total',
   testerMatchNoRule: 'No Match',
   testerRuleTemplateTooltip: 'Add a keep or sell config based on this item.',
   testerRuleTemplateButtonAria: 'Add config from this item',

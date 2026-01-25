@@ -98,6 +98,7 @@ const overrides: Catalog = {
   testerSourceEquippedVault: 'Сховище',
   testerMatchKeep: 'Зберегти',
   testerMatchSell: 'Продати',
+  testerSummaryTotalLabel: 'Усього',
   testerMatchNoRule: 'Немає збігів',
   testerRuleTemplateTooltip: 'Додати конфіг для збереження або продажу на основі цього предмета.',
   testerRuleTemplateButtonAria: 'Додати конфіг з цього предмета',

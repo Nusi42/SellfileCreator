@@ -14,7 +14,7 @@ const DB_PATH = path.resolve(__dirname, '..', 'data', 'sample2.db')
 
 const getTesterCountLabel = async (page: Parameters<typeof test.use>[0]['page']) => {
   // Scope to the preview paper so we don't catch other aria labels.
-  const summaryLabel = page.locator('[data-tour-id="preview.paper"] [aria-label*="items"]')
+  const summaryLabel = page.locator('[data-tour-id="preview.paper"] [aria-label*="Total:"]')
   // Scan the summary chip labels to find the first visible one.
   for (let idx = 0; idx < await summaryLabel.count(); idx += 1) {
     const candidate = summaryLabel.nth(idx)
@@ -23,12 +23,12 @@ const getTesterCountLabel = async (page: Parameters<typeof test.use>[0]['page'])
     if (label) return label
   }
   // Return a placeholder if no label is visible yet.
-  return '0 items / 0 items'
+  return 'Total: 0 / 0'
 }
 
 const parseTesterCounts = (label: string) => {
-  // Expect either "X items" or "X / Y items".
-  const match = label.match(/([0-9,]+)(?:\s*\/\s*([0-9,]+))?\s+items/i)
+  // Expect either "Total: X" or "Total: X / Y".
+  const match = label.match(/Total:\s*([0-9,]+)(?:\s*\/\s*([0-9,]+))?/i)
   // Strip thousands separators before numeric conversion.
   const parseCount = (value?: string) => (value ? Number(value.replace(/,/g, '')) : null)
   // Return both counts so we can compare filtered vs total.
@@ -104,7 +104,7 @@ test('disable config options then duplicate disabled config changes sell counts'
   // Switch the preview into Rule Tester mode.
   await page.getByRole('button', { name: 'Rule Tester' }).click()
   // Wait for the tester count chip to render.
-  await expect(page.locator('[data-tour-id="preview.paper"] [aria-label*="items"]').first()).toBeVisible()
+  await expect(page.locator('[data-tour-id="preview.paper"] [aria-label*="Total:"]').first()).toBeVisible()
   // Wait until the DB import populates the total count.
   await expect.poll(async () => {
     const label = await getTesterCountLabel(page)
