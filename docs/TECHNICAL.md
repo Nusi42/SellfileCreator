@@ -37,13 +37,13 @@ All documents describe the *current* implementation; update the relevant file wh
 
 - Keep code self-documenting whenever possible, but add concise inline comments whenever the intent isn’t immediately obvious. For new or modified sections, aim to include a clarifying comment roughly every three lines; only skip a comment when you can plainly state that the code is trivial (and document that decision in the surrounding comment block). Remove stale comments that no longer represent the current behavior.
 
-### Performance Profiling (local only)
+### Performance Profiling (dev-only instrumentation)
 
-We do not ship instrumentation in production builds. When you need detailed HSFC/HSF timing data:
-- Create a local branch and add a `perfTimeline.ts` helper that wraps `performance.now()` and exposes a global (keep the helper on the local branch only).
-- Gate every `startPerfTimeline`/`markPerfEvent` call behind `if (import.meta.env.DEV)` so only the dev server records data.
-- Extend the Playwright specs to read the timeline and print the deltas, but keep those changes off release branches.
-- Drop the helper and undo the call sites before merging to main.
+We keep perf instrumentation gated behind `import.meta.env.DEV` so production builds stay clean. When you need detailed HSFC/HSF timing data:
+- Use the shared helper at `src/lib/perfTimeline.ts` (it registers `window.__sellfilePerfTimeline` for Playwright snapshots).
+- Keep every `startPerfTimeline`/`markPerfEvent` call behind the DEV gate so only the dev server records data.
+- The Playwright perf specs (notably `tests/playwright/tester-matching-perf.spec.ts`) read the timeline and log deltas; they now include rule-cache phase breakdowns (baseline/detection/final) and a `fast-path=1` flag when the worker skips full scans.
+- The matcher perf spec uses extended timeouts (`PERF_TEST_TIMEOUT_MS`, `WORKLOAD_IDLE_TIMEOUT_MS`) to survive slow Firefox runs; preserve those when tweaking scenarios.
 
 Without the helper, the Playwright perf tests fall back to the built-in measurements (note dialog and first-row render) so routine CI runs stay stable.
 
@@ -147,6 +147,7 @@ Without the helper, the Playwright perf tests fall back to the built-in measurem
 - Specs:
   - `tests/playwright/smoke.spec.ts` is the canonical health-check (`npx playwright test tests/playwright/smoke.spec.ts --project=chromium --reporter=list`).
   - `tests/playwright/config-insert-order.spec.ts` guards the “paste after” ordering regression by loading `samples/Nusi_20251026_2036.hsfc`, performing copy/paste, and verifying row ordering.
+  - `tests/playwright/tester-matching-perf.spec.ts` measures matcher rebuild latency for config name and Keep Uniques changes using the `tests/data/sample.hsfc` + `tests/data/sample.db` fixtures (Chromium + Firefox focus).
 - Default test runs:
   - `npm run test:unit` executes the node:test suite and HSFC fixture runner.
   - `npm run test:e2e` executes the Playwright suite in Chromium for fast local runs.

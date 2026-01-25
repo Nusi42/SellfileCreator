@@ -113,6 +113,25 @@ export type RuleCachePipelineProgressResponse = {
   payload: ProgressSnapshot
 }
 
+// Phase markers emitted by the worker for perf timeline breakdowns.
+export type RuleCachePipelinePhase =
+  | 'baseline:start'
+  | 'baseline:done'
+  | 'detection:start'
+  | 'detection:done'
+  | 'final:start'
+  | 'final:done'
+
+// Lightweight phase marker used by the perf timeline helper.
+export type RuleCachePipelinePhaseResponse = {
+  id: number
+  kind: 'pipeline:phase'
+  payload: {
+    phase: RuleCachePipelinePhase
+    data?: Record<string, string | number | boolean | null>
+  }
+}
+
 export type RuleCacheErrorResponse = {
   id: number
   kind: 'error'
@@ -125,6 +144,7 @@ export type RuleCacheWorkerResponse =
   | RuleCacheBuilderCountResponse
   | RuleCachePipelineResponse
   | RuleCachePipelineProgressResponse
+  | RuleCachePipelinePhaseResponse
   | RuleCacheErrorResponse
 
 export type RuleCacheWorkerRequest =

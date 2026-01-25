@@ -13,6 +13,7 @@ import type {
 } from '../workers/testerMatchWorkerTypes'
 import type { ProgressSnapshot } from '../types/progress'
 import { createProgressThrottler } from '../types/progress'
+import { PERF_EVENTS, markPerfEvent } from '../lib/perfTimeline'
 
 type ConfigureParams = {
   rules: HsfRuleWithCfg[]
@@ -40,6 +41,18 @@ type PendingRequest<T> = {
 type PendingEvaluateRequest = PendingRequest<TesterMatchWorkerItemResult[]> & { onProgress?: (progress: ProgressSnapshot) => void }
 
 const supportsWorkerEnv = typeof window !== 'undefined' && typeof Worker !== 'undefined'
+
+// Dev-only perf marker helper keeps call sites concise for worker timing.
+type PerfEventPayload = Record<string, string | number | boolean | null>
+// Allow lazy payload creation so release builds avoid data allocations entirely.
+type PerfEventPayloadFactory = () => PerfEventPayload
+const maybeMarkPerfEvent = (label: string, data?: PerfEventPayload | PerfEventPayloadFactory): void => {
+  // Avoid emitting perf markers outside dev builds.
+  if (!import.meta.env.DEV) return
+  // Resolve data lazily so payload objects are only built in dev.
+  const resolved = typeof data === 'function' ? data() : data
+  markPerfEvent(label, resolved)
+}
 
 const evaluateRowsFallback = (
   rules: HsfRuleWithCfg[],
@@ -116,6 +129,8 @@ export function useTesterMatchWorker(): UseTesterMatchWorkerResult {
         const pending = configureMap.get(data.id)
         if (!pending) return
         configureMap.delete(data.id)
+        // Mark worker configure completion for perf timelines.
+        maybeMarkPerfEvent(PERF_EVENTS.testerMatchWorkerConfigureDone, () => ({ id: data.id }))
         pending.resolve()
         return
       }
@@ -128,6 +143,11 @@ export function useTesterMatchWorker(): UseTesterMatchWorkerResult {
         const pending = evaluateMap.get(data.id)
         if (!pending) return
         evaluateMap.delete(data.id)
+        // Mark worker evaluate completion for perf timelines.
+        maybeMarkPerfEvent(PERF_EVENTS.testerMatchWorkerEvaluateDone, () => ({
+          id: data.id,
+          results: data.payload.results.length,
+        }))
         pending.resolve(data.payload.results)
         return
       }
@@ -182,6 +202,12 @@ export function useTesterMatchWorker(): UseTesterMatchWorkerResult {
       pendingConfigureRef.current.set(id, { resolve, reject })
     })
     lastConfigurePromiseRef.current = promise
+    // Mark configure request send for perf timelines.
+    maybeMarkPerfEvent(PERF_EVENTS.testerMatchWorkerConfigureSend, () => ({
+      id,
+      rules: params.rules.length,
+      modes: params.configModes.length,
+    }))
     const message: TesterMatchWorkerRequest = {
       id,
       kind: 'configure',
@@ -198,6 +224,8 @@ export function useTesterMatchWorker(): UseTesterMatchWorkerResult {
   const evaluateItems = useCallback<UseTesterMatchWorkerResult['evaluateItems']>((params) => {
     if (!params.items.length) return Promise.resolve([])
     if (!supportsWorkerEnv || !workerRef.current) {
+      // Note the fallback path so perf traces capture worker unavailability.
+      maybeMarkPerfEvent(PERF_EVENTS.testerMatchWorkerEvaluateFallback, () => ({ items: params.items.length }))
       const results = evaluateRowsFallback(
         fallbackRulesRef.current,
         fallbackConfigModesRef.current,
@@ -218,6 +246,8 @@ export function useTesterMatchWorker(): UseTesterMatchWorkerResult {
         }
         pendingEvaluateRef.current.set(id, pendingEntry)
       })
+      // Mark evaluate request send for perf timelines.
+      maybeMarkPerfEvent(PERF_EVENTS.testerMatchWorkerEvaluateSend, () => ({ id, items: params.items.length }))
       const payload: TesterMatchWorkerEvaluatePayload = {
         items: params.items,
       }

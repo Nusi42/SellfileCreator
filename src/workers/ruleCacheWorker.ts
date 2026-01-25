@@ -5,7 +5,7 @@ import { createConfigRulesCache, updateConfigRulesCache } from '../lib/ruleCache
 import { RULE_SOURCE_KEEP_UNIQUES, computeMergedRules } from '../lib/merge'
 import { configsForRuleBuild, countRulesForConfigs } from '../lib/ruleCacheHelpers'
 import { buildRuleMatchIndexData } from '../lib/ruleMatchIndex'
-import { evaluateMatchesByConfig, type EvalResult } from '../lib/ruleEval'
+import { evaluateMatchesByConfig, matchRule, type EvalResult } from '../lib/ruleEval'
 import { buildIgnoreKeepUniqueConfigIndices, collectKeepUniqueCandidates, computeKeepUniqueProtection, hasActiveKeepUniqueRules, resolveKeepUniqueRuleLabel } from '../lib/keepUniques'
 import type { KeepUniqueDetectionSnapshot } from '../lib/keepUniques'
 import type { NormalizedGearArtifact } from '../lib/importers/gearDbNormalizer'
@@ -13,8 +13,8 @@ import type { HsfRuleWithCfg } from '../lib/merge'
 import type { BuilderConfig, SellfileExportMode } from '../lib/hsfBuilder'
 import type { TesterMatchWorkerItemResult } from './testerMatchWorkerTypes'
 import type { TesterPreviewMatch } from '../types/testerPreview'
-import type { RuleCacheWorkerRequest, RuleCacheWorkerResponse } from './ruleCacheWorkerTypes'
-import { resolveMatchConfigName } from '../lib/ruleConfigIndex'
+import type { RuleCachePipelinePhase, RuleCacheWorkerRequest, RuleCacheWorkerResponse } from './ruleCacheWorkerTypes'
+import { getRuleConfigIndex, resolveMatchConfigName } from '../lib/ruleConfigIndex'
 import { fingerprintRuleTesterItem } from '../lib/ruleTesterSession'
 import type { RuleTesterItem } from '../lib/ruleTesterSession'
 import { fingerprintKeepUniqueDetection } from '../lib/keepUniqueFingerprint'
@@ -74,6 +74,23 @@ const postPipelineProgress = (id: number, payload: { completed: number; total: n
     id,
     kind: 'pipeline:progress',
     payload,
+  }
+  self.postMessage(response)
+}
+
+// Emit lightweight phase markers so perf timelines can break down pipeline stages.
+const postPipelinePhase = (
+  id: number,
+  phase: RuleCachePipelinePhase,
+  data?: Record<string, string | number | boolean | null>,
+): void => {
+  const response: RuleCacheWorkerResponse = {
+    id,
+    kind: 'pipeline:phase',
+    payload: {
+      phase,
+      ...(data ? { data } : {}),
+    },
   }
   self.postMessage(response)
 }
@@ -226,6 +243,7 @@ const buildPipelineMatches = (
   completedRef: { value: number },
   id: number,
   emitProgress: boolean,
+  hasKeepUniqueRules: boolean,
 ): TesterMatchWorkerItemResult[] => {
   if (!artifactEntries.length) return []
   const results: TesterMatchWorkerItemResult[] = []
@@ -240,9 +258,16 @@ const buildPipelineMatches = (
     const baseOptions = configModes
       ? { configModes, excludeSources: [RULE_SOURCE_KEEP_UNIQUES] as const }
       : { excludeSources: [RULE_SOURCE_KEEP_UNIQUES] as const }
+    // Full evaluation always runs to capture the complete match list.
     const fullEval = evaluateMatchesByConfig(mergedRules, artifact.testerItem, fullOptions)
-    const baseEval = baseMatchMap?.get(itemId)
-      ?? evaluateMatchesByConfig(mergedRules, artifact.testerItem, baseOptions)
+    // Reuse cached base matches when possible to avoid redundant scans.
+    const cachedBase = baseMatchMap?.get(itemId)
+    // Skip the base scan entirely when no keep-unique rules exist.
+    const baseEval = cachedBase
+      ? cachedBase
+      : (hasKeepUniqueRules
+        ? evaluateMatchesByConfig(mergedRules, artifact.testerItem, baseOptions)
+        : fullEval)
     results.push({
       itemId,
       firstMatch: fullEval.firstMatch,
@@ -370,6 +395,8 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
       baselineMatchMap.set(itemId, entry.baseMatch)
     })
     if (needsDetection) {
+      // Baseline phase: refresh missing base matches so detection can reuse them.
+      postPipelinePhase(id, 'baseline:start', { total: artifactEntries.length })
       // Only dispatch match jobs for artifacts whose baseline is missing or stale.
       const missingEntries = artifactEntries.filter(([itemId]) => !baselineMatchMap.has(itemId))
       const cachedCount = artifactEntries.length - missingEntries.length
@@ -390,6 +417,7 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
           baseProgressRef,
           id,
           true,
+          hasActiveKeepUniques,
         )
         for (const result of baseMatchResults) {
           baselineMatchMap.set(result.itemId, result)
@@ -401,6 +429,8 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
       } else {
         completed = warmTotal + cachedCount
       }
+      // Baseline phase complete: report cached vs recomputed counts.
+      postPipelinePhase(id, 'baseline:done', { missing: missingEntries.length, cached: cachedCount })
     } else {
       completed = warmTotal
     }
@@ -426,31 +456,60 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
 
     // Precompute ignored configs so matcher precedence can reuse the set.
     const ignoreKeepUniqueConfigIndices = buildIgnoreKeepUniqueConfigIndices(configsForRules)
+    // Keep detection optional so we only pay for it when needed.
     let detectionSnapshot: KeepUniqueDetectionSnapshot | null = null
+    // Only compute detection when the caller requested keep-unique scanning.
     if (needsDetection) {
+      // Detection phase: collect candidate groups + compute the keep-unique snapshot.
+      postPipelinePhase(id, 'detection:start', {
+        artifacts: artifactEntries.length,
+        keepUniqueRules: payload.keepUniques.rules.length,
+      })
+      // Build a row list that mirrors the preview matcher inputs.
       const rows = artifactEntries.map(([itemId, artifact]) => {
+        // Reuse cached baseline matches to avoid re-evaluating base rules.
         const match = baselineMatchMap.get(itemId)
         return {
+          // Keep the raw artifact for candidate generation.
           artifact,
+          // Detection ignores final matches; seed with null.
           match: null,
+          // Provide a base match so detection can respect existing keep/sell results.
           baseMatch: toPreviewMatch(match?.firstNonExcludedMatch ?? match?.firstMatch ?? null, mergedRulesBaseline),
+          // Carry baseline config index sets to keep candidate math stable.
           matchingCfgIndices: match?.matchingConfigIndices ?? [],
+          // Carry baseline config decisions for keep-unique precedence checks.
           matchingConfigDecisions: match?.matchingConfigDecisions ?? [],
         }
       })
+      // Collect candidate groups before running keep-unique protection logic.
       const candidates = collectKeepUniqueCandidates({
+        // Use the prebuilt rows for stable snapshotting.
         rows,
+        // Candidate generation depends on the base (non-keep-unique) rules.
         baseRules: mergedRulesBaseline,
+        // Config modes gate which rules can claim a candidate.
         configModes: payload.configModes,
+        // Exclude configs tagged to ignore keep-unique overrides.
         ignoreKeepUniqueConfigIndices,
       })
+      // Produce a detection snapshot for downstream keep-unique rule injection.
       detectionSnapshot = computeKeepUniqueProtection({
+        // Use only the candidate list (not the full wrapper).
         candidates: candidates.candidates,
+        // Supply the current keep-unique rules.
         rules: payload.keepUniques.rules,
+        // Respect the keep-unique enabled toggle.
         enabled: payload.keepUniques.enabled,
+      })
+      // Detection phase complete: surface the candidate + entry counts.
+      postPipelinePhase(id, 'detection:done', {
+        candidates: candidates.candidates.length,
+        entries: detectionSnapshot?.entries.length ?? 0,
       })
     }
 
+    // Build the final merged rules with keep-unique injections if active.
     const mergedRulesFinal = computeMergedRules({
       hsf: payload.hsf,
       customCfgs: configsForRules,
@@ -458,19 +517,92 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
       substatTargets: payload.substatTargets,
       ...(payload.finalSellRemainder ? { finalSellRemainder: payload.finalSellRemainder } : {}),
       prebuiltCustomRules,
+      // If keep-uniques is active, pass the detection snapshot through.
       keepUniques: baseKeepUniques
         ? {
+          // Reuse the existing keep-unique payload.
           ...payload.keepUniques,
+          // Inject the latest detection data.
           detection: detectionSnapshot,
         }
         : payload.keepUniques,
     })
-    // Final-match cache needs to know both the rule fingerprint and the detection outcome;
-    // when either changes we fall back to recomputing the affected entries.
+    // Final-match cache needs to know both the rule fingerprint and the detection outcome.
+    // When either changes we fall back to recomputing the affected entries.
     const detectionSignature = fingerprintKeepUniqueDetection(detectionSnapshot)
+    // Compose a signature that invalidates caches on any detection change.
     const finalMatchSignature = `${payload.fingerprint ?? 'null'}|${detectionSignature ?? 'none'}`
+    // Collect final match rows in worker order for the response payload.
     const matches: TesterMatchWorkerItemResult[] = []
+    // Extract keep-unique rules in merged order so we can short-circuit full scans.
+    const keepUniqueRuleEntries: Array<{ rule: HsfRuleWithCfg; ruleIndex: number; cfgIdx: number | null }> = []
+    // Cap fast-path scans so huge keep-unique rule sets fall back to the indexed pipeline.
+    const KEEP_UNIQUE_FAST_PATH_RULE_LIMIT = 500
+    // Only scan keep-unique rules when the feature is active.
+    if (hasActiveKeepUniques) {
+      // Preserve rule order so we match the same precedence as full evaluation.
+      for (let idx = 0; idx < mergedRulesFinal.length; idx += 1) {
+        // Grab the merged rule at this index.
+        const rule = mergedRulesFinal[idx]
+        // Skip non keep-unique rules entirely.
+        if (rule?.__source !== RULE_SOURCE_KEEP_UNIQUES) continue
+        // Store the rule, its index, and its config index for fast matching.
+        keepUniqueRuleEntries.push({
+          // Keep the rule reference for matchRule.
+          rule,
+          // Preserve the merged rule index for downstream match reporting.
+          ruleIndex: idx,
+          // Resolve config index now to avoid extra work per item.
+          cfgIdx: getRuleConfigIndex(rule),
+        })
+      }
+    }
+    // Fast path needs a full baseline map so we can reuse cached matches safely.
+    const baselineMatchesComplete = artifactEntries.length > 0
+      && baselineMatchMap.size === artifactEntries.length
+    // Helper respects the ignore list when deciding if keep-unique can override.
+    const isIgnoredForKeepUnique = (cfgIdx: number | null): boolean => (
+      cfgIdx != null && ignoreKeepUniqueConfigIndices?.has(cfgIdx) === true
+    )
+    // Decide whether keep-unique can override the base matches.
+    const allowKeepUniqueOverride = (baseMatch: TesterMatchWorkerItemResult | null | undefined): boolean => {
+      // No baseline means we can allow keep-unique to decide.
+      if (!baseMatch) return true
+      // Reuse the first-match decision for the quick keep check.
+      const firstMatch = baseMatch.firstMatch
+      // Any non-ignored KEEP match blocks keep-unique overrides.
+      const firstMatchIsKeep = Boolean(firstMatch?.keep && !isIgnoredForKeepUnique(firstMatch?.cfgIdx ?? null))
+      // Short-circuit when the first match is already a KEEP.
+      if (firstMatchIsKeep) return false
+      // Also block when any matching config decision indicates KEEP.
+      for (const decision of baseMatch.matchingConfigDecisions ?? []) {
+        // Ignore keep-unique exclusions when evaluating KEEP decisions.
+        if (decision.keep && !isIgnoredForKeepUnique(decision.cfgIdx)) return false
+      }
+      // Allow keep-unique when no KEEP decisions were detected.
+      return true
+    }
+    // Locate the first keep-unique match in merged order when needed.
+    const findKeepUniqueMatch = (artifact: NormalizedGearArtifact): EvalResult | null => {
+      // No keep-unique rules means no match.
+      if (!keepUniqueRuleEntries.length) return null
+      // Scan in merged order so results match the full pipeline.
+      for (const entry of keepUniqueRuleEntries) {
+        // Skip non-matching keep-unique rules quickly.
+        if (!matchRule(entry.rule, artifact.testerItem)) continue
+        // Return the first keep-unique match as a keep decision.
+        return { ruleIndex: entry.ruleIndex, keep: true, cfgIdx: entry.cfgIdx }
+      }
+      // No keep-unique rule matched this artifact.
+      return null
+    }
     if (needsMatches) {
+      // Fast-path eligibility only depends on baseline completeness + keep-unique rule volume.
+      const fastPathEligible = (
+        baselineMatchesComplete
+        && keepUniqueRuleEntries.length <= KEEP_UNIQUE_FAST_PATH_RULE_LIMIT
+      )
+      // Collect artifacts that need full evaluation (cache misses or invalidated entries).
       const pendingEntries: Array<[number, NormalizedGearArtifact]> = []
       for (const [itemId, artifact] of artifactEntries) {
         const cached = artifactCache.get(itemId)
@@ -486,32 +618,127 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
         }
         pendingEntries.push([itemId, artifact])
       }
+      // Emit the final stage marker so perf timelines can isolate match evaluation.
+      postPipelinePhase(id, 'final:start', {
+        pending: pendingEntries.length,
+        cached: artifactEntries.length - pendingEntries.length,
+        fastPath: fastPathEligible,
+        keepUniqueRules: keepUniqueRuleEntries.length,
+      })
       if (pendingEntries.length > 0) {
         const pendingProgressRef = { value: completed }
-        const pendingMatches = buildPipelineMatches(
-          mergedRulesFinal,
-          pendingEntries,
-          payload.configModes,
-          (needsDetection && baselineMatchMap.size > 0) ? baselineMatchMap : null,
-          ignoreKeepUniqueConfigIndices,
-          total,
-          pendingProgressRef,
-          id,
-          true,
-        )
-        for (const match of pendingMatches) {
-          matches.push(match)
-          const cached = artifactCache.get(match.itemId)
-          if (cached) {
-            cached.finalMatch = match
-            cached.finalMatchSignature = finalMatchSignature
+        // Fast path only works with a complete baseline snapshot.
+        const canFastPathKeepUniques = fastPathEligible && keepUniqueRuleEntries.length > 0
+        // Fast path also covers the disabled keep-unique case by reusing the baseline.
+        const canFastPathDisabled = fastPathEligible && keepUniqueRuleEntries.length === 0
+        if (canFastPathKeepUniques || canFastPathDisabled) {
+          for (const [itemId, artifact] of pendingEntries) {
+            // Pull the baseline match for this artifact.
+            const baseMatch = baselineMatchMap.get(itemId)
+            // Fall back to full eval when the baseline snapshot is missing.
+            if (!baseMatch) {
+              // Reuse the full pipeline so the fallback stays correct.
+              const fallbackMatch = buildPipelineMatches(
+                mergedRulesFinal,
+                [[itemId, artifact]],
+                payload.configModes,
+                baselineMatchMap,
+                ignoreKeepUniqueConfigIndices,
+                total,
+                pendingProgressRef,
+                id,
+                true,
+                keepUniqueRuleEntries.length > 0,
+              )[0]
+              // Guard against empty fallback results.
+              if (fallbackMatch) {
+                // Store the fallback result in the output list.
+                matches.push(fallbackMatch)
+                // Update the artifact cache so the next run can reuse it.
+                const cached = artifactCache.get(fallbackMatch.itemId)
+                if (cached) {
+                  // Cache the final match for quick reuse.
+                  cached.finalMatch = fallbackMatch
+                  // Stamp the signature so invalidation works.
+                  cached.finalMatchSignature = finalMatchSignature
+                }
+              }
+              // Skip the fast path for this entry.
+              continue
+            }
+            // Default to the baseline matches unless keep-unique overrides.
+            const allowKeepUnique = canFastPathKeepUniques && allowKeepUniqueOverride(baseMatch)
+            // Evaluate keep-unique rules only when overrides are allowed.
+            const keepUniqueMatch = allowKeepUnique ? findKeepUniqueMatch(artifact) : null
+            // Prefer keep-unique match when present, else reuse baseline first match.
+            const firstMatch = keepUniqueMatch ?? baseMatch.firstMatch
+            // Preserve the baseline non-excluded match for parity.
+            const baseNonExcluded = baseMatch.firstNonExcludedMatch ?? baseMatch.firstMatch ?? null
+            // If baseline had no non-excluded match, allow keep-unique to fill it.
+            const firstNonExcludedMatch = baseNonExcluded ?? keepUniqueMatch ?? null
+            // Assemble the final match result from baseline + optional keep-unique override.
+            const matchResult: TesterMatchWorkerItemResult = {
+              itemId,
+              firstMatch,
+              firstNonExcludedMatch,
+              matchingConfigIndices: baseMatch.matchingConfigIndices ?? [],
+              matchingConfigDecisions: baseMatch.matchingConfigDecisions ?? [],
+            }
+            // Append the match result to the response list.
+            matches.push(matchResult)
+            // Update the cache entry if the artifact is cached.
+            const cached = artifactCache.get(itemId)
+            if (cached) {
+              // Cache the fast-path match for reuse.
+              cached.finalMatch = matchResult
+              // Record the signature so invalidations are accurate.
+              cached.finalMatchSignature = finalMatchSignature
+            }
+            // Advance progress so the UI can keep the spinner updated.
+            pendingProgressRef.value += 1
+            // Emit progress updates per item to match the normal pipeline behavior.
+            postPipelineProgress(id, { completed: pendingProgressRef.value, total })
           }
+          // Sync the completed counter with the pending progress tracker.
+          completed = pendingProgressRef.value
+        } else {
+          // Fall back to the full pipeline when fast-path prerequisites are missing.
+          const pendingMatches = buildPipelineMatches(
+            mergedRulesFinal,
+            pendingEntries,
+            payload.configModes,
+            (needsDetection && baselineMatchMap.size > 0) ? baselineMatchMap : null,
+            ignoreKeepUniqueConfigIndices,
+            total,
+            pendingProgressRef,
+            id,
+            true,
+            keepUniqueRuleEntries.length > 0,
+          )
+          // Append each full-eval match and refresh the cache.
+          for (const match of pendingMatches) {
+            // Push the result into the output list.
+            matches.push(match)
+            // Update the cached match for this artifact.
+            const cached = artifactCache.get(match.itemId)
+            if (cached) {
+              // Store the final match for reuse.
+              cached.finalMatch = match
+              // Save the signature so the cache knows when it is valid.
+              cached.finalMatchSignature = finalMatchSignature
+            }
+          }
+          // Sync completed with the final progress snapshot.
+          completed = pendingProgressRef.value
         }
-        completed = pendingProgressRef.value
       } else if (total > 0 && completed < total) {
+        // Ensure progress reaches 100% when no work is pending.
         completed = total
+        // Emit the final progress update for the UI.
         postPipelineProgress(id, { completed, total })
       }
+      // Final phase complete: surface how many matches were produced.
+      postPipelinePhase(id, 'final:done', { matches: matches.length })
     } else {
       artifactCache.forEach((entry) => {
         entry.finalMatch = null
