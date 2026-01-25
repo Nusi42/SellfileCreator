@@ -186,6 +186,15 @@ const NOTE_QUESTION_OPTION_SX = {
   '& .MuiFormControlLabel-label': { lineHeight: NOTE_CARD_LABEL_TEXT_SX.lineHeight },
   '& .MuiCheckbox-root, & .MuiRadio-root': { p: 0.25 },
 }
+const NOTE_QUESTION_OPTION_TWO_COLUMN_SX = {
+  // Keep the control aligned to the top of multi-line option text.
+  alignItems: 'flex-start',
+  m: 0,
+  py: 0,
+  // Let the label area stretch so the two columns can align.
+  '& .MuiFormControlLabel-label': { width: '100%' },
+  '& .MuiCheckbox-root, & .MuiRadio-root': { p: 0.25 },
+}
 const NOTE_QUESTION_OPTION_GROUP_STACK_SX = {
   // Keep the stacked option groups compact in the default layout.
   gap: 0.25,
@@ -356,6 +365,97 @@ function renderQuestionOptionLabel(
     >
       {renderQuestionTextTokens({ tokens, chipSx, labelSx })}
     </Typography>
+  )
+}
+
+function renderQuestionOptionText(
+  text: string,
+  chipSx: Record<string, unknown>,
+  labelSx: Record<string, unknown>,
+  textSx?: Record<string, unknown>,
+): JSX.Element {
+  // Tokenize option text to preserve chip + label emphasis markers.
+  const tokens = buildQuestionPromptTokens(text, [], false)
+  // Keep the option text styling consistent across columns.
+  return (
+    <Typography
+      component="span"
+      variant="caption"
+      color="text.secondary"
+      sx={{
+        whiteSpace: 'pre-line',
+        lineHeight: NOTE_CARD_LABEL_TEXT_SX.lineHeight,
+        ...textSx,
+      }}
+    >
+      {renderQuestionTextTokens({ tokens, chipSx, labelSx })}
+    </Typography>
+  )
+}
+
+function renderTwoColumnOptionLabel({
+  option,
+  chipSx,
+  labelSx,
+  labelColumnCh,
+  layout,
+}: {
+  option: NoteQuestionDefinition['options'][number]
+  chipSx: Record<string, unknown>
+  labelSx: Record<string, unknown>
+  labelColumnCh: number
+  layout: 'columns' | 'rows'
+}): JSX.Element {
+  // When a second string exists, treat the first as the label column.
+  const labelText = option.detail ? option.label : ''
+  // When no label exists, keep the full text in the value column.
+  const valueText = option.detail ? option.detail : option.label
+  // Decide which text belongs to the first row when rows are active.
+  const primaryText = option.detail ? option.label : option.label
+  const secondaryText = option.detail ? option.detail : null
+  // Keep the two-column layout predictable by fixing the label column width.
+  const gridTemplateColumns = `${labelColumnCh}ch minmax(0, 1fr)`
+  return (
+    <Box
+      component="span"
+      sx={{
+        display: 'grid',
+        ...(layout === 'columns'
+          ? { gridTemplateColumns, columnGap: 1.25 }
+          : { gridTemplateRows: 'auto auto', rowGap: 0.2 }),
+        alignItems: 'start',
+        width: '100%',
+      }}
+    >
+      {layout === 'columns' ? (
+        <>
+          <Box component="span">
+            {labelText
+              ? renderQuestionOptionText(labelText, chipSx, labelSx, NOTE_CARD_LABEL_TEXT_SX)
+              : null}
+          </Box>
+          <Box component="span">
+            {renderQuestionOptionText(valueText, chipSx, labelSx)}
+          </Box>
+        </>
+      ) : (
+        <>
+          <Box component="span">
+            {renderQuestionOptionText(
+              primaryText,
+              chipSx,
+              labelSx,
+              option.detail ? NOTE_CARD_LABEL_TEXT_SX : undefined,
+            )}
+          </Box>
+          {secondaryText ? (
+            <Box component="span">
+              {renderQuestionOptionText(secondaryText, chipSx, labelSx)}
+            </Box>
+          ) : null}
+        </>
+      )}
+    </Box>
   )
 }
 
@@ -1023,7 +1123,7 @@ ${CONFIG_OPTIONS_EBNF_REFERENCE_LINE}
 group         := ("single" | "s" | "rb" | "radiobutton"
              | "radio" | "multi" | "m" | "cb"
              | "checkbox" | "check")
-             string ["id" "=" token] ["*" | "default"]
+             string [string] ["id" "=" token] ["*" | "default"]
              [constraints] "{" selectorBlock+
              [fallbackBlock] "}"
 selectorBlock := "@" selector "{" assignment+ "}"
@@ -1060,7 +1160,7 @@ const CONFIG_OPTIONS_SAMPLE_EXAMPLE_TEXT = [
   'q "Builder knobs (plain English)?',
   'Line two with **Bold** and `highlight`."',
   // Tag-specific enable/disable toggles.
-  'radio "Default: Activate configs tagged mode" * { @tag=mode { export=active } }',
+  'radio "Default" "Activate configs tagged mode" * { @tag=mode { export=active } }',
   'radio "Disable configs tagged mode" { @tag=mode { export=disabled } }',
   'check "Activate only affects configs tagged: fast" { @tag=fast { export=active } }',
   'check "Activate only affects configs tagged: arena or dungeon" { @tag in [arena, dungeon] { export=active } }',
@@ -1420,6 +1520,24 @@ function NoteQuestionBlock({ node }: NoteQuestionBlockProps): JSX.Element | null
     }),
     [],
   )
+  // Normalize options so hook dependencies stay consistent.
+  const questionOptions = useMemo(
+    () => (question?.options ?? []),
+    [question],
+  )
+  // Two-string option labels trigger a two-column layout for the card.
+  const hasTwoColumnOptions = questionOptions.some((option) => Boolean(option.detail))
+  // Clamp the label column width so short labels stay readable.
+  const labelColumnCh = useMemo(() => {
+    // Measure only the explicit label column values for the two-column layout.
+    const labelLengths = questionOptions
+      .filter((option) => Boolean(option.detail))
+      .map((option) => option.label.length)
+    // Default to a sensible minimum when no labels are available.
+    const rawMax = labelLengths.length > 0 ? Math.max(...labelLengths) : 8
+    // Allow a minimal label width so value text can dominate when desired.
+    return Math.min(Math.max(rawMax, 0), 24)
+  }, [questionOptions])
   if (!question) return null
   // Switch layout styling when the marker opts into full-width rendering.
   const isWholeline = question.layout === NOTE_CONFIG_OPTIONS_LAYOUT_WHOLELINE
@@ -1438,6 +1556,8 @@ function NoteQuestionBlock({ node }: NoteQuestionBlockProps): JSX.Element | null
   const optionGroupSx = isWholeline
     ? buildNoteQuestionOptionGridSx(optionColumnMinWidth, question.layoutColumns)
     : NOTE_QUESTION_OPTION_GROUP_STACK_SX
+  // Use a different row layout when the question renders two-column option text.
+  const optionRowSx = hasTwoColumnOptions ? NOTE_QUESTION_OPTION_TWO_COLUMN_SX : NOTE_QUESTION_OPTION_SX
   // Expand the card width when wholeline layout is enabled.
   const cardWidthSx = isWholeline
     ? { flex: '1 1 100%', minWidth: '100%', maxWidth: '100%', width: '100%' }
@@ -1525,9 +1645,17 @@ function NoteQuestionBlock({ node }: NoteQuestionBlockProps): JSX.Element | null
                         key={option.id}
                         value={option.id}
                         control={<Radio size="small" disabled={!configOptionsEditable} />}
-                        label={renderQuestionOptionLabel(option.label, promptChipSx, promptLabelSx)}
+                        label={hasTwoColumnOptions
+                          ? renderTwoColumnOptionLabel({
+                            option,
+                            chipSx: promptChipSx,
+                            labelSx: promptLabelSx,
+                            labelColumnCh,
+                            layout: isWholeline ? 'rows' : 'columns',
+                          })
+                          : renderQuestionOptionLabel(option.label, promptChipSx, promptLabelSx)}
                         disabled={!configOptionsEditable}
-                        sx={NOTE_QUESTION_OPTION_SX}
+                        sx={optionRowSx}
                       />
                     ))}
                   </RadioGroup>
@@ -1561,9 +1689,17 @@ function NoteQuestionBlock({ node }: NoteQuestionBlockProps): JSX.Element | null
                           }}
                         />
                       )}
-                      label={renderQuestionOptionLabel(option.label, promptChipSx, promptLabelSx)}
+                      label={hasTwoColumnOptions
+                        ? renderTwoColumnOptionLabel({
+                          option,
+                          chipSx: promptChipSx,
+                          labelSx: promptLabelSx,
+                          labelColumnCh,
+                          layout: isWholeline ? 'rows' : 'columns',
+                        })
+                        : renderQuestionOptionLabel(option.label, promptChipSx, promptLabelSx)}
                       disabled={!configOptionsEditable}
-                      sx={NOTE_QUESTION_OPTION_SX}
+                      sx={optionRowSx}
                     />
                   )
                 })}

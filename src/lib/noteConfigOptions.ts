@@ -85,6 +85,8 @@ export type ConfigOptionsSelectorBlock = {
 export type NoteQuestionOption = {
   id: string
   label: string
+  // Optional second string rendered as the value column in two-column layouts.
+  detail: string | null
   blocks: ConfigOptionsSelectorBlock[]
   isDefault: boolean
   token: string
@@ -943,6 +945,8 @@ type ParsedQuestionOption = {
   id: string
   legacyId: string
   label: string
+  // Optional second string that becomes the value column in UI.
+  detail: string | null
   blocks: ConfigOptionsSelectorBlock[]
   fallbackBlocks: ConfigOptionsSelectorBlock[]
   isDefault: boolean
@@ -1072,6 +1076,12 @@ const parseOptionBlock = (
   const labelToken = cursor.consumeString()
   if (!labelToken) return null
   const label = labelToken.value
+  // Capture a second string when provided to support label/value layouts.
+  const detailToken = cursor.peek()
+  const detail = detailToken && detailToken.kind === 'string'
+    ? detailToken.value
+    : null
+  if (detailToken && detailToken.kind === 'string') cursor.next()
   let isDefault = false
   let explicitToken: string | null = null
   const excludedTokens: string[] = []
@@ -1158,6 +1168,7 @@ const parseOptionBlock = (
     id,
     legacyId: id,
     label,
+    detail,
     blocks,
     fallbackBlocks,
     isDefault,
@@ -1502,6 +1513,7 @@ const buildResolvedQuestion = (
     return {
       id: option.id,
       label: option.label,
+      detail: option.detail,
       blocks: option.blocks,
       isDefault: option.isDefault,
       token,
