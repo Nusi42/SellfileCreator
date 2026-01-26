@@ -18,6 +18,7 @@ import type { NormalizedGearArtifact } from '../lib/importers/gearDbNormalizer'
 import type { TesterMatchWorkerEvaluateItem, TesterMatchWorkerItemResult } from '../workers/testerMatchWorkerTypes'
 import type { ProgressSnapshot } from '../types/progress'
 import { getRuleConfigIndex, resolveMatchConfigName } from '../lib/ruleConfigIndex'
+import { PERF_EVENTS, markPerfEvent } from '../lib/perfTimeline'
 
 export const TESTER_PREVIEW_CHUNK_SIZE = 250
 
@@ -59,6 +60,18 @@ const fingerprintMergedRules = (rules: readonly HsfRuleWithCfg[]): string => {
     hash |= 0
   }
   return `${rules.length}:${hash}`
+}
+
+// Dev-only perf marker helper keeps call sites compact while honoring DEV gating.
+type PerfEventPayload = Record<string, string | number | boolean | null>
+// Allow lazy payload creation so release builds avoid data allocations entirely.
+type PerfEventPayloadFactory = () => PerfEventPayload
+const maybeMarkPerfEvent = (label: string, data?: PerfEventPayload | PerfEventPayloadFactory): void => {
+  // Avoid emitting perf markers outside dev builds.
+  if (!import.meta.env.DEV) return
+  // Resolve data lazily so payload objects are only built in dev.
+  const resolved = typeof data === 'function' ? data() : data
+  markPerfEvent(label, resolved)
 }
 
 type UseTesterMatchOrchestratorParams = {
@@ -256,7 +269,19 @@ export function useTesterMatchOrchestrator(params: UseTesterMatchOrchestratorPar
     }
     const noOpBuild = dirtyEntries.length === 0 && nextRowMap.size === prevRowMap.size
     const nextBuildId = gearEntriesBuildIdRef.current + 1
+    // Record the rebuild request so Playwright can correlate downstream steps.
+    maybeMarkPerfEvent(PERF_EVENTS.testerMatchBuildStart, () => ({
+      buildId: nextBuildId,
+      artifacts: artifacts.length,
+      dirty: dirtyEntries.length,
+      rulesChanged,
+      namesChanged,
+      worker: effectiveWorkerSupported,
+      keepUniques: keepUniquesActive,
+    }))
     if (noOpBuild) {
+      // Mark no-op rebuilds so we can spot unnecessary churn.
+      maybeMarkPerfEvent(PERF_EVENTS.testerMatchBuildNoop, () => ({ buildId: nextBuildId }))
       testerPreviewMatchDepsRef.current = { rulesSignature: mergedRulesSignature, namesSignature }
       gearEntriesBuildIdRef.current = nextBuildId
       setGearEntriesActiveBuildId(nextBuildId)
@@ -282,6 +307,8 @@ export function useTesterMatchOrchestrator(params: UseTesterMatchOrchestratorPar
       lastSettledArtifactsRef.current = artifacts
       setGearEntriesBuilding(false)
       setGearEntriesProgress(null)
+      // Record immediate commits for instrumentation.
+      maybeMarkPerfEvent(PERF_EVENTS.testerMatchBuildCommit, () => ({ buildId }))
       return
     }
 
@@ -303,6 +330,8 @@ export function useTesterMatchOrchestrator(params: UseTesterMatchOrchestratorPar
       lastSettledArtifactsRef.current = artifacts
       setGearEntriesBuilding(false)
       setGearEntriesProgress(null)
+      // Track no-rule clears to separate them from full eval passes.
+      maybeMarkPerfEvent(PERF_EVENTS.testerMatchBuildNoRules, () => ({ buildId }))
       return
     }
 
@@ -389,6 +418,12 @@ export function useTesterMatchOrchestrator(params: UseTesterMatchOrchestratorPar
         return { itemId, item: artifact.testerItem }
       })
       let cancelled = false
+      // Mark the start of worker evaluation for the rebuild.
+      maybeMarkPerfEvent(PERF_EVENTS.testerMatchEvalStart, () => ({
+        buildId,
+        dirty: dirtyEntries.length,
+        mode: 'worker',
+      }))
       evaluateTesterMatchItems({
         items: itemsPayload,
         onProgress: (snapshot) => {
@@ -398,6 +433,12 @@ export function useTesterMatchOrchestrator(params: UseTesterMatchOrchestratorPar
       })
         .then((results) => {
           if (cancelled || gearEntriesBuildIdRef.current !== buildId) return
+          // Mark evaluation completion before row transforms begin.
+          maybeMarkPerfEvent(PERF_EVENTS.testerMatchEvalDone, () => ({
+            buildId,
+            results: results.length,
+            mode: 'worker',
+          }))
           results.forEach((result) => {
             const artifact = artifactByItemId.get(result.itemId)
             if (!artifact) return
@@ -422,6 +463,8 @@ export function useTesterMatchOrchestrator(params: UseTesterMatchOrchestratorPar
             setGearEntriesBuilding(false)
             setGearEntriesProgress(null)
           }
+          // Commit marker helps profile total end-to-end time.
+          maybeMarkPerfEvent(PERF_EVENTS.testerMatchBuildCommit, () => ({ buildId }))
         })
         .catch(() => {
           if (cancelled) return
@@ -430,6 +473,8 @@ export function useTesterMatchOrchestrator(params: UseTesterMatchOrchestratorPar
             setGearEntriesBuilding(false)
             setGearEntriesProgress(null)
           }
+          // Cancel marker tracks aborted or failed worker runs.
+          maybeMarkPerfEvent(PERF_EVENTS.testerMatchBuildCancelled, () => ({ buildId }))
         })
       return () => {
         cancelled = true
@@ -452,6 +497,11 @@ export function useTesterMatchOrchestrator(params: UseTesterMatchOrchestratorPar
       setGearEntriesProgress(null)
     }
     let cancelled = false
+    // Mark the start of fallback evaluation.
+    maybeMarkPerfEvent(PERF_EVENTS.testerMatchEvalFallbackStart, () => ({
+      buildId,
+      dirty: dirtyEntries.length,
+    }))
 
     // Evaluates one artifact synchronously.
     const buildRow = (artifact: NormalizedGearArtifact, itemId: number): TesterPreviewRow => {
@@ -500,6 +550,13 @@ export function useTesterMatchOrchestrator(params: UseTesterMatchOrchestratorPar
         setGearEntriesBuilding(false)
         setGearEntriesProgress(null)
       }
+      // Mark fallback completion once rows commit.
+      maybeMarkPerfEvent(PERF_EVENTS.testerMatchEvalFallbackDone, () => ({
+        buildId,
+        rows: sortedRows.length,
+      }))
+      // Mirror the commit marker so timings align with worker runs.
+      maybeMarkPerfEvent(PERF_EVENTS.testerMatchBuildCommit, () => ({ buildId }))
     }
     return () => {
       cancelled = true

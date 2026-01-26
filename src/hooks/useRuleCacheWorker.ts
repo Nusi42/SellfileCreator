@@ -5,7 +5,7 @@ import type { Metaset } from '../lib/metasets'
 import type { HsfRuleWithCfg } from '../lib/merge'
 import { RULE_SOURCE_KEEP_UNIQUES, computeMergedRules } from '../lib/merge'
 import { configsForRuleBuild, countRulesForConfigs } from '../lib/ruleCacheHelpers'
-import type { RuleCacheWorkerRequest, RuleCacheWorkerResponse } from '../workers/ruleCacheWorkerTypes'
+import type { RuleCachePipelinePhase, RuleCacheWorkerRequest, RuleCacheWorkerResponse } from '../workers/ruleCacheWorkerTypes'
 import RuleCacheWorker from '../workers/ruleCacheWorker?worker&inline'
 import type { HsfFile } from '../lib/hsfTypes'
 import type { FinalSellRemainderConfig } from '../lib/finalSell'
@@ -19,6 +19,7 @@ import type { ProgressSnapshot } from '../types/progress'
 import { createProgressThrottler } from '../types/progress'
 import type { TesterPreviewMatch } from '../types/testerPreview'
 import { resolveMatchConfigName } from '../lib/ruleConfigIndex'
+import { PERF_EVENTS, markPerfEvent } from '../lib/perfTimeline'
 
 type WarmCacheParams = {
   configs: BuilderConfig[]
@@ -95,6 +96,34 @@ type UseRuleCacheWorkerResult = {
 }
 
 const supportsWorkerEnv = typeof window !== 'undefined' && typeof Worker !== 'undefined'
+
+// Dev-only perf marker helper keeps call sites compact while honoring DEV gating.
+type PerfEventPayload = Record<string, string | number | boolean | null>
+// Allow lazy payload creation so release builds avoid data allocations entirely.
+type PerfEventPayloadFactory = () => PerfEventPayload
+const maybeMarkPerfEvent = (label: string, data?: PerfEventPayload | PerfEventPayloadFactory): void => {
+  // Avoid emitting perf markers outside dev builds.
+  if (!import.meta.env.DEV) return
+  // Resolve data lazily so payload objects are only built in dev.
+  const resolved = typeof data === 'function' ? data() : data
+  markPerfEvent(label, resolved)
+}
+
+// Map rule-cache pipeline phases to perf timeline labels to keep matching centralized.
+const RULE_CACHE_PHASE_MARKERS: Record<RuleCachePipelinePhase, string> = {
+  // Baseline passes capture the initial match evaluation before keep-unique overrides.
+  'baseline:start': PERF_EVENTS.ruleCacheBaselineStart,
+  // Baseline done marks the end of the initial matcher pass.
+  'baseline:done': PERF_EVENTS.ruleCacheBaselineDone,
+  // Detection start marks the keep-unique detection snapshot phase.
+  'detection:start': PERF_EVENTS.ruleCacheDetectionStart,
+  // Detection done signals the end of keep-unique snapshot building.
+  'detection:done': PERF_EVENTS.ruleCacheDetectionDone,
+  // Final start marks the keep-unique-adjusted match pass.
+  'final:start': PERF_EVENTS.ruleCacheFinalMatchStart,
+  // Final done marks the end of match evaluation.
+  'final:done': PERF_EVENTS.ruleCacheFinalMatchDone,
+}
 
 export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
   const workerRef = useRef<Worker | null>(null)
@@ -430,12 +459,26 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
         pending?.onProgress?.(data.payload)
         return
       }
+      if (data.kind === 'pipeline:phase') {
+        // Skip aborted pipelines so perf timelines only reflect active work.
+        if (abortedIdsRef.current.has(data.id)) return
+        // Resolve the perf marker for the phase we just received.
+        const marker = RULE_CACHE_PHASE_MARKERS[data.payload.phase]
+        // Attach the request id plus any phase payload details for logging.
+        maybeMarkPerfEvent(marker, () => ({ id: data.id, ...(data.payload.data ?? {}) }))
+        return
+      }
       if (data.kind === 'warm:done') {
         const pending = warmMap.get(data.id)
         if (!pending) return
         warmMap.delete(data.id)
         const aborted = abortedSet.delete(data.id)
         if (aborted) return
+        // Mark warm completion so perf timelines can isolate rule cache time.
+        maybeMarkPerfEvent(PERF_EVENTS.ruleCacheWarmDone, () => ({
+          id: data.id,
+          rules: data.payload.mergedRules.length,
+        }))
         const state: RuleCacheStateSnapshot = {
           rulesByConfig: new Map<number, HsfRuleWithCfg[]>(data.payload.rulesByConfigEntries),
           countsByConfig: new Map<number, number>(data.payload.countsByConfigEntries),
@@ -457,6 +500,13 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
         if (!pending) return
         pipelineMap.delete(data.id)
         if (aborted) return
+        // Mark pipeline completion so perf timelines can isolate match durations.
+        maybeMarkPerfEvent(PERF_EVENTS.ruleCachePipelineDone, () => ({
+          id: data.id,
+          rules: data.payload.mergedRules.length,
+          matches: data.payload.matches.length,
+          detection: Boolean(data.payload.detection),
+        }))
         const state: RuleCacheStateSnapshot = {
           rulesByConfig: new Map<number, HsfRuleWithCfg[]>(data.payload.rulesByConfigEntries),
           countsByConfig: new Map<number, number>(data.payload.countsByConfigEntries),
@@ -548,7 +598,18 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
     // Local fallback should stay parity with worker mode, including determinate updates.
     const localProgressOptions = options?.onProgress ? { onProgress: options.onProgress } : undefined
     if (!supportsWorkerEnv || !workerRef.current) {
-      return Promise.resolve(runWarmLocally(params, localProgressOptions))
+      // Mark warm start before running the local fallback.
+      maybeMarkPerfEvent(PERF_EVENTS.ruleCacheWarmStart, () => ({
+        configs: params.configs.length,
+        worker: false,
+      }))
+      const result = runWarmLocally(params, localProgressOptions)
+      // Mark warm completion for the local fallback path.
+      maybeMarkPerfEvent(PERF_EVENTS.ruleCacheWarmDone, () => ({
+        rules: result.state.mergedRules.length,
+        worker: false,
+      }))
+      return Promise.resolve(result)
     }
 
     if (signal?.aborted) {
@@ -603,6 +664,12 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
     }
 
     try {
+      // Mark warm start before dispatching to the worker.
+      maybeMarkPerfEvent(PERF_EVENTS.ruleCacheWarmStart, () => ({
+        id,
+        configs: params.configs.length,
+        worker: true,
+      }))
       worker.postMessage(message)
     } catch (_error) {
       pendingWarmRef.current.delete(id)
@@ -629,7 +696,27 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
       ? { onProgress: createProgressThrottler(options.onProgress) }
       : undefined
     if (!supportsWorkerEnv || !workerRef.current) {
-      return Promise.resolve(runPipelineLocally(params, localProgressOptions))
+      // Mark pipeline start before running the local fallback.
+      maybeMarkPerfEvent(PERF_EVENTS.ruleCachePipelineStart, () => ({
+        artifacts: params.artifacts?.length ?? 0,
+        worker: false,
+        skipWarm: params.skipWarm ?? false,
+        skipMatches: params.skipMatches ?? false,
+        skipDetection: params.skipDetection ?? false,
+      }))
+      const result = runPipelineLocally(params, localProgressOptions)
+      // Mark pipeline fallback completion for perf traces.
+      maybeMarkPerfEvent(PERF_EVENTS.ruleCachePipelineFallback, () => ({
+        rules: result.state.mergedRules.length,
+        matches: result.matches.length,
+      }))
+      // Mirror the completion marker for local pipeline runs.
+      maybeMarkPerfEvent(PERF_EVENTS.ruleCachePipelineDone, () => ({
+        rules: result.state.mergedRules.length,
+        matches: result.matches.length,
+        detection: Boolean(result.detection),
+      }))
+      return Promise.resolve(result)
     }
 
     if (signal?.aborted) {
@@ -699,6 +786,15 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
     }
 
     try {
+      // Mark pipeline start before dispatching to the worker.
+      maybeMarkPerfEvent(PERF_EVENTS.ruleCachePipelineStart, () => ({
+        id,
+        artifacts: params.artifacts?.length ?? 0,
+        worker: true,
+        skipWarm: params.skipWarm ?? false,
+        skipMatches: params.skipMatches ?? false,
+        skipDetection: params.skipDetection ?? false,
+      }))
       worker.postMessage(message)
     } catch (_error) {
       pendingPipelineRef.current.delete(id)
