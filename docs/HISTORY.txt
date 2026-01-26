@@ -1,6 +1,21 @@
 ﻿Sellfile Creator Release History
 DISCLAIMER: These release notes are AI generated and might contain incorrect statements.
 
+## v0.9.14 — 2026-01-26
+English:
+- Auto-apply now flushes before you move or reorder configs, so edits stay with the config you just moved.
+- The Rule Tester header (and the Note dialog) now shows a keep/sell/keep-unique summary chip with totals; with filters active it shows filtered/total counts.
+- Rule Tester grouping controls are more granular: toggle set/slot/faction grouping for artifacts vs accessories, and optionally hide headers for a flat list.
+- Rule Tester matching is faster, especially with Keep Uniques enabled.
+- The Rule Tester grid now defaults to 4 columns.
+
+Deutsch:
+- Auto-Apply speichert Aenderungen jetzt vor dem Verschieben/Sortieren, damit die Edits beim verschobenen Config bleiben.
+- Im Rule Tester zeigt der Header (und der Notiz-Dialog) jetzt eine Keep/Sell/Keep-Uniques-Zusammenfassung mit Gesamtzahlen; bei Filtern stehen gefiltert/gesamt dabei.
+- Die Rule-Tester-Gruppierung ist feiner: Set/Slot/Fraktion lassen sich getrennt fuer Artefakte und Accessoires toggeln, plus optional "keine Header" fuer eine flache Liste.
+- Die Rule-Tester-Auswertung ist schneller, besonders mit Keep Uniques.
+- Das Rule-Tester-Grid startet jetzt standardmaessig mit 4 Spalten.
+
 ## v0.9.13 — 2026-01-20
 English:
 - Rule Tester cards can now show an optional "Add Config" action that builds Keep/Sell configs from the selected item and jumps you to the new config.
