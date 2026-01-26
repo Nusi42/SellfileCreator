@@ -40,19 +40,14 @@ import ContextMenuPaper, { buildContextMenuPaperSlotProps } from './ContextMenuP
 import ContextMenuTitle from './ContextMenuTitle'
 import DeleteIcon from '@mui/icons-material/Delete'
 import GridViewIcon from '@mui/icons-material/GridView'
-import AccountTreeIcon from '@mui/icons-material/AccountTree'
-import CallSplitIcon from '@mui/icons-material/CallSplit'
-import ViewStreamIcon from '@mui/icons-material/ViewStream'
+import CategoryIcon from '@mui/icons-material/Category'
 import GroupsIcon from '@mui/icons-material/Groups'
+import VisibilityOffIcon from '@mui/icons-material/VisibilityOff'
 import {
-  TESTER_GROUPING_MODE_DEFAULT,
-  TESTER_GROUPING_MODE_FACTION_ACCESSORY,
-  TESTER_GROUPING_MODE_FLAT,
-  TESTER_GROUPING_MODE_SPLIT,
   TESTER_SORT_KEY_LAST_USAGE,
   TESTER_SORT_WEIGHT_DEFAULT,
   isNeutralTesterSortWeight,
-  type TesterGroupingMode,
+  isDefaultTesterGroupingState,
   type TesterSortKey,
   type TesterSubstatSortDirection,
 } from '../lib/testerSort'
@@ -82,8 +77,9 @@ type ProgressChipProps = {
   children: React.ReactElement
 }
 
-// Compact icon buttons need a fixed footprint to align with other popover controls.
-const GROUPING_ICON_BUTTON_SIZE_PX = 32
+// Match the Normalized preset buttons so grouping controls stay compact.
+const GROUPING_ICON_BUTTON_SIZE_PX = 28
+const GROUPING_ICON_PRIMARY_SX = { fontSize: 18 } as const
 
 function ProgressChip({ progressRatio, ariaLabel, children }: ProgressChipProps) {
   const clampedRatio = Math.max(0, Math.min(1, progressRatio))
@@ -143,7 +139,12 @@ export default function PreviewHeaderActions(props: {
 	  onClearTesterSubstatSort: () => void
 	  onSetTesterSubstatSortState: (next: TesterSubstatSortState) => void
 	  onSetTesterSubstatSortDirection: (direction: TesterSubstatSortDirection) => void
-	  onSetTesterSubstatSortGrouping: (next: TesterGroupingMode) => void
+	  onToggleTesterArtifactGroupBySet: () => void
+	  onToggleTesterArtifactGroupBySlot: () => void
+	  onToggleTesterAccessoryGroupByFaction: () => void
+	  onToggleTesterAccessoryGroupBySet: () => void
+	  onToggleTesterAccessoryGroupBySlot: () => void
+	  onToggleTesterGroupingHeaders: () => void
 	  onToggleTesterSubstatSortExcludeGlyphs: () => void
 	  onToggleTesterSubstatSortPriority: (key: TesterSortKey) => void
 	  onToggleTesterSubstatSortPriorityFlipped: (key: TesterSortKey) => void
@@ -199,7 +200,12 @@ export default function PreviewHeaderActions(props: {
     onClearTesterSubstatSort,
     onSetTesterSubstatSortState,
 	    onSetTesterSubstatSortDirection,
-	    onSetTesterSubstatSortGrouping,
+	    onToggleTesterArtifactGroupBySet,
+	    onToggleTesterArtifactGroupBySlot,
+	    onToggleTesterAccessoryGroupByFaction,
+	    onToggleTesterAccessoryGroupBySet,
+	    onToggleTesterAccessoryGroupBySlot,
+	    onToggleTesterGroupingHeaders,
 	    onToggleTesterSubstatSortExcludeGlyphs,
 		    onToggleTesterSubstatSortPriority,
 		    onToggleTesterSubstatSortPriorityFlipped,
@@ -300,7 +306,6 @@ export default function PreviewHeaderActions(props: {
   const sortLabel = t('testerSortLabel')
   const sortClearLabel = t('testerSortClear')
   const sortDirectionLabel = t('testerSortDirection')
-  const sortGroupingLabel = t('testerSortGroupingLabel')
   const sortGlyphsLabel = t('testerSortGlyphsLabel')
 	  const sortGlyphsExcludeLabel = t('testerSortGlyphsExclude')
 	  const sortGlyphsIncludeLabel = t('testerSortGlyphsInclude')
@@ -316,33 +321,10 @@ export default function PreviewHeaderActions(props: {
 	  const sortLastUsedLabel = t('testerLastUsedFilterLabel')
 	  const sortGlyphInheritDirectionLabel = t('testerSortPerKeyInheritDirection')
 	  const sortGlyphFlippedDirectionLabel = t('testerSortPerKeyFlippedDirection')
-	  // Localized grouping options drive the icon toggle row in the sort popover.
-	  const groupingOptions = [
-	    {
-	      value: TESTER_GROUPING_MODE_DEFAULT,
-	      label: t('testerSortGroupingDefaultLabel'),
-	      tooltip: t('testerSortGroupingDefaultTooltip'),
-	      icon: <AccountTreeIcon fontSize="small" />,
-	    },
-	    {
-	      value: TESTER_GROUPING_MODE_FACTION_ACCESSORY,
-	      label: t('testerSortGroupingAccessoryFactionLabel'),
-	      tooltip: t('testerSortGroupingAccessoryFactionTooltip'),
-	      icon: <GroupsIcon fontSize="small" />,
-	    },
-	    {
-	      value: TESTER_GROUPING_MODE_SPLIT,
-	      label: t('testerSortGroupingSplitLabel'),
-	      tooltip: t('testerSortGroupingSplitTooltip'),
-	      icon: <CallSplitIcon fontSize="small" />,
-	    },
-	    {
-	      value: TESTER_GROUPING_MODE_FLAT,
-	      label: t('testerSortGroupingFlatLabel'),
-	      tooltip: t('testerSortGroupingFlatTooltip'),
-	      icon: <ViewStreamIcon fontSize="small" />,
-	    },
-	  ] as const
+	  const sortGroupingArtifactsLabel = t('testerSortGroupingArtifactsLabel')
+	  const sortGroupingAccessoriesLabel = t('testerSortGroupingAccessoriesLabel')
+	  const sortGroupingNoHeadersLabel = t('testerSortGroupingNoHeadersLabel')
+	  const sortGroupingNoHeadersTooltip = t('testerSortGroupingNoHeadersTooltip')
   const exportMenuEnabled = React.useMemo(
     () => typeof onExportDeduped === 'function' || typeof onToggleDedupeDefault === 'function' || typeof onToggleOmitDisabled === 'function',
     [onExportDeduped, onToggleDedupeDefault, onToggleOmitDisabled],
@@ -563,6 +545,62 @@ export default function PreviewHeaderActions(props: {
 	  const sortActive = !isRulesMode && (sortPriorities.length > 0 || sortNormalizedEffective)
 	  // Disable non-normalized controls when they would do nothing (no priorities and normalized isn't effective).
 	  const sortControlsDisabled = !sortActive
+	  // Grouping is independent of sorting, but still irrelevant in Rules mode.
+	  const groupingControlsDisabled = isRulesMode
+	  // Grouping defaults keep the Sort clear button hidden until a user actually changes layout.
+	  const groupingIsDefault = isDefaultTesterGroupingState(testerSubstatSort.grouping)
+	  // Snapshot the grouping choices once so the render logic stays readable.
+	  const artifactGroupBySet = testerSubstatSort.grouping.artifacts.bySet
+	  const artifactGroupBySlot = testerSubstatSort.grouping.artifacts.bySlot
+	  const accessoryGroupByFaction = testerSubstatSort.grouping.accessories.byFaction
+	  const accessoryGroupBySet = testerSubstatSort.grouping.accessories.bySet
+	  const accessoryGroupBySlot = testerSubstatSort.grouping.accessories.bySlot
+	  const groupingHideHeaders = testerSubstatSort.grouping.hideHeaders
+	  // Localized grouping toggles drive the artifact/accessory rows in the sort popover.
+	  const artifactGroupingToggles = [
+	    {
+	      key: 'set',
+	      label: t('testerSortGroupingArtifactsSetLabel'),
+	      tooltip: t('testerSortGroupingArtifactsSetTooltip'),
+	      icon: <CategoryIcon sx={GROUPING_ICON_PRIMARY_SX} />,
+	      active: artifactGroupBySet,
+	      onToggle: onToggleTesterArtifactGroupBySet,
+	    },
+	    {
+	      key: 'slot',
+	      label: t('testerSortGroupingArtifactsSlotLabel'),
+	      tooltip: t('testerSortGroupingArtifactsSlotTooltip'),
+	      icon: <GridViewIcon sx={GROUPING_ICON_PRIMARY_SX} />,
+	      active: artifactGroupBySlot,
+	      onToggle: onToggleTesterArtifactGroupBySlot,
+	    },
+	  ] as const
+	  const accessoryGroupingToggles = [
+	    {
+	      key: 'faction',
+	      label: t('testerSortGroupingAccessoriesFactionLabel'),
+	      tooltip: t('testerSortGroupingAccessoriesFactionTooltip'),
+	      icon: <GroupsIcon sx={GROUPING_ICON_PRIMARY_SX} />,
+	      active: accessoryGroupByFaction,
+	      onToggle: onToggleTesterAccessoryGroupByFaction,
+	    },
+	    {
+	      key: 'set',
+	      label: t('testerSortGroupingAccessoriesSetLabel'),
+	      tooltip: t('testerSortGroupingAccessoriesSetTooltip'),
+	      icon: <CategoryIcon sx={GROUPING_ICON_PRIMARY_SX} />,
+	      active: accessoryGroupBySet,
+	      onToggle: onToggleTesterAccessoryGroupBySet,
+	    },
+	    {
+	      key: 'slot',
+	      label: t('testerSortGroupingAccessoriesSlotLabel'),
+	      tooltip: t('testerSortGroupingAccessoriesSlotTooltip'),
+	      icon: <GridViewIcon sx={GROUPING_ICON_PRIMARY_SX} />,
+	      active: accessoryGroupBySlot,
+	      onToggle: onToggleTesterAccessoryGroupBySlot,
+	    },
+	  ] as const
 	  const sortLabelForKey = React.useCallback((key: TesterSortKey): string => {
 	    if (Number(key) === TESTER_SORT_KEY_LAST_USAGE) return sortLastUsedLabel
 	    return t(statVariantI18nKey(key as StatVariant))
@@ -872,6 +910,7 @@ export default function PreviewHeaderActions(props: {
               {!isRulesMode && (
                 sortPriorities.length > 0
                 || Boolean(testerSubstatSort.normalized)
+                || !groupingIsDefault
               ) ? (
                 <ClearIconButton
                   size="small"
@@ -1590,51 +1629,6 @@ export default function PreviewHeaderActions(props: {
               <MenuItem
                 sx={{ gap: 1, alignItems: 'center' }}
                 disabled={sortControlsDisabled}
-              >
-                <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }} data-sort-popout-text>{sortGroupingLabel}</Typography>
-                <Stack direction="row" spacing={0.75} alignItems="center">
-                  {groupingOptions.map((option) => {
-                    // Active grouping uses the shared sort preference store.
-                    const active = testerSubstatSort.grouping === option.value
-                    return (
-                      <MarkdownTooltip
-                        key={option.value}
-                        markdown={option.tooltip}
-                        placement="top-start"
-                      >
-                        <Box component="span">
-                          <Button
-                            size="small"
-                            variant={active ? 'contained' : 'outlined'}
-                            color="success"
-                            disabled={sortControlsDisabled}
-                            aria-label={option.label}
-                            sx={{
-                              minWidth: GROUPING_ICON_BUTTON_SIZE_PX,
-                              width: GROUPING_ICON_BUTTON_SIZE_PX,
-                              height: MENU_CONTROL_HEIGHT_PX,
-                              minHeight: MENU_CONTROL_HEIGHT_PX,
-                              lineHeight: 1,
-                              py: 0,
-                              px: 0,
-                              fontSize: 18,
-                            }}
-                            onClick={(event) => {
-                              event.stopPropagation()
-                              onSetTesterSubstatSortGrouping(option.value)
-                            }}
-                          >
-                            {option.icon}
-                          </Button>
-                        </Box>
-                      </MarkdownTooltip>
-                    )
-                  })}
-                </Stack>
-              </MenuItem>
-              <MenuItem
-                sx={{ gap: 1, alignItems: 'center' }}
-                disabled={sortControlsDisabled}
                 onClick={() => onToggleTesterSubstatSortExcludeGlyphs()}
               >
 	                <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }} data-sort-popout-text>{sortGlyphsLabel}</Typography>
@@ -1652,6 +1646,154 @@ export default function PreviewHeaderActions(props: {
                 >
                   {testerSubstatSort.excludeGlyphs ? sortGlyphsExcludeLabel : sortGlyphsIncludeLabel}
                 </Button>
+              </MenuItem>
+              <MenuItem
+                sx={{ gap: 1, alignItems: 'center' }}
+                disabled={groupingControlsDisabled}
+              >
+                <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }} data-sort-popout-text>{sortGroupingArtifactsLabel}</Typography>
+                {/* Icon-only buttons keep the row compact; tooltips + aria labels carry the text. */}
+                {/* Accessory grouping mirrors the artifact row but uses faction-centric icons. */}
+                <Stack direction="row" spacing={0.5} alignItems="center" sx={{ flexWrap: 'wrap' }}>
+                  {artifactGroupingToggles.map((option) => {
+                    // Active artifact toggles are stored in the shared sort preference store.
+                    const active = option.active
+                    return (
+                      <MarkdownTooltip
+                        key={option.key}
+                        markdown={option.tooltip}
+                        placement="top-start"
+                      >
+                        <Box component="span">
+                          <Button
+                            size="small"
+                            variant={active ? 'contained' : 'outlined'}
+                            color="success"
+                            disabled={groupingControlsDisabled}
+                            aria-label={option.label}
+                            aria-pressed={active}
+                            sx={{
+                              minWidth: GROUPING_ICON_BUTTON_SIZE_PX,
+                              width: GROUPING_ICON_BUTTON_SIZE_PX,
+                              height: MENU_CONTROL_HEIGHT_PX,
+                              minHeight: MENU_CONTROL_HEIGHT_PX,
+                              lineHeight: 1,
+                              py: 0,
+                              px: 0,
+                            }}
+                            onClick={(event) => {
+                              event.stopPropagation()
+                              option.onToggle()
+                            }}
+                          >
+                            {option.icon}
+                          </Button>
+                        </Box>
+                      </MarkdownTooltip>
+                    )
+                  })}
+                  {/* "No headers" appears in both rows but flips a single shared flag. */}
+                  {/* Shared header toggle is duplicated for quick access. */}
+                  <MarkdownTooltip markdown={sortGroupingNoHeadersTooltip} placement="top-start">
+                    <Box component="span">
+                      <Button
+                        size="small"
+                        variant={groupingHideHeaders ? 'contained' : 'outlined'}
+                        color="success"
+                        disabled={groupingControlsDisabled}
+                        aria-label={sortGroupingNoHeadersLabel}
+                        aria-pressed={groupingHideHeaders}
+                        sx={{
+                          minWidth: GROUPING_ICON_BUTTON_SIZE_PX,
+                          width: GROUPING_ICON_BUTTON_SIZE_PX,
+                          height: MENU_CONTROL_HEIGHT_PX,
+                          minHeight: MENU_CONTROL_HEIGHT_PX,
+                          lineHeight: 1,
+                          py: 0,
+                          px: 0,
+                        }}
+                        onClick={(event) => {
+                          event.stopPropagation()
+                          onToggleTesterGroupingHeaders()
+                        }}
+                      >
+                        <VisibilityOffIcon sx={GROUPING_ICON_PRIMARY_SX} />
+                      </Button>
+                    </Box>
+                  </MarkdownTooltip>
+                </Stack>
+              </MenuItem>
+              <MenuItem
+                sx={{ gap: 1, alignItems: 'center' }}
+                disabled={groupingControlsDisabled}
+              >
+                <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }} data-sort-popout-text>{sortGroupingAccessoriesLabel}</Typography>
+                <Stack direction="row" spacing={0.5} alignItems="center" sx={{ flexWrap: 'wrap' }}>
+                  {accessoryGroupingToggles.map((option) => {
+                    // Active accessory toggles are stored in the shared sort preference store.
+                    const active = option.active
+                    return (
+                      <MarkdownTooltip
+                        key={option.key}
+                        markdown={option.tooltip}
+                        placement="top-start"
+                      >
+                        <Box component="span">
+                          <Button
+                            size="small"
+                            variant={active ? 'contained' : 'outlined'}
+                            color="success"
+                            disabled={groupingControlsDisabled}
+                            aria-label={option.label}
+                            aria-pressed={active}
+                            sx={{
+                              minWidth: GROUPING_ICON_BUTTON_SIZE_PX,
+                              width: GROUPING_ICON_BUTTON_SIZE_PX,
+                              height: MENU_CONTROL_HEIGHT_PX,
+                              minHeight: MENU_CONTROL_HEIGHT_PX,
+                              lineHeight: 1,
+                              py: 0,
+                              px: 0,
+                            }}
+                            onClick={(event) => {
+                              event.stopPropagation()
+                              option.onToggle()
+                            }}
+                          >
+                            {option.icon}
+                          </Button>
+                        </Box>
+                      </MarkdownTooltip>
+                    )
+                  })}
+                  <MarkdownTooltip markdown={sortGroupingNoHeadersTooltip} placement="top-start">
+                    <Box component="span">
+                      <Button
+                        size="small"
+                        variant={groupingHideHeaders ? 'contained' : 'outlined'}
+                        color="success"
+                        disabled={groupingControlsDisabled}
+                        aria-label={sortGroupingNoHeadersLabel}
+                        aria-pressed={groupingHideHeaders}
+                        sx={{
+                          minWidth: GROUPING_ICON_BUTTON_SIZE_PX,
+                          width: GROUPING_ICON_BUTTON_SIZE_PX,
+                          height: MENU_CONTROL_HEIGHT_PX,
+                          minHeight: MENU_CONTROL_HEIGHT_PX,
+                          lineHeight: 1,
+                          py: 0,
+                          px: 0,
+                        }}
+                        onClick={(event) => {
+                          event.stopPropagation()
+                          onToggleTesterGroupingHeaders()
+                        }}
+                      >
+                        <VisibilityOffIcon sx={GROUPING_ICON_PRIMARY_SX} />
+                      </Button>
+                    </Box>
+                  </MarkdownTooltip>
+                </Stack>
               </MenuItem>
             </Menu>
 	            <TesterNormalizedPresetEditorMenu

@@ -28,11 +28,13 @@ import { useI18n } from '../lib/i18n'
 import type { TesterPreviewRow } from '../types/testerPreview'
 import { SetIcon } from './SetIcon'
 import { FactionIcon } from './FactionIcon'
+import { NoGearSetIcon } from './NoGearSetIcon'
 import { reserveScrollbarGutterSpace } from '../lib/scrollbar'
 import {
   artifactSetName,
   artifactTypeI18nKey,
   artifactTypeName,
+  compareArtifactTypes,
   factionI18nKey,
   DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT,
   formatLevel,
@@ -44,6 +46,7 @@ import {
 } from '../lib/types'
 import { resolveRarityAccentColor } from '../lib/rarityColors'
 import { formatTesterSetLabel } from '../lib/testerFormatters'
+import { artifactTypeIconFor } from './artifactTypeIcons'
 import {
   formatCircledDigit,
   formatStatNumber,
@@ -87,11 +90,10 @@ import EmptyStateMessage, { type EmptyStateMessageProps } from './EmptyStateMess
 import {
   computeTesterNormalizedSubstatScore,
   sortTesterRowsBySubstats,
-  TESTER_GROUPING_MODE_DEFAULT,
-  TESTER_GROUPING_MODE_FACTION_ACCESSORY,
-  TESTER_GROUPING_MODE_FLAT,
+  TESTER_GROUPING_DEFAULT_STATE,
+  isDefaultTesterGroupingState,
   TESTER_SORT_KEY_LAST_USAGE,
-  type TesterGroupingMode,
+  type TesterGroupingState,
   type TesterSubstatSortSpec,
 } from '../lib/testerSort'
 import { TESTER_NORMALIZED_PRESET_COUNT } from '../lib/testerNormalizedPresets'
@@ -309,11 +311,11 @@ type TesterItemsGridProps = {
   substatSort?: TesterSubstatSortSpec | null
   // Full sort preference state so the grid can gate the [S] overlay option.
   sortState?: TesterSubstatSortState | null
-  // Grouping mode for the tester grid when substat sorting is active.
-  grouping?: TesterGroupingMode
+  // Grouping settings for the tester grid; independent of sorting.
+  grouping?: TesterGroupingState
 }
 
-type TesterGroupKind = 'artifactSet' | 'accessorySet' | 'accessoryFaction'
+type TesterGroupKind = 'artifactSet' | 'artifactSlot' | 'accessorySet' | 'accessoryFaction'
 
 type TesterGroup = {
   key: string
@@ -330,7 +332,7 @@ type TesterGroup = {
 }
 
 type GroupRowsBySetOptions = {
-  grouping: TesterGroupingMode
+  grouping: TesterGroupingState
   substatSort: TesterSubstatSortSpec | null
 }
 
@@ -365,7 +367,7 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     dimUnhighlightedRows = false,
     substatSort = null,
     sortState = null,
-    grouping = TESTER_GROUPING_MODE_DEFAULT,
+    grouping = TESTER_GROUPING_DEFAULT_STATE,
   } = props
   const keepUniquesVariant = variant === 'keepUniques'
   // Memoized predicates avoid re-render churn when Keep Uniques toggles highlighting.
@@ -1082,13 +1084,51 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
       const groupSetTooltipProps = groupDisplayName
         ? { displayName: groupDisplayName, showName: true }
         : undefined
+      const headerIconSizePx = 24
       const summarySetIcon = numericSetId != null ? (
         <Box sx={{ lineHeight: 0, display: 'flex', alignItems: 'center' }}>
           <SetIcon
             setId={numericSetId as ArtifactSetId}
-            size={24}
+            size={headerIconSizePx}
             {...(groupDisplayName ? { label: groupDisplayName } : {})}
           />
+        </Box>
+      ) : null
+      // Slot groups should always show their icon so headers stay scannable.
+      const SlotIcon = group.kind === 'artifactSlot' && group.slot != null
+        ? artifactTypeIconFor(group.slot)
+        : null
+      const slotIconNode = SlotIcon ? (
+        <Box
+          sx={{
+            lineHeight: 0,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: headerIconSizePx,
+            height: headerIconSizePx,
+            fontSize: headerIconSizePx,
+          }}
+        >
+          <SlotIcon fontSize="inherit" />
+        </Box>
+      ) : null
+      // No-set accessories need a visible glyph when no set icon exists.
+      const noSetGroup = group.kind === 'accessorySet'
+        && (group.setId === 0 || group.setId === ACCESSORY_NO_SET_ID)
+      const noSetIconNode = noSetGroup ? (
+        <Box
+          sx={{
+            lineHeight: 0,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: headerIconSizePx,
+            height: headerIconSizePx,
+            fontSize: headerIconSizePx,
+          }}
+        >
+          <NoGearSetIcon fontSize="inherit" />
         </Box>
       ) : null
       const headerRadius = Math.max(ACCORDION_BORDER_RADIUS_PX - (nested ? 2 : 0), 2)
@@ -1137,6 +1177,8 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
                     {summarySetIcon}
                   </WithSetTooltip>
                 ) : summarySetIcon}
+                {noSetIconNode}
+                {slotIconNode}
                 {group.factionId ? (
                   <FactionIcon
                     faction={group.factionId}
@@ -3447,9 +3489,15 @@ function flushTesterGridCardRevealQueue(forceDrain = false) {
   }
 }
 
+type AccessorySetGroupBuilder = {
+  group: TesterGroup
+  slots: Map<string, TesterGroup>
+}
+
 type FactionGroupBuilder = {
   group: TesterGroup
-  sets: Map<string, TesterGroup>
+  sets: Map<string, AccessorySetGroupBuilder>
+  slots: Map<string, TesterGroup>
 }
 
 function groupRowsBySet(
@@ -3458,29 +3506,21 @@ function groupRowsBySet(
   lang: string,
   options: GroupRowsBySetOptions,
 ): TesterGroup[] {
-  // Artifact sets form flat accordions, while accessories can nest faction->set accordions.
-  const grouping = options.grouping ?? TESTER_GROUPING_MODE_DEFAULT
+  // Artifact sets form flat accordions, while accessories can nest faction->set->slot accordions.
+  const grouping = options.grouping ?? TESTER_GROUPING_DEFAULT_STATE
   const substatSort = options.substatSort
   // Sorting stays orthogonal to grouping; grouping only controls section boundaries.
   const hasSubstatOrdering = Boolean(
     substatSort && (substatSort.priorities.length > 0 || substatSort.normalized === true),
   )
-  // Default mode keeps full set/faction grouping; other modes selectively collapse headers.
-  const useArtifactSets = grouping === TESTER_GROUPING_MODE_DEFAULT
-  const useAccessoryFactions = grouping === TESTER_GROUPING_MODE_DEFAULT
-    || grouping === TESTER_GROUPING_MODE_FACTION_ACCESSORY
-  // Accessory sets only exist in the full default grouping.
-  const useAccessorySets = grouping === TESTER_GROUPING_MODE_DEFAULT
-  // Flat mode removes headers entirely, so it short-circuits to one group.
-  const fullyFlat = grouping === TESTER_GROUPING_MODE_FLAT
   // Non-default grouping uses a global sort order instead of per-section sorting.
-  const useGlobalSort = hasSubstatOrdering && grouping !== TESTER_GROUPING_MODE_DEFAULT
+  const useGlobalSort = hasSubstatOrdering && !isDefaultTesterGroupingState(grouping)
   const sortedRows = useGlobalSort && substatSort
     ? sortTesterRowsBySubstats(rows, substatSort)
     : rows
 
-  if (fullyFlat) {
-    // Fully flat mode renders all rows in a single headerless group.
+  if (grouping.hideHeaders) {
+    // "No headers" renders everything in a single headerless group.
     const group: TesterGroup = {
       key: 'tester:all',
       label: '',
@@ -3496,12 +3536,64 @@ function groupRowsBySet(
     return [group]
   }
 
-  // Maps keep group creation cheap during the row scan.
-  const artifactGroups = new Map<string, TesterGroup>()
-  // Faction groups only populate when accessory grouping is enabled.
+  // Normalize grouping choices once so the branching logic stays readable.
+  const artifactBySet = grouping.artifacts.bySet
+  const artifactBySlot = grouping.artifacts.bySlot
+  const accessoryByFaction = grouping.accessories.byFaction
+  const accessoryBySet = grouping.accessories.bySet
+  const accessoryBySlot = grouping.accessories.bySlot
+  // Flat sections are used when no grouping toggles are enabled.
+  const useArtifactFlat = !artifactBySet && !artifactBySlot
+  const useAccessoryFlat = !accessoryByFaction && !accessoryBySet && !accessoryBySlot
+
+  // Map structures keep group creation cheap during the row scan.
+  const artifactSetGroups = new Map<string, { group: TesterGroup; slots: Map<string, TesterGroup> }>()
+  const artifactSlotGroups = new Map<string, TesterGroup>()
+  let artifactFlatGroup: TesterGroup | null = null
+  const accessorySetGroups = new Map<string, AccessorySetGroupBuilder>()
+  const accessorySlotGroups = new Map<string, TesterGroup>()
+  let accessoryFlatGroup: TesterGroup | null = null
+  // Faction groups only populate when faction grouping is enabled.
   const factionGroups = new Map<string, FactionGroupBuilder>()
-  // Split mode uses a single accessory group for all accessory slots.
-  let accessoryGroup: TesterGroup | null = null
+
+  const formatSlotLabel = (slotId: ArtifactTypeId): string => {
+    // Invalid slots should render as "Unknown" instead of throwing on i18n lookup.
+    const slotValue = Number(slotId)
+    if (!Number.isFinite(slotValue)) return translate('testerValueUnknown')
+    return translate(artifactTypeI18nKey(slotValue as ArtifactTypeId))
+  }
+
+  const ensureArtifactFlatGroup = (index: number): TesterGroup => {
+    if (artifactFlatGroup) return artifactFlatGroup
+    artifactFlatGroup = {
+      key: 'art:all',
+      label: translate('artifacts'),
+      setId: null,
+      slot: null,
+      factionId: null,
+      rows: [],
+      order: index,
+      kind: 'artifactSet',
+      parentKey: null,
+    }
+    return artifactFlatGroup
+  }
+
+  const ensureAccessoryFlatGroup = (index: number): TesterGroup => {
+    if (accessoryFlatGroup) return accessoryFlatGroup
+    accessoryFlatGroup = {
+      key: 'acc:all',
+      label: translate('accessories'),
+      setId: null,
+      slot: null,
+      factionId: null,
+      rows: [],
+      order: index,
+      kind: 'accessoryFaction',
+      parentKey: null,
+    }
+    return accessoryFlatGroup
+  }
 
   sortedRows.forEach((row, index) => {
     // Normalize set ids so invalid input always buckets into a predictable key.
@@ -3510,127 +3602,330 @@ function groupRowsBySet(
     const rawSetId = Number(artifact.set)
     const setId = Number.isFinite(rawSetId) ? rawSetId : 0
     if (!isAccessorySlot(slot)) {
-      // Artifacts either keep per-set grouping or collapse into a single section.
-      const key = useArtifactSets ? `art:${setId}` : 'art:all'
-      let group = artifactGroups.get(key)
-      if (!group) {
-        // When grouping by set, reuse the shared formatter so labels stay consistent.
-        const setLabel = useArtifactSets
-          ? formatTesterSetLabel({ setId, slot, translate, lang })
-          : translate('artifacts')
-        group = {
-          key,
-          label: setLabel,
-          setId: useArtifactSets ? setId : null,
-          slot,
-          factionId: null,
-          rows: [],
-          order: index,
-          kind: 'artifactSet',
-          parentKey: null,
-        }
-        artifactGroups.set(key, group)
+      // Artifact grouping fans out depending on the active toggles.
+      if (useArtifactFlat) {
+        ensureArtifactFlatGroup(index).rows.push(row)
+        return
       }
-      group.rows.push(row)
+      if (artifactBySet) {
+        const key = `art:set:${setId}`
+        const builder = artifactSetGroups.get(key) ?? (() => {
+          const setLabel = formatTesterSetLabel({ setId, slot, translate, lang })
+          const group: TesterGroup = {
+            key,
+            label: setLabel,
+            setId,
+            slot,
+            factionId: null,
+            rows: [],
+            order: index,
+            kind: 'artifactSet',
+            ...(artifactBySlot ? { children: [] } : {}),
+            parentKey: null,
+          }
+          const next = { group, slots: new Map<string, TesterGroup>() }
+          artifactSetGroups.set(key, next)
+          return next
+        })()
+        builder.group.rows.push(row)
+        if (index < builder.group.order) {
+          builder.group.order = index
+        }
+        if (artifactBySlot) {
+          const slotKey = `${key}:slot:${Number(slot)}`
+          let slotGroup = builder.slots.get(slotKey)
+          if (!slotGroup) {
+            slotGroup = {
+              key: slotKey,
+              label: formatSlotLabel(slot),
+              setId: null,
+              slot,
+              factionId: null,
+              rows: [],
+              order: index,
+              kind: 'artifactSlot',
+              parentKey: key,
+            }
+            builder.slots.set(slotKey, slotGroup)
+          }
+          slotGroup.rows.push(row)
+          if (index < slotGroup.order) {
+            slotGroup.order = index
+          }
+        }
+        return
+      }
+      if (artifactBySlot) {
+        const slotKey = `art:slot:${Number(slot)}`
+        let slotGroup = artifactSlotGroups.get(slotKey)
+        if (!slotGroup) {
+          slotGroup = {
+            key: slotKey,
+            label: formatSlotLabel(slot),
+            setId: null,
+            slot,
+            factionId: null,
+            rows: [],
+            order: index,
+            kind: 'artifactSlot',
+            parentKey: null,
+          }
+          artifactSlotGroups.set(slotKey, slotGroup)
+        }
+        slotGroup.rows.push(row)
+        if (index < slotGroup.order) {
+          slotGroup.order = index
+        }
+      }
       return
     }
 
-    if (!useAccessoryFactions) {
-      // Split mode groups all accessories into one top-level section.
-      const key = 'acc:all'
-      if (!accessoryGroup) {
-        accessoryGroup = {
-          key,
-          label: translate('accessories'),
-          setId: null,
-          slot: null,
-          factionId: null,
-          rows: [],
-          order: index,
-          kind: 'accessoryFaction',
-          parentKey: null,
+    // Accessories follow a parallel grouping model using faction/set/slot toggles.
+    if (useAccessoryFlat) {
+      ensureAccessoryFlatGroup(index).rows.push(row)
+      return
+    }
+      if (accessoryByFaction) {
+      const rawFactionId = Number(artifact.faction) || 0
+      const factionId = (rawFactionId > 0 ? rawFactionId : 0) as FactionId
+      const factionKey = `faction:${factionId}`
+      let factionGroup = factionGroups.get(factionKey)
+      if (!factionGroup) {
+        const factionLabel = factionId > 0 ? translate(factionI18nKey(factionId)) : translate('testerValueUnknown')
+        factionGroup = {
+          group: {
+            key: factionKey,
+            label: factionLabel,
+            setId: null,
+            slot: null,
+            factionId: factionId > 0 ? factionId : null,
+            rows: [],
+            order: index,
+            kind: 'accessoryFaction',
+            children: [],
+            parentKey: null,
+          },
+          sets: new Map(),
+          slots: new Map(),
         }
+        factionGroups.set(factionKey, factionGroup)
       }
-      accessoryGroup.rows.push(row)
-      if (index < accessoryGroup.order) {
-        accessoryGroup.order = index
+      factionGroup.group.rows.push(row)
+      if (index < factionGroup.group.order) {
+        factionGroup.group.order = index
+      }
+      if (accessoryBySet) {
+        const setKey = `${factionKey}:set:${setId}`
+        const setBuilder = factionGroup.sets.get(setKey) ?? (() => {
+          const accessoryHasNoSet = setId === 0 || setId === ACCESSORY_NO_SET_ID
+          // No-set accessories should still surface a readable header.
+          const setLabel = accessoryHasNoSet ? translate('noSetAccessories') : formatTesterSetLabel({ setId, slot, translate, lang })
+          const group: TesterGroup = {
+            key: setKey,
+            label: setLabel,
+            setId,
+            slot,
+            factionId: factionId > 0 ? factionId : null,
+            rows: [],
+            order: index,
+            kind: 'accessorySet',
+            ...(accessoryBySlot ? { children: [] } : {}),
+            parentKey: factionKey,
+          }
+          const next: AccessorySetGroupBuilder = { group, slots: new Map<string, TesterGroup>() }
+          factionGroup.sets.set(setKey, next)
+          return next
+        })()
+        setBuilder.group.rows.push(row)
+        if (index < setBuilder.group.order) {
+          setBuilder.group.order = index
+        }
+        if (accessoryBySlot) {
+          const slotKey = `${setKey}:slot:${Number(slot)}`
+          let slotGroup = setBuilder.slots.get(slotKey)
+          if (!slotGroup) {
+            slotGroup = {
+              key: slotKey,
+              label: formatSlotLabel(slot),
+              setId: null,
+              slot,
+              factionId: factionId > 0 ? factionId : null,
+              rows: [],
+              order: index,
+              kind: 'artifactSlot',
+              parentKey: setKey,
+            }
+            setBuilder.slots.set(slotKey, slotGroup)
+          }
+          slotGroup.rows.push(row)
+          if (index < slotGroup.order) {
+            slotGroup.order = index
+          }
+        }
+        return
+      }
+      if (accessoryBySlot) {
+        const slotKey = `${factionKey}:slot:${Number(slot)}`
+        let slotGroup = factionGroup.slots.get(slotKey)
+        if (!slotGroup) {
+          slotGroup = {
+            key: slotKey,
+            label: formatSlotLabel(slot),
+            setId: null,
+            slot,
+            factionId: factionId > 0 ? factionId : null,
+            rows: [],
+            order: index,
+            kind: 'artifactSlot',
+            parentKey: factionKey,
+          }
+          factionGroup.slots.set(slotKey, slotGroup)
+        }
+        slotGroup.rows.push(row)
+        if (index < slotGroup.order) {
+          slotGroup.order = index
+        }
       }
       return
     }
 
-    // Accessory faction grouping mirrors the in-game faction split.
-    const rawFactionId = Number(artifact.faction) || 0
-    const factionId = (rawFactionId > 0 ? rawFactionId : 0) as FactionId
-    const factionKey = `faction:${factionId}`
-    let factionGroup = factionGroups.get(factionKey)
-    if (!factionGroup) {
-      // Unknown factions still appear, but they use the shared "unknown" label.
-      const factionLabel = factionId > 0 ? translate(factionI18nKey(factionId)) : translate('testerValueUnknown')
-      factionGroup = {
-        group: {
-          key: factionKey,
-          label: factionLabel,
-          setId: null,
-          slot: null,
-          factionId: factionId > 0 ? factionId : null,
-          rows: [],
-          order: index,
-          kind: 'accessoryFaction',
-          children: [],
-          parentKey: null,
-        },
-        sets: new Map(),
-      }
-      factionGroups.set(factionKey, factionGroup)
-    }
-    factionGroup.group.rows.push(row)
-    if (index < factionGroup.group.order) {
-      factionGroup.group.order = index
-    }
-
-    if (useAccessorySets) {
-      // Default grouping nests accessory sets under each faction header.
-      const setKey = `${factionKey}:set:${setId}`
-      let setGroup = factionGroup.sets.get(setKey)
-      if (!setGroup) {
-        // "No set" accessories keep the header but omit the set label/icon.
+    if (accessoryBySet) {
+      const setKey = `acc:set:${setId}`
+      const setBuilder = accessorySetGroups.get(setKey) ?? (() => {
         const accessoryHasNoSet = setId === 0 || setId === ACCESSORY_NO_SET_ID
-        const setLabel = accessoryHasNoSet ? '' : formatTesterSetLabel({ setId, slot, translate, lang })
-        setGroup = {
+        // Keep the no-set group labeled so headers don't collapse to blank.
+        const setLabel = accessoryHasNoSet ? translate('noSetAccessories') : formatTesterSetLabel({ setId, slot, translate, lang })
+        const group: TesterGroup = {
           key: setKey,
           label: setLabel,
           setId,
           slot,
-          factionId: factionId > 0 ? factionId : null,
+          factionId: null,
           rows: [],
           order: index,
           kind: 'accessorySet',
-          parentKey: factionKey,
+          ...(accessoryBySlot ? { children: [] } : {}),
+          parentKey: null,
         }
-        factionGroup.sets.set(setKey, setGroup)
+        const next: AccessorySetGroupBuilder = { group, slots: new Map<string, TesterGroup>() }
+        accessorySetGroups.set(setKey, next)
+        return next
+      })()
+      setBuilder.group.rows.push(row)
+      if (index < setBuilder.group.order) {
+        setBuilder.group.order = index
       }
-      setGroup.rows.push(row)
-      if (index < setGroup.order) {
-        setGroup.order = index
+      if (accessoryBySlot) {
+        const slotKey = `${setKey}:slot:${Number(slot)}`
+        let slotGroup = setBuilder.slots.get(slotKey)
+        if (!slotGroup) {
+          slotGroup = {
+            key: slotKey,
+            label: formatSlotLabel(slot),
+            setId: null,
+            slot,
+            factionId: null,
+            rows: [],
+            order: index,
+            kind: 'artifactSlot',
+            parentKey: setKey,
+          }
+          setBuilder.slots.set(slotKey, slotGroup)
+        }
+        slotGroup.rows.push(row)
+        if (index < slotGroup.order) {
+          slotGroup.order = index
+        }
+      }
+      return
+    }
+
+    if (accessoryBySlot) {
+      const slotKey = `acc:slot:${Number(slot)}`
+      let slotGroup = accessorySlotGroups.get(slotKey)
+      if (!slotGroup) {
+        slotGroup = {
+          key: slotKey,
+          label: formatSlotLabel(slot),
+          setId: null,
+          slot,
+          factionId: null,
+          rows: [],
+          order: index,
+          kind: 'artifactSlot',
+          parentKey: null,
+        }
+        accessorySlotGroups.set(slotKey, slotGroup)
+      }
+      slotGroup.rows.push(row)
+      if (index < slotGroup.order) {
+        slotGroup.order = index
       }
     }
   })
 
-  // Resolve accessory faction groups into a sorted child list when set grouping is active.
-  const resolvedFactionGroups: TesterGroup[] = useAccessoryFactions
-    ? Array.from(factionGroups.values()).map(({ group, sets }) => (
-      useAccessorySets
-        ? { ...group, children: Array.from(sets.values()).sort((a, b) => a.order - b.order) }
-        : { ...group, children: [] }
-    ))
-    : []
+  const sortSlotGroups = (groups: TesterGroup[]): TesterGroup[] => {
+    // Slot groups follow the canonical slot ordering unless global sort is active.
+    if (useGlobalSort) return groups.sort((a, b) => a.order - b.order)
+    return groups.sort((a, b) => compareArtifactTypes(a.slot ?? 0, b.slot ?? 0))
+  }
 
-  // Top-level ordering is based on the first row each group claimed.
-  const grouped = [
-    ...artifactGroups.values(),
-    ...(accessoryGroup ? [accessoryGroup] : []),
-    ...resolvedFactionGroups,
-  ].sort((a, b) => a.order - b.order)
+  const resolveArtifactGroups = (): TesterGroup[] => {
+    if (useArtifactFlat) {
+      return artifactFlatGroup ? [artifactFlatGroup] : []
+    }
+    if (artifactBySet) {
+      return Array.from(artifactSetGroups.values()).map(({ group, slots }) => {
+        if (!artifactBySlot) return group
+        const children = sortSlotGroups(Array.from(slots.values()))
+        return { ...group, children }
+      }).sort((a, b) => a.order - b.order)
+    }
+    if (artifactBySlot) {
+      return sortSlotGroups(Array.from(artifactSlotGroups.values()))
+    }
+    return []
+  }
+
+  const resolveAccessoryGroups = (): TesterGroup[] => {
+    if (useAccessoryFlat) {
+      return accessoryFlatGroup ? [accessoryFlatGroup] : []
+    }
+    if (accessoryByFaction) {
+      return Array.from(factionGroups.values()).map(({ group, sets, slots }) => {
+        if (accessoryBySet) {
+          const children = Array.from(sets.values()).map(({ group: setGroup, slots: setSlots }) => {
+            if (!accessoryBySlot) return setGroup
+            const setChildren = sortSlotGroups(Array.from(setSlots.values()))
+            return { ...setGroup, children: setChildren }
+          }).sort((a, b) => a.order - b.order)
+          return { ...group, children }
+        }
+        if (accessoryBySlot) {
+          return { ...group, children: sortSlotGroups(Array.from(slots.values())) }
+        }
+        return { ...group, children: [] }
+      }).sort((a, b) => a.order - b.order)
+    }
+    if (accessoryBySet) {
+      return Array.from(accessorySetGroups.values()).map(({ group, slots }) => {
+        if (!accessoryBySlot) return group
+        const children = sortSlotGroups(Array.from(slots.values()))
+        return { ...group, children }
+      }).sort((a, b) => a.order - b.order)
+    }
+    if (accessoryBySlot) {
+      return sortSlotGroups(Array.from(accessorySlotGroups.values()))
+    }
+    return []
+  }
+
+  const resolvedArtifactGroups = resolveArtifactGroups()
+  const resolvedAccessoryGroups = resolveAccessoryGroups()
+
+  const grouped = useGlobalSort
+    ? [...resolvedArtifactGroups, ...resolvedAccessoryGroups].sort((a, b) => a.order - b.order)
+    : [...resolvedArtifactGroups, ...resolvedAccessoryGroups]
 
   const applySort = (group: TesterGroup) => {
     // Substat sorting is per-group; we keep group order stable for predictability.

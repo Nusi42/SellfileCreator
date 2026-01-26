@@ -6,10 +6,10 @@
  */
 import { useCallback } from 'react'
 import {
-  TESTER_GROUPING_MODES,
-  TESTER_GROUPING_MODE_DEFAULT,
-  TESTER_GROUPING_MODE_FACTION_ACCESSORY,
-  type TesterGroupingMode,
+  TESTER_GROUPING_DEFAULT_STATE,
+  isDefaultTesterGroupingState,
+  normalizeTesterGroupingState,
+  type TesterGroupingState,
   TESTER_SORT_KEY_LAST_USAGE,
   TESTER_SORT_WEIGHT_DEFAULT,
   TESTER_SORT_WEIGHT_STEP,
@@ -42,8 +42,8 @@ export type TesterSubstatSortState = {
   normalizedSourceIncludeCustom: boolean
   // Enabled normalized preset sources (when multiple are enabled, sorting uses the best / max score).
   normalizedSourcePresetIds: TesterNormalizedPresetId[]
-  // Control how the tester grid groups rows when substat sort is active.
-  grouping: TesterGroupingMode
+  // Control how the tester grid groups rows (independent of sort).
+  grouping: TesterGroupingState
   // Exclude glyph values by default so "base" rolls remain comparable.
   excludeGlyphs: boolean
 }
@@ -57,7 +57,7 @@ export const DEFAULT_TESTER_SUBSTAT_SORT_STATE: TesterSubstatSortState = Object.
   normalizedUseActiveOverlay: false,
   normalizedSourceIncludeCustom: true,
   normalizedSourcePresetIds: [],
-  grouping: TESTER_GROUPING_MODE_DEFAULT,
+  grouping: TESTER_GROUPING_DEFAULT_STATE,
   excludeGlyphs: true,
 })
 
@@ -74,7 +74,7 @@ export const isDefaultTesterSubstatSortState = (state: TesterSubstatSortState | 
     && state.normalizedUseActiveOverlay === DEFAULT_TESTER_SUBSTAT_SORT_STATE.normalizedUseActiveOverlay
     && state.normalizedSourceIncludeCustom === DEFAULT_TESTER_SUBSTAT_SORT_STATE.normalizedSourceIncludeCustom
     && (state.normalizedSourcePresetIds?.length ?? 0) === 0
-    && state.grouping === DEFAULT_TESTER_SUBSTAT_SORT_STATE.grouping
+    && isDefaultTesterGroupingState(state.grouping)
     && state.excludeGlyphs === DEFAULT_TESTER_SUBSTAT_SORT_STATE.excludeGlyphs
 }
 
@@ -139,25 +139,6 @@ const normalizePresetIds = (raw: unknown): TesterNormalizedPresetId[] => {
   return out
 }
 
-const normalizeGroupingMode = (raw: unknown): TesterGroupingMode => {
-  // New schema stores a string mode; validate against the known list to avoid drift.
-  if (TESTER_GROUPING_MODES.some((mode) => mode === raw)) {
-    return raw as TesterGroupingMode
-  }
-  // Legacy schema stored a boolean keepSections; map it to the closest new mode.
-  if (raw === false) return TESTER_GROUPING_MODE_FACTION_ACCESSORY
-  if (raw === true) return TESTER_GROUPING_MODE_DEFAULT
-  // Default fallback keeps the original grouped-by-set behavior.
-  return TESTER_GROUPING_MODE_DEFAULT
-}
-
-const normalizeGroupingModeFromLegacy = (raw: unknown): TesterGroupingMode => {
-  // Legacy keepSections was a boolean; treat false as the faction-only accessory grouping.
-  if (raw === false) return TESTER_GROUPING_MODE_FACTION_ACCESSORY
-  // Anything else should behave like the grouped-by-set default.
-  return TESTER_GROUPING_MODE_DEFAULT
-}
-
 const normalizeWeights = (raw: unknown): TesterSubstatWeightMap => {
   // Missing weight map is the common case; keep the empty object stable.
   if (!raw || typeof raw !== 'object') return {}
@@ -180,12 +161,8 @@ export const normalizeTesterSubstatSortState = (raw: unknown): TesterSubstatSort
   const obj = raw as Record<string, unknown>
   // Defensive normalization keeps preferences stable across future format tweaks.
   const direction: TesterSubstatSortDirection = obj.direction === 'asc' ? 'asc' : 'desc'
-  // Grouping supports both legacy and modern schema keys; prefer the modern key when present.
-  const grouping = (
-    Object.prototype.hasOwnProperty.call(obj, 'grouping')
-      ? normalizeGroupingMode(obj.grouping)
-      : normalizeGroupingModeFromLegacy(obj.keepSections)
-  )
+  // Grouping uses the new artifact/accessory schema; invalid shapes fall back to defaults.
+  const grouping = normalizeTesterGroupingState(obj.grouping)
   const excludeGlyphs = obj.excludeGlyphs === false ? false : true
   const rawPriorities = normalizeSortKeys(obj.priorities)
   // Persist the user's intent even when only one substat is selected; the UI/sort logic can disable it temporarily.
@@ -260,9 +237,82 @@ export function useTesterSubstatSortPreferences() {
     testerSubstatSortStore.update((prev) => ({ ...prev, direction: direction === 'asc' ? 'asc' : 'desc' }))
   }, [])
 
-  const setGrouping = useCallback((next: TesterGroupingMode) => {
-    // Grouping should always land on a known mode so grid + UI remain deterministic.
-    testerSubstatSortStore.update((prev) => ({ ...prev, grouping: normalizeGroupingMode(next) }))
+  const toggleArtifactGroupBySet = useCallback(() => {
+    // Toggle the set level while preserving any slot grouping choice.
+    testerSubstatSortStore.update((prev) => ({
+      ...prev,
+      grouping: {
+        ...prev.grouping,
+        artifacts: {
+          ...prev.grouping.artifacts,
+          bySet: !prev.grouping.artifacts.bySet,
+        },
+      },
+    }))
+  }, [])
+
+  const toggleArtifactGroupBySlot = useCallback(() => {
+    // Toggle the slot level while preserving any set grouping choice.
+    testerSubstatSortStore.update((prev) => ({
+      ...prev,
+      grouping: {
+        ...prev.grouping,
+        artifacts: {
+          ...prev.grouping.artifacts,
+          bySlot: !prev.grouping.artifacts.bySlot,
+        },
+      },
+    }))
+  }, [])
+
+  const toggleAccessoryGroupByFaction = useCallback(() => {
+    // Toggle the faction level while preserving set/slot grouping choices.
+    testerSubstatSortStore.update((prev) => ({
+      ...prev,
+      grouping: {
+        ...prev.grouping,
+        accessories: {
+          ...prev.grouping.accessories,
+          byFaction: !prev.grouping.accessories.byFaction,
+        },
+      },
+    }))
+  }, [])
+
+  const toggleAccessoryGroupBySet = useCallback(() => {
+    // Toggle the set level while preserving faction/slot grouping choices.
+    testerSubstatSortStore.update((prev) => ({
+      ...prev,
+      grouping: {
+        ...prev.grouping,
+        accessories: {
+          ...prev.grouping.accessories,
+          bySet: !prev.grouping.accessories.bySet,
+        },
+      },
+    }))
+  }, [])
+
+  const toggleAccessoryGroupBySlot = useCallback(() => {
+    // Toggle the slot level while preserving faction/set grouping choices.
+    testerSubstatSortStore.update((prev) => ({
+      ...prev,
+      grouping: {
+        ...prev.grouping,
+        accessories: {
+          ...prev.grouping.accessories,
+          bySlot: !prev.grouping.accessories.bySlot,
+        },
+      },
+    }))
+  }, [])
+
+  const toggleHideHeaders = useCallback(() => {
+    // Header toggles keep grouping choices intact so users can restore them instantly.
+    testerSubstatSortStore.update((prev) => ({
+      ...prev,
+      grouping: { ...prev.grouping, hideHeaders: !prev.grouping.hideHeaders },
+    }))
   }, [])
 
   const toggleExcludeGlyphs = useCallback(() => {
@@ -375,7 +425,12 @@ export function useTesterSubstatSortPreferences() {
     state,
     clear,
     setDirection,
-    setGrouping,
+    toggleArtifactGroupBySet,
+    toggleArtifactGroupBySlot,
+    toggleAccessoryGroupByFaction,
+    toggleAccessoryGroupBySet,
+    toggleAccessoryGroupBySlot,
+    toggleHideHeaders,
     toggleExcludeGlyphs,
     toggleNormalized,
     togglePriorityKey,

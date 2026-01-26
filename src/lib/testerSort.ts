@@ -101,24 +101,71 @@ export function sortTesterRows(rows: readonly TesterPreviewRow[]): TesterPreview
 
 export type TesterSubstatSortDirection = 'desc' | 'asc'
 
-// Grouping modes are persisted alongside sort preferences to keep UI + grid aligned.
-export const TESTER_GROUPING_MODE_DEFAULT = 'default' as const
-// Accessories stay grouped by faction; artifacts collapse into a single section.
-export const TESTER_GROUPING_MODE_FACTION_ACCESSORY = 'factionAccessories' as const
-// Split artifacts + accessories into two top-level sections without sub-groups.
-export const TESTER_GROUPING_MODE_SPLIT = 'split' as const
-// Fully flat list: no headers, no grouping, just sorted rows.
-export const TESTER_GROUPING_MODE_FLAT = 'flat' as const
+// Grouping state is persisted alongside sort preferences to keep UI + grid aligned.
+export type TesterGroupingState = {
+  artifacts: {
+    // When true, include a set-level grouping for artifacts.
+    bySet: boolean
+    // When true, include a slot-level grouping for artifacts.
+    bySlot: boolean
+  }
+  accessories: {
+    // When true, include a faction-level grouping for accessories.
+    byFaction: boolean
+    // When true, include a set-level grouping for accessories.
+    bySet: boolean
+    // When true, include a slot-level grouping for accessories.
+    bySlot: boolean
+  }
+  // When true, suppress all headers and render a single flat list.
+  hideHeaders: boolean
+}
 
-// Keep a single exported list so UI + normalization share a SSOT.
-export const TESTER_GROUPING_MODES = [
-  TESTER_GROUPING_MODE_DEFAULT,
-  TESTER_GROUPING_MODE_FACTION_ACCESSORY,
-  TESTER_GROUPING_MODE_SPLIT,
-  TESTER_GROUPING_MODE_FLAT,
-] as const
+// Default grouping keeps the legacy behavior: artifacts by set, accessories by faction + set.
+export const TESTER_GROUPING_DEFAULT_STATE: TesterGroupingState = Object.freeze({
+  artifacts: {
+    bySet: true,
+    bySlot: false,
+  },
+  accessories: {
+    byFaction: true,
+    bySet: true,
+    bySlot: false,
+  },
+  hideHeaders: false,
+})
 
-export type TesterGroupingMode = typeof TESTER_GROUPING_MODES[number]
+export const isDefaultTesterGroupingState = (grouping: TesterGroupingState | null | undefined): boolean => {
+  // Missing or invalid grouping always falls back to the default state.
+  if (!grouping) return true
+  return grouping.artifacts.bySet === TESTER_GROUPING_DEFAULT_STATE.artifacts.bySet
+    && grouping.artifacts.bySlot === TESTER_GROUPING_DEFAULT_STATE.artifacts.bySlot
+    && grouping.accessories.byFaction === TESTER_GROUPING_DEFAULT_STATE.accessories.byFaction
+    && grouping.accessories.bySet === TESTER_GROUPING_DEFAULT_STATE.accessories.bySet
+    && grouping.accessories.bySlot === TESTER_GROUPING_DEFAULT_STATE.accessories.bySlot
+    && grouping.hideHeaders === TESTER_GROUPING_DEFAULT_STATE.hideHeaders
+}
+
+export const normalizeTesterGroupingState = (raw: unknown): TesterGroupingState => {
+  // Invalid shapes should never crash; fall back to the default grouping config.
+  if (!raw || typeof raw !== 'object') return TESTER_GROUPING_DEFAULT_STATE
+  const obj = raw as Record<string, unknown>
+  const artifactsRaw = obj.artifacts && typeof obj.artifacts === 'object' ? (obj.artifacts as Record<string, unknown>) : {}
+  const accessoriesRaw = obj.accessories && typeof obj.accessories === 'object' ? (obj.accessories as Record<string, unknown>) : {}
+  const artifacts = {
+    // Explicit true/false is honored; otherwise fall back to the defaults.
+    bySet: artifactsRaw.bySet === true ? true : artifactsRaw.bySet === false ? false : TESTER_GROUPING_DEFAULT_STATE.artifacts.bySet,
+    bySlot: artifactsRaw.bySlot === true ? true : artifactsRaw.bySlot === false ? false : TESTER_GROUPING_DEFAULT_STATE.artifacts.bySlot,
+  }
+  const accessories = {
+    // Accessory grouping can combine faction/set/slot independently.
+    byFaction: accessoriesRaw.byFaction === true ? true : accessoriesRaw.byFaction === false ? false : TESTER_GROUPING_DEFAULT_STATE.accessories.byFaction,
+    bySet: accessoriesRaw.bySet === true ? true : accessoriesRaw.bySet === false ? false : TESTER_GROUPING_DEFAULT_STATE.accessories.bySet,
+    bySlot: accessoriesRaw.bySlot === true ? true : accessoriesRaw.bySlot === false ? false : TESTER_GROUPING_DEFAULT_STATE.accessories.bySlot,
+  }
+  const hideHeaders = obj.hideHeaders === true
+  return { artifacts, accessories, hideHeaders }
+}
 
 // Synthetic "priority keys" beyond the StatVariant enum.
 // Why: keep the sort menu extensible without forcing fake variants into the domain enum.

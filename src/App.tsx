@@ -85,7 +85,7 @@ import {
 import { fingerprintConfigForRules, fingerprintSubstatTargets, updateConfigRulesCache } from './lib/ruleCache'
 import { hasConfigMeaningfulDifferences } from './lib/configDiff'
 import { buildRuleTesterAutosavePayload, createRuleTesterMath, fingerprintRuleTesterItem, loadRuleTesterAutosaveDraft, type RuleTesterItem } from './lib/ruleTesterSession'
-import { sortTesterRows, TESTER_GROUPING_MODE_DEFAULT, TESTER_SORT_KEY_LAST_USAGE } from './lib/testerSort'
+import { sortTesterRows, TESTER_SORT_KEY_LAST_USAGE } from './lib/testerSort'
 import { buildTesterRuleTemplateConfig } from './lib/testerRuleTemplates'
 import { buildTesterOutcomeSummary } from './lib/testerOutcomeSummary'
 import { isDefaultTesterSubstatSortState, setTesterSubstatSortState, useTesterSubstatSortPreferences } from './state/testerSubstatSortPreferences'
@@ -5286,7 +5286,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
 	        onClearTesterSubstatSort={testerSubstatSortPrefs.clear}
 	        onSetTesterSubstatSortState={setTesterSubstatSortState}
 		        onSetTesterSubstatSortDirection={testerSubstatSortPrefs.setDirection}
-		        onSetTesterSubstatSortGrouping={testerSubstatSortPrefs.setGrouping}
+		        onToggleTesterArtifactGroupBySet={testerSubstatSortPrefs.toggleArtifactGroupBySet}
+		        onToggleTesterArtifactGroupBySlot={testerSubstatSortPrefs.toggleArtifactGroupBySlot}
+		        onToggleTesterAccessoryGroupByFaction={testerSubstatSortPrefs.toggleAccessoryGroupByFaction}
+		        onToggleTesterAccessoryGroupBySet={testerSubstatSortPrefs.toggleAccessoryGroupBySet}
+		        onToggleTesterAccessoryGroupBySlot={testerSubstatSortPrefs.toggleAccessoryGroupBySlot}
+		        onToggleTesterGroupingHeaders={testerSubstatSortPrefs.toggleHideHeaders}
 		        onToggleTesterSubstatSortExcludeGlyphs={testerSubstatSortPrefs.toggleExcludeGlyphs}
 	        onToggleTesterSubstatSortPriority={testerSubstatSortPrefs.togglePriorityKey}
 	        onToggleTesterSubstatSortPriorityFlipped={testerSubstatSortPrefs.toggleFlipped}
@@ -5347,7 +5352,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
 	                  onJumpToRule={handleTesterRuleView}
 	                  onCreateRuleTemplate={handleTesterRuleTemplateCreate}
 	                  suppressMatchDetails={suppressTesterMatchDetails}
-	                  grouping={testerSubstatSortSpec ? testerSubstatSortPrefs.state.grouping : TESTER_GROUPING_MODE_DEFAULT}
+	                  grouping={testerSubstatSortPrefs.state.grouping}
 	                  substatSort={testerSubstatSortSpec}
 	                  sortState={testerSubstatSortPrefs.state}
 	                  emptyStateVerticalAlign={emptyStateVerticalAlign}
