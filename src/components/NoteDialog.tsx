@@ -185,6 +185,17 @@ const NOTE_CARD_LABEL_TEXT_SX = {
   lineHeight: 1.4,
 }
 const NOTE_OPTION_LINE_HEIGHT_COLUMNS = 1.2
+// Label text is single-line only, so newlines become spaces.
+const normalizeOptionLabelText = (value: string): string => (
+  value.replace(/\r?\n|\r/g, ' ')
+)
+// Shared label styling for two-column option rows.
+const NOTE_QUESTION_OPTION_TWO_COLUMN_LABEL_SX = {
+  // Block layout avoids baseline quirks when values wrap.
+  display: 'block',
+  width: '100%',
+  lineHeight: NOTE_OPTION_LINE_HEIGHT_COLUMNS,
+}
 const NOTE_QUESTION_OPTION_SX = {
   // Match Keep Unique row density by trimming default control padding.
   alignItems: 'center',
@@ -195,11 +206,10 @@ const NOTE_QUESTION_OPTION_SX = {
 }
 const NOTE_QUESTION_OPTION_TWO_COLUMN_SX = {
   // Keep the control aligned to the top of multi-line option text.
-  alignItems: 'flex-start',
   m: 0,
   py: 0,
   // Let the label area stretch so the two columns can align.
-  '& .MuiFormControlLabel-label': { width: '100%', lineHeight: NOTE_OPTION_LINE_HEIGHT_COLUMNS },
+  '& .MuiFormControlLabel-label': NOTE_QUESTION_OPTION_TWO_COLUMN_LABEL_SX,
   '& .MuiCheckbox-root, & .MuiRadio-root': { p: 0.25 },
 }
 const NOTE_QUESTION_OPTION_GROUP_STACK_SX = {
@@ -239,6 +249,8 @@ const NOTE_QUESTION_SUBTEXT_SX = {
   color: 'text.secondary',
   lineHeight: 1.2,
 }
+// Pad the label column so short bold labels don't wrap.
+const NOTE_QUESTION_LABEL_COLUMN_PAD_CH = 1
 
 function splitQuestionPrompt(prompt: string): QuestionPromptParts {
   // Locate the first newline to split title/subtext.
@@ -265,7 +277,9 @@ function resolveQuestionPromptReference(raw: string, options: NoteQuestionDefini
   if (!Number.isFinite(index) || index < 0) return raw
   const option = options[index]
   // Fall back to the original content when the option is missing.
-  return option ? option.label : raw
+  if (!option) return raw
+  // Normalize label-only content so prompt references stay single-line.
+  return option.detail ? normalizeOptionLabelText(option.label) : option.label
 }
 
 function buildQuestionPromptTokens(
@@ -382,8 +396,10 @@ function renderQuestionOptionLabel(
 }
 
 function measureOptionLabelLength(label: string): number {
+  // Normalize newlines so labels stay single-line in the column.
+  const normalized = normalizeOptionLabelText(label)
   // Split on newlines so we measure the widest visible line.
-  const lines = label.split('\n')
+  const lines = normalized.split('\n')
   let maxLength = 0
   lines.forEach((line) => {
     // Strip emphasis markers so chip/label styling doesn't inflate widths.
@@ -407,12 +423,16 @@ function renderTwoColumnOptionLabel({
   layout: 'columns' | 'rows'
 }): JSX.Element {
   // When a second string exists, treat the first as the label column.
-  const labelText = option.detail ? option.label : ''
+  const labelText = option.detail ? normalizeOptionLabelText(option.label) : ''
   // When no label exists, keep the full text in the value column.
   const valueText = option.detail ? option.detail : option.label
   // Decide which text belongs to the first row when rows are active.
-  const primaryText = option.detail ? option.label : option.label
+  const primaryText = option.detail ? labelText : option.label
   const secondaryText = option.detail ? option.detail : null
+  // Collapse the label column when no detail exists.
+  const hasDetail = Boolean(option.detail)
+  // Remove the column gap when only the value column renders.
+  const columnGap = hasDetail ? 0.625 : 0
   // Render a single text block in row layout to preserve line spacing.
   if (layout === 'rows') {
     // Tokenize label/value text so emphasis markers are preserved.
@@ -438,21 +458,31 @@ function renderTwoColumnOptionLabel({
     )
   }
   // Keep the two-column layout predictable by fixing the label column width.
-  const gridTemplateColumns = `${labelColumnCh}ch minmax(0, 1fr)`
+  const labelColumnWidth = hasDetail ? `${labelColumnCh}ch` : '0'
+  const gridTemplateColumns = `${labelColumnWidth} minmax(0, 1fr)`
   return (
     <Box
       component="span"
       sx={{
         display: 'grid',
         gridTemplateColumns,
-        columnGap: 1.25,
-        alignItems: 'start',
+        columnGap,
+        // Center the label/value block so it matches case2 alignment.
+        alignItems: 'center',
         // Match the tighter line height for two-column text/value labels.
         lineHeight: NOTE_OPTION_LINE_HEIGHT_COLUMNS,
         width: '100%',
       }}
     >
-      <Box component="span">
+      <Box
+        component="span"
+        sx={{
+          // Use block layout so grid cells align to the top line.
+          display: 'block',
+          alignSelf: 'center',
+          minWidth: 0,
+        }}
+      >
         {labelText
           ? renderQuestionOptionLabel(
             labelText,
@@ -462,7 +492,15 @@ function renderTwoColumnOptionLabel({
           )
           : null}
       </Box>
-      <Box component="span">
+      <Box
+        component="span"
+        sx={{
+          // Use block layout so multi-line values start at the top.
+          display: 'block',
+          alignSelf: 'center',
+          minWidth: 0,
+        }}
+      >
         {renderQuestionOptionLabel(valueText, chipSx, labelSx)}
       </Box>
     </Box>
@@ -1536,18 +1574,20 @@ function NoteQuestionBlock({ node }: NoteQuestionBlockProps): JSX.Element | null
     () => (question?.options ?? []),
     [question],
   )
-  // Two-string option labels trigger a two-column layout for the card.
-  const hasTwoColumnOptions = questionOptions.some((option) => Boolean(option.detail))
   // Clamp the label column width so short labels stay readable.
   const labelColumnCh = useMemo(() => {
     // Measure only the explicit label column values for the two-column layout.
     const labelLengths = questionOptions
       .filter((option) => Boolean(option.detail))
       .map((option) => measureOptionLabelLength(option.label))
-    // Default to a sensible minimum when no labels are available.
-    const rawMax = labelLengths.length > 0 ? Math.max(...labelLengths) : 8
-    // Allow a minimal label width so value text can dominate when desired.
-    return Math.min(Math.max(rawMax, 0), 24)
+    // Use a zero-width column when no label/detail pairs exist.
+    const hasLabelColumn = labelLengths.length > 0
+    // Use the exact widest label so the column doesn't overshoot content.
+    const rawMax = hasLabelColumn ? Math.max(...labelLengths) : 0
+    // Add a small pad so bold text doesn't wrap unexpectedly.
+    const paddedMax = rawMax + NOTE_QUESTION_LABEL_COLUMN_PAD_CH
+    // Cap extreme labels so the value column keeps room to breathe.
+    return hasLabelColumn ? Math.min(paddedMax, 24) : 0
   }, [questionOptions])
   if (!question) return null
   // Switch layout styling when the marker opts into full-width rendering.
@@ -1567,13 +1607,24 @@ function NoteQuestionBlock({ node }: NoteQuestionBlockProps): JSX.Element | null
   const optionGroupSx = isWholeline
     ? buildNoteQuestionOptionGridSx(optionColumnMinWidth, question.layoutColumns)
     : NOTE_QUESTION_OPTION_GROUP_STACK_SX
-  // Use a different row layout when the question renders two-column option text.
-  const optionRowSx = hasTwoColumnOptions ? NOTE_QUESTION_OPTION_TWO_COLUMN_SX : NOTE_QUESTION_OPTION_SX
   // Expand the card width when wholeline layout is enabled.
   const cardWidthSx = isWholeline
     ? { flex: '1 1 100%', minWidth: '100%', maxWidth: '100%', width: '100%' }
     : { flex: `1 1 ${flexBasis}px`, minWidth, maxWidth }
   const cardOpacity = configOptionsDisabled ? 0.55 : 1
+  // Build per-option row styling so alignment can differ per label presence.
+  const buildOptionRowSx = (): Record<string, unknown> => {
+    if (isWholeline) return NOTE_QUESTION_OPTION_SX
+    return {
+      ...NOTE_QUESTION_OPTION_TWO_COLUMN_SX,
+      // Center the control so labeled rows match case2 alignment.
+      alignItems: 'center',
+      '& .MuiFormControlLabel-label': {
+        ...NOTE_QUESTION_OPTION_TWO_COLUMN_LABEL_SX,
+        alignSelf: 'center',
+      },
+    }
+  }
   return (
     <Box
       sx={{
@@ -1651,24 +1702,26 @@ function NoteQuestionBlock({ node }: NoteQuestionBlockProps): JSX.Element | null
                     }}
                     sx={optionGroupSx}
                   >
-                    {group.options.map((option) => (
-                      <FormControlLabel
-                        key={option.id}
-                        value={option.id}
-                        control={<Radio size="small" disabled={!configOptionsEditable} />}
-                        label={hasTwoColumnOptions
-                          ? renderTwoColumnOptionLabel({
+                    {group.options.map((option) => {
+                      // Keep row spacing consistent across all non-wholeline options.
+                      const rowSx = buildOptionRowSx()
+                      return (
+                        <FormControlLabel
+                          key={option.id}
+                          value={option.id}
+                          control={<Radio size="small" disabled={!configOptionsEditable} />}
+                          label={renderTwoColumnOptionLabel({
                             option,
                             chipSx: promptChipSx,
                             labelSx: promptLabelSx,
                             labelColumnCh,
                             layout: isWholeline ? 'rows' : 'columns',
-                          })
-                          : renderQuestionOptionLabel(option.label, promptChipSx, promptLabelSx)}
-                        disabled={!configOptionsEditable}
-                        sx={optionRowSx}
-                      />
-                    ))}
+                          })}
+                          disabled={!configOptionsEditable}
+                          sx={rowSx}
+                        />
+                      )
+                    })}
                   </RadioGroup>
                 </FormControl>
               )
@@ -1678,6 +1731,8 @@ function NoteQuestionBlock({ node }: NoteQuestionBlockProps): JSX.Element | null
                 {group.options.map((option) => {
                   // Compute the checked state once per option.
                   const checked = selectedSet.has(option.id)
+                  // Keep row spacing consistent across all non-wholeline options.
+                  const rowSx = buildOptionRowSx()
                   return (
                     <FormControlLabel
                       key={option.id}
@@ -1700,17 +1755,15 @@ function NoteQuestionBlock({ node }: NoteQuestionBlockProps): JSX.Element | null
                           }}
                         />
                       )}
-                      label={hasTwoColumnOptions
-                        ? renderTwoColumnOptionLabel({
-                          option,
-                          chipSx: promptChipSx,
-                          labelSx: promptLabelSx,
-                          labelColumnCh,
-                          layout: isWholeline ? 'rows' : 'columns',
-                        })
-                        : renderQuestionOptionLabel(option.label, promptChipSx, promptLabelSx)}
+                      label={renderTwoColumnOptionLabel({
+                        option,
+                        chipSx: promptChipSx,
+                        labelSx: promptLabelSx,
+                        labelColumnCh,
+                        layout: isWholeline ? 'rows' : 'columns',
+                      })}
                       disabled={!configOptionsEditable}
-                      sx={optionRowSx}
+                      sx={rowSx}
                     />
                   )
                 })}

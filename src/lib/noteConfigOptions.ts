@@ -450,6 +450,7 @@ const tokenizeConfigOptions = (input: string): Token[] => {
           if (esc === 'n') value += '\n'
           else if (esc === 't') value += '\t'
           else if (esc === 'r') value += '\r'
+          else if (esc === '\\\\') value += '\\\\'
           else if (esc) value += esc
           cursor += 2
           continue
