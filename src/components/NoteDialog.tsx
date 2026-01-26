@@ -217,7 +217,11 @@ const NOTE_QUESTION_OPTION_GROUP_STACK_SX = {
   gap: 0.25,
 }
 
-function buildNoteQuestionOptionGridSx(minColumnWidth: number, columns: number) {
+function buildNoteQuestionOptionGridSx(
+  minColumnWidth: number,
+  columns: number,
+  rowAlign: 'center' | 'flex-start',
+) {
   // Determine whether a fixed column count was provided.
   const hasFixedColumns = columns > 0
   // Favor auto-fit with a min width derived from non-wholeline cards.
@@ -232,8 +236,8 @@ function buildNoteQuestionOptionGridSx(minColumnWidth: number, columns: number) 
     // Keep row/column spacing consistent with stacked cards.
     rowGap: 0.35,
     columnGap: 1.5,
-    // Align controls on a shared baseline for scanability.
-    alignItems: 'center',
+    // Align entire option rows based on wholeline label usage.
+    alignItems: rowAlign,
     // Let the grid stretch across the full card width.
     width: '100%',
   } satisfies Record<string, unknown>
@@ -1574,6 +1578,11 @@ function NoteQuestionBlock({ node }: NoteQuestionBlockProps): JSX.Element | null
     () => (question?.options ?? []),
     [question],
   )
+  // Wholeline alignment changes only when every option provides a detail label.
+  const allWholelineOptionsHaveLabels = useMemo(
+    () => questionOptions.length > 0 && questionOptions.every((option) => Boolean(option.detail)),
+    [questionOptions],
+  )
   // Clamp the label column width so short labels stay readable.
   const labelColumnCh = useMemo(() => {
     // Measure only the explicit label column values for the two-column layout.
@@ -1605,7 +1614,12 @@ function NoteQuestionBlock({ node }: NoteQuestionBlockProps): JSX.Element | null
   const optionColumnMinWidth = minWidth
   // Pick the option group layout based on the marker-level layout mode.
   const optionGroupSx = isWholeline
-    ? buildNoteQuestionOptionGridSx(optionColumnMinWidth, question.layoutColumns)
+    ? buildNoteQuestionOptionGridSx(
+      optionColumnMinWidth,
+      question.layoutColumns,
+      // Align the full row to the top when every wholeline option has a label.
+      allWholelineOptionsHaveLabels ? 'flex-start' : 'center',
+    )
     : NOTE_QUESTION_OPTION_GROUP_STACK_SX
   // Expand the card width when wholeline layout is enabled.
   const cardWidthSx = isWholeline
@@ -1614,7 +1628,19 @@ function NoteQuestionBlock({ node }: NoteQuestionBlockProps): JSX.Element | null
   const cardOpacity = configOptionsDisabled ? 0.55 : 1
   // Build per-option row styling so alignment can differ per label presence.
   const buildOptionRowSx = (): Record<string, unknown> => {
-    if (isWholeline) return NOTE_QUESTION_OPTION_SX
+    if (isWholeline) {
+      // Keep the default alignment when labels are mixed or absent.
+      if (!allWholelineOptionsHaveLabels) return NOTE_QUESTION_OPTION_SX
+      // Align the control to the first label line when every option is labeled.
+      return {
+        ...NOTE_QUESTION_OPTION_SX,
+        alignItems: 'flex-start',
+        '& .MuiFormControlLabel-label': {
+          ...NOTE_QUESTION_OPTION_SX['& .MuiFormControlLabel-label'],
+          alignSelf: 'flex-start',
+        },
+      }
+    }
     return {
       ...NOTE_QUESTION_OPTION_TWO_COLUMN_SX,
       // Center the control so labeled rows match case2 alignment.
