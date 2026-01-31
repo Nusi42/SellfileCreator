@@ -3,6 +3,7 @@ import path from 'node:path'
 import type { Page } from '@playwright/test'
 import { LANG_KEY } from '../../src/lib/constants'
 import { DEFAULT_LANGUAGE } from '../../src/lib/i18n/types'
+import { PLAYWRIGHT_TIMEOUTS } from './timeouts'
 
 // Resolve package.json from repo root so Playwright can move.
 const packageJsonPath = path.resolve(process.cwd(), 'package.json')
@@ -37,10 +38,10 @@ const FILTER_PRESETS_KEY = 'sellfileCreator.filterPresets.v1'
 // Share consistent navigation defaults across specs.
 // Why: Firefox sometimes stalls on full load under heavy parallelism.
 export const APP_GOTO_OPTIONS = {
-  // DOMContentLoaded is enough for UI readiness checks in the specs.
-  waitUntil: 'domcontentloaded',
-  // Allow extra time for Vite to settle during multi-worker runs.
-  timeout: 60_000,
+  // Commit is enough; specs wait for specific UI signals before interacting.
+  waitUntil: 'commit',
+  // Allow a one-time boot budget before rebuilding or matching waits take over.
+  timeout: PLAYWRIGHT_TIMEOUTS.appGoto,
 } as const
 
 export async function prepareApp(page: Page, options: PrepareAppOptions = {}): Promise<void> {

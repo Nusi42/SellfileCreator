@@ -1,4 +1,5 @@
 import { defineConfig, devices } from '@playwright/test';
+import { PLAYWRIGHT_TIMEOUTS } from './tests/playwright/timeouts';
 
 /**
  * Read environment variables from file.
@@ -13,20 +14,32 @@ import { defineConfig, devices } from '@playwright/test';
  */
 export default defineConfig({
   testDir: './tests/playwright',
-  /* Run tests in files in parallel */
-  fullyParallel: true,
+  // Keep default timeouts tight so hung tests fail quickly.
+  timeout: PLAYWRIGHT_TIMEOUTS.testDefault,
+  // Align expect assertions with the default UI wait budget.
+  expect: {
+    // Keep expectations snappy by default.
+    timeout: PLAYWRIGHT_TIMEOUTS.expectDefault,
+  },
+  /* Keep Playwright runs stable under the full browser matrix. */
+  fullyParallel: false,
   /* Fail the build on CI if you accidentally left test.only in the source code. */
   forbidOnly: !!process.env.CI,
   /* Retry on CI only */
   retries: process.env.CI ? 2 : 0,
-  /* Opt out of parallel tests on CI. */
-  workers: process.env.CI ? 1 : undefined,
+  /* Serialize workers to avoid Vite crashes during multi-browser runs. */
+  workers: 1,
   /* Reporter to use. See https://playwright.dev/docs/test-reporters */
   reporter: 'html',
   /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
   use: {
     /* Base URL to use in actions like `await page.goto('')`. */
     baseURL: 'http://127.0.0.1:5182',
+
+    // Fail fast on slow actions so we spot stuck UI earlier.
+    actionTimeout: PLAYWRIGHT_TIMEOUTS.action,
+    // Keep navigation aligned with the app shell budget.
+    navigationTimeout: PLAYWRIGHT_TIMEOUTS.navigation,
 
     /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
     trace: 'on-first-retry',

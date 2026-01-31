@@ -1,17 +1,21 @@
 import { test, expect } from './fixtures'
 import { APP_GOTO_OPTIONS, prepareApp } from './app-init'
+import { PLAYWRIGHT_TIMEOUTS } from './timeouts'
 
 test.describe('substat targets dialog', () => {
   test('Tab/Shift+Tab hops between value inputs and wraps', async ({ page }) => {
-    // Firefox on Windows can take longer to warm the dev server before DOMContentLoaded.
-    test.setTimeout(60_000)
+    // Allow a longer cap for the initial app boot on slower browsers.
+    test.setTimeout(PLAYWRIGHT_TIMEOUTS.testLong)
     // Ensure the builder shell is ready without tutorial/readme overlays.
     await prepareApp(page)
     // Load the app shell without waiting for full asset load.
     await page.goto('/', APP_GOTO_OPTIONS)
 
     // Open the "Substat Targets" modal (aka the Substat Values popout).
-    await page.getByRole('button').filter({ hasText: 'Substat Targets' }).click()
+    const openButton = page.getByRole('button').filter({ hasText: 'Substat Targets' })
+    // Allow the app shell to finish mounting before we assert on the trigger.
+    await openButton.waitFor({ state: 'visible', timeout: PLAYWRIGHT_TIMEOUTS.appGoto })
+    await openButton.click()
 
     // Scope to the dialog so future UI additions do not affect the selector.
     const dialog = page.getByRole('dialog', { name: 'Manage Substat Targets' })

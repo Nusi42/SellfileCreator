@@ -121,8 +121,6 @@ const restoredOpenMap = {
 
 test.describe('autosave filter restore', () => {
   test('applies saved filters when restoring autosave', async ({ page }) => {
-    // Give the restore flow extra headroom because it depends on async hydration.
-    test.setTimeout(120_000)
     await page.addInitScript(
       ({
         readmeKey,
@@ -236,8 +234,8 @@ test.describe('autosave filter restore', () => {
         defaultOpen: defaultOpenMap,
       },
     )
-    // Reload so the restore dialog reads the freshly seeded storage.
-    await page.reload()
+    // Reload via commit so we stay within the fast-fail timeout.
+    await page.reload({ waitUntil: 'commit' })
     const preState = await page.evaluate((key) => {
       const raw = window.localStorage.getItem(key)
       return raw ? JSON.parse(raw) : null

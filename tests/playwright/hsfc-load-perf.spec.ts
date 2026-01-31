@@ -1,15 +1,15 @@
 import { expect, test } from '@playwright/test'
-import path from 'node:path'
 import { APP_GOTO_OPTIONS } from './app-init'
+import { PLAYWRIGHT_TIMEOUTS } from './timeouts'
+import { SAMPLE_HSFC_PATH } from './fixture-paths'
 
-const LARGE_HSFC_PATH = path.resolve(process.cwd(), 'tests', 'data', 'sample.hsfc')
+const LARGE_HSFC_PATH = SAMPLE_HSFC_PATH
 
 test.describe('HSFC load performance', () => {
-  test.skip(({ browserName }) => browserName !== 'chromium', 'Performance measurement currently tracks Chromium only.')
-
+  // Run perf baselines in every browser to catch engine-specific regressions.
   test('measures time to preview ready for large HSFC', async ({ page }, testInfo) => {
-    // Allow extra time for large fixture load on slower CI/browser combos.
-    test.setTimeout(180_000)
+    // Allow the long timeout for the rebuild triggered by HSFC import.
+    test.setTimeout(PLAYWRIGHT_TIMEOUTS.testLong)
     await page.addInitScript((storageKeys) => {
       try {
         window.localStorage.setItem(storageKeys.readme, storageKeys.version)
@@ -33,7 +33,7 @@ test.describe('HSFC load performance', () => {
     }
 
     const hsfcInput = page.locator('[data-tour-id="hsfc.load"] input[type="file"][accept*=".hsfc"]').first()
-    await hsfcInput.waitFor({ state: 'attached', timeout: 10_000 })
+    await hsfcInput.waitFor({ state: 'attached', timeout: PLAYWRIGHT_TIMEOUTS.expectDefault })
 
     const start = await page.evaluate(() => performance.now())
     await hsfcInput.setInputFiles(LARGE_HSFC_PATH)
@@ -41,19 +41,19 @@ test.describe('HSFC load performance', () => {
     const noteDialog = page.locator('role=dialog[name="Note"]')
     const noteCloseButton = noteDialog.locator('button:has-text("Close")').first()
     // Allow the note dialog to be optional so the perf test can still run on fixtures without notes.
-    const noteVisible = await noteDialog.waitFor({ state: 'visible', timeout: 30_000 }).then(() => true).catch(() => false)
+    const noteVisible = await noteDialog.waitFor({ state: 'visible', timeout: PLAYWRIGHT_TIMEOUTS.expectDefault }).then(() => true).catch(() => false)
     // Record the note readiness time if the dialog shows up.
     const noteReady = noteVisible ? await page.evaluate(() => performance.now()) : null
     // Close the note dialog when present so the preview can render unobstructed.
     if (noteVisible) {
-      await noteCloseButton.waitFor({ state: 'visible', timeout: 120_000 })
-      await expect(noteCloseButton).toBeEnabled({ timeout: 120_000 })
+      await noteCloseButton.waitFor({ state: 'visible', timeout: PLAYWRIGHT_TIMEOUTS.expectDefault })
+      await expect(noteCloseButton).toBeEnabled({ timeout: PLAYWRIGHT_TIMEOUTS.expectDefault })
       await noteCloseButton.click()
     }
 
     // Wait for the first preview row to ensure the render is complete.
-    const firstRow = page.locator('table tbody tr[data-row-index="0"]')
-    await firstRow.waitFor({ timeout: 120_000 })
+    const firstRow = page.locator('table tbody tr[data-cfg-idx]').first()
+    await firstRow.waitFor({ timeout: PLAYWRIGHT_TIMEOUTS.expectLong })
     // Snapshot the time for first-row render to compare against the start.
     const firstRowReady = await page.evaluate(() => performance.now())
     // Derive the delays so we can emit perf annotations.

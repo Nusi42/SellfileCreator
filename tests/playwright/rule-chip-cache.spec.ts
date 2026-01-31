@@ -2,6 +2,10 @@ import { test, expect } from '@playwright/test'
 import fs from 'node:fs'
 import path from 'node:path'
 import { APP_GOTO_OPTIONS } from './app-init'
+import { dismissBlockingDialogs } from './dialog-helpers'
+import { PLAYWRIGHT_TIMEOUTS } from './timeouts'
+import { getWorkloadIndicator } from './workload-indicator'
+import { SAMPLE_SMALL_HSFC_PATH } from './fixture-paths'
 
 // Resolve package.json from repo root so the suite can relocate.
 const packageJsonPath = path.resolve(process.cwd(), 'package.json')
@@ -11,8 +15,8 @@ const APP_VERSION = typeof appVersionValue === 'string' ? appVersionValue : '0.0
 
 test.describe('builder rule count chip', () => {
   test('does not revert to Counting when switching configs', async ({ page }) => {
-    // Allow extra time for config load and rule chip updates on slower browsers.
-    test.setTimeout(120_000)
+    // Allow the long timeout for rule rebuilds after config switches.
+    test.setTimeout(PLAYWRIGHT_TIMEOUTS.testLong)
     await page.addInitScript(({ readmeKey, tutorialKey, autosaveKey, version }) => {
       try { window.localStorage.setItem(readmeKey, version) } catch {
         /* localStorage unavailable */
@@ -33,38 +37,29 @@ test.describe('builder rule count chip', () => {
     // Load the shell without waiting on full resource load.
     await page.goto('/', APP_GOTO_OPTIONS)
 
-    const hsfcPath = path.resolve(process.cwd(), 'examples', 'example.hsfc')
+    // Use the slim HSFC fixture so loads stay quick in all browsers.
+    const hsfcPath = SAMPLE_SMALL_HSFC_PATH
     const loadConfigsButton = page.getByRole('button', { name: /Load Configs/i })
     await loadConfigsButton.locator('input[type="file"]').setInputFiles(hsfcPath)
 
-    // Close the note dialog if it auto-opens so chips remain clickable.
-    const noteDialog = page.getByRole('dialog', { name: 'Note & Config Options' })
-    // Only click when the dialog is actually visible.
-    if (await noteDialog.isVisible().catch(() => false)) {
-      await noteDialog.getByRole('button', { name: 'Close' }).click()
-    }
-    // Dismiss autosave prompts so they do not block the builder panel.
-    const restoreDialog = page.getByRole('dialog', { name: /restore/i })
-    // Only interact when the prompt is present.
-    if (await restoreDialog.isVisible().catch(() => false)) {
-      await restoreDialog.getByRole('button', { name: /Dismiss/i }).click()
-    }
+    // Clear any dialogs that would block chip interactions.
+    await dismissBlockingDialogs(page)
 
     const chips = page.locator('[data-config-chip="true"]')
     // Wait for at least two chips so the config list is hydrated before we switch.
     // Wait for the chip list to populate before asserting visibility.
     await page.waitForFunction(
       () => document.querySelectorAll('[data-config-chip="true"]').length >= 2,
-      { timeout: 60_000 },
+      undefined,
+      { timeout: PLAYWRIGHT_TIMEOUTS.expectLong },
     )
-    await expect(chips.first()).toBeVisible({ timeout: 60_000 })
-    await expect(chips.nth(1)).toBeVisible({ timeout: 60_000 })
+    await expect(chips.first()).toBeVisible({ timeout: PLAYWRIGHT_TIMEOUTS.expectLong })
+    await expect(chips.nth(1)).toBeVisible({ timeout: PLAYWRIGHT_TIMEOUTS.expectLong })
     try {
       await page.keyboard.press('Escape')
     } catch {
       /* dialog already closed */
     }
-    await page.waitForTimeout(100)
 
     const ruleChipLabel = page.locator('[data-testid="builder-rule-count-chip"] .MuiChip-label')
     await expect(ruleChipLabel).toBeVisible()
@@ -90,8 +85,8 @@ test.describe('builder rule count chip', () => {
     })
 
     await chips.nth(1).click()
-    // Allow the UI to settle and capture any transient states.
-    await page.waitForTimeout(600)
+    // Wait for the rebuild indicator to clear before capturing final states.
+    await getWorkloadIndicator(page).waitFor({ state: 'hidden', timeout: PLAYWRIGHT_TIMEOUTS.expectLong })
 
     const states = await page.evaluate(() => {
       // @ts-expect-error test instrumentation
