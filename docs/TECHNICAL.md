@@ -160,7 +160,7 @@ Without the helper, the Playwright perf tests fall back to the built-in measurem
   - `npm run test:e2e:chromium` executes the Playwright suite in Chromium only.
   - `npm run test:e2e:firefox` executes the Playwright suite in Firefox only.
   - `npm run test:e2e:webkit` executes the Playwright suite in WebKit only.
-  - `npm run test:e2e` runs Chromium → Firefox → WebKit sequentially (fresh dev server each run).
+  - `npm run test:e2e` runs Chromium → Firefox → WebKit sequentially (fresh dev server each run) and continues even if an earlier browser fails; it exits non-zero if any browser fails.
   - `npm run test:e2e:all` is a backwards-compatible alias for `test:e2e` (full browser matrix).
   - `npm test` runs `test:all` (unit/integration + all Playwright browsers).
   - `npm run test:all:full` currently mirrors `test:all`; keep it for CI parity.
