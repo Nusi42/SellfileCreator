@@ -5,6 +5,7 @@ import { dismissBlockingDialogs } from './dialog-helpers'
 import { PLAYWRIGHT_TIMEOUTS } from './timeouts'
 import { getWorkloadIndicator } from './workload-indicator'
 import { SAMPLE_SMALL_HSFC_PATH } from './fixture-paths'
+import { HSFC_LOAD_INPUT_SELECTOR } from './ui-selectors'
 
 async function getFirstRulePositions(page: import('@playwright/test').Page): Promise<number[]> {
   return page.evaluate(() => {
@@ -49,8 +50,9 @@ test.describe('config insert ordering', () => {
 
     // Use the small fixture so the rebuild stays inside the long timeout.
     const hsfcPath = SAMPLE_SMALL_HSFC_PATH
-    const loadConfigsButton = page.getByRole('button', { name: /Load Configs/i })
-    await loadConfigsButton.locator('input[type="file"]').setInputFiles(hsfcPath)
+    // Target the hidden file input directly so label changes do not break the test.
+    const hsfcInput = page.locator(HSFC_LOAD_INPUT_SELECTOR).first()
+    await hsfcInput.setInputFiles(hsfcPath)
 
     // Clear any note/restore dialogs before interacting with chips.
     await dismissBlockingDialogs(page)

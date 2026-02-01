@@ -7,6 +7,7 @@ import { getWorkloadIndicator } from './workload-indicator'
 import { PREVIEW_MODE_STORAGE_KEY } from '../../src/lib/constants'
 import { SAMPLE_SMALL_HSFC_PATH } from './fixture-paths'
 import { warmupAppShell } from './app-warmup'
+import { HSFC_LOAD_INPUT_SELECTOR } from './ui-selectors'
 
 // Use the slim HSFC fixture so rebuilds stay within the 15s budget.
 const HSFC_PATH = SAMPLE_SMALL_HSFC_PATH
@@ -188,7 +189,8 @@ async function attachLongTaskObserver(page: Page): Promise<void> {
 
 async function loadHsfcFile(page: Page, filePath: string): Promise<void> {
   // Target the HSFC loader so we follow the real import path.
-  const input = page.locator('[data-tour-id="hsfc.load"] input[type="file"][accept*=".hsfc"]').first()
+  // Use the shared HSFC selector so we do not depend on visible labels.
+  const input = page.locator(HSFC_LOAD_INPUT_SELECTOR).first()
   // Ensure the input exists before attempting to set files.
   await input.waitFor({ state: 'attached', timeout: PLAYWRIGHT_TIMEOUTS.expectDefault })
   // Use the file input to trigger the load.

@@ -1,6 +1,9 @@
 import { defineConfig, devices } from '@playwright/test';
 import { PLAYWRIGHT_TIMEOUTS } from './tests/playwright/timeouts';
 
+// Shared root for Playwright artifact output so per-browser runs stay isolated.
+const PLAYWRIGHT_RESULTS_ROOT = 'test-results';
+
 /**
  * Read environment variables from file.
  * https://github.com/motdotla/dotenv
@@ -14,6 +17,8 @@ import { PLAYWRIGHT_TIMEOUTS } from './tests/playwright/timeouts';
  */
 export default defineConfig({
   testDir: './tests/playwright',
+  // Split HTML report output by browser so sequential runs don't overwrite.
+  reportDir: `${PLAYWRIGHT_RESULTS_ROOT}/reports`,
   // Keep default timeouts tight so hung tests fail quickly.
   timeout: PLAYWRIGHT_TIMEOUTS.testDefault,
   // Align expect assertions with the default UI wait budget.
@@ -34,7 +39,7 @@ export default defineConfig({
   reporter: [
     ['list'],
     // Never open or serve the HTML report; just write it to disk and exit.
-    ['html', { open: 'never' }],
+    ['html', { open: 'never', outputFolder: `${PLAYWRIGHT_RESULTS_ROOT}/reports` }],
   ],
   /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
   use: {
@@ -55,16 +60,28 @@ export default defineConfig({
     {
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
+      // Keep Chromium artifacts separate so sequential runs do not overwrite.
+      outputDir: `${PLAYWRIGHT_RESULTS_ROOT}/chromium`,
+      // Keep Chromium HTML reports separate so sequential runs do not overwrite.
+      reportDir: `${PLAYWRIGHT_RESULTS_ROOT}/reports/chromium`,
     },
 
     {
       name: 'firefox',
       use: { ...devices['Desktop Firefox'] },
+      // Keep Firefox artifacts separate so sequential runs do not overwrite.
+      outputDir: `${PLAYWRIGHT_RESULTS_ROOT}/firefox`,
+      // Keep Firefox HTML reports separate so sequential runs do not overwrite.
+      reportDir: `${PLAYWRIGHT_RESULTS_ROOT}/reports/firefox`,
     },
 
     {
       name: 'webkit',
       use: { ...devices['Desktop Safari'] },
+      // Keep WebKit artifacts separate so sequential runs do not overwrite.
+      outputDir: `${PLAYWRIGHT_RESULTS_ROOT}/webkit`,
+      // Keep WebKit HTML reports separate so sequential runs do not overwrite.
+      reportDir: `${PLAYWRIGHT_RESULTS_ROOT}/reports/webkit`,
     },
 
     /* Test against mobile viewports. */

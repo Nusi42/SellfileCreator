@@ -5,6 +5,7 @@
 import { spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { join } from 'node:path'
+import { mkdirSync, writeFileSync } from 'node:fs'
 
 // Capture the script directory so path math is deterministic.
 const here = fileURLToPath(new URL('.', import.meta.url))
@@ -19,6 +20,8 @@ const browserRuns = [
   { name: 'firefox', script: 'test:e2e:firefox' },
   { name: 'webkit', script: 'test:e2e:webkit' },
 ]
+// Shared report root so we can emit a combined index after all runs.
+const reportRoot = join(root, 'test-results', 'reports')
 
 // Prefer npm_execpath when available to stay cross-platform inside npm scripts.
 // This avoids relying on shell resolution for npm.cmd on Windows.
@@ -72,6 +75,39 @@ for (const run of browserRuns) {
 // Exit non-zero so CI and local scripts still fail fast.
 if (failures.length > 0) {
   console.error(`[test:e2e] failed browsers: ${failures.join(', ')}`)
+  // Still write the combined report index for quick navigation.
+  writeCombinedReportIndex(reportRoot, browserRuns)
   process.exit(1)
 }
 // Exit cleanly when all browser suites succeed.
+// Still write the combined report index for quick navigation.
+writeCombinedReportIndex(reportRoot, browserRuns)
+
+function writeCombinedReportIndex(outputRoot, runs) {
+  // Ensure the report root exists so we can always write the index file.
+  mkdirSync(outputRoot, { recursive: true })
+  // Build a minimal HTML index that links to each per-browser report.
+  const links = runs.map((run) => (
+    `<li><a href="${run.name}/index.html">${run.name}</a></li>`
+  ))
+  // Keep the markup simple and portable.
+  const html = [
+    '<!doctype html>',
+    '<html lang="en">',
+    '<head>',
+    '  <meta charset="utf-8" />',
+    '  <meta name="viewport" content="width=device-width, initial-scale=1" />',
+    '  <title>Playwright Reports</title>',
+    '  <style>body{font-family:system-ui,Segoe UI,Arial,sans-serif;margin:24px;}a{color:#2563eb;text-decoration:none;}a:hover{text-decoration:underline;}</style>',
+    '</head>',
+    '<body>',
+    '  <h1>Playwright Reports</h1>',
+    '  <ul>',
+    `    ${links.join('')}`,
+    '  </ul>',
+    '</body>',
+    '</html>',
+  ].join('\n')
+  // Write the index file so users can navigate reports easily.
+  writeFileSync(join(outputRoot, 'index.html'), html, 'utf8')
+}

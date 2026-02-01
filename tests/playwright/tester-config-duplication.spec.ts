@@ -11,6 +11,7 @@ import {
   cloneDefaultRulesFilterState,
 } from '../../src/state/rulesFilterPersistence'
 import { SAMPLE_SMALL_HSFC_PATH, SAMPLE_SMALL_DB_PATH } from './fixture-paths'
+import { HSFC_LOAD_INPUT_SELECTOR } from './ui-selectors'
 import { warmupAppShell } from './app-warmup'
 
 // Use the slim HSFC fixture so config duplication stays fast across browsers.
@@ -132,7 +133,8 @@ test.describe('tester grid matches remain stable', () => {
     await dismissBlockingDialogs(page)
 
     // Load the HSFC + gear DB pair from the shared fixtures.
-    const hsfcInput = page.locator('input[type="file"][accept*=".hsfc"]').first()
+    // Use the stable HSFC selector so the button label can remain localized.
+    const hsfcInput = page.locator(HSFC_LOAD_INPUT_SELECTOR).first()
     await hsfcInput.setInputFiles(HSFC_PATH)
     const dbInput = page.locator('input[type="file"][accept*=".db"]').first()
     await dbInput.setInputFiles(DB_PATH)

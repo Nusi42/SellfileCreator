@@ -165,7 +165,7 @@ Without the helper, the Playwright perf tests fall back to the built-in measurem
   - `npm test` runs `test:all` (unit/integration + all Playwright browsers).
   - `npm run test:all:full` currently mirrors `test:all`; keep it for CI parity.
   - Keep e2e specs browser-agnostic; avoid per-browser `test.skip` unless a true platform limitation exists.
-  - Playwright uses a single worker by default to keep Vite stable during full-matrix runs.
+- Playwright uses a single worker by default to keep Vite stable during full-matrix runs.
 - Timeout policy:
   - Timeouts are centralized in `tests/playwright/timeouts.ts`; adjust them there instead of hardcoding new values.
   - `testDefault` is 3s and should cover most UI specs; only rule rebuild or matcher workflows may use `testLong` (15s).
@@ -178,5 +178,8 @@ Without the helper, the Playwright perf tests fall back to the built-in measurem
   - `npm install` triggers `npx playwright install` via `postinstall` to fetch the browser binaries pinned to the local `@playwright/test` version.
 - Sandbox specifics:
   - Playwright requires elevated permissions when binding Vite to `127.0.0.1:5182`; re-run the command with `with_escalated_permissions: true` if you hit `EPERM`.
-  - The harness still logs `[Violation]` entries for slow handlers; ignore them unless a spec fails.
-  - Some warm-cache aborts can emit `AbortError` in the console; the tests swallow them but keep an eye out for regressions.
+- The harness still logs `[Violation]` entries for slow handlers; ignore them unless a spec fails.
+- Some warm-cache aborts can emit `AbortError` in the console; the tests swallow them but keep an eye out for regressions.
+- Reports:
+  - Per-browser HTML reports live in `test-results/reports/<browser>/index.html`.
+  - `npm run test:e2e` writes a combined index at `test-results/reports/index.html` that links to each browser report.
