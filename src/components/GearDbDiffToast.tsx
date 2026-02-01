@@ -9,6 +9,7 @@ import type { SubstatColorMap } from '../lib/renderColoredStatText'
 import type { TesterPreviewMatch, TesterPreviewRow } from '../types/testerPreview'
 import type { GearArtifactSnapshot, GearDbDiffToastEntry, GearDbDiffToastPayload } from '../lib/gearDbDiffToast'
 import { TesterGridCard, getTesterGridCardSizing } from './TesterItemsGrid'
+import { buildGearDbDiffSummaryLineNodes } from './GearDbDiffSummaryLine'
 
 // Use a tight gap so five entries can still fit in the toast window.
 const TOAST_ENTRY_GAP_UNITS = 1
@@ -38,22 +39,29 @@ export function GearDbDiffToast({
   payload,
   substatColors,
   useStatButtonColors,
+  // Count pill is only used for the green success toast background.
+  useCountPill = false,
 }: {
   payload: GearDbDiffToastPayload
   substatColors: SubstatColorMap
   useStatButtonColors: boolean
+  useCountPill?: boolean
 }) {
   // Localize static copy inside the toast itself.
   const { t } = useI18n()
   // Trim header lines up front so layout stays tight.
   // Filter empty headers so we do not render blank typography rows.
   const headerLines = payload.headerLines.map((line) => line.trim()).filter((line) => line.length > 0)
+  // Prefer structured line specs so diff summaries can render with icon glyphs.
+  const headerLineNodes = payload.lineSpecs && payload.lineSpecs.length > 0
+    ? buildGearDbDiffSummaryLineNodes(payload.lineSpecs, t, { useCountPill })
+    : headerLines
   // Stack header, list, and overflow summary vertically.
   return (
     <Stack spacing={TOAST_ENTRY_GAP_UNITS} sx={{ minWidth: 260, maxWidth: 520 }}>
-      {headerLines.length > 0 ? (
+      {headerLineNodes.length > 0 ? (
         <Stack spacing={0.35}>
-          {headerLines.map((line, index) => (
+          {headerLineNodes.map((line, index) => (
             <Typography
               key={`gear-db-diff-header-${index}`}
               variant="body2"

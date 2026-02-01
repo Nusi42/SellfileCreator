@@ -22,6 +22,7 @@ import MarkdownTooltip from './MarkdownTooltip'
 import { formatGearDbDiffHistoryLines } from '../lib/gearDbDiffToast'
 import type { GearDbDiffHistoryEntry, GearDbDiffToastPayload } from '../lib/gearDbDiffToast'
 import type { SubstatColorMap } from '../lib/renderColoredStatText'
+import { buildGearDbDiffSummaryLineNodes } from './GearDbDiffSummaryLine'
 
 export type GearDbHistoryMenuProps = {
   open: boolean
@@ -59,9 +60,9 @@ export function GearDbHistoryMenu({
   const buildHeaderLines = React.useCallback((lineSpecs: GearDbDiffHistoryEntry['lineSpecs']): string[] => (
     formatGearDbDiffHistoryLines(lineSpecs, t)
   ), [t])
-  // Strip timestamp specs so summary rows stay clean (timestamp renders separately).
-  const buildSummaryLines = React.useCallback((lineSpecs: GearDbDiffHistoryEntry['lineSpecs']): string[] => (
-    formatGearDbDiffHistoryLines(lineSpecs.filter((spec) => spec.kind !== 'timestamp'), t)
+  // Strip timestamp specs so summary rows stay clean, and swap diff lines for icons.
+  const buildSummaryLineNodes = React.useCallback((lineSpecs: GearDbDiffHistoryEntry['lineSpecs']) => (
+    buildGearDbDiffSummaryLineNodes(lineSpecs.filter((spec) => spec.kind !== 'timestamp'), t)
   ), [t])
   // Local paper ref keeps MUI typing strict while enabling outside-click handling.
   const paperRef = React.useRef<HTMLDivElement | null>(null)
@@ -116,12 +117,12 @@ export function GearDbHistoryMenu({
           // Build localized lines so tooltip + list stay aligned.
           const headerLines = buildHeaderLines(entry.lineSpecs)
           // Build summary-only lines so the timestamp can be its own row.
-          const summaryLines = buildSummaryLines(entry.lineSpecs)
+          const summaryLines = buildSummaryLineNodes(entry.lineSpecs)
           // Fall back to a numbered snapshot label if no header lines exist.
           const fallbackLabel = t('builderHistoryUnnamedSnapshot', { index: entries.length - index })
           const primaryLine = summaryLines[0] ?? fallbackLabel
-          const secondaryLine = summaryLines[1] ?? ''
-          const hasSecondaryLine = secondaryLine.trim().length > 0
+          const secondaryLine = summaryLines[1] ?? null
+          const hasSecondaryLine = summaryLines.length > 1
           // Always show the received timestamp as the final row.
           const timestampLine = formatHistoryTimestamp(entry.createdAt)
           const hasTimestampLine = Boolean(timestampLine && timestampLine.trim().length > 0)
@@ -130,6 +131,7 @@ export function GearDbHistoryMenu({
           const overflowCount = Math.max(0, entry.entries.length - cappedEntries.length)
           const tooltipPayload: GearDbDiffToastPayload = {
             headerLines,
+            lineSpecs: entry.lineSpecs,
             entries: cappedEntries,
             overflowCount,
           }

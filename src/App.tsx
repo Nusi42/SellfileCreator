@@ -2131,7 +2131,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     if (params.entries.length === 0) {
       // No per-item diff means we can show the header immediately.
       if (!hideGearDbUpdateToast) {
-        showGearDbDiffToast({ headerLines, entries: [], overflowCount: 0 })
+        showGearDbDiffToast({ headerLines, lineSpecs: params.lineSpecs, entries: [], overflowCount: 0 })
       }
       // Skip history entries when nothing changed so the list stays meaningful.
       return
@@ -2185,6 +2185,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     if (!hideGearDbUpdateToast) {
       showGearDbDiffToast({
         headerLines,
+        lineSpecs: pending.lineSpecs,
         entries: cappedEntries,
         overflowCount,
       })
@@ -3164,7 +3165,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       // Manual imports show the inventory count so inbox items read as a separate add-on.
       const inventoryCount = Math.max(0, totalCount - inboxCount)
       // Manual toasts keep the longer phrasing for clarity outside endpoint updates.
-      const diffSummary = t('toastGearDbDiffSummary', { added: addedCount, removed: removedCount })
+      // Manual imports only track adds/removals, so updated stays at zero.
+      const diffSummary = t('toastGearDbDiffSummary', { added: addedCount, removed: removedCount, updated: 0 })
       const importSummary = inboxCount > 0
         ? t('toastGearDbImportedShortWithInbox', { count: inventoryCount, inboxCount })
         : t('toastGearDbImportedShort', { count: totalCount })
@@ -3183,7 +3185,13 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         // Build structured header specs so history can re-localize later.
         const lineSpecs = appendGearDbTimestampLineSpec([
           { kind: 'import', totalCount, inboxCount },
-          { kind: 'diff', addedCount, removedCount },
+          {
+            // Use snapshot diff counts so summary lines mirror the toast entries.
+            kind: 'diff',
+            addedCount: diffDetails.addedCount,
+            removedCount: diffDetails.removedCount,
+            updatedCount: diffDetails.updatedCount,
+          },
         ], queuedAt)
         // Build the tooltip copy from the structured line specs.
         const { tooltipMessage } = buildGearDbCommandMessages(lineSpecs)
@@ -3284,7 +3292,13 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       // Build structured header specs so history stays localizable.
       const lineSpecs = appendGearDbTimestampLineSpec([
         { kind: 'import', totalCount, inboxCount },
-        { kind: 'diff', addedCount, removedCount },
+        {
+          // Use snapshot diff counts so summary lines mirror the toast entries.
+          kind: 'diff',
+          addedCount: diffDetails.addedCount,
+          removedCount: diffDetails.removedCount,
+          updatedCount: diffDetails.updatedCount,
+        },
       ], queuedAt)
       // Build the tooltip copy from the structured line specs.
       const { tooltipMessage } = buildGearDbCommandMessages(lineSpecs)
@@ -3362,7 +3376,13 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       const queuedAt = Date.now()
       // Build structured header specs so history stays localizable.
       const lineSpecs = appendGearDbTimestampLineSpec([
-        { kind: 'diff', addedCount, removedCount },
+        {
+          // Use snapshot diff counts so summary lines mirror the toast entries.
+          kind: 'diff',
+          addedCount: diffDetails.addedCount,
+          removedCount: diffDetails.removedCount,
+          updatedCount: diffDetails.updatedCount,
+        },
       ], queuedAt)
       // Build the tooltip copy from the structured line specs.
       const { tooltipMessage } = buildGearDbCommandMessages(lineSpecs)
@@ -5761,6 +5781,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                   payload={gearDbCommandToast.diff}
                   substatColors={substatColors}
                   useStatButtonColors={statButtonBorders}
+                  // Boost contrast for colored glyphs on the success toast background.
+                  useCountPill={gearDbCommandToast.severity === 'success'}
                 />
               )
               : gearDbCommandToast.message}

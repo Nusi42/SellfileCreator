@@ -92,6 +92,8 @@ export type GearDbDiffToastEntry = GearDbDiffEntry & {
 export type GearDbDiffToastPayload = {
   // Header copy (import summary, diff summary, timestamp) shown above the list.
   headerLines: string[]
+  // Optional structured specs so diff lines can render with icon glyphs.
+  lineSpecs?: GearDbDiffHistoryLineSpec[]
   // Per-item entries already capped to the UI max.
   entries: GearDbDiffToastEntry[]
   // Count of hidden entries used for the "+X more" footer.
@@ -103,7 +105,7 @@ export type GearDbDiffToastPayload = {
  */
 export type GearDbDiffHistoryLineSpec =
   | { kind: 'import'; totalCount: number; inboxCount: number }
-  | { kind: 'diff'; addedCount: number; removedCount: number }
+  | { kind: 'diff'; addedCount: number; removedCount: number; updatedCount: number }
   | { kind: 'timestamp'; at: number }
 
 /**
@@ -126,33 +128,42 @@ export type GearDbDiffHistoryLineTranslator = (key: string, params?: Record<stri
 /**
  * Convert structured history line specs into localized, trimmed header lines.
  */
+export const formatGearDbDiffHistoryLineText = (
+  spec: GearDbDiffHistoryLineSpec,
+  t: GearDbDiffHistoryLineTranslator,
+): string | null => {
+  // Import lines summarize how many items landed and inbox inclusion.
+  if (spec.kind === 'import') {
+    const totalCount = Math.max(0, Math.floor(spec.totalCount))
+    const inboxCount = Math.max(0, Math.floor(spec.inboxCount))
+    const inventoryCount = Math.max(0, totalCount - inboxCount)
+    return inboxCount > 0
+      ? t('toastGearDbImportedShortWithInbox', { count: inventoryCount, inboxCount })
+      : t('toastGearDbImportedShort', { count: totalCount })
+  }
+  // Diff lines highlight added vs removed vs updated counts for quick scanning.
+  if (spec.kind === 'diff') {
+    return t('toastGearDbDiffSummary', {
+      added: spec.addedCount,
+      removed: spec.removedCount,
+      updated: spec.updatedCount,
+    })
+  }
+  // Timestamp lines show when the payload was received.
+  if (spec.kind === 'timestamp') {
+    const timestamp = formatLocalDateTime(spec.at, { dateStyle: 'medium', timeStyle: 'medium' })
+    return timestamp ? t('toastGearDbReceivedAt', { timestamp }) : null
+  }
+  // Unknown specs are ignored to keep the UI stable.
+  return null
+}
+
 export const formatGearDbDiffHistoryLines = (
   lineSpecs: GearDbDiffHistoryLineSpec[],
   t: GearDbDiffHistoryLineTranslator,
 ): string[] => {
   // Map each spec to its localized line so ordering stays deterministic.
-  const lines = lineSpecs.map((spec) => {
-    // Import lines summarize how many items landed and inbox inclusion.
-    if (spec.kind === 'import') {
-      const totalCount = Math.max(0, Math.floor(spec.totalCount))
-      const inboxCount = Math.max(0, Math.floor(spec.inboxCount))
-      const inventoryCount = Math.max(0, totalCount - inboxCount)
-      return inboxCount > 0
-        ? t('toastGearDbImportedShortWithInbox', { count: inventoryCount, inboxCount })
-        : t('toastGearDbImportedShort', { count: totalCount })
-    }
-    // Diff lines highlight added vs removed counts for quick scanning.
-    if (spec.kind === 'diff') {
-      return t('toastGearDbDiffSummary', { added: spec.addedCount, removed: spec.removedCount })
-    }
-    // Timestamp lines show when the payload was received.
-    if (spec.kind === 'timestamp') {
-      const timestamp = formatLocalDateTime(spec.at, { dateStyle: 'medium', timeStyle: 'medium' })
-      return timestamp ? t('toastGearDbReceivedAt', { timestamp }) : null
-    }
-    // Unknown specs are ignored to keep the UI stable.
-    return null
-  })
+  const lines = lineSpecs.map((spec) => formatGearDbDiffHistoryLineText(spec, t))
   // Trim and drop empty lines so tooltips stay compact.
   return lines.map((line) => (line ?? '').trim()).filter((line) => line.length > 0)
 }
