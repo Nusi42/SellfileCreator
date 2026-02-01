@@ -23,6 +23,8 @@ import MarkdownTooltip from './MarkdownTooltip'
 	  HOVER_BG_ALPHA,
   SELECTED_HOVER_BG_ALPHA,
   RULE_COUNT_LIMIT,
+  SELECTION_SCROLL_SOURCE_SELECT_RULE,
+  type SelectionScrollRequest,
 } from '../lib/constants'
 import { useDisplayPreferenceActions, useDisplayPreferences } from '../state/preferencesState'
 import { artifactTypeIconFor } from './artifactTypeIcons'
@@ -59,11 +61,13 @@ const resolveDisplayCfgIdx = (rule: HsfRuleWithCfg | null | undefined): number |
   return idx !== null && idx >= 0 ? idx : null
 }
 
-export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multiselectActive, onSelectCfgIdx, onConfigAction, onClearBase, onConfigureFinalSell, onOpenManageColors, colorIconSrc, substatColors, colorBlindMode, onChangeColorBlindMode, emptyStateVerticalAlign = 'center', emptyDueToFilter = false, limitExceeded = false, focusRuleIndex = null, onFocusRuleSettled }: {
+export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multiselectActive, selectionScrollRequest, onSelectCfgIdx, onConfigAction, onClearBase, onConfigureFinalSell, onOpenManageColors, colorIconSrc, substatColors, colorBlindMode, onChangeColorBlindMode, emptyStateVerticalAlign = 'center', emptyDueToFilter = false, limitExceeded = false, focusRuleIndex = null, onFocusRuleSettled }: {
   rules: HsfRuleWithCfg[]
   setHoveredCfgIdx: (idx: number | null) => void
   selectedCfgIdx: number | null
   multiselectActive: boolean
+  // Explicit scroll request for selection-driven preview jumps.
+  selectionScrollRequest: SelectionScrollRequest
   onSelectCfgIdx: (idx: number) => void
   onConfigAction: (idx: number, action: 'duplicate' | 'delete' | 'copy' | 'paste_after' | 'move_top' | 'move_bottom' | 'move_up' | 'move_down') => void
   onClearBase: () => void
@@ -634,23 +638,41 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
   // When selection changes (e.g., user clicked a config chip), scroll to the start of that config’s preview block.
   // Why: per request, rely on TanStack’s built-in scrolling rather than custom "fits/above" heuristics.
   const suppressNextScrollRef = useRef<boolean>(false)
+  // Track the last handled scroll request so re-renders do not retrigger scrolling.
+  // Why: rules updates can rebuild span maps without user intent.
+  // Seed the ref with the current token so mount does not auto-scroll.
+  // Why: only explicit requests should move the preview viewport.
+  const lastSelectionScrollTokenRef = useRef<number>(selectionScrollRequest.token)
   useEffect(() => {
-    if (selectedCfgIdx === null || selectedCfgIdx === undefined) return
+    // Gate auto-scroll to explicit scroll requests only.
+    // Why: background updates should not move the user's viewport.
+    const { token, source, targetCfgIdx } = selectionScrollRequest
+    if (token === lastSelectionScrollTokenRef.current) return
+    lastSelectionScrollTokenRef.current = token
+    // Skip config-based scroll when a rule-specific focus is active.
+    // Why: selectRule already scrolls to the target row.
+    if (source === SELECTION_SCROLL_SOURCE_SELECT_RULE && focusRuleIndex != null) return
+    // Prefer the explicit target when available.
+    // Why: selection updates can trail the user event that requested a scroll.
+    const effectiveCfgIdx = targetCfgIdx ?? selectedCfgIdx
+    if (effectiveCfgIdx === null || effectiveCfgIdx === undefined) return
     if (multiselectActive) return
     // If selection came from a table row click, skip this one automatic scroll.
     if (suppressNextScrollRef.current) { suppressNextScrollRef.current = false; return }
     // Map the selected config to its contiguous range of preview rows.
     // Why: a config can generate multiple rules (or none), and the preview must jump to the correct block.
-    const span = getConfigSpan(selectedCfgIdx as number)
+    const span = getConfigSpan(effectiveCfgIdx as number)
     if (!span) return
     // Always anchor to the first rule row.
     // Why: this is deterministic and avoids any extra "correction" scrolling logic.
     scrollRuleIndexToTop(span.first)
-	  }, [
-	    getConfigSpan,
-	    multiselectActive,
-	    scrollRuleIndexToTop,
+  }, [
+    focusRuleIndex,
+    getConfigSpan,
+    multiselectActive,
+    scrollRuleIndexToTop,
     selectedCfgIdx,
+    selectionScrollRequest,
   ])
 
   useEffect(() => {

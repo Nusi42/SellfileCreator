@@ -464,6 +464,24 @@ export const TESTER_SUBSTAT_SORT_KEY = 'sellfileCreator.tester.sort.substats.v1'
 // Tester grid: normalized overlay presets + selection.
 // Why: Overlay is view-only, but users need the presets to persist across sessions.
 export const TESTER_GRID_NORMALIZED_OVERLAY_KEY = 'sellfileCreator.tester.grid.normalizedOverlay.v1'
+// Preview selection scroll sources.
+// Why: Auto-scroll should only fire from explicit user/command signals.
+export const SELECTION_SCROLL_SOURCE_USER = 'user' as const
+export const SELECTION_SCROLL_SOURCE_SELECT_RULE = 'selectRule' as const
+// Union type keeps selection scroll sources in sync across UI layers.
+export type SelectionScrollSource =
+  | typeof SELECTION_SCROLL_SOURCE_USER
+  | typeof SELECTION_SCROLL_SOURCE_SELECT_RULE
+// Selection scroll requests carry a monotonic token to gate side effects.
+// Why: effects can ignore re-renders that aren't explicit scroll requests.
+export type SelectionScrollRequest = {
+  // Monotonic counter used to detect explicit scroll intents.
+  token: number
+  // Source of the request (user or command).
+  source: SelectionScrollSource
+  // Target config index to scroll to (if applicable).
+  targetCfgIdx: number | null
+}
 
 // Fixed width for Faction Select in the Rules filter
 // Why: Keep the input width stable regardless of selected label lengths,
