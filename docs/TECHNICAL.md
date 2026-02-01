@@ -20,7 +20,7 @@ The technical reference is now split across focused documents. Start here, then 
 - [Rules and Data](technical/rules-and-data.md) — HSFC/HSF schemas, builder roll semantics, autosave plumbing, and migration notes.
 - [Keep Uniques](technical/app-behavior.md#keep-uniques) — Final Sell tab layout, gear-combination detection, tester-grid linking, and reset behaviors.
 - [Locked roll constraints](technical/app-behavior.md#builder-outputs-and-normalization) — how `lockedMinRequiredRolls` impacts aggregate targets so locked selections can demand their own roll floors alongside the global sum.
-- [Gear Database Import](technical/gear-db-import.md) — reverse-engineering the RSL Helper SQLite dump and mapping it into the Rule Tester.
+- [Gear Database Import](technical/gear-db-import.md) — reverse-engineering the RSL Helper SQLite dump, mapping it into the Rule Tester, and documenting endpoint diff toasts/history.
 - [WebSocket Protocol (JSON-RPC)](technical/websocket-jsonrpc.md) — formal JSON-RPC 2.0 message shapes, request/response flow, and push notifications.
 - [WebSocket Protocol (Lightweight RSL Helper)](technical/websocket-helper.md) — compact `type/cmd/evt` envelopes for RSL Helper integrations.
 - [UI and Layout](technical/ui-and-layout.md) — localization, metasets, preview UX (including dimmed disabled configs), shared hooks, effect guidelines, and responsive layout constraints.

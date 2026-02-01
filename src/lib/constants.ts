@@ -306,6 +306,12 @@ export const HISTORY_MENU_MAX_HEIGHT_PX = 360
 // Max width for builder history tooltips so multi-line diffs stay readable
 // without covering the entire viewport.
 export const HISTORY_TOOLTIP_MAX_WIDTH_PX = 728
+// Cap the number of per-item diffs shown in the Gear DB endpoint toast so the
+// notification stays compact and does not obscure the preview controls.
+// Cap the preview list so history/tooltips never need scrollbars.
+export const GEAR_DB_DIFF_TOAST_MAX_ITEMS = 3
+// Scale factor for tester cards rendered inside the Gear DB diff toast/history.
+export const GEAR_DB_DIFF_TOAST_CARD_SCALE = 0.7
 // Idle gutter for substat toggles; shrinks the placeholder columns when no roll
 // badge is visible so long labels (e.g., CDMG%) avoid clipping without widening
 // the entire button. Selected/hover states restore the full badge gutter.
