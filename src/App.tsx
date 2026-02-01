@@ -1586,12 +1586,16 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // Track explicit selection scroll requests so preview auto-scroll stays intentional.
   // Why: endpoint updates re-render selections without user intent.
   const [selectionScrollRequest, setSelectionScrollRequest] = useState<SelectionScrollRequest>(() => ({
+    // Start at zero so the first explicit request increments to 1.
     token: 0,
+    // Default to user so the initial value has a stable source.
     source: SELECTION_SCROLL_SOURCE_USER,
+    // No target until the first explicit selection request.
+    targetCfgIdx: null,
   }))
   // Bump the request token whenever a selection should auto-scroll the preview.
   // Why: a monotonic counter lets the table ignore unrelated renders.
-  const requestSelectionScroll = useCallback((source: SelectionScrollSource) => {
+  const requestSelectionScroll = useCallback((source: SelectionScrollSource, targetCfgIdx: number | null) => {
     // Increment the token so the preview sees a fresh scroll request.
     // Why: the token change is the sole trigger signal.
     setSelectionScrollRequest((prev) => ({
@@ -1599,6 +1603,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       token: prev.token + 1,
       // Keep the source so the preview can resolve scroll precedence.
       source,
+      // Stash the target so the preview scrolls to the intended config.
+      targetCfgIdx,
     }))
   }, [])
   const visibleConfigIndicesRef = useRef<ReadonlySet<number> | null>(null)
@@ -4042,7 +4048,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       if (cmd.rowNumber != null) {
         // External selectRule commands are explicit scroll intents.
         // Why: treat them like direct user navigation for the preview.
-        requestSelectionScroll(SELECTION_SCROLL_SOURCE_SELECT_RULE)
+        // Signal that this selection came from an explicit selectRule command.
+        // Why: preview scroll should follow external rule jumps.
+        requestSelectionScroll(SELECTION_SCROLL_SOURCE_SELECT_RULE, null)
         const zeroBasedIndex = Math.max(0, Math.floor(cmd.rowNumber) - 1)
         focusRuleByIndex(zeroBasedIndex)
       }

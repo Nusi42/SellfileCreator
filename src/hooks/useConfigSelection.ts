@@ -33,7 +33,7 @@ type UseConfigSelectionParams = {
   setSelectedCfgIdx: Dispatch<SetStateAction<number | null>>
   setBuilder: Dispatch<SetStateAction<BuilderConfig>>
   onWillChangeSelection?: ((previous: number[], next: number[]) => void) | undefined
-  onSelectionScrollRequest?: ((source: SelectionScrollSource) => void) | undefined
+  onSelectionScrollRequest?: ((source: SelectionScrollSource, targetCfgIdx: number | null) => void) | undefined
   requestDeleteSingle: (idx: number) => void
   requestDeleteMulti: (targets: number[]) => void
   describeNextChange: DescribeNextChangeFn
@@ -494,7 +494,10 @@ export function useConfigSelection({
     // Only request preview auto-scroll when a direct user selection changed.
     // Why: endpoint-driven updates can re-render without user intent.
     if (selectionChanged && finalSelection.length === 1) {
-      onSelectionScrollRequest?.(SELECTION_SCROLL_SOURCE_USER)
+      // Capture the explicit target so the preview scrolls to the new config.
+      // Why: selection state updates can lag in transition-rendered views.
+      const targetCfgIdx = finalSelection[0] ?? null
+      onSelectionScrollRequest?.(SELECTION_SCROLL_SOURCE_USER, targetCfgIdx)
     }
   }, [applySelection, customCfgs, onSelectionScrollRequest, selectedCfgIdx, selectedCfgIndices, setBuilder, setSelectedCfgIdx, setSelectionAnchor, visibleConfigIndicesRef])
 

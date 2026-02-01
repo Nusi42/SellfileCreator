@@ -646,19 +646,22 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
   useEffect(() => {
     // Gate auto-scroll to explicit scroll requests only.
     // Why: background updates should not move the user's viewport.
-    const { token, source } = selectionScrollRequest
+    const { token, source, targetCfgIdx } = selectionScrollRequest
     if (token === lastSelectionScrollTokenRef.current) return
     lastSelectionScrollTokenRef.current = token
     // Skip config-based scroll when a rule-specific focus is active.
     // Why: selectRule already scrolls to the target row.
     if (source === SELECTION_SCROLL_SOURCE_SELECT_RULE && focusRuleIndex != null) return
-    if (selectedCfgIdx === null || selectedCfgIdx === undefined) return
+    // Prefer the explicit target when available.
+    // Why: selection updates can trail the user event that requested a scroll.
+    const effectiveCfgIdx = targetCfgIdx ?? selectedCfgIdx
+    if (effectiveCfgIdx === null || effectiveCfgIdx === undefined) return
     if (multiselectActive) return
     // If selection came from a table row click, skip this one automatic scroll.
     if (suppressNextScrollRef.current) { suppressNextScrollRef.current = false; return }
     // Map the selected config to its contiguous range of preview rows.
     // Why: a config can generate multiple rules (or none), and the preview must jump to the correct block.
-    const span = getConfigSpan(selectedCfgIdx as number)
+    const span = getConfigSpan(effectiveCfgIdx as number)
     if (!span) return
     // Always anchor to the first rule row.
     // Why: this is deterministic and avoids any extra "correction" scrolling logic.

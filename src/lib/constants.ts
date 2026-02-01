@@ -474,7 +474,14 @@ export type SelectionScrollSource =
   | typeof SELECTION_SCROLL_SOURCE_SELECT_RULE
 // Selection scroll requests carry a monotonic token to gate side effects.
 // Why: effects can ignore re-renders that aren't explicit scroll requests.
-export type SelectionScrollRequest = { token: number; source: SelectionScrollSource }
+export type SelectionScrollRequest = {
+  // Monotonic counter used to detect explicit scroll intents.
+  token: number
+  // Source of the request (user or command).
+  source: SelectionScrollSource
+  // Target config index to scroll to (if applicable).
+  targetCfgIdx: number | null
+}
 
 // Fixed width for Faction Select in the Rules filter
 // Why: Keep the input width stable regardless of selected label lengths,
