@@ -36,6 +36,10 @@ import {
   FONT_SIZE_DISPLAY_REM,
   FONT_SIZE_HEADER_META_PX,
   FONT_SIZE_BASE_PX,
+  SELECTION_SCROLL_SOURCE_SELECT_RULE,
+  SELECTION_SCROLL_SOURCE_USER,
+  type SelectionScrollRequest,
+  type SelectionScrollSource,
 } from './lib/constants'
 import { buildPreviewArtifactFromTesterItem } from './lib/testerPreviewArtifacts'
 import { clampProgressRatio, type ProgressSnapshot } from './types/progress'
@@ -1579,6 +1583,24 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const requestDeleteSingleRef = useRef<(idx: number) => void>(() => {})
   const requestDeleteMultiRef = useRef<(targets: number[]) => void>(() => {})
   const describeNextChangeRef = React.useRef<DescribeNextChangeFn>(() => {})
+  // Track explicit selection scroll requests so preview auto-scroll stays intentional.
+  // Why: endpoint updates re-render selections without user intent.
+  const [selectionScrollRequest, setSelectionScrollRequest] = useState<SelectionScrollRequest>(() => ({
+    token: 0,
+    source: SELECTION_SCROLL_SOURCE_USER,
+  }))
+  // Bump the request token whenever a selection should auto-scroll the preview.
+  // Why: a monotonic counter lets the table ignore unrelated renders.
+  const requestSelectionScroll = useCallback((source: SelectionScrollSource) => {
+    // Increment the token so the preview sees a fresh scroll request.
+    // Why: the token change is the sole trigger signal.
+    setSelectionScrollRequest((prev) => ({
+      // Preserve the monotonic counter to avoid reusing prior tokens.
+      token: prev.token + 1,
+      // Keep the source so the preview can resolve scroll precedence.
+      source,
+    }))
+  }, [])
   const visibleConfigIndicesRef = useRef<ReadonlySet<number> | null>(null)
   const {
     selectedCfgIndices,
@@ -1611,6 +1633,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setSelectedCfgIdx: setSelectedCfgIdxRaw,
     setBuilder,
     onWillChangeSelection: handleWillChangeSelection,
+    onSelectionScrollRequest: requestSelectionScroll,
     describeNextChange: (descriptor, options) => describeNextChangeRef.current(descriptor, options),
     t,
     requestDeleteSingle: (idx) => { requestDeleteSingleForSelection(idx) },
@@ -4017,6 +4040,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const handleExternalCommand = useCallback((cmd: ExternalCommand) => {
     if (cmd.kind === 'selectRule') {
       if (cmd.rowNumber != null) {
+        // External selectRule commands are explicit scroll intents.
+        // Why: treat them like direct user navigation for the preview.
+        requestSelectionScroll(SELECTION_SCROLL_SOURCE_SELECT_RULE)
         const zeroBasedIndex = Math.max(0, Math.floor(cmd.rowNumber) - 1)
         focusRuleByIndex(zeroBasedIndex)
       }
@@ -4096,7 +4122,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       }
       void handleGearDbImport(file, { source: 'command' })
     }
-  }, [focusRuleByIndex, handleGearDbImport, handleGearDbRawDelta, handleGearDbRawSnapshot, pushEndpointHttpBase])
+  }, [focusRuleByIndex, handleGearDbImport, handleGearDbRawDelta, handleGearDbRawSnapshot, pushEndpointHttpBase, requestSelectionScroll])
 
   const { sendRequest: sendExternalRequest } = useExternalCommands({
     pushEndpoint,
@@ -5364,6 +5390,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
 	                setHoveredCfgIdx={setHoveredCfgIdx}
 	                selectedCfgIdx={previewSelectedCfgIdx}
 	                multiselectActive={multiselectActive}
+	                selectionScrollRequest={selectionScrollRequest}
 	                emptyStateVerticalAlign={emptyStateVerticalAlign}
 	                focusRuleIndex={focusRuleIndex}
 	                onFocusRuleSettled={() => setFocusRuleIndex(null)}

@@ -20,6 +20,7 @@ import {
   type MultiEditFields,
   type MultiEditFieldPatch,
 } from '../lib/multiEditDraft'
+import { SELECTION_SCROLL_SOURCE_USER, type SelectionScrollSource } from '../lib/constants'
 import type { DescribeNextChangeFn } from '../hooks/useHsfcHistory'
 import { describeConfigsDuplicated, describeConfigsMoved, describeMultiEditApplied } from '../history/configCollectionDescriptors'
 import { buildConfigLabel, type TranslateFn } from '../history/builderUpdateDescriptor'
@@ -32,6 +33,7 @@ type UseConfigSelectionParams = {
   setSelectedCfgIdx: Dispatch<SetStateAction<number | null>>
   setBuilder: Dispatch<SetStateAction<BuilderConfig>>
   onWillChangeSelection?: ((previous: number[], next: number[]) => void) | undefined
+  onSelectionScrollRequest?: ((source: SelectionScrollSource) => void) | undefined
   requestDeleteSingle: (idx: number) => void
   requestDeleteMulti: (targets: number[]) => void
   describeNextChange: DescribeNextChangeFn
@@ -110,6 +112,7 @@ export function useConfigSelection({
   setSelectedCfgIdx,
   setBuilder,
   onWillChangeSelection,
+  onSelectionScrollRequest,
   requestDeleteSingle,
   requestDeleteMulti,
   describeNextChange,
@@ -464,10 +467,17 @@ export function useConfigSelection({
 
     const previousSelection = selectedCfgIndices
     const computedSelection = computeNext(previousSelection)
-    if (!arraysEqual(previousSelection, computedSelection)) {
+    // Track whether the selection actually changed before we mutate state.
+    // Why: repeated clicks should not re-trigger selection side effects.
+    const selectionChanged = !arraysEqual(previousSelection, computedSelection)
+    // Apply the new selection only when it differs from the previous value.
+    // Why: keep render churn low when a click selects the same chip.
+    if (selectionChanged) {
       applySelection(computedSelection)
     }
-    const finalSelection = arraysEqual(previousSelection, computedSelection) ? previousSelection : computedSelection
+    // Preserve the previous selection when there is no change.
+    // Why: downstream logic relies on stable array identity.
+    const finalSelection = selectionChanged ? computedSelection : previousSelection
     const last = finalSelection.length ? finalSelection[finalSelection.length - 1] : null
 
     if (selectionAnchorRef.current !== (last ?? null)) {
@@ -481,7 +491,12 @@ export function useConfigSelection({
       const only = customCfgs[finalSelection[0]!]
       if (only) setBuilder(only)
     }
-  }, [applySelection, customCfgs, selectedCfgIdx, selectedCfgIndices, setBuilder, setSelectedCfgIdx, setSelectionAnchor, visibleConfigIndicesRef])
+    // Only request preview auto-scroll when a direct user selection changed.
+    // Why: endpoint-driven updates can re-render without user intent.
+    if (selectionChanged && finalSelection.length === 1) {
+      onSelectionScrollRequest?.(SELECTION_SCROLL_SOURCE_USER)
+    }
+  }, [applySelection, customCfgs, onSelectionScrollRequest, selectedCfgIdx, selectedCfgIndices, setBuilder, setSelectedCfgIdx, setSelectionAnchor, visibleConfigIndicesRef])
 
   const handleConfigDelete = useCallback((idx: number) => {
     if (selectedCfgIndices.length > 1 && selectedCfgIndices.includes(idx)) {

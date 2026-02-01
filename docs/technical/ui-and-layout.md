@@ -154,8 +154,9 @@ If tooltips need rich formatting (colored badges, inline icons), pass JSX via `r
 ## Preview Table Selection
 
 - Row click: Selecting a rule row highlights the related config and selects the corresponding config chip, but never auto-scrolls the table.
-- Chip click: Selecting a config chip auto-scrolls the table to the first matching rule row. Single-line mode uses smooth scrolling when nearby and falls back to an instant jump for long distances; wrap mode always jumps.
-- Rationale: row clicks act locally while chip clicks navigate the preview.
+- Chip click: Selecting a config chip triggers an explicit scroll request and jumps the table to the first matching rule row. Single-line mode uses smooth scrolling when nearby and falls back to an instant jump for long distances; wrap mode always jumps.
+- `selectRule` commands also trigger preview scrolling (to the requested rule row) while still syncing the related config selection.
+- Auto-scroll is gated to explicit selection intents (chip clicks or `selectRule`) so background rule updates never re-scroll the table.
 
 ### Obsolete Rules Handling
 
