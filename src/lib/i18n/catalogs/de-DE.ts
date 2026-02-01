@@ -167,6 +167,7 @@ const overrides: Catalog = {
   builderHistoryUnnamedSnapshot: 'Momentaufnahme {index}',
   builderHistoryClear: 'Verlauf leeren…',
   builderHistoryClearAction: 'Verlauf leeren',
+  gearDbHistoryHideToast: 'Ausrüstungs-Update ausblenden',
   restore: 'Wiederherstellen',
   dismiss: 'Verwerfen',
   startTutorial: 'Tutorial starten',

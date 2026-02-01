@@ -167,6 +167,7 @@ const overrides: Catalog = {
   builderHistoryUnnamedSnapshot: 'Anlık görüntü {index}',
   builderHistoryClear: 'Geçmişi temizle…',
   builderHistoryClearAction: 'Geçmişi temizle',
+  gearDbHistoryHideToast: 'Ekipman güncelleme mesajını gizle',
   restore: 'Geri yükle',
   dismiss: 'Gizle',
   startTutorial: 'Öğreticiyi başlat',

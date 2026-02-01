@@ -167,6 +167,7 @@ const overrides: Catalog = {
   builderHistoryUnnamedSnapshot: 'Снимок {index}',
   builderHistoryClear: 'Очистить историю…',
   builderHistoryClearAction: 'Очистить историю',
+  gearDbHistoryHideToast: 'Скрыть сообщение об обновлении экипировки',
   restore: 'Восстановить',
   dismiss: 'Скрыть',
   startTutorial: 'Запустить обучение',

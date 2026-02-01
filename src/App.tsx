@@ -2056,6 +2056,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const clearGearDbCommandError = useCallback(() => { setGearDbCommandError(null) }, [])
   const [gearDbCommandSuccess, setGearDbCommandSuccess] = useState<string | null>(null)
   const clearGearDbCommandSuccess = useCallback(() => { setGearDbCommandSuccess(null) }, [])
+  // History toast toggle keeps endpoint updates quiet without hiding status badges.
+  const [hideGearDbUpdateToast, setHideGearDbUpdateToast] = useState(false)
+  // Toggle helper keeps the checkbox handler stable for the header menu.
+  const toggleHideGearDbUpdateToast = useCallback((next: boolean) => {
+    setHideGearDbUpdateToast(next)
+  }, [])
   const formatFileFormatErrorMessage = useCallback((fileName?: string | null) => {
     const trimmed = (fileName ?? '').trim()
     if (!trimmed) {
@@ -2124,7 +2130,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     // Empty diffs can show immediately without waiting on matches.
     if (params.entries.length === 0) {
       // No per-item diff means we can show the header immediately.
-      showGearDbDiffToast({ headerLines, entries: [], overflowCount: 0 })
+      if (!hideGearDbUpdateToast) {
+        showGearDbDiffToast({ headerLines, entries: [], overflowCount: 0 })
+      }
       // Skip history entries when nothing changed so the list stays meaningful.
       return
     }
@@ -2141,7 +2149,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       // Snapshot matches before the gear list is rebuilt.
       matchesBefore: buildMatchMapByArtifactId(testerPreviewRowsRef.current),
     }
-  }, [buildGearDbHistoryHeaderLines, buildMatchMapByArtifactId, showGearDbDiffToast])
+  }, [buildGearDbHistoryHeaderLines, buildMatchMapByArtifactId, hideGearDbUpdateToast, showGearDbDiffToast])
   useEffect(() => {
     const pending = gearDbDiffToastPendingRef.current
     // Nothing queued means nothing to render.
@@ -2173,14 +2181,25 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       createdAt: pending.queuedAt,
     })
     // Commit the toast payload now that matches are current.
-    showGearDbDiffToast({
-      headerLines,
-      entries: cappedEntries,
-      overflowCount,
-    })
+    // Honor the history menu toggle when showing endpoint success toasts.
+    if (!hideGearDbUpdateToast) {
+      showGearDbDiffToast({
+        headerLines,
+        entries: cappedEntries,
+        overflowCount,
+      })
+    }
     // Clear the queue so the toast does not re-render.
     gearDbDiffToastPendingRef.current = null
-  }, [appendGearDbDiffHistory, buildGearDbHistoryHeaderLines, buildMatchMapByArtifactId, gearEntriesCommittedBuildId, showGearDbDiffToast, testerPreviewRows])
+  }, [
+    appendGearDbDiffHistory,
+    buildGearDbHistoryHeaderLines,
+    buildMatchMapByArtifactId,
+    gearEntriesCommittedBuildId,
+    hideGearDbUpdateToast,
+    showGearDbDiffToast,
+    testerPreviewRows,
+  ])
   const [previewMode, setPreviewMode] = useState<'rules' | 'tester'>(() => {
     if (typeof window === 'undefined') return 'rules'
     try {
@@ -5551,6 +5570,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         onClearGearDbCommandSuccess={clearGearDbCommandSuccess}
         gearDbHistoryEntries={gearDbDiffHistory}
         onClearGearDbHistory={clearGearDbDiffHistory}
+        hideGearDbUpdateToast={hideGearDbUpdateToast}
+        onToggleHideGearDbUpdateToast={toggleHideGearDbUpdateToast}
       />
           {filterOpen && (
             <RulesFilterPanel

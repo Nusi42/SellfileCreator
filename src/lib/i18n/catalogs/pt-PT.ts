@@ -167,6 +167,7 @@ const overrides: Catalog = {
   builderHistoryUnnamedSnapshot: 'Instantâneo {index}',
   builderHistoryClear: 'Limpar histórico…',
   builderHistoryClearAction: 'Limpar histórico',
+  gearDbHistoryHideToast: 'Ocultar mensagem de atualização de gear',
   restore: 'Restaurar',
   dismiss: 'Descartar',
   startTutorial: 'Iniciar tutorial',

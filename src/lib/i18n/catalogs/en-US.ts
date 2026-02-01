@@ -167,6 +167,7 @@ const enUS: Catalog = {
   builderHistoryUnnamedSnapshot: 'Snapshot {index}',
   builderHistoryClear: 'Clear History…',
   builderHistoryClearAction: 'Clear History',
+  gearDbHistoryHideToast: 'Hide gear update message',
   restore: 'Restore',
   dismiss: 'Dismiss',
   startTutorial: 'Start Tutorial',
