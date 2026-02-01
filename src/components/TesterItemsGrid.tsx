@@ -2070,7 +2070,8 @@ function buildFlattenedGridItems({
   return items
 }
 
-const TesterGridCard = React.memo(function TesterGridCard({
+// Exported for endpoint diff previews that need the exact tester card visuals.
+export const TesterGridCard = React.memo(function TesterGridCard({
   row,
   centerOverlay,
   substatColors,
@@ -2779,8 +2780,8 @@ const TesterGridCard = React.memo(function TesterGridCard({
         height: cardHeightStyle,
         maxHeight: cardHeightStyle,
         boxSizing: 'border-box',
-        // Allow mythic glow to render past the stat line without breaking vertical clipping.
-        overflowX: 'visible',
+        // Clip horizontal overflow so scrollbars never appear in grid cards.
+        overflowX: 'hidden',
         // Keep the fixed-height card from leaking extra rows.
         overflowY: 'hidden',
         alignContent: 'start',
@@ -2983,8 +2984,10 @@ const TesterGridCard = React.memo(function TesterGridCard({
               gap: CARD_SUBSTAT_ROW_GAP_UNITS,
               width: '100%',
               flexGrow: 1,
-              // Keep mythic glow visible within the stats column.
-              overflowX: 'visible',
+              // Clip horizontal overflow so cards never trigger a scrollbar.
+              overflowX: 'hidden',
+              // Clip vertical overflow so substat columns never show scrollbars.
+              overflowY: 'hidden',
             }}
           >
             {substatEntries.length > 0 ? (
@@ -3957,6 +3960,47 @@ function getTesterCardHeight(
     }
   }
   return height
+}
+
+export type TesterGridCardSizing = {
+  // Fixed height used for the card container so layout stays stable.
+  cardHeightPx: number
+  // Minimum width needed for icon + stats columns before scaling.
+  minWidthPx: number
+}
+
+/**
+ * Compute card sizing for external previews (diff toasts, history tooltips).
+ */
+export function getTesterGridCardSizing(
+  theme: Theme,
+  gridColumnCount: number,
+  options: { showFirstMatchRow: boolean; showOtherMatchesRow: boolean },
+): TesterGridCardSizing {
+  // Vertical padding uses the same units as the main grid cards.
+  const cardVerticalPaddingPx = pxValue(theme.spacing(CARD_PADDING_UNITS)) * 2
+  // Column heights feed the deterministic card height calculation.
+  const { firstRowHeightPx } = getTesterGridCardColumnHeights(theme, gridColumnCount)
+  // Match rows add fixed-height blocks beneath the main summary row.
+  const cardHeightPx = getTesterCardHeight(
+    options.showFirstMatchRow,
+    options.showOtherMatchesRow,
+    cardVerticalPaddingPx,
+    firstRowHeightPx,
+  )
+  // Horizontal padding keeps the icon + stats columns aligned with the grid.
+  const horizontalPaddingPx = pxValue(theme.spacing(CARD_PADDING_UNITS))
+  // Column gap matches the standard grid card spacing.
+  const columnGapPx = pxValue(theme.spacing(CARD_COLUMN_GAP_UNITS))
+  // Minimum width mirrors the two-column template used in the grid.
+  const minWidthPx = GRID_CARD_ICON_COLUMN_PX
+    + GRID_CARD_STATS_MIN_COLUMN_PX
+    + columnGapPx
+    + (horizontalPaddingPx * 2)
+  return {
+    cardHeightPx,
+    minWidthPx,
+  }
 }
 
 type GridCardColumnHeights = {

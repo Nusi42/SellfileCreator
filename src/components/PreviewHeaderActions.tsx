@@ -43,6 +43,7 @@ import GridViewIcon from '@mui/icons-material/GridView'
 import CategoryIcon from '@mui/icons-material/Category'
 import GroupsIcon from '@mui/icons-material/Groups'
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff'
+import HistoryIcon from '@mui/icons-material/History'
 import {
   TESTER_SORT_KEY_LAST_USAGE,
   TESTER_SORT_WEIGHT_DEFAULT,
@@ -69,6 +70,8 @@ import { TesterSortWeightControls } from './TesterSortWeightControls'
 import { TesterNormalizedPresetEditorMenu } from './TesterNormalizedPresetEditorMenu'
 import { DEFAULT_METASET_ICON_ID } from '../lib/metasetIcons'
 import type { TesterOutcomeSummary } from '../types/testerPreview'
+import { GearDbHistoryMenu } from './GearDbHistoryMenu'
+import type { GearDbDiffHistoryEntry } from '../lib/gearDbDiffToast'
 
 
 type ProgressChipProps = {
@@ -154,6 +157,14 @@ export default function PreviewHeaderActions(props: {
 	  onClearGearDbCommandError?: () => void
 	  gearDbCommandSuccess?: string | null
 	  onClearGearDbCommandSuccess?: () => void
+	  // Session-only endpoint update history shown next to the Load button.
+	  gearDbHistoryEntries: GearDbDiffHistoryEntry[]
+  // Clears the endpoint update history list.
+  onClearGearDbHistory: () => void
+  // Hide endpoint success toast when enabled.
+  hideGearDbUpdateToast: boolean
+  // Toggle the endpoint success toast visibility.
+  onToggleHideGearDbUpdateToast: (next: boolean) => void
   filtersSynced?: boolean
   onToggleFiltersSynced?: (next: boolean) => void
   filterPresets?: readonly FilterPreset[]
@@ -215,8 +226,12 @@ export default function PreviewHeaderActions(props: {
 		    workloadProgressRatio,
 		    gearDbCommandError,
 		    onClearGearDbCommandError,
-	    gearDbCommandSuccess,
+    gearDbCommandSuccess,
     onClearGearDbCommandSuccess,
+    gearDbHistoryEntries,
+    onClearGearDbHistory,
+    hideGearDbUpdateToast,
+    onToggleHideGearDbUpdateToast,
     filtersSynced = false,
     onToggleFiltersSynced,
     filterPresets = [],
@@ -363,6 +378,46 @@ export default function PreviewHeaderActions(props: {
   const [filterHintPos, setFilterHintPos] = React.useState<{ x: number; y: number } | null>(null)
   const filterHintActive = showFilterHint && filterHintPos !== null && !filterMenuAnchor
 
+  // Endpoint history icon should only appear when an endpoint is configured.
+  const historyMenuEnabled = Boolean(pushEndpoint)
+  // Anchor element for the endpoint update history menu.
+  const [gearDbHistoryAnchor, setGearDbHistoryAnchor] = React.useState<HTMLElement | null>(null)
+  // Close helper keeps the menu dismissal consistent across triggers.
+  const closeGearDbHistoryMenu = React.useCallback(() => { setGearDbHistoryAnchor(null) }, [])
+  // Anchor element for the endpoint history settings context menu.
+  const [gearDbHistorySettingsAnchor, setGearDbHistorySettingsAnchor] = React.useState<HTMLElement | null>(null)
+  // Close helper keeps the settings menu dismissal consistent across triggers.
+  const closeGearDbHistorySettingsMenu = React.useCallback(() => { setGearDbHistorySettingsAnchor(null) }, [])
+  // Paper ref enables right-click outside detection for the settings menu.
+  const gearDbHistorySettingsMenuRef = React.useRef<HTMLDivElement | null>(null)
+  useContextMenuCloseOnOutsideRightClick({
+    open: Boolean(gearDbHistorySettingsAnchor),
+    onClose: closeGearDbHistorySettingsMenu,
+    menuRef: gearDbHistorySettingsMenuRef,
+  })
+  // Drop the menu if the endpoint disappears mid-session.
+  React.useEffect(() => {
+    if (historyMenuEnabled) return
+    if (gearDbHistoryAnchor) setGearDbHistoryAnchor(null)
+    if (gearDbHistorySettingsAnchor) setGearDbHistorySettingsAnchor(null)
+  }, [gearDbHistoryAnchor, gearDbHistorySettingsAnchor, historyMenuEnabled])
+  // Open helper pins the menu to the icon button.
+  const openGearDbHistoryMenu = React.useCallback((event: React.MouseEvent<HTMLElement>) => {
+    // Close settings if the user left-clicks the history button.
+    setGearDbHistorySettingsAnchor(null)
+    setGearDbHistoryAnchor(event.currentTarget)
+  }, [])
+  // Right-click opens the settings context menu instead of the history list.
+  const openGearDbHistorySettingsMenu = React.useCallback((event: React.MouseEvent<HTMLElement>) => {
+    if (!historyMenuEnabled) return
+    try {
+      event.preventDefault()
+      event.stopPropagation()
+    } catch {}
+    setGearDbHistoryAnchor(null)
+    setGearDbHistorySettingsAnchor(event.currentTarget)
+  }, [historyMenuEnabled])
+
   const formatPresetSavedAt = React.useCallback((value: string) => {
     // Presets store ISO timestamps; local formatting keeps the menu scan-friendly.
     return formatLocalDateTime(value) ?? value
@@ -412,6 +467,8 @@ export default function PreviewHeaderActions(props: {
   const filterToggleLabel = t('filterToggleLabel')
   const logicHubLabel = t('titleLogicHub')
   const keepUniquesLabel = t('keepUniquesToggleLabel')
+  // History menu toggle label keeps the context menu consistent across locales.
+  const gearDbHistoryHideToastLabel = t('gearDbHistoryHideToast')
   const longestWarningToggleWidth = React.useMemo(() => {
     const labels = [finalSellLabel, keepUniquesLabel]
     const ctx = document?.createElement?.('canvas')?.getContext?.('2d')
@@ -1991,14 +2048,79 @@ export default function PreviewHeaderActions(props: {
         </Stack>
         <Box sx={{ flex: 1, minWidth: 0 }} />
         <Stack direction="row" spacing={1} alignItems="center" sx={{ flexShrink: 0 }}>
-          {baseRuleCount ? (
-            <ClearIconButton
-              size="small"
-              aria-label={t('clear')}
-              tooltip={t('clear')}
-              onClick={onClearBase}
-              sx={{ width: CLEAR_ICON_BUTTON_SIZE_PX, height: CLEAR_ICON_BUTTON_SIZE_PX, flexShrink: 0 }}
-            />
+          {historyMenuEnabled ? (
+            <>
+              <Box
+                sx={{ position: 'relative', display: 'inline-flex', flexShrink: 0 }}
+                onContextMenu={openGearDbHistorySettingsMenu}
+              >
+                {/* Right-click opens the settings menu for endpoint update toasts. */}
+                {/* History button mirrors the load button sizing so the cluster stays aligned. */}
+                <MarkdownTooltip markdown={t('builderHistoryMenuHeader')}>
+                  <Button
+                    size="small"
+                    onClick={openGearDbHistoryMenu}
+                    aria-label={t('builderHistoryMenuHeader')}
+                    sx={{
+                      minWidth: SELLFILE_BUTTON_HEIGHT_PX,
+                      width: SELLFILE_BUTTON_HEIGHT_PX,
+                      height: SELLFILE_BUTTON_HEIGHT_PX,
+                      minHeight: SELLFILE_BUTTON_HEIGHT_PX,
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      p: 0,
+                      flexShrink: 0,
+                    }}
+                  >
+                    <HistoryIcon fontSize="small" />
+                  </Button>
+                </MarkdownTooltip>
+                {!gearDbCommandError && gearDbCommandSuccess ? (
+                  <>
+                    {/* Success badge now sits on the history button to reinforce update context. */}
+                    <MarkdownTooltip
+                      markdown={gearDbCommandSuccess}
+                      placement="left"
+                      onClose={() => { onClearGearDbCommandSuccess?.() }}
+                    >
+                      <Box component="span" sx={statusBadgeSx('success')}>{'✓'}</Box>
+                    </MarkdownTooltip>
+                  </>
+                ) : null}
+              </Box>
+              <GearDbHistoryMenu
+                open={Boolean(gearDbHistoryAnchor)}
+                anchorEl={gearDbHistoryAnchor}
+                entries={gearDbHistoryEntries}
+                onClose={closeGearDbHistoryMenu}
+                onRequestClearHistory={onClearGearDbHistory}
+                substatColors={substatColors}
+                useStatButtonColors={useStatButtonColors}
+              />
+              {/* Context menu mirrors the export menu styling for quick toggle access. */}
+              <Menu
+                anchorEl={gearDbHistorySettingsAnchor}
+                open={Boolean(gearDbHistorySettingsAnchor)}
+                onClose={closeGearDbHistorySettingsMenu}
+                PaperProps={{ ref: gearDbHistorySettingsMenuRef }}
+                anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+                transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+              >
+                {/* Checkbox toggles whether endpoint success toasts appear. */}
+                <MenuItem
+                  onClick={() => onToggleHideGearDbUpdateToast(!hideGearDbUpdateToast)}
+                >
+                  <Checkbox
+                    size="small"
+                    checked={hideGearDbUpdateToast}
+                    onChange={(event) => onToggleHideGearDbUpdateToast(Boolean(event.target.checked))}
+                    sx={{ mr: 1, p: 0.5 }}
+                  />
+                  {gearDbHistoryHideToastLabel}
+                </MenuItem>
+              </Menu>
+            </>
           ) : null}
           <Box sx={{ position: 'relative', display: 'inline-flex', flexShrink: 0 }}>
             <>
@@ -2039,18 +2161,16 @@ export default function PreviewHeaderActions(props: {
                 </MarkdownTooltip>
               </>
             ) : null}
-            {!gearDbCommandError && gearDbCommandSuccess ? (
-              <>
-                <MarkdownTooltip
-                  markdown={gearDbCommandSuccess}
-                  placement="left"
-                  onClose={() => { onClearGearDbCommandSuccess?.() }}
-                >
-                  <Box component="span" sx={statusBadgeSx('success')}>{'✓'}</Box>
-                </MarkdownTooltip>
-              </>
-            ) : null}
           </Box>
+          {baseRuleCount ? (
+            <ClearIconButton
+              size="small"
+              aria-label={t('clear')}
+              tooltip={t('clear')}
+              onClick={onClearBase}
+              sx={{ width: CLEAR_ICON_BUTTON_SIZE_PX, height: CLEAR_ICON_BUTTON_SIZE_PX, flexShrink: 0 }}
+            />
+          ) : null}
           {(exportTooltip?.trim().length ?? 0) > 0 ? (
             <>
               {/* Export tooltip strings can include lists, so route them through MarkdownTooltip for consistent formatting. */}

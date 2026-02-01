@@ -36,6 +36,7 @@ import {
   FONT_SIZE_DISPLAY_REM,
   FONT_SIZE_HEADER_META_PX,
   FONT_SIZE_BASE_PX,
+  GEAR_DB_DIFF_TOAST_MAX_ITEMS,
   SELECTION_SCROLL_SOURCE_SELECT_RULE,
   SELECTION_SCROLL_SOURCE_USER,
   type SelectionScrollRequest,
@@ -89,6 +90,17 @@ import {
 import { fingerprintConfigForRules, fingerprintSubstatTargets, updateConfigRulesCache } from './lib/ruleCache'
 import { hasConfigMeaningfulDifferences } from './lib/configDiff'
 import { buildRuleTesterAutosavePayload, createRuleTesterMath, fingerprintRuleTesterItem, loadRuleTesterAutosaveDraft, type RuleTesterItem } from './lib/ruleTesterSession'
+import {
+  buildGearDbDiffSummary,
+  collectGearDbDeltaArtifactIds,
+  formatGearDbDiffHistoryLines,
+  snapshotGearDbDataset,
+  type GearDbDiffEntry,
+  type GearDbDiffHistoryEntry,
+  type GearDbDiffHistoryLineSpec,
+  type GearDbDiffToastEntry,
+  type GearDbDiffToastPayload,
+} from './lib/gearDbDiffToast'
 import { sortTesterRows, TESTER_SORT_KEY_LAST_USAGE } from './lib/testerSort'
 import { buildTesterRuleTemplateConfig } from './lib/testerRuleTemplates'
 import { buildTesterOutcomeSummary } from './lib/testerOutcomeSummary'
@@ -99,6 +111,7 @@ import FileDragOverlay from './components/FileDragOverlay'
 import { BuilderColumn } from './components/AppLayout/BuilderColumn'
 import { useFileDragDrop, routeFileByExtension } from './hooks/useFileDragDrop'
 import HeaderActions from './components/HeaderActions'
+import { GearDbDiffToast } from './components/GearDbDiffToast'
 import ManageColorsDialog from './components/dialogs/ManageColorsDialog'
 import LogicHubDialog from './components/dialogs/LogicHubDialog'
 import HelpDialog from './components/HelpDialog'
@@ -114,7 +127,6 @@ import RulesFilterPanel, { type RulesFilterPanelHandle } from './components/Rule
 import { TESTER_CONFIG_FILTER_MODE_DEFAULT, type TesterConfigFilterMode } from './types/testerConfigFilterMode'
 import { artifactTypeI18nKey, getAllKnownArtifactSetIds, type RankValue, type StatVariant } from './lib/types'
 import { formatTesterSetLabel } from './lib/testerFormatters'
-import { formatLocalDateTime } from './lib/dateDisplay'
 import { DEFAULT_RULES_FILTER_STATE, filterHsfRules, filterTesterItems, isRulesFilterActive, normalizeRulesFilterForTester, type FilterHsfRulesResult, type RulesFilterState } from './lib/rulesFilter'
 import {
   useAutosaveRestore,
@@ -2008,14 +2020,59 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setToastOpen(true)
   }, [])
   // Command push feedback needs its own lightweight toast so the global snackbar stays unobtrusive.
-  const [gearDbCommandToast, setGearDbCommandToast] = useState<{ message: string; severity: 'success' | 'error' } | null>(null)
+  type GearDbCommandToastState = {
+    // Severity controls alert color and icon.
+    severity: 'success' | 'error'
+    // Plain-text copy for legacy command notifications.
+    message?: string
+    // Rich diff payload for endpoint updates.
+    diff?: GearDbDiffToastPayload
+  }
+  const [gearDbCommandToast, setGearDbCommandToast] = useState<GearDbCommandToastState | null>(null)
   // Small helper centralizes toast creation so every command path feels consistent.
   const showGearDbCommandToast = useCallback((message: string, severity: 'success' | 'error') => {
+    // Clear any prior diff payload so text stays compact.
     setGearDbCommandToast({ message, severity })
+  }, [])
+  // Diff toasts carry rich UI payloads instead of plain strings.
+  const showGearDbDiffToast = useCallback((payload: GearDbDiffToastPayload) => {
+    // Force success styling so the diff list stays readable.
+    setGearDbCommandToast({ severity: 'success', diff: payload })
   }, [])
   // Shared closer lets timers and manual dismissals reuse a single path.
   const dismissGearDbCommandToast = useCallback(() => {
+    // Clear the live toast so it does not linger between updates.
     setGearDbCommandToast(null)
+    // Cancel any pending diff payloads still waiting on a rebuild.
+    gearDbDiffToastPendingRef.current = null
+  }, [])
+  // Session-only endpoint update history (latest appended at the end).
+  const [gearDbDiffHistory, setGearDbDiffHistory] = useState<GearDbDiffHistoryEntry[]>([])
+  // Monotonic id keeps menu rendering stable across app updates.
+  const gearDbDiffHistoryIdRef = useRef(0)
+  // Append helper centralizes history entry creation for every endpoint update.
+  const appendGearDbDiffHistory = useCallback((params: {
+    lineSpecs: GearDbDiffHistoryLineSpec[]
+    entries: GearDbDiffToastEntry[]
+    createdAt: number
+  }) => {
+    // Increment once so ids stay monotonic for the session.
+    const nextId = gearDbDiffHistoryIdRef.current + 1
+    gearDbDiffHistoryIdRef.current = nextId
+    // Store a full copy of the diff so the history menu can render previews.
+    setGearDbDiffHistory((prev) => ([
+      ...prev,
+      {
+        id: nextId,
+        createdAt: params.createdAt,
+        lineSpecs: params.lineSpecs,
+        entries: params.entries,
+      },
+    ]))
+  }, [])
+  // Clear history on demand; session-only state should reset instantly.
+  const clearGearDbDiffHistory = useCallback(() => {
+    setGearDbDiffHistory([])
   }, [])
   const [fileFormatError, setFileFormatError] = useState<{ fileName?: string | null } | null>(null)
   const showFileFormatError = useCallback((fileName?: string | null) => {
@@ -2028,6 +2085,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const clearGearDbCommandError = useCallback(() => { setGearDbCommandError(null) }, [])
   const [gearDbCommandSuccess, setGearDbCommandSuccess] = useState<string | null>(null)
   const clearGearDbCommandSuccess = useCallback(() => { setGearDbCommandSuccess(null) }, [])
+  // History toast toggle keeps endpoint updates quiet without hiding status badges.
+  const [hideGearDbUpdateToast, setHideGearDbUpdateToast] = useState(false)
+  // Toggle helper keeps the checkbox handler stable for the header menu.
+  const toggleHideGearDbUpdateToast = useCallback((next: boolean) => {
+    setHideGearDbUpdateToast(next)
+  }, [])
   const formatFileFormatErrorMessage = useCallback((fileName?: string | null) => {
     const trimmed = (fileName ?? '').trim()
     if (!trimmed) {
@@ -2036,20 +2099,137 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     const truncated = trimmed.length > 160 ? `${trimmed.slice(0, 157)}…` : trimmed
     return t('fileFormatErrorMessage', { fileName: `“${truncated}”` })
   }, [t])
-  const formatGearDbTimestampLine = useCallback(() => {
-    // Include seconds to make fast successive DB pushes distinguishable.
-    const timestamp = formatLocalDateTime(new Date(), { dateStyle: 'medium', timeStyle: 'medium' })
-    // Skip the line when formatting fails so we never show an empty label.
-    return timestamp ? t('toastGearDbReceivedAt', { timestamp }) : null
+  const buildGearDbHistoryHeaderLines = useCallback((lineSpecs: GearDbDiffHistoryLineSpec[]) => {
+    // Use the shared formatter so history + toast text stay aligned.
+    return formatGearDbDiffHistoryLines(lineSpecs, t)
   }, [t])
-  const buildGearDbCommandMessages = useCallback((lines: Array<string | null | undefined>) => {
-    // Trim and filter the message lines so we can reuse them in both outputs.
-    const cleaned = lines.map((line) => (line ?? '').trim()).filter((line) => line.length > 0)
-    // Keep the tooltip multi-line while keeping the toast compact.
-    const tooltipMessage = cleaned.join('\n\n')
-    const toastMessage = cleaned.join('\n')
-    return { tooltipMessage, toastMessage }
+  const appendGearDbTimestampLineSpec = useCallback((
+    lineSpecs: GearDbDiffHistoryLineSpec[],
+    queuedAt: number,
+  ): GearDbDiffHistoryLineSpec[] => {
+    // Preserve the existing ordering so "Received" always stays last.
+    return [...lineSpecs, { kind: 'timestamp', at: queuedAt }]
   }, [])
+  const buildGearDbCommandMessages = useCallback((lineSpecs: GearDbDiffHistoryLineSpec[]) => {
+    // Build header lines once so tooltip + toast copy match exactly.
+    const headerLines = buildGearDbHistoryHeaderLines(lineSpecs)
+    // Keep the tooltip multi-line while keeping the toast compact.
+    const tooltipMessage = headerLines.join('\n\n')
+    const toastMessage = headerLines.join('\n')
+    return { headerLines, tooltipMessage, toastMessage }
+  }, [buildGearDbHistoryHeaderLines])
+  // Keep a single pending diff so rapid endpoint updates collapse into the latest toast.
+  const gearDbDiffToastPendingRef = useRef<{
+    // Monotonic id for the queued payload.
+    requestId: number
+    // Build id used to detect when the tester grid has updated.
+    baselineBuildId: number
+    // Timestamp captured when the update was queued.
+    queuedAt: number
+    // Structured header specs so history stays localizable.
+    lineSpecs: GearDbDiffHistoryLineSpec[]
+    // Raw diff entries before match enrichment.
+    entries: GearDbDiffEntry[]
+    // Matches captured before applying the dataset update.
+    matchesBefore: Map<number, TesterPreviewMatch | null>
+  } | null>(null)
+  // Monotonic id used to cancel stale pending payloads.
+  const gearDbDiffToastRequestIdRef = useRef(0)
+  // Build a stable match map keyed by artifact id so before/after comparisons line up.
+  const buildMatchMapByArtifactId = useCallback((rows: TesterPreviewRow[]): Map<number, TesterPreviewMatch | null> => {
+    // Map rows by id so add/remove/update comparisons are stable.
+    const map = new Map<number, TesterPreviewMatch | null>()
+    for (const row of rows) {
+      const id = Number(row.artifact?.id ?? NaN)
+      if (!Number.isFinite(id) || id <= 0) continue
+      map.set(id, row.match ?? null)
+    }
+    return map
+  }, [])
+  // Queue a diff toast so we can enrich it with match results after the rebuild completes.
+  const queueGearDbDiffToast = useCallback((params: {
+    lineSpecs: GearDbDiffHistoryLineSpec[]
+    entries: GearDbDiffEntry[]
+    queuedAt: number
+  }) => {
+    // Capture the shared timestamp so history + toast stay aligned.
+    const queuedAt = params.queuedAt
+    // Localize header lines once for the pending toast payload.
+    const headerLines = buildGearDbHistoryHeaderLines(params.lineSpecs)
+    // Empty diffs can show immediately without waiting on matches.
+    if (params.entries.length === 0) {
+      // No per-item diff means we can show the header immediately.
+      if (!hideGearDbUpdateToast) {
+        showGearDbDiffToast({ headerLines, lineSpecs: params.lineSpecs, entries: [], overflowCount: 0 })
+      }
+      // Skip history entries when nothing changed so the list stays meaningful.
+      return
+    }
+    // Advance the request id so stale updates do not leak through.
+    const requestId = gearDbDiffToastRequestIdRef.current + 1
+    gearDbDiffToastRequestIdRef.current = requestId
+    // Capture the current build id so we can wait for the next commit.
+    gearDbDiffToastPendingRef.current = {
+      requestId,
+      baselineBuildId: gearEntriesCommittedBuildIdRef.current,
+      queuedAt,
+      lineSpecs: params.lineSpecs,
+      entries: params.entries,
+      // Snapshot matches before the gear list is rebuilt.
+      matchesBefore: buildMatchMapByArtifactId(testerPreviewRowsRef.current),
+    }
+  }, [buildGearDbHistoryHeaderLines, buildMatchMapByArtifactId, hideGearDbUpdateToast, showGearDbDiffToast])
+  useEffect(() => {
+    const pending = gearDbDiffToastPendingRef.current
+    // Nothing queued means nothing to render.
+    if (!pending) return
+    // Ignore stale entries if a newer diff request superseded this one.
+    if (pending.requestId !== gearDbDiffToastRequestIdRef.current) return
+    // Wait until the tester grid has committed a new build for the update.
+    if (gearEntriesBuildingRef.current) return
+    // Ignore commits that predate the queued diff request.
+    if (gearEntriesCommittedBuildIdRef.current <= pending.baselineBuildId) return
+    // Map current preview rows so matches line up with the diff entries.
+    const matchesAfter = buildMatchMapByArtifactId(testerPreviewRowsRef.current)
+    // Enrich each diff entry with before/after match info.
+    const enriched: GearDbDiffToastEntry[] = pending.entries.map((entry) => ({
+      ...entry,
+      beforeMatch: pending.matchesBefore.get(entry.id) ?? null,
+      afterMatch: matchesAfter.get(entry.id) ?? null,
+    }))
+    // Cap the list so the toast stays compact.
+    const cappedEntries = enriched.slice(0, GEAR_DB_DIFF_TOAST_MAX_ITEMS)
+    // Count the remainder for the "+X more" footer.
+    const overflowCount = Math.max(0, enriched.length - cappedEntries.length)
+    // Localize header lines now that the diff is ready to render.
+    const headerLines = buildGearDbHistoryHeaderLines(pending.lineSpecs)
+    // Store the full diff in the session history menu.
+    appendGearDbDiffHistory({
+      lineSpecs: pending.lineSpecs,
+      entries: enriched,
+      createdAt: pending.queuedAt,
+    })
+    // Commit the toast payload now that matches are current.
+    // Honor the history menu toggle when showing endpoint success toasts.
+    if (!hideGearDbUpdateToast) {
+      showGearDbDiffToast({
+        headerLines,
+        lineSpecs: pending.lineSpecs,
+        entries: cappedEntries,
+        overflowCount,
+      })
+    }
+    // Clear the queue so the toast does not re-render.
+    gearDbDiffToastPendingRef.current = null
+  }, [
+    appendGearDbDiffHistory,
+    buildGearDbHistoryHeaderLines,
+    buildMatchMapByArtifactId,
+    gearEntriesCommittedBuildId,
+    hideGearDbUpdateToast,
+    showGearDbDiffToast,
+    testerPreviewRows,
+  ])
   const [previewMode, setPreviewMode] = useState<'rules' | 'tester'>(() => {
     if (typeof window === 'undefined') return 'rules'
     try {
@@ -2957,6 +3137,20 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     // Any manual import resets the JSON dataset so future deltas do not apply
     // to stale rows pulled from a file.
     gearDbRawDatasetRef.current = null
+    // Snapshot the current tester preview so command pushes can diff against it.
+    const previousTesterSnapshots = source === 'command'
+      ? snapshotGearDbDataset({
+        snapshotId: null,
+        champions: new Map(),
+        lastUsed: new Map(),
+        artifacts: new Map(
+          testerPreviewArtifacts
+            .filter((artifact) => Number.isFinite(Number(artifact.id)) && Number(artifact.id) > 0)
+            .map((artifact) => [Number(artifact.id), artifact]),
+        ),
+        inboxArtifacts: new Map(),
+      })
+      : new Map()
     if (tutorial.helpOpen) {
       tutorial.setHelpOpen(false)
       tutorial.setHelpFirstRunMode(false)
@@ -2997,20 +3191,46 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       }
       const inboxCount = inboxArtifacts.length
       const totalCount = combined.length
-      const diffSummary = t('toastGearDbDiffSummary', { added: addedCount, removed: removedCount })
+      // Manual imports show the inventory count so inbox items read as a separate add-on.
+      const inventoryCount = Math.max(0, totalCount - inboxCount)
+      // Manual toasts keep the longer phrasing for clarity outside endpoint updates.
+      // Manual imports only track adds/removals, so updated stays at zero.
+      const diffSummary = t('toastGearDbDiffSummary', { added: addedCount, removed: removedCount, updated: 0 })
       const importSummary = inboxCount > 0
-        ? t('toastGearDbImportedWithInbox', { count: totalCount, inboxCount })
-        : t('toastGearDbImported', { count: totalCount })
+        ? t('toastGearDbImportedShortWithInbox', { count: inventoryCount, inboxCount })
+        : t('toastGearDbImportedShort', { count: totalCount })
       if (source === 'command') {
-        const { tooltipMessage, toastMessage } = buildGearDbCommandMessages([
-          importSummary,
-          diffSummary,
-          formatGearDbTimestampLine(),
-        ])
+        // Snapshot the imported dataset so we can compute a command diff preview.
+        const nextSnapshots = snapshotGearDbDataset({
+          snapshotId: null,
+          champions: new Map(),
+          lastUsed: new Map(),
+          artifacts: new Map(artifacts.map((artifact) => [artifact.id, artifact])),
+          inboxArtifacts: new Map(inboxArtifacts.map((artifact) => [artifact.id, artifact])),
+        })
+        const diffDetails = buildGearDbDiffSummary(previousTesterSnapshots, nextSnapshots)
+        // Capture a shared timestamp so toast + history stay aligned.
+        const queuedAt = Date.now()
+        // Build structured header specs so history can re-localize later.
+        const lineSpecs = appendGearDbTimestampLineSpec([
+          { kind: 'import', totalCount, inboxCount },
+          {
+            // Use snapshot diff counts so summary lines mirror the toast entries.
+            kind: 'diff',
+            addedCount: diffDetails.addedCount,
+            removedCount: diffDetails.removedCount,
+            updatedCount: diffDetails.updatedCount,
+          },
+        ], queuedAt)
+        // Build the tooltip copy from the structured line specs.
+        const { tooltipMessage } = buildGearDbCommandMessages(lineSpecs)
         setGearDbCommandError(null)
         setGearDbCommandSuccess(tooltipMessage)
-        // Success toasts stay compact so they do not block the preview controls.
-        showGearDbCommandToast(toastMessage, 'success')
+        queueGearDbDiffToast({
+          lineSpecs,
+          entries: diffDetails.entries,
+          queuedAt,
+        })
       } else {
         const message = `${importSummary} ${diffSummary}`
         showToast(message, { icon: <StorageIcon fontSize="inherit" /> })
@@ -3043,33 +3263,50 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     showToast,
     showFileFormatError,
     t,
+    appendGearDbTimestampLineSpec,
     buildGearDbCommandMessages,
     formatFileFormatErrorMessage,
-    formatGearDbTimestampLine,
     setGearDbCommandError,
     setGearDbCommandSuccess,
     applyGearDbDiff,
     beginTesterMatchReset,
     dismissGearDbCommandToast,
     showGearDbCommandToast,
+    queueGearDbDiffToast,
+    testerPreviewArtifacts,
     beginGearImport,
     endGearImport,
   ])
 
   // Accepts the raw snapshot payload pushed by the helper and rewires the tester queue.
   const handleGearDbRawSnapshot = useCallback((command: GearDbRawSnapshotCommand) => {
+    // Capture the previous dataset so we can compute before/after diffs.
+    const previousDataset = gearDbRawDatasetRef.current
+    // Snapshot the previous artifacts to diff against the incoming snapshot.
+    const previousSnapshots = previousDataset ? snapshotGearDbDataset(previousDataset) : new Map()
+    // Flag the import as busy so UI controls can reflect the update.
     beginGearImport()
+    // Clear prior command results so the new push owns the status line.
     setGearDbCommandError(null)
     setGearDbCommandSuccess(null)
+    // Clear any live toast so the diff payload can replace it.
     dismissGearDbCommandToast()
     try {
       // Normalize the raw rows into the canonical tester dataset before diffing.
       const { dataset, testerItems, artifactCount, inboxCount } = createDatasetFromSnapshot(command)
+      // Snapshot the incoming dataset so we can compute per-item diffs.
+      const nextSnapshots = snapshotGearDbDataset(dataset)
+      // Build the per-item diff list for the endpoint toast.
+      const diffDetails = buildGearDbDiffSummary(previousSnapshots, nextSnapshots)
+      // Persist the dataset so future deltas can apply correctly.
       gearDbRawDatasetRef.current = dataset
+      // Diff the tester queue so only net changes are enqueued.
       const { removedCount, addedCount } = applyGearDbDiff(testerItems)
       if (removedCount > 0 || addedCount > 0) {
+        // Rebuild tester matches when the queue changed.
         beginTesterMatchReset('gearDb')
       }
+      // Empty snapshots should still show a clear error status.
       const totalCount = artifactCount + inboxCount
       if (totalCount === 0) {
         const emptyMessage = t('toastGearDbImportEmpty')
@@ -3078,18 +3315,31 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         showGearDbCommandToast(emptyMessage, 'error')
         return
       }
-      const diffSummary = t('toastGearDbDiffSummary', { added: addedCount, removed: removedCount })
-      const importSummary = inboxCount > 0
-        ? t('toastGearDbImportedWithInbox', { count: totalCount, inboxCount })
-        : t('toastGearDbImported', { count: totalCount })
-      const { tooltipMessage, toastMessage } = buildGearDbCommandMessages([
-        importSummary,
-        diffSummary,
-        formatGearDbTimestampLine(),
-      ])
+      // Build summary specs for the header and the status badge.
+      // Capture a shared timestamp so badge + history remain in sync.
+      const queuedAt = Date.now()
+      // Build structured header specs so history stays localizable.
+      const lineSpecs = appendGearDbTimestampLineSpec([
+        { kind: 'import', totalCount, inboxCount },
+        {
+          // Use snapshot diff counts so summary lines mirror the toast entries.
+          kind: 'diff',
+          addedCount: diffDetails.addedCount,
+          removedCount: diffDetails.removedCount,
+          updatedCount: diffDetails.updatedCount,
+        },
+      ], queuedAt)
+      // Build the tooltip copy from the structured line specs.
+      const { tooltipMessage } = buildGearDbCommandMessages(lineSpecs)
+      // Update the header indicator with the full tooltip summary.
       setGearDbCommandError(null)
       setGearDbCommandSuccess(tooltipMessage)
-      showGearDbCommandToast(toastMessage, 'success')
+      // Queue the rich toast payload so matches can be attached later.
+      queueGearDbDiffToast({
+        lineSpecs,
+        entries: diffDetails.entries,
+        queuedAt,
+      })
     } catch (err) {
       if (import.meta.env.DEV) {
         console.error('Failed to apply gear DB snapshot', err)
@@ -3106,15 +3356,15 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     applyGearDbDiff,
     beginGearImport,
     beginTesterMatchReset,
+    appendGearDbTimestampLineSpec,
     buildGearDbCommandMessages,
     dismissGearDbCommandToast,
     endGearImport,
-    formatGearDbTimestampLine,
     formatFileFormatErrorMessage,
+    queueGearDbDiffToast,
     setGearDbCommandError,
     setGearDbCommandSuccess,
     showGearDbCommandToast,
-    t,
   ])
 
   // Deltas mutate the existing dataset; fall back to a file-format style error when no snapshot is active.
@@ -3127,25 +3377,53 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       showGearDbCommandToast(missingMessage, 'error')
       return
     }
+    // Mark the import as busy so controls can show progress.
     beginGearImport()
+    // Clear prior status so the delta owns the indicators.
     setGearDbCommandError(null)
     setGearDbCommandSuccess(null)
+    // Drop the live toast so the diff payload can take over.
     dismissGearDbCommandToast()
     try {
+      // Limit diff work to artifact rows touched by the delta.
+      const touchedIds = collectGearDbDeltaArtifactIds(command)
+      // Snapshot the affected items before mutating the dataset.
+      const previousSnapshots = touchedIds.size > 0 ? snapshotGearDbDataset(dataset, touchedIds) : new Map()
       // Apply the mutation set to the cached dataset, then regenerate the tester payload.
       const { testerItems } = applyDeltaToDataset(dataset, command)
+      // Snapshot the affected items after the delta so we can diff.
+      const nextSnapshots = touchedIds.size > 0 ? snapshotGearDbDataset(dataset, touchedIds) : new Map()
+      // Build the per-item diff list for the endpoint toast.
+      const diffDetails = buildGearDbDiffSummary(previousSnapshots, nextSnapshots)
+      // Apply the gear diff so only net changes hit the tester queue.
       const { removedCount, addedCount } = applyGearDbDiff(testerItems)
       if (removedCount > 0 || addedCount > 0) {
+        // Rebuild tester matches when the queue changed.
         beginTesterMatchReset('gearDb')
       }
-      const diffSummary = t('toastGearDbDiffSummary', { added: addedCount, removed: removedCount })
+      // Capture a shared timestamp so badge + history remain aligned.
+      const queuedAt = Date.now()
+      // Build structured header specs so history stays localizable.
+      const lineSpecs = appendGearDbTimestampLineSpec([
+        {
+          // Use snapshot diff counts so summary lines mirror the toast entries.
+          kind: 'diff',
+          addedCount: diffDetails.addedCount,
+          removedCount: diffDetails.removedCount,
+          updatedCount: diffDetails.updatedCount,
+        },
+      ], queuedAt)
+      // Build the tooltip copy from the structured line specs.
+      const { tooltipMessage } = buildGearDbCommandMessages(lineSpecs)
       setGearDbCommandError(null)
-      const { tooltipMessage, toastMessage } = buildGearDbCommandMessages([
-        diffSummary,
-        formatGearDbTimestampLine(),
-      ])
+      // Update the badge tooltip so users see the latest status.
       setGearDbCommandSuccess(tooltipMessage)
-      showGearDbCommandToast(toastMessage, 'success')
+      // Queue the toast payload to render after match rebuild.
+      queueGearDbDiffToast({
+        lineSpecs,
+        entries: diffDetails.entries,
+        queuedAt,
+      })
     } catch (err) {
       if (import.meta.env.DEV) {
         console.error('Failed to apply gear DB delta', err)
@@ -3162,11 +3440,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     applyGearDbDiff,
     beginGearImport,
     beginTesterMatchReset,
+    appendGearDbTimestampLineSpec,
     buildGearDbCommandMessages,
     dismissGearDbCommandToast,
     endGearImport,
-    formatGearDbTimestampLine,
     formatFileFormatErrorMessage,
+    queueGearDbDiffToast,
     setGearDbCommandError,
     setGearDbCommandSuccess,
     showGearDbCommandToast,
@@ -5338,11 +5617,15 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           onApplyFilterPreset={handleApplyFilterPreset}
           onDeleteFilterPreset={handleDeleteFilterPreset}
 	        testerCount={testerItems.length}
-	        testerFilteredCount={gearEntriesForTable.length}
+        testerFilteredCount={gearEntriesForTable.length}
         gearDbCommandError={gearDbCommandError}
         onClearGearDbCommandError={clearGearDbCommandError}
         gearDbCommandSuccess={gearDbCommandSuccess}
         onClearGearDbCommandSuccess={clearGearDbCommandSuccess}
+        gearDbHistoryEntries={gearDbDiffHistory}
+        onClearGearDbHistory={clearGearDbDiffHistory}
+        hideGearDbUpdateToast={hideGearDbUpdateToast}
+        onToggleHideGearDbUpdateToast={toggleHideGearDbUpdateToast}
       />
           {filterOpen && (
             <RulesFilterPanel
@@ -5517,16 +5800,27 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             variant="filled"
             onClose={dismissGearDbCommandToast}
             sx={{
-              alignItems: 'center',
+              alignItems: gearDbCommandToast.diff ? 'flex-start' : 'center',
               fontSize: Math.max(12, FONT_SIZE_BASE_PX - 2),
               lineHeight: 1.35,
               px: 1.75,
               py: 1,
-              minWidth: 240,
-              whiteSpace: 'pre-line',
+              minWidth: gearDbCommandToast.diff ? 320 : 240,
+              maxWidth: 560,
+              whiteSpace: gearDbCommandToast.diff ? 'normal' : 'pre-line',
             }}
           >
-            {gearDbCommandToast.message}
+            {gearDbCommandToast.diff
+              ? (
+                <GearDbDiffToast
+                  payload={gearDbCommandToast.diff}
+                  substatColors={substatColors}
+                  useStatButtonColors={statButtonBorders}
+                  // Boost contrast for colored glyphs on the success toast background.
+                  useCountPill={gearDbCommandToast.severity === 'success'}
+                />
+              )
+              : gearDbCommandToast.message}
           </Alert>
         </Snackbar>
       ) : null}
