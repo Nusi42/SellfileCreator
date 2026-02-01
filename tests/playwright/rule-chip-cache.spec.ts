@@ -6,6 +6,7 @@ import { dismissBlockingDialogs } from './dialog-helpers'
 import { PLAYWRIGHT_TIMEOUTS } from './timeouts'
 import { getWorkloadIndicator } from './workload-indicator'
 import { SAMPLE_SMALL_HSFC_PATH } from './fixture-paths'
+import { HSFC_LOAD_INPUT_SELECTOR } from './ui-selectors'
 
 // Resolve package.json from repo root so the suite can relocate.
 const packageJsonPath = path.resolve(process.cwd(), 'package.json')
@@ -39,8 +40,9 @@ test.describe('builder rule count chip', () => {
 
     // Use the slim HSFC fixture so loads stay quick in all browsers.
     const hsfcPath = SAMPLE_SMALL_HSFC_PATH
-    const loadConfigsButton = page.getByRole('button', { name: /Load Configs/i })
-    await loadConfigsButton.locator('input[type="file"]').setInputFiles(hsfcPath)
+    // Target the hidden input via the shared selector for stability.
+    const hsfcInput = page.locator(HSFC_LOAD_INPUT_SELECTOR).first()
+    await hsfcInput.setInputFiles(hsfcPath)
 
     // Clear any dialogs that would block chip interactions.
     await dismissBlockingDialogs(page)

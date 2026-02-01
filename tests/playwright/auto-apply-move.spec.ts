@@ -6,6 +6,7 @@ import { dismissBlockingDialogs } from './dialog-helpers'
 import { PLAYWRIGHT_TIMEOUTS } from './timeouts'
 import { SAMPLE_SMALL_HSFC_PATH } from './fixture-paths'
 import { warmupAppShell } from './app-warmup'
+import { HSFC_LOAD_INPUT_SELECTOR } from './ui-selectors'
 
 // Load the slim HSFC snapshot so the config names are stable and rebuilds stay fast.
 const HSFC_PATH = SAMPLE_SMALL_HSFC_PATH
@@ -149,7 +150,8 @@ const setupAutoApplyScenario = async (page: Page): Promise<void> => {
   await page.goto('/', APP_GOTO_OPTIONS)
 
   // Import the HSFC snapshot that includes the Marius config.
-  const hsfcInput = page.getByRole('button', { name: 'Load Configs (.hsfc)' }).locator('input[type="file"]')
+  // Use the stable test selector so the localized label can change safely.
+  const hsfcInput = page.locator(HSFC_LOAD_INPUT_SELECTOR).first()
   // Ensure the file input is attached before setting files.
   await hsfcInput.waitFor({ state: 'attached', timeout: PLAYWRIGHT_TIMEOUTS.appGoto })
   // Use the file input so the normal import path runs.

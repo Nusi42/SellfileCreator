@@ -3,6 +3,7 @@ import { APP_GOTO_OPTIONS, prepareApp } from './app-init'
 import { dismissBlockingDialogs } from './dialog-helpers'
 import { PLAYWRIGHT_TIMEOUTS } from './timeouts'
 import { SAMPLE_HSFC_PATH } from './fixture-paths'
+import { HSFC_LOAD_INPUT_SELECTOR } from './ui-selectors'
 
 // Use the shared HSFC fixture so the test stays aligned with the refactored test data layout.
 const HSFC_PATH = SAMPLE_HSFC_PATH
@@ -97,8 +98,9 @@ test.describe('preview chip scroll', () => {
 
     // Load the large HSFC sample file.
     // Why: it contains many configs and enough rows to reproduce the scroll drift.
-    const loadConfigsButton = page.getByRole('button', { name: /Load Configs/i })
-    await loadConfigsButton.locator('input[type="file"]').setInputFiles(HSFC_PATH)
+    // Use the shared selector so Playwright does not depend on button text.
+    const hsfcInput = page.locator(HSFC_LOAD_INPUT_SELECTOR).first()
+    await hsfcInput.setInputFiles(HSFC_PATH)
 
     // Close any note/restore dialogs that appear after loading configs.
     await dismissBlockingDialogs(page)

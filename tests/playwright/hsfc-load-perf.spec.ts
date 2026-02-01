@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test'
 import { APP_GOTO_OPTIONS } from './app-init'
 import { PLAYWRIGHT_TIMEOUTS } from './timeouts'
 import { SAMPLE_HSFC_PATH } from './fixture-paths'
+import { HSFC_LOAD_INPUT_SELECTOR } from './ui-selectors'
 
 const LARGE_HSFC_PATH = SAMPLE_HSFC_PATH
 
@@ -32,7 +33,8 @@ test.describe('HSFC load performance', () => {
       await restoreDismiss.click()
     }
 
-    const hsfcInput = page.locator('[data-tour-id="hsfc.load"] input[type="file"][accept*=".hsfc"]').first()
+    // Use the shared selector so the perf test matches other HSFC import flows.
+    const hsfcInput = page.locator(HSFC_LOAD_INPUT_SELECTOR).first()
     await hsfcInput.waitFor({ state: 'attached', timeout: PLAYWRIGHT_TIMEOUTS.expectDefault })
 
     const start = await page.evaluate(() => performance.now())

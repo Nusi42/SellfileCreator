@@ -1,6 +1,7 @@
 import { test, expect } from './fixtures'
 import { APP_GOTO_OPTIONS, prepareApp } from './app-init'
 import { PLAYWRIGHT_TIMEOUTS } from './timeouts'
+import { SUBSTAT_TARGETS_BUTTON_SELECTOR } from './ui-selectors'
 
 test.describe('substat targets dialog', () => {
   test('Tab/Shift+Tab hops between value inputs and wraps', async ({ page }) => {
@@ -12,7 +13,8 @@ test.describe('substat targets dialog', () => {
     await page.goto('/', APP_GOTO_OPTIONS)
 
     // Open the "Substat Targets" modal (aka the Substat Values popout).
-    const openButton = page.getByRole('button').filter({ hasText: 'Substat Targets' })
+    // Use the stable tour id so localized labels or ellipses do not break the selector.
+    const openButton = page.locator(SUBSTAT_TARGETS_BUTTON_SELECTOR)
     // Allow the app shell to finish mounting before we assert on the trigger.
     await openButton.waitFor({ state: 'visible', timeout: PLAYWRIGHT_TIMEOUTS.appGoto })
     await openButton.click()

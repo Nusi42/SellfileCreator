@@ -6,6 +6,7 @@ import { warmupAppShell } from './app-warmup'
 import { PREVIEW_MODE_STORAGE_KEY } from '../../src/lib/constants'
 import { getWorkloadIndicator } from './workload-indicator'
 import { SAMPLE_HSFC_PATH } from './fixture-paths'
+import { HSFC_LOAD_INPUT_SELECTOR } from './ui-selectors'
 
 // Reuse fixture assets so perf runs do not depend on external samples.
 const LARGE_HSFC_PATH = SAMPLE_HSFC_PATH
@@ -51,7 +52,8 @@ test.describe('HSF preview performance', () => {
     // Load the shell without waiting for full asset completion.
     await page.goto('/', APP_GOTO_OPTIONS)
 
-    const hsfcInput = page.locator('input[type="file"][accept*=".hsfc"]').first()
+    // Use the shared HSFC selector so input wiring stays consistent across tests.
+    const hsfcInput = page.locator(HSFC_LOAD_INPUT_SELECTOR).first()
     // Allow the app shell to mount before asserting on the import input.
     await hsfcInput.waitFor({ state: 'attached', timeout: PLAYWRIGHT_TIMEOUTS.appGoto })
     await expect(hsfcInput).toBeEnabled({ timeout: PLAYWRIGHT_TIMEOUTS.expectDefault })

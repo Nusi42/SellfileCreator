@@ -74,6 +74,8 @@ export function BuilderColumn({
               size="small"
               variant="outlined"
               onClick={onOpenSubstatValues}
+              // Keep a stable test hook so Playwright can target the button without localized labels.
+              data-tour-id="builder.substat-targets"
               sx={{ whiteSpace: 'nowrap', minWidth: 160, justifySelf: 'end' }}
             >
               {substatTargetsLabel}

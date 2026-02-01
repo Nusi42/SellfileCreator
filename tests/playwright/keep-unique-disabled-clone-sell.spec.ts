@@ -13,6 +13,7 @@ import { buildRuleTesterAutosavePayload, type RuleTesterItem } from '../../src/l
 import { computeCrc32 } from '../../src/lib/autosave'
 import { ArtifactSet, ArtifactType, StatVariant } from '../../src/lib/types'
 import { SAMPLE_SMALL_HSFC_DISABLED_OPTIONS_PATH } from './fixture-paths'
+import { HSFC_LOAD_INPUT_SELECTOR } from './ui-selectors'
 import { warmupAppShell } from './app-warmup'
 
 // Point at the slim HSFC file with config options disabled.
@@ -185,7 +186,8 @@ test('disable config options then duplicate disabled config changes sell counts'
   await dismissBlockingDialogs(page)
 
   // Import the HSFC snapshot that defines the configs and options.
-  const hsfcInput = page.getByRole('button', { name: 'Load Configs (.hsfc)' }).locator('input[type="file"]')
+  // Use the stable tour id so the input is found even if the label is localized.
+  const hsfcInput = page.locator(HSFC_LOAD_INPUT_SELECTOR).first()
   // Wait for the input to mount so cold-start renders do not hit the action timeout.
   await hsfcInput.waitFor({ state: 'attached', timeout: PLAYWRIGHT_TIMEOUTS.appGoto })
   // Ensure the input is enabled before we upload the fixture.
