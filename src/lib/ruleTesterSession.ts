@@ -366,6 +366,8 @@ type CanonicalPreviewExtras = {
   substats: CanonicalNormalizedStat[] | null
   ascension: CanonicalNormalizedStat | null
   exactLevel: number | null
+  // Track DB last-used timestamps so metadata-only refreshes invalidate caches.
+  lastUseLocalTimestamp: string | null
 }
 
 const coerceFiniteNumber = (value: unknown, fallback: number): number => {
@@ -442,6 +444,8 @@ const canonicalizePreviewExtras = (extras?: TesterItemPreviewExtras): CanonicalP
     substats: canonicalizeStatArray(extras.substats),
     ascension: canonicalizeNormalizedStat(extras.ascension),
     exactLevel: normalizeFiniteNumber(extras.exactLevel),
+    // Keep the timestamp normalized so gear DB deltas refresh fingerprinted caches.
+    lastUseLocalTimestamp: typeof extras.lastUseLocalTimestamp === 'string' ? extras.lastUseLocalTimestamp : null,
   }
 }
 
