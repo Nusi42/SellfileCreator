@@ -23,7 +23,7 @@
                     "test:e2e:chromium":  "playwright test --project=chromium",
                     "test:e2e:firefox":  "playwright test --project=firefox",
                     "test:e2e:webkit":  "playwright test --project=webkit",
-                    "test:e2e":  "npm run test:e2e:chromium \u0026\u0026 npm run test:e2e:firefox \u0026\u0026 npm run test:e2e:webkit",
+                    "test:e2e":  "node scripts/test/run-e2e.mjs",
                     "test:e2e:all":  "npm run test:e2e",
                     "test:all":  "npm run test:unit \u0026\u0026 npm run test:e2e",
                     "test:all:full":  "npm run test:unit \u0026\u0026 npm run test:e2e:all",

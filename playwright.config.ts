@@ -30,7 +30,12 @@ export default defineConfig({
   /* Serialize workers to avoid Vite crashes during multi-browser runs. */
   workers: 1,
   /* Reporter to use. See https://playwright.dev/docs/test-reporters */
-  reporter: 'html',
+  // Keep console output detailed while still writing the HTML report to disk.
+  reporter: [
+    ['list'],
+    // Never open or serve the HTML report; just write it to disk and exit.
+    ['html', { open: 'never' }],
+  ],
   /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
   use: {
     /* Base URL to use in actions like `await page.goto('')`. */
