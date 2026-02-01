@@ -42,8 +42,8 @@ All documents describe the *current* implementation; update the relevant file wh
 We keep perf instrumentation gated behind `import.meta.env.DEV` so production builds stay clean. When you need detailed HSFC/HSF timing data:
 - Use the shared helper at `src/lib/perfTimeline.ts` (it registers `window.__sellfilePerfTimeline` for Playwright snapshots).
 - Keep every `startPerfTimeline`/`markPerfEvent` call behind the DEV gate so only the dev server records data.
-- The Playwright perf specs (notably `tests/playwright/tester-matching-perf.spec.ts`) read the timeline and log deltas; they now include rule-cache phase breakdowns (baseline/detection/final) and a `fast-path=1` flag when the worker skips full scans.
-- The matcher perf spec uses extended timeouts (`PERF_TEST_TIMEOUT_MS`, `WORKLOAD_IDLE_TIMEOUT_MS`) to survive slow Firefox runs; preserve those when tweaking scenarios.
+- The Playwright perf specs (notably `tests/playwright/tester-matching-perf.spec.ts`) read the timeline and log deltas; they include rule-cache phase breakdowns (baseline/detection/final) and a `fast-path=1` flag when the worker skips full scans.
+- The rebuild perf spec is a fast sanity check on slim fixtures with short idle waits; use `npm run measure:rule-tester` when you need full matcher perf coverage on large datasets.
 
 Without the helper, the Playwright perf tests fall back to the built-in measurements (note dialog and first-row render) so routine CI runs stay stable.
 
@@ -144,16 +144,36 @@ Without the helper, the Playwright perf tests fall back to the built-in measurem
 - Fixtures live under `tests/playwright/`:
   - `fixtures.ts` wires console mirroring and page-error logging so specs surface browser output in the CLI.
   - `app-init.ts` primes localStorage, forces `isSecureContext`, and (optionally) stubs the clipboard API for deterministic tests.
+  - `app-warmup.ts` preloads the shell once to avoid cold Vite compile costs in perf specs.
+  - `fixture-paths.ts` is the single source of truth for Playwright fixture paths; import from it instead of hardcoding file locations.
+  - `tests/data/sample-small.hsfc` (3 configs, no Keep Uniques) is the fast HSFC fixture for most UI coverage; `tests/data/sample.hsfc` remains the large fixture for scroll/perf scenarios.
+  - `tests/data/sample-small-config-options-disabled.hsfc` mirrors the small HSFC fixture with config options disabled (used by note/config-option coverage).
+  - `tests/data/sample-small.db` is the slim Rule Tester fixture for Playwright; `tests/data/sample.db` stays reserved for unit tests and offline tooling.
 - Specs:
-  - `tests/playwright/smoke.spec.ts` is the canonical health-check (`npx playwright test tests/playwright/smoke.spec.ts --project=chromium --reporter=list`).
-  - `tests/playwright/config-insert-order.spec.ts` guards the “paste after” ordering regression by loading `samples/Nusi_20251026_2036.hsfc`, performing copy/paste, and verifying row ordering.
-  - `tests/playwright/tester-matching-perf.spec.ts` measures matcher rebuild latency for config name and Keep Uniques changes using the `tests/data/sample.hsfc` + `tests/data/sample.db` fixtures (Chromium + Firefox focus).
+  - `tests/playwright/smoke.spec.ts` is the canonical health-check (run single-browser only for targeted debugging, e.g. `npx playwright test tests/playwright/smoke.spec.ts --project=chromium --reporter=list`).
+  - `tests/playwright/config-insert-order.spec.ts` guards the “paste after” ordering regression by loading `tests/data/sample-small.hsfc`, performing copy/paste, and verifying row ordering.
+  - `tests/playwright/builder-config-switch-perf.spec.ts` seeds a tiny autosave payload (two configs) to measure a single config switch without HSFC import overhead.
+  - `tests/playwright/tester-matching-perf.spec.ts` is a fast rebuild sanity check: it measures config-name rebuild latency in rules preview using `tests/data/sample-small.hsfc` across all browsers.
+  - `tests/playwright/keep-unique-disabled-clone-sell.spec.ts` seeds a tiny Rule Tester autosave payload (no DB import) to verify config-duplicate behavior with config options disabled.
 - Default test runs:
   - `npm run test:unit` executes the node:test suite and HSFC fixture runner.
-  - `npm run test:e2e` executes the Playwright suite in Chromium for fast local runs.
-  - `npm run test:e2e:all` executes the full Playwright browser matrix.
-  - `npm test` runs `test:all` (unit/integration + Chromium Playwright).
-  - `npm run test:all:full` runs the full unit/integration + all Playwright browsers.
+  - `npm run test:e2e:chromium` executes the Playwright suite in Chromium only.
+  - `npm run test:e2e:firefox` executes the Playwright suite in Firefox only.
+  - `npm run test:e2e:webkit` executes the Playwright suite in WebKit only.
+  - `npm run test:e2e` runs Chromium → Firefox → WebKit sequentially (fresh dev server each run).
+  - `npm run test:e2e:all` is a backwards-compatible alias for `test:e2e` (full browser matrix).
+  - `npm test` runs `test:all` (unit/integration + all Playwright browsers).
+  - `npm run test:all:full` currently mirrors `test:all`; keep it for CI parity.
+  - Keep e2e specs browser-agnostic; avoid per-browser `test.skip` unless a true platform limitation exists.
+  - Playwright uses a single worker by default to keep Vite stable during full-matrix runs.
+- Timeout policy:
+  - Timeouts are centralized in `tests/playwright/timeouts.ts`; adjust them there instead of hardcoding new values.
+  - `testDefault` is 3s and should cover most UI specs; only rule rebuild or matcher workflows may use `testLong` (15s).
+  - Expect/wait budgets follow the same split: `expectDefault` (3s) for general UI, `expectLong` (15s) only when a rule rebuild or matcher run is the explicit action under test.
+  - Initial app-shell mounts may use `appGoto` (15s) for the first visible control in perf/modal specs; the rest of the interactions must stick to the 3s defaults.
+  - Long timeouts are justified only for app-shell boot, HSFC imports, config rebuilds, or Rule Tester matching; everything else must stay on the 3s defaults.
+  - If a test needs more than 15s, shrink the fixture (use `sample-small.hsfc` / `sample-small.db`) or split the scenario; do not increase timeouts.
+  - Do not add new timeout tiers or increase these values; if a test exceeds 15s, reduce the workload, improve readiness checks, or split the scenario.
 - Install behavior:
   - `npm install` triggers `npx playwright install` via `postinstall` to fetch the browser binaries pinned to the local `@playwright/test` version.
 - Sandbox specifics:

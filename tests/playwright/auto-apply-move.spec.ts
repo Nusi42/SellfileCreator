@@ -1,12 +1,21 @@
-import path from 'node:path'
 import type { Page, Locator } from '@playwright/test'
 import { test, expect } from './fixtures'
 import { APP_GOTO_OPTIONS, prepareApp } from './app-init'
+import { openContextMenu } from './context-menu'
+import { dismissBlockingDialogs } from './dialog-helpers'
+import { PLAYWRIGHT_TIMEOUTS } from './timeouts'
+import { SAMPLE_SMALL_HSFC_PATH } from './fixture-paths'
+import { warmupAppShell } from './app-warmup'
 
-// Load the shared HSFC snapshot so the config names are stable.
-const HSFC_PATH = path.resolve(process.cwd(), 'tests', 'data', 'sample.hsfc')
-// Wait past the auto-apply debounce so pending saves can flush.
-const AUTO_APPLY_WAIT_MS = 700
+// Load the slim HSFC snapshot so the config names are stable and rebuilds stay fast.
+const HSFC_PATH = SAMPLE_SMALL_HSFC_PATH
+// Target config names used throughout the auto-apply checks.
+const MARIUS_CONFIG_NAME = 'Optional: Marius Sets'
+const BASICS_CONFIG_NAME = 'Basics'
+const SELL_LOW_VALUE_CONFIG_NAME = 'Sell - Low Value'
+// Base stat labels used for the dirty builder edits.
+const MAIN_STAT_LABEL = 'SPD'
+const SUBSTAT_LABEL = 'ACC'
 
 const getConfigChipByName = (page: Page, name: string): Locator => {
   // Scope to config chips to avoid matching menus or preview rows.
@@ -23,17 +32,12 @@ const getConfigNameInput = (page: Page): Locator => {
   return page.getByRole('textbox', { name: 'Config Name' })
 }
 
-const dismissNoteDialogIfPresent = async (page: Page): Promise<void> => {
-  // The HSFC import can auto-open the note dialog after a short delay.
-  const noteDialog = page.getByRole('dialog', { name: 'Note & Config Options' })
-  // Wait briefly for the dialog to appear without failing if it does not.
-  const opened = await noteDialog.waitFor({ state: 'visible', timeout: 10_000 }).then(() => true).catch(() => false)
-  // Bail out when the dialog never appears.
-  if (!opened) return
-  // Close the dialog so it does not intercept pointer events.
-  await noteDialog.getByRole('button', { name: 'Close' }).click()
-  // Confirm the dialog is fully dismissed before continuing.
-  await expect(noteDialog).toBeHidden({ timeout: 10_000 })
+const ensureChipSelected = async (chip: Locator): Promise<void> => {
+  // Skip clicking when the chip already reports the selected tour id.
+  const selected = await chip.getAttribute('data-tour-id')
+  if (selected === 'chip.selected') return
+  // Click the chip to activate its config.
+  await chip.click()
 }
 
 const getMainStatGroup = (page: Page): Locator => {
@@ -72,9 +76,9 @@ const openApplyContextMenu = async (page: Page): Promise<void> => {
   // The Apply button hosts the auto-apply toggle in its context menu.
   const applyButton = page.getByRole('button', { name: /Apply as Config/i }).first()
   // Wait for the button so the menu is anchored correctly.
-  await expect(applyButton).toBeVisible({ timeout: 15_000 })
-  // Dispatch a contextmenu event so disabled state does not block the menu.
-  await applyButton.dispatchEvent('contextmenu')
+  await expect(applyButton).toBeVisible()
+  // Open the context menu with cross-browser fallbacks.
+  await openContextMenu(page, applyButton)
 }
 
 const enableAutoApply = async (page: Page): Promise<void> => {
@@ -83,13 +87,13 @@ const enableAutoApply = async (page: Page): Promise<void> => {
   // Click the menu entry that enables auto apply.
   const menuItem = page.getByRole('menuitem', { name: 'Auto Apply to Selected Config' })
   // Ensure the item is visible before interacting.
-  await expect(menuItem).toBeVisible({ timeout: 10_000 })
+  await expect(menuItem).toBeVisible()
   // Toggle the checkbox entry on.
   await menuItem.click()
   // Close the menu explicitly so the dialog does not linger.
   await page.keyboard.press('Escape')
   // Ensure the menu closes after the action.
-  await expect(menuItem).toBeHidden({ timeout: 10_000 })
+  await expect(menuItem).toBeHidden()
 }
 
 const clickChipControlButton = async (chip: Locator, controlIndex: number): Promise<void> => {
@@ -111,14 +115,14 @@ const moveChipDown = async (chip: Locator): Promise<void> => {
 
 const moveChipToTop = async (page: Page, chip: Locator): Promise<void> => {
   // Open the chip context menu so we can access Move to Top.
-  await chip.click({ button: 'right' })
+  await openContextMenu(page, chip)
   // Choose the Move to Top entry from the menu.
   await page.getByRole('menuitem', { name: 'Move to Top' }).click()
 }
 
 const moveChipToBottom = async (page: Page, chip: Locator): Promise<void> => {
   // Open the chip context menu so we can access Move to Bottom.
-  await chip.click({ button: 'right' })
+  await openContextMenu(page, chip)
   // Choose the Move to Bottom entry from the menu.
   await page.getByRole('menuitem', { name: 'Move to Bottom' }).click()
 }
@@ -138,14 +142,7 @@ const expectBuilderStats = async (page: Page, options: { main: string; substat: 
   }
 }
 
-const waitForAutoApply = async (page: Page): Promise<void> => {
-  // Sleep past the debounce so auto-apply can fire.
-  await page.waitForTimeout(AUTO_APPLY_WAIT_MS)
-}
-
-test('auto apply stays on the moved config for move up/down/top/bottom', async ({ page }) => {
-  // Allow time for the large HSFC file to load.
-  test.setTimeout(240000)
+const setupAutoApplyScenario = async (page: Page): Promise<void> => {
   // Reset storage and seed a stable locale for selectors.
   await prepareApp(page)
   // Load the app shell without waiting for full load.
@@ -153,106 +150,127 @@ test('auto apply stays on the moved config for move up/down/top/bottom', async (
 
   // Import the HSFC snapshot that includes the Marius config.
   const hsfcInput = page.getByRole('button', { name: 'Load Configs (.hsfc)' }).locator('input[type="file"]')
+  // Ensure the file input is attached before setting files.
+  await hsfcInput.waitFor({ state: 'attached', timeout: PLAYWRIGHT_TIMEOUTS.appGoto })
   // Use the file input so the normal import path runs.
   await hsfcInput.setInputFiles(HSFC_PATH)
 
-  // Close the note dialog if it auto-opens.
-  await dismissNoteDialogIfPresent(page)
+  // Close any note/restore dialogs if they auto-open.
+  await dismissBlockingDialogs(page)
 
   // Wait for any config chip so we know the import finished.
-  await expect(page.locator('[data-config-chip="true"]').first()).toBeVisible({ timeout: 60_000 })
+  await expect(page.locator('[data-config-chip="true"]').first()).toBeVisible({ timeout: PLAYWRIGHT_TIMEOUTS.expectLong })
 
-  // Locate the Marius chip by name and ensure it is visible.
-  const mariusName = 'Optional: Marius Sets'
   // Click the chip to select config #2.
-  await getConfigChipByName(page, mariusName).click()
+  await ensureChipSelected(getConfigChipByName(page, MARIUS_CONFIG_NAME))
   // Confirm the builder is showing the Marius config.
-  await expect(getConfigNameInput(page)).toHaveValue(mariusName)
+  await expect(getConfigNameInput(page)).toHaveValue(MARIUS_CONFIG_NAME)
 
   // Enable auto apply so selection changes flush edits.
   await enableAutoApply(page)
 
-  // Click a main stat and substat so the builder becomes dirty.
-  const mainStatLabel = 'SPD'
-  const substatLabel = 'ACC'
   // Resolve the main stat toggle and ensure it starts unselected.
-  const mainStatButton = getStatButton(getMainStatGroup(page), mainStatLabel)
+  const mainStatButton = getStatButton(getMainStatGroup(page), MAIN_STAT_LABEL)
   await expectStatNotSelected(mainStatButton)
   // Toggle the main stat on.
   await mainStatButton.click()
   // Ensure the toggle reflects the selection.
   await expectStatSelected(mainStatButton)
   // Resolve the substat toggle and ensure it starts unselected.
-  const substatButton = getStatButton(getSubstatGroup(page), substatLabel)
+  const substatButton = getStatButton(getSubstatGroup(page), SUBSTAT_LABEL)
   await expectStatNotSelected(substatButton)
   // Toggle the substat on.
   await substatButton.click()
   // Ensure the toggle reflects the selection.
   await expectStatSelected(substatButton)
+}
+
+test.beforeAll(async ({ browser }) => {
+  // Allow the long timeout so the cold Vite compile can finish during warmup.
+  test.setTimeout(PLAYWRIGHT_TIMEOUTS.testLong)
+  // Preload the shell once so the first test does not pay the compile cost.
+  await warmupAppShell(browser)
+})
+
+test('auto apply stays on the moved config for move up/down', async ({ page }) => {
+  // Allow time for HSFC parsing and the rebuild it triggers.
+  test.setTimeout(PLAYWRIGHT_TIMEOUTS.testLong)
+  // Prime the config state and dirty builder for the move checks.
+  await setupAutoApplyScenario(page)
 
   // Move Up using the chip button while the builder is dirty.
-  await moveChipUp(getConfigChipByName(page, mariusName))
-  // Allow auto-apply to flush after the move.
-  await waitForAutoApply(page)
+  await moveChipUp(getConfigChipByName(page, MARIUS_CONFIG_NAME))
+  // Auto-apply should persist the dirty builder state before assertions.
   // Confirm the Marius chip is now at index 0.
-  await expect(getConfigChipByName(page, mariusName)).toHaveAttribute('data-config-chip-index', '0')
+  await expect(getConfigChipByName(page, MARIUS_CONFIG_NAME)).toHaveAttribute('data-config-chip-index', '0')
   // Re-select the moved config and confirm edits persisted.
-  await getConfigChipByName(page, mariusName).click()
-  await expect(getConfigNameInput(page)).toHaveValue(mariusName)
-  await expectBuilderStats(page, { main: mainStatLabel, substat: substatLabel, selected: true })
+  await ensureChipSelected(getConfigChipByName(page, MARIUS_CONFIG_NAME))
+  await expect(getConfigNameInput(page)).toHaveValue(MARIUS_CONFIG_NAME)
+  await expectBuilderStats(page, { main: MAIN_STAT_LABEL, substat: SUBSTAT_LABEL, selected: true })
   // Select the config that swapped into index 1 (Basics) and ensure it stayed clean.
-  await getConfigChipByIndex(page, 1).click()
-  await expect(getConfigNameInput(page)).toHaveValue('Basics')
-  await expectBuilderStats(page, { main: mainStatLabel, substat: substatLabel, selected: false })
+  await ensureChipSelected(getConfigChipByIndex(page, 1))
+  await expect(getConfigNameInput(page)).toHaveValue(BASICS_CONFIG_NAME)
+  await expectBuilderStats(page, { main: MAIN_STAT_LABEL, substat: SUBSTAT_LABEL, selected: false })
 
   // Move Down back to index 1 using the chip button.
-  await getConfigChipByName(page, mariusName).click()
-  await moveChipDown(getConfigChipByName(page, mariusName))
-  // Allow auto-apply to flush after the move.
-  await waitForAutoApply(page)
+  await ensureChipSelected(getConfigChipByName(page, MARIUS_CONFIG_NAME))
+  await moveChipDown(getConfigChipByName(page, MARIUS_CONFIG_NAME))
+  // Auto-apply should persist the dirty builder state before assertions.
   // Confirm the Marius chip is now at index 1.
-  await expect(getConfigChipByName(page, mariusName)).toHaveAttribute('data-config-chip-index', '1')
+  await expect(getConfigChipByName(page, MARIUS_CONFIG_NAME)).toHaveAttribute('data-config-chip-index', '1')
   // Re-select the moved config and confirm edits persisted.
-  await getConfigChipByName(page, mariusName).click()
-  await expect(getConfigNameInput(page)).toHaveValue(mariusName)
-  await expectBuilderStats(page, { main: mainStatLabel, substat: substatLabel, selected: true })
+  await ensureChipSelected(getConfigChipByName(page, MARIUS_CONFIG_NAME))
+  await expect(getConfigNameInput(page)).toHaveValue(MARIUS_CONFIG_NAME)
+  await expectBuilderStats(page, { main: MAIN_STAT_LABEL, substat: SUBSTAT_LABEL, selected: true })
   // Ensure Basics still has no edits after swapping back.
-  await getConfigChipByIndex(page, 0).click()
-  await expect(getConfigNameInput(page)).toHaveValue('Basics')
-  await expectBuilderStats(page, { main: mainStatLabel, substat: substatLabel, selected: false })
+  await ensureChipSelected(getConfigChipByIndex(page, 0))
+  await expect(getConfigNameInput(page)).toHaveValue(BASICS_CONFIG_NAME)
+  await expectBuilderStats(page, { main: MAIN_STAT_LABEL, substat: SUBSTAT_LABEL, selected: false })
+})
+
+test('auto apply stays on the moved config for move to top', async ({ page }) => {
+  // Allow time for HSFC parsing and the rebuild it triggers.
+  test.setTimeout(PLAYWRIGHT_TIMEOUTS.testLong)
+  // Prime the config state and dirty builder for the move checks.
+  await setupAutoApplyScenario(page)
 
   // Move to Top via the context menu entry.
-  await getConfigChipByName(page, mariusName).click()
-  await moveChipToTop(page, getConfigChipByName(page, mariusName))
-  // Allow auto-apply to flush after the move.
-  await waitForAutoApply(page)
+  await ensureChipSelected(getConfigChipByName(page, MARIUS_CONFIG_NAME))
+  await moveChipToTop(page, getConfigChipByName(page, MARIUS_CONFIG_NAME))
+  // Auto-apply should persist the dirty builder state before assertions.
   // Confirm the Marius chip is now at index 0.
-  await expect(getConfigChipByName(page, mariusName)).toHaveAttribute('data-config-chip-index', '0')
+  await expect(getConfigChipByName(page, MARIUS_CONFIG_NAME)).toHaveAttribute('data-config-chip-index', '0')
   // Re-select the moved config and confirm edits persisted.
-  await getConfigChipByName(page, mariusName).click()
-  await expect(getConfigNameInput(page)).toHaveValue(mariusName)
-  await expectBuilderStats(page, { main: mainStatLabel, substat: substatLabel, selected: true })
+  await ensureChipSelected(getConfigChipByName(page, MARIUS_CONFIG_NAME))
+  await expect(getConfigNameInput(page)).toHaveValue(MARIUS_CONFIG_NAME)
+  await expectBuilderStats(page, { main: MAIN_STAT_LABEL, substat: SUBSTAT_LABEL, selected: true })
   // Ensure Basics remained unchanged after moving to top.
-  await getConfigChipByIndex(page, 1).click()
-  await expect(getConfigNameInput(page)).toHaveValue('Basics')
-  await expectBuilderStats(page, { main: mainStatLabel, substat: substatLabel, selected: false })
+  await ensureChipSelected(getConfigChipByIndex(page, 1))
+  await expect(getConfigNameInput(page)).toHaveValue(BASICS_CONFIG_NAME)
+  await expectBuilderStats(page, { main: MAIN_STAT_LABEL, substat: SUBSTAT_LABEL, selected: false })
+})
+
+test('auto apply stays on the moved config for move to bottom', async ({ page }) => {
+  // Allow time for HSFC parsing and the rebuild it triggers.
+  test.setTimeout(PLAYWRIGHT_TIMEOUTS.testLong)
+  // Prime the config state and dirty builder for the move checks.
+  await setupAutoApplyScenario(page)
 
   // Move to Bottom via the context menu entry.
-  await getConfigChipByName(page, mariusName).click()
-  await moveChipToBottom(page, getConfigChipByName(page, mariusName))
-  // Allow auto-apply to flush after the move.
-  await waitForAutoApply(page)
+  await ensureChipSelected(getConfigChipByName(page, MARIUS_CONFIG_NAME))
+  await moveChipToBottom(page, getConfigChipByName(page, MARIUS_CONFIG_NAME))
+  // Auto-apply should persist the dirty builder state before assertions.
   // Compute the last index so we can confirm the chip moved to the end.
   const chipCount = await page.locator('[data-config-chip="true"]').count()
   const lastIndex = Math.max(0, chipCount - 1)
   // Confirm the Marius chip is now at the last index.
-  await expect(getConfigChipByName(page, mariusName)).toHaveAttribute('data-config-chip-index', String(lastIndex))
+  await expect(getConfigChipByName(page, MARIUS_CONFIG_NAME)).toHaveAttribute('data-config-chip-index', String(lastIndex))
   // Re-select the moved config and confirm edits persisted.
-  await getConfigChipByName(page, mariusName).click()
-  await expect(getConfigNameInput(page)).toHaveValue(mariusName)
-  await expectBuilderStats(page, { main: mainStatLabel, substat: substatLabel, selected: true })
+  await ensureChipSelected(getConfigChipByName(page, MARIUS_CONFIG_NAME))
+  await expect(getConfigNameInput(page)).toHaveValue(MARIUS_CONFIG_NAME)
+  await expectBuilderStats(page, { main: MAIN_STAT_LABEL, substat: SUBSTAT_LABEL, selected: true })
   // Ensure the config now at index 1 did not inherit the edits.
-  await getConfigChipByIndex(page, 1).click()
-  await expect(getConfigNameInput(page)).toHaveValue('Sell - Low Value')
-  await expectBuilderStats(page, { main: mainStatLabel, substat: substatLabel, selected: false })
+  await ensureChipSelected(getConfigChipByIndex(page, 1))
+  await expect(getConfigNameInput(page)).toHaveValue(SELL_LOW_VALUE_CONFIG_NAME)
+  await expectBuilderStats(page, { main: MAIN_STAT_LABEL, substat: SUBSTAT_LABEL, selected: false })
 })
