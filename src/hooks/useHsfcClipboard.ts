@@ -15,8 +15,9 @@ import { generateMetasetNameWithFlag } from '../lib/namegen'
 import type { FinalSellRemainderConfig } from '../lib/finalSell'
 import { artifactSetName, type ArtifactSetId } from '../lib/types'
 import { readTextSafe, writeTextSafe } from '../lib/clipboard'
-import { describeConfigsInserted } from '../history/configCollectionDescriptors'
-import { buildConfigLabel, type TranslateFn } from '../history/builderUpdateDescriptor'
+import { createConfigsInsertedDescriptor } from '../history/configCollectionDescriptors'
+import type { TranslateFn } from '../history/historyI18n'
+import { buildInsertionLocation, snapshotConfigLabel } from '../history/historyLabelUtils'
 import type { HistoryEntryDescriptor, DescribeNextChangeFn } from '../hooks/useHsfcHistory'
 import { appendDescriptorDetails } from '../history/substatTargetDescriptors'
 import type { FinalSellDescriptorMode } from '../history/finalSellDescriptors'
@@ -204,16 +205,16 @@ export function useHsfcClipboard({
     Math.min(list.length, idx + 1)
   ), [])
 
-  const makeInsertedLabels = useCallback((list: BuilderConfig[], insertIdx: number, count: number): string[] => {
-    const labels: string[] = []
+  const makeInsertedLabels = useCallback((list: BuilderConfig[], insertIdx: number, count: number) => {
+    const labels = []
     for (let offset = 0; offset < count; offset += 1) {
       const idx = insertIdx + offset
       const cfg = list[idx]
       if (!cfg) continue
-      labels.push(buildConfigLabel(idx, cfg, t))
+      labels.push(snapshotConfigLabel(idx, cfg))
     }
     return labels
-  }, [t])
+  }, [])
 
   const prepareHsfcImport = useCallback((current: Metaset[], incoming: Metaset[], cfgsIn: BuilderConfig[]): PreparedHsfcImport => {
     const byIdCur = new Map(current.map(m => [m.id, m]))
@@ -380,12 +381,10 @@ export function useHsfcClipboard({
           ...prev.slice(insertIdx),
         ]
         const labels = makeInsertedLabels(next, insertIdx, count)
-        const descriptorBase = describeConfigsInserted({
+        const descriptorBase = createConfigsInsertedDescriptor({
           mode: 'import',
-          insertIndex: insertIdx,
           labels,
-          previous: prev,
-          t,
+          location: buildInsertionLocation(insertIdx, prev),
         })
         const descriptorWithSubstatTargets = appendDescriptorDetails(descriptorBase, substatTargetsDescriptor)
         const descriptorWithFinal = appendDescriptorDetails(descriptorWithSubstatTargets, finalSellDescriptor)
@@ -418,12 +417,10 @@ export function useHsfcClipboard({
           ...prev.slice(insertIdx),
         ]
         const labels = makeInsertedLabels(next, insertIdx, count)
-        const descriptor = describeConfigsInserted({
+        const descriptor = createConfigsInsertedDescriptor({
           mode: 'paste',
-          insertIndex: insertIdx,
           labels,
-          previous: prev,
-          t,
+          location: buildInsertionLocation(insertIdx, prev),
         })
         publishClipboardDescriptor(descriptor)
         return next
@@ -453,7 +450,6 @@ export function useHsfcClipboard({
     setPendingImport,
     setKeepUniqueRules,
     setKeepUniquesEnabled,
-    t,
   ])
 
   const pasteAfterIndex = useCallback(async (idx: number) => {
@@ -518,12 +514,10 @@ export function useHsfcClipboard({
               ...prev.slice(insertIdx),
             ]
             const labels = makeInsertedLabels(next, insertIdx, count)
-            const descriptorBase = describeConfigsInserted({
+            const descriptorBase = createConfigsInsertedDescriptor({
               mode: 'import',
-              insertIndex: insertIdx,
               labels,
-              previous: prev,
-              t,
+              location: buildInsertionLocation(insertIdx, prev),
             })
             const descriptorWithSubstatTargets = appendDescriptorDetails(descriptorBase, substatTargetsDescriptor)
             const descriptorWithFinal = appendDescriptorDetails(descriptorWithSubstatTargets, finalSellDescriptor)
@@ -555,12 +549,10 @@ export function useHsfcClipboard({
             ...prev.slice(insertIdx),
           ]
           const labels = makeInsertedLabels(next, insertIdx, count)
-          const descriptor = describeConfigsInserted({
+          const descriptor = createConfigsInsertedDescriptor({
             mode: 'paste',
-            insertIndex: insertIdx,
             labels,
-            previous: prev,
-            t,
+            location: buildInsertionLocation(insertIdx, prev),
           })
           publishClipboardDescriptor(descriptor)
           return next
@@ -602,7 +594,6 @@ export function useHsfcClipboard({
     setSelectedCfgIdx,
     setKeepUniqueRules,
     setKeepUniquesEnabled,
-    t,
   ])
 
   const handleConfigPasteAfter = useCallback((idx: number) => {
@@ -757,12 +748,10 @@ export function useHsfcClipboard({
             const insertIdx = prev.length
             const next = [...prev, ...prep.cfgsMapped]
             const labels = makeInsertedLabels(next, insertIdx, count)
-            const descriptorBase = describeConfigsInserted({
+            const descriptorBase = createConfigsInsertedDescriptor({
               mode: 'import',
-              insertIndex: insertIdx,
               labels,
-              previous: prev,
-              t,
+              location: buildInsertionLocation(insertIdx, prev),
             })
             const descriptorWithSubstatTargets = appendDescriptorDetails(descriptorBase, substatTargetsDescriptor)
             const descriptorWithFinal = appendDescriptorDetails(descriptorWithSubstatTargets, finalSellDescriptor)
@@ -791,12 +780,10 @@ export function useHsfcClipboard({
           const insertIdx = prev.length
           const next = [...prev, ...cfgs]
           const labels = makeInsertedLabels(next, insertIdx, count)
-          const descriptor = describeConfigsInserted({
+          const descriptor = createConfigsInsertedDescriptor({
             mode: 'paste',
-            insertIndex: insertIdx,
             labels,
-            previous: prev,
-            t,
+            location: buildInsertionLocation(insertIdx, prev),
           })
           publishClipboardDescriptor(descriptor)
           return next
@@ -839,7 +826,6 @@ export function useHsfcClipboard({
     publishClipboardDescriptor,
     setKeepUniqueRules,
     setKeepUniquesEnabled,
-    t,
   ])
 
   return {

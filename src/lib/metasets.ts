@@ -16,6 +16,20 @@ export type Metaset = {
   iconId?: MetasetIconId | null
 }
 
+// cloneMetaset detaches nested arrays so history snapshots stay immutable.
+export const cloneMetaset = (metaset: Metaset): Metaset => ({
+  // Copy scalars so callers can mutate without touching the source.
+  ...metaset,
+  // Clone the sets array to avoid shared references.
+  sets: [...metaset.sets],
+})
+
+// cloneMetasets maps a list into fully detached metaset objects.
+export const cloneMetasets = (list: readonly Metaset[]): Metaset[] => (
+  // Reuse the per-entry clone to keep behavior consistent.
+  list.map((metaset) => cloneMetaset(metaset))
+)
+
 /*
 // Create stable IDs for default metasets to survive rename
 function makeId(name: string): string {

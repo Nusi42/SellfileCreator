@@ -1503,6 +1503,7 @@ const maxLevelValue = multiEditActive
     undoPreview,
     redoPreview,
     t,
+    lang,
     onRequestClearHistory,
     onJumpToHistoryIndex,
   })
@@ -3128,6 +3129,7 @@ const maxLevelValue = multiEditActive
               contextMenuGuard={historyMenuGuard}
               entries={historyTimeline}
               t={t}
+              lang={lang}
               onSelectEntry={handleHistoryEntrySelect}
               onRequestClearHistory={handleRequestClearHistory}
               substatColors={substatColors}

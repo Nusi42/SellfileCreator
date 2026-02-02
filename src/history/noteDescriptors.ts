@@ -1,7 +1,9 @@
-import type { HistoryEntryDescriptor } from '../hooks/useHsfcHistory'
+// noteDescriptors keeps note history data-only until localization.
+import type { HistoryEntryDescriptor, ResolvedHistoryEntryDescriptor } from './historyDescriptorTypes'
 import type { TranslateFn } from './builderUpdateDescriptor'
+import type { NoteDescriptorMode } from './historyDescriptorTypes'
 
-export type NoteDescriptorMode = 'edit' | 'clear' | 'import' | 'restore'
+export type { NoteDescriptorMode }
 
 export function normalizeNoteValue(value: string | null | undefined): string | null {
   if (typeof value !== 'string') return null
@@ -10,12 +12,30 @@ export function normalizeNoteValue(value: string | null | undefined): string | n
   return value
 }
 
+// createNoteChangeDescriptor snapshots note edits for history.
+export const createNoteChangeDescriptor = (params: {
+  previous: string | null
+  next: string | null
+  mode: NoteDescriptorMode
+}): HistoryEntryDescriptor | null => {
+  const prev = normalizeNoteValue(params.previous)
+  const next = normalizeNoteValue(params.next)
+  if (prev === next) return null
+  return {
+    kind: 'noteChange',
+    previous: prev,
+    next,
+    mode: params.mode,
+  }
+}
+
+// describeNoteChange localizes a note change entry at render time.
 export function describeNoteChange(params: {
   previous: string | null
   next: string | null
   mode: NoteDescriptorMode
   t: TranslateFn
-}): HistoryEntryDescriptor | null {
+}): ResolvedHistoryEntryDescriptor | null {
   const prev = normalizeNoteValue(params.previous)
   const next = normalizeNoteValue(params.next)
   if (prev === next) return null

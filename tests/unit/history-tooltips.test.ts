@@ -2,11 +2,17 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
   createHistoryBuilderBaseline,
+  createBuilderConfigUpdateDescriptor,
   describeBuilderConfigUpdate,
   type TranslateFn,
 } from '../../src/history/builderUpdateDescriptor.js'
-import { describeConfigAdded, describeConfigsDeleted } from '../../src/history/configCollectionDescriptors.js'
+import {
+  createConfigAddedDescriptor,
+  describeConfigAdded,
+  describeConfigsDeleted,
+} from '../../src/history/configCollectionDescriptors.js'
 import { formatHistoryTooltipText } from '../../src/history/historyTooltip.js'
+import { buildInsertionLocation, snapshotConfigLabel } from '../../src/history/historyLabelUtils.js'
 import type { BuilderConfig } from '../../src/lib/hsfBuilder.js'
 import type { Metaset } from '../../src/lib/metasets.js'
 import { StatVariant } from '../../src/lib/types.js'
@@ -69,7 +75,7 @@ test('describeConfigAdded appends snapshot detail lines', () => {
   const descriptor = describeConfigAdded({
     index: 0,
     cfg,
-    previous: [],
+    location: null,
     t: stubT,
     lang: 'en-US',
     metasets,
@@ -88,7 +94,7 @@ test('describeConfigsDeleted includes snapshot lines for single deletions', () =
     mainStatsV: [StatVariant.HP],
   })
   const descriptor = describeConfigsDeleted({
-    removed: [{ index: 0, cfg }],
+    removed: [{ index: 0, cfg, label: snapshotConfigLabel(0, cfg) }],
     t: stubT,
     lang: 'en-US',
     metasets,
@@ -105,18 +111,28 @@ test('formatHistoryTooltipText returns fallback when no descriptor is available'
     descriptor: null,
     fallbackText: 'Undo (Ctrl+Z)',
     shortcutHintText: 'Shortcut: Ctrl+Z',
+    t: stubT,
+    lang: 'en-US',
   })
   assert.equal(text, 'Undo (Ctrl+Z)')
 })
 
 test('formatHistoryTooltipText includes descriptor lines without shortcut hint', () => {
+  const previous = makeConfig({ name: '', keep: true })
+  const next = makeConfig({ name: 'Speed Farm', keep: false })
+  const descriptor = createBuilderConfigUpdateDescriptor({
+    previous,
+    next,
+    index: 1,
+    metasets,
+  })
+  assert.ok(descriptor, 'expected data descriptor')
   const text = formatHistoryTooltipText({
-    descriptor: {
-      title: 'Saved #2 - "Speed Farm"',
-      detailLines: ['Name:\n  ∅\n  → "Speed Farm"', '   ', '\tAction:\n  Keep\n  → Sell'],
-    },
+    descriptor,
     fallbackText: 'Undo (Ctrl+Z)',
     shortcutHintText: 'Shortcut: Ctrl+Z',
+    t: stubT,
+    lang: 'en-US',
   })
   assert.equal(
     text,
@@ -125,30 +141,43 @@ test('formatHistoryTooltipText includes descriptor lines without shortcut hint',
       '• Name:',
       '  ∅',
       '  → "Speed Farm"',
-      '• Action:',
-      '  Keep',
-      '  → Sell',
+      '• Action: Keep\u00A0→\u00A0Sell',
     ].join('\n'),
   )
 })
 
 test('formatHistoryTooltipText keeps structured payloads bullet-free so icons can render', () => {
   // BuilderTooltipContent parses single-line JSON blobs; preserving the raw text allows icon fallbacks to appear.
-  const structuredLine = '{"kind":"setListSnapshot","label":"Sets","values":[9001]}'
-  const text = formatHistoryTooltipText({
-    descriptor: {
-      title: 'Saved #7 - "Runtime"',
-      detailLines: [structuredLine],
-    },
-    fallbackText: 'Undo (Ctrl+Z)',
+  const cfg = makeConfig({
+    artifactSets: [{ id: 9001 }],
+    mainStatsV: [StatVariant.HP],
   })
-  assert.equal(
-    text,
-    [
-      'Saved #7 - "Runtime"',
-      structuredLine,
-    ].join('\n'),
-  )
+  const location = buildInsertionLocation(0, [])
+  const resolved = describeConfigAdded({
+    index: 0,
+    cfg,
+    location,
+    t: stubT,
+    lang: 'en-US',
+    metasets,
+  })
+  const structuredLine = resolved.detailLines?.find((line) => line.trim().startsWith('{') && line.trim().endsWith('}'))
+  assert.ok(structuredLine, 'expected structured snapshot line')
+  const descriptor = createConfigAddedDescriptor({
+    index: 0,
+    cfg,
+    previous: [],
+    metasets,
+  })
+  const text = formatHistoryTooltipText({
+    descriptor,
+    fallbackText: 'Undo (Ctrl+Z)',
+    t: stubT,
+    lang: 'en-US',
+  })
+  assert.ok(text.startsWith(resolved.title), 'expected title prefix')
+  assert.ok(text.includes(structuredLine!), 'expected structured line to appear')
+  assert.ok(!text.includes(`• ${structuredLine}`), 'expected structured line to remain bullet-free')
 })
 
 export {}

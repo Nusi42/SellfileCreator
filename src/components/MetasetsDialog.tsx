@@ -9,7 +9,7 @@ import EllipsisTooltip from './EllipsisTooltip'
 import type { Metaset } from '../lib/metasets'
 import { filterAndSortSetEntries, getLocalizedGearSetName, type ArtifactSetId } from '../lib/types'
 import { useGearSetCatalogVersion } from '../hooks/useGearSetCatalogVersion'
-import { defaultMetasets, makeMetasetId } from '../lib/metasets'
+import { cloneMetaset, defaultMetasets, makeMetasetId } from '../lib/metasets'
 import { DEFAULT_METASET_ICON_ID, METASET_ICON_OPTIONS, metasetIconOptionById, normalizeMetasetIconId, randomMetasetIconId } from '../lib/metasetIcons'
 import type { MetasetIconId } from '../lib/metasetIcons'
 // no constants needed here; sizes handled in SetsOrderControls
@@ -37,7 +37,6 @@ import {
 } from '../lib/constants'
 import { reserveScrollbarGutterSpace } from '../lib/scrollbar'
 import type { HistoryEntryDescriptor, DescribeNextChangeFn } from '../hooks/useHsfcHistory'
-import { describeMetasetAdded, describeMetasetDeleted, describeMetasetIconChanged, describeMetasetRenamed, describeMetasetSetsChanged, describeMetasetVisibilityChanged } from '../history/metasetDescriptors'
 
 function normalizeSetArray(values: readonly number[]): number[] {
   const deduped = new Set<number>()
@@ -163,10 +162,7 @@ export default function MetasetsDialog({
   const cloneMetasetMap = useCallback((list: Metaset[]): Map<string, Metaset> => {
     const map = new Map<string, Metaset>()
     for (const meta of list) {
-      map.set(meta.id, {
-        ...meta,
-        sets: [...meta.sets],
-      })
+      map.set(meta.id, cloneMetaset(meta))
     }
     return map
   }, [])
@@ -182,45 +178,36 @@ export default function MetasetsDialog({
     for (const [id, baseMeta] of baselineMap.entries()) {
       const nextMeta = currentMap.get(id)
       if (!nextMeta) {
-        descriptors.push(describeMetasetDeleted({ metaset: baseMeta, mode: 'delete', t, lang }))
+        descriptors.push({ kind: 'metasetDeleted', metaset: cloneMetaset(baseMeta), mode: 'delete' })
         continue
       }
-      const rename = describeMetasetRenamed({ previous: baseMeta, next: nextMeta, t })
-      if (rename) descriptors.push(rename)
-      const visibility = describeMetasetVisibilityChanged({ previous: baseMeta, next: nextMeta, t })
-      if (visibility) descriptors.push(visibility)
-      const setsChange = describeMetasetSetsChanged({ previous: baseMeta, next: nextMeta, t, lang })
-      if (setsChange) {
-        descriptors.push(setsChange)
-      } else {
-        const iconChange = describeMetasetIconChanged({ previous: baseMeta, next: nextMeta, t })
-        if (iconChange) descriptors.push(iconChange)
+      if (baseMeta.name !== nextMeta.name) {
+        descriptors.push({ kind: 'metasetRenamed', previous: cloneMetaset(baseMeta), next: cloneMetaset(nextMeta) })
+      }
+      if ((baseMeta.show !== false) !== (nextMeta.show !== false)) {
+        descriptors.push({ kind: 'metasetVisibilityChanged', previous: cloneMetaset(baseMeta), next: cloneMetaset(nextMeta) })
+      }
+      const baseSets = normalizeSetArray(baseMeta.sets)
+      const nextSets = normalizeSetArray(nextMeta.sets)
+      const setsChanged = baseSets.length !== nextSets.length
+        || baseSets.some((value, idx) => value !== nextSets[idx])
+      if (setsChanged) {
+        descriptors.push({ kind: 'metasetSetsChanged', previous: cloneMetaset(baseMeta), next: cloneMetaset(nextMeta) })
+      } else if (normalizeMetasetIconId(baseMeta.iconId ?? DEFAULT_METASET_ICON_ID) !== normalizeMetasetIconId(nextMeta.iconId ?? DEFAULT_METASET_ICON_ID)) {
+        descriptors.push({ kind: 'metasetIconChanged', previous: cloneMetaset(baseMeta), next: cloneMetaset(nextMeta) })
       }
     }
 
     currentList.forEach((meta, index) => {
       if (!baselineMap.has(meta.id)) {
-        descriptors.push(describeMetasetAdded({ metaset: meta, index, t, lang }))
+        void index
+        descriptors.push({ kind: 'metasetAdded', metaset: cloneMetaset(meta) })
       }
     })
 
     if (descriptors.length === 0) return null
-    const detailLines: string[] = []
-    for (const entry of descriptors) {
-      if (!entry) continue
-      if (entry.detailLines && entry.detailLines.length > 0) {
-        detailLines.push(entry.title)
-        detailLines.push(...entry.detailLines)
-      } else {
-        detailLines.push(entry.title)
-      }
-    }
-    if (detailLines.length === 0) return null
-    return {
-      title: t('historyMetasetsEditedTitle'),
-      detailLines,
-    }
-  }, [lang, t])
+    return { kind: 'metasetsEditedSummary', entries: descriptors }
+  }, [])
 
   useEffect(() => {
     historySessionRef.current = 'idle'
@@ -293,17 +280,20 @@ export default function MetasetsDialog({
     mapper: (prev: Metaset) => Metaset,
     describe: (previous: Metaset, next: Metaset) => HistoryEntryDescriptor | null,
   ) => {
+    // Resolve the current metaset so edits are scoped to a stable index.
     const previousMeta = metasets[idx]
     if (!previousMeta) {
       recordHistory(null)
       return
     }
+    // Apply the mapper to produce the next metaset state.
     const nextMeta = mapper(previousMeta)
     if (metasetStateEqual(previousMeta, nextMeta)) {
       recordHistory(null)
       return
     }
-    const descriptor = describe(previousMeta, nextMeta)
+    // Snapshot the metasets used for the history entry so future edits do not mutate it.
+    const descriptor = describe(cloneMetaset(previousMeta), cloneMetaset(nextMeta))
     const updated = metasets.map((meta, metaIdx) => (metaIdx === idx ? nextMeta : meta))
     recordHistory(descriptor ?? null, { mutated: true, nextMetasets: updated })
     onMetasetsChange(updated)
@@ -554,11 +544,11 @@ export default function MetasetsDialog({
                           size="small"
                           aria-label={m.show === false ? t('metasetsVisibleInMenus') : t('metasetsHiddenFromMenus')}
                           onClick={() => {
-                            commitMetasetUpdate(
-                              idx,
-                              (prevMeta) => ({ ...prevMeta, show: prevMeta.show === false ? true : false }),
-                              (previousMeta, nextMeta) => describeMetasetVisibilityChanged({ previous: previousMeta, next: nextMeta, t }),
-                            )
+                              commitMetasetUpdate(
+                                idx,
+                                (prevMeta) => ({ ...prevMeta, show: prevMeta.show === false ? true : false }),
+                                (previousMeta, nextMeta) => ({ kind: 'metasetVisibilityChanged', previous: previousMeta, next: nextMeta }),
+                              )
                           }}
                           sx={{
                             width: SMALL_BUTTON_HEIGHT_PX,
@@ -589,7 +579,7 @@ export default function MetasetsDialog({
                       commitMetasetUpdate(
                         idx,
                         (prevMeta) => ({ ...prevMeta, name: nextName }),
-                        (previousMeta, nextMeta) => describeMetasetRenamed({ previous: previousMeta, next: nextMeta, t }),
+                        (previousMeta, nextMeta) => ({ kind: 'metasetRenamed', previous: previousMeta, next: nextMeta }),
                       )
                     }}
                   />
@@ -617,7 +607,7 @@ export default function MetasetsDialog({
                           commitMetasetUpdate(
                             idx,
                             (prevMeta) => ({ ...prevMeta, sets: ids }),
-                            (previousMeta, nextMeta) => describeMetasetSetsChanged({ previous: previousMeta, next: nextMeta, t, lang }),
+                            (previousMeta, nextMeta) => ({ kind: 'metasetSetsChanged', previous: previousMeta, next: nextMeta }),
                           )
                         }}
                         renderValue={(selected) => (
@@ -773,7 +763,7 @@ export default function MetasetsDialog({
                                         const arr = Array.from(nextIds).sort((a, b) => a - b)
                                         return { ...prevMeta, sets: arr }
                                       },
-                                      (previousMeta, nextMeta) => describeMetasetSetsChanged({ previous: previousMeta, next: nextMeta, t, lang }),
+                                      (previousMeta, nextMeta) => ({ kind: 'metasetSetsChanged', previous: previousMeta, next: nextMeta }),
                                     )
                                   }}
                                 />
@@ -806,7 +796,7 @@ export default function MetasetsDialog({
                       commitMetasetUpdate(
                         idx,
                         (prevMeta) => ({ ...prevMeta, iconId: nextIconId }),
-                        (previousMeta, nextMeta) => describeMetasetIconChanged({ previous: previousMeta, next: nextMeta, t }),
+                        (previousMeta, nextMeta) => ({ kind: 'metasetIconChanged', previous: previousMeta, next: nextMeta }),
                       )
                     }}
                     renderValue={(value) => {
@@ -954,7 +944,7 @@ export default function MetasetsDialog({
             }
             const nextMeta = { id, name, sets: [], show: true, iconId }
             const nextMetasets = metasets.concat(nextMeta)
-            recordHistory(describeMetasetAdded({ metaset: nextMeta, index: metasets.length, t, lang }), { mutated: true, nextMetasets })
+            recordHistory({ kind: 'metasetAdded', metaset: cloneMetaset(nextMeta) }, { mutated: true, nextMetasets })
             onMetasetsChange(nextMetasets)
           }}>{t('addMetaset')}</Button>
           
@@ -996,7 +986,7 @@ export default function MetasetsDialog({
               commitMetasetUpdate(
                 targetIdx,
                 (prevMeta) => ({ ...prevMeta, sets: [] }),
-                (previousMeta, nextMeta) => describeMetasetSetsChanged({ previous: previousMeta, next: nextMeta, t, lang }),
+                (previousMeta, nextMeta) => ({ kind: 'metasetSetsChanged', previous: previousMeta, next: nextMeta }),
               )
             }}
             sx={{ height: BUILDER_TOGGLE_BUTTON_HEIGHT_PX, minHeight: BUILDER_TOGGLE_BUTTON_HEIGHT_PX, whiteSpace: 'nowrap' }}

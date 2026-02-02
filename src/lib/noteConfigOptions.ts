@@ -9,6 +9,7 @@ import { clampAggregateRollValue } from './aggregateRollState'
 import { RARITY_AUTO_LABEL } from './constants'
 import { TAG_TOKEN_REGEX, normalizeTagValue } from './tagHelpers'
 import { cloneBuilderConfig } from './multiEditDraft'
+import { cloneSubstatTargets } from './substatTargets'
 import {
   type LevelMilestone,
   type RankCode,
@@ -2334,16 +2335,6 @@ const starKeyForSubstatTargets = (star: Star): SubstatTargetStarKey => {
     default: return 'six'
   }
 }
-
-const cloneSubstatTargets = (targets: SubstatTargetTable): SubstatTargetTable => ({
-  one: { ...(targets.one ?? {}) },
-  two: { ...(targets.two ?? {}) },
-  three: { ...(targets.three ?? {}) },
-  four: { ...(targets.four ?? {}) },
-  five: { ...(targets.five ?? {}) },
-  six: { ...(targets.six ?? {}) },
-  anyRankDefaultsTo: targets.anyRankDefaultsTo ?? 6,
-})
 
 const instructionAppliesToAnyConfig = (
   instruction: ConfigOptionsSelectorBlock,

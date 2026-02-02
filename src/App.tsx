@@ -165,7 +165,7 @@ function coerceWsEndpointToHttp(endpoint: string): string | null {
 import { sellfileFilename, hsfcFilename, buildTimestamp } from './lib/filenames'
 import { README_SEEN_VERSION_KEY, RULE_COUNT_LIMIT } from './lib/constants'
 import { DEFAULT_METASET_ICON_ID } from './lib/metasetIcons'
-import { defaultMetasets, type Metaset } from './lib/metasets'
+import { cloneMetaset, defaultMetasets, type Metaset } from './lib/metasets'
 import { normalizeArtifactSetSelections, splitArtifactSetSelections, type ArtifactSetSelectionEntry } from './lib/gearSets/selection'
 import { generateMetasetNameWithFlag } from './lib/namegen'
 import { useDisplayPreferences, useDisplayPreferenceActions } from './state/preferencesState'
@@ -229,22 +229,27 @@ import { useSellfileDedupPreference, useSellfileOmitDisabledPreference } from '.
 import { useHsfcDialogs } from './hooks/useHsfcDialogs'
 import { useHsfcHistoryController } from './hooks/useHsfcHistoryController'
 import type { HistoryEntryDescriptor, DescribeNextChangeFn } from './hooks/useHsfcHistory'
-import { describeBuilderConfigUpdate, buildConfigLabel } from './history/builderUpdateDescriptor'
+import { createBuilderConfigUpdateDescriptor } from './history/builderUpdateDescriptor'
 import {
-  describeConfigAdded,
-  describeConfigOptionsApplied,
-  describeConfigsDuplicated,
-  describeConfigsCleared,
-  describeConfigsDeleted,
-  describeConfigsInserted,
-  describeConfigsMoved,
+  createConfigAddedDescriptor,
+  createConfigOptionsAppliedDescriptor,
+  createConfigsDuplicatedDescriptor,
+  createConfigsClearedDescriptor,
+  createConfigsDeletedDescriptor,
+  createConfigsInsertedDescriptor,
+  createConfigsMovedDescriptor,
 } from './history/configCollectionDescriptors'
-import { describeMetasetConflictResolved, describeMetasetDeleted, describeMetasetsReset } from './history/metasetDescriptors'
-import { describeSubstatTargetsChange, areSubstatTargetTablesEqual, isDefaultSubstatTargetTable, appendDescriptorDetails } from './history/substatTargetDescriptors'
-import { describeFinalSellChange, areFinalSellConfigsEqual, type FinalSellDescriptorMode } from './history/finalSellDescriptors'
-import { describeNoteChange, normalizeNoteValue, type NoteDescriptorMode } from './history/noteDescriptors'
-import { describeHsfcLoaded, describeAutosaveRestored, makeClipboardSourceDescriptor } from './history/bulkLoadDescriptors'
-import { describeKeepUniquesEnabledChange, describeKeepUniquesRulesChange } from './history/keepUniquesDescriptors'
+import {
+  createSubstatTargetsChangeDescriptor,
+  areSubstatTargetTablesEqual,
+  isDefaultSubstatTargetTable,
+  appendDescriptorDetails,
+} from './history/substatTargetDescriptors'
+import { createFinalSellChangeDescriptor, areFinalSellConfigsEqual, type FinalSellDescriptorMode } from './history/finalSellDescriptors'
+import { createNoteChangeDescriptor, normalizeNoteValue, type NoteDescriptorMode } from './history/noteDescriptors'
+import { createHsfcLoadedDescriptor, createAutosaveRestoredDescriptor, makeClipboardSourceDescriptor } from './history/bulkLoadDescriptors'
+import { createKeepUniquesEnabledChangeDescriptor, createKeepUniquesRulesChangeDescriptor } from './history/keepUniquesDescriptors'
+import { buildInsertionLocation, snapshotConfigLabel } from './history/historyLabelUtils'
 import { useAutoSideBySideZoom } from './hooks/useAutoSideBySideZoom'
 import {
   applyConfigOptionsOverrides,
@@ -1653,7 +1658,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     onWillChangeSelection: handleWillChangeSelection,
     onSelectionScrollRequest: requestSelectionScroll,
     describeNextChange: (descriptor, options) => describeNextChangeRef.current(descriptor, options),
-    t,
     requestDeleteSingle: (idx) => { requestDeleteSingleForSelection(idx) },
     requestDeleteMulti: (targets) => { requestDeleteMultiForSelection(targets) },
     suppressSelectionDraft: runWithSelectionDraftSuppressed,
@@ -1794,15 +1798,19 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       }
     }
     // Record the config options apply in history for undo/redo.
-    const descriptor = describeConfigOptionsApplied({
-      changedIndices,
-      configs: next,
+    const labels = changedIndices
+      .map((idx) => {
+        const cfg = next[idx]
+        return cfg ? snapshotConfigLabel(idx, cfg) : null
+      })
+      .filter((label): label is ReturnType<typeof snapshotConfigLabel> => Boolean(label))
+    const descriptor = createConfigOptionsAppliedDescriptor({
+      labels,
       enableCount,
       disableCount,
-      t,
     })
     describeNextChange(descriptor)
-  }, [describeNextChange, selectedCfgIdx, setBuilder, setCustomCfgs, t])
+  }, [describeNextChange, selectedCfgIdx, setBuilder, setCustomCfgs])
 
   // Builder and dialog both call through here so history/undo sees a single
   // cohesive change. While the dialog is open we aggregate edits until the
@@ -1825,7 +1833,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       return null
     }
     const mode = options?.mode ?? (isDefaultSubstatTargetTable(next) && !isDefaultSubstatTargetTable(previous) ? 'reset' : 'edit')
-    const descriptor = describeSubstatTargetsChange({ previous, next, mode, t })
+    const descriptor = createSubstatTargetsChangeDescriptor({ previous, next, mode })
     setSubstatTargets(next)
     if (options?.publish === false) {
       substatTargetsHistorySessionRef.current = 'idle'
@@ -1836,7 +1844,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     const baseline = substatTargetsSessionBaselineRef.current ?? previous
     const aggregateMode = substatTargetsSessionModeRef.current ?? mode
     const aggregateDescriptor = (baseline && next)
-      ? describeSubstatTargetsChange({ previous: baseline, next, mode: aggregateMode, t })
+      ? createSubstatTargetsChangeDescriptor({ previous: baseline, next, mode: aggregateMode })
       : descriptor
     if (substatTargetsDialogOpen) {
       // Dialog sessions stash the first baseline so every intermediate edit
@@ -1857,7 +1865,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       describeNextChange(descriptor ?? null)
     }
     return descriptor ?? null
-  }, [describeNextChange, substatTargets, substatTargetsDialogOpen, setSubstatTargets, t])
+  }, [describeNextChange, substatTargets, substatTargetsDialogOpen, setSubstatTargets])
   const applyFinalSellChange = useCallback((
     value: React.SetStateAction<FinalSellRemainderConfig>,
     options?: { mode?: FinalSellDescriptorMode; publish?: boolean },
@@ -1870,10 +1878,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       : value
     const changed = !areFinalSellConfigsEqual(prevState, resolvedNextState)
     const descriptor = changed
-      ? describeFinalSellChange({
+      ? createFinalSellChangeDescriptor({
         previous: prevState,
         next: resolvedNextState,
-        t,
         mode,
       })
       : null
@@ -1895,7 +1902,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     }
     const baseline = finalSellSessionBaselineRef.current ?? previousSnapshot
     const aggregateMode = finalSellSessionModeRef.current ?? mode
-    const aggregateDescriptor = describeFinalSellChange({ previous: baseline, next: resolvedNextState, mode: aggregateMode, t })
+    const aggregateDescriptor = createFinalSellChangeDescriptor({
+      previous: baseline,
+      next: resolvedNextState,
+      mode: aggregateMode,
+    })
     if (!aggregateDescriptor) {
       if (!logicHubOpenRef.current) {
         describeNextChange(descriptor ?? null)
@@ -1918,7 +1929,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       describeNextChange(descriptor ?? null)
     }
     return descriptor ?? null
-  }, [describeNextChange, setFinalSellRemainder, t])
+  }, [describeNextChange, setFinalSellRemainder])
   const applyKeepUniquesEnabledChange = useCallback((
     value: React.SetStateAction<boolean>,
     options?: { publish?: boolean },
@@ -1930,11 +1941,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       // Skip no-op toggles so history stays clean.
       if (prev === next) return prev
       // Build the history descriptor before mutating state.
-      const descriptor = describeKeepUniquesEnabledChange({
+      const descriptor = createKeepUniquesEnabledChangeDescriptor({
         previousEnabled: prev,
         nextEnabled: next,
         rules: keepUniqueRules,
-        t,
       })
       // Allow callers to suppress history when needed.
       if (options?.publish === false) return next
@@ -1942,7 +1952,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       describeNextChange(descriptor ?? null)
       return next
     })
-  }, [describeNextChange, keepUniqueRules, setKeepUniquesEnabled, t])
+  }, [describeNextChange, keepUniqueRules, setKeepUniquesEnabled])
   const applyKeepUniqueRulesChange = useCallback((
     value: React.SetStateAction<KeepUniqueRule[]>,
     options?: { mode?: 'edit' | 'reset'; publish?: boolean },
@@ -1952,11 +1962,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       // Resolve the next rules list so we can diff against the previous state.
       const next = typeof value === 'function' ? (value as (p: KeepUniqueRule[]) => KeepUniqueRule[])(prev) : value
       // Describe the rule changes so history stays informative.
-      const descriptor = describeKeepUniquesRulesChange({
+      const descriptor = createKeepUniquesRulesChangeDescriptor({
         previous: prev,
         next,
         metasets,
-        t,
         mode: options?.mode ?? 'edit',
       })
       // Skip no-op updates so we do not add empty history entries.
@@ -1967,7 +1976,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       describeNextChange(descriptor)
       return next
     })
-  }, [describeNextChange, metasets, setKeepUniqueRules, t])
+  }, [describeNextChange, metasets, setKeepUniqueRules])
   // Warn on close/tab navigation if there are unsaved changes
   useEffect(() => {
     const onBeforeUnload = (e: BeforeUnloadEvent) => {
@@ -2583,23 +2592,21 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   }, [])
 
   const handleConfirmClearAll = useCallback(() => {
-    const descriptor = describeConfigsCleared({ previousCount: customCfgs.length, t })
+    const descriptor = createConfigsClearedDescriptor(customCfgs.length)
     describeNextChange(descriptor)
     setCustomCfgs([])
     syncSelectedCfgIdx(null, { forceSync: true, suppressDraft: true })
     markNextSnapshotAsSaved()
     exportBaselineResetRef.current = true
-  }, [customCfgs.length, describeNextChange, markNextSnapshotAsSaved, setCustomCfgs, syncSelectedCfgIdx, t])
+  }, [customCfgs.length, describeNextChange, markNextSnapshotAsSaved, setCustomCfgs, syncSelectedCfgIdx])
   const handleConfirmDeleteSingle = useCallback((idx: number) => {
     setCustomCfgs(prev => {
       if (idx < 0 || idx >= prev.length) {
         describeNextChange(null)
         return prev
       }
-      const descriptor = describeConfigsDeleted({
+      const descriptor = createConfigsDeletedDescriptor({
         removed: [{ index: idx, cfg: prev[idx] }],
-        t,
-        lang,
         metasets,
       })
       describeNextChange(descriptor)
@@ -2611,7 +2618,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       if (sel > idx) return sel - 1
       return sel
     }, { suppressDraft: true })
-  }, [describeNextChange, lang, metasets, setCustomCfgs, syncSelectedCfgIdx, t])
+  }, [describeNextChange, metasets, setCustomCfgs, syncSelectedCfgIdx])
   const handleDeleteMultiConfirmed = useCallback((targetsParam: number[] | null) => {
     // Use the snapshot captured when opening the dialog so confirmation matches the displayed list.
     const source = Array.isArray(targetsParam) && targetsParam.length > 0
@@ -2627,12 +2634,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         return prev
       }
       const removed = uniqueTargets.map((idx) => ({ index: idx, cfg: prev[idx] }))
-      const descriptor = describeConfigsDeleted({ removed, t, lang, metasets })
+      const descriptor = createConfigsDeletedDescriptor({ removed, metasets })
       describeNextChange(descriptor)
       return prev.filter((_, i) => !deleteSet.has(i))
     })
     syncSelectedCfgIdx(null, { forceSync: true, suppressDraft: true })
-  }, [describeNextChange, lang, metasets, selectedCfgIndices, setCustomCfgs, syncSelectedCfgIdx, t])
+  }, [describeNextChange, metasets, selectedCfgIndices, setCustomCfgs, syncSelectedCfgIdx])
   const hsfcDialogs = useHsfcDialogs({
     customCfgCount: customCfgs.length,
     onConfirmClearAll: handleConfirmClearAll,
@@ -2748,11 +2755,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       // Prune or reset answers based on the new note content.
       return nextNormalized ? pruneNoteConfigOptionsAnswers(nextNormalized, prev) : {}
     })
-    const descriptor = describeNoteChange({
+    const descriptor = createNoteChangeDescriptor({
       previous: prevNormalized,
       next: nextNormalized,
       mode,
-      t,
     })
     if (options?.publish === false) {
       noteHistorySessionRef.current = 'idle'
@@ -2762,11 +2768,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     }
     const baseline = noteSessionBaselineRef.current ?? prevNormalized ?? null
     const aggregateMode = noteSessionModeRef.current ?? mode
-    const aggregateDescriptor = describeNoteChange({
+    const aggregateDescriptor = createNoteChangeDescriptor({
       previous: baseline,
       next: nextNormalized ?? null,
       mode: aggregateMode,
-      t,
     })
     const inDialogEdit = noteOpen && noteMode === 'edit'
     if (inDialogEdit) {
@@ -2785,7 +2790,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       describeNextChange(aggregateDescriptor ?? descriptor)
     }
     return aggregateDescriptor ?? descriptor
-  }, [describeNextChange, hsfcNote, noteMode, noteOpen, setHsfcNote, setNoteConfigOptionsAnswers, t])
+  }, [describeNextChange, hsfcNote, noteMode, noteOpen, setHsfcNote, setNoteConfigOptionsAnswers])
 
 
   const tutorial = useTutorialCoachState({
@@ -2923,26 +2928,18 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       const labels = selectedCfgIndices
         .map((idx) => {
           const cfg = customCfgs[idx]
-          return cfg ? buildConfigLabel(idx, cfg, t) : t('historyConfigLabel', { n: idx + 1 })
+          return cfg ? snapshotConfigLabel(idx, cfg) : { index: idx, name: null }
         })
-      const title = t('historyDraftMultiTitle', { count: labels.length })
-      if (labels.length === 0) return { title }
-      const detailLines = labels.length <= 4
-        ? labels
-        : [...labels.slice(0, 4), t('historyConfigsMoreLine', { count: labels.length - 4 })]
-      return detailLines.length > 0 ? { title, detailLines } : { title }
+      return { kind: 'builderDraft', mode: 'multi', labels }
     }
     if (editingConfigIndex !== null && editingConfigIndex >= 0 && editingConfigIndex < customCfgs.length) {
       const cfg = customCfgs[editingConfigIndex]
       if (cfg) {
-        const configNumber = editingConfigIndex + 1
-        const rawName = (cfg.name ?? '').trim()
-        const label = rawName ? `#${configNumber} - "${rawName}"` : `#${configNumber}`
-        return { title: t('historyDraftConfigTitle', { label }) }
+        return { kind: 'builderDraft', mode: 'config', label: snapshotConfigLabel(editingConfigIndex, cfg) }
       }
     }
-    return { title: t('historyDraftBuilderTitle') }
-  }, [customCfgs, editingConfigIndex, multiselectActive, selectedCfgIndices, t])
+    return { kind: 'builderDraft', mode: 'builder' }
+  }, [customCfgs, editingConfigIndex, multiselectActive, selectedCfgIndices])
 
   selectionGuardRef.current = (_prevSelection, _nextSelection) => {
     if (!builderUiDirty) return
@@ -3365,6 +3362,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setGearDbCommandError,
     setGearDbCommandSuccess,
     showGearDbCommandToast,
+    t,
   ])
 
   // Deltas mutate the existing dataset; fall back to a file-format style error when no snapshot is active.
@@ -3449,7 +3447,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setGearDbCommandError,
     setGearDbCommandSuccess,
     showGearDbCommandToast,
-    t,
   ])
 
   // ---- HSFC import conflict state ----
@@ -3539,14 +3536,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         const insertIdx = insertIndexAfter(arr, idx)
         // Insert the clone into the list.
         arr.splice(insertIdx, 0, copy)
-        // Label the duplicate using the same descriptor logic as config chips.
-        const labels = [buildConfigLabel(insertIdx, copy, t)]
+        // Snapshot the insertion location + label for history.
+        const labels = [snapshotConfigLabel(insertIdx, copy)]
         // Describe the duplicate action for history/undo.
-        const descriptor = describeConfigsDuplicated({
-          insertIndex: insertIdx,
+        const descriptor = createConfigsDuplicatedDescriptor({
           labels,
-          previous: prev,
-          t,
+          location: buildInsertionLocation(insertIdx, prev),
         })
         // Publish the descriptor so history matches the config list behavior.
         describeNextChange(descriptor)
@@ -3558,7 +3553,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       setCustomCfgs(prev => {
         const removed = [{ index: idx, cfg: prev[idx] }]
         // Describe the delete action to keep history aligned with chip menus.
-        const descriptor = describeConfigsDeleted({ removed, t, lang, metasets })
+        const descriptor = createConfigsDeletedDescriptor({ removed, metasets })
         // Publish the descriptor so undo/redo shows the deleted config.
         describeNextChange(descriptor)
         return prev.filter((_, i) => i !== idx)
@@ -3595,12 +3590,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         arr.splice(idx, 1)
         arr.unshift(current)
         // Describe the move using the shared config move descriptor.
-        const descriptor = describeConfigsMoved({
-          prev,
-          next: arr,
-          selection: [idx],
+        const descriptor = createConfigsMovedDescriptor({
           direction: 'top',
-          t,
+          labels: [snapshotConfigLabel(0, arr[0]!)],
         })
         // Publish the descriptor so history matches chip actions.
         describeNextChange(descriptor)
@@ -3618,12 +3610,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         arr.splice(idx, 1)
         arr.push(current)
         // Describe the move using the shared config move descriptor.
-        const descriptor = describeConfigsMoved({
-          prev,
-          next: arr,
-          selection: [idx],
+        const descriptor = createConfigsMovedDescriptor({
           direction: 'bottom',
-          t,
+          labels: [snapshotConfigLabel(arr.length - 1, arr[arr.length - 1]!)],
         })
         // Publish the descriptor so history matches chip actions.
         describeNextChange(descriptor)
@@ -3641,12 +3630,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         arr[idx - 1] = arr[idx]!
         arr[idx] = tmp
         // Describe the move using the shared config move descriptor.
-        const descriptor = describeConfigsMoved({
-          prev,
-          next: arr,
-          selection: [idx],
+        const descriptor = createConfigsMovedDescriptor({
           direction: 'up',
-          t,
+          labels: [snapshotConfigLabel(idx - 1, arr[idx - 1]!)],
         })
         // Publish the descriptor so history matches chip actions.
         describeNextChange(descriptor)
@@ -3664,12 +3650,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         arr[idx + 1] = arr[idx]!
         arr[idx] = tmp
         // Describe the move using the shared config move descriptor.
-        const descriptor = describeConfigsMoved({
-          prev,
-          next: arr,
-          selection: [idx],
+        const descriptor = createConfigsMovedDescriptor({
           direction: 'down',
-          t,
+          labels: [snapshotConfigLabel(idx + 1, arr[idx + 1]!)],
         })
         // Publish the descriptor so history matches chip actions.
         describeNextChange(descriptor)
@@ -3678,24 +3661,23 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       })
       return
     }
-  }, [customCfgs, describeNextChange, insertIndexAfter, lang, metasets, pasteAfterIndex, setCopyDlgOpen, setCopyText, setCustomCfgs, syncSelectedCfgIdx, t])
+  }, [customCfgs, describeNextChange, insertIndexAfter, metasets, pasteAfterIndex, setCopyDlgOpen, setCopyText, setCustomCfgs, syncSelectedCfgIdx])
 
   const handleRulesTableClearBase = useCallback(() => { setHsf(null) }, [setHsf])
   const handleRulesTableConfigureFinalSell = useCallback(() => { setLogicHubOpen(true) }, [setLogicHubOpen])
   const handleResetKeepUniques = useCallback(() => {
     // Reset keep rules to defaults and log a single history snapshot for the action.
     const nextRules = buildDefaultKeepUniqueRules()
-    const descriptor = describeKeepUniquesRulesChange({
+    const descriptor = createKeepUniquesRulesChangeDescriptor({
       previous: keepUniqueRules,
       next: nextRules,
       metasets,
-      t,
       mode: 'reset',
     })
     describeNextChange(descriptor ?? null)
     setKeepUniqueRules(nextRules)
     setKeepUniquesEnabled(false)
-  }, [describeNextChange, keepUniqueRules, metasets, setKeepUniqueRules, setKeepUniquesEnabled, t])
+  }, [describeNextChange, keepUniqueRules, metasets, setKeepUniqueRules, setKeepUniquesEnabled])
   const handleResetGearTesterItems = useCallback(() => {
     // Treat manual resets like a full gear-db refresh so matcher + keep-unique detection clear immediately.
     beginTesterMatchReset('gearDb')
@@ -3960,12 +3942,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       ...previous.slice(insertIdx),
     ]
     // History entries capture the inserted config details for undo + hover.
-    const descriptor = describeConfigAdded({
+    const descriptor = createConfigAddedDescriptor({
       index: insertIdx,
       cfg: nextConfig,
       previous,
-      t,
-      lang,
       metasets,
     })
     // Apply the mutation and focus the new chip in one gesture.
@@ -4459,7 +4439,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     const defaults = defaultMetasets()
     const replacementId = mode === 'replaceMeta' ? (replacementMetaId || null) : null
     const replacementMetaName = replacementId ? (defaults.find((meta) => meta.id === replacementId)?.name ?? null) : null
-    const descriptor = describeMetasetsReset({ mode, replacementName: replacementMetaName, t })
+    const descriptor: HistoryEntryDescriptor = {
+      kind: 'metasetsReset',
+      mode,
+      ...(replacementMetaName ? { replacementName: replacementMetaName } : {}),
+    }
     describeNextChange(descriptor)
     const metasById = new Map(metasets.map((meta) => [meta.id, meta]))
     const stringArraysEqual = (a: readonly string[], b: readonly string[]): boolean => {
@@ -4556,7 +4540,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       return anyChanged ? next : prev
     })
     setMetasets(defaults)
-  }, [areSetEntriesEqual, describeNextChange, mergeSelectionsWithMetasets, metasets, setBuilder, setCustomCfgs, setKeepUniqueRules, setMetasets, t])
+  }, [areSetEntriesEqual, describeNextChange, mergeSelectionsWithMetasets, metasets, setBuilder, setCustomCfgs, setKeepUniqueRules, setMetasets])
 
   const builderPanelElement = (
     <BuilderPanel
@@ -4574,12 +4558,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           insertedCfg,
           ...customCfgs.slice(insertIdx),
         ]
-        const descriptor = describeConfigAdded({
+        const descriptor = createConfigAddedDescriptor({
           index: insertIdx,
           cfg: insertedCfg,
           previous: customCfgs,
-          t,
-          lang,
           metasets,
         })
         describeNextChange(descriptor)
@@ -4604,12 +4586,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         const nextConfig = cloneBuilderConfig(currentBuilder)
         const previousCfg = customCfgs[selectedCfgIdx] ?? null
         if (previousCfg) {
-          const descriptor = describeBuilderConfigUpdate({
+          const descriptor = createBuilderConfigUpdateDescriptor({
             previous: previousCfg,
             next: nextConfig,
             index: selectedCfgIdx,
-            t,
-            lang,
             metasets,
           })
           describeNextChange(descriptor)
@@ -4635,7 +4615,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         }
         const deletionMode: 'delete' | 'replaceSets' | 'replaceMeta' = replaceWithSets ? 'replaceSets' : (replaceWithMetaId ? 'replaceMeta' : 'delete')
         const replacementName = replaceWithMetaId ? (metasets.find((m) => m.id === replaceWithMetaId)?.name ?? null) : null
-        const descriptor = describeMetasetDeleted({ metaset: metaToDelete, mode: deletionMode, replacementName, t, lang })
+        const descriptor: HistoryEntryDescriptor = {
+          kind: 'metasetDeleted',
+          metaset: cloneMetaset(metaToDelete),
+          mode: deletionMode,
+          ...(replacementName ? { replacementName } : {}),
+        }
         describeNextChange(descriptor)
         setMetasets(prev => prev.filter(m => m.id !== id))
 
@@ -4864,7 +4849,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       keepUniquesEnabled,
     } = payload
 
-    const loadDescriptor = describeHsfcLoaded({ fileName, t })
+    const loadDescriptor = createHsfcLoadedDescriptor(fileName)
     const resolvedSel = typeof selectedIndex === 'number' && selectedIndex >= 0 && selectedIndex < cfgs.length
       ? selectedIndex
       : (cfgs.length > 0 ? 0 : null)
@@ -4937,7 +4922,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setNoteConfigOptionsDisabled,
     substatTargets,
     syncSelectedCfgIdx,
-    t,
     beginTesterMatchReset,
   ])
 
@@ -5118,12 +5102,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
               finalMetas.push({ id, name: gen.name, sets: [], show: false, iconId: DEFAULT_METASET_ICON_ID })
             }
           }
-          const conflictDescriptor = describeMetasetConflictResolved({
+          const conflictDescriptor: HistoryEntryDescriptor = {
+            kind: 'metasetConflictResolved',
             strategy: choice,
             conflictCount: prep.conflicts.length,
             newIdCount: remapForConflicts.size,
-            t,
-          })
+          }
           const withClipboardSource = (descriptor: HistoryEntryDescriptor | null): HistoryEntryDescriptor | null => (
             appendDescriptorDetails(descriptor, makeClipboardSourceDescriptor(t))
           )
@@ -5147,19 +5131,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
               }
               const insertIdx = prev.length
               const next = [...prev, ...cfgs]
-              const labels: string[] = []
-              for (let i = 0; i < cfgs.length; i += 1) {
-                const idxNew = insertIdx + i
-                const cfg = next[idxNew]
-                if (!cfg) continue
-                labels.push(buildConfigLabel(idxNew, cfg, t))
-              }
-              const descriptor = describeConfigsInserted({
+              const labels = cfgs.map((cfg, offset) => snapshotConfigLabel(insertIdx + offset, cfg))
+              const descriptor = createConfigsInsertedDescriptor({
                 mode: 'import',
-                insertIndex: insertIdx,
                 labels,
-                previous: prev,
-                t,
+                location: buildInsertionLocation(insertIdx, prev),
               })
               if (!descriptor) {
                 const combined = appendDescriptorDetails(conflictDescriptor ?? null, substatTargetsDescriptor)
@@ -5168,13 +5144,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                 describeNextChange(withClipboardSource(combinedWithNote))
                 return next
               }
-              if (conflictDescriptor?.detailLines?.length) {
-                descriptor.detailLines = [
-                  ...(descriptor.detailLines ?? []),
-                  ...conflictDescriptor.detailLines,
-                ]
-              }
-              const descriptorWithSubstatTargets = appendDescriptorDetails(descriptor, substatTargetsDescriptor)
+              const descriptorWithConflict = appendDescriptorDetails(descriptor, conflictDescriptor)
+              const descriptorWithSubstatTargets = appendDescriptorDetails(descriptorWithConflict, substatTargetsDescriptor)
               const descriptorWithFinal = appendDescriptorDetails(descriptorWithSubstatTargets, finalSellDescriptor)
               const descriptorWithNote = appendDescriptorDetails(descriptorWithFinal, noteDescriptor)
               describeNextChange(withClipboardSource(descriptorWithNote))
@@ -5197,19 +5168,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                 return prev
               }
               const next = [...prev.slice(0, insertIdx), ...cfgs, ...prev.slice(insertIdx)]
-              const labels: string[] = []
-              for (let i = 0; i < cfgs.length; i += 1) {
-                const idxNew = insertIdx + i
-                const cfg = next[idxNew]
-                if (!cfg) continue
-                labels.push(buildConfigLabel(idxNew, cfg, t))
-              }
-              const descriptor = describeConfigsInserted({
+              const labels = cfgs.map((cfg, offset) => snapshotConfigLabel(insertIdx + offset, cfg))
+              const descriptor = createConfigsInsertedDescriptor({
                 mode: 'import',
-                insertIndex: insertIdx,
                 labels,
-                previous: prev,
-                t,
+                location: buildInsertionLocation(insertIdx, prev),
               })
               if (!descriptor) {
                 const combined = appendDescriptorDetails(conflictDescriptor ?? null, substatTargetsDescriptor)
@@ -5218,13 +5181,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                 describeNextChange(withClipboardSource(combinedWithNote))
                 return next
               }
-              if (conflictDescriptor?.detailLines?.length) {
-                descriptor.detailLines = [
-                  ...(descriptor.detailLines ?? []),
-                  ...conflictDescriptor.detailLines,
-                ]
-              }
-              const descriptorWithSubstatTargets = appendDescriptorDetails(descriptor, substatTargetsDescriptor)
+              const descriptorWithConflict = appendDescriptorDetails(descriptor, conflictDescriptor)
+              const descriptorWithSubstatTargets = appendDescriptorDetails(descriptorWithConflict, substatTargetsDescriptor)
               const descriptorWithFinal = appendDescriptorDetails(descriptorWithSubstatTargets, finalSellDescriptor)
               const descriptorWithNote = appendDescriptorDetails(descriptorWithFinal, noteDescriptor)
               describeNextChange(withClipboardSource(descriptorWithNote))
@@ -5863,12 +5821,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             if (shouldResetTesterMatches) beginTesterMatchReset('restore')
             const selectionKeys = Object.entries(selection).filter(([, value]) => value)
             if (selectionKeys.length > 0) {
-              const autosaveDescriptor = describeAutosaveRestored({
+              const autosaveDescriptor = createAutosaveRestoredDescriptor({
                 version: typeof draft?.Version === 'string' ? draft.Version : null,
                 savedAt: typeof draft?.AutosaveSavedAt === 'string'
                   ? draft.AutosaveSavedAt
                   : (selection.tester && testerRestoreDraft?.savedAt ? testerRestoreDraft.savedAt : null),
-                t,
               })
               describeNextChange(autosaveDescriptor)
             }

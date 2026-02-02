@@ -19,6 +19,7 @@ export interface BuilderHistoryMenuOptions {
   undoPreview: HistoryPreview
   redoPreview: HistoryPreview
   t: TranslateFn
+  lang: string
   onRequestClearHistory: () => void
   onJumpToHistoryIndex: (index: number) => void
 }
@@ -41,7 +42,14 @@ export interface BuilderHistoryMenuResult {
   historyHintPos: { x: number; y: number } | null
 }
 
-export function useBuilderHistoryMenu({ undoPreview, redoPreview, t, onRequestClearHistory, onJumpToHistoryIndex }: BuilderHistoryMenuOptions): BuilderHistoryMenuResult {
+export function useBuilderHistoryMenu({
+  undoPreview,
+  redoPreview,
+  t,
+  lang,
+  onRequestClearHistory,
+  onJumpToHistoryIndex,
+}: BuilderHistoryMenuOptions): BuilderHistoryMenuResult {
   // Native shortcuts differ by platform; detect once to format tooltips consistently.
   const isMacPlatform = useMemo(() => {
     if (typeof navigator === 'undefined') return false
@@ -56,16 +64,20 @@ export function useBuilderHistoryMenu({ undoPreview, redoPreview, t, onRequestCl
       descriptor: undoPreview?.descriptor ?? null,
       fallbackText: t('builderUndoTooltip', { shortcut: undoShortcutLabel }),
       shortcutHintText: t('builderHistoryShortcutHint', { shortcut: undoShortcutLabel }),
+      t,
+      lang,
     }),
-    [undoPreview, t, undoShortcutLabel],
+    [undoPreview, t, lang, undoShortcutLabel],
   )
   const redoTooltipText = useMemo(
     () => formatHistoryTooltipText({
       descriptor: redoPreview?.descriptor ?? null,
       fallbackText: t('builderRedoTooltip', { shortcut: redoShortcutLabel }),
       shortcutHintText: t('builderHistoryShortcutHint', { shortcut: redoShortcutLabel }),
+      t,
+      lang,
     }),
-    [redoPreview, t, redoShortcutLabel],
+    [redoPreview, t, lang, redoShortcutLabel],
   )
 
   // Context-menu anchor lives in local state so right-click overlays stay decoupled from BuilderPanel.

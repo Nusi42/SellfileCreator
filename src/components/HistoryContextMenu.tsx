@@ -9,6 +9,7 @@ import ContextMenuPaper, { buildContextMenuPaperSlotProps, type ContextMenuPaper
 import { BuilderTooltipContent } from './BuilderTooltipContent'
 import { HISTORY_MENU_MAX_HEIGHT_PX, HISTORY_TOOLTIP_MAX_WIDTH_PX, LIST_SUBHEADER_SX } from '../lib/constants'
 import { formatHistoryTooltipText } from '../history/historyTooltip'
+import { resolveHistoryEntryDescriptor } from '../history/historyDescriptorResolver'
 import type { SubstatColorMap } from '../lib/renderColoredStatText'
 import MarkdownTooltip from './MarkdownTooltip'
 
@@ -29,6 +30,7 @@ export function HistoryContextMenu({
   onPaperContextMenu,
   entries,
   t,
+  lang,
   onSelectEntry,
   onRequestClearHistory,
   substatColors,
@@ -41,6 +43,7 @@ export function HistoryContextMenu({
   onPaperContextMenu: (event: React.MouseEvent) => void
   entries: HistoryTimelineEntry[]
   t: (key: string, params?: Record<string, string | number>) => string
+  lang: string
   onSelectEntry: (index: number) => void
   onRequestClearHistory: () => void
   substatColors: SubstatColorMap
@@ -98,15 +101,17 @@ export function HistoryContextMenu({
           </MenuItem>
         )}
         {reversed.map((entry) => {
-          const descriptor = entry.descriptor
-          const title = descriptor?.title?.trim().length
-            ? descriptor.title.trim()
+          const resolved = resolveHistoryEntryDescriptor(entry.descriptor, { t, lang })
+          const title = resolved?.title?.trim().length
+            ? resolved.title.trim()
             : (entry.isInitial
               ? t('builderHistoryInitialSnapshot')
               : t('builderHistoryUnnamedSnapshot', { index: entry.index + 1 }))
           const tooltipText = formatHistoryTooltipText({
-            descriptor,
+            descriptor: entry.descriptor,
             fallbackText: title,
+            t,
+            lang,
           })
           return (
             <MarkdownTooltip

@@ -4,15 +4,18 @@
  * History descriptor helpers for Keep Uniques so the timeline can display
  * structured rule snapshots with the same visual language as builder diffs.
  */
-import type { HistoryEntryDescriptor } from '../hooks/useHsfcHistory'
+// keepUniquesDescriptors keeps keep-unique history data-only until render.
+import type { HistoryEntryDescriptor, ResolvedHistoryEntryDescriptor } from './historyDescriptorTypes'
 import type { KeepUniqueRule, KeepUniqueRuleActivation, KeepUniqueRuleCountMode } from '../lib/keepUniques'
 import type { Metaset } from '../lib/metasets'
 import { compareArtifactSets, compareArtifactTypes, compareVariants, factionI18nKey } from '../lib/types'
 import type { TranslateFn } from './builderUpdateDescriptor'
 import { collectMetasetSnapshotEntries, normalizeNumberArray } from './historyDescriptorUtils'
 import { normalizeArtifactSetSelections, splitArtifactSetSelections } from '../lib/gearSets/selection'
+import type { KeepUniquesRulesDescriptorMode } from './historyDescriptorTypes'
+import { snapshotKeepUniqueRules, snapshotMetasets } from './historySnapshotUtils'
 
-export type KeepUniquesRulesDescriptorMode = 'edit' | 'reset'
+export type { KeepUniquesRulesDescriptorMode }
 
 type RuleChangeSummary = {
   added: KeepUniqueRule[]
@@ -20,12 +23,49 @@ type RuleChangeSummary = {
   updated: Array<{ previous: KeepUniqueRule; next: KeepUniqueRule }>
 }
 
+// createKeepUniquesEnabledChangeDescriptor snapshots the toggle history entry.
+export const createKeepUniquesEnabledChangeDescriptor = (params: {
+  previousEnabled: boolean
+  nextEnabled: boolean
+  rules: KeepUniqueRule[]
+}): HistoryEntryDescriptor | null => {
+  const { previousEnabled, nextEnabled, rules } = params
+  if (previousEnabled === nextEnabled) return null
+  return {
+    kind: 'keepUniquesEnabledChange',
+    previousEnabled,
+    nextEnabled,
+    rules: snapshotKeepUniqueRules(rules),
+  }
+}
+
+// createKeepUniquesRulesChangeDescriptor snapshots keep-unique rule edits.
+export const createKeepUniquesRulesChangeDescriptor = (params: {
+  previous: KeepUniqueRule[]
+  next: KeepUniqueRule[]
+  metasets: Metaset[]
+  mode?: KeepUniquesRulesDescriptorMode
+}): HistoryEntryDescriptor | null => {
+  const { previous, next, metasets, mode = 'edit' } = params
+  const summary = diffKeepUniqueRules(previous, next)
+  const totalChanges = summary.added.length + summary.removed.length + summary.updated.length
+  if (totalChanges === 0) return null
+  return {
+    kind: 'keepUniquesRulesChange',
+    previous: snapshotKeepUniqueRules(previous),
+    next: snapshotKeepUniqueRules(next),
+    metasets: snapshotMetasets(metasets),
+    mode,
+  }
+}
+
+// describeKeepUniquesEnabledChange localizes toggle history entries.
 export function describeKeepUniquesEnabledChange(params: {
   previousEnabled: boolean
   nextEnabled: boolean
   rules: KeepUniqueRule[]
   t: TranslateFn
-}): HistoryEntryDescriptor | null {
+}): ResolvedHistoryEntryDescriptor | null {
   const { previousEnabled, nextEnabled, rules, t } = params
   // Skip when the toggle is effectively unchanged.
   if (previousEnabled === nextEnabled) return null
@@ -37,13 +77,14 @@ export function describeKeepUniquesEnabledChange(params: {
   return { title: t(titleKey), detailLines }
 }
 
+// describeKeepUniquesRulesChange localizes keep-unique rule changes.
 export function describeKeepUniquesRulesChange(params: {
   previous: KeepUniqueRule[]
   next: KeepUniqueRule[]
   metasets: Metaset[]
   t: TranslateFn
   mode?: KeepUniquesRulesDescriptorMode
-}): HistoryEntryDescriptor | null {
+}): ResolvedHistoryEntryDescriptor | null {
   const { previous, next, metasets, t, mode = 'edit' } = params
   // Treat identical rule lists as no-op so we do not enqueue empty history.
   const summary = diffKeepUniqueRules(previous, next)

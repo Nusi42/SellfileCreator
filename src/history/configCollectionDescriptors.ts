@@ -1,177 +1,288 @@
-import type { HistoryEntryDescriptor } from '../hooks/useHsfcHistory'
+// configCollectionDescriptors keeps config list history localized at render time.
+import type { HistoryEntryDescriptor, ResolvedHistoryEntryDescriptor } from './historyDescriptorTypes'
 import type { BuilderConfig } from '../lib/hsfBuilder'
 import type { Metaset } from '../lib/metasets'
 import type { BuilderFieldKey } from '../lib/multiEditDraft'
+import { makeBuilderConfigSnapshotLines } from './builderUpdateDescriptor'
+import type { TranslateFn } from './historyI18n'
+import type { ConfigInsertionLocation, ConfigLabelSnapshot } from './historyLabelUtils'
 import {
-  buildConfigLabel,
-  collectChangedFields,
-  makeBuilderConfigSnapshotLines,
-  type TranslateFn,
-} from './builderUpdateDescriptor'
+  buildInsertionLocation,
+  formatConfigLabel,
+  formatConfigLabelFromConfig,
+  formatInsertionLocation,
+  snapshotConfigLabel,
+} from './historyLabelUtils'
+import { snapshotBuilderConfig, snapshotMetasets } from './historySnapshotUtils'
 
+// Cap label lists so history tooltips stay compact.
 const MAX_DETAIL_LABELS = 4
 
+// DescribeConfigAddedParams drive localized history output.
 type DescribeConfigAddedParams = {
   index: number
   cfg: BuilderConfig
-  previous: BuilderConfig[]
+  location: ConfigInsertionLocation | null
   t: TranslateFn
   lang: string
   metasets: Metaset[]
 }
 
+// DescribeConfigsDuplicatedParams carries localized duplication details.
 type DescribeConfigsDuplicatedParams = {
-  insertIndex: number
-  labels: string[]
-  previous: BuilderConfig[]
+  labels: ConfigLabelSnapshot[]
+  location: ConfigInsertionLocation | null
   t: TranslateFn
 }
 
+// DescribeConfigsMovedParams carries localized move details.
 type DescribeConfigsMovedParams = {
-  prev: BuilderConfig[]
-  next: BuilderConfig[]
-  selection: number[]
   direction: 'up' | 'down' | 'top' | 'bottom'
+  labels: ConfigLabelSnapshot[]
   t: TranslateFn
 }
 
+// DescribeConfigsDeletedParams handles deletions plus config snapshots.
 type DescribeConfigsDeletedParams = {
-  removed: Array<{ index: number; cfg: BuilderConfig | undefined }>
+  removed: Array<{ index: number; cfg: BuilderConfig | undefined; label: ConfigLabelSnapshot }>
   t: TranslateFn
   lang: string
   metasets: Metaset[]
 }
 
+// DescribeConfigsClearedParams covers clear-all entries.
 type DescribeConfigsClearedParams = {
   previousCount: number
   t: TranslateFn
 }
 
+// DescribeConfigsInsertedParams covers paste/import entries.
 type DescribeConfigsInsertedParams = {
   mode: 'paste' | 'import'
-  insertIndex: number
-  labels: string[]
-  previous: BuilderConfig[]
+  labels: ConfigLabelSnapshot[]
+  location: ConfigInsertionLocation | null
   t: TranslateFn
 }
 
+// DescribeConfigOptionsAppliedParams details config option toggles.
 type DescribeConfigOptionsAppliedParams = {
-  changedIndices: number[]
-  configs: BuilderConfig[]
+  labels: ConfigLabelSnapshot[]
   enableCount: number
   disableCount: number
   t: TranslateFn
 }
 
+// DescribeMultiEditAppliedParams details multi-edit operations.
 type DescribeMultiEditAppliedParams = {
-  entries: Array<{ index: number; previous: BuilderConfig; next: BuilderConfig }>
-  dirtyKeys: BuilderFieldKey[]
+  labels: ConfigLabelSnapshot[]
+  fieldKeys: BuilderFieldKey[]
   t: TranslateFn
 }
 
-export function describeConfigAdded(params: DescribeConfigAddedParams): HistoryEntryDescriptor {
-  const { index, cfg, previous, t, lang, metasets } = params
-  const label = buildConfigLabel(index, cfg, t)
-  const location = makeInsertionDetailLine(index, previous, t)
-  const detailLines = location ? [location] : []
+// createConfigAddedDescriptor snapshots a newly inserted config for history.
+export const createConfigAddedDescriptor = (params: {
+  index: number
+  cfg: BuilderConfig
+  previous: BuilderConfig[]
+  metasets: Metaset[]
+}): HistoryEntryDescriptor => {
+  const { index, cfg, previous, metasets } = params
+  return {
+    kind: 'configAdded',
+    index,
+    cfg: snapshotBuilderConfig(cfg),
+    location: buildInsertionLocation(index, previous),
+    metasets: snapshotMetasets(metasets),
+  }
+}
+
+// createConfigsDuplicatedDescriptor snapshots duplicated labels for history.
+export const createConfigsDuplicatedDescriptor = (params: {
+  labels: ConfigLabelSnapshot[]
+  location: ConfigInsertionLocation | null
+}): HistoryEntryDescriptor | null => {
+  const { labels, location } = params
+  if (labels.length === 0) return null
+  return {
+    kind: 'configsDuplicated',
+    labels,
+    location,
+  }
+}
+
+// createConfigsMovedDescriptor snapshots a move action for history.
+export const createConfigsMovedDescriptor = (params: {
+  direction: DescribeConfigsMovedParams['direction']
+  labels: ConfigLabelSnapshot[]
+}): HistoryEntryDescriptor | null => {
+  const { direction, labels } = params
+  if (labels.length === 0) return null
+  return {
+    kind: 'configsMoved',
+    direction,
+    labels,
+  }
+}
+
+// createConfigsDeletedDescriptor snapshots deleted configs for history.
+export const createConfigsDeletedDescriptor = (params: {
+  removed: Array<{ index: number; cfg: BuilderConfig | undefined }>
+  metasets: Metaset[]
+}): HistoryEntryDescriptor | null => {
+  const { removed, metasets } = params
+  if (removed.length === 0) return null
+  const snapshotRemoved = removed
+    .filter((entry) => Boolean(entry.cfg))
+    .map((entry) => ({
+      index: entry.index,
+      cfg: snapshotBuilderConfig(entry.cfg!),
+      label: snapshotConfigLabel(entry.index, entry.cfg!),
+    }))
+  if (snapshotRemoved.length === 0) return null
+  return {
+    kind: 'configsDeleted',
+    removed: snapshotRemoved,
+    metasets: snapshotMetasets(metasets),
+  }
+}
+
+// createConfigsClearedDescriptor captures the clear-all action.
+export const createConfigsClearedDescriptor = (previousCount: number): HistoryEntryDescriptor => ({
+  kind: 'configsCleared',
+  previousCount,
+})
+
+// createConfigsInsertedDescriptor snapshots pasted/imported configs.
+export const createConfigsInsertedDescriptor = (params: {
+  mode: 'paste' | 'import'
+  labels: ConfigLabelSnapshot[]
+  location: ConfigInsertionLocation | null
+}): HistoryEntryDescriptor | null => {
+  const { mode, labels, location } = params
+  if (labels.length === 0) return null
+  return {
+    kind: 'configsInserted',
+    mode,
+    labels,
+    location,
+  }
+}
+
+// createConfigOptionsAppliedDescriptor snapshots config option tags.
+export const createConfigOptionsAppliedDescriptor = (params: {
+  labels: ConfigLabelSnapshot[]
+  enableCount: number
+  disableCount: number
+}): HistoryEntryDescriptor | null => {
+  const { labels, enableCount, disableCount } = params
+  if (labels.length === 0) return null
+  return {
+    kind: 'configOptionsApplied',
+    labels,
+    enableCount,
+    disableCount,
+  }
+}
+
+// createMultiEditAppliedDescriptor snapshots a multi-edit apply event.
+export const createMultiEditAppliedDescriptor = (params: {
+  labels: ConfigLabelSnapshot[]
+  fieldKeys: BuilderFieldKey[]
+}): HistoryEntryDescriptor | null => {
+  const { labels, fieldKeys } = params
+  if (labels.length === 0) return null
+  return {
+    kind: 'multiEditApplied',
+    labels,
+    fieldKeys,
+  }
+}
+
+// describeConfigAdded localizes a config add descriptor at render time.
+export function describeConfigAdded(params: DescribeConfigAddedParams): ResolvedHistoryEntryDescriptor {
+  const { index, cfg, location, t, lang, metasets } = params
+  const label = formatConfigLabelFromConfig(index, cfg, t)
+  const locationLine = formatInsertionLocation(location, t)
+  const detailLines = locationLine ? [locationLine] : []
   // Treat added configs as a single-state snapshot so tooltips show the actual values
   // that landed in the builder rather than a fabricated before/after diff.
   const snapshotLines = makeBuilderConfigSnapshotLines({ cfg, metasets, t, lang })
   if (snapshotLines.length > 0) {
     detailLines.push(...snapshotLines)
   }
-  const descriptor: HistoryEntryDescriptor = detailLines.length > 0
+  const descriptor: ResolvedHistoryEntryDescriptor = detailLines.length > 0
     ? { title: t('historyConfigAddedTitle', { label }), detailLines }
     : { title: t('historyConfigAddedTitle', { label }) }
   return descriptor
 }
 
-export function describeConfigsDuplicated(params: DescribeConfigsDuplicatedParams): HistoryEntryDescriptor | null {
-  const { insertIndex, labels, previous, t } = params
+// describeConfigsDuplicated localizes config duplication entries.
+export function describeConfigsDuplicated(params: DescribeConfigsDuplicatedParams): ResolvedHistoryEntryDescriptor | null {
+  const { labels, location, t } = params
   if (labels.length === 0) return null
-  const location = makeInsertionDetailLine(insertIndex, previous, t)
   const detailLines = mergeDetailLines(location, labels, t)
   if (labels.length === 1) {
+    const label = formatConfigLabel(labels[0]!, t)
     return detailLines.length > 0
-      ? { title: t('historyConfigDuplicatedTitle', { label: labels[0]! }), detailLines }
-      : { title: t('historyConfigDuplicatedTitle', { label: labels[0]! }) }
+      ? { title: t('historyConfigDuplicatedTitle', { label }), detailLines }
+      : { title: t('historyConfigDuplicatedTitle', { label }) }
   }
   return detailLines.length > 0
     ? { title: t('historyConfigsDuplicatedMultipleTitle', { count: labels.length }), detailLines }
     : { title: t('historyConfigsDuplicatedMultipleTitle', { count: labels.length }) }
 }
 
-export function describeConfigsMoved(params: DescribeConfigsMovedParams): HistoryEntryDescriptor | null {
-  const { prev, next, selection, direction, t } = params
-  if (selection.length === 0) return null
-  const nextPositions = new Map<BuilderConfig, number>()
-  next.forEach((cfg, idx) => { if (cfg) nextPositions.set(cfg, idx) })
-  const movedLabels: string[] = []
-  const seen = new Set<string>()
-  for (const idx of selection) {
-    if (idx < 0 || idx >= prev.length) continue
-    const cfg = prev[idx]
-    if (!cfg) continue
-    const nextIdx = nextPositions.get(cfg)
-    if (nextIdx == null || nextIdx === idx) continue
-    const label = buildConfigLabel(nextIdx, next[nextIdx]!, t)
-    if (seen.has(label)) continue
-    seen.add(label)
-    movedLabels.push(label)
-  }
-  if (movedLabels.length === 0) return null
-  const detailLines = summarizeLabels(movedLabels, t)
+// describeConfigsMoved localizes move entries for config reordering.
+export function describeConfigsMoved(params: DescribeConfigsMovedParams): ResolvedHistoryEntryDescriptor | null {
+  const { direction, labels, t } = params
+  if (labels.length === 0) return null
+  const detailLines = summarizeLabels(labels, t)
   const singleKey = SINGLE_MOVE_KEYS[direction]
   const multiKey = MULTI_MOVE_KEYS[direction]
-  const title = movedLabels.length === 1
-    ? t(singleKey, { label: movedLabels[0]! })
-    : t(multiKey, { count: movedLabels.length })
+  const title = labels.length === 1
+    ? t(singleKey, { label: formatConfigLabel(labels[0]!, t) })
+    : t(multiKey, { count: labels.length })
   return detailLines.length > 0 ? { title, detailLines } : { title }
 }
 
-export function describeConfigsDeleted(params: DescribeConfigsDeletedParams): HistoryEntryDescriptor | null {
+// describeConfigsDeleted localizes delete entries plus config snapshots.
+export function describeConfigsDeleted(params: DescribeConfigsDeletedParams): ResolvedHistoryEntryDescriptor | null {
   const { removed, t, lang, metasets } = params
   if (!removed.length) return null
-  const labels: string[] = []
-  const seen = new Set<string>()
-  for (const entry of removed) {
-    const { index, cfg } = entry
-    if (!cfg) continue
-    const label = buildConfigLabel(index, cfg, t)
-    if (seen.has(label)) continue
-    seen.add(label)
-    labels.push(label)
-  }
-  if (labels.length === 0) return null
+  const labels = removed
+    .map((entry) => entry.label)
+    .filter(Boolean)
   const detailLines = summarizeLabels(labels, t)
+  if (labels.length === 0) return null
   if (labels.length === 1) {
     const cfg = removed.find((entry) => Boolean(entry.cfg))?.cfg ?? null
     // Likewise, deleted configs show their last-known state instead of a diff against defaults.
     const snapshotLines = cfg ? makeBuilderConfigSnapshotLines({ cfg, metasets, t, lang }) : []
     if (snapshotLines.length > 0) {
-      return { title: t('historyConfigDeletedTitle', { label: labels[0]! }), detailLines: snapshotLines }
+      return { title: t('historyConfigDeletedTitle', { label: formatConfigLabel(labels[0]!, t) }), detailLines: snapshotLines }
     }
-    return { title: t('historyConfigDeletedTitle', { label: labels[0]! }) }
+    return { title: t('historyConfigDeletedTitle', { label: formatConfigLabel(labels[0]!, t) }) }
   }
   return detailLines.length > 0
     ? { title: t('historyConfigsDeletedMultipleTitle', { count: labels.length }), detailLines }
     : { title: t('historyConfigsDeletedMultipleTitle', { count: labels.length }) }
 }
 
-export function describeConfigsCleared(params: DescribeConfigsClearedParams): HistoryEntryDescriptor | null {
+// describeConfigsCleared localizes the clear-all history entry.
+export function describeConfigsCleared(params: DescribeConfigsClearedParams): ResolvedHistoryEntryDescriptor | null {
   const { previousCount, t } = params
   if (previousCount === 0) return null
   return { title: t('historyConfigsClearedTitle') }
 }
 
-export function describeConfigsInserted(params: DescribeConfigsInsertedParams): HistoryEntryDescriptor | null {
-  const { mode, insertIndex, labels, previous, t } = params
+// describeConfigsInserted localizes paste/import history entries.
+export function describeConfigsInserted(params: DescribeConfigsInsertedParams): ResolvedHistoryEntryDescriptor | null {
+  const { mode, labels, location, t } = params
   if (labels.length === 0) return null
-  const location = makeInsertionDetailLine(insertIndex, previous, t)
   const detailLines = mergeDetailLines(location, labels, t)
   if (labels.length === 1) {
     const key = mode === 'import' ? 'historyConfigImportedTitle' : 'historyConfigPastedTitle'
-    const title = t(key, { label: labels[0]! })
+    const title = t(key, { label: formatConfigLabel(labels[0]!, t) })
     return detailLines.length > 0 ? { title, detailLines } : { title }
   }
   const key = mode === 'import' ? 'historyConfigsImportedMultipleTitle' : 'historyConfigsPastedMultipleTitle'
@@ -179,21 +290,11 @@ export function describeConfigsInserted(params: DescribeConfigsInsertedParams): 
   return detailLines.length > 0 ? { title, detailLines } : { title }
 }
 
-export function describeConfigOptionsApplied(params: DescribeConfigOptionsAppliedParams): HistoryEntryDescriptor | null {
-  const { changedIndices, configs, enableCount, disableCount, t } = params
+// describeConfigOptionsApplied localizes tag enable/disable entries.
+export function describeConfigOptionsApplied(params: DescribeConfigOptionsAppliedParams): ResolvedHistoryEntryDescriptor | null {
+  const { labels, enableCount, disableCount, t } = params
   // Skip empty changes to avoid noisy history entries.
-  if (changedIndices.length === 0) return null
-  // Build unique labels for changed configs.
-  const labels: string[] = []
-  const seen = new Set<string>()
-  for (const idx of changedIndices) {
-    const cfg = configs[idx]
-    if (!cfg) continue
-    const label = buildConfigLabel(idx, cfg, t)
-    if (seen.has(label)) continue
-    seen.add(label)
-    labels.push(label)
-  }
+  if (labels.length === 0) return null
   // Summarize config labels to keep history concise.
   const detailLines = summarizeLabels(labels, t)
   // Prefix with a summary of enabled/disabled counts.
@@ -203,17 +304,18 @@ export function describeConfigOptionsApplied(params: DescribeConfigOptionsApplie
     : { title: t('historyConfigOptionsAppliedTitle') }
 }
 
-export function describeMultiEditApplied(params: DescribeMultiEditAppliedParams): HistoryEntryDescriptor | null {
-  const { entries, dirtyKeys, t } = params
-  if (entries.length === 0) return null
-  const labels = summarizeLabels(entries.map(entry => buildConfigLabel(entry.index, entry.next, t)), t)
-  const fieldLabels = deriveFieldLabels(entries, dirtyKeys, t)
-  const title = t('historyMultiEditAppliedTitle', { count: entries.length })
+// describeMultiEditApplied localizes multi-edit entries for history.
+export function describeMultiEditApplied(params: DescribeMultiEditAppliedParams): ResolvedHistoryEntryDescriptor | null {
+  const { labels, fieldKeys, t } = params
+  if (labels.length === 0) return null
+  const summaryLabels = summarizeLabels(labels, t)
+  const fieldLabels = deriveFieldLabels(fieldKeys, t)
+  const title = t('historyMultiEditAppliedTitle', { count: labels.length })
   const detailLines: string[] = []
   if (fieldLabels.length > 0) {
     detailLines.push(t('historyMultiEditFieldsLine', { fields: fieldLabels.join(', ') }))
   }
-  detailLines.push(...labels)
+  detailLines.push(...summaryLabels)
   return detailLines.length > 0 ? { title, detailLines } : { title }
 }
 
@@ -231,26 +333,20 @@ const MULTI_MOVE_KEYS: Record<DescribeConfigsMovedParams['direction'], string> =
   bottom: 'historyConfigsMovedBottomTitle',
 }
 
-function summarizeLabels(labels: string[], t: TranslateFn): string[] {
-  if (labels.length <= MAX_DETAIL_LABELS) return labels.slice()
-  const slice = labels.slice(0, MAX_DETAIL_LABELS)
-  const remaining = labels.length - MAX_DETAIL_LABELS
+function summarizeLabels(labels: ConfigLabelSnapshot[], t: TranslateFn): string[] {
+  const formatted = labels.map((label) => formatConfigLabel(label, t))
+  if (formatted.length <= MAX_DETAIL_LABELS) return formatted.slice()
+  const slice = formatted.slice(0, MAX_DETAIL_LABELS)
+  const remaining = formatted.length - MAX_DETAIL_LABELS
   slice.push(t('historyConfigsMoreLine', { count: remaining }))
   return slice
 }
 
-function mergeDetailLines(location: string | null, labels: string[], t: TranslateFn): string[] {
+function mergeDetailLines(location: ConfigInsertionLocation | null, labels: ConfigLabelSnapshot[], t: TranslateFn): string[] {
   const summarized = summarizeLabels(labels, t)
-  if (location) return [location, ...summarized]
+  const locationLine = formatInsertionLocation(location, t)
+  if (locationLine) return [locationLine, ...summarized]
   return summarized
-}
-
-function makeInsertionDetailLine(index: number, previous: BuilderConfig[], t: TranslateFn): string | null {
-  if (previous.length === 0) return t('historyConfigsInsertedAtStartLine')
-  if (index <= 0) return t('historyConfigsInsertedAtStartLine')
-  if (index >= previous.length) return t('historyConfigsInsertedAtEndLine')
-  const anchor = buildConfigLabel(index - 1, previous[index - 1]!, t)
-  return t('historyConfigsInsertedAfterLine', { label: anchor })
 }
 
 const FIELD_LABEL_KEY_BY_BUILDER_KEY: Partial<Record<BuilderFieldKey, string>> = {
@@ -281,22 +377,12 @@ const FIELD_LABEL_KEY_BY_BUILDER_KEY: Partial<Record<BuilderFieldKey, string>> =
 }
 
 function deriveFieldLabels(
-  entries: Array<{ previous: BuilderConfig; next: BuilderConfig }>,
-  dirtyKeys: BuilderFieldKey[],
+  fieldKeys: BuilderFieldKey[],
   t: TranslateFn,
 ): string[] {
-  const keys = new Set<BuilderFieldKey>()
-  if (dirtyKeys.length > 0) {
-    for (const key of dirtyKeys) keys.add(key)
-  }
-  // Include detected changes to avoid stale dirty flags when no edits applied.
-  for (const entry of entries) {
-    const changed = collectChangedFields(entry.previous, entry.next)
-    for (const key of changed) keys.add(key)
-  }
   const labels: string[] = []
   const seen = new Set<string>()
-  for (const key of keys) {
+  for (const key of fieldKeys) {
     const labelKey = FIELD_LABEL_KEY_BY_BUILDER_KEY[key]
     if (!labelKey) continue
     const label = t(labelKey)

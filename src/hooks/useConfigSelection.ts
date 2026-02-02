@@ -22,8 +22,13 @@ import {
 } from '../lib/multiEditDraft'
 import { SELECTION_SCROLL_SOURCE_USER, type SelectionScrollSource } from '../lib/constants'
 import type { DescribeNextChangeFn } from '../hooks/useHsfcHistory'
-import { describeConfigsDuplicated, describeConfigsMoved, describeMultiEditApplied } from '../history/configCollectionDescriptors'
-import { buildConfigLabel, type TranslateFn } from '../history/builderUpdateDescriptor'
+import {
+  createConfigsDuplicatedDescriptor,
+  createConfigsMovedDescriptor,
+  createMultiEditAppliedDescriptor,
+} from '../history/configCollectionDescriptors'
+import { buildInsertionLocation, snapshotConfigLabel } from '../history/historyLabelUtils'
+import { collectChangedFields } from '../history/builderUpdateDescriptor'
 import { setConfigHoverIndex } from '../lib/configHoverBridge'
 
 type UseConfigSelectionParams = {
@@ -37,7 +42,6 @@ type UseConfigSelectionParams = {
   requestDeleteSingle: (idx: number) => void
   requestDeleteMulti: (targets: number[]) => void
   describeNextChange: DescribeNextChangeFn
-  t: TranslateFn
   suppressSelectionDraft: <T>(fn: () => T) => T
   visibleConfigIndicesRef: MutableRefObject<ReadonlySet<number> | null>
 }
@@ -116,7 +120,6 @@ export function useConfigSelection({
   requestDeleteSingle,
   requestDeleteMulti,
   describeNextChange,
-  t,
   suppressSelectionDraft,
   visibleConfigIndicesRef,
 }: UseConfigSelectionParams): UseConfigSelectionResult {
@@ -387,16 +390,21 @@ export function useConfigSelection({
         describeNextChange(null)
         return prev
       }
-      const descriptor = describeMultiEditApplied({
-        entries,
-        dirtyKeys,
-        t,
+      const fieldKeySet = new Set<BuilderFieldKey>(dirtyKeys)
+      for (const entry of entries) {
+        const changedKeys = collectChangedFields(entry.previous, entry.next)
+        for (const key of changedKeys) fieldKeySet.add(key)
+      }
+      const labels = entries.map((entry) => snapshotConfigLabel(entry.index, entry.next))
+      const descriptor = createMultiEditAppliedDescriptor({
+        labels,
+        fieldKeys: Array.from(fieldKeySet),
       })
       describeNextChange(descriptor)
       return next
     })
     resetAllMultiEditFields()
-  }, [describeNextChange, multiEditDraftState, resetAllMultiEditFields, setCustomCfgs, t])
+  }, [describeNextChange, multiEditDraftState, resetAllMultiEditFields, setCustomCfgs])
 
   const multiEditHandle = useMemo<MultiEditDraftHandle | null>(() => {
     if (!multiEditDraftState) return null
@@ -533,19 +541,16 @@ export function useConfigSelection({
       const insertAfter = Math.max(...selected)
       const insertIdx = Math.min(prev.length, insertAfter + 1)
       const next = [...prev.slice(0, insertIdx), ...copies, ...prev.slice(insertIdx)]
-      const labels: string[] = []
-      // Build labels for history entries using the post-insert indices.
-      for (let i = 0; i < copies.length; i += 1) {
-        const newIdx = insertIdx + i
-        const cfg = next[newIdx]
-        if (!cfg) continue
-        labels.push(buildConfigLabel(newIdx, cfg, t))
-      }
-      const descriptor = describeConfigsDuplicated({
-        insertIndex: insertIdx,
+      const labels = copies
+        .map((_, offset) => {
+          const newIdx = insertIdx + offset
+          const cfg = next[newIdx]
+          return cfg ? snapshotConfigLabel(newIdx, cfg) : null
+        })
+        .filter((label): label is ReturnType<typeof snapshotConfigLabel> => Boolean(label))
+      const descriptor = createConfigsDuplicatedDescriptor({
         labels,
-        previous: prev,
-        t,
+        location: buildInsertionLocation(insertIdx, prev),
       })
       describeNextChange(descriptor)
       // Commit the new configs before switching selection.
@@ -557,7 +562,7 @@ export function useConfigSelection({
       setSelectedCfgIdx(last)
       setSelectionAnchor(last)
     })
-  }, [applySelection, customCfgs, describeNextChange, selectedCfgIndices, setCustomCfgs, setSelectedCfgIdx, setSelectionAnchor, suppressSelectionDraft, t])
+  }, [applySelection, customCfgs, describeNextChange, selectedCfgIndices, setCustomCfgs, setSelectedCfgIdx, setSelectionAnchor, suppressSelectionDraft])
 
   const handleConfigMoveUp = useCallback((idx: number) => {
     suppressSelectionDraft(() => {
@@ -581,21 +586,24 @@ export function useConfigSelection({
         describeNextChange(null)
         return
       }
-      const descriptor = describeConfigsMoved({
-        prev,
-        next: arr,
-        selection: selected,
+      const newSel = mapSelectionByIdentity(prev, arr, selected)
+      const labels = newSel
+        .map((idxNew) => {
+          const cfg = arr[idxNew]
+          return cfg ? snapshotConfigLabel(idxNew, cfg) : null
+        })
+        .filter((label): label is ReturnType<typeof snapshotConfigLabel> => Boolean(label))
+      const descriptor = createConfigsMovedDescriptor({
         direction: 'up',
-        t,
+        labels,
       })
       describeNextChange(descriptor)
       // Commit the reordered list before syncing selection indices.
       setCustomCfgs(arr)
-      const newSel = mapSelectionByIdentity(prev, arr, selected)
       // Reorders should not trigger auto-apply or draft capture.
       syncSelectionAfterReorder(newSel)
     })
-  }, [customCfgs, describeNextChange, selectedCfgIndices, setCustomCfgs, suppressSelectionDraft, syncSelectionAfterReorder, t])
+  }, [customCfgs, describeNextChange, selectedCfgIndices, setCustomCfgs, suppressSelectionDraft, syncSelectionAfterReorder])
 
   const handleConfigMoveDown = useCallback((idx: number) => {
     suppressSelectionDraft(() => {
@@ -620,21 +628,24 @@ export function useConfigSelection({
         describeNextChange(null)
         return
       }
-      const descriptor = describeConfigsMoved({
-        prev,
-        next: arr,
-        selection: selected,
+      const newSel = mapSelectionByIdentity(prev, arr, selected)
+      const labels = newSel
+        .map((idxNew) => {
+          const cfg = arr[idxNew]
+          return cfg ? snapshotConfigLabel(idxNew, cfg) : null
+        })
+        .filter((label): label is ReturnType<typeof snapshotConfigLabel> => Boolean(label))
+      const descriptor = createConfigsMovedDescriptor({
         direction: 'down',
-        t,
+        labels,
       })
       describeNextChange(descriptor)
       // Commit the reordered list before syncing selection indices.
       setCustomCfgs(arr)
-      const newSel = mapSelectionByIdentity(prev, arr, selected)
       // Reorders should not trigger auto-apply or draft capture.
       syncSelectionAfterReorder(newSel)
     })
-  }, [customCfgs, describeNextChange, selectedCfgIndices, setCustomCfgs, suppressSelectionDraft, syncSelectionAfterReorder, t])
+  }, [customCfgs, describeNextChange, selectedCfgIndices, setCustomCfgs, suppressSelectionDraft, syncSelectionAfterReorder])
 
   const handleConfigMoveTop = useCallback((idx: number) => {
     suppressSelectionDraft(() => {
@@ -651,21 +662,24 @@ export function useConfigSelection({
       const remaining = prev.filter((_, i) => !selected.includes(i))
       const block = selected.map(i => prev[i]!)
       const next = [...block, ...remaining]
-      const descriptor = describeConfigsMoved({
-        prev,
-        next,
-        selection: selected,
+      const newSel = mapSelectionByIdentity(prev, next, selected)
+      const labels = newSel
+        .map((idxNew) => {
+          const cfg = next[idxNew]
+          return cfg ? snapshotConfigLabel(idxNew, cfg) : null
+        })
+        .filter((label): label is ReturnType<typeof snapshotConfigLabel> => Boolean(label))
+      const descriptor = createConfigsMovedDescriptor({
         direction: 'top',
-        t,
+        labels,
       })
       describeNextChange(descriptor)
       // Commit the reordered list before syncing selection indices.
       setCustomCfgs(next)
-      const newSel = mapSelectionByIdentity(prev, next, selected)
       // Reorders should not trigger auto-apply or draft capture.
       syncSelectionAfterReorder(newSel)
     })
-  }, [customCfgs, describeNextChange, selectedCfgIndices, setCustomCfgs, suppressSelectionDraft, syncSelectionAfterReorder, t])
+  }, [customCfgs, describeNextChange, selectedCfgIndices, setCustomCfgs, suppressSelectionDraft, syncSelectionAfterReorder])
 
   const handleConfigMoveBottom = useCallback((idx: number) => {
     suppressSelectionDraft(() => {
@@ -682,21 +696,24 @@ export function useConfigSelection({
       const remaining = prev.filter((_, i) => !selected.includes(i))
       const block = selected.map(i => prev[i]!)
       const next = [...remaining, ...block]
-      const descriptor = describeConfigsMoved({
-        prev,
-        next,
-        selection: selected,
+      const newSel = mapSelectionByIdentity(prev, next, selected)
+      const labels = newSel
+        .map((idxNew) => {
+          const cfg = next[idxNew]
+          return cfg ? snapshotConfigLabel(idxNew, cfg) : null
+        })
+        .filter((label): label is ReturnType<typeof snapshotConfigLabel> => Boolean(label))
+      const descriptor = createConfigsMovedDescriptor({
         direction: 'bottom',
-        t,
+        labels,
       })
       describeNextChange(descriptor)
       // Commit the reordered list before syncing selection indices.
       setCustomCfgs(next)
-      const newSel = mapSelectionByIdentity(prev, next, selected)
       // Reorders should not trigger auto-apply or draft capture.
       syncSelectionAfterReorder(newSel)
     })
-  }, [customCfgs, describeNextChange, selectedCfgIndices, setCustomCfgs, suppressSelectionDraft, syncSelectionAfterReorder, t])
+  }, [customCfgs, describeNextChange, selectedCfgIndices, setCustomCfgs, suppressSelectionDraft, syncSelectionAfterReorder])
 
   const handleConfigReorder = useCallback((movingIndices: number[], rawTargetIndex: number, options?: { mode?: 'move' | 'copy' }) => {
     if (!Array.isArray(movingIndices) || movingIndices.length === 0) return
@@ -741,19 +758,16 @@ export function useConfigSelection({
           ...copies,
           ...prev.slice(clampedTarget),
         ]
-        const labels: string[] = []
-        // Build labels for history entries using the post-insert indices.
-        for (let i = 0; i < copies.length; i += 1) {
-          const newIdx = clampedTarget + i
-          const cfg = next[newIdx]
-          if (!cfg) continue
-          labels.push(buildConfigLabel(newIdx, cfg, t))
-        }
-        const descriptor = describeConfigsDuplicated({
-          insertIndex: clampedTarget,
+        const labels = copies
+          .map((_, offset) => {
+            const newIdx = clampedTarget + offset
+            const cfg = next[newIdx]
+            return cfg ? snapshotConfigLabel(newIdx, cfg) : null
+          })
+          .filter((label): label is ReturnType<typeof snapshotConfigLabel> => Boolean(label))
+        const descriptor = createConfigsDuplicatedDescriptor({
           labels,
-          previous: prev,
-          t,
+          location: buildInsertionLocation(clampedTarget, prev),
         })
         describeNextChange(descriptor)
         // Commit the copied list before switching selection.
@@ -798,21 +812,24 @@ export function useConfigSelection({
       } else {
         direction = 'down'
       }
-      const descriptor = describeConfigsMoved({
-        prev,
-        next,
-        selection: sanitized,
+      const newSelection = mapSelectionByIdentity(prev, next, sanitized)
+      const labels = newSelection
+        .map((idxNew) => {
+          const cfg = next[idxNew]
+          return cfg ? snapshotConfigLabel(idxNew, cfg) : null
+        })
+        .filter((label): label is ReturnType<typeof snapshotConfigLabel> => Boolean(label))
+      const descriptor = createConfigsMovedDescriptor({
         direction,
-        t,
+        labels,
       })
       describeNextChange(descriptor)
       // Commit the reordered list before syncing selection indices.
       setCustomCfgs(next)
-      const newSelection = mapSelectionByIdentity(prev, next, sanitized)
       // Reorders should not trigger auto-apply or draft capture.
       syncSelectionAfterReorder(newSelection)
     })
-  }, [applySelection, customCfgs, describeNextChange, setCustomCfgs, setSelectedCfgIdx, setSelectionAnchor, suppressSelectionDraft, syncSelectionAfterReorder, t])
+  }, [applySelection, customCfgs, describeNextChange, setCustomCfgs, setSelectedCfgIdx, setSelectionAnchor, suppressSelectionDraft, syncSelectionAfterReorder])
 
   const handleSelectAllConfigs = useCallback(() => {
     const visibleSet = visibleConfigIndicesRef?.current ?? null

@@ -197,6 +197,22 @@ export const cloneKeepUniqueCombination = (combination: KeepUniqueCombination): 
   factions: [...(combination.factions ?? [])],
 })
 
+// cloneKeepUniqueRule keeps history snapshots isolated from live edits.
+export const cloneKeepUniqueRule = (rule: KeepUniqueRule): KeepUniqueRule => ({
+  // Preserve stable identifiers and scalar fields.
+  ...rule,
+  // Clone the combination payload so arrays are detached.
+  combination: cloneKeepUniqueCombination(rule.combination),
+  // Clone the count mode flags to avoid shared references.
+  countMode: { ...rule.countMode },
+})
+
+// cloneKeepUniqueRules clones a list into detached rule objects.
+export const cloneKeepUniqueRules = (rules: readonly KeepUniqueRule[]): KeepUniqueRule[] => (
+  // Reuse the per-rule clone so behavior stays consistent.
+  rules.map((rule) => cloneKeepUniqueRule(rule))
+)
+
 export type KeepUniqueRule = {
   id: string
   name: string

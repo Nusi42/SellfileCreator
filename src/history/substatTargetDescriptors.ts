@@ -1,10 +1,12 @@
-import type { HistoryEntryDescriptor } from '../hooks/useHsfcHistory'
+// substatTargetDescriptors keeps substat history data-only until render.
+import type { HistoryEntryDescriptor, ResolvedHistoryEntryDescriptor } from './historyDescriptorTypes'
 import type { SubstatTargetTable, Star } from '../lib/hsfBuilder'
 import { defaultSubstatTargets } from '../lib/hsfBuilder'
 import { statVariantI18nKey, STAT_VARIANTS_PRIORITY } from '../lib/types'
 import type { TranslateFn } from './builderUpdateDescriptor'
+import type { SubstatTargetsDescriptorMode } from './historyDescriptorTypes'
+import { snapshotSubstatTargets } from './historySnapshotUtils'
 
-type SubstatTargetsDescriptorMode = 'edit' | 'reset' | 'import'
 type SubstatTargetStarKey = Exclude<keyof SubstatTargetTable, 'anyRankDefaultsTo'>
 
 type DescribeSubstatTargetsChangeParams = {
@@ -44,6 +46,22 @@ const STAR_LABEL_KEYS: Record<Star, string> = {
 
 const MAX_STAR_LINES = 4
 
+// createSubstatTargetsChangeDescriptor snapshots substat target edits.
+export const createSubstatTargetsChangeDescriptor = (params: {
+  previous: SubstatTargetTable
+  next: SubstatTargetTable
+  mode?: SubstatTargetsDescriptorMode
+}): HistoryEntryDescriptor | null => {
+  const { previous, next, mode } = params
+  if (areSubstatTargetTablesEqual(previous, next)) return null
+  return {
+    kind: 'substatTargetsChange',
+    previous: snapshotSubstatTargets(previous),
+    next: snapshotSubstatTargets(next),
+    ...(mode ? { mode } : {}),
+  }
+}
+
 export function areSubstatTargetTablesEqual(a: SubstatTargetTable, b: SubstatTargetTable): boolean {
   if (normalizeFallback(a.anyRankDefaultsTo) !== normalizeFallback(b.anyRankDefaultsTo)) return false
   for (const { key } of STAR_ORDER) {
@@ -56,7 +74,8 @@ export function isDefaultSubstatTargetTable(substatTargets: SubstatTargetTable):
   return areSubstatTargetTablesEqual(substatTargets, DEFAULT_SUBSTAT_TARGETS)
 }
 
-export function describeSubstatTargetsChange(params: DescribeSubstatTargetsChangeParams): HistoryEntryDescriptor | null {
+// describeSubstatTargetsChange localizes a substat targets change on demand.
+export function describeSubstatTargetsChange(params: DescribeSubstatTargetsChangeParams): ResolvedHistoryEntryDescriptor | null {
   const { previous, next, mode: explicitMode, t } = params
   const fallbackChanged = normalizeFallback(previous.anyRankDefaultsTo) !== normalizeFallback(next.anyRankDefaultsTo)
   const starLines = summarizeStarChanges(previous, next, t)
@@ -89,7 +108,7 @@ export function describeSubstatTargetsChange(params: DescribeSubstatTargetsChang
     titleKey = 'historySubstatTargetsEditedTitle'
   }
 
-  const descriptor: HistoryEntryDescriptor = detailLines.length > 0
+  const descriptor: ResolvedHistoryEntryDescriptor = detailLines.length > 0
     ? { title: t(titleKey), detailLines }
     : { title: t(titleKey) }
 
@@ -102,13 +121,7 @@ export function appendDescriptorDetails(
 ): HistoryEntryDescriptor | null {
   if (!extra) return base
   if (!base) return extra
-  const detailLines = base.detailLines ? base.detailLines.slice() : []
-  if (extra.detailLines && extra.detailLines.length > 0) {
-    detailLines.push(...extra.detailLines)
-  } else if (extra.title.trim()) {
-    detailLines.push(extra.title)
-  }
-  return detailLines.length > 0 ? { title: base.title, detailLines } : { title: base.title }
+  return { kind: 'compound', base, extra }
 }
 
 function normalizeFallback(star: Star | undefined): Star {
