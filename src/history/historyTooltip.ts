@@ -1,4 +1,5 @@
 import type { HistoryEntryDescriptor } from '../hooks/useHsfcHistory'
+import { resolveHistoryEntryDescriptor, type HistoryDescriptorResolveContext } from './historyDescriptorResolver'
 
 /**
  * formatHistoryTooltipText
@@ -10,17 +11,18 @@ export function formatHistoryTooltipText(params: {
   descriptor: HistoryEntryDescriptor | null | undefined
   fallbackText: string
   shortcutHintText?: string
+  t: HistoryDescriptorResolveContext['t']
+  lang: HistoryDescriptorResolveContext['lang']
 }): string {
-  const { descriptor, fallbackText } = params
-  if (!descriptor) {
-    return fallbackText
-  }
+  const { descriptor, fallbackText, t, lang } = params
+  const resolved = resolveHistoryEntryDescriptor(descriptor ?? null, { t, lang })
+  if (!resolved) return fallbackText
   const lines: string[] = []
-  const title = descriptor.title.trim()
+  const title = resolved.title.trim()
   if (title.length > 0) {
     lines.push(title)
   }
-  const detailLines = descriptor.detailLines ?? null
+  const detailLines = resolved.detailLines ?? null
   if (detailLines) {
     for (const detail of detailLines) {
       const trimmed = detail.trim()

@@ -1,4 +1,5 @@
-import type { HistoryEntryDescriptor } from '../hooks/useHsfcHistory'
+// finalSellDescriptors keeps final-sell history data-only until render.
+import type { HistoryEntryDescriptor, ResolvedHistoryEntryDescriptor } from './historyDescriptorTypes'
 import {
   FINAL_SELL_LEVEL_CHOICES,
   FINAL_SELL_SETS_MODE_ANY,
@@ -8,14 +9,38 @@ import {
   type FinalSellSetsMode,
 } from '../lib/finalSell'
 import type { TranslateFn } from './builderUpdateDescriptor'
+import type { FinalSellDescriptorMode } from './historyDescriptorTypes'
+import { snapshotFinalSellRemainder } from './historySnapshotUtils'
 
-export type FinalSellDescriptorMode = 'edit' | 'quickToggle' | 'reset' | 'import'
+export type { FinalSellDescriptorMode }
 
 const LEVEL_ORDER: FinalSellLevel[] = FINAL_SELL_LEVEL_CHOICES.map(({ key }) => key)
 const LEVEL_LABELS = FINAL_SELL_LEVEL_CHOICES.reduce<Record<FinalSellLevel, string>>((acc, { key, label }) => {
   acc[key] = label
   return acc
 }, {} as Record<FinalSellLevel, string>)
+
+// createFinalSellChangeDescriptor snapshots final-sell edits for history.
+export const createFinalSellChangeDescriptor = (params: {
+  previous: FinalSellRemainderConfig
+  next: FinalSellRemainderConfig
+  mode?: FinalSellDescriptorMode
+}): HistoryEntryDescriptor | null => {
+  const { previous, next, mode } = params
+  const changed = !areFinalSellConfigsEqual(previous, next)
+  if (!changed && mode !== 'quickToggle') return null
+  if (!changed && mode === 'quickToggle') {
+    const prevActive = isFinalSellActive(previous)
+    const nextActive = isFinalSellActive(next)
+    if (prevActive === nextActive) return null
+  }
+  return {
+    kind: 'finalSellChange',
+    previous: snapshotFinalSellRemainder(previous),
+    next: snapshotFinalSellRemainder(next),
+    ...(mode ? { mode } : {}),
+  }
+}
 
 export function isFinalSellActive(config: FinalSellRemainderConfig): boolean {
   const hasTypes = Boolean(config.artifacts || config.accessories)
@@ -39,12 +64,13 @@ export function areFinalSellConfigsEqual(
   return true
 }
 
+// describeFinalSellChange localizes a final-sell change at render time.
 export function describeFinalSellChange(params: {
   previous: FinalSellRemainderConfig
   next: FinalSellRemainderConfig
   mode?: FinalSellDescriptorMode
   t: TranslateFn
-}): HistoryEntryDescriptor | null {
+}): ResolvedHistoryEntryDescriptor | null {
   const { previous, next, mode: maybeMode, t } = params
   const mode: FinalSellDescriptorMode = maybeMode ?? 'edit'
   const typesChanged = previous.artifacts !== next.artifacts || previous.accessories !== next.accessories

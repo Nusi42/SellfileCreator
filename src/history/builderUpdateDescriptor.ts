@@ -1,9 +1,13 @@
-import type { HistoryEntryDescriptor } from '../hooks/useHsfcHistory'
+// builderUpdateDescriptor keeps builder history data separate from localization.
 import type { BuilderConfig } from '../lib/hsfBuilder'
 import type { Metaset } from '../lib/metasets'
 import { NBSP } from '../lib/constants'
 import { isLockedAggregateScopeActive } from '../lib/configNormalization'
 import { collectMetasetSnapshotEntries, normalizeNumberArray, type MetasetSnapshotEntry } from './historyDescriptorUtils'
+import { formatConfigLabelFromConfig } from './historyLabelUtils'
+import type { TranslateFn } from './historyI18n'
+import type { HistoryEntryDescriptor, ResolvedHistoryEntryDescriptor } from './historyDescriptorTypes'
+import { snapshotBuilderConfig, snapshotMetasets } from './historySnapshotUtils'
 import { normalizeArtifactSetSelections, splitArtifactSetSelections } from '../lib/gearSets/selection'
 import {
   artifactTypeI18nKey,
@@ -24,7 +28,7 @@ import {
 } from '../lib/multiEditDraft'
 import { createFactoryBuilderDefaults } from '../lib/builderDefaults'
 
-export type TranslateFn = (key: string, params?: Record<string, string | number>) => string
+export type { TranslateFn }
 
 type DescribeBuilderConfigUpdateParams = {
   previous: BuilderConfig
@@ -48,6 +52,25 @@ type BuilderConfigDiffSummary = {
   changedKeys: Set<BuilderFieldKey>
 }
 
+// createBuilderConfigUpdateDescriptor snapshots builder changes for history.
+export const createBuilderConfigUpdateDescriptor = (params: {
+  previous: BuilderConfig
+  next: BuilderConfig
+  index: number
+  metasets: Metaset[]
+}): HistoryEntryDescriptor | null => {
+  const { previous, next, index, metasets } = params
+  const changedKeys = collectChangedFields(previous, next)
+  if (changedKeys.size === 0) return null
+  return {
+    kind: 'builderConfigUpdate',
+    previous: snapshotBuilderConfig(previous),
+    next: snapshotBuilderConfig(next),
+    index,
+    metasets: snapshotMetasets(metasets),
+  }
+}
+
 // Produces a plain BuilderConfig with the same defaults the builder form uses so
 // history helpers can normalize snapshots independently of React state.
 export function createHistoryBuilderBaseline(overrides: Partial<BuilderConfig> = {}): BuilderConfig {
@@ -57,14 +80,15 @@ export function createHistoryBuilderBaseline(overrides: Partial<BuilderConfig> =
   return { ...base, ...overrides }
 }
 
-export function describeBuilderConfigUpdate(params: DescribeBuilderConfigUpdateParams): HistoryEntryDescriptor | null {
+// describeBuilderConfigUpdate localizes a builder update descriptor at render time.
+export function describeBuilderConfigUpdate(params: DescribeBuilderConfigUpdateParams): ResolvedHistoryEntryDescriptor | null {
   const { previous, next, index, t, lang, metasets } = params
   const { detailLines, changedKeys } = summarizeBuilderConfigDiff({ previous, next, t, lang, metasets })
   if (changedKeys.size === 0) return null
 
   const label = buildConfigLabel(index, next, t)
   const title = t('historyBuilderSavedTitle', { label })
-  const descriptor: HistoryEntryDescriptor = detailLines.length > 0
+  const descriptor: ResolvedHistoryEntryDescriptor = detailLines.length > 0
     ? { title, detailLines }
     : { title }
   return descriptor
@@ -403,9 +427,7 @@ function normalizeDisplay(value: string, t: TranslateFn): string {
 }
 
 export function buildConfigLabel(index: number, cfg: BuilderConfig, t: TranslateFn): string {
-  const name = (cfg.name ?? '').trim()
-  const base = t('historyConfigLabel', { n: index + 1 })
-  return name ? `${base} - "${name}"` : base
+  return formatConfigLabelFromConfig(index, cfg, t)
 }
 
 function formatName(cfg: BuilderConfig, t: TranslateFn): string {

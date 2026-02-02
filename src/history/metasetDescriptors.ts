@@ -1,4 +1,5 @@
-import type { HistoryEntryDescriptor } from '../hooks/useHsfcHistory'
+// metasetDescriptors keeps metaset history data-only until render.
+import type { ResolvedHistoryEntryDescriptor } from './historyDescriptorTypes'
 import type { Metaset } from '../lib/metasets'
 import { NBSP } from '../lib/constants'
 import { DEFAULT_METASET_ICON_ID, metasetIconOptionById, normalizeMetasetIconId, type MetasetIconId } from '../lib/metasetIcons'
@@ -62,7 +63,8 @@ function formatIconValue(iconId: MetasetIconId, t: TranslateFn): string {
   return metasetIconOptionById(normalized).glyph
 }
 
-export function describeMetasetAdded(params: { metaset: Metaset; index: number; t: TranslateFn; lang: string }): HistoryEntryDescriptor {
+// describeMetasetAdded localizes metaset additions at render time.
+export function describeMetasetAdded(params: { metaset: Metaset; t: TranslateFn; lang: string }): ResolvedHistoryEntryDescriptor {
   const { metaset, t, lang } = params
   const title = t('historyMetasetAddedTitle', { name: sanitizeName(metaset.name, t) })
   const detailLines: string[] = []
@@ -72,7 +74,8 @@ export function describeMetasetAdded(params: { metaset: Metaset; index: number; 
   return detailLines.length > 0 ? { title, detailLines } : { title }
 }
 
-export function describeMetasetRenamed(params: { previous: Metaset; next: Metaset; t: TranslateFn }): HistoryEntryDescriptor | null {
+// describeMetasetRenamed localizes name changes at render time.
+export function describeMetasetRenamed(params: { previous: Metaset; next: Metaset; t: TranslateFn }): ResolvedHistoryEntryDescriptor | null {
   const { previous, next, t } = params
   if (previous.name === next.name) return null
   const title = t('historyMetasetRenamedTitle', {
@@ -82,7 +85,8 @@ export function describeMetasetRenamed(params: { previous: Metaset; next: Metase
   return { title }
 }
 
-export function describeMetasetVisibilityChanged(params: { previous: Metaset; next: Metaset; t: TranslateFn }): HistoryEntryDescriptor | null {
+// describeMetasetVisibilityChanged localizes visibility toggles.
+export function describeMetasetVisibilityChanged(params: { previous: Metaset; next: Metaset; t: TranslateFn }): ResolvedHistoryEntryDescriptor | null {
   const { previous, next, t } = params
   const prevVisible = isVisible(previous)
   const nextVisible = isVisible(next)
@@ -99,7 +103,8 @@ export function describeMetasetVisibilityChanged(params: { previous: Metaset; ne
   return { title, detailLines }
 }
 
-export function describeMetasetSetsChanged(params: { previous: Metaset; next: Metaset; t: TranslateFn; lang: string }): HistoryEntryDescriptor | null {
+// describeMetasetSetsChanged localizes set list updates.
+export function describeMetasetSetsChanged(params: { previous: Metaset; next: Metaset; t: TranslateFn; lang: string }): ResolvedHistoryEntryDescriptor | null {
   const { previous, next, t, lang } = params
   if (haveSameSets(previous.sets, next.sets)) return null
   const prevSets = normalizeSets(previous.sets)
@@ -123,7 +128,8 @@ export function describeMetasetSetsChanged(params: { previous: Metaset; next: Me
   return { title, detailLines }
 }
 
-export function describeMetasetIconChanged(params: { previous: Metaset; next: Metaset; t: TranslateFn }): HistoryEntryDescriptor | null {
+// describeMetasetIconChanged localizes icon changes.
+export function describeMetasetIconChanged(params: { previous: Metaset; next: Metaset; t: TranslateFn }): ResolvedHistoryEntryDescriptor | null {
   const { previous, next, t } = params
   const prevIcon = normalizeMetasetIconId(previous.iconId ?? DEFAULT_METASET_ICON_ID)
   const nextIcon = normalizeMetasetIconId(next.iconId ?? DEFAULT_METASET_ICON_ID)
@@ -133,13 +139,14 @@ export function describeMetasetIconChanged(params: { previous: Metaset; next: Me
   return { title }
 }
 
+// describeMetasetDeleted localizes metaset deletions.
 export function describeMetasetDeleted(params: {
   metaset: Metaset
   mode: 'delete' | 'replaceSets' | 'replaceMeta'
   replacementName?: string | null
   t: TranslateFn
   lang: string
-}): HistoryEntryDescriptor {
+}): ResolvedHistoryEntryDescriptor {
   const { metaset, mode, replacementName, t, lang } = params
   const title = t('historyMetasetDeletedTitle', { name: sanitizeName(metaset.name, t) })
   const detailLines: string[] = []
@@ -156,11 +163,12 @@ export function describeMetasetDeleted(params: {
   return detailLines.length > 0 ? { title, detailLines } : { title }
 }
 
+// describeMetasetsReset localizes metaset reset actions.
 export function describeMetasetsReset(params: {
   mode: 'delete' | 'replaceSets' | 'replaceMeta'
   replacementName?: string | null
   t: TranslateFn
-}): HistoryEntryDescriptor {
+}): ResolvedHistoryEntryDescriptor {
   const { mode, replacementName, t } = params
   const title = t('historyMetasetsResetTitle')
   const detailLines: string[] = []
@@ -174,12 +182,13 @@ export function describeMetasetsReset(params: {
   return detailLines.length > 0 ? { title, detailLines } : { title }
 }
 
+// describeMetasetConflictResolved localizes conflict resolutions.
 export function describeMetasetConflictResolved(params: {
   strategy: 'keepCurrent' | 'useIncoming' | 'keepBoth'
   conflictCount: number
   newIdCount: number
   t: TranslateFn
-}): HistoryEntryDescriptor {
+}): ResolvedHistoryEntryDescriptor {
   const { strategy, conflictCount, newIdCount, t } = params
   const title = t('historyMetasetConflictResolvedTitle')
   const strategyLabel = (() => {

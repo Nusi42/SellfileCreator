@@ -1,5 +1,31 @@
-import type { HistoryEntryDescriptor } from '../hooks/useHsfcHistory'
+// bulkLoadDescriptors keep load/import history data-only until render.
+import type { HistoryEntryDescriptor, ResolvedHistoryEntryDescriptor } from './historyDescriptorTypes'
 import type { TranslateFn } from './builderUpdateDescriptor'
+
+// createHsfcLoadedDescriptor stores file metadata for history.
+export const createHsfcLoadedDescriptor = (fileName?: string | null): HistoryEntryDescriptor => {
+  // Normalize undefined to null so optional fields obey exactOptionalPropertyTypes.
+  const normalized = fileName ?? null
+  return {
+    kind: 'hsfcLoaded',
+    fileName: normalized,
+  }
+}
+
+// createAutosaveRestoredDescriptor stores autosave metadata for history.
+export const createAutosaveRestoredDescriptor = (params: {
+  version?: string | null
+  savedAt?: string | null
+}): HistoryEntryDescriptor => {
+  // Normalize optional fields so history entries are stable.
+  const version = params.version ?? null
+  const savedAt = params.savedAt ?? null
+  return {
+    kind: 'autosaveRestored',
+    version,
+    savedAt,
+  }
+}
 
 function normalizeFileName(name: string | null | undefined): string | null {
   if (typeof name !== 'string') return null
@@ -7,10 +33,11 @@ function normalizeFileName(name: string | null | undefined): string | null {
   return trimmed.length ? trimmed : null
 }
 
+// describeHsfcLoaded localizes HSFC load entries.
 export function describeHsfcLoaded(params: {
   fileName?: string | null
   t: TranslateFn
-}): HistoryEntryDescriptor {
+}): ResolvedHistoryEntryDescriptor {
   const { fileName, t } = params
   const detailLines: string[] = []
   const normalized = normalizeFileName(fileName)
@@ -21,11 +48,12 @@ export function describeHsfcLoaded(params: {
   return detailLines.length > 0 ? { title, detailLines } : { title }
 }
 
+// describeAutosaveRestored localizes autosave restore entries.
 export function describeAutosaveRestored(params: {
   version?: string | null
   savedAt?: string | null
   t: TranslateFn
-}): HistoryEntryDescriptor {
+}): ResolvedHistoryEntryDescriptor {
   const { version, savedAt, t } = params
   const normalizedVersion = typeof version === 'string' ? version.trim() : ''
   const timestamp = formatSavedAt(savedAt)
@@ -52,6 +80,7 @@ function formatSavedAt(savedAt: string | null | undefined): string | null {
   return `${year}-${month}-${day} ${hours}:${minutes}`
 }
 
+// makeClipboardSourceDescriptor is a no-op placeholder for clipboard provenance.
 export function makeClipboardSourceDescriptor(_: TranslateFn): HistoryEntryDescriptor | null {
   void _
   return null

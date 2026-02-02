@@ -6,6 +6,9 @@ import { computeCrc32 } from '../lib/autosave'
 import { compressToBase64, decompressFromBase64 } from '../lib/compression'
 import type { MultiEditDraftState } from '../lib/multiEditDraft'
 import type { KeepUniqueRule } from '../lib/keepUniques'
+import type { HistoryEntryDescriptor } from '../history/historyDescriptorTypes'
+
+export type { HistoryEntryDescriptor }
 
 export type HsfcSnapshot = {
   customCfgs: BuilderConfig[]
@@ -22,11 +25,6 @@ export type HsfcSnapshot = {
   builderNameDraft: string | null
   builderNameDraftKey: number | 'builder' | null
   multiEditDraft: MultiEditDraftState | null
-}
-
-export type HistoryEntryDescriptor = {
-  title: string
-  detailLines?: string[]
 }
 
 export type DescribeNextChangeOptions = {
@@ -192,11 +190,8 @@ export function useHsfcHistory(params: {
     const prevPayload = previousPayloadRef.current
     previousPayloadRef.current = payload
     const crc = computeCrc32(signature)
+    // Capture the pending data descriptor as-is; it already contains cloned snapshots.
     const descriptorForAppend = pendingDescriptorRef.current
-      ? (pendingDescriptorRef.current.detailLines
-        ? { title: pendingDescriptorRef.current.title, detailLines: pendingDescriptorRef.current.detailLines.slice() }
-        : { title: pendingDescriptorRef.current.title })
-      : null
     const writeMode = pendingWriteModeRef.current
     pendingWriteModeRef.current = 'append'
     if (skipRecordRef.current) {
@@ -335,14 +330,8 @@ export function useHsfcHistory(params: {
     if (options?.force === true) {
       forceAppendRef.current = true
     }
-    if (descriptor.detailLines !== undefined) {
-      pendingDescriptorRef.current = {
-        title: descriptor.title,
-        detailLines: descriptor.detailLines.slice(),
-      }
-      return
-    }
-    pendingDescriptorRef.current = { title: descriptor.title }
+    // Persist the data descriptor so localization can happen at render time.
+    pendingDescriptorRef.current = descriptor
   }, [])
   const suppressNextSnapshot = useCallback(() => {
     // Treat the next payload change as external so no history entry is recorded.
