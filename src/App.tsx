@@ -2188,6 +2188,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       matchesBefore: buildMatchMapByArtifactId(testerPreviewRowsRef.current),
     }
   }, [buildGearDbHistoryHeaderLines, buildMatchMapByArtifactId, hideGearDbUpdateToast, showGearDbDiffToast])
+  // Wait for the tester grid to commit so diff toasts can capture match details.
   useEffect(() => {
     const pending = gearDbDiffToastPendingRef.current
     // Nothing queued means nothing to render.
@@ -2220,6 +2221,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     })
     // Commit the toast payload now that matches are current.
     // Honor the history menu toggle when showing endpoint success toasts.
+    // eslint-disable-next-line react-you-might-not-need-an-effect/no-event-handler
     if (!hideGearDbUpdateToast) {
       showGearDbDiffToast({
         headerLines,
