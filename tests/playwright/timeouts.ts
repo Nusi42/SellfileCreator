@@ -5,6 +5,8 @@
 const TEST_TIMEOUT_DEFAULT_MS = 3_000
 // Long timeout reserved for rule rebuilds or tester matching workloads.
 const TEST_TIMEOUT_LONG_MS = 15_000
+// Extra-long timeout for heavy setup flows like autosave restores.
+const TEST_TIMEOUT_HEAVY_MS = 30_000
 
 // Default expect timeout for fast-fail UI assertions.
 const EXPECT_TIMEOUT_DEFAULT_MS = 3_000
@@ -32,6 +34,8 @@ export const PLAYWRIGHT_TIMEOUTS = {
   testDefault: TEST_TIMEOUT_DEFAULT_MS,
   // Long timeout reserved for rule rebuilds and tester matching.
   testLong: TEST_TIMEOUT_LONG_MS,
+  // Extra-long timeout reserved for autosave restores and similar heavy setup.
+  testHeavy: TEST_TIMEOUT_HEAVY_MS,
   // Expect timeouts.
   expectDefault: EXPECT_TIMEOUT_DEFAULT_MS,
   // Long expect timeout reserved for rebuild/matching waits.

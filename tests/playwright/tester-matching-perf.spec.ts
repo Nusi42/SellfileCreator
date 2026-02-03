@@ -85,7 +85,8 @@ test.describe('config rebuild performance', () => {
     // Load the shell without waiting on a full load event.
     await page.goto('/', APP_GOTO_OPTIONS)
     // Ensure the preview panel is ready before importing files.
-    await page.locator('[data-tour-id="preview.paper"]').waitFor({ timeout: PLAYWRIGHT_TIMEOUTS.expectDefault })
+    // Allow slower engines to mount the preview panel before importing files.
+    await page.locator('[data-tour-id="preview.paper"]').waitFor({ timeout: PLAYWRIGHT_TIMEOUTS.expectLong })
 
     // Load the HSFC config snapshot used in the repro.
     await loadHsfcFile(page, HSFC_PATH)

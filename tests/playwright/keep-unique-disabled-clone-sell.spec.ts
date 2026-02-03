@@ -161,14 +161,16 @@ const acceptTesterRestoreDialog = async (page: Parameters<typeof test.use>[0]['p
 
 test.beforeAll(async ({ browser }) => {
   // Allow the long timeout so the cold Vite compile can finish during warmup.
-  test.setTimeout(PLAYWRIGHT_TIMEOUTS.testLong)
+  // Allow extra time for autosave restore + tester work on slower engines.
+  test.setTimeout(PLAYWRIGHT_TIMEOUTS.testHeavy)
   // Preload the shell once so the HSFC import does not pay the compile cost.
   await warmupAppShell(browser)
 })
 
 test('disable config options then duplicate disabled config changes sell counts', async ({ page }) => {
   // Allow the long timeout for matcher rebuilds during DB import and duplication.
-  test.setTimeout(PLAYWRIGHT_TIMEOUTS.testLong)
+    // Allow extra time for autosave restore + tester work on slower engines.
+    test.setTimeout(PLAYWRIGHT_TIMEOUTS.testHeavy)
   // Start with clean localStorage so the filters are predictable.
   await prepareApp(page)
   // Seed tester mode with a Sell-only filter so we skip UI filter toggles.

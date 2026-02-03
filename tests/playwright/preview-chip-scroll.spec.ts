@@ -69,7 +69,8 @@ test.describe('preview chip scroll', () => {
   test('clicking config chip scrolls preview so config rows are visible (wrap mode)', async ({ page }) => {
     // Keep this repro enabled across browsers; guardrails below prevent cross-engine flakiness.
     // Allow the long timeout for the rebuild after HSFC import.
-    test.setTimeout(PLAYWRIGHT_TIMEOUTS.testLong)
+    // Allow extra time for large table renders in slower engines.
+    test.setTimeout(PLAYWRIGHT_TIMEOUTS.testHeavy)
     await prepareApp(page)
 
     // Force wrap mode for this repro: variable-height rows exercise TanStack’s dynamic measurement path.
@@ -100,7 +101,8 @@ test.describe('preview chip scroll', () => {
     // Why: it contains many configs and enough rows to reproduce the scroll drift.
     // Use the shared selector so Playwright does not depend on button text.
     const hsfcInput = page.locator(HSFC_LOAD_INPUT_SELECTOR).first()
-    await hsfcInput.setInputFiles(HSFC_PATH)
+    // Allow slower engines to resolve the hidden input before uploading.
+    await hsfcInput.setInputFiles(HSFC_PATH, { timeout: PLAYWRIGHT_TIMEOUTS.expectLong })
 
     // Close any note/restore dialogs that appear after loading configs.
     await dismissBlockingDialogs(page)
@@ -125,7 +127,10 @@ test.describe('preview chip scroll', () => {
 
     // Scroll to the bottom so we can capture a config index far from the top.
     // Why: this ensures we can test a large jump via chip selection.
-    await tableContainer.evaluate((el) => { (el as HTMLElement).scrollTop = (el as HTMLElement).scrollHeight })
+    await tableContainer.evaluate(
+      (el) => { (el as HTMLElement).scrollTop = (el as HTMLElement).scrollHeight },
+      { timeout: PLAYWRIGHT_TIMEOUTS.expectLong },
+    )
     // Capture the resolved bottom index so we can force a large scroll.
     const bottomIdx = await readBoundaryConfigIdx(page, 'last')
     // Abort the test if the bottom rows are not yet available.
@@ -133,7 +138,10 @@ test.describe('preview chip scroll', () => {
 
     // Restore the scroll position to the top so the bottom config is hidden again.
     // Why: we want the click to trigger an actual scroll.
-    await tableContainer.evaluate((el) => { (el as HTMLElement).scrollTop = 0 })
+    await tableContainer.evaluate(
+      (el) => { (el as HTMLElement).scrollTop = 0 },
+      { timeout: PLAYWRIGHT_TIMEOUTS.expectLong },
+    )
     // Skip if the top config is not visible after the reset (avoids flaky waits).
     if (!(await isConfigVisible(page, topIdx))) return
     // Skip if the bottom config is still visible (jump would be meaningless).
@@ -146,7 +154,8 @@ test.describe('preview chip scroll', () => {
     await bottomChip.scrollIntoViewIfNeeded()
     await expect(bottomChip).toBeVisible()
     await bottomChip.click()
-    await expect(bottomChip).toHaveAttribute('data-tour-id', 'chip.selected')
+    // Allow selection state to settle after the scroll jump.
+    await expect(bottomChip).toHaveAttribute('data-tour-id', 'chip.selected', { timeout: PLAYWRIGHT_TIMEOUTS.expectLong })
     // Skip strict row visibility checks because virtualization can delay row mounting in some browsers.
 
     // Avoid strict scroll offset assertions to reduce browser-specific flakiness.
