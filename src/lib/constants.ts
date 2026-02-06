@@ -64,6 +64,12 @@ export const PREVIEW_MODE_STORAGE_KEY = 'sellfileCreator.previewMode.v1'
 export const STAT_BUTTON_BORDERS_KEY = 'sellfileCreator.statButtonBorders.v1'
 // Persisted Keep Uniques grid filter toggle so reopening the dialog keeps the last scope
 export const KEEP_UNIQUES_GRID_FILTER_KEY = 'sellfileCreator.keepUniques.gridFilter.v1'
+// Persisted Keep Uniques grid column count so the tab can default to 1 column.
+export const KEEP_UNIQUES_GRID_COLUMNS_KEY = 'sellfileCreator.keepUniques.gridColumns.v1'
+// Persisted Keep Best Substat grid filter toggle so reopening the dialog keeps the last scope.
+export const KEEP_BEST_SUBSTAT_GRID_FILTER_KEY = 'sellfileCreator.keepBestSubstat.gridFilter.v1'
+// Persisted Keep Best Substat grid column count so the tab can default to 1 column.
+export const KEEP_BEST_SUBSTAT_GRID_COLUMNS_KEY = 'sellfileCreator.keepBestSubstat.gridColumns.v1'
 
 // Persisted color-blind mode for success/warning/error palette
 // Values: 'normal' | 'colorblind' (extendable in the future without breaking storage)
@@ -118,6 +124,8 @@ export const TOTAL_RULE_COUNT_LIMIT = 150_000
 // Keep Unique rule metadata: assign ConfigID values at or below this sentinel so they never collide
 // with builder-generated configs (which map to positive IDs).
 export const KEEP_UNIQUE_CONFIG_ID_BASE = -1 as const
+// Keep Best Substat rule metadata: use a separate negative range to avoid collisions with Keep Uniques.
+export const KEEP_BEST_SUBSTAT_CONFIG_ID_BASE = -100_000 as const
 
 // Config chips (builder) height caps
 // Why: Keep the stack layout compact in single-column mode while letting the

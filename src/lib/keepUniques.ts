@@ -494,7 +494,7 @@ const clampRankOrRarity = (value: unknown): RankValue => {
 }
 
 /** Resolve the stat variant from user input (label or numeric); falls back to Any. */
-const coerceStatVariant = (value: unknown): StatVariant => {
+export const coerceStatVariant = (value: unknown): StatVariant => {
   if (typeof value === 'string') {
     // Stat labels should be readable in HSFC; keep the parser tolerant of labels first.
     const parsed = variantFromLabel(value.trim())
@@ -711,7 +711,7 @@ export function getKeepUniqueGroupKey(artifact: NormalizedGearArtifact): KeepUni
 
 type KeepUniqueCountKey = string
 
-const getKeepUniqueCountKey = (artifact: NormalizedGearArtifact, mode: KeepUniqueRuleCountMode): KeepUniqueCountKey => {
+export const getKeepUniqueCountKey = (artifact: NormalizedGearArtifact, mode: KeepUniqueRuleCountMode): KeepUniqueCountKey => {
   if (mode.perRule) return 'global'
   const parts: string[] = []
   if (mode.perSlot) {
@@ -801,7 +801,7 @@ const toDetectionSubstats = (artifact: NormalizedGearArtifact): KeepUniqueDetect
   }))
 )
 
-const toDetectionArtifact = (candidate: KeepUniqueCandidate): KeepUniqueDetectionArtifact => {
+export const buildKeepUniqueDetectionArtifact = (candidate: KeepUniqueCandidate): KeepUniqueDetectionArtifact => {
   const { artifact, itemKey } = candidate
   return {
     itemKey,
@@ -920,7 +920,7 @@ export function computeKeepUniqueProtection(params: KeepUniqueDetectionParams): 
         ? matching.filter((candidate) => candidate.isSold)
         : []
       const itemKeys = atRisk.map((match) => match.itemKey)
-      const artifacts = atRisk.map((match) => toDetectionArtifact(match))
+      const artifacts = atRisk.map((match) => buildKeepUniqueDetectionArtifact(match))
       entries.push({
         hash: hashKeepUniqueCombination(combination),
         combination,
@@ -1002,7 +1002,7 @@ export function computeKeepUniqueProtection(params: KeepUniqueDetectionParams): 
 
     const projected = keptTotal + (ruleActive ? soldTotal : 0)
     const itemKeys = atRisk.map((match) => match.itemKey)
-    const artifacts = atRisk.map((match) => toDetectionArtifact(match))
+    const artifacts = atRisk.map((match) => buildKeepUniqueDetectionArtifact(match))
     entries.push({
       hash: hashKeepUniqueCombination(combination),
       combination,

@@ -13,6 +13,7 @@ import type { BuilderConfig, SubstatTargetTable } from '../lib/hsfBuilder'
 import type { FinalSellRemainderConfig } from '../lib/finalSell'
 import type { Metaset } from '../lib/metasets'
 import type { KeepUniqueRule } from '../lib/keepUniques'
+import type { KeepBestSubstatRule } from '../lib/keepBestSubstat'
 
 type BuildParams = {
   version: string
@@ -24,6 +25,8 @@ type BuildParams = {
   note?: string
   keepUniqueRules?: KeepUniqueRule[]
   keepUniquesEnabled?: boolean
+  keepBestSubstatRules?: KeepBestSubstatRule[]
+  keepBestSubstatEnabled?: boolean
 }
 
 type IdleHandle = number
@@ -73,11 +76,15 @@ export function useDeferredHsfcPayload(params: BuildParams): {
     params.note ?? null,
     params.keepUniqueRules,
     params.keepUniquesEnabled,
+    params.keepBestSubstatRules,
+    params.keepBestSubstatEnabled,
   ]), [
     params.configs,
     params.finalSellRemainder,
     params.keepUniqueRules,
     params.keepUniquesEnabled,
+    params.keepBestSubstatRules,
+    params.keepBestSubstatEnabled,
     params.metasets,
     params.note,
     params.selectedConfigIndex,

@@ -18,7 +18,8 @@ The technical reference is now split across focused documents. Start here, then 
 - [Application Behavior](technical/app-behavior.md) — builder guardrails, preview filters (including substat include/exclude), rule cache fast paths, clipboard/save flows, file import, config options prompt formatting (including group-level fallbacks and two-string label/value layouts), and the rule tester (including grouping + sort behavior and headerless mode).
 - [Tutorial and Onboarding](technical/tutorial.md) — help dialog, tutorial coach behavior, and guidance for extending scripted steps.
 - [Rules and Data](technical/rules-and-data.md) — HSFC/HSF schemas, builder roll semantics, autosave plumbing, and migration notes.
-- [Keep Uniques](technical/app-behavior.md#keep-uniques) — Final Sell tab layout, gear-combination detection, tester-grid linking, and reset behaviors.
+- [Keep Uniques](technical/app-behavior.md#keep-uniques) — Final Sell tab layout, gear-combination detection, tester-grid linking (including Rule Tester card-width matching), and reset behaviors.
+- [Keep Best Substat](technical/app-behavior.md#keep-best-substat) — Logic Hub tab layout, top-N protection flow, tester-grid linking (including Rule Tester card-width matching), and reset behavior.
 - [Locked roll constraints](technical/app-behavior.md#builder-outputs-and-normalization) — how `lockedMinRequiredRolls` impacts aggregate targets so locked selections can demand their own roll floors alongside the global sum.
 - [Gear Database Import](technical/gear-db-import.md) — reverse-engineering the RSL Helper SQLite dump, mapping it into the Rule Tester, and documenting endpoint diff toasts/history.
 - [WebSocket Protocol (JSON-RPC)](technical/websocket-jsonrpc.md) — formal JSON-RPC 2.0 message shapes, request/response flow, and push notifications.

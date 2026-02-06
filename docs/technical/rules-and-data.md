@@ -46,6 +46,13 @@ This document covers file schemas, builder semantics, and compatibility notes.
 - New sessions seed a default Keep Unique rule that protects 5★/6★ rings, amulets, and banners across every accessory-friendly set (1–9 families plus single-piece accessories) with `Per slot`, `Per set`, `Per faction`, and `Per main stat` scopes enabled so each combination preserves at least one item.
 - A second rule (disabled by default) guards 5★/6★ weapons and armor pieces (weapon, helmet, shield, gauntlets, chestplate, boots) for the stun, toxic, cursed, provoke, and destroy sets with `Per slot` and `Per set` scopes (per-faction/per-main are off) so you can enable it later when those rare sets become important.
 
+#### Keep Best Substat payload
+
+- HSFC payloads also carry `KeepBestSubstats?: KeepBestSubstatRule[]` plus `KeepBestSubstatsEnabled?: boolean`. Autosave/clipboard/history reuse the same fields; omitting either key is treated as “off” with an empty rule list.
+- Each rule entry serializes `{ id, substat, requiredCount, countMode }`. `countMode` reuses the Keep Uniques shape (`{ perRule, perSet, perFaction, perMainStat, perSlot }`) and defaults to `KEEP_UNIQUE_DEFAULT_COUNT_MODE` when missing. Importers accept legacy keys (`stat`, `variant`, `keepCount`) and coerce them into the canonical fields.
+- Rule ids are preserved when provided; blank or missing ids are regenerated on import so rules remain addressable. Rules that resolve to `StatVariant.Any` are discarded so invalid inputs never reach the UI.
+- Keep Best Substat detection snapshots are runtime-only and never serialized; the worker recomputes them when the gear queue stabilizes.
+
 ### IO Helpers (HSFC)
 - Parse text/file: `parseHsfcText`, `readHsfcFile`.
 - Build & write: `buildReadableConfig`, `substatTargetsToReadable`, `buildHsfcPayload`, `hsfcToBlob`.

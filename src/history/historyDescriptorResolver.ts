@@ -31,6 +31,7 @@ import {
 } from './metasetDescriptors'
 import { describeHsfcLoaded, describeAutosaveRestored } from './bulkLoadDescriptors'
 import { describeKeepUniquesEnabledChange, describeKeepUniquesRulesChange } from './keepUniquesDescriptors'
+import { describeKeepBestSubstatEnabledChange, describeKeepBestSubstatRulesChange } from './keepBestSubstatDescriptors'
 import { formatConfigLabel } from './historyLabelUtils'
 import type { ConfigLabelSnapshot } from './historyLabelUtils'
 
@@ -243,6 +244,22 @@ export const resolveHistoryEntryDescriptor = (
         previous: descriptor.previous,
         next: descriptor.next,
         metasets: descriptor.metasets,
+        ...(descriptor.mode === undefined ? {} : { mode: descriptor.mode }),
+        t: ctx.t,
+      })
+    case 'keepBestSubstatEnabledChange':
+      // Keep-best toggles show the rule count context.
+      return describeKeepBestSubstatEnabledChange({
+        previousEnabled: descriptor.previousEnabled,
+        nextEnabled: descriptor.nextEnabled,
+        rules: descriptor.rules,
+        t: ctx.t,
+      })
+    case 'keepBestSubstatRulesChange':
+      // Keep-best rule changes summarize adds/updates/removes.
+      return describeKeepBestSubstatRulesChange({
+        previous: descriptor.previous,
+        next: descriptor.next,
         ...(descriptor.mode === undefined ? {} : { mode: descriptor.mode }),
         t: ctx.t,
       })

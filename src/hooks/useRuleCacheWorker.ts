@@ -3,7 +3,12 @@ import { updateConfigRulesCache, createConfigRulesCache, type ConfigRulesCache }
 import type { BuilderConfig, SellfileExportMode, SubstatTargetTable } from '../lib/hsfBuilder'
 import type { Metaset } from '../lib/metasets'
 import type { HsfRuleWithCfg } from '../lib/merge'
-import { RULE_SOURCE_KEEP_UNIQUES, computeMergedRules } from '../lib/merge'
+import {
+  KEEP_OVERRIDE_RULE_SOURCES,
+  RULE_SOURCE_KEEP_BEST_SUBSTAT,
+  RULE_SOURCE_KEEP_UNIQUES,
+  computeMergedRules,
+} from '../lib/merge'
 import { configsForRuleBuild, countRulesForConfigs } from '../lib/ruleCacheHelpers'
 import type { RuleCachePipelinePhase, RuleCacheWorkerRequest, RuleCacheWorkerResponse } from '../workers/ruleCacheWorkerTypes'
 import RuleCacheWorker from '../workers/ruleCacheWorker?worker&inline'
@@ -11,7 +16,22 @@ import type { HsfFile } from '../lib/hsfTypes'
 import type { FinalSellRemainderConfig } from '../lib/finalSell'
 import { buildRuleMatchIndexData, primeRuleMatchIndex } from '../lib/ruleMatchIndex'
 import type { RuleMatchIndexData } from '../lib/ruleMatchIndex'
-import { buildIgnoreKeepUniqueConfigIndices, collectKeepUniqueCandidates, computeKeepUniqueProtection, hasActiveKeepUniqueRules, resolveKeepUniqueRuleLabel, type KeepUniqueDetectionSnapshot, type KeepUniquesMergeInput } from '../lib/keepUniques'
+import {
+  buildIgnoreKeepUniqueConfigIndices,
+  collectKeepUniqueCandidates,
+  computeKeepUniqueProtection,
+  hasActiveKeepUniqueRules,
+  resolveKeepUniqueRuleLabel,
+  type KeepUniqueDetectionSnapshot,
+  type KeepUniquesMergeInput,
+} from '../lib/keepUniques'
+import {
+  computeKeepBestSubstatProtection,
+  hasActiveKeepBestSubstatRules,
+  resolveKeepBestSubstatRuleLabel,
+  type KeepBestSubstatDetectionSnapshot,
+  type KeepBestSubstatMergeInput,
+} from '../lib/keepBestSubstat'
 import type { NormalizedGearArtifact } from '../lib/importers/gearDbNormalizer'
 import { evaluateMatchesByConfig } from '../lib/ruleEval'
 import type { TesterMatchWorkerItemResult } from '../workers/testerMatchWorkerTypes'
@@ -27,7 +47,10 @@ type WarmCacheParams = {
   substatTargets: SubstatTargetTable
   hsf: HsfFile | null
   finalSellRemainder?: FinalSellRemainderConfig
+  // Keep Uniques state feeds rule injection during warm merges.
   keepUniques: KeepUniquesMergeInput
+  // Keep Best Substat state also participates in warm merges.
+  keepBestSubstat: KeepBestSubstatMergeInput
 }
 
 type PipelineParams = WarmCacheParams & {
@@ -66,7 +89,10 @@ type WarmCacheResult = {
 type PipelineResult = {
   state: RuleCacheStateSnapshot
   matches: TesterMatchWorkerItemResult[]
-  detection: KeepUniqueDetectionSnapshot | null
+  // Keep-unique detection snapshot for the Keep Uniques tab.
+  keepUniqueDetection: KeepUniqueDetectionSnapshot | null
+  // Keep-best-substat detection snapshot for the new tab.
+  keepBestSubstatDetection: KeepBestSubstatDetectionSnapshot | null
   fingerprint: string | null
   artifactSignature: string | null
 }
@@ -182,7 +208,10 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
       substatTargets: params.substatTargets,
       ...(params.finalSellRemainder ? { finalSellRemainder: params.finalSellRemainder } : {}),
       prebuiltCustomRules: cacheResult.rulesByConfig,
+      // Keep overrides must be included so warm merges match pipeline merges.
       keepUniques: params.keepUniques,
+      // Keep Best Substat follows Keep Uniques in precedence.
+      keepBestSubstat: params.keepBestSubstat,
     })
     const ruleMatchIndex = buildRuleMatchIndexData(mergedRules)
     const state: RuleCacheStateSnapshot = {
@@ -228,11 +257,15 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
     // Local matcher falls back to evaluating the full map because the fallback cache does not
     // track per-artifact fingerprints; the worker handles the finer-grained reuse.
     const artifactList = Array.from(fallbackArtifactMap.values())
-    // Do not spend detection/match passes when keep-unique is effectively disabled.
+    // Avoid detection passes unless at least one keep-override feature is active.
     const hasActiveKeepUniques = hasActiveKeepUniqueRules(params.keepUniques)
+    // Keep Best Substat shares the same detection pass as Keep Uniques.
+    const hasActiveKeepBestSubstat = hasActiveKeepBestSubstatRules(params.keepBestSubstat)
+    // Keep overrides are active when either feature is enabled.
+    const hasActiveKeepOverrides = hasActiveKeepUniques || hasActiveKeepBestSubstat
     const needsDetection = needsMatches
       && params.skipDetection !== true
-      && hasActiveKeepUniques
+      && hasActiveKeepOverrides
       && artifactList.length > 0
     const matchPasses = needsMatches ? (needsDetection ? 2 : 1) : 0
     const total = warmTotal + (artifactList.length * matchPasses)
@@ -285,9 +318,14 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
     }
     if (total > 0 && completed > 0) emitProgress()
 
+    // Baseline merges should exclude detection artifacts to avoid double-injection.
     const baseKeepUniques = hasActiveKeepUniques
       ? { ...params.keepUniques, detection: null }
       : params.keepUniques
+    // Keep Best Substat follows the same baseline rule handling.
+    const baseKeepBestSubstat = hasActiveKeepBestSubstat
+      ? { ...params.keepBestSubstat, detection: null }
+      : params.keepBestSubstat
     // Precompute ignore-tag indices so matcher precedence can reuse them.
     const ignoreKeepUniqueConfigIndices = buildIgnoreKeepUniqueConfigIndices(configsForRules)
     const mergedRulesBaseline = computeMergedRules({
@@ -297,7 +335,10 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
       substatTargets: params.substatTargets,
       ...(params.finalSellRemainder ? { finalSellRemainder: params.finalSellRemainder } : {}),
       prebuiltCustomRules: cacheResult.rulesByConfig,
+      // Keep overrides must be excluded from the baseline so detection sees raw sell outcomes.
       keepUniques: baseKeepUniques,
+      // Keep Best Substat shares the same baseline suppression.
+      keepBestSubstat: baseKeepBestSubstat,
     })
 
     const baselineMatchMap = new Map<number, TesterMatchWorkerItemResult>()
@@ -309,7 +350,8 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
         const baseEval = evaluateMatchesByConfig(
           mergedRulesBaseline,
           artifact.testerItem,
-          { configModes: params.configModes, excludeSources: [RULE_SOURCE_KEEP_UNIQUES] },
+          // Baseline excludes keep overrides so detection stays honest.
+          { configModes: params.configModes, excludeSources: KEEP_OVERRIDE_RULE_SOURCES },
         )
         baselineMatchMap.set(itemId, {
           itemId,
@@ -328,22 +370,34 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
       const rule = rules[result.ruleIndex]
       const cfgIdx = result.cfgIdx ?? null
       const cfgName = resolveMatchConfigName(cfgIdx, null, rule)
+      // Keep Uniques render with a rule ordinal label instead of a config name.
       const keepUniqueLabel = rule?.__source === RULE_SOURCE_KEEP_UNIQUES
         ? resolveKeepUniqueRuleLabel(rule)
         : null
-      const effectiveCfgName = cfgName && cfgName.length > 0 ? cfgName : keepUniqueLabel
+      // Keep Best Substat uses the same label fallback strategy.
+      const keepBestLabel = rule?.__source === RULE_SOURCE_KEEP_BEST_SUBSTAT
+        ? resolveKeepBestSubstatRuleLabel(rule)
+        : null
+      // Prefer real config names but fall back to keep-override labels.
+      const effectiveCfgName = cfgName && cfgName.length > 0
+        ? cfgName
+        : (keepUniqueLabel ?? keepBestLabel)
       return {
         ruleIndex: result.ruleIndex,
         keep: result.keep,
         cfgIdx,
         cfgName: effectiveCfgName && effectiveCfgName.length > 0 ? effectiveCfgName : null,
-        ruleLabel: keepUniqueLabel ?? null,
+        ruleLabel: keepUniqueLabel ?? keepBestLabel ?? null,
         ruleSource: rule?.__source ?? null,
       }
     }
 
-    let detectionSnapshot: KeepUniqueDetectionSnapshot | null = null
+    // Keep override detection snapshots feed merged rule injection.
+    let keepUniqueDetectionSnapshot: KeepUniqueDetectionSnapshot | null = null
+    // Keep Best Substat detection runs off the same candidate pass.
+    let keepBestSubstatDetectionSnapshot: KeepBestSubstatDetectionSnapshot | null = null
     if (needsDetection) {
+      // Build candidate rows so keep overrides only consider sellable items.
       const rows = artifactList.map((artifact, idx) => {
         const itemId = Number((artifact.testerItem as { itemId?: number } | undefined)?.itemId ?? artifact.id ?? idx ?? NaN)
         const match = baselineMatchMap.get(itemId)
@@ -355,17 +409,29 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
           matchingConfigDecisions: match?.matchingConfigDecisions ?? [],
         }
       })
+      // Share the candidate list so both keep-override features stay aligned.
       const candidates = collectKeepUniqueCandidates({
         rows,
         baseRules: mergedRulesBaseline,
         configModes: params.configModes,
         ignoreKeepUniqueConfigIndices,
       })
-      detectionSnapshot = computeKeepUniqueProtection({
-        candidates: candidates.candidates,
-        rules: params.keepUniques.rules,
-        enabled: params.keepUniques.enabled,
-      })
+      // Keep Uniques snapshot drives rule injection + UI counts.
+      if (hasActiveKeepUniques) {
+        keepUniqueDetectionSnapshot = computeKeepUniqueProtection({
+          candidates: candidates.candidates,
+          rules: params.keepUniques.rules,
+          enabled: params.keepUniques.enabled,
+        })
+      }
+      // Keep Best Substat snapshot mirrors the candidate list.
+      if (hasActiveKeepBestSubstat) {
+        keepBestSubstatDetectionSnapshot = computeKeepBestSubstatProtection({
+          candidates: candidates.candidates,
+          rules: params.keepBestSubstat.rules,
+          enabled: params.keepBestSubstat.enabled,
+        })
+      }
     }
 
     const mergedRulesFinal = computeMergedRules({
@@ -375,9 +441,14 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
       substatTargets: params.substatTargets,
       ...(params.finalSellRemainder ? { finalSellRemainder: params.finalSellRemainder } : {}),
       prebuiltCustomRules: cacheResult.rulesByConfig,
+      // Inject keep-unique rules only when detection is active.
       keepUniques: baseKeepUniques
-        ? { ...params.keepUniques, detection: detectionSnapshot }
+        ? { ...params.keepUniques, detection: keepUniqueDetectionSnapshot }
         : params.keepUniques,
+      // Inject keep-best-substat rules only when detection is active.
+      keepBestSubstat: baseKeepBestSubstat
+        ? { ...params.keepBestSubstat, detection: keepBestSubstatDetectionSnapshot }
+        : params.keepBestSubstat,
     })
 
     const matches: TesterMatchWorkerItemResult[] = []
@@ -395,7 +466,8 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
           ?? evaluateMatchesByConfig(
             mergedRulesFinal,
             artifact.testerItem,
-            { configModes: params.configModes, excludeSources: [RULE_SOURCE_KEEP_UNIQUES] },
+            // Baseline keeps ignore keep overrides so precedence math stays correct.
+            { configModes: params.configModes, excludeSources: KEEP_OVERRIDE_RULE_SOURCES },
           )
         matches.push({
           itemId,
@@ -429,7 +501,10 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
     return {
       state,
       matches,
-      detection: detectionSnapshot,
+      // Keep Uniques detection snapshot supports the tab UI.
+      keepUniqueDetection: keepUniqueDetectionSnapshot,
+      // Keep Best Substat detection snapshot supports the new tab UI.
+      keepBestSubstatDetection: keepBestSubstatDetectionSnapshot,
       fingerprint: params.fingerprint ?? null,
       artifactSignature: params.artifactSignature ?? params.artifactPatch?.signature ?? null,
     }
@@ -505,7 +580,8 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
           id: data.id,
           rules: data.payload.mergedRules.length,
           matches: data.payload.matches.length,
-          detection: Boolean(data.payload.detection),
+          // Detection is considered active when either keep-override snapshot exists.
+          detection: Boolean(data.payload.keepUniqueDetection || data.payload.keepBestSubstatDetection),
         }))
         const state: RuleCacheStateSnapshot = {
           rulesByConfig: new Map<number, HsfRuleWithCfg[]>(data.payload.rulesByConfigEntries),
@@ -522,7 +598,10 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
         pending.resolve({
           state,
           matches: data.payload.matches,
-          detection: data.payload.detection,
+          // Keep-unique snapshot feeds the Keep Uniques tab.
+          keepUniqueDetection: data.payload.keepUniqueDetection,
+          // Keep-best-substat snapshot feeds the new tab.
+          keepBestSubstatDetection: data.payload.keepBestSubstatDetection,
           fingerprint: data.payload.fingerprint,
           artifactSignature: data.payload.artifactSignature,
         })
@@ -659,7 +738,10 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
         substatTargets: params.substatTargets,
         hsf: params.hsf,
         ...(params.finalSellRemainder ? { finalSellRemainder: params.finalSellRemainder } : {}),
+        // Keep override inputs must ride the worker request so merges stay consistent.
         keepUniques: params.keepUniques,
+        // Keep Best Substat participates in the same warm merge.
+        keepBestSubstat: params.keepBestSubstat,
       },
     }
 
@@ -714,7 +796,8 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
       maybeMarkPerfEvent(PERF_EVENTS.ruleCachePipelineDone, () => ({
         rules: result.state.mergedRules.length,
         matches: result.matches.length,
-        detection: Boolean(result.detection),
+        // Detection is active when either keep-override snapshot exists.
+        detection: Boolean(result.keepUniqueDetection || result.keepBestSubstatDetection),
       }))
       return Promise.resolve(result)
     }
@@ -772,7 +855,10 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
         substatTargets: params.substatTargets,
         hsf: params.hsf,
         ...(params.finalSellRemainder ? { finalSellRemainder: params.finalSellRemainder } : {}),
+        // Keep overrides must be supplied so detection + merges match the UI.
         keepUniques: params.keepUniques,
+        // Keep Best Substat shares the same detection pass.
+        keepBestSubstat: params.keepBestSubstat,
         configModes: params.configModes,
         artifacts: params.artifacts,
         ...(params.artifactPatch ? { artifactPatch: params.artifactPatch } : {}),

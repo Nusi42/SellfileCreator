@@ -72,15 +72,25 @@ import InlineSelectClearButton from '../InlineSelectClearButton'
 import InlineSelectExtraBadge from '../InlineSelectExtraBadge'
 import { computeInlineSelectContentMaxWidth, computeInlineSelectPadding } from '../../lib/inlineSelectAffordances'
 import { alpha, useTheme } from '@mui/material/styles'
-import type { SxProps, Theme } from '@mui/material/styles'
+import type { Theme } from '@mui/material/styles'
 import type { SystemStyleObject } from '@mui/system'
-import { createBuilderStatusChipSx } from '../builderStatusChipStyles'
 import { reserveScrollbarGutterSpace } from '../../lib/scrollbar'
-import { useKeepUniquesGridFilterMode } from '../../state/keepUniquesPreferences'
+import { useKeepUniquesGridColumnMode, useKeepUniquesGridFilterMode } from '../../state/keepUniquesPreferences'
 import { useGearSetCatalogVersion } from '../../hooks/useGearSetCatalogVersion'
 import { normalizeArtifactSetSelections } from '../../lib/gearSets/selection'
+import {
+  resolveKeepOverrideScopeActive,
+  toggleKeepOverrideCountMode,
+  type KeepOverrideScopeKey,
+} from '../../lib/keepOverrideScope'
+import { KeepOverrideScopeChip, KeepOverrideScopeField } from '../keepOverrides/KeepOverrideScopeChip'
+import {
+  KEEP_OVERRIDE_RULES_COLUMN_MIN_WIDTH_COMPACT_PX,
+  KEEP_OVERRIDE_RULES_COLUMN_MIN_WIDTH_PX,
+  resolveKeepOverrideGridPaneWidth,
+} from '../../lib/keepOverrideLayout'
+import { parseSpacingPx, TESTER_GRID_COLUMN_GAP_UNITS, TESTER_GRID_ROW_PADDING_UNITS } from '../../lib/testerGridLayout'
 
-const SCOPE_CHIP_HOVER_ALPHA = { light: 0.12, dark: 0.24 } as const
 // Keep-unique headers should stay a consistent height even when names wrap to two lines.
 const KEEP_UNIQUES_RULE_HEADER_MIN_HEIGHT_PX = 56
 
@@ -93,6 +103,7 @@ type KeepUniquesTabProps = {
   detection: KeepUniqueDetectionSnapshot | null
   gearEntries: TesterPreviewRow[]
   uniqueItemKeys: ReadonlySet<number>
+  testerCardWidthPx: number | null
   substatColors: Record<number, { fg: string; bg: string }>
   useStatButtonColors: boolean
   onToggleStatColors: (next: boolean) => void
@@ -107,8 +118,6 @@ type KeepUniquesTabProps = {
   workloadProgressRatio: number
 }
 
-type KeepUniqueScopeKey = 'perSlot' | 'perSet' | 'perFaction' | 'perMainStat'
-
 export default function KeepUniquesTab({
   rules,
   enabled,
@@ -118,6 +127,7 @@ export default function KeepUniquesTab({
   detection,
   gearEntries,
   uniqueItemKeys,
+  testerCardWidthPx,
   substatColors,
   useStatButtonColors,
   onToggleStatColors,
@@ -195,27 +205,10 @@ export default function KeepUniquesTab({
     }
   }, [metasets, resolveAllowedSetPool])
   const theme = useTheme()
-  const scopeChipSx = useMemo<((active: boolean) => SxProps<Theme>)>(() => {
-    const builderChipSx = createBuilderStatusChipSx(theme)
-    const baseChipSx = builderChipSx(true, { dimDisabled: true }) as SystemStyleObject<Theme>
-    const inactiveChipSx = builderChipSx(false, { dimDisabled: true }) as SystemStyleObject<Theme>
-    const hoverBg = alpha(
-      theme.palette.text.primary,
-      theme.palette.mode === 'dark' ? SCOPE_CHIP_HOVER_ALPHA.dark : SCOPE_CHIP_HOVER_ALPHA.light,
-    )
-    return (active: boolean): SxProps<Theme> => (
-      active
-        ? baseChipSx
-        : [
-            baseChipSx,
-            inactiveChipSx,
-            {
-              '&.MuiChip-clickable:hover': { backgroundColor: hoverBg },
-              '&.MuiChip-clickable:active': { backgroundColor: hoverBg },
-            } as SystemStyleObject<Theme>,
-          ]
-    )
-  }, [theme])
+  // Grid layout uses the same spacing units as the tester grid.
+  const gridGapPx = useMemo(() => parseSpacingPx(theme.spacing(TESTER_GRID_COLUMN_GAP_UNITS)), [theme])
+  // Row padding is applied on both sides of the card row container.
+  const gridRowPaddingPx = useMemo(() => parseSpacingPx(theme.spacing(TESTER_GRID_ROW_PADDING_UNITS)), [theme])
   const clearLabel = t('clear')
   const ruleModeScopeTooltip = useMemo(() => (
     `${t('keepUniquesRuleModeHint')}
@@ -235,6 +228,7 @@ ${t('keepUniquesCountModeHint')}`
   })
   const [pendingDeleteRuleId, setPendingDeleteRuleId] = useState<string | null>(null)
   const [gridFilterMode, setGridFilterMode] = useKeepUniquesGridFilterMode()
+  const [gridColumnMode, setGridColumnMode] = useKeepUniquesGridColumnMode()
   const allRuleIds = useMemo(() => rules.map((rule) => rule.id), [rules])
   const rulesScrollRootRef = useRef<HTMLDivElement | null>(null)
   const scrollRafRef = useRef<number | null>(null)
@@ -549,55 +543,33 @@ ${t('keepUniquesCountModeHint')}`
         {deleteButton}
       </Box>
     )
+    // Normalize the rule count mode so scope chips always reflect a stable shape.
     const countMode = sanitizeKeepUniqueCountMode(rule.countMode ?? KEEP_UNIQUE_DEFAULT_COUNT_MODE)
+    // Labels are shared between chips and the detection scope tooltip.
     const perSlotLabel = t('keepUniquesCountModePerSlot')
     const perSetLabel = t('keepUniquesCountModePerSet')
     const perFactionLabel = t('keepUniquesCountModePerFaction')
     const perMainLabel = t('keepUniquesCountModePerMain')
-    const scopeActive = {
-      perSlot: !countMode.perRule && countMode.perSlot,
-      perSet: !countMode.perRule && countMode.perSet,
-      perFaction: !countMode.perRule && countMode.perFaction,
-      perMainStat: !countMode.perRule && countMode.perMainStat,
-    }
-    const handleScopeChipToggle = (scope: KeepUniqueScopeKey) => {
+    // Resolve which scope chips are currently active for the rule.
+    const scopeActive = resolveKeepOverrideScopeActive(countMode)
+    // Toggle only the selected scope flag while preserving the rest.
+    const handleScopeChipToggle = (scope: KeepOverrideScopeKey) => {
       if (ruleDisabled) return
       updateRule(rule.id, (prev) => {
-        const prevMode = sanitizeKeepUniqueCountMode(prev.countMode ?? KEEP_UNIQUE_DEFAULT_COUNT_MODE)
-        const nextValue = !prevMode[scope]
-        const nextMode: KeepUniqueRule['countMode'] = {
-          perRule: false,
-          perSlot: scope === 'perSlot' ? nextValue : prevMode.perSlot,
-          perSet: scope === 'perSet' ? nextValue : prevMode.perSet,
-          perFaction: scope === 'perFaction' ? nextValue : prevMode.perFaction,
-          perMainStat: scope === 'perMainStat' ? nextValue : prevMode.perMainStat,
-        }
-        if (!nextMode.perSlot && !nextMode.perSet && !nextMode.perFaction && !nextMode.perMainStat) {
-          return {
-            ...prev,
-            countMode: {
-              perRule: true,
-              perSlot: false,
-              perSet: false,
-              perFaction: false,
-              perMainStat: false,
-            },
-          }
-        }
+        // Always toggle from a sanitized baseline to avoid drift.
+        const prevMode = prev.countMode ?? KEEP_UNIQUE_DEFAULT_COUNT_MODE
+        const nextMode = toggleKeepOverrideCountMode(prevMode, scope)
         return { ...prev, countMode: nextMode }
       })
     }
-    const renderScopeChip = (scope: KeepUniqueScopeKey, label: string, active: boolean) => (
-      <Chip
-        size="small"
-        variant="filled"
-        clickable
-        data-rule-card-interactive="true"
-        disabled={ruleDisabled}
-        onClick={(event) => { event.stopPropagation(); handleScopeChipToggle(scope) }}
-        aria-pressed={active}
+    // Preconfigure the scope chips so each field can opt in easily.
+    const renderScopeChip = (scope: KeepOverrideScopeKey, label: string, active: boolean) => (
+      <KeepOverrideScopeChip
+        scope={scope}
         label={label}
-        sx={scopeChipSx(active)}
+        active={active}
+        disabled={ruleDisabled}
+        onToggle={handleScopeChipToggle}
       />
     )
 
@@ -762,6 +734,7 @@ ${t('keepUniquesCountModeHint')}`
         </Box>
         {expanded ? (
           <Stack spacing={1.5} sx={{ p: 1.25 }}>
+          {/* Scope-aware filters and per-rule requirements live inside the expanded section. */}
           <Box
             sx={{
               display: 'flex',
@@ -905,8 +878,10 @@ ${t('keepUniquesCountModeHint')}`
             }}
           />
           <Stack spacing={1}>
+            {/* Slots + sets anchor the per-group keep scope. */}
             <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 1 }}>
-              <RuleFieldWithScopeChip chip={renderScopeChip('perSlot', perSlotLabel, scopeActive.perSlot)}>
+              <KeepOverrideScopeField chip={renderScopeChip('perSlot', perSlotLabel, scopeActive.perSlot)}>
+                {/* Slot filters drive the accessory/armor split and allowed set pool. */}
                 <RuleSelectAffordances
                   selectionCount={slotSelection.length}
                   clearLabel={clearLabel}
@@ -927,8 +902,9 @@ ${t('keepUniquesCountModeHint')}`
                     sx={getRuleSelectPaddingSx(slotSelection.length, INLINE_SELECT_FIXED_HEIGHT_PX)}
                   />
                 </RuleSelectAffordances>
-              </RuleFieldWithScopeChip>
-              <RuleFieldWithScopeChip chip={renderScopeChip('perSet', perSetLabel, scopeActive.perSet)}>
+              </KeepOverrideScopeField>
+              <KeepOverrideScopeField chip={renderScopeChip('perSet', perSetLabel, scopeActive.perSet)}>
+                {/* Set selection can be per-group scoped like slots. */}
                 <GearSetsSelect
                   disabled={ruleDisabled}
                   value={setSelection}
@@ -945,10 +921,12 @@ ${t('keepUniquesCountModeHint')}`
                   allowedSetIds={allowedSetPool}
                   showMetasets
                 />
-              </RuleFieldWithScopeChip>
+              </KeepOverrideScopeField>
             </Box>
+            {/* Rank and rarity filters are always global per rule. */}
             <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 1 }}>
-              <RuleFieldWithScopeChip>
+              <KeepOverrideScopeField>
+                {/* Rank selection controls which tiers count toward uniqueness. */}
                 <RuleSelectAffordances
                   selectionCount={rankSelection.length}
                   clearLabel={clearLabel}
@@ -970,8 +948,9 @@ ${t('keepUniquesCountModeHint')}`
                     sx={getRuleSelectPaddingSx(rankSelection.length)}
                   />
                 </RuleSelectAffordances>
-              </RuleFieldWithScopeChip>
-              <RuleFieldWithScopeChip>
+              </KeepOverrideScopeField>
+              <KeepOverrideScopeField>
+                {/* Rarity selection caps which tiers get counted. */}
                 <RuleSelectAffordances
                   selectionCount={raritySelection.length}
                   clearLabel={clearLabel}
@@ -993,10 +972,12 @@ ${t('keepUniquesCountModeHint')}`
                     sx={getRuleSelectPaddingSx(raritySelection.length)}
                   />
                 </RuleSelectAffordances>
-              </RuleFieldWithScopeChip>
+              </KeepOverrideScopeField>
             </Box>
+            {/* Main stats and faction scopes can be per-group if enabled. */}
             <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 1 }}>
-              <RuleFieldWithScopeChip chip={renderScopeChip('perMainStat', perMainLabel, scopeActive.perMainStat)}>
+              <KeepOverrideScopeField chip={renderScopeChip('perMainStat', perMainLabel, scopeActive.perMainStat)}>
+                {/* Main stat filters help separate duplicates across substat targets. */}
                 <RuleSelectAffordances
                   selectionCount={mainStatSelection.length}
                   clearLabel={clearLabel}
@@ -1021,9 +1002,10 @@ ${t('keepUniquesCountModeHint')}`
                     sx={getRuleSelectPaddingSx(mainStatSelection.length)}
                   />
                 </RuleSelectAffordances>
-              </RuleFieldWithScopeChip>
+              </KeepOverrideScopeField>
               {/* Keep the faction selector visible so users understand why accessory-only filters are required. */}
-              <RuleFieldWithScopeChip chip={renderScopeChip('perFaction', perFactionLabel, scopeActive.perFaction)}>
+              <KeepOverrideScopeField chip={renderScopeChip('perFaction', perFactionLabel, scopeActive.perFaction)}>
+                {/* Faction filters are restricted to accessory slots. */}
                 <RuleSelectAffordances
                   selectionCount={factionSelection.length}
                   clearLabel={clearLabel}
@@ -1045,7 +1027,7 @@ ${t('keepUniquesCountModeHint')}`
                     sx={getRuleSelectPaddingSx(factionSelection.length, INLINE_SELECT_FIXED_HEIGHT_PX)}
                   />
                 </RuleSelectAffordances>
-              </RuleFieldWithScopeChip>
+              </KeepOverrideScopeField>
             </Box>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flex: 1, minWidth: 0 }}>
@@ -1142,9 +1124,11 @@ ${t('keepUniquesCountModeHint')}`
       </Dialog>
       <Box
         sx={{
+          // Dialog body needs to stretch for the grid and rules list to scroll.
           flex: 1,
           minHeight: 0,
           height: '100%',
+          // Reuse standard dialog spacing so tabs remain aligned.
           px: STANDARD_DIALOG_PADDING_INLINE_UNITS,
           py: STANDARD_DIALOG_PADDING_BLOCK_UNITS,
           boxSizing: 'border-box',
@@ -1153,7 +1137,24 @@ ${t('keepUniquesCountModeHint')}`
         <Box
           sx={{
             display: { xs: 'block', md: 'grid' },
-            gridTemplateColumns: { md: '360px minmax(0, 1fr)' },
+            // Keep-override grid pane matches the Rule Tester 4-column card width.
+            gridTemplateColumns: { md: (() => {
+              // Allow a tighter rules column in 2-column mode so the grid doesn't shift right.
+              const rulesColumnMinWidth = gridColumnMode === 2
+                ? KEEP_OVERRIDE_RULES_COLUMN_MIN_WIDTH_COMPACT_PX
+                : KEEP_OVERRIDE_RULES_COLUMN_MIN_WIDTH_PX
+              // Use the measured tester card width so 1/2-column modes keep cards identical.
+              const gridPaneWidth = resolveKeepOverrideGridPaneWidth({
+                gridColumnMode,
+                targetCardWidthPx: testerCardWidthPx,
+                gridGapPx,
+                rowPaddingPx: gridRowPaddingPx,
+              })
+              // Fall back to a flexible grid pane if the tester width is unknown.
+              return gridPaneWidth
+                ? `minmax(${rulesColumnMinWidth}px, 1fr) ${gridPaneWidth}`
+                : `minmax(${rulesColumnMinWidth}px, 1fr) minmax(0, 1fr)`
+            })() },
             height: '100%',
             gap: 2,
           }}
@@ -1202,7 +1203,11 @@ ${t('keepUniquesCountModeHint')}`
               </Button>
             </Box>
           </Box>
-          <Box data-tour-id="keepuniques.grid" sx={{ minHeight: 0, display: 'flex', flexDirection: 'column', gap: 1 }}>
+          <Box
+            data-tour-id="keepuniques.grid"
+            sx={{ minHeight: 0, display: 'flex', flexDirection: 'column', gap: 1 }}
+          >
+            {/* Grid header keeps filter + progress + count aligned. */}
             <Box
               sx={{
                 display: 'flex',
@@ -1218,6 +1223,7 @@ ${t('keepUniquesCountModeHint')}`
                       size="small"
                       color="success"
                       variant={gridFilterMode === 'selection' ? 'contained' : 'outlined'}
+                      // Toggle between all rows and current selection only.
                       onClick={handleToggleGridFilterMode}
                       aria-pressed={gridFilterMode === 'selection'}
                       startIcon={gridFilterMode === 'selection' ? <FilterListIcon fontSize="small" /> : <FilterListOffIcon fontSize="small" />}
@@ -1260,6 +1266,7 @@ ${t('keepUniquesCountModeHint')}`
             </Box>
             <Box sx={{ flex: 1, minHeight: 0 }}>
               <TesterItemsGrid
+                // Use keep-override variant for 1/2 column toggles and empty-state copy.
                 rows={gridRows}
                 filterActive={gridFiltered}
                 substatColors={substatColors}
@@ -1272,6 +1279,8 @@ ${t('keepUniquesCountModeHint')}`
                 configNames={configNames}
                 onJumpToRule={onJumpToRule}
                 variant="keepUniques"
+                keepOverrideColumnMode={gridColumnMode}
+                onKeepOverrideColumnModeChange={setGridColumnMode}
                 highlightedRowPredicate={highlightRowPredicate ?? null}
                 dimUnhighlightedRows={highlightActive}
                 suppressMatchDetails={suppressMatchDetails}
@@ -1468,24 +1477,6 @@ function RuleSelectAffordances({
         label={clearLabel}
         onClear={onClear}
       />
-    </Box>
-  )
-}
-
-type RuleFieldWithScopeChipProps = {
-  chip?: ReactNode | null
-  children: ReactNode
-}
-
-function RuleFieldWithScopeChip({ chip, children }: RuleFieldWithScopeChipProps) {
-  return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-      {children}
-      {chip ? (
-        <Box component="span" sx={{ display: 'inline-flex' }}>
-          {chip}
-        </Box>
-      ) : null}
     </Box>
   )
 }

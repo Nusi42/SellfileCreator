@@ -6,6 +6,7 @@ import { computeCrc32 } from '../lib/autosave'
 import { compressToBase64, decompressFromBase64 } from '../lib/compression'
 import type { MultiEditDraftState } from '../lib/multiEditDraft'
 import type { KeepUniqueRule } from '../lib/keepUniques'
+import type { KeepBestSubstatRule } from '../lib/keepBestSubstat'
 import type { HistoryEntryDescriptor } from '../history/historyDescriptorTypes'
 
 export type { HistoryEntryDescriptor }
@@ -17,6 +18,8 @@ export type HsfcSnapshot = {
   finalSellRemainder: FinalSellRemainderConfig
   keepUniqueRules: KeepUniqueRule[]
   keepUniquesEnabled: boolean
+  keepBestSubstatRules: KeepBestSubstatRule[]
+  keepBestSubstatEnabled: boolean
   note: string | null
   selectedCfgIdx: number | null
   selectedCfgIndices: number[]
@@ -92,6 +95,8 @@ function parseSnapshot(entry: HistoryEntry): HsfcSnapshot | null {
       multiEditDraft,
       keepUniqueRules,
       keepUniquesEnabled,
+      keepBestSubstatRules,
+      keepBestSubstatEnabled,
     } = parsed
     if (!Array.isArray(customCfgs) || !Array.isArray(metasets) || !substatTargets || typeof finalSellRemainder !== 'object' || finalSellRemainder === null) {
       return null
@@ -142,6 +147,8 @@ function parseSnapshot(entry: HistoryEntry): HsfcSnapshot | null {
       finalSellRemainder: finalSellRemainder as FinalSellRemainderConfig,
       keepUniqueRules: Array.isArray(keepUniqueRules) ? keepUniqueRules as KeepUniqueRule[] : [],
       keepUniquesEnabled: keepUniquesEnabled === true,
+      keepBestSubstatRules: Array.isArray(keepBestSubstatRules) ? keepBestSubstatRules as KeepBestSubstatRule[] : [],
+      keepBestSubstatEnabled: keepBestSubstatEnabled === true,
       note: normalizedNote,
       selectedCfgIdx: sel,
       selectedCfgIndices: normalizedSelectedIndices,

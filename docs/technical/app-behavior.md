@@ -159,6 +159,7 @@ This document captures runtime behavior, builder interactions, and user-facing w
 - Substat thresholds in injected Keep Unique rules mirror the tester’s `subValues` payload (base value plus rolls, excluding glyph bonuses). Using the same numbers keeps glyph-boosted items self-matching in the tester grid instead of over-constraining the generated HSF rows.
 - The Keep Uniques grid only renders gear entries that qualify as “unique”: we group artifacts by slot + set + main stat + faction (armor treats faction as “Any”), replay the active HSF rules with Keep Unique combinations removed, and keep the group in view only when every artifact in that group would be sold under that trimmed ruleset. This makes the right-hand grid surface the at-risk combinations that still need protection rules.
 - The `Filter: Selection` toggle only shows rows that match the active Keep Unique rule; when a selected rule yields zero matches, the grid intentionally renders empty instead of falling back to the full unique list.
+- Keep Uniques uses the keep-override grid column toggle (1 or 2 columns, default 1). The grid pane width is pinned to the Rule Tester 4-column card width so cards stay identical in both 1- and 2-column modes while the rules pane grows.
 
 ### Tester grid mirroring
 
@@ -173,6 +174,15 @@ This document captures runtime behavior, builder interactions, and user-facing w
 
 - Keep Unique injections land at the top of the Sellfile Preview table (ahead of base/custom/final rules) but are rendered as config-less rows so the “Cfg” column shows a hollow star icon instead of a numeric index. Clicking these rows no longer attempts to select a builder config because they omit ConfigID, keeping selection state clean.
 - The preview scroll helper ignores those sentinel rows when it computes config spans, so jumping to a config or clicking a config chip always scrolls to the first matching builder row even if Keep Unique overrides are prepended to the list. Keep Unique rows still participate in focus jumps (Rule Tester → preview, Keep Unique grid chips → preview); when a jump targets one of these rules the preview scrolls directly to that row while leaving the builder selection untouched.
+
+## Keep Best Substat
+
+- Keep Best Substat is a separate Logic Hub tab that protects the top rolls for a single chosen substat, but only for items that would otherwise be sold.
+- Each rule selects exactly one substat (single-select), sets a required count (top N per active scope), and optionally toggles the scope chips (per slot/set/faction/main stat) using the same keep-override helpers as Keep Uniques.
+- Detection ranks gear by the chosen substat and keeps ties at the Nth threshold, so all equal-value items are protected together.
+- The grid mirrors Keep Uniques behavior: it shows only protected items, can filter to the selected rule, and uses the keep-override 1/2 column toggle (default 1) with a grid pane width pinned to the Rule Tester 4-column card width so card size stays stable.
+- Keep Best Substat rules inject keep-override rows tagged with `RULE_SOURCE_KEEP_BEST_SUBSTAT`, which render as hollow-star rows in the preview table and as green keep-override chips in the tester grid.
+- Resetting Keep Best Substat clears all rules and disables the feature without touching Final Sell or Keep Uniques settings.
 
 ## Production-only Restrictions
 

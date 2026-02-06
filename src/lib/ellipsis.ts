@@ -1,3 +1,5 @@
+import { measureCssWidth } from './domMeasurements'
+
 // Ellipsis helpers live in their own module so both MarkdownTooltip and EllipsisTooltip can reuse
 // the exact same overflow detection logic. Keeping the measurement centralized prevents subtle
 // drift (e.g., different selectors or math) across call sites.
@@ -20,14 +22,6 @@ export const pickEllipsisTarget = (root: HTMLElement, selector?: string): HTMLEl
 }
 
 const CSS_WIDTH_TOLERANCE_PX = 2
-
-const measureCssWidth = (target: HTMLElement): number => {
-  // Offset/client widths remain in CSS pixels even when zoom/scale transforms shrink the viewport.
-  const layoutWidth = Math.max(target.offsetWidth || 0, target.clientWidth || 0)
-  if (layoutWidth > 0) return layoutWidth
-  // Fallback to the bounding box when layout metrics are unavailable (hidden nodes, SVG, etc.).
-  return Math.floor(target.getBoundingClientRect().width || 0)
-}
 
 export const hasEllipsisOverflow = (rootEl?: HTMLElement | null, selector?: string): boolean => {
   try {

@@ -15,6 +15,7 @@ import {
   LOGIC_HUB_DIALOG_TAB_FINAL_SELL,
   LOGIC_HUB_DIALOG_TAB_GEAR,
   LOGIC_HUB_DIALOG_TAB_KEEP_UNIQUES,
+  LOGIC_HUB_DIALOG_TAB_KEEP_BEST_SUBSTAT,
   LOGIC_HUB_DIALOG_TABS,
   finalSellCoversFullLevelRange,
   type LogicHubDialogTab,
@@ -23,11 +24,13 @@ import {
   type FinalSellSetsMode,
 } from '../../lib/finalSell'
 import type { KeepUniqueDetectionSnapshot, KeepUniqueRule } from '../../lib/keepUniques'
+import type { KeepBestSubstatDetectionSnapshot, KeepBestSubstatRule } from '../../lib/keepBestSubstat'
 import type { BuilderConfig } from '../../lib/hsfBuilder'
 import type { RuleTesterItem } from '../../lib/ruleTesterSession'
 import type { TesterPreviewMatch, TesterPreviewRow } from '../../types/testerPreview'
 import { GearTesterTabContent, type GearTesterTabLayoutSlots } from './GearTesterTabContent'
 import KeepUniquesTab from './KeepUniquesTab'
+import KeepBestSubstatTab from './KeepBestSubstatTab'
 // MarkdownTooltip keeps the level-hint copy behavior aligned with the rest of the app.
 import MarkdownTooltip from '../MarkdownTooltip'
 import type { Metaset } from '../../lib/metasets'
@@ -48,8 +51,15 @@ type LogicHubDialogProps = {
   keepUniquesEnabled: boolean
   onKeepUniquesEnabledChange: (next: SetStateAction<boolean>) => void
   keepUniqueDetection: KeepUniqueDetectionSnapshot | null
+  keepBestSubstatRules: KeepBestSubstatRule[]
+  onKeepBestSubstatRulesChange: (next: SetStateAction<KeepBestSubstatRule[]>) => void
+  keepBestSubstatEnabled: boolean
+  onKeepBestSubstatEnabledChange: (next: SetStateAction<boolean>) => void
+  keepBestSubstatDetection: KeepBestSubstatDetectionSnapshot | null
   gearEntries: TesterPreviewRow[]
   keepUniqueItemKeys: ReadonlySet<number>
+  keepBestSubstatItemKeys: ReadonlySet<number>
+  testerCardWidthPx: number | null
   substatColors: Record<number, { fg: string; bg: string }>
   useStatButtonColors: boolean
   onToggleStatColors: (next: boolean) => void
@@ -61,6 +71,7 @@ type LogicHubDialogProps = {
   metasets: Metaset[]
   suppressMatchDetails?: boolean
   onResetKeepUniques?: () => void
+  onResetKeepBestSubstat?: () => void
   onJumpToRule?: (ruleIndex: number, cfgIdx: number | null) => void
   workloadProgressRatio: number
   customCfgs: BuilderConfig[]
@@ -87,8 +98,15 @@ export default function LogicHubDialog(props: LogicHubDialogProps) {
     keepUniquesEnabled,
     onKeepUniquesEnabledChange,
     keepUniqueDetection,
+    keepBestSubstatRules,
+    onKeepBestSubstatRulesChange,
+    keepBestSubstatEnabled,
+    onKeepBestSubstatEnabledChange,
+    keepBestSubstatDetection,
     gearEntries,
     keepUniqueItemKeys,
+    keepBestSubstatItemKeys,
+    testerCardWidthPx,
     substatColors,
     useStatButtonColors,
     onToggleStatColors,
@@ -100,6 +118,7 @@ export default function LogicHubDialog(props: LogicHubDialogProps) {
     metasets,
     suppressMatchDetails = false,
     onResetKeepUniques,
+    onResetKeepBestSubstat,
     onJumpToRule,
     workloadProgressRatio,
     customCfgs,
@@ -113,6 +132,8 @@ export default function LogicHubDialog(props: LogicHubDialogProps) {
   const { t } = useI18n()
   // Keep Uniques resets need their own confirmation flow so accidental clicks do not wipe custom rules.
   const [confirmResetKeepUniques, setConfirmResetKeepUniques] = useState(false)
+  // Keep Best Substat resets mirror the keep-unique guardrail.
+  const [confirmResetKeepBestSubstat, setConfirmResetKeepBestSubstat] = useState(false)
   // Gear resets also confirm so a stray click does not clear imported databases or manual samples.
   const [confirmResetGearTester, setConfirmResetGearTester] = useState(false)
   // Fallback keeps the tester grid handler stable even when no jump target is supplied.
@@ -148,6 +169,8 @@ export default function LogicHubDialog(props: LogicHubDialogProps) {
   const showFinalSellTab = normalizedTab === LOGIC_HUB_DIALOG_TAB_FINAL_SELL
   const showGearTab = normalizedTab === LOGIC_HUB_DIALOG_TAB_GEAR
   const showKeepUniquesTab = normalizedTab === LOGIC_HUB_DIALOG_TAB_KEEP_UNIQUES
+  // Keep Best Substat is a first-class Logic Hub tab like Keep Uniques.
+  const showKeepBestSubstatTab = normalizedTab === LOGIC_HUB_DIALOG_TAB_KEEP_BEST_SUBSTAT
   // The reset affordance still sits in the Dialog actions, but Keep Uniques routes through a confirm prompt.
   const showResetButton = showFinalSellTab
     ? Boolean(onReset)
@@ -155,7 +178,9 @@ export default function LogicHubDialog(props: LogicHubDialogProps) {
       ? Boolean(onResetGearTester)
       : showKeepUniquesTab
       ? Boolean(onResetKeepUniques)
-      : false
+      : showKeepBestSubstatTab
+        ? Boolean(onResetKeepBestSubstat)
+        : false
   const handleResetButtonClick = () => {
     if (showFinalSellTab) {
       onReset?.()
@@ -166,12 +191,20 @@ export default function LogicHubDialog(props: LogicHubDialogProps) {
       return
     }
     if (showKeepUniquesTab && onResetKeepUniques) setConfirmResetKeepUniques(true)
+    // Keep Best Substat reset is gated behind a confirm dialog.
+    if (showKeepBestSubstatTab && onResetKeepBestSubstat) setConfirmResetKeepBestSubstat(true)
   }
   // Once confirmed we immediately run the keep-unique reset so custom overrides do not linger in a half-reset state.
   const handleConfirmResetKeepUniques = () => {
     if (!onResetKeepUniques) return
     setConfirmResetKeepUniques(false)
     onResetKeepUniques()
+  }
+  // Keep-best reset mirrors keep-uniques behavior to avoid accidental wipes.
+  const handleConfirmResetKeepBestSubstat = () => {
+    if (!onResetKeepBestSubstat) return
+    setConfirmResetKeepBestSubstat(false)
+    onResetKeepBestSubstat()
   }
   // Clear the tester items in one shot so manual + imported gear disappear together.
   const handleConfirmResetGearTester = () => {
@@ -238,6 +271,10 @@ export default function LogicHubDialog(props: LogicHubDialogProps) {
                 value={LOGIC_HUB_DIALOG_TAB_KEEP_UNIQUES}
                 label={t('tabKeepUniques')}
                 data-tour-id="keepuniques.tab"
+              />
+              <Tab
+                value={LOGIC_HUB_DIALOG_TAB_KEEP_BEST_SUBSTAT}
+                label={t('tabKeepBestSubstat')}
               />
             </Tabs>
           </Stack>
@@ -509,6 +546,7 @@ export default function LogicHubDialog(props: LogicHubDialogProps) {
             detection={keepUniqueDetection}
             gearEntries={gearEntries}
             uniqueItemKeys={keepUniqueItemKeys}
+            testerCardWidthPx={testerCardWidthPx}
             substatColors={substatColors}
             useStatButtonColors={useStatButtonColors}
             onToggleStatColors={onToggleStatColors}
@@ -518,6 +556,30 @@ export default function LogicHubDialog(props: LogicHubDialogProps) {
             colorIconSrc={colorIconSrc}
             configNames={configNames}
             metasets={metasets}
+            onJumpToRule={onJumpToRule}
+            suppressMatchDetails={suppressMatchDetails}
+            workloadProgressRatio={workloadProgressRatio}
+          />
+        )}
+        {showKeepBestSubstatTab && (
+          // Keep Best Substat shares the grid surface but focuses on substat ranking rules.
+          <KeepBestSubstatTab
+            rules={keepBestSubstatRules}
+            enabled={keepBestSubstatEnabled}
+            onRulesChange={onKeepBestSubstatRulesChange}
+            onToggleEnabled={onKeepBestSubstatEnabledChange}
+            detection={keepBestSubstatDetection}
+            gearEntries={gearEntries}
+            bestItemKeys={keepBestSubstatItemKeys}
+            testerCardWidthPx={testerCardWidthPx}
+            substatColors={substatColors}
+            useStatButtonColors={useStatButtonColors}
+            onToggleStatColors={onToggleStatColors}
+            onOpenManageColors={onOpenManageColors}
+            colorBlindMode={colorBlindMode}
+            onChangeColorBlindMode={onChangeColorBlindMode}
+            colorIconSrc={colorIconSrc}
+            configNames={configNames}
             onJumpToRule={onJumpToRule}
             suppressMatchDetails={suppressMatchDetails}
             workloadProgressRatio={workloadProgressRatio}
@@ -565,6 +627,20 @@ export default function LogicHubDialog(props: LogicHubDialogProps) {
         <DialogActions>
           <Button onClick={() => setConfirmResetKeepUniques(false)}>{t('cancel')}</Button>
           <Button color="error" onClick={handleConfirmResetKeepUniques}>{t('reset')}</Button>
+        </DialogActions>
+      </Dialog>
+      {/* Dedicated confirm dialog mirrors Keep Uniques so keep-best resets are never accidental. */}
+      <Dialog
+        open={confirmResetKeepBestSubstat}
+        onClose={() => setConfirmResetKeepBestSubstat(false)}
+      >
+        <DialogTitle>{t('titleResetKeepBestSubstat')}</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2">{t('msgResetKeepBestSubstat')}</Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setConfirmResetKeepBestSubstat(false)}>{t('cancel')}</Button>
+          <Button color="error" onClick={handleConfirmResetKeepBestSubstat}>{t('reset')}</Button>
         </DialogActions>
       </Dialog>
     </>

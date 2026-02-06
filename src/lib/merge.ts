@@ -7,7 +7,13 @@
 import type { HsfFile, HsfRule } from './hsfTypes'
 import { variantToMain, variantToSub } from './hsfTypes'
 import type { BuilderConfig, SubstatTargetTable } from './hsfBuilder'
-import { RULE_COUNT_LIMIT, TOTAL_RULE_COUNT_LIMIT, ACCESSORY_NO_SET_ID, KEEP_UNIQUE_CONFIG_ID_BASE } from './constants'
+import {
+  RULE_COUNT_LIMIT,
+  TOTAL_RULE_COUNT_LIMIT,
+  ACCESSORY_NO_SET_ID,
+  KEEP_BEST_SUBSTAT_CONFIG_ID_BASE,
+  KEEP_UNIQUE_CONFIG_ID_BASE,
+} from './constants'
 import { buildHsfRules, RuleLimitReachedError, resolveAutoRarityCode } from './hsfBuilder'
 import { findObsoleteRules } from './hsfObsolete'
 import type { Metaset } from './metasets'
@@ -43,18 +49,32 @@ import {
   KeepUniqueRuleActivation,
   cloneKeepUniqueCombination,
 } from './keepUniques'
+import type { KeepBestSubstatDetectionEntry, KeepBestSubstatDetectionSnapshot, KeepBestSubstatRule, KeepBestSubstatMergeInput } from './keepBestSubstat'
+import { hasActiveKeepBestSubstatRules } from './keepBestSubstat'
 import { normalizeConfigName } from './ruleConfigIndex'
 
 export const RULE_SOURCE_HSF = 'hsf' as const
 export const RULE_SOURCE_HSFC = 'hsfc' as const
 export const RULE_SOURCE_FINAL_SELL = 'finalSell' as const
 export const RULE_SOURCE_KEEP_UNIQUES = 'keepUniques' as const
+export const RULE_SOURCE_KEEP_BEST_SUBSTAT = 'keepBestSubstat' as const
+
+// Keep override sources must be treated as lower-priority keeps during match evaluation.
+export const KEEP_OVERRIDE_RULE_SOURCES = [
+  RULE_SOURCE_KEEP_UNIQUES,
+  RULE_SOURCE_KEEP_BEST_SUBSTAT,
+] as const
+
+export const isKeepOverrideRuleSource = (source: string | null | undefined): source is (typeof KEEP_OVERRIDE_RULE_SOURCES)[number] => (
+  typeof source === 'string' && KEEP_OVERRIDE_RULE_SOURCES.includes(source as (typeof KEEP_OVERRIDE_RULE_SOURCES)[number])
+)
 
 export type RuleSource =
   | typeof RULE_SOURCE_HSF
   | typeof RULE_SOURCE_HSFC
   | typeof RULE_SOURCE_FINAL_SELL
   | typeof RULE_SOURCE_KEEP_UNIQUES
+  | typeof RULE_SOURCE_KEEP_BEST_SUBSTAT
 
 export type HsfRuleWithCfg = HsfRule & {
   __lineIdx?: number
@@ -72,6 +92,12 @@ export type HsfRuleWithCfg = HsfRule & {
   __keepUniqueItemKey?: number
   __keepUniquePlaceholder?: boolean
   __keepUniquePlaceholderMissing?: number
+  __keepBestSubstatRuleId?: string
+  __keepBestSubstatRuleOrdinal?: number
+  __keepBestSubstatStat?: number
+  __keepBestSubstatRequired?: number
+  __keepBestSubstatScanMs?: number
+  __keepBestSubstatItemKey?: number
 }
 
 const BRANCH_ORDER = Symbol('branchOrder')
@@ -415,7 +441,9 @@ const rarityValueToCode = (value: unknown): RarityCode => {
   }
 }
 
-const coverageLevelsForArtifact = (artifact: KeepUniqueDetectionEntry['artifacts'][number]): LevelMilestone[] => {
+type KeepInjectedArtifact = KeepUniqueDetectionEntry['artifacts'][number] | KeepBestSubstatDetectionEntry['artifacts'][number]
+
+const coverageLevelsForArtifact = (artifact: KeepInjectedArtifact): LevelMilestone[] => {
   const exact = Number(artifact.exactLevel)
   const resolved = Number.isFinite(exact)
     ? Math.max(0, Math.min(16, Math.floor(exact)))
@@ -427,7 +455,7 @@ const coverageLevelsForArtifact = (artifact: KeepUniqueDetectionEntry['artifacts
   return LEVEL_MILESTONES.slice()
 }
 
-const buildKeepUniqueSubstats = (substats: KeepUniqueDetectionEntry['artifacts'][number]['substats']): HsfRule['Substats'] => {
+const buildKeepUniqueSubstats = (substats: KeepInjectedArtifact['substats']): HsfRule['Substats'] => {
   // Start from the Any template so padding stays consistent with HSF expectations.
   const cloned = cloneAnySubstats()
   if (!Array.isArray(substats) || substats.length === 0) return cloned
@@ -716,6 +744,132 @@ export function prependKeepUniqueRules({
   return { baseRules: nextBaseRules, mergedRules }
 }
 
+export const buildKeepBestSubstatRules = (
+  rules: readonly KeepBestSubstatRule[],
+  detection: KeepBestSubstatDetectionSnapshot | null,
+): HsfRuleWithCfg[] => {
+  const detectionMap = detection
+    ? new Map<string, KeepBestSubstatDetectionEntry>(
+      detection.entries
+        .filter((entry) => typeof entry.ruleId === 'string')
+        .map((entry) => [entry.ruleId as string, entry]),
+    )
+    : new Map()
+  const keepRules: HsfRuleWithCfg[] = []
+  const emitted = new Set<string>()
+  let keepRuleOffset = 0
+  let keepRuleOrdinal = 0
+  for (const rule of rules) {
+    keepRuleOrdinal += 1
+    const entry = rule.id ? detectionMap.get(rule.id) : null
+    if (!entry) continue
+    const artifacts = entry.artifacts ?? []
+    if (artifacts.length === 0) continue
+    const configId = KEEP_BEST_SUBSTAT_CONFIG_ID_BASE - keepRuleOffset
+    keepRuleOffset += 1
+    for (const artifact of artifacts) {
+      const levels = coverageLevelsForArtifact(artifact)
+      for (const level of levels) {
+        const artifactKey = `${artifact.itemKey}:${level}`
+        if (emitted.has(artifactKey)) continue
+        emitted.add(artifactKey)
+        const mainTuple = variantToMain(artifact.mainStat)
+        const artifactSetPayload = { ArtifactSet: [Number(artifact.set)] }
+        const artifactTypePayload = { ArtifactType: [Number(artifact.slot)] }
+        const keepRule: HsfRuleWithCfg = {
+          Keep: true,
+          IsRuleTypeAND: false,
+          Use: true,
+          ConfigID: configId,
+          ...artifactSetPayload,
+          ...artifactTypePayload,
+          Rank: clampRankOrRarityValue(artifact.rank),
+          Rarity: rarityValueToCode(artifact.rarity),
+          MainStatID: mainTuple.id,
+          MainStatF: Number.isFinite(mainTuple.f) ? Number(mainTuple.f) : 1,
+          LVLForCheck: level ?? LEVEL_ANY_SENTINEL,
+          Faction: artifact.faction ?? 0,
+          Substats: buildKeepUniqueSubstats(artifact.substats),
+          __source: RULE_SOURCE_KEEP_BEST_SUBSTAT,
+          __keepBestSubstatRuleId: rule.id,
+          __keepBestSubstatRuleOrdinal: keepRuleOrdinal,
+          __keepBestSubstatStat: rule.substat,
+          __keepBestSubstatRequired: entry.perGroupRequiredCount,
+          __keepBestSubstatItemKey: artifact.itemKey,
+        }
+        if (detection) keepRule.__keepBestSubstatScanMs = detection.scannedAt
+        keepRules.push(keepRule)
+      }
+    }
+  }
+  return keepRules
+}
+
+type KeepBestSubstatMergeParams = {
+  baseRules: HsfRuleWithCfg[]
+  customRules: HsfRuleWithCfg[]
+  finalSellRules: HsfRuleWithCfg[]
+  resolvedKeepBestSubstatRules: readonly KeepBestSubstatRule[]
+  detection: KeepBestSubstatDetectionSnapshot | null
+}
+
+type KeepBestSubstatMergeResult = {
+  baseRules: HsfRuleWithCfg[]
+  mergedRules: HsfRuleWithCfg[]
+}
+
+// Shared helper: inject keep-best-substat rules after Keep Uniques with duplicate protection.
+export function prependKeepBestSubstatRules({
+  baseRules,
+  customRules,
+  finalSellRules,
+  resolvedKeepBestSubstatRules,
+  detection,
+}: KeepBestSubstatMergeParams): KeepBestSubstatMergeResult {
+  // Strip any prior keep-best-substat injections to avoid double-prepending.
+  const baseWithoutKeepBest = baseRules.filter((rule) => rule.__source !== RULE_SOURCE_KEEP_BEST_SUBSTAT)
+  // Keep existing keep-unique rules at the top so their precedence is preserved.
+  const existingKeepOverrides = baseWithoutKeepBest.filter((rule) => rule.__source === RULE_SOURCE_KEEP_UNIQUES)
+  const baseWithoutOverrides = baseWithoutKeepBest.filter((rule) => rule.__source !== RULE_SOURCE_KEEP_UNIQUES)
+  // Collect keys of existing keep rules so we skip duplicates.
+  const baseCustomKeepKeys = new Set<string>()
+  for (const rule of existingKeepOverrides) {
+    if (rule.Keep === true) baseCustomKeepKeys.add(canonicalRuleKey(rule))
+  }
+  for (const rule of baseWithoutOverrides) {
+    if (rule.Keep === true) baseCustomKeepKeys.add(canonicalRuleKey(rule))
+  }
+  for (const rule of customRules) {
+    if (rule.Keep === true) baseCustomKeepKeys.add(canonicalRuleKey(rule))
+  }
+  const candidateKeepRules = detection ? buildKeepBestSubstatRules(resolvedKeepBestSubstatRules, detection) : []
+  const filteredKeepRules: HsfRuleWithCfg[] = []
+  const injectedKeepKeys = new Set<string>()
+  for (const rule of candidateKeepRules) {
+    const canonicalKey = canonicalRuleKey(rule)
+    // Skip if a base/custom keep already covers this combination.
+    if (baseCustomKeepKeys.has(canonicalKey)) continue
+    const dedupeKey = rule.__source === RULE_SOURCE_KEEP_BEST_SUBSTAT
+      ? `kbs:item:${rule.__keepBestSubstatItemKey ?? 'na'}:lvl:${Number.isFinite(rule.LVLForCheck) ? Number(rule.LVLForCheck) : LEVEL_ANY_SENTINEL}`
+      : canonicalKey
+    if (injectedKeepKeys.has(dedupeKey)) continue
+    injectedKeepKeys.add(dedupeKey)
+    filteredKeepRules.push(rule)
+  }
+  // Keep-best-substat rules follow keep-unique but precede base rules.
+  const nextBaseRules = [
+    ...existingKeepOverrides,
+    ...filteredKeepRules,
+    ...baseWithoutOverrides,
+  ]
+  const mergedRules: HsfRuleWithCfg[] = [
+    ...nextBaseRules,
+    ...customRules,
+    ...finalSellRules,
+  ]
+  return { baseRules: nextBaseRules, mergedRules }
+}
+
 export function computeMergedRules(params: {
   hsf: HsfFile | null
   customCfgs: BuilderConfig[]
@@ -724,8 +878,9 @@ export function computeMergedRules(params: {
   finalSellRemainder?: FinalSellRemainderConfig
   prebuiltCustomRules?: ReadonlyMap<number, readonly HsfRuleWithCfg[]>
   keepUniques?: KeepUniquesMergeInput
+  keepBestSubstat?: KeepBestSubstatMergeInput
 }): HsfRuleWithCfg[] {
-  const { hsf, customCfgs, metasets, substatTargets, finalSellRemainder, prebuiltCustomRules, keepUniques } = params
+  const { hsf, customCfgs, metasets, substatTargets, finalSellRemainder, prebuiltCustomRules, keepUniques, keepBestSubstat } = params
 
   // Always strip any foreign/internal fields (e.g., __lineIdx) from base HSF rules
   const baseRaw = hsf?.Rules ?? []
@@ -799,7 +954,19 @@ export function computeMergedRules(params: {
       detection: keepUniquesInput.detection ?? null,
     })
     : { baseRules: base, mergedRules: [...base, ...customs, ...finalSellRules] }
-  const merged = keepMergeResult.mergedRules
+  const keepBestSubstatInput = hasActiveKeepBestSubstatRules(keepBestSubstat)
+    ? keepBestSubstat
+    : null
+  const keepBestMergeResult: KeepBestSubstatMergeResult = keepBestSubstatInput
+    ? prependKeepBestSubstatRules({
+      baseRules: keepMergeResult.baseRules,
+      customRules: customs,
+      finalSellRules,
+      resolvedKeepBestSubstatRules: keepBestSubstatInput.rules,
+      detection: keepBestSubstatInput.detection ?? null,
+    })
+    : { baseRules: keepMergeResult.baseRules, mergedRules: keepMergeResult.mergedRules }
+  const merged = keepBestMergeResult.mergedRules
   // Assign a stable preview line index so filtered views can still display
   // the original ordering (1-based when rendered).
   for (let i = 0; i < merged.length; i += 1) {
