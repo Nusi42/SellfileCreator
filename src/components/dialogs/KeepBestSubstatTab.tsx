@@ -59,6 +59,12 @@ import {
   type KeepOverrideScopeKey,
 } from '../../lib/keepOverrideScope'
 import { KeepOverrideScopeChip } from '../keepOverrides/KeepOverrideScopeChip'
+import {
+  KEEP_OVERRIDE_RULES_COLUMN_MIN_WIDTH_COMPACT_PX,
+  KEEP_OVERRIDE_RULES_COLUMN_MIN_WIDTH_PX,
+  resolveKeepOverrideGridPaneWidth,
+} from '../../lib/keepOverrideLayout'
+import { parseSpacingPx, TESTER_GRID_COLUMN_GAP_UNITS, TESTER_GRID_ROW_PADDING_UNITS } from '../../lib/testerGridLayout'
 import { useKeepBestSubstatGridColumnMode, useKeepBestSubstatGridFilterMode } from '../../state/keepBestSubstatPreferences'
 import type { SetStateAction } from 'react'
 import type { TesterPreviewRow } from '../../types/testerPreview'
@@ -74,6 +80,7 @@ type KeepBestSubstatTabProps = {
   detection: KeepBestSubstatDetectionSnapshot | null
   gearEntries: TesterPreviewRow[]
   bestItemKeys: ReadonlySet<number>
+  testerCardWidthPx: number | null
   substatColors: Record<number, { fg: string; bg: string }>
   useStatButtonColors: boolean
   onToggleStatColors: (next: boolean) => void
@@ -95,6 +102,7 @@ export default function KeepBestSubstatTab({
   detection,
   gearEntries,
   bestItemKeys,
+  testerCardWidthPx,
   substatColors,
   useStatButtonColors,
   onToggleStatColors,
@@ -109,6 +117,10 @@ export default function KeepBestSubstatTab({
 }: KeepBestSubstatTabProps) {
   const { t } = useI18n()
   const theme = useTheme()
+  // Grid layout uses the same spacing units as the tester grid.
+  const gridGapPx = useMemo(() => parseSpacingPx(theme.spacing(TESTER_GRID_COLUMN_GAP_UNITS)), [theme])
+  // Row padding is applied on both sides of the card row container.
+  const gridRowPaddingPx = useMemo(() => parseSpacingPx(theme.spacing(TESTER_GRID_ROW_PADDING_UNITS)), [theme])
   // Filter mode (all vs selection) is stored locally, matching Keep Uniques behavior.
   const [gridFilterMode, setGridFilterMode] = useKeepBestSubstatGridFilterMode()
   // Column preference is local to this tab so the rules column can grow when needed.
@@ -708,8 +720,24 @@ export default function KeepBestSubstatTab({
         <Box
           sx={{
             display: { xs: 'block', md: 'grid' },
-            // Wider rule list when the grid is single-column.
-            gridTemplateColumns: { md: `${gridColumnMode === 1 ? 'minmax(420px, 0.95fr)' : '360px'} minmax(0, 1fr)` },
+            // Keep-override grid pane matches the Rule Tester 4-column card width.
+            gridTemplateColumns: { md: (() => {
+              // Allow a tighter rules column in 2-column mode so the grid doesn't shift right.
+              const rulesColumnMinWidth = gridColumnMode === 2
+                ? KEEP_OVERRIDE_RULES_COLUMN_MIN_WIDTH_COMPACT_PX
+                : KEEP_OVERRIDE_RULES_COLUMN_MIN_WIDTH_PX
+              // Use the measured tester card width so 1/2-column modes keep cards identical.
+              const gridPaneWidth = resolveKeepOverrideGridPaneWidth({
+                gridColumnMode,
+                targetCardWidthPx: testerCardWidthPx,
+                gridGapPx,
+                rowPaddingPx: gridRowPaddingPx,
+              })
+              // Fall back to a flexible grid pane if the tester width is unknown.
+              return gridPaneWidth
+                ? `minmax(${rulesColumnMinWidth}px, 1fr) ${gridPaneWidth}`
+                : `minmax(${rulesColumnMinWidth}px, 1fr) minmax(0, 1fr)`
+            })() },
             height: '100%',
             gap: 2,
           }}
@@ -742,7 +770,10 @@ export default function KeepBestSubstatTab({
               </Button>
             </Box>
           </Box>
-          <Box data-tour-id="keepbest.grid" sx={{ minHeight: 0, display: 'flex', flexDirection: 'column', gap: 1 }}>
+          <Box
+            data-tour-id="keepbest.grid"
+            sx={{ minHeight: 0, display: 'flex', flexDirection: 'column', gap: 1 }}
+          >
             {/* Grid header keeps filter + progress + count aligned. */}
             <Box
               sx={{

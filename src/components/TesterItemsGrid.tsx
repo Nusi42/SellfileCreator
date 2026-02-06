@@ -61,6 +61,7 @@ import { TesterSummaryLabel } from './TesterSummaryLabel'
 import { TesterRuleReferenceChip } from './TesterRuleReferenceChip'
 import { getTesterMatchBorderColor } from './testerMatchStyles'
 import { RULE_SOURCE_KEEP_BEST_SUBSTAT, RULE_SOURCE_KEEP_UNIQUES } from '../lib/merge'
+import { KEEP_OVERRIDE_REFERENCE_COLUMN_COUNT } from '../lib/keepOverrideLayout'
 // MarkdownTooltip unifies the tester’s tooltip behavior (source glyphs, manage colors, etc.) with the rest of the UI.
 import MarkdownTooltip from './MarkdownTooltip'
 import { WithSetTooltip } from './SetTooltip'
@@ -105,6 +106,7 @@ import {
 } from '../state/testerGridNormalizedOverlayPreferences'
 import { TesterNormalizedPresetEditorMenu } from './TesterNormalizedPresetEditorMenu'
 import type { TesterRuleTemplateIntent } from '../lib/testerRuleTemplates'
+import { parseSpacingPx, TESTER_GRID_COLUMN_GAP_UNITS, TESTER_GRID_ROW_PADDING_UNITS } from '../lib/testerGridLayout'
 
 type EmptyStateWrapperProps = Omit<EmptyStateMessageProps, 'children'>
 
@@ -113,14 +115,14 @@ const TESTER_GRID_ICON_BOX_SIZE_PX = 72
 const GRID_CARD_ICON_COLUMN_PX = TESTER_GRID_ICON_BOX_SIZE_PX
 const GRID_CARD_STATS_MIN_COLUMN_PX = 112
 const GRID_CARD_TEMPLATE = `${GRID_CARD_ICON_COLUMN_PX}px minmax(${GRID_CARD_STATS_MIN_COLUMN_PX}px, 1fr)`
-const GRID_GAP = 0.375
+const GRID_GAP = TESTER_GRID_COLUMN_GAP_UNITS
 const CARD_COLUMN_GAP_UNITS = 1.5
 const CARD_BORDER_RADIUS_PX = 8
 const CARD_PADDING_UNITS = 1
 const CARD_MATCH_ROW_HEIGHT_PX = 24
 const CARD_MATCH_ROW_GAP_PX = 2
 const CARD_MATCH_ROW_MARGIN_PX = 2
-const GRID_CARD_CONTAINER_PADDING_UNITS = 0.75
+const GRID_CARD_CONTAINER_PADDING_UNITS = TESTER_GRID_ROW_PADDING_UNITS
 const GRID_CARD_LEFT_COLUMN_GAP_UNITS = 0.5
 const GRID_CARD_SOURCE_ICON_SIZE_PX = 24
 const VAULT_GLYPH_SIZE_PX = 20
@@ -268,14 +270,13 @@ const SOURCE_ICON_MAP: Record<TesterSourceFilter, React.ElementType | null> = {
   inbox: MailOutlineIcon,
 }
 
-const pxValue = (value: string): number => Number.parseFloat(value) || 0
 const measureMatchingRowContentWidth = (node: HTMLElement): number => {
   if (typeof window === 'undefined') {
     return node.clientWidth
   }
   const style = window.getComputedStyle(node)
-  const paddingLeft = pxValue(style.paddingLeft)
-  const paddingRight = pxValue(style.paddingRight)
+  const paddingLeft = parseSpacingPx(style.paddingLeft)
+  const paddingRight = parseSpacingPx(style.paddingRight)
   return Math.max(0, node.clientWidth - paddingLeft - paddingRight)
 }
 type TranslateFn = ReturnType<typeof useI18n>['t']
@@ -310,6 +311,8 @@ type TesterItemsGridProps = {
   // Optional highlighter lets Keep Uniques fade non-matching cards without forking the grid.
   highlightedRowPredicate?: ((row: TesterPreviewRow) => boolean) | null
   dimUnhighlightedRows?: boolean
+  // Optional card-width tap for keep-override layout (measures Rule Tester 4-col cards).
+  onCardWidthMeasured?: (widthPx: number) => void
   // Optional Rule Tester sort controls; view-only ordering that does not affect exports.
   substatSort?: TesterSubstatSortSpec | null
   // Full sort preference state so the grid can gate the [S] overlay option.
@@ -371,6 +374,7 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     suppressMatchDetails: suppressMatchDetailsProp = false,
     highlightedRowPredicate = null,
     dimUnhighlightedRows = false,
+    onCardWidthMeasured,
     substatSort = null,
     sortState = null,
     grouping = TESTER_GROUPING_DEFAULT_STATE,
@@ -671,6 +675,8 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     })
   }, [allGroupKeys])
   const containerRef = useRef<HTMLDivElement | null>(null)
+  // Cache the last measured card width so we only notify on real changes.
+  const cardWidthMeasureRef = useRef<number | null>(null)
   const [scrollTop, setScrollTop] = useState(0)
   const [viewportHeight, setViewportHeight] = useState(0)
   const [showScrollGroupHint, setShowScrollGroupHint] = useState(false)
@@ -704,6 +710,7 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
       window.addEventListener('resize', measure)
       return () => window.removeEventListener('resize', measure)
     }
+    // Observe the container so width updates propagate as layout shifts.
     const observer = new ResizeObserver(() => { measure() })
     observer.observe(node)
     return () => {
@@ -760,8 +767,57 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     showOtherMatches,
     theme,
   })
+  // Only measure card width in the Rule Tester so keep-override tabs can mirror it.
+  const shouldMeasureCardWidth = variant === 'tester' && typeof onCardWidthMeasured === 'function'
+  // Re-run on row-count changes so late-loading data still triggers a measurement.
+  useLayoutEffect(() => {
+    // Bail fast when measurement is disabled.
+    if (!shouldMeasureCardWidth) return undefined
+    // Measurement needs the scroll container to query cards.
+    const container = containerRef.current
+    if (!container) return undefined
+    // Measure the first rendered card so keep-override tabs can match its width.
+    const measure = () => {
+      // Grab the first visible card; virtualization may render only a subset.
+      const cardNode = container.querySelector<HTMLElement>('[data-tester-grid-card="true"]')
+      if (!cardNode) return
+      // Read the visible card width so auto-zoom scaling stays consistent.
+      const cardRect = cardNode.getBoundingClientRect()
+      if (!Number.isFinite(cardRect.width) || cardRect.width <= 0) return
+      // Offset width stays in CSS pixels; use the ratio to detect zoom scaling.
+      const offsetWidth = Math.max(0, cardNode.offsetWidth || 0)
+      const scaleFactor = offsetWidth > 0 ? (cardRect.width / offsetWidth) : 1
+      const normalizedScale = Number.isFinite(scaleFactor) && scaleFactor > 0 ? scaleFactor : 1
+      // Normalize the gap to visible pixels so our math stays in one coordinate system.
+      const normalizedGap = Math.max(0, gridGapPx) * normalizedScale
+      const targetColumns = KEEP_OVERRIDE_REFERENCE_COLUMN_COUNT
+      const currentColumns = Math.max(1, gridColumnCount)
+      const gridWidth = (cardRect.width * currentColumns)
+        + (normalizedGap * Math.max(0, currentColumns - 1))
+      const availableWidth = Math.max(0, gridWidth - (normalizedGap * Math.max(0, targetColumns - 1)))
+      if (availableWidth <= 0) return
+      const rawWidth = availableWidth / targetColumns
+      if (!Number.isFinite(rawWidth) || rawWidth <= 0) return
+      // Normalize to two decimals to avoid subpixel jitter churn.
+      const normalizedWidth = Math.round(rawWidth * 100) / 100
+      // Skip updates when width is unchanged.
+      if (cardWidthMeasureRef.current === normalizedWidth) return
+      // Cache and forward the new measurement.
+      cardWidthMeasureRef.current = normalizedWidth
+      onCardWidthMeasured?.(normalizedWidth)
+    }
+    measure()
+    // ResizeObserver tracks layout changes; fallback to window resize when unavailable.
+    if (typeof ResizeObserver === 'undefined') {
+      window.addEventListener('resize', measure)
+      return () => window.removeEventListener('resize', measure)
+    }
+    const observer = new ResizeObserver(() => { measure() })
+    observer.observe(container)
+    return () => observer.disconnect()
+  }, [gridColumnCount, gridGapPx, onCardWidthMeasured, rows.length, shouldMeasureCardWidth])
   const groupCountChipBg = theme.palette.mode === 'dark' ? theme.palette.grey[800] : theme.palette.grey[100]
-  const accordionSummaryHeightPx = useMemo(() => pxValue(theme.spacing(5)), [theme])
+  const accordionSummaryHeightPx = useMemo(() => parseSpacingPx(theme.spacing(5)), [theme])
   useEffect(() => () => {
     if (scrollHintHideTimerRef.current) {
       clearTimeout(scrollHintHideTimerRef.current)
@@ -2310,7 +2366,7 @@ export const TesterGridCard = React.memo(function TesterGridCard({
   const visibleOtherMatching = otherMatchingEntries.slice(0, effectiveVisibleOtherMatchingLimit)
   const hiddenOtherMatching = otherMatchingEntries.slice(effectiveVisibleOtherMatchingLimit)
   // Gap + refs let us squeeze as many chips as possible before handing the overflow to a popover.
-  const matchingChipGapPx = pxValue(String(theme.spacing(MATCHING_CHIP_GAP_UNITS)))
+  const matchingChipGapPx = parseSpacingPx(String(theme.spacing(MATCHING_CHIP_GAP_UNITS)))
   const visibleChipsContainerRef = useRef<HTMLDivElement | null>(null)
   const handleVisibleChipsContainerRef = useCallback((node: HTMLDivElement | null) => {
     visibleChipsContainerRef.current = node
@@ -4015,7 +4071,7 @@ export function getTesterGridCardSizing(
   options: { showFirstMatchRow: boolean; showOtherMatchesRow: boolean },
 ): TesterGridCardSizing {
   // Vertical padding uses the same units as the main grid cards.
-  const cardVerticalPaddingPx = pxValue(theme.spacing(CARD_PADDING_UNITS)) * 2
+  const cardVerticalPaddingPx = parseSpacingPx(theme.spacing(CARD_PADDING_UNITS)) * 2
   // Column heights feed the deterministic card height calculation.
   const { firstRowHeightPx } = getTesterGridCardColumnHeights(theme, gridColumnCount)
   // Match rows add fixed-height blocks beneath the main summary row.
@@ -4026,9 +4082,9 @@ export function getTesterGridCardSizing(
     firstRowHeightPx,
   )
   // Horizontal padding keeps the icon + stats columns aligned with the grid.
-  const horizontalPaddingPx = pxValue(theme.spacing(CARD_PADDING_UNITS))
+  const horizontalPaddingPx = parseSpacingPx(theme.spacing(CARD_PADDING_UNITS))
   // Column gap matches the standard grid card spacing.
-  const columnGapPx = pxValue(theme.spacing(CARD_COLUMN_GAP_UNITS))
+  const columnGapPx = parseSpacingPx(theme.spacing(CARD_COLUMN_GAP_UNITS))
   // Minimum width mirrors the two-column template used in the grid.
   const minWidthPx = GRID_CARD_ICON_COLUMN_PX
     + GRID_CARD_STATS_MIN_COLUMN_PX
@@ -4071,20 +4127,20 @@ function getTesterGridCardColumnHeights(theme: Theme, gridColumnCount: number): 
   const htmlFontSize = Number(theme.typography.htmlFontSize) || DEFAULT_HTML_FONT_SIZE_PX
   const summaryFontSizePx = CARD_SUMMARY_FONT_SIZE_REM * htmlFontSize
   const summaryLineHeightPx = CARD_SUMMARY_LINE_HEIGHT_REM * htmlFontSize
-  const stackGapPx = pxValue(theme.spacing(CARD_TEXT_STACK_GAP_UNITS))
+  const stackGapPx = parseSpacingPx(theme.spacing(CARD_TEXT_STACK_GAP_UNITS))
   const fallbackFontSizePx = typographySizeToPx(theme.typography.fontSize, htmlFontSize) || htmlFontSize
   const substatFontSizePx = typographySizeToPx(theme.typography.body2?.fontSize, htmlFontSize) || fallbackFontSizePx
   const substatLineHeightPx = CARD_SUBSTAT_LINE_HEIGHT * substatFontSizePx
-  const substatGapPx = pxValue(theme.spacing(CARD_SUBSTAT_ROW_GAP_UNITS))
+  const substatGapPx = parseSpacingPx(theme.spacing(CARD_SUBSTAT_ROW_GAP_UNITS))
   const totalSubstatHeightPx = (CARD_SUBSTAT_LINE_COUNT * substatLineHeightPx)
     + (Math.max(0, CARD_SUBSTAT_LINE_COUNT - 1) * substatGapPx)
   const shouldInlineAscension = gridColumnCount <= 4
-  const ascMarginPx = shouldInlineAscension ? 0 : pxValue(theme.spacing(CARD_ASC_BLOCK_MARGIN_TOP_UNITS))
+  const ascMarginPx = shouldInlineAscension ? 0 : parseSpacingPx(theme.spacing(CARD_ASC_BLOCK_MARGIN_TOP_UNITS))
   const ascFontSizePx = Math.max(0, summaryFontSizePx - CARD_ASC_FONT_DECREMENT_PX)
   const ascLineHeightPx = shouldInlineAscension ? 0 : CARD_ASC_LINE_HEIGHT * ascFontSizePx
   const summarySectionHeightPx = summaryLineHeightPx + ascMarginPx + ascLineHeightPx
   const rightColumnHeightPx = summarySectionHeightPx + stackGapPx + totalSubstatHeightPx
-  const leftColumnGapPx = pxValue(theme.spacing(GRID_CARD_LEFT_COLUMN_GAP_UNITS))
+  const leftColumnGapPx = parseSpacingPx(theme.spacing(GRID_CARD_LEFT_COLUMN_GAP_UNITS))
   const leftColumnHeightPx = TESTER_GRID_ICON_BOX_SIZE_PX + GRID_CARD_SOURCE_ICON_SIZE_PX + leftColumnGapPx
   const normalizedLeftPx = Math.max(0, Math.ceil(leftColumnHeightPx + CARD_COLUMN_HEIGHT_BUFFER_PX))
   const normalizedRightPx = Math.max(0, Math.ceil(rightColumnHeightPx + CARD_COLUMN_HEIGHT_BUFFER_PX))
@@ -4119,10 +4175,10 @@ function useTesterGridLayoutMetrics({
   // Layout metrics re-run only on breakpoint or toggle changes so the cards stay stable across renders.
   const isMultiColumn = useMediaQuery(theme.breakpoints.up('sm'))
   const gridColumnCount = isMultiColumn ? preferredColumnCount : 1
-  const accordionSpacingPx = useMemo(() => pxValue(theme.spacing(ACCORDION_MARGIN_UNITS)), [theme])
-  const gridGapPx = useMemo(() => pxValue(theme.spacing(GRID_GAP)), [theme])
-  const leafPaddingPx = useMemo(() => pxValue(theme.spacing(GRID_CARD_CONTAINER_PADDING_UNITS)), [theme])
-  const cardVerticalPaddingPx = useMemo(() => pxValue(theme.spacing(CARD_PADDING_UNITS)) * 2, [theme])
+  const accordionSpacingPx = useMemo(() => parseSpacingPx(theme.spacing(ACCORDION_MARGIN_UNITS)), [theme])
+  const gridGapPx = useMemo(() => parseSpacingPx(theme.spacing(GRID_GAP)), [theme])
+  const leafPaddingPx = useMemo(() => parseSpacingPx(theme.spacing(GRID_CARD_CONTAINER_PADDING_UNITS)), [theme])
+  const cardVerticalPaddingPx = useMemo(() => parseSpacingPx(theme.spacing(CARD_PADDING_UNITS)) * 2, [theme])
   const { firstRowHeightPx: cardFirstRowHeightPx } = useMemo(
     () => getTesterGridCardColumnHeights(theme, gridColumnCount),
     [theme, gridColumnCount],

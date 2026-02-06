@@ -2494,6 +2494,19 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // External focus target for preview table (exact rule index in the effective rules array)
   const [focusRuleIndex, setFocusRuleIndex] = useState<number | null>(null)
   const [logicHubOpen, setLogicHubOpen] = useState<boolean>(false)
+  // Keep-override grids match the Rule Tester card width; cache the latest 4-column measurement.
+  const [testerCardWidthPx, setTesterCardWidthPx] = useState<number | null>(null)
+  // Ref prevents width churn from triggering redundant state updates.
+  const testerCardWidthRef = useRef<number | null>(null)
+  const handleTesterCardWidthMeasured = useCallback((widthPx: number) => {
+    // Ignore invalid measurements so we never collapse the keep-override grid.
+    if (!Number.isFinite(widthPx) || widthPx <= 0) return
+    // Normalize to two decimals to align with grid width math.
+    const normalizedWidth = Math.round(widthPx * 100) / 100
+    if (testerCardWidthRef.current === normalizedWidth) return
+    testerCardWidthRef.current = normalizedWidth
+    setTesterCardWidthPx(normalizedWidth)
+  }, [])
   const flushTransientUi = useCallback(() => {
     try { document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })) } catch {}
     try { document.body.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true })) } catch {}
@@ -5930,6 +5943,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
 	                  colorBlindMode={colorBlindMode}
 	                  onChangeColorBlindMode={setColorBlindMode}
 	                  colorIconSrc={colorIconSrc}
+	                  onCardWidthMeasured={handleTesterCardWidthMeasured}
 	                  configNames={testerConfigNamesForGrid}
 	                  onJumpToRule={handleTesterRuleView}
 	                  onCreateRuleTemplate={handleTesterRuleTemplateCreate}
@@ -6321,6 +6335,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           keepUniqueItemKeys={keepUniqueGroupItemKeys}
           // Precomputed keep-best item keys let the grid highlight protected rows.
           keepBestSubstatItemKeys={keepBestSubstatItemKeys}
+          testerCardWidthPx={testerCardWidthPx}
           substatColors={substatColors}
           useStatButtonColors={statButtonBorders}
           onToggleStatColors={setStatButtonBorders}

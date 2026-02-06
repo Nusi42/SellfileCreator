@@ -59,6 +59,7 @@ type LogicHubDialogProps = {
   gearEntries: TesterPreviewRow[]
   keepUniqueItemKeys: ReadonlySet<number>
   keepBestSubstatItemKeys: ReadonlySet<number>
+  testerCardWidthPx: number | null
   substatColors: Record<number, { fg: string; bg: string }>
   useStatButtonColors: boolean
   onToggleStatColors: (next: boolean) => void
@@ -105,6 +106,7 @@ export default function LogicHubDialog(props: LogicHubDialogProps) {
     gearEntries,
     keepUniqueItemKeys,
     keepBestSubstatItemKeys,
+    testerCardWidthPx,
     substatColors,
     useStatButtonColors,
     onToggleStatColors,
@@ -544,6 +546,7 @@ export default function LogicHubDialog(props: LogicHubDialogProps) {
             detection={keepUniqueDetection}
             gearEntries={gearEntries}
             uniqueItemKeys={keepUniqueItemKeys}
+            testerCardWidthPx={testerCardWidthPx}
             substatColors={substatColors}
             useStatButtonColors={useStatButtonColors}
             onToggleStatColors={onToggleStatColors}
@@ -568,6 +571,7 @@ export default function LogicHubDialog(props: LogicHubDialogProps) {
             detection={keepBestSubstatDetection}
             gearEntries={gearEntries}
             bestItemKeys={keepBestSubstatItemKeys}
+            testerCardWidthPx={testerCardWidthPx}
             substatColors={substatColors}
             useStatButtonColors={useStatButtonColors}
             onToggleStatColors={onToggleStatColors}

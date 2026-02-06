@@ -253,7 +253,7 @@ If tooltips need rich formatting (colored badges, inline icons), pass JSX via `r
 
 ## Keep Uniques Tab
 
-- Layout: the dialog switches to a `Tabs` layout but keeps the existing shell size. On medium+ breakpoints the Keep Uniques tab renders a left rules column plus a flexible tester grid column; the rules column widens in 1-column grid mode (`minmax(420px, 0.95fr)`) and stays at `360px` in 2-column mode (stacked on small screens).
+- Layout: the dialog switches to a `Tabs` layout but keeps the existing shell size. On medium+ breakpoints the Keep Uniques tab renders a left rules column plus a tester grid column; the grid pane width is pinned to the Rule Tester 4-column card width for both 1- and 2-column modes so cards stay identical while the rules pane absorbs the remaining space (stacked on small screens).
 - Header block: the left column starts with explanatory copy, the enable toggle, and a contextual alert (`disabled`, `no tester data`, `scan pending`). Alerts stay above the scroll area so status never scrolls away, while deficit counts now surface via the inline detection chip instead of a success banner.
 - Rule list: rows map 1:1 with gear combinations and render as compact cards. Each card has a collapsed summary header (status icon + name/placeholder + actions) and expands inline to reveal the full editor. The expanded editor reuses the shared select components (`GearSlotSelect`, `GearRankSelect`, `GearRaritySelect`, `GearMainStatSelect`, `GearFactionSelect`) plus the filtered set picker. Slots/Ranks/Rarities/Main stats run in multi-select mode now: empty slot or main-stat selections read as Any, while Rank/Rarity menus expose an explicit Any option that clears other picks so combination filters mirror the builder affordances.
 - Empty state: when no rules exist the column shows descriptive text plus a contained “Add rule” button. The same button lives in the footer alongside “Restore defaults” (which clears + disables Keep Uniques only).
@@ -263,7 +263,7 @@ If tooltips need rich formatting (colored badges, inline icons), pass JSX via `r
 
 ## Keep Best Substat Tab
 
-- Layout: mirrors the Keep Uniques two-column shell with the same 1/2 column grid toggle and wider rules pane in 1-column mode.
+- Layout: mirrors the Keep Uniques two-column shell with the same 1/2 column grid toggle and a grid pane width pinned to the Rule Tester 4-column card width so card size stays stable.
 - Rule cards: each rule selects a single substat, required count, and optional scope chips (per slot/set/faction/main stat), reusing the keep-override scope helpers.
 - Tester grid: renders `TesterItemsGrid` with `variant="keepBestSubstat"`, using the keep-override column toggle and selection filter that behaves like All when no rule is selected.
 - Reset: a dedicated confirmation dialog clears the Keep Best Substat rules and disables the feature without touching Final Sell or Keep Uniques settings.
