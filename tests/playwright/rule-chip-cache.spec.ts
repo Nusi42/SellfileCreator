@@ -1,48 +1,80 @@
 import { test, expect } from '@playwright/test'
 import fs from 'node:fs'
-import path from 'node:path'
-import { APP_GOTO_OPTIONS } from './app-init'
+import { APP_GOTO_OPTIONS, APP_VERSION, prepareApp } from './app-init'
 import { dismissBlockingDialogs } from './dialog-helpers'
 import { PLAYWRIGHT_TIMEOUTS } from './timeouts'
 import { getWorkloadIndicator } from './workload-indicator'
 import { SAMPLE_SMALL_HSFC_PATH } from './fixture-paths'
-import { HSFC_LOAD_INPUT_SELECTOR } from './ui-selectors'
+import { AUTOSAVE_KEY } from '../../src/lib/constants'
+import { computeCrc32 } from '../../src/lib/autosave'
 
-// Resolve package.json from repo root so the suite can relocate.
-const packageJsonPath = path.resolve(process.cwd(), 'package.json')
-const packageJsonRaw = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'))
-const appVersionValue = packageJsonRaw && typeof packageJsonRaw === 'object' && 'version' in packageJsonRaw ? packageJsonRaw.version : null
-const APP_VERSION = typeof appVersionValue === 'string' ? appVersionValue : '0.0.0'
+const AUTO_APPLY_AUTOSAVE_ENTRY = (() => {
+  // Read the HSFC fixture so we can seed autosave without file uploads.
+  const raw = fs.readFileSync(SAMPLE_SMALL_HSFC_PATH, 'utf-8')
+  // Parse the HSFC JSON into a payload we can attach autosave metadata to.
+  const payload = JSON.parse(raw) as Record<string, unknown>
+  // Ensure the payload uses the current app version for restore dialogs.
+  const autosavePayload = {
+    ...payload,
+    Version: APP_VERSION,
+    AutosaveSavedAt: '2024-12-12T00:00:00.000Z',
+  }
+  // Serialize once so we can compute the CRC in the same format as the app.
+  const serialized = JSON.stringify(autosavePayload)
+  // Compute the autosave CRC so the restore prompt accepts the payload.
+  const crc = computeCrc32(serialized)
+  return JSON.stringify([crc, autosavePayload])
+})()
+
+const acceptConfigAutosaveRestore = async (page: Parameters<typeof test>[0]['page']): Promise<void> => {
+  // Locate the restore dialog that appears when autosave data exists.
+  const dialog = page.getByRole('dialog', { name: /restore/i })
+  // Allow app boot time so the dialog has a chance to render.
+  await dialog.waitFor({ state: 'visible', timeout: PLAYWRIGHT_TIMEOUTS.appGoto }).catch(() => undefined)
+  // Skip when no restore prompt is displayed.
+  const isVisible = await dialog.isVisible().catch(() => false)
+  if (!isVisible) return
+  // Ensure configs are selected so the builder list is restored.
+  const configsCheckbox = dialog.getByRole('checkbox', { name: /Configs/i })
+  if (await configsCheckbox.isVisible().catch(() => false)) {
+    if (!(await configsCheckbox.isChecked().catch(() => false))) {
+      await configsCheckbox.click()
+    }
+  }
+  // Restore the autosave so the configs become available for testing.
+  const restoreButton = dialog.getByRole('button', { name: /Restore selected/i })
+  await expect(restoreButton).toBeEnabled({ timeout: PLAYWRIGHT_TIMEOUTS.expectDefault })
+  // Allow the click to wait for async restore work on slower hosts.
+  await restoreButton.click({ timeout: PLAYWRIGHT_TIMEOUTS.expectLong })
+  // Wait for the dialog to dismiss before continuing.
+  await expect(dialog).toBeHidden({ timeout: PLAYWRIGHT_TIMEOUTS.expectLong })
+}
 
 test.describe('builder rule count chip', () => {
   test('does not revert to Counting when switching configs', async ({ page }) => {
-    // Allow the long timeout for rule rebuilds after config switches.
-    test.setTimeout(PLAYWRIGHT_TIMEOUTS.testLong)
-    await page.addInitScript(({ readmeKey, tutorialKey, autosaveKey, version }) => {
-      try { window.localStorage.setItem(readmeKey, version) } catch {
-        /* localStorage unavailable */
-      }
-      try { window.localStorage.setItem(tutorialKey, version) } catch {
-        /* localStorage unavailable */
-      }
-      try { window.localStorage.removeItem(autosaveKey) } catch {
-        /* localStorage unavailable */
-      }
-    }, {
-      readmeKey: 'sellfileCreator.readme.seen.version',
-      tutorialKey: 'sellfileCreator.tutorial.seen.version',
-      autosaveKey: 'sellfileCreator.autosave.hsfc.v1',
-      version: APP_VERSION,
-    })
+    // Allow the heavy timeout for autosave restore plus rule rebuilds.
+    test.setTimeout(PLAYWRIGHT_TIMEOUTS.testHeavy)
+    // Seed storage so the README dialog does not block the shell.
+    await prepareApp(page)
+    // Seed the autosave payload so we can restore without file uploads.
+    await page.addInitScript(
+      ({ autosaveKey, autosaveValue }) => {
+        try {
+          window.localStorage.setItem(autosaveKey, autosaveValue)
+        } catch {
+          /* localStorage unavailable */
+        }
+      },
+      {
+        autosaveKey: AUTOSAVE_KEY,
+        autosaveValue: AUTO_APPLY_AUTOSAVE_ENTRY,
+      },
+    )
 
     // Load the shell without waiting on full resource load.
     await page.goto('/', APP_GOTO_OPTIONS)
-
-    // Use the slim HSFC fixture so loads stay quick in all browsers.
-    const hsfcPath = SAMPLE_SMALL_HSFC_PATH
-    // Target the hidden input via the shared selector for stability.
-    const hsfcInput = page.locator(HSFC_LOAD_INPUT_SELECTOR).first()
-    await hsfcInput.setInputFiles(hsfcPath)
+    // Accept the restore prompt so the autosave configs load into the builder.
+    await acceptConfigAutosaveRestore(page)
 
     // Clear any dialogs that would block chip interactions.
     await dismissBlockingDialogs(page)

@@ -15,7 +15,7 @@ const LOG_PREFIX = '[tester-grid]'
 test.describe('HSF preview performance', () => {
   test.beforeAll(async ({ browser }) => {
     // Allow the long timeout so the cold Vite compile can finish during warmup.
-    test.setTimeout(PLAYWRIGHT_TIMEOUTS.testLong)
+    test.setTimeout(PLAYWRIGHT_TIMEOUTS.testHeavy)
     // Preload the shell so perf timing focuses on HSFC import work.
     await warmupAppShell(browser)
   })
@@ -23,7 +23,7 @@ test.describe('HSF preview performance', () => {
   // Capture perf annotations in all browsers so regressions do not hide in one engine.
   test('measures time to first row render for large HSF', async ({ page }, testInfo) => {
     // Allow the long timeout for HSFC parsing and the rebuild it triggers.
-    test.setTimeout(PLAYWRIGHT_TIMEOUTS.testLong)
+    test.setTimeout(PLAYWRIGHT_TIMEOUTS.testHeavy)
 
     const testerLogs: string[] = []
     page.on('console', (message) => {

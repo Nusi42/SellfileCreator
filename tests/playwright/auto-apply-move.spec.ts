@@ -1,12 +1,14 @@
+import fs from 'node:fs'
 import type { Page, Locator } from '@playwright/test'
 import { test, expect } from './fixtures'
-import { APP_GOTO_OPTIONS, prepareApp } from './app-init'
+import { APP_GOTO_OPTIONS, APP_VERSION, prepareApp } from './app-init'
 import { openContextMenu } from './context-menu'
-import { dismissBlockingDialogs } from './dialog-helpers'
+import { dismissBlockingDialogs, RESTORE_DIALOG_TITLE } from './dialog-helpers'
 import { PLAYWRIGHT_TIMEOUTS } from './timeouts'
 import { SAMPLE_SMALL_HSFC_PATH } from './fixture-paths'
 import { warmupAppShell } from './app-warmup'
-import { HSFC_LOAD_INPUT_SELECTOR } from './ui-selectors'
+import { AUTOSAVE_KEY } from '../../src/lib/constants'
+import { computeCrc32 } from '../../src/lib/autosave'
 
 // Load the slim HSFC snapshot so the config names are stable and rebuilds stay fast.
 const HSFC_PATH = SAMPLE_SMALL_HSFC_PATH
@@ -17,6 +19,24 @@ const SELL_LOW_VALUE_CONFIG_NAME = 'Sell - Low Value'
 // Base stat labels used for the dirty builder edits.
 const MAIN_STAT_LABEL = 'SPD'
 const SUBSTAT_LABEL = 'ACC'
+
+const AUTO_APPLY_AUTOSAVE_ENTRY = (() => {
+  // Read the HSFC fixture so we can seed autosave without file upload latency.
+  const raw = fs.readFileSync(HSFC_PATH, 'utf-8')
+  // Parse the HSFC JSON into a payload we can attach autosave metadata to.
+  const payload = JSON.parse(raw) as Record<string, unknown>
+  // Ensure the payload uses the current app version for restore dialogs.
+  const autosavePayload = {
+    ...payload,
+    Version: APP_VERSION,
+    AutosaveSavedAt: '2024-12-12T00:00:00.000Z',
+  }
+  // Serialize once so we can compute the CRC in the same format as the app.
+  const serialized = JSON.stringify(autosavePayload)
+  // Compute the autosave CRC so the restore prompt accepts the payload.
+  const crc = computeCrc32(serialized)
+  return JSON.stringify([crc, autosavePayload])
+})()
 
 const getConfigChipByName = (page: Page, name: string): Locator => {
   // Scope to config chips to avoid matching menus or preview rows.
@@ -97,6 +117,29 @@ const enableAutoApply = async (page: Page): Promise<void> => {
   await expect(menuItem).toBeHidden()
 }
 
+const acceptConfigAutosaveRestore = async (page: Page): Promise<void> => {
+  // Locate the restore dialog that appears when autosave data exists.
+  const dialog = page.getByRole('dialog', { name: RESTORE_DIALOG_TITLE })
+  // Allow app boot time so the dialog has a chance to render.
+  await dialog.waitFor({ state: 'visible', timeout: PLAYWRIGHT_TIMEOUTS.appGoto }).catch(() => undefined)
+  // Skip when no restore prompt is displayed.
+  const isVisible = await dialog.isVisible().catch(() => false)
+  if (!isVisible) return
+  // Ensure configs are selected so the builder list is restored.
+  const configsCheckbox = dialog.getByRole('checkbox', { name: /Configs/i })
+  if (await configsCheckbox.isVisible().catch(() => false)) {
+    if (!(await configsCheckbox.isChecked().catch(() => false))) {
+      await configsCheckbox.click()
+    }
+  }
+  // Restore the autosave so the configs become available for testing.
+  const restoreButton = dialog.getByRole('button', { name: /Restore selected/i })
+  await expect(restoreButton).toBeEnabled({ timeout: PLAYWRIGHT_TIMEOUTS.expectDefault })
+  await restoreButton.click()
+  // Wait for the dialog to dismiss before continuing.
+  await expect(dialog).toBeHidden({ timeout: PLAYWRIGHT_TIMEOUTS.expectDefault })
+}
+
 const clickChipControlButton = async (chip: Locator, controlIndex: number): Promise<void> => {
   // Chip controls are ordered: Move Up, Move Down, Duplicate, Delete.
   const controls = chip.locator('[data-chip-control="true"] button')
@@ -146,16 +189,24 @@ const expectBuilderStats = async (page: Page, options: { main: string; substat: 
 const setupAutoApplyScenario = async (page: Page): Promise<void> => {
   // Reset storage and seed a stable locale for selectors.
   await prepareApp(page)
+  // Seed the autosave payload so we can restore without file uploads.
+  await page.addInitScript(
+    ({ autosaveKey, autosaveValue }) => {
+      try {
+        window.localStorage.setItem(autosaveKey, autosaveValue)
+      } catch {
+        /* ignore storage failures so the test can continue */
+      }
+    },
+    {
+      autosaveKey: AUTOSAVE_KEY,
+      autosaveValue: AUTO_APPLY_AUTOSAVE_ENTRY,
+    },
+  )
   // Load the app shell without waiting for full load.
   await page.goto('/', APP_GOTO_OPTIONS)
-
-  // Import the HSFC snapshot that includes the Marius config.
-  // Use the stable test selector so the localized label can change safely.
-  const hsfcInput = page.locator(HSFC_LOAD_INPUT_SELECTOR).first()
-  // Ensure the file input is attached before setting files.
-  await hsfcInput.waitFor({ state: 'attached', timeout: PLAYWRIGHT_TIMEOUTS.appGoto })
-  // Use the file input so the normal import path runs.
-  await hsfcInput.setInputFiles(HSFC_PATH)
+  // Accept the restore prompt so the autosave configs load into the builder.
+  await acceptConfigAutosaveRestore(page)
 
   // Close any note/restore dialogs if they auto-open.
   await dismissBlockingDialogs(page)
@@ -187,18 +238,27 @@ const setupAutoApplyScenario = async (page: Page): Promise<void> => {
   await expectStatSelected(substatButton)
 }
 
-test.beforeAll(async ({ browser }) => {
-  // Allow the long timeout so the cold Vite compile can finish during warmup.
-  test.setTimeout(PLAYWRIGHT_TIMEOUTS.testLong)
-  // Preload the shell once so the first test does not pay the compile cost.
-  await warmupAppShell(browser)
-})
+test.describe('auto apply move', () => {
+  // Extend timeouts for all hooks/tests so autosave restore does not trip the default 15s limit.
+  test.describe.configure({ timeout: PLAYWRIGHT_TIMEOUTS.testHeavy })
 
-test('auto apply stays on the moved config for move up/down', async ({ page }) => {
-  // Allow time for HSFC parsing and the rebuild it triggers.
-  test.setTimeout(PLAYWRIGHT_TIMEOUTS.testLong)
-  // Prime the config state and dirty builder for the move checks.
-  await setupAutoApplyScenario(page)
+  test.beforeAll(async ({ browser }) => {
+    // Allow the long timeout so the cold Vite compile can finish during warmup.
+    test.setTimeout(PLAYWRIGHT_TIMEOUTS.testHeavy)
+    // Preload the shell once so the first test does not pay the compile cost.
+    await warmupAppShell(browser)
+  })
+
+  test.beforeEach(async ({ page }) => {
+    // Allow the long timeout so autosave restore completes on slower hosts.
+    test.setTimeout(PLAYWRIGHT_TIMEOUTS.testHeavy)
+    // Reset the app state before each move test to keep scenarios isolated.
+    await setupAutoApplyScenario(page)
+  })
+
+  test('auto apply stays on the moved config for move up/down', async ({ page }) => {
+    // Allow time for HSFC parsing and the rebuild it triggers.
+    test.setTimeout(PLAYWRIGHT_TIMEOUTS.testHeavy)
 
   // Move Up using the chip button while the builder is dirty.
   await moveChipUp(getConfigChipByName(page, MARIUS_CONFIG_NAME))
@@ -228,13 +288,11 @@ test('auto apply stays on the moved config for move up/down', async ({ page }) =
   await ensureChipSelected(getConfigChipByIndex(page, 0))
   await expect(getConfigNameInput(page)).toHaveValue(BASICS_CONFIG_NAME)
   await expectBuilderStats(page, { main: MAIN_STAT_LABEL, substat: SUBSTAT_LABEL, selected: false })
-})
+  })
 
-test('auto apply stays on the moved config for move to top', async ({ page }) => {
-  // Allow time for HSFC parsing and the rebuild it triggers.
-  test.setTimeout(PLAYWRIGHT_TIMEOUTS.testLong)
-  // Prime the config state and dirty builder for the move checks.
-  await setupAutoApplyScenario(page)
+  test('auto apply stays on the moved config for move to top', async ({ page }) => {
+    // Allow time for HSFC parsing and the rebuild it triggers.
+    test.setTimeout(PLAYWRIGHT_TIMEOUTS.testHeavy)
 
   // Move to Top via the context menu entry.
   await ensureChipSelected(getConfigChipByName(page, MARIUS_CONFIG_NAME))
@@ -250,13 +308,11 @@ test('auto apply stays on the moved config for move to top', async ({ page }) =>
   await ensureChipSelected(getConfigChipByIndex(page, 1))
   await expect(getConfigNameInput(page)).toHaveValue(BASICS_CONFIG_NAME)
   await expectBuilderStats(page, { main: MAIN_STAT_LABEL, substat: SUBSTAT_LABEL, selected: false })
-})
+  })
 
-test('auto apply stays on the moved config for move to bottom', async ({ page }) => {
-  // Allow time for HSFC parsing and the rebuild it triggers.
-  test.setTimeout(PLAYWRIGHT_TIMEOUTS.testLong)
-  // Prime the config state and dirty builder for the move checks.
-  await setupAutoApplyScenario(page)
+  test('auto apply stays on the moved config for move to bottom', async ({ page }) => {
+    // Allow time for HSFC parsing and the rebuild it triggers.
+    test.setTimeout(PLAYWRIGHT_TIMEOUTS.testHeavy)
 
   // Move to Bottom via the context menu entry.
   await ensureChipSelected(getConfigChipByName(page, MARIUS_CONFIG_NAME))
@@ -275,4 +331,5 @@ test('auto apply stays on the moved config for move to bottom', async ({ page })
   await ensureChipSelected(getConfigChipByIndex(page, 1))
   await expect(getConfigNameInput(page)).toHaveValue(SELL_LOW_VALUE_CONFIG_NAME)
   await expectBuilderStats(page, { main: MAIN_STAT_LABEL, substat: SUBSTAT_LABEL, selected: false })
+  })
 })

@@ -52,7 +52,8 @@ test.describe('config insert ordering', () => {
     const hsfcPath = SAMPLE_SMALL_HSFC_PATH
     // Target the hidden file input directly so label changes do not break the test.
     const hsfcInput = page.locator(HSFC_LOAD_INPUT_SELECTOR).first()
-    await hsfcInput.setInputFiles(hsfcPath)
+    // Allow slower engines to resolve the hidden input before uploading.
+    await hsfcInput.setInputFiles(hsfcPath, { timeout: PLAYWRIGHT_TIMEOUTS.expectLong })
 
     // Clear any note/restore dialogs before interacting with chips.
     await dismissBlockingDialogs(page)

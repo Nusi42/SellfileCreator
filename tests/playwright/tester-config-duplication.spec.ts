@@ -117,7 +117,8 @@ const duplicateConfigChip = async (page: Parameters<typeof test>[0]['page'], ind
 
 test.beforeAll(async ({ browser }) => {
   // Allow the long timeout so the cold Vite compile can finish during warmup.
-  test.setTimeout(PLAYWRIGHT_TIMEOUTS.testLong)
+  // Allow extra time for autosave restore + duplication on slower engines.
+  test.setTimeout(PLAYWRIGHT_TIMEOUTS.testHeavy)
   // Preload the shell once so matcher tests avoid cold-start delays.
   await warmupAppShell(browser)
 })
@@ -125,7 +126,8 @@ test.beforeAll(async ({ browser }) => {
 test.describe('tester grid matches remain stable', () => {
   test('duplicating config #3 keeps tester outcomes unchanged', async ({ page }) => {
     // Allow the long timeout for matcher rebuilds during duplication.
-    test.setTimeout(PLAYWRIGHT_TIMEOUTS.testLong)
+    // Allow extra time for autosave restore + duplication on slower engines.
+    test.setTimeout(PLAYWRIGHT_TIMEOUTS.testHeavy)
     await prepareApp(page)
     await seedTesterFilters(page)
     // Load the shell without waiting for the full window load event.
@@ -135,8 +137,16 @@ test.describe('tester grid matches remain stable', () => {
     // Load the HSFC + gear DB pair from the shared fixtures.
     // Use the stable HSFC selector so the button label can remain localized.
     const hsfcInput = page.locator(HSFC_LOAD_INPUT_SELECTOR).first()
+    // Wait for the HSFC input to attach so slow boots do not hit action timeouts.
+    await hsfcInput.waitFor({ state: 'attached', timeout: PLAYWRIGHT_TIMEOUTS.appGoto })
+    // Ensure the HSFC input is enabled before uploading the fixture.
+    await expect(hsfcInput).toBeEnabled({ timeout: PLAYWRIGHT_TIMEOUTS.expectDefault })
     await hsfcInput.setInputFiles(HSFC_PATH)
     const dbInput = page.locator('input[type="file"][accept*=".db"]').first()
+    // Wait for the DB input to attach so slow boots do not hit action timeouts.
+    await dbInput.waitFor({ state: 'attached', timeout: PLAYWRIGHT_TIMEOUTS.appGoto })
+    // Ensure the DB input is enabled before uploading the fixture.
+    await expect(dbInput).toBeEnabled({ timeout: PLAYWRIGHT_TIMEOUTS.expectDefault })
     await dbInput.setInputFiles(DB_PATH)
     await dismissBlockingDialogs(page)
 

@@ -26,7 +26,8 @@ test.describe('HSFC load performance', () => {
 
     // Load the shell without waiting for the full load event.
     await page.goto('/', APP_GOTO_OPTIONS)
-    await page.locator('[data-tour-id="preview.paper"]').waitFor()
+    // Allow slower engines to mount the preview panel before continuing.
+    await page.locator('[data-tour-id="preview.paper"]').waitFor({ timeout: PLAYWRIGHT_TIMEOUTS.expectLong })
 
     const restoreDismiss = page.locator('button:has-text("Dismiss")')
     if (await restoreDismiss.isVisible()) {

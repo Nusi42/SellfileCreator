@@ -1,8 +1,11 @@
 import { test, expect } from '@playwright/test'
 import { computeCrc32 } from '../../src/lib/autosave'
 import { DEFAULT_RULES_FILTER_STATE, type RulesFilterState } from '../../src/lib/rulesFilter'
+import { normalizeArtifactSetSelections } from '../../src/lib/gearSets/selection'
 import { APP_GOTO_OPTIONS, APP_VERSION } from './app-init'
+import { PLAYWRIGHT_TIMEOUTS } from './timeouts'
 import { PREVIEW_MODE_STORAGE_KEY } from '../../src/lib/constants'
+import { warmupAppShell } from './app-warmup'
 import {
   RULES_FILTER_OPEN_STORAGE_KEY,
   RULES_FILTER_STATE_STORAGE_KEY,
@@ -62,7 +65,8 @@ const savedFilterState: RulesFilterState = (() => {
   const clone = JSON.parse(JSON.stringify(DEFAULT_RULES_FILTER_STATE)) as RulesFilterState
   clone.rule = { keep: 'yes', use: 'any' }
   clone.slots.selected = [1, 2]
-  clone.sets.selected = [2, 6, 8]
+  // Normalize sets to the structured selection entries used by the filter state.
+  clone.sets.selected = normalizeArtifactSetSelections([2, 6, 8])
   clone.rank.selected = [5]
   clone.configName = { query: 'Nuker' }
   return clone
@@ -120,7 +124,16 @@ const restoredOpenMap = {
 }
 
 test.describe('autosave filter restore', () => {
+  test.beforeAll(async ({ browser }) => {
+    // Allow the long timeout so the cold Vite compile can finish during warmup.
+    test.setTimeout(PLAYWRIGHT_TIMEOUTS.testLong)
+    // Preload the shell once so restore timing focuses on autosave work.
+    await warmupAppShell(browser)
+  })
+
   test('applies saved filters when restoring autosave', async ({ page }) => {
+    // Allow the long timeout so cold boot + autosave restore can finish on slower hosts.
+    test.setTimeout(PLAYWRIGHT_TIMEOUTS.testLong)
     await page.addInitScript(
       ({
         readmeKey,
@@ -184,6 +197,9 @@ test.describe('autosave filter restore', () => {
     // Re-apply the seeded storage after load to avoid race conditions with app bootstrap.
     await page.evaluate(
       ({
+        readmeKey,
+        tutorialKey,
+        version,
         autosaveKey,
         entry,
         filterStateKey,
@@ -261,20 +277,26 @@ test.describe('autosave filter restore', () => {
     }
 
     const dialog = page.getByRole('dialog', { name: /restore/i })
+    // Allow the app boot budget so the restore dialog has time to mount.
+    await dialog.waitFor({ state: 'visible', timeout: PLAYWRIGHT_TIMEOUTS.appGoto }).catch(() => undefined)
     // Bail out if the restore dialog does not show (e.g., defaults already loaded).
     if (!(await dialog.isVisible().catch(() => false))) return
-    await expect(dialog).toBeVisible()
+    await expect(dialog).toBeVisible({ timeout: PLAYWRIGHT_TIMEOUTS.expectDefault })
 
     const filterCheckbox = page.getByRole('checkbox', { name: /Filter panel/i })
-    await expect(filterCheckbox).toBeVisible()
+    await expect(filterCheckbox).toBeVisible({ timeout: PLAYWRIGHT_TIMEOUTS.expectDefault })
 
     const restoreButton = page.getByRole('button', { name: /Restore selected/i })
     await restoreButton.click()
 
-    await expect(dialog).toBeHidden()
+    await expect(dialog).toBeHidden({ timeout: PLAYWRIGHT_TIMEOUTS.expectDefault })
 
     // Ensure the filter state is populated after the restore action.
-    await page.waitForFunction((key) => window.localStorage.getItem(key) !== null, RULES_FILTER_STATE_STORAGE_KEY)
+    await page.waitForFunction(
+      (key) => window.localStorage.getItem(key) !== null,
+      RULES_FILTER_STATE_STORAGE_KEY,
+      { timeout: PLAYWRIGHT_TIMEOUTS.expectLong },
+    )
 
     const storedState = await page.evaluate((key) => {
       const raw = window.localStorage.getItem(key)
@@ -298,9 +320,10 @@ test.describe('autosave filter restore', () => {
 
     const filterButton = page.getByRole('button', { name: /Filters On/i })
     await expect(filterButton).toBeVisible()
-    await expect(filterButton).toHaveText(/Filters On/i)
+    // Use aria-label to avoid layout-specific truncation of the visible label.
+    await expect(filterButton).toHaveAttribute('aria-label', /Filters On/i)
 
-    const configFilterButton = page.getByRole('button', { name: /^Configs$/i })
+    const configFilterButton = page.getByRole('button', { name: /Config Filter/i })
     await expect(configFilterButton).toBeVisible()
     await expect(configFilterButton).toContainText('First')
     await expect(configFilterButton).toHaveAttribute('aria-pressed', 'true')
