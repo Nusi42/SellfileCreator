@@ -107,6 +107,8 @@ export const CONFIG_CHIP_CONTROL_BUTTON_SIZE_PX = 26
 export const PANEL_WIDTH_PX = 1152
 export const SIDE_BY_SIDE_BREAKPOINT_PX = 2320
 export const GRID_COLUMN_GAP_PX = 16
+// Preview paper padding (theme spacing units).
+export const PREVIEW_PAPER_PADDING_UNITS = 2
 // Fixed zoom applied when we force side-by-side on desktops slightly narrower than the breakpoint.
 export const AUTO_SIDE_BY_SIDE_FORCED_ZOOM = 0.81
 // Only force the zoom when the viewport is wide enough that the fixed zoom will still fit both panels.

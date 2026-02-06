@@ -32,6 +32,7 @@ import {
   PANEL_WIDTH_PX,
   SIDE_BY_SIDE_BREAKPOINT_PX,
   GRID_COLUMN_GAP_PX,
+  PREVIEW_PAPER_PADDING_UNITS,
   FINAL_SELL_DEFAULT_LEVELS,
   FONT_SIZE_DISPLAY_REM,
   FONT_SIZE_HEADER_META_PX,
@@ -44,8 +45,17 @@ import {
 } from './lib/constants'
 import { buildPreviewArtifactFromTesterItem } from './lib/testerPreviewArtifacts'
 import { clampProgressRatio, type ProgressSnapshot } from './types/progress'
+import { measureCssWidth } from './lib/domMeasurements'
+import { KEEP_OVERRIDE_REFERENCE_COLUMN_COUNT } from './lib/keepOverrideLayout'
+import {
+  parseSpacingPx,
+  resolveTesterCardWidthPx,
+  TESTER_GRID_COLUMN_GAP_UNITS,
+  TESTER_GRID_ROW_PADDING_UNITS,
+} from './lib/testerGridLayout'
 
 import { Box, Container, Paper, Stack, Typography, GlobalStyles, Button } from '@mui/material'
+import { useTheme } from '@mui/material/styles'
 import SaveIcon from '@mui/icons-material/Save'
 import StorageIcon from '@mui/icons-material/Storage'
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline'
@@ -2494,8 +2504,33 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   // External focus target for preview table (exact rule index in the effective rules array)
   const [focusRuleIndex, setFocusRuleIndex] = useState<number | null>(null)
   const [logicHubOpen, setLogicHubOpen] = useState<boolean>(false)
+  const theme = useTheme()
+  // Track preview paper width so keep-override grids can match Rule Tester cards.
+  const previewPaperRef = useRef<HTMLDivElement | null>(null)
+  // Cache the latest width so ResizeObserver churn stays minimal.
+  const previewPaperWidthRef = useRef<number | null>(null)
+  const [previewPaperWidthPx, setPreviewPaperWidthPx] = useState<number | null>(null)
+  useLayoutEffect(() => {
+    const node = previewPaperRef.current
+    if (!node) return
+    const measure = () => {
+      const nextWidth = measureCssWidth(node)
+      if (!Number.isFinite(nextWidth) || nextWidth <= 0) return
+      if (previewPaperWidthRef.current === nextWidth) return
+      previewPaperWidthRef.current = nextWidth
+      setPreviewPaperWidthPx(nextWidth)
+    }
+    measure()
+    if (typeof ResizeObserver === 'undefined') {
+      window.addEventListener('resize', measure)
+      return () => window.removeEventListener('resize', measure)
+    }
+    const observer = new ResizeObserver(() => { measure() })
+    observer.observe(node)
+    return () => observer.disconnect()
+  }, [])
   // Keep-override grids match the Rule Tester card width; cache the latest 4-column measurement.
-  const [testerCardWidthPx, setTesterCardWidthPx] = useState<number | null>(null)
+  const [testerCardWidthMeasuredPx, setTesterCardWidthMeasuredPx] = useState<number | null>(null)
   // Ref prevents width churn from triggering redundant state updates.
   const testerCardWidthRef = useRef<number | null>(null)
   const handleTesterCardWidthMeasured = useCallback((widthPx: number) => {
@@ -2505,8 +2540,32 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     const normalizedWidth = Math.round(widthPx * 100) / 100
     if (testerCardWidthRef.current === normalizedWidth) return
     testerCardWidthRef.current = normalizedWidth
-    setTesterCardWidthPx(normalizedWidth)
+    setTesterCardWidthMeasuredPx(normalizedWidth)
   }, [])
+  // Resolve a fallback card width from the preview panel even when the tester view is hidden.
+  const previewPaperPaddingPx = useMemo(
+    () => parseSpacingPx(theme.spacing(PREVIEW_PAPER_PADDING_UNITS)),
+    [theme],
+  )
+  const testerGridGapPx = useMemo(
+    () => parseSpacingPx(theme.spacing(TESTER_GRID_COLUMN_GAP_UNITS)),
+    [theme],
+  )
+  const testerGridRowPaddingPx = useMemo(
+    () => parseSpacingPx(theme.spacing(TESTER_GRID_ROW_PADDING_UNITS)),
+    [theme],
+  )
+  const testerCardWidthFromPanelPx = useMemo(
+    () => resolveTesterCardWidthPx({
+      panelWidthPx: previewPaperWidthPx,
+      panelPaddingPx: previewPaperPaddingPx,
+      gridGapPx: testerGridGapPx,
+      rowPaddingPx: testerGridRowPaddingPx,
+      columnCount: KEEP_OVERRIDE_REFERENCE_COLUMN_COUNT,
+    }),
+    [previewPaperPaddingPx, previewPaperWidthPx, testerGridGapPx, testerGridRowPaddingPx],
+  )
+  const resolvedTesterCardWidthPx = testerCardWidthMeasuredPx ?? testerCardWidthFromPanelPx
   const flushTransientUi = useCallback(() => {
     try { document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })) } catch {}
     try { document.body.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true })) } catch {}
@@ -5750,8 +5809,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           copyDialog={copyDialogElement}
         />
 
-        <Paper sx={{
-          p: 2,
+        <Paper ref={previewPaperRef} sx={{
+          p: PREVIEW_PAPER_PADDING_UNITS,
           width: forceSideBySideLayout ? PANEL_WIDTH_PX : '100%',
           maxWidth: PANEL_WIDTH_PX,
           mx: forceSideBySideLayout ? 0 : 'auto',
@@ -6335,7 +6394,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           keepUniqueItemKeys={keepUniqueGroupItemKeys}
           // Precomputed keep-best item keys let the grid highlight protected rows.
           keepBestSubstatItemKeys={keepBestSubstatItemKeys}
-          testerCardWidthPx={testerCardWidthPx}
+          testerCardWidthPx={resolvedTesterCardWidthPx}
           substatColors={substatColors}
           useStatButtonColors={statButtonBorders}
           onToggleStatColors={setStatButtonBorders}
