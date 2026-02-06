@@ -7,7 +7,7 @@ import VisibilityIcon from '@mui/icons-material/Visibility'
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff'
 import StarBorderIcon from '@mui/icons-material/StarBorder'
 import type { HsfRule } from '../lib/hsfTypes'
-import { RULE_SOURCE_FINAL_SELL, RULE_SOURCE_HSF, RULE_SOURCE_HSFC, RULE_SOURCE_KEEP_UNIQUES, type HsfRuleWithCfg, type RuleSource } from '../lib/merge'
+import { RULE_SOURCE_FINAL_SELL, RULE_SOURCE_HSF, RULE_SOURCE_HSFC, RULE_SOURCE_KEEP_BEST_SUBSTAT, RULE_SOURCE_KEEP_UNIQUES, type HsfRuleWithCfg, type RuleSource } from '../lib/merge'
 import { /* formatArtifactSets */ formatLevel, formatRank, /* labelOfVariant, */ mainToVariant, rarityCodeToName, artifactSetName, compareArtifactTypes, artifactTypeI18nKey, statVariantI18nKey, compareArtifactSets, factionI18nKey, type FactionId, getLocalizedGearSetName } from '../lib/types'
 import EllipsisTooltip from './EllipsisTooltip'
 import MarkdownTooltip from './MarkdownTooltip'
@@ -34,6 +34,7 @@ import { useI18n } from '../lib/i18n'
 import RuleSubstatChips from './RuleSubstatChips'
 import { formatRuleSubstatSummary, formatRuleSubstatPlain, normalizeRuleSubstats, type RuleSubstatDetail } from '../lib/substatDisplay'
 import { resolveKeepUniqueRuleLabel } from '../lib/keepUniques'
+import { resolveKeepBestSubstatRuleLabel } from '../lib/keepBestSubstat'
 import { useContextMenuPaperGuard } from '../hooks/useContextMenuPaperGuard'
 import { useContextMenuHint } from '../hooks/useContextMenuHint'
 import { ContextMenuHintOverlay } from './ContextMenuHintOverlay'
@@ -1053,19 +1054,24 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
 	                    if (!rule) return null
                     const cfgIdxNumber = resolveDisplayCfgIdx(rule as HsfRuleWithCfg)
                     const lineIdx = typeof rule.__lineIdx === 'number' ? rule.__lineIdx : idx
+                    // Normalize rule source so keep-override injections can be recognized reliably.
                     const resolvedSource: RuleSource = (() => {
                       if (
                         rule.__source === RULE_SOURCE_HSF
                         || rule.__source === RULE_SOURCE_HSFC
                         || rule.__source === RULE_SOURCE_FINAL_SELL
                         || rule.__source === RULE_SOURCE_KEEP_UNIQUES
+                        || rule.__source === RULE_SOURCE_KEEP_BEST_SUBSTAT
                       ) {
                         return rule.__source
                       }
                       if (cfgIdxNumber !== null) return RULE_SOURCE_HSFC
                       return RULE_SOURCE_HSF
                     })()
-                    const isKeepUniqueSource = resolvedSource === RULE_SOURCE_KEEP_UNIQUES
+                    // Keep-best is a keep-override source with its own label.
+                    const isKeepBestSource = resolvedSource === RULE_SOURCE_KEEP_BEST_SUBSTAT
+                    // Keep overrides include keep uniques and keep best substat injections.
+                    const isKeepOverrideSource = resolvedSource === RULE_SOURCE_KEEP_UNIQUES || isKeepBestSource
                     return (
 		                      <TableRow
 		                        key={virtualItem.key}
@@ -1090,15 +1096,15 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
                         // Do not clear on row leave; container onMouseLeave clears once.
                         onClick={() => {
                           if (cfgIdxNumber !== null) {
-                            // Keep-unique rows surface in the preview but do not map to chips, so only real configs trigger selection + auto-scroll.
+                            // Keep-override rows surface in the preview but do not map to chips, so only real configs trigger selection + auto-scroll.
                             suppressNextScrollRef.current = true
                             onSelectCfgIdx(cfgIdxNumber)
                           }
                         }}
                         onContextMenu={(e) => {
-                          // Keep-unique preview rows are informational only (no builder actions).
+                          // Keep-override preview rows are informational only (no builder actions).
                           // Avoid opening a menu at all so we do not surface an empty context menu.
-                          if (isKeepUniqueSource) return
+                          if (isKeepOverrideSource) return
                           try {
                             e.preventDefault()
                             e.stopPropagation()
@@ -1115,8 +1121,8 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
                           })
                         }}
                         onMouseMove={(e) => {
-                          // Keep-unique rows do not expose a context menu, so skip the hint affordance.
-                          if (isKeepUniqueSource) return
+                          // Keep-override rows do not expose a context menu, so skip the hint affordance.
+                          if (isKeepOverrideSource) return
                           if (!showRulesRowHint || rowMenu?.open) return
                           setHeaderHintPos(null)
                           setRowHintPos({ x: e.clientX, y: e.clientY })
@@ -1136,15 +1142,18 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
                         else if (c.key === 'CfgIdx') {
                           if (cfgIdxNumber !== null) {
                             value = String(cfgIdxNumber + 1)
-                          } else if (isKeepUniqueSource) {
-                            // Keep-unique injections display a hollow star and surface the originating rule name for quick attribution.
-                            const keepUniqueLabel = resolveKeepUniqueRuleLabel(rule) ?? t('keepUniquesTabLabel')
+                          } else if (isKeepOverrideSource) {
+                            // Keep-override injections display a hollow star and surface the originating rule name for quick attribution.
+                            // Use keep-best labels when available; fall back to the tab label if rule naming is missing.
+                            const keepOverrideLabel = isKeepBestSource
+                              ? (resolveKeepBestSubstatRuleLabel(rule) ?? t('keepBestSubstatTabLabel'))
+                              : (resolveKeepUniqueRuleLabel(rule) ?? t('keepUniquesTabLabel'))
                             cfgSpecialContent = (
-                              <MarkdownTooltip markdown={keepUniqueLabel}>
+                              <MarkdownTooltip markdown={keepOverrideLabel}>
                                 <Box
                                   component="span"
                                   sx={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '100%' }}
-                                  aria-label={keepUniqueLabel}
+                                  aria-label={keepOverrideLabel}
                                 >
                                   <StarBorderIcon fontSize="inherit" />
                                 </Box>

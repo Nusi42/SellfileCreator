@@ -70,8 +70,10 @@ import {
   computeMergedRules,
   buildRulesForConfig,
   prependKeepUniqueRules,
+  prependKeepBestSubstatRules,
   RULE_SOURCE_FINAL_SELL,
   RULE_SOURCE_HSF,
+  RULE_SOURCE_KEEP_BEST_SUBSTAT,
   RULE_SOURCE_KEEP_UNIQUES,
   type HsfRuleWithCfg,
 } from './lib/merge'
@@ -87,7 +89,15 @@ import {
   sanitizeKeepUniqueCountMode,
   KeepUniqueRuleActivation,
 } from './lib/keepUniques'
+import {
+  buildDefaultKeepBestSubstatRules,
+  fingerprintKeepBestSubstatRuleList,
+  type KeepBestSubstatDetectionSnapshot,
+  type KeepBestSubstatRule,
+  resolveKeepBestSubstatRuleLabel,
+} from './lib/keepBestSubstat'
 import { fingerprintConfigForRules, fingerprintSubstatTargets, updateConfigRulesCache } from './lib/ruleCache'
+import { fingerprintKeepBestSubstatDetection } from './lib/keepBestSubstatFingerprint'
 import { hasConfigMeaningfulDifferences } from './lib/configDiff'
 import { buildRuleTesterAutosavePayload, createRuleTesterMath, fingerprintRuleTesterItem, loadRuleTesterAutosaveDraft, type RuleTesterItem } from './lib/ruleTesterSession'
 import {
@@ -225,6 +235,7 @@ import {
   type CollapsedSections,
 } from './state/rulesFilterPersistence'
 import { useKeepUniquesGridFilterMode, sanitizeKeepUniquesGridFilterMode } from './state/keepUniquesPreferences'
+import { useKeepBestSubstatGridFilterMode, sanitizeKeepBestSubstatGridFilterMode } from './state/keepBestSubstatPreferences'
 import { useSellfileDedupPreference, useSellfileOmitDisabledPreference } from './state/exportPreferences'
 import { useHsfcDialogs } from './hooks/useHsfcDialogs'
 import { useHsfcHistoryController } from './hooks/useHsfcHistoryController'
@@ -249,6 +260,7 @@ import { createFinalSellChangeDescriptor, areFinalSellConfigsEqual, type FinalSe
 import { createNoteChangeDescriptor, normalizeNoteValue, type NoteDescriptorMode } from './history/noteDescriptors'
 import { createHsfcLoadedDescriptor, createAutosaveRestoredDescriptor, makeClipboardSourceDescriptor } from './history/bulkLoadDescriptors'
 import { createKeepUniquesEnabledChangeDescriptor, createKeepUniquesRulesChangeDescriptor } from './history/keepUniquesDescriptors'
+import { createKeepBestSubstatEnabledChangeDescriptor, createKeepBestSubstatRulesChangeDescriptor } from './history/keepBestSubstatDescriptors'
 import { buildInsertionLocation, snapshotConfigLabel } from './history/historyLabelUtils'
 import { useAutoSideBySideZoom } from './hooks/useAutoSideBySideZoom'
 import {
@@ -320,7 +332,12 @@ function splitMergedRules(rules: readonly HsfRuleWithCfg[]): { baseRules: HsfRul
   const baseRules: HsfRuleWithCfg[] = []
   const finalSellRules: HsfRuleWithCfg[] = []
   for (const rule of rules) {
-    if (rule.__source === RULE_SOURCE_HSF || rule.__source === RULE_SOURCE_KEEP_UNIQUES) {
+    // Keep override sources belong with base rules so downstream logic can reuse them.
+    if (
+      rule.__source === RULE_SOURCE_HSF
+      || rule.__source === RULE_SOURCE_KEEP_UNIQUES
+      || rule.__source === RULE_SOURCE_KEEP_BEST_SUBSTAT
+    ) {
       baseRules.push(rule)
     } else if (rule.__source === RULE_SOURCE_FINAL_SELL) {
       finalSellRules.push(rule)
@@ -359,6 +376,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     noteConfigOptionsDisabled,
     keepUniqueRules,
     keepUniquesEnabled,
+    keepBestSubstatRules,
+    keepBestSubstatEnabled,
   } = useAppState()
   const customCfgsRef = useRef(customCfgs)
   useEffect(() => { customCfgsRef.current = customCfgs }, [customCfgs])
@@ -374,8 +393,11 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setNoteConfigOptionsDisabled,
     setKeepUniqueRules,
     setKeepUniquesEnabled,
+    setKeepBestSubstatRules,
+    setKeepBestSubstatEnabled,
   } = useAppActions()
   const [keepUniquesGridFilterMode, setKeepUniquesGridFilterMode] = useKeepUniquesGridFilterMode()
+  const [keepBestSubstatGridFilterMode, setKeepBestSubstatGridFilterMode] = useKeepBestSubstatGridFilterMode()
   const { runPipeline, flush: flushRuleCache, countRules } = useRuleCacheWorker()
   const { statButtonBorders } = useDisplayPreferences()
   const [autoApplySelectedConfig] = useAutoApplySelectedConfigPreference()
@@ -488,6 +510,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     hsf: HsfFile | null
     keepUniqueRules: readonly KeepUniqueRule[]
     keepUniquesEnabled: boolean
+    keepBestSubstatRules: readonly KeepBestSubstatRule[]
+    keepBestSubstatEnabled: boolean
     finalSell: FinalSellRemainderConfig | null | undefined
   }): string => {
     const {
@@ -497,11 +521,15 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       hsf: hsfFile,
       keepUniqueRules,
       keepUniquesEnabled: kuEnabled,
+      keepBestSubstatRules,
+      keepBestSubstatEnabled: kbsEnabled,
       finalSell,
     } = args
     // Metaset + keep-unique signatures ensure warm reuse stays aligned with resolved datasets.
     const metasetSig = fingerprintMetasetsForRules(metasets)
     const keepUniqueSig = `${kuEnabled ? 'on' : 'off'}:${fingerprintKeepUniqueRuleList(keepUniqueRules)}`
+    // Keep Best Substat signature follows the same warm-cache rules.
+    const keepBestSig = `${kbsEnabled ? 'on' : 'off'}:${fingerprintKeepBestSubstatRuleList(keepBestSubstatRules)}`
     // Final-sell settings affect injected rules, so fold them into the warm fingerprint.
     const finalSellSig = (() => {
       if (!finalSell) return 'fs:none'
@@ -520,7 +548,15 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       const ruleCount = Array.isArray(hsfFile.Rules) ? hsfFile.Rules.length : 0
       return `hsf:rules:${ruleCount}`
     })()
-    return [substatTargetsKey, configKeys.join(','), metasetSig, hsfSig, finalSellSig, keepUniqueSig].join('|')
+    return [
+      substatTargetsKey,
+      configKeys.join(','),
+      metasetSig,
+      hsfSig,
+      finalSellSig,
+      keepUniqueSig,
+      keepBestSig,
+    ].join('|')
   }, [fingerprintKeepUniqueRuleList, fingerprintMetasetsForRules])
   const [testerRestoreDraft, setTesterRestoreDraft] = useState<{
     items: RuleTesterItem[]
@@ -634,8 +670,18 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     () => fingerprintKeepUniqueDetection(keepUniqueDetection),
     [keepUniqueDetection],
   )
+  // Keep Best Substat detection snapshot feeds the new tab.
+  const [keepBestSubstatDetection, setKeepBestSubstatDetection] = useState<KeepBestSubstatDetectionSnapshot | null>(null)
+  const [keepBestSubstatItemKeys, setKeepBestSubstatItemKeys] = useState<Set<number>>(new Set())
+  const keepBestSubstatDetectionRef = useRef<KeepBestSubstatDetectionSnapshot | null>(keepBestSubstatDetection)
+  useEffect(() => { keepBestSubstatDetectionRef.current = keepBestSubstatDetection }, [keepBestSubstatDetection])
+  const keepBestSubstatDetectionSignature = useMemo(
+    () => fingerprintKeepBestSubstatDetection(keepBestSubstatDetection),
+    [keepBestSubstatDetection],
+  )
   const keepUniqueScanAppliedRef = useRef<string | null>(null)
-  const keepUniqueAppliedStateRef = useRef<{
+  const keepBestSubstatScanAppliedRef = useRef<string | null>(null)
+  const keepOverrideAppliedStateRef = useRef<{
     baseRules: readonly HsfRuleWithCfg[] | null
     rulesByConfig: ConfigRulesStateSnapshot['rulesByConfig'] | null
     finalSellRules: readonly HsfRuleWithCfg[] | null
@@ -644,32 +690,57 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     rulesByConfig: null,
     finalSellRules: null,
   })
-  // Force a re-apply when the detection fingerprint changes so late DB loads still inject keep-unique rules.
+  // Force a re-apply when Keep Uniques detection changes so late DB loads still inject keep overrides.
   useEffect(() => {
     if (!keepUniqueDetectionSignature) return
     if (keepUniqueDetectionSignature !== keepUniqueScanAppliedRef.current) {
-      keepUniqueAppliedStateRef.current = {
+      keepOverrideAppliedStateRef.current = {
         baseRules: null,
         rulesByConfig: null,
         finalSellRules: null,
       }
     }
   }, [keepUniqueDetectionSignature])
+  // Force a re-apply when Keep Best Substat detection changes.
+  useEffect(() => {
+    if (!keepBestSubstatDetectionSignature) return
+    if (keepBestSubstatDetectionSignature !== keepBestSubstatScanAppliedRef.current) {
+      keepOverrideAppliedStateRef.current = {
+        baseRules: null,
+        rulesByConfig: null,
+        finalSellRules: null,
+      }
+    }
+  }, [keepBestSubstatDetectionSignature])
   const pendingKeepUniqueDetectionSigRef = useRef<string | null>(null)
-  const resetKeepUniqueDetectionState = useCallback(() => {
+  const pendingKeepBestSubstatDetectionSigRef = useRef<string | null>(null)
+  const resetKeepOverrideDetectionState = useCallback(() => {
+    // Clear applied signatures so the next detection snapshot can re-inject rules.
     keepUniqueScanAppliedRef.current = null
+    keepBestSubstatScanAppliedRef.current = null
     pendingKeepUniqueDetectionSigRef.current = null
-    keepUniqueAppliedStateRef.current = {
+    pendingKeepBestSubstatDetectionSigRef.current = null
+    keepOverrideAppliedStateRef.current = {
       baseRules: null,
       rulesByConfig: null,
       finalSellRules: null,
     }
     setKeepUniqueDetection(null)
-  }, [setKeepUniqueDetection])
+    setKeepBestSubstatDetection(null)
+    setKeepUniqueGroupItemKeys(new Set())
+    setKeepBestSubstatItemKeys(new Set())
+  }, [setKeepBestSubstatDetection, setKeepBestSubstatItemKeys, setKeepUniqueDetection, setKeepUniqueGroupItemKeys])
   const resolvedKeepUniqueRules = useMemo(() => (
     resolveKeepUniqueRulesWithMetasets(keepUniqueRules, metasets)
   ), [keepUniqueRules, metasets])
   const keepUniquesActive = keepUniquesEnabled && resolvedKeepUniqueRules.length > 0
+  // Keep Best Substat rules do not require metaset resolution.
+  const resolvedKeepBestSubstatRules = useMemo(
+    () => keepBestSubstatRules.filter((rule) => Boolean(rule)),
+    [keepBestSubstatRules],
+  )
+  const keepBestSubstatActive = keepBestSubstatEnabled && resolvedKeepBestSubstatRules.length > 0
+  const keepOverridesActive = keepUniquesActive || keepBestSubstatActive
   const [gearEntriesBuilding, setGearEntriesBuilding] = useState(false)
   const [gearEntriesCommittedBuildId, setGearEntriesCommittedBuildId] = useState(0)
   const [gearEntriesActiveBuildId, setGearEntriesActiveBuildId] = useState(0)
@@ -683,8 +754,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const [testerMatchResetReason, setTesterMatchResetReason] = useState<TesterMatchResetReason | null>(null)
   // Track the last keep-unique structural signature so cosmetic edits do not retrigger the pipeline.
   const keepUniqueStructureSigRef = useRef<string | null>(null)
+  // Keep Best Substat rules also need a structural signature to gate rebuilds.
+  const keepBestSubstatStructureSigRef = useRef<string | null>(null)
   const beginTesterMatchReset = useCallback((reason: TesterMatchResetReason) => {
-    resetKeepUniqueDetectionState()
+    resetKeepOverrideDetectionState()
     const targetBuildId = gearEntriesActiveBuildId > gearEntriesCommittedBuildId
       ? gearEntriesActiveBuildId
       : gearEntriesCommittedBuildId + 1
@@ -694,7 +767,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       startedAt: Date.now(),
     }
     setTesterMatchResetReason(reason)
-  }, [resetKeepUniqueDetectionState, gearEntriesActiveBuildId, gearEntriesCommittedBuildId])
+  }, [resetKeepOverrideDetectionState, gearEntriesActiveBuildId, gearEntriesCommittedBuildId])
   const testerMatchDetailsFrozen = Boolean(testerMatchResetReason)
   useEffect(() => {
     if (!testerMatchResetReason) return
@@ -832,16 +905,27 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         rules: resolvedKeepUniqueRules,
         detection: keepUniquesActive ? keepUniqueDetection : null,
       },
+      // Keep Best Substat follows Keep Uniques in precedence.
+      keepBestSubstat: {
+        enabled: keepBestSubstatActive,
+        rules: resolvedKeepBestSubstatRules,
+        detection: keepBestSubstatActive ? keepBestSubstatDetection : null,
+      },
     })
       const { baseRules, finalSellRules } = splitMergedRules(mergedRules)
-      if (keepUniquesActive && keepUniqueDetection) {
-        // Seed applied-state refs so the detection effect knows this snapshot already includes the scan results.
-        keepUniqueAppliedStateRef.current = {
+      if (keepOverridesActive && (keepUniqueDetection || keepBestSubstatDetection)) {
+        // Seed applied-state refs so detection effects know this snapshot already includes the scan results.
+        keepOverrideAppliedStateRef.current = {
           baseRules,
           rulesByConfig: initial.rulesByConfig,
           finalSellRules,
         }
-        keepUniqueScanAppliedRef.current = fingerprintKeepUniqueDetection(keepUniqueDetection)
+        if (keepUniqueDetection) {
+          keepUniqueScanAppliedRef.current = fingerprintKeepUniqueDetection(keepUniqueDetection)
+        }
+        if (keepBestSubstatDetection) {
+          keepBestSubstatScanAppliedRef.current = fingerprintKeepBestSubstatDetection(keepBestSubstatDetection)
+        }
       }
       return {
         baseRules,
@@ -966,6 +1050,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     const nextSubstatTargetsKey = fingerprintSubstatTargets(substatTargetsForBuild)
     const nextConfigKeys = configsForBuild.map((cfg) => fingerprintConfigForRules(cfg, nextSubstatTargetsKey))
     const keepUniqueStructureSig = fingerprintKeepUniqueRuleList(resolvedKeepUniqueRules)
+    const keepBestSubstatStructureSig = fingerprintKeepBestSubstatRuleList(resolvedKeepBestSubstatRules)
     const nextFingerprint = buildRulesFingerprint({
       substatTargetsKey: nextSubstatTargetsKey,
       configKeys: nextConfigKeys,
@@ -973,6 +1058,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       hsf,
       keepUniqueRules: resolvedKeepUniqueRules,
       keepUniquesEnabled,
+      keepBestSubstatRules,
+      keepBestSubstatEnabled,
       finalSell: finalSellRemainder,
     })
     // If the warmed state already covers this fingerprint, skip the worker warm pass and avoid toggling spinners.
@@ -1005,6 +1092,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       && !workerNeedsReset
     ) {
       keepUniqueStructureSigRef.current = keepUniqueStructureSig
+      keepBestSubstatStructureSigRef.current = keepBestSubstatStructureSig
       return () => {
         abortController.abort()
         if (pipelineAbortRef.current === abortController) pipelineAbortRef.current = null
@@ -1051,6 +1139,13 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         }
         return resolveKeepUniqueRuleLabel(rule)
       }
+      const resolveKeepBestLabel = (ruleIndex: number | null): string | null => {
+        // Keep-best labels are ordinal-only but still need stable resolution.
+        if (ruleIndex == null || !prevState?.mergedRules) return null
+        const rule = prevState.mergedRules[ruleIndex]
+        if (!rule || rule.__source !== RULE_SOURCE_KEEP_BEST_SUBSTAT) return null
+        return resolveKeepBestSubstatRuleLabel(rule)
+      }
       const refreshMatch = (match: TesterPreviewMatch | null): TesterPreviewMatch | null => {
         // Recompute config names, while keep-unique matches use the live rule label map.
         if (!match) return null
@@ -1058,12 +1153,19 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         const keepUniqueLabel = match.ruleSource === RULE_SOURCE_KEEP_UNIQUES
           ? resolveKeepUniqueLabel(match.ruleIndex)
           : null
+        const keepBestLabel = match.ruleSource === RULE_SOURCE_KEEP_BEST_SUBSTAT
+          ? resolveKeepBestLabel(match.ruleIndex)
+          : null
         const resolvedCfgName = match.ruleSource === RULE_SOURCE_KEEP_UNIQUES
           ? (keepUniqueLabel ?? match.cfgName ?? null)
-          : nextCfgName
+          : match.ruleSource === RULE_SOURCE_KEEP_BEST_SUBSTAT
+            ? (keepBestLabel ?? match.cfgName ?? null)
+            : nextCfgName
         const resolvedRuleLabel = match.ruleSource === RULE_SOURCE_KEEP_UNIQUES
           ? (keepUniqueLabel ?? match.ruleLabel ?? null)
-          : match.ruleLabel
+          : match.ruleSource === RULE_SOURCE_KEEP_BEST_SUBSTAT
+            ? (keepBestLabel ?? match.ruleLabel ?? null)
+            : match.ruleLabel
         return { ...match, cfgName: resolvedCfgName, ruleLabel: resolvedRuleLabel }
       }
       const updatedRows = prevMatches.map((row) => ({
@@ -1137,7 +1239,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         truncatedConfigIndices: newTruncated,
         excludedByTotalLimitIndices: newExcluded,
       })
-      keepUniqueAppliedStateRef.current = {
+      keepOverrideAppliedStateRef.current = {
         baseRules: prevState.baseRules,
         rulesByConfig: newRulesByConfig,
         finalSellRules: prevState.finalSellRules,
@@ -1160,6 +1262,13 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           }
           return resolveKeepUniqueRuleLabel(rule)
         }
+        // Keep-best-substat labels are ordinal-only, but still need stable resolution.
+        const resolveKeepBestLabel = (ruleIndex: number | null): string | null => {
+          if (ruleIndex == null) return null
+          const rule = prevState.mergedRules[ruleIndex]
+          if (!rule || rule.__source !== RULE_SOURCE_KEEP_BEST_SUBSTAT) return null
+          return resolveKeepBestSubstatRuleLabel(rule)
+        }
         const remapCfgIdx = (cfgIdx: number | null): number | null => {
           if (cfgIdx == null) return null
           const nextIdx = inverse.get(cfgIdx)
@@ -1179,12 +1288,19 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             const keepUniqueLabel = row.match.ruleSource === RULE_SOURCE_KEEP_UNIQUES
               ? resolveKeepUniqueLabel(row.match.ruleIndex)
               : null
+            const keepBestLabel = row.match.ruleSource === RULE_SOURCE_KEEP_BEST_SUBSTAT
+              ? resolveKeepBestLabel(row.match.ruleIndex)
+              : null
             const cfgName = row.match.ruleSource === RULE_SOURCE_KEEP_UNIQUES
               ? (keepUniqueLabel ?? row.match.cfgName ?? null)
-              : nextName
+              : row.match.ruleSource === RULE_SOURCE_KEEP_BEST_SUBSTAT
+                ? (keepBestLabel ?? row.match.cfgName ?? null)
+                : nextName
             const ruleLabel = row.match.ruleSource === RULE_SOURCE_KEEP_UNIQUES
               ? (keepUniqueLabel ?? row.match.ruleLabel ?? null)
-              : row.match.ruleLabel
+              : row.match.ruleSource === RULE_SOURCE_KEEP_BEST_SUBSTAT
+                ? (keepBestLabel ?? row.match.ruleLabel ?? null)
+                : row.match.ruleLabel
             return { ...row.match, cfgIdx: nextIdx, cfgName, ruleLabel }
           })(),
           baseMatch: (() => {
@@ -1194,12 +1310,19 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             const keepUniqueLabel = row.baseMatch.ruleSource === RULE_SOURCE_KEEP_UNIQUES
               ? resolveKeepUniqueLabel(row.baseMatch.ruleIndex)
               : null
+            const keepBestLabel = row.baseMatch.ruleSource === RULE_SOURCE_KEEP_BEST_SUBSTAT
+              ? resolveKeepBestLabel(row.baseMatch.ruleIndex)
+              : null
             const cfgName = row.baseMatch.ruleSource === RULE_SOURCE_KEEP_UNIQUES
               ? (keepUniqueLabel ?? row.baseMatch.cfgName ?? null)
-              : nextName
+              : row.baseMatch.ruleSource === RULE_SOURCE_KEEP_BEST_SUBSTAT
+                ? (keepBestLabel ?? row.baseMatch.cfgName ?? null)
+                : nextName
             const ruleLabel = row.baseMatch.ruleSource === RULE_SOURCE_KEEP_UNIQUES
               ? (keepUniqueLabel ?? row.baseMatch.ruleLabel ?? null)
-              : row.baseMatch.ruleLabel
+              : row.baseMatch.ruleSource === RULE_SOURCE_KEEP_BEST_SUBSTAT
+                ? (keepBestLabel ?? row.baseMatch.ruleLabel ?? null)
+                : row.baseMatch.ruleLabel
             return { ...row.baseMatch, cfgIdx: nextIdx, cfgName, ruleLabel }
           })(),
           matchingCfgIndices: row.matchingCfgIndices.map((idx) => {
@@ -1227,10 +1350,17 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       setRulesBuildProgress(null)
       setGearEntriesProgress(null)
 
+      // Keep Uniques payload seeds the worker with the current rule set.
       const keepUniquesPayload = {
         enabled: keepUniquesEnabled && resolvedKeepUniqueRules.length > 0,
         rules: resolvedKeepUniqueRules,
         detection: null as KeepUniqueDetectionSnapshot | null,
+      }
+      // Keep Best Substat payload mirrors Keep Uniques for detection + merge.
+      const keepBestSubstatPayload = {
+        enabled: keepBestSubstatEnabled && resolvedKeepBestSubstatRules.length > 0,
+        rules: resolvedKeepBestSubstatRules,
+        detection: null as KeepBestSubstatDetectionSnapshot | null,
       }
       const {
         patch: artifactPatch,
@@ -1274,16 +1404,23 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         const rule = rules[result.ruleIndex]
         const cfgIdx = result.cfgIdx ?? null
         const cfgName = resolveMatchConfigName(cfgIdx, configNamesForBuild, rule)
+        // Keep Uniques use rule ordinals instead of config names.
         const keepUniqueLabel = rule?.__source === RULE_SOURCE_KEEP_UNIQUES
           ? resolveKeepUniqueRuleLabel(rule)
           : null
-        const effectiveCfgName = cfgName && cfgName.length > 0 ? cfgName : keepUniqueLabel
+        // Keep Best Substat uses the same label fallback strategy.
+        const keepBestLabel = rule?.__source === RULE_SOURCE_KEEP_BEST_SUBSTAT
+          ? resolveKeepBestSubstatRuleLabel(rule)
+          : null
+        const effectiveCfgName = cfgName && cfgName.length > 0
+          ? cfgName
+          : (keepUniqueLabel ?? keepBestLabel)
         return {
           ruleIndex: result.ruleIndex,
           keep: result.keep,
           cfgIdx,
           cfgName: effectiveCfgName && effectiveCfgName.length > 0 ? effectiveCfgName : null,
-          ruleLabel: keepUniqueLabel ?? null,
+          ruleLabel: keepUniqueLabel ?? keepBestLabel ?? null,
           ruleSource: rule?.__source ?? null,
         }
       }
@@ -1300,6 +1437,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         hsf,
         ...(finalSellRemainder ? { finalSellRemainder } : {}),
         keepUniques: keepUniquesPayload,
+        // Keep Best Substat shares the pipeline detection pass.
+        keepBestSubstat: keepBestSubstatPayload,
         configModes: configModesForBuild,
         artifacts: [],
         artifactPatch,
@@ -1322,7 +1461,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         },
       })
         .then((result) => {
-          const { state, matches, detection } = result
+          const { state, matches, keepUniqueDetection, keepBestSubstatDetection } = result
           if (abortController.signal.aborted || requestToken !== rulesBuildingTokenRef.current) return
           lastWarmFingerprintRef.current = nextFingerprint
           const { baseRules, finalSellRules } = splitMergedRules(state.mergedRules)
@@ -1339,12 +1478,13 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             excludedByTotalLimitIndices: state.excludedByTotalLimitIndices,
           }
           setConfigRulesState(snapshot)
-          keepUniqueAppliedStateRef.current = {
+          keepOverrideAppliedStateRef.current = {
             baseRules,
             rulesByConfig: state.rulesByConfig,
             finalSellRules,
           }
           keepUniqueStructureSigRef.current = keepUniqueStructureSig
+          keepBestSubstatStructureSigRef.current = keepBestSubstatStructureSig
           const matchMap = new Map<number, TesterMatchWorkerItemResult>()
           for (const entry of matches) {
             if (!entry) continue
@@ -1370,20 +1510,37 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           setTesterPreviewRows(sortTesterRows(rows))
           setGearEntriesCommittedBuildId(requestToken)
           setGearEntriesActiveBuildId(requestToken)
+          // Collect Keep Uniques item keys for the tab-level grid filter.
           const uniqueKeys = new Set<number>()
-          if (detection?.entries) {
-            for (const entry of detection.entries) {
+          if (keepUniqueDetection?.entries) {
+            for (const entry of keepUniqueDetection.entries) {
               if (!entry) continue
               for (const key of entry.itemKeys) uniqueKeys.add(key)
             }
           }
-          setKeepUniqueDetection(detection ?? null)
+          // Collect Keep Best Substat item keys for its grid filter.
+          const keepBestKeys = new Set<number>()
+          if (keepBestSubstatDetection?.entries) {
+            for (const entry of keepBestSubstatDetection.entries) {
+              if (!entry) continue
+              for (const key of entry.itemKeys) keepBestKeys.add(key)
+            }
+          }
+          setKeepUniqueDetection(keepUniqueDetection ?? null)
+          setKeepBestSubstatDetection(keepBestSubstatDetection ?? null)
           setKeepUniqueGroupItemKeys(uniqueKeys)
+          setKeepBestSubstatItemKeys(keepBestKeys)
           // Persist the latest worker-acknowledged fingerprints so the next patch knows which
           // artifacts can be skipped safely.
           lastCommittedArtifactFingerprintsRef.current = nextArtifactFingerprints
-          keepUniqueScanAppliedRef.current = detection ? fingerprintKeepUniqueDetection(detection) : null
+          keepUniqueScanAppliedRef.current = keepUniqueDetection
+            ? fingerprintKeepUniqueDetection(keepUniqueDetection)
+            : null
+          keepBestSubstatScanAppliedRef.current = keepBestSubstatDetection
+            ? fingerprintKeepBestSubstatDetection(keepBestSubstatDetection)
+            : null
           pendingKeepUniqueDetectionSigRef.current = null
+          pendingKeepBestSubstatDetectionSigRef.current = null
           lastPipelineSignatureRef.current = { fingerprint: nextFingerprint, artifactSig: pipelineArtifactSignature }
           lastConfigNamesRef.current = configNamesForBuild
           lastKeepUniqueLabelSignatureRef.current = keepUniqueLabelSignature
@@ -1420,7 +1577,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                 recoverMissingRulesRef.current = false
                 lastWarmFingerprintRef.current = retryResult.fingerprint ?? null
                 // Re-run the success handler with the retried payload.
-                const { state: retryState, matches: retryMatches, detection: retryDetection } = retryResult
+                const {
+                  state: retryState,
+                  matches: retryMatches,
+                  keepUniqueDetection: retryKeepUniqueDetection,
+                  keepBestSubstatDetection: retryKeepBestSubstatDetection,
+                } = retryResult
                 const splitRetry = splitMergedRules(retryState.mergedRules)
                 setConfigRulesState({
                   baseRules: splitRetry.baseRules,
@@ -1434,11 +1596,13 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                   totalLimitHit: retryState.totalLimitHit,
                   excludedByTotalLimitIndices: retryState.excludedByTotalLimitIndices,
                 })
-                keepUniqueAppliedStateRef.current = {
+                keepOverrideAppliedStateRef.current = {
                   baseRules: splitRetry.baseRules,
                   rulesByConfig: retryState.rulesByConfig,
                   finalSellRules: splitRetry.finalSellRules,
                 }
+                keepUniqueStructureSigRef.current = keepUniqueStructureSig
+                keepBestSubstatStructureSigRef.current = keepBestSubstatStructureSig
                 const retryMap = new Map<number, TesterMatchWorkerItemResult>()
                 for (const entry of retryMatches) retryMap.set(entry.itemId, entry)
                 const retryRows: TesterPreviewRow[] = []
@@ -1462,16 +1626,31 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
                 setGearEntriesCommittedBuildId(requestToken)
                 setGearEntriesActiveBuildId(requestToken)
                 const retryUniqueKeys = new Set<number>()
-                if (retryDetection?.entries) {
-                  for (const entry of retryDetection.entries) {
+                if (retryKeepUniqueDetection?.entries) {
+                  for (const entry of retryKeepUniqueDetection.entries) {
                     if (!entry) continue
                     for (const key of entry.itemKeys) retryUniqueKeys.add(key)
                   }
                 }
-                setKeepUniqueDetection(retryDetection ?? null)
+                const retryBestKeys = new Set<number>()
+                if (retryKeepBestSubstatDetection?.entries) {
+                  for (const entry of retryKeepBestSubstatDetection.entries) {
+                    if (!entry) continue
+                    for (const key of entry.itemKeys) retryBestKeys.add(key)
+                  }
+                }
+                setKeepUniqueDetection(retryKeepUniqueDetection ?? null)
+                setKeepBestSubstatDetection(retryKeepBestSubstatDetection ?? null)
                 setKeepUniqueGroupItemKeys(retryUniqueKeys)
-                keepUniqueScanAppliedRef.current = retryDetection ? fingerprintKeepUniqueDetection(retryDetection) : null
+                setKeepBestSubstatItemKeys(retryBestKeys)
+                keepUniqueScanAppliedRef.current = retryKeepUniqueDetection
+                  ? fingerprintKeepUniqueDetection(retryKeepUniqueDetection)
+                  : null
+                keepBestSubstatScanAppliedRef.current = retryKeepBestSubstatDetection
+                  ? fingerprintKeepBestSubstatDetection(retryKeepBestSubstatDetection)
+                  : null
                 pendingKeepUniqueDetectionSigRef.current = null
+                pendingKeepBestSubstatDetectionSigRef.current = null
                 // Retry path accepts the same snapshot, so propagate the pending fingerprints as well.
                 lastCommittedArtifactFingerprintsRef.current = nextArtifactFingerprints
                 lastPipelineSignatureRef.current = { fingerprint: nextFingerprint, artifactSig: pipelineArtifactSignature }
@@ -1525,7 +1704,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     finalSellRemainder,
     keepUniqueRules,
     keepUniquesEnabled,
+    keepBestSubstatRules,
+    keepBestSubstatEnabled,
     resolvedKeepUniqueRules,
+    resolvedKeepBestSubstatRules,
     configModes,
     configModesForPreview,
     testerPreviewArtifacts,
@@ -1738,6 +1920,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     finalSellRemainder,
     keepUniqueRules,
     keepUniquesEnabled,
+    keepBestSubstatRules,
+    keepBestSubstatEnabled,
     hsfcNote,
     selectedCfgIdx,
     selectedCfgIndices,
@@ -1752,6 +1936,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setFinalSellRemainder,
     setKeepUniqueRules,
     setKeepUniquesEnabled,
+    setKeepBestSubstatRules,
+    setKeepBestSubstatEnabled,
     setHsfcNote,
     setSelectedCfgIdx: setSelectedCfgIdxRaw,
     setSelectedCfgIndices,
@@ -1977,6 +2163,42 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       return next
     })
   }, [describeNextChange, metasets, setKeepUniqueRules])
+  const applyKeepBestSubstatEnabledChange = useCallback((
+    value: React.SetStateAction<boolean>,
+    options?: { publish?: boolean },
+  ): void => {
+    // Keep the toggle change labeled so history never falls back to unnamed snapshots.
+    setKeepBestSubstatEnabled((prev) => {
+      const next = typeof value === 'function' ? (value as (p: boolean) => boolean)(prev) : value
+      if (prev === next) return prev
+      const descriptor = createKeepBestSubstatEnabledChangeDescriptor({
+        previousEnabled: prev,
+        nextEnabled: next,
+        rules: keepBestSubstatRules,
+      })
+      if (options?.publish === false) return next
+      describeNextChange(descriptor ?? null)
+      return next
+    })
+  }, [describeNextChange, keepBestSubstatRules, setKeepBestSubstatEnabled])
+  const applyKeepBestSubstatRulesChange = useCallback((
+    value: React.SetStateAction<KeepBestSubstatRule[]>,
+    options?: { mode?: 'edit' | 'reset'; publish?: boolean },
+  ): void => {
+    // Snapshot keep-best rules with structured tooltip lines for history.
+    setKeepBestSubstatRules((prev) => {
+      const next = typeof value === 'function' ? (value as (p: KeepBestSubstatRule[]) => KeepBestSubstatRule[])(prev) : value
+      const descriptor = createKeepBestSubstatRulesChangeDescriptor({
+        previous: prev,
+        next,
+        mode: options?.mode ?? 'edit',
+      })
+      if (!descriptor) return prev
+      if (options?.publish === false) return next
+      describeNextChange(descriptor)
+      return next
+    })
+  }, [describeNextChange, setKeepBestSubstatRules])
   // Warn on close/tab navigation if there are unsaved changes
   useEffect(() => {
     const onBeforeUnload = (e: BeforeUnloadEvent) => {
@@ -2847,68 +3069,98 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const limitExceeded = totalLimitHit || truncatedConfigIndices.length > 0
   const configsExcludedByTotalLimit = useMemo(() => new Set<number>(configRulesState.excludedByTotalLimitIndices), [configRulesState.excludedByTotalLimitIndices])
 
-  // Apply keep-unique rules immediately when a fresh detection snapshot is available so the tester grid sees them.
+  // Apply keep-override rules immediately when fresh detection snapshots arrive.
   useEffect(() => {
-    // Exit early when keep-unique is off; detection is ignored in that state.
-    if (!keepUniquesActive) return
-    // No detection = nothing to inject yet.
-    if (!keepUniqueDetection || !keepUniqueDetectionSignature) return
-    // Skip redundant applications when both detection fingerprint and rule sources match.
-    const pendingDetectionSignature = pendingKeepUniqueDetectionSigRef.current
-    const applied = keepUniqueAppliedStateRef.current
+    // Exit early when both keep-override features are off.
+    if (!keepOverridesActive) return
+    // Require detection snapshots for any active keep-override feature.
+    if (keepUniquesActive && (!keepUniqueDetection || !keepUniqueDetectionSignature)) return
+    if (keepBestSubstatActive && (!keepBestSubstatDetection || !keepBestSubstatDetectionSignature)) return
+    // Skip redundant applications when both detection fingerprints and rule sources match.
+    const pendingUniqueSig = pendingKeepUniqueDetectionSigRef.current
+    const pendingBestSig = pendingKeepBestSubstatDetectionSigRef.current
+    const applied = keepOverrideAppliedStateRef.current
     const baseRulesRef = configRulesState.baseRules
     const rulesByConfigRef = configRulesState.rulesByConfig
     const finalSellRulesRef = configRulesState.finalSellRules
+    const uniqueApplied = !keepUniquesActive
+      || keepUniqueDetectionSignature === keepUniqueScanAppliedRef.current
+    const bestApplied = !keepBestSubstatActive
+      || keepBestSubstatDetectionSignature === keepBestSubstatScanAppliedRef.current
     const alreadyApplied = (
-      keepUniqueDetectionSignature === keepUniqueScanAppliedRef.current
+      uniqueApplied
+      && bestApplied
       && applied.baseRules === baseRulesRef
       && applied.rulesByConfig === rulesByConfigRef
       && applied.finalSellRules === finalSellRulesRef
     )
-    const detectionAwaitingApply = pendingDetectionSignature === keepUniqueDetectionSignature
+    const detectionAwaitingApply = (
+      (keepUniquesActive && pendingUniqueSig === keepUniqueDetectionSignature)
+      || (keepBestSubstatActive && pendingBestSig === keepBestSubstatDetectionSignature)
+    )
     if (detectionAwaitingApply || alreadyApplied) return
-    // Rebuild the merge list with keep-unique rules at the front so matches see them.
+    // Rebuild the merge list with keep-override rules at the front so matches see them.
     setConfigRulesState((prev) => {
-      // Flatten customs once; helper handles dedupe + injection.
+      // Flatten customs once; helpers handle dedupe + injection.
       const flattenedCustoms: HsfRuleWithCfg[] = []
       for (let idx = 0; idx < prev.keys.length; idx += 1) {
         const segment = prev.rulesByConfig.get(idx)
         if (!segment || segment.length === 0) continue
         flattenedCustoms.push(...segment)
       }
-      const { baseRules: nextBaseRules, mergedRules: merged } = prependKeepUniqueRules({
+      const keepUniqueResult = prependKeepUniqueRules({
         baseRules: prev.baseRules,
         customRules: flattenedCustoms,
         finalSellRules: prev.finalSellRules,
         resolvedKeepUniqueRules,
-        detection: keepUniqueDetection,
+        detection: keepUniquesActive ? keepUniqueDetection : null,
+      })
+      const keepBestResult = prependKeepBestSubstatRules({
+        baseRules: keepUniqueResult.baseRules,
+        customRules: flattenedCustoms,
+        finalSellRules: prev.finalSellRules,
+        resolvedKeepBestSubstatRules,
+        detection: keepBestSubstatActive ? keepBestSubstatDetection : null,
       })
       // Prime the rule-match index so testers and workers use the updated ordering.
-      primeRuleMatchIndex(merged, buildRuleMatchIndexData(merged))
-      for (let i = 0; i < merged.length; i += 1) {
-        (merged[i] as HsfRuleWithCfg).__lineIdx = i
+      primeRuleMatchIndex(keepBestResult.mergedRules, buildRuleMatchIndexData(keepBestResult.mergedRules))
+      for (let i = 0; i < keepBestResult.mergedRules.length; i += 1) {
+        (keepBestResult.mergedRules[i] as HsfRuleWithCfg).__lineIdx = i
       }
-      keepUniqueAppliedStateRef.current = {
-        baseRules: nextBaseRules,
+      keepOverrideAppliedStateRef.current = {
+        baseRules: keepBestResult.baseRules,
         rulesByConfig: prev.rulesByConfig,
         finalSellRules: prev.finalSellRules,
       }
       return {
         ...prev,
-        baseRules: nextBaseRules,
-        mergedRules: merged,
+        baseRules: keepBestResult.baseRules,
+        mergedRules: keepBestResult.mergedRules,
       }
     })
-    // Record the applied signature to avoid re-applying the same snapshot.
+    // Record applied signatures to avoid re-applying the same snapshot.
     if (pendingKeepUniqueDetectionSigRef.current === keepUniqueDetectionSignature) {
       pendingKeepUniqueDetectionSigRef.current = null
     }
-    keepUniqueScanAppliedRef.current = keepUniqueDetectionSignature
+    if (pendingKeepBestSubstatDetectionSigRef.current === keepBestSubstatDetectionSignature) {
+      pendingKeepBestSubstatDetectionSigRef.current = null
+    }
+    if (keepUniquesActive && keepUniqueDetectionSignature) {
+      keepUniqueScanAppliedRef.current = keepUniqueDetectionSignature
+    }
+    if (keepBestSubstatActive && keepBestSubstatDetectionSignature) {
+      keepBestSubstatScanAppliedRef.current = keepBestSubstatDetectionSignature
+    }
   }, [
+    keepOverridesActive,
     keepUniquesActive,
+    keepBestSubstatActive,
     keepUniqueDetection,
+    keepBestSubstatDetection,
     keepUniqueDetectionSignature,
+    keepBestSubstatDetectionSignature,
     resolvedKeepUniqueRules,
+    resolvedKeepBestSubstatRules,
     configRulesState.baseRules,
     configRulesState.rulesByConfig,
     configRulesState.finalSellRules,
@@ -3086,6 +3338,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     keepUniquesEnabled,
     logicHubDialogTab,
     keepUniquesGridFilterMode,
+    keepBestSubstatRules,
+    keepBestSubstatEnabled,
+    keepBestSubstatGridFilterMode,
     storedRuntimeGearSetCount,
   })
   const currentMetasetSignature = useMemo(() => metasetsSignature(metasets), [metasets])
@@ -3476,6 +3731,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     finalSellRemainder,
     keepUniqueRules,
     keepUniquesEnabled,
+    keepBestSubstatRules,
+    keepBestSubstatEnabled,
     selectedCfgIdx,
     selectedCfgIndices,
     describeNextChange,
@@ -3487,6 +3744,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     applyNoteChange,
     setKeepUniqueRules,
     setKeepUniquesEnabled,
+    setKeepBestSubstatRules,
+    setKeepBestSubstatEnabled,
     setSelectedCfgIdx: syncSelectedCfgIdx,
     setSelectedCfgIndices,
     setSelectionAnchor,
@@ -3680,6 +3939,18 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setKeepUniqueRules(nextRules)
     setKeepUniquesEnabled(false)
   }, [describeNextChange, keepUniqueRules, metasets, setKeepUniqueRules, setKeepUniquesEnabled])
+  const handleResetKeepBestSubstat = useCallback(() => {
+    // Reset keep-best rules to defaults and log a single history snapshot for the action.
+    const nextRules = buildDefaultKeepBestSubstatRules()
+    const descriptor = createKeepBestSubstatRulesChangeDescriptor({
+      previous: keepBestSubstatRules,
+      next: nextRules,
+      mode: 'reset',
+    })
+    describeNextChange(descriptor ?? null)
+    setKeepBestSubstatRules(nextRules)
+    setKeepBestSubstatEnabled(false)
+  }, [describeNextChange, keepBestSubstatRules, setKeepBestSubstatRules, setKeepBestSubstatEnabled])
   const handleResetGearTesterItems = useCallback(() => {
     // Treat manual resets like a full gear-db refresh so matcher + keep-unique detection clear immediately.
     beginTesterMatchReset('gearDb')
@@ -3702,7 +3973,19 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     ...(trimmedHsfcNote ? { note: trimmedHsfcNote } : {}),
     keepUniqueRules,
     keepUniquesEnabled,
-  }), [customCfgs, finalSellRemainder, keepUniqueRules, keepUniquesEnabled, metasets, substatTargets, trimmedHsfcNote])
+    keepBestSubstatRules,
+    keepBestSubstatEnabled,
+  }), [
+    customCfgs,
+    finalSellRemainder,
+    keepUniqueRules,
+    keepUniquesEnabled,
+    keepBestSubstatRules,
+    keepBestSubstatEnabled,
+    metasets,
+    substatTargets,
+    trimmedHsfcNote,
+  ])
   const { payload: autosaveBasePayload } = useDeferredHsfcPayload(autosaveBuildParams)
   const autosavePayload = useMemo(() => {
     const filtersPayload = areAutosaveFiltersDefault(autosaveFiltersState) ? null : autosaveFiltersState
@@ -3719,13 +4002,23 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       ...autosaveBasePayload,
       LogicHubDialogTab: logicHubDialogTab, // Persist the active tab so the dialog re-opens where the user left off.
       KeepUniquesGridFilterMode: keepUniquesGridFilterMode,
+      KeepBestSubstatGridFilterMode: keepBestSubstatGridFilterMode,
       AutosaveSavedAt: new Date().toISOString(),
       ...(configOptionsPayload ? { [NOTE_CONFIG_OPTIONS_ANSWERS_KEY]: configOptionsPayload } : {}),
       ...(configOptionsDisabledPayload ? { [NOTE_CONFIG_OPTIONS_DISABLED_KEY]: true } : {}),
       ...(filtersPayload ? { Filters: filtersPayload } : {}),
       ...(testerSortPayload ? { TesterSort: testerSortPayload } : {}),
     }
-  }, [autosaveBasePayload, autosaveFiltersState, logicHubDialogTab, keepUniquesGridFilterMode, noteConfigOptionsAnswers, noteConfigOptionsDisabled, testerSubstatSortPrefs.state])
+  }, [
+    autosaveBasePayload,
+    autosaveFiltersState,
+    logicHubDialogTab,
+    keepUniquesGridFilterMode,
+    keepBestSubstatGridFilterMode,
+    noteConfigOptionsAnswers,
+    noteConfigOptionsDisabled,
+    testerSubstatSortPrefs.state,
+  ])
   useAutosave({
     key: AUTOSAVE_KEY,
     payload: autosavePayload,
@@ -4838,6 +5131,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       finalSellRemainder: FinalSellRemainderConfig
       keepUniqueRules: KeepUniqueRule[]
       keepUniquesEnabled: boolean
+      keepBestSubstatRules: KeepBestSubstatRule[]
+      keepBestSubstatEnabled: boolean
     },
   ) => {
     const {
@@ -4849,6 +5144,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       finalSellRemainder: fsr,
       keepUniqueRules,
       keepUniquesEnabled,
+      keepBestSubstatRules,
+      keepBestSubstatEnabled,
     } = payload
 
     const loadDescriptor = createHsfcLoadedDescriptor(fileName)
@@ -4886,6 +5183,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       }
       setKeepUniqueRules(keepUniqueRules)
       setKeepUniquesEnabled(keepUniquesEnabled)
+      setKeepBestSubstatRules(keepBestSubstatRules)
+      setKeepBestSubstatEnabled(keepBestSubstatEnabled)
       applyFinalSellChange(fsr, { mode: 'import', publish: false })
       syncSelectedCfgIdx(resolvedSel, { forceSync: true, suppressDraft: true })
       if (resolvedSel !== null && cfgs[resolvedSel]) {
@@ -4916,6 +5215,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setNoteAutoOpenedFromHsfc,
     setKeepUniqueRules,
     setKeepUniquesEnabled,
+    setKeepBestSubstatRules,
+    setKeepBestSubstatEnabled,
     setBuilder,
     setCustomCfgs,
     setLastExportSig,
@@ -5048,6 +5349,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           ...(hsfcNote ? { note: hsfcNote } : {}),
           keepUniqueRules,
           keepUniquesEnabled,
+          keepBestSubstatRules,
+          keepBestSubstatEnabled,
         })
         const blob = hsfcToBlob(payload)
         const url = URL.createObjectURL(blob)
@@ -5197,6 +5500,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           }
           setKeepUniqueRules(pendingImport.keepUniqueRules)
           setKeepUniquesEnabled(pendingImport.keepUniquesEnabled)
+          setKeepBestSubstatRules(pendingImport.keepBestSubstatRules)
+          setKeepBestSubstatEnabled(pendingImport.keepBestSubstatEnabled)
         } finally {
           setMetasetConflictOpen(false)
           setPendingImport(null)
@@ -5951,10 +6256,17 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
             if (draft?.KeepUniquesGridFilterMode) {
               setKeepUniquesGridFilterMode(sanitizeKeepUniquesGridFilterMode(draft.KeepUniquesGridFilterMode))
             }
+            if (draft?.KeepBestSubstatGridFilterMode) {
+              setKeepBestSubstatGridFilterMode(sanitizeKeepBestSubstatGridFilterMode(draft.KeepBestSubstatGridFilterMode))
+            }
             if (selection.configs) {
               if (Array.isArray(draft?.KeepUniques)) setKeepUniqueRules(draft.KeepUniques)
               if (typeof draft?.KeepUniquesEnabled === 'boolean') {
                 setKeepUniquesEnabled(Boolean(draft.KeepUniquesEnabled))
+              }
+              if (Array.isArray(draft?.KeepBestSubstats)) setKeepBestSubstatRules(draft.KeepBestSubstats)
+              if (typeof draft?.KeepBestSubstatsEnabled === 'boolean') {
+                setKeepBestSubstatEnabled(Boolean(draft.KeepBestSubstatsEnabled))
               }
             }
             // Coalesce downstream rebuilds into a single pass.
@@ -5999,8 +6311,16 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           keepUniquesEnabled={keepUniquesEnabled}
           onKeepUniquesEnabledChange={applyKeepUniquesEnabledChange}
           keepUniqueDetection={keepUniqueDetection}
+          // Keep Best Substat is a first-class keep-override tab in Logic Hub.
+          keepBestSubstatRules={keepBestSubstatRules}
+          onKeepBestSubstatRulesChange={applyKeepBestSubstatRulesChange}
+          keepBestSubstatEnabled={keepBestSubstatEnabled}
+          onKeepBestSubstatEnabledChange={applyKeepBestSubstatEnabledChange}
+          keepBestSubstatDetection={keepBestSubstatDetection}
           gearEntries={testerPreviewRows}
           keepUniqueItemKeys={keepUniqueGroupItemKeys}
+          // Precomputed keep-best item keys let the grid highlight protected rows.
+          keepBestSubstatItemKeys={keepBestSubstatItemKeys}
           substatColors={substatColors}
           useStatButtonColors={statButtonBorders}
           onToggleStatColors={setStatButtonBorders}
@@ -6013,6 +6333,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           suppressMatchDetails={suppressTesterMatchDetails}
           workloadProgressRatio={workloadProgressRatio}
           onResetKeepUniques={handleResetKeepUniques}
+          // Keep-best reset mirrors Keep Uniques confirmation behavior.
+          onResetKeepBestSubstat={handleResetKeepBestSubstat}
           onJumpToRule={handleTesterRuleView}
           customCfgs={customCfgs}
           testerItems={testerItems}

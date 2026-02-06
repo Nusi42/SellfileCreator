@@ -5,6 +5,7 @@ import type { HsfFile } from '../lib/hsfTypes'
 import type { FinalSellRemainderConfig } from '../lib/finalSell'
 import type { RuleMatchIndexData } from '../lib/ruleMatchIndex'
 import type { KeepUniqueDetectionSnapshot, KeepUniquesMergeInput } from '../lib/keepUniques'
+import type { KeepBestSubstatDetectionSnapshot, KeepBestSubstatMergeInput } from '../lib/keepBestSubstat'
 import type { NormalizedGearArtifact } from '../lib/importers/gearDbNormalizer'
 import type { TesterMatchWorkerItemResult } from './testerMatchWorkerTypes'
 import type { ProgressSnapshot } from '../types/progress'
@@ -19,6 +20,8 @@ export type RuleCacheWarmRequest = {
     hsf: HsfFile | null
     finalSellRemainder?: FinalSellRemainderConfig
     keepUniques: KeepUniquesMergeInput
+    // Keep Best Substat rules are required for consistent warm merges.
+    keepBestSubstat: KeepBestSubstatMergeInput
   }
 }
 
@@ -71,6 +74,8 @@ export type RuleCachePipelineRequest = {
     hsf: HsfFile | null
     finalSellRemainder?: FinalSellRemainderConfig
     keepUniques: KeepUniquesMergeInput
+    // Keep Best Substat participates in pipeline detection + rule injection.
+    keepBestSubstat: KeepBestSubstatMergeInput
     configModes: SellfileExportMode[]
     artifacts?: NormalizedGearArtifact[]
     artifactPatch?: {
@@ -101,7 +106,10 @@ export type RuleCachePipelineResponse = {
     excludedByTotalLimitIndices: number[]
     ruleMatchIndex: RuleMatchIndexData
     matches: TesterMatchWorkerItemResult[]
-    detection: KeepUniqueDetectionSnapshot | null
+    // Keep-unique detection snapshot for UI inspection + cache parity.
+    keepUniqueDetection: KeepUniqueDetectionSnapshot | null
+    // Keep-best-substat detection snapshot for UI inspection + cache parity.
+    keepBestSubstatDetection: KeepBestSubstatDetectionSnapshot | null
     fingerprint: string | null
     artifactSignature: string | null
   }

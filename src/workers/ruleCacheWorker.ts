@@ -2,12 +2,30 @@
 /// <reference lib="webworker" />
 
 import { createConfigRulesCache, updateConfigRulesCache } from '../lib/ruleCache'
-import { RULE_SOURCE_KEEP_UNIQUES, computeMergedRules } from '../lib/merge'
+import {
+  KEEP_OVERRIDE_RULE_SOURCES,
+  RULE_SOURCE_KEEP_BEST_SUBSTAT,
+  RULE_SOURCE_KEEP_UNIQUES,
+  isKeepOverrideRuleSource,
+  computeMergedRules,
+} from '../lib/merge'
 import { configsForRuleBuild, countRulesForConfigs } from '../lib/ruleCacheHelpers'
 import { buildRuleMatchIndexData } from '../lib/ruleMatchIndex'
 import { evaluateMatchesByConfig, matchRule, type EvalResult } from '../lib/ruleEval'
-import { buildIgnoreKeepUniqueConfigIndices, collectKeepUniqueCandidates, computeKeepUniqueProtection, hasActiveKeepUniqueRules, resolveKeepUniqueRuleLabel } from '../lib/keepUniques'
+import {
+  buildIgnoreKeepUniqueConfigIndices,
+  collectKeepUniqueCandidates,
+  computeKeepUniqueProtection,
+  hasActiveKeepUniqueRules,
+  resolveKeepUniqueRuleLabel,
+} from '../lib/keepUniques'
 import type { KeepUniqueDetectionSnapshot } from '../lib/keepUniques'
+import {
+  computeKeepBestSubstatProtection,
+  hasActiveKeepBestSubstatRules,
+  resolveKeepBestSubstatRuleLabel,
+} from '../lib/keepBestSubstat'
+import type { KeepBestSubstatDetectionSnapshot } from '../lib/keepBestSubstat'
 import type { NormalizedGearArtifact } from '../lib/importers/gearDbNormalizer'
 import type { HsfRuleWithCfg } from '../lib/merge'
 import type { BuilderConfig, SellfileExportMode } from '../lib/hsfBuilder'
@@ -18,6 +36,7 @@ import { getRuleConfigIndex, resolveMatchConfigName } from '../lib/ruleConfigInd
 import { fingerprintRuleTesterItem } from '../lib/ruleTesterSession'
 import type { RuleTesterItem } from '../lib/ruleTesterSession'
 import { fingerprintKeepUniqueDetection } from '../lib/keepUniqueFingerprint'
+import { fingerprintKeepBestSubstatDetection } from '../lib/keepBestSubstatFingerprint'
 
 declare const self: DedicatedWorkerGlobalScope
 
@@ -136,7 +155,10 @@ const buildWarmState = (
     substatTargets: payload.substatTargets,
     ...(payload.finalSellRemainder ? { finalSellRemainder: payload.finalSellRemainder } : {}),
     prebuiltCustomRules: result.rulesByConfig,
+    // Keep overrides travel with warm merges so cached rules stay accurate.
     keepUniques: payload.keepUniques,
+    // Keep Best Substat follows Keep Uniques in precedence and must be included.
+    keepBestSubstat: payload.keepBestSubstat,
   })
   const state: WarmState = {
     rulesByConfig: result.rulesByConfig,
@@ -243,7 +265,7 @@ const buildPipelineMatches = (
   completedRef: { value: number },
   id: number,
   emitProgress: boolean,
-  hasKeepUniqueRules: boolean,
+  hasKeepOverrideRules: boolean,
 ): TesterMatchWorkerItemResult[] => {
   if (!artifactEntries.length) return []
   const results: TesterMatchWorkerItemResult[] = []
@@ -256,16 +278,16 @@ const buildPipelineMatches = (
       }
       : undefined
     const baseOptions = configModes
-      ? { configModes, excludeSources: [RULE_SOURCE_KEEP_UNIQUES] as const }
-      : { excludeSources: [RULE_SOURCE_KEEP_UNIQUES] as const }
+      ? { configModes, excludeSources: KEEP_OVERRIDE_RULE_SOURCES }
+      : { excludeSources: KEEP_OVERRIDE_RULE_SOURCES }
     // Full evaluation always runs to capture the complete match list.
     const fullEval = evaluateMatchesByConfig(mergedRules, artifact.testerItem, fullOptions)
     // Reuse cached base matches when possible to avoid redundant scans.
     const cachedBase = baseMatchMap?.get(itemId)
-    // Skip the base scan entirely when no keep-unique rules exist.
+    // Skip the base scan entirely when no keep-override rules exist.
     const baseEval = cachedBase
       ? cachedBase
-      : (hasKeepUniqueRules
+      : (hasKeepOverrideRules
         ? evaluateMatchesByConfig(mergedRules, artifact.testerItem, baseOptions)
         : fullEval)
     results.push({
@@ -329,14 +351,19 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
       artifactCache.clear()
     }
     const prebuiltCustomRules = warmState.rulesByConfig
-    // Skip the extra detection/merge work when keep-unique is effectively off.
+    // Skip the extra detection/merge work when keep overrides are effectively off.
     const hasActiveKeepUniques = hasActiveKeepUniqueRules(payload.keepUniques)
+    const hasActiveKeepBestSubstat = hasActiveKeepBestSubstatRules(payload.keepBestSubstat)
+    const hasActiveKeepOverrides = hasActiveKeepUniques || hasActiveKeepBestSubstat
     const baseKeepUniques = hasActiveKeepUniques
       ? { ...payload.keepUniques, detection: null }
       : payload.keepUniques
+    const baseKeepBestSubstat = hasActiveKeepBestSubstat
+      ? { ...payload.keepBestSubstat, detection: null }
+      : payload.keepBestSubstat
     const configsForRules = warmState.configsForRules
-  const warmTotal = reused ? 0 : payload.configs.length
-  const needsMatches = payload.skipMatches !== true
+    const warmTotal = reused ? 0 : payload.configs.length
+    const needsMatches = payload.skipMatches !== true
 
     // Base-match results must be tied to the current rule/config fingerprint.
     const baseMatchSignature = buildBaseMatchSignature(payload)
@@ -367,7 +394,7 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
     })()
     const needsDetection = needsMatches
       && payload.skipDetection !== true
-      && hasActiveKeepUniques
+      && hasActiveKeepOverrides
       && artifactEntries.length > 0
     const matchPasses = needsMatches ? (needsDetection ? 2 : 1) : 0
     const total = warmTotal + (artifactEntries.length * matchPasses)
@@ -382,6 +409,7 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
       ...(payload.finalSellRemainder ? { finalSellRemainder: payload.finalSellRemainder } : {}),
       prebuiltCustomRules,
       keepUniques: baseKeepUniques,
+      keepBestSubstat: baseKeepBestSubstat,
     })
 
     // Seed the baseline map with anything we already evaluated so the detection pass only
@@ -417,7 +445,7 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
           baseProgressRef,
           id,
           true,
-          hasActiveKeepUniques,
+          hasActiveKeepOverrides,
         )
         for (const result of baseMatchResults) {
           baselineMatchMap.set(result.itemId, result)
@@ -443,13 +471,18 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
       const keepUniqueLabel = rule?.__source === RULE_SOURCE_KEEP_UNIQUES
         ? resolveKeepUniqueRuleLabel(rule)
         : null
-      const effectiveCfgName = cfgName && cfgName.length > 0 ? cfgName : keepUniqueLabel
+      const keepBestLabel = rule?.__source === RULE_SOURCE_KEEP_BEST_SUBSTAT
+        ? resolveKeepBestSubstatRuleLabel(rule)
+        : null
+      const effectiveCfgName = cfgName && cfgName.length > 0
+        ? cfgName
+        : (keepUniqueLabel ?? keepBestLabel)
       return {
         ruleIndex: result.ruleIndex,
         keep: result.keep,
         cfgIdx,
         cfgName: effectiveCfgName && effectiveCfgName.length > 0 ? effectiveCfgName : null,
-        ruleLabel: keepUniqueLabel ?? null,
+        ruleLabel: keepUniqueLabel ?? keepBestLabel ?? null,
         ruleSource: rule?.__source ?? null,
       }
     }
@@ -457,13 +490,15 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
     // Precompute ignored configs so matcher precedence can reuse the set.
     const ignoreKeepUniqueConfigIndices = buildIgnoreKeepUniqueConfigIndices(configsForRules)
     // Keep detection optional so we only pay for it when needed.
-    let detectionSnapshot: KeepUniqueDetectionSnapshot | null = null
-    // Only compute detection when the caller requested keep-unique scanning.
+    let keepUniqueDetectionSnapshot: KeepUniqueDetectionSnapshot | null = null
+    let keepBestSubstatDetectionSnapshot: KeepBestSubstatDetectionSnapshot | null = null
+    // Only compute detection when the caller requested keep-override scanning.
     if (needsDetection) {
-      // Detection phase: collect candidate groups + compute the keep-unique snapshot.
+      // Detection phase: collect candidate groups + compute keep-override snapshots.
       postPipelinePhase(id, 'detection:start', {
         artifacts: artifactEntries.length,
         keepUniqueRules: payload.keepUniques.rules.length,
+        keepBestSubstatRules: payload.keepBestSubstat.rules.length,
       })
       // Build a row list that mirrors the preview matcher inputs.
       const rows = artifactEntries.map(([itemId, artifact]) => {
@@ -493,23 +528,36 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
         // Exclude configs tagged to ignore keep-unique overrides.
         ignoreKeepUniqueConfigIndices,
       })
-      // Produce a detection snapshot for downstream keep-unique rule injection.
-      detectionSnapshot = computeKeepUniqueProtection({
-        // Use only the candidate list (not the full wrapper).
-        candidates: candidates.candidates,
-        // Supply the current keep-unique rules.
-        rules: payload.keepUniques.rules,
-        // Respect the keep-unique enabled toggle.
-        enabled: payload.keepUniques.enabled,
-      })
+      // Produce detection snapshots for downstream keep-override rule injection.
+      if (hasActiveKeepUniques) {
+        keepUniqueDetectionSnapshot = computeKeepUniqueProtection({
+          // Use only the candidate list (not the full wrapper).
+          candidates: candidates.candidates,
+          // Supply the current keep-unique rules.
+          rules: payload.keepUniques.rules,
+          // Respect the keep-unique enabled toggle.
+          enabled: payload.keepUniques.enabled,
+        })
+      }
+      if (hasActiveKeepBestSubstat) {
+        keepBestSubstatDetectionSnapshot = computeKeepBestSubstatProtection({
+          // Use only the candidate list (not the full wrapper).
+          candidates: candidates.candidates,
+          // Supply the current keep-best-substat rules.
+          rules: payload.keepBestSubstat.rules,
+          // Respect the keep-best-substat enabled toggle.
+          enabled: payload.keepBestSubstat.enabled,
+        })
+      }
       // Detection phase complete: surface the candidate + entry counts.
       postPipelinePhase(id, 'detection:done', {
         candidates: candidates.candidates.length,
-        entries: detectionSnapshot?.entries.length ?? 0,
+        keepUniqueEntries: keepUniqueDetectionSnapshot?.entries.length ?? 0,
+        keepBestSubstatEntries: keepBestSubstatDetectionSnapshot?.entries.length ?? 0,
       })
     }
 
-    // Build the final merged rules with keep-unique injections if active.
+    // Build the final merged rules with keep-override injections if active.
     const mergedRulesFinal = computeMergedRules({
       hsf: payload.hsf,
       customCfgs: configsForRules,
@@ -523,31 +571,47 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
           // Reuse the existing keep-unique payload.
           ...payload.keepUniques,
           // Inject the latest detection data.
-          detection: detectionSnapshot,
+          detection: keepUniqueDetectionSnapshot,
         }
         : payload.keepUniques,
+      // If keep-best-substat is active, pass the detection snapshot through.
+      keepBestSubstat: baseKeepBestSubstat
+        ? {
+          // Reuse the existing keep-best-substat payload.
+          ...payload.keepBestSubstat,
+          // Inject the latest detection data.
+          detection: keepBestSubstatDetectionSnapshot,
+        }
+        : payload.keepBestSubstat,
     })
     // Final-match cache needs to know both the rule fingerprint and the detection outcome.
     // When either changes we fall back to recomputing the affected entries.
-    const detectionSignature = fingerprintKeepUniqueDetection(detectionSnapshot)
+    const detectionSignature = fingerprintKeepUniqueDetection(keepUniqueDetectionSnapshot)
+    const keepBestDetectionSignature = fingerprintKeepBestSubstatDetection(keepBestSubstatDetectionSnapshot)
     // Compose a signature that invalidates caches on any detection change.
-    const finalMatchSignature = `${payload.fingerprint ?? 'null'}|${detectionSignature ?? 'none'}`
+    const finalMatchSignature = [
+      payload.fingerprint ?? 'null',
+      detectionSignature ?? 'none',
+      keepBestDetectionSignature ?? 'none',
+    ].join('|')
     // Collect final match rows in worker order for the response payload.
     const matches: TesterMatchWorkerItemResult[] = []
-    // Extract keep-unique rules in merged order so we can short-circuit full scans.
-    const keepUniqueRuleEntries: Array<{ rule: HsfRuleWithCfg; ruleIndex: number; cfgIdx: number | null }> = []
-    // Cap fast-path scans so huge keep-unique rule sets fall back to the indexed pipeline.
-    const KEEP_UNIQUE_FAST_PATH_RULE_LIMIT = 500
-    // Only scan keep-unique rules when the feature is active.
-    if (hasActiveKeepUniques) {
+    // Extract keep-override rules in merged order so we can short-circuit full scans.
+    const keepOverrideRuleEntries: Array<{ rule: HsfRuleWithCfg; ruleIndex: number; cfgIdx: number | null }> = []
+    // Cap fast-path scans so huge keep-override rule sets fall back to the indexed pipeline.
+    const KEEP_OVERRIDE_FAST_PATH_RULE_LIMIT = 500
+    // Only scan keep-override rules when either feature is active.
+    if (hasActiveKeepOverrides) {
       // Preserve rule order so we match the same precedence as full evaluation.
       for (let idx = 0; idx < mergedRulesFinal.length; idx += 1) {
         // Grab the merged rule at this index.
         const rule = mergedRulesFinal[idx]
-        // Skip non keep-unique rules entirely.
-        if (rule?.__source !== RULE_SOURCE_KEEP_UNIQUES) continue
+        // Guard against sparse arrays so type narrowing stays safe.
+        if (!rule) continue
+        // Skip non keep-override rules entirely.
+        if (!isKeepOverrideRuleSource(rule.__source ?? null)) continue
         // Store the rule, its index, and its config index for fast matching.
-        keepUniqueRuleEntries.push({
+        keepOverrideRuleEntries.push({
           // Keep the rule reference for matchRule.
           rule,
           // Preserve the merged rule index for downstream match reporting.
@@ -560,47 +624,47 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
     // Fast path needs a full baseline map so we can reuse cached matches safely.
     const baselineMatchesComplete = artifactEntries.length > 0
       && baselineMatchMap.size === artifactEntries.length
-    // Helper respects the ignore list when deciding if keep-unique can override.
-    const isIgnoredForKeepUnique = (cfgIdx: number | null): boolean => (
+    // Helper respects the ignore list when deciding if keep overrides can win.
+    const isIgnoredForKeepOverride = (cfgIdx: number | null): boolean => (
       cfgIdx != null && ignoreKeepUniqueConfigIndices?.has(cfgIdx) === true
     )
-    // Decide whether keep-unique can override the base matches.
-    const allowKeepUniqueOverride = (baseMatch: TesterMatchWorkerItemResult | null | undefined): boolean => {
-      // No baseline means we can allow keep-unique to decide.
+    // Decide whether keep overrides can override the base matches.
+    const allowKeepOverride = (baseMatch: TesterMatchWorkerItemResult | null | undefined): boolean => {
+      // No baseline means we can allow keep overrides to decide.
       if (!baseMatch) return true
       // Reuse the first-match decision for the quick keep check.
       const firstMatch = baseMatch.firstMatch
-      // Any non-ignored KEEP match blocks keep-unique overrides.
-      const firstMatchIsKeep = Boolean(firstMatch?.keep && !isIgnoredForKeepUnique(firstMatch?.cfgIdx ?? null))
+      // Any non-ignored KEEP match blocks keep overrides.
+      const firstMatchIsKeep = Boolean(firstMatch?.keep && !isIgnoredForKeepOverride(firstMatch?.cfgIdx ?? null))
       // Short-circuit when the first match is already a KEEP.
       if (firstMatchIsKeep) return false
       // Also block when any matching config decision indicates KEEP.
       for (const decision of baseMatch.matchingConfigDecisions ?? []) {
         // Ignore keep-unique exclusions when evaluating KEEP decisions.
-        if (decision.keep && !isIgnoredForKeepUnique(decision.cfgIdx)) return false
+        if (decision.keep && !isIgnoredForKeepOverride(decision.cfgIdx)) return false
       }
-      // Allow keep-unique when no KEEP decisions were detected.
+      // Allow keep overrides when no KEEP decisions were detected.
       return true
     }
-    // Locate the first keep-unique match in merged order when needed.
-    const findKeepUniqueMatch = (artifact: NormalizedGearArtifact): EvalResult | null => {
-      // No keep-unique rules means no match.
-      if (!keepUniqueRuleEntries.length) return null
+    // Locate the first keep-override match in merged order when needed.
+    const findKeepOverrideMatch = (artifact: NormalizedGearArtifact): EvalResult | null => {
+      // No keep-override rules means no match.
+      if (!keepOverrideRuleEntries.length) return null
       // Scan in merged order so results match the full pipeline.
-      for (const entry of keepUniqueRuleEntries) {
-        // Skip non-matching keep-unique rules quickly.
+      for (const entry of keepOverrideRuleEntries) {
+        // Skip non-matching keep-override rules quickly.
         if (!matchRule(entry.rule, artifact.testerItem)) continue
-        // Return the first keep-unique match as a keep decision.
+        // Return the first keep-override match as a keep decision.
         return { ruleIndex: entry.ruleIndex, keep: true, cfgIdx: entry.cfgIdx }
       }
-      // No keep-unique rule matched this artifact.
+      // No keep-override rule matched this artifact.
       return null
     }
     if (needsMatches) {
       // Fast-path eligibility only depends on baseline completeness + keep-unique rule volume.
       const fastPathEligible = (
         baselineMatchesComplete
-        && keepUniqueRuleEntries.length <= KEEP_UNIQUE_FAST_PATH_RULE_LIMIT
+        && keepOverrideRuleEntries.length <= KEEP_OVERRIDE_FAST_PATH_RULE_LIMIT
       )
       // Collect artifacts that need full evaluation (cache misses or invalidated entries).
       const pendingEntries: Array<[number, NormalizedGearArtifact]> = []
@@ -623,15 +687,15 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
         pending: pendingEntries.length,
         cached: artifactEntries.length - pendingEntries.length,
         fastPath: fastPathEligible,
-        keepUniqueRules: keepUniqueRuleEntries.length,
+        keepOverrideRules: keepOverrideRuleEntries.length,
       })
       if (pendingEntries.length > 0) {
         const pendingProgressRef = { value: completed }
         // Fast path only works with a complete baseline snapshot.
-        const canFastPathKeepUniques = fastPathEligible && keepUniqueRuleEntries.length > 0
-        // Fast path also covers the disabled keep-unique case by reusing the baseline.
-        const canFastPathDisabled = fastPathEligible && keepUniqueRuleEntries.length === 0
-        if (canFastPathKeepUniques || canFastPathDisabled) {
+        const canFastPathKeepOverrides = fastPathEligible && keepOverrideRuleEntries.length > 0
+        // Fast path also covers the disabled keep-override case by reusing the baseline.
+        const canFastPathDisabled = fastPathEligible && keepOverrideRuleEntries.length === 0
+        if (canFastPathKeepOverrides || canFastPathDisabled) {
           for (const [itemId, artifact] of pendingEntries) {
             // Pull the baseline match for this artifact.
             const baseMatch = baselineMatchMap.get(itemId)
@@ -648,7 +712,7 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
                 pendingProgressRef,
                 id,
                 true,
-                keepUniqueRuleEntries.length > 0,
+                keepOverrideRuleEntries.length > 0,
               )[0]
               // Guard against empty fallback results.
               if (fallbackMatch) {
@@ -667,16 +731,16 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
               continue
             }
             // Default to the baseline matches unless keep-unique overrides.
-            const allowKeepUnique = canFastPathKeepUniques && allowKeepUniqueOverride(baseMatch)
-            // Evaluate keep-unique rules only when overrides are allowed.
-            const keepUniqueMatch = allowKeepUnique ? findKeepUniqueMatch(artifact) : null
-            // Prefer keep-unique match when present, else reuse baseline first match.
-            const firstMatch = keepUniqueMatch ?? baseMatch.firstMatch
+            const allowKeepOverrideMatch = canFastPathKeepOverrides && allowKeepOverride(baseMatch)
+            // Evaluate keep-override rules only when overrides are allowed.
+            const keepOverrideMatch = allowKeepOverrideMatch ? findKeepOverrideMatch(artifact) : null
+            // Prefer keep-override match when present, else reuse baseline first match.
+            const firstMatch = keepOverrideMatch ?? baseMatch.firstMatch
             // Preserve the baseline non-excluded match for parity.
             const baseNonExcluded = baseMatch.firstNonExcludedMatch ?? baseMatch.firstMatch ?? null
-            // If baseline had no non-excluded match, allow keep-unique to fill it.
-            const firstNonExcludedMatch = baseNonExcluded ?? keepUniqueMatch ?? null
-            // Assemble the final match result from baseline + optional keep-unique override.
+            // If baseline had no non-excluded match, allow keep overrides to fill it.
+            const firstNonExcludedMatch = baseNonExcluded ?? keepOverrideMatch ?? null
+            // Assemble the final match result from baseline + optional keep-override override.
             const matchResult: TesterMatchWorkerItemResult = {
               itemId,
               firstMatch,
@@ -713,7 +777,7 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
             pendingProgressRef,
             id,
             true,
-            keepUniqueRuleEntries.length > 0,
+            keepOverrideRuleEntries.length > 0,
           )
           // Append each full-eval match and refresh the cache.
           for (const match of pendingMatches) {
@@ -760,7 +824,10 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
         excludedByTotalLimitIndices: warmState.excludedByTotalLimitIndices.slice(),
         ruleMatchIndex: buildRuleMatchIndexData(mergedRulesFinal),
         matches,
-        detection: detectionSnapshot,
+        // Keep-unique detection snapshot drives Keep Uniques tab + merges.
+        keepUniqueDetection: keepUniqueDetectionSnapshot,
+        // Keep-best-substat detection snapshot drives the new tab + merges.
+        keepBestSubstatDetection: keepBestSubstatDetectionSnapshot,
         fingerprint: payload.fingerprint ?? null,
         artifactSignature: payload.artifactPatch?.signature ?? payload.artifactSignature ?? null,
       },

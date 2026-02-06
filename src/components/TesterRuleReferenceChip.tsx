@@ -3,7 +3,7 @@ import { Box, Chip } from '@mui/material'
 import type { ChipProps } from '@mui/material'
 import { alpha, useTheme, type SxProps, type Theme } from '@mui/material/styles'
 import type { SystemStyleObject } from '@mui/system'
-import { RULE_SOURCE_FINAL_SELL, RULE_SOURCE_KEEP_UNIQUES } from '../lib/merge'
+import { RULE_SOURCE_FINAL_SELL, RULE_SOURCE_KEEP_BEST_SUBSTAT, RULE_SOURCE_KEEP_UNIQUES } from '../lib/merge'
 import { useI18n } from '../lib/i18n'
 import type { TesterPreviewMatch } from '../types/testerPreview'
 import { MATCHING_CONFIG_CHIP_MIN_WIDTH_PX } from '../lib/constants'
@@ -65,8 +65,10 @@ export function TesterRuleReferenceChip({
   const { t } = useI18n()
   const theme = useTheme()
   if (!match) return null
+  // Rule source flags drive tint + label behavior.
   const isFinalSellSource = match.ruleSource === RULE_SOURCE_FINAL_SELL
   const isKeepUniqueSource = match.ruleSource === RULE_SOURCE_KEEP_UNIQUES
+  const isKeepBestSource = match.ruleSource === RULE_SOURCE_KEEP_BEST_SUBSTAT
   if (isFinalSellSource) {
     if (!showFinalSellLabel) return null
     const finalSellTint = buildChipSurfaceTint(theme, theme.palette.error.main)
@@ -115,7 +117,14 @@ export function TesterRuleReferenceChip({
     : formattedConfigName
   const clickable = typeof onJump === 'function' && ruleIndex != null
   if (!label) return null
-  const keepUniqueTint = isKeepUniqueSource ? buildChipSurfaceTint(theme, theme.palette.success.main) : null
+  // Keep overrides (uniques + best) share a green tint so they read as "protected".
+  const keepOverrideTint = (isKeepUniqueSource || isKeepBestSource)
+    ? buildChipSurfaceTint(theme, theme.palette.success.main)
+    : null
+  // Data attribute lets tests and analytics distinguish keep-best from keep-unique.
+  const dataMatchSource = isKeepBestSource
+    ? 'keep-best'
+    : (isKeepUniqueSource ? 'keep-unique' : undefined)
   return (
     <TesterRuleReferenceChipBody
       label={label}
@@ -129,9 +138,9 @@ export function TesterRuleReferenceChip({
       {...(sx ? { sx } : {})}
       {...(icon ? { icon } : {})}
       borderColor={getTesterMatchBorderColor(theme, Boolean(match.keep))}
-      {...(keepUniqueTint ? { backgroundColor: keepUniqueTint.surface } : {})}
-      {...(keepUniqueTint ? { hoverBackgroundColor: keepUniqueTint.hover } : {})}
-      {...(isKeepUniqueSource ? { dataMatchSource: 'keep-unique' } : {})}
+      {...(keepOverrideTint ? { backgroundColor: keepOverrideTint.surface } : {})}
+      {...(keepOverrideTint ? { hoverBackgroundColor: keepOverrideTint.hover } : {})}
+      {...(dataMatchSource ? { dataMatchSource } : {})}
       {...(onJump ? { onJump } : {})}
     />
   )

@@ -9,7 +9,7 @@ import type { HsfRule, HsfSubstat } from './hsfTypes'
 import { rankMask, rarityMask } from './hsfTypes'
 import type { ArtifactSetId, ArtifactTypeId, FactionId, StatVariantLike } from './types'
 import { LEVEL_ANY_SENTINEL, StatId, StatVariant, mainToVariant, subToVariant, type LevelMilestone, type RankValue } from './types'
-import { RULE_SOURCE_KEEP_UNIQUES, type HsfRuleWithCfg } from './merge'
+import { isKeepOverrideRuleSource, type HsfRuleWithCfg } from './merge'
 import type { SellfileExportMode } from './hsfBuilder'
 import { forEachRuleMatchCandidate, getRuleMatchIndex } from './ruleMatchIndex'
 import { getRuleConfigIndex } from './ruleConfigIndex'
@@ -94,6 +94,13 @@ export function matchRule(rule: HsfRule, item: TestItem): boolean {
     const itemKey = (item as { itemId?: number }).itemId
       ?? Number((item.previewExtras?.id ?? NaN))
     if (itemKey !== requiredItemKey) return false
+  }
+  // Keep-best-substat injections are tied to a specific item; reject when the item key diverges.
+  const requiredBestSubstatKey = (rule as HsfRuleWithCfg).__keepBestSubstatItemKey
+  if (typeof requiredBestSubstatKey === 'number' && Number.isFinite(requiredBestSubstatKey) && requiredBestSubstatKey !== 0) {
+    const itemKey = (item as { itemId?: number }).itemId
+      ?? Number((item.previewExtras?.id ?? NaN))
+    if (itemKey !== requiredBestSubstatKey) return false
   }
 
   // Slot (ArtifactType)
@@ -235,10 +242,10 @@ export function evaluateMatchesByConfig(
 
   let firstMatch: EvalResult | null = null
   let firstNonExcludedMatch: EvalResult | null = null
-  let nonKeepUniqueKeepMatched = false
-  let pendingKeepUnique: EvalResult | null = null
-  let fallbackKeepUnique: EvalResult | null = null
-  let anyKeepUniqueMatch: EvalResult | null = null
+  let nonKeepOverrideKeepMatched = false
+  let pendingKeepOverride: EvalResult | null = null
+  let fallbackKeepOverride: EvalResult | null = null
+  let anyKeepOverrideMatch: EvalResult | null = null
   const matchingConfigs = new Set<number>()
   // Preserve the first seen keep/sell flag per config so UI chips can mirror the outcome without rerunning rules.
   const matchingConfigDecisions = new Map<number, MatchingConfigDecision>()
@@ -247,14 +254,14 @@ export function evaluateMatchesByConfig(
   const setId = Number(item.set)
   const rankValue = clampRankOrRarity(item.rank)
   const rarityValue = clampRankOrRarity(item.rarity)
-  // Pre-scan for a keep-unique match so Final Sell cannot mask it due to ordering.
-  let prekeepUnique: EvalResult | null = null
+  // Pre-scan for a keep-override match so Final Sell cannot mask it due to ordering.
+  let prekeepOverride: EvalResult | null = null
   for (let idx = 0; idx < rules.length; idx += 1) {
     const rule = rules[idx]!
-    if (!rule || (rule as HsfRuleWithCfg).__source !== RULE_SOURCE_KEEP_UNIQUES) continue
+    if (!rule || !isKeepOverrideRuleSource((rule as HsfRuleWithCfg).__source ?? null)) continue
     if (!matchRule(rule, item)) continue
     const cfgIdx = getRuleConfigIndex(rule)
-    prekeepUnique = { ruleIndex: idx, keep: true, cfgIdx }
+    prekeepOverride = { ruleIndex: idx, keep: true, cfgIdx }
     break
   }
   forEachRuleMatchCandidate(slotIndex, slot, setId, rankValue, rarityValue, (ruleIndex) => {
@@ -268,17 +275,17 @@ export function evaluateMatchesByConfig(
     if (!shouldIncludeConfig(cfgIdx)) return true
     const keep = rule.Keep === true
     const match: EvalResult = { ruleIndex, keep, cfgIdx }
-    const isKeepUnique = source === RULE_SOURCE_KEEP_UNIQUES
-    if (isKeepUnique) {
-      // Defer keep-unique so primary rules always win.
-      if (!pendingKeepUnique && !isExcluded) pendingKeepUnique = match
-      if (!fallbackKeepUnique && !isExcluded) fallbackKeepUnique = match
-      if (!anyKeepUniqueMatch && !isExcluded) anyKeepUniqueMatch = match
+    const isKeepOverride = isKeepOverrideRuleSource(source)
+    if (isKeepOverride) {
+      // Defer keep overrides so primary rules always win.
+      if (!pendingKeepOverride && !isExcluded) pendingKeepOverride = match
+      if (!fallbackKeepOverride && !isExcluded) fallbackKeepOverride = match
+      if (!anyKeepOverrideMatch && !isExcluded) anyKeepOverrideMatch = match
     } else {
-      // Ignore keep-unique-ignored configs when deciding if keep-unique can win.
+      // Ignore keep-unique-ignored configs when deciding if keep overrides can win.
       const isIgnoredForKeepUnique = isKeepUniqueIgnoredConfig(cfgIdx)
-      // Track whether any non-keep-unique KEEP rule matched; keep-unique should not override those.
-      if (keep && !isExcluded && !isIgnoredForKeepUnique) nonKeepUniqueKeepMatched = true
+      // Track whether any non-keep-override KEEP rule matched; overrides should not win those.
+      if (keep && !isExcluded && !isIgnoredForKeepUnique) nonKeepOverrideKeepMatched = true
       // Only record firstMatch when the source is not excluded.
       if (!firstMatch && !isExcluded) firstMatch = match
       if (!isExcluded && !firstNonExcludedMatch) firstNonExcludedMatch = match
@@ -291,15 +298,15 @@ export function evaluateMatchesByConfig(
     }
     return true
   })
-  // If nothing else matched, fall back to keep-unique (only when no other KEEP rule matched).
+  // If nothing else matched, fall back to keep overrides (only when no other KEEP rule matched).
   const firstMatchIsKeep = Boolean(
     firstMatch
     && (firstMatch as NonNullable<EvalResult>).keep === true
     && !isKeepUniqueIgnoredConfig((firstMatch as NonNullable<EvalResult>).cfgIdx ?? null),
   )
-  const allowKeepUnique = !nonKeepUniqueKeepMatched && !firstMatchIsKeep
-  if (allowKeepUnique) {
-    const keepCandidate = pendingKeepUnique ?? fallbackKeepUnique ?? anyKeepUniqueMatch ?? prekeepUnique
+  const allowKeepOverride = !nonKeepOverrideKeepMatched && !firstMatchIsKeep
+  if (allowKeepOverride) {
+    const keepCandidate = pendingKeepOverride ?? fallbackKeepOverride ?? anyKeepOverrideMatch ?? prekeepOverride
     if (keepCandidate) {
       firstMatch = keepCandidate
       if (!firstNonExcludedMatch) firstNonExcludedMatch = keepCandidate

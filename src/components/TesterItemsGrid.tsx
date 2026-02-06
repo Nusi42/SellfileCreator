@@ -60,7 +60,7 @@ import type { TesterSourceFilter } from '../lib/rulesFilter'
 import { TesterSummaryLabel } from './TesterSummaryLabel'
 import { TesterRuleReferenceChip } from './TesterRuleReferenceChip'
 import { getTesterMatchBorderColor } from './testerMatchStyles'
-import { RULE_SOURCE_KEEP_UNIQUES } from '../lib/merge'
+import { RULE_SOURCE_KEEP_BEST_SUBSTAT, RULE_SOURCE_KEEP_UNIQUES } from '../lib/merge'
 // MarkdownTooltip unifies the tester’s tooltip behavior (source glyphs, manage colors, etc.) with the rest of the UI.
 import MarkdownTooltip from './MarkdownTooltip'
 import { WithSetTooltip } from './SetTooltip'
@@ -280,8 +280,8 @@ const measureMatchingRowContentWidth = (node: HTMLElement): number => {
 }
 type TranslateFn = ReturnType<typeof useI18n>['t']
 
-// Variant toggles keep-uniques specific layout while keeping the base tester grid intact.
-type TesterItemsGridVariant = 'tester' | 'keepUniques'
+// Variant toggles keep-override specific layout while keeping the base tester grid intact.
+type TesterItemsGridVariant = 'tester' | 'keepUniques' | 'keepBestSubstat'
 
 type TesterItemsGridProps = {
   rows: TesterPreviewRow[]
@@ -298,6 +298,9 @@ type TesterItemsGridProps = {
   onCreateRuleTemplate?: ((row: TesterPreviewRow, intent: TesterRuleTemplateIntent) => void) | undefined
   variant?: TesterItemsGridVariant
   keepUniquesEnabled?: boolean
+  keepBestSubstatEnabled?: boolean
+  keepOverrideColumnMode?: 1 | 2
+  onKeepOverrideColumnModeChange?: (next: 1 | 2) => void
   hasTesterData?: boolean
   emptyStateOptions?: Partial<EmptyStateMessageProps> | undefined
   // Vertical anchoring for empty-state messaging: stacked layout reads better when top-aligned,
@@ -359,6 +362,9 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     onCreateRuleTemplate,
     variant = 'tester',
     keepUniquesEnabled = true,
+    keepBestSubstatEnabled = true,
+    keepOverrideColumnMode,
+    onKeepOverrideColumnModeChange,
     hasTesterData = true,
     emptyStateOptions,
     emptyStateVerticalAlign = 'center',
@@ -369,7 +375,11 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     sortState = null,
     grouping = TESTER_GROUPING_DEFAULT_STATE,
   } = props
+  // Variant flags control keep-override behavior without forking the grid.
   const keepUniquesVariant = variant === 'keepUniques'
+  const keepBestSubstatVariant = variant === 'keepBestSubstat'
+  // Both keep-override tabs use the same 1/2 column layout controls.
+  const keepOverrideVariant = keepUniquesVariant || keepBestSubstatVariant
   // Memoized predicates avoid re-render churn when Keep Uniques toggles highlighting.
   const highlightRowPredicate = typeof highlightedRowPredicate === 'function' ? highlightedRowPredicate : null
   const shouldDimUnhighlightedRows = Boolean(dimUnhighlightedRows && highlightRowPredicate)
@@ -524,7 +534,7 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
   const canShowRuleTemplateActions = variant === 'tester'
     && showRuleTemplates
     && typeof onCreateRuleTemplate === 'function'
-  // Preferences keep the old 4/5 column toggle alive even while Keep Uniques forces two columns.
+  // Preferences keep the old 4/5 column toggle alive while keep-override tabs use their own 1/2 columns.
   const storedColumnPreference = gridColumnPreference === 5 ? 5 : 4
   // Context-menu helper drives the "long press for menu" overlay when users have not seen it yet.
   const {
@@ -734,8 +744,10 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
       }, GRID_CARD_REVEAL_IDLE_DRAIN_DELAY_MS)
     }
   }, [])
-  // Keep Uniques enforces two columns so gear-combination cards stay legible.
-  const preferredColumnCount = keepUniquesVariant ? 2 : storedColumnPreference
+  // Keep overrides rely on a dedicated 1/2 column preference to widen the rule list when desired.
+  const resolvedKeepOverrideColumnMode = keepOverrideColumnMode === 2 ? 2 : 1
+  // Default to 1 column whenever the keep-override preference is missing.
+  const preferredColumnCount = keepOverrideVariant ? resolvedKeepOverrideColumnMode : storedColumnPreference
   const {
     accordionSpacingPx,
     cardHeightPx,
@@ -926,11 +938,25 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     }
     closeGridMenu()
   }, [closeGridMenu, normalizedPresetEditor])
-  // Column toggle is disabled for Keep Uniques because the variant forces two columns.
+  // Keep overrides use their own 1/2 column preference; base tester stays on 4/5.
   const handleColumnToggle = useCallback(() => {
-    if (keepUniquesVariant) return
+    if (keepOverrideVariant) {
+      if (typeof onKeepOverrideColumnModeChange !== 'function') return
+      const next = resolvedKeepOverrideColumnMode === 2 ? 1 : 2
+      onKeepOverrideColumnModeChange(next)
+      return
+    }
     setColumns(storedColumnPreference === 5 ? 4 : 5)
-  }, [keepUniquesVariant, setColumns, storedColumnPreference])
+  }, [
+    keepOverrideVariant,
+    onKeepOverrideColumnModeChange,
+    resolvedKeepOverrideColumnMode,
+    setColumns,
+    storedColumnPreference,
+  ])
+  const canToggleColumns = keepOverrideVariant
+    ? typeof onKeepOverrideColumnModeChange === 'function'
+    : true
   const handleCompactCurrentGroup = useCallback(() => {
     if (!gridMenuGroupKey) return
     setCollapsedGroups((prev) => {
@@ -1036,13 +1062,23 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     }
   }, [measureScrollHintWidth, scrollHintDetails])
   if (rows.length === 0) {
+    // Empty-state copy depends on whether we are in a keep-override tab.
     const emptyStateMessage = (() => {
       if (keepUniquesVariant) {
+        // Keep Uniques empty states explain missing tester data or disabled rules.
         if (!hasTesterData) return t('keepUniquesNoTesterData')
         if (!keepUniquesEnabled) return t('testerTableEmptyKeepUniquesDisabled')
         if (filterActive) return t('testerTableEmptyFilter')
         return t('testerTableEmptyKeepUniquesNoMatches')
       }
+      if (keepBestSubstatVariant) {
+        // Keep Best Substat mirrors Keep Uniques messaging.
+        if (!hasTesterData) return t('keepBestSubstatNoTesterData')
+        if (!keepBestSubstatEnabled) return t('testerTableEmptyKeepBestSubstatDisabled')
+        if (filterActive) return t('testerTableEmptyFilter')
+        return t('testerTableEmptyKeepBestSubstatNoMatches')
+      }
+      // Base tester grid falls back to the generic filter/empty messages.
       return filterActive ? t('testerTableEmptyFilter') : t('testerGridEmpty')
     })()
     const emptyStateProps: EmptyStateWrapperProps = {
@@ -1672,14 +1708,14 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
         <MenuItem
           sx={{ gap: 1, alignItems: 'center' }}
           onClick={handleColumnToggle}
-          disabled={keepUniquesVariant}
+          disabled={!canToggleColumns}
         >
           <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>{t('rulesMenuGridColumns')}</Typography>
           <Button
             size="small"
             variant="contained"
             color="success"
-            disabled={keepUniquesVariant}
+            disabled={!canToggleColumns}
             sx={{ minWidth: MENU_CONTROL_MIN_WIDTH_PX, height: MENU_CONTROL_HEIGHT_PX, minHeight: MENU_CONTROL_HEIGHT_PX, lineHeight: 1, py: 0 }}
             onClick={(event) => {
               event.stopPropagation()
@@ -2223,9 +2259,10 @@ export const TesterGridCard = React.memo(function TesterGridCard({
     return entries
   }, [cardContentReady, row.matchingCfgIndices, matchingConfigKeepMap, configNames, configTextFallbackColor])
   const shouldShowPrimaryMatchRow = basePrimaryMatchRowVisible
-  // Keep-unique primary matches are not tied to a config, so keep all config matches visible.
-  const keepUniquePrimaryMatch = match?.ruleSource === RULE_SOURCE_KEEP_UNIQUES
-  const otherMatchingEntries = keepUniquePrimaryMatch
+  // Keep-override primary matches are not tied to a config, so keep all config matches visible.
+  const keepOverridePrimaryMatch = match?.ruleSource === RULE_SOURCE_KEEP_UNIQUES
+    || match?.ruleSource === RULE_SOURCE_KEEP_BEST_SUBSTAT
+  const otherMatchingEntries = keepOverridePrimaryMatch
     ? matchingEntries
     : matchingEntries.slice(1)
   const shouldShowOtherMatchesRow = showOtherMatchesRow && otherMatchingEntries.length > 0

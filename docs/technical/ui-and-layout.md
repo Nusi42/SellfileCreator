@@ -253,13 +253,20 @@ If tooltips need rich formatting (colored badges, inline icons), pass JSX via `r
 
 ## Keep Uniques Tab
 
-- Layout: the dialog switches to a `Tabs` layout but keeps the existing shell size. On medium+ breakpoints the Keep Uniques tab renders a `360px` fixed-width left column (stacked on small screens) plus a flexible tester grid column.
+- Layout: the dialog switches to a `Tabs` layout but keeps the existing shell size. On medium+ breakpoints the Keep Uniques tab renders a left rules column plus a flexible tester grid column; the rules column widens in 1-column grid mode (`minmax(420px, 0.95fr)`) and stays at `360px` in 2-column mode (stacked on small screens).
 - Header block: the left column starts with explanatory copy, the enable toggle, and a contextual alert (`disabled`, `no tester data`, `scan pending`). Alerts stay above the scroll area so status never scrolls away, while deficit counts now surface via the inline detection chip instead of a success banner.
 - Rule list: rows map 1:1 with gear combinations and render as compact cards. Each card has a collapsed summary header (status icon + name/placeholder + actions) and expands inline to reveal the full editor. The expanded editor reuses the shared select components (`GearSlotSelect`, `GearRankSelect`, `GearRaritySelect`, `GearMainStatSelect`, `GearFactionSelect`) plus the filtered set picker. Slots/Ranks/Rarities/Main stats run in multi-select mode now: empty slot or main-stat selections read as Any, while Rank/Rarity menus expose an explicit Any option that clears other picks so combination filters mirror the builder affordances.
 - Empty state: when no rules exist the column shows descriptive text plus a contained “Add rule” button. The same button lives in the footer alongside “Restore defaults” (which clears + disables Keep Uniques only).
-- Tester grid: the right column renders `TesterItemsGrid` with `variant="keepUniques"`. The variant forces two columns, disables the column-toggle action, and passes `highlightedRowPredicate`/`dimUnhighlightedRows` so non-matching cards fade instead of being removed. Source glyphs, color-blind toggles, and Manage Colors wiring mirror the Rule Tester.
+- Tester grid: the right column renders `TesterItemsGrid` with `variant="keepUniques"`. The variant uses the keep-override column toggle (1 or 2 columns, default 1) and passes `highlightedRowPredicate`/`dimUnhighlightedRows` so non-matching cards fade instead of being removed. Source glyphs, color-blind toggles, and Manage Colors wiring mirror the Rule Tester.
 - Selection: clicking a rule highlights it and pushes its detection items into the tester grid highlight set. Adding a new rule scrolls the list to the newly created card. Chips above the grid show how many gear entries are currently highlighted.
 - Accessibility: all selectors remain keyboard navigable because they reuse the Gear tab components inside the Logic Hub dialog. The dense layouts rely on `MENU_CONTROL_HEIGHT_PX` so buttons remain reachable with consistent hit targets.
+
+## Keep Best Substat Tab
+
+- Layout: mirrors the Keep Uniques two-column shell with the same 1/2 column grid toggle and wider rules pane in 1-column mode.
+- Rule cards: each rule selects a single substat, required count, and optional scope chips (per slot/set/faction/main stat), reusing the keep-override scope helpers.
+- Tester grid: renders `TesterItemsGrid` with `variant="keepBestSubstat"`, using the keep-override column toggle and selection filter that behaves like All when no rule is selected.
+- Reset: a dedicated confirmation dialog clears the Keep Best Substat rules and disables the feature without touching Final Sell or Keep Uniques settings.
 
 ## Hooks and Shared Components
 

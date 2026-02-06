@@ -6,6 +6,7 @@
 import type { BuilderConfig } from '../lib/hsfBuilder'
 import type { FinalSellRemainderConfig } from '../lib/finalSell'
 import type { KeepUniqueRule } from '../lib/keepUniques'
+import type { KeepBestSubstatRule } from '../lib/keepBestSubstat'
 import type { Metaset } from '../lib/metasets'
 import type { SubstatTargetTable } from '../lib/hsfBuilder'
 import type { BuilderFieldKey } from '../lib/multiEditDraft'
@@ -19,6 +20,8 @@ export type FinalSellDescriptorMode = 'edit' | 'quickToggle' | 'reset' | 'import
 export type SubstatTargetsDescriptorMode = 'edit' | 'reset' | 'import'
 // Keep-uniques modes differentiate edit vs reset flows.
 export type KeepUniquesRulesDescriptorMode = 'edit' | 'reset'
+// Keep-best-substat modes differentiate edit vs reset flows.
+export type KeepBestSubstatRulesDescriptorMode = 'edit' | 'reset'
 
 // Resolved history descriptor with localized strings.
 export type ResolvedHistoryEntryDescriptor = {
@@ -204,4 +207,18 @@ export type HistoryEntryDescriptor =
       next: KeepUniqueRule[]
       metasets: Metaset[]
       mode?: KeepUniquesRulesDescriptorMode
+    }
+  // keepBestSubstatEnabledChange records the toggle plus rule count.
+  | {
+      kind: 'keepBestSubstatEnabledChange'
+      previousEnabled: boolean
+      nextEnabled: boolean
+      rules: KeepBestSubstatRule[]
+    }
+  // keepBestSubstatRulesChange stores before/after rule sets.
+  | {
+      kind: 'keepBestSubstatRulesChange'
+      previous: KeepBestSubstatRule[]
+      next: KeepBestSubstatRule[]
+      mode?: KeepBestSubstatRulesDescriptorMode
     }
