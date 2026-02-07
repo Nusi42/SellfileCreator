@@ -262,6 +262,8 @@ const catalog: Catalog = {
   keepUniquesGridFilterLabel: 'Filtro: {mode}',
   keepUniquesGridFilterModeAll: 'Todos',
   keepUniquesGridFilterModeSelection: 'Seleção',
+  keepOverrideColumnToggleToOne: 'Mudar para 1 coluna',
+  keepOverrideColumnToggleToTwo: 'Mudar para 2 colunas',
   keepUniquesGridFilterTooltip: 'Alterne entre mostrar todos os itens únicos e só os itens que correspondem à regra de manutenção selecionada. O modo Seleção age como Todos sempre que nenhuma regra estiver ativa.',
   keepBestSubstatTabLabel: 'Manter melhor substat',
   keepBestSubstatTabIntro: 'Mantenha os melhores rolls de um substat escolhido em equipamentos que seriam vendidos.',

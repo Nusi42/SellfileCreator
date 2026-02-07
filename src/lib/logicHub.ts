@@ -1,7 +1,7 @@
 /**
- * finalSell.ts
+ * logicHub.ts
  *
- * Shared types and constants for the Final Sell remainder configuration.
+ * Shared types and constants for the Logic Hub dialog (Final Sell + tabs).
  * Centralizing ensures UI, state, IO, and merge logic stay in sync.
  */
 import type { LevelMilestone } from './types'
@@ -26,9 +26,9 @@ export const LOGIC_HUB_DIALOG_TAB_KEEP_BEST_SUBSTAT: LogicHubDialogTab = 'keepBe
 // Stable ordering helps consumers clamp restored values to a supported tab id.
 export const LOGIC_HUB_DIALOG_TABS: readonly LogicHubDialogTab[] = [
   LOGIC_HUB_DIALOG_TAB_FINAL_SELL,
-  LOGIC_HUB_DIALOG_TAB_GEAR,
   LOGIC_HUB_DIALOG_TAB_KEEP_UNIQUES,
   LOGIC_HUB_DIALOG_TAB_KEEP_BEST_SUBSTAT,
+  LOGIC_HUB_DIALOG_TAB_GEAR,
 ] as const
 
 export const FINAL_SELL_LEVEL_CHOICES: ReadonlyArray<{ key: FinalSellLevel; label: string }> = [

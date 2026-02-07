@@ -262,6 +262,8 @@ const overrides: Catalog = {
   keepUniquesGridFilterLabel: 'Filtre: {mode}',
   keepUniquesGridFilterModeAll: 'Hepsi',
   keepUniquesGridFilterModeSelection: 'Seçim',
+  keepOverrideColumnToggleToOne: '1 sütuna geç',
+  keepOverrideColumnToggleToTwo: '2 sütuna geç',
   keepUniquesGridFilterTooltip: 'Tüm benzersiz öğeleri göstermek ile seçili koruma kuralıyla eşleşen öğeleri göstermek arasında geçiş yapar. Kural seçilmezse Seçim modu Hepsi gibi davranır.',
   keepBestSubstatTabLabel: 'En iyi alt statı koru',
   keepBestSubstatTabIntro: 'Aksi halde satılacak ekipmandan seçilen bir alt statın en iyi roll\'larını koru.',

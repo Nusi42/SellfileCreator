@@ -211,8 +211,8 @@ import {
   LOGIC_HUB_DIALOG_TAB_FINAL_SELL,
   LOGIC_HUB_DIALOG_TAB_GEAR,
   LOGIC_HUB_DIALOG_TABS,
-} from './lib/finalSell'
-import type { FinalSellRemainderConfig, FinalSellLevel, LogicHubDialogTab } from './lib/finalSell'
+} from './lib/logicHub'
+import type { FinalSellRemainderConfig, FinalSellLevel, LogicHubDialogTab } from './lib/logicHub'
 import { useConfigSelection } from './hooks/useConfigSelection'
 import { useRuleCacheWorker } from './hooks/useRuleCacheWorker'
 import { fingerprintKeepUniqueDetection } from './lib/keepUniqueFingerprint'

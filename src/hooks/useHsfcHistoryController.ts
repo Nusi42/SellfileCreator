@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, type SetStateAction } from 'react'
 import type { BuilderConfig, SubstatTargetTable } from '../lib/hsfBuilder'
 import type { Metaset } from '../lib/metasets'
-import type { FinalSellRemainderConfig } from '../lib/finalSell'
+import type { FinalSellRemainderConfig } from '../lib/logicHub'
 import type { MultiEditDraftState } from '../lib/multiEditDraft'
 import {
   useHsfcHistory,

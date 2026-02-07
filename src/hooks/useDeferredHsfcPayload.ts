@@ -10,7 +10,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { buildHsfcPayload } from '../lib/hsfcIO'
 import type { BuilderConfig, SubstatTargetTable } from '../lib/hsfBuilder'
-import type { FinalSellRemainderConfig } from '../lib/finalSell'
+import type { FinalSellRemainderConfig } from '../lib/logicHub'
 import type { Metaset } from '../lib/metasets'
 import type { KeepUniqueRule } from '../lib/keepUniques'
 import type { KeepBestSubstatRule } from '../lib/keepBestSubstat'

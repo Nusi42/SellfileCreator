@@ -262,6 +262,8 @@ const overrides: Catalog = {
   keepUniquesGridFilterLabel: 'Filtrer : {mode}',
   keepUniquesGridFilterModeAll: 'Tous',
   keepUniquesGridFilterModeSelection: 'Sélection',
+  keepOverrideColumnToggleToOne: 'Passer à 1 colonne',
+  keepOverrideColumnToggleToTwo: 'Passer à 2 colonnes',
   keepUniquesGridFilterTooltip: 'Bascule entre l’affichage de tous les objets uniques et seulement les entrées correspondant à la règle de conservation sélectionnée. Le mode Sélection se comporte comme Tous tant qu’aucune règle n’est sélectionnée.',
   keepBestSubstatTabLabel: 'Conserver la meilleure sous-stat',
   keepBestSubstatTabIntro: 'Conservez les meilleurs jets d’une sous-stat choisie parmi l’équipement qui serait autrement vendu.',

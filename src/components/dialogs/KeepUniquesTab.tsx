@@ -71,6 +71,7 @@ import { reserveScrollbarGutterSpace } from '../../lib/scrollbar'
 import { useKeepUniquesGridColumnMode, useKeepUniquesGridFilterMode } from '../../state/keepUniquesPreferences'
 import { normalizeArtifactSetSelections } from '../../lib/gearSets/selection'
 import { useKeepOverrideCombinationTools } from '../keepOverrides/useKeepOverrideCombinationTools'
+import { KeepOverridePaneToggle } from '../keepOverrides/KeepOverridePaneToggle'
 import {
   KEEP_OVERRIDE_INLINE_SELECT_HEIGHT_PX,
   RuleSelectAffordances,
@@ -181,6 +182,11 @@ ${t('keepUniquesCountModeHint')}`
   const [pendingDeleteRuleId, setPendingDeleteRuleId] = useState<string | null>(null)
   const [gridFilterMode, setGridFilterMode] = useKeepUniquesGridFilterMode()
   const [gridColumnMode, setGridColumnMode] = useKeepUniquesGridColumnMode()
+  // Column toggle between 1/2 keeps the grid width stable while changing density.
+  const handleToggleGridColumns = useCallback(() => {
+    // Flip between the only two supported modes.
+    setGridColumnMode((prev) => (prev === 2 ? 1 : 2))
+  }, [setGridColumnMode])
   const allRuleIds = useMemo(() => rules.map((rule) => rule.id), [rules])
   const rulesScrollRootRef = useRef<HTMLDivElement | null>(null)
   const scrollRafRef = useRef<number | null>(null)
@@ -1150,35 +1156,42 @@ ${t('keepUniquesCountModeHint')}`
               <Stack spacing={1}>
                 <Typography variant="subtitle2">{t('keepUniquesTabLabel')}</Typography>
                 <Typography variant="body2" color="text.secondary">{t('keepUniquesTabIntro')}</Typography>
-                <FormControlLabel
-                  control={(
-                    <Switch
-                      checked={enabled}
-                      onChange={(_, checked) => onToggleEnabled(checked)}
-                    />
-                  )}
-                  label={(
-                    <Stack direction="row" spacing={0.5} alignItems="center">
-                      <Typography component="span">{t('keepUniquesEnableLabel')}</Typography>
-                      {keepUniquesFinalSellWarning ? (
-                        // Tooltip nudges users to align Keep Uniques with a full Final Sell sweep.
-                        <MarkdownTooltip markdown={t('keepUniquesFinalSellCoverageWarning')}>
-                          <Box
-                            component="span"
-                            aria-label={t('keepUniquesFinalSellCoverageWarning')}
-                            sx={{
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              color: 'warning.main',
-                            }}
-                          >
-                            <WarningAmberRoundedIcon fontSize="small" />
-                          </Box>
-                        </MarkdownTooltip>
-                      ) : null}
-                    </Stack>
-                  )}
-                />
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
+                  <FormControlLabel
+                    control={(
+                      <Switch
+                        checked={enabled}
+                        onChange={(_, checked) => onToggleEnabled(checked)}
+                      />
+                    )}
+                    label={(
+                      <Stack direction="row" spacing={0.5} alignItems="center">
+                        <Typography component="span">{t('keepUniquesEnableLabel')}</Typography>
+                        {keepUniquesFinalSellWarning ? (
+                          // Tooltip nudges users to align Keep Uniques with a full Final Sell sweep.
+                          <MarkdownTooltip markdown={t('keepUniquesFinalSellCoverageWarning')}>
+                            <Box
+                              component="span"
+                              aria-label={t('keepUniquesFinalSellCoverageWarning')}
+                              sx={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                color: 'warning.main',
+                              }}
+                            >
+                              <WarningAmberRoundedIcon fontSize="small" />
+                            </Box>
+                          </MarkdownTooltip>
+                        ) : null}
+                      </Stack>
+                    )}
+                  />
+                  {/* Column toggle sits beside the enable switch for quick 1/2 column switching. */}
+                  <KeepOverridePaneToggle
+                    gridColumnMode={gridColumnMode}
+                    onToggle={handleToggleGridColumns}
+                  />
+                </Box>
               </Stack>
             </Box>
             <KeepUniquesRuleList rules={rules} renderRule={renderRuleCard} scrollRootRef={rulesScrollRootRef} />
@@ -1196,13 +1209,14 @@ ${t('keepUniquesCountModeHint')}`
             {/* Grid header keeps filter + progress + count aligned. */}
             <Box
               sx={{
-                display: 'flex',
+                display: 'grid',
+                gridTemplateColumns: 'minmax(0, 1fr) auto',
                 alignItems: 'center',
-                flexWrap: 'wrap',
-                gap: 1,
+                columnGap: 1,
+                minWidth: 0,
               }}
             >
-              <Box sx={{ flex: '0 0 auto' }}>
+              <Box sx={{ minWidth: 0 }}>
                 <MarkdownTooltip markdown={t('keepUniquesGridFilterTooltip')}>
                   <span>
                     <Button
@@ -1231,12 +1245,12 @@ ${t('keepUniquesCountModeHint')}`
               </Box>
               <Box
                 sx={{
-                  flex: '1 1 auto',
                   display: 'flex',
                   justifyContent: 'flex-end',
                   alignItems: 'center',
                   gap: 1,
                   minWidth: 0,
+                  justifySelf: 'end',
                 }}
               >
                 {/* Shared spinner keeps the dialog aligned with the preview chip busy indicator. */}

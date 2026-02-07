@@ -84,6 +84,7 @@ import { normalizeArtifactSetSelections } from '../../lib/gearSets/selection'
 import type { Metaset } from '../../lib/metasets'
 import { isAccessorySlot } from '../../lib/testerDomain'
 import { useKeepOverrideCombinationTools } from '../keepOverrides/useKeepOverrideCombinationTools'
+import { KeepOverridePaneToggle } from '../keepOverrides/KeepOverridePaneToggle'
 import {
   KEEP_OVERRIDE_INLINE_SELECT_HEIGHT_PX,
   RuleSelectAffordances,
@@ -172,6 +173,11 @@ export default function KeepBestSubstatTab({
   const [gridFilterMode, setGridFilterMode] = useKeepBestSubstatGridFilterMode()
   // Column preference is local to this tab so the rules column can grow when needed.
   const [gridColumnMode, setGridColumnMode] = useKeepBestSubstatGridColumnMode()
+  // Column toggle between 1/2 keeps the grid width stable while changing density.
+  const handleToggleGridColumns = useCallback(() => {
+    // Flip between the only two supported modes.
+    setGridColumnMode((prev) => (prev === 2 ? 1 : 2))
+  }, [setGridColumnMode])
   // Selection defaults to the first rule so the grid highlights immediately.
   const [selectedRuleId, setSelectedRuleId] = useState<string | null>(() => rules[0]?.id ?? null)
   // Manual deselect keeps a "no selection" state for the selection filter.
@@ -1179,34 +1185,41 @@ export default function KeepBestSubstatTab({
               <Stack spacing={1}>
                 <Typography variant="subtitle2">{t('keepBestSubstatTabLabel')}</Typography>
                 <Typography variant="body2" color="text.secondary">{t('keepBestSubstatTabIntro')}</Typography>
-                <FormControlLabel
-                  control={(
-                    <Switch
-                      checked={enabled}
-                      onChange={(_, checked) => onToggleEnabled(checked)}
-                />
-                  )}
-                  label={(
-                    <Stack direction="row" spacing={0.5} alignItems="center">
-                      <Typography component="span">{t('keepBestSubstatEnableLabel')}</Typography>
-                      {keepBestFinalSellWarning ? (
-                        <MarkdownTooltip markdown={t('keepBestSubstatFinalSellCoverageWarning')}>
-                          <Box
-                            component="span"
-                            aria-label={t('keepBestSubstatFinalSellCoverageWarning')}
-                            sx={{
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              color: 'warning.main',
-                            }}
-                          >
-                            <WarningAmberRoundedIcon fontSize="small" />
-                          </Box>
-                        </MarkdownTooltip>
-                      ) : null}
-                    </Stack>
-                  )}
-                />
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
+                  <FormControlLabel
+                    control={(
+                      <Switch
+                        checked={enabled}
+                        onChange={(_, checked) => onToggleEnabled(checked)}
+                      />
+                    )}
+                    label={(
+                      <Stack direction="row" spacing={0.5} alignItems="center">
+                        <Typography component="span">{t('keepBestSubstatEnableLabel')}</Typography>
+                        {keepBestFinalSellWarning ? (
+                          <MarkdownTooltip markdown={t('keepBestSubstatFinalSellCoverageWarning')}>
+                            <Box
+                              component="span"
+                              aria-label={t('keepBestSubstatFinalSellCoverageWarning')}
+                              sx={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                color: 'warning.main',
+                              }}
+                            >
+                              <WarningAmberRoundedIcon fontSize="small" />
+                            </Box>
+                          </MarkdownTooltip>
+                        ) : null}
+                      </Stack>
+                    )}
+                  />
+                  {/* Column toggle sits beside the enable switch for quick 1/2 column switching. */}
+                  <KeepOverridePaneToggle
+                    gridColumnMode={gridColumnMode}
+                    onToggle={handleToggleGridColumns}
+                  />
+                </Box>
               </Stack>
             </Box>
             <KeepBestSubstatRuleList rules={rules} renderRule={renderRuleCard} scrollRootRef={rulesScrollRootRef} />
@@ -1224,13 +1237,14 @@ export default function KeepBestSubstatTab({
             {/* Grid header keeps filter + progress + count aligned. */}
             <Box
               sx={{
-                display: 'flex',
+                display: 'grid',
+                gridTemplateColumns: 'minmax(0, 1fr) auto',
                 alignItems: 'center',
-                flexWrap: 'wrap',
-                gap: 1,
+                columnGap: 1,
+                minWidth: 0,
               }}
             >
-              <Box sx={{ flex: '0 0 auto' }}>
+              <Box sx={{ minWidth: 0 }}>
                 <MarkdownTooltip markdown={t('keepBestSubstatGridFilterTooltip')}>
                   <span>
                     <Button
@@ -1259,12 +1273,12 @@ export default function KeepBestSubstatTab({
               </Box>
               <Box
                 sx={{
-                  flex: '1 1 auto',
                   display: 'flex',
                   justifyContent: 'flex-end',
                   alignItems: 'center',
                   gap: 1,
                   minWidth: 0,
+                  justifySelf: 'end',
                 }}
               >
                 {/* Shared spinner keeps the dialog aligned with preview status. */}

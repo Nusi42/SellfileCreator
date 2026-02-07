@@ -4,7 +4,7 @@
  * Data-only descriptor shapes for history entries.
  */
 import type { BuilderConfig } from '../lib/hsfBuilder'
-import type { FinalSellRemainderConfig } from '../lib/finalSell'
+import type { FinalSellRemainderConfig } from '../lib/logicHub'
 import type { KeepUniqueRule } from '../lib/keepUniques'
 import type { KeepBestSubstatRule } from '../lib/keepBestSubstat'
 import type { Metaset } from '../lib/metasets'

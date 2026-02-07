@@ -22,7 +22,7 @@ import {
   type FinalSellLevel,
   type FinalSellRemainderConfig,
   type FinalSellSetsMode,
-} from '../../lib/finalSell'
+} from '../../lib/logicHub'
 import type { KeepUniqueDetectionSnapshot, KeepUniqueRule } from '../../lib/keepUniques'
 import type { KeepBestSubstatDetectionSnapshot, KeepBestSubstatRule } from '../../lib/keepBestSubstat'
 import type { BuilderConfig } from '../../lib/hsfBuilder'
@@ -268,7 +268,6 @@ export default function LogicHubDialog(props: LogicHubDialogProps) {
               indicatorColor="primary"
             >
               <Tab value={LOGIC_HUB_DIALOG_TAB_FINAL_SELL} label={t('testerFinalSell')} />
-              <Tab value={LOGIC_HUB_DIALOG_TAB_GEAR} label={t('tabFinalSellGear')} />
               <Tab
                 value={LOGIC_HUB_DIALOG_TAB_KEEP_UNIQUES}
                 label={t('tabKeepUniques')}
@@ -278,6 +277,7 @@ export default function LogicHubDialog(props: LogicHubDialogProps) {
                 value={LOGIC_HUB_DIALOG_TAB_KEEP_BEST_SUBSTAT}
                 label={t('tabKeepBestSubstat')}
               />
+              <Tab value={LOGIC_HUB_DIALOG_TAB_GEAR} label={t('tabFinalSellGear')} />
             </Tabs>
           </Stack>
         </Box>

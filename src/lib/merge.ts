@@ -38,7 +38,7 @@ import {
   FINAL_SELL_SETS_MODE_ANY,
   FINAL_SELL_SETS_MODE_EXPLICIT,
   type FinalSellRemainderConfig,
-} from './finalSell'
+} from './logicHub'
 import {
   type KeepUniquesMergeInput,
   hashKeepUniqueCombination,
@@ -474,6 +474,23 @@ const buildKeepUniqueSubstats = (substats: KeepInjectedArtifact['substats']): Hs
   return cloned
 }
 
+const buildKeepBestSubstatPlaceholderSubstats = (variant: StatVariant): HsfRule['Substats'] => {
+  // Start from the Any template so placeholder rules keep the HSF substat shape.
+  const cloned = cloneAnySubstats()
+  if (!Number.isFinite(Number(variant)) || Number(variant) === StatVariant.Any) return cloned
+  const { id, isFlat } = variantToSub(variant)
+  if (id === StatId.Any) return cloned
+  // Use a 1+ guard so the placeholder only matches items that actually have the substat.
+  cloned[0] = {
+    ID: id,
+    Value: 1,
+    IsFlat: isFlat ?? true,
+    NotAvailable: false,
+    Condition: '>=',
+  }
+  return cloned
+}
+
 const dedupeSortedNumbers = (values: readonly number[]): number[] => {
   if (!values.length) return []
   const seen = new Set<number>()
@@ -650,6 +667,8 @@ const buildKeepBestSubstatPlaceholderRules = ({
       source: RULE_SOURCE_KEEP_BEST_SUBSTAT,
     })
     for (const keepRule of baseRules) {
+      // Ensure anticipate placeholders require the chosen substat.
+      keepRule.Substats = buildKeepBestSubstatPlaceholderSubstats(rule.substat)
       keepRule.__keepBestSubstatRuleId = rule.id
       keepRule.__keepBestSubstatRuleOrdinal = keepBestRuleOrdinal
       keepRule.__keepBestSubstatStat = rule.substat

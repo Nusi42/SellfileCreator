@@ -262,6 +262,8 @@ const overrides: Catalog = {
   keepUniquesGridFilterLabel: 'Фильтр: {mode}',
   keepUniquesGridFilterModeAll: 'Все',
   keepUniquesGridFilterModeSelection: 'Выбор',
+  keepOverrideColumnToggleToOne: 'Переключить на 1 колонку',
+  keepOverrideColumnToggleToTwo: 'Переключить на 2 колонки',
   keepUniquesGridFilterTooltip: 'Переключает между отображением всех уникальных предметов и только предметами, совпадающими с выбранным правилом сохранения. Режим «Выбор» ведёт себя как «Все», если правило не выбрано.',
   keepBestSubstatTabLabel: 'Сохранение лучших сабстатов',
   keepBestSubstatTabIntro: 'Сохраняйте лучшие роллы выбранной сабстаты на предметах, которые иначе были бы проданы.',

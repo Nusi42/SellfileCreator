@@ -44,7 +44,7 @@ import {
   FINAL_SELL_SETS_MODE_EXPLICIT,
   type FinalSellRemainderConfig,
   type FinalSellSetsMode,
-} from './finalSell'
+} from './logicHub'
 import { normalizeKeepUniqueRule, sanitizeKeepUniqueCountMode, type KeepUniqueRule, KeepUniqueRuleActivation } from './keepUniques'
 import { normalizeKeepBestSubstatRule, type KeepBestSubstatRule } from './keepBestSubstat'
 import { normalizeTagList } from './tagHelpers'

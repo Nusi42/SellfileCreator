@@ -15,7 +15,7 @@ import {
   LOGIC_HUB_DIALOG_TAB_KEEP_UNIQUES,
   type LogicHubDialogTab,
   type FinalSellRemainderConfig,
-} from '../lib/finalSell'
+} from '../lib/logicHub'
 import { ArtifactSet, ArtifactType, Faction, StatVariant, RankCode, RarityCode, LEVEL_MILESTONES, type LevelMilestone } from '../lib/types'
 import { DEFAULT_RULES_FILTER_STATE, type RulesFilterState } from '../lib/rulesFilter'
 import type { TutorialStep } from '../components/tutorial/TutorialCoach'

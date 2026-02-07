@@ -262,6 +262,8 @@ const enUS: Catalog = {
   keepUniquesGridFilterLabel: 'Filter: {mode}',
   keepUniquesGridFilterModeAll: 'All',
   keepUniquesGridFilterModeSelection: 'Selection',
+  keepOverrideColumnToggleToOne: 'Switch to 1 column',
+  keepOverrideColumnToggleToTwo: 'Switch to 2 columns',
   keepUniquesGridFilterTooltip: 'Toggle between showing all unique gear entries and only the entries that match the selected keep rule. Selection mode behaves like All whenever no rule is selected.',
   keepBestSubstatTabLabel: 'Keep Best Substat',
   keepBestSubstatTabIntro: 'Keep the best rolls for a chosen substat from gear that would otherwise be sold.',

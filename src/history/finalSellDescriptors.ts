@@ -7,7 +7,7 @@ import {
   type FinalSellLevel,
   type FinalSellRemainderConfig,
   type FinalSellSetsMode,
-} from '../lib/finalSell'
+} from '../lib/logicHub'
 import type { TranslateFn } from './builderUpdateDescriptor'
 import type { FinalSellDescriptorMode } from './historyDescriptorTypes'
 import { snapshotFinalSellRemainder } from './historySnapshotUtils'

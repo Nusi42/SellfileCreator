@@ -4,7 +4,7 @@
  * Cloning helpers for history descriptor snapshots.
  */
 import type { BuilderConfig, SubstatTargetTable } from '../lib/hsfBuilder'
-import type { FinalSellRemainderConfig } from '../lib/finalSell'
+import type { FinalSellRemainderConfig } from '../lib/logicHub'
 import type { Metaset } from '../lib/metasets'
 import type { KeepUniqueRule } from '../lib/keepUniques'
 import { cloneBuilderConfig } from '../lib/multiEditDraft'
