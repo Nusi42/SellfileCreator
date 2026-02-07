@@ -96,14 +96,6 @@ export function matchRule(rule: HsfRule, item: TestItem): boolean {
       ?? Number((item.previewExtras?.id ?? NaN))
     if (itemKey !== requiredItemKey) return false
   }
-  // Keep-best-substat injections are tied to a specific item; reject when the item key diverges.
-  const requiredBestSubstatKey = (rule as HsfRuleWithCfg).__keepBestSubstatItemKey
-  if (typeof requiredBestSubstatKey === 'number' && Number.isFinite(requiredBestSubstatKey) && requiredBestSubstatKey !== 0) {
-    const itemKey = (item as { itemId?: number }).itemId
-      ?? Number((item.previewExtras?.id ?? NaN))
-    if (itemKey !== requiredBestSubstatKey) return false
-  }
-
   // Slot (ArtifactType)
   if (Array.isArray(rule.ArtifactType) && rule.ArtifactType.length > 0) {
     if (!rule.ArtifactType.some(t => Number(t) === Number(item.slot))) return false

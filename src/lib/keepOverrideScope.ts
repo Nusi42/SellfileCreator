@@ -1,7 +1,7 @@
 /**
  * keepOverrideScope.ts
  *
- * Shared helpers for keep-override scope chips (Keep Uniques + Keep Best Substat).
+ * Shared helpers for keep-override scope chips (Keep Uniques).
  * Why: both features share the same count-mode semantics and must stay in lockstep.
  */
 import { sanitizeKeepUniqueCountMode, type KeepUniqueRuleCountMode } from './keepUniques'

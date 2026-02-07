@@ -89,8 +89,9 @@ Crea, visualizza in anteprima ed esporta regole di vendita per RSL Helper tramit
 ### Mantieni unici
 - Clicca `Logic Hub` nell’intestazione dell’anteprima e passa alla scheda `Mantieni unici` per segnare le combinazioni che non vuoi vendere mai. Attiva `Mantieni unici` per iniziare a modificarle.
 - Ogni regola ti permette di scegliere slot, set o Metaset, ranghi, rarità, statistiche principali e (per gli accessori) fazioni. Lasciare un selettore vuoto significa «qualsiasi».
-- Troverai una regola predefinita per anelli, amuleti e vessilli 5★/6★ in tutti i set 1–9 e nei set di accessori singoli, con `Per slot`, `Per set`, `Per fazione` e `Per statistica principale` già attivi così ogni combinazione conserva almeno un pezzo.
-- C’è anche una regola di supporto disattivata che copre armi e pezzi d’armatura (arma, elmo, scudo, guanti, corazza, stivali) nei set stun/toxic/daze/cursed/provoke/destroy a 5★/6★, con `Per slot` e `Per set` pronti per quando quei set rari hanno bisogno di una rete di sicurezza extra.
+- I substat sono opzionali: scegli uno o più per contare solo gli oggetti che hanno almeno uno di quei substat (più scelte = «uno qualsiasi»). Lasciare vuoto significa: nessun filtro substat.
+- Il `Modo substat` decide la logica: `Non classificato` conta ogni oggetto corrispondente, `Classificato` conserva solo i roll migliori per i substat scelti (i pareggi restano protetti).
+- Usa `Pesi` (solo in `Classificato`) per dire quali substat contano di più: pesi più alti rendono quel valore più importante nel ranking.
 - `≥ Quantità richiesta` vive accanto alle chip di ambito: «Per regola» mantiene una quota unica; combina liberamente `Per slot`, `Per set`, `Per fazione` e `Per statistica principale` per moltiplicare la quota per ogni combinazione rilevante (se li disattivi tutti si torna automaticamente a «Per regola»).
 - Il contatore `Presenti {have} / Conservare {keep}` dice quanto è già coperto (Presenti) dalle configurazioni/Vendita finale/regole esistenti e qual è la quota (Conservare) fissata dalla tua `≥ Quantità richiesta`. Solo gli oggetti che corrispondono alla regola alimentano questi numeri.
 - Usa il selettore `Filtro: Tutti / Selezione` sopra la griglia per passare da tutta la tua attrezzatura unica solo agli oggetti che corrispondono alla regola evidenziata; Selezione si comporta come Tutti finché nessuna regola è selezionata.
@@ -116,6 +117,8 @@ Crea, visualizza in anteprima ed esporta regole di vendita per RSL Helper tramit
 | Anelli HP% per fazione | Slot = Anello, Stat principale = HP%, Set vuoti | `Per fazione` | Assicura due anelli HP% per ogni fazione. |
 | Accessori base per fazione | Tre regole (Anello, Amuleto, Vessillo), Set e Stat principale vuoti, `≥ Quantità richiesta = 5` | `Per fazione` | Ogni fazione mantiene cinque pezzi per slot. |
 | Stoneskin + Protection per fazione | Slot = Anello/Amuleto/Vessillo, Set = Stoneskin + Protection, Stat principale vuota | `Per set` + `Per fazione` | Ogni fazione tiene due drop Stoneskin e due Protection per ogni slot accessorio. |
+| Accessori SPD più veloci | Slot = Anello/Amuleto/Vessillo, Substat = SPD, Modo substat = Classificato | `Per regola` | Conserva i migliori roll SPD sugli accessori. |
+| Vessilli ACC con SPD | Slot = Vessillo, Stat principale = ACC, Substat = SPD + ACC, Modo substat = Classificato, Pesi: SPD più alto | `Per fazione` | Ogni fazione tiene i migliori vessilli ACC dove SPD conta di più. |
 
 Suggerimento: importa il tuo `.db` o incolla equipaggiamento nel dialogo Equipaggiamento prima di aprire la scheda Mantieni unici, così lo scanner analizza oggetti reali. Quando una regola mostra «Ne mancano 2», cliccala: il Tester regole evidenzia quei pezzi e vedi quale fazione o set ha ancora bisogno di attenzione.
 

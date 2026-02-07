@@ -99,8 +99,9 @@ Crea, revisa y exporta reglas de venta para RSL Helper con una interfaz sencilla
 ### Conservar únicos
 - Haz clic en «Logic Hub» en el encabezado de la vista previa y cambia a la pestaña `Conservar únicos` para marcar las combinaciones que nunca quieres perder. Activa `Activar Conservar únicos` para empezar a editar.
 - Cada regla de conservación te deja elegir ranura, sets o metasets, rangos, rarezas, stats principales y (en accesorios) facciones. Sin selección significa «cualquiera».
-- Encontrarás una regla predeterminada para anillos, amuletos y estandartes de 5★/6★ en todos los sets 1–9 y de accesorio individual, con `Por ranura`, `Por conjunto`, `Por facción` y `Por stat principal` activados para que cada mezcla conserve al menos una pieza.
-- También hay una regla de ayuda desactivada que cubre armas/piezas de armadura (arma, casco, escudo, guantes, peto, botas) en los sets stun/toxic/daze/cursed/provoke/destroy a 5★/6★, con `Por ranura` y `Por conjunto` preparados para habilitarla cuando estos sets raros necesiten blindaje adicional.
+- Los substats son opcionales: elige uno o varios para contar solo los objetos que tengan al menos uno de esos substats (varios = «cualquiera de ellos»). Dejarlo vacío permite cualquier substat.
+- El `Modo de substats` define la lógica: `Sin ranking` cuenta cada objeto coincidente, `Clasificado` conserva solo las mejores tiradas para los substats elegidos (los empates también se guardan).
+- Usa `Pesos` (solo en `Clasificado`) para indicar qué substats importan más: pesos altos hacen que ese stat cuente más en el ranking.
 - `≥ Cantidad necesaria` es la promesa que quieres cumplir. Los chips justo debajo de cada selector (todo salvo Rango y Rareza) comparten o duplican la cuota: `Por ranura`, `Por conjunto`, `Por facción` y `Por stat principal` se pueden combinar libremente, y al apagarlos todos la regla vuelve automáticamente a `Por regla`.
 - El contador `Hay {have} / Conservar {keep}` refleja lo mismo que explica la ayuda: **Hay** cuenta piezas ya protegidas por configs, Venta final o reglas existentes, mientras que **Conservar** es la cuota que fijaste en `≥ Cantidad necesaria`. Solo se tienen en cuenta los objetos que coinciden con la regla.
 - El escáner solo añade filas de conservación cuando cada objeto coincidente acabaría vendido. Si tus configs normales ya salvan suficientes piezas, verás «Cubierto en otro lugar» y no se exporta nada nuevo.
@@ -125,6 +126,8 @@ Crea, revisa y exporta reglas de venta para RSL Helper con una interfaz sencilla
 | Anillos de HP% por facción | Ranura = Anillo, Stat principal = HP%, Sets en blanco | `Por facción` | Se aseguran dos anillos de HP% por facción. |
 | Accesorios básicos por facción | Tres reglas (Anillo, Amuleto, Estandarte), Sets y Stat principal en blanco | `Por facción` | Cada facción conserva cinco piezas por ranura. |
 | Stoneskin + Protection por facción | Ranura = Anillo/Amuleto/Estandarte, Sets = Stoneskin + Protection, Stat principal en blanco | `Por conjunto` + `Por facción` | Cada facción guarda dos piezas Stoneskin y dos Protection en cada ranura. |
+| Accesorios con más SPD | Ranura = Anillo/Amuleto/Estandarte, Substats = SPD, Modo de substats = Clasificado | `Por regla` | Conserva las mejores tiradas de SPD en tus accesorios. |
+| Estandartes de ACC con SPD | Ranura = Estandarte, Stat principal = ACC, Substats = SPD + ACC, Modo de substats = Clasificado, Pesos: SPD alto | `Por facción` | Cada facción guarda los mejores estandartes de ACC donde SPD pesa más. |
 
 Consejo: Importa tu `.db` o pega equipo en el diálogo «Equipo» antes de abrir la pestaña Conservar únicos para que el escáner tenga objetos reales. Cuando una regla muestre «Faltan 2», haz clic para resaltar ese equipo en el Probador y ver qué facción o set necesita ayuda.
 

@@ -29,8 +29,6 @@ import {
 import { TESTER_CONFIG_FILTER_MODE_DEFAULT, type TesterConfigFilterMode } from '../types/testerConfigFilterMode'
 import type { KeepUniqueRule } from '../lib/keepUniques'
 import { sanitizeKeepUniquesGridFilterMode, type KeepUniquesGridFilterMode } from '../state/keepUniquesPreferences'
-import type { KeepBestSubstatRule } from '../lib/keepBestSubstat'
-import { sanitizeKeepBestSubstatGridFilterMode, type KeepBestSubstatGridFilterMode } from '../state/keepBestSubstatPreferences'
 import {
   LEGACY_NOTE_CONFIG_OPTIONS_ANSWERS_KEY,
   NOTE_CONFIG_OPTIONS_ANSWERS_KEY,
@@ -52,8 +50,6 @@ export type RestoreDraft = {
   FinalSellRemainder?: FinalSellRemainderConfig
   KeepUniques?: KeepUniqueRule[]
   KeepUniquesEnabled?: boolean
-  KeepBestSubstats?: KeepBestSubstatRule[]
-  KeepBestSubstatsEnabled?: boolean
   SelectedConfigIndex?: number
   Note?: string
   NoteConfigOptionsAnswers?: NoteConfigOptionsAnswers
@@ -64,7 +60,6 @@ export type RestoreDraft = {
   LogicHubDialogTab?: LogicHubDialogTab
   FinalSellDialogTab?: LogicHubDialogTab
   KeepUniquesGridFilterMode?: KeepUniquesGridFilterMode
-  KeepBestSubstatGridFilterMode?: KeepBestSubstatGridFilterMode
 }
 
 export type AutosaveFilterView = {
@@ -259,9 +254,6 @@ function computeInitialAutosaveState(args: {
   keepUniqueRules: KeepUniqueRule[]
   keepUniquesEnabled: boolean
   keepUniquesGridFilterMode: KeepUniquesGridFilterMode
-  keepBestSubstatRules: KeepBestSubstatRule[]
-  keepBestSubstatEnabled: boolean
-  keepBestSubstatGridFilterMode: KeepBestSubstatGridFilterMode
   storedRuntimeGearSetCount: number
 }): InitialAutosaveState {
   try {
@@ -282,8 +274,6 @@ function computeInitialAutosaveState(args: {
       const savedFinalSell = parsed.finalSellRemainder
       const savedKeepUniques = parsed.keepUniqueRules ?? []
       const savedKeepEnabled = parsed.keepUniquesEnabled ?? false
-      const savedKeepBestSubstats = parsed.keepBestSubstatRules ?? []
-      const savedKeepBestEnabled = parsed.keepBestSubstatEnabled ?? false
       const metasetsMatchDefaults = metasetsSignature(savedMetasets as Metaset[]) === metasetsSignature(args.metasets)
       // Compare canonicalized copies so reordering the variant keys (common when
       // editing via the dialog) does not trick autosave into thinking the
@@ -307,10 +297,6 @@ function computeInitialAutosaveState(args: {
         && !savedKeepEnabled
         && args.keepUniqueRules.length === 0
         && !args.keepUniquesEnabled
-      const keepBestSubstatMatchDefaults = savedKeepBestSubstats.length === 0
-        && !savedKeepBestEnabled
-        && args.keepBestSubstatRules.length === 0
-        && !args.keepBestSubstatEnabled
       // Read any config options answers stored alongside the autosave payload.
       const payloadRecord = (entry.payload && typeof entry.payload === 'object')
         ? (entry.payload as Record<string, unknown>)
@@ -334,12 +320,6 @@ function computeInitialAutosaveState(args: {
       const savedGridFilterMode = savedGridFilterModeRaw
         ? sanitizeKeepUniquesGridFilterMode(savedGridFilterModeRaw)
         : null
-      const savedKeepBestGridFilterRaw = (entry.payload && typeof entry.payload === 'object' && typeof (entry.payload as Record<string, unknown>)['KeepBestSubstatGridFilterMode'] === 'string')
-        ? (entry.payload as Record<string, unknown>)['KeepBestSubstatGridFilterMode']
-        : null
-      const savedKeepBestGridFilterMode = savedKeepBestGridFilterRaw
-        ? sanitizeKeepBestSubstatGridFilterMode(savedKeepBestGridFilterRaw)
-        : null
       // Treat persisted runtime sets as restore-worthy even if configs are empty.
       // Why: this is the only UX surface that can re-apply dormant sets.
       const hasStoredRuntimeGearSets = args.storedRuntimeGearSetCount > 0
@@ -351,7 +331,6 @@ function computeInitialAutosaveState(args: {
         && filtersMatchDefaults
         && testerSortMatchDefaults
         && keepUniquesMatchDefaults
-        && keepBestSubstatMatchDefaults
         && !hasStoredRuntimeGearSets
       if (!essentiallyDefault) {
         const payload = entry.payload as Record<string, unknown>
@@ -367,9 +346,6 @@ function computeInitialAutosaveState(args: {
             ...(savedKeepUniques.length ? { KeepUniques: savedKeepUniques } : {}),
             ...(savedKeepEnabled ? { KeepUniquesEnabled: savedKeepEnabled } : {}),
             ...(savedGridFilterMode ? { KeepUniquesGridFilterMode: savedGridFilterMode } : {}),
-            ...(savedKeepBestSubstats.length ? { KeepBestSubstats: savedKeepBestSubstats } : {}),
-            ...(savedKeepBestEnabled ? { KeepBestSubstatsEnabled: savedKeepBestEnabled } : {}),
-            ...(savedKeepBestGridFilterMode ? { KeepBestSubstatGridFilterMode: savedKeepBestGridFilterMode } : {}),
             ...(parsed.selectedIndex != null ? { SelectedConfigIndex: parsed.selectedIndex } : {}),
             ...(parsed.note ? { Note: parsed.note } : {}),
             ...(savedConfigOptionsAnswers ? { [NOTE_CONFIG_OPTIONS_ANSWERS_KEY]: savedConfigOptionsAnswers } : {}),
@@ -411,11 +387,8 @@ export function useAutosaveRestore(opts: {
   testerSort: TesterSubstatSortState
   keepUniqueRules: KeepUniqueRule[]
   keepUniquesEnabled: boolean
-  keepBestSubstatRules: KeepBestSubstatRule[]
-  keepBestSubstatEnabled: boolean
   logicHubDialogTab: LogicHubDialogTab
   keepUniquesGridFilterMode: KeepUniquesGridFilterMode
-  keepBestSubstatGridFilterMode: KeepBestSubstatGridFilterMode
   storedRuntimeGearSetCount: number
 }) {
   const {
@@ -433,11 +406,8 @@ export function useAutosaveRestore(opts: {
     testerSort,
     keepUniqueRules,
     keepUniquesEnabled,
-    keepBestSubstatRules,
-    keepBestSubstatEnabled,
     logicHubDialogTab,
     keepUniquesGridFilterMode,
-    keepBestSubstatGridFilterMode,
     storedRuntimeGearSetCount,
   } = opts
 
@@ -456,9 +426,6 @@ export function useAutosaveRestore(opts: {
       keepUniqueRules,
       keepUniquesEnabled,
       keepUniquesGridFilterMode,
-      keepBestSubstatRules,
-      keepBestSubstatEnabled,
-      keepBestSubstatGridFilterMode,
       storedRuntimeGearSetCount,
     })
   }
@@ -484,11 +451,8 @@ export function useAutosaveRestore(opts: {
       FinalSellRemainder: finalSellRemainder,
       KeepUniques: keepUniqueRules,
       KeepUniquesEnabled: keepUniquesEnabled,
-      KeepBestSubstats: keepBestSubstatRules,
-      KeepBestSubstatsEnabled: keepBestSubstatEnabled,
       LogicHubDialogTab: logicHubDialogTab,
       KeepUniquesGridFilterMode: keepUniquesGridFilterMode,
-      KeepBestSubstatGridFilterMode: keepBestSubstatGridFilterMode,
       // Persist note content and config options answers only when present.
       ...(note && note.trim() ? { Note: note } : {}),
       ...(Object.keys(noteConfigOptionsAnswers).length > 0
@@ -512,11 +476,8 @@ export function useAutosaveRestore(opts: {
     testerSort,
     keepUniqueRules,
     keepUniquesEnabled,
-    keepBestSubstatRules,
-    keepBestSubstatEnabled,
     logicHubDialogTab,
     keepUniquesGridFilterMode,
-    keepBestSubstatGridFilterMode,
   ])
 
   // After dismissing, enable autosave only after divergence from baseline

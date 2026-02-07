@@ -47,6 +47,7 @@ type GearSetsSelectProps = {
   menuWidthPx?: number
   disabled?: boolean
   layoutVersion?: number
+  anyLabel?: string
 }
 
 export default function GearSetsSelect({
@@ -62,8 +63,11 @@ export default function GearSetsSelect({
   menuWidthPx = SETS_MENU_WIDTH_PX,
   disabled = false,
   layoutVersion,
+  anyLabel,
 }: GearSetsSelectProps) {
   const { t, lang } = useI18n()
+  // Keep the placeholder explicit when callers want "Any Set" instead of "Any".
+  const anyText = anyLabel ?? t('any')
   const gearSetCatalogVersion = useGearSetCatalogVersion()
   const [setsOrder, setSetsOrder] = useSetsOrderPreference()
   const [setsSearch, setSetsSearch] = useState('')
@@ -141,12 +145,12 @@ export default function GearSetsSelect({
     if (tokens.length === 0 && splitSelections.excluded.length === 0) {
       return (
         <Box component="span" sx={{ display: 'block', textOverflow: 'ellipsis', whiteSpace: 'nowrap', overflow: 'hidden' }}>
-          {t('any')}
+          {anyText}
         </Box>
       )
     }
     // Collapse to "Any" when everything is cleared.
-    const text = selectionLabels.length === 0 ? t('any') : selectionLabels.join(', ')
+    const text = selectionLabels.length === 0 ? anyText : selectionLabels.join(', ')
     return (
       <EllipsisTooltip title={text} wrap="block">
         <Box
@@ -158,7 +162,7 @@ export default function GearSetsSelect({
         </Box>
       </EllipsisTooltip>
     )
-  }, [gearSetCatalogVersion, selectionLabels, splitSelections.excluded.length, t])
+  }, [anyText, gearSetCatalogVersion, selectionLabels, splitSelections.excluded.length])
 
   const handleTokensChange = useCallback((e: SelectChangeEvent<string[]>) => {
     // Normalize the token list so arrays never contain non-strings.

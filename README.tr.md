@@ -99,8 +99,9 @@ RSL Helper için satış kurallarını basit bir arayüzle oluşturun, önizleyi
 ### Benzersizleri Koru
 - Önizleme başlığındaki “Logic Hub” düğmesine tıklayıp `Benzersizleri Koru` sekmesine geçin; kaybetmek istemediğiniz kombinasyonları burada işaretleyin. `Benzersizleri Koru` anahtarını açtığınız anda düzenlemeye başlayabilirsiniz.
 - Her kural slot, set veya metaset, rank, nadirlik, ana stat ve (aksesuarlar için) fraksiyon seçmenize izin verir. Boş bırakmak “herhangi” anlamına gelir.
-- Varsayılan olarak 5★/6★ yüzük, muska ve sancakları tüm 1–9 ve tek parça aksesuar setleri içinde tarayan bir kural hazırdır; `Slot başına`, `Set başına`, `Fraksiyon başına` ve `Ana stat başına` çipleri açık gelir, böylece her kombinasyon en az bir öğeyi korur.
-- Ayrıca kapalı gelen yardımcı bir kural vardır: Silah + zırh parçalarını (silah, miğfer, kalkan, eldiven, göğüslük, bot) 5★/6★ aralığında hedefler, stun/toxic/daze/cursed/provoke/destroy setlerini kapsar ve `Slot başına` + `Set başına` kapsamlarını kullanır. Nadir setleri daha sonra korumak istediğinizde sadece anahtarı açın.
+- Alt statlar isteğe bağlıdır: bir veya birkaçını seçerek yalnızca en az birini taşıyan eşyaları sayarsınız (birden fazla = “bunlardan herhangi biri”). Boş bırakmak alt stat filtresi olmaması demektir.
+- `Alt stat modu` seçimi: `Sırasız` tüm eşleşenleri sayar, `Sıralı` ise seçili alt statlardaki en iyi rolları korur (eşitlikler de korunur).
+- `Ağırlıklar` (yalnızca `Sıralı`) ile hangi alt statın daha önemli olduğunu belirtin — yüksek ağırlık o statın puanını artırır.
 - `≥ Gerekli adet` uygulamanın size verdiği sözdür. Rank ve Nadirlik dışındaki her seçicinin altındaki kapsam çipleri (`Kural başına`, `Slot başına`, `Set başına`, `Fraksiyon başına`, `Ana stat başına`) bu kotanın nasıl paylaşıldığını belirler; hepsini kapatırsanız paylaşım otomatik olarak `Kural başına` havuzuna döner.
 - `Var {have} / Koru {keep}` sayacı tooltip’te anlatılanı aynen gösterir: **Var**, konfigler, Final satış veya mevcut Benzersizleri Koru satırları sayesinde zaten korunan öğeleri sayar; **Koru**, `≥ Gerekli adet` ile talep ettiğiniz kotadır. Yalnızca kuralı karşılayan öğeler bu sayılara girer.
 - Kartın statü rozetleri `Eksik {count}`, `Başka yerde korunuyor` ve `Gereksinim karşılandı` mesajlarını kullanır; eksik değeri kurtarmak için karta tıkladığınızda ilgili tester ekipmanı vurgulanır.
@@ -127,6 +128,8 @@ Kapsam çiplerini üst üste koymak kimin kendi kotasını alacağını değişt
 | Fraksiyon başına HP% yüzük | Slot = Yüzük, Ana stat = HP%, Setler boş, `≥ Gerekli adet = 2` | `Fraksiyon başına` | Her fraksiyon ikişer HP% yüzük saklar. |
 | Çekirdek aksesuarlar fraksiyon başına | Üç kural (Yüzük, Muska, Sancak), Set/Ana stat boş, `≥ Gerekli adet = 5` | `Fraksiyon başına` | Her fraksiyon her aksesuar slotunda beşer parça bırakır. |
 | Stoneskin + Protection aksesuarları | Slot = Yüzük/Muska/Sancak, Set = Stoneskin + Protection, Ana stat boş, `≥ Gerekli adet = 2` | `Set başına` + `Fraksiyon başına` | Her fraksiyon her slot için iki Stoneskin ve iki Protection parça tutar. |
+| En hızlı SPD aksesuarları | Slot = Yüzük/Muska/Sancak, Alt statlar = SPD, Alt stat modu = Sıralı | `Kural başına` | Aksesuarlarındaki en iyi SPD rollarını korur. |
+| SPD’li ACC sancakları | Slot = Sancak, Ana stat = ACC, Alt statlar = SPD + ACC, Alt stat modu = Sıralı, Ağırlıklar: SPD daha yüksek | `Fraksiyon başına` | Her fraksiyon SPD’nin daha önemli olduğu en iyi ACC sancaklarını tutar. |
 
 İpucu: “Benzersizleri Koru” sekmesini açmadan önce `.db` içe aktarın veya Ekipman diyaloğunda eşya ekleyin ki tarayıcı gerçek veriyi görsün. Bir kural «Eksik 2» dediğinde üzerine tıklayın; tester tablosu ilgili eşyaları vurgular ve hangi setin veya fraksiyonun eksik kaldığını anlarsınız.
 

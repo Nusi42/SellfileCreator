@@ -60,7 +60,7 @@ import type { TesterSourceFilter } from '../lib/rulesFilter'
 import { TesterSummaryLabel } from './TesterSummaryLabel'
 import { TesterRuleReferenceChip } from './TesterRuleReferenceChip'
 import { getTesterMatchBorderColor } from './testerMatchStyles'
-import { RULE_SOURCE_KEEP_BEST_SUBSTAT, RULE_SOURCE_KEEP_UNIQUES } from '../lib/merge'
+import { RULE_SOURCE_KEEP_UNIQUES } from '../lib/merge'
 import { KEEP_OVERRIDE_REFERENCE_COLUMN_COUNT } from '../lib/keepOverrideLayout'
 // MarkdownTooltip unifies the tester’s tooltip behavior (source glyphs, manage colors, etc.) with the rest of the UI.
 import MarkdownTooltip from './MarkdownTooltip'
@@ -287,7 +287,7 @@ const measureMatchingRowContentWidth = (node: HTMLElement): number => {
 type TranslateFn = ReturnType<typeof useI18n>['t']
 
 // Variant toggles keep-override specific layout while keeping the base tester grid intact.
-type TesterItemsGridVariant = 'tester' | 'keepUniques' | 'keepBestSubstat'
+type TesterItemsGridVariant = 'tester' | 'keepUniques'
 
 type TesterItemsGridProps = {
   rows: TesterPreviewRow[]
@@ -304,7 +304,6 @@ type TesterItemsGridProps = {
   onCreateRuleTemplate?: ((row: TesterPreviewRow, intent: TesterRuleTemplateIntent) => void) | undefined
   variant?: TesterItemsGridVariant
   keepUniquesEnabled?: boolean
-  keepBestSubstatEnabled?: boolean
   keepOverrideColumnMode?: 1 | 2
   onKeepOverrideColumnModeChange?: (next: 1 | 2) => void
   hasTesterData?: boolean
@@ -372,7 +371,6 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     onCreateRuleTemplate,
     variant = 'tester',
     keepUniquesEnabled = true,
-    keepBestSubstatEnabled = true,
     keepOverrideColumnMode,
     onKeepOverrideColumnModeChange,
     hasTesterData = true,
@@ -389,9 +387,8 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
   } = props
   // Variant flags control keep-override behavior without forking the grid.
   const keepUniquesVariant = variant === 'keepUniques'
-  const keepBestSubstatVariant = variant === 'keepBestSubstat'
-  // Both keep-override tabs use the same 1/2 column layout controls.
-  const keepOverrideVariant = keepUniquesVariant || keepBestSubstatVariant
+  // Keep-unique is the only keep-override variant now.
+  const keepOverrideVariant = keepUniquesVariant
   // Memoized predicates avoid re-render churn when Keep Uniques toggles highlighting.
   const highlightRowPredicate = typeof highlightedRowPredicate === 'function' ? highlightedRowPredicate : null
   const shouldDimUnhighlightedRows = Boolean(dimUnhighlightedRows && highlightRowPredicate)
@@ -1162,13 +1159,6 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
         if (!keepUniquesEnabled) return t('testerTableEmptyKeepUniquesDisabled')
         if (filterActive) return t('testerTableEmptyFilter')
         return t('testerTableEmptyKeepUniquesNoMatches')
-      }
-      if (keepBestSubstatVariant) {
-        // Keep Best Substat mirrors Keep Uniques messaging.
-        if (!hasTesterData) return t('keepBestSubstatNoTesterData')
-        if (!keepBestSubstatEnabled) return t('testerTableEmptyKeepBestSubstatDisabled')
-        if (filterActive) return t('testerTableEmptyFilter')
-        return t('testerTableEmptyKeepBestSubstatNoMatches')
       }
       // Base tester grid falls back to the generic filter/empty messages.
       return filterActive ? t('testerTableEmptyFilter') : t('testerGridEmpty')
@@ -2356,7 +2346,6 @@ export const TesterGridCard = React.memo(function TesterGridCard({
   const shouldShowPrimaryMatchRow = basePrimaryMatchRowVisible
   // Keep-override primary matches are not tied to a config, so keep all config matches visible.
   const keepOverridePrimaryMatch = match?.ruleSource === RULE_SOURCE_KEEP_UNIQUES
-    || match?.ruleSource === RULE_SOURCE_KEEP_BEST_SUBSTAT
   const otherMatchingEntries = keepOverridePrimaryMatch
     ? matchingEntries
     : matchingEntries.slice(1)

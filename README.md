@@ -103,8 +103,9 @@ Build, preview, and export sell rules for RSL Helper with a simple UI.
 ### Keep Uniques
 - Click `Logic Hub` in the preview header and switch to the `Keep Uniques` tab to mark the gear combinations you never want to lose. Turn on `Enable Keep Uniques` to start editing.
 - Each keep rule lets you pick the slot, sets or metasets, ranks, rarities, main stats, and (for accessories) factions you care about. Leaving a picker empty means “any”.
-- A default rule is already seeded for 5★/6★ rings, amulets, and banners across every 1–9 and single-piece accessory set, with `Per slot`, `Per set`, `Per faction`, and `Per main stat` enabled so each combination keeps at least one piece.
-- There is also a disabled helper rule that targets weapons/armor pieces (weapon, helmet, shield, gauntlets, chestplate, boots) from the stun/toxic/daze/cursed/provoke/destroy families at 5★/6★, with `Per slot` and `Per set` scopes so the scanner can be turned on later if those rare sets need extra protection.
+- Substats are optional: pick one or more to only count items that actually have those substats (multiple picks are treated as “any of these”). Leave it empty to allow any substat.
+- `Substat mode` controls how those picks are used: `Unranked` counts every matching item, while `Ranked` keeps only the best rolls for the selected substats (ties stay protected).
+- Use `Weights` (Ranked only) to say which substats matter most — higher weights make that stat count more in the ranking.
 - `≥ Required Count` is the promise you want the app to keep. Scope chips directly under each picker (everything except `Rank` and `Rarity`) decide how that quota is split: `Per slot`, `Per set`, `Per faction`, and `Per main stat` can be combined freely. Turning every chip off automatically falls back to the shared `Per rule` pool.
 - The `Have {have} / Keep {keep}` counter shows exactly what the tooltip explains: **Have** counts gear pieces already protected by configs, Final Sell, or existing Keep rules; **Keep** is the quota from `≥ Required Count`. Only gear entries that match the rule contribute to these numbers.
 - The scanner only adds extra keep rows when every item that matches a rule would otherwise be sold. If your normal configs already save enough pieces, the rule shows “Covered elsewhere” and nothing new is exported.
@@ -129,6 +130,8 @@ Stacking the scope chips changes who gets their own quota. Leave `Per rule` on t
 | HP% rings per faction | Slot = Ring, Main Stat = HP%, Sets blank | `Per faction` | Two HP% rings per faction stay in inventory. |
 | Core accessories per faction | Three rules (Ring, Amulet, Banner), Sets/Main blank, `≥ Required Count = 5` | `Per faction` | Five Rings, Amulets, and Banners survive per faction. |
 | Stoneskin + Protection accessories | Slot = Ring/Amulet/Banner, Sets = Stoneskin + Protection, Main blank | `Per set` + `Per faction` | Each faction holds two Stoneskin and two Protection drops for every accessory slot. |
+| Fastest SPD accessories | Slot = Ring/Amulet/Banner, Substats = SPD, Substat mode = Ranked | `Per rule` | Keeps the top SPD substat rolls across your accessories. |
+| ACC banners that still roll SPD | Slot = Banner, Main Stat = ACC, Substats = SPD + ACC, Substat mode = Ranked, Weights favor SPD | `Per faction` | Each faction keeps the best ACC banners where SPD rolls matter most. |
 
 Tip: Import your `.db` or paste gear into the Gear dialog before opening Keep Uniques so the scanner sees real items. When a rule says “Missing 2”, click it to highlight that Rule Tester gear and see which faction or set needs attention.
 

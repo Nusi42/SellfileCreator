@@ -3,7 +3,7 @@ import { Box, Chip } from '@mui/material'
 import type { ChipProps } from '@mui/material'
 import { alpha, useTheme, type SxProps, type Theme } from '@mui/material/styles'
 import type { SystemStyleObject } from '@mui/system'
-import { RULE_SOURCE_FINAL_SELL, RULE_SOURCE_KEEP_BEST_SUBSTAT, RULE_SOURCE_KEEP_UNIQUES } from '../lib/merge'
+import { RULE_SOURCE_FINAL_SELL, RULE_SOURCE_KEEP_UNIQUES } from '../lib/merge'
 import { useI18n } from '../lib/i18n'
 import type { TesterPreviewMatch } from '../types/testerPreview'
 import { MATCHING_CONFIG_CHIP_MIN_WIDTH_PX } from '../lib/constants'
@@ -68,7 +68,6 @@ export function TesterRuleReferenceChip({
   // Rule source flags drive tint + label behavior.
   const isFinalSellSource = match.ruleSource === RULE_SOURCE_FINAL_SELL
   const isKeepUniqueSource = match.ruleSource === RULE_SOURCE_KEEP_UNIQUES
-  const isKeepBestSource = match.ruleSource === RULE_SOURCE_KEEP_BEST_SUBSTAT
   if (isFinalSellSource) {
     if (!showFinalSellLabel) return null
     const finalSellTint = buildChipSurfaceTint(theme, theme.palette.error.main)
@@ -117,14 +116,12 @@ export function TesterRuleReferenceChip({
     : formattedConfigName
   const clickable = typeof onJump === 'function' && ruleIndex != null
   if (!label) return null
-  // Keep overrides (uniques + best) share a green tint so they read as "protected".
-  const keepOverrideTint = (isKeepUniqueSource || isKeepBestSource)
+  // Keep-unique matches share a green tint so they read as "protected".
+  const keepOverrideTint = isKeepUniqueSource
     ? buildChipSurfaceTint(theme, theme.palette.success.main)
     : null
-  // Data attribute lets tests and analytics distinguish keep-best from keep-unique.
-  const dataMatchSource = isKeepBestSource
-    ? 'keep-best'
-    : (isKeepUniqueSource ? 'keep-unique' : undefined)
+  // Data attribute lets tests and analytics distinguish keep-unique matches.
+  const dataMatchSource = isKeepUniqueSource ? 'keep-unique' : undefined
   return (
     <TesterRuleReferenceChipBody
       label={label}

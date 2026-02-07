@@ -45,8 +45,13 @@ import {
   type FinalSellRemainderConfig,
   type FinalSellSetsMode,
 } from './logicHub'
-import { normalizeKeepUniqueRule, sanitizeKeepUniqueCountMode, type KeepUniqueRule, KeepUniqueRuleActivation } from './keepUniques'
-import { normalizeKeepBestSubstatRule, type KeepBestSubstatRule } from './keepBestSubstat'
+import {
+  KeepUniqueSubstatMode,
+  normalizeKeepUniqueRule,
+  sanitizeKeepUniqueCountMode,
+  type KeepUniqueRule,
+  KeepUniqueRuleActivation,
+} from './keepUniques'
 import { normalizeTagList } from './tagHelpers'
 import type { ArtifactSetSelectionEntry } from './gearSets/selection'
 import { normalizeArtifactSetSelections } from './gearSets/selection'
@@ -835,8 +840,6 @@ export function parseHsfcText(
   finalSellRemainder: FinalSellRemainderConfig
   keepUniqueRules: KeepUniqueRule[]
   keepUniquesEnabled: boolean
-  keepBestSubstatRules: KeepBestSubstatRule[]
-  keepBestSubstatEnabled: boolean
 } {
   const parsed = JSON.parse(text) as unknown
   return parseHsfcObject(parsed, prev, options)
@@ -856,8 +859,6 @@ export function parseHsfcObject(
   finalSellRemainder: FinalSellRemainderConfig
   keepUniqueRules: KeepUniqueRule[]
   keepUniquesEnabled: boolean
-  keepBestSubstatRules: KeepBestSubstatRule[]
-  keepBestSubstatEnabled: boolean
 } {
   const parsedRec = (typeof parsed === 'object' && parsed !== null ? (parsed as Record<string, unknown>) : {})
   const runtimeSetNameMap = options?.runtimeSetNameMap
@@ -945,17 +946,6 @@ export function parseHsfcObject(
     return normalized
   })()
   const keepUniquesEnabled = parsedRec['KeepUniquesEnabled'] === true
-  const keepBestSubstatRules: KeepBestSubstatRule[] = (() => {
-    const raws = parsedRec['KeepBestSubstats']
-    if (!Array.isArray(raws)) return []
-    const normalized: KeepBestSubstatRule[] = []
-    for (const entry of raws) {
-      const rule = normalizeKeepBestSubstatRule(entry)
-      if (rule) normalized.push(rule)
-    }
-    return normalized
-  })()
-  const keepBestSubstatEnabled = parsedRec['KeepBestSubstatsEnabled'] === true
   const savedSel = (!Array.isArray(parsed) && typeof parsedRec['SelectedConfigIndex'] === 'number') ? (parsedRec['SelectedConfigIndex'] as number) : (cfgs.length ? cfgs.length - 1 : null)
   const selectedIndex = (savedSel !== null && savedSel >= 0 && savedSel < cfgs.length) ? savedSel : (cfgs.length ? cfgs.length - 1 : null)
   const note = (!Array.isArray(parsed) && typeof parsedRec['Note'] === 'string') ? String(parsedRec['Note']) : undefined
@@ -968,8 +958,6 @@ export function parseHsfcObject(
     finalSellRemainder: fsr,
     keepUniqueRules,
     keepUniquesEnabled,
-    keepBestSubstatRules,
-    keepBestSubstatEnabled,
   }
 }
 
@@ -986,8 +974,6 @@ export async function readHsfcFile(
   finalSellRemainder: FinalSellRemainderConfig
   keepUniqueRules: KeepUniqueRule[]
   keepUniquesEnabled: boolean
-  keepBestSubstatRules: KeepBestSubstatRule[]
-  keepBestSubstatEnabled: boolean
 }>
 {
   const text = await file.text()
@@ -1058,18 +1044,24 @@ export function buildHsfcPayload(args: {
   note?: string,
   keepUniqueRules?: KeepUniqueRule[],
   keepUniquesEnabled?: boolean,
-  keepBestSubstatRules?: KeepBestSubstatRule[],
-  keepBestSubstatEnabled?: boolean,
   }): {
     Version: string
     Metasets: Array<{ id: string; name: string; setNames: string[]; show?: boolean }>
     Minima: unknown
     Configs: unknown[]
     FinalSellRemainder: FinalSellRemainderConfig
-    KeepUniques: Array<{ id: string; name?: string; requiredCount: number; activation: KeepUniqueRuleActivation; countMode: KeepUniqueRule['countMode']; tuple: ReadableKeepUniqueTuple }>
+    KeepUniques: Array<{
+      id: string
+      name?: string
+      requiredCount: number
+      activation: KeepUniqueRuleActivation
+      countMode: KeepUniqueRule['countMode']
+      tuple: ReadableKeepUniqueTuple
+      substats?: string[]
+      substatMode?: string
+      substatWeights?: Record<string, number>
+    }>
     KeepUniquesEnabled: boolean
-    KeepBestSubstats: Array<{ id: string; name?: string; substat: string | number; requiredCount: number; activation: KeepUniqueRuleActivation; countMode: KeepUniqueRule['countMode']; tuple: ReadableKeepUniqueTuple }>
-    KeepBestSubstatsEnabled: boolean
     SelectedConfigIndex?: number
     Note?: string
   } {
@@ -1083,8 +1075,6 @@ export function buildHsfcPayload(args: {
     note,
     keepUniqueRules = [],
     keepUniquesEnabled = false,
-    keepBestSubstatRules = [],
-    keepBestSubstatEnabled = false,
   } = args
   const metasOut = metasets.map(m => {
     const iconId = normalizeMetasetIconId(m.iconId)
@@ -1121,6 +1111,32 @@ export function buildHsfcPayload(args: {
       // rehydrate the same chip state without guessing at defaults.
       const mode = sanitizeKeepUniqueCountMode(rule.countMode)
       const trimmedName = typeof rule.name === 'string' ? rule.name.trim() : ''
+      // Capture selected substats in readable form so HSFC stays user-friendly.
+      const substatVariants = rule.substats ?? []
+      // Map variants to readable labels; fall back to numeric IDs if needed.
+      const substatLabels = substatVariants
+        .map((variant) => {
+          const label = labelOfVariant(variant)
+          return label && label.trim().length > 0 ? label : String(variant)
+        })
+        .filter((label) => Boolean(label && label.trim()))
+      // Ranking only matters when a substat selection exists.
+      const hasSubstatSelection = substatLabels.length > 0
+      // Serialize weights by readable label, but only for selected substats.
+      const substatWeights: Record<string, number> = {}
+      if (hasSubstatSelection) {
+        const selectedSet = new Set(substatVariants.map((variant) => Number(variant)))
+        const rawWeights = rule.substatWeights ?? {}
+        for (const [rawKey, rawWeight] of Object.entries(rawWeights)) {
+          const variant = Number(rawKey)
+          if (!Number.isFinite(variant) || !selectedSet.has(variant)) continue
+          const label = labelOfVariant(variant)
+          const key = label && label.trim().length > 0 ? label : String(variant)
+          const weight = Number(rawWeight)
+          if (!Number.isFinite(weight)) continue
+          substatWeights[key] = weight
+        }
+      }
       return {
         id: rule.id,
         ...(trimmedName ? { name: trimmedName } : {}),
@@ -1134,30 +1150,14 @@ export function buildHsfcPayload(args: {
           perSlot: mode.perSlot,
         },
         tuple: buildReadableKeepOverrideTuple(rule.combination),
+        ...(hasSubstatSelection ? { substats: substatLabels } : {}),
+        ...(hasSubstatSelection && rule.substatMode === KeepUniqueSubstatMode.Ranked
+          ? { substatMode: KeepUniqueSubstatMode.Ranked }
+          : {}),
+        ...(Object.keys(substatWeights).length > 0 ? { substatWeights } : {}),
       }
     }),
     KeepUniquesEnabled: keepUniquesEnabled === true,
-    KeepBestSubstats: keepBestSubstatRules.map((rule) => {
-      const mode = sanitizeKeepUniqueCountMode(rule.countMode)
-      const label = labelOfVariant(rule.substat)
-      const trimmedName = typeof rule.name === 'string' ? rule.name.trim() : ''
-      return {
-        id: rule.id,
-        ...(trimmedName ? { name: trimmedName } : {}),
-        substat: label && label.trim().length > 0 ? label : rule.substat,
-        requiredCount: Math.max(1, Math.floor(rule.requiredCount)),
-        activation: rule.activation ?? KeepUniqueRuleActivation.ProtectExisting,
-        countMode: {
-          perRule: mode.perRule,
-          perSet: mode.perSet,
-          perFaction: mode.perFaction,
-          perMainStat: mode.perMainStat,
-          perSlot: mode.perSlot,
-        },
-        tuple: buildReadableKeepOverrideTuple(rule.combination),
-      }
-    }),
-    KeepBestSubstatsEnabled: keepBestSubstatEnabled === true,
     ...(selectedConfigIndex != null ? { SelectedConfigIndex: selectedConfigIndex } : (configs.length ? { SelectedConfigIndex: configs.length - 1 } : {})),
     ...(note ? { Note: note } : {}),
   }

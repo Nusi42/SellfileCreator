@@ -9,7 +9,12 @@ import { buildHsfFileFromMerged } from '../../src/lib/hsfIO.js'
 import { ArtifactSet, ArtifactType, Faction, StatVariant } from '../../src/lib/types.js'
 import { updateConfigRulesCache } from '../../src/lib/ruleCache.js'
 import { KEEP_UNIQUE_CONFIG_ID_BASE } from '../../src/lib/constants.js'
-import { KeepUniqueRuleActivation, type KeepUniqueRule, type KeepUniqueDetectionSnapshot } from '../../src/lib/keepUniques.js'
+import {
+  KeepUniqueRuleActivation,
+  KeepUniqueSubstatMode,
+  type KeepUniqueRule,
+  type KeepUniqueDetectionSnapshot,
+} from '../../src/lib/keepUniques.js'
 
 const baseConfig = (overrides: Partial<BuilderConfig> = {}): BuilderConfig => ({
   name: '  Metadata Demo  ',
@@ -135,16 +140,20 @@ test('keep-unique exports include sentinel ConfigID/ConfigName', () => {
       rarities: [],
       mainStats: [],
       factions: [Faction.BannerLords],
-  },
-  requiredCount: 1,
-  activation: KeepUniqueRuleActivation.ProtectExisting,
-  countMode: {
-    perRule: false,
-    perSet: true,
+    },
+    requiredCount: 1,
+    activation: KeepUniqueRuleActivation.ProtectExisting,
+    countMode: {
+      perRule: false,
+      perSet: true,
       perFaction: true,
       perMainStat: false,
       perSlot: true,
     },
+    // Keep the sample rule unfiltered by substats to mirror classic behavior.
+    substats: [],
+    substatMode: KeepUniqueSubstatMode.Unranked,
+    substatWeights: {},
   }
   const detection: KeepUniqueDetectionSnapshot = {
     scannedAt: 1,

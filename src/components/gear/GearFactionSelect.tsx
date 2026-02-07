@@ -21,6 +21,7 @@ const FACTION_GROUPS: Array<{ labelKey: string; ids: FactionId[] }> = [
 type FactionSelectBaseProps = {
   disabled?: boolean
   allowAny?: boolean
+  anyLabel?: string
   size?: SelectProps<string | string[]>['size']
   menuProps?: SelectProps<string | string[]>['MenuProps']
   sx?: SxProps<Theme>
@@ -45,12 +46,15 @@ export function GearFactionSelect({
   onChange,
   disabled = false,
   allowAny = true,
+  anyLabel,
   size = 'small',
   menuProps,
   sx,
   multiple = false,
 }: FactionSelectProps) {
   const { t } = useI18n()
+  // Allow callers to override the empty-state label without changing global strings.
+  const anyText = anyLabel ?? t('any')
   const resolvedSx = sx
   const isMulti = Boolean(multiple)
   const multiValues = useMemo<FactionId[]>(() => {
@@ -88,7 +92,7 @@ export function GearFactionSelect({
     },
   }), [])
   const renderSelected = () => {
-    if (!singleValue) return t('any')
+    if (!singleValue) return anyText
     const label = t(factionI18nKey(singleValue))
     return (
       <EllipsisTooltip title={label} wrap="block">
@@ -101,7 +105,7 @@ export function GearFactionSelect({
   // Multi-select only renders text (no icons) so height stays fixed; long lists collapse behind an ellipsis.
   const renderMultiSelected = (selected: unknown) => {
     const entries = Array.isArray(selected) ? selected : []
-    if (entries.length === 0) return t('any')
+    if (entries.length === 0) return anyText
     const numericEntries = entries
       .map((entry) => Number(entry))
       .filter((entry) => Number.isFinite(entry))
@@ -159,8 +163,8 @@ export function GearFactionSelect({
     >
       {allowAny ? (
         isMulti
-          ? <MenuItem value={ANY_SENTINEL}>{t('any')}</MenuItem>
-          : <MenuItem value="">{t('any')}</MenuItem>
+          ? <MenuItem value={ANY_SENTINEL}>{anyText}</MenuItem>
+          : <MenuItem value="">{anyText}</MenuItem>
       ) : null}
       {FACTION_GROUPS.flatMap((group) => [
         <ListSubheader key={`${group.labelKey}-header`} sx={{ fontSize: '0.75rem' }}>

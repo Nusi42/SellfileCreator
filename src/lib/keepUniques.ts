@@ -13,6 +13,7 @@ import {
   ArtifactSet,
   ArtifactType,
   StatVariant as StatVariantEnum,
+  STAT_VARIANTS_PRIORITY,
   artifactSetNames,
   artifactTypeNames,
   factionNames,
@@ -29,6 +30,7 @@ import { normalizeConfigName } from './ruleConfigIndex'
 import type { ArtifactSetSelectionEntry } from './gearSets/selection'
 import { normalizeArtifactSetSelections, splitArtifactSetSelections } from './gearSets/selection'
 import { hasIgnoreKeepUniqueTag } from './tagHelpers'
+import { computeTesterNormalizedSubstatScore, normalizeTesterSortWeight, TESTER_SORT_WEIGHT_DEFAULT } from './testerSort'
 
 const RANK_MIN = 1
 const RANK_MAX = 6
@@ -95,6 +97,21 @@ const KEEP_UNIQUE_RULE_ACTIVATION_VALUES = new Set<KeepUniqueRuleActivation>([
   KeepUniqueRuleActivation.AnticipateGaps,
 ])
 
+// KeepUniqueSubstatMode controls how selected substats are interpreted.
+export const KeepUniqueSubstatMode = {
+  Unranked: 'unranked',
+  Ranked: 'ranked',
+} as const
+
+// eslint-disable-next-line no-redeclare -- allow constant/type pair
+export type KeepUniqueSubstatMode =
+  (typeof KeepUniqueSubstatMode)[keyof typeof KeepUniqueSubstatMode]
+
+const KEEP_UNIQUE_SUBSTAT_MODE_VALUES = new Set<KeepUniqueSubstatMode>([
+  KeepUniqueSubstatMode.Unranked,
+  KeepUniqueSubstatMode.Ranked,
+])
+
 // normalizeKeepUniqueActivation keeps activation parsing consistent across keep-override rules.
 export const normalizeKeepUniqueActivation = (
   value: unknown,
@@ -122,6 +139,21 @@ export const normalizeKeepUniqueActivation = (
   if (legacyEnabled === false) return KeepUniqueRuleActivation.Off
   if (legacyEnabled === true) return KeepUniqueRuleActivation.ProtectExisting
   return KeepUniqueRuleActivation.ProtectExisting
+}
+
+// normalizeKeepUniqueSubstatMode keeps the stored mode tolerant of legacy strings.
+export const normalizeKeepUniqueSubstatMode = (value: unknown): KeepUniqueSubstatMode => {
+  if (typeof value === 'string') {
+    const trimmed = value.trim().toLowerCase()
+    if (KEEP_UNIQUE_SUBSTAT_MODE_VALUES.has(trimmed as KeepUniqueSubstatMode)) {
+      return trimmed as KeepUniqueSubstatMode
+    }
+    if (trimmed === 'rank' || trimmed === 'ranking' || trimmed === 'best') {
+      return KeepUniqueSubstatMode.Ranked
+    }
+  }
+  // Default keeps existing behavior when no mode is provided.
+  return KeepUniqueSubstatMode.Unranked
 }
 
 export const isKeepUniqueRuleActive = (rule: KeepUniqueRule): boolean => (
@@ -218,6 +250,10 @@ export const cloneKeepUniqueRule = (rule: KeepUniqueRule): KeepUniqueRule => ({
   combination: cloneKeepUniqueCombination(rule.combination),
   // Clone the count mode flags to avoid shared references.
   countMode: { ...rule.countMode },
+  // Clone substat selections so edits don't mutate the snapshot.
+  substats: [...(rule.substats ?? [])],
+  // Copy weights so ranking edits are isolated.
+  substatWeights: { ...(rule.substatWeights ?? {}) },
 })
 
 // cloneKeepUniqueRules clones a list into detached rule objects.
@@ -233,6 +269,12 @@ export type KeepUniqueRule = {
   requiredCount: number
   activation: KeepUniqueRuleActivation
   countMode: KeepUniqueRuleCountMode
+  // Optional substat filters (empty array = any substat).
+  substats: StatVariant[]
+  // Ranked mode orders by normalized substat scores; unranked counts all matches.
+  substatMode: KeepUniqueSubstatMode
+  // Per-substat weights for ranked scoring (only non-default values are stored).
+  substatWeights: Partial<Record<StatVariant, number>>
 }
 
 // Accessory defaults keep Rare+ pieces to skip fodder while still catching Epic/Legendary/Mythical.
@@ -272,6 +314,9 @@ function createDefaultAccessoryKeepUniqueRule(): KeepUniqueRule {
     requiredCount: 1,
     activation: KeepUniqueRuleActivation.ProtectExisting,
     countMode: { ...ACCESSORY_KEEP_UNIQUE_COUNT_MODE },
+    substats: [],
+    substatMode: KeepUniqueSubstatMode.Unranked,
+    substatWeights: {},
   }
 }
 
@@ -322,6 +367,9 @@ function createDefaultArmorKeepUniqueRule(): KeepUniqueRule {
     requiredCount: 1,
     activation: KeepUniqueRuleActivation.Off,
     countMode: { ...ARMOR_KEEP_UNIQUE_COUNT_MODE },
+    substats: [],
+    substatMode: KeepUniqueSubstatMode.Unranked,
+    substatWeights: {},
   }
 }
 
@@ -518,6 +566,62 @@ export const coerceStatVariant = (value: unknown): StatVariant => {
   return numeric as StatVariant
 }
 
+// Keep the priority ordering consistent with stat button layouts across the app.
+const SUBSTAT_ORDER = new Map<StatVariant, number>(
+  STAT_VARIANTS_PRIORITY.map((variant, index) => [variant, index]),
+)
+
+const sortSubstatsByPriority = (values: readonly StatVariant[]): StatVariant[] => {
+  return values.slice().sort((left, right) => {
+    const leftOrder = SUBSTAT_ORDER.get(left) ?? Number.MAX_SAFE_INTEGER
+    const rightOrder = SUBSTAT_ORDER.get(right) ?? Number.MAX_SAFE_INTEGER
+    if (leftOrder !== rightOrder) return leftOrder - rightOrder
+    return Number(left) - Number(right)
+  })
+}
+
+// normalizeKeepUniqueSubstats parses a list of substat labels/ids into ordered variants.
+const normalizeKeepUniqueSubstats = (value: unknown): StatVariant[] => {
+  if (!value) return []
+  const list = Array.isArray(value) ? value : [value]
+  const seen = new Set<number>()
+  const result: StatVariant[] = []
+  for (const raw of list) {
+    if (Array.isArray(raw)) {
+      for (const nested of normalizeKeepUniqueSubstats(raw)) {
+        if (seen.has(Number(nested))) continue
+        seen.add(Number(nested))
+        result.push(nested)
+      }
+      continue
+    }
+    const variant = coerceStatVariant(raw)
+    // Skip invalid or synthetic variants so keep-unique stays focused on real substats.
+    if (variant === StatVariantEnum.Any || variant === StatVariantEnum.RollCount) continue
+    if (seen.has(Number(variant))) continue
+    seen.add(Number(variant))
+    result.push(variant)
+  }
+  return sortSubstatsByPriority(result)
+}
+
+// normalizeKeepUniqueSubstatWeights clamps per-stat weights to the tester sort defaults.
+const normalizeKeepUniqueSubstatWeights = (value: unknown): Partial<Record<StatVariant, number>> => {
+  if (!value || typeof value !== 'object') return {}
+  const rec = value as Record<string, unknown>
+  const weights: Partial<Record<StatVariant, number>> = {}
+  for (const [key, raw] of Object.entries(rec)) {
+    const variant = coerceStatVariant(key)
+    // Ignore invalid entries so readers cannot poison the score map.
+    if (variant === StatVariantEnum.Any || variant === StatVariantEnum.RollCount) continue
+    const normalized = normalizeTesterSortWeight(Number(raw))
+    // Omit neutral weights so serialization stays compact.
+    if (normalized === TESTER_SORT_WEIGHT_DEFAULT) continue
+    weights[variant] = normalized
+  }
+  return weights
+}
+
 const normalizeSelectionArray = <T extends number>(
   value: unknown,
   coerce: (raw: unknown) => T | null,
@@ -693,6 +797,13 @@ export function normalizeKeepUniqueRule(value: unknown): KeepUniqueRule | null {
     if (rec.requirePerCombination === true) return { ...KEEP_UNIQUE_DEFAULT_COUNT_MODE }
     return { ...KEEP_UNIQUE_DEFAULT_COUNT_MODE }
   })()
+  // Substat selection is optional; empty means "any".
+  const substats = normalizeKeepUniqueSubstats(rec.substats ?? rec.substatTargets ?? rec.substat)
+  // Ranking mode is only meaningful when substats are selected.
+  const parsedSubstatMode = normalizeKeepUniqueSubstatMode(rec.substatMode)
+  const substatMode = substats.length > 0 ? parsedSubstatMode : KeepUniqueSubstatMode.Unranked
+  // Weighting reuses tester sort normalization (non-defaults only).
+  const substatWeights = normalizeKeepUniqueSubstatWeights(rec.substatWeights ?? rec.substatWeighting)
   return {
     id: rawId,
     combination,
@@ -700,6 +811,9 @@ export function normalizeKeepUniqueRule(value: unknown): KeepUniqueRule | null {
     activation,
     countMode,
     name,
+    substats,
+    substatMode,
+    substatWeights,
   }
 }
 
@@ -804,6 +918,35 @@ export function artifactMatchesKeepUniqueRule(artifact: NormalizedGearArtifact, 
   return true
 }
 
+// candidateHasSelectedSubstat ensures selected substats are present on the artifact.
+const candidateHasSelectedSubstat = (
+  candidate: KeepUniqueCandidate,
+  selectedSubstats: ReadonlySet<number> | null,
+): boolean => {
+  if (!selectedSubstats || selectedSubstats.size === 0) return true
+  for (const stat of candidate.artifact.substats) {
+    const variant = Number(stat.variant)
+    if (!selectedSubstats.has(variant)) continue
+    const raw = Number(stat.totalValue ?? 0)
+    if (Number.isFinite(raw) && raw > 0) return true
+  }
+  return false
+}
+
+type KeepUniqueScoredCandidate = {
+  candidate: KeepUniqueCandidate
+  score: number
+}
+
+// Sort higher scores first; tie-break by item key for deterministic ordering.
+const sortKeepUniqueScoredCandidates = (entries: KeepUniqueScoredCandidate[]): KeepUniqueScoredCandidate[] => (
+  entries.slice().sort((left, right) => {
+    const delta = right.score - left.score
+    if (delta !== 0) return delta
+    return left.candidate.itemKey - right.candidate.itemKey
+  })
+)
+
 const toDetectionSubstats = (artifact: NormalizedGearArtifact): KeepUniqueDetectionSubstat[] => (
   artifact.substats.map((stat) => ({
     variant: stat.variant,
@@ -906,10 +1049,130 @@ export function computeKeepUniqueProtection(params: KeepUniqueDetectionParams): 
     const perRuleMode = countMode.perRule
     const activation = rule.activation ?? KeepUniqueRuleActivation.ProtectExisting
     const ruleActive = enabled && activation !== KeepUniqueRuleActivation.Off
+    // Substat filters apply before counting so unranked + ranked behave consistently.
+    const selectedSubstats = rule.substats ?? []
+    const hasSubstatFilter = selectedSubstats.length > 0
+    const selectedSet = hasSubstatFilter ? new Set(selectedSubstats.map((variant) => Number(variant))) : null
+    // Ranking only applies when a substat selection is active.
+    const useRanking = hasSubstatFilter && rule.substatMode === KeepUniqueSubstatMode.Ranked
     // Current matches split into “kept” vs “sold” so deficits consider what is already safe.
-    const matching = candidates.filter((candidate) => artifactMatchesKeepUniqueRule(candidate.artifact, combination))
+    const matching = candidates
+      .filter((candidate) => artifactMatchesKeepUniqueRule(candidate.artifact, combination))
+      .filter((candidate) => candidateHasSelectedSubstat(candidate, selectedSet))
     const requiredPerGroup = Math.max(1, Math.floor(rule.requiredCount))
     const placeholders: KeepUniquePlaceholderRequest[] = []
+
+    if (useRanking) {
+      // Normalize weights to the tester sort rules so scoring matches the UI.
+      const weights = rule.substatWeights ?? {}
+      const scoreSpec = {
+        variants: selectedSubstats,
+        excludeGlyphs: true,
+        ...(Object.keys(weights).length > 0 ? { weights } : {}),
+      }
+      const scored: KeepUniqueScoredCandidate[] = matching
+        .map((candidate) => ({
+          candidate,
+          score: computeTesterNormalizedSubstatScore(candidate.row, scoreSpec) ?? 0,
+        }))
+        // Only consider items that actually have non-zero substat contribution.
+        .filter((entry) => entry.score > 0)
+      // Group candidates by scope (or keep a single global bucket).
+      const groups = new Map<string, KeepUniqueScoredCandidate[]>()
+      if (perRuleMode) {
+        if (scored.length > 0) groups.set('global', scored)
+      } else {
+        for (const entry of scored) {
+          const key = getKeepUniqueCountKey(entry.candidate.artifact, countMode)
+          const bucket = groups.get(key)
+          if (bucket) {
+            bucket.push(entry)
+          } else {
+            groups.set(key, [entry])
+          }
+        }
+      }
+
+      const groupsTracked = groups.size
+      const effectiveGroupCount = groupsTracked > 0 ? groupsTracked : 1
+      const requiredTotal = requiredPerGroup * effectiveGroupCount
+      let currentCount = 0
+      let keptCount = 0
+      let soldCount = 0
+      let deficit = 0
+      const itemKeys: number[] = []
+      const artifacts: KeepUniqueDetectionArtifact[] = []
+
+      for (const bucket of groups.values()) {
+        if (bucket.length === 0) continue
+        // Sort by normalized score so top-N selection is deterministic.
+        const sorted = sortKeepUniqueScoredCandidates(bucket)
+        // Cutoff index is N-1; clamp to the bucket length.
+        const cutoffIndex = Math.min(requiredPerGroup, sorted.length) - 1
+        const cutoffScore = cutoffIndex >= 0 ? sorted[cutoffIndex]!.score : Number.POSITIVE_INFINITY
+        let groupTotal = 0
+        let groupKept = 0
+        let groupSold = 0
+        for (const entry of sorted) {
+          // Stop once we drop below the cutoff so ties at N are included.
+          if (entry.score < cutoffScore) break
+          groupTotal += 1
+          if (entry.candidate.isSold) {
+            groupSold += 1
+            itemKeys.push(entry.candidate.itemKey)
+            artifacts.push(buildKeepUniqueDetectionArtifact(entry.candidate))
+          } else {
+            groupKept += 1
+          }
+        }
+        currentCount += groupTotal
+        keptCount += groupKept
+        soldCount += groupSold
+        // Deficits use the full bucket size (not the tie-expanded total).
+        const deficitGroup = Math.max(0, requiredPerGroup - bucket.length)
+        if (deficitGroup > 0) {
+          placeholders.push({
+            combination: buildPlaceholderCombinationForGroup({
+              base: combination,
+              mode: countMode,
+              sample: bucket[0]?.candidate.artifact ?? null,
+            }),
+            missing: deficitGroup,
+            reason: 'group',
+          })
+        }
+        deficit += deficitGroup
+      }
+
+      if (groupsTracked === 0 && requiredPerGroup > 0) {
+        placeholders.push({
+          combination: cloneKeepUniqueCombination(combination),
+          missing: requiredPerGroup,
+          reason: 'global',
+        })
+        deficit = requiredPerGroup
+      }
+
+      const projected = keptCount + (ruleActive ? soldCount : 0)
+      entries.push({
+        hash: hashKeepUniqueCombination(combination),
+        combination,
+        ruleId: rule.id,
+        ruleActivation: activation,
+        countMode,
+        perGroupRequiredCount: requiredPerGroup,
+        groupsTracked,
+        requiredCount: requiredTotal,
+        currentCount,
+        projectedCount: projected,
+        deficit,
+        coveredByExisting: keptCount >= requiredTotal,
+        itemKeys,
+        artifacts,
+        placeholders,
+      })
+      continue
+    }
 
     if (perRuleMode) {
       let keptCount = 0

@@ -13,7 +13,6 @@ import {
   type HistoryTimelineEntry,
 } from './useHsfcHistory'
 import type { KeepUniqueRule } from '../lib/keepUniques'
-import type { KeepBestSubstatRule } from '../lib/keepBestSubstat'
 
 type Params = {
   customCfgs: BuilderConfig[]
@@ -22,8 +21,6 @@ type Params = {
   finalSellRemainder: FinalSellRemainderConfig
   keepUniqueRules: KeepUniqueRule[]
   keepUniquesEnabled: boolean
-  keepBestSubstatRules: KeepBestSubstatRule[]
-  keepBestSubstatEnabled: boolean
   hsfcNote: string | null
   selectedCfgIdx: number | null
   selectedCfgIndices: number[]
@@ -38,8 +35,6 @@ type Params = {
   setFinalSellRemainder: (value: SetStateAction<FinalSellRemainderConfig>) => void
   setKeepUniqueRules: (value: SetStateAction<KeepUniqueRule[]>) => void
   setKeepUniquesEnabled: (value: SetStateAction<boolean>) => void
-  setKeepBestSubstatRules: (value: SetStateAction<KeepBestSubstatRule[]>) => void
-  setKeepBestSubstatEnabled: (value: SetStateAction<boolean>) => void
   setHsfcNote: (value: SetStateAction<string | null>) => void
   setSelectedCfgIdx: (value: SetStateAction<number | null>) => void
   setSelectedCfgIndices: (value: number[]) => void
@@ -79,8 +74,6 @@ export function useHsfcHistoryController(params: Params): ControllerResult {
   finalSellRemainder,
   keepUniqueRules,
   keepUniquesEnabled,
-  keepBestSubstatRules,
-  keepBestSubstatEnabled,
   hsfcNote,
     selectedCfgIdx,
     selectedCfgIndices,
@@ -95,8 +88,6 @@ export function useHsfcHistoryController(params: Params): ControllerResult {
   setFinalSellRemainder,
   setKeepUniqueRules,
   setKeepUniquesEnabled,
-  setKeepBestSubstatRules,
-  setKeepBestSubstatEnabled,
   setHsfcNote,
     setSelectedCfgIdx,
     setSelectedCfgIndices,
@@ -125,8 +116,6 @@ export function useHsfcHistoryController(params: Params): ControllerResult {
       finalSellRemainder,
       keepUniqueRules,
       keepUniquesEnabled,
-      keepBestSubstatRules,
-      keepBestSubstatEnabled,
       note: hsfcNote ?? null,
       selectedCfgIdx: selectedIdx,
       selectedCfgIndices,
@@ -144,8 +133,6 @@ export function useHsfcHistoryController(params: Params): ControllerResult {
       finalSellRemainder,
       keepUniqueRules,
       keepUniquesEnabled,
-      keepBestSubstatRules,
-      keepBestSubstatEnabled,
       note: hsfcNote ?? null,
     })
     return { payloadTemplate, signature }
@@ -162,8 +149,6 @@ export function useHsfcHistoryController(params: Params): ControllerResult {
     selectionAnchor,
     keepUniqueRules,
     keepUniquesEnabled,
-    keepBestSubstatRules,
-    keepBestSubstatEnabled,
   ])
 
   const historyStrings = useMemo(() => {
@@ -187,8 +172,6 @@ export function useHsfcHistoryController(params: Params): ControllerResult {
     setFinalSellRemainder(snap.finalSellRemainder)
     setKeepUniqueRules(snap.keepUniqueRules)
     setKeepUniquesEnabled(Boolean(snap.keepUniquesEnabled))
-    setKeepBestSubstatRules(snap.keepBestSubstatRules)
-    setKeepBestSubstatEnabled(Boolean(snap.keepBestSubstatEnabled))
     setHsfcNote(snap.note)
     const len = snap.customCfgs.length
     let restoredIdx: number | null = null
@@ -248,8 +231,6 @@ export function useHsfcHistoryController(params: Params): ControllerResult {
     setSelectionAnchor,
     setKeepUniqueRules,
     setKeepUniquesEnabled,
-    setKeepBestSubstatRules,
-    setKeepBestSubstatEnabled,
     suppressSelectionDraft,
     autoApplySelectedConfig,
   ])
