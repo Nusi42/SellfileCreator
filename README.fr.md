@@ -99,15 +99,16 @@ Construisez, prévisualisez et exportez des règles de vente pour RSL Helper via
 - Avec `Vente finale` active, les règles générées incluent tous les sets connus. L’aperçu indique « Tous les sets connus » pour alléger la vue, mais le fichier exporté liste chacun d’eux.
 
 ### Conserver les uniques
-- Cliquez sur « Logic Hub » dans l’en-tête de l’aperçu et passez sur l’onglet `Conserver les uniques` pour marquer les combinaisons que vous refusez de vendre. Activez `Conserver les uniques` pour commencer à les éditer.
+- Cliquez sur « Logic Hub » dans l’en-tête de l’aperçu et passez sur l’onglet `Conserver les uniques` pour marquer les combinaisons que vous refusez de vendre. Activez `Conserver les uniques` pour laisser le scanner ajouter des lignes de conservation (les modifications l’activent aussi automatiquement).
 - Chaque règle vous permet de choisir slot, sets ou méta-sets, rangs, raretés, stats principales et, pour les accessoires, factions. Laisser un sélecteur vide signifie « n’importe lequel ».
+- Le `Mode` décide comment la règle est émise : `Désactivée` la coupe, `Protéger l’existant` ajoute des lignes de conservation pour les correspondances qui seraient vendues jusqu’à atteindre la quota, et `Prévoir les manques` ajoute des règles fictives pour les combinaisons manquantes afin que les nouveaux drops restent protégés jusqu’à la prochaine mise à jour de la base.
 - Les sous-stats sont optionnels : choisissez-en un ou plusieurs pour ne compter que les objets qui possèdent au moins l’un d’eux (plusieurs = « n’importe lequel »). Laisser vide signifie : aucun filtre de sous-stats.
-- Le `Mode des sous-stats` fixe la logique : `Non classé` compte chaque objet correspondant, tandis que `Classé` ne garde que les meilleurs jets pour ces sous-stats (les égalités restent protégées).
+- Le `Mode des sous-stats` fixe la logique : `Non classé` compte chaque objet correspondant, tandis que `Classé` utilise le score normalisé (glyphes ignorés) et ne garde que les meilleurs jets par groupe de portée. Les égalités au seuil restent protégées.
 - Utilisez `Poids` (uniquement en `Classé`) pour indiquer ce qui compte le plus — plus le poids est élevé, plus le sous‑stat pèse dans le classement.
 - `≥ Quantité requise` se trouve juste à côté d'un petit groupe de boutons. « Par règle » garde une seule quote-part, et les boutons « Par emplacement », « Par ensemble », « Par faction » et « Par stat principale » peuvent être combinés pour multiplier la quote-part selon chaque mélange concerné (les désactiver tous les quatre ramène automatiquement le mode « Par règle »).
-- Le compteur « `{have} existants / Conserver {keep}` » reflète exactement ce que détaille l’infobulle : **Existants** compte les pièces déjà protégées par les configs, la Vente finale ou les règles Conserver les uniques actives ; **Conserver** reprend le quota défini via `≥ Quantité requise`. Seuls les objets correspondant à la règle alimentent ces totaux.
+- Le compteur « `{have} existants / Conserver {keep}` » montre : **Existants** = objets correspondants (en `Classé`, seulement les meilleurs + égalités), **Conserver** = quota après les portées. La puce devient rouge si le quota n’est pas atteint.
 - Le sélecteur « `Filtrer : {mode}` » (au-dessus de la grille) propose `Tous` et `Sélection`. `Sélection` affiche uniquement les entrées associées à la règle Conserver les uniques actuellement surlignée ; tant qu’aucune règle n’est choisie, le mode reste aligné sur `Tous`.
-- L’analyse n’ajoute des lignes supplémentaires que lorsque chaque objet correspondant serait vendu autrement. Si vos configs habituelles sauvent déjà assez de pièces, la règle affiche « Couvert ailleurs » et rien n’est ajouté à l’export.
+- L’analyse n’ajoute des lignes de conservation que pour les correspondances qui seraient vendues, et seulement si le quota n’est pas atteint. En `Prévoir les manques`, des règles fictives couvrent aussi les combinaisons manquantes.
 
 #### Portées de quota en un coup d’œil
 Empiler les puces de portée change qui obtient sa propre quote-part. Laissez « Par règle » actif pour partager un seul pool, puis activez `Par emplacement`, `Par ensemble`, `Par faction` et `Par stat principale` pour suivre chaque mélange Slot × Set × Faction × Stat principale séparément.
@@ -122,18 +123,18 @@ Empiler les puces de portée change qui obtient sa propre quote-part. Laissez «
 
 #### Exemples concrets
 
-| Scénario | Filtres | Puces de portée | Ce que garantit l’analyse |
-| --- | --- | --- | --- |
-| Les bottes SPD disparaissent | Slot = Bottes, Stat principale = SPD, Sets vides | `Par règle` | Au moins cinq bottes SPD survivent, peu importe le set. |
-| Mélanger gants Savage et Lethal | Slot = Gants, Sets = Savage + Lethal, Stat principale = DCC% | `Par règle` | Trois gants DCC% restent, quel que soit le mix des deux sets. |
-| Anneaux Merciless par faction | Slot = Anneau, Set = Merciless, Faction vide | `Par faction` | Chaque faction conserve trois de ses anneaux Merciless. |
-| Anneaux PV% par faction | Slot = Anneau, Stat principale = PV%, Sets vides | `Par faction` | Deux anneaux PV% par faction restent en inventaire. |
-| Accessoires essentiels par faction | Trois règles (Anneau, Amulette, Bannière), Sets/Stat principale vides, `≥ Quantité requise = 5` | `Par faction` | Cinq anneaux, amulettes et bannières survivent pour chaque faction. |
-| Séries Stoneskin/Protection par faction | Slot = Anneau/Amulette/Bannière, Sets = Stoneskin + Protection, Stat principale vide | `Par ensemble` + `Par faction` | Chaque faction garde deux Stoneskin et deux Protection par slot d’accessoire. |
-| Accessoires SPD les plus rapides | Slot = Anneau/Amulette/Bannière, Sous-stats = SPD, Mode des sous-stats = Classé | `Par règle` | Conserve les meilleurs jets SPD sur vos accessoires. |
-| Bannières ACC avec SPD | Slot = Bannière, Stat principale = ACC, Sous-stats = SPD + ACC, Mode des sous-stats = Classé, Poids : SPD plus élevé | `Par faction` | Chaque faction garde les meilleures bannières ACC où SPD compte le plus. |
+| Scénario | Filtres | Quantité requise | Puces de portée | Ce que garantit l’analyse |
+| --- | --- | --- | --- | --- |
+| Les bottes SPD disparaissent | Slot = Bottes, Stat principale = SPD, Sets vides | `5` | `Par règle` | Au moins cinq bottes SPD survivent, peu importe le set. |
+| Mélanger gants Savage et Lethal | Slot = Gants, Sets = Savage + Lethal, Stat principale = DCC% | `3` | `Par règle` | Trois gants DCC% restent, quel que soit le mix des deux sets. |
+| Anneaux Merciless par faction | Slot = Anneau, Set = Merciless, Faction vide | `3` | `Par faction` | Chaque faction conserve trois de ses anneaux Merciless. |
+| Anneaux PV% par faction | Slot = Anneau, Stat principale = PV%, Sets vides | `2` | `Par faction` | Deux anneaux PV% par faction restent en inventaire. |
+| Accessoires essentiels par faction | Trois règles (Anneau, Amulette, Bannière), Sets/Stat principale vides | `5` | `Par faction` | Cinq anneaux, amulettes et bannières survivent pour chaque faction. |
+| Séries Stoneskin/Protection par faction | Slot = Anneau/Amulette/Bannière, Sets = Stoneskin + Protection, Stat principale vide | `2` | `Par ensemble` + `Par faction` + `Par emplacement` | Chaque faction garde deux Stoneskin et deux Protection par slot d’accessoire. |
+| Accessoires SPD les plus rapides | Slot = Anneau/Amulette/Bannière, Sous-stats = SPD, Mode des sous-stats = Classé | `5` | `Par règle` | Conserve les cinq meilleurs jets SPD sur vos accessoires (égalités incluses). |
+| Bannières ACC avec SPD | Slot = Bannière, Stat principale = ACC, Sous-stats = SPD + ACC, Mode des sous-stats = Classé, Poids : SPD plus élevé | `3` | `Par faction` | Chaque faction garde les meilleures bannières ACC où SPD compte le plus. |
 
-Astuce : Importez votre `.db` ou collez des objets dans le dialogue « Équipement » avant d’ouvrir l’onglet Conserver les uniques pour fournir de vrais items à l’analyse. Si une règle affiche « Il manque 2 », cliquez dessus : le Testeur de règles met en évidence ces objets et révèle quelles factions ou quels sets ont encore besoin d’aide.
+Astuce : Importez votre `.db` ou collez des objets dans le dialogue « Équipement » avant d’ouvrir l’onglet Conserver les uniques pour fournir de vrais items à l’analyse. Cliquez sur une carte de règle pour surligner les correspondances ; passez `Filtrer` sur `Sélection` pour ne voir que ces lignes.
 
 ### Gestion des configs
 - Les configs sauvegardées apparaissent sous forme de puces sous le builder. Clic gauche pour sélectionner ; clic droit pour dupliquer, déplacer, copier ou supprimer.

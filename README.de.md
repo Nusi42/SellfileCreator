@@ -97,14 +97,15 @@ Erstelle, prüfe und exportiere Verkaufsregeln für RSL Helper mit einer übersi
 - Bei aktivem `Finaler Verkauf` umfassen die erzeugten Sell-Regeln alle bekannten Sets. In der Vorschau steht „Alle bekannten Sets“, der Export listet trotzdem jedes Set einzeln.
 
 ### Unikate behalten
-- Klicke im Vorschau-Header auf „Logic Hub“ und wechsle zur Registerkarte `Unikate behalten`, um Kombinationen zu markieren, die niemals verloren gehen sollen. Aktiviere `Unikate behalten`, damit du Regeln bearbeiten kannst.
+- Klicke im Vorschau-Header auf „Logic Hub“ und wechsle zur Registerkarte `Unikate behalten`, um Kombinationen zu markieren, die niemals verloren gehen sollen. Aktiviere `Unikate behalten`, damit der Scanner Behalte-Zeilen hinzufügen kann (Bearbeitungen schalten es ebenfalls automatisch ein).
 - Jede Behalte-Regel lässt dich Slot, Sets oder Metasets, Ränge, Seltenheiten, Mainstats und (bei Zubehör) Fraktionen festlegen. Leer bedeutet „egal“.
+- `Modus` bestimmt, wie die Regel ausgegeben wird: `Aus` deaktiviert sie, `Bestehendes schützen` fügt Behalte-Zeilen für verkaufsgefährdete Treffer hinzu, bis die Quote erreicht ist, und `Lücken vorab sichern` ergänzt Platzhalter-Regeln für fehlende Kombinationen, damit neue Drops geschützt bleiben, bis die DB aktualisiert wurde.
 - Substats sind optional: Wähle einen oder mehrere, damit nur Items zählen, die mindestens einen dieser Substats haben (mehrere Picks = „eines davon“). Leer lassen bedeutet: kein Substat-Filter.
-- Der `Substat-Modus` bestimmt die Auswertung: `Ohne Ranking` zählt jedes passende Item, `Gerankt` behält nur die besten Rolls für die gewählten Substats (Gleichstände bleiben geschützt).
+- Der `Substat-Modus` bestimmt die Auswertung: `Ohne Ranking` zählt jedes passende Item, `Gerankt` nutzt die normalisierte Substat-Wertung (Glyphen ignoriert) und behält pro Bereichs-Gruppe nur die besten Rolls; Gleichstände an der Grenze bleiben geschützt.
 - Nutze `Gewichte` (nur bei `Gerankt`), um wichtige Substats zu betonen – höhere Gewichte lassen den Stat stärker zählen.
 - `≥ Benötigte Anzahl` definiert das Versprechen, das die App halten soll. Direkt darunter entscheiden Chips für `Pro Slot`, `Pro Set`, `Pro Fraktion` und `Pro Hauptstat`, wie das Kontingent aufgeteilt wird. Sind alle Chips aus, gilt automatisch `Pro Regel` (ein gemeinsamer Pool).
-- Der Zähler `Vorhanden {have} / Behalten {keep}` zeigt exakt das an, was der Tooltip beschreibt: **Vorhanden** zählt Gear, das bereits über Konfigs, Finalen Verkauf oder andere Behalte-Regeln geschützt ist; **Behalten** ist das Kontingent aus `≥ Benötigte Anzahl`. Gezählt wird nur Ausrüstung, die zur Regel passt.
-- Der Scanner fügt nur zusätzliche Behalte-Zeilen ein, wenn sonst jedes Item der Regel verkauft würde. Decken deine normalen Konfigs das bereits ab, erscheint „Anderswo abgedeckt“ und es wird keine neue Regel exportiert.
+- Der Zähler `Vorhanden {have} / Behalten {keep}` zeigt: **Vorhanden** = passende Items (bei `Gerankt` nur Top-Rolls + Gleichstände), **Behalten** = Quote nach Bereichen. Der Chip wird rot, wenn die Quote verfehlt wird.
+- Der Scanner fügt nur Behalte-Zeilen für passende Items hinzu, die sonst verkauft würden, und nur wenn die Quote nicht erfüllt ist. Im Modus `Lücken vorab sichern` kommen Platzhalter-Regeln für fehlende Kombinationen dazu.
 
 #### Kontingentbereiche auf einen Blick
 Mehrere Bereichs-Chips stapeln die Kontingente. Lass `Pro Regel` aktiv, um einen gemeinsamen Pool zu behalten, und kombiniere `Pro Slot`, `Pro Set`, `Pro Fraktion` und `Pro Hauptstat`, wenn Slot × Set × Fraktion × Hauptstat getrennte Quoten erhalten sollen.
@@ -119,18 +120,18 @@ Mehrere Bereichs-Chips stapeln die Kontingente. Lass `Pro Regel` aktiv, um einen
 
 #### Praxisbeispiele
 
-| Szenario | Filter | Bereiche | Was der Scanner garantiert |
-| --- | --- | --- | --- |
-| SPD-Stiefel gehen aus | Slot = Stiefel, Mainstat = SPD, Sets leer | `Pro Regel` | Mindestens fünf SPD-Stiefel bleiben übrig, egal welches Set. |
-| Savage + Lethal mischen | Slot = Handschuhe, Sets = Savage + Lethal, Mainstat = CDMG% | `Pro Regel` | Drei High-Damage-Handschuhe überleben auch bei wechselnder Set-Mischung. |
-| Merciless-Ringe pro Fraktion | Slot = Ring, Set = Merciless, Fraktion leer | `Pro Fraktion` | Jede Fraktion behält drei eigene Merciless-Ringe. |
-| HP%-Ringe pro Fraktion | Slot = Ring, Mainstat = HP%, Sets leer | `Pro Fraktion` | Zwei HP%-Ringe pro Fraktion bleiben im Inventar. |
-| Kernzubehör pro Fraktion | Drei Regeln (Ring, Amulett, Banner), Sets/Main leer, `≥ Benötigte Anzahl = 5` | `Pro Fraktion` | Fünf Ringe, Amulette und Banner bestehen pro Fraktion. |
-| Stoneskin + Protection pro Fraktion | Slot = Ring/Amulett/Banner, Sets = Stoneskin + Protection, Mainstat leer | `Pro Set` + `Pro Fraktion` | Jede Fraktion behält zwei Stoneskin- und zwei Protection-Drops pro Zubehör-Slot. |
-| Schnellste SPD-Zubehörteile | Slot = Ring/Amulett/Banner, Substats = SPD, Substat-Modus = Gerankt | `Pro Regel` | Behält die besten SPD-Substat-Rolls über dein Zubehör hinweg. |
-| ACC-Banner mit SPD-Rolls | Slot = Banner, Mainstat = ACC, Substats = SPD + ACC, Substat-Modus = Gerankt, Gewichte: SPD höher | `Pro Fraktion` | Jede Fraktion behält die besten ACC-Banner, bei denen SPD besonders zählt. |
+| Szenario | Filter | Benötigte Anzahl | Bereiche | Was der Scanner garantiert |
+| --- | --- | --- | --- | --- |
+| SPD-Stiefel gehen aus | Slot = Stiefel, Mainstat = SPD, Sets leer | `5` | `Pro Regel` | Mindestens fünf SPD-Stiefel bleiben übrig, egal welches Set. |
+| Savage + Lethal mischen | Slot = Handschuhe, Sets = Savage + Lethal, Mainstat = CDMG% | `3` | `Pro Regel` | Drei High-Damage-Handschuhe überleben auch bei wechselnder Set-Mischung. |
+| Merciless-Ringe pro Fraktion | Slot = Ring, Set = Merciless, Fraktion leer | `3` | `Pro Fraktion` | Jede Fraktion behält drei eigene Merciless-Ringe. |
+| HP%-Ringe pro Fraktion | Slot = Ring, Mainstat = HP%, Sets leer | `2` | `Pro Fraktion` | Zwei HP%-Ringe pro Fraktion bleiben im Inventar. |
+| Kernzubehör pro Fraktion | Drei Regeln (Ring, Amulett, Banner), Sets/Main leer | `5` | `Pro Fraktion` | Fünf Ringe, Amulette und Banner bestehen pro Fraktion. |
+| Stoneskin + Protection pro Fraktion | Slot = Ring/Amulett/Banner, Sets = Stoneskin + Protection, Mainstat leer | `2` | `Pro Set` + `Pro Fraktion` + `Pro Slot` | Jede Fraktion behält zwei Stoneskin- und zwei Protection-Drops pro Zubehör-Slot. |
+| Schnellste SPD-Zubehörteile | Slot = Ring/Amulett/Banner, Substats = SPD, Substat-Modus = Gerankt | `5` | `Pro Regel` | Behält die besten fünf SPD-Substat-Rolls über dein Zubehör hinweg (inkl. Gleichstände). |
+| ACC-Banner mit SPD-Rolls | Slot = Banner, Mainstat = ACC, Substats = SPD + ACC, Substat-Modus = Gerankt, Gewichte: SPD höher | `3` | `Pro Fraktion` | Jede Fraktion behält die besten ACC-Banner, bei denen SPD besonders zählt. |
 
-Tipp: Importiere deine `.db` oder füge Items im Dialog „Ausrüstung” ein, bevor du die Registerkarte „Unikate behalten“ öffnest, damit der Scanner echte Ausrüstung bewertet. Wenn eine Karte „Fehlen 2“ meldet, klicke sie an: Die entsprechenden Regel Tester-Einträge werden hervorgehoben und zeigen, welcher Slot, welches Set oder welche Fraktion die Lücke verursacht.
+Tipp: Importiere deine `.db` oder füge Items im Dialog „Ausrüstung” ein, bevor du die Registerkarte „Unikate behalten“ öffnest, damit der Scanner echte Ausrüstung bewertet. Klicke eine Regelkarte an, um passende Ausrüstung hervorzuheben; stelle `Filter` auf `Auswahl`, um nur diese Treffer zu sehen.
 
 ### Konfigs verwalten
 - Gespeicherte Konfigs erscheinen als Chips unter dem Builder. Linksklick wählt sie zum Bearbeiten, Rechtsklick öffnet das Kontextmenü (Duplizieren, Verschieben, Kopieren, Löschen). „Delete Konfigs“ entfernt alle Konfigs (mit Sicherheitsabfrage).

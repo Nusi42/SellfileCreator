@@ -87,15 +87,16 @@ Crea, visualizza in anteprima ed esporta regole di vendita per RSL Helper tramit
 - Quando `Vendita finale` è attiva, le regole Vendi generate includono esplicitamente tutti i set conosciuti. Nell’anteprima la colonna Set mostra "Tutti i set attualmente noti" per ridurre il rumore; il file esportato elenca comunque ogni set.
 
 ### Mantieni unici
-- Clicca `Logic Hub` nell’intestazione dell’anteprima e passa alla scheda `Mantieni unici` per segnare le combinazioni che non vuoi vendere mai. Attiva `Mantieni unici` per iniziare a modificarle.
+- Clicca `Logic Hub` nell’intestazione dell’anteprima e passa alla scheda `Mantieni unici` per segnare le combinazioni che non vuoi vendere mai. Attiva `Mantieni unici` per permettere allo scanner di aggiungere righe di mantenimento (le modifiche lo attivano automaticamente).
 - Ogni regola ti permette di scegliere slot, set o Metaset, ranghi, rarità, statistiche principali e (per gli accessori) fazioni. Lasciare un selettore vuoto significa «qualsiasi».
+- La `Modalità` decide come viene emessa la regola: `Disattiva` la spegne, `Proteggi esistenti` aggiunge righe di mantenimento per le corrispondenze che verrebbero vendute finché la quota non è raggiunta, e `Anticipa lacune` aggiunge regole segnaposto per le combinazioni mancanti così i nuovi drop restano protetti finché il DB non viene aggiornato.
 - I substat sono opzionali: scegli uno o più per contare solo gli oggetti che hanno almeno uno di quei substat (più scelte = «uno qualsiasi»). Lasciare vuoto significa: nessun filtro substat.
-- Il `Modo substat` decide la logica: `Non classificato` conta ogni oggetto corrispondente, `Classificato` conserva solo i roll migliori per i substat scelti (i pareggi restano protetti).
+- Il `Modo substat` decide la logica: `Non classificato` conta ogni oggetto corrispondente, `Classificato` usa il punteggio normalizzato (glifi ignorati) e mantiene solo i migliori roll per gruppo di ambito. I pareggi al limite restano protetti.
 - Usa `Pesi` (solo in `Classificato`) per dire quali substat contano di più: pesi più alti rendono quel valore più importante nel ranking.
 - `≥ Quantità richiesta` vive accanto alle chip di ambito: «Per regola» mantiene una quota unica; combina liberamente `Per slot`, `Per set`, `Per fazione` e `Per statistica principale` per moltiplicare la quota per ogni combinazione rilevante (se li disattivi tutti si torna automaticamente a «Per regola»).
-- Il contatore `Presenti {have} / Conservare {keep}` dice quanto è già coperto (Presenti) dalle configurazioni/Vendita finale/regole esistenti e qual è la quota (Conservare) fissata dalla tua `≥ Quantità richiesta`. Solo gli oggetti che corrispondono alla regola alimentano questi numeri.
+- Il contatore `Presenti {have} / Conservare {keep}` mostra: **Presenti** = oggetti corrispondenti (in `Classificato` solo i migliori + pareggi), **Conservare** = quota dopo gli ambiti. Il chip diventa rosso quando la quota non è raggiunta.
 - Usa il selettore `Filtro: Tutti / Selezione` sopra la griglia per passare da tutta la tua attrezzatura unica solo agli oggetti che corrispondono alla regola evidenziata; Selezione si comporta come Tutti finché nessuna regola è selezionata.
-- Lo scanner aggiunge nuove righe Mantieni solo quando tutti gli oggetti che corrispondono alla regola verrebbero altrimenti venduti. Se le configurazioni standard salvano già abbastanza pezzi, la regola mostra «Coperta altrove» (oppure «Soddisfatta» quando la quota è raggiunta) e non viene esportato nulla di nuovo.
+- Lo scanner aggiunge righe di mantenimento solo per gli oggetti che verrebbero venduti e solo quando la quota non è soddisfatta. In `Anticipa lacune`, aggiunge anche regole segnaposto per combinazioni mancanti.
 
 #### Ambiti della quota in breve
 
@@ -109,18 +110,18 @@ Crea, visualizza in anteprima ed esporta regole di vendita per RSL Helper tramit
 
 #### Esempi concreti
 
-| Scenario | Filtri | Chip di ambito | Cosa garantisce lo scanner |
-| --- | --- | --- | --- |
-| Scarpe SPD in esaurimento | Slot = Stivali, Stat principale = SPD, Set vuoti | `Per regola` | Sopravvivono almeno cinque stivali SPD indipendentemente dal set. |
-| Mischiare guanti Savage + Lethal | Slot = Guanti, Set = Savage + Lethal, Stat principale = CDMG% | `Per regola` | Conserva tre guanti ad alto danno anche se la miscela di set cambia. |
-| Anelli Merciless per fazione | Slot = Anello, Set = Merciless, Fazione vuota | `Per fazione` | Ogni fazione conserva tre dei propri anelli Merciless. |
-| Anelli HP% per fazione | Slot = Anello, Stat principale = HP%, Set vuoti | `Per fazione` | Assicura due anelli HP% per ogni fazione. |
-| Accessori base per fazione | Tre regole (Anello, Amuleto, Vessillo), Set e Stat principale vuoti, `≥ Quantità richiesta = 5` | `Per fazione` | Ogni fazione mantiene cinque pezzi per slot. |
-| Stoneskin + Protection per fazione | Slot = Anello/Amuleto/Vessillo, Set = Stoneskin + Protection, Stat principale vuota | `Per set` + `Per fazione` | Ogni fazione tiene due drop Stoneskin e due Protection per ogni slot accessorio. |
-| Accessori SPD più veloci | Slot = Anello/Amuleto/Vessillo, Substat = SPD, Modo substat = Classificato | `Per regola` | Conserva i migliori roll SPD sugli accessori. |
-| Vessilli ACC con SPD | Slot = Vessillo, Stat principale = ACC, Substat = SPD + ACC, Modo substat = Classificato, Pesi: SPD più alto | `Per fazione` | Ogni fazione tiene i migliori vessilli ACC dove SPD conta di più. |
+| Scenario | Filtri | Quantità richiesta | Chip di ambito | Cosa garantisce lo scanner |
+| --- | --- | --- | --- | --- |
+| Scarpe SPD in esaurimento | Slot = Stivali, Stat principale = SPD, Set vuoti | `5` | `Per regola` | Sopravvivono almeno cinque stivali SPD indipendentemente dal set. |
+| Mischiare guanti Savage + Lethal | Slot = Guanti, Set = Savage + Lethal, Stat principale = CDMG% | `3` | `Per regola` | Conserva tre guanti ad alto danno anche se la miscela di set cambia. |
+| Anelli Merciless per fazione | Slot = Anello, Set = Merciless, Fazione vuota | `3` | `Per fazione` | Ogni fazione conserva tre dei propri anelli Merciless. |
+| Anelli HP% per fazione | Slot = Anello, Stat principale = HP%, Set vuoti | `2` | `Per fazione` | Assicura due anelli HP% per ogni fazione. |
+| Accessori base per fazione | Tre regole (Anello, Amuleto, Vessillo), Set e Stat principale vuoti | `5` | `Per fazione` | Ogni fazione mantiene cinque anelli, amuleti e vessilli. |
+| Stoneskin + Protection per fazione | Slot = Anello/Amuleto/Vessillo, Set = Stoneskin + Protection, Stat principale vuota | `2` | `Per set` + `Per fazione` + `Per slot` | Ogni fazione tiene due drop Stoneskin e due Protection per ogni slot accessorio. |
+| Accessori SPD più veloci | Slot = Anello/Amuleto/Vessillo, Substat = SPD, Modo substat = Classificato | `5` | `Per regola` | Conserva i cinque migliori roll SPD sugli accessori (inclusi i pareggi). |
+| Vessilli ACC con SPD | Slot = Vessillo, Stat principale = ACC, Substat = SPD + ACC, Modo substat = Classificato, Pesi: SPD più alto | `3` | `Per fazione` | Ogni fazione tiene i migliori vessilli ACC dove SPD conta di più. |
 
-Suggerimento: importa il tuo `.db` o incolla equipaggiamento nel dialogo Equipaggiamento prima di aprire la scheda Mantieni unici, così lo scanner analizza oggetti reali. Quando una regola mostra «Ne mancano 2», cliccala: il Tester regole evidenzia quei pezzi e vedi quale fazione o set ha ancora bisogno di attenzione.
+Suggerimento: importa il tuo `.db` o incolla equipaggiamento nel dialogo Equipaggiamento prima di aprire la scheda Mantieni unici, così lo scanner analizza oggetti reali. Clicca una scheda regola per evidenziare le corrispondenze; imposta `Filtro` su `Selezione` per vedere solo quelle.
 
 ### Gestione delle configurazioni
 - Elenco configurazioni salvate: ogni configurazione appare come un'etichetta sotto il builder. Usa l'elenco per selezionare (clic sinistro), duplicare, riordinare o eliminare (con conferma). "Elimina configurazioni" rimuove tutte (con conferma).

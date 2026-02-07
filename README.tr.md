@@ -97,18 +97,17 @@ RSL Helper için satış kurallarını basit bir arayüzle oluşturun, önizleyi
 - `Final satış` açıkken üretilen Sat kuralları tüm bilinen setleri içerir. Önizleme «Tüm bilinen setler» der; dışa aktarılan dosya yine her seti tek tek listeler.
 
 ### Benzersizleri Koru
-- Önizleme başlığındaki “Logic Hub” düğmesine tıklayıp `Benzersizleri Koru` sekmesine geçin; kaybetmek istemediğiniz kombinasyonları burada işaretleyin. `Benzersizleri Koru` anahtarını açtığınız anda düzenlemeye başlayabilirsiniz.
+- Önizleme başlığındaki “Logic Hub” düğmesine tıklayıp `Benzersizleri Koru` sekmesine geçin; kaybetmek istemediğiniz kombinasyonları burada işaretleyin. `Benzersizleri Koru` anahtarını açarak tarayıcının Koru satırları eklemesini sağlayın (bir kuralı düzenlemek de otomatik olarak etkinleştirir).
 - Her kural slot, set veya metaset, rank, nadirlik, ana stat ve (aksesuarlar için) fraksiyon seçmenize izin verir. Boş bırakmak “herhangi” anlamına gelir.
+- `Mod`, kuralın nasıl dışa aktarıldığını belirler: `Kapalı` kuralı devre dışı bırakır, `Var olanı koru` kotaya ulaşana kadar satılacak eşleşmeler için Koru satırları ekler, `Açıkları öngör` ise eksik kombinasyonlar için geçici Koru kuralları da üretir; böylece DB güncellenene kadar yeni düşenler korunur.
 - Alt statlar isteğe bağlıdır: bir veya birkaçını seçerek yalnızca en az birini taşıyan eşyaları sayarsınız (birden fazla = “bunlardan herhangi biri”). Boş bırakmak alt stat filtresi olmaması demektir.
-- `Alt stat modu` seçimi: `Sırasız` tüm eşleşenleri sayar, `Sıralı` ise seçili alt statlardaki en iyi rolları korur (eşitlikler de korunur).
+- `Alt stat modu` seçimi: `Sırasız` tüm eşleşenleri sayar, `Sıralı` ise normalize alt stat formülüyle (glifler yok sayılır) puanlar ve kapsam grubu başına en iyi rolları korur. Eşik değerinde eşitlikler korunur.
 - `Ağırlıklar` (yalnızca `Sıralı`) ile hangi alt statın daha önemli olduğunu belirtin — yüksek ağırlık o statın puanını artırır.
 - `≥ Gerekli adet` uygulamanın size verdiği sözdür. Rank ve Nadirlik dışındaki her seçicinin altındaki kapsam çipleri (`Kural başına`, `Slot başına`, `Set başına`, `Fraksiyon başına`, `Ana stat başına`) bu kotanın nasıl paylaşıldığını belirler; hepsini kapatırsanız paylaşım otomatik olarak `Kural başına` havuzuna döner.
-- `Var {have} / Koru {keep}` sayacı tooltip’te anlatılanı aynen gösterir: **Var**, konfigler, Final satış veya mevcut Benzersizleri Koru satırları sayesinde zaten korunan öğeleri sayar; **Koru**, `≥ Gerekli adet` ile talep ettiğiniz kotadır. Yalnızca kuralı karşılayan öğeler bu sayılara girer.
-- Kartın statü rozetleri `Eksik {count}`, `Başka yerde korunuyor` ve `Gereksinim karşılandı` mesajlarını kullanır; eksik değeri kurtarmak için karta tıkladığınızda ilgili tester ekipmanı vurgulanır.
-- Gridin üzerindeki `Filtre: Hepsi / Seçim` anahtarı, tüm benzersiz öğeleri göstermek ile seçili koruma kuralıyla eşleşen öğeleri göstermek arasında geçiş yapar. Kural seçilmezse `Seçim` modu `Hepsi` gibi davranır.
-- Tarayıcı, yalnızca bir kuralı karşılayan bütün eşyalar aksi hâlde satılacaksa ekstra Koru satırları ekler. Normal konfigleriniz kotayı dolduruyorsa kart “Başka yerde korunuyor” olarak kalır ve yeni satır oluşturulmaz.
+- `Var {have} / Koru {keep}` sayacı şunu gösterir: **Var** = eşleşen öğeler ( `Sıralı` yalnızca en iyi rolları + eşitlikleri sayar), **Koru** = kapsamlar sonrası kota. Kota karşılanmazsa çip kırmızı olur.
+- Tarayıcı, yalnızca bir kuralı karşılayan ve aksi hâlde satılacak eşyalar için Koru satırları ekler; bu da yalnızca kota karşılanmadığında olur. `Açıkları öngör` modunda eksik kombinasyonlar için geçici kurallar eklenir.
 
-Kapsam çiplerini üst üste koymak kimin kendi kotasını alacağını değiştirir. Tek havuz için `Kural başına` açık bırakın; `Slot başına`, `Set başına`, `Fraksiyon başına` ve `Ana stat başına` düğmelerini katmanlayarak Slot × Set × Fraksiyon × Ana stat kombinasyonlarını ayrı ayrı izleyebilirsiniz.
+Kapsam çiplerini üst üste koymak kimin kendi kotasını alacağını değiştirir. Tek havuz için `Kural başına` açık bırakın; `Slot başına`, `Set başına`, `Fraksiyon başına` ve `Ana stat başına` düğmelerini katmanlayarak Slot × Set × Fraksiyon × Ana stat karışımlarını bağımsız takip edebilirsiniz.
 
 #### Kota kapsamları bir bakışta
 | Kapsam düğmesi | Kota davranışı | Ne zaman parlıyor |
@@ -120,18 +119,18 @@ Kapsam çiplerini üst üste koymak kimin kendi kotasını alacağını değişt
 | `Ana stat başına` | Seçili ana statların her biri kendi havuzuna sahip olur. | ACC ve RES sancakları farklı kotalarda takip edin. |
 
 #### Gerçek dünyadan örnekler
-| Senaryo | Filtreler | Kapsam düğmeleri | Tarayıcının garantisi |
-| --- | --- | --- | --- |
-| SPD botlar tükeniyor | Slot = Botlar, Ana stat = SPD, Setler boş, `≥ Gerekli adet = 5` | `Kural başına` | Hangi set olursa olsun en az beş SPD botu kalır. |
-| Savage + Lethal eldivenleri karıştırmak | Slot = Eldiven, Set = Savage + Lethal, Ana stat = CDMG%, `≥ Gerekli adet = 3` | `Kural başına` | Set karışımı değişse bile üç yüksek hasar eldiveni korunur. |
-| Fraksiyon başına Merciless yüzük | Slot = Yüzük, Set = Merciless, Fraksiyon boş, `≥ Gerekli adet = 3` | `Fraksiyon başına` | Her fraksiyon kendi üç Merciless yüzüğünü tutar. |
-| Fraksiyon başına HP% yüzük | Slot = Yüzük, Ana stat = HP%, Setler boş, `≥ Gerekli adet = 2` | `Fraksiyon başına` | Her fraksiyon ikişer HP% yüzük saklar. |
-| Çekirdek aksesuarlar fraksiyon başına | Üç kural (Yüzük, Muska, Sancak), Set/Ana stat boş, `≥ Gerekli adet = 5` | `Fraksiyon başına` | Her fraksiyon her aksesuar slotunda beşer parça bırakır. |
-| Stoneskin + Protection aksesuarları | Slot = Yüzük/Muska/Sancak, Set = Stoneskin + Protection, Ana stat boş, `≥ Gerekli adet = 2` | `Set başına` + `Fraksiyon başına` | Her fraksiyon her slot için iki Stoneskin ve iki Protection parça tutar. |
-| En hızlı SPD aksesuarları | Slot = Yüzük/Muska/Sancak, Alt statlar = SPD, Alt stat modu = Sıralı | `Kural başına` | Aksesuarlarındaki en iyi SPD rollarını korur. |
-| SPD’li ACC sancakları | Slot = Sancak, Ana stat = ACC, Alt statlar = SPD + ACC, Alt stat modu = Sıralı, Ağırlıklar: SPD daha yüksek | `Fraksiyon başına` | Her fraksiyon SPD’nin daha önemli olduğu en iyi ACC sancaklarını tutar. |
+| Senaryo | Filtreler | Gerekli adet | Kapsam düğmeleri | Tarayıcının garantisi |
+| --- | --- | --- | --- | --- |
+| SPD botlar tükeniyor | Slot = Botlar, Ana stat = SPD, Setler boş | `5` | `Kural başına` | Hangi set olursa olsun en az beş SPD botu kalır. |
+| Savage + Lethal eldivenleri karıştırmak | Slot = Eldiven, Set = Savage + Lethal, Ana stat = CDMG% | `3` | `Kural başına` | Set karışımı değişse bile üç yüksek hasar eldiveni korunur. |
+| Fraksiyon başına Merciless yüzük | Slot = Yüzük, Set = Merciless, Fraksiyon boş | `3` | `Fraksiyon başına` | Her fraksiyon kendi üç Merciless yüzüğünü tutar. |
+| Fraksiyon başına HP% yüzük | Slot = Yüzük, Ana stat = HP%, Setler boş | `2` | `Fraksiyon başına` | Her fraksiyon ikişer HP% yüzük saklar. |
+| Çekirdek aksesuarlar fraksiyon başına | Üç kural (Yüzük, Muska, Sancak), Set/Ana stat boş | `5` | `Fraksiyon başına` | Her fraksiyon her aksesuar slotunda beşer parça bırakır. |
+| Stoneskin + Protection aksesuarları | Slot = Yüzük/Muska/Sancak, Set = Stoneskin + Protection, Ana stat boş | `2` | `Set başına` + `Fraksiyon başına` + `Slot başına` | Her fraksiyon her aksesuar slotu için iki Stoneskin ve iki Protection parça tutar. |
+| En hızlı SPD aksesuarları | Slot = Yüzük/Muska/Sancak, Alt statlar = SPD, Alt stat modu = Sıralı | `5` | `Kural başına` | Aksesuarlarındaki en iyi beş SPD rollarını korur (eşitlikler dahil). |
+| SPD’li ACC sancakları | Slot = Sancak, Ana stat = ACC, Alt statlar = SPD + ACC, Alt stat modu = Sıralı, Ağırlıklar: SPD daha yüksek | `3` | `Fraksiyon başına` | Her fraksiyon SPD’nin daha önemli olduğu en iyi ACC sancaklarını tutar. |
 
-İpucu: “Benzersizleri Koru” sekmesini açmadan önce `.db` içe aktarın veya Ekipman diyaloğunda eşya ekleyin ki tarayıcı gerçek veriyi görsün. Bir kural «Eksik 2» dediğinde üzerine tıklayın; tester tablosu ilgili eşyaları vurgular ve hangi setin veya fraksiyonun eksik kaldığını anlarsınız.
+İpucu: “Benzersizleri Koru” sekmesini açmadan önce `.db` içe aktarın veya Ekipman diyaloğunda eşya ekleyin ki tarayıcı gerçek veriyi görsün. Bir kural kartına tıklayın; eşleşen eşyalar vurgulanır. `Filtre`yi `Seçim`e alarak sadece bu eşleşmeleri görürsünüz.
 
 ### Konfig yönetimi
 - Kaydedilen konfig listesi: Her konfig oluşturucunun altında küçük bir etiket olarak görünür. Sol tık seçer, çoğaltmak/yeniden sıralamak/silmek için sağ tık menülerini kullanabilirsin; «Konfigleri sil» düğmesi tüm listeyi (onay isteyerek) kaldırır.

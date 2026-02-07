@@ -101,14 +101,15 @@ Build, preview, and export sell rules for RSL Helper with a simple UI.
 - When `Final Sell` is active, the generated Sell rules explicitly include all currently known sets. In the preview, the Sets column shows “All Currently Known” for these rules to reduce clutter; the exported file still lists every set explicitly.
 
 ### Keep Uniques
-- Click `Logic Hub` in the preview header and switch to the `Keep Uniques` tab to mark the gear combinations you never want to lose. Turn on `Enable Keep Uniques` to start editing.
+- Click `Logic Hub` in the preview header and switch to the `Keep Uniques` tab to mark the gear combinations you never want to lose. Turn on `Enable Keep Uniques` to let the scanner add keep rows (edits will also enable it automatically).
 - Each keep rule lets you pick the slot, sets or metasets, ranks, rarities, main stats, and (for accessories) factions you care about. Leaving a picker empty means “any”.
+- `Mode` decides how the rule is emitted: `Off` disables it, `Protect existing` injects keep rows for sold matches until the quota is met, and `Anticipate gaps` also emits placeholder keep rules for missing combinations so new drops stay protected until the DB refreshes.
 - Substats are optional: pick one or more to only count items that actually have those substats (multiple picks are treated as “any of these”). Leave it empty to allow any substat.
-- `Substat mode` controls how those picks are used: `Unranked` counts every matching item, while `Ranked` keeps only the best rolls for the selected substats (ties stay protected).
+- `Substat mode` controls how those picks are used: `Unranked` counts every matching item, while `Ranked` scores with the normalized substat formula (glyphs ignored) and keeps only the best rolls per scope group. Ties at the cutoff stay protected.
 - Use `Weights` (Ranked only) to say which substats matter most — higher weights make that stat count more in the ranking.
 - `≥ Required Count` is the promise you want the app to keep. Scope chips directly under each picker (everything except `Rank` and `Rarity`) decide how that quota is split: `Per slot`, `Per set`, `Per faction`, and `Per main stat` can be combined freely. Turning every chip off automatically falls back to the shared `Per rule` pool.
-- The `Have {have} / Keep {keep}` counter shows exactly what the tooltip explains: **Have** counts gear pieces already protected by configs, Final Sell, or existing Keep rules; **Keep** is the quota from `≥ Required Count`. Only gear entries that match the rule contribute to these numbers.
-- The scanner only adds extra keep rows when every item that matches a rule would otherwise be sold. If your normal configs already save enough pieces, the rule shows “Covered elsewhere” and nothing new is exported.
+- The `Have {have} / Keep {keep}` counter shows: **Have** = matching items (Ranked counts only top rolls + ties), **Keep** = the quota after scopes. The chip turns red when the quota is unmet.
+- The scanner only adds keep rows for matching items that would otherwise be sold, and only when the quota is not met. In `Anticipate gaps`, placeholder keep rules cover missing combinations.
 
 #### Quota scopes at a glance
 Stacking the scope chips changes who gets their own quota. Leave `Per rule` on to share one pool, then layer `Per slot`, `Per set`, `Per faction`, and `Per main stat` to enforce Slot × Set × Faction × Main stat mixes independently.
@@ -122,18 +123,18 @@ Stacking the scope chips changes who gets their own quota. Leave `Per rule` on t
 | `Per main stat` | Duplicates the quota for each selected main stat. | Keep separate pools for ACC versus RES banners. |
 
 #### Real-world examples
-| Scenario | Filters | Scope buttons | What the scanner guarantees |
-| --- | --- | --- | --- |
-| Running out of SPD boots | Slot = Boots, Main Stat = SPD, Sets blank | `Per rule` | At least five SPD boots survive, no matter the set. |
-| Mixing Savage + Lethal gloves | Slot = Gloves, Sets = Savage + Lethal, Main Stat = CDMG% | `Per rule` | Three high-damage gloves stay safe even if the set mix changes. |
-| Merciless rings per faction | Slot = Ring, Set = Merciless, Faction blank | `Per faction` | Every faction keeps three of its own Merciless rings. |
-| HP% rings per faction | Slot = Ring, Main Stat = HP%, Sets blank | `Per faction` | Two HP% rings per faction stay in inventory. |
-| Core accessories per faction | Three rules (Ring, Amulet, Banner), Sets/Main blank, `≥ Required Count = 5` | `Per faction` | Five Rings, Amulets, and Banners survive per faction. |
-| Stoneskin + Protection accessories | Slot = Ring/Amulet/Banner, Sets = Stoneskin + Protection, Main blank | `Per set` + `Per faction` | Each faction holds two Stoneskin and two Protection drops for every accessory slot. |
-| Fastest SPD accessories | Slot = Ring/Amulet/Banner, Substats = SPD, Substat mode = Ranked | `Per rule` | Keeps the top SPD substat rolls across your accessories. |
-| ACC banners that still roll SPD | Slot = Banner, Main Stat = ACC, Substats = SPD + ACC, Substat mode = Ranked, Weights favor SPD | `Per faction` | Each faction keeps the best ACC banners where SPD rolls matter most. |
+| Scenario | Filters | Required Count | Scope buttons | What the scanner guarantees |
+| --- | --- | --- | --- | --- |
+| Running out of SPD boots | Slot = Boots, Main Stat = SPD, Sets blank | `5` | `Per rule` | At least five SPD boots survive, no matter the set. |
+| Mixing Savage + Lethal gloves | Slot = Gloves, Sets = Savage + Lethal, Main Stat = CDMG% | `3` | `Per rule` | Three high-damage gloves stay safe even if the set mix changes. |
+| Merciless rings per faction | Slot = Ring, Set = Merciless, Faction blank | `3` | `Per faction` | Every faction keeps three of its own Merciless rings. |
+| HP% rings per faction | Slot = Ring, Main Stat = HP%, Sets blank | `2` | `Per faction` | Two HP% rings per faction stay in inventory. |
+| Core accessories per faction | Three rules (Ring, Amulet, Banner), Sets/Main blank | `5` | `Per faction` | Five Rings, Amulets, and Banners survive per faction. |
+| Stoneskin + Protection accessories | Slot = Ring/Amulet/Banner, Sets = Stoneskin + Protection, Main blank | `2` | `Per set` + `Per faction` + `Per slot` | Each faction holds two Stoneskin and two Protection drops for each accessory slot. |
+| Fastest SPD accessories | Slot = Ring/Amulet/Banner, Substats = SPD, Substat mode = Ranked | `5` | `Per rule` | Keeps the top five SPD substat rolls across your accessories (ties included). |
+| ACC banners that still roll SPD | Slot = Banner, Main Stat = ACC, Substats = SPD + ACC, Substat mode = Ranked, Weights favor SPD | `3` | `Per faction` | Each faction keeps the best ACC banners where SPD rolls matter most. |
 
-Tip: Import your `.db` or paste gear into the Gear dialog before opening Keep Uniques so the scanner sees real items. When a rule says “Missing 2”, click it to highlight that Rule Tester gear and see which faction or set needs attention.
+Tip: Import your `.db` or paste gear into the Gear dialog before opening Keep Uniques so the scanner sees real items. Click a rule card to highlight matching gear; switch `Filter` to `Selection` to view only those matches.
 
 ### Managing Configs
 - Saved configs list: Each saved config appears as a small label below the builder. Use this list to select (left‑click), duplicate, reorder, or delete (deletions are confirmed). “Delete Configs” removes all (with confirmation).
