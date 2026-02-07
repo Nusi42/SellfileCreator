@@ -10,13 +10,19 @@ import type {
   StatVariant,
 } from './types'
 import {
+  ALLOWED_MAIN_BY_SLOT,
   ArtifactSet,
   ArtifactType,
+  PREFERRED_ARTIFACT_TYPE_ORDER,
+  StatId,
   StatVariant as StatVariantEnum,
   STAT_VARIANTS_PRIORITY,
   artifactSetNames,
   artifactTypeNames,
+  compareArtifactSets,
   factionNames,
+  getArmorFixedSetIds,
+  getArmorVariableSetIds,
   getAccessorySlotsCompatibleSetIds,
   rarityNames,
   variantFromLabel,
@@ -31,9 +37,19 @@ import type { ArtifactSetSelectionEntry } from './gearSets/selection'
 import { normalizeArtifactSetSelections, splitArtifactSetSelections } from './gearSets/selection'
 import { hasIgnoreKeepUniqueTag } from './tagHelpers'
 import { computeTesterNormalizedSubstatScore, normalizeTesterSortWeight, TESTER_SORT_WEIGHT_DEFAULT } from './testerSort'
+import { ACCESSORY_NO_SET_ID } from './constants'
 
 const RANK_MIN = 1
 const RANK_MAX = 6
+
+// Cache faction IDs for placeholder enumeration (skip the 0 "any" sentinel).
+const ALL_FACTION_IDS = Object.freeze(
+  Object.keys(factionNames)
+    .map((value) => Number(value))
+    .filter((value) => Number.isFinite(value) && value > 0)
+    .sort((a, b) => a - b)
+    .map((value) => value as FactionId),
+)
 
 export const buildIgnoreKeepUniqueConfigIndices = (configs: readonly BuilderConfig[]): ReadonlySet<number> => {
   // Track indices so we can skip only tagged configs during detection.
@@ -858,6 +874,311 @@ export const getKeepUniqueCountKey = (artifact: NormalizedGearArtifact, mode: Ke
   return parts.length > 0 ? parts.join('|') : 'global'
 }
 
+// buildKeepUniquePlaceholderSample builds a minimal artifact for placeholder keying.
+const buildKeepUniquePlaceholderSample = (params: {
+  slot: ArtifactTypeId
+  setId: ArtifactSetId
+  mainStat: StatVariant
+  faction: FactionId
+}): NormalizedGearArtifact => {
+  const { slot, setId, mainStat, faction } = params
+  // Provide a minimal main stat payload so variant reads stay consistent.
+  const mainStatPayload: NormalizedGearArtifact['mainStat'] = mainStat === StatVariantEnum.Any
+    ? null
+    : {
+      source: 'main' as const,
+      statId: StatId.Any,
+      isFlat: true,
+      variant: mainStat,
+      baseValue: 0,
+      glyphValue: 0,
+      mythValue: 0,
+      totalValue: 0,
+    }
+  // Keep the tester item in sync with the placeholder so keying is stable.
+  const testerItem: NormalizedGearArtifact['testerItem'] = {
+    slot,
+    set: setId,
+    rank: RANK_MAX,
+    rarity: RANK_MAX,
+    level: 0 as LevelMilestone,
+    ...(faction > 0 ? { faction } : {}),
+    ...(mainStat !== StatVariantEnum.Any ? { main: mainStat } : {}),
+  }
+  // Fill the remaining fields with safe defaults; they are unused by keying.
+  return {
+    id: 0,
+    slot,
+    set: setId,
+    rank: RANK_MAX,
+    rarity: RANK_MAX,
+    level: 0 as LevelMilestone,
+    exactLevel: null,
+    faction,
+    mainStat: mainStatPayload,
+    substats: [],
+    ascension: null,
+    testerItem,
+    rerollCount: 0,
+    equippedToChampionId: null,
+    equippedChampionBaseId: null,
+    equippedChampionRarity: null,
+    source: 'tester',
+    equippedChampionName: null,
+    equippedChampionLocation: null,
+    lastUseLocalTimestamp: null,
+  }
+}
+
+// resolveArmorCompatibleSetIds keeps accessory-only sets out of armor pools.
+const resolveArmorCompatibleSetIds = (): readonly ArtifactSetId[] => {
+  // Merge fixed + variable armor sets while keeping numeric order stable.
+  const combined = [
+    ...getArmorFixedSetIds(),
+    ...getArmorVariableSetIds(),
+  ]
+  // Deduplicate the merged pool without changing numeric ordering.
+  const deduped = Array.from(new Set<number>(combined.map((value) => Number(value))))
+    .sort(compareArtifactSets)
+    .map((value) => value as ArtifactSetId)
+  return deduped
+}
+
+// resolveKeepUniqueSlotCandidates limits slots to those that can actually match.
+const resolveKeepUniqueSlotCandidates = (combination: KeepUniqueCombination): ArtifactTypeId[] => {
+  // Start from the explicit selection or fall back to the preferred slot order.
+  const baseSlots = combination.slots.length > 0
+    ? combination.slots
+    : PREFERRED_ARTIFACT_TYPE_ORDER
+  // Capture explicit set includes so we can filter slot compatibility.
+  const { included } = splitArtifactSetSelections(combination.sets)
+  const hasSetIncludes = included.length > 0
+  // When factions are specified, accessories are required to satisfy the filter.
+  const factionSelection = combination.factions ?? []
+  const requiresAccessory = factionSelection.length > 0
+    && factionSelection.every((value) => Number(value) > 0)
+  // Prepare quick-lookup sets for set compatibility checks.
+  const accessorySetPool = new Set<number>([
+    ACCESSORY_NO_SET_ID,
+    ...getAccessorySlotsCompatibleSetIds().map((value) => Number(value)),
+  ])
+  const armorSetPool = new Set<number>(resolveArmorCompatibleSetIds().map((value) => Number(value)))
+  // Filter slots down to those that can satisfy every enabled constraint.
+  const result: ArtifactTypeId[] = []
+  const seen = new Set<number>()
+  for (const slotId of baseSlots) {
+    const numeric = Number(slotId)
+    if (!Number.isFinite(numeric)) continue
+    if (seen.has(numeric)) continue
+    seen.add(numeric)
+    const accessorySlot = isAccessorySlot(numeric)
+    // Skip non-accessories when factions explicitly require accessories.
+    if (requiresAccessory && !accessorySlot) continue
+    // Respect main-stat filters by keeping only compatible slots.
+    if (combination.mainStats.length > 0) {
+      const allowed = ALLOWED_MAIN_BY_SLOT[numeric as ArtifactType]
+      if (!allowed) continue
+      const matchesMain = combination.mainStats.some((variant) => allowed.has(Number(variant)))
+      if (!matchesMain) continue
+    }
+    // Respect explicit set includes by skipping incompatible slot types.
+    if (hasSetIncludes) {
+      const pool = accessorySlot ? accessorySetPool : armorSetPool
+      const hasCompatibleSet = included.some((value) => pool.has(Number(value)))
+      if (!hasCompatibleSet) continue
+    }
+    result.push(numeric as ArtifactTypeId)
+  }
+  return result
+}
+
+// resolveKeepUniqueSlotSamples chooses representative slots for expected group enumeration.
+const resolveKeepUniqueSlotSamples = (
+  slots: readonly ArtifactTypeId[],
+  countMode: KeepUniqueRuleCountMode,
+): ArtifactTypeId[] => {
+  // If we truly count per slot, return every candidate slot.
+  if (countMode.perSlot) return slots.slice()
+  // If faction is not part of the key, one slot is enough.
+  if (!countMode.perFaction) return slots.slice(0, 1)
+  // For faction-aware grouping, include one accessory + one armor sample when available.
+  const accessory = slots.find((slotId) => isAccessorySlot(Number(slotId)))
+  const armor = slots.find((slotId) => !isAccessorySlot(Number(slotId)))
+  const samples: ArtifactTypeId[] = []
+  if (accessory != null) samples.push(accessory)
+  if (armor != null) samples.push(armor)
+  return samples.length > 0 ? samples : slots.slice(0, 1)
+}
+
+// resolveKeepUniqueSetCandidatesForSlot enumerates allowed set IDs for a slot.
+const resolveKeepUniqueSetCandidatesForSlot = (
+  combination: KeepUniqueCombination,
+  slot: ArtifactTypeId,
+): ArtifactSetId[] => {
+  const accessorySlot = isAccessorySlot(Number(slot))
+  // Resolve the include/exclude sets so we can respect explicit choices.
+  const { included, excluded } = splitArtifactSetSelections(combination.sets)
+  const hasSetIncludes = included.length > 0
+  // Build the allowed set pool for this slot type.
+  const allowedPool = accessorySlot
+    ? getAccessorySlotsCompatibleSetIds()
+    : resolveArmorCompatibleSetIds()
+  const allowedSetIds = new Set<number>(allowedPool.map((value) => Number(value)))
+  // Accessories also accept the no-set sentinel when sets are not explicitly chosen.
+  const includeNoSet = accessorySlot && !hasSetIncludes
+  if (hasSetIncludes) {
+    // Only keep includes that are valid for this slot.
+    const filtered = included.filter((value) => (
+      value === ACCESSORY_NO_SET_ID
+        ? accessorySlot
+        : allowedSetIds.has(Number(value))
+    ))
+    return filtered.sort(compareArtifactSets)
+  }
+  // Otherwise, start from the allowed pool and apply exclusions.
+  const excludedIds = new Set<number>(excluded.map((value) => Number(value)))
+  const filtered = allowedPool.filter((value) => !excludedIds.has(Number(value)))
+  // Inject the no-set sentinel when accessories are allowed.
+  const withNoSet = includeNoSet ? [ACCESSORY_NO_SET_ID, ...filtered] : filtered
+  // Keep numeric ordering stable for deterministic placeholders.
+  return withNoSet.slice().sort(compareArtifactSets)
+}
+
+// resolveKeepUniqueSetCandidatesForSlots unions set IDs across all slot candidates.
+const resolveKeepUniqueSetCandidatesForSlots = (
+  combination: KeepUniqueCombination,
+  slots: readonly ArtifactTypeId[],
+): ArtifactSetId[] => {
+  const merged = new Map<number, ArtifactSetId>()
+  for (const slot of slots) {
+    for (const setId of resolveKeepUniqueSetCandidatesForSlot(combination, slot)) {
+      const numeric = Number(setId)
+      if (!Number.isFinite(numeric)) continue
+      if (merged.has(numeric)) continue
+      merged.set(numeric, setId)
+    }
+  }
+  return Array.from(merged.values()).sort(compareArtifactSets)
+}
+
+// resolveKeepUniqueMainStatCandidatesForSlot returns valid main stats for the slot.
+const resolveKeepUniqueMainStatCandidatesForSlot = (
+  combination: KeepUniqueCombination,
+  slot: ArtifactTypeId,
+): StatVariant[] => {
+  const allowed = ALLOWED_MAIN_BY_SLOT[Number(slot) as ArtifactType]
+  if (!allowed || allowed.size === 0) return []
+  // If the user picked main stats, keep only those compatible with the slot.
+  if (combination.mainStats.length > 0) {
+    const filtered = combination.mainStats.filter((variant) => allowed.has(Number(variant)))
+    return filtered.slice().sort((a, b) => Number(a) - Number(b))
+  }
+  // Otherwise return the entire allowed set for enumeration.
+  return Array.from(allowed).sort((a, b) => Number(a) - Number(b)) as StatVariant[]
+}
+
+// resolveKeepUniqueMainStatCandidatesForSlots unions main stats across slots.
+const resolveKeepUniqueMainStatCandidatesForSlots = (
+  combination: KeepUniqueCombination,
+  slots: readonly ArtifactTypeId[],
+): StatVariant[] => {
+  const union = new Map<number, StatVariant>()
+  for (const slot of slots) {
+    for (const variant of resolveKeepUniqueMainStatCandidatesForSlot(combination, slot)) {
+      const numeric = Number(variant)
+      if (!Number.isFinite(numeric)) continue
+      if (union.has(numeric)) continue
+      union.set(numeric, variant)
+    }
+  }
+  return Array.from(union.values()).sort((a, b) => Number(a) - Number(b))
+}
+
+// resolveKeepUniqueFactionCandidatesForSlot returns allowed factions for this slot.
+const resolveKeepUniqueFactionCandidatesForSlot = (
+  combination: KeepUniqueCombination,
+  slot: ArtifactTypeId,
+): FactionId[] => {
+  const selection = (combination.factions ?? []).map((value) => Number(value)).filter((value) => Number.isFinite(value))
+  const hasSelection = selection.length > 0
+  const accessorySlot = isAccessorySlot(Number(slot))
+  // Non-accessory slots can only use the 0 "any" faction sentinel.
+  if (!accessorySlot) {
+    if (!hasSelection) return [0 as FactionId]
+    if (selection.some((value) => value === 0)) return [0 as FactionId]
+    return []
+  }
+  // For accessories, use explicit selections when provided.
+  if (hasSelection) {
+    return selection.filter((value) => value > 0).map((value) => value as FactionId)
+  }
+  // Otherwise enumerate every faction.
+  return ALL_FACTION_IDS.slice()
+}
+
+type KeepUniqueExpectedGroup = {
+  key: KeepUniqueCountKey
+  sample: NormalizedGearArtifact
+}
+
+// buildKeepUniqueExpectedGroups enumerates every group implied by the scope chips.
+const buildKeepUniqueExpectedGroups = (params: {
+  combination: KeepUniqueCombination
+  countMode: KeepUniqueRuleCountMode
+}): KeepUniqueExpectedGroup[] => {
+  const { combination, countMode } = params
+  // Per-rule counts do not split into scope groups.
+  if (countMode.perRule) return []
+  // Resolve which slots are actually compatible with the filters.
+  const slotCandidates = resolveKeepUniqueSlotCandidates(combination)
+  if (slotCandidates.length === 0) return []
+  // Choose representative slot samples for key construction.
+  const slotSamples = resolveKeepUniqueSlotSamples(slotCandidates, countMode)
+  // Precompute union pools when the scope is not per-slot.
+  const unionSets = countMode.perSet && !countMode.perSlot
+    ? resolveKeepUniqueSetCandidatesForSlots(combination, slotCandidates)
+    : []
+  const unionMainStats = countMode.perMainStat && !countMode.perSlot
+    ? resolveKeepUniqueMainStatCandidatesForSlots(combination, slotCandidates)
+    : []
+  // Track expected groups by their count key to avoid duplicates.
+  const expected = new Map<KeepUniqueCountKey, NormalizedGearArtifact>()
+  for (const slot of slotSamples) {
+    // Resolve per-slot pools when the scope is split by slot.
+    const setCandidates = countMode.perSet
+      ? (countMode.perSlot ? resolveKeepUniqueSetCandidatesForSlot(combination, slot) : unionSets)
+      : [ACCESSORY_NO_SET_ID as ArtifactSetId]
+    if (countMode.perSet && setCandidates.length === 0) continue
+    // Resolve faction pools, skipping slots that cannot satisfy selections.
+    const factionCandidates = countMode.perFaction
+      ? resolveKeepUniqueFactionCandidatesForSlot(combination, slot)
+      : [0 as FactionId]
+    if (countMode.perFaction && factionCandidates.length === 0) continue
+    // Resolve main stat pools, skipping slots that cannot satisfy selections.
+    const mainStatCandidates = countMode.perMainStat
+      ? (countMode.perSlot ? resolveKeepUniqueMainStatCandidatesForSlot(combination, slot) : unionMainStats)
+      : [StatVariantEnum.Any]
+    if (countMode.perMainStat && mainStatCandidates.length === 0) continue
+    // Build the Cartesian product across the active scope dimensions.
+    for (const setId of setCandidates) {
+      for (const faction of factionCandidates) {
+        for (const mainStat of mainStatCandidates) {
+          const sample = buildKeepUniquePlaceholderSample({
+            slot,
+            setId,
+            mainStat,
+            faction,
+          })
+          const key = getKeepUniqueCountKey(sample, countMode)
+          if (expected.has(key)) continue
+          expected.set(key, sample)
+        }
+      }
+    }
+  }
+  return Array.from(expected.entries()).map(([key, sample]) => ({ key, sample }))
+}
+
 const matchesSelection = (selection: readonly number[], candidate: number): boolean => {
   if (!selection.length) return true
   return selection.some((value) => Number(value) === Number(candidate))
@@ -1053,6 +1374,10 @@ export function computeKeepUniqueProtection(params: KeepUniqueDetectionParams): 
     const selectedSubstats = rule.substats ?? []
     const hasSubstatFilter = selectedSubstats.length > 0
     const selectedSet = hasSubstatFilter ? new Set(selectedSubstats.map((variant) => Number(variant))) : null
+    // Expected groups enumerate all scope combinations, even if no items match yet.
+    const expectedGroups = perRuleMode
+      ? []
+      : buildKeepUniqueExpectedGroups({ combination, countMode })
     // Ranking only applies when a substat selection is active.
     const useRanking = hasSubstatFilter && rule.substatMode === KeepUniqueSubstatMode.Ranked
     // Current matches split into “kept” vs “sold” so deficits consider what is already safe.
@@ -1093,7 +1418,7 @@ export function computeKeepUniqueProtection(params: KeepUniqueDetectionParams): 
         }
       }
 
-      const groupsTracked = groups.size
+      const groupsTracked = expectedGroups.length > 0 ? expectedGroups.length : groups.size
       const effectiveGroupCount = groupsTracked > 0 ? groupsTracked : 1
       const requiredTotal = requiredPerGroup * effectiveGroupCount
       let currentCount = 0
@@ -1102,9 +1427,37 @@ export function computeKeepUniqueProtection(params: KeepUniqueDetectionParams): 
       let deficit = 0
       const itemKeys: number[] = []
       const artifacts: KeepUniqueDetectionArtifact[] = []
-
-      for (const bucket of groups.values()) {
-        if (bucket.length === 0) continue
+      // Choose the group list that should drive deficit + placeholder logic.
+      const expectedList = expectedGroups.length > 0
+        ? expectedGroups
+        : Array.from(groups.entries()).map(([key, bucket]) => ({
+          key,
+          // Fall back to a stub sample only when the bucket is unexpectedly empty.
+          sample: bucket[0]?.candidate.artifact ?? buildKeepUniquePlaceholderSample({
+            slot: combination.slots[0] ?? ArtifactType.Weapon,
+            setId: ACCESSORY_NO_SET_ID as ArtifactSetId,
+            mainStat: StatVariantEnum.Any,
+            faction: 0 as FactionId,
+          }),
+        }))
+      for (const entry of expectedList) {
+        // Pull the scored candidates for this expected group key.
+        const bucket = groups.get(entry.key) ?? []
+        if (bucket.length === 0) {
+          // Missing groups still need placeholders to keep future drops safe.
+          const deficitGroup = requiredPerGroup
+          placeholders.push({
+            combination: buildPlaceholderCombinationForGroup({
+              base: combination,
+              mode: countMode,
+              sample: entry.sample,
+            }),
+            missing: deficitGroup,
+            reason: 'group',
+          })
+          deficit += deficitGroup
+          continue
+        }
         // Sort by normalized score so top-N selection is deterministic.
         const sorted = sortKeepUniqueScoredCandidates(bucket)
         // Cutoff index is N-1; clamp to the bucket length.
@@ -1113,14 +1466,14 @@ export function computeKeepUniqueProtection(params: KeepUniqueDetectionParams): 
         let groupTotal = 0
         let groupKept = 0
         let groupSold = 0
-        for (const entry of sorted) {
+        for (const scoredEntry of sorted) {
           // Stop once we drop below the cutoff so ties at N are included.
-          if (entry.score < cutoffScore) break
+          if (scoredEntry.score < cutoffScore) break
           groupTotal += 1
-          if (entry.candidate.isSold) {
+          if (scoredEntry.candidate.isSold) {
             groupSold += 1
-            itemKeys.push(entry.candidate.itemKey)
-            artifacts.push(buildKeepUniqueDetectionArtifact(entry.candidate))
+            itemKeys.push(scoredEntry.candidate.itemKey)
+            artifacts.push(buildKeepUniqueDetectionArtifact(scoredEntry.candidate))
           } else {
             groupKept += 1
           }
@@ -1135,7 +1488,7 @@ export function computeKeepUniqueProtection(params: KeepUniqueDetectionParams): 
             combination: buildPlaceholderCombinationForGroup({
               base: combination,
               mode: countMode,
-              sample: bucket[0]?.candidate.artifact ?? null,
+              sample: entry.sample,
             }),
             missing: deficitGroup,
             reason: 'group',
@@ -1239,14 +1592,44 @@ export function computeKeepUniqueProtection(params: KeepUniqueDetectionParams): 
       }
     }
 
-    const groupsTracked = groupCounts.size
+    const groupsTracked = expectedGroups.length > 0 ? expectedGroups.length : groupCounts.size
     const effectiveGroupCount = groupsTracked > 0 ? groupsTracked : 1
     const requiredTotal = requiredPerGroup * effectiveGroupCount
     let deficit = 0
     let keptTotal = 0
     let soldTotal = 0
     const atRisk: KeepUniqueCandidate[] = []
-    for (const group of groupCounts.values()) {
+    // Choose the group list that should drive deficit + placeholder logic.
+    const expectedList = expectedGroups.length > 0
+      ? expectedGroups
+      : Array.from(groupCounts.entries()).map(([key, group]) => ({
+        key,
+        // Fall back to a stub sample only when the bucket is unexpectedly empty.
+        sample: group.sample?.artifact ?? buildKeepUniquePlaceholderSample({
+          slot: combination.slots[0] ?? ArtifactType.Weapon,
+          setId: ACCESSORY_NO_SET_ID as ArtifactSetId,
+          mainStat: StatVariantEnum.Any,
+          faction: 0 as FactionId,
+        }),
+      }))
+    for (const entry of expectedList) {
+      // Pull the candidate group for this expected group key.
+      const group = groupCounts.get(entry.key)
+      if (!group) {
+        // Missing groups still need placeholders to keep future drops safe.
+        const deficitGroup = requiredPerGroup
+        placeholders.push({
+          combination: buildPlaceholderCombinationForGroup({
+            base: combination,
+            mode: countMode,
+            sample: entry.sample,
+          }),
+          missing: deficitGroup,
+          reason: 'group',
+        })
+        deficit += deficitGroup
+        continue
+      }
       keptTotal += group.kept.length
       soldTotal += group.sold.length
       const projectedGroup = group.kept.length + group.sold.length
@@ -1254,12 +1637,11 @@ export function computeKeepUniqueProtection(params: KeepUniqueDetectionParams): 
       if (group.kept.length < requiredPerGroup) {
         // Only sold artifacts need injected keep rules; already-kept artifacts are safe.
         atRisk.push(...group.sold)
-        const sampleArtifact = group.sample?.artifact ?? null
         placeholders.push({
           combination: buildPlaceholderCombinationForGroup({
             base: combination,
             mode: countMode,
-            sample: sampleArtifact,
+            sample: entry.sample,
           }),
           missing: deficitGroup,
           reason: 'group',
