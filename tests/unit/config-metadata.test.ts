@@ -12,6 +12,7 @@ import { KEEP_UNIQUE_CONFIG_ID_BASE } from '../../src/lib/constants.js'
 import {
   KeepUniqueRuleActivation,
   KeepUniqueSubstatMode,
+  KeepUniqueSubstatRequirement,
   type KeepUniqueRule,
   type KeepUniqueDetectionSnapshot,
 } from '../../src/lib/keepUniques.js'
@@ -152,7 +153,8 @@ test('keep-unique exports include sentinel ConfigID/ConfigName', () => {
     },
     // Keep the sample rule unfiltered by substats to mirror classic behavior.
     substats: [],
-    substatMode: KeepUniqueSubstatMode.Unranked,
+    substatRequirement: KeepUniqueSubstatRequirement.Any,
+    substatMode: KeepUniqueSubstatMode.Ranked,
     substatWeights: {},
   }
   const detection: KeepUniqueDetectionSnapshot = {

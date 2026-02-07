@@ -102,11 +102,10 @@ Crie, reveja e exporte regras de venda para o RSL Helper com uma interface simpl
 - Clique em «Logic Hub» no cabeçalho da prévia e mude para a aba `Manter únicos` para marcar as combinações que não quer vender nunca. Ative `Manter únicos` para deixar o scanner adicionar linhas de manter (editar uma regra também ativa automaticamente).
 - Cada regra de Manter únicos permite escolher slot, sets ou meta-sets, ranks, raridades, atributos principais e, no caso dos acessórios, facções. Deixar um seletor vazio significa «qualquer».
 - `Modo` decide como a regra é emitida: `Desativada` desliga, `Proteger existentes` injeta linhas de manter para itens que seriam vendidos até cumprir a quota, e `Antecipar lacunas` também emite regras fictícias para combinações que ainda faltam para proteger novos drops até a próxima atualização da BD.
-- Substats são opcionais: escolha um ou mais para contar somente itens que tenham pelo menos um desses substats (múltiplos = «qualquer um deles»). Deixar vazio permite qualquer substat.
-- `Modo de substats` controla como esses substats são usados: `Sem ranking` trata todas as correspondências de forma igual e mantém um subconjunto determinístico até a quota por grupo de escopo, enquanto `Classificado` pontua com a fórmula normalizada de substats (glifos ignorados) e mantém só os melhores rolls por grupo de escopo. Empates no corte continuam protegidos.
-- Use `Pesos` (apenas em `Classificado`) para indicar o que importa mais — pesos maiores fazem esse substat contar mais no ranking.
+- Substats são opcionais: escolha um ou mais para contar somente itens que tenham esses substats. O chip de correspondência (`Qualquer Substat` / `Todas as Substats` / `Por Substat`) decide se basta um, se precisam estar todos ou se cada substat tem sua própria quota. Deixar vazio permite qualquer substat.
+- As substats selecionadas sempre são ranqueadas pela fórmula normalizada (glifos ignorados); os pesos só aparecem com `Todas as Substats` para priorizar (empates no corte continuam protegidos).
 - `≥ Quantidade necessária` é a promessa que você quer manter. Os chips de escopo logo abaixo de cada seletor (todos exceto `Rank` e `Raridade`) decidem como essa quota se divide: `Por slot`, `Por conjunto`, `Por facção` e `Por atributo principal` podem ser combinados livremente. Desligar todos volta automaticamente para `Por regra`.
-- O contador `Existem {have} / Manter {keep}` mostra: **Existem** = itens correspondentes (em `Classificado`, conta só os melhores rolls + empates), **Manter** = a quota após os escopos. O chip fica vermelho quando a quota não é atingida.
+- O contador `Existem {have} / Manter {keep}` mostra: **Existem** = itens correspondentes (com substats selecionadas, conta só os melhores rolls + empates), **Manter** = a quota após os escopos. O chip fica vermelho quando a quota não é atingida.
 - O scanner só adiciona linhas de manter para itens correspondentes que seriam vendidos, e só quando a quota não é atendida. Em `Antecipar lacunas`, regras fictícias cobrem as combinações que faltam.
 
 #### Escopos de quota em resumo
@@ -129,8 +128,8 @@ Empilhar chips de escopo decide quem recebe uma quota própria. Deixe «Por regr
 | Anéis HP% por facção | Slot = Anel, Atributo principal = HP%, Sets vazios | `2` | `Por facção` | Duas cópias HP% sobrevivem para cada facção. |
 | Acessórios básicos por facção | Três regras (Anel/Amuleto/Estandarte), Sets/Atributo principal vazios | `5` | `Por facção` | Cinco anéis, amuletos e estandartes por facção permanecem no inventário. |
 | Acessórios Stoneskin + Protection | Slot = Anel/Amuleto/Estandarte, Sets = Stoneskin + Protection, Atributo principal vazio | `2` | `Por conjunto` + `Por facção` + `Por slot` | Cada facção guarda dois Stoneskin e dois Protection para cada slot de acessório. |
-| Acessórios com SPD mais alto | Slot = Anel/Amuleto/Estandarte, Substats = SPD, Modo de substats = Classificado | `5` | `Por regra` | Mantém os cinco melhores rolls de SPD entre os acessórios (empates incluídos). |
-| Estandartes de ACC com SPD | Slot = Estandarte, Atributo principal = ACC, Substats = SPD + ACC, Modo de substats = Classificado, Pesos: SPD maior | `3` | `Por facção` | Cada facção guarda os melhores estandartes de ACC onde SPD pesa mais. |
+| Acessórios com SPD mais alto | Slot = Anel/Amuleto/Estandarte, Substats = SPD | `5` | `Por regra` | Mantém os cinco melhores rolls de SPD entre os acessórios (empates incluídos). |
+| Estandartes de ACC com SPD | Slot = Estandarte, Atributo principal = ACC, Substats = SPD + ACC, Pesos: SPD maior | `3` | `Por facção` | Cada facção guarda os melhores estandartes de ACC onde SPD pesa mais. |
 
 Dica: importe a sua `.db` ou cole itens no diálogo Equipamento antes de abrir Manter únicos para que o scanner veja equipamentos reais. Clique numa carta de regra para realçar o equipamento correspondente; mude `Filtro` para `Seleção` para ver apenas essas correspondências.
 

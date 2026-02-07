@@ -6,7 +6,8 @@
  */
 // keepUniquesDescriptors keeps keep-unique history data-only until render.
 import type { HistoryEntryDescriptor, ResolvedHistoryEntryDescriptor } from './historyDescriptorTypes'
-import type { KeepUniqueRule, KeepUniqueRuleActivation, KeepUniqueRuleCountMode, KeepUniqueSubstatMode } from '../lib/keepUniques'
+import type { KeepUniqueRule, KeepUniqueRuleActivation, KeepUniqueRuleCountMode } from '../lib/keepUniques'
+import { KeepUniqueSubstatRequirement, normalizeKeepUniqueSubstatRequirement } from '../lib/keepUniques'
 import type { Metaset } from '../lib/metasets'
 import { compareArtifactSets, compareArtifactTypes, compareVariants, factionI18nKey, statVariantI18nKey, StatVariant, STAT_VARIANTS_PRIORITY } from '../lib/types'
 import type { TranslateFn } from './builderUpdateDescriptor'
@@ -22,6 +23,14 @@ type RuleChangeSummary = {
   added: KeepUniqueRule[]
   removed: KeepUniqueRule[]
   updated: Array<{ previous: KeepUniqueRule; next: KeepUniqueRule }>
+}
+
+// isKeepUniquesRuleOrderChanged flags pure reorders so history can record them.
+export const isKeepUniquesRuleOrderChanged = (previous: KeepUniqueRule[], next: KeepUniqueRule[]): boolean => {
+  // Reorders only matter when the list lengths match.
+  if (previous.length !== next.length) return false
+  // Any ID mismatch at the same index means the order changed.
+  return previous.some((rule, index) => rule.id !== next[index]?.id)
 }
 
 // createKeepUniquesEnabledChangeDescriptor snapshots the toggle history entry.
@@ -50,7 +59,9 @@ export const createKeepUniquesRulesChangeDescriptor = (params: {
   const { previous, next, metasets, mode = 'edit' } = params
   const summary = diffKeepUniqueRules(previous, next)
   const totalChanges = summary.added.length + summary.removed.length + summary.updated.length
-  if (totalChanges === 0) return null
+  // Reorders should still be recorded even when the rules themselves are unchanged.
+  const orderChanged = isKeepUniquesRuleOrderChanged(previous, next)
+  if (totalChanges === 0 && !orderChanged) return null
   return {
     kind: 'keepUniquesRulesChange',
     previous: snapshotKeepUniqueRules(previous),
@@ -91,7 +102,14 @@ export function describeKeepUniquesRulesChange(params: {
   const summary = diffKeepUniqueRules(previous, next)
   // Count the total change footprint to steer the descriptor shape.
   const totalChanges = summary.added.length + summary.removed.length + summary.updated.length
-  if (totalChanges === 0) return null
+  // Track reorders separately so move actions get their own history entries.
+  const orderChanged = isKeepUniquesRuleOrderChanged(previous, next)
+  if (totalChanges === 0) {
+    if (!orderChanged) return null
+    const title = t('historyKeepUniquesRulesReorderedTitle')
+    const detailLines = summarizeRuleOrder(next, t)
+    return detailLines.length > 0 ? { title, detailLines } : { title }
+  }
 
   if (mode === 'reset') {
     // Reset has a dedicated title so history stays explicit.
@@ -181,15 +199,19 @@ function buildKeepUniqueRuleSignature(rule: KeepUniqueRule): string {
   const factions = normalizeNumberArray(combo.factions).slice().sort((a, b) => a - b)
   // Normalize substats so ranking toggles are tracked separately.
   const substats = sortSubstatsForHistory(rule.substats ?? [])
+  const normalizedSubstatRequirement = normalizeKeepUniqueSubstatRequirement(rule.substatRequirement)
   // Normalize weights so edits show up even if arrays re-order.
-  const weightEntries = Object.entries(rule.substatWeights ?? {})
-    .map(([key, raw]) => {
-      const variant = Number(key)
-      const normalized = normalizeTesterSortWeight(Number(raw))
-      return Number.isFinite(variant) ? `${variant}:${normalized.toFixed(2)}` : null
-    })
-    .filter((entry): entry is string => Boolean(entry && !entry.endsWith(`${TESTER_SORT_WEIGHT_DEFAULT.toFixed(2)}`)))
-    .sort()
+  // Weights only affect the rule when "All Substats" is active.
+  const weightEntries = normalizedSubstatRequirement === KeepUniqueSubstatRequirement.All && substats.length > 0
+    ? Object.entries(rule.substatWeights ?? {})
+      .map(([key, raw]) => {
+        const variant = Number(key)
+        const normalized = normalizeTesterSortWeight(Number(raw))
+        return Number.isFinite(variant) ? `${variant}:${normalized.toFixed(2)}` : null
+      })
+      .filter((entry): entry is string => Boolean(entry && !entry.endsWith(`${TESTER_SORT_WEIGHT_DEFAULT.toFixed(2)}`)))
+      .sort()
+    : []
   // Serialize the normalized rule signature for comparison.
   return JSON.stringify({
     id: rule.id,
@@ -205,6 +227,7 @@ function buildKeepUniqueRuleSignature(rule: KeepUniqueRule): string {
     mains,
     factions,
     substats,
+    substatRequirement: normalizedSubstatRequirement,
     substatMode: rule.substatMode,
     substatWeights: weightEntries,
   })
@@ -240,6 +263,17 @@ function summarizeRuleNames(summary: RuleChangeSummary, t: TranslateFn): string[
   return [...names.slice(0, MAX_LINES), t('historyConfigsMoreLine', { count: names.length - MAX_LINES })]
 }
 
+function summarizeRuleOrder(next: KeepUniqueRule[], t: TranslateFn): string[] {
+  // Use the new order so the history tooltip communicates the latest ordering.
+  const names = next.map((rule) => formatRuleName(rule, t)).filter((name) => name.length > 0)
+  if (names.length === 0) return []
+  // Keep the reorder summary compact like other history tooltips.
+  const MAX_LINES = 4
+  if (names.length <= MAX_LINES) return names
+  // Append a "+N more" indicator when the list is long.
+  return [...names.slice(0, MAX_LINES), t('historyConfigsMoreLine', { count: names.length - MAX_LINES })]
+}
+
 function formatRuleName(rule: KeepUniqueRule, t: TranslateFn): string {
   // Keep rule names stable; fall back to the empty marker when unnamed.
   const raw = (rule.name ?? '').trim()
@@ -271,8 +305,14 @@ const sortSubstatsForHistory = (values: readonly number[] | null | undefined): S
   })
 }
 
-const formatSubstatMode = (mode: KeepUniqueSubstatMode | null | undefined, t: TranslateFn): string => {
-  return mode === 'ranked' ? t('keepUniquesSubstatModeRanked') : t('keepUniquesSubstatModeUnranked')
+const formatSubstatRequirement = (
+  requirement: KeepUniqueSubstatRequirement | null | undefined,
+  t: TranslateFn,
+): string => {
+  const normalized = normalizeKeepUniqueSubstatRequirement(requirement)
+  if (normalized === 'all') return t('keepUniquesSubstatRequirementAll')
+  if (normalized === 'perSubstat') return t('keepUniquesSubstatRequirementPer')
+  return t('keepUniquesSubstatRequirementAny')
 }
 
 const formatSubstatList = (rule: KeepUniqueRule, t: TranslateFn): string => {
@@ -282,6 +322,9 @@ const formatSubstatList = (rule: KeepUniqueRule, t: TranslateFn): string => {
 }
 
 const formatSubstatWeights = (rule: KeepUniqueRule, t: TranslateFn): string => {
+  const normalizedRequirement = normalizeKeepUniqueSubstatRequirement(rule.substatRequirement)
+  // Weights only surface when the requirement is "all substats".
+  if (normalizedRequirement !== KeepUniqueSubstatRequirement.All) return ''
   const weights = rule.substatWeights ?? {}
   const entries: Array<{ variant: StatVariant; weight: number }> = []
   for (const [key, raw] of Object.entries(weights)) {
@@ -325,7 +368,7 @@ function buildKeepUniqueRuleSnapshotLines(rule: KeepUniqueRule, metasets: Metase
   // Substat filters behave like optional scope rules; keep the summary explicit.
   detailLines.push(`${t('keepUniquesSubstatLabel')}: ${formatSubstatList(rule, t)}`)
   if ((rule.substats ?? []).length > 0) {
-    detailLines.push(`${t('keepUniquesSubstatModeLabel')}: ${formatSubstatMode(rule.substatMode, t)}`)
+    detailLines.push(`${t('keepUniquesSubstatRequirementLabel')}: ${formatSubstatRequirement(rule.substatRequirement, t)}`)
     const weightSummary = formatSubstatWeights(rule, t)
     if (weightSummary) {
       detailLines.push(`${t('keepUniquesSubstatWeightsLabel')}: ${weightSummary}`)
@@ -387,9 +430,9 @@ function buildKeepUniqueRuleDiffLines(
     pushDiffLine(
       detailLines,
       t,
-      t('keepUniquesSubstatModeLabel'),
-      formatSubstatMode(previous.substatMode, t),
-      formatSubstatMode(next.substatMode, t),
+      t('keepUniquesSubstatRequirementLabel'),
+      formatSubstatRequirement(previous.substatRequirement, t),
+      formatSubstatRequirement(next.substatRequirement, t),
     )
     const prevWeights = formatSubstatWeights(previous, t)
     const nextWeights = formatSubstatWeights(next, t)

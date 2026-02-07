@@ -104,11 +104,10 @@ Build, preview, and export sell rules for RSL Helper with a simple UI.
 - Click `Logic Hub` in the preview header and switch to the `Keep Uniques` tab to mark the gear combinations you never want to lose. Turn on `Enable Keep Uniques` to let the scanner add keep rows (edits will also enable it automatically).
 - Each keep rule lets you pick the slot, sets or metasets, ranks, rarities, main stats, and (for accessories) factions you care about. Leaving a picker empty means “any”.
 - `Mode` decides how the rule is emitted: `Off` disables it, `Protect existing` injects keep rows for sold matches until the quota is met, and `Anticipate gaps` also emits placeholder keep rules for missing combinations so new drops stay protected until the DB refreshes.
-- Substats are optional: pick one or more to only count items that actually have those substats (multiple picks are treated as “any of these”). Leave it empty to allow any substat.
-- `Substat mode` controls how those picks are used: `Unranked` treats all matches equally and keeps a deterministic subset up to the quota per scope group, while `Ranked` scores with the normalized substat formula (glyphs ignored) and keeps only the best rolls per scope group (ties at the cutoff stay protected).
-- Use `Weights` (Ranked only) to say which substats matter most — higher weights make that stat count more in the ranking.
+- Substats are optional: pick one or more to only count items that actually have those substats. The match chip (`Any Substat` / `All Substats` / `Per Substat`) decides whether at least one, all, or each selected substat gets its own quota. Leave it empty to allow any substat.
+- Selected substats are always ranked by the normalized substat formula (glyphs ignored); weight controls appear when `All Substats` is active to prioritize which stats count most (ties at the cutoff stay protected).
 - `≥ Required Count` is the promise you want the app to keep. Scope chips directly under each picker (everything except `Rank` and `Rarity`) decide how that quota is split: `Per slot`, `Per set`, `Per faction`, and `Per main stat` can be combined freely. Turning every chip off automatically falls back to the shared `Per rule` pool.
-- The `Have {have} / Keep {keep}` counter shows: **Have** = matching items (Ranked counts only top rolls + ties), **Keep** = the quota after scopes. The chip turns red when the quota is unmet.
+- The `Have {have} / Keep {keep}` counter shows: **Have** = matching items (with substats selected, only top rolls + ties count), **Keep** = the quota after scopes. The chip turns red when the quota is unmet.
 - The scanner only adds keep rows for matching items that would otherwise be sold, and only when the quota is not met. In `Anticipate gaps`, placeholder keep rules cover missing combinations.
 
 #### Quota scopes at a glance
@@ -131,8 +130,8 @@ Stacking the scope chips changes who gets their own quota. Leave `Per rule` on t
 | HP% rings per faction | Slot = Ring, Main Stat = HP%, Sets blank | `2` | `Per faction` | Two HP% rings per faction stay in inventory. |
 | Core accessories per faction | Three rules (Ring, Amulet, Banner), Sets/Main blank | `5` | `Per faction` | Five Rings, Amulets, and Banners survive per faction. |
 | Stoneskin + Protection accessories | Slot = Ring/Amulet/Banner, Sets = Stoneskin + Protection, Main blank | `2` | `Per set` + `Per faction` + `Per slot` | Each faction holds two Stoneskin and two Protection drops for each accessory slot. |
-| Fastest SPD accessories | Slot = Ring/Amulet/Banner, Substats = SPD, Substat mode = Ranked | `5` | `Per rule` | Keeps the top five SPD substat rolls across your accessories (ties included). |
-| ACC banners that still roll SPD | Slot = Banner, Main Stat = ACC, Substats = SPD + ACC, Substat mode = Ranked, Weights favor SPD | `3` | `Per faction` | Each faction keeps the best ACC banners where SPD rolls matter most. |
+| Fastest SPD accessories | Slot = Ring/Amulet/Banner, Substats = SPD | `5` | `Per rule` | Keeps the top five SPD substat rolls across your accessories (ties included). |
+| ACC banners that still roll SPD | Slot = Banner, Main Stat = ACC, Substats = SPD + ACC, Weights favor SPD | `3` | `Per faction` | Each faction keeps the best ACC banners where SPD rolls matter most. |
 
 Tip: Import your `.db` or paste gear into the Gear dialog before opening Keep Uniques so the scanner sees real items. Click a rule card to highlight matching gear; switch `Filter` to `Selection` to view only those matches.
 

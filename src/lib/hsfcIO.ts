@@ -47,6 +47,8 @@ import {
 } from './logicHub'
 import {
   KeepUniqueSubstatMode,
+  KeepUniqueSubstatRequirement,
+  normalizeKeepUniqueSubstatRequirement,
   normalizeKeepUniqueRule,
   sanitizeKeepUniqueCountMode,
   type KeepUniqueRule,
@@ -1122,9 +1124,15 @@ export function buildHsfcPayload(args: {
         .filter((label) => Boolean(label && label.trim()))
       // Ranking only matters when a substat selection exists.
       const hasSubstatSelection = substatLabels.length > 0
+      const normalizedSubstatRequirement = normalizeKeepUniqueSubstatRequirement(rule.substatRequirement)
+      const shouldSerializeRequirement = hasSubstatSelection
+        && normalizedSubstatRequirement !== KeepUniqueSubstatRequirement.Any
+      // Weight controls are only honored for the "all substats" requirement.
+      const allowSubstatWeights = hasSubstatSelection
+        && normalizedSubstatRequirement === KeepUniqueSubstatRequirement.All
       // Serialize weights by readable label, but only for selected substats.
       const substatWeights: Record<string, number> = {}
-      if (hasSubstatSelection) {
+      if (allowSubstatWeights) {
         const selectedSet = new Set(substatVariants.map((variant) => Number(variant)))
         const rawWeights = rule.substatWeights ?? {}
         for (const [rawKey, rawWeight] of Object.entries(rawWeights)) {
@@ -1151,6 +1159,7 @@ export function buildHsfcPayload(args: {
         },
         tuple: buildReadableKeepOverrideTuple(rule.combination),
         ...(hasSubstatSelection ? { substats: substatLabels } : {}),
+        ...(shouldSerializeRequirement ? { substatRequirement: normalizedSubstatRequirement } : {}),
         ...(hasSubstatSelection && rule.substatMode === KeepUniqueSubstatMode.Ranked
           ? { substatMode: KeepUniqueSubstatMode.Ranked }
           : {}),

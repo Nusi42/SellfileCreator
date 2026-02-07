@@ -90,11 +90,10 @@ Crea, visualizza in anteprima ed esporta regole di vendita per RSL Helper tramit
 - Clicca `Logic Hub` nell’intestazione dell’anteprima e passa alla scheda `Mantieni unici` per segnare le combinazioni che non vuoi vendere mai. Attiva `Mantieni unici` per permettere allo scanner di aggiungere righe di mantenimento (le modifiche lo attivano automaticamente).
 - Ogni regola ti permette di scegliere slot, set o Metaset, ranghi, rarità, statistiche principali e (per gli accessori) fazioni. Lasciare un selettore vuoto significa «qualsiasi».
 - La `Modalità` decide come viene emessa la regola: `Disattiva` la spegne, `Proteggi esistenti` aggiunge righe di mantenimento per le corrispondenze che verrebbero vendute finché la quota non è raggiunta, e `Anticipa lacune` aggiunge regole segnaposto per le combinazioni mancanti così i nuovi drop restano protetti finché il DB non viene aggiornato.
-- I substat sono opzionali: scegli uno o più per contare solo gli oggetti che hanno almeno uno di quei substat (più scelte = «uno qualsiasi»). Lasciare vuoto significa: nessun filtro substat.
-- Il `Modo substat` decide la logica: `Non classificato` tratta tutte le corrispondenze allo stesso modo e mantiene un sottoinsieme deterministico fino alla quota per gruppo di ambito, mentre `Classificato` usa il punteggio normalizzato (glifi ignorati) e mantiene solo i migliori roll per gruppo di ambito. I pareggi al limite restano protetti.
-- Usa `Pesi` (solo in `Classificato`) per dire quali substat contano di più: pesi più alti rendono quel valore più importante nel ranking.
+- I substat sono opzionali: scegli uno o più per contare solo gli oggetti che hanno quei substat. La chip di corrispondenza (`Qualsiasi Substat` / `Tutte le Substat` / `Per Substat`) decide se basta uno, se devono esserci tutti o se ogni substat ha la propria quota. Lasciare vuoto significa: nessun filtro substat.
+- I substat selezionati sono sempre classificati con il punteggio normalizzato (glifi ignorati); i pesi compaiono solo con `Tutte le Substat` per dare priorità (i pareggi al limite restano protetti).
 - `≥ Quantità richiesta` vive accanto alle chip di ambito: «Per regola» mantiene una quota unica; combina liberamente `Per slot`, `Per set`, `Per fazione` e `Per statistica principale` per moltiplicare la quota per ogni combinazione rilevante (se li disattivi tutti si torna automaticamente a «Per regola»).
-- Il contatore `Presenti {have} / Conservare {keep}` mostra: **Presenti** = oggetti corrispondenti (in `Classificato` solo i migliori + pareggi), **Conservare** = quota dopo gli ambiti. Il chip diventa rosso quando la quota non è raggiunta.
+- Il contatore `Presenti {have} / Conservare {keep}` mostra: **Presenti** = oggetti corrispondenti (con substat selezionati, solo i migliori + pareggi), **Conservare** = quota dopo gli ambiti. Il chip diventa rosso quando la quota non è raggiunta.
 - Usa il selettore `Filtro: Tutti / Selezione` sopra la griglia per passare da tutta la tua attrezzatura unica solo agli oggetti che corrispondono alla regola evidenziata; Selezione si comporta come Tutti finché nessuna regola è selezionata.
 - Lo scanner aggiunge righe di mantenimento solo per gli oggetti che verrebbero venduti e solo quando la quota non è soddisfatta. In `Anticipa lacune`, aggiunge anche regole segnaposto per combinazioni mancanti.
 
@@ -118,8 +117,8 @@ Crea, visualizza in anteprima ed esporta regole di vendita per RSL Helper tramit
 | Anelli HP% per fazione | Slot = Anello, Stat principale = HP%, Set vuoti | `2` | `Per fazione` | Assicura due anelli HP% per ogni fazione. |
 | Accessori base per fazione | Tre regole (Anello, Amuleto, Vessillo), Set e Stat principale vuoti | `5` | `Per fazione` | Ogni fazione mantiene cinque anelli, amuleti e vessilli. |
 | Stoneskin + Protection per fazione | Slot = Anello/Amuleto/Vessillo, Set = Stoneskin + Protection, Stat principale vuota | `2` | `Per set` + `Per fazione` + `Per slot` | Ogni fazione tiene due drop Stoneskin e due Protection per ogni slot accessorio. |
-| Accessori SPD più veloci | Slot = Anello/Amuleto/Vessillo, Substat = SPD, Modo substat = Classificato | `5` | `Per regola` | Conserva i cinque migliori roll SPD sugli accessori (inclusi i pareggi). |
-| Vessilli ACC con SPD | Slot = Vessillo, Stat principale = ACC, Substat = SPD + ACC, Modo substat = Classificato, Pesi: SPD più alto | `3` | `Per fazione` | Ogni fazione tiene i migliori vessilli ACC dove SPD conta di più. |
+| Accessori SPD più veloci | Slot = Anello/Amuleto/Vessillo, Substat = SPD | `5` | `Per regola` | Conserva i cinque migliori roll SPD sugli accessori (inclusi i pareggi). |
+| Vessilli ACC con SPD | Slot = Vessillo, Stat principale = ACC, Substat = SPD + ACC, Pesi: SPD più alto | `3` | `Per fazione` | Ogni fazione tiene i migliori vessilli ACC dove SPD conta di più. |
 
 Suggerimento: importa il tuo `.db` o incolla equipaggiamento nel dialogo Equipaggiamento prima di aprire la scheda Mantieni unici, così lo scanner analizza oggetti reali. Clicca una scheda regola per evidenziare le corrispondenze; imposta `Filtro` su `Selezione` per vedere solo quelle.
 

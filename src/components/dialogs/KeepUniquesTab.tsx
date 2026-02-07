@@ -22,8 +22,6 @@ import {
   FormControlLabel,
   IconButton,
   InputAdornment,
-  Menu,
-  MenuItem,
   Stack,
   Switch,
   ToggleButton,
@@ -46,11 +44,13 @@ import {
   KEEP_UNIQUE_DEFAULT_COUNT_MODE,
   KeepUniqueRuleActivation,
   KeepUniqueSubstatMode,
+  KeepUniqueSubstatRequirement,
   cloneKeepUniqueCombination,
   cloneKeepUniqueRule,
   createEmptyKeepUniqueCombination,
   createKeepUniqueRuleId,
   getKeepUniqueItemKey,
+  normalizeKeepUniqueSubstatRequirement,
   normalizeKeepUniqueRule,
   sanitizeKeepUniqueCountMode,
   type KeepUniqueDetectionEntry,
@@ -64,7 +64,6 @@ import {
   BUILDER_AUTO_APPLY_DEBOUNCE_MS,
   ELLIPSIS_TEXT_SX,
   MENU_CONTROL_HEIGHT_PX,
-  MENU_CONTROL_MIN_WIDTH_PX,
   STANDARD_DIALOG_PADDING_BLOCK_UNITS,
   STANDARD_DIALOG_PADDING_INLINE_UNITS,
 } from '../../lib/constants'
@@ -86,8 +85,6 @@ import WorkloadProgressIndicator from '../WorkloadProgressIndicator'
 // MarkdownTooltip keeps the rule-count hints and info icons synchronized with the broader tooltip refactor.
 import MarkdownTooltip from '../MarkdownTooltip'
 import EllipsisTooltip from '../EllipsisTooltip'
-import ContextMenuPaper, { buildContextMenuPaperSlotProps } from '../ContextMenuPaper'
-import ContextMenuTitle from '../ContextMenuTitle'
 import { ConfigContextMenu } from '../ConfigContextMenu'
 import PasteDialog from '../PasteDialog'
 import type { SetStateAction } from 'react'
@@ -127,6 +124,7 @@ import {
 import { normalizeTesterSortWeight, TESTER_SORT_WEIGHT_DEFAULT, TESTER_SORT_WEIGHT_STEP } from '../../lib/testerSort'
 import { TesterSortWeightControls } from '../TesterSortWeightControls'
 import { useContextMenuPaperGuard } from '../../hooks/useContextMenuPaperGuard'
+import { createBuilderStatusChipSx } from '../builderStatusChipStyles'
 
 // Keep-unique headers should stay a consistent height even when names wrap to two lines.
 const KEEP_UNIQUES_RULE_HEADER_MIN_HEIGHT_PX = 56
@@ -215,15 +213,18 @@ const constrainKeepUniqueSubstats = (
   })
   // Drop substats that are no longer possible for the slot/main combination.
   const filtered = sortKeepUniquesSubstats((rule.substats ?? []).filter((variant) => allowed.includes(variant)))
-  // Ranked mode only makes sense when at least one substat is selected.
-  const nextMode = filtered.length > 0 ? rule.substatMode : KeepUniqueSubstatMode.Unranked
+  // Requirement only applies when a substat selection exists.
+  const nextRequirement = filtered.length > 0 ? rule.substatRequirement : KeepUniqueSubstatRequirement.Any
+  // Substat ranking is always enabled once any substats are selected.
+  const nextMode = filtered.length > 0 ? KeepUniqueSubstatMode.Ranked : KeepUniqueSubstatMode.Unranked
   // Remove weight entries for substats that are no longer selected.
   const nextWeights = pruneKeepUniquesSubstatWeights(rule.substatWeights, filtered)
   // Skip rebuilding the rule if nothing changed.
   const substatsUnchanged = areArraysEqual(filtered, rule.substats ?? [])
+  const requirementUnchanged = nextRequirement === rule.substatRequirement
   const modeUnchanged = nextMode === rule.substatMode
   const weightsUnchanged = areWeightMapsEqual(nextWeights, rule.substatWeights)
-  if (substatsUnchanged && modeUnchanged && weightsUnchanged) {
+  if (substatsUnchanged && requirementUnchanged && modeUnchanged && weightsUnchanged) {
     return { ...rule, combination }
   }
   // Persist the constrained selection back onto the rule.
@@ -231,6 +232,7 @@ const constrainKeepUniqueSubstats = (
     ...rule,
     combination,
     substats: filtered,
+    substatRequirement: nextRequirement,
     substatMode: nextMode,
     substatWeights: nextWeights,
   }
@@ -286,6 +288,8 @@ export default function KeepUniquesTab({
   const { t } = useI18n()
   const { resolveAllowedSetPool, sanitizeCombinationForSlots } = useKeepOverrideCombinationTools(metasets)
   const theme = useTheme()
+  // Keep builder-status chip styling centralized so requirement chips match scope toggles.
+  const builderStatusChipSx = useMemo(() => createBuilderStatusChipSx(theme), [theme])
   // Grid layout uses the same spacing units as the tester grid.
   const gridGapPx = useMemo(() => parseSpacingPx(theme.spacing(TESTER_GRID_COLUMN_GAP_UNITS)), [theme])
   // Row padding is applied on both sides of the card row container.
@@ -301,8 +305,29 @@ export default function KeepUniquesTab({
   const ruleModeScopeTooltip = useMemo(() => (
     `${t('keepUniquesRuleModeHint')}
 
-${t('keepUniquesCountModeHint')}`
+${t('keepUniquesCountModeHint')}
+
+${t('keepUniquesSubstatModeHint')}`
   ), [t])
+  // Map requirement values to localized chip labels.
+  const substatRequirementLabels = useMemo(() => ({
+    [KeepUniqueSubstatRequirement.Any]: t('keepUniquesSubstatRequirementAny'),
+    [KeepUniqueSubstatRequirement.All]: t('keepUniquesSubstatRequirementAll'),
+    [KeepUniqueSubstatRequirement.PerSubstat]: t('keepUniquesSubstatRequirementPer'),
+  }), [t])
+  // Requirement options keep the chip row ordering stable.
+  const substatRequirementOptions = useMemo(() => ([
+    KeepUniqueSubstatRequirement.Any,
+    KeepUniqueSubstatRequirement.All,
+    KeepUniqueSubstatRequirement.PerSubstat,
+  ]), [])
+  // Scope chip tooltips clarify how each toggle splits the quota.
+  const keepUniqueScopeChipTooltips = useMemo(() => ({
+    perSlot: t('keepUniquesCountModePerSlotHint'),
+    perSet: t('keepUniquesCountModePerSetHint'),
+    perFaction: t('keepUniquesCountModePerFactionHint'),
+    perMainStat: t('keepUniquesCountModePerMainHint'),
+  }), [t])
   // Warn when Keep Uniques runs without Final Sell covering 0–16 so users revisit the baseline sweep.
   const keepUniquesFinalSellWarning = enabled && finalSellCoverageWarningActive
   const [selectedRuleId, setSelectedRuleId] = useState<string | null>(() => rules[0]?.id ?? null)
@@ -355,42 +380,6 @@ ${t('keepUniquesCountModeHint')}`
     // Flip between the only two supported modes.
     setGridColumnMode((prev) => (prev === 2 ? 1 : 2))
   }, [setGridColumnMode])
-  // Track the open weights popout so ranked-mode editing stays anchored to the active rule.
-  const [substatWeightsMenu, setSubstatWeightsMenu] = useState<{
-    ruleId: string
-    anchorEl: HTMLElement
-  } | null>(null)
-  // Keep a stable close callback for the menu and its outside-click guard.
-  const closeSubstatWeightsMenu = useCallback(() => {
-    setSubstatWeightsMenu(null)
-  }, [])
-  // Resolve the active rule so the weights popout can read live values.
-  const activeSubstatWeightsRule = useMemo(() => {
-    if (!substatWeightsMenu) return null
-    const rule = rules.find((candidate) => candidate.id === substatWeightsMenu.ruleId) ?? null
-    if (!rule) return null
-    const hasSubstats = (rule.substats ?? []).length > 0
-    if (!hasSubstats || rule.substatMode !== KeepUniqueSubstatMode.Ranked) return null
-    return rule
-  }, [rules, substatWeightsMenu])
-  // Only keep the menu open when the active rule still supports ranked weights.
-  const activeSubstatWeightsMenu = activeSubstatWeightsRule ? substatWeightsMenu : null
-  const isSubstatWeightsMenuOpen = Boolean(activeSubstatWeightsMenu)
-  // Menu guard keeps right-clicks outside the popout closing it consistently.
-  const substatWeightsMenuRef = useRef<HTMLDivElement | null>(null)
-  const { contextMenuGuard: substatWeightsMenuGuard } = useContextMenuPaperGuard({
-    open: isSubstatWeightsMenuOpen,
-    onClose: closeSubstatWeightsMenu,
-    menuRef: substatWeightsMenuRef,
-  })
-  // Order selected substats so weight rows mirror the stat priority list.
-  const activeSubstatWeightVariants = useMemo(() => {
-    const selected = activeSubstatWeightsRule?.substats ?? []
-    if (selected.length === 0) return [] as StatVariant[]
-    const set = new Set(selected.map((variant) => Number(variant)))
-    return STAT_VARIANTS_PRIORITY.filter((variant) => set.has(Number(variant)))
-  }, [activeSubstatWeightsRule])
-  // No effect needed: the menu simply renders closed when the rule no longer qualifies.
   const allRuleIds = useMemo(() => rules.map((rule) => rule.id), [rules])
   const rulesScrollRootRef = useRef<HTMLDivElement | null>(null)
   const scrollRafRef = useRef<number | null>(null)
@@ -532,6 +521,7 @@ ${t('keepUniquesCountModeHint')}`
       activation: KeepUniqueRuleActivation.ProtectExisting,
       countMode: { ...KEEP_UNIQUE_DEFAULT_COUNT_MODE },
       substats: [],
+      substatRequirement: KeepUniqueSubstatRequirement.Any,
       substatMode: KeepUniqueSubstatMode.Unranked,
       substatWeights: {},
     }
@@ -834,19 +824,22 @@ ${t('keepUniquesCountModeHint')}`
     // Translate faction labels so accessory filters report hidden entries precisely.
     const factionSelectionLabels = factionSelection.map((faction) => t(factionI18nKey(Number(faction))))
     // Substat selection is optional; leave empty to keep classic keep-unique behavior.
-  const allowedSubstatOptions = resolveAllowedSubstatsForSlotsAndMains({
-    slots: slotSelection,
-    mainStats: mainStatSelection,
-  })
-  const substatSelection = sortKeepUniquesSubstats((rule.substats ?? []).filter((variant) => (
-    allowedSubstatOptions.includes(variant)
-  )))
+    const allowedSubstatOptions = resolveAllowedSubstatsForSlotsAndMains({
+      slots: slotSelection,
+      mainStats: mainStatSelection,
+    })
+    const substatSelection = sortKeepUniquesSubstats((rule.substats ?? []).filter((variant) => (
+      allowedSubstatOptions.includes(variant)
+    )))
     // Translate substat labels so badge math stays consistent with the visible text.
     const substatSelectionLabels = substatSelection.map((variant) => t(statVariantI18nKey(variant)))
     const hasSubstatSelection = substatSelection.length > 0
-    // Only allow Ranked when at least one substat is selected.
-    const effectiveSubstatMode = hasSubstatSelection ? rule.substatMode : KeepUniqueSubstatMode.Unranked
-    const rankedModeActive = effectiveSubstatMode === KeepUniqueSubstatMode.Ranked
+    const effectiveSubstatRequirement = hasSubstatSelection
+      ? normalizeKeepUniqueSubstatRequirement(rule.substatRequirement)
+      : KeepUniqueSubstatRequirement.Any
+    // Weight controls only apply to the "all substats" requirement (others keep equal weighting).
+    const showSubstatWeights = hasSubstatSelection
+      && effectiveSubstatRequirement === KeepUniqueSubstatRequirement.All
     const selected = effectiveSelectedRuleId === rule.id
     const expanded = expandedRuleIds.has(rule.id)
     const selectRule = () => {
@@ -930,13 +923,17 @@ ${t('keepUniquesCountModeHint')}`
     }
     // Preconfigure the scope chips so each field can opt in easily.
     const renderScopeChip = (scope: KeepOverrideScopeKey, label: string, active: boolean) => (
-      <KeepOverrideScopeChip
-        scope={scope}
-        label={label}
-        active={active}
-        disabled={ruleDisabled}
-        onToggle={handleScopeChipToggle}
-      />
+      <MarkdownTooltip markdown={keepUniqueScopeChipTooltips[scope]}>
+        <span>
+          <KeepOverrideScopeChip
+            scope={scope}
+            label={label}
+            active={active}
+            disabled={ruleDisabled}
+            onToggle={handleScopeChipToggle}
+          />
+        </span>
+      </MarkdownTooltip>
     )
 
     const ruleCountsLabel = ruleDetection
@@ -1421,7 +1418,7 @@ ${t('keepUniquesCountModeHint')}`
                 </RuleSelectAffordances>
               </KeepOverrideScopeField>
             </Box>
-            {/* Substat filters and ranking controls live together so users understand the linkage. */}
+            {/* Substat filters and ranking weights live together so users understand the linkage. */}
             <Box sx={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)', gap: 1 }}>
               <KeepOverrideScopeField>
                 <Stack spacing={0.75}>
@@ -1437,6 +1434,7 @@ ${t('keepUniquesCountModeHint')}`
                       updateRule(rule.id, (prev) => ({
                         ...prev,
                         substats: [],
+                        substatRequirement: KeepUniqueSubstatRequirement.Any,
                         substatMode: KeepUniqueSubstatMode.Unranked,
                         substatWeights: {},
                       }))
@@ -1447,14 +1445,77 @@ ${t('keepUniquesCountModeHint')}`
                       anyLabel={t('anySubstat')}
                       value={substatSelection}
                       options={allowedSubstatOptions}
+                      normalizedMenu
+                      renderNormalizedMenuControl={({ variant, label, selected }) => {
+                        // Hide weight controls unless "All Substats" is active (keeps Any/Per Substat lightweight).
+                        if (!showSubstatWeights) return null
+                        // Only show weight controls for selected substats; unselected rows keep the ghost badge.
+                        if (!selected) return null
+                        // Normalize the stored weight so the control stays in the shared 0.05 step grid.
+                        const rawWeight = Number(rule.substatWeights?.[variant] ?? TESTER_SORT_WEIGHT_DEFAULT)
+                        const weight = normalizeTesterSortWeight(rawWeight)
+                        return (
+                          <Box
+                            // Stop menu row toggles when the user clicks the weight controls.
+                            onClick={(event) => event.stopPropagation()}
+                            onMouseDown={(event) => event.stopPropagation()}
+                            sx={{ display: 'inline-flex' }}
+                          >
+                            <TesterSortWeightControls
+                              label={label}
+                              enabled={!ruleDisabled}
+                              weight={weight}
+                              onBump={(deltaSteps) => {
+                                if (ruleDisabled) return
+                                updateRule(rule.id, (prev) => {
+                                  // Always normalize the weight so stored values stay consistent.
+                                  const rawWeights = prev.substatWeights ?? {}
+                                  const currentRaw = Number(rawWeights[variant] ?? TESTER_SORT_WEIGHT_DEFAULT)
+                                  const current = normalizeTesterSortWeight(currentRaw)
+                                  const nextValue = normalizeTesterSortWeight(current + (deltaSteps * TESTER_SORT_WEIGHT_STEP))
+                                  const nextWeights = { ...rawWeights }
+                                  if (nextValue === TESTER_SORT_WEIGHT_DEFAULT) {
+                                    delete nextWeights[variant]
+                                  } else {
+                                    nextWeights[variant] = nextValue
+                                  }
+                                  return { ...prev, substatWeights: nextWeights }
+                                })
+                              }}
+                              onReset={() => {
+                                if (ruleDisabled) return
+                                updateRule(rule.id, (prev) => {
+                                  // Drop the key entirely to keep the payload sparse.
+                                  const rawWeights = prev.substatWeights ?? {}
+                                  if (!rawWeights[variant]) return prev
+                                  const nextWeights = { ...rawWeights }
+                                  delete nextWeights[variant]
+                                  return { ...prev, substatWeights: nextWeights }
+                                })
+                              }}
+                            />
+                          </Box>
+                        )
+                      }}
                       onChange={(nextSubstats) => {
                         if (ruleDisabled) return
                         const filtered = nextSubstats.filter((variant) => allowedSubstatOptions.includes(variant))
                         const sorted = sortKeepUniquesSubstats(filtered)
                         updateRule(rule.id, (prev) => {
-                          const nextMode = sorted.length > 0 ? prev.substatMode : KeepUniqueSubstatMode.Unranked
+                          const nextMode = sorted.length > 0
+                            ? KeepUniqueSubstatMode.Ranked
+                            : KeepUniqueSubstatMode.Unranked
+                          const nextRequirement = sorted.length > 0
+                            ? prev.substatRequirement
+                            : KeepUniqueSubstatRequirement.Any
                           const nextWeights = pruneKeepUniquesSubstatWeights(prev.substatWeights, sorted)
-                          return { ...prev, substats: sorted, substatMode: nextMode, substatWeights: nextWeights }
+                          return {
+                            ...prev,
+                            substats: sorted,
+                            substatRequirement: nextRequirement,
+                            substatMode: nextMode,
+                            substatWeights: nextWeights,
+                          }
                         })
                       }}
                       colorOverrides={substatColors}
@@ -1463,96 +1524,35 @@ ${t('keepUniquesCountModeHint')}`
                       sx={getRuleSelectPaddingSx(substatSelection.length, KEEP_OVERRIDE_INLINE_SELECT_HEIGHT_PX)}
                     />
                   </RuleSelectAffordances>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                      <Typography variant="caption" color="text.secondary">
-                        {t('keepUniquesSubstatModeLabel')}
-                      </Typography>
-                      <MarkdownTooltip markdown={t('keepUniquesSubstatModeHint')}>
-                        <IconButton
-                          size="small"
-                          color="inherit"
-                          aria-label={t('keepUniquesSubstatModeHintLabel')}
-                          sx={{
-                            p: 0.25,
-                            fontSize: 16,
-                            '&:hover': { color: 'text.primary' },
-                            '&:focus-visible': { color: 'text.primary' },
-                          }}
-                        >
-                          <InfoOutlinedIcon fontSize="inherit" />
-                        </IconButton>
-                      </MarkdownTooltip>
-                    </Box>
-                    <ToggleButtonGroup
-                      size="small"
-                      exclusive
-                      value={effectiveSubstatMode}
-                      onChange={(_event, next) => {
-                        if (!next) return
-                        if (next === KeepUniqueSubstatMode.Ranked && !hasSubstatSelection) return
-                        updateRule(rule.id, (prev) => ({ ...prev, substatMode: next }))
-                      }}
-                      data-rule-card-interactive="true"
-                      sx={{ borderRadius: '8px', overflow: 'hidden' }}
-                    >
-                      <ToggleButton value={KeepUniqueSubstatMode.Unranked} sx={{ minWidth: 96 }}>
-                        <EllipsisTooltip title={t('keepUniquesSubstatModeUnranked')}>
-                          <Box
-                            component="span"
-                            data-ellipsis-target
-                            sx={{
-                              display: 'block',
-                              width: '100%',
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
-                              whiteSpace: 'nowrap',
-                            }}
-                          >
-                            {t('keepUniquesSubstatModeUnranked')}
-                          </Box>
-                        </EllipsisTooltip>
-                      </ToggleButton>
-                      <ToggleButton
-                        value={KeepUniqueSubstatMode.Ranked}
-                        disabled={!hasSubstatSelection}
-                        sx={{ minWidth: 96 }}
-                      >
-                        <EllipsisTooltip title={t('keepUniquesSubstatModeRanked')}>
-                          <Box
-                            component="span"
-                            data-ellipsis-target
-                            sx={{
-                              display: 'block',
-                              width: '100%',
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
-                              whiteSpace: 'nowrap',
-                            }}
-                          >
-                            {t('keepUniquesSubstatModeRanked')}
-                          </Box>
-                        </EllipsisTooltip>
-                      </ToggleButton>
-                    </ToggleButtonGroup>
-                    <MarkdownTooltip markdown={t('keepUniquesSubstatWeightsHelp')}>
-                      <span>
-                        <Button
-                          size="small"
-                          variant="outlined"
-                          onClick={(event) => {
-                            event.preventDefault()
-                            event.stopPropagation()
-                            if (ruleDisabled || !rankedModeActive || !hasSubstatSelection) return
-                            setSubstatWeightsMenu({ ruleId: rule.id, anchorEl: event.currentTarget })
-                          }}
-                          aria-label={t('keepUniquesSubstatWeightsLabel')}
-                          disabled={ruleDisabled || !rankedModeActive || !hasSubstatSelection}
-                          sx={{ minHeight: MENU_CONTROL_HEIGHT_PX }}
-                        >
-                          {t('keepUniquesSubstatWeightsLabel')}
-                        </Button>
-                      </span>
+                  <Box sx={{ mb: 0.5 }}>
+                    <MarkdownTooltip markdown={t('keepUniquesSubstatRequirementHint')}>
+                      <Box component="span" sx={{ display: 'inline-flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
+                        {substatRequirementOptions.map((option) => {
+                          const active = effectiveSubstatRequirement === option
+                          const label = substatRequirementLabels[option]
+                            ?? substatRequirementLabels[KeepUniqueSubstatRequirement.Any]
+                          return (
+                            <Chip
+                              key={option}
+                              size="small"
+                              variant="filled"
+                              label={label}
+                              aria-label={t('keepUniquesSubstatRequirementLabel')}
+                              data-rule-card-interactive="true"
+                              clickable
+                              disabled={ruleDisabled || !hasSubstatSelection}
+                              onClick={(event) => {
+                                event.preventDefault()
+                                event.stopPropagation()
+                                if (ruleDisabled || !hasSubstatSelection) return
+                                if (option === effectiveSubstatRequirement) return
+                                updateRule(rule.id, (prev) => ({ ...prev, substatRequirement: option }))
+                              }}
+                              sx={builderStatusChipSx(active, { dimDisabled: true })}
+                            />
+                          )
+                        })}
+                      </Box>
                     </MarkdownTooltip>
                   </Box>
                 </Stack>
@@ -1639,38 +1639,9 @@ ${t('keepUniquesCountModeHint')}`
 
   const deleteDialogOpen = pendingDeleteRuleId !== null
   const pasteDialogOpen = Boolean(pasteDialogTarget)
-  const substatWeightsMenuOpen = isSubstatWeightsMenuOpen
-  const substatWeightsMenuRule = activeSubstatWeightsRule
-  const substatWeightsMenuVariants = activeSubstatWeightVariants
   const pasteDialogConfirmLabel = pasteDialogTarget?.mode === 'after'
     ? t('chipMenuPasteAfter')
     : t('chipsMenuPasteAtEnd')
-  const bumpSubstatWeight = useCallback((variant: StatVariant, deltaSteps: number) => {
-    if (!substatWeightsMenuRule) return
-    updateRule(substatWeightsMenuRule.id, (prev) => {
-      const rawWeights = prev.substatWeights ?? {}
-      const currentRaw = Number(rawWeights[variant] ?? TESTER_SORT_WEIGHT_DEFAULT)
-      const current = normalizeTesterSortWeight(currentRaw)
-      const nextValue = normalizeTesterSortWeight(current + (deltaSteps * TESTER_SORT_WEIGHT_STEP))
-      const nextWeights = { ...rawWeights }
-      if (nextValue === TESTER_SORT_WEIGHT_DEFAULT) {
-        delete nextWeights[variant]
-      } else {
-        nextWeights[variant] = nextValue
-      }
-      return { ...prev, substatWeights: nextWeights }
-    })
-  }, [substatWeightsMenuRule, updateRule])
-  const resetSubstatWeight = useCallback((variant: StatVariant) => {
-    if (!substatWeightsMenuRule) return
-    updateRule(substatWeightsMenuRule.id, (prev) => {
-      const rawWeights = prev.substatWeights ?? {}
-      if (!rawWeights[variant]) return prev
-      const nextWeights = { ...rawWeights }
-      delete nextWeights[variant]
-      return { ...prev, substatWeights: nextWeights }
-    })
-  }, [substatWeightsMenuRule, updateRule])
   const handleConfirmPasteDialog = useCallback(() => {
     // Parse the manual paste text into keep-unique rules.
     const parsed = parseKeepUniqueClipboardRules(pasteDialogText)
@@ -1701,84 +1672,6 @@ ${t('keepUniquesCountModeHint')}`
 
   return (
     <>
-      <Menu
-        open={substatWeightsMenuOpen}
-        anchorEl={activeSubstatWeightsMenu?.anchorEl ?? null}
-        onClose={closeSubstatWeightsMenu}
-        MenuListProps={{ disablePadding: true }}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
-        transformOrigin={{ vertical: 'top', horizontal: 'left' }}
-        slotProps={{
-          paper: buildContextMenuPaperSlotProps({
-            component: ContextMenuPaper,
-            contextMenuGuard: substatWeightsMenuGuard,
-            onRequestClose: closeSubstatWeightsMenu,
-            closeLabel: t('close'),
-            ref: substatWeightsMenuRef,
-            sx: { width: 320, maxWidth: 'calc(100vw - 32px)', px: 0, py: 0 },
-          }),
-        }}
-      >
-        <Box sx={{ px: 2.25, pt: 2.25, pb: 1 }}>
-          <ContextMenuTitle
-            title={t('keepUniquesSubstatWeightsTitle')}
-            description={t('keepUniquesSubstatWeightsDescription')}
-          />
-        </Box>
-        {substatWeightsMenuRule && substatWeightsMenuVariants.length > 0 ? (
-          substatWeightsMenuVariants.map((variant) => {
-            const weight = normalizeTesterSortWeight(
-              Number(substatWeightsMenuRule.substatWeights?.[variant] ?? TESTER_SORT_WEIGHT_DEFAULT),
-            )
-            return (
-              <MenuItem
-                key={variant}
-                disableRipple
-                onClick={(event) => { event.stopPropagation() }}
-                sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 2, py: 0.75 }}
-              >
-                <Typography
-                  variant="body2"
-                  sx={(theme) => ({
-                    flex: 1,
-                    minWidth: 0,
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    ...(useStatButtonColors ? { color: substatColors?.[variant]?.fg ?? theme.palette.text.primary } : null),
-                  })}
-                >
-                  {t(statVariantI18nKey(variant))}
-                </Typography>
-                <Box
-                  sx={{
-                    width: MENU_CONTROL_MIN_WIDTH_PX,
-                    minWidth: MENU_CONTROL_MIN_WIDTH_PX,
-                    height: MENU_CONTROL_HEIGHT_PX,
-                    minHeight: MENU_CONTROL_HEIGHT_PX,
-                    flexShrink: 0,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: 0.75,
-                  }}
-                >
-                  <TesterSortWeightControls
-                    label={t(statVariantI18nKey(variant))}
-                    enabled
-                    weight={weight}
-                    onBump={(deltaSteps) => bumpSubstatWeight(variant, deltaSteps)}
-                    onReset={() => resetSubstatWeight(variant)}
-                  />
-                </Box>
-              </MenuItem>
-            )
-          })
-        ) : (
-          <Box sx={{ px: 2.25, pb: 2, color: 'text.secondary' }}>
-            <Typography variant="body2">{t('keepUniquesSubstatWeightsEmpty')}</Typography>
-          </Box>
-        )}
-      </Menu>
       <ConfigContextMenu
         open={Boolean(ruleMenu)}
         anchorPosition={ruleMenu ? { top: ruleMenu.y, left: ruleMenu.x } : null}
