@@ -48,6 +48,7 @@ import {
   LEVEL_MILESTONES,
   statIsAny,
 } from './types'
+import { resolveAllowedSubstatsForSlotsAndMains } from './statCompatibility'
 import { splitArtifactSetSelections } from './gearSets/selection'
 import { canEnableSubstatFlex, deriveRollBaselineMode, isLockedAggregateScopeActive, isMilestoneThresholdsActive } from './configNormalization'
 import { variantToSub, variantToMain } from './hsfTypes'
@@ -404,15 +405,32 @@ export function resolveAutoRarityCode(cfg: BuilderConfig): RarityCode {
     }
     return rate(code) < rate(minFloorCode) ? minFloorCode : code
   }
+  // Apply slot/main constraints before Auto rarity so impossible substats don't tighten rarity.
+  const allowedSubstats = resolveAllowedSubstatsForSlotsAndMains({
+    slots: cfg.artifactTypes ?? [],
+    mainStats: cfg.mainStatsV ?? [],
+  })
+  // Normalize to numeric IDs so filtering is stable regardless of input types.
+  const allowedSubstatIds = new Set(allowedSubstats.map((variant) => Number(variant)))
+  // Trim selected substats to ones that are physically possible for the slot/main pair.
+  const selectedPoolV = (cfg.substatsV ?? []).map(Number).filter((variant) => allowedSubstatIds.has(Number(variant)))
+  // Trim fixed substats to only the allowed/selected space so locks remain meaningful.
+  const fixedPoolRawV = (cfg.fixedSubstatsV ?? []).map(Number).filter((variant) => allowedSubstatIds.has(Number(variant)))
+  // Resolve the locked subset within the filtered selection order.
+  const fixedPoolV = selectedPoolV.filter((variant) => fixedPoolRawV.includes(Number(variant)))
   // With no substat constraints, keep rules broad: treat Auto as Any.
-  const selectedPoolV = (cfg.substatsV ?? []).slice()
-  const fixedPoolV = (cfg.fixedSubstatsV ?? []).slice()
   if (selectedPoolV.length === 0) return applyFloor(RarityCode.Any)
+  // Cap selection at 4 because HSF only supports 4 substats.
   const maxSelectableTotal = Math.min(4, selectedPoolV.length)
+  // Honor fixed substats when determining the minimum required selection count.
   const minTargetCount = Math.min(4, Math.max(cfg.minCount, fixedPoolV.length))
+  // Presence requirements are bounded by the selection size.
   const presenceNeed = Math.min(maxSelectableTotal, minTargetCount)
+  // Required substats are the filtered fixed list, clipped to HSF limits.
   const requiredV = fixedPoolV.slice(0, 4)
+  // Optional substats are those not locked but still eligible.
   const optionalPoolV = selectedPoolV.filter(sv => !requiredV.includes(Number(sv)))
+  // Precompute per-substat minimum rolls for aggregate minimum math.
   const perMin: Record<number, number> = {}
   for (const v of selectedPoolV) {
     const b = cfg.substatRollBoundsV?.[Number(v)]
@@ -426,6 +444,7 @@ export function resolveAutoRarityCode(cfg: BuilderConfig): RarityCode {
   if (lockedScope) {
     worstSumMins = sumRequired
   } else {
+    // When not locked-scope, include the strongest optional mins to reach minCount.
     const needLocal = Math.max(0, minTargetCount - requiredV.length)
     // Conservative: assume the strongest optional mins enter the set first.
     const optionMins = optionalPoolV.map(v => perMin[Number(v)] ?? 0).sort((a,b)=>b-a)
@@ -739,20 +758,41 @@ export function buildHsfRules(
   const emissionLimit = (options?.limit != null && Number.isFinite(options.limit) && options.limit > 0)
     ? Math.max(1, Math.floor(options.limit))
     : null
+  // Track whether the user explicitly asked for substat filtering.
+  const hadRequestedSubstats = (() => {
+    // Any selected or locked substat counts as explicit intent.
+    if (Array.isArray(cfg.substatsV) && cfg.substatsV.length > 0) return true
+    if (Array.isArray(cfg.fixedSubstatsV) && cfg.fixedSubstatsV.length > 0) return true
+    // Bounds without explicit selection still represent intent (legacy/imported cases).
+    const bounds = cfg.substatRollBoundsV
+    return bounds != null && Object.keys(bounds).length > 0
+  })()
   // Propagate config metadata so exported HSF rows retain their builder lineage.
   const configId = (options && typeof options.configId === 'number' && Number.isFinite(options.configId) && options.configId > 0)
     ? Math.floor(options.configId)
     : null
 
-  // Build permutation pool respecting fixed substats (variants only)
+  // Apply slot/main constraints before building substat permutations.
+  const allowedSubstats = resolveAllowedSubstatsForSlotsAndMains({
+    slots: cfg.artifactTypes ?? [],
+    mainStats: cfg.mainStatsV ?? [],
+  })
+  // Build a fast lookup for allowed variants so pools can be filtered cheaply.
+  const allowedSubstatIds = new Set(allowedSubstats.map((variant) => Number(variant)))
+  // Build permutation pool respecting fixed substats (variants only).
   // Canonicalize substat selection order so output does not depend on click order.
   const selectedPoolV = Array.isArray(cfg.substatsV) && cfg.substatsV.length > 0
-    ? cfg.substatsV.map(Number).sort(compareVariants)
+    ? cfg.substatsV.map(Number).filter((variant) => allowedSubstatIds.has(Number(variant))).sort(compareVariants)
     : []
   // Preserve the literal fixed selections as entered so we can mirror UI locking faithfully.
-  const fixedPoolRawV = Array.isArray(cfg.fixedSubstatsV) && cfg.fixedSubstatsV.length > 0 ? cfg.fixedSubstatsV.map(Number) : []
+  const fixedPoolRawV = Array.isArray(cfg.fixedSubstatsV) && cfg.fixedSubstatsV.length > 0
+    ? cfg.fixedSubstatsV.map(Number).filter((variant) => allowedSubstatIds.has(Number(variant)))
+    : []
   // Normalize fixed to be a subset of selected; preserve order of appearance from selected
   const fixedPoolV = selectedPoolV.filter(sv => fixedPoolRawV.includes(Number(sv)))
+  // If the user explicitly selected substats but all are invalid for the slot/main,
+  // emit no rules instead of falling back to presence-only behavior.
+  if (hadRequestedSubstats && selectedPoolV.length === 0) return []
   const requiredV = fixedPoolV.slice(0, 4)
   const lockedCount = requiredV.length
   const lockedSet = new Set<number>(requiredV.map(Number))
@@ -1139,7 +1179,7 @@ export function buildHsfRules(
   // Resolve 'auto' to an effective mode based on whether any substat is "circled"
   // (i.e., has an active roll indicator: min > 0 or wildcard).
   const hasCircled = (() => {
-    const subsV = (Array.isArray(cfg.substatsV) && cfg.substatsV.length > 0) ? cfg.substatsV : []
+    const subsV = selectedPoolV.length > 0 ? selectedPoolV : []
     if (subsV.length === 0) return false
     for (const v of subsV) {
       const b = cfg.substatRollBoundsV?.[Number(v)]
@@ -1417,9 +1457,8 @@ export function buildHsfRules(
         }
         return count
       }
-      // Note: We do not prune substat-slot impossibilities here to keep
-      // rule generation broad; RSL matching will naturally ignore rows that
-      // cannot match for the selected slot.
+      // Slot/main constraints were applied before permutation; remaining combos
+      // are already feasible for at least one selected slot/main pairing.
       if (m === 0) {
         if (mainChoicesV.length === 0) {
           // Include explicit Any main for consistency with HSF samples

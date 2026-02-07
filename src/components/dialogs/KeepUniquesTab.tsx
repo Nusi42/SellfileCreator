@@ -98,6 +98,7 @@ import { useKeepUniquesGridColumnMode, useKeepUniquesGridFilterMode } from '../.
 import { normalizeArtifactSetSelections } from '../../lib/gearSets/selection'
 import { useKeepOverrideCombinationTools } from '../keepOverrides/useKeepOverrideCombinationTools'
 import { KeepOverridePaneToggle } from '../keepOverrides/KeepOverridePaneToggle'
+import { resolveAllowedSubstatsForSlotsAndMains } from '../../lib/statCompatibility'
 import {
   KEEP_OVERRIDE_INLINE_SELECT_HEIGHT_PX,
   RuleSelectAffordances,
@@ -135,6 +136,43 @@ const KEEP_UNIQUES_HEADER_COLLAPSE_SCROLL_PX = 4
 const KEEP_UNIQUES_SUBSTAT_ORDER = new Map<StatVariant, number>(
   STAT_VARIANTS_PRIORITY.map((variant, index) => [variant, index]),
 )
+// areArraysEqual compares numeric arrays without allocating new copies.
+const areArraysEqual = (left: readonly number[], right: readonly number[]): boolean => {
+  // Reuse the fast path when the arrays share identity.
+  if (left === right) return true
+  // Different sizes can never match element-wise.
+  if (left.length !== right.length) return false
+  // Walk in order so ordering changes are detected.
+  for (let index = 0; index < left.length; index += 1) {
+    // Coerce to number for defensive comparison.
+    if (Number(left[index]) !== Number(right[index])) return false
+  }
+  // All entries matched.
+  return true
+}
+// areWeightMapsEqual keeps substat weight comparisons cheap and stable.
+const areWeightMapsEqual = (
+  left: Partial<Record<StatVariant, number>> | null | undefined,
+  right: Partial<Record<StatVariant, number>> | null | undefined,
+): boolean => {
+  // Reuse the fast path when the objects share identity.
+  if (left === right) return true
+  // Key counts differ => maps cannot match.
+  const leftKeys = Object.keys(left ?? {})
+  const rightKeys = Object.keys(right ?? {})
+  if (leftKeys.length !== rightKeys.length) return false
+  // Compare each key/value pair without allocating new maps.
+  for (const key of leftKeys) {
+    // Missing key on either side means mismatch.
+    if (!Object.prototype.hasOwnProperty.call(right ?? {}, key)) return false
+    // Normalize the numeric values for a stable comparison.
+    if (Number((left ?? {})[key as unknown as StatVariant]) !== Number((right ?? {})[key as unknown as StatVariant])) {
+      return false
+    }
+  }
+  // All keys matched.
+  return true
+}
 // sortKeepUniquesSubstats keeps the picker selection order stable and predictable.
 const sortKeepUniquesSubstats = (values: readonly StatVariant[]): StatVariant[] => {
   if (!values.length) return []
@@ -164,6 +202,38 @@ const pruneKeepUniquesSubstatWeights = (
     next[variant as StatVariant] = normalized
   }
   return next
+}
+// constrainKeepUniqueSubstats applies slot/mainstat constraints to the rule's substat selection.
+const constrainKeepUniqueSubstats = (
+  rule: KeepUniqueRule,
+  combination: KeepUniqueRule['combination'],
+): KeepUniqueRule => {
+  // Resolve the allowed substats for the updated slot/main selection.
+  const allowed = resolveAllowedSubstatsForSlotsAndMains({
+    slots: combination.slots,
+    mainStats: combination.mainStats,
+  })
+  // Drop substats that are no longer possible for the slot/main combination.
+  const filtered = sortKeepUniquesSubstats((rule.substats ?? []).filter((variant) => allowed.includes(variant)))
+  // Ranked mode only makes sense when at least one substat is selected.
+  const nextMode = filtered.length > 0 ? rule.substatMode : KeepUniqueSubstatMode.Unranked
+  // Remove weight entries for substats that are no longer selected.
+  const nextWeights = pruneKeepUniquesSubstatWeights(rule.substatWeights, filtered)
+  // Skip rebuilding the rule if nothing changed.
+  const substatsUnchanged = areArraysEqual(filtered, rule.substats ?? [])
+  const modeUnchanged = nextMode === rule.substatMode
+  const weightsUnchanged = areWeightMapsEqual(nextWeights, rule.substatWeights)
+  if (substatsUnchanged && modeUnchanged && weightsUnchanged) {
+    return { ...rule, combination }
+  }
+  // Persist the constrained selection back onto the rule.
+  return {
+    ...rule,
+    combination,
+    substats: filtered,
+    substatMode: nextMode,
+    substatWeights: nextWeights,
+  }
 }
 
 type KeepUniquesTabProps = {
@@ -764,9 +834,13 @@ ${t('keepUniquesCountModeHint')}`
     // Translate faction labels so accessory filters report hidden entries precisely.
     const factionSelectionLabels = factionSelection.map((faction) => t(factionI18nKey(Number(faction))))
     // Substat selection is optional; leave empty to keep classic keep-unique behavior.
-    const substatSelection = sortKeepUniquesSubstats((rule.substats ?? []).filter((variant) => (
-      STAT_VARIANTS_PRIORITY.includes(variant)
-    )))
+  const allowedSubstatOptions = resolveAllowedSubstatsForSlotsAndMains({
+    slots: slotSelection,
+    mainStats: mainStatSelection,
+  })
+  const substatSelection = sortKeepUniquesSubstats((rule.substats ?? []).filter((variant) => (
+    allowedSubstatOptions.includes(variant)
+  )))
     // Translate substat labels so badge math stays consistent with the visible text.
     const substatSelectionLabels = substatSelection.map((variant) => t(statVariantI18nKey(variant)))
     const hasSubstatSelection = substatSelection.length > 0
@@ -1192,7 +1266,10 @@ ${t('keepUniquesCountModeHint')}`
                     value={slotSelection}
                     onChange={(nextSlots) => {
                       if (ruleDisabled) return
-                    setRuleCombination(rule.id, (prev) => sanitizeCombinationForSlots(nextSlots, prev))
+                      updateRule(rule.id, (prev) => {
+                        const nextCombination = sanitizeCombinationForSlots(nextSlots, prev.combination)
+                        return constrainKeepUniqueSubstats(prev, nextCombination)
+                      })
                     }}
                     size="small"
                     sx={getRuleSelectPaddingSx(slotSelection.length, KEEP_OVERRIDE_INLINE_SELECT_HEIGHT_PX)}
@@ -1303,7 +1380,10 @@ ${t('keepUniquesCountModeHint')}`
                     anyLabel={t('anyMainStat')}
                     onChange={(nextMain) => {
                       if (ruleDisabled) return
-                      setRuleCombination(rule.id, (prev) => ({ ...prev, mainStats: dedupeNumericArray(nextMain) }))
+                      updateRule(rule.id, (prev) => {
+                        const nextCombination = { ...prev.combination, mainStats: dedupeNumericArray(nextMain) }
+                        return constrainKeepUniqueSubstats(prev, nextCombination)
+                      })
                     }}
                     colorOverrides={substatColors}
                     showBorderColors={useStatButtonColors}
@@ -1366,9 +1446,10 @@ ${t('keepUniquesCountModeHint')}`
                       multiple
                       anyLabel={t('anySubstat')}
                       value={substatSelection}
+                      options={allowedSubstatOptions}
                       onChange={(nextSubstats) => {
                         if (ruleDisabled) return
-                        const filtered = nextSubstats.filter((variant) => STAT_VARIANTS_PRIORITY.includes(variant))
+                        const filtered = nextSubstats.filter((variant) => allowedSubstatOptions.includes(variant))
                         const sorted = sortKeepUniquesSubstats(filtered)
                         updateRule(rule.id, (prev) => {
                           const nextMode = sorted.length > 0 ? prev.substatMode : KeepUniqueSubstatMode.Unranked
