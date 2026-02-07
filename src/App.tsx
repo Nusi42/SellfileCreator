@@ -51,6 +51,7 @@ import {
   parseSpacingPx,
   resolveTesterCardWidthPx,
   TESTER_GRID_COLUMN_GAP_UNITS,
+  TESTER_GRID_CONTAINER_PADDING_END_UNITS,
   TESTER_GRID_ROW_PADDING_UNITS,
 } from './lib/testerGridLayout'
 
@@ -2531,6 +2532,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   }, [])
   // Keep-override grids match the Rule Tester card width; cache the latest 4-column measurement.
   const [testerCardWidthMeasuredPx, setTesterCardWidthMeasuredPx] = useState<number | null>(null)
+  const [testerGridScrollbarWidthPx, setTesterGridScrollbarWidthPx] = useState<number>(0)
   // Ref prevents width churn from triggering redundant state updates.
   const testerCardWidthRef = useRef<number | null>(null)
   const handleTesterCardWidthMeasured = useCallback((widthPx: number) => {
@@ -2551,6 +2553,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     () => parseSpacingPx(theme.spacing(TESTER_GRID_COLUMN_GAP_UNITS)),
     [theme],
   )
+  const testerGridContainerPaddingEndPx = useMemo(
+    () => parseSpacingPx(theme.spacing(TESTER_GRID_CONTAINER_PADDING_END_UNITS)),
+    [theme],
+  )
   const testerGridRowPaddingPx = useMemo(
     () => parseSpacingPx(theme.spacing(TESTER_GRID_ROW_PADDING_UNITS)),
     [theme],
@@ -2559,11 +2565,20 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     () => resolveTesterCardWidthPx({
       panelWidthPx: previewPaperWidthPx,
       panelPaddingPx: previewPaperPaddingPx,
+      containerPaddingInlineEndPx: testerGridContainerPaddingEndPx,
+      scrollbarWidthPx: testerGridScrollbarWidthPx,
       gridGapPx: testerGridGapPx,
       rowPaddingPx: testerGridRowPaddingPx,
       columnCount: KEEP_OVERRIDE_REFERENCE_COLUMN_COUNT,
     }),
-    [previewPaperPaddingPx, previewPaperWidthPx, testerGridGapPx, testerGridRowPaddingPx],
+    [
+      previewPaperPaddingPx,
+      previewPaperWidthPx,
+      testerGridContainerPaddingEndPx,
+      testerGridScrollbarWidthPx,
+      testerGridGapPx,
+      testerGridRowPaddingPx,
+    ],
   )
   const resolvedTesterCardWidthPx = testerCardWidthMeasuredPx ?? testerCardWidthFromPanelPx
   const flushTransientUi = useCallback(() => {
@@ -5998,12 +6013,13 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
 	                  substatColors={substatColors}
 	                  useStatButtonColors={statButtonBorders}
 	                  onToggleStatColors={setStatButtonBorders}
-	                  onOpenManageColors={openColors}
-	                  colorBlindMode={colorBlindMode}
-	                  onChangeColorBlindMode={setColorBlindMode}
-	                  colorIconSrc={colorIconSrc}
-	                  onCardWidthMeasured={handleTesterCardWidthMeasured}
-	                  configNames={testerConfigNamesForGrid}
+                  onOpenManageColors={openColors}
+                  colorBlindMode={colorBlindMode}
+                  onChangeColorBlindMode={setColorBlindMode}
+                  colorIconSrc={colorIconSrc}
+                  onCardWidthMeasured={handleTesterCardWidthMeasured}
+                  onScrollbarWidthMeasured={setTesterGridScrollbarWidthPx}
+                  configNames={testerConfigNamesForGrid}
 	                  onJumpToRule={handleTesterRuleView}
 	                  onCreateRuleTemplate={handleTesterRuleTemplateCreate}
 	                  suppressMatchDetails={suppressTesterMatchDetails}

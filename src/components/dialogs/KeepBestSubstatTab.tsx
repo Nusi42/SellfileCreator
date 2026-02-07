@@ -64,7 +64,12 @@ import {
   KEEP_OVERRIDE_RULES_COLUMN_MIN_WIDTH_PX,
   resolveKeepOverrideGridPaneWidth,
 } from '../../lib/keepOverrideLayout'
-import { parseSpacingPx, TESTER_GRID_COLUMN_GAP_UNITS, TESTER_GRID_ROW_PADDING_UNITS } from '../../lib/testerGridLayout'
+import {
+  parseSpacingPx,
+  TESTER_GRID_COLUMN_GAP_UNITS,
+  TESTER_GRID_CONTAINER_PADDING_END_UNITS,
+  TESTER_GRID_ROW_PADDING_UNITS,
+} from '../../lib/testerGridLayout'
 import { useKeepBestSubstatGridColumnMode, useKeepBestSubstatGridFilterMode } from '../../state/keepBestSubstatPreferences'
 import type { SetStateAction } from 'react'
 import type { TesterPreviewRow } from '../../types/testerPreview'
@@ -121,6 +126,13 @@ export default function KeepBestSubstatTab({
   const gridGapPx = useMemo(() => parseSpacingPx(theme.spacing(TESTER_GRID_COLUMN_GAP_UNITS)), [theme])
   // Row padding is applied on both sides of the card row container.
   const gridRowPaddingPx = useMemo(() => parseSpacingPx(theme.spacing(TESTER_GRID_ROW_PADDING_UNITS)), [theme])
+  // Scroll container padding must be accounted for when sizing the grid pane.
+  const gridContainerPaddingEndPx = useMemo(
+    () => parseSpacingPx(theme.spacing(TESTER_GRID_CONTAINER_PADDING_END_UNITS)),
+    [theme],
+  )
+  // Scrollbar width is measured from the grid so pane width stays aligned.
+  const [gridScrollbarWidthPx, setGridScrollbarWidthPx] = useState(0)
   // Filter mode (all vs selection) is stored locally, matching Keep Uniques behavior.
   const [gridFilterMode, setGridFilterMode] = useKeepBestSubstatGridFilterMode()
   // Column preference is local to this tab so the rules column can grow when needed.
@@ -730,6 +742,8 @@ export default function KeepBestSubstatTab({
               const gridPaneWidth = resolveKeepOverrideGridPaneWidth({
                 gridColumnMode,
                 targetCardWidthPx: testerCardWidthPx,
+                containerPaddingInlineEndPx: gridContainerPaddingEndPx,
+                containerScrollbarWidthPx: gridScrollbarWidthPx,
                 gridGapPx,
                 rowPaddingPx: gridRowPaddingPx,
               })
@@ -849,6 +863,7 @@ export default function KeepBestSubstatTab({
                 keepBestSubstatEnabled={enabled}
                 keepOverrideColumnMode={gridColumnMode}
                 onKeepOverrideColumnModeChange={setGridColumnMode}
+                onScrollbarWidthMeasured={setGridScrollbarWidthPx}
                 highlightedRowPredicate={highlightRowPredicate ?? null}
                 dimUnhighlightedRows={highlightActive}
                 suppressMatchDetails={suppressMatchDetails}
