@@ -75,7 +75,7 @@ import {
   STAT_VARIANTS_PRIORITY,
   statVariantI18nKey,
 } from '../../lib/types'
-import { isAccessorySlot } from '../../lib/testerDomain'
+import { slotSelectionAllowsAccessories } from '../../lib/testerDomain'
 import { useI18n } from '../../lib/i18n'
 import { readTextSafe, triggerCopyDialog, writeTextSafe } from '../../lib/clipboard'
 import { GearFactionSelect, GearMainStatSelect, GearRankSelect, GearRaritySelect, GearSetsSelect, GearSlotSelect, GearSubstatSelect } from '../gear'
@@ -790,8 +790,8 @@ ${t('keepUniquesSubstatModeHint')}`
     const slotSelection = combination.slots
     // Build slot labels so the inline +X badge can count hidden selections.
     const slotSelectionLabels = slotSelection.map((slotId) => t(artifactTypeI18nKey(Number(slotId))))
-    const slotAny = slotSelection.length === 0
-    const hasAccessorySlot = slotAny || slotSelection.some((slotId) => isAccessorySlot(slotId))
+    // Accessory-only sets (like no-set) are only valid when accessories are in scope.
+    const hasAccessorySlot = slotSelectionAllowsAccessories(slotSelection)
     const allowedSetPool = resolveAllowedSetPool(slotSelection)
     const setSelection = normalizeArtifactSetSelections(combination.sets)
       .filter((entry) => allowedSetPool.includes(Number(entry.id)))
@@ -1292,8 +1292,8 @@ ${t('keepUniquesSubstatModeHint')}`
                   showMetasets
                   layoutVersion={gridColumnMode}
                   anyLabel={t('anySet')}
-                  // Show the no-set option but keep it disabled (RSL Helper limitation).
-                  includeNoSet
+                  // Show the no-set option only when accessories are in scope.
+                  includeNoSet={hasAccessorySlot}
                   disabledSetIds={[ACCESSORY_NO_SET_ID]}
                 />
               </KeepOverrideScopeField>

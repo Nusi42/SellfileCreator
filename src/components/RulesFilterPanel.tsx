@@ -34,7 +34,8 @@ import {
 import { LIST_SUBHEADER_SX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, MENU_MAX_HEIGHT_METASETS_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_SCROLL_GUTTER_PX, SETS_MENU_WIDTH_PX, FILTER_FACTION_SELECT_WIDTH_PX, FILTER_SETS_SELECT_WIDTH_PX, FILTER_CHIP_TOP_MARGIN, ELLIPSIS_TEXT_SX, FILTER_TOGGLE_BUTTON_WIDTH_PX, SMALL_BUTTON_HEIGHT_PX, BUILDER_STATUS_CHIP_HEIGHT_PX, SETS_SELECT_INLINE_GUTTER_COLLAPSED_PX, SETS_SELECT_INLINE_GUTTER_PX, STATUS_CHIP_BORDER_RADIUS_PX, FONT_SIZE_BASE_PX, CLEAR_ICON_BUTTON_SIZE_PX, GLYPH_TOGGLE_ON, GLYPH_TOGGLE_OFF, GLYPH_GLYPHS_SELECTED, ROLL_BADGE_SIZE_PX, ROLL_BADGE_SCALE, ROLL_BADGE_HOVER_GUTTER_PX, CHAMPION_ICON_BASE_SIZE, CHAMPION_ICON_BORDER_RADIUS_PX } from '../lib/constants'
 import { reserveScrollbarGutterSpace } from '../lib/scrollbar'
 import { metasetGlyph, orderMetasetIds, resolveMetasetIds, type Metaset } from '../lib/metasets'
-import { normalizeArtifactSetSelections, splitArtifactSetSelections } from '../lib/gearSets/selection'
+import { buildArtifactSetSelectionKey, normalizeArtifactSetSelections, pruneAccessoryNoSetSelections, splitArtifactSetSelections } from '../lib/gearSets/selection'
+import { slotSelectionAllowsAccessories } from '../lib/testerDomain'
 import React from 'react'
 import { alpha, useTheme } from '@mui/material/styles'
 import type { SxProps, Theme } from '@mui/material/styles'
@@ -877,8 +878,10 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
   const visibleMetasets = metasets.filter(m => m.show !== false)
   const orderBasis = visibleMetasets.length ? visibleMetasets : metasets
   const orderedMetaSelected = orderMetasetIds(state.sets.metaSelected, orderBasis)
+  // Accessory-only sets (like no-set) should disappear when accessories are out of scope.
+  const allowNoSet = slotSelectionAllowsAccessories(state.slots.selected)
   // Normalize filter selections so legacy payloads still resolve cleanly.
-  const normalizedSetSelections = normalizeArtifactSetSelections(state.sets.selected)
+  const normalizedSetSelections = pruneAccessoryNoSetSelections(state.sets.selected, allowNoSet)
   // Split includes/excludes so UI labels can reflect the right intent.
   const splitSetSelections = splitArtifactSetSelections(normalizedSetSelections)
   // Convert included sets + metasets into the Select token list.
@@ -886,6 +889,20 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
     ...orderedMetaSelected.map((id) => `m:${id}`),
     ...splitSetSelections.included.map((id) => `s:${Number(id)}`),
   ]
+  // Build stable keys so we can detect when pruning changes the selection.
+  const rawSetSelectionKey = React.useMemo(
+    () => buildArtifactSetSelectionKey(state.sets.selected),
+    [state.sets.selected],
+  )
+  const sanitizedSetSelectionKey = React.useMemo(
+    () => buildArtifactSetSelectionKey(normalizedSetSelections),
+    [normalizedSetSelections],
+  )
+  React.useEffect(() => {
+    // If pruning changed the selection, persist it back into filter state.
+    if (rawSetSelectionKey === sanitizedSetSelectionKey) return
+    onChange({ ...state, sets: { ...state.sets, selected: normalizedSetSelections } })
+  }, [normalizedSetSelections, onChange, rawSetSelectionKey, sanitizedSetSelectionKey, state])
   const setsRenderValue = (tokens: string[]) => {
     // Collect labels in display order (metasets first, then sets, then exclusions).
     const names: string[] = []
@@ -1061,8 +1078,8 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
     if (!list) return
     const sortedForOrder = filterAndSortSetEntries(setsSearch, order, {
       translate: t,
-      // Filters should expose the accessory no-set sentinel for selection.
-      includeNoSet: true,
+      // Only surface no-set when accessories are allowed by the slot filter.
+      includeNoSet: allowNoSet,
       noSetLabel: t('noSetAccessories'),
     })
     const selectedIds = new Set(splitSetSelections.included.map(Number))
@@ -1079,7 +1096,7 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
       const item = list.querySelector<HTMLElement>(`[data-set-id="${target}"]`)
       item?.scrollIntoView({ block: 'nearest' })
     })
-  }, [setsMenuOpen, setsMenuListRef, setsOrder, setsSearch, splitSetSelections.included, t])
+  }, [allowNoSet, setsMenuOpen, setsMenuListRef, setsOrder, setsSearch, splitSetSelections.included, t])
 
   // Slots — compact toggle buttons with icons/text
   const slotButtons = PREFERRED_ARTIFACT_TYPE_ORDER.map((tt) => ({ id: Number(tt), name: ((): string => {
@@ -1849,12 +1866,12 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
             <Collapse in={!collapsed.sets} timeout="auto" unmountOnExit>
             {(() => {
               // Sorted entries drive icon/list ordering for this menu.
-              const sorted = filterAndSortSetEntries(setsSearch, setsOrder, {
-                translate: t,
-                // Keep the no-set sentinel available inside filters.
-                includeNoSet: true,
-                noSetLabel: t('noSetAccessories'),
-              })
+                const sorted = filterAndSortSetEntries(setsSearch, setsOrder, {
+                  translate: t,
+                  // Keep the no-set sentinel available only when accessories are in scope.
+                  includeNoSet: allowNoSet,
+                  noSetLabel: t('noSetAccessories'),
+                })
               // Use only visible metasets so the menu stays tidy.
               const metasetsMenu = visibleMetasets
               // Treat exclusions as a real selection so Clear/labels stay active.
@@ -2093,8 +2110,8 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                             }}
                             zeroResults={filterAndSortSetEntries(setsSearch, setsOrder, {
                               translate: t,
-                              // Respect the no-set sentinel in empty-state math.
-                              includeNoSet: true,
+                              // Respect accessory-only constraints when computing empty states.
+                              includeNoSet: allowNoSet,
                               noSetLabel: t('noSetAccessories'),
                             }).length === 0}
                           />

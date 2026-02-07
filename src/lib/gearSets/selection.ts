@@ -1,6 +1,7 @@
 import type { ArtifactSetId } from '../types'
 import type { Metaset } from '../metasets'
 import { resolveMetasetIds } from '../metasets'
+import { ACCESSORY_NO_SET_ID } from '../constants'
 
 export type ArtifactSetSelectionEntry = {
   // Numeric set ID (artifact/accessory set)
@@ -67,6 +68,30 @@ export const normalizeArtifactSetSelections = (value: unknown): ArtifactSetSelec
   const sorted = Array.from(byId.values())
     .sort((a, b) => Number(a.id) - Number(b.id))
   return sorted
+}
+
+// buildArtifactSetSelectionKey returns a stable string for equality checks.
+export const buildArtifactSetSelectionKey = (
+  selections: readonly ArtifactSetSelectionEntry[] | null | undefined,
+): string => (
+  // Normalize first so legacy payloads collapse deterministically.
+  normalizeArtifactSetSelections(selections ?? [])
+    // Encode both id + exclusion so comparisons remain lossless.
+    .map((entry) => `${Number(entry.id)}:${entry.excluded ? 1 : 0}`)
+    .join('|')
+)
+
+// pruneAccessoryNoSetSelections drops the no-set sentinel when accessories are out of scope.
+export const pruneAccessoryNoSetSelections = (
+  selections: readonly ArtifactSetSelectionEntry[] | null | undefined,
+  allowNoSet: boolean,
+): ArtifactSetSelectionEntry[] => {
+  // Normalize to keep ordering and exclusion semantics stable.
+  const normalized = normalizeArtifactSetSelections(selections ?? [])
+  // Keep the sentinel when accessories are allowed.
+  if (allowNoSet) return normalized
+  // Otherwise, remove it from both include and exclude buckets.
+  return normalized.filter((entry) => Number(entry.id) !== ACCESSORY_NO_SET_ID)
 }
 
 export const splitArtifactSetSelections = (
