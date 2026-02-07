@@ -272,8 +272,8 @@ const overrides: Catalog = {
   keepOverrideColumnToggleToOne: '1 sütuna geç',
   keepOverrideColumnToggleToTwo: '2 sütuna geç',
   keepUniquesGridFilterTooltip: 'Tüm benzersiz öğeleri göstermek ile seçili koruma kuralıyla eşleşen öğeleri göstermek arasında geçiş yapar. Kural seçilmezse Seçim modu Hepsi gibi davranır.',
-  titleResetKeepUniques: 'Benzersizleri Koru varsayılanlara sıfırlansın mı?',
-  msgResetKeepUniques: 'Önerilen Benzersizleri Koru kurallarını geri yükler ve özelliği kapatır.',
+  titleResetKeepUniques: '“Benzersizleri Koru” sıfırlansın mı?',
+  msgResetKeepUniques: '“Benzersizleri Koru” kurallarının tamamını siler ve özelliği kapatır.',
 
   titleSubstatChipColors: 'Alt stat çip renkleri',
   msgChooseColors: 'Her alt stat için renkleri seçin.',

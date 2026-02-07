@@ -272,8 +272,8 @@ const overrides: Catalog = {
   keepOverrideColumnToggleToOne: 'Mudar para 1 coluna',
   keepOverrideColumnToggleToTwo: 'Mudar para 2 colunas',
   keepUniquesGridFilterTooltip: 'Alterna entre mostrar todos os itens únicos e apenas os itens que correspondem à regra de manutenção selecionada. O modo Seleção comporta-se como Todos sempre que nenhuma regra estiver ativa.',
-  titleResetKeepUniques: 'Repor Manter únicos para os valores predefinidos?',
-  msgResetKeepUniques: 'Repõe as regras recomendadas de Manter únicos e desativa a função.',
+  titleResetKeepUniques: 'Repor Manter únicos?',
+  msgResetKeepUniques: 'Remove todas as regras de Manter únicos e desativa a funcionalidade.',
 
   titleSubstatChipColors: 'Cores dos chips de substats',
   msgChooseColors: 'Escolha cores por substat.',

@@ -3805,7 +3805,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const handleRulesTableClearBase = useCallback(() => { setHsf(null) }, [setHsf])
   const handleRulesTableConfigureFinalSell = useCallback(() => { setLogicHubOpen(true) }, [setLogicHubOpen])
   const handleResetKeepUniques = useCallback(() => {
-    // Reset keep rules to defaults and log a single history snapshot for the action.
+    // Reset Keep Uniques to an empty list and log a single history snapshot.
     const nextRules = buildDefaultKeepUniqueRules()
     const descriptor = createKeepUniquesRulesChangeDescriptor({
       previous: keepUniqueRules,

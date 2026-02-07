@@ -273,7 +273,7 @@ const overrides: Catalog = {
   keepOverrideColumnToggleToTwo: 'Passer à 2 colonnes',
   keepUniquesGridFilterTooltip: 'Bascule entre l’affichage de tous les objets uniques et seulement les entrées correspondant à la règle de conservation sélectionnée. Le mode Sélection se comporte comme Tous tant qu’aucune règle n’est sélectionnée.',
   titleResetKeepUniques: 'Réinitialiser Conserver les uniques ?',
-  msgResetKeepUniques: 'Restaure les règles recommandées de Conserver les uniques et désactive cette fonction.',
+  msgResetKeepUniques: 'Efface toutes les règles « Conserver les uniques » et désactive la fonctionnalité.',
 
   titleSubstatChipColors: 'Couleurs des puces de sous‑stats',
   msgChooseColors: 'Choisissez des couleurs par sous‑stat.',
