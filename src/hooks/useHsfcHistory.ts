@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { BuilderConfig, SubstatTargetTable } from '../lib/hsfBuilder'
 import type { Metaset } from '../lib/metasets'
-import type { FinalSellRemainderConfig } from '../lib/finalSell'
+import type { FinalSellRemainderConfig } from '../lib/logicHub'
 import { computeCrc32 } from '../lib/autosave'
 import { compressToBase64, decompressFromBase64 } from '../lib/compression'
 import type { MultiEditDraftState } from '../lib/multiEditDraft'

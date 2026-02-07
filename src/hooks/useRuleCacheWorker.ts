@@ -13,7 +13,7 @@ import { configsForRuleBuild, countRulesForConfigs } from '../lib/ruleCacheHelpe
 import type { RuleCachePipelinePhase, RuleCacheWorkerRequest, RuleCacheWorkerResponse } from '../workers/ruleCacheWorkerTypes'
 import RuleCacheWorker from '../workers/ruleCacheWorker?worker&inline'
 import type { HsfFile } from '../lib/hsfTypes'
-import type { FinalSellRemainderConfig } from '../lib/finalSell'
+import type { FinalSellRemainderConfig } from '../lib/logicHub'
 import { buildRuleMatchIndexData, primeRuleMatchIndex } from '../lib/ruleMatchIndex'
 import type { RuleMatchIndexData } from '../lib/ruleMatchIndex'
 import {

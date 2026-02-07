@@ -22,7 +22,7 @@ import {
   type FinalSellLevel,
   type FinalSellRemainderConfig,
   type FinalSellSetsMode,
-} from '../../lib/finalSell'
+} from '../../lib/logicHub'
 import type { KeepUniqueDetectionSnapshot, KeepUniqueRule } from '../../lib/keepUniques'
 import type { KeepBestSubstatDetectionSnapshot, KeepBestSubstatRule } from '../../lib/keepBestSubstat'
 import type { BuilderConfig } from '../../lib/hsfBuilder'
@@ -147,6 +147,8 @@ export default function LogicHubDialog(props: LogicHubDialogProps) {
   const finalSellFullRange = finalSellCoversFullLevelRange(value.levels)
   // Keep Uniques depends on Final Sell covering the full ladder so protection rules stay aligned.
   const keepUniquesFinalSellWarning = keepUniquesEnabled && (!finalSellActive || !finalSellFullRange)
+  // Keep Best Substat uses the same Final Sell coverage expectations as Keep Uniques.
+  const keepBestSubstatFinalSellWarning = keepBestSubstatEnabled && (!finalSellActive || !finalSellFullRange)
   const statusWordKey = finalSellActive ? 'hintFinalSellStatusWordOn' : 'hintFinalSellStatusWordOff'
   const statusDetailKey = finalSellActive ? 'hintFinalSellStatusOnDetail' : 'hintFinalSellStatusOffDetail'
   const setsMode: FinalSellSetsMode = value.setsMode ?? FINAL_SELL_DEFAULT_SETS_MODE
@@ -266,7 +268,6 @@ export default function LogicHubDialog(props: LogicHubDialogProps) {
               indicatorColor="primary"
             >
               <Tab value={LOGIC_HUB_DIALOG_TAB_FINAL_SELL} label={t('testerFinalSell')} />
-              <Tab value={LOGIC_HUB_DIALOG_TAB_GEAR} label={t('tabFinalSellGear')} />
               <Tab
                 value={LOGIC_HUB_DIALOG_TAB_KEEP_UNIQUES}
                 label={t('tabKeepUniques')}
@@ -276,6 +277,7 @@ export default function LogicHubDialog(props: LogicHubDialogProps) {
                 value={LOGIC_HUB_DIALOG_TAB_KEEP_BEST_SUBSTAT}
                 label={t('tabKeepBestSubstat')}
               />
+              <Tab value={LOGIC_HUB_DIALOG_TAB_GEAR} label={t('tabFinalSellGear')} />
             </Tabs>
           </Stack>
         </Box>
@@ -566,6 +568,7 @@ export default function LogicHubDialog(props: LogicHubDialogProps) {
           <KeepBestSubstatTab
             rules={keepBestSubstatRules}
             enabled={keepBestSubstatEnabled}
+            finalSellCoverageWarningActive={keepBestSubstatFinalSellWarning}
             onRulesChange={onKeepBestSubstatRulesChange}
             onToggleEnabled={onKeepBestSubstatEnabledChange}
             detection={keepBestSubstatDetection}
@@ -580,6 +583,7 @@ export default function LogicHubDialog(props: LogicHubDialogProps) {
             onChangeColorBlindMode={onChangeColorBlindMode}
             colorIconSrc={colorIconSrc}
             configNames={configNames}
+            metasets={metasets}
             onJumpToRule={onJumpToRule}
             suppressMatchDetails={suppressMatchDetails}
             workloadProgressRatio={workloadProgressRatio}

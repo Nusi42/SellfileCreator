@@ -51,6 +51,7 @@ import {
   parseSpacingPx,
   resolveTesterCardWidthPx,
   TESTER_GRID_COLUMN_GAP_UNITS,
+  TESTER_GRID_CONTAINER_PADDING_END_UNITS,
   TESTER_GRID_ROW_PADDING_UNITS,
 } from './lib/testerGridLayout'
 
@@ -210,8 +211,8 @@ import {
   LOGIC_HUB_DIALOG_TAB_FINAL_SELL,
   LOGIC_HUB_DIALOG_TAB_GEAR,
   LOGIC_HUB_DIALOG_TABS,
-} from './lib/finalSell'
-import type { FinalSellRemainderConfig, FinalSellLevel, LogicHubDialogTab } from './lib/finalSell'
+} from './lib/logicHub'
+import type { FinalSellRemainderConfig, FinalSellLevel, LogicHubDialogTab } from './lib/logicHub'
 import { useConfigSelection } from './hooks/useConfigSelection'
 import { useRuleCacheWorker } from './hooks/useRuleCacheWorker'
 import { fingerprintKeepUniqueDetection } from './lib/keepUniqueFingerprint'
@@ -744,10 +745,13 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     resolveKeepUniqueRulesWithMetasets(keepUniqueRules, metasets)
   ), [keepUniqueRules, metasets])
   const keepUniquesActive = keepUniquesEnabled && resolvedKeepUniqueRules.length > 0
-  // Keep Best Substat rules do not require metaset resolution.
+  // Keep Best Substat rules mirror Keep Uniques, including metaset expansion.
   const resolvedKeepBestSubstatRules = useMemo(
-    () => keepBestSubstatRules.filter((rule) => Boolean(rule)),
-    [keepBestSubstatRules],
+    () => resolveKeepUniqueRulesWithMetasets(
+      keepBestSubstatRules.filter((rule): rule is KeepBestSubstatRule => Boolean(rule)),
+      metasets,
+    ),
+    [keepBestSubstatRules, metasets],
   )
   const keepBestSubstatActive = keepBestSubstatEnabled && resolvedKeepBestSubstatRules.length > 0
   const keepOverridesActive = keepUniquesActive || keepBestSubstatActive
@@ -2531,6 +2535,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   }, [])
   // Keep-override grids match the Rule Tester card width; cache the latest 4-column measurement.
   const [testerCardWidthMeasuredPx, setTesterCardWidthMeasuredPx] = useState<number | null>(null)
+  const [testerGridScrollbarWidthPx, setTesterGridScrollbarWidthPx] = useState<number>(0)
   // Ref prevents width churn from triggering redundant state updates.
   const testerCardWidthRef = useRef<number | null>(null)
   const handleTesterCardWidthMeasured = useCallback((widthPx: number) => {
@@ -2551,6 +2556,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     () => parseSpacingPx(theme.spacing(TESTER_GRID_COLUMN_GAP_UNITS)),
     [theme],
   )
+  const testerGridContainerPaddingEndPx = useMemo(
+    () => parseSpacingPx(theme.spacing(TESTER_GRID_CONTAINER_PADDING_END_UNITS)),
+    [theme],
+  )
   const testerGridRowPaddingPx = useMemo(
     () => parseSpacingPx(theme.spacing(TESTER_GRID_ROW_PADDING_UNITS)),
     [theme],
@@ -2559,11 +2568,20 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     () => resolveTesterCardWidthPx({
       panelWidthPx: previewPaperWidthPx,
       panelPaddingPx: previewPaperPaddingPx,
+      containerPaddingInlineEndPx: testerGridContainerPaddingEndPx,
+      scrollbarWidthPx: testerGridScrollbarWidthPx,
       gridGapPx: testerGridGapPx,
       rowPaddingPx: testerGridRowPaddingPx,
       columnCount: KEEP_OVERRIDE_REFERENCE_COLUMN_COUNT,
     }),
-    [previewPaperPaddingPx, previewPaperWidthPx, testerGridGapPx, testerGridRowPaddingPx],
+    [
+      previewPaperPaddingPx,
+      previewPaperWidthPx,
+      testerGridContainerPaddingEndPx,
+      testerGridScrollbarWidthPx,
+      testerGridGapPx,
+      testerGridRowPaddingPx,
+    ],
   )
   const resolvedTesterCardWidthPx = testerCardWidthMeasuredPx ?? testerCardWidthFromPanelPx
   const flushTransientUi = useCallback(() => {
@@ -5998,12 +6016,13 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
 	                  substatColors={substatColors}
 	                  useStatButtonColors={statButtonBorders}
 	                  onToggleStatColors={setStatButtonBorders}
-	                  onOpenManageColors={openColors}
-	                  colorBlindMode={colorBlindMode}
-	                  onChangeColorBlindMode={setColorBlindMode}
-	                  colorIconSrc={colorIconSrc}
-	                  onCardWidthMeasured={handleTesterCardWidthMeasured}
-	                  configNames={testerConfigNamesForGrid}
+                  onOpenManageColors={openColors}
+                  colorBlindMode={colorBlindMode}
+                  onChangeColorBlindMode={setColorBlindMode}
+                  colorIconSrc={colorIconSrc}
+                  onCardWidthMeasured={handleTesterCardWidthMeasured}
+                  onScrollbarWidthMeasured={setTesterGridScrollbarWidthPx}
+                  configNames={testerConfigNamesForGrid}
 	                  onJumpToRule={handleTesterRuleView}
 	                  onCreateRuleTemplate={handleTesterRuleTemplateCreate}
 	                  suppressMatchDetails={suppressTesterMatchDetails}

@@ -28,6 +28,14 @@ const EXPORT_RULE_METADATA_FIELDS: Array<keyof HsfRuleWithCfg> = [
   '__keepUniqueProjected',
   '__keepUniqueDeficit',
   '__keepUniqueItemKey',
+  '__keepBestSubstatRuleId',
+  '__keepBestSubstatRuleOrdinal',
+  '__keepBestSubstatStat',
+  '__keepBestSubstatRequired',
+  '__keepBestSubstatScanMs',
+  '__keepBestSubstatItemKey',
+  '__keepBestSubstatPlaceholder',
+  '__keepBestSubstatPlaceholderMissing',
 ]
 
 /** Strip UTF‑8 BOM and parse `.hsf` JSON. Ensures a `Rules` array exists. */

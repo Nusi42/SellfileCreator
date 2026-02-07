@@ -49,7 +49,7 @@ This document covers file schemas, builder semantics, and compatibility notes.
 #### Keep Best Substat payload
 
 - HSFC payloads also carry `KeepBestSubstats?: KeepBestSubstatRule[]` plus `KeepBestSubstatsEnabled?: boolean`. Autosave/clipboard/history reuse the same fields; omitting either key is treated as “off” with an empty rule list.
-- Each rule entry serializes `{ id, substat, requiredCount, countMode }`. `countMode` reuses the Keep Uniques shape (`{ perRule, perSet, perFaction, perMainStat, perSlot }`) and defaults to `KEEP_UNIQUE_DEFAULT_COUNT_MODE` when missing. Importers accept legacy keys (`stat`, `variant`, `keepCount`) and coerce them into the canonical fields.
+- Each rule entry serializes `{ id, name, activation, countMode, combination, substat, requiredCount }` (written as `tuple` in HSFC, matching Keep Uniques). `countMode` reuses the Keep Uniques shape (`{ perRule, perSet, perFaction, perMainStat, perSlot }`) but defaults to the keep-best baseline (per main stat off). Keep Best Substat parsing only accepts the current schema (no legacy key fallbacks); invalid combos are dropped during normalization.
 - Rule ids are preserved when provided; blank or missing ids are regenerated on import so rules remain addressable. Rules that resolve to `StatVariant.Any` are discarded so invalid inputs never reach the UI.
 - Keep Best Substat detection snapshots are runtime-only and never serialized; the worker recomputes them when the gear queue stabilizes.
 

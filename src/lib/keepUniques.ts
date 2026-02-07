@@ -95,7 +95,8 @@ const KEEP_UNIQUE_RULE_ACTIVATION_VALUES = new Set<KeepUniqueRuleActivation>([
   KeepUniqueRuleActivation.AnticipateGaps,
 ])
 
-const normalizeKeepUniqueActivation = (
+// normalizeKeepUniqueActivation keeps activation parsing consistent across keep-override rules.
+export const normalizeKeepUniqueActivation = (
   value: unknown,
   legacyEnabled?: unknown,
 ): KeepUniqueRuleActivation => {
@@ -161,7 +162,8 @@ const sanitizeCountMode = (raw: Partial<KeepUniqueRuleCountMode> | null | undefi
   }
 }
 
-const normalizeCountMode = (value: unknown): KeepUniqueRuleCountMode => {
+// normalizeKeepUniqueCountMode parses legacy payloads into the canonical scope-chip shape.
+export const normalizeKeepUniqueCountMode = (value: unknown): KeepUniqueRuleCountMode => {
   if (!value) return { ...KEEP_UNIQUE_DEFAULT_COUNT_MODE }
   if (typeof value === 'string') {
     if (value === 'perRule' || value === 'rule') {
@@ -195,6 +197,17 @@ export const cloneKeepUniqueCombination = (combination: KeepUniqueCombination): 
   rarities: [...combination.rarities],
   mainStats: [...(combination.mainStats ?? [])],
   factions: [...(combination.factions ?? [])],
+})
+
+// createEmptyKeepUniqueCombination returns an "any" combination for new rule drafts.
+export const createEmptyKeepUniqueCombination = (): KeepUniqueCombination => ({
+  slots: [],
+  sets: [],
+  metaSetIds: [],
+  ranks: [],
+  rarities: [],
+  mainStats: [],
+  factions: [],
 })
 
 // cloneKeepUniqueRule keeps history snapshots isolated from live edits.
@@ -676,7 +689,7 @@ export function normalizeKeepUniqueRule(value: unknown): KeepUniqueRule | null {
   const requiredCount = Number.isFinite(rawRequired) && rawRequired >= 1 ? Math.floor(rawRequired) : 1
   const activation = normalizeKeepUniqueActivation(rec.activation, rec.enabled)
   const countMode = (() => {
-    if ('countMode' in rec) return normalizeCountMode(rec.countMode)
+    if ('countMode' in rec) return normalizeKeepUniqueCountMode(rec.countMode)
     if (rec.requirePerCombination === true) return { ...KEEP_UNIQUE_DEFAULT_COUNT_MODE }
     return { ...KEEP_UNIQUE_DEFAULT_COUNT_MODE }
   })()
@@ -737,7 +750,7 @@ const matchesSelection = (selection: readonly number[], candidate: number): bool
 }
 
 // Placeholder combos inherit the base filters but narrow whichever dimensions affect the group key.
-const buildPlaceholderCombinationForGroup = (params: {
+export const buildPlaceholderCombinationForGroup = (params: {
   base: KeepUniqueCombination
   mode: KeepUniqueRuleCountMode
   sample: NormalizedGearArtifact | null
@@ -1026,13 +1039,13 @@ export function computeKeepUniqueProtection(params: KeepUniqueDetectionParams): 
 }
 
 /** Expand metaset references to explicit set IDs for combination evaluation. */
-export function resolveKeepUniqueRulesWithMetasets(
-  rules: readonly KeepUniqueRule[],
+export function resolveKeepUniqueRulesWithMetasets<T extends { combination: KeepUniqueCombination }>(
+  rules: readonly T[],
   metasets: readonly Metaset[],
-): KeepUniqueRule[] {
+): T[] {
   // No rules or metasets -> no expansion needed.
-  if (!rules.length) return rules as KeepUniqueRule[]
-  if (!metasets.length) return rules as KeepUniqueRule[]
+  if (!rules.length) return rules as T[]
+  if (!metasets.length) return rules as T[]
   // Build a fast lookup for metaset id -> definition.
   const metaMap = new Map(metasets.map((meta) => [meta.id, meta]))
   let mutated = false
@@ -1072,7 +1085,7 @@ export function resolveKeepUniqueRulesWithMetasets(
       },
     }
   })
-  return mutated ? resolved : rules as KeepUniqueRule[]
+  return mutated ? resolved : rules as T[]
 }
 
 type KeepUniqueLabelSource = KeepUniqueRule | HsfRuleWithCfg | null | undefined

@@ -106,7 +106,12 @@ import {
 } from '../state/testerGridNormalizedOverlayPreferences'
 import { TesterNormalizedPresetEditorMenu } from './TesterNormalizedPresetEditorMenu'
 import type { TesterRuleTemplateIntent } from '../lib/testerRuleTemplates'
-import { parseSpacingPx, TESTER_GRID_COLUMN_GAP_UNITS, TESTER_GRID_ROW_PADDING_UNITS } from '../lib/testerGridLayout'
+import {
+  parseSpacingPx,
+  TESTER_GRID_COLUMN_GAP_UNITS,
+  TESTER_GRID_CONTAINER_PADDING_END_UNITS,
+  TESTER_GRID_ROW_PADDING_UNITS,
+} from '../lib/testerGridLayout'
 
 type EmptyStateWrapperProps = Omit<EmptyStateMessageProps, 'children'>
 
@@ -313,6 +318,8 @@ type TesterItemsGridProps = {
   dimUnhighlightedRows?: boolean
   // Optional card-width tap for keep-override layout (measures Rule Tester 4-col cards).
   onCardWidthMeasured?: (widthPx: number) => void
+  // Optional scrollbar-width tap for keep-override layout (keeps pane width aligned).
+  onScrollbarWidthMeasured?: (widthPx: number) => void
   // Optional Rule Tester sort controls; view-only ordering that does not affect exports.
   substatSort?: TesterSubstatSortSpec | null
   // Full sort preference state so the grid can gate the [S] overlay option.
@@ -375,6 +382,7 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     highlightedRowPredicate = null,
     dimUnhighlightedRows = false,
     onCardWidthMeasured,
+    onScrollbarWidthMeasured,
     substatSort = null,
     sortState = null,
     grouping = TESTER_GROUPING_DEFAULT_STATE,
@@ -675,6 +683,8 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     })
   }, [allGroupKeys])
   const containerRef = useRef<HTMLDivElement | null>(null)
+  // Cache the last scrollbar width so we only notify on real changes.
+  const scrollbarWidthRef = useRef<number | null>(null)
   // Cache the last measured card width so we only notify on real changes.
   const cardWidthMeasureRef = useRef<number | null>(null)
   const [scrollTop, setScrollTop] = useState(0)
@@ -769,6 +779,7 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
   })
   // Only measure card width in the Rule Tester so keep-override tabs can mirror it.
   const shouldMeasureCardWidth = variant === 'tester' && typeof onCardWidthMeasured === 'function'
+  const shouldMeasureScrollbarWidth = typeof onScrollbarWidthMeasured === 'function'
   // Re-run on row-count changes so late-loading data still triggers a measurement.
   useLayoutEffect(() => {
     // Bail fast when measurement is disabled.
@@ -781,18 +792,21 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
       // Grab the first visible card; virtualization may render only a subset.
       const cardNode = container.querySelector<HTMLElement>('[data-tester-grid-card="true"]')
       if (!cardNode) return
-      // Read the visible card width so auto-zoom scaling stays consistent.
+      // Read both CSS and visible widths so keep-override math stays zoom-safe.
       const cardRect = cardNode.getBoundingClientRect()
       if (!Number.isFinite(cardRect.width) || cardRect.width <= 0) return
-      // Offset width stays in CSS pixels; use the ratio to detect zoom scaling.
+      // Offset width is the CSS pixel width (unscaled), even when the root is zoomed.
       const offsetWidth = Math.max(0, cardNode.offsetWidth || 0)
       const scaleFactor = offsetWidth > 0 ? (cardRect.width / offsetWidth) : 1
       const normalizedScale = Number.isFinite(scaleFactor) && scaleFactor > 0 ? scaleFactor : 1
-      // Normalize the gap to visible pixels so our math stays in one coordinate system.
-      const normalizedGap = Math.max(0, gridGapPx) * normalizedScale
+      // Prefer CSS pixels so the keep-override pane width does not double-apply zoom.
+      const cardCssWidth = offsetWidth > 0 ? offsetWidth : Math.round(cardRect.width / normalizedScale)
+      if (!Number.isFinite(cardCssWidth) || cardCssWidth <= 0) return
+      // Grid gap stays in CSS pixels so it matches the layout widths we apply.
+      const normalizedGap = Math.max(0, gridGapPx)
       const targetColumns = KEEP_OVERRIDE_REFERENCE_COLUMN_COUNT
       const currentColumns = Math.max(1, gridColumnCount)
-      const gridWidth = (cardRect.width * currentColumns)
+      const gridWidth = (cardCssWidth * currentColumns)
         + (normalizedGap * Math.max(0, currentColumns - 1))
       const availableWidth = Math.max(0, gridWidth - (normalizedGap * Math.max(0, targetColumns - 1)))
       if (availableWidth <= 0) return
@@ -816,6 +830,28 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
     observer.observe(container)
     return () => observer.disconnect()
   }, [gridColumnCount, gridGapPx, onCardWidthMeasured, rows.length, shouldMeasureCardWidth])
+  // Track scrollbar width so keep-override panes can account for gutter space.
+  useLayoutEffect(() => {
+    if (!shouldMeasureScrollbarWidth) return undefined
+    const container = containerRef.current
+    if (!container) return undefined
+    const measure = () => {
+      const rawWidth = container.offsetWidth - container.clientWidth
+      const nextWidth = Math.max(0, Number(rawWidth))
+      if (!Number.isFinite(nextWidth)) return
+      if (scrollbarWidthRef.current === nextWidth) return
+      scrollbarWidthRef.current = nextWidth
+      onScrollbarWidthMeasured?.(nextWidth)
+    }
+    measure()
+    if (typeof ResizeObserver === 'undefined') {
+      window.addEventListener('resize', measure)
+      return () => window.removeEventListener('resize', measure)
+    }
+    const observer = new ResizeObserver(() => { measure() })
+    observer.observe(container)
+    return () => observer.disconnect()
+  }, [onScrollbarWidthMeasured, shouldMeasureScrollbarWidth])
   const groupCountChipBg = theme.palette.mode === 'dark' ? theme.palette.grey[800] : theme.palette.grey[100]
   const accordionSummaryHeightPx = useMemo(() => parseSpacingPx(theme.spacing(5)), [theme])
   useEffect(() => () => {
@@ -1440,8 +1476,11 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
           overflowY: 'auto',
           // Prevent Firefox from surfacing a horizontal scrollbar due to box-shadow overflow.
           overflowX: 'hidden',
-          pr: 0.5,
-          ...reserveScrollbarGutterSpace({ reserveStart: false, basePaddingInlineEnd: theme.spacing(0.5) }),
+          pr: TESTER_GRID_CONTAINER_PADDING_END_UNITS,
+          ...reserveScrollbarGutterSpace({
+            reserveStart: false,
+            basePaddingInlineEnd: theme.spacing(TESTER_GRID_CONTAINER_PADDING_END_UNITS),
+          }),
         })}
       >
         <Box

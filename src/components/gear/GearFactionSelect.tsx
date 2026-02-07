@@ -91,7 +91,7 @@ export function GearFactionSelect({
     if (!singleValue) return t('any')
     const label = t(factionI18nKey(singleValue))
     return (
-      <EllipsisTooltip title={label}>
+      <EllipsisTooltip title={label} wrap="block">
         <Box component="span" sx={labelContainerSx}>
           <FactionOptionLabel faction={singleValue} label={label} truncate textSx={{ fontSize: '0.875rem' }} />
         </Box>
@@ -108,13 +108,14 @@ export function GearFactionSelect({
       .map((entry) => entry as FactionId)
     const labelString = numericEntries.map((entry) => t(factionI18nKey(entry))).join(', ')
     return (
-      <EllipsisTooltip title={labelString}>
+      <EllipsisTooltip title={labelString} wrap="block">
         <Box component="span" sx={labelContainerSx}>
           <Box
             component="span"
             data-ellipsis-target
             sx={{
               display: 'inline-block',
+              width: '100%',
               whiteSpace: 'nowrap',
               overflow: 'hidden',
               textOverflow: 'ellipsis',

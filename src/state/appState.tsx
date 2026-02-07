@@ -15,7 +15,7 @@ import {
   LOGIC_HUB_DIALOG_TAB_FINAL_SELL,
   type LogicHubDialogTab,
   type FinalSellRemainderConfig,
-} from '../lib/finalSell'
+} from '../lib/logicHub'
 import type { BuilderConfig, SubstatTargetTable } from '../lib/hsfBuilder'
 import type { Metaset } from '../lib/metasets'
 import { normalizeMetasetIcons } from '../lib/metasets'

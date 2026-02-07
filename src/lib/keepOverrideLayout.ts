@@ -15,6 +15,8 @@ export const KEEP_OVERRIDE_REFERENCE_COLUMN_COUNT = 4
 type KeepOverrideGridPaneWidthParams = {
   gridColumnMode: 1 | 2
   targetCardWidthPx: number | null
+  containerPaddingInlineEndPx: number
+  containerScrollbarWidthPx: number
   gridGapPx: number
   rowPaddingPx: number
 }
@@ -23,6 +25,8 @@ type KeepOverrideGridPaneWidthParams = {
 export const resolveKeepOverrideGridPaneWidth = ({
   gridColumnMode,
   targetCardWidthPx,
+  containerPaddingInlineEndPx,
+  containerScrollbarWidthPx,
   gridGapPx,
   rowPaddingPx,
 }: KeepOverrideGridPaneWidthParams): string | null => {
@@ -33,6 +37,8 @@ export const resolveKeepOverrideGridPaneWidth = ({
   if (normalizedCardWidth <= 0) return null
   // Normalize padding + gap so arithmetic stays stable.
   const normalizedPadding = Math.max(0, rowPaddingPx)
+  const normalizedContainerPadding = Math.max(0, containerPaddingInlineEndPx)
+  const normalizedScrollbarWidth = Math.max(0, containerScrollbarWidthPx)
   const normalizedGap = Math.max(0, gridGapPx)
   // Resolve the active column count (keep-override only supports 1 or 2).
   const columnCount = gridColumnMode === 2 ? 2 : 1
@@ -40,5 +46,7 @@ export const resolveKeepOverrideGridPaneWidth = ({
   const resolved = (normalizedCardWidth * columnCount)
     + (Math.max(0, columnCount - 1) * normalizedGap)
     + (normalizedPadding * 2)
+    + normalizedContainerPadding
+    + normalizedScrollbarWidth
   return `${resolved}px`
 }
