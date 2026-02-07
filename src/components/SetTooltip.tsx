@@ -194,6 +194,17 @@ function getSetTooltipContentNamed(
   )
 }
 
+// Shared no-set tooltip text so menus and tester grid stay in sync.
+export function buildNoSetTooltipMarkdown(
+  t: (k: string, p?: Record<string, string | number>) => string,
+  options?: { includeDisabled?: boolean; label?: string },
+): string {
+  const label = options?.label ?? t('noSetAccessories')
+  const lines = [`**${label}**`, t('noSetAccessoriesDesc')]
+  if (options?.includeDisabled) lines.push(t('disabled'))
+  return lines.join('\n')
+}
+
 /**
  * Convenience wrapper to conditionally wrap children with a Tooltip when a
  * description is present. Keeps callers clean and avoids duplication.

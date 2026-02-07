@@ -99,17 +99,18 @@ Crie, reveja e exporte regras de venda para o RSL Helper com uma interface simpl
 - Com `Venda final` ativa, as regras geradas incluem todos os sets conhecidos. Na prévia surge «Todos os sets conhecidos» para reduzir ruído; o arquivo exportado lista os sets um a um.
 
 ### Manter únicos
-- Clique em «Logic Hub» no cabeçalho da prévia e mude para a aba `Manter únicos` para marcar as combinações que não quer vender nunca. Ative `Manter únicos` para começar a editá-las.
-- Cada regra permite escolher slot, sets ou meta-sets, ranks, raridades, mainstats e, no caso dos acessórios, facções. Seletores vazios significam «qualquer um».
-- Uma regra padrão já cobre anéis, amuletos e estandartes 5★/6★ de todos os sets de acessórios de 1–9 peças (mais os sets de peça única), com os chips «Por slot», «Por conjunto», «Por facção» e «Por atributo principal» ligados para que cada combinação mantenha ao menos uma cópia.
-- Há também uma regra auxiliar desativada que mira armas/armaduras (arma, elmo, escudo, manoplas, peitoral, botas) nos sets raros Stun/Toxic/Daze/Cursed/Provoke/Destroy em 5★/6★. Ela usa «Por slot» + «Por conjunto» para que possa ser ativada quando esses drops precisarem de reforço.
-- `≥ Quantidade necessária` fica ao lado de um pequeno grupo de botões. «Por regra» mantém uma única quota; combine «Por slot», «Por conjunto», «Por facção» e «Por atributo principal» para multiplicar a quota por cada combinação relevante (se todos estiverem desligados, o modo volta automaticamente para «Por regra»).
-- O contador `Existem {have} / Manter {keep}` repete o texto do app: **Existem** conta peças já protegidas pelas configs, Venda final ou outras regras Manter; **Manter** mostra o alvo definido em `≥ Quantidade necessária`. Só entram nessa conta os itens que realmente combinam com a regra atual.
-- A grade abaixo mantém o seletor `Filtro: Todos / Seleção`. Use «Todos» para revisar cada combinação única de uma vez; troque para «Seleção» quando quiser enxergar apenas o que combina com a regra ativa (esse modo volta a agir como «Todos» sempre que nenhuma regra estiver selecionada).
-- O scanner só adiciona linhas extras quando todos os itens que combinam com a regra acabariam vendidos. Se as configs normais já salvam o suficiente, a regra mostra «Coberta noutro local» e nada novo é exportado.
+- Clique em «Logic Hub» no cabeçalho da prévia e mude para a aba `Manter únicos` para marcar as combinações que não quer vender nunca. Ative `Manter únicos` para deixar o scanner adicionar linhas de manter (editar uma regra também ativa automaticamente).
+- Cada regra de Manter únicos permite escolher slot, sets ou meta-sets, ranks, raridades, atributos principais e, no caso dos acessórios, facções. Deixar um seletor vazio significa «qualquer».
+- `Modo` decide como a regra é emitida: `Desativada` desliga, `Proteger existentes` injeta linhas de manter para itens que seriam vendidos até cumprir a quota, e `Antecipar lacunas` também emite regras fictícias para combinações que ainda faltam para proteger novos drops até a próxima atualização da BD.
+- Substats são opcionais: escolha um ou mais para contar somente itens que tenham pelo menos um desses substats (múltiplos = «qualquer um deles»). Deixar vazio permite qualquer substat.
+- `Modo de substats` controla como esses substats são usados: `Sem ranking` conta cada item correspondente, enquanto `Classificado` pontua com a fórmula normalizada de substats (glifos ignorados) e mantém só os melhores rolls por grupo de escopo. Empates no corte continuam protegidos.
+- Use `Pesos` (apenas em `Classificado`) para indicar o que importa mais — pesos maiores fazem esse substat contar mais no ranking.
+- `≥ Quantidade necessária` é a promessa que você quer manter. Os chips de escopo logo abaixo de cada seletor (todos exceto `Rank` e `Raridade`) decidem como essa quota se divide: `Por slot`, `Por conjunto`, `Por facção` e `Por atributo principal` podem ser combinados livremente. Desligar todos volta automaticamente para `Por regra`.
+- O contador `Existem {have} / Manter {keep}` mostra: **Existem** = itens correspondentes (em `Classificado`, conta só os melhores rolls + empates), **Manter** = a quota após os escopos. O chip fica vermelho quando a quota não é atingida.
+- O scanner só adiciona linhas de manter para itens correspondentes que seriam vendidos, e só quando a quota não é atendida. Em `Antecipar lacunas`, regras fictícias cobrem as combinações que faltam.
 
 #### Escopos de quota em resumo
-Empilhar chips de escopo decide quem recebe uma quota própria. Deixe «Por regra» ligado para compartilhar um único pool e vá ativando os outros chips para forçar divisões independentes por slot, set/metaset, facção ou mainstat.
+Empilhar chips de escopo decide quem recebe uma quota própria. Deixe «Por regra» ligado para compartilhar um único pool e vá ativando `Por slot`, `Por conjunto`, `Por facção` e `Por atributo principal` para impor misturas Slot × Set × Facção × Atributo principal de forma independente.
 
 | Botão de escopo | Comportamento da cota | Quando brilha |
 | --- | --- | --- |
@@ -120,16 +121,18 @@ Empilhar chips de escopo decide quem recebe uma quota própria. Deixe «Por regr
 | `Por atributo principal` | Duplica a cota por mainstat. | Mantém ACC e RES em banners separados. |
 
 #### Exemplos do mundo real
-| Cenário | Filtros | Botões de escopo | O que o scanner garante |
-| --- | --- | --- | --- |
-| Acabaram as botas SPD | Slot = Botas, Mainstat = SPD, Sets vazios | `Por regra` | Pelo menos cinco botas SPD sobrevivem, independentemente do set. |
-| Misturar luvas Savage e Lethal | Slot = Luvas, Sets = Savage + Lethal, Mainstat = CDMG% | `Por regra` | Três luvas de dano ficam seguras mesmo quando a divisão entre sets muda. |
-| Anéis Merciless por facção | Slot = Anel, Set = Merciless, Facção em branco | `Por facção` | Cada facção mantém três anéis Merciless próprios. |
-| Anéis HP% por facção | Slot = Anel, Mainstat = HP%, Sets vazios | `Por facção` | Duas cópias HP% sobrevivem para cada facção. |
-| Acessórios básicos por facção | Três regras (Anel/Amuleto/Estandarte), Sets/Mainstat vazios, `≥ Quantidade necessária = 5` | `Por facção` | Cinco anéis, amuletos e estandartes por facção permanecem no inventário. |
-| Stoneskin + Protection por facção | Regras de acessório, Sets = Stoneskin + Protection, Mainstat vazio | `Por conjunto` + `Por facção` | Cada facção segura dois Stoneskin e dois Protection para cada slot. |
+| Cenário | Filtros | Quantidade necessária | Botões de escopo | O que o scanner garante |
+| --- | --- | --- | --- | --- |
+| Acabando as botas SPD | Slot = Botas, Atributo principal = SPD, Sets vazios | `5` | `Por regra` | Pelo menos cinco botas SPD sobrevivem, independentemente do set. |
+| Misturar luvas Savage e Lethal | Slot = Luvas, Sets = Savage + Lethal, Atributo principal = CDMG% | `3` | `Por regra` | Três luvas de dano ficam seguras mesmo quando a divisão entre sets muda. |
+| Anéis Merciless por facção | Slot = Anel, Set = Merciless, Facção em branco | `3` | `Por facção` | Cada facção mantém três anéis Merciless próprios. |
+| Anéis HP% por facção | Slot = Anel, Atributo principal = HP%, Sets vazios | `2` | `Por facção` | Duas cópias HP% sobrevivem para cada facção. |
+| Acessórios básicos por facção | Três regras (Anel/Amuleto/Estandarte), Sets/Atributo principal vazios | `5` | `Por facção` | Cinco anéis, amuletos e estandartes por facção permanecem no inventário. |
+| Acessórios Stoneskin + Protection | Slot = Anel/Amuleto/Estandarte, Sets = Stoneskin + Protection, Atributo principal vazio | `2` | `Por conjunto` + `Por facção` + `Por slot` | Cada facção guarda dois Stoneskin e dois Protection para cada slot de acessório. |
+| Acessórios com SPD mais alto | Slot = Anel/Amuleto/Estandarte, Substats = SPD, Modo de substats = Classificado | `5` | `Por regra` | Mantém os cinco melhores rolls de SPD entre os acessórios (empates incluídos). |
+| Estandartes de ACC com SPD | Slot = Estandarte, Atributo principal = ACC, Substats = SPD + ACC, Modo de substats = Classificado, Pesos: SPD maior | `3` | `Por facção` | Cada facção guarda os melhores estandartes de ACC onde SPD pesa mais. |
 
-Dica: importe a sua `.db` ou cole itens no diálogo Equipamento antes de abrir a aba Manter únicos para que o scanner veja equipamentos reais. Quando a regra mostrar «Faltam 2», clique nela: o Teste de Regras destaca esses itens e você vê qual facção ou set ainda precisa de cobertura.
+Dica: importe a sua `.db` ou cole itens no diálogo Equipamento antes de abrir Manter únicos para que o scanner veja equipamentos reais. Clique numa carta de regra para realçar o equipamento correspondente; mude `Filtro` para `Seleção` para ver apenas essas correspondências.
 
 ### Gestão de configs
 - As configs salvas aparecem como etiquetas sob o construtor. Clique para selecionar; clique direito para duplicar, mover, copiar ou eliminar.

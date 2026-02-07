@@ -33,6 +33,7 @@ import {
   estimateInlineSelectHiddenCount,
 } from '../../lib/inlineSelectAffordances'
 import { useGearSetCatalogVersion } from '../../hooks/useGearSetCatalogVersion'
+import { ACCESSORY_NO_SET_ID } from '../../lib/constants'
 
 type GearSetsSelectProps = {
   value: ArtifactSetSelectionEntry[]
@@ -47,6 +48,9 @@ type GearSetsSelectProps = {
   menuWidthPx?: number
   disabled?: boolean
   layoutVersion?: number
+  anyLabel?: string
+  includeNoSet?: boolean
+  disabledSetIds?: number[]
 }
 
 export default function GearSetsSelect({
@@ -62,8 +66,13 @@ export default function GearSetsSelect({
   menuWidthPx = SETS_MENU_WIDTH_PX,
   disabled = false,
   layoutVersion,
+  anyLabel,
+  includeNoSet = false,
+  disabledSetIds,
 }: GearSetsSelectProps) {
   const { t, lang } = useI18n()
+  // Keep the placeholder explicit when callers want "Any Set" instead of "Any".
+  const anyText = anyLabel ?? t('any')
   const gearSetCatalogVersion = useGearSetCatalogVersion()
   const [setsOrder, setSetsOrder] = useSetsOrderPreference()
   const [setsSearch, setSetsSearch] = useState('')
@@ -141,12 +150,12 @@ export default function GearSetsSelect({
     if (tokens.length === 0 && splitSelections.excluded.length === 0) {
       return (
         <Box component="span" sx={{ display: 'block', textOverflow: 'ellipsis', whiteSpace: 'nowrap', overflow: 'hidden' }}>
-          {t('any')}
+          {anyText}
         </Box>
       )
     }
     // Collapse to "Any" when everything is cleared.
-    const text = selectionLabels.length === 0 ? t('any') : selectionLabels.join(', ')
+    const text = selectionLabels.length === 0 ? anyText : selectionLabels.join(', ')
     return (
       <EllipsisTooltip title={text} wrap="block">
         <Box
@@ -158,7 +167,7 @@ export default function GearSetsSelect({
         </Box>
       </EllipsisTooltip>
     )
-  }, [gearSetCatalogVersion, selectionLabels, splitSelections.excluded.length, t])
+  }, [anyText, gearSetCatalogVersion, selectionLabels, splitSelections.excluded.length])
 
   const handleTokensChange = useCallback((e: SelectChangeEvent<string[]>) => {
     // Normalize the token list so arrays never contain non-strings.
@@ -190,8 +199,18 @@ export default function GearSetsSelect({
     if (order === 'icons') return
     const list = setsMenuListRef.current
     if (!list) return
-    const sortedForOrder = filterAndSortSetEntries(setsSearch, order, { translate: t })
-    const filtered = allowedSetFilter ? sortedForOrder.filter(([id]) => allowedSetFilter.has(Number(id))) : sortedForOrder
+    const sortedForOrder = filterAndSortSetEntries(setsSearch, order, {
+      translate: t,
+      // Opt into the accessory no-set sentinel when requested by caller.
+      includeNoSet,
+      noSetLabel: t('noSetAccessories'),
+    })
+    const filtered = allowedSetFilter
+      ? sortedForOrder.filter(([id]) => (
+        // Honor allowed ids but keep the no-set sentinel when enabled.
+        allowedSetFilter.has(Number(id)) || (includeNoSet && Number(id) === ACCESSORY_NO_SET_ID)
+      ))
+      : sortedForOrder
     // Scroll to the first explicitly included set to mirror builder behavior.
     const selectedIds = new Set(splitSelections.included.map(Number))
     let target: number | null = null
@@ -208,14 +227,22 @@ export default function GearSetsSelect({
       item?.scrollIntoView({ block: 'nearest' })
     }
     requestAnimationFrame(() => requestAnimationFrame(scroll))
-  }, [allowedSetFilter, gearSetCatalogVersion, menuOpen, setsOrder, setsSearch, splitSelections.included, t])
+  }, [allowedSetFilter, gearSetCatalogVersion, includeNoSet, menuOpen, setsOrder, setsSearch, splitSelections.included, t])
 
   const sortedSets = useMemo(() => {
     void gearSetCatalogVersion
-    const base = filterAndSortSetEntries(setsSearch, setsOrder, { translate: t })
+    const base = filterAndSortSetEntries(setsSearch, setsOrder, {
+      translate: t,
+      // Include the accessory no-set sentinel when requested by caller.
+      includeNoSet,
+      noSetLabel: t('noSetAccessories'),
+    })
     if (!allowedSetFilter) return base
-    return base.filter(([id]) => allowedSetFilter.has(Number(id)))
-  }, [allowedSetFilter, gearSetCatalogVersion, setsOrder, setsSearch, t])
+    return base.filter(([id]) => (
+      // Keep no-set visible even when allowed ids are filtered.
+      allowedSetFilter.has(Number(id)) || (includeNoSet && Number(id) === ACCESSORY_NO_SET_ID)
+    ))
+  }, [allowedSetFilter, gearSetCatalogVersion, includeNoSet, setsOrder, setsSearch, t])
 
   const handleToggleSet = useCallback((setId: number) => {
     const numeric = Number(setId)
@@ -642,6 +669,7 @@ export default function GearSetsSelect({
               selectedMetasetIds={selectedMetasetIds}
               selectedSetIds={splitSelections.included.map(Number)}
               excludedSetIds={splitSelections.excluded.map(Number)}
+              disabledSetIds={disabledSetIds ?? []}
               onToggleSet={handleToggleSet}
               onContextMenuSet={handleContextMenuSet}
             />

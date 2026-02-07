@@ -6,14 +6,15 @@
  */
 // keepUniquesDescriptors keeps keep-unique history data-only until render.
 import type { HistoryEntryDescriptor, ResolvedHistoryEntryDescriptor } from './historyDescriptorTypes'
-import type { KeepUniqueRule, KeepUniqueRuleActivation, KeepUniqueRuleCountMode } from '../lib/keepUniques'
+import type { KeepUniqueRule, KeepUniqueRuleActivation, KeepUniqueRuleCountMode, KeepUniqueSubstatMode } from '../lib/keepUniques'
 import type { Metaset } from '../lib/metasets'
-import { compareArtifactSets, compareArtifactTypes, compareVariants, factionI18nKey } from '../lib/types'
+import { compareArtifactSets, compareArtifactTypes, compareVariants, factionI18nKey, statVariantI18nKey, StatVariant, STAT_VARIANTS_PRIORITY } from '../lib/types'
 import type { TranslateFn } from './builderUpdateDescriptor'
 import { collectMetasetSnapshotEntries, normalizeNumberArray } from './historyDescriptorUtils'
 import { normalizeArtifactSetSelections, splitArtifactSetSelections } from '../lib/gearSets/selection'
 import type { KeepUniquesRulesDescriptorMode } from './historyDescriptorTypes'
 import { snapshotKeepUniqueRules, snapshotMetasets } from './historySnapshotUtils'
+import { normalizeTesterSortWeight, TESTER_SORT_WEIGHT_DEFAULT } from '../lib/testerSort'
 
 export type { KeepUniquesRulesDescriptorMode }
 
@@ -178,6 +179,17 @@ function buildKeepUniqueRuleSignature(rule: KeepUniqueRule): string {
   const mains = normalizeNumberArray(combo.mainStats).slice().sort(compareVariants)
   // Normalize factions so signatures match regardless of selection order.
   const factions = normalizeNumberArray(combo.factions).slice().sort((a, b) => a - b)
+  // Normalize substats so ranking toggles are tracked separately.
+  const substats = sortSubstatsForHistory(rule.substats ?? [])
+  // Normalize weights so edits show up even if arrays re-order.
+  const weightEntries = Object.entries(rule.substatWeights ?? {})
+    .map(([key, raw]) => {
+      const variant = Number(key)
+      const normalized = normalizeTesterSortWeight(Number(raw))
+      return Number.isFinite(variant) ? `${variant}:${normalized.toFixed(2)}` : null
+    })
+    .filter((entry): entry is string => Boolean(entry && !entry.endsWith(`${TESTER_SORT_WEIGHT_DEFAULT.toFixed(2)}`)))
+    .sort()
   // Serialize the normalized rule signature for comparison.
   return JSON.stringify({
     id: rule.id,
@@ -192,6 +204,9 @@ function buildKeepUniqueRuleSignature(rule: KeepUniqueRule): string {
     rarities,
     mains,
     factions,
+    substats,
+    substatMode: rule.substatMode,
+    substatWeights: weightEntries,
   })
 }
 
@@ -231,6 +246,64 @@ function formatRuleName(rule: KeepUniqueRule, t: TranslateFn): string {
   return raw.length > 0 ? raw : t('historyValueEmpty')
 }
 
+// Keep stat ordering aligned with the UI priority rows for consistent summaries.
+const SUBSTAT_ORDER = new Map<StatVariant, number>(
+  STAT_VARIANTS_PRIORITY.map((variant, index) => [variant, index]),
+)
+
+const sortSubstatsForHistory = (values: readonly number[] | null | undefined): StatVariant[] => {
+  if (!values || values.length === 0) return []
+  const seen = new Set<number>()
+  const result: StatVariant[] = []
+  for (const raw of values) {
+    const numeric = Number(raw)
+    if (!Number.isFinite(numeric)) continue
+    if (numeric === 0) continue
+    if (seen.has(numeric)) continue
+    seen.add(numeric)
+    result.push(numeric as StatVariant)
+  }
+  return result.sort((left, right) => {
+    const leftOrder = SUBSTAT_ORDER.get(left) ?? Number.MAX_SAFE_INTEGER
+    const rightOrder = SUBSTAT_ORDER.get(right) ?? Number.MAX_SAFE_INTEGER
+    if (leftOrder !== rightOrder) return leftOrder - rightOrder
+    return Number(left) - Number(right)
+  })
+}
+
+const formatSubstatMode = (mode: KeepUniqueSubstatMode | null | undefined, t: TranslateFn): string => {
+  return mode === 'ranked' ? t('keepUniquesSubstatModeRanked') : t('keepUniquesSubstatModeUnranked')
+}
+
+const formatSubstatList = (rule: KeepUniqueRule, t: TranslateFn): string => {
+  const variants = sortSubstatsForHistory(rule.substats ?? [])
+  if (variants.length === 0) return t('any')
+  return variants.map((variant) => t(statVariantI18nKey(variant))).join(', ')
+}
+
+const formatSubstatWeights = (rule: KeepUniqueRule, t: TranslateFn): string => {
+  const weights = rule.substatWeights ?? {}
+  const entries: Array<{ variant: StatVariant; weight: number }> = []
+  for (const [key, raw] of Object.entries(weights)) {
+    const variant = Number(key)
+    if (!Number.isFinite(variant)) continue
+    if (variant === 0) continue
+    const normalized = normalizeTesterSortWeight(Number(raw))
+    if (normalized === TESTER_SORT_WEIGHT_DEFAULT) continue
+    entries.push({ variant: variant as StatVariant, weight: normalized })
+  }
+  if (entries.length === 0) return ''
+  entries.sort((left, right) => {
+    const leftOrder = SUBSTAT_ORDER.get(left.variant) ?? Number.MAX_SAFE_INTEGER
+    const rightOrder = SUBSTAT_ORDER.get(right.variant) ?? Number.MAX_SAFE_INTEGER
+    if (leftOrder !== rightOrder) return leftOrder - rightOrder
+    return Number(left.variant) - Number(right.variant)
+  })
+  return entries
+    .map(({ variant, weight }) => `${t(statVariantI18nKey(variant))} x${weight.toFixed(2)}`)
+    .join(', ')
+}
+
 function buildKeepUniqueRuleSnapshotLines(rule: KeepUniqueRule, metasets: Metaset[], t: TranslateFn): string[] {
   // Provide a short, ordered summary so tooltips stay predictable.
   const detailLines: string[] = []
@@ -249,6 +322,15 @@ function buildKeepUniqueRuleSnapshotLines(rule: KeepUniqueRule, metasets: Metase
   detailLines.push(makeSetListSnapshotLine(rule, t))
   detailLines.push(makeMetasetSnapshotLine(rule, metasets, t))
   detailLines.push(makeMainStatsSnapshotLine(rule, t))
+  // Substat filters behave like optional scope rules; keep the summary explicit.
+  detailLines.push(`${t('keepUniquesSubstatLabel')}: ${formatSubstatList(rule, t)}`)
+  if ((rule.substats ?? []).length > 0) {
+    detailLines.push(`${t('keepUniquesSubstatModeLabel')}: ${formatSubstatMode(rule.substatMode, t)}`)
+    const weightSummary = formatSubstatWeights(rule, t)
+    if (weightSummary) {
+      detailLines.push(`${t('keepUniquesSubstatWeightsLabel')}: ${weightSummary}`)
+    }
+  }
   return detailLines
 }
 
@@ -298,6 +380,22 @@ function buildKeepUniqueRuleDiffLines(
   const nextMains = normalizeSortedNumberList(next.combination.mainStats, compareVariants)
   if (!areNumberListsEqual(prevMains, nextMains)) {
     detailLines.push(makeMainStatsDiffLine(prevMains, nextMains, t))
+  }
+  // Compare substat selection so ranked/unranked edits are visible.
+  pushDiffLine(detailLines, t, t('keepUniquesSubstatLabel'), formatSubstatList(previous, t), formatSubstatList(next, t))
+  if ((previous.substats ?? []).length > 0 || (next.substats ?? []).length > 0) {
+    pushDiffLine(
+      detailLines,
+      t,
+      t('keepUniquesSubstatModeLabel'),
+      formatSubstatMode(previous.substatMode, t),
+      formatSubstatMode(next.substatMode, t),
+    )
+    const prevWeights = formatSubstatWeights(previous, t)
+    const nextWeights = formatSubstatWeights(next, t)
+    if (prevWeights || nextWeights) {
+      pushDiffLine(detailLines, t, t('keepUniquesSubstatWeightsLabel'), prevWeights || t('historyValueEmpty'), nextWeights || t('historyValueEmpty'))
+    }
   }
   return detailLines
 }

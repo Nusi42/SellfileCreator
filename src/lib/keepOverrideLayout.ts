@@ -1,7 +1,7 @@
 /**
  * keepOverrideLayout.ts
  *
- * Shared layout helpers for keep-override tabs (Keep Uniques + Keep Best Substat).
+ * Shared layout helpers for keep-override tabs (Keep Uniques).
  */
 
 // Rules pane keeps a minimum width so editor controls never collapse.

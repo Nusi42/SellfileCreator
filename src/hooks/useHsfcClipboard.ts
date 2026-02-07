@@ -24,7 +24,6 @@ import type { FinalSellDescriptorMode } from '../history/finalSellDescriptors'
 import { normalizeNoteValue, type NoteDescriptorMode } from '../history/noteDescriptors'
 import { makeClipboardSourceDescriptor } from '../history/bulkLoadDescriptors'
 import type { KeepUniqueRule } from '../lib/keepUniques'
-import type { KeepBestSubstatRule } from '../lib/keepBestSubstat'
 
 export type PendingImport = {
   cfgs: BuilderConfig[]
@@ -33,8 +32,6 @@ export type PendingImport = {
   finalSellRemainder: FinalSellRemainderConfig
   keepUniqueRules: KeepUniqueRule[]
   keepUniquesEnabled: boolean
-  keepBestSubstatRules: KeepBestSubstatRule[]
-  keepBestSubstatEnabled: boolean
   selectedIndex: number | null
   note?: string
   mode: 'append' | 'after'
@@ -77,8 +74,6 @@ type UseHsfcClipboardParams = {
   finalSellRemainder: FinalSellRemainderConfig
   keepUniqueRules: KeepUniqueRule[]
   keepUniquesEnabled: boolean
-  keepBestSubstatRules: KeepBestSubstatRule[]
-  keepBestSubstatEnabled: boolean
   selectedCfgIdx: number | null
   selectedCfgIndices: number[]
   describeNextChange: DescribeNextChangeFn
@@ -89,8 +84,6 @@ type UseHsfcClipboardParams = {
   applyFinalSellChange: ApplyFinalSellChangeFn
   setKeepUniqueRules: (value: SetStateAction<KeepUniqueRule[]>) => void
   setKeepUniquesEnabled: (value: SetStateAction<boolean>) => void
-  setKeepBestSubstatRules: (value: SetStateAction<KeepBestSubstatRule[]>) => void
-  setKeepBestSubstatEnabled: (value: SetStateAction<boolean>) => void
   applyNoteChange: ApplyNoteChangeFn
   setSelectedCfgIdx: (value: SetStateAction<number | null>) => void
   setSelectedCfgIndices: (value: number[]) => void
@@ -168,8 +161,6 @@ export function useHsfcClipboard({
   finalSellRemainder,
   keepUniqueRules,
   keepUniquesEnabled,
-  keepBestSubstatRules,
-  keepBestSubstatEnabled,
   selectedCfgIdx,
   selectedCfgIndices,
   describeNextChange,
@@ -180,8 +171,6 @@ export function useHsfcClipboard({
   applyNoteChange,
   setKeepUniqueRules,
   setKeepUniquesEnabled,
-  setKeepBestSubstatRules,
-  setKeepBestSubstatEnabled,
   setSelectedCfgIdx,
   setBuilder,
   setMetasetConflictOpen,
@@ -338,8 +327,6 @@ export function useHsfcClipboard({
         finalSellRemainder: fsr,
         keepUniqueRules: importedKeepRules,
         keepUniquesEnabled: importedKeepEnabled,
-        keepBestSubstatRules: importedBestRules,
-        keepBestSubstatEnabled: importedBestEnabled,
       } = parsed
       if (cfgs.length === 0) {
         setPasteErr('No valid config found in pasted text')
@@ -354,8 +341,6 @@ export function useHsfcClipboard({
           finalSellRemainder: fsr,
           keepUniqueRules: importedKeepRules,
           keepUniquesEnabled: importedKeepEnabled,
-          keepBestSubstatRules: importedBestRules,
-          keepBestSubstatEnabled: importedBestEnabled,
           selectedIndex,
           ...(note ? { note } : {}),
           mode: 'after',
@@ -409,8 +394,6 @@ export function useHsfcClipboard({
       })
       setKeepUniqueRules(importedKeepRules)
       setKeepUniquesEnabled(importedKeepEnabled)
-      setKeepBestSubstatRules(importedBestRules)
-      setKeepBestSubstatEnabled(importedBestEnabled)
       setPasteErr(null)
       return true
     } catch {
@@ -467,8 +450,6 @@ export function useHsfcClipboard({
     setPendingImport,
     setKeepUniqueRules,
     setKeepUniquesEnabled,
-    setKeepBestSubstatRules,
-    setKeepBestSubstatEnabled,
   ])
 
   const pasteAfterIndex = useCallback(async (idx: number) => {
@@ -485,8 +466,6 @@ export function useHsfcClipboard({
           finalSellRemainder: fsr,
           keepUniqueRules: importedKeepRules,
           keepUniquesEnabled: importedKeepEnabled,
-          keepBestSubstatRules: importedBestRules,
-          keepBestSubstatEnabled: importedBestEnabled,
         } = parsed
         if (cfgs.length > 0) {
           const prep = prepareHsfcImport(metasets, nextMetas, cfgs)
@@ -498,8 +477,6 @@ export function useHsfcClipboard({
               finalSellRemainder: fsr,
               keepUniqueRules: importedKeepRules,
               keepUniquesEnabled: importedKeepEnabled,
-              keepBestSubstatRules: importedBestRules,
-              keepBestSubstatEnabled: importedBestEnabled,
               selectedIndex,
               ...(note ? { note } : {}),
               mode: 'after',
@@ -550,8 +527,6 @@ export function useHsfcClipboard({
           })
           setKeepUniqueRules(importedKeepRules)
           setKeepUniquesEnabled(importedKeepEnabled)
-          setKeepBestSubstatRules(importedBestRules)
-          setKeepBestSubstatEnabled(importedBestEnabled)
           try {
             setSelectedCfgIdx(idx + cfgs.length)
             setBuilder(cfgs[cfgs.length - 1]!)
@@ -619,8 +594,6 @@ export function useHsfcClipboard({
     setSelectedCfgIdx,
     setKeepUniqueRules,
     setKeepUniquesEnabled,
-    setKeepBestSubstatRules,
-    setKeepBestSubstatEnabled,
   ])
 
   const handleConfigPasteAfter = useCallback((idx: number) => {
@@ -641,8 +614,6 @@ export function useHsfcClipboard({
       ...(hsfcNote && hsfcNote.trim() ? { note: hsfcNote } : {}),
       keepUniqueRules,
       keepUniquesEnabled,
-      keepBestSubstatRules,
-      keepBestSubstatEnabled,
     })
     const text = JSON.stringify(payload, null, 2)
     const ok = await writeTextSafe(text)
@@ -659,8 +630,6 @@ export function useHsfcClipboard({
     selectedCfgIdx,
     keepUniqueRules,
     keepUniquesEnabled,
-    keepBestSubstatRules,
-    keepBestSubstatEnabled,
     setCopyDlgOpen,
     setCopyText,
   ])
@@ -735,8 +704,6 @@ export function useHsfcClipboard({
           finalSellRemainder: fsr,
           keepUniqueRules: importedKeepRules,
           keepUniquesEnabled: importedKeepEnabled,
-          keepBestSubstatRules: importedBestRules,
-          keepBestSubstatEnabled: importedBestEnabled,
         } = parsed
         if (cfgs.length > 0) {
           const prep = prepareHsfcImport(metasets, nextMetas, cfgs)
@@ -748,8 +715,6 @@ export function useHsfcClipboard({
               finalSellRemainder: fsr,
               keepUniqueRules: importedKeepRules,
               keepUniquesEnabled: importedKeepEnabled,
-              keepBestSubstatRules: importedBestRules,
-              keepBestSubstatEnabled: importedBestEnabled,
               selectedIndex,
               ...(note ? { note } : {}),
               mode: 'append',
@@ -796,8 +761,6 @@ export function useHsfcClipboard({
           })
           setKeepUniqueRules(importedKeepRules)
           setKeepUniquesEnabled(importedKeepEnabled)
-          setKeepBestSubstatRules(importedBestRules)
-          setKeepBestSubstatEnabled(importedBestEnabled)
           try {
             const sel = preLen + cfgs.length - 1
             setSelectedCfgIdx(sel)
@@ -863,8 +826,6 @@ export function useHsfcClipboard({
     publishClipboardDescriptor,
     setKeepUniqueRules,
     setKeepUniquesEnabled,
-    setKeepBestSubstatRules,
-    setKeepBestSubstatEnabled,
   ])
 
   return {

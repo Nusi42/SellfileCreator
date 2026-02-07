@@ -16,18 +16,15 @@ export const FINAL_SELL_DEFAULT_SETS_MODE: FinalSellSetsMode = FINAL_SELL_SETS_M
 
 // Logic Hub dialog tabs stay canonical so autosave/history handlers can share the same tokens.
 // Logic Hub tabs are centrally defined so autosave + history use the same ids.
-export type LogicHubDialogTab = 'finalSell' | 'gear' | 'keepUniques' | 'keepBestSubstat'
+export type LogicHubDialogTab = 'finalSell' | 'gear' | 'keepUniques'
 export const LOGIC_HUB_DIALOG_TAB_FINAL_SELL: LogicHubDialogTab = 'finalSell'
 // Gear tab id lives here ahead of embedding the gear editor content.
 export const LOGIC_HUB_DIALOG_TAB_GEAR: LogicHubDialogTab = 'gear'
 export const LOGIC_HUB_DIALOG_TAB_KEEP_UNIQUES: LogicHubDialogTab = 'keepUniques'
-// Keep Best Substat is a separate tab to keep the Logic Hub layout stable.
-export const LOGIC_HUB_DIALOG_TAB_KEEP_BEST_SUBSTAT: LogicHubDialogTab = 'keepBestSubstat'
 // Stable ordering helps consumers clamp restored values to a supported tab id.
 export const LOGIC_HUB_DIALOG_TABS: readonly LogicHubDialogTab[] = [
   LOGIC_HUB_DIALOG_TAB_FINAL_SELL,
   LOGIC_HUB_DIALOG_TAB_KEEP_UNIQUES,
-  LOGIC_HUB_DIALOG_TAB_KEEP_BEST_SUBSTAT,
   LOGIC_HUB_DIALOG_TAB_GEAR,
 ] as const
 

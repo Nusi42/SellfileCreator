@@ -9,6 +9,7 @@ const ANY_SENTINEL = '__rank_any'
 
 type RankSelectBaseProps = {
   allowAny?: boolean
+  anyLabel?: string
   size?: SelectProps<string>['size']
   menuProps?: SelectProps<string>['MenuProps']
   sx?: SxProps<Theme>
@@ -32,12 +33,15 @@ export function GearRankSelect({
   value,
   onChange,
   allowAny = false,
+  anyLabel,
   size = 'small',
   menuProps,
   sx,
   multiple = false,
 }: RankSelectProps) {
   const { t } = useI18n()
+  // Keep the default label localized unless the caller overrides it.
+  const anyText = anyLabel ?? t('any')
   const resolvedSx: SxProps<Theme> = sx ?? {}
   const menuPropsAttr = menuProps ? { MenuProps: menuProps } : {}
   const rankLabel = useMemo(() => {
@@ -69,7 +73,7 @@ export function GearRankSelect({
     if (!isMulti) return undefined
     return () => {
       if (multiValues.length === 0) {
-        return <Typography variant="body2">{t('any')}</Typography>
+        return <Typography variant="body2">{anyText}</Typography>
       }
       const summary = multiValues.map((rank) => rankLabel(Number(rank))).join(', ')
       return (
@@ -82,7 +86,7 @@ export function GearRankSelect({
         </Typography>
       )
     }
-  }, [isMulti, multiValues, rankLabel, t])
+  }, [anyText, isMulti, multiValues, rankLabel])
   const handleChange = (event: SelectChangeEvent<string | string[]>) => {
     const raw = event.target.value
     if (isMulti) {
@@ -102,9 +106,9 @@ export function GearRankSelect({
     singleHandler(valueString === '' ? null : (Math.max(1, Math.min(6, Number(valueString))) as RankValue))
   }
   const renderSelected = useMemo(() => {
-    if (singleValue == null) return <Typography variant="body2">{t('any')}</Typography>
+    if (singleValue == null) return <Typography variant="body2">{anyText}</Typography>
     return <Typography variant="body2">{rankLabel(Number(singleValue))}</Typography>
-  }, [rankLabel, singleValue, t])
+  }, [anyText, rankLabel, singleValue])
   const selectRenderValue = isMulti
     ? (renderMultiValue ?? (() => null))
     : (() => renderSelected)
@@ -119,9 +123,9 @@ export function GearRankSelect({
       renderValue={selectRenderValue}
       {...menuPropsAttr}
     >
-      {allowAny && !isMulti ? <MenuItem value="">{t('any')}</MenuItem> : null}
+      {allowAny && !isMulti ? <MenuItem value="">{anyText}</MenuItem> : null}
       {allowAny && isMulti ? (
-        <MenuItem value={ANY_SENTINEL}>{t('any')}</MenuItem>
+        <MenuItem value={ANY_SENTINEL}>{anyText}</MenuItem>
       ) : null}
       {[1, 2, 3, 4, 5, 6].map((rank) => (
         <MenuItem key={rank} value={String(rank)}>

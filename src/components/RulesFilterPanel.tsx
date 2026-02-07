@@ -1059,7 +1059,12 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
     if (order === 'icons') return
     const list = setsMenuListRef.current
     if (!list) return
-    const sortedForOrder = filterAndSortSetEntries(setsSearch, order, { translate: t })
+    const sortedForOrder = filterAndSortSetEntries(setsSearch, order, {
+      translate: t,
+      // Filters should expose the accessory no-set sentinel for selection.
+      includeNoSet: true,
+      noSetLabel: t('noSetAccessories'),
+    })
     const selectedIds = new Set(splitSetSelections.included.map(Number))
     let target: number | null = null
     for (const [id] of sortedForOrder) {
@@ -1844,7 +1849,12 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
             <Collapse in={!collapsed.sets} timeout="auto" unmountOnExit>
             {(() => {
               // Sorted entries drive icon/list ordering for this menu.
-              const sorted = filterAndSortSetEntries(setsSearch, setsOrder, { translate: t })
+              const sorted = filterAndSortSetEntries(setsSearch, setsOrder, {
+                translate: t,
+                // Keep the no-set sentinel available inside filters.
+                includeNoSet: true,
+                noSetLabel: t('noSetAccessories'),
+              })
               // Use only visible metasets so the menu stays tidy.
               const metasetsMenu = visibleMetasets
               // Treat exclusions as a real selection so Clear/labels stay active.
@@ -2081,7 +2091,12 @@ const RulesFilterPanel = React.forwardRef<RulesFilterPanelHandle, RulesFilterPan
                                 scrollSetsMenuToSelected(v, { force: true })
                               }
                             }}
-                            zeroResults={filterAndSortSetEntries(setsSearch, setsOrder, { translate: t }).length === 0}
+                            zeroResults={filterAndSortSetEntries(setsSearch, setsOrder, {
+                              translate: t,
+                              // Respect the no-set sentinel in empty-state math.
+                              includeNoSet: true,
+                              noSetLabel: t('noSetAccessories'),
+                            }).length === 0}
                           />
                         </Box>
                       </Box>

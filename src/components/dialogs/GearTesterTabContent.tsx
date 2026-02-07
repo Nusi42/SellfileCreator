@@ -31,7 +31,6 @@ import { useAppState } from '../../state/appState'
 import SetMenuSection from '../SetMenuSection'
 import { SetIcon } from '../SetIcon'
 import { FactionIcon } from '../FactionIcon'
-import { NoGearSetIcon } from '../NoGearSetIcon'
 import SetsOrderControls from '../SetsOrderControls'
 import { NumberSpinnerAdornment } from '../NumberSpinnerAdornment'
 import { SETS_MENU_WIDTH_PX, MENU_MAX_HEIGHT_SETS_LIST_PX, MENU_MAX_HEIGHT_EXTRA_BUFFER, MENU_SCROLL_GUTTER_PX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, LIST_SUBHEADER_SX, TESTER_SUBSTAT_EDITOR_WIDTH_PX, TESTER_ROW_CONTROLS_WIDTH_PX, ACCESSORY_NO_SET_ID, TESTER_ANY_SLOT_ID, TESTER_MAINSTAT_SELECT_MIN_WIDTH_PX, TESTER_SUBSTAT_SELECT_MIN_WIDTH_PX, TESTER_SLOT_SELECT_WIDTH_PX, TESTER_SET_SELECT_WIDTH_PX, TESTER_FACTION_SELECT_WIDTH_PX, TESTER_RANK_SELECT_WIDTH_PX, TESTER_RARITY_SELECT_WIDTH_PX, TESTER_LEVEL_SELECT_WIDTH_PX, TESTER_SELECT_HEIGHT_PX, TESTER_RESULT_ROW_MIN_HEIGHT_PX, TESTER_CONFIG_CHIP_MAX_WIDTH_PX, TESTER_VIRTUAL_OVERSCAN_PX, TESTER_ROW_ESTIMATE_COMPACT_PX, TESTER_ROW_ESTIMATE_EXPANDED_PX, TESTER_COMPACT_ICON_SIZE_PX, RSL_HELPER_CONFIG_PATH } from '../../lib/constants'
@@ -381,9 +380,14 @@ export function GearTesterTabContent({
     const item = items[itemIdx]
     if (!item) return
     const setIdNumber = Number(item.set ?? 0)
-    if (setIdNumber <= 0 || setIdNumber === ACCESSORY_NO_SET_ID) return
+    if (!Number.isFinite(setIdNumber) || setIdNumber === 0) return
     const validIds = new Set<number>(allowedTesterSetIds(item.slot))
-    const sortedForOrder = filterAndSortSetEntries(setsSearch, order, { translate: t }).filter(([id]) => validIds.has(Number(id)))
+    const sortedForOrder = filterAndSortSetEntries(setsSearch, order, {
+      translate: t,
+      // Allow the accessory no-set sentinel in the tester dropdown.
+      includeNoSet: true,
+      noSetLabel: t('noSetAccessories'),
+    }).filter(([id]) => validIds.has(Number(id)))
     const hasTarget = sortedForOrder.some(([id]) => Number(id) === setIdNumber)
     if (!hasTarget) return
     requestAnimationFrame(() => {
@@ -1111,8 +1115,13 @@ export function GearTesterTabContent({
           <Box sx={{ gridColumn: '2', gridRow: '2', display: 'grid', gridTemplateColumns: TESTER_CONTROL_GRID_TEMPLATE, columnGap: 1, rowGap: 1, mt: 0.5, alignItems: 'center' }}>
             {(() => {
               const validIds = new Set<number>(allowedSetIdsForSlot)
-              const sorted = filterAndSortSetEntries(setsSearch, setsOrder, { translate: t }).filter(([id]) => validIds.has(Number(id)))
-              const setValue = (accessorySlot && setIdNumber === ACCESSORY_NO_SET_ID) ? '' : String(setIdNumber)
+              const sorted = filterAndSortSetEntries(setsSearch, setsOrder, {
+                translate: t,
+                // Keep the no-set sentinel visible for accessory slots.
+                includeNoSet: true,
+                noSetLabel: t('noSetAccessories'),
+              }).filter(([id]) => validIds.has(Number(id)))
+              const setValue = Number.isFinite(setIdNumber) ? String(setIdNumber) : ''
               const setOptionMissing = setValue !== '' && !sorted.some(([id]) => id === setValue)
               const currentSetLabel = formatTesterSetLabel({ setId: setIdNumber, slot: it.slot, translate: t, lang })
               return (
@@ -1124,11 +1133,12 @@ export function GearTesterTabContent({
                   onChange={e => {
                     updateItemAt(idx, (v) => {
                       const raw = e.target.value
-                      if (raw === '') {
-                        return adjustSubValuesFor({ ...v, set: (ACCESSORY_NO_SET_ID as unknown as ArtifactSetId) })
-                      }
                       const numeric = Number(raw)
                       if (!Number.isFinite(numeric)) return adjustSubValuesFor(v)
+                      // Preserve the no-set sentinel for accessories when selected.
+                      if (numeric === ACCESSORY_NO_SET_ID) {
+                        return adjustSubValuesFor({ ...v, set: (ACCESSORY_NO_SET_ID as unknown as ArtifactSetId) })
+                      }
                       const allowedForSlot = allowedTesterSetIds(v.slot)
                       if (allowedForSlot.includes(numeric)) {
                         return adjustSubValuesFor({ ...v, set: numeric as ArtifactSetId })
@@ -1153,19 +1163,26 @@ export function GearTesterTabContent({
                     }))
                   }}
                   renderValue={(value) => {
-                    if (value === '') {
-                      // Reuse the same glyph as the tester grid so "No Gear-Set" reads consistently.
+                    const setNum = Number(value)
+                    if (!Number.isFinite(setNum) || setNum === 0) {
                       return (
                         <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
-                          <NoGearSetIcon fontSize="small" />
+                          <span>{t('testerValueUnknown')}</span>
+                        </Box>
+                      )
+                    }
+                    // Accessory "no set" should display the dedicated label + spider glyph.
+                    if (setNum === ACCESSORY_NO_SET_ID) {
+                      return (
+                        <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
+                          <SetIcon setId={setNum as ArtifactSetId} label={t('noSetAccessories')} size={20} />
                           <span>{t('noSetAccessories')}</span>
                         </Box>
                       )
                     }
-                    const setNum = Number(value)
                     const Label = getLocalizedGearSetName(setNum as ArtifactSetId, t, lang) || artifactSetName(setNum)
                     const setNameForIcon = artifactSetName(setNum)
-                    const Icon = setNum > 0 ? <SetIcon setId={setNum} label={setNameForIcon} size={20} /> : null
+                    const Icon = <SetIcon setId={setNum} label={setNameForIcon} size={20} />
                     return (
                       <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
                         {Icon}
@@ -1220,14 +1237,6 @@ export function GearTesterTabContent({
                       {currentSetLabel}
                     </MenuItem>
                   ) : null}
-                  {isAccessorySlot(it.slot) && (
-                    <MenuItem value={''} sx={{ display: 'flex', alignItems: 'center' }}>
-                      <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
-                        <NoGearSetIcon fontSize="small" />
-                        <span>{t('noSetAccessories')}</span>
-                      </Box>
-                    </MenuItem>
-                  )}
                   <Box component="div" sx={{ display: 'block', p: 0, m: 0 }}>
                     <ListSubheader
                       sx={[LIST_SUBHEADER_SX, { py: 0.5, minHeight: MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, boxSizing: 'border-box', width: `calc(100% - ${MENU_SCROLL_GUTTER_PX}px)` }]}
@@ -1285,7 +1294,7 @@ export function GearTesterTabContent({
                         setUsageCounts={{}}
                         valueForSet={(id) => String(id)}
                         hideHeader
-                        selectedSetIds={setIdNumber === ACCESSORY_NO_SET_ID ? [] : [setIdNumber]}
+                        selectedSetIds={Number.isFinite(setIdNumber) && setIdNumber !== 0 ? [setIdNumber] : []}
                         showUsageCounts={false}
                         singleSelect
                         onToggleSet={(id: number) => {

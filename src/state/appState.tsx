@@ -9,7 +9,6 @@
 import React, { createContext, useContext, useMemo, useReducer } from 'react'
 import { FINAL_SELL_DEFAULT_LEVELS } from '../lib/constants'
 import { buildDefaultKeepUniqueRules } from '../lib/keepUniques'
-import { buildDefaultKeepBestSubstatRules } from '../lib/keepBestSubstat'
 import {
   FINAL_SELL_DEFAULT_SETS_MODE,
   LOGIC_HUB_DIALOG_TAB_FINAL_SELL,
@@ -21,7 +20,6 @@ import type { Metaset } from '../lib/metasets'
 import { normalizeMetasetIcons } from '../lib/metasets'
 import type { LevelMilestone } from '../lib/types'
 import type { KeepUniqueRule } from '../lib/keepUniques'
-import type { KeepBestSubstatRule } from '../lib/keepBestSubstat'
 import type { NoteConfigOptionsAnswers } from '../lib/noteConfigOptions'
 
 type AppState = {
@@ -34,10 +32,6 @@ type AppState = {
   logicHubDialogTab: LogicHubDialogTab
   keepUniqueRules: KeepUniqueRule[]
   keepUniquesEnabled: boolean
-  // Keep Best Substat rules live alongside Keep Uniques for shared logic hub access.
-  keepBestSubstatRules: KeepBestSubstatRule[]
-  // Master toggle for Keep Best Substat rule injection.
-  keepBestSubstatEnabled: boolean
   selectedCfgIdx: number | null
   hsfcNote: string | null
   // Session-only configOptions answers keyed by question ID.
@@ -56,8 +50,6 @@ type Action =
   | { type: 'setLogicHubDialogTab'; value: Updater<LogicHubDialogTab> }
   | { type: 'setKeepUniqueRules'; value: Updater<KeepUniqueRule[]> }
   | { type: 'setKeepUniquesEnabled'; value: Updater<boolean> }
-  | { type: 'setKeepBestSubstatRules'; value: Updater<KeepBestSubstatRule[]> }
-  | { type: 'setKeepBestSubstatEnabled'; value: Updater<boolean> }
   | { type: 'setSelectedCfgIdx'; value: Updater<number | null> }
   | { type: 'setHsfcNote'; value: Updater<string | null> }
   | { type: 'setNoteConfigOptionsAnswers'; value: Updater<NoteConfigOptionsAnswers> }
@@ -102,18 +94,6 @@ function reducer(state: AppState, action: Action): AppState {
         : Boolean(action.value)
       return { ...state, keepUniquesEnabled: next }
     }
-    case 'setKeepBestSubstatRules': {
-      const next = typeof action.value === 'function'
-        ? (action.value as (p: KeepBestSubstatRule[]) => KeepBestSubstatRule[])(state.keepBestSubstatRules)
-        : action.value
-      return { ...state, keepBestSubstatRules: next }
-    }
-    case 'setKeepBestSubstatEnabled': {
-      const next = typeof action.value === 'function'
-        ? (action.value as (p: boolean) => boolean)(state.keepBestSubstatEnabled)
-        : Boolean(action.value)
-      return { ...state, keepBestSubstatEnabled: next }
-    }
     case 'setSelectedCfgIdx': {
       const next = typeof action.value === 'function' ? (action.value as (p: number | null) => number | null)(state.selectedCfgIdx) : action.value
       return { ...state, selectedCfgIdx: next }
@@ -146,8 +126,6 @@ type AppDispatchers = {
   setLogicHubDialogTab: (v: Updater<LogicHubDialogTab>) => void
   setKeepUniqueRules: (v: Updater<KeepUniqueRule[]>) => void
   setKeepUniquesEnabled: (v: Updater<boolean>) => void
-  setKeepBestSubstatRules: (v: Updater<KeepBestSubstatRule[]>) => void
-  setKeepBestSubstatEnabled: (v: Updater<boolean>) => void
   setSelectedCfgIdx: (v: Updater<number | null>) => void
   setHsfcNote: (v: Updater<string | null>) => void
   setNoteConfigOptionsAnswers: (v: Updater<NoteConfigOptionsAnswers>) => void
@@ -168,8 +146,6 @@ export function AppStateProvider({ initial, children }: { initial: AppState; chi
     setLogicHubDialogTab: (v) => dispatch({ type: 'setLogicHubDialogTab', value: v }),
     setKeepUniqueRules: (v) => dispatch({ type: 'setKeepUniqueRules', value: v }),
     setKeepUniquesEnabled: (v) => dispatch({ type: 'setKeepUniquesEnabled', value: v }),
-    setKeepBestSubstatRules: (v) => dispatch({ type: 'setKeepBestSubstatRules', value: v }),
-    setKeepBestSubstatEnabled: (v) => dispatch({ type: 'setKeepBestSubstatEnabled', value: v }),
     setSelectedCfgIdx: (v) => dispatch({ type: 'setSelectedCfgIdx', value: v }),
     setHsfcNote: (v) => dispatch({ type: 'setHsfcNote', value: v }),
     setNoteConfigOptionsAnswers: (v) => dispatch({ type: 'setNoteConfigOptionsAnswers', value: v }),
@@ -205,8 +181,6 @@ export function makeInitialAppState(params: Partial<AppState> & Pick<AppState, '
     logicHubDialogTab: LOGIC_HUB_DIALOG_TAB_FINAL_SELL, // Start new sessions on the classic Logic Hub tab for continuity.
     keepUniqueRules: buildDefaultKeepUniqueRules(),
     keepUniquesEnabled: false,
-    keepBestSubstatRules: buildDefaultKeepBestSubstatRules(),
-    keepBestSubstatEnabled: false,
     selectedCfgIdx: null,
     hsfcNote: null,
     // Config options answers are stored only in autosave/session state.

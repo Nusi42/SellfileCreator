@@ -97,13 +97,15 @@ Crea, revisa y exporta reglas de venta para RSL Helper con una interfaz sencilla
 - Con `Venta final` activa, las reglas generadas incluyen todos los sets conocidos. En la vista previa se muestra «Todos los sets conocidos» para reducir ruido, pero el archivo exportado enumera cada set.
 
 ### Conservar únicos
-- Haz clic en «Logic Hub» en el encabezado de la vista previa y cambia a la pestaña `Conservar únicos` para marcar las combinaciones que nunca quieres perder. Activa `Activar Conservar únicos` para empezar a editar.
+- Haz clic en «Logic Hub» en el encabezado de la vista previa y cambia a la pestaña `Conservar únicos` para marcar las combinaciones que nunca quieres perder. Activa `Activar Conservar únicos` para que el escáner pueda añadir filas de conservación (las ediciones también lo activan automáticamente).
 - Cada regla de conservación te deja elegir ranura, sets o metasets, rangos, rarezas, stats principales y (en accesorios) facciones. Sin selección significa «cualquiera».
-- Encontrarás una regla predeterminada para anillos, amuletos y estandartes de 5★/6★ en todos los sets 1–9 y de accesorio individual, con `Por ranura`, `Por conjunto`, `Por facción` y `Por stat principal` activados para que cada mezcla conserve al menos una pieza.
-- También hay una regla de ayuda desactivada que cubre armas/piezas de armadura (arma, casco, escudo, guantes, peto, botas) en los sets stun/toxic/daze/cursed/provoke/destroy a 5★/6★, con `Por ranura` y `Por conjunto` preparados para habilitarla cuando estos sets raros necesiten blindaje adicional.
+- El `Modo` decide cómo se emite la regla: `Apagada` la desactiva, `Proteger lo existente` añade filas de conservación para coincidencias que se venderían hasta cumplir la cuota, y `Anticipar huecos` agrega reglas de marcador para combinaciones faltantes para que los nuevos drops sigan protegidos hasta que la BD se actualice.
+- Los substats son opcionales: elige uno o varios para contar solo los objetos que tengan al menos uno de esos substats (varios = «cualquiera de ellos»). Dejarlo vacío permite cualquier substat.
+- El `Modo de substats` define la lógica: `Sin ranking` cuenta cada objeto coincidente, `Clasificado` puntúa con la fórmula normalizada (glifos ignorados) y conserva solo las mejores tiradas por grupo de ámbito. Los empates en el corte se mantienen.
+- Usa `Pesos` (solo en `Clasificado`) para indicar qué substats importan más: pesos altos hacen que ese stat cuente más en el ranking.
 - `≥ Cantidad necesaria` es la promesa que quieres cumplir. Los chips justo debajo de cada selector (todo salvo Rango y Rareza) comparten o duplican la cuota: `Por ranura`, `Por conjunto`, `Por facción` y `Por stat principal` se pueden combinar libremente, y al apagarlos todos la regla vuelve automáticamente a `Por regla`.
-- El contador `Hay {have} / Conservar {keep}` refleja lo mismo que explica la ayuda: **Hay** cuenta piezas ya protegidas por configs, Venta final o reglas existentes, mientras que **Conservar** es la cuota que fijaste en `≥ Cantidad necesaria`. Solo se tienen en cuenta los objetos que coinciden con la regla.
-- El escáner solo añade filas de conservación cuando cada objeto coincidente acabaría vendido. Si tus configs normales ya salvan suficientes piezas, verás «Cubierto en otro lugar» y no se exporta nada nuevo.
+- El contador `Hay {have} / Conservar {keep}` muestra: **Hay** = objetos coincidentes (en `Clasificado`, solo los mejores + empates), **Conservar** = la cuota tras los ámbitos. El chip se pone rojo cuando la cuota no se cumple.
+- El escáner solo añade filas de conservación para coincidencias que se venderían y solo cuando la cuota no se cumple. En `Anticipar huecos`, también emite reglas de marcador para combinaciones faltantes.
 
 #### Alcances de cuota de un vistazo
 
@@ -117,16 +119,18 @@ Crea, revisa y exporta reglas de venta para RSL Helper con una interfaz sencilla
 
 #### Ejemplos reales
 
-| Escenario | Filtros | Chips de ámbito | Lo que garantiza el escáner |
-| --- | --- | --- | --- |
-| Se acaban las botas de SPD | Ranura = Botas, Stat principal = SPD, Sets en blanco | `Por regla` | Sobreviven al menos cinco botas SPD, sin importar el set. |
-| Mezclar guantes Savage y Lethal | Ranura = Guantes, Sets = Savage + Lethal, Stat principal = CDMG% | `Por regla` | Conserva tres guantes de daño aunque cambie la mezcla de sets. |
-| Anillos Merciless por facción | Ranura = Anillo, Set = Merciless, Facción sin filtrar | `Por facción` | Cada facción guarda tres anillos propios antes de que la regla se dé por cumplida. |
-| Anillos de HP% por facción | Ranura = Anillo, Stat principal = HP%, Sets en blanco | `Por facción` | Se aseguran dos anillos de HP% por facción. |
-| Accesorios básicos por facción | Tres reglas (Anillo, Amuleto, Estandarte), Sets y Stat principal en blanco | `Por facción` | Cada facción conserva cinco piezas por ranura. |
-| Stoneskin + Protection por facción | Ranura = Anillo/Amuleto/Estandarte, Sets = Stoneskin + Protection, Stat principal en blanco | `Por conjunto` + `Por facción` | Cada facción guarda dos piezas Stoneskin y dos Protection en cada ranura. |
+| Escenario | Filtros | Cantidad necesaria | Chips de ámbito | Lo que garantiza el escáner |
+| --- | --- | --- | --- | --- |
+| Se acaban las botas de SPD | Ranura = Botas, Stat principal = SPD, Sets en blanco | `5` | `Por regla` | Sobreviven al menos cinco botas SPD, sin importar el set. |
+| Mezclar guantes Savage y Lethal | Ranura = Guantes, Sets = Savage + Lethal, Stat principal = CDMG% | `3` | `Por regla` | Conserva tres guantes de daño aunque cambie la mezcla de sets. |
+| Anillos Merciless por facción | Ranura = Anillo, Set = Merciless, Facción sin filtrar | `3` | `Por facción` | Cada facción guarda tres anillos propios antes de que la regla se dé por cumplida. |
+| Anillos de HP% por facción | Ranura = Anillo, Stat principal = HP%, Sets en blanco | `2` | `Por facción` | Se aseguran dos anillos de HP% por facción. |
+| Accesorios básicos por facción | Tres reglas (Anillo, Amuleto, Estandarte), Sets y Stat principal en blanco | `5` | `Por facción` | Cada facción conserva cinco anillos, amuletos y estandartes. |
+| Stoneskin + Protection por facción | Ranura = Anillo/Amuleto/Estandarte, Sets = Stoneskin + Protection, Stat principal en blanco | `2` | `Por conjunto` + `Por facción` + `Por ranura` | Cada facción guarda dos piezas Stoneskin y dos Protection en cada ranura. |
+| Accesorios con más SPD | Ranura = Anillo/Amuleto/Estandarte, Substats = SPD, Modo de substats = Clasificado | `5` | `Por regla` | Conserva las cinco mejores tiradas de SPD en tus accesorios (empates incluidos). |
+| Estandartes de ACC con SPD | Ranura = Estandarte, Stat principal = ACC, Substats = SPD + ACC, Modo de substats = Clasificado, Pesos: SPD alto | `3` | `Por facción` | Cada facción guarda los mejores estandartes de ACC donde SPD pesa más. |
 
-Consejo: Importa tu `.db` o pega equipo en el diálogo «Equipo» antes de abrir la pestaña Conservar únicos para que el escáner tenga objetos reales. Cuando una regla muestre «Faltan 2», haz clic para resaltar ese equipo en el Probador y ver qué facción o set necesita ayuda.
+Consejo: Importa tu `.db` o pega equipo en el diálogo «Equipo» antes de abrir la pestaña Conservar únicos para que el escáner tenga objetos reales. Haz clic en una tarjeta de regla para resaltar coincidencias; cambia `Filtro` a `Selección` para ver solo esos objetos.
 
 ### Gestión de configs
 - Las configs guardadas aparecen como chips debajo del constructor. Haz clic para seleccionarlas, o clic derecho para duplicar, mover, copiar o borrar.

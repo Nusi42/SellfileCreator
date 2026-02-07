@@ -1,5 +1,5 @@
 // Shared domain catalogs && formatters (used by HSF viewer as well)
-import { NBSP } from './constants'
+import { ACCESSORY_NO_SET_ID, NBSP } from './constants'
 import { artifactSetDescriptions } from './setDescriptions'
 import { ArtifactSetPieceGroup } from './gearSets/groups'
 import { getRuntimeGearSet, getRuntimeGearSetVersion, listRuntimeGearSets } from './gearSets/runtimeStore'
@@ -174,6 +174,8 @@ const artifactSetPieceGroups: Record<number, ArtifactSetPieceGroup> = (() => {
 
 /** Resolve the normalized piece-count grouping for an artifact set ID. */
 export function getArtifactSetPieceGroup(id: ArtifactSetId): ArtifactSetPieceGroup {
+  // Treat the accessory "no set" sentinel like a 1-piece accessory set for UI grouping.
+  if (Number(id) === ACCESSORY_NO_SET_ID) return ArtifactSetPieceGroup.Accessories
   const runtime = getRuntimeGearSet(id)
   if (runtime) return runtime.pieceGroup
   return artifactSetPieceGroups[Number(id)] ?? ArtifactSetPieceGroup.ArmorFixed
@@ -349,6 +351,8 @@ export function findArtifactSetIdByName(name: string): ArtifactSetId | null {
  */
 type ArtifactSetSearchOptions = {
   translate?: (key: ReturnType<typeof artifactSetI18nKey>) => string
+  includeNoSet?: boolean
+  noSetLabel?: string
 }
 
 export function filterAndSortSetEntries(
@@ -356,20 +360,42 @@ export function filterAndSortSetEntries(
   order: 'game' | 'az' | 'icons',
   opts?: ArtifactSetSearchOptions,
 ): Array<[string, string]> {
+  // Allow callers to opt into the accessory-only "no set" sentinel entry.
+  const includeNoSet = Boolean(opts?.includeNoSet)
+  // Use a localized label when possible, fallback to a stable English name.
+  const noSetLabel = opts?.noSetLabel ?? NO_GEAR_SET_FALLBACK_NAME
+  // Pull the canonical runtime entries; optionally prepend the sentinel.
   const entries = getArtifactSetEntries()
+  // Preserve tuple typing so downstream destructuring stays strict.
+  const noSetEntry: [string, string] = [String(ACCESSORY_NO_SET_ID), noSetLabel]
+  const expandedEntries: Array<[string, string]> = includeNoSet
+    ? [noSetEntry, ...entries]
+    : entries
+  // Normalize once so we can test both canonical + localized labels.
   const normalizedSearch = search.trim().toLowerCase()
   const filtered = normalizedSearch
-    ? entries.filter(([id, name]) => {
+    ? expandedEntries.filter(([id, name]) => {
+      // Match the canonical name first to keep the fast path cheap.
       if (name.toLowerCase().includes(normalizedSearch)) return true
+      // The sentinel is already localized by `noSetLabel`; skip extra translate.
+      if (includeNoSet && Number(id) === ACCESSORY_NO_SET_ID) return false
+      // Translate remaining set names for localized search.
       const translate = opts?.translate
       if (!translate) return false
       const localized = translate(artifactSetI18nKey(Number(id)))
       const normalizedLocalized = localized.trim().toLowerCase()
       return normalizedLocalized.includes(normalizedSearch)
     })
-    : entries
+    : expandedEntries
   if (order === 'az') {
-    return filtered.slice().sort((a, b) => a[1].localeCompare(b[1]))
+    return filtered.slice().sort((a, b) => {
+      if (includeNoSet) {
+        const aNoSet = Number(a[0]) === ACCESSORY_NO_SET_ID
+        const bNoSet = Number(b[0]) === ACCESSORY_NO_SET_ID
+        if (aNoSet || bNoSet) return aNoSet ? -1 : 1
+      }
+      return a[1].localeCompare(b[1])
+    })
   }
   // 'game' and 'icons' both use numeric ID (in‑game) ordering for stability
   return filtered.slice().sort((a, b) => Number(a[0]) - Number(b[0]))
@@ -882,18 +908,26 @@ export function formatArtifactSets(sets?: ArtifactSetId[]): string {
   return sorted.map((s) => artifactSetNames[Number(s)] ?? ``).join(', ')
 }
 
+const NO_GEAR_SET_FALLBACK_NAME = 'No Gear-Set'
+
 // Convenience: safe lookup that accepts either enum || number, with a readable fallback
 export function artifactSetName(id: ArtifactSetId): string {
+  // Provide a human label for the accessory-only "no set" sentinel.
+  if (Number(id) === ACCESSORY_NO_SET_ID) return NO_GEAR_SET_FALLBACK_NAME
   const runtime = getRuntimeGearSet(id)
   if (runtime) return runtime.canonicalName
   return artifactSetNames[Number(id)] ?? String(id)
 }
 
+type GearSetLabelKey = ReturnType<typeof artifactSetI18nKey> | 'noSetAccessories'
+
 export function getLocalizedGearSetName(
   id: ArtifactSetId,
-  t: (key: ReturnType<typeof artifactSetI18nKey>) => string,
+  t: (key: GearSetLabelKey) => string,
   _lang?: string,
 ): string {
+  // Use the dedicated label for the accessory no-set sentinel.
+  if (Number(id) === ACCESSORY_NO_SET_ID) return t('noSetAccessories')
   const runtime = getRuntimeGearSet(id)
   if (runtime) {
     return (runtime.canonicalName ?? String(id)).trim()

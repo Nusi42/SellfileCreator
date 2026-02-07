@@ -1,4 +1,14 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent, type ReactNode, type RefObject } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type MouseEvent as ReactMouseEvent,
+  type ReactNode,
+  type RefObject,
+  type UIEvent as ReactUIEvent,
+} from 'react'
 import {
   Box,
   Button,
@@ -12,6 +22,8 @@ import {
   FormControlLabel,
   IconButton,
   InputAdornment,
+  Menu,
+  MenuItem,
   Stack,
   Switch,
   ToggleButton,
@@ -21,6 +33,7 @@ import {
 } from '@mui/material'
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline'
 import ContentCopyIcon from '@mui/icons-material/ContentCopy'
+import MoreVertIcon from '@mui/icons-material/MoreVert'
 import CheckIcon from '@mui/icons-material/Check'
 import CloseIcon from '@mui/icons-material/Close'
 import ExpandLessIcon from '@mui/icons-material/ExpandLess'
@@ -32,10 +45,13 @@ import WarningAmberRoundedIcon from '@mui/icons-material/WarningAmberRounded'
 import {
   KEEP_UNIQUE_DEFAULT_COUNT_MODE,
   KeepUniqueRuleActivation,
+  KeepUniqueSubstatMode,
   cloneKeepUniqueCombination,
+  cloneKeepUniqueRule,
   createEmptyKeepUniqueCombination,
   createKeepUniqueRuleId,
   getKeepUniqueItemKey,
+  normalizeKeepUniqueRule,
   sanitizeKeepUniqueCountMode,
   type KeepUniqueDetectionEntry,
   type KeepUniqueDetectionSnapshot,
@@ -44,8 +60,11 @@ import {
 import type { TesterPreviewRow } from '../../types/testerPreview'
 import type { ColorBlindMode } from '../../lib/constants'
 import {
+  ACCESSORY_NO_SET_ID,
   BUILDER_AUTO_APPLY_DEBOUNCE_MS,
+  ELLIPSIS_TEXT_SX,
   MENU_CONTROL_HEIGHT_PX,
+  MENU_CONTROL_MIN_WIDTH_PX,
   STANDARD_DIALOG_PADDING_BLOCK_UNITS,
   STANDARD_DIALOG_PADDING_INLINE_UNITS,
 } from '../../lib/constants'
@@ -54,16 +73,23 @@ import {
   StatVariant as StatVariantEnum,
   artifactTypeI18nKey,
   factionI18nKey,
+  STAT_VARIANTS_PRIORITY,
+  statVariantI18nKey,
 } from '../../lib/types'
 import { isAccessorySlot } from '../../lib/testerDomain'
 import { useI18n } from '../../lib/i18n'
-import { GearFactionSelect, GearMainStatSelect, GearRankSelect, GearRaritySelect, GearSetsSelect, GearSlotSelect } from '../gear'
+import { readTextSafe, triggerCopyDialog, writeTextSafe } from '../../lib/clipboard'
+import { GearFactionSelect, GearMainStatSelect, GearRankSelect, GearRaritySelect, GearSetsSelect, GearSlotSelect, GearSubstatSelect } from '../gear'
 import { TesterItemsGrid } from '../TesterItemsGrid'
 import { NumberSpinnerAdornment } from '../NumberSpinnerAdornment'
 import WorkloadProgressIndicator from '../WorkloadProgressIndicator'
 // MarkdownTooltip keeps the rule-count hints and info icons synchronized with the broader tooltip refactor.
 import MarkdownTooltip from '../MarkdownTooltip'
 import EllipsisTooltip from '../EllipsisTooltip'
+import ContextMenuPaper, { buildContextMenuPaperSlotProps } from '../ContextMenuPaper'
+import ContextMenuTitle from '../ContextMenuTitle'
+import { ConfigContextMenu } from '../ConfigContextMenu'
+import PasteDialog from '../PasteDialog'
 import type { SetStateAction } from 'react'
 import type { Metaset } from '../../lib/metasets'
 import { alpha, useTheme } from '@mui/material/styles'
@@ -97,9 +123,48 @@ import {
   TESTER_GRID_CONTAINER_PADDING_END_UNITS,
   TESTER_GRID_ROW_PADDING_UNITS,
 } from '../../lib/testerGridLayout'
+import { normalizeTesterSortWeight, TESTER_SORT_WEIGHT_DEFAULT, TESTER_SORT_WEIGHT_STEP } from '../../lib/testerSort'
+import { TesterSortWeightControls } from '../TesterSortWeightControls'
+import { useContextMenuPaperGuard } from '../../hooks/useContextMenuPaperGuard'
 
 // Keep-unique headers should stay a consistent height even when names wrap to two lines.
 const KEEP_UNIQUES_RULE_HEADER_MIN_HEIGHT_PX = 56
+// Collapse the intro copy once the user scrolls down in the rules pane.
+const KEEP_UNIQUES_HEADER_COLLAPSE_SCROLL_PX = 4
+// Keep substat selections aligned with the same ordering used elsewhere in the app.
+const KEEP_UNIQUES_SUBSTAT_ORDER = new Map<StatVariant, number>(
+  STAT_VARIANTS_PRIORITY.map((variant, index) => [variant, index]),
+)
+// sortKeepUniquesSubstats keeps the picker selection order stable and predictable.
+const sortKeepUniquesSubstats = (values: readonly StatVariant[]): StatVariant[] => {
+  if (!values.length) return []
+  const deduped = dedupeNumericArray(values)
+  return deduped.sort((left, right) => {
+    const leftOrder = KEEP_UNIQUES_SUBSTAT_ORDER.get(left) ?? Number.MAX_SAFE_INTEGER
+    const rightOrder = KEEP_UNIQUES_SUBSTAT_ORDER.get(right) ?? Number.MAX_SAFE_INTEGER
+    if (leftOrder !== rightOrder) return leftOrder - rightOrder
+    return Number(left) - Number(right)
+  })
+}
+// pruneKeepUniquesSubstatWeights drops weights for unselected stats.
+const pruneKeepUniquesSubstatWeights = (
+  weights: Partial<Record<StatVariant, number>> | null | undefined,
+  selected: readonly StatVariant[],
+): Partial<Record<StatVariant, number>> => {
+  if (!weights || Object.keys(weights).length === 0) return {}
+  if (!selected.length) return {}
+  const allowed = new Set(selected.map((variant) => Number(variant)))
+  const next: Partial<Record<StatVariant, number>> = {}
+  for (const [key, raw] of Object.entries(weights)) {
+    const variant = Number(key)
+    if (!Number.isFinite(variant)) continue
+    if (!allowed.has(variant)) continue
+    const normalized = normalizeTesterSortWeight(Number(raw))
+    if (normalized === TESTER_SORT_WEIGHT_DEFAULT) continue
+    next[variant as StatVariant] = normalized
+  }
+  return next
+}
 
 type KeepUniquesTabProps = {
   rules: KeepUniqueRule[]
@@ -182,14 +247,96 @@ ${t('keepUniquesCountModeHint')}`
   const [pendingDeleteRuleId, setPendingDeleteRuleId] = useState<string | null>(null)
   const [gridFilterMode, setGridFilterMode] = useKeepUniquesGridFilterMode()
   const [gridColumnMode, setGridColumnMode] = useKeepUniquesGridColumnMode()
+  // Hide the intro copy when the rules list scrolls down.
+  const [rulesHeaderCollapsed, setRulesHeaderCollapsed] = useState(false)
+  // Track which rule's action menu is currently open.
+  const [ruleMenu, setRuleMenu] = useState<{ ruleId: string; x: number; y: number } | null>(null)
+  // Manual paste dialog state when clipboard access is blocked or invalid.
+  const [pasteDialogTarget, setPasteDialogTarget] = useState<{ mode: 'after' | 'end'; ruleId?: string } | null>(null)
+  const [pasteDialogText, setPasteDialogText] = useState('')
+  const [pasteDialogError, setPasteDialogError] = useState<string | null>(null)
+  // Menu ref supports outside-click handling for the keep-unique action menu.
+  const ruleMenuRef = useRef<HTMLDivElement | null>(null)
+  // Close handler keeps the menu in sync with rule edits.
+  const closeRuleMenu = useCallback(() => {
+    // Reset state so the menu unmounts.
+    setRuleMenu(null)
+  }, [])
+  // Close helper resets the manual paste dialog state.
+  const closePasteDialog = useCallback(() => {
+    setPasteDialogTarget(null)
+    setPasteDialogText('')
+    setPasteDialogError(null)
+  }, [])
+  // Open the manual paste dialog for a specific target location.
+  const openPasteDialog = useCallback((mode: 'after' | 'end', ruleId?: string, text = '') => {
+    setPasteDialogTarget({ mode, ...(ruleId ? { ruleId } : {}) })
+    setPasteDialogText(text)
+    setPasteDialogError(null)
+  }, [])
+  // Guard ensures the menu closes cleanly when clicking outside.
+  const { contextMenuGuard: ruleMenuGuard } = useContextMenuPaperGuard({
+    open: Boolean(ruleMenu),
+    onClose: closeRuleMenu,
+    menuRef: ruleMenuRef,
+  })
   // Column toggle between 1/2 keeps the grid width stable while changing density.
   const handleToggleGridColumns = useCallback(() => {
     // Flip between the only two supported modes.
     setGridColumnMode((prev) => (prev === 2 ? 1 : 2))
   }, [setGridColumnMode])
+  // Track the open weights popout so ranked-mode editing stays anchored to the active rule.
+  const [substatWeightsMenu, setSubstatWeightsMenu] = useState<{
+    ruleId: string
+    anchorEl: HTMLElement
+  } | null>(null)
+  // Keep a stable close callback for the menu and its outside-click guard.
+  const closeSubstatWeightsMenu = useCallback(() => {
+    setSubstatWeightsMenu(null)
+  }, [])
+  // Resolve the active rule so the weights popout can read live values.
+  const activeSubstatWeightsRule = useMemo(() => {
+    if (!substatWeightsMenu) return null
+    const rule = rules.find((candidate) => candidate.id === substatWeightsMenu.ruleId) ?? null
+    if (!rule) return null
+    const hasSubstats = (rule.substats ?? []).length > 0
+    if (!hasSubstats || rule.substatMode !== KeepUniqueSubstatMode.Ranked) return null
+    return rule
+  }, [rules, substatWeightsMenu])
+  // Only keep the menu open when the active rule still supports ranked weights.
+  const activeSubstatWeightsMenu = activeSubstatWeightsRule ? substatWeightsMenu : null
+  const isSubstatWeightsMenuOpen = Boolean(activeSubstatWeightsMenu)
+  // Menu guard keeps right-clicks outside the popout closing it consistently.
+  const substatWeightsMenuRef = useRef<HTMLDivElement | null>(null)
+  const { contextMenuGuard: substatWeightsMenuGuard } = useContextMenuPaperGuard({
+    open: isSubstatWeightsMenuOpen,
+    onClose: closeSubstatWeightsMenu,
+    menuRef: substatWeightsMenuRef,
+  })
+  // Order selected substats so weight rows mirror the stat priority list.
+  const activeSubstatWeightVariants = useMemo(() => {
+    const selected = activeSubstatWeightsRule?.substats ?? []
+    if (selected.length === 0) return [] as StatVariant[]
+    const set = new Set(selected.map((variant) => Number(variant)))
+    return STAT_VARIANTS_PRIORITY.filter((variant) => set.has(Number(variant)))
+  }, [activeSubstatWeightsRule])
+  // No effect needed: the menu simply renders closed when the rule no longer qualifies.
   const allRuleIds = useMemo(() => rules.map((rule) => rule.id), [rules])
   const rulesScrollRootRef = useRef<HTMLDivElement | null>(null)
   const scrollRafRef = useRef<number | null>(null)
+  // Track scroll changes so the header can collapse without extra layout passes.
+  const handleRulesScrollChange = useCallback((scrollTop: number) => {
+    // Treat any scroll beyond the top edge as a collapse trigger.
+    const nextCollapsed = scrollTop > KEEP_UNIQUES_HEADER_COLLAPSE_SCROLL_PX
+    // Avoid redundant state updates during scroll.
+    setRulesHeaderCollapsed((prev) => (prev === nextCollapsed ? prev : nextCollapsed))
+  }, [])
+  useEffect(() => {
+    const scrollRoot = rulesScrollRootRef.current
+    if (!scrollRoot) return
+    // Sync once so the header state matches any retained scroll offset.
+    handleRulesScrollChange(scrollRoot.scrollTop)
+  }, [handleRulesScrollChange, rules.length])
   const scheduleScrollToRule = useCallback((ruleId: string) => {
     if (scrollRafRef.current !== null) {
       window.cancelAnimationFrame(scrollRafRef.current)
@@ -298,6 +445,11 @@ ${t('keepUniquesCountModeHint')}`
     // Surface the aggregate unique count so the toolbar never collapses when no rule is selected.
     return t('keepUniquesGridUniqueCount', { count: uniqueRows.length })
   }, [selectedEntry, selectedVisibleRowCount, gearEntries.length, t, uniqueRows.length])
+  const gridFilterLabel = t('keepUniquesGridFilterLabel', {
+    mode: gridFilterMode === 'selection'
+      ? t('keepUniquesGridFilterModeSelection')
+      : t('keepUniquesGridFilterModeAll'),
+  })
 
   const handleAddRule = useCallback(() => {
     const combination = createEmptyKeepUniqueCombination()
@@ -309,6 +461,9 @@ ${t('keepUniquesCountModeHint')}`
       requiredCount: 1,
       activation: KeepUniqueRuleActivation.ProtectExisting,
       countMode: { ...KEEP_UNIQUE_DEFAULT_COUNT_MODE },
+      substats: [],
+      substatMode: KeepUniqueSubstatMode.Unranked,
+      substatWeights: {},
     }
     mutateRules((prev) => [...prev, newRule])
     setSelectedRuleId(newRule.id)
@@ -328,6 +483,8 @@ ${t('keepUniquesCountModeHint')}`
       filtered = prev.filter((rule) => rule.id !== ruleId)
       return filtered
     })
+    // Close the rule menu when its target disappears.
+    if (ruleMenu?.ruleId === ruleId) closeRuleMenu()
     if (filtered.length === 0) {
       if (selectedRuleId !== null) setSelectedRuleId(null)
       setRespectManualDeselect(false)
@@ -343,7 +500,7 @@ ${t('keepUniquesCountModeHint')}`
       next.delete(ruleId)
       return next
     })
-  }, [mutateRules, selectedRuleId, setRespectManualDeselect])
+  }, [closeRuleMenu, mutateRules, ruleMenu, selectedRuleId, setRespectManualDeselect])
 
   const handleCancelDeleteRule = useCallback(() => {
     setPendingDeleteRuleId(null)
@@ -431,6 +588,140 @@ ${t('keepUniquesCountModeHint')}`
   const handleToggleGridFilterMode = useCallback(() => {
     setGridFilterMode((prev) => (prev === 'all' ? 'selection' : 'all'))
   }, [setGridFilterMode])
+  // Normalize clipboard payloads so paste accepts wrapper or raw rules.
+  const parseKeepUniqueClipboardRules = useCallback((raw: string | null): KeepUniqueRule[] => {
+    // Empty clipboard means nothing to paste.
+    if (!raw || raw.trim().length === 0) return []
+    try {
+      // Parse JSON and strip the keep-unique wrapper when present.
+      const parsed = JSON.parse(raw)
+      const candidate = (
+        parsed && typeof parsed === 'object' && 'kind' in parsed && (parsed as { kind?: unknown }).kind === 'keepUniqueRule'
+          ? (parsed as { rule?: unknown }).rule
+          : parsed
+      )
+      const rawList = Array.isArray(candidate) ? candidate : [candidate]
+      // Normalize into canonical rule shapes.
+      const normalized = rawList
+        .map((entry) => normalizeKeepUniqueRule(entry))
+        .filter((entry): entry is KeepUniqueRule => Boolean(entry))
+      if (normalized.length === 0) return []
+      // Clone so future edits never mutate the parsed objects.
+      return normalized.map((rule) => cloneKeepUniqueRule(rule))
+    } catch {
+      // Ignore malformed clipboard data.
+      return []
+    }
+  }, [])
+  // Insert cloned rules at the requested index and focus the first insertion.
+  const insertKeepUniqueRulesAt = useCallback((rulesToInsert: KeepUniqueRule[], insertIndex: number) => {
+    // Track new IDs for selection + scroll behavior.
+    const newRuleIds: string[] = []
+    mutateRules((prev) => {
+      if (rulesToInsert.length === 0) return prev
+      // Clamp the insertion index to a valid list position.
+      const safeIndex = Math.min(Math.max(insertIndex, 0), prev.length)
+      // Insert without mutating the previous array.
+      const next = prev.slice()
+      let offset = 0
+      for (const sourceRule of rulesToInsert) {
+        const clone = cloneKeepUniqueRule(sourceRule)
+        const cloneId = createKeepUniqueRuleId()
+        clone.id = cloneId
+        newRuleIds.push(cloneId)
+        next.splice(safeIndex + offset, 0, clone)
+        offset += 1
+      }
+      return next
+    })
+    if (newRuleIds.length === 0) return
+    const [firstId] = newRuleIds
+    if (!firstId) return
+    // Focus the inserted rule so the user sees the change.
+    setSelectedRuleId(firstId)
+    setRespectManualDeselect(false)
+    setExpandedRuleIds((prev) => {
+      const next = new Set(prev)
+      next.add(firstId)
+      return next
+    })
+    // Scroll the list to the newly inserted rule.
+    scheduleScrollToRule(firstId)
+  }, [mutateRules, scheduleScrollToRule, setRespectManualDeselect])
+  // Copy a rule into memory + OS clipboard for reuse.
+  const handleCopyRule = useCallback(async (ruleId: string) => {
+    // Locate the source rule by id.
+    const source = rules.find((rule) => rule.id === ruleId)
+    if (!source) return
+    // Clone the rule so edits do not mutate the clipboard snapshot.
+    const snapshot = cloneKeepUniqueRule(source)
+    // Wrap the payload to make keep-unique rules detectable when pasting.
+    const payload = { kind: 'keepUniqueRule', rule: snapshot }
+    const text = JSON.stringify(payload, null, 2)
+    // Write to clipboard, falling back to the manual copy dialog.
+    const ok = await writeTextSafe(text)
+    if (!ok) triggerCopyDialog(text)
+  }, [rules])
+  // Paste a rule after a given rule id.
+  const handlePasteAfterRule = useCallback(async (ruleId: string) => {
+    // Resolve the rule to paste.
+    const text = await readTextSafe()
+    const parsed = parseKeepUniqueClipboardRules(text)
+    if (parsed.length > 0) {
+      // Insert after the matching rule, or append if missing.
+      const idx = rules.findIndex((entry) => entry.id === ruleId)
+      const insertIndex = idx === -1 ? rules.length : idx + 1
+      insertKeepUniqueRulesAt(parsed, insertIndex)
+      return
+    }
+    // Fall back to the manual paste dialog if clipboard access fails or is invalid.
+    openPasteDialog('after', ruleId, text ?? '')
+  }, [insertKeepUniqueRulesAt, openPasteDialog, parseKeepUniqueClipboardRules, rules])
+  // Paste a rule at the bottom of the list.
+  const handlePasteAtEnd = useCallback(async () => {
+    // Resolve the rule to paste.
+    const text = await readTextSafe()
+    const parsed = parseKeepUniqueClipboardRules(text)
+    if (parsed.length > 0) {
+      // Append so list order stays predictable.
+      insertKeepUniqueRulesAt(parsed, rules.length)
+      return
+    }
+    // Fall back to the manual paste dialog if clipboard access fails or is invalid.
+    openPasteDialog('end', undefined, text ?? '')
+  }, [insertKeepUniqueRulesAt, openPasteDialog, parseKeepUniqueClipboardRules, rules.length])
+  // Reorder a rule to a specific index.
+  const moveRule = useCallback((ruleId: string, targetIndex: number) => {
+    mutateRules((prev) => {
+      // Find the current index so we can move relative to it.
+      const idx = prev.findIndex((rule) => rule.id === ruleId)
+      if (idx === -1) return prev
+      // Clamp to list bounds.
+      const safeTarget = Math.min(Math.max(targetIndex, 0), prev.length - 1)
+      if (safeTarget === idx) return prev
+      // Splice out + reinsert the rule.
+      const next = prev.slice()
+      const [moved] = next.splice(idx, 1)
+      // Bail out if the splice failed to return an element.
+      if (!moved) return prev
+      next.splice(safeTarget, 0, moved)
+      return next
+    })
+  }, [mutateRules])
+  // Open the rule action menu at the pointer or button center.
+  const openRuleMenu = useCallback((event: ReactMouseEvent<HTMLElement>, ruleId: string) => {
+    // Prevent the native browser context menu.
+    event.preventDefault()
+    event.stopPropagation()
+    // Align the selection with the menu target for predictable actions.
+    setSelectedRuleId(ruleId)
+    setRespectManualDeselect(false)
+    // Fall back to the element center if pointer coords are unavailable.
+    const rect = event.currentTarget.getBoundingClientRect()
+    const x = event.clientX || Math.round(rect.left + rect.width / 2)
+    const y = event.clientY || Math.round(rect.top + rect.height / 2)
+    setRuleMenu({ ruleId, x, y })
+  }, [setRespectManualDeselect, setSelectedRuleId])
 
   const renderRuleCard = (rule: KeepUniqueRule, ruleIndex: number) => {
     const ruleDisabled = rule.activation === KeepUniqueRuleActivation.Off
@@ -472,6 +763,16 @@ ${t('keepUniquesCountModeHint')}`
     const factionSelection = hasAccessorySlot ? dedupeNumericArray(combination.factions ?? []) : []
     // Translate faction labels so accessory filters report hidden entries precisely.
     const factionSelectionLabels = factionSelection.map((faction) => t(factionI18nKey(Number(faction))))
+    // Substat selection is optional; leave empty to keep classic keep-unique behavior.
+    const substatSelection = sortKeepUniquesSubstats((rule.substats ?? []).filter((variant) => (
+      STAT_VARIANTS_PRIORITY.includes(variant)
+    )))
+    // Translate substat labels so badge math stays consistent with the visible text.
+    const substatSelectionLabels = substatSelection.map((variant) => t(statVariantI18nKey(variant)))
+    const hasSubstatSelection = substatSelection.length > 0
+    // Only allow Ranked when at least one substat is selected.
+    const effectiveSubstatMode = hasSubstatSelection ? rule.substatMode : KeepUniqueSubstatMode.Unranked
+    const rankedModeActive = effectiveSubstatMode === KeepUniqueSubstatMode.Ranked
     const selected = effectiveSelectedRuleId === rule.id
     const expanded = expandedRuleIds.has(rule.id)
     const selectRule = () => {
@@ -517,8 +818,19 @@ ${t('keepUniquesCountModeHint')}`
         <ContentCopyIcon fontSize="small" />
       </IconButton>
     )
+    const menuButton = (
+      <IconButton
+        size="small"
+        aria-label={t('contextMenuHint')}
+        onClick={(event) => openRuleMenu(event, rule.id)}
+        sx={{ p: 0.5, color: 'text.secondary' }}
+      >
+        <MoreVertIcon fontSize="small" />
+      </IconButton>
+    )
     const actionButtons = (
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, justifyContent: 'flex-end', flexShrink: 0 }}>
+        {menuButton}
         {duplicateButton}
         {deleteButton}
       </Box>
@@ -610,6 +922,7 @@ ${t('keepUniquesCountModeHint')}`
       >
         <Box
           // Header wrapper keeps the highlight while deferring toggle behavior to the title button.
+          onContextMenu={(event) => openRuleMenu(event, rule.id)}
           sx={{
             width: '100%',
             display: 'grid',
@@ -875,6 +1188,7 @@ ${t('keepUniquesCountModeHint')}`
                 >
                   <GearSlotSelect
                     multiple
+                    anyLabel={t('anySlot')}
                     value={slotSelection}
                     onChange={(nextSlots) => {
                       if (ruleDisabled) return
@@ -903,6 +1217,10 @@ ${t('keepUniquesCountModeHint')}`
                   allowedSetIds={allowedSetPool}
                   showMetasets
                   layoutVersion={gridColumnMode}
+                  anyLabel={t('anySet')}
+                  // Show the no-set option but keep it disabled (RSL Helper limitation).
+                  includeNoSet
+                  disabledSetIds={[ACCESSORY_NO_SET_ID]}
                 />
               </KeepOverrideScopeField>
             </Box>
@@ -924,6 +1242,7 @@ ${t('keepUniquesCountModeHint')}`
                   <GearRankSelect
                     multiple
                     allowAny
+                    anyLabel={t('anyRank')}
                     value={rankSelection}
                     onChange={(nextRanks) => {
                       if (ruleDisabled) return
@@ -950,6 +1269,7 @@ ${t('keepUniquesCountModeHint')}`
                   <GearRaritySelect
                     multiple
                     allowAny
+                    anyLabel={t('anyRarity')}
                     value={raritySelection}
                     onChange={(nextRarities) => {
                       if (ruleDisabled) return
@@ -980,6 +1300,7 @@ ${t('keepUniquesCountModeHint')}`
                     value={mainStatSelection}
                     options={mainStatOptions}
                     anyValue={StatVariantEnum.Any as StatVariant}
+                    anyLabel={t('anyMainStat')}
                     onChange={(nextMain) => {
                       if (ruleDisabled) return
                       setRuleCombination(rule.id, (prev) => ({ ...prev, mainStats: dedupeNumericArray(nextMain) }))
@@ -1008,6 +1329,7 @@ ${t('keepUniquesCountModeHint')}`
                   <GearFactionSelect
                     multiple
                     disabled={ruleDisabled || !hasAccessorySlot}
+                    anyLabel={t('anyFaction')}
                     value={factionSelection}
                     onChange={(nextFactions) => {
                       if (ruleDisabled) return
@@ -1017,6 +1339,142 @@ ${t('keepUniquesCountModeHint')}`
                     sx={getRuleSelectPaddingSx(factionSelection.length, KEEP_OVERRIDE_INLINE_SELECT_HEIGHT_PX)}
                   />
                 </RuleSelectAffordances>
+              </KeepOverrideScopeField>
+            </Box>
+            {/* Substat filters and ranking controls live together so users understand the linkage. */}
+            <Box sx={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)', gap: 1 }}>
+              <KeepOverrideScopeField>
+                <Stack spacing={0.75}>
+                  {/* Substat selections filter eligible items before any ranking occurs. */}
+                  <RuleSelectAffordances
+                    selectionCount={substatSelection.length}
+                    clearLabel={clearLabel}
+                    disabled={ruleDisabled}
+                    layoutVersion={gridColumnMode}
+                    selectionLabels={substatSelectionLabels}
+                    onClear={() => {
+                      if (ruleDisabled) return
+                      updateRule(rule.id, (prev) => ({
+                        ...prev,
+                        substats: [],
+                        substatMode: KeepUniqueSubstatMode.Unranked,
+                        substatWeights: {},
+                      }))
+                    }}
+                  >
+                    <GearSubstatSelect
+                      multiple
+                      anyLabel={t('anySubstat')}
+                      value={substatSelection}
+                      onChange={(nextSubstats) => {
+                        if (ruleDisabled) return
+                        const filtered = nextSubstats.filter((variant) => STAT_VARIANTS_PRIORITY.includes(variant))
+                        const sorted = sortKeepUniquesSubstats(filtered)
+                        updateRule(rule.id, (prev) => {
+                          const nextMode = sorted.length > 0 ? prev.substatMode : KeepUniqueSubstatMode.Unranked
+                          const nextWeights = pruneKeepUniquesSubstatWeights(prev.substatWeights, sorted)
+                          return { ...prev, substats: sorted, substatMode: nextMode, substatWeights: nextWeights }
+                        })
+                      }}
+                      colorOverrides={substatColors}
+                      showBorderColors={useStatButtonColors}
+                      size="small"
+                      sx={getRuleSelectPaddingSx(substatSelection.length, KEEP_OVERRIDE_INLINE_SELECT_HEIGHT_PX)}
+                    />
+                  </RuleSelectAffordances>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                      <Typography variant="caption" color="text.secondary">
+                        {t('keepUniquesSubstatModeLabel')}
+                      </Typography>
+                      <MarkdownTooltip markdown={t('keepUniquesSubstatModeHint')}>
+                        <IconButton
+                          size="small"
+                          color="inherit"
+                          aria-label={t('keepUniquesSubstatModeHintLabel')}
+                          sx={{
+                            p: 0.25,
+                            fontSize: 16,
+                            '&:hover': { color: 'text.primary' },
+                            '&:focus-visible': { color: 'text.primary' },
+                          }}
+                        >
+                          <InfoOutlinedIcon fontSize="inherit" />
+                        </IconButton>
+                      </MarkdownTooltip>
+                    </Box>
+                    <ToggleButtonGroup
+                      size="small"
+                      exclusive
+                      value={effectiveSubstatMode}
+                      onChange={(_event, next) => {
+                        if (!next) return
+                        if (next === KeepUniqueSubstatMode.Ranked && !hasSubstatSelection) return
+                        updateRule(rule.id, (prev) => ({ ...prev, substatMode: next }))
+                      }}
+                      data-rule-card-interactive="true"
+                      sx={{ borderRadius: '8px', overflow: 'hidden' }}
+                    >
+                      <ToggleButton value={KeepUniqueSubstatMode.Unranked} sx={{ minWidth: 96 }}>
+                        <EllipsisTooltip title={t('keepUniquesSubstatModeUnranked')}>
+                          <Box
+                            component="span"
+                            data-ellipsis-target
+                            sx={{
+                              display: 'block',
+                              width: '100%',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
+                            {t('keepUniquesSubstatModeUnranked')}
+                          </Box>
+                        </EllipsisTooltip>
+                      </ToggleButton>
+                      <ToggleButton
+                        value={KeepUniqueSubstatMode.Ranked}
+                        disabled={!hasSubstatSelection}
+                        sx={{ minWidth: 96 }}
+                      >
+                        <EllipsisTooltip title={t('keepUniquesSubstatModeRanked')}>
+                          <Box
+                            component="span"
+                            data-ellipsis-target
+                            sx={{
+                              display: 'block',
+                              width: '100%',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
+                            {t('keepUniquesSubstatModeRanked')}
+                          </Box>
+                        </EllipsisTooltip>
+                      </ToggleButton>
+                    </ToggleButtonGroup>
+                    <MarkdownTooltip markdown={t('keepUniquesSubstatWeightsHelp')}>
+                      <span>
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          onClick={(event) => {
+                            event.preventDefault()
+                            event.stopPropagation()
+                            if (ruleDisabled || !rankedModeActive || !hasSubstatSelection) return
+                            setSubstatWeightsMenu({ ruleId: rule.id, anchorEl: event.currentTarget })
+                          }}
+                          aria-label={t('keepUniquesSubstatWeightsLabel')}
+                          disabled={ruleDisabled || !rankedModeActive || !hasSubstatSelection}
+                          sx={{ minHeight: MENU_CONTROL_HEIGHT_PX }}
+                        >
+                          {t('keepUniquesSubstatWeightsLabel')}
+                        </Button>
+                      </span>
+                    </MarkdownTooltip>
+                  </Box>
+                </Stack>
               </KeepOverrideScopeField>
             </Box>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -1099,9 +1557,189 @@ ${t('keepUniquesCountModeHint')}`
   }
 
   const deleteDialogOpen = pendingDeleteRuleId !== null
+  const pasteDialogOpen = Boolean(pasteDialogTarget)
+  const substatWeightsMenuOpen = isSubstatWeightsMenuOpen
+  const substatWeightsMenuRule = activeSubstatWeightsRule
+  const substatWeightsMenuVariants = activeSubstatWeightVariants
+  const pasteDialogConfirmLabel = pasteDialogTarget?.mode === 'after'
+    ? t('chipMenuPasteAfter')
+    : t('chipsMenuPasteAtEnd')
+  const bumpSubstatWeight = useCallback((variant: StatVariant, deltaSteps: number) => {
+    if (!substatWeightsMenuRule) return
+    updateRule(substatWeightsMenuRule.id, (prev) => {
+      const rawWeights = prev.substatWeights ?? {}
+      const currentRaw = Number(rawWeights[variant] ?? TESTER_SORT_WEIGHT_DEFAULT)
+      const current = normalizeTesterSortWeight(currentRaw)
+      const nextValue = normalizeTesterSortWeight(current + (deltaSteps * TESTER_SORT_WEIGHT_STEP))
+      const nextWeights = { ...rawWeights }
+      if (nextValue === TESTER_SORT_WEIGHT_DEFAULT) {
+        delete nextWeights[variant]
+      } else {
+        nextWeights[variant] = nextValue
+      }
+      return { ...prev, substatWeights: nextWeights }
+    })
+  }, [substatWeightsMenuRule, updateRule])
+  const resetSubstatWeight = useCallback((variant: StatVariant) => {
+    if (!substatWeightsMenuRule) return
+    updateRule(substatWeightsMenuRule.id, (prev) => {
+      const rawWeights = prev.substatWeights ?? {}
+      if (!rawWeights[variant]) return prev
+      const nextWeights = { ...rawWeights }
+      delete nextWeights[variant]
+      return { ...prev, substatWeights: nextWeights }
+    })
+  }, [substatWeightsMenuRule, updateRule])
+  const handleConfirmPasteDialog = useCallback(() => {
+    // Parse the manual paste text into keep-unique rules.
+    const parsed = parseKeepUniqueClipboardRules(pasteDialogText)
+    if (parsed.length === 0) {
+      setPasteDialogError('No valid keep-unique rule found in pasted text')
+      return
+    }
+    // Decide insertion index based on the target mode.
+    const mode = pasteDialogTarget?.mode ?? 'end'
+    const insertIndex = mode === 'after'
+      ? (() => {
+        const idx = pasteDialogTarget?.ruleId
+          ? rules.findIndex((rule) => rule.id === pasteDialogTarget.ruleId)
+          : -1
+        return idx === -1 ? rules.length : idx + 1
+      })()
+      : rules.length
+    insertKeepUniqueRulesAt(parsed, insertIndex)
+    closePasteDialog()
+  }, [
+    closePasteDialog,
+    insertKeepUniqueRulesAt,
+    parseKeepUniqueClipboardRules,
+    pasteDialogTarget,
+    pasteDialogText,
+    rules,
+  ])
 
   return (
     <>
+      <Menu
+        open={substatWeightsMenuOpen}
+        anchorEl={activeSubstatWeightsMenu?.anchorEl ?? null}
+        onClose={closeSubstatWeightsMenu}
+        MenuListProps={{ disablePadding: true }}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+        transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+        slotProps={{
+          paper: buildContextMenuPaperSlotProps({
+            component: ContextMenuPaper,
+            contextMenuGuard: substatWeightsMenuGuard,
+            onRequestClose: closeSubstatWeightsMenu,
+            closeLabel: t('close'),
+            ref: substatWeightsMenuRef,
+            sx: { width: 320, maxWidth: 'calc(100vw - 32px)', px: 0, py: 0 },
+          }),
+        }}
+      >
+        <Box sx={{ px: 2.25, pt: 2.25, pb: 1 }}>
+          <ContextMenuTitle
+            title={t('keepUniquesSubstatWeightsTitle')}
+            description={t('keepUniquesSubstatWeightsDescription')}
+          />
+        </Box>
+        {substatWeightsMenuRule && substatWeightsMenuVariants.length > 0 ? (
+          substatWeightsMenuVariants.map((variant) => {
+            const weight = normalizeTesterSortWeight(
+              Number(substatWeightsMenuRule.substatWeights?.[variant] ?? TESTER_SORT_WEIGHT_DEFAULT),
+            )
+            return (
+              <MenuItem
+                key={variant}
+                disableRipple
+                onClick={(event) => { event.stopPropagation() }}
+                sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 2, py: 0.75 }}
+              >
+                <Typography
+                  variant="body2"
+                  sx={(theme) => ({
+                    flex: 1,
+                    minWidth: 0,
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    ...(useStatButtonColors ? { color: substatColors?.[variant]?.fg ?? theme.palette.text.primary } : null),
+                  })}
+                >
+                  {t(statVariantI18nKey(variant))}
+                </Typography>
+                <Box
+                  sx={{
+                    width: MENU_CONTROL_MIN_WIDTH_PX,
+                    minWidth: MENU_CONTROL_MIN_WIDTH_PX,
+                    height: MENU_CONTROL_HEIGHT_PX,
+                    minHeight: MENU_CONTROL_HEIGHT_PX,
+                    flexShrink: 0,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 0.75,
+                  }}
+                >
+                  <TesterSortWeightControls
+                    label={t(statVariantI18nKey(variant))}
+                    enabled
+                    weight={weight}
+                    onBump={(deltaSteps) => bumpSubstatWeight(variant, deltaSteps)}
+                    onReset={() => resetSubstatWeight(variant)}
+                  />
+                </Box>
+              </MenuItem>
+            )
+          })
+        ) : (
+          <Box sx={{ px: 2.25, pb: 2, color: 'text.secondary' }}>
+            <Typography variant="body2">{t('keepUniquesSubstatWeightsEmpty')}</Typography>
+          </Box>
+        )}
+      </Menu>
+      <ConfigContextMenu
+        open={Boolean(ruleMenu)}
+        anchorPosition={ruleMenu ? { top: ruleMenu.y, left: ruleMenu.x } : null}
+        onClose={closeRuleMenu}
+        paperRef={ruleMenuRef}
+        paperDataTourId="keepuniques.rule-menu"
+        onPaperContextMenu={(event) => {
+          // Keep right-clicks inside the menu from showing the browser menu.
+          event.preventDefault()
+          event.stopPropagation()
+        }}
+        contextMenuGuard={ruleMenuGuard}
+        actions={(() => {
+          // Skip actions when the menu is closed to avoid stale handlers.
+          if (!ruleMenu) return {}
+          // Resolve the current index so move actions can disable correctly.
+          const idx = rules.findIndex((rule) => rule.id === ruleMenu.ruleId)
+          const isFirst = idx <= 0
+          const isLast = idx < 0 || idx === rules.length - 1
+          return {
+            moveTop: { handler: () => moveRule(ruleMenu.ruleId, 0), disabled: isFirst },
+            moveUp: { handler: () => moveRule(ruleMenu.ruleId, idx - 1), disabled: isFirst },
+            moveDown: { handler: () => moveRule(ruleMenu.ruleId, idx + 1), disabled: isLast },
+            moveBottom: { handler: () => moveRule(ruleMenu.ruleId, rules.length - 1), disabled: isLast },
+            copyConfig: () => handleCopyRule(ruleMenu.ruleId),
+            pasteAfter: () => handlePasteAfterRule(ruleMenu.ruleId),
+            pasteAtEnd: handlePasteAtEnd,
+          }
+        })()}
+      />
+      <PasteDialog
+        open={pasteDialogOpen}
+        text={pasteDialogText}
+        error={pasteDialogError}
+        confirmLabel={pasteDialogConfirmLabel}
+        onTextChange={(value) => {
+          setPasteDialogText(value)
+          if (pasteDialogError) setPasteDialogError(null)
+        }}
+        onCancel={closePasteDialog}
+        onConfirm={handleConfirmPasteDialog}
+      />
       <Dialog open={deleteDialogOpen} onClose={handleCancelDeleteRule}>
         <DialogTitle>{t('keepUniquesDeleteRuleTitle')}</DialogTitle>
         <DialogContent>
@@ -1153,9 +1791,33 @@ ${t('keepUniquesCountModeHint')}`
         >
           <Box data-tour-id="keepuniques.rules" sx={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
             <Box sx={{ pb: 2, borderBottom: '1px solid', borderColor: 'divider' }}>
-              <Stack spacing={1}>
-                <Typography variant="subtitle2">{t('keepUniquesTabLabel')}</Typography>
-                <Typography variant="body2" color="text.secondary">{t('keepUniquesTabIntro')}</Typography>
+              <Box
+                sx={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  // Remove the gap when the intro copy is collapsed.
+                  gap: rulesHeaderCollapsed ? 0 : 1,
+                }}
+              >
+                <Box
+                  sx={(theme) => ({
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 0.5,
+                    // Collapse the intro with a subtle height + opacity transition.
+                    maxHeight: rulesHeaderCollapsed ? 0 : theme.spacing(12),
+                    opacity: rulesHeaderCollapsed ? 0 : 1,
+                    transform: rulesHeaderCollapsed ? 'translateY(-4px)' : 'translateY(0)',
+                    overflow: 'hidden',
+                    pointerEvents: rulesHeaderCollapsed ? 'none' : 'auto',
+                    transition: theme.transitions.create(['max-height', 'opacity', 'transform'], {
+                      duration: theme.transitions.duration.shorter,
+                    }),
+                  })}
+                >
+                  <Typography variant="subtitle2">{t('keepUniquesTabLabel')}</Typography>
+                  <Typography variant="body2" color="text.secondary">{t('keepUniquesTabIntro')}</Typography>
+                </Box>
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
                   <FormControlLabel
                     control={(
@@ -1192,9 +1854,14 @@ ${t('keepUniquesCountModeHint')}`
                     onToggle={handleToggleGridColumns}
                   />
                 </Box>
-              </Stack>
+              </Box>
             </Box>
-            <KeepUniquesRuleList rules={rules} renderRule={renderRuleCard} scrollRootRef={rulesScrollRootRef} />
+            <KeepUniquesRuleList
+              rules={rules}
+              renderRule={renderRuleCard}
+              scrollRootRef={rulesScrollRootRef}
+              onScrollChange={handleRulesScrollChange}
+            />
             <Divider sx={{ my: 1 }} />
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <Button variant="contained" onClick={handleAddRule} sx={{ minHeight: MENU_CONTROL_HEIGHT_PX }}>
@@ -1217,7 +1884,11 @@ ${t('keepUniquesCountModeHint')}`
               }}
             >
               <Box sx={{ minWidth: 0 }}>
-                <MarkdownTooltip markdown={t('keepUniquesGridFilterTooltip')}>
+                <MarkdownTooltip
+                  markdown={t('keepUniquesGridFilterTooltip')}
+                  ellipsisTitle={gridFilterLabel}
+                  ellipsisSelector='[data-ellipsis-target]'
+                >
                   <span>
                     <Button
                       size="small"
@@ -1227,18 +1898,28 @@ ${t('keepUniquesCountModeHint')}`
                       onClick={handleToggleGridFilterMode}
                       aria-pressed={gridFilterMode === 'selection'}
                       startIcon={gridFilterMode === 'selection' ? <FilterListIcon fontSize="small" /> : <FilterListOffIcon fontSize="small" />}
+                      // Keep the button compact until space is tight, then ellipsize the label.
                       sx={{
                         height: MENU_CONTROL_HEIGHT_PX,
                         minHeight: MENU_CONTROL_HEIGHT_PX,
                         px: 1.25,
-                        '& .MuiTypography-root': { fontWeight: 600 },
+                        minWidth: 0,
+                        maxWidth: '100%',
+                        justifyContent: 'flex-start',
+                        justifySelf: 'start',
+                        '& .MuiButton-startIcon': { flexShrink: 0 },
                       }}
                     >
-                      {t('keepUniquesGridFilterLabel', {
-                        mode: gridFilterMode === 'selection'
-                          ? t('keepUniquesGridFilterModeSelection')
-                          : t('keepUniquesGridFilterModeAll'),
-                      })}
+                      <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, minWidth: 0, width: '100%', flex: '1 1 auto' }}>
+                        <Typography
+                          component="span"
+                          noWrap
+                          data-ellipsis-target
+                          sx={{ ...ELLIPSIS_TEXT_SX, minWidth: 0 }}
+                        >
+                          {gridFilterLabel}
+                        </Typography>
+                      </Box>
                     </Button>
                   </span>
                 </MarkdownTooltip>
@@ -1305,14 +1986,19 @@ type KeepUniquesRuleListProps = {
   rules: KeepUniqueRule[]
   renderRule: (rule: KeepUniqueRule, ruleIndex: number) => ReactNode
   scrollRootRef: RefObject<HTMLDivElement | null>
+  onScrollChange?: (scrollTop: number) => void
 }
 
-function KeepUniquesRuleList({ rules, renderRule, scrollRootRef }: KeepUniquesRuleListProps) {
+function KeepUniquesRuleList({ rules, renderRule, scrollRootRef, onScrollChange }: KeepUniquesRuleListProps) {
   const { t } = useI18n()
-
+  // Bubble scroll changes so the parent can collapse the intro copy.
+  const handleScroll = useCallback((event: ReactUIEvent<HTMLDivElement>) => {
+    onScrollChange?.(event.currentTarget.scrollTop)
+  }, [onScrollChange])
   return (
     <Box
       ref={scrollRootRef}
+      onScroll={handleScroll}
       sx={(theme) => ({
         flex: 1,
         minHeight: 0,

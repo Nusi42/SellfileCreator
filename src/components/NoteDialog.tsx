@@ -38,10 +38,11 @@ import ConfigChip from './ConfigChip'
 // MarkdownTooltip ensures the color pickers + toolbar reuse the same hover delay/style across the app.
 import MarkdownTooltip from './MarkdownTooltip'
 import { useGearSetCatalogVersion } from '../hooks/useGearSetCatalogVersion'
-import { KEEP_UNIQUE_DEFAULT_COUNT_MODE, sanitizeKeepUniqueCountMode, type KeepUniqueRule, KeepUniqueRuleActivation } from '../lib/keepUniques'
+import { KEEP_UNIQUE_DEFAULT_COUNT_MODE, sanitizeKeepUniqueCountMode, type KeepUniqueRule, KeepUniqueRuleActivation, KeepUniqueSubstatMode } from '../lib/keepUniques'
 import { resolveRarityLabel } from '../lib/testerPreviewFormatting'
 import { warningBadgeSx } from '../lib/badgeStyles'
 import TesterOutcomeSummaryChip from './TesterOutcomeSummaryChip'
+import { normalizeTesterSortWeight, TESTER_SORT_WEIGHT_DEFAULT } from '../lib/testerSort'
 import {
   buildNoteConfigOptionsSignature,
   applyQuestionExclusions,
@@ -78,6 +79,10 @@ const NOTE_COLOR_SX_SELECTORS: Record<string, { color: string }> = Object.fromEn
 const NOTE_EDITOR_BG_COLOR = '#0d1117'
 // Keep the note dialog size constant so view/edit stays aligned.
 const NOTE_DIALOG_HEIGHT = '84vh'
+// Keep substat ordering aligned with the rule card layout.
+const NOTE_SUBSTAT_ORDER = new Map<number, number>(
+  STAT_VARIANTS_PRIORITY.map((variant, index) => [Number(variant), index]),
+)
 // Apply a fixed height and flex column so the content can stretch fully.
 const NOTE_DIALOG_PAPER_SX = {
   height: NOTE_DIALOG_HEIGHT,
@@ -1993,6 +1998,51 @@ function KeepUniqueSummaryCard({
     })
   })()
 
+  const substatLabels = (() => {
+    const substats = Array.from(new Set<number>(rule.substats ?? []))
+    if (substats.length === 0) return []
+    substats.sort((left, right) => {
+      const leftOrder = NOTE_SUBSTAT_ORDER.get(left) ?? Number.MAX_SAFE_INTEGER
+      const rightOrder = NOTE_SUBSTAT_ORDER.get(right) ?? Number.MAX_SAFE_INTEGER
+      if (leftOrder !== rightOrder) return leftOrder - rightOrder
+      return left - right
+    })
+    return substats.map((variant) => {
+      const key = statVariantI18nKey(variant)
+      const translated = t(key)
+      const label = translated || String(variant)
+      const color = useStatButtonColors ? substatColors[variant]?.fg : undefined
+      return { label, color, key: `sub-${variant}` }
+    })
+  })()
+
+  const substatModeLabel = rule.substatMode === KeepUniqueSubstatMode.Ranked
+    ? t('noteKeepUniqueSubstatModeRanked')
+    : t('noteKeepUniqueSubstatModeUnranked')
+
+  const substatWeightSummary = (() => {
+    const weights = rule.substatWeights ?? {}
+    const entries: Array<{ variant: number; weight: number }> = []
+    for (const [key, raw] of Object.entries(weights)) {
+      const variant = Number(key)
+      if (!Number.isFinite(variant)) continue
+      const normalized = normalizeTesterSortWeight(Number(raw))
+      if (normalized === TESTER_SORT_WEIGHT_DEFAULT) continue
+      entries.push({ variant, weight: normalized })
+    }
+    if (entries.length === 0) return null
+    entries.sort((left, right) => {
+      const leftOrder = NOTE_SUBSTAT_ORDER.get(left.variant) ?? Number.MAX_SAFE_INTEGER
+      const rightOrder = NOTE_SUBSTAT_ORDER.get(right.variant) ?? Number.MAX_SAFE_INTEGER
+      if (leftOrder !== rightOrder) return leftOrder - rightOrder
+      return left.variant - right.variant
+    })
+    return entries.map((entry) => {
+      const label = t(statVariantI18nKey(entry.variant))
+      return `${label} x${entry.weight.toFixed(2)}`
+    }).join(', ')
+  })()
+
   const factionLabels = (() => {
     const factions = Array.from(new Set<number>(rule.combination.factions ?? []))
     return factions.map((factionId) => {
@@ -2099,6 +2149,39 @@ function KeepUniqueSummaryCard({
         </Typography>
       ),
     })
+  }
+  if (substatLabels.length > 0) {
+    filters.push({
+      label: t('noteKeepUniqueSubstatsLabel'),
+      value: (
+        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', wordBreak: 'break-word' }}>
+          {substatLabels.map((entry, idx) => (
+            <React.Fragment key={entry.key ?? idx}>
+              {idx > 0 ? ', ' : null}
+              <Box component="span" sx={{ color: entry.color }}>{entry.label}</Box>
+            </React.Fragment>
+          ))}
+        </Typography>
+      ),
+    })
+    filters.push({
+      label: t('noteKeepUniqueSubstatModeLabel'),
+      value: (
+        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', wordBreak: 'break-word' }}>
+          {substatModeLabel}
+        </Typography>
+      ),
+    })
+    if (rule.substatMode === KeepUniqueSubstatMode.Ranked && substatWeightSummary) {
+      filters.push({
+        label: t('noteKeepUniqueSubstatWeightsLabel'),
+        value: (
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', wordBreak: 'break-word' }}>
+            {substatWeightSummary}
+          </Typography>
+        ),
+      })
+    }
   }
 
   const renderRow = (

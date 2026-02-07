@@ -4,7 +4,6 @@
 import { createConfigRulesCache, updateConfigRulesCache } from '../lib/ruleCache'
 import {
   KEEP_OVERRIDE_RULE_SOURCES,
-  RULE_SOURCE_KEEP_BEST_SUBSTAT,
   RULE_SOURCE_KEEP_UNIQUES,
   isKeepOverrideRuleSource,
   computeMergedRules,
@@ -20,12 +19,6 @@ import {
   resolveKeepUniqueRuleLabel,
 } from '../lib/keepUniques'
 import type { KeepUniqueDetectionSnapshot } from '../lib/keepUniques'
-import {
-  computeKeepBestSubstatProtection,
-  hasActiveKeepBestSubstatRules,
-  resolveKeepBestSubstatRuleLabel,
-} from '../lib/keepBestSubstat'
-import type { KeepBestSubstatDetectionSnapshot } from '../lib/keepBestSubstat'
 import type { NormalizedGearArtifact } from '../lib/importers/gearDbNormalizer'
 import type { HsfRuleWithCfg } from '../lib/merge'
 import type { BuilderConfig, SellfileExportMode } from '../lib/hsfBuilder'
@@ -36,7 +29,6 @@ import { getRuleConfigIndex, resolveMatchConfigName } from '../lib/ruleConfigInd
 import { fingerprintRuleTesterItem } from '../lib/ruleTesterSession'
 import type { RuleTesterItem } from '../lib/ruleTesterSession'
 import { fingerprintKeepUniqueDetection } from '../lib/keepUniqueFingerprint'
-import { fingerprintKeepBestSubstatDetection } from '../lib/keepBestSubstatFingerprint'
 
 declare const self: DedicatedWorkerGlobalScope
 
@@ -157,8 +149,6 @@ const buildWarmState = (
     prebuiltCustomRules: result.rulesByConfig,
     // Keep overrides travel with warm merges so cached rules stay accurate.
     keepUniques: payload.keepUniques,
-    // Keep Best Substat follows Keep Uniques in precedence and must be included.
-    keepBestSubstat: payload.keepBestSubstat,
   })
   const state: WarmState = {
     rulesByConfig: result.rulesByConfig,
@@ -353,14 +343,10 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
     const prebuiltCustomRules = warmState.rulesByConfig
     // Skip the extra detection/merge work when keep overrides are effectively off.
     const hasActiveKeepUniques = hasActiveKeepUniqueRules(payload.keepUniques)
-    const hasActiveKeepBestSubstat = hasActiveKeepBestSubstatRules(payload.keepBestSubstat)
-    const hasActiveKeepOverrides = hasActiveKeepUniques || hasActiveKeepBestSubstat
+    const hasActiveKeepOverrides = hasActiveKeepUniques
     const baseKeepUniques = hasActiveKeepUniques
       ? { ...payload.keepUniques, detection: null }
       : payload.keepUniques
-    const baseKeepBestSubstat = hasActiveKeepBestSubstat
-      ? { ...payload.keepBestSubstat, detection: null }
-      : payload.keepBestSubstat
     const configsForRules = warmState.configsForRules
     const warmTotal = reused ? 0 : payload.configs.length
     const needsMatches = payload.skipMatches !== true
@@ -409,7 +395,6 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
       ...(payload.finalSellRemainder ? { finalSellRemainder: payload.finalSellRemainder } : {}),
       prebuiltCustomRules,
       keepUniques: baseKeepUniques,
-      keepBestSubstat: baseKeepBestSubstat,
     })
 
     // Seed the baseline map with anything we already evaluated so the detection pass only
@@ -471,18 +456,15 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
       const keepUniqueLabel = rule?.__source === RULE_SOURCE_KEEP_UNIQUES
         ? resolveKeepUniqueRuleLabel(rule)
         : null
-      const keepBestLabel = rule?.__source === RULE_SOURCE_KEEP_BEST_SUBSTAT
-        ? resolveKeepBestSubstatRuleLabel(rule)
-        : null
       const effectiveCfgName = cfgName && cfgName.length > 0
         ? cfgName
-        : (keepUniqueLabel ?? keepBestLabel)
+        : keepUniqueLabel
       return {
         ruleIndex: result.ruleIndex,
         keep: result.keep,
         cfgIdx,
         cfgName: effectiveCfgName && effectiveCfgName.length > 0 ? effectiveCfgName : null,
-        ruleLabel: keepUniqueLabel ?? keepBestLabel ?? null,
+        ruleLabel: keepUniqueLabel ?? null,
         ruleSource: rule?.__source ?? null,
       }
     }
@@ -491,14 +473,12 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
     const ignoreKeepUniqueConfigIndices = buildIgnoreKeepUniqueConfigIndices(configsForRules)
     // Keep detection optional so we only pay for it when needed.
     let keepUniqueDetectionSnapshot: KeepUniqueDetectionSnapshot | null = null
-    let keepBestSubstatDetectionSnapshot: KeepBestSubstatDetectionSnapshot | null = null
     // Only compute detection when the caller requested keep-override scanning.
     if (needsDetection) {
       // Detection phase: collect candidate groups + compute keep-override snapshots.
       postPipelinePhase(id, 'detection:start', {
         artifacts: artifactEntries.length,
         keepUniqueRules: payload.keepUniques.rules.length,
-        keepBestSubstatRules: payload.keepBestSubstat.rules.length,
       })
       // Build a row list that mirrors the preview matcher inputs.
       const rows = artifactEntries.map(([itemId, artifact]) => {
@@ -539,21 +519,10 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
           enabled: payload.keepUniques.enabled,
         })
       }
-      if (hasActiveKeepBestSubstat) {
-        keepBestSubstatDetectionSnapshot = computeKeepBestSubstatProtection({
-          // Use only the candidate list (not the full wrapper).
-          candidates: candidates.candidates,
-          // Supply the current keep-best-substat rules.
-          rules: payload.keepBestSubstat.rules,
-          // Respect the keep-best-substat enabled toggle.
-          enabled: payload.keepBestSubstat.enabled,
-        })
-      }
       // Detection phase complete: surface the candidate + entry counts.
       postPipelinePhase(id, 'detection:done', {
         candidates: candidates.candidates.length,
         keepUniqueEntries: keepUniqueDetectionSnapshot?.entries.length ?? 0,
-        keepBestSubstatEntries: keepBestSubstatDetectionSnapshot?.entries.length ?? 0,
       })
     }
 
@@ -574,25 +543,14 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
           detection: keepUniqueDetectionSnapshot,
         }
         : payload.keepUniques,
-      // If keep-best-substat is active, pass the detection snapshot through.
-      keepBestSubstat: baseKeepBestSubstat
-        ? {
-          // Reuse the existing keep-best-substat payload.
-          ...payload.keepBestSubstat,
-          // Inject the latest detection data.
-          detection: keepBestSubstatDetectionSnapshot,
-        }
-        : payload.keepBestSubstat,
     })
     // Final-match cache needs to know both the rule fingerprint and the detection outcome.
     // When either changes we fall back to recomputing the affected entries.
     const detectionSignature = fingerprintKeepUniqueDetection(keepUniqueDetectionSnapshot)
-    const keepBestDetectionSignature = fingerprintKeepBestSubstatDetection(keepBestSubstatDetectionSnapshot)
     // Compose a signature that invalidates caches on any detection change.
     const finalMatchSignature = [
       payload.fingerprint ?? 'null',
       detectionSignature ?? 'none',
-      keepBestDetectionSignature ?? 'none',
     ].join('|')
     // Collect final match rows in worker order for the response payload.
     const matches: TesterMatchWorkerItemResult[] = []
@@ -826,8 +784,6 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
         matches,
         // Keep-unique detection snapshot drives Keep Uniques tab + merges.
         keepUniqueDetection: keepUniqueDetectionSnapshot,
-        // Keep-best-substat detection snapshot drives the new tab + merges.
-        keepBestSubstatDetection: keepBestSubstatDetectionSnapshot,
         fingerprint: payload.fingerprint ?? null,
         artifactSignature: payload.artifactPatch?.signature ?? payload.artifactSignature ?? null,
       },

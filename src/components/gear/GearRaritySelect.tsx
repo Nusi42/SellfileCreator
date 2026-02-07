@@ -8,6 +8,7 @@ const ANY_SENTINEL = '__rarity_any'
 
 type RaritySelectBaseProps = {
   allowAny?: boolean
+  anyLabel?: string
   size?: SelectProps<string>['size']
   menuProps?: SelectProps<string>['MenuProps']
   sx?: SxProps<Theme>
@@ -31,12 +32,15 @@ export function GearRaritySelect({
   value,
   onChange,
   allowAny = false,
+  anyLabel,
   size = 'small',
   menuProps,
   sx,
   multiple = false,
 }: RaritySelectProps) {
   const { t } = useI18n()
+  // Allow callers to replace the "Any" label without touching global strings.
+  const anyText = anyLabel ?? t('any')
   const resolvedSx: SxProps<Theme> = sx ?? {}
   const menuPropsAttr = menuProps ? { MenuProps: menuProps } : {}
   const isMulti = Boolean(multiple)
@@ -74,7 +78,7 @@ export function GearRaritySelect({
               : t('rarityMythical')
   )
   const renderSelected = (() => {
-    if (singleValue == null) return <Typography variant="body2">{t('any')}</Typography>
+    if (singleValue == null) return <Typography variant="body2">{anyText}</Typography>
     return <Typography variant="body2">{rarityLabel(Number(singleValue))}</Typography>
   })()
   // Keep multi-select defaults visible so Keep Uniques shows "Any" instead of empty badges.
@@ -82,7 +86,7 @@ export function GearRaritySelect({
     if (!isMulti) return undefined
     return () => {
       if (!multiValues || multiValues.length === 0) {
-        return <Typography variant="body2">{t('any')}</Typography>
+        return <Typography variant="body2">{anyText}</Typography>
       }
       const summary = multiValues.map((rarity) => rarityLabel(Number(rarity))).join(', ')
       return (
@@ -110,9 +114,9 @@ export function GearRaritySelect({
       sx={resolvedSx}
       {...menuPropsAttr}
     >
-      {allowAny && !isMulti ? <MenuItem value="">{t('any')}</MenuItem> : null}
+      {allowAny && !isMulti ? <MenuItem value="">{anyText}</MenuItem> : null}
       {allowAny && isMulti ? (
-        <MenuItem value={ANY_SENTINEL}>{t('any')}</MenuItem>
+        <MenuItem value={ANY_SENTINEL}>{anyText}</MenuItem>
       ) : null}
       {[1, 2, 3, 4, 5, 6].map((rarity) => (
         <MenuItem key={rarity} value={String(rarity)}>

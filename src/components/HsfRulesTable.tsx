@@ -7,7 +7,7 @@ import VisibilityIcon from '@mui/icons-material/Visibility'
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff'
 import StarBorderIcon from '@mui/icons-material/StarBorder'
 import type { HsfRule } from '../lib/hsfTypes'
-import { RULE_SOURCE_FINAL_SELL, RULE_SOURCE_HSF, RULE_SOURCE_HSFC, RULE_SOURCE_KEEP_BEST_SUBSTAT, RULE_SOURCE_KEEP_UNIQUES, type HsfRuleWithCfg, type RuleSource } from '../lib/merge'
+import { RULE_SOURCE_FINAL_SELL, RULE_SOURCE_HSF, RULE_SOURCE_HSFC, RULE_SOURCE_KEEP_UNIQUES, type HsfRuleWithCfg, type RuleSource } from '../lib/merge'
 import { /* formatArtifactSets */ formatLevel, formatRank, /* labelOfVariant, */ mainToVariant, rarityCodeToName, artifactSetName, compareArtifactTypes, artifactTypeI18nKey, statVariantI18nKey, compareArtifactSets, factionI18nKey, type FactionId, getLocalizedGearSetName } from '../lib/types'
 import EllipsisTooltip from './EllipsisTooltip'
 import MarkdownTooltip from './MarkdownTooltip'
@@ -34,7 +34,6 @@ import { useI18n } from '../lib/i18n'
 import RuleSubstatChips from './RuleSubstatChips'
 import { formatRuleSubstatSummary, formatRuleSubstatPlain, normalizeRuleSubstats, type RuleSubstatDetail } from '../lib/substatDisplay'
 import { resolveKeepUniqueRuleLabel } from '../lib/keepUniques'
-import { resolveKeepBestSubstatRuleLabel } from '../lib/keepBestSubstat'
 import { useContextMenuPaperGuard } from '../hooks/useContextMenuPaperGuard'
 import { useContextMenuHint } from '../hooks/useContextMenuHint'
 import { ContextMenuHintOverlay } from './ContextMenuHintOverlay'
@@ -1061,17 +1060,14 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
                         || rule.__source === RULE_SOURCE_HSFC
                         || rule.__source === RULE_SOURCE_FINAL_SELL
                         || rule.__source === RULE_SOURCE_KEEP_UNIQUES
-                        || rule.__source === RULE_SOURCE_KEEP_BEST_SUBSTAT
                       ) {
                         return rule.__source
                       }
                       if (cfgIdxNumber !== null) return RULE_SOURCE_HSFC
                       return RULE_SOURCE_HSF
                     })()
-                    // Keep-best is a keep-override source with its own label.
-                    const isKeepBestSource = resolvedSource === RULE_SOURCE_KEEP_BEST_SUBSTAT
-                    // Keep overrides include keep uniques and keep best substat injections.
-                    const isKeepOverrideSource = resolvedSource === RULE_SOURCE_KEEP_UNIQUES || isKeepBestSource
+                    // Keep overrides include keep uniques injection rows.
+                    const isKeepOverrideSource = resolvedSource === RULE_SOURCE_KEEP_UNIQUES
                     return (
 		                      <TableRow
 		                        key={virtualItem.key}
@@ -1143,11 +1139,9 @@ export function HsfRulesTable({ rules, setHoveredCfgIdx, selectedCfgIdx, multise
                           if (cfgIdxNumber !== null) {
                             value = String(cfgIdxNumber + 1)
                           } else if (isKeepOverrideSource) {
-                            // Keep-override injections display a hollow star and surface the originating rule name for quick attribution.
-                            // Use keep-best labels when available; fall back to the tab label if rule naming is missing.
-                            const keepOverrideLabel = isKeepBestSource
-                              ? (resolveKeepBestSubstatRuleLabel(rule) ?? t('keepBestSubstatTabLabel'))
-                              : (resolveKeepUniqueRuleLabel(rule) ?? t('keepUniquesTabLabel'))
+                            // Keep-override injections display a hollow star and surface the originating rule name for attribution.
+                            // Fall back to the tab label if rule naming is missing.
+                            const keepOverrideLabel = resolveKeepUniqueRuleLabel(rule) ?? t('keepUniquesTabLabel')
                             cfgSpecialContent = (
                               <MarkdownTooltip markdown={keepOverrideLabel}>
                                 <Box

@@ -20,7 +20,12 @@ import { ArtifactSet, ArtifactType, Faction, StatVariant, RankCode, RarityCode, 
 import { DEFAULT_RULES_FILTER_STATE, type RulesFilterState } from '../lib/rulesFilter'
 import type { TutorialStep } from '../components/tutorial/TutorialCoach'
 import type { useI18n } from '../lib/i18n'
-import { KEEP_UNIQUE_DEFAULT_COUNT_MODE, type KeepUniqueRule, KeepUniqueRuleActivation } from '../lib/keepUniques'
+import {
+  KEEP_UNIQUE_DEFAULT_COUNT_MODE,
+  KeepUniqueRuleActivation,
+  KeepUniqueSubstatMode,
+  type KeepUniqueRule,
+} from '../lib/keepUniques'
 import type { RuleTesterItem } from '../lib/ruleTesterSession'
 
 type Translate = ReturnType<typeof useI18n>['t']
@@ -83,6 +88,10 @@ const buildTutorialKeepUniqueRules = (): KeepUniqueRule[] => [{
   // Tutorial snapshot mirrors the scope chip defaults by cloning the
   // sanitized count mode so demos highlight the same state as the UI.
   countMode: { ...KEEP_UNIQUE_DEFAULT_COUNT_MODE },
+  // Keep tutorial samples aligned with the classic (no substat filter) behavior.
+  substats: [],
+  substatMode: KeepUniqueSubstatMode.Unranked,
+  substatWeights: {},
 }]
 
 const cloneTesterItem = (item: RuleTesterItem): RuleTesterItem => ({
