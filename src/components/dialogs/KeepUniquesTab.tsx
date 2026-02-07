@@ -1,4 +1,14 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent, type ReactNode, type RefObject } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type MouseEvent as ReactMouseEvent,
+  type ReactNode,
+  type RefObject,
+  type UIEvent as ReactUIEvent,
+} from 'react'
 import {
   Box,
   Button,
@@ -119,6 +129,8 @@ import { useContextMenuPaperGuard } from '../../hooks/useContextMenuPaperGuard'
 
 // Keep-unique headers should stay a consistent height even when names wrap to two lines.
 const KEEP_UNIQUES_RULE_HEADER_MIN_HEIGHT_PX = 56
+// Collapse the intro copy once the user scrolls down in the rules pane.
+const KEEP_UNIQUES_HEADER_COLLAPSE_SCROLL_PX = 4
 // Keep substat selections aligned with the same ordering used elsewhere in the app.
 const KEEP_UNIQUES_SUBSTAT_ORDER = new Map<StatVariant, number>(
   STAT_VARIANTS_PRIORITY.map((variant, index) => [variant, index]),
@@ -235,6 +247,8 @@ ${t('keepUniquesCountModeHint')}`
   const [pendingDeleteRuleId, setPendingDeleteRuleId] = useState<string | null>(null)
   const [gridFilterMode, setGridFilterMode] = useKeepUniquesGridFilterMode()
   const [gridColumnMode, setGridColumnMode] = useKeepUniquesGridColumnMode()
+  // Hide the intro copy when the rules list scrolls down.
+  const [rulesHeaderCollapsed, setRulesHeaderCollapsed] = useState(false)
   // Track which rule's action menu is currently open.
   const [ruleMenu, setRuleMenu] = useState<{ ruleId: string; x: number; y: number } | null>(null)
   // Manual paste dialog state when clipboard access is blocked or invalid.
@@ -310,6 +324,19 @@ ${t('keepUniquesCountModeHint')}`
   const allRuleIds = useMemo(() => rules.map((rule) => rule.id), [rules])
   const rulesScrollRootRef = useRef<HTMLDivElement | null>(null)
   const scrollRafRef = useRef<number | null>(null)
+  // Track scroll changes so the header can collapse without extra layout passes.
+  const handleRulesScrollChange = useCallback((scrollTop: number) => {
+    // Treat any scroll beyond the top edge as a collapse trigger.
+    const nextCollapsed = scrollTop > KEEP_UNIQUES_HEADER_COLLAPSE_SCROLL_PX
+    // Avoid redundant state updates during scroll.
+    setRulesHeaderCollapsed((prev) => (prev === nextCollapsed ? prev : nextCollapsed))
+  }, [])
+  useEffect(() => {
+    const scrollRoot = rulesScrollRootRef.current
+    if (!scrollRoot) return
+    // Sync once so the header state matches any retained scroll offset.
+    handleRulesScrollChange(scrollRoot.scrollTop)
+  }, [handleRulesScrollChange, rules.length])
   const scheduleScrollToRule = useCallback((ruleId: string) => {
     if (scrollRafRef.current !== null) {
       window.cancelAnimationFrame(scrollRafRef.current)
@@ -1764,9 +1791,33 @@ ${t('keepUniquesCountModeHint')}`
         >
           <Box data-tour-id="keepuniques.rules" sx={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
             <Box sx={{ pb: 2, borderBottom: '1px solid', borderColor: 'divider' }}>
-              <Stack spacing={1}>
-                <Typography variant="subtitle2">{t('keepUniquesTabLabel')}</Typography>
-                <Typography variant="body2" color="text.secondary">{t('keepUniquesTabIntro')}</Typography>
+              <Box
+                sx={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  // Remove the gap when the intro copy is collapsed.
+                  gap: rulesHeaderCollapsed ? 0 : 1,
+                }}
+              >
+                <Box
+                  sx={(theme) => ({
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 0.5,
+                    // Collapse the intro with a subtle height + opacity transition.
+                    maxHeight: rulesHeaderCollapsed ? 0 : theme.spacing(12),
+                    opacity: rulesHeaderCollapsed ? 0 : 1,
+                    transform: rulesHeaderCollapsed ? 'translateY(-4px)' : 'translateY(0)',
+                    overflow: 'hidden',
+                    pointerEvents: rulesHeaderCollapsed ? 'none' : 'auto',
+                    transition: theme.transitions.create(['max-height', 'opacity', 'transform'], {
+                      duration: theme.transitions.duration.shorter,
+                    }),
+                  })}
+                >
+                  <Typography variant="subtitle2">{t('keepUniquesTabLabel')}</Typography>
+                  <Typography variant="body2" color="text.secondary">{t('keepUniquesTabIntro')}</Typography>
+                </Box>
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
                   <FormControlLabel
                     control={(
@@ -1803,9 +1854,14 @@ ${t('keepUniquesCountModeHint')}`
                     onToggle={handleToggleGridColumns}
                   />
                 </Box>
-              </Stack>
+              </Box>
             </Box>
-            <KeepUniquesRuleList rules={rules} renderRule={renderRuleCard} scrollRootRef={rulesScrollRootRef} />
+            <KeepUniquesRuleList
+              rules={rules}
+              renderRule={renderRuleCard}
+              scrollRootRef={rulesScrollRootRef}
+              onScrollChange={handleRulesScrollChange}
+            />
             <Divider sx={{ my: 1 }} />
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <Button variant="contained" onClick={handleAddRule} sx={{ minHeight: MENU_CONTROL_HEIGHT_PX }}>
@@ -1930,14 +1986,19 @@ type KeepUniquesRuleListProps = {
   rules: KeepUniqueRule[]
   renderRule: (rule: KeepUniqueRule, ruleIndex: number) => ReactNode
   scrollRootRef: RefObject<HTMLDivElement | null>
+  onScrollChange?: (scrollTop: number) => void
 }
 
-function KeepUniquesRuleList({ rules, renderRule, scrollRootRef }: KeepUniquesRuleListProps) {
+function KeepUniquesRuleList({ rules, renderRule, scrollRootRef, onScrollChange }: KeepUniquesRuleListProps) {
   const { t } = useI18n()
-
+  // Bubble scroll changes so the parent can collapse the intro copy.
+  const handleScroll = useCallback((event: ReactUIEvent<HTMLDivElement>) => {
+    onScrollChange?.(event.currentTarget.scrollTop)
+  }, [onScrollChange])
   return (
     <Box
       ref={scrollRootRef}
+      onScroll={handleScroll}
       sx={(theme) => ({
         flex: 1,
         minHeight: 0,
