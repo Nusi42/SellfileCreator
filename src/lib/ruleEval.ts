@@ -181,7 +181,10 @@ export function evaluateFirst(rules: HsfRuleWithCfg[], item: TestItem): EvalResu
     if (result) return false
     const rule = rules[ruleIndex]!
     if (!matchRule(rule, item)) return true
-    const keep = rule.Keep === true
+    const source = typeof (rule as HsfRuleWithCfg).__source === 'string' ? String((rule as HsfRuleWithCfg).__source) : null
+    const isKeepOverride = isKeepOverrideRuleSource(source)
+    // Keep-override sources are always treated as "keep" when they win.
+    const keep = isKeepOverride ? true : (rule.Keep === true)
     const cfgIdx = getRuleConfigIndex(rule)
     result = { ruleIndex, keep, cfgIdx }
     return false
@@ -263,12 +266,13 @@ export function evaluateMatchesByConfig(
     // Source/type hints drive the exclusion toggle (e.g., keep-unique injections).
     const source = typeof (rule as HsfRuleWithCfg).__source === 'string' ? String((rule as HsfRuleWithCfg).__source) : null
     const isExcluded = source && excludeSourceSet ? excludeSourceSet.has(source) : false
+    const isKeepOverride = isKeepOverrideRuleSource(source)
     const cfgIdx = getRuleConfigIndex(rule)
     // Skip configs that are disabled/separator or explicitly excluded by source.
     if (!shouldIncludeConfig(cfgIdx)) return true
-    const keep = rule.Keep === true
+    // Keep-override sources should always register as "keep" in the UI state.
+    const keep = isKeepOverride ? true : (rule.Keep === true)
     const match: EvalResult = { ruleIndex, keep, cfgIdx }
-    const isKeepOverride = isKeepOverrideRuleSource(source)
     if (isKeepOverride) {
       // Defer keep overrides so primary rules always win.
       if (!pendingKeepOverride && !isExcluded) pendingKeepOverride = match

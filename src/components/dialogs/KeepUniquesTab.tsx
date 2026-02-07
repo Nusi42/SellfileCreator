@@ -23,6 +23,7 @@ import {
 } from '@mui/material'
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline'
 import ContentCopyIcon from '@mui/icons-material/ContentCopy'
+import MoreVertIcon from '@mui/icons-material/MoreVert'
 import CheckIcon from '@mui/icons-material/Check'
 import CloseIcon from '@mui/icons-material/Close'
 import ExpandLessIcon from '@mui/icons-material/ExpandLess'
@@ -36,9 +37,11 @@ import {
   KeepUniqueRuleActivation,
   KeepUniqueSubstatMode,
   cloneKeepUniqueCombination,
+  cloneKeepUniqueRule,
   createEmptyKeepUniqueCombination,
   createKeepUniqueRuleId,
   getKeepUniqueItemKey,
+  normalizeKeepUniqueRule,
   sanitizeKeepUniqueCountMode,
   type KeepUniqueDetectionEntry,
   type KeepUniqueDetectionSnapshot,
@@ -65,6 +68,7 @@ import {
 } from '../../lib/types'
 import { isAccessorySlot } from '../../lib/testerDomain'
 import { useI18n } from '../../lib/i18n'
+import { readTextSafe, triggerCopyDialog, writeTextSafe } from '../../lib/clipboard'
 import { GearFactionSelect, GearMainStatSelect, GearRankSelect, GearRaritySelect, GearSetsSelect, GearSlotSelect, GearSubstatSelect } from '../gear'
 import { TesterItemsGrid } from '../TesterItemsGrid'
 import { NumberSpinnerAdornment } from '../NumberSpinnerAdornment'
@@ -74,6 +78,8 @@ import MarkdownTooltip from '../MarkdownTooltip'
 import EllipsisTooltip from '../EllipsisTooltip'
 import ContextMenuPaper, { buildContextMenuPaperSlotProps } from '../ContextMenuPaper'
 import ContextMenuTitle from '../ContextMenuTitle'
+import { ConfigContextMenu } from '../ConfigContextMenu'
+import PasteDialog from '../PasteDialog'
 import type { SetStateAction } from 'react'
 import type { Metaset } from '../../lib/metasets'
 import { alpha, useTheme } from '@mui/material/styles'
@@ -229,6 +235,37 @@ ${t('keepUniquesCountModeHint')}`
   const [pendingDeleteRuleId, setPendingDeleteRuleId] = useState<string | null>(null)
   const [gridFilterMode, setGridFilterMode] = useKeepUniquesGridFilterMode()
   const [gridColumnMode, setGridColumnMode] = useKeepUniquesGridColumnMode()
+  // Track which rule's action menu is currently open.
+  const [ruleMenu, setRuleMenu] = useState<{ ruleId: string; x: number; y: number } | null>(null)
+  // Manual paste dialog state when clipboard access is blocked or invalid.
+  const [pasteDialogTarget, setPasteDialogTarget] = useState<{ mode: 'after' | 'end'; ruleId?: string } | null>(null)
+  const [pasteDialogText, setPasteDialogText] = useState('')
+  const [pasteDialogError, setPasteDialogError] = useState<string | null>(null)
+  // Menu ref supports outside-click handling for the keep-unique action menu.
+  const ruleMenuRef = useRef<HTMLDivElement | null>(null)
+  // Close handler keeps the menu in sync with rule edits.
+  const closeRuleMenu = useCallback(() => {
+    // Reset state so the menu unmounts.
+    setRuleMenu(null)
+  }, [])
+  // Close helper resets the manual paste dialog state.
+  const closePasteDialog = useCallback(() => {
+    setPasteDialogTarget(null)
+    setPasteDialogText('')
+    setPasteDialogError(null)
+  }, [])
+  // Open the manual paste dialog for a specific target location.
+  const openPasteDialog = useCallback((mode: 'after' | 'end', ruleId?: string, text = '') => {
+    setPasteDialogTarget({ mode, ...(ruleId ? { ruleId } : {}) })
+    setPasteDialogText(text)
+    setPasteDialogError(null)
+  }, [])
+  // Guard ensures the menu closes cleanly when clicking outside.
+  const { contextMenuGuard: ruleMenuGuard } = useContextMenuPaperGuard({
+    open: Boolean(ruleMenu),
+    onClose: closeRuleMenu,
+    menuRef: ruleMenuRef,
+  })
   // Column toggle between 1/2 keeps the grid width stable while changing density.
   const handleToggleGridColumns = useCallback(() => {
     // Flip between the only two supported modes.
@@ -419,6 +456,8 @@ ${t('keepUniquesCountModeHint')}`
       filtered = prev.filter((rule) => rule.id !== ruleId)
       return filtered
     })
+    // Close the rule menu when its target disappears.
+    if (ruleMenu?.ruleId === ruleId) closeRuleMenu()
     if (filtered.length === 0) {
       if (selectedRuleId !== null) setSelectedRuleId(null)
       setRespectManualDeselect(false)
@@ -434,7 +473,7 @@ ${t('keepUniquesCountModeHint')}`
       next.delete(ruleId)
       return next
     })
-  }, [mutateRules, selectedRuleId, setRespectManualDeselect])
+  }, [closeRuleMenu, mutateRules, ruleMenu, selectedRuleId, setRespectManualDeselect])
 
   const handleCancelDeleteRule = useCallback(() => {
     setPendingDeleteRuleId(null)
@@ -522,6 +561,140 @@ ${t('keepUniquesCountModeHint')}`
   const handleToggleGridFilterMode = useCallback(() => {
     setGridFilterMode((prev) => (prev === 'all' ? 'selection' : 'all'))
   }, [setGridFilterMode])
+  // Normalize clipboard payloads so paste accepts wrapper or raw rules.
+  const parseKeepUniqueClipboardRules = useCallback((raw: string | null): KeepUniqueRule[] => {
+    // Empty clipboard means nothing to paste.
+    if (!raw || raw.trim().length === 0) return []
+    try {
+      // Parse JSON and strip the keep-unique wrapper when present.
+      const parsed = JSON.parse(raw)
+      const candidate = (
+        parsed && typeof parsed === 'object' && 'kind' in parsed && (parsed as { kind?: unknown }).kind === 'keepUniqueRule'
+          ? (parsed as { rule?: unknown }).rule
+          : parsed
+      )
+      const rawList = Array.isArray(candidate) ? candidate : [candidate]
+      // Normalize into canonical rule shapes.
+      const normalized = rawList
+        .map((entry) => normalizeKeepUniqueRule(entry))
+        .filter((entry): entry is KeepUniqueRule => Boolean(entry))
+      if (normalized.length === 0) return []
+      // Clone so future edits never mutate the parsed objects.
+      return normalized.map((rule) => cloneKeepUniqueRule(rule))
+    } catch {
+      // Ignore malformed clipboard data.
+      return []
+    }
+  }, [])
+  // Insert cloned rules at the requested index and focus the first insertion.
+  const insertKeepUniqueRulesAt = useCallback((rulesToInsert: KeepUniqueRule[], insertIndex: number) => {
+    // Track new IDs for selection + scroll behavior.
+    const newRuleIds: string[] = []
+    mutateRules((prev) => {
+      if (rulesToInsert.length === 0) return prev
+      // Clamp the insertion index to a valid list position.
+      const safeIndex = Math.min(Math.max(insertIndex, 0), prev.length)
+      // Insert without mutating the previous array.
+      const next = prev.slice()
+      let offset = 0
+      for (const sourceRule of rulesToInsert) {
+        const clone = cloneKeepUniqueRule(sourceRule)
+        const cloneId = createKeepUniqueRuleId()
+        clone.id = cloneId
+        newRuleIds.push(cloneId)
+        next.splice(safeIndex + offset, 0, clone)
+        offset += 1
+      }
+      return next
+    })
+    if (newRuleIds.length === 0) return
+    const [firstId] = newRuleIds
+    if (!firstId) return
+    // Focus the inserted rule so the user sees the change.
+    setSelectedRuleId(firstId)
+    setRespectManualDeselect(false)
+    setExpandedRuleIds((prev) => {
+      const next = new Set(prev)
+      next.add(firstId)
+      return next
+    })
+    // Scroll the list to the newly inserted rule.
+    scheduleScrollToRule(firstId)
+  }, [mutateRules, scheduleScrollToRule, setRespectManualDeselect])
+  // Copy a rule into memory + OS clipboard for reuse.
+  const handleCopyRule = useCallback(async (ruleId: string) => {
+    // Locate the source rule by id.
+    const source = rules.find((rule) => rule.id === ruleId)
+    if (!source) return
+    // Clone the rule so edits do not mutate the clipboard snapshot.
+    const snapshot = cloneKeepUniqueRule(source)
+    // Wrap the payload to make keep-unique rules detectable when pasting.
+    const payload = { kind: 'keepUniqueRule', rule: snapshot }
+    const text = JSON.stringify(payload, null, 2)
+    // Write to clipboard, falling back to the manual copy dialog.
+    const ok = await writeTextSafe(text)
+    if (!ok) triggerCopyDialog(text)
+  }, [rules])
+  // Paste a rule after a given rule id.
+  const handlePasteAfterRule = useCallback(async (ruleId: string) => {
+    // Resolve the rule to paste.
+    const text = await readTextSafe()
+    const parsed = parseKeepUniqueClipboardRules(text)
+    if (parsed.length > 0) {
+      // Insert after the matching rule, or append if missing.
+      const idx = rules.findIndex((entry) => entry.id === ruleId)
+      const insertIndex = idx === -1 ? rules.length : idx + 1
+      insertKeepUniqueRulesAt(parsed, insertIndex)
+      return
+    }
+    // Fall back to the manual paste dialog if clipboard access fails or is invalid.
+    openPasteDialog('after', ruleId, text ?? '')
+  }, [insertKeepUniqueRulesAt, openPasteDialog, parseKeepUniqueClipboardRules, rules])
+  // Paste a rule at the bottom of the list.
+  const handlePasteAtEnd = useCallback(async () => {
+    // Resolve the rule to paste.
+    const text = await readTextSafe()
+    const parsed = parseKeepUniqueClipboardRules(text)
+    if (parsed.length > 0) {
+      // Append so list order stays predictable.
+      insertKeepUniqueRulesAt(parsed, rules.length)
+      return
+    }
+    // Fall back to the manual paste dialog if clipboard access fails or is invalid.
+    openPasteDialog('end', undefined, text ?? '')
+  }, [insertKeepUniqueRulesAt, openPasteDialog, parseKeepUniqueClipboardRules, rules.length])
+  // Reorder a rule to a specific index.
+  const moveRule = useCallback((ruleId: string, targetIndex: number) => {
+    mutateRules((prev) => {
+      // Find the current index so we can move relative to it.
+      const idx = prev.findIndex((rule) => rule.id === ruleId)
+      if (idx === -1) return prev
+      // Clamp to list bounds.
+      const safeTarget = Math.min(Math.max(targetIndex, 0), prev.length - 1)
+      if (safeTarget === idx) return prev
+      // Splice out + reinsert the rule.
+      const next = prev.slice()
+      const [moved] = next.splice(idx, 1)
+      // Bail out if the splice failed to return an element.
+      if (!moved) return prev
+      next.splice(safeTarget, 0, moved)
+      return next
+    })
+  }, [mutateRules])
+  // Open the rule action menu at the pointer or button center.
+  const openRuleMenu = useCallback((event: ReactMouseEvent<HTMLElement>, ruleId: string) => {
+    // Prevent the native browser context menu.
+    event.preventDefault()
+    event.stopPropagation()
+    // Align the selection with the menu target for predictable actions.
+    setSelectedRuleId(ruleId)
+    setRespectManualDeselect(false)
+    // Fall back to the element center if pointer coords are unavailable.
+    const rect = event.currentTarget.getBoundingClientRect()
+    const x = event.clientX || Math.round(rect.left + rect.width / 2)
+    const y = event.clientY || Math.round(rect.top + rect.height / 2)
+    setRuleMenu({ ruleId, x, y })
+  }, [setRespectManualDeselect, setSelectedRuleId])
 
   const renderRuleCard = (rule: KeepUniqueRule, ruleIndex: number) => {
     const ruleDisabled = rule.activation === KeepUniqueRuleActivation.Off
@@ -618,8 +791,19 @@ ${t('keepUniquesCountModeHint')}`
         <ContentCopyIcon fontSize="small" />
       </IconButton>
     )
+    const menuButton = (
+      <IconButton
+        size="small"
+        aria-label={t('contextMenuHint')}
+        onClick={(event) => openRuleMenu(event, rule.id)}
+        sx={{ p: 0.5, color: 'text.secondary' }}
+      >
+        <MoreVertIcon fontSize="small" />
+      </IconButton>
+    )
     const actionButtons = (
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, justifyContent: 'flex-end', flexShrink: 0 }}>
+        {menuButton}
         {duplicateButton}
         {deleteButton}
       </Box>
@@ -711,6 +895,7 @@ ${t('keepUniquesCountModeHint')}`
       >
         <Box
           // Header wrapper keeps the highlight while deferring toggle behavior to the title button.
+          onContextMenu={(event) => openRuleMenu(event, rule.id)}
           sx={{
             width: '100%',
             display: 'grid',
@@ -1345,9 +1530,13 @@ ${t('keepUniquesCountModeHint')}`
   }
 
   const deleteDialogOpen = pendingDeleteRuleId !== null
+  const pasteDialogOpen = Boolean(pasteDialogTarget)
   const substatWeightsMenuOpen = isSubstatWeightsMenuOpen
   const substatWeightsMenuRule = activeSubstatWeightsRule
   const substatWeightsMenuVariants = activeSubstatWeightVariants
+  const pasteDialogConfirmLabel = pasteDialogTarget?.mode === 'after'
+    ? t('chipMenuPasteAfter')
+    : t('chipsMenuPasteAtEnd')
   const bumpSubstatWeight = useCallback((variant: StatVariant, deltaSteps: number) => {
     if (!substatWeightsMenuRule) return
     updateRule(substatWeightsMenuRule.id, (prev) => {
@@ -1374,6 +1563,33 @@ ${t('keepUniquesCountModeHint')}`
       return { ...prev, substatWeights: nextWeights }
     })
   }, [substatWeightsMenuRule, updateRule])
+  const handleConfirmPasteDialog = useCallback(() => {
+    // Parse the manual paste text into keep-unique rules.
+    const parsed = parseKeepUniqueClipboardRules(pasteDialogText)
+    if (parsed.length === 0) {
+      setPasteDialogError('No valid keep-unique rule found in pasted text')
+      return
+    }
+    // Decide insertion index based on the target mode.
+    const mode = pasteDialogTarget?.mode ?? 'end'
+    const insertIndex = mode === 'after'
+      ? (() => {
+        const idx = pasteDialogTarget?.ruleId
+          ? rules.findIndex((rule) => rule.id === pasteDialogTarget.ruleId)
+          : -1
+        return idx === -1 ? rules.length : idx + 1
+      })()
+      : rules.length
+    insertKeepUniqueRulesAt(parsed, insertIndex)
+    closePasteDialog()
+  }, [
+    closePasteDialog,
+    insertKeepUniqueRulesAt,
+    parseKeepUniqueClipboardRules,
+    pasteDialogTarget,
+    pasteDialogText,
+    rules,
+  ])
 
   return (
     <>
@@ -1455,6 +1671,48 @@ ${t('keepUniquesCountModeHint')}`
           </Box>
         )}
       </Menu>
+      <ConfigContextMenu
+        open={Boolean(ruleMenu)}
+        anchorPosition={ruleMenu ? { top: ruleMenu.y, left: ruleMenu.x } : null}
+        onClose={closeRuleMenu}
+        paperRef={ruleMenuRef}
+        paperDataTourId="keepuniques.rule-menu"
+        onPaperContextMenu={(event) => {
+          // Keep right-clicks inside the menu from showing the browser menu.
+          event.preventDefault()
+          event.stopPropagation()
+        }}
+        contextMenuGuard={ruleMenuGuard}
+        actions={(() => {
+          // Skip actions when the menu is closed to avoid stale handlers.
+          if (!ruleMenu) return {}
+          // Resolve the current index so move actions can disable correctly.
+          const idx = rules.findIndex((rule) => rule.id === ruleMenu.ruleId)
+          const isFirst = idx <= 0
+          const isLast = idx < 0 || idx === rules.length - 1
+          return {
+            moveTop: { handler: () => moveRule(ruleMenu.ruleId, 0), disabled: isFirst },
+            moveUp: { handler: () => moveRule(ruleMenu.ruleId, idx - 1), disabled: isFirst },
+            moveDown: { handler: () => moveRule(ruleMenu.ruleId, idx + 1), disabled: isLast },
+            moveBottom: { handler: () => moveRule(ruleMenu.ruleId, rules.length - 1), disabled: isLast },
+            copyConfig: () => handleCopyRule(ruleMenu.ruleId),
+            pasteAfter: () => handlePasteAfterRule(ruleMenu.ruleId),
+            pasteAtEnd: handlePasteAtEnd,
+          }
+        })()}
+      />
+      <PasteDialog
+        open={pasteDialogOpen}
+        text={pasteDialogText}
+        error={pasteDialogError}
+        confirmLabel={pasteDialogConfirmLabel}
+        onTextChange={(value) => {
+          setPasteDialogText(value)
+          if (pasteDialogError) setPasteDialogError(null)
+        }}
+        onCancel={closePasteDialog}
+        onConfirm={handleConfirmPasteDialog}
+      />
       <Dialog open={deleteDialogOpen} onClose={handleCancelDeleteRule}>
         <DialogTitle>{t('keepUniquesDeleteRuleTitle')}</DialogTitle>
         <DialogContent>
