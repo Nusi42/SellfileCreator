@@ -388,16 +388,23 @@ const determineFaction = (slot: ArtifactTypeId, accset: number | null | undefine
 }
 
 const buildSubValueMap = (stats: NormalizedStat[]): Record<number, number> => {
-  const map = new Map<number, number>()
+  // Use a plain object to avoid Map/Object.fromEntries hot-loop crashes in SQL.js imports.
+  const values: Record<number, number> = {}
+  // Fold substat values by StatVariant so downstream rules see consolidated totals.
   for (const stat of stats) {
+    // Skip the "Any" placeholder so the payload stays semantically meaningful.
     if (stat.variant === StatVariant.Any) continue
+    // Combine base + myth rolls to match the tester's pre-glyph expectations.
     const baseAmount = stat.baseValue + (stat.mythValue ?? 0)
+    // Drop zero-ish entries so we don't bloat the serialized subValues payload.
     if (Math.abs(baseAmount) <= 0) continue
-    const existing = map.get(stat.variant) ?? 0
+    // Accumulate duplicate variants before rounding to preserve previous behavior.
+    const existing = values[stat.variant] ?? 0
     const combined = existing + baseAmount
-    map.set(stat.variant, roundStatValue(stat.statId, stat.isFlat, combined))
+    // Keep rounding logic centralized to match the rest of the stat pipeline.
+    values[stat.variant] = roundStatValue(stat.statId, stat.isFlat, combined)
   }
-  return Object.fromEntries(map.entries())
+  return values
 }
 
 // Last-used timestamps arrive as local strings (`YYYY-MM-DD HH:MM:SS.sss`);
