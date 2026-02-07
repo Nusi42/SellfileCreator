@@ -11,7 +11,6 @@ import type {
 } from './types'
 import {
   ALLOWED_MAIN_BY_SLOT,
-  ArtifactSet,
   ArtifactType,
   PREFERRED_ARTIFACT_TYPE_ORDER,
   StatId,
@@ -293,105 +292,10 @@ export type KeepUniqueRule = {
   substatWeights: Partial<Record<StatVariant, number>>
 }
 
-// Accessory defaults keep Rare+ pieces to skip fodder while still catching Epic/Legendary/Mythical.
-const ACCESSORY_KEEP_UNIQUE_DEFAULT_NAME = 'Rare+ Accessories (5-6★)'
-
-const ACCESSORY_KEEP_UNIQUE_SLOTS: readonly ArtifactType[] = [
-  ArtifactType.Ring,
-  ArtifactType.Amulet,
-  ArtifactType.Banner,
-] as const
-
-const ACCESSORY_KEEP_UNIQUE_RARE_PLUS_RARITIES: readonly RankValue[] = [3, 4, 5, 6]
-const ACCESSORY_KEEP_UNIQUE_STAR_VALUES: readonly RankValue[] = [5, 6]
-
-const ACCESSORY_KEEP_UNIQUE_COUNT_MODE: KeepUniqueRuleCountMode = {
-  perRule: false,
-  perSet: true,
-  perFaction: true,
-  perMainStat: true,
-  perSlot: true,
-}
-
-/** Default rule keeps every 5★/6★ ring/amulet/banner per slot/set/main/faction. */
-function createDefaultAccessoryKeepUniqueRule(): KeepUniqueRule {
-  return {
-    id: createKeepUniqueRuleId(),
-    combination: {
-      slots: [...ACCESSORY_KEEP_UNIQUE_SLOTS],
-      sets: getAccessorySlotsCompatibleSetIds().map((id) => ({ id })),
-      metaSetIds: [],
-      ranks: [...ACCESSORY_KEEP_UNIQUE_STAR_VALUES],
-      rarities: [...ACCESSORY_KEEP_UNIQUE_RARE_PLUS_RARITIES],
-      mainStats: [],
-      factions: [],
-    },
-    name: ACCESSORY_KEEP_UNIQUE_DEFAULT_NAME,
-    requiredCount: 1,
-    activation: KeepUniqueRuleActivation.ProtectExisting,
-    countMode: { ...ACCESSORY_KEEP_UNIQUE_COUNT_MODE },
-    substats: [],
-    substatMode: KeepUniqueSubstatMode.Unranked,
-    substatWeights: {},
-  }
-}
-
-const ARMOR_KEEP_UNIQUE_DEFAULT_NAME = 'Utility Sets (5-6★)'
-
-const ARMOR_KEEP_UNIQUE_SLOTS: readonly ArtifactType[] = [
-  ArtifactType.Weapon,
-  ArtifactType.Helmet,
-  ArtifactType.Shield,
-  ArtifactType.Gauntlets,
-  ArtifactType.Chestplate,
-  ArtifactType.Boots,
-] as const
-
-const ARMOR_KEEP_UNIQUE_SET_IDS: readonly ArtifactSetId[] = [
-  ArtifactSet.Stun,
-  ArtifactSet.Toxic,
-  ArtifactSet.Cursed,
-  ArtifactSet.Provoke,
-  ArtifactSet.Destroy,
-] as const
-
-const ARMOR_KEEP_UNIQUE_COUNT_MODE: KeepUniqueRuleCountMode = {
-  perRule: false,
-  perSet: true,
-  perFaction: false,
-  perMainStat: false,
-  perSlot: true,
-}
-
-// Armor defaults focus on top-end control sets: Legendary+/Mythical at 6★ only.
-const ARMOR_KEEP_UNIQUE_LEGENDARY_PLUS_RARITIES: readonly RankValue[] = [5, 6]
-const ARMOR_KEEP_UNIQUE_STAR_VALUES: readonly RankValue[] = [6]
-
-function createDefaultArmorKeepUniqueRule(): KeepUniqueRule {
-  return {
-    id: createKeepUniqueRuleId(),
-    combination: {
-      slots: [...ARMOR_KEEP_UNIQUE_SLOTS],
-      sets: ARMOR_KEEP_UNIQUE_SET_IDS.map((id) => ({ id })),
-      metaSetIds: [],
-      ranks: [...ARMOR_KEEP_UNIQUE_STAR_VALUES],
-      rarities: [...ARMOR_KEEP_UNIQUE_LEGENDARY_PLUS_RARITIES],
-      mainStats: [],
-      factions: [],
-    },
-    name: ARMOR_KEEP_UNIQUE_DEFAULT_NAME,
-    requiredCount: 1,
-    activation: KeepUniqueRuleActivation.Off,
-    countMode: { ...ARMOR_KEEP_UNIQUE_COUNT_MODE },
-    substats: [],
-    substatMode: KeepUniqueSubstatMode.Unranked,
-    substatWeights: {},
-  }
-}
-
-/** Build the seeded Keep Unique rule list for new sessions. */
+/** Build the default Keep Unique rule list for new sessions (empty by design). */
 export function buildDefaultKeepUniqueRules(): KeepUniqueRule[] {
-  return [createDefaultAccessoryKeepUniqueRule(), createDefaultArmorKeepUniqueRule()]
+  // Keep the list empty so users opt into Keep Unique combinations explicitly.
+  return []
 }
 
 export type KeepUniqueDetectionArtifact = {
@@ -1268,6 +1172,22 @@ const sortKeepUniqueScoredCandidates = (entries: KeepUniqueScoredCandidate[]): K
   })
 )
 
+// Deterministic ordering for unranked keep-unique selection (no score signal).
+const sortKeepUniqueCandidatesByItemKey = (entries: KeepUniqueCandidate[]): KeepUniqueCandidate[] => (
+  entries.slice().sort((left, right) => {
+    // Prefer the stable item key when available.
+    const delta = left.itemKey - right.itemKey
+    if (delta !== 0) return delta
+    // Fall back to artifact ids so duplicate keys still sort predictably.
+    const leftId = Number(left.artifact.id ?? 0)
+    const rightId = Number(right.artifact.id ?? 0)
+    if (leftId !== rightId) return leftId - rightId
+    // Final fallback: compare group keys to keep ordering stable.
+    if (left.groupKey !== right.groupKey) return left.groupKey < right.groupKey ? -1 : 1
+    return 0
+  })
+)
+
 const toDetectionSubstats = (artifact: NormalizedGearArtifact): KeepUniqueDetectionSubstat[] => (
   artifact.substats.map((stat) => ({
     variant: stat.variant,
@@ -1528,14 +1448,28 @@ export function computeKeepUniqueProtection(params: KeepUniqueDetectionParams): 
     }
 
     if (perRuleMode) {
+      // Track sold candidates so we can cap the unranked keep selection.
+      const soldCandidates: KeepUniqueCandidate[] = []
+      // Keep a simple kept counter to avoid double-filtering.
       let keptCount = 0
-      let soldCount = 0
       for (const candidate of matching) {
-        if (candidate.isSold) soldCount += 1
-        else keptCount += 1
+        if (candidate.isSold) {
+          soldCandidates.push(candidate)
+        } else {
+          keptCount += 1
+        }
       }
+      // Compute sold total from the collected list for accuracy.
+      const soldCount = soldCandidates.length
       const requiredTotal = requiredPerGroup
-      const projected = keptCount + (ruleActive ? soldCount : 0)
+      // Determine how many sold items we need to reach the required count.
+      const needed = Math.max(0, requiredPerGroup - keptCount)
+      // Pick a deterministic subset of sold items to keep.
+      const selectedSold = needed > 0
+        ? sortKeepUniqueCandidatesByItemKey(soldCandidates).slice(0, needed)
+        : []
+      // Projected count reflects only the capped keep-unique injections.
+      const projected = keptCount + (ruleActive ? Math.min(soldCount, needed) : 0)
       const deficit = Math.max(0, requiredTotal - (keptCount + soldCount))
       if (deficit > 0) {
         placeholders.push({
@@ -1544,11 +1478,11 @@ export function computeKeepUniqueProtection(params: KeepUniqueDetectionParams): 
           reason: 'global',
         })
       }
-      // When short, emit only the sold artifacts; already-kept items do not need injected rules.
-      const atRisk = keptCount < requiredPerGroup
-        ? matching.filter((candidate) => candidate.isSold)
-        : []
+      // When short, emit only the capped sold items; already-kept items are safe.
+      const atRisk = selectedSold
+      // Extract keys so the merge layer can inject item-scoped rules.
       const itemKeys = atRisk.map((match) => match.itemKey)
+      // Materialize artifacts for keep-rule generation.
       const artifacts = atRisk.map((match) => buildKeepUniqueDetectionArtifact(match))
       entries.push({
         hash: hashKeepUniqueCombination(combination),
@@ -1598,6 +1532,7 @@ export function computeKeepUniqueProtection(params: KeepUniqueDetectionParams): 
     let deficit = 0
     let keptTotal = 0
     let soldTotal = 0
+    let projectedTotal = 0
     const atRisk: KeepUniqueCandidate[] = []
     // Choose the group list that should drive deficit + placeholder logic.
     const expectedList = expectedGroups.length > 0
@@ -1630,13 +1565,26 @@ export function computeKeepUniqueProtection(params: KeepUniqueDetectionParams): 
         deficit += deficitGroup
         continue
       }
-      keptTotal += group.kept.length
-      soldTotal += group.sold.length
-      const projectedGroup = group.kept.length + group.sold.length
-      const deficitGroup = Math.max(0, requiredPerGroup - projectedGroup)
-      if (group.kept.length < requiredPerGroup) {
+      // Count kept vs sold so projections and deficits stay consistent.
+      const keptCount = group.kept.length
+      const soldCount = group.sold.length
+      // Accumulate the raw totals for summary reporting.
+      keptTotal += keptCount
+      soldTotal += soldCount
+      // Compute how many sold items we need to reach the quota.
+      const needed = Math.max(0, requiredPerGroup - keptCount)
+      // Projected counts consider only the capped keep-unique selection.
+      const projectedGroup = keptCount + (ruleActive ? Math.min(soldCount, needed) : 0)
+      // Track the projected total so the summary reflects capped keeps.
+      projectedTotal += projectedGroup
+      // Deficits are based on the total items available (kept + sold).
+      const totalCount = keptCount + soldCount
+      const deficitGroup = Math.max(0, requiredPerGroup - totalCount)
+      if (needed > 0) {
+        // Only inject the deterministic subset needed to reach the quota.
+        const selectedSold = sortKeepUniqueCandidatesByItemKey(group.sold).slice(0, needed)
         // Only sold artifacts need injected keep rules; already-kept artifacts are safe.
-        atRisk.push(...group.sold)
+        atRisk.push(...selectedSold)
         placeholders.push({
           combination: buildPlaceholderCombinationForGroup({
             base: combination,
@@ -1658,7 +1606,7 @@ export function computeKeepUniqueProtection(params: KeepUniqueDetectionParams): 
       deficit = requiredPerGroup
     }
 
-    const projected = keptTotal + (ruleActive ? soldTotal : 0)
+    const projected = projectedTotal
     const itemKeys = atRisk.map((match) => match.itemKey)
     const artifacts = atRisk.map((match) => buildKeepUniqueDetectionArtifact(match))
     entries.push({

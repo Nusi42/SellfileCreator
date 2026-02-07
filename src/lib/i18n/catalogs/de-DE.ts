@@ -272,8 +272,8 @@ const overrides: Catalog = {
   keepOverrideColumnToggleToOne: 'Auf 1 Spalte wechseln',
   keepOverrideColumnToggleToTwo: 'Auf 2 Spalten wechseln',
   keepUniquesGridFilterTooltip: 'Schaltet zwischen allen einzigartigen Einträgen und nur den Einträgen um, die zur gewählten Behalte-Regel passen. Der Auswahlmodus verhält sich wie „Alle“, wenn keine Regel ausgewählt ist.',
-  titleResetKeepUniques: 'Unikate behalten auf Standardwerte zurücksetzen?',
-  msgResetKeepUniques: 'Stellt die empfohlenen Regeln für „Unikate behalten“ wieder her und deaktiviert die Funktion.',
+  titleResetKeepUniques: 'Unikate behalten zurücksetzen?',
+  msgResetKeepUniques: 'Löscht alle Regeln für „Unikate behalten“ und deaktiviert die Funktion.',
 
   titleSubstatChipColors: 'Substat‑Chip‑Farben',
   msgChooseColors: 'Farben pro Substat wählen.',

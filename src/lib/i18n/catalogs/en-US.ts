@@ -273,8 +273,8 @@ const enUS: Catalog = {
   keepOverrideColumnToggleToOne: 'Switch to 1 column',
   keepOverrideColumnToggleToTwo: 'Switch to 2 columns',
   keepUniquesGridFilterTooltip: 'Toggle between showing all unique gear entries and only the entries that match the selected keep rule. Selection mode behaves like All whenever no rule is selected.',
-  titleResetKeepUniques: 'Reset Keep Uniques to Defaults?',
-  msgResetKeepUniques: 'This restores the recommended Keep Uniques rules and turns the feature off.',
+  titleResetKeepUniques: 'Reset Keep Uniques?',
+  msgResetKeepUniques: 'This clears all Keep Uniques rules and turns the feature off.',
 
   titleSubstatChipColors: 'Substat Chip Colors',
   msgChooseColors: 'Choose colors per substat.',
