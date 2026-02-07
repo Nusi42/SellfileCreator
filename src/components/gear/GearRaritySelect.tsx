@@ -88,7 +88,8 @@ export function GearRaritySelect({
       return (
         <Typography
           variant="body2"
-          sx={{ display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
+          data-ellipsis-target
+          sx={{ display: 'block', width: '100%', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
         >
           {summary}
         </Typography>

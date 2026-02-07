@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Box, ListSubheader, MenuItem, Select } from '@mui/material'
 import type { SelectChangeEvent, SelectProps } from '@mui/material/Select'
 import { useI18n } from '../../lib/i18n'
@@ -25,7 +25,13 @@ import {
   SETS_SELECT_INLINE_GUTTER_COLLAPSED_PX,
 } from '../../lib/constants'
 import { reserveScrollbarGutterSpace } from '../../lib/scrollbar'
-import { computeInlineSelectPadding } from '../../lib/inlineSelectAffordances'
+import { measureCssWidth } from '../../lib/domMeasurements'
+import { pickEllipsisTarget } from '../../lib/ellipsis'
+import {
+  computeInlineSelectContentMaxWidth,
+  computeInlineSelectPadding,
+  estimateInlineSelectHiddenCount,
+} from '../../lib/inlineSelectAffordances'
 import { useGearSetCatalogVersion } from '../../hooks/useGearSetCatalogVersion'
 
 type GearSetsSelectProps = {
@@ -40,6 +46,7 @@ type GearSetsSelectProps = {
   showMetasets?: boolean
   menuWidthPx?: number
   disabled?: boolean
+  layoutVersion?: number
 }
 
 export default function GearSetsSelect({
@@ -54,6 +61,7 @@ export default function GearSetsSelect({
   showMetasets = true,
   menuWidthPx = SETS_MENU_WIDTH_PX,
   disabled = false,
+  layoutVersion,
 }: GearSetsSelectProps) {
   const { t, lang } = useI18n()
   const gearSetCatalogVersion = useGearSetCatalogVersion()
@@ -95,31 +103,23 @@ export default function GearSetsSelect({
     ...splitSelections.included.map((id) => `s:${Number(id)}`),
   ]), [orderedMetaSelected, splitSelections.included])
 
-  const renderValue = useCallback((tokens: string[]) => {
+  // Build the display labels once so render + badge math stay in sync.
+  const selectionLabels = useMemo(() => {
     void gearSetCatalogVersion
-    // Treat excluded-only selections as active so they render in the label.
-    if (tokens.length === 0 && splitSelections.excluded.length === 0) {
-      return (
-        <Box component="span" sx={{ display: 'block', textOverflow: 'ellipsis', whiteSpace: 'nowrap', overflow: 'hidden' }}>
-          {t('any')}
-        </Box>
-      )
-    }
     // Collect labels in the same order as the display tokens.
     const names: string[] = []
     // Metasets stay in the token list; rebuild names from active metasets.
-    for (const token of tokens) {
-      if (token.startsWith('m:')) {
-        const id = token.slice(2)
-        const meta = metasets.find((m) => m.id === id)
-        if (!meta) continue
-        const { glyph, iconId } = metasetGlyph(meta)
-        if (glyph != null && iconId) {
-          const needsGap = iconId !== 'empty'
-          names.push(`${glyph}${needsGap ? ` ${meta.name}` : meta.name}`)
-        } else {
-          names.push(meta.name)
-        }
+    for (const token of selectedTokens) {
+      if (!token.startsWith('m:')) continue
+      const id = token.slice(2)
+      const meta = metasets.find((m) => m.id === id)
+      if (!meta) continue
+      const { glyph, iconId } = metasetGlyph(meta)
+      if (glyph != null && iconId) {
+        const needsGap = iconId !== 'empty'
+        names.push(`${glyph}${needsGap ? ` ${meta.name}` : meta.name}`)
+      } else {
+        names.push(meta.name)
       }
     }
     // Explicit includes render as plain set names.
@@ -132,10 +132,23 @@ export default function GearSetsSelect({
       const localized = getLocalizedGearSetName(id as ArtifactSetId, t, lang) || artifactSetName(id)
       names.push(`not ${localized}`)
     }
+    return names
+  }, [gearSetCatalogVersion, lang, metasets, selectedTokens, splitSelections.excluded, splitSelections.included, t])
+
+  const renderValue = useCallback((tokens: string[]) => {
+    void gearSetCatalogVersion
+    // Treat excluded-only selections as active so they render in the label.
+    if (tokens.length === 0 && splitSelections.excluded.length === 0) {
+      return (
+        <Box component="span" sx={{ display: 'block', textOverflow: 'ellipsis', whiteSpace: 'nowrap', overflow: 'hidden' }}>
+          {t('any')}
+        </Box>
+      )
+    }
     // Collapse to "Any" when everything is cleared.
-    const text = names.length === 0 ? t('any') : names.join(', ')
+    const text = selectionLabels.length === 0 ? t('any') : selectionLabels.join(', ')
     return (
-      <EllipsisTooltip title={text}>
+      <EllipsisTooltip title={text} wrap="block">
         <Box
           component="span"
           data-ellipsis-target
@@ -145,7 +158,7 @@ export default function GearSetsSelect({
         </Box>
       </EllipsisTooltip>
     )
-  }, [gearSetCatalogVersion, lang, metasets, splitSelections.excluded, splitSelections.included, t])
+  }, [gearSetCatalogVersion, selectionLabels, splitSelections.excluded.length, t])
 
   const handleTokensChange = useCallback((e: SelectChangeEvent<string[]>) => {
     // Normalize the token list so arrays never contain non-strings.
@@ -254,9 +267,148 @@ export default function GearSetsSelect({
   }, [allowMetasets, metaDerivedSetIds, onChange, splitSelections.excluded, splitSelections.included])
   const selectionCount = selectedTokens.length + splitSelections.excluded.length
   const hasSelection = selectionCount > 0
+  // Keep the overflow badge in sync with real truncation, not just selection count.
+  const [showExtraBadge, setShowExtraBadge] = useState(false)
+  const showExtraBadgeRef = useRef(showExtraBadge)
+  // Track how many labels are actually hidden by ellipsis.
+  const [hiddenCount, setHiddenCount] = useState(0)
+  const hiddenCountRef = useRef(hiddenCount)
+  // Only measure overflow once we can actually show a badge.
+  const shouldEvaluateBadge = selectionCount > 1
+  // Calculate padding for the no-badge layout so we can compare against it.
+  const paddingWithoutBadge = useMemo(
+    () => computeInlineSelectPadding(hasSelection, false),
+    [hasSelection],
+  )
+  // Calculate padding for the badge layout when we need it.
+  const paddingWithBadge = useMemo(
+    () => computeInlineSelectPadding(hasSelection, true),
+    [hasSelection],
+  )
+  // Choose the active padding so the select width matches the badge state.
+  const inlinePaddingPx = showExtraBadge ? paddingWithBadge : paddingWithoutBadge
+  const contentMaxWidth = computeInlineSelectContentMaxWidth(inlinePaddingPx)
   // Mirror the tester filter behavior by showing how many sets/metasets extend beyond the inline label.
-  const extraSelectionCount = Math.max(0, selectionCount - 1)
-  const inlinePaddingPx = computeInlineSelectPadding(hasSelection, extraSelectionCount > 0)
+  const extraSelectionCount = showExtraBadge ? hiddenCount : 0
+
+  // Keep the badge synchronized with layout changes (1 vs 2 column width).
+  useEffect(() => {
+    showExtraBadgeRef.current = showExtraBadge
+    hiddenCountRef.current = hiddenCount
+  }, [hiddenCount, showExtraBadge])
+
+  useEffect(() => {
+    if (!shouldEvaluateBadge) {
+      if (showExtraBadgeRef.current) {
+        showExtraBadgeRef.current = false
+        setShowExtraBadge(false)
+      }
+      return
+    }
+    const container = selectContainerRef.current
+    if (!container) {
+      if (showExtraBadgeRef.current) {
+        showExtraBadgeRef.current = false
+        setShowExtraBadge(false)
+      }
+      return
+    }
+    let rafId = 0
+    const updateBadge = () => {
+      const selectDisplay = container.querySelector('.MuiSelect-select') as HTMLElement | null
+      const ellipsisTarget = pickEllipsisTarget(selectDisplay ?? container)
+      const style = getComputedStyle(ellipsisTarget)
+      const supportsEllipsis = (
+        (style.overflow === 'hidden' || style.overflowX === 'hidden')
+        && style.textOverflow === 'ellipsis'
+        && style.whiteSpace === 'nowrap'
+      )
+      if (!supportsEllipsis) {
+        if (showExtraBadgeRef.current) {
+          showExtraBadgeRef.current = false
+          setShowExtraBadge(false)
+        }
+        return
+      }
+      const visibleWidth = measureCssWidth(ellipsisTarget)
+      if (visibleWidth <= 0) {
+        if (showExtraBadgeRef.current) {
+          showExtraBadgeRef.current = false
+          setShowExtraBadge(false)
+        }
+        return
+      }
+      const scrollWidth = Math.floor(ellipsisTarget.scrollWidth || 0)
+      if (scrollWidth <= 0) {
+        if (showExtraBadgeRef.current) {
+          showExtraBadgeRef.current = false
+          setShowExtraBadge(false)
+        }
+        return
+      }
+      const selectDisplayNode = selectDisplay ?? ellipsisTarget.closest('.MuiSelect-select') as HTMLElement | null
+      const currentPaddingRight = selectDisplayNode
+        ? Math.max(0, Number.parseFloat(getComputedStyle(selectDisplayNode).paddingRight || '0') || 0)
+        : 0
+      const noBadgeWidth = visibleWidth + Math.max(0, currentPaddingRight - paddingWithoutBadge)
+      const withBadgeWidth = visibleWidth + Math.max(0, currentPaddingRight - paddingWithBadge)
+      // Use label-aware counting when labels are available.
+      if (selectionLabels.length > 0) {
+        const hiddenNoBadge = estimateInlineSelectHiddenCount({
+          labels: selectionLabels,
+          root: ellipsisTarget,
+          availableWidthPx: noBadgeWidth,
+        })
+        if (hiddenNoBadge <= 0) {
+          if (showExtraBadgeRef.current || hiddenCountRef.current !== 0) {
+            showExtraBadgeRef.current = false
+            hiddenCountRef.current = 0
+            setShowExtraBadge(false)
+            setHiddenCount(0)
+          }
+          return
+        }
+        const hiddenWithBadge = estimateInlineSelectHiddenCount({
+          labels: selectionLabels,
+          root: ellipsisTarget,
+          availableWidthPx: Math.max(0, withBadgeWidth),
+        })
+        const nextHiddenCount = Math.max(0, hiddenWithBadge)
+        if (!showExtraBadgeRef.current || hiddenCountRef.current !== nextHiddenCount) {
+          showExtraBadgeRef.current = true
+          hiddenCountRef.current = nextHiddenCount
+          setShowExtraBadge(true)
+          setHiddenCount(nextHiddenCount)
+        }
+        return
+      }
+      const nextShowBadge = noBadgeWidth + 2 < scrollWidth
+      if (nextShowBadge !== showExtraBadgeRef.current) {
+        showExtraBadgeRef.current = nextShowBadge
+        setShowExtraBadge(nextShowBadge)
+      }
+    }
+    rafId = window.requestAnimationFrame(updateBadge)
+    if (typeof ResizeObserver === 'undefined') return undefined
+    const observer = new ResizeObserver(() => {
+      if (rafId) window.cancelAnimationFrame(rafId)
+      rafId = window.requestAnimationFrame(updateBadge)
+    })
+    observer.observe(container)
+    return () => {
+      if (rafId) window.cancelAnimationFrame(rafId)
+      observer.disconnect()
+    }
+  }, [
+    layoutVersion,
+    paddingWithoutBadge,
+    paddingWithBadge,
+    selectedTokens,
+    selectionCount,
+    selectionLabels,
+    shouldEvaluateBadge,
+    splitSelections.excluded,
+  ])
 
   const handleClear = useCallback(() => {
     onChange([])
@@ -350,7 +502,6 @@ export default function GearSetsSelect({
           width: '100%',
           minWidth: 0,
           cursor: 'pointer',
-          pr: `${inlinePaddingPx}px`,
           '& .MuiSelect-select': {
             overflow: 'hidden',
             textOverflow: 'ellipsis',
@@ -358,6 +509,11 @@ export default function GearSetsSelect({
             display: 'block',
             maxWidth: '100%',
             cursor: 'pointer',
+            paddingRight: `${inlinePaddingPx}px`,
+          },
+          '& .MuiSelect-select > *': {
+            minWidth: 0,
+            maxWidth: contentMaxWidth,
           },
           '& .MuiSelect-icon': {
             right: 8,

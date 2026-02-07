@@ -792,18 +792,21 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
       // Grab the first visible card; virtualization may render only a subset.
       const cardNode = container.querySelector<HTMLElement>('[data-tester-grid-card="true"]')
       if (!cardNode) return
-      // Read the visible card width so auto-zoom scaling stays consistent.
+      // Read both CSS and visible widths so keep-override math stays zoom-safe.
       const cardRect = cardNode.getBoundingClientRect()
       if (!Number.isFinite(cardRect.width) || cardRect.width <= 0) return
-      // Offset width stays in CSS pixels; use the ratio to detect zoom scaling.
+      // Offset width is the CSS pixel width (unscaled), even when the root is zoomed.
       const offsetWidth = Math.max(0, cardNode.offsetWidth || 0)
       const scaleFactor = offsetWidth > 0 ? (cardRect.width / offsetWidth) : 1
       const normalizedScale = Number.isFinite(scaleFactor) && scaleFactor > 0 ? scaleFactor : 1
-      // Normalize the gap to visible pixels so our math stays in one coordinate system.
-      const normalizedGap = Math.max(0, gridGapPx) * normalizedScale
+      // Prefer CSS pixels so the keep-override pane width does not double-apply zoom.
+      const cardCssWidth = offsetWidth > 0 ? offsetWidth : Math.round(cardRect.width / normalizedScale)
+      if (!Number.isFinite(cardCssWidth) || cardCssWidth <= 0) return
+      // Grid gap stays in CSS pixels so it matches the layout widths we apply.
+      const normalizedGap = Math.max(0, gridGapPx)
       const targetColumns = KEEP_OVERRIDE_REFERENCE_COLUMN_COUNT
       const currentColumns = Math.max(1, gridColumnCount)
-      const gridWidth = (cardRect.width * currentColumns)
+      const gridWidth = (cardCssWidth * currentColumns)
         + (normalizedGap * Math.max(0, currentColumns - 1))
       const availableWidth = Math.max(0, gridWidth - (normalizedGap * Math.max(0, targetColumns - 1)))
       if (availableWidth <= 0) return

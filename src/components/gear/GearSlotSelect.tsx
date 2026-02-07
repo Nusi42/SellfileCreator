@@ -123,7 +123,7 @@ export function GearSlotSelect({
       }
       const tooltipLabel = multiSelected.map((slotId) => t(artifactTypeI18nKey(Number(slotId)))).join(', ')
       return (
-        <EllipsisTooltip title={tooltipLabel}>
+        <EllipsisTooltip title={tooltipLabel} wrap="block">
           <Box className="slot-value" sx={{ maxWidth: '100%' }}>
             <Typography
               variant="body2"

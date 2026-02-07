@@ -264,7 +264,8 @@ If tooltips need rich formatting (colored badges, inline icons), pass JSX via `r
 ## Keep Best Substat Tab
 
 - Layout: mirrors the Keep Uniques two-column shell with the same 1/2 column grid toggle and a grid pane width pinned to the Rule Tester 4-column card width so card size stays stable.
-- Rule cards: each rule selects a single substat, required count, and optional scope chips (per slot/set/faction/main stat), reusing the keep-override scope helpers.
+- Rule cards: mirror Keep Uniques (status icon, name, activation mode, and combination filters for slots/sets/metasets/rank/rarity/main stat/faction). Each rule adds a single substat picker and reuses the keep-override scope chips + required count layout.
+- Header warning: shows the same amber warning icon when Final Sell is off or does not cover 0–16, matching Keep Uniques guardrails.
 - Tester grid: renders `TesterItemsGrid` with `variant="keepBestSubstat"`, using the keep-override column toggle and selection filter that behaves like All when no rule is selected.
 - Reset: a dedicated confirmation dialog clears the Keep Best Substat rules and disables the feature without touching Final Sell or Keep Uniques settings.
 

@@ -32,30 +32,28 @@ import WarningAmberRoundedIcon from '@mui/icons-material/WarningAmberRounded'
 import {
   KEEP_UNIQUE_DEFAULT_COUNT_MODE,
   KeepUniqueRuleActivation,
+  cloneKeepUniqueCombination,
+  createEmptyKeepUniqueCombination,
+  createKeepUniqueRuleId,
+  getKeepUniqueItemKey,
   sanitizeKeepUniqueCountMode,
   type KeepUniqueDetectionEntry,
   type KeepUniqueDetectionSnapshot,
   type KeepUniqueRule,
 } from '../../lib/keepUniques'
-import { createKeepUniqueRuleId, getKeepUniqueItemKey } from '../../lib/keepUniques'
 import type { TesterPreviewRow } from '../../types/testerPreview'
 import type { ColorBlindMode } from '../../lib/constants'
 import {
-  FONT_SIZE_BASE_PX,
   BUILDER_AUTO_APPLY_DEBOUNCE_MS,
   MENU_CONTROL_HEIGHT_PX,
   STANDARD_DIALOG_PADDING_BLOCK_UNITS,
   STANDARD_DIALOG_PADDING_INLINE_UNITS,
 } from '../../lib/constants'
-import type { ArtifactSetId, ArtifactTypeId, StatVariant } from '../../lib/types'
+import type { StatVariant } from '../../lib/types'
 import {
-  ALLOWED_MAIN_BY_SLOT,
-  ArtifactType,
   StatVariant as StatVariantEnum,
-  getAccessorySlotsCompatibleSetIds,
-  getArmorFixedSetIds,
-  getArmorVariableSetIds,
-  getAllKnownArtifactSetIds,
+  artifactTypeI18nKey,
+  factionI18nKey,
 } from '../../lib/types'
 import { isAccessorySlot } from '../../lib/testerDomain'
 import { useI18n } from '../../lib/i18n'
@@ -68,16 +66,19 @@ import MarkdownTooltip from '../MarkdownTooltip'
 import EllipsisTooltip from '../EllipsisTooltip'
 import type { SetStateAction } from 'react'
 import type { Metaset } from '../../lib/metasets'
-import InlineSelectClearButton from '../InlineSelectClearButton'
-import InlineSelectExtraBadge from '../InlineSelectExtraBadge'
-import { computeInlineSelectContentMaxWidth, computeInlineSelectPadding } from '../../lib/inlineSelectAffordances'
 import { alpha, useTheme } from '@mui/material/styles'
-import type { Theme } from '@mui/material/styles'
-import type { SystemStyleObject } from '@mui/system'
 import { reserveScrollbarGutterSpace } from '../../lib/scrollbar'
 import { useKeepUniquesGridColumnMode, useKeepUniquesGridFilterMode } from '../../state/keepUniquesPreferences'
-import { useGearSetCatalogVersion } from '../../hooks/useGearSetCatalogVersion'
 import { normalizeArtifactSetSelections } from '../../lib/gearSets/selection'
+import { useKeepOverrideCombinationTools } from '../keepOverrides/useKeepOverrideCombinationTools'
+import {
+  KEEP_OVERRIDE_INLINE_SELECT_HEIGHT_PX,
+  RuleSelectAffordances,
+  dedupeNumericArray,
+  dedupeStringArray,
+  getMainStatOptionsForSlots,
+  getRuleSelectPaddingSx,
+} from '../keepOverrides/keepOverrideRuleUtils'
 import {
   resolveKeepOverrideScopeActive,
   toggleKeepOverrideCountMode,
@@ -147,68 +148,7 @@ export default function KeepUniquesTab({
   workloadProgressRatio,
 }: KeepUniquesTabProps) {
   const { t } = useI18n()
-  const gearSetCatalogVersion = useGearSetCatalogVersion()
-  const armorFixedSetIds = useMemo(() => {
-    void gearSetCatalogVersion
-    return getArmorFixedSetIds()
-  }, [gearSetCatalogVersion])
-  const armorVariableSetIds = useMemo(() => {
-    void gearSetCatalogVersion
-    return getArmorVariableSetIds()
-  }, [gearSetCatalogVersion])
-  const artifactSetPool = useMemo(
-    () => Object.freeze([...armorFixedSetIds, ...armorVariableSetIds]),
-    [armorFixedSetIds, armorVariableSetIds],
-  )
-  const accessoryCompatibleSetIds = useMemo(
-    () => {
-      void gearSetCatalogVersion
-      return getAccessorySlotsCompatibleSetIds()
-    },
-    [gearSetCatalogVersion],
-  )
-  const allArtifactSetIds = useMemo(
-    () => {
-      void gearSetCatalogVersion
-      return getAllKnownArtifactSetIds()
-    },
-    [gearSetCatalogVersion],
-  )
-  const resolveAllowedSetPool = useCallback((slots: ArtifactTypeId[]): readonly ArtifactSetId[] => {
-    const slotAny = slots.length === 0
-    const hasAccessory = slotAny || slots.some((slotId) => isAccessorySlot(slotId))
-    const hasArmor = slotAny || slots.some((slotId) => !isAccessorySlot(slotId))
-    if (hasAccessory && hasArmor) return allArtifactSetIds
-    return hasAccessory ? accessoryCompatibleSetIds : artifactSetPool
-  }, [accessoryCompatibleSetIds, allArtifactSetIds, artifactSetPool])
-  const sanitizeCombinationForSlots = useCallback((slots: ArtifactTypeId[], combination: KeepUniqueRule['combination']) => {
-    const normalizedSlots = dedupeNumericArray(slots)
-    const allowedSetPool = resolveAllowedSetPool(normalizedSlots)
-    const allowedSetIds = new Set(allowedSetPool.map(Number))
-    const filteredSets = normalizeArtifactSetSelections(combination.sets)
-      .filter((entry) => allowedSetIds.has(Number(entry.id)))
-    const filteredMetaIds = (combination.metaSetIds ?? []).filter((metaId) => {
-      const meta = metasets.find((item) => item.id === metaId)
-      if (!meta || !meta.sets.length) return false
-      return meta.sets.every((setId) => allowedSetIds.has(Number(setId)))
-    })
-    const mainOptions = getMainStatOptionsForSlots(normalizedSlots)
-    const hasAccessory = normalizedSlots.length === 0 || normalizedSlots.some((slotId) => isAccessorySlot(slotId))
-    const filteredMainStats = dedupeNumericArray((combination.mainStats ?? []).filter((variant) => mainOptions.includes(variant)))
-    const filteredFactions = hasAccessory ? dedupeNumericArray(combination.factions ?? []) : []
-    const hadExplicitSetSelection = combination.sets.length > 0 || (combination.metaSetIds?.length ?? 0) > 0
-    const resolvedSets = filteredSets.length > 0
-      ? filteredSets
-      : (hadExplicitSetSelection && allowedSetPool[0] ? [{ id: allowedSetPool[0] }] : [])
-    return {
-      ...combination,
-      slots: normalizedSlots,
-      sets: resolvedSets,
-      metaSetIds: filteredMetaIds,
-      mainStats: filteredMainStats,
-      factions: filteredFactions,
-    }
-  }, [metasets, resolveAllowedSetPool])
+  const { resolveAllowedSetPool, sanitizeCombinationForSlots } = useKeepOverrideCombinationTools(metasets)
   const theme = useTheme()
   // Grid layout uses the same spacing units as the tester grid.
   const gridGapPx = useMemo(() => parseSpacingPx(theme.spacing(TESTER_GRID_COLUMN_GAP_UNITS)), [theme])
@@ -354,7 +294,7 @@ ${t('keepUniquesCountModeHint')}`
   }, [selectedEntry, selectedVisibleRowCount, gearEntries.length, t, uniqueRows.length])
 
   const handleAddRule = useCallback(() => {
-    const combination = makeDefaultKeepUniqueCombination()
+    const combination = createEmptyKeepUniqueCombination()
     // Default new rules to per-set counting so cards immediately guard each combination.
     const newRule: KeepUniqueRule = {
       id: createKeepUniqueRuleId(),
@@ -491,19 +431,41 @@ ${t('keepUniquesCountModeHint')}`
     const combination = rule.combination
     const ruleDetection = detectionByRuleId.get(rule.id) ?? null
     const slotSelection = combination.slots
+    // Build slot labels so the inline +X badge can count hidden selections.
+    const slotSelectionLabels = slotSelection.map((slotId) => t(artifactTypeI18nKey(Number(slotId))))
     const slotAny = slotSelection.length === 0
     const hasAccessorySlot = slotAny || slotSelection.some((slotId) => isAccessorySlot(slotId))
-    const hasArmorSlot = slotAny || slotSelection.some((slotId) => !isAccessorySlot(slotId))
-    const allowedSetPool = hasAccessorySlot && hasArmorSlot
-      ? allArtifactSetIds
-      : (hasAccessorySlot ? accessoryCompatibleSetIds : artifactSetPool)
+    const allowedSetPool = resolveAllowedSetPool(slotSelection)
     const setSelection = normalizeArtifactSetSelections(combination.sets)
       .filter((entry) => allowedSetPool.includes(Number(entry.id)))
     const rankSelection = combination.ranks
+    // Translate rank labels so the inline +X badge can count hidden selections.
+    const rankSelectionLabels = rankSelection.map((rank) => {
+      const clamped = Math.max(1, Math.min(6, Number(rank)))
+      const key = clamped === 1 ? 'star1'
+        : clamped === 2 ? 'star2'
+          : clamped === 3 ? 'star3'
+            : clamped === 4 ? 'star4'
+              : clamped === 5 ? 'star5'
+                : 'star6'
+      return t(key)
+    })
     const raritySelection = combination.rarities
+    // Translate rarity labels so badge math matches the rendered summary text.
+    const raritySelectionLabels = raritySelection.map((rarity) => {
+      const clamped = Math.max(1, Math.min(6, Number(rarity)))
+      return clamped === 1 ? t('rarityCommon')
+        : clamped === 2 ? t('rarityUncommon')
+          : clamped === 3 ? t('rarityRare')
+            : clamped === 4 ? t('rarityEpic')
+              : clamped === 5 ? t('rarityLegendary')
+                : t('rarityMythical')
+    })
     const mainStatOptions = getMainStatOptionsForSlots(slotSelection)
     const mainStatSelection = dedupeNumericArray((combination.mainStats ?? []).filter((variant) => mainStatOptions.includes(variant)))
     const factionSelection = hasAccessorySlot ? dedupeNumericArray(combination.factions ?? []) : []
+    // Translate faction labels so accessory filters report hidden entries precisely.
+    const factionSelectionLabels = factionSelection.map((faction) => t(factionI18nKey(Number(faction))))
     const selected = effectiveSelectedRuleId === rule.id
     const expanded = expandedRuleIds.has(rule.id)
     const selectRule = () => {
@@ -898,6 +860,8 @@ ${t('keepUniquesCountModeHint')}`
                   selectionCount={slotSelection.length}
                   clearLabel={clearLabel}
                   disabled={ruleDisabled}
+                  layoutVersion={gridColumnMode}
+                  selectionLabels={slotSelectionLabels}
                   onClear={() => {
                     if (ruleDisabled) return
                     setRuleCombination(rule.id, (prev) => ({ ...prev, slots: [] }))
@@ -911,7 +875,7 @@ ${t('keepUniquesCountModeHint')}`
                     setRuleCombination(rule.id, (prev) => sanitizeCombinationForSlots(nextSlots, prev))
                     }}
                     size="small"
-                    sx={getRuleSelectPaddingSx(slotSelection.length, INLINE_SELECT_FIXED_HEIGHT_PX)}
+                    sx={getRuleSelectPaddingSx(slotSelection.length, KEEP_OVERRIDE_INLINE_SELECT_HEIGHT_PX)}
                   />
                 </RuleSelectAffordances>
               </KeepOverrideScopeField>
@@ -932,6 +896,7 @@ ${t('keepUniquesCountModeHint')}`
                   }}
                   allowedSetIds={allowedSetPool}
                   showMetasets
+                  layoutVersion={gridColumnMode}
                 />
               </KeepOverrideScopeField>
             </Box>
@@ -943,6 +908,8 @@ ${t('keepUniquesCountModeHint')}`
                   selectionCount={rankSelection.length}
                   clearLabel={clearLabel}
                   disabled={ruleDisabled}
+                  layoutVersion={gridColumnMode}
+                  selectionLabels={rankSelectionLabels}
                   onClear={() => {
                     if (ruleDisabled) return
                     setRuleCombination(rule.id, (prev) => ({ ...prev, ranks: [] }))
@@ -967,6 +934,8 @@ ${t('keepUniquesCountModeHint')}`
                   selectionCount={raritySelection.length}
                   clearLabel={clearLabel}
                   disabled={ruleDisabled}
+                  layoutVersion={gridColumnMode}
+                  selectionLabels={raritySelectionLabels}
                   onClear={() => {
                     if (ruleDisabled) return
                     setRuleCombination(rule.id, (prev) => ({ ...prev, rarities: [] }))
@@ -994,6 +963,7 @@ ${t('keepUniquesCountModeHint')}`
                   selectionCount={mainStatSelection.length}
                   clearLabel={clearLabel}
                   disabled={ruleDisabled}
+                  layoutVersion={gridColumnMode}
                   onClear={() => {
                     if (ruleDisabled) return
                     setRuleCombination(rule.id, (prev) => ({ ...prev, mainStats: [] }))
@@ -1022,6 +992,8 @@ ${t('keepUniquesCountModeHint')}`
                   selectionCount={factionSelection.length}
                   clearLabel={clearLabel}
                   disabled={ruleDisabled}
+                  layoutVersion={gridColumnMode}
+                  selectionLabels={factionSelectionLabels}
                   onClear={() => {
                     if (ruleDisabled) return
                     setRuleCombination(rule.id, (prev) => ({ ...prev, factions: [] }))
@@ -1036,7 +1008,7 @@ ${t('keepUniquesCountModeHint')}`
                       setRuleCombination(rule.id, (prev) => ({ ...prev, factions: dedupeNumericArray(nextFactions) }))
                     }}
                     size="small"
-                    sx={getRuleSelectPaddingSx(factionSelection.length, INLINE_SELECT_FIXED_HEIGHT_PX)}
+                    sx={getRuleSelectPaddingSx(factionSelection.length, KEEP_OVERRIDE_INLINE_SELECT_HEIGHT_PX)}
                   />
                 </RuleSelectAffordances>
               </KeepOverrideScopeField>
@@ -1355,143 +1327,6 @@ function KeepUniquesRuleList({ rules, renderRule, scrollRootRef }: KeepUniquesRu
           ))}
         </Box>
       )}
-    </Box>
-  )
-}
-
-function makeDefaultKeepUniqueCombination(): KeepUniqueRule['combination'] {
-  return {
-    slots: [],
-    sets: [],
-    metaSetIds: [],
-    ranks: [],
-    rarities: [],
-    mainStats: [],
-    factions: [],
-  }
-}
-
-function cloneKeepUniqueCombination(combination: KeepUniqueRule['combination']): KeepUniqueRule['combination'] {
-  return {
-    slots: [...combination.slots],
-    sets: combination.sets.map((entry) => (entry.excluded ? { id: entry.id, excluded: true } : { id: entry.id })),
-    metaSetIds: [...(combination.metaSetIds ?? [])],
-    ranks: [...combination.ranks],
-    rarities: [...combination.rarities],
-    mainStats: [...(combination.mainStats ?? [])],
-    factions: [...(combination.factions ?? [])],
-  }
-}
-
-function getMainStatOptionsForSlots(slots: ArtifactTypeId[]): StatVariant[] {
-  const union = new Set<StatVariant>()
-  if (slots.length === 0) {
-    Object.values(ALLOWED_MAIN_BY_SLOT).forEach((set) => {
-      set.forEach((variant) => union.add(variant as StatVariant))
-    })
-  } else {
-    slots.forEach((slotId) => {
-      const options = ALLOWED_MAIN_BY_SLOT[Number(slotId) as ArtifactType]
-      if (!options) return
-      options.forEach((variant) => union.add(variant as StatVariant))
-    })
-  }
-  if (union.size === 0) return [StatVariantEnum.Any]
-  const sorted = Array.from(union).sort((a, b) => a - b)
-  if (!sorted.includes(StatVariantEnum.Any)) {
-    sorted.unshift(StatVariantEnum.Any)
-  }
-  return sorted
-}
-
-function dedupeNumericArray<T extends number>(values: readonly T[]): T[] {
-  if (!values.length) return []
-  const seen = new Set<number>()
-  const result: T[] = []
-  for (const value of values) {
-    const numeric = Number(value)
-    if (seen.has(numeric)) continue
-    seen.add(numeric)
-    result.push(value)
-  }
-  return result
-}
-
-function dedupeStringArray(values: readonly string[]): string[] {
-  if (!values.length) return []
-  const seen = new Set<string>()
-  const result: string[] = []
-  for (const value of values) {
-    const trimmed = typeof value === 'string' ? value.trim() : ''
-    if (!trimmed || seen.has(trimmed)) continue
-    seen.add(trimmed)
-    result.push(trimmed)
-  }
-  return result
-}
-
-const INLINE_SELECT_FIXED_HEIGHT_PX = (FONT_SIZE_BASE_PX * 2.4375) + 2
-
-function getRuleSelectPaddingSx(selectionCount: number, fixedHeightPx?: number): SystemStyleObject<Theme> {
-  const paddingPx = computeInlineSelectPadding(selectionCount > 0, selectionCount > 1)
-  const contentMaxWidth = computeInlineSelectContentMaxWidth(paddingPx)
-  const selectSx: SystemStyleObject<Theme> = {
-    paddingRight: `${paddingPx}px`,
-    width: '100%',
-    minWidth: 0,
-  }
-  if (fixedHeightPx) {
-    selectSx.minHeight = `${fixedHeightPx}px`
-    selectSx.height = `${fixedHeightPx}px`
-    selectSx.lineHeight = `${fixedHeightPx}px`
-    selectSx.display = 'flex'
-    selectSx.alignItems = 'center'
-  }
-  return {
-    width: '100%',
-    minWidth: 0,
-    ...(fixedHeightPx ? { minHeight: `${fixedHeightPx}px`, height: `${fixedHeightPx}px` } : null),
-    '& .MuiSelect-select': selectSx,
-    '& .MuiSelect-select > *': {
-      minWidth: 0,
-      maxWidth: contentMaxWidth,
-    },
-  }
-}
-
-type RuleSelectAffordancesProps = {
-  selectionCount: number
-  clearLabel: string
-  onClear: () => void
-  children: ReactNode
-  disabled?: boolean
-}
-
-function RuleSelectAffordances({
-  selectionCount,
-  clearLabel,
-  onClear,
-  children,
-  disabled = false,
-}: RuleSelectAffordancesProps) {
-  const extraCount = Math.max(0, selectionCount - 1)
-  return (
-    <Box
-      sx={{
-        position: 'relative',
-        width: '100%',
-        minWidth: 0,
-        ...(disabled ? { pointerEvents: 'none', opacity: 0.6 } : {}),
-      }}
-      aria-disabled={disabled}
-    >
-      {children}
-      <InlineSelectExtraBadge count={extraCount} />
-      <InlineSelectClearButton
-        disabled={disabled || selectionCount === 0}
-        label={clearLabel}
-        onClear={onClear}
-      />
     </Box>
   )
 }

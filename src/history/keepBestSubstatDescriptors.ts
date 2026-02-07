@@ -5,12 +5,14 @@
  * display structured rule snapshots with the same visual language as Keep Uniques.
  */
 import type { HistoryEntryDescriptor, ResolvedHistoryEntryDescriptor } from './historyDescriptorTypes'
-import type { KeepBestSubstatRule } from '../lib/keepBestSubstat'
+import { cloneKeepBestSubstatRules, type KeepBestSubstatRule } from '../lib/keepBestSubstat'
 import type { KeepUniqueRuleCountMode } from '../lib/keepUniques'
-import { sanitizeKeepUniqueCountMode } from '../lib/keepUniques'
-import { statVariantI18nKey } from '../lib/types'
+import { KeepUniqueRuleActivation, sanitizeKeepUniqueCountMode } from '../lib/keepUniques'
+import { compareArtifactTypes, compareVariants, statVariantI18nKey } from '../lib/types'
 import type { TranslateFn } from './builderUpdateDescriptor'
 import type { KeepBestSubstatRulesDescriptorMode } from './historyDescriptorTypes'
+import { normalizeNumberArray } from './historyDescriptorUtils'
+import { normalizeArtifactSetSelections } from '../lib/gearSets/selection'
 
 export type { KeepBestSubstatRulesDescriptorMode }
 
@@ -137,11 +139,29 @@ function diffKeepBestSubstatRules(previous: KeepBestSubstatRule[], next: KeepBes
 
 function buildRuleSignature(rule: KeepBestSubstatRule): string {
   const mode = normalizeCountMode(rule.countMode)
+  const combo = rule.combination
+  const slots = normalizeNumberArray(combo.slots).slice().sort(compareArtifactTypes)
+  const sets = normalizeArtifactSetSelections(combo.sets ?? [])
+    .map((entry) => (entry.excluded ? `!${Number(entry.id)}` : `${Number(entry.id)}`))
+  const meta = Array.isArray(combo.metaSetIds) ? combo.metaSetIds.map(String).sort() : []
+  const ranks = normalizeNumberArray(combo.ranks).slice().sort((a, b) => a - b)
+  const rarities = normalizeNumberArray(combo.rarities).slice().sort((a, b) => a - b)
+  const mains = normalizeNumberArray(combo.mainStats).slice().sort(compareVariants)
+  const factions = normalizeNumberArray(combo.factions).slice().sort((a, b) => a - b)
   return JSON.stringify({
     id: rule.id,
+    name: rule.name,
     substat: Number(rule.substat),
     requiredCount: Math.max(1, Math.floor(rule.requiredCount)),
+    activation: rule.activation ?? KeepUniqueRuleActivation.ProtectExisting,
     countMode: mode,
+    slots,
+    sets,
+    meta,
+    ranks,
+    rarities,
+    mains,
+    factions,
   })
 }
 
@@ -218,7 +238,7 @@ function summarizeRuleStats(summary: RuleChangeSummary, t: TranslateFn): string[
 }
 
 function snapshotKeepBestSubstatRules(rules: KeepBestSubstatRule[]): KeepBestSubstatRule[] {
-  return rules.map((rule) => ({
+  return cloneKeepBestSubstatRules(rules).map((rule) => ({
     ...rule,
     countMode: normalizeCountMode(rule.countMode),
   }))

@@ -225,6 +225,7 @@ const catalog: Catalog = {
   keepUniquesTabIntro: 'Adicione regras por slot/conjunto/estatística para que suas regras de venda atualmente ativas nunca removam todas as cópias dessa combinação.',
   keepUniquesEnableLabel: 'Ativar Manter únicos',
   keepUniquesFinalSellCoverageWarning: '`Manter únicos` funciona melhor se a `venda final` estiver ativa e cobrir toda a faixa de níveis 0–16.',
+  keepBestSubstatFinalSellCoverageWarning: '`Manter melhor substat` funciona melhor se a `venda final` estiver ativa e cobrir toda a faixa de níveis 0–16.',
   keepUniquesNoTesterData: 'Carregue um banco de dados de equipamento para ver as combinações em risco.',
   keepUniquesScanPending: 'Analisando o equipamento…',
   keepUniquesDuplicateRule: 'Duplicar regra de manutenção',

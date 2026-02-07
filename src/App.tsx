@@ -745,10 +745,13 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     resolveKeepUniqueRulesWithMetasets(keepUniqueRules, metasets)
   ), [keepUniqueRules, metasets])
   const keepUniquesActive = keepUniquesEnabled && resolvedKeepUniqueRules.length > 0
-  // Keep Best Substat rules do not require metaset resolution.
+  // Keep Best Substat rules mirror Keep Uniques, including metaset expansion.
   const resolvedKeepBestSubstatRules = useMemo(
-    () => keepBestSubstatRules.filter((rule) => Boolean(rule)),
-    [keepBestSubstatRules],
+    () => resolveKeepUniqueRulesWithMetasets(
+      keepBestSubstatRules.filter((rule): rule is KeepBestSubstatRule => Boolean(rule)),
+      metasets,
+    ),
+    [keepBestSubstatRules, metasets],
   )
   const keepBestSubstatActive = keepBestSubstatEnabled && resolvedKeepBestSubstatRules.length > 0
   const keepOverridesActive = keepUniquesActive || keepBestSubstatActive

@@ -1,4 +1,4 @@
-import { sanitizeKeepUniqueCountMode } from './keepUniques'
+import { hashKeepUniqueCombination, sanitizeKeepUniqueCountMode } from './keepUniques'
 import type { KeepBestSubstatDetectionSnapshot } from './keepBestSubstat'
 
 /**
@@ -14,6 +14,7 @@ export const fingerprintKeepBestSubstatDetection = (
     const mode = sanitizeKeepUniqueCountMode(entry.countMode)
     parts.push([
       entry.ruleId ?? '',
+      entry.ruleActivation ?? '',
       entry.substat ?? '',
       mode.perRule ? 1 : 0,
       mode.perSet ? 1 : 0,
@@ -22,10 +23,14 @@ export const fingerprintKeepBestSubstatDetection = (
       mode.perSlot ? 1 : 0,
       entry.groupsTracked,
       entry.perGroupRequiredCount,
-      entry.topCount,
-      entry.keptCount,
-      entry.soldCount,
+      entry.requiredCount,
+      entry.currentCount,
+      entry.projectedCount,
+      entry.deficit,
+      entry.coveredByExisting ? 1 : 0,
       entry.itemKeys.join(','),
+      entry.placeholders.length,
+      entry.placeholders.map((placeholder) => `${hashKeepUniqueCombination(placeholder.combination)}:${placeholder.missing}:${placeholder.reason}`).join(','),
     ].join(':'))
   }
   return parts.join(';')

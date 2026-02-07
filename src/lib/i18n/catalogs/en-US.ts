@@ -225,6 +225,7 @@ const enUS: Catalog = {
   keepUniquesTabIntro: 'Add keep rules per slot/set/stat combination so your current active Sell rules never remove every copy of that combination.',
   keepUniquesEnableLabel: 'Enable Keep Uniques',
   keepUniquesFinalSellCoverageWarning: '`Keep Uniques` works best if `Final Sell` is on and covers the full 0–16 level range.',
+  keepBestSubstatFinalSellCoverageWarning: '`Keep Best Substat` works best if `Final Sell` is on and covers the full 0–16 level range.',
   keepUniquesNoTesterData: 'Load a gear database to inspect at-risk combinations.',
   keepUniquesScanPending: 'Scanning gear…',
   keepUniquesDuplicateRule: 'Duplicate Keep Rule',

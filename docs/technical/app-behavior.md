@@ -177,11 +177,12 @@ This document captures runtime behavior, builder interactions, and user-facing w
 
 ## Keep Best Substat
 
-- Keep Best Substat is a separate Logic Hub tab that protects the top rolls for a single chosen substat, but only for items that would otherwise be sold.
-- Each rule selects exactly one substat (single-select), sets a required count (top N per active scope), and optionally toggles the scope chips (per slot/set/faction/main stat) using the same keep-override helpers as Keep Uniques.
-- Detection ranks gear by the chosen substat and keeps ties at the Nth threshold, so all equal-value items are protected together.
-- The grid mirrors Keep Uniques behavior: it shows only protected items, can filter to the selected rule, and uses the keep-override 1/2 column toggle (default 1) with a grid pane width pinned to the Rule Tester 4-column card width so card size stays stable.
-- Keep Best Substat rules inject keep-override rows tagged with `RULE_SOURCE_KEEP_BEST_SUBSTAT`, which render as hollow-star rows in the preview table and as green keep-override chips in the tester grid.
+- Keep Best Substat is a separate Logic Hub tab that protects the top rolls for a chosen substat, but only for items that would otherwise be sold (same sell-only gating as Keep Uniques).
+- Rule cards mirror Keep Uniques: each rule stores a name, activation mode (`off`, `protectExisting`, `anticipateGaps`), a gear-combination filter (slots, sets/metasets, rank, rarity, main stat, faction), a single substat pick, and the required count. Scope chips (per slot/set/faction/main stat) use the same keep-override helpers.
+- Detection ranks gear by the chosen substat, keeps ties at the Nth threshold, and reports the same `currentCount`/`requiredCount`/`projectedCount`/`deficit` fields so the UI and placeholder injection behave identically to Keep Uniques.
+- Keep Best Substat injections are tagged with `RULE_SOURCE_KEEP_BEST_SUBSTAT` and include milestone keep rules from each item’s current level up through 16 (0/4/8/12/16) just like Keep Uniques. Placeholder rules are emitted when `anticipateGaps` is active and deficits exist.
+- The grid mirrors Keep Uniques: it shows only protected items, can filter to the selected rule, and uses the keep-override 1/2 column toggle (default 1) with a grid pane width pinned to the Rule Tester 4-column card width so card size stays stable.
+- The header warning icon appears when Final Sell is off or does not cover 0–16, matching the Keep Uniques guardrail.
 - Resetting Keep Best Substat clears all rules and disables the feature without touching Final Sell or Keep Uniques settings.
 
 ## Production-only Restrictions

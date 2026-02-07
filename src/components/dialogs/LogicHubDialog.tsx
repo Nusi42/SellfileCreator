@@ -147,6 +147,8 @@ export default function LogicHubDialog(props: LogicHubDialogProps) {
   const finalSellFullRange = finalSellCoversFullLevelRange(value.levels)
   // Keep Uniques depends on Final Sell covering the full ladder so protection rules stay aligned.
   const keepUniquesFinalSellWarning = keepUniquesEnabled && (!finalSellActive || !finalSellFullRange)
+  // Keep Best Substat uses the same Final Sell coverage expectations as Keep Uniques.
+  const keepBestSubstatFinalSellWarning = keepBestSubstatEnabled && (!finalSellActive || !finalSellFullRange)
   const statusWordKey = finalSellActive ? 'hintFinalSellStatusWordOn' : 'hintFinalSellStatusWordOff'
   const statusDetailKey = finalSellActive ? 'hintFinalSellStatusOnDetail' : 'hintFinalSellStatusOffDetail'
   const setsMode: FinalSellSetsMode = value.setsMode ?? FINAL_SELL_DEFAULT_SETS_MODE
@@ -566,6 +568,7 @@ export default function LogicHubDialog(props: LogicHubDialogProps) {
           <KeepBestSubstatTab
             rules={keepBestSubstatRules}
             enabled={keepBestSubstatEnabled}
+            finalSellCoverageWarningActive={keepBestSubstatFinalSellWarning}
             onRulesChange={onKeepBestSubstatRulesChange}
             onToggleEnabled={onKeepBestSubstatEnabledChange}
             detection={keepBestSubstatDetection}
@@ -580,6 +583,7 @@ export default function LogicHubDialog(props: LogicHubDialogProps) {
             onChangeColorBlindMode={onChangeColorBlindMode}
             colorIconSrc={colorIconSrc}
             configNames={configNames}
+            metasets={metasets}
             onJumpToRule={onJumpToRule}
             suppressMatchDetails={suppressMatchDetails}
             workloadProgressRatio={workloadProgressRatio}

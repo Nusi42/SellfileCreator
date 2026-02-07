@@ -1019,6 +1019,35 @@ type ReadableKeepUniqueTuple = {
   factions: string[]
 }
 
+// Build a readable keep-override tuple from a combination filter.
+const buildReadableKeepOverrideTuple = (combination: KeepUniqueRule['combination']): ReadableKeepUniqueTuple => {
+  const slotLabels = combination.slots
+    .map((slot) => artifactTypeNames[Number(slot)] ?? String(slot))
+  // Preserve exclude flags while keeping readable set labels.
+  const setLabels = buildReadableArtifactSetEntries(combination.sets ?? [])
+  const rankLabels = combination.ranks
+    .map((rank) => formatRank(rank as RankCode))
+    .filter((label) => Boolean(label && label.trim()))
+  const rarityLabels = combination.rarities
+    .map((rarity) => KEEP_UNIQUE_RARITY_LABEL[Number(rarity)] ?? rarityCodeToName(rarity))
+    .filter((label) => Boolean(label && label.trim()))
+  const mainStatLabels = (combination.mainStats ?? [])
+    .map((stat) => labelOfVariant(stat))
+    .filter((label) => Boolean(label && label.trim()))
+  const factionLabels = combination.factions
+    .map((faction) => factionNames[Number(faction)] ?? String(faction))
+    .filter((label) => Boolean(label && label.trim()))
+  return {
+    slots: slotLabels,
+    sets: setLabels,
+    metaSetIds: [...(combination.metaSetIds ?? [])],
+    ranks: rankLabels,
+    rarities: rarityLabels,
+    mainStats: mainStatLabels,
+    factions: factionLabels,
+  }
+}
+
 export function buildHsfcPayload(args: {
   version: string,
   metasets: Metaset[],
@@ -1039,7 +1068,7 @@ export function buildHsfcPayload(args: {
     FinalSellRemainder: FinalSellRemainderConfig
     KeepUniques: Array<{ id: string; name?: string; requiredCount: number; activation: KeepUniqueRuleActivation; countMode: KeepUniqueRule['countMode']; tuple: ReadableKeepUniqueTuple }>
     KeepUniquesEnabled: boolean
-    KeepBestSubstats: Array<{ id: string; substat: string | number; requiredCount: number; countMode: KeepUniqueRule['countMode'] }>
+    KeepBestSubstats: Array<{ id: string; name?: string; substat: string | number; requiredCount: number; activation: KeepUniqueRuleActivation; countMode: KeepUniqueRule['countMode']; tuple: ReadableKeepUniqueTuple }>
     KeepBestSubstatsEnabled: boolean
     SelectedConfigIndex?: number
     Note?: string
@@ -1092,23 +1121,6 @@ export function buildHsfcPayload(args: {
       // rehydrate the same chip state without guessing at defaults.
       const mode = sanitizeKeepUniqueCountMode(rule.countMode)
       const trimmedName = typeof rule.name === 'string' ? rule.name.trim() : ''
-      // Emit readable tuple fields so HSFC is inspectable without a catalog.
-      const slotLabels = rule.combination.slots
-        .map((slot) => artifactTypeNames[Number(slot)] ?? String(slot))
-      // Preserve exclude flags while keeping readable set labels.
-      const setLabels = buildReadableArtifactSetEntries(rule.combination.sets ?? [])
-      const rankLabels = rule.combination.ranks
-        .map((rank) => formatRank(rank as RankCode))
-        .filter((label) => Boolean(label && label.trim()))
-      const rarityLabels = rule.combination.rarities
-        .map((rarity) => KEEP_UNIQUE_RARITY_LABEL[Number(rarity)] ?? rarityCodeToName(rarity))
-        .filter((label) => Boolean(label && label.trim()))
-      const mainStatLabels = (rule.combination.mainStats ?? [])
-        .map((stat) => labelOfVariant(stat))
-        .filter((label) => Boolean(label && label.trim()))
-      const factionLabels = rule.combination.factions
-        .map((faction) => factionNames[Number(faction)] ?? String(faction))
-        .filter((label) => Boolean(label && label.trim()))
       return {
         id: rule.id,
         ...(trimmedName ? { name: trimmedName } : {}),
@@ -1121,25 +1133,20 @@ export function buildHsfcPayload(args: {
           perMainStat: mode.perMainStat,
           perSlot: mode.perSlot,
         },
-        tuple: {
-          slots: slotLabels,
-          sets: setLabels,
-          metaSetIds: [...(rule.combination.metaSetIds ?? [])],
-          ranks: rankLabels,
-          rarities: rarityLabels,
-          mainStats: mainStatLabels,
-          factions: factionLabels,
-        },
+        tuple: buildReadableKeepOverrideTuple(rule.combination),
       }
     }),
     KeepUniquesEnabled: keepUniquesEnabled === true,
     KeepBestSubstats: keepBestSubstatRules.map((rule) => {
       const mode = sanitizeKeepUniqueCountMode(rule.countMode)
       const label = labelOfVariant(rule.substat)
+      const trimmedName = typeof rule.name === 'string' ? rule.name.trim() : ''
       return {
         id: rule.id,
+        ...(trimmedName ? { name: trimmedName } : {}),
         substat: label && label.trim().length > 0 ? label : rule.substat,
         requiredCount: Math.max(1, Math.floor(rule.requiredCount)),
+        activation: rule.activation ?? KeepUniqueRuleActivation.ProtectExisting,
         countMode: {
           perRule: mode.perRule,
           perSet: mode.perSet,
@@ -1147,6 +1154,7 @@ export function buildHsfcPayload(args: {
           perMainStat: mode.perMainStat,
           perSlot: mode.perSlot,
         },
+        tuple: buildReadableKeepOverrideTuple(rule.combination),
       }
     }),
     KeepBestSubstatsEnabled: keepBestSubstatEnabled === true,
