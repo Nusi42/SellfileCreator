@@ -9,7 +9,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { rarityCodeToName, StatVariant, RankCode, RarityCode, Faction, type FactionId, filterAndSortSetEntries, statVariantI18nKey, LEVEL_MILESTONES, type LevelMilestone, STAT_VARIANTS_PRIORITY_ROW1, STAT_VARIANTS_PRIORITY_ROW2, getLocalizedGearSetName } from '../lib/types'
 import { variantToSub } from '../lib/hsfTypes'
-import { NBSP, GLYPH_TOGGLE_ON, GLYPH_TOGGLE_OFF } from '../lib/constants'
+import { ACCESSORY_NO_SET_ID, NBSP, GLYPH_TOGGLE_ON, GLYPH_TOGGLE_OFF } from '../lib/constants'
 import { reserveScrollbarGutterSpace } from '../lib/scrollbar'
 import { focusCycleWithin } from '../lib/focusCycle'
 import SetMenuSection from './SetMenuSection'
@@ -2257,7 +2257,12 @@ const maxLevelValue = multiEditActive
     if (order === 'icons') return
     const list = setsMenuListRef.current
     if (!list) return
-    const sortedForOrder = filterAndSortSetEntries(setsSearch, order, { translate: t })
+    const sortedForOrder = filterAndSortSetEntries(setsSearch, order, {
+      translate: t,
+      // Include the accessory no-set sentinel for visibility in the selector.
+      includeNoSet: true,
+      noSetLabel: t('noSetAccessories'),
+    })
     let targetSetId: number | null = null
     for (const [id] of sortedForOrder) {
       const idNum = Number(id)
@@ -6669,7 +6674,12 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
             }
             const { text: setsSelectionTooltip } = getSetsSelectionDisplay(selectedTokens)
             // Build set list per order/search (shared helper keeps behavior consistent)
-            const sorted = filterAndSortSetEntries(setsSearch, setsOrder, { translate: t })
+            const sorted = filterAndSortSetEntries(setsSearch, setsOrder, {
+              translate: t,
+              // Keep the no-set sentinel visible (even if disabled).
+              includeNoSet: true,
+              noSetLabel: t('noSetAccessories'),
+            })
 
             // Show metasets section only when there is at least one visible user metaset. Avoid empty metasets UI.
             const hasMetasetsSection = visibleMetasets.length > 0
@@ -6925,7 +6935,12 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                                 scrollSetsMenuToSelected(v, { force: true })
                                   }
                                 }}
-                                zeroResults={filterAndSortSetEntries(setsSearch, setsOrder, { translate: t }).length === 0}
+                                zeroResults={filterAndSortSetEntries(setsSearch, setsOrder, {
+                                  translate: t,
+                                  // Respect the no-set sentinel in the zero-state check.
+                                  includeNoSet: true,
+                                  noSetLabel: t('noSetAccessories'),
+                                }).length === 0}
                               />
                             </Box>
                           </Box>
@@ -6970,6 +6985,8 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                           selectedMetasetIds={selectedMetaIds}
                           selectedSetIds={selectedSetIds}
                           excludedSetIds={excludedSetIds}
+                          // Show but disable the accessory no-set sentinel (HSF does not accept -99 here).
+                          disabledSetIds={[ACCESSORY_NO_SET_ID]}
                           onToggleSet={handleToggleSet}
                           onContextMenuSet={(id) => handleExcludeSet(id)}
                           {...(multiEditActive ? { triStateForSet: getSetState } : {})}

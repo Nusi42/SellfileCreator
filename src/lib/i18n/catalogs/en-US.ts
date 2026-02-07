@@ -68,6 +68,7 @@ const enUS: Catalog = {
   gearDialogDeleteSourceConfirmTitle: 'Delete "{source}" Gear?',
   gearDialogDeleteSourceConfirmBody: 'This removes all "{source}" gear from the Rule Tester preview.',
   noSetAccessories: 'No Gear-Set',
+  noSetAccessoriesDesc: 'Accessories dropped from the Spider dungeon.',
   testerTableEmpty: 'Add custom gear to see entries here.',
   testerGridEmpty: 'Add custom gear or load RSL Helper DB to see entries here.',
   testerTableEmptyKeepUniquesDisabled: 'Keep Uniques is disabled; turn it on to scan your gear.',

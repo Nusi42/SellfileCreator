@@ -47,7 +47,9 @@ import {
 import type { TesterPreviewRow } from '../../types/testerPreview'
 import type { ColorBlindMode } from '../../lib/constants'
 import {
+  ACCESSORY_NO_SET_ID,
   BUILDER_AUTO_APPLY_DEBOUNCE_MS,
+  ELLIPSIS_TEXT_SX,
   MENU_CONTROL_HEIGHT_PX,
   MENU_CONTROL_MIN_WIDTH_PX,
   STANDARD_DIALOG_PADDING_BLOCK_UNITS,
@@ -379,6 +381,11 @@ ${t('keepUniquesCountModeHint')}`
     // Surface the aggregate unique count so the toolbar never collapses when no rule is selected.
     return t('keepUniquesGridUniqueCount', { count: uniqueRows.length })
   }, [selectedEntry, selectedVisibleRowCount, gearEntries.length, t, uniqueRows.length])
+  const gridFilterLabel = t('keepUniquesGridFilterLabel', {
+    mode: gridFilterMode === 'selection'
+      ? t('keepUniquesGridFilterModeSelection')
+      : t('keepUniquesGridFilterModeAll'),
+  })
 
   const handleAddRule = useCallback(() => {
     const combination = createEmptyKeepUniqueCombination()
@@ -999,6 +1006,9 @@ ${t('keepUniquesCountModeHint')}`
                   showMetasets
                   layoutVersion={gridColumnMode}
                   anyLabel={t('anySet')}
+                  // Show the no-set option but keep it disabled (RSL Helper limitation).
+                  includeNoSet
+                  disabledSetIds={[ACCESSORY_NO_SET_ID]}
                 />
               </KeepOverrideScopeField>
             </Box>
@@ -1560,7 +1570,11 @@ ${t('keepUniquesCountModeHint')}`
               }}
             >
               <Box sx={{ minWidth: 0 }}>
-                <MarkdownTooltip markdown={t('keepUniquesGridFilterTooltip')}>
+                <MarkdownTooltip
+                  markdown={t('keepUniquesGridFilterTooltip')}
+                  ellipsisTitle={gridFilterLabel}
+                  ellipsisSelector='[data-ellipsis-target]'
+                >
                   <span>
                     <Button
                       size="small"
@@ -1570,18 +1584,28 @@ ${t('keepUniquesCountModeHint')}`
                       onClick={handleToggleGridFilterMode}
                       aria-pressed={gridFilterMode === 'selection'}
                       startIcon={gridFilterMode === 'selection' ? <FilterListIcon fontSize="small" /> : <FilterListOffIcon fontSize="small" />}
+                      // Keep the button compact until space is tight, then ellipsize the label.
                       sx={{
                         height: MENU_CONTROL_HEIGHT_PX,
                         minHeight: MENU_CONTROL_HEIGHT_PX,
                         px: 1.25,
-                        '& .MuiTypography-root': { fontWeight: 600 },
+                        minWidth: 0,
+                        maxWidth: '100%',
+                        justifyContent: 'flex-start',
+                        justifySelf: 'start',
+                        '& .MuiButton-startIcon': { flexShrink: 0 },
                       }}
                     >
-                      {t('keepUniquesGridFilterLabel', {
-                        mode: gridFilterMode === 'selection'
-                          ? t('keepUniquesGridFilterModeSelection')
-                          : t('keepUniquesGridFilterModeAll'),
-                      })}
+                      <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, minWidth: 0, width: '100%', flex: '1 1 auto' }}>
+                        <Typography
+                          component="span"
+                          noWrap
+                          data-ellipsis-target
+                          sx={{ ...ELLIPSIS_TEXT_SX, minWidth: 0 }}
+                        >
+                          {gridFilterLabel}
+                        </Typography>
+                      </Box>
                     </Button>
                   </span>
                 </MarkdownTooltip>

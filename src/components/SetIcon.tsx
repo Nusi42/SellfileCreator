@@ -1,7 +1,9 @@
 import { Box, type SxProps } from '@mui/material'
 import { useState } from 'react'
+import { ACCESSORY_NO_SET_ID } from '../lib/constants'
 import { artifactSetName, type ArtifactSetId } from '../lib/types'
 import { gearSetIconUrl } from '../lib/iconMaps/gearsetIconMap'
+import { NoGearSetIcon } from './NoGearSetIcon'
 
 // Default inline size for gear set icons (menus/select labels).
 export const SET_ICON_PX = 18 as const
@@ -39,6 +41,32 @@ export function SetIcon({ setId, label, size = SET_ICON_PX, sx }: { setId: Artif
     objectFit: 'contain',
     // Center the artwork when letterboxing is needed.
     objectPosition: 'center',
+  }
+  // Special-case the accessory "no set" sentinel with the spider glyph badge.
+  if (Number(setId) === ACCESSORY_NO_SET_ID) {
+    return (
+      <Box
+        component="span"
+        role="img"
+        aria-label={alt}
+        sx={[
+          baseSx,
+          {
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: size,
+            color: 'text.secondary',
+            border: '1px solid',
+            borderColor: 'divider',
+            boxSizing: 'border-box',
+          },
+          ...normalizedUserSx,
+        ]}
+      >
+        <NoGearSetIcon fontSize="inherit" />
+      </Box>
+    )
   }
   if (showFallback) {
     const badgeLabel = String(setId ?? '')

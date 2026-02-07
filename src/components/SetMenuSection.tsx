@@ -12,13 +12,14 @@
  * via props (e.g., item value shape and excluding a metaset from membership
  * hints).
  */
-import type { MouseEvent } from 'react'
+import type { MouseEvent, ReactNode } from 'react'
 import { Box, ListSubheader, MenuItem, Typography } from '@mui/material'
 import { alpha } from '@mui/material/styles'
 import EllipsisTooltip from './EllipsisTooltip'
 import { SetIcon, SET_ICON_PX } from './SetIcon'
-import { WithSetTooltip } from './SetTooltip'
-import { LIST_SUBHEADER_SX, MENU_SELECTED_BG_ALPHA, MENU_SELECTED_BG_HOVER_ALPHA, MENU_SCROLL_GUTTER_PX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, MULTI_EDIT_MIXED_BG_ALPHA, MULTI_EDIT_MIXED_BORDER_ALPHA, MULTI_EDIT_MIXED_TEXT_ALPHA } from '../lib/constants'
+import { WithSetTooltip, buildNoSetTooltipMarkdown } from './SetTooltip'
+import MarkdownTooltip from './MarkdownTooltip'
+import { ACCESSORY_NO_SET_ID, LIST_SUBHEADER_SX, MENU_SELECTED_BG_ALPHA, MENU_SELECTED_BG_HOVER_ALPHA, MENU_SCROLL_GUTTER_PX, MENU_HEADER_WITH_SEARCH_MIN_HEIGHT_PX, MULTI_EDIT_MIXED_BG_ALPHA, MULTI_EDIT_MIXED_BORDER_ALPHA, MULTI_EDIT_MIXED_TEXT_ALPHA } from '../lib/constants'
 import type { Metaset } from '../lib/metasets'
 import SetsOrderControls from './SetsOrderControls'
 import { useI18n } from '../lib/i18n'
@@ -52,6 +53,7 @@ export default function SetMenuSection({
   showUsageCounts = true,
   singleSelect = false,
   triStateForSet,
+  disabledSetIds,
 }: {
   title?: string
   sorted: Array<[string, string]>
@@ -73,6 +75,8 @@ export default function SetMenuSection({
   selectedSetIds?: number[]
   // Optional: sets explicitly excluded (red indicator styling).
   excludedSetIds?: number[]
+  // Optional: set ids that should be shown but not selectable.
+  disabledSetIds?: number[]
   // Optional: explicit click handler for icon grid items. When provided, we
   // call this on click instead of relying on MUI's internal Select handling.
   // Why: MUI Select can miss clicks on custom compact MenuItem layouts; this
@@ -98,6 +102,8 @@ export default function SetMenuSection({
   const selectedMetaSet = new Set(_selectedMetasetIds)
   // Excluded sets render with a red indicator.
   const excludedSet = new Set(excludedSetIds)
+  // Disabled set ids appear in menus but cannot be toggled.
+  const disabledSet = new Set((disabledSetIds ?? []).map(Number))
   // Resolve hovered metaset metadata when it is not the "all explicit" sentinel.
   const hoveredMeta = hovered && hovered !== allExplicitMetaId
     ? metasets.find(m => m.id === hovered) || null
@@ -107,6 +113,20 @@ export default function SetMenuSection({
   const selectedHighlightsAll = Boolean(allExplicitMetaId && selectedMetaSet.has(allExplicitMetaId))
   // Default tri-state resolver uses explicit selections when no helper is provided.
   const getTriStateForSet = triStateForSet ?? ((id: number) => (selectedSets.has(id) ? 'all' : 'none'))
+  // Disabled menu items should still communicate their status.
+  const buildDisabledTooltip = (label: string, options?: { isNoSet?: boolean }) => (
+    options?.isNoSet
+      ? buildNoSetTooltipMarkdown(t, { label, includeDisabled: true })
+      : `**${label}**\n${t('disabled')}`
+  )
+  // Wrap disabled items so tooltips still fire even when the MenuItem is disabled.
+  const wrapDisabledTooltip = (key: string, markdown: string, node: ReactNode) => (
+    <MarkdownTooltip key={key} markdown={markdown} placement="right">
+      <Box component="span" sx={{ display: 'block' }}>
+        {node}
+      </Box>
+    </MarkdownTooltip>
+  )
 
   return (
     <>
@@ -155,8 +175,16 @@ export default function SetMenuSection({
             const armorVar19 = sorted.filter(([id]) => getArtifactSetPieceGroup(Number(id)) === ArtifactSetPieceGroup.ArmorVariable)
             const renderIconItem = ([id, name]: [string, string]) => {
               const idNum = Number(id)
+              // Keep localization consistent with other selects (no-set uses its own key).
               const localizedName = getLocalizedGearSetName(idNum as ArtifactSetId, t, lang)
               const tooltipName = localizedName || name
+              // No-set accessories need their own tooltip (no set effects to display).
+              const isNoSet = idNum === ACCESSORY_NO_SET_ID
+              const isDisabled = disabledSet.has(idNum)
+              // Only show the descriptive tooltip on enabled items; disabled uses a wrapper tooltip.
+              const noSetTooltipMarkdown = isNoSet && !isDisabled
+                ? buildNoSetTooltipMarkdown(t, { label: tooltipName })
+                : null
               // Hover highlights only apply when the hovered metaset contains this set.
               const inHovered = hoveredHighlightsAll || Boolean(hoveredMeta && hoveredMeta.sets.includes(idNum))
               // Selected metasets outline sets that are not explicitly selected.
@@ -168,13 +196,31 @@ export default function SetMenuSection({
               // Excluded sets show a red ring and should not be treated as explicit selections.
               const isExcluded = excludedSet.has(idNum)
               // Name line rendered by WithSetTooltip (showName), so no local piece text needed.
-              return (
+              const iconNode = (
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <SetIcon setId={idNum} label={tooltipName} size={ICON_GRID_ICON_PX} sx={{ mr: 0 }} />
+                </Box>
+              )
+              // For no-set, provide a custom tooltip instead of set effect details.
+              const iconWithTooltip = noSetTooltipMarkdown ? (
+                <MarkdownTooltip markdown={noSetTooltipMarkdown} placement="right">
+                  <span>{iconNode}</span>
+                </MarkdownTooltip>
+              ) : (
+                <WithSetTooltip name={name} displayName={tooltipName} showName>
+                  {iconNode}
+                </WithSetTooltip>
+              )
+              const itemKey = `set-icon-${idNum}`
+              const menuItem = (
                 <MenuItem
-                  key={id}
+                  key={itemKey}
                   value={valueForSet(idNum)}
                   selected={inSelectedSet}
+                  disabled={isDisabled}
                   data-set-id={idNum}
                   onClick={(e) => {
+                    if (isDisabled) return
                     if (onToggleSet) {
                       // In multi-select contexts we suppress default so the menu stays open.
                       // In single-select, allow default so the Select can close naturally.
@@ -186,6 +232,7 @@ export default function SetMenuSection({
                     }
                   }}
                   onContextMenu={(event) => {
+                    if (isDisabled) return
                     if (!onContextMenuSet) return
                     event.preventDefault()
                     event.stopPropagation()
@@ -245,13 +292,18 @@ export default function SetMenuSection({
                     } : {}),
                   })}
                 >
-                  <WithSetTooltip name={name} displayName={tooltipName} showName>
-                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <SetIcon setId={idNum} label={tooltipName} size={ICON_GRID_ICON_PX} sx={{ mr: 0 }} />
-                    </Box>
-                  </WithSetTooltip>
+                  {iconWithTooltip}
                 </MenuItem>
               )
+              // Disabled entries need an outer wrapper so the tooltip still fires.
+              if (isDisabled) {
+                return wrapDisabledTooltip(
+                  itemKey,
+                  buildDisabledTooltip(tooltipName, { isNoSet }),
+                  menuItem,
+                )
+              }
+              return menuItem
             }
             // Icons mode: grid wrapper to keep compact 15-column layout.
             return (
@@ -288,6 +340,9 @@ export default function SetMenuSection({
       ) : (
         sorted.map(([id, name]) => {
           const idNum = Number(id)
+          // No-set accessories keep their own tooltip copy (no set effects available).
+          const isNoSet = idNum === ACCESSORY_NO_SET_ID
+          const isDisabled = disabledSet.has(idNum)
           // Usage counts + metaset membership are rendered only in list modes.
           const used = setUsageCounts[idNum] || 0
           const metaNames = metasets
@@ -306,13 +361,51 @@ export default function SetMenuSection({
           const isExcluded = excludedSet.has(idNum)
           const localizedName = getLocalizedGearSetName(idNum as ArtifactSetId, t, lang)
           const tooltipName = localizedName || name
-          return (
+          // Only show description text inline for enabled items.
+          const noSetTooltipMarkdown = isNoSet && !isDisabled
+            ? buildNoSetTooltipMarkdown(t, { label: tooltipName })
+            : null
+          const content = (
+            <Box sx={{ display: 'flex', flexDirection: 'column', minWidth: 0, width: '100%' }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minWidth: 0 }}>
+                <SetIcon setId={idNum} label={localizedName || name} size={SET_ICON_PX} />
+                <Typography>{localizedName}</Typography>
+                {showUsageCounts && (
+                  <Typography variant="caption" sx={{ color: 'text.secondary' }}>{t('setsUsageInConfigs', { n: used })}</Typography>
+                )}
+              </Box>
+              {metaNames.length > 0 && (
+                <EllipsisTooltip title={joined} selector=".MuiTypography-caption">
+                  <Typography
+                    variant="caption"
+                    sx={{ color: 'primary.main', opacity: 0.9, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block', width: '100%' }}
+                  >
+                    {t('setsInNames', { names: joined })}
+                  </Typography>
+                </EllipsisTooltip>
+              )}
+            </Box>
+          )
+          // Swap the set tooltip for no-set copy when needed.
+          const contentWithTooltip = noSetTooltipMarkdown ? (
+            <MarkdownTooltip markdown={noSetTooltipMarkdown} placement="right">
+              <span>{content}</span>
+            </MarkdownTooltip>
+          ) : (
+            <WithSetTooltip name={name} displayName={tooltipName}>
+              {content}
+            </WithSetTooltip>
+          )
+          const itemKey = `set-list-${idNum}`
+          const menuItem = (
             <MenuItem
-              key={id}
+              key={itemKey}
               value={valueForSet(idNum)}
               selected={inSelectedSet}
+              disabled={isDisabled}
               data-set-id={idNum}
               onClick={(e) => {
+                if (isDisabled) return
                 if (onToggleSet) {
                   if (!singleSelect) {
                     e.preventDefault()
@@ -322,6 +415,7 @@ export default function SetMenuSection({
                 }
               }}
               onContextMenu={(event) => {
+                if (isDisabled) return
                 if (!onContextMenuSet) return
                 event.preventDefault()
                 event.stopPropagation()
@@ -361,29 +455,18 @@ export default function SetMenuSection({
                 } : {}),
               })}
             >
-              <WithSetTooltip name={name} displayName={tooltipName}>
-                <Box sx={{ display: 'flex', flexDirection: 'column', minWidth: 0, width: '100%' }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minWidth: 0 }}>
-                    <SetIcon setId={idNum} label={localizedName || name} size={SET_ICON_PX} />
-                    <Typography>{localizedName}</Typography>
-                    {showUsageCounts && (
-                      <Typography variant="caption" sx={{ color: 'text.secondary' }}>{t('setsUsageInConfigs', { n: used })}</Typography>
-                    )}
-                  </Box>
-                  {metaNames.length > 0 && (
-                    <EllipsisTooltip title={joined} selector=".MuiTypography-caption">
-                      <Typography
-                        variant="caption"
-                        sx={{ color: 'primary.main', opacity: 0.9, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block', width: '100%' }}
-                      >
-                        {t('setsInNames', { names: joined })}
-                      </Typography>
-                    </EllipsisTooltip>
-                  )}
-                </Box>
-              </WithSetTooltip>
+              {contentWithTooltip}
             </MenuItem>
           )
+          // Disabled entries need a wrapper tooltip so the hover still triggers.
+          if (isDisabled) {
+            return wrapDisabledTooltip(
+              itemKey,
+              buildDisabledTooltip(tooltipName, { isNoSet }),
+              menuItem,
+            )
+          }
+          return menuItem
         })
       )}
     </>

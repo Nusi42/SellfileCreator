@@ -91,6 +91,17 @@ const BRANCH_SEQ = Symbol('branchSeq')
 type BranchAnnotatedRule = HsfRule & { [BRANCH_ORDER]?: number; [BRANCH_SEQ]?: number }
 type BranchAnnotatedRuleWithCfg = HsfRuleWithCfg & { [BRANCH_ORDER]?: number; [BRANCH_SEQ]?: number }
 
+// Stable level ordering mirrors the rule builder sort (0/4/8/12/16/99 then others).
+const levelOrderValue = (lvl: number | undefined): number => {
+  if (lvl === 0) return 0
+  if (lvl === 4) return 1
+  if (lvl === 8) return 2
+  if (lvl === 12) return 3
+  if (lvl === 16) return 4
+  if (lvl === 99) return 5
+  return lvl != null ? (6 + lvl) : Number.MAX_SAFE_INTEGER
+}
+
 export function canonicalRuleKey(rule: HsfRule): string {
   const artifactTypes = Array.isArray(rule.ArtifactType)
     ? (rule.ArtifactType as number[]).slice().sort((a, b) => a - b)
@@ -307,15 +318,6 @@ export function buildRulesForConfig(params: {
     const { obsolete } = configsToBuild.length > 1 ? { obsolete: [] } : findObsoleteRules(mergedRules)
     const drop = new Set(obsolete.map(o => o.index))
     const kept = mergedRules.filter((_, i) => !drop.has(i))
-    const levelOrderValue = (lvl: number | undefined): number => {
-      if (lvl === 0) return 0
-      if (lvl === 4) return 1
-      if (lvl === 8) return 2
-      if (lvl === 12) return 3
-      if (lvl === 16) return 4
-      if (lvl === 99) return 5
-      return lvl != null ? (6 + lvl) : Number.MAX_SAFE_INTEGER
-    }
     const sorted = kept
       .map((rule, idx) => {
         const annotated = rule as BranchAnnotatedRuleWithCfg
@@ -785,8 +787,28 @@ export function prependKeepUniqueRules({
     injectedKeepKeys.add(dedupeKey)
     filteredKeepRules.push(rule)
   }
+  // Keep-unique rules follow the same milestone-first ordering as config rules for stable exports.
+  const sortedKeepRules = filteredKeepRules
+    .map((rule, idx) => ({
+      rule,
+      idx,
+      levelIdx: levelOrderValue(rule.LVLForCheck),
+      ruleOrdinal: Number.isFinite(rule.__keepUniqueRuleOrdinal) ? Number(rule.__keepUniqueRuleOrdinal) : Number.MAX_SAFE_INTEGER,
+      placeholderRank: rule.__keepUniquePlaceholder ? 1 : 0,
+      itemKey: Number.isFinite(rule.__keepUniqueItemKey) ? Number(rule.__keepUniqueItemKey) : Number.MAX_SAFE_INTEGER,
+      canonical: canonicalRuleKey(rule),
+    }))
+    .sort((a, b) => {
+      if (a.levelIdx !== b.levelIdx) return a.levelIdx - b.levelIdx
+      if (a.ruleOrdinal !== b.ruleOrdinal) return a.ruleOrdinal - b.ruleOrdinal
+      if (a.placeholderRank !== b.placeholderRank) return a.placeholderRank - b.placeholderRank
+      if (a.itemKey !== b.itemKey) return a.itemKey - b.itemKey
+      if (a.canonical !== b.canonical) return a.canonical < b.canonical ? -1 : 1
+      return a.idx - b.idx
+    })
+    .map(entry => entry.rule)
   // Keep-unique rules must precede base rules to override.
-  const nextBaseRules = filteredKeepRules.concat(baseWithoutKeep)
+  const nextBaseRules = sortedKeepRules.concat(baseWithoutKeep)
   const mergedRules: HsfRuleWithCfg[] = [
     ...nextBaseRules,
     ...customRules,

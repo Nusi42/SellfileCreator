@@ -64,7 +64,7 @@ import { RULE_SOURCE_KEEP_UNIQUES } from '../lib/merge'
 import { KEEP_OVERRIDE_REFERENCE_COLUMN_COUNT } from '../lib/keepOverrideLayout'
 // MarkdownTooltip unifies the tester’s tooltip behavior (source glyphs, manage colors, etc.) with the rest of the UI.
 import MarkdownTooltip from './MarkdownTooltip'
-import { WithSetTooltip } from './SetTooltip'
+import { WithSetTooltip, buildNoSetTooltipMarkdown } from './SetTooltip'
 import { formatLocalDateTime } from '../lib/dateDisplay'
 import ContextMenuPaper, { buildContextMenuPaperSlotProps } from './ContextMenuPaper'
 import { ContextMenuHintOverlay } from './ContextMenuHintOverlay'
@@ -1234,8 +1234,11 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
       // No-set accessories need a visible glyph when no set icon exists.
       const noSetGroup = group.kind === 'accessorySet'
         && (group.setId === 0 || group.setId === ACCESSORY_NO_SET_ID)
-      const noSetIconNode = noSetGroup ? (
+      // No-set accessories use a custom tooltip describing the Spider drop source.
+      const noSetTooltipMarkdown = noSetGroup ? buildNoSetTooltipMarkdown(t) : null
+      const noSetIconInner = noSetGroup ? (
         <Box
+          component="span"
           sx={{
             lineHeight: 0,
             display: 'flex',
@@ -1249,6 +1252,11 @@ export function TesterItemsGrid(props: TesterItemsGridProps) {
           <NoGearSetIcon fontSize="inherit" />
         </Box>
       ) : null
+      const noSetIconNode = noSetTooltipMarkdown && noSetIconInner ? (
+        <MarkdownTooltip markdown={noSetTooltipMarkdown} placement="right">
+          {noSetIconInner}
+        </MarkdownTooltip>
+      ) : noSetIconInner
       const headerRadius = Math.max(ACCORDION_BORDER_RADIUS_PX - (nested ? 2 : 0), 2)
       return (
         <Box
