@@ -201,8 +201,8 @@ function buildKeepUniqueRuleSignature(rule: KeepUniqueRule): string {
   const substats = sortSubstatsForHistory(rule.substats ?? [])
   const normalizedSubstatRequirement = normalizeKeepUniqueSubstatRequirement(rule.substatRequirement)
   // Normalize weights so edits show up even if arrays re-order.
-  // Weights only affect the rule when "All Substats" is active.
-  const weightEntries = normalizedSubstatRequirement === KeepUniqueSubstatRequirement.All && substats.length > 0
+  // Weights only affect the rule when Per Substat is not active.
+  const weightEntries = normalizedSubstatRequirement !== KeepUniqueSubstatRequirement.PerSubstat && substats.length > 0
     ? Object.entries(rule.substatWeights ?? {})
       .map(([key, raw]) => {
         const variant = Number(key)
@@ -323,8 +323,8 @@ const formatSubstatList = (rule: KeepUniqueRule, t: TranslateFn): string => {
 
 const formatSubstatWeights = (rule: KeepUniqueRule, t: TranslateFn): string => {
   const normalizedRequirement = normalizeKeepUniqueSubstatRequirement(rule.substatRequirement)
-  // Weights only surface when the requirement is "all substats".
-  if (normalizedRequirement !== KeepUniqueSubstatRequirement.All) return ''
+  // Weights only surface when the requirement is not Per Substat.
+  if (normalizedRequirement === KeepUniqueSubstatRequirement.PerSubstat) return ''
   const weights = rule.substatWeights ?? {}
   const entries: Array<{ variant: StatVariant; weight: number }> = []
   for (const [key, raw] of Object.entries(weights)) {

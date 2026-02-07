@@ -264,7 +264,7 @@ const overrides: Catalog = {
   keepUniquesSubstatModeLabel: 'Alt stat modu',
   keepUniquesSubstatModeUnranked: 'Sırasız',
   keepUniquesSubstatModeRanked: 'Sıralı',
-  keepUniquesSubstatModeHint: '**Alt stat eşleşmesi**\n- **Herhangi bir Alt Stat**: seçilen alt statlardan en az biri olmalı.\n- **Tüm Alt Statlar**: seçilen alt statların tamamı olmalı.\n- **Alt Stat başına**: kotayı her seçili alt stat için ayrı uygular.\n\n**Sıralama ve ağırlıklar**\n- Seçili alt statlar her zaman puanlarına göre sıralanır.\n- Ağırlık kontrolleri **Tüm Alt Statlar** aktifken kullanılabilir; diğer modlarda standart ağırlık kullanılır.',
+  keepUniquesSubstatModeHint: '**Alt stat eşleşmesi**\n- **Herhangi bir Alt Stat**: seçilen alt statlardan en az biri olmalı.\n- **Tüm Alt Statlar**: seçilen alt statların tamamı olmalı.\n- **Alt Stat başına**: kotayı her seçili alt stat için ayrı uygular.\n\n**Sıralama ve ağırlıklar**\n- Seçili alt statlar her zaman puanlarına göre sıralanır.\n- Ağırlık kontrolleri **Herhangi bir Alt Stat** ve **Tüm Alt Statlar** için kullanılabilir; **Alt Stat başına** standart ağırlık kullanır.',
   keepUniquesSubstatModeHintLabel: 'Alt stat modu yardımını aç',
   keepUniquesSubstatWeightsLabel: 'Ağırlıklar',
   keepUniquesSubstatWeightsHelp: 'Sıralı açıkken her alt statın ne kadar önemli olduğunu ayarlayın.',

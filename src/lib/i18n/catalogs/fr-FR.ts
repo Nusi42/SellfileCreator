@@ -264,7 +264,7 @@ const overrides: Catalog = {
   keepUniquesSubstatModeLabel: 'Mode sous-stats',
   keepUniquesSubstatModeUnranked: 'Non classé',
   keepUniquesSubstatModeRanked: 'Classé',
-  keepUniquesSubstatModeHint: '**Correspondance des sous-stats**\n- **N’importe quel sous-stat** : au moins un sous-stat sélectionné doit être présent.\n- **Tous les sous-stats** : tous les sous-stats sélectionnés doivent être présents.\n- **Par sous-stat** : applique la quote-part séparément à chaque sous-stat sélectionné.\n\n**Classement et poids**\n- Les sous-stats sélectionnés sont toujours classés par score.\n- Les contrôles de poids sont disponibles quand **Tous les sous-stats** est actif ; les autres modes utilisent le poids par défaut.',
+  keepUniquesSubstatModeHint: '**Correspondance des sous-stats**\n- **N’importe quel sous-stat** : au moins un sous-stat sélectionné doit être présent.\n- **Tous les sous-stats** : tous les sous-stats sélectionnés doivent être présents.\n- **Par sous-stat** : applique la quote-part séparément à chaque sous-stat sélectionné.\n\n**Classement et poids**\n- Les sous-stats sélectionnés sont toujours classés par score.\n- Les contrôles de poids sont disponibles pour **N’importe quel sous-stat** et **Tous les sous-stats** ; **Par sous-stat** utilise le poids par défaut.',
   keepUniquesSubstatModeHintLabel: 'Ouvrir l’aide du mode sous-stats',
   keepUniquesSubstatWeightsLabel: 'Poids',
   keepUniquesSubstatWeightsHelp: 'Ajustez l’importance de chaque sous-stat quand Classé est actif.',

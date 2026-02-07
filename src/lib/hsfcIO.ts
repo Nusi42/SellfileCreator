@@ -1127,9 +1127,9 @@ export function buildHsfcPayload(args: {
       const normalizedSubstatRequirement = normalizeKeepUniqueSubstatRequirement(rule.substatRequirement)
       const shouldSerializeRequirement = hasSubstatSelection
         && normalizedSubstatRequirement !== KeepUniqueSubstatRequirement.Any
-      // Weight controls are only honored for the "all substats" requirement.
+      // Weight controls are honored for Any/All; Per Substat uses equal weighting.
       const allowSubstatWeights = hasSubstatSelection
-        && normalizedSubstatRequirement === KeepUniqueSubstatRequirement.All
+        && normalizedSubstatRequirement !== KeepUniqueSubstatRequirement.PerSubstat
       // Serialize weights by readable label, but only for selected substats.
       const substatWeights: Record<string, number> = {}
       if (allowSubstatWeights) {

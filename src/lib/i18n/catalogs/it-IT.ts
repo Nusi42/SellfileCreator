@@ -264,7 +264,7 @@ const overrides: Catalog = {
   keepUniquesSubstatModeLabel: 'Modalità substat',
   keepUniquesSubstatModeUnranked: 'Non classificato',
   keepUniquesSubstatModeRanked: 'Classificato',
-  keepUniquesSubstatModeHint: '**Corrispondenza substat**\n- **Qualsiasi Substat**: deve essere presente almeno una substat selezionata.\n- **Tutte le Substat**: devono essere presenti tutte le substat selezionate.\n- **Per Substat**: applica la quota separatamente per ogni substat selezionata.\n\n**Ranking e pesi**\n- Le substat selezionate sono sempre classificate in base al punteggio.\n- I controlli dei pesi sono disponibili quando **Tutte le Substat** è attivo; gli altri modi usano la ponderazione predefinita.',
+  keepUniquesSubstatModeHint: '**Corrispondenza substat**\n- **Qualsiasi Substat**: deve essere presente almeno una substat selezionata.\n- **Tutte le Substat**: devono essere presenti tutte le substat selezionate.\n- **Per Substat**: applica la quota separatamente per ogni substat selezionata.\n\n**Ranking e pesi**\n- Le substat selezionate sono sempre classificate in base al punteggio.\n- I controlli dei pesi sono disponibili con **Qualsiasi Substat** e **Tutte le Substat**; **Per Substat** usa la ponderazione predefinita.',
   keepUniquesSubstatModeHintLabel: 'Apri aiuto modalità substat',
   keepUniquesSubstatWeightsLabel: 'Pesi',
   keepUniquesSubstatWeightsHelp: 'Regola quanto conta ciascuna substat quando Classificato è attivo.',

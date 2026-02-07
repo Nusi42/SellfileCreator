@@ -264,7 +264,7 @@ const catalog: Catalog = {
   keepUniquesSubstatModeLabel: 'Modo de substats',
   keepUniquesSubstatModeUnranked: 'Sem ranking',
   keepUniquesSubstatModeRanked: 'Classificado',
-  keepUniquesSubstatModeHint: '**Correspondência de substats**\n- **Qualquer Substat**: pelo menos uma substat selecionada deve existir.\n- **Todas as Substats**: todas as substats selecionadas devem existir.\n- **Por Substat**: aplica a cota separadamente para cada substat selecionada.\n\n**Ranking e pesos**\n- As substats selecionadas sempre são ranqueadas pela pontuação.\n- Os controles de peso ficam disponíveis quando **Todas as Substats** está ativo; os outros modos usam a ponderação padrão.',
+  keepUniquesSubstatModeHint: '**Correspondência de substats**\n- **Qualquer Substat**: pelo menos uma substat selecionada deve existir.\n- **Todas as Substats**: todas as substats selecionadas devem existir.\n- **Por Substat**: aplica a cota separadamente para cada substat selecionada.\n\n**Ranking e pesos**\n- As substats selecionadas sempre são ranqueadas pela pontuação.\n- Os controles de peso ficam disponíveis com **Qualquer Substat** e **Todas as Substats**; **Por Substat** usa a ponderação padrão.',
   keepUniquesSubstatModeHintLabel: 'Abrir ajuda do modo de substats',
   keepUniquesSubstatWeightsLabel: 'Pesos',
   keepUniquesSubstatWeightsHelp: 'Ajuste quanto cada substat importa quando Classificado está ativo.',

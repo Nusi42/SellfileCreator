@@ -837,9 +837,9 @@ ${t('keepUniquesSubstatModeHint')}`
     const effectiveSubstatRequirement = hasSubstatSelection
       ? normalizeKeepUniqueSubstatRequirement(rule.substatRequirement)
       : KeepUniqueSubstatRequirement.Any
-    // Weight controls only apply to the "all substats" requirement (others keep equal weighting).
+    // Weight controls apply to Any/All but stay hidden for Per Substat.
     const showSubstatWeights = hasSubstatSelection
-      && effectiveSubstatRequirement === KeepUniqueSubstatRequirement.All
+      && effectiveSubstatRequirement !== KeepUniqueSubstatRequirement.PerSubstat
     const selected = effectiveSelectedRuleId === rule.id
     const expanded = expandedRuleIds.has(rule.id)
     const selectRule = () => {
@@ -1447,7 +1447,7 @@ ${t('keepUniquesSubstatModeHint')}`
                       options={allowedSubstatOptions}
                       normalizedMenu
                       renderNormalizedMenuControl={({ variant, label, selected }) => {
-                        // Hide weight controls unless "All Substats" is active (keeps Any/Per Substat lightweight).
+                        // Hide weight controls unless Any/All is active (keeps Per Substat lightweight).
                         if (!showSubstatWeights) return null
                         // Only show weight controls for selected substats; unselected rows keep the ghost badge.
                         if (!selected) return null

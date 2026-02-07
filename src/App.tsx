@@ -506,8 +506,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       const substatRequirement = hasSubstatSelection
         ? normalizeKeepUniqueSubstatRequirement(rule.substatRequirement)
         : KeepUniqueSubstatRequirement.Any
-      // Weights only affect the fingerprint when "All Substats" is active.
-      const weightEntries = hasSubstatSelection && substatRequirement === KeepUniqueSubstatRequirement.All
+      // Weights only affect the fingerprint when Per Substat is not active.
+      const weightEntries = hasSubstatSelection && substatRequirement !== KeepUniqueSubstatRequirement.PerSubstat
         ? Object.entries(rule.substatWeights ?? {})
           .map(([key, raw]) => {
             const variant = Number(key)

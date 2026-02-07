@@ -264,7 +264,7 @@ const overrides: Catalog = {
   keepUniquesSubstatModeLabel: 'Substat-Modus',
   keepUniquesSubstatModeUnranked: 'Ohne Ranking',
   keepUniquesSubstatModeRanked: 'Gerankt',
-  keepUniquesSubstatModeHint: '**Substat-Abgleich**\n- **Beliebige Substat**: mindestens eine ausgewählte Substat muss vorhanden sein.\n- **Alle Substats**: alle ausgewählten Substats müssen vorhanden sein.\n- **Pro Substat**: Quote wird separat je ausgewählter Substat angewendet.\n\n**Ranking & Gewichte**\n- Ausgewählte Substats werden immer nach ihren Werten gerankt.\n- Gewichtungen sind verfügbar, wenn **Alle Substats** aktiv ist; andere Modi verwenden die Standardgewichtung.',
+  keepUniquesSubstatModeHint: '**Substat-Abgleich**\n- **Beliebige Substat**: mindestens eine ausgewählte Substat muss vorhanden sein.\n- **Alle Substats**: alle ausgewählten Substats müssen vorhanden sein.\n- **Pro Substat**: Quote wird separat je ausgewählter Substat angewendet.\n\n**Ranking & Gewichte**\n- Ausgewählte Substats werden immer nach ihren Werten gerankt.\n- Gewichtungen sind verfügbar bei **Beliebige Substat** und **Alle Substats**; **Pro Substat** nutzt die Standardgewichtung.',
   keepUniquesSubstatModeHintLabel: 'Substat-Modus-Hilfe öffnen',
   keepUniquesSubstatWeightsLabel: 'Gewichte',
   keepUniquesSubstatWeightsHelp: 'Lege fest, wie stark jede Substat zählt, wenn Gerankt aktiv ist.',

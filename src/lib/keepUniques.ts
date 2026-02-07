@@ -134,11 +134,14 @@ export const KeepUniqueSubstatRequirement = {
 export type KeepUniqueSubstatRequirement =
   (typeof KeepUniqueSubstatRequirement)[keyof typeof KeepUniqueSubstatRequirement]
 
-const KEEP_UNIQUE_SUBSTAT_REQUIREMENT_VALUES = new Set<KeepUniqueSubstatRequirement>([
-  KeepUniqueSubstatRequirement.Any,
-  KeepUniqueSubstatRequirement.All,
-  KeepUniqueSubstatRequirement.PerSubstat,
-])
+// Normalize to lower-case keys so case-insensitive parsing is stable.
+const KEEP_UNIQUE_SUBSTAT_REQUIREMENT_LOOKUP: Record<string, KeepUniqueSubstatRequirement> = {
+  // Canonical lower-case entries map straight through.
+  [KeepUniqueSubstatRequirement.Any]: KeepUniqueSubstatRequirement.Any,
+  [KeepUniqueSubstatRequirement.All]: KeepUniqueSubstatRequirement.All,
+  // `perSubstat` lowercases to `persubstat`, so capture the normalized form.
+  [KeepUniqueSubstatRequirement.PerSubstat.toLowerCase()]: KeepUniqueSubstatRequirement.PerSubstat,
+}
 
 // normalizeKeepUniqueActivation keeps activation parsing consistent across keep-override rules.
 export const normalizeKeepUniqueActivation = (
@@ -172,10 +175,11 @@ export const normalizeKeepUniqueActivation = (
 // normalizeKeepUniqueSubstatRequirement keeps matching requirements stable and case-insensitive.
 export const normalizeKeepUniqueSubstatRequirement = (value: unknown): KeepUniqueSubstatRequirement => {
   if (typeof value === 'string') {
+    // Lowercase the input so callers can pass legacy or mixed-case strings.
     const trimmed = value.trim().toLowerCase()
-    if (KEEP_UNIQUE_SUBSTAT_REQUIREMENT_VALUES.has(trimmed as KeepUniqueSubstatRequirement)) {
-      return trimmed as KeepUniqueSubstatRequirement
-    }
+    // Map normalized keys back to the canonical requirement values.
+    const normalized = KEEP_UNIQUE_SUBSTAT_REQUIREMENT_LOOKUP[trimmed]
+    if (normalized) return normalized
   }
   // Default keeps existing behavior when no requirement is provided.
   return KeepUniqueSubstatRequirement.Any
@@ -1337,6 +1341,8 @@ export function computeKeepUniqueProtection(params: KeepUniqueDetectionParams): 
     const hasSubstatFilter = selectedSubstats.length > 0
     const normalizedSubstatRequirement = normalizeKeepUniqueSubstatRequirement(rule.substatRequirement)
     const substatRequirement = hasSubstatFilter ? normalizedSubstatRequirement : KeepUniqueSubstatRequirement.Any
+    // Per-substat mode ignores weights (each stat is scored independently).
+    const allowWeightsForRule = substatRequirement !== KeepUniqueSubstatRequirement.PerSubstat
     const requiredPerGroup = Math.max(1, Math.floor(rule.requiredCount))
 
     const buildEntryForSubstats = (
@@ -1373,8 +1379,8 @@ export function computeKeepUniqueProtection(params: KeepUniqueDetectionParams): 
 
       if (useRanking) {
         // Normalize weights to the tester sort rules so scoring matches the UI.
-        // Weights are only honored when "All Substats" is active.
-        const allowWeights = requirement === KeepUniqueSubstatRequirement.All
+        // Weights are honored for Any/All; Per Substat uses equal weighting.
+        const allowWeights = allowWeightsForRule
         const weights = allowWeights ? (rule.substatWeights ?? {}) : {}
         const scoreSpec = {
           variants: substatVariants,

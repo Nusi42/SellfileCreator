@@ -2035,7 +2035,7 @@ function KeepUniqueSummaryCard({
   })()
 
   const substatWeightSummary = (() => {
-    if (normalizedSubstatRequirement !== KeepUniqueSubstatRequirement.All) return null
+    if (normalizedSubstatRequirement === KeepUniqueSubstatRequirement.PerSubstat) return null
     const weights = rule.substatWeights ?? {}
     const entries: Array<{ variant: number; weight: number }> = []
     for (const [key, raw] of Object.entries(weights)) {

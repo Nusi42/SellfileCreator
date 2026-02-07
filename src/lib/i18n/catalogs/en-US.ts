@@ -265,7 +265,7 @@ const enUS: Catalog = {
   keepUniquesSubstatModeLabel: 'Substat mode',
   keepUniquesSubstatModeUnranked: 'Unranked',
   keepUniquesSubstatModeRanked: 'Ranked',
-  keepUniquesSubstatModeHint: '**Substat matching**\n- **Any Substat**: at least one selected substat must be present.\n- **All Substats**: every selected substat must be present.\n- **Per Substat**: apply the quota separately to each selected substat.\n\n**Ranking & weights**\n- Selected substats are always ranked by their scores.\n- Weight controls are available when **All Substats** is active; other modes use equal weighting.',
+  keepUniquesSubstatModeHint: '**Substat matching**\n- **Any Substat**: at least one selected substat must be present.\n- **All Substats**: every selected substat must be present.\n- **Per Substat**: apply the quota separately to each selected substat.\n\n**Ranking & weights**\n- Selected substats are always ranked by their scores.\n- Weight controls are available for **Any Substat** and **All Substats**; **Per Substat** uses equal weighting.',
   keepUniquesSubstatModeHintLabel: 'Open substat mode help',
   keepUniquesSubstatWeightsLabel: 'Weights',
   keepUniquesSubstatWeightsHelp: 'Adjust how much each substat matters when Ranked is on.',
