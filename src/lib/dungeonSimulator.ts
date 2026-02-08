@@ -703,7 +703,7 @@ export type DungeonSimProgress = {
 
 // Streaming session for dungeon simulation (supports incremental batches).
 export type DungeonSimSession = {
-  runBatch: (batchRuns: number) => void
+  runBatch: (batchRuns: number, dungeonIds?: DungeonId[]) => void
   getResults: () => DungeonSimResults
   getProgress: () => DungeonSimProgress
   isComplete: () => boolean
@@ -715,7 +715,7 @@ export type DungeonSimSpotlightProgress = Record<EventSpotlightSelection, Dungeo
 
 // Streaming session for dungeon simulation with both spotlight sets precomputed.
 export type DungeonSimSpotlightSession = {
-  runBatch: (batchRuns: number) => void
+  runBatch: (batchRuns: number, dungeonIds?: DungeonId[]) => void
   getResultsBySpotlight: () => DungeonSimSpotlightResults
   getProgressBySpotlight: () => DungeonSimSpotlightProgress
   queryDetailStats: (query: DungeonSimDetailQuery) => DungeonSimDetailStats | null
@@ -1361,10 +1361,13 @@ export const createDungeonSimSession = (params: {
     return results
   }
   // Run a batch across every dungeon runtime.
-  const runBatch = (batchRuns: number) => {
+  const runBatch = (batchRuns: number, dungeonIds?: DungeonId[]) => {
     const normalizedBatch = Math.max(0, Math.floor(batchRuns))
     if (normalizedBatch <= 0) return
-    for (const runtime of runtimes.values()) {
+    // When dungeon ids are supplied, only run the requested subset.
+    const targetIds = dungeonIds && dungeonIds.length > 0 ? new Set(dungeonIds) : null
+    for (const [dungeonId, runtime] of runtimes.entries()) {
+      if (targetIds && !targetIds.has(dungeonId)) continue
       runDungeonBatch(runtime, params.rules, params.substatTargets, normalizedBatch)
     }
   }
@@ -1516,17 +1519,22 @@ export const createDungeonSimSpotlightSession = (params: {
     if (!bucket) return null
     return computeGenericSpecificStats(bucket, query)
   }
-  const runBatch = (batchRuns: number) => {
+  const runBatch = (batchRuns: number, dungeonIds?: DungeonId[]) => {
     // Normalize the batch so callers can't pass a zero or NaN batch.
     const normalizedBatch = Math.max(0, Math.floor(batchRuns))
     if (normalizedBatch <= 0) return
+    // When dungeon ids are supplied, limit batches to the requested subset.
+    const targetIds = dungeonIds && dungeonIds.length > 0 ? new Set(dungeonIds) : null
     // Run the shared dungeons once per batch.
-    for (const runtime of baseRuntimes.values()) {
+    for (const [dungeonId, runtime] of baseRuntimes.entries()) {
+      if (targetIds && !targetIds.has(dungeonId)) continue
       runDungeonBatch(runtime, params.rules, params.substatTargets, normalizedBatch)
     }
-    // Run the event dungeon once per spotlight per batch.
-    for (const runtime of eventRuntimes.values()) {
-      runDungeonBatch(runtime, params.rules, params.substatTargets, normalizedBatch)
+    if (!targetIds || targetIds.has('event')) {
+      // Run the event dungeon once per spotlight per batch.
+      for (const runtime of eventRuntimes.values()) {
+        runDungeonBatch(runtime, params.rules, params.substatTargets, normalizedBatch)
+      }
     }
   }
   const resetDungeons = (reset: {

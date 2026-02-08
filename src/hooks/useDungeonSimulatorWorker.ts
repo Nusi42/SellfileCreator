@@ -354,6 +354,8 @@ export function useDungeonSimulatorWorker(params: UseDungeonSimulatorWorkerParam
     ) => {
       // Local fallback path mirrors the worker API for consistency.
       let cancelled = false
+      // Run only the dungeons that changed when a partial reset is requested.
+      const runTargets = dirtyIds.length > 0 ? dirtyIds : undefined
       // Reset progress so the UI reflects the fallback run count.
       setProgressBySpotlight((prev) => prev ?? buildEmptyProgressBySpotlight(fallbackRuns))
       // Reuse the previous session when only a subset of dungeons changed.
@@ -394,7 +396,7 @@ export function useDungeonSimulatorWorker(params: UseDungeonSimulatorWorkerParam
           return
         }
         // Execute one batch, then emit progress.
-        session.runBatch(safeBatchSize)
+        session.runBatch(safeBatchSize, runTargets)
         const progressBySpotlight = session.getProgressBySpotlight()
         const sampleSpotlight = EVENT_SPOTLIGHT_OPTIONS[0] ?? EVENT_SPOTLIGHT_DEFAULT
         const sampleProgress = progressBySpotlight[sampleSpotlight]

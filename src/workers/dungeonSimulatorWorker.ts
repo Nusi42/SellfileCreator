@@ -31,6 +31,8 @@ const runSimulation = async (message: Extract<DungeonSimulatorWorkerRequest, { k
     : 1
   // Reuse the cached session when only specific dungeons need to rerun.
   const dirtyDungeons = payload.dirtyDungeons?.filter((dungeonId) => dungeonId) ?? []
+  // Target only the dirty dungeon ids to avoid rerunning unaffected tables.
+  const runTargets = dirtyDungeons.length > 0 ? dirtyDungeons : undefined
   const canReuse = dirtyDungeons.length > 0 && cachedSession
   const session = canReuse
     ? cachedSession!
@@ -71,7 +73,7 @@ const runSimulation = async (message: Extract<DungeonSimulatorWorkerRequest, { k
   }, { throttleMs })
   while (activeRunId === id && !session.isComplete()) {
     // Run the next batch and emit throttled progress.
-    session.runBatch(batchSize)
+    session.runBatch(batchSize, runTargets)
     // Sample progress from any spotlight to drive the throttler clock.
     const progressBySpotlight = session.getProgressBySpotlight()
     const sampleSpotlight = EVENT_SPOTLIGHT_OPTIONS[0] ?? EVENT_SPOTLIGHT_DEFAULT
