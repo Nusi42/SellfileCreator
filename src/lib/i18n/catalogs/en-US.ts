@@ -236,7 +236,7 @@ const enUS: Catalog = {
   keepUniquesRuleModeProtect: 'Protect existing',
   keepUniquesRuleModeAnticipateShort: 'Anticipate',
   keepUniquesRuleModeAnticipate: 'Anticipate gaps',
-  keepUniquesRuleModeHint: '**Mode behavior**\n- **Off**: Disables the keep quota and only surfaces the deficit counts for reference.\n- **Protect**: Keeps your current drops that match the card until **≥ Required Count** is met.\n- **Anticipate**: Also emits placeholder keep rules for every missing combination so new drops stay protected until the DB refreshes.',
+  keepUniquesRuleModeHint: '**Mode behavior**\n- **Off**: Disables the keep quota and only surfaces the deficit counts for reference.\n- **Protect**: Keeps your current drops that match the card until **≥ Required Count** is met.\n- **Anticipate**: Also emits placeholder keep rules for every missing combination so new drops stay protected until the DB refreshes.\n- Rules don\'t consume items; a piece can satisfy multiple Keep Unique rules.',
   keepUniquesRuleModeHintLabel: 'Open mode help',
   keepUniquesRuleNameLabel: 'Name',
   keepUniquesRuleCounts: 'Have {have} / Keep {keep}',

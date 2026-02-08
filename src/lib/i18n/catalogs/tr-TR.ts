@@ -235,7 +235,7 @@ const overrides: Catalog = {
   keepUniquesRuleModeProtect: 'Var olanı koru',
   keepUniquesRuleModeAnticipateShort: 'Öngör',
   keepUniquesRuleModeAnticipate: 'Açıkları öngör',
-  keepUniquesRuleModeHint: '**Mod davranışı**\n- **Kapalı**: Kuralı kapatır ve sadece açıkları referans olarak gösterir.\n- **Koru**: Kartla eşleşen mevcut parçaları **≥ Gerekli adet** dolana kadar korur.\n- **Öngör**: Eksik kombinasyonlar için geçici kurallar da üretir; böylece yeni düşenler DB güncellenene kadar işaretli kalır.',
+  keepUniquesRuleModeHint: '**Mod davranışı**\n- **Kapalı**: Kuralı kapatır ve sadece açıkları referans olarak gösterir.\n- **Koru**: Kartla eşleşen mevcut parçaları **≥ Gerekli adet** dolana kadar korur.\n- **Öngör**: Eksik kombinasyonlar için geçici kurallar da üretir; böylece yeni düşenler DB güncellenene kadar işaretli kalır.\n- Kurallar eşyaları tüketmez; bir parça birden fazla Benzersizleri Koru kuralını karşılayabilir.',
   keepUniquesRuleModeHintLabel: 'Mod yardımını aç',
   keepUniquesRuleNameLabel: 'Ad',
   keepUniquesRuleCounts: 'Var {have} / Koru {keep}',

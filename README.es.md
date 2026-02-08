@@ -98,6 +98,7 @@ Crea, revisa y exporta reglas de venta para RSL Helper con una interfaz sencilla
 
 ### Conservar únicos
 - Haz clic en «Logic Hub» en el encabezado de la vista previa y cambia a la pestaña `Conservar únicos` para marcar las combinaciones que nunca quieres perder. Activa `Activar Conservar únicos` para que el escáner pueda añadir filas de conservación (las ediciones también lo activan automáticamente).
+- Las reglas de Conservar únicos no «consumen» objetos—cada regla evalúa el mismo conjunto de candidatos. Si una pieza coincide con varias reglas, cuenta para todas.
 - Cada regla de conservación te deja elegir ranura, sets o metasets, rangos, rarezas, stats principales y (en accesorios) facciones. Sin selección significa «cualquiera».
 - El `Modo` decide cómo se emite la regla: `Apagada` la desactiva, `Proteger lo existente` añade filas de conservación para coincidencias que se venderían hasta cumplir la cuota, y `Anticipar huecos` agrega reglas de marcador para combinaciones faltantes para que los nuevos drops sigan protegidos hasta que la BD se actualice.
 - Los substats son opcionales: elige uno o varios para contar solo los objetos que tengan esos substats. El chip de coincidencia (`Cualquier Substat` / `Todos los Substats` / `Por Substat`) decide si basta con uno, si deben estar todos o si cada substat tiene su propia cuota. Dejarlo vacío permite cualquier substat.

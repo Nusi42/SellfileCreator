@@ -235,7 +235,7 @@ const overrides: Catalog = {
   keepUniquesRuleModeProtect: 'Bestehendes schützen',
   keepUniquesRuleModeAnticipateShort: 'Vorbeugen',
   keepUniquesRuleModeAnticipate: 'Lücken vorab sichern',
-  keepUniquesRuleModeHint: '**Modus-Verhalten**\n- **Aus**: Deaktiviert die Behalte-Quote und zeigt nur Defizite als Referenz.\n- **Schützen**: Behält vorhandene Drops dieser Karte, bis **≥ Benötigte Anzahl** erreicht ist.\n- **Vorbeugen**: Fügt außerdem Platzhalter-Regeln für fehlende Kombinationen hinzu, damit neue Drops geschützt bleiben, bis die DB aktualisiert wurde.',
+  keepUniquesRuleModeHint: '**Modus-Verhalten**\n- **Aus**: Deaktiviert die Behalte-Quote und zeigt nur Defizite als Referenz.\n- **Schützen**: Behält vorhandene Drops dieser Karte, bis **≥ Benötigte Anzahl** erreicht ist.\n- **Vorbeugen**: Fügt außerdem Platzhalter-Regeln für fehlende Kombinationen hinzu, damit neue Drops geschützt bleiben, bis die DB aktualisiert wurde.\n- Regeln verbrauchen keine Items; ein Item kann mehrere „Unikate behalten“-Regeln erfüllen.',
   keepUniquesRuleModeHintLabel: 'Modus-Hilfe öffnen',
   keepUniquesRuleNameLabel: 'Name',
   keepUniquesRuleCounts: 'Vorhanden {have} / Behalten {keep}',

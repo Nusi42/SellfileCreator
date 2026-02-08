@@ -100,6 +100,7 @@ Crie, reveja e exporte regras de venda para o RSL Helper com uma interface simpl
 
 ### Manter únicos
 - Clique em «Logic Hub» no cabeçalho da prévia e mude para a aba `Manter únicos` para marcar as combinações que não quer vender nunca. Ative `Manter únicos` para deixar o scanner adicionar linhas de manter (editar uma regra também ativa automaticamente).
+- As regras de Manter únicos não “consomem” itens—cada regra avalia o mesmo conjunto de candidatos. Se uma peça corresponder a várias regras, conta para todas.
 - Cada regra de Manter únicos permite escolher slot, sets ou meta-sets, ranks, raridades, atributos principais e, no caso dos acessórios, facções. Deixar um seletor vazio significa «qualquer».
 - `Modo` decide como a regra é emitida: `Desativada` desliga, `Proteger existentes` injeta linhas de manter para itens que seriam vendidos até cumprir a quota, e `Antecipar lacunas` também emite regras fictícias para combinações que ainda faltam para proteger novos drops até a próxima atualização da BD.
 - Substats são opcionais: escolha um ou mais para contar somente itens que tenham esses substats. O chip de correspondência (`Qualquer Substat` / `Todas as Substats` / `Por Substat`) decide se basta um, se precisam estar todos ou se cada substat tem sua própria quota. Deixar vazio permite qualquer substat.

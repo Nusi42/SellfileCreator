@@ -98,6 +98,7 @@ Erstelle, prüfe und exportiere Verkaufsregeln für RSL Helper mit einer übersi
 
 ### Unikate behalten
 - Klicke im Vorschau-Header auf „Logic Hub“ und wechsle zur Registerkarte `Unikate behalten`, um Kombinationen zu markieren, die niemals verloren gehen sollen. Aktiviere `Unikate behalten`, damit der Scanner Behalte-Zeilen hinzufügen kann (Bearbeitungen schalten es ebenfalls automatisch ein).
+- Unikate-behalten-Regeln „verbrauchen“ keine Items – jede Regel bewertet denselben Kandidatenpool. Wenn ein Teil mehreren Regeln entspricht, zählt es für alle.
 - Jede Behalte-Regel lässt dich Slot, Sets oder Metasets, Ränge, Seltenheiten, Mainstats und (bei Zubehör) Fraktionen festlegen. Leer bedeutet „egal“.
 - `Modus` bestimmt, wie die Regel ausgegeben wird: `Aus` deaktiviert sie, `Bestehendes schützen` fügt Behalte-Zeilen für verkaufsgefährdete Treffer hinzu, bis die Quote erreicht ist, und `Lücken vorab sichern` ergänzt Platzhalter-Regeln für fehlende Kombinationen, damit neue Drops geschützt bleiben, bis die DB aktualisiert wurde.
 - Substats sind optional: Wähle einen oder mehrere, damit nur Items zählen, die diese Substats haben. Der Match‑Chip (`Beliebige Substat` / `Alle Substats` / `Pro Substat`) bestimmt, ob mindestens eine, alle oder jede ausgewählte Substat ihre eigene Quote bekommt. Leer lassen bedeutet: kein Substat-Filter.

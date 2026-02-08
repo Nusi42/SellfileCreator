@@ -235,7 +235,7 @@ const overrides: Catalog = {
   keepUniquesRuleModeProtect: 'Proteggi esistenti',
   keepUniquesRuleModeAnticipateShort: 'Anticipa',
   keepUniquesRuleModeAnticipate: 'Anticipa lacune',
-  keepUniquesRuleModeHint: '**Comportamento delle modalità**\n- **Disattiva**: Spegne la regola e mostra solo i deficit come riferimento.\n- **Proteggi**: Mantiene le copie attuali che corrispondono alla carta finché non raggiungi **≥ Quantità richiesta**.\n- **Anticipa**: Aggiunge anche regole segnaposto per le combinazioni mancanti così le nuove gocce restano protette finché il DB non viene aggiornato.',
+  keepUniquesRuleModeHint: '**Comportamento delle modalità**\n- **Disattiva**: Spegne la regola e mostra solo i deficit come riferimento.\n- **Proteggi**: Mantiene le copie attuali che corrispondono alla carta finché non raggiungi **≥ Quantità richiesta**.\n- **Anticipa**: Aggiunge anche regole segnaposto per le combinazioni mancanti così le nuove gocce restano protette finché il DB non viene aggiornato.\n- Le regole non consumano gli oggetti; un pezzo può soddisfare più regole di Mantieni unici.',
   keepUniquesRuleModeHintLabel: 'Apri aiuto modalità',
   keepUniquesRuleNameLabel: 'Nome',
   keepUniquesRuleCounts: 'Presenti {have} / Conservare {keep}',

@@ -57,6 +57,7 @@ import {
   type KeepUniqueDetectionSnapshot,
   type KeepUniqueRule,
 } from '../../lib/keepUniques'
+import { buildReadableKeepUniqueRuleEntry } from '../../lib/hsfcIO'
 import type { TesterPreviewRow } from '../../types/testerPreview'
 import type { ColorBlindMode } from '../../lib/constants'
 import {
@@ -713,8 +714,8 @@ ${t('keepUniquesSubstatModeHint')}`
     // Locate the source rule by id.
     const source = rules.find((rule) => rule.id === ruleId)
     if (!source) return
-    // Clone the rule so edits do not mutate the clipboard snapshot.
-    const snapshot = cloneKeepUniqueRule(source)
+    // Convert to a readable HSFC-style rule so clipboard JSON stays human-friendly.
+    const snapshot = buildReadableKeepUniqueRuleEntry(source)
     // Wrap the payload to make keep-unique rules detectable when pasting.
     const payload = { kind: 'keepUniqueRule', rule: snapshot }
     const text = JSON.stringify(payload, null, 2)

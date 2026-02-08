@@ -98,6 +98,7 @@ RSL Helper için satış kurallarını basit bir arayüzle oluşturun, önizleyi
 
 ### Benzersizleri Koru
 - Önizleme başlığındaki “Logic Hub” düğmesine tıklayıp `Benzersizleri Koru` sekmesine geçin; kaybetmek istemediğiniz kombinasyonları burada işaretleyin. `Benzersizleri Koru` anahtarını açarak tarayıcının Koru satırları eklemesini sağlayın (bir kuralı düzenlemek de otomatik olarak etkinleştirir).
+- Benzersizleri Koru kuralları öğeleri “tüketmez”; her kural aynı aday havuzunu değerlendirir. Bir parça birden fazla kurala uyuyorsa hepsinde sayılır.
 - Her kural slot, set veya metaset, rank, nadirlik, ana stat ve (aksesuarlar için) fraksiyon seçmenize izin verir. Boş bırakmak “herhangi” anlamına gelir.
 - `Mod`, kuralın nasıl dışa aktarıldığını belirler: `Kapalı` kuralı devre dışı bırakır, `Var olanı koru` kotaya ulaşana kadar satılacak eşleşmeler için Koru satırları ekler, `Açıkları öngör` ise eksik kombinasyonlar için geçici Koru kuralları da üretir; böylece DB güncellenene kadar yeni düşenler korunur.
 - Alt statlar isteğe bağlıdır: bir veya birkaçını seçerek yalnızca bu alt statlara sahip eşyaları sayarsınız. Eşleşme çipi (`Herhangi bir Alt Stat` / `Tüm Alt Statlar` / `Alt Stat başına`) en az birinin mi, hepsinin mi gerektiğini veya her alt stat için ayrı kota uygulanacağını belirler. Boş bırakmak alt stat filtresi olmaması demektir.

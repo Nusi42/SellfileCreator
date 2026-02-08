@@ -100,6 +100,7 @@ Construisez, prévisualisez et exportez des règles de vente pour RSL Helper via
 
 ### Conserver les uniques
 - Cliquez sur « Logic Hub » dans l’en-tête de l’aperçu et passez sur l’onglet `Conserver les uniques` pour marquer les combinaisons que vous refusez de vendre. Activez `Conserver les uniques` pour laisser le scanner ajouter des lignes de conservation (les modifications l’activent aussi automatiquement).
+- Les règles « Conserver les uniques » ne « consomment » pas les objets — chaque règle évalue le même pool de candidats. Si une pièce correspond à plusieurs règles, elle compte pour toutes.
 - Chaque règle vous permet de choisir slot, sets ou méta-sets, rangs, raretés, stats principales et, pour les accessoires, factions. Laisser un sélecteur vide signifie « n’importe lequel ».
 - Le `Mode` décide comment la règle est émise : `Désactivée` la coupe, `Protéger l’existant` ajoute des lignes de conservation pour les correspondances qui seraient vendues jusqu’à atteindre la quota, et `Prévoir les manques` ajoute des règles fictives pour les combinaisons manquantes afin que les nouveaux drops restent protégés jusqu’à la prochaine mise à jour de la base.
 - Les sous-stats sont optionnels : choisissez-en un ou plusieurs pour ne compter que les objets qui possèdent ces sous‑stats. La puce de correspondance (`N’importe quel sous-stat` / `Tous les sous-stats` / `Par sous-stat`) décide s’il en faut un, tous, ou si chaque sous‑stat a sa propre quota. Laisser vide signifie : aucun filtre de sous-stats.

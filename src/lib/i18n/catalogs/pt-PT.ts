@@ -235,7 +235,7 @@ const overrides: Catalog = {
   keepUniquesRuleModeProtect: 'Proteger existentes',
   keepUniquesRuleModeAnticipateShort: 'Antecipar',
   keepUniquesRuleModeAnticipate: 'Antecipar lacunas',
-  keepUniquesRuleModeHint: '**Comportamento dos modos**\n- **Desligar**: Desliga a regra e só mostra os défices como referência.\n- **Proteger**: Mantém as cópias atuais que coincidem com a carta até cumprir **≥ Quantidade necessária**.\n- **Antecipar**: Também cria regras fictícias para as combinações em falta para que as novas peças continuem protegidas até a BD ser atualizada.',
+  keepUniquesRuleModeHint: '**Comportamento dos modos**\n- **Desligar**: Desliga a regra e só mostra os défices como referência.\n- **Proteger**: Mantém as cópias atuais que coincidem com a carta até cumprir **≥ Quantidade necessária**.\n- **Antecipar**: Também cria regras fictícias para as combinações em falta para que as novas peças continuem protegidas até a BD ser atualizada.\n- As regras não consomem itens; uma peça pode satisfazer várias regras de Manter únicos.',
   keepUniquesRuleModeHintLabel: 'Abrir ajuda dos modos',
   keepUniquesRuleNameLabel: 'Nome',
   keepUniquesRuleCounts: 'Existem {have} / Manter {keep}',

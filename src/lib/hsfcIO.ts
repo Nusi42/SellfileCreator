@@ -1007,6 +1007,19 @@ type ReadableKeepUniqueTuple = {
   factions: string[]
 }
 
+export type ReadableKeepUniqueRuleEntry = {
+  id: string
+  name?: string
+  requiredCount: number
+  activation: KeepUniqueRuleActivation
+  countMode: KeepUniqueRule['countMode']
+  tuple: ReadableKeepUniqueTuple
+  substats?: string[]
+  substatRequirement?: string
+  substatMode?: string
+  substatWeights?: Record<string, number>
+}
+
 // Build a readable keep-override tuple from a combination filter.
 const buildReadableKeepOverrideTuple = (combination: KeepUniqueRule['combination']): ReadableKeepUniqueTuple => {
   const slotLabels = combination.slots
@@ -1034,6 +1047,75 @@ const buildReadableKeepOverrideTuple = (combination: KeepUniqueRule['combination
     mainStats: mainStatLabels,
     factions: factionLabels,
   }
+}
+
+// Build a readable keep-unique export entry from an in-memory rule.
+export const buildReadableKeepUniqueRuleEntry = (rule: KeepUniqueRule): ReadableKeepUniqueRuleEntry => {
+  // Persist the normalized scope object explicitly so the loader can rehydrate chips.
+  const mode = sanitizeKeepUniqueCountMode(rule.countMode)
+  // Strip whitespace so empty names do not serialize.
+  const trimmedName = typeof rule.name === 'string' ? rule.name.trim() : ''
+  // Capture selected substats in readable form so exports stay user-friendly.
+  const substatVariants = rule.substats ?? []
+  // Map variants to readable labels; fall back to numeric IDs if needed.
+  const substatLabels = substatVariants
+    .map((variant) => {
+      const label = labelOfVariant(variant)
+      return label && label.trim().length > 0 ? label : String(variant)
+    })
+    .filter((label) => Boolean(label && label.trim()))
+  // Ranking only matters when a substat selection exists.
+  const hasSubstatSelection = substatLabels.length > 0
+  // Normalize the requirement so "Any" stays implicit unless the user overrides it.
+  const normalizedSubstatRequirement = normalizeKeepUniqueSubstatRequirement(rule.substatRequirement)
+  const shouldSerializeRequirement = hasSubstatSelection
+    && normalizedSubstatRequirement !== KeepUniqueSubstatRequirement.Any
+  // Weight controls are honored for Any/All; Per Substat uses equal weighting.
+  const allowSubstatWeights = hasSubstatSelection
+    && normalizedSubstatRequirement !== KeepUniqueSubstatRequirement.PerSubstat
+  // Serialize weights by readable label, but only for selected substats.
+  const substatWeights: Record<string, number> = {}
+  if (allowSubstatWeights) {
+    const selectedSet = new Set(substatVariants.map((variant) => Number(variant)))
+    const rawWeights = rule.substatWeights ?? {}
+    for (const [rawKey, rawWeight] of Object.entries(rawWeights)) {
+      const variant = Number(rawKey)
+      // Only include weights for selected, valid variants.
+      if (!Number.isFinite(variant) || !selectedSet.has(variant)) continue
+      const label = labelOfVariant(variant)
+      const key = label && label.trim().length > 0 ? label : String(variant)
+      const weight = Number(rawWeight)
+      if (!Number.isFinite(weight)) continue
+      substatWeights[key] = weight
+    }
+  }
+  // Build the base export entry in readable HSFC form.
+  const entry: ReadableKeepUniqueRuleEntry = {
+    id: rule.id,
+    requiredCount: Math.max(1, Math.floor(rule.requiredCount)),
+    activation: rule.activation ?? KeepUniqueRuleActivation.ProtectExisting,
+    countMode: {
+      perRule: mode.perRule,
+      perSet: mode.perSet,
+      perFaction: mode.perFaction,
+      perMainStat: mode.perMainStat,
+      perSlot: mode.perSlot,
+    },
+    tuple: buildReadableKeepOverrideTuple(rule.combination),
+  }
+  // Only persist a name when it is non-empty.
+  if (trimmedName) entry.name = trimmedName
+  // Capture substat filters when they are present.
+  if (hasSubstatSelection) entry.substats = substatLabels
+  // Avoid writing the implicit Any requirement.
+  if (shouldSerializeRequirement) entry.substatRequirement = normalizedSubstatRequirement
+  // Only export Ranked when it is explicitly enabled.
+  if (hasSubstatSelection && rule.substatMode === KeepUniqueSubstatMode.Ranked) {
+    entry.substatMode = KeepUniqueSubstatMode.Ranked
+  }
+  // Only emit weights when they are non-default.
+  if (Object.keys(substatWeights).length > 0) entry.substatWeights = substatWeights
+  return entry
 }
 
 export function buildHsfcPayload(args: {
@@ -1108,64 +1190,8 @@ export function buildHsfcPayload(args: {
         setsMode: FINAL_SELL_DEFAULT_SETS_MODE,
       }
     })(),
-    KeepUniques: keepUniqueRules.map((rule) => {
-      // Persist the normalized scope object explicitly so the loader can
-      // rehydrate the same chip state without guessing at defaults.
-      const mode = sanitizeKeepUniqueCountMode(rule.countMode)
-      const trimmedName = typeof rule.name === 'string' ? rule.name.trim() : ''
-      // Capture selected substats in readable form so HSFC stays user-friendly.
-      const substatVariants = rule.substats ?? []
-      // Map variants to readable labels; fall back to numeric IDs if needed.
-      const substatLabels = substatVariants
-        .map((variant) => {
-          const label = labelOfVariant(variant)
-          return label && label.trim().length > 0 ? label : String(variant)
-        })
-        .filter((label) => Boolean(label && label.trim()))
-      // Ranking only matters when a substat selection exists.
-      const hasSubstatSelection = substatLabels.length > 0
-      const normalizedSubstatRequirement = normalizeKeepUniqueSubstatRequirement(rule.substatRequirement)
-      const shouldSerializeRequirement = hasSubstatSelection
-        && normalizedSubstatRequirement !== KeepUniqueSubstatRequirement.Any
-      // Weight controls are honored for Any/All; Per Substat uses equal weighting.
-      const allowSubstatWeights = hasSubstatSelection
-        && normalizedSubstatRequirement !== KeepUniqueSubstatRequirement.PerSubstat
-      // Serialize weights by readable label, but only for selected substats.
-      const substatWeights: Record<string, number> = {}
-      if (allowSubstatWeights) {
-        const selectedSet = new Set(substatVariants.map((variant) => Number(variant)))
-        const rawWeights = rule.substatWeights ?? {}
-        for (const [rawKey, rawWeight] of Object.entries(rawWeights)) {
-          const variant = Number(rawKey)
-          if (!Number.isFinite(variant) || !selectedSet.has(variant)) continue
-          const label = labelOfVariant(variant)
-          const key = label && label.trim().length > 0 ? label : String(variant)
-          const weight = Number(rawWeight)
-          if (!Number.isFinite(weight)) continue
-          substatWeights[key] = weight
-        }
-      }
-      return {
-        id: rule.id,
-        ...(trimmedName ? { name: trimmedName } : {}),
-        requiredCount: Math.max(1, Math.floor(rule.requiredCount)),
-        activation: rule.activation ?? KeepUniqueRuleActivation.ProtectExisting,
-        countMode: {
-          perRule: mode.perRule,
-          perSet: mode.perSet,
-          perFaction: mode.perFaction,
-          perMainStat: mode.perMainStat,
-          perSlot: mode.perSlot,
-        },
-        tuple: buildReadableKeepOverrideTuple(rule.combination),
-        ...(hasSubstatSelection ? { substats: substatLabels } : {}),
-        ...(shouldSerializeRequirement ? { substatRequirement: normalizedSubstatRequirement } : {}),
-        ...(hasSubstatSelection && rule.substatMode === KeepUniqueSubstatMode.Ranked
-          ? { substatMode: KeepUniqueSubstatMode.Ranked }
-          : {}),
-        ...(Object.keys(substatWeights).length > 0 ? { substatWeights } : {}),
-      }
-    }),
+    // Keep unique exports reuse the shared readable helper for clipboard parity.
+    KeepUniques: keepUniqueRules.map((rule) => buildReadableKeepUniqueRuleEntry(rule)),
     KeepUniquesEnabled: keepUniquesEnabled === true,
     ...(selectedConfigIndex != null ? { SelectedConfigIndex: selectedConfigIndex } : (configs.length ? { SelectedConfigIndex: configs.length - 1 } : {})),
     ...(note ? { Note: note } : {}),

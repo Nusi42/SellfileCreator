@@ -88,6 +88,7 @@ Crea, visualizza in anteprima ed esporta regole di vendita per RSL Helper tramit
 
 ### Mantieni unici
 - Clicca `Logic Hub` nell’intestazione dell’anteprima e passa alla scheda `Mantieni unici` per segnare le combinazioni che non vuoi vendere mai. Attiva `Mantieni unici` per permettere allo scanner di aggiungere righe di mantenimento (le modifiche lo attivano automaticamente).
+- Le regole “Mantieni unici” non “consumano” gli oggetti—ogni regola valuta lo stesso pool di candidati. Se un pezzo corrisponde a più regole, conta per tutte.
 - Ogni regola ti permette di scegliere slot, set o Metaset, ranghi, rarità, statistiche principali e (per gli accessori) fazioni. Lasciare un selettore vuoto significa «qualsiasi».
 - La `Modalità` decide come viene emessa la regola: `Disattiva` la spegne, `Proteggi esistenti` aggiunge righe di mantenimento per le corrispondenze che verrebbero vendute finché la quota non è raggiunta, e `Anticipa lacune` aggiunge regole segnaposto per le combinazioni mancanti così i nuovi drop restano protetti finché il DB non viene aggiornato.
 - I substat sono opzionali: scegli uno o più per contare solo gli oggetti che hanno quei substat. La chip di corrispondenza (`Qualsiasi Substat` / `Tutte le Substat` / `Per Substat`) decide se basta uno, se devono esserci tutti o se ogni substat ha la propria quota. Lasciare vuoto significa: nessun filtro substat.

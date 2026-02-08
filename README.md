@@ -102,6 +102,7 @@ Build, preview, and export sell rules for RSL Helper with a simple UI.
 
 ### Keep Uniques
 - Click `Logic Hub` in the preview header and switch to the `Keep Uniques` tab to mark the gear combinations you never want to lose. Turn on `Enable Keep Uniques` to let the scanner add keep rows (edits will also enable it automatically).
+- Keep Unique rules don’t ‘consume’ items—each rule evaluates the same candidate pool. If a piece matches multiple rules, it counts for all of them.
 - Each keep rule lets you pick the slot, sets or metasets, ranks, rarities, main stats, and (for accessories) factions you care about. Leaving a picker empty means “any”.
 - `Mode` decides how the rule is emitted: `Off` disables it, `Protect existing` injects keep rows for sold matches until the quota is met, and `Anticipate gaps` also emits placeholder keep rules for missing combinations so new drops stay protected until the DB refreshes.
 - Substats are optional: pick one or more to only count items that actually have those substats. The match chip (`Any Substat` / `All Substats` / `Per Substat`) decides whether at least one, all, or each selected substat gets its own quota. Leave it empty to allow any substat.
