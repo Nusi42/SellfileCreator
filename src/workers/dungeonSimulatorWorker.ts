@@ -38,6 +38,7 @@ const runSimulation = async (message: Extract<DungeonSimulatorWorkerRequest, { k
       rules: payload.rules,
       substatTargets: payload.substatTargets,
       runs: payload.runs,
+      ...(payload.mode ? { mode: payload.mode } : {}),
       ...(payload.boosts ? { boosts: payload.boosts } : {}),
       ...(payload.selections ? { selections: payload.selections } : {}),
     })
@@ -45,6 +46,7 @@ const runSimulation = async (message: Extract<DungeonSimulatorWorkerRequest, { k
   if (canReuse) {
     session.resetDungeons({
       dungeonIds: dirtyDungeons,
+      ...(payload.mode ? { mode: payload.mode } : {}),
       ...(payload.selections ? { selections: payload.selections } : {}),
       ...(payload.boosts ? { boosts: payload.boosts } : {}),
     })

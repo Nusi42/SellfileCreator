@@ -9,6 +9,8 @@ import {
   DUNGEON_BOOSTABLE_IDS,
   DUNGEON_IDS,
   EVENT_SPOTLIGHT_DEFAULT,
+  DUNGEON_SIM_MODE_DEFAULT,
+  DUNGEON_SIM_MODES,
   normalizeDungeonBoostSelection,
   normalizeDungeonStageSelection,
   resolveDungeonBoostDefault,
@@ -16,6 +18,7 @@ import {
   type DungeonBoostableId,
   type DungeonBoostSelection,
   type DungeonId,
+  type DungeonSimMode,
   type DungeonStageSelection,
   type EventSpotlightSelection,
 } from '../lib/dungeonSimulator'
@@ -59,6 +62,8 @@ export type DungeonSimulatorPreferences = {
   stages: Record<DungeonId, DungeonStageSelection>
   // Current event spotlight set.
   eventSpotlight: EventSpotlightSelection
+  // Simulation mode (snapshot vs level-up).
+  simMode: DungeonSimMode
   // Boosted set selection per boostable dungeon.
   boosts: Record<DungeonBoostableId, DungeonBoostSelection>
   // Collapsed state per dungeon table.
@@ -82,6 +87,11 @@ export const sanitizeStageSelection = (
 // Normalize any stored spotlight selection to the supported union.
 export const sanitizeEventSpotlight = (raw: unknown): EventSpotlightSelection => (
   raw === 'pinpoint' ? 'pinpoint' : 'chronophage'
+)
+
+// Normalize stored simulation mode to the supported union.
+const sanitizeSimMode = (raw: unknown): DungeonSimMode => (
+  DUNGEON_SIM_MODES.includes(raw as DungeonSimMode) ? (raw as DungeonSimMode) : DUNGEON_SIM_MODE_DEFAULT
 )
 
 // Normalize stored collapsed state to a strict per-dungeon boolean map.
@@ -110,6 +120,7 @@ const sanitizePreferences = (raw: unknown): DungeonSimulatorPreferences => {
     return {
       stages: fallbackStages,
       eventSpotlight: DEFAULT_EVENT_SPOTLIGHT,
+      simMode: DUNGEON_SIM_MODE_DEFAULT,
       boosts: fallbackBoosts,
       collapsed: fallbackCollapsed,
     }
@@ -144,6 +155,7 @@ const sanitizePreferences = (raw: unknown): DungeonSimulatorPreferences => {
   return {
     stages: normalizedStages,
     eventSpotlight: sanitizeEventSpotlight(candidate.eventSpotlight),
+    simMode: sanitizeSimMode(candidate.simMode),
     boosts: normalizedBoosts,
     collapsed: sanitizeCollapsedMap(candidate.collapsed ?? fallbackCollapsed),
   }

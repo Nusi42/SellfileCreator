@@ -15,6 +15,9 @@ The Logic Hub now includes a **Dungeon Drops** tab that simulates dungeon farmin
 - Worker fallback (no worker support) uses **500** runs per dungeon to keep the UI responsive.
 - Simulation runs in a worker and streams updates every **250** runs (throttled to at most once per second).
 - Levels evaluated: **+0 / +4 / +8 / +12 / +16**.
+- Simulation mode is persisted:
+- Level-up (default) stops rolling after the first failed keep check.
+- Snapshot keeps rolling items through +16 even if they would be sold earlier.
 - Stage selection is per dungeon and persisted in localStorage.
 - Standard dungeons allow Normal **1–25** / Hard **1–10** (default **Hard 10**).
 - Event dungeon allows Normal **1–30** only (default **Normal 30**).
@@ -48,6 +51,7 @@ The Logic Hub now includes a **Dungeon Drops** tab that simulates dungeon farmin
 
 - Each simulated item is evaluated against the merged HSF rules (including Final Sell + Keep Uniques).
 - A cell’s keep percentage reflects **kept items / total simulated drops** for that dungeon stage.
-- Collapsed tables show the **kept at any level** share (kept at least once across +0/+4/+8/+12/+16).
+- Collapsed tables show the **+16 keep** share (kept at +16, as a share of all drops).
+- In Level-up mode, items that fail a milestone are not rolled further; detailed stats only include items that reached the queried level.
 - The popover breakdown renders a 3×3 slot grid with per-main-stat percentages (share of all drops for that cell).
 - Clicking a slot+main row opens a nested popover where you pick explicit substats and see ≥1/2/3/4 presence, ≥1/2/3/4 roll counts, and runs-needed estimates (computed from the cached simulation run data).
