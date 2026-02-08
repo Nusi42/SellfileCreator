@@ -19,6 +19,7 @@ The technical reference is now split across focused documents. Start here, then 
 - [Tutorial and Onboarding](technical/tutorial.md) — help dialog, tutorial coach behavior, and guidance for extending scripted steps.
 - [Rules and Data](technical/rules-and-data.md) — HSFC/HSF schemas, builder roll semantics, autosave plumbing, and migration notes.
 - [Keep Uniques](technical/app-behavior.md#keep-uniques) — Logic Hub layout, gear-combination detection, substat-focused protection (including weighted ranking for **Any/All Substats**), tester-grid linking (including Rule Tester card-width matching), and reset behaviors.
+- [Dungeon Simulator](technical/dungeon-simulator.md) — Logic Hub Dungeon Drops tab, drop-table assumptions, stat generation, and keep evaluation rules.
 - [Locked roll constraints](technical/app-behavior.md#builder-outputs-and-normalization) — how `lockedMinRequiredRolls` impacts aggregate targets so locked selections can demand their own roll floors alongside the global sum.
 - [Gear Database Import](technical/gear-db-import.md) — reverse-engineering the RSL Helper SQLite dump, mapping it into the Rule Tester, and documenting endpoint diff toasts/history.
 - [WebSocket Protocol (JSON-RPC)](technical/websocket-jsonrpc.md) — formal JSON-RPC 2.0 message shapes, request/response flow, and push notifications.

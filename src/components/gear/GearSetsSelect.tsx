@@ -51,6 +51,8 @@ type GearSetsSelectProps = {
   anyLabel?: string
   includeNoSet?: boolean
   disabledSetIds?: number[]
+  singleSelect?: boolean
+  minWidthPx?: number
 }
 
 export default function GearSetsSelect({
@@ -69,6 +71,8 @@ export default function GearSetsSelect({
   anyLabel,
   includeNoSet = false,
   disabledSetIds,
+  singleSelect = false,
+  minWidthPx,
 }: GearSetsSelectProps) {
   const { t, lang } = useI18n()
   // Keep the placeholder explicit when callers want "Any Set" instead of "Any".
@@ -83,7 +87,8 @@ export default function GearSetsSelect({
   const setsMenuListRef = useRef<HTMLUListElement | null>(null)
   const metasetsMenuListRef = useRef<HTMLUListElement | null>(null)
   const selectContainerRef = useRef<HTMLDivElement | null>(null)
-  const allowMetasets = showMetasets && Boolean(onChangeMetasetIds)
+  // Single-select mode intentionally disables metaset selection.
+  const allowMetasets = !singleSelect && showMetasets && Boolean(onChangeMetasetIds)
   const allowedSetFilter = useMemo(() => (
     allowedSetIds ? new Set(allowedSetIds.map(Number)) : null
   ), [allowedSetIds])
@@ -174,12 +179,29 @@ export default function GearSetsSelect({
     const tokens = Array.isArray(e.target.value) ? e.target.value : []
     // Extract explicit set ids from tokens.
     const setIds = tokens.filter((token) => token.startsWith('s:')).map((token) => Number(token.slice(2)) as ArtifactSetId)
+    // Single-select mode keeps only the most recently added set.
+    const prevIncluded = splitSelections.included.map(Number)
+    const nextSetIds = singleSelect
+      ? (() => {
+        // Detect the newly added set to preserve user intent.
+        const nextUnique = Array.from(new Set(setIds))
+        const prev = new Set(prevIncluded)
+        const added = nextUnique.find((id) => !prev.has(id))
+        if (added != null) return [added as ArtifactSetId]
+        // If nothing was added, keep the remaining selection (or empty).
+        return nextUnique.length > 0 ? [nextUnique[0] as ArtifactSetId] : []
+      })()
+      : setIds
     // Resolve metaset ordering when enabled.
-    const metaIds = allowMetasets ? orderMetasetIds(tokens.filter((token) => token.startsWith('m:')).map((token) => token.slice(2)), orderBasis) : []
+    const metaIds = allowMetasets
+      ? orderMetasetIds(tokens.filter((token) => token.startsWith('m:')).map((token) => token.slice(2)), orderBasis)
+      : []
     // Deduplicate the explicit includes for stable output.
-    const normalizedSets = Array.from(new Set(setIds.map((id) => Number(id)))).sort((a, b) => a - b).map((id) => id as ArtifactSetId)
+    const normalizedSets = Array.from(new Set(nextSetIds.map((id) => Number(id)))).sort((a, b) => a - b).map((id) => id as ArtifactSetId)
     // Preserve existing exclusions unless the user explicitly re-includes them.
-    const excluded = splitSelections.excluded.filter((id) => !normalizedSets.includes(id))
+    const excluded = singleSelect
+      ? []
+      : splitSelections.excluded.filter((id) => !normalizedSets.includes(id))
     // Merge the included and excluded selections into a single entry list.
     const nextSelections = normalizeArtifactSetSelections([
       ...normalizedSets.map((id) => ({ id })),
@@ -190,7 +212,7 @@ export default function GearSetsSelect({
     if (allowMetasets && onChangeMetasetIds) {
       onChangeMetasetIds(metaIds)
     }
-  }, [allowMetasets, onChange, onChangeMetasetIds, orderBasis, splitSelections.excluded])
+  }, [allowMetasets, onChange, onChangeMetasetIds, orderBasis, singleSelect, splitSelections.excluded, splitSelections.included])
 
   const scrollSetsMenuToSelected = useCallback((orderOverride?: 'game' | 'az' | 'icons', opts?: { force?: boolean }) => {
     void gearSetCatalogVersion
@@ -443,7 +465,14 @@ export default function GearSetsSelect({
   }, [allowMetasets, onChange, onChangeMetasetIds])
 
   return (
-    <Box ref={selectContainerRef} sx={{ position: 'relative', ...(disabled ? { pointerEvents: 'none', opacity: 0.6 } : {}) }}>
+    <Box
+      ref={selectContainerRef}
+      sx={{
+        position: 'relative',
+        ...(minWidthPx ? { minWidth: minWidthPx } : {}),
+        ...(disabled ? { pointerEvents: 'none', opacity: 0.6 } : {}),
+      }}
+    >
       <Select
         multiple
         size={size}

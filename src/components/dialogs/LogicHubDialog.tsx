@@ -14,6 +14,7 @@ import {
   FINAL_SELL_LEVEL_CHOICES,
   LOGIC_HUB_DIALOG_TAB_FINAL_SELL,
   LOGIC_HUB_DIALOG_TAB_GEAR,
+  LOGIC_HUB_DIALOG_TAB_DUNGEON,
   LOGIC_HUB_DIALOG_TAB_KEEP_UNIQUES,
   LOGIC_HUB_DIALOG_TABS,
   finalSellCoversFullLevelRange,
@@ -28,11 +29,14 @@ import type { RuleTesterItem } from '../../lib/ruleTesterSession'
 import type { TesterPreviewMatch, TesterPreviewRow } from '../../types/testerPreview'
 import { GearTesterTabContent, type GearTesterTabLayoutSlots } from './GearTesterTabContent'
 import KeepUniquesTab from './KeepUniquesTab'
+import DungeonSimulatorTab from './DungeonSimulatorTab'
 // MarkdownTooltip keeps the level-hint copy behavior aligned with the rest of the app.
 import MarkdownTooltip from '../MarkdownTooltip'
 import type { Metaset } from '../../lib/metasets'
 import { reserveScrollbarGutterSpace } from '../../lib/scrollbar'
 import type { EmptyStateMessageProps } from '../EmptyStateMessage'
+import type { HsfRuleWithCfg } from '../../lib/merge'
+import type { SubstatTargetTable } from '../../lib/hsfBuilder/types'
 
 
 type LogicHubDialogProps = {
@@ -70,6 +74,8 @@ type LogicHubDialogProps = {
   allocTesterItemId: () => number
   testerMatches: ReadonlyMap<number, TesterPreviewMatch | null>
   onResetGearTester?: () => void
+  rules: HsfRuleWithCfg[]
+  substatTargets: SubstatTargetTable
   // Propagates the main app's layout choice so empty-state messaging stays consistent across panes.
   emptyStateVerticalAlign?: EmptyStateMessageProps['verticalAlign']
 }
@@ -110,6 +116,8 @@ export default function LogicHubDialog(props: LogicHubDialogProps) {
     allocTesterItemId,
     testerMatches,
     onResetGearTester,
+    rules,
+    substatTargets,
     emptyStateVerticalAlign = 'center',
   } = props
   const { t } = useI18n()
@@ -150,6 +158,7 @@ export default function LogicHubDialog(props: LogicHubDialogProps) {
   const showFinalSellTab = normalizedTab === LOGIC_HUB_DIALOG_TAB_FINAL_SELL
   const showGearTab = normalizedTab === LOGIC_HUB_DIALOG_TAB_GEAR
   const showKeepUniquesTab = normalizedTab === LOGIC_HUB_DIALOG_TAB_KEEP_UNIQUES
+  const showDungeonTab = normalizedTab === LOGIC_HUB_DIALOG_TAB_DUNGEON
   // The reset affordance still sits in the Dialog actions, but Keep Uniques routes through a confirm prompt.
   const showResetButton = showFinalSellTab
     ? Boolean(onReset)
@@ -241,6 +250,7 @@ export default function LogicHubDialog(props: LogicHubDialogProps) {
                 data-tour-id="keepuniques.tab"
               />
               <Tab value={LOGIC_HUB_DIALOG_TAB_GEAR} label={t('tabFinalSellGear')} />
+              <Tab value={LOGIC_HUB_DIALOG_TAB_DUNGEON} label={t('tabDungeonDrops')} />
             </Tabs>
           </Stack>
         </Box>
@@ -524,6 +534,15 @@ export default function LogicHubDialog(props: LogicHubDialogProps) {
             onJumpToRule={onJumpToRule}
             suppressMatchDetails={suppressMatchDetails}
             workloadProgressRatio={workloadProgressRatio}
+          />
+        )}
+        {showDungeonTab && (
+          // Dungeon sim uses the merged rule list + substat targets for current keep logic.
+          <DungeonSimulatorTab
+            rules={rules}
+            substatTargets={substatTargets}
+            substatColors={substatColors}
+            useStatButtonColors={useStatButtonColors}
           />
         )}
       </DialogContent>
