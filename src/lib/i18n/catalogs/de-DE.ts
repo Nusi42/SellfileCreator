@@ -214,9 +214,9 @@ const overrides: Catalog = {
   // Dungeon Drops tab label and intro copy.
   tabDungeonDrops: 'Dungeon-Beute',
   dungeonDropsIntro: 'Simuliere Dungeon-Drops mit deinen aktuellen Sellfile-Regeln (HSF), um zu schätzen, wie viel Ausrüstung pro Set und Stufenmeilenstein behalten wird.',
-  dungeonDropsExplanation: 'Jeder Lauf simuliert einen Dungeon-Drop anhand der Drop-Tabellen der gewählten Stufe (Rang, Seltenheit, Slot und Set). Prozentsätze sind behaltene Drops geteilt durch alle Drops dieser Stufe; geboostete Sets ändern nur die Set-Gewichte.',
+  dungeonDropsExplanation: 'Tabellen-Prozente sind behaltene Drops geteilt durch alle Drops dieser Stufe; geboostete Sets ändern nur die Set-Gewichte.',
   // Simulation roll assumptions and run count.
-  dungeonDropsRollNote: 'Substat-Werte verwenden Mindestwürfe für die Sternenstufe des Gegenstands; jeder Aufwertungswurf fügt einen weiteren Mindestwurf hinzu (konservative Schätzung).',
+  dungeonDropsRollNote: 'Substat-Werte verwenden Mindestwürfe für die Sternenstufe des Gegenstands; jede Aufwertung fügt einen weiteren Mindestwurf hinzu (konservative Schätzung).',
   dungeonDropsRunNote: 'Durchläufe pro Dungeon-Stufe: {runs}.',
   // Simulation mode labels.
   dungeonDropsModeLabel: 'Simulationsmodus:',
@@ -236,7 +236,6 @@ const overrides: Catalog = {
   dungeonDropsInfoHowLine2: 'Derselbe Gegenstand wird bei +4 / +8 / +12 / +16 weitergewürfelt.',
   // How-it-works steps for mode behavior and roll floors.
   dungeonDropsInfoHowLine3: 'Der Modus Momentaufnahme würfelt weiter, selbst wenn eine Stufe verkauft würde; der Modus Aufwertung stoppt nach dem ersten Verkauf.',
-  dungeonDropsInfoHowLine4: 'Substat-Werte verwenden Mindestwürfe für die Sternenstufe (konservativ).',
   // Why +16 can exceed +12.
   dungeonDropsInfoWhyTitle: 'Warum kann +16 höher sein als +12?',
   dungeonDropsInfoWhyLine: 'Manche Regeln bestehen erst nach dem letzten Wurf bei +16.',

@@ -214,7 +214,7 @@ const overrides: Catalog = {
   // Dungeon Drops tab label and intro copy.
   tabDungeonDrops: 'Butin de donjon',
   dungeonDropsIntro: 'Simulez les butins de donjon avec vos règles Sellfile actuelles (HSF) pour estimer la quantité d\'équipement conservée par set et par palier de niveau.',
-  dungeonDropsExplanation: 'Chaque passage simule un drop de donjon en utilisant les tables de butin du palier sélectionné (rang, rareté, emplacement et set). Les pourcentages correspondent aux drops conservés divisés par tous les drops de ce palier ; les sets boostés ne modifient que les pondérations des sets.',
+  dungeonDropsExplanation: 'Les pourcentages du tableau sont les drops conservés divisés par tous les drops de cette étape; les sets boostés ne changent que les poids de set.',
   // Simulation roll assumptions and run count.
   dungeonDropsRollNote: 'Les valeurs de sous-stats utilisent les jets minimums pour le rang d\'étoiles de l\'objet ; chaque jet d\'amélioration ajoute un autre jet minimum (estimation prudente).',
   dungeonDropsRunNote: 'Passages par palier de donjon : {runs}.',
@@ -236,7 +236,6 @@ const overrides: Catalog = {
   dungeonDropsInfoHowLine2: 'Le même objet est re-jeté à +4 / +8 / +12 / +16.',
   // How-it-works steps for mode behavior and roll floors.
   dungeonDropsInfoHowLine3: 'Le mode Instantané continue même si un niveau serait vendu ; le mode Montée de niveau s\'arrête après la première vente.',
-  dungeonDropsInfoHowLine4: 'Les valeurs de sous-stats utilisent des jets minimums pour le rang d\'étoiles (estimation prudente).',
   // Why +16 can exceed +12.
   dungeonDropsInfoWhyTitle: 'Pourquoi +16 peut-il être supérieur à +12 ?',
   dungeonDropsInfoWhyLine: 'Certaines règles ne passent qu\'après le dernier jet à +16.',

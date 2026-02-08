@@ -396,6 +396,8 @@ export default function DungeonSimulatorTab(props: DungeonSimulatorTabProps) {
     return (
       <Stack spacing={1} sx={{ minWidth: 240 }}>
         <Typography variant="subtitle2">{t('dungeonDropsSubstatGenericTitle')}</Typography>
+        {/* Separator keeps the chance section visually distinct. */}
+        <Divider />
         <Stack spacing={0.35}>
           {/* Chance section shows per-run vs within-slot+main odds. */}
           <Typography variant="caption" color="text.secondary">
@@ -431,6 +433,8 @@ export default function DungeonSimulatorTab(props: DungeonSimulatorTabProps) {
             ))}
           </Box>
         </Stack>
+        {/* Separator keeps the runs section visually distinct. */}
+        <Divider />
         <Stack spacing={0.35}>
           {/* Runs section maps target probabilities across 2/3/4 specific substat sets. */}
           <Typography variant="caption" color="text.secondary">
@@ -549,12 +553,6 @@ export default function DungeonSimulatorTab(props: DungeonSimulatorTabProps) {
               {t('dungeonDropsIntro')}
             </Typography>
             <Typography variant="caption" color="text.secondary">
-              {t('dungeonDropsExplanation')}
-            </Typography>
-            <Typography variant="caption" color="text.secondary">
-              {t('dungeonDropsRollNote')}
-            </Typography>
-            <Typography variant="caption" color="text.secondary">
               {t('dungeonDropsRunNote', { runs: runProgressLabel })}
             </Typography>
             <Stack direction="row" spacing={1} alignItems="center">
@@ -590,8 +588,12 @@ export default function DungeonSimulatorTab(props: DungeonSimulatorTabProps) {
                     <Typography component="li" variant="caption">
                       {t('dungeonDropsInfoHowLine3')}
                     </Typography>
+                    {/* Percentage math + roll floor notes live inside the how-it-works tooltip. */}
                     <Typography component="li" variant="caption">
-                      {t('dungeonDropsInfoHowLine4')}
+                      {t('dungeonDropsExplanation')}
+                    </Typography>
+                    <Typography component="li" variant="caption">
+                      {t('dungeonDropsRollNote')}
                     </Typography>
                   </Box>
                 </Box>

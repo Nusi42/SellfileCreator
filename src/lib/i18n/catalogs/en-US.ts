@@ -215,9 +215,9 @@ const enUS: Catalog = {
   // Dungeon Drops tab label and intro copy.
   tabDungeonDrops: 'Dungeon Drops',
   dungeonDropsIntro: 'Simulate dungeon drops using your current Sellfile rules (HSF) to estimate how much gear is kept per set and level milestone.',
-  dungeonDropsExplanation: 'Each run simulates one dungeon drop using the selected stage\'s drop tables (rank, rarity, slot, and set). Percentages are kept drops divided by all drops for that stage; boosted sets only change set weights.',
+  dungeonDropsExplanation: 'Table percentages are kept drops divided by all drops for that stage; boosted sets only change set weights.',
   // Simulation roll assumptions and run count.
-  dungeonDropsRollNote: 'Substat values use minimum rolls for the item\'s star rank; each upgrade roll adds another minimum roll (a conservative estimate).',
+  dungeonDropsRollNote: 'Substat values use minimum rolls for the item\'s star rank; each upgrade adds another minimum roll (conservative estimate).',
   dungeonDropsRunNote: 'Runs per dungeon stage: {runs}.',
   // Simulation mode labels.
   dungeonDropsModeLabel: 'Simulation mode:',
@@ -237,7 +237,6 @@ const enUS: Catalog = {
   dungeonDropsInfoHowLine2: 'The same item is rolled forward at +4 / +8 / +12 / +16.',
   // How-it-works steps for mode behavior and roll floors.
   dungeonDropsInfoHowLine3: 'Snapshot mode keeps rolling even if a level would be sold; Level-up mode stops after the first sell.',
-  dungeonDropsInfoHowLine4: 'Substat values use minimum rolls for the star rank (conservative).',
   // Why +16 can exceed +12.
   dungeonDropsInfoWhyTitle: 'Why can +16 be higher than +12?',
   dungeonDropsInfoWhyLine: 'Some rules only pass after the last roll at +16.',

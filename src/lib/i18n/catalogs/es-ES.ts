@@ -214,7 +214,7 @@ const overrides: Catalog = {
   // Dungeon Drops tab label and intro copy.
   tabDungeonDrops: 'Botín de mazmorra',
   dungeonDropsIntro: 'Simula el botín de mazmorra usando tus reglas de Sellfile actuales (HSF) para estimar cuánto equipo se conserva por set y por hito de nivel.',
-  dungeonDropsExplanation: 'Cada ejecución simula un drop de mazmorra usando las tablas de drop de la etapa seleccionada (rango, rareza, ranura y set). Los porcentajes son drops conservados divididos por todos los drops de esa etapa; los sets potenciados solo cambian los pesos de set.',
+  dungeonDropsExplanation: 'Los porcentajes son drops conservados divididos por todos los drops de esa etapa; los sets potenciados solo cambian los pesos de set.',
   // Simulation roll assumptions and run count.
   dungeonDropsRollNote: 'Los valores de substats usan tiradas mínimas para el rango de estrellas del objeto; cada tirada de mejora añade otra tirada mínima (estimación conservadora).',
   dungeonDropsRunNote: 'Ejecuciones por etapa de mazmorra: {runs}.',
@@ -236,7 +236,6 @@ const overrides: Catalog = {
   dungeonDropsInfoHowLine2: 'El mismo objeto se vuelve a tirar en +4 / +8 / +12 / +16.',
   // How-it-works steps for mode behavior and roll floors.
   dungeonDropsInfoHowLine3: 'El modo Instantánea sigue tirando incluso si un nivel se vendería; el modo Subida de nivel se detiene después de la primera venta.',
-  dungeonDropsInfoHowLine4: 'Los valores de substats usan tiradas mínimas para el rango de estrellas (conservador).',
   // Why +16 can exceed +12.
   dungeonDropsInfoWhyTitle: '¿Por qué +16 puede ser mayor que +12?',
   dungeonDropsInfoWhyLine: 'Algunas reglas solo pasan después de la última tirada en +16.',

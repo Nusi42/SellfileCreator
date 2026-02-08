@@ -214,7 +214,7 @@ const catalog: Catalog = {
   // Dungeon Drops tab label and intro copy.
   tabDungeonDrops: 'Drops de masmorra',
   dungeonDropsIntro: 'Simule drops de masmorra usando suas regras atuais do Sellfile (HSF) para estimar quanto equipamento é mantido por conjunto e marco de nível.',
-  dungeonDropsExplanation: 'Cada execução simula um drop de masmorra usando as tabelas de drop do estágio selecionado (rank, raridade, slot e conjunto). As porcentagens são drops mantidos divididos por todos os drops desse estágio; conjuntos com boost só alteram os pesos dos conjuntos.',
+  dungeonDropsExplanation: 'Os percentuais da tabela são drops mantidos divididos por todos os drops daquela etapa; sets impulsionados só mudam os pesos do set.',
   // Simulation roll assumptions and run count.
   dungeonDropsRollNote: 'Os valores de substats usam rolagens mínimas para o rank de estrelas do item; cada rolagem de upgrade adiciona outra rolagem mínima (estimativa conservadora).',
   dungeonDropsRunNote: 'Execuções por estágio da masmorra: {runs}.',
@@ -236,7 +236,6 @@ const catalog: Catalog = {
   dungeonDropsInfoHowLine2: 'O mesmo item é rolado novamente em +4 / +8 / +12 / +16.',
   // How-it-works steps for mode behavior and roll floors.
   dungeonDropsInfoHowLine3: 'O modo Instantâneo continua rolando mesmo se um nível seria vendido; o modo Subida de nível para após a primeira venda.',
-  dungeonDropsInfoHowLine4: 'Os valores de substats usam rolagens mínimas para o rank de estrelas (conservador).',
   // Why +16 can exceed +12.
   dungeonDropsInfoWhyTitle: 'Por que +16 pode ser maior que +12?',
   dungeonDropsInfoWhyLine: 'Algumas regras só passam após a última rolagem em +16.',

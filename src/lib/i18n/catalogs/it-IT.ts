@@ -214,7 +214,7 @@ const overrides: Catalog = {
   // Dungeon Drops tab label and intro copy.
   tabDungeonDrops: 'Drop dei dungeon',
   dungeonDropsIntro: 'Simula i drop dei dungeon usando le tue regole Sellfile attuali (HSF) per stimare quanto equipaggiamento viene tenuto per set e traguardo di livello.',
-  dungeonDropsExplanation: 'Ogni esecuzione simula un drop di dungeon usando le tabelle drop della fase selezionata (grado, rarità, slot e set). Le percentuali sono i drop tenuti divisi per tutti i drop di quella fase; i set potenziati cambiano solo i pesi dei set.',
+  dungeonDropsExplanation: 'Le percentuali della tabella sono i drop tenuti divisi per tutti i drop di quella fase; i set potenziati cambiano solo i pesi dei set.',
   // Simulation roll assumptions and run count.
   dungeonDropsRollNote: 'I valori delle substat usano i tiri minimi per il rango di stelle dell\'oggetto; ogni tiro di potenziamento aggiunge un altro tiro minimo (stima prudente).',
   dungeonDropsRunNote: 'Esecuzioni per fase del dungeon: {runs}.',
@@ -236,7 +236,6 @@ const overrides: Catalog = {
   dungeonDropsInfoHowLine2: 'Lo stesso oggetto viene rilanciato a +4 / +8 / +12 / +16.',
   // How-it-works steps for mode behavior and roll floors.
   dungeonDropsInfoHowLine3: 'La modalità Istantanea continua a tirare anche se un livello sarebbe venduto; la modalità Livellamento si ferma dopo la prima vendita.',
-  dungeonDropsInfoHowLine4: 'I valori delle substat usano tiri minimi per il rango di stelle (stima prudente).',
   // Why +16 can exceed +12.
   dungeonDropsInfoWhyTitle: 'Perché +16 può essere più alto di +12?',
   dungeonDropsInfoWhyLine: 'Alcune regole superano solo dopo l\'ultimo tiro a +16.',
