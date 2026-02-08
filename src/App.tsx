@@ -95,9 +95,9 @@ import {
   resolveKeepUniqueRulesWithMetasets,
   hashKeepUniqueCombination,
   resolveKeepUniqueRuleLabel,
-  normalizeKeepUniqueSubstatRequirement,
+  normalizeKeepUniqueSubstatMatch,
   sanitizeKeepUniqueCountMode,
-  KeepUniqueSubstatRequirement,
+  KeepUniqueSubstatMatch,
   KeepUniqueRuleActivation,
 } from './lib/keepUniques'
 import { fingerprintConfigForRules, fingerprintSubstatTargets, updateConfigRulesCache } from './lib/ruleCache'
@@ -498,16 +498,15 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         mode.perFaction ? 1 : 0,
         mode.perMainStat ? 1 : 0,
       ].join('')
-      // Track whether a substat selection exists so requirement defaults match the UI.
+      // Track whether a substat selection exists so match defaults stay aligned.
       const hasSubstatSelection = Array.isArray(rule.substats) && rule.substats.length > 0
       const substats = hasSubstatSelection ? rule.substats.map(Number).sort((a, b) => a - b).join(',') : ''
-      const substatMode = rule.substatMode ?? 'unranked'
-      // Normalize requirement only when substats are active to avoid churn.
-      const substatRequirement = hasSubstatSelection
-        ? normalizeKeepUniqueSubstatRequirement(rule.substatRequirement)
-        : KeepUniqueSubstatRequirement.Any
+      // Normalize match only when substats are active to avoid churn.
+      const substatMatch = hasSubstatSelection
+        ? normalizeKeepUniqueSubstatMatch(rule.substatMatch)
+        : KeepUniqueSubstatMatch.Any
       // Weights only affect the fingerprint when Per Substat is not active.
-      const weightEntries = hasSubstatSelection && substatRequirement !== KeepUniqueSubstatRequirement.PerSubstat
+      const weightEntries = hasSubstatSelection && substatMatch !== KeepUniqueSubstatMatch.PerSubstat
         ? Object.entries(rule.substatWeights ?? {})
           .map(([key, raw]) => {
             const variant = Number(key)
@@ -520,7 +519,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           .sort()
           .join(',')
         : ''
-      return `${rule.id ?? comboHash}:${activation}:${required}:${modeKey}:${comboHash}:${substatMode}:${substatRequirement}:${substats}:${weightEntries}`
+      return `${rule.id ?? comboHash}:${activation}:${required}:${modeKey}:${comboHash}:${substatMatch}:${substats}:${weightEntries}`
     }).join('|')
   }, [])
   // Combined fingerprint captures every input that affects the warmed rule cache while ignoring display-only fields.

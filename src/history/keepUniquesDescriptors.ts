@@ -7,7 +7,7 @@
 // keepUniquesDescriptors keeps keep-unique history data-only until render.
 import type { HistoryEntryDescriptor, ResolvedHistoryEntryDescriptor } from './historyDescriptorTypes'
 import type { KeepUniqueRule, KeepUniqueRuleActivation, KeepUniqueRuleCountMode } from '../lib/keepUniques'
-import { KeepUniqueSubstatRequirement, normalizeKeepUniqueSubstatRequirement } from '../lib/keepUniques'
+import { KeepUniqueSubstatMatch, normalizeKeepUniqueSubstatMatch } from '../lib/keepUniques'
 import type { Metaset } from '../lib/metasets'
 import { compareArtifactSets, compareArtifactTypes, compareVariants, factionI18nKey, statVariantI18nKey, StatVariant, STAT_VARIANTS_PRIORITY } from '../lib/types'
 import type { TranslateFn } from './builderUpdateDescriptor'
@@ -197,12 +197,12 @@ function buildKeepUniqueRuleSignature(rule: KeepUniqueRule): string {
   const mains = normalizeNumberArray(combo.mainStats).slice().sort(compareVariants)
   // Normalize factions so signatures match regardless of selection order.
   const factions = normalizeNumberArray(combo.factions).slice().sort((a, b) => a - b)
-  // Normalize substats so ranking toggles are tracked separately.
+  // Normalize substats so matching changes are tracked consistently.
   const substats = sortSubstatsForHistory(rule.substats ?? [])
-  const normalizedSubstatRequirement = normalizeKeepUniqueSubstatRequirement(rule.substatRequirement)
+  const normalizedSubstatMatch = normalizeKeepUniqueSubstatMatch(rule.substatMatch)
   // Normalize weights so edits show up even if arrays re-order.
   // Weights only affect the rule when Per Substat is not active.
-  const weightEntries = normalizedSubstatRequirement !== KeepUniqueSubstatRequirement.PerSubstat && substats.length > 0
+  const weightEntries = normalizedSubstatMatch !== KeepUniqueSubstatMatch.PerSubstat && substats.length > 0
     ? Object.entries(rule.substatWeights ?? {})
       .map(([key, raw]) => {
         const variant = Number(key)
@@ -227,8 +227,7 @@ function buildKeepUniqueRuleSignature(rule: KeepUniqueRule): string {
     mains,
     factions,
     substats,
-    substatRequirement: normalizedSubstatRequirement,
-    substatMode: rule.substatMode,
+    substatMatch: normalizedSubstatMatch,
     substatWeights: weightEntries,
   })
 }
@@ -305,11 +304,11 @@ const sortSubstatsForHistory = (values: readonly number[] | null | undefined): S
   })
 }
 
-const formatSubstatRequirement = (
-  requirement: KeepUniqueSubstatRequirement | null | undefined,
+const formatSubstatMatch = (
+  match: KeepUniqueSubstatMatch | null | undefined,
   t: TranslateFn,
 ): string => {
-  const normalized = normalizeKeepUniqueSubstatRequirement(requirement)
+  const normalized = normalizeKeepUniqueSubstatMatch(match)
   if (normalized === 'all') return t('keepUniquesSubstatRequirementAll')
   if (normalized === 'perSubstat') return t('keepUniquesSubstatRequirementPer')
   return t('keepUniquesSubstatRequirementAny')
@@ -322,9 +321,9 @@ const formatSubstatList = (rule: KeepUniqueRule, t: TranslateFn): string => {
 }
 
 const formatSubstatWeights = (rule: KeepUniqueRule, t: TranslateFn): string => {
-  const normalizedRequirement = normalizeKeepUniqueSubstatRequirement(rule.substatRequirement)
-  // Weights only surface when the requirement is not Per Substat.
-  if (normalizedRequirement === KeepUniqueSubstatRequirement.PerSubstat) return ''
+  const normalizedMatch = normalizeKeepUniqueSubstatMatch(rule.substatMatch)
+  // Weights only surface when the match is not Per Substat.
+  if (normalizedMatch === KeepUniqueSubstatMatch.PerSubstat) return ''
   const weights = rule.substatWeights ?? {}
   const entries: Array<{ variant: StatVariant; weight: number }> = []
   for (const [key, raw] of Object.entries(weights)) {
@@ -368,7 +367,7 @@ function buildKeepUniqueRuleSnapshotLines(rule: KeepUniqueRule, metasets: Metase
   // Substat filters behave like optional scope rules; keep the summary explicit.
   detailLines.push(`${t('keepUniquesSubstatLabel')}: ${formatSubstatList(rule, t)}`)
   if ((rule.substats ?? []).length > 0) {
-    detailLines.push(`${t('keepUniquesSubstatRequirementLabel')}: ${formatSubstatRequirement(rule.substatRequirement, t)}`)
+    detailLines.push(`${t('keepUniquesSubstatRequirementLabel')}: ${formatSubstatMatch(rule.substatMatch, t)}`)
     const weightSummary = formatSubstatWeights(rule, t)
     if (weightSummary) {
       detailLines.push(`${t('keepUniquesSubstatWeightsLabel')}: ${weightSummary}`)
@@ -431,8 +430,8 @@ function buildKeepUniqueRuleDiffLines(
       detailLines,
       t,
       t('keepUniquesSubstatRequirementLabel'),
-      formatSubstatRequirement(previous.substatRequirement, t),
-      formatSubstatRequirement(next.substatRequirement, t),
+      formatSubstatMatch(previous.substatMatch, t),
+      formatSubstatMatch(next.substatMatch, t),
     )
     const prevWeights = formatSubstatWeights(previous, t)
     const nextWeights = formatSubstatWeights(next, t)

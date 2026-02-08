@@ -112,35 +112,24 @@ const KEEP_UNIQUE_RULE_ACTIVATION_VALUES = new Set<KeepUniqueRuleActivation>([
   KeepUniqueRuleActivation.AnticipateGaps,
 ])
 
-// KeepUniqueSubstatMode describes whether substat scoring is applied.
-// The UI always enables ranking when any substats are selected.
-export const KeepUniqueSubstatMode = {
-  Unranked: 'unranked',
-  Ranked: 'ranked',
-} as const
-
-// eslint-disable-next-line no-redeclare -- allow constant/type pair
-export type KeepUniqueSubstatMode =
-  (typeof KeepUniqueSubstatMode)[keyof typeof KeepUniqueSubstatMode]
-
-// KeepUniqueSubstatRequirement controls how multiple picked substats are matched.
-export const KeepUniqueSubstatRequirement = {
+// KeepUniqueSubstatMatch controls how multiple picked substats are matched.
+export const KeepUniqueSubstatMatch = {
   Any: 'any',
   All: 'all',
   PerSubstat: 'perSubstat',
 } as const
 
 // eslint-disable-next-line no-redeclare -- allow constant/type pair
-export type KeepUniqueSubstatRequirement =
-  (typeof KeepUniqueSubstatRequirement)[keyof typeof KeepUniqueSubstatRequirement]
+export type KeepUniqueSubstatMatch =
+  (typeof KeepUniqueSubstatMatch)[keyof typeof KeepUniqueSubstatMatch]
 
 // Normalize to lower-case keys so case-insensitive parsing is stable.
-const KEEP_UNIQUE_SUBSTAT_REQUIREMENT_LOOKUP: Record<string, KeepUniqueSubstatRequirement> = {
+const KEEP_UNIQUE_SUBSTAT_MATCH_LOOKUP: Record<string, KeepUniqueSubstatMatch> = {
   // Canonical lower-case entries map straight through.
-  [KeepUniqueSubstatRequirement.Any]: KeepUniqueSubstatRequirement.Any,
-  [KeepUniqueSubstatRequirement.All]: KeepUniqueSubstatRequirement.All,
+  [KeepUniqueSubstatMatch.Any]: KeepUniqueSubstatMatch.Any,
+  [KeepUniqueSubstatMatch.All]: KeepUniqueSubstatMatch.All,
   // `perSubstat` lowercases to `persubstat`, so capture the normalized form.
-  [KeepUniqueSubstatRequirement.PerSubstat.toLowerCase()]: KeepUniqueSubstatRequirement.PerSubstat,
+  [KeepUniqueSubstatMatch.PerSubstat.toLowerCase()]: KeepUniqueSubstatMatch.PerSubstat,
 }
 
 // normalizeKeepUniqueActivation keeps activation parsing consistent across keep-override rules.
@@ -172,17 +161,17 @@ export const normalizeKeepUniqueActivation = (
   return KeepUniqueRuleActivation.ProtectExisting
 }
 
-// normalizeKeepUniqueSubstatRequirement keeps matching requirements stable and case-insensitive.
-export const normalizeKeepUniqueSubstatRequirement = (value: unknown): KeepUniqueSubstatRequirement => {
+// normalizeKeepUniqueSubstatMatch keeps matching choices stable and case-insensitive.
+export const normalizeKeepUniqueSubstatMatch = (value: unknown): KeepUniqueSubstatMatch => {
   if (typeof value === 'string') {
     // Lowercase the input so callers can pass legacy or mixed-case strings.
     const trimmed = value.trim().toLowerCase()
-    // Map normalized keys back to the canonical requirement values.
-    const normalized = KEEP_UNIQUE_SUBSTAT_REQUIREMENT_LOOKUP[trimmed]
+    // Map normalized keys back to the canonical match values.
+    const normalized = KEEP_UNIQUE_SUBSTAT_MATCH_LOOKUP[trimmed]
     if (normalized) return normalized
   }
-  // Default keeps existing behavior when no requirement is provided.
-  return KeepUniqueSubstatRequirement.Any
+  // Default keeps existing behavior when no match value is provided.
+  return KeepUniqueSubstatMatch.Any
 }
 
 export const isKeepUniqueRuleActive = (rule: KeepUniqueRule): boolean => (
@@ -281,8 +270,8 @@ export const cloneKeepUniqueRule = (rule: KeepUniqueRule): KeepUniqueRule => ({
   countMode: { ...rule.countMode },
   // Clone substat selections so edits don't mutate the snapshot.
   substats: [...(rule.substats ?? [])],
-  // Keep the substat requirement scalar aligned with the stored rule.
-  substatRequirement: rule.substatRequirement,
+  // Keep the substat match scalar aligned with the stored rule.
+  substatMatch: rule.substatMatch,
   // Copy weights so ranking edits are isolated.
   substatWeights: { ...(rule.substatWeights ?? {}) },
 })
@@ -302,10 +291,8 @@ export type KeepUniqueRule = {
   countMode: KeepUniqueRuleCountMode
   // Optional substat filters (empty array = any substat).
   substats: StatVariant[]
-  // Requirement for how multiple substats are matched.
-  substatRequirement: KeepUniqueSubstatRequirement
-  // Ranked mode orders by normalized substat scores; unranked counts all matches.
-  substatMode: KeepUniqueSubstatMode
+  // Match behavior for multiple selected substats.
+  substatMatch: KeepUniqueSubstatMatch
   // Per-substat weights for ranked scoring (only non-default values are stored).
   substatWeights: Partial<Record<StatVariant, number>>
 }
@@ -739,14 +726,12 @@ export function normalizeKeepUniqueRule(value: unknown): KeepUniqueRule | null {
   })()
   // Substat selection is optional; empty means "any".
   const substats = normalizeKeepUniqueSubstats(rec.substats ?? rec.substatTargets ?? rec.substat)
-  // Substat requirement defaults to "any" unless explicit data is provided.
-  const parsedSubstatRequirement = normalizeKeepUniqueSubstatRequirement(
-    ('substatRequirement' in rec ? rec.substatRequirement : undefined)
-      ?? (rec as { substatMatch?: unknown }).substatMatch,
-  )
-  const substatRequirement = substats.length > 0 ? parsedSubstatRequirement : KeepUniqueSubstatRequirement.Any
-  // Substat ranking is always enabled when any substats are selected.
-  const substatMode = substats.length > 0 ? KeepUniqueSubstatMode.Ranked : KeepUniqueSubstatMode.Unranked
+  // Substat matching defaults to "any" unless explicit data is provided.
+  const rawSubstatMatch = ('substatMatch' in rec ? rec.substatMatch : undefined)
+    // Legacy payloads stored the same values under substatRequirement.
+    ?? ('substatRequirement' in rec ? rec.substatRequirement : undefined)
+  const parsedSubstatMatch = normalizeKeepUniqueSubstatMatch(rawSubstatMatch)
+  const substatMatch = substats.length > 0 ? parsedSubstatMatch : KeepUniqueSubstatMatch.Any
   // Weighting reuses tester sort normalization (non-defaults only).
   const substatWeights = normalizeKeepUniqueSubstatWeights(rec.substatWeights ?? rec.substatWeighting)
   return {
@@ -757,8 +742,7 @@ export function normalizeKeepUniqueRule(value: unknown): KeepUniqueRule | null {
     countMode,
     name,
     substats,
-    substatRequirement,
-    substatMode,
+    substatMatch,
     substatWeights,
   }
 }
@@ -1190,15 +1174,15 @@ const countCandidateSelectedSubstats = (
   return matched
 }
 
-// candidateMatchesSubstatRequirement enforces Any/All matching against the selection.
-const candidateMatchesSubstatRequirement = (
+// candidateMatchesSubstatMatch enforces Any/All matching against the selection.
+const candidateMatchesSubstatMatch = (
   candidate: KeepUniqueCandidate,
   selectedSubstats: ReadonlySet<number> | null,
-  requirement: KeepUniqueSubstatRequirement,
+  match: KeepUniqueSubstatMatch,
 ): boolean => {
   if (!selectedSubstats || selectedSubstats.size === 0) return true
   const matched = countCandidateSelectedSubstats(candidate, selectedSubstats)
-  if (requirement === KeepUniqueSubstatRequirement.All) {
+  if (match === KeepUniqueSubstatMatch.All) {
     return matched >= selectedSubstats.size
   }
   return matched > 0
@@ -1336,18 +1320,18 @@ export function computeKeepUniqueProtection(params: KeepUniqueDetectionParams): 
     const perRuleMode = countMode.perRule
     const activation = rule.activation ?? KeepUniqueRuleActivation.ProtectExisting
     const ruleActive = enabled && activation !== KeepUniqueRuleActivation.Off
-    // Substat filters apply before counting so unranked + ranked behave consistently.
+    // Substat filters apply before counting so matching stays consistent.
     const selectedSubstats = rule.substats ?? []
     const hasSubstatFilter = selectedSubstats.length > 0
-    const normalizedSubstatRequirement = normalizeKeepUniqueSubstatRequirement(rule.substatRequirement)
-    const substatRequirement = hasSubstatFilter ? normalizedSubstatRequirement : KeepUniqueSubstatRequirement.Any
+    const normalizedSubstatMatch = normalizeKeepUniqueSubstatMatch(rule.substatMatch)
+    const substatMatch = hasSubstatFilter ? normalizedSubstatMatch : KeepUniqueSubstatMatch.Any
     // Per-substat mode ignores weights (each stat is scored independently).
-    const allowWeightsForRule = substatRequirement !== KeepUniqueSubstatRequirement.PerSubstat
+    const allowWeightsForRule = substatMatch !== KeepUniqueSubstatMatch.PerSubstat
     const requiredPerGroup = Math.max(1, Math.floor(rule.requiredCount))
 
     const buildEntryForSubstats = (
       substatVariants: readonly StatVariant[],
-      requirement: KeepUniqueSubstatRequirement,
+      match: KeepUniqueSubstatMatch,
     ): KeepUniqueDetectionEntry => {
       // Only enforce substat filters when any are selected.
       const hasSubstatFilter = substatVariants.length > 0
@@ -1361,7 +1345,7 @@ export function computeKeepUniqueProtection(params: KeepUniqueDetectionParams): 
       // Current matches split into “kept” vs “sold” so deficits consider what is already safe.
       const matching = candidates
         .filter((candidate) => artifactMatchesKeepUniqueRule(candidate.artifact, combination))
-        .filter((candidate) => candidateMatchesSubstatRequirement(candidate, selectedSet, requirement))
+        .filter((candidate) => candidateMatchesSubstatMatch(candidate, selectedSet, match))
       const placeholders: KeepUniquePlaceholderRequest[] = []
       // Carry the substat list into placeholders so per-substat gaps stay targeted.
       const placeholderSubstatVariants = hasSubstatFilter ? [...substatVariants] : null
@@ -1753,20 +1737,20 @@ export function computeKeepUniqueProtection(params: KeepUniqueDetectionParams): 
       }
     }
 
-    if (substatRequirement === KeepUniqueSubstatRequirement.PerSubstat && selectedSubstats.length > 1) {
+    if (substatMatch === KeepUniqueSubstatMatch.PerSubstat && selectedSubstats.length > 1) {
       // Split the rule into one detection pass per picked substat.
       const perSubstatEntries = selectedSubstats.map((variant) => (
-        buildEntryForSubstats([variant], KeepUniqueSubstatRequirement.Any)
+        buildEntryForSubstats([variant], KeepUniqueSubstatMatch.Any)
       ))
       entries.push(mergeSubstatEntries(perSubstatEntries))
       continue
     }
 
-    // Per-substat with a single pick collapses to the standard any-of requirement.
-    const effectiveRequirement = substatRequirement === KeepUniqueSubstatRequirement.PerSubstat
-      ? KeepUniqueSubstatRequirement.Any
-      : substatRequirement
-    entries.push(buildEntryForSubstats(selectedSubstats, effectiveRequirement))
+    // Per-substat with a single pick collapses to the standard any-of match.
+    const effectiveMatch = substatMatch === KeepUniqueSubstatMatch.PerSubstat
+      ? KeepUniqueSubstatMatch.Any
+      : substatMatch
+    entries.push(buildEntryForSubstats(selectedSubstats, effectiveMatch))
   }
 
   return { scannedAt: timestamp, entries }

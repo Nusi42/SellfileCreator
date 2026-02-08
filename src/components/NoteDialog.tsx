@@ -43,8 +43,8 @@ import {
   sanitizeKeepUniqueCountMode,
   type KeepUniqueRule,
   KeepUniqueRuleActivation,
-  KeepUniqueSubstatRequirement,
-  normalizeKeepUniqueSubstatRequirement,
+  KeepUniqueSubstatMatch,
+  normalizeKeepUniqueSubstatMatch,
 } from '../lib/keepUniques'
 import { resolveRarityLabel } from '../lib/testerPreviewFormatting'
 import { warningBadgeSx } from '../lib/badgeStyles'
@@ -2023,19 +2023,19 @@ function KeepUniqueSummaryCard({
     })
   })()
 
-  const normalizedSubstatRequirement = normalizeKeepUniqueSubstatRequirement(rule.substatRequirement)
-  const substatRequirementLabel = (() => {
-    if (normalizedSubstatRequirement === KeepUniqueSubstatRequirement.All) {
+  const normalizedSubstatMatch = normalizeKeepUniqueSubstatMatch(rule.substatMatch)
+  const substatMatchLabel = (() => {
+    if (normalizedSubstatMatch === KeepUniqueSubstatMatch.All) {
       return t('noteKeepUniqueSubstatRequirementAll')
     }
-    if (normalizedSubstatRequirement === KeepUniqueSubstatRequirement.PerSubstat) {
+    if (normalizedSubstatMatch === KeepUniqueSubstatMatch.PerSubstat) {
       return t('noteKeepUniqueSubstatRequirementPer')
     }
     return t('noteKeepUniqueSubstatRequirementAny')
   })()
 
   const substatWeightSummary = (() => {
-    if (normalizedSubstatRequirement === KeepUniqueSubstatRequirement.PerSubstat) return null
+    if (normalizedSubstatMatch === KeepUniqueSubstatMatch.PerSubstat) return null
     const weights = rule.substatWeights ?? {}
     const entries: Array<{ variant: number; weight: number }> = []
     for (const [key, raw] of Object.entries(weights)) {
@@ -2183,7 +2183,7 @@ function KeepUniqueSummaryCard({
       label: t('noteKeepUniqueSubstatRequirementLabel'),
       value: (
         <Typography variant="caption" color="text.secondary" sx={{ display: 'block', wordBreak: 'break-word' }}>
-          {substatRequirementLabel}
+          {substatMatchLabel}
         </Typography>
       ),
     })

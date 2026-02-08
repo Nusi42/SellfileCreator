@@ -47,9 +47,9 @@ import {
   type KeepUniqueDetectionSnapshot,
   type KeepUniqueDetectionEntry,
   KeepUniqueRuleActivation,
-  KeepUniqueSubstatRequirement,
+  KeepUniqueSubstatMatch,
   cloneKeepUniqueCombination,
-  normalizeKeepUniqueSubstatRequirement,
+  normalizeKeepUniqueSubstatMatch,
 } from './keepUniques'
 import { normalizeConfigName } from './ruleConfigIndex'
 import {
@@ -632,8 +632,8 @@ const buildKeepUniquePlaceholderRules = ({
   const rules: HsfRuleWithCfg[] = []
   const substatVariants = rule.substats ?? []
   const hasSubstatFilter = substatVariants.length > 0
-  const normalizedSubstatRequirement = normalizeKeepUniqueSubstatRequirement(rule.substatRequirement)
-  const substatRequirement = hasSubstatFilter ? normalizedSubstatRequirement : KeepUniqueSubstatRequirement.Any
+  const normalizedSubstatMatch = normalizeKeepUniqueSubstatMatch(rule.substatMatch)
+  const substatMatch = hasSubstatFilter ? normalizedSubstatMatch : KeepUniqueSubstatMatch.Any
   const applyKeepUniqueMeta = (
     keepRule: HsfRuleWithCfg,
     combination: KeepUniqueRule['combination'],
@@ -660,7 +660,7 @@ const buildKeepUniquePlaceholderRules = ({
     })
     // Prefer placeholder-specific substats in per-substat mode so we don't multiply placeholders.
     const placeholderSubstats = (
-      substatRequirement === KeepUniqueSubstatRequirement.PerSubstat
+      substatMatch === KeepUniqueSubstatMatch.PerSubstat
       && Array.isArray(placeholder.substatVariants)
       && placeholder.substatVariants.length > 0
         ? placeholder.substatVariants
@@ -670,7 +670,7 @@ const buildKeepUniquePlaceholderRules = ({
     const hasPlaceholderSubstatFilter = placeholderSubstats.length > 0
     for (const keepRule of baseRules) {
       if (hasPlaceholderSubstatFilter) {
-        if (substatRequirement === KeepUniqueSubstatRequirement.All) {
+        if (substatMatch === KeepUniqueSubstatMatch.All) {
           // Require every selected substat on a single placeholder rule.
           const substatRule: HsfRuleWithCfg = {
             ...keepRule,

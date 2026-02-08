@@ -43,14 +43,13 @@ import WarningAmberRoundedIcon from '@mui/icons-material/WarningAmberRounded'
 import {
   KEEP_UNIQUE_DEFAULT_COUNT_MODE,
   KeepUniqueRuleActivation,
-  KeepUniqueSubstatMode,
-  KeepUniqueSubstatRequirement,
+  KeepUniqueSubstatMatch,
   cloneKeepUniqueCombination,
   cloneKeepUniqueRule,
   createEmptyKeepUniqueCombination,
   createKeepUniqueRuleId,
   getKeepUniqueItemKey,
-  normalizeKeepUniqueSubstatRequirement,
+  normalizeKeepUniqueSubstatMatch,
   normalizeKeepUniqueRule,
   sanitizeKeepUniqueCountMode,
   type KeepUniqueDetectionEntry,
@@ -214,18 +213,15 @@ const constrainKeepUniqueSubstats = (
   })
   // Drop substats that are no longer possible for the slot/main combination.
   const filtered = sortKeepUniquesSubstats((rule.substats ?? []).filter((variant) => allowed.includes(variant)))
-  // Requirement only applies when a substat selection exists.
-  const nextRequirement = filtered.length > 0 ? rule.substatRequirement : KeepUniqueSubstatRequirement.Any
-  // Substat ranking is always enabled once any substats are selected.
-  const nextMode = filtered.length > 0 ? KeepUniqueSubstatMode.Ranked : KeepUniqueSubstatMode.Unranked
+  // Match only applies when a substat selection exists.
+  const nextMatch = filtered.length > 0 ? rule.substatMatch : KeepUniqueSubstatMatch.Any
   // Remove weight entries for substats that are no longer selected.
   const nextWeights = pruneKeepUniquesSubstatWeights(rule.substatWeights, filtered)
   // Skip rebuilding the rule if nothing changed.
   const substatsUnchanged = areArraysEqual(filtered, rule.substats ?? [])
-  const requirementUnchanged = nextRequirement === rule.substatRequirement
-  const modeUnchanged = nextMode === rule.substatMode
+  const matchUnchanged = nextMatch === rule.substatMatch
   const weightsUnchanged = areWeightMapsEqual(nextWeights, rule.substatWeights)
-  if (substatsUnchanged && requirementUnchanged && modeUnchanged && weightsUnchanged) {
+  if (substatsUnchanged && matchUnchanged && weightsUnchanged) {
     return { ...rule, combination }
   }
   // Persist the constrained selection back onto the rule.
@@ -233,8 +229,7 @@ const constrainKeepUniqueSubstats = (
     ...rule,
     combination,
     substats: filtered,
-    substatRequirement: nextRequirement,
-    substatMode: nextMode,
+    substatMatch: nextMatch,
     substatWeights: nextWeights,
   }
 }
@@ -289,7 +284,7 @@ export default function KeepUniquesTab({
   const { t } = useI18n()
   const { resolveAllowedSetPool, sanitizeCombinationForSlots } = useKeepOverrideCombinationTools(metasets)
   const theme = useTheme()
-  // Keep builder-status chip styling centralized so requirement chips match scope toggles.
+  // Keep builder-status chip styling centralized so match chips align with scope toggles.
   const builderStatusChipSx = useMemo(() => createBuilderStatusChipSx(theme), [theme])
   // Grid layout uses the same spacing units as the tester grid.
   const gridGapPx = useMemo(() => parseSpacingPx(theme.spacing(TESTER_GRID_COLUMN_GAP_UNITS)), [theme])
@@ -310,17 +305,17 @@ ${t('keepUniquesCountModeHint')}
 
 ${t('keepUniquesSubstatModeHint')}`
   ), [t])
-  // Map requirement values to localized chip labels.
-  const substatRequirementLabels = useMemo(() => ({
-    [KeepUniqueSubstatRequirement.Any]: t('keepUniquesSubstatRequirementAny'),
-    [KeepUniqueSubstatRequirement.All]: t('keepUniquesSubstatRequirementAll'),
-    [KeepUniqueSubstatRequirement.PerSubstat]: t('keepUniquesSubstatRequirementPer'),
+  // Map substat match values to localized chip labels.
+  const substatMatchLabels = useMemo(() => ({
+    [KeepUniqueSubstatMatch.Any]: t('keepUniquesSubstatRequirementAny'),
+    [KeepUniqueSubstatMatch.All]: t('keepUniquesSubstatRequirementAll'),
+    [KeepUniqueSubstatMatch.PerSubstat]: t('keepUniquesSubstatRequirementPer'),
   }), [t])
-  // Requirement options keep the chip row ordering stable.
-  const substatRequirementOptions = useMemo(() => ([
-    KeepUniqueSubstatRequirement.Any,
-    KeepUniqueSubstatRequirement.All,
-    KeepUniqueSubstatRequirement.PerSubstat,
+  // Match options keep the chip row ordering stable.
+  const substatMatchOptions = useMemo(() => ([
+    KeepUniqueSubstatMatch.Any,
+    KeepUniqueSubstatMatch.All,
+    KeepUniqueSubstatMatch.PerSubstat,
   ]), [])
   // Scope chip tooltips clarify how each toggle splits the quota.
   const keepUniqueScopeChipTooltips = useMemo(() => ({
@@ -522,8 +517,7 @@ ${t('keepUniquesSubstatModeHint')}`
       activation: KeepUniqueRuleActivation.ProtectExisting,
       countMode: { ...KEEP_UNIQUE_DEFAULT_COUNT_MODE },
       substats: [],
-      substatRequirement: KeepUniqueSubstatRequirement.Any,
-      substatMode: KeepUniqueSubstatMode.Unranked,
+      substatMatch: KeepUniqueSubstatMatch.Any,
       substatWeights: {},
     }
     mutateRules((prev) => [...prev, newRule])
@@ -835,12 +829,12 @@ ${t('keepUniquesSubstatModeHint')}`
     // Translate substat labels so badge math stays consistent with the visible text.
     const substatSelectionLabels = substatSelection.map((variant) => t(statVariantI18nKey(variant)))
     const hasSubstatSelection = substatSelection.length > 0
-    const effectiveSubstatRequirement = hasSubstatSelection
-      ? normalizeKeepUniqueSubstatRequirement(rule.substatRequirement)
-      : KeepUniqueSubstatRequirement.Any
+    const effectiveSubstatMatch = hasSubstatSelection
+      ? normalizeKeepUniqueSubstatMatch(rule.substatMatch)
+      : KeepUniqueSubstatMatch.Any
     // Weight controls apply to Any/All but stay hidden for Per Substat.
     const showSubstatWeights = hasSubstatSelection
-      && effectiveSubstatRequirement !== KeepUniqueSubstatRequirement.PerSubstat
+      && effectiveSubstatMatch !== KeepUniqueSubstatMatch.PerSubstat
     const selected = effectiveSelectedRuleId === rule.id
     const expanded = expandedRuleIds.has(rule.id)
     const selectRule = () => {
@@ -1435,8 +1429,7 @@ ${t('keepUniquesSubstatModeHint')}`
                       updateRule(rule.id, (prev) => ({
                         ...prev,
                         substats: [],
-                        substatRequirement: KeepUniqueSubstatRequirement.Any,
-                        substatMode: KeepUniqueSubstatMode.Unranked,
+                        substatMatch: KeepUniqueSubstatMatch.Any,
                         substatWeights: {},
                       }))
                     }}
@@ -1503,18 +1496,14 @@ ${t('keepUniquesSubstatModeHint')}`
                         const filtered = nextSubstats.filter((variant) => allowedSubstatOptions.includes(variant))
                         const sorted = sortKeepUniquesSubstats(filtered)
                         updateRule(rule.id, (prev) => {
-                          const nextMode = sorted.length > 0
-                            ? KeepUniqueSubstatMode.Ranked
-                            : KeepUniqueSubstatMode.Unranked
-                          const nextRequirement = sorted.length > 0
-                            ? prev.substatRequirement
-                            : KeepUniqueSubstatRequirement.Any
+                          const nextMatch = sorted.length > 0
+                            ? prev.substatMatch
+                            : KeepUniqueSubstatMatch.Any
                           const nextWeights = pruneKeepUniquesSubstatWeights(prev.substatWeights, sorted)
                           return {
                             ...prev,
                             substats: sorted,
-                            substatRequirement: nextRequirement,
-                            substatMode: nextMode,
+                            substatMatch: nextMatch,
                             substatWeights: nextWeights,
                           }
                         })
@@ -1528,10 +1517,10 @@ ${t('keepUniquesSubstatModeHint')}`
                   <Box sx={{ mb: 0.5 }}>
                     <MarkdownTooltip markdown={t('keepUniquesSubstatRequirementHint')}>
                       <Box component="span" sx={{ display: 'inline-flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
-                        {substatRequirementOptions.map((option) => {
-                          const active = effectiveSubstatRequirement === option
-                          const label = substatRequirementLabels[option]
-                            ?? substatRequirementLabels[KeepUniqueSubstatRequirement.Any]
+                        {substatMatchOptions.map((option) => {
+                          const active = effectiveSubstatMatch === option
+                          const label = substatMatchLabels[option]
+                            ?? substatMatchLabels[KeepUniqueSubstatMatch.Any]
                           return (
                             <Chip
                               key={option}
@@ -1546,8 +1535,8 @@ ${t('keepUniquesSubstatModeHint')}`
                                 event.preventDefault()
                                 event.stopPropagation()
                                 if (ruleDisabled || !hasSubstatSelection) return
-                                if (option === effectiveSubstatRequirement) return
-                                updateRule(rule.id, (prev) => ({ ...prev, substatRequirement: option }))
+                                if (option === effectiveSubstatMatch) return
+                                updateRule(rule.id, (prev) => ({ ...prev, substatMatch: option }))
                               }}
                               sx={builderStatusChipSx(active, { dimDisabled: true })}
                             />

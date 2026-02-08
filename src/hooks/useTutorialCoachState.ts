@@ -23,8 +23,7 @@ import type { useI18n } from '../lib/i18n'
 import {
   KEEP_UNIQUE_DEFAULT_COUNT_MODE,
   KeepUniqueRuleActivation,
-  KeepUniqueSubstatMode,
-  KeepUniqueSubstatRequirement,
+  KeepUniqueSubstatMatch,
   type KeepUniqueRule,
 } from '../lib/keepUniques'
 import type { RuleTesterItem } from '../lib/ruleTesterSession'
@@ -91,8 +90,7 @@ const buildTutorialKeepUniqueRules = (): KeepUniqueRule[] => [{
   countMode: { ...KEEP_UNIQUE_DEFAULT_COUNT_MODE },
   // Keep tutorial samples aligned with the classic (no substat filter) behavior.
   substats: [],
-  substatRequirement: KeepUniqueSubstatRequirement.Any,
-  substatMode: KeepUniqueSubstatMode.Ranked,
+  substatMatch: KeepUniqueSubstatMatch.Any,
   substatWeights: {},
 }]
 

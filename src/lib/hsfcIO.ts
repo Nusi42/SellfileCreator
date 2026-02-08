@@ -46,9 +46,8 @@ import {
   type FinalSellSetsMode,
 } from './logicHub'
 import {
-  KeepUniqueSubstatMode,
-  KeepUniqueSubstatRequirement,
-  normalizeKeepUniqueSubstatRequirement,
+  KeepUniqueSubstatMatch,
+  normalizeKeepUniqueSubstatMatch,
   normalizeKeepUniqueRule,
   sanitizeKeepUniqueCountMode,
   type KeepUniqueRule,
@@ -1015,8 +1014,7 @@ export type ReadableKeepUniqueRuleEntry = {
   countMode: KeepUniqueRule['countMode']
   tuple: ReadableKeepUniqueTuple
   substats?: string[]
-  substatRequirement?: string
-  substatMode?: string
+  substatMatch?: string
   substatWeights?: Record<string, number>
 }
 
@@ -1064,15 +1062,15 @@ export const buildReadableKeepUniqueRuleEntry = (rule: KeepUniqueRule): Readable
       return label && label.trim().length > 0 ? label : String(variant)
     })
     .filter((label) => Boolean(label && label.trim()))
-  // Ranking only matters when a substat selection exists.
+  // Substat matching only matters when a selection exists.
   const hasSubstatSelection = substatLabels.length > 0
-  // Normalize the requirement so "Any" stays implicit unless the user overrides it.
-  const normalizedSubstatRequirement = normalizeKeepUniqueSubstatRequirement(rule.substatRequirement)
-  const shouldSerializeRequirement = hasSubstatSelection
-    && normalizedSubstatRequirement !== KeepUniqueSubstatRequirement.Any
+  // Normalize the match so "Any" stays implicit unless the user overrides it.
+  const normalizedSubstatMatch = normalizeKeepUniqueSubstatMatch(rule.substatMatch)
+  const shouldSerializeMatch = hasSubstatSelection
+    && normalizedSubstatMatch !== KeepUniqueSubstatMatch.Any
   // Weight controls are honored for Any/All; Per Substat uses equal weighting.
   const allowSubstatWeights = hasSubstatSelection
-    && normalizedSubstatRequirement !== KeepUniqueSubstatRequirement.PerSubstat
+    && normalizedSubstatMatch !== KeepUniqueSubstatMatch.PerSubstat
   // Serialize weights by readable label, but only for selected substats.
   const substatWeights: Record<string, number> = {}
   if (allowSubstatWeights) {
@@ -1107,12 +1105,8 @@ export const buildReadableKeepUniqueRuleEntry = (rule: KeepUniqueRule): Readable
   if (trimmedName) entry.name = trimmedName
   // Capture substat filters when they are present.
   if (hasSubstatSelection) entry.substats = substatLabels
-  // Avoid writing the implicit Any requirement.
-  if (shouldSerializeRequirement) entry.substatRequirement = normalizedSubstatRequirement
-  // Only export Ranked when it is explicitly enabled.
-  if (hasSubstatSelection && rule.substatMode === KeepUniqueSubstatMode.Ranked) {
-    entry.substatMode = KeepUniqueSubstatMode.Ranked
-  }
+  // Avoid writing the implicit Any match.
+  if (shouldSerializeMatch) entry.substatMatch = normalizedSubstatMatch
   // Only emit weights when they are non-default.
   if (Object.keys(substatWeights).length > 0) entry.substatWeights = substatWeights
   return entry
@@ -1142,7 +1136,7 @@ export function buildHsfcPayload(args: {
       countMode: KeepUniqueRule['countMode']
       tuple: ReadableKeepUniqueTuple
       substats?: string[]
-      substatMode?: string
+      substatMatch?: string
       substatWeights?: Record<string, number>
     }>
     KeepUniquesEnabled: boolean
