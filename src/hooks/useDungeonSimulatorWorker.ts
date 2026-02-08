@@ -113,6 +113,27 @@ const resolveDirtyDungeons = (params: {
   return Array.from(dirty)
 }
 
+const hasIncompleteOutsideDirty = (
+  progressBySpotlight: DungeonSimSpotlightProgress | null,
+  dirtyDungeons: DungeonId[],
+  runsPerDungeon: number,
+): boolean => {
+  // Missing progress implies we should refresh all dungeons.
+  if (!progressBySpotlight) return true
+  const dirtySet = new Set(dirtyDungeons)
+  for (const spotlight of EVENT_SPOTLIGHT_OPTIONS) {
+    const progress = progressBySpotlight[spotlight]
+    if (!progress) continue
+    const expectedRuns = progress.runsPerDungeon ?? runsPerDungeon
+    for (const dungeonId of DUNGEON_IDS) {
+      if (dirtySet.has(dungeonId)) continue
+      const completed = progress.completedByDungeon?.[dungeonId] ?? 0
+      if (completed < expectedRuns) return true
+    }
+  }
+  return false
+}
+
 const resetProgressForDungeons = (
   previous: DungeonSimSpotlightProgress | null,
   dirtyDungeons: DungeonId[],
@@ -354,12 +375,13 @@ export function useDungeonSimulatorWorker(params: UseDungeonSimulatorWorkerParam
     ) => {
       // Local fallback path mirrors the worker API for consistency.
       let cancelled = false
-      // Run only the dungeons that changed when a partial reset is requested.
-      const runTargets = dirtyIds.length > 0 ? dirtyIds : undefined
       // Reset progress so the UI reflects the fallback run count.
       setProgressBySpotlight((prev) => prev ?? buildEmptyProgressBySpotlight(fallbackRuns))
       // Reuse the previous session when only a subset of dungeons changed.
       const canReuse = !shouldRunAll && dirtyIds.length > 0 && fallbackSessionRef.current
+      // Keep running all dungeons if any non-dirty entry was still incomplete.
+      const shouldRunDirtyOnly = canReuse
+        && !hasIncompleteOutsideDirty(fallbackSessionRef.current?.getProgressBySpotlight() ?? null, dirtyIds, fallbackRuns)
       const session = canReuse && fallbackSessionRef.current
         ? fallbackSessionRef.current
         : createDungeonSimSpotlightSession({
@@ -378,6 +400,8 @@ export function useDungeonSimulatorWorker(params: UseDungeonSimulatorWorkerParam
           ...(selections ? { selections } : {}),
         })
       }
+      // Run only the changed dungeons when every other table already completed.
+      const runTargets = shouldRunDirtyOnly ? dirtyIds : undefined
       // Cache the session so detail queries can reuse the same run data.
       fallbackSessionRef.current = session
       // Throttle local updates so React isn't overwhelmed.
