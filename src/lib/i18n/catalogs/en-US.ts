@@ -270,6 +270,7 @@ const enUS: Catalog = {
   dungeonDropsPopoverEmpty: 'No kept drops at this level.',
   // Generic substat tooltip text.
   dungeonDropsSubstatGenericTitle: 'Specific substat odds',
+  dungeonDropsSubstatGenericIntro: 'All numbers below are for the hovered slot + main at the selected level; per-run chances include the chance to land that slot.',
   dungeonDropsSubstatGenericChanceTitle: 'Chances',
   dungeonDropsSubstatGenericChancePerRun: 'Per run',
   dungeonDropsSubstatGenericChanceWithin: 'Within slot + main',

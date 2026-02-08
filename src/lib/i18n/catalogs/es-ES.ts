@@ -269,6 +269,7 @@ const overrides: Catalog = {
   dungeonDropsPopoverEmpty: 'No hay drops conservados en este nivel.',
   // Generic substat tooltip text.
   dungeonDropsSubstatGenericTitle: 'Probabilidades de substats específicas',
+  dungeonDropsSubstatGenericIntro: 'Todos los números abajo son para la ranura + stat principal en este nivel; las probabilidades por ejecución incluyen la chance de obtener esa ranura.',
   dungeonDropsSubstatGenericChanceTitle: 'Probabilidades',
   dungeonDropsSubstatGenericChancePerRun: 'Por ejecución',
   dungeonDropsSubstatGenericChanceWithin: 'Dentro de ranura + stat principal',

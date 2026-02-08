@@ -269,6 +269,7 @@ const overrides: Catalog = {
   dungeonDropsPopoverEmpty: 'Keine behaltenen Drops auf dieser Stufe.',
   // Generic substat tooltip text.
   dungeonDropsSubstatGenericTitle: 'Spezifische Substat-Chancen',
+  dungeonDropsSubstatGenericIntro: 'Alle Zahlen unten gelten für den ausgewählten Slot + Main auf dieser Stufe; Chancen pro Lauf enthalten auch die Slot-Chance.',
   dungeonDropsSubstatGenericChanceTitle: 'Chancen',
   dungeonDropsSubstatGenericChancePerRun: 'Pro Lauf',
   dungeonDropsSubstatGenericChanceWithin: 'Im Slot + Main',

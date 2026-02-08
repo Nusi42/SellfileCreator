@@ -269,6 +269,7 @@ const overrides: Catalog = {
   dungeonDropsPopoverEmpty: 'На цьому рівні немає збережених дропів.',
   // Generic substat tooltip text.
   dungeonDropsSubstatGenericTitle: 'Ймовірності конкретних підстатів',
+  dungeonDropsSubstatGenericIntro: 'Усі числа нижче стосуються слоту + головної стати на цьому рівні; шанси за забіг включають шанс отримати цей слот.',
   dungeonDropsSubstatGenericChanceTitle: 'Ймовірності',
   dungeonDropsSubstatGenericChancePerRun: 'За забіг',
   dungeonDropsSubstatGenericChanceWithin: 'У межах слот + головна стата',

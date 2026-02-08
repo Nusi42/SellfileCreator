@@ -394,8 +394,12 @@ export default function DungeonSimulatorTab(props: DungeonSimulatorTabProps) {
     // Convert conditional odds into per-run odds by scaling by reach rate.
     const reachRate = stats.total / totalDrops
     return (
-      <Stack spacing={1} sx={{ minWidth: 240 }}>
+      <Stack spacing={1} sx={{ minWidth: 210, maxWidth: 320 }}>
         <Typography variant="subtitle2">{t('dungeonDropsSubstatGenericTitle')}</Typography>
+        {/* Intro line explains the scope of the tooltip numbers. */}
+        <Typography variant="caption" color="text.secondary">
+          {t('dungeonDropsSubstatGenericIntro')}
+        </Typography>
         {/* Separator keeps the chance section visually distinct. */}
         <Divider />
         <Stack spacing={0.35}>
@@ -406,16 +410,25 @@ export default function DungeonSimulatorTab(props: DungeonSimulatorTabProps) {
           <Box
             sx={{
               display: 'grid',
-              gridTemplateColumns: 'minmax(0, 1fr) repeat(2, auto)',
-              columnGap: 1.25,
+              // Fixed columns keep the tooltip compact while allowing header wrap.
+              gridTemplateColumns: 'minmax(0, 1fr) repeat(2, minmax(0, 86px))',
+              columnGap: 0.75,
               rowGap: 0.4,
             }}
           >
             <Box />
-            <Typography variant="caption" color="text.secondary" sx={{ textAlign: 'right' }}>
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              sx={{ textAlign: 'right', maxWidth: 86, whiteSpace: 'normal', lineHeight: 1.1 }}
+            >
               {t('dungeonDropsSubstatGenericChancePerRun')}
             </Typography>
-            <Typography variant="caption" color="text.secondary" sx={{ textAlign: 'right' }}>
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              sx={{ textAlign: 'right', maxWidth: 86, whiteSpace: 'normal', lineHeight: 1.1 }}
+            >
               {t('dungeonDropsSubstatGenericChanceWithin')}
             </Typography>
             {SPECIFIC_SUBSTAT_COUNTS.map((count, idx) => (
@@ -443,8 +456,9 @@ export default function DungeonSimulatorTab(props: DungeonSimulatorTabProps) {
           <Box
             sx={{
               display: 'grid',
-              gridTemplateColumns: 'minmax(0, 1fr) repeat(4, auto)',
-              columnGap: 1.25,
+              // Keep numeric columns narrow so the tooltip stays within its max width.
+              gridTemplateColumns: 'minmax(0, 1fr) repeat(4, minmax(0, 60px))',
+              columnGap: 0.75,
               rowGap: 0.4,
             }}
           >
@@ -1060,7 +1074,7 @@ export default function DungeonSimulatorTab(props: DungeonSimulatorTabProps) {
                                   render={renderGenericTooltipContent(genericStats, genericLoading, detailTotalDrops)}
                                   hoverIntent="informational"
                                   placement="right"
-                                  maxWidth={360}
+                                  maxWidth={320}
                                   onOpen={() => {
                                     if (!genericQuery) return
                                     requestGenericStatsForKey(genericKey, genericQuery)

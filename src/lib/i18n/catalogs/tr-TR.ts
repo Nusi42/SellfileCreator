@@ -269,6 +269,7 @@ const overrides: Catalog = {
   dungeonDropsPopoverEmpty: 'Bu seviyede tutulan düşüş yok.',
   // Generic substat tooltip text.
   dungeonDropsSubstatGenericTitle: 'Belirli alt stat olasılıkları',
+  dungeonDropsSubstatGenericIntro: 'Aşağıdaki tüm sayılar bu seviye için slot + ana stat içindir; koşu başına şans, o slotu düşürme şansını içerir.',
   dungeonDropsSubstatGenericChanceTitle: 'Olasılıklar',
   dungeonDropsSubstatGenericChancePerRun: 'Koşu başına',
   dungeonDropsSubstatGenericChanceWithin: 'Slot + ana stat içinde',

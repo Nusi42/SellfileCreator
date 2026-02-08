@@ -269,6 +269,7 @@ const overrides: Catalog = {
   dungeonDropsPopoverEmpty: 'На этом уровне нет сохраненных дропов.',
   // Generic substat tooltip text.
   dungeonDropsSubstatGenericTitle: 'Вероятности конкретных сабстатов',
+  dungeonDropsSubstatGenericIntro: 'Все числа ниже относятся к выбранному слоту + главному стату на этом уровне; шансы за прогон включают вероятность получить этот слот.',
   dungeonDropsSubstatGenericChanceTitle: 'Вероятности',
   dungeonDropsSubstatGenericChancePerRun: 'За прогон',
   dungeonDropsSubstatGenericChanceWithin: 'В пределах слота + главный стат',

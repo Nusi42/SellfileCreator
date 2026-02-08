@@ -269,6 +269,7 @@ const catalog: Catalog = {
   dungeonDropsPopoverEmpty: 'Nenhum drop mantido neste nível.',
   // Generic substat tooltip text.
   dungeonDropsSubstatGenericTitle: 'Chances de subatributos específicos',
+  dungeonDropsSubstatGenericIntro: 'Todos os números abaixo são para o slot + stat principal neste nível; as chances por run incluem a chance de cair esse slot.',
   dungeonDropsSubstatGenericChanceTitle: 'Chances',
   dungeonDropsSubstatGenericChancePerRun: 'Por run',
   dungeonDropsSubstatGenericChanceWithin: 'Dentro de slot + stat principal',
