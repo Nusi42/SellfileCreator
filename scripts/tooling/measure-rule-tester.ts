@@ -32,7 +32,8 @@ import type { NormalizedGearArtifact } from '../../src/lib/importers/gearDbNorma
 import { evaluateMatchesByConfig } from '../../src/lib/ruleEval.js'
 import type { EvalResult } from '../../src/lib/ruleEval.js'
 import type { TesterPreviewMatch, TesterPreviewRow } from '../../src/types/testerPreview.js'
-import type { FinalSellRemainderConfig } from '../../src/lib/finalSell.js'
+// Final Sell config stays centralized in Logic Hub so tooling mirrors UI + IO types.
+import type { FinalSellRemainderConfig } from '../../src/lib/logicHub.js'
 
 type ScenarioInput = {
   hsfcPath: string
