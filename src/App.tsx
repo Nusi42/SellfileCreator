@@ -95,7 +95,9 @@ import {
   resolveKeepUniqueRulesWithMetasets,
   hashKeepUniqueCombination,
   resolveKeepUniqueRuleLabel,
+  normalizeKeepUniqueSubstatMatch,
   sanitizeKeepUniqueCountMode,
+  KeepUniqueSubstatMatch,
   KeepUniqueRuleActivation,
 } from './lib/keepUniques'
 import { fingerprintConfigForRules, fingerprintSubstatTargets, updateConfigRulesCache } from './lib/ruleCache'
@@ -259,7 +261,11 @@ import {
 import { createFinalSellChangeDescriptor, areFinalSellConfigsEqual, type FinalSellDescriptorMode } from './history/finalSellDescriptors'
 import { createNoteChangeDescriptor, normalizeNoteValue, type NoteDescriptorMode } from './history/noteDescriptors'
 import { createHsfcLoadedDescriptor, createAutosaveRestoredDescriptor, makeClipboardSourceDescriptor } from './history/bulkLoadDescriptors'
-import { createKeepUniquesEnabledChangeDescriptor, createKeepUniquesRulesChangeDescriptor } from './history/keepUniquesDescriptors'
+import {
+  createKeepUniquesEnabledChangeDescriptor,
+  createKeepUniquesRulesChangeDescriptor,
+  isKeepUniquesRuleOrderChanged,
+} from './history/keepUniquesDescriptors'
 import { buildInsertionLocation, snapshotConfigLabel } from './history/historyLabelUtils'
 import { useAutoSideBySideZoom } from './hooks/useAutoSideBySideZoom'
 import {
@@ -492,20 +498,28 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         mode.perFaction ? 1 : 0,
         mode.perMainStat ? 1 : 0,
       ].join('')
-      const substats = Array.isArray(rule.substats) ? rule.substats.map(Number).sort((a, b) => a - b).join(',') : ''
-      const substatMode = rule.substatMode ?? 'unranked'
-      const weightEntries = Object.entries(rule.substatWeights ?? {})
-        .map(([key, raw]) => {
-          const variant = Number(key)
-          if (!Number.isFinite(variant)) return null
-          const normalized = normalizeTesterSortWeight(Number(raw))
-          if (normalized === TESTER_SORT_WEIGHT_DEFAULT) return null
-          return `${variant}:${normalized.toFixed(2)}`
-        })
-        .filter((entry): entry is string => Boolean(entry))
-        .sort()
-        .join(',')
-      return `${rule.id ?? comboHash}:${activation}:${required}:${modeKey}:${comboHash}:${substatMode}:${substats}:${weightEntries}`
+      // Track whether a substat selection exists so match defaults stay aligned.
+      const hasSubstatSelection = Array.isArray(rule.substats) && rule.substats.length > 0
+      const substats = hasSubstatSelection ? rule.substats.map(Number).sort((a, b) => a - b).join(',') : ''
+      // Normalize match only when substats are active to avoid churn.
+      const substatMatch = hasSubstatSelection
+        ? normalizeKeepUniqueSubstatMatch(rule.substatMatch)
+        : KeepUniqueSubstatMatch.Any
+      // Weights only affect the fingerprint when Per Substat is not active.
+      const weightEntries = hasSubstatSelection && substatMatch !== KeepUniqueSubstatMatch.PerSubstat
+        ? Object.entries(rule.substatWeights ?? {})
+          .map(([key, raw]) => {
+            const variant = Number(key)
+            if (!Number.isFinite(variant)) return null
+            const normalized = normalizeTesterSortWeight(Number(raw))
+            if (normalized === TESTER_SORT_WEIGHT_DEFAULT) return null
+            return `${variant}:${normalized.toFixed(2)}`
+          })
+          .filter((entry): entry is string => Boolean(entry))
+          .sort()
+          .join(',')
+        : ''
+      return `${rule.id ?? comboHash}:${activation}:${required}:${modeKey}:${comboHash}:${substatMatch}:${substats}:${weightEntries}`
     }).join('|')
   }, [])
   // Combined fingerprint captures every input that affects the warmed rule cache while ignoring display-only fields.
@@ -2015,6 +2029,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     setKeepUniqueRules((prev) => {
       // Resolve the next rules list so we can diff against the previous state.
       const next = typeof value === 'function' ? (value as (p: KeepUniqueRule[]) => KeepUniqueRule[])(prev) : value
+      // Reordering keeps rule contents intact, so compare ID order explicitly.
+      const orderChanged = isKeepUniquesRuleOrderChanged(prev, next)
       // Describe the rule changes so history stays informative.
       const descriptor = createKeepUniquesRulesChangeDescriptor({
         previous: prev,
@@ -2023,9 +2039,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         mode: options?.mode ?? 'edit',
       })
       // Skip no-op updates so we do not add empty history entries.
-      if (!descriptor) return prev
+      if (!descriptor && !orderChanged) return prev
       // Allow callers to suppress history when needed.
-      if (options?.publish === false) return next
+      if (options?.publish === false || !descriptor) return next
       // Emit the descriptor so the rule edit is labeled in history.
       describeNextChange(descriptor)
       return next

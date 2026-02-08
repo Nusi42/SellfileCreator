@@ -47,7 +47,9 @@ import {
   type KeepUniqueDetectionSnapshot,
   type KeepUniqueDetectionEntry,
   KeepUniqueRuleActivation,
+  KeepUniqueSubstatMatch,
   cloneKeepUniqueCombination,
+  normalizeKeepUniqueSubstatMatch,
 } from './keepUniques'
 import { normalizeConfigName } from './ruleConfigIndex'
 import {
@@ -481,6 +483,33 @@ const buildKeepUniquePlaceholderSubstats = (variant: StatVariant): HsfRule['Subs
   return cloned
 }
 
+const buildKeepUniquePlaceholderSubstatsGroup = (variants: readonly StatVariant[]): HsfRule['Substats'] => {
+  // Start from the Any template so placeholder rules keep the HSF substat shape.
+  const cloned = cloneAnySubstats()
+  if (!variants.length) return cloned
+  const seen = new Set<number>()
+  let idx = 0
+  for (const variant of variants) {
+    if (idx >= cloned.length) break
+    const numeric = Number(variant)
+    if (!Number.isFinite(numeric) || numeric === StatVariant.Any) continue
+    if (seen.has(numeric)) continue
+    seen.add(numeric)
+    const { id, isFlat } = variantToSub(variant)
+    if (id === StatId.Any) continue
+    // Use a 1+ guard so the placeholder only matches items that actually have the substat.
+    cloned[idx] = {
+      ID: id,
+      Value: 1,
+      IsFlat: isFlat ?? true,
+      NotAvailable: false,
+      Condition: '>=',
+    }
+    idx += 1
+  }
+  return cloned
+}
+
 const dedupeSortedNumbers = (values: readonly number[]): number[] => {
   if (!values.length) return []
   const seen = new Set<number>()
@@ -603,6 +632,8 @@ const buildKeepUniquePlaceholderRules = ({
   const rules: HsfRuleWithCfg[] = []
   const substatVariants = rule.substats ?? []
   const hasSubstatFilter = substatVariants.length > 0
+  const normalizedSubstatMatch = normalizeKeepUniqueSubstatMatch(rule.substatMatch)
+  const substatMatch = hasSubstatFilter ? normalizedSubstatMatch : KeepUniqueSubstatMatch.Any
   const applyKeepUniqueMeta = (
     keepRule: HsfRuleWithCfg,
     combination: KeepUniqueRule['combination'],
@@ -627,16 +658,36 @@ const buildKeepUniquePlaceholderRules = ({
       normalizedName,
       source: RULE_SOURCE_KEEP_UNIQUES,
     })
+    // Prefer placeholder-specific substats in per-substat mode so we don't multiply placeholders.
+    const placeholderSubstats = (
+      substatMatch === KeepUniqueSubstatMatch.PerSubstat
+      && Array.isArray(placeholder.substatVariants)
+      && placeholder.substatVariants.length > 0
+        ? placeholder.substatVariants
+        : substatVariants
+    )
+    // Only emit substat-filtered placeholders when a selection exists.
+    const hasPlaceholderSubstatFilter = placeholderSubstats.length > 0
     for (const keepRule of baseRules) {
-      if (hasSubstatFilter) {
-        // Emit one placeholder per selected substat to emulate OR matching.
-        for (const variant of substatVariants) {
+      if (hasPlaceholderSubstatFilter) {
+        if (substatMatch === KeepUniqueSubstatMatch.All) {
+          // Require every selected substat on a single placeholder rule.
           const substatRule: HsfRuleWithCfg = {
             ...keepRule,
-            Substats: buildKeepUniquePlaceholderSubstats(variant),
+            Substats: buildKeepUniquePlaceholderSubstatsGroup(placeholderSubstats),
           }
           applyKeepUniqueMeta(substatRule, combination, placeholder)
           rules.push(substatRule)
+        } else {
+          // Emit one placeholder per selected substat to emulate OR matching.
+          for (const variant of placeholderSubstats) {
+            const substatRule: HsfRuleWithCfg = {
+              ...keepRule,
+              Substats: buildKeepUniquePlaceholderSubstats(variant),
+            }
+            applyKeepUniqueMeta(substatRule, combination, placeholder)
+            rules.push(substatRule)
+          }
         }
         continue
       }

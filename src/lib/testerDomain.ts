@@ -30,6 +30,24 @@ export function isAccessorySlot(slot: ArtifactTypeId): boolean {
     || numeric === ArtifactType.Banner
 }
 
+/** True when a slot selection can include accessories (ring/amulet/banner). */
+export function slotSelectionAllowsAccessories(slots?: readonly ArtifactTypeId[] | null): boolean {
+  // Empty selections map to "Any slot", which still includes accessories.
+  if (!Array.isArray(slots) || slots.length === 0) return true
+  // Treat explicit "Any slot" tokens as accessory-capable.
+  for (const slot of slots) {
+    const numeric = Number(slot)
+    // Ignore non-finite inputs so they cannot unlock accessories accidentally.
+    if (!Number.isFinite(numeric)) continue
+    // Any-slot sentinels always include accessories.
+    if (numeric === TESTER_ANY_SLOT_ID) return true
+    // Concrete accessory slots are the only valid carriers for no-set gear.
+    if (isAccessorySlot(numeric)) return true
+  }
+  // If we didn't see an accessory (or Any slot), accessories are out of scope.
+  return false
+}
+
 /**
  * Valid artifact set IDs for a tester slot. Accessories allow accessory-only
  * sets plus the "no set" sentinel, while armor limits to <1000 IDs.

@@ -1,8 +1,10 @@
-import { MenuItem, Select, Typography } from '@mui/material'
+import { Box, MenuItem, Select, Typography } from '@mui/material'
 import type { SelectChangeEvent, SelectProps } from '@mui/material/Select'
+import { alpha } from '@mui/material/styles'
 import type { SxProps, Theme } from '@mui/material/styles'
-import { useMemo } from 'react'
+import { useMemo, type ReactNode } from 'react'
 import { useI18n } from '../../lib/i18n'
+import { BUILDER_STATUS_CHIP_HEIGHT_PX, MENU_CONTROL_HEIGHT_PX, MENU_CONTROL_MIN_WIDTH_PX, STATUS_CHIP_BORDER_RADIUS_PX } from '../../lib/constants'
 import {
   DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT,
   STAT_VARIANTS_PRIORITY,
@@ -20,6 +22,14 @@ type SubstatSelectBaseProps = {
   anyLabel?: string
   colorOverrides?: Record<number, { fg?: string }>
   showBorderColors?: boolean
+  // When true, show the normalized-sort style selection column.
+  normalizedMenu?: boolean
+  // Optional override for the normalized menu control column (e.g., weight controls).
+  renderNormalizedMenuControl?: (args: {
+    variant: StatVariant
+    label: string
+    selected: boolean
+  }) => ReactNode | null
   size?: SelectProps<string>['size']
   menuProps?: SelectProps<string>['MenuProps']
   sx?: SxProps<Theme>
@@ -46,6 +56,8 @@ export function GearSubstatSelect({
   anyLabel,
   colorOverrides,
   showBorderColors = false,
+  normalizedMenu = false,
+  renderNormalizedMenuControl,
   size = 'small',
   menuProps,
   sx,
@@ -83,6 +95,8 @@ export function GearSubstatSelect({
     if (!isMulti) return []
     return Array.isArray(value) ? (value as StatVariant[]) : []
   }, [isMulti, value])
+  // Treat the sentinel option as selected when nothing is picked.
+  const anySelected = isMulti && multiValues.length === 0
   // Default the single-select to the first known variant.
   const singleValue = !isMulti ? (value as StatVariant) : (STAT_VARIANTS_PRIORITY[0] as StatVariant)
   // Convert the value to the Select-friendly string payload.
@@ -176,6 +190,73 @@ export function GearSubstatSelect({
   const selectRenderValue = isMulti
     ? (renderMultiValue ?? (() => null))
     : (() => renderSelected)
+  // Enable the normalized menu only for multi-selects.
+  const useNormalizedMenu = Boolean(normalizedMenu && isMulti)
+  const renderSelectionBadge = (selected: boolean) => (
+    <Box
+      component="span"
+      aria-hidden
+      sx={(theme) => ({
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        height: BUILDER_STATUS_CHIP_HEIGHT_PX,
+        minWidth: 34,
+        px: 0.75,
+        borderRadius: `${STATUS_CHIP_BORDER_RADIUS_PX}px`,
+        fontSize: theme.typography.pxToRem(14),
+        fontWeight: 800,
+        letterSpacing: 0.1,
+        userSelect: 'none',
+        ...(selected
+          ? {
+              border: `1px solid ${alpha(theme.palette.success.main, theme.palette.mode === 'dark' ? 0.7 : 0.55)}`,
+              backgroundColor: alpha(theme.palette.success.main, theme.palette.mode === 'dark' ? 0.16 : 0.1),
+              color: theme.palette.success.main,
+            }
+          : {
+              border: `1px solid ${alpha(theme.palette.text.secondary, theme.palette.mode === 'dark' ? 0.22 : 0.14)}`,
+              backgroundColor: 'transparent',
+            }),
+      })}
+    >
+      {selected ? '✓' : null}
+    </Box>
+  )
+  const renderNormalizedRow = (
+    label: string,
+    control: ReactNode,
+    color?: string,
+  ) => (
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%' }}>
+      <Typography
+        variant="body2"
+        sx={{
+          flex: 1,
+          minWidth: 0,
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          ...(color ? { color } : null),
+        }}
+      >
+        {label}
+      </Typography>
+      <Box
+        sx={{
+          width: MENU_CONTROL_MIN_WIDTH_PX,
+          minWidth: MENU_CONTROL_MIN_WIDTH_PX,
+          height: MENU_CONTROL_HEIGHT_PX,
+          minHeight: MENU_CONTROL_HEIGHT_PX,
+          flexShrink: 0,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        {control}
+      </Box>
+    </Box>
+  )
   return (
     <Select
       size={size}
@@ -188,16 +269,41 @@ export function GearSubstatSelect({
       sx={resolvedSx}
     >
       {isMulti ? (
-        <MenuItem value={ANY_SENTINEL}>{anyText}</MenuItem>
+        <MenuItem value={ANY_SENTINEL} selected={anySelected}>
+          {useNormalizedMenu
+            ? renderNormalizedRow(anyText, renderSelectionBadge(anySelected))
+            : anyText}
+        </MenuItem>
       ) : null}
       {normalizedOptions.map((variant) => (
-        <MenuItem
-          key={variant}
-          value={String(variant)}
-          sx={{ color: showBorderColors ? (colorOverrides?.[variant]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[variant]) : undefined }}
-        >
-          {t(statVariantI18nKey(variant))}
-        </MenuItem>
+        (() => {
+          const label = t(statVariantI18nKey(variant))
+          const selected = isMulti && multiValues.some((value) => Number(value) === Number(variant))
+          const color = showBorderColors ? (colorOverrides?.[variant]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[variant]) : undefined
+          const customControl = renderNormalizedMenuControl?.({ variant, label, selected }) ?? null
+          const normalizedControl = customControl ?? renderSelectionBadge(selected)
+          return (
+            <MenuItem
+              key={variant}
+              value={String(variant)}
+              selected={selected}
+              sx={useNormalizedMenu ? (theme) => ({
+                gap: 1,
+                alignItems: 'center',
+                ...(selected
+                  ? { backgroundColor: alpha(theme.palette.success.main, theme.palette.mode === 'dark' ? 0.12 : 0.08) }
+                  : {}),
+                '&:hover': {
+                  backgroundColor: alpha(theme.palette.success.main, theme.palette.mode === 'dark' ? 0.2 : 0.12),
+                },
+              }) : { color }}
+            >
+              {useNormalizedMenu
+                ? renderNormalizedRow(label, normalizedControl, color)
+                : label}
+            </MenuItem>
+          )
+        })()
       ))}
     </Select>
   )

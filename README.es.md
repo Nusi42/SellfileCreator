@@ -98,13 +98,13 @@ Crea, revisa y exporta reglas de venta para RSL Helper con una interfaz sencilla
 
 ### Conservar únicos
 - Haz clic en «Logic Hub» en el encabezado de la vista previa y cambia a la pestaña `Conservar únicos` para marcar las combinaciones que nunca quieres perder. Activa `Activar Conservar únicos` para que el escáner pueda añadir filas de conservación (las ediciones también lo activan automáticamente).
+- Las reglas de Conservar únicos no «consumen» objetos—cada regla evalúa el mismo conjunto de candidatos. Si una pieza coincide con varias reglas, cuenta para todas.
 - Cada regla de conservación te deja elegir ranura, sets o metasets, rangos, rarezas, stats principales y (en accesorios) facciones. Sin selección significa «cualquiera».
 - El `Modo` decide cómo se emite la regla: `Apagada` la desactiva, `Proteger lo existente` añade filas de conservación para coincidencias que se venderían hasta cumplir la cuota, y `Anticipar huecos` agrega reglas de marcador para combinaciones faltantes para que los nuevos drops sigan protegidos hasta que la BD se actualice.
-- Los substats son opcionales: elige uno o varios para contar solo los objetos que tengan al menos uno de esos substats (varios = «cualquiera de ellos»). Dejarlo vacío permite cualquier substat.
-- El `Modo de substats` define la lógica: `Sin ranking` trata todas las coincidencias por igual y conserva un subconjunto determinista hasta la cuota por grupo de ámbito, `Clasificado` puntúa con la fórmula normalizada (glifos ignorados) y conserva solo las mejores tiradas por grupo de ámbito. Los empates en el corte se mantienen.
-- Usa `Pesos` (solo en `Clasificado`) para indicar qué substats importan más: pesos altos hacen que ese stat cuente más en el ranking.
+- Los substats son opcionales: elige uno o varios para contar solo los objetos que tengan esos substats. El chip de coincidencia (`Cualquier Substat` / `Todos los Substats` / `Por Substat`) decide si basta con uno, si deben estar todos o si cada substat tiene su propia cuota. Dejarlo vacío permite cualquier substat.
+- Las substats seleccionadas siempre se clasifican con la fórmula normalizada (glifos ignorados); los pesos aparecen con `Cualquier Substat` y `Todos los Substats`, `Por Substat` usa la ponderación estándar (los empates en el corte se mantienen).
 - `≥ Cantidad necesaria` es la promesa que quieres cumplir. Los chips justo debajo de cada selector (todo salvo Rango y Rareza) comparten o duplican la cuota: `Por ranura`, `Por conjunto`, `Por facción` y `Por stat principal` se pueden combinar libremente, y al apagarlos todos la regla vuelve automáticamente a `Por regla`.
-- El contador `Hay {have} / Conservar {keep}` muestra: **Hay** = objetos coincidentes (en `Clasificado`, solo los mejores + empates), **Conservar** = la cuota tras los ámbitos. El chip se pone rojo cuando la cuota no se cumple.
+- El contador `Hay {have} / Conservar {keep}` muestra: **Hay** = objetos coincidentes (con substats seleccionados, solo los mejores + empates), **Conservar** = la cuota tras los ámbitos. El chip se pone rojo cuando la cuota no se cumple.
 - El escáner solo añade filas de conservación para coincidencias que se venderían y solo cuando la cuota no se cumple. En `Anticipar huecos`, también emite reglas de marcador para combinaciones faltantes.
 
 #### Alcances de cuota de un vistazo
@@ -127,8 +127,8 @@ Crea, revisa y exporta reglas de venta para RSL Helper con una interfaz sencilla
 | Anillos de HP% por facción | Ranura = Anillo, Stat principal = HP%, Sets en blanco | `2` | `Por facción` | Se aseguran dos anillos de HP% por facción. |
 | Accesorios básicos por facción | Tres reglas (Anillo, Amuleto, Estandarte), Sets y Stat principal en blanco | `5` | `Por facción` | Cada facción conserva cinco anillos, amuletos y estandartes. |
 | Stoneskin + Protection por facción | Ranura = Anillo/Amuleto/Estandarte, Sets = Stoneskin + Protection, Stat principal en blanco | `2` | `Por conjunto` + `Por facción` + `Por ranura` | Cada facción guarda dos piezas Stoneskin y dos Protection en cada ranura. |
-| Accesorios con más SPD | Ranura = Anillo/Amuleto/Estandarte, Substats = SPD, Modo de substats = Clasificado | `5` | `Por regla` | Conserva las cinco mejores tiradas de SPD en tus accesorios (empates incluidos). |
-| Estandartes de ACC con SPD | Ranura = Estandarte, Stat principal = ACC, Substats = SPD + ACC, Modo de substats = Clasificado, Pesos: SPD alto | `3` | `Por facción` | Cada facción guarda los mejores estandartes de ACC donde SPD pesa más. |
+| Accesorios con más SPD | Ranura = Anillo/Amuleto/Estandarte, Substats = SPD | `5` | `Por regla` | Conserva las cinco mejores tiradas de SPD en tus accesorios (empates incluidos). |
+| Estandartes de ACC con SPD | Ranura = Estandarte, Stat principal = ACC, Substats = SPD + ACC, Pesos: SPD alto | `3` | `Por facción` | Cada facción guarda los mejores estandartes de ACC donde SPD pesa más. |
 
 Consejo: Importa tu `.db` o pega equipo en el diálogo «Equipo» antes de abrir la pestaña Conservar únicos para que el escáner tenga objetos reales. Haz clic en una tarjeta de regla para resaltar coincidencias; cambia `Filtro` a `Selección` para ver solo esos objetos.
 

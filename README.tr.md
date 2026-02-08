@@ -98,13 +98,13 @@ RSL Helper için satış kurallarını basit bir arayüzle oluşturun, önizleyi
 
 ### Benzersizleri Koru
 - Önizleme başlığındaki “Logic Hub” düğmesine tıklayıp `Benzersizleri Koru` sekmesine geçin; kaybetmek istemediğiniz kombinasyonları burada işaretleyin. `Benzersizleri Koru` anahtarını açarak tarayıcının Koru satırları eklemesini sağlayın (bir kuralı düzenlemek de otomatik olarak etkinleştirir).
+- Benzersizleri Koru kuralları öğeleri “tüketmez”; her kural aynı aday havuzunu değerlendirir. Bir parça birden fazla kurala uyuyorsa hepsinde sayılır.
 - Her kural slot, set veya metaset, rank, nadirlik, ana stat ve (aksesuarlar için) fraksiyon seçmenize izin verir. Boş bırakmak “herhangi” anlamına gelir.
 - `Mod`, kuralın nasıl dışa aktarıldığını belirler: `Kapalı` kuralı devre dışı bırakır, `Var olanı koru` kotaya ulaşana kadar satılacak eşleşmeler için Koru satırları ekler, `Açıkları öngör` ise eksik kombinasyonlar için geçici Koru kuralları da üretir; böylece DB güncellenene kadar yeni düşenler korunur.
-- Alt statlar isteğe bağlıdır: bir veya birkaçını seçerek yalnızca en az birini taşıyan eşyaları sayarsınız (birden fazla = “bunlardan herhangi biri”). Boş bırakmak alt stat filtresi olmaması demektir.
-- `Alt stat modu` seçimi: `Sırasız` tüm eşleşmeleri eşit kabul eder ve kapsam grubu başına kotaya kadar deterministik bir alt küme korur, `Sıralı` ise normalize alt stat formülüyle (glifler yok sayılır) puanlar ve kapsam grubu başına en iyi rolları korur. Eşik değerinde eşitlikler korunur.
-- `Ağırlıklar` (yalnızca `Sıralı`) ile hangi alt statın daha önemli olduğunu belirtin — yüksek ağırlık o statın puanını artırır.
+- Alt statlar isteğe bağlıdır: bir veya birkaçını seçerek yalnızca bu alt statlara sahip eşyaları sayarsınız. Eşleşme çipi (`Herhangi bir Alt Stat` / `Tüm Alt Statlar` / `Alt Stat başına`) en az birinin mi, hepsinin mi gerektiğini veya her alt stat için ayrı kota uygulanacağını belirler. Boş bırakmak alt stat filtresi olmaması demektir.
+- Seçili alt statlar her zaman normalize formüle göre sıralanır (glifler yok sayılır); ağırlık kontrolleri `Herhangi bir Alt Stat` ve `Tüm Alt Statlar` ile görünür, `Alt Stat başına` eşit ağırlıkta kalır (eşik değerinde eşitlikler korunur).
 - `≥ Gerekli adet` uygulamanın size verdiği sözdür. Rank ve Nadirlik dışındaki her seçicinin altındaki kapsam çipleri (`Kural başına`, `Slot başına`, `Set başına`, `Fraksiyon başına`, `Ana stat başına`) bu kotanın nasıl paylaşıldığını belirler; hepsini kapatırsanız paylaşım otomatik olarak `Kural başına` havuzuna döner.
-- `Var {have} / Koru {keep}` sayacı şunu gösterir: **Var** = eşleşen öğeler ( `Sıralı` yalnızca en iyi rolları + eşitlikleri sayar), **Koru** = kapsamlar sonrası kota. Kota karşılanmazsa çip kırmızı olur.
+- `Var {have} / Koru {keep}` sayacı şunu gösterir: **Var** = eşleşen öğeler (seçili alt statlarla yalnızca en iyi rollar + eşitlikler sayılır), **Koru** = kapsamlar sonrası kota. Kota karşılanmazsa çip kırmızı olur.
 - Tarayıcı, yalnızca bir kuralı karşılayan ve aksi hâlde satılacak eşyalar için Koru satırları ekler; bu da yalnızca kota karşılanmadığında olur. `Açıkları öngör` modunda eksik kombinasyonlar için geçici kurallar eklenir.
 
 Kapsam çiplerini üst üste koymak kimin kendi kotasını alacağını değiştirir. Tek havuz için `Kural başına` açık bırakın; `Slot başına`, `Set başına`, `Fraksiyon başına` ve `Ana stat başına` düğmelerini katmanlayarak Slot × Set × Fraksiyon × Ana stat karışımlarını bağımsız takip edebilirsiniz.
@@ -127,8 +127,8 @@ Kapsam çiplerini üst üste koymak kimin kendi kotasını alacağını değişt
 | Fraksiyon başına HP% yüzük | Slot = Yüzük, Ana stat = HP%, Setler boş | `2` | `Fraksiyon başına` | Her fraksiyon ikişer HP% yüzük saklar. |
 | Çekirdek aksesuarlar fraksiyon başına | Üç kural (Yüzük, Muska, Sancak), Set/Ana stat boş | `5` | `Fraksiyon başına` | Her fraksiyon her aksesuar slotunda beşer parça bırakır. |
 | Stoneskin + Protection aksesuarları | Slot = Yüzük/Muska/Sancak, Set = Stoneskin + Protection, Ana stat boş | `2` | `Set başına` + `Fraksiyon başına` + `Slot başına` | Her fraksiyon her aksesuar slotu için iki Stoneskin ve iki Protection parça tutar. |
-| En hızlı SPD aksesuarları | Slot = Yüzük/Muska/Sancak, Alt statlar = SPD, Alt stat modu = Sıralı | `5` | `Kural başına` | Aksesuarlarındaki en iyi beş SPD rollarını korur (eşitlikler dahil). |
-| SPD’li ACC sancakları | Slot = Sancak, Ana stat = ACC, Alt statlar = SPD + ACC, Alt stat modu = Sıralı, Ağırlıklar: SPD daha yüksek | `3` | `Fraksiyon başına` | Her fraksiyon SPD’nin daha önemli olduğu en iyi ACC sancaklarını tutar. |
+| En hızlı SPD aksesuarları | Slot = Yüzük/Muska/Sancak, Alt statlar = SPD | `5` | `Kural başına` | Aksesuarlarındaki en iyi beş SPD rollarını korur (eşitlikler dahil). |
+| SPD’li ACC sancakları | Slot = Sancak, Ana stat = ACC, Alt statlar = SPD + ACC, Ağırlıklar: SPD daha yüksek | `3` | `Fraksiyon başına` | Her fraksiyon SPD’nin daha önemli olduğu en iyi ACC sancaklarını tutar. |
 
 İpucu: “Benzersizleri Koru” sekmesini açmadan önce `.db` içe aktarın veya Ekipman diyaloğunda eşya ekleyin ki tarayıcı gerçek veriyi görsün. Bir kural kartına tıklayın; eşleşen eşyalar vurgulanır. `Filtre`yi `Seçim`e alarak sadece bu eşleşmeleri görürsünüz.
 

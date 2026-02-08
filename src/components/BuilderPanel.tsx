@@ -57,7 +57,8 @@ import {
 } from '../lib/aggregateRollState'
 import { type Metaset, metasetGlyph, orderMetasetIds, resolveMetasetIds } from '../lib/metasets'
 import type { ArtifactSetSelectionEntry } from '../lib/gearSets/selection'
-import { normalizeArtifactSetSelections, splitArtifactSetSelections } from '../lib/gearSets/selection'
+import { buildArtifactSetSelectionKey, normalizeArtifactSetSelections, pruneAccessoryNoSetSelections, splitArtifactSetSelections } from '../lib/gearSets/selection'
+import { slotSelectionAllowsAccessories } from '../lib/testerDomain'
 
 import { Box, Button, Divider, Stack, Typography, TextField, Chip, FormControl, FormLabel, Select, MenuItem, ListSubheader, InputAdornment, Menu, Badge } from '@mui/material'
 import SetsOrderControls from './SetsOrderControls'
@@ -1122,6 +1123,29 @@ const resolveSubstatTargetEntry = React.useCallback((variant: StatVariant): Subs
       patch: nextPatch ?? undefined,
     })
   }, [cfg.artifactTypes, getSlotState, multiEdit, multiEditActive, multiSlotsField?.patch])
+  const slotSelectionForNoSet = React.useMemo(() => {
+    // Multi-edit: any non-none slot keeps accessories in scope for the union.
+    if (multiEditActive && multiSummary) {
+      const selected: number[] = []
+      for (const { id } of artifactTypeIconList) {
+        if (getSlotState(id) !== 'none') selected.push(id)
+      }
+      return selected
+    }
+    // Single-edit: empty selection means "Any slot".
+    return Array.isArray(cfg.artifactTypes) ? cfg.artifactTypes : []
+  }, [cfg.artifactTypes, getSlotState, multiEditActive, multiSummary])
+  // Accessory-only sets (like no-set) should only appear when accessories are in scope.
+  const allowNoSet = slotSelectionAllowsAccessories(slotSelectionForNoSet)
+  React.useEffect(() => {
+    // Avoid mutating multi-edit patches; only sanitize the active config.
+    if (multiEditActive) return
+    // Remove no-set when accessories are excluded by slot constraints.
+    const sanitized = pruneAccessoryNoSetSelections(cfg.artifactSets ?? [], allowNoSet)
+    // Skip writes when pruning did not change the selection payload.
+    if (buildArtifactSetSelectionKey(cfg.artifactSets ?? []) === buildArtifactSetSelectionKey(sanitized)) return
+    onChange({ ...cfg, artifactSets: sanitized })
+  }, [allowNoSet, cfg, multiEditActive, onChange])
   const setsPatch = (multiSetsField?.patch as MultiEditArrayPatch<ArtifactSetSelectionEntry> | null | undefined) ?? null
   const metasetsPatch = (multiMetasetsField?.patch as MultiEditArrayPatch<string> | null | undefined) ?? null
   const getSetState = React.useCallback((id: number): 'none' | 'partial' | 'all' => {
@@ -2259,8 +2283,8 @@ const maxLevelValue = multiEditActive
     if (!list) return
     const sortedForOrder = filterAndSortSetEntries(setsSearch, order, {
       translate: t,
-      // Include the accessory no-set sentinel for visibility in the selector.
-      includeNoSet: true,
+      // Only surface no-set when accessories are in scope.
+      includeNoSet: allowNoSet,
       noSetLabel: t('noSetAccessories'),
     })
     let targetSetId: number | null = null
@@ -2285,7 +2309,7 @@ const maxLevelValue = multiEditActive
       const item = list.querySelector<HTMLElement>(`[data-set-id="${targetSetId}"]`)
       item?.scrollIntoView({ block: 'nearest' })
     })
-  }, [getSetStateForScroll, metaSetsMenuOpen, setsMenuListRef, setsOrder, setsSearch, t])
+  }, [allowNoSet, getSetStateForScroll, metaSetsMenuOpen, setsMenuListRef, setsOrder, setsSearch, t])
   // Subtle highlight of controls affected by Reset when hovering the button
   const [hoverReset, setHoverReset] = useState(false)
   // Debounced rule count for the current builder config
@@ -6436,8 +6460,8 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
             const visibleMetasets = metasets.filter(m => m.show !== false)
             // Keep order stable by preferring visible metasets when present.
             const orderBasis = visibleMetasets.length ? visibleMetasets : metasets
-            // Normalize set selections so excluded entries are retained.
-            const baseSetSelections = normalizeArtifactSetSelections(cfg.artifactSets ?? [])
+            // Normalize set selections while respecting accessory-only constraints.
+            const baseSetSelections = pruneAccessoryNoSetSelections(cfg.artifactSets ?? [], allowNoSet)
             // Split include/exclude lists so UI can render both states.
             const baseSetSplit = splitArtifactSetSelections(baseSetSelections)
             // Resolve metaset order for the base config (or multi-edit union).
@@ -6469,6 +6493,8 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
               ])
               const patchSplit = splitArtifactSetSelections(patchEntries)
               for (const id of patchSplit.included) union.add(Number(id))
+              // Drop the accessory-only sentinel when accessories are not in scope.
+              if (!allowNoSet) union.delete(ACCESSORY_NO_SET_ID)
               return Array.from(union).sort((a, b) => a - b)
             })()
             const excludedDisplayIds = (() => {
@@ -6489,6 +6515,8 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
               ])
               const patchSplit = splitArtifactSetSelections(patchEntries)
               for (const id of patchSplit.excluded) union.add(Number(id))
+              // Drop the accessory-only sentinel when accessories are not in scope.
+              if (!allowNoSet) union.delete(ACCESSORY_NO_SET_ID)
               return Array.from(union).sort((a, b) => a - b)
             })()
             // Collapse tri-state selections into the "all" set for display/tokens.
@@ -6676,8 +6704,8 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
             // Build set list per order/search (shared helper keeps behavior consistent)
             const sorted = filterAndSortSetEntries(setsSearch, setsOrder, {
               translate: t,
-              // Keep the no-set sentinel visible (even if disabled).
-              includeNoSet: true,
+              // Keep the no-set sentinel visible only when accessories are in scope.
+              includeNoSet: allowNoSet,
               noSetLabel: t('noSetAccessories'),
             })
 
@@ -6937,8 +6965,8 @@ const renderMenuHeading = (label: string, tooltipText: string | null) => (
                                 }}
                                 zeroResults={filterAndSortSetEntries(setsSearch, setsOrder, {
                                   translate: t,
-                                  // Respect the no-set sentinel in the zero-state check.
-                                  includeNoSet: true,
+                                  // Respect accessory-only constraints in empty-state math.
+                                  includeNoSet: allowNoSet,
                                   noSetLabel: t('noSetAccessories'),
                                 }).length === 0}
                               />

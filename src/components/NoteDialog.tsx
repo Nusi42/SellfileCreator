@@ -38,7 +38,14 @@ import ConfigChip from './ConfigChip'
 // MarkdownTooltip ensures the color pickers + toolbar reuse the same hover delay/style across the app.
 import MarkdownTooltip from './MarkdownTooltip'
 import { useGearSetCatalogVersion } from '../hooks/useGearSetCatalogVersion'
-import { KEEP_UNIQUE_DEFAULT_COUNT_MODE, sanitizeKeepUniqueCountMode, type KeepUniqueRule, KeepUniqueRuleActivation, KeepUniqueSubstatMode } from '../lib/keepUniques'
+import {
+  KEEP_UNIQUE_DEFAULT_COUNT_MODE,
+  sanitizeKeepUniqueCountMode,
+  type KeepUniqueRule,
+  KeepUniqueRuleActivation,
+  KeepUniqueSubstatMatch,
+  normalizeKeepUniqueSubstatMatch,
+} from '../lib/keepUniques'
 import { resolveRarityLabel } from '../lib/testerPreviewFormatting'
 import { warningBadgeSx } from '../lib/badgeStyles'
 import TesterOutcomeSummaryChip from './TesterOutcomeSummaryChip'
@@ -2016,11 +2023,19 @@ function KeepUniqueSummaryCard({
     })
   })()
 
-  const substatModeLabel = rule.substatMode === KeepUniqueSubstatMode.Ranked
-    ? t('noteKeepUniqueSubstatModeRanked')
-    : t('noteKeepUniqueSubstatModeUnranked')
+  const normalizedSubstatMatch = normalizeKeepUniqueSubstatMatch(rule.substatMatch)
+  const substatMatchLabel = (() => {
+    if (normalizedSubstatMatch === KeepUniqueSubstatMatch.All) {
+      return t('noteKeepUniqueSubstatRequirementAll')
+    }
+    if (normalizedSubstatMatch === KeepUniqueSubstatMatch.PerSubstat) {
+      return t('noteKeepUniqueSubstatRequirementPer')
+    }
+    return t('noteKeepUniqueSubstatRequirementAny')
+  })()
 
   const substatWeightSummary = (() => {
+    if (normalizedSubstatMatch === KeepUniqueSubstatMatch.PerSubstat) return null
     const weights = rule.substatWeights ?? {}
     const entries: Array<{ variant: number; weight: number }> = []
     for (const [key, raw] of Object.entries(weights)) {
@@ -2165,14 +2180,14 @@ function KeepUniqueSummaryCard({
       ),
     })
     filters.push({
-      label: t('noteKeepUniqueSubstatModeLabel'),
+      label: t('noteKeepUniqueSubstatRequirementLabel'),
       value: (
         <Typography variant="caption" color="text.secondary" sx={{ display: 'block', wordBreak: 'break-word' }}>
-          {substatModeLabel}
+          {substatMatchLabel}
         </Typography>
       ),
     })
-    if (rule.substatMode === KeepUniqueSubstatMode.Ranked && substatWeightSummary) {
+    if (substatWeightSummary) {
       filters.push({
         label: t('noteKeepUniqueSubstatWeightsLabel'),
         value: (
