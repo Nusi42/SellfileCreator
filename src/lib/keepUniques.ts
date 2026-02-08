@@ -18,7 +18,9 @@ import {
   STAT_VARIANTS_PRIORITY,
   artifactSetNames,
   artifactTypeNames,
+  compareArtifactTypes,
   compareArtifactSets,
+  compareVariants,
   factionNames,
   getArmorFixedSetIds,
   getArmorVariableSetIds,
@@ -498,14 +500,72 @@ const SUBSTAT_ORDER = new Map<StatVariant, number>(
   STAT_VARIANTS_PRIORITY.map((variant, index) => [variant, index]),
 )
 
-const sortSubstatsByPriority = (values: readonly StatVariant[]): StatVariant[] => {
-  return values.slice().sort((left, right) => {
+// sortKeepUniqueNumericSelection dedupes and sorts numeric selections for stable UI/output.
+const sortKeepUniqueNumericSelection = <T extends number>(
+  values: readonly T[],
+  compare: (left: T, right: T) => number,
+): T[] => {
+  // Fast exit keeps empty selections cheap.
+  if (values.length === 0) return []
+  // Deduplicate while keeping only numeric values.
+  const seen = new Set<number>()
+  const deduped: T[] = []
+  for (const raw of values) {
+    const numeric = Number(raw)
+    if (!Number.isFinite(numeric)) continue
+    if (seen.has(numeric)) continue
+    seen.add(numeric)
+    deduped.push(raw)
+  }
+  // Sort in the requested canonical order.
+  return deduped.slice().sort(compare)
+}
+
+// sortKeepUniqueStringSelection normalizes metaset ids for consistent snapshots/export.
+const sortKeepUniqueStringSelection = (values: readonly string[]): string[] => {
+  // Skip work when nothing is selected.
+  if (values.length === 0) return []
+  // Trim and dedupe while preserving meaningful ids only.
+  const seen = new Set<string>()
+  const deduped: string[] = []
+  for (const raw of values) {
+    const trimmed = raw.trim()
+    if (!trimmed) continue
+    if (seen.has(trimmed)) continue
+    seen.add(trimmed)
+    deduped.push(trimmed)
+  }
+  // Keep ordering stable for HSFC and UI chips.
+  return deduped.slice().sort((left, right) => left.localeCompare(right))
+}
+
+// sortKeepUniqueSubstats keeps substat selections aligned with app-wide stat priority.
+export const sortKeepUniqueSubstats = (values: readonly StatVariant[]): StatVariant[] => (
+  sortKeepUniqueNumericSelection(values, (left, right) => {
     const leftOrder = SUBSTAT_ORDER.get(left) ?? Number.MAX_SAFE_INTEGER
     const rightOrder = SUBSTAT_ORDER.get(right) ?? Number.MAX_SAFE_INTEGER
     if (leftOrder !== rightOrder) return leftOrder - rightOrder
     return Number(left) - Number(right)
   })
-}
+)
+
+// sortKeepUniqueCombination enforces stable ordering across every keep-unique filter.
+export const sortKeepUniqueCombination = (combination: KeepUniqueCombination): KeepUniqueCombination => ({
+  // Slots follow the canonical artifact type ordering.
+  slots: sortKeepUniqueNumericSelection(combination.slots, compareArtifactTypes),
+  // Sets keep exclusion precedence and sort by id.
+  sets: normalizeArtifactSetSelections(combination.sets ?? []),
+  // Metaset ids sort lexicographically for readable HSFC payloads.
+  metaSetIds: sortKeepUniqueStringSelection(combination.metaSetIds ?? []),
+  // Rank selections always rise from 1★ to 6★.
+  ranks: sortKeepUniqueNumericSelection(combination.ranks, (left, right) => Number(left) - Number(right)),
+  // Rarity selections use the same 1..6 ordering as ranks.
+  rarities: sortKeepUniqueNumericSelection(combination.rarities, (left, right) => Number(left) - Number(right)),
+  // Main stats reuse the preferred stat ordering from config exports.
+  mainStats: sortKeepUniqueNumericSelection(combination.mainStats ?? [], compareVariants),
+  // Factions remain numeric and stable across locales.
+  factions: sortKeepUniqueNumericSelection(combination.factions ?? [], (left, right) => Number(left) - Number(right)),
+})
 
 // normalizeKeepUniqueSubstats parses a list of substat labels/ids into ordered variants.
 const normalizeKeepUniqueSubstats = (value: unknown): StatVariant[] => {
@@ -529,7 +589,7 @@ const normalizeKeepUniqueSubstats = (value: unknown): StatVariant[] => {
     seen.add(Number(variant))
     result.push(variant)
   }
-  return sortSubstatsByPriority(result)
+  return sortKeepUniqueSubstats(result)
 }
 
 // normalizeKeepUniqueSubstatWeights clamps per-stat weights to the tester sort defaults.
@@ -686,13 +746,12 @@ export function normalizeKeepUniqueCombination(value: unknown): KeepUniqueCombin
     if (variant === StatVariantEnum.Any) return null
     return variant
   })
-  if (mainStats.length > 1) mainStats.sort((a, b) => a - b)
   const factionValues = normalizeSelectionArray(rec.factions, (raw) => {
     if (raw == null || raw === '') return null
     return coerceFactionId(raw)
   })
   const metaSetIds = normalizeStringSelectionArray(rec.metaSetIds ?? rec.metaSets)
-  return {
+  return sortKeepUniqueCombination({
     slots: slotValues,
     sets: setValues,
     metaSetIds,
@@ -700,7 +759,7 @@ export function normalizeKeepUniqueCombination(value: unknown): KeepUniqueCombin
     rarities: rarityValues,
     mainStats,
     factions: factionValues,
-  }
+  })
 }
 
 /** Normalize rule payloads; returns null when combination data is invalid. */
@@ -728,8 +787,6 @@ export function normalizeKeepUniqueRule(value: unknown): KeepUniqueRule | null {
   const substats = normalizeKeepUniqueSubstats(rec.substats ?? rec.substatTargets ?? rec.substat)
   // Substat matching defaults to "any" unless explicit data is provided.
   const rawSubstatMatch = ('substatMatch' in rec ? rec.substatMatch : undefined)
-    // Legacy payloads stored the same values under substatRequirement.
-    ?? ('substatRequirement' in rec ? rec.substatRequirement : undefined)
   const parsedSubstatMatch = normalizeKeepUniqueSubstatMatch(rawSubstatMatch)
   const substatMatch = substats.length > 0 ? parsedSubstatMatch : KeepUniqueSubstatMatch.Any
   // Weighting reuses tester sort normalization (non-defaults only).

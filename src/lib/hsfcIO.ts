@@ -50,6 +50,8 @@ import {
   normalizeKeepUniqueSubstatMatch,
   normalizeKeepUniqueRule,
   sanitizeKeepUniqueCountMode,
+  sortKeepUniqueCombination,
+  sortKeepUniqueSubstats,
   type KeepUniqueRule,
   KeepUniqueRuleActivation,
 } from './keepUniques'
@@ -1020,26 +1022,28 @@ export type ReadableKeepUniqueRuleEntry = {
 
 // Build a readable keep-override tuple from a combination filter.
 const buildReadableKeepOverrideTuple = (combination: KeepUniqueRule['combination']): ReadableKeepUniqueTuple => {
-  const slotLabels = combination.slots
+  // Sort the combination so exported tuples stay deterministic.
+  const sorted = sortKeepUniqueCombination(combination)
+  const slotLabels = sorted.slots
     .map((slot) => artifactTypeNames[Number(slot)] ?? String(slot))
   // Preserve exclude flags while keeping readable set labels.
-  const setLabels = buildReadableArtifactSetEntries(combination.sets ?? [])
-  const rankLabels = combination.ranks
+  const setLabels = buildReadableArtifactSetEntries(sorted.sets ?? [])
+  const rankLabels = sorted.ranks
     .map((rank) => formatRank(rank as RankCode))
     .filter((label) => Boolean(label && label.trim()))
-  const rarityLabels = combination.rarities
+  const rarityLabels = sorted.rarities
     .map((rarity) => KEEP_UNIQUE_RARITY_LABEL[Number(rarity)] ?? rarityCodeToName(rarity))
     .filter((label) => Boolean(label && label.trim()))
-  const mainStatLabels = (combination.mainStats ?? [])
+  const mainStatLabels = (sorted.mainStats ?? [])
     .map((stat) => labelOfVariant(stat))
     .filter((label) => Boolean(label && label.trim()))
-  const factionLabels = combination.factions
+  const factionLabels = sorted.factions
     .map((faction) => factionNames[Number(faction)] ?? String(faction))
     .filter((label) => Boolean(label && label.trim()))
   return {
     slots: slotLabels,
     sets: setLabels,
-    metaSetIds: [...(combination.metaSetIds ?? [])],
+    metaSetIds: [...(sorted.metaSetIds ?? [])],
     ranks: rankLabels,
     rarities: rarityLabels,
     mainStats: mainStatLabels,
@@ -1054,7 +1058,7 @@ export const buildReadableKeepUniqueRuleEntry = (rule: KeepUniqueRule): Readable
   // Strip whitespace so empty names do not serialize.
   const trimmedName = typeof rule.name === 'string' ? rule.name.trim() : ''
   // Capture selected substats in readable form so exports stay user-friendly.
-  const substatVariants = rule.substats ?? []
+  const substatVariants = sortKeepUniqueSubstats(rule.substats ?? [])
   // Map variants to readable labels; fall back to numeric IDs if needed.
   const substatLabels = substatVariants
     .map((variant) => {
