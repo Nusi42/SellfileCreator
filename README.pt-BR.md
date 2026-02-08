@@ -10,7 +10,7 @@ Crie, reveja e exporte regras de venda para o RSL Helper com uma interface simpl
 - Arrastar e soltar ou botão “Load RSL Helper Sellfile”: solte `.hsfc`, `.hsf` ou `.db` em qualquer ponto (a sobreposição confirma) ou clique no botão. Ambos fazem exatamente a mesma coisa: `.hsfc` substitui o builder, `.hsf` adiciona o Sellfile base opcional e `.db` vai direto para a fila do Teste de Regras sem tocar no builder/export.
 - Meta-sets: agrupe conjuntos de equipamento (por exemplo, Velocidade + Percepção) e reutilize-os em várias regras.
 - Exportação com um clique: gere um arquivo HSF (Sellfile do RSL Helper) pronto a carregar no RSL Helper.
-- Botão «Logic Hub»: abra o diálogo pelo cabeçalho para acessar `Venda final`, `Manter únicos` e o diálogo Equipamento (aba Equipamento dentro do Logic Hub) no mesmo lugar. Crie peças de exemplo, cole linhas ou arraste `%APPDATA%\\RslHelper\\Config`; depois feche o diálogo e deixe o interruptor da prévia na tabela que precisar — a fila do Teste de Regras continua visível sem reabrir nada.
+- Botão «Logic Hub»: abra o diálogo pelo cabeçalho para acessar `Venda final`, `Manter únicos`, `Drops de masmorra` e o diálogo Equipamento (aba Equipamento dentro do Logic Hub) no mesmo lugar. Crie peças de exemplo, cole linhas ou arraste `%APPDATA%\\RslHelper\\Config`; depois feche o diálogo e deixe o interruptor da prévia na tabela que precisar — a fila do Teste de Regras continua visível sem reabrir nada.
 - Aba «Manter únicos»: defina as combinações que você não quer perder. Quando as suas configs mais as suas regras de venda atualmente ativas removerem todas as cópias, o scanner gera automaticamente regras de manutenção.
 - Diálogo de restauração do Autosave: quando existe um autosave, escolha exatamente o que recuperar — configs, meta-sets, Alvos de substats, restante da Venda final, nota fixada, estado do painel de filtros e até as importações do Teste de Regras.
 - Copiar a pasta do banco de dados do RSL Helper: o cabeçalho da prévia mostra um botão que copia `%APPDATA%\\RslHelper\\Config` para o porta‑papéis para colar o caminho no Explorer antes de arrastar a `.db` para o Sellfile Creator.
@@ -133,6 +133,21 @@ Empilhar chips de escopo decide quem recebe uma quota própria. Deixe «Por regr
 | Estandartes de ACC com SPD | Slot = Estandarte, Atributo principal = ACC, Substats = SPD + ACC, Pesos: SPD maior | `3` | `Por facção` | Cada facção guarda os melhores estandartes de ACC onde SPD pesa mais. |
 
 Dica: importe a sua `.db` ou cole itens no diálogo Equipamento antes de abrir Manter únicos para que o scanner veja equipamentos reais. Clique numa carta de regra para realçar o equipamento correspondente; mude `Filtro` para `Seleção` para ver apenas essas correspondências.
+
+### Drops de masmorra (Simulador)
+Abra o Logic Hub e vá para **Drops de masmorra**. Ele simula o farm em masmorras com suas regras atuais do Sellfile para ver quanto equipamento você manteria por conjunto e nível de melhoria.
+
+- Escolha uma masmorra e um estágio.
+- Modo de simulação:
+  - `Subida de nível`: os rolls param assim que o item seria vendido, então reflete o up real.
+  - `Instantâneo`: os rolls sempre vão até +16, mesmo se o item teria sido vendido antes.
+- A tabela mostra drops mantidos divididos por todos os drops daquele estágio em +0 / +4 / +8 / +12 / +16.
+- Clique em uma célula para o detalhamento de slot + stat principal, depois abra **Chances de subatributos específicos** para ver chances exatas e estimativas de execuções.
+
+Notas:
+- Usa suas regras atuais de Manter/Vender, incluindo Venda final e Manter únicos.
+- Roda cerca de 100.000 drops por estágio e atualiza enquanto roda.
+- Taxas de drop e rolls são simulados; trate os números como estimativas.
 
 ### Gestão de configs
 - As configs salvas aparecem como etiquetas sob o construtor. Clique para selecionar; clique direito para duplicar, mover, copiar ou eliminar.

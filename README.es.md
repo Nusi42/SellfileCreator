@@ -10,7 +10,7 @@ Crea, revisa y exporta reglas de venta para RSL Helper con una interfaz sencilla
 - Arrastrar y soltar o botón «Cargar Sellfile de RSL Helper»: arrastra `.hsfc`, `.hsf` o `.db` a cualquier parte (la superposición lo confirma) o haz clic en el botón. Ambos caminos hacen lo mismo: `.hsfc` reemplaza el constructor, `.hsf` añade la Sellfile base opcional y las `.db` van directas a la cola del Probador sin tocar tus configs.
 - Metasets: agrupa conjuntos de equipo (por ejemplo, Velocidad + Percepción) y reutilízalos en varias reglas.
 - Exportación con un clic: genera un archivo HSF (Sellfile de RSL Helper) listo para cargar en RSL Helper.
-- Botón «Logic Hub»: abre el diálogo desde el encabezado para entrar a `Venta final`, `Conservar únicos` y el diálogo «Equipo» (pestaña Equipo dentro de Logic Hub) desde el mismo lugar. Crea equipo de ejemplo, pega filas o arrastra `%APPDATA%\\RslHelper\\Config`; después cierra el diálogo y deja el interruptor de vista previa en la tabla que necesites: la cola del Probador sigue visible sin reabrir nada.
+- Botón «Logic Hub»: abre el diálogo desde el encabezado para entrar a `Venta final`, `Conservar únicos`, `Botín de mazmorra` y el diálogo «Equipo» (pestaña Equipo dentro de Logic Hub) desde el mismo lugar. Crea equipo de ejemplo, pega filas o arrastra `%APPDATA%\\RslHelper\\Config`; después cierra el diálogo y deja el interruptor de vista previa en la tabla que necesites: la cola del Probador sigue visible sin reabrir nada.
 - Pestaña «Conservar únicos»: define las combinaciones que nunca quieres perder. El escáner genera reglas de conservación automáticamente cuando tus configs más tus reglas de venta actualmente activas eliminarían todas las copias.
 
 ## Cómo usarlo
@@ -131,6 +131,21 @@ Crea, revisa y exporta reglas de venta para RSL Helper con una interfaz sencilla
 | Estandartes de ACC con SPD | Ranura = Estandarte, Stat principal = ACC, Substats = SPD + ACC, Pesos: SPD alto | `3` | `Por facción` | Cada facción guarda los mejores estandartes de ACC donde SPD pesa más. |
 
 Consejo: Importa tu `.db` o pega equipo en el diálogo «Equipo» antes de abrir la pestaña Conservar únicos para que el escáner tenga objetos reales. Haz clic en una tarjeta de regla para resaltar coincidencias; cambia `Filtro` a `Selección` para ver solo esos objetos.
+
+### Botín de mazmorra (Simulador)
+Abre Logic Hub y cambia a **Botín de mazmorra**. Simula el farmeo de mazmorras con tus reglas actuales del Sellfile para ver cuánto equipo conservarías por set y nivel de mejora.
+
+- Elige una mazmorra y una etapa.
+- Modo de simulación:
+  - `Subida de nivel`: los rolls paran en cuanto el objeto se vendería, así refleja el leveo real.
+  - `Instantánea`: los rolls siempre llegan hasta +16, aunque el objeto se habría vendido antes.
+- La tabla muestra drops conservados divididos por todos los drops de esa etapa en +0 / +4 / +8 / +12 / +16.
+- Haz clic en una celda para ver el desglose por slot + stat principal, luego abre **Probabilidades de substats específicas** para ver chances exactas y estimaciones de ejecuciones.
+
+Notas:
+- Usa tus reglas actuales de Conservar/Vender, incluyendo Venta final y Conservar únicos.
+- Corre unas 100.000 drops por etapa y se actualiza mientras corre.
+- Las tasas de drop y los rolls son simulados; toma los números como estimaciones.
 
 ### Gestión de configs
 - Las configs guardadas aparecen como chips debajo del constructor. Haz clic para seleccionarlas, o clic derecho para duplicar, mover, copiar o borrar.
