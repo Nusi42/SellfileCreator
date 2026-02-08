@@ -24,7 +24,7 @@ The Logic Hub now includes a **Dungeon Drops** tab that simulates dungeon farmin
 - Boosted set selections are persisted in localStorage and re-run the simulator when changed.
 - Ice Golem / Fire Knight / Dragon drop artifacts only.
 - Spider drops accessories only with the **No Gear-Set** sentinel.
-- Event drops artifacts **and** accessories with the **No Gear-Set** sentinel for accessories.
+- Event drops artifacts **and** accessories, all tagged with the current spotlight set.
 - Event spotlight set can be toggled between **Chronophage** and **Pinpoint** (same spotlight rate).
 - Event non-spotlight artifacts are split evenly across **Critical Rate / Accuracy / Curing / Daze / Critical Damage**.
 - Event spotlight toggles reuse cached results: both spotlights are simulated in the same run so switching is instant.

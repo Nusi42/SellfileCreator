@@ -31,6 +31,7 @@ import {
   resolveDungeonSets,
   resolveDungeonStageDefault,
   resolveDungeonStageRange,
+  resolveDungeonSlotIds,
   resolveEventSpotlightSet,
   type DungeonBoostSelection,
   type DungeonBoostableId,
@@ -336,6 +337,11 @@ export default function DungeonSimulatorTab(props: DungeonSimulatorTabProps) {
     ? `${t(DUNGEON_LABEL_KEYS[detailSubstatTarget.dungeonId])} • ${formatSetLabel({ setId: detailSubstatTarget.setId, translate: t, lang })} • +${detailSubstatTarget.level}`
     : ''
 
+  // Slot list depends on the dungeon source (artifact vs accessory vs mixed).
+  const detailSlotIds = useMemo(() => (
+    detailTarget ? resolveDungeonSlotIds(detailTarget.dungeonId) : artifactTypeIconList.map((entry) => entry.id)
+  ), [detailTarget])
+
   // Filter breakdown entries once so empty cells resolve quickly.
   const detailBreakdown = useMemo(() => (
     resolvedDetailCell
@@ -475,7 +481,106 @@ export default function DungeonSimulatorTab(props: DungeonSimulatorTabProps) {
               {t('dungeonDropsRunNote', { runs: runProgressLabel })}
             </Typography>
           </Stack>
-          <MarkdownTooltip markdown={t('dungeonDropsInfoTooltip')}>
+          <MarkdownTooltip
+            render={(
+              <Stack spacing={1} sx={{ maxWidth: 460 }}>
+                {/* Explain the simulation flow in plain terms. */}
+                <Box>
+                  <Typography variant="subtitle2">{t('dungeonDropsInfoHowTitle')}</Typography>
+                  <Box component="ul" sx={{ pl: 2, my: 0.5, '& li': { display: 'list-item' } }}>
+                    <Typography component="li" variant="caption">
+                      {t('dungeonDropsInfoHowLine1')}
+                    </Typography>
+                    <Typography component="li" variant="caption">
+                      {t('dungeonDropsInfoHowLine2')}
+                    </Typography>
+                    <Typography component="li" variant="caption">
+                      {t('dungeonDropsInfoHowLine3')}
+                    </Typography>
+                    <Typography component="li" variant="caption">
+                      {t('dungeonDropsInfoHowLine4')}
+                    </Typography>
+                  </Box>
+                </Box>
+                <Divider />
+                {/* Inline example uses a compact table to show roll effects. */}
+                <Box>
+                  <Typography variant="subtitle2">{t('dungeonDropsInfoWhyTitle')}</Typography>
+                  <Typography variant="caption" sx={{ display: 'block', mb: 0.75 }}>
+                    {t('dungeonDropsInfoWhyLine')}
+                  </Typography>
+                  <Typography variant="caption" sx={{ display: 'block', fontWeight: 600, mb: 0.5 }}>
+                    {t('dungeonDropsInfoExampleTitle')}
+                  </Typography>
+                  <Table
+                    size="small"
+                    sx={{
+                      width: 'auto',
+                      mb: 0.5,
+                      '& th, & td': {
+                        borderBottom: (theme) => `1px solid ${theme.palette.divider}`,
+                        fontSize: '0.72rem',
+                        px: 0.5,
+                        py: 0.25,
+                        whiteSpace: 'nowrap',
+                      },
+                      '& th': { fontWeight: 600 },
+                    }}
+                  >
+                    <TableHead>
+                      <TableRow>
+                        <TableCell component="th">{t('dungeonDropsInfoExampleHeaderLevel')}</TableCell>
+                        <TableCell component="th">{t('dungeonDropsInfoExampleHeaderRolls')}</TableCell>
+                        <TableCell component="th">{t('dungeonDropsInfoExampleHeaderValue')}</TableCell>
+                        <TableCell component="th">{t('dungeonDropsInfoExampleHeaderKept')}</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      <TableRow>
+                        <TableCell>+12</TableCell>
+                        <TableCell>0</TableCell>
+                        <TableCell>5</TableCell>
+                        <TableCell>{t('no')}</TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell>+12</TableCell>
+                        <TableCell>1</TableCell>
+                        <TableCell>10</TableCell>
+                        <TableCell>{t('yes')}</TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell>+16</TableCell>
+                        <TableCell>1</TableCell>
+                        <TableCell>10</TableCell>
+                        <TableCell>{t('yes')}</TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell>+16</TableCell>
+                        <TableCell>2</TableCell>
+                        <TableCell>15</TableCell>
+                        <TableCell>{t('yes')}</TableCell>
+                      </TableRow>
+                    </TableBody>
+                  </Table>
+                  <Typography variant="caption">{t('dungeonDropsInfoExampleNote')}</Typography>
+                </Box>
+                <Divider />
+                {/* Source section keeps attribution distinct from behavior notes. */}
+                <Box>
+                  <Typography variant="subtitle2">{t('dungeonDropsInfoSourcesTitle')}</Typography>
+                  <Box component="ul" sx={{ pl: 2, my: 0.5, '& li': { display: 'list-item' } }}>
+                    <Typography component="li" variant="caption" sx={{ fontFamily: 'monospace' }}>
+                      {t('dungeonDropsInfoSourceAyumilove')}
+                    </Typography>
+                    <Typography component="li" variant="caption" sx={{ fontFamily: 'monospace' }}>
+                      {t('dungeonDropsInfoSourceTyrauku')}
+                    </Typography>
+                  </Box>
+                  <Typography variant="caption">{t('dungeonDropsInfoThanks')}</Typography>
+                </Box>
+              </Stack>
+            )}
+          >
             <IconButton size="small" aria-label={t('dungeonDropsInfoLabel')}>
               <InfoOutlinedIcon fontSize="small" />
             </IconButton>
@@ -807,7 +912,7 @@ export default function DungeonSimulatorTab(props: DungeonSimulatorTabProps) {
                   gap: 1,
                 }}
               >
-                {artifactTypeIconList.map(({ id, Icon }) => {
+                {artifactTypeIconList.filter(({ id }) => detailSlotIds.includes(id)).map(({ id, Icon }) => {
                   const slotEntries = detailBreakdownBySlot.get(id) ?? []
                   return (
                     <Box
@@ -859,9 +964,9 @@ export default function DungeonSimulatorTab(props: DungeonSimulatorTabProps) {
                                     setDetailSubstatLoading(false)
                                   }}
                                   sx={(theme) => ({
-                                    display: 'flex',
-                                    justifyContent: 'space-between',
-                                    gap: 1,
+                                    display: 'grid',
+                                    gridTemplateColumns: 'minmax(0, 1fr) auto',
+                                    columnGap: 1,
                                     alignItems: 'center',
                                     width: '100%',
                                     textAlign: 'left',
@@ -871,13 +976,28 @@ export default function DungeonSimulatorTab(props: DungeonSimulatorTabProps) {
                                     '&:hover': { backgroundColor: theme.palette.action.hover },
                                   })}
                                 >
+                                  {/* EllipsisTooltip prevents long stat labels from overlapping the value. */}
+                                  <Box sx={{ minWidth: 0, pr: 0.5 }}>
+                                    <EllipsisTooltip title={label} wrap="block">
+                                      <Typography
+                                        data-ellipsis-target
+                                        variant="caption"
+                                        noWrap
+                                        sx={{
+                                          color: statColor,
+                                          minWidth: 0,
+                                          overflow: 'hidden',
+                                          textOverflow: 'ellipsis',
+                                        }}
+                                      >
+                                        {label}
+                                      </Typography>
+                                    </EllipsisTooltip>
+                                  </Box>
                                   <Typography
                                     variant="caption"
-                                    sx={{ color: statColor, flex: 1, minWidth: 0 }}
+                                    sx={{ fontWeight: 600, whiteSpace: 'nowrap', textAlign: 'right', pl: 0.25 }}
                                   >
-                                    {label}
-                                  </Typography>
-                                  <Typography variant="caption" sx={{ fontWeight: 600 }}>
                                     {formatPercent(value)}
                                   </Typography>
                                 </ButtonBase>

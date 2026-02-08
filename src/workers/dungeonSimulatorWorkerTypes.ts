@@ -21,6 +21,8 @@ export type DungeonSimulatorWorkerRunPayload = {
   selections?: Partial<Record<DungeonId, DungeonStageSelection>>
   // Optional per-dungeon boosted set selections.
   boosts?: Partial<Record<DungeonBoostableId, DungeonBoostSelection>>
+  // Optional list of dungeons to resimulate (others reuse cached results).
+  dirtyDungeons?: DungeonId[]
   // Total runs per dungeon for this session.
   runs: number
   // Batch size for streaming updates.

@@ -217,7 +217,6 @@ export const resolveDungeonSets = (
   const combined = [
     spotlightSet,
     ...EVENT_NON_SPOTLIGHT_SETS,
-    ACCESSORY_NO_SET_ID as ArtifactSetId,
   ]
   // De-dupe defensively in case rotations overlap in the future.
   return Array.from(new Set(combined))
@@ -239,6 +238,13 @@ const ACCESSORY_SLOTS: readonly ArtifactTypeId[] = [
   ArtifactType.Amulet,
   ArtifactType.Banner,
 ] as const
+
+// Resolve which slots can drop for a given dungeon (UI helpers need this too).
+export const resolveDungeonSlotIds = (dungeonId: DungeonId): readonly ArtifactTypeId[] => {
+  if (dungeonId === 'spider') return ACCESSORY_SLOTS
+  if (dungeonId === 'event') return [...ARTIFACT_SLOTS, ...ACCESSORY_SLOTS]
+  return ARTIFACT_SLOTS
+}
 
 // Accessory faction pool is uniform across valid factions.
 const ACCESSORY_FACTIONS: readonly FactionId[] = [
@@ -689,6 +695,11 @@ export type DungeonSimSpotlightSession = {
   getResultsBySpotlight: () => DungeonSimSpotlightResults
   getProgressBySpotlight: () => DungeonSimSpotlightProgress
   queryDetailStats: (query: DungeonSimDetailQuery) => DungeonSimDetailStats | null
+  resetDungeons: (params: {
+    dungeonIds: DungeonId[]
+    selections?: Partial<Record<DungeonId, DungeonStageSelection>>
+    boosts?: Partial<Record<DungeonBoostableId, DungeonBoostSelection>>
+  }) => void
   isComplete: () => boolean
 }
 
@@ -1110,7 +1121,7 @@ const runDungeonBatch = (
       // Event dungeon splits between accessories, spotlight, and non-spotlight artifacts.
       const roll = rng() * 100
       if (roll < eventRates.accessories) {
-        dropSet = ACCESSORY_NO_SET_ID as ArtifactSetId
+        dropSet = spotlightSet
         slot = pickAccessorySlot(rng, selection.stage)
       } else if (roll < eventRates.accessories + eventRates.spotlight) {
         dropSet = spotlightSet
@@ -1278,32 +1289,46 @@ export const createDungeonSimSpotlightSession = (params: {
     // Ensure at least one spotlight exists so the UI can render.
     spotlights.push(EVENT_SPOTLIGHT_DEFAULT)
   }
+  // Snapshot the mutable per-dungeon selections so partial resets stay consistent.
+  let selectionState: Partial<Record<DungeonId, DungeonStageSelection>> = { ...(params.selections ?? {}) }
+  // Snapshot the mutable boost selections for reuse across reset calls.
+  let boostState: Partial<Record<DungeonBoostableId, DungeonBoostSelection>> = { ...(params.boosts ?? {}) }
+  // Build a runtime for a base dungeon using the current selection + boost state.
+  const buildBaseRuntime = (dungeonId: DungeonId): DungeonSimRuntime => {
+    const boost = isBoostableDungeon(dungeonId)
+      ? boostState[dungeonId] ?? null
+      : null
+    const selection = selectionState[dungeonId]
+    return createDungeonRuntime({
+      dungeonId,
+      runs,
+      spotlight: EVENT_SPOTLIGHT_DEFAULT,
+      boost,
+      ...(selection ? { selection } : {}),
+    })
+  }
+  // Build a runtime for the event dungeon using the current selection state.
+  const buildEventRuntime = (spotlight: EventSpotlightSelection): DungeonSimRuntime => {
+    const selection = selectionState.event
+    return createDungeonRuntime({
+      dungeonId: 'event',
+      runs,
+      spotlight,
+      ...(selection ? { selection } : {}),
+    })
+  }
   // Non-event dungeons share a single runtime seeded with the default spotlight.
   const baseRuntimes = new Map<DungeonId, DungeonSimRuntime>()
   for (const dungeonId of DUNGEON_IDS) {
     if (dungeonId === 'event') continue
     // Use the default spotlight because non-event dungeons are spotlight-agnostic.
-    const boost = isBoostableDungeon(dungeonId)
-      ? params.boosts?.[dungeonId] ?? null
-      : null
-    baseRuntimes.set(dungeonId, createDungeonRuntime({
-      dungeonId,
-      runs,
-      spotlight: EVENT_SPOTLIGHT_DEFAULT,
-      boost,
-      ...(params.selections?.[dungeonId] ? { selection: params.selections[dungeonId] } : {}),
-    }))
+    baseRuntimes.set(dungeonId, buildBaseRuntime(dungeonId))
   }
   // Event dungeon runs once per spotlight.
   const eventRuntimes = new Map<EventSpotlightSelection, DungeonSimRuntime>()
   for (const spotlight of spotlights) {
     // Each spotlight needs its own runtime because the set pool changes.
-    eventRuntimes.set(spotlight, createDungeonRuntime({
-      dungeonId: 'event',
-      runs,
-      spotlight,
-      ...(params.selections?.event ? { selection: params.selections.event } : {}),
-    }))
+    eventRuntimes.set(spotlight, buildEventRuntime(spotlight))
   }
   // Total progress counts every dungeon, including event per spotlight.
   const total = runs * DUNGEON_IDS.length
@@ -1381,6 +1406,33 @@ export const createDungeonSimSpotlightSession = (params: {
       runDungeonBatch(runtime, params.rules, params.substatTargets, normalizedBatch)
     }
   }
+  const resetDungeons = (reset: {
+    dungeonIds: DungeonId[]
+    selections?: Partial<Record<DungeonId, DungeonStageSelection>>
+    boosts?: Partial<Record<DungeonBoostableId, DungeonBoostSelection>>
+  }) => {
+    // Merge the newest selections so future resets use the latest values.
+    if (reset.selections) {
+      selectionState = { ...selectionState, ...reset.selections }
+    }
+    // Merge boost edits so only the changed dungeon needs to be rebuilt.
+    if (reset.boosts) {
+      boostState = { ...boostState, ...reset.boosts }
+    }
+    // Deduplicate ids so we only rebuild each dungeon once.
+    const uniqueIds = new Set(reset.dungeonIds)
+    for (const dungeonId of uniqueIds) {
+      if (dungeonId === 'event') {
+        // Event runs must be rebuilt for every spotlight variant.
+        for (const spotlight of spotlights) {
+          eventRuntimes.set(spotlight, buildEventRuntime(spotlight))
+        }
+        continue
+      }
+      if (!DUNGEON_IDS.includes(dungeonId)) continue
+      baseRuntimes.set(dungeonId, buildBaseRuntime(dungeonId))
+    }
+  }
   const isComplete = (): boolean => {
     // All base dungeons must finish their run counts.
     for (const runtime of baseRuntimes.values()) {
@@ -1397,6 +1449,7 @@ export const createDungeonSimSpotlightSession = (params: {
     getResultsBySpotlight,
     getProgressBySpotlight,
     queryDetailStats,
+    resetDungeons,
     isComplete,
   }
 }

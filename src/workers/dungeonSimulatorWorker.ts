@@ -29,14 +29,26 @@ const runSimulation = async (message: Extract<DungeonSimulatorWorkerRequest, { k
   const batchSize = Number.isFinite(payload.batchSize)
     ? Math.max(1, Math.floor(payload.batchSize))
     : 1
-  // Build a streaming session for this request (event spotlights precomputed).
-  const session = createDungeonSimSpotlightSession({
-    rules: payload.rules,
-    substatTargets: payload.substatTargets,
-    runs: payload.runs,
-    ...(payload.boosts ? { boosts: payload.boosts } : {}),
-    ...(payload.selections ? { selections: payload.selections } : {}),
-  })
+  // Reuse the cached session when only specific dungeons need to rerun.
+  const dirtyDungeons = payload.dirtyDungeons?.filter((dungeonId) => dungeonId) ?? []
+  const canReuse = dirtyDungeons.length > 0 && cachedSession
+  const session = canReuse
+    ? cachedSession!
+    : createDungeonSimSpotlightSession({
+      rules: payload.rules,
+      substatTargets: payload.substatTargets,
+      runs: payload.runs,
+      ...(payload.boosts ? { boosts: payload.boosts } : {}),
+      ...(payload.selections ? { selections: payload.selections } : {}),
+    })
+  // Apply partial resets before streaming new batches.
+  if (canReuse) {
+    session.resetDungeons({
+      dungeonIds: dirtyDungeons,
+      ...(payload.selections ? { selections: payload.selections } : {}),
+      ...(payload.boosts ? { boosts: payload.boosts } : {}),
+    })
+  }
   // Cache the session for detail queries (even while streaming).
   cachedSession = session
   // Throttle progress messages to once per second by default.

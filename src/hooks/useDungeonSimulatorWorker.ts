@@ -10,6 +10,7 @@ import {
   EVENT_SPOTLIGHT_OPTIONS,
   EVENT_SPOTLIGHT_DEFAULT,
   createDungeonSimSpotlightSession,
+  isBoostableDungeon,
   type DungeonBoostSelection,
   type DungeonBoostableId,
   type DungeonId,
@@ -74,6 +75,67 @@ const buildEmptyProgressBySpotlight = (runsPerDungeon: number): DungeonSimSpotli
   return out
 }
 
+const hasSameSelection = (left?: DungeonStageSelection, right?: DungeonStageSelection): boolean => (
+  left?.mode === right?.mode && left?.stage === right?.stage
+)
+
+const hasSameBoost = (left?: DungeonBoostSelection, right?: DungeonBoostSelection): boolean => (
+  left?.mode === right?.mode && left?.setId === right?.setId
+)
+
+const resolveDirtyDungeons = (params: {
+  prevSelections?: Partial<Record<DungeonId, DungeonStageSelection>>
+  nextSelections?: Partial<Record<DungeonId, DungeonStageSelection>>
+  prevBoosts?: Partial<Record<DungeonBoostableId, DungeonBoostSelection>>
+  nextBoosts?: Partial<Record<DungeonBoostableId, DungeonBoostSelection>>
+}): DungeonId[] => {
+  const dirty = new Set<DungeonId>()
+  for (const dungeonId of DUNGEON_IDS) {
+    // Stage selection updates should only rerun the affected dungeon.
+    const prevSelection = params.prevSelections?.[dungeonId]
+    const nextSelection = params.nextSelections?.[dungeonId]
+    if (!hasSameSelection(prevSelection, nextSelection)) {
+      dirty.add(dungeonId)
+    }
+    if (!isBoostableDungeon(dungeonId)) continue
+    // Boost edits only apply to the three artifact dungeons.
+    const prevBoost = params.prevBoosts?.[dungeonId]
+    const nextBoost = params.nextBoosts?.[dungeonId]
+    if (!hasSameBoost(prevBoost, nextBoost)) {
+      dirty.add(dungeonId)
+    }
+  }
+  return Array.from(dirty)
+}
+
+const resetProgressForDungeons = (
+  previous: DungeonSimSpotlightProgress | null,
+  dirtyDungeons: DungeonId[],
+  runsPerDungeon: number,
+): DungeonSimSpotlightProgress => {
+  // Use a fresh template when no prior progress is available.
+  const base = previous ?? buildEmptyProgressBySpotlight(runsPerDungeon)
+  // Reset only the changed dungeons so other tables stay at full progress.
+  const next = {} as DungeonSimSpotlightProgress
+  for (const spotlight of EVENT_SPOTLIGHT_OPTIONS) {
+    const prevProgress = base[spotlight] ?? buildEmptyProgress(runsPerDungeon)
+    const completedByDungeon = { ...prevProgress.completedByDungeon }
+    let completed = 0
+    for (const dungeonId of DUNGEON_IDS) {
+      const value = dirtyDungeons.includes(dungeonId) ? 0 : (completedByDungeon[dungeonId] ?? 0)
+      completedByDungeon[dungeonId] = value
+      completed += value
+    }
+    next[spotlight] = {
+      completed,
+      total: runsPerDungeon * DUNGEON_IDS.length,
+      completedByDungeon,
+      runsPerDungeon,
+    }
+  }
+  return next
+}
+
 export function useDungeonSimulatorWorker(params: UseDungeonSimulatorWorkerParams): UseDungeonSimulatorWorkerResult {
   // Destructure inputs once so dependency arrays stay simple.
   const {
@@ -115,6 +177,14 @@ export function useDungeonSimulatorWorker(params: UseDungeonSimulatorWorkerParam
   const detailResolversRef = useRef(new Map<number, (value: DungeonSimDetailStats | null) => void>())
   // Local fallback loop needs a cancel hook when dependencies change.
   const fallbackCancelRef = useRef<(() => void) | null>(null)
+  // Track previous inputs so we can resimulate only changed dungeons.
+  const prevInputsRef = useRef<{
+    rules: HsfRuleWithCfg[]
+    substatTargets: SubstatTargetTable
+    selections?: Partial<Record<DungeonId, DungeonStageSelection>>
+    boosts?: Partial<Record<DungeonBoostableId, DungeonBoostSelection>>
+    runs: number
+  } | null>(null)
 
   useEffect(() => {
     // Cache the most recent snapshots so new runs can keep the old view.
@@ -197,6 +267,29 @@ export function useDungeonSimulatorWorker(params: UseDungeonSimulatorWorkerParam
   useEffect(() => {
     // Every new dependency change resets the in-flight run.
     const id = ++activeRequestRef.current
+    const prevInputs = prevInputsRef.current
+    const fullReset = !prevInputs
+      || prevInputs.rules !== rules
+      || prevInputs.substatTargets !== substatTargets
+      || prevInputs.runs !== runs
+    const dirtyDungeons = fullReset
+      ? []
+      : resolveDirtyDungeons({
+        ...(prevInputs?.selections ? { prevSelections: prevInputs.selections } : {}),
+        ...(selections ? { nextSelections: selections } : {}),
+        ...(prevInputs?.boosts ? { prevBoosts: prevInputs.boosts } : {}),
+        ...(boosts ? { nextBoosts: boosts } : {}),
+      })
+    // Persist the latest inputs so future comparisons stay correct.
+    prevInputsRef.current = {
+      rules,
+      substatTargets,
+      runs,
+      ...(selections ? { selections } : {}),
+      ...(boosts ? { boosts } : {}),
+    }
+    // No-op when only object references changed without actual edits.
+    if (!fullReset && dirtyDungeons.length === 0) return undefined
     // Use a reduced run count if workers cannot be used.
     const worker = workerRef.current
     const canUseWorker = supportsWorkerEnv && Boolean(worker)
@@ -211,26 +304,43 @@ export function useDungeonSimulatorWorker(params: UseDungeonSimulatorWorkerParam
     if (!lastSnapshotRef.current.progress) {
       setProgressBySpotlight(buildEmptyProgressBySpotlight(effectiveRuns))
     }
+    if (!fullReset && dirtyDungeons.length > 0) {
+      // Reset only the changed dungeons so other tables keep their progress.
+      setProgressBySpotlight((prev) => resetProgressForDungeons(prev, dirtyDungeons, effectiveRuns))
+    }
     // Clear cached fallback sessions when inputs change.
-    fallbackSessionRef.current = null
+    if (fullReset) fallbackSessionRef.current = null
     // Cancel any in-flight local fallback loop.
     if (fallbackCancelRef.current) {
       fallbackCancelRef.current()
       fallbackCancelRef.current = null
     }
-    const runFallback = (fallbackRuns = DUNGEON_SIM_FALLBACK_RUNS_PER_DUNGEON) => {
+    const runFallback = (
+      fallbackRuns: number = DUNGEON_SIM_FALLBACK_RUNS_PER_DUNGEON,
+      dirtyIds: DungeonId[] = [],
+    ) => {
       // Local fallback path mirrors the worker API for consistency.
       let cancelled = false
       // Reset progress so the UI reflects the fallback run count.
       setProgressBySpotlight((prev) => prev ?? buildEmptyProgressBySpotlight(fallbackRuns))
-      // Local fallback uses the same streaming session as the worker.
-      const session = createDungeonSimSpotlightSession({
-        rules,
-        substatTargets,
-        runs: fallbackRuns,
-        ...(boosts ? { boosts } : {}),
-        ...(selections ? { selections } : {}),
-      })
+      // Reuse the previous session when only a subset of dungeons changed.
+      const canReuse = !fullReset && dirtyIds.length > 0 && fallbackSessionRef.current
+      const session = canReuse && fallbackSessionRef.current
+        ? fallbackSessionRef.current
+        : createDungeonSimSpotlightSession({
+          rules,
+          substatTargets,
+          runs: fallbackRuns,
+          ...(boosts ? { boosts } : {}),
+          ...(selections ? { selections } : {}),
+        })
+      if (canReuse) {
+        session.resetDungeons({
+          dungeonIds: dirtyIds,
+          ...(boosts ? { boosts } : {}),
+          ...(selections ? { selections } : {}),
+        })
+      }
       // Cache the session so detail queries can reuse the same run data.
       fallbackSessionRef.current = session
       // Throttle local updates so React isn't overwhelmed.
@@ -273,7 +383,7 @@ export function useDungeonSimulatorWorker(params: UseDungeonSimulatorWorkerParam
     }
     if (!supportsWorkerEnv || !worker) {
       // Worker unavailable: fall back to the local streaming loop.
-      fallbackCancelRef.current = runFallback()
+      fallbackCancelRef.current = runFallback(effectiveRuns, dirtyDungeons)
       return () => {
         if (fallbackCancelRef.current) fallbackCancelRef.current()
       }
@@ -290,6 +400,7 @@ export function useDungeonSimulatorWorker(params: UseDungeonSimulatorWorkerParam
         runs: effectiveRuns,
         batchSize: safeBatchSize,
         throttleMs,
+        ...(dirtyDungeons.length > 0 ? { dirtyDungeons } : {}),
         ...(boosts ? { boosts } : {}),
         ...(selections ? { selections } : {}),
       },
@@ -299,7 +410,7 @@ export function useDungeonSimulatorWorker(params: UseDungeonSimulatorWorkerParam
       activeWorker.postMessage(request)
     } catch (_error) {
       // If the worker cannot accept the message, run locally.
-      fallbackCancelRef.current = runFallback()
+      fallbackCancelRef.current = runFallback(effectiveRuns, dirtyDungeons)
       return () => {
         if (fallbackCancelRef.current) fallbackCancelRef.current()
       }
