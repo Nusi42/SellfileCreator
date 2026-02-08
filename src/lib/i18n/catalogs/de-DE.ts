@@ -268,17 +268,16 @@ const overrides: Catalog = {
   // Popover breakdown and empty state.
   dungeonDropsPopoverBreakdownTitle: 'Behaltene Drops nach Slot + Hauptstat (Prozent aller Drops)',
   dungeonDropsPopoverEmpty: 'Keine behaltenen Drops auf dieser Stufe.',
-  // Substat target selectors.
-  dungeonDropsSubstatSelectLabel: 'Ziel-Substats',
-  dungeonDropsSubstatSelectPlaceholder: 'Substats auswählen',
-  dungeonDropsSubstatSelectHint: 'Wähle bis zu 4 Substats zur Analyse.',
-  // Substat stats loading and empty states.
-  dungeonDropsSubstatLoading: 'Substat-Statistiken werden berechnet...',
-  dungeonDropsSubstatEmpty: 'Wähle Substats, um Statistiken zu sehen.',
-  // Substat result section headings.
-  dungeonDropsSubstatPresentTitle: 'Ausgewählte Substats vorhanden (≥N)',
-  dungeonDropsSubstatRollsTitle: 'Würfe in ausgewählte Substats (≥N)',
-  dungeonDropsSubstatRunsTitle: 'Läufe benötigt für ≥1 Gegenstand mit allen ausgewählten Substats',
+  // Generic substat tooltip text.
+  dungeonDropsSubstatGenericTitle: 'Spezifische Substat-Chancen',
+  dungeonDropsSubstatGenericChanceTitle: 'Chancen',
+  dungeonDropsSubstatGenericChancePerRun: 'Pro Lauf',
+  dungeonDropsSubstatGenericChanceWithin: 'Im Slot + Main',
+  dungeonDropsSubstatGenericRunsTitle: 'Läufe für ≥1 Gegenstand',
+  dungeonDropsSubstatGenericRunsHeader: 'Zielchance',
+  dungeonDropsSubstatGenericSpecificLabel: '{count} spezifisch',
+  dungeonDropsSubstatGenericLoading: 'Berechne generische Substat-Chancen...',
+  dungeonDropsSubstatGenericEmpty: 'Keine passenden Drops auf dieser Stufe.',
   // Dungeon boss names.
   dungeonIceGolem: 'Eisgolem',
   dungeonFireKnight: 'Feuerritter',

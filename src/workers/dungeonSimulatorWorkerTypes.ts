@@ -4,6 +4,8 @@ import type {
   DungeonBoostableId,
   DungeonBoostSelection,
   DungeonId,
+  DungeonSimGenericQuery,
+  DungeonSimGenericStats,
   DungeonSimDetailQuery,
   DungeonSimDetailStats,
   DungeonSimMode,
@@ -50,6 +52,8 @@ export type DungeonSimulatorWorkerRequest =
   | { id: number; kind: 'cancel' }
   // Query cached detail stats for a slot/main/substat selection.
   | { id: number; kind: 'detail:query'; payload: DungeonSimDetailQuery }
+  // Query cached generic substat stats for a slot/main selection.
+  | { id: number; kind: 'detail:generic'; payload: DungeonSimGenericQuery }
 
 // Responses stream progress updates or finalize the run.
 export type DungeonSimulatorWorkerResponse =
@@ -63,3 +67,7 @@ export type DungeonSimulatorWorkerResponse =
   | { id: number; kind: 'detail:result'; payload: DungeonSimDetailStats | null }
   // Detail query error response.
   | { id: number; kind: 'detail:error'; error: string }
+  // Generic-detail query success response.
+  | { id: number; kind: 'detail:generic:result'; payload: DungeonSimGenericStats | null }
+  // Generic-detail query error response.
+  | { id: number; kind: 'detail:generic:error'; error: string }

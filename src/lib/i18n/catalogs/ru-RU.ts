@@ -268,17 +268,16 @@ const overrides: Catalog = {
   // Popover breakdown and empty state.
   dungeonDropsPopoverBreakdownTitle: 'Сохраненные дропы по слоту + основной стат (процент от всех дропов)',
   dungeonDropsPopoverEmpty: 'На этом уровне нет сохраненных дропов.',
-  // Substat target selectors.
-  dungeonDropsSubstatSelectLabel: 'Целевые субстаты',
-  dungeonDropsSubstatSelectPlaceholder: 'Выберите субстаты',
-  dungeonDropsSubstatSelectHint: 'Выберите до 4 субстатов для анализа.',
-  // Substat stats loading and empty states.
-  dungeonDropsSubstatLoading: 'Подсчет статистики субстатов...',
-  dungeonDropsSubstatEmpty: 'Выберите субстаты, чтобы увидеть статистику.',
-  // Substat result section headings.
-  dungeonDropsSubstatPresentTitle: 'Выбранные субстаты присутствуют (≥N)',
-  dungeonDropsSubstatRollsTitle: 'Роллы в выбранные субстаты (≥N)',
-  dungeonDropsSubstatRunsTitle: 'Нужно прогонов для ≥1 предмета со всеми выбранными субстатами',
+  // Generic substat tooltip text.
+  dungeonDropsSubstatGenericTitle: 'Вероятности конкретных сабстатов',
+  dungeonDropsSubstatGenericChanceTitle: 'Вероятности',
+  dungeonDropsSubstatGenericChancePerRun: 'За прогон',
+  dungeonDropsSubstatGenericChanceWithin: 'В пределах слота + главный стат',
+  dungeonDropsSubstatGenericRunsTitle: 'Прогоны для ≥1 предмета',
+  dungeonDropsSubstatGenericRunsHeader: 'Целевая вероятность',
+  dungeonDropsSubstatGenericSpecificLabel: '{count} конкретные',
+  dungeonDropsSubstatGenericLoading: 'Вычисление общих шансов сабстатов...',
+  dungeonDropsSubstatGenericEmpty: 'Нет подходящих дропов на этом уровне.',
   // Dungeon boss names.
   dungeonIceGolem: 'Ледяной голем',
   dungeonFireKnight: 'Огненный рыцарь',

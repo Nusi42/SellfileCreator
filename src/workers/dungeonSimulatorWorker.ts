@@ -148,6 +148,35 @@ self.onmessage = (event: MessageEvent<DungeonSimulatorWorkerRequest>) => {
       self.postMessage(response)
     }
   }
+  if (message.kind === 'detail:generic') {
+    // Generic detail requests read from the cached session state.
+    if (!cachedSession) {
+      const response: DungeonSimulatorWorkerResponse = {
+        id: message.id,
+        kind: 'detail:generic:error',
+        error: 'Dungeon simulator detail data is not ready yet.',
+      }
+      self.postMessage(response)
+      return
+    }
+    try {
+      // Query is pure; no extra simulation runs are triggered here.
+      const payload = cachedSession.queryGenericStats(message.payload)
+      const response: DungeonSimulatorWorkerResponse = {
+        id: message.id,
+        kind: 'detail:generic:result',
+        payload,
+      }
+      self.postMessage(response)
+    } catch (error) {
+      const response: DungeonSimulatorWorkerResponse = {
+        id: message.id,
+        kind: 'detail:generic:error',
+        error: error instanceof Error ? error.message : String(error),
+      }
+      self.postMessage(response)
+    }
+  }
 }
 
 export {}

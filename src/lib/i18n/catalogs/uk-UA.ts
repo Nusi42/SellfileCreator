@@ -268,17 +268,16 @@ const overrides: Catalog = {
   // Popover breakdown and empty state.
   dungeonDropsPopoverBreakdownTitle: 'Збережені дропи за слотом + основною статою (відсоток усіх дропів)',
   dungeonDropsPopoverEmpty: 'На цьому рівні немає збережених дропів.',
-  // Substat target selectors.
-  dungeonDropsSubstatSelectLabel: 'Цільові сабстати',
-  dungeonDropsSubstatSelectPlaceholder: 'Виберіть сабстати',
-  dungeonDropsSubstatSelectHint: 'Виберіть до 4 сабстатів для аналізу.',
-  // Substat stats loading and empty states.
-  dungeonDropsSubstatLoading: 'Обчислення статистики сабстатів...',
-  dungeonDropsSubstatEmpty: 'Виберіть сабстати, щоб побачити статистику.',
-  // Substat result section headings.
-  dungeonDropsSubstatPresentTitle: 'Обрані сабстати присутні (≥N)',
-  dungeonDropsSubstatRollsTitle: 'Роли в обрані сабстати (≥N)',
-  dungeonDropsSubstatRunsTitle: 'Потрібно прогонів для ≥1 предмета з усіма обраними сабстатами',
+  // Generic substat tooltip text.
+  dungeonDropsSubstatGenericTitle: 'Ймовірності конкретних підстатів',
+  dungeonDropsSubstatGenericChanceTitle: 'Ймовірності',
+  dungeonDropsSubstatGenericChancePerRun: 'За забіг',
+  dungeonDropsSubstatGenericChanceWithin: 'У межах слот + головна стата',
+  dungeonDropsSubstatGenericRunsTitle: 'Забіги для ≥1 предмета',
+  dungeonDropsSubstatGenericRunsHeader: 'Цільова ймовірність',
+  dungeonDropsSubstatGenericSpecificLabel: '{count} конкретні',
+  dungeonDropsSubstatGenericLoading: 'Обчислення узагальнених шансів підстатів...',
+  dungeonDropsSubstatGenericEmpty: 'Немає відповідних дропів на цьому рівні.',
   // Dungeon boss names.
   dungeonIceGolem: 'Крижаний голем',
   dungeonFireKnight: 'Вогняний лицар',

@@ -14,6 +14,8 @@ import {
   type DungeonBoostSelection,
   type DungeonBoostableId,
   type DungeonId,
+  type DungeonSimGenericQuery,
+  type DungeonSimGenericStats,
   type DungeonSimDetailQuery,
   type DungeonSimDetailStats,
   type DungeonSimMode,
@@ -48,6 +50,7 @@ type UseDungeonSimulatorWorkerResult = {
   running: boolean
   error: string | null
   requestDetailStats: (query: DungeonSimDetailQuery) => Promise<DungeonSimDetailStats | null>
+  requestGenericStats: (query: DungeonSimGenericQuery) => Promise<DungeonSimGenericStats | null>
 }
 
 // Feature detection prevents SSR and older browsers from attempting worker creation.
@@ -178,6 +181,7 @@ export function useDungeonSimulatorWorker(params: UseDungeonSimulatorWorkerParam
   // Track detail requests separately from simulation runs.
   const detailRequestRef = useRef(0)
   const detailResolversRef = useRef(new Map<number, (value: DungeonSimDetailStats | null) => void>())
+  const genericResolversRef = useRef(new Map<number, (value: DungeonSimGenericStats | null) => void>())
   // Local fallback loop needs a cancel hook when dependencies change.
   const fallbackCancelRef = useRef<(() => void) | null>(null)
   // Track previous inputs so we can resimulate only changed dungeons.
@@ -225,6 +229,24 @@ export function useDungeonSimulatorWorker(params: UseDungeonSimulatorWorkerParam
         if (resolver) {
           resolver(null)
           detailResolversRef.current.delete(data.id)
+        }
+        return
+      }
+      if (data.kind === 'detail:generic:result') {
+        // Resolve the matching generic-detail request.
+        const resolver = genericResolversRef.current.get(data.id)
+        if (resolver) {
+          resolver(data.payload)
+          genericResolversRef.current.delete(data.id)
+        }
+        return
+      }
+      if (data.kind === 'detail:generic:error') {
+        // Errors resolve to null so callers can show a fallback state.
+        const resolver = genericResolversRef.current.get(data.id)
+        if (resolver) {
+          resolver(null)
+          genericResolversRef.current.delete(data.id)
         }
         return
       }
@@ -461,5 +483,26 @@ export function useDungeonSimulatorWorker(params: UseDungeonSimulatorWorkerParam
     return Promise.resolve(session.queryDetailStats(query))
   }
 
-  return { results, progress, running, error, requestDetailStats }
+  const requestGenericStats = (query: DungeonSimGenericQuery): Promise<DungeonSimGenericStats | null> => {
+    // Prefer the worker cache when available.
+    const worker = workerRef.current
+    if (supportsWorkerEnv && worker) {
+      const id = ++detailRequestRef.current
+      const request: DungeonSimulatorWorkerRequest = {
+        id,
+        kind: 'detail:generic',
+        payload: query,
+      }
+      return new Promise((resolve) => {
+        genericResolversRef.current.set(id, resolve)
+        worker.postMessage(request)
+      })
+    }
+    // Fall back to the local session when workers are unavailable.
+    const session = fallbackSessionRef.current
+    if (!session) return Promise.resolve(null)
+    return Promise.resolve(session.queryGenericStats(query))
+  }
+
+  return { results, progress, running, error, requestDetailStats, requestGenericStats }
 }

@@ -269,17 +269,16 @@ const enUS: Catalog = {
   // Popover breakdown and empty state.
   dungeonDropsPopoverBreakdownTitle: 'Kept drops by slot + main stat (percent of all drops)',
   dungeonDropsPopoverEmpty: 'No kept drops at this level.',
-  // Substat target selectors.
-  dungeonDropsSubstatSelectLabel: 'Target substats',
-  dungeonDropsSubstatSelectPlaceholder: 'Select substats',
-  dungeonDropsSubstatSelectHint: 'Pick up to 4 substats to analyze.',
-  // Substat stats loading and empty states.
-  dungeonDropsSubstatLoading: 'Calculating substat stats...',
-  dungeonDropsSubstatEmpty: 'Select substats to see stats.',
-  // Substat result section headings.
-  dungeonDropsSubstatPresentTitle: 'Selected substats present (≥N)',
-  dungeonDropsSubstatRollsTitle: 'Rolls into selected substats (≥N)',
-  dungeonDropsSubstatRunsTitle: 'Runs needed for ≥1 item with all selected substats',
+  // Generic substat tooltip text.
+  dungeonDropsSubstatGenericTitle: 'Specific substat odds',
+  dungeonDropsSubstatGenericChanceTitle: 'Chances',
+  dungeonDropsSubstatGenericChancePerRun: 'Per run',
+  dungeonDropsSubstatGenericChanceWithin: 'Within slot + main',
+  dungeonDropsSubstatGenericRunsTitle: 'Runs for ≥1 item',
+  dungeonDropsSubstatGenericRunsHeader: 'Target chance',
+  dungeonDropsSubstatGenericSpecificLabel: '{count} specific',
+  dungeonDropsSubstatGenericLoading: 'Calculating generic substat odds...',
+  dungeonDropsSubstatGenericEmpty: 'No eligible drops at this level.',
   // Dungeon boss names.
   dungeonIceGolem: 'Ice Golem',
   dungeonFireKnight: 'Fire Knight',

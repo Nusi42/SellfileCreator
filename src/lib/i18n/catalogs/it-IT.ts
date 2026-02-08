@@ -268,17 +268,16 @@ const overrides: Catalog = {
   // Popover breakdown and empty state.
   dungeonDropsPopoverBreakdownTitle: 'Drop conservati per slot + stat principale (percentuale di tutti i drop)',
   dungeonDropsPopoverEmpty: 'Nessun drop conservato a questo livello.',
-  // Substat target selectors.
-  dungeonDropsSubstatSelectLabel: 'Substat target',
-  dungeonDropsSubstatSelectPlaceholder: 'Seleziona substat',
-  dungeonDropsSubstatSelectHint: 'Scegli fino a 4 substat da analizzare.',
-  // Substat stats loading and empty states.
-  dungeonDropsSubstatLoading: 'Calcolo delle statistiche delle substat...',
-  dungeonDropsSubstatEmpty: 'Seleziona substat per vedere le statistiche.',
-  // Substat result section headings.
-  dungeonDropsSubstatPresentTitle: 'Substat selezionate presenti (≥N)',
-  dungeonDropsSubstatRollsTitle: 'Tiri nelle substat selezionate (≥N)',
-  dungeonDropsSubstatRunsTitle: 'Esecuzioni necessarie per ≥1 oggetto con tutte le substat selezionate',
+  // Generic substat tooltip text.
+  dungeonDropsSubstatGenericTitle: 'Probabilità di sotto-stat specifiche',
+  dungeonDropsSubstatGenericChanceTitle: 'Probabilità',
+  dungeonDropsSubstatGenericChancePerRun: 'Per run',
+  dungeonDropsSubstatGenericChanceWithin: 'Dentro slot + stat principale',
+  dungeonDropsSubstatGenericRunsTitle: 'Run per ≥1 oggetto',
+  dungeonDropsSubstatGenericRunsHeader: 'Probabilità target',
+  dungeonDropsSubstatGenericSpecificLabel: '{count} specifiche',
+  dungeonDropsSubstatGenericLoading: 'Calcolo delle probabilità generiche delle sotto-stat...',
+  dungeonDropsSubstatGenericEmpty: 'Nessun drop idoneo a questo livello.',
   // Dungeon boss names.
   dungeonIceGolem: 'Golem di Ghiaccio',
   dungeonFireKnight: 'Cavaliere del Fuoco',

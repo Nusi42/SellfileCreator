@@ -268,17 +268,16 @@ const overrides: Catalog = {
   // Popover breakdown and empty state.
   dungeonDropsPopoverBreakdownTitle: 'Slot + ana stat\'a göre tutulan düşüşler (tüm düşüşlerin yüzdesi)',
   dungeonDropsPopoverEmpty: 'Bu seviyede tutulan düşüş yok.',
-  // Substat target selectors.
-  dungeonDropsSubstatSelectLabel: 'Hedef alt statlar',
-  dungeonDropsSubstatSelectPlaceholder: 'Alt stat seç',
-  dungeonDropsSubstatSelectHint: 'Analiz için en fazla 4 alt stat seçin.',
-  // Substat stats loading and empty states.
-  dungeonDropsSubstatLoading: 'Alt stat istatistikleri hesaplanıyor...',
-  dungeonDropsSubstatEmpty: 'İstatistikleri görmek için alt stat seçin.',
-  // Substat result section headings.
-  dungeonDropsSubstatPresentTitle: 'Seçilen alt statlar mevcut (≥N)',
-  dungeonDropsSubstatRollsTitle: 'Seçilen alt statlara gelen atışlar (≥N)',
-  dungeonDropsSubstatRunsTitle: 'Tüm seçilen alt statlara sahip ≥1 eşya için gereken koşu',
+  // Generic substat tooltip text.
+  dungeonDropsSubstatGenericTitle: 'Belirli alt stat olasılıkları',
+  dungeonDropsSubstatGenericChanceTitle: 'Olasılıklar',
+  dungeonDropsSubstatGenericChancePerRun: 'Koşu başına',
+  dungeonDropsSubstatGenericChanceWithin: 'Slot + ana stat içinde',
+  dungeonDropsSubstatGenericRunsTitle: '≥1 eşya için koşu sayısı',
+  dungeonDropsSubstatGenericRunsHeader: 'Hedef olasılık',
+  dungeonDropsSubstatGenericSpecificLabel: '{count} belirli',
+  dungeonDropsSubstatGenericLoading: 'Genel alt stat olasılıkları hesaplanıyor...',
+  dungeonDropsSubstatGenericEmpty: 'Bu seviyede uygun düşüş yok.',
   // Dungeon boss names.
   dungeonIceGolem: 'Buz Golemi',
   dungeonFireKnight: 'Ateş Şövalyesi',
