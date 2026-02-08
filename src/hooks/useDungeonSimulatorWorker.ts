@@ -268,11 +268,14 @@ export function useDungeonSimulatorWorker(params: UseDungeonSimulatorWorkerParam
     // Every new dependency change resets the in-flight run.
     const id = ++activeRequestRef.current
     const prevInputs = prevInputsRef.current
+    // Ensure the first visible open kicks off a full run (even under strict-mode replays).
+    const hasSnapshot = Boolean(lastSnapshotRef.current.results) || Boolean(lastSnapshotRef.current.progress)
     const fullReset = !prevInputs
       || prevInputs.rules !== rules
       || prevInputs.substatTargets !== substatTargets
       || prevInputs.runs !== runs
-    const dirtyDungeons = fullReset
+    const shouldRunAll = fullReset || !hasSnapshot
+    const dirtyDungeons = shouldRunAll
       ? []
       : resolveDirtyDungeons({
         ...(prevInputs?.selections ? { prevSelections: prevInputs.selections } : {}),
@@ -289,7 +292,7 @@ export function useDungeonSimulatorWorker(params: UseDungeonSimulatorWorkerParam
       ...(boosts ? { boosts } : {}),
     }
     // No-op when only object references changed without actual edits.
-    if (!fullReset && dirtyDungeons.length === 0) return undefined
+    if (!shouldRunAll && dirtyDungeons.length === 0) return undefined
     // Use a reduced run count if workers cannot be used.
     const worker = workerRef.current
     const canUseWorker = supportsWorkerEnv && Boolean(worker)
@@ -304,12 +307,12 @@ export function useDungeonSimulatorWorker(params: UseDungeonSimulatorWorkerParam
     if (!lastSnapshotRef.current.progress) {
       setProgressBySpotlight(buildEmptyProgressBySpotlight(effectiveRuns))
     }
-    if (!fullReset && dirtyDungeons.length > 0) {
+    if (!shouldRunAll && dirtyDungeons.length > 0) {
       // Reset only the changed dungeons so other tables keep their progress.
       setProgressBySpotlight((prev) => resetProgressForDungeons(prev, dirtyDungeons, effectiveRuns))
     }
     // Clear cached fallback sessions when inputs change.
-    if (fullReset) fallbackSessionRef.current = null
+    if (shouldRunAll) fallbackSessionRef.current = null
     // Cancel any in-flight local fallback loop.
     if (fallbackCancelRef.current) {
       fallbackCancelRef.current()
@@ -324,7 +327,7 @@ export function useDungeonSimulatorWorker(params: UseDungeonSimulatorWorkerParam
       // Reset progress so the UI reflects the fallback run count.
       setProgressBySpotlight((prev) => prev ?? buildEmptyProgressBySpotlight(fallbackRuns))
       // Reuse the previous session when only a subset of dungeons changed.
-      const canReuse = !fullReset && dirtyIds.length > 0 && fallbackSessionRef.current
+      const canReuse = !shouldRunAll && dirtyIds.length > 0 && fallbackSessionRef.current
       const session = canReuse && fallbackSessionRef.current
         ? fallbackSessionRef.current
         : createDungeonSimSpotlightSession({
