@@ -96,6 +96,11 @@ const RUN_PROB_TARGETS = [
   { label: '99%', value: 0.99 },
 ] as const
 
+// Slightly wider detail popover keeps slot rows readable (e.g. CDMG% label + value).
+const DETAIL_POPOVER_MAX_WIDTH_PX = 420
+// Minimum popover width prevents slot rows from compressing into overlapping text.
+const DETAIL_POPOVER_MIN_WIDTH_PX = 360
+
 const computeRunsNeeded = (count: number, total: number, target: number): number | null => {
   if (total <= 0) return null
   const p = count / total
@@ -874,7 +879,8 @@ export default function DungeonSimulatorTab(props: DungeonSimulatorTabProps) {
             onRequestClose: handleDetailClose,
             closeLabel: t('close'),
             ref: detailPopoverPaperRef,
-            sx: { p: 2, maxWidth: 360 },
+            // Keep the detail popover wide enough for label/value pairs to coexist.
+            sx: { p: 2, maxWidth: DETAIL_POPOVER_MAX_WIDTH_PX, minWidth: DETAIL_POPOVER_MIN_WIDTH_PX },
           }),
         }}
       >
@@ -908,6 +914,7 @@ export default function DungeonSimulatorTab(props: DungeonSimulatorTabProps) {
               <Box
                 sx={{
                   display: 'grid',
+                  // Fixed 3-column layout mirrors the slot grid while relying on the wider popover.
                   gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
                   gap: 1,
                 }}
