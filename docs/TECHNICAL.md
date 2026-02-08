@@ -140,6 +140,75 @@ Without the helper, the Playwright perf tests fall back to the built-in measurem
 - Interim baseline for 1–4★ gear (temporary implementation detail): use the 5★ target minus one unit for each stat (e.g., `HP = 159`, `HP% = 3%`, `SPD = 3`).
 - When new substats are added at the level milestones they enter at least at these minimum values; actual in-game rolls can exceed them.
 
+### Gear and its sources
+
+| Artifact | \# for Set | Location |
+| --- | --- | --- |
+| LIFE | 2   | DUNGEON - Ice Golem’s Peak  <br>CAMPAIGN - Kaerok Castle  <br>MARKET |
+| DEFENSE | 2   | DUNGEON - Ice Golem’s Peak  <br>CAMPAIGN - Catacombs of Narbuk  <br>MARKET |
+| RESISTANCE | 2   | DUNGEON - Ice Golem’s Peak  <br>CAMPAIGN - Tilshire  <br>MARKET |
+| OFFENSE | 2   | DUNGEON - Ice Golem’s Peak  <br>CAMPAIGN - Sewers of Arnoc  <br>MARKET |
+| CRITICAL RATE | 2   | DUNGEON - Ice Golem’s Peak  <br>CAMPAIGN - Durham Forest  <br>MARKET  <br>EVENT DUNGEON |
+| RETALIATION | 2   | DUNGEON - Ice Golem’s Peak  <br>CAMPAIGN - Godfrey's Crossing  <br>MARKET |
+| REFLEX | 4   | DUNGEON - Ice Golem’s Peak |
+| CURSED | 4   | DUNGEON - Ice Golem’s Peak |
+| PROVOKE | 4   | DUNGEON - Ice Golem’s Peak |
+| FROST | 4   | DUNGEON - Dragon's Lair |
+| TOXIC | 4   | DUNGEON - Dragon's Lair |
+| DAZE | 4   | DUNGEON - Dragon's Lair  <br>MARKET  <br>EVENT DUNGEON |
+| AVENGING | 4   | DUNGEON - Dragon's Lair |
+| STALWART | 4   | DUNGEON - Dragon's Lair |
+| ACCURACY | 2   | DUNGEON - Dragon's Lair  <br>CAMPAIGN - Felwin's Gate  <br>MARKET  <br>EVENT DUNGEON |
+| SPEED | 2   | DUNGEON - Dragon's Lair  <br>CAMPAIGN - Palace of Aravia  <br>MARKET |
+| LIFESTEAL | 4   | DUNGEON - Dragon's Lair  <br>CAMPAIGN - Valdemar Strait  <br>MARKET |
+| DESTROY | 4   | DUNGEON - Dragon's Lair  <br>CAMPAIGN - Deadlands |
+| FRENZY | 4   | DUNGEON - Fire Knight's Castle |
+| STUN | 4   | DUNGEON - Fire Knight's Castle |
+| IMMUNITY | 4   | DUNGEON - Fire Knight's Castle |
+| SAVAGE | 4   | DUNGEON - Fire Knight's Castle |
+| REGENERATION | 4   | DUNGEON - Fire Knight's Castle |
+| FURY | 4   | DUNGEON - Fire Knight's Castle  <br>CAMPAIGN - Hallowed Halls |
+| CURING | 4   | DUNGEON - Fire Knight's Castle  <br>CAMPAIGN - Brimstone Path  <br>MARKET  <br>EVENT DUNGEON |
+| CRIT DAMAGE | 2   | DUNGEON - Fire Knight's Castle  <br>EVENT DUNGEON |
+| SHIELD | 4   | DUNGEON - Fire Knight's Castle  <br>MARKET |
+| CRUEL | 2   | DEMON LORD - Demon Lord Chests |
+| IMMORTAL | 2   | DEMON LORD - Demon Lord Chests |
+| DIVINE LIFE | 2   | CLASSIC ARENA - Bronze, Silver, and Gold Tier Weekly Chests  <br>GREAT HALL - Gold Medal Chests |
+| DIVINE CRITICAL RATE | 2   | CLASSIC ARENA - Bronze, Silver, and Gold Tier Weekly Chests  <br>GREAT HALL - Gold Medal Chests |
+| DIVINE OFFENSE | 2   | CLASSIC ARENA - Bronze, Silver, and Gold Tier Weekly Chests  <br>GREAT HALL - Gold Medal Chests |
+| DIVINE SPEED | 2   | CLASSIC ARENA - Bronze, Silver, and Gold Tier Weekly Chests  <br>GREAT HALL - Gold Medal Chests |
+| SWIFT PARRY | 4   | CLASSIC ARENA - Platinum Tier Weekly Chests  <br>FORGE - Materials from Faction Wars, Classic Arena, and Events/Tournaments |
+| DEFLECTION | 4   | CLASSIC ARENA - Platinum Tier Weekly Chests  <br>FORGE - Materials from Faction Wars, Classic Arena, and Events/Tournaments |
+| RESILIENCE | 2   | FORGE - Materials from Faction Wars and Classic Arena |
+| PERCEPTION | 2   | FORGE - Materials from Faction Wars and Classic Arena |
+| FATAL | 2   | FORGE - Materials from Classic Arena and the Magma Dragon |
+| AFFINITYBREAKER | 4   | FORGE - Materials from Classic Arena and the Nether Spider |
+| UNTOUCHABLE | 4   | FORGE - Materials from Classic Arena and the Scarab King |
+| FROSTBITE | 4   | FORGE - Materials from Classic Arena and the Frost Spider |
+| BLOODTHIRST | 4   | FORGE - Materials from Classic Arena and the Eternal Dragon |
+| GUARDIAN | 4   | FORGE - Materials from Classic Arena and the Celestial Griffin |
+| RELENTLESS | 4   | TOURNAMENTS - Tournament Rewards |
+| FORTITUDE | 2   | FORGE - Materials from Classic Arena and Bommal the Dreadhorn |
+| LETHAL | 4   | FORGE - Materials from Classic Arena and the Dark Fae |
+| STONE SKIN | 9   | HYDRA - Hydra Chests & Hydra Clash Chests |
+| PROTECTION | 9   | HYDRA - Hydra Chests & Hydra Clash Chests |
+| KILLSTROKE | 2   | CLAN SHOP - Artifact Chests |
+| INSTINCT | 4   | FORGE PASS - Final Reward from Gold Pass  <br>FORGE - Materials from the Forge Pass |
+| BOLSTER | 4   | FORGE PASS - Final Reward from Gold Pass  <br>FORGE - Materials from the Forge Pass |
+| DEFIANT | 2   | FORGE PASS - Final Reward from Gold Pass  <br>FORGE - Materials from the Forge Pass |
+| IMPULSE | 2   | LIVE ARENA - Live Arena Chests |
+| ZEAL | 2   | LIVE ARENA - Live Arena Chests |
+| RIGHTEOUS | 2   | RAID: CALL OF THE ARBITER - Reward for episode views  <br>FORGE PASS - Final Reward from Gold Pass  <br>FORGE - Materials from the Forge Pass |
+| SUPERSONIC | 9   | CURSED CITY - Cursed Chests |
+| MERCILESS | 9   | CURSED CITY - Cursed Chests |
+| SLAYER | 9   | FORGE PASS - Final Reward from Gold Pass  <br>FORGE - Materials from the Forge Pass |
+| FERAL | 9   | SIEGE - Milestone Rewards |
+| PINPOINT | 9   | EVENT DUNGEON |
+| STONECLEAVER | 9   | LIVE ARENA - Seasonal Milestone Rewards and Seasonal Chests |
+| REBIRTH | 9   | LIVE ARENA - Seasonal Milestone Rewards and Seasonal Chests |
+| CHRONOPHAGE | 9   | EVENT DUNGEON |
+| MERCURIAL | 9   | GRIM FOREST |
+
 ### Playwright Harness
 
 - Fixtures live under `tests/playwright/`:
