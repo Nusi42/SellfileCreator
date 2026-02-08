@@ -659,6 +659,21 @@ export type DungeonSimDetailStats = {
   allSelected: number
 }
 
+export type DungeonSimGenericQuery = {
+  dungeonId: DungeonId
+  spotlight: EventSpotlightSelection
+  setId: ArtifactSetId
+  level: LevelMilestone
+  slot: ArtifactTypeId
+  main: StatVariant
+}
+
+export type DungeonSimGenericStats = {
+  total: number
+  // Probability that a specific set of 1/2/3/4 substats appears (0..1).
+  specificAtLeast: number[]
+}
+
 // Cell result for a single set + level.
 export type DungeonSimCell = {
   total: number
@@ -688,7 +703,7 @@ export type DungeonSimProgress = {
 
 // Streaming session for dungeon simulation (supports incremental batches).
 export type DungeonSimSession = {
-  runBatch: (batchRuns: number) => void
+  runBatch: (batchRuns: number, dungeonIds?: DungeonId[]) => void
   getResults: () => DungeonSimResults
   getProgress: () => DungeonSimProgress
   isComplete: () => boolean
@@ -700,10 +715,11 @@ export type DungeonSimSpotlightProgress = Record<EventSpotlightSelection, Dungeo
 
 // Streaming session for dungeon simulation with both spotlight sets precomputed.
 export type DungeonSimSpotlightSession = {
-  runBatch: (batchRuns: number) => void
+  runBatch: (batchRuns: number, dungeonIds?: DungeonId[]) => void
   getResultsBySpotlight: () => DungeonSimSpotlightResults
   getProgressBySpotlight: () => DungeonSimSpotlightProgress
   queryDetailStats: (query: DungeonSimDetailQuery) => DungeonSimDetailStats | null
+  queryGenericStats: (query: DungeonSimGenericQuery) => DungeonSimGenericStats | null
   resetDungeons: (params: {
     dungeonIds: DungeonId[]
     selections?: Partial<Record<DungeonId, DungeonStageSelection>>
@@ -939,6 +955,17 @@ const resolveDetailAtLevel = (
   return { variants, rolls }
 }
 
+// Small combinator helper for nCk (n choose k).
+const combination = (n: number, k: number): number => {
+  if (k < 0 || k > n) return 0
+  if (k === 0 || k === n) return 1
+  let result = 1
+  for (let i = 1; i <= k; i += 1) {
+    result = (result * (n - (k - i))) / i
+  }
+  return result
+}
+
 // Compute explicit-substat stats for a given slot/main selection.
 const computeDetailStats = (
   items: DungeonSimDetailItem[],
@@ -988,6 +1015,45 @@ const computeDetailStats = (
     presentAtLeast,
     rollsAtLeast,
     allSelected,
+  }
+}
+
+// Compute generic "specific substat" odds without naming the substats.
+const computeGenericSpecificStats = (
+  items: DungeonSimDetailItem[],
+  query: DungeonSimGenericQuery,
+): DungeonSimGenericStats => {
+  const allowedPool = new Set<number>(
+    Array.from(ALLOWED_SUB_BY_SLOT[Number(query.slot)] ?? []).map((variant) => Number(variant)),
+  )
+  // Remove the main stat so we only count eligible substats.
+  allowedPool.delete(Number(query.main))
+  const poolSize = allowedPool.size
+  const specificAtLeast: number[] = [0, 0, 0, 0]
+  let total = 0
+  for (const item of items) {
+    if (Number(item.slot) !== Number(query.slot)) continue
+    if (Number(item.main) !== Number(query.main)) continue
+    if (Number(item.maxLevel) < Number(query.level)) continue
+    total += 1
+    const { variants } = resolveDetailAtLevel(item, query.level)
+    const presentCount = variants.length
+    // Compute "specific set" odds for sizes 1/2/3/4.
+    for (const [idx, size] of [1, 2, 3, 4].entries()) {
+      if (presentCount < size || poolSize < size) continue
+      // Each item contributes the chance a random specific set is contained.
+      const numerator = combination(presentCount, size)
+      const denominator = combination(poolSize, size)
+      if (denominator <= 0) continue
+      const current = specificAtLeast[idx] ?? 0
+      specificAtLeast[idx] = current + (numerator / denominator)
+    }
+  }
+  return {
+    total,
+    specificAtLeast: total > 0
+      ? specificAtLeast.map((value) => value / total)
+      : specificAtLeast,
   }
 }
 
@@ -1295,10 +1361,13 @@ export const createDungeonSimSession = (params: {
     return results
   }
   // Run a batch across every dungeon runtime.
-  const runBatch = (batchRuns: number) => {
+  const runBatch = (batchRuns: number, dungeonIds?: DungeonId[]) => {
     const normalizedBatch = Math.max(0, Math.floor(batchRuns))
     if (normalizedBatch <= 0) return
-    for (const runtime of runtimes.values()) {
+    // When dungeon ids are supplied, only run the requested subset.
+    const targetIds = dungeonIds && dungeonIds.length > 0 ? new Set(dungeonIds) : null
+    for (const [dungeonId, runtime] of runtimes.entries()) {
+      if (targetIds && !targetIds.has(dungeonId)) continue
       runDungeonBatch(runtime, params.rules, params.substatTargets, normalizedBatch)
     }
   }
@@ -1440,17 +1509,32 @@ export const createDungeonSimSpotlightSession = (params: {
     if (!bucket) return null
     return computeDetailStats(bucket, query)
   }
-  const runBatch = (batchRuns: number) => {
+  const queryGenericStats = (query: DungeonSimGenericQuery): DungeonSimGenericStats | null => {
+    // Route event queries to the spotlight-specific runtime.
+    const runtime = query.dungeonId === 'event'
+      ? eventRuntimes.get(query.spotlight)
+      : baseRuntimes.get(query.dungeonId)
+    if (!runtime) return null
+    const bucket = runtime.detailBySet.get(query.setId)
+    if (!bucket) return null
+    return computeGenericSpecificStats(bucket, query)
+  }
+  const runBatch = (batchRuns: number, dungeonIds?: DungeonId[]) => {
     // Normalize the batch so callers can't pass a zero or NaN batch.
     const normalizedBatch = Math.max(0, Math.floor(batchRuns))
     if (normalizedBatch <= 0) return
+    // When dungeon ids are supplied, limit batches to the requested subset.
+    const targetIds = dungeonIds && dungeonIds.length > 0 ? new Set(dungeonIds) : null
     // Run the shared dungeons once per batch.
-    for (const runtime of baseRuntimes.values()) {
+    for (const [dungeonId, runtime] of baseRuntimes.entries()) {
+      if (targetIds && !targetIds.has(dungeonId)) continue
       runDungeonBatch(runtime, params.rules, params.substatTargets, normalizedBatch)
     }
-    // Run the event dungeon once per spotlight per batch.
-    for (const runtime of eventRuntimes.values()) {
-      runDungeonBatch(runtime, params.rules, params.substatTargets, normalizedBatch)
+    if (!targetIds || targetIds.has('event')) {
+      // Run the event dungeon once per spotlight per batch.
+      for (const runtime of eventRuntimes.values()) {
+        runDungeonBatch(runtime, params.rules, params.substatTargets, normalizedBatch)
+      }
     }
   }
   const resetDungeons = (reset: {
@@ -1502,6 +1586,7 @@ export const createDungeonSimSpotlightSession = (params: {
     getResultsBySpotlight,
     getProgressBySpotlight,
     queryDetailStats,
+    queryGenericStats,
     resetDungeons,
     isComplete,
   }

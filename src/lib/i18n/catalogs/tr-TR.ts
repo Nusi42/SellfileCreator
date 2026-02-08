@@ -214,7 +214,7 @@ const overrides: Catalog = {
   // Dungeon Drops tab label and intro copy.
   tabDungeonDrops: 'Zindan Düşüşleri',
   dungeonDropsIntro: 'Mevcut Sellfile kurallarınızı (HSF) kullanarak zindan düşüşlerini simüle edin ve set ile seviye kilometre taşına göre ne kadar ekipmanın tutulduğunu tahmin edin.',
-  dungeonDropsExplanation: 'Her koşu, seçilen aşamanın düşüş tablolarını (rütbe, nadirlik, yuva ve set) kullanarak bir zindan düşüşünü simüle eder. Yüzdeler, o aşamadaki tüm düşüşlere bölünmüş tutulan düşüşlerdir; güçlendirilmiş setler yalnızca set ağırlıklarını değiştirir.',
+  dungeonDropsExplanation: 'Tablodaki yüzdeler, bu aşamadaki tüm düşüşlere bölünmüş elde tutulan düşüşlerdir; güçlendirilmiş setler yalnızca set ağırlıklarını değiştirir.',
   // Simulation roll assumptions and run count.
   dungeonDropsRollNote: 'Alt stat değerleri, eşyanın yıldız rütbesi için minimum atışları kullanır; her yükseltme atışı başka bir minimum atış ekler (ihtiyatlı bir tahmin).',
   dungeonDropsRunNote: 'Zindan aşaması başına koşu: {runs}.',
@@ -236,7 +236,6 @@ const overrides: Catalog = {
   dungeonDropsInfoHowLine2: 'Aynı eşya +4 / +8 / +12 / +16 seviyelerinde tekrar atılır.',
   // How-it-works steps for mode behavior and roll floors.
   dungeonDropsInfoHowLine3: 'Anlık görüntü modu, bir seviye satılacak olsa bile atışlara devam eder; Seviye yükseltme modu ilk satıştan sonra durur.',
-  dungeonDropsInfoHowLine4: 'Alt stat değerleri yıldız rütbesi için minimum atışları kullanır (ihtiyatlı).',
   // Why +16 can exceed +12.
   dungeonDropsInfoWhyTitle: '+16 neden +12\'den yüksek olabilir?',
   dungeonDropsInfoWhyLine: 'Bazı kurallar yalnızca +16\'daki son atıştan sonra geçer.',
@@ -268,17 +267,17 @@ const overrides: Catalog = {
   // Popover breakdown and empty state.
   dungeonDropsPopoverBreakdownTitle: 'Slot + ana stat\'a göre tutulan düşüşler (tüm düşüşlerin yüzdesi)',
   dungeonDropsPopoverEmpty: 'Bu seviyede tutulan düşüş yok.',
-  // Substat target selectors.
-  dungeonDropsSubstatSelectLabel: 'Hedef alt statlar',
-  dungeonDropsSubstatSelectPlaceholder: 'Alt stat seç',
-  dungeonDropsSubstatSelectHint: 'Analiz için en fazla 4 alt stat seçin.',
-  // Substat stats loading and empty states.
-  dungeonDropsSubstatLoading: 'Alt stat istatistikleri hesaplanıyor...',
-  dungeonDropsSubstatEmpty: 'İstatistikleri görmek için alt stat seçin.',
-  // Substat result section headings.
-  dungeonDropsSubstatPresentTitle: 'Seçilen alt statlar mevcut (≥N)',
-  dungeonDropsSubstatRollsTitle: 'Seçilen alt statlara gelen atışlar (≥N)',
-  dungeonDropsSubstatRunsTitle: 'Tüm seçilen alt statlara sahip ≥1 eşya için gereken koşu',
+  // Generic substat tooltip text.
+  dungeonDropsSubstatGenericTitle: 'Belirli alt stat olasılıkları',
+  dungeonDropsSubstatGenericIntro: 'Aşağıdaki tüm sayılar bu seviye için slot + ana stat içindir; koşu başına şans, o slotu düşürme şansını içerir.',
+  dungeonDropsSubstatGenericChanceTitle: 'Olasılıklar',
+  dungeonDropsSubstatGenericChancePerRun: 'Koşu başına',
+  dungeonDropsSubstatGenericChanceWithin: 'Slot + ana stat içinde',
+  dungeonDropsSubstatGenericRunsTitle: '≥1 eşya için koşu sayısı',
+  dungeonDropsSubstatGenericRunsHeader: 'Hedef olasılık',
+  dungeonDropsSubstatGenericSpecificLabel: '{count} belirli',
+  dungeonDropsSubstatGenericLoading: 'Genel alt stat olasılıkları hesaplanıyor...',
+  dungeonDropsSubstatGenericEmpty: 'Bu seviyede uygun düşüş yok.',
   // Dungeon boss names.
   dungeonIceGolem: 'Buz Golemi',
   dungeonFireKnight: 'Ateş Şövalyesi',

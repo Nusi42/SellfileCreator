@@ -214,9 +214,9 @@ const overrides: Catalog = {
   // Dungeon Drops tab label and intro copy.
   tabDungeonDrops: 'Dungeon-Beute',
   dungeonDropsIntro: 'Simuliere Dungeon-Drops mit deinen aktuellen Sellfile-Regeln (HSF), um zu schätzen, wie viel Ausrüstung pro Set und Stufenmeilenstein behalten wird.',
-  dungeonDropsExplanation: 'Jeder Lauf simuliert einen Dungeon-Drop anhand der Drop-Tabellen der gewählten Stufe (Rang, Seltenheit, Slot und Set). Prozentsätze sind behaltene Drops geteilt durch alle Drops dieser Stufe; geboostete Sets ändern nur die Set-Gewichte.',
+  dungeonDropsExplanation: 'Tabellen-Prozente sind behaltene Drops geteilt durch alle Drops dieser Stufe; geboostete Sets ändern nur die Set-Gewichte.',
   // Simulation roll assumptions and run count.
-  dungeonDropsRollNote: 'Substat-Werte verwenden Mindestwürfe für die Sternenstufe des Gegenstands; jeder Aufwertungswurf fügt einen weiteren Mindestwurf hinzu (konservative Schätzung).',
+  dungeonDropsRollNote: 'Substat-Werte verwenden Mindestwürfe für die Sternenstufe des Gegenstands; jede Aufwertung fügt einen weiteren Mindestwurf hinzu (konservative Schätzung).',
   dungeonDropsRunNote: 'Durchläufe pro Dungeon-Stufe: {runs}.',
   // Simulation mode labels.
   dungeonDropsModeLabel: 'Simulationsmodus:',
@@ -236,7 +236,6 @@ const overrides: Catalog = {
   dungeonDropsInfoHowLine2: 'Derselbe Gegenstand wird bei +4 / +8 / +12 / +16 weitergewürfelt.',
   // How-it-works steps for mode behavior and roll floors.
   dungeonDropsInfoHowLine3: 'Der Modus Momentaufnahme würfelt weiter, selbst wenn eine Stufe verkauft würde; der Modus Aufwertung stoppt nach dem ersten Verkauf.',
-  dungeonDropsInfoHowLine4: 'Substat-Werte verwenden Mindestwürfe für die Sternenstufe (konservativ).',
   // Why +16 can exceed +12.
   dungeonDropsInfoWhyTitle: 'Warum kann +16 höher sein als +12?',
   dungeonDropsInfoWhyLine: 'Manche Regeln bestehen erst nach dem letzten Wurf bei +16.',
@@ -268,17 +267,17 @@ const overrides: Catalog = {
   // Popover breakdown and empty state.
   dungeonDropsPopoverBreakdownTitle: 'Behaltene Drops nach Slot + Hauptstat (Prozent aller Drops)',
   dungeonDropsPopoverEmpty: 'Keine behaltenen Drops auf dieser Stufe.',
-  // Substat target selectors.
-  dungeonDropsSubstatSelectLabel: 'Ziel-Substats',
-  dungeonDropsSubstatSelectPlaceholder: 'Substats auswählen',
-  dungeonDropsSubstatSelectHint: 'Wähle bis zu 4 Substats zur Analyse.',
-  // Substat stats loading and empty states.
-  dungeonDropsSubstatLoading: 'Substat-Statistiken werden berechnet...',
-  dungeonDropsSubstatEmpty: 'Wähle Substats, um Statistiken zu sehen.',
-  // Substat result section headings.
-  dungeonDropsSubstatPresentTitle: 'Ausgewählte Substats vorhanden (≥N)',
-  dungeonDropsSubstatRollsTitle: 'Würfe in ausgewählte Substats (≥N)',
-  dungeonDropsSubstatRunsTitle: 'Läufe benötigt für ≥1 Gegenstand mit allen ausgewählten Substats',
+  // Generic substat tooltip text.
+  dungeonDropsSubstatGenericTitle: 'Spezifische Substat-Chancen',
+  dungeonDropsSubstatGenericIntro: 'Alle Zahlen unten gelten für den ausgewählten Slot + Main auf dieser Stufe; Chancen pro Lauf enthalten auch die Slot-Chance.',
+  dungeonDropsSubstatGenericChanceTitle: 'Chancen',
+  dungeonDropsSubstatGenericChancePerRun: 'Pro Lauf',
+  dungeonDropsSubstatGenericChanceWithin: 'Im Slot + Main',
+  dungeonDropsSubstatGenericRunsTitle: 'Läufe für ≥1 Gegenstand',
+  dungeonDropsSubstatGenericRunsHeader: 'Zielchance',
+  dungeonDropsSubstatGenericSpecificLabel: '{count} spezifisch',
+  dungeonDropsSubstatGenericLoading: 'Berechne generische Substat-Chancen...',
+  dungeonDropsSubstatGenericEmpty: 'Keine passenden Drops auf dieser Stufe.',
   // Dungeon boss names.
   dungeonIceGolem: 'Eisgolem',
   dungeonFireKnight: 'Feuerritter',

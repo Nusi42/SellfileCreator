@@ -214,7 +214,7 @@ const overrides: Catalog = {
   // Dungeon Drops tab label and intro copy.
   tabDungeonDrops: 'Drops de masmorra',
   dungeonDropsIntro: 'Simule drops de masmorra usando as suas regras atuais do Sellfile (HSF) para estimar quanto equipamento é mantido por conjunto e por marco de nível.',
-  dungeonDropsExplanation: 'Cada execução simula um drop de masmorra usando as tabelas de drop da etapa selecionada (rank, raridade, slot e conjunto). As percentagens são drops mantidos divididos por todos os drops dessa etapa; conjuntos com boost só alteram os pesos dos conjuntos.',
+  dungeonDropsExplanation: 'As percentagens da tabela são drops mantidos divididos por todos os drops dessa etapa; os sets impulsionados só mudam os pesos do set.',
   // Simulation roll assumptions and run count.
   dungeonDropsRollNote: 'Os valores de substats usam rolagens mínimas para o rank de estrelas do item; cada rolagem de melhoria adiciona outra rolagem mínima (estimativa conservadora).',
   dungeonDropsRunNote: 'Execuções por etapa da masmorra: {runs}.',
@@ -236,7 +236,6 @@ const overrides: Catalog = {
   dungeonDropsInfoHowLine2: 'O mesmo item é rolado novamente a +4 / +8 / +12 / +16.',
   // How-it-works steps for mode behavior and roll floors.
   dungeonDropsInfoHowLine3: 'O modo Instantâneo continua a rolar mesmo se um nível fosse vendido; o modo Subida de nível para após a primeira venda.',
-  dungeonDropsInfoHowLine4: 'Os valores de substats usam rolagens mínimas para o rank de estrelas (conservador).',
   // Why +16 can exceed +12.
   dungeonDropsInfoWhyTitle: 'Porque +16 pode ser maior do que +12?',
   dungeonDropsInfoWhyLine: 'Algumas regras só passam após a última rolagem a +16.',
@@ -268,17 +267,17 @@ const overrides: Catalog = {
   // Popover breakdown and empty state.
   dungeonDropsPopoverBreakdownTitle: 'Drops mantidos por slot + stat principal (percentagem de todos os drops)',
   dungeonDropsPopoverEmpty: 'Nenhum drop mantido neste nível.',
-  // Substat target selectors.
-  dungeonDropsSubstatSelectLabel: 'Substats alvo',
-  dungeonDropsSubstatSelectPlaceholder: 'Selecionar substats',
-  dungeonDropsSubstatSelectHint: 'Escolha até 4 substats para analisar.',
-  // Substat stats loading and empty states.
-  dungeonDropsSubstatLoading: 'A calcular estatísticas de substats...',
-  dungeonDropsSubstatEmpty: 'Selecione substats para ver estatísticas.',
-  // Substat result section headings.
-  dungeonDropsSubstatPresentTitle: 'Substats selecionadas presentes (≥N)',
-  dungeonDropsSubstatRollsTitle: 'Rolagens nas substats selecionadas (≥N)',
-  dungeonDropsSubstatRunsTitle: 'Execuções necessárias para ≥1 item com todas as substats selecionadas',
+  // Generic substat tooltip text.
+  dungeonDropsSubstatGenericTitle: 'Probabilidades de subatributos específicos',
+  dungeonDropsSubstatGenericIntro: 'Todos os números abaixo são para o slot + stat principal neste nível; as probabilidades por run incluem a chance de cair esse slot.',
+  dungeonDropsSubstatGenericChanceTitle: 'Probabilidades',
+  dungeonDropsSubstatGenericChancePerRun: 'Por run',
+  dungeonDropsSubstatGenericChanceWithin: 'Dentro de slot + stat principal',
+  dungeonDropsSubstatGenericRunsTitle: 'Execuções para ≥1 item',
+  dungeonDropsSubstatGenericRunsHeader: 'Probabilidade alvo',
+  dungeonDropsSubstatGenericSpecificLabel: '{count} específicos',
+  dungeonDropsSubstatGenericLoading: 'A calcular probabilidades genéricas de subatributos...',
+  dungeonDropsSubstatGenericEmpty: 'Nenhum drop elegível neste nível.',
   // Dungeon boss names.
   dungeonIceGolem: 'Golem de Gelo',
   dungeonFireKnight: 'Cavaleiro do Fogo',

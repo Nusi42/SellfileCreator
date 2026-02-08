@@ -214,7 +214,7 @@ const overrides: Catalog = {
   // Dungeon Drops tab label and intro copy.
   tabDungeonDrops: 'Drop dei dungeon',
   dungeonDropsIntro: 'Simula i drop dei dungeon usando le tue regole Sellfile attuali (HSF) per stimare quanto equipaggiamento viene tenuto per set e traguardo di livello.',
-  dungeonDropsExplanation: 'Ogni esecuzione simula un drop di dungeon usando le tabelle drop della fase selezionata (grado, rarità, slot e set). Le percentuali sono i drop tenuti divisi per tutti i drop di quella fase; i set potenziati cambiano solo i pesi dei set.',
+  dungeonDropsExplanation: 'Le percentuali della tabella sono i drop tenuti divisi per tutti i drop di quella fase; i set potenziati cambiano solo i pesi dei set.',
   // Simulation roll assumptions and run count.
   dungeonDropsRollNote: 'I valori delle substat usano i tiri minimi per il rango di stelle dell\'oggetto; ogni tiro di potenziamento aggiunge un altro tiro minimo (stima prudente).',
   dungeonDropsRunNote: 'Esecuzioni per fase del dungeon: {runs}.',
@@ -236,7 +236,6 @@ const overrides: Catalog = {
   dungeonDropsInfoHowLine2: 'Lo stesso oggetto viene rilanciato a +4 / +8 / +12 / +16.',
   // How-it-works steps for mode behavior and roll floors.
   dungeonDropsInfoHowLine3: 'La modalità Istantanea continua a tirare anche se un livello sarebbe venduto; la modalità Livellamento si ferma dopo la prima vendita.',
-  dungeonDropsInfoHowLine4: 'I valori delle substat usano tiri minimi per il rango di stelle (stima prudente).',
   // Why +16 can exceed +12.
   dungeonDropsInfoWhyTitle: 'Perché +16 può essere più alto di +12?',
   dungeonDropsInfoWhyLine: 'Alcune regole superano solo dopo l\'ultimo tiro a +16.',
@@ -268,17 +267,17 @@ const overrides: Catalog = {
   // Popover breakdown and empty state.
   dungeonDropsPopoverBreakdownTitle: 'Drop conservati per slot + stat principale (percentuale di tutti i drop)',
   dungeonDropsPopoverEmpty: 'Nessun drop conservato a questo livello.',
-  // Substat target selectors.
-  dungeonDropsSubstatSelectLabel: 'Substat target',
-  dungeonDropsSubstatSelectPlaceholder: 'Seleziona substat',
-  dungeonDropsSubstatSelectHint: 'Scegli fino a 4 substat da analizzare.',
-  // Substat stats loading and empty states.
-  dungeonDropsSubstatLoading: 'Calcolo delle statistiche delle substat...',
-  dungeonDropsSubstatEmpty: 'Seleziona substat per vedere le statistiche.',
-  // Substat result section headings.
-  dungeonDropsSubstatPresentTitle: 'Substat selezionate presenti (≥N)',
-  dungeonDropsSubstatRollsTitle: 'Tiri nelle substat selezionate (≥N)',
-  dungeonDropsSubstatRunsTitle: 'Esecuzioni necessarie per ≥1 oggetto con tutte le substat selezionate',
+  // Generic substat tooltip text.
+  dungeonDropsSubstatGenericTitle: 'Probabilità di sotto-stat specifiche',
+  dungeonDropsSubstatGenericIntro: 'Tutti i numeri sotto sono per lo slot + stat principale a questo livello; le probabilità per run includono la chance di ottenere quello slot.',
+  dungeonDropsSubstatGenericChanceTitle: 'Probabilità',
+  dungeonDropsSubstatGenericChancePerRun: 'Per run',
+  dungeonDropsSubstatGenericChanceWithin: 'Dentro slot + stat principale',
+  dungeonDropsSubstatGenericRunsTitle: 'Run per ≥1 oggetto',
+  dungeonDropsSubstatGenericRunsHeader: 'Probabilità target',
+  dungeonDropsSubstatGenericSpecificLabel: '{count} specifiche',
+  dungeonDropsSubstatGenericLoading: 'Calcolo delle probabilità generiche delle sotto-stat...',
+  dungeonDropsSubstatGenericEmpty: 'Nessun drop idoneo a questo livello.',
   // Dungeon boss names.
   dungeonIceGolem: 'Golem di Ghiaccio',
   dungeonFireKnight: 'Cavaliere del Fuoco',

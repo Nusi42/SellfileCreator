@@ -214,7 +214,7 @@ const overrides: Catalog = {
   // Dungeon Drops tab label and intro copy.
   tabDungeonDrops: 'Butin de donjon',
   dungeonDropsIntro: 'Simulez les butins de donjon avec vos règles Sellfile actuelles (HSF) pour estimer la quantité d\'équipement conservée par set et par palier de niveau.',
-  dungeonDropsExplanation: 'Chaque passage simule un drop de donjon en utilisant les tables de butin du palier sélectionné (rang, rareté, emplacement et set). Les pourcentages correspondent aux drops conservés divisés par tous les drops de ce palier ; les sets boostés ne modifient que les pondérations des sets.',
+  dungeonDropsExplanation: 'Les pourcentages du tableau sont les drops conservés divisés par tous les drops de cette étape; les sets boostés ne changent que les poids de set.',
   // Simulation roll assumptions and run count.
   dungeonDropsRollNote: 'Les valeurs de sous-stats utilisent les jets minimums pour le rang d\'étoiles de l\'objet ; chaque jet d\'amélioration ajoute un autre jet minimum (estimation prudente).',
   dungeonDropsRunNote: 'Passages par palier de donjon : {runs}.',
@@ -236,7 +236,6 @@ const overrides: Catalog = {
   dungeonDropsInfoHowLine2: 'Le même objet est re-jeté à +4 / +8 / +12 / +16.',
   // How-it-works steps for mode behavior and roll floors.
   dungeonDropsInfoHowLine3: 'Le mode Instantané continue même si un niveau serait vendu ; le mode Montée de niveau s\'arrête après la première vente.',
-  dungeonDropsInfoHowLine4: 'Les valeurs de sous-stats utilisent des jets minimums pour le rang d\'étoiles (estimation prudente).',
   // Why +16 can exceed +12.
   dungeonDropsInfoWhyTitle: 'Pourquoi +16 peut-il être supérieur à +12 ?',
   dungeonDropsInfoWhyLine: 'Certaines règles ne passent qu\'après le dernier jet à +16.',
@@ -268,17 +267,17 @@ const overrides: Catalog = {
   // Popover breakdown and empty state.
   dungeonDropsPopoverBreakdownTitle: 'Drops conservés par emplacement + stat principale (pourcentage de tous les drops)',
   dungeonDropsPopoverEmpty: 'Aucun drop conservé à ce niveau.',
-  // Substat target selectors.
-  dungeonDropsSubstatSelectLabel: 'Sous-stats cibles',
-  dungeonDropsSubstatSelectPlaceholder: 'Sélectionner des sous-stats',
-  dungeonDropsSubstatSelectHint: 'Choisissez jusqu\'à 4 sous-stats à analyser.',
-  // Substat stats loading and empty states.
-  dungeonDropsSubstatLoading: 'Calcul des statistiques des sous-stats...',
-  dungeonDropsSubstatEmpty: 'Sélectionnez des sous-stats pour voir les stats.',
-  // Substat result section headings.
-  dungeonDropsSubstatPresentTitle: 'Sous-stats sélectionnées présentes (≥N)',
-  dungeonDropsSubstatRollsTitle: 'Jets sur les sous-stats sélectionnées (≥N)',
-  dungeonDropsSubstatRunsTitle: 'Passages nécessaires pour ≥1 objet avec toutes les sous-stats sélectionnées',
+  // Generic substat tooltip text.
+  dungeonDropsSubstatGenericTitle: 'Chances de sous-statistiques spécifiques',
+  dungeonDropsSubstatGenericIntro: 'Tous les chiffres ci-dessous concernent le slot + stat principale sur ce niveau ; les chances par run incluent la chance d’obtenir ce slot.',
+  dungeonDropsSubstatGenericChanceTitle: 'Chances',
+  dungeonDropsSubstatGenericChancePerRun: 'Par run',
+  dungeonDropsSubstatGenericChanceWithin: 'Dans slot + stat principale',
+  dungeonDropsSubstatGenericRunsTitle: 'Passages nécessaires pour ≥1 objet',
+  dungeonDropsSubstatGenericRunsHeader: 'Probabilité cible',
+  dungeonDropsSubstatGenericSpecificLabel: '{count} spécifiques',
+  dungeonDropsSubstatGenericLoading: 'Calcul des chances génériques de sous-stats...',
+  dungeonDropsSubstatGenericEmpty: 'Aucun drop éligible à ce niveau.',
   // Dungeon boss names.
   dungeonIceGolem: 'Golem de glace',
   dungeonFireKnight: 'Chevalier de feu',

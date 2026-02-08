@@ -214,7 +214,7 @@ const overrides: Catalog = {
   // Dungeon Drops tab label and intro copy.
   tabDungeonDrops: 'Дропи підземель',
   dungeonDropsIntro: 'Симулюйте дропи підземель, використовуючи поточні правила Sellfile (HSF), щоб оцінити, скільки екіпірування зберігається за сетом і рівневим рубежем.',
-  dungeonDropsExplanation: 'Кожен прогін симулює один дроп підземелля за таблицями дропу обраної стадії (ранг, рідкість, слот і сет). Відсотки — це збережені дропи, поділені на всі дропи цієї стадії; посилені сети змінюють лише ваги сетів.',
+  dungeonDropsExplanation: 'Відсотки в таблиці — це збережені дропи, поділені на всі дропи цієї стадії; посилені сети змінюють лише ваги сетів.',
   // Simulation roll assumptions and run count.
   dungeonDropsRollNote: 'Значення сабстатів використовують мінімальні роли для зіркового рангу предмета; кожен рол поліпшення додає ще один мінімальний рол (консервативна оцінка).',
   dungeonDropsRunNote: 'Прогонів на стадію підземелля: {runs}.',
@@ -236,7 +236,6 @@ const overrides: Catalog = {
   dungeonDropsInfoHowLine2: 'Той самий предмет прокручується на +4 / +8 / +12 / +16.',
   // How-it-works steps for mode behavior and roll floors.
   dungeonDropsInfoHowLine3: 'Режим Знімок продовжує роли, навіть якщо рівень було б продано; режим Підвищення рівня зупиняється після першого продажу.',
-  dungeonDropsInfoHowLine4: 'Значення сабстатів використовують мінімальні роли для зіркового рангу (консервативно).',
   // Why +16 can exceed +12.
   dungeonDropsInfoWhyTitle: 'Чому +16 може бути вище за +12?',
   dungeonDropsInfoWhyLine: 'Деякі правила проходять лише після останнього ролу на +16.',
@@ -268,17 +267,17 @@ const overrides: Catalog = {
   // Popover breakdown and empty state.
   dungeonDropsPopoverBreakdownTitle: 'Збережені дропи за слотом + основною статою (відсоток усіх дропів)',
   dungeonDropsPopoverEmpty: 'На цьому рівні немає збережених дропів.',
-  // Substat target selectors.
-  dungeonDropsSubstatSelectLabel: 'Цільові сабстати',
-  dungeonDropsSubstatSelectPlaceholder: 'Виберіть сабстати',
-  dungeonDropsSubstatSelectHint: 'Виберіть до 4 сабстатів для аналізу.',
-  // Substat stats loading and empty states.
-  dungeonDropsSubstatLoading: 'Обчислення статистики сабстатів...',
-  dungeonDropsSubstatEmpty: 'Виберіть сабстати, щоб побачити статистику.',
-  // Substat result section headings.
-  dungeonDropsSubstatPresentTitle: 'Обрані сабстати присутні (≥N)',
-  dungeonDropsSubstatRollsTitle: 'Роли в обрані сабстати (≥N)',
-  dungeonDropsSubstatRunsTitle: 'Потрібно прогонів для ≥1 предмета з усіма обраними сабстатами',
+  // Generic substat tooltip text.
+  dungeonDropsSubstatGenericTitle: 'Ймовірності конкретних підстатів',
+  dungeonDropsSubstatGenericIntro: 'Усі числа нижче стосуються слоту + головної стати на цьому рівні; шанси за забіг включають шанс отримати цей слот.',
+  dungeonDropsSubstatGenericChanceTitle: 'Ймовірності',
+  dungeonDropsSubstatGenericChancePerRun: 'За забіг',
+  dungeonDropsSubstatGenericChanceWithin: 'У межах слот + головна стата',
+  dungeonDropsSubstatGenericRunsTitle: 'Забіги для ≥1 предмета',
+  dungeonDropsSubstatGenericRunsHeader: 'Цільова ймовірність',
+  dungeonDropsSubstatGenericSpecificLabel: '{count} конкретні',
+  dungeonDropsSubstatGenericLoading: 'Обчислення узагальнених шансів підстатів...',
+  dungeonDropsSubstatGenericEmpty: 'Немає відповідних дропів на цьому рівні.',
   // Dungeon boss names.
   dungeonIceGolem: 'Крижаний голем',
   dungeonFireKnight: 'Вогняний лицар',

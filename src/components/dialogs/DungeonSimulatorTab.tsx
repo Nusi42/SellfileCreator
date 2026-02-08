@@ -5,7 +5,7 @@ import ExpandLessIcon from '@mui/icons-material/ExpandLess'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import { useI18n } from '../../lib/i18n'
 import { ACCESSORY_NO_SET_ID, STANDARD_DIALOG_PADDING_BLOCK_UNITS, STANDARD_DIALOG_PADDING_INLINE_UNITS } from '../../lib/constants'
-import { ALLOWED_SUB_BY_SLOT, DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT, STAT_VARIANTS_PRIORITY, StatVariant, artifactTypeI18nKey, getLocalizedGearSetName, statVariantI18nKey, type ArtifactSetId, type ArtifactTypeId, type LevelMilestone } from '../../lib/types'
+import { DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT, STAT_VARIANTS_PRIORITY, artifactTypeI18nKey, getLocalizedGearSetName, statVariantI18nKey, type ArtifactSetId, type ArtifactTypeId, type LevelMilestone } from '../../lib/types'
 import type { HsfRuleWithCfg } from '../../lib/merge'
 import type { SubstatTargetTable } from '../../lib/hsfBuilder/types'
 import type { ArtifactSetSelectionEntry } from '../../lib/gearSets/selection'
@@ -15,7 +15,7 @@ import EllipsisTooltip from '../EllipsisTooltip'
 import ContextMenuPaper, { buildContextMenuPaperSlotProps } from '../ContextMenuPaper'
 import ContextMenuTitle from '../ContextMenuTitle'
 import { artifactTypeIconList } from '../artifactTypeIcons'
-import { GearSetsSelect, GearSubstatSelect } from '../gear'
+import { GearSetsSelect } from '../gear'
 import {
   DUNGEON_IDS,
   DUNGEON_SIM_BATCH_SIZE,
@@ -41,7 +41,8 @@ import {
   type DungeonSimMode,
   type DungeonSimBreakdown,
   type DungeonSimCell,
-  type DungeonSimDetailStats,
+  type DungeonSimGenericQuery,
+  type DungeonSimGenericStats,
   type DungeonSimProgress,
 } from '../../lib/dungeonSimulator'
 import type { SubstatColorMap } from '../../lib/renderColoredStatText'
@@ -57,14 +58,6 @@ type DetailTarget = (
   | { kind: 'level'; dungeonId: DungeonId; setId: ArtifactSetId; level: LevelMilestone }
   | { kind: 'summary'; dungeonId: DungeonId; setId: ArtifactSetId }
 )
-
-type DetailSubstatTarget = {
-  dungeonId: DungeonId
-  setId: ArtifactSetId
-  level: LevelMilestone
-  slot: ArtifactTypeId
-  main: StatVariant
-}
 
 // Keep dungeon labels centralized so each table shares the same i18n keys.
 const DUNGEON_LABEL_KEYS: Record<DungeonId, string> = {
@@ -84,14 +77,9 @@ const formatCellPercent = (cell: DungeonSimCell, totalDrops: number): string => 
   return formatPercent((cell.kept / totalDrops) * 100)
 }
 
-// Format a count as a percent of the provided total.
-const formatCountPercent = (count: number, total: number): string => {
-  if (total <= 0) return '—'
-  return formatPercent((count / total) * 100)
-}
-
 // Probability targets for "runs needed" estimates.
 const RUN_PROB_TARGETS = [
+  { label: '25%', value: 0.25 },
   { label: '50%', value: 0.5 },
   { label: '75%', value: 0.75 },
   { label: '90%', value: 0.9 },
@@ -99,15 +87,16 @@ const RUN_PROB_TARGETS = [
   { label: '99%', value: 0.99 },
 ] as const
 
+// Generic odds report on 1/2/3/4 specific substats.
+const SPECIFIC_SUBSTAT_COUNTS = [1, 2, 3, 4] as const
+
 // Slightly wider detail popover keeps slot rows readable (e.g. CDMG% label + value).
 const DETAIL_POPOVER_MAX_WIDTH_PX = 420
 // Minimum popover width prevents slot rows from compressing into overlapping text.
 const DETAIL_POPOVER_MIN_WIDTH_PX = 360
 
-const computeRunsNeeded = (count: number, total: number, target: number): number | null => {
-  if (total <= 0) return null
-  const p = count / total
-  if (p <= 0) return null
+const computeRunsNeededFromProbability = (p: number, target: number): number | null => {
+  if (!Number.isFinite(p) || p <= 0) return null
   if (p >= 1) return 1
   const runs = Math.log(1 - target) / Math.log(1 - p)
   if (!Number.isFinite(runs)) return null
@@ -192,7 +181,7 @@ export default function DungeonSimulatorTab(props: DungeonSimulatorTabProps) {
 
   // Stream dungeon simulation results from a worker so the UI stays responsive.
   // Use the persisted selections so the same stage picks survive reloads.
-  const { results: simulation, progress, requestDetailStats } = useDungeonSimulatorWorker({
+  const { results: simulation, progress, running, requestGenericStats } = useDungeonSimulatorWorker({
     rules,
     substatTargets,
     selections: prefs.stages,
@@ -215,7 +204,6 @@ export default function DungeonSimulatorTab(props: DungeonSimulatorTabProps) {
   const handleDetailClose = () => {
     setDetailAnchor(null)
     setDetailTarget(null)
-    handleDetailSubstatClose()
   }
   // Guard the popover so outside clicks always clear the anchor + target.
   const { contextMenuGuard: detailPopoverGuard } = useContextMenuPaperGuard({
@@ -223,29 +211,25 @@ export default function DungeonSimulatorTab(props: DungeonSimulatorTabProps) {
     onClose: handleDetailClose,
     menuRef: detailPopoverPaperRef,
   })
-  // Nested popover for explicit substat stats.
-  const [detailSubstatAnchor, setDetailSubstatAnchor] = useState<HTMLElement | null>(null)
-  const [detailSubstatTarget, setDetailSubstatTarget] = useState<DetailSubstatTarget | null>(null)
-  const [detailSubstats, setDetailSubstats] = useState<StatVariant[]>([])
-  const [detailSubstatStats, setDetailSubstatStats] = useState<DungeonSimDetailStats | null>(null)
-  const [detailSubstatLoading, setDetailSubstatLoading] = useState(false)
-  const detailSubstatOpen = Boolean(detailSubstatAnchor && detailSubstatTarget)
-  const detailSubstatRequestRef = useRef(0)
-  const detailSubstatPaperRef = useRef<HTMLDivElement | null>(null)
-  const handleDetailSubstatClose = () => {
-    // Clear nested popover state and invalidate any in-flight requests.
-    setDetailSubstatAnchor(null)
-    setDetailSubstatTarget(null)
-    setDetailSubstats([])
-    setDetailSubstatStats(null)
-    detailSubstatRequestRef.current += 1
-    setDetailSubstatLoading(false)
-  }
-  const { contextMenuGuard: detailSubstatGuard } = useContextMenuPaperGuard({
-    open: detailSubstatOpen,
-    onClose: handleDetailSubstatClose,
-    menuRef: detailSubstatPaperRef,
-  })
+  // Cache generic substat odds per slot/main to avoid repeat worker queries.
+  const [genericStatsByKey, setGenericStatsByKey] = useState<Record<string, DungeonSimGenericStats | null>>({})
+  const [genericLoadingByKey, setGenericLoadingByKey] = useState<Record<string, boolean>>({})
+  // Keep refs synced so hover handlers can read fresh cache state.
+  const genericStatsRef = useRef(genericStatsByKey)
+  const genericLoadingRef = useRef(genericLoadingByKey)
+  // Reset the cache whenever a new simulation run starts.
+  // This prevents stale tooltip data when stages/boosts/mode change.
+  useLayoutEffect(() => {
+    genericStatsRef.current = genericStatsByKey
+  }, [genericStatsByKey])
+  useLayoutEffect(() => {
+    genericLoadingRef.current = genericLoadingByKey
+  }, [genericLoadingByKey])
+  useLayoutEffect(() => {
+    if (!running) return
+    setGenericStatsByKey({})
+    setGenericLoadingByKey({})
+  }, [running])
 
   // Persisted stage selection updates (mode and stage).
   const updateDungeonSelection = (dungeonId: DungeonId, next: Partial<{ mode: 'normal' | 'hard'; stage: number }>) => {
@@ -346,13 +330,21 @@ export default function DungeonSimulatorTab(props: DungeonSimulatorTabProps) {
   const detailLevelForSubstats: LevelMilestone = detailTarget
     ? (detailTarget.kind === 'summary' ? 16 : detailTarget.level)
     : 16
-  // Labels for the nested substat popover.
-  const detailSubstatTitle = detailSubstatTarget
-    ? `${t(artifactTypeI18nKey(detailSubstatTarget.slot))} • ${t(statVariantI18nKey(detailSubstatTarget.main))}`
-    : ''
-  const detailSubstatDescription = detailSubstatTarget
-    ? `${t(DUNGEON_LABEL_KEYS[detailSubstatTarget.dungeonId])} • ${formatSetLabel({ setId: detailSubstatTarget.setId, translate: t, lang })} • +${detailSubstatTarget.level}`
-    : ''
+  // Build a stable cache key for generic substat odds per slot/main row.
+  const buildGenericStatsKey = (query: DungeonSimGenericQuery): string => (
+    `${query.dungeonId}:${query.setId}:${query.level}:${query.slot}:${query.main}:${query.spotlight}`
+  )
+  const requestGenericStatsForKey = (key: string, query: DungeonSimGenericQuery) => {
+    // Avoid duplicate requests while a hover fetch is already in flight.
+    if (genericLoadingRef.current[key]) return
+    // Keep the first computed stats so repeat hovers stay instant.
+    if (genericStatsRef.current[key]) return
+    setGenericLoadingByKey((prev) => ({ ...prev, [key]: true }))
+    requestGenericStats(query).then((stats) => {
+      setGenericStatsByKey((prev) => ({ ...prev, [key]: stats }))
+      setGenericLoadingByKey((prev) => ({ ...prev, [key]: false }))
+    })
+  }
 
   // Slot list depends on the dungeon source (artifact vs accessory vs mixed).
   const detailSlotIds = useMemo(() => (
@@ -379,47 +371,133 @@ export default function DungeonSimulatorTab(props: DungeonSimulatorTabProps) {
     }
     return map
   }, [detailBreakdown])
-  // Resolve the substat options for the nested popover based on slot/main.
-  const detailSubstatOptions = useMemo(() => {
-    // Limit selectable substats to the slot-legal pool and exclude the main stat.
-    if (!detailSubstatTarget) return []
-    const allowed = new Set<number>(
-      Array.from(ALLOWED_SUB_BY_SLOT[Number(detailSubstatTarget.slot)] ?? []).map((variant) => Number(variant)),
-    )
-    allowed.delete(Number(detailSubstatTarget.main))
-    return STAT_VARIANTS_PRIORITY.filter((variant) => allowed.has(Number(variant)))
-  }, [detailSubstatTarget])
-  // Clamp the selected substats to the allowed list + max length.
-  const handleDetailSubstatsChange = (next: StatVariant[]) => {
-    // Enforce allowed options and cap selections to four stats.
-    const allowed = new Set(detailSubstatOptions.map((variant) => Number(variant)))
-    const filtered = next.filter((variant) => allowed.has(Number(variant)))
-    const nextSelection = filtered.slice(0, 4)
-    setDetailSubstats(nextSelection)
-    refreshDetailSubstatStats(detailSubstatTarget, nextSelection)
-  }
-  // Request fresh detail stats for the active target + selection.
-  const refreshDetailSubstatStats = (target: DetailSubstatTarget | null, substats: StatVariant[]) => {
-    if (!target || substats.length === 0) {
-      setDetailSubstatStats(null)
-      setDetailSubstatLoading(false)
-      return
+  const renderGenericTooltipContent = (
+    stats: DungeonSimGenericStats | null,
+    loading: boolean,
+    totalDrops: number,
+  ) => {
+    // Surface loading/empty states so hover always yields a response.
+    if (loading || !stats) {
+      return (
+        <Typography variant="body2" color="text.secondary">
+          {t('dungeonDropsSubstatGenericLoading')}
+        </Typography>
+      )
     }
-    const requestId = ++detailSubstatRequestRef.current
-    setDetailSubstatLoading(true)
-    requestDetailStats({
-      dungeonId: target.dungeonId,
-      spotlight: prefs.eventSpotlight,
-      setId: target.setId,
-      level: target.level,
-      slot: target.slot,
-      main: target.main,
-      substats,
-    }).then((stats) => {
-      if (requestId !== detailSubstatRequestRef.current) return
-      setDetailSubstatStats(stats)
-      setDetailSubstatLoading(false)
-    })
+    if (stats.total <= 0 || totalDrops <= 0) {
+      return (
+        <Typography variant="body2" color="text.secondary">
+          {t('dungeonDropsSubstatGenericEmpty')}
+        </Typography>
+      )
+    }
+    // Convert conditional odds into per-run odds by scaling by reach rate.
+    const reachRate = stats.total / totalDrops
+    return (
+      <Stack spacing={1} sx={{ minWidth: 210, maxWidth: 320 }}>
+        <Typography variant="subtitle2">{t('dungeonDropsSubstatGenericTitle')}</Typography>
+        {/* Intro line explains the scope of the tooltip numbers. */}
+        <Typography variant="caption" color="text.secondary">
+          {t('dungeonDropsSubstatGenericIntro')}
+        </Typography>
+        {/* Separator keeps the chance section visually distinct. */}
+        <Divider />
+        <Stack spacing={0.35}>
+          {/* Chance section shows per-run vs within-slot+main odds. */}
+          <Typography variant="caption" color="text.secondary">
+            {t('dungeonDropsSubstatGenericChanceTitle')}
+          </Typography>
+          <Box
+            sx={{
+              display: 'grid',
+              // Fixed columns keep the tooltip compact while allowing header wrap.
+              gridTemplateColumns: 'minmax(0, 1fr) repeat(2, minmax(0, 86px))',
+              columnGap: 0.75,
+              rowGap: 0.4,
+            }}
+          >
+            <Box />
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              sx={{ textAlign: 'right', maxWidth: 86, whiteSpace: 'normal', lineHeight: 1.1 }}
+            >
+              {t('dungeonDropsSubstatGenericChancePerRun')}
+            </Typography>
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              sx={{ textAlign: 'right', maxWidth: 86, whiteSpace: 'normal', lineHeight: 1.1 }}
+            >
+              {t('dungeonDropsSubstatGenericChanceWithin')}
+            </Typography>
+            {SPECIFIC_SUBSTAT_COUNTS.map((count, idx) => (
+              <Box key={`generic-chance-${count}`} sx={{ display: 'contents' }}>
+                <Typography variant="body2">
+                  {t('dungeonDropsSubstatGenericSpecificLabel', { count })}
+                </Typography>
+                <Typography variant="body2" sx={{ fontWeight: 600, textAlign: 'right' }}>
+                  {formatPercent(((stats.specificAtLeast[idx] ?? 0) * reachRate) * 100)}
+                </Typography>
+                <Typography variant="body2" sx={{ fontWeight: 600, textAlign: 'right' }}>
+                  {formatPercent((stats.specificAtLeast[idx] ?? 0) * 100)}
+                </Typography>
+              </Box>
+            ))}
+          </Box>
+        </Stack>
+        {/* Separator keeps the runs section visually distinct. */}
+        <Divider />
+        <Stack spacing={0.35}>
+          {/* Runs section maps target probabilities across 2/3/4 specific substat sets. */}
+          <Typography variant="caption" color="text.secondary">
+            {t('dungeonDropsSubstatGenericRunsTitle')}
+          </Typography>
+          <Box
+            sx={{
+              display: 'grid',
+              // Keep numeric columns narrow so the tooltip stays within its max width.
+              gridTemplateColumns: 'minmax(0, 1fr) repeat(4, minmax(0, 60px))',
+              columnGap: 0.75,
+              rowGap: 0.4,
+            }}
+          >
+            <Typography variant="caption" color="text.secondary">
+              {t('dungeonDropsSubstatGenericRunsHeader')}
+            </Typography>
+            {SPECIFIC_SUBSTAT_COUNTS.map((count) => (
+              <Typography
+                key={`generic-runs-header-${count}`}
+                variant="caption"
+                color="text.secondary"
+                sx={{ textAlign: 'right' }}
+              >
+                {count}
+              </Typography>
+            ))}
+            {RUN_PROB_TARGETS.map((target) => (
+              <Box key={`generic-runs-row-${target.label}`} sx={{ display: 'contents' }}>
+                <Typography variant="body2">{target.label}</Typography>
+                {SPECIFIC_SUBSTAT_COUNTS.map((count, idx) => {
+                  const p = (stats.specificAtLeast[idx] ?? 0) * reachRate
+                  // Convert single-run odds into runs for the chosen target probability.
+                  const runsNeeded = computeRunsNeededFromProbability(p, target.value)
+                  return (
+                    <Typography
+                      key={`generic-runs-${target.label}-${count}`}
+                      variant="body2"
+                      sx={{ fontWeight: 600, textAlign: 'right' }}
+                    >
+                      {runsNeeded ? String(runsNeeded) : '—'}
+                    </Typography>
+                  )
+                })}
+              </Box>
+            ))}
+          </Box>
+        </Stack>
+      </Stack>
+    )
   }
   // Header run counter reflects the current completed/total runs.
   const runProgressLabel = formatRunProgress(progress)
@@ -489,12 +567,6 @@ export default function DungeonSimulatorTab(props: DungeonSimulatorTabProps) {
               {t('dungeonDropsIntro')}
             </Typography>
             <Typography variant="caption" color="text.secondary">
-              {t('dungeonDropsExplanation')}
-            </Typography>
-            <Typography variant="caption" color="text.secondary">
-              {t('dungeonDropsRollNote')}
-            </Typography>
-            <Typography variant="caption" color="text.secondary">
               {t('dungeonDropsRunNote', { runs: runProgressLabel })}
             </Typography>
             <Stack direction="row" spacing={1} alignItems="center">
@@ -530,8 +602,12 @@ export default function DungeonSimulatorTab(props: DungeonSimulatorTabProps) {
                     <Typography component="li" variant="caption">
                       {t('dungeonDropsInfoHowLine3')}
                     </Typography>
+                    {/* Percentage math + roll floor notes live inside the how-it-works tooltip. */}
                     <Typography component="li" variant="caption">
-                      {t('dungeonDropsInfoHowLine4')}
+                      {t('dungeonDropsExplanation')}
+                    </Typography>
+                    <Typography component="li" variant="caption">
+                      {t('dungeonDropsRollNote')}
                     </Typography>
                   </Box>
                 </Box>
@@ -979,63 +1055,72 @@ export default function DungeonSimulatorTab(props: DungeonSimulatorTabProps) {
                               const statColor = useStatButtonColors
                                 ? (substatColors[Number(entry.main)]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[Number(entry.main)])
                                 : undefined
+                              const genericQuery: DungeonSimGenericQuery | null = detailTarget
+                                ? {
+                                  dungeonId: detailTarget.dungeonId,
+                                  spotlight: prefs.eventSpotlight,
+                                  setId: detailTarget.setId,
+                                  level: detailLevelForSubstats,
+                                  slot: entry.slot,
+                                  main: entry.main,
+                                }
+                                : null
+                              const genericKey = genericQuery ? buildGenericStatsKey(genericQuery) : ''
+                              const genericStats = genericKey ? (genericStatsByKey[genericKey] ?? null) : null
+                              const genericLoading = genericKey ? Boolean(genericLoadingByKey[genericKey]) : false
                               return (
-                                <ButtonBase
+                                <MarkdownTooltip
                                   key={`${entry.slot}-${entry.main}`}
-                                  onClick={(event) => {
-                                    event.stopPropagation()
-                                    if (!detailTarget) return
-                                    setDetailSubstatAnchor(event.currentTarget)
-                                    setDetailSubstatTarget({
-                                      dungeonId: detailTarget.dungeonId,
-                                      setId: detailTarget.setId,
-                                      level: detailLevelForSubstats,
-                                      slot: entry.slot,
-                                      main: entry.main,
-                                    })
-                                    // Reset the selection so each row starts clean.
-                                    setDetailSubstats([])
-                                    setDetailSubstatStats(null)
-                                    setDetailSubstatLoading(false)
+                                  render={renderGenericTooltipContent(genericStats, genericLoading, detailTotalDrops)}
+                                  hoverIntent="informational"
+                                  placement="right"
+                                  maxWidth={320}
+                                  onOpen={() => {
+                                    if (!genericQuery) return
+                                    requestGenericStatsForKey(genericKey, genericQuery)
                                   }}
-                                  sx={(theme) => ({
-                                    display: 'grid',
-                                    gridTemplateColumns: 'minmax(0, 1fr) auto',
-                                    columnGap: 1,
-                                    alignItems: 'center',
-                                    width: '100%',
-                                    textAlign: 'left',
-                                    borderRadius: 0.75,
-                                    px: 0.5,
-                                    py: 0.25,
-                                    '&:hover': { backgroundColor: theme.palette.action.hover },
-                                  })}
                                 >
-                                  {/* EllipsisTooltip prevents long stat labels from overlapping the value. */}
-                                  <Box sx={{ minWidth: 0, pr: 0.5 }}>
-                                    <EllipsisTooltip title={label} wrap="block">
-                                      <Typography
-                                        data-ellipsis-target
-                                        variant="caption"
-                                        noWrap
-                                        sx={{
-                                          color: statColor,
-                                          minWidth: 0,
-                                          overflow: 'hidden',
-                                          textOverflow: 'ellipsis',
-                                        }}
-                                      >
-                                        {label}
-                                      </Typography>
-                                    </EllipsisTooltip>
-                                  </Box>
-                                  <Typography
-                                    variant="caption"
-                                    sx={{ fontWeight: 600, whiteSpace: 'nowrap', textAlign: 'right', pl: 0.25 }}
+                                  <ButtonBase
+                                    sx={(theme) => ({
+                                      display: 'grid',
+                                      gridTemplateColumns: 'minmax(0, 1fr) auto',
+                                      columnGap: 1,
+                                      alignItems: 'center',
+                                      width: '100%',
+                                      textAlign: 'left',
+                                      borderRadius: 0.75,
+                                      px: 0.5,
+                                      py: 0.25,
+                                      cursor: 'help',
+                                      '&:hover': { backgroundColor: theme.palette.action.hover },
+                                    })}
                                   >
-                                    {formatPercent(value)}
-                                  </Typography>
-                                </ButtonBase>
+                                    {/* EllipsisTooltip prevents long stat labels from overlapping the value. */}
+                                    <Box sx={{ minWidth: 0, pr: 0.5 }}>
+                                      <EllipsisTooltip title={label} wrap="block">
+                                        <Typography
+                                          data-ellipsis-target
+                                          variant="caption"
+                                          noWrap
+                                          sx={{
+                                            color: statColor,
+                                            minWidth: 0,
+                                            overflow: 'hidden',
+                                            textOverflow: 'ellipsis',
+                                          }}
+                                        >
+                                          {label}
+                                        </Typography>
+                                      </EllipsisTooltip>
+                                    </Box>
+                                    <Typography
+                                      variant="caption"
+                                      sx={{ fontWeight: 600, whiteSpace: 'nowrap', textAlign: 'right', pl: 0.25 }}
+                                    >
+                                      {formatPercent(value)}
+                                    </Typography>
+                                  </ButtonBase>
+                                </MarkdownTooltip>
                               )
                             })}
                           </Stack>
@@ -1047,100 +1132,6 @@ export default function DungeonSimulatorTab(props: DungeonSimulatorTabProps) {
               </Box>
             )}
           </Stack>
-        </Stack>
-      </Popover>
-      <Popover
-        open={detailSubstatOpen}
-        anchorEl={detailSubstatAnchor}
-        onClose={handleDetailSubstatClose}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
-        transformOrigin={{ vertical: 'top', horizontal: 'left' }}
-        slotProps={{
-          // Nested popover reuses ContextMenuPaper for the close button.
-          paper: buildContextMenuPaperSlotProps({
-            component: ContextMenuPaper,
-            contextMenuGuard: detailSubstatGuard,
-            onRequestClose: handleDetailSubstatClose,
-            closeLabel: t('close'),
-            ref: detailSubstatPaperRef,
-            sx: { p: 2, maxWidth: 420 },
-          }),
-        }}
-      >
-        <Stack spacing={1.25}>
-          <ContextMenuTitle title={detailSubstatTitle} description={detailSubstatDescription} />
-          <Stack spacing={0.5}>
-            <Typography variant="caption" color="text.secondary">
-              {t('dungeonDropsSubstatSelectLabel')}
-            </Typography>
-            <GearSubstatSelect
-              multiple
-              value={detailSubstats}
-              onChange={handleDetailSubstatsChange}
-              options={detailSubstatOptions}
-              anyLabel={t('dungeonDropsSubstatSelectPlaceholder')}
-              colorOverrides={substatColors}
-              showBorderColors={useStatButtonColors}
-              sx={{ minWidth: 240 }}
-            />
-            <Typography variant="caption" color="text.secondary">
-              {t('dungeonDropsSubstatSelectHint')}
-            </Typography>
-          </Stack>
-          {detailSubstatLoading ? (
-            <Typography variant="body2" color="text.secondary">
-              {t('dungeonDropsSubstatLoading')}
-            </Typography>
-          ) : detailSubstats.length === 0 ? (
-            <Typography variant="body2" color="text.secondary">
-              {t('dungeonDropsSubstatEmpty')}
-            </Typography>
-          ) : (
-            <Stack spacing={1}>
-              <Stack spacing={0.35}>
-                <Typography variant="caption" color="text.secondary">
-                  {t('dungeonDropsSubstatPresentTitle')}
-                </Typography>
-                {[1, 2, 3, 4].map((count, idx) => (
-                  <Box key={`present-${count}`} sx={{ display: 'flex', justifyContent: 'space-between', gap: 2 }}>
-                    <Typography variant="body2">{`≥${count}`}</Typography>
-                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                      {formatCountPercent(detailSubstatStats?.presentAtLeast[idx] ?? 0, detailSubstatStats?.total ?? 0)}
-                    </Typography>
-                  </Box>
-                ))}
-              </Stack>
-              <Stack spacing={0.35}>
-                <Typography variant="caption" color="text.secondary">
-                  {t('dungeonDropsSubstatRollsTitle')}
-                </Typography>
-                {[1, 2, 3, 4].map((count, idx) => (
-                  <Box key={`rolls-${count}`} sx={{ display: 'flex', justifyContent: 'space-between', gap: 2 }}>
-                    <Typography variant="body2">{`≥${count}`}</Typography>
-                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                      {formatCountPercent(detailSubstatStats?.rollsAtLeast[idx] ?? 0, detailSubstatStats?.total ?? 0)}
-                    </Typography>
-                  </Box>
-                ))}
-              </Stack>
-              <Stack spacing={0.35}>
-                <Typography variant="caption" color="text.secondary">
-                  {t('dungeonDropsSubstatRunsTitle')}
-                </Typography>
-                {RUN_PROB_TARGETS.map((target) => (
-                  <Box key={`runs-${target.label}`} sx={{ display: 'flex', justifyContent: 'space-between', gap: 2 }}>
-                    <Typography variant="body2">{target.label}</Typography>
-                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                      {(() => {
-                        const runsNeeded = computeRunsNeeded(detailSubstatStats?.allSelected ?? 0, detailSubstatStats?.total ?? 0, target.value)
-                        return runsNeeded ? String(runsNeeded) : '—'
-                      })()}
-                    </Typography>
-                  </Box>
-                ))}
-              </Stack>
-            </Stack>
-          )}
         </Stack>
       </Popover>
     </Box>

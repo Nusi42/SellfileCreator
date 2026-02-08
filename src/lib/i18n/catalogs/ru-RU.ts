@@ -214,7 +214,7 @@ const overrides: Catalog = {
   // Dungeon Drops tab label and intro copy.
   tabDungeonDrops: 'Дропы подземелий',
   dungeonDropsIntro: 'Симулируйте дропы подземелий, используя текущие правила Sellfile (HSF), чтобы оценить, сколько экипировки сохраняется по сету и уровневому этапу.',
-  dungeonDropsExplanation: 'Каждый прогон симулирует один дроп подземелья, используя таблицы дропа выбранной стадии (ранг, редкость, слот и сет). Проценты — это сохраненные дропы, деленные на все дропы этой стадии; усиленные сеты меняют только веса сетов.',
+  dungeonDropsExplanation: 'Проценты в таблице — это сохранённые дропы, делённые на все дропы этой стадии; усиленные сеты меняют только веса сетов.',
   // Simulation roll assumptions and run count.
   dungeonDropsRollNote: 'Значения субстатов используют минимальные роллы для звездного ранга предмета; каждый ролл улучшения добавляет еще один минимальный ролл (консервативная оценка).',
   dungeonDropsRunNote: 'Прогонов на стадию подземелья: {runs}.',
@@ -236,7 +236,6 @@ const overrides: Catalog = {
   dungeonDropsInfoHowLine2: 'Тот же предмет прокручивается дальше на +4 / +8 / +12 / +16.',
   // How-it-works steps for mode behavior and roll floors.
   dungeonDropsInfoHowLine3: 'Режим Снимок продолжает роллы, даже если уровень был бы продан; режим Прокачка останавливается после первой продажи.',
-  dungeonDropsInfoHowLine4: 'Значения субстатов используют минимальные роллы для звездного ранга (консервативно).',
   // Why +16 can exceed +12.
   dungeonDropsInfoWhyTitle: 'Почему +16 может быть выше, чем +12?',
   dungeonDropsInfoWhyLine: 'Некоторые правила проходят только после последнего ролла на +16.',
@@ -268,17 +267,17 @@ const overrides: Catalog = {
   // Popover breakdown and empty state.
   dungeonDropsPopoverBreakdownTitle: 'Сохраненные дропы по слоту + основной стат (процент от всех дропов)',
   dungeonDropsPopoverEmpty: 'На этом уровне нет сохраненных дропов.',
-  // Substat target selectors.
-  dungeonDropsSubstatSelectLabel: 'Целевые субстаты',
-  dungeonDropsSubstatSelectPlaceholder: 'Выберите субстаты',
-  dungeonDropsSubstatSelectHint: 'Выберите до 4 субстатов для анализа.',
-  // Substat stats loading and empty states.
-  dungeonDropsSubstatLoading: 'Подсчет статистики субстатов...',
-  dungeonDropsSubstatEmpty: 'Выберите субстаты, чтобы увидеть статистику.',
-  // Substat result section headings.
-  dungeonDropsSubstatPresentTitle: 'Выбранные субстаты присутствуют (≥N)',
-  dungeonDropsSubstatRollsTitle: 'Роллы в выбранные субстаты (≥N)',
-  dungeonDropsSubstatRunsTitle: 'Нужно прогонов для ≥1 предмета со всеми выбранными субстатами',
+  // Generic substat tooltip text.
+  dungeonDropsSubstatGenericTitle: 'Вероятности конкретных сабстатов',
+  dungeonDropsSubstatGenericIntro: 'Все числа ниже относятся к выбранному слоту + главному стату на этом уровне; шансы за прогон включают вероятность получить этот слот.',
+  dungeonDropsSubstatGenericChanceTitle: 'Вероятности',
+  dungeonDropsSubstatGenericChancePerRun: 'За прогон',
+  dungeonDropsSubstatGenericChanceWithin: 'В пределах слота + главный стат',
+  dungeonDropsSubstatGenericRunsTitle: 'Прогоны для ≥1 предмета',
+  dungeonDropsSubstatGenericRunsHeader: 'Целевая вероятность',
+  dungeonDropsSubstatGenericSpecificLabel: '{count} конкретные',
+  dungeonDropsSubstatGenericLoading: 'Вычисление общих шансов сабстатов...',
+  dungeonDropsSubstatGenericEmpty: 'Нет подходящих дропов на этом уровне.',
   // Dungeon boss names.
   dungeonIceGolem: 'Ледяной голем',
   dungeonFireKnight: 'Огненный рыцарь',

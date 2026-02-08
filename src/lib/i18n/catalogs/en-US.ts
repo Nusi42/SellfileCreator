@@ -215,9 +215,9 @@ const enUS: Catalog = {
   // Dungeon Drops tab label and intro copy.
   tabDungeonDrops: 'Dungeon Drops',
   dungeonDropsIntro: 'Simulate dungeon drops using your current Sellfile rules (HSF) to estimate how much gear is kept per set and level milestone.',
-  dungeonDropsExplanation: 'Each run simulates one dungeon drop using the selected stage\'s drop tables (rank, rarity, slot, and set). Percentages are kept drops divided by all drops for that stage; boosted sets only change set weights.',
+  dungeonDropsExplanation: 'Table percentages are kept drops divided by all drops for that stage; boosted sets only change set weights.',
   // Simulation roll assumptions and run count.
-  dungeonDropsRollNote: 'Substat values use minimum rolls for the item\'s star rank; each upgrade roll adds another minimum roll (a conservative estimate).',
+  dungeonDropsRollNote: 'Substat values use minimum rolls for the item\'s star rank; each upgrade adds another minimum roll (conservative estimate).',
   dungeonDropsRunNote: 'Runs per dungeon stage: {runs}.',
   // Simulation mode labels.
   dungeonDropsModeLabel: 'Simulation mode:',
@@ -237,7 +237,6 @@ const enUS: Catalog = {
   dungeonDropsInfoHowLine2: 'The same item is rolled forward at +4 / +8 / +12 / +16.',
   // How-it-works steps for mode behavior and roll floors.
   dungeonDropsInfoHowLine3: 'Snapshot mode keeps rolling even if a level would be sold; Level-up mode stops after the first sell.',
-  dungeonDropsInfoHowLine4: 'Substat values use minimum rolls for the star rank (conservative).',
   // Why +16 can exceed +12.
   dungeonDropsInfoWhyTitle: 'Why can +16 be higher than +12?',
   dungeonDropsInfoWhyLine: 'Some rules only pass after the last roll at +16.',
@@ -269,17 +268,17 @@ const enUS: Catalog = {
   // Popover breakdown and empty state.
   dungeonDropsPopoverBreakdownTitle: 'Kept drops by slot + main stat (percent of all drops)',
   dungeonDropsPopoverEmpty: 'No kept drops at this level.',
-  // Substat target selectors.
-  dungeonDropsSubstatSelectLabel: 'Target substats',
-  dungeonDropsSubstatSelectPlaceholder: 'Select substats',
-  dungeonDropsSubstatSelectHint: 'Pick up to 4 substats to analyze.',
-  // Substat stats loading and empty states.
-  dungeonDropsSubstatLoading: 'Calculating substat stats...',
-  dungeonDropsSubstatEmpty: 'Select substats to see stats.',
-  // Substat result section headings.
-  dungeonDropsSubstatPresentTitle: 'Selected substats present (≥N)',
-  dungeonDropsSubstatRollsTitle: 'Rolls into selected substats (≥N)',
-  dungeonDropsSubstatRunsTitle: 'Runs needed for ≥1 item with all selected substats',
+  // Generic substat tooltip text.
+  dungeonDropsSubstatGenericTitle: 'Specific substat odds',
+  dungeonDropsSubstatGenericIntro: 'All numbers below are for the hovered slot + main at the selected level; per-run chances include the chance to land that slot.',
+  dungeonDropsSubstatGenericChanceTitle: 'Chances',
+  dungeonDropsSubstatGenericChancePerRun: 'Per run',
+  dungeonDropsSubstatGenericChanceWithin: 'Within slot + main',
+  dungeonDropsSubstatGenericRunsTitle: 'Runs for ≥1 item',
+  dungeonDropsSubstatGenericRunsHeader: 'Target chance',
+  dungeonDropsSubstatGenericSpecificLabel: '{count} specific',
+  dungeonDropsSubstatGenericLoading: 'Calculating generic substat odds...',
+  dungeonDropsSubstatGenericEmpty: 'No eligible drops at this level.',
   // Dungeon boss names.
   dungeonIceGolem: 'Ice Golem',
   dungeonFireKnight: 'Fire Knight',

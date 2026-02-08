@@ -14,6 +14,8 @@ import {
   type DungeonBoostSelection,
   type DungeonBoostableId,
   type DungeonId,
+  type DungeonSimGenericQuery,
+  type DungeonSimGenericStats,
   type DungeonSimDetailQuery,
   type DungeonSimDetailStats,
   type DungeonSimMode,
@@ -48,6 +50,7 @@ type UseDungeonSimulatorWorkerResult = {
   running: boolean
   error: string | null
   requestDetailStats: (query: DungeonSimDetailQuery) => Promise<DungeonSimDetailStats | null>
+  requestGenericStats: (query: DungeonSimGenericQuery) => Promise<DungeonSimGenericStats | null>
 }
 
 // Feature detection prevents SSR and older browsers from attempting worker creation.
@@ -108,6 +111,27 @@ const resolveDirtyDungeons = (params: {
     }
   }
   return Array.from(dirty)
+}
+
+const hasIncompleteOutsideDirty = (
+  progressBySpotlight: DungeonSimSpotlightProgress | null,
+  dirtyDungeons: DungeonId[],
+  runsPerDungeon: number,
+): boolean => {
+  // Missing progress implies we should refresh all dungeons.
+  if (!progressBySpotlight) return true
+  const dirtySet = new Set(dirtyDungeons)
+  for (const spotlight of EVENT_SPOTLIGHT_OPTIONS) {
+    const progress = progressBySpotlight[spotlight]
+    if (!progress) continue
+    const expectedRuns = progress.runsPerDungeon ?? runsPerDungeon
+    for (const dungeonId of DUNGEON_IDS) {
+      if (dirtySet.has(dungeonId)) continue
+      const completed = progress.completedByDungeon?.[dungeonId] ?? 0
+      if (completed < expectedRuns) return true
+    }
+  }
+  return false
 }
 
 const resetProgressForDungeons = (
@@ -178,6 +202,7 @@ export function useDungeonSimulatorWorker(params: UseDungeonSimulatorWorkerParam
   // Track detail requests separately from simulation runs.
   const detailRequestRef = useRef(0)
   const detailResolversRef = useRef(new Map<number, (value: DungeonSimDetailStats | null) => void>())
+  const genericResolversRef = useRef(new Map<number, (value: DungeonSimGenericStats | null) => void>())
   // Local fallback loop needs a cancel hook when dependencies change.
   const fallbackCancelRef = useRef<(() => void) | null>(null)
   // Track previous inputs so we can resimulate only changed dungeons.
@@ -225,6 +250,24 @@ export function useDungeonSimulatorWorker(params: UseDungeonSimulatorWorkerParam
         if (resolver) {
           resolver(null)
           detailResolversRef.current.delete(data.id)
+        }
+        return
+      }
+      if (data.kind === 'detail:generic:result') {
+        // Resolve the matching generic-detail request.
+        const resolver = genericResolversRef.current.get(data.id)
+        if (resolver) {
+          resolver(data.payload)
+          genericResolversRef.current.delete(data.id)
+        }
+        return
+      }
+      if (data.kind === 'detail:generic:error') {
+        // Errors resolve to null so callers can show a fallback state.
+        const resolver = genericResolversRef.current.get(data.id)
+        if (resolver) {
+          resolver(null)
+          genericResolversRef.current.delete(data.id)
         }
         return
       }
@@ -336,6 +379,9 @@ export function useDungeonSimulatorWorker(params: UseDungeonSimulatorWorkerParam
       setProgressBySpotlight((prev) => prev ?? buildEmptyProgressBySpotlight(fallbackRuns))
       // Reuse the previous session when only a subset of dungeons changed.
       const canReuse = !shouldRunAll && dirtyIds.length > 0 && fallbackSessionRef.current
+      // Keep running all dungeons if any non-dirty entry was still incomplete.
+      const shouldRunDirtyOnly = canReuse
+        && !hasIncompleteOutsideDirty(fallbackSessionRef.current?.getProgressBySpotlight() ?? null, dirtyIds, fallbackRuns)
       const session = canReuse && fallbackSessionRef.current
         ? fallbackSessionRef.current
         : createDungeonSimSpotlightSession({
@@ -354,6 +400,8 @@ export function useDungeonSimulatorWorker(params: UseDungeonSimulatorWorkerParam
           ...(selections ? { selections } : {}),
         })
       }
+      // Run only the changed dungeons when every other table already completed.
+      const runTargets = shouldRunDirtyOnly ? dirtyIds : undefined
       // Cache the session so detail queries can reuse the same run data.
       fallbackSessionRef.current = session
       // Throttle local updates so React isn't overwhelmed.
@@ -372,7 +420,7 @@ export function useDungeonSimulatorWorker(params: UseDungeonSimulatorWorkerParam
           return
         }
         // Execute one batch, then emit progress.
-        session.runBatch(safeBatchSize)
+        session.runBatch(safeBatchSize, runTargets)
         const progressBySpotlight = session.getProgressBySpotlight()
         const sampleSpotlight = EVENT_SPOTLIGHT_OPTIONS[0] ?? EVENT_SPOTLIGHT_DEFAULT
         const sampleProgress = progressBySpotlight[sampleSpotlight]
@@ -461,5 +509,26 @@ export function useDungeonSimulatorWorker(params: UseDungeonSimulatorWorkerParam
     return Promise.resolve(session.queryDetailStats(query))
   }
 
-  return { results, progress, running, error, requestDetailStats }
+  const requestGenericStats = (query: DungeonSimGenericQuery): Promise<DungeonSimGenericStats | null> => {
+    // Prefer the worker cache when available.
+    const worker = workerRef.current
+    if (supportsWorkerEnv && worker) {
+      const id = ++detailRequestRef.current
+      const request: DungeonSimulatorWorkerRequest = {
+        id,
+        kind: 'detail:generic',
+        payload: query,
+      }
+      return new Promise((resolve) => {
+        genericResolversRef.current.set(id, resolve)
+        worker.postMessage(request)
+      })
+    }
+    // Fall back to the local session when workers are unavailable.
+    const session = fallbackSessionRef.current
+    if (!session) return Promise.resolve(null)
+    return Promise.resolve(session.queryGenericStats(query))
+  }
+
+  return { results, progress, running, error, requestDetailStats, requestGenericStats }
 }

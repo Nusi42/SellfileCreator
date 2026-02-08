@@ -214,7 +214,7 @@ const overrides: Catalog = {
   // Dungeon Drops tab label and intro copy.
   tabDungeonDrops: 'Botín de mazmorra',
   dungeonDropsIntro: 'Simula el botín de mazmorra usando tus reglas de Sellfile actuales (HSF) para estimar cuánto equipo se conserva por set y por hito de nivel.',
-  dungeonDropsExplanation: 'Cada ejecución simula un drop de mazmorra usando las tablas de drop de la etapa seleccionada (rango, rareza, ranura y set). Los porcentajes son drops conservados divididos por todos los drops de esa etapa; los sets potenciados solo cambian los pesos de set.',
+  dungeonDropsExplanation: 'Los porcentajes son drops conservados divididos por todos los drops de esa etapa; los sets potenciados solo cambian los pesos de set.',
   // Simulation roll assumptions and run count.
   dungeonDropsRollNote: 'Los valores de substats usan tiradas mínimas para el rango de estrellas del objeto; cada tirada de mejora añade otra tirada mínima (estimación conservadora).',
   dungeonDropsRunNote: 'Ejecuciones por etapa de mazmorra: {runs}.',
@@ -236,7 +236,6 @@ const overrides: Catalog = {
   dungeonDropsInfoHowLine2: 'El mismo objeto se vuelve a tirar en +4 / +8 / +12 / +16.',
   // How-it-works steps for mode behavior and roll floors.
   dungeonDropsInfoHowLine3: 'El modo Instantánea sigue tirando incluso si un nivel se vendería; el modo Subida de nivel se detiene después de la primera venta.',
-  dungeonDropsInfoHowLine4: 'Los valores de substats usan tiradas mínimas para el rango de estrellas (conservador).',
   // Why +16 can exceed +12.
   dungeonDropsInfoWhyTitle: '¿Por qué +16 puede ser mayor que +12?',
   dungeonDropsInfoWhyLine: 'Algunas reglas solo pasan después de la última tirada en +16.',
@@ -268,17 +267,17 @@ const overrides: Catalog = {
   // Popover breakdown and empty state.
   dungeonDropsPopoverBreakdownTitle: 'Drops conservados por ranura + stat principal (porcentaje de todos los drops)',
   dungeonDropsPopoverEmpty: 'No hay drops conservados en este nivel.',
-  // Substat target selectors.
-  dungeonDropsSubstatSelectLabel: 'Substats objetivo',
-  dungeonDropsSubstatSelectPlaceholder: 'Selecciona substats',
-  dungeonDropsSubstatSelectHint: 'Elige hasta 4 substats para analizar.',
-  // Substat stats loading and empty states.
-  dungeonDropsSubstatLoading: 'Calculando estadísticas de substats...',
-  dungeonDropsSubstatEmpty: 'Selecciona substats para ver estadísticas.',
-  // Substat result section headings.
-  dungeonDropsSubstatPresentTitle: 'Substats seleccionadas presentes (≥N)',
-  dungeonDropsSubstatRollsTitle: 'Tiradas en substats seleccionadas (≥N)',
-  dungeonDropsSubstatRunsTitle: 'Ejecuciones necesarias para ≥1 objeto con todas las substats seleccionadas',
+  // Generic substat tooltip text.
+  dungeonDropsSubstatGenericTitle: 'Probabilidades de substats específicas',
+  dungeonDropsSubstatGenericIntro: 'Todos los números abajo son para la ranura + stat principal en este nivel; las probabilidades por ejecución incluyen la chance de obtener esa ranura.',
+  dungeonDropsSubstatGenericChanceTitle: 'Probabilidades',
+  dungeonDropsSubstatGenericChancePerRun: 'Por ejecución',
+  dungeonDropsSubstatGenericChanceWithin: 'Dentro de ranura + stat principal',
+  dungeonDropsSubstatGenericRunsTitle: 'Ejecuciones para ≥1 objeto',
+  dungeonDropsSubstatGenericRunsHeader: 'Probabilidad objetivo',
+  dungeonDropsSubstatGenericSpecificLabel: '{count} específicas',
+  dungeonDropsSubstatGenericLoading: 'Calculando probabilidades genéricas de substats...',
+  dungeonDropsSubstatGenericEmpty: 'No hay drops elegibles en este nivel.',
   // Dungeon boss names.
   dungeonIceGolem: 'Gólem de Hielo',
   dungeonFireKnight: 'Caballero de Fuego',
