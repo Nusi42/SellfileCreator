@@ -1,43 +1,66 @@
-import { useRef, useState, type MouseEvent } from 'react'
+import { useLayoutEffect, useMemo, useRef, useState, type MouseEvent } from 'react'
 import { Box, ButtonBase, Divider, IconButton, MenuItem, Popover, Select, Stack, Table, TableBody, TableCell, TableHead, TableRow, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material'
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined'
 import ExpandLessIcon from '@mui/icons-material/ExpandLess'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import { useI18n } from '../../lib/i18n'
 import { ACCESSORY_NO_SET_ID, STANDARD_DIALOG_PADDING_BLOCK_UNITS, STANDARD_DIALOG_PADDING_INLINE_UNITS } from '../../lib/constants'
-import { artifactTypeI18nKey, getLocalizedGearSetName, statVariantI18nKey, type ArtifactSetId, type LevelMilestone } from '../../lib/types'
+import { ALLOWED_SUB_BY_SLOT, DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT, STAT_VARIANTS_PRIORITY, StatVariant, artifactTypeI18nKey, getLocalizedGearSetName, statVariantI18nKey, type ArtifactSetId, type ArtifactTypeId, type LevelMilestone } from '../../lib/types'
 import type { HsfRuleWithCfg } from '../../lib/merge'
 import type { SubstatTargetTable } from '../../lib/hsfBuilder/types'
+import type { ArtifactSetSelectionEntry } from '../../lib/gearSets/selection'
+import { normalizeArtifactSetSelections, splitArtifactSetSelections } from '../../lib/gearSets/selection'
 import { SetIcon } from '../SetIcon'
 import EllipsisTooltip from '../EllipsisTooltip'
 import ContextMenuPaper, { buildContextMenuPaperSlotProps } from '../ContextMenuPaper'
 import ContextMenuTitle from '../ContextMenuTitle'
+import { artifactTypeIconList } from '../artifactTypeIcons'
+import { GearSetsSelect, GearSubstatSelect } from '../gear'
 import {
   DUNGEON_IDS,
   DUNGEON_SIM_BATCH_SIZE,
   DUNGEON_SIM_LEVELS,
   DUNGEON_SIM_RUNS_PER_DUNGEON,
+  DUNGEON_BOOST_MODES,
   EVENT_SPOTLIGHT_OPTIONS,
+  isBoostableDungeon,
+  normalizeDungeonBoostSelection,
+  resolveDefaultBoostSet,
+  resolveBoostableSets,
+  resolveDungeonBoostDefault,
   resolveDungeonSets,
   resolveDungeonStageDefault,
   resolveDungeonStageRange,
   resolveEventSpotlightSet,
+  type DungeonBoostSelection,
+  type DungeonBoostableId,
   type DungeonId,
   type DungeonSimBreakdown,
   type DungeonSimCell,
+  type DungeonSimDetailStats,
   type DungeonSimProgress,
 } from '../../lib/dungeonSimulator'
+import type { SubstatColorMap } from '../../lib/renderColoredStatText'
 import { PROGRESS_THROTTLE_MS } from '../../types/progress'
 import { useDungeonSimulatorWorker } from '../../hooks/useDungeonSimulatorWorker'
 import { useContextMenuPaperGuard } from '../../hooks/useContextMenuPaperGuard'
 import { sanitizeStageSelection, useDungeonSimulatorPreferences } from '../../state/dungeonSimulatorPreferences'
 import MarkdownTooltip from '../MarkdownTooltip'
+import { measureCssWidth } from '../../lib/domMeasurements'
 
 // Detail popover target for a single cell.
 type DetailTarget = (
   | { kind: 'level'; dungeonId: DungeonId; setId: ArtifactSetId; level: LevelMilestone }
   | { kind: 'summary'; dungeonId: DungeonId; setId: ArtifactSetId }
 )
+
+type DetailSubstatTarget = {
+  dungeonId: DungeonId
+  setId: ArtifactSetId
+  level: LevelMilestone
+  slot: ArtifactTypeId
+  main: StatVariant
+}
 
 // Keep dungeon labels centralized so each table shares the same i18n keys.
 const DUNGEON_LABEL_KEYS: Record<DungeonId, string> = {
@@ -55,6 +78,31 @@ const formatPercent = (value: number, digits = 2): string => `${value.toFixed(di
 const formatCellPercent = (cell: DungeonSimCell, totalDrops: number): string => {
   if (totalDrops <= 0) return '—'
   return formatPercent((cell.kept / totalDrops) * 100)
+}
+
+// Format a count as a percent of the provided total.
+const formatCountPercent = (count: number, total: number): string => {
+  if (total <= 0) return '—'
+  return formatPercent((count / total) * 100)
+}
+
+// Probability targets for "runs needed" estimates.
+const RUN_PROB_TARGETS = [
+  { label: '50%', value: 0.5 },
+  { label: '75%', value: 0.75 },
+  { label: '90%', value: 0.9 },
+  { label: '95%', value: 0.95 },
+  { label: '99%', value: 0.99 },
+] as const
+
+const computeRunsNeeded = (count: number, total: number, target: number): number | null => {
+  if (total <= 0) return null
+  const p = count / total
+  if (p <= 0) return null
+  if (p >= 1) return 1
+  const runs = Math.log(1 - target) / Math.log(1 - p)
+  if (!Number.isFinite(runs)) return null
+  return Math.max(1, Math.ceil(runs))
 }
 
 // Resolve the per-dungeon completed run count to keep the header status stable.
@@ -88,25 +136,40 @@ const buildStageOptions = (range: { min: number; max: number }): number[] => {
   return Array.from({ length: count }, (_, idx) => range.min + idx)
 }
 
-// Keep detail rows stable by sorting on kept count then slot/main id.
-const sortBreakdown = (entries: DungeonSimBreakdown[]): DungeonSimBreakdown[] => (
-  entries
-    .filter((entry) => entry.kept > 0)
-    .sort((a, b) => {
-      if (b.kept !== a.kept) return b.kept - a.kept
-      if (b.total !== a.total) return b.total - a.total
-      if (Number(a.slot) !== Number(b.slot)) return Number(a.slot) - Number(b.slot)
-      return Number(a.main) - Number(b.main)
-    })
+// Main stat ordering mirrors the shared stat priority list.
+const MAINSTAT_PRIORITY = new Map<number, number>(
+  STAT_VARIANTS_PRIORITY.map((variant, index) => [Number(variant), index]),
 )
+
+// Sort a breakdown list by main stat priority for consistent per-slot ordering.
+const sortBreakdownByMain = (entries: DungeonSimBreakdown[]): DungeonSimBreakdown[] => (
+  entries.slice().sort((a, b) => {
+    const aIndex = MAINSTAT_PRIORITY.get(Number(a.main)) ?? Number.MAX_SAFE_INTEGER
+    const bIndex = MAINSTAT_PRIORITY.get(Number(b.main)) ?? Number.MAX_SAFE_INTEGER
+    if (aIndex !== bIndex) return aIndex - bIndex
+    return Number(a.main) - Number(b.main)
+  })
+)
+
+// Reduce a multi-select set selection down to the last explicitly included set.
+const resolveSingleBoostSet = (entries: ArtifactSetSelectionEntry[]): ArtifactSetId | null => {
+  const normalized = normalizeArtifactSetSelections(entries)
+  const split = splitArtifactSetSelections(normalized)
+  const last = split.included[split.included.length - 1]
+  return last ?? null
+}
 
 export type DungeonSimulatorTabProps = {
   rules: HsfRuleWithCfg[]
   substatTargets: SubstatTargetTable
+  // Provide the shared stat color map so the popover can match other UI.
+  substatColors: SubstatColorMap
+  // Flag for the "color stat text" display preference.
+  useStatButtonColors: boolean
 }
 
 export default function DungeonSimulatorTab(props: DungeonSimulatorTabProps) {
-  const { rules, substatTargets } = props
+  const { rules, substatTargets, substatColors, useStatButtonColors } = props
   const { t, lang } = useI18n()
   // Persisted mode/stage/spotlight selections keep the simulator stable across sessions.
   const [prefs, setPrefs] = useDungeonSimulatorPreferences()
@@ -120,11 +183,12 @@ export default function DungeonSimulatorTab(props: DungeonSimulatorTabProps) {
 
   // Stream dungeon simulation results from a worker so the UI stays responsive.
   // Use the persisted selections so the same stage picks survive reloads.
-  const { results: simulation, progress } = useDungeonSimulatorWorker({
+  const { results: simulation, progress, requestDetailStats } = useDungeonSimulatorWorker({
     rules,
     substatTargets,
     selections: prefs.stages,
     spotlight: prefs.eventSpotlight,
+    boosts: prefs.boosts,
     runs: DUNGEON_SIM_RUNS_PER_DUNGEON,
     batchSize: DUNGEON_SIM_BATCH_SIZE,
     throttleMs: PROGRESS_THROTTLE_MS,
@@ -141,12 +205,36 @@ export default function DungeonSimulatorTab(props: DungeonSimulatorTabProps) {
   const handleDetailClose = () => {
     setDetailAnchor(null)
     setDetailTarget(null)
+    handleDetailSubstatClose()
   }
   // Guard the popover so outside clicks always clear the anchor + target.
   const { contextMenuGuard: detailPopoverGuard } = useContextMenuPaperGuard({
     open: detailOpen,
     onClose: handleDetailClose,
     menuRef: detailPopoverPaperRef,
+  })
+  // Nested popover for explicit substat stats.
+  const [detailSubstatAnchor, setDetailSubstatAnchor] = useState<HTMLElement | null>(null)
+  const [detailSubstatTarget, setDetailSubstatTarget] = useState<DetailSubstatTarget | null>(null)
+  const [detailSubstats, setDetailSubstats] = useState<StatVariant[]>([])
+  const [detailSubstatStats, setDetailSubstatStats] = useState<DungeonSimDetailStats | null>(null)
+  const [detailSubstatLoading, setDetailSubstatLoading] = useState(false)
+  const detailSubstatOpen = Boolean(detailSubstatAnchor && detailSubstatTarget)
+  const detailSubstatRequestRef = useRef(0)
+  const detailSubstatPaperRef = useRef<HTMLDivElement | null>(null)
+  const handleDetailSubstatClose = () => {
+    // Clear nested popover state and invalidate any in-flight requests.
+    setDetailSubstatAnchor(null)
+    setDetailSubstatTarget(null)
+    setDetailSubstats([])
+    setDetailSubstatStats(null)
+    detailSubstatRequestRef.current += 1
+    setDetailSubstatLoading(false)
+  }
+  const { contextMenuGuard: detailSubstatGuard } = useContextMenuPaperGuard({
+    open: detailSubstatOpen,
+    onClose: handleDetailSubstatClose,
+    menuRef: detailSubstatPaperRef,
   })
 
   // Persisted stage selection updates (mode and stage).
@@ -177,6 +265,25 @@ export default function DungeonSimulatorTab(props: DungeonSimulatorTabProps) {
       ...prev,
       eventSpotlight: next === 'pinpoint' ? 'pinpoint' : 'chronophage',
     }))
+  }
+
+  // Update a boosted set selection for the chosen dungeon.
+  const updateDungeonBoost = (dungeonId: DungeonBoostableId, next: Partial<DungeonBoostSelection>) => {
+    setPrefs((prev) => {
+      // Preserve the current boost selection for partial updates.
+      const current = prev.boosts?.[dungeonId] ?? resolveDungeonBoostDefault(dungeonId)
+      // Merge updates before normalization.
+      const candidate = { ...current, ...next }
+      // When enabling boosts, seed the default set if none is selected.
+      if (candidate.mode !== 'off' && candidate.setId == null) {
+        candidate.setId = resolveDefaultBoostSet(dungeonId)
+      }
+      const normalized = normalizeDungeonBoostSelection(dungeonId, candidate, current)
+      return {
+        ...prev,
+        boosts: { ...prev.boosts, [dungeonId]: normalized },
+      }
+    })
   }
 
   const toggleDungeonCollapsed = (dungeonId: DungeonId) => {
@@ -217,14 +324,101 @@ export default function DungeonSimulatorTab(props: DungeonSimulatorTabProps) {
       ? t('dungeonDropsAnyLevel')
       : `+${detailTarget.level}`
     : ''
+  // For substat details, fall back to +16 when the summary row is active.
+  const detailLevelForSubstats: LevelMilestone = detailTarget
+    ? (detailTarget.kind === 'summary' ? 16 : detailTarget.level)
+    : 16
+  // Labels for the nested substat popover.
+  const detailSubstatTitle = detailSubstatTarget
+    ? `${t(artifactTypeI18nKey(detailSubstatTarget.slot))} • ${t(statVariantI18nKey(detailSubstatTarget.main))}`
+    : ''
+  const detailSubstatDescription = detailSubstatTarget
+    ? `${t(DUNGEON_LABEL_KEYS[detailSubstatTarget.dungeonId])} • ${formatSetLabel({ setId: detailSubstatTarget.setId, translate: t, lang })} • +${detailSubstatTarget.level}`
+    : ''
 
-  // Filter + sort breakdown entries for the selected cell.
-  // This ensures the popover lists the most relevant slot/main stats first.
-  const detailBreakdown = resolvedDetailCell
-    ? sortBreakdown(resolvedDetailCell.breakdown)
-    : []
+  // Filter breakdown entries once so empty cells resolve quickly.
+  const detailBreakdown = useMemo(() => (
+    resolvedDetailCell
+      ? resolvedDetailCell.breakdown.filter((entry) => entry.kept > 0)
+      : []
+  ), [resolvedDetailCell])
+  // Group breakdown entries by slot for the 3x3 layout.
+  const detailBreakdownBySlot = useMemo(() => {
+    const map = new Map<ArtifactTypeId, DungeonSimBreakdown[]>()
+    for (const entry of detailBreakdown) {
+      const slotId = Number(entry.slot) as ArtifactTypeId
+      const list = map.get(slotId) ?? []
+      list.push(entry)
+      map.set(slotId, list)
+    }
+    for (const [slotId, entries] of map.entries()) {
+      map.set(slotId, sortBreakdownByMain(entries))
+    }
+    return map
+  }, [detailBreakdown])
+  // Resolve the substat options for the nested popover based on slot/main.
+  const detailSubstatOptions = useMemo(() => {
+    // Limit selectable substats to the slot-legal pool and exclude the main stat.
+    if (!detailSubstatTarget) return []
+    const allowed = new Set<number>(
+      Array.from(ALLOWED_SUB_BY_SLOT[Number(detailSubstatTarget.slot)] ?? []).map((variant) => Number(variant)),
+    )
+    allowed.delete(Number(detailSubstatTarget.main))
+    return STAT_VARIANTS_PRIORITY.filter((variant) => allowed.has(Number(variant)))
+  }, [detailSubstatTarget])
+  // Clamp the selected substats to the allowed list + max length.
+  const handleDetailSubstatsChange = (next: StatVariant[]) => {
+    // Enforce allowed options and cap selections to four stats.
+    const allowed = new Set(detailSubstatOptions.map((variant) => Number(variant)))
+    const filtered = next.filter((variant) => allowed.has(Number(variant)))
+    const nextSelection = filtered.slice(0, 4)
+    setDetailSubstats(nextSelection)
+    refreshDetailSubstatStats(detailSubstatTarget, nextSelection)
+  }
+  // Request fresh detail stats for the active target + selection.
+  const refreshDetailSubstatStats = (target: DetailSubstatTarget | null, substats: StatVariant[]) => {
+    if (!target || substats.length === 0) {
+      setDetailSubstatStats(null)
+      setDetailSubstatLoading(false)
+      return
+    }
+    const requestId = ++detailSubstatRequestRef.current
+    setDetailSubstatLoading(true)
+    requestDetailStats({
+      dungeonId: target.dungeonId,
+      spotlight: prefs.eventSpotlight,
+      setId: target.setId,
+      level: target.level,
+      slot: target.slot,
+      main: target.main,
+      substats,
+    }).then((stats) => {
+      if (requestId !== detailSubstatRequestRef.current) return
+      setDetailSubstatStats(stats)
+      setDetailSubstatLoading(false)
+    })
+  }
   // Header run counter reflects the current completed/total runs.
   const runProgressLabel = formatRunProgress(progress)
+
+  // Precompute dungeon labels for consistent header sizing.
+  const dungeonLabels = useMemo(() => (
+    DUNGEON_IDS.map((id) => t(DUNGEON_LABEL_KEYS[id]))
+  ), [t])
+  const labelMeasureRefs = useRef<Map<DungeonId, HTMLSpanElement | null>>(new Map())
+  const [labelWidthPx, setLabelWidthPx] = useState(0)
+  // Measure the widest dungeon label so all rows align.
+  useLayoutEffect(() => {
+    let maxWidth = 0
+    for (const dungeonId of DUNGEON_IDS) {
+      const node = labelMeasureRefs.current.get(dungeonId)
+      if (!node) continue
+      maxWidth = Math.max(maxWidth, measureCssWidth(node))
+    }
+    if (maxWidth > 0 && Math.abs(maxWidth - labelWidthPx) > 1) {
+      setLabelWidthPx(Math.ceil(maxWidth))
+    }
+  }, [dungeonLabels, labelWidthPx])
 
   return (
     <Box
@@ -238,11 +432,44 @@ export default function DungeonSimulatorTab(props: DungeonSimulatorTabProps) {
       }}
     >
       <Stack spacing={2}>
+        {/* Hidden label measurer keeps dungeon labels aligned without layout jitter. */}
+        <Box
+          aria-hidden
+          sx={{
+            position: 'absolute',
+            left: -9999,
+            top: 0,
+            visibility: 'hidden',
+            whiteSpace: 'nowrap',
+            pointerEvents: 'none',
+            height: 0,
+            overflow: 'hidden',
+          }}
+        >
+          {DUNGEON_IDS.map((dungeonId) => (
+            <Typography
+              key={`dungeon-label-measure-${dungeonId}`}
+              variant="subtitle1"
+              component="span"
+              ref={(node: HTMLSpanElement | null) => {
+                labelMeasureRefs.current.set(dungeonId, node)
+              }}
+            >
+              {t(DUNGEON_LABEL_KEYS[dungeonId])}
+            </Typography>
+          ))}
+        </Box>
         {/* Intro copy + assumptions (runs) live above the tables. */}
         <Stack direction="row" spacing={1} alignItems="flex-start">
           <Stack spacing={0.5} sx={{ flex: 1, minWidth: 0 }}>
             <Typography variant="body2" color="text.secondary">
               {t('dungeonDropsIntro')}
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              {t('dungeonDropsExplanation')}
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              {t('dungeonDropsRollNote')}
             </Typography>
             <Typography variant="caption" color="text.secondary">
               {t('dungeonDropsRunNote', { runs: runProgressLabel })}
@@ -267,6 +494,18 @@ export default function DungeonSimulatorTab(props: DungeonSimulatorTabProps) {
           const totalDrops = progress?.completedByDungeon?.[dungeonId] ?? 0
           const isCollapsed = prefs.collapsed?.[dungeonId] ?? true
           const isEventDungeon = dungeonId === 'event'
+          const isBoostable = isBoostableDungeon(dungeonId)
+          const boostSelection = isBoostable
+            ? prefs.boosts?.[dungeonId] ?? resolveDungeonBoostDefault(dungeonId)
+            : null
+          const boostMode = boostSelection?.mode ?? 'off'
+          const boostSetId = boostSelection?.setId ?? null
+          const boostOptions = isBoostable ? resolveBoostableSets(dungeonId) : []
+          const boostSelectionEntries: ArtifactSetSelectionEntry[] = (
+            boostMode === 'off' || boostSetId == null
+              ? []
+              : [{ id: boostSetId }]
+          )
           // Single-set tables should size to content so Spider doesn't waste horizontal space.
           // Multi-set tables keep full width to avoid uneven column sizing.
           const isSingleSetTable = setIds.length <= 1
@@ -274,32 +513,52 @@ export default function DungeonSimulatorTab(props: DungeonSimulatorTabProps) {
             <Box key={dungeonId} sx={{ display: 'flex', flexDirection: 'column', gap: 1.25 }}>
               {/* Dungeon headings + controls keep selection changes local to each table. */}
               <Stack direction="row" spacing={1.5} alignItems="center" flexWrap="wrap">
-                <Typography variant="subtitle1">{dungeonLabel}</Typography>
-                {!isEventDungeon ? (
-                  // Normal/Hard toggle only applies to non-event dungeons.
-                  <Stack direction="row" spacing={0.75} alignItems="center">
-                    <Typography variant="caption" color="text.secondary">
-                      {t('dungeonDropsModeLabel')}
-                    </Typography>
-                    <ToggleButtonGroup
-                      size="small"
-                      exclusive
-                      value={selection.mode}
-                      onChange={(_, nextMode) => {
-                        if (!nextMode) return
-                        updateDungeonSelection(dungeonId, { mode: nextMode as 'normal' | 'hard' })
-                      }}
-                    >
-                      <ToggleButton value="normal">{t('dungeonDropsModeNormal')}</ToggleButton>
-                      <ToggleButton value="hard">{t('dungeonDropsModeHard')}</ToggleButton>
-                    </ToggleButtonGroup>
-                  </Stack>
-                ) : null}
+                <Box sx={{ width: labelWidthPx > 0 ? `${labelWidthPx}px` : 'auto' }}>
+                  <Typography variant="subtitle1">{dungeonLabel}</Typography>
+                </Box>
+                {/* Mode/spotlight toggles live in the same slot to keep Stage aligned. */}
+                {(() => {
+                  if (isEventDungeon) {
+                    return (
+                      <Stack direction="row" spacing={0.75} alignItems="center">
+                        <ToggleButtonGroup
+                          size="small"
+                          exclusive
+                          value={prefs.eventSpotlight}
+                          onChange={(_, nextValue) => updateEventSpotlight(nextValue)}
+                        >
+                          {EVENT_SPOTLIGHT_OPTIONS.map((option) => {
+                            const setId = resolveEventSpotlightSet(option)
+                            const label = formatSetLabel({ setId, translate: t, lang })
+                            return (
+                              <ToggleButton key={`event-spotlight-${option}`} value={option}>
+                                {label}
+                              </ToggleButton>
+                            )
+                          })}
+                        </ToggleButtonGroup>
+                      </Stack>
+                    )
+                  }
+                  return (
+                    <Stack direction="row" spacing={0.75} alignItems="center">
+                      <ToggleButtonGroup
+                        size="small"
+                        exclusive
+                        value={selection.mode}
+                        onChange={(_, nextMode) => {
+                          if (!nextMode) return
+                          updateDungeonSelection(dungeonId, { mode: nextMode as 'normal' | 'hard' })
+                        }}
+                      >
+                        <ToggleButton value="normal">{t('dungeonDropsModeNormal')}</ToggleButton>
+                        <ToggleButton value="hard">{t('dungeonDropsModeHard')}</ToggleButton>
+                      </ToggleButtonGroup>
+                    </Stack>
+                  )
+                })()}
                 {/* Stage selector always renders so level picks stay visible. */}
                 <Stack direction="row" spacing={0.75} alignItems="center">
-                  <Typography variant="caption" color="text.secondary">
-                    {t('dungeonDropsStageLabel')}
-                  </Typography>
                   <Select
                     size="small"
                     value={selection.stage}
@@ -311,27 +570,51 @@ export default function DungeonSimulatorTab(props: DungeonSimulatorTabProps) {
                     ))}
                   </Select>
                 </Stack>
-                {dungeonId === 'event' ? (
-                  // Spotlight toggle is specific to the event dungeon.
-                  <Stack direction="row" spacing={0.75} alignItems="center">
+                {isBoostable ? (
+                  // Boosted-set controls are limited to the core artifact dungeons.
+                  <Stack direction="row" spacing={0.75} alignItems="center" flexWrap="wrap">
                     <Typography variant="caption" color="text.secondary">
-                      {t('dungeonDropsSpotlightLabel')}
+                      {t('dungeonDropsBoostLabel')}
                     </Typography>
+                    <GearSetsSelect
+                      value={boostSelectionEntries}
+                      onChange={(nextSelections) => {
+                        // Keep the most recent explicit include as the single boosted set.
+                        const nextSet = resolveSingleBoostSet(nextSelections)
+                        if (nextSet == null) {
+                          updateDungeonBoost(dungeonId, { mode: 'off', setId: null })
+                          return
+                        }
+                        updateDungeonBoost(dungeonId, { setId: nextSet })
+                      }}
+                      allowedSetIds={boostOptions}
+                      showMetasets={false}
+                      metasets={[]}
+                      anyLabel={t('dungeonDropsBoostNone')}
+                      singleSelect
+                      size="small"
+                      disabled={boostMode === 'off'}
+                      minWidthPx={220}
+                      menuWidthPx={360}
+                    />
                     <ToggleButtonGroup
                       size="small"
                       exclusive
-                      value={prefs.eventSpotlight}
-                      onChange={(_, nextValue) => updateEventSpotlight(nextValue)}
+                      value={boostMode}
+                      onChange={(_, nextMode) => {
+                        if (!nextMode) return
+                        updateDungeonBoost(dungeonId, { mode: nextMode as DungeonBoostSelection['mode'] })
+                      }}
                     >
-                      {EVENT_SPOTLIGHT_OPTIONS.map((option) => {
-                        const setId = resolveEventSpotlightSet(option)
-                        const label = formatSetLabel({ setId, translate: t, lang })
-                        return (
-                          <ToggleButton key={`event-spotlight-${option}`} value={option}>
-                            {label}
-                          </ToggleButton>
-                        )
-                      })}
+                      {DUNGEON_BOOST_MODES.map((mode) => (
+                        <ToggleButton key={`${dungeonId}-boost-mode-${mode}`} value={mode}>
+                          {mode === 'off'
+                            ? t('dungeonDropsBoostOff')
+                            : mode === '2x'
+                              ? t('dungeonDropsBoost2x')
+                              : t('dungeonDropsBoost3x')}
+                        </ToggleButton>
+                      ))}
                     </ToggleButtonGroup>
                   </Stack>
                 ) : null}
@@ -343,6 +626,8 @@ export default function DungeonSimulatorTab(props: DungeonSimulatorTabProps) {
               <Table
                 size="small"
                 sx={{
+                  // Prevent flex stretch so single-set tables (Spider) stay compact.
+                  alignSelf: isSingleSetTable ? 'flex-start' : 'stretch',
                   width: isSingleSetTable ? 'auto' : '100%',
                   tableLayout: isSingleSetTable ? 'auto' : 'fixed',
                   display: isSingleSetTable ? 'inline-table' : 'table',
@@ -515,21 +800,192 @@ export default function DungeonSimulatorTab(props: DungeonSimulatorTabProps) {
                 {t('dungeonDropsPopoverEmpty')}
               </Typography>
             ) : (
-              <Stack spacing={0.25}>
-                {detailBreakdown.map((entry) => {
-                  // Slot + main stat pairs identify what was kept.
-                  const label = `${t(artifactTypeI18nKey(entry.slot))} • ${t(statVariantI18nKey(entry.main))}`
-                  const value = detailTotalDrops > 0 ? (entry.kept / detailTotalDrops) * 100 : 0
+              <Box
+                sx={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+                  gap: 1,
+                }}
+              >
+                {artifactTypeIconList.map(({ id, Icon }) => {
+                  const slotEntries = detailBreakdownBySlot.get(id) ?? []
                   return (
-                    <Box key={`${entry.slot}-${entry.main}`} sx={{ display: 'flex', justifyContent: 'space-between', gap: 2 }}>
-                      <Typography variant="body2" sx={{ flex: 1 }}>{label}</Typography>
-                      <Typography variant="body2" sx={{ fontWeight: 600 }}>{formatPercent(value)}</Typography>
+                    <Box
+                      key={`dungeon-detail-slot-${id}`}
+                      sx={(theme) => ({
+                        borderRadius: 1,
+                        border: `1px solid ${theme.palette.divider}`,
+                        px: 0.75,
+                        py: 0.6,
+                        minWidth: 0,
+                      })}
+                    >
+                      <Stack spacing={0.4}>
+                        {/* Slot header shows the icon + label to mirror builder layout. */}
+                        <Stack direction="row" spacing={0.5} alignItems="center">
+                          <Icon fontSize="small" />
+                          <Typography variant="caption" sx={{ fontWeight: 600, lineHeight: 1.1 }}>
+                            {t(artifactTypeI18nKey(id))}
+                          </Typography>
+                        </Stack>
+                        {slotEntries.length === 0 ? (
+                          // Placeholder keeps empty slots compact and scannable.
+                          <Typography variant="caption" color="text.secondary">—</Typography>
+                        ) : (
+                          <Stack spacing={0.25}>
+                            {slotEntries.map((entry) => {
+                              const label = t(statVariantI18nKey(entry.main))
+                              const value = detailTotalDrops > 0 ? (entry.kept / detailTotalDrops) * 100 : 0
+                              const statColor = useStatButtonColors
+                                ? (substatColors[Number(entry.main)]?.fg ?? DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT[Number(entry.main)])
+                                : undefined
+                              return (
+                                <ButtonBase
+                                  key={`${entry.slot}-${entry.main}`}
+                                  onClick={(event) => {
+                                    event.stopPropagation()
+                                    if (!detailTarget) return
+                                    setDetailSubstatAnchor(event.currentTarget)
+                                    setDetailSubstatTarget({
+                                      dungeonId: detailTarget.dungeonId,
+                                      setId: detailTarget.setId,
+                                      level: detailLevelForSubstats,
+                                      slot: entry.slot,
+                                      main: entry.main,
+                                    })
+                                    // Reset the selection so each row starts clean.
+                                    setDetailSubstats([])
+                                    setDetailSubstatStats(null)
+                                    setDetailSubstatLoading(false)
+                                  }}
+                                  sx={(theme) => ({
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                    gap: 1,
+                                    alignItems: 'center',
+                                    width: '100%',
+                                    textAlign: 'left',
+                                    borderRadius: 0.75,
+                                    px: 0.5,
+                                    py: 0.25,
+                                    '&:hover': { backgroundColor: theme.palette.action.hover },
+                                  })}
+                                >
+                                  <Typography
+                                    variant="caption"
+                                    sx={{ color: statColor, flex: 1, minWidth: 0 }}
+                                  >
+                                    {label}
+                                  </Typography>
+                                  <Typography variant="caption" sx={{ fontWeight: 600 }}>
+                                    {formatPercent(value)}
+                                  </Typography>
+                                </ButtonBase>
+                              )
+                            })}
+                          </Stack>
+                        )}
+                      </Stack>
                     </Box>
                   )
                 })}
-              </Stack>
+              </Box>
             )}
           </Stack>
+        </Stack>
+      </Popover>
+      <Popover
+        open={detailSubstatOpen}
+        anchorEl={detailSubstatAnchor}
+        onClose={handleDetailSubstatClose}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+        transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+        slotProps={{
+          // Nested popover reuses ContextMenuPaper for the close button.
+          paper: buildContextMenuPaperSlotProps({
+            component: ContextMenuPaper,
+            contextMenuGuard: detailSubstatGuard,
+            onRequestClose: handleDetailSubstatClose,
+            closeLabel: t('close'),
+            ref: detailSubstatPaperRef,
+            sx: { p: 2, maxWidth: 420 },
+          }),
+        }}
+      >
+        <Stack spacing={1.25}>
+          <ContextMenuTitle title={detailSubstatTitle} description={detailSubstatDescription} />
+          <Stack spacing={0.5}>
+            <Typography variant="caption" color="text.secondary">
+              {t('dungeonDropsSubstatSelectLabel')}
+            </Typography>
+            <GearSubstatSelect
+              multiple
+              value={detailSubstats}
+              onChange={handleDetailSubstatsChange}
+              options={detailSubstatOptions}
+              anyLabel={t('dungeonDropsSubstatSelectPlaceholder')}
+              colorOverrides={substatColors}
+              showBorderColors={useStatButtonColors}
+              sx={{ minWidth: 240 }}
+            />
+            <Typography variant="caption" color="text.secondary">
+              {t('dungeonDropsSubstatSelectHint')}
+            </Typography>
+          </Stack>
+          {detailSubstatLoading ? (
+            <Typography variant="body2" color="text.secondary">
+              {t('dungeonDropsSubstatLoading')}
+            </Typography>
+          ) : detailSubstats.length === 0 ? (
+            <Typography variant="body2" color="text.secondary">
+              {t('dungeonDropsSubstatEmpty')}
+            </Typography>
+          ) : (
+            <Stack spacing={1}>
+              <Stack spacing={0.35}>
+                <Typography variant="caption" color="text.secondary">
+                  {t('dungeonDropsSubstatPresentTitle')}
+                </Typography>
+                {[1, 2, 3, 4].map((count, idx) => (
+                  <Box key={`present-${count}`} sx={{ display: 'flex', justifyContent: 'space-between', gap: 2 }}>
+                    <Typography variant="body2">{`≥${count}`}</Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                      {formatCountPercent(detailSubstatStats?.presentAtLeast[idx] ?? 0, detailSubstatStats?.total ?? 0)}
+                    </Typography>
+                  </Box>
+                ))}
+              </Stack>
+              <Stack spacing={0.35}>
+                <Typography variant="caption" color="text.secondary">
+                  {t('dungeonDropsSubstatRollsTitle')}
+                </Typography>
+                {[1, 2, 3, 4].map((count, idx) => (
+                  <Box key={`rolls-${count}`} sx={{ display: 'flex', justifyContent: 'space-between', gap: 2 }}>
+                    <Typography variant="body2">{`≥${count}`}</Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                      {formatCountPercent(detailSubstatStats?.rollsAtLeast[idx] ?? 0, detailSubstatStats?.total ?? 0)}
+                    </Typography>
+                  </Box>
+                ))}
+              </Stack>
+              <Stack spacing={0.35}>
+                <Typography variant="caption" color="text.secondary">
+                  {t('dungeonDropsSubstatRunsTitle')}
+                </Typography>
+                {RUN_PROB_TARGETS.map((target) => (
+                  <Box key={`runs-${target.label}`} sx={{ display: 'flex', justifyContent: 'space-between', gap: 2 }}>
+                    <Typography variant="body2">{target.label}</Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                      {(() => {
+                        const runsNeeded = computeRunsNeeded(detailSubstatStats?.allSelected ?? 0, detailSubstatStats?.total ?? 0, target.value)
+                        return runsNeeded ? String(runsNeeded) : '—'
+                      })()}
+                    </Typography>
+                  </Box>
+                ))}
+              </Stack>
+            </Stack>
+          )}
         </Stack>
       </Popover>
     </Box>

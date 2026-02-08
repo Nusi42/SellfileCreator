@@ -1,15 +1,20 @@
 /**
  * dungeonSimulatorPreferences.ts
  *
- * Persist the Dungeon Drops simulator selections (stage, spotlight, collapse state).
+ * Persist the Dungeon Drops simulator selections (stage, spotlight, boosts, collapse state).
  * Keeping this in a localStorage-backed store makes the tab reopen stable.
  */
 import { DUNGEON_SIM_PREFERENCES_KEY } from '../lib/constants'
 import {
+  DUNGEON_BOOSTABLE_IDS,
   DUNGEON_IDS,
   EVENT_SPOTLIGHT_DEFAULT,
+  normalizeDungeonBoostSelection,
   normalizeDungeonStageSelection,
+  resolveDungeonBoostDefault,
   resolveDungeonStageDefault,
+  type DungeonBoostableId,
+  type DungeonBoostSelection,
   type DungeonId,
   type DungeonStageSelection,
   type EventSpotlightSelection,
@@ -39,11 +44,23 @@ const buildDefaultCollapsedMap = (): Record<DungeonId, boolean> => {
   return map
 }
 
+// Build a default boost map for the boostable dungeons.
+const buildDefaultBoostMap = (): Record<DungeonBoostableId, DungeonBoostSelection> => {
+  // Only include dungeons where boosts are allowed.
+  const map = {} as Record<DungeonBoostableId, DungeonBoostSelection>
+  for (const dungeonId of DUNGEON_BOOSTABLE_IDS) {
+    map[dungeonId] = resolveDungeonBoostDefault(dungeonId)
+  }
+  return map
+}
+
 export type DungeonSimulatorPreferences = {
   // Stage selection per dungeon.
   stages: Record<DungeonId, DungeonStageSelection>
   // Current event spotlight set.
   eventSpotlight: EventSpotlightSelection
+  // Boosted set selection per boostable dungeon.
+  boosts: Record<DungeonBoostableId, DungeonBoostSelection>
   // Collapsed state per dungeon table.
   collapsed: Record<DungeonId, boolean>
 }
@@ -88,10 +105,12 @@ const sanitizePreferences = (raw: unknown): DungeonSimulatorPreferences => {
   // Prepare defaults once so all branches use the same baseline.
   const fallbackStages = buildDefaultStageMap()
   const fallbackCollapsed = buildDefaultCollapsedMap()
+  const fallbackBoosts = buildDefaultBoostMap()
   if (!raw || typeof raw !== 'object') {
     return {
       stages: fallbackStages,
       eventSpotlight: DEFAULT_EVENT_SPOTLIGHT,
+      boosts: fallbackBoosts,
       collapsed: fallbackCollapsed,
     }
   }
@@ -109,9 +128,23 @@ const sanitizePreferences = (raw: unknown): DungeonSimulatorPreferences => {
       normalizedStages[dungeonId],
     )
   }
+  // Boost payloads are optional in stored versions.
+  const storedBoosts = candidate.boosts && typeof candidate.boosts === 'object'
+    ? candidate.boosts as Partial<Record<DungeonBoostableId, DungeonBoostSelection>>
+    : {}
+  const normalizedBoosts = buildDefaultBoostMap()
+  for (const dungeonId of DUNGEON_BOOSTABLE_IDS) {
+    // Clamp each boost selection independently for safety.
+    normalizedBoosts[dungeonId] = normalizeDungeonBoostSelection(
+      dungeonId,
+      storedBoosts[dungeonId],
+      normalizedBoosts[dungeonId],
+    )
+  }
   return {
     stages: normalizedStages,
     eventSpotlight: sanitizeEventSpotlight(candidate.eventSpotlight),
+    boosts: normalizedBoosts,
     collapsed: sanitizeCollapsedMap(candidate.collapsed ?? fallbackCollapsed),
   }
 }

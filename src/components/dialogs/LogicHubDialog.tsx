@@ -541,6 +541,8 @@ export default function LogicHubDialog(props: LogicHubDialogProps) {
           <DungeonSimulatorTab
             rules={rules}
             substatTargets={substatTargets}
+            substatColors={substatColors}
+            useStatButtonColors={useStatButtonColors}
           />
         )}
       </DialogContent>

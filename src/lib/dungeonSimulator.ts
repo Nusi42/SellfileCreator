@@ -46,6 +46,40 @@ export const EVENT_SPOTLIGHT_DEFAULT: EventSpotlightSelection = 'chronophage'
 export const EVENT_SPOTLIGHT_OPTIONS: readonly EventSpotlightSelection[] = ['chronophage', 'pinpoint'] as const
 
 export type DungeonId = 'iceGolem' | 'fireKnight' | 'dragon' | 'spider' | 'event'
+export type DungeonBoostableId = Exclude<DungeonId, 'spider' | 'event'>
+export type DungeonBoostMode = 'off' | '2x' | '3x'
+export type DungeonBoostSelection = {
+  mode: DungeonBoostMode
+  setId: ArtifactSetId | null
+}
+
+// Boosted-set controls only apply to the core artifact dungeons.
+export const DUNGEON_BOOSTABLE_IDS: readonly DungeonBoostableId[] = [
+  'fireKnight',
+  'dragon',
+  'iceGolem',
+] as const
+// Expose supported boost options for UI toggles.
+export const DUNGEON_BOOST_MODES: readonly DungeonBoostMode[] = ['off', '2x', '3x'] as const
+// Default boost selection keeps the drop pool uniform.
+export const DUNGEON_BOOST_DEFAULT: DungeonBoostSelection = { mode: 'off', setId: null }
+
+// Provide a stable default per dungeon so storage always has a baseline.
+export const resolveDungeonBoostDefault = (_dungeonId: DungeonBoostableId): DungeonBoostSelection => (
+  { ...DUNGEON_BOOST_DEFAULT }
+)
+
+// Preferred boosted set for each dungeon when enabling 2×/3×.
+export const resolveDefaultBoostSet = (dungeonId: DungeonBoostableId): ArtifactSetId => {
+  if (dungeonId === 'fireKnight') return ArtifactSet.Savage
+  if (dungeonId === 'dragon') return ArtifactSet.Speed
+  return ArtifactSet.Reflex
+}
+
+// Type guard for boostable dungeons keeps runtime logic safe.
+export const isBoostableDungeon = (dungeonId: DungeonId): dungeonId is DungeonBoostableId => (
+  DUNGEON_BOOSTABLE_IDS.includes(dungeonId as DungeonBoostableId)
+)
 
 // Event dungeons are normal-only with stages 1..30.
 export const EVENT_STAGE_RANGE = { min: 1, max: 30 } as const
@@ -118,6 +152,40 @@ const DUNGEON_SETS: Record<Exclude<DungeonId, 'event'>, readonly ArtifactSetId[]
   ],
   spider: [ACCESSORY_NO_SET_ID as ArtifactSetId],
 } as const
+
+// Resolve the boostable set options for a dungeon.
+export const resolveBoostableSets = (dungeonId: DungeonBoostableId): readonly ArtifactSetId[] => (
+  DUNGEON_SETS[dungeonId]
+)
+
+// Normalize a boost selection so only valid sets + modes survive.
+export const normalizeDungeonBoostSelection = (
+  dungeonId: DungeonBoostableId,
+  raw: unknown,
+  fallback?: DungeonBoostSelection,
+): DungeonBoostSelection => {
+  // Default to the provided fallback or the baseline boost-off state.
+  const base = fallback ?? resolveDungeonBoostDefault(dungeonId)
+  if (!raw || typeof raw !== 'object') return { ...base }
+  const candidate = raw as Partial<DungeonBoostSelection>
+  // Clamp the mode to supported values.
+  const mode: DungeonBoostMode = DUNGEON_BOOST_MODES.includes(candidate.mode as DungeonBoostMode)
+    ? candidate.mode as DungeonBoostMode
+    : base.mode
+  // Valid boosted sets come from the dungeon's set pool.
+  const options = resolveBoostableSets(dungeonId)
+  const rawSet = Number(candidate.setId)
+  if (mode === 'off') {
+    return { mode, setId: null }
+  }
+  if (Number.isFinite(rawSet) && options.some((setId) => Number(setId) === rawSet)) {
+    return { mode, setId: rawSet as ArtifactSetId }
+  }
+  return {
+    mode,
+    setId: resolveDefaultBoostSet(dungeonId) ?? options[0] ?? null,
+  }
+}
 
 // Event spotlight can swap between the two 9-piece sets.
 const EVENT_SPOTLIGHT_SET_BY_KEY: Record<EventSpotlightSelection, ArtifactSetId> = {
@@ -470,6 +538,12 @@ const pickWeightedIndex = (rng: () => number, weights: readonly number[]): numbe
   return Math.max(0, weights.length - 1)
 }
 
+// Weighted pick for lists with matching weight entries.
+const pickWeighted = <T,>(rng: () => number, list: readonly T[], weights: readonly number[]): T => {
+  const idx = pickWeightedIndex(rng, weights)
+  return list[Math.max(0, Math.min(list.length - 1, idx))]!
+}
+
 // Uniform pick for a non-empty list.
 const pickUniform = <T,>(rng: () => number, list: readonly T[]): T => {
   const idx = Math.floor(rng() * list.length)
@@ -541,6 +615,35 @@ export type DungeonSimBreakdown = {
   total: number
 }
 
+// Detail item for substat-specific queries (stored per drop).
+export type DungeonSimDetailItem = {
+  slot: ArtifactTypeId
+  main: StatVariant
+  // Initial substat variants at level 0.
+  startVariants: StatVariant[]
+  // Index of the mythical pre-roll target (or -1 when none).
+  preRollIndex: number
+  // Milestone events: positive = add stat variant, negative = roll index (-index-1).
+  events: number[]
+}
+
+export type DungeonSimDetailQuery = {
+  dungeonId: DungeonId
+  spotlight: EventSpotlightSelection
+  setId: ArtifactSetId
+  level: LevelMilestone
+  slot: ArtifactTypeId
+  main: StatVariant
+  substats: StatVariant[]
+}
+
+export type DungeonSimDetailStats = {
+  total: number
+  presentAtLeast: number[]
+  rollsAtLeast: number[]
+  allSelected: number
+}
+
 // Cell result for a single set + level.
 export type DungeonSimCell = {
   total: number
@@ -585,6 +688,7 @@ export type DungeonSimSpotlightSession = {
   runBatch: (batchRuns: number) => void
   getResultsBySpotlight: () => DungeonSimSpotlightResults
   getProgressBySpotlight: () => DungeonSimSpotlightProgress
+  queryDetailStats: (query: DungeonSimDetailQuery) => DungeonSimDetailStats | null
   isComplete: () => boolean
 }
 
@@ -609,23 +713,26 @@ type DungeonSimRuntime = {
   rankWeights: readonly number[]
   rarityWeights: readonly number[]
   sets: readonly ArtifactSetId[]
+  setWeights: readonly number[]
   dropKind: DungeonDropKind
   spotlightSet: ArtifactSetId
   rng: () => number
   cellsBySet: Map<ArtifactSetId, Record<LevelMilestone, DungeonSimAccumulatorCell>>
   summaryBySet: Map<ArtifactSetId, DungeonSimAccumulatorCell>
+  detailBySet: Map<ArtifactSetId, DungeonSimDetailItem[]>
   completed: number
   runs: number
 }
 
-const buildSubstatValuesByLevel = (
+// Build milestone values plus detail events for later substat queries.
+const buildSubstatValuesWithDetail = (
   rng: () => number,
   slot: ArtifactTypeId,
   main: StatVariant,
   rank: RankValue,
   rarity: RankValue,
   substatTargets: SubstatTargetTable,
-): SubstatValuesByLevel => {
+): { subValuesByLevel: SubstatValuesByLevel; detail: DungeonSimDetailItem } => {
   // Start with the allowed substat pool for this slot.
   const allowed = Array.from(ALLOWED_SUB_BY_SLOT[Number(slot) as ArtifactType] ?? [])
   // Filter out substats that clash with the chosen main stat.
@@ -634,14 +741,19 @@ const buildSubstatValuesByLevel = (
   const startCount = SUBSTAT_START_COUNT[Number(rarity)] ?? 0
   // Seed the initial substats without duplicates.
   const substats: SimSubstat[] = []
+  const startVariants: StatVariant[] = []
   for (let i = 0; i < startCount && pool.length > 0; i += 1) {
-    substats.push({ variant: pullRandom(rng, pool), rolls: 0 })
+    const variant = pullRandom(rng, pool)
+    startVariants.push(variant)
+    substats.push({ variant, rolls: 0 })
   }
   // Apply Mythical pre-rolls at level 0.
   const preRolls = SUBSTAT_PRE_ROLLS[Number(rarity)] ?? 0
-  for (let i = 0; i < preRolls && substats.length > 0; i += 1) {
-    const target = pickUniform(rng, substats)
-    target.rolls += 1
+  let preRollIndex = -1
+  if (preRolls > 0 && substats.length > 0) {
+    const targetIndex = Math.floor(rng() * substats.length)
+    preRollIndex = Math.max(0, Math.min(substats.length - 1, targetIndex))
+    substats[preRollIndex]!.rolls += 1
   }
   // Helper to snapshot current substat values into a map.
   const snapshot = (): Record<number, number> => {
@@ -661,19 +773,39 @@ const buildSubstatValuesByLevel = (
     12: {},
     16: {},
   }
+  // Encode events as a compact list keyed to level milestones.
+  const events: number[] = []
   // Advance through each milestone to roll/add substats.
   for (const lvl of [4, 8, 12, 16] as const) {
     const addLevels = SUBSTAT_ADD_LEVELS[Number(rarity)] ?? []
     const shouldAdd = addLevels.includes(lvl)
     if (shouldAdd && pool.length > 0 && substats.length < 4) {
-      substats.push({ variant: pullRandom(rng, pool), rolls: 0 })
+      // Add a new stat and record the variant id as a positive event.
+      const variant = pullRandom(rng, pool)
+      substats.push({ variant, rolls: 0 })
+      events.push(Number(variant))
     } else if (substats.length > 0) {
-      const target = pickUniform(rng, substats)
-      target.rolls += 1
+      // Roll an existing stat and record the index as a negative event.
+      const targetIndex = Math.floor(rng() * substats.length)
+      const clamped = Math.max(0, Math.min(substats.length - 1, targetIndex))
+      substats[clamped]!.rolls += 1
+      events.push(-(clamped + 1))
+    } else {
+      // Placeholder for rare cases with no substats available.
+      events.push(0)
     }
     byLevel[lvl] = snapshot()
   }
-  return byLevel
+  return {
+    subValuesByLevel: byLevel,
+    detail: {
+      slot,
+      main,
+      startVariants,
+      preRollIndex,
+      events,
+    },
+  }
 }
 
 const pickRankFromWeights = (rng: () => number, weights: readonly number[]): RankValue => {
@@ -752,6 +884,86 @@ const finalizeCell = (cell: { total: number; kept: number; breakdown: Map<string
   breakdown: Array.from(cell.breakdown.values()),
 })
 
+// Reconstruct substat variants and roll counts at a given milestone level.
+const resolveDetailAtLevel = (
+  item: DungeonSimDetailItem,
+  level: LevelMilestone,
+): { variants: StatVariant[]; rolls: number[] } => {
+  // Start from level-0 variants and apply recorded events up to the target level.
+  const variants = item.startVariants.slice()
+  const rolls = new Array(variants.length).fill(0)
+  if (item.preRollIndex >= 0 && item.preRollIndex < rolls.length) {
+    rolls[item.preRollIndex] += 1
+  }
+  // Replay milestone events in order (4/8/12/16).
+  const milestones: LevelMilestone[] = [4, 8, 12, 16]
+  for (let idx = 0; idx < milestones.length; idx += 1) {
+    const milestone = milestones[idx]!
+    if (level < milestone) break
+    const event = item.events[idx] ?? 0
+    if (event > 0) {
+      // Positive events add a new substat.
+      variants.push(event as StatVariant)
+      rolls.push(0)
+    } else if (event < 0) {
+      // Negative events point at the rolled substat index.
+      const rollIndex = Math.max(0, Math.min(rolls.length - 1, -event - 1))
+      rolls[rollIndex] += 1
+    }
+  }
+  return { variants, rolls }
+}
+
+// Compute explicit-substat stats for a given slot/main selection.
+const computeDetailStats = (
+  items: DungeonSimDetailItem[],
+  query: DungeonSimDetailQuery,
+): DungeonSimDetailStats => {
+  // Normalize the selected stats to numeric ids for quick membership checks.
+  const selected = new Set<number>(
+    query.substats.map((variant) => Number(variant)).filter((value) => Number.isFinite(value)),
+  )
+  const presentAtLeast: [number, number, number, number] = [0, 0, 0, 0]
+  const rollsAtLeast: [number, number, number, number] = [0, 0, 0, 0]
+  let allSelected = 0
+  let total = 0
+  for (const item of items) {
+    // Restrict to the requested slot + main stat.
+    if (Number(item.slot) !== Number(query.slot)) continue
+    if (Number(item.main) !== Number(query.main)) continue
+    total += 1
+    if (selected.size === 0) continue
+    // Rebuild substat state at the requested milestone.
+    const { variants, rolls } = resolveDetailAtLevel(item, query.level)
+    let presentCount = 0
+    let rollCount = 0
+    for (let idx = 0; idx < variants.length; idx += 1) {
+      const variant = Number(variants[idx])
+      if (!selected.has(variant)) continue
+      presentCount += 1
+      rollCount += rolls[idx] ?? 0
+    }
+    // Track the ≥1/2/3/4 buckets for presence + roll counts.
+    for (let bucket = 1; bucket <= 4; bucket += 1) {
+      const index = bucket - 1
+      if (presentCount >= bucket) {
+        presentAtLeast[index] = (presentAtLeast[index] ?? 0) + 1
+      }
+      if (rollCount >= bucket) {
+        rollsAtLeast[index] = (rollsAtLeast[index] ?? 0) + 1
+      }
+    }
+    // "All selected" means every chosen stat appears.
+    if (presentCount >= selected.size) allSelected += 1
+  }
+  return {
+    total,
+    presentAtLeast,
+    rollsAtLeast,
+    allSelected,
+  }
+}
+
 // Build empty cell maps for every level milestone.
 const createCellMap = (): Record<LevelMilestone, ReturnType<typeof createEmptyCell>> => ({
   0: createEmptyCell(),
@@ -772,12 +984,34 @@ const eventRankWeightsForStage = (stage: number): readonly number[] => {
   return [0, 0, 0, 0, fiveStar, sixStar]
 }
 
+// Translate boost mode to a numeric multiplier.
+const resolveBoostMultiplier = (mode: DungeonBoostMode): number => {
+  if (mode === '2x') return 2
+  if (mode === '3x') return 3
+  return 1
+}
+
+// Build a set weight array from the boost selection.
+const resolveSetWeights = (
+  dungeonId: DungeonId,
+  sets: readonly ArtifactSetId[],
+  boost: DungeonBoostSelection | null | undefined,
+): readonly number[] => {
+  // Only boostable dungeons apply weighted set drops.
+  if (!isBoostableDungeon(dungeonId)) return sets.map(() => 1)
+  if (!boost || boost.mode === 'off' || boost.setId == null) return sets.map(() => 1)
+  const multiplier = resolveBoostMultiplier(boost.mode)
+  if (multiplier <= 1) return sets.map(() => 1)
+  return sets.map((setId) => (Number(setId) === Number(boost.setId) ? multiplier : 1))
+}
+
 // Build runtime state for a dungeon (weights, RNG, and accumulator maps).
 const createDungeonRuntime = (params: {
   dungeonId: DungeonId
   selection?: DungeonStageSelection
   runs: number
   spotlight: EventSpotlightSelection
+  boost?: DungeonBoostSelection | null
 }): DungeonSimRuntime => {
   const { dungeonId, runs, spotlight } = params
   // Normalize stage selection so downstream weights are always in-range.
@@ -796,17 +1030,25 @@ const createDungeonRuntime = (params: {
     : rarityWeightsForStage(selection.mode, selection.stage)
   // Resolve the visible set columns for this dungeon.
   const sets = resolveDungeonSets(dungeonId, spotlight)
+  // Precompute set weights so boosted dungeons can skew drops.
+  const setWeights = resolveSetWeights(dungeonId, sets, params.boost)
   // Initialize per-set accumulator maps for each milestone.
   const cellsBySet = new Map<ArtifactSetId, Record<LevelMilestone, DungeonSimAccumulatorCell>>()
   // Initialize per-set summary cells (kept at any level).
   const summaryBySet = new Map<ArtifactSetId, DungeonSimAccumulatorCell>()
+  // Initialize per-set detail buckets for substat queries.
+  const detailBySet = new Map<ArtifactSetId, DungeonSimDetailItem[]>()
   for (const setId of sets) {
     cellsBySet.set(setId, createCellMap())
     summaryBySet.set(setId, createEmptyCell())
+    detailBySet.set(setId, [])
   }
   // Seed RNG per dungeon + selection for deterministic output.
   const seedStage = dungeonId === 'event' ? String(eventStage) : String(selection.stage)
-  const rng = createRng(hashSeed(`${dungeonId}:${selection.mode}:${seedStage}:${spotlight}`))
+  const boostKey = isBoostableDungeon(dungeonId)
+    ? `${params.boost?.mode ?? 'off'}:${params.boost?.setId ?? 'none'}`
+    : 'none'
+  const rng = createRng(hashSeed(`${dungeonId}:${selection.mode}:${seedStage}:${spotlight}:${boostKey}`))
   return {
     dungeonId,
     selection,
@@ -815,12 +1057,14 @@ const createDungeonRuntime = (params: {
     rankWeights,
     rarityWeights,
     sets,
+    setWeights,
     // Cache drop-kind and spotlight set for the tight inner loop.
     dropKind: DUNGEON_DROP_KIND[dungeonId],
     spotlightSet: resolveEventSpotlightSet(spotlight),
     rng,
     cellsBySet,
     summaryBySet,
+    detailBySet,
     completed: 0,
     runs,
   }
@@ -846,11 +1090,13 @@ const runDungeonBatch = (
     rankWeights,
     rarityWeights,
     sets,
+    setWeights,
     dropKind,
     spotlightSet,
     rng,
     cellsBySet,
     summaryBySet,
+    detailBySet,
   } = runtime
   for (let i = 0; i < toRun; i += 1) {
     // Determine which set and slot drop based on dungeon rules.
@@ -875,7 +1121,7 @@ const runDungeonBatch = (
       }
     } else {
       // Standard artifact dungeons pick uniformly across their set pools.
-      dropSet = pickUniform(rng, sets)
+      dropSet = pickWeighted(rng, sets, setWeights)
       slot = pickUniform(rng, ARTIFACT_SLOTS)
     }
     // Rank/rarity/main/faction selection mirrors the in-game drop rules.
@@ -883,8 +1129,8 @@ const runDungeonBatch = (
     const rarity = pickRarityFromWeights(rng, rarityWeights)
     const main = pickMainStat(rng, slot)
     const faction = pickFactionForSlot(rng, slot)
-    // Build substat snapshots at each milestone level.
-    const subValuesByLevel = buildSubstatValuesByLevel(rng, slot, main, rank, rarity, substatTargets)
+    // Build substat snapshots + detail events at each milestone level.
+    const { subValuesByLevel, detail } = buildSubstatValuesWithDetail(rng, slot, main, rank, rarity, substatTargets)
     // Base item properties stay constant across the milestone checks.
     const baseItem = {
       slot,
@@ -897,6 +1143,9 @@ const runDungeonBatch = (
     const targetCells = cellsBySet.get(dropSet)
     const summaryCell = summaryBySet.get(dropSet)
     if (!targetCells || !summaryCell) continue
+    // Persist detail items so substat queries can reuse the same run data.
+    const detailBucket = detailBySet.get(dropSet)
+    if (detailBucket) detailBucket.push(detail)
     // Track whether the item is kept at any milestone for summary rows.
     let keptAny = false
     for (const lvl of DUNGEON_SIM_LEVELS) {
@@ -1017,6 +1266,7 @@ export const createDungeonSimSpotlightSession = (params: {
   rules: HsfRuleWithCfg[]
   substatTargets: SubstatTargetTable
   selections?: Partial<Record<DungeonId, DungeonStageSelection>>
+  boosts?: Partial<Record<DungeonBoostableId, DungeonBoostSelection>>
   spotlights?: readonly EventSpotlightSelection[]
   runs?: number
 }): DungeonSimSpotlightSession => {
@@ -1033,10 +1283,14 @@ export const createDungeonSimSpotlightSession = (params: {
   for (const dungeonId of DUNGEON_IDS) {
     if (dungeonId === 'event') continue
     // Use the default spotlight because non-event dungeons are spotlight-agnostic.
+    const boost = isBoostableDungeon(dungeonId)
+      ? params.boosts?.[dungeonId] ?? null
+      : null
     baseRuntimes.set(dungeonId, createDungeonRuntime({
       dungeonId,
       runs,
       spotlight: EVENT_SPOTLIGHT_DEFAULT,
+      boost,
       ...(params.selections?.[dungeonId] ? { selection: params.selections[dungeonId] } : {}),
     }))
   }
@@ -1104,6 +1358,16 @@ export const createDungeonSimSpotlightSession = (params: {
     }
     return progressBySpotlight
   }
+  const queryDetailStats = (query: DungeonSimDetailQuery): DungeonSimDetailStats | null => {
+    // Route event queries to the spotlight-specific runtime.
+    const runtime = query.dungeonId === 'event'
+      ? eventRuntimes.get(query.spotlight)
+      : baseRuntimes.get(query.dungeonId)
+    if (!runtime) return null
+    const bucket = runtime.detailBySet.get(query.setId)
+    if (!bucket) return null
+    return computeDetailStats(bucket, query)
+  }
   const runBatch = (batchRuns: number) => {
     // Normalize the batch so callers can't pass a zero or NaN batch.
     const normalizedBatch = Math.max(0, Math.floor(batchRuns))
@@ -1132,6 +1396,7 @@ export const createDungeonSimSpotlightSession = (params: {
     runBatch,
     getResultsBySpotlight,
     getProgressBySpotlight,
+    queryDetailStats,
     isComplete,
   }
 }

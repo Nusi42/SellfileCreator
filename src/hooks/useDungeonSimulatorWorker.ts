@@ -10,7 +10,11 @@ import {
   EVENT_SPOTLIGHT_OPTIONS,
   EVENT_SPOTLIGHT_DEFAULT,
   createDungeonSimSpotlightSession,
+  type DungeonBoostSelection,
+  type DungeonBoostableId,
   type DungeonId,
+  type DungeonSimDetailQuery,
+  type DungeonSimDetailStats,
   type DungeonSimProgress,
   type DungeonSimResults,
   type DungeonSimSpotlightProgress,
@@ -28,6 +32,7 @@ type UseDungeonSimulatorWorkerParams = {
   rules: HsfRuleWithCfg[]
   substatTargets: SubstatTargetTable
   selections?: Partial<Record<DungeonId, DungeonStageSelection>>
+  boosts?: Partial<Record<DungeonBoostableId, DungeonBoostSelection>>
   spotlight?: EventSpotlightSelection
   runs?: number
   batchSize?: number
@@ -39,6 +44,7 @@ type UseDungeonSimulatorWorkerResult = {
   progress: DungeonSimProgress | null
   running: boolean
   error: string | null
+  requestDetailStats: (query: DungeonSimDetailQuery) => Promise<DungeonSimDetailStats | null>
 }
 
 // Feature detection prevents SSR and older browsers from attempting worker creation.
@@ -74,6 +80,7 @@ export function useDungeonSimulatorWorker(params: UseDungeonSimulatorWorkerParam
     rules,
     substatTargets,
     selections,
+    boosts,
     spotlight,
     runs = DUNGEON_SIM_RUNS_PER_DUNGEON,
     batchSize = DUNGEON_SIM_BATCH_SIZE,
@@ -89,15 +96,30 @@ export function useDungeonSimulatorWorker(params: UseDungeonSimulatorWorkerParam
   // Results + progress snapshots drive the UI table updates.
   const [resultsBySpotlight, setResultsBySpotlight] = useState<DungeonSimSpotlightResults | null>(null)
   const [progressBySpotlight, setProgressBySpotlight] = useState<DungeonSimSpotlightProgress | null>(null)
+  // Preserve the last rendered snapshot to avoid flicker between runs.
+  const lastSnapshotRef = useRef<{
+    results: DungeonSimSpotlightResults | null
+    progress: DungeonSimSpotlightProgress | null
+  }>({ results: null, progress: null })
   // Running + error state lets the caller show fallback UI if desired.
   const [running, setRunning] = useState(false)
   const [error, setError] = useState<string | null>(null)
   // Worker ref ensures we reuse a single instance across renders.
   const workerRef = useRef<Worker | null>(null)
+  // Preserve the most recent local session for fallback detail queries.
+  const fallbackSessionRef = useRef<ReturnType<typeof createDungeonSimSpotlightSession> | null>(null)
   // Track the most recent request so stale responses can be ignored.
   const activeRequestRef = useRef(0)
+  // Track detail requests separately from simulation runs.
+  const detailRequestRef = useRef(0)
+  const detailResolversRef = useRef(new Map<number, (value: DungeonSimDetailStats | null) => void>())
   // Local fallback loop needs a cancel hook when dependencies change.
   const fallbackCancelRef = useRef<(() => void) | null>(null)
+
+  useEffect(() => {
+    // Cache the most recent snapshots so new runs can keep the old view.
+    lastSnapshotRef.current = { results: resultsBySpotlight, progress: progressBySpotlight }
+  }, [progressBySpotlight, resultsBySpotlight])
 
   useEffect(() => {
     if (!supportsWorkerEnv) return
@@ -114,6 +136,24 @@ export function useDungeonSimulatorWorker(params: UseDungeonSimulatorWorkerParam
       // Ignore messages that do not match the active request id.
       const data = event.data
       if (!data) return
+      if (data.kind === 'detail:result') {
+        // Resolve the matching detail request.
+        const resolver = detailResolversRef.current.get(data.id)
+        if (resolver) {
+          resolver(data.payload)
+          detailResolversRef.current.delete(data.id)
+        }
+        return
+      }
+      if (data.kind === 'detail:error') {
+        // Errors resolve to null so callers can show a fallback state.
+        const resolver = detailResolversRef.current.get(data.id)
+        if (resolver) {
+          resolver(null)
+          detailResolversRef.current.delete(data.id)
+        }
+        return
+      }
       if (data.id !== activeRequestRef.current) return
       if (data.kind === 'simulate:progress') {
         // Progress updates stream intermediate results into the table.
@@ -164,8 +204,15 @@ export function useDungeonSimulatorWorker(params: UseDungeonSimulatorWorkerParam
     // Reset run state whenever any dependency changes.
     setError(null)
     setRunning(true)
-    setResultsBySpotlight(null)
-    setProgressBySpotlight(buildEmptyProgressBySpotlight(effectiveRuns))
+    // Keep the previous results/progress until the first new batch arrives.
+    if (!lastSnapshotRef.current.results) {
+      setResultsBySpotlight(null)
+    }
+    if (!lastSnapshotRef.current.progress) {
+      setProgressBySpotlight(buildEmptyProgressBySpotlight(effectiveRuns))
+    }
+    // Clear cached fallback sessions when inputs change.
+    fallbackSessionRef.current = null
     // Cancel any in-flight local fallback loop.
     if (fallbackCancelRef.current) {
       fallbackCancelRef.current()
@@ -175,14 +222,17 @@ export function useDungeonSimulatorWorker(params: UseDungeonSimulatorWorkerParam
       // Local fallback path mirrors the worker API for consistency.
       let cancelled = false
       // Reset progress so the UI reflects the fallback run count.
-      setProgressBySpotlight(buildEmptyProgressBySpotlight(fallbackRuns))
+      setProgressBySpotlight((prev) => prev ?? buildEmptyProgressBySpotlight(fallbackRuns))
       // Local fallback uses the same streaming session as the worker.
       const session = createDungeonSimSpotlightSession({
         rules,
         substatTargets,
         runs: fallbackRuns,
+        ...(boosts ? { boosts } : {}),
         ...(selections ? { selections } : {}),
       })
+      // Cache the session so detail queries can reuse the same run data.
+      fallbackSessionRef.current = session
       // Throttle local updates so React isn't overwhelmed.
       const forwardProgress = createProgressThrottler((_snapshot) => {
         if (cancelled || activeRequestRef.current !== id) return
@@ -240,6 +290,7 @@ export function useDungeonSimulatorWorker(params: UseDungeonSimulatorWorkerParam
         runs: effectiveRuns,
         batchSize: safeBatchSize,
         throttleMs,
+        ...(boosts ? { boosts } : {}),
         ...(selections ? { selections } : {}),
       },
     }
@@ -258,11 +309,32 @@ export function useDungeonSimulatorWorker(params: UseDungeonSimulatorWorkerParam
       const cancel: DungeonSimulatorWorkerRequest = { id, kind: 'cancel' }
       activeWorker.postMessage(cancel)
     }
-  }, [rules, substatTargets, selections, runs, safeBatchSize, throttleMs])
+  }, [rules, substatTargets, selections, boosts, runs, safeBatchSize, throttleMs])
 
   // Return only the spotlight-selected slice to keep the UI lean.
   const results = resultsBySpotlight?.[selectedSpotlight] ?? null
   const progress = progressBySpotlight?.[selectedSpotlight] ?? null
 
-  return { results, progress, running, error }
+  const requestDetailStats = (query: DungeonSimDetailQuery): Promise<DungeonSimDetailStats | null> => {
+    // Prefer the worker cache when available.
+    const worker = workerRef.current
+    if (supportsWorkerEnv && worker) {
+      const id = ++detailRequestRef.current
+      const request: DungeonSimulatorWorkerRequest = {
+        id,
+        kind: 'detail:query',
+        payload: query,
+      }
+      return new Promise((resolve) => {
+        detailResolversRef.current.set(id, resolve)
+        worker.postMessage(request)
+      })
+    }
+    // Fall back to the local session when workers are unavailable.
+    const session = fallbackSessionRef.current
+    if (!session) return Promise.resolve(null)
+    return Promise.resolve(session.queryDetailStats(query))
+  }
+
+  return { results, progress, running, error, requestDetailStats }
 }

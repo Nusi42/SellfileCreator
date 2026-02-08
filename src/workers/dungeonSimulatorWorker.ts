@@ -12,6 +12,8 @@ declare const self: DedicatedWorkerGlobalScope
 
 // Track the active run so newer requests can preempt older ones.
 let activeRunId = 0
+// Keep the latest session around for detail queries.
+let cachedSession: ReturnType<typeof createDungeonSimSpotlightSession> | null = null
 
 // Yield back to the event loop so cancel/next-run messages can land.
 const sleep = (ms: number) => new Promise((resolve) => {
@@ -32,8 +34,11 @@ const runSimulation = async (message: Extract<DungeonSimulatorWorkerRequest, { k
     rules: payload.rules,
     substatTargets: payload.substatTargets,
     runs: payload.runs,
+    ...(payload.boosts ? { boosts: payload.boosts } : {}),
     ...(payload.selections ? { selections: payload.selections } : {}),
   })
+  // Cache the session for detail queries (even while streaming).
+  cachedSession = session
   // Throttle progress messages to once per second by default.
   const throttleMs = payload.throttleMs ?? PROGRESS_THROTTLE_MS
   // Progress throttler coalesces batches into a single UI update.
@@ -99,6 +104,35 @@ self.onmessage = (event: MessageEvent<DungeonSimulatorWorkerRequest>) => {
       }
       self.postMessage(response)
     })
+  }
+  if (message.kind === 'detail:query') {
+    // Detail requests read from the cached session state.
+    if (!cachedSession) {
+      const response: DungeonSimulatorWorkerResponse = {
+        id: message.id,
+        kind: 'detail:error',
+        error: 'Dungeon simulator detail data is not ready yet.',
+      }
+      self.postMessage(response)
+      return
+    }
+    try {
+      // Query is pure; no extra simulation runs are triggered here.
+      const payload = cachedSession.queryDetailStats(message.payload)
+      const response: DungeonSimulatorWorkerResponse = {
+        id: message.id,
+        kind: 'detail:result',
+        payload,
+      }
+      self.postMessage(response)
+    } catch (error) {
+      const response: DungeonSimulatorWorkerResponse = {
+        id: message.id,
+        kind: 'detail:error',
+        error: error instanceof Error ? error.message : String(error),
+      }
+      self.postMessage(response)
+    }
   }
 }
 

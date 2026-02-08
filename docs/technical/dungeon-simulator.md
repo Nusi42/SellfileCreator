@@ -19,7 +19,9 @@ The Logic Hub now includes a **Dungeon Drops** tab that simulates dungeon farmin
 - Standard dungeons allow Normal **1–25** / Hard **1–10** (default **Hard 10**).
 - Event dungeon allows Normal **1–30** only (default **Normal 30**).
 - Dungeon tables start collapsed; collapse state is persisted.
-- Set drop rates are treated as equal across all sets for a dungeon (except Event spotlight/non-spotlight split).
+- Set drop rates are treated as equal across all sets for a dungeon unless a boosted set is configured (Event spotlight/non-spotlight split still applies).
+- Boosted set selection is available for **Fire Knight / Dragon / Ice Golem** only, with **Off / 2× / 3×** weighting on the chosen set.
+- Boosted set selections are persisted in localStorage and re-run the simulator when changed.
 - Ice Golem / Fire Knight / Dragon drop artifacts only.
 - Spider drops accessories only with the **No Gear-Set** sentinel.
 - Event drops artifacts **and** accessories with the **No Gear-Set** sentinel for accessories.
@@ -47,4 +49,5 @@ The Logic Hub now includes a **Dungeon Drops** tab that simulates dungeon farmin
 - Each simulated item is evaluated against the merged HSF rules (including Final Sell + Keep Uniques).
 - A cell’s keep percentage reflects **kept items / total simulated drops** for that dungeon stage.
 - Collapsed tables show the **kept at any level** share (kept at least once across +0/+4/+8/+12/+16).
-- The popover breakdown lists slot + main stat combinations as a share of all drops for that cell.
+- The popover breakdown renders a 3×3 slot grid with per-main-stat percentages (share of all drops for that cell).
+- Clicking a slot+main row opens a nested popover where you pick explicit substats and see ≥1/2/3/4 presence, ≥1/2/3/4 roll counts, and runs-needed estimates (computed from the cached simulation run data).
