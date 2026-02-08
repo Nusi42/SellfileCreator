@@ -6,6 +6,7 @@ import type {
   DungeonId,
   DungeonSimDetailQuery,
   DungeonSimDetailStats,
+  DungeonSimMode,
   DungeonSimSpotlightProgress,
   DungeonSimSpotlightResults,
   DungeonStageSelection,
@@ -23,6 +24,8 @@ export type DungeonSimulatorWorkerRunPayload = {
   boosts?: Partial<Record<DungeonBoostableId, DungeonBoostSelection>>
   // Optional list of dungeons to resimulate (others reuse cached results).
   dirtyDungeons?: DungeonId[]
+  // Simulation mode (snapshot vs level-up).
+  mode?: DungeonSimMode
   // Total runs per dungeon for this session.
   runs: number
   // Batch size for streaming updates.

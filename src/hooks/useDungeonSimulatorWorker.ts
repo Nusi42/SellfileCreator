@@ -16,6 +16,7 @@ import {
   type DungeonId,
   type DungeonSimDetailQuery,
   type DungeonSimDetailStats,
+  type DungeonSimMode,
   type DungeonSimProgress,
   type DungeonSimResults,
   type DungeonSimSpotlightProgress,
@@ -35,6 +36,7 @@ type UseDungeonSimulatorWorkerParams = {
   selections?: Partial<Record<DungeonId, DungeonStageSelection>>
   boosts?: Partial<Record<DungeonBoostableId, DungeonBoostSelection>>
   spotlight?: EventSpotlightSelection
+  mode?: DungeonSimMode
   runs?: number
   batchSize?: number
   throttleMs?: number
@@ -144,6 +146,7 @@ export function useDungeonSimulatorWorker(params: UseDungeonSimulatorWorkerParam
     selections,
     boosts,
     spotlight,
+    mode,
     runs = DUNGEON_SIM_RUNS_PER_DUNGEON,
     batchSize = DUNGEON_SIM_BATCH_SIZE,
     throttleMs = PROGRESS_THROTTLE_MS,
@@ -183,6 +186,7 @@ export function useDungeonSimulatorWorker(params: UseDungeonSimulatorWorkerParam
     substatTargets: SubstatTargetTable
     selections?: Partial<Record<DungeonId, DungeonStageSelection>>
     boosts?: Partial<Record<DungeonBoostableId, DungeonBoostSelection>>
+    mode?: DungeonSimMode
     runs: number
   } | null>(null)
 
@@ -274,6 +278,8 @@ export function useDungeonSimulatorWorker(params: UseDungeonSimulatorWorkerParam
       || prevInputs.rules !== rules
       || prevInputs.substatTargets !== substatTargets
       || prevInputs.runs !== runs
+      // Mode changes must resimulate every dungeon.
+      || prevInputs.mode !== mode
     const shouldRunAll = fullReset || !hasSnapshot
     const dirtyDungeons = shouldRunAll
       ? []
@@ -288,6 +294,8 @@ export function useDungeonSimulatorWorker(params: UseDungeonSimulatorWorkerParam
       rules,
       substatTargets,
       runs,
+      // Persist mode so we can detect global resimulations.
+      ...(mode ? { mode } : {}),
       ...(selections ? { selections } : {}),
       ...(boosts ? { boosts } : {}),
     }
@@ -334,12 +342,14 @@ export function useDungeonSimulatorWorker(params: UseDungeonSimulatorWorkerParam
           rules,
           substatTargets,
           runs: fallbackRuns,
+          ...(mode ? { mode } : {}),
           ...(boosts ? { boosts } : {}),
           ...(selections ? { selections } : {}),
         })
       if (canReuse) {
         session.resetDungeons({
           dungeonIds: dirtyIds,
+          ...(mode ? { mode } : {}),
           ...(boosts ? { boosts } : {}),
           ...(selections ? { selections } : {}),
         })
@@ -403,6 +413,7 @@ export function useDungeonSimulatorWorker(params: UseDungeonSimulatorWorkerParam
         runs: effectiveRuns,
         batchSize: safeBatchSize,
         throttleMs,
+        ...(mode ? { mode } : {}),
         ...(dirtyDungeons.length > 0 ? { dirtyDungeons } : {}),
         ...(boosts ? { boosts } : {}),
         ...(selections ? { selections } : {}),
@@ -423,7 +434,7 @@ export function useDungeonSimulatorWorker(params: UseDungeonSimulatorWorkerParam
       const cancel: DungeonSimulatorWorkerRequest = { id, kind: 'cancel' }
       activeWorker.postMessage(cancel)
     }
-  }, [rules, substatTargets, selections, boosts, runs, safeBatchSize, throttleMs])
+  }, [rules, substatTargets, selections, boosts, mode, runs, safeBatchSize, throttleMs])
 
   // Return only the spotlight-selected slice to keep the UI lean.
   const results = resultsBySpotlight?.[selectedSpotlight] ?? null

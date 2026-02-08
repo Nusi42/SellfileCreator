@@ -40,6 +40,13 @@ export const DUNGEON_STAGE_RANGE_BY_MODE: Record<DungeonStageMode, { min: number
   hard: { min: 1, max: 10 },
 }
 
+// Simulation modes control whether we stop rolling items that would be sold early.
+export type DungeonSimMode = 'snapshot' | 'levelUp'
+// Supported modes are listed for UI toggles and validation.
+export const DUNGEON_SIM_MODES: readonly DungeonSimMode[] = ['levelUp', 'snapshot'] as const
+// Default to level-up to match in-game rolling behavior.
+export const DUNGEON_SIM_MODE_DEFAULT: DungeonSimMode = 'levelUp'
+
 export type EventSpotlightSelection = 'pinpoint' | 'chronophage'
 
 export const EVENT_SPOTLIGHT_DEFAULT: EventSpotlightSelection = 'chronophage'
@@ -631,6 +638,8 @@ export type DungeonSimDetailItem = {
   preRollIndex: number
   // Milestone events: positive = add stat variant, negative = roll index (-index-1).
   events: number[]
+  // Highest milestone reached before selling (snapshot mode always reaches +16).
+  maxLevel: LevelMilestone
 }
 
 export type DungeonSimDetailQuery = {
@@ -699,6 +708,7 @@ export type DungeonSimSpotlightSession = {
     dungeonIds: DungeonId[]
     selections?: Partial<Record<DungeonId, DungeonStageSelection>>
     boosts?: Partial<Record<DungeonBoostableId, DungeonBoostSelection>>
+    mode?: DungeonSimMode
   }) => void
   isComplete: () => boolean
 }
@@ -718,6 +728,8 @@ type DungeonSimAccumulatorCell = ReturnType<typeof createEmptyCell>
 // Internal runtime state for a single dungeon simulation.
 type DungeonSimRuntime = {
   dungeonId: DungeonId
+  // Simulation mode decides whether items stop rolling when sold.
+  mode: DungeonSimMode
   selection: DungeonStageSelection
   eventStage: number
   eventRates: EventDropRates | null
@@ -815,6 +827,8 @@ const buildSubstatValuesWithDetail = (
       startVariants,
       preRollIndex,
       events,
+      // Max level is patched after evaluating the keep rules.
+      maxLevel: 16,
     },
   }
 }
@@ -942,6 +956,8 @@ const computeDetailStats = (
     // Restrict to the requested slot + main stat.
     if (Number(item.slot) !== Number(query.slot)) continue
     if (Number(item.main) !== Number(query.main)) continue
+    // Skip items that never reached the requested milestone.
+    if (Number(item.maxLevel) < Number(query.level)) continue
     total += 1
     if (selected.size === 0) continue
     // Rebuild substat state at the requested milestone.
@@ -1022,9 +1038,10 @@ const createDungeonRuntime = (params: {
   selection?: DungeonStageSelection
   runs: number
   spotlight: EventSpotlightSelection
+  mode: DungeonSimMode
   boost?: DungeonBoostSelection | null
 }): DungeonSimRuntime => {
-  const { dungeonId, runs, spotlight } = params
+  const { dungeonId, runs, spotlight, mode } = params
   // Normalize stage selection so downstream weights are always in-range.
   const selection = normalizeDungeonStageSelection(dungeonId, params.selection)
   // Event logic reuses the normalized stage directly.
@@ -1045,7 +1062,7 @@ const createDungeonRuntime = (params: {
   const setWeights = resolveSetWeights(dungeonId, sets, params.boost)
   // Initialize per-set accumulator maps for each milestone.
   const cellsBySet = new Map<ArtifactSetId, Record<LevelMilestone, DungeonSimAccumulatorCell>>()
-  // Initialize per-set summary cells (kept at any level).
+  // Initialize per-set summary cells (kept at +16).
   const summaryBySet = new Map<ArtifactSetId, DungeonSimAccumulatorCell>()
   // Initialize per-set detail buckets for substat queries.
   const detailBySet = new Map<ArtifactSetId, DungeonSimDetailItem[]>()
@@ -1059,9 +1076,10 @@ const createDungeonRuntime = (params: {
   const boostKey = isBoostableDungeon(dungeonId)
     ? `${params.boost?.mode ?? 'off'}:${params.boost?.setId ?? 'none'}`
     : 'none'
-  const rng = createRng(hashSeed(`${dungeonId}:${selection.mode}:${seedStage}:${spotlight}:${boostKey}`))
+  const rng = createRng(hashSeed(`${dungeonId}:${selection.mode}:${seedStage}:${spotlight}:${boostKey}:${mode}`))
   return {
     dungeonId,
+    mode,
     selection,
     eventStage,
     eventRates,
@@ -1096,6 +1114,7 @@ const runDungeonBatch = (
   const toRun = Math.min(remaining, requested)
   if (toRun <= 0) return 0
   const {
+    mode,
     selection,
     eventRates,
     rankWeights,
@@ -1156,30 +1175,47 @@ const runDungeonBatch = (
     if (!targetCells || !summaryCell) continue
     // Persist detail items so substat queries can reuse the same run data.
     const detailBucket = detailBySet.get(dropSet)
-    if (detailBucket) detailBucket.push(detail)
-    // Track whether the item is kept at any milestone for summary rows.
-    let keptAny = false
+    // Track whether we keep rolling after failed milestones.
+    const stopOnFail = mode === 'levelUp'
+    // Track the highest milestone reached (used by detail popovers).
+    let maxLevel: LevelMilestone = 0
+    // Track whether the item is kept at +16 for summary rows.
+    let keptAt16 = false
+    // Gate further rolls in level-up mode once a keep check fails.
+    let reached = true
     for (const lvl of DUNGEON_SIM_LEVELS) {
       const cell = targetCells[lvl]
       const subValues = subValuesByLevel[lvl]
+      // Totals always reflect all drops, even if we stop rolling early.
+      cell.total += 1
+      const breakdown = ensureBreakdownEntry(cell.breakdown, slot, main)
+      breakdown.total += 1
+      // Skip keep evaluation once the item is sold in level-up mode.
+      if (!reached) continue
       // Evaluate this item snapshot against the current rules.
       const testItem = buildTestItem(baseItem, lvl, subValues)
       const match = evaluateFirst(rules, testItem)
       const kept = match ? match.keep : true
-      if (kept) keptAny = true
-      // Update the cell-level tallies.
-      cell.total += 1
+      // Update the cell-level kept counts.
       if (kept) cell.kept += 1
-      const breakdown = ensureBreakdownEntry(cell.breakdown, slot, main)
-      breakdown.total += 1
       if (kept) breakdown.kept += 1
+      // Record the most recent level reached for detail filtering.
+      maxLevel = lvl
+      // Capture the +16 keep result for the summary row.
+      if (lvl === 16) keptAt16 = kept
+      // Stop rolling when the item fails a keep check in level-up mode.
+      if (stopOnFail && !kept) {
+        reached = false
+      }
     }
-    // Update the summary cell using the "kept at any level" rule.
+    // Persist detail items so substat queries can reuse the same run data.
+    if (detailBucket) detailBucket.push({ ...detail, maxLevel })
+    // Update the summary cell using the "+16 keep" rule.
     summaryCell.total += 1
-    if (keptAny) summaryCell.kept += 1
+    if (keptAt16) summaryCell.kept += 1
     const summaryBreakdown = ensureBreakdownEntry(summaryCell.breakdown, slot, main)
     summaryBreakdown.total += 1
-    if (keptAny) summaryBreakdown.kept += 1
+    if (keptAt16) summaryBreakdown.kept += 1
   }
   // Track the completed run count for progress snapshots.
   runtime.completed += toRun
@@ -1211,10 +1247,13 @@ export const createDungeonSimSession = (params: {
   substatTargets: SubstatTargetTable
   selections?: Partial<Record<DungeonId, DungeonStageSelection>>
   spotlight?: EventSpotlightSelection
+  mode?: DungeonSimMode
   runs?: number
 }): DungeonSimSession => {
   // Default to the fixed run count when none is supplied.
   const runs = params.runs ?? DUNGEON_SIM_RUNS_PER_DUNGEON
+  // Default to snapshot mode so legacy callers keep current behavior.
+  const mode = params.mode ?? DUNGEON_SIM_MODE_DEFAULT
   // Spotlight defaults to the current event rotation.
   const spotlight = params.spotlight ?? EVENT_SPOTLIGHT_DEFAULT
   // Build per-dungeon runtimes so batches can iterate efficiently.
@@ -1224,6 +1263,7 @@ export const createDungeonSimSession = (params: {
       dungeonId,
       runs,
       spotlight,
+      mode,
       ...(params.selections?.[dungeonId] ? { selection: params.selections[dungeonId] } : {}),
     }))
   }
@@ -1279,10 +1319,13 @@ export const createDungeonSimSpotlightSession = (params: {
   selections?: Partial<Record<DungeonId, DungeonStageSelection>>
   boosts?: Partial<Record<DungeonBoostableId, DungeonBoostSelection>>
   spotlights?: readonly EventSpotlightSelection[]
+  mode?: DungeonSimMode
   runs?: number
 }): DungeonSimSpotlightSession => {
   // Default run count mirrors the global simulator default.
   const runs = params.runs ?? DUNGEON_SIM_RUNS_PER_DUNGEON
+  // Snapshot mode preserves the legacy "roll to +16" behavior.
+  const mode = params.mode ?? DUNGEON_SIM_MODE_DEFAULT
   // Copy the spotlight array so we can safely mutate.
   const spotlights = (params.spotlights ?? EVENT_SPOTLIGHT_OPTIONS).slice()
   if (spotlights.length === 0) {
@@ -1293,6 +1336,8 @@ export const createDungeonSimSpotlightSession = (params: {
   let selectionState: Partial<Record<DungeonId, DungeonStageSelection>> = { ...(params.selections ?? {}) }
   // Snapshot the mutable boost selections for reuse across reset calls.
   let boostState: Partial<Record<DungeonBoostableId, DungeonBoostSelection>> = { ...(params.boosts ?? {}) }
+  // Snapshot the current simulation mode for later resets.
+  let modeState: DungeonSimMode = mode
   // Build a runtime for a base dungeon using the current selection + boost state.
   const buildBaseRuntime = (dungeonId: DungeonId): DungeonSimRuntime => {
     const boost = isBoostableDungeon(dungeonId)
@@ -1303,6 +1348,7 @@ export const createDungeonSimSpotlightSession = (params: {
       dungeonId,
       runs,
       spotlight: EVENT_SPOTLIGHT_DEFAULT,
+      mode: modeState,
       boost,
       ...(selection ? { selection } : {}),
     })
@@ -1314,6 +1360,7 @@ export const createDungeonSimSpotlightSession = (params: {
       dungeonId: 'event',
       runs,
       spotlight,
+      mode: modeState,
       ...(selection ? { selection } : {}),
     })
   }
@@ -1410,6 +1457,7 @@ export const createDungeonSimSpotlightSession = (params: {
     dungeonIds: DungeonId[]
     selections?: Partial<Record<DungeonId, DungeonStageSelection>>
     boosts?: Partial<Record<DungeonBoostableId, DungeonBoostSelection>>
+    mode?: DungeonSimMode
   }) => {
     // Merge the newest selections so future resets use the latest values.
     if (reset.selections) {
@@ -1419,8 +1467,13 @@ export const createDungeonSimSpotlightSession = (params: {
     if (reset.boosts) {
       boostState = { ...boostState, ...reset.boosts }
     }
+    // Mode changes require a full rebuild of every dungeon runtime.
+    const modeChanged = reset.mode && reset.mode !== modeState
+    if (modeChanged) {
+      modeState = reset.mode!
+    }
     // Deduplicate ids so we only rebuild each dungeon once.
-    const uniqueIds = new Set(reset.dungeonIds)
+    const uniqueIds = new Set(modeChanged ? DUNGEON_IDS : reset.dungeonIds)
     for (const dungeonId of uniqueIds) {
       if (dungeonId === 'event') {
         // Event runs must be rebuilt for every spotlight variant.
@@ -1460,6 +1513,7 @@ export const simulateDungeonDrops = (params: {
   substatTargets: SubstatTargetTable
   selections?: Partial<Record<DungeonId, DungeonStageSelection>>
   spotlight?: EventSpotlightSelection
+  mode?: DungeonSimMode
   runs?: number
 }): DungeonSimResults => {
   const runs = params.runs ?? DUNGEON_SIM_RUNS_PER_DUNGEON

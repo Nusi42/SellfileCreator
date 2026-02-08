@@ -22,6 +22,8 @@ import {
   DUNGEON_SIM_LEVELS,
   DUNGEON_SIM_RUNS_PER_DUNGEON,
   DUNGEON_BOOST_MODES,
+  DUNGEON_SIM_MODE_DEFAULT,
+  DUNGEON_SIM_MODES,
   EVENT_SPOTLIGHT_OPTIONS,
   isBoostableDungeon,
   normalizeDungeonBoostSelection,
@@ -36,6 +38,7 @@ import {
   type DungeonBoostSelection,
   type DungeonBoostableId,
   type DungeonId,
+  type DungeonSimMode,
   type DungeonSimBreakdown,
   type DungeonSimCell,
   type DungeonSimDetailStats,
@@ -195,6 +198,7 @@ export default function DungeonSimulatorTab(props: DungeonSimulatorTabProps) {
     selections: prefs.stages,
     spotlight: prefs.eventSpotlight,
     boosts: prefs.boosts,
+    mode: prefs.simMode,
     runs: DUNGEON_SIM_RUNS_PER_DUNGEON,
     batchSize: DUNGEON_SIM_BATCH_SIZE,
     throttleMs: PROGRESS_THROTTLE_MS,
@@ -271,6 +275,14 @@ export default function DungeonSimulatorTab(props: DungeonSimulatorTabProps) {
       ...prev,
       eventSpotlight: next === 'pinpoint' ? 'pinpoint' : 'chronophage',
     }))
+  }
+
+  // Persist the selected simulation mode (snapshot vs level-up).
+  const updateSimMode = (next: DungeonSimMode | null) => {
+    if (!next) return
+    // Normalize to the supported mode set.
+    const normalized = DUNGEON_SIM_MODES.includes(next) ? next : DUNGEON_SIM_MODE_DEFAULT
+    setPrefs((prev) => ({ ...prev, simMode: normalized }))
   }
 
   // Update a boosted set selection for the chosen dungeon.
@@ -485,6 +497,22 @@ export default function DungeonSimulatorTab(props: DungeonSimulatorTabProps) {
             <Typography variant="caption" color="text.secondary">
               {t('dungeonDropsRunNote', { runs: runProgressLabel })}
             </Typography>
+            <Stack direction="row" spacing={1} alignItems="center">
+              {/* Mode toggle keeps snapshot vs level-up behavior explicit. */}
+              <Typography variant="caption" color="text.secondary">
+                {t('dungeonDropsModeLabel')}
+              </Typography>
+              <ToggleButtonGroup
+                size="small"
+                exclusive
+                value={prefs.simMode}
+                onChange={(_event, next) => updateSimMode(next)}
+                aria-label={t('dungeonDropsModeLabel')}
+              >
+                <ToggleButton value="levelUp">{t('dungeonDropsModeLevelUp')}</ToggleButton>
+                <ToggleButton value="snapshot">{t('dungeonDropsModeSnapshot')}</ToggleButton>
+              </ToggleButtonGroup>
+            </Stack>
           </Stack>
           <MarkdownTooltip
             render={(
@@ -793,7 +821,7 @@ export default function DungeonSimulatorTab(props: DungeonSimulatorTabProps) {
                 {/* Body rows enumerate milestone levels. */}
                 <TableBody>
                   {isCollapsed ? (
-                    // Collapsed tables show the "any level" summary row only.
+                    // Collapsed tables show the +16 summary row only.
                     <TableRow key={`${dungeonId}-summary`}>
                       <TableCell sx={{ width: 36, px: 0.5 }} />
                       <TableCell sx={{ fontWeight: 600, whiteSpace: 'nowrap', width: 70 }}>
