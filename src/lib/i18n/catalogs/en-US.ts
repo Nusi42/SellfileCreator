@@ -212,57 +212,79 @@ const enUS: Catalog = {
 
   tabFinalSellGear: 'Gear',
   tabKeepUniques: 'Keep Uniques',
+  // Dungeon Drops tab label and intro copy.
   tabDungeonDrops: 'Dungeon Drops',
   dungeonDropsIntro: 'Simulate dungeon drops using your current Sellfile rules (HSF) to estimate how much gear is kept per set and level milestone.',
   dungeonDropsExplanation: 'Each run simulates one dungeon drop using the selected stage\'s drop tables (rank, rarity, slot, and set). Percentages are kept drops divided by all drops for that stage; boosted sets only change set weights.',
+  // Simulation roll assumptions and run count.
   dungeonDropsRollNote: 'Substat values use minimum rolls for the item\'s star rank; each upgrade roll adds another minimum roll (a conservative estimate).',
   dungeonDropsRunNote: 'Runs per dungeon stage: {runs}.',
+  // Simulation mode labels.
   dungeonDropsModeLabel: 'Simulation mode:',
   dungeonDropsModeSnapshot: 'Snapshot',
   dungeonDropsModeLevelUp: 'Level-up',
+  // Drop-rate sources section labels.
   dungeonDropsInfoLabel: 'Dungeon drop rate sources',
   dungeonDropsInfoSourcesTitle: 'Sources for Drop Chances',
+  // Drop-rate source citations.
   dungeonDropsInfoSourceAyumilove: 'https://ayumilove.net/raid-shadow-legends-loot-table-and-drop-rates/ (retrieved 2026-02-08)',
   dungeonDropsInfoSourceTyrauku: 'https://www.youtube.com/watch?v=-1unjiIq5Mo (Tyrauku, 2024-08-22)',
+  // Sources credit and how-it-works header.
   dungeonDropsInfoThanks: 'Thanks to Ayumilove and Tyrauku.',
   dungeonDropsInfoHowTitle: 'How the simulator works',
+  // How-it-works steps for drop and roll-forward.
   dungeonDropsInfoHowLine1: 'Each run simulates one drop at +0 using the selected stage drop tables (rank, rarity, slot, set).',
   dungeonDropsInfoHowLine2: 'The same item is rolled forward at +4 / +8 / +12 / +16.',
+  // How-it-works steps for mode behavior and roll floors.
   dungeonDropsInfoHowLine3: 'Snapshot mode keeps rolling even if a level would be sold; Level-up mode stops after the first sell.',
   dungeonDropsInfoHowLine4: 'Substat values use minimum rolls for the star rank (conservative).',
+  // Why +16 can exceed +12.
   dungeonDropsInfoWhyTitle: 'Why can +16 be higher than +12?',
   dungeonDropsInfoWhyLine: 'Some rules only pass after the last roll at +16.',
+  // Example block title and header labels.
   dungeonDropsInfoExampleTitle: 'Example (6★ SPD min roll = 5; rule: keep if SPD ≥ 10):',
   dungeonDropsInfoExampleHeaderLevel: 'Level',
   dungeonDropsInfoExampleHeaderRolls: 'SPD rolls',
+  // Example table value/kept labels and note.
   dungeonDropsInfoExampleHeaderValue: 'SPD value',
   dungeonDropsInfoExampleHeaderKept: 'Kept?',
   dungeonDropsInfoExampleNote: 'So items that failed at +12 can pass after the +16 roll.',
+  // Difficulty mode labels.
   dungeonDropsModeNormal: 'Normal',
   dungeonDropsModeHard: 'Hard',
+  // Boosted set labels.
   dungeonDropsBoostLabel: 'Boosted set',
   dungeonDropsBoostNone: 'None',
   dungeonDropsBoostOff: 'Off',
+  // Boost multipliers and max-level toggle.
   dungeonDropsBoost2x: '2×',
   dungeonDropsBoost3x: '3×',
   dungeonDropsAnyLevel: '+16',
+  // Collapse/expand table labels.
   dungeonDropsCollapseLabel: 'Collapse dungeon table',
   dungeonDropsExpandLabel: 'Expand dungeon table',
+  // Popover header and summary.
   dungeonDropsPopoverHeader: '{set} • {level}',
   dungeonDropsPopoverSummary: 'Kept {percent} of all drops ({kept}/{total}).',
+  // Popover breakdown and empty state.
   dungeonDropsPopoverBreakdownTitle: 'Kept drops by slot + main stat (percent of all drops)',
   dungeonDropsPopoverEmpty: 'No kept drops at this level.',
+  // Substat target selectors.
   dungeonDropsSubstatSelectLabel: 'Target substats',
   dungeonDropsSubstatSelectPlaceholder: 'Select substats',
   dungeonDropsSubstatSelectHint: 'Pick up to 4 substats to analyze.',
+  // Substat stats loading and empty states.
   dungeonDropsSubstatLoading: 'Calculating substat stats...',
   dungeonDropsSubstatEmpty: 'Select substats to see stats.',
+  // Substat result section headings.
   dungeonDropsSubstatPresentTitle: 'Selected substats present (≥N)',
   dungeonDropsSubstatRollsTitle: 'Rolls into selected substats (≥N)',
   dungeonDropsSubstatRunsTitle: 'Runs needed for ≥1 item with all selected substats',
+  // Dungeon boss names.
   dungeonIceGolem: 'Ice Golem',
   dungeonFireKnight: 'Fire Knight',
   dungeonSpider: 'Spider',
+  // Remaining dungeon names.
   dungeonDragon: 'Dragon',
   dungeonEvent: 'Event',
   keepUniquesTabLabel: 'Keep Uniques',
