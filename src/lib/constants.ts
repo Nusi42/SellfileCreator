@@ -66,6 +66,8 @@ export const STAT_BUTTON_BORDERS_KEY = 'sellfileCreator.statButtonBorders.v1'
 export const KEEP_UNIQUES_GRID_FILTER_KEY = 'sellfileCreator.keepUniques.gridFilter.v1'
 // Persisted Keep Uniques grid column count so the tab can default to 1 column.
 export const KEEP_UNIQUES_GRID_COLUMNS_KEY = 'sellfileCreator.keepUniques.gridColumns.v1'
+// Persisted Dungeon Drops simulator selections (mode, stage, spotlight set).
+export const DUNGEON_SIM_PREFERENCES_KEY = 'sellfileCreator.dungeonDrops.v1'
 
 // Persisted color-blind mode for success/warning/error palette
 // Values: 'normal' | 'colorblind' (extendable in the future without breaking storage)

@@ -1,0 +1,1151 @@
+/**
+ * dungeonSimulator.ts
+ *
+ * Dungeon drop simulation helpers for the Logic Hub Dungeon tab.
+ * Keeps all drop tables and simulation logic centralized (SSOT).
+ */
+import { ACCESSORY_NO_SET_ID } from './constants'
+import { evaluateFirst, type TestItem } from './ruleEval'
+import type { HsfRuleWithCfg } from './merge'
+import { ALLOWED_MAIN_BY_SLOT, ALLOWED_SUB_BY_SLOT, ArtifactSet, ArtifactType, Faction, StatVariant, type ArtifactSetId, type ArtifactTypeId, type FactionId, type LevelMilestone, type RankValue } from './types'
+import { isAccessorySlot } from './testerDomain'
+import { substatMatchesMainVariant } from './statCompatibility'
+import { baseMinForStarV } from './hsfBuilder'
+import type { SubstatTargetTable } from './hsfBuilder/types'
+
+// Simulation milestone levels mirror the builder + preview milestones.
+export const DUNGEON_SIM_LEVELS: readonly LevelMilestone[] = [0, 4, 8, 12, 16] as const
+// Fixed run count per dungeon stage keeps variance stable and predictable.
+export const DUNGEON_SIM_RUNS_PER_DUNGEON = 100000 as const
+// Fallback run count keeps the main thread responsive when workers are unavailable.
+export const DUNGEON_SIM_FALLBACK_RUNS_PER_DUNGEON = 500 as const
+// Chunk size controls how often we stream partial results from the simulator.
+export const DUNGEON_SIM_BATCH_SIZE = 250 as const
+
+export type DungeonStageMode = 'normal' | 'hard'
+export type DungeonStageSelection = {
+  mode: DungeonStageMode
+  stage: number
+}
+
+// Default stage selection for fallback weights (Normal 20 keeps the legacy baseline).
+export const DUNGEON_STAGE_DEFAULT_SELECTION: DungeonStageSelection = {
+  mode: 'normal',
+  stage: 20,
+}
+
+// Valid stage ranges by mode keep UI and simulation aligned.
+export const DUNGEON_STAGE_RANGE_BY_MODE: Record<DungeonStageMode, { min: number; max: number }> = {
+  normal: { min: 1, max: 25 },
+  hard: { min: 1, max: 10 },
+}
+
+export type EventSpotlightSelection = 'pinpoint' | 'chronophage'
+
+export const EVENT_SPOTLIGHT_DEFAULT: EventSpotlightSelection = 'chronophage'
+export const EVENT_SPOTLIGHT_OPTIONS: readonly EventSpotlightSelection[] = ['chronophage', 'pinpoint'] as const
+
+export type DungeonId = 'iceGolem' | 'fireKnight' | 'dragon' | 'spider' | 'event'
+
+// Event dungeons are normal-only with stages 1..30.
+export const EVENT_STAGE_RANGE = { min: 1, max: 30 } as const
+// Event stages 26..30 map to Hard 1..10 when we need hard-mode weights.
+const EVENT_HARD_EQUIV_RANGE = { min: 26, max: 30 } as const
+
+// Default stage selections per dungeon (UI + persistence).
+export const DUNGEON_STAGE_DEFAULTS_BY_DUNGEON: Record<DungeonId, DungeonStageSelection> = {
+  iceGolem: { mode: 'hard', stage: 10 },
+  fireKnight: { mode: 'hard', stage: 10 },
+  dragon: { mode: 'hard', stage: 10 },
+  spider: { mode: 'hard', stage: 10 },
+  event: { mode: 'normal', stage: 30 },
+} as const
+
+// Resolve the default stage selection for a specific dungeon.
+export const resolveDungeonStageDefault = (dungeonId: DungeonId): DungeonStageSelection => (
+  DUNGEON_STAGE_DEFAULTS_BY_DUNGEON[dungeonId] ?? DUNGEON_STAGE_DEFAULT_SELECTION
+)
+
+// Resolve the valid stage range for a dungeon + mode combo.
+export const resolveDungeonStageRange = (dungeonId: DungeonId, mode: DungeonStageMode): { min: number; max: number } => {
+  if (dungeonId === 'event') return EVENT_STAGE_RANGE
+  return DUNGEON_STAGE_RANGE_BY_MODE[mode]
+}
+
+// Stable ordering for UI rendering and seed hashing.
+export const DUNGEON_IDS: readonly DungeonId[] = [
+  'fireKnight',
+  'dragon',
+  'iceGolem',
+  'spider',
+  'event',
+] as const
+
+// Dungeon -> set catalog (static dungeons only; Event is resolved dynamically).
+const DUNGEON_SETS: Record<Exclude<DungeonId, 'event'>, readonly ArtifactSetId[]> = {
+  iceGolem: [
+    ArtifactSet.Life,
+    ArtifactSet.Defense,
+    ArtifactSet.Resistance,
+    ArtifactSet.Offense,
+    ArtifactSet.CriticalRate,
+    ArtifactSet.Retaliation,
+    ArtifactSet.Reflex,
+    ArtifactSet.Cursed,
+    ArtifactSet.Provoke,
+  ],
+  fireKnight: [
+    ArtifactSet.Frenzy,
+    ArtifactSet.Stun,
+    ArtifactSet.Immunity,
+    ArtifactSet.Savage,
+    ArtifactSet.Regeneration,
+    ArtifactSet.Fury,
+    ArtifactSet.Curing,
+    ArtifactSet.CritDamage,
+    ArtifactSet.Shield,
+  ],
+  dragon: [
+    ArtifactSet.Frost,
+    ArtifactSet.Toxic,
+    ArtifactSet.Daze,
+    ArtifactSet.Avenging,
+    ArtifactSet.Stalwart,
+    ArtifactSet.Accuracy,
+    ArtifactSet.Speed,
+    ArtifactSet.Lifesteal,
+    ArtifactSet.Destroy,
+  ],
+  spider: [ACCESSORY_NO_SET_ID as ArtifactSetId],
+} as const
+
+// Event spotlight can swap between the two 9-piece sets.
+const EVENT_SPOTLIGHT_SET_BY_KEY: Record<EventSpotlightSelection, ArtifactSetId> = {
+  pinpoint: ArtifactSet.Pinpoint,
+  chronophage: ArtifactSet.Chronophage,
+}
+
+// Resolve the ArtifactSet id for the selected event spotlight.
+export const resolveEventSpotlightSet = (spotlight: EventSpotlightSelection): ArtifactSetId => (
+  EVENT_SPOTLIGHT_SET_BY_KEY[spotlight]
+)
+
+// Event non-spotlight pool is the currently featured 4-piece sets.
+const EVENT_NON_SPOTLIGHT_SETS: readonly ArtifactSetId[] = [
+  ArtifactSet.CriticalRate,
+  ArtifactSet.Accuracy,
+  ArtifactSet.Curing,
+  ArtifactSet.Daze,
+  ArtifactSet.CritDamage,
+] as const
+
+// Resolve the visible set columns for a dungeon (Event depends on spotlight).
+export const resolveDungeonSets = (
+  dungeonId: DungeonId,
+  spotlight: EventSpotlightSelection,
+): readonly ArtifactSetId[] => {
+  if (dungeonId !== 'event') return DUNGEON_SETS[dungeonId]
+  const spotlightSet = resolveEventSpotlightSet(spotlight)
+  const combined = [
+    spotlightSet,
+    ...EVENT_NON_SPOTLIGHT_SETS,
+    ACCESSORY_NO_SET_ID as ArtifactSetId,
+  ]
+  // De-dupe defensively in case rotations overlap in the future.
+  return Array.from(new Set(combined))
+}
+
+// Artifact slots drop in the three artifact dungeons.
+const ARTIFACT_SLOTS: readonly ArtifactTypeId[] = [
+  ArtifactType.Weapon,
+  ArtifactType.Helmet,
+  ArtifactType.Shield,
+  ArtifactType.Gauntlets,
+  ArtifactType.Chestplate,
+  ArtifactType.Boots,
+] as const
+
+// Spider drops accessories only (ring/amulet/banner).
+const ACCESSORY_SLOTS: readonly ArtifactTypeId[] = [
+  ArtifactType.Ring,
+  ArtifactType.Amulet,
+  ArtifactType.Banner,
+] as const
+
+// Accessory faction pool is uniform across valid factions.
+const ACCESSORY_FACTIONS: readonly FactionId[] = [
+  Faction.BannerLords,
+  Faction.HighElves,
+  Faction.SacredOrder,
+  Faction.Barbarians,
+  Faction.OgrynTribes,
+  Faction.Lizardmen,
+  Faction.Skinwalkers,
+  Faction.Orcs,
+  Faction.Demonspawn,
+  Faction.UndeadHordes,
+  Faction.DarkElves,
+  Faction.KnightRevenant,
+  Faction.Dwarves,
+  Faction.Shadowkin,
+  Faction.SylvanWatchers,
+  Faction.Argonites,
+] as const
+
+// Stage-specific rank distribution for normal dungeons (stage 1..25).
+// Sourced from docs/Dungeons_LootTable_DropRates.jpg (Ayumilove table).
+const NORMAL_RANK_WEIGHTS_BY_STAGE: Record<number, readonly number[]> = {
+  1: [60, 40, 0, 0, 0, 0],
+  2: [30, 60, 10, 0, 0, 0],
+  3: [0, 45, 55, 0, 0, 0],
+  4: [0, 15, 60, 25, 0, 0],
+  5: [0, 0, 58, 42, 0, 0],
+  6: [0, 0, 50, 50, 0, 0],
+  7: [0, 0, 34.5, 53, 12.5, 0],
+  8: [0, 0, 27, 55, 18, 0],
+  9: [0, 0, 20, 57, 23, 0],
+  10: [0, 0, 0, 69, 31, 0],
+  11: [0, 0, 0, 60, 40, 0],
+  12: [0, 0, 0, 55, 45, 0],
+  13: [0, 0, 0, 45, 50, 5],
+  14: [0, 0, 0, 40, 54, 6],
+  15: [0, 0, 0, 36, 56.5, 7.5],
+  16: [0, 0, 0, 39.8, 52.03, 8.17],
+  17: [0, 0, 0, 33.01, 56.55, 10.44],
+  18: [0, 0, 0, 25.2, 61.6, 13.2],
+  19: [0, 0, 0, 19.9, 62.3, 17.8],
+  20: [0, 0, 0, 0, 73, 27],
+  21: [0, 0, 0, 0, 72, 28],
+  22: [0, 0, 0, 0, 71, 29],
+  23: [0, 0, 0, 0, 70, 30],
+  24: [0, 0, 0, 0, 69, 31],
+  25: [0, 0, 0, 0, 68, 32],
+}
+
+// Stage-specific rarity distribution for normal dungeons (stage 1..25).
+// Rarity = Rare/Epic/Legendary only; Epic is derived by difference.
+const NORMAL_RARITY_WEIGHTS_BY_STAGE: Record<number, readonly number[]> = (() => {
+  const out: Record<number, readonly number[]> = {}
+  const rareByStage = [
+    80, 80, 80, 80, 80,
+    79, 79, 79, 79, 79,
+    77, 77, 77, 77, 77,
+    70, 70, 70, 70,
+    67.5,
+    62, 62,
+    57.5, 57.5,
+    55,
+  ]
+  const legendaryByStage = [
+    1, 1, 1, 1, 1,
+    1.5, 1.5, 1.5, 1.5, 1.5,
+    3, 3, 3, 3, 3,
+    5, 5, 5, 5,
+    7.5,
+    9, 10, 11, 12, 13,
+  ]
+  for (let i = 0; i < 25; i += 1) {
+    const stage = i + 1
+    const rare = rareByStage[i] ?? 0
+    const legendary = legendaryByStage[i] ?? 0
+    const epic = Math.max(0, 100 - rare - legendary)
+    out[stage] = [0, 0, rare, epic, legendary, 0]
+  }
+  return out
+})()
+
+// Stage-specific rank distribution for hard dungeons (stage 1..10).
+// Sourced from docs/Dungeons_LootTable_DropRates_Hard.jpg.
+const HARD_RANK_WEIGHTS_BY_STAGE: Record<number, readonly number[]> = {
+  1: [0, 0, 0, 0, 68, 32],
+  2: [0, 0, 0, 0, 67.92, 32.08],
+  3: [0, 0, 0, 0, 67.2, 32.8],
+  4: [0, 0, 0, 0, 66.8, 33.2],
+  5: [0, 0, 0, 0, 68.09, 31.91],
+  6: [0, 0, 0, 0, 65.2, 34.8],
+  7: [0, 0, 0, 0, 65.8, 34.2],
+  8: [0, 0, 0, 0, 66.4, 33.6],
+  9: [0, 0, 0, 0, 67, 33],
+  10: [0, 0, 0, 0, 68, 32],
+}
+
+// Stage-specific rarity distribution for hard dungeons (stage 1..10).
+// Rarity order = Rare/Epic/Legendary/Mythical (Hard includes Mythical).
+const HARD_RARITY_WEIGHTS_BY_STAGE: Record<number, readonly number[]> = {
+  1: [0, 0, 54, 32, 13.5, 0.5],
+  2: [0, 0, 46.88, 33.34, 18.75, 1.04],
+  3: [0, 0, 52, 32, 14.5, 1.5],
+  4: [0, 0, 51, 32, 15, 2],
+  5: [0, 0, 46.15, 32.82, 18.46, 2.57],
+  6: [0, 0, 49, 32, 16, 3],
+  7: [0, 0, 48, 32, 16.5, 3.5],
+  8: [0, 0, 47, 32, 17, 4],
+  9: [0, 0, 46, 32, 17.5, 4.5],
+  10: [0, 0, 45, 32, 18, 5],
+}
+
+// Default weights for stages outside the table (fallback keeps calls typed).
+const DEFAULT_NORMAL_RANK_WEIGHTS: readonly number[] = NORMAL_RANK_WEIGHTS_BY_STAGE[DUNGEON_STAGE_DEFAULT_SELECTION.stage] ?? [0, 0, 0, 0, 0, 0]
+const DEFAULT_NORMAL_RARITY_WEIGHTS: readonly number[] = NORMAL_RARITY_WEIGHTS_BY_STAGE[DUNGEON_STAGE_DEFAULT_SELECTION.stage] ?? [0, 0, 0, 0, 0, 0]
+const DEFAULT_HARD_RANK_WEIGHTS: readonly number[] = HARD_RANK_WEIGHTS_BY_STAGE[1] ?? [0, 0, 0, 0, 0, 0]
+const DEFAULT_HARD_RARITY_WEIGHTS: readonly number[] = HARD_RARITY_WEIGHTS_BY_STAGE[1] ?? [0, 0, 0, 0, 0, 0]
+
+// Spider accessory type weights at stage 20+ are equal (rings/amulets/banners).
+const ACCESSORY_TYPE_WEIGHTS_EQUAL: readonly number[] = [1, 1, 1]
+
+// Dungeon drop mode determines whether artifacts, accessories, or both can appear.
+type DungeonDropKind = 'artifact' | 'accessory' | 'mixed'
+
+// Drop kinds are single-source-of-truth for the dungeon simulator.
+const DUNGEON_DROP_KIND: Record<DungeonId, DungeonDropKind> = {
+  iceGolem: 'artifact',
+  fireKnight: 'artifact',
+  dragon: 'artifact',
+  spider: 'accessory',
+  event: 'mixed',
+}
+
+type EventDropRates = {
+  spotlight: number
+  accessories: number
+  nonSpotlight: number
+  sixStar: number
+}
+
+// Event dungeon anchor rates from docs/EventDungeonDropRate.jpg.
+const EVENT_DROP_ANCHORS: readonly (EventDropRates & { stage: number })[] = [
+  { stage: 20, spotlight: 10.5, accessories: 28, nonSpotlight: 61.5, sixStar: 28 },
+  { stage: 24, spotlight: 11, accessories: 29, nonSpotlight: 60, sixStar: 35.8 },
+  { stage: 30, spotlight: 10, accessories: 40, nonSpotlight: 50, sixStar: 38 },
+] as const
+
+// Clamp helpers keep interpolated values within sane bounds.
+const clampNumber = (value: number, min: number, max: number): number => Math.min(max, Math.max(min, value))
+
+// Linear interpolation utility for numeric anchors.
+const lerp = (start: number, end: number, t: number): number => start + (end - start) * t
+
+// Map a hard stage (1..10) onto the event-only hard-equivalent window (26..30).
+const mapHardStageToEventStage = (hardStage: number): number => {
+  const hardRange = DUNGEON_STAGE_RANGE_BY_MODE.hard
+  const denom = Math.max(1, hardRange.max - hardRange.min)
+  const ratio = clampNumber((hardStage - hardRange.min) / denom, 0, 1)
+  return EVENT_HARD_EQUIV_RANGE.min + ratio * (EVENT_HARD_EQUIV_RANGE.max - EVENT_HARD_EQUIV_RANGE.min)
+}
+
+// Map an event stage (26..30) back onto a hard stage scale (1..10).
+const mapEventStageToHardStage = (eventStage: number): number => {
+  const denom = Math.max(1, EVENT_HARD_EQUIV_RANGE.max - EVENT_HARD_EQUIV_RANGE.min)
+  const ratio = clampNumber((eventStage - EVENT_HARD_EQUIV_RANGE.min) / denom, 0, 1)
+  return DUNGEON_STAGE_RANGE_BY_MODE.hard.min + ratio * (DUNGEON_STAGE_RANGE_BY_MODE.hard.max - DUNGEON_STAGE_RANGE_BY_MODE.hard.min)
+}
+
+// Interpolate event drop rates across known stage anchors (clamped to anchor bounds).
+const interpolateEventRates = (stage: number): EventDropRates => {
+  const anchors = EVENT_DROP_ANCHORS
+  const first = anchors[0]
+  const last = anchors[anchors.length - 1]
+  if (!first || !last) return { spotlight: 0, accessories: 0, nonSpotlight: 0, sixStar: 0 }
+  if (stage <= first.stage) return { ...first }
+  if (stage >= last.stage) return { ...last }
+  let lower = first
+  let upper = last
+  for (let i = 1; i < anchors.length; i += 1) {
+    const next = anchors[i]
+    if (!next) continue
+    if (stage <= next.stage) {
+      upper = next
+      lower = anchors[i - 1] ?? next
+      break
+    }
+  }
+  const span = upper.stage - lower.stage
+  const t = span <= 0 ? 0 : clampNumber((stage - lower.stage) / span, 0, 1)
+  const spotlight = lerp(lower.spotlight, upper.spotlight, t)
+  const accessories = lerp(lower.accessories, upper.accessories, t)
+  const nonSpotlight = lerp(lower.nonSpotlight, upper.nonSpotlight, t)
+  const sixStar = clampNumber(lerp(lower.sixStar, upper.sixStar, t), 0, 100)
+  const total = spotlight + accessories + nonSpotlight
+  const scale = total > 0 ? 100 / total : 1
+  return {
+    spotlight: spotlight * scale,
+    accessories: accessories * scale,
+    nonSpotlight: nonSpotlight * scale,
+    sixStar,
+  }
+}
+
+// Normalize a stage selection against dungeon-specific defaults/ranges.
+export const normalizeDungeonStageSelection = (
+  dungeonId: DungeonId,
+  selection?: Partial<DungeonStageSelection> | null,
+  fallback?: DungeonStageSelection,
+): DungeonStageSelection => {
+  // Default to the per-dungeon fallback when inputs are missing.
+  const resolvedFallback = fallback ?? resolveDungeonStageDefault(dungeonId)
+  // Stage values are always coerced to numbers before clamping.
+  const rawStage = Number(selection?.stage ?? resolvedFallback.stage)
+  if (dungeonId === 'event') {
+    // Event has no hard mode; map any stored hard stage into 26..30.
+    const stageSeed = selection?.mode === 'hard'
+      ? mapHardStageToEventStage(Number.isNaN(rawStage) ? resolvedFallback.stage : rawStage)
+      : (Number.isNaN(rawStage) ? resolvedFallback.stage : rawStage)
+    // Clamp to the event-only 1..30 range.
+    const stage = clampNumber(stageSeed, EVENT_STAGE_RANGE.min, EVENT_STAGE_RANGE.max)
+    return { mode: 'normal', stage: Math.round(stage) }
+  }
+  // For standard dungeons, honor the selected mode if present.
+  const rawMode = selection?.mode
+  const mode: DungeonStageMode = rawMode === 'hard' || rawMode === 'normal'
+    ? rawMode
+    : (resolvedFallback.mode ?? 'normal')
+  // Clamp stages to the mode-specific range.
+  const range = DUNGEON_STAGE_RANGE_BY_MODE[mode]
+  const stage = clampNumber(Number.isNaN(rawStage) ? resolvedFallback.stage : rawStage, range.min, range.max)
+  return { mode, stage: Math.round(stage) }
+}
+
+// Rarity -> starting substat count.
+const SUBSTAT_START_COUNT: Record<number, number> = {
+  1: 0,
+  2: 1,
+  3: 2,
+  4: 3,
+  5: 4,
+  6: 4,
+}
+
+// Rarity -> levels where a NEW substat is added (not rolled).
+const SUBSTAT_ADD_LEVELS: Record<number, readonly LevelMilestone[]> = {
+  1: [4, 8, 12, 16],
+  2: [8, 12, 16],
+  3: [12, 16],
+  4: [16],
+  5: [],
+  6: [],
+}
+
+// Rarity -> pre-roll count at level 0 (Mythical only).
+const SUBSTAT_PRE_ROLLS: Record<number, number> = {
+  1: 0,
+  2: 0,
+  3: 0,
+  4: 0,
+  5: 0,
+  6: 1,
+}
+
+// Compact seed hashing for deterministic RNG per dungeon/set.
+const hashSeed = (input: string): number => {
+  let hash = 2166136261
+  for (let i = 0; i < input.length; i += 1) {
+    hash ^= input.charCodeAt(i)
+    hash = Math.imul(hash, 16777619)
+  }
+  return hash >>> 0
+}
+
+// Mulberry32 RNG keeps output deterministic across sessions.
+const createRng = (seed: number) => {
+  let t = seed >>> 0
+  return () => {
+    t += 0x6D2B79F5
+    let x = t
+    x = Math.imul(x ^ (x >>> 15), x | 1)
+    x ^= x + Math.imul(x ^ (x >>> 7), x | 61)
+    return ((x ^ (x >>> 14)) >>> 0) / 4294967296
+  }
+}
+
+// Weighted choice helper (weights can be any non-negative numbers).
+const pickWeightedIndex = (rng: () => number, weights: readonly number[]): number => {
+  let total = 0
+  for (const w of weights) total += Math.max(0, w)
+  if (total <= 0) return 0
+  let roll = rng() * total
+  for (let i = 0; i < weights.length; i += 1) {
+    roll -= Math.max(0, weights[i] ?? 0)
+    if (roll <= 0) return i
+  }
+  return Math.max(0, weights.length - 1)
+}
+
+// Uniform pick for a non-empty list.
+const pickUniform = <T,>(rng: () => number, list: readonly T[]): T => {
+  const idx = Math.floor(rng() * list.length)
+  return list[Math.max(0, Math.min(list.length - 1, idx))]!
+}
+
+// Remove a random entry from a mutable pool.
+const pullRandom = <T,>(rng: () => number, pool: T[]): T => {
+  const idx = Math.floor(rng() * pool.length)
+  const safe = Math.max(0, Math.min(pool.length - 1, idx))
+  const value = pool[safe]!
+  pool.splice(safe, 1)
+  return value
+}
+
+// Build the rank weights for a stage in the selected mode.
+const rankWeightsForStage = (mode: DungeonStageMode, stage: number): readonly number[] => {
+  if (mode === 'hard') return HARD_RANK_WEIGHTS_BY_STAGE[stage] ?? DEFAULT_HARD_RANK_WEIGHTS
+  return NORMAL_RANK_WEIGHTS_BY_STAGE[stage] ?? DEFAULT_NORMAL_RANK_WEIGHTS
+}
+
+// Build the rarity weights for a stage in the selected mode.
+const rarityWeightsForStage = (mode: DungeonStageMode, stage: number): readonly number[] => {
+  if (mode === 'hard') return HARD_RARITY_WEIGHTS_BY_STAGE[stage] ?? DEFAULT_HARD_RARITY_WEIGHTS
+  return NORMAL_RARITY_WEIGHTS_BY_STAGE[stage] ?? DEFAULT_NORMAL_RARITY_WEIGHTS
+}
+
+// Interpolate two weight rows so fractional stages can blend smoothly.
+const interpolateWeightTable = (
+  table: Record<number, readonly number[]>,
+  stage: number,
+  fallback: readonly number[],
+): readonly number[] => {
+  const lowerStage = Math.floor(stage)
+  const upperStage = Math.ceil(stage)
+  const lower = table[lowerStage] ?? fallback
+  const upper = table[upperStage] ?? lower
+  if (lowerStage === upperStage) return lower
+  const t = clampNumber(stage - lowerStage, 0, 1)
+  const length = Math.max(lower.length, upper.length, fallback.length)
+  const blended: number[] = []
+  for (let i = 0; i < length; i += 1) {
+    const start = lower[i] ?? fallback[i] ?? 0
+    const end = upper[i] ?? start
+    blended.push(lerp(start, end, t))
+  }
+  return blended
+}
+
+// Event rarity weights follow normal tables up to stage 25, then blend hard tables for 26..30.
+const eventRarityWeightsForStage = (stage: number): readonly number[] => {
+  if (stage <= 25) return rarityWeightsForStage('normal', stage)
+  const hardStage = mapEventStageToHardStage(stage)
+  return interpolateWeightTable(HARD_RARITY_WEIGHTS_BY_STAGE, hardStage, DEFAULT_HARD_RARITY_WEIGHTS)
+}
+
+// Spider accessory type weights for the current stage.
+const accessoryTypeWeightsForStage = (stage: number): readonly number[] => {
+  // Stage 12+ uses equal accessory odds; earlier stages fall back to equal for now.
+  if (stage >= 12) return ACCESSORY_TYPE_WEIGHTS_EQUAL
+  return ACCESSORY_TYPE_WEIGHTS_EQUAL
+}
+
+// Per-level breakdown entry for slot + main stat.
+export type DungeonSimBreakdown = {
+  slot: ArtifactTypeId
+  main: StatVariant
+  kept: number
+  total: number
+}
+
+// Cell result for a single set + level.
+export type DungeonSimCell = {
+  total: number
+  kept: number
+  breakdown: DungeonSimBreakdown[]
+}
+
+// Per-set results keyed by level milestone.
+export type DungeonSimSetResults = {
+  levels: Record<LevelMilestone, DungeonSimCell>
+  summary: DungeonSimCell
+}
+
+// Per-dungeon results keyed by set id.
+export type DungeonSimDungeonResults = Record<ArtifactSetId, DungeonSimSetResults>
+
+// Full simulator output keyed by dungeon id.
+export type DungeonSimResults = Record<DungeonId, DungeonSimDungeonResults>
+
+// Progress snapshot for streaming dungeon simulation updates.
+export type DungeonSimProgress = {
+  completed: number
+  total: number
+  completedByDungeon: Record<DungeonId, number>
+  runsPerDungeon: number
+}
+
+// Streaming session for dungeon simulation (supports incremental batches).
+export type DungeonSimSession = {
+  runBatch: (batchRuns: number) => void
+  getResults: () => DungeonSimResults
+  getProgress: () => DungeonSimProgress
+  isComplete: () => boolean
+}
+
+// Results and progress keyed by spotlight so the event toggle can swap instantly.
+export type DungeonSimSpotlightResults = Record<EventSpotlightSelection, DungeonSimResults>
+export type DungeonSimSpotlightProgress = Record<EventSpotlightSelection, DungeonSimProgress>
+
+// Streaming session for dungeon simulation with both spotlight sets precomputed.
+export type DungeonSimSpotlightSession = {
+  runBatch: (batchRuns: number) => void
+  getResultsBySpotlight: () => DungeonSimSpotlightResults
+  getProgressBySpotlight: () => DungeonSimSpotlightProgress
+  isComplete: () => boolean
+}
+
+// Internal substat tracking for a single item.
+type SimSubstat = {
+  variant: StatVariant
+  rolls: number
+}
+
+// Internal snapshot of substat values by level.
+type SubstatValuesByLevel = Record<LevelMilestone, Record<number, number>>
+
+// Internal accumulator cell keeps raw counts + breakdown map.
+type DungeonSimAccumulatorCell = ReturnType<typeof createEmptyCell>
+
+// Internal runtime state for a single dungeon simulation.
+type DungeonSimRuntime = {
+  dungeonId: DungeonId
+  selection: DungeonStageSelection
+  eventStage: number
+  eventRates: EventDropRates | null
+  rankWeights: readonly number[]
+  rarityWeights: readonly number[]
+  sets: readonly ArtifactSetId[]
+  dropKind: DungeonDropKind
+  spotlightSet: ArtifactSetId
+  rng: () => number
+  cellsBySet: Map<ArtifactSetId, Record<LevelMilestone, DungeonSimAccumulatorCell>>
+  summaryBySet: Map<ArtifactSetId, DungeonSimAccumulatorCell>
+  completed: number
+  runs: number
+}
+
+const buildSubstatValuesByLevel = (
+  rng: () => number,
+  slot: ArtifactTypeId,
+  main: StatVariant,
+  rank: RankValue,
+  rarity: RankValue,
+  substatTargets: SubstatTargetTable,
+): SubstatValuesByLevel => {
+  // Start with the allowed substat pool for this slot.
+  const allowed = Array.from(ALLOWED_SUB_BY_SLOT[Number(slot) as ArtifactType] ?? [])
+  // Filter out substats that clash with the chosen main stat.
+  const pool = allowed.filter((variant) => !substatMatchesMainVariant(variant, main))
+  // Determine how many substats spawn at level 0.
+  const startCount = SUBSTAT_START_COUNT[Number(rarity)] ?? 0
+  // Seed the initial substats without duplicates.
+  const substats: SimSubstat[] = []
+  for (let i = 0; i < startCount && pool.length > 0; i += 1) {
+    substats.push({ variant: pullRandom(rng, pool), rolls: 0 })
+  }
+  // Apply Mythical pre-rolls at level 0.
+  const preRolls = SUBSTAT_PRE_ROLLS[Number(rarity)] ?? 0
+  for (let i = 0; i < preRolls && substats.length > 0; i += 1) {
+    const target = pickUniform(rng, substats)
+    target.rolls += 1
+  }
+  // Helper to snapshot current substat values into a map.
+  const snapshot = (): Record<number, number> => {
+    const values: Record<number, number> = {}
+    for (const stat of substats) {
+      const base = baseMinForStarV(stat.variant, Number(rank) as RankValue, substatTargets)
+      const value = base * (1 + stat.rolls)
+      if (value > 0) values[Number(stat.variant)] = value
+    }
+    return values
+  }
+  // Start with the level-0 snapshot.
+  const byLevel: SubstatValuesByLevel = {
+    0: snapshot(),
+    4: {},
+    8: {},
+    12: {},
+    16: {},
+  }
+  // Advance through each milestone to roll/add substats.
+  for (const lvl of [4, 8, 12, 16] as const) {
+    const addLevels = SUBSTAT_ADD_LEVELS[Number(rarity)] ?? []
+    const shouldAdd = addLevels.includes(lvl)
+    if (shouldAdd && pool.length > 0 && substats.length < 4) {
+      substats.push({ variant: pullRandom(rng, pool), rolls: 0 })
+    } else if (substats.length > 0) {
+      const target = pickUniform(rng, substats)
+      target.rolls += 1
+    }
+    byLevel[lvl] = snapshot()
+  }
+  return byLevel
+}
+
+const pickRankFromWeights = (rng: () => number, weights: readonly number[]): RankValue => {
+  const idx = pickWeightedIndex(rng, weights)
+  return (idx + 1) as RankValue
+}
+
+// Rarity selection uses the same 1..6 index mapping as rank selection.
+const pickRarityFromWeights = (rng: () => number, weights: readonly number[]): RankValue => {
+  const idx = pickWeightedIndex(rng, weights)
+  return (idx + 1) as RankValue
+}
+
+const pickAccessorySlot = (rng: () => number, stage: number): ArtifactTypeId => {
+  const weights = accessoryTypeWeightsForStage(stage)
+  const idx = pickWeightedIndex(rng, weights)
+  return ACCESSORY_SLOTS[Math.max(0, Math.min(ACCESSORY_SLOTS.length - 1, idx))]!
+}
+
+const pickMainStat = (rng: () => number, slot: ArtifactTypeId): StatVariant => {
+  const allowed = Array.from(ALLOWED_MAIN_BY_SLOT[Number(slot) as ArtifactType] ?? [])
+  if (allowed.length === 0) return StatVariant.HP
+  return pickUniform(rng, allowed) as StatVariant
+}
+
+const pickFactionForSlot = (rng: () => number, slot: ArtifactTypeId): FactionId | undefined => {
+  if (!isAccessorySlot(slot)) return undefined
+  return pickUniform(rng, ACCESSORY_FACTIONS)
+}
+
+const buildTestItem = (
+  base: {
+    slot: ArtifactTypeId
+    set: ArtifactSetId
+    rank: RankValue
+    rarity: RankValue
+    main: StatVariant
+    faction?: FactionId
+  },
+  level: LevelMilestone,
+  subValues: Record<number, number>,
+): TestItem => ({
+  slot: base.slot,
+  set: base.set,
+  rank: base.rank,
+  rarity: base.rarity,
+  level,
+  // Only include faction when present to satisfy exactOptionalPropertyTypes.
+  ...(base.faction != null ? { faction: base.faction } : {}),
+  main: base.main,
+  subValues,
+})
+
+const createEmptyCell = (): { total: number; kept: number; breakdown: Map<string, DungeonSimBreakdown> } => ({
+  total: 0,
+  kept: 0,
+  breakdown: new Map(),
+})
+
+const ensureBreakdownEntry = (
+  map: Map<string, DungeonSimBreakdown>,
+  slot: ArtifactTypeId,
+  main: StatVariant,
+): DungeonSimBreakdown => {
+  const key = `${Number(slot)}|${Number(main)}`
+  const existing = map.get(key)
+  if (existing) return existing
+  const created: DungeonSimBreakdown = { slot, main, kept: 0, total: 0 }
+  map.set(key, created)
+  return created
+}
+
+const finalizeCell = (cell: { total: number; kept: number; breakdown: Map<string, DungeonSimBreakdown> }): DungeonSimCell => ({
+  total: cell.total,
+  kept: cell.kept,
+  breakdown: Array.from(cell.breakdown.values()),
+})
+
+// Build empty cell maps for every level milestone.
+const createCellMap = (): Record<LevelMilestone, ReturnType<typeof createEmptyCell>> => ({
+  0: createEmptyCell(),
+  4: createEmptyCell(),
+  8: createEmptyCell(),
+  12: createEmptyCell(),
+  16: createEmptyCell(),
+})
+
+// Resolve rank weights for event stages (uses normal table below stage 20).
+const eventRankWeightsForStage = (stage: number): readonly number[] => {
+  if (stage < 20) {
+    return rankWeightsForStage('normal', stage)
+  }
+  const rates = interpolateEventRates(stage)
+  const sixStar = clampNumber(rates.sixStar, 0, 100)
+  const fiveStar = clampNumber(100 - sixStar, 0, 100)
+  return [0, 0, 0, 0, fiveStar, sixStar]
+}
+
+// Build runtime state for a dungeon (weights, RNG, and accumulator maps).
+const createDungeonRuntime = (params: {
+  dungeonId: DungeonId
+  selection?: DungeonStageSelection
+  runs: number
+  spotlight: EventSpotlightSelection
+}): DungeonSimRuntime => {
+  const { dungeonId, runs, spotlight } = params
+  // Normalize stage selection so downstream weights are always in-range.
+  const selection = normalizeDungeonStageSelection(dungeonId, params.selection)
+  // Event logic reuses the normalized stage directly.
+  const eventStage = selection.stage
+  // Event-specific drop split rates are only relevant for the event dungeon.
+  const eventRates = dungeonId === 'event' ? interpolateEventRates(eventStage) : null
+  // Rank weights depend on mode (or event anchors for the event dungeon).
+  const rankWeights = dungeonId === 'event'
+    ? eventRankWeightsForStage(eventStage)
+    : rankWeightsForStage(selection.mode, selection.stage)
+  // Rarity weights swap to hard tables in the event 26–30 window.
+  const rarityWeights = dungeonId === 'event'
+    ? eventRarityWeightsForStage(eventStage)
+    : rarityWeightsForStage(selection.mode, selection.stage)
+  // Resolve the visible set columns for this dungeon.
+  const sets = resolveDungeonSets(dungeonId, spotlight)
+  // Initialize per-set accumulator maps for each milestone.
+  const cellsBySet = new Map<ArtifactSetId, Record<LevelMilestone, DungeonSimAccumulatorCell>>()
+  // Initialize per-set summary cells (kept at any level).
+  const summaryBySet = new Map<ArtifactSetId, DungeonSimAccumulatorCell>()
+  for (const setId of sets) {
+    cellsBySet.set(setId, createCellMap())
+    summaryBySet.set(setId, createEmptyCell())
+  }
+  // Seed RNG per dungeon + selection for deterministic output.
+  const seedStage = dungeonId === 'event' ? String(eventStage) : String(selection.stage)
+  const rng = createRng(hashSeed(`${dungeonId}:${selection.mode}:${seedStage}:${spotlight}`))
+  return {
+    dungeonId,
+    selection,
+    eventStage,
+    eventRates,
+    rankWeights,
+    rarityWeights,
+    sets,
+    // Cache drop-kind and spotlight set for the tight inner loop.
+    dropKind: DUNGEON_DROP_KIND[dungeonId],
+    spotlightSet: resolveEventSpotlightSet(spotlight),
+    rng,
+    cellsBySet,
+    summaryBySet,
+    completed: 0,
+    runs,
+  }
+}
+
+// Execute a batch of runs for a single dungeon runtime.
+const runDungeonBatch = (
+  runtime: DungeonSimRuntime,
+  rules: HsfRuleWithCfg[],
+  substatTargets: SubstatTargetTable,
+  batchRuns: number,
+): number => {
+  // Clamp the batch to the remaining runs so we never overshoot.
+  const remaining = Math.max(0, runtime.runs - runtime.completed)
+  // Guard against invalid batch sizes.
+  const requested = Math.max(0, Math.floor(batchRuns))
+  // Only execute up to the remaining quota.
+  const toRun = Math.min(remaining, requested)
+  if (toRun <= 0) return 0
+  const {
+    selection,
+    eventRates,
+    rankWeights,
+    rarityWeights,
+    sets,
+    dropKind,
+    spotlightSet,
+    rng,
+    cellsBySet,
+    summaryBySet,
+  } = runtime
+  for (let i = 0; i < toRun; i += 1) {
+    // Determine which set and slot drop based on dungeon rules.
+    let dropSet: ArtifactSetId
+    let slot: ArtifactTypeId
+    if (dropKind === 'accessory') {
+      // Spider (and accessory-only sources) always drop accessories.
+      dropSet = ACCESSORY_NO_SET_ID as ArtifactSetId
+      slot = pickAccessorySlot(rng, selection.stage)
+    } else if (dropKind === 'mixed' && eventRates) {
+      // Event dungeon splits between accessories, spotlight, and non-spotlight artifacts.
+      const roll = rng() * 100
+      if (roll < eventRates.accessories) {
+        dropSet = ACCESSORY_NO_SET_ID as ArtifactSetId
+        slot = pickAccessorySlot(rng, selection.stage)
+      } else if (roll < eventRates.accessories + eventRates.spotlight) {
+        dropSet = spotlightSet
+        slot = pickUniform(rng, ARTIFACT_SLOTS)
+      } else {
+        dropSet = pickUniform(rng, EVENT_NON_SPOTLIGHT_SETS)
+        slot = pickUniform(rng, ARTIFACT_SLOTS)
+      }
+    } else {
+      // Standard artifact dungeons pick uniformly across their set pools.
+      dropSet = pickUniform(rng, sets)
+      slot = pickUniform(rng, ARTIFACT_SLOTS)
+    }
+    // Rank/rarity/main/faction selection mirrors the in-game drop rules.
+    const rank = pickRankFromWeights(rng, rankWeights)
+    const rarity = pickRarityFromWeights(rng, rarityWeights)
+    const main = pickMainStat(rng, slot)
+    const faction = pickFactionForSlot(rng, slot)
+    // Build substat snapshots at each milestone level.
+    const subValuesByLevel = buildSubstatValuesByLevel(rng, slot, main, rank, rarity, substatTargets)
+    // Base item properties stay constant across the milestone checks.
+    const baseItem = {
+      slot,
+      set: dropSet,
+      rank,
+      rarity,
+      main,
+      ...(faction != null ? { faction } : {}),
+    }
+    const targetCells = cellsBySet.get(dropSet)
+    const summaryCell = summaryBySet.get(dropSet)
+    if (!targetCells || !summaryCell) continue
+    // Track whether the item is kept at any milestone for summary rows.
+    let keptAny = false
+    for (const lvl of DUNGEON_SIM_LEVELS) {
+      const cell = targetCells[lvl]
+      const subValues = subValuesByLevel[lvl]
+      // Evaluate this item snapshot against the current rules.
+      const testItem = buildTestItem(baseItem, lvl, subValues)
+      const match = evaluateFirst(rules, testItem)
+      const kept = match ? match.keep : true
+      if (kept) keptAny = true
+      // Update the cell-level tallies.
+      cell.total += 1
+      if (kept) cell.kept += 1
+      const breakdown = ensureBreakdownEntry(cell.breakdown, slot, main)
+      breakdown.total += 1
+      if (kept) breakdown.kept += 1
+    }
+    // Update the summary cell using the "kept at any level" rule.
+    summaryCell.total += 1
+    if (keptAny) summaryCell.kept += 1
+    const summaryBreakdown = ensureBreakdownEntry(summaryCell.breakdown, slot, main)
+    summaryBreakdown.total += 1
+    if (keptAny) summaryBreakdown.kept += 1
+  }
+  // Track the completed run count for progress snapshots.
+  runtime.completed += toRun
+  return toRun
+}
+
+// Convert runtime accumulators into the public results shape.
+const finalizeDungeonResults = (runtime: DungeonSimRuntime): DungeonSimDungeonResults => {
+  const results: DungeonSimDungeonResults = {} as DungeonSimDungeonResults
+  for (const [setId, cells] of runtime.cellsBySet.entries()) {
+    const summaryCell = runtime.summaryBySet.get(setId) ?? createEmptyCell()
+    results[setId] = {
+      levels: {
+        0: finalizeCell(cells[0]),
+        4: finalizeCell(cells[4]),
+        8: finalizeCell(cells[8]),
+        12: finalizeCell(cells[12]),
+        16: finalizeCell(cells[16]),
+      },
+      summary: finalizeCell(summaryCell),
+    }
+  }
+  return results
+}
+
+// Build a streaming simulation session so callers can run in batches.
+export const createDungeonSimSession = (params: {
+  rules: HsfRuleWithCfg[]
+  substatTargets: SubstatTargetTable
+  selections?: Partial<Record<DungeonId, DungeonStageSelection>>
+  spotlight?: EventSpotlightSelection
+  runs?: number
+}): DungeonSimSession => {
+  // Default to the fixed run count when none is supplied.
+  const runs = params.runs ?? DUNGEON_SIM_RUNS_PER_DUNGEON
+  // Spotlight defaults to the current event rotation.
+  const spotlight = params.spotlight ?? EVENT_SPOTLIGHT_DEFAULT
+  // Build per-dungeon runtimes so batches can iterate efficiently.
+  const runtimes = new Map<DungeonId, DungeonSimRuntime>()
+  for (const dungeonId of DUNGEON_IDS) {
+    runtimes.set(dungeonId, createDungeonRuntime({
+      dungeonId,
+      runs,
+      spotlight,
+      ...(params.selections?.[dungeonId] ? { selection: params.selections[dungeonId] } : {}),
+    }))
+  }
+  // Total progress counts every run across every dungeon.
+  const total = runs * DUNGEON_IDS.length
+  // Materialize completed counts per dungeon for UI consumption.
+  const getCompletedByDungeon = (): Record<DungeonId, number> => {
+    const map = {} as Record<DungeonId, number>
+    for (const dungeonId of DUNGEON_IDS) {
+      map[dungeonId] = runtimes.get(dungeonId)?.completed ?? 0
+    }
+    return map
+  }
+  // Progress snapshot drives streaming UI updates.
+  const getProgress = (): DungeonSimProgress => ({
+    completed: Array.from(runtimes.values()).reduce((sum, runtime) => sum + runtime.completed, 0),
+    total,
+    completedByDungeon: getCompletedByDungeon(),
+    runsPerDungeon: runs,
+  })
+  // Finalize the current accumulators into a DungeonSimResults payload.
+  const getResults = (): DungeonSimResults => {
+    const results: DungeonSimResults = {} as DungeonSimResults
+    for (const dungeonId of DUNGEON_IDS) {
+      const runtime = runtimes.get(dungeonId)
+      if (!runtime) continue
+      results[dungeonId] = finalizeDungeonResults(runtime)
+    }
+    return results
+  }
+  // Run a batch across every dungeon runtime.
+  const runBatch = (batchRuns: number) => {
+    const normalizedBatch = Math.max(0, Math.floor(batchRuns))
+    if (normalizedBatch <= 0) return
+    for (const runtime of runtimes.values()) {
+      runDungeonBatch(runtime, params.rules, params.substatTargets, normalizedBatch)
+    }
+  }
+  // Completion check mirrors the aggregated progress totals.
+  const isComplete = (): boolean => getProgress().completed >= total
+  return {
+    runBatch,
+    getResults,
+    getProgress,
+    isComplete,
+  }
+}
+
+// Build a streaming session that precomputes both event spotlight variants.
+export const createDungeonSimSpotlightSession = (params: {
+  rules: HsfRuleWithCfg[]
+  substatTargets: SubstatTargetTable
+  selections?: Partial<Record<DungeonId, DungeonStageSelection>>
+  spotlights?: readonly EventSpotlightSelection[]
+  runs?: number
+}): DungeonSimSpotlightSession => {
+  // Default run count mirrors the global simulator default.
+  const runs = params.runs ?? DUNGEON_SIM_RUNS_PER_DUNGEON
+  // Copy the spotlight array so we can safely mutate.
+  const spotlights = (params.spotlights ?? EVENT_SPOTLIGHT_OPTIONS).slice()
+  if (spotlights.length === 0) {
+    // Ensure at least one spotlight exists so the UI can render.
+    spotlights.push(EVENT_SPOTLIGHT_DEFAULT)
+  }
+  // Non-event dungeons share a single runtime seeded with the default spotlight.
+  const baseRuntimes = new Map<DungeonId, DungeonSimRuntime>()
+  for (const dungeonId of DUNGEON_IDS) {
+    if (dungeonId === 'event') continue
+    // Use the default spotlight because non-event dungeons are spotlight-agnostic.
+    baseRuntimes.set(dungeonId, createDungeonRuntime({
+      dungeonId,
+      runs,
+      spotlight: EVENT_SPOTLIGHT_DEFAULT,
+      ...(params.selections?.[dungeonId] ? { selection: params.selections[dungeonId] } : {}),
+    }))
+  }
+  // Event dungeon runs once per spotlight.
+  const eventRuntimes = new Map<EventSpotlightSelection, DungeonSimRuntime>()
+  for (const spotlight of spotlights) {
+    // Each spotlight needs its own runtime because the set pool changes.
+    eventRuntimes.set(spotlight, createDungeonRuntime({
+      dungeonId: 'event',
+      runs,
+      spotlight,
+      ...(params.selections?.event ? { selection: params.selections.event } : {}),
+    }))
+  }
+  // Total progress counts every dungeon, including event per spotlight.
+  const total = runs * DUNGEON_IDS.length
+  const buildProgressForSpotlight = (spotlight: EventSpotlightSelection): DungeonSimProgress => {
+    // Build a per-dungeon completed map so the UI can label progress accurately.
+    const completedByDungeon = {} as Record<DungeonId, number>
+    let completed = 0
+    for (const dungeonId of DUNGEON_IDS) {
+      if (dungeonId === 'event') continue
+      const runtime = baseRuntimes.get(dungeonId)
+      const count = runtime?.completed ?? 0
+      completedByDungeon[dungeonId] = count
+      completed += count
+    }
+    // Add the event runtime for the specific spotlight.
+    const eventRuntime = eventRuntimes.get(spotlight)
+    const eventCompleted = eventRuntime?.completed ?? 0
+    completedByDungeon.event = eventCompleted
+    completed += eventCompleted
+    return {
+      completed,
+      total,
+      completedByDungeon,
+      runsPerDungeon: runs,
+    }
+  }
+  const getResultsBySpotlight = (): DungeonSimSpotlightResults => {
+    // Base results are shared by all spotlights (non-event dungeons).
+    const baseResults: DungeonSimResults = {} as DungeonSimResults
+    for (const dungeonId of DUNGEON_IDS) {
+      if (dungeonId === 'event') continue
+      const runtime = baseRuntimes.get(dungeonId)
+      if (!runtime) continue
+      baseResults[dungeonId] = finalizeDungeonResults(runtime)
+    }
+    const resultsBySpotlight = {} as DungeonSimSpotlightResults
+    for (const spotlight of spotlights) {
+      // Merge the spotlight-specific event results on top of the shared base.
+      const eventRuntime = eventRuntimes.get(spotlight)
+      resultsBySpotlight[spotlight] = {
+        ...baseResults,
+        event: eventRuntime ? finalizeDungeonResults(eventRuntime) : ({} as DungeonSimDungeonResults),
+      }
+    }
+    return resultsBySpotlight
+  }
+  const getProgressBySpotlight = (): DungeonSimSpotlightProgress => {
+    // Produce an independent progress object for each spotlight view.
+    const progressBySpotlight = {} as DungeonSimSpotlightProgress
+    for (const spotlight of spotlights) {
+      progressBySpotlight[spotlight] = buildProgressForSpotlight(spotlight)
+    }
+    return progressBySpotlight
+  }
+  const runBatch = (batchRuns: number) => {
+    // Normalize the batch so callers can't pass a zero or NaN batch.
+    const normalizedBatch = Math.max(0, Math.floor(batchRuns))
+    if (normalizedBatch <= 0) return
+    // Run the shared dungeons once per batch.
+    for (const runtime of baseRuntimes.values()) {
+      runDungeonBatch(runtime, params.rules, params.substatTargets, normalizedBatch)
+    }
+    // Run the event dungeon once per spotlight per batch.
+    for (const runtime of eventRuntimes.values()) {
+      runDungeonBatch(runtime, params.rules, params.substatTargets, normalizedBatch)
+    }
+  }
+  const isComplete = (): boolean => {
+    // All base dungeons must finish their run counts.
+    for (const runtime of baseRuntimes.values()) {
+      if (runtime.completed < runs) return false
+    }
+    // Every spotlight event run must also finish.
+    for (const runtime of eventRuntimes.values()) {
+      if (runtime.completed < runs) return false
+    }
+    return true
+  }
+  return {
+    runBatch,
+    getResultsBySpotlight,
+    getProgressBySpotlight,
+    isComplete,
+  }
+}
+
+// Simulate every dungeon with the same rules and substat targets.
+export const simulateDungeonDrops = (params: {
+  rules: HsfRuleWithCfg[]
+  substatTargets: SubstatTargetTable
+  selections?: Partial<Record<DungeonId, DungeonStageSelection>>
+  spotlight?: EventSpotlightSelection
+  runs?: number
+}): DungeonSimResults => {
+  const runs = params.runs ?? DUNGEON_SIM_RUNS_PER_DUNGEON
+  const session = createDungeonSimSession({ ...params, runs })
+  session.runBatch(runs)
+  return session.getResults()
+}

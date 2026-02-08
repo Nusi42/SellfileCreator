@@ -6190,10 +6190,12 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           testerItems={testerItems}
 	          setTesterItems={setTesterItems}
 	          allocTesterItemId={allocTesterItemId}
-	          testerMatches={testerMatchesByItemId}
-	          onResetGearTester={handleResetGearTesterItems}
-	          emptyStateVerticalAlign={emptyStateVerticalAlign}
-	        />
+          testerMatches={testerMatchesByItemId}
+          onResetGearTester={handleResetGearTesterItems}
+          rules={mergedRules}
+          substatTargets={substatTargets}
+          emptyStateVerticalAlign={emptyStateVerticalAlign}
+        />
       ) : null}
       {/* Tutorial overlay */}
       <TutorialCoach
