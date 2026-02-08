@@ -10,7 +10,7 @@ RSL Helper için satış kurallarını basit bir arayüzle oluşturun, önizleyi
 - Sürükle-bırak veya Load düğmesi: `.hsfc`, `.hsf` ya da `.db` dosyalarını herhangi bir yere bırakın (katman doğrular) ya da “Load RSL Helper Sellfile” düğmesine tıklayın. İki yol da aynı yönlendirmeyi kullanır; `.hsfc` oluşturucuyu değiştirir, `.hsf` isteğe bağlı baz Sellfile olarak katmanlanır ve `.db` dökümleri Kural testi kuyruğuna aktarılır (oluşturucuya dokunmadan).
 - Metasetler: Ekipman setlerini (ör. Hız + Algı) gruplayın ve birçok kuralda tekrar kullanın.
 - Tek tıkla dışa aktarma: RSL Helper’da kullanılmaya hazır bir HSF dosyası üretin.
-- “Logic Hub” düğmesi: Önizleme başlığından bu düğmeye basarak `Nihai satış`, `Benzersizleri Koru` ve Ekipman diyaloğuna (Logic Hub içindeki Gear sekmesi) tek noktadan ulaşın. Örnek ekipman oluşturun, satırları yapıştırın veya `%APPDATA%\\RslHelper\\Config` yolunu sürükleyin; ardından diyaloğu kapatıp önizleme anahtarını ihtiyacınız olan tabloda bırakın — tester kuyruğu yeniden açmadan görünür kalır.
+- “Logic Hub” düğmesi: Önizleme başlığından bu düğmeye basarak `Nihai satış`, `Benzersizleri Koru`, `Zindan Düşüşleri` ve Ekipman diyaloğuna (Logic Hub içindeki Gear sekmesi) tek noktadan ulaşın. Örnek ekipman oluşturun, satırları yapıştırın veya `%APPDATA%\\RslHelper\\Config` yolunu sürükleyin; ardından diyaloğu kapatıp önizleme anahtarını ihtiyacınız olan tabloda bırakın — tester kuyruğu yeniden açmadan görünür kalır.
 - «Benzersizleri Koru» sekmesi: Kaybetmenize asla izin vermek istemediğiniz kombinasyonları tanımlayın. Konfigleriniz + şu anda aktif olan Satış kurallarınız tüm kopyaları siliyorsa tarayıcı otomatik olarak koruma kuralları üretir.
 
 ## Nasıl kullanılır
@@ -131,6 +131,21 @@ Kapsam çiplerini üst üste koymak kimin kendi kotasını alacağını değişt
 | SPD’li ACC sancakları | Slot = Sancak, Ana stat = ACC, Alt statlar = SPD + ACC, Ağırlıklar: SPD daha yüksek | `3` | `Fraksiyon başına` | Her fraksiyon SPD’nin daha önemli olduğu en iyi ACC sancaklarını tutar. |
 
 İpucu: “Benzersizleri Koru” sekmesini açmadan önce `.db` içe aktarın veya Ekipman diyaloğunda eşya ekleyin ki tarayıcı gerçek veriyi görsün. Bir kural kartına tıklayın; eşleşen eşyalar vurgulanır. `Filtre`yi `Seçim`e alarak sadece bu eşleşmeleri görürsünüz.
+
+### Zindan Düşüşleri (Simülatör)
+Logic Hub’ı açıp **Zindan Düşüşleri** sekmesine geçin. Mevcut Sellfile kurallarınızla zindan farmını simüle eder; set ve seviye adımına göre ne kadar ekipman tutacağınızı gösterir.
+
+- Bir zindan ve aşama seçin.
+- Simülasyon modu:
+  - `Seviye yükseltme`: roll’lar, eşya satılacak noktaya geldiğinde durur; bu yüzden gerçek seviyeleme ile uyumludur.
+  - `Anlık görüntü`: roll’lar her zaman +16’ya kadar gider, eşya daha önce satılacak olsa bile.
+- Tablo, o aşamadaki tüm düşüşlere göre tutulan düşüş oranını +0 / +4 / +8 / +12 / +16 için gösterir.
+- Bir hücreye tıklayıp slot + ana stat dökümünü görün, sonra **Belirli alt stat olasılıkları** ile tam olasılıkları ve koşu tahminlerini açın.
+
+Notlar:
+- Mevcut Tut/Sat kurallarınızı kullanır; Nihai satış ve Benzersizleri Koru dahildir.
+- Her aşama için yaklaşık 100.000 düşüş çalıştırır ve çalışırken günceller.
+- Düşüş oranları ve roll’lar simülasyondur; sayılar tahmindir.
 
 ### Konfig yönetimi
 - Kaydedilen konfig listesi: Her konfig oluşturucunun altında küçük bir etiket olarak görünür. Sol tık seçer, çoğaltmak/yeniden sıralamak/silmek için sağ tık menülerini kullanabilirsin; «Konfigleri sil» düğmesi tüm listeyi (onay isteyerek) kaldırır.

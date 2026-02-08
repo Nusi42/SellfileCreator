@@ -10,7 +10,7 @@ Build, preview, and export sell rules for RSL Helper with a simple UI.
 - Drag & drop or Load button: drop `.hsfc`, `.hsf`, or `.db` anywhere (overlay confirms) or click “Load RSL Helper Sellfile”. Both options behave the same — `.hsfc` replaces your builder, `.hsf` layers on the optional base sellfile, and `.db` dumps go straight into the Rule Tester queue without touching the builder.
 - Metasets: name groups of gear sets (e.g., Speed + Perception) and reuse them across rules.
 - One-click Export: export an HSF file (the RSL Helper Sellfile) ready for RSL Helper.
-- Logic Hub button (`Logic Hub`): open the dialog from the preview header to reach `Final Sell`, `Keep Uniques`, and the Gear dialog (Logic Hub → Gear tab) from the same place. Load example gear, paste drops, or drag `%APPDATA%\\RslHelper\\Config`, then close the dialog and leave the preview toggle on whichever table you need — the tester queue stays visible without reopening.
+- Logic Hub button (`Logic Hub`): open the dialog from the preview header to reach `Final Sell`, `Keep Uniques`, `Dungeon Drops`, and the Gear dialog (Logic Hub → Gear tab) from the same place. Load example gear, paste drops, or drag `%APPDATA%\\RslHelper\\Config`, then close the dialog and leave the preview toggle on whichever table you need — the tester queue stays visible without reopening.
 - Keep Uniques tab: define combinations you never want to lose, and the scanner injects keep rules automatically whenever your configs plus your current active Sell rules would sell every piece in that combination.
 
 ## How To Use
@@ -135,6 +135,21 @@ Stacking the scope chips changes who gets their own quota. Leave `Per rule` on t
 | ACC banners that still roll SPD | Slot = Banner, Main Stat = ACC, Substats = SPD + ACC, Weights favor SPD | `3` | `Per faction` | Each faction keeps the best ACC banners where SPD rolls matter most. |
 
 Tip: Import your `.db` or paste gear into the Gear dialog before opening Keep Uniques so the scanner sees real items. Click a rule card to highlight matching gear; switch `Filter` to `Selection` to view only those matches.
+
+### Dungeon Drops (Simulator)
+Open Logic Hub and switch to **Dungeon Drops**. It simulates dungeon farming using your current Sellfile rules so you can see how much gear you would keep per set and upgrade level.
+
+- Choose a dungeon and stage.
+- Simulation mode:
+  - `Level-up`: rolls stop as soon as the item would be sold, so results match real leveling.
+  - `Snapshot`: rolls always go all the way to +16, even if the item would have been sold earlier.
+- The table shows kept drops divided by all drops for that stage at +0 / +4 / +8 / +12 / +16.
+- Click a cell for slot + main stat breakdowns, then open **Specific substat odds** for exact substat chances and run estimates.
+
+Notes:
+- Uses your current Keep/Sell rules, including Final Sell and Keep Uniques.
+- Runs about 100,000 drops per stage and updates as it runs.
+- Drop rates and rolls are simulated, so treat the numbers as estimates.
 
 ### Managing Configs
 - Saved configs list: Each saved config appears as a small label below the builder. Use this list to select (left‑click), duplicate, reorder, or delete (deletions are confirmed). “Delete Configs” removes all (with confirmation).

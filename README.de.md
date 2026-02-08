@@ -10,7 +10,7 @@ Erstelle, prüfe und exportiere Verkaufsregeln für RSL Helper mit einer übersi
 - Drag & Drop oder Laden-Button: Ziehe `.hsfc`, `.hsf` oder `.db` überall in die App (Overlay bestätigt) oder klicke auf „RSL Helper Sellfile laden“. Beide Wege verhalten sich identisch: `.hsfc` ersetzt den Builder, `.hsf` ergänzt eine optionale Basis-Sellfile, `.db` landet direkt in der Regel Tester-Warteschlange ohne deine Konfigs anzurühren.
 - Metasets: Benenne Set-Gruppen (z. B. Speed + Wahrnehmung) und nutze sie in mehreren Regeln.
 - Export mit einem Klick: Exportiere eine HSF-Datei (die RSL Helper Sellfile), die sofort in RSL Helper geladen werden kann.
-- „Logic Hub“-Button: Öffne den Dialog direkt aus dem Vorschau-Header, um `Finaler Verkauf`, `Unikate behalten` und den Dialog „Ausrüstung“ (Logic-Hub-Tab „Ausrüstung“) gemeinsam zu erreichen. Erstelle Beispielgear, füge Zeilen ein oder ziehe `%APPDATA%\\RslHelper\\Config` herüber; danach kannst du den Dialog schließen und die Vorschau auf der gewünschten Tabelle lassen — die Tester-Warteschlange bleibt sichtbar.
+- „Logic Hub“-Button: Öffne den Dialog direkt aus dem Vorschau-Header, um `Finaler Verkauf`, `Unikate behalten`, `Dungeon-Beute` und den Dialog „Ausrüstung“ (Logic-Hub-Tab „Ausrüstung“) gemeinsam zu erreichen. Erstelle Beispielgear, füge Zeilen ein oder ziehe `%APPDATA%\\RslHelper\\Config` herüber; danach kannst du den Dialog schließen und die Vorschau auf der gewünschten Tabelle lassen — die Tester-Warteschlange bleibt sichtbar.
 - Tab „Unikate behalten“: Definiere Kombinationen, die du nie verlieren willst. Sobald deine Konfigs plus deine aktuell aktiven Verkaufsregeln jedes Exemplar dieser Kombination löschen würden, generiert der Scanner automatisch passende Behalte-Regeln.
 
 ## Nutzung
@@ -132,6 +132,21 @@ Mehrere Bereichs-Chips stapeln die Kontingente. Lass `Pro Regel` aktiv, um einen
 | ACC-Banner mit SPD-Rolls | Slot = Banner, Mainstat = ACC, Substats = SPD + ACC, Gewichte: SPD höher | `3` | `Pro Fraktion` | Jede Fraktion behält die besten ACC-Banner, bei denen SPD besonders zählt. |
 
 Tipp: Importiere deine `.db` oder füge Items im Dialog „Ausrüstung” ein, bevor du die Registerkarte „Unikate behalten“ öffnest, damit der Scanner echte Ausrüstung bewertet. Klicke eine Regelkarte an, um passende Ausrüstung hervorzuheben; stelle `Filter` auf `Auswahl`, um nur diese Treffer zu sehen.
+
+### Dungeon-Beute (Simulator)
+Öffne Logic Hub und wechsle zu **Dungeon-Beute**. Es simuliert Dungeon-Drops mit deinen aktuellen Sellfile-Regeln, damit du siehst, wie viel Ausrüstung du pro Set und Aufwertungsstufe behalten würdest.
+
+- Wähle ein Dungeon und eine Stufe.
+- Simulationsmodus:
+  - `Aufwertung`: Rolls stoppen, sobald das Item verkauft würde, also wie beim echten Aufwerten.
+  - `Momentaufnahme`: Rolls laufen immer bis +16, auch wenn das Item vorher verkauft worden wäre.
+- Die Tabelle zeigt behaltene Drops geteilt durch alle Drops dieser Stufe bei +0 / +4 / +8 / +12 / +16.
+- Klicke auf eine Zelle für Slot- und Mainstat-Aufschlüsselungen, dann öffne **Spezifische Substat-Chancen** für genaue Substat-Wahrscheinlichkeiten und Schätzungen für Durchläufe.
+
+Hinweise:
+- Nutzt deine aktuellen Behalten/Verkaufen-Regeln inklusive Finaler Verkauf und Unikate behalten.
+- Läuft mit etwa 100.000 Drops pro Stufe und aktualisiert sich währenddessen.
+- Drop-Raten und Rolls sind simuliert, die Zahlen sind Schätzungen.
 
 ### Konfigs verwalten
 - Gespeicherte Konfigs erscheinen als Chips unter dem Builder. Linksklick wählt sie zum Bearbeiten, Rechtsklick öffnet das Kontextmenü (Duplizieren, Verschieben, Kopieren, Löschen). „Delete Konfigs“ entfernt alle Konfigs (mit Sicherheitsabfrage).

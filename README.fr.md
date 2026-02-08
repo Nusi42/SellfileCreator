@@ -10,7 +10,7 @@ Construisez, prévisualisez et exportez des règles de vente pour RSL Helper via
 - Glisser-déposer ou bouton Charger : déposez `.hsfc`, `.hsf` ou `.db` où vous voulez (l’overlay confirme) ou cliquez sur « Charger Sellfile RSL Helper ». Les deux options font exactement la même chose : `.hsfc` remplace votre builder, `.hsf` ajoute une Sellfile de base optionnelle et `.db` alimente directement la file du Testeur de règles sans toucher vos configs.
 - Méta-sets : nommez des groupes de sets (ex. Vitesse + Perception) et réutilisez-les dans plusieurs règles.
 - Export en un clic : exportez un fichier HSF (Sellfile RSL Helper) prêt à être chargé dans RSL Helper.
-- Bouton « Logic Hub » : ouvrez le dialogue depuis l’en-tête pour accéder à `Vente finale`, `Conserver les uniques` et au dialogue « Équipement » (onglet Équipement dans Logic Hub) au même endroit. Créez un équipement d’exemple, collez des lignes ou glissez `%APPDATA%\\RslHelper\\Config`, puis refermez le dialogue et laissez l’interrupteur d’aperçu sur la table voulue — la file du testeur reste visible sans rouvrir l’onglet.
+- Bouton « Logic Hub » : ouvrez le dialogue depuis l’en-tête pour accéder à `Vente finale`, `Conserver les uniques`, `Butin de donjon` et au dialogue « Équipement » (onglet Équipement dans Logic Hub) au même endroit. Créez un équipement d’exemple, collez des lignes ou glissez `%APPDATA%\\RslHelper\\Config`, puis refermez le dialogue et laissez l’interrupteur d’aperçu sur la table voulue — la file du testeur reste visible sans rouvrir l’onglet.
 - Onglet « Conserver les uniques » : définissez les combinaisons que vous ne voulez jamais perdre. Dès que vos configs plus vos règles de vente actuellement actives supprimeraient toutes les copies, l’analyse génère automatiquement des règles de conservation.
 - Dialogue de restauration Autosave : lorsqu’un Autosave est détecté, choisissez précisément quoi recharger — configs, méta-sets, Objectifs de sous-stats, reste de Vente finale, note épinglée, état du panneau de filtres et même les importations du Testeur de règles.
 - Copier le dossier RSL Helper : le bandeau de l’aperçu expose un bouton presse-papiers qui copie `%APPDATA%\\RslHelper\\Config` pour coller le chemin dans l’Explorateur avant de faire glisser la `.db` dans Sellfile Creator.
@@ -135,6 +135,21 @@ Empiler les puces de portée change qui obtient sa propre quote-part. Laissez «
 | Bannières ACC avec SPD | Slot = Bannière, Stat principale = ACC, Sous-stats = SPD + ACC, Poids : SPD plus élevé | `3` | `Par faction` | Chaque faction garde les meilleures bannières ACC où SPD compte le plus. |
 
 Astuce : Importez votre `.db` ou collez des objets dans le dialogue « Équipement » avant d’ouvrir l’onglet Conserver les uniques pour fournir de vrais items à l’analyse. Cliquez sur une carte de règle pour surligner les correspondances ; passez `Filtrer` sur `Sélection` pour ne voir que ces lignes.
+
+### Butin de donjon (Simulateur)
+Ouvrez Logic Hub et passez sur **Butin de donjon**. Il simule le farm de donjon avec vos règles Sellfile actuelles pour voir combien d’équipement vous garderiez par set et par niveau d’amélioration.
+
+- Choisissez un donjon et un palier.
+- Mode de simulation :
+  - `Montée de niveau` : les rolls s’arrêtent dès que l’objet serait vendu, donc ça reflète le leveling réel.
+  - `Instantané` : les rolls vont toujours jusqu’à +16, même si l’objet aurait été vendu avant.
+- Le tableau affiche les drops conservés divisés par tous les drops de ce palier à +0 / +4 / +8 / +12 / +16.
+- Cliquez sur une cellule pour le détail slot + stat principale, puis ouvrez **Chances de sous-statistiques spécifiques** pour les chances exactes et les estimations de passages.
+
+Notes :
+- Utilise vos règles actuelles Conserver/Vendre, y compris Vente finale et Conserver les uniques.
+- Environ 100 000 drops par palier, avec mise à jour pendant l’exécution.
+- Les taux de drop et les rolls sont simulés : considérez les chiffres comme des estimations.
 
 ### Gestion des configs
 - Les configs sauvegardées apparaissent sous forme de puces sous le builder. Clic gauche pour sélectionner ; clic droit pour dupliquer, déplacer, copier ou supprimer.

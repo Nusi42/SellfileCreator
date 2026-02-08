@@ -10,7 +10,7 @@ Crea, visualizza in anteprima ed esporta regole di vendita per RSL Helper tramit
 - Drag & drop o pulsante Carica: rilascia `.hsfc`, `.hsf` o `.db` ovunque (l'overlay conferma) oppure clicca "Load RSL Helper Sellfile". Entrambe le opzioni si comportano allo stesso modo: `.hsfc` sostituisce il builder, `.hsf` si affianca come Sellfile base opzionale e i dump `.db` finiscono direttamente nella coda del Tester regole senza toccare il builder.
 - Metaset: assegna un nome a gruppi di set (es. Velocità + Percezione) e riutilizzali nelle regole.
 - Esporta con un clic: esporta un file HSF (il Sellfile di RSL Helper) pronto per RSL Helper.
-- Pulsante "Logic Hub": apri il dialogo dall'intestazione per raggiungere `Vendita finale`, `Mantieni unici` e il dialogo Equipaggiamento (scheda Equipaggiamento dentro Logic Hub) nello stesso punto. Crea equip di esempio, incolla righe oppure trascina `%APPDATA%\\RslHelper\\Config`, poi chiudi il dialogo e lascia l'interruttore dell'anteprima sulla tabella che ti serve: la coda del Tester resta visibile senza riaprire nulla.
+- Pulsante "Logic Hub": apri il dialogo dall'intestazione per raggiungere `Vendita finale`, `Mantieni unici`, `Drop dei dungeon` e il dialogo Equipaggiamento (scheda Equipaggiamento dentro Logic Hub) nello stesso punto. Crea equip di esempio, incolla righe oppure trascina `%APPDATA%\\RslHelper\\Config`, poi chiudi il dialogo e lascia l'interruttore dell'anteprima sulla tabella che ti serve: la coda del Tester resta visibile senza riaprire nulla.
 - Scheda "Mantieni unici": definisci le combinazioni che non vuoi perdere mai. Quando le tue configurazioni più le tue regole di vendita attualmente attive eliminerebbero tutte le copie, lo scanner genera automaticamente regole di mantenimento.
 - Dialogo di ripristino Autosave: quando troviamo un Autosave, scegli con precisione cosa ricaricare: configurazioni, Metaset, Valori obiettivo delle sotto-stat, resto di Vendita finale, nota fissata, stato del pannello filtri e perfino le importazioni del Tester regole.
 - Copia la cartella del DB di RSL Helper: l'intestazione dell'anteprima offre un pulsante negli appunti che copia `%APPDATA%\RslHelper\Config` così puoi incollare subito il percorso in Esplora risorse prima di trascinare dentro il `.db`.
@@ -122,6 +122,21 @@ Crea, visualizza in anteprima ed esporta regole di vendita per RSL Helper tramit
 | Vessilli ACC con SPD | Slot = Vessillo, Stat principale = ACC, Substat = SPD + ACC, Pesi: SPD più alto | `3` | `Per fazione` | Ogni fazione tiene i migliori vessilli ACC dove SPD conta di più. |
 
 Suggerimento: importa il tuo `.db` o incolla equipaggiamento nel dialogo Equipaggiamento prima di aprire la scheda Mantieni unici, così lo scanner analizza oggetti reali. Clicca una scheda regola per evidenziare le corrispondenze; imposta `Filtro` su `Selezione` per vedere solo quelle.
+
+### Drop dei dungeon (Simulatore)
+Apri Logic Hub e passa a **Drop dei dungeon**. Simula il farming dei dungeon con le tue regole Sellfile attuali per vedere quanto equipaggiamento manterresti per set e livello di potenziamento.
+
+- Scegli un dungeon e una fase.
+- Modalità di simulazione:
+  - `Livellamento`: i roll si fermano appena l'oggetto verrebbe venduto, quindi rispecchia il livellamento reale.
+  - `Istantanea`: i roll arrivano sempre fino a +16, anche se l'oggetto sarebbe stato venduto prima.
+- La tabella mostra i drop tenuti divisi per tutti i drop di quella fase a +0 / +4 / +8 / +12 / +16.
+- Clicca una cella per il dettaglio slot + statistica principale, poi apri **Probabilità di sotto-stat specifiche** per le chance esatte e le stime di esecuzioni.
+
+Note:
+- Usa le tue regole attuali di Mantieni/Vendi, incluso Vendita finale e Mantieni unici.
+- Circa 100.000 drop per fase e si aggiorna mentre gira.
+- Tassi di drop e roll sono simulati, quindi i numeri sono stime.
 
 ### Gestione delle configurazioni
 - Elenco configurazioni salvate: ogni configurazione appare come un'etichetta sotto il builder. Usa l'elenco per selezionare (clic sinistro), duplicare, riordinare o eliminare (con conferma). "Elimina configurazioni" rimuove tutte (con conferma).
