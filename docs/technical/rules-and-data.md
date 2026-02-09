@@ -83,6 +83,8 @@ This document covers file schemas, builder semantics, and compatibility notes.
 - Rarity “Auto”: HSFC read/write accepts `Rarity: "Auto"`. The builder resolves this to a concrete rarity code before generating HSF rules based on roll requirements, always evaluating against the full +0→+16 timeline so the level window only clips emitted rows:
   - Required rolls are the max of aggregate `minRequiredRolls` and the worst-case sum of per-stat `min` across generated permutations (fixed + highest mins among the remainder up to `minCount`).
   - Mapping: 0→Any, 1→≥ Uncommon, 2→≥ Rare, 3→≥ Epic, 4→≥ Legendary, 5→Mythical (exact).
+  - When Auto has no roll requirements at all (aggregate min = 0 and no per-stat mins), it resolves to `Any` so no roll schedule is implied.
+- Manual roll minimums: when `autoMinRequiredRolls=false` and `minRequiredRolls=0` (with no per-stat mins), the builder suppresses roll-based thresholds for all rarity codes so only base/presence targets are emitted.
 - Presence guards: Locked substats still force Auto to pick a rarity that has those stats present at the earliest emitted level (always +0 for Auto resolution). Auto also clamps to the requested `minCount` (bounded by selected substats) so Flex merely changes permutations, not the rarity floor. At +0 the ladder becomes: needing 1/2/3/4 substats escalates to ≥Uncommon/≥Rare/≥Epic/≥Legendary respectively.
   - Feasibility check: if the base mapping cannot reach the required rolls by +16 given the baseline/start, Mythical is chosen when it makes the target feasible (pre-roll at +0); otherwise the base mapping is used and infeasible rows are pruned as usual.
 - Levels follow `LEVEL_MILESTONES` (0/4/8/12/16).

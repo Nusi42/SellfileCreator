@@ -44,6 +44,7 @@ import {
   type DungeonSimMode,
   type DungeonSimBreakdown,
   type DungeonSimCell,
+  type DungeonSimDungeonResults,
   type DungeonSimGenericQuery,
   type DungeonSimGenericStats,
   type DungeonSimProgress,
@@ -68,13 +69,87 @@ const DUNGEON_LABEL_KEYS: Record<DungeonId, string> = {
   event: 'dungeonEvent',
 }
 
+// Percent precision aims for at least two significant figures in tiny rates.
+const PERCENT_SIG_FIGS = 2
+// Keep baseline precision stable so larger values still show decimals.
+const PERCENT_DECIMALS_MIN = 2
+// Cap the precision so very small rates do not blow out the table width.
+const PERCENT_DECIMALS_MAX = 6
+
+// Clamp precision to the simulation resolution so digits can actually change.
+const resolvePercentDecimalsForResolution = (totalDrops: number): number => {
+  if (!Number.isFinite(totalDrops) || totalDrops <= 0) return PERCENT_DECIMALS_MAX
+  const step = 100 / totalDrops
+  if (!Number.isFinite(step) || step <= 0) return PERCENT_DECIMALS_MAX
+  const decimals = Math.max(0, Math.ceil(-Math.log10(step)))
+  return Math.min(decimals, PERCENT_DECIMALS_MAX)
+}
+
+// Convert a smallest positive percentage into a shared decimal count.
+const resolvePercentDecimalsForMin = (minPositive: number | null, maxDecimals = PERCENT_DECIMALS_MAX): number => {
+  const clampedMax = Math.max(0, maxDecimals)
+  const minDecimals = Math.min(PERCENT_DECIMALS_MIN, clampedMax)
+  // Guard against missing or zero-only datasets.
+  if (!Number.isFinite(minPositive) || !minPositive || minPositive <= 0) {
+    return minDecimals
+  }
+  // Use the magnitude to find the decimal digits needed for 2 sig figs.
+  const exponent = Math.floor(Math.log10(Math.abs(minPositive)))
+  // Compute decimals that preserve at least two meaningful digits.
+  const needed = Math.max(0, PERCENT_SIG_FIGS - 1 - exponent)
+  // Clamp to keep formatting readable in dense grids.
+  return Math.min(Math.max(needed, minDecimals), clampedMax)
+}
+
+// Derive consistent precision from a list of percent values.
+const resolvePercentDecimalsForValues = (values: number[], maxDecimals = PERCENT_DECIMALS_MAX): number => {
+  // Track the smallest positive value in the dataset.
+  let minPositive = Number.POSITIVE_INFINITY
+  for (const value of values) {
+    // Skip zeros and invalid entries to avoid precision drift.
+    if (!Number.isFinite(value) || value <= 0) continue
+    // Keep the smallest positive value as the precision anchor.
+    if (value < minPositive) minPositive = value
+  }
+  // Convert the smallest value into a stable decimal count.
+  return resolvePercentDecimalsForMin(Number.isFinite(minPositive) ? minPositive : null, maxDecimals)
+}
+
+// Resolve the percent precision for a single dungeon table.
+const resolveDungeonTablePercentDecimals = (params: {
+  dungeonResults: DungeonSimDungeonResults | undefined
+  setIds: readonly ArtifactSetId[]
+  totalDrops: number
+}): number => {
+  const { dungeonResults, setIds, totalDrops } = params
+  const maxDecimals = resolvePercentDecimalsForResolution(totalDrops)
+  // Without completed runs or results, fall back to the baseline precision.
+  if (!dungeonResults || totalDrops <= 0) return Math.min(PERCENT_DECIMALS_MIN, maxDecimals)
+  // Track the smallest positive percentage across the table.
+  let minPositive = Number.POSITIVE_INFINITY
+  for (const setId of setIds) {
+    // Skip missing set data to keep resilience when tables stream.
+    const setResults = dungeonResults[setId]
+    if (!setResults) continue
+    for (const level of DUNGEON_SIM_LEVELS) {
+      // Each cell maps to a single set + level percentage.
+      const cell = setResults.levels[level]
+      if (!cell) continue
+      const percent = (cell.kept / totalDrops) * 100
+      if (percent > 0 && percent < minPositive) minPositive = percent
+    }
+  }
+  // Convert the smallest percent into the shared precision.
+  return resolvePercentDecimalsForMin(Number.isFinite(minPositive) ? minPositive : null, maxDecimals)
+}
+
 // Consistent percent formatter keeps the grid and popover aligned.
-const formatPercent = (value: number, digits = 2): string => `${value.toFixed(digits)}%`
+const formatPercent = (value: number, digits = PERCENT_DECIMALS_MIN): string => `${value.toFixed(digits)}%`
 
 // Cell percentages reflect kept drops as a share of all dungeon drops.
-const formatCellPercent = (cell: DungeonSimCell, totalDrops: number): string => {
+const formatCellPercent = (cell: DungeonSimCell, totalDrops: number, digits = PERCENT_DECIMALS_MIN): string => {
   if (totalDrops <= 0) return '—'
-  return formatPercent((cell.kept / totalDrops) * 100)
+  return formatPercent((cell.kept / totalDrops) * 100, digits)
 }
 
 // Standardize milestone labels so collapsed/expanded rows match.
@@ -382,6 +457,26 @@ export default function DungeonSimulatorTab(props: DungeonSimulatorTabProps) {
     ? progress?.completedByDungeon?.[detailTarget.dungeonId] ?? 0
     : 0
 
+  // Choose a consistent percent precision per dungeon table.
+  const tablePercentDecimalsByDungeon = useMemo(() => {
+    // Build the full map so popovers can query by dungeon id.
+    const next = {} as Record<DungeonId, number>
+    for (const dungeonId of DUNGEON_IDS) {
+      // Use the active spotlight to resolve the current table sets.
+      const setIds = resolveDungeonSets(dungeonId, prefs.eventSpotlight)
+      // Pull the latest streamed results for the dungeon.
+      const dungeonResults = simulation?.[dungeonId]
+      // Completed runs define the percent denominator.
+      const totalDrops = progress?.completedByDungeon?.[dungeonId] ?? 0
+      next[dungeonId] = resolveDungeonTablePercentDecimals({
+        dungeonResults,
+        setIds,
+        totalDrops,
+      })
+    }
+    return next
+  }, [simulation, progress, prefs.eventSpotlight])
+
   // Precompute labels for the popover header.
   // Keep this outside render loops so the popover stays cheap.
   const detailSetLabel = detailTarget
@@ -426,6 +521,23 @@ export default function DungeonSimulatorTab(props: DungeonSimulatorTabProps) {
       ? resolvedDetailCell.breakdown.filter((entry) => entry.kept > 0)
       : []
   ), [resolvedDetailCell])
+  // Precision should not exceed the percent resolution implied by completed runs.
+  const detailResolutionMaxDecimals = resolvePercentDecimalsForResolution(detailTotalDrops)
+  // Base precision comes from the parent dungeon table for consistency.
+  const detailTablePercentDecimals = detailTarget
+    ? Math.min(tablePercentDecimalsByDungeon[detailTarget.dungeonId] ?? PERCENT_DECIMALS_MIN, detailResolutionMaxDecimals)
+    : Math.min(PERCENT_DECIMALS_MIN, detailResolutionMaxDecimals)
+  // Detail popover may need extra precision for tiny slot+main percentages.
+  const detailBreakdownPercentDecimals = useMemo(() => {
+    // Fall back to the table precision when there is no data yet.
+    if (detailBreakdown.length === 0 || detailTotalDrops <= 0) {
+      return detailTablePercentDecimals
+    }
+    // Convert breakdown counts to percent-of-all-drops values.
+    const values = detailBreakdown.map((entry) => (entry.kept / detailTotalDrops) * 100)
+    // Keep at least the table precision so numbers never regress.
+    return Math.max(detailTablePercentDecimals, resolvePercentDecimalsForValues(values, detailResolutionMaxDecimals))
+  }, [detailBreakdown, detailTotalDrops, detailTablePercentDecimals, detailResolutionMaxDecimals])
   // Group breakdown entries by slot for the 3x3 layout.
   const detailBreakdownBySlot = useMemo(() => {
     const map = new Map<ArtifactTypeId, DungeonSimBreakdown[]>()
@@ -462,8 +574,16 @@ export default function DungeonSimulatorTab(props: DungeonSimulatorTabProps) {
     }
     // Convert conditional odds into per-run odds by scaling by reach rate.
     const reachRate = stats.total / totalDrops
+    // Normalize the specific odds array so missing entries default to zero.
+    const specificAtLeast = stats.specificAtLeast.map((value) => value ?? 0)
+    // Percent lists feed the dynamic precision resolver for each column.
+    const perRunPercents = specificAtLeast.map((value) => (value * reachRate) * 100)
+    // Cap precision by the simulation resolution of each denominator.
+    const perRunMaxDecimals = resolvePercentDecimalsForResolution(totalDrops)
+    // Resolve column-specific precision so digits always carry signal.
+    const perRunDecimals = resolvePercentDecimalsForValues(perRunPercents, perRunMaxDecimals)
     return (
-      <Stack spacing={1} sx={{ minWidth: 210, maxWidth: 320 }}>
+      <Stack spacing={1} sx={{ minWidth: 230, maxWidth: 360 }}>
         <Typography variant="subtitle2">{t('dungeonDropsSubstatGenericTitle')}</Typography>
         {/* Intro line explains the scope of the tooltip numbers. */}
         <Typography variant="caption" color="text.secondary">
@@ -479,8 +599,8 @@ export default function DungeonSimulatorTab(props: DungeonSimulatorTabProps) {
           <Box
             sx={{
               display: 'grid',
-              // Fixed columns keep the tooltip compact while allowing header wrap.
-              gridTemplateColumns: 'minmax(0, 1fr) repeat(2, minmax(0, 86px))',
+              // Slightly wider numeric columns prevent large percentages from wrapping.
+              gridTemplateColumns: 'minmax(0, 1fr) repeat(2, minmax(0, 94px))',
               columnGap: 0.75,
               rowGap: 0.4,
             }}
@@ -506,10 +626,10 @@ export default function DungeonSimulatorTab(props: DungeonSimulatorTabProps) {
                   {t('dungeonDropsSubstatGenericSpecificLabel', { count })}
                 </Typography>
                 <Typography variant="body2" sx={{ fontWeight: 600, textAlign: 'right' }}>
-                  {formatPercent(((stats.specificAtLeast[idx] ?? 0) * reachRate) * 100)}
+                  {formatPercent(perRunPercents[idx] ?? 0, perRunDecimals)}
                 </Typography>
                 <Typography variant="body2" sx={{ fontWeight: 600, textAlign: 'right' }}>
-                  {formatPercent((stats.specificAtLeast[idx] ?? 0) * 100)}
+                  {formatPercent((specificAtLeast[idx] ?? 0) * 100)}
                 </Typography>
               </Box>
             ))}
@@ -525,8 +645,8 @@ export default function DungeonSimulatorTab(props: DungeonSimulatorTabProps) {
           <Box
             sx={{
               display: 'grid',
-              // Keep numeric columns narrow so the tooltip stays within its max width.
-              gridTemplateColumns: 'minmax(0, 1fr) repeat(4, minmax(0, 60px))',
+              // Give runs columns a bit more room so large counts avoid wrapping.
+              gridTemplateColumns: 'minmax(0, 1fr) repeat(4, minmax(0, 72px))',
               columnGap: 0.75,
               rowGap: 0.4,
             }}
@@ -783,6 +903,7 @@ export default function DungeonSimulatorTab(props: DungeonSimulatorTabProps) {
           const stageRange = resolveDungeonStageRange(dungeonId, selection.mode)
           const stageOptions = buildStageOptions(stageRange)
           const totalDrops = progress?.completedByDungeon?.[dungeonId] ?? 0
+          const tablePercentDecimals = tablePercentDecimalsByDungeon[dungeonId] ?? PERCENT_DECIMALS_MIN
           const isCollapsed = prefs.collapsed?.[dungeonId] ?? true
           // Keep a per-dungeon milestone for the collapsed single-row view.
           const collapsedLevel = prefs.collapsedLevels?.[dungeonId] ?? DUNGEON_SIM_DEFAULT_LEVEL
@@ -1011,7 +1132,7 @@ export default function DungeonSimulatorTab(props: DungeonSimulatorTabProps) {
                       </TableCell>
                       {setIds.map((setId) => {
                         const cell = dungeonResults?.[setId]?.levels?.[collapsedLevel]
-                        const content = cell ? formatCellPercent(cell, totalDrops) : '—'
+                        const content = cell ? formatCellPercent(cell, totalDrops, tablePercentDecimals) : '—'
                         return (
                           <TableCell key={`${dungeonId}-${setId}-lvl-${collapsedLevel}`} sx={{ px: 0.5 }}>
                             <ButtonBase
@@ -1045,7 +1166,7 @@ export default function DungeonSimulatorTab(props: DungeonSimulatorTabProps) {
                         {setIds.map((setId) => {
                           // Cells map to a specific dungeon/set/level triple.
                           const cell = dungeonResults?.[setId]?.levels?.[level]
-                          const content = cell ? formatCellPercent(cell, totalDrops) : '—'
+                          const content = cell ? formatCellPercent(cell, totalDrops, tablePercentDecimals) : '—'
                           return (
                             <TableCell key={`${dungeonId}-${setId}-lvl-${level}`} sx={{ px: 0.5 }}>
                               {/* ButtonBase keeps the full cell clickable for popover details. */}
@@ -1106,7 +1227,7 @@ export default function DungeonSimulatorTab(props: DungeonSimulatorTabProps) {
           <Typography variant="body2">
             {resolvedDetailCell
               ? t('dungeonDropsPopoverSummary', {
-                percent: formatCellPercent(resolvedDetailCell, detailTotalDrops),
+                percent: formatCellPercent(resolvedDetailCell, detailTotalDrops, detailTablePercentDecimals),
                 kept: String(resolvedDetailCell.kept),
                 total: String(detailTotalDrops),
               })
@@ -1182,7 +1303,7 @@ export default function DungeonSimulatorTab(props: DungeonSimulatorTabProps) {
                                   render={renderGenericTooltipContent(genericStats, genericLoading, detailTotalDrops)}
                                   hoverIntent="informational"
                                   placement="right"
-                                  maxWidth={320}
+                                  maxWidth={360}
                                   onOpen={() => {
                                     if (!genericQuery) return
                                     requestGenericStatsForKey(genericKey, genericQuery)
@@ -1225,7 +1346,7 @@ export default function DungeonSimulatorTab(props: DungeonSimulatorTabProps) {
                                       variant="caption"
                                       sx={{ fontWeight: 600, whiteSpace: 'nowrap', textAlign: 'right', pl: 0.25 }}
                                     >
-                                      {formatPercent(value)}
+                                      {formatPercent(value, detailBreakdownPercentDecimals)}
                                     </Typography>
                                   </ButtonBase>
                                 </MarkdownTooltip>
