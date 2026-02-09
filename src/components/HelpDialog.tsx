@@ -95,7 +95,7 @@ export default function HelpDialog({ open, onClose, onStartTutorial, firstRunMod
       const first = lines[0] ?? ''
       if (first.startsWith('# RSL Helper Sellfile Creator')) {
         // Insert a small version/author line under the title
-        const badge = `###### v${APP_VERSION} — © Nusi㊷ - 2025`
+        const badge = `###### v${APP_VERSION} — © Nusi㊷ - 2026`
         // Avoid duplicating if such a line already exists
         if ((lines[1] ?? '').startsWith('###### v')) {
           lines[1] = badge
