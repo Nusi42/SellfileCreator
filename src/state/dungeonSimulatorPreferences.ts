@@ -1,13 +1,15 @@
 /**
  * dungeonSimulatorPreferences.ts
  *
- * Persist the Dungeon Drops simulator selections (stage, spotlight, boosts, collapse state).
+ * Persist the Dungeon Drops simulator selections (stage, spotlight, boosts, collapse state, collapsed level).
  * Keeping this in a localStorage-backed store makes the tab reopen stable.
  */
 import { DUNGEON_SIM_PREFERENCES_KEY } from '../lib/constants'
 import {
   DUNGEON_BOOSTABLE_IDS,
   DUNGEON_IDS,
+  DUNGEON_SIM_DEFAULT_LEVEL,
+  DUNGEON_SIM_LEVELS,
   EVENT_SPOTLIGHT_DEFAULT,
   DUNGEON_SIM_MODE_DEFAULT,
   DUNGEON_SIM_MODES,
@@ -22,6 +24,7 @@ import {
   type DungeonStageSelection,
   type EventSpotlightSelection,
 } from '../lib/dungeonSimulator'
+import type { LevelMilestone } from '../lib/types'
 import { createLocalStorageStateHook, createLocalStorageStore } from './localStorageStore'
 
 // Spotlight defaults to Chronophage because that's the current event rotation.
@@ -47,6 +50,16 @@ const buildDefaultCollapsedMap = (): Record<DungeonId, boolean> => {
   return map
 }
 
+// Build a default collapsed level map so summary rows start at +16.
+const buildDefaultCollapsedLevelMap = (): Record<DungeonId, LevelMilestone> => {
+  // Default to the highest milestone so summary rows match the prior +16 behavior.
+  const map = {} as Record<DungeonId, LevelMilestone>
+  for (const dungeonId of DUNGEON_IDS) {
+    map[dungeonId] = DUNGEON_SIM_DEFAULT_LEVEL
+  }
+  return map
+}
+
 // Build a default boost map for the boostable dungeons.
 const buildDefaultBoostMap = (): Record<DungeonBoostableId, DungeonBoostSelection> => {
   // Only include dungeons where boosts are allowed.
@@ -68,6 +81,8 @@ export type DungeonSimulatorPreferences = {
   boosts: Record<DungeonBoostableId, DungeonBoostSelection>
   // Collapsed state per dungeon table.
   collapsed: Record<DungeonId, boolean>
+  // Collapsed level per dungeon table.
+  collapsedLevels: Record<DungeonId, LevelMilestone>
 }
 
 // Normalize an arbitrary value into a safe stage selection.
@@ -110,11 +125,29 @@ const sanitizeCollapsedMap = (raw: unknown): Record<DungeonId, boolean> => {
   return normalized
 }
 
+// Normalize stored collapsed levels to known milestones.
+const sanitizeCollapsedLevelMap = (raw: unknown): Record<DungeonId, LevelMilestone> => {
+  // Seed from defaults so missing keys still resolve.
+  const fallback = buildDefaultCollapsedLevelMap()
+  if (!raw || typeof raw !== 'object') return fallback
+  const candidate = raw as Partial<Record<DungeonId, LevelMilestone>>
+  const normalized = buildDefaultCollapsedLevelMap()
+  for (const dungeonId of DUNGEON_IDS) {
+    // Clamp unknown values back to the default milestone.
+    const value = candidate[dungeonId]
+    normalized[dungeonId] = DUNGEON_SIM_LEVELS.includes(value as LevelMilestone)
+      ? (value as LevelMilestone)
+      : fallback[dungeonId]
+  }
+  return normalized
+}
+
 // Normalize the persisted preferences, preserving defaults on invalid data.
 const sanitizePreferences = (raw: unknown): DungeonSimulatorPreferences => {
   // Prepare defaults once so all branches use the same baseline.
   const fallbackStages = buildDefaultStageMap()
   const fallbackCollapsed = buildDefaultCollapsedMap()
+  const fallbackCollapsedLevels = buildDefaultCollapsedLevelMap()
   const fallbackBoosts = buildDefaultBoostMap()
   if (!raw || typeof raw !== 'object') {
     return {
@@ -123,6 +156,7 @@ const sanitizePreferences = (raw: unknown): DungeonSimulatorPreferences => {
       simMode: DUNGEON_SIM_MODE_DEFAULT,
       boosts: fallbackBoosts,
       collapsed: fallbackCollapsed,
+      collapsedLevels: fallbackCollapsedLevels,
     }
   }
   const candidate = raw as Partial<DungeonSimulatorPreferences>
@@ -158,6 +192,7 @@ const sanitizePreferences = (raw: unknown): DungeonSimulatorPreferences => {
     simMode: sanitizeSimMode(candidate.simMode),
     boosts: normalizedBoosts,
     collapsed: sanitizeCollapsedMap(candidate.collapsed ?? fallbackCollapsed),
+    collapsedLevels: sanitizeCollapsedLevelMap(candidate.collapsedLevels ?? fallbackCollapsedLevels),
   }
 }
 

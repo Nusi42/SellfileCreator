@@ -13,7 +13,6 @@ import ContextMenuPaper, { buildContextMenuPaperSlotProps } from './ContextMenuP
 import { useContextMenuPaperGuard } from '../hooks/useContextMenuPaperGuard'
 import { GearDbDiffToast } from './GearDbDiffToast'
 import {
-  GEAR_DB_DIFF_TOAST_MAX_ITEMS,
   HISTORY_MENU_MAX_HEIGHT_PX,
   HISTORY_TOOLTIP_MAX_WIDTH_PX,
   LIST_SUBHEADER_SX,
@@ -126,9 +125,9 @@ export function GearDbHistoryMenu({
           // Always show the received timestamp as the final row.
           const timestampLine = formatHistoryTimestamp(entry.createdAt)
           const hasTimestampLine = Boolean(timestampLine && timestampLine.trim().length > 0)
-          // Cap the tooltip list so large diffs stay readable.
-          const cappedEntries = entry.entries.slice(0, GEAR_DB_DIFF_TOAST_MAX_ITEMS)
-          const overflowCount = Math.max(0, entry.entries.length - cappedEntries.length)
+          // Entries are already capped in history so the tooltip matches the toast surface.
+          const cappedEntries = entry.entries
+          const overflowCount = Math.max(0, entry.overflowCount)
           const tooltipPayload: GearDbDiffToastPayload = {
             headerLines,
             lineSpecs: entry.lineSpecs,

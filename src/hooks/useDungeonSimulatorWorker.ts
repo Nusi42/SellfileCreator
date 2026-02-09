@@ -39,6 +39,8 @@ type UseDungeonSimulatorWorkerParams = {
   boosts?: Partial<Record<DungeonBoostableId, DungeonBoostSelection>>
   spotlight?: EventSpotlightSelection
   mode?: DungeonSimMode
+  // Bump this token to force a full resimulation without changing inputs.
+  refreshToken?: number
   runs?: number
   batchSize?: number
   throttleMs?: number
@@ -171,6 +173,7 @@ export function useDungeonSimulatorWorker(params: UseDungeonSimulatorWorkerParam
     boosts,
     spotlight,
     mode,
+    refreshToken = 0,
     runs = DUNGEON_SIM_RUNS_PER_DUNGEON,
     batchSize = DUNGEON_SIM_BATCH_SIZE,
     throttleMs = PROGRESS_THROTTLE_MS,
@@ -212,6 +215,7 @@ export function useDungeonSimulatorWorker(params: UseDungeonSimulatorWorkerParam
     selections?: Partial<Record<DungeonId, DungeonStageSelection>>
     boosts?: Partial<Record<DungeonBoostableId, DungeonBoostSelection>>
     mode?: DungeonSimMode
+    refreshToken?: number
     runs: number
   } | null>(null)
 
@@ -317,13 +321,15 @@ export function useDungeonSimulatorWorker(params: UseDungeonSimulatorWorkerParam
     const prevInputs = prevInputsRef.current
     // Ensure the first visible open kicks off a full run (even under strict-mode replays).
     const hasSnapshot = Boolean(lastSnapshotRef.current.results) || Boolean(lastSnapshotRef.current.progress)
+    // A refresh bump forces a full resimulation even when inputs match.
+    const refreshBump = prevInputs?.refreshToken !== refreshToken
     const fullReset = !prevInputs
       || prevInputs.rules !== rules
       || prevInputs.substatTargets !== substatTargets
       || prevInputs.runs !== runs
       // Mode changes must resimulate every dungeon.
       || prevInputs.mode !== mode
-    const shouldRunAll = fullReset || !hasSnapshot
+    const shouldRunAll = fullReset || refreshBump || !hasSnapshot
     const dirtyDungeons = shouldRunAll
       ? []
       : resolveDirtyDungeons({
@@ -339,6 +345,8 @@ export function useDungeonSimulatorWorker(params: UseDungeonSimulatorWorkerParam
       runs,
       // Persist mode so we can detect global resimulations.
       ...(mode ? { mode } : {}),
+      // Track refresh bumps so future comparisons can detect them.
+      refreshToken,
       ...(selections ? { selections } : {}),
       ...(boosts ? { boosts } : {}),
     }
@@ -482,7 +490,7 @@ export function useDungeonSimulatorWorker(params: UseDungeonSimulatorWorkerParam
       const cancel: DungeonSimulatorWorkerRequest = { id, kind: 'cancel' }
       activeWorker.postMessage(cancel)
     }
-  }, [rules, substatTargets, selections, boosts, mode, runs, safeBatchSize, throttleMs])
+  }, [rules, substatTargets, selections, boosts, mode, refreshToken, runs, safeBatchSize, throttleMs])
 
   // Return only the spotlight-selected slice to keep the UI lean.
   const results = resultsBySpotlight?.[selectedSpotlight] ?? null

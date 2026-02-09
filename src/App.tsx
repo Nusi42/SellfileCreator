@@ -325,9 +325,10 @@ const createGearDbFileFromBytes = (name: string, bytes: Uint8Array, contentType?
   }
   const fileName = name && name.trim().length > 0 ? name : DEFAULT_GEAR_DB_FILENAME
   try {
-    const buffer = new ArrayBuffer(bytes.byteLength)
-    new Uint8Array(buffer).set(bytes)
-    return new File([buffer], fileName, { type: contentType || 'application/octet-stream' })
+    // Avoid copying into an intermediate buffer; File can ingest typed arrays directly.
+    // Cast to ArrayBuffer-backed view to satisfy DOM typing without a clone.
+    const view = bytes as Uint8Array<ArrayBuffer>
+    return new File([view], fileName, { type: contentType || 'application/octet-stream' })
   } catch {
     return null
   }
@@ -2133,12 +2134,13 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
   const appendGearDbDiffHistory = useCallback((params: {
     lineSpecs: GearDbDiffHistoryLineSpec[]
     entries: GearDbDiffToastEntry[]
+    overflowCount: number
     createdAt: number
   }) => {
     // Increment once so ids stay monotonic for the session.
     const nextId = gearDbDiffHistoryIdRef.current + 1
     gearDbDiffHistoryIdRef.current = nextId
-    // Store a full copy of the diff so the history menu can render previews.
+    // Store a capped copy of the diff so history mirrors the toast surface.
     setGearDbDiffHistory((prev) => ([
       ...prev,
       {
@@ -2146,6 +2148,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         createdAt: params.createdAt,
         lineSpecs: params.lineSpecs,
         entries: params.entries,
+        overflowCount: params.overflowCount,
       },
     ]))
   }, [])
@@ -2207,8 +2210,10 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
     queuedAt: number
     // Structured header specs so history stays localizable.
     lineSpecs: GearDbDiffHistoryLineSpec[]
-    // Raw diff entries before match enrichment.
+    // Capped diff entries before match enrichment.
     entries: GearDbDiffEntry[]
+    // Count of omitted entries beyond the cap.
+    overflowCount: number
     // Matches captured before applying the dataset update.
     matchesBefore: Map<number, TesterPreviewMatch | null>
   } | null>(null)
@@ -2244,6 +2249,9 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       // Skip history entries when nothing changed so the list stays meaningful.
       return
     }
+    // Cap the stored entries so history only retains what the UI can display.
+    const cappedEntries = params.entries.slice(0, GEAR_DB_DIFF_TOAST_MAX_ITEMS)
+    const overflowCount = Math.max(0, params.entries.length - cappedEntries.length)
     // Advance the request id so stale updates do not leak through.
     const requestId = gearDbDiffToastRequestIdRef.current + 1
     gearDbDiffToastRequestIdRef.current = requestId
@@ -2253,7 +2261,8 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       baselineBuildId: gearEntriesCommittedBuildIdRef.current,
       queuedAt,
       lineSpecs: params.lineSpecs,
-      entries: params.entries,
+      entries: cappedEntries,
+      overflowCount,
       // Snapshot matches before the gear list is rebuilt.
       matchesBefore: buildMatchMapByArtifactId(testerPreviewRowsRef.current),
     }
@@ -2277,16 +2286,15 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       beforeMatch: pending.matchesBefore.get(entry.id) ?? null,
       afterMatch: matchesAfter.get(entry.id) ?? null,
     }))
-    // Cap the list so the toast stays compact.
-    const cappedEntries = enriched.slice(0, GEAR_DB_DIFF_TOAST_MAX_ITEMS)
-    // Count the remainder for the "+X more" footer.
-    const overflowCount = Math.max(0, enriched.length - cappedEntries.length)
+    // Carry the overflow count from the queued diff so history stays consistent.
+    const overflowCount = pending.overflowCount
     // Localize header lines now that the diff is ready to render.
     const headerLines = buildGearDbHistoryHeaderLines(pending.lineSpecs)
-    // Store the full diff in the session history menu.
+    // Store the capped diff in the session history menu.
     appendGearDbDiffHistory({
       lineSpecs: pending.lineSpecs,
       entries: enriched,
+      overflowCount,
       createdAt: pending.queuedAt,
     })
     // Commit the toast payload now that matches are current.
@@ -2296,7 +2304,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       showGearDbDiffToast({
         headerLines,
         lineSpecs: pending.lineSpecs,
-        entries: cappedEntries,
+        entries: enriched,
         overflowCount,
       })
     }

@@ -118,8 +118,10 @@ export type GearDbDiffHistoryEntry = {
   createdAt: number
   // Structured header specs so language switches re-render correctly.
   lineSpecs: GearDbDiffHistoryLineSpec[]
-  // Full diff entries with match metadata (not capped).
+  // Capped diff entries with match metadata (only the items shown in UI).
   entries: GearDbDiffToastEntry[]
+  // Count of additional entries omitted from the capped list.
+  overflowCount: number
 }
 
 // Minimal translator signature for history line formatting helpers.

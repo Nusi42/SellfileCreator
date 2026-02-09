@@ -15,6 +15,10 @@ import type { SubstatTargetTable } from './hsfBuilder/types'
 
 // Simulation milestone levels mirror the builder + preview milestones.
 export const DUNGEON_SIM_LEVELS: readonly LevelMilestone[] = [0, 4, 8, 12, 16] as const
+// Default milestone for collapsed tables uses the final roll checkpoint.
+export const DUNGEON_SIM_DEFAULT_LEVEL: LevelMilestone = (
+  DUNGEON_SIM_LEVELS[DUNGEON_SIM_LEVELS.length - 1] as LevelMilestone
+)
 // Fixed run count per dungeon stage keeps variance stable and predictable.
 export const DUNGEON_SIM_RUNS_PER_DUNGEON = 100000 as const
 // Fallback run count keeps the main thread responsive when workers are unavailable.
