@@ -56,6 +56,7 @@ The Logic Hub now includes a **Dungeon Drops** tab that simulates dungeon farmin
 - Each simulated item is evaluated against the merged HSF rules (including Final Sell + Keep Uniques).
 - A cell’s keep percentage reflects **kept items / total simulated drops** for that dungeon stage.
 - Collapsed tables show the selected milestone’s keep share (kept at that milestone, as a share of all drops).
+- Percent precision is dataset-driven per dungeon table: the smallest non-zero keep rate sets the decimal count (min 2, max 6), capped by simulation resolution so digits beyond the run granularity are hidden; slot+main breakdowns may raise precision within that cap.
 - In Level-up mode, items that fail a milestone are not rolled further; detailed stats only include items that reached the queried level.
 - The popover breakdown renders a 3×3 slot grid with per-main-stat percentages (share of all drops for that cell).
 - Clicking a slot+main row opens a nested popover where you pick explicit substats and see ≥1/2/3/4 presence, ≥1/2/3/4 roll counts, and runs-needed estimates (computed from the cached simulation run data).
