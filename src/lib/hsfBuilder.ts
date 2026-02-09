@@ -437,6 +437,8 @@ export function resolveAutoRarityCode(cfg: BuilderConfig): RarityCode {
     const m = (typeof b?.min === 'number' ? Math.max(0, Math.min(5, Math.floor(b.min))) : 0)
     perMin[Number(v)] = m
   }
+  // Track whether any selected substat explicitly demands rolls.
+  const hasPerStatMin = Object.values(perMin).some((value) => value > 0)
   // Locked substats always count toward the aggregate minimum with their declared mins.
   const sumRequired = requiredV.reduce((a, v) => a + (perMin[Number(v)] ?? 0), 0)
   const lockedScope = isLockedAggregateScopeActive(cfg, { lockedCountOverride: requiredV.length })
@@ -455,6 +457,11 @@ export function resolveAutoRarityCode(cfg: BuilderConfig): RarityCode {
   const lockedMinRaw = deriveLockedMinRolls({ cfg, lockedCount: requiredV.length })
   const globalMin = globalMinRaw
   const aggregateMin = Math.max(globalMin, lockedMinRaw)
+  // With no aggregate or per-stat roll requirements, keep Auto fully permissive.
+  // This avoids forcing ≥ Uncommon solely to guarantee a roll event.
+  if (aggregateMin === 0 && !hasPerStatMin) {
+    return applyFloor(RarityCode.Any)
+  }
   const required = Math.max(aggregateMin, worstSumMins)
   const clamped = Math.max(0, Math.min(5, required))
 
@@ -793,6 +800,11 @@ export function buildHsfRules(
   // If the user explicitly selected substats but all are invalid for the slot/main,
   // emit no rules instead of falling back to presence-only behavior.
   if (hadRequestedSubstats && selectedPoolV.length === 0) return []
+  // Track whether any selected substat explicitly demands rolls.
+  const hasPerStatMin = selectedPoolV.some((variant) => {
+    const bounds = cfg.substatRollBoundsV?.[Number(variant)]
+    return typeof bounds?.min === 'number' && bounds.min > 0
+  })
   const requiredV = fixedPoolV.slice(0, 4)
   const lockedCount = requiredV.length
   const lockedSet = new Set<number>(requiredV.map(Number))
@@ -1101,6 +1113,9 @@ export function buildHsfRules(
   const globalMinActive = globalMinValue > 0
   const lockedMinActive = lockedMinValue > 0
   const aggregateMinActive = aggregateMinValue > 0
+  const manualMinZero = cfg.autoMinRequiredRolls === false && clampRollRequirement(cfg.minRequiredRolls ?? 0) === 0
+  // Manual zero with no per-stat mins means "no roll requirements" regardless of rarity schedule.
+  const suppressRollThresholds = manualMinZero && !hasPerStatMin && lockedMinValue === 0
   // When only locked mins are active, the aggregate target narrows to the locked subset only.
   const aggregateTargetsLocked = (!globalMinActive)
     && lockedMinActive
@@ -1340,14 +1355,18 @@ export function buildHsfRules(
       // Account for Mythical's initial pre-roll at level 0 when the rarity selection includes Mythical.
       const preRolls = rarityIncludesMythical(rarityCodeLocal) ? 1 : 0
       const preRollsByStart = (effectiveStart <= 0) ? preRolls : 0
-      const numRollsForThisLevel = baseline === 'upToLevel'
+      const rawRollsForThisLevel = baseline === 'upToLevel'
         ? (rollsUpToLvl + preRolls)
         : Math.max(0, (rollsUpToLvl - rollsUpToStart) + preRollsByStart)
+      // Suppressed roll requirements keep thresholds at base values.
+      const numRollsForThisLevel = suppressRollThresholds ? 0 : rawRollsForThisLevel
       // For potential-keep calculations, consider target as +16
       const rollsUpTo16 = LEVELS.filter(l => l <= 16 && rollLevels.has(l)).length
-      const numRollsByTarget = baseline === 'upToLevel'
+      const rawRollsByTarget = baseline === 'upToLevel'
         ? (rollsUpTo16 + preRolls)
         : Math.max(0, (rollsUpTo16 - rollsUpToStart) + preRollsByStart)
+      // Target roll budget collapses to zero when roll requirements are disabled.
+      const numRollsByTarget = suppressRollThresholds ? 0 : rawRollsByTarget
       // Determine how many substats can physically exist at this level for the selected rarity
       const additionTimeline = additionTimelineAll
       const addsSoFar = additionTimeline.filter(a => a <= lvl).length
