@@ -3,6 +3,8 @@ import { Box, ButtonBase, Divider, IconButton, MenuItem, Popover, Select, Stack,
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined'
 import ExpandLessIcon from '@mui/icons-material/ExpandLess'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
+import AutorenewIcon from '@mui/icons-material/Autorenew'
+import SwapVertIcon from '@mui/icons-material/SwapVert'
 import { useI18n } from '../../lib/i18n'
 import { ACCESSORY_NO_SET_ID, STANDARD_DIALOG_PADDING_BLOCK_UNITS, STANDARD_DIALOG_PADDING_INLINE_UNITS } from '../../lib/constants'
 import { DEFAULT_SUBSTAT_COLORS_FG_BY_VARIANT, STAT_VARIANTS_PRIORITY, artifactTypeI18nKey, getLocalizedGearSetName, statVariantI18nKey, type ArtifactSetId, type ArtifactTypeId, type LevelMilestone } from '../../lib/types'
@@ -19,6 +21,7 @@ import { GearSetsSelect } from '../gear'
 import {
   DUNGEON_IDS,
   DUNGEON_SIM_BATCH_SIZE,
+  DUNGEON_SIM_DEFAULT_LEVEL,
   DUNGEON_SIM_LEVELS,
   DUNGEON_SIM_RUNS_PER_DUNGEON,
   DUNGEON_BOOST_MODES,
@@ -53,11 +56,8 @@ import { sanitizeStageSelection, useDungeonSimulatorPreferences } from '../../st
 import MarkdownTooltip from '../MarkdownTooltip'
 import { measureCssWidth } from '../../lib/domMeasurements'
 
-// Detail popover target for a single cell.
-type DetailTarget = (
-  | { kind: 'level'; dungeonId: DungeonId; setId: ArtifactSetId; level: LevelMilestone }
-  | { kind: 'summary'; dungeonId: DungeonId; setId: ArtifactSetId }
-)
+// Detail popover target for a single milestone cell.
+type DetailTarget = { kind: 'level'; dungeonId: DungeonId; setId: ArtifactSetId; level: LevelMilestone }
 
 // Keep dungeon labels centralized so each table shares the same i18n keys.
 const DUNGEON_LABEL_KEYS: Record<DungeonId, string> = {
@@ -76,6 +76,9 @@ const formatCellPercent = (cell: DungeonSimCell, totalDrops: number): string => 
   if (totalDrops <= 0) return '—'
   return formatPercent((cell.kept / totalDrops) * 100)
 }
+
+// Standardize milestone labels so collapsed/expanded rows match.
+const formatLevelLabel = (level: LevelMilestone): string => `+${level}`
 
 // Probability targets for "runs needed" estimates.
 const RUN_PROB_TARGETS = [
@@ -171,6 +174,8 @@ export default function DungeonSimulatorTab(props: DungeonSimulatorTabProps) {
   const { t, lang } = useI18n()
   // Persisted mode/stage/spotlight selections keep the simulator stable across sessions.
   const [prefs, setPrefs] = useDungeonSimulatorPreferences()
+  // Manual refresh bumps force a full resimulation without input changes.
+  const [refreshToken, setRefreshToken] = useState(0)
   // Anchor + target power the detail popover when a cell is clicked.
   const [detailAnchor, setDetailAnchor] = useState<HTMLElement | null>(null)
   const [detailTarget, setDetailTarget] = useState<DetailTarget | null>(null)
@@ -188,6 +193,7 @@ export default function DungeonSimulatorTab(props: DungeonSimulatorTabProps) {
     spotlight: prefs.eventSpotlight,
     boosts: prefs.boosts,
     mode: prefs.simMode,
+    refreshToken,
     runs: DUNGEON_SIM_RUNS_PER_DUNGEON,
     batchSize: DUNGEON_SIM_BATCH_SIZE,
     throttleMs: PROGRESS_THROTTLE_MS,
@@ -288,21 +294,86 @@ export default function DungeonSimulatorTab(props: DungeonSimulatorTabProps) {
     })
   }
 
-  const toggleDungeonCollapsed = (dungeonId: DungeonId) => {
+  const triggerSimulationRefresh = () => {
+    // Increment the token to force a full resimulation.
+    setRefreshToken((prev) => prev + 1)
+  }
+
+  const toggleDungeonCollapsed = (params: { dungeonId: DungeonId; scope: 'single' | 'all' }) => {
+    const { dungeonId, scope } = params
     // Persisted collapse state keeps large tables compact between sessions.
-    setPrefs((prev) => ({
-      // Persisted collapsed state keeps each dungeon table compact across sessions.
-      ...prev,
-      collapsed: { ...prev.collapsed, [dungeonId]: !prev.collapsed[dungeonId] },
-    }))
+    setPrefs((prev) => {
+      // Default missing flags to collapsed so toggles stay deterministic.
+      const current = prev.collapsed?.[dungeonId] ?? true
+      // Flip the clicked dungeon to define the target for bulk toggles.
+      const nextValue = !current
+      // Start from the existing map to preserve unrelated state.
+      const nextCollapsed = { ...(prev.collapsed ?? {}) } as Record<DungeonId, boolean>
+      if (scope === 'all') {
+        // Apply a uniform collapsed state to every dungeon table.
+        for (const id of DUNGEON_IDS) {
+          nextCollapsed[id] = nextValue
+        }
+      } else {
+        // Update only the clicked dungeon when toggling singly.
+        nextCollapsed[dungeonId] = nextValue
+      }
+      return {
+        ...prev,
+        collapsed: nextCollapsed,
+      }
+    })
+  }
+
+  const resolveNextCollapsedLevel = (
+    current: LevelMilestone,
+    direction: 'forward' | 'backward',
+  ): LevelMilestone => {
+    // Normalize the direction into a numeric offset for index math.
+    const offset = direction === 'forward' ? 1 : -1
+    // Fall back to the default index when the current value is missing.
+    const currentIndex = DUNGEON_SIM_LEVELS.indexOf(current)
+    const safeIndex = currentIndex >= 0 ? currentIndex : 0
+    // Wrap around the milestones list so cycling never under/overflows.
+    const nextIndex = (safeIndex + offset + DUNGEON_SIM_LEVELS.length) % DUNGEON_SIM_LEVELS.length
+    // Guard against an empty milestone list with the default fallback.
+    return DUNGEON_SIM_LEVELS[nextIndex] ?? DUNGEON_SIM_DEFAULT_LEVEL
+  }
+
+  const rotateCollapsedLevel = (params: {
+    dungeonId: DungeonId
+    direction: 'forward' | 'backward'
+    syncAll: boolean
+  }) => {
+    const { dungeonId, direction, syncAll } = params
+    // Rotate the single-row milestone shown when a table is collapsed.
+    setPrefs((prev) => {
+      // Fall back to the default milestone when storage is missing.
+      const current = prev.collapsedLevels?.[dungeonId] ?? DUNGEON_SIM_DEFAULT_LEVEL
+      // Compute the next milestone for the clicked dungeon.
+      const nextLevel = resolveNextCollapsedLevel(current, direction)
+      // Start from the existing map to preserve other keys.
+      const nextCollapsedLevels = { ...(prev.collapsedLevels ?? {}) } as Record<DungeonId, LevelMilestone>
+      if (syncAll) {
+        // Sync every dungeon's collapsed milestone to the clicked result.
+        for (const id of DUNGEON_IDS) {
+          nextCollapsedLevels[id] = nextLevel
+        }
+      } else {
+        // Update only the clicked dungeon when cycling singly.
+        nextCollapsedLevels[dungeonId] = nextLevel
+      }
+      return {
+        ...prev,
+        collapsedLevels: nextCollapsedLevels,
+      }
+    })
   }
 
   // Resolve the selected cell once, keeping render logic straightforward.
   // Popover rendering should never re-derive selectors inline.
   const resolvedDetailCell: DungeonSimCell | null = detailTarget
-    ? detailTarget.kind === 'summary'
-      ? simulation?.[detailTarget.dungeonId]?.[detailTarget.setId]?.summary ?? null
-      : simulation?.[detailTarget.dungeonId]?.[detailTarget.setId]?.levels?.[detailTarget.level] ?? null
+    ? simulation?.[detailTarget.dungeonId]?.[detailTarget.setId]?.levels?.[detailTarget.level] ?? null
     : null
 
   // Total drops per dungeon stage uses completed runs so partial batches still read correctly.
@@ -322,14 +393,12 @@ export default function DungeonSimulatorTab(props: DungeonSimulatorTabProps) {
     : ''
 
   const detailLevelLabel = detailTarget
-    ? detailTarget.kind === 'summary'
-      ? t('dungeonDropsAnyLevel')
-      : `+${detailTarget.level}`
+    ? formatLevelLabel(detailTarget.level)
     : ''
-  // For substat details, fall back to +16 when the summary row is active.
+  // Default to the highest milestone when no detail target is active.
   const detailLevelForSubstats: LevelMilestone = detailTarget
-    ? (detailTarget.kind === 'summary' ? 16 : detailTarget.level)
-    : 16
+    ? detailTarget.level
+    : DUNGEON_SIM_DEFAULT_LEVEL
   // Build a stable cache key for generic substat odds per slot/main row.
   const buildGenericStatsKey = (query: DungeonSimGenericQuery): string => (
     `${query.dungeonId}:${query.setId}:${query.level}:${query.slot}:${query.main}:${query.spotlight}`
@@ -584,6 +653,14 @@ export default function DungeonSimulatorTab(props: DungeonSimulatorTabProps) {
                 <ToggleButton value="levelUp">{t('dungeonDropsModeLevelUp')}</ToggleButton>
                 <ToggleButton value="snapshot">{t('dungeonDropsModeSnapshot')}</ToggleButton>
               </ToggleButtonGroup>
+              {/* Refresh keeps the current inputs but reruns every dungeon. */}
+              <IconButton
+                size="small"
+                onClick={triggerSimulationRefresh}
+                aria-label={t('dungeonDropsResimulateLabel')}
+              >
+                <AutorenewIcon fontSize="small" />
+              </IconButton>
             </Stack>
           </Stack>
           <MarkdownTooltip
@@ -707,6 +784,8 @@ export default function DungeonSimulatorTab(props: DungeonSimulatorTabProps) {
           const stageOptions = buildStageOptions(stageRange)
           const totalDrops = progress?.completedByDungeon?.[dungeonId] ?? 0
           const isCollapsed = prefs.collapsed?.[dungeonId] ?? true
+          // Keep a per-dungeon milestone for the collapsed single-row view.
+          const collapsedLevel = prefs.collapsedLevels?.[dungeonId] ?? DUNGEON_SIM_DEFAULT_LEVEL
           const isEventDungeon = dungeonId === 'event'
           const isBoostable = isBoostableDungeon(dungeonId)
           const boostSelection = isBoostable
@@ -851,9 +930,18 @@ export default function DungeonSimulatorTab(props: DungeonSimulatorTabProps) {
                 <TableHead>
                   <TableRow>
                     <TableCell sx={{ width: 36, px: 0.5 }}>
-                      <IconButton
-                        size="small"
-                        onClick={() => toggleDungeonCollapsed(dungeonId)}
+                        <IconButton
+                          size="small"
+                          onClick={(event) => {
+                            // Ctrl+click toggles every table to the same collapse state.
+                            const scope = event.ctrlKey || event.metaKey ? 'all' : 'single'
+                            toggleDungeonCollapsed({ dungeonId, scope })
+                          }}
+                        onContextMenu={(event) => {
+                          // Right-click always toggles every table.
+                          event.preventDefault()
+                          toggleDungeonCollapsed({ dungeonId, scope: 'all' })
+                        }}
                         aria-label={isCollapsed ? t('dungeonDropsExpandLabel') : t('dungeonDropsCollapseLabel')}
                       >
                         {isCollapsed ? <ExpandMoreIcon fontSize="small" /> : <ExpandLessIcon fontSize="small" />}
@@ -897,21 +985,39 @@ export default function DungeonSimulatorTab(props: DungeonSimulatorTabProps) {
                 {/* Body rows enumerate milestone levels. */}
                 <TableBody>
                   {isCollapsed ? (
-                    // Collapsed tables show the +16 summary row only.
-                    <TableRow key={`${dungeonId}-summary`}>
-                      <TableCell sx={{ width: 36, px: 0.5 }} />
+                    // Collapsed tables show the selected milestone row only.
+                    <TableRow key={`${dungeonId}-collapsed-${collapsedLevel}`}>
+                      <TableCell sx={{ width: 36, px: 0.5 }}>
+                        <IconButton
+                          size="small"
+                          onClick={(event) => {
+                            // Ctrl+click cycles forward and syncs every dungeon.
+                            const syncAll = event.ctrlKey || event.metaKey
+                            rotateCollapsedLevel({ dungeonId, direction: 'forward', syncAll })
+                          }}
+                          onContextMenu={(event) => {
+                            // Right-click cycles backward; Ctrl syncs all dungeons.
+                            event.preventDefault()
+                            const syncAll = event.ctrlKey || event.metaKey
+                            rotateCollapsedLevel({ dungeonId, direction: 'backward', syncAll })
+                          }}
+                          aria-label={t('dungeonDropsRotateLevelLabel')}
+                        >
+                          <SwapVertIcon fontSize="small" />
+                        </IconButton>
+                      </TableCell>
                       <TableCell sx={{ fontWeight: 600, whiteSpace: 'nowrap', width: 70 }}>
-                        {t('dungeonDropsAnyLevel')}
+                        {formatLevelLabel(collapsedLevel)}
                       </TableCell>
                       {setIds.map((setId) => {
-                        const cell = dungeonResults?.[setId]?.summary
+                        const cell = dungeonResults?.[setId]?.levels?.[collapsedLevel]
                         const content = cell ? formatCellPercent(cell, totalDrops) : '—'
                         return (
-                          <TableCell key={`${dungeonId}-${setId}-summary`} sx={{ px: 0.5 }}>
+                          <TableCell key={`${dungeonId}-${setId}-lvl-${collapsedLevel}`} sx={{ px: 0.5 }}>
                             <ButtonBase
                               onClick={(event) => {
                                 if (!cell) return
-                                handleCellClick(event, { kind: 'summary', dungeonId, setId })
+                                handleCellClick(event, { kind: 'level', dungeonId, setId, level: collapsedLevel })
                               }}
                               sx={(theme) => ({
                                 width: '100%',
@@ -933,7 +1039,9 @@ export default function DungeonSimulatorTab(props: DungeonSimulatorTabProps) {
                     DUNGEON_SIM_LEVELS.map((level) => (
                       <TableRow key={`${dungeonId}-lvl-${level}`}>
                         <TableCell sx={{ width: 36, px: 0.5 }} />
-                        <TableCell sx={{ fontWeight: 600, whiteSpace: 'nowrap', width: 70 }}>{`+${level}`}</TableCell>
+                        <TableCell sx={{ fontWeight: 600, whiteSpace: 'nowrap', width: 70 }}>
+                          {formatLevelLabel(level)}
+                        </TableCell>
                         {setIds.map((setId) => {
                           // Cells map to a specific dungeon/set/level triple.
                           const cell = dungeonResults?.[setId]?.levels?.[level]

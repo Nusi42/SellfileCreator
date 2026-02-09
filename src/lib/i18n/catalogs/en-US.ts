@@ -262,6 +262,10 @@ const enUS: Catalog = {
   // Collapse/expand table labels.
   dungeonDropsCollapseLabel: 'Collapse dungeon table',
   dungeonDropsExpandLabel: 'Expand dungeon table',
+  // Collapsed row controls.
+  dungeonDropsRotateLevelLabel: 'Rotate level range',
+  // Simulation refresh control.
+  dungeonDropsResimulateLabel: 'Re-run dungeon simulation',
   // Popover header and summary.
   dungeonDropsPopoverHeader: '{set} • {level}',
   dungeonDropsPopoverSummary: 'Kept {percent} of all drops ({kept}/{total}).',
