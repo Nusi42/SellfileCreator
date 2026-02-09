@@ -1809,14 +1809,27 @@ function Read-FileBytesWithRetry {
         try {
             $fileStream = [System.IO.File]::Open($Path, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, [System.IO.FileShare]::ReadWrite)
             try {
-                $memory = New-Object System.IO.MemoryStream
-                try {
-                    $fileStream.CopyTo($memory)
-                    return $memory.ToArray()
+                # Capture the length once so we can allocate a single buffer.
+                $length = $fileStream.Length
+                # Guard against oversized files that exceed byte array limits.
+                if ($length -gt [int]::MaxValue) {
+                    throw ("File '{0}' is too large to buffer ({1:N0} bytes)." -f $Path, [long]$length)
                 }
-                finally {
-                    $memory.Dispose()
+                # Allocate the target buffer directly to avoid double allocations.
+                $buffer = New-Object byte[] ([int]$length)
+                $totalRead = 0
+                # Read until the buffer is full to avoid partial snapshots.
+                while ($totalRead -lt $buffer.Length) {
+                    $read = $fileStream.Read($buffer, $totalRead, $buffer.Length - $totalRead)
+                    # Short reads indicate a concurrent writer; trigger a retry.
+                    if ($read -le 0) { break }
+                    $totalRead += $read
                 }
+                # Ensure we read the expected length before returning.
+                if ($totalRead -ne $buffer.Length) {
+                    throw ("Short read for '{0}' (expected {1:N0} bytes, read {2:N0})." -f $Path, [long]$buffer.Length, [long]$totalRead)
+                }
+                return $buffer
             }
             finally {
                 $fileStream.Dispose()
