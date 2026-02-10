@@ -668,7 +668,8 @@ const overrides: Catalog = {
   historySubstatTargetsResetLine: 'Ripristinati gli obiettivi consigliati',
   historySubstatTargetsFallbackLine: 'Fallback degli obiettivi: {star}',
   historySubstatTargetsStarLine: '{star}: {diffs}',
-  historySubstatTargetsDiffEntry: '{stat} {previous}->{next}',
+  // Injected arrow keeps diff entries aligned with shared glyphs.
+  historySubstatTargetsDiffEntry: '{stat} {previous}{arrow}{next}',
   historySubstatTargetsMoreLine: '+{count} altre modifiche',
   historyValueEmpty: 'Vuoto',
   historyNoteAddedTitle: 'Nota aggiunta',
@@ -731,7 +732,8 @@ const overrides: Catalog = {
   historyMultiEditAppliedTitle: 'Modifica multipla applicata a {count} configurazioni',
   historyMultiEditFieldsLine: 'Campi modificati: {fields}',
   historyMetasetAddedTitle: 'Metaset "{name}" aggiunto',
-  historyMetasetRenamedTitle: 'Metaset rinominato {previous} -> {next}',
+  // Injected arrow keeps rename titles aligned with shared glyphs.
+  historyMetasetRenamedTitle: 'Metaset rinominato {previous} {arrow} {next}',
   historyMetasetVisibilityShownTitle: 'Metaset "{name}" mostrato',
   historyMetasetVisibilityHiddenTitle: 'Metaset "{name}" nascosto',
   historyMetasetVisibilityLabel: 'Visibilità',

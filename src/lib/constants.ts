@@ -77,6 +77,8 @@ export type ColorBlindMode = 'normal' | 'okabeIto' | 'tritan'
 
 // Non-breaking space for UI formatting (keeps labels glued to following token)
 export const NBSP = '\u00A0'
+// Rightward arrow glyph for diff/rename summaries across the UI.
+export const GLYPH_ARROW_RIGHT = '→'
 export const GLYPH_TOGGLE_ON = '⦿'
 export const GLYPH_TOGGLE_OFF = '⭘'
 export const GLYPH_GLYPHS_SELECTED = '✓'

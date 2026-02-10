@@ -2,6 +2,7 @@
 import type { HistoryEntryDescriptor, ResolvedHistoryEntryDescriptor } from './historyDescriptorTypes'
 import type { SubstatTargetTable, Star } from '../lib/hsfBuilder'
 import { defaultSubstatTargets } from '../lib/hsfBuilder'
+import { GLYPH_ARROW_RIGHT } from '../lib/constants'
 import { statVariantI18nKey, STAT_VARIANTS_PRIORITY } from '../lib/types'
 import type { TranslateFn } from './builderUpdateDescriptor'
 import type { SubstatTargetsDescriptorMode } from './historyDescriptorTypes'
@@ -176,7 +177,8 @@ function formatStarLine(
     const nextValue = normalizeValue(next?.[key])
     if (prevValue === nextValue) continue
     const label = formatVariantLabel(key, t)
-    entries.push(t('historySubstatTargetsDiffEntry', { stat: label, previous: prevValue, next: nextValue }))
+    // Use the shared arrow glyph so diff entries match other history surfaces.
+    entries.push(t('historySubstatTargetsDiffEntry', { stat: label, previous: prevValue, next: nextValue, arrow: GLYPH_ARROW_RIGHT }))
   }
   if (entries.length === 0) return null
   const starLabel = t(STAR_LABEL_KEYS[star])
