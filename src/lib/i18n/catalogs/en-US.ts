@@ -673,7 +673,8 @@ const enUS: Catalog = {
   historySubstatTargetsResetLine: 'Restored recommended substat targets',
   historySubstatTargetsFallbackLine: 'Any-rank fallback target: {star}',
   historySubstatTargetsStarLine: '{star}: {diffs}',
-  historySubstatTargetsDiffEntry: '{stat} {previous}->{next}',
+  // Injected arrow keeps diff entries aligned with shared glyphs.
+  historySubstatTargetsDiffEntry: '{stat} {previous}{arrow}{next}',
   historySubstatTargetsMoreLine: '+{count} more adjustments',
   historyValueEmpty: 'Empty',
   historyNoteAddedTitle: 'Added Note',
@@ -736,7 +737,8 @@ const enUS: Catalog = {
   historyMultiEditAppliedTitle: 'Applied Multi-Edit to {count} Configs',
   historyMultiEditFieldsLine: 'Fields Changed: {fields}',
   historyMetasetAddedTitle: 'Added Metaset "{name}"',
-  historyMetasetRenamedTitle: 'Renamed Metaset {previous} -> {next}',
+  // Injected arrow keeps rename titles aligned with shared glyphs.
+  historyMetasetRenamedTitle: 'Renamed Metaset {previous} {arrow} {next}',
   historyMetasetVisibilityShownTitle: 'Showed Metaset "{name}"',
   historyMetasetVisibilityHiddenTitle: 'Hid Metaset "{name}"',
   historyMetasetVisibilityLabel: 'Visibility',

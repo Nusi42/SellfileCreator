@@ -1,7 +1,7 @@
 import { Box, Stack, Typography } from '@mui/material'
 import { alpha, useTheme } from '@mui/material/styles'
 import { useI18n } from '../lib/i18n'
-import { CHAMPION_ICON_LARGE_THRESHOLD, GEAR_DB_DIFF_TOAST_CARD_SCALE } from '../lib/constants'
+import { CHAMPION_ICON_LARGE_THRESHOLD, GEAR_DB_DIFF_TOAST_CARD_SCALE, GLYPH_ARROW_RIGHT } from '../lib/constants'
 import { buildPreviewArtifactFromTesterItem } from '../lib/testerPreviewArtifacts'
 import type { TestItem } from '../lib/ruleEval'
 import type { MatchingConfigDecision } from '../lib/ruleEval'
@@ -160,9 +160,9 @@ function GearDbDiffToastItem({ entry, substatColors, useStatButtonColors }: Toas
       }}
     >
       {left}
-      {/* ASCII arrow keeps output consistent across font stacks. */}
+      {/* Use the shared arrow glyph so diff previews stay consistent. */}
       <Typography variant="body2" sx={{ color: theme.palette.info.main, fontWeight: 600 }}>
-        {'->'}
+        {GLYPH_ARROW_RIGHT}
       </Typography>
       {right}
     </Box>

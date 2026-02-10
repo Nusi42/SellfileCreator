@@ -668,7 +668,8 @@ const overrides: Catalog = {
   historySubstatTargetsResetLine: 'Восстановлены рекомендуемые целевые значения',
   historySubstatTargetsFallbackLine: 'Резерв целевых значений: {star}',
   historySubstatTargetsStarLine: '{star}: {diffs}',
-  historySubstatTargetsDiffEntry: '{stat} {previous}->{next}',
+  // Injected arrow keeps diff entries aligned with shared glyphs.
+  historySubstatTargetsDiffEntry: '{stat} {previous}{arrow}{next}',
   historySubstatTargetsMoreLine: '+{count} дополнительных корректировок',
   historyValueEmpty: 'Пусто',
   historyNoteAddedTitle: 'Примечание добавлено',
@@ -731,7 +732,8 @@ const overrides: Catalog = {
   historyMultiEditAppliedTitle: 'Групповое редактирование применено к {count} конфигам',
   historyMultiEditFieldsLine: 'Изменённые поля: {fields}',
   historyMetasetAddedTitle: 'Добавлен метасет "{name}"',
-  historyMetasetRenamedTitle: 'Метасет переименован: {previous} -> {next}',
+  // Injected arrow keeps rename titles aligned with shared glyphs.
+  historyMetasetRenamedTitle: 'Метасет переименован: {previous} {arrow} {next}',
   historyMetasetVisibilityShownTitle: 'Метасет "{name}" показан',
   historyMetasetVisibilityHiddenTitle: 'Метасет "{name}" скрыт',
   historyMetasetVisibilityLabel: 'Видимость',

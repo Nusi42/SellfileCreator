@@ -668,7 +668,8 @@ const overrides: Catalog = {
   historySubstatTargetsResetLine: 'Önerilen hedefler geri yüklendi',
   historySubstatTargetsFallbackLine: 'Yedek hedef: {star}',
   historySubstatTargetsStarLine: '{star}: {diffs}',
-  historySubstatTargetsDiffEntry: '{stat} {previous}->{next}',
+  // Injected arrow keeps diff entries aligned with shared glyphs.
+  historySubstatTargetsDiffEntry: '{stat} {previous}{arrow}{next}',
   historySubstatTargetsMoreLine: '+{count} ek ayarlama',
   historyValueEmpty: 'Boş',
   historyNoteAddedTitle: 'Not eklendi',
@@ -731,7 +732,8 @@ const overrides: Catalog = {
   historyMultiEditAppliedTitle: 'Toplu düzenleme {count} konfige uygulandı',
   historyMultiEditFieldsLine: 'Değişen alanlar: {fields}',
   historyMetasetAddedTitle: 'Metaset "{name}" eklendi',
-  historyMetasetRenamedTitle: 'Metaset {previous} -> {next} olarak yeniden adlandırıldı',
+  // Injected arrow keeps rename titles aligned with shared glyphs.
+  historyMetasetRenamedTitle: 'Metaset {previous} {arrow} {next} olarak yeniden adlandırıldı',
   historyMetasetVisibilityShownTitle: 'Metaset "{name}" gösterildi',
   historyMetasetVisibilityHiddenTitle: 'Metaset "{name}" gizlendi',
   historyMetasetVisibilityLabel: 'Görünürlük',

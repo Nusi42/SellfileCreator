@@ -1,7 +1,7 @@
 // metasetDescriptors keeps metaset history data-only until render.
 import type { ResolvedHistoryEntryDescriptor } from './historyDescriptorTypes'
 import type { Metaset } from '../lib/metasets'
-import { NBSP } from '../lib/constants'
+import { GLYPH_ARROW_RIGHT, NBSP } from '../lib/constants'
 import { DEFAULT_METASET_ICON_ID, metasetIconOptionById, normalizeMetasetIconId, type MetasetIconId } from '../lib/metasetIcons'
 import type { ArtifactSetId } from '../lib/types'
 import { getLocalizedGearSetName } from '../lib/types'
@@ -78,9 +78,11 @@ export function describeMetasetAdded(params: { metaset: Metaset; t: TranslateFn;
 export function describeMetasetRenamed(params: { previous: Metaset; next: Metaset; t: TranslateFn }): ResolvedHistoryEntryDescriptor | null {
   const { previous, next, t } = params
   if (previous.name === next.name) return null
+  // Use the shared arrow glyph so rename titles stay consistent.
   const title = t('historyMetasetRenamedTitle', {
     previous: formatQuotedName(previous.name, t),
     next: formatQuotedName(next.name, t),
+    arrow: GLYPH_ARROW_RIGHT,
   })
   return { title }
 }
@@ -113,8 +115,9 @@ export function describeMetasetSetsChanged(params: { previous: Metaset; next: Me
   const nextIcon = normalizeMetasetIconId(next.iconId ?? DEFAULT_METASET_ICON_ID)
   const iconChanged = prevIcon !== nextIcon
   const baseTitle = t('historyMetasetSetsUpdatedTitle', { name: sanitizeName(next.name, t) })
+  // Reuse the shared arrow glyph so icon diffs match other history lines.
   const title = iconChanged
-    ? `${baseTitle} (${formatIconValue(prevIcon, t)}${NBSP}→${NBSP}${formatIconValue(nextIcon, t)})`
+    ? `${baseTitle} (${formatIconValue(prevIcon, t)}${NBSP}${GLYPH_ARROW_RIGHT}${NBSP}${formatIconValue(nextIcon, t)})`
     : baseTitle
   const detailLines: string[] = []
   detailLines.push(JSON.stringify({
@@ -135,7 +138,8 @@ export function describeMetasetIconChanged(params: { previous: Metaset; next: Me
   const nextIcon = normalizeMetasetIconId(next.iconId ?? DEFAULT_METASET_ICON_ID)
   if (prevIcon === nextIcon) return null
   const baseTitle = t('historyMetasetIconChangedTitle', { name: sanitizeName(next.name, t) })
-  const title = `${baseTitle} (${formatIconValue(prevIcon, t)}${NBSP}→${NBSP}${formatIconValue(nextIcon, t)})`
+  // Reuse the shared arrow glyph so icon diffs match other history lines.
+  const title = `${baseTitle} (${formatIconValue(prevIcon, t)}${NBSP}${GLYPH_ARROW_RIGHT}${NBSP}${formatIconValue(nextIcon, t)})`
   return { title }
 }
 

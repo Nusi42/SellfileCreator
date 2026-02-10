@@ -3,6 +3,7 @@ import Chip from '@mui/material/Chip'
 import Typography from '@mui/material/Typography'
 import { alpha, useTheme } from '@mui/material/styles'
 import type { SxProps, Theme } from '@mui/material/styles'
+import { GLYPH_ARROW_RIGHT } from '../lib/constants'
 import { useI18n } from '../lib/i18n'
 import { useDisplayPreferences } from '../state/preferencesState'
 import { renderColoredStatText, type SubstatColorMap, type HighlightSpec } from '../lib/renderColoredStatText'
@@ -282,13 +283,10 @@ function renderPossibleStructuredLine(params: RenderStructuredLineParams): JSX.E
       </Box>
     )
   }
+  // Highlight the shared diff arrow glyph so history lines read clearly.
   const arrowHighlights: HighlightSpec[] = [
     {
-      token: '→',
-      sx: { color: theme.palette.info.main, fontWeight: 'inherit' },
-    },
-    {
-      token: '->',
+      token: GLYPH_ARROW_RIGHT,
       sx: { color: theme.palette.info.main, fontWeight: 'inherit' },
     },
   ]
