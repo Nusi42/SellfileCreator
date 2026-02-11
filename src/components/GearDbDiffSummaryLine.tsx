@@ -44,6 +44,13 @@ export function GearDbDiffSummaryLine({
 }: GearDbDiffSummaryLineProps) {
   // Theme colors keep the icons aligned with existing success/error tones.
   const theme = useTheme()
+  // Success toasts need extra contrast so icon glyphs read on green.
+  const useHighContrast = useCountPill
+  // Precompute the palette for glyphs and separators so callers stay lightweight.
+  const addedColor = useHighContrast ? theme.palette.common.white : theme.palette.success.main
+  const removedColor = useHighContrast ? theme.palette.common.white : theme.palette.error.main
+  const updatedColor = useHighContrast ? theme.palette.common.white : theme.palette.info.main
+  const separatorColor = useHighContrast ? alpha(theme.palette.common.white, 0.7) : theme.palette.text.secondary
   // Normalize the label to avoid accidental whitespace in tight layouts.
   const trimmedLabel = label.trim()
   // Use a darker overlay so the pill reads against a green success toast.
@@ -54,8 +61,11 @@ export function GearDbDiffSummaryLine({
     flexShrink: 0,
     ...(useCountPill
       ? {
-        bgcolor: alpha(theme.palette.common.black, 0.25),
+        // Darken + outline so counts remain legible on the success fill.
+        bgcolor: alpha(theme.palette.common.black, 0.4),
+        border: `1px solid ${alpha(theme.palette.common.white, 0.4)}`,
         borderRadius: '999px',
+        color: theme.palette.common.white,
         px: 0.6,
         py: 0.15,
       }
@@ -83,25 +93,25 @@ export function GearDbDiffSummaryLine({
       <Box component="span" sx={countBlockSx}>
         {/* Added count uses the success glyph for quick scanning. */}
         <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.35 }}>
-          <AddCircleOutlineIcon fontSize={iconSize} sx={{ color: theme.palette.success.main }} />
+          <AddCircleOutlineIcon fontSize={iconSize} sx={{ color: addedColor }} />
           <Box component="span">{addedCount}</Box>
         </Box>
         {/* Separator keeps the line compact without extra words. */}
-        <Box component="span" sx={{ color: theme.palette.text.secondary }}>
+        <Box component="span" sx={{ color: separatorColor }}>
           {'/'}
         </Box>
         {/* Removed count uses the error glyph for quick scanning. */}
         <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.35 }}>
-          <RemoveCircleOutlineIcon fontSize={iconSize} sx={{ color: theme.palette.error.main }} />
+          <RemoveCircleOutlineIcon fontSize={iconSize} sx={{ color: removedColor }} />
           <Box component="span">{removedCount}</Box>
         </Box>
         {/* Separator keeps the line compact without extra words. */}
-        <Box component="span" sx={{ color: theme.palette.text.secondary }}>
+        <Box component="span" sx={{ color: separatorColor }}>
           {'/'}
         </Box>
         {/* Updated count uses an info glyph to signal mutation. */}
         <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.35 }}>
-          <AutorenewIcon fontSize={iconSize} sx={{ color: theme.palette.info.main }} />
+          <AutorenewIcon fontSize={iconSize} sx={{ color: updatedColor }} />
           <Box component="span">{updatedCount}</Box>
         </Box>
       </Box>
