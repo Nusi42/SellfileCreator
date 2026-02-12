@@ -24,6 +24,17 @@ const buildMainStat = (variant: StatVariant): NormalizedStat => ({
   totalValue: 0,
 })
 
+const buildSubstat = (variant: StatVariant, totalValue: number): NormalizedStat => ({
+  source: 'substat',
+  statId: 1,
+  isFlat: variant === StatVariant.HP_FLAT || variant === StatVariant.DEF_FLAT || variant === StatVariant.ATK_FLAT,
+  variant,
+  baseValue: totalValue,
+  glyphValue: 0,
+  mythValue: 0,
+  totalValue,
+})
+
 const makeArtifact = (overrides: Partial<NormalizedGearArtifact> = {}, variant: StatVariant = StatVariant.ATK): NormalizedGearArtifact => {
   const slot = overrides.slot ?? ArtifactType.Weapon
   const set = overrides.set ?? ArtifactSet.Speed
@@ -86,6 +97,10 @@ const makeRule = (overrides: Partial<KeepUniqueRule> = {}): KeepUniqueRule => {
     requiredCount: overrides.requiredCount ?? 1,
     activation: overrides.activation ?? KeepUniqueRuleActivation.ProtectExisting,
     countMode: overrides.countMode ?? KEEP_UNIQUE_DEFAULT_COUNT_MODE,
+    // Pass optional substat ranking fields through so tests can exercise ranked mode.
+    substats: overrides.substats,
+    substatMatch: overrides.substatMatch,
+    substatWeights: overrides.substatWeights,
   })
   if (!rule) throw new Error('expected combination')
   return rule
@@ -252,6 +267,127 @@ test('custom grouping honors the selected dimensions only', () => {
   assert.ok(entry)
   assert.strictEqual(entry.groupsTracked, 2, 'groups only by set when faction/main toggles are off')
   assert.strictEqual(entry.requiredCount, 2, 'requirement multiplies per set')
+})
+
+test('ranked ties on the same main stat prefer higher rank', () => {
+  const rules = [makeRule({
+    requiredCount: 1,
+    // Per-rule mode keeps the test focused on a single competition bucket.
+    countMode: { perRule: true, perSet: false, perFaction: false, perMainStat: false, perSlot: false },
+    // Keep the tuple broad so tie-break logic (not tuple filtering) decides.
+    combination: {
+      slots: [ArtifactType.Weapon],
+      sets: normalizeArtifactSetSelections([ArtifactSet.Speed]),
+      metaSetIds: [],
+      ranks: [],
+      rarities: [],
+      mainStats: [],
+      factions: [],
+    },
+    substats: [StatVariant.SPD],
+  })]
+  const rows = [
+    makeTesterRow({
+      id: 101,
+      rank: 5 as RankValue,
+      rarity: 6 as RankValue,
+      mainStat: buildMainStat(StatVariant.ATK),
+      substats: [buildSubstat(StatVariant.SPD, 6)],
+    }, false, StatVariant.ATK),
+    makeTesterRow({
+      id: 102,
+      rank: 6 as RankValue,
+      rarity: 5 as RankValue,
+      mainStat: buildMainStat(StatVariant.ATK),
+      substats: [buildSubstat(StatVariant.SPD, 6)],
+    }, false, StatVariant.ATK),
+  ]
+  const { candidates } = collectKeepUniqueCandidates({ rows, baseRules: [], configModes: [] })
+  const snapshot = computeKeepUniqueProtection({ candidates, rules, enabled: true })
+  const entry = snapshot.entries[0]
+  assert.ok(entry)
+  assert.deepStrictEqual(entry.itemKeys, [102], 'same-main tie should choose the higher-rank item only')
+})
+
+test('ranked ties across main stats prefer percent over matching flat stat', () => {
+  const rules = [makeRule({
+    requiredCount: 1,
+    // Per-rule mode keeps the test focused on a single competition bucket.
+    countMode: { perRule: true, perSet: false, perFaction: false, perMainStat: false, perSlot: false },
+    // Keep the tuple broad so tie-break logic (not tuple filtering) decides.
+    combination: {
+      slots: [ArtifactType.Weapon],
+      sets: normalizeArtifactSetSelections([ArtifactSet.Speed]),
+      metaSetIds: [],
+      ranks: [],
+      rarities: [],
+      mainStats: [],
+      factions: [],
+    },
+    substats: [StatVariant.SPD],
+  })]
+  const rows = [
+    makeTesterRow({
+      id: 201,
+      rank: 6 as RankValue,
+      rarity: 6 as RankValue,
+      mainStat: buildMainStat(StatVariant.ATK_FLAT),
+      substats: [buildSubstat(StatVariant.SPD, 6)],
+    }, false, StatVariant.ATK),
+    makeTesterRow({
+      id: 202,
+      rank: 6 as RankValue,
+      rarity: 6 as RankValue,
+      mainStat: buildMainStat(StatVariant.ATK),
+      substats: [buildSubstat(StatVariant.SPD, 6)],
+    }, false, StatVariant.ATK),
+  ]
+  const { candidates } = collectKeepUniqueCandidates({ rows, baseRules: [], configModes: [] })
+  const snapshot = computeKeepUniqueProtection({ candidates, rules, enabled: true })
+  const entry = snapshot.entries[0]
+  assert.ok(entry)
+  assert.deepStrictEqual(entry.itemKeys, [202], 'percent main stat should win over the matching flat variant')
+})
+
+test('ranked unresolved cutoff ties keep more than N', () => {
+  const rules = [makeRule({
+    requiredCount: 1,
+    // Per-rule mode keeps the test focused on a single competition bucket.
+    countMode: { perRule: true, perSet: false, perFaction: false, perMainStat: false, perSlot: false },
+    // Keep the tuple broad so tie-break logic (not tuple filtering) decides.
+    combination: {
+      slots: [ArtifactType.Weapon],
+      sets: normalizeArtifactSetSelections([ArtifactSet.Speed]),
+      metaSetIds: [],
+      ranks: [],
+      rarities: [],
+      mainStats: [],
+      factions: [],
+    },
+    substats: [StatVariant.SPD],
+  })]
+  const rows = [
+    makeTesterRow({
+      id: 301,
+      rank: 6 as RankValue,
+      rarity: 6 as RankValue,
+      mainStat: buildMainStat(StatVariant.CDMG),
+      substats: [buildSubstat(StatVariant.SPD, 6)],
+    }, false, StatVariant.ATK),
+    makeTesterRow({
+      id: 302,
+      rank: 6 as RankValue,
+      rarity: 5 as RankValue,
+      mainStat: buildMainStat(StatVariant.CDMG),
+      substats: [buildSubstat(StatVariant.SPD, 6)],
+    }, false, StatVariant.ATK),
+  ]
+  const { candidates } = collectKeepUniqueCandidates({ rows, baseRules: [], configModes: [] })
+  const snapshot = computeKeepUniqueProtection({ candidates, rules, enabled: true })
+  const entry = snapshot.entries[0]
+  assert.ok(entry)
+  assert.strictEqual(entry.itemKeys.length, 2, 'unresolved boundary ties should preserve both candidates')
+  assert.deepStrictEqual(new Set(entry.itemKeys), new Set([301, 302]))
 })
 
 test('resolveKeepUniqueRulesWithMetasets expands set lists', () => {

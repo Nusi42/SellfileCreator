@@ -1250,14 +1250,71 @@ type KeepUniqueScoredCandidate = {
   score: number
 }
 
-// Sort higher scores first; tie-break by item key for deterministic ordering.
+// Score ties use an epsilon so tiny float noise does not flip boundary behavior.
+const KEEP_UNIQUE_SCORE_TIE_EPSILON = 1e-9
+
+// Keep the flat-vs-percent main-stat preference in one SSOT lookup.
+const PERCENT_MAIN_TO_FLAT_MAIN = new Map<StatVariant, StatVariant>([
+  [StatVariantEnum.HP, StatVariantEnum.HP_FLAT],
+  [StatVariantEnum.DEF, StatVariantEnum.DEF_FLAT],
+  [StatVariantEnum.ATK, StatVariantEnum.ATK_FLAT],
+])
+
+// Compare two scored candidates using only "provable better" tie-breakers.
+const compareKeepUniqueScoredCandidates = (
+  left: KeepUniqueScoredCandidate,
+  right: KeepUniqueScoredCandidate,
+): number => {
+  // Primary ordering is still normalized substat score.
+  const scoreDelta = right.score - left.score
+  if (Math.abs(scoreDelta) > KEEP_UNIQUE_SCORE_TIE_EPSILON) return scoreDelta
+
+  // Resolve equal-score ties by rank only when both main stats are identical.
+  const leftMain = Number(left.candidate.artifact.mainStat?.variant ?? StatVariantEnum.Any) as StatVariant
+  const rightMain = Number(right.candidate.artifact.mainStat?.variant ?? StatVariantEnum.Any) as StatVariant
+  if (leftMain === rightMain) {
+    const leftRank = Number(left.candidate.artifact.rank)
+    const rightRank = Number(right.candidate.artifact.rank)
+    const safeLeftRank = Number.isFinite(leftRank) ? leftRank : 0
+    const safeRightRank = Number.isFinite(rightRank) ? rightRank : 0
+    const rankDelta = safeRightRank - safeLeftRank
+    if (rankDelta !== 0) return rankDelta
+    // Same score + same main stat + same rank -> unresolved tie.
+    return 0
+  }
+
+  // For differing main stats, only resolve percent-vs-flat within the same family.
+  const leftFlatVariant = PERCENT_MAIN_TO_FLAT_MAIN.get(leftMain)
+  if (leftFlatVariant != null && leftFlatVariant === rightMain) return -1
+  const rightFlatVariant = PERCENT_MAIN_TO_FLAT_MAIN.get(rightMain)
+  if (rightFlatVariant != null && rightFlatVariant === leftMain) return 1
+  // Everything else stays unresolved so we do not "roll dice" on unknown quality.
+  return 0
+}
+
+// Sort scored candidates by score and safe tie-breakers only.
 const sortKeepUniqueScoredCandidates = (entries: KeepUniqueScoredCandidate[]): KeepUniqueScoredCandidate[] => (
-  entries.slice().sort((left, right) => {
-    const delta = right.score - left.score
-    if (delta !== 0) return delta
-    return left.candidate.itemKey - right.candidate.itemKey
-  })
+  entries.slice().sort((left, right) => compareKeepUniqueScoredCandidates(left, right))
 )
+
+// Keep exactly N when ties are resolvable; otherwise include unresolved boundary ties.
+const selectKeepUniqueTopScoredCandidates = (
+  entries: KeepUniqueScoredCandidate[],
+  requiredPerGroup: number,
+): KeepUniqueScoredCandidate[] => {
+  if (requiredPerGroup <= 0 || entries.length === 0) return []
+  const sorted = sortKeepUniqueScoredCandidates(entries)
+  if (sorted.length <= requiredPerGroup) return sorted
+  const selected = sorted.slice(0, requiredPerGroup)
+  const boundary = selected[selected.length - 1]
+  if (!boundary) return selected
+  // Include every unresolved tie with the Nth candidate to stay safety-first.
+  const unresolvedBoundaryTies = sorted
+    .slice(requiredPerGroup)
+    .filter((entry) => compareKeepUniqueScoredCandidates(entry, boundary) === 0)
+  if (unresolvedBoundaryTies.length === 0) return selected
+  return selected.concat(unresolvedBoundaryTies)
+}
 
 // Deterministic ordering for unranked keep-unique selection (no score signal).
 const sortKeepUniqueCandidatesByItemKey = (entries: KeepUniqueCandidate[]): KeepUniqueCandidate[] => (
@@ -1491,17 +1548,12 @@ export function computeKeepUniqueProtection(params: KeepUniqueDetectionParams): 
             deficit += deficitGroup
             continue
           }
-          // Sort by normalized score so top-N selection is deterministic.
-          const sorted = sortKeepUniqueScoredCandidates(bucket)
-          // Cutoff index is N-1; clamp to the bucket length.
-          const cutoffIndex = Math.min(requiredPerGroup, sorted.length) - 1
-          const cutoffScore = cutoffIndex >= 0 ? sorted[cutoffIndex]!.score : Number.POSITIVE_INFINITY
+          // Pick top-N by safe ordering and include unresolved ties at the boundary.
+          const selected = selectKeepUniqueTopScoredCandidates(bucket, requiredPerGroup)
           let groupTotal = 0
           let groupKept = 0
           let groupSold = 0
-          for (const scoredEntry of sorted) {
-            // Stop once we drop below the cutoff so ties at N are included.
-            if (scoredEntry.score < cutoffScore) break
+          for (const scoredEntry of selected) {
             groupTotal += 1
             if (scoredEntry.candidate.isSold) {
               groupSold += 1
