@@ -76,7 +76,7 @@ test('only constraints keep the preferred option and prune explicit ids within r
   const note = [
     '<!-- config-options',
     'q "Defaults"',
-    'radio "Lategame" id=lategame +q1 +q3 { @all { export=active } }',
+    'radio "Lategame" id=lategame ^q1 ^q3 { @all { export=active } }',
     'radio "Endgame" id=endgame { @all { export=active } }',
     '-->',
     '<!-- config-options',
@@ -142,7 +142,7 @@ test('only numeric constraints stay scoped to the current question', () => {
   const note = [
     '<!-- config-options',
     'q "Local Only"',
-    'check "Local A" +1 { @all { export=active } }',
+    'check "Local A" ^1 { @all { export=active } }',
     'check "Local B" { @all { export=active } }',
     '-->',
     '<!-- config-options',
@@ -180,8 +180,8 @@ test('only constraints resolve when id appears after the default marker', () => 
   const note = [
     '<!-- config-options',
     'q "Defaults"',
-    'cb "Lategame" * id=lategame +marius_open +fwh_no { @all { export=active } }',
-    'cb "Endgame" id=endgame +marius_finished +fwh_yes16 { @all { export=active } }',
+    'cb "Lategame" * id=lategame ^marius_open ^fwh_no { @all { export=active } }',
+    'cb "Endgame" id=endgame ^marius_finished ^fwh_yes16 { @all { export=active } }',
     '-->',
     '<!-- config-options',
     'q "Marius?"',
@@ -228,6 +228,103 @@ test('only constraints resolve when id appears after the default marker', () => 
   // Confirm the allow-listed Faction Wars choice is selected.
   assert.ok(resolvedFwh?.answer.includes(fwhNoId))
   assert.equal(resolvedFwh?.answer.includes(fwhYesId), false)
+})
+
+test('set constraints can switch single-select answers across questions', () => {
+  // Build a note where one option presets two radio questions.
+  const note = [
+    '<!-- config-options',
+    'q "Preset"',
+    'check "Endgame preset" id=preset +marius_yes +fwh_yes { @all { export=active } }',
+    '-->',
+    '<!-- config-options',
+    'q "Marius"',
+    'radio "No" * id=marius_no { @all { export=active } }',
+    'radio "Yes" id=marius_yes { @all { export=active } }',
+    '-->',
+    '<!-- config-options',
+    'q "Faction Wars"',
+    'radio "No" * id=fwh_no { @all { export=active } }',
+    'radio "Yes" id=fwh_yes { @all { export=active } }',
+    '-->',
+  ].join('\n')
+  // Parse once so we can reuse scoped ids.
+  const seed = resolveConfigOptionsTags(note)
+  const [preset, marius, fwh] = seed.questions
+  assert.ok(preset, 'expected preset question')
+  assert.ok(marius, 'expected Marius question')
+  assert.ok(fwh, 'expected Faction Wars question')
+  const presetId = preset.options[0]!.id
+  const mariusNoId = marius.options[0]!.id
+  const mariusYesId = marius.options[1]!.id
+  const fwhNoId = fwh.options[0]!.id
+  const fwhYesId = fwh.options[1]!.id
+  // Select only the preset and let directives propagate.
+  const answers = { [preset.id]: [presetId] }
+  const resolved = resolveConfigOptionsTags(note, answers, presetId).questions
+  const resolvedMarius = resolved.find((entry) => entry.id === marius.id)
+  const resolvedFwh = resolved.find((entry) => entry.id === fwh.id)
+  // The preset should switch both radio questions to "Yes".
+  assert.equal(resolvedMarius?.answer.includes(mariusNoId), false)
+  assert.ok(resolvedMarius?.answer.includes(mariusYesId))
+  assert.equal(resolvedFwh?.answer.includes(fwhNoId), false)
+  assert.ok(resolvedFwh?.answer.includes(fwhYesId))
+})
+
+test('unset constraints can remove selected options across questions', () => {
+  // Build a note where one option disables another selected checkbox.
+  const note = [
+    '<!-- config-options',
+    'q "Parent"',
+    'check "Disable child" id=parent -child { @all { export=active } }',
+    '-->',
+    '<!-- config-options',
+    'q "Child"',
+    'check "Child option" * id=child { @all { export=active } }',
+    '-->',
+  ].join('\n')
+  // Parse once so we can reuse scoped ids.
+  const seed = resolveConfigOptionsTags(note)
+  const [parent, child] = seed.questions
+  assert.ok(parent, 'expected parent question')
+  assert.ok(child, 'expected child question')
+  const parentId = parent.options[0]!.id
+  const childId = child.options[0]!.id
+  // Start with both options selected.
+  const answers = {
+    [parent.id]: [parentId],
+    [child.id]: [childId],
+  }
+  const resolved = resolveConfigOptionsTags(note, answers, parentId).questions
+  const resolvedParent = resolved.find((entry) => entry.id === parent.id)
+  const resolvedChild = resolved.find((entry) => entry.id === child.id)
+  // Parent stays selected while the child is explicitly unset.
+  assert.ok(resolvedParent?.answer.includes(parentId))
+  assert.equal(resolvedChild?.answer.includes(childId), false)
+})
+
+test('plus constraints no longer enforce only semantics', () => {
+  // Build a note where "+1" should behave like set, not allow-list exclusion.
+  const note = [
+    '<!-- config-options',
+    'q "Local"',
+    'check "A" +1 { @all { export=active } }',
+    'check "B" { @all { export=active } }',
+    '-->',
+  ].join('\n')
+  // Parse once so we can reuse scoped ids.
+  const seed = resolveConfigOptionsTags(note)
+  const [local] = seed.questions
+  assert.ok(local, 'expected local question')
+  const aId = local.options[0]!.id
+  const bId = local.options[1]!.id
+  // Select both options and keep A preferred.
+  const answers = { [local.id]: [aId, bId] }
+  const resolved = resolveConfigOptionsTags(note, answers, aId).questions
+  const resolvedLocal = resolved.find((entry) => entry.id === local.id)
+  // Both answers should remain selected because "+" now means set.
+  assert.ok(resolvedLocal?.answer.includes(aId))
+  assert.ok(resolvedLocal?.answer.includes(bId))
 })
 
 test('single-select groups pick a compatible fallback when excluded', () => {

@@ -91,6 +91,8 @@ export type NoteQuestionOption = {
   blocks: ConfigOptionsSelectorBlock[]
   isDefault: boolean
   token: string
+  setOptionIds: string[]
+  unsetOptionIds: string[]
   excludedOptionIds: string[]
   groupType: NoteQuestionGroupType
 }
@@ -475,7 +477,7 @@ const tokenizeConfigOptions = (input: string): Token[] => {
       continue
     }
     // Parse single-character symbols.
-    if ('{}[](),*+@=<>!:'.includes(ch)) {
+    if ('{}[](),*+@=<>!:^'.includes(ch)) {
       tokens.push({ kind: 'symbol', value: ch, index: idx })
       idx += 1
       continue
@@ -485,7 +487,7 @@ const tokenizeConfigOptions = (input: string): Token[] => {
     while (end < input.length) {
       const next = input.charAt(end)
       if (/\s/.test(next)) break
-      if ('{}[](),*@=<>!:'.includes(next)) break
+      if ('{}[](),*+@=<>!:^'.includes(next)) break
       if (next === '&' || next === '|') break
       end += 1
     }
@@ -828,7 +830,24 @@ const parseOperations = (cursor: TokenCursor, endSymbol: string): ConfigOptionsO
       continue
     }
     cursor.next()
-    const valueRaw = valueToken.value
+    // Level windows may include a range tokenized as "12", "-", "16".
+    let valueRaw = valueToken.value
+    if (field === 'lvl' && op === 'eq') {
+      const dashToken = cursor.peek()
+      const tailToken = cursor.peek(1)
+      const hasRangeTail = Boolean(
+        dashToken
+        && tailToken
+        && dashToken.kind === 'symbol'
+        && dashToken.value === '-'
+        && (tailToken.kind === 'word' || tailToken.kind === 'string'),
+      )
+      if (hasRangeTail) {
+        cursor.next()
+        cursor.next()
+        valueRaw = `${valueRaw}-${tailToken!.value}`
+      }
+    }
     if (field === 'export') {
       if (op !== 'eq') continue
       const mode = valueRaw.trim().toLowerCase()
@@ -954,6 +973,8 @@ type ParsedQuestionOption = {
   isDefault: boolean
   explicitToken: string | null
   implicitToken: string | null
+  setTokens: string[]
+  unsetTokens: string[]
   excludedTokens: string[]
   onlyTokens: string[]
   groupType: NoteQuestionGroupType
@@ -1086,6 +1107,8 @@ const parseOptionBlock = (
   if (detailToken && detailToken.kind === 'string') cursor.next()
   let isDefault = false
   let explicitToken: string | null = null
+  const setTokens: string[] = []
+  const unsetTokens: string[] = []
   const excludedTokens: string[] = []
   const onlyTokens: string[] = []
   // Track header parsing order so constraints stay before the selector block.
@@ -1136,6 +1159,20 @@ const parseOptionBlock = (
       readTokenList(cursor, excludedTokens)
       continue
     }
+    if (token.kind === 'word' && token.value.toLowerCase() === 'set') {
+      headerPhase = 'constraints'
+      cursor.next()
+      // "set" toggles listed tokens on when this option is selected.
+      readTokenList(cursor, setTokens)
+      continue
+    }
+    if (token.kind === 'word' && token.value.toLowerCase() === 'unset') {
+      headerPhase = 'constraints'
+      cursor.next()
+      // "unset" toggles listed tokens off when this option is selected.
+      readTokenList(cursor, unsetTokens)
+      continue
+    }
     if (token.kind === 'word' && token.value.toLowerCase() === 'excl') {
       headerPhase = 'constraints'
       cursor.next()
@@ -1153,7 +1190,24 @@ const parseOptionBlock = (
     if (token.kind === 'symbol' && token.value === '+') {
       headerPhase = 'constraints'
       cursor.next()
-      // "+" is an alias for "only" in constraint headers.
+      // "+" is an alias for "set" in constraint headers.
+      readTokenList(cursor, setTokens)
+      continue
+    }
+    if (token.kind === 'word' && token.value.startsWith('-')) {
+      headerPhase = 'constraints'
+      // Support compact "-token" syntax without changing tokenizer rules.
+      const compact = normalizeQuestionToken(token.value.slice(1))
+      cursor.next()
+      if (compact) unsetTokens.push(compact)
+      // Continue reading comma/space-separated follow-up ids.
+      readTokenList(cursor, unsetTokens)
+      continue
+    }
+    if (token.kind === 'symbol' && token.value === '^') {
+      headerPhase = 'constraints'
+      cursor.next()
+      // "^" is a compact alias for "only" allow-lists.
       readTokenList(cursor, onlyTokens)
       continue
     }
@@ -1176,6 +1230,8 @@ const parseOptionBlock = (
     isDefault,
     explicitToken,
     implicitToken,
+    setTokens,
+    unsetTokens,
     excludedTokens,
     onlyTokens,
     groupType,
@@ -1501,6 +1557,18 @@ const buildResolvedQuestion = (
   const options = question.options.map((option) => {
     // Prefer explicit tokens for display, else fall back to the implicit index.
     const token = option.explicitToken ?? option.implicitToken ?? ''
+    // Resolve set tokens using global explicit IDs.
+    const setOptionIds = resolveOptionIdsFromTokens(
+      option.setTokens,
+      globalExplicitTokenMap,
+      implicitTokenMap,
+    )
+    // Resolve unset tokens using global explicit IDs.
+    const unsetOptionIds = resolveOptionIdsFromTokens(
+      option.unsetTokens,
+      globalExplicitTokenMap,
+      implicitTokenMap,
+    )
     // Resolve exclusion tokens using global explicit IDs.
     const explicitExclusions = resolveOptionIdsFromTokens(
       option.excludedTokens,
@@ -1519,6 +1587,8 @@ const buildResolvedQuestion = (
       blocks: option.blocks,
       isDefault: option.isDefault,
       token,
+      setOptionIds,
+      unsetOptionIds,
       excludedOptionIds,
       groupType: option.groupType,
     }
@@ -1625,6 +1695,7 @@ const applySingleGroupFallbackSelections = (
   selection: string[],
   groups: NoteQuestionGroup[],
   options: NoteQuestionOption[],
+  preferredId?: string,
 ): string[] => {
   // Reuse the shared exclusion lookup for compatibility checks.
   const exclusions = buildOptionExclusionLookup(options)
@@ -1632,9 +1703,19 @@ const applySingleGroupFallbackSelections = (
   const next = new Set(selection)
   groups.forEach((group) => {
     if (group.type !== 'single') return
-    // Skip groups that already have a selection.
-    const hasSelection = group.options.some((option) => next.has(option.id))
-    if (hasSelection) return
+    // Keep single-select groups to a single answer.
+    const selectedInGroup = group.options.filter((option) => next.has(option.id))
+    if (selectedInGroup.length > 0) {
+      const preferred = preferredId
+        ? selectedInGroup.find((option) => option.id === preferredId) ?? null
+        : null
+      const keep = preferred ?? selectedInGroup[0]!
+      selectedInGroup.forEach((option) => {
+        if (option.id === keep.id) return
+        next.delete(option.id)
+      })
+      return
+    }
     // Choose the first compatible fallback candidate.
     const fallbackId = pickSingleGroupFallback(group, next, exclusions)
     if (!fallbackId) return
@@ -1644,30 +1725,28 @@ const applySingleGroupFallbackSelections = (
   return options.filter((option) => next.has(option.id)).map((option) => option.id)
 }
 
-// Apply exclusions across the full note to support global IDs.
-const applyGlobalOptionExclusions = (
-  questions: NoteQuestionDefinition[],
-  preferredId?: string,
-): NoteQuestionDefinition[] => {
-  // Flatten option ordering so conflicts resolve deterministically.
-  const allOptions = questions.flatMap((question) => question.options)
-  // Collect the currently selected option IDs.
-  const selected = questions.flatMap((question) => question.answer)
-  // Resolve exclusions using the global option ordering.
-  const resolved = applyQuestionExclusions(selected, allOptions, preferredId)
-  // Fill single-select gaps without introducing new conflicts.
-  const filled = questions.reduce((current, question) => (
-    applySingleGroupFallbackSelections(current, question.groups, allOptions)
-  ), resolved)
-  // Cache the resolved selection for cheap lookups.
-  const resolvedSet = new Set(filled)
-  // Update each question with the globally-resolved selection.
-  return questions.map((question) => ({
-    ...question,
-    answer: question.options
-      .filter((option) => resolvedSet.has(option.id))
-      .map((option) => option.id),
-  }))
+// Normalize a selection to the source option ordering.
+const normalizeSelectionOrder = (
+  selection: string[],
+  options: NoteQuestionOption[],
+): string[] => {
+  const selectedSet = new Set(selection)
+  return options.filter((option) => selectedSet.has(option.id)).map((option) => option.id)
+}
+
+// Compare ordered selections without allocating set wrappers.
+const isSameOrderedSelection = (
+  left: string[],
+  right: string[],
+): boolean => (
+  left.length === right.length
+  && left.every((value, index) => value === right[index])
+)
+
+// Question-scoped option IDs are prefixed with "{questionId}:...".
+const getOptionQuestionScopeId = (optionId: string): string => {
+  const separatorIndex = optionId.indexOf(':')
+  return separatorIndex >= 0 ? optionId.slice(0, separatorIndex) : optionId
 }
 
 // Apply exclusions so mutually exclusive options cannot co-exist.
@@ -1698,6 +1777,105 @@ export const applyQuestionExclusions = (
   // Preserve the original option ordering.
   return options.filter((option) => next.has(option.id)).map((option) => option.id)
 }
+
+// Apply set/unset directives emitted by selected options.
+export const applyQuestionDirectives = (
+  selection: string[],
+  options: NoteQuestionOption[],
+  preferredId?: string,
+): string[] => {
+  const next = new Set(selection)
+  const optionById = new Map(options.map((option) => [option.id, option]))
+  options.forEach((option) => {
+    if (!next.has(option.id)) return
+    // Apply "set" first so explicit unsets can still win.
+    option.setOptionIds.forEach((id) => {
+      next.add(id)
+      // Setting a single-select option should replace peers in that question.
+      const target = optionById.get(id)
+      if (!target || target.groupType !== 'single') return
+      const targetScope = getOptionQuestionScopeId(id)
+      options.forEach((candidate) => {
+        if (candidate.id === id) return
+        if (candidate.groupType !== 'single') return
+        if (getOptionQuestionScopeId(candidate.id) !== targetScope) return
+        next.delete(candidate.id)
+      })
+    })
+    option.unsetOptionIds.forEach((id) => {
+      if (id === preferredId) return
+      next.delete(id)
+    })
+  })
+  // Keep explicit user intent when a preferred id is supplied.
+  if (preferredId) {
+    next.add(preferredId)
+    const preferred = optionById.get(preferredId)
+    if (preferred?.groupType === 'single') {
+      const preferredScope = getOptionQuestionScopeId(preferredId)
+      options.forEach((candidate) => {
+        if (candidate.id === preferredId) return
+        if (candidate.groupType !== 'single') return
+        if (getOptionQuestionScopeId(candidate.id) !== preferredScope) return
+        next.delete(candidate.id)
+      })
+    }
+  }
+  return options.filter((option) => next.has(option.id)).map((option) => option.id)
+}
+
+// Resolve directives, exclusions, and fallbacks until the selection stabilizes.
+const resolveSelectionWithOptionRules = (
+  selection: string[],
+  groups: NoteQuestionGroup[],
+  options: NoteQuestionOption[],
+  preferredId?: string,
+): string[] => {
+  let current = normalizeSelectionOrder(selection, options)
+  // Cap iterations so malformed cycles cannot stall parsing.
+  const maxPasses = Math.max(8, options.length + groups.length + 2)
+  for (let pass = 0; pass < maxPasses; pass += 1) {
+    const withDirectives = applyQuestionDirectives(current, options, preferredId)
+    const withExclusions = applyQuestionExclusions(withDirectives, options, preferredId)
+    const withFallbacks = applySingleGroupFallbackSelections(withExclusions, groups, options, preferredId)
+    const next = normalizeSelectionOrder(withFallbacks, options)
+    if (isSameOrderedSelection(next, current)) return next
+    current = next
+  }
+  return current
+}
+
+// Apply constraints across all questions so cross-question ids resolve consistently.
+const applyGlobalOptionExclusions = (
+  questions: NoteQuestionDefinition[],
+  preferredId?: string,
+): NoteQuestionDefinition[] => {
+  // Flatten option/group ordering so conflicts resolve deterministically.
+  const allOptions = questions.flatMap((question) => question.options)
+  const allGroups = questions.flatMap((question) => question.groups)
+  // Collect the currently selected option IDs.
+  const selected = questions.flatMap((question) => question.answer)
+  // Resolve directives/exclusions/fallbacks using global option ordering.
+  const resolved = resolveSelectionWithOptionRules(selected, allGroups, allOptions, preferredId)
+  // Cache the resolved selection for cheap lookups.
+  const resolvedSet = new Set(resolved)
+  // Update each question with the globally-resolved selection.
+  return questions.map((question) => ({
+    ...question,
+    answer: question.options
+      .filter((option) => resolvedSet.has(option.id))
+      .map((option) => option.id),
+  }))
+}
+
+// Public helper used by UI handlers when a single question changes.
+export const applyQuestionSelectionRules = (
+  selection: string[],
+  question: Pick<NoteQuestionDefinition, 'groups' | 'options'>,
+  preferredId?: string,
+): string[] => (
+  resolveSelectionWithOptionRules(selection, question.groups, question.options, preferredId)
+)
 
 // Resolve which option IDs are selected for a question.
 const resolveQuestionAnswer = (
@@ -1739,10 +1917,8 @@ const resolveQuestionAnswer = (
       .filter((id) => group.options.some((opt) => opt.id === id))
       .forEach((id) => next.push(id))
   })
-  // Enforce exclusion rules before repairing single-select gaps.
-  const resolved = applyQuestionExclusions(next, question.options)
-  // Ensure single-select groups stay populated when excluded.
-  return applySingleGroupFallbackSelections(resolved, question.groups, question.options)
+  // Enforce directives/exclusions and repair single-select gaps.
+  return applyQuestionSelectionRules(next, question)
 }
 
 // Parse config options markers from note text.

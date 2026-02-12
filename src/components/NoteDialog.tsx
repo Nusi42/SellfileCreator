@@ -52,7 +52,7 @@ import TesterOutcomeSummaryChip from './TesterOutcomeSummaryChip'
 import { normalizeTesterSortWeight, TESTER_SORT_WEIGHT_DEFAULT } from '../lib/testerSort'
 import {
   buildNoteConfigOptionsSignature,
-  applyQuestionExclusions,
+  applyQuestionSelectionRules,
   resolveConfigOptionsTags,
   NOTE_CONFIG_OPTIONS_LAYOUT_WHOLELINE,
   NOTE_CONFIG_OPTIONS_MARKER_COLUMNS_KEY,
@@ -1204,7 +1204,9 @@ term          := "tag" ("=" token
 assignment    := field ("=" | ">=" | "<=") value
 fallbackBlock := ("fallback" | "else") "{" selectorBlock+ "}"
 constraints   := "!" tokenList | "excl" tokenList
-             | "only" tokenList | "+" tokenList
+             | "set" tokenList | "+" tokenList
+             | "unset" tokenList | "-" tokenList
+             | "only" tokenList | "^" tokenList
 tokenList     := token ("," token)*
 field         := "export" | "rank" | "rarity" | "lvl" | "keep"
              | "autolate" | "minrolls" | "lockedminrolls"
@@ -1237,10 +1239,13 @@ const CONFIG_OPTIONS_SAMPLE_EXAMPLE_TEXT = [
   'check "Activate only affects configs with Min Required Rolls 3+" { @minrolls>=3 { export=active } }',
   'check "Activate only affects configs with Required Substats 2+" { @minsubstats>=2 { export=active } }',
   'check "Activate only affects configs with Flex turned on" { @flex=on { export=active } }',
-  // Explicit id toggles + exclusions.
+  // Explicit id toggles + constraints.
   'check "Toggle 1 (explicit id)" id=m1 !14 { @all { export=disabled } }',
   'check "Toggle 2 (explicit id)" id=m2 !14 { @all { export=active } }',
   'check "Toggle 3 (implicit #3, excludes 1+2)" !m2 !m1 { @all { export=active } }',
+  'check "Toggle 4 (set two ids)" +m1,m2 { @all { export=active } }',
+  'check "Toggle 5 (unset one id)" -m1 { @all { export=active } }',
+  'check "Toggle 6 (only one id allowed)" ^m2 { @all { export=active } }',
   // Rule overrides for export inputs.
   'check "Set Rank to 5" { @all { rank=5 } }',
   'check "Set Rarity to Legendary" { @all { rarity=legendary } }',
@@ -1735,7 +1740,11 @@ function NoteQuestionBlock({ node }: NoteQuestionBlockProps): JSX.Element | null
                       group.options.forEach((option) => next.delete(option.id))
                       if (value) next.add(value)
                       // Apply exclusions so mutual rules stay enforced.
-                      const ordered = applyQuestionExclusions(Array.from(next), question.options, value || undefined)
+                      const ordered = applyQuestionSelectionRules(
+                        Array.from(next),
+                        question,
+                        value || undefined,
+                      )
                       applyAnswer(ordered, value || undefined)
                     }}
                     sx={optionGroupSx}
@@ -1788,7 +1797,11 @@ function NoteQuestionBlock({ node }: NoteQuestionBlockProps): JSX.Element | null
                             else next.delete(option.id)
                             // Apply exclusions so mutual rules stay enforced.
                             const preferred = event.target.checked ? option.id : undefined
-                            const ordered = applyQuestionExclusions(Array.from(next), question.options, preferred)
+                            const ordered = applyQuestionSelectionRules(
+                              Array.from(next),
+                              question,
+                              preferred,
+                            )
                             applyAnswer(ordered, preferred)
                           }}
                         />

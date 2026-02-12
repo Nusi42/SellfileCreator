@@ -2915,6 +2915,8 @@ export const TesterGridCard = React.memo(function TesterGridCard({
         overflowY: 'hidden',
         alignContent: 'start',
         boxShadow: cardHighlighted ? `0 0 0 1px ${alpha(theme.palette.info.main, 0.3)}` : 'none',
+        // Card content must stay readable even inside colored containers (for example success toasts).
+        color: theme.palette.text.primary,
         opacity: cardDimmed ? 0.35 : 1,
         transition: 'opacity 120ms ease, border-color 120ms ease, box-shadow 120ms ease',
       })}
