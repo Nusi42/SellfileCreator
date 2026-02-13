@@ -86,7 +86,6 @@ import {
   RULE_SOURCE_KEEP_UNIQUES,
   type HsfRuleWithCfg,
 } from './lib/merge'
-import { buildRuleMatchIndexData, primeRuleMatchIndex } from './lib/ruleMatchIndex'
 import { cloneRuleWithConfigIndex, getRuleConfigIndex, resolveMatchConfigName } from './lib/ruleConfigIndex'
 import {
   buildDefaultKeepUniqueRules,
@@ -1180,8 +1179,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         if (prevExcluded.has(prevIdx)) newExcluded.push(newIdx)
       }
       const mergedRules = prevState.baseRules.concat(...customSegments, prevState.finalSellRules)
-      const ruleMatchIndex = buildRuleMatchIndexData(mergedRules)
-      primeRuleMatchIndex(mergedRules, ruleMatchIndex)
       setConfigRulesState({
         ...prevState,
         rulesByConfig: newRulesByConfig,
@@ -3041,8 +3038,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
         resolvedKeepUniqueRules,
         detection: keepUniquesActive ? keepUniqueDetection : null,
       })
-      // Prime the rule-match index so testers and workers use the updated ordering.
-      primeRuleMatchIndex(keepUniqueResult.mergedRules, buildRuleMatchIndexData(keepUniqueResult.mergedRules))
       for (let i = 0; i < keepUniqueResult.mergedRules.length; i += 1) {
         (keepUniqueResult.mergedRules[i] as HsfRuleWithCfg).__lineIdx = i
       }

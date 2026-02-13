@@ -7,7 +7,7 @@
  * runs the same matching logic used in the UI, and prints timing stats for
  * the base matcher, Keep Unique detection, and the post-detection matcher.
  */
-import { readFile } from 'node:fs/promises'
+import { cp, mkdir, readFile } from 'node:fs/promises'
 import { resolve as resolvePath } from 'node:path'
 import { performance } from 'node:perf_hooks'
 import { parseHsfcObject } from '../../src/lib/hsfcIO.js'
@@ -34,6 +34,7 @@ import type { EvalResult } from '../../src/lib/ruleEval.js'
 import type { TesterPreviewMatch, TesterPreviewRow } from '../../src/types/testerPreview.js'
 // Final Sell config stays centralized in Logic Hub so tooling mirrors UI + IO types.
 import type { FinalSellRemainderConfig } from '../../src/lib/logicHub.js'
+import { warmupWasmRuleEngine } from '../../src/lib/wasm/wasmRuleEngine.js'
 
 type ScenarioInput = {
   hsfcPath: string
@@ -56,6 +57,50 @@ type MatchPhaseResult = {
   durationMs: number
   kept: number
   sold: number
+}
+
+const installNodeFileFetch = async (): Promise<void> => {
+  // Keep Node's original fetch so non-file URLs keep default behavior.
+  const originalFetch = globalThis.fetch
+  // Older runtimes may not expose fetch; skip the shim in that case.
+  if (typeof originalFetch !== 'function') return
+  // Replace fetch so wasm-bindgen file:// loads resolve during CLI runs.
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+    // Normalize Request|string|URL into a raw URL string once.
+    const url = typeof input === 'string'
+      ? input
+      : (input instanceof URL ? input.href : input.url)
+    // Intercept local wasm URLs and materialize a synthetic HTTP-like response.
+    if (url.startsWith('file://')) {
+      // Read raw bytes from disk so WebAssembly.instantiate receives binary data.
+      const { readFile } = await import('node:fs/promises')
+      const bytes = await readFile(new URL(url))
+      // Return the binary with the wasm MIME type expected by the loader.
+      return new Response(new Uint8Array(bytes), {
+        status: 200,
+        headers: { 'content-type': 'application/wasm' },
+      })
+    }
+    // Delegate all non-file traffic to the original implementation.
+    return originalFetch(input, init)
+  }) as typeof fetch
+}
+
+// Script builds run from tmp/tsc/scripts, so keep generated wasm artifacts in sync
+// with src/lib/wasm/generated before we import and warm the module.
+const syncCompiledWasmBindings = async (): Promise<void> => {
+  // Resolve absolute paths so this helper is insensitive to caller cwd changes.
+  const root = process.cwd()
+  const sourceDir = resolvePath(root, 'src/lib/wasm/generated')
+  const targetDir = resolvePath(root, 'tmp/tsc/scripts/src/lib/wasm/generated')
+  try {
+    // Ensure the compiled scripts output path exists before recursive copy.
+    await mkdir(targetDir, { recursive: true })
+    // Force-copy all generated artifacts to keep JS+WASM in lockstep.
+    await cp(sourceDir, targetDir, { recursive: true, force: true })
+  } catch {
+    // Keep tooling resilient: if sync fails, warmup will still surface a clear wasm error.
+  }
 }
 
 // Default pairing mirrors the user-reported heavy scenario.
@@ -271,6 +316,13 @@ const summarize = (label: string, phase: MatchPhaseResult): void => {
 }
 
 const main = async (): Promise<void> => {
+  // Tooling runs sync builder/matcher helpers directly, so warm wasm first.
+  // Install the file:// fetch shim before wasm-bindgen tries to load bytes.
+  await installNodeFileFetch()
+  // Sync generated artifacts so tmp script execution cannot use stale wasm.
+  await syncCompiledWasmBindings()
+  // Preload the module once so sync helpers can execute immediately afterward.
+  await warmupWasmRuleEngine()
   const input = parseArgs()
   console.log('Rule Tester measurement')
   console.log(`  HSFC: ${input.hsfcPath}`)

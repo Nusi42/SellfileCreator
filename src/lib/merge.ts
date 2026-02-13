@@ -14,7 +14,7 @@ import {
   KEEP_UNIQUE_CONFIG_ID_BASE,
 } from './constants'
 import { buildHsfRules, RuleLimitReachedError, resolveAutoRarityCode } from './hsfBuilder'
-import { findObsoleteRules } from './hsfObsolete'
+import { finalizeGeneratedRulesWithLoadedWasm } from './wasm/wasmRuleEngine'
 import type { Metaset } from './metasets'
 import { resolveArtifactSetSelections, splitArtifactSetSelections } from './gearSets/selection'
 import {
@@ -87,13 +87,23 @@ export type HsfRuleWithCfg = HsfRule & {
   __keepUniquePlaceholderMissing?: number
 }
 
-const BRANCH_ORDER = Symbol('branchOrder')
-const BRANCH_SEQ = Symbol('branchSeq')
+// Keep branch metadata separate from the mutable rule object so worker callers
+// can serialize generation output for WASM post-processing.
+export type GeneratedBranchRuleEntry = {
+  rule: HsfRuleWithCfg
+  branchOrder: number
+  branchSeq: number
+  originalIdx: number
+}
 
-type BranchAnnotatedRule = HsfRule & { [BRANCH_ORDER]?: number; [BRANCH_SEQ]?: number }
-type BranchAnnotatedRuleWithCfg = HsfRuleWithCfg & { [BRANCH_ORDER]?: number; [BRANCH_SEQ]?: number }
+// Optional post-processor contract used by worker WASM paths.
+export type BuildRulesFinalizeGeneratedFn = (params: {
+  entries: readonly GeneratedBranchRuleEntry[]
+  applyObsoletePruning: boolean
+}) => HsfRuleWithCfg[]
 
-// Stable level ordering mirrors the rule builder sort (0/4/8/12/16/99 then others).
+// Keep Unique merge ordering still needs the milestone sort index on the JS side.
+// This helper is not a duplicate finalizer; it only orders injected keep-unique rows.
 const levelOrderValue = (lvl: number | undefined): number => {
   if (lvl === 0) return 0
   if (lvl === 4) return 1
@@ -132,55 +142,6 @@ export function canonicalRuleKey(rule: HsfRule): string {
     ArtifactSet: artifactSets,
     Substats: substats,
   })
-}
-
-function collapseEpicLegendaryDuplicates(rules: HsfRule[]): HsfRule[] {
-  const groups = new Map<string, number[]>()
-  for (let i = 0; i < rules.length; i++) {
-    const rule = rules[i]!
-    const key = canonicalRuleKey(rule)
-    const arr = groups.get(key)
-    if (arr) arr.push(i); else groups.set(key, [i])
-  }
-  const replacements = new Map<number, BranchAnnotatedRule>()
-  const remove = new Set<number>()
-  for (const idxs of groups.values()) {
-    if (idxs.length < 2) continue
-    const codes = new Set<number>()
-    for (const idx of idxs) {
-      const code = Number(rules[idx]!.Rarity ?? NaN)
-      if (!Number.isFinite(code)) {
-        codes.clear()
-        break
-      }
-      codes.add(code)
-    }
-    if (codes.size === 2 && codes.has(4) && codes.has(16)) {
-      const sorted = [...idxs].sort((a, b) => a - b)
-      const [first, ...rest] = sorted
-      if (first === undefined) continue
-      const baseRule = rules[first]! as BranchAnnotatedRule
-      const replacement: BranchAnnotatedRule = { ...baseRule, Rarity: 9 }
-      const branchOrder = baseRule[BRANCH_ORDER]
-      if (branchOrder !== undefined) replacement[BRANCH_ORDER] = branchOrder
-      const branchSeq = baseRule[BRANCH_SEQ]
-      if (branchSeq !== undefined) replacement[BRANCH_SEQ] = branchSeq
-      replacements.set(first, replacement)
-      for (const idx of rest) remove.add(idx)
-    }
-  }
-  if (replacements.size === 0 && remove.size === 0) return rules
-  const result: BranchAnnotatedRule[] = []
-  for (let i = 0; i < rules.length; i++) {
-    if (remove.has(i)) continue
-    const replacement = replacements.get(i)
-    if (replacement) {
-      result.push(replacement)
-    } else {
-      result.push(rules[i]!)
-    }
-  }
-  return result
 }
 
 function expandAutoFlexRarityBranches(cfg: BuilderConfig): BuilderConfig[] {
@@ -279,7 +240,7 @@ export function buildRulesForConfig(params: {
   metasets: Metaset[]
   substatTargets: SubstatTargetTable
   cfgIdx?: number
-}, options?: { limit?: number; onLimit?: () => void }): HsfRuleWithCfg[] {
+}, options?: { limit?: number; onLimit?: () => void; finalizeGeneratedRules?: BuildRulesFinalizeGeneratedFn }): HsfRuleWithCfg[] {
   const { config, metasets, substatTargets, cfgIdx } = params
   // Carry a stable 1-based config identifier through builder → HSF exports.
   const configIdForExport = (typeof cfgIdx === 'number' && Number.isFinite(cfgIdx) && cfgIdx >= 0)
@@ -299,7 +260,9 @@ export function buildRulesForConfig(params: {
   }
   try {
     const configsToBuild = expandAutoFlexRarityBranches(cfgWithSets)
-    const branchRuleGroups = configsToBuild.map((branch, branchOrder) => {
+    // Capture explicit branch metadata so sorting/finalization is deterministic.
+    const generatedEntries: GeneratedBranchRuleEntry[] = []
+    configsToBuild.forEach((branch, branchOrder) => {
       const built = buildHsfRules(
         branch,
         substatTargets,
@@ -309,40 +272,32 @@ export function buildRulesForConfig(params: {
         },
       )
       built.forEach((rule, seq) => {
-        const annotated = rule as BranchAnnotatedRuleWithCfg
-        annotated[BRANCH_ORDER] = branchOrder
-        annotated[BRANCH_SEQ] = seq
+        generatedEntries.push({
+          rule: rule as HsfRuleWithCfg,
+          branchOrder,
+          branchSeq: seq,
+          originalIdx: generatedEntries.length,
+        })
       })
-      return built
     })
-    const branchRules = branchRuleGroups.flat()
-    const mergedRules = collapseEpicLegendaryDuplicates(branchRules)
-    const { obsolete } = configsToBuild.length > 1 ? { obsolete: [] } : findObsoleteRules(mergedRules)
-    const drop = new Set(obsolete.map(o => o.index))
-    const kept = mergedRules.filter((_, i) => !drop.has(i))
-    const sorted = kept
-      .map((rule, idx) => {
-        const annotated = rule as BranchAnnotatedRuleWithCfg
-        return {
-          rule,
-          idx,
-          levelIdx: levelOrderValue(rule.LVLForCheck),
-          branchOrder: annotated[BRANCH_ORDER] ?? 0,
-          branchSeq: annotated[BRANCH_SEQ] ?? idx,
-        }
-      })
-      .sort((a, b) => {
-        if (a.levelIdx !== b.levelIdx) return a.levelIdx - b.levelIdx
-        if (a.branchOrder !== b.branchOrder) return a.branchOrder - b.branchOrder
-        if (a.branchSeq !== b.branchSeq) return a.branchSeq - b.branchSeq
-        return a.idx - b.idx
-      })
-      .map(entry => entry.rule as BranchAnnotatedRuleWithCfg)
-    sorted.forEach(rule => {
-      delete rule[BRANCH_ORDER]
-      delete rule[BRANCH_SEQ]
+    const applyObsoletePruning = configsToBuild.length <= 1
+    // Single source of truth: generated-rule finalize logic lives in WASM.
+    // Allow callers to inject an alternative only for explicit test/worker hooks.
+    const finalizeGeneratedRules = options?.finalizeGeneratedRules ?? ((finalizeParams: {
+      entries: readonly GeneratedBranchRuleEntry[]
+      applyObsoletePruning: boolean
+    }) => {
+      // Fail closed when warmup did not complete; no hidden JS fallback exists.
+      const finalized = finalizeGeneratedRulesWithLoadedWasm(finalizeParams)
+      if (!Array.isArray(finalized)) {
+        throw new Error('WASM generated-rule finalizer is unavailable. Ensure warmupWasmRuleEngine() ran first.')
+      }
+      return finalized
     })
-    return sorted.map((r): HsfRuleWithCfg => ({ ...r, __source: RULE_SOURCE_HSFC }))
+    // Always pass through the selected finalizer so merge/order/prune behavior
+    // comes from one implementation across app + worker + tests.
+    const finalized = finalizeGeneratedRules({ entries: generatedEntries, applyObsoletePruning })
+    return finalized.map((rule): HsfRuleWithCfg => ({ ...rule, __source: RULE_SOURCE_HSFC }))
   } catch (error) {
     if (error instanceof RuleLimitReachedError) {
       options?.onLimit?.()

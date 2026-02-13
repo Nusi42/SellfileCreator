@@ -5,12 +5,10 @@ import { createConfigRulesCache, updateConfigRulesCache } from '../lib/ruleCache
 import {
   KEEP_OVERRIDE_RULE_SOURCES,
   RULE_SOURCE_KEEP_UNIQUES,
-  isKeepOverrideRuleSource,
   computeMergedRules,
 } from '../lib/merge'
-import { configsForRuleBuild, countRulesForConfigs } from '../lib/ruleCacheHelpers'
-import { buildRuleMatchIndexData } from '../lib/ruleMatchIndex'
-import { evaluateMatchesByConfig, matchRule, type EvalResult } from '../lib/ruleEval'
+import { configsForRuleBuild } from '../lib/ruleCacheHelpers'
+import type { EvalResult } from '../lib/ruleEval'
 import {
   buildIgnoreKeepUniqueConfigIndices,
   collectKeepUniqueCandidates,
@@ -21,14 +19,21 @@ import {
 import type { KeepUniqueDetectionSnapshot } from '../lib/keepUniques'
 import type { NormalizedGearArtifact } from '../lib/importers/gearDbNormalizer'
 import type { HsfRuleWithCfg } from '../lib/merge'
-import type { BuilderConfig, SellfileExportMode } from '../lib/hsfBuilder'
+import type { BuilderConfig, SellfileExportMode, SubstatTargetTable } from '../lib/hsfBuilder'
 import type { TesterMatchWorkerItemResult } from './testerMatchWorkerTypes'
 import type { TesterPreviewMatch } from '../types/testerPreview'
 import type { RuleCachePipelinePhase, RuleCacheWorkerRequest, RuleCacheWorkerResponse } from './ruleCacheWorkerTypes'
-import { getRuleConfigIndex, resolveMatchConfigName } from '../lib/ruleConfigIndex'
+import { resolveMatchConfigName } from '../lib/ruleConfigIndex'
 import { fingerprintRuleTesterItem } from '../lib/ruleTesterSession'
 import type { RuleTesterItem } from '../lib/ruleTesterSession'
 import { fingerprintKeepUniqueDetection } from '../lib/keepUniqueFingerprint'
+import {
+  configureWasmRuleEngine,
+  evaluateWasmRuleEngineItems,
+  finalizeGeneratedRulesWithLoadedWasm,
+  getWasmRuleEngineVersion,
+  warmupWasmRuleEngine,
+} from '../lib/wasm/wasmRuleEngine'
 
 declare const self: DedicatedWorkerGlobalScope
 
@@ -47,6 +52,15 @@ type WarmState = {
 
 let cache = createConfigRulesCache()
 let lastWarmState: WarmState | null = null
+
+// Cache reuse remains enabled by default; tests can disable it explicitly.
+const WASM_EXPERIMENT_DISABLE_CACHES = (
+  (import.meta as ImportMeta & { env?: Record<string, unknown> }).env?.VITE_WASM_DISABLE_CACHE_REUSE === '1'
+)
+// Log the loaded WASM version once per worker so perf transcripts can confirm
+// which binary was active during a run.
+let wasmVersionLogged = false
+let wasmWarmupPromise: Promise<void> | null = null
 
 // Local cache entry tracks both the artifact fingerprint and its cached matcher results.
 type CachedArtifactEntry = {
@@ -106,6 +120,51 @@ const postPipelinePhase = (
   self.postMessage(response)
 }
 
+// Warmup is mandatory in WASM mode because generation finalization and matcher
+// paths rely on sync wasm calls after initialization.
+const ensureWasmWorkerReady = async (): Promise<void> => {
+  if (!wasmWarmupPromise) {
+    wasmWarmupPromise = warmupWasmRuleEngine()
+  }
+  await wasmWarmupPromise
+}
+
+// Worker-only finalizer delegates branch-rule post-processing to wasm.
+// Returning null indicates wasm was not initialized, which is treated as fatal.
+const finalizeGeneratedRulesForWorker = (params: Parameters<typeof finalizeGeneratedRulesWithLoadedWasm>[0]) => {
+  const finalized = finalizeGeneratedRulesWithLoadedWasm(params)
+  if (!finalized) {
+    throw new Error('WASM rule generation finalizer is unavailable after warmup.')
+  }
+  return finalized
+}
+
+// Builder-count requests are served from the same cache-generation machinery as
+// warm/pipeline so wasm-enabled branches measure the same generation path.
+const countRulesForConfigsWithWorkerCache = (
+  configs: readonly BuilderConfig[],
+  substatTargets: SubstatTargetTable,
+): number[] => {
+  const configsForRules = configsForRuleBuild(configs)
+  const result = updateConfigRulesCache({
+    configs: configsForRules,
+    // Builder-count payload does not include metasets, so we preserve legacy
+    // semantics by using an empty list in this fast-count path.
+    metasets: [],
+    substatTargets,
+    // Keep this request independent from warm/pipeline cache state.
+    previousCache: createConfigRulesCache(),
+    // Count badges are per-config and should not be clipped by total limits.
+    totalLimit: Number.POSITIVE_INFINITY,
+    finalizeGeneratedRules: finalizeGeneratedRulesForWorker,
+  })
+  const counts: number[] = []
+  for (let idx = 0; idx < configsForRules.length; idx += 1) {
+    counts.push(result.countsByConfig.get(idx) ?? 0)
+  }
+  return counts
+}
+
 const buildBaseMatchSignature = (payload: Extract<RuleCacheWorkerRequest, { kind: 'pipeline' }>['payload']): string => {
   // Fingerprint captures config order + keep-unique rules + final-sell inputs.
   const fingerprint = payload.fingerprint ?? 'null'
@@ -135,11 +194,15 @@ const buildWarmState = (
     configs: configsForRules,
     metasets: payload.metasets,
     substatTargets: payload.substatTargets,
-    previousCache: cache,
+    // WASM experiment bypasses warm-cache reuse to expose raw rebuild costs.
+    ...(WASM_EXPERIMENT_DISABLE_CACHES ? {} : { previousCache: cache }),
     baseRuleCount,
+    finalizeGeneratedRules: finalizeGeneratedRulesForWorker,
     ...(handleProgress ? { onProgress: handleProgress } : {}),
   })
-  cache = result.cache
+  // Keep the cache map in sync for non-experiment runs; in WASM mode we reset
+  // to an empty cache so subsequent warm calls cannot reuse stale entries.
+  cache = WASM_EXPERIMENT_DISABLE_CACHES ? createConfigRulesCache() : result.cache
   const mergedRules = computeMergedRules({
     hsf: payload.hsf,
     customCfgs: configsForRules,
@@ -170,6 +233,8 @@ const reuseWarmState = (
   fingerprint: string | null | undefined,
   skipWarm: boolean | undefined,
 ): WarmState | null => {
+  // WASM experiment intentionally drops warm-state reuse.
+  if (WASM_EXPERIMENT_DISABLE_CACHES) return null
   if (!lastWarmState) return null
   const fingerprintsMatch = fingerprint != null ? fingerprint === lastWarmState.fingerprint : false
   if (skipWarm && fingerprintsMatch) return lastWarmState
@@ -192,7 +257,6 @@ const toWarmResponsePayload = (
     truncatedConfigIndices: state.truncatedConfigIndices.slice(),
     totalLimitHit: state.totalLimitHit,
     excludedByTotalLimitIndices: state.excludedByTotalLimitIndices.slice(),
-    ruleMatchIndex: buildRuleMatchIndexData(mergedRules),
   },
 })
 
@@ -221,7 +285,7 @@ const fingerprintArtifact = (artifact: NormalizedGearArtifact): string => {
 const upsertArtifactCacheEntry = (itemId: number, artifact: NormalizedGearArtifact): void => {
   const nextFingerprint = fingerprintArtifact(artifact)
   const previous = artifactCache.get(itemId)
-  const canReuseMatches = Boolean(previous && previous.fingerprint === nextFingerprint)
+  const canReuseMatches = !WASM_EXPERIMENT_DISABLE_CACHES && Boolean(previous && previous.fingerprint === nextFingerprint)
   artifactCache.set(itemId, {
     artifact,
     fingerprint: nextFingerprint,
@@ -245,45 +309,52 @@ const artifactEntriesFromCache = (): Array<[number, NormalizedGearArtifact]> => 
   return entries
 }
 
-const buildPipelineMatches = (
+const buildPipelineMatches = async (
   mergedRules: HsfRuleWithCfg[],
   artifactEntries: ReadonlyArray<[number, NormalizedGearArtifact]>,
   configModes: SellfileExportMode[] | undefined,
-  baseMatchMap: Map<number, TesterMatchWorkerItemResult> | null,
+  _baseMatchMap: Map<number, TesterMatchWorkerItemResult> | null,
   ignoreKeepUniqueConfigIndices: ReadonlySet<number> | null,
   total: number,
   completedRef: { value: number },
   id: number,
   emitProgress: boolean,
   hasKeepOverrideRules: boolean,
-): TesterMatchWorkerItemResult[] => {
+) : Promise<TesterMatchWorkerItemResult[]> => {
   if (!artifactEntries.length) return []
+  // Configure per phase so the WASM state aligns with the current ruleset.
+  await configureWasmRuleEngine({
+    rules: mergedRules,
+    configModes: Array.isArray(configModes) ? configModes : [],
+  })
+  if (!wasmVersionLogged) {
+    await getWasmRuleEngineVersion()
+    wasmVersionLogged = true
+  }
+  // Full matcher pass mirrors evaluateMatchesByConfig with keep-unique
+  // precedence options included.
+  const fullItems = artifactEntries.map(([itemId, artifact]) => ({ itemId, item: artifact.testerItem }))
+  const fullResults = await evaluateWasmRuleEngineItems({
+    items: fullItems,
+    options: {
+      ...(ignoreKeepUniqueConfigIndices ? { ignoreKeepUniqueConfigIndices } : {}),
+      ...(hasKeepOverrideRules ? { baselineExcludeSources: KEEP_OVERRIDE_RULE_SOURCES } : {}),
+    },
+  })
+  const fullByItemId = new Map<number, TesterMatchWorkerItemResult>()
+  fullResults.forEach((entry) => fullByItemId.set(entry.itemId, entry))
   const results: TesterMatchWorkerItemResult[] = []
-  for (const [itemId, artifact] of artifactEntries) {
-    if (!artifact) continue
-    const fullOptions = configModes
-      ? {
-        configModes,
-        ...(ignoreKeepUniqueConfigIndices ? { ignoreKeepUniqueConfigIndices } : {}),
-      }
-      : undefined
-    const baseOptions = configModes
-      ? { configModes, excludeSources: KEEP_OVERRIDE_RULE_SOURCES }
-      : { excludeSources: KEEP_OVERRIDE_RULE_SOURCES }
-    // Full evaluation always runs to capture the complete match list.
-    const fullEval = evaluateMatchesByConfig(mergedRules, artifact.testerItem, fullOptions)
-    // Reuse cached base matches when possible to avoid redundant scans.
-    const cachedBase = baseMatchMap?.get(itemId)
-    // Skip the base scan entirely when no keep-override rules exist.
-    const baseEval = cachedBase
-      ? cachedBase
-      : (hasKeepOverrideRules
-        ? evaluateMatchesByConfig(mergedRules, artifact.testerItem, baseOptions)
-        : fullEval)
+  for (const [itemId] of artifactEntries) {
+    const fullEval = fullByItemId.get(itemId)
+    if (!fullEval) continue
     results.push({
       itemId,
       firstMatch: fullEval.firstMatch,
-      firstNonExcludedMatch: baseEval?.firstNonExcludedMatch ?? baseEval?.firstMatch ?? null,
+      firstNonExcludedMatch: (
+        fullEval.firstNonExcludedMatch
+        ?? fullEval.firstMatch
+        ?? null
+      ),
       matchingConfigIndices: fullEval.matchingConfigIndices,
       matchingConfigDecisions: fullEval.matchingConfigDecisions,
     })
@@ -294,14 +365,64 @@ const buildPipelineMatches = (
   return results
 }
 
+// Keep-unique candidate detection needs baseline keep/sell decisions with some
+// configs excluded. Batch evaluation avoids per-row JS re-scans in that phase.
+const buildExcludedConfigBaselineMap = async (
+  mergedRules: HsfRuleWithCfg[],
+  artifactEntries: ReadonlyArray<[number, NormalizedGearArtifact]>,
+  configModes: SellfileExportMode[] | undefined,
+  excludeConfigIndices: ReadonlySet<number>,
+): Promise<Map<number, TesterMatchWorkerItemResult>> => {
+  const byItem = new Map<number, TesterMatchWorkerItemResult>()
+  if (!artifactEntries.length || excludeConfigIndices.size === 0) return byItem
+  // Configure with the baseline ruleset so exclude-index evaluation mirrors JS.
+  await configureWasmRuleEngine({
+    rules: mergedRules,
+    configModes: Array.isArray(configModes) ? configModes : [],
+  })
+  const items = artifactEntries.map(([itemId, artifact]) => ({ itemId, item: artifact.testerItem }))
+  const evaluated = await evaluateWasmRuleEngineItems({
+    items,
+    options: { excludeConfigIndices },
+  })
+  for (const entry of evaluated) {
+    byItem.set(entry.itemId, {
+      itemId: entry.itemId,
+      firstMatch: entry.firstMatch,
+      firstNonExcludedMatch: entry.firstNonExcludedMatch ?? entry.firstMatch,
+      matchingConfigIndices: entry.matchingConfigIndices,
+      matchingConfigDecisions: entry.matchingConfigDecisions,
+    })
+  }
+  // Fill any unexpected gaps so downstream row assembly can treat the map as complete.
+  for (const [itemId] of artifactEntries) {
+    if (byItem.has(itemId)) continue
+    byItem.set(itemId, {
+      itemId,
+      firstMatch: null,
+      firstNonExcludedMatch: null,
+      matchingConfigIndices: [],
+      matchingConfigDecisions: [],
+    })
+  }
+  return byItem
+}
+
 self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
   const message = event.data
   if (!message) return
+  // WASM mode is fail-closed: if warmup fails we report the error per request.
+  try {
+    await ensureWasmWorkerReady()
+  } catch (error) {
+    postError(message.id, error)
+    return
+  }
   if (message.kind === 'builderCount') {
     const { id, payload } = message
     try {
       // BuilderPanel requests per-config rule counts through this fast path so the UI stays responsive.
-      const counts = countRulesForConfigs(payload.configs, payload.substatTargets)
+      const counts = countRulesForConfigsWithWorkerCache(payload.configs, payload.substatTargets)
       const response: RuleCacheWorkerResponse = {
         id,
         kind: 'builderCount:done',
@@ -352,7 +473,10 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
     const needsMatches = payload.skipMatches !== true
 
     // Base-match results must be tied to the current rule/config fingerprint.
-    const baseMatchSignature = buildBaseMatchSignature(payload)
+    // WASM experiment appends the request id so cross-run reuse stays disabled.
+    const baseMatchSignature = WASM_EXPERIMENT_DISABLE_CACHES
+      ? `${buildBaseMatchSignature(payload)}|run:${id}`
+      : buildBaseMatchSignature(payload)
     // Track which item ids truly changed so baseline/final matcher caches can stay valid.
     const changedItemIds = new Set<number>()
     if (payload.artifactPatch) {
@@ -400,13 +524,15 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
     // Seed the baseline map with anything we already evaluated so the detection pass only
     // recomputes the rows the patch touched.
     const baselineMatchMap = new Map<number, TesterMatchWorkerItemResult>()
-    artifactCache.forEach((entry, itemId) => {
-      // Reuse cached base matches only when the signature still aligns.
-      if (!entry.baseMatch) return
-      // Skip stale base matches when configs/reordering changed.
-      if (entry.baseMatchSignature !== baseMatchSignature) return
-      baselineMatchMap.set(itemId, entry.baseMatch)
-    })
+    if (!WASM_EXPERIMENT_DISABLE_CACHES) {
+      artifactCache.forEach((entry, itemId) => {
+        // Reuse cached base matches only when the signature still aligns.
+        if (!entry.baseMatch) return
+        // Skip stale base matches when configs/reordering changed.
+        if (entry.baseMatchSignature !== baseMatchSignature) return
+        baselineMatchMap.set(itemId, entry.baseMatch)
+      })
+    }
     if (needsDetection) {
       // Baseline phase: refresh missing base matches so detection can reuse them.
       postPipelinePhase(id, 'baseline:start', { total: artifactEntries.length })
@@ -420,7 +546,7 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
       }
       if (missingEntries.length > 0) {
         const baseProgressRef = { value: warmTotal + cachedCount }
-        const baseMatchResults = buildPipelineMatches(
+        const baseMatchResults = await buildPipelineMatches(
           mergedRulesBaseline,
           missingEntries,
           payload.configModes,
@@ -471,6 +597,15 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
 
     // Precompute ignored configs so matcher precedence can reuse the set.
     const ignoreKeepUniqueConfigIndices = buildIgnoreKeepUniqueConfigIndices(configsForRules)
+    // Candidate detection uses this baseline when ignored configs are excluded.
+    const filteredBaselineMatchMap = (needsDetection && ignoreKeepUniqueConfigIndices.size > 0)
+      ? await buildExcludedConfigBaselineMap(
+        mergedRulesBaseline,
+        artifactEntries,
+        payload.configModes,
+        ignoreKeepUniqueConfigIndices,
+      )
+      : null
     // Keep detection optional so we only pay for it when needed.
     let keepUniqueDetectionSnapshot: KeepUniqueDetectionSnapshot | null = null
     // Only compute detection when the caller requested keep-override scanning.
@@ -483,7 +618,7 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
       // Build a row list that mirrors the preview matcher inputs.
       const rows = artifactEntries.map(([itemId, artifact]) => {
         // Reuse cached baseline matches to avoid re-evaluating base rules.
-        const match = baselineMatchMap.get(itemId)
+        const match = filteredBaselineMatchMap?.get(itemId) ?? baselineMatchMap.get(itemId)
         return {
           // Keep the raw artifact for candidate generation.
           artifact,
@@ -505,8 +640,8 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
         baseRules: mergedRulesBaseline,
         // Config modes gate which rules can claim a candidate.
         configModes: payload.configModes,
-        // Exclude configs tagged to ignore keep-unique overrides.
-        ignoreKeepUniqueConfigIndices,
+        // Pre-filtered baseline matches already exclude ignored configs.
+        ...(filteredBaselineMatchMap ? {} : { ignoreKeepUniqueConfigIndices }),
       })
       // Produce detection snapshots for downstream keep-override rule injection.
       if (hasActiveKeepUniques) {
@@ -554,82 +689,14 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
     ].join('|')
     // Collect final match rows in worker order for the response payload.
     const matches: TesterMatchWorkerItemResult[] = []
-    // Extract keep-override rules in merged order so we can short-circuit full scans.
-    const keepOverrideRuleEntries: Array<{ rule: HsfRuleWithCfg; ruleIndex: number; cfgIdx: number | null }> = []
-    // Cap fast-path scans so huge keep-override rule sets fall back to the indexed pipeline.
-    const KEEP_OVERRIDE_FAST_PATH_RULE_LIMIT = 500
-    // Only scan keep-override rules when either feature is active.
-    if (hasActiveKeepOverrides) {
-      // Preserve rule order so we match the same precedence as full evaluation.
-      for (let idx = 0; idx < mergedRulesFinal.length; idx += 1) {
-        // Grab the merged rule at this index.
-        const rule = mergedRulesFinal[idx]
-        // Guard against sparse arrays so type narrowing stays safe.
-        if (!rule) continue
-        // Skip non keep-override rules entirely.
-        if (!isKeepOverrideRuleSource(rule.__source ?? null)) continue
-        // Store the rule, its index, and its config index for fast matching.
-        keepOverrideRuleEntries.push({
-          // Keep the rule reference for matchRule.
-          rule,
-          // Preserve the merged rule index for downstream match reporting.
-          ruleIndex: idx,
-          // Resolve config index now to avoid extra work per item.
-          cfgIdx: getRuleConfigIndex(rule),
-        })
-      }
-    }
-    // Fast path needs a full baseline map so we can reuse cached matches safely.
-    const baselineMatchesComplete = artifactEntries.length > 0
-      && baselineMatchMap.size === artifactEntries.length
-    // Helper respects the ignore list when deciding if keep overrides can win.
-    const isIgnoredForKeepOverride = (cfgIdx: number | null): boolean => (
-      cfgIdx != null && ignoreKeepUniqueConfigIndices?.has(cfgIdx) === true
-    )
-    // Decide whether keep overrides can override the base matches.
-    const allowKeepOverride = (baseMatch: TesterMatchWorkerItemResult | null | undefined): boolean => {
-      // No baseline means we can allow keep overrides to decide.
-      if (!baseMatch) return true
-      // Reuse the first-match decision for the quick keep check.
-      const firstMatch = baseMatch.firstMatch
-      // Any non-ignored KEEP match blocks keep overrides.
-      const firstMatchIsKeep = Boolean(firstMatch?.keep && !isIgnoredForKeepOverride(firstMatch?.cfgIdx ?? null))
-      // Short-circuit when the first match is already a KEEP.
-      if (firstMatchIsKeep) return false
-      // Also block when any matching config decision indicates KEEP.
-      for (const decision of baseMatch.matchingConfigDecisions ?? []) {
-        // Ignore keep-unique exclusions when evaluating KEEP decisions.
-        if (decision.keep && !isIgnoredForKeepOverride(decision.cfgIdx)) return false
-      }
-      // Allow keep overrides when no KEEP decisions were detected.
-      return true
-    }
-    // Locate the first keep-override match in merged order when needed.
-    const findKeepOverrideMatch = (artifact: NormalizedGearArtifact): EvalResult | null => {
-      // No keep-override rules means no match.
-      if (!keepOverrideRuleEntries.length) return null
-      // Scan in merged order so results match the full pipeline.
-      for (const entry of keepOverrideRuleEntries) {
-        // Skip non-matching keep-override rules quickly.
-        if (!matchRule(entry.rule, artifact.testerItem)) continue
-        // Return the first keep-override match as a keep decision.
-        return { ruleIndex: entry.ruleIndex, keep: true, cfgIdx: entry.cfgIdx }
-      }
-      // No keep-override rule matched this artifact.
-      return null
-    }
     if (needsMatches) {
-      // Fast-path eligibility only depends on baseline completeness + keep-unique rule volume.
-      const fastPathEligible = (
-        baselineMatchesComplete
-        && keepOverrideRuleEntries.length <= KEEP_OVERRIDE_FAST_PATH_RULE_LIMIT
-      )
       // Collect artifacts that need full evaluation (cache misses or invalidated entries).
       const pendingEntries: Array<[number, NormalizedGearArtifact]> = []
       for (const [itemId, artifact] of artifactEntries) {
         const cached = artifactCache.get(itemId)
         const reusable = Boolean(
-          cached
+          !WASM_EXPERIMENT_DISABLE_CACHES
+          && cached
           && cached.finalMatch
           && cached.finalMatchSignature === finalMatchSignature
           && !changedItemIds.has(itemId),
@@ -644,115 +711,38 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
       postPipelinePhase(id, 'final:start', {
         pending: pendingEntries.length,
         cached: artifactEntries.length - pendingEntries.length,
-        fastPath: fastPathEligible,
-        keepOverrideRules: keepOverrideRuleEntries.length,
+        fastPath: false,
+        keepOverrideRules: hasActiveKeepOverrides ? 1 : 0,
       })
       if (pendingEntries.length > 0) {
         const pendingProgressRef = { value: completed }
-        // Fast path only works with a complete baseline snapshot.
-        const canFastPathKeepOverrides = fastPathEligible && keepOverrideRuleEntries.length > 0
-        // Fast path also covers the disabled keep-override case by reusing the baseline.
-        const canFastPathDisabled = fastPathEligible && keepOverrideRuleEntries.length === 0
-        if (canFastPathKeepOverrides || canFastPathDisabled) {
-          for (const [itemId, artifact] of pendingEntries) {
-            // Pull the baseline match for this artifact.
-            const baseMatch = baselineMatchMap.get(itemId)
-            // Fall back to full eval when the baseline snapshot is missing.
-            if (!baseMatch) {
-              // Reuse the full pipeline so the fallback stays correct.
-              const fallbackMatch = buildPipelineMatches(
-                mergedRulesFinal,
-                [[itemId, artifact]],
-                payload.configModes,
-                baselineMatchMap,
-                ignoreKeepUniqueConfigIndices,
-                total,
-                pendingProgressRef,
-                id,
-                true,
-                keepOverrideRuleEntries.length > 0,
-              )[0]
-              // Guard against empty fallback results.
-              if (fallbackMatch) {
-                // Store the fallback result in the output list.
-                matches.push(fallbackMatch)
-                // Update the artifact cache so the next run can reuse it.
-                const cached = artifactCache.get(fallbackMatch.itemId)
-                if (cached) {
-                  // Cache the final match for quick reuse.
-                  cached.finalMatch = fallbackMatch
-                  // Stamp the signature so invalidation works.
-                  cached.finalMatchSignature = finalMatchSignature
-                }
-              }
-              // Skip the fast path for this entry.
-              continue
-            }
-            // Default to the baseline matches unless keep-unique overrides.
-            const allowKeepOverrideMatch = canFastPathKeepOverrides && allowKeepOverride(baseMatch)
-            // Evaluate keep-override rules only when overrides are allowed.
-            const keepOverrideMatch = allowKeepOverrideMatch ? findKeepOverrideMatch(artifact) : null
-            // Prefer keep-override match when present, else reuse baseline first match.
-            const firstMatch = keepOverrideMatch ?? baseMatch.firstMatch
-            // Preserve the baseline non-excluded match for parity.
-            const baseNonExcluded = baseMatch.firstNonExcludedMatch ?? baseMatch.firstMatch ?? null
-            // If baseline had no non-excluded match, allow keep overrides to fill it.
-            const firstNonExcludedMatch = baseNonExcluded ?? keepOverrideMatch ?? null
-            // Assemble the final match result from baseline + optional keep-override override.
-            const matchResult: TesterMatchWorkerItemResult = {
-              itemId,
-              firstMatch,
-              firstNonExcludedMatch,
-              matchingConfigIndices: baseMatch.matchingConfigIndices ?? [],
-              matchingConfigDecisions: baseMatch.matchingConfigDecisions ?? [],
-            }
-            // Append the match result to the response list.
-            matches.push(matchResult)
-            // Update the cache entry if the artifact is cached.
-            const cached = artifactCache.get(itemId)
-            if (cached) {
-              // Cache the fast-path match for reuse.
-              cached.finalMatch = matchResult
-              // Record the signature so invalidations are accurate.
-              cached.finalMatchSignature = finalMatchSignature
-            }
-            // Advance progress so the UI can keep the spinner updated.
-            pendingProgressRef.value += 1
-            // Emit progress updates per item to match the normal pipeline behavior.
-            postPipelineProgress(id, { completed: pendingProgressRef.value, total })
+        const pendingMatches = await buildPipelineMatches(
+          mergedRulesFinal,
+          pendingEntries,
+          payload.configModes,
+          null,
+          ignoreKeepUniqueConfigIndices,
+          total,
+          pendingProgressRef,
+          id,
+          true,
+          hasActiveKeepOverrides,
+        )
+        // Append each full-eval match and refresh the cache.
+        for (const match of pendingMatches) {
+          // Push the result into the output list.
+          matches.push(match)
+          // Update the cached match for this artifact.
+          const cached = artifactCache.get(match.itemId)
+          if (cached) {
+            // Store the final match for reuse.
+            cached.finalMatch = match
+            // Save the signature so the cache knows when it is valid.
+            cached.finalMatchSignature = finalMatchSignature
           }
-          // Sync the completed counter with the pending progress tracker.
-          completed = pendingProgressRef.value
-        } else {
-          // Fall back to the full pipeline when fast-path prerequisites are missing.
-          const pendingMatches = buildPipelineMatches(
-            mergedRulesFinal,
-            pendingEntries,
-            payload.configModes,
-            (needsDetection && baselineMatchMap.size > 0) ? baselineMatchMap : null,
-            ignoreKeepUniqueConfigIndices,
-            total,
-            pendingProgressRef,
-            id,
-            true,
-            keepOverrideRuleEntries.length > 0,
-          )
-          // Append each full-eval match and refresh the cache.
-          for (const match of pendingMatches) {
-            // Push the result into the output list.
-            matches.push(match)
-            // Update the cached match for this artifact.
-            const cached = artifactCache.get(match.itemId)
-            if (cached) {
-              // Store the final match for reuse.
-              cached.finalMatch = match
-              // Save the signature so the cache knows when it is valid.
-              cached.finalMatchSignature = finalMatchSignature
-            }
-          }
-          // Sync completed with the final progress snapshot.
-          completed = pendingProgressRef.value
         }
+        // Sync completed with the final progress snapshot.
+        completed = pendingProgressRef.value
       } else if (total > 0 && completed < total) {
         // Ensure progress reaches 100% when no work is pending.
         completed = total
@@ -780,7 +770,6 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
         truncatedConfigIndices: warmState.truncatedConfigIndices.slice(),
         totalLimitHit: warmState.totalLimitHit,
         excludedByTotalLimitIndices: warmState.excludedByTotalLimitIndices.slice(),
-        ruleMatchIndex: buildRuleMatchIndexData(mergedRulesFinal),
         matches,
         // Keep-unique detection snapshot drives Keep Uniques tab + merges.
         keepUniqueDetection: keepUniqueDetectionSnapshot,
@@ -789,11 +778,13 @@ self.onmessage = async (event: MessageEvent<RuleCacheWorkerRequest>) => {
       },
     }
     // Update warm cache so subsequent requests can skip redundant work.
-    lastWarmState = {
-      ...warmState,
-      fingerprint: payload.fingerprint ?? null,
-      artifactSignature: payload.artifactPatch?.signature ?? payload.artifactSignature ?? null,
-    }
+    lastWarmState = WASM_EXPERIMENT_DISABLE_CACHES
+      ? null
+      : {
+        ...warmState,
+        fingerprint: payload.fingerprint ?? null,
+        artifactSignature: payload.artifactPatch?.signature ?? payload.artifactSignature ?? null,
+      }
     self.postMessage(response)
   } catch (error) {
     postError(id, error)

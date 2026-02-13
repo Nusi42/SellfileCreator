@@ -1,5 +1,58 @@
 // Shared domain catalogs && formatters (used by HSF viewer as well)
 import { ACCESSORY_NO_SET_ID, NBSP } from './constants'
+import {
+  ARTIFACT_TYPE_AMULET,
+  ARTIFACT_TYPE_BANNER,
+  ARTIFACT_TYPE_BOOTS,
+  ARTIFACT_TYPE_CHESTPLATE,
+  ARTIFACT_TYPE_GAUNTLETS,
+  ARTIFACT_TYPE_HELMET,
+  ARTIFACT_TYPE_RING,
+  ARTIFACT_TYPE_SHIELD,
+  ARTIFACT_TYPE_WEAPON,
+  LEVEL_ANY_SENTINEL as GENERATED_LEVEL_ANY_SENTINEL,
+  RARITY_CODE_ANY,
+  RARITY_CODE_COMMON,
+  RARITY_CODE_EPIC,
+  RARITY_CODE_GTE_COMMON,
+  RARITY_CODE_GTE_EPIC,
+  RARITY_CODE_GTE_LEGENDARY,
+  RARITY_CODE_GTE_RARE,
+  RARITY_CODE_GTE_UNCOMMON,
+  RARITY_CODE_LEGENDARY,
+  RARITY_CODE_LTE_EPIC,
+  RARITY_CODE_LTE_LEGENDARY,
+  RARITY_CODE_LTE_MYTHICAL,
+  RARITY_CODE_LTE_RARE,
+  RARITY_CODE_LTE_UNCOMMON,
+  RARITY_CODE_MYTHICAL,
+  RARITY_CODE_RARE,
+  RARITY_CODE_UNCOMMON,
+  STAT_ID_ACC,
+  STAT_ID_ANY,
+  STAT_ID_ATK,
+  STAT_ID_CDMG,
+  STAT_ID_CR,
+  STAT_ID_DEF,
+  STAT_ID_HP,
+  STAT_ID_HP_ATK_DEF,
+  STAT_ID_RES,
+  STAT_ID_ROLL_COUNT,
+  STAT_ID_SPD,
+  STAT_VARIANT_ACC,
+  STAT_VARIANT_ANY,
+  STAT_VARIANT_ATK_FLAT,
+  STAT_VARIANT_ATK_PERCENT,
+  STAT_VARIANT_CDMG,
+  STAT_VARIANT_CR,
+  STAT_VARIANT_DEF_FLAT,
+  STAT_VARIANT_DEF_PERCENT,
+  STAT_VARIANT_HP_FLAT,
+  STAT_VARIANT_HP_PERCENT,
+  STAT_VARIANT_RES,
+  STAT_VARIANT_ROLL_COUNT,
+  STAT_VARIANT_SPD,
+} from './generated/domainConstants'
 import { artifactSetDescriptions } from './setDescriptions'
 import { ArtifactSetPieceGroup } from './gearSets/groups'
 import { getRuntimeGearSet, getRuntimeGearSetVersion, listRuntimeGearSets } from './gearSets/runtimeStore'
@@ -17,15 +70,15 @@ export type ArtifactSetId = ArtifactSetIdType
 
 // Artifact types (slots) as an enum for readability (values match HSF IDs)
 export const ArtifactType = {
-  Helmet: 1,
-  Chestplate: 2,
-  Gauntlets: 3,
-  Boots: 4,
-  Weapon: 5,
-  Shield: 6,
-  Ring: 7,
-  Amulet: 8,
-  Banner: 9,
+  Helmet: ARTIFACT_TYPE_HELMET,
+  Chestplate: ARTIFACT_TYPE_CHESTPLATE,
+  Gauntlets: ARTIFACT_TYPE_GAUNTLETS,
+  Boots: ARTIFACT_TYPE_BOOTS,
+  Weapon: ARTIFACT_TYPE_WEAPON,
+  Shield: ARTIFACT_TYPE_SHIELD,
+  Ring: ARTIFACT_TYPE_RING,
+  Amulet: ARTIFACT_TYPE_AMULET,
+  Banner: ARTIFACT_TYPE_BANNER,
 } as const
 
 // eslint-disable-next-line no-redeclare -- share the value name so callers import `ArtifactType` for both runtime and typing
@@ -403,23 +456,23 @@ export function filterAndSortSetEntries(
 
 // Rarity enum codes in HSF files (index-based, not bitmask)
 export const RarityCode = {
-  Any: 0,
-  Common: 1,
-  Uncommon: 2,
-  Rare: 3,
-  Epic: 4,
-  Legendary: 5,
-  GTE_Common: 6,
-  GTE_Uncommon: 7,
-  GTE_Rare: 8,
-  GTE_Epic: 9,
-  LTE_Uncommon: 10,
-  LTE_Rare: 11,
-  LTE_Epic: 12,
-  LTE_Legendary: 13,
-  LTE_Mythical: 14,
-  Mythical: 15,
-  GTE_Legendary: 16,
+  Any: RARITY_CODE_ANY,
+  Common: RARITY_CODE_COMMON,
+  Uncommon: RARITY_CODE_UNCOMMON,
+  Rare: RARITY_CODE_RARE,
+  Epic: RARITY_CODE_EPIC,
+  Legendary: RARITY_CODE_LEGENDARY,
+  GTE_Common: RARITY_CODE_GTE_COMMON,
+  GTE_Uncommon: RARITY_CODE_GTE_UNCOMMON,
+  GTE_Rare: RARITY_CODE_GTE_RARE,
+  GTE_Epic: RARITY_CODE_GTE_EPIC,
+  LTE_Uncommon: RARITY_CODE_LTE_UNCOMMON,
+  LTE_Rare: RARITY_CODE_LTE_RARE,
+  LTE_Epic: RARITY_CODE_LTE_EPIC,
+  LTE_Legendary: RARITY_CODE_LTE_LEGENDARY,
+  LTE_Mythical: RARITY_CODE_LTE_MYTHICAL,
+  Mythical: RARITY_CODE_MYTHICAL,
+  GTE_Legendary: RARITY_CODE_GTE_LEGENDARY,
 } as const
 
 // eslint-disable-next-line no-redeclare -- value/type pair share the user-facing identifier
@@ -499,17 +552,17 @@ export function compareArtifactSets(a: ArtifactSetId, b: ArtifactSetId): number 
 
 // Stat ID mapping (partial). Falls back to raw ID label.
 export const StatId = {
-  Any: -1,
-  HP: 1,
-  ATK: 2,
-  DEF: 3,
-  SPD: 4,
-  RES: 5,
-  ACC: 6,
-  CR: 7,
-  CDMG: 8,
-  HP_ATK_DEF: 9,
-  RollCount: 99,
+  Any: STAT_ID_ANY,
+  HP: STAT_ID_HP,
+  ATK: STAT_ID_ATK,
+  DEF: STAT_ID_DEF,
+  SPD: STAT_ID_SPD,
+  RES: STAT_ID_RES,
+  ACC: STAT_ID_ACC,
+  CR: STAT_ID_CR,
+  CDMG: STAT_ID_CDMG,
+  HP_ATK_DEF: STAT_ID_HP_ATK_DEF,
+  RollCount: STAT_ID_ROLL_COUNT,
 } as const
 
 // eslint-disable-next-line no-redeclare -- mirror const name for stat-id type alias
@@ -554,20 +607,20 @@ export function statIsAny(id?: number): boolean {
 // UI-friendly unified stat variant catalog (no separate isFlat flag needed in UI state)
 // Encoding: high byte = HSF Stat ID, low byte = flat flag (0 percent/default, 1 flat).
 export const StatVariant = {
-  Any: StatId.Any,
-  HP: (StatId.HP << 8) | 0,
-  HP_FLAT: (StatId.HP << 8) | 1,
-  ATK: (StatId.ATK << 8) | 0,
-  ATK_FLAT: (StatId.ATK << 8) | 1,
-  DEF: (StatId.DEF << 8) | 0,
-  DEF_FLAT: (StatId.DEF << 8) | 1,
-  SPD: (StatId.SPD << 8) | 1,
-  RES: (StatId.RES << 8) | 1,
-  ACC: (StatId.ACC << 8) | 1,
-  CR: (StatId.CR << 8) | 0,
-  CDMG: (StatId.CDMG << 8) | 0,
-  RollCount: (StatId.RollCount << 8) | 1,
-} as const
+  Any: STAT_VARIANT_ANY,
+  HP: STAT_VARIANT_HP_PERCENT,
+  HP_FLAT: STAT_VARIANT_HP_FLAT,
+  ATK: STAT_VARIANT_ATK_PERCENT,
+  ATK_FLAT: STAT_VARIANT_ATK_FLAT,
+  DEF: STAT_VARIANT_DEF_PERCENT,
+  DEF_FLAT: STAT_VARIANT_DEF_FLAT,
+  SPD: STAT_VARIANT_SPD,
+  RES: STAT_VARIANT_RES,
+  ACC: STAT_VARIANT_ACC,
+  CR: STAT_VARIANT_CR,
+  CDMG: STAT_VARIANT_CDMG,
+  RollCount: STAT_VARIANT_ROLL_COUNT,
+}
 
 // eslint-disable-next-line no-redeclare -- preserve the StatVariant name for value + type
 export type StatVariant = number
@@ -1204,7 +1257,8 @@ export function isLevelMilestone(value: unknown): value is LevelMilestone {
 }
 
 /** HSF sentinel meaning “any level” (mirrors LVLForCheck=99 in exports). */
-export const LEVEL_ANY_SENTINEL = 99 as const
+// Value is generated from shared/domain-constants.json to keep TS and Rust aligned.
+export const LEVEL_ANY_SENTINEL = GENERATED_LEVEL_ANY_SENTINEL
 
 export function formatLevel(level?: number): string {
   if (level === undefined || level === null) return ''

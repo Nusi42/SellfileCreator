@@ -11,7 +11,18 @@ import globals from 'globals';
 
 export default [
   // Ignore generated/output folders and archived references
-  { ignores: ['dist/**', 'node_modules/**', 'src-tauri/**', 'tmp/tsc/**', 'scripts/.tmp/**', 'docs/reference/**'] },
+  {
+    ignores: [
+      'dist/**',
+      'node_modules/**',
+      'src-tauri/**',
+      'tmp/tsc/**',
+      'scripts/.tmp/**',
+      'docs/reference/**',
+      // wasm-bindgen output is generated code; linting it creates non-actionable warnings.
+      'src/lib/wasm/generated/**',
+    ],
+  },
 
   // Base JS recommended
   js.configs.recommended,

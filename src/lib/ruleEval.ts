@@ -1,201 +1,86 @@
 /**
  * ruleEval.ts
  *
- * Pure evaluator for matching a user-defined test item against a list of HSF
- * rules (first match wins). Mirrors the preview ordering and semantics.
+ * Matcher adapters now delegate to the WASM rule engine so matching behavior
+ * has a single source of truth shared by workers and main-thread callers.
  */
 import type { ChampionLocation, NormalizedStat } from './importers/gearDbNormalizer'
-import type { HsfRule, HsfSubstat } from './hsfTypes'
-import { rankMask, rarityMask } from './hsfTypes'
+import type { HsfRule } from './hsfTypes'
 import type { ArtifactSetId, ArtifactTypeId, FactionId, StatVariantLike } from './types'
-import { LEVEL_ANY_SENTINEL, StatId, StatVariant, mainToVariant, subToVariant, type LevelMilestone, type RankValue } from './types'
-import { isKeepOverrideRuleSource } from './ruleSources'
+import type { LevelMilestone, RankValue } from './types'
 import type { HsfRuleWithCfg } from './merge'
 import type { SellfileExportMode } from './hsfBuilder'
-import { forEachRuleMatchCandidate, getRuleMatchIndex } from './ruleMatchIndex'
-import { getRuleConfigIndex } from './ruleConfigIndex'
+import {
+  configureWasmRuleEngineWithLoadedWasm,
+  evaluateWasmRuleEngineItemsWithLoadedWasm,
+  type WasmRuleEngineEvaluateOptions,
+} from './wasm/wasmRuleEngine'
 
-// Attach provenance (config index) as done in merge.ts
+// Attach provenance (config index) as done in merge.ts.
 export type TesterItemPreviewExtras = {
+  // Stable numeric id used to correlate preview rows and matcher results.
   id?: number
+  // Origin of the row (imported artifacts, inbox, or manual tester rows).
   source?: 'artifacts' | 'inbox' | 'tester'
+  // Re-roll count shown in tester card badges.
   rerollCount?: number
+  // Champion linkage fields mirrored from normalized tester rows.
   equippedToChampionId?: number | null
+  // Champion base id keeps presets stable across duplicate names.
   equippedChampionBaseId?: number | null
+  // Champion rarity helps downstream tooltip formatting.
   equippedChampionRarity?: number | null
+  // Champion display name used by preview row labels.
   equippedChampionName?: string | null
+  // Champion location helps filter/display context in tester tables.
   equippedChampionLocation?: ChampionLocation | null
+  // Main stat payload retained for preview details and exports.
   mainStat?: NormalizedStat | null
+  // Substat payload retained for preview details and exports.
   substats?: NormalizedStat[]
+  // Ascension payload retained for preview details and exports.
   ascension?: NormalizedStat | null
+  // Exact level retains non-milestone values for imported rows.
   exactLevel?: number | null
+  // Last-use timestamp supports recency sorts in tester views.
   lastUseLocalTimestamp?: string | null
 }
 
 export type TestItem = {
+  // Optional human-readable name used in tester-facing surfaces.
   name?: string
+  // Slot id (artifact/accessory type) used for HSF slot checks.
   slot: ArtifactTypeId
+  // Set id used for HSF set checks.
   set: ArtifactSetId
+  // Rank/star value used for HSF rank mask checks.
   rank: RankValue
+  // Rarity value used for HSF rarity mask checks.
   rarity: RankValue // 1..6 => Common..Mythical
+  // Milestone level used for LVLForCheck matching.
   level: LevelMilestone
+  // Optional faction for accessory-only faction filters.
   faction?: FactionId
+  // Optional main-stat variant used for MainStatID/MainStatF checks.
   main?: StatVariantLike
   // Optional per-sub absolute values present at the current level.
   // Used to compare against HSF Substats thresholds (absolute, not rolls).
   // Missing means 0.
   subValues?: Record<number, number>
+  // Preview metadata carried through for UI and id fallbacks.
   previewExtras?: TesterItemPreviewExtras
 }
 
 export type EvalResult = { ruleIndex: number; keep: boolean; cfgIdx: number | null } | null
 
-const RANK_RARITY_MIN = 1
-const RANK_RARITY_MAX = 6
-const RANK_RARITY_FULL_MASK = (1 << RANK_RARITY_MAX) - 1
-
-const clampRankOrRarity = (value: unknown): number => {
-  const num = Number(value)
-  if (!Number.isFinite(num)) return RANK_RARITY_MIN
-  if (num <= RANK_RARITY_MIN) return RANK_RARITY_MIN
-  if (num >= RANK_RARITY_MAX) return RANK_RARITY_MAX
-  return Math.floor(num)
-}
-
-const bitForRankOrRarity = (value: unknown): number => {
-  const clamped = clampRankOrRarity(value)
-  return 1 << (clamped - 1)
-}
-
-const ensureRankMask = (rule: HsfRuleWithCfg): number => {
-  const cached = rule.__rankMask
-  if (typeof cached === 'number' && cached > 0) return cached
-  const mask = rankMask(rule.Rank)
-  const safe = mask > 0 ? mask : RANK_RARITY_FULL_MASK
-  rule.__rankMask = safe
-  return safe
-}
-
-const ensureRarityMask = (rule: HsfRuleWithCfg): number => {
-  const cached = rule.__rarityMask
-  if (typeof cached === 'number' && cached > 0) return cached
-  const mask = rarityMask(rule.Rarity)
-  const safe = mask > 0 ? mask : RANK_RARITY_FULL_MASK
-  rule.__rarityMask = safe
-  return safe
-}
-
-/** True if a single rule matches the given test item. */
-export function matchRule(rule: HsfRule, item: TestItem): boolean {
-  // Disabled rules never match
-  if ((rule as HsfRule).Use === false) return false
-  // Keep-unique injections are tied to a specific item; reject when the item key diverges.
-  const requiredItemKey = (rule as HsfRuleWithCfg).__keepUniqueItemKey
-  if (typeof requiredItemKey === 'number' && Number.isFinite(requiredItemKey) && requiredItemKey !== 0) {
-    const itemKey = (item as { itemId?: number }).itemId
-      ?? Number((item.previewExtras?.id ?? NaN))
-    if (itemKey !== requiredItemKey) return false
-  }
-  // Slot (ArtifactType)
-  if (Array.isArray(rule.ArtifactType) && rule.ArtifactType.length > 0) {
-    if (!rule.ArtifactType.some(t => Number(t) === Number(item.slot))) return false
-  }
-
-  // Set (ArtifactSet)
-  if (Array.isArray(rule.ArtifactSet) && rule.ArtifactSet.length > 0) {
-    if (!rule.ArtifactSet.some(s => Number(s) === Number(item.set))) return false
-  }
-
-  // Faction
-  if (typeof rule.Faction === 'number' && rule.Faction !== 0) {
-    if (Number(item.faction ?? 0) !== Number(rule.Faction)) return false
-  }
-
-  // Rank (0..16 code covers discrete 1..6)
-  {
-    const mask = ensureRankMask(rule as HsfRuleWithCfg)
-    const bit = bitForRankOrRarity(item.rank)
-    if ((mask & bit) === 0) return false
-  }
-
-  // Rarity (0..16)
-  {
-    const mask = ensureRarityMask(rule as HsfRuleWithCfg)
-    const bit = bitForRankOrRarity(item.rarity)
-    if ((mask & bit) === 0) return false
-  }
-
-  // Level: LEVEL_ANY_SENTINEL means Any
-  if (typeof rule.LVLForCheck === 'number' && rule.LVLForCheck !== LEVEL_ANY_SENTINEL) {
-    if (Number(rule.LVLForCheck) !== Number(item.level)) return false
-  }
-
-  // Main stat
-  if (typeof rule.MainStatID === 'number' && Number(rule.MainStatID) !== StatId.Any) {
-    const mv = mainToVariant(rule.MainStatID, rule.MainStatF)
-    if (Number(item.main ?? StatVariant.Any) !== Number(mv)) return false
-  }
-
-  // Substats: all specified (ID != -1 && !NotAvailable) must be present.
-  // Compare entered absolute values against rule thresholds using the rule Condition.
-  {
-    const present = new Set<number>()
-    const absVals = item.subValues || {}
-    const subs = ((rule.Substats || []) as HsfSubstat[]).filter((s) => !s.NotAvailable && s.ID !== StatId.Any)
-    if (subs.length > 0) {
-      for (const s of subs) {
-        const v = Number(subToVariant(s.ID, s.IsFlat))
-        present.add(v)
-        const need = Number(s.Value || 0)
-        const rawValue = absVals[v]
-        const haveNum = Number(rawValue)
-        const hasStatValue = rawValue !== undefined && rawValue !== null && Number.isFinite(haveNum) && haveNum > 0
-        const have = Number.isFinite(haveNum) ? haveNum : 0
-        const cond = String(s.Condition || '>=').trim()
-        const requiresPresenceForUpperBound = cond === '<=' || cond === '<' || cond === '=<' || cond === '≤'
-        if (requiresPresenceForUpperBound && !hasStatValue) return false
-        const ok = (
-          cond === '>=' ? (have >= need) :
-          cond === '<=' ? (have <= need) :
-          cond === '==' || cond === '=' ? (have === need) :
-          (have >= need)
-        )
-        if (!ok) return false
-      }
-      // Presence-only (e.g., thresholds at 0) pass due to comparison above
-    }
-  }
-
-  return true
-}
-
-/** Iterate in order and return the first matching rule. */
-export function evaluateFirst(rules: HsfRuleWithCfg[], item: TestItem): EvalResult {
-  const slotIndex = getRuleMatchIndex(rules)
-  const slot = Number(item.slot)
-  const setId = Number(item.set)
-  const rankValue = clampRankOrRarity(item.rank)
-  const rarityValue = clampRankOrRarity(item.rarity)
-  let result: EvalResult = null
-  forEachRuleMatchCandidate(slotIndex, slot, setId, rankValue, rarityValue, (ruleIndex) => {
-    if (result) return false
-    const rule = rules[ruleIndex]!
-    if (!matchRule(rule, item)) return true
-    const source = typeof (rule as HsfRuleWithCfg).__source === 'string' ? String((rule as HsfRuleWithCfg).__source) : null
-    const isKeepOverride = isKeepOverrideRuleSource(source)
-    // Keep-override sources are always treated as "keep" when they win.
-    const keep = isKeepOverride ? true : (rule.Keep === true)
-    const cfgIdx = getRuleConfigIndex(rule)
-    result = { ruleIndex, keep, cfgIdx }
-    return false
-  })
-  return result
-}
-
 export type EvalMatchesByConfigOptions = {
+  // Optional per-config export modes (disabled/separator suppression).
   configModes?: SellfileExportMode[]
+  // Optional source exclusions (e.g., keep-unique injection sources).
   excludeSources?: readonly string[]
+  // Optional config blocklist for filtered baseline scans.
   excludeConfigIndices?: ReadonlySet<number>
+  // Optional config list ignored by keep-unique precedence rules.
   ignoreKeepUniqueConfigIndices?: ReadonlySet<number>
 }
 
@@ -208,120 +93,165 @@ export type EvalMatchesByConfigResult = {
   matchingConfigDecisions: MatchingConfigDecision[]
 }
 
+type WasmMatcherConfigCache = {
+  // Keep the same rule array identity used for the active WASM configure call.
+  rules: HsfRuleWithCfg[]
+  // Keep the same config-mode array identity used for the active WASM configure call.
+  configModes: SellfileExportMode[]
+}
+
+// Reuse one empty array reference so repeated no-config calls do not trigger
+// unnecessary reconfigure calls just because [] was allocated again.
+const EMPTY_CONFIG_MODES: SellfileExportMode[] = []
+// Item key 0 means "no concrete item id" for keep-unique rule guards.
+const FALLBACK_EVAL_ITEM_ID = 0
+// Cache the last configured matcher inputs so sync adapters can evaluate many
+// rows without paying configure cost on every single call.
+let wasmMatcherConfigCache: WasmMatcherConfigCache | null = null
+
+const createEmptyEvalMatchesByConfigResult = (): EvalMatchesByConfigResult => ({
+  // No first match exists when evaluation cannot find any rule hit.
+  firstMatch: null,
+  // Baseline/non-excluded result is also empty in the same no-hit case.
+  firstNonExcludedMatch: null,
+  // No configs matched, so return an empty index list.
+  matchingConfigIndices: [],
+  // No config decisions exist, so return an empty decision list.
+  matchingConfigDecisions: [],
+})
+
+// Resolve the stable item key used by keep-unique item-bound rules.
+// This mirrors worker inputs where itemId is carried alongside the payload.
+const resolveEvalItemId = (item: TestItem): number => {
+  // Some call sites still attach `itemId` directly onto the tester item object.
+  const withItemId = item as TestItem & { itemId?: number }
+  // Prefer the direct id because workers already pass this exact field.
+  const direct = Number(withItemId.itemId ?? NaN)
+  // Keep only positive finite ids so keep-unique item-key guards remain stable.
+  if (Number.isFinite(direct) && direct > 0) return Math.floor(direct)
+  // Fallback to preview id for main-thread callers that only carry preview metadata.
+  const previewId = Number(item.previewExtras?.id ?? NaN)
+  // Keep only positive finite preview ids for the same guard-compatibility reason.
+  if (Number.isFinite(previewId) && previewId > 0) return Math.floor(previewId)
+  // Zero means "no concrete id", matching existing keep-unique sentinel behavior.
+  return FALLBACK_EVAL_ITEM_ID
+}
+
+// Strip local-only fields and pass only matcher filters accepted by wasm.
+const toWasmEvaluateOptions = (
+  options?: EvalMatchesByConfigOptions,
+): WasmRuleEngineEvaluateOptions | undefined => {
+  // Missing options means no matcher-side filters should be applied.
+  if (!options) return undefined
+  // Start with an empty payload and add only defined filters.
+  const payload: WasmRuleEngineEvaluateOptions = {}
+  // Forward source exclusions used by baseline scans (e.g. keep-unique injections).
+  if (options.excludeSources && options.excludeSources.length > 0) {
+    payload.excludeSources = options.excludeSources
+  }
+  // Forward explicit config blocklists used by keep-unique ignore workflows.
+  if (options.excludeConfigIndices && options.excludeConfigIndices.size > 0) {
+    payload.excludeConfigIndices = options.excludeConfigIndices
+  }
+  // Forward keep-unique precedence ignore sets unchanged to preserve semantics.
+  if (options.ignoreKeepUniqueConfigIndices && options.ignoreKeepUniqueConfigIndices.size > 0) {
+    payload.ignoreKeepUniqueConfigIndices = options.ignoreKeepUniqueConfigIndices
+  }
+  // Undefined signals "no filters", so WASM avoids unnecessary option handling.
+  return Object.keys(payload).length > 0 ? payload : undefined
+}
+
+// Configure once per ruleset/mode tuple so repeated evaluate calls stay cheap.
+const ensureWasmMatcherConfigured = (
+  rules: HsfRuleWithCfg[],
+  configModes: SellfileExportMode[],
+): void => {
+  // If both arrays are the exact same identities, WASM is already configured.
+  if (
+    wasmMatcherConfigCache
+    && wasmMatcherConfigCache.rules === rules
+    && wasmMatcherConfigCache.configModes === configModes
+  ) {
+    return
+  }
+  // Reconfigure WASM when either rules or config-mode arrays changed.
+  configureWasmRuleEngineWithLoadedWasm({ rules, configModes })
+  // Cache the new identities so subsequent calls can skip reconfigure work.
+  wasmMatcherConfigCache = { rules, configModes }
+}
+
+const evaluateSingleItemWithWasm = (
+  rules: HsfRuleWithCfg[],
+  configModes: SellfileExportMode[],
+  item: TestItem,
+  options?: EvalMatchesByConfigOptions,
+): EvalMatchesByConfigResult => {
+  // Empty ruleset cannot match anything, so return the canonical empty payload.
+  if (!Array.isArray(rules) || rules.length === 0) return createEmptyEvalMatchesByConfigResult()
+  // Ensure WASM has the right rule/config snapshot before evaluating this item.
+  ensureWasmMatcherConfigured(rules, configModes)
+  // Convert local option shape into the compact payload accepted by WASM.
+  const wasmOptions = toWasmEvaluateOptions(options)
+  // Evaluate exactly one item; adapter APIs consume single-row requests.
+  const [result] = evaluateWasmRuleEngineItemsWithLoadedWasm(
+    wasmOptions
+      ? {
+          // Pass resolved item id so keep-unique item-bound rules can match.
+          items: [{ itemId: resolveEvalItemId(item), item }],
+          // Include matcher filters only when they actually exist.
+          options: wasmOptions,
+        }
+      : {
+          // Fast path when no filter payload is needed for this evaluation.
+          items: [{ itemId: resolveEvalItemId(item), item }],
+        },
+  )
+  // Defensive fallback: malformed WASM payload should not leak undefineds.
+  if (!result) return createEmptyEvalMatchesByConfigResult()
+  return {
+    // Main first-match mirrors the previous ruleEval contract exactly.
+    firstMatch: result.firstMatch ?? null,
+    // Preserve baseline fallback semantics from prior JS implementation.
+    firstNonExcludedMatch: result.firstNonExcludedMatch ?? result.firstMatch ?? null,
+    // Keep config index list shape stable for chip rendering callers.
+    matchingConfigIndices: result.matchingConfigIndices ?? [],
+    // Keep config decision list shape stable for preview state callers.
+    matchingConfigDecisions: result.matchingConfigDecisions ?? [],
+  }
+}
+
+/** True if a single rule matches the given test item. */
+export function matchRule(rule: HsfRule, item: TestItem): boolean {
+  // Single-rule match reuses the common WASM adapter with a one-rule list.
+  const result = evaluateSingleItemWithWasm(
+    [rule as HsfRuleWithCfg],
+    EMPTY_CONFIG_MODES,
+    item,
+  )
+  // Rule at index 0 matched means this single rule matched the tester item.
+  return result.firstMatch?.ruleIndex === 0
+}
+
+/** Iterate in order and return the first matching rule. */
+export function evaluateFirst(rules: HsfRuleWithCfg[], item: TestItem): EvalResult {
+  // First-match scan also reuses the common WASM single-item adapter.
+  const result = evaluateSingleItemWithWasm(
+    rules,
+    EMPTY_CONFIG_MODES,
+    item,
+  )
+  // Return only the first-match payload to preserve evaluateFirst contract.
+  return result.firstMatch
+}
+
 /** Full scan that returns the first match plus the set of configs that match anywhere in the rules list. */
 export function evaluateMatchesByConfig(
   rules: HsfRuleWithCfg[],
   item: TestItem,
   options?: EvalMatchesByConfigOptions,
 ): EvalMatchesByConfigResult {
-  const configModes = options?.configModes
-  const excludeSources = options?.excludeSources ?? null
-  // Optional config index blocklist for scoped rule evaluation.
-  const excludeConfigIndices = options?.excludeConfigIndices ?? null
-  // Optional config indices that should not block keep-unique precedence.
-  const ignoreKeepUniqueConfigIndices = options?.ignoreKeepUniqueConfigIndices ?? null
-  const excludeSourceSet = excludeSources && excludeSources.length > 0
-    ? new Set(excludeSources)
-    : null
-  const isKeepUniqueIgnoredConfig = (cfgIdx: number | null): boolean => (
-    cfgIdx != null && ignoreKeepUniqueConfigIndices?.has(cfgIdx) === true
-  )
-  const shouldIncludeConfig = (cfgIdx: number | null): boolean => {
-    // Skip configs that are explicitly excluded by index.
-    if (cfgIdx != null && excludeConfigIndices && excludeConfigIndices.has(cfgIdx)) return false
-    // Allow unknown configs when no export-mode filter exists.
-    if (cfgIdx == null || !Array.isArray(configModes)) return true
-    // Enforce export-mode visibility for builder configs.
-    const mode = configModes[cfgIdx]
-    return mode !== 'disabled' && mode !== 'separator'
-  }
-
-  let firstMatch: EvalResult | null = null
-  let firstNonExcludedMatch: EvalResult | null = null
-  let nonKeepOverrideKeepMatched = false
-  let pendingKeepOverride: EvalResult | null = null
-  let fallbackKeepOverride: EvalResult | null = null
-  let anyKeepOverrideMatch: EvalResult | null = null
-  const matchingConfigs = new Set<number>()
-  // Preserve the first seen keep/sell flag per config so UI chips can mirror the outcome without rerunning rules.
-  const matchingConfigDecisions = new Map<number, MatchingConfigDecision>()
-  const slotIndex = getRuleMatchIndex(rules)
-  const slot = Number(item.slot)
-  const setId = Number(item.set)
-  const rankValue = clampRankOrRarity(item.rank)
-  const rarityValue = clampRankOrRarity(item.rarity)
-  // Pre-scan for a keep-override match so Final Sell cannot mask it due to ordering.
-  let prekeepOverride: EvalResult | null = null
-  for (let idx = 0; idx < rules.length; idx += 1) {
-    const rule = rules[idx]!
-    if (!rule || !isKeepOverrideRuleSource((rule as HsfRuleWithCfg).__source ?? null)) continue
-    if (!matchRule(rule, item)) continue
-    const cfgIdx = getRuleConfigIndex(rule)
-    prekeepOverride = { ruleIndex: idx, keep: true, cfgIdx }
-    break
-  }
-  forEachRuleMatchCandidate(slotIndex, slot, setId, rankValue, rarityValue, (ruleIndex) => {
-    const rule = rules[ruleIndex]!
-    if (!matchRule(rule, item)) return true
-    // Source/type hints drive the exclusion toggle (e.g., keep-unique injections).
-    const source = typeof (rule as HsfRuleWithCfg).__source === 'string' ? String((rule as HsfRuleWithCfg).__source) : null
-    const isExcluded = source && excludeSourceSet ? excludeSourceSet.has(source) : false
-    const isKeepOverride = isKeepOverrideRuleSource(source)
-    const cfgIdx = getRuleConfigIndex(rule)
-    // Skip configs that are disabled/separator or explicitly excluded by source.
-    if (!shouldIncludeConfig(cfgIdx)) return true
-    // Keep-override sources should always register as "keep" in the UI state.
-    const keep = isKeepOverride ? true : (rule.Keep === true)
-    const match: EvalResult = { ruleIndex, keep, cfgIdx }
-    if (isKeepOverride) {
-      // Defer keep overrides so primary rules always win.
-      if (!pendingKeepOverride && !isExcluded) pendingKeepOverride = match
-      if (!fallbackKeepOverride && !isExcluded) fallbackKeepOverride = match
-      if (!anyKeepOverrideMatch && !isExcluded) anyKeepOverrideMatch = match
-    } else {
-      // Ignore keep-unique-ignored configs when deciding if keep overrides can win.
-      const isIgnoredForKeepUnique = isKeepUniqueIgnoredConfig(cfgIdx)
-      // Track whether any non-keep-override KEEP rule matched; overrides should not win those.
-      if (keep && !isExcluded && !isIgnoredForKeepUnique) nonKeepOverrideKeepMatched = true
-      // Only record firstMatch when the source is not excluded.
-      if (!firstMatch && !isExcluded) firstMatch = match
-      if (!isExcluded && !firstNonExcludedMatch) firstNonExcludedMatch = match
-    }
-    if (cfgIdx !== null) {
-      if (!matchingConfigDecisions.has(cfgIdx)) {
-        matchingConfigDecisions.set(cfgIdx, { cfgIdx, keep })
-      }
-      matchingConfigs.add(cfgIdx)
-    }
-    return true
-  })
-  // If nothing else matched, fall back to keep overrides (only when no other KEEP rule matched).
-  const firstMatchIsKeep = Boolean(
-    firstMatch
-    && (firstMatch as NonNullable<EvalResult>).keep === true
-    && !isKeepUniqueIgnoredConfig((firstMatch as NonNullable<EvalResult>).cfgIdx ?? null),
-  )
-  const allowKeepOverride = !nonKeepOverrideKeepMatched && !firstMatchIsKeep
-  if (allowKeepOverride) {
-    const keepCandidate = pendingKeepOverride ?? fallbackKeepOverride ?? anyKeepOverrideMatch ?? prekeepOverride
-    if (keepCandidate) {
-      firstMatch = keepCandidate
-      if (!firstNonExcludedMatch) firstNonExcludedMatch = keepCandidate
-    }
-  }
-  const matchingConfigIndices = matchingConfigs.size > 0
-    ? Array.from(matchingConfigs).sort((a, b) => a - b)
-    : []
-  const matchingConfigDecisionsList = matchingConfigIndices.map((cfgIdx) => {
-    const decision = matchingConfigDecisions.get(cfgIdx)
-    if (decision) return decision
-    // Safety fallback keeps the UI stable if a cfg sneaks into the set without a captured decision.
-    return { cfgIdx, keep: false }
-  })
-  return {
-    firstMatch,
-    firstNonExcludedMatch: firstNonExcludedMatch ?? firstMatch,
-    matchingConfigIndices,
-    matchingConfigDecisions: matchingConfigDecisionsList,
-  }
+  // Caller-provided config modes are optional; default to the shared empty list.
+  const configModes = options?.configModes ?? EMPTY_CONFIG_MODES
+  // Delegate full match payload generation to the shared WASM adapter.
+  return evaluateSingleItemWithWasm(rules, configModes, item, options)
 }

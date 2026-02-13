@@ -4,6 +4,7 @@
  * Why: These values are used in multiple places and must remain consistent.
  * Centralizing avoids drift and clarifies intent without changing behavior.
  */
+import { ACCESSORY_NO_SET_ID as GENERATED_ACCESSORY_NO_SET_ID } from './generated/domainConstants'
 
 // Typography scale rooted at 16px (browser default). Why: collapse the UI to
 // predictable tiers while keeping markdown legibility and badge sizing.
@@ -614,7 +615,8 @@ export const TESTER_SELECT_HEIGHT_PX = 40
 
 // Sentinel for accessories that do not belong to any set (e.g., base banners/rings/amulets).
 // Shared by the Rule Tester and Final Sell remainder rules so no-set accessories are matched.
-export const ACCESSORY_NO_SET_ID = -99
+// Value is generated from shared/domain-constants.json to keep TS and Rust aligned.
+export const ACCESSORY_NO_SET_ID = GENERATED_ACCESSORY_NO_SET_ID
 
 // Special ID used only by the Rule Tester for "Any slot" (no slot restriction).
 // Semantics: Matches only HSF rules whose ArtifactType is Any (empty list);

@@ -46,12 +46,18 @@ import {
   RankCode,
   LevelMilestone,
   LEVEL_MILESTONES,
-  statIsAny,
 } from './types'
 import { resolveAllowedSubstatsForSlotsAndMains } from './statCompatibility'
 import { splitArtifactSetSelections } from './gearSets/selection'
 import { canEnableSubstatFlex, deriveRollBaselineMode, isLockedAggregateScopeActive, isMilestoneThresholdsActive } from './configNormalization'
 import { variantToSub, variantToMain } from './hsfTypes'
+import {
+  emitHsfRulesForDistributionsWithLoadedWasm,
+  findObsoleteBuilderRulesWithLoadedWasm,
+  getFilteredBoundedCompositionsWithOffsetI32WithLoadedWasm,
+  getFilteredRollDistributionsWithLoadedWasm,
+  getRollDistributionsWithLoadedWasm,
+} from './wasm/wasmRuleEngine'
 
 // Rarity codes that are eligible for collapsing to factory minima rules so
 // default substat baselines remain the single source of truth for those tiers.
@@ -571,34 +577,16 @@ export function resolveAutoRarityCode(cfg: BuilderConfig): RarityCode {
   return applyFloor(candidate)
 }
 
-// Cache for roll distribution enumerations so identical (m, t) pairs reuse the same frozen tuples.
-const rollDistributionCache = new Map<string, number[][]>()
-
-// Generate integer compositions of t rolls among m substats: arrays length m sum to t
 /**
- * Enumerate integer compositions of t rolls across m substats (orderless tuples).
- * Each row sums to t and has m non-negative integers.
+ * Enumerate integer compositions of t rolls across m substats.
+ * The WASM helper preserves the legacy row ordering used by fixture snapshots.
  */
 function rollDistributions(m: number, t: number): number[][] {
-  const key = `${m}|${t}`
-  const cached = rollDistributionCache.get(key)
-  if (cached) return cached
-  const res: number[][] = []
-  function backtrack(i: number, remaining: number, acc: number[]) {
-    if (i === m - 1) { res.push([...acc, remaining]); return }
-    for (let v = 0; v <= remaining; v++) {
-      acc.push(v)
-      backtrack(i + 1, remaining - v, acc)
-      acc.pop()
-    }
+  const wasmRows = getRollDistributionsWithLoadedWasm(Math.floor(m), Math.floor(t))
+  if (!Array.isArray(wasmRows)) {
+    throw new Error('WASM roll-distribution helper is unavailable. Ensure warmupWasmRuleEngine() ran first.')
   }
-  backtrack(0, t, [])
-  for (const tuple of res) {
-    Object.freeze(tuple)
-  }
-  const frozen = Object.freeze(res.slice()) as unknown as number[][]
-  rollDistributionCache.set(key, frozen)
-  return frozen
+  return wasmRows
 }
 
 // Public API: build rules according to config with substat permutations and level chain
@@ -903,9 +891,6 @@ export function buildHsfRules(
     setsKey: string
     typesKey: string
   }
-  type NormalizedRule = CanonicalRuleSelectors & {
-    substats: Array<{ id: number; isFlat: boolean; condition: string; value: number }>
-  }
   const canonicalizeRuleSelectors = (rule: HsfRule): CanonicalRuleSelectors => {
     const setsKey = Array.isArray(rule.ArtifactSet)
       ? rule.ArtifactSet.map(Number).sort((a, b) => a - b).join(',')
@@ -926,35 +911,6 @@ export function buildHsfRules(
       typesKey,
     }
   }
-  const normalizeSubstats = (rule: HsfRule): NormalizedRule['substats'] => {
-    if (!Array.isArray(rule.Substats) || rule.Substats.length === 0) return []
-    const normalized: NormalizedRule['substats'] = []
-    for (const sub of rule.Substats) {
-      if (!sub) continue
-      const statId = Number(sub.ID ?? StatId.Any)
-      const condition = String(sub.Condition ?? '')
-      if (condition.length === 0) continue
-      if (statIsAny(statId)) continue
-      normalized.push({
-        id: statId,
-        isFlat: Boolean(sub.IsFlat),
-        condition,
-        value: Number(sub.Value ?? 0),
-      })
-    }
-    normalized.sort((a, b) => {
-      if (a.id !== b.id) return a.id - b.id
-      if (a.isFlat !== b.isFlat) return (a.isFlat ? 1 : 0) - (b.isFlat ? 1 : 0)
-      if (a.condition !== b.condition) return a.condition < b.condition ? -1 : 1
-      return a.value - b.value
-    })
-    return normalized
-  }
-  // Substat sorting keeps comparisons deterministic for pruning signatures.
-  const normalizeRule = (rule: HsfRule): NormalizedRule => ({
-    ...canonicalizeRuleSelectors(rule),
-    substats: normalizeSubstats(rule),
-  })
   // Memoize per-variant overrides so repeated lookups inside loops stay cheap.
   const targetEntryCache = new Map<number, SubstatRollTargetEntry | null>()
   const getTargetEntry = (variant: number): SubstatRollTargetEntry | null => {
@@ -966,63 +922,23 @@ export function buildHsfRules(
     targetEntryCache.set(variant, normalized ?? null)
     return normalized ?? null
   }
-  // Treat the candidate as covering the base when it satisfies the same or looser bound.
-  const conditionValueCovers = (base: { condition: string; value: number }, candidateValue: number): boolean => {
-    switch (base.condition) {
-    case '>=': return candidateValue >= base.value
-    case '<=': return candidateValue <= base.value
-    case '=': return candidateValue === base.value
-    default: return false
-    }
-  }
-  // A rule dominates when it matches selectors and requires no stricter substat thresholds.
-  const ruleCovers = (general: NormalizedRule, target: NormalizedRule): boolean => {
-    if (!general.keep && target.keep) return false
-    if (general.keep !== target.keep) return false
-    if (general.use !== target.use) return false
-    if (general.rank !== target.rank) return false
-    if (general.rarity !== target.rarity) return false
-    if (general.faction !== target.faction) return false
-    if (general.mainId !== target.mainId) return false
-    if (general.mainF !== target.mainF) return false
-    if (general.lvl !== target.lvl) return false
-    if (general.setsKey !== target.setsKey) return false
-    if (general.typesKey !== target.typesKey) return false
-    const generalSubs = general.substats
-    if (generalSubs.length === 0) return false
-    if (generalSubs.length > target.substats.length) return false
-    const remaining = target.substats.slice()
-    for (const sub of generalSubs) {
-      const idx = remaining.findIndex(candidate =>
-        candidate.id === sub.id &&
-        candidate.isFlat === sub.isFlat &&
-        candidate.condition === sub.condition &&
-        conditionValueCovers(sub, candidate.value))
-      if (idx === -1) return false
-      remaining.splice(idx, 1)
-    }
-    return true
-  }
   // Drop dominated rows before final sort so Preview/HsF output stays minimal yet correct.
   const pruneDominatedRules = () => {
     if (rules.length <= 1) return
-    const normalized = rules.map(normalizeRule)
-    const keep = new Array<boolean>(rules.length).fill(true)
-    for (let i = 0; i < normalized.length; i++) {
-      if (!keep[i]) continue
-      const general = normalized[i]!
-      for (let j = 0; j < normalized.length; j++) {
-        if (i === j || !keep[j]) continue
-        const target = normalized[j]!
-        if (ruleCovers(general, target)) {
-          keep[j] = false
-        }
-      }
+    const wasmObsolete = findObsoleteBuilderRulesWithLoadedWasm(rules)
+    if (!wasmObsolete || !Array.isArray(wasmObsolete.obsolete)) {
+      throw new Error('WASM builder obsolete-rule detector is unavailable. Ensure warmupWasmRuleEngine() ran first.')
     }
-    if (keep.every(flag => flag)) return
+    const obsoleteIndices = new Set<number>()
+    for (const entry of wasmObsolete.obsolete) {
+      const index = Number(entry?.index ?? NaN)
+      if (!Number.isFinite(index) || index < 0 || index >= rules.length) continue
+      obsoleteIndices.add(index)
+    }
+    if (obsoleteIndices.size === 0) return
     let writeIdx = 0
     for (let idx = 0; idx < rules.length; idx++) {
-      if (!keep[idx]) continue
+      if (obsoleteIndices.has(idx)) continue
       if (writeIdx !== idx) {
         rules[writeIdx] = rules[idx]!
         emissionMeta[writeIdx] = emissionMeta[idx]!
@@ -1408,7 +1324,6 @@ export function buildHsfRules(
       if (sentinelCollapsedCombos.has(comboKey)) continue
       const m = combo.length
       const lockedMask = combo.map(v => lockedSet.has(Number(v)))
-      const sumLocked = (arr: number[]) => arr.reduce((acc, val, idx) => acc + (lockedMask[idx] ? val : 0), 0)
       if (present < m) {
         // Not enough substats can exist at this level to satisfy minCount -> skip emitting rows
         continue
@@ -1568,6 +1483,69 @@ export function buildHsfRules(
           rule.Substats[idx]!.Condition = '>='
           rule.Substats[idx]!.Value = value
         }
+        // Reuse compact metadata payloads so repeated row emission avoids rebuilding
+        // main/substat descriptors for every distribution candidate.
+        const substatsForWasm = combo
+          .map(v => variantToSub(v))
+          .map((sub) => ({ id: sub.id, isFlat: Boolean(sub.isFlat) }))
+        const mainChoicesForWasm = mainChoicesV
+          .filter((mnV) => anySelectedSlotSupportsMain(cfg.artifactTypes, mnV))
+          .map((mnV) => variantToMain(mnV))
+          .map((main) => ({ id: main.id, f: main.f ?? 1 }))
+        const baseValsForWasm = baseVals.map((value) => Math.floor(value))
+        const minsForWasm = mins.map((value) => Math.floor(value))
+        const maxCapsForWasm = maxs.map((cap) => (
+          typeof cap === 'number' && Number.isFinite(cap) ? Math.floor(cap) : -1
+        ))
+        const optionalMaskForWasm = optionalMask.map((flag) => flag === true)
+        const maxCapsForFilterBase = Int32Array.from(maxCapsForWasm)
+        const targetedMaskForFilterBase = Uint8Array.from(targetedMask.map((flag) => (flag === true ? 1 : 0)))
+        const lockedMaskForFilterBase = Uint8Array.from(lockedMask.map((flag) => (flag === true ? 1 : 0)))
+        const targetBasesForWasm = targetEntries.map((entry) => (
+          typeof entry?.base === 'number' && Number.isFinite(entry.base)
+            ? Math.floor(entry.base)
+            : null
+        ))
+        const targetIncrementsForWasm = targetEntries.map((entry) => (
+          Array.isArray(entry?.increments)
+            ? entry!.increments.map((value) => (
+              typeof value === 'number' && Number.isFinite(value)
+                ? Math.floor(value)
+                : null
+            ))
+            : []
+        ))
+        // Reuse one immutable base-rule shell per combo+level emission batch.
+        // WASM reads this payload and returns fresh output objects.
+        const baseRuleForWasm: HsfRule = { ...baseCore, LVLForCheck: lvl, Substats: [] }
+        const skipOptionalBaselineByDefault = combo.length > minTargetCount
+        const emitRowsForComboViaWasm = (
+          rows: number[][],
+          options?: { skipOptionalBaseline?: boolean },
+        ): boolean => {
+          if (rows.length === 0) return false
+          const emittedRules = emitHsfRulesForDistributionsWithLoadedWasm({
+            baseRule: baseRuleForWasm,
+            substats: substatsForWasm,
+            distributions: rows,
+            baseVals: baseValsForWasm,
+            mins: minsForWasm,
+            maxCaps: maxCapsForWasm,
+            optionalMask: optionalMaskForWasm,
+            skipOptionalBaseline: options?.skipOptionalBaseline ?? skipOptionalBaselineByDefault,
+            mainChoices: mainChoicesForWasm,
+            emitAnyMainWhenNoChoices: mainChoicesV.length === 0,
+            targetBases: targetBasesForWasm,
+            targetIncrements: targetIncrementsForWasm,
+          })
+          if (!Array.isArray(emittedRules)) {
+            throw new Error('WASM HSF emission helper is unavailable. Ensure warmupWasmRuleEngine() ran first.')
+          }
+          for (const rule of emittedRules) {
+            pushRule(rule)
+          }
+          return emittedRules.length > 0
+        }
         // If any substat demands min > max, configuration is impossible; skip rows for this level/combo
         let impossibleMinMax = false
         for (let i = 0; i < combo.length; i++) {
@@ -1601,6 +1579,38 @@ export function buildHsfRules(
           const extraMyth = (intro <= 0) ? mythPreExtra : 0
           return rollsAfterIntro + includePre + extraMyth
         })
+        const timelineCapsForFilterBase = Int32Array.from(timelineCaps.map((cap) => (
+          typeof cap === 'number' && Number.isFinite(cap) ? Math.floor(cap) : -1
+        )))
+        // Cache widened mask/cap vectors keyed by requested dimension count.
+        // This avoids re-allocating/map-filling arrays on every distribution call.
+        const vectorsByDims = new Map<number, {
+          maxCaps: Int32Array
+          timelineCaps: Int32Array
+          targetedMask: Uint8Array
+          lockedMask: Uint8Array
+        }>()
+        const filterVectorsForDims = (dims: number) => {
+          const cached = vectorsByDims.get(dims)
+          if (cached) return cached
+          const width = Math.max(0, dims)
+          const maxCaps = new Int32Array(width)
+          const timelineCaps = new Int32Array(width)
+          const targetedMask = new Uint8Array(width)
+          const lockedMask = new Uint8Array(width)
+          maxCaps.fill(-1)
+          timelineCaps.fill(-1)
+          const copyCount = Math.min(width, m)
+          if (copyCount > 0) {
+            maxCaps.set(maxCapsForFilterBase.subarray(0, copyCount), 0)
+            timelineCaps.set(timelineCapsForFilterBase.subarray(0, copyCount), 0)
+            targetedMask.set(targetedMaskForFilterBase.subarray(0, copyCount), 0)
+            lockedMask.set(lockedMaskForFilterBase.subarray(0, copyCount), 0)
+          }
+          const prepared = { maxCaps, timelineCaps, targetedMask, lockedMask }
+          vectorsByDims.set(dims, prepared)
+          return prepared
+        }
         const mythPreCount = (rarityIncludesMythical(rarityCodeLocal) ? 1 : 0) + mythPreExtra
         // Availability/target counters include Any→Mythical pre-roll modeling when applicable.
         const avail = numRollsForThisLevel + mythPreExtra
@@ -1736,59 +1746,52 @@ export function buildHsfRules(
           }
           continue
         }
+        // Shared distribution filter moves caps/timeline/aggregate pruning into wasm.
+        const filteredDistributions = (params: {
+          dims: number
+          total: number
+          globalMode: 0 | 1 | 2
+          globalRemaining: number
+          lockedMode: 0 | 1 | 2
+          lockedRemaining: number
+        }): number[][] => {
+          const dims = Math.max(0, params.dims)
+          const vectors = filterVectorsForDims(dims)
+          const wasmRows = getFilteredRollDistributionsWithLoadedWasm({
+            dimensions: dims,
+            total: params.total,
+            maxCaps: vectors.maxCaps,
+            timelineCaps: vectors.timelineCaps,
+            targetedMask: vectors.targetedMask,
+            globalMin,
+            globalRemaining: params.globalRemaining,
+            globalMode: params.globalMode,
+            lockedMask: vectors.lockedMask,
+            lockedMin: lockedMinValue,
+            lockedRemaining: params.lockedRemaining,
+            lockedMode: params.lockedMode,
+          })
+          if (!Array.isArray(wasmRows)) {
+            throw new Error('WASM filtered-roll helper is unavailable. Ensure warmupWasmRuleEngine() ran first.')
+          }
+          return wasmRows
+        }
         // Enumerate strict roll allocations where every roll must land on a selected stat.
         const emitDists = (predicate: (dist: number[]) => boolean) => {
-          let emitted = false
-          for (const dist of rollDistributions(m, avail)) {
-            // Enforce upper limits first
-            let overMax = false
-            for (let i = 0; i < m; i++) {
-            if (maxs[i] !== undefined && dist[i]! > (maxs[i]! as number)) { overMax = true; break }
-          }
-          if (overMax) continue
-          let overTimeline = false
-          for (let i = 0; i < m; i++) {
-            if (timelineCaps[i] !== undefined && dist[i]! > timelineCaps[i]!) { overTimeline = true; break }
-          }
-          if (overTimeline) continue
-          // In strict distributions, all rolls are allocated to selected substats.
-          if (globalMin > 0) {
-            const s = sumTargeted(dist)
-            if (s < globalMin) continue
-          }
-          if (lockedMinActive) {
-            const lockedSum = sumLocked(dist)
-            if (lockedSum < lockedMinValue) continue
-          }
+          const rowsForEmission: number[][] = []
+          const rows = filteredDistributions({
+            dims: m,
+            total: avail,
+            globalMode: globalMin > 0 ? 1 : 0,
+            globalRemaining: 0,
+            lockedMode: lockedMinActive ? 1 : 0,
+            lockedRemaining: 0,
+          })
+          for (const dist of rows) {
             if (!predicate(dist)) continue
-            let optionalOnlyBaseline = false
-            const values: number[] = []
-            for (let i = 0; i < m; i++) {
-              const v = baseVals[i]! + dist[i]! * baseVals[i]!
-              values.push(v)
-              if (combo.length > minTargetCount && optionalMask[i] && v === baseVals[i]!) {
-                optionalOnlyBaseline = true
-              }
-            }
-            if (optionalOnlyBaseline) continue
-            const comboSubs = combo.map(v => variantToSub(v))
-            if (mainChoicesV.length === 0) {
-              const r = makeRule({ ...baseCore, MainStatID: StatId.Any, MainStatF: 1, LVLForCheck: lvl }, comboSubs)
-              for (let i = 0; i < m; i++) setThreshold(r, i, dist[i]!)
-              pushRule(r)
-            } else {
-              for (const mnV of mainChoicesV) {
-                if (combo.some(sv => subEqualsMain(variantToSub(sv), variantToMain(mnV)))) continue
-                if (!anySelectedSlotSupportsMain(cfg.artifactTypes, mnV)) continue
-                const mT = variantToMain(mnV)
-                const r = makeRule({ ...baseCore, MainStatID: mT.id, MainStatF: mT.f ?? 1, LVLForCheck: lvl }, comboSubs)
-                for (let i = 0; i < m; i++) setThreshold(r, i, dist[i]!)
-                pushRule(r)
-              }
-            }
-            emitted = true
+            rowsForEmission.push(dist)
           }
-          return emitted
+          return emitRowsForComboViaWasm(rowsForEmission, { skipOptionalBaseline: skipOptionalBaselineByDefault })
         }
         // Like emitDists, but allow some of the available rolls to go to non-targeted substats.
         // Implemented by adding a single "other" bucket that can absorb any leftover rolls.
@@ -1802,60 +1805,28 @@ export function buildHsfRules(
           const othersCount = Math.max(0, present - m)
 
           const run = (includeVirtualSink: boolean): boolean => {
-            let emitted = false
             const dims = m + (othersCount > 0 ? 1 : 0) + (includeVirtualSink ? 1 : 0)
-            for (const dist of rollDistributions(dims, avail)) {
-              const sel = dist.slice(0, m)
-              let overMax = false
-              for (let i = 0; i < m; i++) {
-                if (maxs[i] !== undefined && sel[i]! > (maxs[i]! as number)) { overMax = true; break }
-              }
-              if (overMax) continue
-              let overTimeline = false
-              for (let i = 0; i < m; i++) {
-                if (timelineCaps[i] !== undefined && sel[i]! > timelineCaps[i]!) { overTimeline = true; break }
-              }
-              if (overTimeline) continue
-              if (globalMin > 0) {
-                const s = sumTargeted(sel)
-                const rollsUpTo16 = LEVELS.filter(l => l <= 16 && rollLevels.has(l)).length
-                const numTarget = baseline === 'upToLevel'
-                  ? (rollsUpTo16 + mythPreCount)
-                  : Math.max(0, (rollsUpTo16 - rollsUpToStart) + (effectiveStart <= 0 ? mythPreCount : 0))
-                const remaining = Math.max(0, numTarget - avail)
-                if (!(s >= globalMin || (globalMin - s) <= remaining)) continue
-                const lockedSum = sumLocked(sel)
-                if (!canSatisfyLocked(lockedSum, remaining)) continue
-              }
+            const rollsUpTo16 = LEVELS.filter(l => l <= 16 && rollLevels.has(l)).length
+            const numTarget = baseline === 'upToLevel'
+              ? (rollsUpTo16 + mythPreCount)
+              : Math.max(0, (rollsUpTo16 - rollsUpToStart) + (effectiveStart <= 0 ? mythPreCount : 0))
+            const remaining = Math.max(0, numTarget - avail)
+            const selectedRows: number[][] = []
+            const rows = filteredDistributions({
+              dims,
+              total: avail,
+              globalMode: globalMin > 0 ? 2 : 0,
+              globalRemaining: remaining,
+              // Keep parity: this branch only enforces locked feasibility together with globalMin.
+              lockedMode: globalMin > 0 && lockedMinActive ? 2 : 0,
+              lockedRemaining: remaining,
+            })
+            for (const dist of rows) {
+              const sel = dist.length === m ? dist : dist.slice(0, m)
               if (!predicate(sel)) continue
-              const values: number[] = []
-              let optionalOnlyBaseline = false
-              for (let i = 0; i < m; i++) {
-                const v = baseVals[i]! + sel[i]! * baseVals[i]!
-                values.push(v)
-                if (combo.length > minTargetCount && optionalMask[i] && v === baseVals[i]!) {
-                  optionalOnlyBaseline = true
-                }
-              }
-              if (optionalOnlyBaseline) continue
-            const comboSubs = combo.map(v => variantToSub(v))
-            if (mainChoicesV.length === 0) {
-              const r = makeRule({ ...baseCore, MainStatID: StatId.Any, MainStatF: 1, LVLForCheck: lvl }, comboSubs)
-              for (let i = 0; i < m; i++) setThreshold(r, i, sel[i]!)
-              pushRule(r)
-            } else {
-              for (const mnV of mainChoicesV) {
-                if (combo.some(sv => subEqualsMain(variantToSub(sv), variantToMain(mnV)))) continue
-                if (!anySelectedSlotSupportsMain(cfg.artifactTypes, mnV)) continue
-                const mT = variantToMain(mnV)
-                const r = makeRule({ ...baseCore, MainStatID: mT.id, MainStatF: mT.f ?? 1, LVLForCheck: lvl }, comboSubs)
-                for (let i = 0; i < m; i++) setThreshold(r, i, sel[i]!)
-                pushRule(r)
-              }
+              selectedRows.push(sel)
             }
-            emitted = true
-          }
-            return emitted
+            return emitRowsForComboViaWasm(selectedRows, { skipOptionalBaseline: skipOptionalBaselineByDefault })
           }
 
           const preferVirtualSink = (() => {
@@ -1965,63 +1936,21 @@ export function buildHsfRules(
                 const room = extraTargeted > 0 ? Math.max(0, cap - needNow[i]!) : baseRoom
                 addCaps[i] = targetedMask[i] ? room : 0
               }
-              // Enumerate all minimal distributions of `extra` across constrained stats
-              const solutions: number[][] = []
-              const dist = (i: number, left: number, acc: number[]) => {
-                if (i === m) {
-                  if (left === 0) solutions.push(acc.slice())
-                  return
-                }
-                const cap = addCaps[i]!
-                const maxTake = Math.min(cap, left)
-                for (let v = 0; v <= maxTake; v++) {
-                  acc.push(v)
-                  dist(i + 1, left - v, acc)
-                  acc.pop()
-                }
+              const candidateRows = getFilteredBoundedCompositionsWithOffsetI32WithLoadedWasm({
+                caps: addCaps,
+                total: extra,
+                needNow,
+                lockedMask,
+                lockedBaseSum: baseLockedNeed,
+                lockedMinAtLevel: lockedNeedAtLevel,
+                optionalMask,
+                mins,
+                skipOptionalBaseline: combo.length > minTargetCount && optionalMask.some(Boolean),
+              })
+              if (!Array.isArray(candidateRows)) {
+                throw new Error('WASM bounded-composition helper is unavailable. Ensure warmupWasmRuleEngine() ran first.')
               }
-              if (extra === 0) {
-                solutions.push(Array(m).fill(0))
-              } else {
-                dist(0, extra, [])
-              }
-              const comboSubs = combo.map(v => variantToSub(v))
-              const emitWith = (inc: number[]) => {
-                if (lockedNeedAtLevel > 0) {
-                  const lockedAfter = baseLockedNeed + inc.reduce((sum, val, idx) => sum + (lockedMask[idx] ? val : 0), 0)
-                  if (lockedAfter < lockedNeedAtLevel) {
-                    return
-                  }
-                }
-                const optionalRowsOnlyBaseline = (
-                  combo.length > minTargetCount &&
-                  optionalMask.some(Boolean) &&
-                  optionalMask.every((isOptional, idx) => {
-                    if (!isOptional) return true
-                    if (mins[idx]! !== 0) return false
-                    const applied = needNow[idx]! + inc[idx]!
-                    return applied === 0
-                  })
-                )
-                if (optionalRowsOnlyBaseline) {
-                  return
-                }
-                if (mainChoicesV.length === 0) {
-                  const r = makeRule({ ...baseCore, MainStatID: StatId.Any, MainStatF: 1, LVLForCheck: lvl }, comboSubs)
-                  for (let i = 0; i < m; i++) setThreshold(r, i, needNow[i]! + inc[i]!)
-                  pushRule(r)
-                } else {
-                  for (const mnV of mainChoicesV) {
-                    if (combo.some(sv => subEqualsMain(variantToSub(sv), variantToMain(mnV)))) continue
-                    if (!anySelectedSlotSupportsMain(cfg.artifactTypes, mnV)) continue
-                    const mT = variantToMain(mnV)
-                    const r = makeRule({ ...baseCore, MainStatID: mT.id, MainStatF: mT.f ?? 1, LVLForCheck: lvl }, comboSubs)
-                    for (let i = 0; i < m; i++) setThreshold(r, i, needNow[i]! + inc[i]!)
-                    pushRule(r)
-                  }
-                }
-              }
-              for (const inc of solutions) emitWith(inc)
+              emitRowsForComboViaWasm(candidateRows, { skipOptionalBaseline: skipOptionalBaselineByDefault })
               continue
             }
           }
@@ -2065,55 +1994,27 @@ export function buildHsfRules(
                     }
                   }
                   if (okAgg) {
-                    const comboSubs = combo.map(v => variantToSub(v))
                     // Per-index available additional raises
                     const addCaps: number[] = new Array(m)
                     for (let i = 0; i < m; i++) {
                       const cap = (typeof maxs[i] === 'number') ? (maxs[i]! as number) : 4
                       addCaps[i] = Math.max(0, Math.min(mins[i]!, cap) - needNow[i]!)
                     }
-                    const solutions: number[][] = []
-                    const dist = (i: number, left: number, acc: number[]) => {
-                      if (i === m) {
-                        if (left === 0) solutions.push(acc.slice())
-                        return
-                      }
-                      const cap = addCaps[i]!
-                      const maxTake = Math.min(cap, left)
-                      for (let v = 0; v <= maxTake; v++) {
-                        acc.push(v)
-                        dist(i + 1, left - v, acc)
-                        acc.pop()
-                      }
+                    const candidateRows = getFilteredBoundedCompositionsWithOffsetI32WithLoadedWasm({
+                      caps: addCaps,
+                      total: extra,
+                      needNow,
+                      lockedMask,
+                      lockedBaseSum: baseLockedNeed,
+                      lockedMinAtLevel: lockedNeedAtLevel,
+                      optionalMask: Array.from({ length: m }, () => false),
+                      mins,
+                      skipOptionalBaseline: false,
+                    })
+                    if (!Array.isArray(candidateRows)) {
+                      throw new Error('WASM bounded-composition helper is unavailable. Ensure warmupWasmRuleEngine() ran first.')
                     }
-                    if (extra === 0) {
-                      solutions.push(Array(m).fill(0))
-                    } else {
-                      dist(0, extra, [])
-                    }
-                    const emitWith = (inc: number[]) => {
-                      if (lockedNeedAtLevel > 0) {
-                        const lockedAfter = baseLockedNeed + inc.reduce((sum, val, idx) => sum + (lockedMask[idx] ? val : 0), 0)
-                        if (lockedAfter < lockedNeedAtLevel) {
-                          return
-                        }
-                      }
-                      if (mainChoicesV.length === 0) {
-                        const r = makeRule({ ...baseCore, MainStatID: StatId.Any, MainStatF: 1, LVLForCheck: lvl }, comboSubs)
-                        for (let i = 0; i < m; i++) setThreshold(r, i, needNow[i]! + inc[i]!)
-                        pushRule(r)
-                      } else {
-                        for (const mnV of mainChoicesV) {
-                          if (combo.some(sv => subEqualsMain(variantToSub(sv), variantToMain(mnV)))) continue
-                          if (!anySelectedSlotSupportsMain(cfg.artifactTypes, mnV)) continue
-                          const mT = variantToMain(mnV)
-                          const r = makeRule({ ...baseCore, MainStatID: mT.id, MainStatF: mT.f ?? 1, LVLForCheck: lvl }, comboSubs)
-                          for (let i = 0; i < m; i++) setThreshold(r, i, needNow[i]! + inc[i]!)
-                          pushRule(r)
-                        }
-                      }
-                    }
-                    for (const inc of solutions) emitWith(inc)
+                    emitRowsForComboViaWasm(candidateRows, { skipOptionalBaseline: false })
                     continue
                   }
                 }

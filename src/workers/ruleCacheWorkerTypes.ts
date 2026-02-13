@@ -3,7 +3,6 @@ import type { Metaset } from '../lib/metasets'
 import type { HsfRuleWithCfg } from '../lib/merge'
 import type { HsfFile } from '../lib/hsfTypes'
 import type { FinalSellRemainderConfig } from '../lib/logicHub'
-import type { RuleMatchIndexData } from '../lib/ruleMatchIndex'
 import type { KeepUniqueDetectionSnapshot, KeepUniquesMergeInput } from '../lib/keepUniques'
 import type { NormalizedGearArtifact } from '../lib/importers/gearDbNormalizer'
 import type { TesterMatchWorkerItemResult } from './testerMatchWorkerTypes'
@@ -34,7 +33,6 @@ export type RuleCacheWarmResponse = {
     truncatedConfigIndices: number[]
     totalLimitHit: boolean
     excludedByTotalLimitIndices: number[]
-    ruleMatchIndex: RuleMatchIndexData
   }
 }
 
@@ -99,7 +97,6 @@ export type RuleCachePipelineResponse = {
     truncatedConfigIndices: number[]
     totalLimitHit: boolean
     excludedByTotalLimitIndices: number[]
-    ruleMatchIndex: RuleMatchIndexData
     matches: TesterMatchWorkerItemResult[]
     // Keep-unique detection snapshot for UI inspection + cache parity.
     keepUniqueDetection: KeepUniqueDetectionSnapshot | null

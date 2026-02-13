@@ -1,0 +1,55 @@
+{
+  "artifactType": {
+    "helmet": 1,
+    "chestplate": 2,
+    "gauntlets": 3,
+    "boots": 4,
+    "weapon": 5,
+    "shield": 6,
+    "ring": 7,
+    "amulet": 8,
+    "banner": 9
+  },
+  "statId": {
+    "any": -1,
+    "hp": 1,
+    "atk": 2,
+    "def": 3,
+    "spd": 4,
+    "res": 5,
+    "acc": 6,
+    "cr": 7,
+    "cdmg": 8,
+    "hpAtkDef": 9,
+    "rollCount": 99
+  },
+  "rarityCode": {
+    "any": 0,
+    "common": 1,
+    "uncommon": 2,
+    "rare": 3,
+    "epic": 4,
+    "legendary": 5,
+    "gteCommon": 6,
+    "gteUncommon": 7,
+    "gteRare": 8,
+    "gteEpic": 9,
+    "lteUncommon": 10,
+    "lteRare": 11,
+    "lteEpic": 12,
+    "lteLegendary": 13,
+    "lteMythical": 14,
+    "mythical": 15,
+    "gteLegendary": 16
+  },
+  "level": {
+    "anySentinel": 99,
+    "milestones": [0, 4, 8, 12, 16]
+  },
+  "encoding": {
+    "statVariantShiftBits": 8,
+    "statVariantIdMask": 255,
+    "statVariantFlatSuffix": 1
+  },
+  "accessoryNoSetId": -99
+}

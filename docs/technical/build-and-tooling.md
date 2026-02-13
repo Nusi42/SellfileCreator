@@ -12,17 +12,21 @@ This document covers the stack, everyday development workflows, and delivery too
 
 **Prerequisites**
 - Node.js 20.19+ (Vite 7 requires ^20.19.0 or >=22.12.0)
+- Rust toolchain in each execution environment you use (WSL and native Windows are separate installs): `rustup`, `cargo`, `rustc`, `wasm-bindgen`, and target `wasm32-unknown-unknown`
 
 ### Constants Discipline
 
 Numbers that drive layout, sizing, timing, etc. must live in a single shared constant. When the visual tweaks change, update the constant (or add a new centralized constant) instead of applying ad-hoc adjustments like `SIZE + 2` at the call site. Layering “just this one offset” defeats the one-definition rule and makes downstream clean-up harder.
 
 **Scripts**
-- `npm install` — install dependencies
+- `npm install` — install dependencies; now fails fast when the local Rust/WASM toolchain for the current platform is missing or incomplete
 - `npm run dev` — start Vite dev server
 - `npm run build` — production build to `dist`
 - `npm run preview` — preview the built app
 - `npm run typecheck` — run `tsc --noEmit`
+- `npm run wasm:build:rule-engine` — compile `wasm/rule_engine` and regenerate `src/lib/wasm/generated/*` bindings
+- `npm run wasm:ensure:rule-engine` — rebuild `src/lib/wasm/generated/*` only when relevant Rust/domain inputs are newer than generated outputs
+- `npm run check:wasm-toolchain` — validate `rustc`, `cargo`, `rustup`, `wasm-bindgen`, and installed target `wasm32-unknown-unknown`
 - `npm run test:unit` — compile + run node:test + HSFC fixture runner
 - `npm run test:e2e` — run Playwright against the Vite dev server in Chromium
 - `npm run test:e2e:all` — run Playwright against the Vite dev server in all browsers
@@ -37,6 +41,11 @@ Numbers that drive layout, sizing, timing, etc. must live in a single shared con
 - Committed (source) scripts live under `scripts/` and are grouped by purpose:
 - `scripts/vite/assetsPlugin.ts` — injects the favicon data URL into `index.html` from a fixed allowlist ahead of dev/build runs.
 - `scripts/vite/wasmInlinePlugin.ts` — resolves `sql.js/dist/sql-wasm.wasm`, encodes it once as a data URI, and injects a `__SQL_JS_WASM_INLINE__` define so static (`file://`) builds can still load gear DBs without a network fetch.
+- `scripts/tooling/build-rule-engine-wasm.sh` — builds the experimental Rust matcher crate (`wasm/rule_engine`) for `wasm32-unknown-unknown` and regenerates `src/lib/wasm/generated/*` via `wasm-bindgen` (defaults to release profile for optimized perf validation; set `WASM_RULE_ENGINE_PROFILE=dev` for faster local iteration; release builds default `CARGO_PROFILE_RELEASE_STRIP=none` unless explicitly overridden).
+- `scripts/tooling/ensure-rule-engine-wasm.mjs` — compares mtimes for relevant wasm sources (`wasm/rule_engine/src/**`, `Cargo.toml`, `Cargo.lock`, shared domain-constant inputs, and the wasm build scripts) against generated outputs and invokes `build-rule-engine-wasm.sh` only when outputs are missing/stale.
+- `scripts/tooling/check-rust-wasm-toolchain.mjs` — verifies required Rust/WASM binaries and target installation for the current platform; `postinstall` runs it before Playwright browser installation.
+- `dev`, `build`, `typecheck`, and `test:unit` run `npm run wasm:ensure:rule-engine` first, so local workflows auto-regenerate wasm/bindings as needed.
+- `src/lib/wasm/generated/rule_engine_bg.wasm` is intentionally gitignored and should be regenerated locally by the ensure/build scripts instead of committed.
 - `scripts/tooling/patch-esm-specifiers.cjs` — patches compiled artifacts to add `.js` extensions for Node ESM.
 - `scripts/test/run-tests.mjs` — orchestrates `npm run test:unit` (cleans `tmp/tsc/tests`, runs `tsc -p tsconfig.tests.json`, patches ESM specifiers, executes the HSFC fixture runner, then runs all node:test specs emitted under `tmp/tsc/tests/tests/`).
 - `scripts/test/dump-tests-hsfc.mjs` — extracts HSFC‑readable configs from compiled tests (`npm run tests:extract`).
@@ -60,6 +69,10 @@ Numbers that drive layout, sizing, timing, etc. must live in a single shared con
 - `tmp/tsc/tests/tests/**`, `tmp/tsc/tests/src/**` — TypeScript‑compiled test/lib artifacts used by `npm run test:unit` and tooling.
 
 - Convention for non‑committed utility scripts: place them under `tmp/tsc/scripts/scripts/` and call them from npm scripts if needed. Do not check these into git; they are treated as build/test artifacts, and any ad-hoc helpers should be generated temporarily and cleaned up after use (no long-lived utilities live here).
+- WASM rule engine is mandatory in this branch; worker-side generation and matcher paths always run through `src/lib/wasm/wasmRuleEngine.ts`.
+  - Worker matcher evaluation runs through WASM when enabled.
+  - Worker warm/build generation now routes generated branch-rule finalization (epic/legendary collapse, obsolete pruning, stable ordering) through WASM and fails closed if the WASM module is unavailable.
+  - Cache reuse remains enabled by default; set `VITE_WASM_DISABLE_CACHE_REUSE=1` for raw-matcher profiling.
 
 ### Validation Before Handoff
 
