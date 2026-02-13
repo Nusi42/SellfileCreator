@@ -7,7 +7,11 @@
  * invalidate only the affected entries.
  */
 import { RULE_COUNT_LIMIT, TOTAL_RULE_COUNT_LIMIT } from './constants'
-import { buildRulesForConfig, type HsfRuleWithCfg } from './merge'
+import {
+  buildRulesForConfig,
+  type BuildRulesFinalizeGeneratedFn,
+  type HsfRuleWithCfg,
+} from './merge'
 import { countRulesForConfig } from './ruleCacheHelpers'
 import type { BuilderConfig, SubstatTargetTable } from './hsfBuilder'
 import type { Metaset } from './metasets'
@@ -91,6 +95,7 @@ type UpdateArgs = {
   previousCache?: ConfigRulesCache
   baseRuleCount?: number
   totalLimit?: number
+  finalizeGeneratedRules?: BuildRulesFinalizeGeneratedFn
   onProgress?: (progress: ProgressSnapshot) => void
 }
 
@@ -245,7 +250,16 @@ export function updateConfigRulesCache(args: UpdateArgs): UpdateResult {
       entry = remapConfigIndex(reusableEntry, cfgIdx)
       entry = { ...entry, excludedByTotalLimit: false }
     } else {
-      entry = buildEntry(resolvedConfig, metasets, substatTargets, cfgIdx, configKey)
+      entry = buildEntry(
+        resolvedConfig,
+        metasets,
+        substatTargets,
+        cfgIdx,
+        configKey,
+        {
+          ...(args.finalizeGeneratedRules ? { finalizeGeneratedRules: args.finalizeGeneratedRules } : {}),
+        },
+      )
       entry = { ...entry, excludedByTotalLimit: false }
     }
 
@@ -290,6 +304,7 @@ function buildEntry(
   substatTargets: SubstatTargetTable,
   cfgIdx: number,
   key: string,
+  options?: { finalizeGeneratedRules?: BuildRulesFinalizeGeneratedFn },
 ): ConfigRuleCacheEntry {
   // Delegate to the shared builder so pruning and annotations stay unified.
   let truncated = false
@@ -298,6 +313,7 @@ function buildEntry(
     {
       limit: RULE_COUNT_LIMIT + 1,
       onLimit: () => { truncated = true },
+      ...(options?.finalizeGeneratedRules ? { finalizeGeneratedRules: options.finalizeGeneratedRules } : {}),
     },
   )
   return {

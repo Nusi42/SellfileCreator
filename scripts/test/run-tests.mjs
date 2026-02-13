@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { rmSync, existsSync, readdirSync } from 'node:fs'
+import { cpSync, existsSync, mkdirSync, readdirSync, rmSync } from 'node:fs'
 import { join, relative, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { spawnSync } from 'node:child_process'
@@ -13,6 +13,10 @@ const tmpOutDir = join(root, 'tmp', 'tsc', 'tests')
 // Compile outputs mirror repo-root-relative paths (e.g., tests/**).
 const tmpTestsDir = join(tmpOutDir, 'tests')
 const testsDir = join(root, 'tests')
+// Keep wasm helper artifacts available in compiled test output when source files
+// import wasm wrappers in shared builder modules.
+const wasmGeneratedSrcDir = join(root, 'src', 'lib', 'wasm', 'generated')
+const wasmGeneratedOutDir = join(tmpOutDir, 'src', 'lib', 'wasm', 'generated')
 
 function run(command, args) {
   const result = spawnSync(command, args, {
@@ -72,6 +76,11 @@ try {
   }
   // Patch ESM imports in compiled artifacts so Node can resolve them.
   run(process.execPath, ['scripts/tooling/patch-esm-specifiers.cjs'])
+  // Mirror generated wasm bindings so compiled test modules can import them.
+  if (existsSync(wasmGeneratedSrcDir)) {
+    mkdirSync(wasmGeneratedOutDir, { recursive: true })
+    cpSync(wasmGeneratedSrcDir, wasmGeneratedOutDir, { recursive: true })
+  }
   // Run the HSFC fixture harness before node:test specs.
   run(process.execPath, ['tmp/tsc/tests/tests/integration/hsfc-fixtures.runner.js'])
 
@@ -81,7 +90,14 @@ try {
     // Why: The gear DB importer tests exercise WASM + large ArrayBuffers and Node's default
     // parallel file runner has shown intermittent internal stream crashes (SIGSEGV / undefined
     // internal symbols) under CI-like resource constraints.
-    const nodeArgs = ['--experimental-wasm-modules', '--test', '--test-concurrency=1', ...compiledTests]
+    const nodeArgs = [
+      '--experimental-wasm-modules',
+      '--import',
+      './tmp/tsc/tests/tests/setup/wasm-warmup.js',
+      '--test',
+      '--test-concurrency=1',
+      ...compiledTests,
+    ]
     run(process.execPath, nodeArgs)
   } else if (process.env.CI) {
     console.warn('Warning: no node:test specs found under tests/')

@@ -2,7 +2,6 @@ import { useCallback, useEffect, useRef } from 'react'
 import type { SellfileExportMode } from '../lib/hsfBuilder'
 import { RULE_SOURCE_KEEP_UNIQUES, type HsfRuleWithCfg } from '../lib/merge'
 import { evaluateMatchesByConfig } from '../lib/ruleEval'
-import type { RuleMatchIndexData } from '../lib/ruleMatchIndex'
 import TesterMatchWorker from '../workers/testerMatchWorker?worker&inline'
 import type {
   TesterMatchWorkerEvaluatePayload,
@@ -18,7 +17,6 @@ import { PERF_EVENTS, markPerfEvent } from '../lib/perfTimeline'
 type ConfigureParams = {
   rules: HsfRuleWithCfg[]
   configModes: SellfileExportMode[]
-  ruleMatchIndex: RuleMatchIndexData | null
 }
 
 type EvaluateParams = {
@@ -214,7 +212,6 @@ export function useTesterMatchWorker(): UseTesterMatchWorkerResult {
       payload: {
         rules: params.rules,
         configModes: params.configModes,
-        ruleMatchIndex: params.ruleMatchIndex,
       },
     }
     worker.postMessage(message)

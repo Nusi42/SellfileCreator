@@ -6,6 +6,7 @@ package-lock.json
 # Vite/Tauri builds
 dist/
 src-tauri/target/
+wasm/rule_engine/target/
 
 # Build/test artifacts
 tmp/tsc/

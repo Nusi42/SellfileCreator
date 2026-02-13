@@ -21,6 +21,7 @@ import { computeMergedRules } from '../../src/lib/merge.js'
 import { ACCESSORY_NO_SET_ID } from '../../src/lib/constants.js'
 import { FINAL_SELL_DEFAULT_SETS_MODE } from '../../src/lib/logicHub.js'
 import { cleanHsfForExport } from '../../src/lib/hsfIO.js'
+import '../setup/wasm-warmup.js'
 
 declare const process: any
 declare const console: any

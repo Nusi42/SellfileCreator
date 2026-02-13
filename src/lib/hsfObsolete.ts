@@ -1,147 +1,29 @@
 /**
  * hsfObsolete.ts
  *
- * Detects obsolete HSF rules within a merged list by grouping on coarse
- * attributes and comparing substat constraints componentwise. A rule is
- * obsolete if another in the same group dominates it.
+ * Single-source wrapper around the WASM obsolete detector.
+ * The domination algorithm lives only in wasm/rule_engine/src/lib.rs.
  */
-import type { HsfRule, HsfSubstat } from './hsfTypes'
-import { StatId, subToVariant } from './types'
+import type { HsfRule } from './hsfTypes'
+import { findObsoleteRulesWithLoadedWasm } from './wasm/wasmRuleEngine'
 
 /** Entry describing one obsolete rule and the covering rule index with reason. */
 export type ObsoleteEntry = { index: number; coveredBy: number; reason: string }
 /** Summary report listing all obsolete rules. */
 export type ObsoleteReport = { obsolete: ObsoleteEntry[] }
 
-/** Return a sorted copy or undefined for empty arrays (stable canonicalization). */
-function canonArray(a?: number[]): number[] | undefined {
-  if (!a || a.length === 0) return undefined
-  return [...a].sort((x, y) => x - y)
-}
-
-type SubKey = { variant: number; cond: '>=' | '<=' }
-
 /**
- * Normalize substats to a stable array of keyed entries with deduplication.
- * Returns null when encountering unsupported conditions (e.g., not <= or >=).
+ * Compute obsolete-rule coverage through the WASM engine only.
+ * Callers must warm up WASM before invoking this sync helper.
  */
-function normalizeSubstats(subs: HsfSubstat[] | undefined): Array<{ key: SubKey; value: number }> | null {
-  if (!Array.isArray(subs)) return null
-  const map = new Map<string, { key: SubKey; value: number }>()
-  for (const s of subs) {
-    if (!s || s.ID === StatId.Any) continue
-    if (s.Condition !== '>=' && s.Condition !== '<=') return null // unsupported; bail out -> no domination on this rule
-    const variant = subToVariant(s.ID, s.IsFlat) as number
-    const key: SubKey = { variant, cond: s.Condition }
-    const k = `${variant}:${key.cond}`
-    const v = Math.floor(Number(s.Value) || 0)
-    const prev = map.get(k)
-    if (!prev) map.set(k, { key, value: v })
-    else {
-      // If duplicates appear, keep the stricter requirement for the same (id,variant,cond)
-      if (key.cond === '>=') map.set(k, { key, value: Math.max(prev.value, v) })
-      else map.set(k, { key, value: Math.min(prev.value, v) })
-    }
-  }
-  const arr = Array.from(map.values())
-  // Stable sort by id, variant, cond
-  arr.sort((a, b) => a.key.variant - b.key.variant || (a.key.cond === b.key.cond ? 0 : a.key.cond === '>=' ? -1 : 1))
-  return arr
-}
-
-/**
- * Coarse grouping key for rules ignoring substat values: matches rules that
- * could dominate each other by sharing all non-substat attributes.
- */
-function coarseKey(r: HsfRule): string {
-  const keep = r.Keep === true ? 1 : 0
-  const use = r.Use === false ? 0 : 1
-  const rank = r.Rank ?? -1
-  const rarity = r.Rarity ?? -1
-  const lvl = r.LVLForCheck ?? -1
-  const fac = r.Faction ?? 0
-  const mid = r.MainStatID ?? StatId.Any
-  const mf = r.MainStatF ?? 1
-  const sets = JSON.stringify(canonArray(r.ArtifactSet))
-  const types = JSON.stringify(canonArray(r.ArtifactType))
-  return `${keep}|${use}|${rank}|${rarity}|${lvl}|${fac}|${mid}:${mf}|${sets}|${types}`
-}
-
-/** String signature of substats ignoring values (id:variant:cond triples). */
-function signatureOf(subs: Array<{ key: SubKey; value: number }>): string {
-  // Signature without values: only the identity and operator must match
-  const sig = subs.map(s => `${s.key.variant}:${s.key.cond}`).join(',')
-  return sig
-}
-
-/**
- * Return true if a dominates b componentwise (same identities and operators,
- * with a value looser-or-equal than b), or if exactly equal and we prefer a.
- */
-function dominates(a: Array<{ key: SubKey; value: number }>, b: Array<{ key: SubKey; value: number }>, preferAEarlierThanB: boolean): boolean {
-  // Return true if a covers b (componentwise looser-or-equal for all), with tie-breaking for exact duplicates.
-  if (a.length !== b.length) return false
-  let anyStrict = false
-  for (let i = 0; i < a.length; i++) {
-    const x = a[i]!
-    const y = b[i]!
-    if (x.key.variant !== y.key.variant || x.key.cond !== y.key.cond) return false
-    if (x.key.cond === '>=') {
-      if (x.value > y.value) return false
-      if (x.value < y.value) anyStrict = true
-    } else { // '<='
-      if (x.value < y.value) return false
-      if (x.value > y.value) anyStrict = true
-    }
-  }
-  // If all equal (no strict), only allow dominance when we prefer A over B (e.g., A is earlier index)
-  return anyStrict || preferAEarlierThanB
-}
-
-/** Compute a report of obsolete rules within the given HSF rule array. */
-/** Group rules and mark those dominated by others within their group. */
 export function findObsoleteRules(rules: HsfRule[]): ObsoleteReport {
-  const groups = new Map<string, number[]>()
-  const normSubs: Array<Array<{ key: SubKey; value: number }> | null> = new Array(rules.length)
-  for (let i = 0; i < rules.length; i++) {
-    const rule = rules[i]!
-    const ns = normalizeSubstats(rule.Substats)
-    normSubs[i] = ns
-    const key = ns ? `${coarseKey(rule)}|${signatureOf(ns)}` : `__NO_DOMINATION__|${i}`
-    const arr = groups.get(key)
-    if (arr) arr.push(i); else groups.set(key, [i])
+  // Delegate to WASM so domination semantics are defined in one place.
+  const report = findObsoleteRulesWithLoadedWasm(rules)
+  // Fail closed when warmup/config is missing; no JS duplicate path remains.
+  if (!report || !Array.isArray(report.obsolete)) {
+    throw new Error('WASM obsolete-rule detector is unavailable. Ensure warmupWasmRuleEngine() ran first.')
   }
-
-  const obsolete: ObsoleteEntry[] = []
-  for (const idxs of groups.values()) {
-    if (idxs.length <= 1) continue
-    const survivors: Array<{ idx: number; norm: Array<{ key: SubKey; value: number }> }> = []
-    for (let aIdx = 0; aIdx < idxs.length; aIdx++) {
-      const i = idxs[aIdx]!
-      const A = normSubs[i]!
-      if (!A) continue
-      let coveredBy: number | null = null
-      for (const survivor of survivors) {
-        const preferSurvivor = survivor.idx < i
-        if (dominates(survivor.norm, A, preferSurvivor)) {
-          coveredBy = survivor.idx
-          break
-        }
-      }
-      if (coveredBy !== null) obsolete.push({ index: i, coveredBy, reason: 'Covered at same level by looser/equal substat thresholds' })
-      else {
-        // Remove any survivors that this rule dominates so future checks stay minimal.
-        for (let s = survivors.length - 1; s >= 0; s -= 1) {
-          const survivor = survivors[s]!
-          const preferCurrent = i < survivor.idx
-          if (dominates(A, survivor.norm, preferCurrent)) {
-            obsolete.push({ index: survivor.idx, coveredBy: i, reason: 'Covered at same level by looser/equal substat thresholds' })
-            survivors.splice(s, 1)
-          }
-        }
-        survivors.push({ idx: i, norm: A })
-      }
-    }
-  }
-  return { obsolete }
+  // Keep output shape compatible with existing TS call sites.
+  return report
 }
+

@@ -2,9 +2,12 @@
 /// <reference lib="webworker" />
 
 import type { SellfileExportMode } from '../lib/hsfBuilder'
-import { RULE_SOURCE_KEEP_UNIQUES, type HsfRuleWithCfg } from '../lib/merge'
-import { buildRuleMatchIndexData, primeRuleMatchIndex, type RuleMatchIndexData } from '../lib/ruleMatchIndex'
-import { evaluateMatchesByConfig } from '../lib/ruleEval'
+import { KEEP_OVERRIDE_RULE_SOURCES, type HsfRuleWithCfg } from '../lib/merge'
+import {
+  configureWasmRuleEngine,
+  evaluateWasmRuleEngineItems,
+  warmupWasmRuleEngine,
+} from '../lib/wasm/wasmRuleEngine'
 import type {
   TesterMatchWorkerEvaluateItem,
   TesterMatchWorkerRequest,
@@ -17,22 +20,40 @@ declare const self: DedicatedWorkerGlobalScope
 
 let currentRules: HsfRuleWithCfg[] = []
 let currentConfigModes: SellfileExportMode[] = []
+let currentKeepOverrideRuleIndices = new Set<number>()
+let wasmWarmupPromise: Promise<void> | null = null
 
-const configureRules = (rules: HsfRuleWithCfg[], configModes: SellfileExportMode[], ruleMatchIndex: RuleMatchIndexData | null) => {
-  currentRules = rules ?? []
-  currentConfigModes = Array.isArray(configModes) ? configModes : []
-  if (currentRules.length === 0) return
-  if (ruleMatchIndex) {
-    primeRuleMatchIndex(currentRules, ruleMatchIndex)
-  } else {
-    primeRuleMatchIndex(currentRules, buildRuleMatchIndexData(currentRules))
+// Reuse a set for O(1) first-match source checks on the hot evaluate path.
+const KEEP_OVERRIDE_SOURCE_SET = new Set<string>(KEEP_OVERRIDE_RULE_SOURCES)
+
+const ensureWasmWorkerReady = async (): Promise<void> => {
+  if (!wasmWarmupPromise) {
+    wasmWarmupPromise = warmupWasmRuleEngine()
   }
+  await wasmWarmupPromise
 }
 
-const evaluateRows = (
+const configureRules = async (rules: HsfRuleWithCfg[], configModes: SellfileExportMode[]) => {
+  currentRules = rules ?? []
+  currentConfigModes = Array.isArray(configModes) ? configModes : []
+  // Keep-override index map allows skipping baseline re-eval for unaffected rows.
+  currentKeepOverrideRuleIndices = new Set<number>()
+  for (let idx = 0; idx < currentRules.length; idx += 1) {
+    const source = currentRules[idx]?.__source ?? ''
+    if (!KEEP_OVERRIDE_SOURCE_SET.has(source)) continue
+    currentKeepOverrideRuleIndices.add(idx)
+  }
+  await ensureWasmWorkerReady()
+  await configureWasmRuleEngine({
+    rules: currentRules,
+    configModes: currentConfigModes,
+  })
+}
+
+const evaluateRows = async (
   items: TesterMatchWorkerEvaluateItem[],
   onProgress?: (completed: number, total: number) => void,
-): TesterMatchWorkerItemResult[] => {
+): Promise<TesterMatchWorkerItemResult[]> => {
   if (!Array.isArray(items) || items.length === 0) return []
   const total = items.length
   const forwardProgress = createProgressThrottler((snapshot) => onProgress?.(snapshot.completed, snapshot.total))
@@ -49,23 +70,29 @@ const evaluateRows = (
     })
     return emptyResults
   }
+  const fullResults = await evaluateWasmRuleEngineItems({
+    items,
+    ...(currentKeepOverrideRuleIndices.size > 0
+      ? { options: { baselineExcludeSources: KEEP_OVERRIDE_RULE_SOURCES } }
+      : {}),
+  })
+  const fullById = new Map<number, TesterMatchWorkerItemResult>()
+  fullResults.forEach((entry) => fullById.set(entry.itemId, entry))
   const results: TesterMatchWorkerItemResult[] = []
   for (let idx = 0; idx < items.length; idx += 1) {
     const entry = items[idx]
     if (!entry) continue
-    // Full evaluation includes keep-unique injections so the tester grid shows overrides.
-    const full = evaluateMatchesByConfig(currentRules, entry.item, { configModes: currentConfigModes })
-    // Base evaluation excludes keep-unique so detection can still see the baseline keep/sell result.
-    const base = evaluateMatchesByConfig(currentRules, entry.item, {
-      configModes: currentConfigModes,
-      excludeSources: [RULE_SOURCE_KEEP_UNIQUES],
-    })
+    const full = fullById.get(entry.itemId)
     results.push({
       itemId: entry.itemId,
-      firstMatch: full.firstMatch,
-      firstNonExcludedMatch: base.firstMatch,
-      matchingConfigIndices: full.matchingConfigIndices,
-      matchingConfigDecisions: full.matchingConfigDecisions,
+      firstMatch: full?.firstMatch ?? null,
+      firstNonExcludedMatch: (
+        full?.firstNonExcludedMatch
+        ?? full?.firstMatch
+        ?? null
+      ),
+      matchingConfigIndices: full?.matchingConfigIndices ?? [],
+      matchingConfigDecisions: full?.matchingConfigDecisions ?? [],
     })
     // Emit determinate progress so the UI overlay can update mid-batch.
     forwardProgress({ completed: idx + 1, total })
@@ -73,12 +100,12 @@ const evaluateRows = (
   return results
 }
 
-self.onmessage = (event: MessageEvent<TesterMatchWorkerRequest>) => {
+self.onmessage = async (event: MessageEvent<TesterMatchWorkerRequest>) => {
   const message = event.data
   if (!message) return
   if (message.kind === 'configure') {
     try {
-      configureRules(message.payload.rules, message.payload.configModes, message.payload.ruleMatchIndex)
+      await configureRules(message.payload.rules, message.payload.configModes)
       const response: TesterMatchWorkerResponse = {
         id: message.id,
         kind: 'configure:done',
@@ -96,7 +123,7 @@ self.onmessage = (event: MessageEvent<TesterMatchWorkerRequest>) => {
   }
   if (message.kind === 'evaluate') {
     try {
-      const results = evaluateRows(message.payload.items, (completed, total) => {
+      const results = await evaluateRows(message.payload.items, (completed, total) => {
         const progressResponse: TesterMatchWorkerResponse = {
           id: message.id,
           kind: 'evaluate:progress',

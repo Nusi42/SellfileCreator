@@ -12,6 +12,7 @@ import { AppStateProvider, makeInitialAppState } from './state/appState'
 import { DisplayPreferencesProvider } from './state/preferencesState'
 import { defaultSubstatTargets } from './lib/hsfBuilder'
 import { defaultMetasets } from './lib/metasets'
+import { warmupWasmRuleEngine } from './lib/wasm/wasmRuleEngine'
 import './styles.css'
 import { I18nProvider } from './lib/i18n'
 import { useColorBlindPreference } from './state/colorBlindPreference'
@@ -33,8 +34,19 @@ function AppShell() {
   )
 }
 
-ReactDOM.createRoot(document.getElementById('root')!).render(
-  <React.StrictMode>
-    <AppShell />
-  </React.StrictMode>
-)
+const bootstrap = async (): Promise<void> => {
+  // Main-thread generation/counting paths now rely on sync WASM helpers.
+  await warmupWasmRuleEngine()
+  // Render only after warmup so no JS duplicate fallback is needed.
+  ReactDOM.createRoot(document.getElementById('root')!).render(
+    <React.StrictMode>
+      <AppShell />
+    </React.StrictMode>
+  )
+}
+
+// Surface startup failures loudly; this branch should never silently continue.
+void bootstrap().catch((error) => {
+  console.error('Failed to initialize WASM rule engine during app bootstrap.', error)
+  throw error
+})

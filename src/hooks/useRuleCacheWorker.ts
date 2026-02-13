@@ -13,8 +13,6 @@ import type { RuleCachePipelinePhase, RuleCacheWorkerRequest, RuleCacheWorkerRes
 import RuleCacheWorker from '../workers/ruleCacheWorker?worker&inline'
 import type { HsfFile } from '../lib/hsfTypes'
 import type { FinalSellRemainderConfig } from '../lib/logicHub'
-import { buildRuleMatchIndexData, primeRuleMatchIndex } from '../lib/ruleMatchIndex'
-import type { RuleMatchIndexData } from '../lib/ruleMatchIndex'
 import {
   buildIgnoreKeepUniqueConfigIndices,
   collectKeepUniqueCandidates,
@@ -32,6 +30,7 @@ import { createProgressThrottler } from '../types/progress'
 import type { TesterPreviewMatch } from '../types/testerPreview'
 import { resolveMatchConfigName } from '../lib/ruleConfigIndex'
 import { PERF_EVENTS, markPerfEvent } from '../lib/perfTimeline'
+import { warmupWasmRuleEngine } from '../lib/wasm/wasmRuleEngine'
 
 type WarmCacheParams = {
   configs: BuilderConfig[]
@@ -69,7 +68,6 @@ type RuleCacheStateSnapshot = {
   truncatedConfigIndices: number[]
   totalLimitHit: boolean
   excludedByTotalLimitIndices: number[]
-  ruleMatchIndex: RuleMatchIndexData
 }
 
 type WarmCacheResult = {
@@ -154,6 +152,14 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
     configsForRules: BuilderConfig[]
     fingerprint: string | null
   } | null>(null)
+  // Local fallback paths run sync WASM helpers, so warm once before any fallback execution.
+  const localWasmWarmupPromiseRef = useRef<Promise<void> | null>(null)
+  const ensureLocalWasmReady = useCallback(async (): Promise<void> => {
+    if (!localWasmWarmupPromiseRef.current) {
+      localWasmWarmupPromiseRef.current = warmupWasmRuleEngine()
+    }
+    await localWasmWarmupPromiseRef.current
+  }, [])
   // Keep pipelines latest-wins: abort older runs so we never resolve stale work after a new request arrives.
   const abortPipelineRequest = useCallback((id: number) => {
     const pending = pendingPipelineRef.current.get(id)
@@ -199,7 +205,6 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
       // Keep overrides must be included so warm merges match pipeline merges.
       keepUniques: params.keepUniques,
     })
-    const ruleMatchIndex = buildRuleMatchIndexData(mergedRules)
     const state: RuleCacheStateSnapshot = {
       rulesByConfig: cacheResult.rulesByConfig,
       countsByConfig: cacheResult.countsByConfig,
@@ -209,9 +214,7 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
       truncatedConfigIndices: cacheResult.truncatedConfigIndices.slice(),
       totalLimitHit: cacheResult.totalLimitHit,
       excludedByTotalLimitIndices: cacheResult.excludedByTotalLimitIndices.slice(),
-      ruleMatchIndex,
     }
-    primeRuleMatchIndex(state.mergedRules, state.ruleMatchIndex)
     fallbackWarmStateRef.current = {
       snapshot: state,
       configsForRules,
@@ -450,9 +453,7 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
       truncatedConfigIndices: cacheResult.truncatedConfigIndices.slice(),
       totalLimitHit: cacheResult.totalLimitHit,
       excludedByTotalLimitIndices: cacheResult.excludedByTotalLimitIndices.slice(),
-      ruleMatchIndex: buildRuleMatchIndexData(mergedRulesFinal),
     }
-    primeRuleMatchIndex(state.mergedRules, state.ruleMatchIndex)
     fallbackWarmStateRef.current = {
       snapshot: state,
       configsForRules,
@@ -521,9 +522,7 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
           truncatedConfigIndices: data.payload.truncatedConfigIndices.slice(),
           totalLimitHit: data.payload.totalLimitHit,
           excludedByTotalLimitIndices: data.payload.excludedByTotalLimitIndices.slice(),
-          ruleMatchIndex: data.payload.ruleMatchIndex,
         }
-        primeRuleMatchIndex(state.mergedRules, state.ruleMatchIndex)
         pending.resolve({ state })
         return
       }
@@ -550,9 +549,7 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
           truncatedConfigIndices: data.payload.truncatedConfigIndices.slice(),
           totalLimitHit: data.payload.totalLimitHit,
           excludedByTotalLimitIndices: data.payload.excludedByTotalLimitIndices.slice(),
-          ruleMatchIndex: data.payload.ruleMatchIndex,
         }
-        primeRuleMatchIndex(state.mergedRules, state.ruleMatchIndex)
         pending.resolve({
           state,
           matches: data.payload.matches,
@@ -638,13 +635,15 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
         configs: params.configs.length,
         worker: false,
       }))
-      const result = runWarmLocally(params, localProgressOptions)
-      // Mark warm completion for the local fallback path.
-      maybeMarkPerfEvent(PERF_EVENTS.ruleCacheWarmDone, () => ({
-        rules: result.state.mergedRules.length,
-        worker: false,
-      }))
-      return Promise.resolve(result)
+      return ensureLocalWasmReady().then(() => {
+        const result = runWarmLocally(params, localProgressOptions)
+        // Mark warm completion for the local fallback path.
+        maybeMarkPerfEvent(PERF_EVENTS.ruleCacheWarmDone, () => ({
+          rules: result.state.mergedRules.length,
+          worker: false,
+        }))
+        return result
+      })
     }
 
     if (signal?.aborted) {
@@ -658,7 +657,7 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
       if (signal?.aborted) {
         return Promise.reject(new DOMException('Aborted', 'AbortError'))
       }
-      return Promise.resolve(runWarmLocally(params, localProgressOptions))
+      return ensureLocalWasmReady().then(() => runWarmLocally(params, localProgressOptions))
     }
 
     let resolveFn: (value: WarmCacheResult) => void = () => {}
@@ -724,7 +723,7 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
       .finally(() => {
         cleanupAbort?.()
       })
-  }, [runWarmLocally])
+  }, [ensureLocalWasmReady, runWarmLocally])
 
   const runPipeline = useCallback<UseRuleCacheWorkerResult['runPipeline']>((params, options) => {
     const signal = options?.signal ?? null
@@ -740,20 +739,22 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
         skipMatches: params.skipMatches ?? false,
         skipDetection: params.skipDetection ?? false,
       }))
-      const result = runPipelineLocally(params, localProgressOptions)
-      // Mark pipeline fallback completion for perf traces.
-      maybeMarkPerfEvent(PERF_EVENTS.ruleCachePipelineFallback, () => ({
-        rules: result.state.mergedRules.length,
-        matches: result.matches.length,
-      }))
-      // Mirror the completion marker for local pipeline runs.
-      maybeMarkPerfEvent(PERF_EVENTS.ruleCachePipelineDone, () => ({
-        rules: result.state.mergedRules.length,
-        matches: result.matches.length,
-        // Detection is active when keep-unique snapshot exists.
-        detection: Boolean(result.keepUniqueDetection),
-      }))
-      return Promise.resolve(result)
+      return ensureLocalWasmReady().then(() => {
+        const result = runPipelineLocally(params, localProgressOptions)
+        // Mark pipeline fallback completion for perf traces.
+        maybeMarkPerfEvent(PERF_EVENTS.ruleCachePipelineFallback, () => ({
+          rules: result.state.mergedRules.length,
+          matches: result.matches.length,
+        }))
+        // Mirror the completion marker for local pipeline runs.
+        maybeMarkPerfEvent(PERF_EVENTS.ruleCachePipelineDone, () => ({
+          rules: result.state.mergedRules.length,
+          matches: result.matches.length,
+          // Detection is active when keep-unique snapshot exists.
+          detection: Boolean(result.keepUniqueDetection),
+        }))
+        return result
+      })
     }
 
     if (signal?.aborted) {
@@ -770,7 +771,7 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
       if (signal?.aborted) {
         return Promise.reject(new DOMException('Aborted', 'AbortError'))
       }
-      return Promise.resolve(runPipelineLocally(params, localProgressOptions))
+      return ensureLocalWasmReady().then(() => runPipelineLocally(params, localProgressOptions))
     }
 
     let resolveFn: (value: PipelineResult) => void = () => {}
@@ -851,7 +852,7 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
       .finally(() => {
         cleanupAbort?.()
       })
-  }, [abortActivePipelines, runPipelineLocally])
+  }, [abortActivePipelines, ensureLocalWasmReady, runPipelineLocally])
 
   const countRules = useCallback<UseRuleCacheWorkerResult['countRules']>((params, options) => {
     const signal = options?.signal ?? null
@@ -862,7 +863,7 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
       if (signal?.aborted) {
         return Promise.reject(new DOMException('Aborted', 'AbortError'))
       }
-      return Promise.resolve(countRulesForConfigs(configs, params.substatTargets))
+      return ensureLocalWasmReady().then(() => countRulesForConfigs(configs, params.substatTargets))
     }
 
     if (signal?.aborted) {
@@ -908,7 +909,7 @@ export function useRuleCacheWorker(): UseRuleCacheWorkerResult {
     return promise.finally(() => {
       cleanupAbort?.()
     })
-  }, [])
+  }, [ensureLocalWasmReady])
 
   const flush = useCallback(() => {
     if (!supportsWorkerEnv) return Promise.resolve()

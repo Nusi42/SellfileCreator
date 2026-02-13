@@ -19,8 +19,8 @@ const WORKLOAD_INDICATOR = getWorkloadIndicator
 const PERF_SUFFIX = ' [perf]'
 // Keep rebuild waits short; slim fixtures should settle quickly.
 const WORKLOAD_IDLE_TIMEOUT_MS = PLAYWRIGHT_TIMEOUTS.expectDefault
-// Give the perf suite the long timeout reserved for rebuilds.
-const PERF_TEST_TIMEOUT_MS = PLAYWRIGHT_TIMEOUTS.testLong
+// Give the perf suite the heavy timeout budget for cross-browser rebuild runs.
+const PERF_TEST_TIMEOUT_MS = PLAYWRIGHT_TIMEOUTS.testHeavy
 
 type LongTaskEntry = {
   // Performance entry name (often "self" for longtask).
@@ -38,22 +38,32 @@ type MatchTiming = {
   label: string
   // Start time captured before the action.
   startTime: number
-  // End time captured after the spinner settles.
+  // End time captured after timeline completion.
   endTime: number
-  // End-to-end elapsed time for the change.
+  // Primary phase duration (prefers worker timeline spans when available).
   totalMs: number
-  // Spinner start time when detected.
-  busyStart: number | null
-  // Spinner duration when detected.
-  busyMs: number | null
-  // Whether the spinner appeared at all.
-  busySeen: boolean
+  // Raw wall-clock span from action trigger to timeline completion.
+  wallMs: number
+  // Primary timing phase label used for totalMs.
+  primaryPhase: string
   // Long tasks captured during the window.
   longTasks: LongTaskEntry[]
   // Perf timeline entries captured during the run.
   timelineEntries: PerfTimelineEntry[]
   // Human-readable deltas for perf timeline events.
   timelineDeltas: string[]
+}
+
+type TimelineDurations = {
+  buildMs: number | null
+  evalMs: number | null
+  evalFallbackMs: number | null
+  workerEvalMs: number | null
+  ruleCacheMs: number | null
+  baselineMs: number | null
+  detectionMs: number | null
+  finalMs: number | null
+  warmMs: number | null
 }
 
 test.beforeAll(async ({ browser }) => {
@@ -125,12 +135,8 @@ test.describe('config rebuild performance', () => {
 
     // Emit perf summaries for CI logs and annotation output.
     for (const entry of measurements) {
-      // Render the busy duration only when we saw the spinner.
-      const busyLabel = entry.busySeen && entry.busyMs != null
-        ? `${entry.busyMs.toFixed(1)} ms`
-        : 'not-seen'
       // Compose a single-line summary for easy scan.
-      const summary = `${entry.label} | total=${entry.totalMs.toFixed(1)} ms | busy=${busyLabel}`
+      const summary = `${entry.label} | primary=${entry.primaryPhase}:${entry.totalMs.toFixed(1)} ms | wall=${entry.wallMs.toFixed(1)} ms`
       // Attach results to the Playwright report.
       testInfo.annotations.push({ type: 'perf', description: summary })
       // Print to stdout for quick CLI access.
@@ -269,6 +275,68 @@ function buildTimelineDeltas(entries: PerfTimelineEntry[]): string[] {
   return deltas
 }
 
+function timelineDuration(entries: PerfTimelineEntry[], startLabel: string, endLabel: string): number | null {
+  const start = entries.find((entry) => entry.label === startLabel)
+  const end = entries.find((entry) => entry.label === endLabel)
+  if (!start || !end) return null
+  return end.at - start.at
+}
+
+function readTimelineDurations(entries: PerfTimelineEntry[]): TimelineDurations {
+  return {
+    buildMs: timelineDuration(entries, PERF_EVENTS.testerMatchBuildStart, PERF_EVENTS.testerMatchBuildCommit),
+    evalMs: timelineDuration(entries, PERF_EVENTS.testerMatchEvalStart, PERF_EVENTS.testerMatchEvalDone),
+    evalFallbackMs: timelineDuration(entries, PERF_EVENTS.testerMatchEvalFallbackStart, PERF_EVENTS.testerMatchEvalFallbackDone),
+    workerEvalMs: timelineDuration(entries, PERF_EVENTS.testerMatchWorkerEvaluateSend, PERF_EVENTS.testerMatchWorkerEvaluateDone),
+    ruleCacheMs: timelineDuration(entries, PERF_EVENTS.ruleCachePipelineStart, PERF_EVENTS.ruleCachePipelineDone),
+    baselineMs: timelineDuration(entries, PERF_EVENTS.ruleCacheBaselineStart, PERF_EVENTS.ruleCacheBaselineDone),
+    detectionMs: timelineDuration(entries, PERF_EVENTS.ruleCacheDetectionStart, PERF_EVENTS.ruleCacheDetectionDone),
+    finalMs: timelineDuration(entries, PERF_EVENTS.ruleCacheFinalMatchStart, PERF_EVENTS.ruleCacheFinalMatchDone),
+    warmMs: timelineDuration(entries, PERF_EVENTS.ruleCacheWarmStart, PERF_EVENTS.ruleCacheWarmDone),
+  }
+}
+
+function resolvePrimaryDuration(durations: TimelineDurations, wallMs: number): { phase: string; ms: number } {
+  // Prefer full rule-cache pipeline spans when present.
+  if (durations.ruleCacheMs != null) return { phase: 'rule-cache', ms: durations.ruleCacheMs }
+  // Fall back to worker eval spans if pipeline spans are missing.
+  if (durations.workerEvalMs != null) return { phase: 'worker-eval', ms: durations.workerEvalMs }
+  // Use orchestrator eval spans for non-worker paths.
+  if (durations.evalMs != null) return { phase: 'eval', ms: durations.evalMs }
+  // Last resort: action wall-clock span.
+  return { phase: 'wall', ms: wallMs }
+}
+
+async function waitForTimelineCompletion(page: Page): Promise<'timeline' | 'indicator' | 'none'> {
+  // Poll done markers first so timing can use worker/orchestrator phases directly.
+  const timelineDone = await expect.poll(async () => {
+    const entries = await readPerfTimelineEntries(page)
+    const hasPipelineDone = entries.some((entry) => entry.label === PERF_EVENTS.ruleCachePipelineDone)
+    const hasWorkerDone = entries.some((entry) => entry.label === PERF_EVENTS.testerMatchWorkerEvaluateDone)
+    const hasEvalDone = entries.some((entry) => (
+      entry.label === PERF_EVENTS.testerMatchEvalDone
+      || entry.label === PERF_EVENTS.testerMatchEvalFallbackDone
+    ))
+    return hasPipelineDone || hasWorkerDone || hasEvalDone
+  }, {
+    timeout: PLAYWRIGHT_TIMEOUTS.expectDefault,
+  }).toBeTruthy()
+    .then(() => true)
+    .catch(() => false)
+  if (timelineDone) return 'timeline'
+  // Fallback: use workload indicator transitions when timeline markers are missing.
+  const indicator = WORKLOAD_INDICATOR(page)
+  const busySeen = await indicator.waitFor({ state: 'visible', timeout: PLAYWRIGHT_TIMEOUTS.uiQuick })
+    .then(() => true)
+    .catch(() => false)
+  if (busySeen) {
+    await indicator.waitFor({ state: 'hidden', timeout: PLAYWRIGHT_TIMEOUTS.expectLong }).catch(() => undefined)
+    return 'indicator'
+  }
+  // Last resort: allow wall-clock measurement to continue without hard-failing.
+  return 'none'
+}
+
 async function measureWorkload(page: Page, label: string, action: () => Promise<void>): Promise<MatchTiming> {
   // Ensure we start from a settled state when the indicator is already visible.
   const indicator = WORKLOAD_INDICATOR(page)
@@ -282,31 +350,27 @@ async function measureWorkload(page: Page, label: string, action: () => Promise<
   const startTime = await page.evaluate(() => performance.now())
   // Execute the action that should trigger matching.
   await action()
-  // Wait briefly to see if the indicator appears.
-  const busySeen = await indicator.waitFor({ state: 'visible', timeout: PLAYWRIGHT_TIMEOUTS.expectDefault })
-    .then(() => true)
-    .catch(() => false)
-  // Record when the indicator appeared, if it did.
-  const busyStart = busySeen ? await page.evaluate(() => performance.now()) : null
-  // Capture the end timestamp without waiting for full idle to keep the test fast.
+  // Prefer timeline completion markers, then fall back to indicator transitions.
+  await waitForTimelineCompletion(page)
+  // Capture the end timestamp after timeline completion.
   const endTime = await page.evaluate(() => performance.now())
   // Pull perf timeline entries once the build is settled.
   const timelineEntries = await readPerfTimelineEntries(page)
   // Derive the key deltas from the perf timeline entries.
   const timelineDeltas = buildTimelineDeltas(timelineEntries)
-  // Derive the full duration from action to idle.
-  const totalMs = endTime - startTime
-  // Derive the busy duration when we saw the indicator.
-  const busyMs = busyStart != null ? endTime - busyStart : null
+  // Keep wall-clock duration for correlation with phase-level spans.
+  const wallMs = endTime - startTime
+  // Derive phase durations and select the most relevant span.
+  const durations = readTimelineDurations(timelineEntries)
+  const primary = resolvePrimaryDuration(durations, wallMs)
   // Return the timing payload for reporting.
   return {
     label,
     startTime,
     endTime,
-    totalMs,
-    busyStart,
-    busyMs,
-    busySeen,
+    totalMs: primary.ms,
+    wallMs,
+    primaryPhase: primary.phase,
     longTasks: [],
     timelineEntries,
     timelineDeltas,
