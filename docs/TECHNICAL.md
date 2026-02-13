@@ -6,6 +6,8 @@ The technical reference is now split across focused documents. Start here, then 
 
 - Keep inline documentation dense and helpful—when implementing or revising code, aim for a concise intent-focused comment roughly every 2–3 lines.
 - Enforce the Single Source of Truth / One Definition Rule without exception: centralize each constant, helper, and schema definition once, then import it everywhere else.
+- Shared TS/Rust domain sentinels now come from `shared/domain-constants.json`; regenerate language bindings with `npm run generate:domain-constants` (the WASM build script runs this automatically before compiling).
+- The rule-engine wasm binary (`src/lib/wasm/generated/rule_engine_bg.wasm`) is build output, not source of truth; rely on `npm run wasm:ensure:rule-engine`/`npm run wasm:build:rule-engine` to regenerate it when inputs change.
 - Watch file size creep; split modules or move helpers into shared files before they cross roughly 1,500 lines so reviews stay manageable.
 - Configs are identity-tracked: whenever you add/duplicate/paste a `BuilderConfig`, clone it with `cloneBuilderConfig` from `src/lib/multiEditDraft.ts` so multiselect + history logic never shares references between chips.
 - Large surfaces such as the builder now keep their helper logic in dedicated siblings (`src/components/builderPanel/*`, `src/lib/hsfBuilder/*`); add new helpers beside those files instead of expanding the main component/module. The builder pulls all layout constants and roll budget math from `builderPanel/constants.ts`, so extend that file instead of re-declaring pixel math or repeat helpers.

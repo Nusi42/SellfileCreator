@@ -6,56 +6,17 @@ use serde::{Deserialize, Serialize};
 use serde_wasm_bindgen::{from_value as from_js_value, to_value as to_js_value};
 use wasm_bindgen::prelude::*;
 
-// Keep the same sentinel constants used by the TypeScript evaluator so
-// matcher decisions stay identical across JS and WASM paths.
-// Source of truth: src/lib/types.ts (StatId, StatVariant, LEVEL_ANY_SENTINEL)
-// and src/lib/constants.ts (ACCESSORY_NO_SET_ID).
-const STAT_ID_ANY: i64 = -1;
-const STAT_ID_HP: i64 = 1;
-const STAT_ID_ATK: i64 = 2;
-const STAT_ID_DEF: i64 = 3;
-const STAT_ID_SPD: i64 = 4;
-const STAT_ID_RES: i64 = 5;
-const STAT_ID_ACC: i64 = 6;
-const STAT_ID_CR: i64 = 7;
-const STAT_ID_CDMG: i64 = 8;
-const STAT_ID_HP_ATK_DEF: i64 = 9;
-const STAT_ID_ROLL_COUNT: i64 = 99;
-const LEVEL_ANY_SENTINEL: i64 = 99;
+// Shared domain constants are generated from shared/domain-constants.json.
+// This keeps TS and Rust sentinel/enum values synchronized automatically.
+mod generated_domain_constants;
+use generated_domain_constants::*;
+
 const RULE_SOURCE_KEEP_UNIQUES: &str = "keepUniques";
 const RULE_FIELD_UNSET_SENTINEL: i64 = STAT_ID_ANY;
 const FILTER_OPTION_NONE_I32: i32 = STAT_ID_ANY as i32;
 const MAIN_STAT_F_DEFAULT_FLAG: i64 = 1;
 const MAIN_STAT_F_DEFAULT_STR: &str = "1";
-const STAT_VARIANT_SHIFT_BITS: i64 = 8;
-const STAT_VARIANT_ID_MASK: i64 = 0xFF;
-const STAT_VARIANT_FLAT_SUFFIX: i64 = 1;
-const STAT_VARIANT_ANY: i64 = STAT_ID_ANY;
-const STAT_VARIANT_HP_PERCENT: i64 = (STAT_ID_HP << STAT_VARIANT_SHIFT_BITS) | 0;
-const STAT_VARIANT_HP_FLAT: i64 = (STAT_ID_HP << STAT_VARIANT_SHIFT_BITS) | STAT_VARIANT_FLAT_SUFFIX;
-const STAT_VARIANT_ATK_PERCENT: i64 = (STAT_ID_ATK << STAT_VARIANT_SHIFT_BITS) | 0;
-const STAT_VARIANT_ATK_FLAT: i64 = (STAT_ID_ATK << STAT_VARIANT_SHIFT_BITS) | STAT_VARIANT_FLAT_SUFFIX;
-const STAT_VARIANT_DEF_PERCENT: i64 = (STAT_ID_DEF << STAT_VARIANT_SHIFT_BITS) | 0;
-const STAT_VARIANT_DEF_FLAT: i64 = (STAT_ID_DEF << STAT_VARIANT_SHIFT_BITS) | STAT_VARIANT_FLAT_SUFFIX;
-const STAT_VARIANT_SPD: i64 = (STAT_ID_SPD << STAT_VARIANT_SHIFT_BITS) | STAT_VARIANT_FLAT_SUFFIX;
-const STAT_VARIANT_RES: i64 = (STAT_ID_RES << STAT_VARIANT_SHIFT_BITS) | STAT_VARIANT_FLAT_SUFFIX;
-const STAT_VARIANT_ACC: i64 = (STAT_ID_ACC << STAT_VARIANT_SHIFT_BITS) | STAT_VARIANT_FLAT_SUFFIX;
-const STAT_VARIANT_CR: i64 = (STAT_ID_CR << STAT_VARIANT_SHIFT_BITS) | 0;
-const STAT_VARIANT_CDMG: i64 = (STAT_ID_CDMG << STAT_VARIANT_SHIFT_BITS) | 0;
-const ARTIFACT_TYPE_WEAPON: i64 = 5;
-const ARTIFACT_TYPE_RING: i64 = 7;
-const ARTIFACT_TYPE_AMULET: i64 = 8;
-const ARTIFACT_TYPE_BANNER: i64 = 9;
-const ACCESSORY_NO_SET_ID: i64 = -99;
 const HSF_SUBSTAT_SLOT_COUNT: usize = 4;
-const RARITY_CODE_EPIC: i64 = 4;
-const RARITY_CODE_GTE_EPIC: i64 = 9;
-const RARITY_CODE_GTE_LEGENDARY: i64 = 16;
-const LEVEL_MILESTONE_0: i64 = 0;
-const LEVEL_MILESTONE_4: i64 = 4;
-const LEVEL_MILESTONE_8: i64 = 8;
-const LEVEL_MILESTONE_12: i64 = 12;
-const LEVEL_MILESTONE_16: i64 = 16;
 const LEVEL_ORDER_INDEX_0: i64 = 0;
 const LEVEL_ORDER_INDEX_4: i64 = 1;
 const LEVEL_ORDER_INDEX_8: i64 = 2;
