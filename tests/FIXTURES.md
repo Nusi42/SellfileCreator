@@ -41,6 +41,9 @@ users can export from the app.
 - `minima-default-factory.*` locks in the factory (in-game) minima we ship by default so we spot regressions if the base roll floors change again.
 - `auto-flex-epic-legendary-optionals.*` captures the Auto+Flex dual-branch pattern (locked SPD/CR%/CDMG% with wildcard fourth stats) so Epic rows still collapse at the early milestones while Legendary rows emit the 4-of minima once Epic’s +16 permutations appear.
 - `auto-flex-loose-optionals.*` exercises the same Auto+Flex pattern when the aggregate roll floor is below the locked trio, ensuring the Epic +16 and ≥Legendary branches keep the trio while allowing optional fourth-slot permutations only after additional rolls exist.
+- `tests/data/sample2-bundle/` now carries the large `examples/example.hsfc` + `tests/data/sample2.db` fixture bundle for transcript-driven regression checks.
+- `tests/data/sample2-bundle/configs/` exports one fixture variant per source config and per major config-option profile (`lategame`, `endgame`, `endgame+`), then dedupes profile outputs when the effective config is identical; profile-to-variant mapping lives in `tests/data/sample2-bundle/manifest.json`.
+- `tests/data/sample2-bundle/keep-uniques/` exports one fixture variant per keep-unique rule while keeping the full mixed keep/sell config list in place, so keep-unique behavior is always evaluated in real rule context (including config-option profile effects).
 - When a scenario needs to cover both collapse and non-collapse behaviour, we keep two variants:
   - The `*-factory.*` pair pins `Minima` to the factory roll floors so the builder still collapses to a single rule (`auto-at-0-with-k-4-minreq4-factory.*`, `auto-banner-aggregate-window-factory.*`, `roll-target-collapsed-quad-factory.*`, etc.).
   - The legacy pair (without the suffix) retains the boosted minima used in the original test so we continue to exercise the expanded multi-rule path.
