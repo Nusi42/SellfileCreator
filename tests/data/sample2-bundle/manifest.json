@@ -1,0 +1,4165 @@
+{
+  "generatedAt": "2026-02-13T00:12:09.007Z",
+  "sourceHsfc": "examples/example.hsfc",
+  "sharedDb": "tests/data/sample2.db",
+  "profiles": [
+    {
+      "token": "lategame",
+      "label": "Lategame",
+      "slug": "lategame",
+      "optionId": "q_mai606:`lategame`#0"
+    },
+    {
+      "token": "endgame",
+      "label": "Endgame",
+      "slug": "endgame",
+      "optionId": "q_mai606:`endgame`#1"
+    },
+    {
+      "token": "kraken",
+      "label": "Endgame+",
+      "slug": "endgameplus",
+      "optionId": "q_mai606:`endgame+`#2"
+    }
+  ],
+  "counts": {
+    "sourceConfigs": 194,
+    "sourceKeepUniques": 22,
+    "configFixtures": 291,
+    "keepUniqueFixtures": 66
+  },
+  "configFixtures": [
+    {
+      "ordinal": 1,
+      "name": "Basics",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-001-v01-basics.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 2,
+      "name": "Optional: Marius Sets",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame"
+          ],
+          "file": "configs/cfg-002-v01-optional-marius-sets.hsfc"
+        },
+        {
+          "variant": 2,
+          "profiles": [
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-002-v02-optional-marius-sets.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 3,
+      "name": "Sell - Low Value",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-003-v01-sell-low-value.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 4,
+      "name": "Low Value Sets",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-004-v01-low-value-sets.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 5,
+      "name": "Low Rank/Rarity",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-005-v01-low-rank-rarity.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 6,
+      "name": "Low Rank/Rarity",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-006-v01-low-rank-rarity.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 7,
+      "name": "Low Rank/Rarity",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-007-v01-low-rank-rarity.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 8,
+      "name": "Good Gear",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-008-v01-good-gear.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 9,
+      "name": "# Speed - Primary",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-009-v01-speed-primary.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 10,
+      "name": "Speed - Primary",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-010-v01-speed-primary.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 11,
+      "name": "Speed - Primary",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-011-v01-speed-primary.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 12,
+      "name": "Speed - Primary",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-012-v01-speed-primary.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 13,
+      "name": "Speed - Primary",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-013-v01-speed-primary.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 14,
+      "name": "Speed - Primary",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-014-v01-speed-primary.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 15,
+      "name": "Speed - Primary",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-015-v01-speed-primary.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 16,
+      "name": "Speed - Primary",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-016-v01-speed-primary.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 17,
+      "name": "Speed - Primary",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-017-v01-speed-primary.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 18,
+      "name": "Speed - Primary",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-018-v01-speed-primary.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 19,
+      "name": "# Damage - Primary",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-019-v01-damage-primary.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 20,
+      "name": "Damage - Primary",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-020-v01-damage-primary.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 21,
+      "name": "Damage - Primary",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-021-v01-damage-primary.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 22,
+      "name": "Damage - Primary",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-022-v01-damage-primary.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 23,
+      "name": "Damage - Primary",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-023-v01-damage-primary.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 24,
+      "name": "Damage - Primary",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-024-v01-damage-primary.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 25,
+      "name": "Damage - Primary",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-025-v01-damage-primary.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 26,
+      "name": "Damage - Primary",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-026-v01-damage-primary.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 27,
+      "name": "Damage - Primary",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-027-v01-damage-primary.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 28,
+      "name": "Damage - Primary",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-028-v01-damage-primary.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 29,
+      "name": "Damage - Primary",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-029-v01-damage-primary.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 30,
+      "name": "Damage - Primary",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-030-v01-damage-primary.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 31,
+      "name": "Damage - Primary",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-031-v01-damage-primary.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 32,
+      "name": "Damage - Primary",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-032-v01-damage-primary.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 33,
+      "name": "# Survivability - Primary",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-033-v01-survivability-primary.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 34,
+      "name": "Survivability - Primary",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-034-v01-survivability-primary.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 35,
+      "name": "Survivability - Primary",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-035-v01-survivability-primary.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 36,
+      "name": "Survivability - Primary",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-036-v01-survivability-primary.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 37,
+      "name": "# Debuffer - Primary",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-037-v01-debuffer-primary.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 38,
+      "name": "Debuffer - Primary",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-038-v01-debuffer-primary.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 39,
+      "name": "Debuffer - Primary (Bomber)",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-039-v01-debuffer-primary-bomber.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 40,
+      "name": "Debuffer - Primary",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-040-v01-debuffer-primary.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 41,
+      "name": "Debuffer - Primary",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-041-v01-debuffer-primary.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 42,
+      "name": "Limited Sets",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-042-v01-limited-sets.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 43,
+      "name": "# Speed - Limited Sets",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-043-v01-speed-limited-sets.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 44,
+      "name": "Speed - Limited Sets",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-044-v01-speed-limited-sets.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 45,
+      "name": "Speed - Limited Sets",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-045-v01-speed-limited-sets.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 46,
+      "name": "Speed - Limited Sets",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-046-v01-speed-limited-sets.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 47,
+      "name": "# Damage - Limited Sets",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-047-v01-damage-limited-sets.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 48,
+      "name": "Damage - Limited Sets",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-048-v01-damage-limited-sets.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 49,
+      "name": "Damage - Limited Sets",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-049-v01-damage-limited-sets.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 50,
+      "name": "Damage - Limited Sets",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-050-v01-damage-limited-sets.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 51,
+      "name": "Damage - Limited Sets",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-051-v01-damage-limited-sets.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 52,
+      "name": "Damage - Limited Sets",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-052-v01-damage-limited-sets.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 53,
+      "name": "Damage - Limited Sets",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-053-v01-damage-limited-sets.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 54,
+      "name": "Damage - Limited Sets",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-054-v01-damage-limited-sets.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 55,
+      "name": "Damage - Limited Sets",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-055-v01-damage-limited-sets.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 56,
+      "name": "Damage - Limited Sets",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-056-v01-damage-limited-sets.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 57,
+      "name": "Damage - Limited Sets",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-057-v01-damage-limited-sets.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 58,
+      "name": "Damage - Limited Sets",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-058-v01-damage-limited-sets.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 59,
+      "name": "Damage - Limited Sets",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-059-v01-damage-limited-sets.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 60,
+      "name": "Damage - Limited Sets",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-060-v01-damage-limited-sets.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 61,
+      "name": "Damage - Limited Sets",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-061-v01-damage-limited-sets.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 62,
+      "name": "Damage - Limited Sets",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-062-v01-damage-limited-sets.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 63,
+      "name": "# Survivability - Limited Sets",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-063-v01-survivability-limited-sets.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 64,
+      "name": "Survivability - Limited Sets",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-064-v01-survivability-limited-sets.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 65,
+      "name": "Survivability - Limited Sets",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-065-v01-survivability-limited-sets.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 66,
+      "name": "Survivability - Limited Sets",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-066-v01-survivability-limited-sets.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 67,
+      "name": "Survivability - Limited Sets",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-067-v01-survivability-limited-sets.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 68,
+      "name": "Survivability - Limited Sets",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-068-v01-survivability-limited-sets.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 69,
+      "name": "# Debuffer - Limited Sets",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-069-v01-debuffer-limited-sets.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 70,
+      "name": "Debuffer - Limited Sets",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-070-v01-debuffer-limited-sets.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 71,
+      "name": "Debuffer - Bomber Focus",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-071-v01-debuffer-bomber-focus.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 72,
+      "name": "Debuffer - Limited Sets",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-072-v01-debuffer-limited-sets.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 73,
+      "name": "Debuffer - Limited Sets",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-073-v01-debuffer-limited-sets.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 74,
+      "name": "Mediocre Gear",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-074-v01-mediocre-gear.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 75,
+      "name": "# Damage - Secondary",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-075-v01-damage-secondary.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 76,
+      "name": "Damage - Secondary",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame"
+          ],
+          "file": "configs/cfg-076-v01-damage-secondary.hsfc"
+        },
+        {
+          "variant": 2,
+          "profiles": [
+            "endgame"
+          ],
+          "file": "configs/cfg-076-v02-damage-secondary.hsfc"
+        },
+        {
+          "variant": 3,
+          "profiles": [
+            "endgameplus"
+          ],
+          "file": "configs/cfg-076-v03-damage-secondary.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 77,
+      "name": "Damage - Secondary",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame"
+          ],
+          "file": "configs/cfg-077-v01-damage-secondary.hsfc"
+        },
+        {
+          "variant": 2,
+          "profiles": [
+            "endgame"
+          ],
+          "file": "configs/cfg-077-v02-damage-secondary.hsfc"
+        },
+        {
+          "variant": 3,
+          "profiles": [
+            "endgameplus"
+          ],
+          "file": "configs/cfg-077-v03-damage-secondary.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 78,
+      "name": "Damage - Secondary",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame"
+          ],
+          "file": "configs/cfg-078-v01-damage-secondary.hsfc"
+        },
+        {
+          "variant": 2,
+          "profiles": [
+            "endgame"
+          ],
+          "file": "configs/cfg-078-v02-damage-secondary.hsfc"
+        },
+        {
+          "variant": 3,
+          "profiles": [
+            "endgameplus"
+          ],
+          "file": "configs/cfg-078-v03-damage-secondary.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 79,
+      "name": "Damage - Secondary",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame"
+          ],
+          "file": "configs/cfg-079-v01-damage-secondary.hsfc"
+        },
+        {
+          "variant": 2,
+          "profiles": [
+            "endgame"
+          ],
+          "file": "configs/cfg-079-v02-damage-secondary.hsfc"
+        },
+        {
+          "variant": 3,
+          "profiles": [
+            "endgameplus"
+          ],
+          "file": "configs/cfg-079-v03-damage-secondary.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 80,
+      "name": "Damage - Secondary",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame"
+          ],
+          "file": "configs/cfg-080-v01-damage-secondary.hsfc"
+        },
+        {
+          "variant": 2,
+          "profiles": [
+            "endgame"
+          ],
+          "file": "configs/cfg-080-v02-damage-secondary.hsfc"
+        },
+        {
+          "variant": 3,
+          "profiles": [
+            "endgameplus"
+          ],
+          "file": "configs/cfg-080-v03-damage-secondary.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 81,
+      "name": "Damage - Secondary",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame"
+          ],
+          "file": "configs/cfg-081-v01-damage-secondary.hsfc"
+        },
+        {
+          "variant": 2,
+          "profiles": [
+            "endgame"
+          ],
+          "file": "configs/cfg-081-v02-damage-secondary.hsfc"
+        },
+        {
+          "variant": 3,
+          "profiles": [
+            "endgameplus"
+          ],
+          "file": "configs/cfg-081-v03-damage-secondary.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 82,
+      "name": "Damage - Secondary",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame"
+          ],
+          "file": "configs/cfg-082-v01-damage-secondary.hsfc"
+        },
+        {
+          "variant": 2,
+          "profiles": [
+            "endgame"
+          ],
+          "file": "configs/cfg-082-v02-damage-secondary.hsfc"
+        },
+        {
+          "variant": 3,
+          "profiles": [
+            "endgameplus"
+          ],
+          "file": "configs/cfg-082-v03-damage-secondary.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 83,
+      "name": "Damage - Secondary",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame"
+          ],
+          "file": "configs/cfg-083-v01-damage-secondary.hsfc"
+        },
+        {
+          "variant": 2,
+          "profiles": [
+            "endgame"
+          ],
+          "file": "configs/cfg-083-v02-damage-secondary.hsfc"
+        },
+        {
+          "variant": 3,
+          "profiles": [
+            "endgameplus"
+          ],
+          "file": "configs/cfg-083-v03-damage-secondary.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 84,
+      "name": "Damage - Secondary",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame"
+          ],
+          "file": "configs/cfg-084-v01-damage-secondary.hsfc"
+        },
+        {
+          "variant": 2,
+          "profiles": [
+            "endgame"
+          ],
+          "file": "configs/cfg-084-v02-damage-secondary.hsfc"
+        },
+        {
+          "variant": 3,
+          "profiles": [
+            "endgameplus"
+          ],
+          "file": "configs/cfg-084-v03-damage-secondary.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 85,
+      "name": "Damage - Secondary",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame"
+          ],
+          "file": "configs/cfg-085-v01-damage-secondary.hsfc"
+        },
+        {
+          "variant": 2,
+          "profiles": [
+            "endgame"
+          ],
+          "file": "configs/cfg-085-v02-damage-secondary.hsfc"
+        },
+        {
+          "variant": 3,
+          "profiles": [
+            "endgameplus"
+          ],
+          "file": "configs/cfg-085-v03-damage-secondary.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 86,
+      "name": "Damage - Secondary",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame"
+          ],
+          "file": "configs/cfg-086-v01-damage-secondary.hsfc"
+        },
+        {
+          "variant": 2,
+          "profiles": [
+            "endgame"
+          ],
+          "file": "configs/cfg-086-v02-damage-secondary.hsfc"
+        },
+        {
+          "variant": 3,
+          "profiles": [
+            "endgameplus"
+          ],
+          "file": "configs/cfg-086-v03-damage-secondary.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 87,
+      "name": "Damage - Secondary",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame"
+          ],
+          "file": "configs/cfg-087-v01-damage-secondary.hsfc"
+        },
+        {
+          "variant": 2,
+          "profiles": [
+            "endgame"
+          ],
+          "file": "configs/cfg-087-v02-damage-secondary.hsfc"
+        },
+        {
+          "variant": 3,
+          "profiles": [
+            "endgameplus"
+          ],
+          "file": "configs/cfg-087-v03-damage-secondary.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 88,
+      "name": "Damage - Secondary",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame"
+          ],
+          "file": "configs/cfg-088-v01-damage-secondary.hsfc"
+        },
+        {
+          "variant": 2,
+          "profiles": [
+            "endgame"
+          ],
+          "file": "configs/cfg-088-v02-damage-secondary.hsfc"
+        },
+        {
+          "variant": 3,
+          "profiles": [
+            "endgameplus"
+          ],
+          "file": "configs/cfg-088-v03-damage-secondary.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 89,
+      "name": "# Survivability - Secondary",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-089-v01-survivability-secondary.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 90,
+      "name": "Survivability - Secondary",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame"
+          ],
+          "file": "configs/cfg-090-v01-survivability-secondary.hsfc"
+        },
+        {
+          "variant": 2,
+          "profiles": [
+            "endgame"
+          ],
+          "file": "configs/cfg-090-v02-survivability-secondary.hsfc"
+        },
+        {
+          "variant": 3,
+          "profiles": [
+            "endgameplus"
+          ],
+          "file": "configs/cfg-090-v03-survivability-secondary.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 91,
+      "name": "Survivability - Secondary",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame"
+          ],
+          "file": "configs/cfg-091-v01-survivability-secondary.hsfc"
+        },
+        {
+          "variant": 2,
+          "profiles": [
+            "endgame"
+          ],
+          "file": "configs/cfg-091-v02-survivability-secondary.hsfc"
+        },
+        {
+          "variant": 3,
+          "profiles": [
+            "endgameplus"
+          ],
+          "file": "configs/cfg-091-v03-survivability-secondary.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 92,
+      "name": "Survivability - Secondary",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame"
+          ],
+          "file": "configs/cfg-092-v01-survivability-secondary.hsfc"
+        },
+        {
+          "variant": 2,
+          "profiles": [
+            "endgame"
+          ],
+          "file": "configs/cfg-092-v02-survivability-secondary.hsfc"
+        },
+        {
+          "variant": 3,
+          "profiles": [
+            "endgameplus"
+          ],
+          "file": "configs/cfg-092-v03-survivability-secondary.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 93,
+      "name": "Survivability - Secondary",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame"
+          ],
+          "file": "configs/cfg-093-v01-survivability-secondary.hsfc"
+        },
+        {
+          "variant": 2,
+          "profiles": [
+            "endgame"
+          ],
+          "file": "configs/cfg-093-v02-survivability-secondary.hsfc"
+        },
+        {
+          "variant": 3,
+          "profiles": [
+            "endgameplus"
+          ],
+          "file": "configs/cfg-093-v03-survivability-secondary.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 94,
+      "name": "Survivability - Secondary",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame"
+          ],
+          "file": "configs/cfg-094-v01-survivability-secondary.hsfc"
+        },
+        {
+          "variant": 2,
+          "profiles": [
+            "endgame"
+          ],
+          "file": "configs/cfg-094-v02-survivability-secondary.hsfc"
+        },
+        {
+          "variant": 3,
+          "profiles": [
+            "endgameplus"
+          ],
+          "file": "configs/cfg-094-v03-survivability-secondary.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 95,
+      "name": "Survivability - Secondary",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame"
+          ],
+          "file": "configs/cfg-095-v01-survivability-secondary.hsfc"
+        },
+        {
+          "variant": 2,
+          "profiles": [
+            "endgame"
+          ],
+          "file": "configs/cfg-095-v02-survivability-secondary.hsfc"
+        },
+        {
+          "variant": 3,
+          "profiles": [
+            "endgameplus"
+          ],
+          "file": "configs/cfg-095-v03-survivability-secondary.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 96,
+      "name": "Survivability - Secondary",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame"
+          ],
+          "file": "configs/cfg-096-v01-survivability-secondary.hsfc"
+        },
+        {
+          "variant": 2,
+          "profiles": [
+            "endgame"
+          ],
+          "file": "configs/cfg-096-v02-survivability-secondary.hsfc"
+        },
+        {
+          "variant": 3,
+          "profiles": [
+            "endgameplus"
+          ],
+          "file": "configs/cfg-096-v03-survivability-secondary.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 97,
+      "name": "Survivability - Secondary",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame"
+          ],
+          "file": "configs/cfg-097-v01-survivability-secondary.hsfc"
+        },
+        {
+          "variant": 2,
+          "profiles": [
+            "endgame"
+          ],
+          "file": "configs/cfg-097-v02-survivability-secondary.hsfc"
+        },
+        {
+          "variant": 3,
+          "profiles": [
+            "endgameplus"
+          ],
+          "file": "configs/cfg-097-v03-survivability-secondary.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 98,
+      "name": "# Survivability - Secondary (CR%)",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-098-v01-survivability-secondary-cr.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 99,
+      "name": "Survivability - Secondary (CR%)",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame"
+          ],
+          "file": "configs/cfg-099-v01-survivability-secondary-cr.hsfc"
+        },
+        {
+          "variant": 2,
+          "profiles": [
+            "endgame"
+          ],
+          "file": "configs/cfg-099-v02-survivability-secondary-cr.hsfc"
+        },
+        {
+          "variant": 3,
+          "profiles": [
+            "endgameplus"
+          ],
+          "file": "configs/cfg-099-v03-survivability-secondary-cr.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 100,
+      "name": "Survivability - Secondary (CR%)",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame"
+          ],
+          "file": "configs/cfg-100-v01-survivability-secondary-cr.hsfc"
+        },
+        {
+          "variant": 2,
+          "profiles": [
+            "endgame"
+          ],
+          "file": "configs/cfg-100-v02-survivability-secondary-cr.hsfc"
+        },
+        {
+          "variant": 3,
+          "profiles": [
+            "endgameplus"
+          ],
+          "file": "configs/cfg-100-v03-survivability-secondary-cr.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 101,
+      "name": "Survivability - Secondary (CR%)",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame"
+          ],
+          "file": "configs/cfg-101-v01-survivability-secondary-cr.hsfc"
+        },
+        {
+          "variant": 2,
+          "profiles": [
+            "endgame"
+          ],
+          "file": "configs/cfg-101-v02-survivability-secondary-cr.hsfc"
+        },
+        {
+          "variant": 3,
+          "profiles": [
+            "endgameplus"
+          ],
+          "file": "configs/cfg-101-v03-survivability-secondary-cr.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 102,
+      "name": "# Survivability - Secondary (ACC)",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-102-v01-survivability-secondary-acc.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 103,
+      "name": "Survivability - Secondary (ACC)",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame"
+          ],
+          "file": "configs/cfg-103-v01-survivability-secondary-acc.hsfc"
+        },
+        {
+          "variant": 2,
+          "profiles": [
+            "endgame"
+          ],
+          "file": "configs/cfg-103-v02-survivability-secondary-acc.hsfc"
+        },
+        {
+          "variant": 3,
+          "profiles": [
+            "endgameplus"
+          ],
+          "file": "configs/cfg-103-v03-survivability-secondary-acc.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 104,
+      "name": "Survivability - Secondary (ACC)",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame"
+          ],
+          "file": "configs/cfg-104-v01-survivability-secondary-acc.hsfc"
+        },
+        {
+          "variant": 2,
+          "profiles": [
+            "endgame"
+          ],
+          "file": "configs/cfg-104-v02-survivability-secondary-acc.hsfc"
+        },
+        {
+          "variant": 3,
+          "profiles": [
+            "endgameplus"
+          ],
+          "file": "configs/cfg-104-v03-survivability-secondary-acc.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 105,
+      "name": "Survivability - Secondary (ACC)",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame"
+          ],
+          "file": "configs/cfg-105-v01-survivability-secondary-acc.hsfc"
+        },
+        {
+          "variant": 2,
+          "profiles": [
+            "endgame"
+          ],
+          "file": "configs/cfg-105-v02-survivability-secondary-acc.hsfc"
+        },
+        {
+          "variant": 3,
+          "profiles": [
+            "endgameplus"
+          ],
+          "file": "configs/cfg-105-v03-survivability-secondary-acc.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 106,
+      "name": "# Debuffer - Secondary",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-106-v01-debuffer-secondary.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 107,
+      "name": "Debuffer - Secondary",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame"
+          ],
+          "file": "configs/cfg-107-v01-debuffer-secondary.hsfc"
+        },
+        {
+          "variant": 2,
+          "profiles": [
+            "endgame"
+          ],
+          "file": "configs/cfg-107-v02-debuffer-secondary.hsfc"
+        },
+        {
+          "variant": 3,
+          "profiles": [
+            "endgameplus"
+          ],
+          "file": "configs/cfg-107-v03-debuffer-secondary.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 108,
+      "name": "Debuffer - Secondary (Bomber)",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame"
+          ],
+          "file": "configs/cfg-108-v01-debuffer-secondary-bomber.hsfc"
+        },
+        {
+          "variant": 2,
+          "profiles": [
+            "endgame"
+          ],
+          "file": "configs/cfg-108-v02-debuffer-secondary-bomber.hsfc"
+        },
+        {
+          "variant": 3,
+          "profiles": [
+            "endgameplus"
+          ],
+          "file": "configs/cfg-108-v03-debuffer-secondary-bomber.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 109,
+      "name": "Debuffer - Secondary",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame"
+          ],
+          "file": "configs/cfg-109-v01-debuffer-secondary.hsfc"
+        },
+        {
+          "variant": 2,
+          "profiles": [
+            "endgame"
+          ],
+          "file": "configs/cfg-109-v02-debuffer-secondary.hsfc"
+        },
+        {
+          "variant": 3,
+          "profiles": [
+            "endgameplus"
+          ],
+          "file": "configs/cfg-109-v03-debuffer-secondary.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 110,
+      "name": "Debuffer - Secondary",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame"
+          ],
+          "file": "configs/cfg-110-v01-debuffer-secondary.hsfc"
+        },
+        {
+          "variant": 2,
+          "profiles": [
+            "endgame"
+          ],
+          "file": "configs/cfg-110-v02-debuffer-secondary.hsfc"
+        },
+        {
+          "variant": 3,
+          "profiles": [
+            "endgameplus"
+          ],
+          "file": "configs/cfg-110-v03-debuffer-secondary.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 111,
+      "name": "## Debuffer - Secondary (CR%)",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-111-v01-debuffer-secondary-cr.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 112,
+      "name": "Debuffer - Secondary (CR%)",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame"
+          ],
+          "file": "configs/cfg-112-v01-debuffer-secondary-cr.hsfc"
+        },
+        {
+          "variant": 2,
+          "profiles": [
+            "endgame"
+          ],
+          "file": "configs/cfg-112-v02-debuffer-secondary-cr.hsfc"
+        },
+        {
+          "variant": 3,
+          "profiles": [
+            "endgameplus"
+          ],
+          "file": "configs/cfg-112-v03-debuffer-secondary-cr.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 113,
+      "name": "Debuffer - Secondary (CR%)",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame"
+          ],
+          "file": "configs/cfg-113-v01-debuffer-secondary-cr.hsfc"
+        },
+        {
+          "variant": 2,
+          "profiles": [
+            "endgame"
+          ],
+          "file": "configs/cfg-113-v02-debuffer-secondary-cr.hsfc"
+        },
+        {
+          "variant": 3,
+          "profiles": [
+            "endgameplus"
+          ],
+          "file": "configs/cfg-113-v03-debuffer-secondary-cr.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 114,
+      "name": "Debuffer - Secondary (CR%)",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame"
+          ],
+          "file": "configs/cfg-114-v01-debuffer-secondary-cr.hsfc"
+        },
+        {
+          "variant": 2,
+          "profiles": [
+            "endgame"
+          ],
+          "file": "configs/cfg-114-v02-debuffer-secondary-cr.hsfc"
+        },
+        {
+          "variant": 3,
+          "profiles": [
+            "endgameplus"
+          ],
+          "file": "configs/cfg-114-v03-debuffer-secondary-cr.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 115,
+      "name": "Utility Gear",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-115-v01-utility-gear.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 116,
+      "name": "Utility",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame"
+          ],
+          "file": "configs/cfg-116-v01-utility.hsfc"
+        },
+        {
+          "variant": 2,
+          "profiles": [
+            "endgame"
+          ],
+          "file": "configs/cfg-116-v02-utility.hsfc"
+        },
+        {
+          "variant": 3,
+          "profiles": [
+            "endgameplus"
+          ],
+          "file": "configs/cfg-116-v03-utility.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 117,
+      "name": "Utility",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame"
+          ],
+          "file": "configs/cfg-117-v01-utility.hsfc"
+        },
+        {
+          "variant": 2,
+          "profiles": [
+            "endgame"
+          ],
+          "file": "configs/cfg-117-v02-utility.hsfc"
+        },
+        {
+          "variant": 3,
+          "profiles": [
+            "endgameplus"
+          ],
+          "file": "configs/cfg-117-v03-utility.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 118,
+      "name": "Utility",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame"
+          ],
+          "file": "configs/cfg-118-v01-utility.hsfc"
+        },
+        {
+          "variant": 2,
+          "profiles": [
+            "endgame"
+          ],
+          "file": "configs/cfg-118-v02-utility.hsfc"
+        },
+        {
+          "variant": 3,
+          "profiles": [
+            "endgameplus"
+          ],
+          "file": "configs/cfg-118-v03-utility.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 119,
+      "name": "Utility",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame"
+          ],
+          "file": "configs/cfg-119-v01-utility.hsfc"
+        },
+        {
+          "variant": 2,
+          "profiles": [
+            "endgame"
+          ],
+          "file": "configs/cfg-119-v02-utility.hsfc"
+        },
+        {
+          "variant": 3,
+          "profiles": [
+            "endgameplus"
+          ],
+          "file": "configs/cfg-119-v03-utility.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 120,
+      "name": "Utility",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame"
+          ],
+          "file": "configs/cfg-120-v01-utility.hsfc"
+        },
+        {
+          "variant": 2,
+          "profiles": [
+            "endgame"
+          ],
+          "file": "configs/cfg-120-v02-utility.hsfc"
+        },
+        {
+          "variant": 3,
+          "profiles": [
+            "endgameplus"
+          ],
+          "file": "configs/cfg-120-v03-utility.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 121,
+      "name": "Utility",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame"
+          ],
+          "file": "configs/cfg-121-v01-utility.hsfc"
+        },
+        {
+          "variant": 2,
+          "profiles": [
+            "endgame"
+          ],
+          "file": "configs/cfg-121-v02-utility.hsfc"
+        },
+        {
+          "variant": 3,
+          "profiles": [
+            "endgameplus"
+          ],
+          "file": "configs/cfg-121-v03-utility.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 122,
+      "name": "Utility",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame"
+          ],
+          "file": "configs/cfg-122-v01-utility.hsfc"
+        },
+        {
+          "variant": 2,
+          "profiles": [
+            "endgame"
+          ],
+          "file": "configs/cfg-122-v02-utility.hsfc"
+        },
+        {
+          "variant": 3,
+          "profiles": [
+            "endgameplus"
+          ],
+          "file": "configs/cfg-122-v03-utility.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 123,
+      "name": "Utility",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame"
+          ],
+          "file": "configs/cfg-123-v01-utility.hsfc"
+        },
+        {
+          "variant": 2,
+          "profiles": [
+            "endgame"
+          ],
+          "file": "configs/cfg-123-v02-utility.hsfc"
+        },
+        {
+          "variant": 3,
+          "profiles": [
+            "endgameplus"
+          ],
+          "file": "configs/cfg-123-v03-utility.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 124,
+      "name": "Keep Scarce Sets",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-124-v01-keep-scarce-sets.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 125,
+      "name": "Scarce Sets",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame"
+          ],
+          "file": "configs/cfg-125-v01-scarce-sets.hsfc"
+        },
+        {
+          "variant": 2,
+          "profiles": [
+            "endgame"
+          ],
+          "file": "configs/cfg-125-v02-scarce-sets.hsfc"
+        },
+        {
+          "variant": 3,
+          "profiles": [
+            "endgameplus"
+          ],
+          "file": "configs/cfg-125-v03-scarce-sets.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 126,
+      "name": "Scarce Sets",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame"
+          ],
+          "file": "configs/cfg-126-v01-scarce-sets.hsfc"
+        },
+        {
+          "variant": 2,
+          "profiles": [
+            "endgame"
+          ],
+          "file": "configs/cfg-126-v02-scarce-sets.hsfc"
+        },
+        {
+          "variant": 3,
+          "profiles": [
+            "endgameplus"
+          ],
+          "file": "configs/cfg-126-v03-scarce-sets.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 127,
+      "name": "Scarce Sets",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame"
+          ],
+          "file": "configs/cfg-127-v01-scarce-sets.hsfc"
+        },
+        {
+          "variant": 2,
+          "profiles": [
+            "endgame"
+          ],
+          "file": "configs/cfg-127-v02-scarce-sets.hsfc"
+        },
+        {
+          "variant": 3,
+          "profiles": [
+            "endgameplus"
+          ],
+          "file": "configs/cfg-127-v03-scarce-sets.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 128,
+      "name": "Scarce Sets",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame"
+          ],
+          "file": "configs/cfg-128-v01-scarce-sets.hsfc"
+        },
+        {
+          "variant": 2,
+          "profiles": [
+            "endgame"
+          ],
+          "file": "configs/cfg-128-v02-scarce-sets.hsfc"
+        },
+        {
+          "variant": 3,
+          "profiles": [
+            "endgameplus"
+          ],
+          "file": "configs/cfg-128-v03-scarce-sets.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 129,
+      "name": "Banner - Gear Set Independent",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-129-v01-banner-gear-set-independent.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 130,
+      "name": "Banner - Primary",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-130-v01-banner-primary.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 131,
+      "name": "Banner - Primary",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-131-v01-banner-primary.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 132,
+      "name": "Banner - Primary",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-132-v01-banner-primary.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 133,
+      "name": "Banner - Primary (UDK)",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-133-v01-banner-primary-udk.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 134,
+      "name": "Banner - Primary",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-134-v01-banner-primary.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 135,
+      "name": "Banner - Primary",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-135-v01-banner-primary.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 136,
+      "name": "Banner - Primary",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-136-v01-banner-primary.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 137,
+      "name": "Amulet - Gear Set Independent",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-137-v01-amulet-gear-set-independent.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 138,
+      "name": "Amulet - Primary",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-138-v01-amulet-primary.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 139,
+      "name": "Amulet - Primary",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-139-v01-amulet-primary.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 140,
+      "name": "Amulet - Primary",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-140-v01-amulet-primary.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 141,
+      "name": "Amulet - Primary",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-141-v01-amulet-primary.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 142,
+      "name": "Amulet - Primary",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-142-v01-amulet-primary.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 143,
+      "name": "Amulet - Primary",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-143-v01-amulet-primary.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 144,
+      "name": "Amulet - Primary",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-144-v01-amulet-primary.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 145,
+      "name": "Amulet - Primary",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-145-v01-amulet-primary.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 146,
+      "name": "Ring - Gear Set Independent",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-146-v01-ring-gear-set-independent.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 147,
+      "name": "Ring - Primary",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-147-v01-ring-primary.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 148,
+      "name": "Ring - Primary",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-148-v01-ring-primary.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 149,
+      "name": "Ring - Primary",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-149-v01-ring-primary.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 150,
+      "name": "###[FF7700] Accessories for Sets must be listed after the Gear-Set independent configs",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-150-v01-ff7700-accessories-for-sets-must-be-listed-after-the-gear-set-independent-configs.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 151,
+      "name": "Banner - For Sets",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-151-v01-banner-for-sets.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 152,
+      "name": "Banner - Limited Sets",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-152-v01-banner-limited-sets.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 153,
+      "name": "Banner - Limited Sets",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-153-v01-banner-limited-sets.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 154,
+      "name": "Banner - Limited Sets",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-154-v01-banner-limited-sets.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 155,
+      "name": "Banner - Limited Sets",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-155-v01-banner-limited-sets.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 156,
+      "name": "Banner - Limited Sets",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-156-v01-banner-limited-sets.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 157,
+      "name": "Banner - Limited Sets",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-157-v01-banner-limited-sets.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 158,
+      "name": "Banner - Limited Sets",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-158-v01-banner-limited-sets.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 159,
+      "name": "Banner - Limited Sets",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-159-v01-banner-limited-sets.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 160,
+      "name": "Banner - Limited Sets",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-160-v01-banner-limited-sets.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 161,
+      "name": "Banner - Limited Sets",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-161-v01-banner-limited-sets.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 162,
+      "name": "Banner - Limited Sets",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-162-v01-banner-limited-sets.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 163,
+      "name": "Banner - Limited Sets",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-163-v01-banner-limited-sets.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 164,
+      "name": "Amulet - For Sets",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-164-v01-amulet-for-sets.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 165,
+      "name": "Amulet - Limited Sets",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-165-v01-amulet-limited-sets.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 166,
+      "name": "Amulet - Limited Sets",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-166-v01-amulet-limited-sets.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 167,
+      "name": "Amulet - Limited Sets",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-167-v01-amulet-limited-sets.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 168,
+      "name": "Amulet - Limited Sets",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-168-v01-amulet-limited-sets.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 169,
+      "name": "Amulet - Limited Sets",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-169-v01-amulet-limited-sets.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 170,
+      "name": "Amulet - Limited Sets",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-170-v01-amulet-limited-sets.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 171,
+      "name": "Amulet - Limited Sets",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-171-v01-amulet-limited-sets.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 172,
+      "name": "Amulet - Limited Sets",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-172-v01-amulet-limited-sets.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 173,
+      "name": "Amulet - Limited Sets",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-173-v01-amulet-limited-sets.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 174,
+      "name": "Ring - For Sets",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-174-v01-ring-for-sets.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 175,
+      "name": "Ring - Limited Sets",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-175-v01-ring-limited-sets.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 176,
+      "name": "Ring - Limited Sets",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-176-v01-ring-limited-sets.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 177,
+      "name": "Ring - Limited Sets",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-177-v01-ring-limited-sets.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 178,
+      "name": "Ring - Limited Sets",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-178-v01-ring-limited-sets.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 179,
+      "name": "Ring - Limited Sets",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-179-v01-ring-limited-sets.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 180,
+      "name": "Ring - Limited Sets",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-180-v01-ring-limited-sets.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 181,
+      "name": "Ring - Limited Sets",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-181-v01-ring-limited-sets.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 182,
+      "name": "Ring - Limited Sets",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-182-v01-ring-limited-sets.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 183,
+      "name": "Ring - Limited Sets",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-183-v01-ring-limited-sets.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 184,
+      "name": "For Chaos Ore",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-184-v01-for-chaos-ore.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 185,
+      "name": "[ff9900] Chaos Ore",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-185-v01-ff9900-chaos-ore.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 186,
+      "name": "[ff5500] Chaos Ore",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-186-v01-ff5500-chaos-ore.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 187,
+      "name": "[ff9900] Chaos Ore",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame"
+          ],
+          "file": "configs/cfg-187-v01-ff9900-chaos-ore.hsfc"
+        },
+        {
+          "variant": 2,
+          "profiles": [
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-187-v02-ff9900-chaos-ore.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 188,
+      "name": "[ff5500] Chaos Ore",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame"
+          ],
+          "file": "configs/cfg-188-v01-ff5500-chaos-ore.hsfc"
+        },
+        {
+          "variant": 2,
+          "profiles": [
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-188-v02-ff5500-chaos-ore.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 189,
+      "name": "[ff9900] Chaos Ore",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-189-v01-ff9900-chaos-ore.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 190,
+      "name": "[ff5500] Chaos Ore",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-190-v01-ff5500-chaos-ore.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 191,
+      "name": "[ff9900] Chaos Ore",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame"
+          ],
+          "file": "configs/cfg-191-v01-ff9900-chaos-ore.hsfc"
+        },
+        {
+          "variant": 2,
+          "profiles": [
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-191-v02-ff9900-chaos-ore.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 192,
+      "name": "[ff5500] Chaos Ore",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame"
+          ],
+          "file": "configs/cfg-192-v01-ff5500-chaos-ore.hsfc"
+        },
+        {
+          "variant": 2,
+          "profiles": [
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-192-v02-ff5500-chaos-ore.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 193,
+      "name": "[88ff00] Chaos Ore",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-193-v01-88ff00-chaos-ore.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 194,
+      "name": "[88ff00] Chaos Ore",
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame",
+            "endgame",
+            "endgameplus"
+          ],
+          "file": "configs/cfg-194-v01-88ff00-chaos-ore.hsfc"
+        }
+      ]
+    }
+  ],
+  "keepUniqueFixtures": [
+    {
+      "ordinal": 1,
+      "id": "ku_mlcrdw83_4zvye589",
+      "name": "Reserve: Speed Banner",
+      "requiredCount": 3,
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame"
+          ],
+          "file": "keep-uniques/ku-001-v01-reserve-speed-banner.hsfc"
+        },
+        {
+          "variant": 2,
+          "profiles": [
+            "endgame"
+          ],
+          "file": "keep-uniques/ku-001-v02-reserve-speed-banner.hsfc"
+        },
+        {
+          "variant": 3,
+          "profiles": [
+            "endgameplus"
+          ],
+          "file": "keep-uniques/ku-001-v03-reserve-speed-banner.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 2,
+      "id": "ku_mlcv2s68_4x7x2jb3",
+      "name": "Reserve: Speed Artifacts",
+      "requiredCount": 2,
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame"
+          ],
+          "file": "keep-uniques/ku-002-v01-reserve-speed-artifacts.hsfc"
+        },
+        {
+          "variant": 2,
+          "profiles": [
+            "endgame"
+          ],
+          "file": "keep-uniques/ku-002-v02-reserve-speed-artifacts.hsfc"
+        },
+        {
+          "variant": 3,
+          "profiles": [
+            "endgameplus"
+          ],
+          "file": "keep-uniques/ku-002-v03-reserve-speed-artifacts.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 3,
+      "id": "ku_mld3uw4y_9miyeknz",
+      "name": "Reserve: Debuff Artifacts 1",
+      "requiredCount": 2,
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame"
+          ],
+          "file": "keep-uniques/ku-003-v01-reserve-debuff-artifacts-1.hsfc"
+        },
+        {
+          "variant": 2,
+          "profiles": [
+            "endgame"
+          ],
+          "file": "keep-uniques/ku-003-v02-reserve-debuff-artifacts-1.hsfc"
+        },
+        {
+          "variant": 3,
+          "profiles": [
+            "endgameplus"
+          ],
+          "file": "keep-uniques/ku-003-v03-reserve-debuff-artifacts-1.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 4,
+      "id": "ku_mld3zesm_6v5r00fu",
+      "name": "Reserve: Debuff Artifacts 2",
+      "requiredCount": 2,
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame"
+          ],
+          "file": "keep-uniques/ku-004-v01-reserve-debuff-artifacts-2.hsfc"
+        },
+        {
+          "variant": 2,
+          "profiles": [
+            "endgame"
+          ],
+          "file": "keep-uniques/ku-004-v02-reserve-debuff-artifacts-2.hsfc"
+        },
+        {
+          "variant": 3,
+          "profiles": [
+            "endgameplus"
+          ],
+          "file": "keep-uniques/ku-004-v03-reserve-debuff-artifacts-2.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 5,
+      "id": "ku_mlcrugb7_p6sarouc",
+      "name": "Reserve: Attack Amulet",
+      "requiredCount": 1,
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame"
+          ],
+          "file": "keep-uniques/ku-005-v01-reserve-attack-amulet.hsfc"
+        },
+        {
+          "variant": 2,
+          "profiles": [
+            "endgame"
+          ],
+          "file": "keep-uniques/ku-005-v02-reserve-attack-amulet.hsfc"
+        },
+        {
+          "variant": 3,
+          "profiles": [
+            "endgameplus"
+          ],
+          "file": "keep-uniques/ku-005-v03-reserve-attack-amulet.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 6,
+      "id": "ku_mlcuzpgm_l2l4z6lz",
+      "name": "Reserve: Resistance Amulet",
+      "requiredCount": 1,
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame"
+          ],
+          "file": "keep-uniques/ku-006-v01-reserve-resistance-amulet.hsfc"
+        },
+        {
+          "variant": 2,
+          "profiles": [
+            "endgame"
+          ],
+          "file": "keep-uniques/ku-006-v02-reserve-resistance-amulet.hsfc"
+        },
+        {
+          "variant": 3,
+          "profiles": [
+            "endgameplus"
+          ],
+          "file": "keep-uniques/ku-006-v03-reserve-resistance-amulet.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 7,
+      "id": "ku_mlcspny9_wl4b1k2j",
+      "name": "Reserve: Stat Ring",
+      "requiredCount": 1,
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame"
+          ],
+          "file": "keep-uniques/ku-007-v01-reserve-stat-ring.hsfc"
+        },
+        {
+          "variant": 2,
+          "profiles": [
+            "endgame"
+          ],
+          "file": "keep-uniques/ku-007-v02-reserve-stat-ring.hsfc"
+        },
+        {
+          "variant": 3,
+          "profiles": [
+            "endgameplus"
+          ],
+          "file": "keep-uniques/ku-007-v03-reserve-stat-ring.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 8,
+      "id": "ku_mlcwkrlu_83u3v946",
+      "name": "Reserve: Damage Top Row",
+      "requiredCount": 3,
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame"
+          ],
+          "file": "keep-uniques/ku-008-v01-reserve-damage-top-row.hsfc"
+        },
+        {
+          "variant": 2,
+          "profiles": [
+            "endgame"
+          ],
+          "file": "keep-uniques/ku-008-v02-reserve-damage-top-row.hsfc"
+        },
+        {
+          "variant": 3,
+          "profiles": [
+            "endgameplus"
+          ],
+          "file": "keep-uniques/ku-008-v03-reserve-damage-top-row.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 9,
+      "id": "ku_mlcvbynn_71muh11e",
+      "name": "Reserve: Damage Glove",
+      "requiredCount": 3,
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame"
+          ],
+          "file": "keep-uniques/ku-009-v01-reserve-damage-glove.hsfc"
+        },
+        {
+          "variant": 2,
+          "profiles": [
+            "endgame"
+          ],
+          "file": "keep-uniques/ku-009-v02-reserve-damage-glove.hsfc"
+        },
+        {
+          "variant": 3,
+          "profiles": [
+            "endgameplus"
+          ],
+          "file": "keep-uniques/ku-009-v03-reserve-damage-glove.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 10,
+      "id": "ku_mlcx3g1h_rp8utvge",
+      "name": "Reserve: Damage Chest and Boots",
+      "requiredCount": 2,
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame"
+          ],
+          "file": "keep-uniques/ku-010-v01-reserve-damage-chest-and-boots.hsfc"
+        },
+        {
+          "variant": 2,
+          "profiles": [
+            "endgame"
+          ],
+          "file": "keep-uniques/ku-010-v02-reserve-damage-chest-and-boots.hsfc"
+        },
+        {
+          "variant": 3,
+          "profiles": [
+            "endgameplus"
+          ],
+          "file": "keep-uniques/ku-010-v03-reserve-damage-chest-and-boots.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 11,
+      "id": "ku_mlczpkmt_p7jjkf3m",
+      "name": "Reserve: Crit Shield Top Row",
+      "requiredCount": 1,
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame"
+          ],
+          "file": "keep-uniques/ku-011-v01-reserve-crit-shield-top-row.hsfc"
+        },
+        {
+          "variant": 2,
+          "profiles": [
+            "endgame"
+          ],
+          "file": "keep-uniques/ku-011-v02-reserve-crit-shield-top-row.hsfc"
+        },
+        {
+          "variant": 3,
+          "profiles": [
+            "endgameplus"
+          ],
+          "file": "keep-uniques/ku-011-v03-reserve-crit-shield-top-row.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 12,
+      "id": "ku_mlczsn16_kqx064ox",
+      "name": "Reserve: Crit Shield Glove",
+      "requiredCount": 1,
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame"
+          ],
+          "file": "keep-uniques/ku-012-v01-reserve-crit-shield-glove.hsfc"
+        },
+        {
+          "variant": 2,
+          "profiles": [
+            "endgame"
+          ],
+          "file": "keep-uniques/ku-012-v02-reserve-crit-shield-glove.hsfc"
+        },
+        {
+          "variant": 3,
+          "profiles": [
+            "endgameplus"
+          ],
+          "file": "keep-uniques/ku-012-v03-reserve-crit-shield-glove.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 13,
+      "id": "ku_mlczv9pi_zqy0z9hp",
+      "name": "Reserve: Crit Shield Chest and Boots",
+      "requiredCount": 1,
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame"
+          ],
+          "file": "keep-uniques/ku-013-v01-reserve-crit-shield-chest-and-boots.hsfc"
+        },
+        {
+          "variant": 2,
+          "profiles": [
+            "endgame"
+          ],
+          "file": "keep-uniques/ku-013-v02-reserve-crit-shield-chest-and-boots.hsfc"
+        },
+        {
+          "variant": 3,
+          "profiles": [
+            "endgameplus"
+          ],
+          "file": "keep-uniques/ku-013-v03-reserve-crit-shield-chest-and-boots.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 14,
+      "id": "ku_mlcx259q_y3j768i3",
+      "name": "Reserve: Survivability Top Row",
+      "requiredCount": 2,
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame"
+          ],
+          "file": "keep-uniques/ku-014-v01-reserve-survivability-top-row.hsfc"
+        },
+        {
+          "variant": 2,
+          "profiles": [
+            "endgame"
+          ],
+          "file": "keep-uniques/ku-014-v02-reserve-survivability-top-row.hsfc"
+        },
+        {
+          "variant": 3,
+          "profiles": [
+            "endgameplus"
+          ],
+          "file": "keep-uniques/ku-014-v03-reserve-survivability-top-row.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 15,
+      "id": "ku_mlcxgtr6_t63hapwe",
+      "name": "Reserve: Survivability Bottom Row",
+      "requiredCount": 2,
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame"
+          ],
+          "file": "keep-uniques/ku-015-v01-reserve-survivability-bottom-row.hsfc"
+        },
+        {
+          "variant": 2,
+          "profiles": [
+            "endgame"
+          ],
+          "file": "keep-uniques/ku-015-v02-reserve-survivability-bottom-row.hsfc"
+        },
+        {
+          "variant": 3,
+          "profiles": [
+            "endgameplus"
+          ],
+          "file": "keep-uniques/ku-015-v03-reserve-survivability-bottom-row.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 16,
+      "id": "ku_milyz1u0_897j3dgq",
+      "name": "Unique: Accessories (1 per mainstat/slot)",
+      "requiredCount": 1,
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame"
+          ],
+          "file": "keep-uniques/ku-016-v01-unique-accessories-1-per-mainstat-slot.hsfc"
+        },
+        {
+          "variant": 2,
+          "profiles": [
+            "endgame"
+          ],
+          "file": "keep-uniques/ku-016-v02-unique-accessories-1-per-mainstat-slot.hsfc"
+        },
+        {
+          "variant": 3,
+          "profiles": [
+            "endgameplus"
+          ],
+          "file": "keep-uniques/ku-016-v03-unique-accessories-1-per-mainstat-slot.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 17,
+      "id": "ku_mj57amy9_izwcjzse",
+      "name": "Unique: Accessories (min 5)",
+      "requiredCount": 5,
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame"
+          ],
+          "file": "keep-uniques/ku-017-v01-unique-accessories-min-5.hsfc"
+        },
+        {
+          "variant": 2,
+          "profiles": [
+            "endgame"
+          ],
+          "file": "keep-uniques/ku-017-v02-unique-accessories-min-5.hsfc"
+        },
+        {
+          "variant": 3,
+          "profiles": [
+            "endgameplus"
+          ],
+          "file": "keep-uniques/ku-017-v03-unique-accessories-min-5.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 18,
+      "id": "ku_mim86rt4_3nj9dpud",
+      "name": "Unique: Artifacts (Top Row)",
+      "requiredCount": 2,
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame"
+          ],
+          "file": "keep-uniques/ku-018-v01-unique-artifacts-top-row.hsfc"
+        },
+        {
+          "variant": 2,
+          "profiles": [
+            "endgame"
+          ],
+          "file": "keep-uniques/ku-018-v02-unique-artifacts-top-row.hsfc"
+        },
+        {
+          "variant": 3,
+          "profiles": [
+            "endgameplus"
+          ],
+          "file": "keep-uniques/ku-018-v03-unique-artifacts-top-row.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 19,
+      "id": "ku_mim9mv94_eh0co7av",
+      "name": "Unique: Artifacts (Bottom Row)",
+      "requiredCount": 2,
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame"
+          ],
+          "file": "keep-uniques/ku-019-v01-unique-artifacts-bottom-row.hsfc"
+        },
+        {
+          "variant": 2,
+          "profiles": [
+            "endgame"
+          ],
+          "file": "keep-uniques/ku-019-v02-unique-artifacts-bottom-row.hsfc"
+        },
+        {
+          "variant": 3,
+          "profiles": [
+            "endgameplus"
+          ],
+          "file": "keep-uniques/ku-019-v03-unique-artifacts-bottom-row.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 20,
+      "id": "ku_mitoop1k_hiel3ba6",
+      "name": "Unique: Utilities (Top Row)",
+      "requiredCount": 2,
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame"
+          ],
+          "file": "keep-uniques/ku-020-v01-unique-utilities-top-row.hsfc"
+        },
+        {
+          "variant": 2,
+          "profiles": [
+            "endgame"
+          ],
+          "file": "keep-uniques/ku-020-v02-unique-utilities-top-row.hsfc"
+        },
+        {
+          "variant": 3,
+          "profiles": [
+            "endgameplus"
+          ],
+          "file": "keep-uniques/ku-020-v03-unique-utilities-top-row.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 21,
+      "id": "ku_mitoq37g_74s75wr1",
+      "name": "Unique: Utilities (Bottom Row)",
+      "requiredCount": 2,
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame"
+          ],
+          "file": "keep-uniques/ku-021-v01-unique-utilities-bottom-row.hsfc"
+        },
+        {
+          "variant": 2,
+          "profiles": [
+            "endgame"
+          ],
+          "file": "keep-uniques/ku-021-v02-unique-utilities-bottom-row.hsfc"
+        },
+        {
+          "variant": 3,
+          "profiles": [
+            "endgameplus"
+          ],
+          "file": "keep-uniques/ku-021-v03-unique-utilities-bottom-row.hsfc"
+        }
+      ]
+    },
+    {
+      "ordinal": 22,
+      "id": "ku_mk8mb89z_0m7jaug2",
+      "name": "Unique: Faction (5 accessories per slot per faction)",
+      "requiredCount": 5,
+      "variants": [
+        {
+          "variant": 1,
+          "profiles": [
+            "lategame"
+          ],
+          "file": "keep-uniques/ku-022-v01-unique-faction-5-accessories-per-slot-per-faction.hsfc"
+        },
+        {
+          "variant": 2,
+          "profiles": [
+            "endgame"
+          ],
+          "file": "keep-uniques/ku-022-v02-unique-faction-5-accessories-per-slot-per-faction.hsfc"
+        },
+        {
+          "variant": 3,
+          "profiles": [
+            "endgameplus"
+          ],
+          "file": "keep-uniques/ku-022-v03-unique-faction-5-accessories-per-slot-per-faction.hsfc"
+        }
+      ]
+    }
+  ]
+}
