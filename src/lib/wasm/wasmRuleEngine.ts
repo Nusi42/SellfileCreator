@@ -11,6 +11,7 @@ import initRuleEngineWasm, {
   find_obsolete_builder_value as findObsoleteBuilderRuleEngineWasmValueBinding,
   find_obsolete_value as findObsoleteRuleEngineWasmValueBinding,
   intro_assignments_for_combo_fast_flat as introAssignmentsForComboFastFlatWasmBinding,
+  keep_unique_count_key_value as keepUniqueCountKeyValueWasmBinding,
   permutations_i32_fast_flat as permutationsI32FastFlatWasmBinding,
   roll_distributions_flat as rollDistributionsFlatWasmBinding,
   version as ruleEngineWasmVersionBinding,
@@ -241,6 +242,14 @@ type WasmGeneratedEntry = {
   originalIdx: number
 }
 
+type WasmKeepUniqueCountModePayload = {
+  perRule: boolean
+  perSet: boolean
+  perFaction: boolean
+  perMainStat: boolean
+  perSlot: boolean
+}
+
 // Synchronous obsolete-pruning helper used by generation code paths that must
 // stay sync; it only runs after the async warmup initialized the module.
 export const findObsoleteRulesWithLoadedWasm = (rules: HsfRule[]): WasmObsoleteReport | null => {
@@ -277,17 +286,24 @@ export const getRollDistributionsWithLoadedWasm = (
   dimensions: number,
   total: number,
 ): number[][] | null => {
+  // Sync callers use this inside tight loops; require warmup beforehand.
   if (!wasmInitialized) return null
+  // Reject NaN/Infinity inputs so wasm never receives invalid dimensions.
   if (!Number.isFinite(dimensions) || !Number.isFinite(total)) return null
+  // Zero dimensions can only satisfy a zero-total composition.
   if (dimensions <= 0) return total === 0 ? [[]] : []
+  // Negative totals have no feasible distributions.
   if (total < 0) return []
   try {
+    // Floor once to keep parity with existing JS integer semantics.
     const flat = rollDistributionsFlatWasmBinding(
       Math.max(0, Math.floor(dimensions)),
       Math.floor(total),
     )
+    // Rehydrate fixed-width rows from the flat wasm payload.
     return unflattenI32Rows(flat, Math.max(0, Math.floor(dimensions)))
   } catch {
+    // Preserve nullable contract used by legacy fallback-aware callers.
     return null
   }
 }
@@ -312,16 +328,24 @@ export const getFilteredRollDistributionsWithLoadedWasm = (params: {
   lockedRemaining: number
   lockedMode: 0 | 1 | 2
 }): number[][] | null => {
+  // Fail closed for sync callers that forgot to warm wasm.
   assertWasmInitializedSync()
+  // Reject NaN/Infinity inputs before we normalize arrays.
   if (!Number.isFinite(params.dimensions) || !Number.isFinite(params.total)) return null
+  // Keep zero-dimension semantics aligned with roll_distributions helper.
   if (params.dimensions <= 0) return params.total === 0 ? [[]] : []
+  // Negative totals cannot produce feasible rows.
   if (params.total < 0) return []
+  // Convert optional caps/floors to compact sentinel-encoded i32 payloads.
   const maxCaps = toOptionalI32(params.maxCaps)
   const minFloors = toOptionalI32(params.minFloors ?? [])
+  // Timeline caps and masks are passed as contiguous typed arrays.
   const timelineCaps = toOptionalI32(params.timelineCaps)
   const targetedMask = toMaskU8(params.targetedMask)
+  // Deficit floors and locked mask follow the same compact encoding.
   const deficitFloors = toOptionalI32(params.deficitFloors ?? [])
   const lockedMask = toMaskU8(params.lockedMask)
+  // Execute filtering in wasm so JS only consumes already-feasible rows.
   const flat = filteredRollDistributionsFastFlatWasmBinding(
     Math.max(0, Math.floor(params.dimensions)),
     Math.floor(params.total),
@@ -329,10 +353,12 @@ export const getFilteredRollDistributionsWithLoadedWasm = (params: {
     minFloors,
     timelineCaps,
     targetedMask,
+    // -1 sentinel means "no exact targeted sum requirement".
     typeof params.targetedExact === 'number' && Number.isFinite(params.targetedExact)
       ? Math.floor(params.targetedExact)
       : -1,
     deficitFloors,
+    // -1 sentinel means "no deficit max cap".
     typeof params.deficitMax === 'number' && Number.isFinite(params.deficitMax)
       ? Math.floor(params.deficitMax)
       : -1,
@@ -344,6 +370,7 @@ export const getFilteredRollDistributionsWithLoadedWasm = (params: {
     Math.floor(params.lockedRemaining),
     Math.floor(params.lockedMode),
   )
+  // Decode back into fixed-width integer rows expected by callers.
   return unflattenI32Rows(flat, Math.max(0, Math.floor(params.dimensions)))
 }
 
@@ -363,6 +390,29 @@ export const computeKeepUniqueProtectionWithLoadedWasm = (params: {
     params.expectedGroupsByRuleId,
     params.enabled === true,
     Number.isFinite(params.now) ? params.now : 0,
+  )
+}
+
+// Keep-unique expected-group generation uses this helper so group-key logic is
+// defined by Rust only; JS now supplies normalized tuple fields only.
+export const getKeepUniqueCountKeyWithLoadedWasm = (params: {
+  slot: number
+  set: number
+  faction: number
+  mainStat: number
+  countMode: WasmKeepUniqueCountModePayload
+}): string => {
+  // Sync helper is fail-closed: caller must have warmed wasm already.
+  assertWasmInitializedSync()
+  // Delegate key derivation to wasm so count-key semantics stay SSOT.
+  return keepUniqueCountKeyValueWasmBinding(
+    {
+      slot: Math.floor(params.slot),
+      set: Math.floor(params.set),
+      faction: Math.floor(params.faction),
+      mainStat: Math.floor(params.mainStat),
+    },
+    params.countMode,
   )
 }
 
@@ -396,50 +446,73 @@ export const getIntroAssignmentsForComboWithLoadedWasm = (params: {
   additionLevels: ReadonlyArray<number> | Int32Array
   forcedBase: ReadonlyArray<number> | Int32Array
 }): number[][] | null => {
+  // Sync callers must warm wasm first; null keeps historical contract.
   if (!wasmInitialized) return null
+  // Guard invalid numeric inputs before array conversion.
   if (!Number.isFinite(params.count) || !Number.isFinite(params.baseSlots)) return null
+  // Zero count yields one empty assignment row.
   if (params.count <= 0) return [[]]
   try {
+    // Normalize both vectors once to avoid repeated Number coercions.
     const additionLevels = toFlooredI32(params.additionLevels)
     const forcedBase = toFlooredI32(params.forcedBase)
+    // Run combinatorics in wasm and return flattened integer rows.
     const flat = introAssignmentsForComboFastFlatWasmBinding(
       Math.floor(params.count),
       Math.floor(params.baseSlots),
       additionLevels,
       forcedBase,
     )
+    // Rehydrate fixed-width rows where width === artifact count.
     return unflattenI32Rows(flat, Math.max(0, Math.floor(params.count)))
   } catch {
+    // Keep nullable failure behavior for existing call sites.
     return null
   }
 }
 
 // Synchronous numeric combinations helper for builder combinatorics.
 export const getCombinationsI32WithLoadedWasm = (values: number[], pick: number): number[][] | null => {
+  // Sync callers must warm wasm first; null keeps historical contract.
   if (!wasmInitialized) return null
+  // Reject NaN/Infinity pick values before integer flooring.
   if (!Number.isFinite(pick)) return null
+  // Pick <= 0 means one empty combination by convention.
   if (pick <= 0) return [[]]
+  // Picking more than input length cannot produce combinations.
   if (pick > values.length) return []
   try {
+    // Convert once to contiguous i32 payload for wasm binding.
     const payload = toFlooredI32(values)
+    // Let wasm enumerate combinations in deterministic index order.
     const flat = combinationsI32FastFlatWasmBinding(payload, Math.floor(pick))
+    // Decode flat result into rows of length `pick`.
     return unflattenI32Rows(flat, Math.max(0, Math.floor(pick)))
   } catch {
+    // Preserve nullable failure behavior used by adapters.
     return null
   }
 }
 
 // Synchronous numeric bounded-compositions helper for late allocation loops.
 export const getBoundedCompositionsI32WithLoadedWasm = (caps: number[], total: number): number[][] | null => {
+  // Sync callers must warm wasm first; null keeps historical contract.
   if (!wasmInitialized) return null
+  // Reject invalid totals before computing caps payload.
   if (!Number.isFinite(total)) return null
+  // Negative totals have no feasible compositions.
   if (total < 0) return []
+  // Empty cap vector only supports exact total zero.
   if (caps.length === 0) return total === 0 ? [[]] : []
   try {
+    // Clamp caps to non-negative integers before wasm call.
     const payload = toNonNegativeI32(caps)
+    // Execute bounded-composition backtracking in wasm.
     const flat = boundedCompositionsI32FastFlatWasmBinding(payload, Math.floor(total))
+    // Rehydrate rows where width equals cap vector length.
     return unflattenI32Rows(flat, payload.length)
   } catch {
+    // Preserve nullable failure behavior used by adapters.
     return null
   }
 }
@@ -456,16 +529,23 @@ export const getFilteredBoundedCompositionsWithOffsetI32WithLoadedWasm = (params
   mins: ReadonlyArray<number> | Int32Array
   skipOptionalBaseline: boolean
 }): number[][] | null => {
+  // Fail closed for sync callers that forgot to warm wasm.
   assertWasmInitializedSync()
+  // Reject invalid totals before any array normalization work.
   if (!Number.isFinite(params.total)) return null
+  // Negative totals have no feasible compositions.
   if (params.total < 0) return []
+  // Empty caps support only the exact zero-total shape.
   if (params.caps.length === 0) return params.total === 0 ? [[]] : []
+  // Keep dimensions aligned; mismatch means malformed caller payload.
   if (params.needNow.length !== params.caps.length) return null
+  // Normalize all arrays to compact typed payloads once per call.
   const caps = toNonNegativeI32(params.caps)
   const needNow = toNonNegativeI32(params.needNow)
   const lockedMask = toMaskU8(params.lockedMask)
   const optionalMask = toMaskU8(params.optionalMask)
   const mins = toNonNegativeI32(params.mins)
+  // Run bounded enumeration + filtering in wasm.
   const flat = filteredBoundedCompositionsWithOffsetI32FastFlatWasmBinding(
     caps,
     Math.floor(params.total),
@@ -477,18 +557,25 @@ export const getFilteredBoundedCompositionsWithOffsetI32WithLoadedWasm = (params
     mins,
     params.skipOptionalBaseline === true,
   )
+  // Decode fixed-width rows where width equals cap vector length.
   return unflattenI32Rows(flat, caps.length)
 }
 
 // Synchronous numeric permutations helper for builder combinatorics.
 export const getPermutationsI32WithLoadedWasm = (values: number[]): number[][] | null => {
+  // Sync callers must warm wasm first; null keeps historical contract.
   if (!wasmInitialized) return null
+  // Empty/singleton vectors have exactly one permutation.
   if (values.length <= 1) return [values.slice()]
   try {
+    // Convert once to contiguous i32 payload for wasm.
     const payload = toFlooredI32(values)
+    // Execute permutation backtracking in wasm.
     const flat = permutationsI32FastFlatWasmBinding(payload)
+    // Rehydrate rows where width equals input length.
     return unflattenI32Rows(flat, payload.length)
   } catch {
+    // Preserve nullable failure behavior used by adapters.
     return null
   }
 }

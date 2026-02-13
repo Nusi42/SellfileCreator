@@ -2785,19 +2785,27 @@ pub fn evaluate_value(items: JsValue, options: JsValue) -> Result<JsValue, JsVal
 }
 
 // Keep-unique detection constants mirror src/lib/keepUniques.ts behavior.
+// Reasons mark whether placeholders come from a global shortfall
+// or from a specific grouped bucket that is under-filled.
 const KEEP_UNIQUE_REASON_GLOBAL: &str = "global";
 const KEEP_UNIQUE_REASON_GROUP: &str = "group";
+// Activation "off" means sold items do not contribute to projected coverage.
 const KEEP_UNIQUE_ACTIVATION_OFF: &str = "off";
+// Substat matching modes are normalized to these three canonical tokens.
 const KEEP_UNIQUE_SUBSTAT_ANY: &str = "any";
 const KEEP_UNIQUE_SUBSTAT_ALL: &str = "all";
 const KEEP_UNIQUE_SUBSTAT_PER_SUBSTAT: &str = "persubstat";
+// Epsilon is used only for tie expansion at the score boundary.
 const KEEP_UNIQUE_SCORE_TIE_EPSILON: f64 = 1e-9;
+// Weights are snapped to this fixed step and clamped to this range.
 const KEEP_UNIQUE_WEIGHT_STEP: f64 = 0.05;
 const KEEP_UNIQUE_WEIGHT_MIN: f64 = 0.1;
 const KEEP_UNIQUE_WEIGHT_MAX: f64 = 3.0;
 const KEEP_UNIQUE_WEIGHT_DEFAULT: f64 = 1.0;
+// Placeholder samples need stable defaults when no group sample exists.
 const KEEP_UNIQUE_DEFAULT_SAMPLE_SLOT: i64 = ARTIFACT_TYPE_WEAPON;
 const KEEP_UNIQUE_DEFAULT_SAMPLE_SET: i64 = ACCESSORY_NO_SET_ID;
+// Main-stat constants keep comparisons aligned with TS StatVariant encoding.
 const KEEP_UNIQUE_MAIN_ANY: i64 = STAT_VARIANT_ANY;
 const KEEP_UNIQUE_MAIN_HP_PERCENT: i64 = STAT_VARIANT_HP_PERCENT;
 const KEEP_UNIQUE_MAIN_HP_FLAT: i64 = STAT_VARIANT_HP_FLAT;
@@ -3020,11 +3028,23 @@ struct KeepUniqueWasmGroupBucket {
     sample: Option<KeepUniqueWasmGroupSample>,
 }
 
+#[derive(Debug, Deserialize, Clone, Copy)]
+#[serde(rename_all = "camelCase")]
+struct KeepUniqueWasmCountKeyArtifactIn {
+    slot: i64,
+    set: i64,
+    faction: i64,
+    main_stat: i64,
+}
+
 fn keep_unique_is_accessory_slot(slot: i64) -> bool {
+    // Accessories are the only slots where faction grouping applies.
+    // Artifact slots always collapse to faction 0 in keep-unique logic.
     slot == KEEP_UNIQUE_SLOT_RING || slot == KEEP_UNIQUE_SLOT_AMULET || slot == KEEP_UNIQUE_SLOT_BANNER
 }
 
 fn keep_unique_sanitize_count_mode(mode: KeepUniqueWasmCountMode) -> KeepUniqueWasmCountMode {
+    // `per_rule` is exclusive: when set, all per-dimension toggles must be off.
     if mode.per_rule {
         return KeepUniqueWasmCountMode {
             per_rule: true,
@@ -3034,6 +3054,8 @@ fn keep_unique_sanitize_count_mode(mode: KeepUniqueWasmCountMode) -> KeepUniqueW
             per_slot: false,
         };
     }
+    // If no grouping flag is enabled, treat the mode as global per-rule.
+    // This mirrors TS fallback behavior for partially initialized payloads.
     let has_grouping = mode.per_set || mode.per_faction || mode.per_main_stat || mode.per_slot;
     if !has_grouping {
         return KeepUniqueWasmCountMode {
@@ -3044,6 +3066,7 @@ fn keep_unique_sanitize_count_mode(mode: KeepUniqueWasmCountMode) -> KeepUniqueW
             per_slot: false,
         };
     }
+    // Grouped mode keeps only the explicit toggles and clears per_rule.
     KeepUniqueWasmCountMode {
         per_rule: false,
         per_set: mode.per_set,
@@ -3054,7 +3077,9 @@ fn keep_unique_sanitize_count_mode(mode: KeepUniqueWasmCountMode) -> KeepUniqueW
 }
 
 fn keep_unique_normalize_substat_match(raw: &str) -> String {
+    // Normalize whitespace/casing so persisted files and UI payloads match.
     let trimmed = raw.trim().to_ascii_lowercase();
+    // Unknown tokens collapse to `any` to stay backward compatible.
     match trimmed.as_str() {
         KEEP_UNIQUE_SUBSTAT_ALL => KEEP_UNIQUE_SUBSTAT_ALL.to_string(),
         KEEP_UNIQUE_SUBSTAT_PER_SUBSTAT => KEEP_UNIQUE_SUBSTAT_PER_SUBSTAT.to_string(),
@@ -3063,15 +3088,20 @@ fn keep_unique_normalize_substat_match(raw: &str) -> String {
 }
 
 fn keep_unique_normalize_weight(raw: f64) -> f64 {
+    // Non-finite weights are replaced with the canonical default.
     if !raw.is_finite() {
         return KEEP_UNIQUE_WEIGHT_DEFAULT;
     }
+    // Clamp first, then snap to configured step size.
     let clamped = raw.clamp(KEEP_UNIQUE_WEIGHT_MIN, KEEP_UNIQUE_WEIGHT_MAX);
     let stepped = (clamped / KEEP_UNIQUE_WEIGHT_STEP).round() * KEEP_UNIQUE_WEIGHT_STEP;
+    // Round again to avoid binary float artifacts in serialized payloads.
     (stepped * 100.0).round() / 100.0
 }
 
 fn keep_unique_substat_max6_by_variant(variant: i64) -> f64 {
+    // Constants mirror keepUniques.ts::substatMax6ByVariant exactly.
+    // Unknown variants return 0 to disable normalized contribution.
     match variant {
         STAT_VARIANT_HP_FLAT => 565.0,
         STAT_VARIANT_HP_PERCENT => 7.0,
@@ -3089,17 +3119,23 @@ fn keep_unique_substat_max6_by_variant(variant: i64) -> f64 {
 }
 
 fn keep_unique_normalize_substat_value(variant: i64, value: f64) -> f64 {
+    // Normalize every substat by the canonical 6-star max roll total.
     let max = keep_unique_substat_max6_by_variant(variant);
+    // Unknown variants or invalid maxima contribute zero.
     if max <= 0.0 || !max.is_finite() {
         return 0.0;
     }
+    // Missing/invalid values also contribute zero.
     if !value.is_finite() || value <= 0.0 {
         return 0.0;
     }
+    // Keep lower bound at zero; we do not cap >1 because high rolls are valid.
     (value / max).max(0.0)
 }
 
 fn keep_unique_percent_to_flat_main(variant: i64) -> Option<i64> {
+    // Map percent mains to their flat counterpart for tie-priority logic.
+    // Non HP/ATK/DEF mains have no flat companion and return None.
     match variant {
         KEEP_UNIQUE_MAIN_HP_PERCENT => Some(KEEP_UNIQUE_MAIN_HP_FLAT),
         KEEP_UNIQUE_MAIN_ATK_PERCENT => Some(KEEP_UNIQUE_MAIN_ATK_FLAT),
@@ -3109,8 +3145,10 @@ fn keep_unique_percent_to_flat_main(variant: i64) -> Option<i64> {
 }
 
 fn keep_unique_normalize_set_selections(values: &[KeepUniqueWasmSetSelection]) -> Vec<KeepUniqueWasmSetSelection> {
+    // Use map-by-id so duplicates collapse deterministically.
     let mut by_id = HashMap::<i64, KeepUniqueWasmSetSelection>::new();
     for entry in values {
+        // Exclusions always win over includes for the same set id.
         if entry.excluded {
             by_id.insert(
                 entry.id,
@@ -3121,11 +3159,13 @@ fn keep_unique_normalize_set_selections(values: &[KeepUniqueWasmSetSelection]) -
             );
             continue;
         }
+        // If an exclusion already exists, never downgrade it to include.
         if let Some(prev) = by_id.get(&entry.id) {
             if prev.excluded {
                 continue;
             }
         }
+        // Keep explicit include when no stronger exclusion exists.
         by_id.insert(
             entry.id,
             KeepUniqueWasmSetSelection {
@@ -3134,16 +3174,19 @@ fn keep_unique_normalize_set_selections(values: &[KeepUniqueWasmSetSelection]) -
             },
         );
     }
+    // Stable sort keeps canonical hash generation deterministic.
     let mut normalized = by_id.into_values().collect::<Vec<_>>();
     normalized.sort_by_key(|entry| entry.id);
     normalized
 }
 
 fn keep_unique_split_set_selections(values: &[KeepUniqueWasmSetSelection]) -> (HashSet<i64>, HashSet<i64>) {
+    // Normalize first so duplicates/exclusions are already resolved.
     let normalized = keep_unique_normalize_set_selections(values);
     let mut includes = HashSet::<i64>::new();
     let mut excludes = HashSet::<i64>::new();
     for entry in normalized {
+        // Split into include/exclude lookup sets for hot match loops.
         if entry.excluded {
             excludes.insert(entry.id);
         } else {
@@ -3154,11 +3197,14 @@ fn keep_unique_split_set_selections(values: &[KeepUniqueWasmSetSelection]) -> (H
 }
 
 fn keep_unique_canonicalize_number_list(values: &[i64]) -> String {
+    // Empty selection is represented as wildcard in canonical hashes.
     if values.is_empty() {
         return "*".to_string();
     }
+    // Sort to make hash independent from UI selection order.
     let mut sorted = values.to_vec();
     sorted.sort_unstable();
+    // Join into comma-delimited canonical token list.
     sorted
         .iter()
         .map(|value| value.to_string())
@@ -3167,10 +3213,13 @@ fn keep_unique_canonicalize_number_list(values: &[i64]) -> String {
 }
 
 fn keep_unique_canonicalize_set_entries(values: &[KeepUniqueWasmSetSelection]) -> String {
+    // Canonicalization must respect include/exclude precedence rules.
     let normalized = keep_unique_normalize_set_selections(values);
+    // Empty normalized set list is wildcard.
     if normalized.is_empty() {
         return "*".to_string();
     }
+    // Prefix exclusions with `!` so hashes preserve exclusion semantics.
     normalized
         .iter()
         .map(|entry| {
@@ -3185,22 +3234,27 @@ fn keep_unique_canonicalize_set_entries(values: &[KeepUniqueWasmSetSelection]) -
 }
 
 fn keep_unique_canonicalize_string_list(values: &[String]) -> String {
+    // Empty metaset list is wildcard in the combination hash.
     if values.is_empty() {
         return "*".to_string();
     }
+    // Trim and drop blanks so cosmetic spacing does not alter hashes.
     let mut cleaned = values
         .iter()
         .map(|value| value.trim().to_string())
         .filter(|value| !value.is_empty())
         .collect::<Vec<_>>();
+    // All-empty after cleanup still maps to wildcard.
     if cleaned.is_empty() {
         return "*".to_string();
     }
+    // Sort for stable order-independent canonicalization.
     cleaned.sort();
     cleaned.join(",")
 }
 
 fn keep_unique_hash_combination(combination: &KeepUniqueWasmCombination) -> String {
+    // Hash token order mirrors TS combination fingerprint construction.
     [
         keep_unique_canonicalize_number_list(&combination.slots),
         keep_unique_canonicalize_set_entries(&combination.sets),
@@ -3214,11 +3268,13 @@ fn keep_unique_hash_combination(combination: &KeepUniqueWasmCombination) -> Stri
 }
 
 fn keep_unique_group_sample_from_artifact(artifact: &KeepUniqueWasmArtifactIn) -> KeepUniqueWasmGroupSample {
+    // Only accessories keep their faction dimension for grouping.
     let faction = if keep_unique_is_accessory_slot(artifact.slot) {
         artifact.faction
     } else {
         0
     };
+    // Copy shape used by placeholder synthesis and expected-group comparison.
     KeepUniqueWasmGroupSample {
         slot: artifact.slot,
         set: artifact.set,
@@ -3228,12 +3284,15 @@ fn keep_unique_group_sample_from_artifact(artifact: &KeepUniqueWasmArtifactIn) -
 }
 
 fn keep_unique_default_group_sample(combination: &KeepUniqueWasmCombination) -> KeepUniqueWasmGroupSample {
+    // Fallback sample uses first selected slot when present.
+    // Otherwise use weapon slot so placeholders stay deterministic.
     KeepUniqueWasmGroupSample {
         slot: combination
             .slots
             .first()
             .copied()
             .unwrap_or(KEEP_UNIQUE_DEFAULT_SAMPLE_SLOT),
+        // Default set/faction/main describe "unknown concrete group".
         set: KEEP_UNIQUE_DEFAULT_SAMPLE_SET,
         faction: 0,
         main_stat: KEEP_UNIQUE_MAIN_ANY,
@@ -3246,8 +3305,10 @@ fn keep_unique_build_placeholder_combination(
     sample: Option<&KeepUniqueWasmGroupSample>,
 ) -> KeepUniqueWasmCombination {
     let Some(group_sample) = sample else {
+        // No group sample means no dimension projection is possible.
         return base.clone();
     };
+    // Start from full rule combination and project only grouped dimensions.
     let mut clone = base.clone();
     if mode.per_slot {
         clone.slots = vec![group_sample.slot];
@@ -3258,6 +3319,7 @@ fn keep_unique_build_placeholder_combination(
             excluded: false,
         }];
     }
+    // Main-stat wildcard is encoded as empty list in placeholder combination.
     if mode.per_main_stat {
         clone.main_stats = if group_sample.main_stat == KEEP_UNIQUE_MAIN_ANY {
             Vec::new()
@@ -3266,6 +3328,7 @@ fn keep_unique_build_placeholder_combination(
         };
     }
     if mode.per_faction {
+        // Non-accessory groups normalize faction to zero -> empty selection.
         clone.factions = if group_sample.faction > 0 {
             vec![group_sample.faction]
         } else {
@@ -3281,6 +3344,7 @@ fn keep_unique_build_placeholder(
     reason: &str,
     substat_variants: Option<Vec<i64>>,
 ) -> KeepUniqueWasmPlaceholderOut {
+    // Keep placeholder payload construction centralized for consistency.
     KeepUniqueWasmPlaceholderOut {
         combination,
         missing,
@@ -3290,9 +3354,11 @@ fn keep_unique_build_placeholder(
 }
 
 fn keep_unique_matches_selection(selection: &[i64], candidate: i64) -> bool {
+    // Empty selection means wildcard dimension.
     if selection.is_empty() {
         return true;
     }
+    // Non-empty selection requires explicit id match.
     selection.iter().any(|value| *value == candidate)
 }
 
@@ -3300,15 +3366,19 @@ fn keep_unique_artifact_matches_rule(
     artifact: &KeepUniqueWasmArtifactIn,
     rule: &KeepUniqueWasmPreparedRule,
 ) -> bool {
+    // Slot filter is always evaluated first to fail fast.
     if !keep_unique_matches_selection(&rule.combination.slots, artifact.slot) {
         return false;
     }
+    // Excluded sets always deny the candidate, even if also included elsewhere.
     if rule.set_excludes.contains(&artifact.set) {
         return false;
     }
+    // Explicit include list requires membership when non-empty.
     if !rule.set_includes.is_empty() && !rule.set_includes.contains(&artifact.set) {
         return false;
     }
+    // Rank and rarity dimensions use wildcard-aware selection matching.
     if !keep_unique_matches_selection(&rule.combination.ranks, artifact.rank) {
         return false;
     }
@@ -3318,11 +3388,13 @@ fn keep_unique_artifact_matches_rule(
     if !rule.combination.main_stats.is_empty() && !rule.combination.main_stats.contains(&artifact.main_stat) {
         return false;
     }
+    // Artifact slots ignore faction; accessory slots keep faction dimension.
     let faction = if keep_unique_is_accessory_slot(artifact.slot) {
         artifact.faction
     } else {
         0
     };
+    // Faction filter is wildcard-aware and runs on normalized faction value.
     if !keep_unique_matches_selection(&rule.combination.factions, faction) {
         return false;
     }
@@ -3333,23 +3405,29 @@ fn keep_unique_count_selected_substats(
     artifact: &KeepUniqueWasmArtifactIn,
     selected_substats: &HashSet<i64>,
 ) -> usize {
+    // No selected substats means nothing to count.
     if selected_substats.is_empty() {
         return 0;
     }
+    // Count unique matching variants with positive finite values only.
     let mut matched = 0usize;
     let mut seen = HashSet::<i64>::new();
     for substat in &artifact.substats {
+        // Ignore variants not requested by the rule.
         if !selected_substats.contains(&substat.variant) {
             continue;
         }
+        // Ignore duplicates so a variant contributes at most once.
         if seen.contains(&substat.variant) {
             continue;
         }
+        // Ignore missing/invalid values to mirror JS truthiness checks.
         if !substat.value.is_finite() || substat.value <= 0.0 {
             continue;
         }
         seen.insert(substat.variant);
         matched += 1;
+        // Early exit once all requested variants are matched.
         if matched >= selected_substats.len() {
             return matched;
         }
@@ -3362,10 +3440,13 @@ fn keep_unique_candidate_matches_substats(
     selected_substats: &HashSet<i64>,
     substat_match: &str,
 ) -> bool {
+    // Empty filter means every artifact passes substat gating.
     if selected_substats.is_empty() {
         return true;
     }
+    // Compute count once and evaluate mode-specific threshold below.
     let matched = keep_unique_count_selected_substats(artifact, selected_substats);
+    // `all` requires every selected variant; other modes require any hit.
     if substat_match == KEEP_UNIQUE_SUBSTAT_ALL {
         return matched >= selected_substats.len();
     }
@@ -3373,6 +3454,7 @@ fn keep_unique_candidate_matches_substats(
 }
 
 fn keep_unique_weight_for_variant(weights: &HashMap<i64, f64>, variant: i64) -> f64 {
+    // Missing entries fall back to canonical default weight.
     weights
         .get(&variant)
         .copied()
@@ -3380,10 +3462,12 @@ fn keep_unique_weight_for_variant(weights: &HashMap<i64, f64>, variant: i64) -> 
 }
 
 fn keep_unique_stat_value_for_variant(artifact: &KeepUniqueWasmArtifactIn, variant: i64) -> f64 {
+    // Return first matching variant value (input is already normalized).
     for substat in &artifact.substats {
         if substat.variant != variant {
             continue;
         }
+        // Invalid/missing numeric values count as zero.
         if !substat.value.is_finite() || substat.value <= 0.0 {
             return 0.0;
         }
@@ -3397,13 +3481,18 @@ fn keep_unique_compute_score(
     selected_substats: &[i64],
     weights: &HashMap<i64, f64>,
 ) -> f64 {
+    // Weighted normalized sum mirrors keepUniques.ts scoring semantics.
     let mut total = 0.0;
     for variant in selected_substats {
+        // Read raw value for this variant from artifact substats.
         let raw = keep_unique_stat_value_for_variant(artifact, *variant);
+        // Normalize against canonical max roll baseline.
         let normalized = keep_unique_normalize_substat_value(*variant, raw);
+        // Resolve weight (default when not explicitly configured).
         let weight = keep_unique_weight_for_variant(weights, *variant);
         total += weight * normalized;
     }
+    // Defensive guard: never return NaN/Infinity to sort comparator.
     if total.is_finite() {
         total
     } else {
@@ -3521,17 +3610,21 @@ fn keep_unique_select_top_scored_candidates(
     required_per_group: i64,
     candidates: &[KeepUniqueWasmCandidateIn],
 ) -> Vec<KeepUniqueWasmScoredCandidate> {
+    // Non-positive requirement or empty input means no selected candidates.
     if required_per_group <= 0 || entries.is_empty() {
         return Vec::new();
     }
+    // Copy then sort by strict comparator for deterministic ordering.
     let mut sorted = entries.to_vec();
     // Keep this on unstable sort to avoid stable-sort comparator guard panics in wasm.
     // Determinism still holds because the comparator has an explicit final index key.
     sorted.sort_unstable_by(|left, right| keep_unique_compare_scored_candidates_for_sort(left, right, candidates));
     let required = required_per_group as usize;
+    // If bucket has <= required candidates, all of them are selected.
     if sorted.len() <= required {
         return sorted;
     }
+    // Select top N first, then extend across tie boundary.
     let mut selected = sorted[..required].to_vec();
     let Some(boundary) = selected.last().cloned() else {
         return selected;
@@ -3542,32 +3635,53 @@ fn keep_unique_select_top_scored_candidates(
         .filter(|entry| keep_unique_compare_scored_candidates_tie_only(entry, &boundary, candidates) == Ordering::Equal)
         .cloned()
         .collect::<Vec<_>>();
+    // Extend with unresolved ties to preserve legacy boundary semantics.
     selected.extend(unresolved);
     selected
 }
 
 fn keep_unique_count_key(artifact: &KeepUniqueWasmArtifactIn, mode: KeepUniqueWasmCountMode) -> String {
+    keep_unique_count_key_from_parts(
+        artifact.slot,
+        artifact.set,
+        artifact.faction,
+        artifact.main_stat,
+        mode,
+    )
+}
+
+fn keep_unique_count_key_from_parts(
+    slot: i64,
+    set: i64,
+    faction_raw: i64,
+    main_stat: i64,
+    mode: KeepUniqueWasmCountMode,
+) -> String {
+    // Per-rule mode collapses all candidates into one global bucket.
     if mode.per_rule {
         return "global".to_string();
     }
+    // Build grouped key from enabled dimensions only.
     let mut parts = Vec::<String>::new();
     if mode.per_slot {
-        parts.push(format!("slot:{}", artifact.slot));
+        parts.push(format!("slot:{slot}"));
     }
     if mode.per_set {
-        parts.push(format!("set:{}", artifact.set));
+        parts.push(format!("set:{set}"));
     }
     if mode.per_faction {
-        let faction = if keep_unique_is_accessory_slot(artifact.slot) {
-            artifact.faction
+        // Artifact slots normalize to faction 0 for grouping consistency.
+        let faction = if keep_unique_is_accessory_slot(slot) {
+            faction_raw
         } else {
             0
         };
         parts.push(format!("faction:{faction}"));
     }
     if mode.per_main_stat {
-        parts.push(format!("main:{}", artifact.main_stat));
+        parts.push(format!("main:{main_stat}"));
     }
+    // Empty dimensions fallback to global bucket.
     if parts.is_empty() {
         "global".to_string()
     } else {
@@ -3575,16 +3689,40 @@ fn keep_unique_count_key(artifact: &KeepUniqueWasmArtifactIn, mode: KeepUniqueWa
     }
 }
 
+// Expose keep-unique count-key derivation so JS expected-group precomputation
+// uses the exact same grouping semantics as Rust detection scans.
+#[wasm_bindgen]
+pub fn keep_unique_count_key_value(artifact: JsValue, count_mode: JsValue) -> Result<String, JsValue> {
+    // Parse compact artifact tuple (slot/set/faction/mainStat) from JS.
+    let parsed_artifact: KeepUniqueWasmCountKeyArtifactIn = from_js_value(artifact)
+        .map_err(|error| JsValue::from_str(&format!("Invalid keep-unique count-key artifact: {error}")))?;
+    // Parse and sanitize count-mode flags before key computation.
+    let parsed_mode: KeepUniqueWasmCountMode = from_js_value(count_mode)
+        .map_err(|error| JsValue::from_str(&format!("Invalid keep-unique count mode: {error}")))?;
+    let mode = keep_unique_sanitize_count_mode(parsed_mode);
+    // Delegate to the shared Rust helper so key semantics stay SSOT.
+    Ok(keep_unique_count_key_from_parts(
+        parsed_artifact.slot,
+        parsed_artifact.set,
+        parsed_artifact.faction,
+        parsed_artifact.main_stat,
+        mode,
+    ))
+}
+
 fn keep_unique_round_three(value: f64) -> f64 {
+    // Keep output precision aligned with existing UI formatting expectations.
     (value * 1000.0).round() / 1000.0
 }
 
 fn keep_unique_to_detection_artifact(candidate: &KeepUniqueWasmCandidateIn) -> KeepUniqueWasmArtifactOut {
+    // Only accessories preserve faction in detection payload.
     let faction = if keep_unique_is_accessory_slot(candidate.artifact.slot) {
         candidate.artifact.faction
     } else {
         0
     };
+    // Copy substats with rounded values to keep payload stable/readable.
     let substats = candidate
         .artifact
         .substats
@@ -3595,6 +3733,7 @@ fn keep_unique_to_detection_artifact(candidate: &KeepUniqueWasmCandidateIn) -> K
             value: keep_unique_round_three(if substat.value.is_finite() { substat.value } else { 0.0 }),
         })
         .collect::<Vec<_>>();
+    // Emit compact artifact summary consumed by keep-unique UI tables.
     KeepUniqueWasmArtifactOut {
         item_key: candidate.item_key,
         slot: candidate.artifact.slot,
@@ -3633,15 +3772,21 @@ fn keep_unique_build_entry_for_substats(
     selected_substats: &[i64],
     substat_match: &str,
 ) -> KeepUniqueWasmEntryOut {
+    // Presence of selected substats toggles ranking/scoring mode.
     let has_substat_filter = !selected_substats.is_empty();
+    // HashSet gives O(1) membership checks during candidate scans.
     let selected_set = selected_substats.iter().copied().collect::<HashSet<_>>();
+    // Placeholders include the active substat variants when filtering is active.
     let placeholder_substats = if has_substat_filter {
         Some(selected_substats.to_vec())
     } else {
         None
     };
+    // Ranking mode is active only when substats are selected.
     let use_ranking = has_substat_filter;
+    // Required count is always at least 1, mirroring TS coercion.
     let required_per_group = prepared_rule.required_per_group.max(1);
+    // Resolve expected-group payload into internal sample struct once.
     let expected_groups = prepared_rule
         .expected_groups
         .iter()
@@ -3656,6 +3801,7 @@ fn keep_unique_build_entry_for_substats(
         })
         .collect::<Vec<_>>();
 
+    // Pre-filter candidate indices by rule dimensions and substat gating.
     let matching_indices = candidates
         .iter()
         .enumerate()
@@ -3667,6 +3813,7 @@ fn keep_unique_build_entry_for_substats(
         .collect::<Vec<_>>();
 
     if use_ranking {
+        // Build scored list and drop zero-score artifacts early.
         let scored = matching_indices
             .iter()
             .filter_map(|candidate_idx| {
@@ -3683,14 +3830,17 @@ fn keep_unique_build_entry_for_substats(
             })
             .collect::<Vec<_>>();
 
+        // Bucket scored entries by count key for grouped counting modes.
         let mut groups = HashMap::<String, Vec<KeepUniqueWasmScoredCandidate>>::new();
         let mut group_order = Vec::<String>::new();
         if prepared_rule.count_mode.per_rule {
+            // Per-rule mode uses one global bucket.
             if !scored.is_empty() {
                 groups.insert("global".to_string(), scored);
                 group_order.push("global".to_string());
             }
         } else {
+            // Grouped mode routes each scored candidate to its group key.
             for entry in scored {
                 let key = keep_unique_count_key(&candidates[entry.candidate_idx].artifact, prepared_rule.count_mode);
                 if let Some(bucket) = groups.get_mut(&key) {
@@ -3702,13 +3852,16 @@ fn keep_unique_build_entry_for_substats(
             }
         }
 
+        // Expected-groups override observed group count when provided.
         let groups_tracked = if !expected_groups.is_empty() {
             expected_groups.len() as i64
         } else {
             groups.len() as i64
         };
+        // At least one group is assumed for required-count math.
         let effective_group_count = if groups_tracked > 0 { groups_tracked } else { 1 };
         let required_total = required_per_group * effective_group_count;
+        // Aggregate counters feed the final entry payload.
         let mut current_count = 0i64;
         let mut kept_count = 0i64;
         let mut sold_count = 0i64;
@@ -3717,6 +3870,7 @@ fn keep_unique_build_entry_for_substats(
         let mut artifacts = Vec::<KeepUniqueWasmArtifactOut>::new();
         let mut placeholders = Vec::<KeepUniqueWasmPlaceholderOut>::new();
 
+        // Use explicit expected list when present, otherwise derive from observed groups.
         let expected_list = if !expected_groups.is_empty() {
             expected_groups
         } else {
@@ -3736,9 +3890,11 @@ fn keep_unique_build_entry_for_substats(
                 .collect::<Vec<_>>()
         };
 
+        // Process each expected group independently.
         for expected in &expected_list {
             let bucket = groups.get(&expected.key).cloned().unwrap_or_default();
             if bucket.is_empty() {
+                // Missing group contributes full per-group deficit placeholder.
                 let deficit_group = required_per_group;
                 placeholders.push(keep_unique_build_placeholder(
                     keep_unique_build_placeholder_combination(
@@ -3753,6 +3909,7 @@ fn keep_unique_build_entry_for_substats(
                 deficit += deficit_group;
                 continue;
             }
+            // Select top required entries with tie-boundary extension.
             let selected =
                 keep_unique_select_top_scored_candidates(&bucket, required_per_group, candidates);
             let mut group_total = 0i64;
@@ -3769,9 +3926,11 @@ fn keep_unique_build_entry_for_substats(
                     group_kept += 1;
                 }
             }
+            // Group totals roll into overall counters.
             current_count += group_total;
             kept_count += group_kept;
             sold_count += group_sold;
+            // Deficit uses bucket size (before tie extension) like TS semantics.
             let deficit_group = (required_per_group - bucket.len() as i64).max(0);
             if deficit_group > 0 {
                 placeholders.push(keep_unique_build_placeholder(
@@ -3788,6 +3947,7 @@ fn keep_unique_build_entry_for_substats(
             deficit += deficit_group;
         }
 
+        // No groups observed still emits global placeholder when needed.
         if groups_tracked == 0 && required_per_group > 0 {
             placeholders.push(keep_unique_build_placeholder(
                 prepared_rule.combination.clone(),
@@ -3798,6 +3958,7 @@ fn keep_unique_build_entry_for_substats(
             deficit = required_per_group;
         }
 
+        // Projected count includes sold artifacts only when rule is active.
         let projected = kept_count + if prepared_rule.rule_active { sold_count } else { 0 };
         return KeepUniqueWasmEntryOut {
             hash: keep_unique_hash_combination(&prepared_rule.combination),
@@ -3818,6 +3979,7 @@ fn keep_unique_build_entry_for_substats(
         };
     }
 
+    // Non-ranking path: count by sold/kept presence without score sorting.
     if prepared_rule.count_mode.per_rule {
         let mut kept_count = 0i64;
         let mut sold_indices = Vec::<usize>::new();
@@ -3829,15 +3991,18 @@ fn keep_unique_build_entry_for_substats(
                 kept_count += 1;
             }
         }
+        // Per-rule needed count is relative to kept artifacts only.
         let sold_count = sold_indices.len() as i64;
         let required_total = required_per_group;
         let needed = (required_per_group - kept_count).max(0);
+        // Sort sold candidates deterministically before truncation.
         keep_unique_sort_candidate_indices(&mut sold_indices, candidates);
         let selected_sold = if needed > 0 {
             sold_indices.into_iter().take(needed as usize).collect::<Vec<_>>()
         } else {
             Vec::new()
         };
+        // Projected count includes sold artifacts only when rule is active.
         let projected = kept_count
             + if prepared_rule.rule_active {
                 sold_count.min(needed)
@@ -3846,6 +4011,7 @@ fn keep_unique_build_entry_for_substats(
             };
         let deficit = (required_total - (kept_count + sold_count)).max(0);
         let mut placeholders = Vec::<KeepUniqueWasmPlaceholderOut>::new();
+        // Global shortfall emits one global placeholder.
         if deficit > 0 {
             placeholders.push(keep_unique_build_placeholder(
                 prepared_rule.combination.clone(),
@@ -3854,6 +4020,7 @@ fn keep_unique_build_entry_for_substats(
                 placeholder_substats.clone(),
             ));
         }
+        // Materialize selected sold candidate ids/artifacts for UI.
         let item_keys = selected_sold
             .iter()
             .map(|idx| candidates[*idx].item_key)
@@ -3881,6 +4048,7 @@ fn keep_unique_build_entry_for_substats(
         };
     }
 
+    // Grouped non-ranking path: split matching candidates into group buckets.
     let mut group_counts = HashMap::<String, KeepUniqueWasmGroupBucket>::new();
     let mut group_order = Vec::<String>::new();
     for candidate_idx in matching_indices {
@@ -3911,13 +4079,16 @@ fn keep_unique_build_entry_for_substats(
         }
     }
 
+    // Expected groups override observed group cardinality.
     let groups_tracked = if !prepared_rule.expected_groups.is_empty() {
         prepared_rule.expected_groups.len() as i64
     } else {
         group_counts.len() as i64
     };
+    // At least one group is assumed for required-count math.
     let effective_group_count = if groups_tracked > 0 { groups_tracked } else { 1 };
     let required_total = required_per_group * effective_group_count;
+    // Aggregate counters and output buffers for final payload.
     let mut deficit = 0i64;
     let mut kept_total = 0i64;
     let mut sold_total = 0i64;
@@ -3925,6 +4096,7 @@ fn keep_unique_build_entry_for_substats(
     let mut at_risk = Vec::<usize>::new();
     let mut placeholders = Vec::<KeepUniqueWasmPlaceholderOut>::new();
 
+    // Use explicit expected list when present, else derive from observed groups.
     let expected_list = if !prepared_rule.expected_groups.is_empty() {
         prepared_rule
             .expected_groups
@@ -3955,8 +4127,10 @@ fn keep_unique_build_entry_for_substats(
             .collect::<Vec<_>>()
     };
 
+    // Evaluate each expected group independently.
     for expected in &expected_list {
         let Some(group) = group_counts.get(&expected.key).cloned() else {
+            // Missing expected group contributes full group deficit.
             let deficit_group = required_per_group;
             placeholders.push(keep_unique_build_placeholder(
                 keep_unique_build_placeholder_combination(
@@ -3971,6 +4145,7 @@ fn keep_unique_build_entry_for_substats(
             deficit += deficit_group;
             continue;
         };
+        // Count kept/sold and derive projected/deficit metrics for this group.
         let kept_count = group.kept.len() as i64;
         let sold_count = group.sold.len() as i64;
         kept_total += kept_count;
@@ -3986,6 +4161,7 @@ fn keep_unique_build_entry_for_substats(
         let total_count = kept_count + sold_count;
         let deficit_group = (required_per_group - total_count).max(0);
         if needed > 0 {
+            // Deterministic sold ordering ensures stable at-risk list.
             let mut sorted_sold = group.sold.clone();
             keep_unique_sort_candidate_indices(&mut sorted_sold, candidates);
             at_risk.extend(sorted_sold.into_iter().take(needed as usize));
@@ -4003,6 +4179,7 @@ fn keep_unique_build_entry_for_substats(
         deficit += deficit_group;
     }
 
+    // No observed groups still yields a global placeholder shortfall.
     if groups_tracked == 0 && required_per_group > 0 {
         placeholders.push(keep_unique_build_placeholder(
             prepared_rule.combination.clone(),
@@ -4013,6 +4190,7 @@ fn keep_unique_build_entry_for_substats(
         deficit = required_per_group;
     }
 
+    // Materialize at-risk candidate ids/artifacts for UI.
     let item_keys = at_risk
         .iter()
         .map(|idx| candidates[*idx].item_key)
@@ -4045,6 +4223,7 @@ fn keep_unique_merge_substat_entries(
     required_per_group: i64,
     entries: Vec<KeepUniqueWasmEntryOut>,
 ) -> KeepUniqueWasmEntryOut {
+    // Merge per-substat entries into one aggregate rule entry.
     let mut item_keys = Vec::<i64>::new();
     let mut item_key_set = HashSet::<i64>::new();
     let mut artifacts = Vec::<KeepUniqueWasmArtifactOut>::new();
@@ -4056,17 +4235,21 @@ fn keep_unique_merge_substat_entries(
     let mut deficit = 0i64;
     let mut groups_tracked = 0i64;
     for entry in entries {
+        // Sum scalar counters across all per-substat entries.
         required_count += entry.required_count;
         current_count += entry.current_count;
         projected_count += entry.projected_count;
         deficit += entry.deficit;
         groups_tracked += entry.groups_tracked;
+        // Placeholders are concatenated verbatim for full visibility.
         placeholders.extend(entry.placeholders);
+        // Deduplicate item keys so merged output has stable unique ids.
         for item_key in entry.item_keys {
             if item_key_set.insert(item_key) {
                 item_keys.push(item_key);
             }
         }
+        // Deduplicate artifact rows by item key to avoid duplicates in UI.
         for artifact in entry.artifacts {
             if artifact_key_set.insert(artifact.item_key) {
                 artifacts.push(artifact);
@@ -4100,6 +4283,7 @@ pub fn compute_keep_unique_protection_value(
     enabled: bool,
     now: f64,
 ) -> Result<JsValue, JsValue> {
+    // Deserialize all three payloads with explicit error context.
     let parsed_candidates: Vec<KeepUniqueWasmCandidateIn> = from_js_value(candidates)
         .map_err(|error| JsValue::from_str(&format!("Invalid keep-unique candidates: {error}")))?;
     let parsed_rules: Vec<KeepUniqueWasmRuleIn> = from_js_value(rules)
@@ -4108,18 +4292,24 @@ pub fn compute_keep_unique_protection_value(
         from_js_value(expected_groups_by_rule_id)
             .map_err(|error| JsValue::from_str(&format!("Invalid keep-unique expected groups: {error}")))?;
 
+    // Precompute sanitized rule metadata used by candidate scans.
     let prepared_rules = parsed_rules
         .into_iter()
         .map(|rule| {
+            // Normalize count mode so invalid combos fall back to per-rule mode.
             let count_mode = keep_unique_sanitize_count_mode(rule.count_mode);
+            // Required count is clamped to at least one.
             let required_per_group = rule.required_count.max(1);
+            // Normalize match mode token for deterministic branching.
             let normalized_match = keep_unique_normalize_substat_match(&rule.substat_match);
             let has_substat_filter = !rule.substats.is_empty();
+            // No selected substats always implies `any` behavior.
             let substat_match = if has_substat_filter {
                 normalized_match
             } else {
                 KEEP_UNIQUE_SUBSTAT_ANY.to_string()
             };
+            // Parse and sanitize variant weights into numeric map.
             let mut weights = HashMap::<i64, f64>::new();
             for (raw_variant, raw_weight) in &rule.substat_weights {
                 let Ok(variant) = raw_variant.parse::<i64>() else {
@@ -4127,12 +4317,14 @@ pub fn compute_keep_unique_protection_value(
                 };
                 weights.insert(variant, keep_unique_normalize_weight(*raw_weight));
             }
+            // Pre-split set filters into include/exclude lookup sets.
             let (set_includes, set_excludes) = keep_unique_split_set_selections(&rule.combination.sets);
             KeepUniqueWasmPreparedRule {
                 id: rule.id.clone(),
                 combination: rule.combination.clone(),
                 required_per_group,
                 activation: rule.activation.clone(),
+                // Activation off disables sold-item projection contribution.
                 rule_active: enabled && rule.activation.trim().to_ascii_lowercase() != KEEP_UNIQUE_ACTIVATION_OFF,
                 count_mode,
                 selected_substats: rule.substats.clone(),
@@ -4145,8 +4337,10 @@ pub fn compute_keep_unique_protection_value(
         })
         .collect::<Vec<_>>();
 
+    // Evaluate each prepared rule and build entry payloads.
     let mut entries = Vec::<KeepUniqueWasmEntryOut>::new();
     for prepared_rule in &prepared_rules {
+        // `persubstat` with multiple selected variants expands one entry per variant.
         if prepared_rule.substat_match == KEEP_UNIQUE_SUBSTAT_PER_SUBSTAT
             && prepared_rule.selected_substats.len() > 1
         {
@@ -4169,6 +4363,7 @@ pub fn compute_keep_unique_protection_value(
             ));
             continue;
         }
+        // Single-variant `persubstat` behaves like `any` on that one variant.
         let effective_match = if prepared_rule.substat_match == KEEP_UNIQUE_SUBSTAT_PER_SUBSTAT {
             KEEP_UNIQUE_SUBSTAT_ANY
         } else {
@@ -4182,8 +4377,10 @@ pub fn compute_keep_unique_protection_value(
         ));
     }
 
+    // Snapshot timestamp is sanitized to finite number for stable payloads.
     let scanned_at = if now.is_finite() { now } else { 0.0 };
     let snapshot = KeepUniqueWasmSnapshotOut { scanned_at, entries };
+    // Return JS object payload used directly by TS detection pipeline.
     to_js_value(&snapshot)
         .map_err(|error| JsValue::from_str(&format!("Failed to serialize keep-unique snapshot: {error}")))
 }

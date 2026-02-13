@@ -547,6 +547,30 @@ export function intro_assignments_for_combo_fast_flat(count, base_slots, additio
 }
 
 /**
+ * @param {any} artifact
+ * @param {any} count_mode
+ * @returns {string}
+ */
+export function keep_unique_count_key_value(artifact, count_mode) {
+    let deferred2_0;
+    let deferred2_1;
+    try {
+        const ret = wasm.keep_unique_count_key_value(artifact, count_mode);
+        var ptr1 = ret[0];
+        var len1 = ret[1];
+        if (ret[3]) {
+            ptr1 = 0; len1 = 0;
+            throw takeFromExternrefTable0(ret[2]);
+        }
+        deferred2_0 = ptr1;
+        deferred2_1 = len1;
+        return getStringFromWasm0(ptr1, len1);
+    } finally {
+        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
+    }
+}
+
+/**
  * @param {string} values_json
  * @returns {string}
  */

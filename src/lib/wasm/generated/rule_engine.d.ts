@@ -49,6 +49,8 @@ export function intro_assignments_for_combo_fast(count: number, base_slots: numb
 
 export function intro_assignments_for_combo_fast_flat(count: number, base_slots: number, addition_levels: Int32Array, forced_base: Int32Array): Int32Array;
 
+export function keep_unique_count_key_value(artifact: any, count_mode: any): string;
+
 export function permutations_i32(values_json: string): string;
 
 export function permutations_i32_fast(values: Int32Array): string;
@@ -89,6 +91,7 @@ export interface InitOutput {
     readonly intro_assignments_for_combo: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number, number, number];
     readonly intro_assignments_for_combo_fast: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number, number, number];
     readonly intro_assignments_for_combo_fast_flat: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number];
+    readonly keep_unique_count_key_value: (a: any, b: any) => [number, number, number, number];
     readonly permutations_i32: (a: number, b: number) => [number, number, number, number];
     readonly permutations_i32_fast: (a: number, b: number) => [number, number, number, number];
     readonly permutations_i32_fast_flat: (a: number, b: number) => [number, number];

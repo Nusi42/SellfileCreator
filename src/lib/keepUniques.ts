@@ -39,7 +39,10 @@ import { normalizeArtifactSetSelections, splitArtifactSetSelections } from './ge
 import { hasIgnoreKeepUniqueTag } from './tagHelpers'
 import { normalizeTesterSortWeight, TESTER_SORT_WEIGHT_DEFAULT } from './testerSort'
 import { ACCESSORY_NO_SET_ID } from './constants'
-import { computeKeepUniqueProtectionWithLoadedWasm } from './wasm/wasmRuleEngine'
+import {
+  computeKeepUniqueProtectionWithLoadedWasm,
+  getKeepUniqueCountKeyWithLoadedWasm,
+} from './wasm/wasmRuleEngine'
 
 const RANK_MIN = 1
 const RANK_MAX = 6
@@ -827,23 +830,21 @@ export function getKeepUniqueGroupKey(artifact: NormalizedGearArtifact): KeepUni
 type KeepUniqueCountKey = string
 
 export const getKeepUniqueCountKey = (artifact: NormalizedGearArtifact, mode: KeepUniqueRuleCountMode): KeepUniqueCountKey => {
-  if (mode.perRule) return 'global'
-  const parts: string[] = []
-  if (mode.perSlot) {
-    parts.push(`slot:${Number(artifact.slot)}`)
-  }
-  if (mode.perSet) {
-    parts.push(`set:${Number(artifact.set)}`)
-  }
-  if (mode.perFaction) {
-    const faction = isAccessorySlot(Number(artifact.slot)) ? Number(artifact.faction ?? 0) : 0
-    parts.push(`faction:${faction}`)
-  }
-  if (mode.perMainStat) {
-    const mainStat = Number(artifact.mainStat?.variant ?? StatVariantEnum.Any)
-    parts.push(`main:${mainStat}`)
-  }
-  return parts.length > 0 ? parts.join('|') : 'global'
+  // Keep key derivation in wasm so JS cannot drift from detection semantics.
+  const normalizedMode = sanitizeCountMode(mode)
+  // Slot drives faction normalization because non-accessories always use faction 0.
+  const slot = Number(artifact.slot)
+  const faction = isAccessorySlot(slot) ? Number(artifact.faction ?? 0) : 0
+  // Main stat is encoded as StatVariant number; missing maps to Any sentinel.
+  const mainStat = Number(artifact.mainStat?.variant ?? StatVariantEnum.Any)
+  // Delegate final key construction to wasm (single source of truth).
+  return getKeepUniqueCountKeyWithLoadedWasm({
+    slot,
+    set: Number(artifact.set),
+    faction,
+    mainStat,
+    countMode: normalizedMode,
+  })
 }
 
 // buildKeepUniquePlaceholderSample builds a minimal artifact for placeholder keying.
@@ -1149,92 +1150,6 @@ const buildKeepUniqueExpectedGroups = (params: {
     }
   }
   return Array.from(expected.entries()).map(([key, sample]) => ({ key, sample }))
-}
-
-const matchesSelection = (selection: readonly number[], candidate: number): boolean => {
-  if (!selection.length) return true
-  return selection.some((value) => Number(value) === Number(candidate))
-}
-
-// Placeholder combos inherit the base filters but narrow whichever dimensions affect the group key.
-export const buildPlaceholderCombinationForGroup = (params: {
-  base: KeepUniqueCombination
-  mode: KeepUniqueRuleCountMode
-  sample: NormalizedGearArtifact | null
-}): KeepUniqueCombination => {
-  const { base, mode, sample } = params
-  if (!sample) return cloneKeepUniqueCombination(base)
-  const clone = cloneKeepUniqueCombination(base)
-  if (mode.perSlot) clone.slots = [Number(sample.slot) as ArtifactTypeId]
-  if (mode.perSet) clone.sets = [{ id: Number(sample.set) as ArtifactSetId }]
-  if (mode.perMainStat) {
-    const variant = sample.mainStat?.variant
-    clone.mainStats = variant == null || variant === StatVariantEnum.Any
-      ? []
-      : [variant]
-  }
-  if (mode.perFaction) {
-    const faction = isAccessorySlot(Number(sample.slot)) ? Number(sample.faction ?? 0) : 0
-    clone.factions = faction > 0 ? [faction as FactionId] : []
-  }
-  return clone
-}
-
-/** Determine whether an artifact satisfies a Keep Unique combination filter. */
-export function artifactMatchesKeepUniqueRule(artifact: NormalizedGearArtifact, combination: KeepUniqueCombination): boolean {
-  const slot = Number(artifact.slot)
-  if (!matchesSelection(combination.slots, slot)) return false
-
-  const setId = Number(artifact.set)
-  // Split includes/excludes so exclusions can short-circuit.
-  const setSelection = splitArtifactSetSelections(combination.sets)
-  // Explicit excludes always block a set match.
-  if (setSelection.excluded.some((id) => Number(id) === setId)) return false
-  // Explicit includes restrict the set pool when present.
-  if (setSelection.included.length > 0 && !setSelection.included.some((id) => Number(id) === setId)) return false
-
-  const rankValue = Number(artifact.rank)
-  if (!matchesSelection(combination.ranks, rankValue)) return false
-
-  const rarityValue = Number(artifact.rarity)
-  if (!matchesSelection(combination.rarities, rarityValue)) return false
-
-  if (combination.mainStats.length > 0) {
-    const artifactMain = artifact.mainStat?.variant
-    if (artifactMain == null) return false
-    if (!combination.mainStats.some((variant) => variant === artifactMain)) return false
-  }
-
-  const faction = isAccessorySlot(slot) ? Number(artifact.faction ?? 0) : 0
-  if (!matchesSelection(combination.factions, faction)) return false
-
-  return true
-}
-
-const toDetectionSubstats = (artifact: NormalizedGearArtifact): KeepUniqueDetectionSubstat[] => (
-  artifact.substats.map((stat) => ({
-    variant: stat.variant,
-    isFlat: stat.isFlat,
-    // Keep-unique rules must mirror the tester’s subValues payload, which omits glyph bonuses.
-    // Using `totalValue` keeps the injected rule self-matching so glyph-heavy items are not skipped.
-    value: Number((stat.totalValue ?? 0).toFixed(3)),
-  }))
-)
-
-export const buildKeepUniqueDetectionArtifact = (candidate: KeepUniqueCandidate): KeepUniqueDetectionArtifact => {
-  const { artifact, itemKey } = candidate
-  return {
-    itemKey,
-    slot: artifact.slot,
-    set: artifact.set,
-    rank: artifact.rank,
-    rarity: artifact.rarity,
-    level: artifact.level,
-    exactLevel: artifact.exactLevel ?? null,
-    faction: isAccessorySlot(artifact.slot) ? artifact.faction : (0 as FactionId),
-    mainStat: artifact.mainStat?.variant ?? StatVariantEnum.Any,
-    substats: toDetectionSubstats(artifact),
-  }
 }
 
 // Minimal candidate payload keeps wasm serialization focused on detection fields only.

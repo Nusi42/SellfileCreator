@@ -25,6 +25,7 @@ export const find_obsolete_value: (a: any) => [number, number, number];
 export const intro_assignments_for_combo: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number, number, number];
 export const intro_assignments_for_combo_fast: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number, number, number];
 export const intro_assignments_for_combo_fast_flat: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number];
+export const keep_unique_count_key_value: (a: any, b: any) => [number, number, number, number];
 export const permutations_i32: (a: number, b: number) => [number, number, number, number];
 export const permutations_i32_fast: (a: number, b: number) => [number, number, number, number];
 export const permutations_i32_fast_flat: (a: number, b: number) => [number, number];
