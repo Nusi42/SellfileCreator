@@ -57,8 +57,8 @@ $staging = $null
 try {
   # Using built-in Compress-Archive; no external dependencies.
 
-  # Single source of truth: keep the shipped sample base name consistent.
-  $ShippedSampleBaseName = 'Lategame'
+  # Single source of truth: keep shipped sample names consistent.
+  $ShippedSellfileBaseName = 'lategame'
 
   # Read version from package.json and normalize depending on mode
   $pkgPath = Join-Path $RepoRoot 'package.json'
@@ -160,13 +160,18 @@ try {
   # Why: Ship current, user-relevant examples without hardcoding old filenames.
   $samplesDir = Join-Path $RepoRoot 'examples'
 
-  $sampleHsfc = Get-ChildItem -LiteralPath $samplesDir -Filter 'Nusi_*.hsfc' -File | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+  $sampleHsfc = Get-ChildItem -LiteralPath $samplesDir -Filter 'Nusi_*.sfr' -File | Sort-Object LastWriteTime -Descending | Select-Object -First 1
   if (-not $sampleHsfc) {
-    $fallbackHsfcPath = Join-Path $samplesDir 'example.hsfc'
-    if (Test-Path -LiteralPath $fallbackHsfcPath) {
-      $sampleHsfc = Get-Item -LiteralPath $fallbackHsfcPath
+    $fallbackSfrPath = Join-Path $samplesDir 'example.sfr'
+    if (Test-Path -LiteralPath $fallbackSfrPath) {
+      $sampleHsfc = Get-Item -LiteralPath $fallbackSfrPath
     } else {
-      throw "No Example HSFC sample found in 'examples'"
+      $fallbackHsfcPath = Join-Path $samplesDir 'example.hsfc'
+      if (Test-Path -LiteralPath $fallbackHsfcPath) {
+        $sampleHsfc = Get-Item -LiteralPath $fallbackHsfcPath
+      } else {
+        throw "No Example recipe sample (.sfr/.hsfc) found in 'examples'"
+      }
     }
   }
 
@@ -181,14 +186,21 @@ try {
   }
 
   Write-Host ("Using samples: {0} and {1}" -f $sampleHsfc.Name, $sampleHsf.Name)
-  Copy-Item -LiteralPath $sampleHsfc.FullName -Destination (Join-Path $staging "$ShippedSampleBaseName.hsfc") -Force
-  Copy-Item -LiteralPath $sampleHsf.FullName  -Destination (Join-Path $staging "$ShippedSampleBaseName.hsf")  -Force
-  # Ship the baseline Basic.hsfc so newcomers can inspect an intentionally minimal config.
-  $basicHsfcPath = Join-Path $samplesDir 'Basic.hsfc'
+  $sellfilesDir = Join-Path $staging 'Sellfiles'
+  if (-not (Test-Path $sellfilesDir)) { New-Item -ItemType Directory -Path $sellfilesDir | Out-Null }
+  Copy-Item -LiteralPath $sampleHsfc.FullName -Destination (Join-Path $sellfilesDir "$ShippedSellfileBaseName-receipe.sfr") -Force
+  Copy-Item -LiteralPath $sampleHsf.FullName  -Destination (Join-Path $sellfilesDir "$ShippedSellfileBaseName-sellfile.hsf") -Force
+  # Ship the baseline Basic.sfr so newcomers can inspect an intentionally minimal recipe.
+  $basicHsfcPath = Join-Path $samplesDir 'Basic.sfr'
   if (-not (Test-Path -LiteralPath $basicHsfcPath)) {
-    throw "Basic HSFC sample not found in 'examples'"
+    $legacyBasicHsfcPath = Join-Path $samplesDir 'Basic.hsfc'
+    if (Test-Path -LiteralPath $legacyBasicHsfcPath) {
+      $basicHsfcPath = $legacyBasicHsfcPath
+    } else {
+      throw "Basic recipe sample (.sfr/.hsfc) not found in 'examples'"
+    }
   }
-  Copy-Item -LiteralPath $basicHsfcPath -Destination (Join-Path $staging 'Basic.hsfc') -Force
+  Copy-Item -LiteralPath $basicHsfcPath -Destination (Join-Path $sellfilesDir 'basic.sfr') -Force
 
   # Stage the WebSocket DB watchers under dev/ for helper integrations.
   $devDir = Join-Path $staging 'dev'

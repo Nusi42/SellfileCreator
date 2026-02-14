@@ -49,7 +49,7 @@ export function makeMetasetId(seed: number = Date.now()): string {
 }
 
 // Default metasets (curated).
-// Note: These defaults intentionally mirror `examples/example.hsfc` so a fresh run
+// Note: These defaults intentionally mirror `examples/example.sfr` so a fresh run
 // starts with the same metaset list/order as that reference configuration.
 // Tutorial note: `useTutorialCoachState` adds a small subset of these by *name*;
 // update the tutorial’s "wanted" list if you rename any metasets here.

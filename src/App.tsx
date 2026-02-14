@@ -5106,7 +5106,7 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
       applyHsfcLoadResult(file.name, result)
     } catch (err) {
       if (import.meta.env.DEV) {
-        console.error('Failed to parse .hsfc file', err)
+        console.error('Failed to parse recipe file (.sfr/.hsfc)', err)
       }
       showFileFormatError(file.name)
       flushTransientUi()

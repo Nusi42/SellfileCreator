@@ -1,5 +1,5 @@
-// Generate an HSF rules array from a readable HSFC config file.
-// Usage: node scripts/test/gen-hsf-from-hsfc.mjs tests/fixtures/<base>.hsfc > tests/fixtures/<base>.hsf
+// Generate an HSF rules array from a readable recipe bundle (.sfr / legacy .hsfc).
+// Usage: node scripts/test/gen-hsf-from-hsfc.mjs tests/fixtures/<base>.sfr > tests/fixtures/<base>.hsf
 import { readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'

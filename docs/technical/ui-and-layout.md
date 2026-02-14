@@ -102,7 +102,7 @@ Anything that is not overflow-triggered runs through `MarkdownTooltip`. Represen
 - Headers, icons, and buttons inside the HSF preview table and tester grid (match rows, champion badges, Keep Uniques chips, context-menu affordances).
 - Dialog controls (Note dialog toolbar, Keep Uniques tabs, Substat Targets star chips, Rule Tester action buttons, copy-to-clipboard helpers).
 - Export/load/save buttons, load-sellfile helpers, final-sell toggles, context shorthand hints, etc.
-- Note dialog markers: HTML/Markdown comments `<!-- configs:1,0 -->` render Config chips; `<!-- configs-re:"speed" -->` filters configs by name or tags; `<!-- keep-uniques:1,2 -->` renders Keep Unique summary cards; `<!-- keep-uniques-re:"ring" -->` filters cards by Keep Unique rule name. Markers are 1-based, support `0` for “next after previous marker”, and resolve against the current in-memory config/keep-unique ordering.
+- Note dialog markers: HTML/Markdown comments `<!-- recipes:1,0 -->` render Config chips; `<!-- recipes-re:"speed" -->` filters configs by name or tags; `<!-- keep-uniques:1,2 -->` renders Keep Unique summary cards; `<!-- keep-uniques-re:"ring" -->` filters cards by Keep Unique rule name. Markers are 1-based, support `0` for “next after previous marker”, and resolve against the current in-memory config/keep-unique ordering.
 
 If tooltips need rich formatting (colored badges, inline icons), pass JSX via `render={<BuilderTooltipContent .../>}`. Everything else should use `markdown=` strings so translations stay readable and formatting stays consistent.
 

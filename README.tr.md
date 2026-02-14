@@ -5,34 +5,34 @@ RSL Helper için satış kurallarını basit bir arayüzle oluşturun, önizleyi
 > Bu araç hayranlar tarafından geliştirildi. Plarium, Raid: Shadow Legends veya RSL Helper ile bağlantılı değildir. Bahsi geçen tüm ticari markalar sahiplerine aittir.
 
 ## Özellikler
-- Kuralları oluşturun ve kaydedin: Konfigler hazırlayın ve tekrar kullanabileceğiniz bir kitaplık oluşturun.
+- Kuralları oluşturun ve kaydedin: Reçeteler hazırlayın ve tekrar kullanabileceğiniz bir kitaplık oluşturun.
 - Sellfile Önizleme anahtarı: Başlıktaki `Rules`/`Kural testi` anahtarıyla kurallar tablosu ile Kural testi tablosu arasında anında geçiş yapın. Sayaçlar ve sonuç rozetleri (Keep/Sell vs Matched/No Match) seçtiğiniz görünüme göre güncellenir, filtre satırı da aynı görünümü izler.
-- Sürükle-bırak veya Load düğmesi: `.hsfc`, `.hsf` ya da `.db` dosyalarını herhangi bir yere bırakın (katman doğrular) ya da “Load RSL Helper Sellfile” düğmesine tıklayın. İki yol da aynı yönlendirmeyi kullanır; `.hsfc` oluşturucuyu değiştirir, `.hsf` isteğe bağlı baz Sellfile olarak katmanlanır ve `.db` dökümleri Kural testi kuyruğuna aktarılır (oluşturucuya dokunmadan).
+- Sürükle-bırak veya Load düğmesi: `.sfr`, `.hsf` ya da `.db` dosyalarını herhangi bir yere bırakın (katman doğrular) ya da “Load RSL Helper Sellfile” düğmesine tıklayın. İki yol da aynı yönlendirmeyi kullanır; `.sfr` oluşturucuyu değiştirir, `.hsf` isteğe bağlı baz Sellfile olarak katmanlanır ve `.db` dökümleri Kural testi kuyruğuna aktarılır (oluşturucuya dokunmadan).
 - Metasetler: Ekipman setlerini (ör. Hız + Algı) gruplayın ve birçok kuralda tekrar kullanın.
 - Tek tıkla dışa aktarma: RSL Helper’da kullanılmaya hazır bir HSF dosyası üretin.
 - “Logic Hub” düğmesi: Önizleme başlığından bu düğmeye basarak `Nihai satış`, `Benzersizleri Koru`, `Zindan Düşüşleri` ve Ekipman diyaloğuna (Logic Hub içindeki Gear sekmesi) tek noktadan ulaşın. Örnek ekipman oluşturun, satırları yapıştırın veya `%APPDATA%\\RslHelper\\Config` yolunu sürükleyin; ardından diyaloğu kapatıp önizleme anahtarını ihtiyacınız olan tabloda bırakın — tester kuyruğu yeniden açmadan görünür kalır.
-- «Benzersizleri Koru» sekmesi: Kaybetmenize asla izin vermek istemediğiniz kombinasyonları tanımlayın. Konfigleriniz + şu anda aktif olan Satış kurallarınız tüm kopyaları siliyorsa tarayıcı otomatik olarak koruma kuralları üretir.
+- «Benzersizleri Koru» sekmesi: Kaybetmenize asla izin vermek istemediğiniz kombinasyonları tanımlayın. Reçeteleriniz + şu anda aktif olan Satış kurallarınız tüm kopyaları siliyorsa tarayıcı otomatik olarak koruma kuralları üretir.
 
 ## Nasıl kullanılır
 
-### Konfig dosyası
-- HSFC (`.hsfc`): Uygulamanın proje dosyası. Yükleyip paylaşabileceğiniz bir kayıt dosyası gibi düşünün. RSL Helper HSFC’yi doğrudan okumaz.
+### Reçete dosyası
+- SFR (`.sfr`): Uygulamanın proje dosyası. Yükleyip paylaşabileceğiniz bir kayıt dosyası gibi düşünün. RSL Helper SFR’yi doğrudan okumaz.
 - HSF (`.hsf`): RSL Helper’ın tükettiği Sellfile. Buradan dışa aktarın ve RSL Helper’a yükleyin.
-- Varsayılan kayıt adı: `SellfileCreatorRules_YYYYMMDD_HHMM.hsfc`.
+- Varsayılan kayıt adı: `SellfileCreatorRecipes_YYYYMMDD_HHMM.sfr`.
 
-### Konfig Oluşturucu
-- Konfig Oluşturucu alanlarını doldurun ve konfige net bir isim verin.
-- «Yeni konfig olarak ekle» seçeneğiyle kaydedin. Ardından oluşturucunun altındaki listeden seçip «Seçili konfigi güncelle» ile değişiklikleri kaydedin.
-- Yükle/Kaydet: «Konfigleri yükle» ve «Konfigleri kaydet» işlemleri önizlemeyi yeniden oluşturmak için gereken her şeyi saklar.
-- Reset/Insert/Apply menüleri: Reset, «Konfig olarak ekle» veya «Konfig olarak uygula» seçeneklerine sağ tıklayarak ortak menüyü aç. Mevcut oluşturucu durumunu varsayılan şablon olarak kaydet, fabrika varsayılanlarına geri dön, «Eklendikten sonra otomatik sıfırla» seçeneğini açarak ekledikten hemen sonra alanları temizle veya «Seçili konfige otomatik uygula»yı açarak ~400 ms hareketsizlikten sonra düzenlemeleri vurgulanan konfige işle. Auto reset ve Auto apply aynı anda açık kalamaz — biri açıldığında diğeri kapanır — ve tercihlerin her ikisi de oturumlar arasında saklanır.
-- Not: «Not ekle…» / «Not düzenle…» konfig dosyasına not ekler. Not içeren dosyayı yüklediğinizde otomatik gösterilir. `<!-- configs:1,0 -->` belirli konfig çiplerini ekler (0 bir sonrakini seçer). `<!-- configs-re:"speed" -->` adı desene uyan tüm konfigleri gösterir (büyük/küçük harf duyarsızdır).
-- Autosave geri yükleme: Uygulama açıldığında iletişim kutusu her autosave bölümünü kendi onay kutusuyla listeler. Yalnızca ihtiyacın olanı geri yükle — konfigler (seçili çip dahil), metasetler, Alt stat hedef değerleri, Final satış bakiyesi, sabitlenmiş not, filtre paneli (açık/kapalı durumu, çipler, daraltılmış bölümler) ve Kural testi kuyruğu. Kutuyu boş bırakırsan mevcut çalışman aynen kalır. Autosave ayrıca hangi Final satış anahtarlarının (Artefaktlar, Aksesuarlar ve seviye aralıkları) açık olduğunu hatırlar, bu yüzden Logic Hub tekrar açıldığında son dışa aktarmanın birebir kopyasını görürsün.
+### Reçete Oluşturucu
+- Reçete Oluşturucu alanlarını doldurun ve reçeteye net bir isim verin.
+- «Yeni reçete olarak ekle» seçeneğiyle kaydedin. Ardından oluşturucunun altındaki listeden seçip «Seçili reçeteyi güncelle» ile değişiklikleri kaydedin.
+- Yükle/Kaydet: «Reçeteleri yükle» ve «Reçeteleri kaydet» işlemleri önizlemeyi yeniden oluşturmak için gereken her şeyi saklar.
+- Reset/Insert/Apply menüleri: Reset, «Reçete olarak ekle» veya «Reçete olarak uygula» seçeneklerine sağ tıklayarak ortak menüyü aç. Mevcut oluşturucu durumunu varsayılan şablon olarak kaydet, fabrika varsayılanlarına geri dön, «Eklendikten sonra otomatik sıfırla» seçeneğini açarak ekledikten hemen sonra alanları temizle veya «Seçili reçeteye otomatik uygula»yı açarak ~400 ms hareketsizlikten sonra düzenlemeleri vurgulanan reçeteye işle. Auto reset ve Auto apply aynı anda açık kalamaz — biri açıldığında diğeri kapanır — ve tercihlerin her ikisi de oturumlar arasında saklanır.
+- Not: «Not ekle…» / «Not düzenle…» reçete dosyasına not ekler. Not içeren dosyayı yüklediğinizde otomatik gösterilir. `<!-- recipes:1,0 -->` belirli reçete çiplerini ekler (0 bir sonrakini seçer). `<!-- recipes-re:"speed" -->` adı desene uyan tüm reçeteleri gösterir (büyük/küçük harf duyarsızdır).
+- Autosave geri yükleme: Uygulama açıldığında iletişim kutusu her autosave bölümünü kendi onay kutusuyla listeler. Yalnızca ihtiyacın olanı geri yükle — reçeteler (seçili çip dahil), metasetler, Alt stat hedef değerleri, Final satış bakiyesi, sabitlenmiş not, filtre paneli (açık/kapalı durumu, çipler, daraltılmış bölümler) ve Kural testi kuyruğu. Kutuyu boş bırakırsan mevcut çalışman aynen kalır. Autosave ayrıca hangi Final satış anahtarlarının (Artefaktlar, Aksesuarlar ve seviye aralıkları) açık olduğunu hatırlar, bu yüzden Logic Hub tekrar açıldığında son dışa aktarmanın birebir kopyasını görürsün.
 
 ### Oluşturucu düzeni (yukarıdan aşağıya)
-- Eylem ve Etkin: Bir eşya konfigle eşleştiğinde ne olacağını tanımlar.
+- Eylem ve Etkin: Bir eşya reçeteyle eşleştiğinde ne olacağını tanımlar.
   - `Koru` eşyayı Koru olarak işaretler; RSL Helper dokunmaz.
   - `Sat` eşyayı Sat olarak işaretler; RSL Helper satışı sıraya koyar.
-  - «Sellfile içinde etkin» anahtarı, dışa aktarılan satırların aktif kalıp kalmayacağını belirler. Kapalı konfigler Use = false olarak dışa aktarılır (önizlemede üstü çizilir); tamamen hariç tutmak isterseniz dışa aktarma menüsünden «Dışa aktarırken devre dışı kuralları atla» seçeneğini açın.
+  - «Sellfile içinde etkin» anahtarı, dışa aktarılan satırların aktif kalıp kalmayacağını belirler. Kapalı reçeteler önizlemede üstü çizili görünür ve RSL Helper’da etkisi olmaz; tamamen hariç tutmak isterseniz dışa aktarma menüsünden «Dışa aktarırken devre dışı kuralları atla» seçeneğini açın.
 - Rütbe: 6★ ekipmanı 5★’dan farklı ele almak istiyorsanız kuralı belirli yıldız rütbeleriyle sınırlandırın. `Herhangi` tüm rütbeleri kapsar.
 - Seviyeler: +0, +4, +8, +12, +16 dönüm noktaları arasından minimum ve maksimum seviyeyi seçin. Satırlar yalnızca bu aralıkta üretilir.
 - Nadirlik: `Oto` (önerilen) seçili seviyelerde koşulları karşılayan en düşük nadirliği bulur.
@@ -80,7 +80,7 @@ RSL Helper için satış kurallarını basit bir arayüzle oluşturun, önizleyi
 
 ### Alt stat hedefleri
 - Oluşturucunun sağ üst köşesindeki «Alt stat hedefleri…» düğmesiyle açılır.
-- Hedefler globaldir; tüm konfiglere uygulanır.
+- Hedefler globaldir; tüm reçetelere uygulanır.
 - Bu hedefler seviye aralıklarına göre (0–3, 4–7, 8–11, 12–15, 16) kullanılan eşikleri belirler ve Rulo hedefleri ızgarası için geri dönüş değeri sağlar.
 - «Varsayılanlara döndür» önerilen hedefleri geri yükler.
 
@@ -147,24 +147,24 @@ Notlar:
 - Her aşama için yaklaşık 100.000 düşüş çalıştırır ve çalışırken günceller.
 - Düşüş oranları ve roll’lar simülasyondur; sayılar tahmindir.
 
-### Konfig yönetimi
-- Kaydedilen konfig listesi: Her konfig oluşturucunun altında küçük bir etiket olarak görünür. Sol tık seçer, çoğaltmak/yeniden sıralamak/silmek için sağ tık menülerini kullanabilirsin; «Konfigleri sil» düğmesi tüm listeyi (onay isteyerek) kaldırır.
-- Hover bağlantısı: Bir etiketin üzerine gelmek Sellfile Önizleme tablosunda o konfigden gelen her satırı vurgular; tablodaki satırın üzerine gelmek de listede ilgili etiketi aydınlatır.
-- Tıklama bağlantısı: Sellfile tablosundaki satıra tıklamak onun bağlı olduğu konfigi seçer ve oluşturucuya yükler. Baz `.hsf` satırları seçimi değiştirmez.
-- Sağ tık menüleri: Her kaydedilmiş konfigte Duplicate/Move/Copy/Delete seçenekleri bulunur. Listenin boş alanındaki menü ise `Copy All` ve `Paste` kısayollarını paylaşır; böylece tüm konfigleri tek hamlede panoya alabilir ya da toplu yapıştırabilirsiniz.
+### Reçete yönetimi
+- Kaydedilen reçete listesi: Her reçete oluşturucunun altında küçük bir etiket olarak görünür. Sol tık seçer, çoğaltmak/yeniden sıralamak/silmek için sağ tık menülerini kullanabilirsin; «Reçeteleri sil» düğmesi tüm listeyi (onay isteyerek) kaldırır.
+- Hover bağlantısı: Bir etiketin üzerine gelmek Sellfile Önizleme tablosunda o reçeteden gelen her satırı vurgular; tablodaki satırın üzerine gelmek de listede ilgili etiketi aydınlatır.
+- Tıklama bağlantısı: Sellfile tablosundaki satıra tıklamak onun bağlı olduğu reçeteyi seçer ve oluşturucuya yükler. Baz `.hsf` satırları seçimi değiştirmez.
+- Sağ tık menüleri: Her kaydedilmiş reçetede Duplicate/Move/Copy/Delete seçenekleri bulunur. Listenin boş alanındaki menü ise `Copy All` ve `Paste` kısayollarını paylaşır; böylece tüm reçeteleri tek hamlede panoya alabilir ya da toplu yapıştırabilirsiniz.
 - Pano yedeği: Clipboard erişimi engellenirse içerik önceden seçili hâlde ayrı bir iletişim kutusunda açılır — `Ctrl/Cmd+C` ile kopyalayın veya `Paste` iletişim kutusuna yapıştırın.
 
 ### Sellfile önizlemesi (Rules & Kural testi)
 - Önizleme başlığı `Rules`/`Kural testi` anahtarını, “Logic Hub” düğmesini ve “Load RSL Helper Sellfile” düğmesini yan yana tutar; böylece tabloyu nereden değiştireceğinizi veya Ekipman diyaloğunu (Logic Hub → Gear sekmesi) nereden açacağınızı her zaman bilirsiniz.
-- `Rules` görünümü (varsayılan): Dışa aktarılacak tüm kuralları, yüklediğiniz isteğe bağlı baz `.hsf` satırları dahil gösterir. Başlıktaki sayaçlar Keep vs Sell dağılımında kalır; filtre satırı Slot/Rütbe/Nadirlik/Seviye için Herhangi/Yalnızca (`Any/Only`) çiplerini ve iki Configs düğmesini birlikte gösterir: `Önizleme konfigleri` çip görünürlüğünü kontrol eder, `Konfig filtresi` ise seçtiğiniz çiplere göre Sellfile satırlarını gizleyen basit Açık/Kapalı düğmesi olarak çalışır ve tester’a geçmeden önce bile hazır kalır.
-- `Kural testi` görünümü: Tabloyu içeri aktardığınız veya oluşturduğunuz öğelerin listesine çevirir, böylece Logic Hub iletişim kutusunu yeniden açmadan inceleme yapabilirsiniz. Sayaçlar/rozetler Matched vs No Match (ve Keep vs Sell) kombinasyonuna, yani “ilk eşleşen konfig kazanır” kuralına göre geçer; filtre satırı ise `Önizleme konfigleri` ve `Konfig filtresi` düğmelerini korur ve bunlara Kural testi’ne özel Keep/Sell + Matched/No Match filtresini ekler. `Konfig filtresi` tri-state’i (`Off` → `İlk` → `Herhangi`) bu görünümde Kural testi satırlarının İlk/Herhangi davranışını ayırır ve `Rules`’a döndüğünüzde de Sellfile satırlarını seçtiğiniz konfiglerle sınırlamaya devam eder. `.db` içe aktarmaları otomatik olarak bu görünüme geçer; istediğiniz zaman `Rules`’a dönebilirsiniz.
-- “Load RSL Helper Sellfile” sürükle-bırak ile aynı yönlendirmeyi paylaşır: `.hsfc` oluşturucuyu değiştirir, `.hsf` isteğe bağlı baz Sellfile olarak katmanlanır ve `.db` dosyaları Kural testi önizlemesine kuyruklanır (konfiglere dokunmadan). “Clear” düğmesi baz `.hsf` katmanını kaldırır.
+- `Rules` görünümü (varsayılan): Dışa aktarılacak tüm kuralları, yüklediğiniz isteğe bağlı baz `.hsf` satırları dahil gösterir. Başlıktaki sayaçlar Keep vs Sell dağılımında kalır; filtre satırı Slot/Rütbe/Nadirlik/Seviye için Herhangi/Yalnızca (`Any/Only`) çiplerini ve iki Reçeteler düğmesini birlikte gösterir: `Önizleme reçeteleri` çip görünürlüğünü kontrol eder, `Reçete filtresi` ise seçtiğiniz çiplere göre Sellfile satırlarını gizleyen basit Açık/Kapalı düğmesi olarak çalışır ve tester’a geçmeden önce bile hazır kalır.
+- `Kural testi` görünümü: Tabloyu içeri aktardığınız veya oluşturduğunuz öğelerin listesine çevirir, böylece Logic Hub iletişim kutusunu yeniden açmadan inceleme yapabilirsiniz. Sayaçlar/rozetler Matched vs No Match (ve Keep vs Sell) kombinasyonuna, yani “ilk eşleşen reçete kazanır” kuralına göre geçer; filtre satırı ise `Önizleme reçeteleri` ve `Reçete filtresi` düğmelerini korur ve bunlara Kural testi’ne özel Keep/Sell + Matched/No Match filtresini ekler. `Reçete filtresi` tri-state’i (`Off` → `İlk` → `Herhangi`) bu görünümde Kural testi satırlarının İlk/Herhangi davranışını ayırır ve `Rules`’a döndüğünüzde de Sellfile satırlarını seçtiğiniz reçetelerle sınırlamaya devam eder. `.db` içe aktarmaları otomatik olarak bu görünüme geçer; istediğiniz zaman `Rules`’a dönebilirsiniz.
+- “Load RSL Helper Sellfile” sürükle-bırak ile aynı yönlendirmeyi paylaşır: `.sfr` oluşturucuyu değiştirir, `.hsf` isteğe bağlı baz Sellfile olarak katmanlanır ve `.db` dosyaları Kural testi önizlemesine kuyruklanır (reçetelere dokunmadan). “Clear” düğmesi baz `.hsf` katmanını kaldırır.
 - Palet simgesini kullanarak alt stat etiketleri için metin/arka plan renklerini düzenleyin.
-- `Rules` görünümünde tablo sütunları hâlâ “Idx” ve “Konf” alanlarını içerir (baz dosyadan gelen satırlarda “Konf” boş kalır). `Kural testi` görünümünde aynı alanlar yuva/set, eşya istatistikleri ve ilk eşleşen konfig rozetini gösterir; böylece her artefakta ne olacağını doğrudan önizleme içinde görebilirsiniz.
+- `Rules` görünümünde tablo sütunları hâlâ “Idx” ve “Konf” alanlarını içerir (baz dosyadan gelen satırlarda “Konf” boş kalır). `Kural testi` görünümünde aynı alanlar yuva/set, eşya istatistikleri ve ilk eşleşen reçete rozetini gösterir; böylece her artefakta ne olacağını doğrudan önizleme içinde görebilirsiniz.
 
 ### Önizleme kontrolleri
 - Renkleri yönet: Palet ikonunu kullanın; «Varsayılanlara döndür» önerilen renkleri geri yükler.
-- Filtreler: Paneli açıp Konfig aramasına anında odaklanmak için `Ctrl+F` (`Cmd+F` macOS’ta) kısayolunu kullanın. Bir bölüm başlığını sağ tıklayın (veya simgesine `Ctrl`/`Cmd`+tıklayın) ve tüm bölümleri tek seferde daraltıp genişletin. `Önizleme konfigleri`, aktif filtreyle eşleşmeyen kayıtlı çipleri gizleyerek önizlemenin okunabilir kalmasını sağlar. `Konfig filtresi` tabloda hangi konfiglerin izinli olduğunu yönetir: `Rules` görünümünde basit bir Açık/Kapalı anahtardır, `Kural testi` önizlemesinde ise `Off` → `İlk` → `Herhangi` döngüsünü izleyerek Kural testi satırlarını İlk/Herhangi davranışına göre ayırır.
+- Filtreler: Paneli açıp Reçete aramasına anında odaklanmak için `Ctrl+F` (`Cmd+F` macOS’ta) kısayolunu kullanın. Bir bölüm başlığını sağ tıklayın (veya simgesine `Ctrl`/`Cmd`+tıklayın) ve tüm bölümleri tek seferde daraltıp genişletin. `Önizleme reçeteleri`, aktif filtreyle eşleşmeyen kayıtlı çipleri gizleyerek önizlemenin okunabilir kalmasını sağlar. `Reçete filtresi` tabloda hangi reçetelerin izinli olduğunu yönetir: `Rules` görünümünde basit bir Açık/Kapalı anahtardır, `Kural testi` önizlemesinde ise `Off` → `İlk` → `Herhangi` döngüsünü izleyerek Kural testi satırlarını İlk/Herhangi davranışına göre ayırır.
 - Sütun menüsü (başlığa sağ tık):
   - Sütunları sıfırla: Varsayılan sütunları ve genişlikleri geri getirir.
   - Genişlikleri uyarla: Sütunları pencere genişliğine göre ayarlar.
@@ -172,18 +172,18 @@ Notlar:
   - Sütun göster/gizle: Her sütun için onay kutuları.
 - Sütun sırası: Başlığı yatay sürükleyin.
 - Sütun genişliği: Başlığın sağ kenarını sürükleyin.
-- Tıklama davranışı: Tablo satırına tıklamak ilgili konfigi seçer (otomatik kaydırma yok). Bir konfig etiketine tıklamak tabloyu ilk eşleşen satıra kaydırır.
+- Tıklama davranışı: Tablo satırına tıklamak ilgili reçeteyi seçer (otomatik kaydırma yok). Bir reçete etiketine tıklamak tabloyu ilk eşleşen satıra kaydırır.
 
 ### Kural testi önizlemesi
 - Sellfile Önizlemesi başlığındaki “Logic Hub” düğmesine tıklayarak Ekipman diyaloğunu açın (Logic Hub → Gear sekmesi). Örnek ekipman oluşturun veya satırları (JSON/metin) yapıştırın; öğeler anında önizlemeye senkronize edilir, bu yüzden iletişim kutusunu kapatmak Kural testi tablosunu temizlemez.
 - `.db` dosyalarını uygulamaya bırakarak ya da “Load RSL Helper Sellfile” düğmesini kullanarak RSL Helper ekipman veritabanınızı içe aktarın (aynı yönlendirme). Bu içe aktarmalar binlerce envanter + gelen kutusu parçasını kuyruğa ekler, önizlemeyi Kural testi tablosuna geçirir ve oluşturucu/dışa aktarma durumunu bozmadan bırakır.
-- Her Kural testi satırı yuva, set, seviye, ana stat, alt statlar (glifler ve rulolar dahil), kaynağı (envanter vs gelen kutusu) ve Keep/Sell ile ilk eşleşen konfig etiketlerini gösterir. Devre dışı kurallar asla eşleşmez; “No Match” satırları Sellfile’ın dokunmayacağı öğeleri temsil eder.
-- Başlıktaki sayaçlar Matched vs No Match toplamlarının yanı sıra Keep/Sell dağılımlarını da gösterir. Kural testi filtrelerini (Keep/Sell sonucu + Matched/No Match + `Tester konfigleri` `Off`/`İlk`/`Herhangi`) kullanarak dışa aktarmadan önce edge case’lere odaklanın.
+- Her Kural testi satırı yuva, set, seviye, ana stat, alt statlar (glifler ve rulolar dahil), kaynağı (envanter vs gelen kutusu) ve Keep/Sell ile ilk eşleşen reçete etiketlerini gösterir. Devre dışı kurallar asla eşleşmez; “No Match” satırları Sellfile’ın dokunmayacağı öğeleri temsil eder.
+- Başlıktaki sayaçlar Matched vs No Match toplamlarının yanı sıra Keep/Sell dağılımlarını da gösterir. Kural testi filtrelerini (Keep/Sell sonucu + Matched/No Match + `Tester reçeteleri` `Off`/`İlk`/`Herhangi`) kullanarak dışa aktarmadan önce edge case’lere odaklanın.
 - Önizleme anahtarını kullanarak kurallar tablosu ile Kural testi tablosu arasında Logic Hub iletişim kutusunu yeniden açmadan gidip gelin; böylece üretilen satırları tetikleyen ekipmanla yan yana karşılaştırabilirsiniz.
 
 ### Dışa aktarma
 - Baz dosya yüklüyse «Birleştirilmiş RSL Helper Sellfile’ı dışa aktar» görünür; aksi durumda «RSL Helper Sellfile’ı dışa aktar».
-- Çalışmanızı korumak için oluşturucu alanındaki «Konfigleri kaydet»/«Konfigleri yükle» seçeneklerini kullanın.
+- Çalışmanızı korumak için oluşturucu alanındaki «Reçeteleri kaydet»/«Reçeteleri yükle» seçeneklerini kullanın.
 - Varsayılan HSF adı: `Sellfile_YYYYMMDD_HHMM.hsf`.
 
 ## Örnekler
@@ -213,7 +213,7 @@ Tüm örneklerde rulo başına 6★ alt stat hedefleri: SPD=5, CR%=5, CDMG%=5.
 - Düzenle ve test et: Uygulamayı açıp düzenlediğin `*.l10n.json` dosyasını üzerine sürükleyerek anlık oturumda hemen uygula (herhangi bir kurulum gerekmez veya yapılamaz).
 - Düzeltme gönder: Güncellenmiş JSON’u Discord mesajı olarak gönder. Anahtarları değiştirme; eksik anahtarlar İngilizceye geri döner.
 - Yerleşik diller: Gönderilen tüm diller tek HTML dosyasına derlenir, bu yüzden uygulama tamamen çevrimdışı çalışır. Düzeltmelerin bir sonraki sürüme eklenir.
-- `Stream-Helper-DB-to-Creator.bat` DB watcher’ı başlatır ve varsayılan RSL Helper veritabanını Sellfile Creator’a aktarır, böylece config’leri canlı kontrol etmek daha kolay olur.
+- `Stream-Helper-DB-to-Creator.bat` DB watcher’ı başlatır ve varsayılan RSL Helper veritabanını Sellfile Creator’a aktarır, böylece reçete’leri canlı kontrol etmek daha kolay olur.
 
 ## Teşekkürler
 

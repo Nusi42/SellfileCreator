@@ -866,7 +866,7 @@ export function parseHsfcObject(
   const parsedRec = (typeof parsed === 'object' && parsed !== null ? (parsed as Record<string, unknown>) : {})
   const runtimeSetNameMap = options?.runtimeSetNameMap
   let rawCfgs = Array.isArray(parsed) ? parsed : (Array.isArray(parsedRec['Configs']) ? (parsedRec['Configs'] as unknown[]) : [])
-  // Convenience: accept a single readable-config object (tests/fixtures/*.hsfc use this simplified shape).
+  // Convenience: accept a single readable-config object (tests/fixtures/*.sfr use this simplified shape).
   // Why: Developers often drag these fixtures into the app while validating builder output. The shape
   // matches what parseHsfcText expects for each config, so when no `Configs` array is present but we
   // detect the usual readable config keys, treat the payload as a one-item Configs array.
@@ -964,7 +964,7 @@ export function parseHsfcObject(
   }
 }
 
-/** Read a `.hsfc`/JSON file and parse with the same semantics as parseHsfcText. */
+/** Read a `.sfr` (legacy `.hsfc`)/JSON file and parse with parseHsfcText semantics. */
 export async function readHsfcFile(
   file: File,
   prev: { metasets: Metaset[]; substatTargets: SubstatTargetTable },

@@ -5,36 +5,36 @@ Construisez, prévisualisez et exportez des règles de vente pour RSL Helper via
 > Projet de fans indépendant. Aucune affiliation avec Plarium, Raid: Shadow Legends ou RSL Helper. Toutes les marques citées appartiennent à leurs propriétaires.
 
 ## Fonctionnalités
-- Construire et enregistrer des règles : créez des configs et conservez une bibliothèque réutilisable.
+- Construire et enregistrer des règles : créez des recettes et conservez une bibliothèque réutilisable.
 - Interrupteur d’aperçu du Sellfile : basculez depuis l’en-tête entre la table Règles et la table du Testeur de règles. Les compteurs/puces d’état s’adaptent (Conserver/Vendre pour les règles, Correspondance/Aucune correspondance pour le tester) et les filtres suivent le mode choisi.
-- Glisser-déposer ou bouton Charger : déposez `.hsfc`, `.hsf` ou `.db` où vous voulez (l’overlay confirme) ou cliquez sur « Charger Sellfile RSL Helper ». Les deux options font exactement la même chose : `.hsfc` remplace votre builder, `.hsf` ajoute une Sellfile de base optionnelle et `.db` alimente directement la file du Testeur de règles sans toucher vos configs.
+- Glisser-déposer ou bouton Charger : déposez `.sfr`, `.hsf` ou `.db` où vous voulez (l’overlay confirme) ou cliquez sur « Charger Sellfile RSL Helper ». Les deux options font exactement la même chose : `.sfr` remplace votre builder, `.hsf` ajoute une Sellfile de base optionnelle et `.db` alimente directement la file du Testeur de règles sans toucher vos recettes.
 - Méta-sets : nommez des groupes de sets (ex. Vitesse + Perception) et réutilisez-les dans plusieurs règles.
 - Export en un clic : exportez un fichier HSF (Sellfile RSL Helper) prêt à être chargé dans RSL Helper.
 - Bouton « Logic Hub » : ouvrez le dialogue depuis l’en-tête pour accéder à `Vente finale`, `Conserver les uniques`, `Butin de donjon` et au dialogue « Équipement » (onglet Équipement dans Logic Hub) au même endroit. Créez un équipement d’exemple, collez des lignes ou glissez `%APPDATA%\\RslHelper\\Config`, puis refermez le dialogue et laissez l’interrupteur d’aperçu sur la table voulue — la file du testeur reste visible sans rouvrir l’onglet.
-- Onglet « Conserver les uniques » : définissez les combinaisons que vous ne voulez jamais perdre. Dès que vos configs plus vos règles de vente actuellement actives supprimeraient toutes les copies, l’analyse génère automatiquement des règles de conservation.
-- Dialogue de restauration Autosave : lorsqu’un Autosave est détecté, choisissez précisément quoi recharger — configs, méta-sets, Objectifs de sous-stats, reste de Vente finale, note épinglée, état du panneau de filtres et même les importations du Testeur de règles.
+- Onglet « Conserver les uniques » : définissez les combinaisons que vous ne voulez jamais perdre. Dès que vos recettes plus vos règles de vente actuellement actives supprimeraient toutes les copies, l’analyse génère automatiquement des règles de conservation.
+- Dialogue de restauration Autosave : lorsqu’un Autosave est détecté, choisissez précisément quoi recharger — recettes, méta-sets, Objectifs de sous-stats, reste de Vente finale, note épinglée, état du panneau de filtres et même les importations du Testeur de règles.
 - Copier le dossier RSL Helper : le bandeau de l’aperçu expose un bouton presse-papiers qui copie `%APPDATA%\\RslHelper\\Config` pour coller le chemin dans l’Explorateur avant de faire glisser la `.db` dans Sellfile Creator.
 
 ## Mode d’emploi
 
-### Fichier de configs
-- HSFC (`.hsfc`) : fichier projet spécifique à l’application. Considérez-le comme une sauvegarde que vous pouvez charger ou partager. RSL Helper ne lit pas directement HSFC.
+### Fichier de recettes
+- SFR (`.sfr`) : fichier projet spécifique à l’application. Considérez-le comme une sauvegarde que vous pouvez charger ou partager. RSL Helper ne lit pas directement SFR.
 - HSF (`.hsf`) : la Sellfile consommée par RSL Helper. Exportez-la ici puis chargez-la dans RSL Helper.
-- Nom par défaut lors de l’enregistrement : `SellfileCreatorRules_AAAA MM JJ_HHMM.hsfc`.
+- Nom par défaut lors de l’enregistrement : `SellfileCreatorRecipes_AAAA MM JJ_HHMM.sfr`.
 
-### Configs Builder
-- Renseignez les champs du Configs Builder et attribuez un nom clair à votre config.
-- Cliquez sur « Ajouter comme nouvelle config » pour l’enregistrer. Sélectionnez ensuite la config dans la liste sous le builder pour l’éditer, puis validez avec « Mettre à jour la config sélectionnée ».
-- Charger/Enregistrer : utilisez « Charger des configs » et « Enregistrer des configs » pour réutiliser vos règles. Ces actions conservent tout ce qu’il faut pour reconstruire l’aperçu.
-- Menus Réinitialiser/Insérer/Appliquer : clic droit sur Réinitialiser, Insérer comme config ou Appliquer à la config pour ouvrir le menu partagé. Sauvegardez l’état actuel du builder comme modèle par défaut, retournez aux réglages d’usine, activez Réinitialisation auto après insertion (vide immédiatement le builder après l’insertion d’une config) ou activez Application auto à la config sélectionnée (pousse les modifications vers la config en surbrillance automatiquement après ~400 ms d’inactivité). Réinitialisation auto et Application auto ne peuvent pas coexister : activer l’une désactive l’autre, et ces préférences persistent entre les sessions.
-- Note : cliquez sur « Ajouter une note… » (ou « Modifier la note… ») pour joindre une note au fichier de configs. Lors du chargement d’un fichier contenant une note, celle-ci s’affiche automatiquement. Utilisez `<!-- configs:1,0 -->` pour insérer des puces de configs précises (0 prend la suivante). Utilisez `<!-- configs-re:"speed" -->` pour afficher toutes les configs dont le nom correspond au motif (insensible à la casse).
-- Restauration Autosave : au lancement, le dialogue liste chaque section sauvegardée avec sa propre case. Restaurez uniquement ce dont vous avez besoin — configs (y compris la puce sélectionnée), méta-sets, Objectifs de sous-stats, reste de Vente finale, note épinglée, panneau de filtres (état ouvert, puces, sections repliées) et importations du Testeur de règles. Laissez une case décochée pour conserver votre travail. Autosave mémorise également quels interrupteurs de Vente finale (Artefacts, Accessoires et plages de niveau) étaient actifs, donc rouvrir Logic Hub reflète exactement ce que vous avez exporté la dernière fois.
+### Recettes Builder
+- Renseignez les champs du Recettes Builder et attribuez un nom clair à votre recette.
+- Cliquez sur « Ajouter comme nouvelle recette » pour l’enregistrer. Sélectionnez ensuite la recette dans la liste sous le builder pour l’éditer, puis validez avec « Mettre à jour la recette sélectionnée ».
+- Charger/Enregistrer : utilisez « Charger des recettes » et « Enregistrer des recettes » pour réutiliser vos règles. Ces actions conservent tout ce qu’il faut pour reconstruire l’aperçu.
+- Menus Réinitialiser/Insérer/Appliquer : clic droit sur Réinitialiser, Insérer comme recette ou Appliquer à la recette pour ouvrir le menu partagé. Sauvegardez l’état actuel du builder comme modèle par défaut, retournez aux réglages d’usine, activez Réinitialisation auto après insertion (vide immédiatement le builder après l’insertion d’une recette) ou activez Application auto à la recette sélectionnée (pousse les modifications vers la recette en surbrillance automatiquement après ~400 ms d’inactivité). Réinitialisation auto et Application auto ne peuvent pas coexister : activer l’une désactive l’autre, et ces préférences persistent entre les sessions.
+- Note : cliquez sur « Ajouter une note… » (ou « Modifier la note… ») pour joindre une note au fichier de recettes. Lors du chargement d’un fichier contenant une note, celle-ci s’affiche automatiquement. Utilisez `<!-- recipes:1,0 -->` pour insérer des puces de recettes précises (0 prend la suivante). Utilisez `<!-- recipes-re:"speed" -->` pour afficher toutes les recettes dont le nom correspond au motif (insensible à la casse).
+- Restauration Autosave : au lancement, le dialogue liste chaque section sauvegardée avec sa propre case. Restaurez uniquement ce dont vous avez besoin — recettes (y compris la puce sélectionnée), méta-sets, Objectifs de sous-stats, reste de Vente finale, note épinglée, panneau de filtres (état ouvert, puces, sections repliées) et importations du Testeur de règles. Laissez une case décochée pour conserver votre travail. Autosave mémorise également quels interrupteurs de Vente finale (Artefacts, Accessoires et plages de niveau) étaient actifs, donc rouvrir Logic Hub reflète exactement ce que vous avez exporté la dernière fois.
 
 ### Structure du builder (du haut vers le bas)
 - Action & Activé : Déterminez ce qui se passe lorsque l’objet correspond.
   - `Conserver` marque l’objet comme Conserver ; RSL Helper le laisse intact.
   - `Vendre` marque l’objet comme Vendre ; RSL Helper le place dans la file de vente.
-  - L’interrupteur « Activé dans le Sellfile » décide si les lignes exportées restent actives. Les configs désactivées sont exportées avec Use = false (affichées barrées dans l’aperçu) ; activez « Ignorer les règles désactivées lors de l\'export » dans le menu d’export si vous préférez les exclure.
+  - L’interrupteur « Activé dans le Sellfile » décide si les lignes exportées restent actives. Les recettes désactivées sont barrées dans l’aperçu et n’ont aucun effet dans RSL Helper ; activez « Ignorer les règles désactivées lors de l\'export » dans le menu d’export si vous préférez les exclure.
 - Rang : Limitez la règle à certains rangs d’étoiles si vous souhaitez traiter différemment les pièces 6★ et 5★. `Peu importe` laisse tout éligible.
 - Niveaux : Choisissez un niveau minimum et maximum parmi +0, +4, +8, +12, +16. Les lignes ne sont générées qu’à l’intérieur de cette fenêtre.
 - Rareté : `Auto` (recommandé) sélectionne la rareté la plus basse qui respecte vos critères aux niveaux choisis.
@@ -82,7 +82,7 @@ Construisez, prévisualisez et exportez des règles de vente pour RSL Helper via
 
 ### Objectifs de sous-stats
 - Ouvrez le dialogue « Objectifs de sous-stats… » dans l’angle supérieur droit du builder.
-- Ces objectifs sont globaux : ils s’appliquent à toutes les configs.
+- Ces objectifs sont globaux : ils s’appliquent à toutes les recettes.
 - Ils déterminent les seuils par plage de niveau (0–3, 4–7, 8–11, 12–15, 16) et servent de repli dans la grille des Objectifs de jets.
 - « Réinitialiser » restaure les objectifs recommandés.
 
@@ -134,7 +134,7 @@ Empiler les puces de portée change qui obtient sa propre quote-part. Laissez «
 | Accessoires SPD les plus rapides | Slot = Anneau/Amulette/Bannière, Sous-stats = SPD | `5` | `Par règle` | Conserve les cinq meilleurs jets SPD sur vos accessoires (égalités incluses). |
 | Bannières ACC avec SPD | Slot = Bannière, Stat principale = ACC, Sous-stats = SPD + ACC, Poids : SPD plus élevé | `3` | `Par faction` | Chaque faction garde les meilleures bannières ACC où SPD compte le plus. |
 
-Astuce : Importez votre `.db` ou collez des objets dans le dialogue « Équipement » avant d’ouvrir l’onglet Conserver les uniques pour fournir de vrais items à l’analyse. Cliquez sur une carte de règle pour surligner les correspondances ; passez `Filtrer` sur `Sélection` pour ne voir que ces lignes.
+Astuce : Importez votre `.db` ou collez des objets dans le dialogue « Équipement » avant d’ouvrir l’onglet Conserver les uniques pour fournir de vrais items à l’analyse. Cliquez sur une règle de protection pour surligner les correspondances ; passez `Filtrer` sur `Sélection` pour ne voir que ces lignes.
 
 ### Butin de donjon (Simulateur)
 Ouvrez Logic Hub et passez sur **Butin de donjon**. Il simule le farm de donjon avec vos règles Sellfile actuelles pour voir combien d’équipement vous garderiez par set et par niveau d’amélioration.
@@ -151,24 +151,24 @@ Notes :
 - Environ 100 000 drops par palier, avec mise à jour pendant l’exécution.
 - Les taux de drop et les rolls sont simulés : considérez les chiffres comme des estimations.
 
-### Gestion des configs
-- Les configs sauvegardées apparaissent sous forme de puces sous le builder. Clic gauche pour sélectionner ; clic droit pour dupliquer, déplacer, copier ou supprimer.
-- « Delete Configs » supprime toutes les configs (avec confirmation).
+### Gestion des recettes
+- Les recettes sauvegardées apparaissent sous forme de puces sous le builder. Clic gauche pour sélectionner ; clic droit pour dupliquer, déplacer, copier ou supprimer.
+- « Delete Recettes » supprime toutes les recettes (avec confirmation).
 - Survol lié : Survoler une puce surligne toutes les lignes correspondantes dans l’aperçu et inversement.
-- Clic lié : Cliquer une ligne de la table sélectionne la config d’origine (les lignes provenant du HSF de base n’affectent pas la sélection).
+- Clic lié : Cliquer une ligne de la table sélectionne la recette d’origine (les lignes provenant du HSF de base n’affectent pas la sélection).
 - Copie de secours : Si l’accès au presse-papiers échoue, un dialogue s’ouvre avec le texte présélectionné pour copie manuelle.
 
 ### Aperçu du Sellfile (Règles & Testeur de règles)
 - L’en-tête de l’aperçu regroupe l’interrupteur `Règles`/`Testeur de règles`, le bouton « Logic Hub » et « Charger Sellfile RSL Helper » pour que vous sachiez toujours où changer de table ou ouvrir le dialogue « Équipement » (Logic Hub → onglet Équipement).
-- Vue `Règles` (par défaut) : affiche toutes les règles qui seront exportées, y compris les lignes provenant d’un éventuel `.hsf` de base. Les compteurs restent sur Conserver vs Vendre, la rangée de filtres conserve les puces Peu importe/Seulement (`Any/Only`) pour Slots/Rang/Rareté/Niveau et expose désormais les deux boutons `Configs` côte à côte : `Configs aperçu` décide si les puces restent visibles sous les filtres actuels et le `Filtre configs` se comporte ici comme un simple bouton Activé/Désactivé qui masque les lignes du Sellfile hors de votre sélection (tout en gardant le filtre prêt pour le tester).
-- Vue `Testeur de règles` : bascule la table sur la liste importée du tester afin d’examiner les objets importés ou créés sans rouvrir Logic Hub. Les compteurs passent en Correspondance vs Aucune correspondance (ainsi que Conserver/Vendre) selon la règle « la première config correspondante l’emporte », et la rangée de filtres conserve les deux boutons `Configs` (`Configs aperçu` + `Filtre configs`). Le premier continue de gérer la visibilité des puces, tandis que le `Filtre configs` applique le tri-état (`Off` → `Première` → `N’importe`) pour isoler les lignes du Testeur et continue de restreindre les règles correspondantes lorsque vous revenez sur `Règles`. Un filtre de résultat spécifique (Conserver/Vendre vs Correspondance/Aucune correspondance) s’y ajoute, ce qui permet d’isoler les objets frappés d’abord ou ailleurs par votre sélection sans masquer les puces. L’import d’un `.db` passe automatiquement dans cette vue, mais vous pouvez revenir aux règles quand vous le souhaitez.
-- Le bouton « Charger Sellfile RSL Helper » se comporte exactement comme le glisser-déposer : `.hsfc` remplace l’état du builder, `.hsf` ajoute un fichier de base optionnel et `.db` injecte des objets directement dans l’aperçu du Testeur de règles (sans toucher aux configs). Le bouton « Vider » déconnecte l’éventuel `.hsf` de base.
+- Vue `Règles` (par défaut) : affiche toutes les règles qui seront exportées, y compris les lignes provenant d’un éventuel `.hsf` de base. Les compteurs restent sur Conserver vs Vendre, la rangée de filtres conserve les puces Peu importe/Seulement (`Any/Only`) pour Slots/Rang/Rareté/Niveau et expose désormais les deux boutons `Recettes` côte à côte : `Recettes aperçu` décide si les puces restent visibles sous les filtres actuels et le `Filtre recettes` se comporte ici comme un simple bouton Activé/Désactivé qui masque les lignes du Sellfile hors de votre sélection (tout en gardant le filtre prêt pour le tester).
+- Vue `Testeur de règles` : bascule la table sur la liste importée du tester afin d’examiner les objets importés ou créés sans rouvrir Logic Hub. Les compteurs passent en Correspondance vs Aucune correspondance (ainsi que Conserver/Vendre) selon la règle « la première recette correspondante l’emporte », et la rangée de filtres conserve les deux boutons `Recettes` (`Recettes aperçu` + `Filtre recettes`). Le premier continue de gérer la visibilité des puces, tandis que le `Filtre recettes` applique le tri-état (`Off` → `Première` → `N’importe`) pour isoler les lignes du Testeur et continue de restreindre les règles correspondantes lorsque vous revenez sur `Règles`. Un filtre de résultat spécifique (Conserver/Vendre vs Correspondance/Aucune correspondance) s’y ajoute, ce qui permet d’isoler les objets frappés d’abord ou ailleurs par votre sélection sans masquer les puces. L’import d’un `.db` passe automatiquement dans cette vue, mais vous pouvez revenir aux règles quand vous le souhaitez.
+- Le bouton « Charger Sellfile RSL Helper » se comporte exactement comme le glisser-déposer : `.sfr` remplace l’état du builder, `.hsf` ajoute un fichier de base optionnel et `.db` injecte des objets directement dans l’aperçu du Testeur de règles (sans toucher aux recettes). Le bouton « Vider » déconnecte l’éventuel `.hsf` de base.
 - L’icône palette ouvre la gestion des couleurs pour ajuster texte et fond des étiquettes de sous-stats.
-- En vue Règles, les colonnes « Idx » et « Cfg » restent en place (vides pour les lignes du fichier de base). En vue Testeur de règles, le même espace affiche slot/set, stats de l’objet et la puce de la première config qui a correspondu pour visualiser immédiatement ce qui arriverait à chaque artefact.
+- En vue Règles, les colonnes « Idx » et « Cfg » restent en place (vides pour les lignes du fichier de base). En vue Testeur de règles, le même espace affiche slot/set, stats de l’objet et la puce de la première recette qui a correspondu pour visualiser immédiatement ce qui arriverait à chaque artefact.
 
 ### Contrôles de l’aperçu
 - Gérer les couleurs : cliquez sur l’icône palette au-dessus de la table pour personnaliser les couleurs, puis utilisez « Restaurer par défaut » pour revenir aux recommandations.
-- Filtres : pressez `Ctrl+F` (`Cmd+F` sur macOS) pour ouvrir instantanément le panneau et placer le curseur dans la recherche de configs. Clic droit sur un en-tête de section (ou `Ctrl`/`Cmd` + clic sur son chevron) pour replier ou déployer toutes les sections d’un coup. `Configs aperçu` masque les puces de configs qui ne correspondent pas au filtre actif pour garder l’aperçu lisible. `Filtre configs` décide quelles configs restent autorisées dans la table : simple bascule Activé/Désactivé en vue `Règles`, puis cycle `Off` → `Première` → `N’importe` quand l’aperçu du `Testeur de règles` est actif pour contrôler les lignes du tester.
+- Filtres : pressez `Ctrl+F` (`Cmd+F` sur macOS) pour ouvrir instantanément le panneau et placer le curseur dans la recherche de recettes. Clic droit sur un en-tête de section (ou `Ctrl`/`Cmd` + clic sur son chevron) pour replier ou déployer toutes les sections d’un coup. `Recettes aperçu` masque les puces de recettes qui ne correspondent pas au filtre actif pour garder l’aperçu lisible. `Filtre recettes` décide quelles recettes restent autorisées dans la table : simple bascule Activé/Désactivé en vue `Règles`, puis cycle `Off` → `Première` → `N’importe` quand l’aperçu du `Testeur de règles` est actif pour contrôler les lignes du tester.
 - Menu des colonnes (clic droit sur l’en-tête) :
   - Réinitialiser les colonnes : restaure colonnes et largeurs par défaut.
   - Ajuster la largeur : adapte les colonnes à la fenêtre.
@@ -176,18 +176,18 @@ Notes :
   - Afficher/Masquer : cases à cocher par colonne.
 - Réordonner : faites glisser un en-tête horizontalement.
 - Redimensionner : faites glisser le bord droit de l’en-tête.
-- Comportement du clic : cliquer une ligne sélectionne la config correspondante (sans défilement automatique). Cliquer une puce de config fait défiler jusqu’à la première ligne associée.
+- Comportement du clic : cliquer une ligne sélectionne la recette correspondante (sans défilement automatique). Cliquer une puce de recette fait défiler jusqu’à la première ligne associée.
 
 ### Aperçu du Testeur de règles
 - Cliquez sur « Logic Hub » dans l’en-tête de l’aperçu pour ouvrir le dialogue « Équipement » (Logic Hub → onglet Équipement). Créez un équipement d’exemple ou collez des lignes (JSON/texte). Les objets se synchronisent aussitôt avec l’aperçu, donc fermer le dialogue ne vide pas la grille.
 - Importez votre base de données d’équipement RSL Helper en déposant des fichiers `.db` dans l’app ou via « Charger Sellfile RSL Helper » (même comportement). Ces imports ajoutent des milliers d’artefacts (et les pièces de la boîte de réception), basculent l’aperçu sur la table du tester et laissent le builder ainsi que l’état d’export inchangés.
-- Chaque ligne du tester affiche slot, set, niveau, stat principale, sous-stats (avec glyphes et jets), la source (inventaire vs boîte de réception) et des puces Conserver/Vendre avec la première config/règle correspondante. Les règles désactivées ne correspondent jamais, donc « Aucune correspondance » signale l’équipement que la Sellfile laisserait intact.
-- Les compteurs de l’en-tête passent sur Correspondance vs Aucune correspondance plus Conserver/Vendre. Combinez ces totaux avec les filtres du tester (résultat Conserver/Vendre, Correspondance/Aucune correspondance et `Configs testeur` en `Off`/`Première`/`N’importe`) pour analyser les cas limites avant l’export.
+- Chaque ligne du tester affiche slot, set, niveau, stat principale, sous-stats (avec glyphes et jets), la source (inventaire vs boîte de réception) et des puces Conserver/Vendre avec la première recette/règle correspondante. Les règles désactivées ne correspondent jamais, donc « Aucune correspondance » signale l’équipement que la Sellfile laisserait intact.
+- Les compteurs de l’en-tête passent sur Correspondance vs Aucune correspondance plus Conserver/Vendre. Combinez ces totaux avec les filtres du tester (résultat Conserver/Vendre, Correspondance/Aucune correspondance et `Recettes testeur` en `Off`/`Première`/`N’importe`) pour analyser les cas limites avant l’export.
 - Utilisez l’interrupteur d’aperçu pour alterner entre les tables Règles et Testeur de règles sans rouvrir Logic Hub — idéal pour comparer les lignes générées et l’équipement qui les a déclenchées.
 
 ### Export
 - « Exporter Sellfile RSL Helper fusionnée » apparaît si un fichier de base est chargé ; sinon « Exporter Sellfile RSL Helper ».
-- Utilisez « Enregistrer des configs » et « Charger des configs » pour sauvegarder votre travail.
+- Utilisez « Enregistrer des recettes » et « Charger des recettes » pour sauvegarder votre travail.
 - Nom par défaut du fichier exporté : `Sellfile_AAAA MM JJ_HHMM.hsf`.
 
 ## Exemples
@@ -272,7 +272,7 @@ Exemple : Somme des jets avec jokers (2 sous-stats)
 - Modifier & tester : Ouvrez l’app et déposez votre `*.l10n.json` modifié pour l’appliquer immédiatement à la session en cours (aucune installation nécessaire ni possible).
 - Envoyer des corrections : Transmettez le JSON mis à jour par message Discord. Ne changez pas les clés ; les clés manquantes repassent en anglais.
 - Langues intégrées : Toutes les langues livrées sont compilées dans l’unique fichier HTML, l’app fonctionne donc entièrement hors ligne. Vos corrections seront intégrées à la prochaine version.
-- `Stream-Helper-DB-to-Creator.bat` démarre le DB watcher et diffuse la base RSL Helper par défaut dans Sellfile Creator pour vérifier les configs en direct plus facilement.
+- `Stream-Helper-DB-to-Creator.bat` démarre le DB watcher et diffuse la base RSL Helper par défaut dans Sellfile Creator pour vérifier les recettes en direct plus facilement.
 
 ## Remerciements
 

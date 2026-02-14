@@ -2872,21 +2872,25 @@ export const TesterGridCard = React.memo(function TesterGridCard({
       {/* Keep actions create a keep template tied to the current item. */}
       <MenuItem onClick={() => handleRuleTemplateSelect('keep')}>
         <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.5 }}>
-          <Typography variant="body2">{t('testerRuleTemplateAddPrefix')}</Typography>
+          {t('testerRuleTemplateActionPrefix').trim().length > 0 ? (
+            <Typography variant="body2">{t('testerRuleTemplateActionPrefix')}</Typography>
+          ) : null}
           <Typography variant="body2" sx={{ color: theme.palette.success.main, fontWeight: 700 }}>
             {t('testerMatchKeep')}
           </Typography>
-          <Typography variant="body2">{t('testerRuleTemplateConfigLabel')}</Typography>
+          <Typography variant="body2">{t('testerRuleTemplateActionSuffix')}</Typography>
         </Box>
       </MenuItem>
       {/* Sell actions create a sell template tied to the current item. */}
       <MenuItem onClick={() => handleRuleTemplateSelect('sell')}>
         <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.5 }}>
-          <Typography variant="body2">{t('testerRuleTemplateAddPrefix')}</Typography>
+          {t('testerRuleTemplateActionPrefix').trim().length > 0 ? (
+            <Typography variant="body2">{t('testerRuleTemplateActionPrefix')}</Typography>
+          ) : null}
           <Typography variant="body2" sx={{ color: theme.palette.error.main, fontWeight: 700 }}>
             {t('testerMatchSell')}
           </Typography>
-          <Typography variant="body2">{t('testerRuleTemplateConfigLabel')}</Typography>
+          <Typography variant="body2">{t('testerRuleTemplateActionSuffix')}</Typography>
         </Box>
       </MenuItem>
     </Menu>
