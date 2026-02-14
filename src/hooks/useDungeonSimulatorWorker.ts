@@ -30,6 +30,7 @@ import type {
   DungeonSimulatorWorkerRequest,
   DungeonSimulatorWorkerResponse,
 } from '../workers/dungeonSimulatorWorkerTypes'
+import { warmupWasmRuleEngine } from '../lib/wasm/wasmRuleEngine'
 import { createProgressThrottler, PROGRESS_THROTTLE_MS } from '../types/progress'
 
 type UseDungeonSimulatorWorkerParams = {
@@ -206,6 +207,8 @@ export function useDungeonSimulatorWorker(params: UseDungeonSimulatorWorkerParam
   const detailRequestRef = useRef(0)
   const detailResolversRef = useRef(new Map<number, (value: DungeonSimDetailStats | null) => void>())
   const genericResolversRef = useRef(new Map<number, (value: DungeonSimGenericStats | null) => void>())
+  // Cache local warmup so fallback runs do not reinitialize WASM each time.
+  const localWasmWarmupPromiseRef = useRef<Promise<void> | null>(null)
   // Local fallback loop needs a cancel hook when dependencies change.
   const fallbackCancelRef = useRef<(() => void) | null>(null)
   // Track previous inputs so we can resimulate only changed dungeons.
@@ -383,69 +386,87 @@ export function useDungeonSimulatorWorker(params: UseDungeonSimulatorWorkerParam
     ) => {
       // Local fallback path mirrors the worker API for consistency.
       let cancelled = false
+      // Warmup helper ensures sync matcher calls can run in fallback mode.
+      const ensureLocalWasmReady = async (): Promise<void> => {
+        if (!localWasmWarmupPromiseRef.current) {
+          localWasmWarmupPromiseRef.current = warmupWasmRuleEngine()
+        }
+        await localWasmWarmupPromiseRef.current
+      }
       // Reset progress so the UI reflects the fallback run count.
       setProgressBySpotlight((prev) => prev ?? buildEmptyProgressBySpotlight(fallbackRuns))
-      // Reuse the previous session when only a subset of dungeons changed.
-      const canReuse = !shouldRunAll && dirtyIds.length > 0 && fallbackSessionRef.current
-      // Keep running all dungeons if any non-dirty entry was still incomplete.
-      const shouldRunDirtyOnly = canReuse
-        && !hasIncompleteOutsideDirty(fallbackSessionRef.current?.getProgressBySpotlight() ?? null, dirtyIds, fallbackRuns)
-      const session = canReuse && fallbackSessionRef.current
-        ? fallbackSessionRef.current
-        : createDungeonSimSpotlightSession({
-          rules,
-          substatTargets,
-          runs: fallbackRuns,
-          ...(mode ? { mode } : {}),
-          ...(boosts ? { boosts } : {}),
-          ...(selections ? { selections } : {}),
+      void ensureLocalWasmReady()
+        .then(() => {
+          // Bail out if a newer request replaced this fallback run.
+          if (cancelled || activeRequestRef.current !== id) return
+          // Reuse the previous session when only a subset of dungeons changed.
+          const canReuse = !shouldRunAll && dirtyIds.length > 0 && fallbackSessionRef.current
+          // Keep running all dungeons if any non-dirty entry was still incomplete.
+          const shouldRunDirtyOnly = canReuse
+            && !hasIncompleteOutsideDirty(fallbackSessionRef.current?.getProgressBySpotlight() ?? null, dirtyIds, fallbackRuns)
+          const session = canReuse && fallbackSessionRef.current
+            ? fallbackSessionRef.current
+            : createDungeonSimSpotlightSession({
+              rules,
+              substatTargets,
+              runs: fallbackRuns,
+              ...(mode ? { mode } : {}),
+              ...(boosts ? { boosts } : {}),
+              ...(selections ? { selections } : {}),
+            })
+          if (canReuse) {
+            session.resetDungeons({
+              dungeonIds: dirtyIds,
+              ...(mode ? { mode } : {}),
+              ...(boosts ? { boosts } : {}),
+              ...(selections ? { selections } : {}),
+            })
+          }
+          // Run only the changed dungeons when every other table already completed.
+          const runTargets = shouldRunDirtyOnly ? dirtyIds : undefined
+          // Cache the session so detail queries can reuse the same run data.
+          fallbackSessionRef.current = session
+          // Throttle local updates so React isn't overwhelmed.
+          const forwardProgress = createProgressThrottler((_snapshot) => {
+            if (cancelled || activeRequestRef.current !== id) return
+            setResultsBySpotlight(session.getResultsBySpotlight())
+            setProgressBySpotlight(session.getProgressBySpotlight())
+          }, { throttleMs })
+          // Tick batches with time-slicing so the UI can still paint.
+          const tick = () => {
+            if (cancelled || activeRequestRef.current !== id) return
+            if (session.isComplete()) {
+              setResultsBySpotlight(session.getResultsBySpotlight())
+              setProgressBySpotlight(session.getProgressBySpotlight())
+              setRunning(false)
+              return
+            }
+            // Execute one batch, then emit progress.
+            session.runBatch(safeBatchSize, runTargets)
+            const progressBySpotlight = session.getProgressBySpotlight()
+            const sampleSpotlight = EVENT_SPOTLIGHT_OPTIONS[0] ?? EVENT_SPOTLIGHT_DEFAULT
+            const sampleProgress = progressBySpotlight[sampleSpotlight]
+            if (sampleProgress) {
+              // Forward the sample progress to drive the throttler clock.
+              forwardProgress({ completed: sampleProgress.completed, total: sampleProgress.total })
+            }
+            if (session.isComplete()) {
+              setResultsBySpotlight(session.getResultsBySpotlight())
+              setProgressBySpotlight(session.getProgressBySpotlight())
+              setRunning(false)
+              return
+            }
+            // Yield before the next batch to keep the main thread responsive.
+            setTimeout(tick, 0)
+          }
+          tick()
         })
-      if (canReuse) {
-        session.resetDungeons({
-          dungeonIds: dirtyIds,
-          ...(mode ? { mode } : {}),
-          ...(boosts ? { boosts } : {}),
-          ...(selections ? { selections } : {}),
+        .catch((error) => {
+          // Bubble warmup failures to the simulator error state.
+          if (cancelled || activeRequestRef.current !== id) return
+          setError(error instanceof Error ? error.message : String(error))
+          setRunning(false)
         })
-      }
-      // Run only the changed dungeons when every other table already completed.
-      const runTargets = shouldRunDirtyOnly ? dirtyIds : undefined
-      // Cache the session so detail queries can reuse the same run data.
-      fallbackSessionRef.current = session
-      // Throttle local updates so React isn't overwhelmed.
-      const forwardProgress = createProgressThrottler((_snapshot) => {
-        if (cancelled || activeRequestRef.current !== id) return
-        setResultsBySpotlight(session.getResultsBySpotlight())
-        setProgressBySpotlight(session.getProgressBySpotlight())
-      }, { throttleMs })
-      // Tick batches with time-slicing so the UI can still paint.
-      const tick = () => {
-        if (cancelled || activeRequestRef.current !== id) return
-        if (session.isComplete()) {
-          setResultsBySpotlight(session.getResultsBySpotlight())
-          setProgressBySpotlight(session.getProgressBySpotlight())
-          setRunning(false)
-          return
-        }
-        // Execute one batch, then emit progress.
-        session.runBatch(safeBatchSize, runTargets)
-        const progressBySpotlight = session.getProgressBySpotlight()
-        const sampleSpotlight = EVENT_SPOTLIGHT_OPTIONS[0] ?? EVENT_SPOTLIGHT_DEFAULT
-        const sampleProgress = progressBySpotlight[sampleSpotlight]
-        if (sampleProgress) {
-          // Forward the sample progress to drive the throttler clock.
-          forwardProgress({ completed: sampleProgress.completed, total: sampleProgress.total })
-        }
-        if (session.isComplete()) {
-          setResultsBySpotlight(session.getResultsBySpotlight())
-          setProgressBySpotlight(session.getProgressBySpotlight())
-          setRunning(false)
-          return
-        }
-        // Yield before the next batch to keep the main thread responsive.
-        setTimeout(tick, 0)
-      }
-      tick()
       return () => {
         cancelled = true
       }

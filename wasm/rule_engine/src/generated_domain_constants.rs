@@ -75,3 +75,9 @@ pub const STAT_VARIANT_CR: i64 = 1792;
 pub const STAT_VARIANT_CDMG: i64 = 2048;
 pub const STAT_VARIANT_ROLL_COUNT: i64 = 25345;
 
+// Auto-rarity lookup tables keyed by rarity code (0..16).
+pub const AUTO_RARITY_ROLL_MASK_BY_CODE: [i64; 17] = [15, 0, 1, 3, 7, 15, 0, 1, 3, 7, 1, 3, 7, 15, 15, 15, 15];
+pub const AUTO_RARITY_ADDITION_MASK_BY_CODE: [i64; 17] = [0, 15, 14, 12, 8, 0, 15, 14, 12, 8, 15, 15, 15, 15, 15, 0, 0];
+pub const AUTO_RARITY_INCLUDES_MYTHICAL_BY_CODE: [bool; 17] = [false, false, false, false, false, false, false, false, false, false, false, false, false, false, true, true, false];
+pub const AUTO_RARITY_MIN_ROLL_EVENTS_BY_CODE: [i64; 17] = [0, 0, 1, 2, 3, 4, 0, 1, 2, 3, 0, 0, 0, 0, 0, 4, 4];
+

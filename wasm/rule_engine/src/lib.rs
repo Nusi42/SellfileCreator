@@ -24,6 +24,7 @@ const LEVEL_ORDER_INDEX_12: i64 = 3;
 const LEVEL_ORDER_INDEX_16: i64 = 4;
 const LEVEL_ORDER_INDEX_ANY: i64 = 5;
 const LEVEL_ORDER_FALLBACK_OFFSET: i64 = 6;
+const JS_MAX_SAFE_INTEGER_I64: i64 = 9_007_199_254_740_991;
 
 // Rank/rarity masks operate on the discrete in-game values 1..6.
 const RANK_RARITY_MIN: i64 = 1;
@@ -57,8 +58,26 @@ struct RuleRaw {
     Substats: Option<Vec<RuleSubRaw>>,
     #[serde(default, rename = "__source")]
     source: Option<String>,
+    #[serde(default, rename = "__keepUniqueRuleId")]
+    keep_unique_rule_id: Option<String>,
+    #[serde(default, rename = "__keepUniqueRuleOrdinal")]
+    keep_unique_rule_ordinal: Option<i64>,
+    #[serde(default, rename = "__keepUniqueHash")]
+    keep_unique_hash: Option<String>,
+    #[serde(default, rename = "__keepUniqueRequired")]
+    keep_unique_required: Option<i64>,
+    #[serde(default, rename = "__keepUniqueScanMs")]
+    keep_unique_scan_ms: Option<f64>,
+    #[serde(default, rename = "__keepUniqueProjected")]
+    keep_unique_projected: Option<i64>,
+    #[serde(default, rename = "__keepUniqueDeficit")]
+    keep_unique_deficit: Option<i64>,
     #[serde(default, rename = "__keepUniqueItemKey")]
     keep_unique_item_key: Option<i64>,
+    #[serde(default, rename = "__keepUniquePlaceholder")]
+    keep_unique_placeholder: Option<bool>,
+    #[serde(default, rename = "__keepUniquePlaceholderMissing")]
+    keep_unique_placeholder_missing: Option<i64>,
 }
 
 // Substat row shape follows the HSF payload fields.
@@ -174,6 +193,25 @@ struct EvaluateItemResult {
     matching_config_decisions: Vec<MatchingConfigDecision>,
 }
 
+// Keep-unique candidate resolver consumes compact row payloads from TS.
+// `base_match_defined` distinguishes `undefined` from explicit `null`.
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct KeepUniqueCandidateResolveRowIn {
+    item: TestItemRaw,
+    #[serde(default)]
+    base_match_defined: bool,
+    base_match: Option<KeepUniqueCandidateResolveBaseMatchIn>,
+}
+
+// Only the fields needed for keep/sell fallback logic cross the boundary.
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct KeepUniqueCandidateResolveBaseMatchIn {
+    keep: bool,
+    cfg_idx: Option<i64>,
+}
+
 // Obsolete-report payload mirrors src/lib/hsfObsolete.ts return shape.
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -197,6 +235,66 @@ struct GeneratedRuleEntryIn {
     branch_order: i64,
     branch_seq: i64,
     original_idx: i64,
+}
+
+// Builder finalize payload carries per-rule emission ordering metadata.
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct BuilderFinalizeEmissionMetaIn {
+    level_idx: i64,
+    branch_idx: i64,
+    seq: i64,
+}
+
+// Keep emitted metadata paired with each rule while pruning/sorting in wasm.
+#[derive(Debug)]
+struct BuilderFinalizeEntry {
+    rule: RuleRaw,
+    meta: BuilderFinalizeEmissionMetaIn,
+    original_idx: usize,
+}
+
+// Auto-rarity bounds mirror BuilderConfig.substatRollBoundsV row shape.
+#[derive(Debug, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct AutoRarityResolveRollBoundsIn {
+    min: Option<f64>,
+}
+
+// Auto-rarity payload keeps only fields consumed by resolveAutoRarityCode.
+#[derive(Debug, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct AutoRarityResolveIn {
+    #[serde(default)]
+    auto_rarity_supplements_threshold: Option<String>,
+    #[serde(default)]
+    auto_min_required_rolls: Option<bool>,
+    #[serde(default)]
+    min_required_rolls: Option<f64>,
+    #[serde(default)]
+    locked_min_required_rolls: Option<f64>,
+    #[serde(default)]
+    min_count: Option<f64>,
+    #[serde(default)]
+    early_keep_mode: Option<String>,
+    #[serde(default)]
+    selected_pool_v: Vec<i64>,
+    #[serde(default)]
+    fixed_pool_v: Vec<i64>,
+    #[serde(default)]
+    substat_roll_bounds_v: HashMap<String, AutoRarityResolveRollBoundsIn>,
+}
+
+// Sort payload stores computed keys so comparator work stays branch-light.
+#[derive(Debug)]
+struct KeepUniqueMergeSortEntry {
+    rule: RuleRaw,
+    idx: usize,
+    level_idx: i64,
+    rule_ordinal: i64,
+    placeholder_rank: i64,
+    item_key: i64,
+    canonical: String,
 }
 
 // Internal carry type keeps branch ordering attached through finalization.
@@ -319,6 +417,326 @@ fn rarity_mask(code: i64) -> u8 {
         13 => rank_range_mask(1, 5),
         _ => RANK_RARITY_FULL_MASK,
     }
+}
+
+// Auto-rarity aggregate requirements are clamped to the same 0..5 domain as TS.
+fn auto_rarity_clamp_roll_requirement(value: Option<f64>) -> i64 {
+    let numeric = value.unwrap_or(0.0);
+    if !numeric.is_finite() {
+        return 0;
+    }
+    (numeric.floor() as i64).clamp(0, 5)
+}
+
+// Auto-rarity tables are generated from shared/domain-constants.json.
+// Clamp unknown values into the supported 0..16 rarity-code domain.
+fn auto_rarity_code_index(rarity_code: i64) -> usize {
+    // Unknown values are normalized to Any so table lookups stay in-bounds.
+    if !(RARITY_CODE_ANY..=RARITY_CODE_GTE_LEGENDARY).contains(&rarity_code) {
+        return RARITY_CODE_ANY as usize;
+    }
+    // Return a stable 0..16 index for generated table access.
+    rarity_code as usize
+}
+
+// Roll schedule mask uses bit positions [4, 8, 12, 16].
+fn auto_rarity_roll_mask_for_code(rarity_code: i64) -> i64 {
+    // Pull the roll schedule from the shared generated table.
+    AUTO_RARITY_ROLL_MASK_BY_CODE[auto_rarity_code_index(rarity_code)]
+}
+
+// Addition schedule mask uses bit positions [4, 8, 12, 16].
+fn auto_rarity_addition_mask_for_code(rarity_code: i64) -> i64 {
+    // Pull the addition schedule from the shared generated table.
+    AUTO_RARITY_ADDITION_MASK_BY_CODE[auto_rarity_code_index(rarity_code)]
+}
+
+// Mythical pre-roll membership comes from the shared auto-rarity table.
+fn auto_rarity_includes_mythical(rarity_code: i64) -> bool {
+    // Pull mythical membership from the shared generated table.
+    AUTO_RARITY_INCLUDES_MYTHICAL_BY_CODE[auto_rarity_code_index(rarity_code)]
+}
+
+// Convert a level ceiling into a schedule bitmask for [4, 8, 12, 16].
+fn auto_rarity_level_mask_up_to(ceiling: i64) -> i64 {
+    // Start empty and add a bit per unlocked milestone.
+    let mut mask = 0i64;
+    // +4 contributes the first milestone bit.
+    if ceiling >= LEVEL_MILESTONE_4 {
+        mask |= 1;
+    }
+    // +8 contributes the second milestone bit.
+    if ceiling >= LEVEL_MILESTONE_8 {
+        mask |= 2;
+    }
+    // +12 contributes the third milestone bit.
+    if ceiling >= LEVEL_MILESTONE_12 {
+        mask |= 4;
+    }
+    // +16 contributes the fourth milestone bit.
+    if ceiling >= LEVEL_MILESTONE_16 {
+        mask |= 8;
+    }
+    // Return the accumulated availability mask.
+    mask
+}
+
+// Count helper keeps roll-target math readable in the auto-rarity core.
+fn auto_rarity_count_levels_up_to_mask(mask: i64, ceiling: i64) -> i64 {
+    // Intersect the schedule mask with milestone bits available at this ceiling.
+    let filtered = (mask & auto_rarity_level_mask_up_to(ceiling)) as u32;
+    // Popcount gives the number of roll/addition milestones unlocked so far.
+    filtered.count_ones() as i64
+}
+
+// Presence helper mirrors hsfBuilder.ts early-level base+addition model.
+fn auto_rarity_present_at_level(rarity_code: i64, level: i64) -> i64 {
+    // Resolve the rarity-specific addition schedule from shared constants.
+    let additions_mask = auto_rarity_addition_mask_for_code(rarity_code);
+    // Count total additions to derive the +0 baseline substat count.
+    let additions_total = (additions_mask as u32).count_ones() as i64;
+    // Base start is 4 minus pending additions, clamped at zero.
+    let base_start = (4 - additions_total).max(0);
+    // Additions up to the requested level increase present substat count.
+    let adds_so_far = auto_rarity_count_levels_up_to_mask(additions_mask, level);
+    // Cap final presence at HSF's 4-substat maximum.
+    (base_start + adds_so_far).min(4)
+}
+
+// Auto-rarity resolver core mirrors hsfBuilder.ts::resolveAutoRarityCode,
+// with slot/main compatibility filtering performed in TS before this call.
+fn resolve_auto_rarity_code_core(input: &AutoRarityResolveIn) -> i64 {
+    // Optional floor threshold clamps auto output upward when configured.
+    let min_floor_code = match input
+        .auto_rarity_supplements_threshold
+        .as_deref()
+        .map(|value| value.trim().to_ascii_lowercase())
+        .as_deref()
+    {
+        Some("uncommon") => Some(RARITY_CODE_GTE_UNCOMMON),
+        Some("rare") => Some(RARITY_CODE_GTE_RARE),
+        Some("epic") => Some(RARITY_CODE_GTE_EPIC),
+        _ => None,
+    };
+    let apply_floor = |candidate: i64| -> i64 {
+        let Some(floor) = min_floor_code else {
+            return candidate;
+        };
+        let rate = |code: i64| -> i64 {
+            match code {
+                RARITY_CODE_ANY => 0,
+                RARITY_CODE_GTE_UNCOMMON => 1,
+                RARITY_CODE_GTE_RARE => 2,
+                RARITY_CODE_GTE_EPIC => 3,
+                RARITY_CODE_GTE_LEGENDARY => 4,
+                RARITY_CODE_MYTHICAL => 5,
+                _ => 0,
+            }
+        };
+        if rate(candidate) < rate(floor) {
+            floor
+        } else {
+            candidate
+        }
+    };
+
+    // Inputs are already slot/main filtered in TS to keep compatibility SSOT there.
+    let selected_pool_v = input.selected_pool_v.clone();
+    let fixed_pool_raw_v = input.fixed_pool_v.clone();
+    if selected_pool_v.is_empty() {
+        return apply_floor(RARITY_CODE_ANY);
+    }
+
+    // Locked subset follows selected ordering, mirroring TS includes/filter flow.
+    let fixed_pool_v = selected_pool_v
+        .iter()
+        .copied()
+        .filter(|variant| fixed_pool_raw_v.contains(variant))
+        .collect::<Vec<_>>();
+    let max_selectable_total = selected_pool_v.len().min(4) as i64;
+    let min_target_count = input
+        .min_count
+        .map(|value| value.floor() as i64)
+        .unwrap_or(0)
+        .max(fixed_pool_v.len() as i64)
+        .min(4);
+    let presence_need = max_selectable_total.min(min_target_count);
+    let required_v = fixed_pool_v
+        .iter()
+        .copied()
+        .take(4)
+        .collect::<Vec<_>>();
+    let optional_pool_v = selected_pool_v
+        .iter()
+        .copied()
+        .filter(|variant| !required_v.contains(variant))
+        .collect::<Vec<_>>();
+
+    // Parse per-substat mins from normalized bounds payload.
+    let mut per_min = HashMap::<i64, i64>::new();
+    for variant in &selected_pool_v {
+        let key = variant.to_string();
+        let min_value = input
+            .substat_roll_bounds_v
+            .get(&key)
+            .and_then(|entry| entry.min);
+        per_min.insert(*variant, auto_rarity_clamp_roll_requirement(min_value));
+    }
+    let has_per_stat_min = per_min.values().any(|value| *value > 0);
+    let sum_required = required_v
+        .iter()
+        .copied()
+        .map(|variant| per_min.get(&variant).copied().unwrap_or(0))
+        .sum::<i64>();
+
+    // Locked scope is active when locked stats exist and locked min is positive.
+    let locked_min_raw = auto_rarity_clamp_roll_requirement(input.locked_min_required_rolls);
+    let locked_scope = !required_v.is_empty() && locked_min_raw > 0;
+    let worst_sum_mins = if locked_scope {
+        sum_required
+    } else {
+        let need_local = (min_target_count - required_v.len() as i64).max(0) as usize;
+        let mut option_mins = optional_pool_v
+            .iter()
+            .copied()
+            .map(|variant| per_min.get(&variant).copied().unwrap_or(0))
+            .collect::<Vec<_>>();
+        option_mins.sort_by(|left, right| right.cmp(left));
+        let sum_optional = option_mins.into_iter().take(need_local).sum::<i64>();
+        sum_required + sum_optional
+    };
+
+    // Global aggregate minimum mirrors TS auto/manual split.
+    let global_min_raw = if input.auto_min_required_rolls == Some(false) {
+        auto_rarity_clamp_roll_requirement(input.min_required_rolls)
+    } else {
+        let base = if locked_scope {
+            required_v.len() as i64
+        } else {
+            min_target_count
+        };
+        if base <= 1 {
+            0
+        } else {
+            auto_rarity_clamp_roll_requirement(Some(base as f64))
+        }
+    };
+    let aggregate_min = global_min_raw.max(locked_min_raw);
+    if aggregate_min == 0 && !has_per_stat_min {
+        return apply_floor(RARITY_CODE_ANY);
+    }
+
+    // Base rarity tier derives from aggregate and per-stat minimum pressure.
+    let required_rolls = aggregate_min.max(worst_sum_mins).clamp(0, 5);
+    if required_rolls >= 5 {
+        return apply_floor(RARITY_CODE_MYTHICAL);
+    }
+    let candidate = match required_rolls {
+        0 => RARITY_CODE_ANY,
+        1 => RARITY_CODE_GTE_UNCOMMON,
+        2 => RARITY_CODE_GTE_RARE,
+        3 => RARITY_CODE_GTE_EPIC,
+        4 => RARITY_CODE_GTE_LEGENDARY,
+        _ => RARITY_CODE_MYTHICAL,
+    };
+
+    // Auto resolves against the full +0..+16 progression, not the current window.
+    let min_level = LEVEL_MILESTONE_0;
+    let baseline_after_start = true;
+    let roll_mask_cand = auto_rarity_roll_mask_for_code(candidate);
+    let pre_cand = if auto_rarity_includes_mythical(candidate) { 1 } else { 0 };
+    let rolls_up_to_16_cand = auto_rarity_count_levels_up_to_mask(roll_mask_cand, LEVEL_MILESTONE_16);
+    let rolls_up_to_start_cand = auto_rarity_count_levels_up_to_mask(roll_mask_cand, min_level);
+    let target_cand = if baseline_after_start {
+        (rolls_up_to_16_cand - rolls_up_to_start_cand).max(0) + pre_cand
+    } else {
+        rolls_up_to_16_cand + pre_cand
+    };
+
+    // Early mode presence safeguard for +0 windows and min-count selections.
+    let early_mode = input
+        .early_keep_mode
+        .as_deref()
+        .map(|value| value.trim().to_ascii_lowercase())
+        .unwrap_or_else(|| "early".to_string());
+    if min_level == LEVEL_MILESTONE_0 && early_mode != "late" {
+        let k = min_target_count.clamp(0, 4);
+        let required_by_k = match k {
+            0 => RARITY_CODE_ANY,
+            1 => RARITY_CODE_GTE_UNCOMMON,
+            2 => RARITY_CODE_GTE_RARE,
+            3 => RARITY_CODE_GTE_EPIC,
+            _ => RARITY_CODE_GTE_LEGENDARY,
+        };
+        if required_by_k != RARITY_CODE_ANY {
+            if candidate == RARITY_CODE_ANY && required_v.is_empty() {
+                return apply_floor(required_by_k);
+            }
+            let additions = auto_rarity_addition_mask_for_code(candidate);
+            let base_start_cand = (4 - (additions as u32).count_ones() as i64).max(0);
+            if base_start_cand < k {
+                return apply_floor(required_by_k);
+            }
+        }
+    }
+
+    // Locked substats must physically exist at earliest emitted level.
+    let locked_presence_need = (required_v.len() as i64).clamp(0, 4);
+    if locked_presence_need > 0 && auto_rarity_present_at_level(candidate, LEVEL_MILESTONE_0) < locked_presence_need {
+        for tier in [
+            RARITY_CODE_GTE_UNCOMMON,
+            RARITY_CODE_GTE_RARE,
+            RARITY_CODE_GTE_EPIC,
+            RARITY_CODE_GTE_LEGENDARY,
+        ] {
+            if auto_rarity_present_at_level(tier, LEVEL_MILESTONE_0) >= locked_presence_need {
+                return apply_floor(tier);
+            }
+        }
+    }
+
+    // Generic presence safeguard for the selected min-count target.
+    if presence_need > 0 && auto_rarity_present_at_level(candidate, LEVEL_MILESTONE_0) < presence_need {
+        let tiers = [
+            candidate,
+            RARITY_CODE_GTE_UNCOMMON,
+            RARITY_CODE_GTE_RARE,
+            RARITY_CODE_GTE_EPIC,
+            RARITY_CODE_GTE_LEGENDARY,
+        ];
+        for tier in tiers {
+            if auto_rarity_present_at_level(tier, LEVEL_MILESTONE_0) >= presence_need {
+                return apply_floor(tier);
+            }
+        }
+    }
+
+    // Candidate tier is sufficient when its full-window target can reach required rolls.
+    if required_rolls <= target_cand {
+        return apply_floor(candidate);
+    }
+    let roll_mask_myth = auto_rarity_roll_mask_for_code(RARITY_CODE_MYTHICAL);
+    let pre_myth = if auto_rarity_includes_mythical(RARITY_CODE_MYTHICAL) { 1 } else { 0 };
+    let rolls_up_to_16_myth = auto_rarity_count_levels_up_to_mask(roll_mask_myth, LEVEL_MILESTONE_16);
+    let rolls_up_to_start_myth = auto_rarity_count_levels_up_to_mask(roll_mask_myth, min_level);
+    let target_myth = if baseline_after_start {
+        (rolls_up_to_16_myth - rolls_up_to_start_myth).max(0) + pre_myth
+    } else {
+        rolls_up_to_16_myth + pre_myth
+    };
+    if required_rolls <= target_myth {
+        return apply_floor(RARITY_CODE_MYTHICAL);
+    }
+    apply_floor(candidate)
+}
+
+// Auto-rarity resolver keeps hsfBuilder rarity-floor/aggregate semantics in Rust.
+#[wasm_bindgen]
+pub fn resolve_auto_rarity_code_value(payload: JsValue) -> Result<i32, JsValue> {
+    let parsed: AutoRarityResolveIn = from_js_value(payload)
+        .map_err(|error| JsValue::from_str(&format!("Invalid auto-rarity payload: {error}")))?;
+    let code = resolve_auto_rarity_code_core(&parsed);
+    Ok(code as i32)
 }
 
 // Coerce flat/percent flags from number/string/bool payloads.
@@ -776,6 +1194,407 @@ fn collect_builder_pruning_obsolete_entries(rules: &[RuleRaw]) -> Vec<ObsoleteEn
         }
     }
     obsolete
+}
+
+// Export dedupe normalizes only the three comparison operators supported by TS.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ExportDedupeCondition {
+    Gte,
+    Lte,
+    Eq,
+}
+
+// Normalized substat tuple mirrors src/lib/hsfDeduplicate.ts comparison shape.
+#[derive(Debug, Clone, PartialEq)]
+struct ExportDedupeSubstat {
+    variant: i64,
+    condition: ExportDedupeCondition,
+    value: f64,
+}
+
+// Base key groups export-dedupe candidates by non-substat dimensions.
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct ExportDedupeBaseKey {
+    use_flag: bool,
+    rank: i64,
+    rarity: i64,
+    level: i64,
+    artifact_types: Vec<i64>,
+}
+
+// Keep-rule normalization payload used by coverage checks and set merging.
+#[derive(Debug, Clone)]
+struct ExportDedupeNormalizedRule {
+    rule: RuleRaw,
+    base_key: ExportDedupeBaseKey,
+    sets: Option<Vec<i64>>,
+    substats: Vec<ExportDedupeSubstat>,
+    main_stat_id: i64,
+    main_stat_f: f64,
+    faction: i64,
+}
+
+// Survivor rows preserve either a normalized keep rule or a skip-only passthrough.
+#[derive(Debug, Clone)]
+enum ExportDedupeSurvivor {
+    Skip(RuleRaw),
+    Keep(ExportDedupeNormalizedRule),
+}
+
+// Normalize Number-like MainStatF payloads so strings and booleans match TS coercion.
+fn numberish_or_default(value: Option<&serde_json::Value>, default: f64) -> f64 {
+    match value {
+        Some(serde_json::Value::Number(raw)) => raw.as_f64().unwrap_or(default),
+        Some(serde_json::Value::Bool(raw)) => {
+            if *raw {
+                1.0
+            } else {
+                0.0
+            }
+        }
+        Some(serde_json::Value::String(raw)) => raw.trim().parse::<f64>().unwrap_or(default),
+        _ => default,
+    }
+}
+
+// Parse export-dedupe condition tokens; unsupported values disable normalization.
+fn parse_export_dedupe_condition(value: Option<&str>) -> Option<ExportDedupeCondition> {
+    let trimmed = value.unwrap_or("").trim();
+    match trimmed {
+        ">=" => Some(ExportDedupeCondition::Gte),
+        "<=" => Some(ExportDedupeCondition::Lte),
+        "=" | "==" => Some(ExportDedupeCondition::Eq),
+        _ => None,
+    }
+}
+
+// Keep TS sort order (`<=`, `=`, `>=`) so signatures stay deterministic.
+fn export_dedupe_condition_order(value: ExportDedupeCondition) -> i32 {
+    match value {
+        ExportDedupeCondition::Lte => 0,
+        ExportDedupeCondition::Eq => 1,
+        ExportDedupeCondition::Gte => 2,
+    }
+}
+
+// Normalize and dedupe integer arrays exactly once per candidate rule.
+fn normalize_i64_array(values: Option<&Vec<i64>>) -> Vec<i64> {
+    let mut normalized = values.cloned().unwrap_or_default();
+    normalized.sort_unstable();
+    normalized.dedup();
+    normalized
+}
+
+// Set normalization keeps empty selections as wildcards (`None`) like TS.
+fn normalize_sets_for_export_dedupe(rule: &RuleRaw) -> Option<Vec<i64>> {
+    let normalized = normalize_i64_array(rule.ArtifactSet.as_ref());
+    if normalized.is_empty() {
+        None
+    } else {
+        Some(normalized)
+    }
+}
+
+// Type normalization feeds the base key used to group comparable rules.
+fn normalize_types_for_export_dedupe(rule: &RuleRaw) -> Vec<i64> {
+    normalize_i64_array(rule.ArtifactType.as_ref())
+}
+
+// Normalize substats into comparable tuples; invalid rows disable dedupe for that rule.
+fn normalize_substats_for_export_dedupe(subs: Option<&Vec<RuleSubRaw>>) -> Option<Vec<ExportDedupeSubstat>> {
+    let Some(substats) = subs else {
+        return Some(Vec::<ExportDedupeSubstat>::new());
+    };
+    let mut normalized = Vec::<ExportDedupeSubstat>::new();
+    for sub in substats {
+        if sub.NotAvailable.unwrap_or(false) {
+            continue;
+        }
+        let stat_id = sub.ID.unwrap_or(STAT_ID_ANY);
+        if stat_id == STAT_ID_ANY {
+            continue;
+        }
+        let Some(condition) = parse_export_dedupe_condition(sub.Condition.as_deref()) else {
+            return None;
+        };
+        let variant = sub_to_variant(stat_id, boolish_to_flag(sub.IsFlat.as_ref()));
+        let value = sub.Value.unwrap_or(0.0);
+        if !value.is_finite() {
+            return None;
+        }
+        normalized.push(ExportDedupeSubstat {
+            variant,
+            condition,
+            value,
+        });
+    }
+    normalized.sort_by(|left, right| {
+        if left.variant != right.variant {
+            return left.variant.cmp(&right.variant);
+        }
+        let left_order = export_dedupe_condition_order(left.condition);
+        let right_order = export_dedupe_condition_order(right.condition);
+        if left_order != right_order {
+            return left_order.cmp(&right_order);
+        }
+        left.value.total_cmp(&right.value)
+    });
+    Some(normalized)
+}
+
+// Build one normalized keep-rule candidate; invalid substat rows skip dedupe.
+fn normalize_keep_rule_for_export_dedupe(rule: &RuleRaw) -> Option<ExportDedupeNormalizedRule> {
+    let substats = normalize_substats_for_export_dedupe(rule.Substats.as_ref())?;
+    let base_key = ExportDedupeBaseKey {
+        use_flag: rule.Use.unwrap_or(true),
+        rank: rule.Rank.unwrap_or(RULE_FIELD_UNSET_SENTINEL),
+        rarity: rule.Rarity.unwrap_or(RULE_FIELD_UNSET_SENTINEL),
+        level: rule.LVLForCheck.unwrap_or(RULE_FIELD_UNSET_SENTINEL),
+        artifact_types: normalize_types_for_export_dedupe(rule),
+    };
+    Some(ExportDedupeNormalizedRule {
+        rule: rule.clone(),
+        base_key,
+        sets: normalize_sets_for_export_dedupe(rule),
+        substats,
+        main_stat_id: rule.MainStatID.unwrap_or(STAT_ID_ANY),
+        main_stat_f: numberish_or_default(rule.MainStatF.as_ref(), 1.0),
+        faction: rule.Faction.unwrap_or(0),
+    })
+}
+
+// Optional set arrays compare as either wildcard (`None`) or exact sorted values.
+fn export_dedupe_sets_equal(left: Option<&Vec<i64>>, right: Option<&Vec<i64>>) -> bool {
+    match (left, right) {
+        (None, None) => true,
+        (Some(left_values), Some(right_values)) => left_values == right_values,
+        _ => false,
+    }
+}
+
+// Set-union keeps wildcard semantics (`None`) when either side is unrestricted.
+fn export_dedupe_union_sets(left: Option<&Vec<i64>>, right: Option<&Vec<i64>>) -> Option<Vec<i64>> {
+    let (Some(left_values), Some(right_values)) = (left, right) else {
+        return None;
+    };
+    let mut merged = left_values.clone();
+    merged.extend(right_values.iter().copied());
+    merged.sort_unstable();
+    merged.dedup();
+    Some(merged)
+}
+
+// Apply merged set selections back to the cloned rule payload.
+fn export_dedupe_apply_sets(rule: &mut RuleRaw, sets: Option<&Vec<i64>>) {
+    rule.ArtifactSet = sets.cloned();
+}
+
+// Substats are already normalized/sorted, so vector equality is exact tuple equality.
+fn export_dedupe_substats_equal(left: &[ExportDedupeSubstat], right: &[ExportDedupeSubstat]) -> bool {
+    left == right
+}
+
+// Coverage requires each looser tuple to exist in stricter with compatible value.
+fn export_dedupe_substats_cover(looser: &[ExportDedupeSubstat], stricter: &[ExportDedupeSubstat]) -> bool {
+    for requirement in looser {
+        let counterpart = stricter
+            .iter()
+            .find(|candidate| {
+                candidate.variant == requirement.variant
+                    && candidate.condition == requirement.condition
+            });
+        let Some(candidate) = counterpart else {
+            return false;
+        };
+        match requirement.condition {
+            ExportDedupeCondition::Gte => {
+                if requirement.value > candidate.value {
+                    return false;
+                }
+            }
+            ExportDedupeCondition::Lte => {
+                if requirement.value < candidate.value {
+                    return false;
+                }
+            }
+            ExportDedupeCondition::Eq => {
+                if requirement.value != candidate.value {
+                    return false;
+                }
+            }
+        }
+    }
+    true
+}
+
+// Set coverage treats `None` as wildcard and concrete arrays as subset checks.
+fn export_dedupe_sets_cover(looser: Option<&Vec<i64>>, stricter: Option<&Vec<i64>>) -> bool {
+    match (looser, stricter) {
+        (None, _) => true,
+        (Some(_), None) => false,
+        (Some(loose_values), Some(strict_values)) => {
+            let loose_set = loose_values.iter().copied().collect::<HashSet<_>>();
+            strict_values.iter().all(|value| loose_set.contains(value))
+        }
+    }
+}
+
+// Main-stat exact equality mirrors TS strict numeric comparison.
+fn export_dedupe_main_stat_equal_exact(
+    left: &ExportDedupeNormalizedRule,
+    right: &ExportDedupeNormalizedRule,
+) -> bool {
+    left.main_stat_id == right.main_stat_id && left.main_stat_f == right.main_stat_f
+}
+
+// Main-stat coverage allows wildcard (`Any`) on the looser side.
+fn export_dedupe_main_stat_covers(
+    looser: &ExportDedupeNormalizedRule,
+    stricter: &ExportDedupeNormalizedRule,
+) -> bool {
+    if looser.main_stat_id == STAT_ID_ANY {
+        return true;
+    }
+    looser.main_stat_id == stricter.main_stat_id && looser.main_stat_f == stricter.main_stat_f
+}
+
+// Faction exact equality is used for duplicate-merge checks.
+fn export_dedupe_faction_equal_exact(
+    left: &ExportDedupeNormalizedRule,
+    right: &ExportDedupeNormalizedRule,
+) -> bool {
+    left.faction == right.faction
+}
+
+// Faction coverage allows wildcard faction `0` on the looser side.
+fn export_dedupe_faction_covers(
+    looser: &ExportDedupeNormalizedRule,
+    stricter: &ExportDedupeNormalizedRule,
+) -> bool {
+    if looser.faction == 0 {
+        return true;
+    }
+    looser.faction == stricter.faction
+}
+
+// Full rule coverage check mirrors hsfDeduplicate.ts::covers.
+fn export_dedupe_covers(
+    looser: &ExportDedupeNormalizedRule,
+    stricter: &ExportDedupeNormalizedRule,
+) -> bool {
+    if looser.base_key != stricter.base_key {
+        return false;
+    }
+    if !export_dedupe_main_stat_covers(looser, stricter) {
+        return false;
+    }
+    if !export_dedupe_faction_covers(looser, stricter) {
+        return false;
+    }
+    if !export_dedupe_sets_cover(looser.sets.as_ref(), stricter.sets.as_ref()) {
+        return false;
+    }
+    export_dedupe_substats_cover(&looser.substats, &stricter.substats)
+}
+
+// Deduplicate one contiguous keep segment while preserving original order semantics.
+fn dedupe_keep_segment_for_export(segment: &[RuleRaw]) -> Vec<RuleRaw> {
+    let mut survivors = Vec::<ExportDedupeSurvivor>::new();
+    for original in segment {
+        if original.Use == Some(false) {
+            survivors.push(ExportDedupeSurvivor::Skip(original.clone()));
+            continue;
+        }
+        let mut candidate_rule = original.clone();
+        let Some(mut normalized) = normalize_keep_rule_for_export_dedupe(&candidate_rule) else {
+            survivors.push(ExportDedupeSurvivor::Skip(candidate_rule));
+            continue;
+        };
+        let mut redundant = false;
+        let mut idx = 0usize;
+        while idx < survivors.len() && !redundant {
+            let survivor_snapshot = match survivors.get(idx) {
+                Some(ExportDedupeSurvivor::Skip(_)) => {
+                    idx += 1;
+                    continue;
+                }
+                Some(ExportDedupeSurvivor::Keep(survivor)) => survivor.clone(),
+                None => break,
+            };
+            if survivor_snapshot.base_key != normalized.base_key {
+                idx += 1;
+                continue;
+            }
+            if export_dedupe_substats_equal(&survivor_snapshot.substats, &normalized.substats)
+                && export_dedupe_main_stat_equal_exact(&survivor_snapshot, &normalized)
+                && export_dedupe_faction_equal_exact(&survivor_snapshot, &normalized)
+            {
+                let merged_sets =
+                    export_dedupe_union_sets(survivor_snapshot.sets.as_ref(), normalized.sets.as_ref());
+                if !export_dedupe_sets_equal(survivor_snapshot.sets.as_ref(), merged_sets.as_ref()) {
+                    if let Some(ExportDedupeSurvivor::Keep(survivor_mut)) = survivors.get_mut(idx) {
+                        survivor_mut.sets = merged_sets.clone();
+                        export_dedupe_apply_sets(&mut survivor_mut.rule, merged_sets.as_ref());
+                    }
+                }
+                redundant = true;
+                break;
+            }
+            if export_dedupe_covers(&survivor_snapshot, &normalized) {
+                redundant = true;
+                break;
+            }
+            if export_dedupe_covers(&normalized, &survivor_snapshot) {
+                let merged_sets =
+                    export_dedupe_union_sets(normalized.sets.as_ref(), survivor_snapshot.sets.as_ref());
+                survivors.remove(idx);
+                export_dedupe_apply_sets(&mut candidate_rule, merged_sets.as_ref());
+                normalized.sets = merged_sets;
+                normalized.rule = candidate_rule.clone();
+                continue;
+            }
+            idx += 1;
+        }
+        if !redundant {
+            survivors.push(ExportDedupeSurvivor::Keep(normalized));
+        }
+    }
+    survivors
+        .into_iter()
+        .map(|entry| match entry {
+            ExportDedupeSurvivor::Skip(rule) => rule,
+            ExportDedupeSurvivor::Keep(normalized) => normalized.rule,
+        })
+        .collect::<Vec<_>>()
+}
+
+// Flush helper keeps segment handling centralized for top-level export dedupe.
+fn flush_export_keep_segment(output: &mut Vec<RuleRaw>, keep_segment: &mut Vec<RuleRaw>) {
+    if keep_segment.is_empty() {
+        return;
+    }
+    let deduped = dedupe_keep_segment_for_export(keep_segment);
+    output.extend(deduped);
+    keep_segment.clear();
+}
+
+// Top-level export dedupe keeps keep segments isolated by `Keep === false` rows.
+fn dedupe_hsf_rules_for_export_core(rules: &[RuleRaw]) -> Vec<RuleRaw> {
+    if rules.len() <= 1 {
+        return rules.to_vec();
+    }
+    let mut output = Vec::<RuleRaw>::new();
+    let mut keep_segment = Vec::<RuleRaw>::new();
+    for rule in rules {
+        if rule.Keep == Some(true) {
+            keep_segment.push(rule.clone());
+            continue;
+        }
+        flush_export_keep_segment(&mut output, &mut keep_segment);
+        output.push(rule.clone());
+    }
+    flush_export_keep_segment(&mut output, &mut keep_segment);
+    output
 }
 
 // Keep level ordering aligned with merge.ts.
@@ -1646,7 +2465,11 @@ fn evaluate_item(
     let mut pending_keep_override: Option<EvalMatch> = None;
     let mut fallback_keep_override: Option<EvalMatch> = None;
     let mut any_keep_override_match: Option<EvalMatch> = None;
-    let mut matching_configs = BTreeSet::<i64>::new();
+    // Preserve first-seen config order so UI chips can remove only the true
+    // primary config entry without relying on sorted index order.
+    let mut matching_configs = Vec::<i64>::new();
+    // Keep O(1) duplicate suppression while retaining encounter order.
+    let mut matching_config_seen = HashSet::<i64>::new();
     let mut matching_config_decisions = HashMap::<i64, bool>::new();
 
     let mut prekeep_override: Option<EvalMatch> = None;
@@ -1711,7 +2534,11 @@ fn evaluate_item(
         }
 
         if let Some(cfg_idx) = rule.cfg_idx {
-            matching_configs.insert(cfg_idx);
+            // Keep first-seen ordering for compatibility with legacy JS matcher output.
+            if matching_config_seen.insert(cfg_idx) {
+                matching_configs.push(cfg_idx);
+            }
+            // First keep/sell decision per config still wins, matching prior behavior.
             matching_config_decisions.entry(cfg_idx).or_insert(keep);
         }
     }
@@ -1736,7 +2563,8 @@ fn evaluate_item(
         }
     }
 
-    let matching_config_indices = matching_configs.into_iter().collect::<Vec<_>>();
+    // Config indices are already in encounter order; clone into the output payload.
+    let matching_config_indices = matching_configs;
     let matching_config_decisions = matching_config_indices
         .iter()
         .map(|cfg_idx| MatchingConfigDecision {
@@ -1751,6 +2579,97 @@ fn evaluate_item(
         matching_config_indices,
         matching_config_decisions,
     )
+}
+
+// Resolve keep/sell outcomes for keep-unique candidate rows.
+// Rows reuse cached base matches when possible and only re-evaluate as needed.
+fn resolve_keep_unique_candidate_keep_flags_core(
+    rows: &[KeepUniqueCandidateResolveRowIn],
+    prepared_rules: &[PreparedRule],
+    config_modes: &[String],
+    ignore_keep_unique_config_indices: &[i64],
+) -> Vec<bool> {
+    let has_ignored_configs = !ignore_keep_unique_config_indices.is_empty();
+    let ignored_set = ignore_keep_unique_config_indices
+        .iter()
+        .copied()
+        .collect::<HashSet<_>>();
+    let eval_options = EvaluateOptionsRaw {
+        exclude_config_indices: if has_ignored_configs {
+            Some(ignore_keep_unique_config_indices.to_vec())
+        } else {
+            None
+        },
+        ..EvaluateOptionsRaw::default()
+    };
+
+    let mut keep_flags = Vec::<bool>::with_capacity(rows.len());
+    for row in rows {
+        // Reuse explicit base-match decisions unless the owning config is ignored.
+        if row.base_match_defined {
+            let base_cfg_idx = row.base_match.as_ref().and_then(|entry| entry.cfg_idx);
+            let base_cfg_ignored = has_ignored_configs
+                && base_cfg_idx
+                    .map(|cfg_idx| ignored_set.contains(&cfg_idx))
+                    .unwrap_or(false);
+            if !base_cfg_ignored {
+                keep_flags.push(row.base_match.as_ref().map(|entry| entry.keep).unwrap_or(false));
+                continue;
+            }
+        }
+
+        // No base rules means the row is sold by default.
+        if prepared_rules.is_empty() {
+            keep_flags.push(false);
+            continue;
+        }
+
+        // Re-evaluate with ignored configs excluded to mirror TS semantics.
+        let (first_match, _, _, _) =
+            evaluate_item(prepared_rules, config_modes, &row.item, &eval_options);
+        keep_flags.push(first_match.map(|entry| entry.keep).unwrap_or(false));
+    }
+    keep_flags
+}
+
+// Keep-unique candidate matching helper keeps base-match fallback and filtered
+// re-evaluation semantics in Rust so TS only handles row/object assembly.
+#[wasm_bindgen]
+pub fn resolve_keep_unique_candidate_keep_flags_value(
+    rows: JsValue,
+    rules: JsValue,
+    config_modes: JsValue,
+    ignore_keep_unique_config_indices: JsValue,
+) -> Result<JsValue, JsValue> {
+    let rows: Vec<KeepUniqueCandidateResolveRowIn> = from_js_value(rows)
+        .map_err(|error| JsValue::from_str(&format!("Invalid keep-unique rows payload: {error}")))?;
+    let rules: Vec<RuleRaw> = from_js_value(rules)
+        .map_err(|error| JsValue::from_str(&format!("Invalid keep-unique rules payload: {error}")))?;
+    let config_modes: Vec<String> = from_js_value(config_modes).map_err(|error| {
+        JsValue::from_str(&format!(
+            "Invalid keep-unique config-modes payload: {error}"
+        ))
+    })?;
+    let ignore_keep_unique_config_indices: Option<Vec<i64>> = from_js_value(ignore_keep_unique_config_indices)
+        .map_err(|error| {
+            JsValue::from_str(&format!(
+                "Invalid keep-unique ignored-config-indices payload: {error}"
+            ))
+        })?;
+
+    // Prepare rules once so each row evaluation reuses precomputed masks/flags.
+    let prepared_rules = rules.into_iter().map(prepare_rule).collect::<Vec<_>>();
+    let keep_flags = resolve_keep_unique_candidate_keep_flags_core(
+        &rows,
+        &prepared_rules,
+        &config_modes,
+        &ignore_keep_unique_config_indices.unwrap_or_default(),
+    );
+    to_js_value(&keep_flags).map_err(|error| {
+        JsValue::from_str(&format!(
+            "Failed to serialize keep-unique candidate keep flags: {error}"
+        ))
+    })
 }
 
 // Expose a fixed version token so diagnostics can verify which WASM build loaded.
@@ -2470,6 +3389,202 @@ pub fn find_obsolete_builder_value(rules: JsValue) -> Result<JsValue, JsValue> {
         .map_err(|error| JsValue::from_str(&format!("Failed to serialize builder-obsolete value: {error}")))
 }
 
+// Builder finalize mirrors hsfBuilder.ts post-emission behavior:
+// prune builder-obsolete rows, then stable sort by emission metadata.
+fn finalize_builder_rules_core(
+    rules: Vec<RuleRaw>,
+    emission_meta: Vec<BuilderFinalizeEmissionMetaIn>,
+) -> Result<Vec<RuleRaw>, String> {
+    // Metadata length must match emitted rule count.
+    if rules.len() != emission_meta.len() {
+        return Err(format!(
+            "Builder finalize payload mismatch (rules={}, emissionMeta={})",
+            rules.len(),
+            emission_meta.len(),
+        ));
+    }
+    // Zero/one-rule payloads are already finalized.
+    if rules.len() <= 1 {
+        return Ok(rules);
+    }
+    // Reuse the existing builder obsolete detector for SSOT pruning semantics.
+    let obsolete = collect_builder_pruning_obsolete_entries(&rules);
+    let obsolete_indices = obsolete
+        .into_iter()
+        .map(|entry| entry.index)
+        .collect::<HashSet<_>>();
+
+    // Keep metadata and rules aligned while pruning.
+    let mut paired = Vec::<BuilderFinalizeEntry>::new();
+    for (idx, (rule, meta)) in rules.into_iter().zip(emission_meta.into_iter()).enumerate() {
+        if obsolete_indices.contains(&idx) {
+            continue;
+        }
+        paired.push(BuilderFinalizeEntry {
+            rule,
+            meta,
+            original_idx: idx,
+        });
+    }
+    // Preserve deterministic grouping: level index, branch index, sequence, index.
+    paired.sort_by(|left, right| {
+        if left.meta.level_idx != right.meta.level_idx {
+            return left.meta.level_idx.cmp(&right.meta.level_idx);
+        }
+        if left.meta.branch_idx != right.meta.branch_idx {
+            return left.meta.branch_idx.cmp(&right.meta.branch_idx);
+        }
+        if left.meta.seq != right.meta.seq {
+            return left.meta.seq.cmp(&right.meta.seq);
+        }
+        left.original_idx.cmp(&right.original_idx)
+    });
+    Ok(paired.into_iter().map(|entry| entry.rule).collect::<Vec<_>>())
+}
+
+// Builder finalize export accepts JS arrays directly and returns finalized rules.
+#[wasm_bindgen]
+pub fn finalize_builder_rules_value(rules: JsValue, emission_meta: JsValue) -> Result<JsValue, JsValue> {
+    let parsed_rules: Vec<RuleRaw> = from_js_value(rules)
+        .map_err(|error| JsValue::from_str(&format!("Invalid builder-finalize rules: {error}")))?;
+    let parsed_meta: Vec<BuilderFinalizeEmissionMetaIn> = from_js_value(emission_meta)
+        .map_err(|error| JsValue::from_str(&format!("Invalid builder-finalize emissionMeta: {error}")))?;
+    let finalized = finalize_builder_rules_core(parsed_rules, parsed_meta)
+        .map_err(|error| JsValue::from_str(&error))?;
+    to_js_value(&finalized)
+        .map_err(|error| JsValue::from_str(&format!("Failed to serialize builder-finalize value: {error}")))
+}
+
+// Keep-unique merge helper mirrors merge.ts injected-rule filtering/sorting.
+fn merge_keep_unique_injected_rules_core(
+    base_rules: Vec<RuleRaw>,
+    custom_rules: Vec<RuleRaw>,
+    candidate_keep_rules: Vec<RuleRaw>,
+) -> Vec<RuleRaw> {
+    // Remove previously injected keep-unique rows from base key collection.
+    let mut base_custom_keep_keys = HashSet::<String>::new();
+    for rule in base_rules
+        .iter()
+        .filter(|entry| entry.source.as_deref() != Some(RULE_SOURCE_KEEP_UNIQUES))
+    {
+        if rule.Keep.unwrap_or(false) {
+            base_custom_keep_keys.insert(collapse_canonical_key(rule));
+        }
+    }
+    // Custom keep rows also block injected duplicates.
+    for rule in &custom_rules {
+        if rule.Keep.unwrap_or(false) {
+            base_custom_keep_keys.insert(collapse_canonical_key(rule));
+        }
+    }
+
+    // Preserve TS dedupe key behavior for placeholders vs item+level rows.
+    let mut injected_keep_keys = HashSet::<String>::new();
+    let mut filtered = Vec::<RuleRaw>::new();
+    for rule in candidate_keep_rules {
+        let canonical = collapse_canonical_key(&rule);
+        if base_custom_keep_keys.contains(&canonical) {
+            continue;
+        }
+        let is_keep_unique_source = rule.source.as_deref() == Some(RULE_SOURCE_KEEP_UNIQUES);
+        let dedupe_key = if is_keep_unique_source {
+            if rule.keep_unique_placeholder.unwrap_or(false) {
+                format!("ku:placeholder:{canonical}")
+            } else {
+                let item_key = rule
+                    .keep_unique_item_key
+                    .map(|value| value.to_string())
+                    .unwrap_or_else(|| "na".to_string());
+                let level = rule.LVLForCheck.unwrap_or(LEVEL_ANY_SENTINEL);
+                format!("ku:item:{item_key}:lvl:{level}")
+            }
+        } else {
+            canonical.clone()
+        };
+        if injected_keep_keys.contains(&dedupe_key) {
+            continue;
+        }
+        injected_keep_keys.insert(dedupe_key);
+        filtered.push(rule);
+    }
+
+    // Match merge.ts ordering: level, rule ordinal, placeholder rank, item key.
+    let mut sortable = filtered
+        .into_iter()
+        .enumerate()
+        .map(|(idx, rule)| {
+            let canonical = collapse_canonical_key(&rule);
+            KeepUniqueMergeSortEntry {
+                level_idx: level_order_value(rule.LVLForCheck),
+                rule_ordinal: rule.keep_unique_rule_ordinal.unwrap_or(JS_MAX_SAFE_INTEGER_I64),
+                placeholder_rank: if rule.keep_unique_placeholder.unwrap_or(false) {
+                    1
+                } else {
+                    0
+                },
+                item_key: rule.keep_unique_item_key.unwrap_or(JS_MAX_SAFE_INTEGER_I64),
+                idx,
+                canonical,
+                rule,
+            }
+        })
+        .collect::<Vec<_>>();
+    sortable.sort_by(|left, right| {
+        if left.level_idx != right.level_idx {
+            return left.level_idx.cmp(&right.level_idx);
+        }
+        if left.rule_ordinal != right.rule_ordinal {
+            return left.rule_ordinal.cmp(&right.rule_ordinal);
+        }
+        if left.placeholder_rank != right.placeholder_rank {
+            return left.placeholder_rank.cmp(&right.placeholder_rank);
+        }
+        if left.item_key != right.item_key {
+            return left.item_key.cmp(&right.item_key);
+        }
+        if left.canonical != right.canonical {
+            return left.canonical.cmp(&right.canonical);
+        }
+        left.idx.cmp(&right.idx)
+    });
+    sortable
+        .into_iter()
+        .map(|entry| entry.rule)
+        .collect::<Vec<_>>()
+}
+
+// Keep-unique merge export filters/dedupes/sorts injected rules in one wasm call.
+#[wasm_bindgen]
+pub fn merge_keep_unique_injected_rules_value(
+    base_rules: JsValue,
+    custom_rules: JsValue,
+    candidate_keep_rules: JsValue,
+) -> Result<JsValue, JsValue> {
+    let parsed_base_rules: Vec<RuleRaw> = from_js_value(base_rules)
+        .map_err(|error| JsValue::from_str(&format!("Invalid keep-unique merge base rules: {error}")))?;
+    let parsed_custom_rules: Vec<RuleRaw> = from_js_value(custom_rules)
+        .map_err(|error| JsValue::from_str(&format!("Invalid keep-unique merge custom rules: {error}")))?;
+    let parsed_candidate_keep_rules: Vec<RuleRaw> = from_js_value(candidate_keep_rules)
+        .map_err(|error| JsValue::from_str(&format!("Invalid keep-unique merge candidate rules: {error}")))?;
+    let merged = merge_keep_unique_injected_rules_core(
+        parsed_base_rules,
+        parsed_custom_rules,
+        parsed_candidate_keep_rules,
+    );
+    to_js_value(&merged)
+        .map_err(|error| JsValue::from_str(&format!("Failed to serialize keep-unique merge value: {error}")))
+}
+
+// Export dedupe keeps keep-segment matching/collapse in Rust for SSOT semantics.
+#[wasm_bindgen]
+pub fn dedupe_hsf_rules_for_export_value(rules: JsValue) -> Result<JsValue, JsValue> {
+    let parsed_rules: Vec<RuleRaw> = from_js_value(rules)
+        .map_err(|error| JsValue::from_str(&format!("Invalid export-dedupe value: {error}")))?;
+    let deduped = dedupe_hsf_rules_for_export_core(&parsed_rules);
+    to_js_value(&deduped)
+        .map_err(|error| JsValue::from_str(&format!("Failed to serialize export-dedupe value: {error}")))
+}
+
 // Shared generated-rule finalizer used by JSON and JsValue exports.
 fn finalize_generated_rules_core(
     raw_entries: Vec<GeneratedRuleEntryIn>,
@@ -2752,6 +3867,7 @@ const KEEP_UNIQUE_REASON_GLOBAL: &str = "global";
 const KEEP_UNIQUE_REASON_GROUP: &str = "group";
 // Activation "off" means sold items do not contribute to projected coverage.
 const KEEP_UNIQUE_ACTIVATION_OFF: &str = "off";
+const KEEP_UNIQUE_ACTIVATION_ANTICIPATE_GAPS: &str = "anticipategaps";
 // Substat matching modes are normalized to these three canonical tokens.
 const KEEP_UNIQUE_SUBSTAT_ANY: &str = "any";
 const KEEP_UNIQUE_SUBSTAT_ALL: &str = "all";
@@ -2858,6 +3974,8 @@ struct KeepUniqueWasmCountMode {
 #[serde(rename_all = "camelCase")]
 struct KeepUniqueWasmRuleIn {
     id: String,
+    #[serde(default)]
+    name: String,
     combination: KeepUniqueWasmCombination,
     required_count: i64,
     activation: String,
@@ -2886,7 +4004,25 @@ struct KeepUniqueWasmExpectedGroupIn {
     sample: KeepUniqueWasmExpectedSampleIn,
 }
 
-#[derive(Debug, Serialize, Clone)]
+#[derive(Debug, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct KeepUniqueWasmExpectedGroupDomainIn {
+    slot_order: Vec<i64>,
+    accessory_compatible_set_ids: Vec<i64>,
+    armor_compatible_set_ids: Vec<i64>,
+    allowed_main_by_slot: HashMap<String, Vec<i64>>,
+    all_faction_ids: Vec<i64>,
+}
+
+#[derive(Debug, Deserialize, Default, Clone)]
+#[serde(rename_all = "camelCase")]
+struct KeepUniqueWasmExpectedGroupsPayloadIn {
+    #[serde(default)]
+    expected_groups_by_rule_id: HashMap<String, Vec<KeepUniqueWasmExpectedGroupIn>>,
+    expected_group_domain: Option<KeepUniqueWasmExpectedGroupDomainIn>,
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 struct KeepUniqueWasmSubstatOut {
     variant: i64,
@@ -2894,7 +4030,7 @@ struct KeepUniqueWasmSubstatOut {
     value: f64,
 }
 
-#[derive(Debug, Serialize, Clone)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 struct KeepUniqueWasmArtifactOut {
     item_key: i64,
@@ -2909,7 +4045,7 @@ struct KeepUniqueWasmArtifactOut {
     substats: Vec<KeepUniqueWasmSubstatOut>,
 }
 
-#[derive(Debug, Serialize, Clone)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 struct KeepUniqueWasmPlaceholderOut {
     combination: KeepUniqueWasmCombination,
@@ -2919,7 +4055,7 @@ struct KeepUniqueWasmPlaceholderOut {
     substat_variants: Option<Vec<i64>>,
 }
 
-#[derive(Debug, Serialize, Clone)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 struct KeepUniqueWasmEntryOut {
     hash: String,
@@ -2939,7 +4075,7 @@ struct KeepUniqueWasmEntryOut {
     placeholders: Vec<KeepUniqueWasmPlaceholderOut>,
 }
 
-#[derive(Debug, Serialize, Clone)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 struct KeepUniqueWasmSnapshotOut {
     scanned_at: f64,
@@ -3157,6 +4293,361 @@ fn keep_unique_split_set_selections(values: &[KeepUniqueWasmSetSelection]) -> (H
     (includes, excludes)
 }
 
+fn keep_unique_sorted_unique_i64(values: &[i64]) -> Vec<i64> {
+    // Normalize arbitrary numeric lists into deterministic ascending vectors.
+    let mut sorted = values.to_vec();
+    sorted.sort_unstable();
+    sorted.dedup();
+    sorted
+}
+
+fn keep_unique_domain_slot_order(domain: &KeepUniqueWasmExpectedGroupDomainIn) -> Vec<i64> {
+    // Domain-provided slot order is authoritative; fallback keeps canonical order.
+    if domain.slot_order.is_empty() {
+        return vec![
+            ARTIFACT_TYPE_WEAPON,
+            ARTIFACT_TYPE_HELMET,
+            ARTIFACT_TYPE_SHIELD,
+            ARTIFACT_TYPE_GAUNTLETS,
+            ARTIFACT_TYPE_CHESTPLATE,
+            ARTIFACT_TYPE_BOOTS,
+            ARTIFACT_TYPE_RING,
+            ARTIFACT_TYPE_AMULET,
+            ARTIFACT_TYPE_BANNER,
+        ];
+    }
+    keep_unique_sorted_unique_i64(&domain.slot_order)
+}
+
+fn keep_unique_domain_allowed_mains_for_slot(
+    domain: &KeepUniqueWasmExpectedGroupDomainIn,
+    slot: i64,
+) -> Vec<i64> {
+    // Object keys cross the JS/WASM boundary as strings, so index by string slot id.
+    let key = slot.to_string();
+    let values = domain.allowed_main_by_slot.get(&key).cloned().unwrap_or_default();
+    keep_unique_sorted_unique_i64(&values)
+}
+
+fn keep_unique_resolve_slot_candidates(
+    combination: &KeepUniqueWasmCombination,
+    domain: &KeepUniqueWasmExpectedGroupDomainIn,
+) -> Vec<i64> {
+    // Explicit slots preserve user-selected ordering; otherwise use preferred slot order.
+    let base_slots = if combination.slots.is_empty() {
+        keep_unique_domain_slot_order(domain)
+    } else {
+        combination.slots.clone()
+    };
+    // Slot-level filtering checks include/exclude sets once per call.
+    let (set_includes, _) = keep_unique_split_set_selections(&combination.sets);
+    let has_set_includes = !set_includes.is_empty();
+    // Faction filters with only positive ids imply accessory-only matching.
+    let requires_accessory = !combination.factions.is_empty() && combination.factions.iter().all(|value| *value > 0);
+    let accessory_set_pool = domain
+        .accessory_compatible_set_ids
+        .iter()
+        .copied()
+        .chain([ACCESSORY_NO_SET_ID])
+        .collect::<HashSet<_>>();
+    let armor_set_pool = domain
+        .armor_compatible_set_ids
+        .iter()
+        .copied()
+        .collect::<HashSet<_>>();
+    let mut result = Vec::<i64>::new();
+    let mut seen = HashSet::<i64>::new();
+    for slot in base_slots {
+        if !seen.insert(slot) {
+            continue;
+        }
+        let accessory_slot = keep_unique_is_accessory_slot(slot);
+        // Accessory requirement drops artifact slots immediately.
+        if requires_accessory && !accessory_slot {
+            continue;
+        }
+        // Main-stat selections require at least one compatible main for this slot.
+        if !combination.main_stats.is_empty() {
+            let allowed_mains = keep_unique_domain_allowed_mains_for_slot(domain, slot);
+            if allowed_mains.is_empty() {
+                continue;
+            }
+            let matches_main = combination.main_stats.iter().any(|variant| allowed_mains.contains(variant));
+            if !matches_main {
+                continue;
+            }
+        }
+        // Explicit set includes require at least one include compatible with this slot family.
+        if has_set_includes {
+            let pool = if accessory_slot {
+                &accessory_set_pool
+            } else {
+                &armor_set_pool
+            };
+            let has_compatible_set = set_includes.iter().any(|set_id| {
+                if *set_id == ACCESSORY_NO_SET_ID {
+                    accessory_slot
+                } else {
+                    pool.contains(set_id)
+                }
+            });
+            if !has_compatible_set {
+                continue;
+            }
+        }
+        result.push(slot);
+    }
+    result
+}
+
+fn keep_unique_resolve_set_candidates_for_slot(
+    combination: &KeepUniqueWasmCombination,
+    slot: i64,
+    domain: &KeepUniqueWasmExpectedGroupDomainIn,
+) -> Vec<i64> {
+    let accessory_slot = keep_unique_is_accessory_slot(slot);
+    // Includes/excludes are canonicalized once per slot resolution.
+    let (set_includes, set_excludes) = keep_unique_split_set_selections(&combination.sets);
+    let has_set_includes = !set_includes.is_empty();
+    let allowed_pool = if accessory_slot {
+        keep_unique_sorted_unique_i64(&domain.accessory_compatible_set_ids)
+    } else {
+        keep_unique_sorted_unique_i64(&domain.armor_compatible_set_ids)
+    };
+    let allowed_pool_set = allowed_pool.iter().copied().collect::<HashSet<_>>();
+    if has_set_includes {
+        // Include mode keeps only explicit set ids that are valid for this slot type.
+        let mut filtered = set_includes
+            .into_iter()
+            .filter(|set_id| {
+                if *set_id == ACCESSORY_NO_SET_ID {
+                    accessory_slot
+                } else {
+                    allowed_pool_set.contains(set_id)
+                }
+            })
+            .collect::<Vec<_>>();
+        filtered.sort_unstable();
+        filtered.dedup();
+        return filtered;
+    }
+    // Non-include mode starts from allowed pool and applies exclusions.
+    let mut filtered = allowed_pool
+        .into_iter()
+        .filter(|set_id| !set_excludes.contains(set_id))
+        .collect::<Vec<_>>();
+    // Accessory slots also support the no-set sentinel unless includes were explicit.
+    if accessory_slot {
+        filtered.push(ACCESSORY_NO_SET_ID);
+    }
+    filtered.sort_unstable();
+    filtered.dedup();
+    filtered
+}
+
+fn keep_unique_resolve_set_candidates_for_slots(
+    combination: &KeepUniqueWasmCombination,
+    slots: &[i64],
+    domain: &KeepUniqueWasmExpectedGroupDomainIn,
+) -> Vec<i64> {
+    // Union set ids across all candidate slots while keeping ascending order.
+    let mut merged = HashSet::<i64>::new();
+    for slot in slots {
+        for set_id in keep_unique_resolve_set_candidates_for_slot(combination, *slot, domain) {
+            merged.insert(set_id);
+        }
+    }
+    let mut values = merged.into_iter().collect::<Vec<_>>();
+    values.sort_unstable();
+    values
+}
+
+fn keep_unique_resolve_main_stat_candidates_for_slot(
+    combination: &KeepUniqueWasmCombination,
+    slot: i64,
+    domain: &KeepUniqueWasmExpectedGroupDomainIn,
+) -> Vec<i64> {
+    let allowed = keep_unique_domain_allowed_mains_for_slot(domain, slot);
+    if allowed.is_empty() {
+        return Vec::new();
+    }
+    // Explicit main-stat selections are intersected with slot-compatible mains.
+    if !combination.main_stats.is_empty() {
+        let allowed_set = allowed.iter().copied().collect::<HashSet<_>>();
+        let mut filtered = combination
+            .main_stats
+            .iter()
+            .copied()
+            .filter(|variant| allowed_set.contains(variant))
+            .collect::<Vec<_>>();
+        filtered.sort_unstable();
+        filtered.dedup();
+        return filtered;
+    }
+    allowed
+}
+
+fn keep_unique_resolve_main_stat_candidates_for_slots(
+    combination: &KeepUniqueWasmCombination,
+    slots: &[i64],
+    domain: &KeepUniqueWasmExpectedGroupDomainIn,
+) -> Vec<i64> {
+    // Union main-stat variants across the slot candidates.
+    let mut merged = HashSet::<i64>::new();
+    for slot in slots {
+        for variant in keep_unique_resolve_main_stat_candidates_for_slot(combination, *slot, domain) {
+            merged.insert(variant);
+        }
+    }
+    let mut values = merged.into_iter().collect::<Vec<_>>();
+    values.sort_unstable();
+    values
+}
+
+fn keep_unique_resolve_faction_candidates_for_slot(
+    combination: &KeepUniqueWasmCombination,
+    slot: i64,
+    domain: &KeepUniqueWasmExpectedGroupDomainIn,
+) -> Vec<i64> {
+    let mut selection = combination
+        .factions
+        .iter()
+        .copied()
+        .collect::<Vec<_>>();
+    selection.sort_unstable();
+    selection.dedup();
+    let has_selection = !selection.is_empty();
+    if !keep_unique_is_accessory_slot(slot) {
+        // Artifact slots always normalize faction to zero.
+        if !has_selection {
+            return vec![0];
+        }
+        return if selection.contains(&0) { vec![0] } else { Vec::new() };
+    }
+    // Accessory slots honor explicit positive selections when provided.
+    if has_selection {
+        return selection.into_iter().filter(|value| *value > 0).collect::<Vec<_>>();
+    }
+    // Otherwise enumerate all known factions from the domain payload.
+    keep_unique_sorted_unique_i64(&domain.all_faction_ids)
+}
+
+fn keep_unique_resolve_slot_samples(slots: &[i64], count_mode: KeepUniqueWasmCountMode) -> Vec<i64> {
+    // Per-slot mode keeps every slot candidate.
+    if count_mode.per_slot {
+        return slots.to_vec();
+    }
+    // Without faction grouping, one slot sample is enough.
+    if !count_mode.per_faction {
+        return slots.first().copied().map(|slot| vec![slot]).unwrap_or_default();
+    }
+    // Faction grouping needs one accessory and one armor sample when available.
+    let accessory = slots.iter().copied().find(|slot| keep_unique_is_accessory_slot(*slot));
+    let armor = slots.iter().copied().find(|slot| !keep_unique_is_accessory_slot(*slot));
+    let mut samples = Vec::<i64>::new();
+    if let Some(slot) = accessory {
+        samples.push(slot);
+    }
+    if let Some(slot) = armor {
+        samples.push(slot);
+    }
+    if samples.is_empty() {
+        slots.first().copied().map(|slot| vec![slot]).unwrap_or_default()
+    } else {
+        samples
+    }
+}
+
+fn keep_unique_build_expected_groups_for_rule(
+    combination: &KeepUniqueWasmCombination,
+    count_mode: KeepUniqueWasmCountMode,
+    domain: &KeepUniqueWasmExpectedGroupDomainIn,
+) -> Vec<KeepUniqueWasmExpectedGroupIn> {
+    // Per-rule mode does not split by any count-key dimension.
+    if count_mode.per_rule {
+        return Vec::new();
+    }
+    let slot_candidates = keep_unique_resolve_slot_candidates(combination, domain);
+    if slot_candidates.is_empty() {
+        return Vec::new();
+    }
+    let slot_samples = keep_unique_resolve_slot_samples(&slot_candidates, count_mode);
+    let union_sets = if count_mode.per_set && !count_mode.per_slot {
+        keep_unique_resolve_set_candidates_for_slots(combination, &slot_candidates, domain)
+    } else {
+        Vec::new()
+    };
+    let union_main_stats = if count_mode.per_main_stat && !count_mode.per_slot {
+        keep_unique_resolve_main_stat_candidates_for_slots(combination, &slot_candidates, domain)
+    } else {
+        Vec::new()
+    };
+    // Preserve insertion order while deduping by count key.
+    let mut seen = HashSet::<String>::new();
+    let mut expected = Vec::<KeepUniqueWasmExpectedGroupIn>::new();
+    for slot in slot_samples {
+        let set_candidates = if count_mode.per_set {
+            if count_mode.per_slot {
+                keep_unique_resolve_set_candidates_for_slot(combination, slot, domain)
+            } else {
+                union_sets.clone()
+            }
+        } else {
+            vec![ACCESSORY_NO_SET_ID]
+        };
+        if count_mode.per_set && set_candidates.is_empty() {
+            continue;
+        }
+        let faction_candidates = if count_mode.per_faction {
+            keep_unique_resolve_faction_candidates_for_slot(combination, slot, domain)
+        } else {
+            vec![0]
+        };
+        if count_mode.per_faction && faction_candidates.is_empty() {
+            continue;
+        }
+        let main_stat_candidates = if count_mode.per_main_stat {
+            if count_mode.per_slot {
+                keep_unique_resolve_main_stat_candidates_for_slot(combination, slot, domain)
+            } else {
+                union_main_stats.clone()
+            }
+        } else {
+            vec![KEEP_UNIQUE_MAIN_ANY]
+        };
+        if count_mode.per_main_stat && main_stat_candidates.is_empty() {
+            continue;
+        }
+        // Cartesian product across the active grouped dimensions.
+        for set_id in &set_candidates {
+            for faction in &faction_candidates {
+                for main_stat in &main_stat_candidates {
+                    let key = keep_unique_count_key_from_parts(
+                        slot,
+                        *set_id,
+                        *faction,
+                        *main_stat,
+                        count_mode,
+                    );
+                    if !seen.insert(key.clone()) {
+                        continue;
+                    }
+                    expected.push(KeepUniqueWasmExpectedGroupIn {
+                        key,
+                        sample: KeepUniqueWasmExpectedSampleIn {
+                            slot,
+                            set: *set_id,
+                            faction: *faction,
+                            main_stat: *main_stat,
+                        },
+                    });
+                }
+            }
+        }
+    }
+    expected
+}
+
 fn keep_unique_canonicalize_number_list(values: &[i64]) -> String {
     // Empty selection is represented as wildcard in canonical hashes.
     if values.is_empty() {
@@ -3226,6 +4717,605 @@ fn keep_unique_hash_combination(combination: &KeepUniqueWasmCombination) -> Stri
         keep_unique_canonicalize_number_list(&combination.factions),
     ]
     .join("|")
+}
+
+// Keep rank/rarity clamp behavior aligned with merge.ts helper logic.
+fn keep_unique_clamp_rank_or_rarity_value(value: i64) -> i64 {
+    value.clamp(RANK_RARITY_MIN, RANK_RARITY_MAX)
+}
+
+// Keep rarity code mapping aligned with merge.ts::rarityValueToCode.
+fn keep_unique_rarity_value_to_code(value: i64) -> i64 {
+    match keep_unique_clamp_rank_or_rarity_value(value) {
+        1 => RARITY_CODE_COMMON,
+        2 => RARITY_CODE_UNCOMMON,
+        3 => RARITY_CODE_RARE,
+        4 => RARITY_CODE_EPIC,
+        5 => RARITY_CODE_LEGENDARY,
+        _ => RARITY_CODE_MYTHICAL,
+    }
+}
+
+// Keep level-coverage expansion aligned with merge.ts::coverageLevelsForArtifact.
+fn keep_unique_coverage_levels_for_artifact(artifact: &KeepUniqueWasmArtifactOut) -> Vec<i64> {
+    let resolved = artifact
+        .exact_level
+        .unwrap_or(artifact.level)
+        .clamp(LEVEL_MILESTONE_0, LEVEL_MILESTONE_16);
+    if resolved >= LEVEL_MILESTONE_16 {
+        return vec![LEVEL_MILESTONE_16];
+    }
+    if resolved >= LEVEL_MILESTONE_12 {
+        return vec![LEVEL_MILESTONE_12, LEVEL_MILESTONE_16];
+    }
+    if resolved >= LEVEL_MILESTONE_8 {
+        return vec![LEVEL_MILESTONE_8, LEVEL_MILESTONE_12, LEVEL_MILESTONE_16];
+    }
+    if resolved >= LEVEL_MILESTONE_4 {
+        return vec![
+            LEVEL_MILESTONE_4,
+            LEVEL_MILESTONE_8,
+            LEVEL_MILESTONE_12,
+            LEVEL_MILESTONE_16,
+        ];
+    }
+    vec![
+        LEVEL_MILESTONE_0,
+        LEVEL_MILESTONE_4,
+        LEVEL_MILESTONE_8,
+        LEVEL_MILESTONE_12,
+        LEVEL_MILESTONE_16,
+    ]
+}
+
+// Convert StatVariant to HSF main tuple (id + f flag) matching hsfTypes.ts.
+fn keep_unique_variant_to_main(variant: i64) -> (i64, i64) {
+    match variant {
+        STAT_VARIANT_HP_PERCENT => (STAT_ID_HP, 0),
+        STAT_VARIANT_HP_FLAT => (STAT_ID_HP, 1),
+        STAT_VARIANT_ATK_PERCENT => (STAT_ID_ATK, 0),
+        STAT_VARIANT_ATK_FLAT => (STAT_ID_ATK, 1),
+        STAT_VARIANT_DEF_PERCENT => (STAT_ID_DEF, 0),
+        STAT_VARIANT_DEF_FLAT => (STAT_ID_DEF, 1),
+        STAT_VARIANT_SPD => (STAT_ID_SPD, 1),
+        STAT_VARIANT_RES => (STAT_ID_RES, 1),
+        STAT_VARIANT_ACC => (STAT_ID_ACC, 1),
+        STAT_VARIANT_CR => (STAT_ID_CR, 0),
+        STAT_VARIANT_CDMG => (STAT_ID_CDMG, 0),
+        _ => (STAT_ID_ANY, 1),
+    }
+}
+
+// Convert StatVariant to HSF sub tuple (id + isFlat) matching hsfTypes.ts.
+fn keep_unique_variant_to_sub(variant: i64) -> (i64, bool) {
+    match variant {
+        STAT_VARIANT_HP_PERCENT => (STAT_ID_HP, false),
+        STAT_VARIANT_HP_FLAT => (STAT_ID_HP, true),
+        STAT_VARIANT_ATK_PERCENT => (STAT_ID_ATK, false),
+        STAT_VARIANT_ATK_FLAT => (STAT_ID_ATK, true),
+        STAT_VARIANT_DEF_PERCENT => (STAT_ID_DEF, false),
+        STAT_VARIANT_DEF_FLAT => (STAT_ID_DEF, true),
+        STAT_VARIANT_SPD => (STAT_ID_SPD, true),
+        STAT_VARIANT_RES => (STAT_ID_RES, true),
+        STAT_VARIANT_ACC => (STAT_ID_ACC, true),
+        STAT_VARIANT_CR => (STAT_ID_CR, false),
+        STAT_VARIANT_CDMG => (STAT_ID_CDMG, false),
+        STAT_VARIANT_ROLL_COUNT => (STAT_ID_ROLL_COUNT, true),
+        _ => (STAT_ID_ANY, true),
+    }
+}
+
+// Keep four-substat padding aligned with merge.ts::cloneAnySubstats.
+fn keep_unique_clone_any_substats() -> Vec<RuleSubRaw> {
+    vec![
+        RuleSubRaw {
+            ID: Some(STAT_ID_ANY),
+            Value: Some(0.0),
+            IsFlat: Some(serde_json::Value::Bool(true)),
+            NotAvailable: Some(false),
+            Condition: Some(String::new()),
+        },
+        RuleSubRaw {
+            ID: Some(STAT_ID_ANY),
+            Value: Some(0.0),
+            IsFlat: Some(serde_json::Value::Bool(true)),
+            NotAvailable: Some(false),
+            Condition: Some(String::new()),
+        },
+        RuleSubRaw {
+            ID: Some(STAT_ID_ANY),
+            Value: Some(0.0),
+            IsFlat: Some(serde_json::Value::Bool(true)),
+            NotAvailable: Some(false),
+            Condition: Some(String::new()),
+        },
+        RuleSubRaw {
+            ID: Some(STAT_ID_ANY),
+            Value: Some(0.0),
+            IsFlat: Some(serde_json::Value::Bool(true)),
+            NotAvailable: Some(false),
+            Condition: Some(String::new()),
+        },
+    ]
+}
+
+fn keep_unique_build_substats_for_artifact(substats: &[KeepUniqueWasmSubstatOut]) -> Vec<RuleSubRaw> {
+    let mut cloned = keep_unique_clone_any_substats();
+    let mut idx = 0usize;
+    for sub in substats {
+        if idx >= HSF_SUBSTAT_SLOT_COUNT {
+            break;
+        }
+        if sub.variant == STAT_VARIANT_ANY {
+            continue;
+        }
+        let (id, is_flat) = keep_unique_variant_to_sub(sub.variant);
+        if id == STAT_ID_ANY {
+            continue;
+        }
+        let value = if sub.value.is_finite() {
+            sub.value.max(0.0)
+        } else {
+            0.0
+        };
+        cloned[idx] = RuleSubRaw {
+            ID: Some(id),
+            Value: Some(value),
+            IsFlat: Some(serde_json::Value::Bool(is_flat)),
+            NotAvailable: Some(false),
+            Condition: Some(">=".to_string()),
+        };
+        idx += 1;
+    }
+    cloned
+}
+
+fn keep_unique_build_placeholder_substats(variant: i64) -> Vec<RuleSubRaw> {
+    let mut cloned = keep_unique_clone_any_substats();
+    if variant == STAT_VARIANT_ANY {
+        return cloned;
+    }
+    let (id, is_flat) = keep_unique_variant_to_sub(variant);
+    if id == STAT_ID_ANY {
+        return cloned;
+    }
+    cloned[0] = RuleSubRaw {
+        ID: Some(id),
+        Value: Some(1.0),
+        IsFlat: Some(serde_json::Value::Bool(is_flat)),
+        NotAvailable: Some(false),
+        Condition: Some(">=".to_string()),
+    };
+    cloned
+}
+
+fn keep_unique_build_placeholder_substats_group(variants: &[i64]) -> Vec<RuleSubRaw> {
+    let mut cloned = keep_unique_clone_any_substats();
+    let mut seen = HashSet::<i64>::new();
+    let mut idx = 0usize;
+    for variant in variants {
+        if idx >= HSF_SUBSTAT_SLOT_COUNT {
+            break;
+        }
+        if *variant == STAT_VARIANT_ANY {
+            continue;
+        }
+        if !seen.insert(*variant) {
+            continue;
+        }
+        let (id, is_flat) = keep_unique_variant_to_sub(*variant);
+        if id == STAT_ID_ANY {
+            continue;
+        }
+        cloned[idx] = RuleSubRaw {
+            ID: Some(id),
+            Value: Some(1.0),
+            IsFlat: Some(serde_json::Value::Bool(is_flat)),
+            NotAvailable: Some(false),
+            Condition: Some(">=".to_string()),
+        };
+        idx += 1;
+    }
+    cloned
+}
+
+fn keep_unique_normalize_rank_selection(values: &[i64]) -> Vec<Option<i64>> {
+    let normalized = keep_unique_sorted_unique_i64(values);
+    if normalized.is_empty() {
+        return vec![None];
+    }
+    normalized
+        .into_iter()
+        .map(|value| Some(keep_unique_clamp_rank_or_rarity_value(value)))
+        .collect::<Vec<_>>()
+}
+
+// Canonical key mirrors merge.ts::canonicalRuleKey for placeholder dedupe.
+fn keep_unique_canonical_rule_key(rule: &RuleRaw) -> String {
+    let artifact_types = normalize_i64_array(rule.ArtifactType.as_ref());
+    let artifact_sets = normalize_i64_array(rule.ArtifactSet.as_ref());
+    let substats = rule
+        .Substats
+        .clone()
+        .unwrap_or_default()
+        .into_iter()
+        .map(|sub| {
+            let value = sub.Value.unwrap_or(0.0);
+            serde_json::json!({
+                "ID": sub.ID.unwrap_or(STAT_ID_ANY),
+                "IsFlat": matches!(sub.IsFlat.as_ref(), Some(serde_json::Value::Bool(true))),
+                "NotAvailable": sub.NotAvailable.unwrap_or(false),
+                "Condition": sub.Condition.unwrap_or_default(),
+                "Value": if value.is_finite() { value } else { 0.0 },
+            })
+        })
+        .collect::<Vec<_>>();
+    let payload = serde_json::json!({
+        "Keep": rule.Keep.unwrap_or(false),
+        "Use": rule.Use.unwrap_or(true),
+        "Rank": rule.Rank.unwrap_or(0),
+        "Level": rule.LVLForCheck.unwrap_or(0),
+        "Faction": rule.Faction.unwrap_or(0),
+        "MainStatID": rule.MainStatID.unwrap_or(STAT_ID_ANY),
+        "MainStatF": numberish_or_default(rule.MainStatF.as_ref(), 1.0),
+        "ArtifactType": artifact_types,
+        "ArtifactSet": artifact_sets,
+        "Substats": substats,
+    });
+    serde_json::to_string(&payload).unwrap_or_default()
+}
+
+fn keep_unique_trim_name(name: &str) -> Option<String> {
+    let trimmed = name.trim();
+    if trimmed.is_empty() {
+        None
+    } else {
+        Some(trimmed.to_string())
+    }
+}
+
+fn keep_unique_build_placeholder_base_rules(
+    combination: &KeepUniqueWasmCombination,
+    config_id: i64,
+    normalized_name: Option<&str>,
+) -> Vec<RuleRaw> {
+    let slot_values = keep_unique_sorted_unique_i64(&combination.slots);
+    let (set_includes, _) = keep_unique_split_set_selections(&combination.sets);
+    let mut set_values = set_includes.into_iter().collect::<Vec<_>>();
+    set_values.sort_unstable();
+    let faction_values = keep_unique_sorted_unique_i64(&combination.factions);
+    let rank_options = keep_unique_normalize_rank_selection(&combination.ranks);
+    let rarity_options = keep_unique_normalize_rank_selection(&combination.rarities);
+    let main_options = keep_unique_sorted_unique_i64(&combination.main_stats);
+    let faction_options = if faction_values.is_empty() {
+        vec![0]
+    } else {
+        faction_values
+    };
+    let main_variants = if main_options.is_empty() {
+        vec![STAT_VARIANT_ANY]
+    } else {
+        main_options
+    };
+    let mut rules = Vec::<RuleRaw>::new();
+    let mut seen = HashSet::<String>::new();
+    for rank_variant in &rank_options {
+        for rarity_variant in &rarity_options {
+            for faction in &faction_options {
+                for main_variant in &main_variants {
+                    let (main_id, main_f) = keep_unique_variant_to_main(*main_variant);
+                    let keep_rule = RuleRaw {
+                        ConfigID: Some(config_id),
+                        ConfigName: normalized_name.map(|value| value.to_string()),
+                        Keep: Some(true),
+                        IsRuleTypeAND: Some(false),
+                        Use: Some(true),
+                        ArtifactSet: if set_values.is_empty() {
+                            None
+                        } else {
+                            Some(set_values.clone())
+                        },
+                        ArtifactType: if slot_values.is_empty() {
+                            None
+                        } else {
+                            Some(slot_values.clone())
+                        },
+                        Rank: Some(rank_variant.unwrap_or(0)),
+                        Rarity: Some(match rarity_variant {
+                            Some(value) => keep_unique_rarity_value_to_code(*value),
+                            None => RARITY_CODE_ANY,
+                        }),
+                        MainStatID: Some(main_id),
+                        MainStatF: Some(serde_json::Value::from(main_f)),
+                        LVLForCheck: Some(LEVEL_ANY_SENTINEL),
+                        Faction: Some(*faction),
+                        Substats: Some(keep_unique_clone_any_substats()),
+                        source: Some(RULE_SOURCE_KEEP_UNIQUES.to_string()),
+                        keep_unique_rule_id: None,
+                        keep_unique_rule_ordinal: None,
+                        keep_unique_hash: None,
+                        keep_unique_required: None,
+                        keep_unique_scan_ms: None,
+                        keep_unique_projected: None,
+                        keep_unique_deficit: None,
+                        keep_unique_item_key: None,
+                        keep_unique_placeholder: None,
+                        keep_unique_placeholder_missing: None,
+                    };
+                    let canonical = keep_unique_canonical_rule_key(&keep_rule);
+                    if !seen.insert(canonical) {
+                        continue;
+                    }
+                    rules.push(keep_rule);
+                }
+            }
+        }
+    }
+    rules
+}
+
+fn keep_unique_apply_rule_meta(
+    keep_rule: &mut RuleRaw,
+    rule_id: &str,
+    rule_ordinal: i64,
+    hash: &str,
+    entry: &KeepUniqueWasmEntryOut,
+    scanned_at: Option<f64>,
+) {
+    keep_rule.keep_unique_rule_id = Some(rule_id.to_string());
+    keep_rule.keep_unique_rule_ordinal = Some(rule_ordinal);
+    keep_rule.keep_unique_hash = Some(hash.to_string());
+    keep_rule.keep_unique_required = Some(entry.required_count);
+    keep_rule.keep_unique_projected = Some(entry.projected_count);
+    keep_rule.keep_unique_deficit = Some(entry.deficit);
+    keep_rule.keep_unique_scan_ms = scanned_at;
+}
+
+fn keep_unique_build_placeholder_rules(
+    rule: &KeepUniqueWasmRuleIn,
+    entry: &KeepUniqueWasmEntryOut,
+    config_id: i64,
+    keep_unique_rule_ordinal: i64,
+    scanned_at: Option<f64>,
+) -> Vec<RuleRaw> {
+    let placeholders = &entry.placeholders;
+    if placeholders.is_empty() {
+        return Vec::new();
+    }
+    let normalized_substat_match = keep_unique_normalize_substat_match(&rule.substat_match);
+    let has_substat_filter = !rule.substats.is_empty();
+    let substat_match = if has_substat_filter {
+        normalized_substat_match
+    } else {
+        KEEP_UNIQUE_SUBSTAT_ANY.to_string()
+    };
+    let normalized_name = keep_unique_trim_name(&rule.name);
+    let mut rules = Vec::<RuleRaw>::new();
+    for placeholder in placeholders {
+        if placeholder.missing <= 0 {
+            continue;
+        }
+        let combination = placeholder
+            .combination
+            .clone();
+        let hash = keep_unique_hash_combination(&combination);
+        let base_rules = keep_unique_build_placeholder_base_rules(
+            &combination,
+            config_id,
+            normalized_name.as_deref(),
+        );
+        let placeholder_substats = if substat_match == KEEP_UNIQUE_SUBSTAT_PER_SUBSTAT
+            && placeholder
+                .substat_variants
+                .as_ref()
+                .map(|values| !values.is_empty())
+                .unwrap_or(false)
+        {
+            placeholder.substat_variants.clone().unwrap_or_default()
+        } else {
+            rule.substats.clone()
+        };
+        let has_placeholder_substat_filter = !placeholder_substats.is_empty();
+        for base_rule in &base_rules {
+            if has_placeholder_substat_filter {
+                if substat_match == KEEP_UNIQUE_SUBSTAT_ALL {
+                    let mut substat_rule = base_rule.clone();
+                    substat_rule.Substats = Some(keep_unique_build_placeholder_substats_group(
+                        &placeholder_substats,
+                    ));
+                    keep_unique_apply_rule_meta(
+                        &mut substat_rule,
+                        &rule.id,
+                        keep_unique_rule_ordinal,
+                        &hash,
+                        entry,
+                        scanned_at,
+                    );
+                    substat_rule.keep_unique_placeholder = Some(true);
+                    substat_rule.keep_unique_placeholder_missing = Some(placeholder.missing);
+                    rules.push(substat_rule);
+                } else {
+                    for variant in &placeholder_substats {
+                        let mut substat_rule = base_rule.clone();
+                        substat_rule.Substats = Some(keep_unique_build_placeholder_substats(*variant));
+                        keep_unique_apply_rule_meta(
+                            &mut substat_rule,
+                            &rule.id,
+                            keep_unique_rule_ordinal,
+                            &hash,
+                            entry,
+                            scanned_at,
+                        );
+                        substat_rule.keep_unique_placeholder = Some(true);
+                        substat_rule.keep_unique_placeholder_missing = Some(placeholder.missing);
+                        rules.push(substat_rule);
+                    }
+                }
+                continue;
+            }
+            let mut keep_rule = base_rule.clone();
+            keep_unique_apply_rule_meta(
+                &mut keep_rule,
+                &rule.id,
+                keep_unique_rule_ordinal,
+                &hash,
+                entry,
+                scanned_at,
+            );
+            keep_rule.keep_unique_placeholder = Some(true);
+            keep_rule.keep_unique_placeholder_missing = Some(placeholder.missing);
+            rules.push(keep_rule);
+        }
+    }
+    rules
+}
+
+fn keep_unique_is_activation_off(raw: &str) -> bool {
+    let lowered = raw.trim().to_ascii_lowercase();
+    if lowered.is_empty() {
+        return false;
+    }
+    lowered == KEEP_UNIQUE_ACTIVATION_OFF || lowered == "disabled"
+}
+
+fn keep_unique_is_activation_anticipate(raw: &str) -> bool {
+    let lowered = raw.trim().to_ascii_lowercase();
+    lowered == KEEP_UNIQUE_ACTIVATION_ANTICIPATE_GAPS
+        || lowered == "anticipate"
+        || lowered == "placeholder"
+}
+
+fn build_keep_unique_rules_core(
+    rules: &[KeepUniqueWasmRuleIn],
+    detection: Option<&KeepUniqueWasmSnapshotOut>,
+    config_id_base: i64,
+) -> Vec<RuleRaw> {
+    let Some(detection_snapshot) = detection else {
+        return Vec::<RuleRaw>::new();
+    };
+
+    // Rule-id map mirrors merge.ts: only entries with string rule ids are addressable.
+    let mut detection_map = HashMap::<&str, &KeepUniqueWasmEntryOut>::new();
+    for entry in &detection_snapshot.entries {
+        if let Some(rule_id) = entry.rule_id.as_deref() {
+            detection_map.insert(rule_id, entry);
+        }
+    }
+
+    let mut keep_rules = Vec::<RuleRaw>::new();
+    let mut emitted_artifact_levels = HashSet::<String>::new();
+    let mut placeholder_keys = HashSet::<String>::new();
+    let mut keep_unique_rule_offset = 0i64;
+    let mut keep_unique_rule_ordinal = 0i64;
+    for rule in rules {
+        // Ordinal is the 1-based traversal index across all rules.
+        keep_unique_rule_ordinal += 1;
+        // `off` rules never emit artifact/placeholder keep overrides.
+        if keep_unique_is_activation_off(&rule.activation) {
+            continue;
+        }
+        let Some(entry) = detection_map.get(rule.id.as_str()).copied() else {
+            continue;
+        };
+        // Detection rows decide whether this rule has artifact or placeholder output.
+        let should_emit_artifacts = !entry.artifacts.is_empty();
+        let should_emit_placeholders =
+            keep_unique_is_activation_anticipate(&rule.activation) && !entry.placeholders.is_empty();
+        if !should_emit_artifacts && !should_emit_placeholders {
+            continue;
+        }
+
+        // Config IDs descend from the provided sentinel base (-1 in app code).
+        let config_id = config_id_base - keep_unique_rule_offset;
+        keep_unique_rule_offset += 1;
+        let normalized_name = keep_unique_trim_name(&rule.name);
+
+        if should_emit_artifacts {
+            // Emit one keep rule per item-key + covered level milestone pair.
+            for artifact in &entry.artifacts {
+                let levels = keep_unique_coverage_levels_for_artifact(artifact);
+                for level in levels {
+                    let artifact_key = format!("{}:{level}", artifact.item_key);
+                    if !emitted_artifact_levels.insert(artifact_key) {
+                        continue;
+                    }
+                    let (main_id, main_f) = keep_unique_variant_to_main(artifact.main_stat);
+                    keep_rules.push(RuleRaw {
+                        ConfigID: Some(config_id),
+                        ConfigName: normalized_name.clone(),
+                        Keep: Some(true),
+                        IsRuleTypeAND: Some(false),
+                        Use: Some(true),
+                        ArtifactSet: Some(vec![artifact.set]),
+                        ArtifactType: Some(vec![artifact.slot]),
+                        Rank: Some(keep_unique_clamp_rank_or_rarity_value(artifact.rank)),
+                        Rarity: Some(keep_unique_rarity_value_to_code(artifact.rarity)),
+                        MainStatID: Some(main_id),
+                        MainStatF: Some(serde_json::Value::from(main_f)),
+                        LVLForCheck: Some(level),
+                        Faction: Some(artifact.faction),
+                        Substats: Some(keep_unique_build_substats_for_artifact(&artifact.substats)),
+                        source: Some(RULE_SOURCE_KEEP_UNIQUES.to_string()),
+                        keep_unique_rule_id: Some(rule.id.clone()),
+                        keep_unique_rule_ordinal: Some(keep_unique_rule_ordinal),
+                        keep_unique_hash: Some(keep_unique_hash_combination(&rule.combination)),
+                        keep_unique_required: Some(entry.required_count),
+                        keep_unique_scan_ms: Some(detection_snapshot.scanned_at),
+                        keep_unique_projected: Some(entry.projected_count),
+                        keep_unique_deficit: Some(entry.deficit),
+                        keep_unique_item_key: Some(artifact.item_key),
+                        keep_unique_placeholder: None,
+                        keep_unique_placeholder_missing: None,
+                    });
+                }
+            }
+        }
+
+        if should_emit_placeholders {
+            // Placeholder synthesis mirrors merge.ts substat-match + meta stamping.
+            let placeholder_rules = keep_unique_build_placeholder_rules(
+                rule,
+                entry,
+                config_id,
+                keep_unique_rule_ordinal,
+                Some(detection_snapshot.scanned_at),
+            );
+            for placeholder_rule in placeholder_rules {
+                // Placeholder dedupe uses merge.ts canonical rule key semantics.
+                let canonical = keep_unique_canonical_rule_key(&placeholder_rule);
+                if !placeholder_keys.insert(canonical) {
+                    continue;
+                }
+                keep_rules.push(placeholder_rule);
+            }
+        }
+    }
+    keep_rules
+}
+
+// Keep-unique HSF keep-rule generation now lives in wasm (merge.ts SSOT path).
+#[wasm_bindgen]
+pub fn build_keep_unique_rules_value(
+    rules: JsValue,
+    detection: JsValue,
+    config_id_base: i64,
+) -> Result<JsValue, JsValue> {
+    let parsed_rules: Vec<KeepUniqueWasmRuleIn> = from_js_value(rules)
+        .map_err(|error| JsValue::from_str(&format!("Invalid keep-unique rules payload: {error}")))?;
+    let parsed_detection: Option<KeepUniqueWasmSnapshotOut> = if detection.is_undefined() || detection.is_null() {
+        None
+    } else {
+        Some(from_js_value(detection).map_err(|error| {
+            JsValue::from_str(&format!("Invalid keep-unique detection payload: {error}"))
+        })?)
+    };
+    let keep_rules = build_keep_unique_rules_core(
+        &parsed_rules,
+        parsed_detection.as_ref(),
+        config_id_base,
+    );
+    to_js_value(&keep_rules)
+        .map_err(|error| JsValue::from_str(&format!("Failed to serialize keep-unique rules value: {error}")))
 }
 
 fn keep_unique_group_sample_from_artifact(artifact: &KeepUniqueWasmArtifactIn) -> KeepUniqueWasmGroupSample {
@@ -4249,9 +6339,30 @@ pub fn compute_keep_unique_protection_value(
         .map_err(|error| JsValue::from_str(&format!("Invalid keep-unique candidates: {error}")))?;
     let parsed_rules: Vec<KeepUniqueWasmRuleIn> = from_js_value(rules)
         .map_err(|error| JsValue::from_str(&format!("Invalid keep-unique rules: {error}")))?;
-    let expected_map: HashMap<String, Vec<KeepUniqueWasmExpectedGroupIn>> =
-        from_js_value(expected_groups_by_rule_id)
-            .map_err(|error| JsValue::from_str(&format!("Invalid keep-unique expected groups: {error}")))?;
+    // Accept either the legacy per-rule expected-groups map or the new wrapper
+    // payload that carries optional domain inputs for in-wasm enumeration.
+    let expected_payload = if expected_groups_by_rule_id.is_undefined() || expected_groups_by_rule_id.is_null() {
+        KeepUniqueWasmExpectedGroupsPayloadIn::default()
+    } else {
+        match from_js_value::<KeepUniqueWasmExpectedGroupsPayloadIn>(expected_groups_by_rule_id.clone()) {
+            Ok(payload) => payload,
+            Err(wrapper_error) => {
+                match from_js_value::<HashMap<String, Vec<KeepUniqueWasmExpectedGroupIn>>>(expected_groups_by_rule_id)
+                {
+                    Ok(map) => KeepUniqueWasmExpectedGroupsPayloadIn {
+                        expected_groups_by_rule_id: map,
+                        expected_group_domain: None,
+                    },
+                    Err(map_error) => {
+                        let message = format!(
+                            "Invalid keep-unique expected groups payload (wrapper: {wrapper_error}; map: {map_error})"
+                        );
+                        return Err(JsValue::from_str(&message));
+                    }
+                }
+            }
+        }
+    };
 
     // Precompute sanitized rule metadata used by candidate scans.
     let prepared_rules = parsed_rules
@@ -4280,6 +6391,21 @@ pub fn compute_keep_unique_protection_value(
             }
             // Pre-split set filters into include/exclude lookup sets.
             let (set_includes, set_excludes) = keep_unique_split_set_selections(&rule.combination.sets);
+            // Resolve expected groups in priority order:
+            // 1) explicit per-rule payload (legacy caller contract),
+            // 2) in-wasm domain enumeration (new SSOT path),
+            // 3) empty list when no grouping metadata is provided.
+            let expected_groups = expected_payload
+                .expected_groups_by_rule_id
+                .get(&rule.id)
+                .cloned()
+                .or_else(|| {
+                    expected_payload
+                        .expected_group_domain
+                        .as_ref()
+                        .map(|domain| keep_unique_build_expected_groups_for_rule(&rule.combination, count_mode, domain))
+                })
+                .unwrap_or_default();
             KeepUniqueWasmPreparedRule {
                 id: rule.id.clone(),
                 combination: rule.combination.clone(),
@@ -4293,7 +6419,7 @@ pub fn compute_keep_unique_protection_value(
                 weights,
                 set_includes,
                 set_excludes,
-                expected_groups: expected_map.get(&rule.id).cloned().unwrap_or_default(),
+                expected_groups,
             }
         })
         .collect::<Vec<_>>();

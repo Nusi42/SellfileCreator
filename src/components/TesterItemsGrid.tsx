@@ -2354,9 +2354,16 @@ export const TesterGridCard = React.memo(function TesterGridCard({
   const shouldShowPrimaryMatchRow = basePrimaryMatchRowVisible
   // Keep-override primary matches are not tied to a config, so keep all config matches visible.
   const keepOverridePrimaryMatch = match?.ruleSource === RULE_SOURCE_KEEP_UNIQUES
-  const otherMatchingEntries = keepOverridePrimaryMatch
-    ? matchingEntries
-    : matchingEntries.slice(1)
+  // Remove only the config that actually won primary match.
+  // Do not drop by position because matcher config lists are not guaranteed to start with primary.
+  const otherMatchingEntries = useMemo(() => {
+    // Keep-override rows stay fully visible because primary match has no config scope.
+    if (keepOverridePrimaryMatch) return matchingEntries
+    // Final Sell and other config-less primaries should not hide any config chips.
+    if (primaryCfgIndex == null) return matchingEntries
+    // Hide only the actual primary config entry to avoid duplicate chips.
+    return matchingEntries.filter((entry) => entry.cfgIdx !== primaryCfgIndex)
+  }, [keepOverridePrimaryMatch, matchingEntries, primaryCfgIndex])
   const shouldShowOtherMatchesRow = showOtherMatchesRow && otherMatchingEntries.length > 0
   const totalOtherMatches = otherMatchingEntries.length
   const otherMatchingEntriesSignature = useMemo(

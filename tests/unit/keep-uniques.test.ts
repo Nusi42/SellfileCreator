@@ -8,8 +8,12 @@ import type { TesterPreviewRow } from '../../src/types/testerPreview.js'
 import type { NormalizedGearArtifact, NormalizedStat } from '../../src/lib/importers/gearDbNormalizer.js'
 import type { KeepUniqueRule } from '../../src/lib/keepUniques.js'
 import type { Metaset } from '../../src/lib/metasets.js'
-import { buildKeepUniqueRules } from '../../src/lib/merge.js'
+import { buildKeepUniqueRules, prependKeepUniqueRules, RULE_SOURCE_KEEP_UNIQUES } from '../../src/lib/merge.js'
 import type { HsfRuleWithCfg } from '../../src/lib/merge.js'
+import {
+  mergeKeepUniqueInjectedRulesWithLoadedWasm,
+  warmupWasmRuleEngine,
+} from '../../src/lib/wasm/wasmRuleEngine.js'
 
 let nextArtifactId = 1
 
@@ -449,6 +453,84 @@ test('anticipate mode emits placeholder keeps when deficits remain', () => {
   assert.strictEqual(placeholderRule.Rarity, RarityCode.Legendary)
   assert.strictEqual(placeholderRule.Faction, Faction.BannerLords)
   assert.strictEqual(placeholderRule.LVLForCheck, LEVEL_ANY_SENTINEL)
+})
+
+test('keep-unique merge preserves injected rule payload fields', () => {
+  // Build one anticipate rule so we always emit at least one placeholder keep row.
+  const keepRule = makeRule({
+    activation: KeepUniqueRuleActivation.AnticipateGaps,
+    combination: {
+      slots: [ArtifactType.Amulet],
+      sets: normalizeArtifactSetSelections([ArtifactSet.Refresh]),
+      metaSetIds: [],
+      ranks: [6],
+      rarities: [5],
+      mainStats: [StatVariant.CDMG],
+      factions: [Faction.BannerLords],
+    },
+  })
+  // Empty candidates force a placeholder output path in keep-unique detection.
+  const detection = computeKeepUniqueProtection({ candidates: [], rules: [keepRule], enabled: true })
+  // Merge helper should return full keep-unique rows, never empty objects.
+  const merged = prependKeepUniqueRules({
+    baseRules: [],
+    customRules: [],
+    finalSellRules: [],
+    resolvedKeepUniqueRules: [keepRule],
+    detection,
+  }).mergedRules
+  assert.strictEqual(merged.length, 1, 'expected one injected placeholder keep rule')
+  const injected = merged[0]!
+  // Keep-source rows must retain source metadata after wasm merge serialization.
+  assert.strictEqual(injected.__source, RULE_SOURCE_KEEP_UNIQUES)
+  // Keep-unique injected rows must remain functional keep rules.
+  assert.strictEqual(injected.Keep, true)
+  assert.strictEqual(injected.Use, true)
+  // Placeholder metadata must survive the merge payload boundary.
+  assert.strictEqual(injected.__keepUniquePlaceholder, true)
+  assert.ok(Array.isArray(injected.Substats), 'placeholder keep row should carry padded substats')
+  // Guard against "{}" regressions from broken merge payload serialization.
+  assert.ok(Object.keys(injected).length > 1, 'injected keep row should not be an empty object')
+})
+
+test('wasm keep-unique merge binding preserves injected payload fields', async () => {
+  // Explicit warmup keeps this test valid even when run standalone.
+  await warmupWasmRuleEngine()
+  // Reuse the anticipate-gap path so candidate rows include placeholder metadata.
+  const keepRule = makeRule({
+    activation: KeepUniqueRuleActivation.AnticipateGaps,
+    combination: {
+      slots: [ArtifactType.Amulet],
+      sets: normalizeArtifactSetSelections([ArtifactSet.Refresh]),
+      metaSetIds: [],
+      ranks: [6],
+      rarities: [5],
+      mainStats: [StatVariant.CDMG],
+      factions: [Faction.BannerLords],
+    },
+  })
+  // Empty candidates force placeholder rows through the wasm merge boundary.
+  const detection = computeKeepUniqueProtection({ candidates: [], rules: [keepRule], enabled: true })
+  const candidateKeepRules = buildKeepUniqueRules([keepRule], detection)
+  assert.strictEqual(candidateKeepRules.length, 1, 'expected one candidate keep row')
+  // Call the wasm merge wrapper directly to guard the serialization boundary.
+  const merged = mergeKeepUniqueInjectedRulesWithLoadedWasm({
+    baseRules: [],
+    customRules: [],
+    candidateKeepRules,
+  })
+  assert.strictEqual(merged.length, 1, 'expected one merged keep row')
+  const injected = merged[0]!
+  // Source tag must survive so downstream UI and filtering can classify rows.
+  assert.strictEqual(injected.__source, RULE_SOURCE_KEEP_UNIQUES)
+  // Core keep semantics must survive wasm serialization intact.
+  assert.strictEqual(injected.Keep, true)
+  assert.strictEqual(injected.Use, true)
+  // Placeholder metadata verifies non-core fields survive this boundary too.
+  assert.strictEqual(injected.__keepUniquePlaceholder, true)
+  assert.ok(Array.isArray(injected.Substats), 'merged keep row should include substats')
+  // Guard against regressions where rows were deserialized as "{}".
+  assert.ok(Object.keys(injected).length > 1, 'merged keep row should not be empty')
 })
 
 test('resolveKeepUniqueRuleLabel prefers trimmed rule names', () => {

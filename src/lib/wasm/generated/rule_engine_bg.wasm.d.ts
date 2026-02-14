@@ -3,12 +3,14 @@
 export const memory: WebAssembly.Memory;
 export const bounded_compositions_i32_fast: (a: number, b: number, c: number) => [number, number, number, number];
 export const bounded_compositions_i32_fast_flat: (a: number, b: number, c: number) => [number, number];
+export const build_keep_unique_rules_value: (a: any, b: any, c: bigint) => [number, number, number];
 export const combinations_i32: (a: number, b: number, c: number) => [number, number, number, number];
 export const combinations_i32_fast: (a: number, b: number, c: number) => [number, number, number, number];
 export const combinations_i32_fast_flat: (a: number, b: number, c: number) => [number, number];
 export const compute_keep_unique_protection_value: (a: any, b: any, c: any, d: number, e: number) => [number, number, number];
 export const configure: (a: number, b: number, c: number, d: number) => [number, number];
 export const configure_value: (a: any, b: any) => [number, number];
+export const dedupe_hsf_rules_for_export_value: (a: any) => [number, number, number];
 export const emit_hsf_rules_for_distributions_value: (a: any) => [number, number, number];
 export const emit_hsf_rules_for_filtered_distributions_value: (a: any) => [number, number, number];
 export const evaluate: (a: number, b: number, c: number, d: number) => [number, number, number, number];
@@ -17,6 +19,7 @@ export const filtered_bounded_compositions_with_offset_i32_fast_flat: (a: number
 export const filtered_roll_distributions: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number, l: number, m: number, n: number, o: number, p: number, q: number, r: number, s: number, t: number, u: number, v: number) => [number, number, number, number];
 export const filtered_roll_distributions_fast: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number, l: number, m: number, n: number, o: number, p: number, q: number, r: number, s: number, t: number, u: number, v: number) => [number, number, number, number];
 export const filtered_roll_distributions_fast_flat: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number, l: number, m: number, n: number, o: number, p: number, q: number, r: number, s: number, t: number, u: number, v: number) => [number, number];
+export const finalize_builder_rules_value: (a: any, b: any) => [number, number, number];
 export const finalize_generated_rules: (a: number, b: number, c: number) => [number, number, number, number];
 export const finalize_generated_rules_value: (a: any, b: number) => [number, number, number];
 export const find_obsolete: (a: number, b: number) => [number, number, number, number];
@@ -26,9 +29,12 @@ export const intro_assignments_for_combo: (a: number, b: number, c: number, d: n
 export const intro_assignments_for_combo_fast: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number, number, number];
 export const intro_assignments_for_combo_fast_flat: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number];
 export const keep_unique_count_key_value: (a: any, b: any) => [number, number, number, number];
+export const merge_keep_unique_injected_rules_value: (a: any, b: any, c: any) => [number, number, number];
 export const permutations_i32: (a: number, b: number) => [number, number, number, number];
 export const permutations_i32_fast: (a: number, b: number) => [number, number, number, number];
 export const permutations_i32_fast_flat: (a: number, b: number) => [number, number];
+export const resolve_auto_rarity_code_value: (a: any) => [number, number, number];
+export const resolve_keep_unique_candidate_keep_flags_value: (a: any, b: any, c: any, d: any) => [number, number, number];
 export const roll_distributions: (a: number, b: number) => [number, number, number, number];
 export const roll_distributions_flat: (a: number, b: number) => [number, number];
 export const version: () => [number, number];

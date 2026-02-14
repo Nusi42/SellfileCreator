@@ -114,8 +114,13 @@ export function TesterRuleReferenceChip({
   const label = numberSegment
     ? `${numberSegment} | ${formattedConfigName}`
     : formattedConfigName
+  // Some rule sources (e.g., imported base HSF sell rows) have no cfg/source label.
+  // Fall back to the matched rule line so primary matches never render as empty.
+  const resolvedLabel = label.length > 0
+    ? label
+    : (ruleIndex != null ? `#${ruleIndex + 1}` : '')
   const clickable = typeof onJump === 'function' && ruleIndex != null
-  if (!label) return null
+  if (!resolvedLabel) return null
   // Keep-unique matches share a green tint so they read as "protected".
   const keepOverrideTint = isKeepUniqueSource
     ? buildChipSurfaceTint(theme, theme.palette.success.main)
@@ -124,7 +129,7 @@ export function TesterRuleReferenceChip({
   const dataMatchSource = isKeepUniqueSource ? 'keep-unique' : undefined
   return (
     <TesterRuleReferenceChipBody
-      label={label}
+      label={resolvedLabel}
       variant="outlined"
       clickable={clickable}
       ruleIndex={ruleIndex}

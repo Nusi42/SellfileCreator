@@ -1,5 +1,4 @@
 import { isAccessorySlot } from './testerDomain'
-import { evaluateMatchesByConfig } from './ruleEval'
 import type { TesterPreviewRow } from '../types/testerPreview'
 import type {
   ArtifactSetId,
@@ -11,9 +10,7 @@ import type {
 } from './types'
 import {
   ALLOWED_MAIN_BY_SLOT,
-  ArtifactType,
   PREFERRED_ARTIFACT_TYPE_ORDER,
-  StatId,
   StatVariant as StatVariantEnum,
   STAT_VARIANTS_PRIORITY,
   artifactSetNames,
@@ -35,13 +32,13 @@ import type { NormalizedGearArtifact } from './importers/gearDbNormalizer'
 import type { Metaset } from './metasets'
 import { normalizeConfigName } from './ruleConfigIndex'
 import type { ArtifactSetSelectionEntry } from './gearSets/selection'
-import { normalizeArtifactSetSelections, splitArtifactSetSelections } from './gearSets/selection'
+import { normalizeArtifactSetSelections } from './gearSets/selection'
 import { hasIgnoreKeepUniqueTag } from './tagHelpers'
 import { normalizeTesterSortWeight, TESTER_SORT_WEIGHT_DEFAULT } from './testerSort'
-import { ACCESSORY_NO_SET_ID } from './constants'
 import {
   computeKeepUniqueProtectionWithLoadedWasm,
   getKeepUniqueCountKeyWithLoadedWasm,
+  resolveKeepUniqueCandidateKeepFlagsWithLoadedWasm,
 } from './wasm/wasmRuleEngine'
 
 const RANK_MIN = 1
@@ -847,62 +844,6 @@ export const getKeepUniqueCountKey = (artifact: NormalizedGearArtifact, mode: Ke
   })
 }
 
-// buildKeepUniquePlaceholderSample builds a minimal artifact for placeholder keying.
-const buildKeepUniquePlaceholderSample = (params: {
-  slot: ArtifactTypeId
-  setId: ArtifactSetId
-  mainStat: StatVariant
-  faction: FactionId
-}): NormalizedGearArtifact => {
-  const { slot, setId, mainStat, faction } = params
-  // Provide a minimal main stat payload so variant reads stay consistent.
-  const mainStatPayload: NormalizedGearArtifact['mainStat'] = mainStat === StatVariantEnum.Any
-    ? null
-    : {
-      source: 'main' as const,
-      statId: StatId.Any,
-      isFlat: true,
-      variant: mainStat,
-      baseValue: 0,
-      glyphValue: 0,
-      mythValue: 0,
-      totalValue: 0,
-    }
-  // Keep the tester item in sync with the placeholder so keying is stable.
-  const testerItem: NormalizedGearArtifact['testerItem'] = {
-    slot,
-    set: setId,
-    rank: RANK_MAX,
-    rarity: RANK_MAX,
-    level: 0 as LevelMilestone,
-    ...(faction > 0 ? { faction } : {}),
-    ...(mainStat !== StatVariantEnum.Any ? { main: mainStat } : {}),
-  }
-  // Fill the remaining fields with safe defaults; they are unused by keying.
-  return {
-    id: 0,
-    slot,
-    set: setId,
-    rank: RANK_MAX,
-    rarity: RANK_MAX,
-    level: 0 as LevelMilestone,
-    exactLevel: null,
-    faction,
-    mainStat: mainStatPayload,
-    substats: [],
-    ascension: null,
-    testerItem,
-    rerollCount: 0,
-    equippedToChampionId: null,
-    equippedChampionBaseId: null,
-    equippedChampionRarity: null,
-    source: 'tester',
-    equippedChampionName: null,
-    equippedChampionLocation: null,
-    lastUseLocalTimestamp: null,
-  }
-}
-
 // resolveArmorCompatibleSetIds keeps accessory-only sets out of armor pools.
 const resolveArmorCompatibleSetIds = (): readonly ArtifactSetId[] => {
   // Merge fixed + variable armor sets while keeping numeric order stable.
@@ -915,241 +856,6 @@ const resolveArmorCompatibleSetIds = (): readonly ArtifactSetId[] => {
     .sort(compareArtifactSets)
     .map((value) => value as ArtifactSetId)
   return deduped
-}
-
-// resolveKeepUniqueSlotCandidates limits slots to those that can actually match.
-const resolveKeepUniqueSlotCandidates = (combination: KeepUniqueCombination): ArtifactTypeId[] => {
-  // Start from the explicit selection or fall back to the preferred slot order.
-  const baseSlots = combination.slots.length > 0
-    ? combination.slots
-    : PREFERRED_ARTIFACT_TYPE_ORDER
-  // Capture explicit set includes so we can filter slot compatibility.
-  const { included } = splitArtifactSetSelections(combination.sets)
-  const hasSetIncludes = included.length > 0
-  // When factions are specified, accessories are required to satisfy the filter.
-  const factionSelection = combination.factions ?? []
-  const requiresAccessory = factionSelection.length > 0
-    && factionSelection.every((value) => Number(value) > 0)
-  // Prepare quick-lookup sets for set compatibility checks.
-  const accessorySetPool = new Set<number>([
-    ACCESSORY_NO_SET_ID,
-    ...getAccessorySlotsCompatibleSetIds().map((value) => Number(value)),
-  ])
-  const armorSetPool = new Set<number>(resolveArmorCompatibleSetIds().map((value) => Number(value)))
-  // Filter slots down to those that can satisfy every enabled constraint.
-  const result: ArtifactTypeId[] = []
-  const seen = new Set<number>()
-  for (const slotId of baseSlots) {
-    const numeric = Number(slotId)
-    if (!Number.isFinite(numeric)) continue
-    if (seen.has(numeric)) continue
-    seen.add(numeric)
-    const accessorySlot = isAccessorySlot(numeric)
-    // Skip non-accessories when factions explicitly require accessories.
-    if (requiresAccessory && !accessorySlot) continue
-    // Respect main-stat filters by keeping only compatible slots.
-    if (combination.mainStats.length > 0) {
-      const allowed = ALLOWED_MAIN_BY_SLOT[numeric as ArtifactType]
-      if (!allowed) continue
-      const matchesMain = combination.mainStats.some((variant) => allowed.has(Number(variant)))
-      if (!matchesMain) continue
-    }
-    // Respect explicit set includes by skipping incompatible slot types.
-    if (hasSetIncludes) {
-      const pool = accessorySlot ? accessorySetPool : armorSetPool
-      const hasCompatibleSet = included.some((value) => pool.has(Number(value)))
-      if (!hasCompatibleSet) continue
-    }
-    result.push(numeric as ArtifactTypeId)
-  }
-  return result
-}
-
-// resolveKeepUniqueSlotSamples chooses representative slots for expected group enumeration.
-const resolveKeepUniqueSlotSamples = (
-  slots: readonly ArtifactTypeId[],
-  countMode: KeepUniqueRuleCountMode,
-): ArtifactTypeId[] => {
-  // If we truly count per slot, return every candidate slot.
-  if (countMode.perSlot) return slots.slice()
-  // If faction is not part of the key, one slot is enough.
-  if (!countMode.perFaction) return slots.slice(0, 1)
-  // For faction-aware grouping, include one accessory + one armor sample when available.
-  const accessory = slots.find((slotId) => isAccessorySlot(Number(slotId)))
-  const armor = slots.find((slotId) => !isAccessorySlot(Number(slotId)))
-  const samples: ArtifactTypeId[] = []
-  if (accessory != null) samples.push(accessory)
-  if (armor != null) samples.push(armor)
-  return samples.length > 0 ? samples : slots.slice(0, 1)
-}
-
-// resolveKeepUniqueSetCandidatesForSlot enumerates allowed set IDs for a slot.
-const resolveKeepUniqueSetCandidatesForSlot = (
-  combination: KeepUniqueCombination,
-  slot: ArtifactTypeId,
-): ArtifactSetId[] => {
-  const accessorySlot = isAccessorySlot(Number(slot))
-  // Resolve the include/exclude sets so we can respect explicit choices.
-  const { included, excluded } = splitArtifactSetSelections(combination.sets)
-  const hasSetIncludes = included.length > 0
-  // Build the allowed set pool for this slot type.
-  const allowedPool = accessorySlot
-    ? getAccessorySlotsCompatibleSetIds()
-    : resolveArmorCompatibleSetIds()
-  const allowedSetIds = new Set<number>(allowedPool.map((value) => Number(value)))
-  // Accessories also accept the no-set sentinel when sets are not explicitly chosen.
-  const includeNoSet = accessorySlot && !hasSetIncludes
-  if (hasSetIncludes) {
-    // Only keep includes that are valid for this slot.
-    const filtered = included.filter((value) => (
-      value === ACCESSORY_NO_SET_ID
-        ? accessorySlot
-        : allowedSetIds.has(Number(value))
-    ))
-    return filtered.sort(compareArtifactSets)
-  }
-  // Otherwise, start from the allowed pool and apply exclusions.
-  const excludedIds = new Set<number>(excluded.map((value) => Number(value)))
-  const filtered = allowedPool.filter((value) => !excludedIds.has(Number(value)))
-  // Inject the no-set sentinel when accessories are allowed.
-  const withNoSet = includeNoSet ? [ACCESSORY_NO_SET_ID, ...filtered] : filtered
-  // Keep numeric ordering stable for deterministic placeholders.
-  return withNoSet.slice().sort(compareArtifactSets)
-}
-
-// resolveKeepUniqueSetCandidatesForSlots unions set IDs across all slot candidates.
-const resolveKeepUniqueSetCandidatesForSlots = (
-  combination: KeepUniqueCombination,
-  slots: readonly ArtifactTypeId[],
-): ArtifactSetId[] => {
-  const merged = new Map<number, ArtifactSetId>()
-  for (const slot of slots) {
-    for (const setId of resolveKeepUniqueSetCandidatesForSlot(combination, slot)) {
-      const numeric = Number(setId)
-      if (!Number.isFinite(numeric)) continue
-      if (merged.has(numeric)) continue
-      merged.set(numeric, setId)
-    }
-  }
-  return Array.from(merged.values()).sort(compareArtifactSets)
-}
-
-// resolveKeepUniqueMainStatCandidatesForSlot returns valid main stats for the slot.
-const resolveKeepUniqueMainStatCandidatesForSlot = (
-  combination: KeepUniqueCombination,
-  slot: ArtifactTypeId,
-): StatVariant[] => {
-  const allowed = ALLOWED_MAIN_BY_SLOT[Number(slot) as ArtifactType]
-  if (!allowed || allowed.size === 0) return []
-  // If the user picked main stats, keep only those compatible with the slot.
-  if (combination.mainStats.length > 0) {
-    const filtered = combination.mainStats.filter((variant) => allowed.has(Number(variant)))
-    return filtered.slice().sort((a, b) => Number(a) - Number(b))
-  }
-  // Otherwise return the entire allowed set for enumeration.
-  return Array.from(allowed).sort((a, b) => Number(a) - Number(b)) as StatVariant[]
-}
-
-// resolveKeepUniqueMainStatCandidatesForSlots unions main stats across slots.
-const resolveKeepUniqueMainStatCandidatesForSlots = (
-  combination: KeepUniqueCombination,
-  slots: readonly ArtifactTypeId[],
-): StatVariant[] => {
-  const union = new Map<number, StatVariant>()
-  for (const slot of slots) {
-    for (const variant of resolveKeepUniqueMainStatCandidatesForSlot(combination, slot)) {
-      const numeric = Number(variant)
-      if (!Number.isFinite(numeric)) continue
-      if (union.has(numeric)) continue
-      union.set(numeric, variant)
-    }
-  }
-  return Array.from(union.values()).sort((a, b) => Number(a) - Number(b))
-}
-
-// resolveKeepUniqueFactionCandidatesForSlot returns allowed factions for this slot.
-const resolveKeepUniqueFactionCandidatesForSlot = (
-  combination: KeepUniqueCombination,
-  slot: ArtifactTypeId,
-): FactionId[] => {
-  const selection = (combination.factions ?? []).map((value) => Number(value)).filter((value) => Number.isFinite(value))
-  const hasSelection = selection.length > 0
-  const accessorySlot = isAccessorySlot(Number(slot))
-  // Non-accessory slots can only use the 0 "any" faction sentinel.
-  if (!accessorySlot) {
-    if (!hasSelection) return [0 as FactionId]
-    if (selection.some((value) => value === 0)) return [0 as FactionId]
-    return []
-  }
-  // For accessories, use explicit selections when provided.
-  if (hasSelection) {
-    return selection.filter((value) => value > 0).map((value) => value as FactionId)
-  }
-  // Otherwise enumerate every faction.
-  return ALL_FACTION_IDS.slice()
-}
-
-type KeepUniqueExpectedGroup = {
-  key: KeepUniqueCountKey
-  sample: NormalizedGearArtifact
-}
-
-// buildKeepUniqueExpectedGroups enumerates every group implied by the scope chips.
-const buildKeepUniqueExpectedGroups = (params: {
-  combination: KeepUniqueCombination
-  countMode: KeepUniqueRuleCountMode
-}): KeepUniqueExpectedGroup[] => {
-  const { combination, countMode } = params
-  // Per-rule counts do not split into scope groups.
-  if (countMode.perRule) return []
-  // Resolve which slots are actually compatible with the filters.
-  const slotCandidates = resolveKeepUniqueSlotCandidates(combination)
-  if (slotCandidates.length === 0) return []
-  // Choose representative slot samples for key construction.
-  const slotSamples = resolveKeepUniqueSlotSamples(slotCandidates, countMode)
-  // Precompute union pools when the scope is not per-slot.
-  const unionSets = countMode.perSet && !countMode.perSlot
-    ? resolveKeepUniqueSetCandidatesForSlots(combination, slotCandidates)
-    : []
-  const unionMainStats = countMode.perMainStat && !countMode.perSlot
-    ? resolveKeepUniqueMainStatCandidatesForSlots(combination, slotCandidates)
-    : []
-  // Track expected groups by their count key to avoid duplicates.
-  const expected = new Map<KeepUniqueCountKey, NormalizedGearArtifact>()
-  for (const slot of slotSamples) {
-    // Resolve per-slot pools when the scope is split by slot.
-    const setCandidates = countMode.perSet
-      ? (countMode.perSlot ? resolveKeepUniqueSetCandidatesForSlot(combination, slot) : unionSets)
-      : [ACCESSORY_NO_SET_ID as ArtifactSetId]
-    if (countMode.perSet && setCandidates.length === 0) continue
-    // Resolve faction pools, skipping slots that cannot satisfy selections.
-    const factionCandidates = countMode.perFaction
-      ? resolveKeepUniqueFactionCandidatesForSlot(combination, slot)
-      : [0 as FactionId]
-    if (countMode.perFaction && factionCandidates.length === 0) continue
-    // Resolve main stat pools, skipping slots that cannot satisfy selections.
-    const mainStatCandidates = countMode.perMainStat
-      ? (countMode.perSlot ? resolveKeepUniqueMainStatCandidatesForSlot(combination, slot) : unionMainStats)
-      : [StatVariantEnum.Any]
-    if (countMode.perMainStat && mainStatCandidates.length === 0) continue
-    // Build the Cartesian product across the active scope dimensions.
-    for (const setId of setCandidates) {
-      for (const faction of factionCandidates) {
-        for (const mainStat of mainStatCandidates) {
-          const sample = buildKeepUniquePlaceholderSample({
-            slot,
-            setId,
-            mainStat,
-            faction,
-          })
-          const key = getKeepUniqueCountKey(sample, countMode)
-          if (expected.has(key)) continue
-          expected.set(key, sample)
-        }
-      }
-    }
-  }
-  return Array.from(expected.entries()).map(([key, sample]) => ({ key, sample }))
 }
 
 // Minimal candidate payload keeps wasm serialization focused on detection fields only.
@@ -1183,13 +889,52 @@ type KeepUniqueWasmRulePayload = {
   substatWeights: Partial<Record<StatVariant, number>>
 }
 
-type KeepUniqueWasmExpectedGroupPayload = {
-  key: string
-  sample: {
-    slot: ArtifactTypeId
-    set: ArtifactSetId
-    faction: FactionId
-    mainStat: StatVariant
+type KeepUniqueWasmExpectedGroupDomainPayload = {
+  slotOrder: ArtifactTypeId[]
+  accessoryCompatibleSetIds: ArtifactSetId[]
+  armorCompatibleSetIds: ArtifactSetId[]
+  allowedMainBySlot: Record<string, StatVariant[]>
+  allFactionIds: FactionId[]
+}
+
+// Candidate resolver rows keep just the fields needed for base-match fallback.
+type KeepUniqueWasmCandidateResolveRowPayload = {
+  item: NormalizedGearArtifact['testerItem']
+  baseMatchDefined: boolean
+  baseMatch: { keep: boolean; cfgIdx: number | null } | null
+}
+
+// Build a compact domain payload so wasm can enumerate expected scope groups
+// without duplicating TS-only catalogs or runtime set expansion logic.
+const buildKeepUniqueExpectedGroupDomain = (): KeepUniqueWasmExpectedGroupDomainPayload => {
+  // Resolve runtime-aware set pools once per scan so wasm sees current catalogs.
+  const accessoryCompatibleSetIds = getAccessorySlotsCompatibleSetIds()
+    .map((value) => Number(value))
+    .filter((value) => Number.isFinite(value))
+    .sort(compareArtifactSets)
+    .map((value) => value as ArtifactSetId)
+  const armorCompatibleSetIds = resolveArmorCompatibleSetIds()
+    .map((value) => Number(value))
+    .filter((value) => Number.isFinite(value))
+    .sort(compareArtifactSets)
+    .map((value) => value as ArtifactSetId)
+  // Serialize allowed mains by slot into plain arrays for wasm payload parsing.
+  const allowedMainBySlot: Record<string, StatVariant[]> = {}
+  for (const [slotKey, allowed] of Object.entries(ALLOWED_MAIN_BY_SLOT)) {
+    allowedMainBySlot[String(slotKey)] = Array.from(allowed)
+      .map((value) => Number(value))
+      .filter((value) => Number.isFinite(value))
+      .sort((left, right) => left - right)
+      .map((value) => value as StatVariant)
+  }
+  return {
+    // Preserve preferred slot ordering so expected-group insertion order stays deterministic.
+    slotOrder: PREFERRED_ARTIFACT_TYPE_ORDER.map((value) => Number(value) as ArtifactTypeId),
+    accessoryCompatibleSetIds,
+    armorCompatibleSetIds,
+    allowedMainBySlot,
+    // Provide all positive faction ids; non-accessory slots still normalize to 0 in wasm.
+    allFactionIds: ALL_FACTION_IDS.slice(),
   }
 }
 
@@ -1233,31 +978,11 @@ const toKeepUniqueWasmRules = (rules: readonly KeepUniqueRule[]): KeepUniqueWasm
   }))
 )
 
-// Expected groups remain JS-sourced for now; wasm consumes the precomputed key samples.
-const buildKeepUniqueExpectedGroupsByRuleId = (
-  rules: readonly KeepUniqueRule[],
-): Record<string, KeepUniqueWasmExpectedGroupPayload[]> => {
-  const byRuleId: Record<string, KeepUniqueWasmExpectedGroupPayload[]> = {}
-  for (const rule of rules) {
-    const countMode = sanitizeCountMode(rule.countMode)
-    const expected = countMode.perRule
-      ? []
-      : buildKeepUniqueExpectedGroups({
-        combination: rule.combination,
-        countMode,
-      })
-    byRuleId[rule.id] = expected.map((entry) => ({
-      key: entry.key,
-      sample: {
-        slot: entry.sample.slot,
-        set: entry.sample.set,
-        faction: entry.sample.faction,
-        mainStat: entry.sample.mainStat?.variant ?? StatVariantEnum.Any,
-      },
-    }))
-  }
-  return byRuleId
-}
+const isKeepUniqueDetectionSnapshot = (value: unknown): value is KeepUniqueDetectionSnapshot => (
+  value != null
+  && typeof value === 'object'
+  && Array.isArray((value as { entries?: unknown }).entries)
+)
 
 export function collectKeepUniqueCandidates(params: {
   rows: readonly TesterPreviewRow[]
@@ -1270,57 +995,48 @@ export function collectKeepUniqueCandidates(params: {
   const ignoreConfigSet = params.ignoreKeepUniqueConfigIndices && params.ignoreKeepUniqueConfigIndices.size > 0
     ? params.ignoreKeepUniqueConfigIndices
     : null
-  // Precompute the guard so the loop stays lean.
-  const hasIgnoredConfigs = ignoreConfigSet !== null
   if (!rows.length) return { candidates: [], uniqueItemKeys: new Set() }
   const baseRuleList: HsfRuleWithCfg[] = Array.isArray(baseRules) ? [...baseRules] : []
-  const baseRuleCount = baseRuleList.length
-  const candidates: KeepUniqueCandidate[] = []
-  const uniqueItemKeys = new Set<number>()
-
-  const resolveKeepDecision = (row: TesterPreviewRow, artifact: NormalizedGearArtifact): boolean => {
-    // Prefer the cached base match when it is available and not ignored.
-    if (row.baseMatch !== undefined) {
-      // Capture the cached base match from the preview row.
-      const baseMatch = row.baseMatch
-      // Only re-evaluate when the base match came from an ignored config.
-      const baseCfgIdx = baseMatch?.cfgIdx ?? null
-      const baseCfgIgnored = hasIgnoredConfigs && baseCfgIdx != null && ignoreConfigSet?.has(baseCfgIdx)
-      if (!baseCfgIgnored) {
-        return baseMatch?.keep === true
+  // Build compact resolver rows so WASM handles base-match fallback semantics.
+  const wasmResolverRows: KeepUniqueWasmCandidateResolveRowPayload[] = rows.map((row) => ({
+    item: row.artifact.testerItem,
+    baseMatchDefined: row.baseMatch !== undefined,
+    baseMatch: row.baseMatch
+      ? {
+        keep: row.baseMatch.keep === true,
+        cfgIdx: row.baseMatch.cfgIdx ?? null,
       }
+      : null,
+  }))
+  // WASM-first candidate keep/sell resolution keeps matching semantics in Rust.
+  try {
+    const keepFlags = resolveKeepUniqueCandidateKeepFlagsWithLoadedWasm({
+      rows: wasmResolverRows,
+      rules: baseRuleList,
+      configModes,
+      ...(ignoreConfigSet ? { ignoreKeepUniqueConfigIndices: ignoreConfigSet } : {}),
+    })
+    if (!Array.isArray(keepFlags) || keepFlags.length !== rows.length) {
+      throw new Error('WASM keep-unique candidate resolver returned an invalid payload.')
     }
-    // No rules means everything is sold by default.
-    if (baseRuleCount === 0) return false
-    // Re-evaluate with ignored configs removed so ordering stays accurate.
-    // Build the options object without undefined fields (exact optional typing).
-    const evalOptions = ignoreConfigSet
-      ? { configModes, excludeConfigIndices: ignoreConfigSet }
-      : { configModes }
-    // Run evaluation with the filtered options.
-    const { firstMatch } = evaluateMatchesByConfig(
-      baseRuleList,
-      artifact.testerItem,
-      evalOptions,
-    )
-    // Report keep status from the filtered evaluation.
-    return firstMatch?.keep === true
+    const candidates: KeepUniqueCandidate[] = []
+    const uniqueItemKeys = new Set<number>()
+    for (let idx = 0; idx < rows.length; idx += 1) {
+      const row = rows[idx]!
+      const artifact = row.artifact
+      const itemKey = getKeepUniqueItemKey(artifact)
+      const groupKey = getKeepUniqueGroupKey(artifact)
+      const isKept = keepFlags[idx] === true
+      const isSold = !isKept
+      const candidate: KeepUniqueCandidate = { row, artifact, itemKey, groupKey, isSold }
+      candidates.push(candidate)
+      if (isSold) uniqueItemKeys.add(itemKey)
+    }
+    return { candidates, uniqueItemKeys }
+  } catch (error) {
+    // Keep the error actionable so callers know warmup/compat requirements.
+    throw new Error(`WASM keep-unique candidate resolution is unavailable: ${String(error)}`)
   }
-
-  for (const row of rows) {
-    const artifact = row.artifact
-    const itemKey = getKeepUniqueItemKey(artifact)
-    const groupKey = getKeepUniqueGroupKey(artifact)
-    // Keep-unique only counts items as kept when non-ignored configs protect them.
-    const isKept = resolveKeepDecision(row, artifact)
-    // Track the sold outcome so the unique groups reflect ignored keep tags.
-    const isSold = !isKept
-    const candidate: KeepUniqueCandidate = { row, artifact, itemKey, groupKey, isSold }
-    candidates.push(candidate)
-    if (isSold) uniqueItemKeys.add(itemKey)
-  }
-
-  return { candidates, uniqueItemKeys }
 }
 
 /** Compute Keep Unique combination coverage against the candidate sold rows. */
@@ -1328,22 +1044,20 @@ export function collectKeepUniqueCandidates(params: {
 export function computeKeepUniqueProtection(params: KeepUniqueDetectionParams): KeepUniqueDetectionSnapshot {
   const { candidates, rules, enabled, now } = params
   const timestamp = Number.isFinite(now) ? Number(now) : Date.now()
-  // Keep-unique detection is WASM-only in this branch.
+  const wasmCandidates = toKeepUniqueWasmCandidates(candidates)
+  const wasmRules = toKeepUniqueWasmRules(rules)
+  // Wasm derives expected groups from the shared domain payload (SSOT path).
   const wasmSnapshot = computeKeepUniqueProtectionWithLoadedWasm({
-    candidates: toKeepUniqueWasmCandidates(candidates),
-    rules: toKeepUniqueWasmRules(rules),
-    expectedGroupsByRuleId: buildKeepUniqueExpectedGroupsByRuleId(rules),
+    candidates: wasmCandidates,
+    rules: wasmRules,
+    expectedGroupDomain: buildKeepUniqueExpectedGroupDomain(),
     enabled,
     now: timestamp,
   })
-  if (
-    wasmSnapshot
-    && typeof wasmSnapshot === 'object'
-    && Array.isArray((wasmSnapshot as { entries?: unknown }).entries)
-  ) {
-    return wasmSnapshot as KeepUniqueDetectionSnapshot
+  if (isKeepUniqueDetectionSnapshot(wasmSnapshot)) {
+    return wasmSnapshot
   }
-  throw new Error('WASM keep-unique detection is unavailable. Ensure warmupWasmRuleEngine() ran first.')
+  throw new Error('WASM keep-unique detection returned an invalid payload.')
 }
 
 export function resolveKeepUniqueRulesWithMetasets<T extends { combination: KeepUniqueCombination }>(

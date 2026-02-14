@@ -74,3 +74,9 @@ export const STAT_VARIANT_CR = 1792
 export const STAT_VARIANT_CDMG = 2048
 export const STAT_VARIANT_ROLL_COUNT = 25345
 
+// Auto-rarity lookup tables keyed by rarity code (0..16).
+export const AUTO_RARITY_ROLL_MASK_BY_CODE = [15, 0, 1, 3, 7, 15, 0, 1, 3, 7, 1, 3, 7, 15, 15, 15, 15] as const
+export const AUTO_RARITY_ADDITION_MASK_BY_CODE = [0, 15, 14, 12, 8, 0, 15, 14, 12, 8, 15, 15, 15, 15, 15, 0, 0] as const
+export const AUTO_RARITY_INCLUDES_MYTHICAL_BY_CODE = [false, false, false, false, false, false, false, false, false, false, false, false, false, false, true, true, false] as const
+export const AUTO_RARITY_MIN_ROLL_EVENTS_BY_CODE = [0, 0, 1, 2, 3, 4, 0, 1, 2, 3, 0, 0, 0, 0, 0, 4, 4] as const
+
