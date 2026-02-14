@@ -15,7 +15,7 @@
                     "check:wasm-toolchain": "node scripts/tooling/check-rust-wasm-toolchain.mjs",
                     "ensure:wasm-toolchain": "node scripts/tooling/check-rust-wasm-toolchain.mjs --fix",
                     "generate:domain-constants": "node scripts/tooling/generate-domain-constants.mjs",
-                    "wasm:build:rule-engine": "bash ./scripts/tooling/build-rule-engine-wasm.sh",
+                    "wasm:build:rule-engine": "node scripts/tooling/build-rule-engine-wasm.mjs",
                     "wasm:ensure:rule-engine": "node scripts/tooling/ensure-rule-engine-wasm.mjs",
                     "lint":  "eslint . --ext .ts,.tsx",
                     "release:win":  "powershell -ExecutionPolicy Bypass -File ./scripts/release/release-win.ps1",
