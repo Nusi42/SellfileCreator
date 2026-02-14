@@ -20,8 +20,8 @@ export async function routeFileByExtension(file: File, handlers: FileRouteHandle
   // Central router shared by drag/drop and manual file pickers.
   // Why: all supported file types should behave identically regardless of entry point.
   const name = String(file.name || '').toLowerCase()
-  // `.hsfc` = app config bundle.
-  if (name.endsWith('.hsfc')) {
+  // `.sfr` (and legacy `.hsfc`) = app recipe bundle.
+  if (name.endsWith('.sfr') || name.endsWith('.hsfc')) {
     await handlers.onHsfc(file)
     return
   }

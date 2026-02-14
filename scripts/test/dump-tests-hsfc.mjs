@@ -1,6 +1,6 @@
-// Dump HSFC-readable configs from the compiled test cases.
+// Dump readable recipe configs from the compiled test cases.
 // Usage: npm run tests:extract
-// Writes: examples/tests.extracted.hsfc
+// Writes: examples/tests.extracted.sfr
 
 import { writeFileSync, mkdirSync } from 'node:fs'
 import { fileURLToPath, pathToFileURL } from 'node:url'
@@ -12,7 +12,7 @@ process.env.HSFC_DUMP = '1'
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
 
-// Path to compiled HSFC fixture runner module.
+// Path to compiled recipe fixture runner module.
 const compiled = resolve(__dirname, '..', '..', 'tmp', 'tsc', 'tests', 'tests', 'integration', 'hsfc-fixtures.runner.js')
 
 /** @type {{ CASES?: ReadonlyArray<{ name: string; hsfc: Record<string, unknown> }> }} */
@@ -38,6 +38,6 @@ const output = {
 // Emit into the repo-root examples directory.
 const outDir = resolve(__dirname, '..', '..', 'examples')
 mkdirSync(outDir, { recursive: true })
-const outPath = resolve(outDir, 'tests.extracted.hsfc')
+const outPath = resolve(outDir, 'tests.extracted.sfr')
 writeFileSync(outPath, JSON.stringify(output, null, 2) + '\n', 'utf8')
 console.log(`Wrote ${configs.length} configs to ${outPath}`)

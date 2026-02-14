@@ -323,7 +323,7 @@ test.describe('autosave filter restore', () => {
     // Use aria-label to avoid layout-specific truncation of the visible label.
     await expect(filterButton).toHaveAttribute('aria-label', /Filters On/i)
 
-    const configFilterButton = page.getByRole('button', { name: /Config Filter/i })
+    const configFilterButton = page.getByRole('button', { name: /(?:Recipe|Config) Filter/i })
     await expect(configFilterButton).toBeVisible()
     await expect(configFilterButton).toContainText('First')
     await expect(configFilterButton).toHaveAttribute('aria-pressed', 'true')

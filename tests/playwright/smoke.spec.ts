@@ -13,7 +13,7 @@ test.describe('smoke', () => {
     await page.goto('/', APP_GOTO_OPTIONS)
     // Confirm the builder header renders to prove the shell is ready.
     // Allow slower engines to finish the shell render before asserting.
-    await expect(page.getByRole('heading', { name: 'Configs Builder' })).toBeVisible({ timeout: PLAYWRIGHT_TIMEOUTS.expectLong })
+    await expect(page.getByRole('heading', { name: 'Recipe Builder' })).toBeVisible({ timeout: PLAYWRIGHT_TIMEOUTS.expectLong })
     // Capture the toolbar action by accessible name so it survives layout changes.
     // Use the stable test hook so the label can stay localized/ellipsized.
     const substatTargetsButton = page.locator(SUBSTAT_TARGETS_BUTTON_SELECTOR)

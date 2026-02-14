@@ -221,14 +221,14 @@ Without the helper, the Playwright perf tests fall back to the built-in measurem
   - `app-init.ts` primes localStorage, forces `isSecureContext`, and (optionally) stubs the clipboard API for deterministic tests.
   - `app-warmup.ts` preloads the shell once to avoid cold Vite compile costs in perf specs.
   - `fixture-paths.ts` is the single source of truth for Playwright fixture paths; import from it instead of hardcoding file locations.
-  - `tests/data/sample-small.hsfc` (3 configs, no Keep Uniques) is the fast HSFC fixture for most UI coverage; `tests/data/sample.hsfc` remains the large fixture for scroll/perf scenarios.
-  - `tests/data/sample-small-config-options-disabled.hsfc` mirrors the small HSFC fixture with config options disabled (used by note/config-option coverage).
+  - `tests/data/sample-small.sfr` (3 configs, no Keep Uniques) is the fast HSFC fixture for most UI coverage; `tests/data/sample.sfr` remains the large fixture for scroll/perf scenarios.
+  - `tests/data/sample-small-config-options-disabled.sfr` mirrors the small HSFC fixture with config options disabled (used by note/config-option coverage).
   - `tests/data/sample-small.db` is the slim Rule Tester fixture for Playwright; `tests/data/sample.db` stays reserved for unit tests and offline tooling.
 - Specs:
   - `tests/playwright/smoke.spec.ts` is the canonical health-check (run single-browser only for targeted debugging, e.g. `npx playwright test tests/playwright/smoke.spec.ts --project=chromium --reporter=list`).
-  - `tests/playwright/config-insert-order.spec.ts` guards the “paste after” ordering regression by loading `tests/data/sample-small.hsfc`, performing copy/paste, and verifying row ordering.
+  - `tests/playwright/config-insert-order.spec.ts` guards the “paste after” ordering regression by loading `tests/data/sample-small.sfr`, performing copy/paste, and verifying row ordering.
   - `tests/playwright/builder-config-switch-perf.spec.ts` seeds a tiny autosave payload (two configs) to measure a single config switch without HSFC import overhead.
-  - `tests/playwright/tester-matching-perf.spec.ts` is a fast rebuild sanity check: it measures config-name rebuild latency in rules preview using `tests/data/sample-small.hsfc` across all browsers.
+  - `tests/playwright/tester-matching-perf.spec.ts` is a fast rebuild sanity check: it measures config-name rebuild latency in rules preview using `tests/data/sample-small.sfr` across all browsers.
   - `tests/playwright/keep-unique-disabled-clone-sell.spec.ts` seeds a tiny Rule Tester autosave payload (no DB import) to verify config-duplicate behavior with config options disabled.
 - Default test runs:
   - `npm run test:unit` executes the node:test suite and HSFC fixture runner.
@@ -247,7 +247,7 @@ Without the helper, the Playwright perf tests fall back to the built-in measurem
   - Expect/wait budgets follow the same split: `expectDefault` (3s) for general UI, `expectLong` (15s) only when a rule rebuild or matcher run is the explicit action under test.
   - Initial app-shell mounts may use `appGoto` (15s) for the first visible control in perf/modal specs; the rest of the interactions must stick to the 3s defaults.
   - Long timeouts are justified only for app-shell boot, HSFC imports, config rebuilds, or Rule Tester matching; everything else must stay on the 3s defaults.
-  - If a test needs more than 15s, shrink the fixture (use `sample-small.hsfc` / `sample-small.db`) or split the scenario; do not increase timeouts.
+  - If a test needs more than 15s, shrink the fixture (use `sample-small.sfr` / `sample-small.db`) or split the scenario; do not increase timeouts.
   - Do not add new timeout tiers or increase these values; if a test exceeds 15s, reduce the workload, improve readiness checks, or split the scenario.
 - Install behavior:
   - `npm install` runs `npm run ensure:wasm-toolchain` first, auto-installing missing `wasm-bindgen-cli` + `wasm32-unknown-unknown` when Rust is already present, then triggers `npx playwright install` to fetch browser binaries pinned to the local `@playwright/test` version.

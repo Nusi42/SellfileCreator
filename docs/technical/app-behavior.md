@@ -57,8 +57,8 @@ This document captures runtime behavior, builder interactions, and user-facing w
 
 ### Rule Tester measurements
 
-- `npm run measure:rule-tester` compiles `scripts/measure-rule-tester.ts` and replays the entire tester pipeline (HSFC load → merged rule build → matcher → Keep Unique detection). The default pairing benchmarks `examples/example.hsfc` against `examples/251112_042110.db`, mirroring the heavy user scenario so regressions show up immediately.
-- Override the inputs with `--hsfc=/path/to/file.hsfc` and/or `--db=/path/to/raid.db`. The script echoes base matcher timings, Keep Unique candidate/detection durations, emitted Keep Unique rule counts, and the matcher timings after those rules are appended so optimizations can be compared without manual instrumentation.
+- `npm run measure:rule-tester` compiles `scripts/measure-rule-tester.ts` and replays the entire tester pipeline (HSFC load → merged rule build → matcher → Keep Unique detection). The default pairing benchmarks `examples/example.sfr` against `examples/251112_042110.db`, mirroring the heavy user scenario so regressions show up immediately.
+- Override the inputs with `--hsfc=/path/to/file.sfr` (legacy `.hsfc` also works) and/or `--db=/path/to/raid.db`. The script echoes base matcher timings, Keep Unique candidate/detection durations, emitted Keep Unique rule counts, and the matcher timings after those rules are appended so optimizations can be compared without manual instrumentation.
 - Rank & Rarity (compact)
   - Side by side on sm+: Rank adapts to content width; Rarity takes remaining space.
   - Condensed controls only (no More/Less): Rank buttons `1★-3★`, `4★`, `5★`, `6★`; Rarity buttons `C/U`, `Rare`, `Epic`, `Legendary`, `Mythical`.
@@ -200,7 +200,7 @@ This document captures runtime behavior, builder interactions, and user-facing w
 
 ## Save/Load Guarantees
 
-- Saver writes `{ Version, Metasets, Minima, Configs, FinalSellRemainder, SelectedConfigIndex? }` (via `buildHsfcPayload`) and downloads `*.hsfc`. When no config is explicitly selected, the last config index is saved by convention so loaders can preserve intent.
+- Saver writes `{ Version, Metasets, Minima, Configs, FinalSellRemainder, SelectedConfigIndex? }` (via `buildHsfcPayload`) and downloads `*.sfr`. When no config is explicitly selected, the last config index is saved by convention so loaders can preserve intent.
 - Loader (`readHsfcFile`) accepts the readable HSFC schema and preserves each merged `substats` entry (`{ stat, fixed?, rollBounds? }`). `substatRollBounds.min`/`max` stay clamped to valid ranges (`min` 0..5, `max` 0..4) and wildcard flags remain intact. Legacy payloads that still provide `fixedSubstats`/`substatRollBounds` are converted inside `hsfcIO` so the rest of the app only deals with the new shape.
 - Copy All mirrors the saver payload (including `SelectedConfigIndex`) to enable full round-trip via copy/paste.
 - Sellfile export context menu: right-click `Export RSL Helper Sellfile` to open advanced options. `Export deduped RSL Helper Sellfile` runs a one-off dedupe pass that merges identical keep rules and removes dominated variants; the dedupe matcher now runs in the WASM rule engine for single-source semantics. `Export deduped by default` persists the behavior (key `sellfileCreator.sellfile.dedupDefault.v1`); when enabled, both downloads and push exports write the deduped payload. `Omit disabled rules when exporting` drops rules whose `Use` flag is `false` from downloads and push exports, and persists via `sellfileCreator.sellfile.omitDisabled.v1`.
@@ -221,13 +221,13 @@ This document captures runtime behavior, builder interactions, and user-facing w
 ## File Import UX
 
 - Global drop target: The entire app window accepts file drops. Local dropzones were removed to reduce friction. Implemented via `useFileDragDrop` + `FileDragOverlay`.
-- Overlay on file drag: A full-screen, non-interactive overlay appears on real file drags, indicating that `.hsfc` (configs + metasets), `.hsf` (sellfile), and `.db` (gear database) are accepted. Overlay uses `pointer-events: none` so it never blocks the actual drop.
-- Routing by extension: Drops are dispatched by filename extension — `.hsfc` → HSFC loader (`readHsfcFile`), `.hsf` → HSF loader (`readHsfFile`), `.db` → gear importer (`importGearDatabaseFromFile`). Unknown extensions trigger the shared “file format” dialog so users know the payload was rejected.
+- Overlay on file drag: A full-screen, non-interactive overlay appears on real file drags, indicating that `.sfr` (legacy `.hsfc`, configs + metasets), `.hsf` (sellfile), and `.db` (gear database) are accepted. Overlay uses `pointer-events: none` so it never blocks the actual drop.
+- Routing by extension: Drops are dispatched by filename extension — `.sfr`/`.hsfc` → HSFC loader (`readHsfcFile`), `.hsf` → HSF loader (`readHsfFile`), `.db` → gear importer (`importGearDatabaseFromFile`). Unknown extensions trigger the shared “file format” dialog so users know the payload was rejected.
 - Load triggers: The `Load RSL Helper Sellfile` button follows the same flow as drag & drop, so it accepts `.hsf` for base merges and `.db` gear dumps for the Rule Tester.
 - Error handling: Invalid or unreadable files (any of the accepted extensions) route through a single error dialog that spells out the supported formats so failures never disappear silently.
 - Safety: Only intercept drags when `DataTransfer.types` includes `Files`; component drags (e.g., table column reorder) are unaffected.
 - Load semantics:
-  - `.hsfc`: Load/drag replaces the entire state (metasets, substatTargets, configs, final-sell, selection, note). No conflict merging on file load.
+  - `.sfr`/`.hsfc`: Load/drag replaces the entire state (metasets, substatTargets, configs, final-sell, selection, note). No conflict merging on file load.
   - `.hsf`: Only the optional base Sellfile is replaced; builder configs remain untouched so merges stay deterministic.
   - `.db`: Gear rows are queued into the Rule Tester queue (and the preview auto-switches to the tester grid) without forcing the Logic Hub dialog open or mutating builder/export state. Manual/custom tester entries are left untouched so ad-hoc examples survive repeated imports regardless of whether the DB came from drag & drop, the picker, or the CLI command. Invalid DBs surface the same file-format dialog mentioned above.
     - The SQL.js WASM bundle is baked into the release as a data URI (`__SQL_JS_WASM_INLINE__`) so this workflow keeps working even when contributors open `dist/index.html` via `file://` with no dev server.

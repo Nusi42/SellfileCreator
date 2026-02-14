@@ -5,34 +5,34 @@ Crea, revisa y exporta reglas de venta para RSL Helper con una interfaz sencilla
 > Herramienta creada por fans. No está afiliada a Plarium, Raid: Shadow Legends ni RSL Helper. Todas las marcas mencionadas pertenecen a sus dueños.
 
 ## Funciones
-- Construir y guardar reglas: crea configs y conserva una biblioteca reutilizable.
+- Construir y guardar reglas: crea recetas y conserva una biblioteca reutilizable.
 - Interruptor Vista Sellfile: cambia desde el encabezado entre la tabla de Reglas y la tabla del Probador. Los contadores/chips se adaptan (Conservar/Vender para reglas, Coincidencia/Sin coincidencia para el tester) y los filtros siguen el modo que elijas.
-- Arrastrar y soltar o botón «Cargar Sellfile de RSL Helper»: arrastra `.hsfc`, `.hsf` o `.db` a cualquier parte (la superposición lo confirma) o haz clic en el botón. Ambos caminos hacen lo mismo: `.hsfc` reemplaza el constructor, `.hsf` añade la Sellfile base opcional y las `.db` van directas a la cola del Probador sin tocar tus configs.
+- Arrastrar y soltar o botón «Cargar Sellfile de RSL Helper»: arrastra `.sfr`, `.hsf` o `.db` a cualquier parte (la superposición lo confirma) o haz clic en el botón. Ambos caminos hacen lo mismo: `.sfr` reemplaza el constructor, `.hsf` añade la Sellfile base opcional y las `.db` van directas a la cola del Probador sin tocar tus recetas.
 - Metasets: agrupa conjuntos de equipo (por ejemplo, Velocidad + Percepción) y reutilízalos en varias reglas.
 - Exportación con un clic: genera un archivo HSF (Sellfile de RSL Helper) listo para cargar en RSL Helper.
 - Botón «Logic Hub»: abre el diálogo desde el encabezado para entrar a `Venta final`, `Conservar únicos`, `Botín de mazmorra` y el diálogo «Equipo» (pestaña Equipo dentro de Logic Hub) desde el mismo lugar. Crea equipo de ejemplo, pega filas o arrastra `%APPDATA%\\RslHelper\\Config`; después cierra el diálogo y deja el interruptor de vista previa en la tabla que necesites: la cola del Probador sigue visible sin reabrir nada.
-- Pestaña «Conservar únicos»: define las combinaciones que nunca quieres perder. El escáner genera reglas de conservación automáticamente cuando tus configs más tus reglas de venta actualmente activas eliminarían todas las copias.
+- Pestaña «Conservar únicos»: define las combinaciones que nunca quieres perder. El escáner genera reglas de conservación automáticamente cuando tus recetas más tus reglas de venta actualmente activas eliminarían todas las copias.
 
 ## Cómo usarlo
 
-### Archivo de configs
-- HSFC (`.hsfc`): archivo de proyecto para esta app. Piénsalo como una partida guardada que puedes cargar o compartir. RSL Helper no usa HSFC directamente.
+### Archivo de recetas
+- SFR (`.sfr`): archivo de proyecto para esta app. Piénsalo como una partida guardada que puedes cargar o compartir. RSL Helper no usa SFR directamente.
 - HSF (`.hsf`): el Sellfile que consume RSL Helper. Expórtalo desde la app y luego cárgalo dentro de RSL Helper.
-- El nombre predeterminado al guardar es `SellfileCreatorRules_AAAA MM DD_HHMM.hsfc`.
+- El nombre predeterminado al guardar es `SellfileCreatorRecipes_AAAA MM DD_HHMM.sfr`.
 
-### Constructor de configs
-- Completa el Constructor de configs y da un nombre claro a tu config.
-- Pulsa «Agregar como nueva config» para guardarla. Después selecciónala en la lista debajo del constructor para editarla y guarda los cambios con «Actualizar config seleccionada».
-- Cargar/Guardar: usa «Cargar configs» y «Guardar configs» para reutilizar tus reglas. Estas acciones guardan todo lo necesario para reconstruir la vista previa.
-- Menús de Reset/Insert/Apply: haz clic derecho en «Reset», «Insert as config» o «Apply as config» para abrir las opciones compartidas. Guarda el estado actual del constructor como plantilla predeterminada, vuelve a los valores de fábrica, habilita «Auto reset after Insert» (limpia el constructor en cuanto insertas una config) o «Auto apply to selected config» (envía los cambios a la config seleccionada automáticamente tras ~400 ms de inactividad). Auto reset y Auto apply no pueden estar activos al mismo tiempo: al activar uno se apaga el otro, y ambas preferencias permanecen entre sesiones.
-- Nota: pulsa «Agregar nota…» (o «Editar nota…») para adjuntar un texto al archivo de configs. Al cargar un archivo que contiene nota, se mostrará automáticamente. Usa `<!-- configs:1,0 -->` para insertar chips de configs concretas (0 toma la siguiente config). Usa `<!-- configs-re:"speed" -->` para mostrar todas las configs cuyo nombre coincide con el patrón (sin distinguir mayúsculas/minúsculas).
-- Restaurar Autosave: al iniciar, el diálogo lista cada sección autoguardada con su propia casilla. Restaura solo lo que necesites — configs (incluida la selección actual), metasets, Objetivos de substats, resto de Venta final, nota fijada, panel de filtros (estado, chips, secciones colapsadas) e importaciones del Probador. Deja una casilla desmarcada para conservar tu trabajo. Autosave también recuerda qué interruptores de Venta final (Artefactos, Accesorios y rangos de nivel) estaban activos, así que al reabrir Logic Hub refleja exactamente lo que exportaste la última vez.
+### Constructor de recetas
+- Completa el Constructor de recetas y da un nombre claro a tu receta.
+- Pulsa «Agregar como nueva receta» para guardarla. Después selecciónala en la lista debajo del constructor para editarla y guarda los cambios con «Actualizar receta seleccionada».
+- Cargar/Guardar: usa «Cargar recetas» y «Guardar recetas» para reutilizar tus reglas. Estas acciones guardan todo lo necesario para reconstruir la vista previa.
+- Menús de Reset/Insert/Apply: haz clic derecho en «Reset», «Insert as receta» o «Apply as receta» para abrir las opciones compartidas. Guarda el estado actual del constructor como plantilla predeterminada, vuelve a los valores de fábrica, habilita «Auto reset after Insert» (limpia el constructor en cuanto insertas una receta) o «Auto apply to selected receta» (envía los cambios a la receta seleccionada automáticamente tras ~400 ms de inactividad). Auto reset y Auto apply no pueden estar activos al mismo tiempo: al activar uno se apaga el otro, y ambas preferencias permanecen entre sesiones.
+- Nota: pulsa «Agregar nota…» (o «Editar nota…») para adjuntar un texto al archivo de recetas. Al cargar un archivo que contiene nota, se mostrará automáticamente. Usa `<!-- recipes:1,0 -->` para insertar chips de recetas concretas (0 toma la siguiente receta). Usa `<!-- recipes-re:"speed" -->` para mostrar todas las recetas cuyo nombre coincide con el patrón (sin distinguir mayúsculas/minúsculas).
+- Restaurar Autosave: al iniciar, el diálogo lista cada sección autoguardada con su propia casilla. Restaura solo lo que necesites — recetas (incluida la selección actual), metasets, Objetivos de substats, resto de Venta final, nota fijada, panel de filtros (estado, chips, secciones colapsadas) e importaciones del Probador. Deja una casilla desmarcada para conservar tu trabajo. Autosave también recuerda qué interruptores de Venta final (Artefactos, Accesorios y rangos de nivel) estaban activos, así que al reabrir Logic Hub refleja exactamente lo que exportaste la última vez.
 
 ### Diseño del constructor (de arriba hacia abajo)
-- Acción y Activado: Indica qué debe ocurrir cuando un objeto coincide con la config.
+- Acción y Activado: Indica qué debe ocurrir cuando un objeto coincide con la receta.
   - `Conservar` marca el objeto como Conservar; RSL Helper lo deja intacto.
   - `Vender` marca el objeto como Vender; RSL Helper lo pone en la cola de venta.
-  - El interruptor «Activado en el Sellfile» decide si las filas exportadas siguen activas. Las configs desactivadas se exportan con Use = false (se ven tachadas en la vista previa); activa «Omitir reglas desactivadas al exportar» en el menú de exportación si prefieres dejarlas fuera.
+  - El interruptor «Activado en el Sellfile» decide si las filas exportadas siguen activas. Las recetas desactivadas se ven tachadas en la vista previa y no tienen efecto en RSL Helper; activa «Omitir reglas desactivadas al exportar» en el menú de exportación si prefieres dejarlas fuera.
 - Rango: Limita la regla a ciertos rangos de estrellas si quieres tratar las piezas de 6★ distinto a 5★. `Cualquiera` deja todos los rangos válidos.
 - Niveles: Elige Nivel mínimo y máximo entre los hitos +0, +4, +8, +12, +16. Solo se generan filas dentro de esa ventana.
 - Rareza: `Auto` (recomendado) escoge la rareza más baja que sigue cumpliendo tus requisitos en los niveles seleccionados.
@@ -80,7 +80,7 @@ Crea, revisa y exporta reglas de venta para RSL Helper con una interfaz sencilla
 
 ### Objetivos de substats
 - Abre el diálogo mediante «Objetivos de substats…» en la esquina superior derecha del constructor.
-- Los objetivos son globales: afectan a todas las configs.
+- Los objetivos son globales: afectan a todas las recetas.
 - Estos objetivos definen las referencias por rango de nivel (0–3, 4–7, 8–11, 12–15, 16) y sirven como respaldo en la cuadrícula de Objetivos de tiradas.
 - Usa «Restablecer valores predeterminados» para volver a los objetivos recomendados.
 
@@ -91,7 +91,7 @@ Crea, revisa y exporta reglas de venta para RSL Helper con una interfaz sencilla
 - «Restablecer valores predeterminados» ofrece opciones seguras cuando un metaset está en uso (eliminar, sustituir por sets explícitos o por otro metaset).
 
 ### Venta final
-- Usa el interruptor `Venta final` en el encabezado de la vista previa para añadir reglas de venta para lo que no coincidió en otras configs. La etiqueta no cambia nunca; el relleno ámbar indica que está activa y el contorno neutro indica que está apagada.
+- Usa el interruptor `Venta final` en el encabezado de la vista previa para añadir reglas de venta para lo que no coincidió en otras recetas. La etiqueta no cambia nunca; el relleno ámbar indica que está activa y el contorno neutro indica que está apagada.
 - Haz clic en «Logic Hub» junto al interruptor para abrir la pestaña `Venta final` y decidir si afecta a Artefactos y/o Accesorios y qué rangos de nivel (0–3, 4–7, 8–11, 12–15, 16). Los valores predeterminados cubren 0–15 para no vender piezas ya subidas a +16.
 - Sin `Venta final`, RSL Helper conserva todo lo que no coincide con una regla. Solo se vende si una regla explícita indica Vender.
 - Con `Venta final` activa, las reglas generadas incluyen todos los sets conocidos. En la vista previa se muestra «Todos los sets conocidos» para reducir ruido, pero el archivo exportado enumera cada set.
@@ -147,24 +147,24 @@ Notas:
 - Corre unas 100.000 drops por etapa y se actualiza mientras corre.
 - Las tasas de drop y los rolls son simulados; toma los números como estimaciones.
 
-### Gestión de configs
-- Las configs guardadas aparecen como chips debajo del constructor. Haz clic para seleccionarlas, o clic derecho para duplicar, mover, copiar o borrar.
-- «Delete Configs» elimina todas (con confirmación).
+### Gestión de recetas
+- Las recetas guardadas aparecen como chips debajo del constructor. Haz clic para seleccionarlas, o clic derecho para duplicar, mover, copiar o borrar.
+- «Delete Recetas» elimina todas (con confirmación).
 - Vínculo por hover: al pasar el cursor sobre un chip se iluminan las filas asociadas en la vista previa y viceversa.
-- Vínculo por clic: al hacer clic en una fila de la tabla se selecciona la config de origen (las filas de la HSF base no cambian tu selección).
+- Vínculo por clic: al hacer clic en una fila de la tabla se selecciona la receta de origen (las filas de la HSF base no cambian tu selección).
 - Copia alternativa: Si el acceso al portapapeles falla, se abre un diálogo con el texto seleccionado para copiarlo manualmente.
 
 ### Vista Sellfile (Reglas y Probador)
 - El encabezado reúne el interruptor `Reglas`/`Probador`, el botón «Logic Hub» y «Cargar Sellfile de RSL Helper», así siempre sabes dónde cambiar de tabla o abrir el diálogo «Equipo» (Logic Hub → pestaña Equipo).
-- Vista `Reglas` (predeterminada): muestra todas las filas que se exportarán, incluidas las provenientes de la `.hsf` base opcional. Los contadores siguen en Conservar vs Vender, la fila de filtros mantiene los chips Cualquiera/Solo para Ranura/Rango/Rareza/Nivel y ahora muestra los dos botones de Configs en paralelo: `Configs vista` decide si se ocultan los chips fuera de los filtros actuales y el nuevo `Filtro de configs` funciona como un interruptor Activado/Desactivado que limita las filas del Sellfile a tus chips seleccionados (dejando al mismo tiempo el filtro preparado para cuando abras el tester).
-- Vista `Probador`: cambia la tabla al listado del Probador para que revises piezas importadas o creadas sin reabrir el diálogo Logic Hub. Los contadores y chips pasan a Coincidencia vs Sin coincidencia (además de Conservar/Vender según la regla de «la primera coincidencia gana») y la fila de filtros mantiene ambos botones de Configs lado a lado (`Configs vista` + `Filtro de configs`). El primero sigue controlando la visibilidad de chips, mientras que el `Filtro de configs` se expande al triestado (`Off` → `Primera` → `Cualquiera`) para aislar las filas del Probador y sigue limitando las reglas del Sellfile cuando regreses a `Reglas`. A eso se suma el filtro de resultados específico (Conservar/Vender vs Coincidencia/Sin coincidencia), así puedes aislar piezas cuyo primer match, o cualquier match, pertenece a tu selección sin ocultar chips. Importar `.db` conmuta automáticamente a esta vista, pero puedes volver a `Reglas` cuando quieras.
-- «Cargar Sellfile de RSL Helper» se comporta igual que arrastrar y soltar: `.hsfc` reemplaza el estado del constructor, `.hsf` añade la Sellfile base opcional y `.db` envían piezas directamente a la vista del Probador (sin tocar tus configs). El botón «Limpiar» desacopla la `.hsf` base.
+- Vista `Reglas` (predeterminada): muestra todas las filas que se exportarán, incluidas las provenientes de la `.hsf` base opcional. Los contadores siguen en Conservar vs Vender, la fila de filtros mantiene los chips Cualquiera/Solo para Ranura/Rango/Rareza/Nivel y ahora muestra los dos botones de Recetas en paralelo: `Recetas vista` decide si se ocultan los chips fuera de los filtros actuales y el nuevo `Filtro de recetas` funciona como un interruptor Activado/Desactivado que limita las filas del Sellfile a tus chips seleccionados (dejando al mismo tiempo el filtro preparado para cuando abras el tester).
+- Vista `Probador`: cambia la tabla al listado del Probador para que revises piezas importadas o creadas sin reabrir el diálogo Logic Hub. Los contadores y chips pasan a Coincidencia vs Sin coincidencia (además de Conservar/Vender según la regla de «la primera coincidencia gana») y la fila de filtros mantiene ambos botones de Recetas lado a lado (`Recetas vista` + `Filtro de recetas`). El primero sigue controlando la visibilidad de chips, mientras que el `Filtro de recetas` se expande al triestado (`Off` → `Primera` → `Cualquiera`) para aislar las filas del Probador y sigue limitando las reglas del Sellfile cuando regreses a `Reglas`. A eso se suma el filtro de resultados específico (Conservar/Vender vs Coincidencia/Sin coincidencia), así puedes aislar piezas cuyo primer match, o cualquier match, pertenece a tu selección sin ocultar chips. Importar `.db` conmuta automáticamente a esta vista, pero puedes volver a `Reglas` cuando quieras.
+- «Cargar Sellfile de RSL Helper» se comporta igual que arrastrar y soltar: `.sfr` reemplaza el estado del constructor, `.hsf` añade la Sellfile base opcional y `.db` envían piezas directamente a la vista del Probador (sin tocar tus recetas). El botón «Limpiar» desacopla la `.hsf` base.
 - El icono de paleta abre Gestionar colores para personalizar texto y fondo de los substats.
-- En la vista `Reglas` las columnas «Idx» y «Cfg» se mantienen (las filas de la `.hsf` base dejan «Cfg» vacío). En la vista `Probador`, ese espacio muestra slot/set, estadísticas del objeto y la primera config/regla que coincide, de modo que ves qué ocurriría con cada pieza desde la vista previa.
+- En la vista `Reglas` las columnas «Idx» y «Cfg» se mantienen (las filas de la `.hsf` base dejan «Cfg» vacío). En la vista `Probador`, ese espacio muestra slot/set, estadísticas del objeto y la primera receta/regla que coincide, de modo que ves qué ocurriría con cada pieza desde la vista previa.
 
 ### Controles de Vista Sellfile
 - Gestionar colores: usa el icono de la paleta; «Restablecer valores predeterminados» recupera los recomendados.
-- Filtros: Pulsa `Ctrl+F` (`Cmd+F` en macOS) para abrir el panel y enfocar al instante la búsqueda de configs. Haz clic derecho en cualquier encabezado de sección (o `Ctrl`/`Cmd`+clic en su chevrón) para colapsar o expandir todas las secciones de una sola vez. `Configs vista` oculta chips que no coinciden con el filtro activo para que la tabla siga legible. `Filtro de configs` decide qué configs se permiten en la tabla: en `Reglas` actúa como un simple interruptor Activado/Desactivado, y en la vista del Probador rota por `Off` → `Primera` → `Cualquiera` para controlar también cómo responden las filas del Probador.
+- Filtros: Pulsa `Ctrl+F` (`Cmd+F` en macOS) para abrir el panel y enfocar al instante la búsqueda de recetas. Haz clic derecho en cualquier encabezado de sección (o `Ctrl`/`Cmd`+clic en su chevrón) para colapsar o expandir todas las secciones de una sola vez. `Recetas vista` oculta chips que no coinciden con el filtro activo para que la tabla siga legible. `Filtro de recetas` decide qué recetas se permiten en la tabla: en `Reglas` actúa como un simple interruptor Activado/Desactivado, y en la vista del Probador rota por `Off` → `Primera` → `Cualquiera` para controlar también cómo responden las filas del Probador.
 - Menú de columnas (clic derecho en la cabecera):
   - Restablecer columnas: vuelve a los valores iniciales.
   - Ajustar anchura: adapta las columnas al ancho de la ventana.
@@ -172,19 +172,19 @@ Notas:
   - Mostrar/Ocultar columnas: casillas individuales por columna.
 - Reordenar columnas: arrastra una cabecera horizontalmente.
 - Redimensionar columnas: arrastra el borde derecho de la cabecera.
-- Comportamiento de clic: una fila selecciona la config correspondiente (sin desplazamiento automático). Un clic en el chip de la config desplaza la tabla a la primera coincidencia.
+- Comportamiento de clic: una fila selecciona la receta correspondiente (sin desplazamiento automático). Un clic en el chip de la receta desplaza la tabla a la primera coincidencia.
 
 ### Vista del Probador
 - Haz clic en «Logic Hub» en el encabezado de la vista previa para abrir el diálogo «Equipo» (Logic Hub → pestaña Equipo). Crea equipo de ejemplo o pega filas (JSON/texto). Los objetos se sincronizan al instante con la vista previa, así que cerrar el diálogo no borra la cuadrícula del Probador.
 - Importa tu base de datos de RSL Helper arrastrando archivos `.db` a la app o usando el botón «Cargar Sellfile de RSL Helper» (se comporta igual). Estas importaciones ponen en cola miles de artefactos más el buzón, cambian la vista a `Probador` y dejan intactos el constructor y el estado de exportación.
-- Cada fila del Probador muestra slot, set, nivel, stat principal, un resumen de substats (con glifos y recuentos de tiradas), la fuente (inventario vs bandeja) y chips de Conservar/Vender junto con la primera config/regla que coincidió. Las reglas desactivadas nunca coinciden, por lo que «Sin coincidencia» representa equipo que la Sellfile dejaría intacto.
-- Los contadores del encabezado pasan a Coincidencia vs Sin coincidencia y también desglosan Conservar/Vender. Combínalos con los filtros del Probador (resultado + `Configs tester` con `Off`/`Primera`/`Cualquiera`) para centrarte en casos límite antes de exportar.
+- Cada fila del Probador muestra slot, set, nivel, stat principal, un resumen de substats (con glifos y recuentos de tiradas), la fuente (inventario vs bandeja) y chips de Conservar/Vender junto con la primera receta/regla que coincidió. Las reglas desactivadas nunca coinciden, por lo que «Sin coincidencia» representa equipo que la Sellfile dejaría intacto.
+- Los contadores del encabezado pasan a Coincidencia vs Sin coincidencia y también desglosan Conservar/Vender. Combínalos con los filtros del Probador (resultado + `Recetas tester` con `Off`/`Primera`/`Cualquiera`) para centrarte en casos límite antes de exportar.
 - Usa el interruptor de vista previa para alternar entre las tablas de Reglas y del Probador sin volver a abrir el diálogo Logic Hub, ideal para comparar el resultado de cada regla con la pieza que la activó.
 - La tabla del Probador está virtualizada, de modo que incluso con más de 7000 filas importadas sigue respondiendo con fluidez.
 
 ### Exportar
 - «Exportar Sellfile de RSL Helper combinada» aparece cuando hay archivo base; si no, verás «Exportar Sellfile de RSL Helper».
-- Usa «Guardar configs» y «Cargar configs» en el constructor para conservar tu trabajo.
+- Usa «Guardar recetas» y «Cargar recetas» en el constructor para conservar tu trabajo.
 - El nombre predeterminado del archivo exportado es `Sellfile_AAAA MM DD_HHMM.hsf`.
 
 ## Ejemplos
@@ -197,7 +197,7 @@ Todos los ejemplos usan objetivos de substats de 6★ por unidad de tirada: SPD=
 
 #### Escenarios del constructor de un vistazo
 
-| Escenario | Configuración | Lo que emite el constructor |
+| Escenario | Receta | Lo que emite el constructor |
 | --- | --- | --- |
 | Temprano (2 substats) | SPD mín = 2, CR% mín = 1, Niveles +0..+16 | `+0:` SPD ≥ 5, CR ≥ 5<br>`+4:` [10,5] y [5,10]<br>`+8:` [15,5], [10,10], [5,15]<br>`+12/+16:` [15,10] |
 | Tardío (2 substats) | Igual que arriba | `+0/+4:` [5,5]<br>`+8:` [10,5] o [5,10]<br>`+12:` [15,5] o [10,10]<br>`+16:` [15,10] |
@@ -214,7 +214,7 @@ Todos los ejemplos usan objetivos de substats de 6★ por unidad de tirada: SPD=
 - Editar y probar: Abre la app y arrastra tu `*.l10n.json` editado para aplicarlo de inmediato en la sesión actual (no se necesita ni se puede instalar nada).
 - Enviar correcciones: Envía el JSON actualizado por mensaje de Discord. Mantén las claves sin cambios; las claves que falten volverán al inglés.
 - Idiomas integrados: Todos los idiomas incluidos se compilan en el único HTML, por lo que la app funciona completamente sin conexión. Tus correcciones se integrarán en la siguiente versión.
-- `Stream-Helper-DB-to-Creator.bat` inicia el DB watcher y transmite la base de datos predeterminada de RSL Helper a Sellfile Creator para comprobar configuraciones en vivo más fácilmente.
+- `Stream-Helper-DB-to-Creator.bat` inicia el DB watcher y transmite la base de datos predeterminada de RSL Helper a Sellfile Creator para comprobar recetas en vivo más fácilmente.
 
 ## Agradecimientos
 

@@ -202,6 +202,7 @@ export const UI_SUBSTAT_WARNING_ROW_HEIGHT_PX = 14
 export const GEAR_DB_FILE_EXTENSIONS = ['.db', '.sqlite', '.sqlite3'] as const
 const IMPORTABLE_FILE_EXTENSIONS = [
   '.hsf',
+  '.sfr',
   '.hsfc',
   '.gearsets',
   '.gearsets.json',
@@ -213,7 +214,7 @@ const IMPORTABLE_FILE_EXTENSIONS = [
 ] as const
 export const ACCEPT_HSF = IMPORTABLE_FILE_EXTENSIONS.join(',')
 export const ACCEPT_HSFC = ACCEPT_HSF
-export const ACCEPT_HSFC_FILE_DIALOG = '.hsfc'
+export const ACCEPT_HSFC_FILE_DIALOG = '.sfr,.hsfc'
 export const ACCEPT_HSF_OR_DB_FILE_DIALOG = [
   '.hsf',
   ...GEAR_DB_FILE_EXTENSIONS,

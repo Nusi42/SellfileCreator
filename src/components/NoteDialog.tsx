@@ -99,11 +99,11 @@ const NOTE_DIALOG_PAPER_SX = {
   display: 'flex',
   flexDirection: 'column',
 }
-const CONFIG_COMMENT_REGEX = /^\s*configs\s*:\s*([0-9,\s]+)\s*$/i
-const CONFIG_MARKER_REGEX = /<!--\s*configs\s*:\s*([0-9,\s]+)\s*-->/i
-const CONFIG_REGEX_COMMENT_REGEX = /^\s*configs-re\s*:\s*"([^"\\]*(?:\\.[^"\\]*)*)"\s*$/i
-const CONFIG_REGEX_MARKER_REGEX = /<!--\s*configs-re\s*:\s*"([^"\\]*(?:\\.[^"\\]*)*)"\s*-->/i
-const CONFIG_ANY_MARKER_GLOBAL_REGEX = /<!--\s*configs(?:-re)?\s*:[\s\S]*?-->/gi
+const CONFIG_COMMENT_REGEX = /^\s*(?:recipes|configs)\s*:\s*([0-9,\s]+)\s*$/i
+const CONFIG_MARKER_REGEX = /<!--\s*(?:recipes|configs)\s*:\s*([0-9,\s]+)\s*-->/i
+const CONFIG_REGEX_COMMENT_REGEX = /^\s*(?:recipes|configs)-re\s*:\s*"([^"\\]*(?:\\.[^"\\]*)*)"\s*$/i
+const CONFIG_REGEX_MARKER_REGEX = /<!--\s*(?:recipes|configs)-re\s*:\s*"([^"\\]*(?:\\.[^"\\]*)*)"\s*-->/i
+const CONFIG_ANY_MARKER_GLOBAL_REGEX = /<!--\s*(?:recipes|configs)(?:-re)?\s*:[\s\S]*?-->/gi
 const CONFIG_ELEMENT_TAG = 'config-chip-block'
 const CONFIG_ELEMENT_ATTR = 'data-config-ids'
 const CONFIG_ELEMENT_PATTERN_ATTR = 'data-config-pattern'
@@ -917,7 +917,7 @@ function configMatchesNotePattern(cfg: BuilderConfig, pattern: RegExp): boolean 
     pattern.lastIndex = 0
     if (pattern.test(name)) return true
   }
-  // Check normalized tags so configs-re can target tag metadata.
+  // Check normalized tags so recipes-re can target tag metadata.
   const tags = Array.isArray(cfg?.tags) ? cfg.tags : []
   for (const tag of tags) {
     const normalized = normalizeTagValue(String(tag))
@@ -987,11 +987,11 @@ function buildConfigMarkerResolutions(text: string, configs: BuilderConfig[]): C
   return result
 }
 
-const CONFIG_MARKER_HINT = '<!--  Use `0` to reference the config after the last used. Alternatively, use `configs-re: "text"` for regexp matches. -->'
+const CONFIG_MARKER_HINT = '<!--  Use `0` to reference the config after the last used. Alternatively, use `recipes-re: "text"` for regexp matches. -->'
 
 function buildConfigMarkerBlock(ids: number[]): { block: string; cursorIndex: number } {
   // Keep the marker and hint on separate lines to avoid breaking selection ranges.
-  const marker = `<!-- configs:${ids.join(',')} -->`
+  const marker = `<!-- recipes:${ids.join(',')} -->`
   const block = `${marker}\n${CONFIG_MARKER_HINT}`
   // Cursor returns to the end of the marker line for continued editing.
   return { block, cursorIndex: marker.length + 1 }

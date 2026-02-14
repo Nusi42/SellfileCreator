@@ -156,9 +156,9 @@ Coding patterns adopted during the refactor (required for PRs):
   - `README.<lang>.txt` — localized README variants converted to UTF-8 BOM text
   - `HISTORY.txt` — copied from `docs/HISTORY.txt` so the release bundle ships with the full changelog
   - `i18n/*.l10n.json` — localization templates exported from `dist/l10n`
-  - `Example.hsfc` — prefers the most recent `Nusi_*.hsfc` in `examples/`; falls back to `example.hsfc` if no timestamped sample is present
-  - `Basic.hsfc` — copied verbatim from `examples/Basic.hsfc` to provide a minimal starter config
-  - `Example.hsf` — prefers the most recent `Nusi_*.hsf` in `examples/`; falls back to `example.hsf` if no timestamped sample is present
+  - `Sellfiles/lategame-receipe.sfr` — prefers the most recent `Nusi_*.sfr` in `examples/`; falls back to `example.sfr` (legacy `example.hsfc`) if no timestamped sample is present
+  - `Sellfiles/lategame-sellfile.hsf` — prefers the most recent `Nusi_*.hsf` in `examples/`; falls back to `example.hsf` if no timestamped sample is present
+  - `Sellfiles/basic.sfr` — copied from `examples/Basic.sfr` (legacy `Basic.hsfc` fallback) as the minimal starter recipe
   - `runme.bat` — launches the HTML in the default browser
   - `dev/` — optional helper folder with the WebSocket watcher scripts and protocol docs when available
 
@@ -195,7 +195,7 @@ Coding patterns adopted during the refactor (required for PRs):
   - Tutorial strings, builder panel caption, and application toasts are localized via `t(...)` calls. Tutorial keys follow a `tut*` naming scheme.
 - `src/hooks/useSubstatColors.ts`: Hook for substat color map defaulting and persistence.
 - `src/hooks/useFileDragDrop.ts`: Hook for global file drag/drop listeners; exposes `active` overlay state.
-  - Recognized file types: `.hsfc`, `.hsf`, and `.l10n.json/.i18n.json/.l10n` (runtime localization catalogs).
+  - Recognized file types: `.sfr` (legacy `.hsfc`), `.hsf`, and `.l10n.json/.i18n.json/.l10n` (runtime localization catalogs).
   - L10n JSON schema: either `{ "lang": "xx-XX", "catalog": { ... } }` or a plain key→string map named `xx-XX.l10n.json`/`xx-XX.i18n.json` to infer `lang`.
   - Dropping an l10n file registers it via `registerRuntimeCatalog` and applies it immediately (non-persistent).
   - Help dialog includes a dev-only language select dropdown (Empty/EN/DE/FR/ES/PT-BR/PT-PT/RU/UK/TR) for quick verification. “Empty (dev)” uses blank values for all keys to highlight non-localized text.
@@ -225,7 +225,7 @@ Localization status
     - Sets: When “Sets as icons” is on, metasets with a non-`none` icon render the assigned glyph inline alongside explicit set icons; otherwise both metasets and sets render as text. `none` always shows the metaset name.
     - Separator dividers (`exportMode === 'separator'`) render as a full-width divider with an optional centered name, hide inline action icons, but remain selectable and expose the context menu for move/delete actions. Builder controls stay active so the config can double as a TODO note. Leading `#` characters tone down the divider (solid → dashed → dotted as the count grows) and `[RRGGBB]` tokens at the start recolor both the line and label (tokens are stripped from the rendered name, default color is the theme primary). The same color token, when used on a non-separator config name, recolors the inline name and context-menu icons.
 - `scripts/tooling/patch-esm-specifiers.cjs`: Post-compile helper that adds `.js` extensions to relative ESM imports in compiled artifacts under `tmp/tsc/tests/src/` so Node can resolve them without a bundler. Runs as part of `npm run test:unit`.
-- `npm run tests:extract`: Generates `examples/tests.extracted.hsfc` containing all HSFC-readable configs used by tests (useful to load/paste into the app).
+- `npm run tests:extract`: Generates `examples/tests.extracted.sfr` containing all HSFC-readable configs used by tests (useful to load/paste into the app).
 - `scripts/release/release-win.ps1`: Build-and-package script for Windows (runs tests first, builds, stages, archives). Pass `-DevBuild` to keep the current package.json version and suffix outputs with `-dev`.
 - `scripts/release/release-win-dev.ps1`: Thin wrapper that invokes `release-win.ps1 -DevBuild` so both entry points stay in sync.
 - `scripts/vite/assetsPlugin.ts`: Injects the favicon data URL during dev and build based on its explicit include list.
