@@ -41,6 +41,20 @@ export function bounded_compositions_i32_fast_flat(caps, total) {
 }
 
 /**
+ * @param {any} rules
+ * @param {any} detection
+ * @param {bigint} config_id_base
+ * @returns {any}
+ */
+export function build_keep_unique_rules_value(rules, detection, config_id_base) {
+    const ret = wasm.build_keep_unique_rules_value(rules, detection, config_id_base);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * @param {string} values_json
  * @param {number} pick
  * @returns {string}
@@ -146,6 +160,18 @@ export function configure_value(rules, config_modes) {
     if (ret[1]) {
         throw takeFromExternrefTable0(ret[0]);
     }
+}
+
+/**
+ * @param {any} rules
+ * @returns {any}
+ */
+export function dedupe_hsf_rules_for_export_value(rules) {
+    const ret = wasm.dedupe_hsf_rules_for_export_value(rules);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
 }
 
 /**
@@ -381,6 +407,19 @@ export function filtered_roll_distributions_fast_flat(dimensions, total, max_cap
 }
 
 /**
+ * @param {any} rules
+ * @param {any} emission_meta
+ * @returns {any}
+ */
+export function finalize_builder_rules_value(rules, emission_meta) {
+    const ret = wasm.finalize_builder_rules_value(rules, emission_meta);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * @param {string} entries_json
  * @param {boolean} apply_obsolete_pruning
  * @returns {string}
@@ -571,6 +610,20 @@ export function keep_unique_count_key_value(artifact, count_mode) {
 }
 
 /**
+ * @param {any} base_rules
+ * @param {any} custom_rules
+ * @param {any} candidate_keep_rules
+ * @returns {any}
+ */
+export function merge_keep_unique_injected_rules_value(base_rules, custom_rules, candidate_keep_rules) {
+    const ret = wasm.merge_keep_unique_injected_rules_value(base_rules, custom_rules, candidate_keep_rules);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * @param {string} values_json
  * @returns {string}
  */
@@ -631,6 +684,33 @@ export function permutations_i32_fast_flat(values) {
     var v2 = getArrayI32FromWasm0(ret[0], ret[1]).slice();
     wasm.__wbindgen_free(ret[0], ret[1] * 4, 4);
     return v2;
+}
+
+/**
+ * @param {any} payload
+ * @returns {number}
+ */
+export function resolve_auto_rarity_code_value(payload) {
+    const ret = wasm.resolve_auto_rarity_code_value(payload);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return ret[0];
+}
+
+/**
+ * @param {any} rows
+ * @param {any} rules
+ * @param {any} config_modes
+ * @param {any} ignore_keep_unique_config_indices
+ * @returns {any}
+ */
+export function resolve_keep_unique_candidate_keep_flags_value(rows, rules, config_modes, ignore_keep_unique_config_indices) {
+    const ret = wasm.resolve_keep_unique_candidate_keep_flags_value(rows, rules, config_modes, ignore_keep_unique_config_indices);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
 }
 
 /**

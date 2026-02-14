@@ -25,6 +25,7 @@ const statId = spec.statId
 const rarityCode = spec.rarityCode
 const level = spec.level
 const encoding = spec.encoding
+const autoRarity = spec.autoRarity
 const accessoryNoSetId = spec.accessoryNoSetId
 
 // Variant encoding mirrors src/lib/types.ts and wasm/rule_engine semantics.
@@ -51,6 +52,43 @@ const statVariant = {
 
 // Keep milestone helpers explicit so consumers can import direct named values.
 const [level0, level4, level8, level12, level16] = level.milestones.map((value) => Number(value))
+
+// Auto-rarity tables are indexed by rarity code (0..16) in both TS and Rust.
+const toIntArray = (values, label) => {
+  // Validate shape early so malformed specs fail with the field name.
+  if (!Array.isArray(values)) {
+    throw new Error(`Expected array for ${label}.`)
+  }
+  // Normalize all entries to numbers before downstream length checks.
+  return values.map((value) => Number(value))
+}
+const toBoolArray = (values, label) => {
+  // Validate shape early so malformed specs fail with the field name.
+  if (!Array.isArray(values)) {
+    throw new Error(`Expected array for ${label}.`)
+  }
+  // Normalize truthy booleans only; non-true values become false.
+  return values.map((value) => value === true)
+}
+const assertAutoRarityLength = (values, label) => {
+  // Rarity-code tables are fixed-width by design (codes 0 through 16).
+  if (values.length !== 17) {
+    throw new Error(`${label} must contain exactly 17 entries (rarity codes 0..16).`)
+  }
+}
+// Pull each table from the shared spec and normalize by expected primitive type.
+const autoRarityRollMaskByCode = toIntArray(autoRarity.rollMaskByCode, 'autoRarity.rollMaskByCode')
+const autoRarityAdditionMaskByCode = toIntArray(autoRarity.additionMaskByCode, 'autoRarity.additionMaskByCode')
+const autoRarityIncludesMythicalByCode = toBoolArray(autoRarity.includesMythicalByCode, 'autoRarity.includesMythicalByCode')
+const autoRarityMinRollEventsByCode = toIntArray(autoRarity.minRollEventsByCode, 'autoRarity.minRollEventsByCode')
+// Enforce width parity once per table so emitters can trust array indexing.
+assertAutoRarityLength(autoRarityRollMaskByCode, 'autoRarity.rollMaskByCode')
+assertAutoRarityLength(autoRarityAdditionMaskByCode, 'autoRarity.additionMaskByCode')
+assertAutoRarityLength(autoRarityIncludesMythicalByCode, 'autoRarity.includesMythicalByCode')
+assertAutoRarityLength(autoRarityMinRollEventsByCode, 'autoRarity.minRollEventsByCode')
+// Emit boolean arrays in each target language's literal style.
+const autoRarityBoolTs = autoRarityIncludesMythicalByCode.map((value) => (value ? 'true' : 'false')).join(', ')
+const autoRarityBoolRust = autoRarityIncludesMythicalByCode.map((value) => (value ? 'true' : 'false')).join(", ")
 
 // TypeScript emitter keeps constants tree-shakeable and easy to import by name.
 const tsLines = [
@@ -129,6 +167,12 @@ const tsLines = [
   `export const STAT_VARIANT_CR = ${statVariant.cr}`,
   `export const STAT_VARIANT_CDMG = ${statVariant.cdmg}`,
   `export const STAT_VARIANT_ROLL_COUNT = ${statVariant.rollCount}`,
+  '',
+  '// Auto-rarity lookup tables keyed by rarity code (0..16).',
+  `export const AUTO_RARITY_ROLL_MASK_BY_CODE = [${autoRarityRollMaskByCode.join(', ')}] as const`,
+  `export const AUTO_RARITY_ADDITION_MASK_BY_CODE = [${autoRarityAdditionMaskByCode.join(', ')}] as const`,
+  `export const AUTO_RARITY_INCLUDES_MYTHICAL_BY_CODE = [${autoRarityBoolTs}] as const`,
+  `export const AUTO_RARITY_MIN_ROLL_EVENTS_BY_CODE = [${autoRarityMinRollEventsByCode.join(', ')}] as const`,
   '',
 ]
 
@@ -210,6 +254,12 @@ const rustLines = [
   `pub const STAT_VARIANT_CR: i64 = ${statVariant.cr};`,
   `pub const STAT_VARIANT_CDMG: i64 = ${statVariant.cdmg};`,
   `pub const STAT_VARIANT_ROLL_COUNT: i64 = ${statVariant.rollCount};`,
+  '',
+  '// Auto-rarity lookup tables keyed by rarity code (0..16).',
+  `pub const AUTO_RARITY_ROLL_MASK_BY_CODE: [i64; 17] = [${autoRarityRollMaskByCode.join(", ")}];`,
+  `pub const AUTO_RARITY_ADDITION_MASK_BY_CODE: [i64; 17] = [${autoRarityAdditionMaskByCode.join(", ")}];`,
+  `pub const AUTO_RARITY_INCLUDES_MYTHICAL_BY_CODE: [bool; 17] = [${autoRarityBoolRust}];`,
+  `pub const AUTO_RARITY_MIN_ROLL_EVENTS_BY_CODE: [i64; 17] = [${autoRarityMinRollEventsByCode.join(", ")}];`,
   '',
 ]
 

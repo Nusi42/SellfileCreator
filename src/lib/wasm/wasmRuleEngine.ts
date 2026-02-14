@@ -1,17 +1,23 @@
 import initRuleEngineWasm, {
+  build_keep_unique_rules_value as buildKeepUniqueRulesWasmValueBinding,
   bounded_compositions_i32_fast_flat as boundedCompositionsI32FastFlatWasmBinding,
   combinations_i32_fast_flat as combinationsI32FastFlatWasmBinding,
   compute_keep_unique_protection_value as computeKeepUniqueProtectionValueWasmBinding,
+  dedupe_hsf_rules_for_export_value as dedupeHsfRulesForExportWasmValueBinding,
   emit_hsf_rules_for_distributions_value as emitHsfRulesForDistributionsValueWasmBinding,
+  emit_hsf_rules_for_filtered_distributions_value as emitHsfRulesForFilteredDistributionsValueWasmBinding,
   filtered_bounded_compositions_with_offset_i32_fast_flat as filteredBoundedCompositionsWithOffsetI32FastFlatWasmBinding,
+  finalize_builder_rules_value as finalizeBuilderRulesWasmValueBinding,
   configure_value as configureRuleEngineWasmValueBinding,
   evaluate_value as evaluateRuleEngineWasmValueBinding,
   finalize_generated_rules_value as finalizeGeneratedRulesWasmValueBinding,
-  filtered_roll_distributions_fast_flat as filteredRollDistributionsFastFlatWasmBinding,
   find_obsolete_builder_value as findObsoleteBuilderRuleEngineWasmValueBinding,
   find_obsolete_value as findObsoleteRuleEngineWasmValueBinding,
   intro_assignments_for_combo_fast_flat as introAssignmentsForComboFastFlatWasmBinding,
   keep_unique_count_key_value as keepUniqueCountKeyValueWasmBinding,
+  merge_keep_unique_injected_rules_value as mergeKeepUniqueInjectedRulesWasmValueBinding,
+  resolve_auto_rarity_code_value as resolveAutoRarityCodeWasmValueBinding,
+  resolve_keep_unique_candidate_keep_flags_value as resolveKeepUniqueCandidateKeepFlagsValueWasmBinding,
   permutations_i32_fast_flat as permutationsI32FastFlatWasmBinding,
   roll_distributions_flat as rollDistributionsFlatWasmBinding,
   version as ruleEngineWasmVersionBinding,
@@ -19,6 +25,7 @@ import initRuleEngineWasm, {
 import type { GeneratedBranchRuleEntry, HsfRuleWithCfg } from '../merge'
 import type { HsfRule } from '../hsfTypes'
 import type { SellfileExportMode } from '../hsfBuilder'
+import type { KeepUniqueDetectionSnapshot, KeepUniqueRule } from '../keepUniques'
 import type { TesterMatchWorkerEvaluateItem, TesterMatchWorkerItemResult } from '../../workers/testerMatchWorkerTypes'
 
 // Evaluate options mirror evaluateMatchesByConfig inputs used by worker paths.
@@ -267,6 +274,27 @@ export const findObsoleteBuilderRulesWithLoadedWasm = (rules: HsfRule[]): WasmOb
   throw new Error('WASM builder obsolete-rule detector returned an invalid payload.')
 }
 
+// Builder finalizer keeps builder-specific obsolete pruning + emission ordering
+// in Rust so hsfBuilder.ts no longer duplicates the prune/sort implementation.
+export const finalizeBuilderRulesWithLoadedWasm = (params: {
+  rules: HsfRule[]
+  emissionMeta: Array<{ levelIdx: number; branchIdx: number; seq: number }>
+}): HsfRule[] => {
+  assertWasmInitializedSync()
+  const result = finalizeBuilderRulesWasmValueBinding(params.rules, params.emissionMeta)
+  if (Array.isArray(result)) return result as HsfRule[]
+  throw new Error('WASM builder finalizer returned an invalid payload.')
+}
+
+// Export dedupe helper mirrors hsfDeduplicate.ts segment semantics while moving
+// normalization + coverage matching to Rust as the single source of truth.
+export const dedupeHsfRulesForExportWithLoadedWasm = (rules: HsfRuleWithCfg[]): HsfRuleWithCfg[] | null => {
+  assertWasmInitializedSync()
+  const result = dedupeHsfRulesForExportWasmValueBinding(rules) as HsfRuleWithCfg[]
+  if (Array.isArray(result)) return result
+  throw new Error('WASM export-rule dedupe returned an invalid payload.')
+}
+
 // Synchronous finalizer mirrors merge.ts post-build collapse/prune/sort logic.
 // Worker warm paths call this after async warmup so no extra await is required.
 export const finalizeGeneratedRulesWithLoadedWasm = (params: {
@@ -308,89 +336,118 @@ export const getRollDistributionsWithLoadedWasm = (
   }
 }
 
-// Synchronous helper that runs caps/aggregate filtering inside wasm.
-// Callers still apply branch-specific predicates in JS on the narrowed rows.
-export const getFilteredRollDistributionsWithLoadedWasm = (params: {
-  dimensions: number
-  total: number
-  maxCaps: ReadonlyArray<number | undefined> | Int32Array
-  minFloors?: ReadonlyArray<number | undefined> | Int32Array
-  timelineCaps: ReadonlyArray<number | undefined> | Int32Array
-  targetedMask: ReadonlyArray<boolean> | Uint8Array
-  targetedExact?: number | null
-  deficitFloors?: ReadonlyArray<number | undefined> | Int32Array
-  deficitMax?: number | null
-  globalMin: number
-  globalRemaining: number
-  globalMode: 0 | 1 | 2
-  lockedMask: ReadonlyArray<boolean> | Uint8Array
-  lockedMin: number
-  lockedRemaining: number
-  lockedMode: 0 | 1 | 2
-}): number[][] | null => {
-  // Fail closed for sync callers that forgot to warm wasm.
-  assertWasmInitializedSync()
-  // Reject NaN/Infinity inputs before we normalize arrays.
-  if (!Number.isFinite(params.dimensions) || !Number.isFinite(params.total)) return null
-  // Keep zero-dimension semantics aligned with roll_distributions helper.
-  if (params.dimensions <= 0) return params.total === 0 ? [[]] : []
-  // Negative totals cannot produce feasible rows.
-  if (params.total < 0) return []
-  // Convert optional caps/floors to compact sentinel-encoded i32 payloads.
-  const maxCaps = toOptionalI32(params.maxCaps)
-  const minFloors = toOptionalI32(params.minFloors ?? [])
-  // Timeline caps and masks are passed as contiguous typed arrays.
-  const timelineCaps = toOptionalI32(params.timelineCaps)
-  const targetedMask = toMaskU8(params.targetedMask)
-  // Deficit floors and locked mask follow the same compact encoding.
-  const deficitFloors = toOptionalI32(params.deficitFloors ?? [])
-  const lockedMask = toMaskU8(params.lockedMask)
-  // Execute filtering in wasm so JS only consumes already-feasible rows.
-  const flat = filteredRollDistributionsFastFlatWasmBinding(
-    Math.max(0, Math.floor(params.dimensions)),
-    Math.floor(params.total),
-    maxCaps,
-    minFloors,
-    timelineCaps,
-    targetedMask,
-    // -1 sentinel means "no exact targeted sum requirement".
-    typeof params.targetedExact === 'number' && Number.isFinite(params.targetedExact)
-      ? Math.floor(params.targetedExact)
-      : -1,
-    deficitFloors,
-    // -1 sentinel means "no deficit max cap".
-    typeof params.deficitMax === 'number' && Number.isFinite(params.deficitMax)
-      ? Math.floor(params.deficitMax)
-      : -1,
-    Math.floor(params.globalMin),
-    Math.floor(params.globalRemaining),
-    Math.floor(params.globalMode),
-    lockedMask,
-    Math.floor(params.lockedMin),
-    Math.floor(params.lockedRemaining),
-    Math.floor(params.lockedMode),
-  )
-  // Decode back into fixed-width integer rows expected by callers.
-  return unflattenI32Rows(flat, Math.max(0, Math.floor(params.dimensions)))
-}
-
 // Synchronous keep-unique detector runs candidate/rule loops inside wasm.
 // Returns null when wasm is unavailable so callers can use JS fallback paths.
 export const computeKeepUniqueProtectionWithLoadedWasm = (params: {
   candidates: unknown
   rules: unknown
-  expectedGroupsByRuleId: unknown
+  expectedGroupsByRuleId?: unknown
+  expectedGroupDomain?: unknown
   enabled: boolean
   now: number
 }): unknown | null => {
   assertWasmInitializedSync()
+  // Wrapper payload lets wasm accept both legacy precomputed groups and the
+  // new domain-driven in-wasm expected-group generation inputs.
+  const expectedGroupsPayload = (
+    params.expectedGroupsByRuleId !== undefined
+    || params.expectedGroupDomain !== undefined
+  )
+    ? {
+      ...(params.expectedGroupsByRuleId !== undefined
+        ? { expectedGroupsByRuleId: params.expectedGroupsByRuleId }
+        : {}),
+      ...(params.expectedGroupDomain !== undefined
+        ? { expectedGroupDomain: params.expectedGroupDomain }
+        : {}),
+    }
+    : undefined
   return computeKeepUniqueProtectionValueWasmBinding(
     params.candidates,
     params.rules,
-    params.expectedGroupsByRuleId,
+    expectedGroupsPayload,
     params.enabled === true,
     Number.isFinite(params.now) ? params.now : 0,
   )
+}
+
+// Candidate keep/sell resolver mirrors keepUniques.ts fallback behavior while
+// keeping the base-match + ignore-config decision path inside Rust.
+export const resolveKeepUniqueCandidateKeepFlagsWithLoadedWasm = (params: {
+  rows: unknown
+  rules: HsfRuleWithCfg[]
+  configModes: SellfileExportMode[]
+  ignoreKeepUniqueConfigIndices?: ReadonlySet<number>
+}): boolean[] => {
+  assertWasmInitializedSync()
+  const ignored = toSortedNumberArray(params.ignoreKeepUniqueConfigIndices) ?? null
+  const result = resolveKeepUniqueCandidateKeepFlagsValueWasmBinding(
+    params.rows,
+    params.rules,
+    params.configModes,
+    ignored,
+  )
+  if (Array.isArray(result)) {
+    return result.map((value) => value === true)
+  }
+  throw new Error('WASM keep-unique candidate resolver returned an invalid payload.')
+}
+
+// Injected keep-unique merge filtering/sorting runs in Rust so canonicalization
+// and dedupe precedence are defined in one implementation.
+export const mergeKeepUniqueInjectedRulesWithLoadedWasm = (params: {
+  baseRules: HsfRuleWithCfg[]
+  customRules: HsfRuleWithCfg[]
+  candidateKeepRules: HsfRuleWithCfg[]
+}): HsfRuleWithCfg[] => {
+  assertWasmInitializedSync()
+  const result = mergeKeepUniqueInjectedRulesWasmValueBinding(
+    params.baseRules,
+    params.customRules,
+    params.candidateKeepRules,
+  )
+  if (Array.isArray(result)) return result as HsfRuleWithCfg[]
+  throw new Error('WASM keep-unique injected-rule merge returned an invalid payload.')
+}
+
+// Keep-unique HSF keep-rule construction moved to Rust so merge.ts no longer
+// maintains duplicate placeholder/artifact expansion logic.
+export const buildKeepUniqueRulesWithLoadedWasm = (params: {
+  rules: readonly KeepUniqueRule[]
+  detection: KeepUniqueDetectionSnapshot | null
+  configIdBase: number
+}): HsfRuleWithCfg[] => {
+  assertWasmInitializedSync()
+  if (!params.detection) return []
+  const result = buildKeepUniqueRulesWasmValueBinding(
+    params.rules,
+    params.detection,
+    BigInt(Math.floor(params.configIdBase)),
+  )
+  if (Array.isArray(result)) return result as HsfRuleWithCfg[]
+  throw new Error('WASM keep-unique rule builder returned an invalid payload.')
+}
+
+// Auto-rarity resolution stays in Rust so builder preview and generation share
+// one rarity decision implementation for aggregate/per-substat requirements.
+export const resolveAutoRarityCodeWithLoadedWasm = (payload: {
+  autoRaritySupplementsThreshold?: string | null
+  autoMinRequiredRolls?: boolean
+  minRequiredRolls?: number
+  lockedMinRequiredRolls?: number
+  minCount?: number
+  earlyKeepMode?: string
+  selectedPoolV: number[]
+  fixedPoolV: number[]
+  substatRollBoundsV: Record<number, { min?: number }>
+}): number => {
+  // Sync helper is fail-closed: caller must have warmed wasm already.
+  assertWasmInitializedSync()
+  // Delegate the full auto-rarity decision to Rust for SSOT parity.
+  const result = resolveAutoRarityCodeWasmValueBinding(payload)
+  // Rust binding returns a numeric rarity code; reject malformed payloads.
+  if (typeof result === 'number' && Number.isFinite(result)) return Math.floor(result)
+  throw new Error('WASM auto-rarity resolver returned an invalid payload.')
 }
 
 // Keep-unique expected-group generation uses this helper so group-key logic is
@@ -414,6 +471,76 @@ export const getKeepUniqueCountKeyWithLoadedWasm = (params: {
     },
     params.countMode,
   )
+}
+
+// Combined filtered-emission helper keeps distribution filtering + HSF rule
+// object construction in wasm for branches that do not require JS row predicates.
+export const emitHsfRulesForFilteredDistributionsWithLoadedWasm = (payload: {
+  dimensions: number
+  total: number
+  maxCaps: ReadonlyArray<number | undefined> | Int32Array
+  minFloors?: ReadonlyArray<number | undefined> | Int32Array
+  timelineCaps: ReadonlyArray<number | undefined> | Int32Array
+  targetedMask: ReadonlyArray<boolean> | Uint8Array
+  targetedExact?: number | null
+  deficitFloors?: ReadonlyArray<number | undefined> | Int32Array
+  deficitMax?: number | null
+  globalMin: number
+  globalRemaining: number
+  globalMode: 0 | 1 | 2
+  lockedMask: ReadonlyArray<boolean> | Uint8Array
+  lockedMin: number
+  lockedRemaining: number
+  lockedMode: 0 | 1 | 2
+  emit: {
+    baseRule: HsfRule
+    substats: Array<{ id: number; isFlat?: boolean }>
+    baseVals: number[]
+    mins: number[]
+    maxCaps: number[]
+    optionalMask: boolean[]
+    skipOptionalBaseline: boolean
+    mainChoices: Array<{ id: number; f?: number }>
+    emitAnyMainWhenNoChoices: boolean
+    targetBases: Array<number | null>
+    targetIncrements: Array<Array<number | null>>
+  }
+}): HsfRule[] | null => {
+  assertWasmInitializedSync()
+  const result = emitHsfRulesForFilteredDistributionsValueWasmBinding({
+    dimensions: Math.max(0, Math.floor(payload.dimensions)),
+    total: Math.floor(payload.total),
+    maxCaps: Array.from(toOptionalI32(payload.maxCaps)),
+    minFloors: Array.from(toOptionalI32(payload.minFloors ?? [])),
+    timelineCaps: Array.from(toOptionalI32(payload.timelineCaps)),
+    targetedMask: Array.from(toMaskU8(payload.targetedMask)),
+    targetedExact: (
+      typeof payload.targetedExact === 'number' && Number.isFinite(payload.targetedExact)
+        ? Math.floor(payload.targetedExact)
+        : -1
+    ),
+    deficitFloors: Array.from(toOptionalI32(payload.deficitFloors ?? [])),
+    deficitMax: (
+      typeof payload.deficitMax === 'number' && Number.isFinite(payload.deficitMax)
+        ? Math.floor(payload.deficitMax)
+        : -1
+    ),
+    globalMin: Math.floor(payload.globalMin),
+    globalRemaining: Math.floor(payload.globalRemaining),
+    globalMode: Math.floor(payload.globalMode),
+    lockedMask: Array.from(toMaskU8(payload.lockedMask)),
+    lockedMin: Math.floor(payload.lockedMin),
+    lockedRemaining: Math.floor(payload.lockedRemaining),
+    lockedMode: Math.floor(payload.lockedMode),
+    // Filtered path computes distributions in Rust; emit core still expects the
+    // field to deserialize, so provide an empty placeholder vector.
+    emit: {
+      ...payload.emit,
+      distributions: [],
+    },
+  })
+  if (Array.isArray(result)) return result as HsfRule[]
+  throw new Error('WASM filtered HSF emission returned an invalid payload.')
 }
 
 // Synchronous helper emits concrete HSF rows for a distribution batch.

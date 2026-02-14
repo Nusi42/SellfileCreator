@@ -5,6 +5,8 @@ export function bounded_compositions_i32_fast(caps: Int32Array, total: number): 
 
 export function bounded_compositions_i32_fast_flat(caps: Int32Array, total: number): Int32Array;
 
+export function build_keep_unique_rules_value(rules: any, detection: any, config_id_base: bigint): any;
+
 export function combinations_i32(values_json: string, pick: number): string;
 
 export function combinations_i32_fast(values: Int32Array, pick: number): string;
@@ -16,6 +18,8 @@ export function compute_keep_unique_protection_value(candidates: any, rules: any
 export function configure(rules_json: string, config_modes_json: string): void;
 
 export function configure_value(rules: any, config_modes: any): void;
+
+export function dedupe_hsf_rules_for_export_value(rules: any): any;
 
 export function emit_hsf_rules_for_distributions_value(payload: any): any;
 
@@ -32,6 +36,8 @@ export function filtered_roll_distributions(dimensions: number, total: number, m
 export function filtered_roll_distributions_fast(dimensions: number, total: number, max_caps: Int32Array, min_floors: Int32Array, timeline_caps: Int32Array, targeted_mask: Uint8Array, targeted_exact: number, deficit_floors: Int32Array, deficit_max: number, global_min: number, global_remaining: number, global_mode: number, locked_mask: Uint8Array, locked_min: number, locked_remaining: number, locked_mode: number): string;
 
 export function filtered_roll_distributions_fast_flat(dimensions: number, total: number, max_caps: Int32Array, min_floors: Int32Array, timeline_caps: Int32Array, targeted_mask: Uint8Array, targeted_exact: number, deficit_floors: Int32Array, deficit_max: number, global_min: number, global_remaining: number, global_mode: number, locked_mask: Uint8Array, locked_min: number, locked_remaining: number, locked_mode: number): Int32Array;
+
+export function finalize_builder_rules_value(rules: any, emission_meta: any): any;
 
 export function finalize_generated_rules(entries_json: string, apply_obsolete_pruning: boolean): string;
 
@@ -51,11 +57,17 @@ export function intro_assignments_for_combo_fast_flat(count: number, base_slots:
 
 export function keep_unique_count_key_value(artifact: any, count_mode: any): string;
 
+export function merge_keep_unique_injected_rules_value(base_rules: any, custom_rules: any, candidate_keep_rules: any): any;
+
 export function permutations_i32(values_json: string): string;
 
 export function permutations_i32_fast(values: Int32Array): string;
 
 export function permutations_i32_fast_flat(values: Int32Array): Int32Array;
+
+export function resolve_auto_rarity_code_value(payload: any): number;
+
+export function resolve_keep_unique_candidate_keep_flags_value(rows: any, rules: any, config_modes: any, ignore_keep_unique_config_indices: any): any;
 
 export function roll_distributions(dimensions: number, total: number): string;
 
@@ -69,12 +81,14 @@ export interface InitOutput {
     readonly memory: WebAssembly.Memory;
     readonly bounded_compositions_i32_fast: (a: number, b: number, c: number) => [number, number, number, number];
     readonly bounded_compositions_i32_fast_flat: (a: number, b: number, c: number) => [number, number];
+    readonly build_keep_unique_rules_value: (a: any, b: any, c: bigint) => [number, number, number];
     readonly combinations_i32: (a: number, b: number, c: number) => [number, number, number, number];
     readonly combinations_i32_fast: (a: number, b: number, c: number) => [number, number, number, number];
     readonly combinations_i32_fast_flat: (a: number, b: number, c: number) => [number, number];
     readonly compute_keep_unique_protection_value: (a: any, b: any, c: any, d: number, e: number) => [number, number, number];
     readonly configure: (a: number, b: number, c: number, d: number) => [number, number];
     readonly configure_value: (a: any, b: any) => [number, number];
+    readonly dedupe_hsf_rules_for_export_value: (a: any) => [number, number, number];
     readonly emit_hsf_rules_for_distributions_value: (a: any) => [number, number, number];
     readonly emit_hsf_rules_for_filtered_distributions_value: (a: any) => [number, number, number];
     readonly evaluate: (a: number, b: number, c: number, d: number) => [number, number, number, number];
@@ -83,6 +97,7 @@ export interface InitOutput {
     readonly filtered_roll_distributions: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number, l: number, m: number, n: number, o: number, p: number, q: number, r: number, s: number, t: number, u: number, v: number) => [number, number, number, number];
     readonly filtered_roll_distributions_fast: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number, l: number, m: number, n: number, o: number, p: number, q: number, r: number, s: number, t: number, u: number, v: number) => [number, number, number, number];
     readonly filtered_roll_distributions_fast_flat: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number, l: number, m: number, n: number, o: number, p: number, q: number, r: number, s: number, t: number, u: number, v: number) => [number, number];
+    readonly finalize_builder_rules_value: (a: any, b: any) => [number, number, number];
     readonly finalize_generated_rules: (a: number, b: number, c: number) => [number, number, number, number];
     readonly finalize_generated_rules_value: (a: any, b: number) => [number, number, number];
     readonly find_obsolete: (a: number, b: number) => [number, number, number, number];
@@ -92,9 +107,12 @@ export interface InitOutput {
     readonly intro_assignments_for_combo_fast: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number, number, number];
     readonly intro_assignments_for_combo_fast_flat: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number];
     readonly keep_unique_count_key_value: (a: any, b: any) => [number, number, number, number];
+    readonly merge_keep_unique_injected_rules_value: (a: any, b: any, c: any) => [number, number, number];
     readonly permutations_i32: (a: number, b: number) => [number, number, number, number];
     readonly permutations_i32_fast: (a: number, b: number) => [number, number, number, number];
     readonly permutations_i32_fast_flat: (a: number, b: number) => [number, number];
+    readonly resolve_auto_rarity_code_value: (a: any) => [number, number, number];
+    readonly resolve_keep_unique_candidate_keep_flags_value: (a: any, b: any, c: any, d: any) => [number, number, number];
     readonly roll_distributions: (a: number, b: number) => [number, number, number, number];
     readonly roll_distributions_flat: (a: number, b: number) => [number, number];
     readonly version: () => [number, number];

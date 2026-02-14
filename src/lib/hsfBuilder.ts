@@ -15,10 +15,6 @@ import type {
   SubstatTargetTable,
 } from './hsfBuilder/types'
 import { normalizeRollTargetEntry } from './hsfBuilder/targets'
-import {
-  combinations,
-  introAssignmentsForCombo,
-} from './hsfBuilder/combinatorics'
 export type {
   BuilderConfig,
   LegacyVisibilityFields,
@@ -47,16 +43,24 @@ import {
   LevelMilestone,
   LEVEL_MILESTONES,
 } from './types'
+import {
+  AUTO_RARITY_ADDITION_MASK_BY_CODE,
+  AUTO_RARITY_INCLUDES_MYTHICAL_BY_CODE,
+  AUTO_RARITY_MIN_ROLL_EVENTS_BY_CODE,
+  AUTO_RARITY_ROLL_MASK_BY_CODE,
+} from './generated/domainConstants'
 import { resolveAllowedSubstatsForSlotsAndMains } from './statCompatibility'
 import { splitArtifactSetSelections } from './gearSets/selection'
 import { canEnableSubstatFlex, deriveRollBaselineMode, isLockedAggregateScopeActive, isMilestoneThresholdsActive } from './configNormalization'
 import { variantToSub, variantToMain } from './hsfTypes'
 import {
   emitHsfRulesForDistributionsWithLoadedWasm,
-  findObsoleteBuilderRulesWithLoadedWasm,
+  emitHsfRulesForFilteredDistributionsWithLoadedWasm,
+  finalizeBuilderRulesWithLoadedWasm,
+  getCombinationsI32WithLoadedWasm,
   getFilteredBoundedCompositionsWithOffsetI32WithLoadedWasm,
-  getFilteredRollDistributionsWithLoadedWasm,
-  getRollDistributionsWithLoadedWasm,
+  getIntroAssignmentsForComboWithLoadedWasm,
+  resolveAutoRarityCodeWithLoadedWasm,
 } from './wasm/wasmRuleEngine'
 
 // Rarity codes that are eligible for collapsing to factory minima rules so
@@ -224,42 +228,53 @@ function subEqualsMain(sub: { id: number; isFlat?: boolean }, main: { id: number
   return sub.id === main.id
 }
 
+// Auto-rarity lookup tables are generated from shared/domain-constants.json.
+// Clamp unknown values into the supported 0..16 rarity-code domain.
+const autoRarityCodeIndex = (rarityCode: number): number => {
+  // Accept enum-like inputs that may arrive as strings/numbers.
+  const numeric = Number(rarityCode)
+  // Unknown/NaN values collapse to Any to keep lookup access safe.
+  if (!Number.isFinite(numeric)) return RarityCode.Any
+  // Preserve integer indexing semantics across both TS and Rust tables.
+  const floored = Math.floor(numeric)
+  // Clamp out-of-range values back to Any so sparse arrays are never accessed.
+  if (floored < RarityCode.Any || floored > RarityCode.GTE_Legendary) return RarityCode.Any
+  // Return a stable code index in the 0..16 domain.
+  return floored
+}
+
+// Decode 4-bit milestone masks into reusable Set instances.
+// Bit positions map to [4, 8, 12, 16] respectively.
+const LEVEL_MASK_TO_SET: Record<number, Set<LevelMilestone>> = {
+  0: new Set<LevelMilestone>([]),
+  1: new Set<LevelMilestone>([4]),
+  2: new Set<LevelMilestone>([8]),
+  3: new Set<LevelMilestone>([4, 8]),
+  4: new Set<LevelMilestone>([12]),
+  5: new Set<LevelMilestone>([4, 12]),
+  6: new Set<LevelMilestone>([8, 12]),
+  7: new Set<LevelMilestone>([4, 8, 12]),
+  8: new Set<LevelMilestone>([16]),
+  9: new Set<LevelMilestone>([4, 16]),
+  10: new Set<LevelMilestone>([8, 16]),
+  11: new Set<LevelMilestone>([4, 8, 16]),
+  12: new Set<LevelMilestone>([12, 16]),
+  13: new Set<LevelMilestone>([4, 12, 16]),
+  14: new Set<LevelMilestone>([8, 12, 16]),
+  15: new Set<LevelMilestone>([4, 8, 12, 16]),
+}
+
 
 // Compute roll-event schedule for a given rarity at milestone levels
 // Returns a set of levels where an existing substat is rolled (not added)
 /** Levels where rarity increases grant a roll for the given rarity code. */
 export function rollLevelsForRarityCode(rarityCode: RarityCode): Set<LevelMilestone> {
-  // Map HSF rarity code to an exact roll schedule bucket per docs/TECHNICAL.md#artifact-rules
-  // Common: none; Uncommon: [4]; Rare: [4,8]; Epic: [4,8,12]; Legendary/Mythical: [4,8,12,16]
-  const byExact = {
-    Common: new Set<LevelMilestone>([]),
-    Uncommon: new Set<LevelMilestone>([4]),
-    Rare: new Set<LevelMilestone>([4, 8]),
-    Epic: new Set<LevelMilestone>([4, 8, 12]),
-    Legendary: new Set<LevelMilestone>([4, 8, 12, 16]),
-    Mythical: new Set<LevelMilestone>([4, 8, 12, 16]),
-  }
-  // Exact codes
-  if (rarityCode === RarityCode.Common) return byExact.Common
-  if (rarityCode === RarityCode.Uncommon) return byExact.Uncommon
-  if (rarityCode === RarityCode.Rare) return byExact.Rare
-  if (rarityCode === RarityCode.Epic) return byExact.Epic
-  if (rarityCode === RarityCode.Legendary) return byExact.Legendary
-  if (rarityCode === RarityCode.Mythical) return byExact.Mythical
-  // Ranges (conservative lower-bound schedule for ≥ ranges)
-  if (rarityCode === RarityCode.GTE_Common) return byExact.Common
-  if (rarityCode === RarityCode.GTE_Uncommon) return byExact.Uncommon
-  if (rarityCode === RarityCode.GTE_Rare) return byExact.Rare
-  if (rarityCode === RarityCode.GTE_Epic) return byExact.Epic
-  if (rarityCode === RarityCode.GTE_Legendary) return byExact.Legendary
-  // <= Uncommon..<= Epic (10..12): map to that upper bound
-  if (rarityCode === RarityCode.LTE_Uncommon) return byExact.Uncommon
-  if (rarityCode === RarityCode.LTE_Rare) return byExact.Rare
-  if (rarityCode === RarityCode.LTE_Epic) return byExact.Epic
-  // <= Legendary (13) or <= Mythical (14): includes Legendary/Mythical
-  if (rarityCode === RarityCode.LTE_Legendary || rarityCode === RarityCode.LTE_Mythical) return byExact.Legendary
-  // 0 (Any) -> Legendary
-  return byExact.Legendary
+  // Shared table keeps TS and Rust schedule semantics identical.
+  const idx = autoRarityCodeIndex(rarityCode)
+  // Fallback to Any schedule if the generated entry is unexpectedly missing.
+  const mask = AUTO_RARITY_ROLL_MASK_BY_CODE[idx] ?? AUTO_RARITY_ROLL_MASK_BY_CODE[RarityCode.Any]
+  // Translate mask bits into the reusable milestone set instance.
+  return LEVEL_MASK_TO_SET[mask] ?? LEVEL_MASK_TO_SET[0]!
 }
 
 // Addition schedule: levels where a new substat is added (not rolled), per rarity
@@ -268,37 +283,12 @@ export function rollLevelsForRarityCode(rarityCode: RarityCode): Set<LevelMilest
  * Used to derive presence-only constraints when the level window collapses to a single milestone.
  */
 export function additionLevelsForRarityCode(rarityCode: RarityCode): Set<LevelMilestone> {
-  const byExact = {
-    Common: new Set<LevelMilestone>([4,8,12,16]),
-    Uncommon: new Set<LevelMilestone>([8,12,16]),
-    Rare: new Set<LevelMilestone>([12,16]),
-    Epic: new Set<LevelMilestone>([16]),
-    Legendary: new Set<LevelMilestone>([]),
-    Mythical: new Set<LevelMilestone>([]),
-  }
-  // Exact codes
-  if (rarityCode === RarityCode.Common) return byExact.Common
-  if (rarityCode === RarityCode.Uncommon) return byExact.Uncommon
-  if (rarityCode === RarityCode.Rare) return byExact.Rare
-  if (rarityCode === RarityCode.Epic) return byExact.Epic
-  if (rarityCode === RarityCode.Legendary) return byExact.Legendary
-  if (rarityCode === RarityCode.Mythical) return byExact.Mythical
-  // Special cases for ranges and Any
-  // 0 (Any): treat presence as ≥ Legendary (no additions) so +0 has all substats present.
-  // This avoids suppressing +0 rows when no explicit rarity is selected, while
-  // still relying on roll schedules and MinRequiredRolls to shape thresholds.
-  if (rarityCode === RarityCode.Any) return byExact.Legendary
-  // >= Common..>= Epic (6..9): map to the lower bound's addition schedule
-  if (rarityCode === RarityCode.GTE_Common) return byExact.Common
-  if (rarityCode === RarityCode.GTE_Uncommon) return byExact.Uncommon
-  if (rarityCode === RarityCode.GTE_Rare) return byExact.Rare
-  if (rarityCode === RarityCode.GTE_Epic) return byExact.Epic
-  // >= Legendary (16): Legendary/Mythical have no additions
-  if (rarityCode === RarityCode.GTE_Legendary) return byExact.Legendary
-  // ≤ Uncommon..≤ Mythical (10..14): assume Common additions are possible within the range
-  if (rarityCode >= RarityCode.LTE_Uncommon && rarityCode <= RarityCode.LTE_Mythical) return byExact.Common
-  // Fallback
-  return byExact.Legendary
+  // Shared table keeps TS and Rust schedule semantics identical.
+  const idx = autoRarityCodeIndex(rarityCode)
+  // Fallback to Any additions when a table index is unexpectedly absent.
+  const mask = AUTO_RARITY_ADDITION_MASK_BY_CODE[idx] ?? AUTO_RARITY_ADDITION_MASK_BY_CODE[RarityCode.Any]
+  // Translate mask bits into the reusable milestone set instance.
+  return LEVEL_MASK_TO_SET[mask] ?? LEVEL_MASK_TO_SET[0]!
 }
 
 function clampRollRequirement(value: unknown): number {
@@ -320,26 +310,10 @@ type LockedMinContext = {
 }
 
 function minRollEventsForSelection(rarityCode: RarityCode): number {
-  switch (rarityCode) {
-    case RarityCode.Common: return 0 // Common
-    case RarityCode.Uncommon: return 1
-    case RarityCode.Rare: return 2
-    case RarityCode.Epic: return 3
-    case RarityCode.Legendary: return 4
-    case RarityCode.Mythical: return 4
-    case RarityCode.GTE_Common: return 0 // ≥ Common
-    case RarityCode.GTE_Uncommon: return 1 // ≥ Uncommon
-    case RarityCode.GTE_Rare: return 2 // ≥ Rare
-    case RarityCode.GTE_Epic: return 3 // ≥ Epic
-    case RarityCode.GTE_Legendary: return 4 // ≥ Legendary
-    case RarityCode.LTE_Uncommon: return 0 // ≤ Uncommon
-    case RarityCode.LTE_Rare: return 0 // ≤ Rare
-    case RarityCode.LTE_Epic: return 0 // ≤ Epic
-    case RarityCode.LTE_Legendary: return 0 // ≤ Legendary
-    case RarityCode.LTE_Mythical: return 0 // ≤ Mythical
-    case RarityCode.Any: return 0 // Any
-    default: return 0
-  }
+  // Normalize code before indexing the generated event-pressure table.
+  const idx = autoRarityCodeIndex(rarityCode)
+  // Default to zero events if generation ever omits the index unexpectedly.
+  return AUTO_RARITY_MIN_ROLL_EVENTS_BY_CODE[idx] ?? 0
 }
 
 function deriveGlobalMinRolls(context: AggregateMinContext): number {
@@ -366,17 +340,10 @@ function deriveLockedMinRolls(context: LockedMinContext): number {
 // Whether the given rarity code includes Mythical items
 /** True if rarity selection includes Mythical, impacting pre-roll logic. */
 export function rarityIncludesMythical(rarityCode: RarityCode): boolean {
-  // Exact Mythical
-  if (rarityCode === RarityCode.Mythical) return true
-  // Any (0): do NOT assume Mythical. Treat as non-Mythical for pre-roll logic.
-  if (rarityCode === RarityCode.Any) return false
-  // Conservative: ≥ ranges do not assume Mythical
-  if (rarityCode >= RarityCode.GTE_Common && rarityCode <= RarityCode.GTE_Epic) return false
-  if (rarityCode === RarityCode.GTE_Legendary) return false
-  // <= Mythical (14)
-  if (rarityCode === RarityCode.LTE_Mythical) return true
-  // Other exacts and ranges do not include Mythical
-  return false
+  // Normalize code before indexing the generated mythical-membership table.
+  const idx = autoRarityCodeIndex(rarityCode)
+  // Treat missing entries as false to avoid accidental mythical assumptions.
+  return AUTO_RARITY_INCLUDES_MYTHICAL_BY_CODE[idx] === true
 }
 
 /**
@@ -385,32 +352,6 @@ export function rarityIncludesMythical(rarityCode: RarityCode): boolean {
  * summaries can display the exact rarity the preview table will show.
  */
 export function resolveAutoRarityCode(cfg: BuilderConfig): RarityCode {
-  // Optional floor: when a UI threshold is set, clamp Auto to at least that ≥ rarity.
-  // Applies when Auto mode is active; used primarily with Late keep mode.
-  const minFloorCode: RarityCode | null = (() => {
-    if (cfg.rarityMode !== 'auto') return null
-    const t = (cfg.autoRaritySupplementsThreshold ?? null)
-    if (t === 'uncommon') return RarityCode.GTE_Uncommon
-    if (t === 'rare') return RarityCode.GTE_Rare
-    if (t === 'epic') return RarityCode.GTE_Epic
-    return null
-  })()
-  const applyFloor = (code: number): number => {
-    if (minFloorCode == null) return code
-    // Rating order for Auto-resolution codes
-    const rate = (c: number): number => {
-      switch (c) {
-        case RarityCode.Any: return 0
-        case RarityCode.GTE_Uncommon: return 1
-        case RarityCode.GTE_Rare: return 2
-        case RarityCode.GTE_Epic: return 3
-        case RarityCode.GTE_Legendary: return 4
-        case RarityCode.Mythical: return 5
-        default: return 0
-      }
-    }
-    return rate(code) < rate(minFloorCode) ? minFloorCode : code
-  }
   // Apply slot/main constraints before Auto rarity so impossible substats don't tighten rarity.
   const allowedSubstats = resolveAllowedSubstatsForSlotsAndMains({
     slots: cfg.artifactTypes ?? [],
@@ -424,169 +365,40 @@ export function resolveAutoRarityCode(cfg: BuilderConfig): RarityCode {
   const fixedPoolRawV = (cfg.fixedSubstatsV ?? []).map(Number).filter((variant) => allowedSubstatIds.has(Number(variant)))
   // Resolve the locked subset within the filtered selection order.
   const fixedPoolV = selectedPoolV.filter((variant) => fixedPoolRawV.includes(Number(variant)))
-  // With no substat constraints, keep rules broad: treat Auto as Any.
-  if (selectedPoolV.length === 0) return applyFloor(RarityCode.Any)
-  // Cap selection at 4 because HSF only supports 4 substats.
-  const maxSelectableTotal = Math.min(4, selectedPoolV.length)
-  // Honor fixed substats when determining the minimum required selection count.
-  const minTargetCount = Math.min(4, Math.max(cfg.minCount, fixedPoolV.length))
-  // Presence requirements are bounded by the selection size.
-  const presenceNeed = Math.min(maxSelectableTotal, minTargetCount)
-  // Required substats are the filtered fixed list, clipped to HSF limits.
-  const requiredV = fixedPoolV.slice(0, 4)
-  // Optional substats are those not locked but still eligible.
-  const optionalPoolV = selectedPoolV.filter(sv => !requiredV.includes(Number(sv)))
-  // Precompute per-substat minimum rolls for aggregate minimum math.
-  const perMin: Record<number, number> = {}
-  for (const v of selectedPoolV) {
-    const b = cfg.substatRollBoundsV?.[Number(v)]
-    const m = (typeof b?.min === 'number' ? Math.max(0, Math.min(5, Math.floor(b.min))) : 0)
-    perMin[Number(v)] = m
+  // Keep bound payload compact by only forwarding selected-stat rows.
+  const selectedSet = new Set(selectedPoolV)
+  const substatRollBoundsV: Record<number, { min?: number }> = {}
+  for (const [key, bounds] of Object.entries(cfg.substatRollBoundsV ?? {})) {
+    const variant = Number(key)
+    if (!selectedSet.has(variant)) continue
+    if (!bounds || typeof bounds !== 'object') continue
+    // Preserve only normalized fields consumed by Rust resolver.
+    const normalized: { min?: number } = {}
+    if (typeof bounds.min === 'number' && Number.isFinite(bounds.min)) normalized.min = bounds.min
+    if (Object.keys(normalized).length > 0) substatRollBoundsV[variant] = normalized
   }
-  // Track whether any selected substat explicitly demands rolls.
-  const hasPerStatMin = Object.values(perMin).some((value) => value > 0)
-  // Locked substats always count toward the aggregate minimum with their declared mins.
-  const sumRequired = requiredV.reduce((a, v) => a + (perMin[Number(v)] ?? 0), 0)
-  const lockedScope = isLockedAggregateScopeActive(cfg, { lockedCountOverride: requiredV.length })
-  let worstSumMins: number
-  if (lockedScope) {
-    worstSumMins = sumRequired
-  } else {
-    // When not locked-scope, include the strongest optional mins to reach minCount.
-    const needLocal = Math.max(0, minTargetCount - requiredV.length)
-    // Conservative: assume the strongest optional mins enter the set first.
-    const optionMins = optionalPoolV.map(v => perMin[Number(v)] ?? 0).sort((a,b)=>b-a)
-    const sumOptional = optionMins.slice(0, needLocal).reduce((a,b)=>a+b,0)
-    worstSumMins = sumRequired + sumOptional
+  // Delegate auto-rarity aggregate/presence/threshold logic to Rust for SSOT.
+  const wasmPayload = {
+    autoRaritySupplementsThreshold: (cfg.rarityMode === 'auto')
+      ? (cfg.autoRaritySupplementsThreshold ?? null)
+      : null,
+    ...(typeof cfg.autoMinRequiredRolls === 'boolean'
+      ? { autoMinRequiredRolls: cfg.autoMinRequiredRolls }
+      : {}),
+    ...(typeof cfg.minRequiredRolls === 'number'
+      ? { minRequiredRolls: cfg.minRequiredRolls }
+      : {}),
+    ...(typeof cfg.lockedMinRequiredRolls === 'number'
+      ? { lockedMinRequiredRolls: cfg.lockedMinRequiredRolls }
+      : {}),
+    ...(typeof cfg.minCount === 'number' ? { minCount: cfg.minCount } : {}),
+    ...(typeof cfg.earlyKeepMode === 'string' ? { earlyKeepMode: cfg.earlyKeepMode } : {}),
+    selectedPoolV,
+    fixedPoolV,
+    substatRollBoundsV,
   }
-  const globalMinRaw = deriveGlobalMinRolls({ cfg, selectedPoolV, requiredV, minTargetCount })
-  const lockedMinRaw = deriveLockedMinRolls({ cfg, lockedCount: requiredV.length })
-  const globalMin = globalMinRaw
-  const aggregateMin = Math.max(globalMin, lockedMinRaw)
-  // With no aggregate or per-stat roll requirements, keep Auto fully permissive.
-  // This avoids forcing ≥ Uncommon solely to guarantee a roll event.
-  if (aggregateMin === 0 && !hasPerStatMin) {
-    return applyFloor(RarityCode.Any)
-  }
-  const required = Math.max(aggregateMin, worstSumMins)
-  const clamped = Math.max(0, Math.min(5, required))
-
-  const baseByRequired: Record<number, RarityCode> = {
-    0: RarityCode.Any,
-    1: RarityCode.GTE_Uncommon,
-    2: RarityCode.GTE_Rare,
-    3: RarityCode.GTE_Epic,
-    4: RarityCode.GTE_Legendary,
-    5: RarityCode.Mythical,
-  }
-  if (clamped >= 5) return applyFloor(RarityCode.Mythical)
-  const candidate = baseByRequired[clamped] ?? RarityCode.Any
-
-  // Auto rarity always resolves against the full +0 → +16 progression so that
-  // changing the level window only clips emitted rules instead of relaxing rarity.
-  const minLevel: LevelMilestone = 0
-  const baseline: 'afterStart' | 'upToLevel' = deriveRollBaselineMode(cfg)
-  const rollLevelsCand = rollLevelsForRarityCode(candidate)
-  const preCand = rarityIncludesMythical(candidate) ? 1 : 0
-  const rollsUpTo16Cand = LEVELS.filter(l => l <= 16 && rollLevelsCand.has(l)).length
-  const rollsUpToStartCand = LEVELS.filter(l => l <= minLevel && rollLevelsCand.has(l)).length
-  const targetCand = baseline === 'upToLevel'
-    ? (rollsUpTo16Cand + preCand)
-    : Math.max(0, (rollsUpTo16Cand - rollsUpToStartCand) + (minLevel <= 0 ? preCand : 0))
-  const hasMin0 = minLevel === 0
-  const earlyModeLocal: 'early' | 'late' = (cfg.earlyKeepMode === 'late' ? 'late' : 'early')
-  if (hasMin0 && earlyModeLocal === 'early') {
-    const k = Math.max(0, Math.min(4, minTargetCount))
-    const requiredByK: number = (() => {
-      if (k <= 0) return RarityCode.Any
-      if (k === 1) return RarityCode.GTE_Uncommon
-      if (k === 2) return RarityCode.GTE_Rare
-      if (k === 3) return RarityCode.GTE_Epic
-      return RarityCode.GTE_Legendary
-    })()
-    if (requiredByK !== RarityCode.Any) {
-      if (candidate === RarityCode.Any && requiredV.length === 0) return applyFloor(requiredByK)
-      const addSetCand = additionLevelsForRarityCode(candidate)
-      const baseStartCand = Math.max(0, 4 - addSetCand.size)
-      if (baseStartCand < k) return applyFloor(requiredByK)
-    }
-  }
-  // Presence safeguard for locked substats at the first emitted level.
-  // Why: Fixed (locked) substats must physically exist at the earliest level we emit;
-  // "Auto" rarity should therefore ensure the base rarity provides enough initial
-  // substats (or additions up to that level) to cover all locked stats. This prevents
-  // Auto from choosing ≥Rare when 3 substats are locked at +0, which would rely on a
-  // +4 addition instead of guaranteeing presence.
-  {
-    const kLocked = Math.min(4, requiredV.length)
-    if (kLocked > 0) {
-      const earliestLevel: LevelMilestone = 0
-      const presentAt = (code: number, lvl: LevelMilestone): number => {
-        const addSet = additionLevelsForRarityCode(code)
-        const baseStart = Math.max(0, 4 - addSet.size)
-        const addsSoFar = Array.from(addSet).filter(a => a <= lvl).length
-        return Math.min(4, baseStart + addsSoFar)
-      }
-      // If current candidate cannot satisfy presence at the first level, bump through
-      // minimal "≥" rarity tiers until it does (≥Uncommon -> ≥Rare -> ≥Epic -> ≥Legendary).
-      if (presentAt(candidate, earliestLevel) < kLocked) {
-        const tiers: readonly number[] = [
-          RarityCode.GTE_Uncommon,
-          RarityCode.GTE_Rare,
-          RarityCode.GTE_Epic,
-          RarityCode.GTE_Legendary,
-        ]
-        for (const t of tiers) {
-          if (presentAt(t, earliestLevel) >= kLocked) { return applyFloor(t) }
-        }
-      }
-    }
-  }
-  // Require the base rarity to satisfy the requested substat count at the first
-  // emitted level (`presenceNeed` is already clamped to the selected pool).
-  if (presenceNeed > 0) {
-    const earliestLevel: LevelMilestone = 0
-    const presentAt = (code: number, lvl: LevelMilestone): number => {
-      const addSet = additionLevelsForRarityCode(code)
-      const baseStart = Math.max(0, 4 - addSet.size)
-      const addsSoFar = Array.from(addSet).filter(a => a <= lvl).length
-      return Math.min(4, baseStart + addsSoFar)
-    }
-    if (presentAt(candidate, earliestLevel) < presenceNeed) {
-      const tiers: readonly number[] = [
-        candidate,
-        RarityCode.GTE_Uncommon,
-        RarityCode.GTE_Rare,
-        RarityCode.GTE_Epic,
-        RarityCode.GTE_Legendary,
-      ]
-      for (const t of tiers) {
-        if (presentAt(t, earliestLevel) >= presenceNeed) { return applyFloor(t) }
-      }
-    }
-  }
-  if (clamped <= targetCand) return applyFloor(candidate)
-  const rollLevelsMyth = rollLevelsForRarityCode(RarityCode.Mythical)
-  const preMyth = rarityIncludesMythical(RarityCode.Mythical) ? 1 : 0
-  const rollsUpTo16Myth = LEVELS.filter(l => l <= 16 && rollLevelsMyth.has(l)).length
-  const rollsUpToStartMyth = LEVELS.filter(l => l <= minLevel && rollLevelsMyth.has(l)).length
-  const targetMyth = baseline === 'upToLevel'
-    ? (rollsUpTo16Myth + preMyth)
-    : Math.max(0, (rollsUpTo16Myth - rollsUpToStartMyth) + (minLevel <= 0 ? preMyth : 0))
-  if (clamped <= targetMyth) return applyFloor(RarityCode.Mythical)
-  return applyFloor(candidate)
-}
-
-/**
- * Enumerate integer compositions of t rolls across m substats.
- * The WASM helper preserves the legacy row ordering used by fixture snapshots.
- */
-function rollDistributions(m: number, t: number): number[][] {
-  const wasmRows = getRollDistributionsWithLoadedWasm(Math.floor(m), Math.floor(t))
-  if (!Array.isArray(wasmRows)) {
-    throw new Error('WASM roll-distribution helper is unavailable. Ensure warmupWasmRuleEngine() ran first.')
-  }
-  return wasmRows
+  const resolved = resolveAutoRarityCodeWithLoadedWasm(wasmPayload)
+  return resolved as RarityCode
 }
 
 // Public API: build rules according to config with substat permutations and level chain
@@ -824,7 +636,14 @@ export function buildHsfRules(
       combosCache.set(totalCount, [])
       return []
     }
-    const combos = combinations(optionalPoolV, needLocal).map(opt => requiredV.concat(opt))
+    // Delegate optional-substat combinations to wasm so combinatorics stays SSOT.
+    const optionalCombos = getCombinationsI32WithLoadedWasm(optionalPoolV, needLocal)
+    // Fail closed when warmup/config is missing; no JS combination fallback remains.
+    if (!Array.isArray(optionalCombos)) {
+      throw new Error('WASM combinations helper is unavailable. Ensure warmupWasmRuleEngine() ran first.')
+    }
+    // Reattach required variants so downstream loops see the same tuple shape.
+    const combos = optionalCombos.map((optionalCombo) => requiredV.concat(optionalCombo))
     combosCache.set(totalCount, combos)
     return combos
   }
@@ -922,50 +741,14 @@ export function buildHsfRules(
     targetEntryCache.set(variant, normalized ?? null)
     return normalized ?? null
   }
-  // Drop dominated rows before final sort so Preview/HsF output stays minimal yet correct.
-  const pruneDominatedRules = () => {
-    if (rules.length <= 1) return
-    const wasmObsolete = findObsoleteBuilderRulesWithLoadedWasm(rules)
-    if (!wasmObsolete || !Array.isArray(wasmObsolete.obsolete)) {
-      throw new Error('WASM builder obsolete-rule detector is unavailable. Ensure warmupWasmRuleEngine() ran first.')
-    }
-    const obsoleteIndices = new Set<number>()
-    for (const entry of wasmObsolete.obsolete) {
-      const index = Number(entry?.index ?? NaN)
-      if (!Number.isFinite(index) || index < 0 || index >= rules.length) continue
-      obsoleteIndices.add(index)
-    }
-    if (obsoleteIndices.size === 0) return
-    let writeIdx = 0
-    for (let idx = 0; idx < rules.length; idx++) {
-      if (obsoleteIndices.has(idx)) continue
-      if (writeIdx !== idx) {
-        rules[writeIdx] = rules[idx]!
-        emissionMeta[writeIdx] = emissionMeta[idx]!
-      }
-      writeIdx++
-    }
-    rules.length = writeIdx
-    emissionMeta.length = writeIdx
-  }
+  // Finalize in wasm so builder-obsolete pruning + emission ordering stay SSOT.
   const finalizeRules = () => {
-    pruneDominatedRules()
     if (rules.length <= 1) return rules
-    const order = rules.map((_, idx) => idx)
-    order.sort((a, b) => {
-      const ma = emissionMeta[a]!
-      const mb = emissionMeta[b]!
-      if (ma.levelIdx !== mb.levelIdx) return ma.levelIdx - mb.levelIdx
-      if (ma.branchIdx !== mb.branchIdx) return ma.branchIdx - mb.branchIdx
-      return ma.seq - mb.seq
-    })
-    let reordered = false
-    for (let i = 0; i < order.length; i++) {
-      if (order[i]! !== i) { reordered = true; break }
+    const finalized = finalizeBuilderRulesWithLoadedWasm({ rules, emissionMeta })
+    if (!Array.isArray(finalized)) {
+      throw new Error('WASM builder finalizer is unavailable. Ensure warmupWasmRuleEngine() ran first.')
     }
-    if (!reordered) return rules
-    const sorted = order.map(idx => rules[idx]!)
-    rules.splice(0, rules.length, ...sorted)
+    rules.splice(0, rules.length, ...finalized)
     return rules
   }
   // Late+Auto may emit multiple rarity branches whose per-level thresholds can
@@ -1382,7 +1165,17 @@ export function buildHsfRules(
       const baseSlots = Math.min(baseStartByBranch, m)
       // Locked stats occupy the earliest slots so intro scheduling never drops them.
       const forcedBaseIndices = Array.from({ length: Math.min(requiredV.length, m) }, (_, idx) => idx)
-      const introAssignments = introAssignmentsForCombo(m, baseSlots, additionAvailable, forcedBaseIndices)
+      // Delegate intro-assignment enumeration to wasm so timing math is single-sourced.
+      const introAssignments = getIntroAssignmentsForComboWithLoadedWasm({
+        count: m,
+        baseSlots,
+        additionLevels: additionAvailable,
+        forcedBase: forcedBaseIndices,
+      })
+      // Fail closed when warmup/config is missing; no JS intro fallback remains.
+      if (!Array.isArray(introAssignments)) {
+        throw new Error('WASM intro-assignment helper is unavailable. Ensure warmupWasmRuleEngine() ran first.')
+      }
       // Utility helper to count how many roll milestones satisfy the provided filter.
       const countRollEvents = (predicate: (level: LevelMilestone) => boolean): number => {
         let count = 0
@@ -1414,12 +1207,10 @@ export function buildHsfRules(
       // Aggregate minimum rolls can target all selected substats or only locked ones.
       // Aggregate mins either touch all selected stats or just the locked subset.
       const targetedMask: boolean[] = combo.map(v => !aggregateTargetsLocked || requiredV.includes(v))
-      const sumTargeted = (arr: number[]) => arr.reduce((acc, val, i) => acc + (targetedMask[i] ? val : 0), 0)
       const canSatisfyLocked = (current: number, remaining: number) => {
         if (!lockedMinActive) return true
         return (current >= lockedMinValue) || ((lockedMinValue - current) <= remaining)
       }
-      const sumEqTargeted = (arr: number[], target: number) => sumTargeted(arr) === target
 
       for (const introLevels of introAssignments) {
         // Lower-bound rule: enforce per-substat minimum rolls regardless of how additional rolls distribute.
@@ -1429,7 +1220,6 @@ export function buildHsfRules(
         const mins: number[] = []
         const maxs: Array<number | undefined> = []
         const anyFlags: boolean[] = []
-        const comboSubIds: number[] = []
         let anyMin = false
         let anyWildcard = false
         for (let i = 0; i < combo.length; i++) {
@@ -1443,45 +1233,8 @@ export function buildHsfRules(
           anyFlags.push(any)
           mins.push(mv)
           maxs.push(xv)
-          const statId = variantToSub(v).id
-          comboSubIds.push(statId)
           if (mv > 0) anyMin = true
           if (any) anyWildcard = true
-        }
-        const targetValueFor = (idx: number, rollsApplied: number): number => {
-          // Roll-count pseudo stat maps to applied rolls directly.
-          const statId = comboSubIds[idx]!
-          if (statId === StatId.RollCount) return rollsApplied
-          const entry = targetEntries[idx]
-          if (rollsApplied <= 0 && typeof entry?.base === 'number') {
-            return entry.base
-          }
-          if (rollsApplied > 0) {
-            const override = entry?.increments?.[rollsApplied - 1]
-            if (typeof override === 'number') {
-              return override
-            }
-          }
-          const base = baseVals[idx]!
-          return base + rollsApplied * base
-        }
-        const maxThresholds: Array<number | undefined> = maxs.map((cap, idx) => (
-          // Precompute <= thresholds so wildcard-driven caps reuse the same values.
-          cap === undefined ? undefined : targetValueFor(idx, cap)
-        ))
-        const setThreshold = (rule: HsfRule, idx: number, rollsApplied: number) => {
-          const hasMin = mins[idx]! > 0
-          const cap = maxs[idx]
-          if (cap !== undefined && !hasMin) {
-            // Pure max-only bounds emit <= rows to mirror UI semantics.
-            const limit = maxThresholds[idx] ?? 0
-            rule.Substats[idx]!.Condition = '<='
-            rule.Substats[idx]!.Value = limit
-            return
-          }
-          const value = targetValueFor(idx, rollsApplied)
-          rule.Substats[idx]!.Condition = '>='
-          rule.Substats[idx]!.Value = value
         }
         // Reuse compact metadata payloads so repeated row emission avoids rebuilding
         // main/substat descriptors for every distribution candidate.
@@ -1540,6 +1293,59 @@ export function buildHsfRules(
           })
           if (!Array.isArray(emittedRules)) {
             throw new Error('WASM HSF emission helper is unavailable. Ensure warmupWasmRuleEngine() ran first.')
+          }
+          for (const rule of emittedRules) {
+            pushRule(rule)
+          }
+          return emittedRules.length > 0
+        }
+        const emitFilteredRowsForComboViaWasm = (params: {
+          dims: number
+          total: number
+          minFloors?: ReadonlyArray<number | undefined> | Int32Array
+          targetedExact?: number | null
+          deficitFloors?: ReadonlyArray<number | undefined> | Int32Array
+          deficitMax?: number | null
+          globalMode: 0 | 1 | 2
+          globalRemaining: number
+          lockedMode: 0 | 1 | 2
+          lockedRemaining: number
+        }): boolean => {
+          const dims = Math.max(0, params.dims)
+          const vectors = filterVectorsForDims(dims)
+          const emittedRules = emitHsfRulesForFilteredDistributionsWithLoadedWasm({
+            dimensions: dims,
+            total: params.total,
+            maxCaps: vectors.maxCaps,
+            ...(params.minFloors !== undefined ? { minFloors: params.minFloors } : {}),
+            timelineCaps: vectors.timelineCaps,
+            targetedMask: vectors.targetedMask,
+            targetedExact: params.targetedExact ?? null,
+            ...(params.deficitFloors !== undefined ? { deficitFloors: params.deficitFloors } : {}),
+            deficitMax: params.deficitMax ?? null,
+            globalMin,
+            globalRemaining: params.globalRemaining,
+            globalMode: params.globalMode,
+            lockedMask: vectors.lockedMask,
+            lockedMin: lockedMinValue,
+            lockedRemaining: params.lockedRemaining,
+            lockedMode: params.lockedMode,
+            emit: {
+              baseRule: baseRuleForWasm,
+              substats: substatsForWasm,
+              baseVals: baseValsForWasm,
+              mins: minsForWasm,
+              maxCaps: maxCapsForWasm,
+              optionalMask: optionalMaskForWasm,
+              skipOptionalBaseline: skipOptionalBaselineByDefault,
+              mainChoices: mainChoicesForWasm,
+              emitAnyMainWhenNoChoices: mainChoicesV.length === 0,
+              targetBases: targetBasesForWasm,
+              targetIncrements: targetIncrementsForWasm,
+            },
+          })
+          if (!Array.isArray(emittedRules)) {
+            throw new Error('WASM filtered HSF emission helper is unavailable. Ensure warmupWasmRuleEngine() ran first.')
           }
           for (const rule of emittedRules) {
             pushRule(rule)
@@ -1616,30 +1422,16 @@ export function buildHsfRules(
         const avail = numRollsForThisLevel + mythPreExtra
         const numTarget = numRollsByTarget + mythPreExtra
         const remaining = Math.max(0, numTarget - avail)
-      const emitPresence = () => {
-        // Flex permutations (autoSubstatFlex) emit presence rows for every
-        // supersized combo (minCount+ extras) by default. Those combos add no
-        // extra coverage when all additional substats are just optional
-        // wildcards at their baseline — the shorter combo already keeps the
+        const emitPresence = (): boolean => {
+          // Flex permutations (autoSubstatFlex) emit presence rows for every
+          // supersized combo (minCount+ extras) by default. Those combos add no
+          // extra coverage when all additional substats are just optional
+          // wildcards at their baseline — the shorter combo already keeps the
           // item. Skip emitting those rows to avoid redundant identical rules
           // like the HP/DEF double-presence reported for Ring Limited Sets.
-        if (flexActive && combo.length > minTargetCount) return
-        const comboSubs = combo.map(v => variantToSub(v))
-        if (mainChoicesV.length === 0) {
-          const r = makeRule({ ...baseCore, MainStatID: StatId.Any, MainStatF: 1, LVLForCheck: lvl }, comboSubs)
-          for (let i = 0; i < combo.length; i++) setThreshold(r, i, 0)
-          pushRule(r)
-        } else {
-          for (const mnV of mainChoicesV) {
-            if (combo.some(sv => subEqualsMain(variantToSub(sv), variantToMain(mnV)))) continue
-            if (!anySelectedSlotSupportsMain(cfg.artifactTypes, mnV)) continue
-            const mT = variantToMain(mnV)
-            const r = makeRule({ ...baseCore, MainStatID: mT.id, MainStatF: mT.f ?? 1, LVLForCheck: lvl }, comboSubs)
-            for (let i = 0; i < combo.length; i++) setThreshold(r, i, 0)
-            pushRule(r)
-          }
+          if (flexActive && combo.length > minTargetCount) return false
+          return emitRowsForComboViaWasm([new Array(m).fill(0)], { skipOptionalBaseline: false })
         }
-      }
         // Fast path for single selected substat with a minimum: emit one early
         // lower-bound per level: base + min(avail, min)*base. This matches the
         // target that thresholds grow until the minimum is feasible, then
@@ -1681,21 +1473,7 @@ export function buildHsfRules(
               continue
             }
           }
-          const comboSubs = combo.map(v => variantToSub(v))
-          if (mainChoicesV.length === 0) {
-            const r = makeRule({ ...baseCore, MainStatID: StatId.Any, MainStatF: 1, LVLForCheck: lvl }, comboSubs)
-            setThreshold(r, 0, applied)
-            pushRule(r)
-          } else {
-            for (const mnV of mainChoicesV) {
-              if (combo.some(sv => subEqualsMain(variantToSub(sv), variantToMain(mnV)))) continue
-              if (!anySelectedSlotSupportsMain(cfg.artifactTypes, mnV)) continue
-              const mT = variantToMain(mnV)
-              const r = makeRule({ ...baseCore, MainStatID: mT.id, MainStatF: mT.f ?? 1, LVLForCheck: lvl }, comboSubs)
-              setThreshold(r, 0, applied)
-              pushRule(r)
-            }
-          }
+          emitRowsForComboViaWasm([[applied]], { skipOptionalBaseline: false })
           // Done for this level/combo
           continue
         }
@@ -1729,74 +1507,46 @@ export function buildHsfRules(
           if (!canSatisfyLocked(lockedApplied, remaining)) {
             continue
           }
-          const comboSubs = combo.map(v => variantToSub(v))
-          if (mainChoicesV.length === 0) {
-            const r = makeRule({ ...baseCore, MainStatID: StatId.Any, MainStatF: 1, LVLForCheck: lvl }, comboSubs)
-            setThreshold(r, 0, applied)
-            pushRule(r)
-          } else {
-            for (const mnV of mainChoicesV) {
-              if (combo.some(sv => subEqualsMain(variantToSub(sv), variantToMain(mnV)))) continue
-              if (!anySelectedSlotSupportsMain(cfg.artifactTypes, mnV)) continue
-              const mT = variantToMain(mnV)
-              const r = makeRule({ ...baseCore, MainStatID: mT.id, MainStatF: mT.f ?? 1, LVLForCheck: lvl }, comboSubs)
-              setThreshold(r, 0, applied)
-              pushRule(r)
-            }
-          }
+          emitRowsForComboViaWasm([[applied]], { skipOptionalBaseline: false })
           continue
         }
-        // Shared distribution filter moves caps/timeline/aggregate pruning into wasm.
-        const filteredDistributions = (params: {
-          dims: number
-          total: number
-          globalMode: 0 | 1 | 2
-          globalRemaining: number
-          lockedMode: 0 | 1 | 2
-          lockedRemaining: number
-        }): number[][] => {
-          const dims = Math.max(0, params.dims)
-          const vectors = filterVectorsForDims(dims)
-          const wasmRows = getFilteredRollDistributionsWithLoadedWasm({
-            dimensions: dims,
-            total: params.total,
-            maxCaps: vectors.maxCaps,
-            timelineCaps: vectors.timelineCaps,
-            targetedMask: vectors.targetedMask,
-            globalMin,
-            globalRemaining: params.globalRemaining,
-            globalMode: params.globalMode,
-            lockedMask: vectors.lockedMask,
-            lockedMin: lockedMinValue,
-            lockedRemaining: params.lockedRemaining,
-            lockedMode: params.lockedMode,
-          })
-          if (!Array.isArray(wasmRows)) {
-            throw new Error('WASM filtered-roll helper is unavailable. Ensure warmupWasmRuleEngine() ran first.')
-          }
-          return wasmRows
-        }
-        // Enumerate strict roll allocations where every roll must land on a selected stat.
-        const emitDists = (predicate: (dist: number[]) => boolean) => {
-          const rowsForEmission: number[][] = []
-          const rows = filteredDistributions({
+        // Enumerate strict selected-substat allocations entirely through the
+        // wasm filter+emit path to avoid JS-side row loops.
+        const emitDists = (params?: {
+          minFloors?: ReadonlyArray<number | undefined> | Int32Array
+          targetedExact?: number | null
+          deficitFloors?: ReadonlyArray<number | undefined> | Int32Array
+          deficitMax?: number | null
+          globalMode?: 0 | 1 | 2
+          globalRemaining?: number
+          lockedMode?: 0 | 1 | 2
+          lockedRemaining?: number
+        }) => {
+          const globalMode = params?.globalMode ?? (globalMin > 0 ? 1 : 0)
+          const globalRemaining = params?.globalRemaining ?? 0
+          const lockedMode = params?.lockedMode ?? (lockedMinActive ? 1 : 0)
+          const lockedRemaining = params?.lockedRemaining ?? 0
+          return emitFilteredRowsForComboViaWasm({
             dims: m,
             total: avail,
-            globalMode: globalMin > 0 ? 1 : 0,
-            globalRemaining: 0,
-            lockedMode: lockedMinActive ? 1 : 0,
-            lockedRemaining: 0,
+            ...(params?.minFloors !== undefined ? { minFloors: params.minFloors } : {}),
+            targetedExact: params?.targetedExact ?? null,
+            ...(params?.deficitFloors !== undefined ? { deficitFloors: params.deficitFloors } : {}),
+            deficitMax: params?.deficitMax ?? null,
+            globalMode,
+            globalRemaining,
+            lockedMode,
+            lockedRemaining,
           })
-          for (const dist of rows) {
-            if (!predicate(dist)) continue
-            rowsForEmission.push(dist)
-          }
-          return emitRowsForComboViaWasm(rowsForEmission, { skipOptionalBaseline: skipOptionalBaselineByDefault })
         }
-        // Like emitDists, but allow some of the available rolls to go to non-targeted substats.
-        // Implemented by adding a single "other" bucket that can absorb any leftover rolls.
-        // Variant that allows spare rolls to land on "other" stats using a sink bucket.
-        const emitDistsAllowOther = (predicate: (dist: number[]) => boolean) => {
+        // Like emitDists, but allow some available rolls to land on non-selected
+        // stats via one or more sink dimensions appended after selected stats.
+        const emitDistsAllowOther = (params?: {
+          minFloors?: ReadonlyArray<number | undefined> | Int32Array
+          targetedExact?: number | null
+          deficitFloors?: ReadonlyArray<number | undefined> | Int32Array
+          deficitMax?: number | null
+        }) => {
           const addSet = additionLevelsForRarityCode(rarityCode)
           const totalAdds = addSet.size
           const baseStart = Math.max(0, 4 - totalAdds)
@@ -1811,22 +1561,19 @@ export function buildHsfRules(
               ? (rollsUpTo16 + mythPreCount)
               : Math.max(0, (rollsUpTo16 - rollsUpToStart) + (effectiveStart <= 0 ? mythPreCount : 0))
             const remaining = Math.max(0, numTarget - avail)
-            const selectedRows: number[][] = []
-            const rows = filteredDistributions({
+            return emitFilteredRowsForComboViaWasm({
               dims,
               total: avail,
+              ...(params?.minFloors !== undefined ? { minFloors: params.minFloors } : {}),
+              targetedExact: params?.targetedExact ?? null,
+              ...(params?.deficitFloors !== undefined ? { deficitFloors: params.deficitFloors } : {}),
+              deficitMax: params?.deficitMax ?? null,
               globalMode: globalMin > 0 ? 2 : 0,
               globalRemaining: remaining,
               // Keep parity: this branch only enforces locked feasibility together with globalMin.
               lockedMode: globalMin > 0 && lockedMinActive ? 2 : 0,
               lockedRemaining: remaining,
             })
-            for (const dist of rows) {
-              const sel = dist.length === m ? dist : dist.slice(0, m)
-              if (!predicate(sel)) continue
-              selectedRows.push(sel)
-            }
-            return emitRowsForComboViaWasm(selectedRows, { skipOptionalBaseline: skipOptionalBaselineByDefault })
           }
 
           const preferVirtualSink = (() => {
@@ -1880,22 +1627,7 @@ export function buildHsfRules(
           if (optionalRowsOnlyBaseline) {
             return false
           }
-          const comboSubs = combo.map(v => variantToSub(v))
-          if (mainChoicesV.length === 0) {
-            const r = makeRule({ ...baseCore, MainStatID: StatId.Any, MainStatF: 1, LVLForCheck: lvl }, comboSubs)
-            for (let i = 0; i < m; i++) setThreshold(r, i, mins[i]!)
-            pushRule(r)
-          } else {
-            for (const mnV of mainChoicesV) {
-              if (combo.some(sv => subEqualsMain(variantToSub(sv), variantToMain(mnV)))) continue
-              if (!anySelectedSlotSupportsMain(cfg.artifactTypes, mnV)) continue
-              const mT = variantToMain(mnV)
-              const r = makeRule({ ...baseCore, MainStatID: mT.id, MainStatF: mT.f ?? 1, LVLForCheck: lvl }, comboSubs)
-              for (let i = 0; i < m; i++) setThreshold(r, i, mins[i]!)
-              pushRule(r)
-            }
-          }
-          return true
+          return emitRowsForComboViaWasm([mins.map((value) => Math.floor(value))], { skipOptionalBaseline: false })
         }
 
         // Multi-substat late lower-bound (emit all minimal rows per level)
@@ -2029,8 +1761,15 @@ export function buildHsfRules(
             if (globalMin <= 0) {
               emitPresence()
             } else if (avail >= globalMin) {
-              // emitDists enforces globalMin across selected substats by construction
-              emitDists(() => true)
+              // No JS predicate needed: run distribution filtering + rule emission in wasm.
+              emitFilteredRowsForComboViaWasm({
+                dims: m,
+                total: avail,
+                globalMode: globalMin > 0 ? 1 : 0,
+                globalRemaining: 0,
+                lockedMode: lockedMinActive ? 1 : 0,
+                lockedRemaining: 0,
+              })
             } else {
               // Not feasible yet at this level
             }
@@ -2050,14 +1789,14 @@ export function buildHsfRules(
               if (needNow === 0) {
                 emitPresence()
               } else if (needNow <= avail) {
-                emitDistsAllowOther((sel) => sumEqTargeted(sel, needNow))
+                emitDistsAllowOther({ targetedExact: needNow })
               } else {
                 // Not feasible yet at this level
               }
             } else if (globalMin > 0) {
               const need = Math.min(globalMin, avail)
               // Early minimal enumerations with an implicit "other" bucket.
-              emitDistsAllowOther((sel) => sumEqTargeted(sel, need))
+              emitDistsAllowOther({ targetedExact: need })
             } else {
               // No aggregate minimum: mirror "min=0" behavior. Early enumerates
               // selected sums 0..avail via an implicit "other" bucket; Late keeps
@@ -2065,7 +1804,7 @@ export function buildHsfRules(
               if (earlyMode === 'late') {
                 emitPresence()
               } else {
-                emitDistsAllowOther(() => true)
+                emitDistsAllowOther()
               }
             }
           } else {
@@ -2077,10 +1816,7 @@ export function buildHsfRules(
               // When targeting locked-only, compare globalMin against the sum of mins across the targeted subset
               const sumMinTargeted = mins.reduce((a, v, i) => a + (targetedMask[i] ? (v ?? 0) : 0), 0)
               if ((globalMin > 0 && globalMin > sumMinTargeted) || needsLockedAggregate) {
-                emitDists((dist) => {
-                  for (let i = 0; i < m; i++) { if (dist[i]! < mins[i]!) return false }
-                  return true
-                })
+                emitDists({ minFloors: mins })
               } else {
                 emitMinOnly()
               }
@@ -2093,16 +1829,8 @@ export function buildHsfRules(
             // Only a global minimum is set: allow partial-progress rows that either
             // meet the globalMin now or can still reach it by the target level.
             // Allow rolls to land on non-selected stats; enumerate selected portion.
-            emitDistsAllowOther((sel) => {
-              if (globalMin <= 0) return true
-              const s = sel.reduce((a, b) => a + b, 0)
-              const rollsUpTo16 = LEVELS.filter(l => l <= 16 && rollLevels.has(l)).length
-              const numTarget = baseline === 'upToLevel'
-                ? (rollsUpTo16 + mythPreCount)
-                : Math.max(0, (rollsUpTo16 - rollsUpToStart) + (effectiveStart <= 0 ? mythPreCount : 0))
-              const remaining = Math.max(0, numTarget - avail)
-              return (s >= globalMin) || ((globalMin - s) <= remaining)
-            })
+            // Feasible-by-target aggregate gate already runs in the wasm filter path.
+            emitDistsAllowOther()
           } else if (!anyMin && anyWildcard) {
             // Wildcard-only (no per-stat mins).
             // Early: enumerate only minimal allocations at each level
@@ -2119,19 +1847,19 @@ export function buildHsfRules(
               if (needNow === 0) {
                 emitPresence()
               } else if (needNow <= avail) {
-                emitDistsAllowOther((sel) => sumEqTargeted(sel, needNow))
+                emitDistsAllowOther({ targetedExact: needNow })
               } else {
                 // Not feasible yet at this level
               }
             } else if (globalMin > 0) {
               const need = Math.min(globalMin, avail)
-              emitDistsAllowOther((sel) => sumEqTargeted(sel, need))
+              emitDistsAllowOther({ targetedExact: need })
             } else {
               // No aggregate minimum: mirror "min=0" behavior.
               if (earlyMode === 'late') {
                 emitPresence()
               } else {
-                emitDistsAllowOther(() => true)
+                emitDistsAllowOther()
               }
             }
           } else {
@@ -2155,16 +1883,9 @@ export function buildHsfRules(
                 // Allocate the remainder (up to the aggregate) to the targeted subset.
                 const minNonTargetNow = mins.reduce((acc, v, i) => acc + (!targetedMask[i] ? (v ?? 0) : 0), 0)
                 const needTargetNow = Math.min(globalMin, Math.max(0, avail - minNonTargetNow))
-                const remaining = Math.max(0, numTarget - avail)
-                emitDistsAllowOther((sel) => {
-                  // Enforce per‑stat mins on all selected stats
-                  for (let i = 0; i < m; i++) { if (sel[i]! < mins[i]!) return false }
-                  // Minimal targeted progress at this level
-                  const targetedNow = sumTargeted(sel)
-                  if (targetedNow !== needTargetNow) return false
-                  // Ensure aggregate can still be met by the target level
-                  if ((globalMin - targetedNow) > remaining) return false
-                  return true
+                emitDistsAllowOther({
+                  minFloors: mins,
+                  targetedExact: needTargetNow,
                 })
               } else {
                 emitMinOnly()
@@ -2172,32 +1893,12 @@ export function buildHsfRules(
             } else {
               // Partial progress before feasibility; enumerate only selected stats allocations
               // and ensure deficits can still be made up by target.
-              const sumMinTargeted3 = mins.reduce((a, v, i) => a + (targetedMask[i] ? (v ?? 0) : 0), 0)
-              const willEmitMinOnly = !((globalMin > 0 && globalMin > sumMinTargeted3) || needsLockedAggregate)
-              emitDists((dist) => {
-                let deficit = 0
-                let isExactMin = true
-                for (let i = 0; i < m; i++) {
-                  if (!anyFlags[i]) {
-                    // Early progress rows: allow allocations below or above per-stat mins;
-                    // feasibility is handled via aggregate deficit check.
-                    deficit += Math.max(0, mins[i]! - dist[i]!)
-                  }
-                  if (dist[i]! !== mins[i]!) isExactMin = false
-                }
-                // Also honor aggregate minimum across selected substats
-                if (globalMin > 0) {
-                  const s = sumTargeted(dist)
-                  const rollsUpTo16 = LEVELS.filter(l => l <= 16 && rollLevels.has(l)).length
-                  const numTarget = baseline === 'upToLevel'
-                    ? (rollsUpTo16 + mythPreCount)
-                    : Math.max(0, (rollsUpTo16 - rollsUpToStart) + (effectiveStart <= 0 ? mythPreCount : 0))
-                  const remaining = Math.max(0, numTarget - avail)
-                  if (!(s >= globalMin || (globalMin - s) <= remaining)) return false
-                }
-                if (!(deficit <= remaining)) return false
-                if (isExactMin && willEmitMinOnly) return false
-                return true
+              // Keep non-wildcard deficit feasibility in wasm. Aggregate parity is preserved
+              // by emitDists defaulting to globalMode=GteNow when globalMin > 0.
+              const deficitFloors = mins.map((value, idx) => (anyFlags[idx] ? undefined : value))
+              emitDists({
+                deficitFloors,
+                deficitMax: remaining,
               }) || emitPresence()
             }
           }
@@ -2245,63 +1946,59 @@ export function buildHsfRules(
             const availFull = numRollsForThisLevel + mythPreExtraFull
             const numTargetFull = numRollsByTarget + mythPreExtraFull
         if (anyMinFull && sumMinFull > availFull) {
-          const baseValsFull = fullSelV.map(v => baseMinForStarV(Number(v), star, substatTargets))
-          const comboSubIdsFull = fullSelV.map(v => variantToSub(v).id)
-          const maxThresholdsFull: Array<number | undefined> = maxsFull.map((cap, idx) => {
-            if (cap === undefined) return undefined
-            const statId = comboSubIdsFull[idx]!
-            if (statId === StatId.RollCount) return cap
-            const base = baseValsFull[idx]!
-            return base + cap * base
-          })
-          const setFullThreshold = (rule: HsfRule, idx: number, rollsApplied: number) => {
-            const hasMin = minsFull[idx]! > 0
-            const cap = maxsFull[idx]
-            if (cap !== undefined && !hasMin) {
-              const limit = maxThresholdsFull[idx] ?? 0
-              rule.Substats[idx]!.Condition = '<='
-              rule.Substats[idx]!.Value = limit
-              return
-            }
-            const base = baseValsFull[idx]!
-            const statId = comboSubIdsFull[idx]!
-            const value = (statId === StatId.RollCount)
-              ? rollsApplied
-              : (base + rollsApplied * base)
-            rule.Substats[idx]!.Condition = '>='
-            rule.Substats[idx]!.Value = value
-          }
           const mF = fullSelV.length
-          const emitFull = (dist: number[]) => {
-            const comboSubs = fullSelV.map(v => variantToSub(v))
-                if (mainChoicesV.length === 0) {
-                  const r = makeRule({ ...baseCore, MainStatID: StatId.Any, MainStatF: 1, LVLForCheck: lvl }, comboSubs)
-                  for (let i = 0; i < mF; i++) setFullThreshold(r, i, dist[i]!)
-                  pushRule(r)
-                } else {
-                  for (const mnV of mainChoicesV) {
-                    if (fullSelV.some(sv => subEqualsMain(variantToSub(sv), variantToMain(mnV)))) continue
-                    if (!anySelectedSlotSupportsMain(cfg.artifactTypes, mnV)) continue
-                    const mT = variantToMain(mnV)
-                    const r = makeRule({ ...baseCore, MainStatID: mT.id, MainStatF: mT.f ?? 1, LVLForCheck: lvl }, comboSubs)
-                    for (let i = 0; i < mF; i++) setFullThreshold(r, i, dist[i]!)
-                    pushRule(r)
-                  }
-                }
+          const baseValsFullForWasm = fullSelV.map((variant) => (
+            Math.floor(baseMinForStarV(Number(variant), star, substatTargets))
+          ))
+          const minsFullForWasm = minsFull.map((value) => Math.floor(value))
+          const maxCapsFullForWasm = maxsFull.map((cap) => (
+            typeof cap === 'number' && Number.isFinite(cap) ? Math.floor(cap) : -1
+          ))
+          const substatsFullForWasm = fullSelV
+            .map((variant) => variantToSub(variant))
+            .map((sub) => ({ id: sub.id, isFlat: Boolean(sub.isFlat) }))
+          const mainChoicesFullForWasm = mainChoicesV
+            .filter((mnV) => anySelectedSlotSupportsMain(cfg.artifactTypes, mnV))
+            .map((mnV) => variantToMain(mnV))
+            .map((main) => ({ id: main.id, f: main.f ?? 1 }))
+          const remainingFull = Math.max(0, numTargetFull - availFull)
+          const deficitFloorsFull = minsFull.map((value, idx) => (anyFlagsFull[idx] ? undefined : value))
+          const emittedRules = emitHsfRulesForFilteredDistributionsWithLoadedWasm({
+            dimensions: mF,
+            total: availFull,
+            maxCaps: maxCapsFullForWasm,
+            timelineCaps: new Int32Array(mF).fill(-1),
+            targetedMask: new Uint8Array(mF),
+            targetedExact: null,
+            deficitFloors: deficitFloorsFull,
+            deficitMax: remainingFull,
+            globalMin: 0,
+            globalRemaining: 0,
+            globalMode: 0,
+            lockedMask: new Uint8Array(mF),
+            lockedMin: 0,
+            lockedRemaining: 0,
+            lockedMode: 0,
+            emit: {
+              baseRule: { ...baseCore, LVLForCheck: lvl, Substats: [] },
+              substats: substatsFullForWasm,
+              baseVals: baseValsFullForWasm,
+              mins: minsFullForWasm,
+              maxCaps: maxCapsFullForWasm,
+              optionalMask: Array.from({ length: mF }, () => false),
+              skipOptionalBaseline: false,
+              mainChoices: mainChoicesFullForWasm,
+              emitAnyMainWhenNoChoices: mainChoicesV.length === 0,
+              // Keep parity with the previous branch: no per-stat target overrides here.
+              targetBases: Array.from({ length: mF }, () => null),
+              targetIncrements: Array.from({ length: mF }, () => [] as Array<number | null>),
+            },
+          })
+          if (!Array.isArray(emittedRules)) {
+            throw new Error('WASM filtered HSF emission helper is unavailable. Ensure warmupWasmRuleEngine() ran first.')
           }
-          for (const dist of rollDistributions(mF, availFull)) {
-            // Enforce per-substat upper limits
-            let overMax = false
-            for (let i = 0; i < mF; i++) {
-              if (maxsFull[i] !== undefined && dist[i]! > (maxsFull[i]! as number)) { overMax = true; break }
-            }
-            if (overMax) continue
-            // Feasibility by target: remaining rolls can cover the deficit to mins
-            let deficit = 0
-            for (let i = 0; i < mF; i++) {
-              if (!anyFlagsFull[i]) deficit += Math.max(0, minsFull[i]! - dist[i]!)
-            }
-            if (deficit <= Math.max(0, numTargetFull - availFull)) emitFull(dist)
+          for (const rule of emittedRules) {
+            pushRule(rule)
           }
         }
       }
