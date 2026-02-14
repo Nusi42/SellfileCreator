@@ -12,6 +12,9 @@ const withRootPath = (relativePath: string): string =>
 
 // https://vitejs.dev/config/
 export default defineConfig(async ({ command }): Promise<UserConfig> => {
+  // Keep one mode flag so Babel generator settings stay deterministic.
+  const isBuild = command === 'build'
+
   // Playwright runs the dev server via the Playwright `webServer` hook.
   // Why: `vite-plugin-checker` can be noisy/unstable in this harness, and the e2e runs already gate on `npm run typecheck`.
   const isPlaywrightRun = (() => {
@@ -28,6 +31,10 @@ export default defineConfig(async ({ command }): Promise<UserConfig> => {
     react({
       babel: {
         plugins: ['babel-plugin-react-compiler'],
+        // Dev keeps readable output for debugging; build compacts huge modules.
+        generatorOpts: {
+          compact: isBuild,
+        },
       },
     }),
     ...(command === 'serve' && !isPlaywrightRun
