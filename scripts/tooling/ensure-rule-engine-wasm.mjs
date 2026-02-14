@@ -29,7 +29,7 @@ const DIRECT_RELEVANT_SOURCES = [
   path.join(RULE_ENGINE_CRATE_DIR, 'Cargo.lock'),
   path.join(REPO_ROOT, 'shared', 'domain-constants.json'),
   path.join(REPO_ROOT, 'scripts', 'tooling', 'generate-domain-constants.mjs'),
-  path.join(REPO_ROOT, 'scripts', 'tooling', 'build-rule-engine-wasm.sh'),
+  path.join(REPO_ROOT, 'scripts', 'tooling', 'build-rule-engine-wasm.mjs'),
 ]
 
 // Read mtimes in a "missing-aware" way so we can decide when to rebuild.
@@ -108,8 +108,10 @@ const ensureRuleEngineWasm = async () => {
 
   // Reuse the existing build pipeline script so generation/build behavior is
   // still defined in one place.
-  const buildScriptPath = path.join(REPO_ROOT, 'scripts', 'tooling', 'build-rule-engine-wasm.sh')
-  const buildResult = spawnSync('bash', [buildScriptPath], {
+  // Call the Node build entrypoint directly so Windows/PowerShell path rules
+  // never depend on bash argument parsing.
+  const buildScriptPath = path.join(REPO_ROOT, 'scripts', 'tooling', 'build-rule-engine-wasm.mjs')
+  const buildResult = spawnSync(process.execPath, [buildScriptPath], {
     cwd: REPO_ROOT,
     stdio: 'inherit',
     env: process.env,
