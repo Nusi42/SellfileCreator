@@ -56,7 +56,7 @@ const overrides: Catalog = {
   // Rule Tester
   gearDialogOpenTooltip: 'Öffne den Logic-Hub-Dialog im Tab „Ausrüstung“, um eine RSL-Helper-Datenbank zu laden oder Beispielgear zu erstellen, ohne die Vorschau zu verlassen.',
   gearDialogIntro: 'Nutze den Ausrüstungsdialog (Logic Hub → „Ausrüstung“), um Beispielgear zu bauen und zu sehen, welche Regel zuerst greift und ob sie den Gegenstand behält oder verkauft. Lade eine RSL-Helper-DB (normalerweise unter %APPDATA%\\RslHelper\\Config) oder ziehe sie in die App, damit die Regel Tester-Ansicht echtes Gear zeigt.',
-  gearDialogManualOnlyNotice: 'Dieses Panel zeigt nur die benutzerdefinierten Einträge. Importierte Gegenstände aus Inventar, Sammlung, Tresor und Posteingang bleiben in der Ansicht „Regel Tester“ sichtbar; lösche diese Quellen bei Bedarf über die Buttons unten.',
+  gearDialogManualOnlyNotice: 'Dieses Panel zeigt nur die benutzerdefinierten Einträge. Importierte Gegenstände aus Inventar, Sammlung, Höhle und Posteingang bleiben in der Ansicht „Regel Tester“ sichtbar; lösche diese Quellen bei Bedarf über die Buttons unten.',
   testerRule: 'Regel',
   testerJumpToConfig: 'Zur Konfig springen',
   testerNoMatch: 'Kein Treffer',
@@ -90,7 +90,7 @@ const overrides: Catalog = {
   testerSourceInbox: 'Post',
   testerSourceManual: 'Manuell',
   testerSourceEquippedCollection: 'Sammlung',
-  testerSourceEquippedVault: 'Tresor',
+  testerSourceEquippedVault: 'Höhle',
   testerMatchKeep: 'Behalten',
   testerMatchSell: 'Verkaufen',
   testerSummaryTotalLabel: 'Gesamt',
