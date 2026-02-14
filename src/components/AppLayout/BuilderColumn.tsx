@@ -14,7 +14,7 @@ export type BuilderColumnProps = {
   sideBySideMinPaperHeightPx: string | undefined
   forceSideBySide?: boolean
   title: string
-  caption: string
+  caption?: string
   substatTargetsLabel: string
   substatTargetsTooltip: string
   onOpenSubstatValues: () => void
@@ -66,9 +66,13 @@ export function BuilderColumn({
           <Typography variant="h6" sx={{ whiteSpace: 'nowrap' }}>
             {title}
           </Typography>
-          <Typography variant="caption" color="text.secondary">
-            {caption}
-          </Typography>
+          {caption ? (
+            <Typography variant="caption" color="text.secondary">
+              {caption}
+            </Typography>
+          ) : (
+            <Box />
+          )}
           <MarkdownTooltip markdown={substatTargetsTooltip}>
             <Button
               size="small"

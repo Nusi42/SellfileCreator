@@ -1151,7 +1151,6 @@ const overrides: Catalog = {
   statRollCount: 'Conteo de tiradas',
 
   // Builder panel caption and toasts
-  builderIntroCaption: 'Usa este espacio de trabajo para decirle al Sellfile qué debe conservar o vender. Construye cada receta aquí, añádela a tu lista y carga o guarda archivos SFR (meta-sets incluidos).',
   toastConfigsSaved: 'Recetas guardadas. Revisa tu carpeta Descargas.',
   toastSellfileSaved: 'Sellfile exportado.',
   toastSellfileExportFailed: 'Error al exportar el Sellfile. Consulta la consola.',

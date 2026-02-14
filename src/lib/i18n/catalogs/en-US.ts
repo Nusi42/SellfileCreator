@@ -4,7 +4,7 @@ const enUS: Catalog = {
   // App / Panels
   appBuilderTitle: 'Recipe Builder',
   loadConfigs: 'Load Recipes (.sfr)',
-  loadConfigsTooltip: 'Load a Recipes file (.sfr, legacy .hsfc) to restore your saved recipes, metasets, minima, and notes.',
+  loadConfigsTooltip: 'Load a Recipes file (.sfr) to restore your saved recipes, metasets, minima, and notes.',
   configOne: 'recipe',
   configMany: 'recipes',
   configsSelectedCount: '{selected} of {total} {word}',
@@ -27,7 +27,7 @@ const enUS: Catalog = {
   optionalLoadSellfile: 'Optional: Load a Sellfile to preview the merge, or a gear DB (.db) to review items in the Rule Tester.',
   fileFormatErrorTitle: 'File Not Supported',
   fileFormatErrorUnknownName: 'the selected file',
-  fileFormatErrorMessage: 'We could not detect any of the supported content formats in {fileName}. Sellfile Creator accepts recipe files (.sfr, legacy .hsfc), Sellfiles (.hsf), and gear databases (.db).',
+  fileFormatErrorMessage: 'We could not detect any of the supported content formats in {fileName}. Sellfile Creator accepts recipe files (.sfr), Sellfiles (.hsf), and gear databases (.db).',
   fileFormatErrorDismiss: 'Got It',
   previewScrollRangeHintSingle: 'Rule {start} of {total}',
   previewScrollRangeHintRange: 'Rules {start}–{end} of {total}',
@@ -181,14 +181,14 @@ const enUS: Catalog = {
   titleClearHistory: 'Clear History?',
   msgClearHistory: 'This forgets all undo/redo steps and keeps only the current snapshot.',
   titleDeleteAllConfigs: 'Delete All Recipes?',
-  msgDeleteAllConfigs: 'This will delete all custom recipes (.sfr / legacy .hsfc). This action cannot be undone.',
+  msgDeleteAllConfigs: 'This will delete all custom recipes (.sfr). This action cannot be undone.',
   titleDeleteConfig: 'Delete This Recipe?',
   msgDeleteConfig: 'This will remove only this recipe from your recipe file.',
   titleDeleteSelectedConfigs: 'Delete {n} Recipes?',
   msgDeleteSelectedConfigs: 'This will remove the selected {n} recipes from your recipe file.',
 
   titlePasteConfigJson: 'Paste Recipe JSON',
-  msgPasteInstructions: 'Paste a single recipe, an array of recipes, or a legacy HSFC object containing recipes.',
+  msgPasteInstructions: 'Paste a single recipe, an array of recipes, or an SFR object containing recipes.',
   placeholderPasteExample: 'Example: {example}',
   titleCopyConfigJson: 'Copy Recipe JSON',
   msgBlockedClipboard: 'Your browser blocked clipboard access. Select and copy manually.',
@@ -387,7 +387,7 @@ const enUS: Catalog = {
 
   // File drag overlay
   fileDropTitle: 'Drop File to Load',
-  fileDropSubtitle: 'Accepts .sfr/.hsfc (recipes + Metasets), .hsf (sellfile), and .db (gear database)',
+  fileDropSubtitle: 'Accepts .sfr (recipes + Metasets), .hsf (sellfile), and .db (gear database)',
 
   // Sets section labels
   setsTitle: 'Sets',
@@ -660,7 +660,7 @@ const enUS: Catalog = {
   builderExportModeDisabled: 'Disabled',
   builderExportModeDisabledTooltip: 'Sellfile rules are generated with Use = false, so RSL Helper keeps them inactive. Turn on "Omit disabled rules when exporting" to leave them out entirely.',
   builderExportModeSeparator: 'Separator',
-  builderExportModeSeparatorTooltip: 'Separator recipes only export to recipe files (.sfr, legacy .hsfc).\nThey generate no Sellfile rules and can include # headings or [rrggbb] color tags.',
+  builderExportModeSeparatorTooltip: 'Separator recipes only export to recipe files (.sfr).\nThey generate no Sellfile rules and can include # headings or [rrggbb] color tags.',
   builderConfigOptionsOverrideBadgeTooltip: 'Recipe overrides change this setting (stored: {stored}, effective: {effective}).',
   historyBuilderExportModeLabel: 'Sellfile Export Mode',
   historyBuilderSavedTitle: 'Saved {label}',
@@ -1158,7 +1158,6 @@ const enUS: Catalog = {
   statRollCount: 'Roll Count',
 
   // Builder panel caption and toasts
-  builderIntroCaption: 'Use this workspace to tell the sellfile what to keep or sell. Build each recipe here, add it to your list, and load or save recipe files (.sfr, legacy .hsfc; Metasets included).',
   toastConfigsSaved: 'Recipes saved. Check your Downloads folder.',
   toastSellfileSaved: 'Sellfile exported.',
   toastSellfileExportFailed: 'Sellfile export failed. See console for details.',
@@ -1293,7 +1292,7 @@ const enUS: Catalog = {
   tutLogicHubDialogTitle: 'Logic Hub',
   tutLogicHubDialogBody: 'Logic Hub combines the Final Sell tab, the Gear dialog (Gear tab), and Safeguards in one place. On `Final Sell` you still decide what to sell (`Artifacts`, `Accessories`) and which `Level Ranges` (like `0–3`, `4–7`, … `16`). We\'re turning on `Artifacts` only — we haven\'t targeted `Accessories` in this tutorial. `+16` stays off by default to avoid selling fully leveled gear. You can turn it on here, or flip it later in ~~RSL Helper~~ after you\'ve checked it will sell exactly what you want.',
   tutNoteTitle: 'Add a Note',
-  tutNoteBody: 'Use `Add Note` to jot a simple reminder for future you — what this project is about, version links, or anything helpful. If you share your `.sfr` (legacy `.hsfc` also supported), this note helps anyone who opens it understand what to do next. Notes save with your recipes and don\'t go into the exported `.hsf` sellfile.',
+  tutNoteBody: 'Use `Add Note` to jot a simple reminder for future you — what this project is about, version links, or anything helpful. If you share your `.sfr`, this note helps anyone who opens it understand what to do next. Notes save with your recipes and don\'t go into the exported `.hsf` sellfile.',
   tutSaveExplainTitle: 'Save Recipes (.sfr)',
   tutSaveExplainBody: 'Use `Save Recipes (.sfr)` to save your project (`Recipes`, `Metasets`, `Note`). Saves to your browser\'s Downloads folder. Filenames include a timestamp. It\'s safe to save often so you can go back if needed.',
   tutExportExplainTitle: 'Export RSL Helper Sellfile',

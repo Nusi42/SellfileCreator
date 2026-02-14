@@ -4,7 +4,7 @@ const overrides: Catalog = {
   // App / Panels
   appBuilderTitle: 'Rezept-Editor',
   loadConfigs: 'Rezepte laden (.sfr)',
-  loadConfigsTooltip: 'Lade eine Rezeptdatei (.sfr, legacy .hsfc), um gespeicherte Rezepte, Metasets, Minima und Notizen wiederherzustellen.',
+  loadConfigsTooltip: 'Lade eine Rezeptdatei (.sfr), um gespeicherte Rezepte, Metasets, Minima und Notizen wiederherzustellen.',
   configOne: 'Rezept',
   configMany: 'Rezepte',
   configsSelectedCount: '{selected} von {total} {word}',
@@ -27,7 +27,7 @@ const overrides: Catalog = {
   optionalLoadSellfile: 'Optional: Bestehende Sellfile laden, um die Zusammenführung anzuzeigen, oder eine Gear-Datenbank (.db), um sie im Regel Tester zu prüfen.',
   fileFormatErrorTitle: 'Dateiformat wird nicht unterstützt',
   fileFormatErrorUnknownName: 'die ausgewählte Datei',
-  fileFormatErrorMessage: 'Wir konnten in {fileName} keines der unterstützten Formate erkennen. Sellfile Creator akzeptiert .sfr (legacy .hsfc, Rezepte + Metasets), .hsf (Sellfile) und .db (Gear-Datenbank).',
+  fileFormatErrorMessage: 'Wir konnten in {fileName} keines der unterstützten Formate erkennen. Sellfile Creator akzeptiert .sfr (Rezepte + Metasets), .hsf (Sellfile) und .db (Gear-Datenbank).',
   fileFormatErrorDismiss: 'Verstanden',
   previewScrollRangeHintSingle: 'Regel {start} von {total}',
   previewScrollRangeHintRange: 'Regeln {start}–{end} von {total}',
@@ -180,14 +180,14 @@ const overrides: Catalog = {
   titleClearHistory: 'Verlauf leeren?',
   msgClearHistory: 'Dadurch werden alle Schritte zum Rückgängig/Wiederholen verworfen und nur die aktuelle Momentaufnahme behalten.',
   titleDeleteAllConfigs: 'Alle Rezepte löschen?',
-  msgDeleteAllConfigs: 'Dies löscht alle benutzerdefinierten Rezepte (.sfr / legacy .hsfc). Dieser Vorgang kann nicht rückgängig gemacht werden.',
+  msgDeleteAllConfigs: 'Dies löscht alle benutzerdefinierten Rezepte (.sfr). Dieser Vorgang kann nicht rückgängig gemacht werden.',
   titleDeleteConfig: 'Dieses Rezept löschen?',
   msgDeleteConfig: 'Dies entfernt nur dieses Rezept aus deiner Rezeptdatei.',
   titleDeleteSelectedConfigs: '{n} Rezept(e) löschen?',
   msgDeleteSelectedConfigs: 'Dadurch werden die ausgewählten {n} Rezepte entfernt.',
 
   titlePasteConfigJson: 'Rezept-JSON einfügen',
-  msgPasteInstructions: 'Füge ein einzelnes Rezept, ein Array von Rezepten oder ein Legacy-HSFC-Objekt ein.',
+  msgPasteInstructions: 'Füge ein einzelnes Rezept, ein Array von Rezepten oder ein SFR-Objekt mit Rezepten ein.',
   placeholderPasteExample: 'Beispiel: {example}',
   titleCopyConfigJson: 'Rezept-JSON kopieren',
   msgBlockedClipboard: 'Der Browser hat den Zugriff auf die Zwischenablage blockiert. Bitte manuell markieren und kopieren.',
@@ -382,7 +382,7 @@ const overrides: Catalog = {
 
   // File drag overlay
   fileDropTitle: 'Datei zum Laden ablegen',
-  fileDropSubtitle: 'Akzeptiert .sfr/.hsfc (Rezepte + Metasets), .hsf (Sellfile) und .db (Gear-Datenbank)',
+  fileDropSubtitle: 'Akzeptiert .sfr (Rezepte + Metasets), .hsf (Sellfile) und .db (Gear-Datenbank)',
 
   // Sets section labels
   setsTitle: 'Sets',
@@ -655,7 +655,7 @@ const overrides: Catalog = {
   builderExportModeDisabled: 'Deaktiviert',
   builderExportModeDisabledTooltip: 'Sellfile-Regeln werden mit Use = false erzeugt, sodass RSL Helper sie inaktiv lässt. Aktiviere "Deaktivierte Regeln beim Export auslassen", um sie komplett wegzulassen.',
   builderExportModeSeparator: 'Trenner',
-  builderExportModeSeparatorTooltip: 'Trenner-Rezepte werden nur in Rezeptdateien exportiert (.sfr, legacy .hsfc).\nSie erzeugen keine Sellfile-Regeln und können Überschriften mit # oder [rrggbb]-Farb-Tags enthalten.',
+  builderExportModeSeparatorTooltip: 'Trenner-Rezepte werden nur in Rezeptdateien exportiert (.sfr).\nSie erzeugen keine Sellfile-Regeln und können Überschriften mit # oder [rrggbb]-Farb-Tags enthalten.',
   builderConfigOptionsOverrideBadgeTooltip: 'Rezeptvorgaben überschreiben diese Einstellung (gespeichert: {stored}, wirksam: {effective}).',
   historyBuilderExportModeLabel: 'Sellfile-Exportmodus',
   historyBuilderSavedTitle: '{label} gespeichert',
@@ -1153,7 +1153,6 @@ const overrides: Catalog = {
   statRollCount: 'Roll-Anzahl',
 
   // Builder panel caption and toasts
-  builderIntroCaption: 'Nutze diesen Arbeitsbereich, um dem Sellfile mitzuteilen, was es behalten oder verkaufen soll. Baue jedes Rezept hier, füge es deiner Liste hinzu und lade oder speichere Rezeptdateien (.sfr, legacy .hsfc; Metasets inklusive).',
   toastConfigsSaved: 'Rezepte gespeichert. Prüfe deinen Downloads-Ordner.',
   toastSellfileSaved: 'Sellfile exportiert.',
   toastSellfileExportFailed: 'Sellfile-Export fehlgeschlagen. Details in der Konsole.',
@@ -1288,7 +1287,7 @@ const overrides: Catalog = {
   tutLogicHubDialogTitle: 'Logic Hub',
   tutLogicHubDialogBody: 'Logic Hub bündelt den Tab `Finaler Verkauf`, den Ausrüstungsdialog (Tab `Ausrüstung`) und `Schutzmaßnahmen` in einem Dialog. Im Tab `Finaler Verkauf` legst du weiterhin fest, was verkauft werden soll (`Artefakte`, `Schmuckstücke`) und welche `Stufenbereiche` (z. B. `0–3`, `4–7`, … `16`). Wir schalten nur `Artefakte` ein – `Schmuckstücke` brauchen wir in diesem Tutorial nicht. `+16` bleibt standardmäßig aus, damit voll geleveltes Gear nicht versehentlich verkauft wird. Du kannst es hier aktivieren oder später in ~~RSL Helper~~, sobald du geprüft hast, dass genau die gewünschten Teile verkauft werden.',
   tutNoteTitle: 'Notiz hinzufügen',
-  tutNoteBody: 'Nutze `Notiz hinzufügen`, um dir kurz etwas zu merken. Notizen werden in `.sfr` gespeichert (legacy `.hsfc` bleibt kompatibel) und landen nicht im exportierten `.hsf`.',
+  tutNoteBody: 'Nutze `Notiz hinzufügen`, um dir kurz etwas zu merken. Notizen werden in `.sfr` gespeichert und landen nicht im exportierten `.hsf`.',
   tutSaveExplainTitle: 'Rezepte speichern (.sfr)',
   tutSaveExplainBody: 'Speichere `Rezepte`, `Metasets` und `Notiz` in deinen Downloads. Dateinamen enthalten Zeitstempel — häufiges Speichern ist sicher.',
   tutExportExplainTitle: 'RSL‑Helper‑Sellfile exportieren',

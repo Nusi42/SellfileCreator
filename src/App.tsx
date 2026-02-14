@@ -5592,7 +5592,6 @@ export default function App({ colorBlindMode, setColorBlindMode }: { colorBlindM
           sideBySideMinPaperHeightPx={sideBySideMinPaperHeightPx}
           forceSideBySide={forceSideBySideLayout}
           title={t('appBuilderTitle')}
-          caption={t('builderIntroCaption')}
           substatTargetsLabel={t('builderSubstatTargets')}
           substatTargetsTooltip={t('builderSubstatTargetsTooltip')}
           onOpenSubstatValues={openSubstatTargetsDialog}
