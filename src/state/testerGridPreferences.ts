@@ -36,8 +36,10 @@ const testerGridShowFirstStore = createLocalStorageStore<boolean>({
 
 const testerGridShowMatchConfigStore = createLocalStorageStore<boolean>({
   key: TESTER_GRID_SHOW_MATCH_CONFIG_INDEX_KEY,
-  fallback: true,
-  parse: (raw) => raw === 'false' ? false : true,
+  // New installs should hide config indices in first-match chips until users opt in.
+  fallback: false,
+  // Missing or malformed storage should stay aligned with the "off by default" intent.
+  parse: (raw) => raw === 'true',
   serialize: (value) => (value ? 'true' : 'false'),
 })
 

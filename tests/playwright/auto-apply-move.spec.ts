@@ -50,7 +50,7 @@ const getConfigChipByIndex = (page: Page, index: number): Locator => {
 
 const getConfigNameInput = (page: Page): Locator => {
   // Use the textbox role to avoid matching the clear-name button.
-  return page.getByRole('textbox', { name: 'Config Name' })
+  return page.getByRole('textbox', { name: /(?:Recipe|Config) Name/i })
 }
 
 const ensureChipSelected = async (chip: Locator): Promise<void> => {
@@ -95,7 +95,7 @@ const expectStatNotSelected = async (button: Locator): Promise<void> => {
 
 const openApplyContextMenu = async (page: Page): Promise<void> => {
   // The Apply button hosts the auto-apply toggle in its context menu.
-  const applyButton = page.getByRole('button', { name: /Apply as Config/i }).first()
+  const applyButton = page.getByRole('button', { name: /Apply as (?:Recipe|Config)/i }).first()
   // Wait for the button so the menu is anchored correctly.
   await expect(applyButton).toBeVisible()
   // Open the context menu with cross-browser fallbacks.
@@ -106,7 +106,7 @@ const enableAutoApply = async (page: Page): Promise<void> => {
   // Open the Apply button menu so we can toggle auto-apply.
   await openApplyContextMenu(page)
   // Click the menu entry that enables auto apply.
-  const menuItem = page.getByRole('menuitem', { name: 'Auto Apply to Selected Config' })
+  const menuItem = page.getByRole('menuitem', { name: /Auto Apply to Selected (?:Recipe|Config)/i })
   // Ensure the item is visible before interacting.
   await expect(menuItem).toBeVisible()
   // Toggle the checkbox entry on.

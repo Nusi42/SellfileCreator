@@ -10,7 +10,7 @@ export const warmupAppShell = async (browser: Browser): Promise<void> => {
   // Trigger the first Vite compile before the real tests run.
   await warmupPage.goto('/', APP_GOTO_OPTIONS)
   // Resolve the builder heading so we can wait for a clear mount signal.
-  const builderHeading = warmupPage.getByRole('heading', { name: 'Configs Builder' })
+  const builderHeading = warmupPage.getByRole('heading', { name: 'Recipe Builder' })
   // Keep warmup best-effort so a slow cold compile does not fail the suite.
   try {
     // Wait briefly for the shell to mount so Vite finishes key modules when possible.

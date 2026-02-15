@@ -4,6 +4,7 @@ import type { NormalizedGearArtifact } from './importers/gearDbNormalizer'
 import type { BuilderConfig } from './hsfBuilder'
 import type { ArtifactSetSelectionEntry } from './gearSets/selection'
 import {
+  ArtifactType,
   compareVariants,
   rarityCodeFromRankValue,
   StatVariant,
@@ -20,6 +21,7 @@ type LevelBracket = 'early' | 'mid' | 'late'
 type SubstatEntry = {
   variant: StatVariant
   rolls: number
+  isFlat: boolean
 }
 
 type SubstatRollBounds = NonNullable<BuilderConfig['substatRollBoundsV']>
@@ -66,23 +68,42 @@ const resolveMilestoneFloor = (level: number): LevelMilestone => {
 
 const collectSubstats = (artifact: NormalizedGearArtifact): SubstatEntry[] => {
   // Map by variant so duplicate rows never double-count rolls.
-  const byVariant = new Map<StatVariant, number>()
+  const byVariant = new Map<StatVariant, { rolls: number; isFlat: boolean }>()
   for (const stat of artifact.substats) {
     if (stat.variant === StatVariant.Any) continue
     const rolls = clampRollCount(stat.rolls)
-    const prev = byVariant.get(stat.variant) ?? 0
+    const prev = byVariant.get(stat.variant)
+    const prevRolls = prev?.rolls ?? 0
     // Keep the highest roll count for each stat.
-    if (rolls > prev) {
-      byVariant.set(stat.variant, rolls)
+    if (rolls > prevRolls) {
+      byVariant.set(stat.variant, {
+        rolls,
+        // Preserve whether this variant is flat so Keep templates can screen it.
+        isFlat: Boolean(stat.isFlat),
+      })
     }
   }
   // Sort by roll count first, then by the canonical stat order.
   return Array.from(byVariant.entries())
-    .map(([variant, rolls]) => ({ variant, rolls }))
+    .map(([variant, payload]) => ({
+      variant,
+      rolls: payload.rolls,
+      isFlat: payload.isFlat,
+    }))
     .sort((a, b) => {
       if (a.rolls !== b.rolls) return b.rolls - a.rolls
       return compareVariants(a.variant, b.variant)
     })
+}
+
+const selectKeepPrimaryCandidates = (
+  entries: SubstatEntry[],
+  slot: number,
+): SubstatEntry[] => {
+  // Accessories keep a special case: amulets may intentionally prioritize flat lines.
+  if (slot === ArtifactType.Amulet) return entries
+  // For non-amulets, flat HP/ATK/DEF lines should not drive top-substat Keep targeting.
+  return entries.filter((entry) => !entry.isFlat)
 }
 
 const resolvePrimarySubstats = (
@@ -150,7 +171,8 @@ export const buildTesterRuleTemplateConfig = (params: {
   const sellLevel = resolveMilestoneFloor(level)
   const substatEntries = collectSubstats(artifact)
   const substatVariants = substatEntries.map((entry) => entry.variant)
-  const primarySubstats = resolvePrimarySubstats(substatEntries, bracket)
+  const keepPrimaryCandidates = selectKeepPrimaryCandidates(substatEntries, artifact.slot)
+  const primarySubstats = resolvePrimarySubstats(keepPrimaryCandidates, bracket)
   const useKeepTemplate = intent === 'keep'
   const fixedSubstats = useKeepTemplate ? primarySubstats : substatVariants
   const resolvedMinCount = Math.min(4, fixedSubstats.length) as BuilderConfig['minCount']

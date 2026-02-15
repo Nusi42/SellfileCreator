@@ -1,9 +1,9 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-// File-based HSFC → HSF end-to-end tests.
+// File-based recipe bundle (.sfr / legacy .hsfc) → HSF end-to-end tests.
 // Each case has two files in tests/fixtures/:
-//  - <name>.hsfc  (input, human-readable HSFC)
+//  - <name>.sfr   (input, human-readable recipe payload)
 //  - <name>.hsf   (expected HSF rules array)
-//  The runner also accepts legacy suffixes .hsfc.json / .hsf.json for compatibility.
+//  The runner also accepts legacy suffixes .hsfc / .hsfc.json / .hsf.json for compatibility.
 //
 // Assertions:
 // 1) Exact structural equality against expected after canonicalization
@@ -66,9 +66,14 @@ function prepareFixtures(): FixturePrep {
   const entries = readdirSync(FIXTURES_DIR, { withFileTypes: true })
     .filter((d) => d.isFile())
     .map(d => d.name)
-  const hsfcFiles = entries.filter(n => n.endsWith('.hsfc') || n.endsWith('.hsfc.json'))
+  const hsfcFiles = entries.filter(n => (
+    n.endsWith('.sfr')
+    || n.endsWith('.sfr.json')
+    || n.endsWith('.hsfc')
+    || n.endsWith('.hsfc.json')
+  ))
   const hsfFiles = entries.filter(n => n.endsWith('.hsf') || n.endsWith('.hsf.json'))
-  const baseOf = (n: string) => n.replace(/\.(hsfc|hsf)(\.json)?$/, '')
+  const baseOf = (n: string) => n.replace(/\.(sfr|hsfc|hsf)(\.json)?$/, '')
   const hsfcBases = new Set(hsfcFiles.map(baseOf))
   const hsfBases = new Set(hsfFiles.map(baseOf))
   const missingHsf: string[] = []
@@ -78,11 +83,11 @@ function prepareFixtures(): FixturePrep {
   if (missingHsf.length || missingHsfc.length) {
     const lines: string[] = []
     if (missingHsf.length) lines.push(`Missing .hsf for: ${missingHsf.join(', ')}`)
-    if (missingHsfc.length) lines.push(`Missing .hsfc for: ${missingHsfc.join(', ')}`)
+    if (missingHsfc.length) lines.push(`Missing .sfr/.hsfc for: ${missingHsfc.join(', ')}`)
     throw new Error(`Fixture pairing error.\n${lines.join('\n')}`)
   }
   const cases: FixtureCase[] = hsfcFiles.map((f) => {
-    const base = f.replace(/\.hsfc(\.json)?$/, '')
+    const base = f.replace(/\.(sfr|hsfc)(\.json)?$/, '')
     const hsfcPath = resolve(FIXTURES_DIR, f)
     const hasHsf = hsfFiles.includes(`${base}.hsf`)
     const hsfPath = resolve(FIXTURES_DIR, hasHsf ? `${base}.hsf` : `${base}.hsf.json`)

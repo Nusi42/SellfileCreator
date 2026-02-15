@@ -19,7 +19,7 @@ test('app renders the builder shell', async ({ page }) => {
   await page.goto('/', APP_GOTO_OPTIONS)
   // Confirm the builder heading is present to validate the shell is mounted.
   // Allow slower engines to finish the shell render before asserting.
-  await expect(page.getByRole('heading', { name: 'Configs Builder' })).toBeVisible({ timeout: PLAYWRIGHT_TIMEOUTS.expectLong })
+  await expect(page.getByRole('heading', { name: 'Recipe Builder' })).toBeVisible({ timeout: PLAYWRIGHT_TIMEOUTS.expectLong })
 })
 
 test('help entry point remains visible', async ({ page }) => {
@@ -31,7 +31,7 @@ test('help entry point remains visible', async ({ page }) => {
   await page.goto('/', APP_GOTO_OPTIONS)
   // Wait for the builder heading before asserting on header controls.
   // Allow slower engines to finish the shell render before asserting.
-  await expect(page.getByRole('heading', { name: 'Configs Builder' })).toBeVisible({ timeout: PLAYWRIGHT_TIMEOUTS.expectLong })
+  await expect(page.getByRole('heading', { name: 'Recipe Builder' })).toBeVisible({ timeout: PLAYWRIGHT_TIMEOUTS.expectLong })
   // Ensure the Help button remains accessible for guidance.
   await expect(page.getByRole('button', { name: 'Help / README' })).toBeVisible()
 })

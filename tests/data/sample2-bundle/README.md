@@ -1,12 +1,12 @@
 # Example + sample2 Fixture Bundle
 
-- Source HSFC: `examples/example.hsfc`
+- Source HSFC: `examples/example.sfr`
 - Shared DB fixture: `tests/data/sample2.db`
 
 ## Layout
 
-- `configs/`: one `.hsfc` fixture per config from `example.hsfc` (keep uniques removed).
-- `keep-uniques/`: one `.hsfc` fixture per Keep Uniques rule (full config list retained, single keep-unique rule retained).
+- `configs/`: one `.sfr` fixture per config from `example.sfr` (keep uniques removed).
+- `keep-uniques/`: one `.sfr` fixture per Keep Uniques rule (full config list retained, single keep-unique rule retained).
 - `manifest.json`: index mapping source ordinals/names to generated files.
 
 ## Counts

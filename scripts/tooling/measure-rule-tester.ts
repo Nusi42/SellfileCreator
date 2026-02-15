@@ -105,7 +105,7 @@ const syncCompiledWasmBindings = async (): Promise<void> => {
 
 // Default pairing mirrors the user-reported heavy scenario.
 const DEFAULT_SCENARIO: ScenarioInput = {
-  hsfcPath: 'examples/example.hsfc',
+  hsfcPath: 'examples/example.sfr',
   gearDbPath: 'examples/251112_042110.db',
 }
 
