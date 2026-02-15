@@ -1,4 +1,7 @@
 import initRuleEngineWasm, {
+  auto_rarity_addition_levels_for_code_value as autoRarityAdditionLevelsForCodeWasmValueBinding,
+  auto_rarity_includes_mythical_for_code_value as autoRarityIncludesMythicalForCodeWasmValueBinding,
+  auto_rarity_roll_levels_for_code_value as autoRarityRollLevelsForCodeWasmValueBinding,
   build_hsf_rules_runtime_value as buildHsfRulesRuntimeWasmValueBinding,
   build_final_sell_rules_value as buildFinalSellRulesWasmValueBinding,
   build_keep_unique_rules_value as buildKeepUniqueRulesWasmValueBinding,
@@ -15,16 +18,24 @@ import initRuleEngineWasm, {
   fingerprint_merged_rules_value as fingerprintMergedRulesWasmValueBinding,
   finalize_generated_rules_value as finalizeGeneratedRulesWasmValueBinding,
   find_obsolete_value as findObsoleteRuleEngineWasmValueBinding,
+  hash_keep_unique_combination_value as hashKeepUniqueCombinationWasmValueBinding,
   intro_assignments_for_combo_fast_flat as introAssignmentsForComboFastFlatWasmBinding,
   keep_unique_count_key_value as keepUniqueCountKeyValueWasmBinding,
+  keep_unique_group_key_value as keepUniqueGroupKeyValueWasmValueBinding,
+  keep_unique_item_key_value as keepUniqueItemKeyValueWasmValueBinding,
   merge_keep_unique_injected_rules_value as mergeKeepUniqueInjectedRulesWasmValueBinding,
+  normalize_keep_unique_activation_value as normalizeKeepUniqueActivationWasmValueBinding,
   normalize_keep_unique_combination_value as normalizeKeepUniqueCombinationWasmValueBinding,
+  normalize_keep_unique_count_mode_value as normalizeKeepUniqueCountModeWasmValueBinding,
   normalize_keep_unique_rule_value as normalizeKeepUniqueRuleWasmValueBinding,
+  normalize_keep_unique_substat_match_value as normalizeKeepUniqueSubstatMatchWasmValueBinding,
   normalize_keep_unique_expected_group_domain_value as normalizeKeepUniqueExpectedGroupDomainWasmValueBinding,
   prepare_hsf_builder_config_value as prepareHsfBuilderConfigWasmValueBinding,
   resolve_keep_unique_rules_with_metasets_value as resolveKeepUniqueRulesWithMetasetsWasmValueBinding,
   resolve_auto_rarity_code_for_builder_value as resolveAutoRarityCodeForBuilderWasmValueBinding,
   permutations_i32_fast_flat as permutationsI32FastFlatWasmBinding,
+  sort_keep_unique_combination_value as sortKeepUniqueCombinationWasmValueBinding,
+  sort_keep_unique_substats_value as sortKeepUniqueSubstatsWasmValueBinding,
   version as ruleEngineWasmVersionBinding,
 } from './generated/rule_engine.js'
 import type { GeneratedBranchRuleEntry, HsfRuleWithCfg } from '../merge'
@@ -615,6 +626,28 @@ export const resolveAutoRarityCodeForBuilderWithLoadedWasm = (payload: {
   throw new Error('WASM auto-rarity builder resolver returned an invalid payload.')
 }
 
+// Auto-rarity roll-level helper keeps TS schedule lookups sourced from Rust.
+export const getAutoRarityRollLevelsForCodeWithLoadedWasm = (rarityCode: number): number[] => {
+  assertWasmInitializedSync()
+  const levels = autoRarityRollLevelsForCodeWasmValueBinding(Math.floor(rarityCode))
+  if (levels instanceof Int32Array) return Array.from(levels, (value) => Math.floor(Number(value)))
+  throw new Error('WASM auto-rarity roll-level helper returned an invalid payload.')
+}
+
+// Auto-rarity addition-level helper keeps TS schedule lookups sourced from Rust.
+export const getAutoRarityAdditionLevelsForCodeWithLoadedWasm = (rarityCode: number): number[] => {
+  assertWasmInitializedSync()
+  const levels = autoRarityAdditionLevelsForCodeWasmValueBinding(Math.floor(rarityCode))
+  if (levels instanceof Int32Array) return Array.from(levels, (value) => Math.floor(Number(value)))
+  throw new Error('WASM auto-rarity addition-level helper returned an invalid payload.')
+}
+
+// Mythical-membership helper keeps TS schedule lookups sourced from Rust.
+export const getAutoRarityIncludesMythicalForCodeWithLoadedWasm = (rarityCode: number): boolean => {
+  assertWasmInitializedSync()
+  return autoRarityIncludesMythicalForCodeWasmValueBinding(Math.floor(rarityCode)) === true
+}
+
 // Builder prep helper normalizes selected/fixed pools and precomputes per-variant
 // base/target maps in Rust so hsfBuilder.ts avoids heavy per-config prep loops.
 export const prepareHsfBuilderConfigWithLoadedWasm = (payload: {
@@ -732,6 +765,99 @@ export const normalizeKeepUniqueRuleWithLoadedWasm = <
   // Guard the payload shape before returning typed output.
   if (typeof result === 'object') return result as T
   throw new Error('WASM keep-unique rule normalizer returned an invalid payload.')
+}
+
+// Keep-unique activation normalization runs in Rust so TS and detection parsing
+// share the same legacy token aliases and fallback behavior.
+export const normalizeKeepUniqueActivationWithLoadedWasm = (
+  value: unknown,
+  legacyEnabled?: unknown,
+): string => {
+  assertWasmInitializedSync()
+  const normalized = normalizeKeepUniqueActivationWasmValueBinding(value, legacyEnabled)
+  if (typeof normalized === 'string') return normalized
+  throw new Error('WASM keep-unique activation normalizer returned an invalid payload.')
+}
+
+// Keep-unique substat-match normalization runs in Rust so TS and detection parsing
+// share the same canonical tokens (`any|all|perSubstat`).
+export const normalizeKeepUniqueSubstatMatchWithLoadedWasm = (value: unknown): string => {
+  assertWasmInitializedSync()
+  const normalized = normalizeKeepUniqueSubstatMatchWasmValueBinding(value)
+  if (typeof normalized === 'string') return normalized
+  throw new Error('WASM keep-unique substat-match normalizer returned an invalid payload.')
+}
+
+// Keep-unique count-mode normalization runs in Rust so TS and detection parsing
+// share the same default + sanitize behavior.
+export const normalizeKeepUniqueCountModeWithLoadedWasm = (
+  value: unknown,
+): WasmKeepUniqueCountModePayload => {
+  assertWasmInitializedSync()
+  const normalized = normalizeKeepUniqueCountModeWasmValueBinding(value)
+  if (
+    normalized
+    && typeof normalized === 'object'
+    && 'perRule' in normalized
+    && 'perSet' in normalized
+    && 'perFaction' in normalized
+    && 'perMainStat' in normalized
+    && 'perSlot' in normalized
+  ) {
+    return normalized as WasmKeepUniqueCountModePayload
+  }
+  throw new Error('WASM keep-unique count-mode normalizer returned an invalid payload.')
+}
+
+// Keep-unique substat sorting runs in Rust so TS reuses one priority ordering.
+export const sortKeepUniqueSubstatsWithLoadedWasm = (values: readonly number[]): number[] => {
+  assertWasmInitializedSync()
+  const sorted = sortKeepUniqueSubstatsWasmValueBinding(values)
+  if (sorted instanceof Int32Array) return Array.from(sorted, (value) => Math.floor(Number(value)))
+  if (Array.isArray(sorted)) return sorted.map((value) => Math.floor(Number(value)))
+  throw new Error('WASM keep-unique substat sorter returned an invalid payload.')
+}
+
+// Keep-unique combination sorting runs in Rust so TS reuses one canonical order.
+export const sortKeepUniqueCombinationWithLoadedWasm = <T extends object>(combination: T): T => {
+  assertWasmInitializedSync()
+  const sorted = sortKeepUniqueCombinationWasmValueBinding(combination)
+  if (sorted && typeof sorted === 'object') return sorted as T
+  throw new Error('WASM keep-unique combination sorter returned an invalid payload.')
+}
+
+// Keep-unique combination hash generation runs in Rust so TS reuses one canonical
+// tokenization implementation for snapshots + rule metadata.
+export const hashKeepUniqueCombinationWithLoadedWasm = (combination: unknown): string => {
+  assertWasmInitializedSync()
+  const hash = hashKeepUniqueCombinationWasmValueBinding(combination)
+  if (typeof hash === 'string') return hash
+  throw new Error('WASM keep-unique combination hash helper returned an invalid payload.')
+}
+
+// Keep-unique item-key derivation runs in Rust so TS reuses tester-item fallback
+// semantics used by candidate collection.
+export const getKeepUniqueItemKeyWithLoadedWasm = (artifact: unknown): number => {
+  assertWasmInitializedSync()
+  const key = keepUniqueItemKeyValueWasmValueBinding(artifact)
+  // wasm-bindgen maps Rust `i64` to JS `bigint`, but older bindings may still
+  // surface a JS number in some environments.
+  if (typeof key === 'bigint') {
+    const numeric = Number(key)
+    if (Number.isFinite(numeric)) return Math.floor(numeric)
+  }
+  // Keep compatibility with number-returning bindings while still fail-closing.
+  if (typeof key === 'number' && Number.isFinite(key)) return Math.floor(key)
+  throw new Error('WASM keep-unique item-key helper returned an invalid payload.')
+}
+
+// Keep-unique group-key derivation runs in Rust so TS reuses accessory faction
+// normalization used by candidate collection.
+export const getKeepUniqueGroupKeyWithLoadedWasm = (artifact: unknown): string => {
+  assertWasmInitializedSync()
+  const key = keepUniqueGroupKeyValueWasmValueBinding(artifact)
+  if (typeof key === 'string') return key
+  throw new Error('WASM keep-unique group-key helper returned an invalid payload.')
 }
 
 // Keep-unique expected-group generation uses this helper so group-key logic is

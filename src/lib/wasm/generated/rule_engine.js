@@ -1,6 +1,37 @@
 /* @ts-self-types="./rule_engine.d.ts" */
 
 /**
+ * @param {number} rarity_code
+ * @returns {Int32Array}
+ */
+export function auto_rarity_addition_levels_for_code_value(rarity_code) {
+    const ret = wasm.auto_rarity_addition_levels_for_code_value(rarity_code);
+    var v1 = getArrayI32FromWasm0(ret[0], ret[1]).slice();
+    wasm.__wbindgen_free(ret[0], ret[1] * 4, 4);
+    return v1;
+}
+
+/**
+ * @param {number} rarity_code
+ * @returns {boolean}
+ */
+export function auto_rarity_includes_mythical_for_code_value(rarity_code) {
+    const ret = wasm.auto_rarity_includes_mythical_for_code_value(rarity_code);
+    return ret !== 0;
+}
+
+/**
+ * @param {number} rarity_code
+ * @returns {Int32Array}
+ */
+export function auto_rarity_roll_levels_for_code_value(rarity_code) {
+    const ret = wasm.auto_rarity_roll_levels_for_code_value(rarity_code);
+    var v1 = getArrayI32FromWasm0(ret[0], ret[1]).slice();
+    wasm.__wbindgen_free(ret[0], ret[1] * 4, 4);
+    return v1;
+}
+
+/**
  * @param {any} remainder
  * @param {any} all_known_set_ids
  * @returns {any}
@@ -216,6 +247,29 @@ export function flatten_rule_batches_with_total_limit_value(base_count, total_li
 }
 
 /**
+ * @param {any} combination
+ * @returns {string}
+ */
+export function hash_keep_unique_combination_value(combination) {
+    let deferred2_0;
+    let deferred2_1;
+    try {
+        const ret = wasm.hash_keep_unique_combination_value(combination);
+        var ptr1 = ret[0];
+        var len1 = ret[1];
+        if (ret[3]) {
+            ptr1 = 0; len1 = 0;
+            throw takeFromExternrefTable0(ret[2]);
+        }
+        deferred2_0 = ptr1;
+        deferred2_1 = len1;
+        return getStringFromWasm0(ptr1, len1);
+    } finally {
+        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
+    }
+}
+
+/**
  * @param {number} count
  * @param {number} base_slots
  * @param {Int32Array} addition_levels
@@ -258,6 +312,41 @@ export function keep_unique_count_key_value(artifact, count_mode) {
 }
 
 /**
+ * @param {any} artifact
+ * @returns {string}
+ */
+export function keep_unique_group_key_value(artifact) {
+    let deferred2_0;
+    let deferred2_1;
+    try {
+        const ret = wasm.keep_unique_group_key_value(artifact);
+        var ptr1 = ret[0];
+        var len1 = ret[1];
+        if (ret[3]) {
+            ptr1 = 0; len1 = 0;
+            throw takeFromExternrefTable0(ret[2]);
+        }
+        deferred2_0 = ptr1;
+        deferred2_1 = len1;
+        return getStringFromWasm0(ptr1, len1);
+    } finally {
+        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
+    }
+}
+
+/**
+ * @param {any} artifact
+ * @returns {bigint}
+ */
+export function keep_unique_item_key_value(artifact) {
+    const ret = wasm.keep_unique_item_key_value(artifact);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return ret[0];
+}
+
+/**
  * @param {any} base_rules
  * @param {any} custom_rules
  * @param {any} candidate_keep_rules
@@ -272,12 +361,48 @@ export function merge_keep_unique_injected_rules_value(base_rules, custom_rules,
 }
 
 /**
+ * @param {any} activation
+ * @param {any} legacy_enabled
+ * @returns {string}
+ */
+export function normalize_keep_unique_activation_value(activation, legacy_enabled) {
+    let deferred2_0;
+    let deferred2_1;
+    try {
+        const ret = wasm.normalize_keep_unique_activation_value(activation, legacy_enabled);
+        var ptr1 = ret[0];
+        var len1 = ret[1];
+        if (ret[3]) {
+            ptr1 = 0; len1 = 0;
+            throw takeFromExternrefTable0(ret[2]);
+        }
+        deferred2_0 = ptr1;
+        deferred2_1 = len1;
+        return getStringFromWasm0(ptr1, len1);
+    } finally {
+        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
+    }
+}
+
+/**
  * @param {any} value
  * @param {any} lookups
  * @returns {any}
  */
 export function normalize_keep_unique_combination_value(value, lookups) {
     const ret = wasm.normalize_keep_unique_combination_value(value, lookups);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * @param {any} value
+ * @returns {any}
+ */
+export function normalize_keep_unique_count_mode_value(value) {
+    const ret = wasm.normalize_keep_unique_count_mode_value(value);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -310,6 +435,29 @@ export function normalize_keep_unique_rule_value(value, lookups, generated_rule_
         throw takeFromExternrefTable0(ret[1]);
     }
     return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * @param {any} value
+ * @returns {string}
+ */
+export function normalize_keep_unique_substat_match_value(value) {
+    let deferred2_0;
+    let deferred2_1;
+    try {
+        const ret = wasm.normalize_keep_unique_substat_match_value(value);
+        var ptr1 = ret[0];
+        var len1 = ret[1];
+        if (ret[3]) {
+            ptr1 = 0; len1 = 0;
+            throw takeFromExternrefTable0(ret[2]);
+        }
+        deferred2_0 = ptr1;
+        deferred2_1 = len1;
+        return getStringFromWasm0(ptr1, len1);
+    } finally {
+        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
+    }
 }
 
 /**
@@ -356,6 +504,30 @@ export function resolve_auto_rarity_code_for_builder_value(payload) {
  */
 export function resolve_keep_unique_rules_with_metasets_value(rules, metasets) {
     const ret = wasm.resolve_keep_unique_rules_with_metasets_value(rules, metasets);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * @param {any} combination
+ * @returns {any}
+ */
+export function sort_keep_unique_combination_value(combination) {
+    const ret = wasm.sort_keep_unique_combination_value(combination);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * @param {any} values
+ * @returns {any}
+ */
+export function sort_keep_unique_substats_value(values) {
+    const ret = wasm.sort_keep_unique_substats_value(values);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }

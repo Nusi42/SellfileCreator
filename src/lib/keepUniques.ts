@@ -12,12 +12,9 @@ import {
   ALLOWED_MAIN_BY_SLOT,
   PREFERRED_ARTIFACT_TYPE_ORDER,
   StatVariant as StatVariantEnum,
-  STAT_VARIANTS_PRIORITY,
   artifactSetNames,
   artifactTypeNames,
-  compareArtifactTypes,
   compareArtifactSets,
-  compareVariants,
   factionNames,
   getArmorFixedSetIds,
   getArmorVariableSetIds,
@@ -30,21 +27,40 @@ import type { NormalizedGearArtifact } from './importers/gearDbNormalizer'
 import type { Metaset } from './metasets'
 import { normalizeConfigName } from './ruleConfigIndex'
 import type { ArtifactSetSelectionEntry } from './gearSets/selection'
-import { normalizeArtifactSetSelections } from './gearSets/selection'
 import { hasIgnoreKeepUniqueTag } from './tagHelpers'
 import {
   collectAndComputeKeepUniqueProtectionWithLoadedWasm,
   collectKeepUniqueCandidatesWithLoadedWasm,
   computeKeepUniqueProtectionWithLoadedWasm,
+  getKeepUniqueGroupKeyWithLoadedWasm,
+  getKeepUniqueItemKeyWithLoadedWasm,
   getKeepUniqueCountKeyWithLoadedWasm,
+  hashKeepUniqueCombinationWithLoadedWasm,
+  normalizeKeepUniqueActivationWithLoadedWasm,
   normalizeKeepUniqueCombinationWithLoadedWasm,
+  normalizeKeepUniqueCountModeWithLoadedWasm,
   normalizeKeepUniqueExpectedGroupDomainWithLoadedWasm,
   normalizeKeepUniqueRuleWithLoadedWasm,
+  normalizeKeepUniqueSubstatMatchWithLoadedWasm,
   resolveKeepUniqueRulesWithMetasetsWithLoadedWasm,
+  sortKeepUniqueCombinationWithLoadedWasm,
+  sortKeepUniqueSubstatsWithLoadedWasm,
 } from './wasm/wasmRuleEngine'
-
-const RANK_MIN = 1
-const RANK_MAX = 6
+import {
+  KEEP_UNIQUE_ACTIVATION_ANTICIPATE_GAPS,
+  KEEP_UNIQUE_ACTIVATION_OFF,
+  KEEP_UNIQUE_ACTIVATION_PROTECT_EXISTING,
+  KEEP_UNIQUE_DEFAULT_COUNT_MODE_PER_FACTION,
+  KEEP_UNIQUE_DEFAULT_COUNT_MODE_PER_MAIN_STAT,
+  KEEP_UNIQUE_DEFAULT_COUNT_MODE_PER_RULE,
+  KEEP_UNIQUE_DEFAULT_COUNT_MODE_PER_SET,
+  KEEP_UNIQUE_DEFAULT_COUNT_MODE_PER_SLOT,
+  KEEP_UNIQUE_SUBSTAT_ALL,
+  KEEP_UNIQUE_SUBSTAT_ANY,
+  KEEP_UNIQUE_SUBSTAT_PER_SUBSTAT,
+  RANK_VALUE_MAX,
+  RANK_VALUE_MIN,
+} from './generated/domainConstants'
 
 // Cache faction IDs for placeholder enumeration (skip the 0 "any" sentinel).
 const ALL_FACTION_IDS = Object.freeze(
@@ -92,19 +108,17 @@ export type KeepUniqueRuleCountMode = {
 
 // Mirrors the default scope-chip state (slot+set+faction+main) so HSFC imports and tutorials stay aligned.
 export const KEEP_UNIQUE_DEFAULT_COUNT_MODE: KeepUniqueRuleCountMode = {
-  perRule: false,
-  perSet: true,
-  perFaction: true,
-  perMainStat: true,
-  perSlot: false,
+  perRule: KEEP_UNIQUE_DEFAULT_COUNT_MODE_PER_RULE,
+  perSet: KEEP_UNIQUE_DEFAULT_COUNT_MODE_PER_SET,
+  perFaction: KEEP_UNIQUE_DEFAULT_COUNT_MODE_PER_FACTION,
+  perMainStat: KEEP_UNIQUE_DEFAULT_COUNT_MODE_PER_MAIN_STAT,
+  perSlot: KEEP_UNIQUE_DEFAULT_COUNT_MODE_PER_SLOT,
 }
 
-const coerceBoolean = (value: unknown): boolean => value === true
-
 export const KeepUniqueRuleActivation = {
-  Off: 'off',
-  ProtectExisting: 'protectExisting',
-  AnticipateGaps: 'anticipateGaps',
+  Off: KEEP_UNIQUE_ACTIVATION_OFF,
+  ProtectExisting: KEEP_UNIQUE_ACTIVATION_PROTECT_EXISTING,
+  AnticipateGaps: KEEP_UNIQUE_ACTIVATION_ANTICIPATE_GAPS,
 } as const
 
 // eslint-disable-next-line no-redeclare -- allow constant/type pair
@@ -119,64 +133,38 @@ const KEEP_UNIQUE_RULE_ACTIVATION_VALUES = new Set<KeepUniqueRuleActivation>([
 
 // KeepUniqueSubstatMatch controls how multiple picked substats are matched.
 export const KeepUniqueSubstatMatch = {
-  Any: 'any',
-  All: 'all',
-  PerSubstat: 'perSubstat',
+  Any: KEEP_UNIQUE_SUBSTAT_ANY,
+  All: KEEP_UNIQUE_SUBSTAT_ALL,
+  PerSubstat: KEEP_UNIQUE_SUBSTAT_PER_SUBSTAT,
 } as const
 
 // eslint-disable-next-line no-redeclare -- allow constant/type pair
 export type KeepUniqueSubstatMatch =
   (typeof KeepUniqueSubstatMatch)[keyof typeof KeepUniqueSubstatMatch]
 
-// Normalize to lower-case keys so case-insensitive parsing is stable.
-const KEEP_UNIQUE_SUBSTAT_MATCH_LOOKUP: Record<string, KeepUniqueSubstatMatch> = {
-  // Canonical lower-case entries map straight through.
-  [KeepUniqueSubstatMatch.Any]: KeepUniqueSubstatMatch.Any,
-  [KeepUniqueSubstatMatch.All]: KeepUniqueSubstatMatch.All,
-  // `perSubstat` lowercases to `persubstat`, so capture the normalized form.
-  [KeepUniqueSubstatMatch.PerSubstat.toLowerCase()]: KeepUniqueSubstatMatch.PerSubstat,
-}
-
 // normalizeKeepUniqueActivation keeps activation parsing consistent across keep-override rules.
 export const normalizeKeepUniqueActivation = (
   value: unknown,
   legacyEnabled?: unknown,
 ): KeepUniqueRuleActivation => {
-  if (typeof value === 'string') {
-    const lowered = value.trim().toLowerCase()
-    if (lowered.length > 0) {
-      if (lowered === KeepUniqueRuleActivation.Off || lowered === 'disabled') {
-        return KeepUniqueRuleActivation.Off
-      }
-      if (
-        lowered === KeepUniqueRuleActivation.AnticipateGaps
-        || lowered === 'anticipate'
-        || lowered === 'anticipategaps'
-        || lowered === 'placeholder'
-      ) {
-        return KeepUniqueRuleActivation.AnticipateGaps
-      }
-      if (KEEP_UNIQUE_RULE_ACTIVATION_VALUES.has(lowered as KeepUniqueRuleActivation)) {
-        return lowered as KeepUniqueRuleActivation
-      }
-    }
+  // Delegate token coercion to wasm so TS does not duplicate alias parsing rules.
+  const normalized = normalizeKeepUniqueActivationWithLoadedWasm(value, legacyEnabled)
+  // Keep the public union return type strict and fail closed on unknown payloads.
+  if (KEEP_UNIQUE_RULE_ACTIVATION_VALUES.has(normalized as KeepUniqueRuleActivation)) {
+    return normalized as KeepUniqueRuleActivation
   }
-  if (legacyEnabled === false) return KeepUniqueRuleActivation.Off
-  if (legacyEnabled === true) return KeepUniqueRuleActivation.ProtectExisting
-  return KeepUniqueRuleActivation.ProtectExisting
+  throw new Error('WASM keep-unique activation normalizer returned an unexpected token.')
 }
 
 // normalizeKeepUniqueSubstatMatch keeps matching choices stable and case-insensitive.
 export const normalizeKeepUniqueSubstatMatch = (value: unknown): KeepUniqueSubstatMatch => {
-  if (typeof value === 'string') {
-    // Lowercase the input so callers can pass legacy or mixed-case strings.
-    const trimmed = value.trim().toLowerCase()
-    // Map normalized keys back to the canonical match values.
-    const normalized = KEEP_UNIQUE_SUBSTAT_MATCH_LOOKUP[trimmed]
-    if (normalized) return normalized
-  }
-  // Default keeps existing behavior when no match value is provided.
-  return KeepUniqueSubstatMatch.Any
+  // Delegate token coercion to wasm so TS does not duplicate alias parsing rules.
+  const normalized = normalizeKeepUniqueSubstatMatchWithLoadedWasm(value)
+  // Keep the public union return type strict and fail closed on unknown payloads.
+  if (normalized === KeepUniqueSubstatMatch.Any) return KeepUniqueSubstatMatch.Any
+  if (normalized === KeepUniqueSubstatMatch.All) return KeepUniqueSubstatMatch.All
+  if (normalized === KeepUniqueSubstatMatch.PerSubstat) return KeepUniqueSubstatMatch.PerSubstat
+  throw new Error('WASM keep-unique substat-match normalizer returned an unexpected token.')
 }
 
 export const isKeepUniqueRuleActive = (rule: KeepUniqueRule): boolean => (
@@ -184,60 +172,22 @@ export const isKeepUniqueRuleActive = (rule: KeepUniqueRule): boolean => (
 )
 
 const sanitizeCountMode = (raw: Partial<KeepUniqueRuleCountMode> | null | undefined): KeepUniqueRuleCountMode => {
-  const perRule = coerceBoolean(raw?.perRule)
-  const perSet = coerceBoolean(raw?.perSet)
-  const perFaction = coerceBoolean(raw?.perFaction)
-  const perMainStat = coerceBoolean(raw?.perMainStat)
-  const perSlot = coerceBoolean(raw?.perSlot)
-  if (perRule) {
-    return {
-      perRule: true,
-      perSet: false,
-      perFaction: false,
-      perMainStat: false,
-      perSlot: false,
-    }
-  }
-  const hasGrouping = perSet || perFaction || perMainStat || perSlot
-  if (!hasGrouping) {
-    return {
-      perRule: true,
-      perSet: false,
-      perFaction: false,
-      perMainStat: false,
-      perSlot: false,
-    }
-  }
+  // Delegate default + sanitize logic to wasm so TS does not duplicate mode rules.
+  const normalized = normalizeKeepUniqueCountModeWithLoadedWasm(raw)
+  // Preserve the local structural type used across UI + worker payloads.
   return {
-    perRule: false,
-    perSet,
-    perFaction,
-    perMainStat,
-    perSlot,
+    perRule: normalized.perRule === true,
+    perSet: normalized.perSet === true,
+    perFaction: normalized.perFaction === true,
+    perMainStat: normalized.perMainStat === true,
+    perSlot: normalized.perSlot === true,
   }
 }
 
 // normalizeKeepUniqueCountMode parses legacy payloads into the canonical scope-chip shape.
 export const normalizeKeepUniqueCountMode = (value: unknown): KeepUniqueRuleCountMode => {
-  if (!value) return { ...KEEP_UNIQUE_DEFAULT_COUNT_MODE }
-  if (typeof value === 'string') {
-    if (value === 'perRule' || value === 'rule') {
-      return {
-        perRule: true,
-        perSet: false,
-        perFaction: false,
-        perMainStat: false,
-        perSlot: false,
-      }
-    }
-    // Legacy per-combination strings default to the full grouping set (slot+set+faction+main stat).
-    return { ...KEEP_UNIQUE_DEFAULT_COUNT_MODE }
-  }
-  if (typeof value === 'object') {
-    const rec = value as Partial<KeepUniqueRuleCountMode>
-    return sanitizeCountMode(rec)
-  }
-  return { ...KEEP_UNIQUE_DEFAULT_COUNT_MODE }
+  // Delegate default + sanitize logic to wasm so TS does not duplicate mode rules.
+  return sanitizeCountMode(value as Partial<KeepUniqueRuleCountMode> | null | undefined)
 }
 
 export const isPerRuleCountMode = (mode: KeepUniqueRuleCountMode): boolean => mode.perRule
@@ -417,45 +367,9 @@ export function createKeepUniqueRuleId(): string {
 }
 
 /** Canonical hash for combination comparisons and metadata lookups. */
-const canonicalizeList = (values: readonly number[]): string => {
-  if (!values.length) return '*'
-  const numeric = values.map((v) => Number(v)).filter((v) => Number.isFinite(v))
-  if (numeric.length === 0) return '*'
-  numeric.sort((a, b) => a - b)
-  return numeric.join(',')
-}
-
-const canonicalizeSetEntries = (values: readonly ArtifactSetSelectionEntry[]): string => {
-  if (!values.length) return '*'
-  // Normalize first so exclusion precedence and ordering are stable.
-  const normalized = normalizeArtifactSetSelections(values)
-  if (!normalized.length) return '*'
-  const tokens = normalized.map((entry) => (
-    entry.excluded ? `!${Number(entry.id)}` : `${Number(entry.id)}`
-  ))
-  return tokens.join(',')
-}
-
-const canonicalizeStringList = (values: readonly string[]): string => {
-  if (!values.length) return '*'
-  const cleaned = values
-    .map((v) => (typeof v === 'string' ? v.trim() : ''))
-    .filter((v) => v.length > 0)
-  if (!cleaned.length) return '*'
-  cleaned.sort()
-  return cleaned.join(',')
-}
-
 export function hashKeepUniqueCombination(combination: KeepUniqueCombination): string {
-  return [
-    canonicalizeList(combination.slots),
-    canonicalizeSetEntries(combination.sets),
-    canonicalizeStringList(combination.metaSetIds),
-    canonicalizeList(combination.ranks),
-    canonicalizeList(combination.rarities),
-    canonicalizeList(combination.mainStats),
-    canonicalizeList(combination.factions),
-  ].join('|')
+  // Delegate canonical hash construction to wasm so TS does not duplicate rules.
+  return hashKeepUniqueCombinationWithLoadedWasm(combination)
 }
 
 // Name lookups keep HSFC tuple fields readable while still resolving back to
@@ -478,7 +392,7 @@ const factionIdByName = new Map<string, FactionId>(
 const rarityCodeByName = new Map<string, RankValue>(
   Object.entries(rarityNames)
     .filter(([, name]) => Boolean(name && name.trim()))
-    .map(([id, name]) => [name.trim().toLowerCase(), Math.max(RANK_MIN, Math.min(RANK_MAX, Number(id))) as RankValue]),
+    .map(([id, name]) => [name.trim().toLowerCase(), Math.max(RANK_VALUE_MIN, Math.min(RANK_VALUE_MAX, Number(id))) as RankValue]),
 )
 
 // Keep lookup-record conversion in one helper so wasm payload shape remains
@@ -510,76 +424,16 @@ const buildNormalizedKeepUniqueRuleId = (): string => {
   return createKeepUniqueRuleId()
 }
 
-// Keep the priority ordering consistent with stat button layouts across the app.
-const SUBSTAT_ORDER = new Map<StatVariant, number>(
-  STAT_VARIANTS_PRIORITY.map((variant, index) => [variant, index]),
-)
-
-// sortKeepUniqueNumericSelection dedupes and sorts numeric selections for stable UI/output.
-const sortKeepUniqueNumericSelection = <T extends number>(
-  values: readonly T[],
-  compare: (left: T, right: T) => number,
-): T[] => {
-  // Fast exit keeps empty selections cheap.
-  if (values.length === 0) return []
-  // Deduplicate while keeping only numeric values.
-  const seen = new Set<number>()
-  const deduped: T[] = []
-  for (const raw of values) {
-    const numeric = Number(raw)
-    if (!Number.isFinite(numeric)) continue
-    if (seen.has(numeric)) continue
-    seen.add(numeric)
-    deduped.push(raw)
-  }
-  // Sort in the requested canonical order.
-  return deduped.slice().sort(compare)
-}
-
-// sortKeepUniqueStringSelection normalizes metaset ids for consistent snapshots/export.
-const sortKeepUniqueStringSelection = (values: readonly string[]): string[] => {
-  // Skip work when nothing is selected.
-  if (values.length === 0) return []
-  // Trim and dedupe while preserving meaningful ids only.
-  const seen = new Set<string>()
-  const deduped: string[] = []
-  for (const raw of values) {
-    const trimmed = raw.trim()
-    if (!trimmed) continue
-    if (seen.has(trimmed)) continue
-    seen.add(trimmed)
-    deduped.push(trimmed)
-  }
-  // Keep ordering stable for HSFC and UI chips.
-  return deduped.slice().sort((left, right) => left.localeCompare(right))
-}
-
 // sortKeepUniqueSubstats keeps substat selections aligned with app-wide stat priority.
 export const sortKeepUniqueSubstats = (values: readonly StatVariant[]): StatVariant[] => (
-  sortKeepUniqueNumericSelection(values, (left, right) => {
-    const leftOrder = SUBSTAT_ORDER.get(left) ?? Number.MAX_SAFE_INTEGER
-    const rightOrder = SUBSTAT_ORDER.get(right) ?? Number.MAX_SAFE_INTEGER
-    if (leftOrder !== rightOrder) return leftOrder - rightOrder
-    return Number(left) - Number(right)
-  })
+  // Delegate sorting to wasm so TS does not duplicate priority/dedupe behavior.
+  sortKeepUniqueSubstatsWithLoadedWasm(values).map((value) => Number(value) as StatVariant)
 )
 
 // sortKeepUniqueCombination enforces stable ordering across every keep-unique filter.
 export const sortKeepUniqueCombination = (combination: KeepUniqueCombination): KeepUniqueCombination => ({
-  // Slots follow the canonical artifact type ordering.
-  slots: sortKeepUniqueNumericSelection(combination.slots, compareArtifactTypes),
-  // Sets keep exclusion precedence and sort by id.
-  sets: normalizeArtifactSetSelections(combination.sets ?? []),
-  // Metaset ids sort lexicographically for readable HSFC payloads.
-  metaSetIds: sortKeepUniqueStringSelection(combination.metaSetIds ?? []),
-  // Rank selections always rise from 1★ to 6★.
-  ranks: sortKeepUniqueNumericSelection(combination.ranks, (left, right) => Number(left) - Number(right)),
-  // Rarity selections use the same 1..6 ordering as ranks.
-  rarities: sortKeepUniqueNumericSelection(combination.rarities, (left, right) => Number(left) - Number(right)),
-  // Main stats reuse the preferred stat ordering from config exports.
-  mainStats: sortKeepUniqueNumericSelection(combination.mainStats ?? [], compareVariants),
-  // Factions remain numeric and stable across locales.
-  factions: sortKeepUniqueNumericSelection(combination.factions ?? [], (left, right) => Number(left) - Number(right)),
+  // Delegate full combination sorting to wasm so TS does not duplicate rules.
+  ...(sortKeepUniqueCombinationWithLoadedWasm(combination)),
 })
 
 /** Normalize combination payloads loaded from HSFC/autosave. */
@@ -605,21 +459,16 @@ export function normalizeKeepUniqueRule(value: unknown): KeepUniqueRule | null {
 
 /** Shared helper for mapping tester artifacts to the detection item key. */
 export function getKeepUniqueItemKey(artifact: NormalizedGearArtifact): number {
-  const testerItemId = Number((artifact.testerItem as { itemId?: number } | undefined)?.itemId ?? NaN)
-  if (Number.isFinite(testerItemId)) return testerItemId
-  if (Number.isFinite(artifact.id)) return Number(artifact.id)
-  return 0
+  // Delegate item-key derivation to wasm so TS does not duplicate fallback rules.
+  return getKeepUniqueItemKeyWithLoadedWasm(artifact)
 }
 
 export type KeepUniqueGroupKey = string
 
 /** Hash representing the slot+set+main+faction group used for uniqueness filtering. */
 export function getKeepUniqueGroupKey(artifact: NormalizedGearArtifact): KeepUniqueGroupKey {
-  const slot = Number(artifact.slot)
-  const set = Number(artifact.set)
-  const mainStat = Number(artifact.mainStat?.variant ?? StatVariantEnum.Any)
-  const faction = isAccessorySlot(slot) ? Number(artifact.faction ?? 0) : 0
-  return [slot, set, mainStat, faction].join(':')
+  // Delegate group-key derivation to wasm so TS does not duplicate slot/faction rules.
+  return getKeepUniqueGroupKeyWithLoadedWasm(artifact)
 }
 
 type KeepUniqueCountKey = string

@@ -1,6 +1,12 @@
 /* tslint:disable */
 /* eslint-disable */
 
+export function auto_rarity_addition_levels_for_code_value(rarity_code: number): Int32Array;
+
+export function auto_rarity_includes_mythical_for_code_value(rarity_code: number): boolean;
+
+export function auto_rarity_roll_levels_for_code_value(rarity_code: number): Int32Array;
+
 export function build_final_sell_rules_value(remainder: any, all_known_set_ids: any): any;
 
 export function build_hsf_rules_runtime_value(payload: any): any;
@@ -33,17 +39,29 @@ export function fingerprint_merged_rules_value(rules: any): any;
 
 export function flatten_rule_batches_with_total_limit_value(base_count: bigint, total_limit: bigint, batches: any): any;
 
+export function hash_keep_unique_combination_value(combination: any): string;
+
 export function intro_assignments_for_combo_fast_flat(count: number, base_slots: number, addition_levels: Int32Array, forced_base: Int32Array): Int32Array;
 
 export function keep_unique_count_key_value(artifact: any, count_mode: any): string;
 
+export function keep_unique_group_key_value(artifact: any): string;
+
+export function keep_unique_item_key_value(artifact: any): bigint;
+
 export function merge_keep_unique_injected_rules_value(base_rules: any, custom_rules: any, candidate_keep_rules: any): any;
 
+export function normalize_keep_unique_activation_value(activation: any, legacy_enabled: any): string;
+
 export function normalize_keep_unique_combination_value(value: any, lookups: any): any;
+
+export function normalize_keep_unique_count_mode_value(value: any): any;
 
 export function normalize_keep_unique_expected_group_domain_value(payload: any): any;
 
 export function normalize_keep_unique_rule_value(value: any, lookups: any, generated_rule_id: string): any;
+
+export function normalize_keep_unique_substat_match_value(value: any): string;
 
 export function permutations_i32_fast_flat(values: Int32Array): Int32Array;
 
@@ -53,12 +71,19 @@ export function resolve_auto_rarity_code_for_builder_value(payload: any): number
 
 export function resolve_keep_unique_rules_with_metasets_value(rules: any, metasets: any): any;
 
+export function sort_keep_unique_combination_value(combination: any): any;
+
+export function sort_keep_unique_substats_value(values: any): any;
+
 export function version(): string;
 
 export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembly.Module;
 
 export interface InitOutput {
     readonly memory: WebAssembly.Memory;
+    readonly auto_rarity_addition_levels_for_code_value: (a: number) => [number, number];
+    readonly auto_rarity_includes_mythical_for_code_value: (a: number) => number;
+    readonly auto_rarity_roll_levels_for_code_value: (a: number) => [number, number];
     readonly build_final_sell_rules_value: (a: any, b: any) => [number, number, number];
     readonly build_hsf_rules_runtime_value: (a: any) => [number, number, number];
     readonly build_keep_unique_rules_value: (a: any, b: any, c: bigint) => [number, number, number];
@@ -75,24 +100,32 @@ export interface InitOutput {
     readonly find_obsolete_value: (a: any) => [number, number, number];
     readonly fingerprint_merged_rules_value: (a: any) => [number, number, number];
     readonly flatten_rule_batches_with_total_limit_value: (a: bigint, b: bigint, c: any) => [number, number, number];
+    readonly hash_keep_unique_combination_value: (a: any) => [number, number, number, number];
     readonly intro_assignments_for_combo_fast_flat: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number];
     readonly keep_unique_count_key_value: (a: any, b: any) => [number, number, number, number];
+    readonly keep_unique_group_key_value: (a: any) => [number, number, number, number];
+    readonly keep_unique_item_key_value: (a: any) => [bigint, number, number];
     readonly merge_keep_unique_injected_rules_value: (a: any, b: any, c: any) => [number, number, number];
+    readonly normalize_keep_unique_activation_value: (a: any, b: any) => [number, number, number, number];
     readonly normalize_keep_unique_combination_value: (a: any, b: any) => [number, number, number];
+    readonly normalize_keep_unique_count_mode_value: (a: any) => [number, number, number];
     readonly normalize_keep_unique_expected_group_domain_value: (a: any) => [number, number, number];
     readonly normalize_keep_unique_rule_value: (a: any, b: any, c: number, d: number) => [number, number, number];
+    readonly normalize_keep_unique_substat_match_value: (a: any) => [number, number, number, number];
     readonly permutations_i32_fast_flat: (a: number, b: number) => [number, number];
     readonly prepare_hsf_builder_config_value: (a: any) => [number, number, number];
     readonly resolve_auto_rarity_code_for_builder_value: (a: any) => [number, number, number];
     readonly resolve_keep_unique_rules_with_metasets_value: (a: any, b: any) => [number, number, number];
+    readonly sort_keep_unique_combination_value: (a: any) => [number, number, number];
+    readonly sort_keep_unique_substats_value: (a: any) => [number, number, number];
     readonly version: () => [number, number];
     readonly __wbindgen_malloc: (a: number, b: number) => number;
     readonly __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;
     readonly __wbindgen_exn_store: (a: number) => void;
     readonly __externref_table_alloc: () => number;
     readonly __wbindgen_externrefs: WebAssembly.Table;
-    readonly __externref_table_dealloc: (a: number) => void;
     readonly __wbindgen_free: (a: number, b: number, c: number) => void;
+    readonly __externref_table_dealloc: (a: number) => void;
     readonly __wbindgen_start: () => void;
 }
 

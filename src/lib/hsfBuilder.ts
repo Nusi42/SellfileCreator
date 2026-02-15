@@ -39,10 +39,7 @@ import {
   PREFERRED_STAT_ORDER,
 } from './types'
 import {
-  AUTO_RARITY_ADDITION_MASK_BY_CODE,
-  AUTO_RARITY_INCLUDES_MYTHICAL_BY_CODE,
   AUTO_RARITY_MIN_ROLL_EVENTS_BY_CODE,
-  AUTO_RARITY_ROLL_MASK_BY_CODE,
 } from './generated/domainConstants'
 import { resolveAllowedSubstatsForSlotsAndMains } from './statCompatibility'
 import { splitArtifactSetSelections } from './gearSets/selection'
@@ -50,6 +47,9 @@ import { canEnableSubstatFlex, deriveRollBaselineMode, isLockedAggregateScopeAct
 import { variantToMain } from './hsfTypes'
 import {
   buildHsfRulesRuntimeWithLoadedWasm,
+  getAutoRarityAdditionLevelsForCodeWithLoadedWasm,
+  getAutoRarityIncludesMythicalForCodeWithLoadedWasm,
+  getAutoRarityRollLevelsForCodeWithLoadedWasm,
   prepareHsfBuilderConfigWithLoadedWasm,
   resolveAutoRarityCodeForBuilderWithLoadedWasm,
 } from './wasm/wasmRuleEngine'
@@ -139,38 +139,14 @@ const autoRarityCodeIndex = (rarityCode: number): number => {
   return floored
 }
 
-// Decode 4-bit milestone masks into reusable Set instances.
-// Bit positions map to [4, 8, 12, 16] respectively.
-const LEVEL_MASK_TO_SET: Record<number, Set<LevelMilestone>> = {
-  0: new Set<LevelMilestone>([]),
-  1: new Set<LevelMilestone>([4]),
-  2: new Set<LevelMilestone>([8]),
-  3: new Set<LevelMilestone>([4, 8]),
-  4: new Set<LevelMilestone>([12]),
-  5: new Set<LevelMilestone>([4, 12]),
-  6: new Set<LevelMilestone>([8, 12]),
-  7: new Set<LevelMilestone>([4, 8, 12]),
-  8: new Set<LevelMilestone>([16]),
-  9: new Set<LevelMilestone>([4, 16]),
-  10: new Set<LevelMilestone>([8, 16]),
-  11: new Set<LevelMilestone>([4, 8, 16]),
-  12: new Set<LevelMilestone>([12, 16]),
-  13: new Set<LevelMilestone>([4, 12, 16]),
-  14: new Set<LevelMilestone>([8, 12, 16]),
-  15: new Set<LevelMilestone>([4, 8, 12, 16]),
-}
-
-
 // Compute roll-event schedule for a given rarity at milestone levels
 // Returns a set of levels where an existing substat is rolled (not added)
 /** Levels where rarity increases grant a roll for the given rarity code. */
 export function rollLevelsForRarityCode(rarityCode: RarityCode): Set<LevelMilestone> {
-  // Shared table keeps TS and Rust schedule semantics identical.
-  const idx = autoRarityCodeIndex(rarityCode)
-  // Fallback to Any schedule if the generated entry is unexpectedly missing.
-  const mask = AUTO_RARITY_ROLL_MASK_BY_CODE[idx] ?? AUTO_RARITY_ROLL_MASK_BY_CODE[RarityCode.Any]
-  // Translate mask bits into the reusable milestone set instance.
-  return LEVEL_MASK_TO_SET[mask] ?? LEVEL_MASK_TO_SET[0]!
+  // Delegate schedule decoding to Rust so TS does not duplicate bit-mask logic.
+  const levels = getAutoRarityRollLevelsForCodeWithLoadedWasm(Number(rarityCode))
+  // Keep the public API shape as Set<LevelMilestone> for existing call sites.
+  return new Set<LevelMilestone>(levels as LevelMilestone[])
 }
 
 // Addition schedule: levels where a new substat is added (not rolled), per rarity
@@ -179,12 +155,10 @@ export function rollLevelsForRarityCode(rarityCode: RarityCode): Set<LevelMilest
  * Used to derive presence-only constraints when the level window collapses to a single milestone.
  */
 export function additionLevelsForRarityCode(rarityCode: RarityCode): Set<LevelMilestone> {
-  // Shared table keeps TS and Rust schedule semantics identical.
-  const idx = autoRarityCodeIndex(rarityCode)
-  // Fallback to Any additions when a table index is unexpectedly absent.
-  const mask = AUTO_RARITY_ADDITION_MASK_BY_CODE[idx] ?? AUTO_RARITY_ADDITION_MASK_BY_CODE[RarityCode.Any]
-  // Translate mask bits into the reusable milestone set instance.
-  return LEVEL_MASK_TO_SET[mask] ?? LEVEL_MASK_TO_SET[0]!
+  // Delegate schedule decoding to Rust so TS does not duplicate bit-mask logic.
+  const levels = getAutoRarityAdditionLevelsForCodeWithLoadedWasm(Number(rarityCode))
+  // Keep the public API shape as Set<LevelMilestone> for existing call sites.
+  return new Set<LevelMilestone>(levels as LevelMilestone[])
 }
 
 function clampRollRequirement(value: unknown): number {
@@ -236,10 +210,8 @@ function deriveLockedMinRolls(context: LockedMinContext): number {
 // Whether the given rarity code includes Mythical items
 /** True if rarity selection includes Mythical, impacting pre-roll logic. */
 export function rarityIncludesMythical(rarityCode: RarityCode): boolean {
-  // Normalize code before indexing the generated mythical-membership table.
-  const idx = autoRarityCodeIndex(rarityCode)
-  // Treat missing entries as false to avoid accidental mythical assumptions.
-  return AUTO_RARITY_INCLUDES_MYTHICAL_BY_CODE[idx] === true
+  // Delegate mythical-membership lookup to Rust so TS does not duplicate tables.
+  return getAutoRarityIncludesMythicalForCodeWithLoadedWasm(Number(rarityCode))
 }
 
 /**

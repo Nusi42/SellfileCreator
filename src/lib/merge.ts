@@ -25,7 +25,6 @@ import type { Metaset } from './metasets'
 import { resolveArtifactSetSelections } from './gearSets/selection'
 import {
   getAllKnownArtifactSetIds,
-  StatId,
 } from './types'
 import {
   type FinalSellRemainderConfig,
@@ -84,38 +83,6 @@ export type BuildRulesFinalizeGeneratedFn = (params: {
   entries: readonly GeneratedBranchRuleEntry[]
   applyObsoletePruning: boolean
 }) => HsfRuleWithCfg[]
-
-export function canonicalRuleKey(rule: HsfRule): string {
-  // Keep this pure-TS: it runs in a hot fingerprint loop and wasm boundary
-  // crossings here add per-rule serialization overhead.
-  const artifactTypes = Array.isArray(rule.ArtifactType)
-    ? (rule.ArtifactType as number[]).slice().sort((a, b) => a - b)
-    : []
-  const artifactSets = Array.isArray(rule.ArtifactSet)
-    ? (rule.ArtifactSet as number[]).slice().sort((a, b) => a - b)
-    : []
-  const substats = Array.isArray(rule.Substats)
-    ? (rule.Substats as HsfRule['Substats']).map(sub => ({
-      ID: sub?.ID ?? null,
-      IsFlat: sub?.IsFlat === true,
-      NotAvailable: sub?.NotAvailable === true,
-      Condition: sub?.Condition ?? '',
-      Value: Number(sub?.Value ?? 0),
-    }))
-    : []
-  return JSON.stringify({
-    Keep: rule.Keep === true,
-    Use: rule.Use !== false,
-    Rank: Number(rule.Rank ?? 0),
-    Level: Number(rule.LVLForCheck ?? 0),
-    Faction: Number(rule.Faction ?? 0),
-    MainStatID: rule.MainStatID ?? StatId.Any,
-    MainStatF: Number(rule.MainStatF ?? 1),
-    ArtifactType: artifactTypes,
-    ArtifactSet: artifactSets,
-    Substats: substats,
-  })
-}
 
 function expandAutoFlexRarityBranches(cfg: BuilderConfig): BuilderConfig[] {
   // Keep auto-rarity resolution in the existing shared helper.

@@ -36,11 +36,10 @@ const LEVEL_ORDER_INDEX_12: i64 = 3;
 const LEVEL_ORDER_INDEX_16: i64 = 4;
 const LEVEL_ORDER_INDEX_ANY: i64 = 5;
 const LEVEL_ORDER_FALLBACK_OFFSET: i64 = 6;
+const ARTIFACT_TYPE_ORDER_FALLBACK_OFFSET: i64 = 100;
 const JS_MAX_SAFE_INTEGER_I64: i64 = 9_007_199_254_740_991;
 
-// Rank/rarity masks operate on the discrete in-game values 1..6.
-const RANK_RARITY_MIN: i64 = 1;
-const RANK_RARITY_MAX: i64 = 6;
+// Rank/rarity masks operate on the generated shared rank range (1..6).
 const RANK_RARITY_FULL_MASK: u8 = 0b11_1111;
 
 // The worker configures one ruleset, then evaluates many item batches.
@@ -472,11 +471,11 @@ struct EngineState {
 
 // Normalize unknown rank/rarity values into supported 1..6 domain.
 fn clamp_rank_or_rarity(value: i64) -> i64 {
-    if value <= RANK_RARITY_MIN {
-        return RANK_RARITY_MIN;
+    if value <= RANK_VALUE_MIN {
+        return RANK_VALUE_MIN;
     }
-    if value >= RANK_RARITY_MAX {
-        return RANK_RARITY_MAX;
+    if value >= RANK_VALUE_MAX {
+        return RANK_VALUE_MAX;
     }
     value
 }
@@ -569,10 +568,49 @@ fn auto_rarity_addition_mask_for_code(rarity_code: i64) -> i64 {
     AUTO_RARITY_ADDITION_MASK_BY_CODE[auto_rarity_code_index(rarity_code)]
 }
 
+// Decode generated schedule masks into explicit milestone vectors.
+// Bit positions map to [4, 8, 12, 16] in both TS and Rust.
+fn auto_rarity_levels_from_mask(mask: i64) -> Vec<i32> {
+    let mut levels = Vec::<i32>::new();
+    if (mask & 0b0001) != 0 {
+        levels.push(LEVEL_MILESTONE_4 as i32);
+    }
+    if (mask & 0b0010) != 0 {
+        levels.push(LEVEL_MILESTONE_8 as i32);
+    }
+    if (mask & 0b0100) != 0 {
+        levels.push(LEVEL_MILESTONE_12 as i32);
+    }
+    if (mask & 0b1000) != 0 {
+        levels.push(LEVEL_MILESTONE_16 as i32);
+    }
+    levels
+}
+
 // Mythical pre-roll membership comes from the shared auto-rarity table.
 fn auto_rarity_includes_mythical(rarity_code: i64) -> bool {
     // Pull mythical membership from the shared generated table.
     AUTO_RARITY_INCLUDES_MYTHICAL_BY_CODE[auto_rarity_code_index(rarity_code)]
+}
+
+// Expose roll-level milestones so TS can reuse Rust schedule decoding directly.
+#[wasm_bindgen]
+pub fn auto_rarity_roll_levels_for_code_value(rarity_code: i32) -> Vec<i32> {
+    let mask = auto_rarity_roll_mask_for_code(rarity_code as i64);
+    auto_rarity_levels_from_mask(mask)
+}
+
+// Expose addition-level milestones so TS does not duplicate mask decoding.
+#[wasm_bindgen]
+pub fn auto_rarity_addition_levels_for_code_value(rarity_code: i32) -> Vec<i32> {
+    let mask = auto_rarity_addition_mask_for_code(rarity_code as i64);
+    auto_rarity_levels_from_mask(mask)
+}
+
+// Expose mythical-membership checks for schedule/UI helpers on the TS side.
+#[wasm_bindgen]
+pub fn auto_rarity_includes_mythical_for_code_value(rarity_code: i32) -> bool {
+    auto_rarity_includes_mythical(rarity_code as i64)
 }
 
 // Convert a level ceiling into a schedule bitmask for [4, 8, 12, 16].
@@ -3021,19 +3059,23 @@ pub(crate) fn level_order_value(level: Option<i64>) -> i64 {
 }
 
 // Artifact type ordering mirrors src/lib/types.ts preferred slot order.
+fn shared_order_index(order: &[i64], value: i64) -> Option<i64> {
+    // Use generated arrays as SSOT for ordering lookups.
+    // Missing values return None so callers can apply local fallbacks.
+    order
+        .iter()
+        .position(|candidate| *candidate == value)
+        .map(|index| index as i64)
+}
+
+// Artifact type ordering mirrors src/lib/types.ts preferred slot order.
 fn artifact_type_order_value(slot: i64) -> i64 {
-    match slot {
-        ARTIFACT_TYPE_WEAPON => 0,
-        ARTIFACT_TYPE_HELMET => 1,
-        ARTIFACT_TYPE_SHIELD => 2,
-        ARTIFACT_TYPE_GAUNTLETS => 3,
-        ARTIFACT_TYPE_CHESTPLATE => 4,
-        ARTIFACT_TYPE_BOOTS => 5,
-        ARTIFACT_TYPE_RING => 6,
-        ARTIFACT_TYPE_AMULET => 7,
-        ARTIFACT_TYPE_BANNER => 8,
-        other => 100 + other,
+    // Resolve order from generated constants to keep TS and Rust aligned.
+    if let Some(index) = shared_order_index(&PREFERRED_ARTIFACT_TYPE_ORDER, slot) {
+        return index;
     }
+    // Unknown values retain deterministic numeric fallback ordering.
+    ARTIFACT_TYPE_ORDER_FALLBACK_OFFSET + slot
 }
 
 // Sort slot arrays with preferred-order parity and numeric fallback.
@@ -4999,19 +5041,9 @@ fn build_final_sell_rules_core(
     let explicit_sets = final_sell_explicit_set_ids(all_known_set_ids);
 
     // Slot combos mirror merge.ts (armor-only, accessory-only, or combined).
-    let art_types = vec![
-        ARTIFACT_TYPE_WEAPON,
-        ARTIFACT_TYPE_HELMET,
-        ARTIFACT_TYPE_SHIELD,
-        ARTIFACT_TYPE_GAUNTLETS,
-        ARTIFACT_TYPE_CHESTPLATE,
-        ARTIFACT_TYPE_BOOTS,
-    ];
-    let acc_types = vec![
-        ARTIFACT_TYPE_RING,
-        ARTIFACT_TYPE_AMULET,
-        ARTIFACT_TYPE_BANNER,
-    ];
+    // Reuse generated slot order constants so armor/accessory partitions are SSOT.
+    let art_types = PREFERRED_ARTIFACT_TYPE_ORDER[..6].to_vec();
+    let acc_types = PREFERRED_ARTIFACT_TYPE_ORDER[6..].to_vec();
     let type_combos = if final_sell.artifacts && final_sell.accessories {
         let mut merged = art_types.clone();
         merged.extend(acc_types.iter().copied());
@@ -5570,30 +5602,8 @@ pub fn evaluate_value(items: JsValue, options: JsValue) -> Result<JsValue, JsVal
         .map_err(|error| JsValue::from_str(&format!("Failed to serialize evaluate value: {error}")))
 }
 
-// Keep-unique detection constants mirror src/lib/keepUniques.ts behavior.
-// Reasons mark whether placeholders come from a global shortfall
-// or from a specific grouped bucket that is under-filled.
-const KEEP_UNIQUE_REASON_GLOBAL: &str = "global";
-const KEEP_UNIQUE_REASON_GROUP: &str = "group";
-// Activation "off" means sold items do not contribute to projected coverage.
-const KEEP_UNIQUE_ACTIVATION_OFF: &str = "off";
-const KEEP_UNIQUE_ACTIVATION_PROTECT_EXISTING: &str = "protectExisting";
-const KEEP_UNIQUE_ACTIVATION_ANTICIPATE_GAPS: &str = "anticipategaps";
-// Canonical activation token used by TS state and HSFC persistence.
-const KEEP_UNIQUE_ACTIVATION_ANTICIPATE_GAPS_CANONICAL: &str = "anticipateGaps";
-// Substat matching modes are normalized to these three canonical tokens.
-const KEEP_UNIQUE_SUBSTAT_ANY: &str = "any";
-const KEEP_UNIQUE_SUBSTAT_ALL: &str = "all";
-const KEEP_UNIQUE_SUBSTAT_PER_SUBSTAT: &str = "persubstat";
-// Canonical substat token keeps TS unions stable (`perSubstat` casing).
-const KEEP_UNIQUE_SUBSTAT_PER_SUBSTAT_CANONICAL: &str = "perSubstat";
 // Epsilon is used only for tie expansion at the score boundary.
 const KEEP_UNIQUE_SCORE_TIE_EPSILON: f64 = 1e-9;
-// Weights are snapped to this fixed step and clamped to this range.
-const KEEP_UNIQUE_WEIGHT_STEP: f64 = 0.05;
-const KEEP_UNIQUE_WEIGHT_MIN: f64 = 0.1;
-const KEEP_UNIQUE_WEIGHT_MAX: f64 = 3.0;
-const KEEP_UNIQUE_WEIGHT_DEFAULT: f64 = 1.0;
 // Placeholder samples need stable defaults when no group sample exists.
 const KEEP_UNIQUE_DEFAULT_SAMPLE_SLOT: i64 = ARTIFACT_TYPE_WEAPON;
 const KEEP_UNIQUE_DEFAULT_SAMPLE_SET: i64 = ACCESSORY_NO_SET_ID;
@@ -6106,12 +6116,12 @@ fn keep_unique_coerce_rank_or_rarity(
         if let Some(parsed) = keep_unique_value_to_i64(Some(value)) {
             return Some(keep_unique_clamp_rank_or_rarity_value(parsed));
         }
-        return Some(RANK_RARITY_MAX);
+        return Some(RANK_VALUE_MAX);
     }
     if let Some(parsed) = keep_unique_value_to_i64(Some(value)) {
         return Some(keep_unique_clamp_rank_or_rarity_value(parsed));
     }
-    Some(RANK_RARITY_MAX)
+    Some(RANK_VALUE_MAX)
 }
 
 // Recursive slot parser handles scalar, list, and nested-list payloads.
@@ -6285,20 +6295,9 @@ fn keep_unique_sort_unique_meta_set_ids(values: Vec<String>) -> Vec<String> {
 // Substat ordering mirrors TS `STAT_VARIANTS_PRIORITY` so UI chips and
 // normalized keep-unique payloads stay aligned across TS and Rust paths.
 fn keep_unique_substat_priority(variant: i64) -> i64 {
-    match variant {
-        STAT_VARIANT_SPD => 0,
-        STAT_VARIANT_CR => 1,
-        STAT_VARIANT_CDMG => 2,
-        STAT_VARIANT_ACC => 3,
-        STAT_VARIANT_RES => 4,
-        STAT_VARIANT_HP_FLAT => 5,
-        STAT_VARIANT_HP_PERCENT => 6,
-        STAT_VARIANT_ATK_FLAT => 7,
-        STAT_VARIANT_ATK_PERCENT => 8,
-        STAT_VARIANT_DEF_FLAT => 9,
-        STAT_VARIANT_DEF_PERCENT => 10,
-        _ => i64::MAX,
-    }
+    // Resolve from generated constants so TS and Rust share one priority table.
+    // Unknown variants sink to the end via i64::MAX fallback.
+    shared_order_index(&STAT_VARIANTS_PRIORITY, variant).unwrap_or(i64::MAX)
 }
 
 // Canonical substat list is deduped and sorted by keep-unique UI priority.
@@ -6350,18 +6349,20 @@ fn keep_unique_normalize_activation_value(
     legacy_enabled: Option<&serde_json::Value>,
 ) -> String {
     if let Some(raw) = activation.and_then(|value| value.as_str()) {
-        let lowered = raw.trim().to_ascii_lowercase();
-        if !lowered.is_empty() {
-            if lowered == KEEP_UNIQUE_ACTIVATION_OFF || lowered == "disabled" {
+        let trimmed = raw.trim();
+        if !trimmed.is_empty() {
+            if trimmed.eq_ignore_ascii_case(KEEP_UNIQUE_ACTIVATION_OFF)
+                || trimmed.eq_ignore_ascii_case("disabled")
+            {
                 return KEEP_UNIQUE_ACTIVATION_OFF.to_string();
             }
-            if lowered == KEEP_UNIQUE_ACTIVATION_ANTICIPATE_GAPS
-                || lowered == "anticipate"
-                || lowered == "placeholder"
+            if trimmed.eq_ignore_ascii_case(KEEP_UNIQUE_ACTIVATION_ANTICIPATE_GAPS)
+                || trimmed.eq_ignore_ascii_case("anticipate")
+                || trimmed.eq_ignore_ascii_case("placeholder")
             {
-                return KEEP_UNIQUE_ACTIVATION_ANTICIPATE_GAPS_CANONICAL.to_string();
+                return KEEP_UNIQUE_ACTIVATION_ANTICIPATE_GAPS.to_string();
             }
-            if lowered == KEEP_UNIQUE_ACTIVATION_PROTECT_EXISTING.to_ascii_lowercase() {
+            if trimmed.eq_ignore_ascii_case(KEEP_UNIQUE_ACTIVATION_PROTECT_EXISTING) {
                 return KEEP_UNIQUE_ACTIVATION_PROTECT_EXISTING.to_string();
             }
         }
@@ -6372,17 +6373,60 @@ fn keep_unique_normalize_activation_value(
     KEEP_UNIQUE_ACTIVATION_PROTECT_EXISTING.to_string()
 }
 
+// Expose activation normalization so TS does not duplicate token coercion rules.
+#[wasm_bindgen]
+pub fn normalize_keep_unique_activation_value(
+    activation: JsValue,
+    legacy_enabled: JsValue,
+) -> Result<String, JsValue> {
+    let parsed_activation = if activation.is_null() || activation.is_undefined() {
+        None
+    } else {
+        Some(from_js_value::<serde_json::Value>(activation).map_err(|error| {
+            JsValue::from_str(&format!("Invalid keep-unique activation payload: {error}"))
+        })?)
+    };
+    let parsed_legacy_enabled = if legacy_enabled.is_null() || legacy_enabled.is_undefined() {
+        None
+    } else {
+        Some(from_js_value::<serde_json::Value>(legacy_enabled).map_err(|error| {
+            JsValue::from_str(&format!(
+                "Invalid keep-unique legacy-enabled payload: {error}"
+            ))
+        })?)
+    };
+    Ok(keep_unique_normalize_activation_value(
+        parsed_activation.as_ref(),
+        parsed_legacy_enabled.as_ref(),
+    ))
+}
+
 // Substat match parser returns TS-canonical tokens (`any|all|perSubstat`).
 fn keep_unique_normalize_substat_match_for_rule(value: Option<&serde_json::Value>) -> String {
     let Some(raw) = value.and_then(|inner| inner.as_str()) else {
         return KEEP_UNIQUE_SUBSTAT_ANY.to_string();
     };
-    let lowered = raw.trim().to_ascii_lowercase();
-    match lowered.as_str() {
-        KEEP_UNIQUE_SUBSTAT_ALL => KEEP_UNIQUE_SUBSTAT_ALL.to_string(),
-        KEEP_UNIQUE_SUBSTAT_PER_SUBSTAT => KEEP_UNIQUE_SUBSTAT_PER_SUBSTAT_CANONICAL.to_string(),
-        _ => KEEP_UNIQUE_SUBSTAT_ANY.to_string(),
+    let trimmed = raw.trim();
+    if trimmed.eq_ignore_ascii_case(KEEP_UNIQUE_SUBSTAT_ALL) {
+        return KEEP_UNIQUE_SUBSTAT_ALL.to_string();
     }
+    if trimmed.eq_ignore_ascii_case(KEEP_UNIQUE_SUBSTAT_PER_SUBSTAT) {
+        return KEEP_UNIQUE_SUBSTAT_PER_SUBSTAT.to_string();
+    }
+    KEEP_UNIQUE_SUBSTAT_ANY.to_string()
+}
+
+// Expose substat-match normalization so TS reuses Rust canonical token mapping.
+#[wasm_bindgen]
+pub fn normalize_keep_unique_substat_match_value(value: JsValue) -> Result<String, JsValue> {
+    if value.is_null() || value.is_undefined() {
+        return Ok(KEEP_UNIQUE_SUBSTAT_ANY.to_string());
+    }
+    let parsed_value: serde_json::Value = from_js_value(value)
+        .map_err(|error| JsValue::from_str(&format!("Invalid keep-unique substat-match payload: {error}")))?;
+    Ok(keep_unique_normalize_substat_match_for_rule(Some(
+        &parsed_value,
+    )))
 }
 
 // Count-mode parser mirrors TS normalizeKeepUniqueCountMode semantics.
@@ -6414,6 +6458,21 @@ fn keep_unique_parse_count_mode_value(value: Option<&serde_json::Value>) -> Keep
         per_slot: matches!(record.get("perSlot"), Some(serde_json::Value::Bool(true))),
     };
     keep_unique_sanitize_count_mode(parsed)
+}
+
+// Expose count-mode normalization so TS reuses Rust default/sanitize behavior.
+#[wasm_bindgen]
+pub fn normalize_keep_unique_count_mode_value(value: JsValue) -> Result<JsValue, JsValue> {
+    let parsed = if value.is_null() || value.is_undefined() {
+        None
+    } else {
+        Some(from_js_value::<serde_json::Value>(value).map_err(|error| {
+            JsValue::from_str(&format!("Invalid keep-unique count-mode payload: {error}"))
+        })?)
+    };
+    let normalized = keep_unique_parse_count_mode_value(parsed.as_ref());
+    to_js_value(&normalized)
+        .map_err(|error| JsValue::from_str(&format!("Failed to serialize keep-unique count mode: {error}")))
 }
 
 // Substat weight parser mirrors TS normalizeKeepUniqueSubstatWeights behavior.
@@ -6464,12 +6523,12 @@ fn keep_unique_normalize_combination_from_value(
     keep_unique_collect_combination_meta_set_ids(record.get("metaSets"), &mut meta_set_ids);
 
     Some(KeepUniqueWasmCombination {
-        slots: keep_unique_sorted_unique_i64(&slot_values),
+        slots: keep_unique_sort_unique_slots(&slot_values),
         sets: keep_unique_normalize_set_selections(&set_values),
         meta_set_ids: keep_unique_sort_unique_meta_set_ids(meta_set_ids),
         ranks: keep_unique_sorted_unique_i64(&rank_values),
         rarities: keep_unique_sorted_unique_i64(&rarity_values),
-        main_stats: keep_unique_sorted_unique_i64(&main_stats),
+        main_stats: keep_unique_sort_unique_main_stats(&main_stats),
         factions: keep_unique_sorted_unique_i64(&factions),
     })
 }
@@ -6867,11 +6926,11 @@ fn keep_unique_sanitize_count_mode(mode: KeepUniqueWasmCountMode) -> KeepUniqueW
 // Keep-unique UI defaults group by set+faction+main stat (slot disabled).
 fn keep_unique_default_count_mode() -> KeepUniqueWasmCountMode {
     KeepUniqueWasmCountMode {
-        per_rule: false,
-        per_set: true,
-        per_faction: true,
-        per_main_stat: true,
-        per_slot: false,
+        per_rule: KEEP_UNIQUE_DEFAULT_COUNT_MODE_PER_RULE,
+        per_set: KEEP_UNIQUE_DEFAULT_COUNT_MODE_PER_SET,
+        per_faction: KEEP_UNIQUE_DEFAULT_COUNT_MODE_PER_FACTION,
+        per_main_stat: KEEP_UNIQUE_DEFAULT_COUNT_MODE_PER_MAIN_STAT,
+        per_slot: KEEP_UNIQUE_DEFAULT_COUNT_MODE_PER_SLOT,
     }
 }
 
@@ -6883,13 +6942,15 @@ fn keep_unique_resolve_count_mode(mode: Option<KeepUniqueWasmCountMode>) -> Keep
 
 fn keep_unique_normalize_substat_match(raw: &str) -> String {
     // Normalize whitespace/casing so persisted files and UI payloads match.
-    let trimmed = raw.trim().to_ascii_lowercase();
+    let trimmed = raw.trim();
     // Unknown tokens collapse to `any` to stay backward compatible.
-    match trimmed.as_str() {
-        KEEP_UNIQUE_SUBSTAT_ALL => KEEP_UNIQUE_SUBSTAT_ALL.to_string(),
-        KEEP_UNIQUE_SUBSTAT_PER_SUBSTAT => KEEP_UNIQUE_SUBSTAT_PER_SUBSTAT.to_string(),
-        _ => KEEP_UNIQUE_SUBSTAT_ANY.to_string(),
+    if trimmed.eq_ignore_ascii_case(KEEP_UNIQUE_SUBSTAT_ALL) {
+        return KEEP_UNIQUE_SUBSTAT_ALL.to_string();
     }
+    if trimmed.eq_ignore_ascii_case(KEEP_UNIQUE_SUBSTAT_PER_SUBSTAT) {
+        return KEEP_UNIQUE_SUBSTAT_PER_SUBSTAT.to_string();
+    }
+    KEEP_UNIQUE_SUBSTAT_ANY.to_string()
 }
 
 fn keep_unique_normalize_weight(raw: f64) -> f64 {
@@ -6905,7 +6966,7 @@ fn keep_unique_normalize_weight(raw: f64) -> f64 {
 }
 
 fn keep_unique_substat_max6_by_variant(variant: i64) -> f64 {
-    // Constants mirror keepUniques.ts::substatMax6ByVariant exactly.
+    // Use the canonical 6-star per-roll maxima for normalized scoring.
     // Unknown variants return 0 to disable normalized contribution.
     match variant {
         STAT_VARIANT_HP_FLAT => 565.0,
@@ -7009,22 +7070,44 @@ fn keep_unique_sorted_unique_i64(values: &[i64]) -> Vec<i64> {
     sorted
 }
 
+// Slot sorting mirrors TS compareArtifactTypes (preferred order + numeric fallback).
+fn keep_unique_sort_unique_slots(values: &[i64]) -> Vec<i64> {
+    let mut unique = values.to_vec();
+    sort_artifact_types_in_place(&mut unique);
+    unique.dedup();
+    unique
+}
+
+// Main-stat ordering mirrors TS compareVariants/PREFERRED_STAT_ORDER.
+fn keep_unique_main_stat_priority(variant: i64) -> i64 {
+    // Resolve from generated constants so TS and Rust share one priority table.
+    // Unknown variants sink to the end via i64::MAX fallback.
+    shared_order_index(&PREFERRED_STAT_ORDER, variant).unwrap_or(i64::MAX)
+}
+
+// Main-stat lists are deduped and sorted with compareVariants parity.
+fn keep_unique_sort_unique_main_stats(values: &[i64]) -> Vec<i64> {
+    let mut deduped = values.to_vec();
+    deduped.sort_unstable();
+    deduped.dedup();
+    deduped.sort_by(|left, right| {
+        let left_priority = keep_unique_main_stat_priority(*left);
+        let right_priority = keep_unique_main_stat_priority(*right);
+        if left_priority != right_priority {
+            return left_priority.cmp(&right_priority);
+        }
+        left.cmp(right)
+    });
+    deduped
+}
+
 fn keep_unique_domain_slot_order(domain: &KeepUniqueWasmExpectedGroupDomainIn) -> Vec<i64> {
     // Domain-provided slot order is authoritative; fallback keeps canonical order.
     if domain.slot_order.is_empty() {
-        return vec![
-            ARTIFACT_TYPE_WEAPON,
-            ARTIFACT_TYPE_HELMET,
-            ARTIFACT_TYPE_SHIELD,
-            ARTIFACT_TYPE_GAUNTLETS,
-            ARTIFACT_TYPE_CHESTPLATE,
-            ARTIFACT_TYPE_BOOTS,
-            ARTIFACT_TYPE_RING,
-            ARTIFACT_TYPE_AMULET,
-            ARTIFACT_TYPE_BANNER,
-        ];
+        // Reuse generated slot order constants instead of duplicating literals.
+        return PREFERRED_ARTIFACT_TYPE_ORDER.to_vec();
     }
-    keep_unique_sorted_unique_i64(&domain.slot_order)
+    keep_unique_sort_unique_slots(&domain.slot_order)
 }
 
 fn keep_unique_domain_allowed_mains_for_slot(
@@ -7427,9 +7510,54 @@ fn keep_unique_hash_combination(combination: &KeepUniqueWasmCombination) -> Stri
     .join("|")
 }
 
+// Expose combination hashing so TS reuses Rust canonical token construction.
+#[wasm_bindgen]
+pub fn hash_keep_unique_combination_value(combination: JsValue) -> Result<String, JsValue> {
+    let parsed: KeepUniqueWasmCombination = from_js_value(combination)
+        .map_err(|error| JsValue::from_str(&format!("Invalid keep-unique combination hash payload: {error}")))?;
+    Ok(keep_unique_hash_combination(&parsed))
+}
+
+// Expose substat sorting so TS can reuse Rust priority + dedupe semantics.
+#[wasm_bindgen]
+pub fn sort_keep_unique_substats_value(values: JsValue) -> Result<JsValue, JsValue> {
+    let parsed: Vec<i64> = from_js_value(values)
+        .map_err(|error| JsValue::from_str(&format!("Invalid keep-unique substats payload: {error}")))?;
+    let sorted = keep_unique_sort_unique_substats(parsed);
+    to_js_value(&sorted)
+        .map_err(|error| JsValue::from_str(&format!("Failed to serialize keep-unique sorted substats: {error}")))
+}
+
+// Expose full-combination sorting so TS can reuse Rust canonical ordering.
+#[wasm_bindgen]
+pub fn sort_keep_unique_combination_value(combination: JsValue) -> Result<JsValue, JsValue> {
+    let parsed: KeepUniqueWasmCombination = from_js_value(combination)
+        .map_err(|error| JsValue::from_str(&format!("Invalid keep-unique combination payload: {error}")))?;
+    let KeepUniqueWasmCombination {
+        slots,
+        sets,
+        meta_set_ids,
+        ranks,
+        rarities,
+        main_stats,
+        factions,
+    } = parsed;
+    let sorted = KeepUniqueWasmCombination {
+        slots: keep_unique_sort_unique_slots(&slots),
+        sets: keep_unique_normalize_set_selections(&sets),
+        meta_set_ids: keep_unique_sort_unique_meta_set_ids(meta_set_ids),
+        ranks: keep_unique_sorted_unique_i64(&ranks),
+        rarities: keep_unique_sorted_unique_i64(&rarities),
+        main_stats: keep_unique_sort_unique_main_stats(&main_stats),
+        factions: keep_unique_sorted_unique_i64(&factions),
+    };
+    to_js_value(&sorted)
+        .map_err(|error| JsValue::from_str(&format!("Failed to serialize keep-unique sorted combination: {error}")))
+}
+
 // Keep rank/rarity clamp behavior aligned with merge.ts helper logic.
 fn keep_unique_clamp_rank_or_rarity_value(value: i64) -> i64 {
-    value.clamp(RANK_RARITY_MIN, RANK_RARITY_MAX)
+    value.clamp(RANK_VALUE_MIN, RANK_VALUE_MAX)
 }
 
 // Keep rarity code mapping aligned with merge.ts::rarityValueToCode.
@@ -7887,18 +8015,18 @@ fn keep_unique_build_placeholder_rules(
 }
 
 fn keep_unique_is_activation_off(raw: &str) -> bool {
-    let lowered = raw.trim().to_ascii_lowercase();
-    if lowered.is_empty() {
+    let trimmed = raw.trim();
+    if trimmed.is_empty() {
         return false;
     }
-    lowered == KEEP_UNIQUE_ACTIVATION_OFF || lowered == "disabled"
+    trimmed.eq_ignore_ascii_case(KEEP_UNIQUE_ACTIVATION_OFF) || trimmed.eq_ignore_ascii_case("disabled")
 }
 
 fn keep_unique_is_activation_anticipate(raw: &str) -> bool {
-    let lowered = raw.trim().to_ascii_lowercase();
-    lowered == KEEP_UNIQUE_ACTIVATION_ANTICIPATE_GAPS
-        || lowered == "anticipate"
-        || lowered == "placeholder"
+    let trimmed = raw.trim();
+    trimmed.eq_ignore_ascii_case(KEEP_UNIQUE_ACTIVATION_ANTICIPATE_GAPS)
+        || trimmed.eq_ignore_ascii_case("anticipate")
+        || trimmed.eq_ignore_ascii_case("placeholder")
 }
 
 fn build_keep_unique_rules_core(
@@ -8497,6 +8625,44 @@ pub fn keep_unique_count_key_value(artifact: JsValue, count_mode: JsValue) -> Re
         parsed_artifact.main_stat,
         mode,
     ))
+}
+
+// Expose item-key resolution so TS and Rust share tester-item-id fallback logic.
+#[wasm_bindgen]
+pub fn keep_unique_item_key_value(artifact: JsValue) -> Result<i64, JsValue> {
+    let parsed_value: serde_json::Value = from_js_value(artifact)
+        .map_err(|error| JsValue::from_str(&format!("Invalid keep-unique item-key artifact payload: {error}")))?;
+    let record = parsed_value
+        .as_object()
+        .ok_or_else(|| JsValue::from_str("Invalid keep-unique item-key artifact payload: expected object"))?;
+    let tester_item_key = record
+        .get("testerItem")
+        .and_then(|value| value.as_object())
+        .and_then(|tester_item| keep_unique_value_to_i64(tester_item.get("itemId")));
+    let artifact_id = keep_unique_value_to_i64(record.get("id"));
+    Ok(tester_item_key.or(artifact_id).unwrap_or(0))
+}
+
+// Expose group-key derivation so TS reuses Rust accessory-faction normalization.
+#[wasm_bindgen]
+pub fn keep_unique_group_key_value(artifact: JsValue) -> Result<String, JsValue> {
+    let parsed_value: serde_json::Value = from_js_value(artifact)
+        .map_err(|error| JsValue::from_str(&format!("Invalid keep-unique group-key artifact payload: {error}")))?;
+    let record = parsed_value
+        .as_object()
+        .ok_or_else(|| JsValue::from_str("Invalid keep-unique group-key artifact payload: expected object"))?;
+    let slot = keep_unique_value_to_i64(record.get("slot"))
+        .ok_or_else(|| JsValue::from_str("Invalid keep-unique group-key artifact payload: slot is required"))?;
+    let set = keep_unique_value_to_i64(record.get("set"))
+        .ok_or_else(|| JsValue::from_str("Invalid keep-unique group-key artifact payload: set is required"))?;
+    let main_stat = keep_unique_parse_main_stat_variant(record.get("mainStat"));
+    let faction = keep_unique_value_to_i64(record.get("faction")).unwrap_or(0);
+    let normalized_faction = if keep_unique_is_accessory_slot(slot) {
+        faction
+    } else {
+        0
+    };
+    Ok(format!("{slot}:{set}:{main_stat}:{normalized_faction}"))
 }
 
 fn keep_unique_round_three(value: f64) -> f64 {
@@ -9158,7 +9324,7 @@ fn compute_keep_unique_protection_core(
                 required_per_group,
                 activation: activation.clone(),
                 // Activation off disables sold-item projection contribution.
-                rule_active: enabled && activation.trim().to_ascii_lowercase() != KEEP_UNIQUE_ACTIVATION_OFF,
+                rule_active: enabled && !keep_unique_is_activation_off(&activation),
                 count_mode,
                 selected_substats,
                 substat_match,

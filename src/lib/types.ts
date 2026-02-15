@@ -7,6 +7,8 @@ import {
   ARTIFACT_TYPE_CHESTPLATE,
   ARTIFACT_TYPE_GAUNTLETS,
   ARTIFACT_TYPE_HELMET,
+  PREFERRED_ARTIFACT_TYPE_ORDER as GENERATED_PREFERRED_ARTIFACT_TYPE_ORDER,
+  PREFERRED_STAT_ORDER as GENERATED_PREFERRED_STAT_ORDER,
   ARTIFACT_TYPE_RING,
   ARTIFACT_TYPE_SHIELD,
   ARTIFACT_TYPE_WEAPON,
@@ -52,6 +54,9 @@ import {
   STAT_VARIANT_RES,
   STAT_VARIANT_ROLL_COUNT,
   STAT_VARIANT_SPD,
+  STAT_VARIANTS_PRIORITY as GENERATED_STAT_VARIANTS_PRIORITY,
+  STAT_VARIANTS_PRIORITY_ROW1 as GENERATED_STAT_VARIANTS_PRIORITY_ROW1,
+  STAT_VARIANTS_PRIORITY_ROW2 as GENERATED_STAT_VARIANTS_PRIORITY_ROW2,
 } from './generated/domainConstants'
 import { artifactSetDescriptions } from './setDescriptions'
 import { ArtifactSetPieceGroup } from './gearSets/groups'
@@ -99,17 +104,10 @@ export const artifactTypeNames: Record<number, string> = {
 }
 
 // Preferred artifact type (slot) order for consistent UI rendering
-export const PREFERRED_ARTIFACT_TYPE_ORDER: readonly ArtifactType[] = [
-  ArtifactType.Weapon,
-  ArtifactType.Helmet,
-  ArtifactType.Shield,
-  ArtifactType.Gauntlets,
-  ArtifactType.Chestplate,
-  ArtifactType.Boots,
-  ArtifactType.Ring,
-  ArtifactType.Amulet,
-  ArtifactType.Banner,
-] as const
+// Pull order values from generated shared constants so TS and Rust use one SSOT.
+export const PREFERRED_ARTIFACT_TYPE_ORDER: readonly ArtifactType[] = (
+  GENERATED_PREFERRED_ARTIFACT_TYPE_ORDER as readonly ArtifactType[]
+)
 
 /** Comparator for artifact types (slots) using preferred order. */
 export function compareArtifactTypes(a: ArtifactTypeId, b: ArtifactTypeId): number {
@@ -627,27 +625,20 @@ export type StatVariant = number
 export type StatVariantLike = StatVariant | number
 
 // Canonical builder/substat stat ordering: SPD-focused row first, then flat/percent HP/ATK/DEF.
-export const STAT_VARIANTS_PRIORITY_ROW1 = [
-  StatVariant.SPD,
-  StatVariant.CR,
-  StatVariant.CDMG,
-  StatVariant.ACC,
-  StatVariant.RES,
-] as const
+// Pull row priority values from generated shared constants so TS and Rust use one SSOT.
+export const STAT_VARIANTS_PRIORITY_ROW1: readonly StatVariant[] = (
+  GENERATED_STAT_VARIANTS_PRIORITY_ROW1 as readonly StatVariant[]
+)
 
-export const STAT_VARIANTS_PRIORITY_ROW2 = [
-  StatVariant.HP_FLAT,
-  StatVariant.HP,
-  StatVariant.ATK_FLAT,
-  StatVariant.ATK,
-  StatVariant.DEF_FLAT,
-  StatVariant.DEF,
-] as const
+// Pull row priority values from generated shared constants so TS and Rust use one SSOT.
+export const STAT_VARIANTS_PRIORITY_ROW2: readonly StatVariant[] = (
+  GENERATED_STAT_VARIANTS_PRIORITY_ROW2 as readonly StatVariant[]
+)
 
-export const STAT_VARIANTS_PRIORITY = [
-  ...STAT_VARIANTS_PRIORITY_ROW1,
-  ...STAT_VARIANTS_PRIORITY_ROW2,
-] as const
+// Pull merged priority values from generated shared constants so TS and Rust use one SSOT.
+export const STAT_VARIANTS_PRIORITY: readonly StatVariant[] = (
+  GENERATED_STAT_VARIANTS_PRIORITY as readonly StatVariant[]
+)
 
 /** UI label string for a StatVariant (or numeric-encoded variant). */
 export function labelOfVariant(v: StatVariantLike): string {
@@ -747,20 +738,10 @@ export function subToVariant(id?: number, isFlat?: boolean | number | string): S
 
 // Shared preferred stat order (used by summaries, preview chips, etc.)
 // SPD, CR, CDMG, ACC, RES, then % before flat for HP/ATK/DEF
-export const PREFERRED_STAT_ORDER: readonly StatVariant[] = [
-  StatVariant.SPD,
-  StatVariant.CR,
-  StatVariant.CDMG,
-  StatVariant.ACC,
-  StatVariant.RES,
-  StatVariant.HP,
-  StatVariant.HP_FLAT,
-  StatVariant.ATK,
-  StatVariant.ATK_FLAT,
-  StatVariant.DEF,
-  StatVariant.DEF_FLAT,
-  StatVariant.RollCount,
-] as const
+// Pull preferred order values from generated shared constants so TS and Rust use one SSOT.
+export const PREFERRED_STAT_ORDER: readonly StatVariant[] = (
+  GENERATED_PREFERRED_STAT_ORDER as readonly StatVariant[]
+)
 
 /** Comparator for StatVariants (or numeric-encoded variants) using PREFERRED_STAT_ORDER. */
 export function compareVariants(a: StatVariantLike, b: StatVariantLike): number {

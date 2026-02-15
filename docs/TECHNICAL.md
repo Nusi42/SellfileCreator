@@ -7,6 +7,7 @@ The technical reference is now split across focused documents. Start here, then 
 - Keep inline documentation dense and helpful—when implementing or revising code, aim for a concise intent-focused comment roughly every 2–3 lines.
 - Enforce the Single Source of Truth / One Definition Rule without exception: centralize each constant, helper, and schema definition once, then import it everywhere else.
 - Shared TS/Rust domain sentinels now come from `shared/domain-constants.json`; regenerate language bindings with `npm run generate:domain-constants` (the WASM build script runs this automatically before compiling).
+- Any constant that must exist in both TS and Rust is required to be declared in `shared/domain-constants.json` and emitted by `scripts/tooling/generate-domain-constants.mjs`; do not hand-define cross-language constants in app/wasm source files or hand-edit generated constant outputs.
 - Auto-rarity schedule constants (`rollMaskByCode`, `additionMaskByCode`, `includesMythicalByCode`, `minRollEventsByCode`) are also defined in `shared/domain-constants.json`; do not reintroduce TS/Rust-local rarity schedule tables.
 - The rule-engine wasm binary (`src/lib/wasm/generated/rule_engine_bg.wasm`) is build output, not source of truth; rely on `npm run wasm:ensure:rule-engine`/`npm run wasm:build:rule-engine` to regenerate it when inputs change.
 - Watch file size creep; split modules or move helpers into shared files before they cross roughly 1,500 lines so reviews stay manageable.

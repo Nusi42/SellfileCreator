@@ -1,6 +1,9 @@
 /* tslint:disable */
 /* eslint-disable */
 export const memory: WebAssembly.Memory;
+export const auto_rarity_addition_levels_for_code_value: (a: number) => [number, number];
+export const auto_rarity_includes_mythical_for_code_value: (a: number) => number;
+export const auto_rarity_roll_levels_for_code_value: (a: number) => [number, number];
 export const build_final_sell_rules_value: (a: any, b: any) => [number, number, number];
 export const build_hsf_rules_runtime_value: (a: any) => [number, number, number];
 export const build_keep_unique_rules_value: (a: any, b: any, c: bigint) => [number, number, number];
@@ -17,22 +20,30 @@ export const finalize_generated_rules_value: (a: any, b: number) => [number, num
 export const find_obsolete_value: (a: any) => [number, number, number];
 export const fingerprint_merged_rules_value: (a: any) => [number, number, number];
 export const flatten_rule_batches_with_total_limit_value: (a: bigint, b: bigint, c: any) => [number, number, number];
+export const hash_keep_unique_combination_value: (a: any) => [number, number, number, number];
 export const intro_assignments_for_combo_fast_flat: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number];
 export const keep_unique_count_key_value: (a: any, b: any) => [number, number, number, number];
+export const keep_unique_group_key_value: (a: any) => [number, number, number, number];
+export const keep_unique_item_key_value: (a: any) => [bigint, number, number];
 export const merge_keep_unique_injected_rules_value: (a: any, b: any, c: any) => [number, number, number];
+export const normalize_keep_unique_activation_value: (a: any, b: any) => [number, number, number, number];
 export const normalize_keep_unique_combination_value: (a: any, b: any) => [number, number, number];
+export const normalize_keep_unique_count_mode_value: (a: any) => [number, number, number];
 export const normalize_keep_unique_expected_group_domain_value: (a: any) => [number, number, number];
 export const normalize_keep_unique_rule_value: (a: any, b: any, c: number, d: number) => [number, number, number];
+export const normalize_keep_unique_substat_match_value: (a: any) => [number, number, number, number];
 export const permutations_i32_fast_flat: (a: number, b: number) => [number, number];
 export const prepare_hsf_builder_config_value: (a: any) => [number, number, number];
 export const resolve_auto_rarity_code_for_builder_value: (a: any) => [number, number, number];
 export const resolve_keep_unique_rules_with_metasets_value: (a: any, b: any) => [number, number, number];
+export const sort_keep_unique_combination_value: (a: any) => [number, number, number];
+export const sort_keep_unique_substats_value: (a: any) => [number, number, number];
 export const version: () => [number, number];
 export const __wbindgen_malloc: (a: number, b: number) => number;
 export const __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;
 export const __wbindgen_exn_store: (a: number) => void;
 export const __externref_table_alloc: () => number;
 export const __wbindgen_externrefs: WebAssembly.Table;
-export const __externref_table_dealloc: (a: number) => void;
 export const __wbindgen_free: (a: number, b: number, c: number) => void;
+export const __externref_table_dealloc: (a: number) => void;
 export const __wbindgen_start: () => void;
