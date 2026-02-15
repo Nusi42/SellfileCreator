@@ -1,3 +1,5 @@
+use super::*;
+
 // Epsilon is used only for tie expansion at the score boundary.
 const KEEP_UNIQUE_SCORE_TIE_EPSILON: f64 = 1e-9;
 // Placeholder samples need stable defaults when no group sample exists.
@@ -19,27 +21,27 @@ const KEEP_UNIQUE_COUNT_KEY_GLOBAL: &str = "global";
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
-struct KeepUniqueWasmSubstatIn {
-    variant: i64,
+pub(crate) struct KeepUniqueWasmSubstatIn {
+    pub(crate) variant: i64,
     #[serde(default)]
-    is_flat: bool,
-    value: f64,
+    pub(crate) is_flat: bool,
+    pub(crate) value: f64,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
-struct KeepUniqueWasmArtifactIn {
-    id: Option<i64>,
-    slot: i64,
-    set: i64,
-    rank: i64,
-    rarity: i64,
-    level: i64,
-    exact_level: Option<i64>,
-    faction: i64,
-    main_stat: i64,
+pub(crate) struct KeepUniqueWasmArtifactIn {
+    pub(crate) id: Option<i64>,
+    pub(crate) slot: i64,
+    pub(crate) set: i64,
+    pub(crate) rank: i64,
+    pub(crate) rarity: i64,
+    pub(crate) level: i64,
+    pub(crate) exact_level: Option<i64>,
+    pub(crate) faction: i64,
+    pub(crate) main_stat: i64,
     #[serde(default)]
-    substats: Vec<KeepUniqueWasmSubstatIn>,
+    pub(crate) substats: Vec<KeepUniqueWasmSubstatIn>,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -150,7 +152,7 @@ fn keep_unique_parse_artifact(value: Option<&serde_json::Value>) -> Result<KeepU
 
 // Accessory slots keep faction while armor slots collapse to zero by design.
 // This helper keeps all faction-normalization branches single-sourced.
-fn keep_unique_normalized_faction_for_slot(slot: i64, faction: i64) -> i64 {
+pub(crate) fn keep_unique_normalized_faction_for_slot(slot: i64, faction: i64) -> i64 {
     if keep_unique_is_accessory_slot(slot) {
         faction
     } else {
@@ -229,7 +231,9 @@ fn keep_unique_parse_candidate(value: &serde_json::Value) -> Result<KeepUniqueWa
 
 // Shared row decoder centralizes collect-row normalization for both bindings.
 // Every index is validated so callers get actionable error messages on failure.
-fn keep_unique_parse_collect_rows_payload(rows: JsValue) -> Result<Vec<KeepUniqueCollectRowIn>, JsValue> {
+pub(crate) fn keep_unique_parse_collect_rows_payload(
+    rows: JsValue,
+) -> Result<Vec<KeepUniqueCollectRowIn>, JsValue> {
     let raw_rows: Vec<serde_json::Value> = from_js_value(rows)
         .map_err(|error| JsValue::from_str(&format!("Invalid keep-unique collect rows payload: {error}")))?;
     let mut parsed_rows = Vec::<KeepUniqueCollectRowIn>::with_capacity(raw_rows.len());
@@ -272,29 +276,29 @@ fn keep_unique_parse_rules_payload(rules: JsValue) -> Result<Vec<KeepUniqueWasmR
 
 #[derive(Debug, Deserialize, Serialize, Clone, Default)]
 #[serde(rename_all = "camelCase")]
-struct KeepUniqueWasmSetSelection {
-    id: i64,
+pub(crate) struct KeepUniqueWasmSetSelection {
+    pub(crate) id: i64,
     #[serde(default)]
-    excluded: bool,
+    pub(crate) excluded: bool,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone, Default)]
 #[serde(rename_all = "camelCase")]
-struct KeepUniqueWasmCombination {
+pub(crate) struct KeepUniqueWasmCombination {
     #[serde(default)]
-    slots: Vec<i64>,
+    pub(crate) slots: Vec<i64>,
     #[serde(default)]
-    sets: Vec<KeepUniqueWasmSetSelection>,
+    pub(crate) sets: Vec<KeepUniqueWasmSetSelection>,
     #[serde(default)]
-    meta_set_ids: Vec<String>,
+    pub(crate) meta_set_ids: Vec<String>,
     #[serde(default)]
-    ranks: Vec<i64>,
+    pub(crate) ranks: Vec<i64>,
     #[serde(default)]
-    rarities: Vec<i64>,
+    pub(crate) rarities: Vec<i64>,
     #[serde(default)]
-    main_stats: Vec<i64>,
+    pub(crate) main_stats: Vec<i64>,
     #[serde(default)]
-    factions: Vec<i64>,
+    pub(crate) factions: Vec<i64>,
 }
 
 // Lookup payload keeps readable HSFC labels single-sourced in TS while Rust
@@ -316,55 +320,55 @@ struct KeepUniqueWasmNormalizationLookupsIn {
 
 #[derive(Debug, Deserialize, Serialize, Clone, Copy, Default)]
 #[serde(rename_all = "camelCase")]
-struct KeepUniqueWasmCountMode {
+pub(crate) struct KeepUniqueWasmCountMode {
     #[serde(default)]
-    per_rule: bool,
+    pub(crate) per_rule: bool,
     #[serde(default)]
-    per_set: bool,
+    pub(crate) per_set: bool,
     #[serde(default)]
-    per_faction: bool,
+    pub(crate) per_faction: bool,
     #[serde(default)]
-    per_main_stat: bool,
+    pub(crate) per_main_stat: bool,
     #[serde(default)]
-    per_slot: bool,
+    pub(crate) per_slot: bool,
 }
 
 #[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
-struct KeepUniqueWasmRuleIn {
+pub(crate) struct KeepUniqueWasmRuleIn {
     #[serde(default)]
-    id: Option<String>,
+    pub(crate) id: Option<String>,
     #[serde(default)]
-    name: Option<String>,
+    pub(crate) name: Option<String>,
     #[serde(default)]
-    combination: Option<KeepUniqueWasmCombination>,
+    pub(crate) combination: Option<KeepUniqueWasmCombination>,
     #[serde(default)]
-    required_count: Option<i64>,
+    pub(crate) required_count: Option<i64>,
     #[serde(default)]
-    activation: Option<String>,
+    pub(crate) activation: Option<String>,
     #[serde(default)]
-    count_mode: Option<KeepUniqueWasmCountMode>,
+    pub(crate) count_mode: Option<KeepUniqueWasmCountMode>,
     #[serde(default)]
-    substats: Option<Vec<i64>>,
+    pub(crate) substats: Option<Vec<i64>>,
     #[serde(default)]
-    substat_match: Option<String>,
+    pub(crate) substat_match: Option<String>,
     #[serde(default)]
-    substat_weights: Option<HashMap<String, f64>>,
+    pub(crate) substat_weights: Option<HashMap<String, f64>>,
 }
 
 // Resolved keep-unique rule payload returned to TS after metaset expansion.
 #[derive(Debug, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
-struct KeepUniqueWasmResolvedRuleOut {
-    id: String,
-    name: String,
-    combination: KeepUniqueWasmCombination,
-    required_count: i64,
-    activation: String,
-    count_mode: KeepUniqueWasmCountMode,
-    substats: Vec<i64>,
-    substat_match: String,
-    substat_weights: HashMap<String, f64>,
+pub(crate) struct KeepUniqueWasmResolvedRuleOut {
+    pub(crate) id: String,
+    pub(crate) name: String,
+    pub(crate) combination: KeepUniqueWasmCombination,
+    pub(crate) required_count: i64,
+    pub(crate) activation: String,
+    pub(crate) count_mode: KeepUniqueWasmCountMode,
+    pub(crate) substats: Vec<i64>,
+    pub(crate) substat_match: String,
+    pub(crate) substat_weights: HashMap<String, f64>,
 }
 
 // Normalize incoming lookup-map keys (trim + lowercase) so Rust-side
@@ -1161,10 +1165,10 @@ pub fn normalize_keep_unique_rule_value(
 // Metaset payload for in-wasm keep-unique set expansion.
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct KeepUniqueWasmMetasetIn {
-    id: String,
+pub(crate) struct KeepUniqueWasmMetasetIn {
+    pub(crate) id: String,
     #[serde(default)]
-    sets: Vec<i64>,
+    pub(crate) sets: Vec<i64>,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
@@ -1222,7 +1226,7 @@ struct KeepUniqueWasmEntryOut {
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
-struct KeepUniqueWasmSnapshotOut {
+pub(crate) struct KeepUniqueWasmSnapshotOut {
     scanned_at: f64,
     entries: Vec<KeepUniqueWasmEntryOut>,
 }
@@ -1330,12 +1334,14 @@ fn keep_unique_default_count_mode() -> KeepUniqueWasmCountMode {
 }
 
 // Resolve optional count-mode payloads into the canonical sanitized shape.
-fn keep_unique_resolve_count_mode(mode: Option<KeepUniqueWasmCountMode>) -> KeepUniqueWasmCountMode {
+pub(crate) fn keep_unique_resolve_count_mode(
+    mode: Option<KeepUniqueWasmCountMode>,
+) -> KeepUniqueWasmCountMode {
     let seeded = mode.unwrap_or_else(keep_unique_default_count_mode);
     keep_unique_sanitize_count_mode(seeded)
 }
 
-fn keep_unique_normalize_substat_match(raw: &str) -> String {
+pub(crate) fn keep_unique_normalize_substat_match(raw: &str) -> String {
     // Normalize whitespace/casing so persisted files and UI payloads match.
     let trimmed = raw.trim();
     // Unknown tokens collapse to `any` to stay backward compatible.
@@ -1405,7 +1411,9 @@ fn keep_unique_percent_to_flat_main(variant: i64) -> Option<i64> {
     }
 }
 
-fn keep_unique_normalize_set_selections(values: &[KeepUniqueWasmSetSelection]) -> Vec<KeepUniqueWasmSetSelection> {
+pub(crate) fn keep_unique_normalize_set_selections(
+    values: &[KeepUniqueWasmSetSelection],
+) -> Vec<KeepUniqueWasmSetSelection> {
     // Use map-by-id so duplicates collapse deterministically.
     let mut by_id = HashMap::<i64, KeepUniqueWasmSetSelection>::new();
     for entry in values {
@@ -1887,7 +1895,7 @@ fn keep_unique_canonicalize_string_list(values: &[String]) -> String {
     cleaned.join(",")
 }
 
-fn keep_unique_hash_combination(combination: &KeepUniqueWasmCombination) -> String {
+pub(crate) fn keep_unique_hash_combination(combination: &KeepUniqueWasmCombination) -> String {
     // Hash token order mirrors TS combination fingerprint construction.
     [
         keep_unique_canonicalize_number_list(&combination.slots),
@@ -2014,7 +2022,7 @@ fn keep_unique_variant_to_main(variant: i64) -> (i64, i64) {
 }
 
 // Convert StatVariant to HSF sub tuple (id + isFlat) matching hsfTypes.ts.
-fn keep_unique_variant_to_sub(variant: i64) -> (i64, bool) {
+pub(crate) fn keep_unique_variant_to_sub(variant: i64) -> (i64, bool) {
     match variant {
         STAT_VARIANT_HP_PERCENT => (STAT_ID_HP, false),
         STAT_VARIANT_HP_FLAT => (STAT_ID_HP, true),
@@ -2033,7 +2041,7 @@ fn keep_unique_variant_to_sub(variant: i64) -> (i64, bool) {
 }
 
 // Keep four-substat padding aligned with merge.ts::cloneAnySubstats.
-fn keep_unique_clone_any_substats() -> Vec<RuleSubRaw> {
+pub(crate) fn keep_unique_clone_any_substats() -> Vec<RuleSubRaw> {
     vec![
         RuleSubRaw {
             ID: Some(STAT_ID_ANY),
@@ -2420,7 +2428,7 @@ fn keep_unique_is_activation_anticipate(raw: &str) -> bool {
         || trimmed.eq_ignore_ascii_case("placeholder")
 }
 
-fn build_keep_unique_rules_core(
+pub(crate) fn build_keep_unique_rules_core(
     rules: &[KeepUniqueWasmRuleIn],
     detection: Option<&KeepUniqueWasmSnapshotOut>,
     config_id_base: i64,
