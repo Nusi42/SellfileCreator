@@ -1,10 +1,8 @@
 use serde::Deserialize;
 
 use crate::hsf_intro_mode_plan::HsfIntroModePlanStepOut;
-use crate::build_hsf_late_bounded_rows_core;
 use crate::emit_hsf_rules_for_distributions_core;
-use crate::filter_roll_distributions_core;
-use crate::parse_distribution_mode;
+use crate::hsf_distribution_runtime;
 use crate::BuildHsfLateBoundedRowsIn;
 use crate::EmitHsfRulesForDistributionsIn;
 use crate::RuleRaw;
@@ -137,7 +135,7 @@ fn emit_filtered_rows_compact(
     let widened_targeted_mask = widen_u8_with_zero(base_targeted_mask, width);
     let widened_locked_mask = widen_u8_with_zero(base_locked_mask, width);
 
-    let rows = filter_roll_distributions_core(
+    let rows = hsf_distribution_runtime::filter_roll_distributions_core(
         dimensions,
         total,
         &decode_optional_i32(&widened_max_caps),
@@ -149,11 +147,11 @@ fn emit_filtered_rows_compact(
         deficit_max,
         global_min,
         global_remaining,
-        parse_distribution_mode(global_mode),
+        hsf_distribution_runtime::parse_distribution_mode(global_mode),
         &decode_mask_bool(&widened_locked_mask),
         locked_min,
         locked_remaining,
-        parse_distribution_mode(locked_mode),
+        hsf_distribution_runtime::parse_distribution_mode(locked_mode),
     );
     emit_hsf_rules_for_distributions_core(emit, &rows)
 }
@@ -213,7 +211,7 @@ fn execute_intro_steps_for_timeline(
                     locked_min_active: input.locked_min_active,
                     min_target_count: input.min_target_count,
                 };
-                let rows = build_hsf_late_bounded_rows_core(&late_payload);
+                let rows = hsf_distribution_runtime::build_hsf_late_bounded_rows_core(&late_payload);
                 if rows.is_empty() {
                     continue;
                 }
